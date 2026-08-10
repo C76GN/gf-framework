@@ -21,7 +21,7 @@ level.win_current_level()
 
 它只处理通用关卡流程边界，不负责生成地图、刷怪或胜负条件判断；这些具体玩法规则仍应放在项目自己的 `System` 中。
 
-重开关卡时，它会重新读取配置或启动时传入的 override 数据副本，并执行 `register_runtime_cleanup()` 注册的清理回调。Domain 扩展不会主动探测命令历史、ActionQueue 或其他可选扩展；项目需要清理哪些运行时残留，就显式注册哪些回调：
+重开关卡时，它会先解析配置或启动时传入的 override 数据副本；确认下一状态可提交后，才执行 `register_runtime_cleanup()` 注册的清理回调。在 `fail_on_missing_level_data = true` 下解析失败时，当前关卡和清理项都保持不变。Domain 扩展不会主动探测命令历史、ActionQueue 或其他可选扩展；项目需要清理哪些运行时残留，就显式注册哪些回调：
 
 ```gdscript
 var actions := Gf.get_system(GFActionQueueSystem) as GFActionQueueSystem
@@ -50,7 +50,7 @@ level.complete_current_level({ "stars": 3 })
 level.start_next_level()
 ```
 
-注册 `GFLevelProgressModel` 后，`complete_current_level()` 会写入完成状态、保存项目层结果字典，并按目录顺序或条目声明解锁后续关卡。进度模型可直接进入 `GFArchitecture` 的模型快照流程。
+注册 `GFLevelProgressModel` 后，`complete_current_level()` 会写入完成状态、保存项目层结果字典，并执行条目 `unlocks_on_complete` 声明的解锁规则；`unlock_next = true` 还会额外解锁目录顺序中的相邻后续关卡。设置 `unlock_next = false` 只关闭顺序相邻解锁，不会关闭条目声明。进度模型可直接进入 `GFArchitecture` 的模型快照流程。
 
 未注册 `GFLevelProgressModel` 时，`is_level_unlocked()` 会返回 `true`，方便没有关卡锁的项目继续使用流程信号。
 

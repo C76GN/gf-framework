@@ -8,7 +8,7 @@
 
 `GFProjectileMotion` 是移动策略协议基类，`GFLinearProjectileMotion` 提供 2D/3D 通用直线移动，`GFHomingProjectileMotion` 可从发射上下文或相对节点路径读取目标对象/目标位置，并按通用速度朝目标推进。`GFProjectileLifetimePolicy` 默认支持按最大秒数、最大距离和成功命中次数结束；`finish_on_impact` 只会在目标接收并返回 `ok = true` 的命中后结束，rejected 或校验失败的尝试不会让发射体误消失。需要对象池时，把 `queue_free_on_finish` 设为 `false`，在 `projectile_finished` 信号中归还节点即可。
 
-需要把“创建发射体”也抽象出来时，可以使用 `GFProjectileEmitter2D` / `GFProjectileEmitter3D`。发射器只负责解析场景、计算生成变换、实例化节点并调用 `launch(context)`；它仍然不规定弹药、冷却、阵营、伤害、分裂或特效。发射场景可以直接挂在 `projectile_scene`，也可以通过 `GFProjectileCatalog` 与 `GFProjectileCatalogEntry` 用稳定 ID 管理。生成点由资源化模式提供：`GFProjectileSpawnPattern2D` / `GFProjectileSpawnPattern3D` 是基类，内置 `GFProjectileBurstPattern2D`、`GFProjectileLineSpawnPattern2D`、`GFProjectileConePattern3D` 和 `GFProjectileLineSpawnPattern3D`，覆盖常见扇形、线段、多炮口和水平锥形分布。
+需要把“创建发射体”也抽象出来时，可以使用 `GFProjectileEmitter2D` / `GFProjectileEmitter3D`。发射器只负责解析场景、计算生成变换、实例化节点并调用 `launch(context)`；它仍然不规定弹药、冷却、阵营、伤害、分裂或特效。发射场景可以直接挂在 `projectile_scene`，也可以通过 `GFProjectileCatalog` 与 `GFProjectileCatalogEntry` 用稳定 ID 管理。Catalog 把 ID 视为唯一映射：若手写或反序列化的 `entries` 含重复 ID，读取采用首个有效条目，ID 枚举会去重，`set_scene()` 会规范为单条，`remove_scene()` 会移除该 ID 的全部重复条目。生成点由资源化模式提供：`GFProjectileSpawnPattern2D` / `GFProjectileSpawnPattern3D` 是基类，内置 `GFProjectileBurstPattern2D`、`GFProjectileLineSpawnPattern2D`、`GFProjectileConePattern3D` 和 `GFProjectileLineSpawnPattern3D`，覆盖常见扇形、线段、多炮口和水平锥形分布。
 
 ```gdscript
 var emitter := GFProjectileEmitter2D.new()
@@ -27,7 +27,7 @@ var projectiles := emitter.emit_projectiles({
 
 如果项目使用 `GFObjectPoolUtility`，发射器可通过 `use_object_pool` 从池中获取节点，并在 `projectile_finished` 后自动归还；发射器会在节点入树前关闭常见发射体的 `auto_launch_on_ready`，让本次上下文先准备好再启动。仍建议池化发射体场景默认把 `auto_launch_on_ready` 设为 `false`，这样即使被项目代码直接实例化，也不会用空上下文提前启动。对象池依赖不会由发射器主动从全局 `Gf` 获取：项目可以给 `object_pool_utility` 显式赋值，也可以通过 `GFArchitecture.inject_node_tree()` 注入架构，或把发射器放在 `GFNodeContext` 子树下让它从局部上下文查询对象池。发射器会给每次准备运行态写入新的 emission token，旧的完成信号回调不会释放已经复用到下一轮的发射体。
 
-如果只需要通用发射请求门禁，可以给发射器挂 `GFProjectileEmissionPolicy`，用于限制启用状态、冷却、单次数量和抽象 charge 容量。每次发射由 `GFProjectileEmissionTask` 先冻结时间与上下文，在任何生成点计算或节点分配前执行策略门控和 `hard_projectile_limit_per_request`，生成完成后只提交一次实际数量；中途失败会回滚策略预留，避免失败请求消耗冷却或 charge。它不解释弹药、换弹、技能消耗或 UI 文案；这些语义以及命中后的派生发射、穿透次数和目标过滤仍应由项目技能、能力、状态机或自定义策略资源表达。
+如果只需要通用发射请求门禁，可以给发射器挂 `GFProjectileEmissionPolicy`，用于限制启用状态、冷却、单次数量和抽象 charge 容量。每次发射由 `GFProjectileEmissionTask` 先冻结时间与上下文，在任何生成点计算或节点分配前执行策略门控和 `hard_projectile_limit_per_request`，生成完成后只提交一次实际数量；准备阶段不消耗状态，提交阶段会核对签发策略、状态代际、批准数量并重新校验配额、冷却和 charge。两个任务可基于同一状态乐观准备，但前一个提交后，另一个会以 `stale_prepare_report` 失败，发射器会丢弃尚未提交的节点。完整的跨任务预留与回滚协议属于更重的项目事务需求，当前通用策略不做伪预留承诺。它不解释弹药、换弹、技能消耗或 UI 文案；这些语义以及命中后的派生发射、穿透次数和目标过滤仍应由项目技能、能力、状态机或自定义策略资源表达。
 
 发射器、生成模式、移动策略和命中上下文会在写入场景变换前拒绝或归一化非有限数值。项目自定义模式也应只返回有限的 `Transform2D` / `Transform3D`，并把数量限制看作硬边界，而不是仅用于 UI 的建议值。
 
@@ -52,4 +52,4 @@ projectile.lifetime_policy = lifetime
 projectile.launch({ "owner_id": "player" })
 ```
 
-`motion` 与 `lifetime_policy` 在发射时会收到本次发射的上下文字典。自定义策略应把跨帧数据写入这个字典，而不是写入共享 Resource 字段，避免多个发射体复用同一资源时互相污染状态。追踪移动会读取 `target`、`target_position`、`target_position_2d` 或 `target_position_3d`，已释放的目标会被视为缺失目标，并写入 `velocity_2d` / `velocity_3d`、`target_distance_2d` / `target_distance_3d` 和 `target_reached` 等通用调试字段。复杂弹道、分裂、穿透、命中后生成子弹等规则，推荐在项目自己的策略资源、状态机或对象池编排里表达。
+`motion` 与 `lifetime_policy` 在发射时会收到本次发射的上下文字典。自定义策略应把跨帧数据写入这个字典，而不是写入共享 Resource 字段，避免多个发射体复用同一资源时互相污染状态。追踪移动会读取 `target`、`target_position`、`target_position_2d` 或 `target_position_3d`，并写入 `velocity_2d` / `velocity_3d`、`target_distance_2d` / `target_distance_3d` 和 `target_reached` 等通用调试字段。默认 `track_target = true` 时，已释放的对象目标会停止追踪；关闭跟踪后，策略在 setup 时锁定首个有限方向，目标随后释放也会沿该方向继续飞行，并保留 `target_missing` 诊断。失去目标后没有实时距离可用于到达夹取，因此剩余飞行不会新增 `target_reached`。复杂弹道、分裂、穿透、命中后生成子弹等规则，推荐在项目自己的策略资源、状态机或对象池编排里表达。

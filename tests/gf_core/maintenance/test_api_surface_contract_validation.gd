@@ -6,6 +6,7 @@ extends GutTest
 
 const VALID_FULL_EXAMPLE_PATH: String = "res://tests/gf_core/fixtures/api_surface/valid_full_example.gd"
 const SOURCE_ROOT: String = "res://addons/gf"
+const ASSET_METADATA_UTILITY_PATH: String = "res://addons/gf/extensions/asset_metadata/runtime/gf_asset_metadata_utility.gd"
 const MIGRATION_MARKER: String = "# @api_surface_migration partial"
 const PLACEHOLDER_SINCE_VERSION: String = "1.0.0"
 const DOC_RENDER_SEPARATOR: String = "[br]"
@@ -25,6 +26,11 @@ const INTERNAL_API_TAGS: Array[String] = [
 	"framework_internal",
 	"layer_internal",
 	"private",
+]
+const INTERNAL_SECTION_ENFORCED_ROOTS: Array[String] = [
+	"res://addons/gf/kernel/base/",
+	"res://addons/gf/kernel/core/",
+	"res://addons/gf/extensions/dialogue/",
 ]
 const CLASS_KINDS: Array[String] = [
 	"class_name",
@@ -191,6 +197,38 @@ func test_gf_source_does_not_use_placeholder_since_version() -> void:
 	)
 
 
+func test_released_asset_metadata_api_keeps_historical_since_baseline() -> void:
+	var expected_since_by_symbol: Dictionary = {
+		"write_object_metadata": "3.17.0",
+		"has_object_metadata": "3.17.0",
+		"collect_node_tree": "3.17.0",
+		"collect_node_tree_dicts": "3.17.0",
+		"build_node_tree_report": "3.17.0",
+		"METADATA_STATE_ABSENT": "8.0.0",
+		"METADATA_STATE_EMPTY": "8.0.0",
+		"METADATA_STATE_VALID": "8.0.0",
+		"get_object_metadata_state": "8.0.0",
+	}
+	var actual_since_by_symbol: Dictionary = {}
+	for declaration: Dictionary in _parse_declarations(
+		_read_text(ASSET_METADATA_UTILITY_PATH),
+		ASSET_METADATA_UTILITY_PATH
+	):
+		var symbol_name: String = GF_VARIANT_ACCESS.get_option_string(declaration, "name")
+		if not expected_since_by_symbol.has(symbol_name):
+			continue
+		actual_since_by_symbol[symbol_name] = _parse_tag_value(
+			GF_VARIANT_ACCESS.get_option_array(declaration, "docs"),
+			"since"
+		)
+
+	assert_eq(
+		actual_since_by_symbol,
+		expected_since_by_symbol,
+		"已发布符号的 @since 必须表示首次公开契约基线，不能被后续行为增强版本改写。"
+	)
+
+
 func test_gf_source_api_doc_tags_use_godot_render_separator() -> void:
 	var script_paths: Array[String] = _collect_gdscript_files(SOURCE_ROOT)
 	var issues: Array[String] = []
@@ -275,6 +313,51 @@ func build_value() -> int:
 
 	_assert_invalid(source, "protected API must use an underscore name")
 	_assert_invalid(source, "protected API must be placed in a hook or virtual section")
+
+
+func test_internal_functions_cannot_use_public_method_section() -> void:
+	var framework_internal_source: String = """
+## 示例类型。
+##
+## @api framework_internal
+class_name GFInvalidFrameworkInternalSection
+extends RefCounted
+
+# --- 公共方法 ---
+
+## 仅供框架协作。
+##
+## @api framework_internal
+func synchronize() -> void:
+	pass
+"""
+	var layer_internal_source: String = """
+## 示例类型。
+##
+## @api framework_internal
+class_name GFInvalidLayerInternalSection
+extends RefCounted
+
+# --- 公共方法 ---
+
+## 仅供 kernel/core 层协作。
+##
+## @api layer_internal
+## @layer kernel/core
+func synchronize() -> void:
+	pass
+"""
+
+	_assert_invalid_at_path(
+		framework_internal_source,
+		"framework_internal API must be placed in a framework internal section",
+		"res://addons/gf/kernel/core/gf_invalid_framework_internal_section.gd"
+	)
+	_assert_invalid_at_path(
+		layer_internal_source,
+		"layer_internal API must be placed in a layer internal section",
+		"res://addons/gf/kernel/core/gf_invalid_layer_internal_section.gd"
+	)
 
 
 func test_dictionary_signature_requires_schema() -> void:
@@ -609,6 +692,33 @@ func generated_without_docs() -> void:
 	assert_eq(issues, [], "多行字符串中的模板声明不应参与 API Surface 校验：\n%s" % _join_lines(issues))
 
 
+func test_property_accessor_locals_are_not_api_declarations() -> void:
+	var source: String = """
+## 示例类型。
+##
+## @api public
+## @category runtime_service
+## @since 1.0.0
+class_name GFAccessorLocalSource
+extends RefCounted
+
+# --- 公共变量 ---
+
+## 最大玩家数量。
+##
+## @api public
+## @since 1.0.0
+var max_players: int = 1:
+	set(value):
+		var next_max_players: int = maxi(value, 1)
+		var previous_max_players: int = max_players
+		max_players = next_max_players if next_max_players != previous_max_players else value
+"""
+
+	var issues: Array[String] = _collect_api_surface_issues(source, "<inline>")
+	assert_eq(issues, [], "属性访问器中的局部变量不应参与 API Surface 校验：\n%s" % _join_lines(issues))
+
+
 func test_doc_comments_must_bind_to_declarations() -> void:
 	var source: String = """
 ## 悬空脚本文档不会绑定到任何 API。
@@ -773,6 +883,14 @@ func _assert_invalid(source: String, expected_fragment: String) -> void:
 	)
 
 
+func _assert_invalid_at_path(source: String, expected_fragment: String, path: String) -> void:
+	var issues: Array[String] = _collect_api_surface_issues(source, path)
+	assert_true(
+		_issues_contain(issues, expected_fragment),
+		"应包含违规片段 '%s'，实际问题：\n%s" % [expected_fragment, _join_lines(issues)]
+	)
+
+
 func _collect_api_surface_issues(source: String, path: String) -> Array[String]:
 	var declarations: Array[Dictionary] = _parse_declarations(source, path)
 	var type_visibility: Dictionary = _collect_type_visibility(declarations)
@@ -925,6 +1043,7 @@ func _collect_orphan_doc_issues(source: String, path: String) -> Array[String]:
 	var doc_has_api_by_indent: Dictionary = {}
 	var function_body_indent: int = -1
 	var enum_body_indent: int = -1
+	var property_body_indent: int = -1
 	var multiline_string_delimiter: String = ""
 	var skip_until_line: int = -1
 
@@ -953,6 +1072,13 @@ func _collect_orphan_doc_issues(source: String, path: String) -> Array[String]:
 			if indent > enum_body_indent:
 				continue
 			enum_body_indent = -1
+
+		if property_body_indent != -1:
+			if trimmed.is_empty():
+				continue
+			if indent > property_body_indent:
+				continue
+			property_body_indent = -1
 
 		if trimmed.begins_with("##"):
 			if not doc_start_by_indent.has(indent):
@@ -983,10 +1109,16 @@ func _collect_orphan_doc_issues(source: String, path: String) -> Array[String]:
 		if not declaration.is_empty():
 			var _erase_result_911: Variant = doc_start_by_indent.erase(indent)
 			var _erase_result_912: Variant = doc_has_api_by_indent.erase(indent)
-			if GF_VARIANT_ACCESS.get_option_string(declaration, "kind") == "func":
+			var declaration_kind: String = GF_VARIANT_ACCESS.get_option_string(declaration, "kind")
+			if declaration_kind == "func":
 				function_body_indent = indent
-			elif GF_VARIANT_ACCESS.get_option_string(declaration, "kind") == "enum":
+			elif declaration_kind == "enum":
 				enum_body_indent = indent
+			elif (
+				declaration_kind == "var"
+				and GF_VARIANT_ACCESS.get_option_string(signature, "text").ends_with(":")
+			):
+				property_body_indent = indent
 			skip_until_line = GF_VARIANT_ACCESS.get_option_int(signature, "end_line", line_index)
 			continue
 
@@ -1147,6 +1279,7 @@ func _parse_declarations(source: String, path: String) -> Array[Dictionary]:
 	var section_by_indent: Dictionary = {}
 	var function_body_indent: int = -1
 	var enum_body_indent: int = -1
+	var property_body_indent: int = -1
 	var multiline_string_delimiter: String = ""
 	var skip_until_line: int = -1
 
@@ -1175,6 +1308,13 @@ func _parse_declarations(source: String, path: String) -> Array[Dictionary]:
 			if indent > enum_body_indent:
 				continue
 			enum_body_indent = -1
+
+		if property_body_indent != -1:
+			if trimmed.is_empty():
+				continue
+			if indent > property_body_indent:
+				continue
+			property_body_indent = -1
 
 		if trimmed.begins_with("##"):
 			var docs: Array = []
@@ -1227,6 +1367,11 @@ func _parse_declarations(source: String, path: String) -> Array[Dictionary]:
 				function_body_indent = indent
 			elif declaration_kind == "enum":
 				enum_body_indent = indent
+			elif (
+				declaration_kind == "var"
+				and GF_VARIANT_ACCESS.get_option_string(signature, "text").ends_with(":")
+			):
+				property_body_indent = indent
 			skip_until_line = GF_VARIANT_ACCESS.get_option_int(signature, "end_line", line_index)
 			continue
 
@@ -1546,6 +1691,26 @@ func _collect_declaration_issues(declaration: Dictionary, type_visibility: Dicti
 	if not layer.is_empty() and not _layer_matches_source_path(layer, GF_VARIANT_ACCESS.get_option_string(declaration, "path", "")):
 		issues.append("%s %s @layer '%s' does not match source path" % [location, declaration_name, layer])
 
+	if (
+		kind == "func"
+		and _internal_section_rule_is_enforced(
+			GF_VARIANT_ACCESS.get_option_string(declaration, "path", "")
+		)
+	):
+		var section_name: String = _canonical_section_name(
+			GF_VARIANT_ACCESS.get_option_string(declaration, "section", "")
+		)
+		if section_name == "公共方法" and api == "framework_internal":
+			issues.append(
+				"%s %s framework_internal API must be placed in a framework internal section"
+				% [location, declaration_name]
+			)
+		if section_name == "公共方法" and api == "layer_internal":
+			issues.append(
+				"%s %s layer_internal API must be placed in a layer internal section"
+				% [location, declaration_name]
+			)
+
 	if api == "protected":
 		if not kind == "func" or not declaration_name.begins_with("_"):
 			issues.append("%s %s protected API must use an underscore name" % [location, declaration_name])
@@ -1577,6 +1742,13 @@ func _collect_declaration_issues(declaration: Dictionary, type_visibility: Dicti
 		issues.append_array(_collect_enum_value_doc_issues(declaration))
 
 	return issues
+
+
+func _internal_section_rule_is_enforced(path: String) -> bool:
+	for root: String in INTERNAL_SECTION_ENFORCED_ROOTS:
+		if path.begins_with(root):
+			return true
+	return false
 
 
 func _collect_param_doc_issues(declaration: Dictionary) -> Array[String]:

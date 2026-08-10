@@ -18,6 +18,8 @@ func on_gf_capability_active_changed(receiver: Object, active: bool) -> void:
 	pass
 ```
 
+Node 能力启停是一项有界原子操作。框架会先在 `max_capability_tree_nodes` 预算内收集完整目标树，再写入 `active`、状态元数据和 `process_mode`；节点树超限时整次操作保持原状态，并且不会调用 active Hook 或发出 `capability_active_changed` 成功信号。Inspector 使用相同的“先预检、后提交”顺序。
+
 
 ## 反向索引与分组查询
 
@@ -61,7 +63,9 @@ query.group_name = &"enemies"
 var receivers := capabilities.get_receivers_matching_query(query)
 ```
 
-分组只负责查询索引，不改变 Godot 场景树分组，也不接管 receiver 生命周期。receiver 释放后，查询路径会自动清理失效索引；如果索引中的能力实例已经失效，`get_receivers_with()` 也会在返回前清理对应记录。`tick()` 中的周期性清理会按 `prune_invalid_receivers_per_tick` 分批推进，避免大量 receiver 同时失效时造成单帧尖峰；如果需要立刻得到精确索引，仍可主动调用 `prune_invalid_receivers()` 做全量清理。
+真正的空 `required_capability_types` 表示“没有必需能力”；列表中出现 `null` 则违反查询契约，整次查询失败关闭为空结果（单 receiver 判断返回 `false`），不会把 `[null]` 或 `[ValidType, null]` 静默降级为更宽的条件。重复的有效 Script 会稳定去重。`rejected_capability_types` 也采用同一非法输入策略。
+
+分组只负责查询索引，不改变 Godot 场景树分组，也不接管 receiver 生命周期。receiver 释放后，查询路径会自动清理失效索引；如果索引中的能力实例已经失效，`get_receivers_with()` 也会在返回前清理对应记录。`tick()` 中的周期性清理会按 `prune_invalid_receivers_per_tick` 分批推进，避免大量 receiver 同时失效时造成单帧尖峰；如果需要立刻得到精确索引，仍可主动调用 `prune_invalid_receivers()` 做全量清理。`get_capability()`、`get_capability_types()` 和空 receiver 诊断不会为了表示“未注册”而写入 `_gf_capability_types` 元数据，因此只读探测不会把空状态带入场景序列化。
 
 
 ## 能力诊断

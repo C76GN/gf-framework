@@ -3,6 +3,8 @@
 ## GFTouchJoystick: 通用触屏虚拟摇杆节点。
 ##
 ## 可直接发出摇杆向量信号，也可选择映射到 Godot InputMap 动作。
+## 每次 gesture 会冻结 begin-time 定位模式、action 与虚拟 joypad lane；
+## 运行时配置修改从下一次 gesture 生效。
 ## [br]
 ## @api public
 ## [br]
@@ -202,6 +204,16 @@ var _knob_position: Vector2 = Vector2.ZERO
 var _direction: Vector2 = Vector2.ZERO
 var _rest_global_position: Vector2 = Vector2.ZERO
 var _empty_active_region_warning_emitted: bool = false
+var _gesture_binding_active: bool = false
+var _active_position_mode: PositionMode = PositionMode.FIXED
+var _active_action_left: StringName = &""
+var _active_action_right: StringName = &""
+var _active_action_up: StringName = &""
+var _active_action_down: StringName = &""
+var _active_emit_joypad_motion: bool = false
+var _active_joypad_device_id: int = -2
+var _active_joy_axis_x: JoyAxis = JOY_AXIS_LEFT_X
+var _active_joy_axis_y: JoyAxis = JOY_AXIS_LEFT_Y
 
 
 # --- Godot 生命周期方法 ---
@@ -257,10 +269,11 @@ func release() -> void:
 	)
 	if not was_active:
 		return
-	var _released_touch: bool = _release_touch_capture()
 	_set_direction(Vector2.ZERO, Vector2.ZERO)
-	if _uses_touch_origin():
+	if _gesture_binding_active and _position_mode_uses_touch_origin(_active_position_mode):
 		global_position = _rest_global_position
+	var _released_touch: bool = _release_touch_capture()
+	_clear_gesture_binding()
 	joystick_released.emit()
 
 
@@ -290,8 +303,10 @@ func _handle_drag(event: InputEventScreenDrag) -> void:
 
 
 func _begin_touch(touch_index: int, global_pos: Vector2, local_pos: Vector2) -> void:
-	var _captured: bool = _try_capture_touch_index(touch_index)
-	if _uses_touch_origin():
+	if not _try_capture_touch_index(touch_index):
+		return
+	_capture_gesture_binding()
+	if _position_mode_uses_touch_origin(_active_position_mode):
 		_rest_global_position = global_position
 		global_position = global_pos
 		local_pos = Vector2.ZERO
@@ -330,8 +345,12 @@ func _set_direction(next_direction: Vector2, knob_position: Vector2) -> void:
 
 
 func _apply_input_actions(direction: Vector2) -> void:
-	_apply_axis_actions(direction.x, action_left, action_right)
-	_apply_axis_actions(direction.y, action_up, action_down)
+	var left_action: StringName = _active_action_left if _gesture_binding_active else action_left
+	var right_action: StringName = _active_action_right if _gesture_binding_active else action_right
+	var up_action: StringName = _active_action_up if _gesture_binding_active else action_up
+	var down_action: StringName = _active_action_down if _gesture_binding_active else action_down
+	_apply_axis_actions(direction.x, left_action, right_action)
+	_apply_axis_actions(direction.y, up_action, down_action)
 	_emit_joypad_motion(direction)
 
 
@@ -360,15 +379,23 @@ func _release_action(action: StringName) -> void:
 
 
 func _emit_joypad_motion(direction: Vector2) -> void:
-	if not emit_joypad_motion:
+	var should_emit: bool = (
+		_active_emit_joypad_motion
+		if _gesture_binding_active
+		else emit_joypad_motion
+	)
+	if not should_emit:
 		return
 
-	_emit_joypad_axis(joy_axis_x, direction.x)
-	_emit_joypad_axis(joy_axis_y, direction.y)
+	var axis_x: JoyAxis = _active_joy_axis_x if _gesture_binding_active else joy_axis_x
+	var axis_y: JoyAxis = _active_joy_axis_y if _gesture_binding_active else joy_axis_y
+	_emit_joypad_axis(axis_x, direction.x)
+	_emit_joypad_axis(axis_y, direction.y)
 
 
 func _emit_joypad_axis(axis: JoyAxis, value: float) -> void:
-	_VIRTUAL_INPUT_BRIDGE.emit_joypad_axis(joypad_device_id, axis, value)
+	var device_id: int = _active_joypad_device_id if _gesture_binding_active else joypad_device_id
+	_VIRTUAL_INPUT_BRIDGE.emit_joypad_axis(device_id, axis, value)
 
 
 func _apply_deadzone(raw_direction: Vector2) -> Vector2:
@@ -392,7 +419,12 @@ func _calculate_output_direction(raw_direction: Vector2) -> Vector2:
 
 
 func _apply_follow_origin(local_pos: Vector2) -> Vector2:
-	if position_mode != PositionMode.FOLLOW or local_pos.length() <= radius:
+	var effective_position_mode: PositionMode = (
+		_active_position_mode
+		if _gesture_binding_active
+		else position_mode
+	)
+	if effective_position_mode != PositionMode.FOLLOW or local_pos.length() <= radius:
 		return local_pos
 	var knob_pos: Vector2 = local_pos.limit_length(radius)
 	var global_delta: Vector2 = to_global(local_pos) - to_global(knob_pos)
@@ -401,7 +433,42 @@ func _apply_follow_origin(local_pos: Vector2) -> Vector2:
 
 
 func _uses_touch_origin() -> bool:
-	return position_mode == PositionMode.RELATIVE or position_mode == PositionMode.FOLLOW
+	var effective_position_mode: PositionMode = (
+		_active_position_mode
+		if _gesture_binding_active
+		else position_mode
+	)
+	return _position_mode_uses_touch_origin(effective_position_mode)
+
+
+func _position_mode_uses_touch_origin(mode: PositionMode) -> bool:
+	return mode == PositionMode.RELATIVE or mode == PositionMode.FOLLOW
+
+
+func _capture_gesture_binding() -> void:
+	_gesture_binding_active = true
+	_active_position_mode = position_mode
+	_active_action_left = action_left
+	_active_action_right = action_right
+	_active_action_up = action_up
+	_active_action_down = action_down
+	_active_emit_joypad_motion = emit_joypad_motion
+	_active_joypad_device_id = joypad_device_id
+	_active_joy_axis_x = joy_axis_x
+	_active_joy_axis_y = joy_axis_y
+
+
+func _clear_gesture_binding() -> void:
+	_gesture_binding_active = false
+	_active_position_mode = PositionMode.FIXED
+	_active_action_left = &""
+	_active_action_right = &""
+	_active_action_up = &""
+	_active_action_down = &""
+	_active_emit_joypad_motion = false
+	_active_joypad_device_id = -2
+	_active_joy_axis_x = JOY_AXIS_LEFT_X
+	_active_joy_axis_y = JOY_AXIS_LEFT_Y
 
 
 func _is_screen_position_in_active_region(screen_position: Vector2) -> bool:

@@ -60,7 +60,7 @@ func doc(text: String = "") -> void:
 
 | 名称 | 说明 |
 |---|---|
-| `text` | 注释内容；空字符串会生成 `##`。 |
+| `text` | 注释内容；空字符串会生成 \`##\`。 |
 
 <a id="member-gfsourcebuilder-methods-section"></a>
 

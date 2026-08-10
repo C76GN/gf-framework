@@ -175,7 +175,7 @@ func _exit_tree() -> void:
 ## [br]
 ## @param world_position: 世界坐标。
 ## [br]
-## @return: 加速度向量。
+## @return: 有限加速度向量；强度无法表示为 Vector3 时返回零向量。
 func get_acceleration_at(world_position: Vector3) -> Vector3:
 	if not enabled or not _is_finite_vector3(world_position):
 		return Vector3.ZERO
@@ -188,7 +188,8 @@ func get_acceleration_at(world_position: Vector3) -> Vector3:
 	var direction: Vector3 = _get_direction_at(world_position)
 	if not _is_finite_vector3(direction) or direction.is_zero_approx():
 		return Vector3.ZERO
-	return direction.normalized() * strength
+	var acceleration_vector: Vector3 = direction.normalized() * strength
+	return acceleration_vector if _is_finite_vector3(acceleration_vector) else Vector3.ZERO
 
 
 ## 获取指定距离处的力场强度。
@@ -199,7 +200,7 @@ func get_acceleration_at(world_position: Vector3) -> Vector3:
 ## [br]
 ## @param distance: 距离。
 ## [br]
-## @return: 加速度强度。
+## @return: 有限加速度强度；计算溢出时返回 0。
 func get_strength_at_distance(distance: float) -> float:
 	if acceleration <= 0.0 or is_nan(distance) or is_inf(distance):
 		return 0.0
@@ -207,22 +208,21 @@ func get_strength_at_distance(distance: float) -> float:
 	if radius > 0.0 and safe_distance > radius:
 		return 0.0
 
+	var strength: float = acceleration
 	match falloff_mode:
 		FalloffMode.LINEAR:
-			if radius <= 0.0:
-				return acceleration
-			return acceleration * clampf(1.0 - safe_distance / radius, 0.0, 1.0)
+			if radius > 0.0:
+				strength = acceleration * clampf(1.0 - safe_distance / radius, 0.0, 1.0)
 		FalloffMode.INVERSE_SQUARE:
 			var effective_distance: float = maxf(safe_distance, min_distance)
-			return acceleration * min_distance * min_distance / (effective_distance * effective_distance)
+			var distance_ratio: float = min_distance / effective_distance
+			strength = acceleration * distance_ratio * distance_ratio
 		FalloffMode.CURVE:
-			if falloff_curve == null:
-				return acceleration
-			var sample_position: float = clampf(safe_distance / radius, 0.0, 1.0) if radius > 0.0 else 0.0
-			var curve_value: float = falloff_curve.sample(sample_position)
-			return acceleration * maxf(_finite_float_or(curve_value, 0.0), 0.0)
-		_:
-			return acceleration
+			if falloff_curve != null:
+				var sample_position: float = clampf(safe_distance / radius, 0.0, 1.0) if radius > 0.0 else 0.0
+				var curve_value: float = falloff_curve.sample(sample_position)
+				strength = acceleration * maxf(_finite_float_or(curve_value, 0.0), 0.0)
+	return strength if not is_nan(strength) and not is_inf(strength) else 0.0
 
 
 ## 获取力场采样优先级。

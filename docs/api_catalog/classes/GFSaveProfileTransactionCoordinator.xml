@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFSaveProfileTransactionCoordinator" path="addons/gf/extensions/save/profile/gf_save_profile_transaction_coordinator.gd" module="extensions/save" extends="GFUtility" classDigest="fd1e298116cf399f8859fe70a29525ecb676aebe37969175c2cd0e7734202843">
+<class name="GFSaveProfileTransactionCoordinator" path="addons/gf/extensions/save/profile/gf_save_profile_transaction_coordinator.gd" module="extensions/save" extends="GFUtility" classDigest="6bb17be159ff057aeb195290bf07aa9912c7a8d4d5a4d22e63eb1de5139f93bc">
 	<description>GFSaveProfileTransactionCoordinator: 活动 Profile 身份与跨 Profile 事务协调器。
 Coordinator 在完全相同且同序的 Provider 实例拓扑上建立独立 domain，委托
 `GFSaveProfileUtility` 完成 generation、Storage IO、重试与 detached settlement。
@@ -11,7 +11,7 @@ Coordinator 在完全相同且同序的 Provider 实例拓扑上建立独立 dom
 	</tags>
 	<signals>
 		<member kind="signal" name="active_profile_changed">
-			<signature>signal active_profile_changed(</signature>
+			<signature>signal active_profile_changed( previous_profile_id: StringName, current_profile_id: StringName )</signature>
 			<description>活动 Profile 身份完成原子提交后发出。</description>
 			<tags>
 				<tag name="api">public</tag>

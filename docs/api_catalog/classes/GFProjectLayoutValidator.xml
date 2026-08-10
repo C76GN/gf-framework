@@ -1,8 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFProjectLayoutValidator" path="addons/gf/tools/project_layout/gf_project_layout_validator.gd" module="tools" extends="RefCounted" classDigest="2426bc6c2d50ae717a4c8b9ed82ad64e056657ccc10f7dadb91d0e79b5f1dc3b">
+<class name="GFProjectLayoutValidator" path="addons/gf/tools/project_layout/gf_project_layout_validator.gd" module="tools" extends="RefCounted" classDigest="5539c436c1336bf0f748e8384245d193bec93d0c3beea04cc76d0bb4c5d2c24d">
 	<description>GFProjectLayoutValidator: Profile 驱动的项目结构校验工具。
 按项目结构 profile 检查目录分区、Feature 模块契约、命名、生成物边界和大桶目录增长。
-该工具只实现可选制作期校验，不把任意业务项目结构写入 GF 运行时包。</description>
+该工具只实现可选制作期校验，不把任意业务项目结构写入 GF 运行时包。
+未知选项、字段、错误类型和非规范相对路径都会失败关闭；扫描预算在流式枚举期间全局生效。</description>
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">tool_api</tag>

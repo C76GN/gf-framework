@@ -22,6 +22,7 @@ const CIRCLE_BEZIER_KAPPA: float = 0.5522847498307936
 const _DASH_EPSILON: float = 0.00001
 const _DEFAULT_MAX_SUBDIVIDED_POLYLINE_POINTS: int = 8192
 const _DEFAULT_MAX_MEANDERED_POLYLINE_POINTS: int = 8192
+const _MAX_INT64: int = 9223372036854775807
 
 
 # --- 公共方法 ---
@@ -368,7 +369,13 @@ static func create_meandered_polyline(points: PackedVector2Array, options: Dicti
 			base_report["error"] = "points must only contain finite Vector2 values."
 			return base_report
 
-	var expected_count: int = source_count + (source_count - 1) * points_per_segment
+	var segment_count: int = source_count - 1
+	if points_per_segment > _divide_truncated(_MAX_INT64 - source_count, segment_count):
+		base_report["error"] = "generated point count would exceed max_points."
+		base_report["point_count"] = _MAX_INT64
+		return base_report
+
+	var expected_count: int = source_count + segment_count * points_per_segment
 	if expected_count > max_points:
 		base_report["error"] = "generated point count would exceed max_points."
 		base_report["point_count"] = expected_count
@@ -1171,6 +1178,11 @@ static func _get_meander_sign(step_index: int, side: int, alternate: bool) -> in
 	if alternate and posmod(step_index, 2) == 1:
 		return -side
 	return side
+
+
+static func _divide_truncated(numerator: int, denominator: int) -> int:
+	@warning_ignore("integer_division")
+	return numerator / denominator
 
 
 static func _is_finite_vector2(point: Vector2) -> bool:

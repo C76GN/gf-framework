@@ -19,6 +19,8 @@
 | 常量 | [`STATUS_INVALID`](#member-gftemplategenerationmanifest-constants-status_invalid) | `const STATUS_INVALID: StringName = &"invalid"` |
 | 常量 | [`STATUS_PARSE_FAILED`](#member-gftemplategenerationmanifest-constants-status_parse_failed) | `const STATUS_PARSE_FAILED: StringName = &"parse_failed"` |
 | 常量 | [`STATUS_LOAD_FAILED`](#member-gftemplategenerationmanifest-constants-status_load_failed) | `const STATUS_LOAD_FAILED: StringName = &"load_failed"` |
+| 常量 | [`MAX_JSON_BYTES`](#member-gftemplategenerationmanifest-constants-max_json_bytes) | `const MAX_JSON_BYTES: int = 1_048_576` |
+| 常量 | [`MAX_JSON_DEPTH`](#member-gftemplategenerationmanifest-constants-max_json_depth) | `const MAX_JSON_DEPTH: int = 64` |
 | 方法 | [`make_manifest`](#member-gftemplategenerationmanifest-methods-make_manifest) | `static func make_manifest( template_id: StringName, template_path: String, output_path: String, options: Dictionary = {} ) -> Dictionary:` |
 | 方法 | [`from_dictionary`](#member-gftemplategenerationmanifest-methods-from_dictionary) | `static func from_dictionary(data: Dictionary, defaults: Dictionary = {}) -> Dictionary:` |
 | 方法 | [`from_json_text`](#member-gftemplategenerationmanifest-methods-from_json_text) | `static func from_json_text(text: String, defaults: Dictionary = {}) -> Dictionary:` |
@@ -81,6 +83,32 @@ const STATUS_LOAD_FAILED: StringName = &"load_failed"
 ```
 
 清单文件无法读取。
+
+<a id="member-gftemplategenerationmanifest-constants-max_json_bytes"></a>
+
+### `MAX_JSON_BYTES`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+const MAX_JSON_BYTES: int = 1_048_576
+```
+
+JSON 清单允许的最大 UTF-8 字节数。
+
+<a id="member-gftemplategenerationmanifest-constants-max_json_depth"></a>
+
+### `MAX_JSON_DEPTH`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+const MAX_JSON_DEPTH: int = 64
+```
+
+JSON 清单允许的最大对象/数组嵌套深度。
 
 ## 方法
 

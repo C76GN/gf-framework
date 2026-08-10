@@ -86,7 +86,7 @@ static func status_to_string(status: int) -> StringName:
 static func build_debug_snapshot(node: Variant) -> Dictionary:
 	if node is BTNode:
 		var tree_node: BTNode = node
-		return _encode_debug_snapshot(tree_node._get_debug_snapshot_internal({}))
+		return _encode_debug_snapshot(tree_node._get_debug_snapshot_internal({}, {}))
 	if node is Runner:
 		var runner: Runner = node
 		return _encode_debug_snapshot(runner._get_debug_snapshot_raw())
@@ -166,6 +166,7 @@ static func _condition_reason_from_value(value: Variant) -> StringName:
 static func _is_error_reason(reason: StringName) -> bool:
 	return (
 		reason == &"invalid_status"
+		or reason == &"invalid_condition"
 		or reason == &"invalid_condition_result"
 		or reason == &"runtime_duplicate_missing_override"
 		or reason == &"missing_tick_override"
@@ -197,6 +198,78 @@ static func _duplicate_rng(source: RandomNumberGenerator) -> RandomNumberGenerat
 	copy.seed = source.seed
 	copy.state = source.state
 	return copy
+
+
+static func _make_random_node_order(
+	children: Array[BTNode],
+	blackboard: Dictionary,
+	fallback_rng: RandomNumberGenerator = null
+) -> Array[BTNode]:
+	var result: Array[BTNode] = []
+	result.append_array(children)
+	var active_rng: RandomNumberGenerator = _resolve_rng_from_blackboard(
+		blackboard,
+		fallback_rng
+	)
+	if active_rng == null:
+		result.shuffle()
+	else:
+		_shuffle_nodes_with_rng(result, active_rng)
+	return result
+
+
+static func _shuffle_nodes_with_rng(
+	nodes: Array[BTNode],
+	random_source: RandomNumberGenerator
+) -> void:
+	for index: int in range(nodes.size() - 1, 0, -1):
+		var swap_index: int = random_source.randi_range(0, index)
+		var temp: BTNode = nodes[index]
+		nodes[index] = nodes[swap_index]
+		nodes[swap_index] = temp
+
+
+static func _duplicate_dictionary(value: Dictionary) -> Dictionary:
+	var duplicated_value: Variant = GFVariantData.duplicate_variant(value)
+	if duplicated_value is Dictionary:
+		var duplicated_dictionary: Dictionary = duplicated_value
+		return duplicated_dictionary
+	return {}
+
+
+static func _duplicate_runtime_node(source: BTNode) -> BTNode:
+	if source == null:
+		return null
+	var copy: BTNode = source.duplicate_runtime()
+	if copy != null and _runtime_duplicate_error_reason(copy) != &"":
+		return copy
+	if (
+		copy != null
+		and copy != source
+		and _runtime_node_types_match(source, copy)
+	):
+		return copy
+
+	push_error("[GFBehaviorTree] duplicate_runtime() 必须返回保持动态脚本类型的独立节点；具体内置节点的自定义子类也必须显式重写。")
+	var failure: BTNode = BTNode.new()
+	source._copy_base_fields_to(failure)
+	failure._runtime_duplicate_error = &"runtime_duplicate_missing_override"
+	failure.metadata["_gf_runtime_duplicate_error"] = &"runtime_duplicate_missing_override"
+	return failure
+
+
+static func _runtime_node_types_match(source: BTNode, copy: BTNode) -> bool:
+	var source_script: Variant = source.get_script()
+	var copy_script: Variant = copy.get_script()
+	if source_script != null or copy_script != null:
+		return source_script == copy_script
+	return source.get_class() == copy.get_class()
+
+
+static func _runtime_duplicate_error_reason(node: BTNode) -> StringName:
+	if node == null:
+		return &""
+	return node._runtime_duplicate_error
 
 
 static func _sanitize_non_negative_seconds(value: float, fallback: float) -> float:
@@ -278,6 +351,8 @@ class BTNode extends RefCounted:
 	## @schema metadata: 项目自定义元数据 Dictionary；键和值由调用方维护。
 	var metadata: Dictionary = {}
 
+	var _runtime_duplicate_error: StringName = &""
+
 	## 执行该节点的逻辑。子类应重写此方法。
 	## [br]
 	## @api public
@@ -293,16 +368,21 @@ class BTNode extends RefCounted:
 
 
 	## 重置节点内部运行状态。
+	##
+	## 基类不会取消项目持有的外部异步工作；需要清理外部所有权的自定义节点必须重写。
 	## [br]
 	## @api public
+	## [br]
+	## @since 3.17.0
 	func reset() -> void:
 		pass
 
 
 	## 创建一份可独立运行的节点副本，不复制调试计数和正在运行的内部状态。
 	##
-	## 自定义节点必须重写此方法并复制自身类型；默认实现会返回一个失败节点，
-	## 避免 Runner 在默认复制模式下静默共享未知节点运行态。
+	## 自定义节点必须重写此方法并复制自身动态脚本类型；这也适用于继承
+	## Sequence、Decorator 等具体内置节点的自定义子类。默认实现或类型不匹配的
+	## 复制结果会由 Runner 转为失败节点，避免静默共享或切片未知节点运行态。
 	## [br]
 	## @api public
 	## [br]
@@ -313,6 +393,7 @@ class BTNode extends RefCounted:
 		push_error("[GFBehaviorTree] BTNode 子类必须重写 duplicate_runtime() 才能被 Runner 默认复制；请返回独立运行副本，或显式创建 Runner(root, false) 共享运行树。")
 		var copy: BTNode = BTNode.new()
 		_copy_base_fields_to(copy)
+		copy._runtime_duplicate_error = &"runtime_duplicate_missing_override"
 		copy.metadata["_gf_runtime_duplicate_error"] = &"runtime_duplicate_missing_override"
 		return copy
 
@@ -358,9 +439,9 @@ class BTNode extends RefCounted:
 	## [br]
 	## @return: 调试快照字典。
 	## [br]
-	## @schema return: 包含 node_id、name、status、status_text、reason、tick_count、last_tick_usec、child_count、children 和 metadata 字段的 Dictionary；children 为子节点快照数组；metadata 为 JSON-safe 投影。
+	## @schema return: 包含 node_id、name、status、status_text、reason、tick_count、last_tick_usec、child_count、children 和 metadata 字段的 Dictionary；children 为子节点快照数组；metadata 为 JSON-safe 投影；真实回边以 cycle=true 表示，非回边的重复 identity 以 shared_reference=true 表示。
 	func get_debug_snapshot() -> Dictionary:
-		return GFBehaviorTree._encode_debug_snapshot(_get_debug_snapshot_internal({}))
+		return GFBehaviorTree._encode_debug_snapshot(_get_debug_snapshot_internal({}, {}))
 
 
 	func _clear_debug_state_internal(recursive: bool, visited: Dictionary) -> void:
@@ -379,9 +460,12 @@ class BTNode extends RefCounted:
 					child._clear_debug_state_internal(true, visited)
 
 
-	func _get_debug_snapshot_internal(visited: Dictionary) -> Dictionary:
+	func _get_debug_snapshot_internal(
+		active_path: Dictionary,
+		seen: Dictionary
+	) -> Dictionary:
 		var instance_id: int = get_instance_id()
-		if visited.has(instance_id):
+		if active_path.has(instance_id):
 			return {
 				"node_id": String(node_id),
 				"name": name,
@@ -395,12 +479,28 @@ class BTNode extends RefCounted:
 				"metadata": {},
 				"cycle": true,
 			}
-		visited[instance_id] = true
+		if seen.has(instance_id):
+			return {
+				"node_id": String(node_id),
+				"name": name,
+				"status": last_status,
+				"status_text": String(GFBehaviorTree.status_to_string(last_status)),
+				"reason": "debug_shared_reference",
+				"tick_count": tick_count,
+				"last_tick_usec": last_tick_usec,
+				"child_count": 0,
+				"children": [],
+				"metadata": {},
+				"shared_reference": true,
+			}
+		active_path[instance_id] = true
+		seen[instance_id] = true
 
 		var children: Array[Dictionary] = []
 		for child: BTNode in _get_debug_children():
 			if child != null:
-				children.append(child._get_debug_snapshot_internal(visited))
+				children.append(child._get_debug_snapshot_internal(active_path, seen))
+		var _active_path_erased: bool = active_path.erase(instance_id)
 		return {
 			"node_id": String(node_id),
 			"name": name,
@@ -423,13 +523,13 @@ class BTNode extends RefCounted:
 	func _copy_base_fields_to(copy: BTNode) -> void:
 		copy.name = name
 		copy.node_id = node_id
-		copy.metadata = metadata.duplicate(true)
+		copy.metadata = GFBehaviorTree._duplicate_dictionary(metadata)
 
 
 	func _duplicate_child_nodes(children: Array[BTNode]) -> Array[BTNode]:
 		var result: Array[BTNode] = []
 		for child: BTNode in children:
-			result.append(child.duplicate_runtime() if child != null else null)
+			result.append(GFBehaviorTree._duplicate_runtime_node(child))
 		return result
 
 
@@ -471,6 +571,8 @@ class BTNode extends RefCounted:
 
 
 	func _get_missing_tick_reason() -> StringName:
+		if _runtime_duplicate_error != &"":
+			return _runtime_duplicate_error
 		var duplicate_error: Variant = metadata.get("_gf_runtime_duplicate_error", &"")
 		if duplicate_error is StringName:
 			return duplicate_error
@@ -495,8 +597,13 @@ class BTNode extends RefCounted:
 ## @since 3.17.0
 class BlackboardScope extends RefCounted:
 	## 当前作用域值。
+	##
+	## 该字段是当前作用域的 live mutable storage；直接写入会绕过 set_value() 的复制边界。
+	## 需要隔离快照时应使用 set_value()、get_value() 与 to_dictionary()。
 	## [br]
 	## @api public
+	## [br]
+	## @since 3.17.0
 	## [br]
 	## @schema values: 当前作用域持有的黑板值 Dictionary；键通常为 StringName，值由项目自定义。
 	var values: Dictionary = {}
@@ -515,7 +622,7 @@ class BlackboardScope extends RefCounted:
 	var _parent: BlackboardScope = null
 
 	func _init(initial_values: Dictionary = {}, parent_scope: BlackboardScope = null) -> void:
-		values = initial_values.duplicate(true)
+		values = GFBehaviorTree._duplicate_dictionary(initial_values)
 		var _set_parent_result: bool = set_parent(parent_scope)
 
 
@@ -1011,30 +1118,7 @@ class RandomSelector extends BTNode:
 
 
 	func _make_random_order(blackboard: Dictionary) -> Array[BTNode]:
-		var result: Array[BTNode] = []
-		result.append_array(_children)
-		var active_rng: RandomNumberGenerator = _resolve_rng(blackboard)
-		if active_rng == null:
-			result.shuffle()
-		else:
-			_shuffle_with_rng(result, active_rng)
-		return result
-
-
-	func _resolve_rng(blackboard: Dictionary) -> RandomNumberGenerator:
-		return GFBehaviorTree._resolve_rng_from_blackboard(blackboard, rng)
-
-
-	func _shuffle_with_rng(nodes: Array[BTNode], random_source: RandomNumberGenerator) -> void:
-		for index: int in range(nodes.size() - 1, 0, -1):
-			var swap_index: int = random_source.randi_range(0, index)
-			var temp: BTNode = nodes[index]
-			nodes[index] = nodes[swap_index]
-			nodes[swap_index] = temp
-
-
-	func _duplicate_rng(source: RandomNumberGenerator) -> RandomNumberGenerator:
-		return GFBehaviorTree._duplicate_rng(source)
+		return GFBehaviorTree._make_random_node_order(_children, blackboard, rng)
 
 
 	func _get_debug_children() -> Array[BTNode]:
@@ -1123,30 +1207,7 @@ class RandomSequence extends BTNode:
 
 
 	func _make_random_order(blackboard: Dictionary) -> Array[BTNode]:
-		var result: Array[BTNode] = []
-		result.append_array(_children)
-		var active_rng: RandomNumberGenerator = _resolve_rng(blackboard)
-		if active_rng == null:
-			result.shuffle()
-		else:
-			_shuffle_with_rng(result, active_rng)
-		return result
-
-
-	func _resolve_rng(blackboard: Dictionary) -> RandomNumberGenerator:
-		return GFBehaviorTree._resolve_rng_from_blackboard(blackboard, rng)
-
-
-	func _shuffle_with_rng(nodes: Array[BTNode], random_source: RandomNumberGenerator) -> void:
-		for index: int in range(nodes.size() - 1, 0, -1):
-			var swap_index: int = random_source.randi_range(0, index)
-			var temp: BTNode = nodes[index]
-			nodes[index] = nodes[swap_index]
-			nodes[swap_index] = temp
-
-
-	func _duplicate_rng(source: RandomNumberGenerator) -> RandomNumberGenerator:
-		return GFBehaviorTree._duplicate_rng(source)
+		return GFBehaviorTree._make_random_node_order(_children, blackboard, rng)
 
 
 	func _get_debug_children() -> Array[BTNode]:
@@ -1202,7 +1263,8 @@ class Action extends BTNode:
 
 ## 条件检查节点 (叶子节点)。
 ##
-## 包装一个返回布尔值的回调。true 为 SUCCESS，false 为 FAILURE。
+## 包装一个返回布尔值的回调。true 为 SUCCESS，false 为 FAILURE；无效 Callable
+## 返回 FAILURE 并记录 invalid_condition，不与合法 condition_false 混同。
 ## [br]
 ## @api public
 ## [br]
@@ -1229,7 +1291,7 @@ class Condition extends BTNode:
 	func tick(blackboard: Dictionary) -> int:
 		var started: int = Time.get_ticks_usec()
 		if not _condition_func.is_valid():
-			return _record_tick(Status.FAILURE, &"condition_false", started)
+			return _record_tick(Status.FAILURE, &"invalid_condition", started)
 
 		var condition_value: Variant = _condition_func.call(blackboard)
 		var reason: StringName = GFBehaviorTree._condition_reason_from_value(condition_value)
@@ -1268,8 +1330,12 @@ class Decorator extends BTNode:
 
 
 	## 设置被装饰的子节点。
+	##
+	## 替换不同 child 前会先 reset 旧 child；重复设置同一 identity 是无操作。
 	## [br]
 	## @api public
+	## [br]
+	## @since 3.17.0
 	## [br]
 	## @param child_node: 子节点。
 	## [br]
@@ -1278,6 +1344,10 @@ class Decorator extends BTNode:
 		if _would_create_cycle(child_node):
 			push_error("[GFBehaviorTree] 拒绝设置会形成循环的 decorator 子节点。")
 			return self
+		if _child == child_node:
+			return self
+		if _child != null:
+			_child.reset()
 		_child = child_node
 		return self
 
@@ -1310,9 +1380,7 @@ class Decorator extends BTNode:
 
 
 	func _duplicate_child() -> BTNode:
-		if _child == null:
-			return null
-		return _child.duplicate_runtime()
+		return GFBehaviorTree._duplicate_runtime_node(_child)
 
 
 ## 反转装饰节点。
@@ -1554,13 +1622,9 @@ class Probability extends Decorator:
 		return GFBehaviorTree._resolve_rng_from_blackboard(blackboard, rng)
 
 
-	func _duplicate_rng(source: RandomNumberGenerator) -> RandomNumberGenerator:
-		return GFBehaviorTree._duplicate_rng(source)
-
-
 ## 冷却装饰节点。
 ##
-## 子节点结束后进入冷却期，冷却未结束时返回 FAILURE。
+## 子节点结束并完成 reset 后进入冷却期，冷却未结束时返回 FAILURE。
 ## [br]
 ## @api public
 ## [br]
@@ -1624,7 +1688,7 @@ class Cooldown extends Decorator:
 			(GFBehaviorTree._is_success(status) or GFBehaviorTree._is_failure(status))
 			and not GFBehaviorTree._is_error_reason(reason)
 		):
-			_last_finish_msec = now
+			_last_finish_msec = _resolve_time_msec()
 		return _record_tick(status, reason, started)
 
 
@@ -1663,7 +1727,8 @@ class Cooldown extends Decorator:
 
 ## 时间限制装饰节点。
 ##
-## 子节点 RUNNING 持续超过限制时返回 FAILURE 并重置子节点。
+## 子节点 RUNNING 持续达到限制时返回 FAILURE 并重置子节点；0 秒表示立即超时，
+## 不会先 tick 子节点。
 ## [br]
 ## @api public
 ## [br]
@@ -2003,6 +2068,9 @@ class UntilFail extends Decorator:
 
 
 ## 行为树的执行入口容器。
+##
+## Runner 默认复制节点运行态，并验证每个副本保持独立 identity 与动态脚本类型。
+## 同一个 Runner 的 tick 不可同步重入；重入调用会失败关闭为 ABORTED。
 ## [br]
 ## @api public
 ## [br]
@@ -2023,10 +2091,11 @@ class Runner extends RefCounted:
 	var duplicates_runtime_tree: bool = true
 
 	var _root_node: BTNode
+	var _is_ticking: bool = false
 
 	func _init(root: BTNode, duplicate_runtime_tree: bool = true) -> void:
 		self.duplicates_runtime_tree = duplicate_runtime_tree
-		_root_node = root.duplicate_runtime() if duplicate_runtime_tree and root != null else root
+		_root_node = GFBehaviorTree._duplicate_runtime_node(root) if duplicate_runtime_tree else root
 
 
 	## 驱动行为树运行逻辑。
@@ -2038,7 +2107,12 @@ class Runner extends RefCounted:
 	func tick() -> int:
 		if _root_node == null:
 			return Status.FAILURE
+		if _is_ticking:
+			push_error("[GFBehaviorTree] Runner.tick() 不允许同步重入。")
+			return Status.ABORTED
+		_is_ticking = true
 		var status_value: Variant = _root_node.tick(blackboard)
+		_is_ticking = false
 		var status: int = GFBehaviorTree._variant_to_status(status_value)
 		var reason: StringName = GFBehaviorTree._status_reason_from_value(status_value, status)
 		if reason == &"invalid_status":
@@ -2075,7 +2149,7 @@ class Runner extends RefCounted:
 
 	func _get_debug_snapshot_raw() -> Dictionary:
 		return {
-			"root": _root_node._get_debug_snapshot_internal({}) if _root_node != null else {},
+			"root": _root_node._get_debug_snapshot_internal({}, {}) if _root_node != null else {},
 			"blackboard_keys": _get_blackboard_keys(),
 		}
 

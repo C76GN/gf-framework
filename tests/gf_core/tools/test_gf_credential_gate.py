@@ -213,6 +213,66 @@ class CredentialGateTests(unittest.TestCase):
 				{"examples/credentials.json", "fixtures/.env"},
 			)
 
+	def test_sensitive_filename_policy_uses_unicode_path_before_redaction(self) -> None:
+		with tempfile.TemporaryDirectory() as temp_dir:
+			repository = self._init_repository(Path(temp_dir))
+			candidate = repository / "配置" / ".env"
+			candidate.parent.mkdir()
+			candidate.write_text("ordinary content\n", encoding="utf-8")
+			self._git(repository, "add", "配置/.env")
+
+			result = credential_gate.scan_tracked_repository(repository)
+
+			self.assertFalse(result["ok"])
+			self.assertTrue(
+				any(
+					issue["rule_id"] == "credential.sensitive_file_name"
+					and issue["path"].startswith("tracked-entry-")
+					for issue in result["issues"]
+				),
+				result,
+			)
+			self.assertNotIn("配置", json.dumps(result, ensure_ascii=False))
+
+	def test_test_suppression_policy_uses_unicode_path_before_redaction(self) -> None:
+		with tempfile.TemporaryDirectory() as temp_dir:
+			repository = self._init_repository(Path(temp_dir))
+			secret = self._credential_value()
+			candidate = repository / "tests" / "用例" / "redaction.txt"
+			candidate.parent.mkdir(parents=True)
+			candidate.write_text(
+				"# gf-credential-gate: allow-next=credential.assignment "
+				"reason=unicode-fixture\n"
+				f'api_key="{secret}"\n',
+				encoding="utf-8",
+			)
+			self._git(repository, "add", "tests/用例/redaction.txt")
+
+			result = credential_gate.scan_tracked_repository(repository)
+
+			self.assertTrue(result["ok"], result)
+			self.assertNotIn("用例", json.dumps(result, ensure_ascii=False))
+
+	def test_zip_sensitive_filename_policy_uses_entry_name_before_redaction(self) -> None:
+		with tempfile.TemporaryDirectory() as temp_dir:
+			release_root = Path(temp_dir)
+			archive_path = release_root / "release.zip"
+			with zipfile.ZipFile(archive_path, "w") as archive:
+				archive.writestr("配置/.env", "ordinary content\n")
+			manifest_path = self._write_manifest(release_root, archive_path)
+
+			result = credential_gate.scan_release_manifest(manifest_path)
+
+			self.assertFalse(result["ok"])
+			self.assertTrue(
+				any(
+					issue["rule_id"] == "credential.sensitive_file_name"
+					and "配置" not in issue["path"]
+					for issue in result["issues"]
+				),
+				result,
+			)
+
 	def test_complete_private_key_block_is_high_confidence(self) -> None:
 		with tempfile.TemporaryDirectory() as temp_dir:
 			repository = self._init_repository(Path(temp_dir))

@@ -22,6 +22,8 @@ settings.save_settings()
 
 未接入存储后端时，fallback 文件名必须是简单 basename，不能包含路径分隔符、`..`、盘符或绝对路径。需要把设置写到项目自定义目录时，应实现明确的存储后端，而不是把外部路径塞进 fallback 文件名。
 
+fallback 保存的 `OK` 与 `settings_saved` 只在 payload 实际写入且 `FileAccess` 没有报告错误时产生；文件可以打开但写入失败时会返回真实 `Error`，不会发出成功信号。显式 `save_settings()` / `flush_pending_save()` 的调用方应处理该错误。自动保存失败后的重试和失败可观察策略尚未由框架替调用方猜测，不能仅凭启用 `auto_save_on_change` 假定永久落盘成功。
+
 从合法持久化数据恢复时使用 `replace_from_dict()`：输入中缺失的已定义键恢复默认值，缺失的未定义旧键被移除；`load_settings()` 固定采用这一语义。只有明确把输入当作覆盖层时才使用 `merge_from_dict()`，它会保留输入中未出现的当前值。两种入口分离后，切换 profile 或读取合法空对象不会静默继承上一份 profile 的残留字段。
 
 ## 结构化加载与恢复

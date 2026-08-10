@@ -26,7 +26,7 @@
 | 属性 | [`pan_modifier_mask`](#member-gfspatialcanvasinputpolicy-properties-pan_modifier_mask) | `var pan_modifier_mask: int = ModifierMask.NONE` |
 | 属性 | [`selection_mouse_button`](#member-gfspatialcanvasinputpolicy-properties-selection_mouse_button) | `var selection_mouse_button: MouseButton = MOUSE_BUTTON_LEFT` |
 | 属性 | [`selection_action`](#member-gfspatialcanvasinputpolicy-properties-selection_action) | `var selection_action: StringName = &""` |
-| 属性 | [`selection_default_mode`](#member-gfspatialcanvasinputpolicy-properties-selection_default_mode) | `var selection_default_mode: GFSpatialCanvas2D.SelectionMode = (` |
+| 属性 | [`selection_default_mode`](#member-gfspatialcanvasinputpolicy-properties-selection_default_mode) | `var selection_default_mode: GFSpatialCanvas2D.SelectionMode = ( 	GFSpatialCanvas2D.SelectionMode.REPLACE )` |
 | 属性 | [`selection_modifier_bindings`](#member-gfspatialcanvasinputpolicy-properties-selection_modifier_bindings) | `var selection_modifier_bindings: Array[GFSpatialCanvasSelectionModeBinding] = []` |
 | 属性 | [`drag_threshold`](#member-gfspatialcanvasinputpolicy-properties-drag_threshold) | `var drag_threshold: float = 4.0` |
 | 属性 | [`wheel_axis`](#member-gfspatialcanvasinputpolicy-properties-wheel_axis) | `var wheel_axis: WheelAxis = WheelAxis.VERTICAL` |
@@ -233,6 +233,8 @@ var selection_action: StringName = &""
 
 ```gdscript
 var selection_default_mode: GFSpatialCanvas2D.SelectionMode = (
+	GFSpatialCanvas2D.SelectionMode.REPLACE
+)
 ```
 
 没有选择修饰键绑定精确匹配时使用的 [code]GFSpatialCanvas2D.SelectionMode[/code]。

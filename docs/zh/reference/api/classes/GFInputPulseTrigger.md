@@ -27,12 +27,13 @@
 ### `interval_seconds`
 
 - API：`public`
+- 首次版本：`11.0.0`
 
 ```gdscript
 var interval_seconds: float = 0.1:
 ```
 
-脉冲间隔秒数。
+脉冲间隔秒数。非有限赋值会被拒绝并保留最后有效值。
 
 <a id="member-gfinputpulsetrigger-properties-trigger_immediately"></a>
 
@@ -75,6 +76,7 @@ func reset_trigger_state(state: Dictionary) -> void:
 ### `update`
 
 - API：`public`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func update(raw_active: bool, _value: Variant, delta: float, state: Dictionary) -> TriggerState:
@@ -88,7 +90,7 @@ func update(raw_active: bool, _value: Variant, delta: float, state: Dictionary) 
 |---|---|
 | `raw_active` | 原始输入是否处于激活状态。 |
 | `_value` | 输入值，默认实现不直接使用。 |
-| `delta` | 本帧时间增量（秒）。 |
+| `delta` | 本帧时间增量（秒）；NaN/Infinity 或负数按 0 处理，不污染状态。 |
 | `state` | 触发器运行时状态字典。 |
 
 返回：触发状态。

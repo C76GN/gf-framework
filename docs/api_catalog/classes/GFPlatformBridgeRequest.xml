@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFPlatformBridgeRequest" path="addons/gf/standard/foundation/platform/gf_platform_bridge_request.gd" module="standard" extends="Resource" classDigest="260ca193f0e7545ce0dc4e32e71819f91a2b0d054e590d186e2a682e99248308">
+<class name="GFPlatformBridgeRequest" path="addons/gf/standard/foundation/platform/gf_platform_bridge_request.gd" module="standard" extends="Resource" classDigest="3dd5bfe6fb3d523e34c3aeef9b819ef903d648bfbf1a6a78ac003aba73b3bdb1">
 	<description>GFPlatformBridgeRequest: 平台桥接请求。
 用纯数据描述从 GF 或项目侧发往外部平台 adapter 的一次调用。它不执行调用，
 只为 JS bridge、native SDK bridge 或进程桥接提供统一请求载体。</description>
@@ -66,7 +66,9 @@
 	<methods>
 		<member kind="method" name="configure">
 			<signature>func configure( p_request_id: StringName, p_contract_id: StringName, p_method_id: StringName, p_payload: Dictionary = {}, p_timeout_msec: int = 0, p_metadata: Dictionary = {} ) -&gt; GFPlatformBridgeRequest:</signature>
-			<description>配置桥接请求。</description>
+			<description>配置桥接请求。
+三个稳定 ID 会移除首尾空白；直接写入导出属性的请求也会在 Runtime / Adapter
+边界复制为同一规范身份。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">p_request_id: 请求 ID。</tag>
@@ -102,7 +104,8 @@
 		</member>
 		<member kind="method" name="apply_dict">
 			<signature>func apply_dict(data: Dictionary) -&gt; void:</signature>
-			<description>从字典应用桥接请求字段。</description>
+			<description>从字典应用桥接请求字段。
+request_id、contract_id 与 method_id 会移除首尾空白。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">data: 桥接请求字典。</tag>

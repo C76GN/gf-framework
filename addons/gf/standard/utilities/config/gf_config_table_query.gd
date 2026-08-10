@@ -47,6 +47,12 @@ enum Operator {
 }
 
 
+# --- 常量 ---
+
+const _INT64_MIN_AS_FLOAT: float = -9223372036854775808.0
+const _INT64_MAX_EXCLUSIVE_AS_FLOAT: float = 9223372036854775808.0
+
+
 # --- 私有变量 ---
 
 var _records: Array[Dictionary] = []
@@ -481,19 +487,23 @@ func count() -> int:
 ## [br]
 ## @param path: 字段路径。为空时使用整条记录。
 ## [br]
+## @param duplicate_values: 是否深复制可复制的返回值；为 false 时显式借用查询器内部值。
+## [br]
 ## @return 字段值数组。
 ## [br]
 ## @schema return: Array，字段值列表。
-func values(path: String = "") -> Array:
+func values(path: String = "", duplicate_values: bool = true) -> Array:
 	var result: Array = []
+	var normalized_path: String = path.strip_edges()
 	for record: Dictionary in to_array(false):
-		if path.strip_edges().is_empty():
-			result.append(record)
+		if normalized_path.is_empty():
+			result.append(GFVariantData.duplicate_variant(record) if duplicate_values else record)
 			continue
 
-		var read_result: Dictionary = _read_path(record, path)
+		var read_result: Dictionary = _read_path(record, normalized_path)
 		if GFVariantData.get_option_bool(read_result, "found"):
-			result.append(GFVariantData.get_option_value(read_result, "value"))
+			var value: Variant = GFVariantData.get_option_value(read_result, "value")
+			result.append(GFVariantData.duplicate_variant(value) if duplicate_values else value)
 	return result
 
 
@@ -505,7 +515,7 @@ func values(path: String = "") -> Array:
 ## [br]
 ## @param source: 源数据。
 ## [br]
-## @param path: 字段路径，支持用 "." 访问嵌套 Dictionary、Array 下标或 Object 属性。
+## @param path: 字段路径，支持用 "." 访问嵌套 Dictionary、Array 下标或受信任 Object 属性；Object getter 可能执行项目代码。
 ## [br]
 ## @param default_value: 路径不存在时返回的默认值。
 ## [br]
@@ -770,6 +780,12 @@ static func _read_path(source: Variant, path: String) -> Dictionary:
 
 
 static func _read_segment(source: Variant, segment: String) -> Dictionary:
+	if typeof(source) == TYPE_OBJECT and not is_instance_valid(source):
+		return {
+			"found": false,
+			"value": null,
+		}
+
 	if source is Dictionary:
 		var dictionary: Dictionary = source
 		if _dictionary_has_key(dictionary, segment):
@@ -795,7 +811,7 @@ static func _read_segment(source: Variant, segment: String) -> Dictionary:
 			"value": null,
 		}
 
-	if source is Object:
+	if typeof(source) == TYPE_OBJECT:
 		var object_ref: Object = source
 		for property_info: Dictionary in object_ref.get_property_list():
 			var raw_property_name: Variant = GFVariantData.get_option_value(property_info, "name")
@@ -833,16 +849,27 @@ static func _compare_values(left: Variant, right: Variant) -> int:
 		return 0
 
 	if _is_number(left) and _is_number(right):
-		var left_float: float = GFVariantData.to_float(left, 0.0)
-		var right_float: float = GFVariantData.to_float(right, 0.0)
+		if left is int and right is int:
+			var left_integer: int = left
+			var right_integer: int = right
+			return -1 if left_integer < right_integer else 1
+		if left is int and right is float:
+			var left_integer: int = left
+			var mixed_right_float: float = right
+			return _compare_integer_to_float(left_integer, mixed_right_float)
+		if left is float and right is int:
+			var mixed_left_float: float = left
+			var right_integer: int = right
+			return -_compare_integer_to_float(right_integer, mixed_left_float)
+
+		var left_float: float = left
+		var right_float: float = right
 		var left_is_nan: bool = is_nan(left_float)
 		var right_is_nan: bool = is_nan(right_float)
 		if left_is_nan or right_is_nan:
 			if left_is_nan and right_is_nan:
 				return 0
 			return 1 if left_is_nan else -1
-		if is_equal_approx(left_float, right_float):
-			return 0
 		return -1 if left_float < right_float else 1
 
 	if _is_text_value(left) and _is_text_value(right):
@@ -862,6 +889,28 @@ static func _compare_values(left: Variant, right: Variant) -> int:
 	if left_fallback_text == right_fallback_text:
 		return 0
 	return -1 if left_fallback_text < right_fallback_text else 1
+
+
+static func _compare_integer_to_float(integer_value: int, float_value: float) -> int:
+	if is_nan(float_value) or float_value == INF:
+		return -1
+	if float_value == -INF:
+		return 1
+	if float_value < _INT64_MIN_AS_FLOAT:
+		return 1
+	if float_value >= _INT64_MAX_EXCLUSIVE_AS_FLOAT:
+		return -1
+
+	var truncated_float_integer: int = int(float_value)
+	if integer_value < truncated_float_integer:
+		return -1
+	if integer_value > truncated_float_integer:
+		return 1
+
+	var truncated_as_float: float = float(truncated_float_integer)
+	if truncated_as_float == float_value:
+		return 0
+	return -1 if truncated_as_float < float_value else 1
 
 
 static func _matches_contains(source_value: Variant, value: Variant) -> bool:

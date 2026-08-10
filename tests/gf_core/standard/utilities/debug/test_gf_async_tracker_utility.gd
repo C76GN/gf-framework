@@ -70,6 +70,82 @@ func test_async_tracker_snapshot_provider_does_not_keep_target_alive() -> void:
 	assert_false(first_record.has("snapshot"), "provider 目标释放后不应产生 snapshot。")
 
 
+func test_async_tracker_marks_last_good_snapshot_stale_after_refresh_failure() -> void:
+	var tracker: GFAsyncTrackerUtility = GFAsyncTrackerUtility.new()
+	tracker.tracking_enabled = true
+	var completion: GFAsyncCompletion = GFAsyncCompletion.new()
+	var target: MutableSnapshotTarget = MutableSnapshotTarget.new()
+	var tracking_id: int = tracker.track_handle(
+		completion,
+		&"async.freshness",
+		{},
+		Callable(target, "get_snapshot")
+	)
+	var success_report: Dictionary = tracker.refresh_snapshot(tracking_id)
+	var fresh_record: Dictionary = tracker.get_active_records()[0]
+	var last_success_msec: int = GFVariantData.get_option_int(
+		fresh_record,
+		"snapshot_refreshed_msec"
+	)
+
+	target = null
+	var failure_report: Dictionary = tracker.refresh_snapshot(tracking_id)
+	var stale_record: Dictionary = tracker.get_active_records()[0]
+	var stale_snapshot: Dictionary = GFVariantData.get_option_dictionary(
+		stale_record,
+		"snapshot"
+	)
+
+	assert_true(GFVariantData.get_option_bool(success_report, "ok"), "第一次刷新应建立 last-good snapshot。")
+	assert_false(GFVariantData.get_option_bool(failure_report, "ok"), "provider 释放后的刷新应失败。")
+	assert_eq(
+		GFVariantData.get_option_string(failure_report, "error"),
+		"snapshot_provider_unavailable",
+		"失败报告应提供稳定错误码。"
+	)
+	assert_eq(GFVariantData.get_option_int(stale_snapshot, "revision"), 1, "失败后应保留 last-good 数据。")
+	assert_true(GFVariantData.get_option_bool(stale_record, "snapshot_stale"), "last-good 数据必须显式标为 stale。")
+	assert_eq(
+		GFVariantData.get_option_string(stale_record, "snapshot_error"),
+		"snapshot_provider_unavailable",
+		"持久追踪记录必须暴露最近刷新错误。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(stale_record, "snapshot_refreshed_msec"),
+		last_success_msec,
+		"失败不能伪造新的成功刷新时间。"
+	)
+	assert_true(stale_record.has("snapshot_attempted_msec"), "失败尝试时间必须在后续快照中可观察。")
+	assert_true(GFVariantData.get_option_bool(failure_report, "stale"), "即时失败报告也应说明返回数据已陈旧。")
+
+
+func test_async_tracker_batch_reports_unavailable_registered_provider() -> void:
+	var tracker: GFAsyncTrackerUtility = GFAsyncTrackerUtility.new()
+	tracker.tracking_enabled = true
+	var completion: GFAsyncCompletion = GFAsyncCompletion.new()
+	var target: MutableSnapshotTarget = MutableSnapshotTarget.new()
+	var _tracking_id: int = tracker.track_handle(
+		completion,
+		&"async.batch_failure",
+		{},
+		Callable(target, "get_snapshot")
+	)
+	target = null
+
+	var report: Dictionary = tracker.refresh_snapshots(1)
+	var reports: Array = GFVariantData.get_option_array(report, "reports")
+
+	assert_false(GFVariantData.get_option_bool(report, "ok"), "批量刷新不能静默跳过已失效的注册 provider。")
+	assert_eq(GFVariantData.get_option_int(report, "failed_count"), 1, "不可用 provider 应计入 failed_count。")
+	assert_eq(reports.size(), 1, "批量报告应包含不可用 provider 的逐项结果。")
+	if reports.size() == 1:
+		assert_eq(
+			GFVariantData.get_option_string(GFVariantData.as_dictionary(reports[0]), "error"),
+			"snapshot_provider_unavailable",
+			"逐项结果应保留稳定错误码。"
+		)
+
+
 func test_async_tracker_snapshot_refresh_is_reentrancy_guarded() -> void:
 	var tracker: GFAsyncTrackerUtility = GFAsyncTrackerUtility.new()
 	tracker.tracking_enabled = true
@@ -159,6 +235,13 @@ class SnapshotTarget extends RefCounted:
 	func get_snapshot() -> Dictionary:
 		return {
 			"ok": true,
+		}
+
+
+class MutableSnapshotTarget extends RefCounted:
+	func get_snapshot() -> Dictionary:
+		return {
+			"revision": 1,
 		}
 
 

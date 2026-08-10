@@ -139,12 +139,13 @@ var allow_null: bool = true
 ### `default_value`
 
 - API：`public`
+- 首次版本：`4.4.0`
 
 ```gdscript
 var default_value: Variant = null
 ```
 
-默认值。`GFDictionarySchema.apply_defaults()` 会在缺字段时使用。
+默认值。`GFDictionarySchema.apply_defaults()` 会在缺字段且该值可表达时使用； 当前 default_value 为 null 且 allow_null 为 false 时视为没有可用默认值。
 
 结构：
 

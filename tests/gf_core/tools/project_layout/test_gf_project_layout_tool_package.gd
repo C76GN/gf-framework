@@ -3,6 +3,7 @@ extends GutTest
 const PROFILE_PATH: String = "res://addons/gf/tools/project_layout/profiles/feature_cohesive_v1.json"
 const GF_PROJECT_LAYOUT_SCAFFOLDER_SCRIPT = preload("res://addons/gf/tools/project_layout/gf_project_layout_scaffolder.gd")
 const GF_PROJECT_LAYOUT_VALIDATOR_SCRIPT = preload("res://addons/gf/tools/project_layout/gf_project_layout_validator.gd")
+const GF_TEST_DIRECTORY_LINK_FIXTURE = preload("res://tests/gf_core/support/gf_test_directory_link_fixture.gd")
 
 var _temporary_roots: Array[String] = []
 
@@ -298,20 +299,18 @@ func test_project_layout_validator_rejects_non_integer_scan_budget() -> void:
 	assert_true(_has_issue_kind(GFVariantData.get_option_array(result, "issues"), "invalid_integer_option"))
 
 
-func test_project_layout_validator_rejects_linked_directory_traversal_when_supported() -> void:
+func test_project_layout_validator_rejects_linked_directory_traversal() -> void:
 	var root_path: String = _track_root("user://gf_project_layout_link_root_%d" % Time.get_ticks_usec())
 	var outside_path: String = _track_root("user://gf_project_layout_link_outside_%d" % Time.get_ticks_usec())
 	_make_directory(root_path)
 	_make_directory(outside_path.path_join("nested"))
 	_write_text(outside_path.path_join("nested/external.gd"), "extends RefCounted\n")
-	var root_directory: DirAccess = DirAccess.open(ProjectSettings.globalize_path(root_path))
-	assert_not_null(root_directory, "测试应能打开 link fixture 根目录。")
-	if root_directory == null:
-		return
-	var link_error: Error = root_directory.create_link(
+	var link_path: String = root_path.path_join("linked")
+	var link_error: Error = GF_TEST_DIRECTORY_LINK_FIXTURE.create(
 		ProjectSettings.globalize_path(outside_path),
-		ProjectSettings.globalize_path(root_path.path_join("linked"))
+		ProjectSettings.globalize_path(link_path)
 	)
+	assert_eq(link_error, OK, "受支持平台必须建立 symlink 或 Windows directory junction 夹具。")
 	if link_error != OK:
 		return
 
@@ -459,6 +458,258 @@ func test_project_layout_validator_fails_closed_when_file_scan_is_incomplete() -
 	assert_true(_has_issue_kind(issues, "scan_file_limit_reached"), "文件数量上限应 fail closed。")
 
 
+func test_project_layout_scaffolder_rejects_invalid_options_before_any_write() -> void:
+	var scaffolder: GF_PROJECT_LAYOUT_SCAFFOLDER_SCRIPT = GF_PROJECT_LAYOUT_SCAFFOLDER_SCRIPT.new()
+	var profile: Dictionary = _make_required_zone_profile("app")
+	var wrong_dry_run_root: String = _track_root(
+		"user://gf_project_layout_wrong_dry_run_%d" % Time.get_ticks_usec()
+	)
+	var typo_root: String = _track_root(
+		"user://gf_project_layout_option_typo_%d" % Time.get_ticks_usec()
+	)
+
+	var wrong_dry_run_result: Dictionary = scaffolder.scaffold_profile(profile, {
+		"root_path": wrong_dry_run_root,
+		"dry_run": "true",
+	})
+	var typo_result: Dictionary = scaffolder.scaffold_profile(profile, {
+		"root_path": typo_root,
+		"dryrun": true,
+	})
+	var wrong_root_result: Dictionary = scaffolder.scaffold_profile(profile, {
+		"root_path": 42,
+		"dry_run": true,
+	})
+
+	assert_false(GFVariantData.get_option_bool(wrong_dry_run_result, "success"), "错误类型的 dry_run 必须在写入前失败。")
+	assert_true(_has_issue_kind(GFVariantData.get_option_array(wrong_dry_run_result, "issues"), "invalid_option_type"))
+	assert_false(DirAccess.dir_exists_absolute(ProjectSettings.globalize_path(wrong_dry_run_root)), "错误 dry_run 类型不得退化为真实写入。")
+	assert_false(GFVariantData.get_option_bool(typo_result, "success"), "未知选项必须失败，不能被静默忽略。")
+	assert_true(_has_issue_kind(GFVariantData.get_option_array(typo_result, "issues"), "unsupported_option"))
+	assert_false(DirAccess.dir_exists_absolute(ProjectSettings.globalize_path(typo_root)), "拼错的 dry_run 不得触发真实写入。")
+	assert_false(GFVariantData.get_option_bool(wrong_root_result, "success"), "错误类型的 root_path 必须失败。")
+	assert_true(_has_issue_kind(GFVariantData.get_option_array(wrong_root_result, "issues"), "invalid_option_type"))
+	assert_true(GFVariantData.get_option_array(wrong_root_result, "planned_paths").is_empty(), "非法 root_path 不得回退到 res://。")
+
+
+func test_project_layout_validator_rejects_unknown_options() -> void:
+	var root_path: String = _track_root("user://gf_project_layout_validator_option_%d" % Time.get_ticks_usec())
+	_make_directory(root_path)
+	var validator: GF_PROJECT_LAYOUT_VALIDATOR_SCRIPT = GF_PROJECT_LAYOUT_VALIDATOR_SCRIPT.new()
+
+	var result: Dictionary = validator.validate_profile({
+		"schema_version": 1,
+		"id": "strict_validator_options",
+		"zones": [],
+		"rules": [],
+	}, {
+		"root_path": root_path,
+		"include_hiden": true,
+	})
+
+	assert_false(GFVariantData.get_option_bool(result, "success"), "未知 validator 选项不能被静默忽略。")
+	assert_true(_has_issue_kind(GFVariantData.get_option_array(result, "issues"), "unsupported_option"))
+
+
+func test_project_layout_tools_reject_non_string_path_lists() -> void:
+	var root_path: String = _track_root("user://gf_project_layout_strict_profile_%d" % Time.get_ticks_usec())
+	var validator: GF_PROJECT_LAYOUT_VALIDATOR_SCRIPT = GF_PROJECT_LAYOUT_VALIDATOR_SCRIPT.new()
+	var scaffolder: GF_PROJECT_LAYOUT_SCAFFOLDER_SCRIPT = GF_PROJECT_LAYOUT_SCAFFOLDER_SCRIPT.new()
+	var invalid_path_profile: Dictionary = {
+		"schema_version": 1,
+		"id": "invalid_path_list",
+		"zones": [{
+			"id": "app",
+			"roots": [1],
+			"required": true,
+		}],
+		"rules": [],
+	}
+
+	var invalid_validate_result: Dictionary = validator.validate_profile(invalid_path_profile, {
+		"root_path": root_path,
+		"allow_missing_root": true,
+	})
+	var invalid_scaffold_result: Dictionary = scaffolder.scaffold_profile(invalid_path_profile, {
+		"root_path": root_path,
+		"dry_run": true,
+	})
+
+	assert_false(GFVariantData.get_option_bool(invalid_validate_result, "success"), "validator 不得静默丢弃非字符串 roots 元素。")
+	assert_false(GFVariantData.get_option_bool(invalid_scaffold_result, "success"), "scaffolder 不得静默丢弃非字符串 roots 元素。")
+	assert_true(_has_issue_kind(GFVariantData.get_option_array(invalid_validate_result, "issues"), "invalid_string_list_field"))
+	assert_true(_has_issue_kind(GFVariantData.get_option_array(invalid_scaffold_result, "issues"), "invalid_string_list_field"))
+
+
+func test_project_layout_tools_reject_incomplete_rule_operands() -> void:
+	var root_path: String = _track_root("user://gf_project_layout_incomplete_rules_%d" % Time.get_ticks_usec())
+	var validator: GF_PROJECT_LAYOUT_VALIDATOR_SCRIPT = GF_PROJECT_LAYOUT_VALIDATOR_SCRIPT.new()
+	var scaffolder: GF_PROJECT_LAYOUT_SCAFFOLDER_SCRIPT = GF_PROJECT_LAYOUT_SCAFFOLDER_SCRIPT.new()
+	var invalid_rules: Array[Dictionary] = [
+		{
+			"id": "feature_without_roots",
+			"kind": "feature_module_contract",
+			"roots": [],
+		},
+		{
+			"id": "generated_without_patterns",
+			"kind": "generated_boundary",
+			"include": [],
+			"roots": ["generated"],
+		},
+		{
+			"id": "bucket_without_roots",
+			"kind": "bucket_size",
+			"roots": [],
+		},
+	]
+	for invalid_rule: Dictionary in invalid_rules:
+		var profile: Dictionary = {
+			"schema_version": 1,
+			"id": "incomplete_rule",
+			"zones": [],
+			"rules": [invalid_rule],
+		}
+		var validate_result: Dictionary = validator.validate_profile(profile, {
+			"root_path": root_path,
+			"allow_missing_root": true,
+		})
+		var scaffold_result: Dictionary = scaffolder.scaffold_profile(profile, {
+			"root_path": root_path,
+			"dry_run": true,
+		})
+		assert_false(
+			GFVariantData.get_option_bool(validate_result, "success"),
+			"validator 必须拒绝不完整规则：%s。" % GFVariantData.get_option_string(invalid_rule, "id")
+		)
+		assert_false(
+			GFVariantData.get_option_bool(scaffold_result, "success"),
+			"scaffolder 必须拒绝不完整规则：%s。" % GFVariantData.get_option_string(invalid_rule, "id")
+		)
+		assert_true(_has_issue_kind(GFVariantData.get_option_array(validate_result, "issues"), "invalid_string_list_field"))
+		assert_true(_has_issue_kind(GFVariantData.get_option_array(scaffold_result, "issues"), "invalid_string_list_field"))
+
+
+func test_project_layout_tools_reject_absolute_profile_roots_consistently() -> void:
+	var root_path: String = _track_root("user://gf_project_layout_absolute_profile_root_%d" % Time.get_ticks_usec())
+	_make_directory(root_path.path_join("app"))
+	var profile: Dictionary = _make_required_zone_profile("/app")
+	var validator: GF_PROJECT_LAYOUT_VALIDATOR_SCRIPT = GF_PROJECT_LAYOUT_VALIDATOR_SCRIPT.new()
+	var scaffolder: GF_PROJECT_LAYOUT_SCAFFOLDER_SCRIPT = GF_PROJECT_LAYOUT_SCAFFOLDER_SCRIPT.new()
+
+	var validate_result: Dictionary = validator.validate_profile(profile, { "root_path": root_path })
+	var scaffold_result: Dictionary = scaffolder.scaffold_profile(profile, {
+		"root_path": root_path,
+		"dry_run": true,
+	})
+
+	assert_false(GFVariantData.get_option_bool(validate_result, "success"), "validator 不得把 /app 静默改写为 app。")
+	assert_false(GFVariantData.get_option_bool(scaffold_result, "success"), "读写两侧必须使用同一相对路径契约。")
+	assert_true(_has_issue_kind(GFVariantData.get_option_array(validate_result, "issues"), "invalid_relative_path"))
+	assert_true(_has_issue_kind(GFVariantData.get_option_array(scaffold_result, "issues"), "invalid_relative_path"))
+
+
+func test_project_layout_scaffolder_dry_run_detects_blocking_file() -> void:
+	var root_path: String = _track_root("user://gf_project_layout_dry_blocked_%d" % Time.get_ticks_usec())
+	_write_text(root_path.path_join("blocked"), "not a directory")
+	var scaffolder: GF_PROJECT_LAYOUT_SCAFFOLDER_SCRIPT = GF_PROJECT_LAYOUT_SCAFFOLDER_SCRIPT.new()
+
+	var result: Dictionary = scaffolder.scaffold_profile(_make_required_zone_profile("blocked/child"), {
+		"root_path": root_path,
+		"dry_run": true,
+	})
+	var blocked_path: String = root_path.path_join("blocked/child")
+
+	assert_false(GFVariantData.get_option_bool(result, "success"), "dry-run 必须与 apply 共享阻塞路径预检。")
+	assert_true(_has_issue_kind(GFVariantData.get_option_array(result, "issues"), "directory_create_failed"))
+	assert_false(_has_operation_state(GFVariantData.get_option_array(result, "operations"), blocked_path, "planned"), "不可创建的目录不得报告 planned。")
+	assert_false(DirAccess.dir_exists_absolute(ProjectSettings.globalize_path(blocked_path)), "dry-run 不得产生写入。")
+
+
+func test_project_layout_validator_aborts_globally_after_scan_budget_exhaustion() -> void:
+	var root_path: String = _track_root("user://gf_project_layout_global_scan_abort_%d" % Time.get_ticks_usec())
+	for directory_name: String in ["a", "b", "c"]:
+		_write_text(root_path.path_join(directory_name).path_join("first.txt"), "first")
+		_write_text(root_path.path_join(directory_name).path_join("second.txt"), "second")
+	var validator: GF_PROJECT_LAYOUT_VALIDATOR_SCRIPT = GF_PROJECT_LAYOUT_VALIDATOR_SCRIPT.new()
+
+	var result: Dictionary = validator.validate_profile({
+		"schema_version": 1,
+		"id": "global_scan_abort",
+		"zones": [],
+		"rules": [],
+	}, {
+		"root_path": root_path,
+		"max_scanned_files": 1,
+	})
+	var issues: Array = GFVariantData.get_option_array(result, "issues")
+
+	assert_false(GFVariantData.get_option_bool(result, "success"), "耗尽扫描预算必须 fail closed。")
+	assert_eq(_count_issue_kind(issues, "scan_file_limit_reached"), 1, "全局中止只能产生一个确定性预算错误。")
+	assert_eq(GFVariantData.get_option_int(result, "directory_count"), 1, "预算耗尽后不得继续枚举兄弟目录。")
+
+
+func test_project_layout_naming_target_stem_is_honored() -> void:
+	var root_path: String = _track_root("user://gf_project_layout_naming_target_%d" % Time.get_ticks_usec())
+	_write_text(root_path.path_join("GoodName.gd"), "extends RefCounted\n")
+	var validator: GF_PROJECT_LAYOUT_VALIDATOR_SCRIPT = GF_PROJECT_LAYOUT_VALIDATOR_SCRIPT.new()
+
+	var result: Dictionary = validator.validate_profile({
+		"schema_version": 1,
+		"id": "naming_target",
+		"zones": [],
+		"rules": [{
+			"id": "gd_stems",
+			"kind": "naming_convention",
+			"roots": [],
+			"pattern": "^[A-Z][A-Za-z]+$",
+			"target": "stem",
+			"severity": "error",
+		}],
+	}, { "root_path": root_path })
+
+	assert_true(GFVariantData.get_option_bool(result, "success"), "target=stem 只应检查不含扩展名的文件 stem。")
+	assert_false(_has_issue_kind(GFVariantData.get_option_array(result, "issues"), "path_naming_mismatch"))
+
+
+func test_project_layout_reports_do_not_retain_hostile_variant_values() -> void:
+	var hostile_value: RefCounted = RefCounted.new()
+	var profile: Dictionary = {
+		"schema_version": 1,
+		"id": "safe_diagnostics",
+		"zones": [],
+		"rules": [{
+			"id": "bucket",
+			"kind": "bucket_size",
+			"roots": ["legacy"],
+			"max_files": hostile_value,
+		}],
+	}
+	var validator: GF_PROJECT_LAYOUT_VALIDATOR_SCRIPT = GF_PROJECT_LAYOUT_VALIDATOR_SCRIPT.new()
+	var scaffolder: GF_PROJECT_LAYOUT_SCAFFOLDER_SCRIPT = GF_PROJECT_LAYOUT_SCAFFOLDER_SCRIPT.new()
+
+	var validate_result: Dictionary = validator.validate_profile(profile, {
+		"root_path": "user://gf_project_layout_safe_report_missing",
+		"allow_missing_root": true,
+	})
+	var scaffold_result: Dictionary = scaffolder.scaffold_profile(profile, {
+		"root_path": "user://gf_project_layout_safe_report_missing",
+		"dry_run": true,
+	})
+	var non_finite_result: Dictionary = validator.validate_profile(_make_required_zone_profile("app"), {
+		"root_path": "user://gf_project_layout_safe_report_missing",
+		"allow_missing_root": true,
+		"max_scanned_files": NAN,
+	})
+
+	assert_false(GFVariantData.get_option_bool(validate_result, "success"))
+	assert_false(GFVariantData.get_option_bool(scaffold_result, "success"))
+	assert_false(GFVariantData.get_option_bool(non_finite_result, "success"))
+	assert_false(_contains_unsafe_report_value(validate_result), "validator 报告不得保留调用方 Object。")
+	assert_false(_contains_unsafe_report_value(scaffold_result), "scaffolder 报告不得保留调用方 Object。")
+	assert_false(_contains_unsafe_report_value(non_finite_result), "validator 报告不得保留非有限数。")
+
+
 func _track_root(root_path: String) -> String:
 	_temporary_roots.append(root_path)
 	return root_path
@@ -478,6 +729,20 @@ func _make_minimal_feature_profile() -> Dictionary:
 			"allowed_subdirs": ["scripts"],
 			"severity": "error",
 		}],
+	}
+
+
+func _make_required_zone_profile(relative_root: String) -> Dictionary:
+	return {
+		"schema_version": 1,
+		"id": "required_zone_fixture",
+		"zones": [{
+			"id": "required",
+			"roots": [relative_root],
+			"required": true,
+			"severity": "error",
+		}],
+		"rules": [],
 	}
 
 
@@ -501,6 +766,40 @@ func _has_issue_kind(issues: Array, kind: String) -> bool:
 		if issue_value is Dictionary:
 			var issue: Dictionary = issue_value
 			if GFVariantData.get_option_string(issue, "kind") == kind:
+				return true
+	return false
+
+
+func _count_issue_kind(issues: Array, kind: String) -> int:
+	var count: int = 0
+	for issue_value: Variant in issues:
+		if not issue_value is Dictionary:
+			continue
+		var issue: Dictionary = issue_value
+		if GFVariantData.get_option_string(issue, "kind") == kind:
+			count += 1
+	return count
+
+
+func _contains_unsafe_report_value(value: Variant, depth: int = 0) -> bool:
+	if depth > 64:
+		return true
+	if value is Object:
+		return true
+	if value is float:
+		var float_value: float = value
+		return not is_finite(float_value)
+	if value is Array:
+		for item: Variant in value:
+			if _contains_unsafe_report_value(item, depth + 1):
+				return true
+	elif value is Dictionary:
+		var dictionary_value: Dictionary = value
+		for key: Variant in dictionary_value.keys():
+			if (
+				_contains_unsafe_report_value(key, depth + 1)
+				or _contains_unsafe_report_value(dictionary_value[key], depth + 1)
+			):
 				return true
 	return false
 

@@ -46,6 +46,7 @@ var tick_callable: Callable = Callable()
 var physics_tick_callable: Callable = Callable()
 
 ## 完成判断回调，签名为 [code]func(task: GFCallableRuntimeTask, scheduler: GFRuntimeTaskScheduler) -> bool[/code]。
+## 非 bool 返回值会在每个调度代至多告警一次，并按 false 失败关闭。
 ##
 ## [br]
 ## @api public
@@ -81,6 +82,7 @@ var finish_after_initialize: bool = true
 # --- 私有变量 ---
 
 var _scheduler_ref: WeakRef = null
+var _invalid_finished_result_generation: int = -1
 
 
 # --- Godot 生命周期方法 ---
@@ -203,12 +205,12 @@ func is_finished() -> bool:
 		if finished_value is bool:
 			var finished_bool: bool = finished_value
 			return finished_bool
-		if finished_value is int:
-			var finished_int: int = finished_value
-			return finished_int != 0
-		if finished_value is float:
-			var finished_float: float = finished_value
-			return not is_zero_approx(finished_float)
+		var generation: int = get_schedule_generation()
+		if _invalid_finished_result_generation != generation:
+			_invalid_finished_result_generation = generation
+			push_warning(
+				"[GFCallableRuntimeTask] finished_callable 必须返回 bool；无效结果按 false 处理。"
+			)
 	return false
 
 

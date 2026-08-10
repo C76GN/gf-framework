@@ -279,7 +279,7 @@ func build_activation_context( manual_target: Object = null, cast_center: Varian
 | 名称 | 说明 |
 |---|---|
 | `manual_target` | 可选的手动目标。 |
-| `cast_center` | 可选施法中心；传入 `null` 时回退到施法者位置。 |
+| `cast_center` | 可选施法中心；传入 \`null\` 时回退到施法者位置。 |
 | `activation_metadata` | 项目自定义激活元数据。 |
 
 返回：技能激活上下文。
@@ -318,19 +318,20 @@ func get_activation_report(context: RefCounted = null) -> Dictionary:
 ### `execute`
 
 - API：`public`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func execute( manual_target: Object = null, cast_center: Variant = null, activation_metadata: Dictionary = {} ) -> bool:
 ```
 
-执行技能。
+执行技能。 同一实例在任意同步激活回调中再次调用时会以 `activation_in_progress` 拒绝； 如需连锁施放，请延迟调用或使用另一技能实例。
 
 参数：
 
 | 名称 | 说明 |
 |---|---|
 | `manual_target` | 可选的手动目标。 |
-| `cast_center` | 可选施法中心；传入 `null` 时回退到施法者位置。 |
+| `cast_center` | 可选施法中心；传入 \`null\` 时回退到施法者位置。 |
 | `activation_metadata` | 项目自定义激活元数据。 |
 
 返回：技能实际执行并进入冷却时返回 `true`。

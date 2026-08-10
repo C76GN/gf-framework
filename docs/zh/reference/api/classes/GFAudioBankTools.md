@@ -20,6 +20,10 @@
 | 常量 | [`DEFAULT_EXCLUDED_PATHS`](#member-gfaudiobanktools-constants-default_excluded_paths) | `const DEFAULT_EXCLUDED_PATHS: PackedStringArray = ["res://addons"]` |
 | 常量 | [`DEFAULT_MAX_SCAN_DEPTH`](#member-gfaudiobanktools-constants-default_max_scan_depth) | `const DEFAULT_MAX_SCAN_DEPTH: int = 32` |
 | 常量 | [`DEFAULT_MAX_AUDIO_PATHS`](#member-gfaudiobanktools-constants-default_max_audio_paths) | `const DEFAULT_MAX_AUDIO_PATHS: int = 10000` |
+| 常量 | [`DEFAULT_MAX_SCANNED_ENTRIES`](#member-gfaudiobanktools-constants-default_max_scanned_entries) | `const DEFAULT_MAX_SCANNED_ENTRIES: int = 100000` |
+| 常量 | [`ABSOLUTE_MAX_SCAN_DEPTH`](#member-gfaudiobanktools-constants-absolute_max_scan_depth) | `const ABSOLUTE_MAX_SCAN_DEPTH: int = 64` |
+| 常量 | [`ABSOLUTE_MAX_AUDIO_PATHS`](#member-gfaudiobanktools-constants-absolute_max_audio_paths) | `const ABSOLUTE_MAX_AUDIO_PATHS: int = 100000` |
+| 常量 | [`ABSOLUTE_MAX_SCANNED_ENTRIES`](#member-gfaudiobanktools-constants-absolute_max_scanned_entries) | `const ABSOLUTE_MAX_SCANNED_ENTRIES: int = 1000000` |
 | 方法 | [`is_audio_path`](#member-gfaudiobanktools-methods-is_audio_path) | `static func is_audio_path(path: String, extensions: PackedStringArray = AUDIO_EXTENSIONS) -> bool:` |
 | 方法 | [`scan_audio_paths`](#member-gfaudiobanktools-methods-scan_audio_paths) | `static func scan_audio_paths(root_path: String = "res://", options: Dictionary = {}) -> PackedStringArray:` |
 | 方法 | [`create_bank_from_paths`](#member-gfaudiobanktools-methods-create_bank_from_paths) | `static func create_bank_from_paths(paths: PackedStringArray, options: Dictionary = {}) -> GFAudioBank:` |
@@ -100,6 +104,58 @@ const DEFAULT_MAX_AUDIO_PATHS: int = 10000
 
 默认单次扫描收集的音频路径数量上限。
 
+<a id="member-gfaudiobanktools-constants-default_max_scanned_entries"></a>
+
+### `DEFAULT_MAX_SCANNED_ENTRIES`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+const DEFAULT_MAX_SCANNED_ENTRIES: int = 100000
+```
+
+默认单次扫描检查的目录项总数上限。
+
+<a id="member-gfaudiobanktools-constants-absolute_max_scan_depth"></a>
+
+### `ABSOLUTE_MAX_SCAN_DEPTH`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+const ABSOLUTE_MAX_SCAN_DEPTH: int = 64
+```
+
+单次扫描递归深度的框架绝对硬上限。
+
+<a id="member-gfaudiobanktools-constants-absolute_max_audio_paths"></a>
+
+### `ABSOLUTE_MAX_AUDIO_PATHS`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+const ABSOLUTE_MAX_AUDIO_PATHS: int = 100000
+```
+
+单次扫描收集音频路径数量的框架绝对硬上限。
+
+<a id="member-gfaudiobanktools-constants-absolute_max_scanned_entries"></a>
+
+### `ABSOLUTE_MAX_SCANNED_ENTRIES`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+const ABSOLUTE_MAX_SCANNED_ENTRIES: int = 1000000
+```
+
+单次扫描检查目录项总数的框架绝对硬上限。
+
 ## 方法
 
 <a id="member-gfaudiobanktools-methods-is_audio_path"></a>
@@ -128,25 +184,26 @@ static func is_audio_path(path: String, extensions: PackedStringArray = AUDIO_EX
 ### `scan_audio_paths`
 
 - API：`public`
+- 首次版本：`5.0.0`
 
 ```gdscript
 static func scan_audio_paths(root_path: String = "res://", options: Dictionary = {}) -> PackedStringArray:
 ```
 
-递归扫描音频路径。
+递归扫描音频路径。 默认跳过 DirAccess 可识别的 symbolic link。三个 `max_*` 预算始终受框架 绝对上限约束：正数会被 clamp，0 表示请求框架绝对上限，负数恢复默认值。 max_scan_depth、max_audio_paths 与 max_scanned_entries。
 
 参数：
 
 | 名称 | 说明 |
 |---|---|
 | `root_path` | 扫描起点，通常是 res:// 下的目录。 |
-| `options` | 可选项，支持 recursive、include_addons、excluded_paths、extensions、max_scan_depth 与 max_audio_paths。 |
+| `options` | 可选项，支持 recursive、include_addons、excluded_paths、extensions、 |
 
 返回：按字典序排序的音频路径。
 
 结构：
 
-- `options`: Dictionary，可包含 recursive、include_addons、excluded_paths、extensions、max_scan_depth 和 max_audio_paths 字段。
+- `options`: Dictionary，可包含 recursive、include_addons、excluded_paths、extensions、max_scan_depth、max_audio_paths 和 max_scanned_entries 字段。
 
 <a id="member-gfaudiobanktools-methods-create_bank_from_paths"></a>
 

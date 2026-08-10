@@ -102,7 +102,7 @@ resolver.register_provider(ProjectResourceProvider.new(), &"project", 100)
 - 默认会用 `ResourceLoader.exists()` 检查路径是否存在；工具链生成报告或预声明资源时可传 `{ "check_exists": false }`。
 - 默认只接受显式注册键或 provider 候选；工具链确实需要直接把 `res://`、`uid://` 或 `user://` 路径作为资源键时，必须传 `{ "allow_direct_path": true }`。
 - 解析报告中的 `path` 会尽量返回 canonical `res://` 路径；`uid://` 输入仍会保留在 `cache_key` / `resource_identity.uid_path` 中，方便和 `GFAssetUtility` 缓存对齐。
-- 同一资源键可以有多条 owner-scoped 记录，解析时按 `priority` 和注册顺序选择候选。普通 `register_path()` 仍适合项目级单条覆盖；可卸载来源应使用 `register_path_for_owner()`，避免清理时误删其他来源的记录。
+- 同一资源键可以有多条 owner-scoped 记录，解析时按 `priority` 和注册顺序选择候选。普通 `register_path()` 会先完整验证新候选，再只替换该 key 的 ownerless 项目记录；失败时旧记录与注册顺序不变，也不会删除任何 owner-scoped 贡献。可卸载来源应使用 `register_path_for_owner()`，避免清理时误删其他来源的记录。
 - owner 的批量重建应优先使用 `replace_owner_paths()`，不要先 `unregister_owner()` 再逐条注册；后者在中途失败时会暴露部分更新状态。
 - `make_asset_group_entries()` 只会导出包含路径的成功解析结果，并携带 `cache_key` 与 `resource_identity`；内存 `Resource` 不能转成 `GFAssetUtility.preload_group_async()` 请求。
 - provider 协议只是一种贡献资源定位的机制，不应在 provider 内写入具体玩法规则或跨扩展协作逻辑。

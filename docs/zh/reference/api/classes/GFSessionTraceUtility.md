@@ -574,7 +574,7 @@ func build_recipe_snapshot( recipe: GFSessionTraceRecipe, options: Dictionary = 
 | 名称 | 说明 |
 |---|---|
 | `recipe` | 已应用且未变化的配方。 |
-| `options` | 覆盖配方默认值的 `build_snapshot()` 选项。 |
+| `options` | 覆盖配方默认值的 \`build_snapshot()\` 选项。 |
 
 返回：带配方身份的有界轨迹快照；配方不匹配时返回结构化失败。
 

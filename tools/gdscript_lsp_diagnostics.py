@@ -23,6 +23,8 @@ from dataclasses import dataclass
 from typing import Any
 
 from gf_godot_process import resolve_godot_executable
+from gf_maintenance_rendering import encode_strict_json
+from gf_maintenance_rendering import write_json_object_atomic
 
 
 DEFAULT_SCAN_ROOTS = ("addons/gf", "tests/gf_core")
@@ -46,6 +48,13 @@ SEVERITY_NAMES = {
 }
 WARNING_CODE_PATTERN = re.compile(r"^\(([^)]+)\):\s*(.*)$")
 WORKSPACE_PROBE_CLASS = "GFVariantData"
+MAX_LSP_HEADER_BYTES = 16 * 1024
+MAX_LSP_BODY_BYTES = 16 * 1024 * 1024
+LSP_RECEIVE_CHUNK_BYTES = 4096
+
+
+class LspProtocolError(RuntimeError):
+	"""The peer sent an invalid, truncated, or deadline-exhausted LSP frame."""
 
 
 @dataclass(frozen=True)
@@ -57,6 +66,7 @@ class LspClient:
 	def __init__(self, host: str, port: int) -> None:
 		self._socket = socket.create_connection((host, port), timeout=5.0)
 		self._next_id = 1
+		self._receive_buffer = bytearray()
 
 	def close(self) -> None:
 		try:
@@ -83,44 +93,67 @@ class LspClient:
 		})
 
 	def send(self, payload: dict[str, Any]) -> None:
-		data = json.dumps(payload, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
+		data = encode_strict_json(payload).encode("utf-8")
 		header = f"Content-Length: {len(data)}\r\n\r\n".encode("ascii")
 		self._socket.settimeout(None)
 		self._socket.sendall(header + data)
 
 	def receive(self, timeout: float) -> JsonRpcMessage | None:
-		self._socket.settimeout(timeout)
+		deadline = time.monotonic() + max(timeout, 0.0)
+		header_end = self._receive_buffer.find(b"\r\n\r\n")
+		while header_end < 0:
+			if len(self._receive_buffer) >= MAX_LSP_HEADER_BYTES:
+				raise LspProtocolError("LSP header exceeds the configured byte limit.")
+			if not self._receive_until(deadline, MAX_LSP_HEADER_BYTES):
+				return None
+			header_end = self._receive_buffer.find(b"\r\n\r\n")
+		header_size = header_end + 4
+		if header_size > MAX_LSP_HEADER_BYTES:
+			raise LspProtocolError("LSP header exceeds the configured byte limit.")
+		length = _parse_content_length(bytes(self._receive_buffer[:header_size]))
+		frame_size = header_size + length
+		while len(self._receive_buffer) < frame_size:
+			self._receive_until(deadline, frame_size)
+		body = bytes(self._receive_buffer[header_size:frame_size])
+		del self._receive_buffer[:frame_size]
 		try:
-			header = self._read_header()
-			if header is None:
-				return None
-			length = _parse_content_length(header)
-			if length <= 0:
-				return None
-			body = self._read_exact(length)
-		except socket.timeout:
-			return None
-		except OSError:
-			return None
-		return JsonRpcMessage(json.loads(body.decode("utf-8", errors="replace")))
+			text = body.decode("utf-8", errors="strict")
+			payload = json.loads(
+				text,
+				object_pairs_hook=_reject_duplicate_json_object_keys,
+				parse_constant=_reject_json_constant,
+			)
+		except (UnicodeDecodeError, json.JSONDecodeError, RecursionError, ValueError) as error:
+			raise LspProtocolError(f"Invalid LSP JSON body: {error}") from error
+		if not isinstance(payload, dict):
+			raise LspProtocolError("LSP JSON-RPC body must be an object.")
+		return JsonRpcMessage(payload)
 
-	def _read_header(self) -> bytes | None:
-		header = b""
-		while b"\r\n\r\n" not in header:
-			chunk = self._socket.recv(1)
-			if not chunk:
-				return None
-			header += chunk
-		return header
-
-	def _read_exact(self, length: int) -> bytes:
-		data = b""
-		while len(data) < length:
-			chunk = self._socket.recv(length - len(data))
-			if not chunk:
-				raise OSError("LSP socket closed")
-			data += chunk
-		return data
+	def _receive_until(self, deadline: float, maximum_buffer_size: int) -> bool:
+		remaining = deadline - time.monotonic()
+		if remaining <= 0.0:
+			if self._receive_buffer:
+				raise LspProtocolError("LSP frame deadline exhausted after partial input.")
+			return False
+		self._socket.settimeout(remaining)
+		try:
+			chunk = self._socket.recv(
+				min(LSP_RECEIVE_CHUNK_BYTES, maximum_buffer_size - len(self._receive_buffer))
+			)
+		except socket.timeout as error:
+			if self._receive_buffer:
+				raise LspProtocolError("LSP frame deadline exhausted after partial input.") from error
+			return False
+		except OSError as error:
+			if self._receive_buffer:
+				raise LspProtocolError("LSP connection failed after partial input.") from error
+			return False
+		if not chunk:
+			if self._receive_buffer:
+				raise LspProtocolError("LSP connection closed after partial input.")
+			return False
+		self._receive_buffer.extend(chunk)
+		return True
 
 
 def main() -> int:
@@ -137,7 +170,7 @@ def main() -> int:
 	spawned = False
 	connection_fallback_reason = ""
 	workspace_definition_uri = ""
-	started_at = time.time()
+	started_at = time.monotonic()
 
 	try:
 		client: LspClient | None = None
@@ -206,7 +239,7 @@ def main() -> int:
 			port,
 			spawned,
 			fail_severities,
-			time.time() - started_at,
+			time.monotonic() - started_at,
 		)
 		report["transport"]["configured_port"] = configured_port
 		report["transport"]["workspace_definition_uri"] = workspace_definition_uri
@@ -217,7 +250,7 @@ def main() -> int:
 		if args.output_json:
 			_write_json(pathlib.Path(args.output_json), report)
 		if args.format == "json":
-			print(json.dumps(report, ensure_ascii=False, indent=2))
+			print(encode_strict_json(report, indent=2))
 		else:
 			_print_text_report(report, args.limit)
 
@@ -379,8 +412,8 @@ def _start_godot_lsp(
 
 
 def _wait_for_port(host: str, port: int, timeout: float) -> bool:
-	deadline = time.time() + timeout
-	while time.time() < deadline:
+	deadline = time.monotonic() + timeout
+	while time.monotonic() < deadline:
 		try:
 			with socket.create_connection((host, port), timeout=0.5):
 				return True
@@ -411,9 +444,9 @@ def _initialize_lsp(client: LspClient, project_root: pathlib.Path, timeout: floa
 			},
 		],
 	})
-	deadline = time.time() + timeout
-	while time.time() < deadline:
-		message = client.receive(0.5)
+	deadline = time.monotonic() + timeout
+	while time.monotonic() < deadline:
+		message = client.receive(min(0.5, max(deadline - time.monotonic(), 0.0)))
 		if message is None:
 			continue
 		if message.payload.get("id") == request_id:
@@ -468,9 +501,9 @@ def _verify_lsp_workspace(
 
 
 def _wait_for_lsp_response(client: LspClient, request_id: int, timeout: float) -> dict[str, Any]:
-	deadline = time.time() + timeout
-	while time.time() < deadline:
-		message = client.receive(0.5)
+	deadline = time.monotonic() + timeout
+	while time.monotonic() < deadline:
+		message = client.receive(min(0.5, max(deadline - time.monotonic(), 0.0)))
 		if message is not None and message.payload.get("id") == request_id:
 			return message.payload
 	raise RuntimeError("Godot LSP workspace probe timed out")
@@ -596,9 +629,9 @@ def _wait_for_file_diagnostics(
 	timeout: float,
 ) -> list[dict[str, Any]] | None:
 	expected = _normalized_path_key(path)
-	deadline = time.time() + timeout
-	while time.time() < deadline:
-		message = client.receive(0.25)
+	deadline = time.monotonic() + timeout
+	while time.monotonic() < deadline:
+		message = client.receive(min(0.25, max(deadline - time.monotonic(), 0.0)))
 		if message is None:
 			continue
 		if message.payload.get("method") != "textDocument/publishDiagnostics":
@@ -734,15 +767,13 @@ def _print_tool_error(message: str, log_path: pathlib.Path | None) -> int:
 def _write_json(path: pathlib.Path, report: dict[str, Any]) -> None:
 	if not path.is_absolute():
 		path = pathlib.Path.cwd() / path
-	path.parent.mkdir(parents=True, exist_ok=True)
-	path.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+	write_json_object_atomic(path, report)
 
 
 def _write_connection_audit_log(path: pathlib.Path, report: dict[str, Any]) -> None:
 	if not path.is_absolute():
 		path = pathlib.Path.cwd() / path
-	path.parent.mkdir(parents=True, exist_ok=True)
-	path.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+	write_json_object_atomic(path, report)
 
 
 def _read_text(path: pathlib.Path) -> str:
@@ -753,10 +784,45 @@ def _read_text(path: pathlib.Path) -> str:
 
 
 def _parse_content_length(header: bytes) -> int:
-	for line in header.decode("ascii", errors="replace").split("\r\n"):
-		if line.lower().startswith("content-length:"):
-			return int(line.split(":", 1)[1].strip())
-	return 0
+	if len(header) > MAX_LSP_HEADER_BYTES:
+		raise LspProtocolError("LSP header exceeds the configured byte limit.")
+	try:
+		text = header.decode("ascii", errors="strict")
+	except UnicodeDecodeError as error:
+		raise LspProtocolError("LSP header must be ASCII.") from error
+	if not text.endswith("\r\n\r\n"):
+		raise LspProtocolError("LSP header terminator is missing.")
+	content_lengths: list[str] = []
+	for line in text[:-4].split("\r\n"):
+		if not line:
+			continue
+		if ":" not in line:
+			raise LspProtocolError("Malformed LSP header field.")
+		name, value = line.split(":", 1)
+		if name.strip().lower() == "content-length":
+			content_lengths.append(value.strip())
+	if len(content_lengths) != 1:
+		raise LspProtocolError("LSP frame must contain exactly one Content-Length field.")
+	raw_length = content_lengths[0]
+	if not raw_length or not raw_length.isascii() or not raw_length.isdecimal():
+		raise LspProtocolError("LSP Content-Length must be an unsigned decimal integer.")
+	length = int(raw_length)
+	if length <= 0 or length > MAX_LSP_BODY_BYTES:
+		raise LspProtocolError("LSP Content-Length is outside the configured byte range.")
+	return length
+
+
+def _reject_duplicate_json_object_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+	result: dict[str, Any] = {}
+	for key, value in pairs:
+		if key in result:
+			raise ValueError(f"duplicate JSON object key: {key}")
+		result[key] = value
+	return result
+
+
+def _reject_json_constant(value: str) -> Any:
+	raise ValueError(f"non-finite JSON number: {value}")
 
 
 def _parse_csv(text: str) -> set[str]:

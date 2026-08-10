@@ -40,8 +40,10 @@ from gdscript_api_parser import ApiMember
 from gdscript_api_parser import ApiScript
 from gdscript_api_parser import collect_api_scripts
 from gdscript_api_parser import parse_gdscript_source
+from gdscript_api_parser import scan_gdscript_structure
 from gdscript_api_parser import visibility_of
 import generated_output_transaction
+import build_gf_package
 from build_gf_release_artifacts import audit_release_artifact_manifest
 from generated_output_transaction import GeneratedOutputTransactionError
 from generated_output_transaction import lexical_absolute_path
@@ -71,7 +73,7 @@ from gf_maintenance_check_graph import stable_fingerprint
 from gf_maintenance_check_graph import workspace_fingerprint
 from gf_package_paths import ManifestPathIndex
 from gf_package_paths import manifest_path_matches as shared_manifest_path_matches
-from gf_package_paths import normalize_manifest_path as normalize_shared_manifest_path
+from gf_package_paths import portable_manifest_path_identity as shared_portable_manifest_path_identity
 from gf_package_artifact_set import PackageArtifactSet
 from gf_package_artifact_set import PackageArtifactDeadlineError
 from gf_package_artifact_set import PackageArtifactSetError
@@ -174,6 +176,7 @@ GODOT_EXIT_LEAK_PATTERNS = (
 	"resource still in use at exit",
 	"resources still in use at exit",
 	"rid allocations",
+	"was leaked at exit",
 	"were leaked at exit",
 )
 GUT_LIFECYCLE_GATE_PREFIX = "GF_TEST_LIFECYCLE_GATE="
@@ -232,7 +235,7 @@ GODOT_RESOURCE_STILL_IN_USE_RE = re.compile(
 	r"^Resource still in use: (?P<path>.+?) \((?P<type>[^)]+)\)"
 )
 GODOT_OBJECTDB_SUMMARY_RE = re.compile(
-	r"^(?:WARNING:\s*)?(?:(?P<count>\d+)\s+)?ObjectDB instances (?:were )?leaked at exit"
+	r"^(?:WARNING:\s*)?(?:(?P<count>\d+)\s+)?ObjectDB instances? (?:(?:was|were) )?leaked at exit"
 	r"(?: \(run with [^)]+\))?\.$"
 )
 GODOT_RESOURCE_SUMMARY_RE = re.compile(
@@ -409,6 +412,8 @@ RESOURCE_BOUNDARY_OBSERVATION_KINDS = {
 }
 RESOURCE_BOUNDARY_OBSERVATION_SAMPLE_LIMIT = 12
 CONTENT_PACKAGE_MANIFEST_FILE = "gf_content_package.json"
+CONTENT_PACKAGE_SCHEMA_VERSION = 1
+CONTENT_PACKAGE_SAFETY_KINDS = {"data_only", "trusted_developer"}
 CONTENT_PACKAGE_ALLOWED_FIELDS = {
 	"schema_version",
 	"package_id",
@@ -418,6 +423,8 @@ CONTENT_PACKAGE_ALLOWED_FIELDS = {
 	"version",
 	"content_types",
 	"dependencies",
+	"safety_kind",
+	"forbidden_resource_extensions",
 	"resources",
 	"metadata",
 }
@@ -528,6 +535,8 @@ PACKAGE_FOCUSED_GUT_MAPPING_RELATIVE_PATH = "tests/gf_core/package_focused_gut_m
 PACKAGE_FOCUSED_GUT_MAPPING_PATH = ROOT / PACKAGE_FOCUSED_GUT_MAPPING_RELATIVE_PATH
 PACKAGE_FOCUSED_GUT_MAPPING_SCHEMA_VERSION = 1
 PACKAGE_FOCUSED_GUT_TEST_ROOT = "res://tests/gf_core/"
+EDITOR_CONTRIBUTION_MANIFEST_NAME = "gf_editor_contributions.json"
+EDITOR_CONTRIBUTION_TARGET_FIELDS = ("path", "template_path")
 PACKAGE_FOCUSED_GUT_ALLOWED_EXTERNAL_PREFIXES = {
 	"gf.standard.editor": ("res://tests/gf_core/kernel/editor/",),
 }
@@ -628,6 +637,9 @@ PACKAGE_MANIFEST_FORBIDDEN_METADATA_FIELDS = (
 )
 PACKAGE_MANIFEST_KINDS = {"kernel", "standard", "extension", "preset", "tool"}
 PACKAGE_MANIFEST_SCHEMA_VERSION = 1
+PACKAGE_MANIFEST_MAX_BYTES = 1024 * 1024
+PACKAGE_MANIFEST_MAX_DEPTH = 64
+PACKAGE_MANIFEST_MAX_NODES = 16 * 1024
 PACKAGE_REGISTRY_SCHEMA_VERSION = 2
 PACKAGE_ID_RE = re.compile(r"^(?:gf\.kernel|gf\.(?:standard|extension|preset|tool)\.[a-z0-9_]+(?:\.[a-z0-9_]+)*)$")
 PACKAGE_CLOSURE_EXTENSION_TOTAL_WARNING_THRESHOLD = 8
@@ -987,6 +999,26 @@ CHECK_DEFINITIONS: dict[str, list[str]] = {
 	"path_hygiene": [sys.executable, "tools/gf_maintenance.py", "path-hygiene"],
 	"dependency_boundary": [sys.executable, "tools/gf_maintenance.py", "dependency-boundary"],
 	"maintenance_self_test": [sys.executable, "tools/gf_maintenance.py", "maintenance-self-test"],
+	"maintenance_execution_tests": [
+		sys.executable,
+		"tests/gf_core/tools/test_gf_maintenance_execution.py",
+	],
+	"maintenance_generator_tests": [
+		sys.executable,
+		"tests/gf_core/tools/test_gf_maintenance_generators.py",
+	],
+	"maintenance_test_evidence_tests": [
+		sys.executable,
+		"tests/gf_core/tools/test_gf_maintenance_test_evidence.py",
+	],
+	"package_distribution_tests": [
+		sys.executable,
+		"tests/gf_core/kernel/package/test_gf_package_distribution.py",
+	],
+	"package_schema_contract_tests": [
+		sys.executable,
+		"tests/gf_core/kernel/package/test_gf_package_schema_contracts.py",
+	],
 	"gdscript_warnings": [
 		"godot",
 		"--headless",
@@ -1041,6 +1073,7 @@ CHECK_DEFINITIONS: dict[str, list[str]] = {
 		"tools/sync_reference_project.py",
 		"--project-root",
 		DEFAULT_REFERENCE_PROJECT,
+		"--apply",
 	],
 	"examples_scan": [
 		"godot",
@@ -1084,6 +1117,7 @@ CHECK_DEFINITIONS: dict[str, list[str]] = {
 		DEFAULT_REFERENCE_PROJECT,
 		"--output",
 		"ai_analysis/api_coverage_reference_project",
+		"--allow-unsafe-output-root",
 		"--check",
 	],
 }
@@ -1145,6 +1179,9 @@ LIGHT_BOUNDARY_CHECKS: list[str] = [
 	"credential_gate_tests",
 	"codeql_suppression_policy",
 	"codeql_suppression_policy_tests",
+	"maintenance_execution_tests",
+	"maintenance_generator_tests",
+	"maintenance_test_evidence_tests",
 	"path_hygiene",
 	"dependency_boundary",
 	"diff",
@@ -1171,6 +1208,8 @@ PACKAGE_CONTRACT_CHECKS: list[str] = [
 	"core_only_smoke",
 	"core_plugin_bootstrap_smoke",
 	"package_focused_gut_mapping",
+	"package_distribution_tests",
+	"package_schema_contract_tests",
 	*PACKAGE_CONTRACT_SMOKE_CHECKS,
 ]
 PACKAGE_CHECKS: list[str] = [
@@ -1213,6 +1252,9 @@ FULL_CHECKS: list[str] = [
 	"codeql_suppression_policy_tests",
 	"path_hygiene",
 	"maintenance_self_test",
+	"maintenance_execution_tests",
+	"maintenance_generator_tests",
+	"maintenance_test_evidence_tests",
 	"dependency_boundary",
 	"gdscript_warnings",
 	"gdscript_lsp_diagnostics",
@@ -1243,6 +1285,9 @@ RELEASE_CHECKS: list[str] = [
 	"codeql_suppression_policy_tests",
 	"path_hygiene",
 	"maintenance_self_test",
+	"maintenance_execution_tests",
+	"maintenance_generator_tests",
+	"maintenance_test_evidence_tests",
 	"dependency_boundary",
 	"gdscript_warnings",
 	"gdscript_lsp_diagnostics",
@@ -1276,6 +1321,9 @@ FRAMEWORK_STATIC_CHECKS: list[str] = [
 	"codeql_suppression_policy_tests",
 	"path_hygiene",
 	"maintenance_self_test",
+	"maintenance_execution_tests",
+	"maintenance_generator_tests",
+	"maintenance_test_evidence_tests",
 	"dependency_boundary",
 	"diff",
 ]
@@ -1302,6 +1350,9 @@ FRAMEWORK_CHECKS: list[str] = [
 	"codeql_suppression_policy_tests",
 	"path_hygiene",
 	"maintenance_self_test",
+	"maintenance_execution_tests",
+	"maintenance_generator_tests",
+	"maintenance_test_evidence_tests",
 	"dependency_boundary",
 	"gdscript_warnings",
 	"gdscript_lsp_diagnostics",
@@ -3245,7 +3296,7 @@ def path_hygiene() -> dict[str, Any]:
 		*find_case_collision_issues(scanned_paths),
 		*find_blocked_tracked_dir_issues(scanned_paths),
 		*find_missing_local_github_action_issues(scanned_paths),
-		*find_gdscript_utf8_bom_issues(scanned_paths),
+		*find_gdscript_text_format_issues(scanned_paths),
 	]
 	return {
 		"ok": len(issues) == 0,
@@ -3871,16 +3922,112 @@ def package_closure_audit() -> dict[str, Any]:
 	closure_rows: list[dict[str, Any]] = []
 	standard_fan_in: list[dict[str, Any]] = []
 	if package_issue_error_count(issues) == 0:
-		closure_rows = collect_package_closure_rows(records)
-		standard_fan_in = collect_package_standard_fan_in(records, closure_rows)
-		issues.extend(audit_package_closure_rows(records, closure_rows))
-		issues.extend(audit_package_closure_baselines(closure_rows, standard_fan_in))
+		payload_metrics, payload_issues = collect_package_payload_metrics(records)
+		issues.extend(payload_issues)
+		if package_issue_error_count(payload_issues) == 0:
+			closure_rows = collect_package_closure_rows(records, payload_metrics)
+			standard_fan_in = collect_package_standard_fan_in(records, closure_rows)
+			issues.extend(audit_package_closure_rows(records, closure_rows))
+			issues.extend(audit_package_closure_baselines(closure_rows, standard_fan_in))
 	return make_package_closure_audit_payload(records, closure_rows, standard_fan_in, issues)
 
 
-def collect_package_closure_rows(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
+def collect_package_payload_metrics(
+	records: list[dict[str, Any]],
+	candidate_paths: list[str] | None = None,
+	size_by_path: dict[str, int] | None = None,
+) -> tuple[dict[str, dict[str, int]], list[dict[str, Any]]]:
+	issues: list[dict[str, Any]] = []
+	if candidate_paths is None:
+		paths_payload = collect_package_distribution_boundary_paths()
+		issues.extend(paths_payload["errors"])
+		candidate_paths = paths_payload["paths"]
+	if issues:
+		return {}, issues
+
+	metrics = {
+		str(record.get("id", "")): {
+			"file_count": 0,
+			"gdscript_count": 0,
+			"size_bytes": 0,
+		}
+		for record in records
+		if record.get("id") and record.get("kind") != "preset"
+	}
+	ownership_index = PackageOwnershipIndex(collect_package_source_owner_entries(records))
+	for candidate_path in sorted(set(candidate_paths)):
+		owners = ownership_index.find_owners(candidate_path)
+		if len(owners) != 1:
+			issues.append(make_package_issue(
+				"package_payload_multiply_owned_file" if owners else "package_payload_unowned_file",
+				candidate_path,
+				"Closure payload metrics require every distributable file to have exactly one effective package owner.",
+				actual_value=sorted({str(owner.get("package_id", "")) for owner in owners}),
+			))
+			continue
+		file_size = package_payload_file_size(candidate_path, size_by_path, issues)
+		if file_size is None:
+			continue
+		package_id = str(owners[0].get("package_id", ""))
+		package_metrics = metrics.setdefault(package_id, {
+			"file_count": 0,
+			"gdscript_count": 0,
+			"size_bytes": 0,
+		})
+		package_metrics["file_count"] += 1
+		package_metrics["size_bytes"] += file_size
+		if Path(candidate_path).suffix.lower() == ".gd":
+			package_metrics["gdscript_count"] += 1
+	return metrics, issues
+
+
+def package_payload_file_size(
+	path: str,
+	size_by_path: dict[str, int] | None,
+	issues: list[dict[str, Any]],
+) -> int | None:
+	if size_by_path is not None:
+		value = size_by_path.get(path)
+		if type(value) is int and value >= 0:
+			return value
+		issues.append(make_package_issue(
+			"invalid_package_payload_size",
+			path,
+			"Closure payload fixture sizes must be non-negative integers.",
+			actual_value=value,
+		))
+		return None
+
+	source_path = ROOT / path
+	try:
+		if gf_path_security.path_has_reparse_component(source_path):
+			raise OSError("path crosses a symlink, junction, or reparse point")
+		metadata = source_path.lstat()
+	except OSError as error:
+		issues.append(make_package_issue(
+			"package_payload_file_unreadable",
+			path,
+			"Closure payload metrics require stable regular files under the repository root.",
+			error=trim_text(str(error), 300),
+		))
+		return None
+	if not stat.S_ISREG(metadata.st_mode) or stat.S_ISLNK(metadata.st_mode):
+		issues.append(make_package_issue(
+			"package_payload_file_not_regular",
+			path,
+			"Closure payload metrics reject non-regular files.",
+		))
+		return None
+	return int(metadata.st_size)
+
+
+def collect_package_closure_rows(
+	records: list[dict[str, Any]],
+	payload_metrics: dict[str, dict[str, int]] | None = None,
+) -> list[dict[str, Any]]:
 	records_by_id = package_records_by_id(records)
 	closure_cache: dict[str, list[str]] = {}
+	metrics_by_id = payload_metrics or {}
 
 	def visit(package_id: str) -> list[str]:
 		if package_id in closure_cache:
@@ -3905,6 +4052,19 @@ def collect_package_closure_rows(records: list[dict[str, Any]]) -> list[dict[str
 			continue
 		closure = visit(package_id)
 		kind_counts = package_closure_kind_count_items(closure, records_by_id)
+		direct_metrics = metrics_by_id.get(package_id, {})
+		payload_file_count = sum(
+			int(metrics_by_id.get(closure_id, {}).get("file_count", 0))
+			for closure_id in closure
+		)
+		payload_gdscript_count = sum(
+			int(metrics_by_id.get(closure_id, {}).get("gdscript_count", 0))
+			for closure_id in closure
+		)
+		payload_size_bytes = sum(
+			int(metrics_by_id.get(closure_id, {}).get("size_bytes", 0))
+			for closure_id in closure
+		)
 		rows.append({
 			"package_id": package_id,
 			"kind": str(record.get("kind", "")),
@@ -3917,6 +4077,12 @@ def collect_package_closure_rows(records: list[dict[str, Any]]) -> list[dict[str
 			"extension_count": package_closure_kind_count(kind_counts, "extension"),
 			"preset_count": package_closure_kind_count(kind_counts, "preset"),
 			"kind_counts": kind_counts,
+			"owned_file_count": int(direct_metrics.get("file_count", 0)),
+			"owned_gdscript_count": int(direct_metrics.get("gdscript_count", 0)),
+			"owned_size_bytes": int(direct_metrics.get("size_bytes", 0)),
+			"payload_file_count": payload_file_count,
+			"payload_gdscript_count": payload_gdscript_count,
+			"payload_size_bytes": payload_size_bytes,
 		})
 	return rows
 
@@ -4478,6 +4644,8 @@ def core_plugin_bootstrap_smoke() -> dict[str, Any]:
 			"kernel_only",
 			"partial_standard_legacy_script_residual",
 			"partial_standard_manifest_missing_targets",
+			"partial_standard_manifest_invalid",
+			"refresh_request_burst",
 		]:
 			scenarios.append(run_core_plugin_bootstrap_smoke_scenario(temp_root, scenario_name, issues))
 		return make_core_plugin_bootstrap_smoke_payload(scenarios, issues)
@@ -4501,8 +4669,11 @@ def run_core_plugin_bootstrap_smoke_scenario(
 		"--path",
 		str(project_root),
 		"--editor",
-		"--quit",
 	]
+	if scenario_name == "refresh_request_burst":
+		command.extend(["--quit-after", "600"])
+	else:
+		command.append("--quit")
 	return_code = -1
 	try:
 		completed = run_maintenance_subprocess(command, timeout_seconds=180)
@@ -4534,6 +4705,51 @@ def run_core_plugin_bootstrap_smoke_scenario(
 				row_key=scenario_name,
 				error=package_godot_smoke_output_excerpt(combined_output),
 			))
+		expected_diagnostic_state = {
+			"partial_standard_manifest_missing_targets": "degraded",
+			"partial_standard_manifest_invalid": "invalid",
+		}.get(scenario_name)
+		diagnostic_marker = "[GF Framework][PLUGIN-BOOT-001]"
+		if expected_diagnostic_state is None and diagnostic_marker in combined_output:
+			issues.append(make_package_issue(
+				"core_plugin_bootstrap_smoke_unexpected_manifest_diagnostic",
+				"godot",
+				"An absent optional standard manifest must not emit a corruption diagnostic.",
+				row_key=scenario_name,
+				error=package_godot_smoke_output_excerpt(combined_output),
+			))
+		elif expected_diagnostic_state is not None and (
+			diagnostic_marker not in combined_output
+			or f"state={expected_diagnostic_state}" not in combined_output
+		):
+			issues.append(make_package_issue(
+				"core_plugin_bootstrap_smoke_missing_manifest_diagnostic",
+				"godot",
+				"Partial or invalid standard manifests must emit their stable bootstrap state.",
+				row_key=scenario_name,
+				expected_value=expected_diagnostic_state,
+				error=package_godot_smoke_output_excerpt(combined_output),
+			))
+		if scenario_name == "refresh_request_burst":
+			refresh_marker = "[GF Framework] 已刷新 GF 编辑器贡献记录（generation=100）。"
+			if log_text.count(refresh_marker) != 1:
+				issues.append(make_package_issue(
+					"core_plugin_bootstrap_smoke_refresh_not_coalesced",
+					"godot",
+					"A same-frame refresh burst must publish exactly one latest-generation result after scanning.",
+					row_key=scenario_name,
+					actual_value=str(log_text.count(refresh_marker)),
+					expected_value="1",
+					error=package_godot_smoke_output_excerpt(combined_output),
+				))
+			if "[GF Framework][PLUGIN-BOOT-002]" in combined_output:
+				issues.append(make_package_issue(
+					"core_plugin_bootstrap_smoke_refresh_failed",
+					"godot",
+					"The real EditorFileSystem refresh burst reported a bounded refresh failure.",
+					row_key=scenario_name,
+					error=package_godot_smoke_output_excerpt(combined_output),
+				))
 	except subprocess.TimeoutExpired as error:
 		issues.append(make_package_issue(
 			"core_plugin_bootstrap_smoke_timeout",
@@ -4583,10 +4799,29 @@ def prepare_core_plugin_bootstrap_smoke_project(project_root: Path, scenario_nam
 		)
 	elif scenario_name == "partial_standard_manifest_missing_targets":
 		manifest_target = gf_root / "standard/editor/gf_editor_contributions.json"
-		template_target = gf_root / "standard/editor/templates"
 		manifest_target.parent.mkdir(parents=True, exist_ok=True)
 		shutil.copy2(ROOT / "addons/gf/standard/editor/gf_editor_contributions.json", manifest_target)
-		shutil.copytree(ROOT / "addons/gf/standard/editor/templates", template_target, dirs_exist_ok=True)
+	elif scenario_name == "partial_standard_manifest_invalid":
+		manifest_target = gf_root / "standard/editor/gf_editor_contributions.json"
+		manifest_target.parent.mkdir(parents=True, exist_ok=True)
+		manifest_target.write_text('{"schema_version":', encoding="utf-8")
+	elif scenario_name == "refresh_request_burst":
+		plugin_path = gf_root / "plugin.gd"
+		plugin_source = plugin_path.read_text(encoding="utf-8")
+		setup_marker = '\tcall_deferred("_setup_dock_tools")'
+		if setup_marker not in plugin_source:
+			raise RuntimeError("Core plugin refresh smoke could not locate the deferred dock setup marker.")
+		plugin_source = plugin_source.replace(
+			setup_marker,
+			setup_marker + '\n\tcall_deferred("_core_plugin_refresh_smoke_probe")',
+			1,
+		)
+		plugin_source += (
+			"\n\nfunc _core_plugin_refresh_smoke_probe() -> void:\n"
+			"\tfor _index: int in 100:\n"
+			"\t\t_refresh_editor_contributions()\n"
+		)
+		plugin_path.write_text(plugin_source, encoding="utf-8")
 
 
 def write_core_plugin_bootstrap_smoke_project_file(project_root: Path) -> None:
@@ -4622,6 +4857,233 @@ def make_core_plugin_bootstrap_smoke_payload(
 	}
 
 
+PACKAGE_INTERNAL_SOURCE_CONTRACT_PATHS: tuple[str, ...] = (
+	"addons/gf/kernel/package/gf_package_manager_backend.gd",
+	"addons/gf/kernel/package/gf_package_transaction_engine.gd",
+	"addons/gf/kernel/package/gf_package_cache_policy.gd",
+	"addons/gf/kernel/package/gf_package_filesystem_cache_store.gd",
+	"addons/gf/kernel/package/gf_package_cli.gd",
+)
+
+
+def _gdscript_top_level_function_bodies(source: str) -> dict[str, str]:
+	structural_lines, starts_in_multiline = scan_gdscript_structure(source.splitlines())
+	declarations: list[tuple[int, str]] = []
+	for index, structural_line in enumerate(structural_lines):
+		if starts_in_multiline[index]:
+			continue
+		match = re.match(r"^(?:static\s+)?func\s+([A-Za-z_]\w*)\s*\(", structural_line)
+		if match:
+			declarations.append((index, match.group(1)))
+	result: dict[str, str] = {}
+	for declaration_index, (start_index, function_name) in enumerate(declarations):
+		end_index = (
+			declarations[declaration_index + 1][0]
+			if declaration_index + 1 < len(declarations)
+			else len(structural_lines)
+		)
+		result[function_name] = "\n".join(structural_lines[start_index:end_index])
+	return result
+
+
+def _gdscript_top_level_literal_constants(source: str) -> tuple[dict[str, str], dict[str, str]]:
+	structural_lines, starts_in_multiline = scan_gdscript_structure(source.splitlines())
+	preloads: dict[str, str] = {}
+	strings: dict[str, str] = {}
+	preload_re = re.compile(
+		r"^\s*const\s+(?P<name>[A-Za-z_]\w*)(?:\s*:[^=]+)?\s*=\s*"
+		r"preload\(\s*(?P<quote>[\"'])(?P<value>[^\"']*)(?P=quote)\s*\)\s*$"
+	)
+	string_re = re.compile(
+		r"^\s*const\s+(?P<name>[A-Za-z_]\w*)(?:\s*:[^=]+)?\s*=\s*"
+		r"(?P<quote>[\"'])(?P<value>[^\"']*)(?P=quote)\s*$"
+	)
+	for index, raw_line in enumerate(source.splitlines()):
+		if starts_in_multiline[index]:
+			continue
+		structural_match = re.match(
+			r"^const\s+([A-Za-z_]\w*)\b",
+			structural_lines[index],
+		)
+		if structural_match == None:
+			continue
+		code_line = strip_gdscript_line_comment(raw_line).strip()
+		if preload_match := preload_re.match(code_line):
+			preloads[preload_match.group("name")] = preload_match.group("value")
+			continue
+		if string_match := string_re.match(code_line):
+			strings[string_match.group("name")] = string_match.group("value")
+	return preloads, strings
+
+
+def audit_package_internal_source_contracts(
+	source_overrides: dict[str, str] | None = None,
+) -> list[dict[str, Any]]:
+	overrides = source_overrides or {}
+	sources: dict[str, str] = {}
+	issues: list[dict[str, Any]] = []
+	for source_path in PACKAGE_INTERNAL_SOURCE_CONTRACT_PATHS:
+		if source_path in overrides:
+			sources[source_path] = overrides[source_path]
+			continue
+		try:
+			sources[source_path] = (ROOT / source_path).read_text(encoding="utf-8")
+		except (OSError, UnicodeDecodeError) as error:
+			issues.append(make_package_issue(
+				"package_internal_source_unreadable",
+				source_path,
+				"Package internal source contracts require readable UTF-8 GDScript.",
+				error=str(error),
+			))
+	if issues:
+		return issues
+
+	backend_path, engine_path, policy_path, store_path, cli_path = PACKAGE_INTERNAL_SOURCE_CONTRACT_PATHS
+	expected_preloads = {
+		backend_path: {
+			"_GF_PACKAGE_CACHE_POLICY": policy_path.replace("addons/", "res://addons/", 1),
+			"_GF_PACKAGE_FILESYSTEM_CACHE_STORE": store_path.replace("addons/", "res://addons/", 1),
+			"_GF_PACKAGE_TRANSACTION_ENGINE": engine_path.replace("addons/", "res://addons/", 1),
+		},
+		store_path: {
+			"_GF_PACKAGE_CACHE_POLICY": policy_path.replace("addons/", "res://addons/", 1),
+		},
+		cli_path: {
+			"_GF_PACKAGE_MANAGER_BACKEND": backend_path.replace("addons/", "res://addons/", 1),
+			"_GF_PACKAGE_CACHE_POLICY": policy_path.replace("addons/", "res://addons/", 1),
+		},
+	}
+	expected_strings = {
+		policy_path: {
+			"_SCHEMA_CONTRACT_PATH": "res://addons/gf/kernel/package/gf_package_cache_schema.json",
+		},
+		engine_path: {
+			"_SCHEMA_CONTRACT_PATH": "res://addons/gf/kernel/package/gf_package_transaction_schema.json",
+		},
+		cli_path: {
+			"COMMAND_INSTALL": "install",
+			"COMMAND_UNINSTALL": "uninstall",
+			"COMMAND_UPDATE": "update",
+			"COMMAND_RECOVER": "recover",
+			"COMMAND_CACHE_INIT": "cache-init",
+		},
+	}
+	for source_path, expected in expected_preloads.items():
+		preloads, _strings = _gdscript_top_level_literal_constants(sources[source_path])
+		for constant_name, expected_path in expected.items():
+			if preloads.get(constant_name) != expected_path:
+				issues.append(make_package_issue(
+					"package_internal_preload_contract",
+					source_path,
+					"Package delegation preloads must be real top-level declarations with exact targets.",
+					symbol=constant_name,
+					expected_value=expected_path,
+					actual_value=preloads.get(constant_name, ""),
+				))
+	for source_path, expected in expected_strings.items():
+		_preloads, strings = _gdscript_top_level_literal_constants(sources[source_path])
+		for constant_name, expected_value in expected.items():
+			if strings.get(constant_name) != expected_value:
+				issues.append(make_package_issue(
+					"package_internal_literal_contract",
+					source_path,
+					"Package schema and CLI literals must be real top-level declarations.",
+					symbol=constant_name,
+					expected_value=expected_value,
+					actual_value=strings.get(constant_name, ""),
+				))
+
+	backend_bodies = _gdscript_top_level_function_bodies(sources[backend_path])
+	engine_bodies = _gdscript_top_level_function_bodies(sources[engine_path])
+	cli_bodies = _gdscript_top_level_function_bodies(sources[cli_path])
+	transaction_execute_owners = sorted(
+		function_name
+		for function_name, body in backend_bodies.items()
+		if re.search(r"\b_GF_PACKAGE_TRANSACTION_ENGINE\.execute\s*\(", body)
+	)
+	if transaction_execute_owners != ["_execute_package_transaction"]:
+		issues.append(make_package_issue(
+			"package_transaction_execute_owner",
+			backend_path,
+			"Exactly one backend adapter must call the transaction engine execute entry point.",
+			expected_value=["_execute_package_transaction"],
+			actual_value=transaction_execute_owners,
+		))
+	adapter_body = backend_bodies.get("_execute_package_transaction", "")
+	if not re.search(r"\b_GF_PACKAGE_TRANSACTION_ENGINE\.make_request\s*\(", adapter_body):
+		issues.append(make_package_issue(
+			"package_transaction_adapter_contract",
+			backend_path,
+			"The package transaction adapter must construct requests through the transaction engine.",
+			symbol="_execute_package_transaction",
+		))
+	legacy_function_names = {
+		"_copy_staged_files_to_project",
+		"_delete_package_files_from_project",
+		"_write_lockfile_last",
+		"_rollback_install_files",
+	}
+	for function_name in sorted(legacy_function_names.intersection(backend_bodies)):
+		issues.append(make_package_issue(
+			"package_legacy_transaction_declaration",
+			backend_path,
+			"Known legacy package transaction implementations must not return to the backend.",
+			symbol=function_name,
+		))
+
+	backend_structural = "\n".join(scan_gdscript_structure(sources[backend_path].splitlines())[0])
+	for required_call in (
+		r"\b_GF_PACKAGE_CACHE_POLICY\.initialize_external_cache\s*\(",
+		r"\b_GF_PACKAGE_CACHE_POLICY\.resolve_context\s*\(",
+		r"\b_GF_PACKAGE_FILESYSTEM_CACHE_STORE\.find_artifact\s*\(",
+		r"\b_GF_PACKAGE_FILESYSTEM_CACHE_STORE\.commit_artifact\s*\(",
+	):
+		if not re.search(required_call, backend_structural):
+			issues.append(make_package_issue(
+				"package_cache_delegation_contract",
+				backend_path,
+				"Package cache policy/store delegation must be an executable call, not text in a comment or string.",
+				expected_value=required_call,
+			))
+
+	for source_path, bodies, function_name in (
+		(engine_path, engine_bodies, "_tree_has_link"),
+		(engine_path, engine_bodies, "_remove_tree"),
+		(backend_path, backend_bodies, "_remove_path_recursive_absolute"),
+	):
+		if not re.search(r"\bdirectory\.include_hidden\s*=\s*true\b", bodies.get(function_name, "")):
+			issues.append(make_package_issue(
+				"package_hidden_scan_contract",
+				source_path,
+				"Hidden-entry scanning must be executable code in the owning filesystem function.",
+				symbol=function_name,
+			))
+	cleanup_body = engine_bodies.get("_cleanup_active_transaction", "")
+	if not re.search(
+		r"\bDirAccess\.rename_absolute\s*\(\s*active_root\s*,\s*cleanup_root\s*\)",
+		cleanup_body,
+	):
+		issues.append(make_package_issue(
+			"package_transaction_cleanup_contract",
+			engine_path,
+			"Committed transaction cleanup must atomically move the active directory before deletion.",
+			symbol="_cleanup_active_transaction",
+		))
+	cli_body = cli_bodies.get("_run_cli", "")
+	for required_call in (
+		r"\b_GF_PACKAGE_MANAGER_BACKEND\.initialize_package_cache\s*\(",
+		r"\b_GF_PACKAGE_MANAGER_BACKEND\.recover_package_transaction\s*\(",
+	):
+		if not re.search(required_call, cli_body):
+			issues.append(make_package_issue(
+				"package_cli_delegation_contract",
+				cli_path,
+				"Package CLI recovery/cache initialization must delegate through executable backend calls.",
+				expected_value=required_call,
+			))
+	return issues
+
+
 def package_source_boundary() -> dict[str, Any]:
 	paths_payload = collect_package_manifest_paths()
 	scan_errors = paths_payload["errors"]
@@ -4637,6 +5099,8 @@ def package_source_boundary() -> dict[str, Any]:
 	issues.extend(audit_package_manifest_graph(records))
 	ownership_index = PackageOwnershipIndex(collect_package_source_owner_entries(records))
 	issues.extend(audit_package_path_ownership(records, ownership_index=ownership_index))
+	issues.extend(audit_editor_contribution_target_ownership(ownership_index))
+	issues.extend(audit_package_internal_source_contracts())
 	if issues:
 		return make_package_source_boundary_payload(records, [], issues)
 
@@ -9657,6 +10121,22 @@ def run_package_godot_cli_smoke_http_download_failure(
 	)
 
 
+def package_godot_cli_smoke_command_timeout_seconds(
+	args: list[str],
+	requested_timeout_seconds: float,
+) -> float:
+	if (
+		args
+		and args[0] == "install"
+		and any(value.startswith("gf.preset.") for value in args[1:] if not value.startswith("--"))
+	):
+		return max(
+			requested_timeout_seconds,
+			float(PACKAGE_GODOT_CLI_SMOKE_PRESET_INSTALL_TIMEOUT_SECONDS),
+		)
+	return requested_timeout_seconds
+
+
 def run_package_godot_cli_smoke_command(
 	scenario: str,
 	args: list[str],
@@ -9687,10 +10167,14 @@ def run_package_godot_cli_smoke_command(
 	if env is not None:
 		process_env = os.environ.copy()
 		process_env.update(env)
+	effective_timeout_seconds = package_godot_cli_smoke_command_timeout_seconds(
+		args,
+		timeout_seconds,
+	)
 	try:
 		completed = run_maintenance_subprocess(
 			command,
-			timeout_seconds=timeout_seconds,
+			timeout_seconds=effective_timeout_seconds,
 			environment=process_env,
 		)
 	except subprocess.TimeoutExpired as error:
@@ -10249,7 +10733,7 @@ def package_godot_smoke_representative_file(registry_entry: dict[str, Any]) -> s
 
 
 def package_godot_smoke_source_files_for_pattern(raw_path: str) -> list[str]:
-	pattern = normalize_package_manifest_path(raw_path)
+	pattern = normalize_package_manifest_path_for_matching(raw_path)
 	if not pattern:
 		return []
 	if not any(character in pattern for character in "*?"):
@@ -10901,6 +11385,17 @@ def maintenance_self_test() -> dict[str, Any]:
 		if not passed:
 			failures.append(result)
 
+	reference_check_command = CHECK_DEFINITIONS["examples_sync"]
+	reference_apply_command = CHECK_DEFINITIONS["examples_sync_write"]
+	record_result(
+		"reference_sync_commands_separate_read_only_check_from_explicit_apply",
+		"--check" in reference_check_command
+		and "--apply" not in reference_check_command
+		and "--apply" in reference_apply_command
+		and "--check" not in reference_apply_command,
+		"Examples validation must use --check, while authorized synchronization must use --apply.",
+	)
+
 	normalized_log_argv = normalize_maintenance_cli_argv([
 		"gf_maintenance.py",
 		"check",
@@ -10948,7 +11443,9 @@ def maintenance_self_test() -> dict[str, Any]:
 		and '"suite_timeout_seconds"' in mcp_server_source
 		and '"jobs"' in mcp_server_source
 		and '"minItems": 1' in mcp_server_source
-		and "if checks == []:" in mcp_server_source
+		and '"maxItems": 128' in mcp_server_source
+		and '"uniqueItems": True' in mcp_server_source
+		and "_validate_schema(arguments, tool[\"inputSchema\"]" in mcp_server_source
 		and "gf_maintenance.MAX_PARALLEL_FULL_JOBS" in mcp_server_source,
 		"MCP checks must preserve log cleanup, reject ambiguous empty selections, and expose bounded Full parallelism and deadlines.",
 	)
@@ -11051,6 +11548,29 @@ def maintenance_self_test() -> dict[str, Any]:
 		and fixture_timeout.requested_minimum_seconds == 900.0
 		and fixture_timeout.effective_seconds == 75.0,
 		f"suite deadline must cap the check policy and requested minimum: {fixture_timeout}",
+	)
+	invalid_fingerprint_values_rejected = True
+	for invalid_value in (math.nan, math.inf, -math.inf):
+		try:
+			stable_fingerprint({"timeout": invalid_value})
+		except (TypeError, ValueError):
+			continue
+		invalid_fingerprint_values_rejected = False
+	invalid_timeout_values_rejected = True
+	for timeout_arguments in (
+		(math.nan, None, None),
+		(1.0, math.inf, None),
+		(1.0, None, -1.0),
+	):
+		try:
+			resolve_timeout_budget(*timeout_arguments)
+		except ValueError:
+			continue
+		invalid_timeout_values_rejected = False
+	record_result(
+		"maintenance_fingerprints_and_timeouts_reject_non_finite_values",
+		invalid_fingerprint_values_rejected and invalid_timeout_values_rejected,
+		"Provenance JSON and timeout budgets must reject non-finite or negative values before execution.",
 	)
 	fingerprint_a = stable_fingerprint({"name": "fixture", "values": [1, 2]})
 	fingerprint_b = stable_fingerprint({"values": [1, 2], "name": "fixture"})
@@ -12388,6 +12908,7 @@ def maintenance_self_test() -> dict[str, Any]:
 
 		readlink_path = fingerprint_root / "fingerprint-readlink.bin"
 		readlink_path.write_bytes(b"readlink")
+		readlink_path_stat = readlink_path.lstat()
 		original_fingerprint_os_readlink = gf_maintenance_check_graph.os.readlink
 		readlink_attempted = False
 		readlink_rejected = False
@@ -12401,6 +12922,11 @@ def maintenance_self_test() -> dict[str, Any]:
 				return argparse.Namespace(
 					st_mode=stat.S_IFLNK | 0o777,
 					st_size=len(b"readlink"),
+					st_dev=readlink_path_stat.st_dev,
+					st_ino=readlink_path_stat.st_ino,
+					st_mtime_ns=readlink_path_stat.st_mtime_ns,
+					st_ctime_ns=readlink_path_stat.st_ctime_ns,
+					st_file_attributes=0,
 				)
 			return original_fingerprint_path_lstat(path_value, *args, **kwargs)
 
@@ -12429,6 +12955,66 @@ def maintenance_self_test() -> dict[str, Any]:
 			"workspace_fingerprint_fails_closed_during_readlink",
 			readlink_attempted and readlink_rejected,
 			"Git-enumerated untracked symlinks that fail during readlink must abort provenance.",
+		)
+
+		symlink_race_path = fingerprint_root / "fingerprint-symlink-race.bin"
+		symlink_race_path.write_bytes(b"symlink-race")
+		symlink_race_stat = symlink_race_path.lstat()
+		symlink_race_before = argparse.Namespace(
+			st_mode=stat.S_IFLNK | 0o777,
+			st_size=len("target-one"),
+			st_dev=symlink_race_stat.st_dev,
+			st_ino=symlink_race_stat.st_ino,
+			st_mtime_ns=symlink_race_stat.st_mtime_ns,
+			st_ctime_ns=symlink_race_stat.st_ctime_ns,
+			st_file_attributes=0,
+		)
+		symlink_race_after = argparse.Namespace(
+			st_mode=stat.S_IFLNK | 0o777,
+			st_size=len("target-two"),
+			st_dev=symlink_race_stat.st_dev,
+			st_ino=symlink_race_stat.st_ino + 1,
+			st_mtime_ns=symlink_race_stat.st_mtime_ns + 1,
+			st_ctime_ns=symlink_race_stat.st_ctime_ns + 1,
+			st_file_attributes=0,
+		)
+		symlink_lstat_count = 0
+		symlink_race_rejected = False
+
+		def replace_symlink_during_readlink(
+			path_value: Path,
+			*args: Any,
+			**kwargs: Any,
+		) -> os.stat_result:
+			nonlocal symlink_lstat_count
+			if path_value == symlink_race_path:
+				symlink_lstat_count += 1
+				return symlink_race_before if symlink_lstat_count == 1 else symlink_race_after
+			return original_fingerprint_path_lstat(path_value, *args, **kwargs)
+
+		def read_replaced_symlink_target(
+			path_value: str | bytes | os.PathLike[str] | os.PathLike[bytes],
+			*args: Any,
+			**kwargs: Any,
+		) -> str | bytes:
+			if Path(path_value) == symlink_race_path:
+				return "target-two"
+			return original_fingerprint_os_readlink(path_value, *args, **kwargs)
+
+		try:
+			Path.lstat = replace_symlink_during_readlink
+			gf_maintenance_check_graph.os.readlink = read_replaced_symlink_target
+			try:
+				workspace_fingerprint(fingerprint_root)
+			except gf_maintenance_check_graph.WorkspaceFingerprintDriftError:
+				symlink_race_rejected = True
+		finally:
+			gf_maintenance_check_graph.os.readlink = original_fingerprint_os_readlink
+			Path.lstat = original_fingerprint_path_lstat
+		record_result(
+			"workspace_fingerprint_rejects_symlink_replacement_during_readlink",
+			symlink_lstat_count >= 2 and symlink_race_rejected,
+			"Workspace symlink fingerprints must bind lstat metadata and readlink output to the same object.",
 		)
 
 		identity_path = fingerprint_root / "fingerprint-identity.bin"
@@ -12870,6 +13456,49 @@ def maintenance_self_test() -> dict[str, Any]:
 			and not changed_path.exists()
 			and not new_path.exists(),
 			f"session log cleanup must preserve unchanged evidence: {session_cleanup}",
+		)
+
+	with tempfile.TemporaryDirectory(prefix="gf-maintenance-log-finalization-self-test-") as temp_dir:
+		log_root = Path(temp_dir) / "logs"
+		log_root.mkdir()
+		historical_path = log_root / "historical.log"
+		session_path = log_root / "session.log"
+		historical_path.write_text("historical", encoding="utf-8")
+		before_snapshot, before_errors = maintenance_log_snapshot(log_root)
+		session_path.write_text("session", encoding="utf-8")
+		success_finalization = finalize_maintenance_log_session(
+			before_snapshot,
+			before_errors,
+			succeeded=True,
+			keep_logs=False,
+			log_root=log_root,
+		)
+		failed_before_snapshot, failed_before_errors = maintenance_log_snapshot(log_root)
+		failure_path = log_root / "failure.log"
+		failure_path.write_text("failure", encoding="utf-8")
+		failure_finalization = finalize_maintenance_log_session(
+			failed_before_snapshot,
+			failed_before_errors,
+			succeeded=False,
+			keep_logs=False,
+			log_root=log_root,
+		)
+		record_result(
+			"maintenance_log_finalization_is_strictly_session_owned",
+			success_finalization["ok"]
+			and success_finalization["changed_file_count"] == 1
+			and success_finalization["retained_session_file_count"] == 0
+			and historical_path.exists()
+			and not session_path.exists()
+			and failure_finalization["ok"]
+			and failure_finalization["retained_session_file_count"] == 1
+			and failure_path.exists()
+			and "retention" not in success_finalization
+			and "legacy_cleanup" not in success_finalization,
+			(
+				"automatic finalization may delete only successful invocation-owned logs; unrelated history "
+				"and failed-session evidence require an explicit hygiene command."
+			),
 		)
 
 	with tempfile.TemporaryDirectory(prefix="gf-maintenance-log-retention-self-test-") as temp_dir:
@@ -16565,6 +17194,22 @@ def maintenance_self_test() -> dict[str, Any]:
 		and godot_47_summary_report["resource_summary_total"] == 113,
 		f"Godot 4.7 summary lines must be structured hard-gate evidence: {godot_47_summary_report}",
 	)
+	singular_objectdb_line = (
+		"WARNING: 1 ObjectDB instance was leaked at exit (run with `--verbose` for details)."
+	)
+	singular_objectdb_report = godot_exit_leak_report_from_output(
+		"godot_47_singular_fixture",
+		"",
+		singular_objectdb_line,
+	)
+	record_result(
+		"godot_exit_leak_report_accepts_singular_objectdb_summary",
+		collect_godot_exit_leak_warnings("", singular_objectdb_line) == [singular_objectdb_line]
+		and singular_objectdb_report["has_leaks"]
+		and singular_objectdb_report["objectdb_warning_count"] == 1
+		and singular_objectdb_report["objectdb_instance_total"] == 1,
+		f"A one-instance Godot leak must remain structured hard-gate evidence: {singular_objectdb_report}",
+	)
 	future_leak_report = godot_exit_leak_report_from_output(
 		"future_leak_fixture",
 		"WARNING: 3 objects were leaked at exit.",
@@ -17058,6 +17703,28 @@ def maintenance_self_test() -> dict[str, Any]:
 		has_utf8_bom(b"\xef\xbb\xbfextends Node\n") and not has_utf8_bom(b"extends Node\n"),
 		"GDScript path hygiene must detect UTF-8 BOM prefixes.",
 	)
+	valid_gdscript_format_issues = audit_gdscript_text_format(
+		"addons/gf/valid.gd",
+		b'extends Node\n\nconst TEMPLATE := """\n    embedded project text\n"""\n\nfunc run() -> void:\n\tpass\n',
+	)
+	invalid_gdscript_format_issues = [
+		*audit_gdscript_text_format("addons/gf/space.gd", b"func run() -> void:\n    pass\n"),
+		*audit_gdscript_text_format("addons/gf/crlf.gd", b"extends Node\r\n"),
+		*audit_gdscript_text_format("addons/gf/no-final-newline.gd", b"extends Node"),
+		*audit_gdscript_text_format("addons/gf/invalid-utf8.gd", b"extends Node\n\xff"),
+	]
+	record_result(
+		"path_hygiene_enforces_utf8_lf_final_newline_and_tab_indentation",
+		not valid_gdscript_format_issues
+		and issue_exists(invalid_gdscript_format_issues, "gdscript_space_indentation")
+		and issue_exists(invalid_gdscript_format_issues, "gdscript_non_lf_line_ending")
+		and issue_exists(invalid_gdscript_format_issues, "gdscript_missing_final_newline")
+		and issue_exists(invalid_gdscript_format_issues, "gdscript_invalid_utf8"),
+		(
+			"GDScript text format must be strict UTF-8/LF with a final newline and tab indentation, "
+			"while embedded multiline project text stays outside the indentation rule."
+		),
+	)
 
 	public_doc_allowed_source = (
 		"GF Workspace 固定提供扩展管理和诊断快照等基础页面。"
@@ -17449,14 +18116,20 @@ def maintenance_self_test() -> dict[str, Any]:
 	valid_content_package_data = {
 		"schema_version": 1,
 		"package_id": "author.base",
+		"id": "author.base",
 		"display_name": "Base",
+		"name": "Base",
 		"version": "1.0.0",
 		"content_types": ["items"],
 		"dependencies": [],
+		"safety_kind": "data_only",
+		"forbidden_resource_extensions": ["gd"],
 		"resources": [
 			{
 				"key": "item.icon",
+				"resource_key": "item.icon",
 				"path": "assets/icon.tres",
+				"resource_path": "assets/icon.tres",
 				"type_hint": "Resource",
 				"metadata": {
 					"role": "icon",
@@ -17508,6 +18181,55 @@ def maintenance_self_test() -> dict[str, Any]:
 		and issue_exists(invalid_content_package_issues, "resource_path_not_allowed", row_key="uid_asset")
 		and issue_exists(invalid_content_package_issues, "unsupported_resource_field", field="download_url", row_index=2),
 		f"content package policy/path issues should be reported: {invalid_content_package_issues}",
+	)
+
+	conflicting_content_package_data = {
+		"schema_version": 1,
+		"package_id": "author.canonical",
+		"id": "author.alias",
+		"display_name": "Canonical",
+		"name": "Alias",
+		"version": "1.0.0",
+		"resources": [{
+			"key": "canonical.key",
+			"resource_key": "alias.key",
+			"path": "canonical.tres",
+			"resource_path": "alias.tres",
+		}],
+	}
+	conflicting_content_package_issues = audit_content_package_manifest_data(
+		conflicting_content_package_data,
+		"packs/conflict/gf_content_package.json",
+	)
+	record_result(
+		"content_package_boundary_rejects_schema_drift_and_conflicting_aliases",
+		len([
+			issue
+			for issue in conflicting_content_package_issues
+			if issue.get("kind") == "conflicting_alias_fields"
+		]) == 4
+		and issue_exists(
+			audit_content_package_manifest_data(
+				{"package_id": "author.missing_schema", "version": "1.0.0", "resources": []},
+				"packs/missing/gf_content_package.json",
+			),
+			"missing_schema_version",
+			field="schema_version",
+		)
+		and issue_exists(
+			audit_content_package_manifest_data(
+				{
+					"schema_version": 2,
+					"package_id": "author.future",
+					"version": "1.0.0",
+					"resources": [],
+				},
+				"packs/future/gf_content_package.json",
+			),
+			"unsupported_schema_version",
+			field="schema_version",
+		),
+		f"content package schema/alias issues should be reported: {conflicting_content_package_issues}",
 	)
 
 	content_package_graph_records = [
@@ -17825,6 +18547,56 @@ def maintenance_self_test() -> dict[str, Any]:
 		and issue_exists(package_metadata_policy_issues, "forbidden_package_metadata_field", field="metadata.nested.load_after"),
 		f"forbidden package metadata policy fields should be reported: {package_metadata_policy_issues}",
 	)
+	package_builder_metadata_policy_fields = build_gf_package.forbidden_package_manifest_metadata_field_paths(
+		package_metadata_policy_data["metadata"]
+	)
+	record_result(
+		"package_builder_rejects_forbidden_nested_metadata_policy_fields",
+		package_builder_metadata_policy_fields == [
+			"metadata.download_url",
+			"metadata.nested.load_after",
+		],
+		(
+			"Standalone package builder must apply the same fail-closed nested metadata policy: "
+			f"{package_builder_metadata_policy_fields}"
+		),
+	)
+	deep_package_metadata: dict[str, Any] = {}
+	deep_package_cursor = deep_package_metadata
+	for depth_index in range(70):
+		nested_metadata: dict[str, Any] = {}
+		deep_package_cursor[f"level_{depth_index}"] = nested_metadata
+		deep_package_cursor = nested_metadata
+	deep_package_data = dict(valid_package_data)
+	deep_package_data["metadata"] = deep_package_metadata
+	deep_package_issues = audit_package_manifest_data(
+		deep_package_data,
+		"packages/gf.standard.deep.json",
+	)
+	record_result(
+		"package_boundary_rejects_excessive_manifest_nesting",
+		issue_exists(
+			deep_package_issues,
+			"package_manifest_nesting_too_deep",
+			expected_value="<= 64",
+		),
+		f"Excessively nested package manifests must fail closed: {deep_package_issues}",
+	)
+	wide_package_data = dict(valid_package_data)
+	wide_package_data["metadata"] = {"values": [0] * (16 * 1024)}
+	wide_package_issues = audit_package_manifest_data(
+		wide_package_data,
+		"packages/gf.standard.wide.json",
+	)
+	record_result(
+		"package_boundary_rejects_excessive_manifest_structure",
+		issue_exists(
+			wide_package_issues,
+			"package_manifest_node_budget_exceeded",
+			expected_value="<= 16384",
+		),
+		f"Excessively wide package manifests must fail closed: {wide_package_issues}",
+	)
 
 	record_result(
 		"package_boundary_requires_exact_gf_kind_prefix_segments",
@@ -17987,6 +18759,98 @@ def maintenance_self_test() -> dict[str, Any]:
 		issue_exists(package_overlap_issues, "package_path_overlap", row_key="gf.kernel")
 		and issue_exists(package_overlap_issues, "package_path_overlap", row_key="gf.tool.fixture"),
 		f"overlapping package paths should be reported: {package_overlap_issues}",
+	)
+	package_exclusion_records = [
+		{
+			"path": "packages/standard/gf.standard.spatial.json",
+			"id": "gf.standard.spatial",
+			"kind": "standard",
+			"paths": ["addons/gf/standard/foundation/math/**"],
+			"exclude_paths": ["addons/gf/standard/foundation/math/editor/**"],
+		},
+		{
+			"path": "packages/standard/gf.standard.spatial.editor.json",
+			"id": "gf.standard.spatial.editor",
+			"kind": "standard",
+			"paths": ["addons/gf/standard/foundation/math/editor/**"],
+			"exclude_paths": [],
+		},
+	]
+	package_exclusion_paths = [
+		"addons/gf/standard/foundation/math/runtime.gd",
+		"addons/gf/standard/foundation/math/editor/inspector.gd",
+	]
+	package_exclusion_index = PackageOwnershipIndex(
+		collect_package_source_owner_entries(package_exclusion_records)
+	)
+	package_exclusion_issues = audit_package_path_ownership(
+		package_exclusion_records,
+		package_exclusion_paths,
+		package_exclusion_index,
+	)
+	package_runtime_owner = package_exclusion_index.find_owner(package_exclusion_paths[0])
+	package_editor_owner = package_exclusion_index.find_owner(package_exclusion_paths[1])
+	record_result(
+		"package_ownership_applies_declared_exclude_paths",
+		not package_exclusion_issues
+		and package_runtime_owner is not None
+		and package_runtime_owner.get("package_id") == "gf.standard.spatial"
+		and package_editor_owner is not None
+		and package_editor_owner.get("package_id") == "gf.standard.spatial.editor",
+		(
+			"Package ownership must apply exclude_paths before overlap and owner checks: "
+			f"issues={package_exclusion_issues}, runtime={package_runtime_owner}, editor={package_editor_owner}"
+		),
+	)
+	editor_contribution_ownership_index = PackageOwnershipIndex(
+		collect_package_source_owner_entries([
+			{
+				"path": "packages/standard/gf.standard.editor.json",
+				"id": "gf.standard.editor",
+				"kind": "standard",
+				"paths": ["addons/gf/standard/editor/**"],
+			},
+			{
+				"path": "packages/standard/gf.standard.state_machine.editor.json",
+				"id": "gf.standard.state_machine.editor",
+				"kind": "standard",
+				"paths": ["addons/gf/standard/state_machine/node/editor/**"],
+			},
+		])
+	)
+	mismatched_editor_contribution_issues = audit_editor_contribution_manifest_data(
+		{
+			"template_records": [{
+				"owner_package_id": "gf.standard.state_machine.editor",
+				"template_path": "res://addons/gf/standard/editor/templates/node_state.gdtemplate",
+			}],
+		},
+		"addons/gf/standard/editor/gf_editor_contributions.json",
+		editor_contribution_ownership_index,
+	)
+	valid_editor_contribution_issues = audit_editor_contribution_manifest_data(
+		{
+			"template_records": [{
+				"owner_package_id": "gf.standard.state_machine.editor",
+				"template_path": "res://addons/gf/standard/state_machine/node/editor/templates/node_state.gdtemplate",
+			}],
+		},
+		"addons/gf/standard/editor/gf_editor_contributions.json",
+		editor_contribution_ownership_index,
+	)
+	record_result(
+		"package_source_boundary_requires_editor_contribution_target_owner_identity",
+		issue_exists(
+			mismatched_editor_contribution_issues,
+			"editor_contribution_owner_mismatch",
+			row_key="gf.standard.state_machine.editor",
+			expected_value="gf.standard.editor",
+		)
+		and not valid_editor_contribution_issues,
+		(
+			"Editor contribution target paths must be uniquely owned by their declared payload package: "
+			f"mismatch={mismatched_editor_contribution_issues}, valid={valid_editor_contribution_issues}"
+		),
 	)
 	disjoint_glob_issues = audit_package_path_ownership([
 		{
@@ -18222,6 +19086,62 @@ def maintenance_self_test() -> dict[str, Any]:
 		),
 		f"aggregate closure and standard fan-in growth should stay visible: {closure_baseline_issues}",
 	)
+	payload_metric_paths_before = [
+		"addons/gf/kernel/core.gd",
+		"addons/gf/standard/base/runtime.gd",
+	]
+	payload_metric_paths_after = [
+		*payload_metric_paths_before,
+		"addons/gf/standard/base/new_runtime.gd",
+	]
+	payload_metric_sizes = {
+		"addons/gf/kernel/core.gd": 10,
+		"addons/gf/standard/base/runtime.gd": 20,
+		"addons/gf/standard/base/new_runtime.gd": 30,
+	}
+	payload_metrics_before, payload_metric_issues_before = collect_package_payload_metrics(
+		package_closure_records,
+		payload_metric_paths_before,
+		payload_metric_sizes,
+	)
+	payload_metrics_after, payload_metric_issues_after = collect_package_payload_metrics(
+		package_closure_records,
+		payload_metric_paths_after,
+		payload_metric_sizes,
+	)
+	payload_editor_before = next(
+		(
+			row
+			for row in collect_package_closure_rows(package_closure_records, payload_metrics_before)
+			if row.get("package_id") == PACKAGE_CLOSURE_EDITOR_PACKAGE_ID
+		),
+		{},
+	)
+	payload_editor_after = next(
+		(
+			row
+			for row in collect_package_closure_rows(package_closure_records, payload_metrics_after)
+			if row.get("package_id") == PACKAGE_CLOSURE_EDITOR_PACKAGE_ID
+		),
+		{},
+	)
+	record_result(
+		"package_closure_audit_records_payload_growth_without_id_growth",
+		not payload_metric_issues_before
+		and not payload_metric_issues_after
+		and payload_editor_before.get("closure_count") == payload_editor_after.get("closure_count")
+		and payload_editor_before.get("payload_file_count") == 2
+		and payload_editor_after.get("payload_file_count") == 3
+		and payload_editor_before.get("payload_gdscript_count") == 2
+		and payload_editor_after.get("payload_gdscript_count") == 3
+		and payload_editor_before.get("payload_size_bytes") == 30
+		and payload_editor_after.get("payload_size_bytes") == 60,
+		(
+			"Broad-root payload growth must remain visible even when closure IDs do not change: "
+			f"before={payload_editor_before}, after={payload_editor_after}, "
+			f"issues={payload_metric_issues_before + payload_metric_issues_after}"
+		),
+	)
 
 	package_external_command_issues = audit_package_external_command_source(
 		"\n".join([
@@ -18372,7 +19292,19 @@ def maintenance_self_test() -> dict[str, Any]:
 	record_result(
 		"package_smoke_complex_transactions_have_bounded_timeout_headroom",
 		PACKAGE_EDITOR_WIZARD_SMOKE_TRANSACTION_TIMEOUT_SECONDS == 240
-		and PACKAGE_GODOT_CLI_SMOKE_PRESET_INSTALL_TIMEOUT_SECONDS == 240,
+		and PACKAGE_GODOT_CLI_SMOKE_PRESET_INSTALL_TIMEOUT_SECONDS == 240
+		and package_godot_cli_smoke_command_timeout_seconds(
+			["install", "gf.preset.rpg_save_dialogue", "--json"],
+			120,
+		) == 240
+		and package_godot_cli_smoke_command_timeout_seconds(
+			["install", "gf.preset.rpg_save_dialogue", "--json"],
+			300,
+		) == 300
+		and package_godot_cli_smoke_command_timeout_seconds(
+			["verify", "--json"],
+			120,
+		) == 120,
 		"editor transactions and multi-package CLI preset installs need bounded headroom beyond ordinary smoke commands.",
 	)
 	package_smoke_assertion_issues: list[dict[str, Any]] = []
@@ -19160,19 +20092,6 @@ def maintenance_self_test() -> dict[str, Any]:
 	)
 	valid_changelog_preamble = (
 		"# 更新日志 (Changelog)\n\n"
-		"## 📝 日志条目结构标准\n\n"
-		"1. **版本号与日期**：Fixture rule.\n"
-		"2. **版本概述**：Fixture rule.\n"
-		"3. **🚀 新增特性 (Added)**：Fixture rule.\n"
-		"4. **🔄 机制更改 (Changed)**：Fixture rule.\n"
-		"5. **🐛 Bug 修复 (Fixed)**：Fixture rule.\n"
-		"6. **⚠️ 废弃与移除 (Deprecated/Removed)**：Fixture rule.\n"
-		"7. **🔧 API 变动说明 (API Changes)**：Fixture rule.\n"
-		"8. **📘 升级指南 (Migration Guide)**：Fixture rule.\n"
-		"9. **📁 核心受影响文件 (Affected Files)**：Fixture rule.\n\n"
-		"## 维护策略\n\n"
-		"开发态当前页只保留唯一的 `[未发布]`。\n"
-		"`changelog_policy` 属于 quick、full 与 release 门禁。\n\n"
 	)
 	valid_changelog_report = audit_release_changelog(
 		"7.0.0",
@@ -19659,48 +20578,35 @@ def maintenance_self_test() -> dict[str, Any]:
 		)
 		for source in (
 			(
-				valid_changelog_preamble.replace(
-					"## 📝 日志条目结构标准\n\n",
-					"",
-				)
+				valid_changelog_preamble.replace("# 更新日志 (Changelog)\n\n", "")
 				+ "## [未发布]\n"
 				+ valid_changelog_body
 			),
 			(
-				valid_changelog_preamble.replace(
-					"## 维护策略\n\n",
-					"",
-				)
+				valid_changelog_preamble
+				+ "## 📝 日志条目结构标准\n\nPublic authoring template.\n\n"
 				+ "## [未发布]\n"
 				+ valid_changelog_body
 			),
 			(
-				valid_changelog_preamble.replace(
-					"3. **🚀 新增特性 (Added)**：Fixture rule.",
-					"3. **Custom Added**：Fixture rule.",
-				)
+				valid_changelog_preamble
+				+ "## 维护策略\n\nPublic maintenance policy.\n\n"
 				+ "## [未发布]\n"
 				+ valid_changelog_body
 			),
 			(
-				valid_changelog_preamble.replace(
-					"1. **版本号与日期**：Fixture rule.",
-					"1. **版本号与日期**：",
-				)
-				+ "## [未发布]\n"
-				+ valid_changelog_body
+				valid_changelog_preamble
+				+ "## [未发布]\n\n"
+				+ "**版本概述**：Internal category fixture.\n\n"
+				+ "### 📁 核心受影响文件 (Affected Files)\n\n"
+				+ "- `tools/gf_maintenance.py`\n"
 			),
 			(
-				valid_changelog_preamble.replace(
-					"开发态当前页只保留唯一的 `[未发布]`。\n"
-					"`changelog_policy` 属于 quick、full 与 release 门禁。",
-					"Visible placeholder.\n"
-					"[policy]: https://example.com "
-					"\"开发态当前页只保留唯一的 `[未发布]`；"
-					"`changelog_policy`；quick、full 与 release\"",
-				)
-				+ "## [未发布]\n"
-				+ valid_changelog_body
+				valid_changelog_preamble
+				+ "## [未发布]\n\n"
+				+ "**版本概述**：Internal path fixture.\n\n"
+				+ "### 🔄 机制更改 (Changed)\n\n"
+				+ "- `addons/gf/kernel/core/gf.gd`\n"
 			),
 		)
 	]
@@ -19741,10 +20647,8 @@ def maintenance_self_test() -> dict[str, Any]:
 				+ valid_changelog_body
 			),
 			(
-				valid_changelog_preamble.replace(
-					"## 维护策略",
-					"维护策略\n--------",
-				)
+				valid_changelog_preamble
+				+ "维护策略\n--------\n\n"
 				+ "## [未发布]\n"
 				+ valid_changelog_body
 			),
@@ -19773,23 +20677,12 @@ def maintenance_self_test() -> dict[str, Any]:
 	invisible_reference_report = audit_current_changelog(
 		"7.1.0-dev.0",
 		(
-			valid_changelog_preamble.replace(
-				"开发态当前页只保留唯一的 `[未发布]`。\n"
-				"`changelog_policy` 属于 quick、full 与 release 门禁。",
-				"[hidden-policy]: / \"开发态当前页只保留唯一的 `[未发布]`；"
-				"`changelog_policy`；quick、full 与 release\"",
-			)
+			valid_changelog_preamble
 			+ "## [未发布]\n\n"
 			"**版本概述**：[](https://example.invalid/hidden-overview)\n\n"
 			"### 🔄 机制更改 (Changed)\n\n"
 			"[hidden-body]: https://example.invalid/hidden-body\n"
 		),
-	)
-	empty_structure_description_report = audit_current_changelog(
-		"7.1.0-dev.0",
-		valid_changelog_preamble.replace("：Fixture rule.", "：")
-		+ "## [未发布]\n"
-		+ valid_changelog_body,
 	)
 	leading_visible_content_reports = [
 		audit_current_changelog(
@@ -19821,10 +20714,18 @@ def maintenance_self_test() -> dict[str, Any]:
 		and all(not report["ok"] for report in render_empty_entry_reports)
 		and all(not report["ok"] for report in document_contract_reports)
 		and any(
-			"documented changelog structure entries" in issue
-			for issue in document_contract_reports[2]["issues"]
+			"top-level headings" in issue
+			for issue in document_contract_reports[1]["issues"]
+		)
+		and any(
+			"Affected Files" in issue
+			for issue in document_contract_reports[3]["issues"]
+		)
+		and any(
+			"internal repository path" in issue
+			for issue in document_contract_reports[4]["issues"]
 		),
-		"raw HTML, comment splicing, renamed history, container indentation, NBSP separators, render-empty links, decorative-only bodies, and policy drift must fail closed.",
+		"raw HTML, comment splicing, renamed history, container indentation, NBSP separators, render-empty links, decorative-only bodies, author-only headings, and path dumps must fail closed.",
 	)
 	record_result(
 		"changelog_policy_rejects_comment_setext_and_container_heading_bypasses",
@@ -19848,22 +20749,17 @@ def maintenance_self_test() -> dict[str, Any]:
 		"comment/fence or hash splicing, Setext headings, and list/blockquote headings must never create hidden changelog structure.",
 	)
 	record_result(
-		"changelog_policy_requires_reader_visible_policy_and_structure_text",
+		"changelog_policy_requires_reader_visible_candidate_text",
 		not invisible_reference_report["ok"]
 		and any(
 			"Markdown reference definition" in issue
 			for issue in invisible_reference_report["issues"]
 		)
 		and any(
-			"maintenance policy must retain reader-visible" in issue
+			"must use a top-level, non-empty" in issue
 			for issue in invisible_reference_report["issues"]
-		)
-		and not empty_structure_description_report["ok"]
-		and any(
-			"reader-visible, non-empty explanation" in issue
-			for issue in empty_structure_description_report["issues"]
 		),
-		"reference definitions, link destinations, and empty documented rules must not satisfy reader-visible changelog contracts.",
+		"reference definitions and link destinations must not satisfy reader-visible release-note content.",
 	)
 	record_result(
 		"changelog_policy_requires_title_as_first_visible_line",
@@ -19942,21 +20838,18 @@ def maintenance_self_test() -> dict[str, Any]:
 				+ "Plain text without the candidate entry contract.\n"
 			),
 			(
-				valid_changelog_preamble.replace(
-					"1. **版本号与日期**：Fixture rule.",
-					"1. **版本号与日期**：",
-				)
-				+ "## [7.0.0] - 2026-07-14\n"
-				+ valid_changelog_body
+				valid_changelog_preamble
+				+ "## [7.0.0] - 2026-07-14\n\n"
+				+ "**版本概述**：Internal category fixture.\n\n"
+				+ "### 📁 核心受影响文件 (Affected Files)\n\n"
+				+ "- `tools/gf_maintenance.py`\n"
 			),
 			(
-				valid_changelog_preamble.replace(
-					"开发态当前页只保留唯一的 `[未发布]`。\n"
-					"`changelog_policy` 属于 quick、full 与 release 门禁。",
-					"Visible placeholder.",
-				)
-				+ "## [7.0.0] - 2026-07-14\n"
-				+ valid_changelog_body
+				valid_changelog_preamble
+				+ "## [7.0.0] - 2026-07-14\n\n"
+				+ "**版本概述**：Internal path fixture.\n\n"
+				+ "### 🔄 机制更改 (Changed)\n\n"
+				+ "- `addons/gf/kernel/core/gf.gd`\n"
 			),
 		)
 		invalid_release_contract_results: list[bool] = []
@@ -21051,8 +21944,40 @@ def load_package_manifest_record(path: str) -> dict[str, Any]:
 	}
 	source_path = ROOT / path
 	try:
-		data = json.loads(source_path.read_text(encoding="utf-8"))
-	except (OSError, UnicodeDecodeError, json.JSONDecodeError) as error:
+		manifest_bytes = read_bounded_regular_file_under_root(
+			ROOT,
+			source_path,
+			PACKAGE_MANIFEST_MAX_BYTES,
+			label=f"Package manifest {path!r}",
+		)
+	except (OSError, ValueError) as error:
+		error_text = str(error)
+		if "exceeds the managed size limit" in error_text:
+			issues.append(make_package_issue(
+				"package_manifest_too_large",
+				path,
+				"Package manifest must stay within the bounded source-manifest byte budget.",
+				expected_value=f"<= {PACKAGE_MANIFEST_MAX_BYTES}",
+			))
+		else:
+			issues.append(make_package_issue(
+				"invalid_package_manifest_json",
+				path,
+				"Package manifest must be a stable, contained, readable UTF-8 JSON object.",
+				error=trim_text(error_text, 300),
+			))
+		return record
+	try:
+		data = json.loads(manifest_bytes.decode("utf-8", errors="strict"))
+	except RecursionError:
+		issues.append(make_package_issue(
+			"package_manifest_nesting_too_deep",
+			path,
+			"Package manifest JSON nesting exceeds the bounded structural budget.",
+			expected_value=f"<= {PACKAGE_MANIFEST_MAX_DEPTH}",
+		))
+		return record
+	except (UnicodeDecodeError, json.JSONDecodeError) as error:
 		issues.append(make_package_issue(
 			"invalid_package_manifest_json",
 			path,
@@ -21075,15 +22000,25 @@ def load_package_manifest_record(path: str) -> dict[str, Any]:
 	record["kind"] = package_manifest_string(data, "kind")
 	record["dependencies"] = package_manifest_string_array(data, "dependencies")
 	record["packages"] = package_manifest_string_array(data, "packages")
-	record["paths"] = normalize_package_manifest_paths(package_manifest_string_array(data, "paths"))
-	record["exclude_paths"] = normalize_package_manifest_paths(package_manifest_string_array(data, "exclude_paths"))
+	record["paths"] = normalize_package_manifest_paths(
+		[item for item in data.get("paths", []) if isinstance(item, str)]
+		if isinstance(data.get("paths", []), list)
+		else []
+	)
+	record["exclude_paths"] = normalize_package_manifest_paths(
+		[item for item in data.get("exclude_paths", []) if isinstance(item, str)]
+		if isinstance(data.get("exclude_paths", []), list)
+		else []
+	)
 	record["gf_extension_id"] = package_manifest_string(data, "gf_extension_id")
 	issues.extend(audit_package_manifest_data(data, path))
 	return record
 
 
 def audit_package_manifest_data(data: dict[str, Any], path: str) -> list[dict[str, Any]]:
-	issues: list[dict[str, Any]] = []
+	issues = audit_package_manifest_shape(data, path)
+	if issues:
+		return issues
 	for field_name in sorted(data.keys()):
 		if field_name in PACKAGE_MANIFEST_FORBIDDEN_FIELDS:
 			issues.append(make_package_issue(
@@ -21249,8 +22184,8 @@ def audit_package_manifest_data(data: dict[str, Any], path: str) -> list[dict[st
 			field="gf_extension_id",
 		))
 
-	for path_index, raw_path in enumerate(package_manifest_string_array(data, "paths")):
-		normalized_path = normalize_package_manifest_path(raw_path)
+	for path_index, raw_path in enumerate(data.get("paths", [])):
+		normalized_path = normalize_package_manifest_path_for_matching(raw_path)
 		if not normalized_path:
 			issues.append(make_package_issue(
 				"invalid_package_path",
@@ -21280,8 +22215,8 @@ def audit_package_manifest_data(data: dict[str, Any], path: str) -> list[dict[st
 				row_index=path_index,
 				actual_value=normalized_path,
 			))
-	for path_index, raw_path in enumerate(package_manifest_string_array(data, "exclude_paths")):
-		normalized_path = normalize_package_manifest_path(raw_path)
+	for path_index, raw_path in enumerate(data.get("exclude_paths", [])):
+		normalized_path = normalize_package_manifest_path_for_matching(raw_path)
 		if not normalized_path:
 			issues.append(make_package_issue(
 				"invalid_package_exclude_path",
@@ -21314,41 +22249,62 @@ def audit_package_manifest_data(data: dict[str, Any], path: str) -> list[dict[st
 	return issues
 
 
+def audit_package_manifest_shape(value: Any, path: str) -> list[dict[str, Any]]:
+	stack: list[tuple[Any, int]] = [(value, 1)]
+	node_count = 0
+	while stack:
+		current, depth = stack.pop()
+		if depth > PACKAGE_MANIFEST_MAX_DEPTH:
+			return [make_package_issue(
+				"package_manifest_nesting_too_deep",
+				path,
+				"Package manifest JSON nesting exceeds the bounded structural budget.",
+				expected_value=f"<= {PACKAGE_MANIFEST_MAX_DEPTH}",
+				actual_value=depth,
+			)]
+		node_count += 1
+		if node_count > PACKAGE_MANIFEST_MAX_NODES:
+			return [make_package_issue(
+				"package_manifest_node_budget_exceeded",
+				path,
+				"Package manifest JSON structure exceeds the bounded value-count budget.",
+				expected_value=f"<= {PACKAGE_MANIFEST_MAX_NODES}",
+				actual_value=node_count,
+			)]
+		if isinstance(current, dict):
+			stack.extend((nested, depth + 1) for nested in reversed(list(current.values())))
+		elif isinstance(current, list):
+			stack.extend((nested, depth + 1) for nested in reversed(current))
+	return []
+
+
 def audit_package_manifest_metadata_fields(
 	metadata: dict[str, Any],
 	path: str,
 	prefix: str = "metadata",
 ) -> list[dict[str, Any]]:
 	issues: list[dict[str, Any]] = []
-	for key, value in metadata.items():
-		key_text = str(key)
-		field_path = f"{prefix}.{key_text}"
-		if key_text in PACKAGE_MANIFEST_FORBIDDEN_METADATA_FIELDS:
-			issues.append(make_package_issue(
-				"forbidden_package_metadata_field",
-				path,
-				"Package manifest metadata must not hide dependency, registry, download, installer, or signature policy fields.",
-				field=field_path,
-				actual_value=key_text,
-			))
-		if isinstance(value, dict):
-			issues.extend(audit_package_manifest_metadata_fields(value, path, field_path))
-		elif isinstance(value, list):
-			issues.extend(audit_package_manifest_metadata_list_fields(value, path, field_path))
-	return issues
-
-
-def audit_package_manifest_metadata_list_fields(
-	values: list[Any],
-	path: str,
-	prefix: str,
-) -> list[dict[str, Any]]:
-	issues: list[dict[str, Any]] = []
-	for index, value in enumerate(values):
-		if isinstance(value, dict):
-			issues.extend(audit_package_manifest_metadata_fields(value, path, f"{prefix}[{index}]"))
-		elif isinstance(value, list):
-			issues.extend(audit_package_manifest_metadata_list_fields(value, path, f"{prefix}[{index}]"))
+	stack: list[tuple[dict[str, Any] | list[Any], str]] = [(metadata, prefix)]
+	while stack:
+		current, current_prefix = stack.pop()
+		items = current.items() if isinstance(current, dict) else enumerate(current)
+		for raw_key, value in items:
+			key_text = str(raw_key)
+			field_path = (
+				f"{current_prefix}.{key_text}"
+				if isinstance(current, dict)
+				else f"{current_prefix}[{key_text}]"
+			)
+			if isinstance(current, dict) and key_text in PACKAGE_MANIFEST_FORBIDDEN_METADATA_FIELDS:
+				issues.append(make_package_issue(
+					"forbidden_package_metadata_field",
+					path,
+					"Package manifest metadata must not hide dependency, registry, download, installer, or signature policy fields.",
+					field=field_path,
+					actual_value=key_text,
+				))
+			if isinstance(value, (dict, list)):
+				stack.append((value, field_path))
 	return issues
 
 
@@ -21584,6 +22540,106 @@ def audit_package_path_ownership(
 			expected_value=f"{left['package_id']} owns {left['owned_path']}",
 			overlap_path=overlap_path,
 		))
+	return issues
+
+
+def audit_editor_contribution_target_ownership(
+	ownership_index: PackageOwnershipIndex,
+) -> list[dict[str, Any]]:
+	issues: list[dict[str, Any]] = []
+	manifest_root = ROOT / "addons/gf"
+	for manifest_path in sorted(manifest_root.rglob(EDITOR_CONTRIBUTION_MANIFEST_NAME)):
+		relative_path = manifest_path.relative_to(ROOT).as_posix()
+		try:
+			data = json.loads(manifest_path.read_text(encoding="utf-8"))
+		except (OSError, UnicodeDecodeError, json.JSONDecodeError) as error:
+			issues.append(make_package_issue(
+				"invalid_editor_contribution_manifest_json",
+				relative_path,
+				"Editor contribution manifest must be a readable UTF-8 JSON object.",
+				error=trim_text(str(error), 300),
+			))
+			continue
+		if not isinstance(data, dict):
+			issues.append(make_package_issue(
+				"invalid_editor_contribution_manifest",
+				relative_path,
+				"Editor contribution manifest root must be a JSON object.",
+				expected_value="object",
+				actual_value=type(data).__name__,
+			))
+			continue
+		issues.extend(audit_editor_contribution_manifest_data(
+			data,
+			relative_path,
+			ownership_index,
+		))
+	return issues
+
+
+def audit_editor_contribution_manifest_data(
+	data: dict[str, Any],
+	manifest_path: str,
+	ownership_index: PackageOwnershipIndex,
+) -> list[dict[str, Any]]:
+	issues: list[dict[str, Any]] = []
+	for record_key, raw_records in data.items():
+		if not isinstance(record_key, str) or not record_key.endswith("_records"):
+			continue
+		if not isinstance(raw_records, list):
+			continue
+		for row_index, raw_record in enumerate(raw_records):
+			if not isinstance(raw_record, dict):
+				continue
+			owner_package_id = raw_record.get("owner_package_id")
+			if not isinstance(owner_package_id, str) or not owner_package_id.strip():
+				continue
+			owner_package_id = owner_package_id.strip()
+			for field_name in EDITOR_CONTRIBUTION_TARGET_FIELDS:
+				raw_target_path = raw_record.get(field_name)
+				if not isinstance(raw_target_path, str):
+					continue
+				target_path = normalize_package_source_reference_path(raw_target_path)
+				if not target_path:
+					continue
+				matched_owners = ownership_index.find_owners(target_path)
+				if not matched_owners:
+					issues.append(make_package_issue(
+						"editor_contribution_target_unowned",
+						manifest_path,
+						"Every file-backed editor contribution target must be owned by one package manifest.",
+						field=field_name,
+						row_key=owner_package_id,
+						row_index=row_index,
+						target=target_path,
+					))
+					continue
+				if len(matched_owners) > 1:
+					issues.append(make_package_issue(
+						"editor_contribution_target_multiply_owned",
+						manifest_path,
+						"Every file-backed editor contribution target must have one unique package owner.",
+						field=field_name,
+						row_key=owner_package_id,
+						row_index=row_index,
+						target=target_path,
+						actual_value=sorted({owner["package_id"] for owner in matched_owners}),
+					))
+					continue
+				physical_owner = matched_owners[0]["package_id"]
+				if physical_owner == owner_package_id:
+					continue
+				issues.append(make_package_issue(
+					"editor_contribution_owner_mismatch",
+					manifest_path,
+					"Editor contribution owner_package_id must match the target file's unique package owner.",
+					field=field_name,
+					row_key=owner_package_id,
+					row_index=row_index,
+					target=target_path,
+					expected_value=physical_owner,
+					actual_value=owner_package_id,
+				))
 	return issues
 
 
@@ -21860,8 +22916,8 @@ def audit_package_source_references(
 	return issues
 
 
-def collect_package_source_owner_entries(records: list[dict[str, Any]]) -> list[dict[str, str]]:
-	entries: list[dict[str, str]] = []
+def collect_package_source_owner_entries(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
+	entries: list[dict[str, Any]] = []
 	for record in records:
 		if record.get("kind") == "preset":
 			continue
@@ -21877,25 +22933,38 @@ def collect_package_source_owner_entries(records: list[dict[str, Any]]) -> list[
 				"manifest_path": str(record.get("path", "")),
 				"owned_path": str(path),
 				"pattern": pattern,
+				"exclude_paths": [
+					normalized_path
+					for raw_path in record.get("exclude_paths", [])
+					if (normalized_path := normalize_package_manifest_path_for_matching(str(raw_path)))
+				],
 			})
 	return sorted(entries, key=lambda entry: len(entry["pattern"]), reverse=True)
 
 
 class PackageOwnershipIndex(ManifestPathIndex):
-	def __init__(self, owner_entries: list[dict[str, str]]) -> None:
+	def __init__(self, owner_entries: list[dict[str, Any]]) -> None:
 		super().__init__(owner_entries, path_normalizer=normalize_package_manifest_path)
 
-	def find_owner(self, path: str) -> dict[str, str] | None:
-		return self.find_one(path)
+	def find_owner(self, path: str) -> dict[str, Any] | None:
+		matches = self.find_owners(path)
+		return matches[0] if len(matches) == 1 else None
 
-	def find_owners(self, path: str) -> list[dict[str, str]]:
-		return self.find_all(path)
+	def find_owners(self, path: str) -> list[dict[str, Any]]:
+		return [
+			entry
+			for entry in self.find_all(path)
+			if not any(
+				shared_manifest_path_matches(path, excluded_path)
+				for excluded_path in entry.get("exclude_paths", [])
+			)
+		]
 
 
 def find_package_source_owner(
 	path: str,
-	owner_entries: list[dict[str, str]] | PackageOwnershipIndex,
-) -> dict[str, str] | None:
+	owner_entries: list[dict[str, Any]] | PackageOwnershipIndex,
+) -> dict[str, Any] | None:
 	if isinstance(owner_entries, PackageOwnershipIndex):
 		return owner_entries.find_owner(path)
 	return PackageOwnershipIndex(owner_entries).find_owner(path)
@@ -21903,8 +22972,8 @@ def find_package_source_owner(
 
 def find_package_source_owners(
 	path: str,
-	owner_entries: list[dict[str, str]] | PackageOwnershipIndex,
-) -> list[dict[str, str]]:
+	owner_entries: list[dict[str, Any]] | PackageOwnershipIndex,
+) -> list[dict[str, Any]]:
 	if isinstance(owner_entries, PackageOwnershipIndex):
 		return owner_entries.find_owners(path)
 	return PackageOwnershipIndex(owner_entries).find_owners(path)
@@ -22818,7 +23887,7 @@ def validate_package_string_array(
 def normalize_package_manifest_paths(paths: list[str]) -> list[str]:
 	result: list[str] = []
 	for path in paths:
-		normalized_path = normalize_package_manifest_path(path)
+		normalized_path = normalize_package_manifest_path_for_matching(path)
 		if normalized_path and normalized_path not in result:
 			result.append(normalized_path)
 	return result
@@ -22842,8 +23911,8 @@ def normalize_package_manifest_path(path: str) -> str:
 
 
 def normalize_package_manifest_path_for_matching(path: str) -> str:
-	"""Normalize a package pattern exactly as the package builder does."""
-	return normalize_shared_manifest_path(path)
+	"""Return one canonical portable manifest pattern, or ``""`` when invalid."""
+	return path if shared_portable_manifest_path_identity(path) else ""
 
 
 def package_manifest_path_matches(path: str, raw_pattern: str) -> bool:
@@ -22952,15 +24021,34 @@ def audit_content_package_manifest_data(
 				field=field_name,
 			))
 
-	if "schema_version" in data and not isinstance(data["schema_version"], int):
+	if "schema_version" not in data:
+		issues.append(make_content_package_issue(
+			"missing_schema_version",
+			path,
+			"schema_version is required.",
+			field="schema_version",
+			expected_value=CONTENT_PACKAGE_SCHEMA_VERSION,
+		))
+	elif type(data["schema_version"]) is not int:
 		issues.append(make_content_package_issue(
 			"invalid_schema_version",
 			path,
-			"schema_version must be an integer when present.",
+			"schema_version must be an integer.",
 			field="schema_version",
 			expected_value="integer",
 		))
+	elif data["schema_version"] != CONTENT_PACKAGE_SCHEMA_VERSION:
+		issues.append(make_content_package_issue(
+			"unsupported_schema_version",
+			path,
+			"schema_version is not supported.",
+			field="schema_version",
+			actual_value=data["schema_version"],
+			expected_value=CONTENT_PACKAGE_SCHEMA_VERSION,
+		))
 
+	audit_content_package_alias_pair(data, "package_id", "id", path, issues)
+	audit_content_package_alias_pair(data, "display_name", "name", path, issues)
 	package_id = content_package_string(data, "package_id", content_package_string(data, "id"))
 	if not package_id:
 		issues.append(make_content_package_issue(
@@ -22980,6 +24068,17 @@ def audit_content_package_manifest_data(
 
 	validate_content_package_string_array(data, "content_types", path, issues)
 	validate_content_package_string_array(data, "dependencies", path, issues)
+	validate_content_package_string_array(data, "forbidden_resource_extensions", path, issues)
+	if "safety_kind" in data:
+		safety_kind = data["safety_kind"]
+		if not isinstance(safety_kind, str) or safety_kind.strip() not in CONTENT_PACKAGE_SAFETY_KINDS:
+			issues.append(make_content_package_issue(
+				"invalid_safety_kind",
+				path,
+				"safety_kind is not supported.",
+				field="safety_kind",
+				expected_value=sorted(CONTENT_PACKAGE_SAFETY_KINDS),
+			))
 	if "metadata" in data and not isinstance(data["metadata"], dict):
 		issues.append(make_content_package_issue(
 			"invalid_metadata",
@@ -23064,6 +24163,8 @@ def audit_content_package_resources(
 					row_index=index,
 				))
 
+		audit_content_package_alias_pair(entry, "key", "resource_key", path, issues, index)
+		audit_content_package_alias_pair(entry, "path", "resource_path", path, issues, index)
 		resource_key = content_package_string(entry, "key", content_package_string(entry, "resource_key"))
 		if not resource_key:
 			issues.append(make_content_package_issue(
@@ -23264,6 +24365,41 @@ def content_package_string(data: dict[str, Any], key: str, fallback: str = "") -
 	if isinstance(value, str):
 		return value.strip()
 	return fallback
+
+
+def audit_content_package_alias_pair(
+	data: dict[str, Any],
+	canonical_name: str,
+	alias_name: str,
+	path: str,
+	issues: list[dict[str, Any]],
+	row_index: int | None = None,
+) -> None:
+	if canonical_name not in data or alias_name not in data:
+		return
+	canonical_value = data[canonical_name]
+	alias_value = data[alias_name]
+	if not isinstance(canonical_value, str) or not isinstance(alias_value, str):
+		return
+	if canonical_value.strip() == alias_value.strip():
+		return
+	extra: dict[str, Any] = {
+		"field": canonical_name,
+		"alias_field": alias_name,
+		"actual_value": {
+			canonical_name: canonical_value.strip(),
+			alias_name: alias_value.strip(),
+		},
+		"expected_value": "matching canonical and alias values",
+	}
+	if row_index is not None:
+		extra["row_index"] = row_index
+	issues.append(make_content_package_issue(
+		"conflicting_alias_fields",
+		path,
+		"Canonical field and compatibility alias must have matching values.",
+		**extra,
+	))
 
 
 def content_package_string_list(
@@ -25151,17 +26287,19 @@ def find_missing_local_github_action_issues(scanned_paths: list[str]) -> list[di
 	return issues
 
 
-def find_gdscript_utf8_bom_issues(scanned_paths: list[str]) -> list[dict[str, Any]]:
+def find_gdscript_text_format_issues(scanned_paths: list[str]) -> list[dict[str, Any]]:
 	issues: list[dict[str, Any]] = []
 	for path in scanned_paths:
-		if not path.endswith(".gd"):
+		if (
+			not path.endswith(".gd")
+			or not path.startswith(("addons/gf/", "tests/gf_core/"))
+		):
 			continue
 		source_path = ROOT / path
 		if not source_path.is_file():
 			continue
 		try:
-			with source_path.open("rb") as file:
-				prefix = file.read(3)
+			data = source_path.read_bytes()
 		except OSError as exc:
 			issues.append({
 				"kind": "gdscript_source_unreadable",
@@ -25169,11 +26307,48 @@ def find_gdscript_utf8_bom_issues(scanned_paths: list[str]) -> list[dict[str, An
 				"message": f"Could not read GDScript source while checking encoding: {exc}",
 			})
 			continue
-		if has_utf8_bom(prefix):
+		issues.extend(audit_gdscript_text_format(path, data))
+	return issues
+
+
+def audit_gdscript_text_format(path: str, data: bytes) -> list[dict[str, Any]]:
+	issues: list[dict[str, Any]] = []
+	if has_utf8_bom(data):
+		issues.append({
+			"kind": "gdscript_utf8_bom",
+			"path": path,
+			"message": "GDScript files must be UTF-8 without BOM.",
+		})
+		return issues
+	try:
+		source = data.decode("utf-8", errors="strict")
+	except UnicodeDecodeError as exc:
+		return [{
+			"kind": "gdscript_invalid_utf8",
+			"path": path,
+			"message": f"GDScript source is not strict UTF-8: {exc.reason}.",
+		}]
+	if b"\r" in data:
+		issues.append({
+			"kind": "gdscript_non_lf_line_ending",
+			"path": path,
+			"message": "GDScript files must use LF line endings.",
+		})
+	if data and not data.endswith(b"\n"):
+		issues.append({
+			"kind": "gdscript_missing_final_newline",
+			"path": path,
+			"message": "GDScript files must end with one LF newline.",
+		})
+	raw_lines = source.splitlines()
+	_structural_lines, starts_in_multiline = scan_gdscript_structure(raw_lines)
+	for line_number, line in enumerate(raw_lines, start=1):
+		if line.startswith(" ") and not starts_in_multiline[line_number - 1]:
 			issues.append({
-				"kind": "gdscript_utf8_bom",
+				"kind": "gdscript_space_indentation",
 				"path": path,
-				"message": "GDScript files must be UTF-8 without BOM.",
+				"line": line_number,
+				"message": "GDScript indentation must use tabs; leading spaces are allowed only inside multiline strings.",
 			})
 	return issues
 
@@ -25352,6 +26527,12 @@ def load_api_scripts() -> list[ApiScript]:
 	if _API_CACHE is None:
 		_API_CACHE = collect_api_scripts(ROOT / "addons/gf", ROOT)
 	return _API_CACHE
+
+
+def invalidate_api_cache() -> None:
+	"""Discard request-scoped API source data before serving a new caller."""
+	global _API_CACHE
+	_API_CACHE = None
 
 
 def all_members(script: ApiScript) -> list[ApiMember]:
@@ -25770,10 +26951,12 @@ def run_checks(
 					remaining_deadline_seconds(suite_deadline, "package artifact revalidation")
 					package_artifact_set.revalidate(workspace_state, deadline=suite_deadline)
 					remaining_deadline_seconds(suite_deadline, "package artifact revalidation")
+				if "examples_sync_write" not in selected_names:
+					remaining_deadline_seconds(suite_deadline, "workspace snapshot revalidation")
 					ending_workspace = workspace_fingerprint(ROOT, deadline=suite_deadline)
 					if ending_workspace["fingerprint"] != workspace_state["fingerprint"]:
-						raise PackageArtifactSetError(
-							"Workspace source changed while package artifact consumers were running."
+						raise WorkspaceSnapshotError(
+							"Workspace source changed while read-only maintenance checks were running."
 						)
 			except (WorkspaceDeadlineError, PackageArtifactDeadlineError, TimeoutError) as error:
 				if data is None:
@@ -25794,11 +26977,15 @@ def run_checks(
 				ValueError,
 			) as error:
 				if data is None:
-					failure_name = (
-						"package_artifact_preparation"
-						if isinstance(error, PackageArtifactSetError)
-						else "parallel_validation_setup"
-					)
+					if isinstance(error, PackageArtifactSetError):
+						failure_name = "package_artifact_preparation"
+					elif isinstance(
+						error,
+						(gf_maintenance_check_graph.WorkspaceFingerprintError, WorkspaceSnapshotError),
+					):
+						failure_name = "workspace_snapshot_integrity"
+					else:
+						failure_name = "parallel_validation_setup"
 					data = make_check_setup_failure(
 						suite,
 						selected_names,
@@ -25807,9 +26994,14 @@ def run_checks(
 						str(error),
 					)
 				else:
+					failure_name = (
+						"package_artifact_integrity"
+						if isinstance(error, PackageArtifactSetError)
+						else "workspace_snapshot_integrity"
+					)
 					append_check_orchestration_failure(
 						data,
-						"package_artifact_integrity",
+						failure_name,
 						str(error),
 					)
 		if temporary_cleanup_errors:
@@ -28063,29 +29255,24 @@ def finalize_maintenance_log_session(
 	*,
 	succeeded: bool,
 	keep_logs: bool,
+	log_root: Path = GODOT_LOG_DIR,
 ) -> dict[str, Any]:
-	after_snapshot, after_snapshot_errors = maintenance_log_snapshot()
-	changed_paths = changed_maintenance_log_paths(before_snapshot, after_snapshot)
+	after_snapshot, after_snapshot_errors = maintenance_log_snapshot(log_root)
+	changed_paths = changed_maintenance_log_paths(before_snapshot, after_snapshot, log_root)
 	errors = [*snapshot_errors, *after_snapshot_errors]
-	protected_paths: list[Path] = []
 	session_cleanup: dict[str, Any] | None = None
 	if succeeded and not keep_logs:
-		session_cleanup = remove_maintenance_log_files(changed_paths)
+		session_cleanup = remove_maintenance_log_files(changed_paths, log_root)
 		errors.extend(session_cleanup["errors"])
-	else:
-		protected_paths = changed_paths
-	retention = maintenance_log_hygiene(protected_paths=protected_paths)
-	errors.extend(retention["errors"])
-	legacy_cleanup: dict[str, Any] | None = None
-	if succeeded and not keep_logs:
-		legacy_cleanup = legacy_maintenance_log_hygiene()
-		errors.extend(legacy_cleanup["errors"])
 	return {
 		"ok": not errors,
 		"changed_file_count": len(changed_paths),
 		"session_cleanup": session_cleanup,
-		"retention": retention,
-		"legacy_cleanup": legacy_cleanup,
+		"retained_session_file_count": (
+			len(changed_paths)
+			if not succeeded or keep_logs
+			else max(0, len(changed_paths) - len(session_cleanup["removed_files"] if session_cleanup else []))
+		),
 		"errors": list(dict.fromkeys(errors)),
 	}
 
@@ -29327,7 +30514,7 @@ def audit_plugin_cfg() -> dict[str, Any]:
 	fields = read_plugin_fields()
 	script_value = fields.get("script", "")
 	script_path = addon_root / script_value if script_value else addon_root
-	script_inside_addon = path_is_inside(script_path, addon_root)
+	script_inside_addon = gf_path_security.path_is_inside(addon_root, script_path)
 	script_exists = script_inside_addon and script_path.is_file()
 	script_text = script_path.read_text(encoding="utf-8") if script_exists else ""
 	required_files = {
@@ -29468,14 +30655,6 @@ def find_blocked_package_dirs(root: Path) -> list[str]:
 			result.append(path.relative_to(ROOT).as_posix())
 			dir_names.remove(dir_name)
 	return sorted(result)
-
-
-def path_is_inside(path: Path, root: Path) -> bool:
-	try:
-		path.resolve().relative_to(root.resolve())
-		return True
-	except ValueError:
-		return False
 
 
 def read_extension_versions() -> list[dict[str, str]]:

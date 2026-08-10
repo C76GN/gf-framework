@@ -27,14 +27,20 @@ signal candidates_changed(revision: int)
 
 # --- 公共变量 ---
 
-## 最大候选记录数量；小于等于 0 时不限制。
+## 最大候选记录数量；小于等于 0 时不限制。降低上限会立即按注册顺序淘汰最旧记录；
+## 一次容量收敛只推进一次 revision 并发出一次 candidates_changed。
 ## [br]
 ## @api public
 ## [br]
 ## @since 8.0.0
 var max_candidates: int = 0:
 	set(value):
-		max_candidates = maxi(value, 0)
+		value = maxi(value, 0)
+		if max_candidates == value:
+			return
+		max_candidates = value
+		if _prune_for_capacity():
+			_notify_candidates_changed()
 
 ## 注册表自定义元数据。
 ## [br]

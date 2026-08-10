@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFValidationIssue" path="addons/gf/standard/foundation/validation/gf_validation_issue.gd" module="standard" extends="RefCounted" classDigest="331afce796d3df7a69b6c5982d110a631fa92dd6e563b33543902d1bf382476a">
+<class name="GFValidationIssue" path="addons/gf/standard/foundation/validation/gf_validation_issue.gd" module="standard" extends="RefCounted" classDigest="7b134887c14b67d631b8ffdab25973961537c0f7c94d418b5ea7a9ea7b2886f3">
 	<description>GFValidationIssue: 通用校验问题条目。
 用于描述配置、资源、节点树、存档载荷或编辑器工具中的单个问题。它只记录
 严重级别、问题类别、定位信息和附加字段，不决定项目如何展示或修复问题。</description>
@@ -145,12 +145,13 @@
 				<tag name="param">p_severity: 严重级别，可传入 Severity、int 或字符串。</tag>
 				<tag name="param">p_kind: 问题类别。</tag>
 				<tag name="param">p_message: 问题说明。</tag>
-				<tag name="param">p_key: 可选定位键。</tag>
+				<tag name="param">p_key: 可选定位键；可变集合会在创建时复制为问题自身拥有的快照。</tag>
 				<tag name="param">p_path: 可选路径。</tag>
 				<tag name="param">p_metadata: 可选元数据。</tag>
 				<tag name="schema">p_severity: Variant Severity, int, or string.</tag>
 				<tag name="schema">p_key: Variant caller-defined location key.</tag>
 				<tag name="schema">p_metadata: Dictionary caller metadata.</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="configure">
@@ -161,13 +162,14 @@
 				<tag name="param">p_severity: 严重级别，可传入 Severity、int 或字符串。</tag>
 				<tag name="param">p_kind: 问题类别。</tag>
 				<tag name="param">p_message: 问题说明。</tag>
-				<tag name="param">p_key: 可选定位键。</tag>
+				<tag name="param">p_key: 可选定位键；可变集合会在配置时复制为问题自身拥有的快照。</tag>
 				<tag name="param">p_path: 可选路径。</tag>
 				<tag name="param">p_metadata: 可选元数据。</tag>
 				<tag name="return">当前问题条目。</tag>
 				<tag name="schema">p_severity: Variant Severity, int, or string.</tag>
 				<tag name="schema">p_key: Variant caller-defined location key.</tag>
 				<tag name="schema">p_metadata: Dictionary caller metadata.</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="apply_dict">

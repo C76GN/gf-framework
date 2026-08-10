@@ -9,7 +9,15 @@ from pathlib import Path
 from typing import Any
 
 from .constants import KNOWLEDGE_ROOT, SCHEMA_ROOT
-from .paths import canonical_json_bytes, read_json_object, resolve_project_path, sha256_bytes
+from .paths import (
+	canonical_json_bytes,
+	normalize_portable_ownership_path,
+	portable_ownership_path_identity,
+	read_bounded_text,
+	read_json_object,
+	resolve_project_path,
+	sha256_bytes,
+)
 from .schema import validate_schema_file
 
 
@@ -22,6 +30,32 @@ _SEARCH_STOP_WORDS = frozenset({
 	"with",
 })
 _PRIMARY_CLASS_PARTIAL_SCORE_LIMIT = 20
+_PLUGIN_CONFIG_MAX_BYTES = 256 * 1024
+_LOCKFILE_REQUIRED_FIELDS = frozenset({"schema_version", "framework_version", "installed"})
+_LOCKFILE_ALLOWED_FIELDS = _LOCKFILE_REQUIRED_FIELDS | {"registry_source"}
+_LOCK_ENTRY_REQUIRED_FIELDS = frozenset({
+	"version",
+	"kind",
+	"reason",
+	"required_by",
+	"paths",
+	"archive",
+	"sha256",
+	"files",
+	"file_metadata",
+})
+_LOCK_ENTRY_ALLOWED_FIELDS = _LOCK_ENTRY_REQUIRED_FIELDS | {"gf_extension_id"}
+_LOCKFILE_REGISTRY_SOURCE_ALLOWED_FIELDS = frozenset({
+	"source",
+	"source_manifest",
+	"channel",
+	"offline_bundle",
+	"registry_sha256",
+	"remote",
+	"mirror_index",
+	"registry_size_bytes",
+})
+_LOCK_ENTRY_REASONS = frozenset({"manual", "dependency", "preset", "bundled", "dev"})
 
 
 def load_api_index() -> dict[str, Any]:
@@ -474,8 +508,8 @@ def project_framework_version(project_root: Path) -> str:
 		return ""
 	parser = configparser.ConfigParser()
 	try:
-		parser.read(path, encoding="utf-8")
-	except (OSError, UnicodeDecodeError, configparser.Error):
+		parser.read_string(read_bounded_text(path, _PLUGIN_CONFIG_MAX_BYTES))
+	except (OSError, UnicodeDecodeError, ValueError, configparser.Error):
 		return ""
 	return parser.get("plugin", "version", fallback="").strip().strip('"')
 
@@ -539,33 +573,9 @@ def installed_package_report(project_root: Path) -> dict[str, Any]:
 				"valid": False,
 				"issues": [str(exc)],
 			}
-		issues: list[str] = []
-		if data.get("schema_version") != 1:
-			issues.append("Package lockfile schema_version must equal 1.")
-		installed = data.get("installed")
-		if not isinstance(installed, dict):
-			issues.append("Package lockfile installed field must be an object.")
-			installed = {}
-		package_ids = sorted(str(key) for key in installed if str(key))
-		for package_id in package_ids:
-			if not isinstance(installed.get(package_id), dict):
-				issues.append(f"Package lockfile entry must be an object: {package_id}.")
-		for package_id in sorted(set(package_ids) - known_package_ids()):
-			issues.append(f"Package lockfile references a package absent from this GF release: {package_id}.")
-		missing_dependencies = sorted(package_dependency_closure(package_ids) - set(package_ids))
-		for package_id in missing_dependencies:
-			issues.append(f"Package lockfile omits an installed package dependency: {package_id}.")
-		lock_framework_version = str(data.get("framework_version", "")).strip()
-		project_version = project_framework_version(project_root)
-		if not lock_framework_version:
-			issues.append("Package lockfile framework_version must be a non-empty string.")
-		elif project_version and lock_framework_version != project_version:
-			issues.append(
-				"Package lockfile framework_version does not match addons/gf/plugin.cfg: "
-				f"{lock_framework_version} != {project_version}."
-			)
+		issues, package_ids = _formal_package_lock_issues(data, project_root)
 		return {
-			"packages": package_ids,
+			"packages": package_ids if not issues else [],
 			"source": "lockfile",
 			"lockfile_present": True,
 			"valid": not issues,
@@ -597,6 +607,235 @@ def installed_package_report(project_root: Path) -> dict[str, Any]:
 
 def installed_package_ids(project_root: Path) -> list[str]:
 	return list(installed_package_report(project_root)["packages"])
+
+
+def _formal_package_lock_issues(
+	data: dict[str, Any],
+	project_root: Path,
+) -> tuple[list[str], list[str]]:
+	issues: list[str] = []
+	issues.extend(_closed_object_field_issues(
+		data,
+		_LOCKFILE_REQUIRED_FIELDS,
+		_LOCKFILE_ALLOWED_FIELDS,
+		"Package lockfile",
+	))
+	if type(data.get("schema_version")) is not int or data.get("schema_version") != 1:
+		issues.append("Package lockfile schema_version must be the integer 1.")
+	lock_framework_version = data.get("framework_version")
+	if not isinstance(lock_framework_version, str) or not lock_framework_version.strip():
+		issues.append("Package lockfile framework_version must be a non-empty string.")
+		lock_framework_version = ""
+	project_version = project_framework_version(project_root)
+	catalog_version = catalog_framework_version()
+	if not project_version:
+		issues.append("addons/gf/plugin.cfg must declare the project GF Framework version.")
+	elif lock_framework_version and lock_framework_version != project_version:
+		issues.append(
+			"Package lockfile framework_version does not match addons/gf/plugin.cfg: "
+			f"{lock_framework_version} != {project_version}."
+		)
+	if project_version and catalog_version and project_version != catalog_version:
+		issues.append(
+			"GF AI catalog version does not match the installed framework while reading package state: "
+			f"{catalog_version} != {project_version}."
+		)
+	if "registry_source" in data:
+		issues.extend(_lockfile_registry_source_issues(data.get("registry_source")))
+
+	installed = data.get("installed")
+	if not isinstance(installed, dict):
+		issues.append("Package lockfile installed field must be an object.")
+		return issues, []
+	package_records = {
+		str(item.get("id", "")): item
+		for item in load_api_index().get("packages", [])
+		if isinstance(item, dict) and item.get("id")
+	}
+	package_ids = sorted(str(key) for key in installed if str(key))
+	for package_id in package_ids:
+		entry = installed.get(package_id)
+		record = package_records.get(package_id)
+		if record is None:
+			issues.append(f"Package lockfile references a package absent from this GF release: {package_id}.")
+			continue
+		issues.extend(_formal_lock_entry_issues(
+			package_id,
+			entry,
+			record,
+			lock_framework_version,
+			set(package_ids),
+			package_records,
+		))
+	missing_dependencies = sorted(package_dependency_closure(package_ids) - set(package_ids))
+	for package_id in missing_dependencies:
+		issues.append(f"Package lockfile omits an installed package dependency: {package_id}.")
+	return issues, package_ids
+
+
+def _formal_lock_entry_issues(
+	package_id: str,
+	entry: Any,
+	record: dict[str, Any],
+	framework_version: str,
+	installed_ids: set[str],
+	package_records: dict[str, dict[str, Any]],
+) -> list[str]:
+	if not isinstance(entry, dict) or not entry:
+		return [f"Package lockfile entry must be a non-empty object: {package_id}."]
+	issues = _closed_object_field_issues(
+		entry,
+		_LOCK_ENTRY_REQUIRED_FIELDS,
+		_LOCK_ENTRY_ALLOWED_FIELDS,
+		f"Package lockfile entry {package_id}",
+	)
+	version = entry.get("version")
+	if not isinstance(version, str) or not version:
+		issues.append(f"Package lockfile entry version must be a non-empty string: {package_id}.")
+	elif framework_version and version != framework_version:
+		issues.append(
+			f"Package lockfile entry version does not match framework_version: {package_id}: "
+			f"{version} != {framework_version}."
+		)
+	kind = entry.get("kind")
+	expected_kind = str(record.get("kind", ""))
+	if not isinstance(kind, str) or kind != expected_kind:
+		issues.append(
+			f"Package lockfile entry kind does not match this GF release: {package_id}: "
+			f"{kind!r} != {expected_kind!r}."
+		)
+	for field_name in ("reason", "required_by", "paths"):
+		if not _valid_unique_string_array(entry.get(field_name)):
+			issues.append(
+				f"Package lockfile entry {field_name} must be an array of unique non-empty strings: "
+				f"{package_id}."
+			)
+	reasons = entry.get("reason") if isinstance(entry.get("reason"), list) else []
+	if not reasons:
+		issues.append(f"Package lockfile entry reason must not be empty: {package_id}.")
+	for reason in reasons:
+		if isinstance(reason, str) and reason not in _LOCK_ENTRY_REASONS:
+			issues.append(f"Package lockfile entry contains an invalid reason: {package_id}: {reason}.")
+	required_by = entry.get("required_by") if isinstance(entry.get("required_by"), list) else []
+	expected_required_by = sorted(
+		candidate_id
+		for candidate_id in installed_ids
+		if package_id in _package_record_dependencies(package_records.get(candidate_id, {}))
+	)
+	if _valid_unique_string_array(required_by) and sorted(required_by) != expected_required_by:
+		issues.append(f"Package lockfile entry required_by is stale: {package_id}.")
+	archive = entry.get("archive")
+	if not isinstance(archive, str) or not archive:
+		issues.append(f"Package lockfile entry archive must be a non-empty string: {package_id}.")
+	sha256 = entry.get("sha256")
+	if not _is_sha256(sha256):
+		issues.append(f"Package lockfile entry sha256 must be a full SHA-256: {package_id}.")
+	if "gf_extension_id" in entry and (
+		not isinstance(entry.get("gf_extension_id"), str) or not entry.get("gf_extension_id")
+	):
+		issues.append(f"Package lockfile entry gf_extension_id must be a non-empty string: {package_id}.")
+	issues.extend(_lock_entry_file_metadata_issues(package_id, entry))
+	return issues
+
+
+def _lock_entry_file_metadata_issues(package_id: str, entry: dict[str, Any]) -> list[str]:
+	issues: list[str] = []
+	files = entry.get("files")
+	if not _valid_unique_string_array(files) or not files:
+		issues.append(
+			f"Package lockfile entry files must be a non-empty array of unique package paths: {package_id}."
+		)
+		return issues
+	file_identities: set[str] = set()
+	for relative_path in files:
+		identity = _portable_package_file_identity(relative_path)
+		if not identity or identity in file_identities:
+			issues.append(f"Package lockfile entry files contains an unsafe or aliased path: {package_id}.")
+			continue
+		file_identities.add(identity)
+	metadata = entry.get("file_metadata")
+	if not isinstance(metadata, dict):
+		issues.append(f"Package lockfile entry file_metadata must be an object: {package_id}.")
+		return issues
+	metadata_identities: set[str] = set()
+	for relative_path, value in metadata.items():
+		identity = _portable_package_file_identity(relative_path) if isinstance(relative_path, str) else ""
+		if not identity or identity in metadata_identities:
+			issues.append(f"Package lockfile entry file_metadata contains an unsafe or aliased path: {package_id}.")
+			continue
+		metadata_identities.add(identity)
+		if not isinstance(value, dict) or set(value) != {"sha256", "size_bytes"}:
+			issues.append(f"Package lockfile entry file_metadata value is invalid: {package_id}.")
+			continue
+		if not _is_sha256(value.get("sha256")) or type(value.get("size_bytes")) is not int or value["size_bytes"] < 0:
+			issues.append(f"Package lockfile entry file_metadata value is invalid: {package_id}.")
+	if file_identities != metadata_identities:
+		issues.append(f"Package lockfile entry file_metadata must exactly cover files: {package_id}.")
+	return issues
+
+
+def _lockfile_registry_source_issues(value: Any) -> list[str]:
+	if not isinstance(value, dict):
+		return ["Package lockfile registry_source must be an object when present."]
+	issues = _closed_object_field_issues(
+		value,
+		frozenset(),
+		_LOCKFILE_REGISTRY_SOURCE_ALLOWED_FIELDS,
+		"Package lockfile registry_source",
+	)
+	for field_name in ("source", "source_manifest", "channel", "offline_bundle", "registry_sha256"):
+		if field_name in value and not isinstance(value[field_name], str):
+			issues.append(f"Package lockfile registry_source {field_name} must be a string.")
+	if "registry_sha256" in value and not _is_sha256(value.get("registry_sha256")):
+		issues.append("Package lockfile registry_source registry_sha256 must be a full SHA-256.")
+	if "remote" in value and type(value["remote"]) is not bool:
+		issues.append("Package lockfile registry_source remote must be boolean.")
+	if "mirror_index" in value and (type(value["mirror_index"]) is not int or value["mirror_index"] < -1):
+		issues.append("Package lockfile registry_source mirror_index must be an integer greater than or equal to -1.")
+	if "registry_size_bytes" in value and (
+		type(value["registry_size_bytes"]) is not int or value["registry_size_bytes"] < 0
+	):
+		issues.append("Package lockfile registry_source registry_size_bytes must be a non-negative integer.")
+	return issues
+
+
+def _closed_object_field_issues(
+	value: dict[str, Any],
+	required: frozenset[str],
+	allowed: frozenset[str],
+	label: str,
+) -> list[str]:
+	issues = [f"{label} is missing required field: {field_name}." for field_name in sorted(required - set(value))]
+	issues.extend(f"{label} contains unsupported field: {field_name}." for field_name in sorted(set(value) - allowed))
+	return issues
+
+
+def _valid_unique_string_array(value: Any) -> bool:
+	return (
+		isinstance(value, list)
+		and all(isinstance(item, str) and bool(item) and item == item.strip() for item in value)
+		and len(value) == len(set(value))
+	)
+
+
+def _package_record_dependencies(record: dict[str, Any]) -> set[str]:
+	value = record.get("dependencies", []) if isinstance(record, dict) else []
+	return {str(item) for item in value if isinstance(item, str)} if isinstance(value, list) else set()
+
+
+def _portable_package_file_identity(relative_path: str) -> str:
+	if not isinstance(relative_path, str) or not relative_path.startswith("addons/gf/"):
+		return ""
+	resource_path = "res://" + relative_path
+	if normalize_portable_ownership_path(resource_path) != resource_path:
+		return ""
+	return portable_ownership_path_identity(resource_path)
+
+
+def _is_sha256(value: Any) -> bool:
+	return isinstance(value, str) and len(value) == 64 and all(
+		character in "0123456789abcdefABCDEF" for character in value
+	)
 
 
 def _class_records(index: dict[str, Any]) -> dict[str, Any]:

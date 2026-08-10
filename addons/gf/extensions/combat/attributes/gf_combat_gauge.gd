@@ -266,9 +266,11 @@ func clear_modifiers() -> void:
 ## [br]
 ## @api public
 ## [br]
+## @since 11.0.0
+## [br]
 ## @param action: 原始动作。
 ## [br]
-## @return 应用结果。
+## @return: 应用结果；前后值只描述本动作提交，不包含观察信号触发的后续嵌套修改。
 func apply_action(action: GFCombatAction) -> GFCombatActionResult:
 	if action == null:
 		var null_result: GFCombatActionResult = GFCombatActionResult.make_failure(&"null_action", null, current_value, metadata)
@@ -326,6 +328,11 @@ func apply_action(action: GFCombatAction) -> GFCombatActionResult:
 		overflow_result.action = final_action.duplicate_action()
 		action_rejected.emit(overflow_result)
 		return overflow_result
+	var committed_value: float = clampf(
+		next_value,
+		minf(min_value, max_value),
+		maxf(min_value, max_value)
+	)
 	set_value(next_value)
 
 	var applied_metadata: Dictionary = _get_report_metadata(validation_report)
@@ -333,7 +340,7 @@ func apply_action(action: GFCombatAction) -> GFCombatActionResult:
 		action,
 		final_action,
 		previous_value,
-		current_value,
+		committed_value,
 		applied_metadata
 	)
 	action_applied.emit(applied_result)

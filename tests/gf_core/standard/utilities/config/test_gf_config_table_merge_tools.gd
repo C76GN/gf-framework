@@ -76,6 +76,13 @@ func test_build_profile_filters_schema_and_records_by_metadata() -> void:
 	server_rule.metadata = { "tags": ["server_only"] }
 	schema.record_validation_rules = [runtime_rule, server_rule]
 	schema.table_validation_rules = [server_rule]
+	var runtime_field_rule: GFConfigValidationRule = GFConfigValidationRule.new()
+	runtime_field_rule.rule_id = &"runtime_field_rule"
+	runtime_field_rule.metadata = { "groups": ["runtime"] }
+	var server_field_rule: GFConfigValidationRule = GFConfigValidationRule.new()
+	server_field_rule.rule_id = &"server_field_rule"
+	server_field_rule.metadata = { "tags": ["server_only"] }
+	runtime_column.validation_rules = [runtime_field_rule, server_field_rule]
 	var index: GFConfigTableIndexDefinition = GFConfigTableIndexDefinition.new()
 	index.field_names = PackedStringArray(["runtime_name"])
 	index.unique = true
@@ -92,12 +99,19 @@ func test_build_profile_filters_schema_and_records_by_metadata() -> void:
 		{ "id": 2, "runtime_name": "B", "_metadata": { "tags": ["server_only"] } },
 	])
 	var filtered_record: Dictionary = GFVariantData.as_dictionary(filtered_records[0])
+	var filtered_runtime_column: GFConfigTableColumn = filtered_schema.get_column(&"runtime_name")
 
 	assert_eq(filtered_schema.get_column_names(), PackedStringArray(["runtime_name"]), "Profile 应按列 metadata 裁剪 schema。")
 	assert_eq(filtered_schema.indexes.size(), 1, "字段仍存在时索引应保留。")
 	assert_eq(filtered_schema.record_validation_rules.size(), 1, "Profile 应按 rule metadata 裁剪记录规则。")
 	assert_eq(filtered_schema.record_validation_rules[0].get_rule_id(), &"runtime_rule", "Profile 应保留命中 runtime 分组的规则。")
 	assert_eq(filtered_schema.table_validation_rules.size(), 0, "Profile 应移除被排除 metadata 命中的表规则。")
+	assert_eq(filtered_runtime_column.validation_rules.size(), 1, "字段规则应使用与记录/表规则相同的 metadata profile。")
+	assert_eq(
+		filtered_runtime_column.validation_rules[0].get_rule_id(),
+		&"runtime_field_rule",
+		"字段挂载位置不得绕过 rule metadata 裁剪。"
+	)
 	assert_eq(filtered_records.size(), 1, "Profile 应按记录 metadata 裁剪数据。")
 	assert_eq(GFVariantData.get_option_int(filtered_record, "id"), 1, "只应保留命中 runtime 分组的记录。")
 

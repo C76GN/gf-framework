@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFContentPackageAssetCatalogProvider" path="addons/gf/extensions/content_package/runtime/gf_content_package_asset_catalog_provider.gd" module="extensions/content_package" extends="GFAssetCatalogSourceProvider" classDigest="6d8b6efa664c8cf663f160a0e843c752272da64cfd24539490e8c71a002b87c0">
+<class name="GFContentPackageAssetCatalogProvider" path="addons/gf/extensions/content_package/runtime/gf_content_package_asset_catalog_provider.gd" module="extensions/content_package" extends="GFAssetCatalogSourceProvider" classDigest="6786b64a8a7b2441efe95a121472f9228befcef7eff64115cd1d03fb6f5ed69d">
 	<description>GFContentPackageAssetCatalogProvider: 内容包目录到通用资产目录的适配器。
 Provider 持有内容包目录快照，通过可选 GFContentPackageQuery 选择 manifest，
 再把资源映射转换为 GFAssetCatalogEntry。它不挂载目录、不下载内容，也不解释业务分类。</description>
@@ -33,7 +33,7 @@ Provider 持有内容包目录快照，通过可选 GFContentPackageQuery 选择
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">options: 可选字段映射，支持 title_fields、description_fields、tag_fields、category_fields 和 preview_path_fields。</tag>
-				<tag name="return">转换后的资产目录；内容包目录无效时返回 null。</tag>
+				<tag name="return">转换后的资产目录；内容包目录无效、条目无效或 asset ID 碰撞时返回 null。</tag>
 				<tag name="schema">options: Dictionary with optional PackedStringArray field-name lists for title_fields, description_fields, tag_fields, category_fields, and preview_path_fields.</tag>
 				<tag name="since">10.0.0</tag>
 			</tags>

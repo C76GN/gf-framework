@@ -255,12 +255,13 @@ var compress_payload: bool = false
 ### `headers`
 
 - API：`public`
+- 首次版本：`11.0.0`
 
 ```gdscript
 var headers: Dictionary = {}
 ```
 
-自定义 HTTP Header。
+自定义 HTTP Header。字段名必须符合 HTTP token grammar，字段值不得包含非法控制字符； 构建时还会执行字段数量、单字段 UTF-8 字节数和总字节数预算。
 
 结构：
 

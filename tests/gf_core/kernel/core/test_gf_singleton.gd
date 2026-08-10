@@ -693,6 +693,21 @@ class ChildArchitectureEvent extends BaseArchitectureEvent:
 class FactoryNode extends Node:
 	pass
 
+
+class OwnedEventFactoryNode extends Node:
+	var event_count: int = 0
+
+	func inject_dependencies(architecture: GFArchitecture) -> void:
+		architecture.register_simple_event_owned(
+			self,
+			&"queued_factory_owned_event",
+			GFEventListener.from_method(self, &"_on_owned_event", 1)
+		)
+
+	func _on_owned_event(_payload: Variant) -> void:
+		event_count += 1
+
+
 class WrongFactoryNode extends RefCounted:
 	pass
 
@@ -2957,6 +2972,38 @@ func test_singleton_factory_recreates_freed_cached_instance() -> void:
 	arch.dispose()
 
 
+## 验证排队删除的 Singleton 被同帧替换前会先撤销旧实例的框架事件归属。
+func test_singleton_factory_recreation_clears_queued_instance_owned_events() -> void:
+	var arch: GFArchitecture = GFArchitecture.new()
+	var _registered_factory: bool = arch.register_factory(
+		OwnedEventFactoryNode,
+		func() -> Object:
+			return OwnedEventFactoryNode.new(),
+		GFBindingLifetimes.Lifetime.SINGLETON
+	)
+	await arch.init()
+
+	var first: OwnedEventFactoryNode = _owned_event_factory_node(
+		arch.create_instance(OwnedEventFactoryNode)
+	)
+	add_child_autofree(first)
+	first.queue_free()
+	var second: OwnedEventFactoryNode = _owned_event_factory_node(
+		arch.create_instance(OwnedEventFactoryNode)
+	)
+
+	arch.send_simple_event(&"queued_factory_owned_event")
+
+	assert_true(first.is_queued_for_deletion(), "旧 Singleton 应仍处于排队删除窗口。")
+	assert_ne(first, second, "排队删除的缓存实例应被替换。")
+	assert_eq(first.event_count, 0, "缓存身份切换后旧实例不应继续收到框架事件。")
+	assert_eq(second.event_count, 1, "同帧派发应只到达替代实例。")
+
+	arch.dispose()
+	second.free()
+	await get_tree().process_frame
+
+
 ## 验证 Singleton 工厂失败返回不会被缓存，后续有效返回仍可恢复。
 func test_singleton_factory_does_not_cache_wrong_type_failure() -> void:
 	var arch: GFArchitecture = GFArchitecture.new()
@@ -3845,6 +3892,12 @@ func _reentrant_factory_command(value: Variant) -> ReentrantFactoryCommand:
 
 func _factory_node(value: Variant) -> FactoryNode:
 	if value is FactoryNode:
+		return value
+	return null
+
+
+func _owned_event_factory_node(value: Variant) -> OwnedEventFactoryNode:
+	if value is OwnedEventFactoryNode:
 		return value
 	return null
 

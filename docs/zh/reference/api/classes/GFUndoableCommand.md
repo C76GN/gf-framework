@@ -15,6 +15,7 @@
 
 | 类型 | 名称 | 签名 |
 |---|---|---|
+| 常量 | [`MAX_SNAPSHOT_BYTES`](#member-gfundoablecommand-constants-max_snapshot_bytes) | `const MAX_SNAPSHOT_BYTES: int = 16 * 1024 * 1024` |
 | 属性 | [`action_name`](#member-gfundoablecommand-properties-action_name) | `var action_name: String = ""` |
 | 方法 | [`execute`](#member-gfundoablecommand-methods-execute) | `func execute() -> Variant:` |
 | 方法 | [`undo`](#member-gfundoablecommand-methods-undo) | `func undo() -> Variant:` |
@@ -23,6 +24,21 @@
 | 方法 | [`is_redo_successful`](#member-gfundoablecommand-methods-is_redo_successful) | `func is_redo_successful(_execute_result: Variant) -> bool:` |
 | 方法 | [`set_snapshot`](#member-gfundoablecommand-methods-set_snapshot) | `func set_snapshot(data: Variant) -> bool:` |
 | 方法 | [`get_snapshot`](#member-gfundoablecommand-methods-get_snapshot) | `func get_snapshot() -> Variant:` |
+
+## 常量
+
+<a id="member-gfundoablecommand-constants-max_snapshot_bytes"></a>
+
+### `MAX_SNAPSHOT_BYTES`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+const MAX_SNAPSHOT_BYTES: int = 16 * 1024 * 1024
+```
+
+单个命令快照允许的最大保守内存成本估算，单位字节。 估算覆盖容器节点、String/StringName/NodePath 和全部 PackedArray 载荷， 防止少量超大 Variant 绕过节点预算。
 
 ## 属性
 
@@ -161,7 +177,7 @@ func is_redo_successful(_execute_result: Variant) -> bool:
 func set_snapshot(data: Variant) -> bool:
 ```
 
-保存执行前的状态快照。应在 execute() 内部、修改数据之前调用。 快照只接受不含 Object、Callable、Signal 或 RID 的纯 Variant 值；复杂运行时对象应先投影为数据。 校验失败时保留原快照，不产生半更新状态。
+保存执行前的状态快照。应在 execute() 内部、修改数据之前调用。 快照只接受不含 Object、Callable、Signal 或 RID 的纯 Variant 值；复杂运行时对象应先投影为数据。 深度、项目数或 [constant MAX_SNAPSHOT_BYTES] 成本预算校验失败时保留原快照， 不产生半更新状态。
 
 参数：
 
@@ -173,7 +189,7 @@ func set_snapshot(data: Variant) -> bool:
 
 结构：
 
-- `data`: Pure Variant snapshot value without Object, Callable, Signal, or RID references.
+- `data`: Pure Variant snapshot value without Object, Callable, Signal, or RID references, bounded to 128 levels, 100000 visited values, and MAX_SNAPSHOT_BYTES estimated bytes.
 
 <a id="member-gfundoablecommand-methods-get_snapshot"></a>
 

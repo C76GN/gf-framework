@@ -4,6 +4,8 @@
 ## 调度器负责维护正在运行的 [GFRuntimeTask]、处理 requirement 冲突、执行可中断任务、
 ## 并在 requirement 空闲时恢复默认任务。它只提供通用生命周期与资源占用语义，不绑定输入、
 ## 动画、角色控制器或项目业务状态。
+## 每次成功 schedule 都分配新的内部 generation；所有用户回调返回后都会复核该 generation，
+## 因此旧生命周期不能继续推进或结束在回调中重新调度的同一对象。
 ## [br]
 ## @api public
 ## [br]
@@ -144,17 +146,47 @@ func schedule(task: GFRuntimeTask) -> bool:
 	if task.is_scheduled():
 		task_rejected.emit(task, &"already_scheduled")
 		return false
+	var schedule_members: Array[GFRuntimeTask] = task.get_schedule_members()
+	if schedule_members.is_empty():
+		var invalid_graph_reason: StringName = task.get_schedule_rejection_reason()
+		task_rejected.emit(
+			task,
+			invalid_graph_reason if invalid_graph_reason != &"" else &"invalid_schedule_members"
+		)
+		return false
+	var member_ids: Dictionary = {}
+	for member: GFRuntimeTask in schedule_members:
+		if member == null or not is_instance_valid(member):
+			task_rejected.emit(task, &"invalid_schedule_members")
+			return false
+		var member_id: int = member.get_instance_id()
+		if member_ids.has(member_id):
+			task_rejected.emit(task, &"invalid_schedule_members")
+			return false
+		member_ids[member_id] = true
+		if member.is_scheduled() or member.has_initialized():
+			task_rejected.emit(
+				task,
+				(
+					GFRuntimeTaskGroup.REJECTION_CHILD_SCHEDULED
+					if member != task
+					else &"already_scheduled"
+				)
+			)
+			return false
+
+	_schedule_resolution_active = true
+	for member: GFRuntimeTask in schedule_members:
+		member.begin_schedule_resolution()
 	var rejection_reason: StringName = task.get_schedule_rejection_reason()
 	if rejection_reason != &"":
+		_abort_schedule_resolution(schedule_members)
 		task_rejected.emit(task, rejection_reason)
 		return false
 	var requirements: Array[Object] = task.get_requirements()
-	task.begin_schedule_resolution()
-	_schedule_resolution_active = true
 	var current_index_result: Dictionary = _build_requirement_owner_index(_active_tasks)
 	if not GFVariantData.get_option_bool(current_index_result, "ok", false):
-		_schedule_resolution_active = false
-		task.end_schedule_resolution()
+		_abort_schedule_resolution(schedule_members)
 		task_rejected.emit(task, &"requirement_index_invalid")
 		return false
 	var current_index: Dictionary = GFVariantData.get_option_dictionary(
@@ -165,8 +197,7 @@ func schedule(task: GFRuntimeTask) -> bool:
 	var conflicts: Array[GFRuntimeTask] = _get_conflicting_tasks(requirements, current_index)
 	for conflict: GFRuntimeTask in conflicts:
 		if conflict != null and not conflict.is_interruptible():
-			_schedule_resolution_active = false
-			task.end_schedule_resolution()
+			_abort_schedule_resolution(schedule_members)
 			task_rejected.emit(task, &"requirement_busy")
 			return false
 
@@ -177,14 +208,14 @@ func schedule(task: GFRuntimeTask) -> bool:
 	proposed_tasks.append(task)
 	var proposed_index_result: Dictionary = _build_requirement_owner_index(proposed_tasks, task)
 	if not GFVariantData.get_option_bool(proposed_index_result, "ok", false):
-		_schedule_resolution_active = false
-		task.end_schedule_resolution()
+		_abort_schedule_resolution(schedule_members)
 		task_rejected.emit(task, &"requirement_index_invalid")
 		return false
 
 	for conflict: GFRuntimeTask in conflicts:
 		conflict.mark_unscheduled()
-	task.mark_scheduled()
+	for member: GFRuntimeTask in schedule_members:
+		member.mark_scheduled()
 	_active_tasks = proposed_tasks
 	_requirement_owners = GFVariantData.get_option_dictionary(proposed_index_result, "index")
 	for conflict: GFRuntimeTask in conflicts:
@@ -461,48 +492,85 @@ func get_debug_snapshot() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+func _abort_schedule_resolution(schedule_members: Array[GFRuntimeTask]) -> void:
+	for member: GFRuntimeTask in schedule_members:
+		if member != null:
+			member.end_schedule_resolution()
+	_schedule_resolution_active = false
+
+
 func _run_tasks(delta: float, use_physics: bool) -> void:
 	if _schedule_resolution_active or _dispose_active:
 		return
 	if not _rebuild_requirement_owner_index():
 		return
-	var snapshot: Array[GFRuntimeTask] = get_active_tasks()
-	for task: GFRuntimeTask in snapshot:
-		if not is_scheduled(task):
+	var snapshot: Array[Dictionary] = []
+	for active_task: GFRuntimeTask in get_active_tasks():
+		snapshot.append({
+			"task": active_task,
+			"generation": active_task.get_schedule_generation(),
+		})
+	for entry: Dictionary in snapshot:
+		var task_value: Variant = GFVariantData.get_option_value(entry, "task")
+		if not (task_value is GFRuntimeTask):
 			continue
-		if not _ensure_initialized(task):
+		var task: GFRuntimeTask = task_value
+		var generation: int = GFVariantData.get_option_int(entry, "generation")
+		if not _is_task_execution_current(task, generation):
+			continue
+		if not _ensure_initialized(task, generation):
 			continue
 		if use_physics:
 			task.physics_tick(delta)
 		else:
 			task.tick(delta)
-		if not is_scheduled(task):
+		if not _is_task_execution_current(task, generation):
 			continue
-		if task.is_finished():
-			var _finished: bool = _finish_task(task, false)
+		var task_finished: bool = task.is_finished()
+		if not _is_task_execution_current(task, generation):
+			continue
+		if task_finished:
+			var _finished: bool = _finish_task(task, false, generation)
 	if auto_schedule_default_tasks:
 		_schedule_available_defaults()
 
 
-func _ensure_initialized(task: GFRuntimeTask) -> bool:
+func _ensure_initialized(task: GFRuntimeTask, generation: int) -> bool:
 	if task == null:
 		return false
 	if task.has_initialized():
-		return true
+		return _is_task_execution_current(task, generation)
 	task.initialize(self)
-	if not is_scheduled(task):
+	if not _is_task_execution_current(task, generation):
 		return false
 	task.mark_initialized()
-	return true
+	return _is_task_execution_current(task, generation)
 
 
-func _finish_task(task: GFRuntimeTask, interrupted: bool) -> bool:
+func _finish_task(
+	task: GFRuntimeTask,
+	interrupted: bool,
+	expected_generation: int = -1
+) -> bool:
 	if task == null or not _active_tasks.has(task):
+		return false
+	if (
+		expected_generation >= 0
+		and not _is_task_execution_current(task, expected_generation)
+	):
 		return false
 	if not _detach_task(task):
 		return false
 	_end_detached_task(task, interrupted)
 	return true
+
+
+func _is_task_execution_current(task: GFRuntimeTask, generation: int) -> bool:
+	return (
+		task != null
+		and is_scheduled(task)
+		and task.is_schedule_generation_current(generation)
+	)
 
 
 func _detach_task(task: GFRuntimeTask) -> bool:

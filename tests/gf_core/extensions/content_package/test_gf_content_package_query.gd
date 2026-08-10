@@ -162,6 +162,58 @@ func test_content_package_provider_builds_qualified_generic_asset_entries() -> v
 	)
 
 
+func test_content_package_provider_fails_closed_on_qualified_asset_id_collision() -> void:
+	var nested_package_manifest: GFContentPackageManifest = _make_manifest(
+		&"a/b",
+		PackedStringArray(),
+		PackedStringArray(),
+		{},
+		[{ "key": "c", "path": "c.tres" }]
+	)
+	var nested_resource_manifest: GFContentPackageManifest = _make_manifest(
+		&"a",
+		PackedStringArray(),
+		PackedStringArray(),
+		{},
+		[{ "key": "b/c", "path": "b/c.tres" }]
+	)
+	var content_catalog: GFContentPackageCatalog = GFContentPackageCatalog.new().set_manifests([
+		nested_package_manifest,
+		nested_resource_manifest,
+	])
+	var provider: GFContentPackageAssetCatalogProvider = GFContentPackageAssetCatalogProvider.new()
+	var _configured_provider: GFContentPackageAssetCatalogProvider = provider.configure_catalog(content_catalog)
+
+	assert_null(
+		provider.build_catalog(),
+		"不同 package/resource 二元组映射到同一 asset_id 时必须拒绝整份目录，不能覆盖后返回部分结果。"
+	)
+
+
+func test_query_and_provider_debug_reports_are_json_safe() -> void:
+	var circular_metadata: Dictionary = {}
+	circular_metadata["self"] = circular_metadata
+	var query: GFContentPackageQuery = GFContentPackageQuery.new()
+	query.required_metadata = { "heat": NAN }
+	query.metadata = {
+		"resource": Resource.new(),
+		"heat": INF,
+		"cycle": circular_metadata,
+	}
+	var query_report_text: String = JSON.stringify(query.to_report_dictionary())
+	var provider: GFContentPackageAssetCatalogProvider = GFContentPackageAssetCatalogProvider.new()
+	var _configured_provider: GFContentPackageAssetCatalogProvider = provider.configure_catalog(
+		GFContentPackageCatalog.new(),
+		&"content_packages",
+		query
+	)
+	var provider_report_text: String = JSON.stringify(provider.get_debug_snapshot())
+
+	assert_true(query_report_text.contains("__gf_report_value__"), "query 报告应编码 Resource 和循环引用。")
+	assert_true(query_report_text.contains("__gf_variant__"), "query 报告应编码非有限浮点。")
+	assert_true(provider_report_text.contains("__gf_report_value__"), "Provider debug snapshot 必须消费 JSON-safe query 报告。")
+
+
 func test_owner_scoped_roots_preserve_shared_roots_until_last_owner_releases() -> void:
 	var utility: GFContentPackageUtility = GFContentPackageUtility.new()
 	utility.init()

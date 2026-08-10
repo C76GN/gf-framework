@@ -183,7 +183,7 @@ var receiver_path: NodePath = NodePath("")
 var validation_callback: Callable = Callable()
 ```
 
-自定义校验回调，建议签名为 func(context: GFInteractionContext, report: Dictionary) -> Variant。 返回 bool 可直接决定是否接受；返回 Dictionary 可覆盖 ok、reason、metadata 等报告字段。
+自定义校验回调，建议签名为 func(context: GFInteractionContext, report: Dictionary) -> Variant。 返回 bool 可直接决定是否接受；返回 Dictionary 可覆盖 ok、reason、metadata 等报告字段。 非空回调的 owner 失效时会以 invalid_validator 失败关闭；主动恢复无校验状态必须显式赋值 Callable()。
 
 ## 方法
 

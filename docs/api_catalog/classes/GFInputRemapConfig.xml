@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFInputRemapConfig" path="addons/gf/standard/input/rebinding/gf_input_remap_config.gd" module="standard" extends="Resource" classDigest="27c5c6ea8f2436f75744e6e12c8527870aa65edfa45901c90deaa31afa8b25ea">
+<class name="GFInputRemapConfig" path="addons/gf/standard/input/rebinding/gf_input_remap_config.gd" module="standard" extends="Resource" classDigest="b3cbaec7d2b87cbbb1a80248de118d355269cb542cb57156286c49b272bcf5d7">
 	<description>GFInputRemapConfig: 输入重映射配置。
-只保存玩家或项目层覆盖过的输入事件，默认绑定仍来自 GFInputContext。</description>
+只保存玩家或项目层覆盖过的输入事件，默认绑定仍来自 GFInputContext。
+通过公开 mutation 方法成功修改配置时会发出 Resource.changed。</description>
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">resource_definition</tag>

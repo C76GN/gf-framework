@@ -152,6 +152,27 @@ func test_query_cell_range_over_covered_cell_limit_returns_empty() -> void:
 	assert_true(result.is_empty(), "超出覆盖格子上限的格子范围查询应短路为空。")
 
 
+func test_query_cell_range_rejects_overflowing_radius_and_endpoints() -> void:
+	var spatial_hash: GFSpatialHash3D = GFSpatialHash3D.new(1.0)
+	spatial_hash.max_covered_cells = 64
+	var _inserted: bool = spatial_hash.insert("unit", AABB(Vector3.ZERO, Vector3.ONE))
+
+	assert_true(
+		spatial_hash.query_cell_range(
+			Vector3i.ZERO,
+			Vector3i(2_000_000_000, 2_000_000_000, 2_000_000_000)
+		).is_empty(),
+		"覆盖数会溢出的半径必须在枚举前失败关闭。"
+	)
+	assert_true(
+		spatial_hash.query_cell_range(
+			Vector3i(2_147_483_647, 0, 0),
+			Vector3i(1, 0, 0)
+		).is_empty(),
+		"超出 Vector3i 可表示端点的范围必须失败关闭。"
+	)
+
+
 ## 验证零半径查询按点查询语义返回包含该点的实体。
 func test_query_radius_zero_returns_entities_containing_point() -> void:
 	var spatial_hash: GFSpatialHash3D = GFSpatialHash3D.new(4.0)

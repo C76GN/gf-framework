@@ -58,7 +58,7 @@ Lease 首次离开 waiting 时发出。 正常 late settlement 进入 ready；Ut
 | 名称 | 说明 |
 |---|---|
 | `lease` | 当前同一身份 Lease。 |
-| `state` | `STATE_READY` 或 `STATE_DISPOSED_UNRESOLVED`。 |
+| `state` | \`STATE_READY\` 或 \`STATE_DISPOSED_UNRESOLVED\`。 |
 
 ## 常量
 

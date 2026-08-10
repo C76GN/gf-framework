@@ -4,7 +4,7 @@
   "kind": "standard",
   "version": "unreleased",
   "display_name": "GF Standard Input Editor",
-  "description": "Editor-only input mapping docks and input authoring helpers.",
+  "description": "Editor-only, read-only input mapping diagnostics with optional remap inspection.",
   "dependencies": [
     "gf.kernel",
     "gf.standard.base",

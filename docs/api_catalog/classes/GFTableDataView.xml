@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFTableDataView" path="addons/gf/standard/utilities/ui/gf_table_data_view.gd" module="standard" extends="RefCounted" classDigest="fb29dd169a1056d372deefef6b02c6f0c9ce3322ac493d2e3e88ba5a2f9b82d4">
+<class name="GFTableDataView" path="addons/gf/standard/utilities/ui/gf_table_data_view.gd" module="standard" extends="RefCounted" classDigest="4a6d424052329e7ba29decd033ad47e555f440f38b3fb138c65c36ba225ee3a2">
 	<description>GFTableDataView: 通用表格数据视图模型。
 维护行数据、列定义、可见行索引、排序、过滤和单元格提交，
 供运行时 UI、编辑器 Dock、资源表或配置表工具自行选择渲染方式。
@@ -59,7 +59,7 @@
 			</tags>
 		</member>
 		<member kind="signal" name="cell_value_committed">
-			<signature>signal cell_value_committed(</signature>
+			<signature>signal cell_value_committed( row_index: int, row_id: Variant, column_id: StringName, old_value: Variant, new_value: Variant )</signature>
 			<description>单元格成功提交后发出。</description>
 			<tags>
 				<tag name="api">public</tag>

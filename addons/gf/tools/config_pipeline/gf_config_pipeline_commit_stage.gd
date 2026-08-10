@@ -102,11 +102,14 @@ func complete(transaction: Dictionary) -> Dictionary:
 ## [br]
 ## @return: 阶段描述。
 ## [br]
-## @schema return: Dictionary，包含 stage_id、implementation_version、input_contract 和 output_contract。
+## @schema return: Dictionary，包含 stage_id、implementation_version、implementation_dependencies、input_contract 和 output_contract。
 func get_stage_descriptor() -> Dictionary:
 	return {
 		"stage_id": STAGE_ID,
 		"implementation_version": IMPLEMENTATION_VERSION,
+		"implementation_dependencies": [
+			"res://addons/gf/kernel/editor/gf_artifact_write_transaction.gd",
+		],
 		"input_contract": "PackedStringArray",
 		"output_contract": "%s@%d" % [_TRANSACTION_FORMAT, _TRANSACTION_VERSION],
 	}

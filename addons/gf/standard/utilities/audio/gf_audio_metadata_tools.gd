@@ -18,12 +18,30 @@ extends RefCounted
 
 const _ID3_PREFIX: String = "ID3"
 const _ID3_HEADER_SIZE: int = 10
-const _DEFAULT_MAX_ID3_BYTES: int = 1024 * 1024
 const _FRAME_HEADER_SIZE: int = 10
 const _TEXT_ENCODING_UTF8: int = 3
 const _TEXT_ENCODING_LATIN1: int = 0
 const _TEXT_ENCODING_UTF16: int = 1
 const _TEXT_ENCODING_UTF16BE: int = 2
+const _ID3_FLAG_UNSYNCHRONISATION: int = 0x80
+const _ID3_FLAG_EXTENDED_HEADER: int = 0x40
+const _ID3_FLAG_EXPERIMENTAL: int = 0x20
+const _ID3_V24_FLAG_FOOTER: int = 0x10
+
+## 默认单次 ID3 读取与解析的字节上限（含 10-byte header）。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+const DEFAULT_MAX_ID3_BYTES: int = 1024 * 1024
+
+## 框架允许的单次 ID3 读取与解析绝对硬上限（含 10-byte header）。
+## 调用方只能收紧或在此范围内放宽 DEFAULT_MAX_ID3_BYTES，不能越过该上限。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+const ABSOLUTE_MAX_ID3_BYTES: int = 8 * 1024 * 1024
 
 const _FRAME_TO_TAG: Dictionary = {
 	"TALB": "album",
@@ -238,60 +256,140 @@ static func extract_stream_metadata(stream: AudioStream, options: Dictionary = {
 ## [br]
 ## @param bytes: 音频文件开头或完整文件字节。
 ## [br]
-## @param options: 可选项，支持 `fail_on_frame_error`。
+## @param options: 可选项，支持 `fail_on_frame_error` 与 `max_id3_bytes`；
+## 后者会被约束在 10 到 ABSOLUTE_MAX_ID3_BYTES 之间。
 ## [br]
 ## @schema options: Dictionary ID3 parsing options.
 ## [br]
 ## @return ID3v2 元数据报告。
 ## [br]
-## @schema return: Dictionary with `ok: bool`, `recognized: bool`, `metadata: Dictionary`, `issues: Array[Dictionary]`, `issue_count: int`, `id3_version: String`, `tag_size: int`, `frame_count: int`, and `skipped_frame_count: int`.
+## @schema return: Dictionary with `ok: bool`, `recognized: bool`, `partial: bool`, `metadata: Dictionary`, `issues: Array[Dictionary]`, `issue_count: int`, `id3_version: String`, `id3_flags: int`, `unsupported_features: Array[String]`, `tag_size: int`, `frame_count: int`, `skipped_frame_count: int`, `requested_max_id3_bytes: int`, `effective_max_id3_bytes: int`, `absolute_max_id3_bytes: int`, `limit_clamped: bool`, `input_bytes: int`, and `processed_id3_bytes: int`.
 static func parse_id3v2_metadata(bytes: PackedByteArray, options: Dictionary = {}) -> Dictionary:
 	var report: Dictionary = _make_report("GFAudioMetadataTools.parse_id3v2_metadata")
 	report["recognized"] = false
+	report["partial"] = false
 	report["id3_version"] = ""
+	report["id3_flags"] = 0
+	report["unsupported_features"] = []
 	report["tag_size"] = 0
 	report["frame_count"] = 0
 	report["skipped_frame_count"] = 0
 
-	if bytes.size() < _ID3_HEADER_SIZE:
+	var requested_max_id3_bytes: int = GFVariantData.get_option_int(
+		options,
+		"max_id3_bytes",
+		DEFAULT_MAX_ID3_BYTES
+	)
+	var effective_max_id3_bytes: int = clampi(
+		requested_max_id3_bytes,
+		_ID3_HEADER_SIZE,
+		ABSOLUTE_MAX_ID3_BYTES
+	)
+	var bounded_bytes: PackedByteArray = bytes
+	if bounded_bytes.size() > effective_max_id3_bytes:
+		bounded_bytes = bytes.slice(0, effective_max_id3_bytes)
+	report["requested_max_id3_bytes"] = requested_max_id3_bytes
+	report["effective_max_id3_bytes"] = effective_max_id3_bytes
+	report["absolute_max_id3_bytes"] = ABSOLUTE_MAX_ID3_BYTES
+	report["limit_clamped"] = requested_max_id3_bytes != effective_max_id3_bytes
+	report["input_bytes"] = bytes.size()
+	report["processed_id3_bytes"] = bounded_bytes.size()
+
+	if bounded_bytes.size() < 3:
 		return report
-	if bytes.slice(0, 3).get_string_from_ascii() != _ID3_PREFIX:
+	if bounded_bytes.slice(0, 3).get_string_from_ascii() != _ID3_PREFIX:
 		return report
 
 	report["recognized"] = true
-	var major_version: int = bytes[3]
-	var revision: int = bytes[4]
+	if bounded_bytes.size() < _ID3_HEADER_SIZE:
+		report["partial"] = true
+		_add_issue(
+			report,
+			&"truncated_id3_header",
+			"ID3 header is shorter than 10 bytes."
+		)
+		return report
+
+	var major_version: int = bounded_bytes[3]
+	var revision: int = bounded_bytes[4]
 	report["id3_version"] = "2.%d.%d" % [major_version, revision]
 	if major_version != 3 and major_version != 4:
 		_add_issue(report, &"unsupported_id3_version", "Only ID3v2.3 and ID3v2.4 are supported.")
 		return report
 
-	var tag_size: int = _syncsafe_to_int(bytes.slice(6, 10))
+	var header_flags: int = bounded_bytes[5]
+	report["id3_flags"] = header_flags
+	var reserved_flag_mask: int = 0x1f if major_version == 3 else 0x0f
+	if (header_flags & reserved_flag_mask) != 0:
+		_add_issue(
+			report,
+			&"invalid_id3_header_flags",
+			"ID3 header uses reserved flag bits."
+		)
+		return report
+
+	var unsupported_features: Array[String] = _get_unsupported_id3_header_features(
+		major_version,
+		header_flags
+	)
+	report["unsupported_features"] = unsupported_features
+	if not unsupported_features.is_empty():
+		_add_issue(
+			report,
+			&"unsupported_id3_feature",
+			"Unsupported ID3 header feature(s): %s." % ", ".join(unsupported_features)
+		)
+		return report
+
+	for size_byte_index: int in range(6, 10):
+		if (bounded_bytes[size_byte_index] & 0x80) != 0:
+			_add_issue(
+				report,
+				&"invalid_id3_tag_size",
+				"ID3 tag size is not syncsafe."
+			)
+			return report
+
+	var tag_size: int = _syncsafe_to_int(bounded_bytes.slice(6, 10))
 	report["tag_size"] = tag_size
-	var end_offset: int = mini(_ID3_HEADER_SIZE + tag_size, bytes.size())
+	var declared_id3_bytes: int = _ID3_HEADER_SIZE + tag_size
+	report["declared_id3_bytes"] = declared_id3_bytes
+	report["available_tag_bytes"] = maxi(bounded_bytes.size() - _ID3_HEADER_SIZE, 0)
+	if declared_id3_bytes > bounded_bytes.size():
+		report["partial"] = true
+		_add_issue(
+			report,
+			&"truncated_id3_tag",
+			"ID3 tag declares more bytes than are available within the bounded prefix."
+		)
+
+	var end_offset: int = mini(declared_id3_bytes, bounded_bytes.size())
 	var offset: int = _ID3_HEADER_SIZE
 	var frame_count: int = 0
 	var skipped_frame_count: int = 0
 
 	while offset + _FRAME_HEADER_SIZE <= end_offset:
-		var frame_id: String = bytes.slice(offset, offset + 4).get_string_from_ascii()
+		var frame_id: String = bounded_bytes.slice(offset, offset + 4).get_string_from_ascii()
 		if _is_padding_frame_id(frame_id):
 			break
 
-		var frame_size: int = _syncsafe_to_int(bytes.slice(offset + 4, offset + 8)) \
-			if major_version == 4 else _bytes_to_int(bytes.slice(offset + 4, offset + 8))
+		var frame_size: int = _syncsafe_to_int(
+			bounded_bytes.slice(offset + 4, offset + 8)
+		) if major_version == 4 else _bytes_to_int(
+			bounded_bytes.slice(offset + 4, offset + 8)
+		)
 		if frame_size <= 0:
 			break
 
 		var frame_start: int = offset + _FRAME_HEADER_SIZE
 		var frame_end: int = frame_start + frame_size
-		if frame_end > end_offset or frame_end > bytes.size():
+		if frame_end > end_offset or frame_end > bounded_bytes.size():
 			_add_issue(report, &"truncated_id3_frame", "ID3 frame extends beyond available bytes.", frame_id)
 			if GFVariantData.get_option_bool(options, "fail_on_frame_error", false):
 				return report
 			break
 
-		var frame_data: PackedByteArray = bytes.slice(frame_start, frame_end)
+		var frame_data: PackedByteArray = bounded_bytes.slice(frame_start, frame_end)
 		var frame_parsed: bool = _parse_id3_frame(frame_id, frame_data, report, options)
 		if frame_parsed:
 			frame_count += 1
@@ -314,16 +412,34 @@ static func parse_id3v2_metadata(bytes: PackedByteArray, options: Dictionary = {
 ## [br]
 ## @param path: `res://`、`user://` 或绝对路径。
 ## [br]
-## @param options: 可选项，支持 `max_id3_bytes`。
+## @param options: 可选项，支持 `max_id3_bytes`；请求值会被约束在 10 到
+## ABSOLUTE_MAX_ID3_BYTES 之间。读取先取固定 header，再按声明长度和有效上限取 body。
 ## [br]
 ## @schema options: Dictionary read options.
 ## [br]
 ## @return 元数据报告。
 ## [br]
-## @schema return: Dictionary with `ok: bool`, `recognized: bool`, `metadata: Dictionary`, `issues: Array[Dictionary]`, `issue_count: int`, and `path: String`.
+## @schema return: Dictionary with `ok: bool`, `recognized: bool`, `partial: bool`, `metadata: Dictionary`, `issues: Array[Dictionary]`, `issue_count: int`, `path: String`, `file_size_bytes: int`, `read_bytes: int`, `requested_max_id3_bytes: int`, `effective_max_id3_bytes: int`, `absolute_max_id3_bytes: int`, and `limit_clamped: bool`.
 static func read_path_metadata(path: String, options: Dictionary = {}) -> Dictionary:
 	var report: Dictionary = _make_report("GFAudioMetadataTools.read_path_metadata")
 	report["path"] = path
+	var requested_max_id3_bytes: int = GFVariantData.get_option_int(
+		options,
+		"max_id3_bytes",
+		DEFAULT_MAX_ID3_BYTES
+	)
+	var effective_max_id3_bytes: int = clampi(
+		requested_max_id3_bytes,
+		_ID3_HEADER_SIZE,
+		ABSOLUTE_MAX_ID3_BYTES
+	)
+	report["requested_max_id3_bytes"] = requested_max_id3_bytes
+	report["effective_max_id3_bytes"] = effective_max_id3_bytes
+	report["absolute_max_id3_bytes"] = ABSOLUTE_MAX_ID3_BYTES
+	report["limit_clamped"] = requested_max_id3_bytes != effective_max_id3_bytes
+	report["file_size_bytes"] = 0
+	report["read_bytes"] = 0
+	report["partial"] = false
 	if path.strip_edges().is_empty():
 		_add_issue(report, &"empty_path", "Audio metadata path is empty.")
 		return report
@@ -331,17 +447,25 @@ static func read_path_metadata(path: String, options: Dictionary = {}) -> Dictio
 		_add_issue(report, &"missing_file", "Audio metadata file does not exist.")
 		return report
 
-	var max_id3_bytes: int = maxi(
-		GFVariantData.get_option_int(options, "max_id3_bytes", _DEFAULT_MAX_ID3_BYTES),
-		_ID3_HEADER_SIZE
+	var read_result: Dictionary = _read_bounded_id3_prefix(path, effective_max_id3_bytes)
+	report["file_size_bytes"] = GFVariantData.get_option_int(
+		read_result,
+		"file_size_bytes"
 	)
-	var bytes: PackedByteArray = _read_file_prefix(path, max_id3_bytes)
+	report["read_bytes"] = GFVariantData.get_option_int(read_result, "read_bytes")
+	var bytes: PackedByteArray = read_result.get("bytes", PackedByteArray())
 	if bytes.is_empty():
 		_add_issue(report, &"read_failed", "Audio metadata file could not be read.")
 		return report
 
-	var id3_report: Dictionary = parse_id3v2_metadata(bytes, options)
+	var parse_options: Dictionary = options.duplicate(true)
+	parse_options["max_id3_bytes"] = effective_max_id3_bytes
+	var id3_report: Dictionary = parse_id3v2_metadata(bytes, parse_options)
 	_merge_child_report(report, id3_report)
+	report["requested_max_id3_bytes"] = requested_max_id3_bytes
+	report["effective_max_id3_bytes"] = effective_max_id3_bytes
+	report["absolute_max_id3_bytes"] = ABSOLUTE_MAX_ID3_BYTES
+	report["limit_clamped"] = requested_max_id3_bytes != effective_max_id3_bytes
 	report["recognized"] = GFVariantData.get_option_bool(id3_report, "recognized", false)
 	report["metadata"] = GFVariantData.get_option_dictionary(id3_report, "metadata", {})
 	return report
@@ -461,8 +585,29 @@ static func _merge_child_report(report: Dictionary, child_report: Dictionary) ->
 		report["ok"] = false
 	if GFVariantData.get_option_bool(child_report, "recognized", false):
 		report["recognized"] = true
-	if child_report.has("id3_version"):
-		report["id3_version"] = GFVariantData.get_option_string(child_report, "id3_version", "")
+	for diagnostic_key: String in [
+		"id3_version",
+		"id3_flags",
+		"unsupported_features",
+		"tag_size",
+		"declared_id3_bytes",
+		"available_tag_bytes",
+		"frame_count",
+		"skipped_frame_count",
+		"partial",
+		"requested_max_id3_bytes",
+		"effective_max_id3_bytes",
+		"absolute_max_id3_bytes",
+		"limit_clamped",
+		"input_bytes",
+		"processed_id3_bytes",
+	]:
+		if child_report.has(diagnostic_key):
+			report[diagnostic_key] = GFVariantData.duplicate_variant(
+				child_report[diagnostic_key],
+				true,
+				true
+			)
 
 
 static func _variant_to_key_text(value: Variant) -> String:
@@ -511,15 +656,66 @@ static func _get_audio_stream_bytes(stream: AudioStream) -> PackedByteArray:
 	return PackedByteArray()
 
 
-static func _read_file_prefix(path: String, max_bytes: int) -> PackedByteArray:
+static func _read_bounded_id3_prefix(path: String, max_bytes: int) -> Dictionary:
+	var result: Dictionary = {
+		"ok": false,
+		"bytes": PackedByteArray(),
+		"file_size_bytes": 0,
+		"read_bytes": 0,
+	}
 	var file: FileAccess = FileAccess.open(path, FileAccess.READ)
 	if file == null:
-		return PackedByteArray()
+		return result
 
-	var read_size: int = mini(int(file.get_length()), max_bytes)
-	var bytes: PackedByteArray = file.get_buffer(read_size)
+	var file_size_bytes: int = int(file.get_length())
+	result["file_size_bytes"] = file_size_bytes
+	var header_read_size: int = mini(file_size_bytes, _ID3_HEADER_SIZE)
+	var bytes: PackedByteArray = file.get_buffer(header_read_size)
+	if bytes.size() != header_read_size:
+		file.close()
+		return result
+
+	var target_read_size: int = header_read_size
+	if (
+		header_read_size == _ID3_HEADER_SIZE
+		and bytes.slice(0, 3).get_string_from_ascii() == _ID3_PREFIX
+	):
+		var declared_id3_bytes: int = _ID3_HEADER_SIZE + _syncsafe_to_int(
+			bytes.slice(6, 10)
+		)
+		target_read_size = mini(
+			file_size_bytes,
+			mini(max_bytes, declared_id3_bytes)
+		)
+
+	var remaining_bytes: int = target_read_size - header_read_size
+	if remaining_bytes > 0:
+		var body: PackedByteArray = file.get_buffer(remaining_bytes)
+		if body.size() != remaining_bytes:
+			file.close()
+			return result
+		bytes.append_array(body)
 	file.close()
-	return bytes
+	result["ok"] = true
+	result["bytes"] = bytes
+	result["read_bytes"] = bytes.size()
+	return result
+
+
+static func _get_unsupported_id3_header_features(
+	major_version: int,
+	header_flags: int
+) -> Array[String]:
+	var features: Array[String] = []
+	if (header_flags & _ID3_FLAG_UNSYNCHRONISATION) != 0:
+		features.append("unsynchronisation")
+	if (header_flags & _ID3_FLAG_EXTENDED_HEADER) != 0:
+		features.append("extended_header")
+	if (header_flags & _ID3_FLAG_EXPERIMENTAL) != 0:
+		features.append("experimental")
+	if major_version == 4 and (header_flags & _ID3_V24_FLAG_FOOTER) != 0:
+		features.append("footer")
+	return features
 
 
 static func _parse_id3_frame(

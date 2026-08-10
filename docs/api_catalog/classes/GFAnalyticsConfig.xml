@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFAnalyticsConfig" path="addons/gf/standard/utilities/analytics/gf_analytics_config.gd" module="standard" extends="Resource" classDigest="f3fba15c82eceb57e1d789fe70e9a99310044fb24c80ae4abb5b118a02392e48">
+<class name="GFAnalyticsConfig" path="addons/gf/standard/utilities/analytics/gf_analytics_config.gd" module="standard" extends="Resource" classDigest="3abc6ad9c474cb46110d5f375610e205d0f9ce7f43ebbca8e41b1b7f0a5f30c1">
 	<description>GFAnalyticsConfig: 通用事件分析配置。
 默认不开启网络依赖；若未配置 endpoint，flush 会以 dry-run 成功完成，
 便于项目在本地或测试环境中保持同一套调用路径。</description>
@@ -142,10 +142,12 @@
 		</member>
 		<member kind="property" name="headers" decorators="@export">
 			<signature>var headers: Dictionary = {}</signature>
-			<description>自定义 HTTP Header。</description>
+			<description>自定义 HTTP Header。字段名必须符合 HTTP token grammar，字段值不得包含非法控制字符；
+构建时还会执行字段数量、单字段 UTF-8 字节数和总字节数预算。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="schema">headers: Dictionary[String, String] mapping header names to header values.</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 	</properties>

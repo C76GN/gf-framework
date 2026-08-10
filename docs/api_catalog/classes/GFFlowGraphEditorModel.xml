@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFFlowGraphEditorModel" path="addons/gf/extensions/flow/editor/gf_flow_graph_editor_model.gd" module="extensions/flow" extends="RefCounted" classDigest="87c568a31f3847bbebc9e0c8e7badaccb56fe3c0abcd4fe9b8fbb8e5b27be274">
+<class name="GFFlowGraphEditorModel" path="addons/gf/extensions/flow/editor/gf_flow_graph_editor_model.gd" module="extensions/flow" extends="RefCounted" classDigest="e7f2b1a1bbc0e256b730cc33e46f92dd3d62430d6c91c026f46cc391b32e613d">
 	<description>GFFlowGraphEditorModel: FlowGraph 编辑器视图模型构建器。
 将 GFFlowGraph 转换为 GraphEdit、自定义编辑器或项目工具可直接消费的
 节点、端口、连接和校验结构。它只整理数据，不绑定具体 UI 实现。</description>
@@ -22,7 +22,9 @@
 		</member>
 		<member kind="property" name="include_invalid_connections">
 			<signature>var include_invalid_connections: bool = true</signature>
-			<description>是否把校验失败的连接也写入视图模型。</description>
+			<description>是否把校验失败的连接也写入视图模型。
+为 true 时，连接条目保留 source 顺序，并通过 valid 与 invalid_reasons 暴露完整结构校验结果；
+为 false 时，只保留通过端点、端口方向、类型/类名、重复和单连接约束的条目。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="since">3.17.0</tag>

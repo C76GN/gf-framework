@@ -256,12 +256,13 @@ func add_snapshot( time_seconds: float, snapshot_payload: Variant, event_metadat
 ### `append_timeline`
 
 - API：`public`
+- 首次版本：`3.20.0`
 
 ```gdscript
 func append_timeline( timeline: RefCounted, time_offset: float = 0.0, kind_filter: PackedStringArray = PackedStringArray() ) -> int:
 ```
 
-合并另一条时间线。
+合并另一条时间线。 source 与当前时间线相同时，基于调用开始时的事件快照恰好追加一次。
 
 参数：
 

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFConfigPipelineTargetStage" path="addons/gf/tools/config_pipeline/gf_config_pipeline_target_stage.gd" module="tools" extends="RefCounted" classDigest="096483caeca00f971aba1864f6fc8963f51d83d3580a248214cf88bfd984a762">
+<class name="GFConfigPipelineTargetStage" path="addons/gf/tools/config_pipeline/gf_config_pipeline_target_stage.gd" module="tools" extends="RefCounted" classDigest="d2b9f4c8d3330b55fb8fa6d8c0a01e3d95fd7fd02e74ba2cb632bc9e7a063871">
 	<description>GFConfigPipelineTargetStage: Config Pipeline 的内置目标物化阶段。
 只接受版本化 IR，并将其物化为 GFConfigTableResource、GFConfigDatabaseResource 或 JSON 兼容数据。
 Target 不读取来源，也不重新推导 schema 或解释项目业务语义。</description>
@@ -20,7 +20,7 @@ Target 不读取来源，也不重新推导 schema 或解释项目业务语义�
 			</tags>
 		</member>
 		<member kind="const" name="IMPLEMENTATION_VERSION">
-			<signature>const IMPLEMENTATION_VERSION: int = 1</signature>
+			<signature>const IMPLEMENTATION_VERSION: int = 2</signature>
 			<description>Target 阶段的实现版本；改变 Resource 或 JSON 物化语义时递增。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -64,7 +64,7 @@ Target 不读取来源，也不重新推导 schema 或解释项目业务语义�
 				<tag name="param">database: 待导出的数据库资源。</tag>
 				<tag name="param">options: JSON 目标选项。</tag>
 				<tag name="return">JSON 兼容导出结果。</tag>
-				<tag name="schema">options: Dictionary，可包含 include_schema、include_indexes 和 max_depth。</tag>
+				<tag name="schema">options: Dictionary，可包含 include_schema、include_indexes、max_depth、max_nodes 和 max_output_bytes；调用方值会被框架绝对上限约束。</tag>
 				<tag name="schema">return: Dictionary，包含 success、data 和 error。</tag>
 				<tag name="since">9.0.0</tag>
 			</tags>
@@ -77,7 +77,7 @@ Target 不读取来源，也不重新推导 schema 或解释项目业务语义�
 				<tag name="param">database: 待导出的数据库资源。</tag>
 				<tag name="param">options: JSON 目标选项。</tag>
 				<tag name="return">JSON 目标结果。</tag>
-				<tag name="schema">options: Dictionary，可包含 include_schema、include_indexes、max_depth、indent 和 sort_keys。</tag>
+				<tag name="schema">options: Dictionary，可包含 include_schema、include_indexes、max_depth、max_nodes、max_output_bytes、indent 和 sort_keys；调用方值会被框架绝对上限约束。</tag>
 				<tag name="schema">return: Dictionary，包含 success、data、text 和 error。</tag>
 				<tag name="since">9.0.0</tag>
 			</tags>
@@ -88,7 +88,7 @@ Target 不读取来源，也不重新推导 schema 或解释项目业务语义�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">阶段描述。</tag>
-				<tag name="schema">return: Dictionary，包含 stage_id、implementation_version、input_contracts 和 output_contracts。</tag>
+				<tag name="schema">return: Dictionary，包含 stage_id、implementation_version、implementation_dependencies、input_contracts 和 output_contracts。</tag>
 				<tag name="since">9.0.0</tag>
 			</tags>
 		</member>

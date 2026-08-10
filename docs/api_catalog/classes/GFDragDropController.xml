@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFDragDropController" path="addons/gf/standard/input/drag_drop/gf_drag_drop_controller.gd" module="standard" extends="Node" classDigest="f2125aa6ae8e2b64069fc92e3274b98d98e72ad02b204f4efe391c99a80c96f1">
+<class name="GFDragDropController" path="addons/gf/standard/input/drag_drop/gf_drag_drop_controller.gd" module="standard" extends="Node" classDigest="fffe414f2c4dbd5d98206e34b3a0f8cccbfa740d07ac4ad2621bfdbab33f16fb">
 	<description>GFDragDropController: 可选拖放 Node 控制器。
 在 `GFDragDropUtility` 的纯数据会话与落点规则之上，补充单指针捕获、source 生命周期、
 可选拖拽层 reparent、取消和落点剪枝。它不解释 payload，不规定背包、棋盘、
@@ -12,7 +12,7 @@
 	<signals>
 		<member kind="signal" name="drag_started">
 			<signature>signal drag_started(session_id: int, drag_type: StringName)</signature>
-			<description>拖拽开始时发出。</description>
+			<description>控制器已提交 session、pointer、source 监听和可选 reparent 后同步发出。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">session_id: 会话 ID。</tag>
@@ -34,7 +34,7 @@
 		</member>
 		<member kind="signal" name="drag_dropped">
 			<signature>signal drag_dropped(session_id: int, zone_id: StringName, result: Dictionary)</signature>
-			<description>拖拽成功释放到落点时发出。</description>
+			<description>旧会话的 pointer/source/reparent lease 已清理后同步发出。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">session_id: 会话 ID。</tag>
@@ -46,7 +46,7 @@
 		</member>
 		<member kind="signal" name="drag_drop_rejected">
 			<signature>signal drag_drop_rejected(session_id: int, reason: StringName)</signature>
-			<description>拖拽释放被拒绝时发出。</description>
+			<description>拖拽释放被拒绝时发出；终态拒绝会先清理旧 lease，可重试拒绝仍保留会话。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">session_id: 会话 ID。</tag>
@@ -56,7 +56,7 @@
 		</member>
 		<member kind="signal" name="drag_cancelled">
 			<signature>signal drag_cancelled(session_id: int, reason: StringName)</signature>
-			<description>拖拽取消时发出。</description>
+			<description>旧会话的 pointer/source/reparent lease 已清理后同步发出。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">session_id: 会话 ID。</tag>
@@ -106,7 +106,10 @@
 	<methods>
 		<member kind="method" name="get_utility">
 			<signature>func get_utility() -&gt; GFDragDropUtility:</signature>
-			<description>获取底层拖放数据工具。</description>
+			<description>获取底层拖放数据工具。
+返回值是可写 live Utility；直接调用其 update/drop/cancel 会绕过控制器的
+pointer 校验，但底层终态信号仍会驱动控制器清理。需要强制 pointer authority
+时只使用控制器命令入口。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">当前控制器持有的拖放工具。</tag>
@@ -182,7 +185,8 @@
 			<signature>func start_drag( drag_type: StringName, payload: Variant, position: Vector2, source: Object = null, options: Dictionary = {} ) -&gt; int:</signature>
 			<description>开始由控制器管理的拖拽。
 控制器一次只管理一个活动会话。需要并行拖拽时可创建多个控制器；底层
-`GFDragDropUtility` 仍保留多会话能力。</description>
+`GFDragDropUtility` 仍保留多会话能力。
+started 只观察完整提交状态；若 started 监听器同步结束本会话，本方法返回 -1。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">drag_type: 拖拽类型。</tag>
@@ -190,7 +194,7 @@
 				<tag name="param">position: 起始位置。</tag>
 				<tag name="param">source: 可选来源对象。</tag>
 				<tag name="param">options: 控制器选项。</tag>
-				<tag name="return">会话 ID；失败时返回 -1。</tag>
+				<tag name="return">仍保持活动的会话 ID；启动失败或 started 回调已结束会话时返回 -1。</tag>
 				<tag name="schema">payload: Variant，透传给 drop zone 的项目侧拖拽载荷。</tag>
 				<tag name="schema">options: Dictionary，可包含 metadata: Dictionary、pointer_id: int、capture_pointer: bool、drag_parent: Node、keep_global_transform: bool、restore_source_parent_on_cancel: bool、restore_source_parent_on_rejected_drop: bool、restore_source_parent_on_success: bool。</tag>
 				<tag name="since">8.0.0</tag>

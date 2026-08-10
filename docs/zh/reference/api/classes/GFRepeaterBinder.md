@@ -102,7 +102,7 @@ func bind_repeater( store: RefCounted, path: Variant, container: Node, template:
 
 | 名称 | 说明 |
 |---|---|
-| `store` | `GFReactiveStateStore` 实例。 |
+| `store` | \`GFReactiveStateStore\` 实例。 |
 | `path` | 状态路径，路径值应为 Array。 |
 | `container` | 承载重复节点的容器。 |
 | `template` | 要复制的模板节点。 |
@@ -188,7 +188,7 @@ func unbind_path(store: RefCounted, path: Variant) -> int:
 
 | 名称 | 说明 |
 |---|---|
-| `store` | `GFReactiveStateStore` 实例。 |
+| `store` | \`GFReactiveStateStore\` 实例。 |
 | `path` | 状态路径。 |
 
 返回：解绑数量。

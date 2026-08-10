@@ -206,6 +206,19 @@ func _undo_it() -> Error:
 	return OK
 
 
+## 返回 metadata 实际修改的节点，确保 action 进入对应场景历史。
+## [br]
+## @api protected
+## [br]
+## @since unreleased
+## [br]
+## @return: metadata 目标节点。
+func _get_undo_context() -> Object:
+	if not is_instance_valid(_target_node):
+		return null
+	return _target_node
+
+
 # --- 私有/辅助方法 ---
 
 func _capture_previous_if_needed() -> void:

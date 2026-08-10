@@ -590,7 +590,10 @@ func serialize_runtime_state(json_compatible: bool = false) -> Dictionary:
 ## [br]
 ## @schema data: serialize_runtime_state() 返回的运行态快照 Dictionary。
 func deserialize_runtime_state(data: Dictionary) -> void:
-	var node_states_value: Variant = GFVariantData.get_option_value(data, "nodes", {})
+	if not data.has("nodes"):
+		push_error("[GFFlowGraph] deserialize_runtime_state 失败：缺少 nodes 字段。")
+		return
+	var node_states_value: Variant = data["nodes"]
 	if not (node_states_value is Dictionary):
 		push_error("[GFFlowGraph] deserialize_runtime_state 失败：nodes 必须是 Dictionary。")
 		return
@@ -600,7 +603,14 @@ func deserialize_runtime_state(data: Dictionary) -> void:
 		if not (state_value is Dictionary):
 			push_error("[GFFlowGraph] deserialize_runtime_state 失败：每个节点状态必须是 Dictionary。")
 			return
-	clear_runtime_state()
+	var leased_node_id: StringName = _get_leased_runtime_state_node_id()
+	if leased_node_id != &"":
+		push_error(
+			"[GFFlowGraph] deserialize_runtime_state 失败：节点运行态正被执行租约占用：%s。"
+			% String(leased_node_id)
+		)
+		return
+	_clear_runtime_state_unchecked()
 	for node_id_variant: Variant in node_states.keys():
 		var node: GFFlowNode = get_node(_get_string_name_value(node_id_variant))
 		var state_value: Variant = node_states[node_id_variant]
@@ -615,9 +625,14 @@ func deserialize_runtime_state(data: Dictionary) -> void:
 ## [br]
 ## @since 3.17.0
 func clear_runtime_state() -> void:
-	for node: GFFlowNode in nodes:
-		if node != null:
-			node.clear_runtime_state()
+	var leased_node_id: StringName = _get_leased_runtime_state_node_id()
+	if leased_node_id != &"":
+		push_error(
+			"[GFFlowGraph] clear_runtime_state 失败：节点运行态正被执行租约占用：%s。"
+			% String(leased_node_id)
+		)
+		return
+	_clear_runtime_state_unchecked()
 
 
 ## 校验元数据是否符合轻量 Schema。
@@ -1316,7 +1331,7 @@ func _count_connection_port(
 	if port_id == &"" or port == null:
 		return
 
-	var key: String = "%s:%s" % [String(node_id), String(port_id)]
+	var key: String = _get_node_port_key(node_id, port_id)
 	counts[key] = GFVariantData.get_option_int(counts, key, 0) + 1
 	if GFVariantData.get_option_int(counts, key, 0) <= 1 or port.allow_multiple:
 		return
@@ -1408,12 +1423,36 @@ func _get_connection_key(
 	to_node_id: StringName,
 	to_port_id: StringName
 ) -> String:
-	return "%s:%s>%s:%s" % [
+	return _get_identity_key(PackedStringArray([
 		String(from_node_id),
 		String(from_port_id),
 		String(to_node_id),
 		String(to_port_id),
-	]
+	]))
+
+
+func _get_node_port_key(node_id: StringName, port_id: StringName) -> String:
+	return _get_identity_key(PackedStringArray([String(node_id), String(port_id)]))
+
+
+func _get_identity_key(parts: PackedStringArray) -> String:
+	var result: String = ""
+	for part: String in parts:
+		result += "%d:%s" % [part.length(), part]
+	return result
+
+
+func _get_leased_runtime_state_node_id() -> StringName:
+	for node: GFFlowNode in nodes:
+		if node != null and node.is_runtime_state_leased():
+			return node.node_id
+	return &""
+
+
+func _clear_runtime_state_unchecked() -> void:
+	for node: GFFlowNode in nodes:
+		if node != null:
+			node.clear_runtime_state()
 
 
 func _describe_connections() -> Array[Dictionary]:

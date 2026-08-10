@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFSlotInventoryModel" path="addons/gf/extensions/domain/inventory/gf_slot_inventory_model.gd" module="extensions/domain" extends="GFModel" classDigest="6a4e28ca714ddb004bf649cc91cf27c3cf81aa18740c45c832dd6fe14e7c27c4">
+<class name="GFSlotInventoryModel" path="addons/gf/extensions/domain/inventory/gf_slot_inventory_model.gd" module="extensions/domain" extends="GFModel" classDigest="a2ac557bd2ab264d795f01a86c062a726ec7ce865875801c4d775e5abf71c94a">
 	<description>GFSlotInventoryModel: 通用可序列化槽位库存模型。
 管理固定或可增长槽位中的 `GFInventoryStack`，支持槽位接收规则、
 堆叠容量、最大堆叠数量、实例数据兼容性、移动、交换和序列化。</description>
@@ -292,7 +292,8 @@
 				<tag name="api">public</tag>
 				<tag name="param">first_slot: 第一个槽位。</tag>
 				<tag name="param">second_slot: 第二个槽位。</tag>
-				<tag name="return">成功返回 true。</tag>
+				<tag name="return">成功返回 true；任一目标槽位规则拒绝交换后的物品时原子返回 false。</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="sort_slots">
@@ -303,7 +304,8 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">order_resolver: 可选比较回调，签名为 `func(left_slot_index, left_stack_data, right_slot_index, right_stack_data) -&gt; bool`。</tag>
-				<tag name="return">槽位顺序发生变化时返回 true。</tag>
+				<tag name="return">槽位顺序发生变化时返回 true；规划布局违反目标槽位规则时原子返回 false。</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="move_between_slots">
@@ -400,7 +402,8 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">校验报告字典。</tag>
-				<tag name="schema">return: Dictionary，包含 ok、healthy、summary、next_action、issue_count 与 issues；issues 每项包含 severity、kind、slot_index、item_id 与 message。</tag>
+				<tag name="schema">return: Dictionary，包含 ok: bool、error_count: int、warning_count: int 与 issues: Array；issues 每项包含 severity: String、kind: String、slot_index: int、item_id: StringName 与 message: String。</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="apply_registry_constraints">
@@ -410,7 +413,8 @@
 				<tag name="api">public</tag>
 				<tag name="param">repair: 为 true 时会移除不合法堆叠并裁剪超过上限的数量。</tag>
 				<tag name="return">校验报告字典。</tag>
-				<tag name="schema">return: Dictionary，包含 ok、healthy、summary、next_action、issue_count 与 issues；repair 为 true 时会同步修复可修复堆叠。</tag>
+				<tag name="schema">return: Dictionary，包含 ok: bool、error_count: int、warning_count: int 与 issues: Array；issues 每项包含 severity: String、kind: String、slot_index: int、item_id: StringName 与 message: String；repair 为 true 时会同步修复可修复堆叠。</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_debug_snapshot">
@@ -427,8 +431,9 @@
 			<description>序列化为字典。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="return">可序列化字典。</tag>
+				<tag name="return">Godot Variant 字典；不保证可直接编码为 JSON。</tag>
 				<tag name="schema">return: Dictionary，包含 slot_count、allow_growth 与 slots；slots 每项为 GFInventoryStack.to_dict() 形状或空字典。</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="from_dict">

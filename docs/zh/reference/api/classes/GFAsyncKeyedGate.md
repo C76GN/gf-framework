@@ -643,7 +643,7 @@ func request_lease(key: Variant, options: Dictionary = {}) -> Dictionary:
 | 名称 | 说明 |
 |---|---|
 | `key` | 并发仲裁 key。 |
-| `options` | 请求选项，支持 metadata、max_concurrency、timeout_msec、lease_timeout_msec 和 cancel_token。max_concurrency 只约束当前请求，不会写入持久 key 配置。 |
+| `options` | 请求选项，支持 metadata、max_concurrency、timeout_msec、lease_timeout_msec 和 cancel_token。max_concurrency 只约束当前请求，不会写入持久 key 配置；正 timeout 的 deadline 超出 int64 时饱和到 int64 上限。 |
 
 返回：请求结果字典。
 

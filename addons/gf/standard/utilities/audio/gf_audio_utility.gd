@@ -104,6 +104,17 @@ const _AUDIO_BANK_MAX_FALLBACK_STEPS: int = 16
 ## @since 8.0.0
 var max_sfx_players: int = 32
 
+## 已停止环境音播放器的最大空闲缓存数量；0 表示停止后立即释放。
+## 活动本地会话和 backend-owned 会话不计入此空闲缓存。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+var max_idle_ambient_players: int = 16:
+	set(value):
+		max_idle_ambient_players = maxi(value, 0)
+		_trim_idle_ambient_players()
+
 ## SFX 超出并发上限时采用的处理策略。
 ## [br]
 ## @api public
@@ -139,6 +150,8 @@ var _bgm_owner: StringName = _OWNER_NONE
 var _bgm_fade_serial: int = 0
 var _bgm_fade_tween_ref: WeakRef = null
 var _bgm_stop_tween_ref: WeakRef = null
+var _bgm_stop_fallback_timer: Timer = null
+var _bgm_stop_fallback_callback: Callable = Callable()
 var _bgm_pause_serial: int = 0
 var _bgm_transport_tween_ref: WeakRef = null
 var _bgm_paused: bool = false
@@ -157,6 +170,7 @@ var _current_bgm_key: String = ""
 var _current_bgm_region: Dictionary = {}
 var _last_playback_region_rejection: Dictionary = {}
 var _ambient_players: Dictionary = {}
+var _ambient_idle_channels: Array[StringName] = []
 var _ambient_pending_request_counter: int = 0
 var _ambient_pending_request_tokens: Dictionary = {}
 var _ambient_request_serials: Dictionary = {}
@@ -176,6 +190,7 @@ var _bus_generation_counter: int = 0
 var _bus_transaction_generations: Dictionary = {}
 var _bus_effect_tween_refs: Dictionary = {}
 var _duck_bus_states: Dictionary = {}
+var _is_initialized: bool = false
 
 
 # --- GF 生命周期方法 ---
@@ -184,8 +199,9 @@ var _duck_bus_states: Dictionary = {}
 ## [br]
 ## @api public
 func init() -> void:
-	if _is_backend_dispatch_in_progress():
+	if _is_initialized or _is_backend_dispatch_in_progress():
 		return
+	_is_initialized = true
 	var _duck_buses_restored: bool = _restore_all_ducked_buses_for_lifecycle()
 	_invalidate_bgm_pending_request()
 	_bgm_request_serial += 1
@@ -199,6 +215,8 @@ func init() -> void:
 	_bgm_fade_serial += 1
 	_bgm_fade_tween_ref = null
 	_bgm_stop_tween_ref = null
+	_bgm_stop_fallback_timer = null
+	_bgm_stop_fallback_callback = Callable()
 	_bgm_pause_serial += 1
 	_bgm_transport_tween_ref = null
 	_bgm_paused = false
@@ -218,6 +236,7 @@ func init() -> void:
 	_current_bgm_region.clear()
 	_last_playback_region_rejection.clear()
 	_ambient_players.clear()
+	_ambient_idle_channels.clear()
 	_invalidate_all_ambient_pending_requests()
 	_ambient_request_serials.clear()
 	_ambient_generation_counter += 1
@@ -235,6 +254,7 @@ func init() -> void:
 	_duck_bus_states.clear()
 	# 动态创建用于可选池化的 SFX 播放器模版
 	var player_template: AudioStreamPlayer = AudioStreamPlayer.new()
+	_reset_sfx_player_for_reuse(player_template)
 	_sfx_scene = PackedScene.new()
 	_pack_scene_template(_sfx_scene, player_template)
 	player_template.free()
@@ -262,6 +282,8 @@ func init() -> void:
 ## [br]
 ## @since 8.0.0
 func dispose() -> void:
+	if not _is_initialized:
+		return
 	var backend_stop_succeeded: bool = true
 	if _audio_backend != null:
 		if _is_backend_dispatch_in_progress():
@@ -287,6 +309,7 @@ func dispose() -> void:
 	_bgm_paused = false
 	_current_bgm_region.clear()
 	_stop_all_local_bgm_players()
+	_free_bgm_stop_fallback_timer()
 	_clear_bgm_session_state()
 	var backend_cleared: bool = false
 	if not _is_backend_dispatch_in_progress():
@@ -322,6 +345,7 @@ func dispose() -> void:
 	_bgm_owner = _OWNER_NONE
 	_bus_transaction_generations.clear()
 	_duck_bus_states.clear()
+	_is_initialized = false
 	
 	# SFX 节点已由 _release_all_sfx_players() 统一释放。
 
@@ -2472,6 +2496,9 @@ func apply_mix_snapshot(snapshot: Dictionary, transition_seconds: float = 0.0) -
 	var request_snapshot: Dictionary = _get_backend_request_snapshot_dictionary(
 		snapshot_result
 	)
+	if not _validate_mix_snapshot_shape(request_snapshot, report):
+		report["ok"] = false
+		return report
 	var expected_backend: GFAudioBackend = _audio_backend
 	if expected_backend != null:
 		var backend_snapshot_result: Dictionary = (
@@ -2709,7 +2736,7 @@ func get_bus_volume(bus_name: String) -> float:
 ## [br]
 ## @return: 调试快照。
 ## [br]
-## @schema return: Dictionary，包含 backend、backend_snapshot、backend_capabilities、current_bgm_key、current_bgm_region、last_playback_region_rejection、bgm_state、bgm_owner、bgm_generation、bgm_playing、bgm_paused、bgm_position、bgm_history、active_sfx_count、active_spatial_sfx_count、max_sfx_players、ambient_channels、ambient_sessions、audio_bank_count、ducked_bus_count 和 active_mix_tween_count 字段。
+## @schema return: Dictionary，包含 backend、backend_snapshot、backend_capabilities、current_bgm_key、current_bgm_region、last_playback_region_rejection、bgm_state、bgm_owner、bgm_generation、bgm_playing、bgm_paused、bgm_position、bgm_history、active_sfx_count、active_spatial_sfx_count、max_sfx_players、ambient_channels、ambient_sessions、cached_ambient_player_count、idle_ambient_player_count、max_idle_ambient_players、audio_bank_count、ducked_bus_count 和 active_mix_tween_count 字段。
 func get_debug_snapshot() -> Dictionary:
 	_prune_inactive_sfx_players()
 	_prune_inactive_spatial_sfx_players()
@@ -2780,6 +2807,9 @@ func get_debug_snapshot() -> Dictionary:
 		"max_sfx_players": max_sfx_players,
 		"ambient_channels": ambient_channels,
 		"ambient_sessions": ambient_session_snapshot,
+		"cached_ambient_player_count": _ambient_players.size(),
+		"idle_ambient_player_count": _ambient_idle_channels.size(),
+		"max_idle_ambient_players": max_idle_ambient_players,
 		"audio_bank_count": _audio_banks.size(),
 		"ducked_bus_count": _duck_bus_states.size(),
 		"active_mix_tween_count": _bus_volume_tween_refs.size() + _bus_effect_tween_refs.size(),
@@ -4726,6 +4756,85 @@ func _is_finite_float(value: float) -> bool:
 	return not is_nan(value) and not is_inf(value)
 
 
+func _validate_mix_snapshot_shape(snapshot: Dictionary, report: Dictionary) -> bool:
+	var is_valid: bool = true
+	if snapshot.has(_MIX_SNAPSHOT_BUSES_KEY):
+		var bus_payload: Variant = snapshot[_MIX_SNAPSHOT_BUSES_KEY]
+		if not bus_payload is Dictionary:
+			_append_mix_failure(
+				report,
+				"",
+				"invalid_buses_payload",
+				"buses 字段必须是 Dictionary。"
+			)
+			is_valid = false
+		else:
+			var buses: Dictionary = GFVariantData.as_dictionary(bus_payload)
+			for bus_key: Variant in buses.keys():
+				var bus_entry: Variant = buses[bus_key]
+				if bus_entry is Dictionary or _is_numeric_variant(bus_entry):
+					continue
+				_append_mix_failure(
+					report,
+					str(bus_key),
+					"invalid_bus_entry",
+					"总线快照条目必须是 Dictionary 或数值。"
+				)
+				is_valid = false
+
+	if not snapshot.has(_MIX_SNAPSHOT_EFFECTS_KEY):
+		return is_valid
+	var effect_payload: Variant = snapshot[_MIX_SNAPSHOT_EFFECTS_KEY]
+	if effect_payload is Array:
+		var effect_entries: Array = GFVariantData.as_array(effect_payload)
+		for entry: Variant in effect_entries:
+			if entry is Dictionary:
+				continue
+			_append_mix_failure(
+				report,
+				"",
+				"invalid_effect_entry",
+				"effects 数组元素必须是 Dictionary。"
+			)
+			is_valid = false
+		return is_valid
+	if not effect_payload is Dictionary:
+		_append_mix_failure(
+			report,
+			"",
+			"invalid_effects_payload",
+			"effects 字段必须是 Array 或 Dictionary。"
+		)
+		return false
+
+	var effect_map: Dictionary = GFVariantData.as_dictionary(effect_payload)
+	for bus_key: Variant in effect_map.keys():
+		var bus_effects: Variant = effect_map[bus_key]
+		if bus_effects is Dictionary:
+			continue
+		if bus_effects is Array:
+			var bus_effect_entries: Array = GFVariantData.as_array(bus_effects)
+			for entry: Variant in bus_effect_entries:
+				if entry is Dictionary:
+					continue
+				_append_mix_failure(
+					report,
+					str(bus_key),
+					"invalid_effect_entry",
+					"总线 effects 数组元素必须是 Dictionary。"
+				)
+				is_valid = false
+			continue
+		_append_mix_failure(
+			report,
+			str(bus_key),
+			"invalid_effect_group",
+			"effects 字典中的总线条目必须是 Array 或 Dictionary。"
+		)
+		is_valid = false
+	return is_valid
+
+
 func _apply_mix_snapshot_buses(
 	bus_payload: Variant,
 	transition_seconds: float,
@@ -4733,8 +4842,12 @@ func _apply_mix_snapshot_buses(
 	expected_backend: GFAudioBackend
 ) -> void:
 	if not (bus_payload is Dictionary):
-		if bus_payload != null:
-			_append_mix_warning(report, "buses 字段必须是 Dictionary。")
+		_append_mix_failure(
+			report,
+			"",
+			"invalid_buses_payload",
+			"buses 字段必须是 Dictionary。"
+		)
 		return
 
 	var buses: Dictionary = GFVariantData.as_dictionary(bus_payload)
@@ -4906,8 +5019,20 @@ func _apply_mix_snapshot_effects(effect_payload: Variant, transition_seconds: fl
 				)
 				single_entry["bus"] = str(bus_key)
 				_apply_mix_snapshot_effect_entry(single_entry, transition_seconds, report)
+			else:
+				_append_mix_failure(
+					report,
+					str(bus_key),
+					"invalid_effect_group",
+					"effects 字典中的总线条目必须是 Array 或 Dictionary。"
+				)
 		return
-	_append_mix_warning(report, "effects 字段必须是 Array 或 Dictionary。")
+	_append_mix_failure(
+		report,
+		"",
+		"invalid_effects_payload",
+		"effects 字段必须是 Array 或 Dictionary。"
+	)
 
 
 func _apply_mix_snapshot_effect_entry(entry: Dictionary, transition_seconds: float, report: Dictionary) -> void:
@@ -6834,6 +6959,7 @@ func _stop_all_local_bgm_players() -> void:
 
 
 func _clear_bgm_session_state() -> void:
+	_cancel_bgm_stop_tween()
 	_sanitize_local_bgm_player_references()
 	_clear_local_bgm_player_session_meta(_bgm_player)
 	_clear_local_bgm_player_session_meta(_bgm_fade_player)
@@ -6891,14 +7017,12 @@ func _start_bgm_session_stop(
 		_finish_bgm_session_stop.bind(operation_generation, session_id, player),
 		CONNECT_ONE_SHOT
 	)
-	var tree: SceneTree = _get_scene_tree()
-	if tree != null:
-		var timer: SceneTreeTimer = tree.create_timer(fade_seconds)
-		_connect_signal_checked(
-			timer.timeout,
-			_finish_bgm_session_stop.bind(operation_generation, session_id, player),
-			CONNECT_ONE_SHOT
-		)
+	_start_bgm_stop_fallback_timer(
+		fade_seconds,
+		operation_generation,
+		session_id,
+		player
+	)
 
 
 func _finish_bgm_session_stop(
@@ -6913,7 +7037,7 @@ func _finish_bgm_session_stop(
 		or not _is_bgm_player_session_current(player, session_id)
 	):
 		return
-	_bgm_stop_tween_ref = null
+	_cancel_bgm_stop_tween()
 	player.stop()
 	_remove_bgm_session(session_id, false)
 	_clear_bgm_session_state()
@@ -7461,6 +7585,10 @@ func _set_ambient_session(
 		"playback_region": playback_region.duplicate(true),
 		"target_volume_db": target_volume_db,
 	}
+	if owner == _OWNER_LOCAL and state != _STATE_STOPPED:
+		_remove_ambient_idle_channel(channel)
+	else:
+		_mark_ambient_player_idle(channel)
 
 
 func _cancel_ambient_tween(channel: StringName) -> void:
@@ -7470,9 +7598,63 @@ func _cancel_ambient_tween(channel: StringName) -> void:
 	_erase_dictionary_key(_ambient_tween_refs, channel)
 
 
+func _remove_ambient_idle_channel(channel: StringName) -> void:
+	var idle_index: int = _ambient_idle_channels.find(channel)
+	if idle_index >= 0:
+		_ambient_idle_channels.remove_at(idle_index)
+
+
+func _mark_ambient_player_idle(channel: StringName) -> void:
+	var player: AudioStreamPlayer = _get_ambient_player(channel)
+	if (
+		not is_instance_valid(player)
+		or player.playing
+		or _ambient_tween_refs.has(channel)
+	):
+		return
+	_remove_ambient_idle_channel(channel)
+	_ambient_idle_channels.append(channel)
+	_trim_idle_ambient_players()
+
+
+func _trim_idle_ambient_players() -> void:
+	var limit: int = maxi(max_idle_ambient_players, 0)
+	while _ambient_idle_channels.size() > limit:
+		var channel: StringName = _ambient_idle_channels.pop_front()
+		var session: Dictionary = _get_ambient_session(channel)
+		var owner: StringName = GFVariantData.get_option_string_name(
+			session,
+			"owner",
+			_OWNER_NONE
+		)
+		var state: StringName = GFVariantData.get_option_string_name(
+			session,
+			"state",
+			_STATE_STOPPED
+		)
+		if owner == _OWNER_LOCAL and state != _STATE_STOPPED:
+			continue
+		var player: AudioStreamPlayer = _get_ambient_player(channel)
+		if is_instance_valid(player):
+			player.stream_paused = false
+			player.stop()
+			player.stream = null
+			player.queue_free()
+		var _player_erased: bool = _ambient_players.erase(channel)
+		if (
+			owner == _OWNER_NONE
+			and state == _STATE_STOPPED
+			and not _ambient_pending_request_tokens.has(channel)
+			and not _ambient_tween_refs.has(channel)
+		):
+			var _session_erased: bool = _ambient_sessions.erase(channel)
+			var _serial_erased: bool = _ambient_request_serials.erase(channel)
+
+
 func _get_or_create_ambient_player(channel: StringName) -> AudioStreamPlayer:
 	var existing: AudioStreamPlayer = _get_ambient_player(channel)
 	if is_instance_valid(existing):
+		_remove_ambient_idle_channel(channel)
 		return existing
 	if not is_instance_valid(_root):
 		return null
@@ -7482,6 +7664,7 @@ func _get_or_create_ambient_player(channel: StringName) -> AudioStreamPlayer:
 	player.bus = _resolve_bus_name(BGM_BUS_NAME)
 	_root.add_child(player)
 	_ambient_players[channel] = player
+	_remove_ambient_idle_channel(channel)
 	return player
 
 
@@ -7503,6 +7686,7 @@ func _free_all_ambient_players() -> void:
 			player.stop()
 			player.queue_free()
 	_ambient_players.clear()
+	_ambient_idle_channels.clear()
 	_ambient_request_serials.clear()
 	_ambient_sessions.clear()
 	_ambient_tween_refs.clear()
@@ -7534,6 +7718,56 @@ func _cancel_bgm_fade_tween() -> void:
 func _cancel_bgm_stop_tween() -> void:
 	_kill_tween_ref(_bgm_stop_tween_ref)
 	_bgm_stop_tween_ref = null
+	_cancel_bgm_stop_fallback_timer()
+
+
+func _start_bgm_stop_fallback_timer(
+	fade_seconds: float,
+	operation_generation: int,
+	session_id: int,
+	player: AudioStreamPlayer
+) -> void:
+	if fade_seconds <= 0.0 or not is_instance_valid(_root):
+		return
+	_cancel_bgm_stop_fallback_timer()
+	if not is_instance_valid(_bgm_stop_fallback_timer):
+		_bgm_stop_fallback_timer = Timer.new()
+		_bgm_stop_fallback_timer.name = "GFBGMStopFallbackTimer"
+		_bgm_stop_fallback_timer.one_shot = true
+		_root.add_child(_bgm_stop_fallback_timer)
+	_bgm_stop_fallback_callback = _finish_bgm_session_stop.bind(
+		operation_generation,
+		session_id,
+		player
+	)
+	_connect_signal_checked(
+		_bgm_stop_fallback_timer.timeout,
+		_bgm_stop_fallback_callback,
+		CONNECT_ONE_SHOT
+	)
+	_bgm_stop_fallback_timer.start(fade_seconds)
+
+
+func _cancel_bgm_stop_fallback_timer() -> void:
+	if is_instance_valid(_bgm_stop_fallback_timer):
+		_bgm_stop_fallback_timer.stop()
+		if (
+			_bgm_stop_fallback_callback.is_valid()
+			and _bgm_stop_fallback_timer.timeout.is_connected(
+				_bgm_stop_fallback_callback
+			)
+		):
+			_bgm_stop_fallback_timer.timeout.disconnect(
+				_bgm_stop_fallback_callback
+			)
+	_bgm_stop_fallback_callback = Callable()
+
+
+func _free_bgm_stop_fallback_timer() -> void:
+	_cancel_bgm_stop_fallback_timer()
+	if is_instance_valid(_bgm_stop_fallback_timer):
+		_bgm_stop_fallback_timer.queue_free()
+	_bgm_stop_fallback_timer = null
 
 
 func _cancel_bgm_transport_tween() -> void:
@@ -7648,10 +7882,16 @@ func _play_sfx_stream_with_settings(
 	var pool: GFObjectPoolUtility = _get_pool_util()
 	var player: AudioStreamPlayer = null
 	if pool != null:
-		player = _get_audio_stream_player_value(pool.acquire(_sfx_scene, _root))
+		player = _get_audio_stream_player_value(
+			pool.acquire(
+				_sfx_scene,
+				_root,
+				Callable(self, "_reset_sfx_pool_node_for_acquire")
+			)
+		)
 	else:
 		player = AudioStreamPlayer.new()
-		player.name = "GFSFXPlayer"
+		_reset_sfx_player_for_reuse(player)
 		_root.add_child(player)
 
 	if player != null:
@@ -8237,11 +8477,23 @@ func _reset_sfx_player_for_reuse(player: AudioStreamPlayer) -> void:
 	if not is_instance_valid(player):
 		return
 
+	player.name = "GFSFXPlayer"
 	player.stop()
 	player.stream = null
+	player.autoplay = false
+	player.stream_paused = false
+	player.max_polyphony = 1
 	player.bus = _resolve_bus_name(SFX_BUS_NAME)
 	player.volume_db = 0.0
 	player.pitch_scale = 1.0
+	player.mix_target = AudioStreamPlayer.MIX_TARGET_STEREO
+	player.playback_type = AudioServer.PLAYBACK_TYPE_DEFAULT
+
+
+func _reset_sfx_pool_node_for_acquire(node: Node) -> void:
+	if node is AudioStreamPlayer:
+		var player: AudioStreamPlayer = node
+		_reset_sfx_player_for_reuse(player)
 
 
 func _get_sfx_finished_callback(player: AudioStreamPlayer, playback_session_id: int) -> Callable:

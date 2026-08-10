@@ -273,6 +273,51 @@ func _do_it() -> Error:
 	return error
 
 
+## 返回第一个有效属性目标，作为 EditorUndoRedoManager 的 history 上下文。
+## [br]
+## @api protected
+## [br]
+## @since unreleased
+## [br]
+## @return: 第一个有效属性目标。
+func _get_undo_context() -> Object:
+	for change: Dictionary in _changes:
+		var target_value: Variant = _GF_VARIANT_ACCESS_SCRIPT.get_option_value(
+			change,
+			"target"
+		)
+		if target_value is Object and is_instance_valid(target_value):
+			var target: Object = target_value
+			return target
+	return null
+
+
+## 返回全部唯一属性目标，供基类拒绝跨 UndoRedo history 的混合事务。
+## [br]
+## @api protected
+## [br]
+## @since unreleased
+## [br]
+## @return: 全部唯一属性目标。
+func _get_undo_targets() -> Array[Object]:
+	var targets: Array[Object] = []
+	var seen_instance_ids: Dictionary = {}
+	for change: Dictionary in _changes:
+		var target_value: Variant = _GF_VARIANT_ACCESS_SCRIPT.get_option_value(
+			change,
+			"target"
+		)
+		if not target_value is Object or not is_instance_valid(target_value):
+			continue
+		var target: Object = target_value
+		var instance_id: int = target.get_instance_id()
+		if seen_instance_ids.has(instance_id):
+			continue
+		seen_instance_ids[instance_id] = true
+		targets.append(target)
+	return targets
+
+
 ## 撤销属性事务，或恢复首次执行失败留下的残余状态。
 ## [br]
 ## @api protected

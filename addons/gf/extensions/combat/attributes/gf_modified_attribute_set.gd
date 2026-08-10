@@ -160,14 +160,23 @@ func remove_attribute(attribute_id: StringName) -> bool:
 
 
 ## 清空所有属性。
+## 清理会先原子地脱离原有索引与信号，再发送移除通知；通知期间新定义的属性会保留。
 ## [br]
 ## @api public
+## [br]
+## @since 11.0.0
 func clear() -> void:
-	for attribute_id_variant: Variant in _attributes.keys():
-		var attribute_id: StringName = GFVariantData.to_string_name(attribute_id_variant)
-		_disconnect_attribute(attribute_id, _get_attribute_value(GFVariantData.get_option_value(_attributes, attribute_id)))
-		attribute_removed.emit(attribute_id)
+	var removed_attributes: Dictionary[StringName, GFModifiedAttribute] = _attributes.duplicate()
 	_attributes.clear()
+	for attribute_id_variant: Variant in removed_attributes.keys():
+		var attribute_id: StringName = GFVariantData.to_string_name(attribute_id_variant)
+		_disconnect_attribute(
+			attribute_id,
+			_get_attribute_value(GFVariantData.get_option_value(removed_attributes, attribute_id))
+		)
+	for attribute_id_variant: Variant in removed_attributes.keys():
+		var attribute_id: StringName = GFVariantData.to_string_name(attribute_id_variant)
+		attribute_removed.emit(attribute_id)
 
 
 ## 获取属性 ID 列表。

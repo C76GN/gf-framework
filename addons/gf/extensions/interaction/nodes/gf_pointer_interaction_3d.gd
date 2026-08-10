@@ -95,8 +95,12 @@ signal pointer_interaction_sent(context: GFInteractionContext, receiver: Object,
 # --- 常量 ---
 
 const _MESSAGE_DISPATCH_SUPPORT = preload("res://addons/gf/standard/common/gf_message_dispatch_support.gd")
+const _REPORT_SCHEMA_PROJECTION = preload(
+	"res://addons/gf/kernel/core/gf_report_schema_projection.gd"
+)
 const _PICKABLE_OWNER_COUNT_META: StringName = &"_gf_pointer_interaction_3d_pickable_owner_count"
 const _PICKABLE_ORIGINAL_META: StringName = &"_gf_pointer_interaction_3d_pickable_original"
+const _MAX_ACTIVE_PRESSED_BUTTONS: int = 64
 const _RESERVED_POINTER_PAYLOAD_KEYS: Array[String] = [
 	"pointer_event",
 	"pointer_tags",
@@ -243,6 +247,7 @@ const _RESERVED_POINTER_PAYLOAD_KEYS: Array[String] = [
 
 var _collision_object_ref: WeakRef = null
 var _is_hovered: bool = false
+var _pressed_buttons: Dictionary = {}
 var _pressed_button: int = 0
 var _pressed_shape_idx: int = -1
 var _bound_input_ray_pickable_original: bool = false
@@ -368,24 +373,80 @@ func send_pointer_interaction(
 	var receiver: Object = _resolve_receiver()
 	var context: GFInteractionContext = build_context(pointer_event, pointer_data, receiver)
 	var effective_interaction_id: StringName = interaction_id_override if interaction_id_override != &"" else interaction_id
-	var report: Dictionary = _MESSAGE_DISPATCH_SUPPORT._dispatch_to_receiver(
-		enabled,
-		metadata,
-		receiver,
-		&"receive_interaction",
-		[context, effective_interaction_id],
-		"interaction_id",
-		effective_interaction_id,
-		"Pointer interaction bridge is disabled.",
-		"Pointer interaction receiver is null.",
-		"Receiver does not expose receive_interaction().",
-		"Receiver returned an invalid interaction report."
-	)
+	var report: Dictionary = {}
+	if enabled and receiver is GFInteractionReceiver:
+		var interaction_receiver: GFInteractionReceiver = receiver
+		report = interaction_receiver.receive_interaction_raw_for_framework(
+			context,
+			effective_interaction_id
+		)
+	elif (
+		enabled
+		and receiver != null
+		and receiver.has_method(&"receive_interaction")
+		and not GFInteractions.is_method_call_compatible_for_framework(
+			receiver,
+			&"receive_interaction",
+			[context, effective_interaction_id]
+		)
+	):
+		report = _make_raw_report(
+			false,
+			effective_interaction_id,
+			"invalid_receiver",
+			"Receiver exposes an incompatible receive_interaction() signature.",
+			receiver
+		)
+	else:
+		report = _MESSAGE_DISPATCH_SUPPORT._dispatch_to_receiver(
+			enabled,
+			metadata,
+			receiver,
+			&"receive_interaction",
+			[context, effective_interaction_id],
+			"interaction_id",
+			effective_interaction_id,
+			"Pointer interaction bridge is disabled.",
+			"Pointer interaction receiver is null.",
+			"Receiver does not expose receive_interaction().",
+			"Receiver returned an invalid interaction report.",
+			false
+		)
+	report = _normalize_report(report, receiver)
 	pointer_interaction_sent.emit(context, receiver, report)
 	return report
 
 
 # --- 私有/辅助方法 ---
+
+func _make_raw_report(
+	ok: bool,
+	effective_interaction_id: StringName,
+	reason: String,
+	message: String,
+	receiver: Object = null
+) -> Dictionary:
+	return {
+		"ok": ok,
+		"interaction_id": effective_interaction_id,
+		"receiver": receiver,
+		"reason": reason,
+		"message": message,
+		"metadata": metadata,
+	}
+
+
+func _normalize_report(report: Dictionary, default_receiver: Object) -> Dictionary:
+	if report.is_empty():
+		return {}
+	var raw_report: Dictionary = report.duplicate(false)
+	var receiver_value: Variant = GFVariantData.get_option_value(raw_report, "receiver")
+	if default_receiver != null and not receiver_value is Object:
+		raw_report["receiver"] = default_receiver
+	return _REPORT_SCHEMA_PROJECTION.to_report_dictionary(raw_report, {
+		"path_redaction": "basename",
+	})
+
 
 func _resolve_collision_object() -> CollisionObject3D:
 	if collision_object_path != NodePath(""):
@@ -555,10 +616,28 @@ func _set_hover_cursor(active: bool) -> void:
 func _reset_pointer_state(reset_cursor: bool) -> void:
 	var should_reset_cursor: bool = reset_cursor and (_is_hovered or _has_previous_cursor_shape)
 	_is_hovered = false
+	_pressed_buttons.clear()
 	_pressed_button = 0
 	_pressed_shape_idx = -1
 	if should_reset_cursor:
 		_set_hover_cursor(false)
+
+
+func _sync_legacy_pressed_state() -> void:
+	if _pressed_buttons.is_empty():
+		_pressed_button = 0
+		_pressed_shape_idx = -1
+		return
+	var pressed_button_keys: Array = _pressed_buttons.keys()
+	var state: Dictionary = GFVariantData.as_dictionary(
+		_pressed_buttons.get(pressed_button_keys[pressed_button_keys.size() - 1], {})
+	)
+	_pressed_button = GFVariantData.get_option_int(state, "button_index", 0)
+	_pressed_shape_idx = GFVariantData.get_option_int(state, "shape_idx", -1)
+
+
+func _pressed_button_key(event: InputEventMouseButton) -> Vector3i:
+	return Vector3i(event.window_id, event.device, event.button_index)
 
 
 func _restore_input_ray_pickable(collision_object: CollisionObject3D) -> void:
@@ -667,6 +746,7 @@ func _on_collision_mouse_exited() -> void:
 	if not enabled:
 		return
 	_is_hovered = false
+	_pressed_buttons.clear()
 	_pressed_button = 0
 	_pressed_shape_idx = -1
 	_set_hover_cursor(false)
@@ -690,14 +770,30 @@ func _on_collision_input_event(
 		return
 
 	if mouse_event.pressed:
-		_pressed_button = mouse_event.button_index
-		_pressed_shape_idx = shape_idx
+		var press_button_key: Vector3i = _pressed_button_key(mouse_event)
+		if (
+			_pressed_buttons.has(press_button_key)
+			or _pressed_buttons.size() < _MAX_ACTIVE_PRESSED_BUTTONS
+		):
+			_pressed_buttons[press_button_key] = {
+				"button_index": mouse_event.button_index,
+				"shape_idx": shape_idx,
+			}
+			_pressed_button = mouse_event.button_index
+			_pressed_shape_idx = shape_idx
 		var _emit_or_send_button_event_result_470: Variant = _emit_or_send_button_event(&"pressed", camera, mouse_event, position, normal, shape_idx, send_on_pressed)
 		return
 
-	var was_matching_press: bool = _pressed_button == mouse_event.button_index and _pressed_shape_idx == shape_idx
-	_pressed_button = 0
-	_pressed_shape_idx = -1
+	var release_button_key: Vector3i = _pressed_button_key(mouse_event)
+	var pressed_state: Dictionary = GFVariantData.as_dictionary(
+		_pressed_buttons.get(release_button_key, {})
+	)
+	var was_matching_press: bool = (
+		not pressed_state.is_empty()
+		and GFVariantData.get_option_int(pressed_state, "shape_idx", -1) == shape_idx
+	)
+	var _pressed_button_erased: bool = _pressed_buttons.erase(release_button_key)
+	_sync_legacy_pressed_state()
 	var _emit_or_send_button_event_result_476: Variant = _emit_or_send_button_event(&"released", camera, mouse_event, position, normal, shape_idx, send_on_released)
 	if was_matching_press:
 		var _emit_or_send_button_event_result_478: Variant = _emit_or_send_button_event(&"clicked", camera, mouse_event, position, normal, shape_idx, send_on_clicked)

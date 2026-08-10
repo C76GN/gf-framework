@@ -8,16 +8,20 @@ import hashlib
 import json
 import re
 import sys
+from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
+from generated_output_transaction import compare_generated_tree
 from generated_output_transaction import lexical_absolute_path
 from generated_output_transaction import replace_generated_trees
 from generated_output_transaction import validate_controlled_path
 from gdscript_api_parser import ApiDocs
 from gdscript_api_parser import ApiMember
 from gdscript_api_parser import ApiScript
+from gdscript_api_parser import PUBLIC_API_VISIBILITIES
 from gdscript_api_parser import collect_api_scripts
+from gdscript_api_parser import visibility_of
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -88,16 +92,50 @@ def main(argv: list[str] | None = None) -> int:
 
 
 def collect_api(source_root: Path) -> list[ApiScript]:
-	return collect_api_scripts(source_root, ROOT)
+	return filter_public_api(collect_api_scripts(source_root, ROOT))
+
+
+def filter_public_api(api_files: list[ApiScript]) -> list[ApiScript]:
+	"""Build a public/protected API profile without mutating parser results."""
+	result: list[ApiScript] = []
+	for api_file in api_files:
+		filtered = replace(
+			api_file,
+			signals=filter_public_members(api_file.signals),
+			enums=filter_public_members(api_file.enums),
+			constants=filter_public_members(api_file.constants),
+			properties=filter_public_members(api_file.properties),
+			methods=filter_public_members(api_file.methods),
+		)
+		if api_file.class_name:
+			if visibility_of(api_file.docs) in PUBLIC_API_VISIBILITIES:
+				result.append(filtered)
+		elif filtered.has_public_surface():
+			result.append(filtered)
+	return result
+
+
+def filter_public_members(members: list[ApiMember]) -> list[ApiMember]:
+	return [
+		member
+		for member in members
+		if visibility_of(member.docs) in PUBLIC_API_VISIBILITIES
+	]
 
 
 def render_outputs(api_files: list[ApiScript], source_root: Path) -> dict[str, str]:
 	files_payload = [api_file_to_dict(item) for item in api_files]
+	semantic_payload = [semantic_api_file_to_dict(item) for item in api_files]
 	source_digest = hashlib.sha256(
+		json.dumps(semantic_payload, ensure_ascii=False, sort_keys=True).encode("utf-8")
+	).hexdigest()
+	location_digest = hashlib.sha256(
 		json.dumps(files_payload, ensure_ascii=False, sort_keys=True).encode("utf-8")
 	).hexdigest()
 	payload = {
+		"schema_version": 2,
 		"source_digest": source_digest,
+		"location_digest": location_digest,
 		"source_root": source_root.relative_to(ROOT).as_posix(),
 		"file_count": len(api_files),
 		"class_count": sum(1 for item in api_files if item.class_name),
@@ -129,12 +167,37 @@ def api_file_to_dict(api_file: ApiScript) -> dict[str, Any]:
 	}
 
 
+def semantic_api_file_to_dict(api_file: ApiScript) -> dict[str, Any]:
+	return {
+		"path": api_file.path,
+		"module": api_file.module,
+		"class_name": api_file.class_name,
+		"extends": api_file.extends,
+		"summary": docs_to_ai_lines(api_file.docs),
+		"signals": [semantic_api_item_to_dict(item) for item in api_file.signals],
+		"enums": [semantic_api_item_to_dict(item) for item in api_file.enums],
+		"constants": [semantic_api_item_to_dict(item) for item in api_file.constants],
+		"variables": [semantic_api_item_to_dict(item) for item in api_file.properties],
+		"methods": [semantic_api_item_to_dict(item) for item in api_file.methods],
+	}
+
+
 def api_item_to_dict(item: ApiMember) -> dict[str, Any]:
 	return {
 		"kind": ai_member_kind(item),
 		"name": item.name,
 		"signature": item.signature,
 		"line": item.line,
+		"docs": docs_to_ai_lines(item.docs),
+		"decorators": item.decorators,
+	}
+
+
+def semantic_api_item_to_dict(item: ApiMember) -> dict[str, Any]:
+	return {
+		"kind": ai_member_kind(item),
+		"name": item.name,
+		"signature": item.signature,
 		"docs": docs_to_ai_lines(item.docs),
 		"decorators": item.decorators,
 	}
@@ -161,6 +224,7 @@ def render_index(api_files: list[ApiScript], payload: dict[str, Any]) -> str:
 		"# GF AI API Index",
 		"",
 		f"source_digest: {payload['source_digest']}",
+		f"location_digest: {payload['location_digest']}",
 		f"source_root: {payload['source_root']}",
 		f"file_count: {payload['file_count']}",
 		f"class_count: {payload['class_count']}",
@@ -222,22 +286,7 @@ def write_outputs(output_dir: Path, desired: dict[str, str]) -> None:
 
 
 def check_outputs(output_dir: Path, desired: dict[str, str]) -> int:
-	mismatches: list[str] = []
-	for relative, content in desired.items():
-		path = output_dir / relative
-		if not path.exists():
-			mismatches.append(f"missing: {relative}")
-			continue
-		if path.read_text(encoding="utf-8") != content:
-			mismatches.append(f"stale: {relative}")
-	existing = {
-		path.relative_to(output_dir).as_posix()
-		for path in output_dir.rglob("*")
-		if path.is_file()
-	}
-	expected = set(desired.keys())
-	for extra in sorted(existing - expected):
-		mismatches.append(f"extra: {extra}")
+	mismatches = compare_generated_tree(output_dir, desired)
 	if mismatches:
 		print("AI API docs are stale:")
 		for mismatch in mismatches:

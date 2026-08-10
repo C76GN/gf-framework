@@ -124,6 +124,81 @@ func test_ref_counted_pool_rejects_invalid_factory() -> void:
 	assert_push_error("[GFRefCountedPool] factory 无效，无法创建对象。")
 
 
+func test_ref_counted_pool_acquire_hook_release_wins_without_double_loan() -> void:
+	var item: ReentrantPooledItem = ReentrantPooledItem.new()
+	var pool: GFRefCountedPool = GFRefCountedPool.new(func() -> RefCounted:
+		return item
+	)
+	item.pool = pool
+	item.release_on_acquire = true
+
+	var cancelled_acquire: RefCounted = pool.acquire()
+
+	assert_null(cancelled_acquire, "acquire hook 已归还对象时，外层 acquire 不得再发布同一借用。")
+	assert_true(item.acquire_release_result, "acquire hook 的归还应成功并成为最终 mutation。")
+	assert_eq(pool.active_count, 0, "已在 hook 中归还的对象不应保持 active。")
+	assert_eq(pool.available_count, 1, "已在 hook 中归还的对象应恰好进入 available 一次。")
+
+	item.release_on_acquire = false
+	var next_acquire: RefCounted = pool.acquire()
+	assert_same(next_acquire, item, "下一次 acquire 可以安全复用已归还对象。")
+	assert_eq(pool.active_count, 1, "复用后只能存在一个 active borrower。")
+	assert_eq(pool.available_count, 0, "active 对象不能同时留在 available。")
+	var _released: bool = pool.release(next_acquire)
+	item.pool = null
+	pool.factory = Callable()
+	pool.reset_pool()
+
+
+func test_ref_counted_pool_release_hook_reentry_is_rejected_without_recursion() -> void:
+	var item: ReentrantPooledItem = ReentrantPooledItem.new()
+	var pool: GFRefCountedPool = GFRefCountedPool.new(func() -> RefCounted:
+		return item
+	)
+	item.pool = pool
+	var acquired: RefCounted = pool.acquire()
+	item.release_on_release = true
+
+	var released: bool = pool.release(acquired)
+
+	assert_true(released, "外层 release 应成功。")
+	assert_false(item.release_reentry_result, "release hook 的同项递归 release 必须被稳定拒绝。")
+	assert_eq(item.release_count, 1, "release hook 只能执行一次。")
+	assert_eq(pool.active_count, 0, "release 完成后不应保留 active。")
+	assert_eq(pool.available_count, 1, "对象只能进入 available 一次。")
+	assert_push_warning("[GFRefCountedPool] release 收到未由当前池借出的对象，已忽略。")
+	item.pool = null
+	pool.factory = Callable()
+	pool.reset_pool()
+
+
+func test_ref_counted_pool_reset_callback_cannot_reborrow_releasing_item() -> void:
+	var item: PooledItem = PooledItem.new()
+	var reentrant_acquired: Array[RefCounted] = [null]
+	var pool_holder: Array[GFRefCountedPool] = [null]
+	var pool: GFRefCountedPool = GFRefCountedPool.new(
+		func() -> RefCounted:
+			return item,
+		func(_pooled_item: RefCounted) -> void:
+			reentrant_acquired[0] = pool_holder[0].acquire()
+	)
+	pool_holder[0] = pool
+	var acquired: RefCounted = pool.acquire()
+
+	var released: bool = pool.release(acquired)
+
+	assert_true(released, "外层 release 应成功。")
+	assert_null(reentrant_acquired[0], "reset callback 不得经 factory 重借正在 release 的同一对象。")
+	assert_eq(pool.active_count, 0, "release callback 返回后不应保留幽灵 active borrow。")
+	assert_eq(pool.available_count, 1, "releasing item 应只进入 available。")
+	assert_push_error("[GFRefCountedPool] acquire 失败：factory 返回了已被当前池追踪的对象，已拒绝重复借出。")
+	pool.reset_callback = Callable()
+	pool.factory = Callable()
+	pool.reset_pool()
+	reentrant_acquired[0] = null
+	pool_holder[0] = null
+
+
 func _to_pooled_item(value: RefCounted) -> PooledItem:
 	if value is PooledItem:
 		var pooled_item: PooledItem = value
@@ -159,3 +234,21 @@ class PooledItem extends RefCounted:
 
 class CallbackResetItem extends RefCounted:
 	var value: int = 0
+
+
+class ReentrantPooledItem extends RefCounted:
+	var pool: GFRefCountedPool
+	var release_on_acquire: bool = false
+	var release_on_release: bool = false
+	var acquire_release_result: bool = false
+	var release_reentry_result: bool = true
+	var release_count: int = 0
+
+	func on_gf_pool_acquire() -> void:
+		if release_on_acquire:
+			acquire_release_result = pool.release(self)
+
+	func on_gf_pool_release() -> void:
+		release_count += 1
+		if release_on_release:
+			release_reentry_result = pool.release(self)

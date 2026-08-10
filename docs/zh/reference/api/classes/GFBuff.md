@@ -533,12 +533,13 @@ func on_tick(_p_delta: float) -> void:
 ### `update`
 
 - API：`public`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func update(p_delta: float) -> bool:
 ```
 
-内部状态更新流程。
+内部状态更新流程。 非有限 delta 或非有限时间状态会在任何生命周期修改前失败关闭并返回 false。
 
 参数：
 

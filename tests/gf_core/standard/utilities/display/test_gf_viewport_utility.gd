@@ -41,6 +41,19 @@ func test_viewport_resolution_scale_reduces_render_size() -> void:
 	assert_eq(viewports[0].size, Vector2i(320, 180))
 
 
+func test_viewport_resolution_scale_rejects_non_finite_values() -> void:
+	_utility.viewport_resolution_scale = 0.5
+	_utility.viewport_resolution_scale = NAN
+	assert_eq(_utility.viewport_resolution_scale, 0.5, "NaN 缩放不得污染已确认值。")
+	_utility.viewport_resolution_scale = INF
+	assert_eq(_utility.viewport_resolution_scale, 0.5, "Infinity 缩放不得污染已确认值。")
+
+	var viewports: Array[SubViewport] = _utility.setup_split_screen(_root, 1, {
+		"viewport_size": Vector2i(640, 360),
+	})
+	assert_eq(viewports[0].size, Vector2i(320, 180), "非法缩放后布局仍应使用最后一个有限值。")
+
+
 func test_set_viewport_camera_adds_camera_to_subviewport() -> void:
 	var _setup_split_screen_result_45: Variant = _utility.setup_split_screen(_root, 1)
 	var camera: Camera2D = Camera2D.new()
@@ -175,6 +188,29 @@ func test_calculate_control_window_rect_rejects_invalid_dimensions() -> void:
 	assert_eq(_get_report_rect2i(report), Rect2i())
 
 
+func test_control_window_rect_rejects_non_finite_inputs_before_rounding() -> void:
+	var invalid_control: Dictionary = _utility.calculate_control_window_rect(
+		Rect2(Vector2(NAN, 0.0), Vector2(10.0, 10.0)),
+		Vector2(200.0, 100.0),
+		Vector2i(400, 300)
+	)
+	var invalid_viewport: Dictionary = _utility.calculate_control_window_rect(
+		Rect2(Vector2.ZERO, Vector2(10.0, 10.0)),
+		Vector2(INF, 100.0),
+		Vector2i(400, 300)
+	)
+	var invalid_offset: Dictionary = _utility.calculate_control_window_rect(
+		Rect2(Vector2.ZERO, Vector2(10.0, 10.0)),
+		Vector2(200.0, 100.0),
+		Vector2i(400, 300),
+		{ "viewport_offset": Vector2(NAN, 0.0) }
+	)
+
+	for report: Dictionary in [invalid_control, invalid_viewport, invalid_offset]:
+		assert_false(GFVariantData.get_option_bool(report, "ok"), "非有限矩形输入必须失败闭合。")
+		assert_eq(_get_report_rect2i(report), Rect2i(), "非有限值不得进入 roundi 或物理矩形。")
+
+
 func test_calculate_safe_area_margins_converts_physical_pixels_to_viewport_units() -> void:
 	var report: Dictionary = _utility.calculate_safe_area_margins(
 		Rect2i(Vector2i(10, 20), Vector2i(980, 1880)),
@@ -219,6 +255,28 @@ func test_apply_safe_area_margins_updates_margin_container_theme_constants() -> 
 	assert_eq(container.get_theme_constant("margin_left"), 4)
 	assert_eq(container.get_theme_constant("margin_bottom"), 9)
 	assert_eq(container.get_theme_constant("margin_right"), 2)
+
+
+func test_safe_area_margins_reject_non_finite_values_without_partial_apply() -> void:
+	var report: Dictionary = _utility.calculate_safe_area_margins(
+		Rect2i(Vector2i.ZERO, Vector2i(1000, 2000)),
+		Vector2i(1000, 2000),
+		Vector2(500.0, 1000.0),
+		{ "top": NAN }
+	)
+	assert_false(GFVariantData.get_option_bool(report, "ok"), "非有限额外边距必须使计算失败。")
+
+	var container: MarginContainer = MarginContainer.new()
+	add_child_autofree(container)
+	container.add_theme_constant_override("margin_top", 7)
+	var applied: bool = _utility.apply_safe_area_margins(container, {
+		"top": INF,
+		"left": 1.0,
+		"bottom": 2.0,
+		"right": 3.0,
+	})
+	assert_false(applied, "非有限边距不得应用到 MarginContainer。")
+	assert_eq(container.get_theme_constant("margin_top"), 7, "失败前必须完成全部数值预检，不能部分覆盖。")
 
 
 func test_setup_with_zero_count_clears_layout() -> void:

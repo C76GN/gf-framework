@@ -2,8 +2,9 @@
 
 ## GFTouchControl2D: 触屏 Node2D 控件共享底座。
 ##
-## 提供触点捕获、隐藏/离树释放、屏幕坐标到画布坐标转换和输入 handled 标记。
+## 提供触点捕获、隐藏/离树/process mode 禁用释放、屏幕坐标到画布坐标转换和输入 handled 标记。
 ## 具体按钮、摇杆、滑条或项目自定义触屏控件仍负责自己的形状、输出和业务无关配置。
+## 直接调用 set_process_input(false) 不会产生可拦截的 Node 禁用通知；调用方必须先 release()。
 ## [br]
 ## @api public
 ## [br]
@@ -29,7 +30,13 @@ var _active_touch_index: int = _NO_POINTER_ID
 func _notification(what: int) -> void:
 	if Engine.is_editor_hint():
 		return
-	if what == CanvasItem.NOTIFICATION_VISIBILITY_CHANGED and not is_visible_in_tree():
+	if (
+		what == Node.NOTIFICATION_DISABLED
+		or (
+			what == CanvasItem.NOTIFICATION_VISIBILITY_CHANGED
+			and not is_visible_in_tree()
+		)
+	):
 		release()
 
 
@@ -77,6 +84,8 @@ func get_active_touch_index() -> int:
 # --- 私有/辅助方法 ---
 
 func _try_capture_touch_index(touch_index: int) -> bool:
+	if touch_index == _NO_POINTER_ID:
+		return false
 	if _active_touch_index == _NO_POINTER_ID:
 		_active_touch_index = touch_index
 		return true

@@ -294,7 +294,7 @@ func stop(should_clear_actions: bool = true) -> void:
 
 | 名称 | 说明 |
 |---|---|
-| `should_clear_actions` | 是否清空待处理行动。 |
+| `should_clear_actions` | 是否清空待处理行动。即使流程已经 stopped，true 仍会幂等清理并封存队列；此前的保留策略也会升级为清理。 |
 
 <a id="member-gfturnflowsystem-methods-advance_phase"></a>
 
@@ -374,6 +374,7 @@ func enqueue_action(action: GFTurnAction) -> void:
 ### `resolve_actions`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func resolve_actions(order_resolver: Callable = Callable()) -> void:
@@ -385,4 +386,4 @@ func resolve_actions(order_resolver: Callable = Callable()) -> void:
 
 | 名称 | 说明 |
 |---|---|
-| `order_resolver` | 可选排序回调，签名为 func(a, b) -> bool。 |
+| `order_resolver` | 可选排序回调，签名为 func(a, b) -> bool；调用方必须提供无副作用、确定且满足严格弱序的比较器。自定义比较器不继承默认 non-finite 与入队顺序规则。 |

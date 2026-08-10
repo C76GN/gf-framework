@@ -602,6 +602,89 @@ func test_audit_uses_request_digest_and_never_keeps_raw_request_id() -> void:
 	assert_eq(audit_text.find(token), -1, "审计不得保存 token。")
 
 
+func test_audit_listener_reentry_is_drained_without_recursive_signal_emission() -> void:
+	var listener_state: Dictionary = {
+		"depth": 0,
+		"max_depth": 0,
+		"reentered": false,
+	}
+	var observed_sequences: Array[int] = []
+	var _audit_listener_connected: Error = environment.audit_event_recorded.connect(func(event: Dictionary) -> void:
+		listener_state["depth"] = GFVariantData.get_option_int(listener_state, "depth") + 1
+		listener_state["max_depth"] = maxi(
+			GFVariantData.get_option_int(listener_state, "max_depth"),
+			GFVariantData.get_option_int(listener_state, "depth")
+		)
+		observed_sequences.append(GFVariantData.get_option_int(event, "sequence"))
+		if not GFVariantData.get_option_bool(listener_state, "reentered"):
+			listener_state["reentered"] = true
+			var _nested_rejected: Dictionary = environment.register_endpoint(
+				"",
+				null,
+				null,
+				Callable()
+			)
+		listener_state["depth"] = GFVariantData.get_option_int(listener_state, "depth") - 1
+	) as Error
+
+	var _initial_rejected: Dictionary = environment.register_endpoint("", null, null, Callable())
+
+	assert_eq(observed_sequences, [1, 2], "重入产生的审计应按 sequence 迭代派发。")
+	assert_eq(
+		GFVariantData.get_option_int(listener_state, "max_depth"),
+		1,
+		"审计 listener 发起 audited API 时不得递归 emit。"
+	)
+
+
+func test_audit_listener_reentry_has_bounded_notification_work_and_retention() -> void:
+	var listener_state: Dictionary = {
+		"depth": 0,
+		"max_depth": 0,
+		"notification_count": 0,
+	}
+	var _audit_listener_connected: Error = environment.audit_event_recorded.connect(func(_event: Dictionary) -> void:
+		listener_state["depth"] = GFVariantData.get_option_int(listener_state, "depth") + 1
+		listener_state["max_depth"] = maxi(
+			GFVariantData.get_option_int(listener_state, "max_depth"),
+			GFVariantData.get_option_int(listener_state, "depth")
+		)
+		listener_state["notification_count"] = (
+			GFVariantData.get_option_int(listener_state, "notification_count") + 1
+		)
+		if GFVariantData.get_option_int(listener_state, "notification_count") < 300:
+			var _nested_rejected: Dictionary = environment.register_endpoint(
+				"",
+				null,
+				null,
+				Callable()
+			)
+		listener_state["depth"] = GFVariantData.get_option_int(listener_state, "depth") - 1
+	) as Error
+
+	var _initial_rejected: Dictionary = environment.register_endpoint("", null, null, Callable())
+	var audit: Dictionary = environment.get_audit_events(256)
+	var retained_events: Array = GFVariantData.get_option_array(audit, "events")
+	var last_event: Dictionary = GFVariantData.as_dictionary(retained_events.back())
+
+	assert_eq(
+		GFVariantData.get_option_int(listener_state, "notification_count"),
+		256,
+		"单次同步 drain 最多派发 256 个审计通知。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(listener_state, "max_depth"),
+		1,
+		"持续重入也只能形成迭代通知，不能增加调用栈深度。"
+	)
+	assert_eq(retained_events.size(), 256, "实时通知截断不能突破审计 ring 的保留上限。")
+	assert_eq(
+		GFVariantData.get_option_int(last_event, "sequence"),
+		257,
+		"第 256 个 listener 产生的记录仍应进入审计 ring，只丢弃超预算实时通知。"
+	)
+
+
 func test_audit_ring_is_bounded_returns_deep_copies_and_can_be_cleared() -> void:
 	for _index: int in range(300):
 		var _rejected: Dictionary = environment.register_endpoint(

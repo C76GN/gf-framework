@@ -9,7 +9,7 @@
 - 类别：运行时服务 (`runtime_service`)
 - 首次版本：`3.17.0`
 
-通用触屏虚拟摇杆节点。 可直接发出摇杆向量信号，也可选择映射到 Godot InputMap 动作。
+通用触屏虚拟摇杆节点。 可直接发出摇杆向量信号，也可选择映射到 Godot InputMap 动作。 每次 gesture 会冻结 begin-time 定位模式、action 与虚拟 joypad lane； 运行时配置修改从下一次 gesture 生效。
 
 ## 成员概览
 

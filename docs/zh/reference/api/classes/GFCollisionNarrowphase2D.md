@@ -234,7 +234,7 @@ static func test_polygon_overlap( a_points: PackedVector2Array, b_points: Packed
 |---|---|
 | `a_points` | 第一个凸多边形顶点。 |
 | `b_points` | 第二个凸多边形顶点。 |
-| `options` | 可选控制，支持 `include_touching` 与 `epsilon`。 |
+| `options` | 可选控制，支持 \`include_touching\` 与 \`epsilon\`。 |
 
 返回：SAT 重叠报告。
 
@@ -260,9 +260,9 @@ static func test_shapes_overlap( a_shape: Dictionary, b_shape: Dictionary, optio
 
 | 名称 | 说明 |
 |---|---|
-| `a_shape` | 第一个 shape，建议由 `make_polygon()` 或 `make_box()` 创建。 |
-| `b_shape` | 第二个 shape，建议由 `make_polygon()` 或 `make_box()` 创建。 |
-| `options` | 可选控制，支持 `include_touching` 与 `epsilon`。 |
+| `a_shape` | 第一个 shape，建议由 \`make_polygon()\` 或 \`make_box()\` 创建。 |
+| `b_shape` | 第二个 shape，建议由 \`make_polygon()\` 或 \`make_box()\` 创建。 |
+| `options` | 可选控制，支持 \`include_touching\` 与 \`epsilon\`。 |
 
 返回：SAT 重叠报告。
 

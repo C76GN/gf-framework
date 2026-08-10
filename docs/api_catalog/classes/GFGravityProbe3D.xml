@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFGravityProbe3D" path="addons/gf/extensions/physics/nodes/gf_gravity_probe_3d.gd" module="extensions/physics" extends="Node3D" classDigest="4851fb07923c89fac852f65c8b534b2c493c8dd0d001afdd585784d215a1512a">
+<class name="GFGravityProbe3D" path="addons/gf/extensions/physics/nodes/gf_gravity_probe_3d.gd" module="extensions/physics" extends="Node3D" classDigest="035c0937391b7b8e4c7f5e365016a758b2b3c589ae40a736392ff82a44c8dc7b">
 	<description>GFGravityProbe3D: 通用 3D 重力采样器。
 从场景树分组中采样 GFGravityField3D 或任何暴露 get_acceleration_at()
 方法的对象，并按组合策略计算当前位置处的加速度、上下方向。</description>
@@ -14,9 +14,9 @@
 			<signature>enum CombinationMode {
 	## 汇总所有有效力场的加速度。
 	SUM,
-	## 只使用当前点加速度长度最大的力场。
+	## 只使用当前点加速度长度最大的力场；幅值比较不会计算可能溢出的原始平方范数。
 	STRONGEST,
-	## 只汇总当前点非零加速度中最高优先级的力场。
+	## 只汇总当前点非零加速度中最高优先级的力场；priority 使用完整 GDScript int 值域。
 	HIGHEST_PRIORITY,
 }</signature>
 			<description>多个力场重叠时的采样组合策略。</description>
@@ -62,7 +62,9 @@
 		</member>
 		<member kind="property" name="cache_samples_per_frame" decorators="@export">
 			<signature>var cache_samples_per_frame: bool = true</signature>
-			<description>同一帧、同一位置重复 sample() 时是否复用上次结果。</description>
+			<description>同一帧、同一位置重复 sample() 时是否复用上次结果。
+分组缓存包含精确对象实例身份；内置 GFGravityField3D 还通过 revision 传播参数变化。
+任意 duck provider 的私有状态无法被自动观察，同帧改写后应调用 invalidate_cache() 或关闭缓存。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="since">3.17.0</tag>
@@ -80,32 +82,36 @@
 	<methods>
 		<member kind="method" name="sample">
 			<signature>func sample() -&gt; Vector3:</signature>
-			<description>采样场景树分组中的所有力场。</description>
+			<description>采样场景树分组中的所有力场。
+一次调用冻结入口位置、分组、组合模式和 fallback；field 回调中的修改从下一次采样生效。
+同一 Probe 的同步递归采样失败关闭为零向量，不改写外层事务。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="return">按 combination_mode 组合后的加速度。</tag>
+				<tag name="return">按入口 combination_mode 组合后的有限加速度；聚合溢出或同步重入时返回零向量。</tag>
 				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="sample_fields">
 			<signature>func sample_fields(fields: Array) -&gt; Vector3:</signature>
-			<description>采样指定力场列表。</description>
+			<description>采样指定力场列表。
+一次调用冻结入口位置、组合模式和 fallback；同一 Probe 的同步递归采样返回零向量。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">fields: 力场对象列表。</tag>
-				<tag name="return">按 combination_mode 组合后的加速度。</tag>
+				<tag name="return">按入口 combination_mode 组合后的有限加速度；聚合溢出或同步重入时返回零向量。</tag>
 				<tag name="schema">fields: Array，包含 GFGravityField3D 或任何暴露 get_acceleration_at(Vector3) 的 Object。</tag>
 				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="sample_field_provider">
 			<signature>func sample_field_provider(candidate_provider: Object, options: Dictionary = {}) -&gt; Vector3:</signature>
-			<description>从候选 provider 采样力场。</description>
+			<description>从候选 provider 采样力场。
+provider 查询与 field 采样共用同一入口查询快照；同一 Probe 的同步递归采样返回零向量。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">candidate_provider: 暴露 get_candidate_objects(options) 的候选 provider。</tag>
 				<tag name="param">options: 候选查询选项；未设置 method_name 时默认筛选 get_acceleration_at。</tag>
-				<tag name="return">按 combination_mode 组合后的加速度。</tag>
+				<tag name="return">按入口 combination_mode 组合后的有限加速度；聚合溢出或同步重入时返回零向量。</tag>
 				<tag name="schema">options: Dictionary passed to candidate_provider.get_candidate_objects(); method_name defaults to get_acceleration_at.</tag>
 				<tag name="since">8.0.0</tag>
 			</tags>

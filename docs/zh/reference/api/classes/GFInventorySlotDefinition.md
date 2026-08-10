@@ -164,6 +164,7 @@ func can_accept( item_id: StringName, definition: GFInventoryItemDefinition = nu
 ### `to_dict`
 
 - API：`public`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func to_dict() -> Dictionary:
@@ -171,7 +172,7 @@ func to_dict() -> Dictionary:
 
 转换为字典。
 
-返回：可序列化字典。
+返回：Godot Variant 字典；不保证可直接编码为 JSON。
 
 结构：
 

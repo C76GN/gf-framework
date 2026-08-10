@@ -18,7 +18,7 @@
 | 信号 | [`phase_changed`](#member-gfnetworksynccoordinator-signals-phase_changed) | `signal phase_changed(previous_phase: Phase, current_phase: Phase)` |
 | 信号 | [`input_finalized`](#member-gfnetworksynccoordinator-signals-input_finalized) | `signal input_finalized(peer_id: int, sequence: int, accepted: bool, reason: StringName)` |
 | 信号 | [`authority_snapshot_created`](#member-gfnetworksynccoordinator-signals-authority_snapshot_created) | `signal authority_snapshot_created(snapshot: GFNetworkSnapshot)` |
-| 信号 | [`authoritative_snapshot_applied`](#member-gfnetworksynccoordinator-signals-authoritative_snapshot_applied) | `signal authoritative_snapshot_applied(` |
+| 信号 | [`authoritative_snapshot_applied`](#member-gfnetworksynccoordinator-signals-authoritative_snapshot_applied) | `signal authoritative_snapshot_applied( snapshot: GFNetworkSnapshot, corrected: bool, replayed_tick_count: int )` |
 | 信号 | [`synchronization_rejected`](#member-gfnetworksynccoordinator-signals-synchronization_rejected) | `signal synchronization_rejected(peer_id: int, reason: StringName, details: Dictionary)` |
 | 信号 | [`resync_required`](#member-gfnetworksynccoordinator-signals-resync_required) | `signal resync_required(reason: StringName, details: Dictionary)` |
 | 枚举 | [`Role`](#member-gfnetworksynccoordinator-enums-role) | `enum Role` |
@@ -116,7 +116,7 @@ signal authority_snapshot_created(snapshot: GFNetworkSnapshot)
 - 首次版本：`10.0.0`
 
 ```gdscript
-signal authoritative_snapshot_applied(
+signal authoritative_snapshot_applied( snapshot: GFNetworkSnapshot, corrected: bool, replayed_tick_count: int )
 ```
 
 Replica 原子应用权威快照后发出。

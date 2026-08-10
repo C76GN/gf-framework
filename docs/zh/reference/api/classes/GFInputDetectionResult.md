@@ -90,7 +90,7 @@ var input_event: InputEvent = null
 var elapsed_seconds: float = 0.0
 ```
 
-本轮检测经过的秒数。
+本轮检测从 begin 到 finish 经过的有限非负秒数。
 
 <a id="member-gfinputdetectionresult-properties-value_type"></a>
 
@@ -194,7 +194,7 @@ func has_input_event() -> bool:
 func to_dictionary() -> Dictionary:
 ```
 
-转换为 JSON 安全字典。
+转换为 JSON 安全字典。即使 public elapsed_seconds 被外部改成 NaN/Infinity， 输出边界也会把它规范为 0。
 
 返回：检测结果字典。
 

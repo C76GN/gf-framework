@@ -118,6 +118,7 @@ func is_empty() -> bool:
 ### `matches`
 
 - API：`public`
+- 首次版本：`3.18.0`
 
 ```gdscript
 func matches(source: Variant) -> bool:
@@ -142,12 +143,13 @@ func matches(source: Variant) -> bool:
 ### `get_match_report`
 
 - API：`public`
+- 首次版本：`3.18.0`
 
 ```gdscript
 func get_match_report(source: Variant) -> Dictionary:
 ```
 
-获取匹配报告。
+获取匹配报告。 `valid` 表示表达式结构可安全求值，`matched` 表示在结构有效的前提下计算出的 逻辑匹配结果，`ok` 仅在两者都为 true 时为 true。循环、过深嵌套、未知运算符 和无效子项都会失败关闭。
 
 参数：
 
@@ -160,7 +162,7 @@ func get_match_report(source: Variant) -> Dictionary:
 结构：
 
 - `source`: Variant accepted by GFTagSourceAdapter through GFTagQuery.
-- `return`: Dictionary，包含 ok、operator、query_report、child_reports、matched_indices、failed_indices、reason 等字段。
+- `return`: Dictionary，包含 ok、valid、matched、operator、query_report、child_reports、matched_indices、failed_indices、invalid_indices、reason 等字段。
 
 <a id="member-gftagexpression-methods-configure_query"></a>
 

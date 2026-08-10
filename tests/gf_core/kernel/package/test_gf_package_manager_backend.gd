@@ -5,10 +5,15 @@ extends GutTest
 
 const GF_PACKAGE_MANAGER_BACKEND = preload("res://addons/gf/kernel/package/gf_package_manager_backend.gd")
 const GF_PACKAGE_TRANSACTION_ENGINE = preload("res://addons/gf/kernel/package/gf_package_transaction_engine.gd")
+const GF_PACKAGE_CLI = preload("res://addons/gf/kernel/package/gf_package_cli.gd")
 const GF_PACKAGE_MANAGER_WORKER_SCRIPT = preload("res://addons/gf/kernel/editor/package/gf_package_manager_worker.gd")
 const GF_BOUNDED_ZIP_SUPPORT_SCRIPT = preload("res://addons/gf/kernel/package/gf_bounded_zip_support.gd")
 const GF_VARIANT_ACCESS = preload("res://addons/gf/kernel/core/gf_variant_access.gd")
 const TEST_ROOT: String = "res://ai_analysis/tmp_package_manager_backend"
+const ENVIRONMENT_RESTORE_SENTINEL: String = "GF_TEST_ENVIRONMENT_RESTORE_SENTINEL"
+
+
+var _default_registry_environment_snapshot: Dictionary = {}
 
 
 class BinaryReferenceResource:
@@ -20,11 +25,19 @@ class BinaryReferenceResource:
 # --- Godot 生命周期方法 ---
 
 func before_each() -> void:
+	_default_registry_environment_snapshot = _capture_environment(
+		GF_PACKAGE_MANAGER_BACKEND.DEFAULT_REGISTRY_SOURCE_ENV
+	)
 	_remove_path_recursive(TEST_ROOT)
 	var _make_result: Error = DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(TEST_ROOT))
 
 
 func after_each() -> void:
+	_restore_environment(
+		GF_PACKAGE_MANAGER_BACKEND.DEFAULT_REGISTRY_SOURCE_ENV,
+		_default_registry_environment_snapshot
+	)
+	_default_registry_environment_snapshot.clear()
 	_remove_path_recursive(TEST_ROOT)
 
 
@@ -42,6 +55,35 @@ func test_native_transaction_report_matches_shared_schema_contract() -> void:
 
 	assert_eq(GF_VARIANT_ACCESS.get_option_int(schema, "schema_version"), 1, "事务 schema 应使用当前版本。")
 	assert_eq(actual_fields, expected_fields, "Godot 事务报告字段必须与共享 schema 完全一致。")
+
+
+func test_native_cli_human_output_exposes_committed_cleanup_recovery_obligation() -> void:
+	var human_output: String = GF_PACKAGE_CLI._format_human_result({
+		"ok": true,
+		"operation": "install",
+		"issues": [],
+		"transaction": {
+			"outcome": "committed",
+			"recovered": false,
+			"rolled_back": false,
+			"recovery_required": true,
+			"warnings": ["Could not remove committed transaction cleanup directory."],
+		},
+		"transaction_recovery": {
+			"outcome": "none",
+			"recovery_required": false,
+			"warnings": [],
+		},
+	})
+
+	assert_true(human_output.contains("GF Package CLI install: ok"), "提交成功仍应保留顶层成功结论。")
+	assert_true(human_output.contains("Transaction outcome: committed"), "human 输出必须呈现嵌套事务结论。")
+	assert_true(human_output.contains("Transaction recovery required: yes"), "human 输出必须呈现后续恢复义务。")
+	assert_true(human_output.contains("Transaction warnings:"), "human 输出必须呈现嵌套事务 warnings。")
+	assert_true(
+		human_output.contains("Could not remove committed transaction cleanup directory."),
+		"human/JSON 两种输出必须保留同一条可执行 warning。"
+	)
 
 
 func test_native_transaction_rejects_nonportable_windows_target_before_claim() -> void:
@@ -113,6 +155,79 @@ func test_native_transaction_rejects_nonportable_windows_target_before_claim() -
 	assert_false(GF_VARIANT_ACCESS.get_option_bool(report, "rolled_back"), "事务前路径校验失败不应声称回滚。")
 	assert_true(_issues_contain(issues, "Invalid package transaction write entry"), "transaction 应按 portable path policy 拒绝非可移植 target。")
 	assert_false(_file_exists(project_root.path_join(".gf/packages.lock.json")), "事务前 target 校验失败不能写 lockfile。")
+
+
+func test_native_transaction_rejects_lockfile_payload_aliases_before_claim() -> void:
+	var write_project_root: String = TEST_ROOT.path_join("transaction_lockfile_write_alias_project")
+	var write_target: String = write_project_root.path_join("addons/gf/kernel/core/alias.gd")
+	var write_source: String = TEST_ROOT.path_join("transaction_lockfile_write_alias_source/alias.gd")
+	_write_text(write_target, "extends RefCounted\nconst ORIGINAL := true\n")
+	_write_text(write_source, "extends RefCounted\nconst REPLACEMENT := true\n")
+	var write_request: Dictionary = GF_PACKAGE_TRANSACTION_ENGINE.make_request(
+		"install",
+		ProjectSettings.globalize_path(write_project_root),
+		ProjectSettings.globalize_path(write_target),
+		{ "schema_version": 1, "framework_version": "unreleased", "installed": {} },
+		[{
+			"relative_path": "addons/gf/kernel/core/alias.gd",
+			"source_path": ProjectSettings.globalize_path(write_source),
+		}]
+	)
+	var write_report: Dictionary = GF_PACKAGE_TRANSACTION_ENGINE.execute(write_request)
+
+	assert_false(GF_VARIANT_ACCESS.get_option_bool(write_report, "ok"), "lockfile 与 write target 同路径时必须在 claim 前阻断。")
+	assert_eq(GF_VARIANT_ACCESS.get_option_string(write_report, "outcome"), "blocked", "路径别名冲突不能进入事务。")
+	assert_true(
+		_issues_contain(GF_VARIANT_ACCESS.get_option_packed_string_array(write_report, "issues"), "lockfile aliases package payload"),
+		"write/lockfile 冲突应提供稳定诊断。"
+	)
+	assert_true(_read_text(write_target).contains("ORIGINAL"), "事务前阻断不得覆盖 payload/lockfile 原内容。")
+	assert_false(_directory_exists(write_project_root.path_join(".gf/package_transactions/active")), "事务前阻断不得创建 active journal。")
+
+	var delete_project_root: String = TEST_ROOT.path_join("transaction_lockfile_delete_alias_project")
+	var delete_target: String = delete_project_root.path_join("addons/gf/kernel/core/alias.gd")
+	_write_text(delete_target, "extends RefCounted\nconst ORIGINAL := true\n")
+	var delete_request: Dictionary = GF_PACKAGE_TRANSACTION_ENGINE.make_request(
+		"uninstall",
+		ProjectSettings.globalize_path(delete_project_root),
+		ProjectSettings.globalize_path(delete_target).replace("/addons/", "/ADDONS/"),
+		{ "schema_version": 1, "framework_version": "unreleased", "installed": {} },
+		[],
+		[{ "relative_path": "addons/gf/kernel/core/alias.gd" }]
+	)
+	var delete_report: Dictionary = GF_PACKAGE_TRANSACTION_ENGINE.execute(delete_request)
+
+	assert_false(GF_VARIANT_ACCESS.get_option_bool(delete_report, "ok"), "lockfile 与 delete target 同路径时必须在 claim 前阻断。")
+	assert_true(
+		_issues_contain(GF_VARIANT_ACCESS.get_option_packed_string_array(delete_report, "issues"), "lockfile aliases package payload"),
+		"delete/lockfile 冲突应提供稳定诊断。"
+	)
+	assert_true(_read_text(delete_target).contains("ORIGINAL"), "delete/lockfile 冲突不得删除或改写原文件。")
+
+
+func test_native_transaction_rejects_cleanup_path_overlapping_lockfile_before_claim() -> void:
+	var project_root: String = TEST_ROOT.path_join("transaction_lockfile_cleanup_alias_project")
+	var lockfile_path: String = project_root.path_join(".gf/custom/packages.lock.json")
+	var cleanup_path: String = project_root.path_join(".gf/custom")
+	var request: Dictionary = GF_PACKAGE_TRANSACTION_ENGINE.make_request(
+		"lockfile_only",
+		ProjectSettings.globalize_path(project_root),
+		ProjectSettings.globalize_path(lockfile_path),
+		{ "schema_version": 1, "framework_version": "unreleased", "installed": {} },
+		[],
+		[],
+		PackedStringArray([ProjectSettings.globalize_path(cleanup_path)])
+	)
+	var report: Dictionary = GF_PACKAGE_TRANSACTION_ENGINE.execute(request)
+
+	assert_false(GF_VARIANT_ACCESS.get_option_bool(report, "ok"), "cleanup path 覆盖 lockfile 时必须在 claim 前阻断。")
+	assert_eq(GF_VARIANT_ACCESS.get_option_string(report, "outcome"), "blocked", "cleanup/lockfile 冲突不能进入事务。")
+	assert_true(
+		_issues_contain(GF_VARIANT_ACCESS.get_option_packed_string_array(report, "issues"), "cleanup path overlaps the package lockfile"),
+		"cleanup/lockfile 冲突应提供稳定诊断。"
+	)
+	assert_false(_file_exists(lockfile_path), "事务前阻断不能先写再删 lockfile。")
+	assert_false(_directory_exists(project_root.path_join(".gf/package_transactions/active")), "事务前阻断不得创建 active journal。")
 
 
 func test_native_recovery_blocks_live_transaction_owner() -> void:
@@ -1401,10 +1516,8 @@ func test_native_status_compares_semver_core_without_integer_overflow() -> void:
 
 
 func test_default_registry_source_matches_current_framework_version() -> void:
-	var previous_override: String = OS.get_environment(GF_PACKAGE_MANAGER_BACKEND.DEFAULT_REGISTRY_SOURCE_ENV)
 	OS.set_environment(GF_PACKAGE_MANAGER_BACKEND.DEFAULT_REGISTRY_SOURCE_ENV, "")
 	var registry_source_url: String = GF_PACKAGE_MANAGER_BACKEND.get_default_registry_source_url()
-	OS.set_environment(GF_PACKAGE_MANAGER_BACKEND.DEFAULT_REGISTRY_SOURCE_ENV, previous_override)
 	var plugin_config: ConfigFile = ConfigFile.new()
 	assert_eq(plugin_config.load("res://addons/gf/plugin.cfg"), OK, "测试应能读取当前框架版本。")
 	var framework_version: String = str(plugin_config.get_value("plugin", "version", "")).strip_edges()
@@ -1435,13 +1548,28 @@ func test_default_registry_source_version_resolution_distinguishes_release_chann
 
 
 func test_default_registry_source_honors_environment_override() -> void:
-	var previous_override: String = OS.get_environment(GF_PACKAGE_MANAGER_BACKEND.DEFAULT_REGISTRY_SOURCE_ENV)
 	var override_url: String = "https://packages.example.test/gf-registry-source.json"
 	OS.set_environment(GF_PACKAGE_MANAGER_BACKEND.DEFAULT_REGISTRY_SOURCE_ENV, override_url)
 	var registry_source_url: String = GF_PACKAGE_MANAGER_BACKEND.get_default_registry_source_url()
-	OS.set_environment(GF_PACKAGE_MANAGER_BACKEND.DEFAULT_REGISTRY_SOURCE_ENV, previous_override)
 
 	assert_eq(registry_source_url, override_url, "显式 registry source 覆盖必须优先于版本解析。")
+
+
+func test_environment_snapshot_restores_absent_and_present_empty_states() -> void:
+	var outer_snapshot: Dictionary = _capture_environment(ENVIRONMENT_RESTORE_SENTINEL)
+	OS.unset_environment(ENVIRONMENT_RESTORE_SENTINEL)
+	var absent_snapshot: Dictionary = _capture_environment(ENVIRONMENT_RESTORE_SENTINEL)
+	OS.set_environment(ENVIRONMENT_RESTORE_SENTINEL, "changed")
+	_restore_environment(ENVIRONMENT_RESTORE_SENTINEL, absent_snapshot)
+	assert_false(OS.has_environment(ENVIRONMENT_RESTORE_SENTINEL), "原本不存在的环境变量必须恢复为 absent。")
+
+	OS.set_environment(ENVIRONMENT_RESTORE_SENTINEL, "")
+	var empty_snapshot: Dictionary = _capture_environment(ENVIRONMENT_RESTORE_SENTINEL)
+	OS.set_environment(ENVIRONMENT_RESTORE_SENTINEL, "changed")
+	_restore_environment(ENVIRONMENT_RESTORE_SENTINEL, empty_snapshot)
+	assert_true(OS.has_environment(ENVIRONMENT_RESTORE_SENTINEL), "present-empty 必须与 absent 区分。")
+	assert_eq(OS.get_environment(ENVIRONMENT_RESTORE_SENTINEL), "", "present-empty 的文本值也必须精确恢复。")
+	_restore_environment(ENVIRONMENT_RESTORE_SENTINEL, outer_snapshot)
 
 
 func test_http_redirect_policy_allows_only_explicit_https_asset_hosts() -> void:
@@ -2025,26 +2153,223 @@ func test_native_transaction_failure_before_lockfile_replace_rolls_back_payload(
 	assert_false(_directory_exists(project_root.path_join(".gf/package_transactions/active")), "完整回滚后不应保留 active journal。")
 
 
+func test_native_transaction_preserves_payload_changed_after_preparation() -> void:
+	var project_root: String = TEST_ROOT.path_join("transaction_payload_compare_and_swap_project")
+	var target_path: String = project_root.path_join("addons/gf/kernel/core/owned.gd")
+	var source_path: String = TEST_ROOT.path_join("transaction_payload_compare_and_swap_source/owned.gd")
+	_write_text(target_path, "extends RefCounted\nconst VERSION := \"original\"\n")
+	_write_text(source_path, "extends RefCounted\nconst VERSION := \"planned\"\n")
+	var request: Dictionary = GF_PACKAGE_TRANSACTION_ENGINE.make_request(
+		"install",
+		ProjectSettings.globalize_path(project_root),
+		ProjectSettings.globalize_path(project_root.path_join(".gf/packages.lock.json")),
+		{ "schema_version": 1, "framework_version": "unreleased", "installed": {} },
+		[{
+			"relative_path": "addons/gf/kernel/core/owned.gd",
+			"source_path": ProjectSettings.globalize_path(source_path),
+		}]
+	)
+	var callback_state: Dictionary = { "calls": 0 }
+	var mutate_after_preparation: Callable = func() -> bool:
+		callback_state["calls"] = GF_VARIANT_ACCESS.get_option_int(callback_state, "calls") + 1
+		if GF_VARIANT_ACCESS.get_option_int(callback_state, "calls") == 2:
+			_write_text(target_path, "extends RefCounted\nconst VERSION := \"external\"\n")
+		return false
+	var report: Dictionary = GF_PACKAGE_TRANSACTION_ENGINE.execute(
+		request,
+		{ "cancel_callback": mutate_after_preparation }
+	)
+
+	assert_false(GF_VARIANT_ACCESS.get_option_bool(report, "ok"), "prepare 后被外部修改的 payload 不得被覆盖。")
+	assert_true(GF_VARIANT_ACCESS.get_option_bool(report, "rolled_back"), "未取得 target ownership 的事务应安全撤销自身临时状态。")
+	assert_false(GF_VARIANT_ACCESS.get_option_bool(report, "recovery_required"), "保留外部修改后不应遗留人工恢复任务。")
+	assert_true(
+		_issues_contain(GF_VARIANT_ACCESS.get_option_packed_string_array(report, "issues"), "changed after preparation"),
+		"compare-and-swap 失败应提供稳定诊断。"
+	)
+	assert_true(_read_text(target_path).contains("\"external\""), "事务回滚不得用旧快照覆盖外部并发修改。")
+	assert_false(_file_exists(project_root.path_join(".gf/packages.lock.json")), "payload CAS 失败不能提交 lockfile。")
+	assert_false(_directory_exists(project_root.path_join(".gf/package_transactions/active")), "安全回滚后应清理 active journal。")
+
+
+func test_native_transaction_preserves_delete_target_changed_after_preparation() -> void:
+	var project_root: String = TEST_ROOT.path_join("transaction_delete_compare_and_swap_project")
+	var target_path: String = project_root.path_join("addons/gf/kernel/core/owned.gd")
+	_write_text(target_path, "extends RefCounted\nconst VERSION := \"original\"\n")
+	var request: Dictionary = GF_PACKAGE_TRANSACTION_ENGINE.make_request(
+		"uninstall",
+		ProjectSettings.globalize_path(project_root),
+		ProjectSettings.globalize_path(project_root.path_join(".gf/packages.lock.json")),
+		{ "schema_version": 1, "framework_version": "unreleased", "installed": {} },
+		[],
+		[{ "relative_path": "addons/gf/kernel/core/owned.gd" }]
+	)
+	var callback_state: Dictionary = { "calls": 0 }
+	var mutate_after_preparation: Callable = func() -> bool:
+		callback_state["calls"] = GF_VARIANT_ACCESS.get_option_int(callback_state, "calls") + 1
+		if GF_VARIANT_ACCESS.get_option_int(callback_state, "calls") == 2:
+			_write_text(target_path, "extends RefCounted\nconst VERSION := \"external\"\n")
+		return false
+	var report: Dictionary = GF_PACKAGE_TRANSACTION_ENGINE.execute(
+		request,
+		{ "cancel_callback": mutate_after_preparation }
+	)
+
+	assert_false(GF_VARIANT_ACCESS.get_option_bool(report, "ok"), "prepare 后被外部修改的 delete target 不得被删除。")
+	assert_true(GF_VARIANT_ACCESS.get_option_bool(report, "rolled_back"), "未取得 delete target ownership 的事务应安全撤销自身状态。")
+	assert_false(GF_VARIANT_ACCESS.get_option_bool(report, "recovery_required"), "保留外部 delete target 后不应遗留人工恢复任务。")
+	assert_true(
+		_issues_contain(GF_VARIANT_ACCESS.get_option_packed_string_array(report, "issues"), "changed after preparation"),
+		"delete compare-and-swap 失败应提供稳定诊断。"
+	)
+	assert_true(_read_text(target_path).contains("\"external\""), "事务回滚不得删除或恢复覆盖外部并发修改。")
+	assert_false(_file_exists(project_root.path_join(".gf/packages.lock.json")), "delete CAS 失败不能提交 lockfile。")
+	assert_false(_directory_exists(project_root.path_join(".gf/package_transactions/active")), "安全回滚后应清理 active journal。")
+
+
+func test_native_transaction_preserves_lockfile_changed_before_commit() -> void:
+	var project_root: String = TEST_ROOT.path_join("transaction_lockfile_compare_and_swap_project")
+	var lockfile_path: String = project_root.path_join(".gf/packages.lock.json")
+	_write_text(lockfile_path, "{\"state\":\"original\"}\n")
+	var request: Dictionary = GF_PACKAGE_TRANSACTION_ENGINE.make_request(
+		"lockfile_only",
+		ProjectSettings.globalize_path(project_root),
+		ProjectSettings.globalize_path(lockfile_path),
+		{ "schema_version": 1, "framework_version": "unreleased", "installed": {} }
+	)
+	var callback_state: Dictionary = { "calls": 0 }
+	var mutate_before_commit: Callable = func() -> bool:
+		callback_state["calls"] = GF_VARIANT_ACCESS.get_option_int(callback_state, "calls") + 1
+		if GF_VARIANT_ACCESS.get_option_int(callback_state, "calls") == 3:
+			_write_text(lockfile_path, "{\"state\":\"external\"}\n")
+		return false
+	var report: Dictionary = GF_PACKAGE_TRANSACTION_ENGINE.execute(
+		request,
+		{ "cancel_callback": mutate_before_commit }
+	)
+
+	assert_false(GF_VARIANT_ACCESS.get_option_bool(report, "ok"), "commit 前被外部修改的 lockfile 不得被覆盖。")
+	assert_true(GF_VARIANT_ACCESS.get_option_bool(report, "rolled_back"), "未取得 lockfile ownership 的事务应安全撤销临时状态。")
+	assert_false(GF_VARIANT_ACCESS.get_option_bool(report, "recovery_required"), "保留外部 lockfile 后不应遗留人工恢复任务。")
+	assert_true(
+		_issues_contain(GF_VARIANT_ACCESS.get_option_packed_string_array(report, "issues"), "lockfile changed after preparation"),
+		"lockfile compare-and-swap 失败应提供稳定诊断。"
+	)
+	assert_true(_read_text(lockfile_path).contains("\"external\""), "事务回滚不得用旧 lockfile 快照覆盖外部并发修改。")
+	assert_false(_directory_exists(project_root.path_join(".gf/package_transactions/active")), "安全回滚后应清理 active journal。")
+
+
+func test_native_recovery_restores_payload_from_owned_replace_transition() -> void:
+	var project_root: String = TEST_ROOT.path_join("transaction_payload_owned_transition_project")
+	var target_path: String = project_root.path_join("addons/gf/kernel/core/owned.gd")
+	var source_path: String = TEST_ROOT.path_join("transaction_payload_owned_transition_source/owned.gd")
+	_write_text(target_path, "extends RefCounted\nconst VERSION := \"original\"\n")
+	_write_text(source_path, "extends RefCounted\nconst VERSION := \"planned\"\n")
+	var request: Dictionary = GF_PACKAGE_TRANSACTION_ENGINE.make_request(
+		"install",
+		ProjectSettings.globalize_path(project_root),
+		ProjectSettings.globalize_path(project_root.path_join(".gf/packages.lock.json")),
+		{ "schema_version": 1, "framework_version": "unreleased", "installed": {} },
+		[{
+			"relative_path": "addons/gf/kernel/core/owned.gd",
+			"source_path": ProjectSettings.globalize_path(source_path),
+		}]
+	)
+	var interrupted: Dictionary = GF_PACKAGE_TRANSACTION_ENGINE.execute(
+		request,
+		{ "simulate_transaction_crash_at": "after_prepared" }
+	)
+	var active_root: String = project_root.path_join(".gf/package_transactions/active")
+	var journal: Dictionary = _read_json(_latest_journal_path(active_root))
+	var transaction_id: String = GF_VARIANT_ACCESS.get_option_string(journal, "transaction_id")
+	var target_absolute: String = ProjectSettings.globalize_path(target_path).replace("\\", "/")
+	var ownership_path: String = target_absolute + ".gf-package-" + transaction_id + ".owner"
+	var temp_path: String = target_absolute + ".gf-package-" + transaction_id + ".tmp"
+	assert_false(
+		_file_exists(active_root.path_join("backups/addons/gf/kernel/core/owned.gd")),
+		"preparation 只需记录 baseline hash/size，不应再复制一份随后由 ownership sidecar 重复持有的 payload。"
+	)
+	_write_text(temp_path, _read_text(source_path))
+	var move_error: Error = DirAccess.rename_absolute(target_absolute, ownership_path)
+	assert_eq(move_error, OK, "测试应能构造 remove→replace 之间的事务所有权状态。")
+
+	var recovery: Dictionary = GF_PACKAGE_TRANSACTION_ENGINE.recover_pending(
+		ProjectSettings.globalize_path(project_root)
+	)
+	var second_recovery: Dictionary = GF_PACKAGE_TRANSACTION_ENGINE.recover_pending(
+		ProjectSettings.globalize_path(project_root)
+	)
+
+	assert_false(GF_VARIANT_ACCESS.get_option_bool(interrupted, "ok"), "prepared 故障注入应留下恢复 journal。")
+	assert_true(GF_VARIANT_ACCESS.get_option_bool(recovery, "ok"), "带有效 ownership sidecar 的缺失 target 应可自动恢复。")
+	assert_eq(GF_VARIANT_ACCESS.get_option_string(recovery, "outcome"), "recovered_rollback", "replace 中间态应回滚原 payload。")
+	assert_true(_read_text(target_path).contains("\"original\""), "恢复必须还原原 payload 字节。")
+	assert_false(FileAccess.file_exists(ownership_path), "恢复后必须删除已消费的 ownership sidecar。")
+	assert_false(FileAccess.file_exists(temp_path), "恢复后必须删除 transaction temp。")
+	assert_false(_directory_exists(active_root), "恢复后必须清理 active journal。")
+	assert_eq(GF_VARIANT_ACCESS.get_option_string(second_recovery, "outcome"), "none", "重复恢复必须幂等。")
+
+
+func test_native_recovery_restores_lockfile_from_owned_replace_transition() -> void:
+	var project_root: String = TEST_ROOT.path_join("transaction_lockfile_owned_transition_project")
+	var lockfile_path: String = project_root.path_join(".gf/packages.lock.json")
+	_write_text(lockfile_path, "{\"state\":\"original\"}\n")
+	var request: Dictionary = GF_PACKAGE_TRANSACTION_ENGINE.make_request(
+		"lockfile_only",
+		ProjectSettings.globalize_path(project_root),
+		ProjectSettings.globalize_path(lockfile_path),
+		{ "schema_version": 1, "framework_version": "unreleased", "installed": {} }
+	)
+	var interrupted: Dictionary = GF_PACKAGE_TRANSACTION_ENGINE.execute(
+		request,
+		{ "simulate_transaction_crash_at": "after_prepared" }
+	)
+	var active_root: String = project_root.path_join(".gf/package_transactions/active")
+	var journal: Dictionary = _read_json(_latest_journal_path(active_root))
+	var transaction_id: String = GF_VARIANT_ACCESS.get_option_string(journal, "transaction_id")
+	var lockfile_absolute: String = ProjectSettings.globalize_path(lockfile_path).replace("\\", "/")
+	var ownership_path: String = lockfile_absolute + ".gf-package-" + transaction_id + ".owner"
+	var temp_path: String = lockfile_absolute + ".gf-package-" + transaction_id + ".tmp"
+	_write_text(temp_path, _read_text(active_root.path_join("lockfile-planned.json")))
+	var move_error: Error = DirAccess.rename_absolute(lockfile_absolute, ownership_path)
+	assert_eq(move_error, OK, "测试应能构造 lockfile remove→replace 之间的事务所有权状态。")
+
+	var recovery: Dictionary = GF_PACKAGE_TRANSACTION_ENGINE.recover_pending(
+		ProjectSettings.globalize_path(project_root)
+	)
+
+	assert_false(GF_VARIANT_ACCESS.get_option_bool(interrupted, "ok"), "prepared 故障注入应留下恢复 journal。")
+	assert_true(GF_VARIANT_ACCESS.get_option_bool(recovery, "ok"), "带有效 ownership sidecar 的缺失 lockfile 应可自动恢复。")
+	assert_eq(GF_VARIANT_ACCESS.get_option_string(recovery, "outcome"), "recovered_rollback", "lockfile replace 中间态应回滚。")
+	assert_true(_read_text(lockfile_path).contains("\"original\""), "恢复必须还原原 lockfile 字节。")
+	assert_false(FileAccess.file_exists(ownership_path), "恢复后必须删除 lockfile ownership sidecar。")
+	assert_false(FileAccess.file_exists(temp_path), "恢复后必须删除 lockfile temp。")
+	assert_false(_directory_exists(active_root), "恢复后必须清理 active journal。")
+
+
 func test_native_recovery_blocks_three_way_payload_conflict() -> void:
 	var project_root: String = TEST_ROOT.path_join("transaction_three_way_conflict_project")
-	var registry_path: String = TEST_ROOT.path_join("registry/index.json")
-	var registry: Dictionary = _make_fixture_registry()
-	_write_fixture_archives(registry)
-	_write_json(registry_path, registry)
-
-	var interrupted: Dictionary = GF_PACKAGE_MANAGER_BACKEND.install_packages(
-		PackedStringArray(["gf.extension.save"]),
-		registry_path,
+	var target_path: String = project_root.path_join("addons/gf/kernel/core/owned.gd")
+	var source_path: String = TEST_ROOT.path_join("transaction_three_way_conflict_source/owned.gd")
+	_write_text(target_path, "extends RefCounted\nconst VERSION := \"original\"\n")
+	_write_text(source_path, "extends RefCounted\nconst VERSION := \"planned\"\n")
+	var request: Dictionary = GF_PACKAGE_TRANSACTION_ENGINE.make_request(
+		"install",
 		ProjectSettings.globalize_path(project_root),
-		".gf/packages.lock.json",
-		"manual",
-		false,
+		ProjectSettings.globalize_path(project_root.path_join(".gf/packages.lock.json")),
+		{ "schema_version": 1, "framework_version": "unreleased", "installed": {} },
+		[{
+			"relative_path": "addons/gf/kernel/core/owned.gd",
+			"source_path": ProjectSettings.globalize_path(source_path),
+		}]
+	)
+	var interrupted: Dictionary = GF_PACKAGE_TRANSACTION_ENGINE.execute(
+		request,
 		{ "simulate_transaction_crash_at": "after_payload_applied" }
 	)
-	var modified_path: String = project_root.path_join("addons/gf/extensions/save/gf_save_fixture.gd")
-	_write_text(modified_path, "extends RefCounted\nconst PROJECT_EDIT := true\n")
+	_write_text(target_path, "extends RefCounted\nconst VERSION := \"external\"\n")
 
-	var recovery: Dictionary = GF_PACKAGE_MANAGER_BACKEND.recover_package_transaction(
+	var recovery: Dictionary = GF_PACKAGE_TRANSACTION_ENGINE.recover_pending(
 		ProjectSettings.globalize_path(project_root)
 	)
 	var recovery_issues: PackedStringArray = GF_VARIANT_ACCESS.get_option_packed_string_array(recovery, "issues")
@@ -2053,8 +2378,46 @@ func test_native_recovery_blocks_three_way_payload_conflict() -> void:
 	assert_false(GF_VARIANT_ACCESS.get_option_bool(recovery, "ok"), "恢复遇到 planned/current/original 三方冲突必须阻断。")
 	assert_eq(GF_VARIANT_ACCESS.get_option_string(recovery, "outcome"), "recovery_failed", "三方冲突应进入 recovery_failed。")
 	assert_true(_issues_contain(recovery_issues, "matches neither original nor planned"), "恢复报告应说明三方状态冲突。")
-	assert_true(_read_text(modified_path).contains("PROJECT_EDIT"), "冲突恢复不得覆盖项目修改。")
+	assert_true(_read_text(target_path).contains("\"external\""), "冲突恢复不得覆盖项目修改。")
 	assert_true(_directory_exists(project_root.path_join(".gf/package_transactions/active")), "冲突事务应保留 journal 供人工处理。")
+
+
+func test_native_recovery_rolls_back_new_write_without_per_target_ownership_claim() -> void:
+	var project_root: String = TEST_ROOT.path_join("transaction_new_write_recovery_project")
+	var target_path: String = project_root.path_join("addons/gf/kernel/core/new.gd")
+	var source_path: String = TEST_ROOT.path_join("transaction_new_write_recovery_source/new.gd")
+	_write_text(source_path, "extends RefCounted\nconst VERSION := \"planned\"\n")
+	var request: Dictionary = GF_PACKAGE_TRANSACTION_ENGINE.make_request(
+		"install",
+		ProjectSettings.globalize_path(project_root),
+		ProjectSettings.globalize_path(project_root.path_join(".gf/packages.lock.json")),
+		{ "schema_version": 1, "framework_version": "unreleased", "installed": {} },
+		[{
+			"relative_path": "addons/gf/kernel/core/new.gd",
+			"source_path": ProjectSettings.globalize_path(source_path),
+		}]
+	)
+	var interrupted: Dictionary = GF_PACKAGE_TRANSACTION_ENGINE.execute(
+		request,
+		{ "simulate_transaction_crash_at": "after_payload_applied" }
+	)
+	var active_root: String = project_root.path_join(".gf/package_transactions/active")
+	var journal: Dictionary = _read_json(_latest_journal_path(active_root))
+	var transaction_id: String = GF_VARIANT_ACCESS.get_option_string(journal, "transaction_id")
+	var ownership_path: String = ProjectSettings.globalize_path(target_path).replace("\\", "/") + ".gf-package-" + transaction_id + ".owner"
+
+	assert_false(GF_VARIANT_ACCESS.get_option_bool(interrupted, "ok"), "payload applied 故障注入应留下恢复 journal。")
+	assert_true(_file_exists(target_path), "中断时 planned payload 应已落盘。")
+	assert_false(FileAccess.file_exists(ownership_path), "原本不存在的 target 不需要逐文件 ownership claim。")
+
+	var recovery: Dictionary = GF_PACKAGE_TRANSACTION_ENGINE.recover_pending(
+		ProjectSettings.globalize_path(project_root)
+	)
+
+	assert_true(GF_VARIANT_ACCESS.get_option_bool(recovery, "ok"), "精确匹配 planned bytes 的新 target 应可自动回滚。")
+	assert_eq(GF_VARIANT_ACCESS.get_option_string(recovery, "outcome"), "recovered_rollback", "未提交的新 target 应回滚到 absent pre-state。")
+	assert_false(_file_exists(target_path), "回滚必须删除事务写入且仍精确匹配 planned hash 的新 target。")
+	assert_false(_directory_exists(active_root), "恢复后必须清理 active journal。")
 
 
 func test_native_recovery_rolls_back_crash_after_lockfile_replace() -> void:
@@ -2222,6 +2585,65 @@ func test_native_status_reuses_verified_http_registry_cache_from_source_metadata
 	var cache_report: Dictionary = GF_VARIANT_ACCESS.get_option_dictionary(second_status, "cache")
 	assert_eq(GF_VARIANT_ACCESS.get_option_string(cache_report, "mode"), "project_local", "默认缓存模式应明确报告 project_local。")
 	assert_true(GF_VARIANT_ACCESS.get_option_bool(cache_report, "marker_valid"), "缓存报告应确认项目 marker 有效。")
+
+
+func test_native_status_revalidates_private_snapshot_after_verified_registry_cache_lookup() -> void:
+	var project_root: String = TEST_ROOT.path_join("http_source_cache_snapshot_project")
+	var http_root: String = TEST_ROOT.path_join("http_source_cache_snapshot_server")
+	var registry_root: String = http_root.path_join("registry")
+	var source_path: String = TEST_ROOT.path_join("http_source_cache_snapshot/source.json")
+	var registry: Dictionary = _make_fixture_registry()
+	_write_fixture_archives_at(registry, registry_root)
+	_write_json(registry_root.path_join("index.json"), registry)
+	var registry_absolute: String = ProjectSettings.globalize_path(registry_root.path_join("index.json")).replace("\\", "/")
+	var server: HttpFixtureServer = _start_http_fixture_server(http_root)
+	_write_json(source_path, {
+		"schema_version": 1,
+		"default_channel": "stable",
+		"channels": {
+			"stable": {
+				"registry": server.url("registry/index.json"),
+				"registry_sha256": FileAccess.get_sha256(registry_absolute).to_lower(),
+				"registry_size_bytes": _file_size_absolute(registry_absolute),
+				"mirrors": [],
+			},
+		},
+	})
+	var first_status: Dictionary = GF_PACKAGE_MANAGER_BACKEND.make_status(
+		source_path,
+		ProjectSettings.globalize_path(project_root),
+		".gf/packages.lock.json",
+		{ "channel": "stable" }
+	)
+	server.stop()
+	var callback_state: Dictionary = { "called": false }
+	var replace_cache_after_lookup: Callable = func(cache_path: String) -> void:
+		callback_state["called"] = true
+		var tampered_registry: Dictionary = _make_fixture_registry()
+		var tampered_packages: Dictionary = GF_VARIANT_ACCESS.get_option_dictionary(tampered_registry, "packages")
+		var _removed: bool = tampered_packages.erase("gf.extension.save")
+		tampered_registry["packages"] = tampered_packages
+		_write_json(cache_path, tampered_registry)
+	var second_status: Dictionary = GF_PACKAGE_MANAGER_BACKEND.make_status(
+		source_path,
+		ProjectSettings.globalize_path(project_root),
+		".gf/packages.lock.json",
+		{
+			"channel": "stable",
+			"after_registry_cache_lookup_callback": replace_cache_after_lookup,
+		}
+	)
+	var second_issues: PackedStringArray = GF_VARIANT_ACCESS.get_option_packed_string_array(second_status, "issues")
+
+	assert_true(GF_VARIANT_ACCESS.get_option_bool(first_status, "ok"), "第一次读取应成功写入 verified registry cache。")
+	assert_true(GF_VARIANT_ACCESS.get_option_bool(callback_state, "called"), "测试钩子应在 cache lookup 校验后、消费前替换共享路径。")
+	assert_false(GF_VARIANT_ACCESS.get_option_bool(second_status, "ok"), "消费前变化的共享 cache 必须由私有快照复验拒绝。")
+	assert_eq(GF_VARIANT_ACCESS.get_option_int(second_status, "package_count"), 0, "完整性复验失败不得暴露篡改后的 package 集。")
+	assert_true(
+		_issues_contain(second_issues, "registry size does not match registry source metadata")
+		or _issues_contain(second_issues, "registry sha256 does not match registry source metadata"),
+		"私有快照必须绑定 source manifest 声明的 size/sha256。"
+	)
 
 
 func test_native_external_cache_requires_mode_and_owned_marker() -> void:
@@ -2749,6 +3171,82 @@ func test_native_status_rejects_registry_package_signature_metadata_before_verif
 	)
 
 
+func test_native_status_rejects_incomplete_wrong_typed_and_unknown_registry_entries() -> void:
+	var cases: Array[Dictionary] = [
+		{ "label": "missing_version", "remove": "version" },
+		{ "label": "missing_archive", "remove": "archive" },
+		{ "label": "wrong_dependencies_type", "field": "dependencies", "value": {} },
+		{ "label": "boolean_size", "field": "size_bytes", "value": true },
+		{ "label": "unknown_field", "field": "download_url", "value": "https://invalid.example/package.zip" },
+	]
+	for case_value: Dictionary in cases:
+		var label: String = GF_VARIANT_ACCESS.get_option_string(case_value, "label")
+		var project_root: String = TEST_ROOT.path_join("registry_schema_%s_project" % label)
+		var registry_path: String = TEST_ROOT.path_join("registry_schema_%s/index.json" % label)
+		var registry: Dictionary = _make_fixture_registry()
+		var packages: Dictionary = GF_VARIANT_ACCESS.get_option_dictionary(registry, "packages")
+		var save_entry: Dictionary = GF_VARIANT_ACCESS.get_option_dictionary(packages, "gf.extension.save")
+		if case_value.has("remove"):
+			var _removed: bool = save_entry.erase(GF_VARIANT_ACCESS.get_option_string(case_value, "remove"))
+		else:
+			var field_name: String = GF_VARIANT_ACCESS.get_option_string(case_value, "field")
+			save_entry[field_name] = case_value.get("value")
+		packages["gf.extension.save"] = save_entry
+		registry["packages"] = packages
+		_write_json(registry_path, registry)
+
+		var status: Dictionary = GF_PACKAGE_MANAGER_BACKEND.make_status(
+			registry_path,
+			ProjectSettings.globalize_path(project_root)
+		)
+		var package_index: Dictionary = _package_index(status)
+
+		assert_false(GF_VARIANT_ACCESS.get_option_bool(status, "ok"), "%s 应在 registry 入口失败。" % label)
+		assert_false(package_index.has("gf.extension.save"), "%s 不得进入可安装 package 集合。" % label)
+		assert_false(
+			GF_VARIANT_ACCESS.get_option_packed_string_array(status, "issues").is_empty(),
+			"%s 应返回稳定 schema issue。" % label
+		)
+
+
+func test_native_install_plan_resolves_deep_dependency_graph_iteratively() -> void:
+	const DEPTH: int = 1500
+	var packages: Dictionary = {}
+	for index: int in range(DEPTH):
+		var package_id: String = "gf.deep.%04d" % index
+		var dependencies: Array[String] = []
+		if index + 1 < DEPTH:
+			dependencies.append("gf.deep.%04d" % (index + 1))
+		packages[package_id] = {
+			"version": "unreleased",
+			"kind": "standard",
+			"minimum_framework_version": "unreleased",
+			"maximum_framework_version_exclusive": "",
+			"dependencies": dependencies,
+			"paths": [],
+			"archive": "packages/%s.zip" % package_id,
+			"sha256": "a".repeat(64),
+			"size_bytes": 1,
+		}
+	var lockfile: Dictionary = {
+		"schema_version": 1,
+		"framework_version": "unreleased",
+		"installed": {},
+	}
+
+	var plan: Dictionary = GF_PACKAGE_MANAGER_BACKEND.make_install_plan(
+		packages,
+		lockfile,
+		PackedStringArray(["gf.deep.0000"])
+	)
+	var order: PackedStringArray = GF_VARIANT_ACCESS.get_option_packed_string_array(plan, "install_order")
+
+	assert_true(GF_VARIANT_ACCESS.get_option_bool(plan, "ok"), "深依赖图不应依赖 GDScript 调用栈。")
+	assert_eq(order.size(), DEPTH, "迭代闭包应完整包含每个 package。")
+	assert_eq(order[0], "gf.deep.1499", "依赖必须先于 depender。")
+	assert_eq(order[-1], "gf.deep.0000", "请求根应位于拓扑顺序末尾。")
+
+
 func test_native_install_http_archives_writes_files_lockfile_and_cache() -> void:
 	var project_root: String = TEST_ROOT.path_join("http_install_project")
 	var http_root: String = TEST_ROOT.path_join("http_install_server")
@@ -2830,6 +3328,70 @@ func test_native_install_http_archive_download_failure_does_not_mutate_project()
 	assert_false(_file_exists(project_root.path_join(".gf/packages.lock.json")), "远程下载失败不能写 lockfile。")
 	assert_false(_file_exists(project_root.path_join("addons/gf/kernel/core/gf_core_fixture.gd")), "远程下载失败不能提前写依赖文件。")
 	assert_false(_file_exists(project_root.path_join("addons/gf/extensions/save/gf_save_fixture.gd")), "远程下载失败不能写目标扩展文件。")
+
+
+func test_native_batch_uninstall_uses_projected_required_by_state() -> void:
+	var project_root: String = TEST_ROOT.path_join("batch_uninstall_projection_project")
+	_write_text(project_root.path_join("project.godot"), "[application]\n")
+	var registry: Dictionary = _make_fixture_registry()
+	var packages: Dictionary = GF_VARIANT_ACCESS.get_option_dictionary(registry, "packages")
+	var lockfile: Dictionary = _make_planned_lockfile(
+		registry,
+		PackedStringArray(["gf.extension.save"])
+	)
+	var installed: Dictionary = GF_VARIANT_ACCESS.get_option_dictionary(lockfile, "installed")
+	var storage_entry: Dictionary = GF_VARIANT_ACCESS.get_option_dictionary(installed, "gf.standard.storage")
+	var storage_reasons: PackedStringArray = GF_VARIANT_ACCESS.get_option_packed_string_array(storage_entry, "reason")
+	var _append_manual: bool = storage_reasons.append("manual")
+	storage_entry["reason"] = Array(storage_reasons)
+	installed["gf.standard.storage"] = storage_entry
+	lockfile["installed"] = installed
+
+	var plan: Dictionary = GF_PACKAGE_MANAGER_BACKEND.make_uninstall_plan(
+		packages,
+		lockfile,
+		PackedStringArray(["gf.extension.save", "gf.standard.storage"]),
+		ProjectSettings.globalize_path(project_root)
+	)
+	var to_remove: PackedStringArray = GF_VARIANT_ACCESS.get_option_packed_string_array(plan, "to_remove")
+
+	assert_true(GF_VARIANT_ACCESS.get_option_bool(plan, "ok"), "同批移除 depender 与手动 pin dependency 应按投影状态成功。")
+	assert_true(GF_VARIANT_ACCESS.get_option_array(plan, "blocked").is_empty(), "集合内部 required_by 不应自我阻断。")
+	assert_true(to_remove.has("gf.extension.save"), "计划应移除请求的 depender。")
+	assert_true(to_remove.has("gf.standard.storage"), "计划应移除请求的手动 pin dependency。")
+
+	var external_package_id: String = "gf.extension.external"
+	var external_registry_entry: Dictionary = GF_VARIANT_ACCESS.get_option_dictionary(
+		packages,
+		"gf.extension.save"
+	).duplicate(true)
+	external_registry_entry["dependencies"] = ["gf.standard.storage"]
+	external_registry_entry["paths"] = ["addons/gf/extensions/external/**"]
+	packages[external_package_id] = external_registry_entry
+	var external_lock_entry: Dictionary = GF_VARIANT_ACCESS.get_option_dictionary(
+		installed,
+		"gf.extension.save"
+	).duplicate(true)
+	external_lock_entry["reason"] = ["manual"]
+	external_lock_entry["required_by"] = []
+	installed[external_package_id] = external_lock_entry
+	storage_entry["required_by"] = ["gf.extension.save", external_package_id]
+	installed["gf.standard.storage"] = storage_entry
+	lockfile["installed"] = installed
+
+	var blocked_plan: Dictionary = GF_PACKAGE_MANAGER_BACKEND.make_uninstall_plan(
+		packages,
+		lockfile,
+		PackedStringArray(["gf.extension.save", "gf.standard.storage"]),
+		ProjectSettings.globalize_path(project_root)
+	)
+	var blocked_entries: Array = GF_VARIANT_ACCESS.get_option_array(blocked_plan, "blocked")
+
+	assert_false(GF_VARIANT_ACCESS.get_option_bool(blocked_plan, "ok"), "集合外 depender 必须继续阻断 dependency 移除。")
+	assert_true(
+		_blockers_contain_required_by(blocked_entries, "gf.standard.storage", external_package_id),
+		"阻断结果应只报告请求集合外的 depender。"
+	)
 
 
 func test_native_uninstall_removes_extension_and_pruned_dependencies() -> void:
@@ -3118,8 +3680,8 @@ func _make_fixture_registry() -> Dictionary:
 				"dependencies": [],
 				"paths": ["addons/gf/kernel/**"],
 				"archive": "packages/gf-kernel.zip",
-				"sha256": "",
-				"size_bytes": 0,
+				"sha256": "a".repeat(64),
+				"size_bytes": 1,
 			},
 			"gf.standard.base": {
 				"version": "unreleased",
@@ -3129,8 +3691,8 @@ func _make_fixture_registry() -> Dictionary:
 				"dependencies": ["gf.kernel"],
 				"paths": ["addons/gf/standard/foundation/**"],
 				"archive": "packages/gf-standard-base.zip",
-				"sha256": "",
-				"size_bytes": 0,
+				"sha256": "a".repeat(64),
+				"size_bytes": 1,
 			},
 			"gf.standard.storage": {
 				"version": "unreleased",
@@ -3140,8 +3702,8 @@ func _make_fixture_registry() -> Dictionary:
 				"dependencies": ["gf.kernel", "gf.standard.base"],
 				"paths": ["addons/gf/standard/utilities/storage/**"],
 				"archive": "packages/gf-standard-storage.zip",
-				"sha256": "",
-				"size_bytes": 0,
+				"sha256": "a".repeat(64),
+				"size_bytes": 1,
 			},
 			"gf.extension.save": {
 				"version": "unreleased",
@@ -3151,8 +3713,8 @@ func _make_fixture_registry() -> Dictionary:
 				"dependencies": ["gf.kernel", "gf.standard.storage"],
 				"paths": ["addons/gf/extensions/save/**"],
 				"archive": "packages/gf-extension-save.zip",
-				"sha256": "",
-				"size_bytes": 0,
+				"sha256": "a".repeat(64),
+				"size_bytes": 1,
 				"gf_extension_id": "gf.save",
 			},
 			"gf.preset.save": {
@@ -3447,11 +4009,43 @@ func _blocked_contains_reason(blocked: Array, reason: String) -> bool:
 	return false
 
 
+func _blockers_contain_required_by(blocked: Array, package_id: String, depender_id: String) -> bool:
+	for raw_item: Variant in blocked:
+		if not raw_item is Dictionary:
+			continue
+		var item: Dictionary = raw_item
+		var required_by: PackedStringArray = GF_VARIANT_ACCESS.get_option_packed_string_array(item, "required_by")
+		if (
+			GF_VARIANT_ACCESS.get_option_string(item, "id") == package_id
+			and GF_VARIANT_ACCESS.get_option_string(item, "reason") == "required_by"
+			and required_by.size() == 1
+			and required_by[0] == depender_id
+		):
+			return true
+	return false
+
+
 func _issues_contain(issues: PackedStringArray, text: String) -> bool:
 	for issue: String in issues:
 		if issue.contains(text):
 			return true
 	return false
+
+
+func _capture_environment(environment_name: String) -> Dictionary:
+	return {
+		"present": OS.has_environment(environment_name),
+		"value": OS.get_environment(environment_name),
+	}
+
+
+func _restore_environment(environment_name: String, snapshot: Dictionary) -> void:
+	var present_value: Variant = snapshot.get("present", false)
+	var was_present: bool = present_value if present_value is bool else false
+	if was_present:
+		OS.set_environment(environment_name, str(snapshot.get("value", "")))
+	else:
+		OS.unset_environment(environment_name)
 
 
 func _write_json(path: String, data: Dictionary) -> void:

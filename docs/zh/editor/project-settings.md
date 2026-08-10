@@ -22,6 +22,8 @@ GF 会按 Godot 编辑器的工具语言显示已声明设置的左侧分区、�
 
 内核设置的展示信息由内核维护；标准库设置通过 data-only 编辑器贡献清单提供；可选扩展工具只在启用时通过自己的编辑器动作贡献设置和分区记录。设置记录使用 `editor_labels`、`editor_descriptions`、`editor_enum_labels` 和 `editor_enum_descriptions` 声明多语言文本，分区记录使用稳定 `path` 及名称、说明映射。名称与说明必须同时存在，并提供非空 `en` 兜底。未声明展示信息的项目自有设置不会被 GF 接管，仍使用 Godot 默认 Inspector。
 
+分区展示适配器只在可见文本实际变化时写入 TreeItem，并保存接管前的标签和悬浮说明。插件 cleanup、贡献刷新或对话框重建时会对称恢复仍由 GF 持有的显示值；如果 Godot 在此期间已经重建或修改该条目，cleanup 不会覆盖新的宿主状态。
+
 运行时代码需要读取这些设置时，应通过对应工具类或 `ProjectSettings.get_setting()` 明确访问。`kernel/editor` 只提供通用注册机制；标准库或扩展需要自己的设置键时，应由所属编辑器贡献主动声明，避免让内核硬编码具体业务含义。
 
 `GFProjectSettingsTools` 是底层声明工具，用于统一写入缺失默认值、缺失键的重置初始值和注册 Inspector 属性提示。`GFPluginProjectSettings.ensure_all()` 同样只负责注册，不会顺带保存同一进程内由测试或其他工具写入的临时设置。需要持久化时由扩展管理器或项目工具在明确的用户操作边界调用 `ProjectSettings.save()`。设置贡献消失、核心插件降级或只加载 kernel 时，它也不会自动删除既有项目设置，避免把项目自有配置误判为框架残留。

@@ -14,6 +14,11 @@ class_name GFNodeStateMachineValidator
 extends RefCounted
 
 
+# --- 常量 ---
+
+const _MAX_CONDITION_GROUP_DEPTH: int = 64
+
+
 # --- 公共方法 ---
 
 ## 校验一个节点状态机的直接子状态、场景状态组和运行时注册状态组。
@@ -403,7 +408,12 @@ static func _validate_resource_list(
 				metadata
 			)
 			continue
-		if not _resource_exposes_required_method(resource, field_name, required_method):
+		var exposes_required_method: bool = _resource_exposes_required_method(
+			resource,
+			field_name,
+			required_method
+		)
+		if not exposes_required_method:
 			_add_error(
 				report,
 				&"invalid_state_resource",
@@ -412,7 +422,110 @@ static func _validate_resource_list(
 				state_path,
 				metadata.merged({ "required_method": required_method })
 			)
+		elif resource is GFNodeStateConditionGroup:
+			var condition_group: GFNodeStateConditionGroup = resource
+			_validate_condition_group_graph(
+				report,
+				condition_group,
+				state_name,
+				state_path,
+				metadata
+			)
 		_track_duplicate_resource_id(report, resource, field_name, ids, state_name, state_path, metadata)
+
+
+static func _validate_condition_group_graph(
+	report: GFValidationReport,
+	root_group: GFNodeStateConditionGroup,
+	state_name: StringName,
+	state_path: String,
+	metadata: Dictionary
+) -> void:
+	var context: Dictionary = {
+		"active_group_ids": {},
+		"completed_group_ids": {},
+		"reported_cycle_ids": {},
+	}
+	_visit_condition_group(
+		report,
+		root_group,
+		state_name,
+		state_path,
+		metadata,
+		[],
+		0,
+		context
+	)
+
+
+static func _visit_condition_group(
+	report: GFValidationReport,
+	condition_group: GFNodeStateConditionGroup,
+	state_name: StringName,
+	state_path: String,
+	metadata: Dictionary,
+	condition_path: Array[int],
+	depth: int,
+	context: Dictionary
+) -> void:
+	if depth >= _MAX_CONDITION_GROUP_DEPTH:
+		_add_error(
+			report,
+			&"condition_group_depth_exceeded",
+			"Condition group graph exceeds the supported nesting depth.",
+			state_name,
+			state_path,
+			metadata.merged({
+				"condition_path": condition_path.duplicate(),
+				"depth": depth,
+				"max_depth": _MAX_CONDITION_GROUP_DEPTH,
+			})
+		)
+		return
+
+	var active_group_ids: Dictionary = context["active_group_ids"]
+	var completed_group_ids: Dictionary = context["completed_group_ids"]
+	var reported_cycle_ids: Dictionary = context["reported_cycle_ids"]
+	var instance_id: int = condition_group.get_instance_id()
+	if active_group_ids.has(instance_id):
+		if not reported_cycle_ids.has(instance_id):
+			reported_cycle_ids[instance_id] = true
+			_add_error(
+				report,
+				&"cyclic_condition_group",
+				"Condition group graph contains a recursive cycle.",
+				state_name,
+				state_path,
+				metadata.merged({
+					"condition_path": condition_path.duplicate(),
+					"depth": depth,
+				})
+			)
+		return
+	if completed_group_ids.has(instance_id):
+		return
+
+	active_group_ids[instance_id] = true
+	var child_conditions: Array[Resource] = _get_resource_array_property(condition_group, &"conditions")
+	for index: int in range(child_conditions.size()):
+		var child_condition: Resource = child_conditions[index]
+		if not child_condition is GFNodeStateConditionGroup:
+			continue
+		var child_group: GFNodeStateConditionGroup = child_condition
+		var child_path: Array[int] = condition_path.duplicate()
+		child_path.append(index)
+		_visit_condition_group(
+			report,
+			child_group,
+			state_name,
+			state_path,
+			metadata,
+			child_path,
+			depth + 1,
+			context
+		)
+	var _erased_active_group: bool = active_group_ids.erase(instance_id)
+	completed_group_ids[instance_id] = true
 
 
 static func _validate_behavior_resources(

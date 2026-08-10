@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFVariantData" path="addons/gf/standard/foundation/variant/gf_variant_data.gd" module="standard" extends="RefCounted" classDigest="7533cc12f33c29d3170c1d39219c5e1822d678fe5ae9c6a475dc8dafb46c2d8e">
+<class name="GFVariantData" path="addons/gf/standard/foundation/variant/gf_variant_data.gd" module="standard" extends="RefCounted" classDigest="12ed107c108b934365f0451232a87f8041f41edbddd434164a15e222aeb8af1c">
 	<description>GFVariantData: 通用 Variant 数据复制与默认值合并。
 提供不依赖 GFArchitecture 的集合复制、Resource 可选复制、差异报告和默认值递归补齐。
 JSON 兼容编码由 GFVariantJsonCodec 负责。</description>
@@ -317,12 +317,12 @@ Array/Dictionary 按展开后的数据内容比较，不比较共享引用拓扑
 				<tag name="api">public</tag>
 				<tag name="param">before: 变更前的 Variant 值。</tag>
 				<tag name="param">after: 变更后的 Variant 值。</tag>
-				<tag name="param">options: 可选项。支持 max_changes、max_diagnostics、copy_values。</tag>
+				<tag name="param">options: 可选项。支持 max_changes、max_diagnostics、copy_values、max_depth、max_nodes 和 max_collection_items；所有资源预算 &lt;=0 表示不限制。</tag>
 				<tag name="return">差异报告。内容差异与遍历诊断分别存放在 changes 和 diagnostics。</tag>
 				<tag name="schema">before: 待比较的 Variant 值。</tag>
 				<tag name="schema">after: 待比较的 Variant 值。</tag>
-				<tag name="schema">options: Dictionary，可选字段：max_changes 为最多记录差异数，默认 1024；max_diagnostics 为最多记录遍历诊断数，默认 1024；两者 &lt;=0 表示不限；copy_values 默认为 true。</tag>
-				<tag name="schema">return: Dictionary；changes 每项包含 kind、path、path_segments、old_value、new_value、old_type、new_type，kind 仅为 added、removed、changed 或 type_changed；diagnostics 每项包含 kind、path、path_segments，循环重入 kind 为 cycle_detected。changed 不受 diagnostics 影响。</tag>
+				<tag name="schema">options: Dictionary，可选字段：max_changes 为最多记录差异数，默认 1024；max_diagnostics 为最多记录遍历诊断数，默认 1024；max_depth、max_nodes 和 max_collection_items 分别限制递归深度、访问节点数和集合元素工作量；所有预算 &lt;=0 表示不限；copy_values 默认为 true。</tag>
+				<tag name="schema">return: Dictionary；changes 每项包含 kind、path、path_segments、old_value、new_value、old_type、new_type，kind 仅为 added、removed、changed 或 type_changed；diagnostics 每项包含 kind、path、path_segments，循环重入 kind 为 cycle_detected，资源预算耗尽 kind 为 traversal_budget_exceeded 并包含 reason；complete/traversal_truncated 独立描述遍历完整性，changed 不受 diagnostics 或不完整状态影响。</tag>
 				<tag name="since">4.4.0</tag>
 			</tags>
 		</member>

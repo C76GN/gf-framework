@@ -215,7 +215,7 @@ func to_dict() -> Dictionary:
 func apply_dict(data: Dictionary) -> void:
 ```
 
-从字典应用映射表。
+从字典应用映射表。 条目按输入顺序应用；同一 platform_id 与规范化 platform_locale 重复出现时， 后一条覆盖前一条，与连续调用 `set_mapping()` 的语义一致。
 
 参数：
 

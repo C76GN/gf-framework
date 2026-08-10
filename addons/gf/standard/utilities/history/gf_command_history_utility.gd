@@ -438,11 +438,15 @@ func serialize_full_history() -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param data_array: 历史数据数组。
 ## [br]
 ## @schema data_array: Array[Dictionary] serialized command snapshots produced by serialize_history().
 ## [br]
 ## @param command_builder: 负责反序列化命令实例的构造器。
+## [br]
+## 构建任意条目失败时保持原撤销栈和重做栈不变。
 func deserialize_history(data_array: Array, command_builder: Callable) -> void:
 	if _is_processing_history_operation:
 		_push_history_operation_rejection(
@@ -451,32 +455,46 @@ func deserialize_history(data_array: Array, command_builder: Callable) -> void:
 		)
 		return
 
-	_undo_stack.clear()
-	_redo_stack.clear()
-
 	if not command_builder.is_valid():
 		push_error("[GFCommandHistoryUtility] deserialize_history 失败：传入的 builder Callable 无效。")
 		return
 
-	for data: Variant in data_array:
-		if data is Dictionary:
-			var command_data: Dictionary = data
-			var restored_cmd: GFUndoableCommand = _build_command(command_builder, command_data)
-			if is_instance_valid(restored_cmd):
-				_inject_command_dependencies(restored_cmd)
-				_undo_stack.append(restored_cmd)
+	var lifecycle_serial: int = _lifecycle_serial
+	var operation_serial: int = _begin_history_operation()
+	var restored_undo_stack: Array[GFUndoableCommand] = []
+	if not _try_deserialize_stack(
+		data_array,
+		command_builder,
+		restored_undo_stack,
+		"deserialize_history",
+		operation_serial,
+		lifecycle_serial
+	):
+		_finish_history_operation(operation_serial)
+		return
+	if not _is_history_operation_current(operation_serial, lifecycle_serial):
+		_finish_history_operation(operation_serial)
+		return
+
+	_undo_stack = restored_undo_stack
+	_redo_stack = []
 	_trim_history_stacks()
+	_finish_history_operation(operation_serial)
 
 
 ## 通过构造器从完整历史数据恢复撤销栈与重做栈。
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param data: 由 `serialize_full_history()` 生成的字典数据。
 ## [br]
 ## @schema data: Dictionary with undo and redo Array[Dictionary] stacks.
 ## [br]
 ## @param command_builder: 负责反序列化命令实例的构造器。
+## [br]
+## 构建任意条目失败时保持原撤销栈和重做栈不变。
 func deserialize_full_history(data: Dictionary, command_builder: Callable) -> void:
 	if _is_processing_history_operation:
 		_push_history_operation_rejection(
@@ -485,16 +503,42 @@ func deserialize_full_history(data: Dictionary, command_builder: Callable) -> vo
 		)
 		return
 
-	_undo_stack.clear()
-	_redo_stack.clear()
-
 	if not command_builder.is_valid():
 		push_error("[GFCommandHistoryUtility] deserialize_full_history 失败：传入的 builder Callable 无效。")
 		return
 
-	_undo_stack = _deserialize_stack(GFVariantData.get_option_array(data, "undo"), command_builder)
-	_redo_stack = _deserialize_stack(GFVariantData.get_option_array(data, "redo"), command_builder)
+	var lifecycle_serial: int = _lifecycle_serial
+	var operation_serial: int = _begin_history_operation()
+	var restored_undo_stack: Array[GFUndoableCommand] = []
+	var restored_redo_stack: Array[GFUndoableCommand] = []
+	if not _try_deserialize_stack(
+		GFVariantData.get_option_array(data, "undo"),
+		command_builder,
+		restored_undo_stack,
+		"deserialize_full_history",
+		operation_serial,
+		lifecycle_serial
+	):
+		_finish_history_operation(operation_serial)
+		return
+	if not _try_deserialize_stack(
+		GFVariantData.get_option_array(data, "redo"),
+		command_builder,
+		restored_redo_stack,
+		"deserialize_full_history",
+		operation_serial,
+		lifecycle_serial
+	):
+		_finish_history_operation(operation_serial)
+		return
+	if not _is_history_operation_current(operation_serial, lifecycle_serial):
+		_finish_history_operation(operation_serial)
+		return
+
+	_undo_stack = restored_undo_stack
+	_redo_stack = restored_redo_stack
 	_trim_history_stacks()
+	_finish_history_operation(operation_serial)
 
 
 # --- 私有/辅助方法 ---
@@ -538,20 +582,34 @@ func _serialize_stack(stack: Array[GFUndoableCommand]) -> Array[Dictionary]:
 	return arr
 
 
-func _deserialize_stack(data_array: Array, command_builder: Callable) -> Array[GFUndoableCommand]:
-	var restored_stack: Array[GFUndoableCommand] = []
-
+func _try_deserialize_stack(
+	data_array: Array,
+	command_builder: Callable,
+	restored_stack: Array[GFUndoableCommand],
+	operation_name: String,
+	operation_serial: int,
+	lifecycle_serial: int
+) -> bool:
 	for data: Variant in data_array:
-		if not (data is Dictionary):
-			continue
+		if not _is_history_operation_current(operation_serial, lifecycle_serial):
+			return false
+		if not data is Dictionary:
+			push_error("[GFCommandHistoryUtility] %s 失败：历史条目必须是 Dictionary。" % operation_name)
+			return false
 
 		var command_data: Dictionary = data
 		var restored_cmd: GFUndoableCommand = _build_command(command_builder, command_data)
-		if is_instance_valid(restored_cmd):
-			_inject_command_dependencies(restored_cmd)
-			restored_stack.append(restored_cmd)
+		if not _is_history_operation_current(operation_serial, lifecycle_serial):
+			return false
+		if not is_instance_valid(restored_cmd):
+			push_error("[GFCommandHistoryUtility] %s 失败：builder 未返回 GFUndoableCommand。" % operation_name)
+			return false
+		_inject_command_dependencies(restored_cmd)
+		if not _is_history_operation_current(operation_serial, lifecycle_serial):
+			return false
+		restored_stack.append(restored_cmd)
 
-	return restored_stack
+	return true
 
 
 func _inject_command_dependencies(cmd: GFUndoableCommand) -> void:

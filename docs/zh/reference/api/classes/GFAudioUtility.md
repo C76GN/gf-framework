@@ -22,6 +22,7 @@
 | 常量 | [`SFX_BUS_NAME`](#member-gfaudioutility-constants-sfx_bus_name) | `const SFX_BUS_NAME: String = "SFX"` |
 | 常量 | [`SILENCE_VOLUME_DB`](#member-gfaudioutility-constants-silence_volume_db) | `const SILENCE_VOLUME_DB: float = -80.0` |
 | 属性 | [`max_sfx_players`](#member-gfaudioutility-properties-max_sfx_players) | `var max_sfx_players: int = 32` |
+| 属性 | [`max_idle_ambient_players`](#member-gfaudioutility-properties-max_idle_ambient_players) | `var max_idle_ambient_players: int = 16:` |
 | 属性 | [`sfx_overflow_policy`](#member-gfaudioutility-properties-sfx_overflow_policy) | `var sfx_overflow_policy: SFXOverflowPolicy = SFXOverflowPolicy.SKIP_NEW` |
 | 属性 | [`bgm_crossfade_seconds`](#member-gfaudioutility-properties-bgm_crossfade_seconds) | `var bgm_crossfade_seconds: float = 0.0` |
 | 属性 | [`max_bgm_history`](#member-gfaudioutility-properties-max_bgm_history) | `var max_bgm_history: int = 16` |
@@ -204,6 +205,19 @@ var max_sfx_players: int = 32
 ```
 
 普通与空间 SFX 共用的并发播放数量上限；小于等于 0 表示不限制。
+
+<a id="member-gfaudioutility-properties-max_idle_ambient_players"></a>
+
+### `max_idle_ambient_players`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+var max_idle_ambient_players: int = 16:
+```
+
+已停止环境音播放器的最大空闲缓存数量；0 表示停止后立即释放。 活动本地会话和 backend-owned 会话不计入此空闲缓存。
 
 <a id="member-gfaudioutility-properties-sfx_overflow_policy"></a>
 
@@ -1558,7 +1572,7 @@ func get_debug_snapshot() -> Dictionary:
 
 结构：
 
-- `return`: Dictionary，包含 backend、backend_snapshot、backend_capabilities、current_bgm_key、current_bgm_region、last_playback_region_rejection、bgm_state、bgm_owner、bgm_generation、bgm_playing、bgm_paused、bgm_position、bgm_history、active_sfx_count、active_spatial_sfx_count、max_sfx_players、ambient_channels、ambient_sessions、audio_bank_count、ducked_bus_count 和 active_mix_tween_count 字段。
+- `return`: Dictionary，包含 backend、backend_snapshot、backend_capabilities、current_bgm_key、current_bgm_region、last_playback_region_rejection、bgm_state、bgm_owner、bgm_generation、bgm_playing、bgm_paused、bgm_position、bgm_history、active_sfx_count、active_spatial_sfx_count、max_sfx_players、ambient_channels、ambient_sessions、cached_ambient_player_count、idle_ambient_player_count、max_idle_ambient_players、audio_bank_count、ducked_bus_count 和 active_mix_tween_count 字段。
 
 <a id="member-gfaudioutility-methods-get_last_playback_region_rejection"></a>
 

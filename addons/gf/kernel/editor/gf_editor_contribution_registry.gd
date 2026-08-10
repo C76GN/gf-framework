@@ -25,6 +25,14 @@ extends RefCounted
 ## @layer kernel/editor
 const SCHEMA_VERSION: int = 4
 
+const _MAX_MANIFEST_BYTES: int = 1_048_576
+const _MAX_JSON_DEPTH: int = 64
+const _MAX_RECORD_COUNT: int = 1024
+const _MAX_TEMPLATE_BYTES: int = 1_048_576
+const _MAX_TEMPLATE_TOTAL_BYTES: int = 4_194_304
+const _GF_BOUNDED_JSON_READER_SCRIPT = preload(
+	"res://addons/gf/kernel/editor/gf_bounded_json_reader.gd"
+)
 const _GF_PATH_TOOLS = preload("res://addons/gf/kernel/core/gf_path_tools.gd")
 const _GF_VARIANT_ACCESS_SCRIPT = preload("res://addons/gf/kernel/core/gf_variant_access.gd")
 const _MANIFEST_ALLOWED_KEYS: Array[String] = [
@@ -138,14 +146,21 @@ static func load_manifest_records(manifest_path: String) -> Dictionary:
 ## [br]
 ## @return manifest 读取报告。
 ## [br]
-## @schema return: Dictionary，包含 ok、source_path、records、issues、skipped_records、issue_count 和 skipped_record_count。
+## @schema return: Dictionary，包含 ok、state、source_path、records、issues、skipped_records、issue_count 和 skipped_record_count；state 为 absent、valid、degraded 或 invalid。
 static func load_manifest_report(manifest_path: String) -> Dictionary:
 	var normalized_path: String = _GF_PATH_TOOLS.normalize_resource_path(manifest_path)
 	var records: Dictionary = empty_records()
 	var issues: Array[Dictionary] = []
 	var skipped_records: Array[Dictionary] = []
-	if normalized_path.is_empty() or not FileAccess.file_exists(normalized_path):
-		return _make_report(true, normalized_path, records, issues, skipped_records)
+	if normalized_path.is_empty():
+		issues.append(_make_issue(
+			"invalid_manifest_path",
+			manifest_path,
+			"Editor contribution manifest path is invalid."
+		))
+		return _make_report(false, normalized_path, records, issues, skipped_records)
+	if not FileAccess.file_exists(normalized_path):
+		return _make_report(true, normalized_path, records, issues, skipped_records, "absent")
 
 	var data: Dictionary = _read_json_object(normalized_path, issues)
 	if not issues.is_empty():
@@ -163,6 +178,15 @@ static func load_manifest_report(manifest_path: String) -> Dictionary:
 		return _make_report(false, normalized_path, records, issues, skipped_records)
 
 	if not _manifest_uses_allowed_keys(data, normalized_path, issues):
+		return _make_report(false, normalized_path, records, issues, skipped_records)
+	if _count_manifest_records(data) > _MAX_RECORD_COUNT:
+		issues.append(_make_issue(
+			"record_budget_exceeded",
+			normalized_path,
+			"Editor contribution manifest exceeds the record-count budget.",
+			"",
+			str(_MAX_RECORD_COUNT)
+		))
 		return _make_report(false, normalized_path, records, issues, skipped_records)
 
 	var package_id: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(data, "package_id").strip_edges()
@@ -233,51 +257,30 @@ static func load_manifest_report(manifest_path: String) -> Dictionary:
 # --- 私有/辅助方法 ---
 
 static func _read_json_object(path: String, issues: Array[Dictionary]) -> Dictionary:
-	var file: FileAccess = FileAccess.open(path, FileAccess.READ)
-	if file == null:
-		issues.append(_make_issue(
-			"open_failed",
-			path,
-			"Editor contribution manifest could not be opened.",
-			"",
-			error_string(FileAccess.get_open_error())
-		))
-		return {}
-
-	var text: String = file.get_as_text()
-	var read_error: Error = file.get_error()
-	file.close()
-	if read_error != OK:
-		issues.append(_make_issue(
-			"read_failed",
-			path,
-			"Editor contribution manifest could not be read.",
-			"",
-			error_string(read_error)
-		))
-		return {}
-
-	var parser: JSON = JSON.new()
-	var parse_error: Error = parser.parse(text)
-	if parse_error != OK:
-		issues.append(_make_issue(
-			"parse_failed",
-			path,
-			"Editor contribution manifest is not valid JSON.",
-			"",
-			"line %d: %s" % [parser.get_error_line(), parser.get_error_message()]
-		))
-		return {}
-
-	var parsed: Variant = parser.data
-	if parsed is Dictionary:
-		var data: Dictionary = parsed
-		return data
-
-	issues.append(_make_issue(
-		"invalid_root_type",
+	var read_result: Dictionary = _GF_BOUNDED_JSON_READER_SCRIPT.read_object(
 		path,
-		"Editor contribution manifest root must be an object."
+		_MAX_MANIFEST_BYTES,
+		_MAX_JSON_DEPTH
+	)
+	if _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(read_result, "ok", false):
+		return _GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(read_result, "data")
+	var raw_kind: StringName = _GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(
+		read_result,
+		"error_kind"
+	)
+	var issue_kind: String = String(raw_kind)
+	if raw_kind == &"payload_too_large":
+		issue_kind = "manifest_too_large"
+	elif raw_kind == &"nesting_too_deep":
+		issue_kind = "manifest_too_deep"
+	issues.append(_make_issue(
+		issue_kind,
+		path,
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_string(
+			read_result,
+			"error",
+			"Editor contribution manifest could not be read."
+		)
 	))
 	return {}
 
@@ -351,6 +354,7 @@ static func _collect_template_records(
 	skipped_records: Array[Dictionary]
 ) -> Array[Dictionary]:
 	var records: Array[Dictionary] = []
+	var total_template_bytes: int = 0
 	for raw_record: Dictionary in _get_record_dictionaries(data, record_key, issues):
 		if not _record_uses_allowed_keys(raw_record, record_key, _TEMPLATE_RECORD_ALLOWED_KEYS, issues):
 			continue
@@ -373,6 +377,16 @@ static func _collect_template_records(
 		if base_class.is_empty():
 			issues.append(_make_issue("missing_base_class", record_key, "Template record base_class is required.", "base_class", "", source_id))
 			continue
+		if not _is_valid_gdscript_identifier(base_class):
+			issues.append(_make_issue(
+				"invalid_base_class",
+				record_key,
+				"Template record base_class must be a valid GDScript identifier.",
+				"base_class",
+				"",
+				source_id
+			))
+			continue
 		var template_path: String = _GF_PATH_TOOLS.normalize_resource_path(
 			_GF_VARIANT_ACCESS_SCRIPT.get_option_string(raw_record, "template_path")
 		)
@@ -390,7 +404,28 @@ static func _collect_template_records(
 			))
 			continue
 
-		var template_text: String = _read_template_text(template_path, record_key, issues, source_id)
+		var read_result: Dictionary = _read_template_text(
+			template_path,
+			record_key,
+			issues,
+			source_id,
+			_MAX_TEMPLATE_TOTAL_BYTES - total_template_bytes
+		)
+		total_template_bytes += _GF_VARIANT_ACCESS_SCRIPT.get_option_int(
+			read_result,
+			"size_bytes",
+			0
+		)
+		if _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
+			read_result,
+			"total_budget_exceeded",
+			false
+		):
+			break
+		var template_text: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
+			read_result,
+			"text"
+		)
 		if template_text.is_empty():
 			continue
 
@@ -699,12 +734,41 @@ static func _get_record_dictionaries(
 	return records
 
 
+static func _count_manifest_records(data: Dictionary) -> int:
+	var count: int = 0
+	for record_key: String in empty_records().keys():
+		var value: Variant = data.get(record_key, [])
+		if value is Array:
+			var records: Array = value
+			count += records.size()
+			if count > _MAX_RECORD_COUNT:
+				return count
+	return count
+
+
 static func _read_template_text(
 	template_path: String,
 	record_key: String,
 	issues: Array[Dictionary],
-	source_id: String
-) -> String:
+	source_id: String,
+	remaining_total_bytes: int
+) -> Dictionary:
+	var result: Dictionary = {
+		"text": "",
+		"size_bytes": 0,
+		"total_budget_exceeded": false,
+	}
+	if remaining_total_bytes <= 0:
+		issues.append(_make_issue(
+			"template_total_budget_exceeded",
+			record_key,
+			"Editor contribution templates exceed the cumulative byte budget.",
+			"template_path",
+			str(_MAX_TEMPLATE_TOTAL_BYTES),
+			source_id
+		))
+		result["total_budget_exceeded"] = true
+		return result
 	var file: FileAccess = FileAccess.open(template_path, FileAccess.READ)
 	if file == null:
 		issues.append(_make_issue(
@@ -715,11 +779,37 @@ static func _read_template_text(
 			error_string(FileAccess.get_open_error()),
 			source_id
 		))
-		return ""
+		return result
+	var declared_size: int = file.get_length()
+	if declared_size > _MAX_TEMPLATE_BYTES:
+		file.close()
+		issues.append(_make_issue(
+			"template_too_large",
+			record_key,
+			"Template source file exceeds the byte budget.",
+			"template_path",
+			str(_MAX_TEMPLATE_BYTES),
+			source_id
+		))
+		return result
+	if declared_size > remaining_total_bytes:
+		file.close()
+		issues.append(_make_issue(
+			"template_total_budget_exceeded",
+			record_key,
+			"Editor contribution templates exceed the cumulative byte budget.",
+			"template_path",
+			str(_MAX_TEMPLATE_TOTAL_BYTES),
+			source_id
+		))
+		result["total_budget_exceeded"] = true
+		return result
 
 	var text: String = file.get_as_text()
 	var read_error: Error = file.get_error()
 	file.close()
+	var actual_size: int = text.to_utf8_buffer().size()
+	result["size_bytes"] = actual_size
 	if read_error != OK:
 		issues.append(_make_issue(
 			"template_read_failed",
@@ -729,8 +819,40 @@ static func _read_template_text(
 			error_string(read_error),
 			source_id
 		))
-		return ""
-	return text
+		return result
+	if actual_size > _MAX_TEMPLATE_BYTES:
+		issues.append(_make_issue(
+			"template_too_large",
+			record_key,
+			"Template source file exceeds the byte budget.",
+			"template_path",
+			str(_MAX_TEMPLATE_BYTES),
+			source_id
+		))
+		return result
+	if actual_size > remaining_total_bytes:
+		issues.append(_make_issue(
+			"template_total_budget_exceeded",
+			record_key,
+			"Editor contribution templates exceed the cumulative byte budget.",
+			"template_path",
+			str(_MAX_TEMPLATE_TOTAL_BYTES),
+			source_id
+		))
+		result["total_budget_exceeded"] = true
+		return result
+	if text.strip_edges().is_empty():
+		issues.append(_make_issue(
+			"empty_template",
+			record_key,
+			"Template source file must contain non-whitespace text.",
+			"template_path",
+			template_path,
+			source_id
+		))
+		return result
+	result["text"] = text
+	return result
 
 
 static func _record_uses_allowed_keys(
@@ -908,15 +1030,35 @@ static func _record_variant_type(
 			return typeof(default_value)
 
 
+static func _is_valid_gdscript_identifier(value: String) -> bool:
+	if not value.is_valid_identifier():
+		return false
+	match value:
+		"and", "as", "assert", "await", "break", "breakpoint", "class", "class_name", "const", "continue", "elif", "else", "enum", "extends", "false", "for", "func", "if", "in", "is", "match", "not", "null", "or", "pass", "preload", "return", "self", "signal", "static", "super", "true", "var", "void", "while", "yield":
+			return false
+		_:
+			return true
+
+
 static func _make_report(
 	ok: bool,
 	source_path: String,
 	records: Dictionary,
 	issues: Array[Dictionary],
-	skipped_records: Array[Dictionary]
+	skipped_records: Array[Dictionary],
+	explicit_state: String = ""
 ) -> Dictionary:
+	var state: String = explicit_state
+	if state.is_empty():
+		if not ok:
+			state = "invalid"
+		elif not skipped_records.is_empty():
+			state = "degraded"
+		else:
+			state = "valid"
 	return {
 		"ok": ok,
+		"state": state,
 		"source_path": source_path,
 		"records": records.duplicate(true),
 		"issues": issues.duplicate(true),

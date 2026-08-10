@@ -20,7 +20,7 @@ Save Profile 的显式恢复与有界重试政策。 缺失和损坏数据默认
 | 属性 | [`missing_file_action`](#member-gfsaverecoverypolicy-properties-missing_file_action) | `var missing_file_action: StringName = ACTION_FAIL` |
 | 属性 | [`corrupt_file_action`](#member-gfsaverecoverypolicy-properties-corrupt_file_action) | `var corrupt_file_action: StringName = ACTION_FAIL` |
 | 属性 | [`retry_delays_msec`](#member-gfsaverecoverypolicy-properties-retry_delays_msec) | `var retry_delays_msec: PackedInt32Array = PackedInt32Array()` |
-| 属性 | [`transient_error_codes`](#member-gfsaverecoverypolicy-properties-transient_error_codes) | `var transient_error_codes: PackedInt32Array = PackedInt32Array([` |
+| 属性 | [`transient_error_codes`](#member-gfsaverecoverypolicy-properties-transient_error_codes) | `var transient_error_codes: PackedInt32Array = PackedInt32Array([ 	ERR_BUSY, 	ERR_CANT_OPEN, 	ERR_FILE_CANT_OPEN, 	ERR_FILE_CANT_WRITE, 	ERR_TIMEOUT, 	ERR_UNAVAILABLE, ])` |
 | 属性 | [`io_timeout_msec`](#member-gfsaverecoverypolicy-properties-io_timeout_msec) | `var io_timeout_msec: int = 30_000` |
 | 方法 | [`validate_policy`](#member-gfsaverecoverypolicy-methods-validate_policy) | `func validate_policy() -> Dictionary:` |
 | 方法 | [`can_retry`](#member-gfsaverecoverypolicy-methods-can_retry) | `func can_retry(error_code: Error, failed_attempt_count: int) -> bool:` |
@@ -104,6 +104,13 @@ var retry_delays_msec: PackedInt32Array = PackedInt32Array()
 
 ```gdscript
 var transient_error_codes: PackedInt32Array = PackedInt32Array([
+	ERR_BUSY,
+	ERR_CANT_OPEN,
+	ERR_FILE_CANT_OPEN,
+	ERR_FILE_CANT_WRITE,
+	ERR_TIMEOUT,
+	ERR_UNAVAILABLE,
+])
 ```
 
 允许重试的 Godot Error 码。

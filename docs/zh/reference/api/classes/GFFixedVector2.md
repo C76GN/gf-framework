@@ -171,7 +171,7 @@ static func from_dict(data: Dictionary) -> GFFixedVector2:
 
 | 名称 | 说明 |
 |---|---|
-| `data` | `to_dict()` 输出的状态字典。 |
+| `data` | \`to_dict()\` 输出的状态字典。 |
 
 返回：定点二维向量实例。
 
@@ -196,7 +196,7 @@ static func from_bytes(data: PackedByteArray) -> GFFixedVector2:
 
 | 名称 | 说明 |
 |---|---|
-| `data` | `to_bytes()` 输出的字节序列。 |
+| `data` | \`to_bytes()\` 输出的字节序列。 |
 
 返回：定点二维向量实例。
 
@@ -479,7 +479,7 @@ func apply_dict(data: Dictionary) -> bool:
 
 | 名称 | 说明 |
 |---|---|
-| `data` | `to_dict()` 输出的状态字典。 |
+| `data` | \`to_dict()\` 输出的状态字典。 |
 
 返回：状态有效并已应用时返回 true。
 
@@ -519,6 +519,6 @@ func apply_bytes(data: PackedByteArray) -> bool:
 
 | 名称 | 说明 |
 |---|---|
-| `data` | `to_bytes()` 输出的字节序列。 |
+| `data` | \`to_bytes()\` 输出的字节序列。 |
 
 返回：字节序列有效并已应用时返回 true。

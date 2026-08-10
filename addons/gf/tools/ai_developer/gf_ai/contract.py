@@ -517,16 +517,7 @@ def _ownership_root_overlap_issues(
 	modules: list[dict[str, Any]],
 	adapters: list[dict[str, Any]],
 ) -> list[dict[str, str]]:
-	roots: list[tuple[str, str, tuple[str, ...]]] = []
-	for module in modules:
-		owner = f"module {module.get('id', '')}"
-		for raw_path in module.get("roots", []):
-			if isinstance(raw_path, str):
-				roots.append((owner, raw_path, _root_parts(raw_path)))
-	for adapter in adapters:
-		raw_path = adapter.get("project_root")
-		if isinstance(raw_path, str):
-			roots.append((f"adapter {adapter.get('id', '')}", raw_path, _root_parts(raw_path)))
+	roots = _ownership_roots(modules, adapters)
 	issues: list[dict[str, str]] = []
 	for left_index, (left_owner, left_path, left_parts) in enumerate(roots):
 		for right_owner, right_path, right_parts in roots[left_index + 1:]:
@@ -546,16 +537,7 @@ def _ownership_resource_overlap_issues(
 	adapters: list[dict[str, Any]],
 	owned_resources: list[str],
 ) -> list[dict[str, str]]:
-	roots: list[tuple[str, str, tuple[str, ...]]] = []
-	for module in modules:
-		owner = f"module {module.get('id', '')}"
-		for raw_path in module.get("roots", []):
-			if isinstance(raw_path, str):
-				roots.append((owner, raw_path, _root_parts(raw_path)))
-	for adapter in adapters:
-		raw_path = adapter.get("project_root")
-		if isinstance(raw_path, str):
-			roots.append((f"adapter {adapter.get('id', '')}", raw_path, _root_parts(raw_path)))
+	roots = _ownership_roots(modules, adapters)
 
 	issues: list[dict[str, str]] = []
 	for index, resource_path in enumerate(owned_resources):
@@ -570,6 +552,23 @@ def _ownership_resource_overlap_issues(
 				f"Project-owned resource {resource_path} overlaps {owner} ownership root {root_path}.",
 			))
 	return issues
+
+
+def _ownership_roots(
+	modules: list[dict[str, Any]],
+	adapters: list[dict[str, Any]],
+) -> list[tuple[str, str, tuple[str, ...]]]:
+	roots: list[tuple[str, str, tuple[str, ...]]] = []
+	for module in modules:
+		owner = f"module {module.get('id', '')}"
+		for raw_path in module.get("roots", []):
+			if isinstance(raw_path, str):
+				roots.append((owner, raw_path, _root_parts(raw_path)))
+	for adapter in adapters:
+		raw_path = adapter.get("project_root")
+		if isinstance(raw_path, str):
+			roots.append((f"adapter {adapter.get('id', '')}", raw_path, _root_parts(raw_path)))
+	return roots
 
 
 def _root_parts(raw_path: str) -> tuple[str, ...]:

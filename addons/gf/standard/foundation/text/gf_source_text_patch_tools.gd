@@ -167,7 +167,7 @@ static func validate_text_edits(source_text: String, edits: Array, options: Dict
 
 ## 应用文本 edit 集合。
 ## [br]
-## edit 会先按原始文本范围校验并按 offset 倒序应用，因此调用方不需要预先排序。
+## edit 会先按原始文本范围校验，再按原始 offset 升序单次组装结果，因此调用方不需要预先排序。
 ## 范围字段可使用 LSP-shaped 字典，但 character 始终是 Godot String 字符索引。
 ## 如果存在越界、重叠或结构错误，返回 ok=false，text 保持为原始文本。
 ## [br]
@@ -196,17 +196,20 @@ static func apply_text_edits(source_text: String, edits: Array, options: Diction
 		return _make_apply_report(source_text, source_text, edits.size(), 0, normalized_edits, normalized, options)
 
 	var sorted_edits: Array[Dictionary] = normalized_edits.duplicate(true)
-	sorted_edits.sort_custom(Callable(GFSourceTextPatchTools, "_compare_edits_descending"))
-	var result_text: String = source_text
+	sorted_edits.sort_custom(Callable(GFSourceTextPatchTools, "_compare_edits_ascending"))
+	var fragments: PackedStringArray = PackedStringArray()
+	var source_cursor: int = 0
 	for edit: Dictionary in sorted_edits:
 		var start_offset: int = GFVariantData.get_option_int(edit, "start_offset")
 		var end_offset: int = GFVariantData.get_option_int(edit, "end_offset")
 		var replacement_text: String = GFVariantData.get_option_string(edit, "text")
-		result_text = (
-			result_text.substr(0, start_offset)
-			+ replacement_text
-			+ result_text.substr(end_offset)
+		var _prefix_appended: bool = fragments.append(
+			source_text.substr(source_cursor, start_offset - source_cursor)
 		)
+		var _replacement_appended: bool = fragments.append(replacement_text)
+		source_cursor = end_offset
+	var _suffix_appended: bool = fragments.append(source_text.substr(source_cursor))
+	var result_text: String = "".join(fragments)
 
 	return _make_apply_report(
 		source_text,
@@ -570,11 +573,3 @@ static func _compare_edits_ascending(left: Dictionary, right: Dictionary) -> boo
 	if left_start == right_start:
 		return GFVariantData.get_option_int(left, "index") < GFVariantData.get_option_int(right, "index")
 	return left_start < right_start
-
-
-static func _compare_edits_descending(left: Dictionary, right: Dictionary) -> bool:
-	var left_start: int = GFVariantData.get_option_int(left, "start_offset")
-	var right_start: int = GFVariantData.get_option_int(right, "start_offset")
-	if left_start == right_start:
-		return GFVariantData.get_option_int(left, "index") > GFVariantData.get_option_int(right, "index")
-	return left_start > right_start

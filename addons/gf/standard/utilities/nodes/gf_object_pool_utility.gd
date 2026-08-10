@@ -85,6 +85,9 @@ var _available_pools: Dictionary = {}
 
 # 每个 PackedScene 尚未提交的预热容量总账。
 var _prewarm_reserved_counts: Dictionary = {}
+var _active_generations: Dictionary = {}
+var _transition_generations: Dictionary = {}
+var _operation_generation: int = 0
 var _lifecycle_serial: int = 0
 var _pool_root: Node = null
 var _is_disposed: bool = false
@@ -103,6 +106,8 @@ func init() -> void:
 	_all_nodes = {}
 	_available_pools = {}
 	_prewarm_reserved_counts = {}
+	_active_generations = {}
+	_transition_generations = {}
 	_pool_root = null
 
 
@@ -126,6 +131,8 @@ func dispose() -> void:
 	_all_nodes.clear()
 	_available_pools.clear()
 	_prewarm_reserved_counts.clear()
+	_active_generations.clear()
+	_transition_generations.clear()
 	_pool_root = null
 
 
@@ -167,35 +174,86 @@ func acquire(scene: PackedScene, parent: Node, before_add: Callable = Callable()
 		var popped_item: Variant = available_pool.pop_back()
 		var node: Node = _get_valid_pool_node(popped_item)
 		if node != null:
-			node.set_meta(_META_ACTIVE, true)
-			node.set_meta(_META_SOURCE_SCENE, scene)
+			var node_id: int = node.get_instance_id()
+			if _active_generations.has(node_id) or _transition_generations.has(node_id):
+				continue
+			var acquire_generation: int = _begin_node_acquire(node, scene)
 			_call_before_add(before_add, node)
+			if not _node_generation_matches(node, node_id, _active_generations, acquire_generation):
+				return null
 			_set_node_tree_active_state(node, true)
-			
+			if not _node_generation_matches(node, node_id, _active_generations, acquire_generation):
+				return null
+
 			if is_instance_valid(parent) and node.get_parent() != parent:
 				if node.get_parent() != null:
 					node.reparent(parent, false)
 				else:
 					parent.add_child(node)
+			if not is_instance_valid(parent):
+				_cancel_acquire_if_owned(node, scene, acquire_generation)
+				return null
+			if not _node_generation_matches(node, node_id, _active_generations, acquire_generation):
+				return null
 
 			_call_node_tree_hook(node, HOOK_ON_ACQUIRE)
+			if not _node_generation_matches(node, node_id, _active_generations, acquire_generation):
+				return null
 			return node
 
 	var new_node: Node = _variant_to_node(scene.instantiate())
 	if new_node == null:
 		push_error("[GFObjectPoolUtility] PackedScene 未能实例化为 Node。")
 		return null
-	new_node.set_meta(_META_ACTIVE, true)
-	new_node.set_meta(_META_SOURCE_SCENE, scene)
-	_prepare_node_tree(new_node)
-	_set_node_tree_active_state(new_node, true)
-	_call_before_add(before_add, new_node)
-	if is_instance_valid(parent):
-		parent.add_child(new_node)
-
+	var new_node_id: int = new_node.get_instance_id()
+	var new_acquire_generation: int = _begin_node_acquire(new_node, scene)
 	var all_nodes: Array = _get_all_nodes_pool(scene)
 	all_nodes.push_back(new_node)
+	_prepare_node_tree(new_node)
+	if not _node_generation_matches(
+		new_node,
+		new_node_id,
+		_active_generations,
+		new_acquire_generation
+	):
+		return null
+	_set_node_tree_active_state(new_node, true)
+	if not _node_generation_matches(
+		new_node,
+		new_node_id,
+		_active_generations,
+		new_acquire_generation
+	):
+		return null
+	_call_before_add(before_add, new_node)
+	if not _node_generation_matches(
+		new_node,
+		new_node_id,
+		_active_generations,
+		new_acquire_generation
+	):
+		return null
+	if is_instance_valid(parent):
+		parent.add_child(new_node)
+	if not is_instance_valid(parent):
+		_cancel_acquire_if_owned(new_node, scene, new_acquire_generation)
+		return null
+	if not _node_generation_matches(
+		new_node,
+		new_node_id,
+		_active_generations,
+		new_acquire_generation
+	):
+		return null
+
 	_call_node_tree_hook(new_node, HOOK_ON_ACQUIRE)
+	if not _node_generation_matches(
+		new_node,
+		new_node_id,
+		_active_generations,
+		new_acquire_generation
+	):
+		return null
 	return new_node
 
 
@@ -225,9 +283,21 @@ func release(node: Node, scene: PackedScene) -> void:
 		push_warning("[GFObjectPoolUtility] release 失败：节点不属于当前对象池。")
 		return
 
-	_call_node_tree_hook(node, HOOK_ON_RELEASE)
+	var node_id: int = node.get_instance_id()
+	if not _active_generations.has(node_id):
+		push_warning("[GFObjectPoolUtility] release 失败：节点不属于当前借用代次。")
+		return
+
+	var release_generation: int = _take_operation_generation()
+	var _active_generation_erased: bool = _active_generations.erase(node_id)
 	node.set_meta(_META_ACTIVE, false)
+	_transition_generations[node_id] = release_generation
+	_call_node_tree_hook(node, HOOK_ON_RELEASE)
+	if not _node_generation_matches(node, node_id, _transition_generations, release_generation):
+		return
 	_set_node_tree_active_state(node, false)
+	if not _node_generation_matches(node, node_id, _transition_generations, release_generation):
+		return
 
 	if not _available_pools.has(owner_scene):
 		_available_pools[owner_scene] = []
@@ -235,11 +305,15 @@ func release(node: Node, scene: PackedScene) -> void:
 	_prune_invalid_available_nodes_if_needed(owner_scene)
 	var available_pool: Array = _get_available_pool(owner_scene)
 	if max_available_per_scene > 0 and available_pool.size() >= max_available_per_scene:
+		var _capacity_transition_erased: bool = _transition_generations.erase(node_id)
 		_remove_node_from_scene_pool(node, owner_scene)
 		_queue_free_detached(node)
 		return
 
 	_move_to_pool_root(node)
+	if not _node_generation_matches(node, node_id, _transition_generations, release_generation):
+		return
+	var _release_transition_erased: bool = _transition_generations.erase(node_id)
 	available_pool.push_back(node)
 
 
@@ -447,6 +521,7 @@ func prune_invalid_nodes() -> void:
 		if scene == null:
 			continue
 		_prune_invalid_scene_nodes(scene)
+	_prune_invalid_generations()
 
 
 ## 获取对象池诊断快照。
@@ -473,6 +548,51 @@ func get_debug_snapshot() -> Dictionary:
 
 
 # --- 私有/辅助方法 ---
+
+func _take_operation_generation() -> int:
+	_operation_generation += 1
+	return _operation_generation
+
+
+func _begin_node_acquire(node: Node, scene: PackedScene) -> int:
+	var generation: int = _take_operation_generation()
+	var node_id: int = node.get_instance_id()
+	node.set_meta(_META_ACTIVE, true)
+	node.set_meta(_META_SOURCE_SCENE, scene)
+	_active_generations[node_id] = generation
+	return generation
+
+
+func _node_generation_matches(
+	node: Node,
+	node_id: int,
+	generations: Dictionary,
+	expected_generation: int
+) -> bool:
+	if _get_valid_pool_node(node) == null:
+		var _invalid_generation_erased: bool = generations.erase(node_id)
+		return false
+	if not generations.has(node_id):
+		return false
+	var generation_value: Variant = generations[node_id]
+	if generation_value is int:
+		var current_generation: int = generation_value
+		return current_generation == expected_generation
+	return false
+
+
+func _cancel_acquire_if_owned(
+	node: Node,
+	scene: PackedScene,
+	expected_generation: int
+) -> void:
+	if not is_instance_valid(node):
+		return
+	var node_id: int = node.get_instance_id()
+	if not _node_generation_matches(node, node_id, _active_generations, expected_generation):
+		return
+	release(node, scene)
+
 
 func _prepare_node_tree(node: Node) -> void:
 	_prepare_node_for_pool(node)
@@ -503,9 +623,6 @@ func _prewarm_node(
 		return false
 
 	var node: Node = _variant_to_node(scene.instantiate())
-	if not _is_prewarm_context_valid(scene, parent, current_serial):
-		_discard_prewarm_candidate(node)
-		return false
 	if node == null:
 		push_error("[GFObjectPoolUtility] PackedScene 未能实例化为 Node。")
 		return false
@@ -513,40 +630,63 @@ func _prewarm_node(
 		_discard_prewarm_candidate(node)
 		return false
 
+	var node_id: int = node.get_instance_id()
+	var transition_generation: int = _take_operation_generation()
 	node.set_meta(_META_ACTIVE, false)
 	node.set_meta(_META_SOURCE_SCENE, scene)
+	_transition_generations[node_id] = transition_generation
+	_get_all_nodes_pool(scene).push_back(node)
 	_prepare_node_tree(node)
-	_set_node_tree_active_state(node, false)
+	if not _node_generation_matches(node, node_id, _transition_generations, transition_generation):
+		return false
 	if not _is_prewarm_candidate_valid(scene, parent, node, current_serial):
+		_remove_node_from_scene_pool(node, scene)
+		_discard_prewarm_candidate(node)
+		return false
+
+	_set_node_tree_active_state(node, false)
+	if not _node_generation_matches(node, node_id, _transition_generations, transition_generation):
+		return false
+	if not _is_prewarm_candidate_valid(scene, parent, node, current_serial):
+		_remove_node_from_scene_pool(node, scene)
 		_discard_prewarm_candidate(node)
 		return false
 
 	_call_before_add(before_add, node)
+	if not _node_generation_matches(node, node_id, _transition_generations, transition_generation):
+		return false
 	if (
 		not _is_prewarm_candidate_valid(scene, parent, node, current_serial)
 		or node.get_parent() != null
 	):
+		_remove_node_from_scene_pool(node, scene)
 		_discard_prewarm_candidate(node)
 		return false
 
 	if is_instance_valid(parent):
 		parent.add_child(node)
+	if not _node_generation_matches(node, node_id, _transition_generations, transition_generation):
+		return false
 	if (
 		not _is_prewarm_candidate_valid(scene, parent, node, current_serial)
 		or (parent != null and node.get_parent() != parent)
 	):
+		_remove_node_from_scene_pool(node, scene)
 		_discard_prewarm_candidate(node)
 		return false
 
 	_call_node_tree_internal_hook(node, _HOOK_INTERNAL_ON_RELEASE)
+	if not _node_generation_matches(node, node_id, _transition_generations, transition_generation):
+		return false
 	if (
 		not _is_prewarm_candidate_valid(scene, parent, node, current_serial)
 		or (parent != null and node.get_parent() != parent)
 	):
+		_remove_node_from_scene_pool(node, scene)
 		_discard_prewarm_candidate(node)
 		return false
 
-	_get_all_nodes_pool(scene).push_back(node)
+	var _prewarm_transition_erased: bool = _transition_generations.erase(node_id)
 	_get_available_pool(scene).push_back(node)
 	return true
 
@@ -756,6 +896,10 @@ func _resolve_owner_scene(node: Node, fallback_scene: PackedScene) -> PackedScen
 
 
 func _remove_node_from_scene_pool(node: Node, scene: PackedScene) -> void:
+	if is_instance_valid(node):
+		var node_id: int = node.get_instance_id()
+		var _active_generation_erased: bool = _active_generations.erase(node_id)
+		var _transition_generation_erased: bool = _transition_generations.erase(node_id)
 	if _all_nodes.has(scene):
 		_get_all_nodes_pool(scene).erase(node)
 	if _available_pools.has(scene):
@@ -790,6 +934,27 @@ func _prune_invalid_available_nodes(scene: PackedScene) -> void:
 		var node_variant: Variant = available_pool[i]
 		if _get_valid_pool_node(node_variant) == null:
 			available_pool.remove_at(i)
+
+
+func _prune_invalid_generations() -> void:
+	var tracked_ids: Dictionary = {}
+	for scene_key: Variant in _all_nodes.keys():
+		var scene: PackedScene = _variant_to_packed_scene(scene_key)
+		if scene == null:
+			continue
+		for node_variant: Variant in _get_all_nodes_pool(scene):
+			var node: Node = _get_valid_pool_node(node_variant)
+			if node != null:
+				tracked_ids[node.get_instance_id()] = true
+
+	for active_node_id_variant: Variant in _active_generations.keys():
+		if not tracked_ids.has(active_node_id_variant):
+			var _active_generation_erased: bool = _active_generations.erase(active_node_id_variant)
+	for transition_node_id_variant: Variant in _transition_generations.keys():
+		if not tracked_ids.has(transition_node_id_variant):
+			var _transition_generation_erased: bool = (
+				_transition_generations.erase(transition_node_id_variant)
+			)
 
 
 func _prune_invalid_available_nodes_if_needed(scene: PackedScene) -> void:

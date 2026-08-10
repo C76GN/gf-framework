@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFInputDetectionResult" path="addons/gf/standard/input/rebinding/gf_input_detection_result.gd" module="standard" extends="RefCounted" classDigest="98b13421fae464b794fe07c2ea8cc4cbdbfb5aa072ba9765b63f3a6fbdcee096">
+<class name="GFInputDetectionResult" path="addons/gf/standard/input/rebinding/gf_input_detection_result.gd" module="standard" extends="RefCounted" classDigest="70a207fda2b4d39bdf0923c5d0704e9acce542188808226af86c6b53fa6e201d">
 	<description>GFInputDetectionResult: 输入检测结束结果。
 表达 GFInputDetector 一轮检测为什么结束，以及成功时捕获到的输入事件。
 它不处理冲突、不修改 InputMap，也不绑定具体改键 UI 流程。</description>
@@ -49,7 +49,7 @@
 		</member>
 		<member kind="property" name="elapsed_seconds">
 			<signature>var elapsed_seconds: float = 0.0</signature>
-			<description>本轮检测经过的秒数。</description>
+			<description>本轮检测从 begin 到 finish 经过的有限非负秒数。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="since">8.0.0</tag>
@@ -109,7 +109,8 @@
 		</member>
 		<member kind="method" name="to_dictionary">
 			<signature>func to_dictionary() -&gt; Dictionary:</signature>
-			<description>转换为 JSON 安全字典。</description>
+			<description>转换为 JSON 安全字典。即使 public elapsed_seconds 被外部改成 NaN/Infinity，
+输出边界也会把它规范为 0。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">检测结果字典。</tag>

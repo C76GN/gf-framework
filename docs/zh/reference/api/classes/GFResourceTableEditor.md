@@ -317,7 +317,7 @@ static func scan_resource_paths( root_path: String = "res://", extensions: Packe
 |---|---|
 | `root_path` | 扫描根路径。 |
 | `extensions` | 文件扩展名白名单，不包含点号。 |
-| `options` | 可选参数，支持 `max_scan_depth` 与 `max_resource_paths`。 |
+| `options` | 可选参数，支持 \`max_scan_depth\` 与 \`max_resource_paths\`。 |
 
 返回：资源路径列表。
 

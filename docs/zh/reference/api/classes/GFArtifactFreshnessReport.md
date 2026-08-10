@@ -185,7 +185,7 @@ func get_report(options: Dictionary = {}) -> Dictionary:
 
 | 名称 | 说明 |
 |---|---|
-| `options` | 报告选项，支持 include_sha256、include_modified_time、warnings_as_errors、fallback_action 和 no_action。 |
+| `options` | 报告选项，支持 include_sha256、include_modified_time、warnings_as_errors、fallback_action 和 no_action。两个 include 选项只控制输出投影；条目声明的 expected_sha256 与 minimum_modified_time 始终参与校验。 |
 
 返回：GFValidationReportDictionary 兼容报告。
 

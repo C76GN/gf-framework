@@ -33,6 +33,7 @@ enum Operator {
 # --- 常量 ---
 
 const _MAX_RESTORE_DEPTH: int = 128
+const _MAX_MATCH_DEPTH: int = 32
 
 
 # --- 导出变量 ---
@@ -77,6 +78,8 @@ func is_empty() -> bool:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.18.0
+## [br]
 ## @param source: 标签源。
 ## [br]
 ## @schema source: Variant accepted by GFTagSourceAdapter through GFTagQuery.
@@ -91,15 +94,21 @@ func matches(source: Variant) -> bool:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.18.0
+## [br]
 ## @param source: 标签源。
 ## [br]
 ## @schema source: Variant accepted by GFTagSourceAdapter through GFTagQuery.
 ## [br]
 ## @return 匹配报告。
 ## [br]
-## @schema return: Dictionary，包含 ok、operator、query_report、child_reports、matched_indices、failed_indices、reason 等字段。
+## `valid` 表示表达式结构可安全求值，`matched` 表示在结构有效的前提下计算出的
+## 逻辑匹配结果，`ok` 仅在两者都为 true 时为 true。循环、过深嵌套、未知运算符
+## 和无效子项都会失败关闭。
+## [br]
+## @schema return: Dictionary，包含 ok、valid、matched、operator、query_report、child_reports、matched_indices、failed_indices、invalid_indices、reason 等字段。
 func get_match_report(source: Variant) -> Dictionary:
-	return _get_match_report(source, [])
+	return _get_match_report(source, [], 0)
 
 
 ## 配置为叶子查询表达式。
@@ -217,7 +226,10 @@ static func _from_dictionary(data: Dictionary, visited: Array, depth: int) -> GF
 
 	var expression: GFTagExpression = GFTagExpression.new()
 	visited.append(data)
-	expression.operator = _operator_from_variant(GFVariantData.get_option_value(data, "operator", Operator.QUERY))
+	expression.operator = (
+		_operator_from_variant(GFVariantData.get_option_value(data, "operator", Operator.QUERY))
+		as Operator
+	)
 	var query_data: Dictionary = _get_raw_dictionary(data, "query")
 	if not query_data.is_empty():
 		expression.query = GFTagQuery.from_dictionary(query_data)
@@ -301,18 +313,13 @@ func _to_dictionary(visited: Dictionary) -> Dictionary:
 	}
 
 
-func _get_match_report(source: Variant, visited: Array[int]) -> Dictionary:
+func _get_match_report(source: Variant, visited: Array[int], depth: int = 0) -> Dictionary:
+	if depth > _MAX_MATCH_DEPTH:
+		return _make_invalid_match_report("depth_limit_exceeded")
+
 	var instance_id: int = get_instance_id()
 	if visited.has(instance_id):
-		return {
-			"ok": false,
-			"operator": _operator_to_string(operator),
-			"reason": "cycle_detected",
-			"query_report": {},
-			"child_reports": [],
-			"matched_indices": [],
-			"failed_indices": [],
-		}
+		return _make_invalid_match_report("cycle_detected")
 
 	visited.append(instance_id)
 	var report: Dictionary
@@ -320,105 +327,139 @@ func _get_match_report(source: Variant, visited: Array[int]) -> Dictionary:
 		Operator.QUERY:
 			report = _get_query_match_report(source)
 		Operator.ALL:
-			report = _get_children_match_report(source, visited, true, false)
+			report = _get_children_match_report(source, visited, depth, true, false)
 		Operator.ANY:
-			report = _get_children_match_report(source, visited, false, true)
+			report = _get_children_match_report(source, visited, depth, false, true)
 		Operator.NONE:
-			report = _get_none_match_report(source, visited)
+			report = _get_none_match_report(source, visited, depth)
 		_:
-			report = {
-				"ok": false,
-				"operator": "unknown",
-				"reason": "unknown_operator",
-				"query_report": {},
-				"child_reports": [],
-				"matched_indices": [],
-				"failed_indices": [],
-			}
+			report = _make_invalid_match_report("unknown_operator")
 	visited.pop_back()
 	return report
 
 
 func _get_query_match_report(source: Variant) -> Dictionary:
 	var query_report: Dictionary = query.get_match_report(source) if query != null else { "ok": true }
-	var ok: bool = GFVariantData.get_option_bool(query_report, "ok", false)
+	var matched: bool = GFVariantData.get_option_bool(query_report, "ok", false)
 	return {
-		"ok": ok,
+		"ok": matched,
+		"valid": true,
+		"matched": matched,
 		"operator": _operator_to_string(operator),
-		"reason": "" if ok else "query_failed",
+		"reason": "" if matched else "query_failed",
 		"query_report": query_report,
 		"child_reports": [],
 		"matched_indices": [],
 		"failed_indices": [],
+		"invalid_indices": [],
 	}
 
 
 func _get_children_match_report(
 	source: Variant,
 	visited: Array[int],
+	depth: int,
 	require_all: bool,
 	empty_value: bool
 ) -> Dictionary:
 	var child_reports: Array[Dictionary] = []
 	var matched_indices: Array[int] = []
 	var failed_indices: Array[int] = []
+	var invalid_indices: Array[int] = []
 	for index: int in range(expressions.size()):
 		var child: GFTagExpression = _get_expression_at(index)
-		var child_report: Dictionary = _get_null_child_report() if child == null else child._get_match_report(source, visited)
+		var child_report: Dictionary = _get_null_child_report() if child == null else child._get_match_report(source, visited, depth + 1)
 		child_reports.append(child_report)
-		if GFVariantData.get_option_bool(child_report, "ok", false):
+		if not GFVariantData.get_option_bool(child_report, "valid", false):
+			invalid_indices.append(index)
+		if GFVariantData.get_option_bool(child_report, "matched", false):
 			matched_indices.append(index)
 		else:
 			failed_indices.append(index)
 
-	var ok: bool = empty_value if expressions.is_empty() else (
+	var matched: bool = empty_value if expressions.is_empty() else (
 		failed_indices.is_empty() if require_all else not matched_indices.is_empty()
 	)
+	var valid: bool = invalid_indices.is_empty()
+	var ok: bool = valid and matched
 	return {
 		"ok": ok,
+		"valid": valid,
+		"matched": matched,
 		"operator": _operator_to_string(operator),
-		"reason": "" if ok else ("child_failed" if require_all else "no_child_matched"),
+		"reason": (
+			"invalid_child"
+			if not valid
+			else ("" if matched else ("child_failed" if require_all else "no_child_matched"))
+		),
 		"query_report": {},
 		"child_reports": child_reports,
 		"matched_indices": matched_indices,
 		"failed_indices": failed_indices,
+		"invalid_indices": invalid_indices,
 	}
 
 
-func _get_none_match_report(source: Variant, visited: Array[int]) -> Dictionary:
+func _get_none_match_report(source: Variant, visited: Array[int], depth: int) -> Dictionary:
 	var child_reports: Array[Dictionary] = []
 	var matched_indices: Array[int] = []
 	var failed_indices: Array[int] = []
+	var invalid_indices: Array[int] = []
 	for index: int in range(expressions.size()):
 		var child: GFTagExpression = _get_expression_at(index)
-		var child_report: Dictionary = _get_null_child_report() if child == null else child._get_match_report(source, visited)
+		var child_report: Dictionary = _get_null_child_report() if child == null else child._get_match_report(source, visited, depth + 1)
 		child_reports.append(child_report)
-		if GFVariantData.get_option_bool(child_report, "ok", false):
+		if not GFVariantData.get_option_bool(child_report, "valid", false):
+			invalid_indices.append(index)
+		if GFVariantData.get_option_bool(child_report, "matched", false):
 			matched_indices.append(index)
 		else:
 			failed_indices.append(index)
 
-	var ok: bool = matched_indices.is_empty()
+	var matched: bool = matched_indices.is_empty()
+	var valid: bool = invalid_indices.is_empty()
+	var ok: bool = valid and matched
 	return {
 		"ok": ok,
+		"valid": valid,
+		"matched": matched,
 		"operator": _operator_to_string(operator),
-		"reason": "" if ok else "blocked_child_matched",
+		"reason": "invalid_child" if not valid else ("" if matched else "blocked_child_matched"),
 		"query_report": {},
 		"child_reports": child_reports,
 		"matched_indices": matched_indices,
 		"failed_indices": failed_indices,
+		"invalid_indices": invalid_indices,
 	}
 
 
 func _get_null_child_report() -> Dictionary:
 	return {
 		"ok": false,
+		"valid": false,
+		"matched": false,
 		"operator": "null",
 		"reason": "null_expression",
 		"query_report": {},
 		"child_reports": [],
 		"matched_indices": [],
 		"failed_indices": [],
+		"invalid_indices": [],
+	}
+
+
+func _make_invalid_match_report(reason: String) -> Dictionary:
+	return {
+		"ok": false,
+		"valid": false,
+		"matched": false,
+		"operator": _operator_to_string(operator),
+		"reason": reason,
+		"query_report": {},
+		"child_reports": [],
+		"matched_indices": [],
+		"failed_indices": [],
+		"invalid_indices": [],
 	}
 
 
@@ -470,7 +511,7 @@ static func _operator_to_string(value: int) -> String:
 			return "unknown"
 
 
-static func _operator_from_variant(value: Variant) -> Operator:
+static func _operator_from_variant(value: Variant) -> int:
 	if value is int:
 		var numeric: int = GFVariantData.to_int(value, Operator.QUERY)
 		match numeric:
@@ -494,7 +535,7 @@ static func _operator_from_variant(value: Variant) -> Operator:
 		"none":
 			return Operator.NONE
 		_:
-			return Operator.QUERY
+			return -1
 
 
 static func _visited_contains_dictionary(visited: Array, data: Dictionary) -> bool:

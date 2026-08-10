@@ -74,6 +74,62 @@ class ProbeAction:
 		finish_count += 1
 
 
+class CallbackProbeAction:
+	extends GFVisualAction
+
+	var execute_callback: Callable
+	var execute_count: int = 0
+
+	func _init(p_execute_callback: Callable = Callable()) -> void:
+		execute_callback = p_execute_callback
+
+	func execute() -> Variant:
+		execute_count += 1
+		if execute_callback.is_valid():
+			execute_callback.call()
+		return null
+
+
+## 控制 hook 同步反调所属 composite；只反调一次，避免旧实现耗尽调用栈。
+class ReentrantCompositeControlAction:
+	extends GFVisualAction
+
+	signal completed
+
+	var control_owner: Object
+	var cancel_count: int = 0
+	var pause_count: int = 0
+	var resume_count: int = 0
+	var finish_count: int = 0
+	var reenter_cancel: bool = false
+	var reenter_pause: bool = false
+	var reenter_resume: bool = false
+	var reenter_finish: bool = false
+
+	func execute() -> Variant:
+		return completed
+
+	func cancel() -> void:
+		cancel_count += 1
+		if reenter_cancel and cancel_count == 1 and is_instance_valid(control_owner):
+			control_owner.call(&"cancel")
+
+	func pause() -> void:
+		pause_count += 1
+		if reenter_pause and pause_count == 1 and is_instance_valid(control_owner):
+			control_owner.call(&"pause")
+
+	func resume() -> void:
+		resume_count += 1
+		if reenter_resume and resume_count == 1 and is_instance_valid(control_owner):
+			control_owner.call(&"resume")
+
+	func finish() -> void:
+		finish_count += 1
+		if reenter_finish and finish_count == 1 and is_instance_valid(control_owner):
+			control_owner.call(&"finish")
+
+
 func after_each() -> void:
 	if Gf.has_architecture():
 		var arch: GFArchitecture = Gf.get_architecture()
@@ -358,6 +414,42 @@ func test_configured_tween_action_emits_step_markers() -> void:
 	assert_eq(markers, [&"arrived"], "带 marker_id 的步骤完成后应发出 marker_reached。")
 
 
+func test_configured_tween_marker_does_not_serialize_following_parallel_step() -> void:
+	var node: Node2D = Node2D.new()
+	add_child_autofree(node)
+	node.position = Vector2.ZERO
+	node.rotation = 0.0
+
+	var config: GFTweenActionConfig = GFTweenActionConfig.new()
+	var position_step: GFTweenActionStep = config.add_property_step(
+		^"position",
+		Vector2(10.0, 0.0),
+		0.15
+	)
+	position_step.transition_type = Tween.TRANS_LINEAR
+	position_step.ease_type = Tween.EASE_IN_OUT
+	position_step.marker_id = &"position_done"
+	var rotation_step: GFTweenActionStep = config.add_property_step(^"rotation", 1.0, 0.15)
+	rotation_step.transition_type = Tween.TRANS_LINEAR
+	rotation_step.ease_type = Tween.EASE_IN_OUT
+	rotation_step.parallel = true
+
+	var action: GFConfiguredTweenAction = _configured_tween_action(config.create_action(node))
+	var markers: Array[StringName] = []
+	var _connect_result: Error = action.marker_reached.connect(
+		func(marker_id: StringName, _step_index: int, _target: Object) -> void:
+			markers.append(marker_id)
+	) as Error
+	var result: Variant = action.execute()
+	await get_tree().create_timer(0.05).timeout
+
+	assert_gt(node.position.x, 0.0, "第一步应已开始推进。")
+	assert_gt(node.rotation, 0.0, "marker callback 不得把声明 parallel 的第二步推迟到第一步之后。")
+
+	await action.await_result_safely(result)
+	assert_eq(markers, [&"position_done"], "并行拓扑修复后 marker 仍应恰好发出一次。")
+
+
 func test_configured_tween_action_can_restore_initial_values_on_cancel() -> void:
 	var node: Node2D = Node2D.new()
 	add_child_autofree(node)
@@ -386,6 +478,24 @@ func test_tween_action_config_reports_invalid_steps() -> void:
 
 	assert_false(report.is_ok(), "配置校验应复用 GFValidationReport 表达无效步骤。")
 	assert_eq(report.get_error_count(), 1, "缺失属性应产生一个错误。")
+
+
+func test_tween_action_config_rejects_absolute_type_mismatch_before_property_tweener_append() -> void:
+	var node: Node2D = Node2D.new()
+	add_child_autofree(node)
+	var config: GFTweenActionConfig = GFTweenActionConfig.new()
+	var _step: GFTweenActionStep = config.add_property_step(^"position", "not-a-vector", 0.1)
+
+	var report: GFValidationReport = config.get_validation_report(node)
+	assert_false(report.is_ok(), "absolute Tween 的目标类型不兼容时必须在追加 PropertyTweener 前失败。")
+	if report.is_ok():
+		return
+
+	var action: GFVisualAction = config.create_action(node)
+	var result: Variant = action.execute()
+	assert_true(result == null, "无效 absolute step 不应创建可等待 Tween。")
+	assert_eq(node.position, Vector2.ZERO, "无效 absolute step 不得修改目标。")
+	assert_push_warning("[GFTweenActionStep] 跳过无效 Tween 步骤：Tween value type mismatch for property: position")
 
 
 func test_gf_action_factories_create_common_actions() -> void:
@@ -491,6 +601,72 @@ func test_action_group_cancel_releases_sequence_waiters() -> void:
 	await get_tree().process_frame
 
 	assert_true(completed[0], "取消顺序动作组时等待者应被释放。")
+
+
+func test_action_group_pause_resume_hooks_are_non_reentrant() -> void:
+	var action: ReentrantCompositeControlAction = ReentrantCompositeControlAction.new()
+	var group: GFVisualActionGroup = GFAction.sequence([action])
+	action.control_owner = group
+	var _result: Variant = group.execute()
+	await get_tree().process_frame
+
+	action.reenter_pause = true
+	group.pause()
+	assert_eq(action.pause_count, 1, "group pause hook 反调 pause 时不得递归委托。")
+
+	action.reenter_resume = true
+	group.resume()
+	assert_eq(action.resume_count, 1, "group resume hook 反调 resume 时不得递归委托。")
+
+	group.cancel()
+	await get_tree().process_frame
+	action.control_owner = null
+
+
+func test_parallel_group_stops_launching_after_child_cancels_generation() -> void:
+	var group_holder: Array[GFVisualActionGroup] = []
+	var first: CallbackProbeAction = CallbackProbeAction.new(func() -> void:
+		group_holder[0].cancel()
+	)
+	var second: CallbackProbeAction = CallbackProbeAction.new()
+	var group: GFVisualActionGroup = GFAction.parallel([first, second])
+	group_holder.append(group)
+
+	var _result: Variant = group.execute()
+	await get_tree().process_frame
+	await get_tree().process_frame
+
+	assert_eq(first.execute_count, 1, "首个子动作应执行一次。")
+	assert_eq(second.execute_count, 0, "execution serial 失效后不得启动剩余并行兄弟。")
+	group_holder.clear()
+
+
+func test_parallel_group_rejects_duplicate_action_instance_before_side_effects() -> void:
+	var action: CallbackProbeAction = CallbackProbeAction.new()
+	var group: GFVisualActionGroup = GFAction.parallel([action, action])
+
+	var result: Variant = group.execute()
+	assert_true(result == null, "同一动作实例无法隔离两次并行运行，应原子拒绝。")
+	assert_eq(action.execute_count, 0, "重复实例拒绝必须发生在任何 execute 副作用前。")
+	assert_push_error("[GFVisualActionGroup] 并行执行计划包含重复动作实例。")
+
+
+func test_sequence_group_freezes_action_plan_for_current_generation() -> void:
+	var waiting: ManualSignalAction = ManualSignalAction.new()
+	var original_next: ProbeAction = ProbeAction.new()
+	var replacement_next: ProbeAction = ProbeAction.new()
+	var group: GFVisualActionGroup = GFAction.sequence([waiting, original_next])
+	var _result: Variant = group.execute()
+	await get_tree().process_frame
+
+	group.actions.clear()
+	group.actions.append(replacement_next)
+	waiting.complete()
+	await get_tree().process_frame
+	await get_tree().process_frame
+
+	assert_true(original_next.executed, "执行开始时冻结的原计划应完成本轮。")
+	assert_false(replacement_next.executed, "运行期配置修改只能影响下一 generation。")
 
 
 func test_sequence_group_cancel_does_not_touch_unstarted_children() -> void:
@@ -682,6 +858,67 @@ func test_repeat_action_reexecute_cancels_previous_active_action() -> void:
 
 	repeat.cancel()
 	await get_tree().process_frame
+
+
+func test_repeat_factory_cancel_prevents_old_generation_action_start() -> void:
+	var returned_action: CallbackProbeAction = CallbackProbeAction.new()
+	var repeat_holder: Array[GFRepeatAction] = []
+	var repeat: GFRepeatAction = GFAction.repeat(func() -> GFVisualAction:
+		repeat_holder[0].cancel()
+		return returned_action
+	, 1)
+	repeat_holder.append(repeat)
+
+	var _result: Variant = repeat.execute()
+	await get_tree().process_frame
+	await get_tree().process_frame
+
+	assert_eq(returned_action.execute_count, 0, "factory 使 serial 失效后，返回动作不得再启动。")
+	repeat_holder.clear()
+
+
+func test_repeat_control_hooks_are_non_reentrant() -> void:
+	var action: ReentrantCompositeControlAction = ReentrantCompositeControlAction.new()
+	var repeat_holder: Array[GFRepeatAction] = []
+	var repeat: GFRepeatAction = GFAction.repeat(func() -> GFVisualAction:
+		action.control_owner = repeat_holder[0]
+		return action
+	, 1)
+	repeat_holder.append(repeat)
+	var _result: Variant = repeat.execute()
+	await get_tree().process_frame
+
+	action.reenter_pause = true
+	repeat.pause()
+	assert_eq(action.pause_count, 1, "repeat pause hook 反调 pause 时不得递归委托。")
+
+	action.reenter_resume = true
+	repeat.resume()
+	assert_eq(action.resume_count, 1, "repeat resume hook 反调 resume 时不得递归委托。")
+
+	action.reenter_cancel = true
+	repeat.cancel()
+	assert_eq(action.cancel_count, 1, "repeat cancel hook 反调 cancel 时不得重复控制同一动作。")
+	action.control_owner = null
+	repeat_holder.clear()
+
+
+func test_repeat_finish_detaches_before_reentrant_finish_hook() -> void:
+	var action: ReentrantCompositeControlAction = ReentrantCompositeControlAction.new()
+	var repeat_holder: Array[GFRepeatAction] = []
+	var repeat: GFRepeatAction = GFAction.repeat(func() -> GFVisualAction:
+		action.control_owner = repeat_holder[0]
+		return action
+	, 1)
+	repeat_holder.append(repeat)
+	var _result: Variant = repeat.execute()
+	await get_tree().process_frame
+
+	action.reenter_finish = true
+	repeat.finish()
+	assert_eq(action.finish_count, 1, "repeat finish hook 反调 finish 时不得重复控制同一动作。")
+	action.control_owner = null
+	repeat_holder.clear()
 
 
 func test_tween_action_step_apply_instant_relative_vector2() -> void:

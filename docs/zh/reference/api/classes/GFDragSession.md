@@ -209,7 +209,7 @@ func get_source() -> Object:
 func to_dictionary(json_compatible: bool = true) -> Dictionary:
 ```
 
-转换为调试字典。
+转换为调试字典。 JSON 模式直接经过带循环检测和遍历预算的 GFVariantJsonCodec，不会在 codec 前对 metadata 执行无界原生深复制，也不会在编码异常时回退原始对象。
 
 参数：
 

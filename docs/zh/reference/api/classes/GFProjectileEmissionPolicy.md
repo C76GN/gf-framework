@@ -184,7 +184,7 @@ func prepare_emission( emitter: Node, projectile_id: StringName, projectile_cont
 结构：
 
 - `projectile_context`: Dictionary，本次发射上下文；策略会复制后返回，不修改调用方原始字典。
-- `return`: Dictionary，包含 ok、reason、policy_id、projectile_id、requested_count、emit_count、projectile_context、now_msec、remaining_cooldown_seconds、available_charges 和 required_charges。
+- `return`: Dictionary，包含 ok、reason、policy_id、policy_instance_id、policy_state_generation、policy_enabled、projectile_id、requested_count、emit_count、projectile_context、now_msec、remaining_cooldown_seconds、available_charges 和 required_charges。
 
 <a id="member-gfprojectileemissionpolicy-methods-commit_emission"></a>
 
@@ -211,7 +211,7 @@ func commit_emission(emitter: Node, prepare_report: Dictionary, emitted_count: i
 
 结构：
 
-- `prepare_report`: Dictionary，prepare_emission() 返回的报告。
+- `prepare_report`: Dictionary，prepare_emission() 返回的报告；只允许签发策略在同一状态代际提交。
 - `return`: Dictionary，包含 ok、committed、reason、emitted_count、emission_count、available_charges 和 consumed_charges。
 
 <a id="member-gfprojectileemissionpolicy-methods-reset"></a>

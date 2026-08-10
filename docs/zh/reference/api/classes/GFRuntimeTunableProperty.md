@@ -269,12 +269,13 @@ var getter: Callable
 ### `setter`
 
 - API：`public`
+- 首次版本：`11.0.0`
 
 ```gdscript
 var setter: Callable
 ```
 
-可选写入回调，签名为 `func(target: Object, property: GFRuntimeTunableProperty, value: Variant) -> void`。
+可选同步写入回调，签名为 `func(target: Object, property: GFRuntimeTunableProperty, value: Variant) -> void`。 返回 true 只表示回调已被调用；当前 void 契约无法证明外部存储已接受该值。 同一属性的递归 write_value() 会失败关闭。
 
 <a id="member-gfruntimetunableproperty-properties-validator"></a>
 
@@ -388,6 +389,7 @@ func read_value(target: Object) -> Variant:
 ### `write_value`
 
 - API：`public`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func write_value(target: Object, value: Variant) -> bool:
@@ -402,7 +404,7 @@ func write_value(target: Object, value: Variant) -> bool:
 | `target` | 目标对象。 |
 | `value` | 请求写入的值。 |
 
-返回：写入成功返回 true。
+返回：通过校验且完成属性写入或调用自定义 setter 时返回 true；void setter 的实际提交由项目负责。
 
 结构：
 

@@ -580,22 +580,6 @@ func _append_dependency_entries(
 		issues.append(issue)
 
 
-func _validate_archive_path_uniqueness() -> void:
-	var seen: Dictionary = {}
-	for index: int in range(entries.size()):
-		var entry: Dictionary = entries[index]
-		var archive_path: String = GFVariantData.get_option_string(entry, "archive_path")
-		if archive_path.is_empty():
-			continue
-		if seen.has(archive_path):
-			_append_issue("error", _KIND_DUPLICATE_ARCHIVE_PATH, "archive path is duplicated", {
-				"path": archive_path,
-				"row_index": index,
-			})
-			continue
-		seen[archive_path] = true
-
-
 func _append_archive_path_uniqueness_issues(report: Dictionary) -> void:
 	var seen: Dictionary = {}
 	for index: int in range(entries.size()):

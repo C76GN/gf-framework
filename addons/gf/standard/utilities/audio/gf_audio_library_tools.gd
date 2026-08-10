@@ -20,6 +20,8 @@ const _GF_PATH_TOOLS = preload("res://addons/gf/kernel/core/gf_path_tools.gd")
 const _GF_TEXT_SEARCH_SCORER = preload("res://addons/gf/standard/foundation/collections/gf_text_search_scorer.gd")
 
 const _COPY_BUFFER_SIZE: int = 1_048_576
+const _COPY_TEMP_SUFFIX: String = ".gf-copy.tmp"
+const _COPY_BACKUP_SUFFIX: String = ".gf-copy.backup"
 
 ## 默认搜索字段。
 ## [br]
@@ -187,25 +189,73 @@ static func make_import_plan(
 ## @schema plan: Array[Dictionary]，元素包含 source_path、target_path、will_copy 和 reason 字段。
 ## [br]
 ## @schema options: Dictionary，可包含 overwrite: bool、max_copy_files: int 与 max_copy_bytes: int；上限为 0 时表示不限制。
+## [br]
+## 当前纯 GDScript 实现仅适用于调用方独占的可信单写者目录；
+## 每个 target 对应的 `.gf-copy.tmp` 与 `.gf-copy.backup` 名称属于事务保留命名空间。
+## [br]
+## @schema return: GFValidationReport；metadata 包含 planned_copy_count、planned_copy_bytes、copy_preflight_complete、copied_count、skipped_count、error_count、copied_paths、consumed_copy_bytes 和 committed_copy_bytes；恢复或清理失败通过结构化 issue metadata 暴露 deterministic temp/backup path 与 recovery state。
 static func copy_import_plan(plan: Array[Dictionary], options: Dictionary = {}) -> GFValidationReport:
 	var report: GFValidationReport = GFValidationReport.new("GFAudioLibraryTools.copy_import_plan")
 	var overwrite: bool = GFVariantData.get_option_bool(options, "overwrite", false)
 	var max_copy_files: int = maxi(GFVariantData.get_option_int(options, "max_copy_files", DEFAULT_MAX_COPY_FILES), 0)
 	var max_copy_bytes: int = maxi(GFVariantData.get_option_int(options, "max_copy_bytes", DEFAULT_MAX_COPY_BYTES), 0)
 	var planned_copy_count: int = _get_planned_copy_count(plan, overwrite)
-	var planned_copy_bytes: int = _get_planned_copy_bytes(plan, overwrite)
+	var preflight: Dictionary = _build_copy_preflight(plan, overwrite, report)
+	var planned_copy_bytes: int = GFVariantData.get_option_int(
+		preflight,
+		"planned_copy_bytes"
+	)
+	var expected_source_sizes: Array = GFVariantData.get_option_array(
+		preflight,
+		"expected_source_sizes"
+	)
 	var copied_paths: PackedStringArray = PackedStringArray()
 	var copied_count: int = 0
 	var skipped_count: int = 0
 	var error_count: int = 0
+	var copy_state: Dictionary = {
+		"max_bytes": max_copy_bytes,
+		"consumed_bytes": 0,
+		"committed_bytes": 0,
+	}
 
 	_apply_copy_budget_metadata(report, planned_copy_count, planned_copy_bytes, max_copy_files, max_copy_bytes)
-	if not _validate_copy_budget(report, planned_copy_count, planned_copy_bytes, max_copy_files, max_copy_bytes):
-		_finalize_copy_report_metadata(report, copied_count, skipped_count, report.get_error_count(), copied_paths)
+	report.metadata["copy_preflight_complete"] = GFVariantData.get_option_bool(
+		preflight,
+		"ok"
+	)
+	if (
+		not GFVariantData.get_option_bool(preflight, "ok")
+		or not _validate_copy_budget(
+			report,
+			planned_copy_count,
+			planned_copy_bytes,
+			max_copy_files,
+			max_copy_bytes
+		)
+	):
+		_finalize_copy_report_metadata(
+			report,
+			copied_count,
+			skipped_count,
+			report.get_error_count(),
+			copied_paths,
+			copy_state
+		)
 		return report
 
-	for plan_entry: Dictionary in plan:
-		var copy_result: Error = _copy_plan_entry(plan_entry, overwrite, report)
+	for plan_index: int in range(plan.size()):
+		var plan_entry: Dictionary = plan[plan_index]
+		var expected_source_size: int = -1
+		if plan_index < expected_source_sizes.size() and expected_source_sizes[plan_index] is int:
+			expected_source_size = expected_source_sizes[plan_index]
+		var copy_result: Error = _copy_plan_entry(
+			plan_entry,
+			overwrite,
+			report,
+			expected_source_size,
+			copy_state
+		)
 		if copy_result == OK:
 			var target_path: String = GFVariantData.get_option_string(plan_entry, "target_path")
 			_append_packed_string(copied_paths, target_path)
@@ -215,7 +265,14 @@ static func copy_import_plan(plan: Array[Dictionary], options: Dictionary = {}) 
 		else:
 			error_count += 1
 
-	_finalize_copy_report_metadata(report, copied_count, skipped_count, error_count, copied_paths)
+	_finalize_copy_report_metadata(
+		report,
+		copied_count,
+		skipped_count,
+		error_count,
+		copied_paths,
+		copy_state
+	)
 	return report
 
 
@@ -328,7 +385,9 @@ static func _get_plan_skip_reason(
 static func _copy_plan_entry(
 	plan_entry: Dictionary,
 	overwrite: bool,
-	report: GFValidationReport
+	report: GFValidationReport,
+	expected_source_size: int,
+	copy_state: Dictionary
 ) -> Error:
 	var source_path: String = GFVariantData.get_option_string(plan_entry, "source_path")
 	var target_path: String = GFVariantData.get_option_string(plan_entry, "target_path")
@@ -371,15 +430,71 @@ static func _copy_plan_entry(
 		)
 		return ensure_error
 
-	var copy_error: Error = _copy_file(source_path, target_path)
+	var copy_result: Dictionary = _copy_file(
+		source_path,
+		target_path,
+		overwrite,
+		expected_source_size,
+		copy_state
+	)
+	if GFVariantData.get_option_bool(copy_result, "recovered"):
+		_add_report_warning(
+			report,
+			&"copy_transaction_recovered",
+			"Recovered a previous interrupted audio import transaction before copying.",
+			source_path,
+			target_path,
+			GFVariantData.get_option_dictionary(copy_result, "recovery")
+		)
+	var cleanup_error: Error = GFVariantData.get_option_int(
+		copy_result,
+		"cleanup_error",
+		OK
+	) as Error
+	if cleanup_error != OK:
+		_add_report_warning(
+			report,
+			&"copy_backup_cleanup_failed",
+			"Audio import committed, but the previous target backup could not be removed.",
+			source_path,
+			target_path,
+			{
+				"error": cleanup_error,
+				"backup_path": GFVariantData.get_option_string(copy_result, "backup_path"),
+			}
+		)
+	var copy_error: Error = GFVariantData.get_option_int(
+		copy_result,
+		"error",
+		FAILED
+	) as Error
+	var copy_reason: StringName = GFVariantData.get_option_string_name(
+		copy_result,
+		"reason",
+		&"copy_failed"
+	)
+	if copy_error == ERR_ALREADY_EXISTS:
+		_add_report_warning(
+			report,
+			copy_reason,
+			"Audio import target exists after transaction recovery or a concurrent change.",
+			source_path,
+			target_path,
+			copy_result
+		)
+		return ERR_SKIP
 	if copy_error != OK:
 		_add_report_error(
 			report,
-			&"copy_failed",
-			"Audio import file copy failed.",
+			copy_reason,
+			GFVariantData.get_option_string(
+				copy_result,
+				"message",
+				"Audio import file copy failed."
+			),
 			source_path,
 			target_path,
-			{ "error": copy_error }
+			copy_result
 		)
 	return copy_error
 
@@ -392,13 +507,43 @@ static func _get_planned_copy_count(plan: Array[Dictionary], overwrite: bool) ->
 	return count
 
 
-static func _get_planned_copy_bytes(plan: Array[Dictionary], overwrite: bool) -> int:
+static func _build_copy_preflight(
+	plan: Array[Dictionary],
+	overwrite: bool,
+	report: GFValidationReport
+) -> Dictionary:
 	var total_bytes: int = 0
+	var expected_source_sizes: Array[int] = []
+	var ok: bool = true
 	for plan_entry: Dictionary in plan:
 		if not _is_copy_budget_candidate(plan_entry, overwrite):
+			expected_source_sizes.append(-1)
 			continue
-		total_bytes += _get_file_size(GFVariantData.get_option_string(plan_entry, "source_path"))
-	return total_bytes
+		var source_path: String = GFVariantData.get_option_string(plan_entry, "source_path")
+		var target_path: String = GFVariantData.get_option_string(plan_entry, "target_path")
+		var source_size: int = _get_file_size(source_path)
+		expected_source_sizes.append(source_size)
+		if source_size >= 0:
+			total_bytes += source_size
+			continue
+		var issue_kind: StringName = (
+			&"missing_source"
+			if source_path.is_empty() or not _file_exists(source_path)
+			else &"copy_source_preflight_failed"
+		)
+		_add_report_error(
+			report,
+			issue_kind,
+			"Audio import source could not be measured before applying the copy budget.",
+			source_path,
+			target_path
+		)
+		ok = false
+	return {
+		"ok": ok,
+		"planned_copy_bytes": total_bytes,
+		"expected_source_sizes": expected_source_sizes,
+	}
 
 
 static func _is_copy_budget_candidate(plan_entry: Dictionary, overwrite: bool) -> bool:
@@ -409,13 +554,16 @@ static func _is_copy_budget_candidate(plan_entry: Dictionary, overwrite: bool) -
 
 static func _get_file_size(path: String) -> int:
 	if path.is_empty() or not FileAccess.file_exists(path):
-		return 0
+		return -1
 
 	var file: FileAccess = FileAccess.open(path, FileAccess.READ)
 	if file == null:
-		return 0
+		return -1
 	var length: int = file.get_length()
+	var read_error: Error = file.get_error()
 	file.close()
+	if read_error != OK and read_error != ERR_FILE_EOF:
+		return -1
 	return length
 
 
@@ -474,87 +622,346 @@ static func _finalize_copy_report_metadata(
 	copied_count: int,
 	skipped_count: int,
 	error_count: int,
-	copied_paths: PackedStringArray
+	copied_paths: PackedStringArray,
+	copy_state: Dictionary
 ) -> void:
 	report.metadata["copied_count"] = copied_count
 	report.metadata["skipped_count"] = skipped_count
 	report.metadata["error_count"] = error_count
 	report.metadata["copied_paths"] = copied_paths
+	report.metadata["consumed_copy_bytes"] = GFVariantData.get_option_int(
+		copy_state,
+		"consumed_bytes"
+	)
+	report.metadata["committed_copy_bytes"] = GFVariantData.get_option_int(
+		copy_state,
+		"committed_bytes"
+	)
 
 
-static func _copy_file(source_path: String, target_path: String) -> Error:
-	var temp_path: String = _make_copy_sidecar_path(target_path, ".tmp")
-	var backup_path: String = _make_copy_sidecar_path(target_path, ".bak")
-	_remove_file_if_exists(temp_path)
-	_remove_file_if_exists(backup_path)
+static func _copy_file(
+	source_path: String,
+	target_path: String,
+	overwrite: bool,
+	expected_source_size: int,
+	copy_state: Dictionary
+) -> Dictionary:
+	var temp_path: String = target_path + _COPY_TEMP_SUFFIX
+	var backup_path: String = target_path + _COPY_BACKUP_SUFFIX
+	var recovery: Dictionary = _recover_copy_transaction(
+		target_path,
+		temp_path,
+		backup_path
+	)
+	if GFVariantData.get_option_int(recovery, "error", FAILED) != OK:
+		return recovery
+	if _file_exists(target_path) and not overwrite:
+		return {
+			"error": ERR_ALREADY_EXISTS,
+			"reason": &"target_exists_after_recovery",
+			"message": "Audio import target exists after recovering a previous transaction.",
+			"recovered": GFVariantData.get_option_bool(recovery, "recovered"),
+			"recovery": recovery,
+			"temp_path": temp_path,
+			"backup_path": backup_path,
+		}
 
-	var copy_error: Error = _copy_file_to_path(source_path, temp_path)
-	if copy_error != OK:
-		_remove_file_if_exists(temp_path)
-		return copy_error
+	var copy_result: Dictionary = _copy_file_to_path(
+		source_path,
+		temp_path,
+		expected_source_size,
+		copy_state
+	)
+	copy_result["recovered"] = GFVariantData.get_option_bool(recovery, "recovered")
+	copy_result["recovery"] = recovery
+	copy_result["temp_path"] = temp_path
+	copy_result["backup_path"] = backup_path
+	if GFVariantData.get_option_int(copy_result, "error", FAILED) != OK:
+		var temp_cleanup_error: Error = _remove_file_for_copy(temp_path)
+		if temp_cleanup_error != OK:
+			copy_result["temp_cleanup_error"] = temp_cleanup_error
+		return copy_result
 
-	var replace_error: Error = _replace_file_with_backup(temp_path, target_path, backup_path)
-	if replace_error != OK:
-		_remove_file_if_exists(temp_path)
-		return replace_error
+	var replace_result: Dictionary = _replace_file_with_backup(
+		temp_path,
+		target_path,
+		backup_path,
+		overwrite
+	)
+	replace_result["recovered"] = GFVariantData.get_option_bool(recovery, "recovered")
+	replace_result["recovery"] = recovery
+	replace_result["copied_bytes"] = GFVariantData.get_option_int(
+		copy_result,
+		"copied_bytes"
+	)
+	replace_result["temp_path"] = temp_path
+	replace_result["backup_path"] = backup_path
+	if GFVariantData.get_option_int(replace_result, "error", FAILED) != OK:
+		var temp_cleanup_error: Error = _remove_file_for_copy(temp_path)
+		if temp_cleanup_error != OK:
+			replace_result["temp_cleanup_error"] = temp_cleanup_error
+		return replace_result
 
-	_remove_file_if_exists(backup_path)
-	return OK
+	copy_state["committed_bytes"] = (
+		GFVariantData.get_option_int(copy_state, "committed_bytes")
+		+ GFVariantData.get_option_int(copy_result, "copied_bytes")
+	)
+	return replace_result
 
 
-static func _copy_file_to_path(source_path: String, target_path: String) -> Error:
+static func _copy_file_to_path(
+	source_path: String,
+	target_path: String,
+	expected_source_size: int,
+	copy_state: Dictionary
+) -> Dictionary:
 	var source_file: FileAccess = FileAccess.open(source_path, FileAccess.READ)
 	if source_file == null:
-		return FileAccess.get_open_error()
+		return {
+			"error": FileAccess.get_open_error(),
+			"reason": &"copy_source_open_failed",
+			"message": "Audio import source file could not be opened.",
+			"copied_bytes": 0,
+		}
+	var observed_source_size: int = source_file.get_length()
+	if expected_source_size >= 0 and observed_source_size != expected_source_size:
+		source_file.close()
+		return {
+			"error": ERR_FILE_CORRUPT,
+			"reason": &"source_changed",
+			"message": "Audio import source size changed after budget preflight.",
+			"expected_source_size": expected_source_size,
+			"observed_source_size": observed_source_size,
+			"copied_bytes": 0,
+		}
+
+	var max_copy_bytes: int = GFVariantData.get_option_int(copy_state, "max_bytes")
+	var consumed_copy_bytes: int = GFVariantData.get_option_int(
+		copy_state,
+		"consumed_bytes"
+	)
+	if (
+		max_copy_bytes > 0
+		and (
+			consumed_copy_bytes > max_copy_bytes
+			or observed_source_size > max_copy_bytes - consumed_copy_bytes
+		)
+	):
+		source_file.close()
+		return {
+			"error": ERR_OUT_OF_MEMORY,
+			"reason": &"copy_byte_limit_exceeded_during_copy",
+			"message": "Audio import source exceeds the remaining execution-time copy budget.",
+			"expected_source_size": expected_source_size,
+			"observed_source_size": observed_source_size,
+			"remaining_copy_bytes": maxi(max_copy_bytes - consumed_copy_bytes, 0),
+			"copied_bytes": 0,
+		}
 
 	var target_file: FileAccess = FileAccess.open(target_path, FileAccess.WRITE)
 	if target_file == null:
 		source_file.close()
-		return FileAccess.get_open_error()
+		return {
+			"error": FileAccess.get_open_error(),
+			"reason": &"copy_target_open_failed",
+			"message": "Audio import temporary target could not be opened.",
+			"copied_bytes": 0,
+		}
 
-	while source_file.get_position() < source_file.get_length():
-		var remaining_bytes: int = source_file.get_length() - source_file.get_position()
+	var copied_bytes: int = 0
+	while copied_bytes < observed_source_size:
+		var remaining_bytes: int = observed_source_size - copied_bytes
 		var buffer_size: int = mini(_COPY_BUFFER_SIZE, remaining_bytes)
 		var buffer: PackedByteArray = source_file.get_buffer(buffer_size)
-		if buffer.is_empty() and remaining_bytes > 0:
+		copy_state["consumed_bytes"] = (
+			GFVariantData.get_option_int(copy_state, "consumed_bytes")
+			+ buffer.size()
+		)
+		if buffer.size() != buffer_size:
 			source_file.close()
 			target_file.close()
-			return ERR_FILE_CANT_READ
+			return {
+				"error": ERR_FILE_CANT_READ,
+				"reason": &"source_changed",
+				"message": "Audio import source changed or became unreadable during copy.",
+				"expected_source_size": expected_source_size,
+				"observed_source_size": observed_source_size,
+				"copied_bytes": copied_bytes + buffer.size(),
+			}
 
-		var store_result: Variant = target_file.store_buffer(buffer)
-		if store_result is bool and not store_result:
+		var _store_result: Variant = target_file.store_buffer(buffer)
+		var write_error: Error = target_file.get_error()
+		if write_error != OK:
 			source_file.close()
 			target_file.close()
-			return ERR_FILE_CANT_WRITE
+			return {
+				"error": write_error,
+				"reason": &"copy_target_write_failed",
+				"message": "Audio import temporary target could not be written.",
+				"copied_bytes": copied_bytes + buffer.size(),
+			}
+		copied_bytes += buffer.size()
 
+	var final_source_size: int = source_file.get_length()
+	var source_error: Error = source_file.get_error()
+	var target_error: Error = target_file.get_error()
 	source_file.close()
 	target_file.close()
-	return OK
+	if source_error != OK and source_error != ERR_FILE_EOF:
+		return {
+			"error": source_error,
+			"reason": &"copy_source_read_failed",
+			"message": "Audio import source reported a read error.",
+			"copied_bytes": copied_bytes,
+		}
+	if target_error != OK:
+		return {
+			"error": target_error,
+			"reason": &"copy_target_write_failed",
+			"message": "Audio import temporary target reported a write error.",
+			"copied_bytes": copied_bytes,
+		}
+	if final_source_size != observed_source_size:
+		return {
+			"error": ERR_FILE_CORRUPT,
+			"reason": &"source_changed",
+			"message": "Audio import source size changed while it was being copied.",
+			"expected_source_size": expected_source_size,
+			"observed_source_size": observed_source_size,
+			"final_source_size": final_source_size,
+			"copied_bytes": copied_bytes,
+		}
+	return {
+		"error": OK,
+		"reason": &"",
+		"message": "",
+		"expected_source_size": expected_source_size,
+		"observed_source_size": observed_source_size,
+		"copied_bytes": copied_bytes,
+	}
 
 
-static func _replace_file_with_backup(temp_path: String, target_path: String, backup_path: String) -> Error:
+static func _replace_file_with_backup(
+	temp_path: String,
+	target_path: String,
+	backup_path: String,
+	overwrite: bool
+) -> Dictionary:
 	var had_target: bool = _file_exists(target_path)
+	if had_target and not overwrite:
+		return {
+			"error": ERR_ALREADY_EXISTS,
+			"reason": &"target_exists_during_commit",
+			"message": "Audio import target appeared before commit and overwrite is disabled.",
+		}
 	if had_target:
-		var backup_error: Error = DirAccess.rename_absolute(_to_absolute_path(target_path), _to_absolute_path(backup_path))
+		var backup_error: Error = _rename_file_for_copy(target_path, backup_path)
 		if backup_error != OK:
-			return backup_error
+			return {
+				"error": backup_error,
+				"reason": &"copy_backup_failed",
+				"message": "Audio import previous target could not be moved to recovery backup.",
+			}
 
-	var replace_error: Error = DirAccess.rename_absolute(_to_absolute_path(temp_path), _to_absolute_path(target_path))
+	var replace_error: Error = _rename_file_for_copy(temp_path, target_path)
 	if replace_error != OK:
 		if had_target:
-			var _restore_error: Error = DirAccess.rename_absolute(_to_absolute_path(backup_path), _to_absolute_path(target_path))
-		return replace_error
+			var restore_error: Error = _rename_file_for_copy(backup_path, target_path)
+			if restore_error != OK:
+				return {
+					"error": restore_error,
+					"reason": &"copy_commit_rollback_failed",
+					"message": "Audio import commit and previous-target restoration both failed.",
+					"commit_error": replace_error,
+					"restore_error": restore_error,
+					"recovery_state": &"backup_available",
+				}
+		return {
+			"error": replace_error,
+			"reason": &"copy_commit_failed",
+			"message": "Audio import temporary target could not be committed.",
+			"commit_error": replace_error,
+			"recovery_state": &"previous_target_restored" if had_target else &"no_previous_target",
+		}
 
-	return OK
+	var cleanup_error: Error = _remove_file_for_copy(backup_path)
+	return {
+		"error": OK,
+		"reason": &"",
+		"message": "",
+		"cleanup_error": cleanup_error,
+	}
 
 
-static func _make_copy_sidecar_path(target_path: String, suffix: String) -> String:
-	return "%s.gf-copy-%d%s" % [target_path, Time.get_ticks_usec(), suffix]
+static func _recover_copy_transaction(
+	target_path: String,
+	temp_path: String,
+	backup_path: String
+) -> Dictionary:
+	var recovery_actions: PackedStringArray = PackedStringArray()
+	if _file_exists(backup_path):
+		if _file_exists(target_path):
+			var backup_cleanup_error: Error = _remove_file_for_copy(backup_path)
+			if backup_cleanup_error != OK:
+				return {
+					"error": backup_cleanup_error,
+					"reason": &"copy_recovery_cleanup_failed",
+					"message": "A committed audio import backup could not be cleaned up.",
+					"recovery_state": &"target_and_backup_available",
+					"target_path": target_path,
+					"backup_path": backup_path,
+				}
+			_append_packed_string(recovery_actions, "removed_committed_backup")
+		else:
+			var restore_error: Error = _rename_file_for_copy(backup_path, target_path)
+			if restore_error != OK:
+				return {
+					"error": restore_error,
+					"reason": &"copy_recovery_failed",
+					"message": "A previous audio import target could not be restored.",
+					"recovery_state": &"backup_available",
+					"target_path": target_path,
+					"backup_path": backup_path,
+				}
+			_append_packed_string(recovery_actions, "restored_previous_target")
+
+	if _file_exists(temp_path):
+		var temp_cleanup_error: Error = _remove_file_for_copy(temp_path)
+		if temp_cleanup_error != OK:
+			return {
+				"error": temp_cleanup_error,
+				"reason": &"copy_recovery_cleanup_failed",
+				"message": "An interrupted audio import temporary file could not be cleaned up.",
+				"recovery_state": &"temporary_file_available",
+				"target_path": target_path,
+				"temp_path": temp_path,
+				"backup_path": backup_path,
+			}
+		_append_packed_string(recovery_actions, "removed_interrupted_temp")
+
+	return {
+		"error": OK,
+		"reason": &"",
+		"message": "",
+		"recovered": not recovery_actions.is_empty(),
+		"actions": recovery_actions,
+		"target_path": target_path,
+		"temp_path": temp_path,
+		"backup_path": backup_path,
+	}
 
 
-static func _remove_file_if_exists(path: String) -> void:
-	if _file_exists(path):
-		var _remove_result: Error = DirAccess.remove_absolute(_to_absolute_path(path))
+static func _rename_file_for_copy(source_path: String, target_path: String) -> Error:
+	return DirAccess.rename_absolute(
+		_to_absolute_path(source_path),
+		_to_absolute_path(target_path)
+	)
+
+
+static func _remove_file_for_copy(path: String) -> Error:
+	if not _file_exists(path):
+		return OK
+	return DirAccess.remove_absolute(_to_absolute_path(path))
 
 
 static func _make_target_relative_path(entry: Dictionary, options: Dictionary) -> String:

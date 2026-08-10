@@ -26,7 +26,7 @@ const STAGE_ID: String = "gf.config.layout.builtin"
 ## @api public
 ## [br]
 ## @since 9.0.0
-const IMPLEMENTATION_VERSION: int = 2
+const IMPLEMENTATION_VERSION: int = 3
 
 const _DEFAULT_MAX_XLSX_ENTRY_BYTES: int = 8 * 1024 * 1024
 const _DEFAULT_MAX_XLSX_FILE_BYTES: int = 64 * 1024 * 1024
@@ -88,6 +88,10 @@ func decode_source(
 	if not source_path.is_empty():
 		parse_options["source"] = source_path
 
+	var source_receipt: Dictionary = GFVariantData.get_option_dictionary(
+		read_result,
+		"source_receipt"
+	)
 	var parse_result: Dictionary = {}
 	if resolved_format == GFConfigPipelineTableSource.FORMAT_XLSX:
 		if GFVariantData.get_option_string(read_result, "payload_kind") != "file":
@@ -98,7 +102,7 @@ func decode_source(
 				resolved_format,
 				ERR_INVALID_DATA
 			)
-		parse_result = _parse_xlsx_file(source_path, parse_options)
+		parse_result = _parse_xlsx_file(source_path, parse_options, source_receipt)
 	else:
 		if GFVariantData.get_option_string(read_result, "payload_kind") != "text":
 			return _make_layout_failure(
@@ -123,7 +127,9 @@ func decode_source(
 				resolved_format,
 				ERR_FILE_UNRECOGNIZED
 			)
-	return _with_stage_result(parse_result, source_path, resolved_format)
+	var result: Dictionary = _with_stage_result(parse_result, source_path, resolved_format)
+	result["source_receipt"] = source_receipt.duplicate(true)
+	return result
 
 
 ## 返回阶段实现的稳定描述，用于流水线诊断和编译指纹。
@@ -134,13 +140,19 @@ func decode_source(
 ## [br]
 ## @return: 阶段描述。
 ## [br]
-## @schema return: Dictionary，包含 stage_id、implementation_version、input_contract、output_contract 和 supported_formats。
+## @schema return: Dictionary，包含 stage_id、implementation_version、implementation_dependencies、input_contract、output_contract 和 supported_formats。
 func get_stage_descriptor() -> Dictionary:
 	return {
 		"stage_id": STAGE_ID,
 		"implementation_version": IMPLEMENTATION_VERSION,
-		"input_contract": "gf.config_pipeline.reader_result@1",
-		"output_contract": "gf.config_pipeline.layout_result@1",
+		"input_contract": "gf.config_pipeline.reader_result@2",
+		"output_contract": "gf.config_pipeline.layout_result@2",
+		"implementation_dependencies": [
+			"res://addons/gf/kernel/package/gf_bounded_zip_support.gd",
+			"res://addons/gf/tools/config_pipeline/gf_config_pipeline_table_source.gd",
+			"res://addons/gf/standard/utilities/config/gf_config_table_importer.gd",
+			"res://addons/gf/standard/foundation/variant/gf_variant_data.gd",
+		],
 		"supported_formats": ["csv", "json", "config_file", "xlsx"],
 	}
 
@@ -167,7 +179,11 @@ func _with_stage_result(
 	return result
 
 
-func _parse_xlsx_file(path: String, options: Dictionary) -> Dictionary:
+func _parse_xlsx_file(
+	path: String,
+	options: Dictionary,
+	source_receipt: Dictionary = {}
+) -> Dictionary:
 	var file_limit: int = _get_xlsx_limit(options, "max_xlsx_file_bytes", _DEFAULT_MAX_XLSX_FILE_BYTES)
 	var archive_file_limit: int = _resolve_xlsx_archive_file_limit(
 		file_limit
@@ -186,6 +202,12 @@ func _parse_xlsx_file(path: String, options: Dictionary) -> Dictionary:
 	if _is_xlsx_limit_exceeded(file_size, file_limit):
 		return _make_xlsx_parse_failure("XLSX file exceeds max_xlsx_file_bytes.", path)
 
+	var expected_identity: Dictionary = {}
+	if not source_receipt.is_empty():
+		expected_identity = {
+			"size_bytes": GFVariantData.get_option_int(source_receipt, "size_bytes", -1),
+			"sha256": GFVariantData.get_option_string(source_receipt, "sha256"),
+		}
 	var archive_session: Dictionary = _GF_BOUNDED_ZIP_SUPPORT.open_archive(
 		path,
 		{
@@ -221,15 +243,12 @@ func _parse_xlsx_file(path: String, options: Dictionary) -> Dictionary:
 				"max_xlsx_path_depth",
 				_DEFAULT_MAX_XLSX_PATH_DEPTH
 			),
-		}
+		},
+		expected_identity
 	)
 	if not GFVariantData.get_option_bool(archive_session, "ok"):
-		var failed_inspection: Dictionary = GFVariantData.get_option_dictionary(
-			archive_session,
-			"inspection"
-		)
 		return _make_xlsx_parse_failure(
-			_xlsx_archive_inspection_error(failed_inspection),
+			_xlsx_archive_session_error(archive_session),
 			path
 		)
 	var files: PackedStringArray = _GF_BOUNDED_ZIP_SUPPORT.get_files(
@@ -301,7 +320,7 @@ func _parse_xlsx_file(path: String, options: Dictionary) -> Dictionary:
 	)
 	if worksheet_bytes.size() == 0:
 		return _make_xlsx_parse_failure("XLSX worksheet is empty: %s" % worksheet_path, path)
-	return _parse_xlsx_sheet(worksheet_bytes, shared_strings, options)
+	return _parse_xlsx_sheet(worksheet_bytes, shared_strings, options, worksheet_path)
 
 
 func _resolve_xlsx_archive_file_limit(file_limit: int) -> int:
@@ -354,6 +373,13 @@ func _read_xlsx_shared_strings(
 	)
 	if bytes.size() == 0:
 		return _make_xlsx_shared_strings_result(true, result)
+	var structure_error: String = _get_xlsx_xml_structure_error(
+		bytes,
+		"sst",
+		"xl/sharedStrings.xml"
+	)
+	if not structure_error.is_empty():
+		return _make_xlsx_shared_strings_result(false, result, structure_error)
 
 	var parser: XMLParser = XMLParser.new()
 	var open_error: Error = parser.open_buffer(bytes)
@@ -364,7 +390,11 @@ func _read_xlsx_shared_strings(
 	var current_text: String = ""
 	var in_shared_string: bool = false
 	var in_text: bool = false
-	while parser.read() == OK:
+	var read_error: Error = OK
+	while true:
+		read_error = parser.read()
+		if read_error != OK:
+			break
 		var node_type: XMLParser.NodeType = parser.get_node_type()
 		if node_type == XMLParser.NODE_ELEMENT:
 			var node_name: String = parser.get_node_name()
@@ -387,6 +417,12 @@ func _read_xlsx_shared_strings(
 				in_shared_string = false
 				in_text = false
 				current_text = ""
+	if read_error != ERR_FILE_EOF:
+		return _make_xlsx_shared_strings_result(
+			false,
+			result,
+			"XLSX xl/sharedStrings.xml parse failed: %s." % error_string(read_error)
+		)
 	return _make_xlsx_shared_strings_result(true, result)
 
 
@@ -430,7 +466,16 @@ func _read_xlsx_workbook_sheets(
 	if workbook_bytes.size() == 0:
 		return { "success": true, "sheets": [], "error": "" }
 
-	var sheets: Array[Dictionary] = _parse_xlsx_workbook_sheet_entries(workbook_bytes)
+	var sheets_result: Dictionary = _parse_xlsx_workbook_sheet_entries(workbook_bytes)
+	if not GFVariantData.get_option_bool(sheets_result, "success"):
+		return {
+			"success": false,
+			"sheets": [],
+			"error": GFVariantData.get_option_string(sheets_result, "error"),
+		}
+	var sheets: Array[Dictionary] = _get_dictionary_array_value(
+		GFVariantData.get_option_value(sheets_result, "sheets")
+	)
 	var relationships_result: Dictionary = _zip_read_bytes(
 		archive_session,
 		files,
@@ -443,10 +488,20 @@ func _read_xlsx_workbook_sheets(
 			"sheets": [],
 			"error": GFVariantData.get_option_string(relationships_result, "error"),
 		}
-	var relationships: Dictionary = _parse_xlsx_workbook_relationships(
+	var parsed_relationships: Dictionary = _parse_xlsx_workbook_relationships(
 		_get_packed_byte_array_value(
 			GFVariantData.get_option_value(relationships_result, "bytes")
 		)
+	)
+	if not GFVariantData.get_option_bool(parsed_relationships, "success"):
+		return {
+			"success": false,
+			"sheets": [],
+			"error": GFVariantData.get_option_string(parsed_relationships, "error"),
+		}
+	var relationships: Dictionary = GFVariantData.get_option_dictionary(
+		parsed_relationships,
+		"relationships"
 	)
 	for sheet: Dictionary in sheets:
 		var relation_id: String = GFVariantData.get_option_string(sheet, "relation_id")
@@ -456,14 +511,33 @@ func _read_xlsx_workbook_sheets(
 	return { "success": true, "sheets": sheets, "error": "" }
 
 
-func _parse_xlsx_workbook_sheet_entries(bytes: PackedByteArray) -> Array[Dictionary]:
+func _parse_xlsx_workbook_sheet_entries(bytes: PackedByteArray) -> Dictionary:
 	var result: Array[Dictionary] = []
+	var structure_error: String = _get_xlsx_xml_structure_error(
+		bytes,
+		"workbook",
+		"xl/workbook.xml"
+	)
+	if not structure_error.is_empty():
+		return {
+			"success": false,
+			"sheets": result,
+			"error": structure_error,
+		}
 	var parser: XMLParser = XMLParser.new()
 	var open_error: Error = parser.open_buffer(bytes)
 	if open_error != OK:
-		return result
+		return {
+			"success": false,
+			"sheets": result,
+			"error": "XLSX xl/workbook.xml parse failed: %s." % error_string(open_error),
+		}
 
-	while parser.read() == OK:
+	var read_error: Error = OK
+	while true:
+		read_error = parser.read()
+		if read_error != OK:
+			break
 		if parser.get_node_type() != XMLParser.NODE_ELEMENT:
 			continue
 		if parser.get_node_name() != "sheet":
@@ -476,20 +550,45 @@ func _parse_xlsx_workbook_sheet_entries(bytes: PackedByteArray) -> Array[Diction
 			"path": "",
 		}
 		result.append(entry)
-	return result
+	if read_error != ERR_FILE_EOF:
+		return {
+			"success": false,
+			"sheets": result,
+			"error": "XLSX xl/workbook.xml parse failed: %s." % error_string(read_error),
+		}
+	return { "success": true, "sheets": result, "error": "" }
 
 
 func _parse_xlsx_workbook_relationships(bytes: PackedByteArray) -> Dictionary:
 	var result: Dictionary = {}
 	if bytes.size() == 0:
-		return result
+		return { "success": true, "relationships": result, "error": "" }
+	var structure_error: String = _get_xlsx_xml_structure_error(
+		bytes,
+		"Relationships",
+		"xl/_rels/workbook.xml.rels"
+	)
+	if not structure_error.is_empty():
+		return {
+			"success": false,
+			"relationships": result,
+			"error": structure_error,
+		}
 
 	var parser: XMLParser = XMLParser.new()
 	var open_error: Error = parser.open_buffer(bytes)
 	if open_error != OK:
-		return result
+		return {
+			"success": false,
+			"relationships": result,
+			"error": "XLSX xl/_rels/workbook.xml.rels parse failed: %s." % error_string(open_error),
+		}
 
-	while parser.read() == OK:
+	var read_error: Error = OK
+	while true:
+		read_error = parser.read()
+		if read_error != OK:
+			break
 		if parser.get_node_type() != XMLParser.NODE_ELEMENT:
 			continue
 		if parser.get_node_name() != "Relationship":
@@ -499,7 +598,13 @@ func _parse_xlsx_workbook_relationships(bytes: PackedByteArray) -> Dictionary:
 		if relation_id.is_empty():
 			continue
 		result[relation_id] = _get_xml_attribute(parser, "Target")
-	return result
+	if read_error != ERR_FILE_EOF:
+		return {
+			"success": false,
+			"relationships": result,
+			"error": "XLSX xl/_rels/workbook.xml.rels parse failed: %s." % error_string(read_error),
+		}
+	return { "success": true, "relationships": result, "error": "" }
 
 
 func _resolve_xlsx_worksheet_path(
@@ -530,8 +635,19 @@ func _resolve_xlsx_worksheet_path(
 func _parse_xlsx_sheet(
 	bytes: PackedByteArray,
 	shared_strings: PackedStringArray,
-	options: Dictionary
+	options: Dictionary,
+	entry_path: String = "xl/worksheets/sheet.xml"
 ) -> Dictionary:
+	var structure_error: String = _get_xlsx_xml_structure_error(
+		bytes,
+		"worksheet",
+		entry_path
+	)
+	if not structure_error.is_empty():
+		return _make_xlsx_parse_failure(
+			structure_error,
+			GFVariantData.get_option_string(options, "source")
+		)
 	var parser: XMLParser = XMLParser.new()
 	var open_error: Error = parser.open_buffer(bytes)
 	if open_error != OK:
@@ -550,7 +666,11 @@ func _parse_xlsx_sheet(
 	var in_value: bool = false
 	var in_inline_text: bool = false
 
-	while parser.read() == OK:
+	var read_error: Error = OK
+	while true:
+		read_error = parser.read()
+		if read_error != OK:
+			break
 		var node_type: XMLParser.NodeType = parser.get_node_type()
 		if node_type == XMLParser.NODE_ELEMENT:
 			var node_name: String = parser.get_node_name()
@@ -612,6 +732,13 @@ func _parse_xlsx_sheet(
 				})
 				current_cells = {}
 
+	if read_error != ERR_FILE_EOF:
+		return _make_xlsx_parse_failure(
+			"XLSX %s parse failed: %s." % [entry_path, error_string(read_error)],
+			GFVariantData.get_option_string(options, "source"),
+			current_row_number,
+			1
+		)
 	return _xlsx_rows_to_parse_result(rows, options)
 
 
@@ -791,6 +918,80 @@ func _get_xml_attribute_any(parser: XMLParser, attribute_names: PackedStringArra
 	return ""
 
 
+func _get_xlsx_xml_structure_error(
+	bytes: PackedByteArray,
+	expected_root: String,
+	entry_path: String
+) -> String:
+	var parser: XMLParser = XMLParser.new()
+	var open_error: Error = parser.open_buffer(bytes)
+	if open_error != OK:
+		return "XLSX %s parse failed: %s." % [
+			entry_path,
+			error_string(open_error),
+		]
+	var element_stack: PackedStringArray = PackedStringArray()
+	var root_seen: bool = false
+	var root_closed: bool = false
+	var root_was_empty: bool = false
+	var read_error: Error = OK
+	while true:
+		read_error = parser.read()
+		if read_error != OK:
+			break
+		var node_type: XMLParser.NodeType = parser.get_node_type()
+		if node_type == XMLParser.NODE_ELEMENT:
+			var node_name: String = parser.get_node_name()
+			if element_stack.is_empty():
+				if root_seen:
+					return "XLSX %s parse failed: multiple root elements." % entry_path
+				if node_name != expected_root:
+					return "XLSX %s parse failed: expected root %s, got %s." % [
+						entry_path,
+						expected_root,
+						node_name,
+					]
+				root_seen = true
+				root_was_empty = parser.is_empty()
+			if not parser.is_empty():
+				var _element_appended: bool = element_stack.append(node_name)
+			elif element_stack.is_empty():
+				root_closed = true
+		elif node_type == XMLParser.NODE_ELEMENT_END:
+			var end_name: String = parser.get_node_name()
+			if (
+				element_stack.is_empty()
+				or element_stack[element_stack.size() - 1] != end_name
+			):
+				return "XLSX %s parse failed: mismatched closing element %s." % [
+					entry_path,
+					end_name,
+				]
+			element_stack.remove_at(element_stack.size() - 1)
+			if element_stack.is_empty():
+				root_closed = true
+		elif (
+			node_type == XMLParser.NODE_TEXT
+			or node_type == XMLParser.NODE_CDATA
+		):
+			if element_stack.is_empty() and not parser.get_node_data().strip_edges().is_empty():
+				return "XLSX %s parse failed: text outside root element." % entry_path
+	if read_error != ERR_FILE_EOF:
+		return "XLSX %s parse failed: %s." % [
+			entry_path,
+			error_string(read_error),
+		]
+	if not root_seen or not root_closed or not element_stack.is_empty():
+		return "XLSX %s parse failed: incomplete XML document." % entry_path
+	var xml_text: String = bytes.get_string_from_utf8().strip_edges()
+	if root_was_empty:
+		if not xml_text.ends_with("/>"):
+			return "XLSX %s parse failed: trailing or truncated XML content." % entry_path
+	elif not xml_text.ends_with("</%s>" % expected_root):
+		return "XLSX %s parse failed: trailing or truncated XML content." % entry_path
+	return ""
+
+
 func _make_xlsx_parse_failure(
 	message: String,
 	source: String,
@@ -818,7 +1019,16 @@ func _is_xlsx_limit_exceeded(value: int, limit: int) -> bool:
 	return limit > 0 and value > limit
 
 
-func _xlsx_archive_inspection_error(inspection: Dictionary) -> String:
+func _xlsx_archive_session_error(archive_session: Dictionary) -> String:
+	var direct_codes: PackedStringArray = _get_packed_string_array_value(
+		GFVariantData.get_option_value(archive_session, "issue_codes")
+	)
+	if direct_codes.has("archive_identity_mismatch"):
+		return "XLSX source changed after Reader produced its compilation receipt."
+	var inspection: Dictionary = GFVariantData.get_option_dictionary(
+		archive_session,
+		"inspection"
+	)
 	var codes: PackedStringArray = _get_packed_string_array_value(
 		GFVariantData.get_option_value(inspection, "issue_codes")
 	)

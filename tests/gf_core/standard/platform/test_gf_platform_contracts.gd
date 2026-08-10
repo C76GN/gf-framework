@@ -148,6 +148,151 @@ func test_adapter_configuration_requires_complete_descriptors_transactionally() 
 	adapter.shutdown()
 
 
+func test_bridge_request_identity_is_canonical_before_contract_validation() -> void:
+	var adapter: ContractPlatformAdapter = _make_contract_adapter()
+	var _initialized: GFAsyncCompletion = adapter.initialize()
+	var first_request: GFPlatformBridgeRequest = GFPlatformBridgeRequest.new()
+	first_request.request_id = &" canonical_request "
+	first_request.contract_id = &" platform.share "
+	first_request.method_id = &" share "
+	first_request.payload = {"text": "hold"}
+	var first: GFPlatformRequestHandle = adapter.invoke(first_request)
+
+	assert_true(first.is_pending(), "边界应规范化直接写入 Resource 的稳定 ID。")
+	assert_eq(first.get_request().request_id, &"canonical_request")
+	assert_eq(first.get_request().contract_id, &"platform.share")
+	assert_eq(first.get_request().method_id, &"share")
+	var duplicate_handle: GFPlatformRequestHandle = adapter.invoke(
+		_make_share_request(&"canonical_request", "hold")
+	)
+	assert_eq(
+		duplicate_handle.get_result().status,
+		&"duplicate_request_id",
+		"等价 ID 的空白变体不得绕过请求租约身份。"
+	)
+	var invalid_request: GFPlatformBridgeRequest = GFPlatformBridgeRequest.new()
+	invalid_request.request_id = &" invalid_contract_request "
+	invalid_request.contract_id = &" platform.share "
+	invalid_request.method_id = &" share "
+	invalid_request.payload = {}
+	var invalid: GFPlatformRequestHandle = adapter.invoke(invalid_request)
+	assert_eq(
+		invalid.get_result().status,
+		&"invalid_contract_request",
+		"空白变体仍必须经过 schema、能力与预算校验。"
+	)
+	assert_eq(adapter.dispatch_count, 1, "拒绝路径不得派发到底层 Provider。")
+	adapter.shutdown()
+
+
+func test_late_success_releases_cancelled_provider_lease() -> void:
+	var adapter: ContractPlatformAdapter = _make_contract_adapter()
+	var _initialized: GFAsyncCompletion = adapter.initialize()
+	var first: GFPlatformRequestHandle = adapter.invoke(
+		_make_share_request(&"late_success_first", "hold")
+	)
+
+	assert_true(first.cancel(&"user_cancelled"), "测试请求应先进入本地取消终态。")
+	assert_false(
+		adapter.complete_provider_call(first, {"accepted": true}),
+		"迟到成功不得覆盖本地终态。"
+	)
+	var next: GFPlatformRequestHandle = adapter.invoke(
+		_make_share_request(&"late_success_next", "hold")
+	)
+	assert_true(next.is_pending(), "迟到成功确认 Provider 停止后必须释放并发租约。")
+	adapter.shutdown()
+
+
+func test_method_concurrency_identity_is_injective() -> void:
+	var adapter: ContractPlatformAdapter = ContractPlatformAdapter.new()
+	var capabilities: GFPlatformCapabilitySet = GFPlatformCapabilitySet.new().configure(
+		&"sample",
+		PackedStringArray(["share"]),
+		{},
+		&"delimiter_adapter"
+	)
+	var context: GFPlatformRuntimeContext = GFPlatformRuntimeContext.new().configure(
+		&"sample",
+		{
+			"adapter_id": &"delimiter_adapter",
+			"capabilities": capabilities,
+		}
+	)
+	assert_true(adapter.configure(
+		&"delimiter_adapter",
+		&"sample",
+		PackedStringArray(["a::b", "a"]),
+		[
+			_make_share_contract(true, &"a::b", &"c"),
+			_make_share_contract(true, &"a", &"b::c"),
+		],
+		context
+	))
+	var _initialized: GFAsyncCompletion = adapter.initialize()
+	var first: GFPlatformRequestHandle = adapter.invoke(
+		GFPlatformBridgeRequest.new().configure(
+			&"delimiter_first",
+			&"a::b",
+			&"c",
+			{"text": "hold"}
+		)
+	)
+	var second: GFPlatformRequestHandle = adapter.invoke(
+		GFPlatformBridgeRequest.new().configure(
+			&"delimiter_second",
+			&"a",
+			&"b::c",
+			{"text": "hold"}
+		)
+	)
+
+	assert_true(first.is_pending(), "第一组契约/方法身份应占用自己的租约。")
+	assert_true(second.is_pending(), "包含分隔符的不同身份不得碰撞到同一并发计数。")
+	adapter.shutdown()
+
+
+func test_contract_method_definition_rejects_negative_limits() -> void:
+	var method: GFPlatformContractMethodDescriptor = (
+		GFPlatformContractMethodDescriptor.new().configure(
+			&"invalid_limits",
+			{
+				"max_request_bytes": -1,
+				"max_result_bytes": -2,
+				"max_concurrent_requests": -3,
+			}
+		)
+	)
+	var report: GFValidationReport = method.validate_definition()
+	var counts: Dictionary = report.get_issue_counts_by_kind()
+
+	assert_false(report.is_ok(), "负限制不得被静默解释为无限制。")
+	assert_eq(GFVariantData.get_option_int(counts, "negative_max_request_bytes"), 1)
+	assert_eq(GFVariantData.get_option_int(counts, "negative_max_result_bytes"), 1)
+	assert_eq(GFVariantData.get_option_int(counts, "negative_max_concurrent_requests"), 1)
+	var non_canonical_method: GFPlatformContractMethodDescriptor = (
+		GFPlatformContractMethodDescriptor.new()
+	)
+	non_canonical_method.method_id = &" padded_method "
+	assert_eq(
+		GFVariantData.get_option_int(
+			non_canonical_method.validate_definition().get_issue_counts_by_kind(),
+			"non_canonical_method_id"
+		),
+		1,
+		"直接创作的描述符 ID 必须已经是规范形态。"
+	)
+	var non_canonical_contract: GFPlatformContractDescriptor = _make_share_contract()
+	non_canonical_contract.contract_id = &" platform.share "
+	assert_eq(
+		GFVariantData.get_option_int(
+			non_canonical_contract.validate_definition().get_issue_counts_by_kind(),
+			"non_canonical_contract_id"
+		),
+		1
+	)
+
+
 func test_cancel_without_provider_confirmation_keeps_non_cancellable_lease() -> void:
 	var adapter: ContractPlatformAdapter = ContractPlatformAdapter.new()
 	var capabilities: GFPlatformCapabilitySet = GFPlatformCapabilitySet.new().configure(
@@ -212,11 +357,14 @@ func test_platform_debug_snapshots_omit_payload_result_and_context_secrets() -> 
 			"metadata": {"access_token": "context-secret"},
 		}
 	)
+	var descriptor: GFPlatformContractDescriptor = _make_share_contract()
+	descriptor.metadata = {"private": "contract-metadata-secret"}
+	descriptor.methods[0].metadata = {"private": "method-metadata-secret"}
 	assert_true(adapter.configure(
 		&"secret_adapter",
 		&"sample",
 		PackedStringArray(["platform.share"]),
-		[_make_share_contract()],
+		[descriptor],
 		context
 	))
 	assert_true(adapter.set_runtime_clock(clock), "测试应注入零起点时钟。")
@@ -234,6 +382,8 @@ func test_platform_debug_snapshots_omit_payload_result_and_context_secrets() -> 
 	assert_false(pending_debug.contains("private-secret"), "存储物理路径不得进入调试快照。")
 	assert_false(pending_debug.contains("launch-secret"), "启动参数不得进入调试快照。")
 	assert_false(pending_debug.contains("context-secret"), "上下文 metadata 不得进入调试快照。")
+	assert_false(pending_debug.contains("contract-metadata-secret"), "契约自由 metadata 不得进入调试快照。")
+	assert_false(pending_debug.contains("method-metadata-secret"), "方法自由 metadata 不得进入调试快照。")
 	assert_true(
 		adapter.complete_provider_call(
 			handle,
@@ -252,6 +402,25 @@ func test_platform_debug_snapshots_omit_payload_result_and_context_secrets() -> 
 		adapter.complete_provider_call(handle, {"accepted": true}),
 		"重复 Provider 终态不得覆盖首次结果。"
 	)
+	var failed_handle: GFPlatformRequestHandle = adapter.invoke(
+		_make_share_request(&"secret_failure", "hold")
+	)
+	assert_true(
+		adapter.fail_provider_call(
+			failed_handle,
+			&"provider_failed",
+			"raw-provider-error-secret",
+			{"token": "failure-metadata-secret"}
+		),
+		"Provider 失败应完成第二个请求。"
+	)
+	var failed_debug: Dictionary = failed_handle.get_debug_snapshot()
+	var failed_debug_text: String = JSON.stringify(failed_debug)
+	var result_debug: Dictionary = GFVariantData.get_option_dictionary(failed_debug, "result")
+	assert_false(failed_debug_text.contains("raw-provider-error-secret"), "原始错误文本不得进入调试快照。")
+	assert_false(failed_debug_text.contains("failure-metadata-secret"), "失败 metadata 不得进入调试快照。")
+	assert_eq(GFVariantData.get_option_string_name(result_debug, "status"), &"provider_failed")
+	assert_true(GFVariantData.get_option_bool(result_debug, "has_error"), "快照应保留非敏感失败事实。")
 	adapter.shutdown()
 
 
@@ -317,6 +486,47 @@ func test_activation_intents_are_deduplicated_bounded_and_replayable() -> void:
 		"确认应移除指定 Adapter 的意图。"
 	)
 	assert_true(runtime.get_activation_intents().is_empty(), "消费完成后队列应为空。")
+	runtime.dispose()
+
+
+func test_activation_intent_identity_is_injective_across_adapters() -> void:
+	var runtime: GFPlatformRuntime = GFPlatformRuntime.new()
+	var first_adapter: ContractPlatformAdapter = _make_contract_adapter(&"a::b")
+	var second_adapter: ContractPlatformAdapter = _make_contract_adapter(&"a")
+	assert_true(runtime.register_adapter(first_adapter))
+	assert_true(runtime.register_adapter(second_adapter))
+	var _first_initialized: GFAsyncCompletion = runtime.initialize_adapter(&"a::b")
+	var _second_initialized: GFAsyncCompletion = runtime.initialize_adapter(&"a")
+
+	assert_true(first_adapter.publish_intent(&"c", "room-1"))
+	assert_true(second_adapter.publish_intent(&"b::c", "room-2"))
+	var pending_intents: Array[GFPlatformActivationIntent] = runtime.get_activation_intents()
+	assert_eq(pending_intents.size(), 2, "包含分隔符的不同 Adapter/Intent 身份不得互相覆盖。")
+	assert_eq(pending_intents[0].adapter_id, &"a::b")
+	assert_eq(pending_intents[1].adapter_id, &"a")
+	runtime.dispose()
+
+
+func test_pending_activation_intent_cannot_be_evicted_from_dedupe_identity() -> void:
+	var runtime: GFPlatformRuntime = GFPlatformRuntime.new()
+	var adapter: ContractPlatformAdapter = _make_contract_adapter()
+	assert_true(runtime.configure_activation_queue(2, 2))
+	assert_true(runtime.register_adapter(adapter))
+	var _initialized: GFAsyncCompletion = runtime.initialize_adapter(&"contract_adapter")
+	watch_signals(runtime)
+
+	assert_true(adapter.publish_intent(&"pending_a", "room-a"))
+	assert_true(adapter.publish_intent(&"consumed_b", "room-b"))
+	assert_not_null(runtime.consume_activation_intent(&"contract_adapter", &"consumed_b"))
+	assert_true(adapter.publish_intent(&"recent_c", "room-c"))
+	assert_true(adapter.publish_intent(&"pending_a", "room-a-replayed"))
+	var pending_intents: Array[GFPlatformActivationIntent] = runtime.get_activation_intents()
+
+	assert_eq(pending_intents.size(), 2)
+	assert_eq(pending_intents[0].intent_id, &"pending_a", "仍待消费的旧意图不得被重放替换。")
+	assert_eq(pending_intents[1].intent_id, &"recent_c")
+	assert_signal_emit_count(runtime, "activation_intent_received", 3)
+	assert_signal_emit_count(runtime, "activation_intent_dropped", 1)
 	runtime.dispose()
 
 
@@ -386,7 +596,9 @@ func _make_contract_adapter(
 
 
 func _make_share_contract(
-	supports_cancellation: bool = true
+	supports_cancellation: bool = true,
+	contract_id: StringName = &"platform.share",
+	method_id: StringName = &"share"
 ) -> GFPlatformContractDescriptor:
 	var request_schema: GFDictionarySchema = GFDictionarySchema.new().configure(
 		&"platform_share_request",
@@ -416,7 +628,7 @@ func _make_share_contract(
 	)
 	var method: GFPlatformContractMethodDescriptor = (
 		GFPlatformContractMethodDescriptor.new().configure(
-			&"share",
+			method_id,
 			{
 				"request_schema": request_schema,
 				"result_schema": result_schema,
@@ -430,7 +642,7 @@ func _make_share_contract(
 		)
 	)
 	return GFPlatformContractDescriptor.new().configure(
-		&"platform.share",
+		contract_id,
 		"1.0.0",
 		[method]
 	)
@@ -456,6 +668,7 @@ func _make_share_request(
 
 class ContractPlatformAdapter extends GFPlatformAdapter:
 	var cancel_count: int = 0
+	var dispatch_count: int = 0
 	var reenter_on_cancel: bool = false
 	var reentrant_status: StringName = &""
 
@@ -468,6 +681,14 @@ class ContractPlatformAdapter extends GFPlatformAdapter:
 		metadata: Dictionary = {}
 	) -> bool:
 		return _succeed_request(handle, value, &"ok", metadata)
+
+	func fail_provider_call(
+		handle: GFPlatformRequestHandle,
+		status: StringName,
+		error: String,
+		metadata: Dictionary = {}
+	) -> bool:
+		return _fail_request(handle, status, error, metadata)
 
 	func publish_intent(intent_id: StringName, lobby_id: String) -> bool:
 		return _publish_activation_intent(
@@ -483,6 +704,7 @@ class ContractPlatformAdapter extends GFPlatformAdapter:
 		request: GFPlatformBridgeRequest,
 		handle: GFPlatformRequestHandle
 	) -> bool:
+		dispatch_count += 1
 		var text: String = GFVariantData.get_option_string(request.payload, "text")
 		if text == "hold":
 			return true

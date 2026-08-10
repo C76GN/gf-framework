@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFSourceTextPatchTools" path="addons/gf/standard/foundation/text/gf_source_text_patch_tools.gd" module="standard" extends="RefCounted" classDigest="5f5bb3f5214edae706317329dd8322c1253df827c3638251138ccd1c39890147">
+<class name="GFSourceTextPatchTools" path="addons/gf/standard/foundation/text/gf_source_text_patch_tools.gd" module="standard" extends="RefCounted" classDigest="15f97b32debd07ed9b2347799580527bb35a3d019068f9e017c816a0624836fe">
 	<description>GFSourceTextPatchTools: 源码文本范围补丁工具。
 用于把编辑器工具、生成器或迁移脚本产生的 line/character 范围 edit 应用到
 单个文本字符串。范围形状可与 LSP text edit 相同，但 character 使用 Godot String
@@ -102,7 +102,7 @@ character 按 Godot String 字符索引计算，不是 UTF-8 字节偏移，也�
 		<member kind="method" name="apply_text_edits">
 			<signature>static func apply_text_edits(source_text: String, edits: Array, options: Dictionary = {}) -&gt; Dictionary:</signature>
 			<description>应用文本 edit 集合。
-edit 会先按原始文本范围校验并按 offset 倒序应用，因此调用方不需要预先排序。
+edit 会先按原始文本范围校验，再按原始 offset 升序单次组装结果，因此调用方不需要预先排序。
 范围字段可使用 LSP-shaped 字典，但 character 始终是 Godot String 字符索引。
 如果存在越界、重叠或结构错误，返回 ok=false，text 保持为原始文本。</description>
 			<tags>

@@ -1,8 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFRuntimeTaskGroup" path="addons/gf/standard/sequence/gf_runtime_task_group.gd" module="standard" extends="GFRuntimeTask" classDigest="80efb9cd6ef6bb10bda8ae8db88ed5ac659cc94ff1d068aca92f78772ff29b07">
+<class name="GFRuntimeTaskGroup" path="addons/gf/standard/sequence/gf_runtime_task_group.gd" module="standard" extends="GFRuntimeTask" classDigest="6111da413bbb2e54c254ff7e77b42ae5279928944d6a9b3388059c6c1fc37142">
 	<description>组合多个运行时任务的复合任务。
 任务组用于把多个 [GFRuntimeTask] 编排为顺序、等待全部或等待任一完成的流程。
-子任务在组内部推进，不会单独注册到外层调度器；外层调度器只看到一个占用聚合后的任务。</description>
+子任务在组内部推进，不会单独注册到外层调度器；外层调度器只看到一个占用聚合后的任务。
+子任务必须构成有界、无环且无重复实例的树；外层组进入调度器时会原子预留并冻结全部后代，
+直到各后代完成或任务组结束。</description>
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">runtime_handle</tag>
@@ -44,6 +46,54 @@
 				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
+		<member kind="const" name="REJECTION_TASK_GRAPH_CYCLE">
+			<signature>const REJECTION_TASK_GRAPH_CYCLE: StringName = &amp;"group_task_graph_cycle"</signature>
+			<description>子任务图包含 self-cycle 或祖先回边时的拒绝原因。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="REJECTION_TASK_GRAPH_REUSED">
+			<signature>const REJECTION_TASK_GRAPH_REUSED: StringName = &amp;"group_task_graph_reused"</signature>
+			<description>同一任务实例从子任务图中的多个位置可达时的拒绝原因。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="REJECTION_TASK_GRAPH_LIMIT">
+			<signature>const REJECTION_TASK_GRAPH_LIMIT: StringName = &amp;"group_task_graph_limit"</signature>
+			<description>子任务图超过框架有界遍历预算时的拒绝原因。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="REJECTION_INVALID_MODE">
+			<signature>const REJECTION_INVALID_MODE: StringName = &amp;"group_invalid_mode"</signature>
+			<description>子任务组模式不属于 [enum Mode] 闭合集合时的拒绝原因。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="MAX_TASK_GRAPH_DEPTH">
+			<signature>const MAX_TASK_GRAPH_DEPTH: int = 256</signature>
+			<description>子任务树允许的最大嵌套深度；根任务组深度为 0。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="MAX_TASK_GRAPH_NODES">
+			<signature>const MAX_TASK_GRAPH_NODES: int = 4096</signature>
+			<description>单个任务组调度树允许的最大任务实例数，包含根任务组。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
 	</constants>
 	<properties>
 		<member kind="property" name="cancel_remaining_on_finish">
@@ -74,7 +124,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="category">config</tag>
-				<tag name="param">next_tasks: 新的子任务列表；不接受空值、重复实例或已调度任务。</tag>
+				<tag name="param">next_tasks: 新的子任务列表；不接受空值、重复/循环/超限图或已调度任务。</tag>
 				<tag name="return">全部校验通过并完成替换时返回 true。</tag>
 				<tag name="since">8.0.0</tag>
 			</tags>

@@ -384,7 +384,7 @@ static func has_line_of_sight( from_cell: Vector2i, to_cell: Vector2i, is_blocki
 |---|---|
 | `from_cell` | 起点格子。 |
 | `to_cell` | 终点格子。 |
-| `is_blocking` | 阻挡回调，签名为 `func(cell: Vector2i) -> bool`。 |
+| `is_blocking` | 阻挡回调，签名为 \`func(cell: Vector2i) -> bool\`。 |
 | `include_endpoints` | 是否检查起点与终点是否阻挡。 |
 
 返回：没有阻挡时返回 true；阻挡回调无效时也返回 true。
@@ -408,7 +408,7 @@ static func flood_fill( grid_size: Vector2i, start: Vector2i, is_match: Callable
 |---|---|
 | `grid_size` | 网格尺寸。 |
 | `start` | 起点格子。 |
-| `is_match` | 匹配回调，签名为 `func(cell: Vector2i) -> bool`。 |
+| `is_match` | 匹配回调，签名为 \`func(cell: Vector2i) -> bool\`。 |
 | `include_diagonal` | 是否允许斜向连通。 |
 
 返回：连通格子列表。

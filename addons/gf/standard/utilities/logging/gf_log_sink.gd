@@ -49,6 +49,17 @@ func write(_entry: Dictionary) -> void:
 	pass
 
 
+## 推进依赖时间的 sink 行为。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param _delta: 本帧时间增量（秒）。
+func tick(_delta: float) -> void:
+	pass
+
+
 ## 刷新尚未写出的缓冲。
 ## [br]
 ## @api public

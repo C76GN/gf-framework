@@ -120,6 +120,7 @@ static func from_int(value: int) -> GFBigNumber:
 ### `from_float`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 static func from_float(value: float) -> GFBigNumber:
@@ -133,7 +134,7 @@ static func from_float(value: float) -> GFBigNumber:
 |---|---|
 | `value` | 原始浮点数。 |
 
-返回：归一化后的大数实例。
+返回：归一化后的大数实例；任意有限非零 float 都会保留为非零量级。
 
 <a id="member-gfbignumber-methods-from_string"></a>
 
@@ -200,6 +201,7 @@ func clone() -> GFBigNumber:
 ### `is_zero`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func is_zero() -> bool:
@@ -207,7 +209,7 @@ func is_zero() -> bool:
 
 当前值是否为零。
 
-返回：为零时返回 true。
+返回：规范尾数精确为零时返回 true；容差比较应由调用方在业务边界显式处理。
 
 <a id="member-gfbignumber-methods-is_negative"></a>
 

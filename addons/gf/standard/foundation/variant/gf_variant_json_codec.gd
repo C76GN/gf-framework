@@ -67,6 +67,10 @@ const _FLOAT_TYPE_NAME: String = "Float"
 const _FLOAT_NAN_TEXT: String = "NaN"
 const _FLOAT_POSITIVE_INF_TEXT: String = "INF"
 const _FLOAT_NEGATIVE_INF_TEXT: String = "-INF"
+const _TRAVERSAL_LIMIT_TYPE_NAME: String = "TraversalLimit"
+const _DEFAULT_MAX_DEPTH: int = 64
+const _DEFAULT_MAX_NODES: int = 16_384
+const _DEFAULT_MAX_COLLECTION_ITEMS: int = 65_536
 
 
 # --- 公共方法 ---
@@ -75,38 +79,50 @@ const _FLOAT_NEGATIVE_INF_TEXT: String = "-INF"
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param value: 待转换的 Variant。
 ## [br]
-## @param options: 可选项；encode_dictionary_keys 为 true 时会保留非字符串字典键；encode_unsafe_ints 为 false 时不标记超出 JSON 安全范围的整数。
+## @param options: 可选项；encode_dictionary_keys 为 true 时会保留非字符串字典键；encode_unsafe_ints 为 false 时不标记超出 JSON 安全范围的整数；max_depth、max_nodes 和 max_collection_items 控制递归工作预算，小于等于 0 表示不限制。
 ## [br]
 ## @return JSON 兼容值；Godot 专有类型会带类型标记。
 ## [br]
 ## @schema value: Variant value to encode.
 ## [br]
-## @schema options: Dictionary with encode_dictionary_keys, encode_unsafe_ints, unsupported, and circular_reference options.
+## @schema options: Dictionary with encode_dictionary_keys, encode_unsafe_ints, unsupported, circular_reference, max_depth, max_nodes, and max_collection_items options.
 ## [br]
-## @schema return: Variant made only from JSON-compatible values and typed marker dictionaries.
+## @schema return: Variant made only from JSON-compatible values and typed marker dictionaries; traversal exhaustion returns a top-level TraversalLimit marker.
 static func variant_to_json_compatible(value: Variant, options: Dictionary = {}) -> Variant:
-	return _variant_to_json_compatible(value, options, [])
+	var traversal_state: Dictionary = _make_traversal_state(options)
+	var encoded: Variant = _variant_to_json_compatible(value, options, [], 0, traversal_state)
+	if _is_traversal_exhausted(traversal_state):
+		return _make_traversal_limit_marker(traversal_state)
+	return encoded
 
 
 ## 从 variant_to_json_compatible() 生成的值恢复 Godot Variant。
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param value: JSON.parse_string() 后的值。
 ## [br]
-## @param options: 可选项；decode_typed_markers 为 false 时只递归恢复集合。
+## @param options: 可选项；decode_typed_markers 为 false 时只递归恢复集合；max_depth、max_nodes 和 max_collection_items 控制递归工作预算，小于等于 0 表示不限制；traversal_limit 指定超限返回值。
 ## [br]
 ## @return 恢复后的 Variant。
 ## [br]
 ## @schema value: Variant parsed from JSON-compatible data.
 ## [br]
-## @schema options: Dictionary with decode_typed_markers and key decoding options.
+## @schema options: Dictionary with decode_typed_markers, key decoding, max_depth, max_nodes, max_collection_items, and traversal_limit options.
 ## [br]
-## @schema return: Variant restored from JSON-compatible data.
+## @schema return: Variant restored from JSON-compatible data, or the traversal_limit fallback when traversal is incomplete.
 static func json_compatible_to_variant(value: Variant, options: Dictionary = {}) -> Variant:
-	return _json_compatible_to_variant(value, options, [])
+	var traversal_state: Dictionary = _make_traversal_state(options)
+	var decoded: Variant = _json_compatible_to_variant(value, options, [], 0, traversal_state)
+	if _is_traversal_exhausted(traversal_state):
+		return _make_traversal_limit_fallback(options)
+	return decoded
 
 
 ## 将任意 Variant 转为 JSON 兼容值后序列化为文本。
@@ -127,7 +143,7 @@ static func json_compatible_to_variant(value: Variant, options: Dictionary = {})
 ## [br]
 ## @schema value: Variant value to encode before JSON.stringify().
 ## [br]
-## @schema options: Dictionary with encode_dictionary_keys, encode_unsafe_ints, unsupported, and circular_reference options.
+## @schema options: Dictionary with encode_dictionary_keys, encode_unsafe_ints, unsupported, circular_reference, max_depth, max_nodes, and max_collection_items options.
 static func stringify_json_compatible(
 	value: Variant,
 	indent: String = "",
@@ -154,7 +170,7 @@ static func stringify_json_compatible(
 ## [br]
 ## @schema fallback: Variant returned unchanged when JSON parsing fails.
 ## [br]
-## @schema options: Dictionary with decode_typed_markers and key decoding options.
+## @schema options: Dictionary with decode_typed_markers, key decoding, max_depth, max_nodes, max_collection_items, and traversal_limit options.
 ## [br]
 ## @schema return: Variant restored from GF JSON-compatible data, or fallback on parse error.
 static func parse_json_compatible_text(
@@ -345,15 +361,28 @@ static func array_to_color(value: Variant, fallback: Color = Color.WHITE) -> Col
 
 # --- 私有/辅助方法 ---
 
-static func _json_compatible_to_variant(value: Variant, options: Dictionary, visited: Array) -> Variant:
+static func _json_compatible_to_variant(
+	value: Variant,
+	options: Dictionary,
+	visited: Array,
+	depth: int,
+	traversal_state: Dictionary
+) -> Variant:
+	if not _consume_traversal_node(depth, traversal_state):
+		return _make_traversal_limit_fallback(options)
 	if value is Array:
 		if _visited_contains_reference(visited, value):
 			return GFVariantData.get_option_value(options, "circular_reference", "<circular_reference>")
 		visited.append(value)
 		var array: Array = value
+		if not _consume_collection_items(array.size(), traversal_state):
+			var _removed_limited_array_reference: Variant = visited.pop_back()
+			return _make_traversal_limit_fallback(options)
 		var result_array: Array = []
 		for item: Variant in array:
-			result_array.append(_json_compatible_to_variant(item, options, visited))
+			result_array.append(_json_compatible_to_variant(item, options, visited, depth + 1, traversal_state))
+			if _is_traversal_exhausted(traversal_state):
+				break
 		var _removed_array_reference: Variant = visited.pop_back()
 		return result_array
 
@@ -362,14 +391,31 @@ static func _json_compatible_to_variant(value: Variant, options: Dictionary, vis
 			return GFVariantData.get_option_value(options, "circular_reference", "<circular_reference>")
 		visited.append(value)
 		var dictionary: Dictionary = value
+		if not _consume_collection_items(dictionary.size(), traversal_state):
+			var _removed_limited_dictionary_reference: Variant = visited.pop_back()
+			return _make_traversal_limit_fallback(options)
 		if GFVariantData.get_option_bool(options, "decode_typed_markers", true) and _is_json_typed_value(dictionary):
-			var typed_value: Variant = _json_typed_value_to_variant(dictionary, options)
+			var typed_value: Variant = _json_typed_value_to_variant(
+				dictionary,
+				options,
+				visited,
+				depth,
+				traversal_state
+			)
 			var _removed_typed_reference: Variant = visited.pop_back()
 			return typed_value
 
 		var result_dictionary: Dictionary = {}
 		for key: Variant in dictionary.keys():
-			result_dictionary[key] = _json_compatible_to_variant(dictionary[key], options, visited)
+			result_dictionary[key] = _json_compatible_to_variant(
+				dictionary[key],
+				options,
+				visited,
+				depth + 1,
+				traversal_state
+			)
+			if _is_traversal_exhausted(traversal_state):
+				break
 		var _removed_dictionary_reference: Variant = visited.pop_back()
 		return result_dictionary
 
@@ -582,7 +628,18 @@ static func _variant_to_packed_vector4_array(value: Variant) -> PackedVector4Arr
 	return PackedVector4Array()
 
 
-static func _variant_to_json_compatible(value: Variant, options: Dictionary, visited: Array) -> Variant:
+static func _variant_to_json_compatible(
+	value: Variant,
+	options: Dictionary,
+	visited: Array,
+	depth: int,
+	traversal_state: Dictionary
+) -> Variant:
+	if not _consume_traversal_node(depth, traversal_state):
+		return null
+	var collection_size: int = _get_collection_size(value)
+	if collection_size >= 0 and not _consume_collection_items(collection_size, traversal_state):
+		return null
 	match typeof(value):
 		TYPE_NIL, TYPE_BOOL, TYPE_STRING:
 			return value
@@ -651,7 +708,15 @@ static func _variant_to_json_compatible(value: Variant, options: Dictionary, vis
 			var array_value: Array = value
 			var result_array: Array = []
 			for item: Variant in array_value:
-				result_array.append(_variant_to_json_compatible(item, options, visited))
+				result_array.append(_variant_to_json_compatible(
+					item,
+					options,
+					visited,
+					depth + 1,
+					traversal_state
+				))
+				if _is_traversal_exhausted(traversal_state):
+					break
 			var _removed_array_reference: Variant = visited.pop_back()
 			return result_array
 		TYPE_DICTIONARY:
@@ -659,7 +724,13 @@ static func _variant_to_json_compatible(value: Variant, options: Dictionary, vis
 				return _make_circular_reference_value(options)
 			visited.append(value)
 			var dictionary_value: Dictionary = value
-			var result_dictionary: Variant = _dictionary_to_json_compatible(dictionary_value, options, visited)
+			var result_dictionary: Variant = _dictionary_to_json_compatible(
+				dictionary_value,
+				options,
+				visited,
+				depth,
+				traversal_state
+			)
 			var _removed_dictionary_reference: Variant = visited.pop_back()
 			return result_dictionary
 		TYPE_PACKED_BYTE_ARRAY:
@@ -711,39 +782,88 @@ static func _is_json_typed_value(value: Dictionary) -> bool:
 	)
 
 
-static func _dictionary_to_json_compatible(value: Dictionary, options: Dictionary, visited: Array) -> Variant:
+static func _dictionary_to_json_compatible(
+	value: Dictionary,
+	options: Dictionary,
+	visited: Array,
+	depth: int,
+	traversal_state: Dictionary
+) -> Variant:
 	if GFVariantData.get_option_bool(options, "encode_dictionary_keys", false):
-		return _make_json_typed_value("Dictionary", _dictionary_entries_to_json_compatible(value, options, visited))
+		return _make_json_typed_value(
+			"Dictionary",
+			_dictionary_entries_to_json_compatible(value, options, visited, depth, traversal_state)
+		)
 
 	var result: Dictionary = {}
 	var seen_json_keys: Dictionary = {}
 	for key: Variant in value.keys():
 		var json_key: String = _json_key_to_string(key)
 		if seen_json_keys.has(json_key):
-			return _make_json_typed_value("Dictionary", _dictionary_entries_to_json_compatible(value, options, visited))
+			return _make_json_typed_value(
+				"Dictionary",
+				_dictionary_entries_to_json_compatible(value, options, visited, depth, traversal_state)
+			)
 		seen_json_keys[json_key] = true
-		result[json_key] = _variant_to_json_compatible(value[key], options, visited)
+		result[json_key] = _variant_to_json_compatible(
+			value[key],
+			options,
+			visited,
+			depth + 1,
+			traversal_state
+		)
+		if _is_traversal_exhausted(traversal_state):
+			return null
 	if _is_json_typed_value(result):
 		return result
 	if _has_reserved_marker_shape(result):
-		return _make_json_typed_value("Dictionary", _dictionary_entries_to_json_compatible(value, options, visited))
+		return _make_json_typed_value(
+			"Dictionary",
+			_dictionary_entries_to_json_compatible(value, options, visited, depth, traversal_state)
+		)
 	return result
 
 
-static func _dictionary_entries_to_json_compatible(value: Dictionary, options: Dictionary, visited: Array) -> Array[Dictionary]:
+static func _dictionary_entries_to_json_compatible(
+	value: Dictionary,
+	options: Dictionary,
+	visited: Array,
+	depth: int,
+	traversal_state: Dictionary
+) -> Array[Dictionary]:
 	var entries: Array[Dictionary] = []
 	for key: Variant in value.keys():
 		entries.append({
-			"key": _dictionary_key_to_json_compatible(key, options, visited),
-			"value": _variant_to_json_compatible(value[key], options, visited),
+			"key": _dictionary_key_to_json_compatible(
+				key,
+				options,
+				visited,
+				depth + 1,
+				traversal_state
+			),
+			"value": _variant_to_json_compatible(
+				value[key],
+				options,
+				visited,
+				depth + 1,
+				traversal_state
+			),
 		})
+		if _is_traversal_exhausted(traversal_state):
+			break
 	return entries
 
 
-static func _dictionary_key_to_json_compatible(key: Variant, options: Dictionary, visited: Array) -> Variant:
+static func _dictionary_key_to_json_compatible(
+	key: Variant,
+	options: Dictionary,
+	visited: Array,
+	depth: int,
+	traversal_state: Dictionary
+) -> Variant:
 	if typeof(key) == TYPE_INT:
 		return _make_json_typed_value("Int64", str(_number_to_int(key)))
-	return _variant_to_json_compatible(key, options, visited)
+	return _variant_to_json_compatible(key, options, visited, depth, traversal_state)
 
 
 static func _make_circular_reference_value(options: Dictionary) -> Variant:
@@ -767,14 +887,153 @@ static func _visited_contains_reference(visited: Array, value: Variant) -> bool:
 	return false
 
 
-static func _json_typed_value_to_variant(value: Dictionary, options: Dictionary) -> Variant:
+static func _make_traversal_state(options: Dictionary) -> Dictionary:
+	return {
+		"max_depth": maxi(GFVariantData.get_option_int(options, "max_depth", _DEFAULT_MAX_DEPTH), 0),
+		"max_nodes": maxi(GFVariantData.get_option_int(options, "max_nodes", _DEFAULT_MAX_NODES), 0),
+		"max_collection_items": maxi(
+			GFVariantData.get_option_int(
+				options,
+				"max_collection_items",
+				_DEFAULT_MAX_COLLECTION_ITEMS
+			),
+			0
+		),
+		"node_count": 0,
+		"collection_item_count": 0,
+		"exhausted": false,
+		"reason": "",
+	}
+
+
+static func _consume_traversal_node(depth: int, traversal_state: Dictionary) -> bool:
+	if _is_traversal_exhausted(traversal_state):
+		return false
+	var max_depth: int = GFVariantData.get_option_int(traversal_state, "max_depth")
+	if max_depth > 0 and depth > max_depth:
+		_exhaust_traversal(traversal_state, "max_depth")
+		return false
+	var node_count: int = GFVariantData.get_option_int(traversal_state, "node_count") + 1
+	var max_nodes: int = GFVariantData.get_option_int(traversal_state, "max_nodes")
+	if max_nodes > 0 and node_count > max_nodes:
+		_exhaust_traversal(traversal_state, "max_nodes")
+		return false
+	traversal_state["node_count"] = node_count
+	return true
+
+
+static func _consume_collection_items(item_count: int, traversal_state: Dictionary) -> bool:
+	if _is_traversal_exhausted(traversal_state):
+		return false
+	var collection_item_count: int = (
+		GFVariantData.get_option_int(traversal_state, "collection_item_count")
+		+ maxi(item_count, 0)
+	)
+	var max_collection_items: int = GFVariantData.get_option_int(
+		traversal_state,
+		"max_collection_items"
+	)
+	if max_collection_items > 0 and collection_item_count > max_collection_items:
+		_exhaust_traversal(traversal_state, "max_collection_items")
+		return false
+	traversal_state["collection_item_count"] = collection_item_count
+	return true
+
+
+static func _exhaust_traversal(traversal_state: Dictionary, reason: String) -> void:
+	if _is_traversal_exhausted(traversal_state):
+		return
+	traversal_state["exhausted"] = true
+	traversal_state["reason"] = reason
+
+
+static func _is_traversal_exhausted(traversal_state: Dictionary) -> bool:
+	return GFVariantData.get_option_bool(traversal_state, "exhausted")
+
+
+static func _make_traversal_limit_marker(traversal_state: Dictionary) -> Dictionary:
+	return _make_json_typed_value(_TRAVERSAL_LIMIT_TYPE_NAME, {
+		"reason": GFVariantData.get_option_string(traversal_state, "reason", "traversal_limit"),
+		"node_count": GFVariantData.get_option_int(traversal_state, "node_count"),
+		"collection_item_count": GFVariantData.get_option_int(
+			traversal_state,
+			"collection_item_count"
+		),
+		"max_depth": GFVariantData.get_option_int(traversal_state, "max_depth"),
+		"max_nodes": GFVariantData.get_option_int(traversal_state, "max_nodes"),
+		"max_collection_items": GFVariantData.get_option_int(
+			traversal_state,
+			"max_collection_items"
+		),
+	})
+
+
+static func _make_traversal_limit_fallback(options: Dictionary) -> Variant:
+	return GFVariantData.duplicate_variant(
+		GFVariantData.get_option_value(options, "traversal_limit", "<traversal_limit>")
+	)
+
+
+static func _get_collection_size(value: Variant) -> int:
+	match typeof(value):
+		TYPE_ARRAY:
+			var array_value: Array = value
+			return array_value.size()
+		TYPE_DICTIONARY:
+			var dictionary_value: Dictionary = value
+			return dictionary_value.size()
+		TYPE_PACKED_BYTE_ARRAY:
+			var byte_array: PackedByteArray = value
+			return byte_array.size()
+		TYPE_PACKED_INT32_ARRAY:
+			var int32_array: PackedInt32Array = value
+			return int32_array.size()
+		TYPE_PACKED_INT64_ARRAY:
+			var int64_array: PackedInt64Array = value
+			return int64_array.size()
+		TYPE_PACKED_FLOAT32_ARRAY:
+			var float32_array: PackedFloat32Array = value
+			return float32_array.size()
+		TYPE_PACKED_FLOAT64_ARRAY:
+			var float64_array: PackedFloat64Array = value
+			return float64_array.size()
+		TYPE_PACKED_STRING_ARRAY:
+			var string_array: PackedStringArray = value
+			return string_array.size()
+		TYPE_PACKED_VECTOR2_ARRAY:
+			var vector2_array: PackedVector2Array = value
+			return vector2_array.size()
+		TYPE_PACKED_VECTOR3_ARRAY:
+			var vector3_array: PackedVector3Array = value
+			return vector3_array.size()
+		TYPE_PACKED_COLOR_ARRAY:
+			var color_array: PackedColorArray = value
+			return color_array.size()
+		TYPE_PACKED_VECTOR4_ARRAY:
+			var vector4_array: PackedVector4Array = value
+			return vector4_array.size()
+	return -1
+
+
+static func _json_typed_value_to_variant(
+	value: Dictionary,
+	options: Dictionary,
+	visited: Array,
+	depth: int,
+	traversal_state: Dictionary
+) -> Variant:
 	var marker: Dictionary = GFVariantData.as_dictionary(GFVariantData.get_option_value(value, JSON_MARKER_KEY))
 	if marker.is_empty():
 		return value
 
 	var type_name: String = GFVariantData.get_option_string(marker, JSON_TYPE_KEY)
 	var raw_value: Variant = GFVariantData.get_option_value(marker, JSON_VALUE_KEY)
+	var raw_collection_size: int = _get_collection_size(raw_value)
+	if raw_collection_size >= 0 and not _consume_collection_items(raw_collection_size, traversal_state):
+		return _make_traversal_limit_fallback(options)
 	match type_name:
+		_TRAVERSAL_LIMIT_TYPE_NAME:
+			return _make_traversal_limit_fallback(options)
 		"Int64":
 			return int(str(raw_value))
 		_FLOAT_TYPE_NAME:
@@ -829,7 +1088,13 @@ static func _json_typed_value_to_variant(value: Dictionary, options: Dictionary)
 		"Transform3D":
 			return _dictionary_to_transform_3d(raw_value)
 		"Dictionary":
-			return _entries_to_dictionary(GFVariantData.as_array(raw_value), options)
+			return _entries_to_dictionary(
+				GFVariantData.as_array(raw_value),
+				options,
+				visited,
+				depth,
+				traversal_state
+			)
 		"PackedByteArray":
 			return _array_to_packed_byte_array(GFVariantData.as_array(raw_value))
 		"PackedInt32Array":
@@ -970,14 +1235,36 @@ static func _dictionary_to_transform_3d(value: Variant) -> Transform3D:
 	)
 
 
-static func _entries_to_dictionary(entries: Array, options: Dictionary) -> Dictionary:
+static func _entries_to_dictionary(
+	entries: Array,
+	options: Dictionary,
+	visited: Array,
+	depth: int,
+	traversal_state: Dictionary
+) -> Dictionary:
 	var result: Dictionary = {}
 	for entry_value: Variant in entries:
 		if not (entry_value is Dictionary):
 			continue
 		var entry: Dictionary = entry_value
-		var key: Variant = json_compatible_to_variant(GFVariantData.get_option_value(entry, "key"), options)
-		result[key] = json_compatible_to_variant(GFVariantData.get_option_value(entry, "value"), options)
+		var key: Variant = _json_compatible_to_variant(
+			GFVariantData.get_option_value(entry, "key"),
+			options,
+			visited,
+			depth + 1,
+			traversal_state
+		)
+		if _is_traversal_exhausted(traversal_state):
+			break
+		result[key] = _json_compatible_to_variant(
+			GFVariantData.get_option_value(entry, "value"),
+			options,
+			visited,
+			depth + 1,
+			traversal_state
+		)
+		if _is_traversal_exhausted(traversal_state):
+			break
 	return result
 
 

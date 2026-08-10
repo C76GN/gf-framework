@@ -27,11 +27,15 @@ extends RefCounted
 ## [br]
 ## @param immersion_radius: 从半浸没到完全浸没所需的距离，必须大于 0。
 ## [br]
-## @return 0 到 1 的浸没比例；输入无效时返回 0。
+## @return: 0 到 1 的浸没比例；端点计算不依赖 `2 * immersion_radius`，输入无效时返回 0。
 static func calculate_submersion_ratio(signed_depth: float, immersion_radius: float) -> float:
 	if not _is_finite_float(signed_depth) or not _is_finite_float(immersion_radius) or immersion_radius <= 0.0:
 		return 0.0
-	return clampf(0.5 + signed_depth / (2.0 * immersion_radius), 0.0, 1.0)
+	if signed_depth <= -immersion_radius:
+		return 0.0
+	if signed_depth >= immersion_radius:
+		return 1.0
+	return clampf(0.5 + 0.5 * (signed_depth / immersion_radius), 0.0, 1.0)
 
 
 ## 计算一个采样点的阿基米德浮力。

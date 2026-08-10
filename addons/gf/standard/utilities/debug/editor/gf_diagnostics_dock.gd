@@ -16,6 +16,9 @@ extends Control
 # --- 常量 ---
 
 const _EDITOR_WORKSPACE_UI = preload("res://addons/gf/kernel/editor/gf_editor_workspace_ui.gd")
+const _DIAGNOSTIC_TREE_PRESENTER = preload(
+	"res://addons/gf/standard/utilities/debug/editor/gf_diagnostic_tree_presenter.gd"
+)
 
 
 # --- 私有变量 ---
@@ -194,37 +197,7 @@ func _render_snapshot() -> void:
 	_summary_label.text = _make_snapshot_summary(_last_snapshot)
 	_summary_label.modulate = _EDITOR_WORKSPACE_UI.OK_TEXT_COLOR
 
-	var root_item: TreeItem = _tree.create_item()
-	var keys: PackedStringArray = PackedStringArray()
-	for key: Variant in _last_snapshot.keys():
-		_append_packed_string(keys, GFVariantData.to_text(key))
-	keys.sort()
-	for key_text: String in keys:
-		var value: Variant = _last_snapshot[key_text]
-		var item: TreeItem = _tree.create_item(root_item)
-		item.set_text(0, key_text)
-		item.set_text(1, _get_value_kind(value))
-		item.set_text(2, _make_value_summary(value))
-		item.set_metadata(0, _sanitize_for_display(value))
-		_add_child_items(item, value)
-
-
-func _add_child_items(parent: TreeItem, value: Variant) -> void:
-	if not (value is Dictionary):
-		return
-
-	var dictionary: Dictionary = GFVariantData.as_dictionary(value)
-	var keys: PackedStringArray = PackedStringArray()
-	for key: Variant in dictionary.keys():
-		_append_packed_string(keys, GFVariantData.to_text(key))
-	keys.sort()
-	for key_text: String in keys:
-		var child_value: Variant = dictionary[key_text]
-		var item: TreeItem = _tree.create_item(parent)
-		item.set_text(0, key_text)
-		item.set_text(1, _get_value_kind(child_value))
-		item.set_text(2, _make_value_summary(child_value))
-		item.set_metadata(0, _sanitize_for_display(child_value))
+	_DIAGNOSTIC_TREE_PRESENTER.populate_dictionary(_tree, _last_snapshot)
 
 
 func _render_empty(message: String) -> void:
@@ -269,50 +242,8 @@ func _get_selected_preset_id() -> StringName:
 	return GFVariantData.to_string_name(metadata)
 
 
-func _get_value_kind(value: Variant) -> String:
-	if value is Dictionary:
-		return "Dictionary"
-	if value is Array:
-		return "Array"
-	if value is PackedStringArray:
-		return "PackedStringArray"
-	return type_string(typeof(value))
-
-
-func _make_value_summary(value: Variant) -> String:
-	if value is Dictionary:
-		var dictionary: Dictionary = GFVariantData.as_dictionary(value)
-		return "%d keys" % dictionary.size()
-	if value is Array:
-		var array: Array = GFVariantData.as_array(value)
-		return "%d items" % array.size()
-	if value is PackedStringArray:
-		var packed_strings: PackedStringArray = value
-		return "%d items" % packed_strings.size()
-	var text: String = str(value)
-	return text.substr(0, 120) if text.length() > 120 else text
-
-
 func _safe_json(value: Variant) -> String:
-	return GFReportValueCodec.stringify_json_compatible(
-		value,
-		"\t",
-		false,
-		GFReportValueCodec.make_redaction_options(GFReportValueCodec.REDACTION_PROFILE_DEBUG)
-	)
-
-
-func _sanitize_for_display(value: Variant) -> Variant:
-	return GFReportValueCodec.to_json_compatible(
-		value,
-		GFReportValueCodec.make_redaction_options(GFReportValueCodec.REDACTION_PROFILE_DEBUG)
-	)
-
-
-func _append_packed_string(target: PackedStringArray, value: String) -> void:
-	var appended: bool = target.append(value)
-	if appended:
-		return
+	return _DIAGNOSTIC_TREE_PRESENTER.safe_json(value)
 
 
 # --- 信号处理函数 ---

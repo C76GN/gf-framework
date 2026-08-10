@@ -151,7 +151,11 @@ static func should_wait_for_result(action: Object, result: Variant) -> bool:
 	if not is_action_valid(action):
 		return false
 	if action.has_method("should_wait_for_result"):
-		return GFVariantData.to_bool(action.call("should_wait_for_result", result))
+		var should_wait: bool = GFVariantData.to_bool(action.call("should_wait_for_result", result))
+		if should_wait and not result is Signal:
+			push_error("[GFActionProtocol] 动作声明等待，但 execute() 未返回 Signal。")
+			return false
+		return should_wait
 	if (
 		_has_property(action, "completion_mode")
 		and GFVariantData.to_int(GFObjectPropertyTools.read_property(action, ^"completion_mode")) == _COMPLETION_MODE_FIRE_AND_FORGET
@@ -185,6 +189,8 @@ static func await_result_safely(
 	architecture: GFArchitecture = null
 ) -> void:
 	if not should_wait_for_result(action, result):
+		return
+	if not result is Signal:
 		return
 
 	var signal_result: Signal = result

@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import copy
+import hashlib
 import io
 import json
 import os
@@ -53,16 +54,33 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 		)
 		framework_version = catalog.catalog_framework_version()
 		(self.project_root / "addons/gf").mkdir(parents=True)
-		(self.project_root / "addons/gf/plugin.cfg").write_text(
-			f'[plugin]\nname="GF"\nversion="{framework_version}"\n',
-			encoding="utf-8",
-		)
+		plugin_source = f'[plugin]\nname="GF"\nversion="{framework_version}"\n'
+		plugin_path = self.project_root / "addons/gf/plugin.cfg"
+		plugin_path.write_text(plugin_source, encoding="utf-8")
+		plugin_payload = plugin_source.encode("utf-8")
 		(self.project_root / ".gf").mkdir()
 		(self.project_root / ".gf/packages.lock.json").write_text(
 			json.dumps({
 				"schema_version": 1,
 				"framework_version": framework_version,
-				"installed": {"gf.kernel": {"version": framework_version}},
+				"installed": {
+					"gf.kernel": {
+						"version": framework_version,
+						"kind": "kernel",
+						"reason": ["bundled"],
+						"required_by": [],
+						"paths": ["addons/gf/plugin.cfg"],
+						"archive": "gf.kernel.zip",
+						"sha256": "0" * 64,
+						"files": ["addons/gf/plugin.cfg"],
+						"file_metadata": {
+							"addons/gf/plugin.cfg": {
+								"sha256": hashlib.sha256(plugin_payload).hexdigest(),
+								"size_bytes": len(plugin_payload),
+							},
+						},
+					},
+				},
 			}),
 			encoding="utf-8",
 		)
@@ -859,6 +877,57 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 		invalid_lockfile = catalog.installed_package_report(self.project_root)
 		self.assertFalse(invalid_lockfile["valid"])
 		self.assertIn("framework_version", invalid_lockfile["issues"][0])
+		self.assertEqual(invalid_lockfile["packages"], [])
+
+	def test_package_lockfile_requires_the_formal_closed_entry_schema(self) -> None:
+		lockfile_path = self.project_root / ".gf/packages.lock.json"
+		baseline = json.loads(lockfile_path.read_text(encoding="utf-8"))
+		cases: dict[str, dict[str, Any]] = {}
+
+		boolean_schema = copy.deepcopy(baseline)
+		boolean_schema["schema_version"] = True
+		cases["boolean_schema"] = boolean_schema
+		unknown_root = copy.deepcopy(baseline)
+		unknown_root["legacy_hint"] = True
+		cases["unknown_root"] = unknown_root
+		empty_entry = copy.deepcopy(baseline)
+		empty_entry["installed"]["gf.kernel"] = {}
+		cases["empty_entry"] = empty_entry
+		wrong_version = copy.deepcopy(baseline)
+		wrong_version["installed"]["gf.kernel"]["version"] = "0.0.0"
+		cases["wrong_version"] = wrong_version
+		unknown_entry_field = copy.deepcopy(baseline)
+		unknown_entry_field["installed"]["gf.kernel"]["legacy_hint"] = "trusted"
+		cases["unknown_entry_field"] = unknown_entry_field
+		missing_metadata = copy.deepcopy(baseline)
+		missing_metadata["installed"]["gf.kernel"].pop("file_metadata")
+		cases["missing_metadata"] = missing_metadata
+		boolean_size = copy.deepcopy(baseline)
+		boolean_size["installed"]["gf.kernel"]["file_metadata"]["addons/gf/plugin.cfg"][
+			"size_bytes"
+		] = True
+		cases["boolean_size"] = boolean_size
+
+		for name, lockfile in cases.items():
+			with self.subTest(name=name):
+				lockfile_path.write_text(json.dumps(lockfile), encoding="utf-8")
+				report = catalog.installed_package_report(self.project_root)
+				self.assertFalse(report["valid"], report)
+				self.assertEqual(report["packages"], [], report)
+				self.assertFalse(catalog.package_by_id("gf.kernel", 1, self.project_root)["installed"])
+
+	def test_invalid_package_lockfile_never_populates_snapshot_readiness_facts(self) -> None:
+		lockfile_path = self.project_root / ".gf/packages.lock.json"
+		lockfile = json.loads(lockfile_path.read_text(encoding="utf-8"))
+		lockfile["installed"]["gf.kernel"]["version"] = "0.0.0"
+		lockfile_path.write_text(json.dumps(lockfile), encoding="utf-8")
+
+		report = snapshot.build_snapshot(self.project_root)
+
+		self.assertFalse(report["framework"]["package_state"]["valid"])
+		self.assertEqual(report["framework"]["packages"], [])
+		for readiness in report["framework"]["capability_readiness"]:
+			self.assertEqual(readiness["installed_catalog_packages"], [], readiness)
 
 	def test_package_lockfile_must_include_transitive_dependencies(self) -> None:
 		lockfile_path = self.project_root / ".gf/packages.lock.json"
@@ -2135,6 +2204,97 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 		self.assertIn("agents", status["drifted"])
 		self.assertFalse(adapters.install_agents(self.project_root, ["agents"])["ok"])
 
+	def test_agent_managed_block_preserves_all_project_owned_bytes(self) -> None:
+		agents_path = self.project_root / "AGENTS.md"
+		original = b"\n# Project heading  \r\n    indented code\r\n\n"
+		agents_path.write_bytes(original)
+
+		installed = adapters.install_agents(self.project_root, ["agents"])
+		self.assertTrue(installed["ok"], installed)
+		installed_payload = agents_path.read_bytes()
+		self.assertTrue(installed_payload.startswith(original + b"\n\n"))
+		removed = adapters.uninstall_agents(self.project_root, ["agents"])
+
+		self.assertTrue(removed["ok"], removed)
+		self.assertEqual(agents_path.read_bytes(), original)
+
+	def test_agent_managed_block_splice_keeps_prefix_and_suffix_exact(self) -> None:
+		from gf_ai.constants import MANAGED_BLOCK_END, MANAGED_BLOCK_START
+
+		prefix = "\n# Project heading  \r\n"
+		suffix = "\n    indented code\r\n\n"
+		existing = f"{prefix}{MANAGED_BLOCK_START}\nold\n{MANAGED_BLOCK_END}{suffix}"
+
+		replaced = adapters._replace_managed_block(existing, adapters._managed_block())
+
+		self.assertTrue(replaced.startswith(prefix))
+		self.assertTrue(replaced.endswith(suffix))
+		self.assertEqual(adapters._remove_managed_block(replaced), prefix + suffix)
+
+	def test_agent_install_rejects_a_target_changed_after_planning(self) -> None:
+		agents_path = self.project_root / "AGENTS.md"
+		agents_path.write_bytes(b"reviewed source\n")
+		concurrent_payload = b"concurrent user edit\n"
+		real_commit = adapters._commit_agent_operations
+
+		def mutate_before_commit(
+			project_root: Path,
+			operations: list[dict[str, Any]],
+			read_budget: Any,
+			**kwargs: Any,
+		) -> dict[str, Any]:
+			agents_path.write_bytes(concurrent_payload)
+			return real_commit(project_root, operations, read_budget, **kwargs)
+
+		with mock.patch.object(adapters, "_commit_agent_operations", side_effect=mutate_before_commit):
+			result = adapters.install_agents(self.project_root, ["agents"])
+
+		self.assertFalse(result["ok"], result)
+		self.assertIn("changed after planning", "\n".join(result["issues"]))
+		self.assertEqual(agents_path.read_bytes(), concurrent_payload)
+
+	def test_agent_targets_are_bounded_per_file_and_per_invocation(self) -> None:
+		agents_path = self.project_root / "AGENTS.md"
+		agents_path.write_bytes(b"123456789")
+		with mock.patch.object(adapters, "_AGENT_TARGET_MAX_BYTES", 8):
+			status = adapters.agent_status(self.project_root)
+			install = adapters.install_agents(self.project_root, ["agents"], replace_drifted=True)
+		self.assertIn("agents", status["drifted"])
+		self.assertTrue(status["issues"])
+		self.assertFalse(install["ok"], install)
+		self.assertEqual(agents_path.read_bytes(), b"123456789")
+
+		agents_path.write_bytes(b"123456")
+		(self.project_root / "CLAUDE.md").write_bytes(b"abcdef")
+		with (
+			mock.patch.object(adapters, "_AGENT_TARGET_MAX_BYTES", 10),
+			mock.patch.object(adapters, "_AGENT_INVOCATION_MAX_BYTES", 10),
+		):
+			aggregate_status = adapters.agent_status(self.project_root)
+		self.assertIn("claude", aggregate_status["drifted"])
+		self.assertTrue(aggregate_status["issues"])
+
+	def test_agent_adapter_rejects_a_project_internal_directory_alias(self) -> None:
+		real_cursor_root = self.project_root / "shared-cursor"
+		(real_cursor_root / "rules").mkdir(parents=True)
+		target = real_cursor_root / "rules/gf-framework.mdc"
+		original = b"project-owned target\n"
+		target.write_bytes(original)
+		create_directory_link_fixture(real_cursor_root, self.project_root / ".cursor")
+
+		with self.assertRaisesRegex(ValueError, "filesystem link"):
+			resolve_project_path(self.project_root, ".cursor/rules/gf-framework.mdc")
+		install = adapters.install_agents(
+			self.project_root,
+			["cursor"],
+			replace_drifted=True,
+		)
+		uninstall = adapters.uninstall_agents(self.project_root, ["cursor"])
+
+		self.assertFalse(install["ok"], install)
+		self.assertFalse(uninstall["ok"], uninstall)
+		self.assertEqual(target.read_bytes(), original)
+
 	def test_feedback_is_redacted_bound_to_contract_and_human_gated(self) -> None:
 		self._enable_network_feedback()
 		candidate = self._framework_bug_candidate()
@@ -2503,6 +2663,7 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 		for fragment in (
 			"extends GFStorageBackend",
 			"func save_data(",
+			"func _save_validated_data(",
 			"candidate_provider.get_protocol_version() != PROTOCOL_VERSION",
 			"post_initialize_capabilities != pre_initialize_capabilities",
 			"_provider.write_record_atomic(",
@@ -2513,6 +2674,23 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 			"\"sync\": false",
 		):
 			self.assertIn(fragment, backend_text)
+		public_save = backend_text[
+			backend_text.index("func save_data("):
+			backend_text.index("# --- 可重写钩子 / 虚方法 ---")
+		]
+		hook_save = backend_text[
+			backend_text.index("func _save_data("):
+			backend_text.index("func _save_validated_data(")
+		]
+		validated_save = backend_text[
+			backend_text.index("func _save_validated_data("):
+			backend_text.index("func _load_data(")
+		]
+		self.assertEqual(public_save.count("ProjectStorageValueLimits.validate_payload("), 1)
+		self.assertEqual(hook_save.count("ProjectStorageValueLimits.validate_payload("), 1)
+		self.assertNotIn("ProjectStorageValueLimits.validate_payload(", validated_save)
+		self.assertIn("return _save_validated_data(storage_key, data, metadata)", public_save)
+		self.assertIn("return _save_validated_data(storage_key, data, metadata)", hook_save)
 		for fragment in (
 			"extends ProjectStorageBackendConformance",
 			"class MemoryStorageProviderFactory extends ProjectStorageProviderFactory",
@@ -3477,6 +3655,40 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 				any("compatibility profile is invalid" in issue for issue in issues),
 				issues,
 			)
+
+	def test_platform_adapter_template_validation_uses_the_owned_file_boundary(self) -> None:
+		with tempfile.TemporaryDirectory(prefix="gf-ai-platform-owned-source-") as temporary:
+			root = Path(temporary)
+			copied_template_root = root / "platform"
+			shutil.copytree(
+				build_gf_ai_developer_kit.PLATFORM_ADAPTER_TEMPLATE_ROOT,
+				copied_template_root,
+			)
+			(copied_template_root / "unexpected.txt").write_text("unexpected\n", encoding="utf-8")
+			issues = build_gf_ai_developer_kit.validate_platform_adapter_templates(
+				copied_template_root
+			)
+			self.assertTrue(any("unexpected files" in issue for issue in issues), issues)
+
+			(copied_template_root / "unexpected.txt").unlink()
+			(copied_template_root / "platform_adapter.gd.txt").write_bytes(b"x" * 33)
+			with mock.patch.object(build_gf_ai_developer_kit, "ADAPTER_TEMPLATE_BYTE_LIMIT", 32):
+				issues = build_gf_ai_developer_kit.validate_platform_adapter_templates(
+					copied_template_root
+				)
+			self.assertTrue(any("owned-file boundary" in issue for issue in issues), issues)
+
+			real_template_root = root / "real-platform"
+			shutil.copytree(
+				build_gf_ai_developer_kit.PLATFORM_ADAPTER_TEMPLATE_ROOT,
+				real_template_root,
+			)
+			linked_template_root = root / "linked-platform"
+			create_directory_link_fixture(real_template_root, linked_template_root)
+			issues = build_gf_ai_developer_kit.validate_platform_adapter_templates(
+				linked_template_root
+			)
+			self.assertTrue(any("owned-file boundary" in issue for issue in issues), issues)
 
 	def test_platform_native_profile_rejects_non_scalar_mode_without_crashing(self) -> None:
 		for invalid_mode in ([], {}):

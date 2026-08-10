@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFBigNumber" path="addons/gf/standard/foundation/numeric/gf_big_number.gd" module="standard" extends="RefCounted" classDigest="5305313abc82db9d334cb454fd07d9b1b1d6960fcf988d4aec1bda09bd8b0b62">
+<class name="GFBigNumber" path="addons/gf/standard/foundation/numeric/gf_big_number.gd" module="standard" extends="RefCounted" classDigest="209df6d2359b481fcd0275ea3e40d4baf312d269926e1179d31d6323212e724c">
 	<description>GFBigNumber: 面向挂机/放置场景的近似大数值对象。
 使用科学计数法的尾数 + 指数表示任意量级的数值，
 适合做超出原生 int/float 直观显示范围后的比较、加减乘除与格式化输入。</description>
@@ -59,7 +59,8 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">value: 原始浮点数。</tag>
-				<tag name="return">归一化后的大数实例。</tag>
+				<tag name="return">归一化后的大数实例；任意有限非零 float 都会保留为非零量级。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="from_string">
@@ -96,7 +97,8 @@
 			<description>当前值是否为零。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="return">为零时返回 true。</tag>
+				<tag name="return">规范尾数精确为零时返回 true；容差比较应由调用方在业务边界显式处理。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="is_negative">

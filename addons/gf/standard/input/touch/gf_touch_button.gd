@@ -3,6 +3,7 @@
 ## GFTouchButton: 通用触屏虚拟按钮节点。
 ##
 ## 可直接发送按下/释放信号，也可映射到 Godot InputMap 动作或虚拟手柄按钮事件。
+## 每次 press 会冻结当时的 action 与虚拟 joypad lane；运行时配置修改从下一次 press 生效。
 ## [br]
 ## @api public
 ## [br]
@@ -61,9 +62,18 @@ const _VIRTUAL_INPUT_BRIDGE = preload("res://addons/gf/standard/input/common/gf_
 
 @export_group("Input")
 ## 是否允许鼠标左键模拟触屏。默认关闭，避免触屏控件在桌面端隐式接管鼠标输入。
+## 活动 mouse press 期间关闭该选项会先完成当前 press 的 release。
 ## [br]
 ## @api public
-@export var accept_mouse_input: bool = false
+## [br]
+## @since 11.0.0
+@export var accept_mouse_input: bool = false:
+	set(value):
+		if accept_mouse_input == value:
+			return
+		if accept_mouse_input and not value and _mouse_pressed_inside:
+			release()
+		accept_mouse_input = value
 
 ## 映射到 Godot InputMap 的动作名。为空则不映射。
 ## [br]
@@ -91,6 +101,11 @@ const _VIRTUAL_INPUT_BRIDGE = preload("res://addons/gf/standard/input/common/gf_
 
 var _mouse_pressed_inside: bool = false
 var _pressed: bool = false
+var _output_binding_active: bool = false
+var _active_action_name: StringName = &""
+var _active_emit_joypad_button: bool = false
+var _active_joypad_device_id: int = -2
+var _active_joy_button: JoyButton = JOY_BUTTON_A
 
 
 # --- Godot 生命周期方法 ---
@@ -153,9 +168,9 @@ func _handle_touch(event: InputEventScreenTouch) -> void:
 	var local_pos: Vector2 = to_local(_screen_to_global_position(event.position))
 	if event.pressed:
 		if not is_touch_active() and local_pos.length() <= radius:
-			var _captured: bool = _try_capture_touch_index(event.index)
-			_set_pressed(true)
-			_mark_input_as_handled()
+			if _try_capture_touch_index(event.index):
+				_set_pressed(true)
+				_mark_input_as_handled()
 	elif _touch_matches(event.index):
 		release()
 		_mark_input_as_handled()
@@ -201,9 +216,13 @@ func _set_pressed(next_pressed: bool) -> void:
 	if _pressed == next_pressed:
 		return
 
+	if next_pressed:
+		_capture_output_binding()
 	_pressed = next_pressed
 	_apply_input_action(next_pressed)
 	_emit_joypad_button(next_pressed)
+	if not next_pressed:
+		_clear_output_binding()
 	if next_pressed:
 		button_pressed.emit()
 	else:
@@ -212,16 +231,48 @@ func _set_pressed(next_pressed: bool) -> void:
 
 
 func _apply_input_action(pressed: bool) -> void:
-	if action_name == &"":
+	var bound_action_name: StringName = _active_action_name if _output_binding_active else action_name
+	if bound_action_name == &"":
 		return
 	if pressed:
-		var _pressed_action: bool = _VIRTUAL_INPUT_BRIDGE.press_action(action_name, self, action_name)
+		var _pressed_action: bool = _VIRTUAL_INPUT_BRIDGE.press_action(
+			bound_action_name,
+			self,
+			bound_action_name
+		)
 	else:
-		var _released_action: bool = _VIRTUAL_INPUT_BRIDGE.release_action(action_name, self, action_name)
+		var _released_action: bool = _VIRTUAL_INPUT_BRIDGE.release_action(
+			bound_action_name,
+			self,
+			bound_action_name
+		)
 
 
 func _emit_joypad_button(pressed: bool) -> void:
-	if not emit_joypad_button:
+	var should_emit: bool = (
+		_active_emit_joypad_button
+		if _output_binding_active
+		else emit_joypad_button
+	)
+	if not should_emit:
 		return
 
-	_VIRTUAL_INPUT_BRIDGE.emit_joypad_button(joypad_device_id, joy_button, pressed)
+	var device_id: int = _active_joypad_device_id if _output_binding_active else joypad_device_id
+	var button: JoyButton = _active_joy_button if _output_binding_active else joy_button
+	_VIRTUAL_INPUT_BRIDGE.emit_joypad_button(device_id, button, pressed)
+
+
+func _capture_output_binding() -> void:
+	_output_binding_active = true
+	_active_action_name = action_name
+	_active_emit_joypad_button = emit_joypad_button
+	_active_joypad_device_id = joypad_device_id
+	_active_joy_button = joy_button
+
+
+func _clear_output_binding() -> void:
+	_output_binding_active = false
+	_active_action_name = &""
+	_active_emit_joypad_button = false
+	_active_joypad_device_id = -2
+	_active_joy_button = JOY_BUTTON_A

@@ -78,6 +78,7 @@ var sender_callback: Callable = Callable()
 var _queue: Array[Dictionary] = []
 var _dropped_count: int = 0
 var _last_flush_msec: int = 0
+var _elapsed_since_flush_msec: float = 0.0
 var _failed_send_count: int = 0
 var _last_error: String = ""
 
@@ -104,6 +105,7 @@ func get_report_redaction_profile() -> String:
 ## @param _owner: 持有该 sink 的日志工具。
 func init(_owner: Object) -> void:
 	_last_flush_msec = Time.get_ticks_msec()
+	_elapsed_since_flush_msec = 0.0
 
 
 ## 写入一条结构化日志。
@@ -142,12 +144,33 @@ func write(entry: Dictionary) -> void:
 		flush()
 
 
+## 推进自动 flush 计时；由持有该 sink 的 GFLogUtility 调用。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param delta: 本帧时间增量（秒）；非有限或非正数不会推进状态。
+func tick(delta: float) -> void:
+	if (
+		not is_finite(delta)
+		or delta <= 0.0
+		or flush_interval_msec <= 0
+		or _queue.is_empty()
+	):
+		return
+	_elapsed_since_flush_msec += delta * 1000.0
+	if _elapsed_since_flush_msec >= float(flush_interval_msec):
+		flush()
+
+
 ## 发送当前队列中的一批日志。
 ## [br]
 ## @api public
 func flush() -> void:
 	if _queue.is_empty():
 		_last_flush_msec = Time.get_ticks_msec()
+		_elapsed_since_flush_msec = 0.0
 		return
 
 	var take_count: int = mini(batch_size, _queue.size())
@@ -156,6 +179,7 @@ func flush() -> void:
 		batch.append(_queue.pop_front())
 
 	_last_flush_msec = Time.get_ticks_msec()
+	_elapsed_since_flush_msec = 0.0
 	var payload: Dictionary = {
 		"logs": batch,
 		"metadata": GFVariantData.as_dictionary(GFReportValueCodec.to_json_compatible(
@@ -190,11 +214,19 @@ func flush() -> void:
 	batch_ready.emit(batch.duplicate(true))
 
 
-## 关闭 sink 并尽力 flush。
+## 关闭 sink，并在同步发送持续取得进展时排空全部批次。
 ## [br]
 ## @api public
+## [br]
+## @since 11.0.0
 func shutdown() -> void:
-	flush()
+	var remaining_attempt_budget: int = _queue.size() + 1
+	while not _queue.is_empty() and remaining_attempt_budget > 0:
+		var pending_before_flush: int = _queue.size()
+		flush()
+		remaining_attempt_budget -= 1
+		if _queue.size() >= pending_before_flush:
+			break
 
 
 ## 获取队列中的日志数量。

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFCommandSequence" path="addons/gf/standard/sequence/gf_command_sequence.gd" module="standard" extends="RefCounted" classDigest="24b12cf69040456d34d5059f17f7b2f0042a7d206cb1e2d38508381ba1d5072a">
+<class name="GFCommandSequence" path="addons/gf/standard/sequence/gf_command_sequence.gd" module="standard" extends="RefCounted" classDigest="01e78d3f5cabda45367c2dbd7a3588c2edf0bee1bb320ea37bbf5350d759de87">
 	<description>GFCommandSequence: 通用顺序指令执行器。
 可运行 `GFSequenceStep`、`GFCommand` 或任何实现 `execute()` / `resolve()`
 的对象。它只负责顺序、等待和架构注入，不规定具体业务语义。</description>
@@ -18,12 +18,14 @@
 		</member>
 		<member kind="signal" name="step_started">
 			<signature>signal step_started(index: int, step: Variant)</signature>
-			<description>步骤开始执行时发出。</description>
+			<description>步骤即将执行时发出。同步监听器可调用 [method cancel]，在 execute() 副作用提交前取消本步骤；
+此时尚未开始的步骤不会收到 cancel hook。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">index: 步骤索引。</tag>
 				<tag name="param">step: 步骤对象、命令或 Callable。</tag>
 				<tag name="schema">step: Variant sequence step value.</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="signal" name="step_completed">
@@ -60,7 +62,8 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">report: 运行报告。</tag>
-				<tag name="schema">report: Dictionary run report.</tag>
+				<tag name="schema">report: Dictionary { cancelled: bool, failed: bool, failed_index: int, error: String, succeeded: int, rolled_back: bool, rollback_failed: bool, rollback_status: StringName, rollback_cancelled: bool, rollback_timeout: bool, rollback_attempted_count: int, rollback_errors: Array[Dictionary], results: Array[Dictionary] }.</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="signal" name="sequence_cancelled">
@@ -148,10 +151,12 @@
 			</tags>
 		</member>
 		<member kind="property" name="signal_timeout_seconds">
-			<signature>var signal_timeout_seconds: float = 30.0</signature>
-			<description>等待步骤 Signal 的超时时间（秒）。小于等于 0 时表示不启用超时。</description>
+			<signature>var signal_timeout_seconds: float = 30.0:</signature>
+			<description>等待步骤 Signal 的超时时间（秒）。小于等于 0 时表示不启用超时；
+非有限赋值会被拒绝并保留上一次有效值。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="signal_timeout_respects_time_scale">
@@ -180,7 +185,8 @@
 			<description>最近一次运行报告。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="schema">last_run_report: Dictionary run report from the most recent run().</tag>
+				<tag name="schema">last_run_report: Dictionary { cancelled: bool, failed: bool, failed_index: int, error: String, succeeded: int, rolled_back: bool, rollback_failed: bool, rollback_status: StringName, rollback_cancelled: bool, rollback_timeout: bool, rollback_attempted_count: int, rollback_errors: Array[Dictionary], results: Array[Dictionary] } from the most recent run().</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 	</properties>
@@ -216,9 +222,10 @@
 			<description>设置等待 Signal 的超时时间，并返回自身以便链式调用。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="param">seconds: 超时时间；小于等于 0 时表示不启用超时。</tag>
+				<tag name="param">seconds: 超时时间；小于等于 0 时表示不启用超时，非有限值会被拒绝。</tag>
 				<tag name="param">respect_time_scale: 是否跟随 GFTimeUtility 的暂停与 time_scale。</tag>
 				<tag name="return">当前序列。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="with_failure_policy">

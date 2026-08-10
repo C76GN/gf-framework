@@ -46,12 +46,23 @@ runner.advance()
 
 恢复快照只重建当前位置和上下文值，不会重新发出开始、到达行或 mutation 信号，也不会再次执行已经经过的 mutation。调用方可使用 `restore_runtime_snapshot()` 返回的当前行刷新 UI。
 
+当前可恢复 checkpoint 必须位于可展示的 `TEXT` 行。项目应只在 `get_current_line() != null` 时持久化运行快照；`dialogue_started`、`mutation_requested` 或自动跳转等同步回调仍处于推进中的位置，这些位置生成的字典不应作为长期存档。如何正式表达推进中 checkpoint 尚属于后续快照协议决策，Runner 不会猜测或重放 mutation。
+
+Runner 在 `start()` 前同步计算完整资源指纹，恢复时要求指纹精确一致。字典插入顺序不会改变指纹，但文本、metadata、payload、行或响应内容的变化都会改变指纹。身份输入必须无循环、不含运行时 Object/Callable/Signal/RID，并受完整复制预算约束；身份不完整或超限时 `start()` 会返回 `null`。因此，当前实现适合对内容完全一致的资源做严格恢复，不应把它当作跨内容修订的存档迁移协议。
+
+## 资源校验与推进边界
+
+- `validate_resource()` 会拒绝空图、空或重复行 ID、非法 `LineKind`、缺失后继和无条件自动循环；它仍不判断剧情设计是否合理。
+- `max_steps_per_advance` 只计算被跳过的条件行以及实际执行的 JUMP/MUTATION 等非展示转换；到达 TEXT 本身不消耗预算。小于等于 `0` 表示不启用步数上限，循环检测仍然生效。
+- 条件、mutation 和 Runner 信号都是同步项目代码边界。回调可以停止或替换当前会话；一旦会话改变，旧推进栈会作废并返回 `null`，不会覆盖新会话。
+- mutation 处理器返回失败时，Runner 只阻止推进，不可能自动回滚项目已经产生的外部副作用。处理器应在成功前自行保持原子性或幂等性；是否提供框架级事务/once 协议仍需单独决策。
+
 ## 使用边界
 
 - 条件和 mutation 只保存 ID 与载荷，实际含义由项目通过 `GFDialogueContext` 的回调处理。
 - Runner 不创建 UI，也不读取输入；项目界面负责显示 `get_current_line()` 和 `get_available_responses()`。
 - 可复用的严格 JSON 编译可以安装独立 `gf.tool.dialogue_text`；分支可视化、语音、字幕、本地化表、内容目录和存档恢复仍放在项目层或独立插件里。
-- `validate_resource()` 只报告资源结构问题，不判断剧情逻辑是否合理。
+- `validate_resource()` 与 Runner 都只处理通用图结构，不替项目决定内容发布、版本迁移或副作用事务策略。
 
 ## API Reference
 

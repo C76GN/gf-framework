@@ -43,7 +43,7 @@ static func normalize_path(path: String, fallback: String = "", simplify: bool =
 |---|---|
 | `path` | 输入路径。 |
 | `fallback` | 输入为空时返回的兜底路径。 |
-| `simplify` | 是否调用 Godot simplify_path() 折叠 `.` 和 `..`。 |
+| `simplify` | 是否调用 Godot simplify_path() 折叠 \`.\` 和 \`..\`。 |
 
 返回：规范化后的路径。
 
@@ -63,9 +63,9 @@ static func normalize_resource_path(path: String, fallback: String = "", simplif
 
 | 名称 | 说明 |
 |---|---|
-| `path` | 输入路径，通常是 `res://`、`user://`、`uid://` 或相对路径。 |
+| `path` | 输入路径，通常是 \`res://\`、\`user://\`、\`uid://\` 或相对路径。 |
 | `fallback` | 输入为空时返回的兜底路径。 |
-| `simplify` | 是否调用 Godot simplify_path() 折叠 `.` 和 `..`。 |
+| `simplify` | 是否调用 Godot simplify_path() 折叠 \`.\` 和 \`..\`。 |
 
 返回：规范化后的资源路径文本。
 
@@ -87,7 +87,7 @@ static func normalize_root_path(path: String, fallback: String = "", simplify: b
 |---|---|
 | `path` | 输入根目录。 |
 | `fallback` | 输入为空时返回的兜底路径。 |
-| `simplify` | 是否调用 Godot simplify_path() 折叠 `.` 和 `..`。 |
+| `simplify` | 是否调用 Godot simplify_path() 折叠 \`.\` 和 \`..\`。 |
 
 返回：规范化后的根目录路径。
 
@@ -108,7 +108,7 @@ static func normalize_root_paths(paths: PackedStringArray, simplify: bool = true
 | 名称 | 说明 |
 |---|---|
 | `paths` | 输入根目录路径集合。 |
-| `simplify` | 是否调用 Godot simplify_path() 折叠 `.` 和 `..`。 |
+| `simplify` | 是否调用 Godot simplify_path() 折叠 \`.\` 和 \`..\`。 |
 
 返回：规范化并去重后的根目录路径集合。
 

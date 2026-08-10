@@ -24,6 +24,8 @@ import build_gf_package
 from gf_path_security import absolute_lexical_path
 from gf_path_security import path_has_reparse_component
 from gf_path_security import path_is_inside_lexical
+from gf_path_security import PinnedReadError
+from gf_path_security import read_pinned_regular_file
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -498,7 +500,18 @@ def audit_zip_matches_source(zip_path: Path, expected_files: list[Path], label: 
 			for name in extra[:20]:
 				issues.append(f"{label} contains undeclared source file: {name}")
 			for name in sorted(set(names).intersection(expected_by_name)):
-				if archive.read(name) != expected_by_name[name].read_bytes():
+				try:
+					expected_payload = read_pinned_regular_file(
+						ROOT,
+						name,
+						max_bytes=(1 << 63) - 1,
+					)
+				except PinnedReadError as error:
+					issues.append(f"{label} source cannot be read from a stable regular file: {name}: {error.rule_id}")
+					if len(issues) >= 40:
+						break
+					continue
+				if archive.read(name) != expected_payload:
 					issues.append(f"{label} content differs from source: {name}")
 					if len(issues) >= 40:
 						break

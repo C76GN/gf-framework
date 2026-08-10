@@ -96,6 +96,7 @@ signal request_timed_out(request_id: int, key: Variant, metadata: Dictionary)
 const _GF_REPORT_VALUE_CODEC_SCRIPT = preload("res://addons/gf/kernel/core/gf_report_value_codec.gd")
 const _GF_VARIANT_KEY_CODEC_SCRIPT = preload("res://addons/gf/standard/foundation/variant/gf_variant_key_codec.gd")
 const _STATUS_WRONG_THREAD: StringName = &"wrong_thread"
+const _INT64_MAX: int = 9_223_372_036_854_775_807
 
 ## 请求已获得租约。
 ## [br]
@@ -495,7 +496,7 @@ var _dropped_count: int = 0
 ## [br]
 ## @param key: 并发仲裁 key。
 ## [br]
-## @param options: 请求选项，支持 metadata、max_concurrency、timeout_msec、lease_timeout_msec 和 cancel_token。max_concurrency 只约束当前请求，不会写入持久 key 配置。
+## @param options: 请求选项，支持 metadata、max_concurrency、timeout_msec、lease_timeout_msec 和 cancel_token。max_concurrency 只约束当前请求，不会写入持久 key 配置；正 timeout 的 deadline 超出 int64 时饱和到 int64 上限。
 ## [br]
 ## @return 请求结果字典。
 ## [br]
@@ -528,7 +529,7 @@ func request_lease(key: Variant, options: Dictionary = {}) -> Dictionary:
 		"completion": completion,
 		"metadata": metadata.duplicate(true),
 		"requested_msec": now_msec,
-		"expires_at_msec": now_msec + timeout_msec if timeout_msec > 0 else 0,
+		"expires_at_msec": _make_deadline_msec(now_msec, timeout_msec),
 		"lease_timeout_msec": lease_timeout_msec,
 		"max_concurrency": request_max_concurrency,
 		"cancel_token": token,
@@ -1252,10 +1253,9 @@ func _activate_request(
 		request,
 		"lease_timeout_msec"
 	)
-	var expires_at_msec: int = (
-		now_msec + lease_timeout_msec
-		if lease_timeout_msec > 0
-		else 0
+	var expires_at_msec: int = _make_deadline_msec(
+		now_msec,
+		lease_timeout_msec
 	)
 	var lease: GFAsyncGateLease = GFAsyncGateLease.new()
 	var _configured: GFAsyncGateLease = lease.configure_from_gate(
@@ -2733,6 +2733,15 @@ func _get_total_queued_count() -> int:
 
 func _get_total_active_count() -> int:
 	return _lease_records.size()
+
+
+func _make_deadline_msec(now_msec: int, timeout_msec: int) -> int:
+	if timeout_msec <= 0:
+		return 0
+	var safe_now_msec: int = maxi(now_msec, 0)
+	if timeout_msec > _INT64_MAX - safe_now_msec:
+		return _INT64_MAX
+	return safe_now_msec + timeout_msec
 
 
 func _record_event(event_type: StringName, source: Dictionary, lease: GFAsyncGateLease, reason: StringName) -> void:

@@ -23,7 +23,7 @@ analytics.config.endpoint_url = "https://example.com/events"
 analytics.flush()
 ```
 
-`GFAnalyticsConfig.batch_size` 会把 Inspector 和运行时直接赋值都钳制到 `1..500`，`max_queue_size` 会钳制到 `1..100_000`；不能再用 `0` 或负数表达“禁用批次/无限队列”。`identify(client_id)` 只接受 `1..4096` 字符且不含 C0 控制字符（U+0000..U+001F）或 DEL（U+007F）的 ID；非法输入会被拒绝，不会覆盖当前 client id。`track()` / `track_versioned()` 的事件名还必须满足 `max_event_name_length`（配置范围 `1..4096`，默认 `128`），同样拒绝 C0/DEL，避免能在 Analytics 进入队列、却在持久化 Adapter 处永久失败的事件。
+`GFAnalyticsConfig.batch_size` 会把 Inspector 和运行时直接赋值都钳制到 `1..500`，`max_queue_size` 会钳制到 `1..100_000`；不能再用 `0` 或负数表达“禁用批次/无限队列”。普通入队超过容量时会丢弃最旧事件，所有队列裁剪与最终信封超限丢弃都会累计到 `get_dropped_event_count()`，便于项目观察数据缺口。`max_queue_size` 是条数边界，不是总内存字节边界；当前版本没有总 pending-byte 配置，允许大属性的项目应同步收紧队列、属性和 payload 预算，并监控累计丢弃数。`identify(client_id)` 只接受 `1..4096` 字符且不含 C0 控制字符（U+0000..U+001F）或 DEL（U+007F）的 ID；非法输入会被拒绝，不会覆盖当前 client id。`track()` / `track_versioned()` 的事件名还必须满足 `max_event_name_length`（配置范围 `1..4096`，默认 `128`），同样拒绝 C0/DEL，避免能在 Analytics 进入队列、却在持久化 Adapter 处永久失败的事件。
 
 ## 版本化事件 Schema
 
@@ -94,9 +94,9 @@ analytics.transport_callback = func(payload: Dictionary) -> Dictionary:
 
 `payload_builder` 会收到隔离批次，返回值中的 `events` 会被 GF 的已编码事件覆盖。Planner 不假设最终信封大小随批次单调变化，而是从最大候选前缀向下做有界校验，因此回调可能被调用多次，必须无副作用且对同一输入返回确定结果。
 
-配置项放在 `GFAnalyticsConfig` 中，包括 `endpoint_url`、`headers`、`batch_size`、`max_queue_size`、`flush_interval_seconds`、`app_version`、`persist_client_id`、`client_id_storage_path`、`flush_on_shutdown` 和 `compress_payload`。`compress_payload` 为 `true` 时，内置 HTTP 上报会使用 gzip 压缩 JSON 请求体并添加 `Content-Encoding: gzip`；项目自己的服务端必须支持该编码。自定义 `headers` 会过滤空 header 名和包含 CR/LF 的键值，避免把外部字符串直接拼成非法 HTTP 头；启用压缩时，自定义 `Content-Encoding` 会被忽略，以保证 header 与请求体一致。`transport_callback` 是同步 hook，必须直接返回结果字典；如需异步 SDK，应在项目层做缓冲，再把 GF 队列视为本地入口。项目层仍然负责决定事件命名、字段规范和隐私策略。
+配置项放在 `GFAnalyticsConfig` 中，包括 `endpoint_url`、`headers`、`batch_size`、`max_queue_size`、`flush_interval_seconds`、`app_version`、`persist_client_id`、`client_id_storage_path`、`flush_on_shutdown` 和 `compress_payload`。`compress_payload` 为 `true` 时，内置 HTTP 上报会使用 gzip 压缩 JSON 请求体并添加 `Content-Encoding: gzip`；项目自己的服务端必须支持该编码。自定义 `headers` 在进入 `HTTPRequest` 前执行确定性边界：字段名必须是最多 256 UTF-8 字节的 ASCII HTTP token；字段值最多 8192 UTF-8 字节，允许无控制字符的 UTF-8 和内部 HTAB，但拒绝其他 C0/DEL 及首尾 SP/HTAB；字段名按 ASCII 大小写不敏感去重。单次最多扫描 256 个候选、接受 64 个自定义字段，含固定 Header 与 CRLF 计费的总线格式预算为 65536 字节。`Content-Type` 始终由框架固定为 JSON；启用压缩时，自定义 `Content-Encoding` 会被忽略，以保证 header 与请求体一致。拒绝警告只包含转义后的字段名，不包含可能敏感的字段值。`transport_callback` 是同步 hook，必须直接返回结果字典；如需异步 SDK，应在项目层做缓冲，再把 GF 队列视为本地入口。项目层仍然负责决定事件命名、字段规范和隐私策略。
 
-transport 或响应失败时，本批事件会按原顺序放回队列前端，并发出 `flush_failed` / `flush_completed`；失败回灌后仍会重新执行 `max_queue_size` 限制。Planner 的评估次数或累计编码工作达到预算时，不会发送或丢弃事件，而会保留完整队列并返回 `retained = true`、`dropped = false`、`drop_reason = "planner_budget_exceeded"`。相同配置下反复调用 `flush()` 不会改善结果，应先降低 `batch_size` 或简化 `payload_builder`。只有已经证明单个事件无法放入最终信封时，该事件才会以 `dropped = true` 和 `final_envelope_too_large` 明确丢弃。正常 `track()` 超过上限时会丢弃最早事件；失败批次回灌超过上限时会优先保留刚失败的批次。关闭时的 `flush_on_shutdown` 是尽力触发，不会等待 HTTP 请求完成；关键埋点应由项目层在重要流程点主动 `flush()` 并监听结果。Gf AutoLoad 的 `_exit_tree()` 正在同步释放架构时，Analytics 关闭监听会登记延迟释放而不重入修改 `SceneTree.root`。`capture_context()` 只采集平台、Godot 版本、屏幕尺寸、语言和时区等通用信息，涉及账号、设备指纹或隐私字段的内容必须由项目层显式添加。
+transport 或响应失败时，本批事件会按原顺序放回队列前端，并发出 `flush_failed` / `flush_completed`；失败回灌后仍会重新执行 `max_queue_size` 限制。内置 HTTP 的非 2xx 结果只公开稳定的 `error = "HTTP <status>"` 与整数 `response_code`，不会把不可信响应正文带入公共失败信号；需要服务端诊断详情时，应使用受控的服务端日志，或由项目显式接管完整 transport 并定义自己的闭合错误契约。Planner 的评估次数或累计编码工作达到预算时，不会发送或丢弃事件，而会保留完整队列并返回 `retained = true`、`dropped = false`、`drop_reason = "planner_budget_exceeded"`。相同配置下反复调用 `flush()` 不会改善结果，应先降低 `batch_size` 或简化 `payload_builder`。只有已经证明单个事件无法放入最终信封时，该事件才会以 `dropped = true` 和 `final_envelope_too_large` 明确丢弃。正常 `track()` 超过上限时会丢弃最早事件；失败批次回灌超过上限时会优先保留刚失败的批次。关闭时的 `flush_on_shutdown` 是尽力触发，不会等待 HTTP 请求完成；关键埋点应由项目层在重要流程点主动 `flush()` 并监听结果。Gf AutoLoad 的 `_exit_tree()` 正在同步释放架构时，Analytics 关闭监听会登记延迟释放而不重入修改 `SceneTree.root`。`capture_context()` 只采集平台、Godot 版本、屏幕尺寸、语言和时区等通用信息，涉及账号、设备指纹或隐私字段的内容必须由项目层显式添加。
 
 ## 交给专用 Outbox
 

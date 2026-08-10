@@ -26,6 +26,29 @@ func test_signal_subscription_token_disconnects_signal_on_cancel() -> void:
 	assert_eq(receiver.ping_count, 1, "cancel 后 Signal 不应继续调用回调。")
 
 
+func test_signal_subscription_token_does_not_adopt_preexisting_connection() -> void:
+	var signal_source: SignalSource = SignalSource.new()
+	var receiver: SignalReceiver = SignalReceiver.new()
+	var callback: Callable = Callable(receiver, &"record_ping")
+	var connect_error: Error = signal_source.pinged.connect(callback) as Error
+
+	assert_eq(connect_error, OK, "测试前置连接应成功。")
+	var subscription_token: GFSignalSubscriptionToken = GFSignalSubscriptionToken.new(
+		signal_source.pinged,
+		callback,
+		0,
+		"test.preexisting_pinged"
+	)
+
+	assert_false(subscription_token.is_active(), "重复连接不应创建拥有旧连接的活动 token。")
+	assert_false(subscription_token.cancel(), "非活动 token 不应取消任何连接。")
+	assert_true(signal_source.pinged.is_connected(callback), "原始连接必须继续由原创建方持有。")
+	signal_source.emit_pinged()
+	assert_eq(receiver.ping_count, 1, "取消新 token 后原始连接仍应正常派发。")
+	if signal_source.pinged.is_connected(callback):
+		signal_source.pinged.disconnect(callback)
+
+
 func test_owned_signal_subscription_cancels_signal_connection() -> void:
 	var signal_source: SignalSource = SignalSource.new()
 	var owner_node: Node = Node.new()
@@ -46,6 +69,28 @@ func test_owned_signal_subscription_cancels_signal_connection() -> void:
 	assert_true(subscription_token.cancel(), "取消生命周期订阅应断开底层 Signal。")
 	signal_source.emit_value_changed(7)
 	assert_eq(receiver.value_total, 3, "取消后 owner-bound 订阅不应继续转发 Signal。")
+
+
+func test_ref_counted_owner_release_requires_explicit_signal_cancellation() -> void:
+	var signal_source: SignalSource = SignalSource.new()
+	var lifecycle_owner: RefCounted = RefCounted.new()
+	var receiver: SignalReceiver = SignalReceiver.new()
+	var subscription_token: GFLifetimeSubscription = GFSignalSubscriptionToken.connect_owned(
+		signal_source.pinged,
+		lifecycle_owner,
+		Callable(receiver, &"record_ping")
+	)
+
+	lifecycle_owner = null
+
+	assert_true(subscription_token.owner_is_released(), "普通 Object owner 应通过弱引用报告已释放。")
+	assert_false(subscription_token.is_active(), "owner 释放后生命周期句柄应报告非活动。")
+	signal_source.emit_pinged()
+	assert_eq(receiver.ping_count, 1, "普通 Object 无释放通知，底层连接需由调用方显式取消。")
+
+	assert_true(subscription_token.cancel(), "owner 释放后仍应允许显式取消底层连接。")
+	signal_source.emit_pinged()
+	assert_eq(receiver.ping_count, 1, "显式取消后 Signal 不应继续派发。")
 
 
 func test_signal_subscription_rejects_invalid_inputs() -> void:

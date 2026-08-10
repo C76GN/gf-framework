@@ -21,7 +21,7 @@ var encoded := GFSafeResourceCodec.encode(my_resource, policy)
 var decoded := GFSafeResourceCodec.decode(encoded.data, policy)
 ```
 
-安全 codec 只处理 allowlist 内的存储属性、集合、重复引用和可选外部资源路径。类型化 `Array` / `Dictionary` 会连同元素、键和值的类型约束一起往返；类型约束引用脚本时，该脚本路径及脚本的原生基类都必须分别进入 policy 的脚本与类 allowlist。解码还会拒绝非正数、非整数或重复的对象编号，并通过报告式属性写入返回类型不匹配，而不是把伪造值直接交给对象。
+安全 codec 只处理 allowlist 内的存储属性、集合、重复引用和可选外部资源路径。类型化 `Array` / `Dictionary` 会连同元素、键和值的类型约束一起往返；类型约束引用脚本时，该脚本路径及脚本的原生基类都必须分别进入 policy 的脚本与类 allowlist。解码还会拒绝非正数、非整数或重复的对象编号，并通过报告式属性写入返回类型不匹配，而不是把伪造值直接交给对象。`max_items` 同时是处理预算：Array 的元素、Dictionary 的键和值以及 Object 的属性值会在扫描或暂存完整容器形状前按直接子节点基数预检；嵌套节点仍在递归入口逐项消费预算。
 
 它不注册 Godot ResourceFormatLoader/Saver，不执行表达式，也不把未知内容变成可直接使用的对象；面对用户下载内容或网络载荷时，应先在项目层完成格式收窄和风险处理。成功解码出的非 `RefCounted` 对象（例如 `Node`）由调用方负责持有和释放。allowlist 内脚本在附加时仍会按 Godot 语义执行初始化，因此只应允许项目已信任的脚本；失败清理会回滚 codec 已写属性并释放本次创建的对象，但不能撤销脚本初始化对外部系统产生的副作用。
 

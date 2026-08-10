@@ -17,7 +17,7 @@ var restored := GFDeterministicRandom.from_dict(snapshot)
 
 `next_float_unit()` 与 `next_float_range()` 只是把固定 u32 序列缩放为浮点数，便于 Poisson-disc、采样和编辑器工具复用同一个稳定随机源。涉及锁步真值、网络对账或长期存档 hash 时，仍应优先使用整数、`GFFixedDecimal` 或定点向量表达结果，不要把浮点几何结果当作 deterministic math 的最终真值。
 
-`to_dict()` 会保存算法名、状态版本、初始种子和当前状态。状态为非零 u32；传入 0 种子时会映射到稳定默认种子，避免 xorshift32 零状态锁死。`apply_dict()` 在算法、版本、字段类型或当前状态非法时返回 `false` 并重置为默认随机源；字典里的 `state = 0` 会被拒绝。
+`to_dict()` 会保存算法名、状态版本、初始种子和当前状态。状态为非零 u32；传入 0 种子时会映射到稳定默认种子，避免 xorshift32 零状态锁死。`apply_dict()` 要求 `algorithm`、`version`、`seed` 和 `state` 四个字段全部显式存在；缺失身份不会被默认解释成当前算法或版本。任一字段缺失、类型/范围非法或 `state = 0` 时，入口返回 `false` 并重置为默认随机源。
 
 ## 与 GFSeedUtility 的关系
 

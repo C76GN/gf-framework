@@ -253,7 +253,7 @@ func add_step( step_id: StringName, apply_callback: Callable, rollback_callback:
 func prepare(context: Dictionary = {}) -> Dictionary:
 ```
 
-验证事务步骤。
+验证事务步骤。 已准备的事务会幂等返回既有报告；已提交、已回滚或失败的终态不会被重新打开。 回调内的嵌套事务操作会以 `transition_in_progress` 失败关闭。
 
 参数：
 
@@ -266,7 +266,7 @@ func prepare(context: Dictionary = {}) -> Dictionary:
 结构：
 
 - `context`: Dictionary caller-defined activation context.
-- `return`: Dictionary with ok, healthy, transaction_id, state, steps, issues, summary, and next_action.
+- `return`: Dictionary with ok, healthy, transaction_id, state, transition_state, steps, issues, summary, and next_action.
 
 <a id="member-gfactivationtransaction-methods-commit"></a>
 
@@ -292,7 +292,7 @@ func commit(context: Dictionary = {}) -> Dictionary:
 结构：
 
 - `context`: Dictionary caller-defined activation context.
-- `return`: Dictionary with ok, healthy, transaction_id, state, steps, issues, summary, and next_action.
+- `return`: Dictionary with ok, healthy, transaction_id, state, transition_state, steps, issues, summary, and next_action.
 
 <a id="member-gfactivationtransaction-methods-rollback"></a>
 
@@ -318,7 +318,7 @@ func rollback(context: Dictionary = {}) -> Dictionary:
 结构：
 
 - `context`: Dictionary caller-defined activation context.
-- `return`: Dictionary with ok, healthy, transaction_id, state, steps, issues, summary, and next_action.
+- `return`: Dictionary with ok, healthy, transaction_id, state, transition_state, steps, issues, summary, and next_action.
 
 <a id="member-gfactivationtransaction-methods-get_report"></a>
 
@@ -344,7 +344,7 @@ func get_report(options: Dictionary = {}) -> Dictionary:
 结构：
 
 - `options`: Dictionary report options.
-- `return`: Dictionary with ok, healthy, transaction_id, state, steps, issues, summary, and next_action.
+- `return`: Dictionary with ok, healthy, transaction_id, state, transition_state, steps, issues, summary, and next_action.
 
 <a id="member-gfactivationtransaction-methods-is_step_applied"></a>
 

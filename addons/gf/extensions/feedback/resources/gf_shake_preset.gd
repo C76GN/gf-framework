@@ -102,7 +102,8 @@ enum Waveform {
 ## @since 3.17.0
 @export var sample_seed: int = 1
 
-## 可组合反馈轨道。为空时使用兼容的单波形字段。
+## 可组合反馈轨道。数组非空即选择轨道模式；只有空数组才使用兼容的单波形字段。
+## disabled、null 或当前进度范围外的轨道不参与合成，轨道采样出的数值零仍是有效贡献。
 ## [br]
 ## @api public
 ## [br]
@@ -174,7 +175,7 @@ func sample_at_progress(
 	var safe_elapsed: float = _finite_float(elapsed_seconds)
 	var safe_strength: float = _finite_nonnegative(strength)
 	var safe_phase_offset: float = _finite_float(phase_offset)
-	if has_tracks():
+	if not tracks.is_empty():
 		return _sanitize_sample(_sample_tracks(normalized_progress, safe_elapsed, safe_strength, safe_phase_offset))
 
 	var intensity: float = _finite_nonnegative(amplitude) * safe_strength * _sample_envelope(normalized_progress)
@@ -228,13 +229,13 @@ func clear_tracks() -> void:
 	tracks.clear()
 
 
-## 检查是否存在有效轨道。
+## 检查是否存在已启用的非空轨道。该查询不决定采样模式；非空 tracks 始终使用轨道模式。
 ## [br]
 ## @api public
 ## [br]
 ## @since 3.17.0
 ## [br]
-## @return: 存在有效轨道返回 true。
+## @return: 存在已启用的非空轨道返回 true。
 func has_tracks() -> bool:
 	for track: GFShakeTrack in tracks:
 		if track != null and track.enabled:
@@ -310,12 +311,10 @@ func _sample_tracks(
 	result["progress"] = progress
 	var has_track_sample: bool = false
 	for track: GFShakeTrack in tracks:
-		if track == null or not track.enabled:
+		if not _track_participates_at_progress(track, progress):
 			continue
 		var track_sample: Dictionary = track.sample(progress, elapsed_seconds, strength, phase_offset)
 		if not has_track_sample:
-			if _is_zero_sample(track_sample):
-				continue
 			result = track_sample.duplicate(true)
 			has_track_sample = true
 		else:
@@ -382,13 +381,12 @@ static func _read_sample_vector3(sample_data: Dictionary, key: Variant) -> Vecto
 	return Vector3.ZERO
 
 
-static func _is_zero_sample(sample_data: Dictionary) -> bool:
-	return (
-		_read_sample_vector3(sample_data, "position") == Vector3.ZERO
-		and _read_sample_vector3(sample_data, "rotation_degrees") == Vector3.ZERO
-		and _read_sample_vector3(sample_data, "scale") == Vector3.ZERO
-		and is_zero_approx(GFVariantData.get_option_float(sample_data, "intensity", 0.0))
-	)
+static func _track_participates_at_progress(track: GFShakeTrack, progress: float) -> bool:
+	if track == null or not track.enabled:
+		return false
+	var range_start: float = clampf(_finite_float(track.start_progress), 0.0, 1.0)
+	var range_end: float = clampf(_finite_float(track.end_progress, 1.0), range_start, 1.0)
+	return progress >= range_start and progress <= range_end
 
 
 static func _sanitize_sample(sample_data: Dictionary) -> Dictionary:

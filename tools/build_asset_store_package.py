@@ -6,10 +6,15 @@ from __future__ import annotations
 import argparse
 import configparser
 import json
+import posixpath
+import re
 import sys
+import urllib.parse
 import zipfile
 from pathlib import Path
 from typing import Any
+
+import gf_path_security
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -25,6 +30,12 @@ REQUIRED_PACKAGE_PATHS = (
 	"addons/gf/icon.png",
 )
 ZIP_TIMESTAMP = (1980, 1, 1, 0, 0, 0)
+MAX_SOURCE_FILE_BYTES = (1 << 63) - 1
+README_LINK_RE = re.compile(r"(?<!!)\[[^\]]+\]\(([^)\s]+)(?:\s+[^)]*)?\)")
+ALLOWED_README_LINK_HOSTS = {
+	"gf-framework.readthedocs.io",
+	"github.com",
+}
 
 
 def main() -> int:
@@ -88,14 +99,32 @@ def build_package(output: Path) -> None:
 	output.parent.mkdir(parents=True, exist_ok=True)
 	if output.exists():
 		output.unlink()
-	with zipfile.ZipFile(output, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=9) as archive:
-		for path in iter_package_files():
-			write_file(archive, path)
+	try:
+		with zipfile.ZipFile(output, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=9) as archive:
+			for path in iter_package_files():
+				write_file(archive, path)
+	except BaseException:
+		try:
+			output.unlink(missing_ok=True)
+		except OSError:
+			pass
+		raise
 
 
 def iter_package_files() -> list[Path]:
+	if (
+		not gf_path_security.path_is_inside_lexical(ROOT, ADDON_ROOT)
+		or gf_path_security.path_has_reparse_component(ADDON_ROOT)
+		or not ADDON_ROOT.is_dir()
+	):
+		raise OSError("Asset Store source root is missing, linked, or outside the repository root.")
 	files: list[Path] = []
 	for path in ADDON_ROOT.rglob("*"):
+		if gf_path_security.path_has_reparse_component(path):
+			raise OSError(
+				"Asset Store source crosses a symlink, junction, or reparse point: "
+				f"{path.relative_to(ROOT).as_posix()}"
+			)
 		if not path.is_file():
 			continue
 		if is_blocked_path(path):
@@ -118,7 +147,22 @@ def write_file(archive: zipfile.ZipFile, path: Path) -> None:
 	info = zipfile.ZipInfo(archive_path, ZIP_TIMESTAMP)
 	info.compress_type = zipfile.ZIP_DEFLATED
 	info.external_attr = 0o644 << 16
-	archive.writestr(info, path.read_bytes())
+	archive.writestr(info, read_package_source_bytes(path))
+
+
+def read_package_source_bytes(path: Path) -> bytes:
+	try:
+		relative_path = path.relative_to(ROOT).as_posix()
+	except ValueError:
+		raise OSError("Asset Store source is outside the repository root.") from None
+	try:
+		return gf_path_security.read_pinned_regular_file(
+			ROOT,
+			relative_path,
+			max_bytes=MAX_SOURCE_FILE_BYTES,
+		)
+	except gf_path_security.PinnedReadError as error:
+		raise OSError(f"Asset Store source is not a stable contained regular file: {error.rule_id}") from None
 
 
 def audit_package(output: Path) -> dict[str, Any]:
@@ -133,8 +177,14 @@ def audit_package(output: Path) -> dict[str, Any]:
 			"issues": [f"Package zip was not found: {output.as_posix()}"],
 		}
 
+	readme_text = ""
 	with zipfile.ZipFile(output, "r") as archive:
 		names = sorted(name for name in archive.namelist() if name and not name.endswith("/"))
+		if "addons/gf/README.md" in names:
+			try:
+				readme_text = archive.read("addons/gf/README.md").decode("utf-8", errors="strict")
+			except (KeyError, UnicodeDecodeError):
+				issues.append("Package README must be valid UTF-8.")
 
 	top_level_entries = sorted({name.split("/", 1)[0] for name in names})
 	if top_level_entries != ["addons"]:
@@ -152,6 +202,8 @@ def audit_package(output: Path) -> dict[str, Any]:
 	for required_path in REQUIRED_PACKAGE_PATHS:
 		if required_path not in names:
 			issues.append(f"Package is missing required file: {required_path}")
+	if readme_text:
+		issues.extend(audit_readme_links(readme_text, set(names)))
 
 	return {
 		"ok": len(issues) == 0,
@@ -161,6 +213,27 @@ def audit_package(output: Path) -> dict[str, Any]:
 		"top_level_entries": top_level_entries,
 		"issues": issues,
 	}
+
+
+def audit_readme_links(readme_text: str, package_names: set[str]) -> list[str]:
+	issues: list[str] = []
+	for raw_target in README_LINK_RE.findall(readme_text):
+		target = raw_target.strip()
+		if not target or target.startswith("#"):
+			continue
+		parsed = urllib.parse.urlsplit(target)
+		if parsed.scheme:
+			if parsed.scheme != "https" or (parsed.hostname or "").lower() not in ALLOWED_README_LINK_HOSTS:
+				issues.append(f"Package README link must use an allowed HTTPS host: {target}")
+			continue
+		if parsed.netloc or "\\" in target or "\0" in target or parsed.path.startswith("/"):
+			issues.append(f"Package README link is outside the distributable addon: {target}")
+			continue
+		decoded_path = urllib.parse.unquote(parsed.path)
+		resolved = posixpath.normpath(posixpath.join("addons/gf", decoded_path))
+		if not resolved.startswith("addons/gf/") or resolved not in package_names:
+			issues.append(f"Package README link is outside or missing from the distributable addon: {target}")
+	return issues
 
 
 def print_result(result: dict[str, Any], as_json: bool) -> None:

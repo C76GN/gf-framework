@@ -194,6 +194,36 @@ func test_dictionary_report_merge_report_copies_issues_and_selected_fields() -> 
 	assert_false(GFVariantData.get_option_bool(target, "ok"), "合并后的错误问题应在 finalize 后让报告失败。")
 
 
+func test_dictionary_report_merge_report_is_safe_for_self_and_shared_issue_arrays() -> void:
+	var shared_issues: Array = [
+		{
+			"severity": "warning",
+			"kind": "shared_issue",
+			"message": "Shared issue.",
+		},
+	]
+	var report: Dictionary = {
+		"issues": shared_issues,
+		"package_count": 1,
+	}
+
+	var _self_merge: Dictionary = GFValidationReportDictionary.merge_report(report, report, {
+		"copy_fields": PackedStringArray(["package_count"]),
+	})
+	assert_eq(shared_issues.size(), 1, "报告与自身合并必须是幂等空操作。")
+
+	var wrapper: Dictionary = {
+		"issues": shared_issues,
+		"package_count": 2,
+	}
+	var _shared_array_merge: Dictionary = GFValidationReportDictionary.merge_report(report, wrapper, {
+		"copy_fields": PackedStringArray(["package_count"]),
+	})
+
+	assert_eq(shared_issues.size(), 1, "不同报告共享同一 issues 数组时不得边遍历边追加导致无限增长。")
+	assert_eq(GFVariantData.get_option_int(report, "package_count"), 2, "跳过同源 issues 后仍应复制显式选择的其他字段。")
+
+
 func test_dictionary_report_filter_issues_uses_ignores_and_preserves_source() -> void:
 	var report: Dictionary = {
 		"subject": "Project scan",
@@ -288,6 +318,21 @@ func test_issue_fingerprint_is_independent_of_dictionary_insertion_order() -> vo
 		GFValidationReportDictionary.make_issue_fingerprint(issue_b),
 		"语义相同的结构化 issue key 应产生稳定指纹。"
 	)
+
+
+func test_issue_fingerprint_rejects_runtime_identity_values() -> void:
+	var runtime_owner: RefCounted = RefCounted.new()
+	var issue: Dictionary = {
+		"severity": "error",
+		"kind": "runtime_owner",
+		"message": "Runtime owner is not stable across processes.",
+		"key": runtime_owner,
+	}
+
+	var fingerprint: String = GFValidationReportDictionary.make_issue_fingerprint(issue)
+
+	assert_eq(fingerprint, "", "包含运行时对象身份的 issue 不得生成跨进程不稳定的基线指纹。")
+	assert_false(fingerprint.contains("RefCounted#"), "指纹不得泄漏或依赖运行时实例 ID。")
 
 
 func test_validation_report_exports_json_compatible_dict() -> void:

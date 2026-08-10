@@ -73,6 +73,9 @@ var _processing_serial: int = 0
 # 当前正在执行或等待的动作。
 var _current_action: Object = null
 
+# 外部动作控制 hook 正在执行；阻止 hook 同步反调队列后重复控制同一动作。
+var _current_action_control_in_progress: bool = false
+
 # 按名称分流的子队列。
 var _named_queues: Dictionary = {}
 
@@ -84,6 +87,10 @@ var _linked_node: Node = null
 
 # 动作执行拦截器。
 var _interceptors: Array[GFActionInterceptor] = []
+
+# 拦截器注册序；priority 相同时维持确定顺序。
+var _interceptor_registration_order: Dictionary = {}
+var _next_interceptor_registration_order: int = 0
 
 # 当前队列暂停状态。
 var _is_paused: bool = false
@@ -115,6 +122,8 @@ func init() -> void:
 	_disconnect_linked_node()
 	_linked_node_ref = null
 	_interceptors.clear()
+	_interceptor_registration_order.clear()
+	_next_interceptor_registration_order = 0
 	_set_paused(false)
 	is_processing = false
 
@@ -139,6 +148,8 @@ func dispose() -> void:
 	_linked_node_ref = null
 	_dispose_all_named_queues()
 	_interceptors.clear()
+	_interceptor_registration_order.clear()
+	_next_interceptor_registration_order = 0
 
 
 # --- 公共方法 ---
@@ -343,9 +354,11 @@ func add_interceptor(interceptor: GFActionInterceptor) -> bool:
 	if _interceptors.has(interceptor):
 		return false
 
+	_interceptor_registration_order[interceptor] = _next_interceptor_registration_order
+	_next_interceptor_registration_order += 1
 	_interceptors.append(interceptor)
-	_sort_interceptors()
 	_inject_interceptor_dependencies(interceptor)
+	_sort_interceptors()
 	_publish_diagnostics_contribution()
 	return true
 
@@ -361,6 +374,7 @@ func remove_interceptor(interceptor: GFActionInterceptor) -> bool:
 	if interceptor == null or not _interceptors.has(interceptor):
 		return false
 	_interceptors.erase(interceptor)
+	var _registration_erased: bool = _interceptor_registration_order.erase(interceptor)
 	_publish_diagnostics_contribution()
 	return true
 
@@ -372,8 +386,17 @@ func remove_interceptor(interceptor: GFActionInterceptor) -> bool:
 ## @param interceptors: 新拦截器列表。
 func set_interceptors(interceptors: Array[GFActionInterceptor]) -> void:
 	_interceptors.clear()
+	_interceptor_registration_order.clear()
+	_next_interceptor_registration_order = 0
 	for interceptor: GFActionInterceptor in interceptors:
-		var _interceptor_added: bool = add_interceptor(interceptor)
+		if interceptor == null or _interceptors.has(interceptor):
+			continue
+		_interceptor_registration_order[interceptor] = _next_interceptor_registration_order
+		_next_interceptor_registration_order += 1
+		_interceptors.append(interceptor)
+		_inject_interceptor_dependencies(interceptor)
+	_sort_interceptors()
+	_publish_diagnostics_contribution()
 
 
 ## 清空动作执行拦截器。
@@ -381,6 +404,8 @@ func set_interceptors(interceptors: Array[GFActionInterceptor]) -> void:
 ## @api public
 func clear_interceptors() -> void:
 	_interceptors.clear()
+	_interceptor_registration_order.clear()
+	_next_interceptor_registration_order = 0
 	_publish_diagnostics_contribution()
 
 
@@ -390,6 +415,7 @@ func clear_interceptors() -> void:
 ## [br]
 ## @return 拦截器列表副本。
 func get_interceptors() -> Array[GFActionInterceptor]:
+	_sort_interceptors()
 	var result: Array[GFActionInterceptor] = []
 	result.assign(_interceptors)
 	return result
@@ -479,7 +505,7 @@ func clear_all_named_queues(stop_current: bool = false) -> void:
 ## [br]
 ## @api public
 func skip_current_action() -> void:
-	if _is_disposed:
+	if _is_disposed or _current_action_control_in_progress:
 		return
 	_processing_serial += 1
 	_set_paused(false)
@@ -494,10 +520,13 @@ func skip_current_action() -> void:
 ## [br]
 ## @return 存在当前动作时返回 true。
 func pause_current_action() -> bool:
-	if not is_instance_valid(_current_action):
+	if _current_action_control_in_progress or not is_instance_valid(_current_action):
 		return false
+	var action: Object = _current_action
 	_set_paused(true)
-	_ACTION_PROTOCOL.pause(_current_action)
+	_current_action_control_in_progress = true
+	_ACTION_PROTOCOL.pause(action)
+	_current_action_control_in_progress = false
 	return true
 
 
@@ -507,9 +536,12 @@ func pause_current_action() -> bool:
 ## [br]
 ## @return 存在当前动作时返回 true。
 func resume_current_action() -> bool:
-	if not is_instance_valid(_current_action):
+	if _current_action_control_in_progress or not is_instance_valid(_current_action):
 		return false
-	_ACTION_PROTOCOL.resume(_current_action)
+	var action: Object = _current_action
+	_current_action_control_in_progress = true
+	_ACTION_PROTOCOL.resume(action)
+	_current_action_control_in_progress = false
 	_set_paused(false)
 	return true
 
@@ -518,11 +550,17 @@ func resume_current_action() -> bool:
 ## [br]
 ## @api public
 func finish_current_action() -> void:
+	if _current_action_control_in_progress:
+		return
 	_processing_serial += 1
 	_set_paused(false)
-	if is_instance_valid(_current_action):
-		_ACTION_PROTOCOL.finish(_current_action)
+	var action: Object = _current_action
 	_current_action = null
+	_publish_diagnostics_contribution()
+	if is_instance_valid(action):
+		_current_action_control_in_progress = true
+		_ACTION_PROTOCOL.finish(action)
+		_current_action_control_in_progress = false
 	is_processing = false
 	_try_start_processing()
 
@@ -666,6 +704,8 @@ func _process_queue() -> void:
 		if _is_disposed or current_serial != _processing_serial:
 			return
 		var should_wait: bool = _ACTION_PROTOCOL.should_wait_for_result(action, result)
+		if _is_disposed or current_serial != _processing_serial:
+			return
 		if should_wait:
 			await _ACTION_PROTOCOL.await_result_safely(
 				action,
@@ -742,7 +782,9 @@ func _sort_interceptors() -> void:
 			return false
 		if right == null:
 			return true
-		return left.priority > right.priority
+		if left.priority != right.priority:
+			return left.priority > right.priority
+		return _get_interceptor_registration_order(left) < _get_interceptor_registration_order(right)
 	)
 
 
@@ -772,11 +814,17 @@ func _apply_after_interceptors(
 
 
 func _get_enabled_interceptors() -> Array[GFActionInterceptor]:
+	_sort_interceptors()
 	var result: Array[GFActionInterceptor] = []
 	for interceptor: GFActionInterceptor in _interceptors:
 		if interceptor != null and interceptor.enabled:
 			result.append(interceptor)
 	return result
+
+
+func _get_interceptor_registration_order(interceptor: GFActionInterceptor) -> int:
+	var order_value: Variant = _interceptor_registration_order.get(interceptor, 0)
+	return order_value if order_value is int else 0
 
 
 func _normalize_interception_result(result: GFActionInterceptionResult) -> GFActionInterceptionResult:
@@ -816,10 +864,15 @@ func _set_paused(paused: bool) -> void:
 
 
 func _cancel_current_action() -> void:
-	if is_instance_valid(_current_action):
-		_ACTION_PROTOCOL.cancel(_current_action)
+	if _current_action_control_in_progress:
+		return
+	var action: Object = _current_action
 	_current_action = null
 	_publish_diagnostics_contribution()
+	if is_instance_valid(action):
+		_current_action_control_in_progress = true
+		_ACTION_PROTOCOL.cancel(action)
+		_current_action_control_in_progress = false
 
 
 func _dispose_all_named_queues() -> void:

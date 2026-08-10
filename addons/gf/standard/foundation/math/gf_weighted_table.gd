@@ -287,12 +287,26 @@ static func from_dict(data: Dictionary) -> GFWeightedTable:
 
 func _pick_entry_from(source_entries: Array[GFWeightedEntry], rng: Variant) -> GFWeightedEntry:
 	var total: float = 0.0
+	var max_weight: float = 0.0
 	for entry: GFWeightedEntry in source_entries:
 		if entry != null and entry.is_selectable():
 			total += entry.weight
+			max_weight = maxf(max_weight, entry.weight)
 
 	if total <= 0.0:
 		return null
+
+	var scale: float = 1.0
+	if not is_finite(total):
+		if max_weight <= 0.0 or not is_finite(max_weight):
+			return null
+		scale = max_weight
+		total = 0.0
+		for entry: GFWeightedEntry in source_entries:
+			if entry != null and entry.is_selectable():
+				total += entry.weight / scale
+		if total <= 0.0 or not is_finite(total):
+			return null
 
 	var threshold: float = _random_float_range(rng, 0.0, total)
 	var accumulated: float = 0.0
@@ -302,7 +316,7 @@ func _pick_entry_from(source_entries: Array[GFWeightedEntry], rng: Variant) -> G
 			continue
 
 		fallback = entry
-		accumulated += entry.weight
+		accumulated += entry.weight / scale
 		if threshold <= accumulated:
 			return entry
 

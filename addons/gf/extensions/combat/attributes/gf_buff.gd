@@ -78,6 +78,8 @@ const REMOVAL_REASON_ENTITY_UNREGISTERED: StringName = &"entity_unregistered"
 ## @since 6.0.0
 const REMOVAL_REASON_DISPOSED: StringName = &"disposed"
 
+const _GF_COMBAT_FINITE_MATH = preload("res://addons/gf/extensions/combat/core/gf_combat_finite_math.gd")
+
 
 # --- 公共变量 ---
 
@@ -354,10 +356,21 @@ func on_tick(_p_delta: float) -> void:
 ## [br]
 ## @api public
 ## [br]
+## @since 11.0.0
+## [br]
 ## @param p_delta: 帧间隔。
 ## [br]
 ## @return 如果 Buff 已耗尽生命周期需要被移除，则返回 true。
+## 非有限 delta 或非有限时间状态会在任何生命周期修改前失败关闭并返回 false。
 func update(p_delta: float) -> bool:
+	if (
+		not _GF_COMBAT_FINITE_MATH.is_finite_float(p_delta)
+		or not _GF_COMBAT_FINITE_MATH.is_finite_float(duration)
+		or not _GF_COMBAT_FINITE_MATH.is_finite_float(time_left)
+		or not _GF_COMBAT_FINITE_MATH.is_finite_float(tick_interval_seconds)
+		or not _GF_COMBAT_FINITE_MATH.is_finite_float(_tick_accumulator)
+	):
+		return false
 	var step_delta: float = maxf(0.0, p_delta)
 	if duration != -1.0:
 		time_left -= step_delta

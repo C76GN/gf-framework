@@ -137,7 +137,7 @@ static func for_canvas_item_image( source: CanvasItem, size: Vector2i = Vector2i
 | `size` | 输出尺寸。 |
 | `transparent` | 是否透明背景。 |
 | `content_bounds` | 来源局部坐标中的显式内容边界；非正尺寸表示自动估算。 |
-| `margin_ratio` | 内容边界四周的相对留白，钳制到 0.0 至 1.0。 |
+| `margin_ratio` | 内容边界四周的有限相对留白，钳制到 0.0 至 1.0；非有限值会使请求无效。 |
 
 返回：CanvasItem Image 渲染请求。
 
@@ -162,7 +162,7 @@ static func for_canvas_item_texture( source: CanvasItem, size: Vector2i = Vector
 | `size` | 输出尺寸。 |
 | `transparent` | 是否透明背景。 |
 | `content_bounds` | 来源局部坐标中的显式内容边界；非正尺寸表示自动估算。 |
-| `margin_ratio` | 内容边界四周的相对留白，钳制到 0.0 至 1.0。 |
+| `margin_ratio` | 内容边界四周的有限相对留白，钳制到 0.0 至 1.0；非有限值会使请求无效。 |
 
 返回：CanvasItem ImageTexture 渲染请求。
 

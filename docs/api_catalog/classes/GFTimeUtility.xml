@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFTimeUtility" path="addons/gf/standard/utilities/time/gf_time_utility.gd" module="standard" extends="GFTimeProvider" classDigest="c33e213459b96ac4c1604bea18f3297a17111d41de6a5df3ddd4a68763f27d77">
+<class name="GFTimeUtility" path="addons/gf/standard/utilities/time/gf_time_utility.gd" module="standard" extends="GFTimeProvider" classDigest="7ebe259fd516e7b4c2bc619ab9804ec83c2f1d094b18af75154dfa819240593f">
 	<description>GFTimeUtility: 全局时间控制工具。
 继承自 GFUtility，提供全局时间缩放、暂停和组级暂停控制能力。
 架构在 tick / physics_tick 中自动从本工具获取缩放后的 delta，
@@ -22,24 +22,29 @@
 		<member kind="property" name="time_scale">
 			<signature>var time_scale: float = 1.0:</signature>
 			<description>全局时间缩放系数。1.0 为正常速度，0.5 为半速，2.0 为双倍速。
-不得为负值，设置负值将被钳制为 0.0。</description>
+不得为负值，设置负值将被钳制为 0.0；非有限值会被拒绝并保留上一有效值。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="max_scaled_delta">
 			<signature>var max_scaled_delta: float = 0.0:</signature>
 			<description>单次缩放后 delta 的最大值。小于等于 0 时不限制。
-可用于避免极端 time_scale 或掉帧后向普通 tick 传入过大步长。</description>
+可用于避免极端 time_scale 或掉帧后向普通 tick 传入过大步长。
+非有限值会被拒绝并保留上一有效值。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="physics_substep_max_delta">
 			<signature>var physics_substep_max_delta: float = 0.0:</signature>
-			<description>physics_tick 子步进的最大缩放步长。小于等于 0 时不启用子步进。</description>
+			<description>physics_tick 子步进的最大缩放步长。小于等于 0 时不启用子步进。
+非有限值会被拒绝并保留上一有效值。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="max_physics_substeps">

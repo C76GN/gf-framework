@@ -6,19 +6,25 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import posixpath
 import re
 import sys
+import unicodedata
 import xml.etree.ElementTree as ET
 from pathlib import Path
 from typing import Any
+from urllib.parse import unquote
 
+from generated_output_transaction import compare_generated_tree
 from generated_output_transaction import lexical_absolute_path
 from generated_output_transaction import replace_generated_trees
 from generated_output_transaction import validate_controlled_path
 from gdscript_api_parser import ApiClass
 from gdscript_api_parser import ApiDocs
 from gdscript_api_parser import ApiMember
-from gdscript_api_parser import collect_api_classes as parse_api_classes
+from gdscript_api_parser import ApiScript
+from gdscript_api_parser import PUBLIC_API_VISIBILITIES
+from gdscript_api_parser import collect_api_scripts as parse_api_scripts
 from gdscript_api_parser import first_tag
 from gdscript_api_parser import flatten_api_classes
 from gdscript_api_parser import full_api_class_name
@@ -30,7 +36,6 @@ from gdscript_api_parser import visibility_of
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_CATALOG_ROOT = lexical_absolute_path(ROOT / "docs/api_catalog")
 DEFAULT_REFERENCE_ROOT = lexical_absolute_path(ROOT / "docs/zh/reference/api")
-PUBLIC_VISIBILITIES = {"public", "protected"}
 CATALOG_VERSION = "2"
 MODULE_LABELS = {
 	"kernel": "Kernel",
@@ -84,6 +89,15 @@ CATEGORY_ORDER = {
 	"tool_api": 8,
 	"uncategorized": 9,
 }
+MARKDOWN_LINK_PATTERN = re.compile(r"!?\[[^\]\n]*\]\(([^)\n]+)\)")
+MARKDOWN_FENCE_PATTERN = re.compile(r"^ {0,3}(`{3,}|~{3,})")
+EXPLICIT_ANCHOR_PATTERN = re.compile(r'<a\s+id="([^"]+)"\s*></a>')
+KNOWN_CLASSLESS_PUBLIC_API_SCRIPTS = frozenset({
+	# Gf is the one contract-approved Autoload surface. It stays explicit here until
+	# the Catalog owner/schema decision is made; every additional classless public
+	# script fails closed instead of silently disappearing from the generated model.
+	"addons/gf/kernel/core/gf.gd",
+})
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -112,9 +126,14 @@ def main(argv: list[str] | None = None) -> int:
 			print(error, file=sys.stderr)
 		return 2
 
-	api_classes = collect_api_classes(source_root)
-	catalog_files = render_catalog_files(api_classes, source_root)
-	reference_files = render_reference_files(api_classes, catalog_files["index.xml"])
+	try:
+		api_classes = collect_api_classes(source_root)
+		validate_api_model(api_classes)
+		catalog_files = render_catalog_files(api_classes, source_root)
+		reference_files = render_reference_files(api_classes, catalog_files["index.xml"])
+	except ValueError as error:
+		print(f"API generation input is invalid: {error}", file=sys.stderr)
+		return 2
 	coverage_status = check_reference_coverage(api_classes, reference_files, report_success=args.check)
 	if args.check:
 		return max(
@@ -145,12 +164,52 @@ def main(argv: list[str] | None = None) -> int:
 
 
 def collect_api_classes(source_root: Path) -> list[ApiClass]:
+	return select_api_classes(
+		parse_api_scripts(source_root, ROOT),
+		KNOWN_CLASSLESS_PUBLIC_API_SCRIPTS,
+	)
+
+
+def select_api_classes(
+	api_scripts: list[ApiScript],
+	known_classless_public_scripts: frozenset[str] = frozenset(),
+) -> list[ApiClass]:
 	result: list[ApiClass] = []
-	for api_class in parse_api_classes(source_root, ROOT):
-		if visibility_of(api_class.docs) not in PUBLIC_VISIBILITIES:
+	observed_classless_public_scripts: set[str] = set()
+	for api_script in api_scripts:
+		api_class = api_script.to_api_class()
+		if api_class is None:
+			if any(
+				visibility_of(member.docs) in PUBLIC_API_VISIBILITIES
+				for member in api_script_members(api_script)
+			):
+				if api_script.path not in known_classless_public_scripts:
+					raise ValueError(
+						"classless public API script has no explicit Catalog owner decision: "
+						f"{api_script.path}"
+					)
+				observed_classless_public_scripts.add(api_script.path)
+			continue
+		if visibility_of(api_class.docs) not in PUBLIC_API_VISIBILITIES:
 			continue
 		result.append(strip_internal_members(api_class))
+	stale_exclusions = known_classless_public_scripts - observed_classless_public_scripts
+	if stale_exclusions:
+		raise ValueError(
+			"classless public API exclusion is stale: "
+			+ ", ".join(sorted(stale_exclusions))
+		)
 	return result
+
+
+def api_script_members(api_script: ApiScript) -> list[ApiMember]:
+	return [
+		*api_script.signals,
+		*api_script.enums,
+		*api_script.constants,
+		*api_script.properties,
+		*api_script.methods,
+	]
 
 
 def strip_internal_members(api_class: ApiClass) -> ApiClass:
@@ -162,7 +221,7 @@ def strip_internal_members(api_class: ApiClass) -> ApiClass:
 	api_class.inner_classes = [
 		strip_internal_members(inner_class)
 		for inner_class in api_class.inner_classes
-		if visibility_of(inner_class.docs) in PUBLIC_VISIBILITIES
+		if visibility_of(inner_class.docs) in PUBLIC_API_VISIBILITIES
 	]
 	return api_class
 
@@ -171,11 +230,12 @@ def filter_public_members(members: list[ApiMember]) -> list[ApiMember]:
 	return [
 		member
 		for member in members
-		if visibility_of(member.docs) in PUBLIC_VISIBILITIES
+		if visibility_of(member.docs) in PUBLIC_API_VISIBILITIES
 	]
 
 
 def render_catalog_files(api_classes: list[ApiClass], source_root: Path) -> dict[str, str]:
+	validate_api_model(api_classes)
 	classes_payload = [api_class_to_digest_payload(api_class) for api_class in api_classes]
 	source_digest = hash_api_payload(classes_payload)
 	files: dict[str, str] = {
@@ -295,6 +355,7 @@ def append_inner_classes(parent: ET.Element, inner_classes: list[ApiClass]) -> N
 
 
 def render_reference_files(api_classes: list[ApiClass], catalog_index_xml: str) -> dict[str, str]:
+	validate_api_model(api_classes)
 	catalog_root = ET.fromstring(catalog_index_xml)
 	files: dict[str, str] = {
 		"index.md": render_reference_index(api_classes, catalog_root),
@@ -313,7 +374,9 @@ def render_reference_index(api_classes: list[ApiClass], catalog_root: ET.Element
 	lines = [
 		"# API Reference",
 		"",
-		"本区由源码 API 注释生成，作为公开类、成员签名和机器标签的完整参考。正文指南负责解释概念、边界和工作流；这里负责精确检索。",
+		"本区由源码 API 注释生成，作为当前可寻址 `class_name` owner、成员签名和机器标签的完整参考。正文指南负责解释概念、边界和工作流；这里负责精确检索。",
+		"",
+		"已知边界：classless `Gf` AutoLoad 是公开入口，但当前 Catalog schema 尚未决定如何表达 singleton owner，因此暂不计入下列统计；生成器会显式锁定这一项，并拒绝任何新增 classless public surface 静默进入同一缺口。",
 		"",
 		"## 范围",
 		"",
@@ -571,8 +634,8 @@ def append_member_summary_markdown(lines: list[str], api_class: ApiClass, summar
 		for member in members:
 			lines.append(
 				f"| {MEMBER_GROUPS[group_name]} "
-				f"| [`{markdown_table_cell(member.name)}`](#{member_anchor_id(api_class, group_name, member)}) "
-				f"| `{markdown_table_cell(member_summary_signature(member))}` |"
+				f"| [{markdown_inline_code(member.name)}](#{member_anchor_id(api_class, group_name, member)}) "
+				f"| {markdown_inline_code(member_summary_signature(member))} |"
 			)
 	lines.append("")
 
@@ -673,7 +736,8 @@ def append_member_group_markdown(
 		append_tag_line(lines, "首次版本", first_tag(member.docs, "since"))
 		append_tag_line(lines, "弃用", "; ".join(member.docs.tags.get("deprecated", [])))
 		lines.append("")
-		lines.extend(["```gdscript", member.signature, "```", ""])
+		fence = markdown_code_fence(member.signature)
+		lines.extend([f"{fence}gdscript", member.signature, fence, ""])
 		append_description(lines, member.docs.description)
 		append_params(lines, member.docs)
 		append_return(lines, member.docs)
@@ -708,7 +772,9 @@ def append_params(lines: list[str], docs: ApiDocs) -> None:
 	lines.extend(["参数：", "", "| 名称 | 说明 |", "|---|---|"])
 	for param in params:
 		name, description = split_named_value(param)
-		lines.append(f"| `{name}` | {description} |")
+		lines.append(
+			f"| {markdown_inline_code(name)} | {markdown_table_cell(description)} |"
+		)
 	lines.append("")
 
 
@@ -726,13 +792,13 @@ def append_schemas(lines: list[str], docs: ApiDocs) -> None:
 	lines.extend(["结构：", ""])
 	for schema in schemas:
 		name, description = split_named_value(schema)
-		lines.append(f"- `{name}`: {description}")
+		lines.append(f"- {markdown_inline_code(name)}: {description}")
 	lines.append("")
 
 
 def append_tag_line(lines: list[str], label: str, value: str, code: bool = True) -> None:
 	if value:
-		formatted_value = f"`{value}`" if code else value
+		formatted_value = markdown_inline_code(value) if code else value
 		lines.append(f"- {label}：{formatted_value}")
 
 
@@ -790,6 +856,23 @@ def markdown_table_cell(value: str) -> str:
 	return value.replace("\n", " ").replace("|", "\\|").replace("`", "\\`")
 
 
+def markdown_inline_code(value: str) -> str:
+	table_safe_value = value.replace("\n", " ").replace("|", "\\|")
+	longest_run = max(
+		(len(match.group(0)) for match in re.finditer(r"`+", table_safe_value)),
+		default=0,
+	)
+	delimiter = "`" * max(1, longest_run + 1)
+	if longest_run:
+		return f"{delimiter} {table_safe_value} {delimiter}"
+	return f"{delimiter}{table_safe_value}{delimiter}"
+
+
+def markdown_code_fence(value: str) -> str:
+	longest_run = max((len(match.group(0)) for match in re.finditer(r"`+", value)), default=0)
+	return "`" * max(3, longest_run + 1)
+
+
 def module_sort_key(module: str) -> tuple[int, str]:
 	if module == "kernel":
 		return (0, module)
@@ -800,6 +883,69 @@ def module_sort_key(module: str) -> tuple[int, str]:
 
 def anchor_for(title: str) -> str:
 	return title.lower().replace("_", "-").replace(".", "")
+
+
+def validate_api_model(api_classes: list[ApiClass]) -> None:
+	"""Reject owner/path/anchor identities that cannot be rendered uniquely."""
+	top_level_pages: dict[str, str] = {}
+	for api_class in api_classes:
+		page = f"classes/{api_class.name}.md"
+		identity = portable_identity(page)
+		previous = top_level_pages.get(identity)
+		if previous is not None:
+			if previous == page:
+				raise ValueError(f"duplicate API owner output page: {page}")
+			raise ValueError(
+				"API owner output page portable identity collision: "
+				f"{previous} and {page}"
+			)
+		top_level_pages[identity] = page
+
+	owner_identities: dict[str, str] = {}
+	anchors_by_page: dict[tuple[str, str], str] = {}
+	for api_class in flatten_api_classes(api_classes):
+		full_name = full_api_class_name(api_class)
+		identity = portable_identity(full_name)
+		previous_owner = owner_identities.get(identity)
+		if previous_owner is not None:
+			if previous_owner == full_name:
+				raise ValueError(f"duplicate API owner: {full_name}")
+			raise ValueError(
+				"API owner portable identity collision: "
+				f"{previous_owner} and {full_name}"
+			)
+		owner_identities[identity] = full_name
+
+		page = class_page_path(api_class)
+		owner_anchor = anchor_for(full_name)
+		_register_render_anchor(anchors_by_page, page, owner_anchor, f"owner {full_name}")
+		for group_name, members in api_class_member_groups(api_class):
+			for member in members:
+				_register_render_anchor(
+					anchors_by_page,
+					page,
+					member_anchor_id(api_class, group_name, member),
+					f"member {full_name}.{member.name}",
+				)
+
+
+def _register_render_anchor(
+	anchors_by_page: dict[tuple[str, str], str],
+	page: str,
+	anchor: str,
+	label: str,
+) -> None:
+	key = (portable_identity(page), portable_identity(anchor))
+	previous = anchors_by_page.get(key)
+	if previous is not None:
+		raise ValueError(
+			f"API anchor portable identity collision in {page}: {previous} and {label}"
+		)
+	anchors_by_page[key] = label
+
+
+def portable_identity(value: str) -> str:
+	return unicodedata.normalize("NFC", value).casefold()
 
 
 def api_class_to_digest_payload(api_class: ApiClass) -> dict[str, Any]:
@@ -870,21 +1016,7 @@ def validate_generated_output_root(root: Path, expected_root: Path, allow_unsafe
 
 
 def check_files(root: Path, desired: dict[str, str], label: str) -> int:
-	mismatches: list[str] = []
-	for relative, content in desired.items():
-		path = root / relative
-		if not path.exists():
-			mismatches.append(f"missing: {relative}")
-			continue
-		if path.read_text(encoding="utf-8") != normalize_generated_text(content):
-			mismatches.append(f"stale: {relative}")
-	existing = {
-		path.relative_to(root).as_posix()
-		for path in root.rglob("*")
-		if path.is_file()
-	} if root.exists() else set()
-	for extra in sorted(existing - set(desired.keys())):
-		mismatches.append(f"extra: {extra}")
+	mismatches = compare_generated_tree(root, desired, normalize_generated_text)
 	if not mismatches:
 		print(f"{label} is current.")
 		return 0
@@ -899,7 +1031,7 @@ def check_reference_coverage(
 	reference_files: dict[str, str],
 	report_success: bool = True,
 ) -> int:
-	errors: list[str] = []
+	errors = validate_generated_reference_links(reference_files)
 	class_count = 0
 	member_count = 0
 	for api_class in sorted(api_classes, key=lambda item: full_api_class_name(item)):
@@ -940,16 +1072,22 @@ def check_class_reference_coverage(
 	if section == None:
 		return [f"{full_name}: missing class heading in {file_name}"], 0
 
-	if class_heading_level == 1:
-		section = section.split("\n## Inner Classes\n", 1)[0]
-
 	members = api_class_members(api_class)
 	for member in members:
+		anchor_line = f'<a id="{member_anchor_id(api_class, member_group_name(member), member)}"></a>'
+		anchor_count = sum(line == anchor_line for line in section.splitlines())
+		if anchor_count == 0:
+			errors.append(f"{full_name}.{member.name}: missing owner-qualified member anchor in {file_name}")
+			continue
+		if anchor_count > 1:
+			errors.append(f"{full_name}.{member.name}: duplicate owner-qualified member anchor in {file_name}")
+			continue
+		member_section = find_explicit_anchor_section(section, anchor_line)
 		member_heading = f"{'#' * (class_heading_level + 2)} `{member.name}`"
-		if not has_markdown_line(section, member_heading):
+		if not has_markdown_line(member_section, member_heading):
 			errors.append(f"{full_name}.{member.name}: missing member heading in {file_name}")
 			continue
-		if member.signature not in section:
+		if member.signature not in member_section:
 			errors.append(f"{full_name}.{member.name}: missing signature in {file_name}")
 
 	return errors, len(members)
@@ -979,6 +1117,27 @@ def has_markdown_line(text: str, expected_line: str) -> bool:
 	return any(line == expected_line for line in text.splitlines())
 
 
+def find_explicit_anchor_section(text: str, anchor_line: str) -> str:
+	lines = text.splitlines()
+	start_index = lines.index(anchor_line)
+	end_index = len(lines)
+	for index in range(start_index + 1, len(lines)):
+		if lines[index].startswith('<a id="member-'):
+			end_index = index
+			break
+	return "\n".join(lines[start_index:end_index]) + "\n"
+
+
+def member_group_name(member: ApiMember) -> str:
+	return {
+		"signal": "signals",
+		"enum": "enums",
+		"const": "constants",
+		"property": "properties",
+		"method": "methods",
+	}[member.kind]
+
+
 def api_class_members(api_class: ApiClass) -> list[ApiMember]:
 	members: list[ApiMember] = []
 	members.extend(api_class.signals)
@@ -987,6 +1146,143 @@ def api_class_members(api_class: ApiClass) -> list[ApiMember]:
 	members.extend(api_class.properties)
 	members.extend(api_class.methods)
 	return members
+
+
+def validate_generated_reference_links(reference_files: dict[str, str]) -> list[str]:
+	"""Validate every local link and fragment in the in-memory generated tree."""
+	errors: list[str] = []
+	anchors_by_file: dict[str, set[str]] = {}
+	for relative_path, text in sorted(reference_files.items()):
+		anchors, anchor_errors = collect_generated_reference_anchors(relative_path, text)
+		anchors_by_file[relative_path] = anchors
+		errors.extend(anchor_errors)
+
+	for relative_path, text in sorted(reference_files.items()):
+		for line_number, line in visible_generated_markdown_lines(text):
+			for match in MARKDOWN_LINK_PATTERN.finditer(line):
+				target = normalize_markdown_link_target(match.group(1))
+				if not target or is_external_markdown_target(target):
+					continue
+				path_part, separator, fragment = target.partition("#")
+				path_part = unquote(path_part.split("?", 1)[0])
+				fragment = unquote(fragment.split("?", 1)[0]).strip() if separator else ""
+				target_path = resolve_generated_reference_target(relative_path, path_part)
+				if target_path is None:
+					errors.append(
+						f"{relative_path}:{line_number}: generated reference link escapes its root: {target}"
+					)
+					continue
+				if target_path not in reference_files:
+					errors.append(
+						f"{relative_path}:{line_number}: generated reference link target is missing: {target}"
+					)
+					continue
+				if fragment and fragment not in anchors_by_file[target_path]:
+					errors.append(
+						f"{relative_path}:{line_number}: generated reference anchor is missing: {target}"
+					)
+	return errors
+
+
+def collect_generated_reference_anchors(
+	relative_path: str,
+	text: str,
+) -> tuple[set[str], list[str]]:
+	anchors: set[str] = set()
+	errors: list[str] = []
+	heading_counts: dict[str, int] = {}
+	for line_number, line in visible_generated_markdown_lines(text):
+		for match in EXPLICIT_ANCHOR_PATTERN.finditer(line):
+			anchor = match.group(1)
+			if anchor in anchors:
+				errors.append(
+					f"{relative_path}:{line_number}: duplicate generated reference anchor: {anchor}"
+				)
+			anchors.add(anchor)
+		heading_match = re.match(r"^#{1,6}\s+(.+?)\s*$", line)
+		if heading_match is None:
+			continue
+		heading_title = heading_match.group(1)
+		base_anchor = generated_heading_anchor(heading_title)
+		if not base_anchor:
+			continue
+		count = heading_counts.get(base_anchor, 0)
+		heading_counts[base_anchor] = count + 1
+		anchor = base_anchor if count == 0 else f"{base_anchor}_{count}"
+		if anchor in anchors:
+			errors.append(
+				f"{relative_path}:{line_number}: duplicate generated reference anchor: {anchor}"
+			)
+		anchors.add(anchor)
+		plain_title = re.sub(r"`([^`]+)`", r"\1", heading_title).strip()
+		if re.fullmatch(r"[A-Za-z_]\w*(?:\.[A-Za-z_]\w*)*", plain_title):
+			anchors.add(anchor_for(plain_title))
+	return anchors, errors
+
+
+def visible_generated_markdown_lines(text: str) -> list[tuple[int, str]]:
+	visible: list[tuple[int, str]] = []
+	fence_character = ""
+	fence_length = 0
+	for line_number, line in enumerate(text.splitlines(), start=1):
+		stripped = line.lstrip()
+		if fence_character:
+			if (
+				stripped.startswith(fence_character * fence_length)
+				and stripped.strip(fence_character).strip() == ""
+			):
+				fence_character = ""
+				fence_length = 0
+			continue
+		fence_match = MARKDOWN_FENCE_PATTERN.match(line)
+		if fence_match is not None:
+			marker = fence_match.group(1)
+			fence_character = marker[0]
+			fence_length = len(marker)
+			continue
+		visible.append((line_number, line))
+	return visible
+
+
+def normalize_markdown_link_target(raw_target: str) -> str:
+	target = raw_target.strip()
+	if target.startswith("<"):
+		end = target.find(">")
+		return target[1:end].strip() if end != -1 else target[1:].strip()
+	return target.split()[0] if target else ""
+
+
+def is_external_markdown_target(target: str) -> bool:
+	return re.match(r"^(?:https?://|mailto:)", target, re.IGNORECASE) is not None
+
+
+def resolve_generated_reference_target(source_path: str, path_part: str) -> str | None:
+	if "\\" in path_part or re.match(r"^[A-Za-z][A-Za-z0-9+.-]*:", path_part):
+		return None
+	if path_part.startswith("/"):
+		return None
+	candidate = source_path if not path_part else posixpath.join(posixpath.dirname(source_path), path_part)
+	normalized = posixpath.normpath(candidate)
+	if normalized == ".." or normalized.startswith("../"):
+		return None
+	return normalized
+
+
+def generated_heading_anchor(title: str) -> str:
+	plain = re.sub(r"<[^>]+>", "", title)
+	plain = re.sub(r"`([^`]+)`", r"\1", plain)
+	plain = re.sub(r"\[([^\]]+)\]\([^)]+\)", r"\1", plain)
+	plain = plain.replace("*", "").replace("_", "").strip().lower()
+	characters: list[str] = []
+	previous_dash = False
+	for character in plain:
+		if character.isalnum():
+			characters.append(character)
+			previous_dash = False
+		elif not previous_dash:
+			characters.append("-")
+			previous_dash = True
+	return "".join(characters).strip("-")
 
 
 if __name__ == "__main__":

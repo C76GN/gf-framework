@@ -21,7 +21,7 @@
 | 信号 | [`context_changed`](#member-gfplatformruntime-signals-context_changed) | `signal context_changed(adapter_id: StringName, context: GFPlatformRuntimeContext)` |
 | 信号 | [`lifecycle_event`](#member-gfplatformruntime-signals-lifecycle_event) | `signal lifecycle_event(adapter_id: StringName, event: GFPlatformLifecycleEvent)` |
 | 信号 | [`activation_intent_received`](#member-gfplatformruntime-signals-activation_intent_received) | `signal activation_intent_received(adapter_id: StringName, intent: GFPlatformActivationIntent)` |
-| 信号 | [`activation_intent_dropped`](#member-gfplatformruntime-signals-activation_intent_dropped) | `signal activation_intent_dropped(` |
+| 信号 | [`activation_intent_dropped`](#member-gfplatformruntime-signals-activation_intent_dropped) | `signal activation_intent_dropped( adapter_id: StringName, intent_id: StringName, reason: StringName )` |
 | 信号 | [`request_started`](#member-gfplatformruntime-signals-request_started) | `signal request_started(adapter_id: StringName, request: GFPlatformBridgeRequest)` |
 | 信号 | [`request_completed`](#member-gfplatformruntime-signals-request_completed) | `signal request_completed(adapter_id: StringName, result: GFPlatformBridgeResult)` |
 | 方法 | [`ready`](#member-gfplatformruntime-methods-ready) | `func ready() -> void:` |
@@ -177,7 +177,7 @@ signal activation_intent_received(adapter_id: StringName, intent: GFPlatformActi
 - 首次版本：`10.0.0`
 
 ```gdscript
-signal activation_intent_dropped(
+signal activation_intent_dropped( adapter_id: StringName, intent_id: StringName, reason: StringName )
 ```
 
 激活意图因重复或容量限制未保留时发出。
@@ -331,7 +331,7 @@ func configure_activation_queue(max_pending: int, max_seen: int) -> bool:
 | 名称 | 说明 |
 |---|---|
 | `max_pending` | 最多保留的待消费意图数。 |
-| `max_seen` | 最多记忆的近期 Intent ID 数；不得小于 max_pending。 |
+| `max_seen` | 最多记忆的近期 Intent ID 数；不得小于 max_pending。待消费身份另行保留，不会因近期历史淘汰而允许重复入队。 |
 
 返回：容量有效并已应用时返回 true。
 
@@ -485,8 +485,8 @@ func invoke( request: GFPlatformBridgeRequest, adapter_id: StringName = &"" ) ->
 
 | 名称 | 说明 |
 |---|---|
-| `request` | 完整桥接请求。 |
-| `adapter_id` | 可选显式 Adapter ID。 |
+| `request` | 完整桥接请求；三个稳定 ID 会在任何路由、去重或校验前移除首尾空白。 |
+| `adapter_id` | 可选显式 Adapter ID；会移除首尾空白。 |
 
 返回：一次性请求句柄；所有输入和路由失败也返回终态句柄。
 

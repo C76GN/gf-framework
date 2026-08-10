@@ -4,7 +4,7 @@
   "kind": "standard",
   "version": "unreleased",
   "display_name": "GF Standard State Machine Editor",
-  "description": "Editor-only state machine docks, inspectors, and authoring helpers.",
+  "description": "Editor-only state machine docks, inspectors, authoring helpers, and source templates.",
   "dependencies": [
     "gf.kernel",
     "gf.standard.base",

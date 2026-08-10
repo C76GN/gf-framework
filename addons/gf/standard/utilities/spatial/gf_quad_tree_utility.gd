@@ -48,7 +48,11 @@ var bounds: Rect2:
 	get:
 		return _bounds
 	set(value):
-		_bounds = _normalize_rect(value)
+		var normalized_bounds: Rect2 = _normalize_rect(value)
+		if not _is_finite_rect(normalized_bounds):
+			push_error("[GFQuadTreeUtility] bounds 必须只包含有限值。")
+			return
+		_bounds = normalized_bounds
 		_rebuild_root_from_current_entities()
 
 ## 最大递归深度。
@@ -99,9 +103,13 @@ func init() -> void:
 ## [br]
 ## @param entities_per_node: 每节点最大实体数。
 func setup(world_bounds: Rect2, depth: int = DEFAULT_MAX_DEPTH, entities_per_node: int = DEFAULT_MAX_ENTITIES) -> void:
+	var normalized_bounds: Rect2 = _normalize_rect(world_bounds)
+	if not _is_finite_rect(normalized_bounds):
+		push_error("[GFQuadTreeUtility] bounds 必须只包含有限值。")
+		return
 	max_depth = maxi(depth, 0)
 	max_entities_per_node = maxi(entities_per_node, 1)
-	bounds = world_bounds
+	_bounds = normalized_bounds
 	clear()
 
 
@@ -484,11 +492,14 @@ func _is_indexable_rect(rect: Rect2) -> bool:
 
 
 func _is_finite_rect(rect: Rect2) -> bool:
+	var end: Vector2 = rect.position + rect.size
 	return (
 		_is_finite_float(rect.position.x)
 		and _is_finite_float(rect.position.y)
 		and _is_finite_float(rect.size.x)
 		and _is_finite_float(rect.size.y)
+		and _is_finite_float(end.x)
+		and _is_finite_float(end.y)
 	)
 
 

@@ -94,6 +94,7 @@ var request_outbox: GFRequestOutboxUtility = null:
 			return
 		_unwire_outbox_transport()
 		request_outbox = value
+		_lifecycle_generation += 1
 		_wire_outbox_transport()
 
 ## 直接提交或重放时使用的传输回调，建议签名为 func(report: Dictionary, options: Dictionary) -> Variant。
@@ -163,6 +164,7 @@ var _reports_submitted_count: int = 0
 var _reports_queued_count: int = 0
 var _replay_completed_count: int = 0
 var _wired_outbox: GFRequestOutboxUtility = null
+var _lifecycle_generation: int = 0
 
 
 # --- GF 生命周期方法 ---
@@ -173,6 +175,7 @@ var _wired_outbox: GFRequestOutboxUtility = null
 ## [br]
 ## @since 8.0.0
 func dispose() -> void:
+	_lifecycle_generation += 1
 	_unwire_outbox_transport()
 	support_report_utility = null
 	request_outbox = null
@@ -512,7 +515,7 @@ func queue_report(report: Dictionary, options: Dictionary = {}) -> Dictionary:
 ## [br]
 ## @return 重放报告。
 ## [br]
-## @schema return: Dictionary，GFRequestOutboxUtility.replay() 返回结构；缺少 outbox 时包含 ok=false 和 reason。
+## @schema return: Dictionary，GFRequestOutboxUtility.replay() 返回结构；缺少 outbox 时包含 ok=false 和 reason；生命周期切换时包含 workflow_stale=true、workflow_commit_applied=false 和 reason=workflow_lifecycle_changed。
 func replay_queued(max_count: int = 0) -> Dictionary:
 	if request_outbox == null:
 		return {
@@ -526,8 +529,15 @@ func replay_queued(max_count: int = 0) -> Dictionary:
 			"reason": "request_outbox_is_null",
 		}
 
+	var replay_outbox: GFRequestOutboxUtility = request_outbox
+	var replay_generation: int = _lifecycle_generation
 	_wire_outbox_transport()
-	var result: Dictionary = await request_outbox.replay(max_count)
+	var result: Dictionary = await replay_outbox.replay(max_count)
+	if (
+		replay_generation != _lifecycle_generation
+		or request_outbox != replay_outbox
+	):
+		return _make_stale_replay_result(result)
 	_replay_completed_count += 1
 	workflow_replay_completed.emit(result.duplicate(true))
 	return result
@@ -739,3 +749,13 @@ func _make_queue_result(
 		"persisted": ok and persisted,
 		"persistence_error": persistence_error,
 	}
+
+
+func _make_stale_replay_result(outbox_result: Dictionary) -> Dictionary:
+	var result: Dictionary = outbox_result.duplicate(true)
+	result["outbox_reason"] = GFVariantData.get_option_string(outbox_result, "reason")
+	result["ok"] = false
+	result["reason"] = "workflow_lifecycle_changed"
+	result["workflow_stale"] = true
+	result["workflow_commit_applied"] = false
+	return result

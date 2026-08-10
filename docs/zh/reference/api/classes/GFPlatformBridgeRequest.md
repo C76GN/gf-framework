@@ -129,7 +129,7 @@ var metadata: Dictionary = {}
 func configure( p_request_id: StringName, p_contract_id: StringName, p_method_id: StringName, p_payload: Dictionary = {}, p_timeout_msec: int = 0, p_metadata: Dictionary = {} ) -> GFPlatformBridgeRequest:
 ```
 
-配置桥接请求。
+配置桥接请求。 三个稳定 ID 会移除首尾空白；直接写入导出属性的请求也会在 Runtime / Adapter 边界复制为同一规范身份。
 
 参数：
 
@@ -194,7 +194,7 @@ func to_dict() -> Dictionary:
 func apply_dict(data: Dictionary) -> void:
 ```
 
-从字典应用桥接请求字段。
+从字典应用桥接请求字段。 request_id、contract_id 与 method_id 会移除首尾空白。
 
 参数：
 

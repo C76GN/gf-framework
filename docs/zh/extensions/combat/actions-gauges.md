@@ -9,7 +9,7 @@
 - `GFCombatAction` 保存动作类别、操作类型、数值、标签、payload 和元数据。
 - `GFCombatActionModifier` 按动作类别和标签过滤后调整动作数值、操作或类别。
 - `GFCombatGauge` 是可选节点组件，维护一个带上下限的通用数值，并通过动作应用、校验回调和信号输出结果。
-- `GFCombatActionResult` 记录原始动作、最终动作、应用前后数值、原因和元数据，方便日志、表现或事件系统消费。
+- `GFCombatActionResult` 记录原始动作、最终动作、该动作自身提交前后的数值、原因和元数据，方便日志、表现或事件系统消费。若 `value_changed` 监听者同步触发下一次数值变更，外层结果仍保持自己那一次状态转换的快照，`gauge.current_value` 则反映所有嵌套变更完成后的实时状态。
 
 这套 API 不把 `damage`、`heal`、`hp`、`shield` 写成框架规则。项目可以把 `action_kind = &"damage"` 配成减少值，也可以把同一套机制用于耐久、能量、姿态条、资源槽或自定义交互计量。
 

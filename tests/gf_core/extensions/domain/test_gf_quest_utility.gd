@@ -56,6 +56,48 @@ func test_quest_integration_with_simple_event() -> void:
 	assert_true(_quest.is_quest_completed(&"collect_coins"))
 
 
+func test_start_signal_can_dispatch_target_event_without_losing_progress() -> void:
+	var _connected: int = _quest.quest_started.connect(func(quest_id: StringName) -> void:
+		if quest_id == &"signal_event":
+			Gf.send_simple_event(&"signal_target", 1)
+	)
+
+	_quest.start_quest(&"signal_event", &"signal_target", 1)
+
+	assert_true(
+		_quest.is_quest_completed(&"signal_event"),
+		"quest_started 观察到的 active 任务必须已经拥有目标事件订阅。"
+	)
+
+
+func test_start_signal_cancellation_does_not_leave_event_subscription() -> void:
+	var progressed_count: Array[int] = [0]
+	var _started_connected: int = _quest.quest_started.connect(func(quest_id: StringName) -> void:
+		if quest_id == &"cancel_on_start":
+			var _cancelled: bool = _quest.cancel_quest(quest_id)
+	)
+	var _progress_connected: int = _quest.quest_progressed.connect(
+		func(quest_id: StringName, _current: int, _target: int) -> void:
+			if quest_id == &"cancel_on_start":
+				progressed_count[0] += 1
+	)
+
+	_quest.start_quest(&"cancel_on_start", &"cancel_target", 1)
+	Gf.send_simple_event(&"cancel_target", 1)
+
+	assert_eq(
+		_quest.get_quest_status(&"cancel_on_start"),
+		GFQuestUtility.STATUS_CANCELLED,
+		"started 回调内取消必须成为唯一终态。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(_quest.get_debug_snapshot(), "event_count", -1),
+		0,
+		"started 回调内取消后不得重新附着事件订阅。"
+	)
+	assert_eq(progressed_count[0], 0, "取消后目标事件不得继续推进任务。")
+
+
 func test_float_payload_amount_is_rounded() -> void:
 	_quest.start_quest(&"collect_parts", &"part_looted", 3)
 
@@ -217,6 +259,46 @@ func test_acceptance_condition_can_block_accepting_quest() -> void:
 	assert_true(_quest.accept_quest(&"locked"), "清空条件后应可接取。")
 
 
+func test_accept_signal_can_dispatch_target_event_without_losing_progress() -> void:
+	_quest.define_quest(&"signal_accept", &"accept_target", 1)
+	var _connected: int = _quest.quest_started.connect(func(quest_id: StringName) -> void:
+		if quest_id == &"signal_accept":
+			Gf.send_simple_event(&"accept_target", 1)
+	)
+
+	var accepted: bool = _quest.accept_quest(&"signal_accept")
+
+	assert_true(accepted, "合法任务应成功接取。")
+	assert_true(
+		_quest.is_quest_completed(&"signal_accept"),
+		"accept 的 started 信号也必须观察到已提交的事件订阅。"
+	)
+
+
+func test_acceptance_condition_reentry_cannot_revive_cancelled_quest() -> void:
+	_quest.define_quest(&"cancel_during_acceptance", &"accept_target", 1)
+	_quest.add_acceptance_condition(
+		&"cancel_during_acceptance",
+		func(quest_id: StringName, _report: Dictionary) -> bool:
+			var _cancelled: bool = _quest.cancel_quest(quest_id)
+			return true
+	)
+
+	var accepted: bool = _quest.accept_quest(&"cancel_during_acceptance")
+
+	assert_false(accepted, "条件回调已改变任务状态时外层接取不得继续提交。")
+	assert_eq(
+		_quest.get_quest_status(&"cancel_during_acceptance"),
+		GFQuestUtility.STATUS_CANCELLED,
+		"条件回调先提交的取消状态必须保留。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(_quest.get_debug_snapshot(), "event_count", -1),
+		0,
+		"被取消任务不得附着目标事件。"
+	)
+
+
 func test_defined_quest_rejects_empty_target_event_up_front() -> void:
 	watch_signals(_quest)
 
@@ -254,6 +336,32 @@ func test_available_quest_cannot_be_completed_before_acceptance() -> void:
 	assert_false(_quest.complete_quest(&"locked"), "available 任务未接取前不应被手动完成。")
 	assert_eq(_quest.get_quest_status(&"locked"), GFQuestUtility.STATUS_AVAILABLE, "手动完成失败后任务应保持 available。")
 	assert_signal_not_emitted(_quest, "quest_completed", "被接取条件保护的任务不应绕过生命周期完成。")
+
+
+func test_completion_blocker_reentry_cannot_double_commit_terminal_state() -> void:
+	watch_signals(_quest)
+	_quest.start_quest(&"cancel_during_completion", &"complete_target", 1)
+	_quest.add_completion_blocker(
+		&"cancel_during_completion",
+		func(quest_id: StringName, _report: Dictionary) -> bool:
+			var _cancelled: bool = _quest.cancel_quest(quest_id)
+			return true
+	)
+
+	Gf.send_simple_event(&"complete_target", 1)
+
+	assert_eq(
+		_quest.get_quest_status(&"cancel_during_completion"),
+		GFQuestUtility.STATUS_CANCELLED,
+		"完成阻塞器先提交的取消必须成为唯一终态。"
+	)
+	assert_signal_emitted(_quest, "quest_cancelled", "合法取消终态应发出信号。")
+	assert_signal_not_emitted(_quest, "quest_completed", "同一转换不得随后再次提交 completed。")
+	assert_signal_not_emitted(
+		_quest,
+		"quest_completion_blocked",
+		"状态已由回调改变时不得再发布过期的阻塞结果。"
+	)
 
 
 func test_fail_quest_detaches_listener_and_records_reason() -> void:

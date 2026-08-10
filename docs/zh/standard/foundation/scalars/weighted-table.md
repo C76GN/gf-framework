@@ -23,6 +23,6 @@ var deterministic_batch := table.pick_many(3, fixed_rng)
 
 资源化条目适合编辑器配置或导表后转换；字典序列化方法只保留通用字段，项目层可以自由决定 `value` 与 `metadata` 的结构。
 
-权重必须是有限正数。`GFWeightedEntry.weight` 收到 `NaN`、`Infinity` 或负值时会归一到 `0.0` 并让条目不参与抽取，避免无效数值污染总权重或 JSON 诊断报告。
+只有有限正权重会参与抽取。`GFWeightedEntry.weight` 收到 `NaN` 或 `Infinity` 时会归一到 `0.0`；零或负有限值会保留但不参与抽取。多个合法权重的数学总和可能超出 float 范围，此时 `get_total_weight()` 会如实返回 `Infinity`，选择路径则按最大权重缩放后抽取，避免把非有限上界传给随机源，并保持共同正比例缩放下的分布语义。
 
 复杂业务校验仍应放在项目自己的配置管线中，而不是塞进权重表。

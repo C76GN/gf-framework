@@ -2,6 +2,8 @@
 
 编辑器菜单提供 `工具 > GF > 生成 NodeState` 与 `工具 > GF > 生成 NodeStateMachine` 模板，适合快速建立节点状态脚本。
 
+两份模板由 `gf.standard.state_machine.editor` 包物理拥有，中央标准库编辑器贡献清单只负责索引。菜单会从目标文件名推导 `class_name`，并在任何写入前同时验证该名称与模板 `base_class` 都是合法 GDScript 标识符；非法文件名或基类会以零输出失败，已有文件也不会被覆盖。
+
 选中 `GFNodeStateMachine` 时，Inspector 会从直接子状态中提供初始状态选择，减少手填状态名带来的拼写错误。
 
 该列表读取状态节点导出的 `state_name`，为空时退回节点名，不要求状态脚本声明 `@tool`。

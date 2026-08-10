@@ -200,6 +200,21 @@ func test_create_meandered_polyline_reports_invalid_inputs() -> void:
 	assert_eq(GFVariantData.get_option_int(too_many, "point_count"), 7, "错误报告应暴露预计输出点数。")
 
 
+func test_create_meandered_polyline_rejects_overflowing_derived_count() -> void:
+	var report: Dictionary = GFCurve2DMath.create_meandered_polyline(
+		PackedVector2Array([Vector2.ZERO, Vector2.RIGHT]),
+		{
+			"points_per_segment": 9_223_372_036_854_775_807,
+			"max_points": 64,
+		}
+	)
+
+	assert_false(GFVariantData.get_option_bool(report, "ok"), "派生点数溢出不得绕过 max_points。")
+	assert_eq(GFVariantData.get_option_string(report, "error"), "generated point count would exceed max_points.")
+	assert_true(_option_packed_vector2_array(report, "points").is_empty(), "失败前不得生成部分点列。")
+	assert_gte(GFVariantData.get_option_int(report, "point_count"), 0, "失败报告计数不得回绕为负数。")
+
+
 func test_subdivide_polyline_by_max_segment_length_inserts_even_points_and_anchor_indices() -> void:
 	var points: PackedVector2Array = PackedVector2Array([
 		Vector2.ZERO,

@@ -85,7 +85,7 @@ static func get_surface_neighbors( cell: Vector3i, grid_size: Vector3i, is_walka
 |---|---|
 | `cell` | 当前站立格。 |
 | `grid_size` | 网格尺寸。 |
-| `is_walkable` | 可站立回调，签名为 `func(cell: Vector3i) -> bool`。 |
+| `is_walkable` | 可站立回调，签名为 \`func(cell: Vector3i) -> bool\`。 |
 | `max_step_up` | 单步最多上升高度。 |
 | `max_step_down` | 单步最多下降高度。 |
 | `horizontal_directions` | 可选水平移动方向；为空时使用 X/Z 四方向。 |
@@ -111,10 +111,10 @@ static func find_path_a_star( grid_size: Vector3i, start: Vector3i, goal: Vector
 | `grid_size` | 网格尺寸。 |
 | `start` | 起点格子。 |
 | `goal` | 终点格子。 |
-| `is_walkable` | 可通行回调，签名为 `func(cell: Vector3i) -> bool`。 |
+| `is_walkable` | 可通行回调，签名为 \`func(cell: Vector3i) -> bool\`。 |
 | `allow_diagonal` | 是否允许 26 邻域移动。 |
-| `step_cost` | 可选代价回调，签名为 `func(from: Vector3i, to: Vector3i) -> float`；返回负数表示不可通行。 |
-| `heuristic` | 启发函数名称，支持 `manhattan`、`chebyshev`、`euclidean`。 |
+| `step_cost` | 可选代价回调，签名为 \`func(from: Vector3i, to: Vector3i) -> float\`；返回负数表示不可通行。 |
+| `heuristic` | 启发函数名称，支持 \`manhattan\`、\`chebyshev\`、\`euclidean\`。 |
 
 返回：包含起点与终点的路径；无法到达时返回空数组。
 
@@ -137,9 +137,9 @@ static func find_reachable( grid_size: Vector3i, start: Vector3i, max_cost: floa
 | `grid_size` | 网格尺寸。 |
 | `start` | 起点格子。 |
 | `max_cost` | 最大累计代价。 |
-| `is_walkable` | 可通行回调，签名为 `func(cell: Vector3i) -> bool`。 |
+| `is_walkable` | 可通行回调，签名为 \`func(cell: Vector3i) -> bool\`。 |
 | `allow_diagonal` | 是否允许 26 邻域移动。 |
-| `step_cost` | 可选代价回调，签名为 `func(from: Vector3i, to: Vector3i) -> float`；返回负数表示不可通行。 |
+| `step_cost` | 可选代价回调，签名为 \`func(from: Vector3i, to: Vector3i) -> float\`；返回负数表示不可通行。 |
 
 返回：字典，键为可达格子，值为从起点到该格子的最低代价。
 
@@ -166,10 +166,10 @@ static func find_surface_path_a_star( grid_size: Vector3i, start: Vector3i, goal
 | `grid_size` | 网格尺寸。 |
 | `start` | 起点站立格。 |
 | `goal` | 终点站立格。 |
-| `is_walkable` | 可站立回调，签名为 `func(cell: Vector3i) -> bool`。 |
+| `is_walkable` | 可站立回调，签名为 \`func(cell: Vector3i) -> bool\`。 |
 | `max_step_up` | 单步最多上升高度。 |
 | `max_step_down` | 单步最多下降高度。 |
-| `step_cost` | 可选代价回调，签名为 `func(from: Vector3i, to: Vector3i) -> float`；返回负数表示不可通行。 |
-| `heuristic` | 启发函数名称，支持 `manhattan`、`chebyshev`、`euclidean`。 |
+| `step_cost` | 可选代价回调，签名为 \`func(from: Vector3i, to: Vector3i) -> float\`；返回负数表示不可通行。 |
+| `heuristic` | 启发函数名称，支持 \`manhattan\`、\`chebyshev\`、\`euclidean\`。 |
 
 返回：包含起点与终点的路径；无法到达时返回空数组。

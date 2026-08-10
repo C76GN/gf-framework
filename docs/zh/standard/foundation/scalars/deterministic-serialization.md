@@ -65,5 +65,6 @@ var hash := GFDeterministicVariantSerializer.sha256({
 - 支持纯 Variant 数据、字符串 / 名称 / 路径、整数向量、数组、字典和常见 packed 数组；显式开启 `allow_floats` 后支持文档化的有限浮点复合类型。
 - 字典 key 会按 key 的 canonical 表达排序，`1`、`"1"`、`StringName("1")` 不会被压成同一个字符串 key。
 - Object、Resource、Callable、RID、Signal、循环引用和超过 `max_depth` 的结构会失败。
+- `to_canonical_value()` 的预算作用于遍历深度、集合项和字符串长度；它不生成唯一字节表示，因此不把 `max_output_bytes` 作为保证。`max_output_bytes` 只由 JSON、bytes 和 SHA-256 入口执行。
 - 如果只是写入存档并需要压缩、metadata 或 checksum，继续使用 `GFStorageCodec`。
 - 如果只是把 Godot 值转成 JSON 兼容结构并恢复，继续使用 `GFVariantJsonCodec`。

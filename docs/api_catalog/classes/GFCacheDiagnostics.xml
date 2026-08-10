@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFCacheDiagnostics" path="addons/gf/standard/foundation/collections/gf_cache_diagnostics.gd" module="standard" extends="RefCounted" classDigest="4b1e1553ae79d26b9de65fd35e5e723d72d9241e7475062d53f71d273ba0488c">
+<class name="GFCacheDiagnostics" path="addons/gf/standard/foundation/collections/gf_cache_diagnostics.gd" module="standard" extends="RefCounted" classDigest="eb99b49693b523b38f0516616a2512fdfc25926eb7cb5174eed5dffc0ead5592">
 	<description>GFCacheDiagnostics: 通用缓存命中、写入和失效统计。
 用于给各类缓存、索引或预热池提供一致的诊断快照。它不持有缓存内容，
 也不规定缓存淘汰策略，只记录可观测事件。</description>
@@ -98,7 +98,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">诊断快照。</tag>
-				<tag name="schema">return: Dictionary with cache_id, hit_count, miss_count, write_count, eviction_count, invalidation_count, hit_ratio, invalidation_reasons, and last_event.</tag>
+				<tag name="schema">return: Dictionary with cache_id, hit_count, miss_count, write_count, eviction_count, invalidation_count, hit_ratio, counter_saturated, invalidation_reasons, and last_event.</tag>
 				<tag name="since">6.0.0</tag>
 			</tags>
 		</member>

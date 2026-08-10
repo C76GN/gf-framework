@@ -531,8 +531,7 @@ func mark_project_installers_applied() -> void:
 	var was_running: bool = _project_installers_running
 	_project_installers_applied = true
 	_project_installers_running = false
-	if was_running:
-		project_installers_finished.emit()
+	project_installers_finished.emit()
 
 
 ## 标记项目级 Installer 应用完成并唤醒等待方；准入已关闭时保持 no-op。

@@ -461,12 +461,13 @@ func tick(_blackboard: Dictionary) -> int:
 ##### `reset`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func reset() -> void:
 ```
 
-重置节点内部运行状态。
+重置节点内部运行状态。 基类不会取消项目持有的外部异步工作；需要清理外部所有权的自定义节点必须重写。
 
 <a id="member-gfbehaviortree-btnode-methods-duplicate_runtime"></a>
 
@@ -479,7 +480,7 @@ func reset() -> void:
 func duplicate_runtime() -> BTNode:
 ```
 
-创建一份可独立运行的节点副本，不复制调试计数和正在运行的内部状态。 自定义节点必须重写此方法并复制自身类型；默认实现会返回一个失败节点， 避免 Runner 在默认复制模式下静默共享未知节点运行态。
+创建一份可独立运行的节点副本，不复制调试计数和正在运行的内部状态。 自定义节点必须重写此方法并复制自身动态脚本类型；这也适用于继承 Sequence、Decorator 等具体内置节点的自定义子类。默认实现或类型不匹配的 复制结果会由 Runner 转为失败节点，避免静默共享或切片未知节点运行态。
 
 返回：运行时副本。
 
@@ -540,7 +541,7 @@ func get_debug_snapshot() -> Dictionary:
 
 结构：
 
-- `return`: 包含 node_id、name、status、status_text、reason、tick_count、last_tick_usec、child_count、children 和 metadata 字段的 Dictionary；children 为子节点快照数组；metadata 为 JSON-safe 投影。
+- `return`: 包含 node_id、name、status、status_text、reason、tick_count、last_tick_usec、child_count、children 和 metadata 字段的 Dictionary；children 为子节点快照数组；metadata 为 JSON-safe 投影；真实回边以 cycle=true 表示，非回边的重复 identity 以 shared_reference=true 表示。
 
 ### GFBehaviorTree.BlackboardScope
 
@@ -572,12 +573,13 @@ func get_debug_snapshot() -> Dictionary:
 ##### `values`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var values: Dictionary = {}
 ```
 
-当前作用域值。
+当前作用域值。 该字段是当前作用域的 live mutable storage；直接写入会绕过 set_value() 的复制边界。 需要隔离快照时应使用 set_value()、get_value() 与 to_dictionary()。
 
 结构：
 
@@ -715,7 +717,7 @@ func to_dictionary() -> Dictionary:
 - 类别：领域模型 (`domain_model`)
 - 首次版本：`3.17.0`
 
-条件检查节点 (叶子节点)。 包装一个返回布尔值的回调。true 为 SUCCESS，false 为 FAILURE。
+条件检查节点 (叶子节点)。 包装一个返回布尔值的回调。true 为 SUCCESS，false 为 FAILURE；无效 Callable 返回 FAILURE 并记录 invalid_condition，不与合法 condition_false 混同。
 
 #### 成员概览
 
@@ -773,7 +775,7 @@ func duplicate_runtime() -> BTNode:
 - 类别：领域模型 (`domain_model`)
 - 首次版本：`3.17.0`
 
-冷却装饰节点。 子节点结束后进入冷却期，冷却未结束时返回 FAILURE。
+冷却装饰节点。 子节点结束并完成 reset 后进入冷却期，冷却未结束时返回 FAILURE。
 
 #### 成员概览
 
@@ -905,12 +907,13 @@ func duplicate_runtime() -> BTNode:
 ##### `set_child`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func set_child(child_node: BTNode) -> Decorator:
 ```
 
-设置被装饰的子节点。
+设置被装饰的子节点。 替换不同 child 前会先 reset 旧 child；重复设置同一 identity 是无操作。
 
 参数：
 
@@ -1542,7 +1545,7 @@ func duplicate_runtime() -> BTNode:
 - 类别：运行时句柄 (`runtime_handle`)
 - 首次版本：`3.17.0`
 
-行为树的执行入口容器。
+行为树的执行入口容器。 Runner 默认复制节点运行态，并验证每个副本保持独立 identity 与动态脚本类型。 同一个 Runner 的 tick 不可同步重入；重入调用会失败关闭为 ABORTED。
 
 #### 成员概览
 
@@ -1794,7 +1797,7 @@ func duplicate_runtime() -> BTNode:
 - 类别：领域模型 (`domain_model`)
 - 首次版本：`3.17.0`
 
-时间限制装饰节点。 子节点 RUNNING 持续超过限制时返回 FAILURE 并重置子节点。
+时间限制装饰节点。 子节点 RUNNING 持续达到限制时返回 FAILURE 并重置子节点；0 秒表示立即超时， 不会先 tick 子节点。
 
 #### 成员概览
 

@@ -94,6 +94,28 @@ func test_pack_square_finds_power_of_two_container_and_normalizes() -> void:
 		assert_true(rect.end.x <= 1.0 and rect.end.y <= 1.0, "归一化坐标不应超过 1。")
 
 
+func test_pack_square_rejects_unrepresentable_dimensions_without_search_overflow() -> void:
+	var total_area_overflow: Dictionary = GFRectPacking2DBase.pack_square([
+		Vector2i(2_147_483_647, 2_147_483_647),
+		Vector2i(2_147_483_647, 2_147_483_647),
+	])
+	var padding_overflow: Dictionary = GFRectPacking2DBase.pack_square(
+		[Vector2i.ONE],
+		{ "padding": 9_223_372_036_854_775_807 }
+	)
+	var power_of_two_overflow: Dictionary = GFRectPacking2DBase.pack_square(
+		[Vector2i(1_073_741_825, 1)],
+		{ "power_of_two": true }
+	)
+
+	assert_false(GFVariantData.get_option_bool(total_area_overflow, "ok"))
+	assert_false(GFVariantData.get_option_bool(padding_overflow, "ok"))
+	assert_false(GFVariantData.get_option_bool(power_of_two_overflow, "ok"))
+	assert_false(GFVariantData.get_option_string(total_area_overflow, "error").is_empty())
+	assert_false(GFVariantData.get_option_string(padding_overflow, "error").is_empty())
+	assert_false(GFVariantData.get_option_string(power_of_two_overflow, "error").is_empty())
+
+
 ## 验证旋转选项只在允许时生效。
 func test_pack_fixed_uses_rotation_only_when_allowed() -> void:
 	var no_rotation: Dictionary = GFRectPacking2DBase.pack_fixed([

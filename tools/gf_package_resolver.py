@@ -34,6 +34,27 @@ SCRIPT_PATH = Path(__file__).resolve()
 ROOT = find_workspace_root(SCRIPT_PATH.parent, SCRIPT_PATH.parents[1])
 LOCKFILE_SCHEMA_VERSION = 1
 REGISTRY_SCHEMA_VERSION = 2
+REGISTRY_PACKAGE_KINDS = {"kernel", "standard", "extension", "tool", "preset"}
+REGISTRY_ROOT_REQUIRED_FIELDS = {
+	"schema_version",
+	"framework_version",
+	"minimum_framework_version",
+	"maximum_framework_version_exclusive",
+	"packages",
+}
+REGISTRY_ROOT_ALLOWED_FIELDS = REGISTRY_ROOT_REQUIRED_FIELDS | {"generated_at"}
+REGISTRY_PACKAGE_COMMON_REQUIRED_FIELDS = {
+	"version",
+	"kind",
+	"minimum_framework_version",
+	"maximum_framework_version_exclusive",
+	"dependencies",
+	"paths",
+}
+REGISTRY_PACKAGE_COMMON_OPTIONAL_FIELDS = {"display_name", "description"}
+REGISTRY_PACKAGE_CONCRETE_REQUIRED_FIELDS = {"archive", "sha256", "size_bytes"}
+REGISTRY_PACKAGE_CONCRETE_OPTIONAL_FIELDS = {"gf_extension_id"}
+REGISTRY_PACKAGE_PRESET_REQUIRED_FIELDS = {"packages"}
 VALID_REASONS = {"manual", "dependency", "preset", "bundled", "dev"}
 PROTECTED_REASONS = {"manual", "preset", "bundled", "dev"}
 PROJECT_TEXT_SCAN_EXTENSIONS = {".cfg", ".gd", ".godot", ".json", ".tres", ".tscn"}
@@ -344,30 +365,49 @@ def uninstall_plan(
 
 	installed = copy.deepcopy(lockfile["data"]["installed"])
 	blocked: list[dict[str, Any]] = []
-	to_remove: list[str] = []
+	requested: list[str] = []
 	for package_id in package_ids:
+		append_unique(requested, package_id)
+	candidate_removals: list[str] = []
+	for package_id in requested:
 		entry = installed.get(package_id)
 		if not isinstance(entry, dict):
 			blocked.append({"id": package_id, "reason": "not_installed"})
 			continue
 		reasons = set(string_array(entry.get("reason", [])))
-		required_by = string_array(entry.get("required_by", []))
 		protected = sorted((reasons & (PROTECTED_REASONS - {"manual"})))
 		references = scan_project_references(resolved_project_root, registry["packages"], package_id)
-		if required_by and not force:
-			blocked.append({"id": package_id, "reason": "required_by", "required_by": required_by})
-			continue
 		if protected and not force:
 			blocked.append({"id": package_id, "reason": "protected_reason", "protected_reasons": protected})
 			continue
 		if references and not force:
 			blocked.append({"id": package_id, "reason": "project_references", "references": references[:20]})
 			continue
-		append_unique(to_remove, package_id)
+		append_unique(candidate_removals, package_id)
+	if not force:
+		candidate_set = set(candidate_removals)
+		changed = True
+		while changed:
+			changed = False
+			for package_id in list(candidate_removals):
+				entry = installed[package_id]
+				external_required_by = sorted(
+					set(string_array(entry.get("required_by", []))) - candidate_set
+				)
+				if not external_required_by:
+					continue
+				blocked.append({
+					"id": package_id,
+					"reason": "required_by",
+					"required_by": external_required_by,
+				})
+				candidate_removals.remove(package_id)
+				candidate_set.remove(package_id)
+				changed = True
 	if blocked:
 		return make_plan_result(False, "uninstall", [], [], [], [], ["Uninstall blocked."], lockfile["data"], lockfile_path, blocked=blocked)
 
-	for package_id in to_remove:
+	for package_id in candidate_removals:
 		installed.pop(package_id, None)
 	recompute_required_by(installed, registry["packages"])
 	prune_blocked = collect_dependency_prune_blockers(
@@ -397,7 +437,7 @@ def uninstall_plan(
 		[],
 		[],
 		[],
-		[to_remove_item for to_remove_item in [*to_remove, *pruned]],
+		[to_remove_item for to_remove_item in [*candidate_removals, *pruned]],
 		[],
 		planned_lock,
 		lockfile_path,
@@ -912,26 +952,42 @@ def resolve_dependency_closure(packages: dict[str, dict[str, Any]], roots: list[
 	issues: list[str] = []
 	visiting: list[str] = []
 	visited: set[str] = set()
-
-	def visit(package_id: str) -> None:
-		if package_id in visited:
-			return
-		if package_id in visiting:
-			cycle = [*visiting[visiting.index(package_id):], package_id]
-			issues.append("Package dependency cycle: " + " -> ".join(cycle))
-			return
-		if package_id not in packages:
-			issues.append(f"Missing package: {package_id}")
-			return
-		visiting.append(package_id)
-		for dependency_id in package_dependency_ids(packages[package_id]):
-			visit(dependency_id)
-		visiting.pop()
-		visited.add(package_id)
-		append_unique(order, package_id)
-
 	for root_package_id in roots:
-		visit(root_package_id)
+		stack: list[dict[str, Any]] = [{"id": root_package_id, "dependency_index": 0, "entered": False}]
+		while stack:
+			frame = stack[-1]
+			package_id = str(frame["id"])
+			if not frame["entered"]:
+				if package_id in visited:
+					stack.pop()
+					continue
+				if package_id in visiting:
+					cycle = [*visiting[visiting.index(package_id):], package_id]
+					issues.append("Package dependency cycle: " + " -> ".join(cycle))
+					stack.pop()
+					continue
+				if package_id not in packages:
+					issues.append(f"Missing package: {package_id}")
+					stack.pop()
+					continue
+				visiting.append(package_id)
+				frame["entered"] = True
+				frame["dependencies"] = package_dependency_ids(packages[package_id])
+				continue
+			dependencies: list[str] = frame["dependencies"]
+			dependency_index = int(frame["dependency_index"])
+			if dependency_index < len(dependencies):
+				frame["dependency_index"] = dependency_index + 1
+				stack.append({
+					"id": dependencies[dependency_index],
+					"dependency_index": 0,
+					"entered": False,
+				})
+				continue
+			stack.pop()
+			visiting.pop()
+			visited.add(package_id)
+			append_unique(order, package_id)
 	return {"order": order, "issues": issues}
 
 
@@ -1360,6 +1416,105 @@ def make_plan_result(
 	}
 
 
+def exact_dictionary_field_issues(
+	value: dict[str, Any],
+	required_fields: set[str],
+	allowed_fields: set[str],
+	label: str,
+) -> list[str]:
+	issues: list[str] = []
+	for field_name in sorted(required_fields - set(value)):
+		issues.append(f"{label} is missing required field: {field_name}")
+	for field_name in sorted(set(value) - allowed_fields):
+		issues.append(f"{label} contains unsupported field: {field_name}")
+	return issues
+
+
+def registry_root_schema_issues(data: dict[str, Any]) -> list[str]:
+	issues = exact_dictionary_field_issues(
+		data,
+		REGISTRY_ROOT_REQUIRED_FIELDS,
+		REGISTRY_ROOT_ALLOWED_FIELDS,
+		"Registry",
+	)
+	if type(data.get("schema_version")) is not int or data.get("schema_version") != REGISTRY_SCHEMA_VERSION:
+		issues.append(f"Registry schema_version must be the integer {REGISTRY_SCHEMA_VERSION}.")
+	framework_version = data.get("framework_version")
+	if not isinstance(framework_version, str) or not framework_version:
+		issues.append("Registry framework_version must be a non-empty string.")
+	for field_name in ("minimum_framework_version", "maximum_framework_version_exclusive"):
+		if not isinstance(data.get(field_name), str):
+			issues.append(f"Registry {field_name} must be a string.")
+	if "generated_at" in data and not isinstance(data.get("generated_at"), str):
+		issues.append("Registry generated_at must be a string when present.")
+	if not isinstance(data.get("packages"), dict):
+		issues.append("Registry packages must be an object.")
+	return issues
+
+
+def registry_package_schema_issues(package_id: str, package_entry: dict[str, Any]) -> list[str]:
+	kind_value = package_entry.get("kind")
+	kind = kind_value if isinstance(kind_value, str) else ""
+	if kind == "preset":
+		required_fields = REGISTRY_PACKAGE_COMMON_REQUIRED_FIELDS | REGISTRY_PACKAGE_PRESET_REQUIRED_FIELDS
+		allowed_fields = required_fields | REGISTRY_PACKAGE_COMMON_OPTIONAL_FIELDS
+	else:
+		required_fields = REGISTRY_PACKAGE_COMMON_REQUIRED_FIELDS | REGISTRY_PACKAGE_CONCRETE_REQUIRED_FIELDS
+		allowed_fields = (
+			required_fields
+			| REGISTRY_PACKAGE_COMMON_OPTIONAL_FIELDS
+			| REGISTRY_PACKAGE_CONCRETE_OPTIONAL_FIELDS
+		)
+	allowed_fields |= UNSUPPORTED_REGISTRY_PACKAGE_SIGNATURE_FIELDS
+	issues = exact_dictionary_field_issues(
+		package_entry,
+		required_fields,
+		allowed_fields,
+		f"Registry package {package_id}",
+	)
+	for field_name in ("version", "kind", "minimum_framework_version", "maximum_framework_version_exclusive"):
+		if not isinstance(package_entry.get(field_name), str):
+			issues.append(f"Registry package {package_id} {field_name} must be a string.")
+	if not isinstance(package_entry.get("version"), str) or not package_entry.get("version"):
+		issues.append(f"Registry package {package_id} version must be a non-empty string.")
+	if kind not in REGISTRY_PACKAGE_KINDS:
+		issues.append(f"Registry package {package_id} kind is invalid: {kind or '<empty>'}")
+	for field_name in REGISTRY_PACKAGE_COMMON_OPTIONAL_FIELDS:
+		if field_name in package_entry and not isinstance(package_entry.get(field_name), str):
+			issues.append(f"Registry package {package_id} {field_name} must be a string when present.")
+	dependencies = package_entry.get("dependencies")
+	if not valid_string_array(dependencies) or any(not package_id_is_valid(item) for item in dependencies if isinstance(item, str)):
+		issues.append(f"Registry package {package_id} dependencies must be an array of unique valid package ids.")
+	issues.extend(registry_package_path_issues(package_id, package_entry))
+	if kind == "preset":
+		packages = package_entry.get("packages")
+		if (
+			not valid_string_array(packages)
+			or not packages
+			or any(not package_id_is_valid(item) for item in packages if isinstance(item, str))
+		):
+			issues.append(f"Registry preset {package_id} packages must be a non-empty array of unique valid package ids.")
+		if dependencies != []:
+			issues.append(f"Registry preset {package_id} dependencies must be empty; preset closure belongs in packages.")
+		if package_entry.get("paths") != []:
+			issues.append(f"Registry preset {package_id} paths must be empty.")
+		return issues
+	archive = package_entry.get("archive")
+	if not isinstance(archive, str) or not archive:
+		issues.append(f"Registry package {package_id} archive must be a non-empty string.")
+	sha256 = package_entry.get("sha256")
+	if not isinstance(sha256, str) or not is_sha256_hex(sha256):
+		issues.append(f"Registry package {package_id} sha256 must be a full SHA-256.")
+	size_bytes = package_entry.get("size_bytes")
+	if type(size_bytes) is not int or size_bytes <= 0:
+		issues.append(f"Registry package {package_id} size_bytes must be a positive integer.")
+	if "gf_extension_id" in package_entry:
+		extension_id = package_entry.get("gf_extension_id")
+		if not isinstance(extension_id, str) or not extension_id:
+			issues.append(f"Registry package {package_id} gf_extension_id must be a non-empty string when present.")
+	return issues
+
+
 def load_registry(path: Path) -> dict[str, Any]:
 	issues: list[str] = []
 	if gf_path_security.path_has_reparse_component(path):
@@ -1370,14 +1525,10 @@ def load_registry(path: Path) -> dict[str, Any]:
 		return {"packages": {}, "framework_version": "", "issues": [f"Could not read registry: {error}"]}
 	if not isinstance(data, dict):
 		return {"packages": {}, "framework_version": "", "issues": ["Registry root must be an object."]}
-	if data.get("schema_version") != REGISTRY_SCHEMA_VERSION:
-		issues.append(f"Registry schema_version must be {REGISTRY_SCHEMA_VERSION}.")
-	for field_name in ["minimum_framework_version", "maximum_framework_version_exclusive"]:
-		if field_name not in data:
-			issues.append(f"Registry {field_name} field is required.")
+	issues.extend(registry_root_schema_issues(data))
+	root_is_valid = not issues
 	packages = data.get("packages", {})
 	if not isinstance(packages, dict):
-		issues.append("Registry packages must be an object.")
 		packages = {}
 	clean_packages: dict[str, dict[str, Any]] = {}
 	for package_id, package_entry in sorted(packages.items()):
@@ -1394,18 +1545,18 @@ def load_registry(path: Path) -> dict[str, Any]:
 				"Registry package signature field is not supported until native verification is implemented: "
 				f"{package_id}.{field_name}"
 			)
-		issues.extend(registry_package_path_issues(package_id_text, package_entry))
-		for field_name in ["minimum_framework_version", "maximum_framework_version_exclusive"]:
-			if field_name not in package_entry:
-				issues.append(f"Registry package {package_id} is missing {field_name}.")
-		if len(issues) != issue_count_before_validation:
+		issues.extend(registry_package_schema_issues(package_id_text, package_entry))
+		if not root_is_valid or len(issues) != issue_count_before_validation:
 			continue
 		clean_packages[package_id_text] = package_entry
+	framework_version = data.get("framework_version")
+	minimum_framework_version = data.get("minimum_framework_version")
+	maximum_framework_version_exclusive = data.get("maximum_framework_version_exclusive")
 	return {
 		"packages": clean_packages,
-		"framework_version": str(data.get("framework_version", "")),
-		"minimum_framework_version": str(data.get("minimum_framework_version", "")),
-		"maximum_framework_version_exclusive": str(data.get("maximum_framework_version_exclusive", "")),
+		"framework_version": framework_version if isinstance(framework_version, str) else "",
+		"minimum_framework_version": minimum_framework_version if isinstance(minimum_framework_version, str) else "",
+		"maximum_framework_version_exclusive": maximum_framework_version_exclusive if isinstance(maximum_framework_version_exclusive, str) else "",
 		"issues": issues,
 	}
 

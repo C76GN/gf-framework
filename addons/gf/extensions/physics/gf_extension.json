@@ -2,7 +2,7 @@
   "id": "gf.physics",
   "display_name": "GF Physics",
   "version": "11.0.0-dev.0",
-  "extension_version": "1.4.0",
+  "extension_version": "2.0.0",
   "kind": "extension",
   "description": "Optional physics helpers for 3D gravity fields, buoyancy math, and fluid point sampling.",
   "dependencies": ["gf.kernel", "gf.standard"],

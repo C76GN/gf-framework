@@ -67,9 +67,11 @@ var metadata: Dictionary = {}
 ## [br]
 ## @api public
 ## [br]
+## @since 11.0.0
+## [br]
 ## @param result_item_id: 物品标识。
 ## [br]
-## @param amount: 处理数量。
+## @param amount: 处理数量；必须大于 0，否则返回规范化失败结果。
 ## [br]
 ## @param result_source_slot: 源槽位。
 ## [br]
@@ -82,16 +84,14 @@ static func success(
 	result_source_slot: int = -1,
 	result_target_slot: int = -1
 ) -> GFInventoryOperationResult:
-	var result: GFInventoryOperationResult = GFInventoryOperationResult.new()
-	result.ok = true
-	result.item_id = result_item_id
-	result.requested_amount = amount
-	result.accepted_amount = amount
-	result.remaining_amount = 0
-	result.source_slot = result_source_slot
-	result.target_slot = result_target_slot
-	result.reason = &"ok"
-	return result
+	return partial(
+		result_item_id,
+		amount,
+		amount,
+		&"ok",
+		result_source_slot,
+		result_target_slot
+	)
 
 
 ## 创建失败或部分成功结果。

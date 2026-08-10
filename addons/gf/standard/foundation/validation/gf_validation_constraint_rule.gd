@@ -32,6 +32,12 @@ enum ConstraintKind {
 }
 
 
+# --- 常量 ---
+
+const _INT64_MIN_AS_FLOAT: float = -9_223_372_036_854_775_808.0
+const _INT64_EXCLUSIVE_MAX_AS_FLOAT: float = 9_223_372_036_854_775_808.0
+
+
 # --- 导出变量 ---
 
 ## 约束类别。
@@ -427,6 +433,20 @@ func _validate_range(target: Variant, report: GFValidationReport, context: Dicti
 		)
 		return
 
+	if target is int:
+		var int_value: int = target
+		if not _is_int_in_range(int_value):
+			_add_constraint_issue(
+				report,
+				&"range_out_of_bounds",
+				"Value is outside the allowed range.",
+				context,
+				target,
+				_describe_range(),
+				int_value
+			)
+		return
+
 	var value: float = GFVariantData.to_float(target, 0.0)
 	if not _is_finite_number(value):
 		_add_constraint_issue(
@@ -636,6 +656,44 @@ func _is_in_range(value: float) -> bool:
 		elif value >= maximum:
 			return false
 	return true
+
+
+func _is_int_in_range(value: int) -> bool:
+	if has_minimum:
+		var minimum_comparison: int = _compare_int_to_float(value, minimum)
+		if inclusive_minimum:
+			if minimum_comparison < 0:
+				return false
+		elif minimum_comparison <= 0:
+			return false
+	if has_maximum:
+		var maximum_comparison: int = _compare_int_to_float(value, maximum)
+		if inclusive_maximum:
+			if maximum_comparison > 0:
+				return false
+		elif maximum_comparison >= 0:
+			return false
+	return true
+
+
+func _compare_int_to_float(integer_value: int, float_value: float) -> int:
+	if float_value >= _INT64_EXCLUSIVE_MAX_AS_FLOAT:
+		return -1
+	if float_value < _INT64_MIN_AS_FLOAT:
+		return 1
+
+	var truncated_value: int = int(float_value)
+	if integer_value < truncated_value:
+		return -1
+	if integer_value > truncated_value:
+		return 1
+
+	var truncated_float: float = float(truncated_value)
+	if truncated_float < float_value:
+		return -1
+	if truncated_float > float_value:
+		return 1
+	return 0
 
 
 func _has_invalid_range_configuration() -> bool:

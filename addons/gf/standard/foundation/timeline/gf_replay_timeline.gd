@@ -176,6 +176,8 @@ func add_snapshot(
 ## [br]
 ## @api public
 ## [br]
+## @since 3.20.0
+## [br]
 ## @param timeline: 要合并的时间线。
 ## [br]
 ## @param time_offset: 合并时追加的时间偏移。
@@ -183,6 +185,8 @@ func add_snapshot(
 ## @param kind_filter: 可选事件类型过滤；为空时合并全部事件。
 ## [br]
 ## @return 合并的事件数量。
+## [br]
+## source 与当前时间线相同时，基于调用开始时的事件快照恰好追加一次。
 func append_timeline(
 	timeline: RefCounted,
 	time_offset: float = 0.0,
@@ -190,7 +194,7 @@ func append_timeline(
 ) -> int:
 	if timeline == null or not ("events" in timeline):
 		return 0
-	var source_events: Array = _get_timeline_events(timeline)
+	var source_events: Array = _get_timeline_events(timeline).duplicate(false)
 	if source_events.is_empty():
 		return 0
 

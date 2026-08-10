@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFInventoryItemDefinition" path="addons/gf/extensions/domain/inventory/gf_inventory_item_definition.gd" module="extensions/domain" extends="Resource" classDigest="5f3c3ac181801fdc1b24f560769e9b03d8b9968fb2d54c7df06d37a9a5130b90">
+<class name="GFInventoryItemDefinition" path="addons/gf/extensions/domain/inventory/gf_inventory_item_definition.gd" module="extensions/domain" extends="Resource" classDigest="f04713ea8d0491f64831c68da63dfe8987397acd7635fac8a0c04d67a786e09a">
 	<description>GFInventoryItemDefinition: 通用库存物品定义。
 只描述库存系统需要理解的堆叠、分类和实例数据匹配规则，
 不规定品质、装备、货币、掉落等项目业务语义。</description>
@@ -157,8 +157,9 @@
 			<description>转换为字典。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="return">可序列化字典。</tag>
+				<tag name="return">Godot Variant 字典；不保证可直接编码为 JSON。</tag>
 				<tag name="schema">return: Dictionary，包含 item_id、display_name、description、max_stack_amount、max_stack_count、categories、default_instance_data、stack_key_fields 与 metadata。</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="apply_dict">

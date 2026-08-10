@@ -80,6 +80,70 @@ func test_nested_attribution_inherits_metadata_sibling_source_path() -> void:
 	assert_eq(GFVariantData.get_option_string(normalized, "subject_kind"), "node")
 
 
+func test_report_rejects_conflicting_aliases_without_exposing_values() -> void:
+	var report: Dictionary = GF_ASSET_ATTRIBUTION_TOOLS.build_attribution_report([
+		{
+			"path": "res://assets/tree.png",
+			"license_id": "MIT",
+			"license": "GPL-3.0-only",
+		},
+	])
+	var counts: Dictionary = GFVariantData.get_option_dictionary(report, "issue_counts_by_kind")
+	var issues: Array = GFVariantData.get_option_array(report, "issues")
+	var conflict_issue: Dictionary = {}
+	for issue_value: Variant in issues:
+		var issue: Dictionary = GFVariantData.as_dictionary(issue_value)
+		if GFVariantData.get_option_string(issue, "kind") == "conflicting_attribution_field":
+			conflict_issue = issue
+			break
+	var metadata: Dictionary = GFVariantData.get_option_dictionary(conflict_issue, "metadata")
+	var source_fields: PackedStringArray = GFVariantData.get_option_packed_string_array(
+		metadata,
+		"source_fields"
+	)
+
+	assert_false(GFVariantData.get_option_bool(report, "ok"), "矛盾的授权别名不得静默择一。")
+	assert_eq(GFVariantData.get_option_int(counts, "conflicting_attribution_field"), 1)
+	assert_eq(GFVariantData.get_option_int(metadata, "index"), 0)
+	assert_eq(GFVariantData.get_option_string(metadata, "field_name"), "license_id")
+	assert_eq(source_fields, PackedStringArray(["license_id", "license"]))
+	assert_false(metadata.has("values"), "冲突诊断不得复制归因值。")
+	assert_false(metadata.has("path"), "冲突诊断不得顺带复制资源路径。")
+
+
+func test_report_accepts_equivalent_aliases_after_field_normalization() -> void:
+	var report: Dictionary = GF_ASSET_ATTRIBUTION_TOOLS.build_attribution_report([
+		{
+			"path": "res://assets/./tree.png",
+			"resource_path": "res://assets/tree.png",
+			"license_id": " MIT ",
+			"license": "MIT",
+		},
+	])
+	var counts: Dictionary = GFVariantData.get_option_dictionary(report, "issue_counts_by_kind")
+
+	assert_true(GFVariantData.get_option_bool(report, "ok"), "规范化后等价的别名不应误报冲突。")
+	assert_eq(GFVariantData.get_option_int(counts, "conflicting_attribution_field"), 0)
+
+
+func test_report_rejects_nested_and_top_level_attribution_conflicts() -> void:
+	var report: Dictionary = GF_ASSET_ATTRIBUTION_TOOLS.build_attribution_report([
+		{
+			"license_id": "Apache-2.0",
+			"metadata": {
+				"attribution": {
+					"path": "res://assets/tree.png",
+					"license_id": "MIT",
+				},
+			},
+		},
+	])
+	var counts: Dictionary = GFVariantData.get_option_dictionary(report, "issue_counts_by_kind")
+
+	assert_false(GFVariantData.get_option_bool(report, "ok"), "嵌套与顶层归因声明冲突时报告必须失败。")
+	assert_eq(GFVariantData.get_option_int(counts, "conflicting_attribution_field"), 1)
+
+
 func test_report_resolves_parent_attribution_coverage() -> void:
 	var report: Dictionary = GF_ASSET_ATTRIBUTION_TOOLS.build_attribution_report(
 		[
@@ -103,6 +167,45 @@ func test_report_resolves_parent_attribution_coverage() -> void:
 	assert_eq(GFVariantData.get_option_string(first_covered, "attribution_path"), "res://assets/ui")
 	assert_true(GFVariantData.get_option_bool(first_covered, "inherited"), "子资源应继承父目录归因。")
 	assert_eq(uncovered_paths, PackedStringArray(["res://assets/audio/theme.ogg"]))
+
+
+func test_report_accounts_for_invalid_and_duplicate_resource_path_inputs() -> void:
+	var report: Dictionary = GF_ASSET_ATTRIBUTION_TOOLS.build_attribution_report(
+		[
+			{
+				"path": "res://assets/tree.png",
+				"license_id": "MIT",
+			},
+		],
+		PackedStringArray([
+			"",
+			" \t\r\n ",
+			"res://assets/tree.png",
+			"res://assets/./tree.png",
+		])
+	)
+	var counts: Dictionary = GFVariantData.get_option_dictionary(report, "issue_counts_by_kind")
+	var issues: Array = GFVariantData.get_option_array(report, "issues")
+	var invalid_issue_metadata: Array[Dictionary] = []
+	for issue_value: Variant in issues:
+		var issue: Dictionary = GFVariantData.as_dictionary(issue_value)
+		if GFVariantData.get_option_string(issue, "kind") != "invalid_resource_path":
+			continue
+		invalid_issue_metadata.append(GFVariantData.get_option_dictionary(issue, "metadata"))
+
+	assert_false(GFVariantData.get_option_bool(report, "ok"), "无效覆盖输入不得从报告分母静默消失。")
+	assert_eq(GFVariantData.get_option_int(report, "resource_path_input_count"), 4)
+	assert_eq(GFVariantData.get_option_int(report, "resource_path_count"), 1)
+	assert_eq(GFVariantData.get_option_int(report, "valid_resource_path_count"), 1)
+	assert_eq(GFVariantData.get_option_int(report, "invalid_resource_path_count"), 2)
+	assert_eq(GFVariantData.get_option_int(report, "duplicate_resource_path_count"), 1)
+	assert_eq(GFVariantData.get_option_int(counts, "invalid_resource_path"), 2)
+	assert_eq(invalid_issue_metadata.size(), 2)
+	for metadata: Dictionary in invalid_issue_metadata:
+		assert_true(metadata.has("input_index"), "无效路径诊断应保留输入位置。")
+		assert_eq(GFVariantData.get_option_string(metadata, "reason"), "empty_after_normalization")
+		assert_false(metadata.has("path"), "无效路径诊断不得复制原始路径。")
+		assert_false(metadata.has("value"), "无效路径诊断不得复制原始值。")
 
 
 func test_duplicate_paths_and_missing_license_are_errors() -> void:
@@ -173,6 +276,8 @@ func test_attribution_report_entries_are_json_safe_by_default() -> void:
 		"Resource 应由统一报告编码器转为脱敏 marker。"
 	)
 	assert_true(encoded_offset.has(GFVariantJsonCodec.JSON_MARKER_KEY), "Godot Variant 应编码为 JSON-safe typed marker。")
+	var json_text: String = JSON.stringify(report)
+	assert_true(JSON.parse_string(json_text) is Dictionary, "归因报告应可真实 JSON stringify/parse round-trip。")
 
 
 func test_format_notice_text_groups_by_license() -> void:
@@ -195,3 +300,34 @@ func test_format_notice_text_groups_by_license() -> void:
 	assert_true(text.contains("- Tree (res://assets/tree.png)"), "通知文本应包含资产标题和路径。")
 	assert_true(text.contains("Creator: Studio"), "通知文本应包含 creator。")
 	assert_true(text.contains("Source: https://example.test/tree"), "通知文本应包含 source_url。")
+
+
+func test_format_notice_text_preserves_structure_for_untrusted_multiline_fields() -> void:
+	var report: Dictionary = GF_ASSET_ATTRIBUTION_TOOLS.build_attribution_report([
+		{
+			"path": "res://assets/tree.png",
+			"license_id": "MIT\nForged license",
+			"title": "Tree\r\n- Forged entry",
+			"creator": "Studio\tTeam",
+			"source_url": "https://example.test/tree" + String.chr(0x2028) + "mirror",
+			"copyright": "2026" + String.chr(0x1f) + "Example",
+			"notice": "First line\n- Forged notice\r\nFinal line",
+		},
+	])
+
+	var text: String = GF_ASSET_ATTRIBUTION_TOOLS.format_notice_text(report, {
+		"title": "Credits\nForged heading",
+	})
+
+	assert_eq(
+		text,
+		"Credits Forged heading\n\nMIT Forged license\n"
+		+ "- Tree - Forged entry (res://assets/tree.png)\n"
+		+ "  Creator: Studio Team\n"
+		+ "  Source: https://example.test/tree mirror\n"
+		+ "  Copyright: 2026 Example\n"
+		+ "  Notice: First line\n"
+		+ "    - Forged notice\n"
+		+ "    Final line",
+		"结构字段必须收束为单行，多行 notice 的每个续行必须固定缩进。"
+	)

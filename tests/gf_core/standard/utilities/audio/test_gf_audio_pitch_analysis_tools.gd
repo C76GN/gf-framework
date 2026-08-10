@@ -86,6 +86,57 @@ func test_audio_pitch_analysis_enforces_sample_lag_and_work_budgets() -> void:
 	assert_true(GFVariantData.get_option_bool(report, "truncated"), "输入超过预算时报告应明确标记截断。")
 
 
+func test_audio_pitch_analysis_never_exceeds_caller_operation_budget() -> void:
+	var samples: PackedFloat32Array = _make_sine_wave(440.0, 8000.0, 256)
+	for insufficient_budget: int in [1, 255]:
+		var insufficient_report: Dictionary = GFAudioPitchAnalysisTools.analyze_mono_samples(
+			samples,
+			8000.0,
+			{
+				"min_frequency_hz": 50.0,
+				"max_frequency_hz": 1000.0,
+				"max_correlation_operations": insufficient_budget,
+			}
+		)
+		assert_false(
+			GFVariantData.get_option_bool(insufficient_report, "ok"),
+			"不足一个 lag 的调用方预算必须失败关闭。"
+		)
+		assert_true(
+			_has_issue(insufficient_report, &"insufficient_operation_budget"),
+			"预算不足必须返回稳定 issue。"
+		)
+		assert_eq(
+			GFVariantData.get_option_int(insufficient_report, "correlation_operations"),
+			0,
+			"预算不足时不得执行被静默上调的最小工作量。"
+		)
+		assert_eq(
+			GFVariantData.get_option_int(
+				insufficient_report,
+				"minimum_required_correlation_operations"
+			),
+			256
+		)
+
+	for sufficient_budget: int in [256, 257]:
+		var sufficient_report: Dictionary = GFAudioPitchAnalysisTools.analyze_mono_samples(
+			samples,
+			8000.0,
+			{
+				"min_frequency_hz": 50.0,
+				"max_frequency_hz": 1000.0,
+				"max_correlation_operations": sufficient_budget,
+			}
+		)
+		assert_lte(
+			GFVariantData.get_option_int(sufficient_report, "correlation_operations"),
+			sufficient_budget,
+			"实际自相关工作量不得超过调用方 max。"
+		)
+		assert_false(_has_issue(sufficient_report, &"insufficient_operation_budget"))
+
+
 func _make_sine_wave(frequency_hz: float, sample_rate: float, count: int) -> PackedFloat32Array:
 	var samples: PackedFloat32Array = PackedFloat32Array()
 	var _resize_error: Error = samples.resize(count) as Error

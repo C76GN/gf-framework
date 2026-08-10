@@ -46,6 +46,7 @@ const _KIND_RESOURCE_EXTENSION_FORBIDDEN: String = "resource_extension_forbidden
 const _KIND_MISSING_RESOURCE_FILE: String = "missing_resource_file"
 const _KIND_INVALID_SAFETY_KIND: String = "invalid_safety_kind"
 const _KIND_UNKNOWN_FIELD: String = "unknown_field"
+const _KIND_CONFLICTING_ALIAS_FIELDS: String = "conflicting_alias_fields"
 const _KIND_INVALID_MANIFEST_FIELD_TYPE: String = "invalid_manifest_field_type"
 const _KIND_INVALID_RESOURCE_FIELD_TYPE: String = "invalid_resource_field_type"
 const _KIND_RESOURCE_DEPENDENCY_EXTENSION_FORBIDDEN: String = "resource_dependency_extension_forbidden"
@@ -277,6 +278,7 @@ func configure(
 ## @schema data: Dictionary，支持 package_id/id、display_name/name、version、content_types、dependencies、safety_kind、forbidden_resource_extensions、resources 和 metadata；字段类型必须与 manifest schema 一致，不执行字符串、数组或字典宽松转换。
 func apply_dictionary(data: Dictionary, p_root_path: String = "", p_source_path: String = "") -> void:
 	_reset_dictionary_fields()
+	_validate_manifest_aliases(data)
 	_apply_schema_version(data)
 	_unknown_fields = _collect_unknown_fields(data)
 	package_id = StringName(_read_text_alias(data, "package_id", "id"))
@@ -1051,6 +1053,7 @@ func _parse_resource_entry(data: Dictionary, index: int) -> Dictionary:
 			}
 		)
 
+	_validate_resource_aliases(data, index)
 	var key_field: String = _select_field_name(data, "key", "resource_key")
 	if not key_field.is_empty():
 		result["key"] = _read_resource_text_value(data, key_field, index)
@@ -1114,6 +1117,65 @@ func _reset_dictionary_fields() -> void:
 	resources.clear()
 	metadata.clear()
 	_schema_issues.clear()
+
+
+func _validate_manifest_aliases(data: Dictionary) -> void:
+	_validate_text_alias_pair(data, "package_id", "id", "", -1)
+	_validate_text_alias_pair(data, "display_name", "name", "", -1)
+
+
+func _validate_resource_aliases(data: Dictionary, index: int) -> void:
+	_validate_text_alias_pair(data, "key", "resource_key", "resources", index)
+	_validate_text_alias_pair(data, "path", "resource_path", "resources", index)
+
+
+func _validate_text_alias_pair(
+	data: Dictionary,
+	canonical_name: String,
+	alias_name: String,
+	collection_path: String,
+	row_index: int
+) -> void:
+	if not _has_field(data, canonical_name) or not _has_field(data, alias_name):
+		return
+	var canonical_value: Variant = _get_field_value(data, canonical_name)
+	var alias_value: Variant = _get_field_value(data, alias_name)
+	var alias_path: String = alias_name
+	if row_index >= 0:
+		alias_path = "%s[%d].%s" % [collection_path, row_index, alias_name]
+	if not _is_text_value(alias_value):
+		_append_schema_type_issue(
+			_KIND_INVALID_RESOURCE_FIELD_TYPE if row_index >= 0 else _KIND_INVALID_MANIFEST_FIELD_TYPE,
+			alias_path,
+			"String",
+			alias_value
+		)
+		return
+	if not _is_text_value(canonical_value):
+		return
+	var canonical_text: String = _to_text_value(canonical_value).strip_edges()
+	var alias_text: String = _to_text_value(alias_value).strip_edges()
+	if canonical_text == alias_text:
+		return
+	var canonical_path: String = canonical_name
+	if row_index >= 0:
+		canonical_path = "%s[%d].%s" % [collection_path, row_index, canonical_name]
+	var conflicting_values: Dictionary = {}
+	conflicting_values[canonical_name] = canonical_text
+	conflicting_values[alias_name] = alias_text
+	_append_schema_issue(
+		_KIND_CONFLICTING_ALIAS_FIELDS,
+		"canonical field and compatibility alias have conflicting values",
+		{
+			"field": StringName(canonical_name),
+			"path": canonical_path,
+			"row_index": row_index,
+			"alias_field": StringName(alias_name),
+			"alias_path": alias_path,
+			"actual_value": conflicting_values,
+			"expected_value": "matching canonical and alias values",
+		}
+	)
 
 
 func _read_text_alias(data: Dictionary, field_name: String, alias_name: String) -> String:

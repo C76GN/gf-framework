@@ -188,93 +188,6 @@ static func read_property(
 	return object.get_indexed(property_path)
 
 
-## 零写入验证对象属性路径，并计算真实写入会使用的规范化值。
-##
-## 该方法与 write_property() 共享路径、可写性、类型和转换规则，但不会调用
-## Object.set_indexed()。事务或批处理可先准备全部条目，再决定是否开始写入。
-## [br]
-## @api framework_internal
-## [br]
-## @since 10.0.0
-## [br]
-## @param object: 目标对象。
-## [br]
-## @param property_path: 属性路径。
-## [br]
-## @param value: 请求写入的值。
-## [br]
-## @param options: 可选项，支持 check_writable、check_type、coerce_value。
-## [br]
-## @schema value: Variant value requested for assignment.
-## [br]
-## @schema options: Dictionary with optional bool keys check_writable, check_type, and coerce_value.
-## [br]
-## @return 准备结果字典，包含 ok、error、property_name、old_value 与规范化 new_value。
-## [br]
-## @schema return: Dictionary { ok: bool, error: String, property_name: StringName, old_value: Variant, new_value: Variant }.
-static func prepare_property_write(
-	object: Object,
-	property_path: NodePath,
-	value: Variant,
-	options: Dictionary = {}
-) -> Dictionary:
-	if not is_instance_valid(object):
-		return _make_write_result(false, "Object is null.")
-	if property_path.is_empty():
-		return _make_write_result(false, "Property path is empty.")
-
-	var root_property: StringName = get_root_property_name(property_path)
-	var property_info: Dictionary = get_property_info(object, root_property)
-	if property_info.is_empty():
-		return _make_write_result(
-			false,
-			"Missing property: %s" % String(root_property),
-			root_property
-		)
-	if (
-		_GF_VARIANT_ACCESS_SCRIPT.get_option_bool(options, "check_writable", true)
-		and not is_property_writable(property_info)
-	):
-		return _make_write_result(
-			false,
-			"Property is not writable: %s" % String(root_property),
-			root_property
-		)
-	if not _property_path_can_resolve(object, property_path):
-		return _make_write_result(
-			false,
-			"Property path cannot be resolved: %s" % String(property_path),
-			root_property
-		)
-
-	var old_value: Variant = object.get_indexed(property_path)
-	var property_type: int = _get_effective_property_type(
-		property_path,
-		property_info,
-		old_value
-	)
-	if (
-		_GF_VARIANT_ACCESS_SCRIPT.get_option_bool(options, "check_type", true)
-		and not value_matches_property_type(value, property_type)
-	):
-		return _make_write_result(
-			false,
-			"Property type mismatch: %s" % String(root_property),
-			root_property,
-			old_value
-		)
-	var value_to_write: Variant = value
-	if _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(options, "coerce_value", true):
-		value_to_write = coerce_property_value(value, property_type)
-	return _make_write_result(
-		true,
-		"",
-		root_property,
-		old_value,
-		value_to_write
-	)
-
-
 ## 写入对象属性路径。
 ## [br]
 ## @api public
@@ -335,85 +248,6 @@ static func write_property(
 			applied_value
 		)
 	return _make_write_result(true, "", root_property, old_value, applied_value)
-
-
-## 零写入验证对象的精确直接属性，并计算真实写入会使用的规范化值。
-##
-## 属性名不会被解释为 NodePath；包含 `/` 或 `:` 的动态属性名会保持原样。
-## [br]
-## @api framework_internal
-## [br]
-## @since 10.0.0
-## [br]
-## @param object: 目标对象。
-## [br]
-## @param property_name: 精确直接属性名。
-## [br]
-## @param value: 请求写入的值。
-## [br]
-## @schema value: Variant value requested for direct property assignment.
-## [br]
-## @param options: 与 write_direct_property() 相同的校验和转换选项。
-## [br]
-## @schema options: Dictionary with optional bool keys check_writable, check_type, and coerce_value.
-## [br]
-## @return 准备结果字典。
-## [br]
-## @schema return: Dictionary { ok: bool, error: String, property_name: StringName, old_value: Variant, new_value: Variant }.
-static func prepare_direct_property_write(
-	object: Object,
-	property_name: StringName,
-	value: Variant,
-	options: Dictionary = {}
-) -> Dictionary:
-	if not is_instance_valid(object):
-		return _make_write_result(false, "Object is null.")
-	if property_name == &"":
-		return _make_write_result(false, "Property name is empty.")
-
-	var property_info: Dictionary = get_property_info(object, property_name)
-	if property_info.is_empty():
-		return _make_write_result(
-			false,
-			"Missing property: %s" % String(property_name),
-			property_name
-		)
-	if (
-		_GF_VARIANT_ACCESS_SCRIPT.get_option_bool(options, "check_writable", true)
-		and not is_property_writable(property_info)
-	):
-		return _make_write_result(
-			false,
-			"Property is not writable: %s" % String(property_name),
-			property_name
-		)
-
-	var old_value: Variant = object.get(property_name)
-	var property_type: int = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(
-		property_info,
-		"type",
-		TYPE_NIL
-	)
-	if (
-		_GF_VARIANT_ACCESS_SCRIPT.get_option_bool(options, "check_type", true)
-		and not value_matches_property_type(value, property_type)
-	):
-		return _make_write_result(
-			false,
-			"Property type mismatch: %s" % String(property_name),
-			property_name,
-			old_value
-		)
-	var value_to_write: Variant = value
-	if _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(options, "coerce_value", true):
-		value_to_write = coerce_property_value(value, property_type)
-	return _make_write_result(
-		true,
-		"",
-		property_name,
-		old_value,
-		value_to_write
-	)
 
 
 ## 按精确 StringName 写入对象的直接属性，不把 `/` 或 `:` 解释为 NodePath 分隔符。
@@ -760,6 +594,174 @@ static func get_root_property_name(property_path: NodePath) -> StringName:
 	if property_path.get_subname_count() > 0:
 		return StringName(property_path.get_subname(0))
 	return StringName(String(property_path))
+
+
+# --- 框架内部方法 ---
+
+## 零写入验证对象属性路径，并计算真实写入会使用的规范化值。
+##
+## 该方法与 write_property() 共享路径、可写性、类型和转换规则，但不会调用
+## Object.set_indexed()。事务或批处理可先准备全部条目，再决定是否开始写入。
+## [br]
+## @api framework_internal
+## [br]
+## @since 10.0.0
+## [br]
+## @param object: 目标对象。
+## [br]
+## @param property_path: 属性路径。
+## [br]
+## @param value: 请求写入的值。
+## [br]
+## @param options: 可选项，支持 check_writable、check_type、coerce_value。
+## [br]
+## @schema value: Variant value requested for assignment.
+## [br]
+## @schema options: Dictionary with optional bool keys check_writable, check_type, and coerce_value.
+## [br]
+## @return: 准备结果字典，包含 ok、error、property_name、old_value 与规范化 new_value。
+## [br]
+## @schema return: Dictionary { ok: bool, error: String, property_name: StringName, old_value: Variant, new_value: Variant }.
+static func prepare_property_write(
+	object: Object,
+	property_path: NodePath,
+	value: Variant,
+	options: Dictionary = {}
+) -> Dictionary:
+	if not is_instance_valid(object):
+		return _make_write_result(false, "Object is null.")
+	if property_path.is_empty():
+		return _make_write_result(false, "Property path is empty.")
+
+	var root_property: StringName = get_root_property_name(property_path)
+	var property_info: Dictionary = get_property_info(object, root_property)
+	if property_info.is_empty():
+		return _make_write_result(
+			false,
+			"Missing property: %s" % String(root_property),
+			root_property
+		)
+	if (
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_bool(options, "check_writable", true)
+		and not is_property_writable(property_info)
+	):
+		return _make_write_result(
+			false,
+			"Property is not writable: %s" % String(root_property),
+			root_property
+		)
+	if not _property_path_can_resolve(object, property_path):
+		return _make_write_result(
+			false,
+			"Property path cannot be resolved: %s" % String(property_path),
+			root_property
+		)
+
+	var old_value: Variant = object.get_indexed(property_path)
+	var property_type: int = _get_effective_property_type(
+		property_path,
+		property_info,
+		old_value
+	)
+	if (
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_bool(options, "check_type", true)
+		and not value_matches_property_type(value, property_type)
+	):
+		return _make_write_result(
+			false,
+			"Property type mismatch: %s" % String(root_property),
+			root_property,
+			old_value
+		)
+	var value_to_write: Variant = value
+	if _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(options, "coerce_value", true):
+		value_to_write = coerce_property_value(value, property_type)
+	return _make_write_result(
+		true,
+		"",
+		root_property,
+		old_value,
+		value_to_write
+	)
+
+
+## 零写入验证对象的精确直接属性，并计算真实写入会使用的规范化值。
+##
+## 属性名不会被解释为 NodePath；包含 `/` 或 `:` 的动态属性名会保持原样。
+## [br]
+## @api framework_internal
+## [br]
+## @since 10.0.0
+## [br]
+## @param object: 目标对象。
+## [br]
+## @param property_name: 精确直接属性名。
+## [br]
+## @param value: 请求写入的值。
+## [br]
+## @schema value: Variant value requested for direct property assignment.
+## [br]
+## @param options: 与 write_direct_property() 相同的校验和转换选项。
+## [br]
+## @schema options: Dictionary with optional bool keys check_writable, check_type, and coerce_value.
+## [br]
+## @return: 准备结果字典。
+## [br]
+## @schema return: Dictionary { ok: bool, error: String, property_name: StringName, old_value: Variant, new_value: Variant }.
+static func prepare_direct_property_write(
+	object: Object,
+	property_name: StringName,
+	value: Variant,
+	options: Dictionary = {}
+) -> Dictionary:
+	if not is_instance_valid(object):
+		return _make_write_result(false, "Object is null.")
+	if property_name == &"":
+		return _make_write_result(false, "Property name is empty.")
+
+	var property_info: Dictionary = get_property_info(object, property_name)
+	if property_info.is_empty():
+		return _make_write_result(
+			false,
+			"Missing property: %s" % String(property_name),
+			property_name
+		)
+	if (
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_bool(options, "check_writable", true)
+		and not is_property_writable(property_info)
+	):
+		return _make_write_result(
+			false,
+			"Property is not writable: %s" % String(property_name),
+			property_name
+		)
+
+	var old_value: Variant = object.get(property_name)
+	var property_type: int = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(
+		property_info,
+		"type",
+		TYPE_NIL
+	)
+	if (
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_bool(options, "check_type", true)
+		and not value_matches_property_type(value, property_type)
+	):
+		return _make_write_result(
+			false,
+			"Property type mismatch: %s" % String(property_name),
+			property_name,
+			old_value
+		)
+	var value_to_write: Variant = value
+	if _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(options, "coerce_value", true):
+		value_to_write = coerce_property_value(value, property_type)
+	return _make_write_result(
+		true,
+		"",
+		property_name,
+		old_value,
+		value_to_write
+	)
 
 
 # --- 私有/辅助方法 ---

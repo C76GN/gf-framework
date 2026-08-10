@@ -10,11 +10,13 @@ const GF_PLUGIN_DEBUGGER_TOOLS = preload("res://addons/gf/kernel/editor/gf_plugi
 const GF_PLUGIN_DOCK_TOOLS = preload("res://addons/gf/kernel/editor/gf_plugin_dock_tools.gd")
 const GF_PLUGIN_INSPECTOR_TOOLS = preload("res://addons/gf/kernel/editor/gf_plugin_inspector_tools.gd")
 const GF_PLUGIN_IMPORT_TOOLS = preload("res://addons/gf/kernel/editor/gf_plugin_import_tools.gd")
+const GF_PLUGIN_GLTF_DOCUMENT_TOOLS = preload("res://addons/gf/kernel/editor/gf_plugin_gltf_document_tools.gd")
 const GF_PLUGIN_MENU = preload("res://addons/gf/kernel/editor/gf_plugin_menu.gd")
 const GF_PLUGIN_PREVIEW_TOOLS = preload("res://addons/gf/kernel/editor/gf_plugin_preview_tools.gd")
 const GF_PLUGIN_PROJECT_SETTINGS = preload("res://addons/gf/kernel/editor/gf_plugin_project_settings.gd")
 const GF_PLUGIN_ACTION_DEPENDENCIES_SCRIPT = preload("res://addons/gf/kernel/editor/gf_plugin_action_dependencies.gd")
 const GF_EDITOR_CONTRIBUTION_REGISTRY = preload("res://addons/gf/kernel/editor/gf_editor_contribution_registry.gd")
+const GF_PLUGIN_REFRESH_STATE = preload("res://addons/gf/kernel/editor/gf_plugin_refresh_state.gd")
 const GF_RESOURCE_PATH_EDITOR_PROPERTY = preload("res://addons/gf/kernel/editor/gf_resource_path_editor_property.gd")
 const GF_RESOURCE_PATH_ARRAY_EDITOR_PROPERTY = preload("res://addons/gf/kernel/editor/gf_resource_path_array_editor_property.gd")
 const GF_RESOURCE_PATH_PICKER_CONTROL = preload("res://addons/gf/kernel/editor/gf_resource_path_picker_control.gd")
@@ -49,6 +51,7 @@ func test_plugin_split_helpers_load() -> void:
 	assert_not_null(GF_PLUGIN_DOCK_TOOLS, "Dock 辅助脚本应可加载。")
 	assert_not_null(GF_PLUGIN_INSPECTOR_TOOLS, "Inspector 辅助脚本应可加载。")
 	assert_not_null(GF_PLUGIN_IMPORT_TOOLS, "导入插件辅助脚本应可加载。")
+	assert_not_null(GF_PLUGIN_GLTF_DOCUMENT_TOOLS, "glTF 文档扩展辅助脚本应可加载。")
 	assert_not_null(GF_PLUGIN_MENU, "菜单辅助脚本应可加载。")
 	assert_not_null(GF_PLUGIN_PREVIEW_TOOLS, "预览生成器辅助脚本应可加载。")
 	assert_not_null(GF_PLUGIN_PROJECT_SETTINGS, "ProjectSettings 辅助脚本应可加载。")
@@ -146,6 +149,106 @@ func test_plugin_actions_use_source_id_as_template_identity() -> void:
 	assert_eq(custom_base_class, "CustomSystem", "自定义模板应按自己的 source_id 解析 base_class。")
 
 
+func test_plugin_actions_template_generation_uses_guarded_writer() -> void:
+	var actions: Object = _new_object(GF_PLUGIN_ACTIONS)
+	_call_void(actions, &"_setup_menu_actions", [[]])
+	actions.set("_current_template_id", "gf.kernel.editor:template.utility")
+	var output_path: String = (
+		"res://ai_analysis/gf_plugin_actions_guarded_%d.gd"
+		% Time.get_ticks_usec()
+	)
+	_remove_path_if_exists(output_path)
+
+	_call_void(actions, &"_on_file_selected", [output_path])
+	var generated_text: String = _read_text_file(output_path)
+	_call_void(actions, &"_on_file_selected", [output_path])
+	var retained_text: String = _read_text_file(output_path)
+	_remove_path_if_exists(output_path)
+
+	assert_true(generated_text.contains("class_name GfPluginActionsGuarded"), "模板应成功生成。")
+	assert_eq(retained_text, generated_text, "已存在脚本不得被第二次生成覆盖。")
+	assert_push_error("[GF Framework] 文件已存在，已取消生成: %s" % output_path)
+
+
+func test_plugin_actions_reject_invalid_generated_identifiers_before_writing() -> void:
+	var actions: Object = _new_object(GF_PLUGIN_ACTIONS)
+	_call_void(actions, &"_setup_menu_actions", [[{
+		"source_id": "gf.test.editor:template.invalid_base",
+		"type": "InvalidBase",
+		"label": "Invalid Base",
+		"base_class": "Node\nextends RefCounted",
+		"template": "class_name {ClassName}\nextends {BaseClass}\n",
+	}]])
+	var invalid_class_path: String = "res://ai_analysis/25_gf_plugin_actions_invalid.gd"
+	var invalid_base_path: String = "res://ai_analysis/gf_plugin_actions_invalid_base.gd"
+	_remove_path_if_exists(invalid_class_path)
+	_remove_path_if_exists(invalid_base_path)
+
+	actions.set("_current_template_id", "gf.kernel.editor:template.utility")
+	_call_void(actions, &"_on_file_selected", [invalid_class_path])
+	var invalid_class_was_written: bool = FileAccess.file_exists(invalid_class_path)
+	_remove_path_if_exists(invalid_class_path)
+
+	actions.set("_current_template_id", "gf.test.editor:template.invalid_base")
+	_call_void(actions, &"_on_file_selected", [invalid_base_path])
+	var invalid_base_was_written: bool = FileAccess.file_exists(invalid_base_path)
+	_remove_path_if_exists(invalid_base_path)
+	_call_void(actions, &"_cleanup_extension_editor_actions")
+
+	assert_false(invalid_class_was_written, "数字开头的派生 class_name 应在写入前被拒绝。")
+	assert_false(invalid_base_was_written, "非法 base_class 应在写入前被拒绝。")
+	assert_push_error(
+		"[GF Framework] 文件名无法生成合法 GDScript class_name，已取消生成: %s"
+		% invalid_class_path
+	)
+	assert_push_error(
+		"[GF Framework] 模板 base_class 不是合法 GDScript 标识符，已取消生成: %s"
+		% "gf.test.editor:template.invalid_base"
+	)
+
+
+func test_standard_state_machine_templates_render_to_loadable_scripts() -> void:
+	var actions: Object = _new_object(GF_PLUGIN_ACTIONS)
+	var records: Array = _get_standard_editor_records(&"get_template_records")
+	_call_void(actions, &"_setup_menu_actions", [records])
+	var cases: Array[Dictionary] = [
+		{
+			"template_id": "gf.standard.state_machine.editor:state_machine.template.node_state",
+			"file_stem": "gf_report25_node_state",
+		},
+		{
+			"template_id": "gf.standard.state_machine.editor:state_machine.template.node_state_machine",
+			"file_stem": "gf_report25_node_state_machine",
+		},
+	]
+	for case: Dictionary in cases:
+		var output_path: String = (
+			"res://ai_analysis/%s_%d.gd"
+			% [
+				GF_VARIANT_ACCESS.get_option_string(case, "file_stem"),
+				Time.get_ticks_usec(),
+			]
+		)
+		_remove_path_if_exists(output_path)
+		actions.set(
+			"_current_template_id",
+			GF_VARIANT_ACCESS.get_option_string(case, "template_id")
+		)
+		_call_void(actions, &"_on_file_selected", [output_path])
+		var loaded_resource: Resource = ResourceLoader.load(
+			output_path,
+			"GDScript",
+			ResourceLoader.CACHE_MODE_IGNORE
+		)
+		var generated_text: String = _read_text_file(output_path)
+		_remove_path_if_exists(output_path)
+
+		assert_true(loaded_resource is GDScript, "真实状态机模板渲染后应能被 GDScript 加载。")
+		assert_false(generated_text.contains("{ClassName}"), "渲染结果不应残留 ClassName 占位符。")
+		assert_false(generated_text.contains("{BaseClass}"), "渲染结果不应残留 BaseClass 占位符。")
+	_call_void(actions, &"_cleanup_extension_editor_actions")
+
+
 func test_plugin_actions_setup_replaces_previous_file_dialog_immediately() -> void:
 	var actions: Object = _new_object(GF_PLUGIN_ACTIONS)
 	var old_dialog: FileDialog = FileDialog.new()
@@ -226,17 +329,97 @@ func test_plugin_actions_depend_on_provider_boundary_for_boot_dependencies() -> 
 
 func test_plugin_refresh_path_clears_manifest_cache_and_reloads_dynamic_tools() -> void:
 	var source: String = _read_text_file("res://addons/gf/plugin.gd")
-	var refresh_source: String = _extract_function_source(
+	var refresh_request_source: String = _extract_function_source(
 		source,
 		"func _refresh_editor_contributions() -> void:",
-		"func _scan_editor_filesystem() -> void:"
+		"func _begin_editor_contribution_refresh() -> void:"
+	)
+	var refresh_apply_source: String = _extract_function_source(
+		source,
+		"func _apply_editor_contributions_refresh(generation: int) -> void:",
+		"func _scan_editor_filesystem() -> bool:"
 	)
 
-	assert_true(refresh_source.contains("GFExtensionSettingsBase.clear_manifest_cache()"), "编辑器贡献刷新必须清理扩展 manifest 缓存。")
-	assert_true(refresh_source.contains("_import_tools.cleanup(self)"), "编辑器贡献刷新必须卸载旧 ImportPlugin。")
-	assert_true(refresh_source.contains("_import_tools.setup(self)"), "编辑器贡献刷新必须重新安装启用扩展的 ImportPlugin。")
-	assert_true(refresh_source.contains("_gltf_document_tools.cleanup()"), "编辑器贡献刷新必须卸载旧 glTF 文档扩展。")
-	assert_true(refresh_source.contains("_gltf_document_tools.setup()"), "编辑器贡献刷新必须重新安装启用扩展的 glTF 文档扩展。")
+	assert_true(refresh_request_source.contains("_refresh_state.request("), "刷新请求必须进入单调 generation 状态机。")
+	assert_true(refresh_request_source.contains("call_deferred(\"_begin_editor_contribution_refresh\")"), "每个未完成批次只能调度一个启动回调。")
+	assert_true(refresh_apply_source.contains("GFExtensionSettingsBase.clear_manifest_cache()"), "编辑器贡献刷新必须清理扩展 manifest 缓存。")
+	assert_true(refresh_apply_source.contains("_import_tools.cleanup(self)"), "编辑器贡献刷新必须卸载旧 ImportPlugin。")
+	assert_true(refresh_apply_source.contains("_import_tools.setup(self)"), "编辑器贡献刷新必须重新安装启用扩展的 ImportPlugin。")
+	assert_true(refresh_apply_source.contains("_gltf_document_tools.cleanup()"), "编辑器贡献刷新必须卸载旧 glTF 文档扩展。")
+	assert_true(refresh_apply_source.contains("_gltf_document_tools.setup()"), "编辑器贡献刷新必须重新安装启用扩展的 glTF 文档扩展。")
+
+
+func test_plugin_refresh_coalesces_same_frame_requests_into_latest_generation() -> void:
+	var state: GF_PLUGIN_REFRESH_STATE = GF_PLUGIN_REFRESH_STATE.new()
+	var begin_count: int = 0
+	for index: int in 100:
+		if state.request(0, 120_000):
+			begin_count += 1
+
+	var scan_action: Dictionary = state.begin(false)
+	var apply_action: Dictionary = state.after_scan_idle()
+	var done_action: Dictionary = state.after_applied(
+		GF_VARIANT_ACCESS.get_option_int(apply_action, "generation")
+	)
+
+	assert_eq(begin_count, 1, "同一 pending 批次的 100 个请求只能启动一次调度。")
+	assert_eq(state.get_requested_generation(), 100, "请求 generation 应保留全部请求的最新值。")
+	assert_eq(GF_VARIANT_ACCESS.get_option_string_name(scan_action, "kind"), GF_PLUGIN_REFRESH_STATE.ACTION_SCAN, "批次应启动一次扫描。")
+	assert_eq(GF_VARIANT_ACCESS.get_option_int(scan_action, "generation"), 100, "扫描必须绑定最新 generation。")
+	assert_eq(GF_VARIANT_ACCESS.get_option_string_name(apply_action, "kind"), GF_PLUGIN_REFRESH_STATE.ACTION_APPLY, "扫描完成后才允许应用。")
+	assert_eq(GF_VARIANT_ACCESS.get_option_string_name(done_action, "kind"), GF_PLUGIN_REFRESH_STATE.ACTION_DONE, "应用最新 generation 后批次应结束。")
+	assert_eq(state.get_applied_generation(), 100, "应用结果必须对应最新 generation。")
+
+
+func test_plugin_refresh_rescans_when_request_arrives_during_scan() -> void:
+	var state: GF_PLUGIN_REFRESH_STATE = GF_PLUGIN_REFRESH_STATE.new()
+	assert_true(state.request(0, 120_000), "首个请求应启动批次。")
+	var first_scan: Dictionary = state.begin(false)
+	assert_eq(GF_VARIANT_ACCESS.get_option_int(first_scan, "generation"), 1, "首次扫描应绑定 generation 1。")
+
+	assert_false(state.request(1, 120_000), "扫描期间的新请求应合并到当前批次。")
+	var rescan_action: Dictionary = state.after_scan_idle()
+	assert_eq(GF_VARIANT_ACCESS.get_option_string_name(rescan_action, "kind"), GF_PLUGIN_REFRESH_STATE.ACTION_SCAN, "旧扫描完成后必须重扫。")
+	assert_eq(GF_VARIANT_ACCESS.get_option_int(rescan_action, "generation"), 2, "重扫必须绑定 generation 2。")
+	assert_eq(state.get_applied_generation(), 0, "旧 generation 不能先发布。")
+
+	var apply_action: Dictionary = state.after_scan_idle()
+	assert_eq(GF_VARIANT_ACCESS.get_option_string_name(apply_action, "kind"), GF_PLUGIN_REFRESH_STATE.ACTION_APPLY, "最终重扫完成后才允许应用。")
+	var done_action: Dictionary = state.after_applied(2)
+	assert_eq(GF_VARIANT_ACCESS.get_option_string_name(done_action, "kind"), GF_PLUGIN_REFRESH_STATE.ACTION_DONE, "最新 generation 应结束批次。")
+	assert_eq(state.get_applied_generation(), 2, "最终应用必须对应第二个 generation。")
+
+
+func test_plugin_refresh_exit_cancels_pending_apply() -> void:
+	var state: GF_PLUGIN_REFRESH_STATE = GF_PLUGIN_REFRESH_STATE.new()
+	assert_true(state.request(0, 120_000), "首个请求应启动批次。")
+	var _scan_action: Dictionary = state.begin(false)
+	state.cancel()
+	var after_cancel: Dictionary = state.after_scan_idle()
+
+	assert_false(state.is_pending(), "取消后不应保留 pending 批次。")
+	assert_eq(GF_VARIANT_ACCESS.get_option_string_name(after_cancel, "kind"), GF_PLUGIN_REFRESH_STATE.ACTION_DONE, "退出后延迟 poll 只能得到 done。")
+	assert_eq(state.get_applied_generation(), 0, "退出取消不能发布 generation。")
+
+
+func test_plugin_refresh_timeout_fails_without_applying_stale_generation() -> void:
+	var state: GF_PLUGIN_REFRESH_STATE = GF_PLUGIN_REFRESH_STATE.new()
+	assert_true(state.request(10, 120), "首个请求应启动批次。")
+
+	assert_false(state.is_expired(129), "超时预算应采用闭区间前一毫秒。")
+	assert_true(state.is_expired(130), "达到 deadline 必须失败关闭。")
+	state.cancel()
+	assert_eq(state.get_applied_generation(), 0, "超时取消不能应用陈旧 generation。")
+
+
+func test_plugin_refresh_waits_out_preexisting_scan_before_own_generation_scan() -> void:
+	var state: GF_PLUGIN_REFRESH_STATE = GF_PLUGIN_REFRESH_STATE.new()
+	assert_true(state.request(0, 120_000), "首个请求应启动批次。")
+	var wait_action: Dictionary = state.begin(true)
+	var scan_action: Dictionary = state.after_scan_idle()
+
+	assert_eq(GF_VARIANT_ACCESS.get_option_string_name(wait_action, "kind"), GF_PLUGIN_REFRESH_STATE.ACTION_WAIT, "已有扫描未完成时必须等待。")
+	assert_eq(GF_VARIANT_ACCESS.get_option_string_name(scan_action, "kind"), GF_PLUGIN_REFRESH_STATE.ACTION_SCAN, "已有扫描结束后必须启动本批次自己的扫描。")
 
 
 func test_extension_manager_reload_button_clears_manifest_cache() -> void:
@@ -291,6 +474,32 @@ func test_plugin_helper_setup_methods_are_idempotent_by_contract() -> void:
 	assert_true(gltf_setup.contains("cleanup()"), "glTF document helper setup 应先清理旧注册。")
 
 
+func test_gltf_document_helper_registers_once_and_cleans_up_symmetrically() -> void:
+	var enabled_restore: Dictionary = _set_project_setting(
+		GF_EXTENSION_SETTINGS_BASE.ENABLED_EXTENSIONS_SETTING,
+		["gf.asset_metadata"]
+	)
+	var mode_restore: Dictionary = _set_project_setting(
+		GF_EXTENSION_SETTINGS_BASE.EXTENSION_SELECTION_MODE_SETTING,
+		GF_EXTENSION_SETTINGS_BASE.SELECTION_MODE_EXPLICIT
+	)
+	GF_EXTENSION_SETTINGS_BASE.clear_manifest_cache()
+	var helper: Object = GF_PLUGIN_GLTF_DOCUMENT_TOOLS.new()
+
+	helper.call(&"setup")
+	var registered: Array = GF_VARIANT_ACCESS.as_array(helper.get("_document_extensions")).duplicate()
+	helper.call(&"cleanup")
+	var after_cleanup: Array = GF_VARIANT_ACCESS.as_array(helper.get("_document_extensions"))
+
+	_restore_project_setting(GF_EXTENSION_SETTINGS_BASE.EXTENSION_SELECTION_MODE_SETTING, mode_restore)
+	_restore_project_setting(GF_EXTENSION_SETTINGS_BASE.ENABLED_EXTENSIONS_SETTING, enabled_restore)
+	GF_EXTENSION_SETTINGS_BASE.clear_manifest_cache()
+
+	assert_eq(registered.size(), 1, "Asset Metadata 启用后只应注册一个 glTF 文档扩展实例。")
+	assert_true(registered[0] is GFAssetMetadataGltfDocumentExtension)
+	assert_true(after_cleanup.is_empty(), "cleanup 后不应保留已注册 glTF 文档扩展实例。")
+
+
 func test_plugin_autoload_persists_ownership_marker_changes() -> void:
 	var source: String = _read_text_file("res://addons/gf/kernel/editor/gf_plugin_autoload.gd")
 
@@ -337,12 +546,60 @@ func test_standard_template_records_are_injected_without_kernel_hardcoding() -> 
 		assert_true(source_id.begins_with(owner_package_id + ":"), "source_id 应由 owner package 作用域限定。")
 
 
+func test_standard_editor_manifest_loads_every_record_family_as_one_valid_catalog() -> void:
+	var report: Dictionary = GF_EDITOR_CONTRIBUTION_REGISTRY.load_manifest_report(
+		GF_STANDARD_EDITOR_CONTRIBUTIONS_PATH
+	)
+	var records: Dictionary = GF_VARIANT_ACCESS.get_option_dictionary(report, "records")
+	var expected_counts: Dictionary = {
+		"inspector_plugin_records": 3,
+		"export_plugin_records": 1,
+		"debugger_plugin_records": 1,
+		"dock_records": 5,
+		"template_records": 2,
+		"project_setting_section_records": 2,
+		"project_setting_records": 5,
+	}
+	var source_ids: Dictionary = {}
+
+	assert_true(GF_VARIANT_ACCESS.get_option_bool(report, "ok"), "标准编辑器清单应整体有效。")
+	assert_eq(GF_VARIANT_ACCESS.get_option_string(report, "state"), "valid", "完整清单应标记 valid。")
+	assert_eq(GF_VARIANT_ACCESS.get_option_int(report, "skipped_record_count"), 0, "完整安装不应跳过贡献记录。")
+	for record_key: String in expected_counts:
+		var family_records: Array = GF_VARIANT_ACCESS.get_option_array(records, record_key)
+		assert_eq(
+			family_records.size(),
+			GF_VARIANT_ACCESS.get_option_int(expected_counts, record_key),
+			"标准编辑器贡献族计数应保持完整：%s。" % record_key
+		)
+		for record_value: Variant in family_records:
+			var record: Dictionary = GF_VARIANT_ACCESS.as_dictionary(record_value)
+			var source_id: String = GF_VARIANT_ACCESS.get_option_string(record, "source_id")
+			assert_false(source_ids.has(source_id), "标准编辑器 source_id 应全局唯一：%s。" % source_id)
+			source_ids[source_id] = true
+			var target_path: String = ""
+			if record_key == "template_records":
+				target_path = GF_VARIANT_ACCESS.get_option_string(record, "template_path")
+			elif record_key in [
+				"inspector_plugin_records",
+				"export_plugin_records",
+				"debugger_plugin_records",
+				"dock_records",
+			]:
+				target_path = GF_VARIANT_ACCESS.get_option_string(record, "path")
+			if not target_path.is_empty():
+				assert_true(FileAccess.file_exists(target_path), "贡献目标应存在：%s。" % target_path)
+	assert_eq(source_ids.size(), 19, "标准编辑器清单应提供 19 个唯一贡献身份。")
+
+
 func test_standard_editor_contributions_use_data_manifest_boundary() -> void:
 	var plugin_source: String = _read_text_file("res://addons/gf/plugin.gd")
 	var manifest_source: String = _read_text_file(GF_STANDARD_EDITOR_CONTRIBUTIONS_PATH)
 
 	assert_true(plugin_source.contains("GF_EDITOR_CONTRIBUTION_REGISTRY_SCRIPT"), "根插件应通过 kernel registry 读取标准编辑器贡献。")
 	assert_true(plugin_source.contains(GF_STANDARD_EDITOR_CONTRIBUTIONS_PATH), "根插件应引用标准编辑器 data-only manifest。")
+	assert_true(plugin_source.contains("load_manifest_report(manifest_path)"), "根插件必须保留贡献清单状态与诊断，不能只取得 records。")
+	assert_false(plugin_source.contains("load_manifest_records(STANDARD_EDITOR_CONTRIBUTIONS_MANIFEST_PATH)"), "根插件不能丢弃 manifest report。")
 	assert_false(plugin_source.contains("gf_standard_editor_extensions.gd"), "根插件不应再读取旧的 standard 可执行聚合脚本。")
 	assert_false(plugin_source.contains("_load_optional_script"), "根插件不应通过动态脚本加载读取 standard 记录。")
 	assert_false(manifest_source.contains("GFBuildInfo"), "标准编辑器 manifest 不应引用标准库运行时类型。")
@@ -382,6 +639,7 @@ func test_editor_contribution_registry_skips_missing_script_targets() -> void:
 	_remove_path_if_exists(manifest_path)
 
 	assert_true(GF_VARIANT_ACCESS.get_option_bool(report, "ok"), "缺失贡献目标应跳过记录，而不是让 manifest 读取失败。")
+	assert_eq(GF_VARIANT_ACCESS.get_option_string(report, "state"), "degraded", "跳过局部记录时应显式标记 degraded。")
 	assert_eq(GF_VARIANT_ACCESS.get_option_int(report, "skipped_record_count"), 1, "缺失脚本目标应进入 skipped 诊断。")
 	assert_true(debugger_records.is_empty(), "缺失脚本目标不应传给插件 helper 加载。")
 	assert_eq(project_setting_records.size(), 1, "无脚本依赖的 ProjectSettings 记录仍应保留。")
@@ -403,7 +661,7 @@ func test_editor_contribution_registry_rejects_duplicate_global_source_ids() -> 
 				"type": "First",
 				"label": "First",
 				"base_class": "RefCounted",
-				"template_path": "res://addons/gf/standard/editor/templates/node_state.gdtemplate",
+				"template_path": "res://addons/gf/standard/state_machine/node/editor/templates/node_state.gdtemplate",
 			},
 			{
 				"owner_package_id": "gf.test.editor",
@@ -411,7 +669,7 @@ func test_editor_contribution_registry_rejects_duplicate_global_source_ids() -> 
 				"type": "Second",
 				"label": "Second",
 				"base_class": "RefCounted",
-				"template_path": "res://addons/gf/standard/editor/templates/node_state_machine.gdtemplate",
+				"template_path": "res://addons/gf/standard/state_machine/node/editor/templates/node_state_machine.gdtemplate",
 			},
 		],
 	}
@@ -423,8 +681,217 @@ func test_editor_contribution_registry_rejects_duplicate_global_source_ids() -> 
 	_remove_path_if_exists(manifest_path)
 
 	assert_false(GF_VARIANT_ACCESS.get_option_bool(report, "ok"), "重复全局 source_id 应使 manifest 校验失败。")
+	assert_eq(GF_VARIANT_ACCESS.get_option_string(report, "state"), "invalid", "整体校验问题应显式标记 invalid。")
 	assert_eq(templates.size(), 1, "重复 source_id 应只保留第一条稳定记录。")
 	assert_eq(_count_report_issue_kind(report, "duplicate_source_id"), 1, "报告应指出 source_id 冲突。")
+
+
+func test_editor_contribution_registry_rejects_empty_template() -> void:
+	var template_path: String = "user://gf_editor_contribution_registry_empty_template.gdtemplate"
+	var manifest_path: String = "user://gf_editor_contribution_registry_empty_template.json"
+	_write_text_file(template_path, " \n\t")
+	_write_text_file(manifest_path, JSON.stringify({
+		"schema_version": GF_EDITOR_CONTRIBUTION_REGISTRY.SCHEMA_VERSION,
+		"package_id": "gf.test.editor",
+		"template_records": [{
+			"owner_package_id": "gf.test.editor",
+			"source_id": "template.empty",
+			"type": "Empty",
+			"label": "Empty",
+			"base_class": "RefCounted",
+			"template_path": template_path,
+		}],
+	}))
+
+	var report: Dictionary = GF_EDITOR_CONTRIBUTION_REGISTRY.load_manifest_report(
+		manifest_path
+	)
+	var records: Dictionary = GF_VARIANT_ACCESS.get_option_dictionary(report, "records")
+	var templates: Array = GF_VARIANT_ACCESS.get_option_array(records, "template_records")
+	_remove_path_if_exists(manifest_path)
+	_remove_path_if_exists(template_path)
+
+	assert_false(GF_VARIANT_ACCESS.get_option_bool(report, "ok"), "空模板必须使清单失败。")
+	assert_true(templates.is_empty(), "空模板记录不能进入可执行贡献。")
+	assert_eq(_count_report_issue_kind(report, "empty_template"), 1, "报告应明确指出空模板。")
+
+
+func test_editor_contribution_registry_rejects_invalid_template_base_class() -> void:
+	var template_path: String = "user://gf_editor_contribution_registry_invalid_base.gdtemplate"
+	var manifest_path: String = "user://gf_editor_contribution_registry_invalid_base.json"
+	_write_text_file(template_path, "class_name {ClassName}\nextends {BaseClass}\n")
+	_write_text_file(manifest_path, JSON.stringify({
+		"schema_version": GF_EDITOR_CONTRIBUTION_REGISTRY.SCHEMA_VERSION,
+		"package_id": "gf.test.editor",
+		"template_records": [{
+			"owner_package_id": "gf.test.editor",
+			"source_id": "template.invalid_base",
+			"type": "InvalidBase",
+			"label": "Invalid Base",
+			"base_class": "Node\nextends RefCounted",
+			"template_path": template_path,
+		}],
+	}))
+
+	var report: Dictionary = GF_EDITOR_CONTRIBUTION_REGISTRY.load_manifest_report(
+		manifest_path
+	)
+	var records: Dictionary = GF_VARIANT_ACCESS.get_option_dictionary(report, "records")
+	var templates: Array = GF_VARIANT_ACCESS.get_option_array(records, "template_records")
+	_remove_path_if_exists(manifest_path)
+	_remove_path_if_exists(template_path)
+
+	assert_false(GF_VARIANT_ACCESS.get_option_bool(report, "ok"), "非法 base_class 必须使清单失败。")
+	assert_true(templates.is_empty(), "非法 base_class 记录不能进入可执行贡献。")
+	assert_eq(_count_report_issue_kind(report, "invalid_base_class"), 1, "报告应指出非法 base_class。")
+
+
+func test_editor_contribution_registry_rejects_oversized_manifest() -> void:
+	var manifest_path: String = "user://gf_editor_contribution_registry_oversized.json"
+	_write_text_file(manifest_path, "x".repeat(1_048_577))
+
+	var report: Dictionary = GF_EDITOR_CONTRIBUTION_REGISTRY.load_manifest_report(
+		manifest_path
+	)
+	_remove_path_if_exists(manifest_path)
+
+	assert_false(GF_VARIANT_ACCESS.get_option_bool(report, "ok"), "超大清单必须在解析前失败。")
+	assert_eq(_count_report_issue_kind(report, "manifest_too_large"), 1, "报告应指出字节预算。")
+
+
+func test_editor_contribution_registry_rejects_excessive_json_depth() -> void:
+	var manifest_path: String = "user://gf_editor_contribution_registry_deep.json"
+	var deep_json: String = "{\"payload\":" + "[".repeat(64) + "0" + "]".repeat(64) + "}"
+	_write_text_file(manifest_path, deep_json)
+
+	var report: Dictionary = GF_EDITOR_CONTRIBUTION_REGISTRY.load_manifest_report(
+		manifest_path
+	)
+	_remove_path_if_exists(manifest_path)
+
+	assert_false(GF_VARIANT_ACCESS.get_option_bool(report, "ok"), "过深 JSON 必须在解析前失败。")
+	assert_eq(_count_report_issue_kind(report, "manifest_too_deep"), 1, "报告应指出嵌套预算。")
+
+
+func test_editor_contribution_registry_rejects_record_count_over_budget() -> void:
+	var manifest_path: String = "user://gf_editor_contribution_registry_many_records.json"
+	var records: Array[Dictionary] = []
+	for index: int in 1025:
+		records.append({ "index": index })
+	_write_text_file(manifest_path, JSON.stringify({
+		"schema_version": GF_EDITOR_CONTRIBUTION_REGISTRY.SCHEMA_VERSION,
+		"package_id": "gf.test.editor",
+		"project_setting_records": records,
+	}))
+
+	var report: Dictionary = GF_EDITOR_CONTRIBUTION_REGISTRY.load_manifest_report(
+		manifest_path
+	)
+	_remove_path_if_exists(manifest_path)
+
+	assert_false(GF_VARIANT_ACCESS.get_option_bool(report, "ok"), "记录总数超限必须失败。")
+	assert_eq(_count_report_issue_kind(report, "record_budget_exceeded"), 1, "报告应指出记录预算。")
+
+
+func test_editor_contribution_registry_reports_absent_valid_and_invalid_states() -> void:
+	var absent_path: String = "user://gf_editor_contribution_registry_absent.json"
+	_remove_path_if_exists(absent_path)
+
+	var absent_report: Dictionary = GF_EDITOR_CONTRIBUTION_REGISTRY.load_manifest_report(absent_path)
+	var valid_report: Dictionary = GF_EDITOR_CONTRIBUTION_REGISTRY.load_manifest_report(
+		GF_STANDARD_EDITOR_CONTRIBUTIONS_PATH
+	)
+	var invalid_report: Dictionary = GF_EDITOR_CONTRIBUTION_REGISTRY.load_manifest_report("")
+
+	assert_true(GF_VARIANT_ACCESS.get_option_bool(absent_report, "ok"), "缺席可选清单应保持成功。")
+	assert_eq(GF_VARIANT_ACCESS.get_option_string(absent_report, "state"), "absent", "缺席清单必须与空有效清单区分。")
+	assert_eq(GF_VARIANT_ACCESS.get_option_string(valid_report, "state"), "valid", "完整标准清单应标记 valid。")
+	assert_false(GF_VARIANT_ACCESS.get_option_bool(invalid_report, "ok"), "无效路径不能伪装成可选清单缺席。")
+	assert_eq(GF_VARIANT_ACCESS.get_option_string(invalid_report, "state"), "invalid", "无效路径应标记 invalid。")
+	assert_eq(_count_report_issue_kind(invalid_report, "invalid_manifest_path"), 1, "无效路径应产生稳定诊断。")
+
+
+func test_editor_contribution_registry_rejects_oversized_template() -> void:
+	var template_path: String = "user://gf_editor_contribution_registry_large_template.gdtemplate"
+	var manifest_path: String = "user://gf_editor_contribution_registry_large_template.json"
+	_write_text_file(template_path, "x".repeat(1_048_577))
+	_write_text_file(manifest_path, JSON.stringify({
+		"schema_version": GF_EDITOR_CONTRIBUTION_REGISTRY.SCHEMA_VERSION,
+		"package_id": "gf.test.editor",
+		"template_records": [{
+			"owner_package_id": "gf.test.editor",
+			"source_id": "template.large",
+			"type": "Large",
+			"label": "Large",
+			"base_class": "RefCounted",
+			"template_path": template_path,
+		}],
+	}))
+
+	var report: Dictionary = GF_EDITOR_CONTRIBUTION_REGISTRY.load_manifest_report(
+		manifest_path
+	)
+	_remove_path_if_exists(manifest_path)
+	_remove_path_if_exists(template_path)
+
+	assert_false(GF_VARIANT_ACCESS.get_option_bool(report, "ok"), "超大模板必须在读取前失败。")
+	assert_eq(_count_report_issue_kind(report, "template_too_large"), 1, "报告应指出模板字节预算。")
+
+
+func test_editor_contribution_registry_enforces_exact_cumulative_template_budget() -> void:
+	var manifest_path: String = "user://gf_editor_contribution_registry_template_total.json"
+	var template_paths: Array[String] = []
+	var template_records: Array[Dictionary] = []
+	var one_mebibyte: String = "x".repeat(1_048_576)
+	for index: int in 4:
+		var template_path: String = "user://gf_editor_contribution_registry_total_%d.gdtemplate" % index
+		template_paths.append(template_path)
+		_write_text_file(template_path, one_mebibyte)
+		template_records.append({
+			"owner_package_id": "gf.test.editor",
+			"source_id": "template.total.%d" % index,
+			"type": "Total%d" % index,
+			"label": "Total %d" % index,
+			"base_class": "RefCounted",
+			"template_path": template_path,
+		})
+	_write_text_file(manifest_path, JSON.stringify({
+		"schema_version": GF_EDITOR_CONTRIBUTION_REGISTRY.SCHEMA_VERSION,
+		"package_id": "gf.test.editor",
+		"template_records": template_records,
+	}))
+	var exact_report: Dictionary = GF_EDITOR_CONTRIBUTION_REGISTRY.load_manifest_report(
+		manifest_path
+	)
+
+	var overflow_path: String = "user://gf_editor_contribution_registry_total_overflow.gdtemplate"
+	template_paths.append(overflow_path)
+	_write_text_file(overflow_path, "z")
+	template_records.append({
+		"owner_package_id": "gf.test.editor",
+		"source_id": "template.total.overflow",
+		"type": "Overflow",
+		"label": "Overflow",
+		"base_class": "RefCounted",
+		"template_path": overflow_path,
+	})
+	_write_text_file(manifest_path, JSON.stringify({
+		"schema_version": GF_EDITOR_CONTRIBUTION_REGISTRY.SCHEMA_VERSION,
+		"package_id": "gf.test.editor",
+		"template_records": template_records,
+	}))
+	var overflow_report: Dictionary = GF_EDITOR_CONTRIBUTION_REGISTRY.load_manifest_report(
+		manifest_path
+	)
+	_remove_path_if_exists(manifest_path)
+	for template_path: String in template_paths:
+		_remove_path_if_exists(template_path)
+
+	assert_true(GF_VARIANT_ACCESS.get_option_bool(exact_report, "ok"), "累计 4 MiB 模板应命中闭区间上界。")
+	assert_eq(GF_VARIANT_ACCESS.get_option_string(exact_report, "state"), "valid", "精确上界仍应是 valid。")
+	assert_false(GF_VARIANT_ACCESS.get_option_bool(overflow_report, "ok"), "累计模板超过 4 MiB 一字节必须失败。")
+	assert_eq(GF_VARIANT_ACCESS.get_option_string(overflow_report, "state"), "invalid", "累计预算超限应标记 invalid。")
+	assert_eq(_count_report_issue_kind(overflow_report, "template_total_budget_exceeded"), 1, "报告应指出累计模板预算。")
 
 
 func test_standard_dock_records_use_standard_order_band() -> void:
@@ -479,8 +946,8 @@ func test_standard_debugger_records_are_injected_without_kernel_hardcoding() -> 
 	)
 	var refresh_source: String = _extract_function_source(
 		plugin_source,
-		"func _refresh_editor_contributions() -> void:",
-		"func _scan_editor_filesystem() -> void:"
+		"func _apply_editor_contributions_refresh(generation: int) -> void:",
+		"func _scan_editor_filesystem() -> bool:"
 	)
 
 	assert_eq(script_path, standard_script_path, "Debugger 插件记录应来自 standard 贡献。")
@@ -1008,6 +1475,7 @@ func test_plugin_actions_discovers_enabled_extension_templates() -> void:
 
 	assert_true(labels.has("生成 NodeCapability"), "Capability 模板应由 Capability 扩展 manifest 注册。")
 	assert_true(source.contains("func get_dependency_removal_policy()"), "Capability 模板源码应由包动作贡献。")
+	assert_false(source.contains("@since 3.17.0"), "项目能力模板不得冒用 GF Framework 3.17.0 的版本来源。")
 
 
 func test_plugin_dock_tools_keeps_core_docks_available_without_extensions() -> void:

@@ -25,6 +25,7 @@
 | 方法 | [`get_report_redaction_profile`](#member-gfbatchedlogsink-methods-get_report_redaction_profile) | `func get_report_redaction_profile() -> String:` |
 | 方法 | [`init`](#member-gfbatchedlogsink-methods-init) | `func init(_owner: Object) -> void:` |
 | 方法 | [`write`](#member-gfbatchedlogsink-methods-write) | `func write(entry: Dictionary) -> void:` |
+| 方法 | [`tick`](#member-gfbatchedlogsink-methods-tick) | `func tick(delta: float) -> void:` |
 | 方法 | [`flush`](#member-gfbatchedlogsink-methods-flush) | `func flush() -> void:` |
 | 方法 | [`shutdown`](#member-gfbatchedlogsink-methods-shutdown) | `func shutdown() -> void:` |
 | 方法 | [`get_pending_count`](#member-gfbatchedlogsink-methods-get_pending_count) | `func get_pending_count() -> int:` |
@@ -199,6 +200,25 @@ func write(entry: Dictionary) -> void:
 
 - `entry`: Dictionary log entry produced by GFLogUtility.
 
+<a id="member-gfbatchedlogsink-methods-tick"></a>
+
+### `tick`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func tick(delta: float) -> void:
+```
+
+推进自动 flush 计时；由持有该 sink 的 GFLogUtility 调用。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `delta` | 本帧时间增量（秒）；非有限或非正数不会推进状态。 |
+
 <a id="member-gfbatchedlogsink-methods-flush"></a>
 
 ### `flush`
@@ -216,12 +236,13 @@ func flush() -> void:
 ### `shutdown`
 
 - API：`public`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func shutdown() -> void:
 ```
 
-关闭 sink 并尽力 flush。
+关闭 sink，并在同步发送持续取得进展时排空全部批次。
 
 <a id="member-gfbatchedlogsink-methods-get_pending_count"></a>
 

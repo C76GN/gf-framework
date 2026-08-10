@@ -104,6 +104,8 @@ func make_error_report(
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param report: 目标校验报告。
 ## [br]
 ## @param severity: severity 字符串，支持 error 或 warning。
@@ -122,7 +124,7 @@ func make_error_report(
 ## [br]
 ## @schema report: GFConfigValidationReport 兼容 Dictionary，会被当前方法修改。
 ## [br]
-## @schema row_key: Variant，复制到 issue 中的行标识。
+## @schema row_key: Variant，经报告 codec 规范化为 JSON-safe 值后复制到 issue 中的行标识。
 ## [br]
 ## @schema context: Dictionary，可包含 row_key、field、source、line、column、row_index、column_index、rule_id、value、expected_value、actual_value、supported_values、supported_formats 和 supported_content_types 字段。
 func add_issue(
@@ -139,7 +141,7 @@ func add_issue(
 		"severity": severity,
 		"kind": kind,
 		"table_name": table_name,
-		"row_key": row_key,
+		"row_key": _sanitize_context_value(row_key),
 		"field": field_name,
 		"message": message,
 	}

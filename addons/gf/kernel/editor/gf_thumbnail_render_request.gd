@@ -118,7 +118,7 @@ static func for_node3d_texture(
 ## [br]
 ## @param content_bounds: 来源局部坐标中的显式内容边界；非正尺寸表示自动估算。
 ## [br]
-## @param margin_ratio: 内容边界四周的相对留白，钳制到 0.0 至 1.0。
+## @param margin_ratio: 内容边界四周的有限相对留白，钳制到 0.0 至 1.0；非有限值会使请求无效。
 ## [br]
 ## @return CanvasItem Image 渲染请求。
 static func for_canvas_item_image(
@@ -155,7 +155,7 @@ static func for_canvas_item_image(
 ## [br]
 ## @param content_bounds: 来源局部坐标中的显式内容边界；非正尺寸表示自动估算。
 ## [br]
-## @param margin_ratio: 内容边界四周的相对留白，钳制到 0.0 至 1.0。
+## @param margin_ratio: 内容边界四周的有限相对留白，钳制到 0.0 至 1.0；非有限值会使请求无效。
 ## [br]
 ## @return CanvasItem ImageTexture 渲染请求。
 static func for_canvas_item_texture(
@@ -371,7 +371,11 @@ func is_valid() -> bool:
 		Kind.NODE3D_IMAGE, Kind.NODE3D_TEXTURE:
 			return _source_node3d != null and is_instance_valid(_source_node3d)
 		Kind.CANVAS_ITEM_IMAGE, Kind.CANVAS_ITEM_TEXTURE:
-			return _source_canvas_item != null and is_instance_valid(_source_canvas_item)
+			return (
+				_source_canvas_item != null
+				and is_instance_valid(_source_canvas_item)
+				and is_finite(_margin_ratio)
+			)
 		Kind.MESH_IMAGE, Kind.MESH_TEXTURE:
 			return _mesh != null
 		Kind.MESH_LIBRARY_PREVIEW_PLAN:
@@ -417,5 +421,9 @@ static func _make_canvas_item_request(
 	request._transparent = transparent
 	request._has_content_bounds = content_bounds.size.x > 0.0 and content_bounds.size.y > 0.0
 	request._content_bounds = content_bounds if request._has_content_bounds else Rect2()
-	request._margin_ratio = clampf(margin_ratio, 0.0, 1.0)
+	request._margin_ratio = (
+		clampf(margin_ratio, 0.0, 1.0)
+		if is_finite(margin_ratio)
+		else margin_ratio
+	)
 	return request

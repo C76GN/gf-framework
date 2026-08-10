@@ -110,6 +110,8 @@ var activation_steps: Array[GFSkillActivationStep] = []
 # --- 私有变量 ---
 
 var _architecture_ref: WeakRef = null
+var _activation_in_progress: bool = false
+var _reporting_reentrant_failure: bool = false
 
 
 # --- Godot 生命周期方法 ---
@@ -214,6 +216,8 @@ func get_activation_report(context: RefCounted = null) -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
+## @since 11.0.0
+## [br]
 ## @param manual_target: 可选的手动目标。
 ## [br]
 ## @param cast_center: 可选施法中心；传入 `null` 时回退到施法者位置。
@@ -221,6 +225,8 @@ func get_activation_report(context: RefCounted = null) -> Dictionary:
 ## @param activation_metadata: 项目自定义激活元数据。
 ## [br]
 ## @return 技能实际执行并进入冷却时返回 `true`。
+## 同一实例在任意同步激活回调中再次调用时会以 `activation_in_progress` 拒绝；
+## 如需连锁施放，请延迟调用或使用另一技能实例。
 ## [br]
 ## @schema cast_center: Variant，可为 null 或 Vector2；为 null 时从 owner.global_position 推导。
 ## [br]
@@ -230,48 +236,13 @@ func execute(
 	cast_center: Variant = null,
 	activation_metadata: Dictionary = {}
 ) -> bool:
-	var context: RefCounted = build_activation_context(manual_target, cast_center, activation_metadata)
-	var report: Dictionary = _validate_activation_context(context, false)
-	if not _report_ok(report):
-		activation_failed.emit(self, context)
-		return false
+	if _activation_in_progress:
+		return _reject_reentrant_execution(manual_target, cast_center, activation_metadata)
 
-	if not _resolve_activation_targets(context):
-		activation_failed.emit(self, context)
-		return false
-
-	report = _run_activation_callbacks(context, activation_checks, &"activation_check_failed")
-	if not _report_ok(report):
-		activation_failed.emit(self, context)
-		return false
-
-	var transaction: GFActivationTransaction = _build_activation_transaction(context)
-	if transaction == null:
-		activation_failed.emit(self, context)
-		return false
-	var transaction_context: Dictionary = _make_transaction_context(context)
-	var transaction_report: Dictionary = transaction.commit(transaction_context)
-	if not _report_ok(transaction_report):
-		var _transaction_failure_report: Dictionary = _fail_from_transaction(
-			context,
-			transaction_report,
-			&"activation_commit_failed"
-		)
-		activation_failed.emit(self, context)
-		return false
-
-	if not _try_activate(context):
-		var rollback_report: Dictionary = transaction.rollback(transaction_context)
-		var _execute_failed_report: Dictionary = _fail_activation_context(context, &"execute_failed", {
-			"activation_transaction": rollback_report,
-		})
-		activation_failed.emit(self, context)
-		return false
-	cooldown_left = cooldown_max
-	cooldown_started.emit(self)
-	activation_committed.emit(self, context)
-	return true
-
+	_activation_in_progress = true
+	var executed: bool = _execute_once(manual_target, cast_center, activation_metadata)
+	_activation_in_progress = false
+	return executed
 
 # --- 可重写钩子 / 虚方法 ---
 
@@ -327,6 +298,79 @@ func _try_activate(context: RefCounted) -> bool:
 
 
 # --- 私有/辅助方法 ---
+
+# 在实例级重入守卫内执行一次完整激活。
+func _execute_once(
+	manual_target: Object,
+	cast_center: Variant,
+	activation_metadata: Dictionary
+) -> bool:
+	var context: RefCounted = build_activation_context(manual_target, cast_center, activation_metadata)
+	var report: Dictionary = _validate_activation_context(context, false)
+	if not _report_ok(report):
+		activation_failed.emit(self, context)
+		return false
+
+	if not _resolve_activation_targets(context):
+		activation_failed.emit(self, context)
+		return false
+
+	report = _run_activation_callbacks(context, activation_checks, &"activation_check_failed")
+	if not _report_ok(report):
+		activation_failed.emit(self, context)
+		return false
+
+	var transaction: GFActivationTransaction = _build_activation_transaction(context)
+	if transaction == null:
+		activation_failed.emit(self, context)
+		return false
+	var transaction_context: Dictionary = _make_transaction_context(context)
+	var transaction_report: Dictionary = transaction.commit(transaction_context)
+	if not _report_ok(transaction_report):
+		var _transaction_failure_report: Dictionary = _fail_from_transaction(
+			context,
+			transaction_report,
+			&"activation_commit_failed"
+		)
+		activation_failed.emit(self, context)
+		return false
+
+	if not _try_activate(context):
+		var rollback_report: Dictionary = transaction.rollback(transaction_context)
+		var _execute_failed_report: Dictionary = _fail_activation_context(context, &"execute_failed", {
+			"activation_transaction": rollback_report,
+		})
+		activation_failed.emit(self, context)
+		return false
+	cooldown_left = cooldown_max
+	cooldown_started.emit(self)
+	activation_committed.emit(self, context)
+	return true
+
+
+func _reject_reentrant_execution(
+	manual_target: Object,
+	cast_center: Variant,
+	activation_metadata: Dictionary
+) -> bool:
+	if _reporting_reentrant_failure:
+		return false
+
+	var context: RefCounted = _GF_SKILL_ACTIVATION_CONTEXT.new()
+	context.call(
+		"configure",
+		self,
+		_get_valid_owner(),
+		manual_target,
+		cast_center,
+		Vector2.ZERO,
+		activation_metadata
+	)
+	var _failure_report: Dictionary = _fail_activation_context(context, &"activation_in_progress")
+	_reporting_reentrant_failure = true
+	activation_failed.emit(self, context)
+	_reporting_reentrant_failure = false
+	return false
 
 func _validate_activation_context(context: RefCounted, include_callbacks: bool) -> Dictionary:
 	if context == null:

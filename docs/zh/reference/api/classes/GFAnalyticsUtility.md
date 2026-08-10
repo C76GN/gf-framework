@@ -34,6 +34,7 @@
 | 方法 | [`flush`](#member-gfanalyticsutility-methods-flush) | `func flush() -> void:` |
 | 方法 | [`shutdown`](#member-gfanalyticsutility-methods-shutdown) | `func shutdown(flush_remaining: bool = true) -> void:` |
 | 方法 | [`get_queue_size`](#member-gfanalyticsutility-methods-get_queue_size) | `func get_queue_size() -> int:` |
+| 方法 | [`get_dropped_event_count`](#member-gfanalyticsutility-methods-get_dropped_event_count) | `func get_dropped_event_count() -> int:` |
 | 方法 | [`get_session_id`](#member-gfanalyticsutility-methods-get_session_id) | `func get_session_id() -> String:` |
 | 方法 | [`get_client_id`](#member-gfanalyticsutility-methods-get_client_id) | `func get_client_id() -> String:` |
 | 方法 | [`clear_queue`](#member-gfanalyticsutility-methods-clear_queue) | `func clear_queue() -> void:` |
@@ -108,7 +109,7 @@ flush 完成时发出。失败结果也会通过该信号通知。
 
 结构：
 
-- `result`: Dictionary with `success`; may include `accepted`, `error`, `dry_run`, `dropped`, `retained`, `drop_reason`, or transport-specific fields.
+- `result`: Dictionary with `success`; may include `accepted`, `error`, `response_code`, `dry_run`, `dropped`, `retained`, `drop_reason`, or transport-specific fields.
 
 <a id="member-gfanalyticsutility-signals-flush_failed"></a>
 
@@ -131,7 +132,7 @@ flush 失败时额外发出。
 
 结构：
 
-- `result`: Dictionary with `success: false`; may include `error`, `dropped`, `retained`, `drop_reason`, and payload budget fields.
+- `result`: Dictionary with `success: false`; may include `error`, `response_code`, `dropped`, `retained`, `drop_reason`, and payload budget fields.
 
 ## 属性
 
@@ -376,6 +377,21 @@ func get_queue_size() -> int:
 获取当前队列长度。
 
 返回：队列长度。
+
+<a id="member-gfanalyticsutility-methods-get_dropped_event_count"></a>
+
+### `get_dropped_event_count`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func get_dropped_event_count() -> int:
+```
+
+获取因队列或载荷预算而丢弃的累计事件数。
+
+返回：当前实例初始化以来的累计丢弃数量。
 
 <a id="member-gfanalyticsutility-methods-get_session_id"></a>
 

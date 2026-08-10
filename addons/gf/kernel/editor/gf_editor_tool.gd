@@ -105,9 +105,13 @@ func activate(context: GFEditorToolContextBase) -> void:
 func deactivate() -> void:
 	if not _active:
 		return
-	_on_deactivated(_context)
-	_context = null
+	var previous_context: GFEditorToolContextBase = _context
 	_active = false
+	if _pick_operation != null:
+		_pick_operation.cancel()
+		_pick_operation = null
+	_on_deactivated(previous_context)
+	_context = null
 
 
 ## 工具是否处于激活状态。
@@ -220,8 +224,11 @@ func begin_pick_operation(operation: GFEditorPickOperationBase) -> bool:
 		return false
 	if _pick_operation != null:
 		_pick_operation.cancel()
+		_pick_operation = null
+	if not operation.begin(_context):
+		return false
 	_pick_operation = operation
-	return _pick_operation.begin(_context)
+	return true
 
 
 ## 向当前拾取操作输入数据。
@@ -234,7 +241,7 @@ func begin_pick_operation(operation: GFEditorPickOperationBase) -> bool:
 ## [br]
 ## @return 当前拾取状态；没有操作时返回 IDLE。
 func pick(input_data: Dictionary) -> int:
-	if _pick_operation == null:
+	if not _active or _pick_operation == null:
 		return GFEditorPickOperationBase.State.IDLE
 	return _pick_operation.pick(input_data)
 
@@ -247,6 +254,11 @@ func pick(input_data: Dictionary) -> int:
 ## [br]
 ## @schema return: Dictionary apply result from the active pick operation.
 func apply_pick_operation() -> Dictionary:
+	if not _active:
+		return {
+			"ok": false,
+			"reason": &"tool_inactive",
+		}
 	if _pick_operation == null:
 		return {
 			"ok": false,

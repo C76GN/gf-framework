@@ -15,8 +15,8 @@
 
 | 类型 | 名称 | 签名 |
 |---|---|---|
-| 属性 | [`start_time`](#member-gftimedtextentry-properties-start_time) | `var start_time: float = 0.0` |
-| 属性 | [`end_time`](#member-gftimedtextentry-properties-end_time) | `var end_time: float = 0.0` |
+| 属性 | [`start_time`](#member-gftimedtextentry-properties-start_time) | `var start_time: float = 0.0:` |
+| 属性 | [`end_time`](#member-gftimedtextentry-properties-end_time) | `var end_time: float = 0.0:` |
 | 属性 | [`text`](#member-gftimedtextentry-properties-text) | `var text: String = ""` |
 | 属性 | [`metadata`](#member-gftimedtextentry-properties-metadata) | `var metadata: Dictionary = {}` |
 | 方法 | [`contains_time`](#member-gftimedtextentry-methods-contains_time) | `func contains_time(time_seconds: float) -> bool:` |
@@ -32,9 +32,10 @@
 ### `start_time`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-var start_time: float = 0.0
+var start_time: float = 0.0:
 ```
 
 开始时间，单位秒。
@@ -44,9 +45,10 @@ var start_time: float = 0.0
 ### `end_time`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-var end_time: float = 0.0
+var end_time: float = 0.0:
 ```
 
 结束时间，单位秒。

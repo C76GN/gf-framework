@@ -47,12 +47,29 @@ const STATUS_PARSE_FAILED: StringName = &"parse_failed"
 ## @since 6.0.0
 const STATUS_LOAD_FAILED: StringName = &"load_failed"
 
+## JSON 清单允许的最大 UTF-8 字节数。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+const MAX_JSON_BYTES: int = 1_048_576
+
+## JSON 清单允许的最大对象/数组嵌套深度。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+const MAX_JSON_DEPTH: int = 64
+
 ## 生成产物报告脚本。
 ## [br]
 ## @api framework_internal
 ## [br]
 ## @layer kernel/editor
 const GFGeneratedArtifactReportBase = preload("res://addons/gf/kernel/editor/gf_generated_artifact_report.gd")
+const _GF_BOUNDED_JSON_READER_SCRIPT = preload(
+	"res://addons/gf/kernel/editor/gf_bounded_json_reader.gd"
+)
 const _GF_REPORT_VALUE_CODEC_SCRIPT = preload("res://addons/gf/kernel/core/gf_report_value_codec.gd")
 const _GF_VARIANT_ACCESS_SCRIPT = preload("res://addons/gf/kernel/core/gf_variant_access.gd")
 
@@ -152,18 +169,24 @@ static func from_dictionary(data: Dictionary, defaults: Dictionary = {}) -> Dict
 ## [br]
 ## @schema return: Dictionary containing valid, status, fields, and errors.
 static func from_json_text(text: String, defaults: Dictionary = {}) -> Dictionary:
-	var json: JSON = JSON.new()
-	var parse_error: Error = json.parse(text)
-	if parse_error != OK:
+	var parse_result: Dictionary = _GF_BOUNDED_JSON_READER_SCRIPT.parse_object(
+		text,
+		MAX_JSON_BYTES,
+		MAX_JSON_DEPTH
+	)
+	if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(parse_result, "ok", false):
 		return _make_invalid_manifest(
 			STATUS_PARSE_FAILED,
-			"清单 JSON 解析失败：%s。" % json.get_error_message(),
+			"清单 JSON 无效：%s" % _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
+				parse_result,
+				"error"
+			),
 			defaults
 		)
-	var parsed: Variant = json.data
-	if not (parsed is Dictionary):
-		return _make_invalid_manifest(STATUS_PARSE_FAILED, "清单 JSON 根节点必须是 Dictionary。", defaults)
-	var data: Dictionary = parsed
+	var data: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(
+		parse_result,
+		"data"
+	)
 	return from_dictionary(data, defaults)
 
 
@@ -188,18 +211,35 @@ static func load_sidecar(sidecar_path: String, defaults: Dictionary = {}) -> Dic
 	if not FileAccess.file_exists(sidecar_path):
 		return _make_invalid_manifest(STATUS_LOAD_FAILED, "sidecar 文件不存在：%s。" % sidecar_path, defaults)
 
-	var file: FileAccess = FileAccess.open(sidecar_path, FileAccess.READ)
-	if file == null:
-		var open_error: Error = FileAccess.get_open_error()
+	var read_result: Dictionary = _GF_BOUNDED_JSON_READER_SCRIPT.read_object(
+		sidecar_path,
+		MAX_JSON_BYTES,
+		MAX_JSON_DEPTH
+	)
+	if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(read_result, "ok", false):
+		var error_kind: StringName = _GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(
+			read_result,
+			"error_kind"
+		)
+		var failure_status: StringName = (
+			STATUS_PARSE_FAILED
+			if error_kind == &"parse_failed"
+			or error_kind == &"invalid_root_type"
+			or error_kind == &"nesting_too_deep"
+			else STATUS_LOAD_FAILED
+		)
 		return _make_invalid_manifest(
-			STATUS_LOAD_FAILED,
-			"sidecar 文件读取失败：%s (%s)。" % [sidecar_path, error_string(open_error)],
+			failure_status,
+			"sidecar 文件无效：%s" % _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
+				read_result,
+				"error"
+			),
 			defaults
 		)
-
-	var text: String = file.get_as_text()
-	file.close()
-	var manifest: Dictionary = from_json_text(text, defaults)
+	var manifest: Dictionary = from_dictionary(
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(read_result, "data"),
+		defaults
+	)
 	manifest["sidecar_path"] = sidecar_path
 	return manifest
 

@@ -31,6 +31,7 @@ const _RESOLVER_OWNER_ID: StringName = &"gf.content_package.catalog"
 var _manifests: Dictionary = {}
 var _manifest_order: Array[StringName] = []
 var _duplicate_package_ids: PackedStringArray = PackedStringArray()
+var _rejected_manifest_inputs: Array[Dictionary] = []
 
 
 # --- 公共方法 ---
@@ -42,40 +43,37 @@ func clear() -> void:
 	_manifests.clear()
 	_manifest_order.clear()
 	_duplicate_package_ids.clear()
+	_rejected_manifest_inputs.clear()
 
 
 ## 注册内容包 manifest。
 ## [br]
 ## @api public
 ## [br]
+## @since 4.4.0
+## [br]
 ## @param manifest: 内容包 manifest。
 ## [br]
-## @return 注册成功返回 true；重复或空 ID 返回 false。
+## @return: 注册成功返回 true；空 manifest、重复或空 ID 返回 false，并可从 graph report 读取诊断。
 func add_manifest(manifest: GFContentPackageManifest) -> bool:
-	if manifest == null or manifest.package_id == &"":
-		return false
-	if _manifests.has(manifest.package_id):
-		_add_duplicate_package_id(manifest.package_id)
-		return false
-
-	_manifests[manifest.package_id] = manifest.duplicate_manifest()
-	_manifest_order.append(manifest.package_id)
-	return true
+	return _add_manifest_input(manifest, -1)
 
 
 ## 批量替换内容包 manifest。
 ## [br]
 ## @api public
 ## [br]
+## @since 4.4.0
+## [br]
 ## @param manifests: manifest 列表。
 ## [br]
 ## @return 当前目录。
 ## [br]
-## @schema manifests: Array[GFContentPackageManifest]，无效项会被忽略或进入诊断。
+## @schema manifests: Array[GFContentPackageManifest]，无效项会被拒绝并进入诊断。
 func set_manifests(manifests: Array[GFContentPackageManifest]) -> GFContentPackageCatalog:
 	clear()
-	for manifest: GFContentPackageManifest in manifests:
-		var _added: bool = add_manifest(manifest)
+	for index: int in range(manifests.size()):
+		var _added: bool = _add_manifest_input(manifests[index], index)
 	return self
 
 
@@ -138,6 +136,13 @@ func duplicate_catalog() -> GFContentPackageCatalog:
 		result._manifests[package_id] = manifest.duplicate_manifest()
 		result._manifest_order.append(package_id)
 	result._duplicate_package_ids = _duplicate_package_ids.duplicate()
+	for record: Dictionary in _rejected_manifest_inputs:
+		var record_copy: Dictionary = record.duplicate()
+		var manifest_value: Variant = record.get("manifest")
+		if manifest_value is GFContentPackageManifest:
+			var rejected_manifest: GFContentPackageManifest = manifest_value
+			record_copy["manifest"] = rejected_manifest.duplicate_manifest()
+		result._rejected_manifest_inputs.append(record_copy)
 	return result
 
 
@@ -159,10 +164,7 @@ func get_package_ids() -> PackedStringArray:
 ## [br]
 ## @return 依赖包先于依赖方出现的内容包 ID 列表。
 func get_ordered_package_ids() -> PackedStringArray:
-	var graph_report: Dictionary = _GF_DEPENDENCY_GRAPH_TOOLS.sort_dependency_first(
-		_get_manifest_order_as_strings(),
-		_build_dependency_map()
-	)
+	var graph_report: Dictionary = _get_dependency_sort_report()
 	return GFVariantData.get_option_packed_string_array(graph_report, "ordered_ids", PackedStringArray())
 
 
@@ -202,8 +204,12 @@ func query_packages(
 			graph_report
 		)
 
+	var ordered_package_ids: PackedStringArray = GFVariantData.get_option_packed_string_array(
+		graph_report,
+		"ordered_package_ids"
+	)
 	var direct_package_ids: PackedStringArray = PackedStringArray()
-	for package_id_text: String in get_ordered_package_ids():
+	for package_id_text: String in ordered_package_ids:
 		var manifest: GFContentPackageManifest = _get_manifest_ref(StringName(package_id_text))
 		if manifest == null or not query.matches(manifest):
 			continue
@@ -213,7 +219,7 @@ func query_packages(
 
 	var package_ids: PackedStringArray = direct_package_ids.duplicate()
 	if query.include_dependencies:
-		package_ids = _expand_dependency_closure(direct_package_ids)
+		package_ids = _expand_dependency_closure(direct_package_ids, ordered_package_ids)
 	var manifests: Array[GFContentPackageManifest] = []
 	for package_id_text: String in package_ids:
 		var manifest: GFContentPackageManifest = _get_manifest_ref(StringName(package_id_text))
@@ -250,17 +256,24 @@ func query_packages(
 ## [br]
 ## @schema options: Dictionary，可包含 check_resource_exists: bool、check_resource_dependencies: bool 和 dependency_options: Dictionary。
 ## [br]
-## @schema return: GFValidationReportDictionary.finalize_report() 生成的 Dictionary，并包含 package_count、package_ids、ordered_package_ids 和 duplicate_package_ids。
+## @schema return: GFValidationReportDictionary.finalize_report() 生成的 Dictionary，并包含 package_count、package_ids、ordered_package_ids、duplicate_package_ids、rejected_manifest_count 和 rejected_manifest_inputs。
 func get_graph_report(options: Dictionary = {}) -> Dictionary:
 	var report: Dictionary = _make_report()
+	var dependency_sort_report: Dictionary = _get_dependency_sort_report()
 	report["package_count"] = _manifests.size()
 	report["package_ids"] = get_package_ids()
-	report["ordered_package_ids"] = get_ordered_package_ids()
+	report["ordered_package_ids"] = GFVariantData.get_option_packed_string_array(
+		dependency_sort_report,
+		"ordered_ids"
+	)
 	report["duplicate_package_ids"] = _duplicate_package_ids.duplicate()
+	report["rejected_manifest_count"] = _rejected_manifest_inputs.size()
+	report["rejected_manifest_inputs"] = _get_rejected_manifest_summaries()
 
 	_add_duplicate_issues(report)
+	_add_rejected_manifest_issues(report, options)
 	_add_manifest_issues(report, options)
-	_add_dependency_issues(report)
+	_add_dependency_issues(report, dependency_sort_report)
 	return _finalize_report(report)
 
 
@@ -288,6 +301,8 @@ func register_resources(resolver: GFResourceResolverUtility, options: Dictionary
 			"package_ids",
 			"ordered_package_ids",
 			"duplicate_package_ids",
+			"rejected_manifest_count",
+			"rejected_manifest_inputs",
 		]),
 	})
 	var registered_count: int = 0
@@ -308,7 +323,10 @@ func register_resources(resolver: GFResourceResolverUtility, options: Dictionary
 		return _finalize_report(report, "Content package resource registration")
 
 	var registration_entries: Array[Dictionary] = []
-	for package_id_text: String in get_ordered_package_ids():
+	for package_id_text: String in GFVariantData.get_option_packed_string_array(
+		graph_report,
+		"ordered_package_ids"
+	):
 		var manifest: GFContentPackageManifest = _get_manifest_ref(StringName(package_id_text))
 		if manifest == null:
 			continue
@@ -357,15 +375,18 @@ func register_resources(resolver: GFResourceResolverUtility, options: Dictionary
 ## [br]
 ## @api public
 ## [br]
+## @since 4.4.0
+## [br]
 ## @return 目录快照。
 ## [br]
-## @schema return: Dictionary，包含 package_count、package_ids、ordered_package_ids 和 duplicate_package_ids。
+## @schema return: Dictionary，包含 package_count、package_ids、ordered_package_ids、duplicate_package_ids 和 rejected_manifest_count。
 func get_debug_snapshot() -> Dictionary:
 	return {
 		"package_count": _manifests.size(),
 		"package_ids": get_package_ids(),
 		"ordered_package_ids": get_ordered_package_ids(),
 		"duplicate_package_ids": _duplicate_package_ids.duplicate(),
+		"rejected_manifest_count": _rejected_manifest_inputs.size(),
 	}
 
 
@@ -379,7 +400,46 @@ func _get_manifest_ref(package_id: StringName) -> GFContentPackageManifest:
 	return null
 
 
-func _expand_dependency_closure(direct_package_ids: PackedStringArray) -> PackedStringArray:
+func _add_manifest_input(manifest: GFContentPackageManifest, input_index: int) -> bool:
+	if manifest == null:
+		_rejected_manifest_inputs.append({
+			"input_index": input_index,
+			"reason": "null_manifest",
+			"source_path": "",
+		})
+		return false
+	if manifest.package_id == &"":
+		_rejected_manifest_inputs.append({
+			"input_index": input_index,
+			"reason": "missing_package_id",
+			"source_path": manifest.source_path,
+			"manifest": manifest.duplicate_manifest(),
+		})
+		return false
+	if _manifests.has(manifest.package_id):
+		_add_duplicate_package_id(manifest.package_id)
+		return false
+
+	_manifests[manifest.package_id] = manifest.duplicate_manifest()
+	_manifest_order.append(manifest.package_id)
+	return true
+
+
+func _get_rejected_manifest_summaries() -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	for record: Dictionary in _rejected_manifest_inputs:
+		result.append({
+			"input_index": GFVariantData.get_option_int(record, "input_index", -1),
+			"reason": GFVariantData.get_option_string(record, "reason", _KIND_INVALID_MANIFEST),
+			"source_path": GFVariantData.get_option_string(record, "source_path"),
+		})
+	return result
+
+
+func _expand_dependency_closure(
+	direct_package_ids: PackedStringArray,
+	ordered_package_ids: PackedStringArray
+) -> PackedStringArray:
 	var included_ids: Dictionary = {}
 	var pending_ids: PackedStringArray = direct_package_ids.duplicate()
 	while not pending_ids.is_empty():
@@ -395,7 +455,7 @@ func _expand_dependency_closure(direct_package_ids: PackedStringArray) -> Packed
 			if _manifests.has(StringName(dependency_id_text)) and not included_ids.has(dependency_id_text):
 				var _pending_id_appended: bool = pending_ids.append(dependency_id_text)
 	var result: PackedStringArray = PackedStringArray()
-	for package_id_text: String in get_ordered_package_ids():
+	for package_id_text: String in ordered_package_ids:
 		if included_ids.has(package_id_text):
 			var _result_id_appended: bool = result.append(package_id_text)
 	return result
@@ -468,30 +528,66 @@ func _add_manifest_issues(
 		var manifest: GFContentPackageManifest = _get_manifest_ref(package_id)
 		if manifest == null:
 			continue
-		var manifest_report: Dictionary = manifest.get_validation_report(options)
-		for issue_variant: Variant in GFVariantData.get_option_array(manifest_report, "issues"):
-			var issue: Dictionary = GFVariantData.as_dictionary(issue_variant)
-			var issue_fields: Dictionary = {
-				"key": package_id,
-				"source_path": GFVariantData.get_option_string(issue, "source_path", manifest.source_path),
-				"source": GFVariantData.get_option_string(issue, "source", manifest.source_path),
-				"row_key": GFVariantData.get_option_value(issue, "row_key", package_id),
-				"row_index": GFVariantData.get_option_int(issue, "row_index", -1),
-				"field": GFVariantData.get_option_string_name(issue, "field"),
-				"path": GFVariantData.get_option_string(issue, "path"),
-				"actual_value": GFVariantData.get_option_value(issue, "actual_value"),
-				"expected_value": GFVariantData.get_option_value(issue, "expected_value"),
+		_append_manifest_validation_issues(report, manifest, package_id, options)
+
+
+func _add_rejected_manifest_issues(report: Dictionary, options: Dictionary) -> void:
+	for record: Dictionary in _rejected_manifest_inputs:
+		var input_index: int = GFVariantData.get_option_int(record, "input_index", -1)
+		var manifest_value: Variant = record.get("manifest")
+		if manifest_value is GFContentPackageManifest:
+			var manifest: GFContentPackageManifest = manifest_value
+			_append_manifest_validation_issues(report, manifest, manifest.package_id, options, input_index)
+			continue
+		var _issue: Dictionary = GFValidationReportDictionary.append_issue(
+			report,
+			"error",
+			StringName(_KIND_INVALID_MANIFEST),
+			"content package manifest is required",
+			{
+				"row_index": input_index,
+				"field": &"manifest",
+				"path": "packages[%d]" % input_index if input_index >= 0 else "packages",
+				"actual_value": "null",
+				"expected_value": "GFContentPackageManifest",
 			}
-			var _added_issue: Dictionary = GFValidationReportDictionary.append_issue(
-				report,
-				GFVariantData.get_option_string(issue, "severity", "error"),
-				StringName(GFVariantData.get_option_string(issue, "kind", _KIND_INVALID_MANIFEST)),
-				GFVariantData.get_option_string(issue, "message"),
-				issue_fields
-			)
+		)
 
 
-func _add_dependency_issues(report: Dictionary) -> void:
+func _append_manifest_validation_issues(
+	report: Dictionary,
+	manifest: GFContentPackageManifest,
+	package_id: StringName,
+	options: Dictionary,
+	input_index: int = -1
+) -> void:
+	var manifest_report: Dictionary = manifest.get_validation_report(options)
+	for issue_variant: Variant in GFVariantData.get_option_array(manifest_report, "issues"):
+		var issue: Dictionary = GFVariantData.as_dictionary(issue_variant)
+		var issue_row_index: int = GFVariantData.get_option_int(issue, "row_index", -1)
+		if issue_row_index < 0:
+			issue_row_index = input_index
+		var issue_fields: Dictionary = {
+			"key": package_id,
+			"source_path": GFVariantData.get_option_string(issue, "source_path", manifest.source_path),
+			"source": GFVariantData.get_option_string(issue, "source", manifest.source_path),
+			"row_key": GFVariantData.get_option_value(issue, "row_key", package_id),
+			"row_index": issue_row_index,
+			"field": GFVariantData.get_option_string_name(issue, "field"),
+			"path": GFVariantData.get_option_string(issue, "path"),
+			"actual_value": GFVariantData.get_option_value(issue, "actual_value"),
+			"expected_value": GFVariantData.get_option_value(issue, "expected_value"),
+		}
+		var _added_issue: Dictionary = GFValidationReportDictionary.append_issue(
+			report,
+			GFVariantData.get_option_string(issue, "severity", "error"),
+			StringName(GFVariantData.get_option_string(issue, "kind", _KIND_INVALID_MANIFEST)),
+			GFVariantData.get_option_string(issue, "message"),
+			issue_fields
+		)
+
+
+func _add_dependency_issues(report: Dictionary, dependency_sort_report: Dictionary) -> void:
 	for package_id: StringName in _manifest_order:
 		var manifest: GFContentPackageManifest = _get_manifest_ref(package_id)
 		if manifest == null:
@@ -514,8 +610,10 @@ func _add_dependency_issues(report: Dictionary) -> void:
 				}
 			)
 
-	var cycles: Array[PackedStringArray] = _collect_dependency_cycles()
-	for cycle: PackedStringArray in cycles:
+	for cycle_variant: Variant in GFVariantData.get_option_array(dependency_sort_report, "dependency_cycles"):
+		if not cycle_variant is PackedStringArray:
+			continue
+		var cycle: PackedStringArray = cycle_variant
 		var _cycle_issue: Dictionary = GFValidationReportDictionary.append_issue(
 			report,
 			"error",
@@ -527,20 +625,6 @@ func _add_dependency_issues(report: Dictionary) -> void:
 				"actual_value": cycle,
 			}
 		)
-
-
-func _collect_dependency_cycles() -> Array[PackedStringArray]:
-	var result: Array[PackedStringArray] = []
-	var graph_report: Dictionary = _GF_DEPENDENCY_GRAPH_TOOLS.sort_dependency_first(
-		_get_manifest_order_as_strings(),
-		_build_dependency_map()
-	)
-	for cycle_variant: Variant in GFVariantData.get_option_array(graph_report, "dependency_cycles"):
-		if cycle_variant is PackedStringArray:
-			var cycle: PackedStringArray = cycle_variant
-			result.append(cycle.duplicate())
-	return result
-
 
 func _build_dependency_map() -> Dictionary:
 	var result: Dictionary = {}
@@ -556,6 +640,13 @@ func _build_dependency_map() -> Dictionary:
 			var _dependency_appended: bool = dependencies.append(String(dependency_id))
 		result[String(package_id)] = dependencies
 	return result
+
+
+func _get_dependency_sort_report() -> Dictionary:
+	return _GF_DEPENDENCY_GRAPH_TOOLS.sort_dependency_first(
+		_get_manifest_order_as_strings(),
+		_build_dependency_map()
+	)
 
 
 func _get_manifest_order_as_strings() -> PackedStringArray:

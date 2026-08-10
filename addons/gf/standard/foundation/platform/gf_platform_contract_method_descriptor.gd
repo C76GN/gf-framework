@@ -42,21 +42,21 @@ extends Resource
 ## @since 10.0.0
 @export var required_capability_ids: PackedStringArray = PackedStringArray()
 
-## 请求 JSON-compatible 编码后的最大字节数；0 表示不额外限制。
+## 请求 JSON-compatible 编码后的最大字节数；0 表示不额外限制，负值会使定义校验失败。
 ## [br]
 ## @api public
 ## [br]
 ## @since 10.0.0
 @export var max_request_bytes: int = 0
 
-## 成功结果 JSON-compatible 编码后的最大字节数；0 表示不额外限制。
+## 成功结果 JSON-compatible 编码后的最大字节数；0 表示不额外限制，负值会使定义校验失败。
 ## [br]
 ## @api public
 ## [br]
 ## @since 10.0.0
 @export var max_result_bytes: int = 0
 
-## 同一 adapter 上该方法允许的最大并发请求数；0 表示不额外限制。
+## 同一 adapter 上该方法允许的最大并发请求数；0 表示不额外限制，负值会使定义校验失败。
 ## [br]
 ## @api public
 ## [br]
@@ -97,7 +97,7 @@ extends Resource
 ## [br]
 ## @param p_method_id: 方法稳定标识。
 ## [br]
-## @param options: 可包含 request_schema、result_schema、required_capability_ids、max_request_bytes、max_result_bytes、max_concurrent_requests、supports_cancellation、sensitive_fields 和 metadata。
+## @param options: 可包含 request_schema、result_schema、required_capability_ids、max_request_bytes、max_result_bytes、max_concurrent_requests、supports_cancellation、sensitive_fields 和 metadata；三个限制字段的负值会保留并由定义校验拒绝，不会降级成无限制。
 ## [br]
 ## @schema options: Dictionary platform contract method options.
 ## [br]
@@ -112,12 +112,9 @@ func configure(
 	required_capability_ids = _normalize_string_set(
 		GFVariantData.get_option_packed_string_array(options, "required_capability_ids")
 	)
-	max_request_bytes = maxi(GFVariantData.get_option_int(options, "max_request_bytes"), 0)
-	max_result_bytes = maxi(GFVariantData.get_option_int(options, "max_result_bytes"), 0)
-	max_concurrent_requests = maxi(
-		GFVariantData.get_option_int(options, "max_concurrent_requests"),
-		0
-	)
+	max_request_bytes = GFVariantData.get_option_int(options, "max_request_bytes")
+	max_result_bytes = GFVariantData.get_option_int(options, "max_result_bytes")
+	max_concurrent_requests = GFVariantData.get_option_int(options, "max_concurrent_requests")
 	supports_cancellation = GFVariantData.get_option_bool(
 		options,
 		"supports_cancellation",
@@ -141,10 +138,31 @@ func validate_definition() -> GFValidationReport:
 	var report: GFValidationReport = GFValidationReport.new(
 		"Platform contract method %s" % String(method_id)
 	)
-	if method_id == &"":
+	var normalized_method_id: StringName = StringName(String(method_id).strip_edges())
+	if normalized_method_id == &"":
 		var _method_issue: RefCounted = report.add_error(
 			&"missing_method_id",
 			"Platform contract method ID is required."
+		)
+	elif method_id != normalized_method_id:
+		var _method_format_issue: RefCounted = report.add_error(
+			&"non_canonical_method_id",
+			"Platform contract method ID must not have surrounding whitespace."
+		)
+	if max_request_bytes < 0:
+		var _request_limit_issue: RefCounted = report.add_error(
+			&"negative_max_request_bytes",
+			"Platform contract max_request_bytes must be zero or positive."
+		)
+	if max_result_bytes < 0:
+		var _result_limit_issue: RefCounted = report.add_error(
+			&"negative_max_result_bytes",
+			"Platform contract max_result_bytes must be zero or positive."
+		)
+	if max_concurrent_requests < 0:
+		var _concurrency_limit_issue: RefCounted = report.add_error(
+			&"negative_max_concurrent_requests",
+			"Platform contract max_concurrent_requests must be zero or positive."
 		)
 	for schema: GFDictionarySchema in [request_schema, result_schema]:
 		if schema == null:

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFRuntimeInspectorUtility" path="addons/gf/standard/utilities/debug/gf_runtime_inspector_utility.gd" module="standard" extends="GFUtility" classDigest="e5d58de8c259ac0ce1163499d28a7939ae44544232fe4abca5fbf08339d56231">
+<class name="GFRuntimeInspectorUtility" path="addons/gf/standard/utilities/debug/gf_runtime_inspector_utility.gd" module="standard" extends="GFUtility" classDigest="cac67421fa7ed33f8adf320333a6823b6a2fa798e0c4a6d83087ed132d85b6e5">
 	<description>GFRuntimeInspectorUtility: 显式 schema 驱动的运行时调参注册表。
 项目主动注册可调对象和属性后，工具提供快照、读取和受控写入能力。
 它不自动暴露业务对象，也不内置具体 UI 或玩法语义。</description>
@@ -145,8 +145,9 @@
 				<tag name="param">target_id: 目标 ID。</tag>
 				<tag name="param">property_id: 属性 ID。</tag>
 				<tag name="param">value: 请求写入的值。</tag>
-				<tag name="return">写入成功返回 true。</tag>
+				<tag name="return">当前注册代际仍有效且写入入口完成时返回 true；回调内重入同一属性或更改目标/属性注册会返回 false，且不发 property_changed。</tag>
 				<tag name="schema">value: Variant，请求写入的原始值，会由属性 schema 归一化。</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_target_snapshot">

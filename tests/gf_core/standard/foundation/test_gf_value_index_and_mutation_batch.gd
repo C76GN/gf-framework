@@ -39,6 +39,30 @@ func test_value_index_replaces_old_fields() -> void:
 	assert_eq(index.query(&"tag", "blue"), PackedStringArray(["a"]), "替换条目后新字段索引应可查。")
 
 
+func test_value_index_rejects_reentrant_mutation_without_leaving_ghost_indexes() -> void:
+	var index: GFValueIndexBase = GFValueIndexBase.new()
+	var callback_state: Dictionary = {
+		"attempted": false,
+		"accepted": true,
+	}
+	var item_removed_callback: Callable = func(item_id: StringName) -> void:
+		if GFVariantData.get_option_bool(callback_state, "attempted"):
+			return
+		callback_state["attempted"] = true
+		callback_state["accepted"] = index.set_item(item_id, "callback", { "tag": "callback" })
+	var _connection_result: int = index.item_removed.connect(item_removed_callback)
+
+	assert_true(index.set_item(&"a", "old", { "tag": "old" }), "初始条目应写入成功。")
+	assert_true(index.set_item(&"a", "outer", { "tag": "outer" }), "外层替换应完成。")
+
+	assert_true(GFVariantData.get_option_bool(callback_state, "attempted"), "替换应发出一次 removed 通知。")
+	assert_false(GFVariantData.get_option_bool(callback_state, "accepted", true), "同步通知中的重入 mutation 应失败关闭。")
+	assert_eq(GFVariantData.to_text(index.get_item(&"a")), "outer", "外层提交应保持为最终权威值。")
+	assert_eq(index.query(&"tag", "callback"), PackedStringArray(), "被拒绝的回调字段不得残留幽灵索引。")
+	assert_eq(index.query(&"tag", "outer"), PackedStringArray(["a"]), "当前字段与二级索引必须一致。")
+	index.item_removed.disconnect(item_removed_callback)
+
+
 func test_value_index_rejects_unstable_field_values_without_removing_existing_item() -> void:
 	var index: GFValueIndexBase = GFValueIndexBase.new()
 	var mutable_tag: Dictionary = {
@@ -214,6 +238,43 @@ func test_mutation_batch_auto_clear_summary_matches_post_commit_state() -> void:
 	assert_true(GFVariantData.get_option_bool(report, "ok"), "操作应提交成功。")
 	assert_eq(batch.get_committed_count(), 0, "auto clear 应清空 committed 栈。")
 	assert_eq(GFVariantData.get_option_int(report, "stored_committed_count", -1), 0, "提交摘要应描述清理后的可观察状态。")
+
+
+func test_mutation_batch_rejects_transition_reentrancy_and_executes_operation_once() -> void:
+	var batch: GFMutationBatchBase = GFMutationBatchBase.new()
+	var state: Dictionary = {
+		"call_count": 0,
+		"nested_commit": {},
+		"nested_rollback": {},
+		"nested_add_id": 0,
+	}
+	var operation: Callable = func() -> Dictionary:
+		state["call_count"] = GFVariantData.get_option_int(state, "call_count") + 1
+		state["nested_commit"] = batch.commit(1)
+		state["nested_rollback"] = batch.rollback_committed(1)
+		state["nested_add_id"] = batch.add_operation(func() -> void:
+			pass
+		)
+		batch.clear()
+		return { "ok": true }
+	var operation_id: int = batch.add_operation(operation)
+
+	var outer_report: Dictionary = batch.commit(1)
+	var nested_commit: Dictionary = GFVariantData.get_option_dictionary(state, "nested_commit")
+	var nested_rollback: Dictionary = GFVariantData.get_option_dictionary(state, "nested_rollback")
+	var snapshot: Dictionary = batch.get_debug_snapshot()
+
+	assert_gt(operation_id, 0, "测试 operation 应加入批次。")
+	assert_true(GFVariantData.get_option_bool(outer_report, "ok"), "外层提交应成功。")
+	assert_eq(GFVariantData.get_option_int(state, "call_count"), 1, "同一 operation 在一次提交中最多执行一次。")
+	assert_eq(GFVariantData.get_option_string(nested_commit, "error"), "transition_in_progress", "嵌套提交应结构化拒绝。")
+	assert_eq(GFVariantData.get_option_string_name(nested_commit, "transition_state"), &"committing", "拒绝报告应标明当前 transition。")
+	assert_eq(GFVariantData.get_option_string(nested_rollback, "error"), "transition_in_progress", "提交中的嵌套回滚应拒绝。")
+	assert_eq(GFVariantData.get_option_int(state, "nested_add_id"), -1, "提交中的追加应拒绝。")
+	assert_eq(batch.get_pending_count(), 0, "clear 不得在 transition 中移除 in-flight operation。")
+	assert_eq(batch.get_committed_count(), 1, "成功 operation 应只进入 committed 栈一次。")
+	assert_eq(GFVariantData.get_option_string_name(snapshot, "transition_state"), &"idle", "外层提交返回后状态机应恢复 idle。")
+	batch.clear()
 
 
 class MutationCallableReceiver:

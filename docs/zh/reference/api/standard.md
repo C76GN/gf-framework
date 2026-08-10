@@ -6,15 +6,15 @@
 
 | 类别 | 类 | 成员 | 方法 |
 |---|---:|---:|---:|
-| [运行时服务](#category-runtime_service) | 188 | 3423 | 2313 |
-| [协议与扩展点](#category-protocol) | 25 | 340 | 269 |
-| [资源定义](#category-resource_definition) | 122 | 1570 | 795 |
-| [运行时句柄](#category-runtime_handle) | 50 | 881 | 560 |
+| [运行时服务](#category-runtime_service) | 188 | 3435 | 2319 |
+| [协议与扩展点](#category-protocol) | 25 | 342 | 270 |
+| [资源定义](#category-resource_definition) | 122 | 1572 | 797 |
+| [运行时句柄](#category-runtime_handle) | 50 | 887 | 560 |
 | [值对象](#category-value_object) | 45 | 795 | 509 |
 | [领域模型](#category-domain_model) | 4 | 61 | 42 |
 | [事件契约](#category-event_contract) | 6 | 61 | 23 |
-| [编辑器 API](#category-editor_api) | 11 | 68 | 46 |
-| [工具 API](#category-tool_api) | 3 | 45 | 25 |
+| [编辑器 API](#category-editor_api) | 11 | 70 | 48 |
+| [工具 API](#category-tool_api) | 3 | 49 | 25 |
 
 ## 类
 

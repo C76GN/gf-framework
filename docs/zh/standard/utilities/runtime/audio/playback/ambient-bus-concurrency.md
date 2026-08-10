@@ -11,6 +11,8 @@ audio.stop_ambient(&"rain", 0.25)
 
 `stop_all_ambient()` 会把 backend-owned channel 聚合成一次 `GFAudioBackend.stop_all_ambient()`。批量调用成功后统一收敛全部匹配会话；批量能力未实现或返回 `false` 时，再逐 channel 回退，成功的 channel 提交终态，拒绝停止的 channel 保留真实 backend owner 供调用方后续重试。
 
+本地 channel 停止后最多缓存 `max_idle_ambient_players` 个空闲播放器，默认 16；设为 0 会立即释放所有 stopped idle player。缓存按最近空闲顺序淘汰，只处理 `stopped/none` 的本地对象，不会因 cache 压力停止活跃 local session 或改写 backend-owned channel。调试快照通过 `cached_ambient_player_count`、`idle_ambient_player_count` 和 `max_idle_ambient_players` 公开该容量。
+
 ## 总线音量
 
 ```gdscript
@@ -46,7 +48,7 @@ audio.apply_mix_snapshot({
 audio.apply_mix_snapshot(before_menu, 0.25)
 ```
 
-混音快照描述总线和效果属性，不规定“菜单”“战斗”“对话”等业务状态。`capture_mix_snapshot()` 只枚举 Godot `AudioServer` 总线，并分别保存底层 `volume_db` / `volume_linear` 与 `muted`，即使总线当前静音也不会把真实增益改写成静音阈值。应用快照时会先尝试 backend bulk 接管；backend 拒绝后，每个 gain / mute 字段仍先询问同一个 backend，只有明确未处理的字段才回退到同名 Godot 总线。全部本地字段作为同一个 generation 事务提交，旧 Tween 不能反向覆盖结果；backend 已接管的字段不会改写或取消同名本地状态。`effect` 可以是效果索引，也可以是效果 `resource_name`、类名或类名片段；具体本地效果是否存在仍由项目的 Audio Bus Layout 决定。
+混音快照描述总线和效果属性，不规定“菜单”“战斗”“对话”等业务状态。`capture_mix_snapshot()` 只枚举 Godot `AudioServer` 总线，并分别保存底层 `volume_db` / `volume_linear` 与 `muted`，即使总线当前静音也不会把真实增益改写成静音阈值。应用快照会在任何 backend/AudioServer 副作用前验证 `buses`、`effects`、嵌套 effect group 和 entry 的容器 shape；字段缺省合法，显式错误类型则返回失败，不能以成功 no-op 掩盖配置错误。验证后先尝试 backend bulk 接管；backend 拒绝后，每个 gain / mute 字段仍先询问同一个 backend，只有明确未处理的字段才回退到同名 Godot 总线。全部本地字段作为同一个 generation 事务提交，旧 Tween 不能反向覆盖结果；backend 已接管的字段不会改写或取消同名本地状态。`effect` 可以是效果索引，也可以是效果 `resource_name`、类名或类名片段；具体本地效果是否存在仍由项目的 Audio Bus Layout 决定。
 
 需要临时压低某条总线时可使用 `duck_bus()` / `restore_ducked_bus()`：
 

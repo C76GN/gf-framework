@@ -47,6 +47,16 @@ func test_priority_queue_can_use_explicit_stable_order() -> void:
 	assert_eq(priority_queue.to_array(), ["lowest", "first", "second"], "显式 order 应在相同 priority 下稳定排序。")
 
 
+func test_priority_queue_keeps_insertion_order_for_duplicate_explicit_keys() -> void:
+	var priority_queue: GF_PRIORITY_QUEUE_SCRIPT = GF_PRIORITY_QUEUE_SCRIPT.new()
+
+	assert_true(priority_queue.push_with_order("A", 1.0, 7))
+	assert_true(priority_queue.push_with_order("B", 1.0, 7))
+	assert_true(priority_queue.push_with_order("C", 1.0, 7))
+
+	assert_eq(priority_queue.to_array(), ["A", "B", "C"], "相同 priority/order 必须用内部入队序形成稳定全序。")
+
+
 func test_priority_queue_removes_and_updates_values() -> void:
 	var priority_queue: GF_PRIORITY_QUEUE_SCRIPT = GF_PRIORITY_QUEUE_SCRIPT.new()
 
@@ -134,3 +144,19 @@ func test_priority_work_queue_keeps_stable_ties_and_reports_effective_priority()
 	assert_eq(GFVariantData.get_option_int(entries[0], "waited_msec"), 2000, "快照应报告非负等待时间。")
 	assert_true(work_queue.remove_value("second"), "工作队列应支持取消等待值。")
 	assert_eq(work_queue.size(), 1, "移除后数量应更新。")
+
+
+func test_priority_work_queue_compares_overflowing_aging_without_emitting_infinity() -> void:
+	var work_queue: GF_PRIORITY_WORK_QUEUE_SCRIPT = GF_PRIORITY_WORK_QUEUE_SCRIPT.new()
+	work_queue.aging_interval_msec = 1
+	work_queue.aging_step = 1.0e308
+	assert_true(work_queue.push_at("newer", 1.5e308, 1), "极大但有限的较新工作应被接受。")
+	assert_true(work_queue.push_at("older", 1.0e308, 0), "极大但有限的较旧工作应被接受。")
+
+	var entries: Array[Dictionary] = work_queue.to_entry_array(2)
+	var snapshot_text: String = JSON.stringify(work_queue.get_debug_snapshot(2))
+
+	assert_eq(GFVariantData.get_option_string(entries[0], "value"), "older", "共同尺度比较应保留数学上更高的 aging 顺序，而不是退化为入队 tie。")
+	for entry: Dictionary in entries:
+		assert_true(is_finite(GFVariantData.get_option_float(entry, "effective_priority")), "导出的 effective priority 必须保持有限。")
+	assert_false(snapshot_text.contains("1e99999"), "调试快照不得用 JSON 的无穷替代值泄漏派生 Infinity。")

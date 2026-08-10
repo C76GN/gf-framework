@@ -158,6 +158,9 @@ func _get_value_size(value: Variant) -> int:
 	if value is PackedVector3Array:
 		var packed_vector3: PackedVector3Array = value
 		return packed_vector3.size()
+	if value is PackedVector4Array:
+		var packed_vector4: PackedVector4Array = value
+		return packed_vector4.size()
 	if value is PackedColorArray:
 		var packed_colors: PackedColorArray = value
 		return packed_colors.size()

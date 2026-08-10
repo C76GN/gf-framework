@@ -175,14 +175,29 @@ static func samples_from_terrain_rgb_image(image: Image, options: Dictionary = {
 		for x: int in range(width):
 			var sample_index: int = y * width + x
 			var height_value: float = decode_terrain_rgb_height(image.get_pixel(x, y)) * height_scale + height_offset
+			if not _is_finite_float(height_value):
+				_append_terrain_rgb_issue(
+					report,
+					"non_finite_height",
+					"derived height samples must be finite."
+				)
+				return _finalize_terrain_rgb_samples_report(report)
 			samples[sample_index] = height_value
+			var stored_height: float = samples[sample_index]
+			if not _is_finite_float(stored_height):
+				_append_terrain_rgb_issue(
+					report,
+					"unrepresentable_height",
+					"height samples must be representable as finite float32 values."
+				)
+				return _finalize_terrain_rgb_samples_report(report)
 			if not has_sample:
-				min_height = height_value
-				max_height = height_value
+				min_height = stored_height
+				max_height = stored_height
 				has_sample = true
 			else:
-				min_height = minf(min_height, height_value)
-				max_height = maxf(max_height, height_value)
+				min_height = minf(min_height, stored_height)
+				max_height = maxf(max_height, stored_height)
 
 	report["grid_size"] = Vector2i(width, height)
 	report["samples"] = samples

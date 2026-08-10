@@ -384,12 +384,13 @@ func add_source_error( kind: StringName, message: String, source_span: Variant, 
 ### `merge`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func merge(source: Variant, include_metadata: bool = true) -> RefCounted:
 ```
 
-合并另一个报告或报告字典。
+合并另一个报告或报告字典。与自身合并，或来源与目标共享同一个 issues Array 时， issues 合并视为幂等空操作；其他 metadata 仍按来源类型的正常规则处理。
 
 参数：
 

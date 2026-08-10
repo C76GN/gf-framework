@@ -101,13 +101,24 @@ func sync_slot(
 	remote_backend: GFStorageBackend,
 	options: Dictionary = {}
 ) -> Dictionary:
-	var validation_error: String = _validate_sync_inputs(slot_index, adapter, local_backend, remote_backend)
-	if not validation_error.is_empty():
-		var failed_result: Dictionary = _make_slot_result(false, slot_index, PackedStringArray(), {}, validation_error)
+	var file_plan: Dictionary = _validate_sync_inputs(
+		slot_index,
+		adapter,
+		local_backend,
+		remote_backend
+	)
+	if not GFVariantData.get_option_bool(file_plan, "ok", false):
+		var failed_result: Dictionary = _make_slot_result(
+			false,
+			slot_index,
+			PackedStringArray(),
+			{},
+			GFVariantData.get_option_string(file_plan, "error")
+		)
 		slot_sync_failed.emit(slot_index, failed_result)
 		return failed_result
 
-	var file_names: PackedStringArray = _get_slot_file_names(slot_index, adapter, options)
+	var file_names: PackedStringArray = _get_slot_file_names(file_plan, options)
 	if file_names.is_empty():
 		var empty_result: Dictionary = _make_slot_result(false, slot_index, file_names, {}, "no slot files selected")
 		slot_sync_failed.emit(slot_index, empty_result)
@@ -179,26 +190,29 @@ func _validate_sync_inputs(
 	adapter: GFSaveSlotStorageAdapter,
 	local_backend: GFStorageBackend,
 	remote_backend: GFStorageBackend
-) -> String:
+) -> Dictionary:
 	if slot_index < 0:
-		return "slot_index must be greater than or equal to 0"
+		return { "ok": false, "error": "slot_index must be greater than or equal to 0" }
 	if adapter == null:
-		return "adapter is null"
+		return { "ok": false, "error": "adapter is null" }
 	if local_backend == null or remote_backend == null:
-		return "storage backend is null"
-	return ""
+		return { "ok": false, "error": "storage backend is null" }
+	return adapter.build_slot_file_plan(slot_index)
 
 
 func _get_slot_file_names(
-	slot_index: int,
-	adapter: GFSaveSlotStorageAdapter,
+	file_plan: Dictionary,
 	options: Dictionary
 ) -> PackedStringArray:
 	var file_names: PackedStringArray = PackedStringArray()
 	if GFVariantData.get_option_bool(options, "sync_data_file", true):
-		var _data_append: bool = file_names.append(adapter.get_data_file_name(slot_index))
+		var _data_append: bool = file_names.append(
+			GFVariantData.get_option_string(file_plan, "data_file_name")
+		)
 	if GFVariantData.get_option_bool(options, "sync_metadata_file", true):
-		var _metadata_append: bool = file_names.append(adapter.get_metadata_file_name(slot_index))
+		var _metadata_append: bool = file_names.append(
+			GFVariantData.get_option_string(file_plan, "metadata_file_name")
+		)
 	return file_names
 
 

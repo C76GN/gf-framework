@@ -190,7 +190,7 @@ func get_buoyancy_priority() -> int:
 ## [br]
 ## @param gravity_acceleration: 当前排水点的重力加速度向量。
 ## [br]
-## @return 采样结果字典。
+## @return: 采样结果字典；有限分量相加溢出时总 force 失败关闭为零，分量与几何状态仍保留。
 ## [br]
 ## @schema return: Dictionary，包含 available、active、reason、signed_depth、submersion_ratio、surface_normal、fluid_velocity、buoyancy_force、drag_force 和 force。
 func sample_point(
@@ -234,6 +234,9 @@ func sample_point(
 		quadratic_drag_coefficient,
 		submersion_ratio
 	)
+	var force: Vector3 = buoyancy_force + drag_force
+	if not _is_finite_vector3(force):
+		force = Vector3.ZERO
 	return {
 		"available": true,
 		"active": submersion_ratio > 0.0,
@@ -244,7 +247,7 @@ func sample_point(
 		"fluid_velocity": sampled_fluid_velocity,
 		"buoyancy_force": buoyancy_force,
 		"drag_force": drag_force,
-		"force": buoyancy_force + drag_force,
+		"force": force,
 	}
 
 

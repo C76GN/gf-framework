@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFConfigTableMergePolicy" path="addons/gf/standard/utilities/config/gf_config_table_merge_policy.gd" module="standard" extends="Resource" classDigest="98b7a8c06631a3928786728132b0c21d0598865e9ee5380d8dc57a8c983056ce">
+<class name="GFConfigTableMergePolicy" path="addons/gf/standard/utilities/config/gf_config_table_merge_policy.gd" module="standard" extends="Resource" classDigest="ca8d97238f61ed34f65408c8fa0e973468ef328afff45da22c0c8ef3d4ae245d">
 	<description>GFConfigTableMergePolicy: 配置表补丁合并策略。
 描述如何识别记录、覆盖记录和处理删除标记。它只定义通用合并规则，
 不绑定热更、模组、DLC 或任意项目业务语义。</description>
@@ -116,7 +116,8 @@
 		</member>
 		<member kind="method" name="merge_record">
 			<signature>func merge_record(base_record: Dictionary, patch_record: Dictionary) -&gt; Dictionary:</signature>
-			<description>合并两条记录。</description>
+			<description>合并两条记录。
+MERGE_FIELDS 会递归复制并合并嵌套 Dictionary；当前入口不执行深度或节点预算，只应接收已通过项目容量预检的配置记录。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">base_record: 原始记录。</tag>
@@ -125,6 +126,7 @@
 				<tag name="schema">base_record: Dictionary，原始记录。</tag>
 				<tag name="schema">patch_record: Dictionary，补丁记录。</tag>
 				<tag name="schema">return: Dictionary，合并后的记录。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="duplicate_policy">

@@ -128,15 +128,25 @@ const _OBJECT_PROPERTY_TOOLS = preload("res://addons/gf/kernel/core/gf_object_pr
 ## @api public
 var getter: Callable
 
-## 可选写入回调，签名为 `func(target: Object, property: GFRuntimeTunableProperty, value: Variant) -> void`。
+## 可选同步写入回调，签名为
+## `func(target: Object, property: GFRuntimeTunableProperty, value: Variant) -> void`。
+## 返回 true 只表示回调已被调用；当前 void 契约无法证明外部存储已接受该值。
+## 同一属性的递归 write_value() 会失败关闭。
 ## [br]
 ## @api public
+## [br]
+## @since 11.0.0
 var setter: Callable
 
 ## 可选校验回调，签名为 `func(target: Object, property: GFRuntimeTunableProperty, value: Variant) -> bool`。
 ## [br]
 ## @api public
 var validator: Callable
+
+
+# --- 私有变量 ---
+
+var _write_in_progress: bool = false
 
 
 # --- Godot 生命周期方法 ---
@@ -240,29 +250,44 @@ func read_value(target: Object) -> Variant:
 ## [br]
 ## @api public
 ## [br]
+## @since 11.0.0
+## [br]
 ## @param target: 目标对象。
 ## [br]
 ## @param value: 请求写入的值。
 ## [br]
-## @return: 写入成功返回 true。
+## @return: 通过校验且完成属性写入或调用自定义 setter 时返回 true；void setter 的实际提交由项目负责。
 ## [br]
 ## @schema value: Variant，请求写入的原始值，会按 value_kind 和范围配置归一化。
 func write_value(target: Object, value: Variant) -> bool:
-	if read_only or not is_instance_valid(target):
+	if read_only or not is_instance_valid(target) or _write_in_progress:
 		return false
 	var normalization: Dictionary = try_normalize_value(value)
 	if not GFVariantData.get_option_bool(normalization, "ok"):
 		return false
 
 	var normalized_value: Variant = GFVariantData.get_option_value(normalization, "value")
-	if validator.is_valid() and not GFVariantData.to_bool(validator.call(target, self, normalized_value)):
+	_write_in_progress = true
+	if (
+		validator.is_valid()
+		and not GFVariantData.to_bool(
+			validator.call(target, self, normalized_value)
+		)
+	):
+		_write_in_progress = false
+		return false
+	if not is_instance_valid(target):
+		_write_in_progress = false
 		return false
 	if setter.is_valid():
 		setter.call(target, self, normalized_value)
+		_write_in_progress = false
 		return true
 	if property_name.is_empty():
+		_write_in_progress = false
 		return false
 	var result: Dictionary = _OBJECT_PROPERTY_TOOLS.write_property(target, property_name, normalized_value)
+	_write_in_progress = false
 	return GFVariantData.get_option_bool(result, "ok", false)
 
 

@@ -69,6 +69,90 @@ func test_parse_id3v2_metadata_decodes_utf16_text_frames() -> void:
 	assert_eq(GFVariantData.get_option_string(metadata, "title"), "标题", "ID3v2 UTF-16LE 标题应按原文解码。")
 
 
+func test_parse_id3v24_metadata_reads_syncsafe_text_frame() -> void:
+	var id3_bytes: PackedByteArray = _make_id3_bytes([
+		_make_v24_text_frame("TIT2", "Version 2.4 title"),
+	], 4)
+	var report: Dictionary = GFAudioMetadataToolsScript.parse_id3v2_metadata(id3_bytes)
+	var metadata: Dictionary = GFVariantData.get_option_dictionary(report, "metadata")
+
+	assert_true(GFVariantData.get_option_bool(report, "ok"))
+	assert_eq(GFVariantData.get_option_string(report, "id3_version"), "2.4.0")
+	assert_eq(GFVariantData.get_option_int(report, "frame_count"), 1)
+	assert_eq(GFVariantData.get_option_string(metadata, "title"), "Version 2.4 title")
+
+
+func test_parse_id3v2_metadata_reports_unsupported_header_features() -> void:
+	var cases: Array[Dictionary] = [
+		{
+			"major_version": 3,
+			"flags": 0x80,
+			"feature": "unsynchronisation",
+		},
+		{
+			"major_version": 3,
+			"flags": 0x40,
+			"feature": "extended_header",
+		},
+		{
+			"major_version": 4,
+			"flags": 0x10,
+			"feature": "footer",
+		},
+	]
+
+	for case: Dictionary in cases:
+		var report: Dictionary = GFAudioMetadataToolsScript.parse_id3v2_metadata(
+			_make_id3_bytes(
+				[],
+				GFVariantData.get_option_int(case, "major_version"),
+				GFVariantData.get_option_int(case, "flags")
+			)
+		)
+
+		assert_false(
+			GFVariantData.get_option_bool(report, "ok"),
+			"未实现的 ID3 header feature 不能伪装成普通 frame 成功。"
+		)
+		assert_true(GFVariantData.get_option_bool(report, "recognized"))
+		assert_has(
+			_issue_kinds(report),
+			&"unsupported_id3_feature",
+			"未实现的 ID3 header feature 必须返回稳定 issue kind。"
+		)
+		assert_has(
+			GFVariantData.get_option_array(report, "unsupported_features"),
+			GFVariantData.get_option_string(case, "feature")
+		)
+
+
+func test_parse_id3v2_metadata_reports_truncated_header_and_body() -> void:
+	var truncated_header: PackedByteArray = PackedByteArray()
+	truncated_header.append_array("ID3".to_ascii_buffer())
+	truncated_header.append_array(PackedByteArray([3, 0]))
+	var header_report: Dictionary = GFAudioMetadataToolsScript.parse_id3v2_metadata(
+		truncated_header
+	)
+
+	assert_false(GFVariantData.get_option_bool(header_report, "ok"))
+	assert_true(GFVariantData.get_option_bool(header_report, "recognized"))
+	assert_true(GFVariantData.get_option_bool(header_report, "partial"))
+	assert_has(_issue_kinds(header_report), &"truncated_id3_header")
+
+	var truncated_body: PackedByteArray = _make_id3_bytes([
+		_make_text_frame("TIT2", "Truncated title"),
+	])
+	var _resize_error: Error = truncated_body.resize(truncated_body.size() - 2) as Error
+	var body_report: Dictionary = GFAudioMetadataToolsScript.parse_id3v2_metadata(
+		truncated_body
+	)
+
+	assert_false(GFVariantData.get_option_bool(body_report, "ok"))
+	assert_true(GFVariantData.get_option_bool(body_report, "recognized"))
+	assert_true(GFVariantData.get_option_bool(body_report, "partial"))
+	assert_has(_issue_kinds(body_report), &"truncated_id3_tag")
+
+
 func test_make_display_summary_uses_fallbacks_and_cover_markers() -> void:
 	var summary: Dictionary = GFAudioMetadataToolsScript.make_display_summary({
 		"album-artist": "Album Artist",
@@ -103,6 +187,48 @@ func test_read_path_metadata_reads_prefix_without_importer() -> void:
 	var _remove_result: Error = DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
 
 
+func test_read_path_metadata_enforces_effective_and_absolute_byte_limits() -> void:
+	var path: String = "user://gf_audio_metadata_bounded_id3_test.mp3"
+	var bytes: PackedByteArray = _make_id3_bytes([
+		_make_text_frame("TIT2", "This title extends beyond a tiny caller limit"),
+	])
+	var file: FileAccess = FileAccess.open(path, FileAccess.WRITE)
+	var _store_buffer_result: Variant = file.store_buffer(bytes)
+	file.close()
+
+	var bounded_report: Dictionary = GFAudioMetadataToolsScript.read_path_metadata(
+		path,
+		{
+			"max_id3_bytes": 12,
+		}
+	)
+
+	assert_eq(GFVariantData.get_option_int(bounded_report, "requested_max_id3_bytes"), 12)
+	assert_eq(GFVariantData.get_option_int(bounded_report, "effective_max_id3_bytes"), 12)
+	assert_eq(GFVariantData.get_option_int(bounded_report, "read_bytes"), 12)
+	assert_true(GFVariantData.get_option_bool(bounded_report, "partial"))
+	assert_has(_issue_kinds(bounded_report), &"truncated_id3_tag")
+
+	var clamped_report: Dictionary = GFAudioMetadataToolsScript.read_path_metadata(
+		path,
+		{
+			"max_id3_bytes": 0x7fffffffffffffff,
+		}
+	)
+
+	assert_eq(
+		GFVariantData.get_option_int(clamped_report, "effective_max_id3_bytes"),
+		GFAudioMetadataToolsScript.ABSOLUTE_MAX_ID3_BYTES
+	)
+	assert_true(GFVariantData.get_option_bool(clamped_report, "limit_clamped"))
+	assert_true(
+		GFVariantData.get_option_int(clamped_report, "read_bytes")
+		<= GFAudioMetadataToolsScript.ABSOLUTE_MAX_ID3_BYTES
+	)
+
+	var _remove_result: Error = DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
+
+
 func test_apply_clip_metadata_preserves_existing_by_default() -> void:
 	var path: String = "user://gf_audio_metadata_clip_test.mp3"
 	var bytes: PackedByteArray = _make_id3_bytes([
@@ -130,14 +256,18 @@ func test_apply_clip_metadata_preserves_existing_by_default() -> void:
 	var _remove_result: Error = DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
 
 
-func _make_id3_bytes(frames: Array[PackedByteArray]) -> PackedByteArray:
+func _make_id3_bytes(
+	frames: Array[PackedByteArray],
+	major_version: int = 3,
+	flags: int = 0
+) -> PackedByteArray:
 	var frame_bytes: PackedByteArray = PackedByteArray()
 	for frame: PackedByteArray in frames:
 		frame_bytes.append_array(frame)
 
 	var bytes: PackedByteArray = PackedByteArray()
 	bytes.append_array("ID3".to_ascii_buffer())
-	bytes.append_array(PackedByteArray([3, 0, 0]))
+	bytes.append_array(PackedByteArray([major_version, 0, flags]))
 	bytes.append_array(_syncsafe_bytes(frame_bytes.size()))
 	bytes.append_array(frame_bytes)
 	return bytes
@@ -148,6 +278,18 @@ func _make_text_frame(frame_id: String, value: String) -> PackedByteArray:
 	payload.append_array(PackedByteArray([3]))
 	payload.append_array(value.to_utf8_buffer())
 	return _make_frame(frame_id, payload)
+
+
+func _make_v24_text_frame(frame_id: String, value: String) -> PackedByteArray:
+	var payload: PackedByteArray = PackedByteArray()
+	payload.append_array(PackedByteArray([3]))
+	payload.append_array(value.to_utf8_buffer())
+	var frame: PackedByteArray = PackedByteArray()
+	frame.append_array(frame_id.to_ascii_buffer())
+	frame.append_array(_syncsafe_bytes(payload.size()))
+	frame.append_array(PackedByteArray([0, 0]))
+	frame.append_array(payload)
+	return frame
 
 
 func _make_utf16le_title_frame() -> PackedByteArray:
@@ -225,3 +367,10 @@ func _syncsafe_bytes(value: int) -> PackedByteArray:
 		(value >> 7) & 0x7f,
 		value & 0x7f,
 	])
+
+
+func _issue_kinds(report: Dictionary) -> Array:
+	var kinds: Array = []
+	for issue: Dictionary in GFVariantData.get_option_array(report, "issues"):
+		kinds.append(GFVariantData.get_option_string_name(issue, "kind"))
+	return kinds

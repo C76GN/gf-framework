@@ -126,8 +126,8 @@ static func audit_directory(root_path: String = "res://", options: Dictionary = 
 
 | 名称 | 说明 |
 |---|---|
-| `root_path` | 需要扫描的目录，通常为 `res://`。 |
-| `options` | 审计选项，支持 `include_hidden`、`respect_gdignore`、`check_parameter_count`、`max_scan_depth` 与 `max_scene_paths`。 |
+| `root_path` | 需要扫描的目录，通常为 \`res://\`。 |
+| `options` | 审计选项，支持 \`include_hidden\`、\`respect_gdignore\`、\`check_parameter_count\`、\`max_scan_depth\` 与 \`max_scene_paths\`。 |
 
 返回：审计汇总报告。
 
@@ -153,7 +153,7 @@ static func audit_scene_paths(scene_paths: PackedStringArray, options: Dictionar
 | 名称 | 说明 |
 |---|---|
 | `scene_paths` | 需要审计的 PackedScene 路径列表。 |
-| `options` | 审计选项，支持 `check_parameter_count`。 |
+| `options` | 审计选项，支持 \`check_parameter_count\`。 |
 
 返回：审计汇总报告。
 
@@ -179,7 +179,7 @@ static func audit_scene(scene_path: String, options: Dictionary = {}) -> Array[D
 | 名称 | 说明 |
 |---|---|
 | `scene_path` | 需要审计的 PackedScene 路径。 |
-| `options` | 审计选项，支持 `check_parameter_count`。 |
+| `options` | 审计选项，支持 \`check_parameter_count\`。 |
 
 返回：场景连接问题列表。
 
@@ -205,7 +205,7 @@ static func collect_scene_paths(root_path: String = "res://", options: Dictionar
 | 名称 | 说明 |
 |---|---|
 | `root_path` | 需要扫描的目录。 |
-| `options` | 收集选项，支持 `include_hidden`、`respect_gdignore`、`max_scan_depth` 与 `max_scene_paths`。 |
+| `options` | 收集选项，支持 \`include_hidden\`、\`respect_gdignore\`、\`max_scan_depth\` 与 \`max_scene_paths\`。 |
 
 返回：场景路径列表。
 
@@ -231,7 +231,7 @@ static func build_signal_graph(root: Node, options: Dictionary = {}) -> Dictiona
 | 名称 | 说明 |
 |---|---|
 | `root` | 需要扫描的根节点。 |
-| `options` | 选项，支持 `include_internal`、`persistent_only`、`include_empty_signals`、`include_external_targets`、`participating_nodes_only`、`max_node_depth` 与 `max_nodes`。 |
+| `options` | 选项，支持 \`include_internal\`、\`persistent_only\`、\`include_empty_signals\`、\`include_external_targets\`、\`participating_nodes_only\`、\`max_node_depth\` 与 \`max_nodes\`。 |
 
 返回：信号连接图报告。
 

@@ -27,12 +27,13 @@
 ### `priority`
 
 - API：`public`
+- 首次版本：`11.0.0`
 
 ```gdscript
 var priority: int = 0
 ```
 
-拦截器优先级，数值越大越早执行。
+拦截器优先级，数值越大越早执行。运行期修改从下一次拦截阶段快照开始生效； 相同优先级按注册顺序执行。
 
 <a id="member-gfactioninterceptor-properties-enabled"></a>
 

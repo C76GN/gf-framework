@@ -55,7 +55,7 @@ var default_node_size: Vector2 = Vector2(220.0, 120.0)
 var include_invalid_connections: bool = true
 ```
 
-是否把校验失败的连接也写入视图模型。
+是否把校验失败的连接也写入视图模型。 为 true 时，连接条目保留 source 顺序，并通过 valid 与 invalid_reasons 暴露完整结构校验结果； 为 false 时，只保留通过端点、端口方向、类型/类名、重复和单连接约束的条目。
 
 ## 方法
 

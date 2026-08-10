@@ -134,24 +134,66 @@ def resolve_project_path(
 	parts = Path(normalized).parts
 	if any(part in ("", ".", "..") for part in parts):
 		raise PathBoundaryError(f"Project path contains an unsafe segment: {relative_path!r}")
-	target = (project_root / Path(*parts)).resolve(strict=False)
+	root = Path(os.path.abspath(os.fspath(project_root)))
+	target = Path(os.path.abspath(os.fspath(root / Path(*parts))))
 	try:
-		target.relative_to(project_root)
+		target.relative_to(root)
 	except ValueError as exc:
 		raise PathBoundaryError(f"Project path escapes the project root: {relative_path!r}") from exc
+	if project_path_has_link_component(root, normalized):
+		raise PathBoundaryError(f"Project path crosses a filesystem link: {relative_path!r}")
 	if must_exist and not target.exists():
 		raise PathBoundaryError(f"Project path does not exist: {relative_path!r}")
 	return target
+
+
+def read_bounded_bytes(path: Path, max_bytes: int) -> bytes:
+	"""Read one regular file within a hard byte budget and reject identity drift."""
+	if max_bytes <= 0:
+		raise ValueError("File byte budget must be positive.")
+	_reject_linked_write_path(path)
+	try:
+		before = path.lstat()
+	except OSError as exc:
+		raise ValueError(f"File is unreadable: {path}: {exc}") from exc
+	if not stat.S_ISREG(before.st_mode):
+		raise ValueError(f"Path is not a regular file: {path}")
+	if before.st_size > max_bytes:
+		raise ValueError(f"File exceeds the {max_bytes}-byte budget: {path}")
+	try:
+		with path.open("rb") as stream:
+			opened_before = os.fstat(stream.fileno())
+			raw = stream.read(max_bytes + 1)
+			opened_after = os.fstat(stream.fileno())
+		after = path.lstat()
+	except OSError as exc:
+		raise ValueError(f"File is unreadable: {path}: {exc}") from exc
+	if len(raw) > max_bytes:
+		raise ValueError(f"File exceeds the {max_bytes}-byte budget: {path}")
+	if not (
+		_same_file_snapshot(before, opened_before)
+		and _same_file_snapshot(opened_before, opened_after)
+		and _same_file_snapshot(opened_after, after)
+	):
+		raise ValueError(f"File identity changed while it was read: {path}")
+	if len(raw) != opened_before.st_size:
+		raise ValueError(f"File length changed while it was read: {path}")
+	return raw
+
+
+def read_bounded_text(path: Path, max_bytes: int) -> str:
+	"""Read strict UTF-8 text without universal-newline normalization."""
+	try:
+		return read_bounded_bytes(path, max_bytes).decode("utf-8", errors="strict")
+	except UnicodeDecodeError as exc:
+		raise ValueError(f"File is not valid UTF-8: {path}: {exc}") from exc
 
 
 def read_json_object(path: Path, max_bytes: int = DEFAULT_MAX_JSON_BYTES) -> dict[str, Any]:
 	if max_bytes <= 0:
 		raise ValueError("JSON byte budget must be positive.")
 	try:
-		with path.open("rb") as stream:
-			raw = stream.read(max_bytes + 1)
-		if len(raw) > max_bytes:
-			raise ValueError(f"JSON file exceeds the {max_bytes}-byte budget: {path}")
+		raw = read_bounded_bytes(path, max_bytes)
 		value = strict_json_loads(raw.decode("utf-8", errors="strict"))
 	except (OSError, UnicodeDecodeError, ValueError) as exc:
 		raise ValueError(f"JSON file is unreadable: {path}: {exc}") from exc
@@ -287,6 +329,22 @@ def _path_is_link_or_reparse(path: Path) -> bool:
 		return True
 	reparse_flag = getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0)
 	return bool(reparse_flag and getattr(metadata, "st_file_attributes", 0) & reparse_flag)
+
+
+def _same_file_snapshot(left: os.stat_result, right: os.stat_result) -> bool:
+	return (
+		stat.S_IFMT(left.st_mode),
+		left.st_dev,
+		left.st_ino,
+		left.st_size,
+		getattr(left, "st_mtime_ns", None),
+	) == (
+		stat.S_IFMT(right.st_mode),
+		right.st_dev,
+		right.st_ino,
+		right.st_size,
+		getattr(right, "st_mtime_ns", None),
+	)
 
 
 def _json_sha256_at_path(path: Path) -> str:

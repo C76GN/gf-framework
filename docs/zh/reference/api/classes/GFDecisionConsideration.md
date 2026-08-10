@@ -29,6 +29,7 @@
 | 属性 | [`invert`](#member-gfdecisionconsideration-properties-invert) | `var invert: bool = false` |
 | 方法 | [`score`](#member-gfdecisionconsideration-methods-score) | `func score(context: GFDecisionContext) -> float:` |
 | 方法 | [`get_debug_snapshot`](#member-gfdecisionconsideration-methods-get_debug_snapshot) | `func get_debug_snapshot(context: GFDecisionContext) -> Dictionary:` |
+| 方法 | [`get_debug_snapshot_from_score`](#member-gfdecisionconsideration-methods-get_debug_snapshot_from_score) | `func get_debug_snapshot_from_score(score_value: float) -> Dictionary:` |
 | 方法 | [`get_validation_report`](#member-gfdecisionconsideration-methods-get_validation_report) | `func get_validation_report() -> Dictionary:` |
 | 方法 | [`_score`](#member-gfdecisionconsideration-methods-_score) | `func _score(context: GFDecisionContext) -> float:` |
 
@@ -216,18 +217,44 @@ func score(context: GFDecisionContext) -> float:
 ### `get_debug_snapshot`
 
 - API：`public`
+- 首次版本：`4.3.0`
 
 ```gdscript
 func get_debug_snapshot(context: GFDecisionContext) -> Dictionary:
 ```
 
-获取考虑项调试快照。
+现场评分并获取考虑项调试快照。 该入口会执行一次 score()，因此自定义 _score() 的项目逻辑也会执行。 已有预计算分数时应使用 get_debug_snapshot_from_score()，避免观察阶段重放评分。
 
 参数：
 
 | 名称 | 说明 |
 |---|---|
 | `context` | 决策上下文。 |
+
+返回：调试快照字典。
+
+结构：
+
+- `return`: 包含 consideration_id、enabled、score、weight、input_source 和 input_key 字段的 Dictionary。
+
+<a id="member-gfdecisionconsideration-methods-get_debug_snapshot_from_score"></a>
+
+### `get_debug_snapshot_from_score`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func get_debug_snapshot_from_score(score_value: float) -> Dictionary:
+```
+
+从预计算分数获取考虑项调试快照，不执行自定义评分逻辑。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `score_value` | 已计算的考虑项分数。 |
 
 返回：调试快照字典。
 

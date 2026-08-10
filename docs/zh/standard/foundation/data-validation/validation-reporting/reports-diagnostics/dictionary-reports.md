@@ -34,7 +34,7 @@ GFValidationReportDictionary.merge_report(registration_report, graph_report, {
 GFValidationReportDictionary.finalize_report(registration_report, "Registration")
 ```
 
-`merge_report()` 只处理通用问题结构和显式列出的字段，不解释配置表、内容包、资源扫描或项目业务含义。来源报告不会被修改，复制到目标报告的问题会按 `GFValidationIssue` 字典格式归一化。
+`merge_report()` 只处理通用问题结构和显式列出的字段，不解释配置表、内容包、资源扫描或项目业务含义。来源报告不会被修改，复制到目标报告的问题会按 `GFValidationIssue` 字典格式归一化。报告与自身合并，或两个包装字典共享同一个 `issues` Array 时，问题合并是幂等空操作；显式 `copy_fields` 仍会复制，避免别名输入在遍历期间无限放大。
 
 ## 过滤与基线
 
@@ -55,6 +55,8 @@ var filtered_report := GFValidationReportDictionary.filter_issues(scan_report, {
 ```
 
 `filter_issues()` 不修改输入报告，会返回重新 `finalize_report()` 后的副本，并默认写入 `original_issue_count` 与 `filtered_issue_count`。过滤规则只基于通用问题字段，例如 `kind`、`path`、`source_path`、`key` 和指纹；具体扫描项、基线文件读写和 UI 展示仍应由项目工具自己负责。
+
+`make_issue_fingerprint()` 只为可跨进程规范化的纯 Variant 值生成指纹。默认字段中只要包含 Object、Resource、Callable、Signal、RID、其他运行时身份值，或结构超过稳定遍历预算，函数就返回空字符串；调用方不得把空字符串加入 baseline。复杂业务对象应先提取稳定 ID、坐标或受控路径，再作为 issue key。
 
 ## 使用边界
 

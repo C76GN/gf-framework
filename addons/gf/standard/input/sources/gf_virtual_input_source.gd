@@ -29,15 +29,29 @@ enum PulseReplacementPolicy {
 
 # --- 公共变量 ---
 
-## 虚拟输入源标识。
+## 虚拟输入源标识。修改后会先释放该 handle 已写入的旧身份手动贡献；
+## 已启动脉冲冻结创建时身份并继续独立运行。
 ## [br]
 ## @api public
-var source_id: StringName = &"virtual"
+## [br]
+## @since 11.0.0
+var source_id: StringName:
+	get:
+		return _source_id
+	set(value):
+		_set_source_id(value)
 
-## 玩家索引；小于 0 时只写入全局动作状态。
+## 玩家索引；小于 0 时只写入全局动作状态。修改后会先释放旧玩家身份的
+## 手动贡献；已启动脉冲冻结创建时身份并继续独立运行。
 ## [br]
 ## @api public
-var player_index: int = -1
+## [br]
+## @since 11.0.0
+var player_index: int:
+	get:
+		return _player_index
+	set(value):
+		_set_player_index(value)
 
 
 # --- 私有变量 ---
@@ -47,6 +61,9 @@ var _timer_utility_ref: WeakRef = null
 var _active_pulses: Dictionary = {}
 var _next_pulse_generation: int = 1
 var _disposed: bool = false
+var _source_id: StringName = &"virtual"
+var _player_index: int = -1
+var _owned_actions_by_player: Dictionary = {}
 
 
 # --- Godot 生命周期方法 ---
@@ -67,7 +84,9 @@ func _init(
 
 # --- 公共方法 ---
 
-## 配置虚拟输入源。
+## 配置虚拟输入源。身份或 mapping 改变时会先释放该 handle 追踪的旧身份手动贡献；
+## 已启动脉冲冻结创建时依赖并继续运行。重复配置完全相同的身份只替换后续脉冲
+## 使用的 timer，不清理当前状态。
 ## [br]
 ## @api public
 ## [br]
@@ -90,12 +109,20 @@ func configure(
 ) -> GFVirtualInputSource:
 	if _disposed:
 		return self
-	if _input_mapping_ref != null:
-		clear_all()
+	var normalized_source_id: StringName = p_source_id if p_source_id != &"" else &"virtual"
+	if (
+		_get_input_mapping() == input_mapping
+		and _source_id == normalized_source_id
+		and _player_index == p_player_index
+	):
+		_input_mapping_ref = weakref(input_mapping) if input_mapping != null else null
+		_timer_utility_ref = weakref(timer_utility) if timer_utility != null else null
+		return self
+	_clear_owned_contributions()
 	_input_mapping_ref = weakref(input_mapping) if input_mapping != null else null
 	_timer_utility_ref = weakref(timer_utility) if timer_utility != null else null
-	source_id = p_source_id if p_source_id != &"" else &"virtual"
-	player_index = p_player_index
+	_source_id = normalized_source_id
+	_player_index = p_player_index
 	return self
 
 
@@ -259,18 +286,25 @@ func pulse_action(
 ## [br]
 ## @api public
 ## [br]
+## @since 11.0.0
+## [br]
 ## @param action_id: 动作标识。
 ## [br]
 ## @param value: 动作值。
 ## [br]
 ## @schema value: Variant，GFInputMappingUtility 接受的动作值，通常为 bool、float、Vector2 或 Vector3。
 ## [br]
-## @return 写入成功返回 true。
+## @return: 写入成功返回 true；非有限数值会被拒绝并保持旧贡献不变。
 func set_action_value(action_id: StringName, value: Variant) -> bool:
 	var input_mapping: GFInputMappingUtility = _get_input_mapping()
 	if input_mapping == null:
 		return false
-	return GFVariantData.to_bool(input_mapping.call("set_virtual_action_value", action_id, value, source_id, player_index))
+	var written: bool = GFVariantData.to_bool(
+		input_mapping.call("set_virtual_action_value", action_id, value, _source_id, _player_index)
+	)
+	if written:
+		_remember_owned_action(action_id, _player_index)
+	return written
 
 
 ## 为指定玩家写入动作值。
@@ -290,7 +324,12 @@ func set_action_value_for_player(action_id: StringName, value: Variant, next_pla
 	var input_mapping: GFInputMappingUtility = _get_input_mapping()
 	if input_mapping == null:
 		return false
-	return GFVariantData.to_bool(input_mapping.call("set_virtual_action_value", action_id, value, source_id, next_player_index))
+	var written: bool = GFVariantData.to_bool(
+		input_mapping.call("set_virtual_action_value", action_id, value, _source_id, next_player_index)
+	)
+	if written:
+		_remember_owned_action(action_id, next_player_index)
+	return written
 
 
 ## 按下布尔动作。
@@ -366,8 +405,13 @@ func set_axis_3d(action_id: StringName, value: Vector3) -> bool:
 func clear_action(action_id: StringName) -> bool:
 	var input_mapping: GFInputMappingUtility = _get_input_mapping()
 	if input_mapping == null:
+		_forget_owned_action(action_id, _player_index)
 		return false
-	return GFVariantData.to_bool(input_mapping.call("clear_virtual_action", action_id, source_id, player_index))
+	var changed: bool = GFVariantData.to_bool(
+		input_mapping.call("clear_virtual_action", action_id, _source_id, _player_index)
+	)
+	_forget_owned_action(action_id, _player_index)
+	return changed
 
 
 ## 清除指定玩家的动作贡献。
@@ -382,18 +426,26 @@ func clear_action(action_id: StringName) -> bool:
 func clear_action_for_player(action_id: StringName, next_player_index: int) -> bool:
 	var input_mapping: GFInputMappingUtility = _get_input_mapping()
 	if input_mapping == null:
+		_forget_owned_action(action_id, next_player_index)
 		return false
-	return GFVariantData.to_bool(input_mapping.call("clear_virtual_action", action_id, source_id, next_player_index))
+	var changed: bool = GFVariantData.to_bool(
+		input_mapping.call("clear_virtual_action", action_id, _source_id, next_player_index)
+	)
+	_forget_owned_action(action_id, next_player_index)
+	return changed
 
 
-## 清除当前虚拟源的所有动作贡献。
+## 清除同一 source_id 的所有玩家动作贡献。
 ## [br]
 ## @api public
+## [br]
+## @since 11.0.0
 func clear_all() -> void:
 	_cancel_active_pulses(&"source_cleared")
 	var input_mapping: GFInputMappingUtility = _get_input_mapping()
 	if input_mapping != null:
-		input_mapping.call("clear_virtual_source", source_id)
+		input_mapping.call("clear_virtual_source", _source_id)
+	_owned_actions_by_player.clear()
 
 
 ## 取消全部 Source-owned 脉冲、清除当前 source_id 贡献并释放依赖引用。
@@ -406,9 +458,7 @@ func dispose() -> void:
 		return
 	_disposed = true
 	_cancel_active_pulses(&"source_disposed")
-	var input_mapping: GFInputMappingUtility = _get_input_mapping()
-	if input_mapping != null:
-		input_mapping.clear_virtual_source(source_id)
+	_clear_owned_contributions()
 	_input_mapping_ref = null
 	_timer_utility_ref = null
 
@@ -417,18 +467,24 @@ func dispose() -> void:
 ## [br]
 ## @api public
 ## [br]
-## @schema return: Dictionary，包含 source_id: StringName、player_index: int，以及当前虚拟输入贡献的 actions: Array[Dictionary]。
+## @since 11.0.0
+## [br]
+## @schema return: Dictionary，包含 source_id: StringName、player_index: int，以及当前 source/player 身份的 actions: Array[Dictionary]。
 ## [br]
 ## @return 快照字典。
 func get_snapshot() -> Dictionary:
 	var input_mapping: GFInputMappingUtility = _get_input_mapping()
 	if input_mapping == null:
 		return {
-			"source_id": source_id,
-			"player_index": player_index,
+			"source_id": _source_id,
+			"player_index": _player_index,
 			"actions": [],
 		}
-	var snapshot: Variant = input_mapping.call("get_virtual_source_snapshot", source_id)
+	var snapshot: Variant = input_mapping.call(
+		"get_virtual_source_snapshot_for_player",
+		_source_id,
+		_player_index
+	)
 	return GFVariantData.to_dictionary(snapshot)
 
 
@@ -501,3 +557,63 @@ func _variant_to_pulse_operation(value: Variant) -> GFVirtualInputPulseOperation
 		var operation: GFVirtualInputPulseOperation = value
 		return operation
 	return null
+
+
+func _set_source_id(value: StringName) -> void:
+	if _disposed:
+		return
+	var normalized_source_id: StringName = value if value != &"" else &"virtual"
+	if _source_id == normalized_source_id:
+		return
+	_clear_owned_contributions()
+	_source_id = normalized_source_id
+
+
+func _set_player_index(value: int) -> void:
+	if _disposed or _player_index == value:
+		return
+	_clear_owned_contributions()
+	_player_index = value
+
+
+func _remember_owned_action(action_id: StringName, target_player_index: int) -> void:
+	var actions: Dictionary = GFVariantData.get_option_dictionary(
+		_owned_actions_by_player,
+		target_player_index
+	)
+	actions[action_id] = true
+	_owned_actions_by_player[target_player_index] = actions
+
+
+func _forget_owned_action(action_id: StringName, target_player_index: int) -> void:
+	if not _owned_actions_by_player.has(target_player_index):
+		return
+	var actions: Dictionary = GFVariantData.get_option_dictionary(
+		_owned_actions_by_player,
+		target_player_index
+	)
+	var _removed_action: bool = actions.erase(action_id)
+	if actions.is_empty():
+		var _removed_player: bool = _owned_actions_by_player.erase(target_player_index)
+	else:
+		_owned_actions_by_player[target_player_index] = actions
+
+
+func _clear_owned_contributions() -> void:
+	var input_mapping: GFInputMappingUtility = _get_input_mapping()
+	if input_mapping != null:
+		for player_value: Variant in _owned_actions_by_player.keys():
+			var target_player_index: int = GFVariantData.to_int(player_value, -1)
+			var actions: Dictionary = GFVariantData.get_option_dictionary(
+				_owned_actions_by_player,
+				player_value
+			)
+			for action_value: Variant in actions.keys():
+				var action_id: StringName = GFVariantData.to_string_name(action_value)
+				var _cleared: Variant = input_mapping.call(
+					"clear_virtual_action",
+					action_id,
+					_source_id,
+					target_player_index
+				)
+	_owned_actions_by_player.clear()

@@ -104,6 +104,75 @@ static func format_decimal_value(
 	return text
 
 
+## 在不经过 float 的情况下格式化已规范化的普通十进制文本。
+## [br]
+## @api framework_internal
+## [br]
+## @param text: 不含指数与分隔符的十进制文本，可带正负号。
+## [br]
+## @param decimal_places: 小数位数。
+## [br]
+## @param trim_zeroes: 是否裁剪末尾零。
+## [br]
+## @param use_truncation: 为 true 时向零截断，否则按 HALF_UP 舍入。
+## [br]
+## @return: 精确按字符串位数格式化的文本。
+static func format_decimal_text(
+	text: String,
+	decimal_places: int,
+	trim_zeroes: bool,
+	use_truncation: bool
+) -> String:
+	var normalized_decimal_places: int = _normalize_decimal_places(decimal_places)
+	var sign_text: String = ""
+	var body: String = text
+	if body.begins_with("-") or body.begins_with("+"):
+		sign_text = body.substr(0, 1)
+		body = body.substr(1)
+
+	var decimal_index: int = body.find(".")
+	var integer_part: String = body if decimal_index < 0 else body.substr(0, decimal_index)
+	var fractional_part: String = "" if decimal_index < 0 else body.substr(decimal_index + 1)
+	if integer_part.is_empty():
+		integer_part = "0"
+
+	var kept_fraction: String = fractional_part.left(normalized_decimal_places)
+	var discarded_fraction: String = fractional_part.substr(normalized_decimal_places)
+	if kept_fraction.length() < normalized_decimal_places:
+		kept_fraction += "0".repeat(normalized_decimal_places - kept_fraction.length())
+
+	if (
+		not use_truncation
+		and not discarded_fraction.is_empty()
+		and discarded_fraction.substr(0, 1) >= "5"
+	):
+		var combined_digits: String = integer_part + kept_fraction
+		combined_digits = _increment_decimal_digits(combined_digits)
+		if normalized_decimal_places > 0:
+			if combined_digits.length() <= normalized_decimal_places:
+				combined_digits = "0".repeat(
+					normalized_decimal_places + 1 - combined_digits.length()
+				) + combined_digits
+			integer_part = combined_digits.left(
+				combined_digits.length() - normalized_decimal_places
+			)
+			kept_fraction = combined_digits.right(normalized_decimal_places)
+		else:
+			integer_part = combined_digits
+
+	if _digits_are_zero(integer_part) and (
+		kept_fraction.is_empty() or _digits_are_zero(kept_fraction)
+	):
+		sign_text = ""
+
+	var result: String = sign_text + integer_part
+	if normalized_decimal_places > 0:
+		result += "." + kept_fraction
+	if trim_zeroes:
+		return trim_trailing_zeroes(result)
+	return result
+
+
 ## 裁剪小数字符串末尾零。
 ## [br]
 ## @api framework_internal
@@ -139,18 +208,18 @@ static func trim_trailing_zeroes(text: String) -> String:
 ## [br]
 ## @param text: 待校验的十进制或科学计数法文本。
 ## [br]
-## @param max_input_length: 最大输入字符数；小于等于 0 表示使用默认预算。
+## @param max_input_length: 原始输入（含边缘空白）的最大字符数；小于等于 0 表示使用默认预算。
 ## [br]
 ## @return 包含 ok、text 和 error 的规范化结果。
 ## [br]
 ## @schema return: Dictionary with ok: bool, text: String, and error: String.
 static func normalize_numeric_text(text: String, max_input_length: int = DEFAULT_MAX_NUMERIC_TEXT_LENGTH) -> Dictionary:
 	var limit: int = max_input_length if max_input_length > 0 else DEFAULT_MAX_NUMERIC_TEXT_LENGTH
+	if text.length() > limit:
+		return _make_numeric_text_result(false, "", "input_too_long")
 	var normalized: String = text.strip_edges()
 	if normalized.is_empty():
 		return _make_numeric_text_result(false, "", "empty_input")
-	if normalized.length() > limit:
-		return _make_numeric_text_result(false, "", "input_too_long")
 
 	var exponent_index: int = normalized.find("e")
 	var uppercase_exponent_index: int = normalized.find("E")
@@ -274,6 +343,25 @@ static func _make_numeric_text_result(ok: bool, text: String, error: String) -> 
 		"text": text,
 		"error": error,
 	}
+
+
+static func _increment_decimal_digits(value: String) -> String:
+	var result: String = value
+	var carry: int = 1
+	for index: int in range(result.length() - 1, -1, -1):
+		var digit: int = result.substr(index, 1).to_int() + carry
+		result = result.left(index) + str(digit % 10) + result.substr(index + 1)
+		carry = 1 if digit >= 10 else 0
+		if carry == 0:
+			return result
+	return "1" + result
+
+
+static func _digits_are_zero(value: String) -> bool:
+	for index: int in range(value.length()):
+		if value.substr(index, 1) != "0":
+			return false
+	return true
 
 
 static func _normalize_decimal_places(decimal_places: int) -> int:

@@ -2,6 +2,8 @@
 ##
 ## 用 scope_id + section_id 管理 Dictionary 分区，记录哪些分区被修改，并可生成只包含脏分区的
 ## 存储载荷。它不定义存档字段、业务模块或 UI，只负责分区缓存和脏状态机制。
+## scope_id 按每次调用时的序列化值识别；修改 Array/Dictionary 内容会表示另一个 scope，
+## 因此长期作用域应优先使用稳定的 String、StringName 或 int。
 ## [br]
 ## @api public
 ## [br]

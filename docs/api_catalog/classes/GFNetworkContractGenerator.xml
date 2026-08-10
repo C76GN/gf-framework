@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFNetworkContractGenerator" path="addons/gf/extensions/network/editor/gf_network_contract_generator.gd" module="extensions/network" extends="RefCounted" classDigest="f8c6d522fd7a891cdef76b50a7a517d735e2f7aa6466c2407a1d8eed28213d02">
+<class name="GFNetworkContractGenerator" path="addons/gf/extensions/network/editor/gf_network_contract_generator.gd" module="extensions/network" extends="RefCounted" classDigest="715cd2f3f9a1aedd738f1decffcab60c4839c087f55b7d4e41e8baa9c4b7f120">
 	<description>GFNetworkContractGenerator: 根据 GFNetworkContract 生成强类型消息辅助脚本。
 生成结果保持为 GDScript 轻量封装，围绕 GFNetworkMessage / GFNetworkUtility
 提供构造、发送、匹配和 payload 读取函数，不绑定任何具体业务协议。</description>
@@ -33,6 +33,7 @@
 				<tag name="param">options: 可选项，支持 class_name。</tag>
 				<tag name="return">Godot 错误码。</tag>
 				<tag name="schema">options: Dictionary，支持 class_name。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="generate_with_report">
@@ -57,10 +58,10 @@
 				<tag name="param">contract_paths: 契约资源路径列表。</tag>
 				<tag name="param">output_dir: 输出目录。</tag>
 				<tag name="param">overwrite_existing: 为 false 时目标已存在会跳过。</tag>
-				<tag name="param">options: 可选项，支持 class_name、dry_run、scan_filesystem 和 metadata。</tag>
+				<tag name="param">options: 可选项，支持 class_name、dry_run、scan_filesystem、metadata、allowed_roots 和生成预算。</tag>
 				<tag name="return">生成报告。</tag>
-				<tag name="schema">options: Dictionary，可包含 class_name、dry_run、scan_filesystem 和 metadata。</tag>
-				<tag name="schema">return: Dictionary，GFValidationReportDictionary 格式，包含 ok、generated_count、attempted_count、skipped_count、artifact_summary、generated、issues、issue_count 和 next_actions。</tag>
+				<tag name="schema">options: Dictionary，可包含 class_name、dry_run、scan_filesystem、metadata、allowed_roots、max_contracts、max_messages_per_contract、max_fields_per_message、max_identifier_length、max_source_bytes 和 max_total_source_bytes；预算必须为正整数并受框架硬上限约束。</tag>
+				<tag name="schema">return: Dictionary，GFValidationReportDictionary 格式，包含 ok、generated_count、attempted_count、skipped_count、artifact_summary、generated、issues、issue_count、plan_fingerprint 和 next_actions。</tag>
 				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
@@ -73,6 +74,7 @@
 				<tag name="param">options: 可选项，支持 class_name。</tag>
 				<tag name="return">GDScript 源码。</tag>
 				<tag name="schema">options: Dictionary，支持 class_name。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="save_source">
@@ -84,6 +86,7 @@
 				<tag name="param">source: 源码文本。</tag>
 				<tag name="param">overwrite_existing: 为 false 时目标已存在会返回 ERR_ALREADY_EXISTS。</tag>
 				<tag name="return">Godot 错误码。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="save_source_with_report">

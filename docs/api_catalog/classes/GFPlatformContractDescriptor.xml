@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFPlatformContractDescriptor" path="addons/gf/standard/foundation/platform/gf_platform_contract_descriptor.gd" module="standard" extends="Resource" classDigest="c4fb4c8b5e65d9ab8aaff7ecfe826fba29c57657452ecbba371696cc6e091b2c">
+<class name="GFPlatformContractDescriptor" path="addons/gf/standard/foundation/platform/gf_platform_contract_descriptor.gd" module="standard" extends="Resource" classDigest="c50db847713ae40a991899d084171a58489a1125ce2544d80c8093b4dc41c561">
 	<description>GFPlatformContractDescriptor: 平台桥接契约描述。
 将一个 provider-neutral contract 的版本和方法集合固定为可校验数据。描述符不包含
 Steam、微信、主机厂商或项目业务语义。</description>
@@ -14,7 +14,7 @@ Steam、微信、主机厂商或项目业务语义。</description>
 	<properties>
 		<member kind="property" name="contract_id" decorators="@export">
 			<signature>var contract_id: StringName = &amp;""</signature>
-			<description>契约稳定标识。</description>
+			<description>契约稳定标识；直接创作的值不得包含首尾空白。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="since">10.0.0</tag>

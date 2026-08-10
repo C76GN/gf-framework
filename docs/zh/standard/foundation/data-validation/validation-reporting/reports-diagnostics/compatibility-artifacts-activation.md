@@ -57,7 +57,9 @@ artifacts.add_artifact(&"registry", "user://registry.json", {
 var report: Dictionary = artifacts.get_report()
 ```
 
-当只需要快速检查文件大小或 source digest 时，可以通过 `include_sha256 = false` 跳过哈希计算。
+`include_sha256` 与 `include_modified_time` 只控制最终 artifact 条目是否展示对应字段。若条目声明了 `expected_sha256` 或 `minimum_modified_time`，报告仍会采集并验证该值，再按 include 选项移除展示字段；这样关闭展示不会把显式完整性条件静默变成成功。只有没有相应 expected 条件时，`include_sha256 = false` 才会省去哈希计算。
+
+当前实现按本地路径读取文件元数据，不为扫描期间被并发替换的路径提供文件身份锁或不可变 snapshot 保证。需要把检查结果作为安全发布依据时，调用方应先发布到不可变路径、持有项目自己的发布锁，或在后续统一 artifact snapshot 契约落地后使用该契约。
 
 ## 激活事务
 
@@ -77,7 +79,9 @@ transaction.add_step(
 var report: Dictionary = transaction.commit({ "catalog": catalog })
 ```
 
-回调返回 `false`、非 `OK` 的 `Error`，或 `{ "ok": false }` 时，该步骤会进入失败报告。同步事务不会隐式等待回调返回的 `Signal` 或 Godot async 状态对象；这类返回值会被报告为 `async_callback_unsupported`。`commit()` 在应用阶段失败后会自动回滚已经应用的步骤；默认情况下，已应用步骤缺少 rollback 回调会让事务保持失败。确实不需要回滚的步骤应在 `options` 中显式传入 `rollback_required = false`。`rollback()` 也可由调用方显式触发。
+回调返回 `false`、非 `OK` 的 `Error`，或 `{ "ok": false }` 时，该步骤会进入失败报告。同步事务不会隐式等待回调返回的 `Signal` 或 Godot async 状态对象；这类返回值会被报告为 `async_callback_unsupported`。`prepare()` 只会从 pending 进入 prepared，重复 prepare 已准备事务是幂等读取；committed、rolled_back 或 failed 终态只能先在事务操作之外显式 `clear()`。validate/apply/rollback 回调内对同一事务嵌套调用 prepare/commit/rollback 会返回 `transition_in_progress`，回调内的 `clear()`、`configure()` 和 `add_step()` 不会改写正在进行的状态。
+
+`commit()` 在应用阶段失败后会自动逆序回滚此前已经成功应用的步骤；默认情况下，已应用步骤缺少 rollback 回调会让事务保持失败。当前失败的 apply 步骤本身不会自动进入补偿集合，因此可能留下部分副作用的回调必须在返回失败前自行恢复；后续是否把该责任升级为结构化 apply outcome 仍属于单独的产品契约决策。确实不需要回滚的步骤应在 `options` 中显式传入 `rollback_required = false`。`rollback()` 也可由调用方显式触发。
 
 ## 使用边界
 

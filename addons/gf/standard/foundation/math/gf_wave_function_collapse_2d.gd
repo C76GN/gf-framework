@@ -260,6 +260,24 @@ static func solve_grid(
 	while true:
 		var next_cell: Vector2i = _select_next_cell(domains, grid_size, heuristic, tile_weights, rng)
 		if next_cell == _INVALID_CELL:
+			if _count_undecided_domains(domains) > 0:
+				return _make_report(
+					false,
+					STATUS_INVALID_INPUT,
+					"unable to select an undecided cell with finite weights.",
+					grid_size,
+					seed_value,
+					heuristic,
+					periodic,
+					cell_count,
+					max_cells,
+					tile_ids,
+					max_tiles,
+					max_steps,
+					step_count,
+					domains,
+					_INVALID_CELL
+				)
 			return _make_report(
 				true,
 				STATUS_COMPLETE,
@@ -297,6 +315,24 @@ static func solve_grid(
 			)
 
 		var selected_tile: Variant = _choose_weighted_tile(_get_domain(domains, next_cell), tile_ids, tile_weights, rng)
+		if selected_tile == null:
+			return _make_report(
+				false,
+				STATUS_INVALID_INPUT,
+				"unable to choose a tile with finite weights.",
+				grid_size,
+				seed_value,
+				heuristic,
+				periodic,
+				cell_count,
+				max_cells,
+				tile_ids,
+				max_tiles,
+				max_steps,
+				step_count,
+				domains,
+				next_cell
+			)
 		domains[next_cell] = { selected_tile: true }
 		step_count += 1
 		var propagation: Dictionary = _propagate(domains, grid_size, allowed_by_direction, periodic, [next_cell])
@@ -1030,13 +1066,29 @@ static func _select_next_cell(
 static func _calculate_entropy(domain: Dictionary, weights: Dictionary) -> float:
 	var weight_sum: float = 0.0
 	var weighted_log_sum: float = 0.0
+	var max_weight: float = 0.0
 	for tile_id: Variant in domain.keys():
 		var weight: float = GFVariantData.get_option_float(weights, tile_id, 1.0)
 		weight_sum += weight
 		weighted_log_sum += weight * log(weight)
-	if weight_sum <= 0.0:
+		max_weight = maxf(max_weight, weight)
+	if weight_sum <= 0.0 or max_weight <= 0.0:
 		return INF
-	return log(weight_sum) - weighted_log_sum / weight_sum
+	if is_finite(weight_sum) and is_finite(weighted_log_sum):
+		return log(weight_sum) - weighted_log_sum / weight_sum
+
+	var scaled_sum: float = 0.0
+	var scaled_weighted_log_sum: float = 0.0
+	for tile_id: Variant in domain.keys():
+		var scaled_weight: float = (
+			GFVariantData.get_option_float(weights, tile_id, 1.0)
+			/ max_weight
+		)
+		scaled_sum += scaled_weight
+		scaled_weighted_log_sum += scaled_weight * log(scaled_weight)
+	if scaled_sum <= 0.0 or not is_finite(scaled_sum) or not is_finite(scaled_weighted_log_sum):
+		return INF
+	return log(scaled_sum) - scaled_weighted_log_sum / scaled_sum
 
 
 static func _choose_weighted_tile(
@@ -1046,9 +1098,27 @@ static func _choose_weighted_tile(
 	rng: GFDeterministicRandom
 ) -> Variant:
 	var total_weight: float = 0.0
+	var max_weight: float = 0.0
 	for tile_id: Variant in tile_ids:
 		if domain.has(tile_id):
-			total_weight += GFVariantData.get_option_float(weights, tile_id, 1.0)
+			var weight: float = GFVariantData.get_option_float(weights, tile_id, 1.0)
+			total_weight += weight
+			max_weight = maxf(max_weight, weight)
+
+	var scale: float = 1.0
+	if not is_finite(total_weight):
+		if max_weight <= 0.0 or not is_finite(max_weight):
+			return null
+		scale = max_weight
+		total_weight = 0.0
+		for tile_id: Variant in tile_ids:
+			if domain.has(tile_id):
+				total_weight += (
+					GFVariantData.get_option_float(weights, tile_id, 1.0)
+					/ scale
+				)
+	if total_weight <= 0.0 or not is_finite(total_weight):
+		return null
 
 	var threshold: float = rng.next_float_unit() * total_weight
 	var cumulative: float = 0.0
@@ -1058,7 +1128,7 @@ static func _choose_weighted_tile(
 			continue
 		if fallback == null:
 			fallback = tile_id
-		cumulative += GFVariantData.get_option_float(weights, tile_id, 1.0)
+		cumulative += GFVariantData.get_option_float(weights, tile_id, 1.0) / scale
 		if threshold <= cumulative:
 			return tile_id
 	return fallback
@@ -1081,6 +1151,12 @@ static func _make_report(
 	domains: Dictionary,
 	contradiction_cell: Vector2i
 ) -> Dictionary:
+	var can_materialize_grid: bool = (
+		grid_size.x > 0
+		and grid_size.y > 0
+		and cell_count > 0
+		and cell_count <= max_cells
+	)
 	return {
 		"ok": ok,
 		"error": error,
@@ -1099,8 +1175,8 @@ static func _make_report(
 		"collapsed_count": _count_collapsed_domains(domains),
 		"undecided_count": _count_undecided_domains(domains),
 		"contradiction_cell": contradiction_cell,
-		"grid": _make_collapsed_grid(domains, grid_size),
-		"domains": _make_domain_snapshot(domains, grid_size, tile_ids),
+		"grid": _make_collapsed_grid(domains, grid_size) if can_materialize_grid else {},
+		"domains": _make_domain_snapshot(domains, grid_size, tile_ids) if can_materialize_grid else {},
 	}
 
 

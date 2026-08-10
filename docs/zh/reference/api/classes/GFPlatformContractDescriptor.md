@@ -38,7 +38,7 @@
 var contract_id: StringName = &""
 ```
 
-契约稳定标识。
+契约稳定标识；直接创作的值不得包含首尾空白。
 
 <a id="member-gfplatformcontractdescriptor-properties-contract_version"></a>
 

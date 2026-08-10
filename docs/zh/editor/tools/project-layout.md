@@ -60,9 +60,11 @@ res://gf_project_profile.json
 
 然后按项目需要调整 `roots`、`allowed_subdirs`、`allowed_files`、`max_files` 和严重级别。模板只是起点，不应该为了符合模板而制造空目录或迁移没有收益的文件。
 
+Godot 工具把 schema v1 视为严格契约：`zones`、`rules` 和各类已执行路径集合必须是只含非空字符串的数组；相对路径必须使用规范 `/` 分隔，不能以 `/` 开头、包含盘符、协议、反斜杠或 `..`。未知字段、错误类型、重复 zone/rule ID，以及除维护侧保留字段外某种 rule 不会读取的其他字段都会失败关闭，不能依赖默认值掩盖拼写错误。
+
 ## 脚手架
 
-`GFProjectLayoutScaffolder` 可以按 profile 创建必需目录，并可选创建 Feature 模块目录。它默认只创建 profile 中标记为 `required` 的 zone；`shared`、`generated`、`tests` 这类可选目录需要显式启用，避免空目录变成新的维护负担。执行前会校验 profile 结构、Feature ID、计划路径和回滚路径；实际创建中途失败时，会尝试撤销本次已经创建的目录，避免留下半成品脚手架。
+`GFProjectLayoutScaffolder` 可以按 profile 创建必需目录，并可选创建 Feature 模块目录。它默认只创建 profile 中标记为 `required` 的 zone；`shared`、`generated`、`tests` 这类可选目录需要显式启用，避免空目录变成新的维护负担。所有选项会在读取默认根和执行写入前校验：未知键、错误类型或非法 `root_path` 会直接失败，拼错 `dry_run` 不会退化为真实写入。dry-run 与 apply 共用相同的链接、已有目录和阻塞文件预检；实际创建中途失败时，会尝试撤销本次已经创建且仍为空的目录，避免留下半成品脚手架。
 
 ```gdscript
 var scaffolder: GFProjectLayoutScaffolder = GFProjectLayoutScaffolder.new()
@@ -84,9 +86,11 @@ var result: Dictionary = scaffolder.scaffold_default_profile({
 
 脚手架只做目录创建和 Feature ID 校验，不移动已有文件、不改写 `project.godot`，也不会把某个参考项目的目录强制套给所有项目。迁移旧项目时，应先用 `project-profile-boundary` 看报告，再分 Feature 小步搬迁。
 
+目录预检和后续系统调用之间仍可能被其他进程改写。当前脚手架适用于受信、单写者的项目目录，不是对抗恶意并发写入、junction 交换或 TOCTOU 的操作系统沙箱；这类环境应在外层使用独占工作目录或平台级事务边界。
+
 ## 本地校验器
 
-`GFProjectLayoutValidator` 可在 Godot 内直接读取同一份 profile，输出项目结构校验报告。它适合编辑器按钮、项目自测、CI smoke 或迁移脚本在不调用 Python 维护工具时复用目录规则。Validator 会严格校验规则类型、严重级别、扫描根和深度预算；未知规则或非法严重级别会进入报告，而不是被静默忽略。
+`GFProjectLayoutValidator` 可在 Godot 内直接读取同一份 profile，输出项目结构校验报告。它适合编辑器按钮、项目自测、CI smoke 或迁移脚本在不调用 Python 维护工具时复用目录规则。Validator 会严格校验选项、字段、规则类型、严重级别、扫描根和预算；未知内容或非法值会进入报告，而不是被静默忽略。目录通过流式迭代读取，一旦文件数、目录数或深度预算耗尽就全局中止，不再继续枚举兄弟目录。
 
 ```gdscript
 var validator: GFProjectLayoutValidator = GFProjectLayoutValidator.new()
@@ -95,11 +99,11 @@ var result: Dictionary = validator.validate_default_profile({
 })
 ```
 
-报告包含 `success`、`issues`、`error_count`、`warning_count`、`file_count`、`directory_count` 和逐条 `rule_results`。内置 validator 覆盖必需 zone、根目录文件白名单、路径命名、Feature 模块契约、生成物边界和大桶目录上限。更复杂的项目级 profile gate 仍可使用 `project-profile-boundary`，两者共享“profile 是项目侧策略、GF 只提供通用机制”的边界。
+报告包含 `success`、`issues`、`error_count`、`warning_count`、`file_count`、`directory_count` 和逐条 `rule_results`。诊断 context 不持有调用方传入的 Object，并把非有限数转换为稳定描述；字符串、profile 字节和 issue 总量尚没有完整全局预算，不能把进程内报告当作敌对输入沙箱。内置 validator 覆盖必需 zone、根目录文件白名单、路径命名、Feature 模块契约、生成物边界和大桶目录上限。`naming_convention.target` 可取 `path`、`name` 或 `stem`，分别检查完整相对路径、末段名称或去扩展名末段。更复杂的项目级 profile gate 仍可使用 `project-profile-boundary`，两者共享“profile 是项目侧策略、GF 只提供通用机制”的边界。
 
 ## 校验规则
 
-`project-profile-boundary` 支持这些通用规则：
+Godot 内的 Validator/Scaffolder 只实现 `forbid_root_files`、`naming_convention`、`feature_module_contract`、`generated_boundary` 和 `bucket_size`。维护侧 `project-profile-boundary` 还支持更宽的项目 profile DSL：
 
 - `path_exists`：要求关键路径存在。
 - `files_under_roots`：要求匹配文件落在指定根目录。
@@ -109,6 +113,8 @@ var result: Dictionary = validator.validate_default_profile({
 - `feature_module_contract`：约束 Feature 模块 ID、必需子目录、允许子目录，以及是否允许模块根目录直接放文件。
 - `generated_boundary`：要求生成物留在声明的生成目录。
 - `bucket_size`：给遗留大桶目录设置文件数量上限，防止继续膨胀。
+
+两条执行路径当前不是同一个编译器。为保持现有 schema v1 形态，Godot 工具仍接受 zone 的扩展名/排除字段以及 rule 的 `paths`、`any`、`extensions`，但当前不会执行这些维护侧语义；不要把“被接受”解释为约束已生效。需要两侧复用时，只依赖上述五种共同规则及其已执行字段，并分别运行本地工具测试与 `project-profile-boundary`。是否统一编译器、在 Godot 补齐语义或从下一版 schema 移除保留字段，属于待维护者决定的兼容选择。
 
 维护仓库或 CI 可以运行：
 

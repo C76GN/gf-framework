@@ -41,7 +41,7 @@ func bind_control( store: RefCounted, path: Variant, control: Control, options: 
 
 | 名称 | 说明 |
 |---|---|
-| `store` | `GFReactiveStateStore` 实例。 |
+| `store` | \`GFReactiveStateStore\` 实例。 |
 | `path` | 状态路径。 |
 | `control` | 控件节点。 |
 | `options` | 可选项。支持 default_value、sync_initial、write_initial_to_store。 |
@@ -92,7 +92,7 @@ func unbind_path(store: RefCounted, path: Variant) -> int:
 
 | 名称 | 说明 |
 |---|---|
-| `store` | `GFReactiveStateStore` 实例。 |
+| `store` | \`GFReactiveStateStore\` 实例。 |
 | `path` | 状态路径。 |
 
 返回：解绑数量。

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFStorageSyncUtility" path="addons/gf/standard/utilities/storage/gf_storage_sync_utility.gd" module="standard" extends="GFUtility" classDigest="075ff973050d953ce2a9253457d5bca5da2d099420d677202ed5dfb5aa85eab4">
+<class name="GFStorageSyncUtility" path="addons/gf/standard/utilities/storage/gf_storage_sync_utility.gd" module="standard" extends="GFUtility" classDigest="abb47234038fdd33e610f942d0e5dfb8d63069f6b3aa833b1cde0eafc019bc73">
 	<description>GFStorageSyncUtility: 通用存储后端同步协调器。
 该工具只协调两个 GFStorageBackend 的字典数据同步、冲突检测和写回策略。
 它不绑定本地/云/平台 SDK，也不替项目定义存档业务结构。</description>
@@ -51,7 +51,7 @@
 	<enums>
 		<member kind="enum" name="ConflictStrategy">
 			<signature>enum ConflictStrategy {
-	## 按后端元数据中的 revision/timestamp 选择更新的一侧；无法判断时保留冲突。
+	## 按后端元数据中的有限 revision/timestamp 选择更新的一侧；缺失或非有限值无法判断时保留冲突。
 	USE_NEWEST,
 	## 冲突时使用 local_backend 的数据。
 	USE_LOCAL,

@@ -487,7 +487,7 @@ func _stop_live_probe() -> void:
 		return
 	if _probe.signal_emitted.is_connected(_on_probe_signal_emitted):
 		_probe.signal_emitted.disconnect(_on_probe_signal_emitted)
-	var _removed_count: int = _probe.unwatch_all()
+	_probe.dispose()
 	_probe = null
 
 

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFConfigPipeline" path="addons/gf/tools/config_pipeline/gf_config_pipeline.gd" module="tools" extends="RefCounted" classDigest="28868a6774e9e090b134d6068dd41b449a961fc0e88a63af515d3e0cb7f9166d">
+<class name="GFConfigPipeline" path="addons/gf/tools/config_pipeline/gf_config_pipeline.gd" module="tools" extends="RefCounted" classDigest="3d935b81ef5ff009bd154dafccf9f293dcd03ba7b3c3d657a9c0107cda9c8d82">
 	<description>GFConfigPipeline: 配置导表工具的资源构建入口。
 负责把 CSV / JSON / ConfigFile / XLSX 文件来源构建为 GFConfigTableResource 与 GFConfigDatabaseResource。
 该工具只处理通用导入、校验、索引重建和 Resource 保存，不绑定任何项目业务表或发布流程。</description>
@@ -34,7 +34,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">按 Reader、Layout、Validation、Target、Commit 排列的阶段描述。</tag>
-				<tag name="schema">return: Array[Dictionary]，每项包含 stage_id、implementation_version、implementation_path 和阶段契约字段。</tag>
+				<tag name="schema">return: Array[Dictionary]，每项包含 stage_id、implementation_version、implementation_path、implementation_dependencies 和阶段契约字段。</tag>
 				<tag name="since">9.0.0</tag>
 			</tags>
 		</member>
@@ -47,7 +47,7 @@
 				<tag name="param">options: 可选构建选项，支持 parse_options、rebuild_indexes。</tag>
 				<tag name="return">构建结果。</tag>
 				<tag name="schema">options: Dictionary，可包含 parse_options 和 rebuild_indexes。</tag>
-				<tag name="schema">return: Dictionary，包含 success、table、ir、report、source_path、format 和 error。</tag>
+				<tag name="schema">return: Dictionary，包含 success、table、ir、report、source_path、format、source_receipt 和 error。</tag>
 				<tag name="since">5.2.0</tag>
 			</tags>
 		</member>
@@ -75,7 +75,7 @@
 				<tag name="return">构建结果。</tag>
 				<tag name="schema">sources: Array[GFConfigPipelineTableSource]。</tag>
 				<tag name="schema">options: Dictionary，可包含 database_id、version、metadata、validate_database、validate_schema、parse_options 和 rebuild_indexes。</tag>
-				<tag name="schema">return: Dictionary，包含 success、database、ir、report、table_results 和 error。</tag>
+				<tag name="schema">return: Dictionary，包含 success、database、ir、report、table_results 和 error；每个成功 table_result 都包含绑定实际读取字节的 source_receipt。</tag>
 				<tag name="since">5.2.0</tag>
 			</tags>
 		</member>
@@ -89,7 +89,7 @@
 				<tag name="return">构建结果。</tag>
 				<tag name="schema">profile: GFConfigPipelineProfile resource。</tag>
 				<tag name="schema">options: Dictionary，可包含 build_options、database_id、version、metadata、validate_database、validate_schema、parse_options 和 rebuild_indexes。</tag>
-				<tag name="schema">return: Dictionary，包含 success、database、report、table_results、profile_id、output_path 和 error。</tag>
+				<tag name="schema">return: Dictionary，包含 success、database、report、table_results、profile_id、output_path 和 error；每个成功 table_result 都包含绑定实际读取字节的 source_receipt。</tag>
 				<tag name="since">5.2.0</tag>
 			</tags>
 		</member>
@@ -103,7 +103,7 @@
 				<tag name="return">导出结果。</tag>
 				<tag name="schema">profile: GFConfigPipelineProfile resource。</tag>
 				<tag name="schema">options: Dictionary，可包含 output_path、build_options、save_options、access_output_path、access_options、access_class_name、access_provider_accessor、database_id、version、metadata、validate_database、validate_schema、parse_options、rebuild_indexes、changed_only、manifest_path、write_manifest、manifest_options、manifest_metadata、scan_filesystem、max_freshness_file_bytes、max_freshness_total_bytes 和 max_freshness_entries；save_options、access_options 与 manifest_options 可分别包含 allow_unowned_overwrite。批量导出会强制所有 constituent 禁止 scan，并且仅在整批事务成功后按顶层 scan_filesystem 执行一次编辑器扫描。</tag>
-				<tag name="schema">return: Dictionary，包含 success、database、report、table_results、build_result、save_result、access_result、manifest_path、manifest、manifest_result、profile_id、output_path、error、transaction_result、recovery_required、recovery_action 和 recovery_transaction；recovery_required 为 true 时调用方必须按 recovery_action 使用 recovery_transaction 完成结果要求的终态动作。</tag>
+				<tag name="schema">return: Dictionary，包含 success、database、report、table_results、build_result、save_result、access_result、manifest_path、manifest、manifest_result、source_validation_report、profile_id、output_path、error、transaction_result、recovery_required、recovery_action 和 recovery_transaction；写 manifest 时会在事务完成前复核 source_receipt，来源变化会回滚整批产物；recovery_required 为 true 时调用方必须按 recovery_action 使用 recovery_transaction 完成结果要求的终态动作。</tag>
 				<tag name="since">5.2.0</tag>
 			</tags>
 		</member>
@@ -113,9 +113,9 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">database: 要导出的配置数据库资源。</tag>
-				<tag name="param">options: 可选导出选项，支持 include_schema、include_indexes 和 max_depth。</tag>
+				<tag name="param">options: 可选导出选项，支持 include_schema、include_indexes、max_depth、max_nodes 和 max_output_bytes。</tag>
 				<tag name="return">JSON 兼容导出字典；数据库为空或存在不支持的 Variant 时返回空字典。</tag>
-				<tag name="schema">options: Dictionary，可包含 include_schema、include_indexes 和 max_depth。</tag>
+				<tag name="schema">options: Dictionary，可包含 include_schema、include_indexes、max_depth、max_nodes 和 max_output_bytes；调用方值会被框架绝对上限约束。</tag>
 				<tag name="schema">return: Dictionary，包含 format、format_version、database_id、version、metadata 和 tables。</tag>
 				<tag name="since">5.2.0</tag>
 			</tags>
@@ -129,7 +129,7 @@
 				<tag name="param">output_path: 输出路径，通常为 .tres、.res 或 .json。</tag>
 				<tag name="param">options: 保存选项，支持 output_format、include_schema、include_indexes、indent、sort_keys、overwrite_existing、allow_unowned_overwrite、dry_run 和 artifact_metadata。</tag>
 				<tag name="return">保存结果。</tag>
-				<tag name="schema">options: Dictionary，可包含 output_format、include_schema、include_indexes、indent、sort_keys、overwrite_existing、allow_unowned_overwrite、dry_run 和 artifact_metadata；allow_unowned_overwrite 仅用于调用方已明确确认现有文件所有权的迁移场景。</tag>
+				<tag name="schema">options: Dictionary，可包含 output_format、include_schema、include_indexes、max_depth、max_nodes、max_output_bytes、indent、sort_keys、overwrite_existing、allow_unowned_overwrite、dry_run 和 artifact_metadata；三个 JSON 预算会被框架绝对上限约束，allow_unowned_overwrite 仅用于调用方已明确确认现有文件所有权的迁移场景。</tag>
 				<tag name="schema">return: Dictionary，包含 success、path、format、error_code、error、artifact_report、status、written、changed 和 dry_run。</tag>
 				<tag name="since">5.2.0</tag>
 			</tags>
@@ -146,7 +146,7 @@
 				<tag name="param">options: 访问器生成选项，支持 GFConfigAccessGenerator 选项、overwrite_existing、allow_unowned_overwrite、dry_run、scan_filesystem 和 metadata。</tag>
 				<tag name="return">访问器生成结果。</tag>
 				<tag name="schema">options: Dictionary，可包含 method_name_style、constant_prefix、record_method_pattern、table_method_pattern、include_schema_comments、include_typed_records、typed_record_method_pattern、typed_record_class_suffix、overwrite_existing、allow_unowned_overwrite、dry_run、scan_filesystem 和 metadata；allow_unowned_overwrite 仅用于调用方已明确确认现有文件所有权的迁移场景。</tag>
-				<tag name="schema">return: Dictionary，包含 success、skipped、path、class_name、schema_count、error_code、error 和 artifact_report。</tag>
+				<tag name="schema">return: Dictionary，包含 success、skipped、path、class_name、schema_count、input_schema_count、emitted_schema_count、skipped_schema_count、issues、error_code、error 和 artifact_report；schema_count 是 emitted_schema_count 的兼容字段。</tag>
 				<tag name="since">5.2.0</tag>
 			</tags>
 		</member>

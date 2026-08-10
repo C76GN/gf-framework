@@ -22,9 +22,9 @@ extends Node3D
 enum CombinationMode {
 	## 汇总所有有效力场的加速度。
 	SUM,
-	## 只使用当前点加速度长度最大的力场。
+	## 只使用当前点加速度长度最大的力场；幅值比较不会计算可能溢出的原始平方范数。
 	STRONGEST,
-	## 只汇总当前点非零加速度中最高优先级的力场。
+	## 只汇总当前点非零加速度中最高优先级的力场；priority 使用完整 GDScript int 值域。
 	HIGHEST_PRIORITY,
 }
 
@@ -60,6 +60,9 @@ enum CombinationMode {
 @export var fallback_acceleration: Vector3 = Vector3.DOWN * 9.8
 
 ## 同一帧、同一位置重复 sample() 时是否复用上次结果。
+##
+## 分组缓存包含精确对象实例身份；内置 GFGravityField3D 还通过 revision 传播参数变化。
+## 任意 duck provider 的私有状态无法被自动观察，同帧改写后应调用 invalidate_cache() 或关闭缓存。
 ## [br]
 ## @api public
 ## [br]
@@ -88,6 +91,7 @@ var _cached_use_fallback_when_empty: bool = true
 var _cached_fallback_acceleration: Vector3 = Vector3.DOWN * 9.8
 var _cached_field_signature: String = ""
 var _cached_acceleration: Vector3 = Vector3.ZERO
+var _sample_operation_active: bool = false
 
 
 # --- 公共方法 ---
@@ -98,16 +102,52 @@ var _cached_acceleration: Vector3 = Vector3.ZERO
 ## [br]
 ## @since 3.17.0
 ## [br]
-## @return: 按 combination_mode 组合后的加速度。
+## 一次调用冻结入口位置、分组、组合模式和 fallback；field 回调中的修改从下一次采样生效。
+## 同一 Probe 的同步递归采样失败关闭为零向量，不改写外层事务。
+## [br]
+## @return: 按入口 combination_mode 组合后的有限加速度；聚合溢出或同步重入时返回零向量。
 func sample() -> Vector3:
-	var fields: Array[Node] = _get_fields_from_group()
+	if _sample_operation_active:
+		return Vector3.ZERO
+	_sample_operation_active = true
+	var query_cache_samples_per_frame: bool = cache_samples_per_frame
+	var query_position: Vector3 = global_position
+	var query_field_group: StringName = field_group
+	var query_combination_mode: CombinationMode = combination_mode
+	var query_use_fallback_when_empty: bool = use_fallback_when_empty
+	var query_fallback_acceleration: Vector3 = fallback_acceleration
+	var fields: Array[Node] = _get_fields_from_group(query_field_group)
 	var field_signature: String = _get_field_group_signature(fields)
-	if _can_use_cached_sample(field_signature):
+	if query_cache_samples_per_frame and _can_use_cached_sample(
+		field_signature,
+		query_position,
+		query_field_group,
+		query_combination_mode,
+		query_use_fallback_when_empty,
+		query_fallback_acceleration
+	):
 		last_acceleration = _cached_acceleration
-		return last_acceleration
-
-	last_acceleration = sample_fields(fields)
-	_store_sample_cache(field_signature)
+	else:
+		last_acceleration = _sample_fields_snapshot(
+			fields,
+			query_position,
+			query_combination_mode,
+			query_use_fallback_when_empty,
+			query_fallback_acceleration
+		)
+		if query_cache_samples_per_frame:
+			_store_sample_cache(
+				field_signature,
+				query_position,
+				query_field_group,
+				query_combination_mode,
+				query_use_fallback_when_empty,
+				query_fallback_acceleration,
+				last_acceleration
+			)
+		else:
+			invalidate_cache()
+	_sample_operation_active = false
 	return last_acceleration
 
 
@@ -121,19 +161,22 @@ func sample() -> Vector3:
 ## [br]
 ## @schema fields: Array，包含 GFGravityField3D 或任何暴露 get_acceleration_at(Vector3) 的 Object。
 ## [br]
-## @return: 按 combination_mode 组合后的加速度。
+## 一次调用冻结入口位置、组合模式和 fallback；同一 Probe 的同步递归采样返回零向量。
+## [br]
+## @return: 按入口 combination_mode 组合后的有限加速度；聚合溢出或同步重入时返回零向量。
 func sample_fields(fields: Array) -> Vector3:
-	var samples: Array[Dictionary] = _collect_field_samples(fields)
-	if samples.is_empty() and use_fallback_when_empty:
-		return _get_finite_fallback_acceleration()
-
-	match combination_mode:
-		CombinationMode.STRONGEST:
-			return _sample_strongest_field(samples)
-		CombinationMode.HIGHEST_PRIORITY:
-			return _sample_highest_priority_fields(samples)
-		_:
-			return _sample_sum_fields(samples)
+	if _sample_operation_active:
+		return Vector3.ZERO
+	_sample_operation_active = true
+	var acceleration: Vector3 = _sample_fields_snapshot(
+		fields,
+		global_position,
+		combination_mode,
+		use_fallback_when_empty,
+		fallback_acceleration
+	)
+	_sample_operation_active = false
+	return acceleration
 
 
 ## 从候选 provider 采样力场。
@@ -148,9 +191,25 @@ func sample_fields(fields: Array) -> Vector3:
 ## [br]
 ## @schema options: Dictionary passed to candidate_provider.get_candidate_objects(); method_name defaults to get_acceleration_at.
 ## [br]
-## @return: 按 combination_mode 组合后的加速度。
+## provider 查询与 field 采样共用同一入口查询快照；同一 Probe 的同步递归采样返回零向量。
+## [br]
+## @return: 按入口 combination_mode 组合后的有限加速度；聚合溢出或同步重入时返回零向量。
 func sample_field_provider(candidate_provider: Object, options: Dictionary = {}) -> Vector3:
-	last_acceleration = sample_fields(_get_field_provider_objects(candidate_provider, options))
+	if _sample_operation_active:
+		return Vector3.ZERO
+	_sample_operation_active = true
+	var query_position: Vector3 = global_position
+	var query_combination_mode: CombinationMode = combination_mode
+	var query_use_fallback_when_empty: bool = use_fallback_when_empty
+	var query_fallback_acceleration: Vector3 = fallback_acceleration
+	last_acceleration = _sample_fields_snapshot(
+		_get_field_provider_objects(candidate_provider, options),
+		query_position,
+		query_combination_mode,
+		query_use_fallback_when_empty,
+		query_fallback_acceleration
+	)
+	_sample_operation_active = false
 	return last_acceleration
 
 
@@ -192,14 +251,34 @@ func invalidate_cache() -> void:
 
 # --- 私有/辅助方法 ---
 
-func _collect_field_samples(fields: Array) -> Array[Dictionary]:
+func _sample_fields_snapshot(
+	fields: Array,
+	query_position: Vector3,
+	query_combination_mode: CombinationMode,
+	query_use_fallback_when_empty: bool,
+	query_fallback_acceleration: Vector3
+) -> Vector3:
+	var samples: Array[Dictionary] = _collect_field_samples(fields, query_position)
+	if samples.is_empty() and query_use_fallback_when_empty:
+		return _get_finite_fallback_acceleration(query_fallback_acceleration)
+
+	match query_combination_mode:
+		CombinationMode.STRONGEST:
+			return _sample_strongest_field(samples)
+		CombinationMode.HIGHEST_PRIORITY:
+			return _sample_highest_priority_fields(samples)
+		_:
+			return _sample_sum_fields(samples)
+
+
+func _collect_field_samples(fields: Array, query_position: Vector3) -> Array[Dictionary]:
 	var samples: Array[Dictionary] = []
 	var field_snapshot: Array = fields.duplicate()
 	for field_value: Variant in field_snapshot:
 		var field: Object = _variant_to_valid_object(field_value)
 		if field == null or not _is_field_in_probe_scope(field) or not _can_call_get_acceleration_at(field):
 			continue
-		var value: Variant = field.call("get_acceleration_at", global_position)
+		var value: Variant = field.call("get_acceleration_at", query_position)
 		if not is_instance_valid(field):
 			continue
 		if value is Vector3:
@@ -239,37 +318,60 @@ func _get_field_provider_objects(candidate_provider: Object, options: Dictionary
 func _sample_sum_fields(samples: Array[Dictionary]) -> Vector3:
 	var acceleration_sum: Vector3 = Vector3.ZERO
 	for sample_record: Dictionary in samples:
-		acceleration_sum += _get_sample_acceleration(sample_record)
+		var next_sum: Vector3 = acceleration_sum + _get_sample_acceleration(sample_record)
+		if not _is_finite_vector3(next_sum):
+			return Vector3.ZERO
+		acceleration_sum = next_sum
 	return acceleration_sum
 
 
 func _sample_strongest_field(samples: Array[Dictionary]) -> Vector3:
 	var best_acceleration: Vector3 = Vector3.ZERO
-	var best_length_squared: float = -1.0
 	var best_order_key: String = ""
+	var has_best_sample: bool = false
 	for sample_record: Dictionary in samples:
 		var acceleration_value: Vector3 = _get_sample_acceleration(sample_record)
-		var length_squared: float = acceleration_value.length_squared()
 		var order_key: String = GFVariantData.get_option_string(sample_record, "order_key")
+		var magnitude_comparison: int = _compare_vector3_magnitude(acceleration_value, best_acceleration)
 		if (
-			length_squared > best_length_squared
-			or (is_equal_approx(length_squared, best_length_squared) and (best_order_key.is_empty() or order_key < best_order_key))
+			not has_best_sample
+			or magnitude_comparison > 0
+			or (magnitude_comparison == 0 and (best_order_key.is_empty() or order_key < best_order_key))
 		):
-			best_length_squared = length_squared
+			has_best_sample = true
 			best_order_key = order_key
 			best_acceleration = acceleration_value
 	return best_acceleration
 
 
+func _compare_vector3_magnitude(left: Vector3, right: Vector3) -> int:
+	var comparison_scale: float = maxf(_get_max_abs_component(left), _get_max_abs_component(right))
+	if comparison_scale <= 0.0:
+		return 0
+	var left_scaled_length_squared: float = (left / comparison_scale).length_squared()
+	var right_scaled_length_squared: float = (right / comparison_scale).length_squared()
+	if is_equal_approx(left_scaled_length_squared, right_scaled_length_squared):
+		return 0
+	return 1 if left_scaled_length_squared > right_scaled_length_squared else -1
+
+
+func _get_max_abs_component(value: Vector3) -> float:
+	return maxf(absf(value.x), maxf(absf(value.y), absf(value.z)))
+
+
 func _sample_highest_priority_fields(samples: Array[Dictionary]) -> Vector3:
-	var best_priority: int = -2147483648
+	var best_priority: int = 0
 	var has_active_sample: bool = false
 	for sample_record: Dictionary in samples:
 		var acceleration_value: Vector3 = _get_sample_acceleration(sample_record)
 		if acceleration_value.is_zero_approx():
 			continue
-		best_priority = maxi(best_priority, _get_sample_priority(sample_record))
-		has_active_sample = true
+		var sample_priority: int = _get_sample_priority(sample_record)
+		if not has_active_sample:
+			best_priority = sample_priority
+			has_active_sample = true
+		else:
+			best_priority = maxi(best_priority, sample_priority)
 
 	if not has_active_sample:
 		return Vector3.ZERO
@@ -280,7 +382,10 @@ func _sample_highest_priority_fields(samples: Array[Dictionary]) -> Vector3:
 		if acceleration_value.is_zero_approx():
 			continue
 		if _get_sample_priority(sample_record) == best_priority:
-			acceleration_sum += acceleration_value
+			var next_sum: Vector3 = acceleration_sum + acceleration_value
+			if not _is_finite_vector3(next_sum):
+				return Vector3.ZERO
+			acceleration_sum = next_sum
 	return acceleration_sum
 
 
@@ -315,30 +420,44 @@ func _get_sample_priority(sample_record: Dictionary) -> int:
 	return 0
 
 
-func _can_use_cached_sample(field_signature: String) -> bool:
+func _can_use_cached_sample(
+	field_signature: String,
+	query_position: Vector3,
+	query_field_group: StringName,
+	query_combination_mode: CombinationMode,
+	query_use_fallback_when_empty: bool,
+	query_fallback_acceleration: Vector3
+) -> bool:
 	return (
-		cache_samples_per_frame
-		and _cached_process_frame == Engine.get_process_frames()
+		_cached_process_frame == Engine.get_process_frames()
 		and _cached_physics_frame == Engine.get_physics_frames()
-		and _cached_field_group == field_group
-		and _cached_combination_mode == combination_mode
-		and _cached_use_fallback_when_empty == use_fallback_when_empty
-		and _cached_fallback_acceleration == fallback_acceleration
-		and _cached_position == global_position
+		and _cached_field_group == query_field_group
+		and _cached_combination_mode == query_combination_mode
+		and _cached_use_fallback_when_empty == query_use_fallback_when_empty
+		and _cached_fallback_acceleration == query_fallback_acceleration
+		and _cached_position == query_position
 		and _cached_field_signature == field_signature
 	)
 
 
-func _store_sample_cache(field_signature: String) -> void:
+func _store_sample_cache(
+	field_signature: String,
+	query_position: Vector3,
+	query_field_group: StringName,
+	query_combination_mode: CombinationMode,
+	query_use_fallback_when_empty: bool,
+	query_fallback_acceleration: Vector3,
+	acceleration: Vector3
+) -> void:
 	_cached_process_frame = Engine.get_process_frames()
 	_cached_physics_frame = Engine.get_physics_frames()
-	_cached_field_group = field_group
-	_cached_combination_mode = combination_mode
-	_cached_use_fallback_when_empty = use_fallback_when_empty
-	_cached_fallback_acceleration = fallback_acceleration
-	_cached_position = global_position
+	_cached_field_group = query_field_group
+	_cached_combination_mode = query_combination_mode
+	_cached_use_fallback_when_empty = query_use_fallback_when_empty
+	_cached_fallback_acceleration = query_fallback_acceleration
+	_cached_position = query_position
 	_cached_field_signature = field_signature
-	_cached_acceleration = last_acceleration
+	_cached_acceleration = acceleration
 
 
 func _get_field_group_signature(fields: Array[Node]) -> String:
@@ -351,11 +470,11 @@ func _get_field_group_signature(fields: Array[Node]) -> String:
 	return "|".join(ids)
 
 
-func _get_fields_from_group() -> Array[Node]:
+func _get_fields_from_group(query_field_group: StringName) -> Array[Node]:
 	var result: Array[Node] = []
-	if get_tree() == null or field_group == &"":
+	if get_tree() == null or query_field_group == &"":
 		return result
-	for node: Node in get_tree().get_nodes_in_group(String(field_group)):
+	for node: Node in get_tree().get_nodes_in_group(String(query_field_group)):
 		if _is_field_in_probe_scope(node) and _can_call_get_acceleration_at(node):
 			result.append(node)
 	return result
@@ -405,6 +524,7 @@ func _get_field_order_key(field: Object) -> String:
 
 func _get_field_signature(field: Node) -> String:
 	var parts: PackedStringArray = PackedStringArray()
+	var _instance_id_appended: bool = parts.append(str(field.get_instance_id()))
 	var _id_appended: bool = parts.append(_get_field_order_key(field))
 	if field is Node3D:
 		var node_3d: Node3D = field
@@ -427,8 +547,8 @@ func _get_field_signature(field: Node) -> String:
 	return ":".join(parts)
 
 
-func _get_finite_fallback_acceleration() -> Vector3:
-	return fallback_acceleration if _is_finite_vector3(fallback_acceleration) else Vector3.ZERO
+func _get_finite_fallback_acceleration(value: Vector3) -> Vector3:
+	return value if _is_finite_vector3(value) else Vector3.ZERO
 
 
 func _is_finite_vector3(value: Vector3) -> bool:

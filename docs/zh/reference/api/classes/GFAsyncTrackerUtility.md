@@ -324,7 +324,7 @@ func refresh_snapshot(tracking_id: int) -> Dictionary:
 
 结构：
 
-- `return`: Dictionary，包含 ok、tracking_id、refreshed、error、entry_count 和 truncated。
+- `return`: Dictionary，包含 ok、tracking_id、refreshed、error、entry_count、truncated、stale 和 attempted_msec。
 
 <a id="member-gfasynctrackerutility-methods-refresh_snapshots"></a>
 
@@ -374,7 +374,7 @@ func get_active_records(include_invalid: bool = false) -> Array[Dictionary]:
 
 结构：
 
-- `return`: Array[Dictionary]，每项包含 tracking_id、label、valid、age_msec、metadata 和可选 snapshot / stack_trace。
+- `return`: Array[Dictionary]，每项包含 tracking_id、label、valid、age_msec、metadata、snapshot_entry_count、snapshot_truncated、snapshot_stale、snapshot_attempted_msec、snapshot_refreshed_msec 和可选 snapshot、snapshot_error、stack_trace。
 
 <a id="member-gfasynctrackerutility-methods-get_debug_snapshot"></a>
 

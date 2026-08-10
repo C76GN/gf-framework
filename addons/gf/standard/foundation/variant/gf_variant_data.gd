@@ -14,6 +14,9 @@ extends RefCounted
 const _GF_VARIANT_ACCESS_SCRIPT = preload("res://addons/gf/kernel/core/gf_variant_access.gd")
 const _MAX_SAFE_JSON_INTEGER: float = 9_007_199_254_740_991.0
 const _DEFAULT_MAX_DIFF_DIAGNOSTICS: int = 1024
+const _DEFAULT_MAX_DIFF_DEPTH: int = 64
+const _DEFAULT_MAX_DIFF_NODES: int = 16_384
+const _DEFAULT_MAX_DIFF_COLLECTION_ITEMS: int = 65_536
 
 
 # --- 公共方法 ---
@@ -486,24 +489,26 @@ static func deep_merge_defaults(base: Dictionary, defaults: Dictionary) -> Dicti
 ## [br]
 ## @schema after: 待比较的 Variant 值。
 ## [br]
-## @param options: 可选项。支持 max_changes、max_diagnostics、copy_values。
+## @param options: 可选项。支持 max_changes、max_diagnostics、copy_values、max_depth、max_nodes 和 max_collection_items；所有资源预算 <=0 表示不限制。
 ## [br]
-## @schema options: Dictionary，可选字段：max_changes 为最多记录差异数，默认 1024；max_diagnostics 为最多记录遍历诊断数，默认 1024；两者 <=0 表示不限；copy_values 默认为 true。
+## @schema options: Dictionary，可选字段：max_changes 为最多记录差异数，默认 1024；max_diagnostics 为最多记录遍历诊断数，默认 1024；max_depth、max_nodes 和 max_collection_items 分别限制递归深度、访问节点数和集合元素工作量；所有预算 <=0 表示不限；copy_values 默认为 true。
 ## [br]
 ## @return 差异报告。内容差异与遍历诊断分别存放在 changes 和 diagnostics。
 ## [br]
-## @schema return: Dictionary；changes 每项包含 kind、path、path_segments、old_value、new_value、old_type、new_type，kind 仅为 added、removed、changed 或 type_changed；diagnostics 每项包含 kind、path、path_segments，循环重入 kind 为 cycle_detected。changed 不受 diagnostics 影响。
+## @schema return: Dictionary；changes 每项包含 kind、path、path_segments、old_value、new_value、old_type、new_type，kind 仅为 added、removed、changed 或 type_changed；diagnostics 每项包含 kind、path、path_segments，循环重入 kind 为 cycle_detected，资源预算耗尽 kind 为 traversal_budget_exceeded 并包含 reason；complete/traversal_truncated 独立描述遍历完整性，changed 不受 diagnostics 或不完整状态影响。
 static func diff_variant(before: Variant, after: Variant, options: Dictionary = {}) -> Dictionary:
 	var state: Dictionary = _make_diff_state(options)
-	_diff_variant_recursive(before, after, [], state)
+	_diff_variant_recursive(before, after, [], 0, state)
 	var changes: Array = state["changes"]
 	var diagnostics: Array = state["diagnostics"]
 	var truncated: bool = state["truncated"]
 	var diagnostics_truncated: bool = state["diagnostics_truncated"]
+	var traversal_truncated: bool = state["traversal_truncated"]
 	var max_changes: int = state["max_changes"]
 	var max_diagnostics: int = state["max_diagnostics"]
 	return {
 		"changed": not changes.is_empty() or truncated,
+		"complete": not traversal_truncated,
 		"change_count": changes.size(),
 		"truncated": truncated,
 		"max_changes": max_changes,
@@ -512,6 +517,13 @@ static func diff_variant(before: Variant, after: Variant, options: Dictionary = 
 		"diagnostics_truncated": diagnostics_truncated,
 		"max_diagnostics": max_diagnostics,
 		"diagnostics": diagnostics,
+		"traversal_truncated": traversal_truncated,
+		"traversal_reason": state["traversal_reason"],
+		"visited_node_count": state["visited_node_count"],
+		"visited_collection_item_count": state["visited_collection_item_count"],
+		"max_depth": state["max_depth"],
+		"max_nodes": state["max_nodes"],
+		"max_collection_items": state["max_collection_items"],
 	}
 
 
@@ -840,11 +852,47 @@ static func _make_diff_state(options: Dictionary) -> Dictionary:
 		"max_diagnostics": max_diagnostics,
 		"copy_values": copy_values,
 		"visited_pairs": [],
+		"traversal_truncated": false,
+		"traversal_reason": "",
+		"visited_node_count": 0,
+		"visited_collection_item_count": 0,
+		"max_depth": maxi(
+			_GF_VARIANT_ACCESS_SCRIPT.get_option_int(
+				options,
+				"max_depth",
+				_DEFAULT_MAX_DIFF_DEPTH
+			),
+			0
+		),
+		"max_nodes": maxi(
+			_GF_VARIANT_ACCESS_SCRIPT.get_option_int(
+				options,
+				"max_nodes",
+				_DEFAULT_MAX_DIFF_NODES
+			),
+			0
+		),
+		"max_collection_items": maxi(
+			_GF_VARIANT_ACCESS_SCRIPT.get_option_int(
+				options,
+				"max_collection_items",
+				_DEFAULT_MAX_DIFF_COLLECTION_ITEMS
+			),
+			0
+		),
 	}
 
 
-static func _diff_variant_recursive(before: Variant, after: Variant, path_segments: Array, state: Dictionary) -> void:
-	if _is_diff_truncated(state):
+static func _diff_variant_recursive(
+	before: Variant,
+	after: Variant,
+	path_segments: Array,
+	depth: int,
+	state: Dictionary
+) -> void:
+	if _is_diff_truncated(state) or _is_diff_traversal_truncated(state):
+		return
+	if not _consume_diff_node(depth, path_segments, state):
 		return
 	if _diff_values_are_identical(before, after):
 		return
@@ -862,7 +910,12 @@ static func _diff_variant_recursive(before: Variant, after: Variant, path_segmen
 		_push_diff_pair(before, after, state)
 		var before_dictionary: Dictionary = before
 		var after_dictionary: Dictionary = after
-		_diff_dictionary(before_dictionary, after_dictionary, path_segments, state)
+		if _consume_diff_collection_items(
+			before_dictionary.size() + after_dictionary.size(),
+			path_segments,
+			state
+		):
+			_diff_dictionary(before_dictionary, after_dictionary, path_segments, depth, state)
 		_pop_diff_pair(state)
 		return
 
@@ -873,7 +926,12 @@ static func _diff_variant_recursive(before: Variant, after: Variant, path_segmen
 		_push_diff_pair(before, after, state)
 		var before_array: Array = before
 		var after_array: Array = after
-		_diff_array(before_array, after_array, path_segments, state)
+		if _consume_diff_collection_items(
+			before_array.size() + after_array.size(),
+			path_segments,
+			state
+		):
+			_diff_array(before_array, after_array, path_segments, depth, state)
 		_pop_diff_pair(state)
 		return
 
@@ -881,66 +939,92 @@ static func _diff_variant_recursive(before: Variant, after: Variant, path_segmen
 		_append_diff_change("changed", path_segments, before, after, state)
 
 
-static func _diff_dictionary(before: Dictionary, after: Dictionary, path_segments: Array, state: Dictionary) -> void:
+static func _diff_dictionary(
+	before: Dictionary,
+	after: Dictionary,
+	path_segments: Array,
+	depth: int,
+	state: Dictionary
+) -> void:
 	var used_after_keys: Dictionary = {}
+	var string_like_key_index: Dictionary = _make_string_like_key_index(after)
 
 	for before_key: Variant in before.keys():
-		if _is_diff_truncated(state):
+		if _is_diff_truncated(state) or _is_diff_traversal_truncated(state):
 			return
 
-		var match: Dictionary = _find_matching_dictionary_key(after, before_key, used_after_keys)
-		var child_path_segments: Array = path_segments.duplicate()
-		child_path_segments.append(before_key)
+		var match: Dictionary = _find_matching_dictionary_key(
+			after,
+			before_key,
+			used_after_keys,
+			string_like_key_index
+		)
+		path_segments.append(before_key)
 		if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(match, "found"):
-			_append_diff_change("removed", child_path_segments, before[before_key], null, state)
+			_append_diff_change("removed", path_segments, before[before_key], null, state)
+			var _removed_missing_path_segment: Variant = path_segments.pop_back()
 			continue
 
 		var after_key: Variant = _GF_VARIANT_ACCESS_SCRIPT.get_option_value(match, "key")
 		used_after_keys[after_key] = true
-		_diff_variant_recursive(before[before_key], after[after_key], child_path_segments, state)
+		_diff_variant_recursive(
+			before[before_key],
+			after[after_key],
+			path_segments,
+			depth + 1,
+			state
+		)
+		var _removed_matched_path_segment: Variant = path_segments.pop_back()
 
 	for after_key: Variant in after.keys():
-		if _is_diff_truncated(state):
+		if _is_diff_truncated(state) or _is_diff_traversal_truncated(state):
 			return
 		if used_after_keys.has(after_key):
 			continue
 
-		var child_path_segments: Array = path_segments.duplicate()
-		child_path_segments.append(after_key)
-		_append_diff_change("added", child_path_segments, null, after[after_key], state)
+		path_segments.append(after_key)
+		_append_diff_change("added", path_segments, null, after[after_key], state)
+		var _removed_added_path_segment: Variant = path_segments.pop_back()
 
 
-static func _diff_array(before: Array, after: Array, path_segments: Array, state: Dictionary) -> void:
+static func _diff_array(
+	before: Array,
+	after: Array,
+	path_segments: Array,
+	depth: int,
+	state: Dictionary
+) -> void:
 	var shared_size: int = mini(before.size(), after.size())
 	for index: int in range(shared_size):
-		if _is_diff_truncated(state):
+		if _is_diff_truncated(state) or _is_diff_traversal_truncated(state):
 			return
 
-		var child_path_segments: Array = path_segments.duplicate()
-		child_path_segments.append(index)
-		_diff_variant_recursive(before[index], after[index], child_path_segments, state)
+		path_segments.append(index)
+		_diff_variant_recursive(before[index], after[index], path_segments, depth + 1, state)
+		var _removed_shared_path_segment: Variant = path_segments.pop_back()
 
 	for index: int in range(shared_size, before.size()):
-		if _is_diff_truncated(state):
+		if _is_diff_truncated(state) or _is_diff_traversal_truncated(state):
 			return
 
-		var removed_path_segments: Array = path_segments.duplicate()
-		removed_path_segments.append(index)
-		_append_diff_change("removed", removed_path_segments, before[index], null, state)
+		path_segments.append(index)
+		_append_diff_change("removed", path_segments, before[index], null, state)
+		var _removed_old_path_segment: Variant = path_segments.pop_back()
 
 	for index: int in range(shared_size, after.size()):
-		if _is_diff_truncated(state):
+		if _is_diff_truncated(state) or _is_diff_traversal_truncated(state):
 			return
 
-		var added_path_segments: Array = path_segments.duplicate()
-		added_path_segments.append(index)
-		_append_diff_change("added", added_path_segments, null, after[index], state)
+		path_segments.append(index)
+		_append_diff_change("added", path_segments, null, after[index], state)
+		var _removed_new_path_segment: Variant = path_segments.pop_back()
 
 
 static func _find_matching_dictionary_key(
 	dictionary: Dictionary,
 	key: Variant,
-	used_keys: Dictionary
+	used_keys: Dictionary,
+	string_like_key_index: Dictionary
 ) -> Dictionary:
 	if dictionary.has(key) and not used_keys.has(key):
 		return {
@@ -952,7 +1036,11 @@ static func _find_matching_dictionary_key(
 		return { "found": false }
 
 	var key_text: String = to_text(key)
-	for candidate_key: Variant in dictionary.keys():
+	var candidates: Array = _GF_VARIANT_ACCESS_SCRIPT.get_option_array(
+		string_like_key_index,
+		key_text
+	)
+	for candidate_key: Variant in candidates:
 		if used_keys.has(candidate_key) or not _is_string_like_key(candidate_key):
 			continue
 		if to_text(candidate_key) == key_text:
@@ -962,6 +1050,18 @@ static func _find_matching_dictionary_key(
 			}
 
 	return { "found": false }
+
+
+static func _make_string_like_key_index(dictionary: Dictionary) -> Dictionary:
+	var result: Dictionary = {}
+	for key: Variant in dictionary.keys():
+		if not _is_string_like_key(key):
+			continue
+		var key_text: String = to_text(key)
+		var candidates: Array = _GF_VARIANT_ACCESS_SCRIPT.get_option_array(result, key_text)
+		candidates.append(key)
+		result[key_text] = candidates
+	return result
 
 
 static func _append_diff_change(
@@ -988,18 +1088,26 @@ static func _append_diff_change(
 	})
 
 
-static func _append_diff_diagnostic(kind: String, path_segments: Array, state: Dictionary) -> void:
+static func _append_diff_diagnostic(
+	kind: String,
+	path_segments: Array,
+	state: Dictionary,
+	additional_fields: Dictionary = {}
+) -> void:
 	var diagnostics: Array = state["diagnostics"]
 	var max_diagnostics: int = state["max_diagnostics"]
 	if max_diagnostics > 0 and diagnostics.size() >= max_diagnostics:
 		state["diagnostics_truncated"] = true
 		return
 
-	diagnostics.append({
+	var diagnostic: Dictionary = {
 		"kind": kind,
 		"path": _format_diff_path(path_segments),
 		"path_segments": duplicate_variant(path_segments, true, false),
-	})
+	}
+	for field_key: Variant in additional_fields.keys():
+		diagnostic[field_key] = duplicate_variant(additional_fields[field_key], true, false)
+	diagnostics.append(diagnostic)
 
 
 static func _copy_diff_value(value: Variant, state: Dictionary) -> Variant:
@@ -1025,6 +1133,68 @@ static func _diff_values_are_identical(before: Variant, after: Variant) -> bool:
 
 static func _is_diff_truncated(state: Dictionary) -> bool:
 	return _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(state, "truncated")
+
+
+static func _is_diff_traversal_truncated(state: Dictionary) -> bool:
+	return _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(state, "traversal_truncated")
+
+
+static func _consume_diff_node(depth: int, path_segments: Array, state: Dictionary) -> bool:
+	var max_depth: int = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(state, "max_depth")
+	if max_depth > 0 and depth > max_depth:
+		_mark_diff_traversal_truncated("max_depth", path_segments, state)
+		return false
+	var visited_node_count: int = (
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_int(state, "visited_node_count")
+		+ 1
+	)
+	var max_nodes: int = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(state, "max_nodes")
+	if max_nodes > 0 and visited_node_count > max_nodes:
+		_mark_diff_traversal_truncated("max_nodes", path_segments, state)
+		return false
+	state["visited_node_count"] = visited_node_count
+	return true
+
+
+static func _consume_diff_collection_items(
+	item_count: int,
+	path_segments: Array,
+	state: Dictionary
+) -> bool:
+	var visited_item_count: int = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(
+		state,
+		"visited_collection_item_count"
+	)
+	var bounded_item_count: int = maxi(item_count, 0)
+	var max_collection_items: int = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(
+		state,
+		"max_collection_items"
+	)
+	if (
+		max_collection_items > 0
+		and bounded_item_count > max_collection_items - mini(visited_item_count, max_collection_items)
+	):
+		_mark_diff_traversal_truncated("max_collection_items", path_segments, state)
+		return false
+	state["visited_collection_item_count"] = visited_item_count + bounded_item_count
+	return true
+
+
+static func _mark_diff_traversal_truncated(
+	reason: String,
+	path_segments: Array,
+	state: Dictionary
+) -> void:
+	if _is_diff_traversal_truncated(state):
+		return
+	state["traversal_truncated"] = true
+	state["traversal_reason"] = reason
+	_append_diff_diagnostic(
+		"traversal_budget_exceeded",
+		path_segments,
+		state,
+		{ "reason": reason }
+	)
 
 
 static func _is_diff_pair_active(before: Variant, after: Variant, state: Dictionary) -> bool:

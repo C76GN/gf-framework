@@ -112,9 +112,14 @@ func score(context: GFDecisionContext) -> float:
 	return _GF_DECISION_NUMERIC_POLICY.normalize_score(raw_score)
 
 
-## 获取考虑项调试快照。
+## 现场评分并获取考虑项调试快照。
+##
+## 该入口会执行一次 score()，因此自定义 _score() 的项目逻辑也会执行。
+## 已有预计算分数时应使用 get_debug_snapshot_from_score()，避免观察阶段重放评分。
 ## [br]
 ## @api public
+## [br]
+## @since 4.3.0
 ## [br]
 ## @param context: 决策上下文。
 ## [br]
@@ -122,10 +127,25 @@ func score(context: GFDecisionContext) -> float:
 ## [br]
 ## @schema return: 包含 consideration_id、enabled、score、weight、input_source 和 input_key 字段的 Dictionary。
 func get_debug_snapshot(context: GFDecisionContext) -> Dictionary:
+	return get_debug_snapshot_from_score(score(context))
+
+
+## 从预计算分数获取考虑项调试快照，不执行自定义评分逻辑。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param score_value: 已计算的考虑项分数。
+## [br]
+## @return: 调试快照字典。
+## [br]
+## @schema return: 包含 consideration_id、enabled、score、weight、input_source 和 input_key 字段的 Dictionary。
+func get_debug_snapshot_from_score(score_value: float) -> Dictionary:
 	return GFReportValueCodec.to_report_dictionary({
 		"consideration_id": consideration_id,
 		"enabled": enabled,
-		"score": score(context),
+		"score": _GF_DECISION_NUMERIC_POLICY.normalize_score(score_value, missing_score),
 		"weight": _GF_DECISION_NUMERIC_POLICY.normalize_weight(weight),
 		"input_source": input_source,
 		"input_key": input_key,

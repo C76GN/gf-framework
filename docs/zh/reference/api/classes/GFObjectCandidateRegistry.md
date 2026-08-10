@@ -63,7 +63,7 @@ signal candidates_changed(revision: int)
 var max_candidates: int = 0:
 ```
 
-最大候选记录数量；小于等于 0 时不限制。
+最大候选记录数量；小于等于 0 时不限制。降低上限会立即按注册顺序淘汰最旧记录； 一次容量收敛只推进一次 revision 并发出一次 candidates_changed。
 
 <a id="member-gfobjectcandidateregistry-properties-metadata"></a>
 

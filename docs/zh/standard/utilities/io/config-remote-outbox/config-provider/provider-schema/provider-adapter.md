@@ -75,7 +75,9 @@ if item == null:
 	push_error("items[1001] 不存在。")
 ```
 
-表源可以是 `Array`、`Dictionary`、自定义对象或 `Callable`。数组表默认按 `id_field` 查找记录；字典表按键查找，并支持 `String` / `StringName` 文本等价；对象源会先尝试通过 `table_method`（默认 `get_table()`）解析整表，只有解析后的表值仍是对象时，单条查询才调用 `record_method`（默认 `get_record(record_id)`）。`cache` 默认为 `true`，懒加载结果会缓存到 Provider 内，`clear_table_cache()` 可清掉单表缓存。
+表源可以是 `Array`、`Dictionary`、自定义对象或 `Callable`。数组表默认按 `id_field` 查找记录；字典表按键查找，并支持 `String` / `StringName` 文本等价；对象源会先尝试通过 `table_method`（默认 `get_table()`）解析整表，只有解析后的表值仍是对象时，单条查询才调用 `record_method`（默认 `get_record(record_id)`）。`cache` 默认为 `true`，懒加载结果会缓存到 Provider 内，`clear_table_cache()` 可清掉单表缓存。缓存中的对象若已被释放，Provider 会先逐出失效值再重新解析表源，不会把悬空对象继续报告为加载成功。
+
+Callable loader 是同步、不可重入的加载边界。loader 可以读取已经加载完成的其他表，但不得形成 `A -> A` 或 `A -> B -> A` 一类循环依赖；Provider 会让整个活动闭环 fail-closed，并在加载报告的 `error` 中给出闭环路径。需要相互引用的数据应先独立加载原始表，再在导入校验或单独的装配阶段建立关系。
 
 这个适配器只做运行时读取边界，不解析 CSV、JSON、二进制包或网络协议，也不规定表名、字段名和热更新策略。复杂导入、签名、下载和分端裁剪仍应放在项目工具或独立制作期包里。
 
@@ -131,6 +133,8 @@ if item == null:
 `validate_database()` 会聚合表资源状态、schema 校验、表数据校验和跨表引用校验，返回 `GFConfigValidationReport` 兼容字典。它适合在导入后、CI 或运行时调试入口检查整包配置是否可用。
 
 `GFResourceConfigProvider` 负责运行时查询面：`get_record()`、`get_table()`、`get_index_record()` 和 `get_index_records()` 默认返回副本，避免业务代码修改共享资源数据。Provider 内部会维护表名和 schema registry，替换表资源时应使用 `set_table_resources()` 或 `register_table()`，不要绕过 Provider 入口维护缓存。
+
+`set_table_resources()` 是明确的 clear-then-register best-effort 操作：它先删除旧集合，再逐项接受有效候选，返回成功数量；返回值小于输入数量时，Provider 已处于“仅包含有效候选”的部分新状态，不会自动恢复旧集合。它适合已在制作期完整校验的数据库产物或允许部分可用的恢复流程，不是热更新事务。需要失败候选不影响 last-good 时，应先在独立 Provider 中 staging/validation，成功后再交换项目持有的 Provider/Snapshot。
 
 这层只解决运行时读取 `.tres/.res` 表资源的问题；源表导入、xlsx/xml/yaml 解析、代码生成、构建报告和编辑器 UI 仍应留给项目工具或独立工具包。
 

@@ -230,6 +230,48 @@ func test_scan_audio_paths_respects_audio_path_limit() -> void:
 	assert_eq(paths.size(), 1, "音频扫描应遵守 max_audio_paths 上限。")
 
 
+func test_scan_audio_paths_caps_total_directory_entries() -> void:
+	var root_path: String = "user://gf_audio_bank_tools_entry_limit"
+	var audio_paths: PackedStringArray = PackedStringArray([
+		root_path.path_join("first.ogg"),
+		root_path.path_join("second.ogg"),
+		root_path.path_join("third.ogg"),
+		root_path.path_join("fourth.ogg"),
+	])
+	var make_root_error: Error = DirAccess.make_dir_recursive_absolute(root_path)
+	assert_true(
+		make_root_error == OK or make_root_error == ERR_ALREADY_EXISTS,
+		"测试应能创建扫描预算目录。"
+	)
+	for audio_path: String in audio_paths:
+		_write_empty_user_file(audio_path)
+
+	var paths: PackedStringArray = GFAudioBankTools.scan_audio_paths(root_path, {
+		"max_audio_paths": 0,
+		"max_scan_depth": 0,
+		"max_scanned_entries": 2,
+	})
+	assert_push_warning(
+		"[GFAudioBankTools] scan_audio_paths 已达到 max_scanned_entries=2，后续目录项已跳过。"
+	)
+
+	for audio_path: String in audio_paths:
+		_remove_user_file(audio_path)
+	_remove_user_dir(root_path)
+
+	assert_eq(paths.size(), 2, "扫描总目录项预算必须独立于匹配到的音频数量。")
+	assert_true(
+		GFAudioBankTools.ABSOLUTE_MAX_SCAN_DEPTH >= GFAudioBankTools.DEFAULT_MAX_SCAN_DEPTH
+	)
+	assert_true(
+		GFAudioBankTools.ABSOLUTE_MAX_AUDIO_PATHS >= GFAudioBankTools.DEFAULT_MAX_AUDIO_PATHS
+	)
+	assert_true(
+		GFAudioBankTools.ABSOLUTE_MAX_SCANNED_ENTRIES
+		>= GFAudioBankTools.DEFAULT_MAX_SCANNED_ENTRIES
+	)
+
+
 func test_audio_library_scan_builds_searchable_entries() -> void:
 	var root_path: String = "user://gf_audio_library_scan"
 	var ui_dir: String = root_path.path_join("ui")
@@ -455,6 +497,16 @@ func test_audio_library_copy_import_plan_handles_large_binary_files() -> void:
 	_remove_user_dir(target_root)
 
 	assert_eq(GFVariantData.get_option_int(report.metadata, "copied_count"), 1, "大文件复制应仍报告成功。")
+	assert_eq(
+		GFVariantData.get_option_int(report.metadata, "consumed_copy_bytes"),
+		source_bytes.size(),
+		"执行期预算应记录实际读取字节数。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(report.metadata, "committed_copy_bytes"),
+		source_bytes.size(),
+		"成功提交的字节数应与源文件一致。"
+	)
 	assert_eq(copied_bytes.size(), source_bytes.size(), "分块复制不应截断音频文件。")
 	assert_eq(copied_bytes[0], source_bytes[0], "复制结果应保留文件开头字节。")
 	assert_eq(copied_bytes[copied_bytes.size() - 1], source_bytes[source_bytes.size() - 1], "复制结果应保留文件末尾字节。")
@@ -581,7 +633,128 @@ func test_audio_library_copy_import_plan_rejects_total_bytes_above_limit() -> vo
 	assert_eq(GFVariantData.get_option_int(counts, "copy_byte_limit_exceeded"), 1, "报告应记录总字节超限。")
 	assert_eq(GFVariantData.get_option_int(report.metadata, "planned_copy_bytes"), 6, "预算元数据应记录计划复制字节数。")
 	assert_eq(GFVariantData.get_option_int(report.metadata, "copied_count"), 0, "超限时不应执行部分复制。")
+	assert_eq(GFVariantData.get_option_int(report.metadata, "consumed_copy_bytes"), 0, "预检超限不得开始读取。")
+	assert_eq(GFVariantData.get_option_int(report.metadata, "committed_copy_bytes"), 0, "预检超限不得提交字节。")
 	assert_false(target_exists, "超限时不应写入目标文件。")
+
+
+func test_audio_library_copy_rejects_source_size_change_after_preflight() -> void:
+	var root_path: String = "user://gf_audio_library_copy_changed_source"
+	var source_path: String = root_path.path_join("changed.ogg")
+	var temp_path: String = root_path.path_join("changed.tmp")
+	var _make_root_result: Variant = DirAccess.make_dir_recursive_absolute(root_path)
+	_write_user_file(source_path, "1234")
+	var expected_source_size: int = GFAudioLibraryToolsScript._get_file_size(source_path)
+	_write_user_file(source_path, "12345678")
+	var copy_state: Dictionary = {
+		"max_bytes": 4,
+		"consumed_bytes": 0,
+		"committed_bytes": 0,
+	}
+
+	var copy_result: Dictionary = GFAudioLibraryToolsScript._copy_file_to_path(
+		source_path,
+		temp_path,
+		expected_source_size,
+		copy_state
+	)
+	var temp_exists: bool = FileAccess.file_exists(temp_path)
+
+	_remove_user_file(source_path)
+	_remove_user_file(temp_path)
+	_remove_user_dir(root_path)
+
+	assert_eq(GFVariantData.get_option_int(copy_result, "error"), ERR_FILE_CORRUPT)
+	assert_eq(GFVariantData.get_option_string_name(copy_result, "reason"), &"source_changed")
+	assert_eq(GFVariantData.get_option_int(copy_result, "expected_source_size"), 4)
+	assert_eq(GFVariantData.get_option_int(copy_result, "observed_source_size"), 8)
+	assert_eq(GFVariantData.get_option_int(copy_state, "consumed_bytes"), 0)
+	assert_false(temp_exists, "source identity/长度在正式复制前变化时不得创建临时目标。")
+
+
+func test_audio_library_copy_recovers_deterministic_interrupted_sidecars() -> void:
+	var source_root: String = "user://gf_audio_library_recovery_source"
+	var target_root: String = "user://gf_audio_library_recovery_target"
+	var source_path: String = source_root.path_join("recover.ogg")
+	var target_path: String = target_root.path_join("recover.ogg")
+	var temp_path: String = target_path + ".gf-copy.tmp"
+	var backup_path: String = target_path + ".gf-copy.backup"
+	var _make_source_result: Variant = DirAccess.make_dir_recursive_absolute(source_root)
+	var _make_target_result: Variant = DirAccess.make_dir_recursive_absolute(target_root)
+	_write_user_file(source_path, "new-audio")
+	_write_user_file(temp_path, "partial-new")
+	_write_user_file(backup_path, "old-audio")
+	var plan: Array[Dictionary] = [{
+		"source_path": source_path,
+		"target_path": target_path,
+		"will_copy": true,
+		"reason": "",
+	}]
+
+	var report: GFValidationReport = GFAudioLibraryToolsScript.copy_import_plan(
+		plan,
+		{"overwrite": true}
+	)
+	var counts: Dictionary = report.get_issue_counts_by_kind()
+	var target_content: String = FileAccess.get_file_as_string(target_path)
+	var temp_exists: bool = FileAccess.file_exists(temp_path)
+	var backup_exists: bool = FileAccess.file_exists(backup_path)
+
+	_remove_user_file(source_path)
+	_remove_user_file(target_path)
+	_remove_user_file(temp_path)
+	_remove_user_file(backup_path)
+	_remove_user_dir(source_root)
+	_remove_user_dir(target_root)
+
+	assert_true(report.is_ok(), "可恢复的中断 sidecar 不应阻止本次导入。")
+	assert_eq(
+		GFVariantData.get_option_int(counts, "copy_transaction_recovered"),
+		1,
+		"恢复动作必须进入可观察报告。"
+	)
+	assert_eq(target_content, "new-audio", "恢复旧目标后应完成新的原子替换。")
+	assert_false(temp_exists, "成功后不得遗留中断 temp。")
+	assert_false(backup_exists, "成功后不得遗留旧 backup。")
+
+
+func test_audio_library_copy_reports_unrecoverable_backup_state() -> void:
+	var source_root: String = "user://gf_audio_library_recovery_fail_source"
+	var target_root: String = "user://gf_audio_library_recovery_fail_target"
+	var source_path: String = source_root.path_join("recover.ogg")
+	var target_path: String = target_root.path_join("blocked.ogg")
+	var backup_path: String = target_path + ".gf-copy.backup"
+	var _make_source_result: Variant = DirAccess.make_dir_recursive_absolute(source_root)
+	var _make_target_result: Variant = DirAccess.make_dir_recursive_absolute(target_path)
+	_write_user_file(source_path, "new-audio")
+	_write_user_file(backup_path, "old-audio")
+	var plan: Array[Dictionary] = [{
+		"source_path": source_path,
+		"target_path": target_path,
+		"will_copy": true,
+		"reason": "",
+	}]
+
+	var report: GFValidationReport = GFAudioLibraryToolsScript.copy_import_plan(
+		plan,
+		{"overwrite": true}
+	)
+	var counts: Dictionary = report.get_issue_counts_by_kind()
+	var backup_exists: bool = FileAccess.file_exists(backup_path)
+
+	_remove_user_file(source_path)
+	_remove_user_file(backup_path)
+	_remove_user_dir(target_path)
+	_remove_user_dir(source_root)
+	_remove_user_dir(target_root)
+
+	assert_false(report.is_ok(), "旧目标无法恢复时复制必须失败关闭。")
+	assert_eq(
+		GFVariantData.get_option_int(counts, "copy_recovery_failed"),
+		1,
+		"恢复错误必须有稳定 issue kind。"
+	)
+	assert_true(backup_exists, "恢复失败时最后已知良好备份必须保留。")
 
 
 func test_validate_bank_playback_reports_bus_and_extension_issues() -> void:

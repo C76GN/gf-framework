@@ -328,7 +328,7 @@ func load_manifest(path: String) -> GFContentPackageManifest:
 ## [br]
 ## @schema options: Dictionary，可包含 check_resource_exists: bool、check_resource_dependencies: bool 和 dependency_options: Dictionary。
 ## [br]
-## @schema return: GFValidationReportDictionary.finalize_report() 生成的 Dictionary，并包含 package_count、package_ids、ordered_package_ids 和 duplicate_package_ids。
+## @schema return: GFValidationReportDictionary.finalize_report() 生成的 Dictionary，并包含 package_count、package_ids、ordered_package_ids、duplicate_package_ids、rejected_manifest_count 和 rejected_manifest_inputs。
 func rebuild_catalog(options: Dictionary = {}) -> Dictionary:
 	var manifests: Array[GFContentPackageManifest] = []
 	var failed_manifest_paths: PackedStringArray = PackedStringArray()
@@ -359,11 +359,11 @@ func rebuild_catalog(options: Dictionary = {}) -> Dictionary:
 ## [br]
 ## @return GFValidationReportDictionary 兼容报告。
 ## [br]
-## @schema manifests: Array[GFContentPackageManifest]，无效项会被忽略或进入诊断。
+## @schema manifests: Array[GFContentPackageManifest]，无效项会被拒绝并进入诊断。
 ## [br]
 ## @schema options: Dictionary，可包含 check_resource_exists: bool、check_resource_dependencies: bool 和 dependency_options: Dictionary。
 ## [br]
-## @schema return: GFValidationReportDictionary.finalize_report() 生成的 Dictionary，并包含 package_count、package_ids、ordered_package_ids 和 duplicate_package_ids。
+## @schema return: GFValidationReportDictionary.finalize_report() 生成的 Dictionary，并包含 package_count、package_ids、ordered_package_ids、duplicate_package_ids、rejected_manifest_count 和 rejected_manifest_inputs。
 func set_manifests(
 	manifests: Array[GFContentPackageManifest],
 	options: Dictionary = {}

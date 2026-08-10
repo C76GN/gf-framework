@@ -49,7 +49,7 @@ var reason: FinishReason = FinishReason.CANCELLED
 ## @since 8.0.0
 var input_event: InputEvent = null
 
-## 本轮检测经过的秒数。
+## 本轮检测从 begin 到 finish 经过的有限非负秒数。
 ## [br]
 ## @api public
 ## [br]
@@ -104,7 +104,7 @@ static func create(
 	var result: GFInputDetectionResult = GFInputDetectionResult.new()
 	result.reason = finish_reason
 	result.input_event = detected_event if finish_reason == FinishReason.SUCCESS else null
-	result.elapsed_seconds = maxf(detection_elapsed_seconds, 0.0)
+	result.elapsed_seconds = _normalize_elapsed_seconds(detection_elapsed_seconds)
 	result.value_type = detection_value_type
 	result.allowed_device_types = detection_allowed_device_types.duplicate()
 	return result
@@ -132,7 +132,8 @@ func has_input_event() -> bool:
 	return input_event != null
 
 
-## 转换为 JSON 安全字典。
+## 转换为 JSON 安全字典。即使 public elapsed_seconds 被外部改成 NaN/Infinity，
+## 输出边界也会把它规范为 0。
 ## [br]
 ## @api public
 ## [br]
@@ -148,7 +149,7 @@ func to_dictionary() -> Dictionary:
 	return {
 		&"reason": String(reason_to_string(reason)),
 		&"success": is_success(),
-		&"elapsed_seconds": elapsed_seconds,
+		&"elapsed_seconds": _normalize_elapsed_seconds(elapsed_seconds),
 		&"value_type": value_type,
 		&"allowed_device_types": allowed_device_types.duplicate(),
 		&"input_identity": input_identity,
@@ -175,3 +176,11 @@ static func reason_to_string(finish_reason: FinishReason) -> StringName:
 		FinishReason.REPLACED:
 			return &"replaced"
 	return &"cancelled"
+
+
+# --- 私有/辅助方法 ---
+
+static func _normalize_elapsed_seconds(value: float) -> float:
+	if not is_finite(value):
+		return 0.0
+	return maxf(value, 0.0)

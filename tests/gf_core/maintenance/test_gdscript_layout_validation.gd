@@ -92,6 +92,8 @@ const SECTION_ORDER_RULES: Array[Dictionary] = [
 	{ "markers": ["生命周期", "回调", "lifecycle", "callback"], "rank": 80 },
 	{ "markers": ["公共方法", "获取方法", "注册方法", "事件系统", "命令", "查询"], "rank": 90 },
 	{ "markers": ["虚方法", "可重写", "hook", "virtual"], "rank": 100 },
+	{ "markers": ["框架内部方法", "framework internal"], "rank": 105 },
+	{ "markers": ["层内方法", "layer internal"], "rank": 107 },
 	{ "markers": ["私有", "内部", "辅助", "private", "internal", "helper"], "rank": 110 },
 	{ "markers": ["内部类", "subclass"], "rank": 120 },
 ]
@@ -161,6 +163,22 @@ func test_top_level_sections_follow_documented_order() -> void:
 		issues.append_array(_collect_section_order_issues(path))
 
 	assert_eq(issues, [], "顶层 section 应遵循 CODING_STYLE.md 的布局顺序：\n%s" % _join_lines(issues))
+
+
+func test_framework_internal_type_section_is_not_treated_as_inner_class() -> void:
+	var framework_internal_rank: int = _get_section_order_rank("框架内部方法（类型收窄）")
+	var private_helper_rank: int = _get_section_order_rank("私有/辅助方法")
+
+	assert_false(
+		_section_is_inner_class_section("框架内部方法（类型收窄）"),
+		"“类型”中的“类”不应令框架内部方法 section 被误判为内部类。",
+	)
+	assert_lt(
+		framework_internal_rank,
+		private_helper_rank,
+		"框架内部方法应按 canonical 顺序排在私有/辅助方法之前。",
+	)
+	assert_true(_section_is_inner_class_section("内部类"), "canonical 内部类 section 应继续被识别。")
 
 
 func test_editor_generation_templates_use_documented_sections() -> void:
@@ -571,8 +589,8 @@ func _section_is_inner_class_section(section_name: String) -> bool:
 	var lower_section: String = section_name.to_lower()
 	return (
 		lower_section.contains("subclass")
+		or lower_section.contains("inner class")
 		or section_name.contains("内部类")
-		or (section_name.contains("内部") and section_name.contains("类"))
 	)
 
 

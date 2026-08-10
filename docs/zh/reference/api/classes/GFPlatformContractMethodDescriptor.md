@@ -97,7 +97,7 @@ var required_capability_ids: PackedStringArray = PackedStringArray()
 var max_request_bytes: int = 0
 ```
 
-请求 JSON-compatible 编码后的最大字节数；0 表示不额外限制。
+请求 JSON-compatible 编码后的最大字节数；0 表示不额外限制，负值会使定义校验失败。
 
 <a id="member-gfplatformcontractmethoddescriptor-properties-max_result_bytes"></a>
 
@@ -110,7 +110,7 @@ var max_request_bytes: int = 0
 var max_result_bytes: int = 0
 ```
 
-成功结果 JSON-compatible 编码后的最大字节数；0 表示不额外限制。
+成功结果 JSON-compatible 编码后的最大字节数；0 表示不额外限制，负值会使定义校验失败。
 
 <a id="member-gfplatformcontractmethoddescriptor-properties-max_concurrent_requests"></a>
 
@@ -123,7 +123,7 @@ var max_result_bytes: int = 0
 var max_concurrent_requests: int = 0
 ```
 
-同一 adapter 上该方法允许的最大并发请求数；0 表示不额外限制。
+同一 adapter 上该方法允许的最大并发请求数；0 表示不额外限制，负值会使定义校验失败。
 
 <a id="member-gfplatformcontractmethoddescriptor-properties-supports_cancellation"></a>
 
@@ -188,7 +188,7 @@ func configure( p_method_id: StringName, options: Dictionary = {} ) -> GFPlatfor
 | 名称 | 说明 |
 |---|---|
 | `p_method_id` | 方法稳定标识。 |
-| `options` | 可包含 request_schema、result_schema、required_capability_ids、max_request_bytes、max_result_bytes、max_concurrent_requests、supports_cancellation、sensitive_fields 和 metadata。 |
+| `options` | 可包含 request_schema、result_schema、required_capability_ids、max_request_bytes、max_result_bytes、max_concurrent_requests、supports_cancellation、sensitive_fields 和 metadata；三个限制字段的负值会保留并由定义校验拒绝，不会降级成无限制。 |
 
 返回：当前描述符。
 

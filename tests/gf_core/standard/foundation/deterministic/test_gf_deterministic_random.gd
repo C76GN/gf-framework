@@ -189,6 +189,21 @@ func test_apply_dict_rejects_unknown_algorithm() -> void:
 	assert_eq(rng.get_state(), GF_DETERMINISTIC_RANDOM.new().get_state())
 
 
+func test_apply_dict_requires_every_state_identity_and_payload_field() -> void:
+	var required_fields: Array[String] = ["algorithm", "version", "seed", "state"]
+	for field_name: String in required_fields:
+		var rng: GF_DETERMINISTIC_RANDOM = GF_DETERMINISTIC_RANDOM.from_seed(42)
+		var state_data: Dictionary = rng.to_dict()
+		var _erased: bool = state_data.erase(field_name)
+
+		var applied: bool = rng.apply_dict(state_data)
+
+		assert_false(applied, "缺少 %s 时必须 fail closed。" % field_name)
+		assert_push_error("[GFDeterministicRandom] 不支持的状态字典格式。")
+		assert_eq(rng.get_initial_seed(), GF_DETERMINISTIC_RANDOM.new().get_initial_seed())
+		assert_eq(rng.get_state(), GF_DETERMINISTIC_RANDOM.new().get_state())
+
+
 func test_apply_dict_rejects_zero_state() -> void:
 	var rng: GF_DETERMINISTIC_RANDOM = GF_DETERMINISTIC_RANDOM.from_seed(42)
 

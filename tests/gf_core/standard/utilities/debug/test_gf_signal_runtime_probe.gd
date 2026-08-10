@@ -148,6 +148,65 @@ func test_probe_respects_event_limit_and_unwatch() -> void:
 	source.free()
 
 
+func test_probe_prunes_one_shot_watch_before_rewatching() -> void:
+	var source: SignalSource = SignalSource.new()
+	var probe: GFSignalRuntimeProbe = GFSignalRuntimeProbe.new()
+	var stopped_signals: Array[StringName] = []
+	var connect_error: Error = probe.signal_watch_stopped.connect(
+		func(_source_path: String, signal_name: StringName) -> void:
+			stopped_signals.append(signal_name)
+	) as Error
+	assert_eq(connect_error, OK, "测试监听器应成功连接。")
+
+	var first_report: Dictionary = probe.watch_node(source, {
+		"include_signals": [&"no_args"],
+		"connect_flags": CONNECT_ONE_SHOT,
+	})
+	source.no_args.emit()
+	var second_report: Dictionary = probe.watch_node(source, {
+		"include_signals": [&"no_args"],
+		"connect_flags": CONNECT_ONE_SHOT,
+	})
+
+	assert_true(GFVariantData.get_option_bool(first_report, "ok"), "首次 one-shot watch 应成功。")
+	assert_eq(GFVariantData.get_option_int(first_report, "watched_count"), 1, "首次应建立一个 watch。")
+	assert_true(GFVariantData.get_option_bool(second_report, "ok"), "one-shot 自动断开后应能直接重新 watch。")
+	assert_eq(GFVariantData.get_option_int(second_report, "watched_count"), 1, "重新 watch 应建立新连接。")
+	assert_eq(probe.get_watch_count(), 1, "账本应只包含重新建立的真实连接。")
+	assert_eq(stopped_signals, [&"no_args"], "清理自动断开的 watch 应恰好发出一次停止通知。")
+
+	source.no_args.emit()
+	assert_eq(probe.get_watch_count(), 0, "第二个 one-shot 发射后也应从账本清理。")
+	assert_eq(probe.get_events().size(), 2, "两代 one-shot watch 应各记录一次事件。")
+	assert_eq(stopped_signals, [&"no_args", &"no_args"], "每一代 watch 应恰好发出一次停止通知。")
+
+	source.free()
+
+
+func test_probe_dispose_disconnects_and_releases_long_lived_source() -> void:
+	var source: SignalSource = SignalSource.new()
+	var probe: GFSignalRuntimeProbe = GFSignalRuntimeProbe.new()
+	var _report: Dictionary = probe.watch_node(source, {
+		"include_signals": [&"no_args"],
+	})
+	var probe_ref: WeakRef = weakref(probe)
+
+	assert_true(probe.has_method("dispose"), "Probe 应提供统一、幂等的显式生命周期终点。")
+	if not probe.has_method("dispose"):
+		var _removed_count: int = probe.unwatch_all()
+		source.free()
+		return
+	probe.dispose()
+	probe.dispose()
+	source.no_args.emit()
+
+	assert_eq(probe.get_watch_count(), 0, "dispose 应清空所有 signal 连接账本。")
+	assert_eq(probe.get_events().size(), 0, "dispose 应清空已持有的诊断事件。")
+	probe = null
+	assert_true(probe_ref.get_ref() == null, "断开长寿命 source 后 Probe 应能释放。")
+	source.free()
+
+
 func test_watch_tree_reports_node_limit() -> void:
 	var root: Node = Node.new()
 	var first_child: SignalSource = SignalSource.new()

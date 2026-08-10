@@ -23,26 +23,52 @@ extends GFTimeProvider
 # --- 公共变量 ---
 
 ## 全局时间缩放系数。1.0 为正常速度，0.5 为半速，2.0 为双倍速。
-## 不得为负值，设置负值将被钳制为 0.0。
+## 不得为负值，设置负值将被钳制为 0.0；非有限值会被拒绝并保留上一有效值。
 ## [br]
 ## @api public
+## [br]
+## @since 11.0.0
 var time_scale: float = 1.0:
 	set(value):
+		if not _is_finite_scalar(value):
+			_report_non_finite_once(
+				&"time_scale",
+				"[GFTimeUtility] 忽略非有限 time_scale；保留上一有效值。"
+			)
+			return
 		time_scale = maxf(value, 0.0)
 
 ## 单次缩放后 delta 的最大值。小于等于 0 时不限制。
 ## 可用于避免极端 time_scale 或掉帧后向普通 tick 传入过大步长。
+## 非有限值会被拒绝并保留上一有效值。
 ## [br]
 ## @api public
+## [br]
+## @since 11.0.0
 var max_scaled_delta: float = 0.0:
 	set(value):
+		if not _is_finite_scalar(value):
+			_report_non_finite_once(
+				&"max_scaled_delta",
+				"[GFTimeUtility] 忽略非有限 max_scaled_delta；保留上一有效值。"
+			)
+			return
 		max_scaled_delta = maxf(value, 0.0)
 
 ## physics_tick 子步进的最大缩放步长。小于等于 0 时不启用子步进。
+## 非有限值会被拒绝并保留上一有效值。
 ## [br]
 ## @api public
+## [br]
+## @since 11.0.0
 var physics_substep_max_delta: float = 0.0:
 	set(value):
+		if not _is_finite_scalar(value):
+			_report_non_finite_once(
+				&"physics_substep_max_delta",
+				"[GFTimeUtility] 忽略非有限 physics_substep_max_delta；保留上一有效值。"
+			)
+			return
 		physics_substep_max_delta = maxf(value, 0.0)
 
 ## 单个物理帧最多拆分出的子步数。
@@ -62,6 +88,7 @@ var is_paused: bool = false
 
 # 组级暂停状态。Key 为 StringName 组标识，Value 为 bool 暂停状态。
 var _group_paused: Dictionary = {}
+var _reported_non_finite_issues: Dictionary = {}
 
 
 # --- GF 生命周期方法 ---
@@ -70,6 +97,7 @@ var _group_paused: Dictionary = {}
 ## [br]
 ## @api public
 func init() -> void:
+	_reported_non_finite_issues.clear()
 	time_scale = 1.0
 	max_scaled_delta = 0.0
 	physics_substep_max_delta = 0.0
@@ -88,9 +116,11 @@ func init() -> void:
 ## [br]
 ## @return 缩放后的 delta。
 func get_scaled_delta(delta: float) -> float:
+	if not _validate_delta(delta):
+		return 0.0
 	if is_paused:
 		return 0.0
-	return _clamp_scaled_delta(delta * time_scale)
+	return _clamp_scaled_delta(_scale_delta_or_zero(delta))
 
 
 ## 获取 physics_tick 使用的缩放 delta 子步数组。
@@ -102,15 +132,19 @@ func get_scaled_delta(delta: float) -> float:
 ## [br]
 ## @return 缩放后的 delta 子步数组。
 func get_physics_scaled_delta_steps(delta: float) -> Array[float]:
+	if not _validate_delta(delta):
+		return [0.0]
 	if is_paused:
 		return [0.0]
 
-	var scaled_delta: float = delta * time_scale
+	var scaled_delta: float = _scale_delta_or_zero(delta)
 	if physics_substep_max_delta <= 0.0 or is_zero_approx(scaled_delta):
 		return [_clamp_scaled_delta(scaled_delta)]
 
-	var step_count: int = GFVariantData.to_int(ceil(absf(scaled_delta) / physics_substep_max_delta))
-	step_count = clampi(step_count, 1, max_physics_substeps)
+	var required_steps: float = absf(scaled_delta) / physics_substep_max_delta
+	var step_count: int = max_physics_substeps
+	if _is_finite_scalar(required_steps):
+		step_count = clampi(ceili(required_steps), 1, max_physics_substeps)
 	var step_delta: float = scaled_delta / float(step_count)
 	var result: Array[float] = []
 	for _i: int in range(step_count):
@@ -126,9 +160,11 @@ func get_physics_scaled_delta_steps(delta: float) -> Array[float]:
 ## [br]
 ## @return 会拆分时返回 true。
 func should_substep_physics(delta: float) -> bool:
+	if not _validate_delta(delta):
+		return false
 	if is_paused or physics_substep_max_delta <= 0.0:
 		return false
-	return absf(delta * time_scale) > physics_substep_max_delta
+	return absf(_scale_delta_or_zero(delta)) > physics_substep_max_delta
 
 
 ## 检查当前工具是否处于全局暂停状态。
@@ -173,9 +209,11 @@ func is_group_paused(group: StringName) -> bool:
 ## [br]
 ## @return 缩放后的 delta。
 func get_group_scaled_delta(group: StringName, delta: float) -> float:
+	if not _validate_delta(delta):
+		return 0.0
 	if is_paused or is_group_paused(group):
 		return 0.0
-	return _clamp_scaled_delta(delta * time_scale)
+	return _clamp_scaled_delta(_scale_delta_or_zero(delta))
 
 
 ## 移除指定组的暂停记录。
@@ -195,6 +233,38 @@ func clear_groups() -> void:
 
 
 # --- 私有/辅助方法 ---
+
+func _validate_delta(delta: float) -> bool:
+	if _is_finite_scalar(delta):
+		return true
+	_report_non_finite_once(
+		&"delta",
+		"[GFTimeUtility] delta 必须为有限数；本次返回安全零值。"
+	)
+	return false
+
+
+func _scale_delta_or_zero(delta: float) -> float:
+	var scaled_delta: float = delta * time_scale
+	if _is_finite_scalar(scaled_delta):
+		return scaled_delta
+	_report_non_finite_once(
+		&"scaled_delta",
+		"[GFTimeUtility] scaled_delta 溢出为非有限数；本次返回安全零值。"
+	)
+	return 0.0
+
+
+func _report_non_finite_once(issue_key: StringName, message: String) -> void:
+	if _reported_non_finite_issues.has(issue_key):
+		return
+	_reported_non_finite_issues[issue_key] = true
+	push_error(message)
+
+
+func _is_finite_scalar(value: float) -> bool:
+	return not is_nan(value) and not is_inf(value)
+
 
 func _clamp_scaled_delta(delta: float) -> float:
 	if max_scaled_delta <= 0.0:

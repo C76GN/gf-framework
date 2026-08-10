@@ -8,6 +8,8 @@
 
 内置修饰器各自只处理通用数值变换：`GFInputDeadzoneModifier` 处理摇杆死区并可重映射剩余范围，`GFInputScaleModifier` 调节或反转轴分量，`GFInputNormalizeModifier` 限制二维/三维向量长度，`GFInputMapRangeModifier` 把输入范围线性映射到目标范围，`GFInputCurveModifier` 按 `Curve` 采样灵敏度或压力响应，`GFInputSwizzleModifier` 重排二维/三维分量，`GFInputMagnitudeModifier` 把多轴输入投影成幅值，`GFInputSignClampModifier` 只保留正向或负向分量，`GFInputVirtualCursorModifier` 把抽象速度积分为一个受限位置。`GFInputModifier` 提供通用运行时状态协议：无状态修饰器默认 no-op，有状态修饰器可通过 `supports_runtime_state()`、`get_modifier_runtime_state()`、`restore_modifier_runtime_state()` 和 runtime delta 入口参与回放或多人实例隔离。虚拟光标修饰器只维护数值坐标，不读取 Viewport 或 Control；若要移动真实节点、焦点或 UI 光标，应由项目层消费输出位置。内置触发器各自只处理通用动作时序：`GFInputPressedTrigger` 只在按下瞬间触发，`GFInputReleasedTrigger` 只在释放瞬间触发，`GFInputTapTrigger` 识别短按，`GFInputHoldTrigger` 识别长按，`GFInputPulseTrigger` 在持续输入时周期触发，`GFInputChordTrigger` 要求另一个动作同时活跃，`GFInputSequenceTrigger` 要求动作按顺序完成。组合键和动作序列都基于抽象 action id，不绑定具体键位。
 
+同一 Binding 或 Mapping 上的 modifier 严格按资源数组顺序执行，非交换变换不会被重排。运行时会为每个 binding/mapping 复制 modifier；虚拟光标等有状态 modifier 即使复用同一配置 Resource，也不会在两个动作之间共享 position/ticks。`GFInputDeadzoneModifier` 允许 lower 与 upper 相等并把它解释为硬阈值：低于共同阈值输出 0，达到或超过阈值时在 rescale 模式输出满幅。`GFInputPulseTrigger` 会忽略 NaN/Infinity/负 delta，并保证 elapsed remainder 保持有限，后续有限 tick 可以继续触发。
+
 简单序列可继续使用 `GFInputSequenceTrigger.required_action_ids`。需要多条可替代路径、单步最大间隔、按住时间或释放完成条件时，使用 `GFInputSequenceBranch` 和 `GFInputSequenceStep` 描述资源化序列：
 
 ```gdscript
@@ -24,6 +26,8 @@ trigger.branches = [branch]
 ```
 
 `GFInputMappingUtility` 会同步记录动作的 just-started、just-completed 和最近一次完成前的持续时间，供释放型触发器或项目层读取。全局查询使用 `was_action_just_started(action_id)` / `was_action_just_completed(action_id)` / `get_last_completed_duration(action_id)`；本地多人使用对应的 `*_for_player()` 接口。一次性状态会保留到至少经过一次 GF System tick 的观察窗口后再清理：普通输入事件可在同帧 System 中消费，长按、短按或序列触发器在 Utility tick 中生成的动作可在下一次 System tick 中消费。持续时间只描述抽象动作状态，不包含具体按键、技能窗口或业务判定。
+
+`player_scoped=true` 且 player index 有效时，Chord 要求 runtime 提供 `is_action_active_for_player()`，Sequence 要求完整的 player-specific active、just-started、just-completed 与 completed-duration 查询。缺少任一所需方法会 fail closed；框架不会把部分玩家查询与全局查询拼成一条混合时间线。`player_scoped=false` 或 player index 无效时才使用全局协议。
 
 排查 `consume_action()` 没有触发时，先确认 `action_id` 与 `GFInputAction.action_id` 完全一致，包含大小写；确认对应 `GFInputContext` 已启用，且绑定的 `InputEvent` 类型与实际事件匹配；确认没有更高优先级上下文的动作通过 `block_lower_priority_actions` 阻断同一个输入；如果动作使用了 `Released`、`Tap`、`Hold`、`Pulse` 或 `Sequence` 触发器，还要按触发器语义检查它是在按下、释放、持续时间满足，还是序列完成时才会进入 just-started。
 

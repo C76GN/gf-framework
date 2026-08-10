@@ -553,31 +553,40 @@ func _open_route(
 	var route: GFUIRoute = _resolve_route_or_fail(normalized_route_id)
 	if route == null:
 		return null
+	var route_snapshot: GFUIRoute = _make_route_request_snapshot(normalized_route_id, route)
+	var request_params: Dictionary = params.duplicate(true)
+	var request_option_overrides: Dictionary = option_overrides.duplicate(true)
 
 	var ui_utility: GFUIUtility = _get_ui_utility()
 	if ui_utility == null:
 		_fail_route(normalized_route_id, "missing_ui_utility")
 		return null
-	var route_layer: int = _get_ui_layer(route.layer)
+	var route_layer: int = _get_ui_layer(route_snapshot.layer)
 	if not ui_utility.has_layer(route_layer):
 		_fail_route(normalized_route_id, "missing_ui_layer")
 		return null
 
-	route_open_requested.emit(normalized_route_id, operation, params.duplicate(true))
-	var options: Dictionary = route.build_options(params, option_overrides)
-	var wrapped_callback: Callable = _make_route_config_callback(route, params, config_callback)
+	route_open_requested.emit(normalized_route_id, operation, request_params.duplicate(true))
+	var options: Dictionary = route_snapshot.build_options(
+		request_params,
+		request_option_overrides
+	)
+	var wrapped_callback: Callable = _make_route_config_callback(
+		route_snapshot,
+		request_params,
+		config_callback
+	)
 	var panel: Node = null
 	if operation == Operation.REPLACE:
-		_remove_history_for_layer(route.layer)
 		panel = ui_utility.replace_layer_with_options(
-			route.scene_path,
+			route_snapshot.scene_path,
 			route_layer,
 			options,
 			wrapped_callback
 		)
 	else:
 		panel = ui_utility.push_panel_with_options(
-			route.scene_path,
+			route_snapshot.scene_path,
 			route_layer,
 			options,
 			wrapped_callback
@@ -587,7 +596,9 @@ func _open_route(
 		_fail_route(normalized_route_id, "panel_open_failed")
 		return null
 
-	_record_route_open(route, panel, params, operation)
+	if operation == Operation.REPLACE:
+		_remove_history_for_layer(route_snapshot.layer)
+	_record_route_open(route_snapshot, panel, request_params, operation)
 	return panel
 
 
@@ -670,7 +681,14 @@ func _open_route_async(
 			true
 		)
 		return operation_handle
-	immediate_entry["layer"] = route.layer
+	var route_snapshot: GFUIRoute = _make_route_request_snapshot(normalized_route_id, route)
+	var request_params: Dictionary = params.duplicate(true)
+	var request_option_overrides: Dictionary = option_overrides.duplicate(true)
+	var request_options: Dictionary = route_snapshot.build_options(
+		request_params,
+		request_option_overrides
+	)
+	immediate_entry["layer"] = route_snapshot.layer
 	if not _is_valid_preload_policy(preload_policy):
 		_finish_route_entry(
 			immediate_entry,
@@ -691,7 +709,7 @@ func _open_route_async(
 			true
 		)
 		return operation_handle
-	var route_layer: int = _get_ui_layer(route.layer)
+	var route_layer: int = _get_ui_layer(route_snapshot.layer)
 	if not ui_utility.has_layer(route_layer):
 		_finish_route_entry(
 			immediate_entry,
@@ -702,17 +720,25 @@ func _open_route_async(
 		)
 		return operation_handle
 
+	var preload_plan_options: Dictionary = GFVariantData.get_option_dictionary(
+		async_options,
+		"preload_plan_options"
+	).duplicate(true)
 	_prune_pending_route_lifecycles()
-	var pending_route: Dictionary = _find_pending_async_route(route.scene_path, route.layer, operation)
+	var pending_route: Dictionary = _find_pending_async_route(
+		route_snapshot.scene_path,
+		route_snapshot.layer,
+		operation
+	)
 	if not pending_route.is_empty():
 		if _pending_route_matches_request(
 			pending_route,
-			normalized_route_id,
-			params,
-			option_overrides,
+			route_snapshot,
+			request_params,
+			request_options,
 			config_callback,
 			preload_policy,
-			GFVariantData.get_option_dictionary(async_options, "preload_plan_options"),
+			preload_plan_options,
 			metadata,
 			GFVariantData.get_option_int(lifecycle, "owner_id"),
 			GFVariantData.get_option_int(lifecycle, "scope_id")
@@ -731,23 +757,28 @@ func _open_route_async(
 		)
 		return operation_handle
 
-	var pending_key: String = _make_pending_async_route_key(route.scene_path, route.layer, operation)
+	var pending_key: String = _make_pending_async_route_key(
+		route_snapshot.scene_path,
+		route_snapshot.layer,
+		operation
+	)
 	var request_id: int = operation_handle.get_request_id()
 	var pending_entry: Dictionary = immediate_entry.duplicate(true)
 	pending_entry.merge({
 		"route_id": normalized_route_id,
-		"route": route,
-		"path": route.scene_path,
-		"layer": route.layer,
+		"route_snapshot": route_snapshot,
+		"path": route_snapshot.scene_path,
+		"layer": route_snapshot.layer,
 		"operation": operation,
 		"operation_handle": operation_handle,
-		"params": params.duplicate(true),
-		"option_overrides": option_overrides.duplicate(true),
+		"params": request_params,
+		"options": request_options,
 		"config_callback": config_callback,
 		"preload_policy": preload_policy,
-		"preload_plan_options": GFVariantData.get_option_dictionary(
-			async_options,
-			"preload_plan_options"
+		"preload_plan_options": preload_plan_options,
+		"preload_route_snapshots": _make_preload_route_snapshots(
+			route_snapshot,
+			preload_plan_options
 		),
 		"metadata": metadata.duplicate(true),
 		"preload_plan_report": {},
@@ -768,7 +799,7 @@ func _open_route_async(
 	)
 	if not _pending_route_has_request_id(pending_key, request_id):
 		return operation_handle
-	route_open_requested.emit(normalized_route_id, operation, params.duplicate(true))
+	route_open_requested.emit(normalized_route_id, operation, request_params.duplicate(true))
 	if not _pending_route_has_request_id(pending_key, request_id):
 		return operation_handle
 	if preload_policy == PRELOAD_NONE:
@@ -863,9 +894,9 @@ func _is_valid_preload_policy(preload_policy: StringName) -> bool:
 
 func _pending_route_matches_request(
 	entry: Dictionary,
-	route_id: StringName,
+	route_snapshot: GFUIRoute,
 	params: Dictionary,
-	option_overrides: Dictionary,
+	options: Dictionary,
 	config_callback: Callable,
 	preload_policy: StringName,
 	preload_plan_options: Dictionary,
@@ -874,9 +905,11 @@ func _pending_route_matches_request(
 	scope_id: int
 ) -> bool:
 	return (
-		GFVariantData.get_option_string_name(entry, "route_id", &"") == route_id
+		GFVariantData.get_option_string_name(entry, "route_id", &"") == route_snapshot.get_route_id()
+		and GFVariantData.get_option_string(entry, "path", "") == route_snapshot.scene_path
+		and GFVariantData.get_option_int(entry, "layer", -1) == route_snapshot.layer
 		and GFVariantData.get_option_dictionary(entry, "params") == params
-		and GFVariantData.get_option_dictionary(entry, "option_overrides") == option_overrides
+		and GFVariantData.get_option_dictionary(entry, "options") == options
 		and _get_callable_value(entry.get("config_callback")) == config_callback
 		and GFVariantData.get_option_string_name(entry, "preload_policy", PRELOAD_NONE) == preload_policy
 		and GFVariantData.get_option_dictionary(entry, "preload_plan_options") == preload_plan_options
@@ -1172,9 +1205,17 @@ func _start_pending_route_preload(pending_key: String, request_id: int) -> void:
 	plan_metadata["_gf_route_request_id"] = operation_handle.get_request_id()
 	plan_metadata["_gf_route_id"] = route_id
 	plan_options["metadata"] = plan_metadata
+	var preload_routes: Array[GFUIRoute] = _get_route_array(
+		entry.get("preload_route_snapshots")
+	)
+	var _erased_preload_routes: bool = entry.erase("preload_route_snapshots")
 	_pending_async_routes[pending_key] = entry
 
-	var raw_plan_report: Dictionary = build_preload_plan(route_id, plan_options)
+	var raw_plan_report: Dictionary = GFUIRoutePreloadUtility.build_plan(
+		preload_routes,
+		route_id,
+		plan_options
+	)
 	if not _pending_route_has_request_id(pending_key, request_id):
 		return
 	if _cancel_pending_route_if_lifecycle_expired(pending_key, request_id):
@@ -1397,8 +1438,8 @@ func _submit_pending_panel_open(pending_key: String, request_id: int) -> void:
 			false
 		)
 		return
-	var route: GFUIRoute = _get_route_value(entry.get("route"))
-	if route == null:
+	var route_snapshot: GFUIRoute = _get_route_value(entry.get("route_snapshot"))
+	if route_snapshot == null:
 		_complete_pending_route(
 			pending_key,
 			request_id,
@@ -1419,7 +1460,9 @@ func _submit_pending_panel_open(pending_key: String, request_id: int) -> void:
 			true
 		)
 		return
-	var route_layer: int = _get_ui_layer(route.layer)
+	var path: String = GFVariantData.get_option_string(entry, "path", "")
+	var declared_layer: int = GFVariantData.get_option_int(entry, "layer", -1)
+	var route_layer: int = _get_ui_layer(declared_layer)
 	if not ui_utility.has_layer(route_layer):
 		_complete_pending_route(
 			pending_key,
@@ -1431,7 +1474,7 @@ func _submit_pending_panel_open(pending_key: String, request_id: int) -> void:
 		)
 		return
 	var operation: Operation = _get_route_operation(entry)
-	if _ui_has_matching_pending_request(ui_utility, route.scene_path, route_layer, operation):
+	if _ui_has_matching_pending_request(ui_utility, path, route_layer, operation):
 		_complete_pending_route(
 			pending_key,
 			request_id,
@@ -1442,11 +1485,10 @@ func _submit_pending_panel_open(pending_key: String, request_id: int) -> void:
 		)
 		return
 	var params: Dictionary = GFVariantData.get_option_dictionary(entry, "params")
-	var option_overrides: Dictionary = GFVariantData.get_option_dictionary(entry, "option_overrides")
+	var options: Dictionary = GFVariantData.get_option_dictionary(entry, "options")
 	var config_callback: Callable = _get_callable_value(entry.get("config_callback"))
-	var options: Dictionary = route.build_options(params, option_overrides)
 	var wrapped_callback: Callable = _make_route_config_callback(
-		route,
+		route_snapshot,
 		params,
 		config_callback
 	)
@@ -1476,7 +1518,7 @@ func _submit_pending_panel_open(pending_key: String, request_id: int) -> void:
 	var ui_operation: GFUIPanelAsyncOperation = null
 	if operation == Operation.REPLACE:
 		ui_operation = ui_utility.replace_layer_async_with_options(
-			route.scene_path,
+			path,
 			route_layer,
 			options,
 			wrapped_callback,
@@ -1484,7 +1526,7 @@ func _submit_pending_panel_open(pending_key: String, request_id: int) -> void:
 		)
 	else:
 		ui_operation = ui_utility.push_panel_async_with_options(
-			route.scene_path,
+			path,
 			route_layer,
 			options,
 			wrapped_callback,
@@ -1561,7 +1603,7 @@ func _complete_pending_route(
 func _complete_pending_route_opened(
 	pending_key: String,
 	request_id: int,
-	route: GFUIRoute,
+	route_snapshot: GFUIRoute,
 	route_operation: Operation,
 	panel: Node
 ) -> void:
@@ -1575,9 +1617,9 @@ func _complete_pending_route_opened(
 		return
 	var _erased: bool = _pending_async_routes.erase(pending_key)
 	if route_operation == Operation.REPLACE:
-		_remove_history_for_layer(route.layer)
+		_remove_history_for_layer(route_snapshot.layer)
 	_record_route_open(
-		route,
+		route_snapshot,
 		panel,
 		GFVariantData.get_option_dictionary(entry, "params"),
 		route_operation
@@ -1803,6 +1845,53 @@ func _make_route_config_callback(
 			config_callback.call(panel)
 
 
+func _make_route_request_snapshot(route_id: StringName, route: GFUIRoute) -> GFUIRoute:
+	var snapshot: GFUIRoute = GFUIRoute.new()
+	snapshot.route_id = route_id
+	snapshot.scene_path = route.scene_path
+	snapshot.layer = route.layer
+	snapshot.default_options = route.default_options.duplicate(true)
+	snapshot.metadata = route.metadata.duplicate(true)
+	snapshot.adjacent_route_ids = route.adjacent_route_ids.duplicate()
+	return snapshot
+
+
+func _make_preload_route_snapshots(
+	source_route: GFUIRoute,
+	options: Dictionary
+) -> Array[GFUIRoute]:
+	var max_catalog_routes: int = maxi(
+		GFVariantData.get_option_int(
+			options,
+			"max_catalog_routes",
+			GFUIRoutePreloadUtility.DEFAULT_MAX_CATALOG_ROUTES
+		),
+		0
+	)
+	var input_limit: int = max_catalog_routes
+	if _routes.size() > max_catalog_routes:
+		input_limit += 1
+	var snapshots: Array[GFUIRoute] = []
+	var inspected_count: int = 0
+	for route_key: Variant in _routes:
+		if inspected_count >= input_limit:
+			break
+		inspected_count += 1
+		var registered_route: GFUIRoute = _get_route_value(_routes[route_key])
+		if registered_route == null:
+			continue
+		var registered_route_id: StringName = _normalize_route_id(
+			GFVariantData.to_string_name(route_key)
+		)
+		if registered_route_id == source_route.get_route_id():
+			snapshots.append(source_route)
+		else:
+			snapshots.append(
+				_make_route_request_snapshot(registered_route_id, registered_route)
+			)
+	return snapshots
+
+
 func _apply_route_params(panel: Node, route: GFUIRoute, params: Dictionary) -> void:
 	if not is_instance_valid(panel):
 		return
@@ -1903,6 +1992,18 @@ func _get_route_value(value: Variant) -> GFUIRoute:
 		var route: GFUIRoute = value
 		return route
 	return null
+
+
+func _get_route_array(value: Variant) -> Array[GFUIRoute]:
+	var routes: Array[GFUIRoute] = []
+	if not value is Array:
+		return routes
+	var values: Array = value
+	for route_value: Variant in values:
+		var route: GFUIRoute = _get_route_value(route_value)
+		if route != null:
+			routes.append(route)
+	return routes
 
 
 func _normalize_route_id(route_id: StringName) -> StringName:
@@ -2033,12 +2134,12 @@ func _on_ui_panel_async_operation_completed(
 	)
 	if latched_ui_operation != null and latched_ui_operation != ui_operation:
 		return
-	var route: GFUIRoute = _get_route_value(route_entry.get("route"))
+	var route_snapshot: GFUIRoute = _get_route_value(route_entry.get("route_snapshot"))
 	var route_operation: Operation = _get_route_operation(route_entry)
 	if (
-		route == null
-		or ui_operation.get_path() != route.scene_path
-		or ui_operation.get_layer() != _get_ui_layer(route.layer)
+		route_snapshot == null
+		or ui_operation.get_path() != route_snapshot.scene_path
+		or ui_operation.get_layer() != _get_ui_layer(route_snapshot.layer)
 		or ui_operation.get_operation() != _operation_to_name(route_operation)
 	):
 		_complete_pending_route(
@@ -2059,7 +2160,7 @@ func _on_ui_panel_async_operation_completed(
 		_complete_pending_route_opened(
 			pending_key,
 			request_id,
-			route,
+			route_snapshot,
 			route_operation,
 			panel
 		)

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFExtensionSettings" path="addons/gf/kernel/extension/gf_extension_settings.gd" module="kernel" extends="RefCounted" classDigest="507f996110020b8939c4fa09f5200f4ca3e12d483983e0f8b8f4d39a25e14bbd">
+<class name="GFExtensionSettings" path="addons/gf/kernel/extension/gf_extension_settings.gd" module="kernel" extends="RefCounted" classDigest="a2533141da6458ba8ba65e2ae279864f28f10388a1331eb2d55face88282b6bb">
 	<description>GFExtensionSettings: GF 扩展启用状态与 ProjectSettings 桥接。
 负责读取启用扩展 ID、解析扩展依赖、收集启用扩展 Installer，以及提供导出排除开关。</description>
 	<tags>
@@ -133,7 +133,10 @@
 			</tags>
 		</member>
 		<member kind="const" name="BUILT_IN_EXTENSION_IDS">
-			<signature>const BUILT_IN_EXTENSION_IDS: Array[String] = [</signature>
+			<signature>const BUILT_IN_EXTENSION_IDS: Array[String] = [
+	"gf.kernel",
+	"gf.standard",
+]</signature>
 			<description>内置依赖 ID。这些不是可启停扩展 manifest，但允许被扩展声明为基础依赖。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -545,7 +548,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">诊断字典。</tag>
-				<tag name="schema">return: Dictionary containing selection_mode, external_roots, configured_ids, explicit_ids, resolved_ids, unknown_enabled_ids, graph status, and extension counts.</tag>
+				<tag name="schema">return: Dictionary containing selection_mode, external_roots, configured_ids, explicit_ids, resolved_ids, unknown_enabled_ids, status, partial, paths_allowed, tool_contribution_errors, graph status, and extension counts.</tag>
 				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>

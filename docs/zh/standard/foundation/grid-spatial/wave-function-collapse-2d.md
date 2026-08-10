@@ -83,7 +83,9 @@ if expansion["ok"]:
 - `grid`：已坍缩格子的 `Dictionary[Vector2i, tile id]`。
 - `domains`：每个格子剩余候选 tile id 数组，便于调试规则。
 
-文字 tile id 会归一为 `StringName`，整数 tile id 会保留为 `int`。tile 权重必须是有限正数，避免非有限值进入诊断或 JSON 入口。
+文字 tile id 会归一为 `StringName`，整数 tile id 会保留为 `int`。tile 权重必须是有限正数；当多个合法权重的原始和超出浮点范围时，求解器只在聚合路径按最大权重缩放，避免把 `NaN` entropy 或非有限随机区间误判为完成。`status == complete` 始终意味着 `undecided_count == 0`。
+
+`max_cells` 会在 domain 初始化和报告快照前执行。原始网格超过预算时，失败报告仍保留 `grid` 与 `domains` 字段，但二者为空，不能依赖超限报告为每个未批准格子物化空 domain。
 
 `grid`、`domains` 和规则展开报告会保留 `Vector2i` key、`StringName` 与 packed 类型，方便项目内继续组合。需要跨 JSON 边界时，使用 `GFWaveFunctionCollapse2D.to_json_compatible_report(report)`；它默认编码字典 key，避免 `Vector2i` key 在普通 JSON 对象中丢失语义。
 

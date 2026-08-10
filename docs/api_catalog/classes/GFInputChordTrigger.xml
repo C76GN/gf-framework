@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFInputChordTrigger" path="addons/gf/standard/input/triggers/gf_input_chord_trigger.gd" module="standard" extends="GFInputTrigger" classDigest="155e9fcd6b6af9157fc7bbcee2212658367b6cebabd5532f396de4499d2efa18">
+<class name="GFInputChordTrigger" path="addons/gf/standard/input/triggers/gf_input_chord_trigger.gd" module="standard" extends="GFInputTrigger" classDigest="20806405af939adf6af5bd604d6e41eec64773c9bf024439ecd1b54ea68898ce">
 	<description>GFInputChordTrigger: 组合动作触发器。
 当前输入活跃且另一个动作也处于活跃状态时触发，不绑定具体按键。</description>
 	<tags>
@@ -20,9 +20,11 @@
 		</member>
 		<member kind="property" name="player_scoped" decorators="@export">
 			<signature>var player_scoped: bool = true</signature>
-			<description>玩家级动作是否只检查同一玩家。</description>
+			<description>玩家级动作是否只检查同一玩家。启用且 player_index 有效时，runtime 缺少
+player-specific 查询会 fail closed，不回落到全局动作。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 	</properties>

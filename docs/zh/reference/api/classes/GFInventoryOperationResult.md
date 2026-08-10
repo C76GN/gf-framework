@@ -150,6 +150,7 @@ var metadata: Dictionary = {}
 ### `success`
 
 - API：`public`
+- 首次版本：`11.0.0`
 
 ```gdscript
 static func success( result_item_id: StringName, amount: int, result_source_slot: int = -1, result_target_slot: int = -1 ) -> GFInventoryOperationResult:
@@ -162,7 +163,7 @@ static func success( result_item_id: StringName, amount: int, result_source_slot
 | 名称 | 说明 |
 |---|---|
 | `result_item_id` | 物品标识。 |
-| `amount` | 处理数量。 |
+| `amount` | 处理数量；必须大于 0，否则返回规范化失败结果。 |
 | `result_source_slot` | 源槽位。 |
 | `result_target_slot` | 目标槽位。 |
 

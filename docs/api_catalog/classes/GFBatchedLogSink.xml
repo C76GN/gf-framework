@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFBatchedLogSink" path="addons/gf/standard/utilities/logging/gf_batched_log_sink.gd" module="standard" extends="GFLogSink" classDigest="273f6dfb21ef631acf86e699117d8ba0d997f0a664c0c9d2c24ac3c1328ee485">
+<class name="GFBatchedLogSink" path="addons/gf/standard/utilities/logging/gf_batched_log_sink.gd" module="standard" extends="GFLogSink" classDigest="29ba8d76e731b198e645e9cc6d9c4e09849ba41ff32c83b7fa59b92ebc4a146c">
 	<description>GFBatchedLogSink: 结构化日志批量转发 sink。
 该 sink 只负责清洗、缓冲和分批，把实际传输交给 sender_callback 或 batch_ready 信号。
 它不绑定任何远端服务、HTTP 协议或业务字段。</description>
@@ -96,6 +96,15 @@
 				<tag name="schema">entry: Dictionary log entry produced by GFLogUtility.</tag>
 			</tags>
 		</member>
+		<member kind="method" name="tick">
+			<signature>func tick(delta: float) -&gt; void:</signature>
+			<description>推进自动 flush 计时；由持有该 sink 的 GFLogUtility 调用。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">delta: 本帧时间增量（秒）；非有限或非正数不会推进状态。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
 		<member kind="method" name="flush">
 			<signature>func flush() -&gt; void:</signature>
 			<description>发送当前队列中的一批日志。</description>
@@ -105,9 +114,10 @@
 		</member>
 		<member kind="method" name="shutdown">
 			<signature>func shutdown() -&gt; void:</signature>
-			<description>关闭 sink 并尽力 flush。</description>
+			<description>关闭 sink，并在同步发送持续取得进展时排空全部批次。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_pending_count">

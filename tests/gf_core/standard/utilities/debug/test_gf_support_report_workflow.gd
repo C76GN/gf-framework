@@ -238,6 +238,57 @@ func test_workflow_queue_listener_observes_count_and_dispose_keeps_it_reset() ->
 	outbox.dispose()
 
 
+func test_replay_completion_after_dispose_is_stale_and_does_not_revive_workflow() -> void:
+	var outbox: GFRequestOutboxUtility = _make_outbox()
+	var workflow: GFSupportReportWorkflow = GFSupportReportWorkflow.new().setup(
+		GFSupportReportUtility.new(),
+		outbox
+	)
+	var queue_result: Dictionary = workflow.queue_report({
+		"report_id": "dispose-during-replay",
+		"description": "offline",
+	})
+	var transport: ManualWorkflowTransport = ManualWorkflowTransport.new()
+	var _configured_workflow: GFSupportReportWorkflow = workflow.set_transport(
+		Callable(transport, "send")
+	)
+	var completion_count: Array[int] = [0]
+	var _completion_connected: Error = workflow.workflow_replay_completed.connect(
+		func(_result: Dictionary) -> void:
+			completion_count[0] += 1
+	) as Error
+	var replay_state: WorkflowReplayState = WorkflowReplayState.new()
+	@warning_ignore("missing_await")
+	_await_workflow_replay(workflow, replay_state)
+	await get_tree().process_frame
+
+	assert_true(GFVariantData.get_option_bool(queue_result, "ok"), "测试报告应先可靠入队。")
+	assert_eq(transport.captured_reports.size(), 1, "replay 应已进入可控的异步 transport。")
+	workflow.dispose()
+	transport.emit_success()
+	await get_tree().process_frame
+	await get_tree().process_frame
+
+	assert_true(replay_state.done, "底层 transport 结束后旧 replay 调用应有限完成。")
+	assert_true(
+		GFVariantData.get_option_bool(replay_state.report, "workflow_stale"),
+		"dispose 前启动的 replay 结果必须显式标记为 stale。"
+	)
+	assert_false(GFVariantData.get_option_bool(replay_state.report, "ok"), "stale replay 不得伪装为当前 workflow 成功。")
+	assert_eq(
+		GFVariantData.get_option_string(replay_state.report, "reason"),
+		"workflow_lifecycle_changed",
+		"stale replay 应返回稳定原因。"
+	)
+	assert_eq(completion_count[0], 0, "dispose 后不得发出 workflow_replay_completed。")
+	assert_eq(
+		GFVariantData.get_option_int(workflow.get_debug_snapshot(), "replay_completed_count"),
+		0,
+		"dispose 后旧 continuation 不得复活 replay 计数。"
+	)
+	outbox.dispose()
+
+
 func test_queue_report_persists_final_retry_and_idempotency_values_atomically() -> void:
 	var storage_path: String = "user://gf_support_report_outbox_test_%d.json" % Time.get_ticks_usec()
 	var outbox: GFRequestOutboxUtility = GFRequestOutboxUtility.new()
@@ -492,8 +543,38 @@ func _variant_to_request_envelope(value: Variant) -> GFRequestEnvelope:
 	return null
 
 
+func _await_workflow_replay(
+	workflow: GFSupportReportWorkflow,
+	state: WorkflowReplayState
+) -> void:
+	state.report = await workflow.replay_queued()
+	state.done = true
+
+
 func _remove_outbox_files(storage_path: String) -> void:
 	for path: String in [storage_path, storage_path + ".tmp", storage_path + ".bak"]:
 		if FileAccess.file_exists(path):
 			var remove_error: Error = DirAccess.remove_absolute(path)
 			assert_eq(remove_error, OK, "测试应能删除支持报告 outbox 临时文件。")
+
+
+class ManualWorkflowTransport:
+	extends RefCounted
+
+	signal finished(result: Dictionary)
+
+	var captured_reports: Array[Dictionary] = []
+
+	func send(report: Dictionary, _options: Dictionary) -> Signal:
+		captured_reports.append(report.duplicate(true))
+		return finished
+
+	func emit_success() -> void:
+		finished.emit({ "ok": true })
+
+
+class WorkflowReplayState:
+	extends RefCounted
+
+	var done: bool = false
+	var report: Dictionary = {}

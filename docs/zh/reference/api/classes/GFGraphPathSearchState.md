@@ -105,9 +105,9 @@ static func create( start: Variant, goal: Variant, get_neighbors: Callable, get_
 |---|---|
 | `start` | 起点节点。 |
 | `goal` | 终点节点。 |
-| `get_neighbors` | 邻居回调，签名为 `func(node: Variant) -> Array`。 |
-| `get_step_cost` | 可选代价回调，签名为 `func(from: Variant, to: Variant) -> float`；返回负数表示不可通行。 |
-| `heuristic` | 可选启发回调，签名为 `func(node: Variant, goal: Variant) -> float`；为空时退化为 Dijkstra。 |
+| `get_neighbors` | 邻居回调，签名为 \`func(node: Variant) -> Array\`。 |
+| `get_step_cost` | 可选代价回调，签名为 \`func(from: Variant, to: Variant) -> float\`；返回负数表示不可通行。 |
+| `heuristic` | 可选启发回调，签名为 \`func(node: Variant, goal: Variant) -> float\`；为空时退化为 Dijkstra。 |
 
 返回：搜索状态句柄。
 

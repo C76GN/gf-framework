@@ -1,8 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFSignalRuntimeProbe" path="addons/gf/standard/utilities/debug/gf_signal_runtime_probe.gd" module="standard" extends="RefCounted" classDigest="f93fd05930fb74f05a530d5f9554e2dca85cfcb972241c451da61f8371832716">
+<class name="GFSignalRuntimeProbe" path="addons/gf/standard/utilities/debug/gf_signal_runtime_probe.gd" module="standard" extends="RefCounted" classDigest="26f01d4f8a45ea62de5f7b178149705cc2607e5139084409098a111aea293a26">
 	<description>GFSignalRuntimeProbe: 运行时信号发射追踪器。
 以显式 watch 的方式连接节点信号，并把实际发射记录为只读事件快照。
-它不修改被观察节点，不解释业务语义，也不应默认用于生产环境全局采样。</description>
+它不修改被观察节点，不解释业务语义，也不应默认用于生产环境全局采样。
+Signal source 会持有连接 Callable；调用方结束观察时必须调用 dispose() 或
+unwatch_all()，以便长寿命 source 不再持有 Probe。</description>
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">runtime_service</tag>
@@ -149,6 +151,15 @@
 		</member>
 	</properties>
 	<methods>
+		<member kind="method" name="dispose">
+			<signature>func dispose() -&gt; void:</signature>
+			<description>断开全部监听并清空事件历史。
+该方法幂等；结束观察时应优先调用它，避免长寿命 signal source 继续持有 Probe。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
 		<member kind="method" name="watch_node">
 			<signature>func watch_node(source: Node, options: Dictionary = {}) -&gt; Dictionary:</signature>
 			<description>监听单个节点的信号。</description>

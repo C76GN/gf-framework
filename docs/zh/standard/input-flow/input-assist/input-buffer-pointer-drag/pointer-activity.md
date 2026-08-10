@@ -39,4 +39,6 @@ func _ready() -> void:
 
 摘要包含 `active`、`source`、`pointer_count`、`pointer_ids`、`center`、`previous_center`、`pan_delta`、`scale`、`rotation_delta`、`distance`、`previous_distance` 和 `primary_pointer_id`。项目可把这些值映射到地图拖动、相机缩放、画布操作或自定义控件，但这些策略不属于输入层。
 
+鼠标与触摸属于不同身份域：运行时摘要当前以 `-2` 表示鼠标拖拽指针，触点保留 `InputEventScreenTouch.index`，`-1` 只表示没有 primary pointer。这样 touch index 0 与鼠标可以同时活动并独立释放。项目不应把 `pointer_ids` 当作纯 touch index；若只接受触摸，应同时根据事件来源或自己的输入模式过滤。
+
 `GFPointerGestureUtility.calculate_gesture()` 也可以直接对两组指针位置字典做纯数据计算，适合编辑器工具、录制回放或测试中复用同一套手势数学。

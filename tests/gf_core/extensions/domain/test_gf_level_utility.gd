@@ -168,6 +168,29 @@ func test_restart_level_clears_runtime_and_emits_signal() -> void:
 	assert_signal_not_emitted(_level, "level_started", "重开关卡不应重复发出 level_started。")
 
 
+func test_strict_restart_resolves_data_before_runtime_cleanup() -> void:
+	var cleanup_state: Dictionary = {"called": false}
+	assert_true(_level.register_runtime_cleanup(&"strict_restart_probe", func() -> void:
+		cleanup_state["called"] = true
+	))
+	var started_data: Dictionary = _level.start_level(1)
+	var before_data: Dictionary = _level.current_level_data.duplicate(true)
+	_config.records.clear()
+	_level.fail_on_missing_level_data = true
+
+	var restarted_data: Dictionary = _level.restart_level()
+
+	assert_true(restarted_data.is_empty(), "严格模式缺失下一份数据时重开应失败。")
+	assert_false(
+		GFVariantData.get_option_bool(cleanup_state, "called"),
+		"无法提交重开时不得提前执行不可逆运行时清理。"
+	)
+	assert_eq(_level.current_level_id, &"1", "失败重开不得改变当前关卡 ID。")
+	assert_eq(_level.current_level_data, before_data, "失败重开不得改变当前关卡数据。")
+	assert_eq(started_data, before_data, "测试基线应保存启动时的稳定数据。")
+	assert_push_error("[GFLevelUtility] 找不到关卡数据：1")
+
+
 func test_register_runtime_cleanup_tracks_callbacks() -> void:
 	var state: Dictionary = { "called": false }
 	assert_true(_level.register_runtime_cleanup(&"test", func() -> void:
@@ -249,6 +272,24 @@ func test_complete_current_level_updates_progress_and_unlocks_next_levels() -> v
 	assert_true(_progress.is_level_unlocked(&"level_2"), "完成关卡应可按目录顺序解锁下一关。")
 	assert_true(_progress.is_level_unlocked(&"bonus"), "完成关卡应可解锁条目声明的额外关卡。")
 	assert_eq(GFVariantData.get_option_int(_progress.get_level_result(&"level_1"), "stars"), 3, "完成结果应存入进度模型。")
+
+
+func test_complete_with_unlock_next_false_keeps_declared_unlocks_only() -> void:
+	_config.records.clear()
+	_level.set_catalog(_make_catalog())
+	var _started: Dictionary = _level.start_level(&"level_1")
+
+	_level.complete_current_level({}, false, false)
+
+	assert_true(_progress.is_level_completed(&"level_1"), "关闭顺序解锁不应阻止完成进度提交。")
+	assert_true(
+		_progress.is_level_unlocked(&"bonus"),
+		"entry.unlocks_on_complete 是声明式完成规则，不受 unlock_next 控制。"
+	)
+	assert_false(
+		_progress.is_level_unlocked(&"level_2"),
+		"unlock_next=false 必须只关闭目录顺序中的相邻后续关卡。"
+	)
 
 
 func test_start_next_level_uses_catalog_order() -> void:

@@ -171,6 +171,98 @@ func test_console_tab_completion_applies_single_argument_suggestion() -> void:
 	assert_eq(_console._console_gui._input_field.text, "spawn slime ", "Tab 应把唯一参数候选写回当前参数位置。")
 
 
+func test_console_tab_completion_round_trips_complex_argument_tokens() -> void:
+	var completion_state: CompletionState = CompletionState.new()
+	_register_command("spawn", Callable(completion_state, "capture"), "生成。", {
+		"argument_suggester": Callable(completion_state, "suggest"),
+	})
+	var cases: Array[Dictionary] = [
+		{
+			"input": "spawn red",
+			"value": "red potion",
+		},
+		{
+			"input": "spawn \"red po",
+			"value": "red potion",
+		},
+		{
+			"input": "spawn he",
+			"value": "he said \"go\"",
+		},
+		{
+			"input": "spawn C",
+			"value": "C:\\temp\\item",
+		},
+		{
+			"input": "spawn ",
+			"value": "",
+		},
+		{
+			"input": "spawn ",
+			"value": " padded ",
+		},
+	]
+
+	for test_case: Dictionary in cases:
+		completion_state.candidate = GFVariantData.get_option_string(test_case, "value")
+		completion_state.captured_args = PackedStringArray()
+		_console._console_gui._input_field.text = GFVariantData.get_option_string(
+			test_case,
+			"input"
+		)
+		_console._console_gui._apply_command_completion()
+		var completed_text: String = _console._console_gui._input_field.text
+		var executed: bool = _console.execute_command(completed_text)
+
+		assert_true(executed, "补全后的命令应可执行：%s。" % completed_text)
+		assert_eq(completion_state.captured_args.size(), 1, "候选必须往返为一个 token：%s。" % completed_text)
+		if completion_state.captured_args.size() == 1:
+			assert_eq(
+				completion_state.captured_args[0],
+				completion_state.candidate,
+				"补全不得改变候选的字符串语义：%s。" % completed_text
+			)
+
+
+func test_console_rejects_invalid_command_tier_metadata() -> void:
+	var callback: Callable = func(_args: PackedStringArray) -> void:
+		pass
+	var invalid_tiers: Array[Variant] = [-1, 4, "3", null]
+	for index: int in range(invalid_tiers.size()):
+		var command_name: String = "invalid_tier_%d" % index
+		var subscription: GFLifetimeSubscription = _console.register_command(
+			self,
+			command_name,
+			callback,
+			"非法风险等级。",
+			{ "tier": invalid_tiers[index] }
+		)
+		assert_false(subscription.is_active(), "非法 tier 注册必须 fail closed：%s。" % command_name)
+		assert_false(_console.has_command(command_name), "非法 tier 不得进入命令目录：%s。" % command_name)
+		assert_push_warning(
+			"[GFConsoleUtility] 注册命令失败：tier 必须是 0 到 3 的整数：%s。"
+			% command_name
+		)
+
+	var definition: GFConsoleCommandDefinition = GFConsoleCommandDefinition.new()
+	definition.command_name = "invalid_definition_tier"
+	definition.metadata = { "tier": 99 }
+	var definition_subscription: GFLifetimeSubscription = (
+		_console.register_command_definition(self, definition, callback)
+	)
+	assert_false(
+		definition_subscription.is_active(),
+		"资源化命令的非法 tier 也必须在任何 alias 注册前失败关闭。"
+	)
+	assert_false(
+		_console.has_command(definition.command_name),
+		"非法 definition 不得留下部分命令注册。"
+	)
+	assert_push_warning(
+		"[GFConsoleUtility] 注册命令失败：tier 必须是 0 到 3 的整数：invalid_definition_tier。"
+	)
+
+
 func test_suggest_similar_commands_returns_likely_matches() -> void:
 	var cb: Callable = func(_args: PackedStringArray) -> void:
 		pass
@@ -571,3 +663,14 @@ func _script_from_object(object: Object) -> Script:
 class CommandCallState:
 	var count: int = 0
 	var args: PackedStringArray = PackedStringArray()
+
+
+class CompletionState:
+	var candidate: String = ""
+	var captured_args: PackedStringArray = PackedStringArray()
+
+	func suggest(_context: Dictionary) -> PackedStringArray:
+		return PackedStringArray([candidate])
+
+	func capture(args: PackedStringArray) -> void:
+		captured_args = args.duplicate()

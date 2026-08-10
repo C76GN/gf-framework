@@ -6,6 +6,7 @@ extends GutTest
 
 const GF_ACTION_QUEUE_SYSTEM_PATH: String = "res://addons/gf/extensions/action_queue/core/gf_action_queue_system.gd"
 const ACTION_QUEUE_INTERCEPTOR_FIXTURES_PATH: String = "res://tests/gf_core/fixtures/action_queue/action_queue_interceptor_fixtures.gd"
+const GF_ACTION_PROTOCOL = preload("res://addons/gf/extensions/action_queue/core/gf_action_protocol.gd")
 
 
 # --- 辅助子类 ---
@@ -141,6 +142,63 @@ class RecursiveEnqueueAction:
 		var next_action: RecursiveEnqueueAction = RecursiveEnqueueAction.new(queue, executions)
 		var _enqueue_result: Variant = queue.call(&"enqueue", next_action)
 		return null
+
+
+## 控制 hook 同步反调所属队列；只反调一次，避免旧实现直接耗尽测试进程调用栈。
+class ReentrantQueueControlAction:
+	extends GFVisualAction
+
+	signal completed
+
+	var queue: Object
+	var cancel_count: int = 0
+	var pause_count: int = 0
+	var resume_count: int = 0
+	var finish_count: int = 0
+	var reenter_cancel: bool = false
+	var reenter_pause: bool = false
+	var reenter_resume: bool = false
+	var reenter_finish: bool = false
+
+	func _init(p_queue: Object) -> void:
+		queue = p_queue
+
+	func execute() -> Variant:
+		return completed
+
+	func cancel() -> void:
+		cancel_count += 1
+		if reenter_cancel and cancel_count == 1:
+			queue.call(&"skip_current_action")
+
+	func pause() -> void:
+		pause_count += 1
+		if reenter_pause and pause_count == 1:
+			queue.call(&"pause_current_action")
+
+	func resume() -> void:
+		resume_count += 1
+		if reenter_resume and resume_count == 1:
+			queue.call(&"resume_current_action")
+
+	func finish() -> void:
+		finish_count += 1
+		if reenter_finish and finish_count == 1:
+			queue.call(&"finish_current_action")
+
+
+## 故意违反 duck-typed wait 协议：非 Signal 结果却声明需要等待。
+class InvalidWaitContractAction:
+	extends RefCounted
+
+	var execute_count: int = 0
+
+	func execute() -> Variant:
+		execute_count += 1
+		return 42
+
+	func should_wait_for_result(_result: Variant) -> bool:
+		return true
 
 
 # --- 私有变量 ---
@@ -341,6 +399,48 @@ func test_current_action_controls_delegate_to_running_action() -> void:
 	assert_true(waiting_action.finished, "finish_current_action 应委托给当前动作。")
 	assert_false(_is_queue_processing(_system), "完成当前动作后队列应恢复空闲。")
 	assert_null(_get_current_action(_system), "完成后不应保留当前动作。")
+
+
+func test_cancel_current_action_detaches_before_reentrant_cancel_hook() -> void:
+	var action: ReentrantQueueControlAction = ReentrantQueueControlAction.new(_system)
+	action.reenter_cancel = true
+	_enqueue(_system, action)
+	await get_tree().process_frame
+
+	_skip_current_action(_system)
+	await get_tree().process_frame
+
+	assert_eq(action.cancel_count, 1, "cancel hook 反调 skip 时不得再次控制同一动作。")
+	assert_null(_get_current_action(_system), "取消回调期间当前动作所有权应已解除。")
+
+
+func test_pause_and_resume_current_action_ignore_same_hook_reentry() -> void:
+	var action: ReentrantQueueControlAction = ReentrantQueueControlAction.new(_system)
+	action.reenter_pause = true
+	_enqueue(_system, action)
+	await get_tree().process_frame
+
+	assert_true(_pause_current_action(_system), "等待动作应可暂停。")
+	assert_eq(action.pause_count, 1, "pause hook 反调 pause 时不得递归委托。")
+
+	action.reenter_resume = true
+	assert_true(_resume_current_action(_system), "暂停动作应可恢复。")
+	assert_eq(action.resume_count, 1, "resume hook 反调 resume 时不得递归委托。")
+
+	_clear_queue(_system, true)
+
+
+func test_finish_current_action_detaches_before_reentrant_finish_hook() -> void:
+	var action: ReentrantQueueControlAction = ReentrantQueueControlAction.new(_system)
+	action.reenter_finish = true
+	_enqueue(_system, action)
+	await get_tree().process_frame
+
+	_finish_current_action(_system)
+	await get_tree().process_frame
+
+	assert_eq(action.finish_count, 1, "finish hook 反调 finish 时不得再次控制同一动作。")
+	assert_null(_get_current_action(_system), "finish 回调期间当前动作所有权应已解除。")
 
 
 func test_pause_current_action_freezes_wait_action_and_queue_progress() -> void:
@@ -568,6 +668,42 @@ func test_action_interceptors_run_by_priority() -> void:
 	await get_tree().process_frame
 
 	assert_eq(order, ["high", "low", "RUN"], "拦截器应按高优先级优先执行。")
+
+
+func test_action_interceptor_priority_changes_apply_to_next_action_with_stable_ties() -> void:
+	var order: Array = []
+	var first: Object = _make_priority_interceptor(order, "first", 0)
+	var second: Object = _make_priority_interceptor(order, "second", 10)
+	_add_interceptor(_system, first)
+	_add_interceptor(_system, second)
+	first.set(&"priority", 20)
+	second.set(&"priority", 20)
+	_enqueue(_system, OrderAction.new(order, "RUN"))
+
+	await get_tree().process_frame
+	await get_tree().process_frame
+
+	assert_eq(order, ["first", "second", "RUN"], "下一动作应读取当前 priority，并以注册序稳定同优先级顺序。")
+
+
+func test_action_protocol_rejects_non_signal_custom_wait_result() -> void:
+	var action: InvalidWaitContractAction = InvalidWaitContractAction.new()
+	var should_wait: bool = GF_ACTION_PROTOCOL.should_wait_for_result(action, 42)
+
+	assert_false(should_wait, "duck-typed action 不得把非 Signal 强制声明为可等待结果。")
+	assert_push_error("[GFActionProtocol] 动作声明等待，但 execute() 未返回 Signal。")
+	if should_wait:
+		return
+
+	var order: Array = []
+	_enqueue(_system, action)
+	_enqueue(_system, OrderAction.new(order, "AFTER_INVALID_WAIT"))
+	await get_tree().process_frame
+	await get_tree().process_frame
+
+	assert_eq(action.execute_count, 1, "无效 wait 声明不应重复执行动作。")
+	assert_eq(order, ["AFTER_INVALID_WAIT"], "受控拒绝 wait 后队列仍应有界推进。")
+	assert_push_error("[GFActionProtocol] 动作声明等待，但 execute() 未返回 Signal。")
 
 
 func test_action_interceptor_can_stop_remaining_queue() -> void:

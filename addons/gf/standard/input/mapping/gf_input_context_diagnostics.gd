@@ -239,7 +239,7 @@ static func _collect_action_threshold_issue(mapping: GFInputMapping, mapping_pat
 	if mapping.action == null:
 		return
 	var threshold: float = mapping.action.activation_threshold
-	if threshold < 0.0 or threshold > 1.0:
+	if is_nan(threshold) or is_inf(threshold) or threshold < 0.0 or threshold > 1.0:
 		issues.append(_make_issue(
 			"warning",
 			"invalid_activation_threshold",
@@ -262,7 +262,12 @@ static func _collect_binding_issues(
 		issues.append(_make_issue("warning", "empty_input_event", binding_path, "绑定没有输入事件。"))
 	else:
 		_collect_input_event_action_issue(binding.input_event, binding_path, issues, options)
-	if binding.deadzone < 0.0 or binding.deadzone > 1.0:
+	if (
+		is_nan(binding.deadzone)
+		or is_inf(binding.deadzone)
+		or binding.deadzone < 0.0
+		or binding.deadzone > 1.0
+	):
 		issues.append(_make_issue(
 			"warning",
 			"invalid_deadzone",

@@ -114,6 +114,58 @@ func test_editor_scene_metadata_patch_rejects_field_change_after_undo_registrati
 	node.free()
 
 
+func test_editor_scene_metadata_patch_routes_undo_to_target_history() -> void:
+	var node: Node = Node.new()
+	var command: GFEditorSceneMetadataPatch = _make_typed_metadata_patch(
+		node,
+		&"gf_test_guides",
+		"new",
+		false
+	)
+	var undo_manager: FakeUndoManager = FakeUndoManager.new()
+	undo_manager.set_history_id(node, 41)
+
+	assert_eq(
+		command.add_to_undo_manager(undo_manager, false),
+		OK,
+		"场景 metadata 命令应能注册到 UndoRedo。"
+	)
+	assert_same(
+		undo_manager.custom_context,
+		node,
+		"UndoRedo action 应使用实际修改的节点作为 history 上下文。"
+	)
+	node.free()
+
+
+func test_editor_property_batch_rejects_targets_from_different_undo_histories() -> void:
+	var first: CounterState = CounterState.new()
+	var second: CounterState = CounterState.new()
+	var command: GFEditorPropertyBatchCommand = GFEditorPropertyBatchCommand.new()
+	var _configured_command: GFEditorPropertyBatchCommand = command.configure([
+		{
+			"target": first,
+			"property_name": &"value",
+			"new_value": 1,
+		},
+		{
+			"target": second,
+			"property_name": &"value",
+			"new_value": 2,
+		},
+	])
+	var undo_manager: FakeUndoManager = FakeUndoManager.new()
+	undo_manager.set_history_id(first, 1)
+	undo_manager.set_history_id(second, 2)
+
+	assert_eq(
+		command.add_to_undo_manager(undo_manager, false),
+		ERR_INVALID_PARAMETER,
+		"一个 action 不应跨越多个 UndoRedo history。"
+	)
+	assert_eq(undo_manager.create_action_count, 0, "history 冲突必须在创建 action 前失败。")
+
+
 func test_editor_scene_metadata_patch_redo_keeps_original_snapshot() -> void:
 	var node: Node = Node.new()
 	node.set_meta(&"gf_test_guides", "old")
@@ -400,6 +452,66 @@ func test_editor_pick_operation_tracks_preview_and_apply_result() -> void:
 	assert_eq(GF_VARIANT_ACCESS.get_option_vector2(result_value, "position"), Vector2(1.0, 2.0), "应用结果应包含拾取结果。")
 
 
+func test_editor_tool_does_not_retain_pick_operation_when_begin_fails() -> void:
+	var tool: RecordingTool = RecordingTool.new()
+	var context: GFEditorToolContext = GFEditorToolContext.new()
+	var operation: RejectingBeginPickOperation = RejectingBeginPickOperation.new()
+	tool.activate(context)
+
+	assert_false(tool.begin_pick_operation(operation), "begin 失败时工具不应接管操作。")
+	assert_null(tool.get_pick_operation(), "失败的操作不应残留为当前操作。")
+
+
+func test_editor_pick_operation_remains_ready_after_failed_apply() -> void:
+	var tool: RecordingTool = RecordingTool.new()
+	var context: GFEditorToolContext = GFEditorToolContext.new()
+	var operation: FailingApplyPickOperation = FailingApplyPickOperation.new()
+	tool.activate(context)
+	assert_true(tool.begin_pick_operation(operation), "操作应能开始。")
+	assert_eq(
+		tool.pick({ "position": Vector2.ONE }),
+		GFEditorPickOperation.State.READY,
+		"有效输入应让操作进入 READY。"
+	)
+
+	var first_result: Dictionary = tool.apply_pick_operation()
+
+	assert_false(GF_VARIANT_ACCESS.get_option_bool(first_result, "ok"), "首次 apply 应按替身失败。")
+	assert_eq(operation.get_state(), GFEditorPickOperation.State.READY, "apply 失败后应保留 READY 以便重试。")
+	assert_same(tool.get_pick_operation(), operation, "可重试操作应继续由工具持有。")
+
+	var second_result: Dictionary = tool.apply_pick_operation()
+	assert_true(GF_VARIANT_ACCESS.get_option_bool(second_result, "ok"), "第二次 apply 应可成功。")
+	assert_eq(operation.get_state(), GFEditorPickOperation.State.APPLIED, "成功后才应进入 APPLIED。")
+	assert_null(tool.get_pick_operation(), "成功应用后工具应释放操作所有权。")
+
+
+func test_editor_tool_deactivate_cancels_pick_and_blocks_mutation() -> void:
+	var tool: RecordingTool = RecordingTool.new()
+	var context: GFEditorToolContext = GFEditorToolContext.new()
+	var operation: CancellablePickOperation = CancellablePickOperation.new()
+	tool.activate(context)
+	assert_true(tool.begin_pick_operation(operation), "操作应能开始。")
+
+	tool.deactivate()
+
+	assert_eq(operation.cancel_count, 1, "停用工具必须取消当前操作一次。")
+	assert_eq(operation.get_state(), GFEditorPickOperation.State.CANCELLED, "停用后操作应进入 CANCELLED。")
+	assert_null(tool.get_pick_operation(), "停用后工具不应保留操作。")
+	assert_eq(
+		tool.pick({ "position": Vector2.ONE }),
+		GFEditorPickOperation.State.IDLE,
+		"停用工具不能继续接收拾取写入。"
+	)
+	var apply_result: Dictionary = tool.apply_pick_operation()
+	assert_false(GF_VARIANT_ACCESS.get_option_bool(apply_result, "ok"), "停用工具不能应用操作。")
+	assert_eq(
+		GF_VARIANT_ACCESS.get_option_string_name(apply_result, "reason"),
+		&"tool_inactive",
+		"停用失败原因应稳定可诊断。"
+	)
+
+
 # --- 私有/辅助方法 ---
 
 func _context_state(context: Dictionary) -> CounterState:
@@ -475,10 +587,28 @@ class FakeUndoManager extends RefCounted:
 	var do_method: String = ""
 	var undo_target: Object
 	var undo_method: String = ""
+	var custom_context: Object = null
+	var create_action_count: int = 0
+	var _history_ids: Dictionary = {}
 
 
-	func create_action(_action_name: String) -> void:
-		pass
+	func create_action(
+		_action_name: String,
+		_merge_mode: int = 0,
+		action_context: Object = null
+	) -> void:
+		custom_context = action_context
+		create_action_count += 1
+
+
+	func set_history_id(target: Object, history_id: int) -> void:
+		_history_ids[target.get_instance_id()] = history_id
+
+
+	func get_object_history_id(target: Object) -> int:
+		return GF_VARIANT_ACCESS.to_int(
+			_history_ids.get(target.get_instance_id(), 0)
+		)
 
 
 	func add_do_method(target: Object, method_name: String) -> void:
@@ -520,3 +650,28 @@ class RecordingPickOperation extends GFEditorPickOperation:
 			"result": input_data.duplicate(true),
 			"ready": input_data.has("position"),
 		}
+
+
+class RejectingBeginPickOperation extends GFEditorPickOperation:
+	func begin(_tool_context: GFEditorToolContext) -> bool:
+		return false
+
+
+class FailingApplyPickOperation extends RecordingPickOperation:
+	var apply_count: int = 0
+
+
+	func _on_apply(_tool_context: GFEditorToolContext, result: Dictionary) -> Dictionary:
+		apply_count += 1
+		return {
+			"ok": apply_count > 1,
+			"result": result,
+		}
+
+
+class CancellablePickOperation extends RecordingPickOperation:
+	var cancel_count: int = 0
+
+
+	func _on_cancel(_tool_context: GFEditorToolContext) -> void:
+		cancel_count += 1

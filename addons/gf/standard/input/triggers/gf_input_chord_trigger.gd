@@ -23,9 +23,12 @@ const _INSTANCE_GUARD = preload("res://addons/gf/kernel/core/gf_instance_guard.g
 ## @api public
 @export var required_action_id: StringName = &""
 
-## 玩家级动作是否只检查同一玩家。
+## 玩家级动作是否只检查同一玩家。启用且 player_index 有效时，runtime 缺少
+## player-specific 查询会 fail closed，不回落到全局动作。
 ## [br]
 ## @api public
+## [br]
+## @since 11.0.0
 @export var player_scoped: bool = true
 
 
@@ -82,12 +85,13 @@ func update(raw_active: bool, _value: Variant, _delta: float, state: Dictionary)
 		return TriggerState.INACTIVE
 
 	var player_index: int = GFVariantData.get_option_int(state, "player_index", -1)
-	if player_scoped and player_index >= 0 and input_runtime.has_method("is_action_active_for_player"):
-		return (
-			TriggerState.TRIGGERED
-			if GFVariantData.to_bool(input_runtime.call("is_action_active_for_player", player_index, required_action_id))
-			else TriggerState.INACTIVE
+	if player_scoped and player_index >= 0:
+		if not input_runtime.has_method("is_action_active_for_player"):
+			return TriggerState.INACTIVE
+		var player_active: bool = GFVariantData.to_bool(
+			input_runtime.call("is_action_active_for_player", player_index, required_action_id)
 		)
+		return TriggerState.TRIGGERED if player_active else TriggerState.INACTIVE
 
 	if input_runtime.has_method("is_action_active") and GFVariantData.to_bool(input_runtime.call("is_action_active", required_action_id)):
 		return TriggerState.TRIGGERED

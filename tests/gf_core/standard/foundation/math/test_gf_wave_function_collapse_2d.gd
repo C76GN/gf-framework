@@ -71,6 +71,58 @@ func test_solve_grid_is_deterministic_for_same_seed_without_adjacency_constraint
 	assert_eq(GFVariantData.get_option_int(first_report, "undecided_count"), 0, "完成后不应有未决 domain。")
 
 
+func test_solve_grid_large_finite_weights_do_not_produce_false_completion() -> void:
+	var regular_report: Dictionary = GF_WAVE_FUNCTION_COLLAPSE_2D_SCRIPT.solve_grid(
+		Vector2i.ONE,
+		[
+			{ "id": &"a", "weight": 1.0 },
+			{ "id": &"b", "weight": 2.0 },
+		],
+		[],
+		{ "seed": 17 }
+	)
+	var scaled_report: Dictionary = GF_WAVE_FUNCTION_COLLAPSE_2D_SCRIPT.solve_grid(
+		Vector2i.ONE,
+		[
+			{ "id": &"a", "weight": 8.0e307 },
+			{ "id": &"b", "weight": 1.6e308 },
+		],
+		[],
+		{ "seed": 17 }
+	)
+
+	assert_true(GFVariantData.get_option_bool(scaled_report, "ok"), "有限大权重仍应完成求解。")
+	assert_eq(
+		GFVariantData.get_option_string_name(scaled_report, "status"),
+		GF_WAVE_FUNCTION_COLLAPSE_2D_SCRIPT.STATUS_COMPLETE
+	)
+	assert_eq(GFVariantData.get_option_int(scaled_report, "collapsed_count"), 1)
+	assert_eq(GFVariantData.get_option_int(scaled_report, "undecided_count"), 0, "complete 不得携带未决 domain。")
+	assert_eq(
+		GFVariantData.get_option_dictionary(scaled_report, "grid"),
+		GFVariantData.get_option_dictionary(regular_report, "grid"),
+		"共同缩放权重不应改变同 seed 的选择结果。"
+	)
+
+
+func test_solve_grid_over_cell_budget_does_not_materialize_rejected_grid() -> void:
+	var report: Dictionary = GF_WAVE_FUNCTION_COLLAPSE_2D_SCRIPT.solve_grid(
+		Vector2i(100_000, 100_000),
+		[&"tile"],
+		[],
+		{ "max_cells": 4 }
+	)
+
+	assert_false(GFVariantData.get_option_bool(report, "ok"))
+	assert_eq(
+		GFVariantData.get_option_string_name(report, "status"),
+		GF_WAVE_FUNCTION_COLLAPSE_2D_SCRIPT.STATUS_INVALID_INPUT
+	)
+	assert_eq(GFVariantData.get_option_int(report, "cell_count"), 10_000_000_000)
+	assert_true(GFVariantData.get_option_dictionary(report, "grid").is_empty())
+	assert_true(GFVariantData.get_option_dictionary(report, "domains").is_empty())
+
+
 func test_solve_grid_reports_contradiction_for_incompatible_fixed_cells() -> void:
 	var tiles: Array = [&"floor", &"wall"]
 	var rules: Array[Dictionary] = [

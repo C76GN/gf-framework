@@ -552,6 +552,48 @@ func test_camera_rig_3d_ignores_target_scale_for_rotation_and_offset() -> void:
 	assert_almost_eq(transform.basis.z.length(), 1.0, 0.001, "相机 basis.z 应保持单位长度。")
 
 
+## 验证镜像目标的 signed scale 不会把左手 Basis 送入相机旋转插值。
+func test_camera_rig_3d_mirrored_target_produces_proper_rotation_for_blend() -> void:
+	var root: Node3D = Node3D.new()
+	add_child_autofree(root)
+
+	var target: Node3D = Node3D.new()
+	target.rotation = Vector3(0.25, 0.7, -0.15)
+	target.scale = Vector3(-2.0, 1.0, 1.0)
+	root.add_child(target)
+
+	var camera: Camera3D = Camera3D.new()
+	camera.rotation = Vector3(-0.1, 0.2, 0.3)
+	camera.scale = Vector3(1.0, -1.0, 1.0)
+	root.add_child(camera)
+	var director: GFCameraDirector3D = GFCameraDirector3D.new()
+	director.update_mode = GFCameraDirector3D.UpdateMode.MANUAL
+	director.default_blend.duration_seconds = 1.0
+	director.default_blend.transition_type = Tween.TRANS_LINEAR
+	root.add_child(director)
+	director.camera_path = director.get_path_to(camera)
+
+	var rig: GFCameraRig3D = GFCameraRig3D.new()
+	root.add_child(rig)
+	rig.target_path = rig.get_path_to(target)
+	await get_tree().process_frame
+
+	var rig_transform: Transform3D = rig.get_camera_transform()
+	assert_almost_eq(
+		rig_transform.basis.determinant(),
+		1.0,
+		0.001,
+		"Camera Rig 必须把镜像目标收敛为可由 Quaternion 表示的右手旋转。"
+	)
+	assert_true(director.process_camera(0.5), "镜像目标的中间 blend 应能安全应用。")
+	assert_almost_eq(camera.global_basis.determinant(), 1.0, 0.001)
+	assert_true(director.process_camera(0.5), "镜像目标的 blend 应能完成。")
+	assert_true(
+		camera.global_basis.is_equal_approx(rig_transform.basis),
+		"blend 完成后 Camera 应匹配已收敛的 Rig 旋转。"
+	)
+
+
 ## 验证 look_at 方向与 up_axis 平行时会选择安全上方向。
 func test_camera_rig_3d_look_at_parallel_up_axis_remains_orthonormal() -> void:
 	var root: Node3D = Node3D.new()

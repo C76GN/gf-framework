@@ -39,7 +39,7 @@
 | 方法 | [`to_array`](#member-gfconfigtablequery-methods-to_array) | `func to_array(duplicate_records: bool = true) -> Array[Dictionary]:` |
 | 方法 | [`first`](#member-gfconfigtablequery-methods-first) | `func first(duplicate_record: bool = true) -> Variant:` |
 | 方法 | [`count`](#member-gfconfigtablequery-methods-count) | `func count() -> int:` |
-| 方法 | [`values`](#member-gfconfigtablequery-methods-values) | `func values(path: String = "") -> Array:` |
+| 方法 | [`values`](#member-gfconfigtablequery-methods-values) | `func values(path: String = "", duplicate_values: bool = true) -> Array:` |
 | 方法 | [`read_path`](#member-gfconfigtablequery-methods-read_path) | `static func read_path(source: Variant, path: String, default_value: Variant = null) -> Variant:` |
 | 方法 | [`describe_query`](#member-gfconfigtablequery-methods-describe_query) | `func describe_query() -> Dictionary:` |
 
@@ -649,7 +649,7 @@ func count() -> int:
 - 首次版本：`8.0.0`
 
 ```gdscript
-func values(path: String = "") -> Array:
+func values(path: String = "", duplicate_values: bool = true) -> Array:
 ```
 
 返回匹配记录中的字段值。
@@ -659,6 +659,7 @@ func values(path: String = "") -> Array:
 | 名称 | 说明 |
 |---|---|
 | `path` | 字段路径。为空时使用整条记录。 |
+| `duplicate_values` | 是否深复制可复制的返回值；为 false 时显式借用查询器内部值。 |
 
 返回：字段值数组。
 
@@ -684,7 +685,7 @@ static func read_path(source: Variant, path: String, default_value: Variant = nu
 | 名称 | 说明 |
 |---|---|
 | `source` | 源数据。 |
-| `path` | 字段路径，支持用 "." 访问嵌套 Dictionary、Array 下标或 Object 属性。 |
+| `path` | 字段路径，支持用 "." 访问嵌套 Dictionary、Array 下标或受信任 Object 属性；Object getter 可能执行项目代码。 |
 | `default_value` | 路径不存在时返回的默认值。 |
 
 返回：读取到的值或默认值。

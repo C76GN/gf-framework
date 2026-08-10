@@ -62,7 +62,7 @@ func configure(
 	source_path = _normalize_source_path(p_source_path)
 	subject_path = p_subject_path
 	subject_kind = p_subject_kind
-	metadata = p_metadata.duplicate(true)
+	metadata = GFVariantData.to_dictionary(p_metadata)
 	return self
 
 
@@ -121,7 +121,7 @@ func to_dict() -> Dictionary:
 		"source_path": source_path,
 		"subject_path": String(subject_path),
 		"subject_kind": subject_kind,
-		"metadata": metadata.duplicate(true),
+		"metadata": GFVariantData.to_dictionary(metadata),
 	}
 
 

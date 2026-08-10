@@ -100,7 +100,7 @@ func configure( entry_id: StringName, entry_path: String, hint: String = "", ind
 | 名称 | 说明 |
 |---|---|
 | `entry_id` | 条目稳定 ID。 |
-| `entry_path` | 资源路径，支持 `res://` 或 `uid://`。 |
+| `entry_path` | 资源路径，支持 \`res://\` 或 \`uid://\`。 |
 | `hint` | 可选资源类型提示。 |
 | `indexed_fields` | 可索引字段。 |
 

@@ -34,6 +34,24 @@ func test_make_relative_path_returns_path_under_base() -> void:
 	assert_eq(relative_path, "assets/icon.tres", "位于 base_path 下的路径应转换为相对路径。")
 
 
+func test_make_relative_path_supports_scheme_roots() -> void:
+	assert_eq(
+		GFPathTools.make_relative_path("res://asset.tres", "res://"),
+		"asset.tres",
+		"res:// 直接后代应能转换为相对路径。"
+	)
+	assert_eq(
+		GFPathTools.make_relative_path("user://profiles/save.cfg", "user://"),
+		"profiles/save.cfg",
+		"user:// 嵌套后代应能转换为相对路径。"
+	)
+	assert_eq(
+		GFPathTools.make_relative_path("uid://resource_id", "uid://"),
+		"resource_id",
+		"uid:// 直接后代应能转换为相对路径。"
+	)
+
+
 func test_make_relative_path_rejects_parent_escape_after_simplify() -> void:
 	var relative_path: String = GFPathTools.make_relative_path(
 		"res://content/packs/base/../escape.tres",
@@ -50,6 +68,25 @@ func test_is_path_under_root_rejects_parent_escape() -> void:
 	)
 
 	assert_false(under_root, "包含 .. 的路径简化后越过 root 时应被拒绝。")
+
+
+func test_is_path_under_root_supports_scheme_roots_with_strict_boundaries() -> void:
+	assert_true(
+		GFPathTools.is_path_under_root("res://asset.tres", "res://"),
+		"res:// 应包含直接后代。"
+	)
+	assert_true(
+		GFPathTools.is_path_under_root("user://profiles/save.cfg", "user://"),
+		"user:// 应包含嵌套后代。"
+	)
+	assert_false(
+		GFPathTools.is_path_under_root("res://", "res://", false),
+		"allow_equal=false 时 scheme 根自身不应命中。"
+	)
+	assert_false(
+		GFPathTools.is_path_under_root("resx://asset.tres", "res://"),
+		"相邻 scheme 前缀不应被误判为 res:// 后代。"
+	)
 
 
 func test_is_path_excluded_rejects_parent_escape_after_simplify() -> void:
@@ -70,3 +107,20 @@ func test_is_path_excluded_matches_child_directories() -> void:
 	)
 
 	assert_true(is_excluded, "排除目录的子路径也应被视为命中。")
+
+
+func test_is_path_excluded_supports_scheme_roots_with_strict_boundaries() -> void:
+	var excluded_paths: PackedStringArray = PackedStringArray(["res://", "user://"])
+
+	assert_true(
+		GFPathTools.is_path_excluded("res://asset.tres", excluded_paths),
+		"res:// 排除根应命中直接后代。"
+	)
+	assert_true(
+		GFPathTools.is_path_excluded("user://profiles/save.cfg", excluded_paths),
+		"user:// 排除根应命中嵌套后代。"
+	)
+	assert_false(
+		GFPathTools.is_path_excluded("resx://asset.tres", excluded_paths),
+		"相邻 scheme 前缀不应被 scheme 排除根误命中。"
+	)

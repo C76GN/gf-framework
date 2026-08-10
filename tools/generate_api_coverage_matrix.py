@@ -5,10 +5,17 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
+import re
 import sys
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from generated_output_transaction import compare_generated_tree
+from generated_output_transaction import lexical_absolute_path
+from generated_output_transaction import replace_generated_trees
+from generated_output_transaction import validate_controlled_path
 from gdscript_api_parser import ApiClass
 from gdscript_api_parser import ApiMember
 from gdscript_api_parser import flatten_api_classes
@@ -20,6 +27,12 @@ from generate_api_reference import module_slug
 
 
 ROOT = Path(__file__).resolve().parents[1]
+DEFAULT_OUTPUT_ROOT = lexical_absolute_path(ROOT / "ai_analysis/api_coverage")
+DEFAULT_MAX_INPUT_FILES = 10_000
+DEFAULT_MAX_INPUT_ENTRIES = 100_000
+DEFAULT_MAX_TOTAL_BYTES = 64 * 1024 * 1024
+DEFAULT_MAX_FILE_BYTES = 8 * 1024 * 1024
+IDENTIFIER_PATTERN = re.compile(r"[A-Za-z_]\w*")
 MEMBER_GROUPS = {
 	"signals": "signals",
 	"enums": "enums",
@@ -29,7 +42,45 @@ MEMBER_GROUPS = {
 }
 
 
-def main() -> int:
+class CoverageInputError(RuntimeError):
+	"""Report an incomplete or unsafe coverage evidence scan."""
+
+
+@dataclass
+class CoverageReadBudget:
+	max_files: int = DEFAULT_MAX_INPUT_FILES
+	max_entries: int = DEFAULT_MAX_INPUT_ENTRIES
+	max_total_bytes: int = DEFAULT_MAX_TOTAL_BYTES
+	max_file_bytes: int = DEFAULT_MAX_FILE_BYTES
+	files_read: int = 0
+	entries_scanned: int = 0
+	total_bytes: int = 0
+
+	def observe_entry(self) -> None:
+		if self.entries_scanned + 1 > self.max_entries:
+			raise CoverageInputError(
+				f"Coverage input exceeds directory-entry budget ({self.max_entries})"
+			)
+		self.entries_scanned += 1
+
+	def consume(self, display_path: str, byte_count: int) -> None:
+		if byte_count > self.max_file_bytes:
+			raise CoverageInputError(
+				f"Coverage input exceeds per-file byte budget ({self.max_file_bytes}): {display_path}"
+			)
+		if self.files_read + 1 > self.max_files:
+			raise CoverageInputError(
+				f"Coverage input exceeds file-count budget ({self.max_files})"
+			)
+		if self.total_bytes + byte_count > self.max_total_bytes:
+			raise CoverageInputError(
+				f"Coverage input exceeds total byte budget ({self.max_total_bytes})"
+			)
+		self.files_read += 1
+		self.total_bytes += byte_count
+
+
+def main(argv: list[str] | None = None) -> int:
 	parser = argparse.ArgumentParser(description="Generate GF API coverage planning matrix.")
 	parser.add_argument("--source", default="addons/gf", help="GDScript source root.")
 	parser.add_argument("--docs", default="docs/zh", help="Guide documentation root.")
@@ -42,13 +93,23 @@ def main() -> int:
 	)
 	parser.add_argument("--output", default="ai_analysis/api_coverage", help="Output directory.")
 	parser.add_argument("--check", action="store_true", help="Fail if existing outputs are stale.")
-	args = parser.parse_args()
+	parser.add_argument(
+		"--allow-unsafe-output-root",
+		action="store_true",
+		help="Allow a deliberate temporary output outside ai_analysis/api_coverage.",
+	)
+	args = parser.parse_args(argv)
 
 	source_root = (ROOT / args.source).resolve()
 	docs_root = (ROOT / args.docs).resolve()
 	tests_root = (ROOT / args.tests).resolve()
-	output_root = (ROOT / args.output).resolve()
-	example_roots = [(ROOT / item).resolve() for item in args.examples]
+	output_root = lexical_absolute_path(ROOT / args.output)
+	example_roots = dedupe_roots([(ROOT / item).resolve() for item in args.examples])
+	output_root_errors = validate_generated_output_root(output_root, args.allow_unsafe_output_root)
+	if output_root_errors:
+		for error in output_root_errors:
+			print(error, file=sys.stderr)
+		return 2
 
 	if not source_root.exists():
 		print(f"source root not found: {source_root}", file=sys.stderr)
@@ -60,8 +121,12 @@ def main() -> int:
 		print(f"tests root not found: {tests_root}", file=sys.stderr)
 		return 2
 
-	api_classes = collect_api_classes(source_root)
-	matrix = build_matrix(api_classes, docs_root, tests_root, example_roots)
+	try:
+		api_classes = collect_api_classes(source_root)
+		matrix = build_matrix(api_classes, docs_root, tests_root, example_roots)
+	except (CoverageInputError, OSError, UnicodeError, ValueError) as error:
+		print(f"API coverage generation failed: {error}", file=sys.stderr)
+		return 2
 	desired = render_outputs(matrix)
 
 	if args.check:
@@ -79,19 +144,28 @@ def build_matrix(
 	example_roots: list[Path],
 ) -> dict[str, Any]:
 	all_classes = flatten_api_classes(api_classes)
+	budget = CoverageReadBudget()
 	guide_docs = collect_text_files(
 		docs_root,
 		{ ".md" },
 		exclude=lambda path: is_reference_api_path(docs_root, path) or is_changelog_page(path),
+		budget=budget,
 	)
-	tests = collect_text_files(tests_root, { ".gd", ".tscn", ".tres", ".res", ".json", ".md" })
+	tests = collect_text_files(
+		tests_root,
+		{ ".gd", ".tscn", ".tres", ".res", ".json", ".md" },
+		budget=budget,
+	)
 	examples = []
-	for root in example_roots:
+	existing_example_roots = [root for root in dedupe_roots(example_roots) if root.exists()]
+	for index, root in enumerate(existing_example_roots):
 		if root.exists():
 			examples.extend(collect_text_files(
 				root,
 				{ ".gd", ".tscn", ".tres", ".res", ".json", ".md" },
 				exclude=lambda path, example_root=root: is_generated_example_path(example_root, path),
+				budget=budget,
+				display_prefix=display_root_label(root, index),
 			))
 
 	class_entries: list[dict[str, Any]] = []
@@ -123,10 +197,15 @@ def build_matrix(
 
 	member_count = sum(entry["member_count"] for entry in class_entries)
 	return {
+		"evidence_model": "identifier_occurrence",
+		"input_complete": True,
+		"input_entry_count": budget.entries_scanned,
+		"input_file_count": budget.files_read,
+		"input_bytes": budget.total_bytes,
 		"source_root": "addons/gf",
 		"guide_docs_root": relative_to_root(docs_root),
 		"tests_root": relative_to_root(tests_root),
-		"example_roots": [relative_to_root(path) for path in example_roots if path.exists()],
+		"example_roots": [display_root_label(path, index) for index, path in enumerate(existing_example_roots)],
 		"class_count": len(class_entries),
 		"member_count": member_count,
 		"guide_class_count": sum(1 for entry in class_entries if entry["guide_docs"]),
@@ -199,51 +278,111 @@ def api_class_terms(api_class: ApiClass) -> list[str]:
 	return dedupe_non_empty(terms)
 
 
-def find_class_hits(files: list[dict[str, str]], terms: list[str]) -> list[str]:
+def find_class_hits(files: list[dict[str, Any]], terms: list[str]) -> list[str]:
 	hits: list[str] = []
 	for item in files:
-		if any(term in item["text"] for term in terms):
+		if any(record_mentions_term(item, term) for term in terms):
 			hits.append(item["path"])
 	return hits
 
 
 def find_member_hits(
-	files: list[dict[str, str]],
+	files: list[dict[str, Any]],
 	class_terms: list[str],
 	member_terms: list[str],
 ) -> list[str]:
 	hits: list[str] = []
 	for item in files:
-		text = item["text"]
-		if not any(term in text for term in class_terms):
+		if not any(record_mentions_term(item, term) for term in class_terms):
 			continue
-		if any(term in text for term in member_terms):
+		if any(record_mentions_term(item, term) for term in member_terms):
 			hits.append(item["path"])
 	return hits
+
+
+def record_mentions_term(record: dict[str, Any], term: str) -> bool:
+	if not term:
+		return False
+	if IDENTIFIER_PATTERN.fullmatch(term) is not None:
+		return term in record["identifiers"]
+	return term in record["text"]
+
+
+def make_text_record(display_path: str, text: str) -> dict[str, Any]:
+	return {
+		"path": display_path,
+		"text": text,
+		"identifiers": frozenset(IDENTIFIER_PATTERN.findall(text)),
+	}
 
 
 def collect_text_files(
 	root: Path,
 	suffixes: set[str],
 	exclude: Any | None = None,
-) -> list[dict[str, str]]:
-	result: list[dict[str, str]] = []
+	budget: CoverageReadBudget | None = None,
+	display_prefix: str = "",
+) -> list[dict[str, Any]]:
+	result: list[dict[str, Any]] = []
+	read_budget = budget if budget is not None else CoverageReadBudget()
 	if not root.exists():
 		return result
-	for path in sorted(root.rglob("*")):
+	for path in root.rglob("*"):
+		read_budget.observe_entry()
+		if path.is_symlink() or _path_is_junction(path):
+			raise CoverageInputError(
+				f"Coverage input must not contain links or junctions: {coverage_display_path(root, path, display_prefix)}"
+			)
 		if not path.is_file() or path.suffix.lower() not in suffixes:
 			continue
 		if exclude != None and exclude(path):
 			continue
+		display_path = coverage_display_path(root, path, display_prefix)
 		try:
-			text = path.read_text(encoding="utf-8", errors="replace")
-		except OSError:
-			continue
-		result.append({
-			"path": relative_to_root(path),
-			"text": text,
-		})
+			with path.open("rb") as stream:
+				payload = stream.read(read_budget.max_file_bytes + 1)
+		except OSError as error:
+			raise CoverageInputError(f"Cannot read coverage input {display_path}: {error}") from error
+		read_budget.consume(display_path, len(payload))
+		try:
+			text = payload.decode("utf-8")
+		except UnicodeDecodeError as error:
+			raise CoverageInputError(f"Coverage input is not UTF-8: {display_path}") from error
+		result.append(make_text_record(display_path, text))
+	result.sort(key=lambda item: item["path"])
 	return result
+
+
+def coverage_display_path(root: Path, path: Path, display_prefix: str) -> str:
+	relative = path.relative_to(root).as_posix()
+	if display_prefix:
+		return f"{display_prefix.rstrip('/')}/{relative}"
+	return relative_to_root(path)
+
+
+def display_root_label(path: Path, index: int) -> str:
+	try:
+		return path.resolve().relative_to(ROOT).as_posix()
+	except ValueError:
+		return f"examples/{index}"
+
+
+def dedupe_roots(paths: list[Path]) -> list[Path]:
+	result: list[Path] = []
+	identities: set[str] = set()
+	for path in paths:
+		resolved = path.resolve()
+		identity = os.path.normcase(str(resolved))
+		if identity in identities:
+			continue
+		identities.add(identity)
+		result.append(resolved)
+	return result
+
+
+def _path_is_junction(path: Path) -> bool:
+	is_junction = getattr(path, "is_junction", None)
+	return bool(callable(is_junction) and is_junction())
 
 
 def is_generated_example_path(example_root: Path, path: Path) -> bool:
@@ -256,7 +395,7 @@ def is_generated_example_path(example_root: Path, path: Path) -> bool:
 		return True
 	if len(parts) >= 2 and parts[0] == "addons" and parts[1] == "gf":
 		return True
-	if any(part in { ".godot", ".import" } for part in parts):
+	if any(part in { ".git", ".godot", ".import" } for part in parts):
 		return True
 	if path.suffix == ".import":
 		return True
@@ -296,8 +435,9 @@ def render_index(matrix: dict[str, Any]) -> str:
 		"## Reading The Matrix",
 		"",
 		"- API Reference 覆盖由 `tools/generate_api_reference.py --check` 负责，本报告不重复判定。",
-		"- Guide docs 覆盖表示非 Reference 正文中出现了类名，或同一文件同时出现类名和成员名。",
-		"- Test / example 覆盖表示测试或示例文件中出现了对应名称；这是排查入口，不等同于行为断言。",
+		"- Guide docs 证据表示非 Reference 正文中出现了完整类标识符，或同一文件同时出现完整类与成员标识符。",
+		"- Test / example 证据表示测试或示例文件中出现了对应完整标识符；这是排查入口，不等同于行为断言。",
+		"- 输入预算与 UTF-8 解码采用失败关闭；`input_complete: true` 才表示本次扫描完整。",
 		"- 当前没有示例项目时，examples 覆盖为 0 是预期状态。",
 		"",
 		"## Modules",
@@ -350,37 +490,11 @@ def coverage_cell(file_count: int, member_hits: int, member_count: int) -> str:
 
 
 def write_outputs(output_root: Path, desired: dict[str, str]) -> None:
-	if output_root.exists():
-		for path in output_root.rglob("*"):
-			if path.is_file():
-				path.unlink()
-		for path in sorted(output_root.rglob("*"), reverse=True):
-			if path.is_dir():
-				path.rmdir()
-	output_root.mkdir(parents=True, exist_ok=True)
-	for relative, content in desired.items():
-		path = output_root / relative
-		path.parent.mkdir(parents=True, exist_ok=True)
-		path.write_text(content, encoding="utf-8", newline="\n")
+	replace_generated_trees([(output_root, desired)])
 
 
 def check_outputs(output_root: Path, desired: dict[str, str]) -> int:
-	mismatches: list[str] = []
-	for relative, content in desired.items():
-		path = output_root / relative
-		if not path.exists():
-			mismatches.append(f"missing: {relative}")
-			continue
-		if path.read_text(encoding="utf-8") != content:
-			mismatches.append(f"stale: {relative}")
-
-	existing = {
-		path.relative_to(output_root).as_posix()
-		for path in output_root.rglob("*")
-		if path.is_file()
-	} if output_root.exists() else set()
-	for extra in sorted(existing - set(desired.keys())):
-		mismatches.append(f"extra: {extra}")
+	mismatches = compare_generated_tree(output_root, desired)
 
 	if not mismatches:
 		print("API coverage matrix is current.")
@@ -441,7 +555,23 @@ def relative_to_root(path: Path) -> str:
 	try:
 		return path.resolve().relative_to(ROOT).as_posix()
 	except ValueError:
-		return path.as_posix()
+		return f"external/{path.name}"
+
+
+def validate_generated_output_root(root: Path, allow_unsafe: bool) -> list[str]:
+	controlled_root = lexical_absolute_path(root)
+	if not allow_unsafe and controlled_root != DEFAULT_OUTPUT_ROOT:
+		return [
+			"API coverage output root is not the standard generated directory: "
+			f"{controlled_root}. Expected {DEFAULT_OUTPUT_ROOT}; pass "
+			"--allow-unsafe-output-root only for an intentional temporary output root."
+		]
+	containment_root = controlled_root.parent if allow_unsafe else ROOT
+	try:
+		validate_controlled_path(controlled_root, containment_root)
+	except ValueError as error:
+		return [f"API coverage output root is unsafe: {error}"]
+	return []
 
 
 if __name__ == "__main__":

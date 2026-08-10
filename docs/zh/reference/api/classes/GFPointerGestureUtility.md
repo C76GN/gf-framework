@@ -54,7 +54,7 @@ signal gesture_updated(snapshot: Dictionary, event: InputEvent)
 
 结构：
 
-- `snapshot`: Dictionary with active, source, pointer_count, pointer_ids, center, previous_center, pan_delta, scale, rotation_delta, distance, previous_distance, and primary_pointer_id.
+- `snapshot`: Dictionary with active, source, pointer_count, pointer_ids, center, previous_center, pan_delta, scale, rotation_delta, distance, previous_distance, and primary_pointer_id. Runtime mouse identity is -2; touch identities keep their event index.
 
 <a id="member-gfpointergestureutility-signals-gesture_ended"></a>
 
@@ -240,7 +240,7 @@ func get_gesture_snapshot() -> Dictionary:
 
 结构：
 
-- `return`: Dictionary with active, source, pointer_count, pointer_ids, center, previous_center, pan_delta, scale, rotation_delta, distance, previous_distance, and primary_pointer_id.
+- `return`: Dictionary with active, source, pointer_count, pointer_ids, center, previous_center, pan_delta, scale, rotation_delta, distance, previous_distance, and primary_pointer_id. Runtime mouse identity is -2; touch identities keep their event index.
 
 <a id="member-gfpointergestureutility-methods-calculate_gesture"></a>
 

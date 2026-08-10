@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFConfigTableQuery" path="addons/gf/standard/utilities/config/gf_config_table_query.gd" module="standard" extends="RefCounted" classDigest="9b7650f15b0687fdebdcd0ce7f1b3f82be560cbf381d794dda2e0508e9c67f05">
+<class name="GFConfigTableQuery" path="addons/gf/standard/utilities/config/gf_config_table_query.gd" module="standard" extends="RefCounted" classDigest="153c15959ab69ead3c61d3bc11655645cee6e91afebd27cea9cf4b7180b36b6d">
 	<description>GFConfigTableQuery: 配置表记录的通用查询器。
 面向 GFConfigTableResource、导表记录数组和编辑器工具提供纯数据筛选、排序与分页。
 它不改变配置表存储模型，也不绑定任何业务表语义。</description>
@@ -313,11 +313,12 @@
 			</tags>
 		</member>
 		<member kind="method" name="values">
-			<signature>func values(path: String = "") -&gt; Array:</signature>
+			<signature>func values(path: String = "", duplicate_values: bool = true) -&gt; Array:</signature>
 			<description>返回匹配记录中的字段值。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">path: 字段路径。为空时使用整条记录。</tag>
+				<tag name="param">duplicate_values: 是否深复制可复制的返回值；为 false 时显式借用查询器内部值。</tag>
 				<tag name="return">字段值数组。</tag>
 				<tag name="schema">return: Array，字段值列表。</tag>
 				<tag name="since">8.0.0</tag>
@@ -329,7 +330,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">source: 源数据。</tag>
-				<tag name="param">path: 字段路径，支持用 "." 访问嵌套 Dictionary、Array 下标或 Object 属性。</tag>
+				<tag name="param">path: 字段路径，支持用 "." 访问嵌套 Dictionary、Array 下标或受信任 Object 属性；Object getter 可能执行项目代码。</tag>
 				<tag name="param">default_value: 路径不存在时返回的默认值。</tag>
 				<tag name="return">读取到的值或默认值。</tag>
 				<tag name="schema">source: Variant，Dictionary、Array、Object 或标量数据。</tag>

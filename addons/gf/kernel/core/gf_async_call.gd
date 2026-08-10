@@ -5,7 +5,7 @@
 # @layer kernel/core
 extends RefCounted
 
-# --- 公共方法 ---
+# --- 框架内部方法 ---
 
 ## 启动 Callable，并明确丢弃其返回值。
 ## 该辅助只分离返回值，不创建线程，也不能抢占 callback 在首个 await

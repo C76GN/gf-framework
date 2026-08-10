@@ -26,10 +26,12 @@ const STAGE_ID: String = "gf.config.reader.builtin"
 ## @api public
 ## [br]
 ## @since 9.0.0
-const IMPLEMENTATION_VERSION: int = 1
+const IMPLEMENTATION_VERSION: int = 2
 
 const _DEFAULT_MAX_SOURCE_FILE_BYTES: int = 64 * 1024 * 1024
 const _DEFAULT_MAX_XLSX_FILE_BYTES: int = 64 * 1024 * 1024
+const _SOURCE_RECEIPT_FORMAT: String = "gf.config_pipeline.source_receipt"
+const _SOURCE_RECEIPT_FORMAT_VERSION: int = 1
 
 
 # --- 公共方法 ---
@@ -48,7 +50,7 @@ const _DEFAULT_MAX_XLSX_FILE_BYTES: int = 64 * 1024 * 1024
 ## [br]
 ## @return: Reader 阶段结果。
 ## [br]
-## @schema return: Dictionary，包含 success、phase、source_path、format、payload_kind、text、size_bytes、error_code、error_kind、error 和 context。
+## @schema return: Dictionary，包含 success、phase、source_path、format、payload_kind、text、size_bytes、source_receipt、error_code、error_kind、error 和 context；source_receipt 绑定本次实际读取的字节数与 SHA-256。
 func read_source(source: GFConfigPipelineTableSource, options: Dictionary = {}) -> Dictionary:
 	if source == null:
 		return _make_failure(&"", "", "invalid_table_source", ERR_INVALID_PARAMETER, "表来源声明为空。")
@@ -103,24 +105,63 @@ func read_source(source: GFConfigPipelineTableSource, options: Dictionary = {}) 
 			}
 		)
 
-	if resolved_format == GFConfigPipelineTableSource.FORMAT_XLSX:
-		file.close()
-		return _make_success(source_path, resolved_format, "file", "", source_size)
-
-	var text: String = file.get_as_text()
+	var source_bytes: PackedByteArray = file.get_buffer(source_size)
 	var read_error: Error = file.get_error()
+	var final_source_size: int = file.get_length()
 	file.close()
-	if read_error != OK:
+	if (
+		read_error != OK
+		or source_bytes.size() != source_size
+		or final_source_size != source_size
+	):
 		return _make_failure(
 			table_name,
 			source_path,
 			"source_read_failed",
-			read_error,
-			"读取配置表来源失败：%s。" % error_string(read_error),
+			ERR_FILE_CORRUPT if read_error == OK else read_error,
+			"读取配置表来源时文件发生变化或未完整读取。",
 			resolved_format,
-			{ "error_code": read_error }
+			{
+				"error_code": read_error,
+				"expected_size": source_size,
+				"actual_size": source_bytes.size(),
+				"final_size": final_source_size,
+			}
 		)
-	return _make_success(source_path, resolved_format, "text", text, source_size)
+	var source_sha256: String = _sha256_bytes(source_bytes)
+	if source_sha256.is_empty():
+		return _make_failure(
+			table_name,
+			source_path,
+			"source_digest_failed",
+			ERR_CANT_CREATE,
+			"无法为配置表来源创建编译收据。",
+			resolved_format
+		)
+	var source_receipt: Dictionary = _make_source_receipt(
+		table_name,
+		source_path,
+		resolved_format,
+		source_bytes.size(),
+		source_sha256
+	)
+	if resolved_format == GFConfigPipelineTableSource.FORMAT_XLSX:
+		return _make_success(
+			source_path,
+			resolved_format,
+			"file",
+			"",
+			source_size,
+			source_receipt
+		)
+	return _make_success(
+		source_path,
+		resolved_format,
+		"text",
+		source_bytes.get_string_from_utf8(),
+		source_size,
+		source_receipt
+	)
 
 
 ## 返回阶段实现的稳定描述，用于流水线诊断和编译指纹。
@@ -131,13 +172,17 @@ func read_source(source: GFConfigPipelineTableSource, options: Dictionary = {}) 
 ## [br]
 ## @return: 阶段描述。
 ## [br]
-## @schema return: Dictionary，包含 stage_id、implementation_version、input_contract、output_contract 和 supported_formats。
+## @schema return: Dictionary，包含 stage_id、implementation_version、implementation_dependencies、input_contract、output_contract 和 supported_formats。
 func get_stage_descriptor() -> Dictionary:
 	return {
 		"stage_id": STAGE_ID,
 		"implementation_version": IMPLEMENTATION_VERSION,
 		"input_contract": "GFConfigPipelineTableSource@1",
-		"output_contract": "gf.config_pipeline.reader_result@1",
+		"output_contract": "gf.config_pipeline.reader_result@2",
+		"implementation_dependencies": [
+			"res://addons/gf/tools/config_pipeline/gf_config_pipeline_table_source.gd",
+			"res://addons/gf/standard/foundation/variant/gf_variant_data.gd",
+		],
 		"supported_formats": ["csv", "json", "config_file", "xlsx"],
 	}
 
@@ -156,7 +201,8 @@ func _make_success(
 	resolved_format: StringName,
 	payload_kind: String,
 	text: String,
-	size_bytes: int
+	size_bytes: int,
+	source_receipt: Dictionary
 ) -> Dictionary:
 	return {
 		"success": true,
@@ -166,11 +212,39 @@ func _make_success(
 		"payload_kind": payload_kind,
 		"text": text,
 		"size_bytes": size_bytes,
+		"source_receipt": source_receipt.duplicate(true),
 		"error_code": OK,
 		"error_kind": "",
 		"error": "",
 		"context": {},
 	}
+
+
+func _make_source_receipt(
+	table_name: StringName,
+	source_path: String,
+	resolved_format: StringName,
+	size_bytes: int,
+	sha256: String
+) -> Dictionary:
+	return {
+		"format": _SOURCE_RECEIPT_FORMAT,
+		"format_version": _SOURCE_RECEIPT_FORMAT_VERSION,
+		"table_name": String(table_name),
+		"source_path": source_path.replace("\\", "/").simplify_path(),
+		"source_format": String(resolved_format),
+		"size_bytes": size_bytes,
+		"sha256": sha256.to_lower(),
+	}
+
+
+func _sha256_bytes(bytes: PackedByteArray) -> String:
+	var context: HashingContext = HashingContext.new()
+	if context.start(HashingContext.HASH_SHA256) != OK:
+		return ""
+	if context.update(bytes) != OK:
+		return ""
+	return context.finish().hex_encode()
 
 
 func _make_failure(
@@ -193,6 +267,7 @@ func _make_failure(
 		"payload_kind": "",
 		"text": "",
 		"size_bytes": 0,
+		"source_receipt": {},
 		"error_code": error_code,
 		"error_kind": error_kind,
 		"error": message,

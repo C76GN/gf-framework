@@ -38,6 +38,18 @@ func test_metric_series_rejects_non_finite_samples() -> void:
 	assert_false(is_inf(GFVariantData.get_option_float(samples[0], "timestamp_seconds")), "非有限时间戳应回退到当前时间。")
 
 
+func test_debug_overlay_rejects_non_finite_metric_without_creating_series() -> void:
+	var overlay: GFDebugOverlayUtility = GFDebugOverlayUtility.new()
+
+	assert_false(overlay.record_metric_sample(&"nan", NAN), "NaN 不得被报告为采样成功。")
+	assert_false(overlay.record_metric_sample(&"infinity", INF), "Infinity 不得被报告为采样成功。")
+	assert_eq(
+		overlay.get_metric_series_snapshot(true).size(),
+		0,
+		"被拒绝的非有限值不得留下空指标序列。"
+	)
+
+
 func test_debug_overlay_records_metric_series_panel() -> void:
 	var overlay: GFDebugOverlayUtility = GFDebugOverlayUtility.new()
 	overlay.include_diagnostics_monitors = false

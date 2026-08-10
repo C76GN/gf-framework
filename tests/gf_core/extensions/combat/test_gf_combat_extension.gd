@@ -50,6 +50,17 @@ class ContextRecordingSkill extends GFSkill:
 		return true
 
 
+class ReentrantSkill extends GFSkill:
+	var execute_count: int = 0
+	var nested_execute_result: bool = true
+
+	func _try_activate(_context: RefCounted) -> bool:
+		execute_count += 1
+		if execute_count == 1:
+			nested_execute_result = execute()
+		return true
+
+
 class RecordingActivationStep extends _GF_SKILL_ACTIVATION_STEP_SCRIPT:
 	var calls: Array[StringName] = []
 	var validate_result: Variant = true
@@ -318,6 +329,29 @@ func test_modified_attribute_set_can_define_defaults_and_create_missing_attribut
 	assert_eq(attribute_set.get_value(&"Critical"), 5.0, "自动创建属性后应应用修饰器。")
 
 
+func test_modified_attribute_set_clear_detaches_before_reentrant_notifications() -> void:
+	var attribute_set: GFModifiedAttributeSet = GFModifiedAttributeSet.new()
+	var _health_attribute: GFModifiedAttribute = attribute_set.define_attribute(&"health", 10.0)
+	var reentrant_attribute: Array[GFModifiedAttribute] = []
+	var removed_callback: Callable = func(_attribute_id: StringName) -> void:
+		if reentrant_attribute.is_empty():
+			reentrant_attribute.append(attribute_set.define_attribute(&"shield", 2.0))
+	var _removed_connection_error: int = attribute_set.attribute_removed.connect(removed_callback)
+	watch_signals(attribute_set)
+
+	attribute_set.clear()
+
+	assert_true(attribute_set.has_attribute(&"shield"), "移除通知期间定义的新属性属于清理后的新状态，应保留索引。")
+	assert_eq(attribute_set.get_attribute_ids(), [&"shield"])
+	reentrant_attribute[0].set_base_value(3.0)
+	assert_signal_emitted_with_parameters(
+		attribute_set,
+		"attribute_changed",
+		[&"shield", 3.0, 2.0]
+	)
+	attribute_set.attribute_removed.disconnect(removed_callback)
+
+
 ## 测试 GFBindableProperty 的响应式。
 func test_attribute_reactivity() -> void:
 	var attr: GFModifiedAttribute = GFModifiedAttribute.new(10.0)
@@ -490,6 +524,37 @@ func test_skill_activation_context_commit_and_cooldown_flow() -> void:
 	assert_signal_emitted(skill, "activation_committed", "执行成功应发出提交信号。")
 	step.applied_context = null
 	skill.activation_context = null
+
+
+func test_skill_rejects_same_instance_reentry_before_cooldown_commit() -> void:
+	var entity: MockEntity = MockEntity.new()
+	var skill: ReentrantSkill = ReentrantSkill.new(entity)
+	skill.cooldown_max = 2.0
+	var resource_balance: Array[int] = [1]
+	var step: RecordingActivationStep = RecordingActivationStep.new()
+	var _configured_step: _GF_SKILL_ACTIVATION_STEP_SCRIPT = step.configure(&"resource_cost")
+	step.resource_balance = resource_balance
+	skill.activation_steps.append(step)
+	var failure_reasons: Array[StringName] = []
+	var _failure_connection_error: int = skill.activation_failed.connect(func(
+		_failed_skill: GFSkill,
+		context: RefCounted
+	) -> void:
+		var activation_context: GFSkillActivationContext = _activation_context(context)
+		if activation_context != null:
+			failure_reasons.append(activation_context.failure_reason)
+	)
+
+	var executed: bool = skill.execute()
+
+	assert_true(executed, "外层技能激活应正常提交。")
+	assert_false(skill.nested_execute_result, "同一技能的同步重入必须被拒绝。")
+	assert_eq(skill.execute_count, 1, "同步重入不得再次执行技能副作用。")
+	assert_eq(step.calls, [&"validate", &"apply"], "同步重入不得重复验证或提交事务步骤。")
+	assert_eq(resource_balance[0], 0, "资源成本只能提交一次。")
+	assert_eq(failure_reasons, [&"activation_in_progress"], "重入拒绝原因必须稳定。")
+	assert_eq(skill.cooldown_left, 2.0, "成功的外层激活仍应正常进入冷却。")
+	step.applied_context = null
 
 
 func test_skill_rejects_freed_owner() -> void:
@@ -929,6 +994,19 @@ func test_buff_periodic_tick_limits_catchup_budget() -> void:
 	assert_eq(buff.tick_deltas.size(), 4, "单次 update 不应无限补偿周期 Tick。")
 
 
+func test_buff_update_rejects_non_finite_delta_without_mutating_timing_state() -> void:
+	var buff: TickRecordingBuff = TickRecordingBuff.new()
+	buff.setup(&"Pulse", 5.0, null)
+	buff.tick_interval_seconds = 0.5
+	var original_time_left: float = buff.time_left
+
+	var should_remove: bool = buff.update(INF)
+
+	assert_false(should_remove, "非法 delta 不应改变 Buff 生命周期结果。")
+	assert_eq(buff.time_left, original_time_left, "非法 delta 不得污染剩余时间。")
+	assert_true(buff.tick_deltas.is_empty(), "非法 delta 不得触发周期 Tick。")
+
+
 func test_buff_can_remain_after_expire() -> void:
 	var buff: GFBuff = GFBuff.new()
 	buff.setup(&"PersistentShell", 0.1, null)
@@ -1034,6 +1112,43 @@ func test_clear_buffs_supports_optional_predicate() -> void:
 	var entity_buffs: Array = _entity_buffs(system, entity)
 	assert_true(entity_buffs.has(keep_buff), "未匹配的 Buff 应保留。")
 	assert_false(entity_buffs.has(remove_buff), "匹配的 Buff 应移除。")
+
+
+func test_clear_buffs_revalidates_identity_after_predicate_removes_current_buff() -> void:
+	var system: GFCombatSystem = GFCombatSystem.new()
+	var entity: MockEntity = MockEntity.new()
+	system.register_entity(entity)
+	var first: GFBuff = GFBuff.new()
+	first.setup(&"First", -1.0, entity)
+	var second: GFBuff = GFBuff.new()
+	second.setup(&"Second", -1.0, entity)
+	system.add_buff(entity, first)
+	system.add_buff(entity, second)
+
+	var removed_count: int = system.clear_buffs(entity, func(buff: GFBuff) -> bool:
+		var _removed_by_callback: bool = system.remove_buff(entity, buff.id)
+		return true
+	)
+
+	assert_eq(removed_count, 0, "predicate 已移除的 Buff 不得被外层重复计数。")
+	assert_true(_entity_buffs(system, entity).is_empty(), "回调移除当前 Buff 后外层遍历应安全完成。")
+
+
+func test_clear_buffs_revalidates_entity_after_predicate_unregisters_it() -> void:
+	var system: GFCombatSystem = GFCombatSystem.new()
+	var entity: MockEntity = MockEntity.new()
+	system.register_entity(entity)
+	var buff: GFBuff = GFBuff.new()
+	buff.setup(&"Only", -1.0, entity)
+	system.add_buff(entity, buff)
+
+	var removed_count: int = system.clear_buffs(entity, func(_candidate: GFBuff) -> bool:
+		system.unregister_entity(entity)
+		return true
+	)
+
+	assert_eq(removed_count, 0, "注销回调已完成的清理不得被外层重复计数。")
+	assert_false(system.has_buff(entity, &"Only"), "实体注销后 Buff 索引必须为空。")
 
 
 func test_remove_skill_disconnects_cooldown_tracking() -> void:
@@ -1378,6 +1493,30 @@ func test_hit_box_2d_sends_generic_hit_context() -> void:
 	assert_true(GFVariantData.get_option_bool(metadata, "validated"), "接收器校验结果应合并 metadata。")
 
 
+func test_hit_box_result_observers_cannot_rewrite_authoritative_outcome() -> void:
+	var receiver: BusinessHitReceiver = BusinessHitReceiver.new()
+	add_child_autofree(receiver)
+	var hit_boxes: Array[Node] = [GFHitBox2D.new(), GFHitBox3D.new()]
+	for hit_box: Node in hit_boxes:
+		add_child_autofree(hit_box)
+		watch_signals(hit_box)
+		var _hit_sent_connection_error: Error = hit_box.connect(&"hit_sent", func(
+			_context: GFCombatHitContext,
+			_receiver: Object,
+			observed_report: Dictionary
+		) -> void:
+			observed_report["ok"] = false
+			observed_report["reason"] = &"listener_rewrite"
+		)
+
+		var report: Dictionary = hit_box.call(&"send_to", receiver)
+
+		assert_true(_report_ok(report), "结果观察者不得把已接受命中改写为失败。")
+		assert_ne(GFVariantData.get_option_string_name(report, "reason"), &"listener_rewrite")
+		assert_signal_emitted(hit_box, "hit_accepted", "权威结果必须路由到 accepted 信号。")
+		assert_signal_not_emitted(hit_box, "hit_rejected", "观察者改写副本不得改变分类。")
+
+
 func test_validation_callback_cannot_mutate_persistent_nested_metadata() -> void:
 	var hurt_box: MutatingValidationHurtBox2D = MutatingValidationHurtBox2D.new()
 	add_child_autofree(hurt_box)
@@ -1635,6 +1774,31 @@ func test_combat_gauge_applies_generic_action_with_modifier() -> void:
 	assert_almost_eq(result.action.amount, 20.0, 0.001, "结果应记录最终动作。")
 
 
+func test_combat_gauge_result_snapshots_its_own_transition_under_reentry() -> void:
+	var gauge: GFCombatGauge = GFCombatGauge.new()
+	add_child_autofree(gauge)
+	gauge.configure(0.0, 100.0, 100.0)
+	var nested_mutation_done: Array[bool] = [false]
+	var _value_changed_connection_error: int = gauge.value_changed.connect(func(
+		_previous: float,
+		_current: float
+	) -> void:
+		if nested_mutation_done[0]:
+			return
+		nested_mutation_done[0] = true
+		gauge.set_value(5.0)
+	)
+	var action: GFCombatAction = GFCombatAction.new()
+	action.operation = GFCombatAction.Operation.SUBTRACT
+	action.amount = 10.0
+
+	var result: GFCombatActionResult = gauge.apply_action(action)
+
+	assert_eq(gauge.current_value, 5.0, "嵌套监听者的后续变更应保留为 Gauge 最终状态。")
+	assert_eq(result.previous_value, 100.0, "外层结果应记录自身动作前状态。")
+	assert_eq(result.current_value, 90.0, "外层结果应记录自身提交值，而不是监听者的后续状态。")
+
+
 func test_combat_gauge_rejects_non_finite_action_without_state_change() -> void:
 	var gauge: GFCombatGauge = GFCombatGauge.new()
 	add_child_autofree(gauge)
@@ -1762,6 +1926,36 @@ func test_hit_scan_resolves_parent_receiver_with_shared_guarded_traversal() -> v
 
 	assert_same(hit_scan_2d._resolve_hit_receiver(collider), receiver)
 	assert_same(hit_scan_3d._resolve_hit_receiver(collider), receiver)
+
+
+func test_hit_scan_result_observers_cannot_rewrite_authoritative_outcome() -> void:
+	var receiver: BusinessHitReceiver = BusinessHitReceiver.new()
+	add_child_autofree(receiver)
+	var context: GFCombatHitContext = GFCombatHitContext.new(null, receiver, null, &"scan")
+	var hit_scans: Array[Node] = [GFHitScan2D.new(), GFHitScan3D.new()]
+	for hit_scan: Node in hit_scans:
+		add_child_autofree(hit_scan)
+		watch_signals(hit_scan)
+		var _scan_hit_connection_error: Error = hit_scan.connect(&"scan_hit", func(
+			_context: GFCombatHitContext,
+			_receiver: Object,
+			observed_report: Dictionary
+		) -> void:
+			observed_report["ok"] = false
+			observed_report["reason"] = &"listener_rewrite"
+		)
+		var report: Dictionary = {
+			"ok": true,
+			"reason": &"accepted",
+			"metadata": {},
+		}
+
+		hit_scan.call(&"_emit_scan_result", context, receiver, report)
+
+		assert_true(_report_ok(report), "扫描观察者不得改写权威报告。")
+		assert_eq(GFVariantData.get_option_string_name(report, "reason"), &"accepted")
+		assert_signal_emitted(hit_scan, "hit_accepted", "权威扫描结果必须路由到 accepted 信号。")
+		assert_signal_not_emitted(hit_scan, "hit_rejected", "观察者改写副本不得改变扫描分类。")
 
 
 func test_combat_hit_context_defensively_snapshots_payload() -> void:

@@ -14,9 +14,6 @@ extends RefCounted
 
 # --- 常量 ---
 
-# 归一化时判定为零的误差阈值。
-const _NORMALIZATION_EPSILON: float = 0.000000000001
-
 # 做加减法时，指数差超过该阈值则忽略较小项。
 const _ADDITION_DROP_THRESHOLD: int = 18
 
@@ -85,9 +82,11 @@ static func from_int(value: int) -> GFBigNumber:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param value: 原始浮点数。
 ## [br]
-## @return 归一化后的大数实例。
+## @return: 归一化后的大数实例；任意有限非零 float 都会保留为非零量级。
 static func from_float(value: float) -> GFBigNumber:
 	if is_nan(value) or is_inf(value):
 		push_error("[GFBigNumber] from_float 收到非法浮点值。")
@@ -222,9 +221,11 @@ func clone() -> GFBigNumber:
 ## [br]
 ## @api public
 ## [br]
-## @return 为零时返回 true。
+## @since 3.17.0
+## [br]
+## @return: 规范尾数精确为零时返回 true；容差比较应由调用方在业务边界显式处理。
 func is_zero() -> bool:
-	return absf(mantissa) <= _NORMALIZATION_EPSILON
+	return mantissa == 0.0
 
 
 ## 当前值是否为负数。
@@ -384,7 +385,18 @@ func divide(other: GFBigNumber) -> GFBigNumber:
 ## [br]
 ## @return 幂运算结果。
 func powi(power: int) -> GFBigNumber:
-	return powf(float(power))
+	if is_zero():
+		if power < 0:
+			push_error("[GFBigNumber] 零值不能提升到负幂。")
+			return GFBigNumber.zero()
+		if power == 0:
+			return GFBigNumber.one()
+		return GFBigNumber.zero()
+
+	var sign_multiplier: float = 1.0
+	if is_negative() and power % 2 != 0:
+		sign_multiplier = -1.0
+	return _pow_with_logarithm(float(power), sign_multiplier)
 
 
 ## 将当前大数提升到浮点次幂。
@@ -419,21 +431,7 @@ func powf(power: float) -> GFBigNumber:
 	if is_negative() and int(integer_power) % 2 != 0:
 		sign_multiplier = -1.0
 
-	var abs_mantissa: float = absf(mantissa)
-	var power_log10: float = (log(abs_mantissa) / log(10.0) + float(exponent)) * power
-	if is_nan(power_log10) or is_inf(power_log10):
-		push_error("[GFBigNumber] 指数超出支持范围。")
-		return GFBigNumber.zero()
-
-	var power_log10_floor: float = floor(power_log10)
-	if power_log10_floor < -float(_MAX_EXPONENT_MAGNITUDE) or power_log10_floor > float(_MAX_EXPONENT_MAGNITUDE):
-		push_error("[GFBigNumber] 指数超出支持范围。")
-		return GFBigNumber.zero()
-
-	var power_exponent: int = int(power_log10_floor)
-	var power_mantissa: float = pow(10.0, power_log10 - power_exponent) * sign_multiplier
-	return GFBigNumber.new(power_mantissa, power_exponent)
-
+	return _pow_with_logarithm(power, sign_multiplier)
 
 ## 将当前值转换为 float。
 ## [br]
@@ -502,6 +500,23 @@ func to_scientific_string(
 
 # --- 私有/辅助方法 ---
 
+func _pow_with_logarithm(power: float, sign_multiplier: float) -> GFBigNumber:
+	var abs_mantissa: float = absf(mantissa)
+	var power_log10: float = (log(abs_mantissa) / log(10.0) + float(exponent)) * power
+	if is_nan(power_log10) or is_inf(power_log10):
+		push_error("[GFBigNumber] 指数超出支持范围。")
+		return GFBigNumber.zero()
+
+	var power_log10_floor: float = floor(power_log10)
+	if power_log10_floor < -float(_MAX_EXPONENT_MAGNITUDE) or power_log10_floor > float(_MAX_EXPONENT_MAGNITUDE):
+		push_error("[GFBigNumber] 指数超出支持范围。")
+		return GFBigNumber.zero()
+
+	var power_exponent: int = int(power_log10_floor)
+	var power_mantissa: float = pow(10.0, power_log10 - power_exponent) * sign_multiplier
+	return GFBigNumber.new(power_mantissa, power_exponent)
+
+
 func _normalize() -> void:
 	if is_nan(mantissa) or is_inf(mantissa):
 		push_error("[GFBigNumber] mantissa 必须是有限浮点值。")
@@ -509,7 +524,7 @@ func _normalize() -> void:
 		exponent = 0
 		return
 
-	if absf(mantissa) <= _NORMALIZATION_EPSILON:
+	if mantissa == 0.0:
 		mantissa = 0.0
 		exponent = 0
 		return
@@ -517,18 +532,24 @@ func _normalize() -> void:
 	var abs_mantissa: float = absf(mantissa)
 	var shift_floor: float = floor(log(abs_mantissa) / log(10.0))
 	var shift: int = int(shift_floor)
-	mantissa /= pow(10.0, shift)
-	exponent += shift
+	var scale: float = pow(10.0, shift)
+	if scale == 0.0 or is_inf(scale):
+		while absf(mantissa) < 1.0 and mantissa != 0.0:
+			mantissa *= 10.0
+			exponent -= 1
+	else:
+		mantissa /= scale
+		exponent += shift
 
 	while absf(mantissa) >= 10.0:
 		mantissa /= 10.0
 		exponent += 1
 
-	while absf(mantissa) < 1.0 and absf(mantissa) > _NORMALIZATION_EPSILON:
+	while absf(mantissa) < 1.0 and mantissa != 0.0:
 		mantissa *= 10.0
 		exponent -= 1
 
-	if absf(mantissa) <= _NORMALIZATION_EPSILON:
+	if mantissa == 0.0:
 		mantissa = 0.0
 		exponent = 0
 

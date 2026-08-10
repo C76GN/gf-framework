@@ -70,6 +70,7 @@ signal flow_cancelled(report: Dictionary)
 # --- 常量 ---
 
 const _GF_ASYNC_WAIT_SUPPORT = preload("res://addons/gf/standard/common/gf_async_wait_support.gd")
+const _DEFAULT_SIGNAL_TIMEOUT_SECONDS: float = 30.0
 
 ## 流程正常完成。
 ## [br]
@@ -102,12 +103,16 @@ const OUTCOME_REJECTED: StringName = &"rejected"
 
 # --- 公共变量 ---
 
-## 当前是否正在执行。
+## 当前是否正在执行。该状态只读；调用方不能用它控制或结束流程。
 ## [br]
 ## @api public
 ## [br]
 ## @since 3.17.0
-var is_running: bool = false
+var is_running: bool:
+	get:
+		return _is_running
+	set(_value):
+		push_error("[GFFlowRunner] is_running 是只读运行状态，不能由调用方修改。")
 
 ## 最多执行节点数量，避免循环图无限运行。小于等于 0 表示不限制。
 ## [br]
@@ -121,7 +126,12 @@ var max_executed_nodes: int = 1024
 ## @api public
 ## [br]
 ## @since 3.17.0
-var signal_timeout_seconds: float = 30.0
+var signal_timeout_seconds: float = _DEFAULT_SIGNAL_TIMEOUT_SECONDS:
+	set(value):
+		if not is_finite(value):
+			signal_timeout_seconds = _DEFAULT_SIGNAL_TIMEOUT_SECONDS
+			return
+		signal_timeout_seconds = maxf(value, 0.0)
 
 ## Signal 超时计时是否跟随 GFTimeUtility 的暂停与 time_scale。
 ## [br]
@@ -152,6 +162,7 @@ var max_report_trace_entries: int = 128:
 
 var _cancel_requested: bool = false
 var _abort_reason: StringName = &""
+var _is_running: bool = false
 var _architecture_ref: WeakRef = null
 var _run_serial: int = 0
 var _active_report: Dictionary = {}
@@ -184,14 +195,14 @@ func inject_dependencies(architecture: GFArchitecture) -> void:
 ## [br]
 ## @param context: 可选上下文。
 ## [br]
-## @return 本次有界结构化运行报告；未开始时 outcome 为 rejected。
+## @return: 本次有界结构化运行报告；未开始时 outcome 为 rejected。
 ## [br]
 ## @schema return: Dictionary，包含 schema_version、run_id、outcome、reason、单调时间、节点计数、pending_node_count、Signal 等待状态计数、trace 截断统计和有界 trace。
 func run(graph: GFFlowGraph, context: GFFlowContext = null) -> Dictionary:
 	if graph == null:
 		push_error("[GFFlowRunner] run 失败：graph 为空。")
 		return _store_rejected_report(&"invalid_graph")
-	if is_running:
+	if _is_running:
 		push_warning("[GFFlowRunner] 流程正在执行，忽略重复 run()。")
 		return _store_rejected_report(&"run_in_progress")
 
@@ -199,13 +210,13 @@ func run(graph: GFFlowGraph, context: GFFlowContext = null) -> Dictionary:
 	if flow_context.get_architecture() == null:
 		flow_context.set_architecture(_get_architecture_or_null())
 
-	is_running = true
+	_is_running = true
 	_cancel_requested = false
 	_abort_reason = &""
 	_begin_run_report()
 	flow_started.emit(graph)
 	await _run_graph(graph, flow_context)
-	is_running = false
+	_is_running = false
 	var outcome: StringName = OUTCOME_COMPLETED
 	var reason: StringName = &""
 	if _abort_reason != &"":
@@ -243,7 +254,7 @@ func cancel() -> void:
 ## [br]
 ## @return: 当前执行器。
 func with_signal_timeout(seconds: float, respect_time_scale: bool = true) -> GFFlowRunner:
-	signal_timeout_seconds = maxf(seconds, 0.0)
+	signal_timeout_seconds = seconds
 	signal_timeout_respects_time_scale = respect_time_scale
 	return self
 
@@ -254,7 +265,7 @@ func with_signal_timeout(seconds: float, respect_time_scale: bool = true) -> GFF
 ## [br]
 ## @since 9.0.0
 ## [br]
-## @return 最近报告；尚未调用 run() 时为空字典。
+## @return: 最近报告；尚未调用 run() 时为空字典。
 ## [br]
 ## @schema return: Dictionary，与 run() 返回结构相同。
 func get_last_run_report() -> Dictionary:
@@ -292,7 +303,8 @@ func _run_graph(graph: GFFlowGraph, context: GFFlowContext) -> void:
 				&"not_started",
 				&"missing_node"
 			))
-			continue
+			_abort_reason = &"missing_node"
+			return
 		var node_started_usec: int = Time.get_ticks_usec()
 		var runtime_state_lease_id: int = 0
 		if isolate_graph_runtime_state:
@@ -468,29 +480,11 @@ func _apply_context_runtime_state_to_node(node: GFFlowNode, context: GFFlowConte
 
 
 func _store_node_runtime_state_in_context(node: GFFlowNode, context: GFFlowContext) -> void:
-	var context_state: Dictionary = context.serialize_runtime_state()
-	var node_states: Dictionary = GFVariantData.get_option_dictionary(context_state, "nodes")
-	var node_state: Dictionary = node.serialize_runtime_state()
-	if node_state.is_empty():
-		var _erased_name: bool = node_states.erase(node.node_id)
-		var _erased_text: bool = node_states.erase(String(node.node_id))
-	else:
-		node_states[node.node_id] = node_state
-	context.deserialize_runtime_state({
-		"nodes": node_states,
-	})
+	context.replace_node_runtime_state(node.node_id, node.serialize_runtime_state())
 
 
 func _get_context_node_runtime_state(context: GFFlowContext, node_id: StringName) -> Dictionary:
-	var context_state: Dictionary = context.serialize_runtime_state()
-	var node_states: Dictionary = GFVariantData.get_option_dictionary(context_state, "nodes")
-	var state_value: Variant = GFVariantData.get_option_value(node_states, node_id, null)
-	if state_value == null:
-		state_value = GFVariantData.get_option_value(node_states, String(node_id), {})
-	if state_value is Dictionary:
-		var state: Dictionary = state_value
-		return state.duplicate(true)
-	return {}
+	return context.get_node_runtime_state_snapshot(node_id)
 
 
 func _get_runtime_successor_node_ids(

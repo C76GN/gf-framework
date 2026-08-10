@@ -121,7 +121,7 @@ func _physics_process(_delta: float) -> void:
 
 ## 扩展使用规则
 
-GF 内置扩展默认随 GF 启用，但仍保持可选边界。项目不用某个 GF 内置扩展时，可以在 `GF` 工作区的 `GF Extensions` 页面禁用它；如果导出时启用了排除禁用扩展，扩展目录不会进入导出产物。
+GF 内置可选扩展默认关闭；每个 `addons/gf/extensions/*/gf_extension.json` 的 `enabled_by_default` 是机器可校验的事实来源。项目只应在确实需要时，通过 `GF` 工作区的 `GF Extensions` 页面显式启用扩展；如果导出时启用了排除禁用扩展，未启用的扩展目录不会进入导出产物。
 
 禁用或删除扩展前，应确认项目没有直接引用该扩展：
 
@@ -161,9 +161,11 @@ python tools\generate_api_reference.py
 python tools\generate_api_reference.py --check
 ```
 
-`--check` 会同时校验三件事：XML Catalog 与源码一致、Markdown Reference 与生成器一致、Catalog 中的公开类和成员都能在对应 Reference 页面找到。
+`--check` 会同时校验四件事：XML Catalog 与源码一致、Markdown Reference 与生成器一致、Catalog 中的公开类和成员位于精确 owner section、候选 Reference 的本地链接与 fragment 全部可解析。重复/大小写冲突 owner、输出路径或 anchor 会在写 staging 前失败关闭。
 
-`tools/generate_api_reference.py` 与 `tools/generate_ai_api.py` 共用 `tools/gdscript_api_parser.py` 的 GDScript 声明扫描和 API 注释解析规则。维护生成器时应优先扩展共享解析器，避免正式 Reference 和 AI 摘要对 `class_name`、内部类、装饰导出变量或文档标签产生不同理解。
+`tools/generate_api_reference.py` 与 `tools/generate_ai_api.py` 共用 `tools/gdscript_api_parser.py` 的 GDScript 声明扫描和 API 注释解析规则。维护生成器时应优先扩展共享解析器，避免正式 Reference 和 AI 摘要对 `class_name`、内部类、装饰导出变量、多行声明或文档标签产生不同理解。共享 parser 对字符串、三引号、转义和注释中的 delimiter 不计结构深度；多行 `signal` / `func` / `enum` / `const` / `var` 必须完整闭合，否则失败关闭。
+
+Catalog v2 的 `sourceDigest` / `classDigest` 是过滤后语义 payload 摘要，不是源码字节、parser 版本或输出树摘要。当前 `Gf` AutoLoad 是唯一显式记录但尚未进入 Catalog owner model 的 classless public surface；未知 classless public script 会直接让生成失败。不要把这一闭合债务解释为通用排除规则，也不要在 owner/schema 决策完成前伪装成普通 `class_name`。
 
 手写文档页面还应通过质量检查，避免页面重新变成长文堆积、缺少 H1 或代码块没有语言标注：
 
@@ -237,7 +239,7 @@ GF 正式版本 tag 统一使用不带 `v` 的 SemVer 格式，例如 `3.5.0`。
 - 所有 `addons/gf/extensions/*/gf_extension.json` 的 `version`。
 - `docs/zh/changelog.md` 中对应 `## [x.y.z] - YYYY-MM-DD` 段落。
 
-新版本 changelog 只记录相对上一稳定版本的增量。发布态的 `docs/zh/changelog.md` 只保留目标正式版本，并从工作树删除所有旧正式段；不可变 Git tag 与 GitHub Release 是已发布历史的唯一事实源，不再维护平行的 Markdown 归档。不得把旧版本重命名为新版本，也不得重写已发布 tag。`release-status` 会拒绝当前页中的旧版本、重复版本、未发布段、不受支持标题、空正文和非法日期。
+新版本 changelog 只记录相对上一稳定版本的增量。发布态的 `docs/zh/changelog.md` 只保留目标正式版本，并从工作树删除所有旧正式段；不可变 Git tag 与 GitHub Release 是已发布历史的唯一事实源，不再维护平行的 Markdown 归档。不得把旧版本重命名为新版本，也不得重写已发布 tag。`release-status` 会拒绝当前页中的旧版本、重复版本、未发布段、不受支持标题、空正文和非法日期。完整作者规则见 [Changelog 编写契约](changelog-authoring.md)；公开 changelog 不承载维护策略或文件清单。
 
 推送 `x.y.z` tag 后，GitHub Actions 的 `Release` 工作流会从该 tag 对应源码中提取目标 changelog 段，校验上述版本号一致，检查 Asset Store 标签与 AI 披露字段，构建文档，然后创建 GitHub Release。发布产物先由 `tools/build_gf_release_artifacts.py` 一次性构建；Asset Store ZIP、版本化 package registry、registry source manifest、离线 bundle 和全部非 preset package ZIP 被同一份 SHA-256 manifest 固定，后续检查与发布只下载并复核这批字节，不再重复打包。Asset Store 专用 ZIP 根目录必须直接是 `addons/`，不得以 GitHub source archive 代替。
 

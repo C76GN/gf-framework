@@ -68,7 +68,11 @@ var report := GFAssetAttributionTools.build_attribution_report([record], PackedS
 var notice_text := GFAssetAttributionTools.format_notice_text(report)
 ```
 
-归因条目支持 `path` / `resource_path` / `source_path`、`license_id` / `license`、`title` / `name`、`creator` / `author`、`source_url` / `source` 等常见别名。`metadata.attribution` 这种嵌套形态会继承同级 metadata 中的 `source_path`、`subject_path` 和 `subject_kind`。传入资源路径时，工具会检查每个资源是否命中精确条目或父目录条目，输出 `GFValidationReport` 兼容字典，适合接入导入检查、CI 或项目 Credits 生成流程。默认报告会把条目和覆盖路径转换为 JSON-safe 值，便于直接进入日志、CI artifact 或诊断面板。
+归因条目支持 `path` / `resource_path` / `source_path`、`license_id` / `license`、`title` / `name`、`creator` / `author`、`source_url` / `source` 等常见别名。`metadata.attribution` 这种嵌套形态会继承同级 metadata 中的 `source_path`、`subject_path` 和 `subject_kind`。同一语义同时出现多个别名或嵌套/顶层声明时，规范化后等价的值会合并；不同值会产生 `conflicting_attribution_field`，不会按别名优先级静默判为健康。
+
+传入资源路径时，工具会检查每个有效唯一资源是否命中精确条目或父目录条目，并用 `resource_path_input_count`、`valid_resource_path_count`、`invalid_resource_path_count` 和 `duplicate_resource_path_count` 核算全部输入。空白或规范化后为空的输入会产生不含原始路径值的 `invalid_resource_path`。报告是 `GFValidationReport` 兼容字典，默认把条目和覆盖路径转换为 JSON-safe 值，便于直接进入日志、CI artifact 或诊断面板。
+
+`format_notice_text()` 把标题、许可证、资产标题、路径、作者、来源和版权字段收束为单行；`notice` 可以保留多行，但每个续行都会固定缩进，字段中的控制字符不能创建新的分组或伪造同级条目。它仍然只生成纯文本摘要，不提供 Markdown、BBCode 或 HTML 转义。
 
 `GFAssetAttributionTools` 只处理结构化字段、路径覆盖和通知文本摘要；它不内置许可证正文、不联网拉取数据，也不替项目判断某个授权是否可用于商业发布。项目仍应在自己的发布流程中维护许可证正文、审查规则和法务确认。
 
@@ -76,9 +80,12 @@ var notice_text := GFAssetAttributionTools.format_notice_text(report)
 
 - Asset Metadata 不内置 `spawn_point`、`loot`、`quest`、`door` 等业务字段。
 - 资产归因工具只提供通用字段约定和覆盖报告，不替项目维护授权模板、许可证全文或发布合规策略。
+- `normalize_attribution()` 返回调用时解析得到的 canonical path 快照，不应把该字符串单独当成可跨资源移动刷新的持久身份；需要长期身份时，项目应同时保存原始 UID 与当前路径，本 API 不提供持久身份 envelope。
+- Object metadata 写入和记录复制不会为单个 payload 强制字节/深度预算；从不受信来源接入超大数据时，项目导入器必须先实施自己的输入上限。节点数量上限不能替代单 payload 上限。
 - 项目可以用 `GFDictionarySchema` 定义 metadata schema，并在自己的导入管线、Installer 或工具中消费记录。
 - 需要跨资产引用检查、业务级错误分级或版本迁移时，应在项目工具中基于 `GFAssetMetadataRecord` 和通用 schema 报告实现。
 - 其他 GF 内置扩展不应直接依赖 Asset Metadata；跨扩展组合应放在项目 Installer 或独立插件中。
+- 扩展默认关闭；关闭时不会贡献 glTF 文档扩展，启用后由 GF 编辑器插件注册唯一 bridge，并在刷新或退出时对称注销。
 
 ## API Reference
 

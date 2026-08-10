@@ -126,6 +126,8 @@ $TargetNode.add_child(binder)
 
 如果需要每帧把外部系统计算出的参数写入 shader，可以启用 `apply_each_process`，但高频变化更适合项目层先合并成最终 profile，再由 Binder 或 Utility 批量写入。GF 不读取游戏状态，也不定义参数含义。
 
+`duplicate_material_on_apply` 是失败关闭的 copy-on-write 契约：首次应用只有在材质副本能够写回目标属性后才会改参数；直接传入无 owner 的 `ShaderMaterial`、只读属性或拒绝 setter 的目标都会返回零应用量，并保持原共享材质不变。Binder 会复用自己已成功写回的隔离材质；目标材质被外部替换后则重新隔离。启用 `apply_each_process` 仍会逐帧校验接口并写入 profile 参数，它只避免逐帧重复复制材质，不等于无变化帧自动跳过。
+
 ## 全局 Shader 参数
 
 Godot 的 `global uniform` 需要先注册到 RenderingServer，全局参数还可以通过 `ProjectSettings` 的 `shader_globals/<name>` 持久声明，避免编辑器或导出包启动时出现 shader 编译顺序问题。`GFShaderParameterUtility` 提供这两层的通用入口，但默认只修改当前会话，不会保存 `project.godot`。

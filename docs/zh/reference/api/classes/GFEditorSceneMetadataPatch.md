@@ -24,6 +24,7 @@
 | 方法 | [`can_execute`](#member-gfeditorscenemetadatapatch-methods-can_execute) | `func can_execute() -> bool:` |
 | 方法 | [`_do_it`](#member-gfeditorscenemetadatapatch-methods-_do_it) | `func _do_it() -> Error:` |
 | 方法 | [`_undo_it`](#member-gfeditorscenemetadatapatch-methods-_undo_it) | `func _undo_it() -> Error:` |
+| 方法 | [`_get_undo_context`](#member-gfeditorscenemetadatapatch-methods-_get_undo_context) | `func _get_undo_context() -> Object:` |
 
 ## 属性
 
@@ -177,3 +178,18 @@ func _undo_it() -> Error:
 撤销 metadata 修改。
 
 返回：Godot 错误码。
+
+<a id="member-gfeditorscenemetadatapatch-methods-_get_undo_context"></a>
+
+### `_get_undo_context`
+
+- API：`protected`
+- 首次版本：`unreleased`
+
+```gdscript
+func _get_undo_context() -> Object:
+```
+
+返回 metadata 实际修改的节点，确保 action 进入对应场景历史。
+
+返回：metadata 目标节点。

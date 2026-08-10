@@ -249,12 +249,13 @@ func remove_attribute(attribute_id: StringName) -> bool:
 ### `clear`
 
 - API：`public`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func clear() -> void:
 ```
 
-清空所有属性。
+清空所有属性。 清理会先原子地脱离原有索引与信号，再发送移除通知；通知期间新定义的属性会保留。
 
 <a id="member-gfmodifiedattributeset-methods-get_attribute_ids"></a>
 

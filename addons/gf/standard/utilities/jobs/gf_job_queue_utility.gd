@@ -73,6 +73,13 @@ var max_completed_jobs: int = 64
 ## @api public
 var max_failed_jobs: int = 64
 
+## 保留的取消任务数量。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+var max_cancelled_jobs: int = 64
+
 
 # --- 私有变量 ---
 
@@ -81,6 +88,7 @@ var _queues: Dictionary = {}
 var _jobs: Dictionary = {}
 var _completed_jobs: Array[GFJob] = []
 var _failed_jobs: Array[GFJob] = []
+var _cancelled_jobs: Array[GFJob] = []
 var _paused_queues: Dictionary = {}
 
 
@@ -233,6 +241,7 @@ func complete_job(job_id: StringName, result: Variant = null) -> bool:
 	var job: GFJob = get_job(job_id)
 	if job == null or job.is_finished():
 		return false
+	_remove_waiting_job_from_queue(job)
 	job.status = GFJob.Status.COMPLETED
 	job.progress = 1.0
 	job.result = result
@@ -260,6 +269,7 @@ func fail_job(job_id: StringName, error_message: String = "", result: Variant = 
 	var job: GFJob = get_job(job_id)
 	if job == null or job.is_finished():
 		return false
+	_remove_waiting_job_from_queue(job)
 	job.status = GFJob.Status.FAILED
 	job.error_message = error_message
 	job.result = result
@@ -284,6 +294,8 @@ func cancel_job(job_id: StringName) -> bool:
 	_remove_waiting_job_from_queue(job)
 	job.status = GFJob.Status.CANCELLED
 	job.finished_msec = Time.get_ticks_msec()
+	_cancelled_jobs.append(job)
+	_trim_finished_jobs(_cancelled_jobs, maxi(max_cancelled_jobs, 0))
 	job_cancelled.emit(job)
 	return true
 
@@ -373,6 +385,7 @@ func clear_all() -> void:
 	_jobs.clear()
 	_completed_jobs.clear()
 	_failed_jobs.clear()
+	_cancelled_jobs.clear()
 	_paused_queues.clear()
 
 
@@ -380,9 +393,11 @@ func clear_all() -> void:
 ## [br]
 ## @api public
 ## [br]
+## @since 11.0.0
+## [br]
 ## @return 调试快照字典。
 ## [br]
-## @schema return: Dictionary，包含 job_count、queue_count、completed_count、failed_count，以及以队列名为键的 queues。
+## @schema return: Dictionary，包含 job_count、queue_count、completed_count、failed_count、cancelled_count，以及以队列名为键的 queues。
 func get_debug_snapshot() -> Dictionary:
 	var queue_info: Dictionary = {}
 	for queue_key: Variant in _queues.keys():
@@ -398,6 +413,7 @@ func get_debug_snapshot() -> Dictionary:
 		"queue_count": _queues.size(),
 		"completed_count": _completed_jobs.size(),
 		"failed_count": _failed_jobs.size(),
+		"cancelled_count": _cancelled_jobs.size(),
 		"queues": queue_info,
 	}
 
@@ -419,8 +435,9 @@ func _get_queue(queue_name: StringName) -> Array:
 
 
 func _remove_waiting_job_from_queue(job: GFJob) -> void:
-	var queue: Array = _get_queue(job.queue_name)
-	queue.erase(job)
+	for queue_value: Variant in _queues.values():
+		var queue: Array = GFVariantData.as_array(queue_value)
+		queue.erase(job)
 
 
 func _trim_finished_jobs(jobs: Array[GFJob], limit: int) -> void:

@@ -23,6 +23,7 @@
 | 信号 | [`job_cancelled`](#member-gfjobqueueutility-signals-job_cancelled) | `signal job_cancelled(job: GFJob)` |
 | 属性 | [`max_completed_jobs`](#member-gfjobqueueutility-properties-max_completed_jobs) | `var max_completed_jobs: int = 64` |
 | 属性 | [`max_failed_jobs`](#member-gfjobqueueutility-properties-max_failed_jobs) | `var max_failed_jobs: int = 64` |
+| 属性 | [`max_cancelled_jobs`](#member-gfjobqueueutility-properties-max_cancelled_jobs) | `var max_cancelled_jobs: int = 64` |
 | 方法 | [`init`](#member-gfjobqueueutility-methods-init) | `func init() -> void:` |
 | 方法 | [`dispose`](#member-gfjobqueueutility-methods-dispose) | `func dispose() -> void:` |
 | 方法 | [`enqueue`](#member-gfjobqueueutility-methods-enqueue) | `func enqueue( queue_name: StringName = &"default", data: Variant = null, metadata: Dictionary = {}, front: bool = false ) -> GFJob:` |
@@ -178,6 +179,19 @@ var max_failed_jobs: int = 64
 ```
 
 保留的失败任务数量。
+
+<a id="member-gfjobqueueutility-properties-max_cancelled_jobs"></a>
+
+### `max_cancelled_jobs`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+var max_cancelled_jobs: int = 64
+```
+
+保留的取消任务数量。
 
 ## 方法
 
@@ -499,6 +513,7 @@ func clear_all() -> void:
 ### `get_debug_snapshot`
 
 - API：`public`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_debug_snapshot() -> Dictionary:
@@ -510,4 +525,4 @@ func get_debug_snapshot() -> Dictionary:
 
 结构：
 
-- `return`: Dictionary，包含 job_count、queue_count、completed_count、failed_count，以及以队列名为键的 queues。
+- `return`: Dictionary，包含 job_count、queue_count、completed_count、failed_count、cancelled_count，以及以队列名为键的 queues。

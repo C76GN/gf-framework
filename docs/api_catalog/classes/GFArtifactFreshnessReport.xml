@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFArtifactFreshnessReport" path="addons/gf/standard/foundation/policy/gf_artifact_freshness_report.gd" module="standard" extends="RefCounted" classDigest="45e7e84b0079f458a1b275bd0d79f01edb5d4517dc8620cd0e3c5533a090d950">
+<class name="GFArtifactFreshnessReport" path="addons/gf/standard/foundation/policy/gf_artifact_freshness_report.gd" module="standard" extends="RefCounted" classDigest="134fb55cd9bfe1598c36fb97dc66dd14dd33b43311addcf7d9f878b9a885a394">
 	<description>GFArtifactFreshnessReport: 通用 artifact 新鲜度与完整性报告。
 检查本地 artifact 是否存在、可读、大小和 sha256 是否符合期望，以及生成时记录的
 source digest 是否仍匹配当前 source digest。它只读取本地文件元数据，不解析业务内容。</description>
@@ -90,7 +90,7 @@ source digest 是否仍匹配当前 source digest。它只读取本地文件元�
 			<description>构建新鲜度报告。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="param">options: 报告选项，支持 include_sha256、include_modified_time、warnings_as_errors、fallback_action 和 no_action。</tag>
+				<tag name="param">options: 报告选项，支持 include_sha256、include_modified_time、warnings_as_errors、fallback_action 和 no_action。两个 include 选项只控制输出投影；条目声明的 expected_sha256 与 minimum_modified_time 始终参与校验。</tag>
 				<tag name="return">GFValidationReportDictionary 兼容报告。</tag>
 				<tag name="schema">options: Dictionary report options.</tag>
 				<tag name="schema">return: Dictionary with ok, healthy, artifacts, issues, summary, and next_action.</tag>

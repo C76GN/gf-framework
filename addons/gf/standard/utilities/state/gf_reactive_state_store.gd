@@ -645,6 +645,7 @@ func _read_path(segments: Array) -> Dictionary:
 
 func _write_path(segments: Array, new_value: Variant) -> bool:
 	var current: Variant = _state
+	var planned_assignments: Array[Dictionary] = []
 	for index: int in range(segments.size() - 1):
 		var segment: Variant = segments[index]
 		var next_segment: Variant = segments[index + 1]
@@ -655,12 +656,25 @@ func _write_path(segments: Array, new_value: Variant) -> bool:
 			if not GFVariantData.get_option_bool(key_result, "found", false):
 				if next_segment is int:
 					return false
-				dictionary[key] = {}
+				var missing_dictionary: Dictionary = {}
+				planned_assignments.append({
+					"container": dictionary,
+					"key": key,
+					"value": missing_dictionary,
+				})
+				current = missing_dictionary
 			elif not _is_path_container(dictionary[key]):
 				if next_segment is int:
 					return false
-				dictionary[key] = {}
-			current = dictionary[key]
+				var replacement_dictionary: Dictionary = {}
+				planned_assignments.append({
+					"container": dictionary,
+					"key": key,
+					"value": replacement_dictionary,
+				})
+				current = replacement_dictionary
+			else:
+				current = dictionary[key]
 			continue
 
 		if current is Array and segment is int:
@@ -671,8 +685,15 @@ func _write_path(segments: Array, new_value: Variant) -> bool:
 			if not _is_path_container(array[segment_index]):
 				if next_segment is int:
 					return false
-				array[segment_index] = {}
-			current = array[segment_index]
+				var replacement_dictionary: Dictionary = {}
+				planned_assignments.append({
+					"container": array,
+					"key": segment_index,
+					"value": replacement_dictionary,
+				})
+				current = replacement_dictionary
+			else:
+				current = array[segment_index]
 			continue
 
 		return false
@@ -682,16 +703,35 @@ func _write_path(segments: Array, new_value: Variant) -> bool:
 		var leaf_dictionary: Dictionary = current
 		var leaf_result: Dictionary = _find_dictionary_key(leaf_dictionary, leaf)
 		var leaf_key: Variant = GFVariantData.get_option_value(leaf_result, "key", leaf)
-		leaf_dictionary[leaf_key] = new_value
-		return true
-	if current is Array and leaf is int:
+		planned_assignments.append({
+			"container": leaf_dictionary,
+			"key": leaf_key,
+			"value": new_value,
+		})
+	elif current is Array and leaf is int:
 		var leaf_array: Array = current
 		var leaf_index: int = leaf
 		if leaf_index < 0 or leaf_index >= leaf_array.size():
 			return false
-		leaf_array[leaf_index] = new_value
-		return true
-	return false
+		planned_assignments.append({
+			"container": leaf_array,
+			"key": leaf_index,
+			"value": new_value,
+		})
+	else:
+		return false
+
+	for assignment: Dictionary in planned_assignments:
+		var container: Variant = assignment["container"]
+		var assignment_key: Variant = assignment["key"]
+		var assignment_value: Variant = assignment["value"]
+		if container is Dictionary:
+			var target_dictionary: Dictionary = container
+			target_dictionary[assignment_key] = assignment_value
+		else:
+			var target_array: Array = container
+			target_array[GFVariantData.to_int(assignment_key)] = assignment_value
+	return true
 
 
 func _erase_path(segments: Array) -> bool:

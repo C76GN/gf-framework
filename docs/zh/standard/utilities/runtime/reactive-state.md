@@ -29,7 +29,7 @@ store.set_value("profile.name", "Grace")
 print(store.get_value(["profile", "name"]))
 ```
 
-`String` 路径按 `.` 分段，`Array` 路径可包含 `int` 段读取已有数组索引。自动创建中间容器时只创建 `Dictionary`，不会自动扩容数组。
+`String` 路径按 `.` 分段，`Array` 路径可包含 `int` 段读取已有数组索引。自动创建中间容器时只创建 `Dictionary`，不会自动扩容数组。`set_value()` 会先验证整条路径再提交写入；若后续数组索引或容器类型使写入无法完成，它返回 `false`，状态树、dirty queue 和信号都保持不变，不会遗留半创建的中间字典。
 
 ## Dirty Queue
 

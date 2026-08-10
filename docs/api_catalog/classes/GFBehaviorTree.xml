@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFBehaviorTree" path="addons/gf/extensions/behavior_tree/runtime/gf_behavior_tree.gd" module="extensions/behavior_tree" extends="Object" classDigest="191eaf617b955e2f3271a5113355d4ce02987a739782ddbe62cdb7f9c5f316a8">
+<class name="GFBehaviorTree" path="addons/gf/extensions/behavior_tree/runtime/gf_behavior_tree.gd" module="extensions/behavior_tree" extends="Object" classDigest="f06f281d49dbf6758544cbd8df13fde596bf675201941aa280eeafb6603ddaf9">
 	<description>GFBehaviorTree: 轻量级、纯代码的行为树实现。
 提供无需编辑器的、以代码方式构建 AI 或通用决策逻辑的轻量方案。
 可以在任何 System 中通过 Runner 来驱动 tick()。核心节点包含
@@ -241,16 +241,19 @@ Sequence、Selector、Parallel、Action、Condition 以及常用装饰节点。<
 				</member>
 				<member kind="method" name="reset">
 					<signature>func reset() -&gt; void:</signature>
-					<description>重置节点内部运行状态。</description>
+					<description>重置节点内部运行状态。
+基类不会取消项目持有的外部异步工作；需要清理外部所有权的自定义节点必须重写。</description>
 					<tags>
 						<tag name="api">public</tag>
+						<tag name="since">3.17.0</tag>
 					</tags>
 				</member>
 				<member kind="method" name="duplicate_runtime">
 					<signature>func duplicate_runtime() -&gt; BTNode:</signature>
 					<description>创建一份可独立运行的节点副本，不复制调试计数和正在运行的内部状态。
-自定义节点必须重写此方法并复制自身类型；默认实现会返回一个失败节点，
-避免 Runner 在默认复制模式下静默共享未知节点运行态。</description>
+自定义节点必须重写此方法并复制自身动态脚本类型；这也适用于继承
+Sequence、Decorator 等具体内置节点的自定义子类。默认实现或类型不匹配的
+复制结果会由 Runner 转为失败节点，避免静默共享或切片未知节点运行态。</description>
 					<tags>
 						<tag name="api">public</tag>
 						<tag name="return">运行时副本。</tag>
@@ -282,7 +285,7 @@ Sequence、Selector、Parallel、Action、Condition 以及常用装饰节点。<
 					<tags>
 						<tag name="api">public</tag>
 						<tag name="return">调试快照字典。</tag>
-						<tag name="schema">return: 包含 node_id、name、status、status_text、reason、tick_count、last_tick_usec、child_count、children 和 metadata 字段的 Dictionary；children 为子节点快照数组；metadata 为 JSON-safe 投影。</tag>
+						<tag name="schema">return: 包含 node_id、name、status、status_text、reason、tick_count、last_tick_usec、child_count、children 和 metadata 字段的 Dictionary；children 为子节点快照数组；metadata 为 JSON-safe 投影；真实回边以 cycle=true 表示，非回边的重复 identity 以 shared_reference=true 表示。</tag>
 						<tag name="since">3.6.0</tag>
 					</tags>
 				</member>
@@ -302,10 +305,13 @@ Sequence、Selector、Parallel、Action、Condition 以及常用装饰节点。<
 			<properties>
 				<member kind="property" name="values">
 					<signature>var values: Dictionary = {}</signature>
-					<description>当前作用域值。</description>
+					<description>当前作用域值。
+该字段是当前作用域的 live mutable storage；直接写入会绕过 set_value() 的复制边界。
+需要隔离快照时应使用 set_value()、get_value() 与 to_dictionary()。</description>
 					<tags>
 						<tag name="api">public</tag>
 						<tag name="schema">values: 当前作用域持有的黑板值 Dictionary；键通常为 StringName，值由项目自定义。</tag>
+						<tag name="since">3.17.0</tag>
 					</tags>
 				</member>
 				<member kind="property" name="parent">
@@ -372,7 +378,8 @@ Sequence、Selector、Parallel、Action、Condition 以及常用装饰节点。<
 		</class>
 		<class name="Condition" fullName="GFBehaviorTree.Condition" extends="BTNode">
 			<description>条件检查节点 (叶子节点)。
-包装一个返回布尔值的回调。true 为 SUCCESS，false 为 FAILURE。</description>
+包装一个返回布尔值的回调。true 为 SUCCESS，false 为 FAILURE；无效 Callable
+返回 FAILURE 并记录 invalid_condition，不与合法 condition_false 混同。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="category">domain_model</tag>
@@ -405,7 +412,7 @@ Sequence、Selector、Parallel、Action、Condition 以及常用装饰节点。<
 		</class>
 		<class name="Cooldown" fullName="GFBehaviorTree.Cooldown" extends="Decorator">
 			<description>冷却装饰节点。
-子节点结束后进入冷却期，冷却未结束时返回 FAILURE。</description>
+子节点结束并完成 reset 后进入冷却期，冷却未结束时返回 FAILURE。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="category">domain_model</tag>
@@ -482,11 +489,13 @@ Sequence、Selector、Parallel、Action、Condition 以及常用装饰节点。<
 			<methods>
 				<member kind="method" name="set_child">
 					<signature>func set_child(child_node: BTNode) -&gt; Decorator:</signature>
-					<description>设置被装饰的子节点。</description>
+					<description>设置被装饰的子节点。
+替换不同 child 前会先 reset 旧 child；重复设置同一 identity 是无操作。</description>
 					<tags>
 						<tag name="api">public</tag>
 						<tag name="param">child_node: 子节点。</tag>
 						<tag name="return">当前装饰器。</tag>
+						<tag name="since">3.17.0</tag>
 					</tags>
 				</member>
 				<member kind="method" name="reset">
@@ -835,7 +844,9 @@ Sequence、Selector、Parallel、Action、Condition 以及常用装饰节点。<
 			</methods>
 		</class>
 		<class name="Runner" fullName="GFBehaviorTree.Runner" extends="RefCounted">
-			<description>行为树的执行入口容器。</description>
+			<description>行为树的执行入口容器。
+Runner 默认复制节点运行态，并验证每个副本保持独立 identity 与动态脚本类型。
+同一个 Runner 的 tick 不可同步重入；重入调用会失败关闭为 ABORTED。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="category">runtime_handle</tag>
@@ -978,7 +989,8 @@ Sequence、Selector、Parallel、Action、Condition 以及常用装饰节点。<
 		</class>
 		<class name="TimeLimit" fullName="GFBehaviorTree.TimeLimit" extends="Decorator">
 			<description>时间限制装饰节点。
-子节点 RUNNING 持续超过限制时返回 FAILURE 并重置子节点。</description>
+子节点 RUNNING 持续达到限制时返回 FAILURE 并重置子节点；0 秒表示立即超时，
+不会先 tick 子节点。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="category">domain_model</tag>

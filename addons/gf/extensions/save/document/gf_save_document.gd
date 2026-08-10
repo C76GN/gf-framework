@@ -51,6 +51,7 @@ var _schema_id: StringName = &""
 var _schema_version: int = 0
 var _sections: Dictionary = {}
 var _metadata: Dictionary = {}
+var _metadata_admission_failure: Dictionary = {}
 
 
 # --- 公共方法 ---
@@ -81,7 +82,8 @@ func configure(
 	_schema_id = schema_id
 	_schema_version = schema_version
 	_sections.clear()
-	_metadata = metadata.duplicate(true)
+	_metadata_admission_failure = _get_persisted_admission_failure(metadata)
+	_metadata = {} if not _metadata_admission_failure.is_empty() else metadata.duplicate(true)
 	for section: GFSaveSection in sections:
 		var _stored: bool = set_section(section)
 	return self
@@ -244,7 +246,13 @@ func validate_document() -> Dictionary:
 			"Document schema version must be positive.",
 			{ "path": "schema_version", "version": _schema_version }
 		)
-	_append_persisted_value_issue(report, _metadata, "metadata", &"invalid_document_metadata")
+	_append_persisted_value_issue(
+		report,
+		_metadata,
+		"metadata",
+		&"invalid_document_metadata",
+		_metadata_admission_failure
+	)
 	for section_id_text: String in get_section_ids():
 		var section: GFSaveSection = get_section(StringName(section_id_text))
 		if section == null:
@@ -425,9 +433,9 @@ static func from_dict(data: Dictionary) -> GFSaveDocument:
 		return null
 	var sections: Array[GFSaveSection] = []
 	var section_data: Dictionary = GFVariantData.get_option_dictionary(data, "sections")
-	var section_ids: PackedStringArray = _sorted_dictionary_keys(section_data)
-	for section_id_text: String in section_ids:
-		var section_dictionary: Dictionary = GFVariantData.get_option_dictionary(section_data, section_id_text)
+	var section_keys: Array = _sorted_dictionary_keys(section_data)
+	for section_key: Variant in section_keys:
+		var section_dictionary: Dictionary = GFVariantData.as_dictionary(section_data[section_key])
 		var section: GFSaveSection = GFSaveSection.from_dict(section_dictionary)
 		if section == null:
 			return null
@@ -446,9 +454,14 @@ func _append_persisted_value_issue(
 	report: Dictionary,
 	value: Variant,
 	field_path: String,
-	issue_kind: StringName
+	issue_kind: StringName,
+	admission_failure: Dictionary = {}
 ) -> void:
-	var validation: Dictionary = _GF_SAVE_PERSISTED_VALUE_VALIDATOR.validate(value)
+	var validation: Dictionary = (
+		admission_failure
+		if not admission_failure.is_empty()
+		else _GF_SAVE_PERSISTED_VALUE_VALIDATOR.validate(value)
+	)
 	if GFVariantData.get_option_bool(validation, "ok", false):
 		return
 	var _persisted_issue: Variant = GFValidationReportDictionary.append_issue(
@@ -480,8 +493,39 @@ func _get_validation_next_actions() -> Dictionary:
 
 
 static func _append_section_dict_issues(report: Dictionary, section_data: Dictionary) -> void:
-	for section_id_text: String in _sorted_dictionary_keys(section_data):
-		var value: Variant = GFVariantData.get_option_value(section_data, section_id_text)
+	var seen_text_keys: Dictionary = {}
+	for section_key: Variant in _sorted_dictionary_keys(section_data):
+		var key_type: int = typeof(section_key)
+		var section_id_text: String = GFVariantData.to_text(section_key)
+		if key_type != TYPE_STRING and key_type != TYPE_STRING_NAME:
+			var _key_type_issue: Variant = GFValidationReportDictionary.append_issue(
+				report,
+				"error",
+				&"invalid_document_section_key",
+				"Document section key must be a String or StringName.",
+				{ "path": "sections", "key_type": type_string(key_type) }
+			)
+			continue
+		if section_id_text.is_empty() or section_id_text != section_id_text.strip_edges():
+			var _key_shape_issue: Variant = GFValidationReportDictionary.append_issue(
+				report,
+				"error",
+				&"invalid_document_section_key",
+				"Document section key must be non-empty and have no surrounding whitespace.",
+				{ "path": "sections.%s" % section_id_text }
+			)
+			continue
+		if seen_text_keys.has(section_id_text):
+			var _key_collision_issue: Variant = GFValidationReportDictionary.append_issue(
+				report,
+				"error",
+				&"duplicate_document_section_key",
+				"Document section keys must have unique exact text identities.",
+				{ "path": "sections.%s" % section_id_text }
+			)
+			continue
+		seen_text_keys[section_id_text] = true
+		var value: Variant = section_data[section_key]
 		if not value is Dictionary:
 			var _section_type_issue: Variant = GFValidationReportDictionary.append_issue(
 				report,
@@ -565,14 +609,21 @@ static func _append_section_dict_issues(report: Dictionary, section_data: Dictio
 			)
 
 
-static func _sorted_dictionary_keys(source: Dictionary) -> PackedStringArray:
-	var result: PackedStringArray = PackedStringArray()
-	for key: Variant in source.keys():
-		var text: String = GFVariantData.to_text(key).strip_edges()
-		if not text.is_empty() and not result.has(text):
-			var _appended: bool = result.append(text)
-	result.sort()
+static func _sorted_dictionary_keys(source: Dictionary) -> Array:
+	var result: Array = source.keys()
+	result.sort_custom(func(left: Variant, right: Variant) -> bool:
+		var left_text: String = GFVariantData.to_text(left)
+		var right_text: String = GFVariantData.to_text(right)
+		if left_text != right_text:
+			return left_text < right_text
+		return typeof(left) < typeof(right)
+	)
 	return result
+
+
+func _get_persisted_admission_failure(value: Variant) -> Dictionary:
+	var validation: Dictionary = _GF_SAVE_PERSISTED_VALUE_VALIDATOR.validate(value)
+	return {} if GFVariantData.get_option_bool(validation, "ok", false) else validation
 
 
 static func _append_unknown_field_issues(

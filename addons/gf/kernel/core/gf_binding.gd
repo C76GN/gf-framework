@@ -74,7 +74,7 @@ func _init(
 	_should_dispose_cached_instance = p_should_dispose_cached_instance
 
 
-# --- 公共方法 ---
+# --- 框架内部方法 ---
 
 ## 按当前生命周期解析实例。
 ## [br]
@@ -148,6 +148,8 @@ func clear_cached_instance() -> void:
 	_has_cached_instance = false
 
 	if is_instance_valid(instance):
+		if _owner_architecture != null:
+			_owner_architecture.unregister_owner_events(instance)
 		_release_instance_scope(instance)
 
 

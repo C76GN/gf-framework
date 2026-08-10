@@ -55,6 +55,33 @@ func test_dictionary_schema_applies_defaults_and_coerces_values() -> void:
 	assert_eq(GFVariantData.get_option_int(coerced, "count"), 3, "缺失字段应补默认值。")
 
 
+func test_dictionary_schema_does_not_inject_invalid_null_defaults() -> void:
+	var schema: GFDictionarySchema = GFDictionarySchema.new()
+	var optional_field: GFSchemaField = _make_field(&"optional_count", GFSchemaField.ValueType.INT, {
+		"allow_null": false,
+	})
+	var required_field: GFSchemaField = _make_field(&"required_count", GFSchemaField.ValueType.INT, {
+		"required": true,
+		"allow_null": false,
+	})
+	var nullable_field: GFSchemaField = _make_field(&"nullable_count", GFSchemaField.ValueType.INT, {
+		"allow_null": true,
+	})
+	var _optional_added: bool = schema.add_field(optional_field)
+	var _required_added: bool = schema.add_field(required_field)
+	var _nullable_added: bool = schema.add_field(nullable_field)
+
+	var defaults: Dictionary = schema.build_defaults()
+	var applied: Dictionary = schema.apply_defaults({})
+
+	assert_false(defaults.has(&"optional_count"), "non-nullable optional 字段没有默认值时应保持 missing。")
+	assert_false(defaults.has(&"required_count"), "non-nullable required 字段没有默认值时也不能注入非法 null。")
+	assert_true(defaults.has(&"nullable_count"), "允许 null 的字段可继续把 null 作为当前合法默认值。")
+	assert_false(applied.has(&"optional_count"), "apply_defaults 应与 build_defaults 使用同一默认值判定。")
+	assert_false(applied.has(&"required_count"), "apply_defaults 不应把 missing required 改写成 null。")
+	assert_true(applied.has(&"nullable_count"), "apply_defaults 应保留合法 nullable 默认值。")
+
+
 func test_dictionary_schema_rejects_non_finite_numeric_components() -> void:
 	var schema: GFDictionarySchema = GFDictionarySchema.new()
 	var _float_added: bool = schema.add_field(_make_field(&"weight", GFSchemaField.ValueType.FLOAT))

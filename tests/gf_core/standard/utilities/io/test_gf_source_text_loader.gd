@@ -4,6 +4,7 @@ extends GutTest
 
 const TEST_ROOT: String = "user://gf_source_text_loader_test"
 const TEST_FILE: String = "nested/source.txt"
+const INVALID_UTF8_FILE: String = "nested/invalid_utf8.txt"
 
 
 func before_each() -> void:
@@ -12,6 +13,7 @@ func before_each() -> void:
 
 func after_each() -> void:
 	_remove_file_if_exists(TEST_ROOT.path_join(TEST_FILE))
+	_remove_file_if_exists(TEST_ROOT.path_join(INVALID_UTF8_FILE))
 
 
 func test_registered_text_loads_and_caches_by_logical_key() -> void:
@@ -55,6 +57,77 @@ func test_file_size_limit_reports_error() -> void:
 	assert_eq(GFVariantData.get_option_string(result, GFResultDictionary.KEY_REASON), "file_too_large", "大小限制原因应稳定。")
 
 
+func test_cached_text_rechecks_current_max_bytes() -> void:
+	var file_loader: GFSourceTextLoader = GFSourceTextLoader.new(TEST_ROOT)
+	var file_first: Dictionary = file_loader.load_text(TEST_FILE)
+	file_loader.max_bytes = 2
+	var file_second: Dictionary = file_loader.load_text(TEST_FILE)
+
+	var registered_loader: GFSourceTextLoader = GFSourceTextLoader.new("", {
+		"allow_file_access": false,
+	})
+	var _registered: bool = registered_loader.register_text("inline/large", "hello")
+	var registered_first: Dictionary = registered_loader.load_text("inline/large")
+	registered_loader.max_bytes = 2
+	var registered_second: Dictionary = registered_loader.load_text("inline/large")
+
+	var custom_loader: GFSourceTextLoader = GFSourceTextLoader.new("", {
+		"allow_file_access": false,
+	})
+	var _added: bool = custom_loader.add_custom_loader(_load_virtual_source_text)
+	var custom_first: Dictionary = custom_loader.load_text("virtual/source")
+	custom_loader.max_bytes = 2
+	var custom_second: Dictionary = custom_loader.load_text("virtual/source")
+
+	assert_true(GFResultDictionary.is_ok(file_first), "文件文本第一次加载应成功并进入缓存。")
+	assert_false(GFResultDictionary.is_ok(file_second), "降低 max_bytes 后不得复用超限文件缓存。")
+	assert_eq(
+		GFVariantData.get_option_string(file_second, GFResultDictionary.KEY_REASON),
+		"text_too_large",
+		"文件缓存超限原因应稳定。"
+	)
+	assert_true(GFResultDictionary.is_ok(registered_first), "注册文本第一次加载应成功并进入缓存。")
+	assert_false(GFResultDictionary.is_ok(registered_second), "降低 max_bytes 后不得复用超限注册文本缓存。")
+	assert_eq(
+		GFVariantData.get_option_string(registered_second, GFResultDictionary.KEY_REASON),
+		"text_too_large",
+		"缓存超限原因应稳定。"
+	)
+	assert_true(GFResultDictionary.is_ok(custom_first), "自定义文本第一次加载应成功并进入缓存。")
+	assert_false(GFResultDictionary.is_ok(custom_second), "降低 max_bytes 后不得复用超限自定义缓存。")
+	assert_eq(
+		GFVariantData.get_option_string(custom_second, GFResultDictionary.KEY_REASON),
+		"text_too_large",
+		"自定义缓存超限原因应稳定。"
+	)
+
+
+func test_file_and_custom_byte_sources_reject_invalid_utf8() -> void:
+	var invalid_bytes: PackedByteArray = PackedByteArray([0x66, 0x80, 0x6f])
+	_prepare_test_bytes(INVALID_UTF8_FILE, invalid_bytes)
+	var file_loader: GFSourceTextLoader = GFSourceTextLoader.new(TEST_ROOT)
+	var file_result: Dictionary = file_loader.load_text(INVALID_UTF8_FILE)
+
+	var custom_loader: GFSourceTextLoader = GFSourceTextLoader.new("", {
+		"allow_file_access": false,
+	})
+	var _added: bool = custom_loader.add_custom_loader(_load_invalid_virtual_source_bytes)
+	var custom_result: Dictionary = custom_loader.load_text("virtual/invalid-bytes")
+
+	assert_false(GFResultDictionary.is_ok(file_result), "文件字节不是严格 UTF-8 时应拒绝。")
+	assert_eq(
+		GFVariantData.get_option_string(file_result, GFResultDictionary.KEY_REASON),
+		"invalid_utf8",
+		"文件 UTF-8 失败原因应稳定。"
+	)
+	assert_false(GFResultDictionary.is_ok(custom_result), "自定义 loader 的非法 UTF-8 字节也应拒绝。")
+	assert_eq(
+		GFVariantData.get_option_string(custom_result, GFResultDictionary.KEY_REASON),
+		"invalid_utf8",
+		"自定义字节 UTF-8 失败原因应稳定。"
+	)
+
+
 func test_custom_loader_loads_virtual_text_and_caches_by_key() -> void:
 	var loader: GFSourceTextLoader = GFSourceTextLoader.new("", {
 		"allow_file_access": false,
@@ -85,7 +158,7 @@ func test_custom_loader_can_return_utf8_bytes() -> void:
 	var result: Dictionary = loader.load_text("virtual/bytes")
 
 	assert_true(GFResultDictionary.is_ok(result), "自定义 loader 应支持 UTF-8 字节结果。")
-	assert_eq(GFVariantData.get_option_string(result, "text"), "bytes text", "字节结果应按 UTF-8 转为文本。")
+	assert_eq(GFVariantData.get_option_string(result, "text"), "bytes 文本", "多字节结果应按严格 UTF-8 转为文本。")
 
 
 func test_custom_loader_can_decline_and_fall_back_to_file() -> void:
@@ -112,6 +185,17 @@ func _prepare_test_file(text: String) -> void:
 	file.close()
 
 
+func _prepare_test_bytes(relative_path: String, bytes: PackedByteArray) -> void:
+	var directory: String = ProjectSettings.globalize_path(TEST_ROOT.path_join(relative_path.get_base_dir()))
+	var _make_dir_result: Error = DirAccess.make_dir_recursive_absolute(directory)
+	var file: FileAccess = FileAccess.open(TEST_ROOT.path_join(relative_path), FileAccess.WRITE)
+	assert_not_null(file, "测试字节文件应能创建。")
+	if file == null:
+		return
+	var _store_buffer_result: Variant = file.store_buffer(bytes)
+	file.close()
+
+
 func _remove_file_if_exists(path: String) -> void:
 	if FileAccess.file_exists(path):
 		var _remove_result: Error = DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
@@ -133,8 +217,18 @@ func _load_virtual_source_bytes(source_key: String, _context: Dictionary) -> Dic
 		return { "handled": false }
 	return {
 		"handled": true,
-		"bytes": "bytes text".to_utf8_buffer(),
+		"bytes": "bytes 文本".to_utf8_buffer(),
 		"resolved_path": "virtual://bytes",
+	}
+
+
+func _load_invalid_virtual_source_bytes(source_key: String, _context: Dictionary) -> Dictionary:
+	if source_key != "virtual/invalid-bytes":
+		return { "handled": false }
+	return {
+		"handled": true,
+		"bytes": PackedByteArray([0x66, 0x80, 0x6f]),
+		"resolved_path": "virtual://invalid-bytes",
 	}
 
 

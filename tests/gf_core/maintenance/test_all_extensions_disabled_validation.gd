@@ -23,6 +23,7 @@ func test_all_extensions_disabled_keeps_extension_queries_empty() -> void:
 	var editor_dock_paths: Array[String] = GFExtensionSettings.get_enabled_editor_dock_paths()
 	var editor_inspector_paths: Array[String] = GFExtensionSettings.get_enabled_editor_inspector_paths()
 	var export_plugin_paths: Array[String] = GFExtensionSettings.get_enabled_export_plugin_paths()
+	var gltf_document_paths: Array[String] = GFExtensionSettings.get_enabled_gltf_document_extension_paths()
 	var access_extension_paths: Array[String] = GFExtensionSettings.get_enabled_access_generator_extension_paths()
 	var debugger_plugin_paths: Array[String] = GFExtensionSettings.get_enabled_debugger_plugin_paths()
 	_restore_enabled_extensions(restore)
@@ -32,6 +33,7 @@ func test_all_extensions_disabled_keeps_extension_queries_empty() -> void:
 	assert_true(editor_dock_paths.is_empty(), "全禁用时不应暴露扩展 Dock。")
 	assert_true(editor_inspector_paths.is_empty(), "全禁用时不应暴露扩展 Inspector。")
 	assert_true(export_plugin_paths.is_empty(), "全禁用时不应暴露扩展导出插件。")
+	assert_true(gltf_document_paths.is_empty(), "全禁用时不应暴露 glTF 文档扩展。")
 	assert_true(access_extension_paths.is_empty(), "全禁用时不应暴露扩展访问器扩展。")
 	assert_true(debugger_plugin_paths.is_empty(), "全禁用时不应暴露扩展 Debugger 插件。")
 

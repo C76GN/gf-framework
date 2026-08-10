@@ -123,6 +123,8 @@ func drop(session: GFDragSession, position: Variant) -> Variant:
 
 
 ## 转换为调试字典。
+## JSON 模式直接经过带循环检测和遍历预算的 GFVariantJsonCodec，不会在 codec
+## 前对 metadata 执行无界原生深复制，也不会在编码异常时回退原始对象。
 ## [br]
 ## @api public
 ## [br]
@@ -142,14 +144,23 @@ func to_dictionary(json_compatible: bool = true) -> Dictionary:
 		"has_contains_callable": contains_callable.is_valid(),
 		"has_can_accept_callable": can_accept_callable.is_valid(),
 		"has_drop_callable": drop_callable.is_valid(),
-		"metadata": metadata.duplicate(true),
+		"metadata": metadata,
 	}
 	if json_compatible:
 		var encoded: Variant = GFVariantJsonCodec.variant_to_json_compatible(result)
 		if encoded is Dictionary:
 			var encoded_dictionary: Dictionary = encoded
 			return encoded_dictionary
-	return result
+		return {
+			"ok": false,
+			"reason": "json_encoding_failed",
+			"type": "GFDropZone",
+		}
+	var copied_result: Variant = GFVariantData.duplicate_variant(result)
+	if copied_result is Dictionary:
+		var copied_dictionary: Dictionary = copied_result
+		return copied_dictionary
+	return {}
 
 
 ## 检查落点是否引用了已经失效的对象。
@@ -191,7 +202,7 @@ static func from_rect(
 	zone.accepted_types = new_accepted_types
 	zone.priority = GFVariantData.get_option_int(options, "priority", 0)
 	zone.enabled = GFVariantData.get_option_bool(options, "enabled", true)
-	zone.metadata = GFVariantData.get_option_dictionary(options, "metadata")
+	zone.metadata = _duplicate_option_metadata(options)
 	zone.can_accept_callable = _get_option_callable(options, "can_accept")
 	zone.drop_callable = _get_option_callable(options, "drop")
 	zone.contains_callable = func(position: Variant, _session: GFDragSession) -> bool:
@@ -228,7 +239,7 @@ static func from_control(
 	zone.accepted_types = new_accepted_types
 	zone.priority = GFVariantData.get_option_int(options, "priority", 0)
 	zone.enabled = GFVariantData.get_option_bool(options, "enabled", true)
-	zone.metadata = GFVariantData.get_option_dictionary(options, "metadata")
+	zone.metadata = _duplicate_option_metadata(options)
 	zone.can_accept_callable = _get_option_callable(options, "can_accept")
 	zone.drop_callable = _get_option_callable(options, "drop")
 	var control_ref: WeakRef = weakref(control) if is_instance_valid(control) else null
@@ -262,6 +273,14 @@ static func _get_option_callable(options: Dictionary, key: Variant) -> Callable:
 		var callable: Callable = value
 		return callable
 	return Callable()
+
+
+static func _duplicate_option_metadata(options: Dictionary) -> Dictionary:
+	var raw_metadata: Variant = GFVariantData.get_option_value(options, "metadata", {})
+	if not raw_metadata is Dictionary:
+		return {}
+	var copied_metadata: Variant = GFVariantData.duplicate_variant(raw_metadata)
+	return copied_metadata if copied_metadata is Dictionary else {}
 
 
 static func _get_live_control_from_ref(control_ref: WeakRef) -> Control:

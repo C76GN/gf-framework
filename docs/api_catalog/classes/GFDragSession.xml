@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFDragSession" path="addons/gf/standard/input/drag_drop/gf_drag_session.gd" module="standard" extends="RefCounted" classDigest="ca6e0abd731600e7c497ef7fb3c2644e2c8cf699b31544bc1c47ac2bd211cc82">
+<class name="GFDragSession" path="addons/gf/standard/input/drag_drop/gf_drag_session.gd" module="standard" extends="RefCounted" classDigest="734d7df63eac41b9a283adbf373f9aa1fae11536da159ab233cfe7382cdd29c2">
 	<description>GFDragSession: 通用拖拽会话数据。
 描述一次拖拽从开始到释放的稳定上下文，不绑定具体 UI、背包、棋盘、
 关卡编辑器或任何业务对象。项目可把任意 payload 放入会话，再由落点规则解释。</description>
@@ -106,7 +106,9 @@
 		</member>
 		<member kind="method" name="to_dictionary">
 			<signature>func to_dictionary(json_compatible: bool = true) -&gt; Dictionary:</signature>
-			<description>转换为调试字典。</description>
+			<description>转换为调试字典。
+JSON 模式直接经过带循环检测和遍历预算的 GFVariantJsonCodec，不会在 codec
+前对 metadata 执行无界原生深复制，也不会在编码异常时回退原始对象。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">json_compatible: 为 true 时返回可直接 JSON.stringify() 的值。</tag>

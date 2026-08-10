@@ -22,11 +22,11 @@ if document == null:
 storage.save_data_async("hero_save.sav", document.to_dict())
 ```
 
-`gather_scope()` 会在主线程遍历当前场景节点。大型项目应把项目级 Model 聚合改用 `GFArchitecture.get_global_snapshot_async()`，检查捕获 Result 后只把其中的 `snapshot` 交给存储；也可以在项目自己的保存 System 中把多个 Scope/区域分帧采集，再交给 `GFStorageUtility.save_data_async()` 后台编码和落盘。不要在线程里直接访问 Node、Resource 或 `GFSaveSource` 实例。
+`gather_scope()` 会在主线程遍历当前场景节点。任一 Pipeline Step、Scope 或 Source 在本轮新增 error 时，整次采集都会失败关闭；`save_scope()` 返回 `ERR_INVALID_DATA`，不会用部分或空 Source 载荷覆盖现有文件。大型项目应把项目级 Model 聚合改用 `GFArchitecture.get_global_snapshot_async()`，检查捕获 Result 后只把其中的 `snapshot` 交给存储；也可以在项目自己的保存 System 中把多个 Scope/区域分帧采集，再交给 `GFStorageUtility.save_data_async()` 后台编码和落盘。不要在线程里直接访问 Node、Resource 或 `GFSaveSource` 实例。
 
 ```gdscript
 var read_result := storage.load_data("hero_save.sav")
-if not read_result.ok:
+if not read_result.ok or not read_result.is_integrity_accepted():
 	push_warning(read_result.error)
 	return
 
@@ -44,7 +44,11 @@ if not bool(schema_report.get("ok", false)):
 var result := save_graph.apply_document(%SaveScope, document, {}, true)
 if not bool(result.get("ok", false)):
 	push_warning("Load failed: %s" % str(result.get("errors", [])))
+	if not bool(result.get("atomicity_restored", true)):
+		push_error("Load rollback was incomplete: %s" % str(result.get("rollback_failures", [])))
 ```
+
+内部 graph payload 的 `format_version` 必须是精确的当前整数版本；缺失、旧版、字符串或未来版本都不会进入 Source mutation。通过版本化 Save Document 从 JSON Storage 读取时，Document adapter 只把 JSON 对当前整数的无损浮点表示规范化为当前版本；旧版本仍必须走显式迁移。
 
 如果 `GFSaveGraphUtility` 是通过 `Gf.get_utility()` 取得，并且 `GFStorageUtility` 已注册到同一个 `GFArchitecture`，也可以直接使用封装方法：
 

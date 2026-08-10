@@ -2,6 +2,8 @@
 ##
 ## 为任意 item_id 关联值和字段，并支持按字段快速查询。它只维护索引结构，
 ## 不规定字段含义、业务规则或生命周期。
+## 所有 mutation 都在同步信号前完整提交；信号监听器若重入修改同一索引，
+## mutation 会失败关闭，调用方可在信号返回后或 deferred 阶段重试。
 ## [br]
 ## @api public
 ## [br]
@@ -51,6 +53,7 @@ var duplicate_values: bool = true
 
 var _items: Dictionary = {}
 var _indexes: Dictionary = {}
+var _is_emitting_mutation_signal: bool = false
 
 
 # --- 公共方法 ---
@@ -71,20 +74,22 @@ var _indexes: Dictionary = {}
 ## [br]
 ## @schema fields: Dictionary from field id to scalar, Array, or PackedStringArray values.
 func set_item(item_id: StringName, value: Variant, fields: Dictionary = {}) -> bool:
-	if item_id == &"":
+	if item_id == &"" or _is_emitting_mutation_signal:
 		return false
 
 	var normalized_report: Dictionary = _try_normalize_fields(fields)
 	if not GFVariantData.get_option_bool(normalized_report, "ok", false):
 		return false
 	var normalized_fields: Dictionary = GFVariantData.get_option_dictionary(normalized_report, "fields")
-	var _removed_existing: bool = remove_item(item_id)
+	var removed_existing: bool = _remove_item_state(item_id)
+	if removed_existing:
+		_emit_item_removed(item_id)
 	_items[item_id] = {
 		"value": _copy_value(value),
 		"fields": normalized_fields,
 	}
 	_index_fields(item_id, normalized_fields)
-	item_indexed.emit(item_id)
+	_emit_item_indexed(item_id)
 	return true
 
 
@@ -96,14 +101,9 @@ func set_item(item_id: StringName, value: Variant, fields: Dictionary = {}) -> b
 ## [br]
 ## @return 移除成功返回 true。
 func remove_item(item_id: StringName) -> bool:
-	if not _items.has(item_id):
+	if _is_emitting_mutation_signal or not _remove_item_state(item_id):
 		return false
-
-	var entry: Dictionary = _get_item_entry(item_id)
-	var fields: Dictionary = _get_entry_fields(entry)
-	_remove_fields_from_indexes(item_id, fields)
-	var _item_erased: bool = _items.erase(item_id)
-	item_removed.emit(item_id)
+	_emit_item_removed(item_id)
 	return true
 
 
@@ -219,10 +219,16 @@ func query_many(criteria: Dictionary, match_all: bool = true) -> PackedStringArr
 ## 清空索引。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
+## [br]
+## 同步 mutation 信号派发期间调用时不执行；需要重入清理时应 deferred 调用。
 func clear() -> void:
+	if _is_emitting_mutation_signal:
+		return
 	_items.clear()
 	_indexes.clear()
-	cleared.emit()
+	_emit_cleared()
 
 
 ## 获取条目数量。
@@ -259,6 +265,34 @@ func get_debug_snapshot() -> Dictionary:
 
 
 # --- 私有/辅助方法 ---
+
+func _remove_item_state(item_id: StringName) -> bool:
+	if not _items.has(item_id):
+		return false
+	var entry: Dictionary = _get_item_entry(item_id)
+	var fields: Dictionary = _get_entry_fields(entry)
+	_remove_fields_from_indexes(item_id, fields)
+	var _item_erased: bool = _items.erase(item_id)
+	return true
+
+
+func _emit_item_indexed(item_id: StringName) -> void:
+	_is_emitting_mutation_signal = true
+	item_indexed.emit(item_id)
+	_is_emitting_mutation_signal = false
+
+
+func _emit_item_removed(item_id: StringName) -> void:
+	_is_emitting_mutation_signal = true
+	item_removed.emit(item_id)
+	_is_emitting_mutation_signal = false
+
+
+func _emit_cleared() -> void:
+	_is_emitting_mutation_signal = true
+	cleared.emit()
+	_is_emitting_mutation_signal = false
+
 
 func _copy_value(value: Variant) -> Variant:
 	if duplicate_values:

@@ -140,7 +140,8 @@ func save_data(
 		return ERR_INVALID_PARAMETER
 	if not _is_ready():
 		return ERR_UNAVAILABLE
-	if _resolve_storage_key(file_name).is_empty():
+	var storage_key: String = _resolve_storage_key(file_name)
+	if storage_key.is_empty():
 		return ERR_INVALID_PARAMETER
 	var payload_validation: Dictionary = (
 		ProjectStorageValueLimits.validate_payload(
@@ -151,7 +152,7 @@ func save_data(
 	)
 	if not _validation_succeeded(payload_validation):
 		return _validation_error(payload_validation)
-	return _save_data(file_name, data, metadata)
+	return _save_validated_data(storage_key, data, metadata)
 
 
 # --- 可重写钩子 / 虚方法 ---
@@ -332,6 +333,14 @@ func _save_data(
 	)
 	if not _validation_succeeded(payload_validation):
 		return _validation_error(payload_validation)
+	return _save_validated_data(storage_key, data, metadata)
+
+
+func _save_validated_data(
+	storage_key: String,
+	data: Dictionary,
+	metadata: Dictionary
+) -> Error:
 	if metadata.has("revision"):
 		return ERR_INVALID_PARAMETER
 

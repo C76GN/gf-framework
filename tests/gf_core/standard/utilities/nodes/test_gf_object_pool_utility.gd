@@ -158,6 +158,66 @@ func test_acquire_release_calls_node_hooks() -> void:
 	assert_eq(reused.acquire_count, 2, "复用 acquire 应再次调用 on_gf_pool_acquire。")
 
 
+func test_reused_node_before_add_release_wins_without_double_loan() -> void:
+	var node: Node = _pool.acquire(_scene, _parent)
+	_pool.release(node, _scene)
+
+	var cancelled_acquire: Node = _pool.acquire(
+		_scene,
+		_parent,
+		func(reused_node: Node) -> void:
+			_pool.release(reused_node, _scene)
+	)
+
+	assert_null(cancelled_acquire, "before_add 已归还复用节点时，外层 acquire 不得发布同一借用。")
+	assert_eq(_pool.get_active_count(_scene), 0, "callback 归还后不应保留 active 节点。")
+	assert_eq(_pool.get_available_count(_scene), 1, "callback 归还后节点应恰好进入 available 一次。")
+
+	var next_acquire: Node = _pool.acquire(_scene, _parent)
+	assert_eq(next_acquire, node, "下一次 acquire 可以安全复用已归还节点。")
+	assert_eq(_pool.get_active_count(_scene), 1, "复用节点只能有一个 active borrower。")
+	assert_eq(_pool.get_available_count(_scene), 0, "active 节点不能同时留在 available。")
+
+
+func test_node_acquire_hook_release_wins_without_double_loan() -> void:
+	var hooked_scene: PackedScene = _make_hooked_scene()
+	var node: HookedNode = _acquire_hooked_node(hooked_scene)
+	_pool.release(node, hooked_scene)
+	node.pool = _pool
+	node.pool_scene = hooked_scene
+	node.release_on_acquire = true
+
+	var cancelled_acquire: Node = _pool.acquire(hooked_scene, _parent)
+
+	assert_null(cancelled_acquire, "acquire hook 已归还节点时，外层 acquire 不得发布同一借用。")
+	assert_eq(_pool.get_active_count(hooked_scene), 0, "hook 归还后不应保留 active 节点。")
+	assert_eq(_pool.get_available_count(hooked_scene), 1, "hook 归还后节点应恰好进入 available 一次。")
+
+	node.release_on_acquire = false
+	var next_acquire: Node = _pool.acquire(hooked_scene, _parent)
+	assert_eq(next_acquire, node, "下一次 acquire 可以安全复用 hook 已归还节点。")
+	assert_eq(_pool.get_active_count(hooked_scene), 1, "复用节点只能有一个 active borrower。")
+	assert_eq(_pool.get_available_count(hooked_scene), 0, "active 节点不能同时留在 available。")
+	node.pool = null
+	node.pool_scene = null
+
+
+func test_node_release_hook_reentry_is_rejected_without_duplicate_available_entry() -> void:
+	var hooked_scene: PackedScene = _make_hooked_scene()
+	var node: HookedNode = _acquire_hooked_node(hooked_scene)
+	node.pool = _pool
+	node.pool_scene = hooked_scene
+	node.release_on_release = true
+
+	_pool.release(node, hooked_scene)
+
+	assert_eq(node.release_count, 1, "release hook 的同项重入必须在再次调用 hook 前被拒绝。")
+	assert_eq(_pool.get_active_count(hooked_scene), 0, "release 完成后不应保留 active 节点。")
+	assert_eq(_pool.get_available_count(hooked_scene), 1, "节点只能进入 available 一次。")
+	node.pool = null
+	node.pool_scene = null
+
+
 func test_pooled_controller_events_pause_on_release_and_resume_on_acquire() -> void:
 	var architecture: GFArchitecture = _setup_test_architecture()
 	assert_true(
@@ -715,12 +775,22 @@ func _pool_debug_key(scene: PackedScene) -> String:
 class HookedNode extends Node:
 	var acquire_count: int = 0
 	var release_count: int = 0
+	var pool: GFObjectPoolUtility = null
+	var pool_scene: PackedScene = null
+	var release_on_acquire: bool = false
+	var release_on_release: bool = false
+	var release_reentered: bool = false
 
 	func on_gf_pool_acquire() -> void:
 		acquire_count += 1
+		if release_on_acquire and pool != null:
+			pool.release(self, pool_scene)
 
 	func on_gf_pool_release() -> void:
 		release_count += 1
+		if release_on_release and not release_reentered and pool != null:
+			release_reentered = true
+			pool.release(self, pool_scene)
 
 
 class ReadyCheckNode extends Node:

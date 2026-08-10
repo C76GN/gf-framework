@@ -16,6 +16,8 @@ Decision 扩展提供不依赖 LLM 的通用决策底座。它适合 NPC 行为�
 
 评分边界统一收敛到有限的 0 到 1，权重必须有限且非负。加权平均会先按最大权重缩放再求和，极大但合法的权重不会形成 `INF / INF`；SUM 使用饱和贡献，非法或非有限输入不会进入排序器。候选分数只在数值完全相等时按原始顺序打破平局，近似相等但更高的分数仍然获胜。
 
+`GFDecisionSet.select_best_from_scores()` 不要求调用方预先排序：它会扫描全部 accepted、有限且达到门槛的评分，选择数值最高项，同分再按 `decision_order` 稳定破平。`score_all()` 与单个 option 的评分会在调用开始时冻结候选/考虑项数组成员，项目 scorer 在回调中清空或重排 live exported 数组不会造成越界，也只影响下一次调用；上下文、Resource 字段和 scorer 的完整只读/重入政策仍需由项目明确，不能把这项成员快照误解为整个评价事务已经不可变。
+
 ## 最小流程
 
 ```gdscript
@@ -61,9 +63,13 @@ Decision 负责“选什么”，BehaviorTree 和 Flow 更适合“选中后怎�
 
 ## 输入契约
 
-`GFDecisionContext` 在分配主体和目标时先捕获 `get_decision_snapshot()`、`get_decision_values()` 或可存储属性，形成本次评价的快照视图。缺失 key 才会调用 `get_decision_value(key, fallback)` 并写入当前上下文的有界懒缓存；返回 `null` 表示显式输入值，返回传入 sentinel 才表示缺失。这样同一次评价不会因重复读取而反复触发 provider 副作用。
+`GFDecisionContext` 在分配主体和目标时先捕获无参数的 `get_decision_snapshot()`、`get_decision_values()` 或可存储属性，形成本次评价的快照视图。缺失 key 才会调用可接受两个参数的 `get_decision_value(key, fallback)`；签名不兼容的方法不会通过字符串反射调用。返回 `null` 表示显式输入值，返回传入 sentinel 才表示缺失。
 
-默认主动快照最多 `DEFAULT_MAX_SNAPSHOT_ENTRIES` 条，反射捕获最多 `DEFAULT_MAX_REFLECTION_PROPERTIES` 条；构造 `GFDecisionContext` 时可通过第五个 `capture_options` 参数收紧预算。预算耗尽后不会继续调用懒 provider，`get_debug_snapshot().capture_diagnostics` 会报告来源、数量、限制和截断状态。调试快照的 `subject_values`、`target_values` 与 `capture_diagnostics` 保持可直接按字符串键遍历的固定 JSON object 外壳，叶值再由 `GFReportValueCodec` 编码；遇到非字符串键、键规范化冲突或集合预算超限时会失败闭合为保真 marker。上下文复制容器但保留嵌套 Object/Resource 身份，并只通过弱引用暴露主体和目标，因此它是稳定的评价视图，不是对象图序列化器。
+默认主动快照最多 `DEFAULT_MAX_SNAPSHOT_ENTRIES` 条，反射捕获最多 `DEFAULT_MAX_REFLECTION_PROPERTIES` 条；构造 `GFDecisionContext` 时可通过第五个 `capture_options` 参数收紧预算。命中、miss 与正在执行的每个不同懒 key 都会先占用同一帧账本；miss 被负缓存，重复读取使用本次调用的 fallback 而不再执行 provider，不同 key 到达预算后也停止调用。重新绑定 subject/target 会原子清空对应账本。`get_debug_snapshot().capture_diagnostics` 以 `captured_count`、`attempted_count`、`limit` 和 `truncated` 区分成功捕获与已消费尝试。
+
+调试快照的 `subject_values`、`target_values` 与 `capture_diagnostics` 保持可直接按字符串键遍历的固定 JSON object 外壳，叶值再由 `GFReportValueCodec` 编码；遇到非字符串键、键规范化冲突、循环集合或报告预算超限时会失败闭合为保真 marker。进程内黑板、上下文、评分与评价副本改用循环安全 Variant 复制，不会因项目 metadata 自引用而递归失败。
+
+subject/target 顶层句柄是 `WeakRef`，但 `subject_values`、`target_values` 和 metadata 是公开的项目 Variant 图，其中的 Object/Resource 身份仍保持共享。provider 返回 `self`、把 `self` 放入嵌套集合，或调用方直接写入当前对象时，快照会形成强引用；因此当前保证是“顶层句柄弱引用”，不是任意可达对象图的深度弱所有权。需要严格释放时不要在值图中放入 subject/target；是否改为 data-only、自动 WeakRef 或显式强引用模式属于待定产品合同。
 
 `GFDecisionBlackboard.values`、`GFDecisionContext.metadata`、`GFDecisionOption.considerations` 和 `GFDecisionSet.decisions` 是可编辑集合。直接修改这些集合不会触发黑板变更信号，也不会执行添加、移除方法中的空值检查；需要信号或校验语义时使用对应方法。
 
@@ -71,7 +77,9 @@ Decision 负责“选什么”，BehaviorTree 和 Flow 更适合“选中后怎�
 
 `GFDecisionSet.get_debug_snapshot(context, scores)` 把 `scores = null` 解释为“现场评分”，把显式空数组解释为“调用方已经提供完整且为空的预计算结果”。需要避免 provider 再次执行时，应传 `GFDecisionEvaluation.scores`，不要用空数组代替缺省参数。
 
-通过 `GFDecisionUtility.register_decision_set(decision_set_id, decision_set)` 注册集合时，外部 ID 必须和资源内 `decision_set.decision_set_id` 一致；如果资源内 ID 为空，则注册入口会写入该 ID。这条规则让资源文件、运行时注册表和报告中的集合身份保持一致。
+`GFDecisionConsideration.get_debug_snapshot(context)` 同样是现场评分入口，会执行一次可重写的 `_score()`。已有正式分数时使用 `get_debug_snapshot_from_score(score_value)`；该入口只编码预计算值，不会因打开诊断面板或写日志再次推进随机数、计数器或项目状态。
+
+通过 `GFDecisionUtility.register_decision_set(decision_set_id, decision_set)` 注册集合时，外部 ID 必须和资源内 `decision_set.decision_set_id` 一致；如果资源内 ID 为空，则注册入口会写入该 ID。registry key 在注册生命周期内是权威身份：同一 Resource 实例不能再次注册到另一个 key，外部热修改 ID 后，后续 Utility lookup/score/evaluate 会恢复原 key，评价与调试报告也继续使用该身份。若要改名，应先显式注销，再修改并用新 key 注册。
 
 ## 使用边界
 

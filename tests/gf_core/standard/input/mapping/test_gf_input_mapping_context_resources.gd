@@ -135,6 +135,31 @@ func test_input_context_diagnostics_reports_structure_issues() -> void:
 	assert_true(issue_counts.has("missing_project_input_action"))
 
 
+func test_input_context_diagnostics_rejects_nonfinite_threshold_and_deadzone() -> void:
+	var threshold_mapping: GFInputMapping = _make_valid_mapping(&"nonfinite_threshold")
+	threshold_mapping.action.activation_threshold = NAN
+	var deadzone_mapping: GFInputMapping = _make_valid_mapping(&"nonfinite_deadzone")
+	deadzone_mapping.bindings[0].deadzone = INF
+	var context: GFInputContext = GFInputContext.new()
+	context.context_id = &"nonfinite"
+	context.mappings = [threshold_mapping, deadzone_mapping]
+
+	var report: Dictionary = _GFInputContextDiagnostics.build_context_report(context)
+	var issue_counts: Dictionary = GFVariantData.get_option_dictionary(report, "issue_counts_by_kind")
+
+	assert_eq(
+		GFVariantData.get_option_int(issue_counts, "invalid_activation_threshold"),
+		1,
+		"NaN activation threshold 必须被诊断为无效。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(issue_counts, "invalid_deadzone"),
+		1,
+		"Infinity deadzone 必须被诊断为无效。"
+	)
+	assert_false(GFVariantData.get_option_bool(report, "healthy"), "非有限映射参数不得被报告为健康。")
+
+
 func test_input_context_diagnostics_can_skip_project_input_map_checks() -> void:
 	var context: GFInputContext = GFInputContext.new()
 	context.context_id = &"gameplay"

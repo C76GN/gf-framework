@@ -21,6 +21,8 @@ extends GFUtility
 ## [br]
 ## 事件只包含固定协议字段、稳定标识和 request id 摘要，不包含 token、payload、
 ## handler 输出或策略返回数据。
+## 重入 listener 产生的事件按 sequence 迭代派发；单次 drain 与待派发队列均有硬上限，
+## 超限时只丢弃实时通知，不丢弃内存审计记录，listener 可通过 sequence 缺口识别。
 ## [br]
 ## @api public
 ## [br]
@@ -62,6 +64,8 @@ const _MAX_VALUE_DEPTH: int = 32
 const _MAX_VALUE_NODES: int = 2048
 const _MAX_VALUE_BYTES: int = 64 * 1024
 const _MAX_AUDIT_EVENTS: int = 256
+const _MAX_PENDING_AUDIT_NOTIFICATIONS: int = 256
+const _MAX_AUDIT_NOTIFICATIONS_PER_DRAIN: int = 256
 const _DEFAULT_SESSION_TTL_MSEC: int = 60_000
 const _MAX_SESSION_TTL_MSEC: int = 15 * 60_000
 const _DEFAULT_RATE_WINDOW_MSEC: int = 60_000
@@ -149,10 +153,12 @@ var _security_context_epoch: int = 0
 var _endpoints: Dictionary = {}
 var _sessions: Dictionary = {}
 var _audit_events: Array[Dictionary] = []
+var _audit_notification_queue: Array[Dictionary] = []
 var _next_endpoint_generation: int = 0
 var _next_audit_sequence: int = 0
 var _handler_active: bool = false
 var _policy_evaluation_active: bool = false
+var _audit_notification_draining: bool = false
 var _disposing: bool = false
 
 
@@ -179,6 +185,7 @@ func dispose() -> void:
 	_endpoints.clear()
 	_sessions.clear()
 	_audit_events.clear()
+	_audit_notification_queue.clear()
 	policy_registry = null
 	_handler_active = false
 	_policy_evaluation_active = false
@@ -1051,6 +1058,7 @@ func clear_audit_events() -> void:
 	if not _is_owner_thread():
 		return
 	_audit_events.clear()
+	_audit_notification_queue.clear()
 
 
 ## 获取不含凭据、请求 ID 与业务值的调试快照。
@@ -1907,7 +1915,26 @@ func _append_audit(
 	_audit_events.append(event)
 	while _audit_events.size() > _MAX_AUDIT_EVENTS:
 		_audit_events.remove_at(0)
-	audit_event_recorded.emit(event.duplicate(true))
+	if _audit_notification_queue.size() < _MAX_PENDING_AUDIT_NOTIFICATIONS:
+		_audit_notification_queue.append(event.duplicate(true))
+	_drain_audit_notifications()
+
+
+func _drain_audit_notifications() -> void:
+	if _audit_notification_draining:
+		return
+	_audit_notification_draining = true
+	var delivered_count: int = 0
+	while (
+		not _audit_notification_queue.is_empty()
+		and delivered_count < _MAX_AUDIT_NOTIFICATIONS_PER_DRAIN
+	):
+		var event: Dictionary = _audit_notification_queue.pop_front()
+		delivered_count += 1
+		audit_event_recorded.emit(event.duplicate(true))
+	if not _audit_notification_queue.is_empty():
+		_audit_notification_queue.clear()
+	_audit_notification_draining = false
 
 
 func _audit_result(

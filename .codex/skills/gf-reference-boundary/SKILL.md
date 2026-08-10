@@ -14,22 +14,23 @@ Use this skill whenever GF maintenance touches the external reference project or
 - Boot scene override: `GF_REFERENCE_BOOT_SCENE` or `.gf_reference_project.json` `boot_scene`
 - Smoke scene override: `GF_REFERENCE_SMOKE_SCENE` or `.gf_reference_project.json` `smoke_scene`
 
-Always confirm the target contains `project.godot` before writing.
+Resolve the project path in this order: explicit `--project-root`, `GF_REFERENCE_PROJECT_PATH`, then the default. Always confirm the target contains `project.godot` before writing. The current file check is necessary but not sufficient proof of ownership; until a managed identity protocol is adopted, do not use sync against an unfamiliar project root.
 
 ## Sync Rules
 
 - `tools/gf_maintenance.py check --suite examples` is read-only by default and checks that external `addons/gf` is current.
 - Write sync is explicit only:
-  - `python tools\sync_reference_project.py --project-root ..\gf-reference-project`
+  - `python tools\sync_reference_project.py --apply`
   - or `python tools\gf_maintenance.py check --suite examples --sync-examples`
 - The external project's `addons/gf/` is generated/synced content. Do not treat it as reference project source.
+- Sync defaults to read-only check; `--plan` reports planned and applied actions separately without writing. Copy sync captures a bounded binary-exact payload manifest, stages the complete tree, and swaps it with rollback on ordinary failures. Link sync refuses to replace an existing target until a managed ownership protocol is adopted.
 
 ## Checks
 
 Run these when examples are in scope:
 
 ```powershell
-python tools\sync_reference_project.py --project-root ..\gf-reference-project --check
+python tools\sync_reference_project.py --check
 python tools\gf_maintenance.py check --suite examples --json
 ```
 

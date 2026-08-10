@@ -120,6 +120,44 @@ func test_owned_path_registration_can_be_removed_by_token_without_erasing_key() 
 	assert_eq(GFVariantData.get_option_string(restored_report, "path"), "res://icon.svg", "移除 owned 记录后应保留原始项目注册。")
 
 
+func test_ownerless_path_replacement_validates_before_commit_and_preserves_owned_records() -> void:
+	var _ownerless_registered: bool = _register_path(&"icon", "res://icon.svg", "Texture2D", 0)
+	var owned_registration_id: StringName = _register_path_for_owner(
+		&"icon",
+		&"content_package",
+		"res://owned_override.tres",
+		"Resource",
+		10
+	)
+
+	var invalid_replacement: bool = _register_path(&"icon", "", "Resource", 20)
+	var after_invalid: Dictionary = _resolve(&"icon", "", { "check_exists": false })
+	var valid_replacement: bool = _register_path(&"icon", "res://project_replacement.tres", "Resource", 5)
+	var with_owned_override: Dictionary = _resolve(&"icon", "", { "check_exists": false })
+	var owned_removed: bool = GFVariantData.to_bool(_call_resolver("unregister_registration", [owned_registration_id]))
+	var after_owned_removed: Dictionary = _resolve(&"icon", "", { "check_exists": false })
+
+	assert_ne(owned_registration_id, &"", "owned 记录应注册成功。")
+	assert_false(invalid_replacement, "无效替换候选应被拒绝。")
+	assert_eq(
+		GFVariantData.get_option_string(after_invalid, "path"),
+		"res://owned_override.tres",
+		"无效 ownerless 替换不得删除既有记录。"
+	)
+	assert_true(valid_replacement, "合法 ownerless 替换应提交。")
+	assert_eq(
+		GFVariantData.get_option_string(with_owned_override, "path"),
+		"res://owned_override.tres",
+		"ownerless 替换不得清除更高优先级 owned 贡献。"
+	)
+	assert_true(owned_removed, "owned token 仍应可独立注销。")
+	assert_eq(
+		GFVariantData.get_option_string(after_owned_removed, "path"),
+		"res://project_replacement.tres",
+		"移除 owned 记录后应暴露新 ownerless 映射。"
+	)
+
+
 func test_unregister_owner_removes_only_owned_path_records() -> void:
 	var _project_registered: bool = _register_path(&"icon", "res://icon.svg", "Texture2D", 0)
 	var package_icon_registration_id: StringName = _register_path_for_owner(

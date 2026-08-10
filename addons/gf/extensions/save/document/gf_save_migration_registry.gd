@@ -234,6 +234,7 @@ func migrate(
 	target_schema: GFSaveDocumentSchema,
 	context: Dictionary = {}
 ) -> GFSaveMigrationResult:
+	var step_snapshot: Dictionary = _steps.duplicate()
 	var plan: Dictionary = build_plan(document, target_schema)
 	if not GFVariantData.get_option_bool(plan, "ok", false):
 		return _make_failure(
@@ -247,7 +248,8 @@ func migrate(
 	var current: GFSaveDocument = document.duplicate_document()
 	var trace: Array[Dictionary] = []
 	while current.get_schema_version() < target_schema.schema_version:
-		var document_step: GFSaveMigrationStep = _get_step(
+		var document_step: GFSaveMigrationStep = _get_step_from_snapshot(
+			step_snapshot,
 			target_schema.schema_id,
 			&"",
 			current.get_schema_version()
@@ -321,7 +323,8 @@ func migrate(
 				trace
 			)
 		while current_section.get_schema_version() < target_version:
-			var section_step: GFSaveMigrationStep = _get_step(
+			var section_step: GFSaveMigrationStep = _get_step_from_snapshot(
+				step_snapshot,
 				target_schema.schema_id,
 				section_id,
 				current_section.get_schema_version()
@@ -490,6 +493,19 @@ func _get_step(
 	from_version: int
 ) -> GFSaveMigrationStep:
 	return _get_step_by_key(_make_edge_key(schema_id, section_id, from_version))
+
+
+func _get_step_from_snapshot(
+	step_snapshot: Dictionary,
+	schema_id: StringName,
+	section_id: StringName,
+	from_version: int
+) -> GFSaveMigrationStep:
+	var value: Variant = step_snapshot.get(_make_edge_key(schema_id, section_id, from_version))
+	if value is GFSaveMigrationStep:
+		var step: GFSaveMigrationStep = value
+		return step
+	return null
 
 
 func _get_step_by_key(edge_key: String) -> GFSaveMigrationStep:

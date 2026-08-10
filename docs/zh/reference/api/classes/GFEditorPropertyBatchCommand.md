@@ -31,6 +31,8 @@
 | 方法 | [`can_execute`](#member-gfeditorpropertybatchcommand-methods-can_execute) | `func can_execute() -> bool:` |
 | 方法 | [`can_revert_before_execute`](#member-gfeditorpropertybatchcommand-methods-can_revert_before_execute) | `func can_revert_before_execute() -> bool:` |
 | 方法 | [`_do_it`](#member-gfeditorpropertybatchcommand-methods-_do_it) | `func _do_it() -> Error:` |
+| 方法 | [`_get_undo_context`](#member-gfeditorpropertybatchcommand-methods-_get_undo_context) | `func _get_undo_context() -> Object:` |
+| 方法 | [`_get_undo_targets`](#member-gfeditorpropertybatchcommand-methods-_get_undo_targets) | `func _get_undo_targets() -> Array[Object]:` |
 | 方法 | [`_undo_it`](#member-gfeditorpropertybatchcommand-methods-_undo_it) | `func _undo_it() -> Error:` |
 
 ## 常量
@@ -278,6 +280,36 @@ func _do_it() -> Error:
 执行属性事务。
 
 返回：Godot 错误码。
+
+<a id="member-gfeditorpropertybatchcommand-methods-_get_undo_context"></a>
+
+### `_get_undo_context`
+
+- API：`protected`
+- 首次版本：`unreleased`
+
+```gdscript
+func _get_undo_context() -> Object:
+```
+
+返回第一个有效属性目标，作为 EditorUndoRedoManager 的 history 上下文。
+
+返回：第一个有效属性目标。
+
+<a id="member-gfeditorpropertybatchcommand-methods-_get_undo_targets"></a>
+
+### `_get_undo_targets`
+
+- API：`protected`
+- 首次版本：`unreleased`
+
+```gdscript
+func _get_undo_targets() -> Array[Object]:
+```
+
+返回全部唯一属性目标，供基类拒绝跨 UndoRedo history 的混合事务。
+
+返回：全部唯一属性目标。
 
 <a id="member-gfeditorpropertybatchcommand-methods-_undo_it"></a>
 

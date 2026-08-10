@@ -16,6 +16,26 @@ func test_submersion_ratio_uses_centered_immersion_range() -> void:
 	assert_eq(GF_BUOYANCY_MATH_3D_SCRIPT.calculate_submersion_ratio(1.0, 0.0), 0.0, "无效浸没半径应失败关闭。")
 
 
+func test_submersion_ratio_preserves_endpoints_at_large_finite_scale() -> void:
+	var immersion_radius: float = 1.0e308
+
+	assert_eq(
+		GF_BUOYANCY_MATH_3D_SCRIPT.calculate_submersion_ratio(immersion_radius, immersion_radius),
+		1.0,
+		"完全浸没端点不应因 2 * radius 的中间溢出退化为半浸没。"
+	)
+	assert_eq(
+		GF_BUOYANCY_MATH_3D_SCRIPT.calculate_submersion_ratio(-immersion_radius, immersion_radius),
+		0.0,
+		"完全离水端点不应因 2 * radius 的中间溢出退化为半浸没。"
+	)
+	assert_eq(
+		GF_BUOYANCY_MATH_3D_SCRIPT.calculate_submersion_ratio(0.0, immersion_radius),
+		0.5,
+		"半浸没中点应与数值尺度无关。"
+	)
+
+
 func test_buoyancy_force_opposes_gravity_and_scales_with_displacement() -> void:
 	var force: Vector3 = GF_BUOYANCY_MATH_3D_SCRIPT.calculate_buoyancy_force(
 		Vector3.DOWN * 10.0,
@@ -97,6 +117,31 @@ func test_default_field_samples_local_y_plane_without_applying_body_force() -> v
 	assert_false(sample.has("body"), "浮力场结果不应持有或修改业务刚体。")
 
 
+func test_field_fails_closed_when_finite_force_components_overflow_in_sum() -> void:
+	var field: GF_BUOYANCY_FIELD_3D_SCRIPT = GF_BUOYANCY_FIELD_3D_SCRIPT.new()
+	add_child_autofree(field)
+	field.fluid_density = 1.0e19
+	field.linear_drag_coefficient = 2.0e38
+
+	var sample: Dictionary = field.sample_point(
+		Vector3.DOWN,
+		Vector3.DOWN,
+		1.0,
+		1.0,
+		Vector3.DOWN * 2.0e19
+	)
+	var buoyancy_force: Vector3 = _get_vector3(sample, "buoyancy_force")
+	var drag_force: Vector3 = _get_vector3(sample, "drag_force")
+	var total_force: Vector3 = _get_vector3(sample, "force")
+
+	assert_true(GFVariantData.get_option_bool(sample, "available"), "几何和输入有效时采样仍应可用。")
+	assert_true(_is_finite_vector3(buoyancy_force), "单独浮力分量应保持有限。")
+	assert_true(_is_finite_vector3(drag_force), "单独阻力分量应保持有限。")
+	assert_false(buoyancy_force.is_zero_approx(), "夹具必须实际产生非零浮力分量。")
+	assert_false(drag_force.is_zero_approx(), "夹具必须实际产生非零阻力分量。")
+	assert_eq(total_force, Vector3.ZERO, "两个有限分量相加溢出时总力应失败关闭。")
+
+
 func test_field_surface_follows_node_transform() -> void:
 	var field: GF_BUOYANCY_FIELD_3D_SCRIPT = GF_BUOYANCY_FIELD_3D_SCRIPT.new()
 	add_child_autofree(field)
@@ -151,6 +196,17 @@ func _get_vector3(data: Dictionary, key: String) -> Vector3:
 		var vector_value: Vector3 = value
 		return vector_value
 	return Vector3.ZERO
+
+
+func _is_finite_vector3(value: Vector3) -> bool:
+	return (
+		not is_nan(value.x)
+		and not is_inf(value.x)
+		and not is_nan(value.y)
+		and not is_inf(value.y)
+		and not is_nan(value.z)
+		and not is_inf(value.z)
+	)
 
 
 # --- 内部类 ---

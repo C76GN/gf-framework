@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFNetworkContractAudit" path="addons/gf/extensions/network/editor/gf_network_contract_audit.gd" module="extensions/network" extends="RefCounted" classDigest="a0b8886b99e1876620c835c1da7a4e7abe0c832842cb4ec9b6c7a298887c6c5c">
+<class name="GFNetworkContractAudit" path="addons/gf/extensions/network/editor/gf_network_contract_audit.gd" module="extensions/network" extends="RefCounted" classDigest="f45502c7ba69fb83f81d08499262318293b5714f64d1ec909f0688388e6c3fc2">
 	<description>GFNetworkContractAudit: 网络契约编辑器审计器。
 对 GFNetworkContract 执行 fail-closed 倾向的结构审计，帮助项目在运行前发现
 松散 payload、未知通道、缺少版本和过宽 Variant 字段等风险。</description>
@@ -19,7 +19,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">contract: 网络契约。</tag>
-				<tag name="param">options: 审计选项，支持 known_channel_ids、require_contract_id、require_version、require_channel_ids、warn_variant_fields、warn_unbounded_collections、max_messages 和 max_fields_per_message。</tag>
+				<tag name="param">options: 审计选项，支持 known_channel_ids、require_contract_id、require_version、require_channel_ids、warn_variant_fields、warn_collection_bounds_review、max_messages、max_fields_per_message、max_known_channel_ids 和 max_channel_id_length。</tag>
 				<tag name="return">GFValidationReportDictionary 兼容报告。</tag>
 				<tag name="schema">options: Dictionary audit options.</tag>
 				<tag name="schema">return: Dictionary with ok, issues, issue_count, summary, and next_action.</tag>
@@ -32,7 +32,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">contract_paths: 契约资源路径列表。</tag>
-				<tag name="param">options: 审计选项。</tag>
+				<tag name="param">options: 审计选项，另支持正整数 max_contract_paths、max_known_channel_ids 和 max_channel_id_length；调用方预算受框架硬上限约束。</tag>
 				<tag name="return">GFValidationReportDictionary 兼容报告。</tag>
 				<tag name="schema">options: Dictionary audit options.</tag>
 				<tag name="schema">return: Dictionary with ok, issues, issue_count, contract_count, summary, and next_action.</tag>

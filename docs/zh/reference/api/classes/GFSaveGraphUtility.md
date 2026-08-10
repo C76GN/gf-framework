@@ -379,7 +379,7 @@ func apply_section( scope: GFSaveScope, section: GFSaveSection, context: Diction
 结构：
 
 - `context`: Dictionary accepted by apply_scope().
-- `return`: Dictionary with ok, applied, errors, missing, and optional pipeline_trace.
+- `return`: Dictionary with ok, applied, errors, missing, rollback_failures, atomicity_restored, and optional pipeline_trace.
 
 <a id="member-gfsavegraphutility-methods-gather_document"></a>
 
@@ -436,7 +436,7 @@ func apply_document( scope: GFSaveScope, document: GFSaveDocument, context: Dict
 结构：
 
 - `context`: Dictionary accepted by apply_scope().
-- `return`: Dictionary with ok, applied, errors, missing, and optional pipeline_trace.
+- `return`: Dictionary with ok, applied, errors, missing, rollback_failures, atomicity_restored, and optional pipeline_trace.
 
 <a id="member-gfsavegraphutility-methods-inspect_scope"></a>
 
@@ -575,6 +575,7 @@ func gather_scope(scope: GFSaveScope, context: Dictionary = {}) -> Dictionary:
 ### `apply_scope`
 
 - API：`public`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func apply_scope( scope: GFSaveScope, payload: Dictionary, context: Dictionary = {}, strict: bool = false ) -> Dictionary:
@@ -597,13 +598,14 @@ func apply_scope( scope: GFSaveScope, payload: Dictionary, context: Dictionary =
 
 - `payload`: Dictionary，存档图载荷，包含 format、format_version、scope、sources、scopes，可选 metadata 与 pipeline_trace。
 - `context`: Dictionary，可包含 pipeline_context、pipeline_shared、include_pipeline_trace、transactional_apply 及项目自定义键。
-- `return`: Dictionary，包含 ok、applied、errors、missing，可选 pipeline_trace。
+- `return`: Dictionary，包含 ok、applied、errors、missing、rollback_failures、atomicity_restored，可选 pipeline_trace。
 
 <a id="member-gfsavegraphutility-methods-save_scope"></a>
 
 ### `save_scope`
 
 - API：`public`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func save_scope( file_name: String, scope: GFSaveScope, metadata: Dictionary = {}, context: Dictionary = {} ) -> Error:
@@ -632,6 +634,7 @@ func save_scope( file_name: String, scope: GFSaveScope, metadata: Dictionary = {
 ### `load_scope`
 
 - API：`public`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func load_scope( file_name: String, scope: GFSaveScope, context: Dictionary = {}, strict: bool = false ) -> Dictionary:
@@ -653,4 +656,4 @@ func load_scope( file_name: String, scope: GFSaveScope, context: Dictionary = {}
 结构：
 
 - `context`: Dictionary，可包含 pipeline_context、pipeline_shared、include_pipeline_trace、transactional_apply 及项目自定义键。
-- `return`: Dictionary，包含 ok、applied、errors、missing，可选 pipeline_trace。
+- `return`: Dictionary，包含 ok、applied、errors、missing、rollback_failures、atomicity_restored，可选 pipeline_trace。

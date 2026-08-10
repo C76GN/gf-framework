@@ -16,6 +16,7 @@ Content Package 扩展用于把项目或插件中的可选内容收束为稳定 
 
 ```json
 {
+  "schema_version": 1,
   "package_id": "author.chapter_one",
   "display_name": "Chapter One",
   "version": "1.0.0",
@@ -40,7 +41,7 @@ Content Package 扩展用于把项目或插件中的可选内容收束为稳定 
 
 `path` 可以是包根目录内的相对路径、`res://` 路径或 `user://` 路径。相对路径会归一化到 manifest 所在目录；显式路径必须留在内容包根目录内；`uid://`、绝对路径和越界 `..` 路径会进入错误报告。只要 manifest 声明资源，`root_path` 就必须是非空且受支持的包根；空根不会被解释为“允许任意路径”。Content Package 不接受 `uid://`，因为 manifest 校验必须能证明资源仍在包根目录内。
 
-JSON 字段按稳定 schema 严格读取。字符串、数组、字典、资源条目和数值字段不会通过 `str()`、`int()` 或单值包装自动纠正；类型错误会以 `invalid_manifest_field_type` 或 `invalid_resource_field_type` 进入报告。项目应在导入或迁移层先修正源数据，不要依赖运行时宽松转换。
+JSON 字段按稳定 schema 严格读取。字符串、数组、字典、资源条目和数值字段不会通过 `str()`、`int()` 或单值包装自动纠正；类型错误会以 `invalid_manifest_field_type` 或 `invalid_resource_field_type` 进入报告。兼容别名（如 `package_id/id`、`key/resource_key`）可以单独使用，但同时出现时必须表示相同的规范化值；冲突会以 `conflicting_alias_fields` fail closed。项目应在导入或迁移层先修正源数据，不要依赖运行时宽松转换。
 
 ## 来源根与安全分类
 
@@ -48,7 +49,7 @@ JSON 字段按稳定 schema 严格读取。字符串、数组、字典、资源�
 
 需要一次切换一组来源时，使用 `replace_owner_source_roots()`。它会先规范化并校验全部路径，任一无效路径都会拒绝整次替换，上一份 owner 快照保持不变。`register_source_root()`、`unregister_source_root()` 和 `clear_source_roots()` 仍可用于手工配置，但只操作公开常量 `DEFAULT_SOURCE_ROOT_OWNER_ID` 对应的 manual scope，不会清除其他模块持有的 root。
 
-`GFContentPackageManifest.safety_kind` 默认是 `data_only`。该分类会拒绝脚本、动态库、shader、shell 脚本等可执行或代码形态扩展名；项目可以通过 `forbidden_resource_extensions` 追加或替换拦截列表。只有确实由开发者控制、并且项目侧已经决定如何加载和审计代码资源时，才应把分类改成 `trusted_developer`。
+`GFContentPackageManifest.safety_kind` 默认是 `data_only`。该分类会拒绝脚本、动态库、shader、shell 脚本等可执行或代码形态扩展名；项目可以通过 `forbidden_resource_extensions` 追加拦截项。只有确实由开发者控制、并且项目侧已经决定如何加载和审计代码资源时，才应把分类改成 `trusted_developer`。
 
 默认校验只检查 manifest 直接声明的路径。对不可信或外部导入的 `data_only` 内容，应启用 `{ "check_resource_dependencies": true }`；校验器会通过资源依赖图检查场景、资源等文件传递引用的脚本、shader 或动态库，并在扫描不完整时 fail closed。`dependency_options` 可继续传入扫描预算。这个预检不下载文件、不加载脚本，也不声明某个包可以被普通用户信任执行；完整性校验、解包、隔离和启用策略仍属于项目安装器或独立工具。
 
@@ -59,6 +60,8 @@ JSON 字段按稳定 schema 严格读取。字符串、数组、字典、资源�
 报告里的 `kind` 是稳定诊断键，例如 `invalid_resource_path`、`resource_path_outside_package`、`missing_dependency`、`dependency_cycle`、`invalid_manifest_file`。项目编辑器工具可以直接按这些键渲染问题列表，也可以追加自己的业务 schema 校验报告；GF 不把单个内容类型的字段解释写入 Content Package 扩展。
 
 `GFContentPackageUtility.rebuild_catalog()` 发现坏 JSON 或无法读取的 manifest 文件时，会把该文件作为 `invalid_manifest_file` error 纳入同一份最终报告，并重新计算 `ok`、`error_count` 和 `issue_count`。调用方不需要单独扫描加载失败列表。
+
+已成功解析、但缺少稳定 `package_id` 的 manifest 也不会从候选集合静默消失。Catalog 会保留拒绝输入的索引、来源路径和原因，`get_graph_report()` 通过 `rejected_manifest_count`、`rejected_manifest_inputs` 及具体 manifest issue 报告它们；Utility 仅在不存在任何拒绝或错误时提交候选，因此失败重建会保留上一份有效 catalog。
 
 Catalog 对 manifest 采用深快照语义：`add_manifest()` 不保留调用方对象，`get_manifest()`、`get_catalog()` 和 `catalog_rebuilt` 也不暴露内部可变实例。注册、注销或清空 source root 会立即失效当前 catalog，调用方必须重新 `rebuild_catalog()` 后再同步资源。
 
@@ -78,9 +81,9 @@ if result.is_successful():
 		print(manifest.package_id)
 ```
 
-需要把内容包显示在素材浏览器或交给资产预加载计划时，使用 `GFContentPackageAssetCatalogProvider`。默认 `asset_id` 采用 `package_id/resource_key`，避免不同包中的局部资源键互相覆盖；原始资源键保留在 `resource_entry_ids` 和 metadata 中，可继续交给 Resolver。Provider 只构建隔离快照，项目可以把结果交给 `GFAssetCatalogRuntime` 挂载，或直接用于离线工具。
+需要把内容包显示在素材浏览器或交给资产预加载计划时，使用 `GFContentPackageAssetCatalogProvider`。默认 `asset_id` 采用 `package_id/resource_key`，避免普通 ID 下不同包中的局部资源键互相覆盖；原始资源键保留在 `resource_entry_ids` 和 metadata 中，可继续交给 Resolver。在规范 ID 语法确定前，如果两个不同二元组生成同一复合 ID，Provider 会返回 `null` 并拒绝整份候选目录，不会覆盖后返回部分快照。Provider 只构建隔离快照，项目可以把结果交给 `GFAssetCatalogRuntime` 挂载，或直接用于离线工具。
 
-需要把 manifest 或导出计划交给 JSON 日志、CI 或编辑器面板时，可以使用 `to_report_dictionary()`。它会通过 `GFReportValueCodec` 输出 JSON-safe 结构，避免 Resource、对象引用、非有限浮点或未脱敏路径直接进入公开报告。
+需要把 manifest、query 或导出计划交给 JSON 日志、CI 或编辑器面板时，可以使用各自的 `to_report_dictionary()`。它会通过 `GFReportValueCodec` 输出 JSON-safe 结构，避免 Resource、对象引用、循环容器、非有限浮点或未脱敏路径直接进入公开报告；Provider 的 `get_debug_snapshot()` 已使用 query 的报告边界，而不是进程内状态字典。
 
 ## 典型流程
 

@@ -8,6 +8,7 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
+PUBLIC_API_VISIBILITIES = frozenset({"public", "protected"})
 
 
 @dataclass
@@ -80,6 +81,11 @@ class ApiScript:
 		)
 
 
+@dataclass
+class _GdscriptLexState:
+	multiline_quote: str = ""
+
+
 def collect_api_scripts(source_root: Path, root: Path = ROOT) -> list[ApiScript]:
 	result: list[ApiScript] = []
 	for path in sorted(source_root.rglob("*.gd")):
@@ -114,26 +120,23 @@ def parse_gdscript_source(source: str, relative_path: str, module: str = "root")
 		module=module,
 	)
 	lines = source.splitlines()
+	structural_lines, starts_in_multiline = scan_gdscript_structure(lines)
 	docs_buffer: list[str] = []
 	decorators: list[str] = []
-	in_multiline_string = False
 	i = 0
 	while i < len(lines):
 		raw_line = lines[i]
 		stripped = raw_line.strip()
-		if has_triple_quote(stripped):
-			in_multiline_string = not in_multiline_string
-			i += 1
-			continue
-		if in_multiline_string or not is_top_level(raw_line):
+		structural = structural_lines[i].strip()
+		if starts_in_multiline[i] or not is_top_level(raw_line):
 			i += 1
 			continue
 		if stripped.startswith("##"):
 			docs_buffer.append(stripped[2:].strip())
 			i += 1
 			continue
-		decorated_var = parse_decorated_var_line(stripped)
-		if stripped.startswith("@") and decorated_var == None:
+		decorated_var = parse_decorated_var_line(structural)
+		if structural.startswith("@") and decorated_var == None:
 			decorators.append(stripped)
 			i += 1
 			continue
@@ -141,48 +144,52 @@ def parse_gdscript_source(source: str, relative_path: str, module: str = "root")
 			i += 1
 			continue
 
-		if match := re.match(r"extends\s+(.+)", stripped):
+		if match := re.match(r"extends\s+(.+)", structural):
 			api_script.extends = match.group(1).strip()
 			clear_buffers(docs_buffer, decorators)
 			i += 1
 			continue
-		if match := re.match(r"class_name\s+([A-Za-z_]\w*)", stripped):
+		if match := re.match(r"class_name\s+([A-Za-z_]\w*)", structural):
 			api_script.class_name = match.group(1)
 			api_script.line = i + 1
 			api_script.docs = parse_docs(docs_buffer)
 			clear_buffers(docs_buffer, decorators)
 			i += 1
 			continue
-		if match := re.match(r"signal\s+([A-Za-z_]\w*)", stripped):
-			api_script.signals.append(make_member("signal", match.group(1), stripped, i, docs_buffer, decorators))
+		if match := re.match(r"signal\s+([A-Za-z_]\w*)", structural):
+			signature, next_index = collect_callable_signature(lines, i, "signal")
+			api_script.signals.append(make_member("signal", match.group(1), signature, i, docs_buffer, decorators))
 			clear_buffers(docs_buffer, decorators)
-			i += 1
+			i = next_index
 			continue
-		if match := re.match(r"enum\s+([A-Za-z_]\w*)", stripped):
+		if match := re.match(r"enum\s+([A-Za-z_]\w*)", structural):
 			signature, next_index = collect_block_signature(lines, i)
 			api_script.enums.append(make_member("enum", match.group(1), signature, i, docs_buffer, decorators))
 			clear_buffers(docs_buffer, decorators)
 			i = next_index
 			continue
-		if match := re.match(r"const\s+([A-Za-z_]\w*)", stripped):
+		if match := re.match(r"const\s+([A-Za-z_]\w*)", structural):
 			name = match.group(1)
+			signature, next_index = collect_data_signature(lines, i, "const")
 			if should_collect_member(name, docs_buffer):
-				api_script.constants.append(make_member("const", name, stripped, i, docs_buffer, decorators))
+				api_script.constants.append(make_member("const", name, signature, i, docs_buffer, decorators))
 			clear_buffers(docs_buffer, decorators)
-			i += 1
+			i = next_index
 			continue
-		var_line = stripped
+		var_line = strip_gdscript_comment(raw_line).strip()
 		if decorated_var != None:
-			decorators.append(decorated_var[0])
-			var_line = decorated_var[1]
+			original_decorated_var = parse_decorated_var_line(strip_gdscript_comment(raw_line).strip())
+			decorators.append(original_decorated_var[0] if original_decorated_var != None else decorated_var[0])
+			var_line = original_decorated_var[1] if original_decorated_var != None else decorated_var[1]
 		if match := re.match(r"var\s+([A-Za-z_]\w*)", var_line):
 			name = match.group(1)
+			signature, next_index = collect_data_signature(lines, i, "var", var_line)
 			if should_collect_member(name, docs_buffer):
-				api_script.properties.append(make_member("property", name, var_line, i, docs_buffer, decorators))
+				api_script.properties.append(make_member("property", name, signature, i, docs_buffer, decorators))
 			clear_buffers(docs_buffer, decorators)
-			i += 1
+			i = next_index
 			continue
-		if stripped.startswith("func ") or stripped.startswith("static func "):
+		if structural.startswith("func ") or structural.startswith("static func "):
 			signature, next_index = collect_function_signature(lines, i)
 			name = parse_function_name(signature)
 			if name and should_collect_member(name, docs_buffer):
@@ -203,18 +210,22 @@ def parse_gdscript_source(source: str, relative_path: str, module: str = "root")
 def parse_inner_classes(lines: list[str], owner: ApiClass) -> list[ApiClass]:
 	result: list[ApiClass] = []
 	docs_buffer: list[str] = []
+	structural_lines, starts_in_multiline = scan_gdscript_structure(lines)
 	for i, raw_line in enumerate(lines):
 		if not is_top_level(raw_line):
 			continue
 
 		stripped = raw_line.strip()
+		structural = structural_lines[i].strip()
+		if starts_in_multiline[i]:
+			continue
 		if stripped.startswith("##"):
 			docs_buffer.append(stripped[2:].strip())
 			continue
 		if not stripped:
 			continue
 
-		if match := re.match(r"class\s+([A-Za-z_]\w*)(?:\s+extends\s+([^:]+))?:", stripped):
+		if match := re.match(r"class\s+([A-Za-z_]\w*)(?:\s+extends\s+([^:]+))?:", structural):
 			inner_class = ApiClass(
 				name=match.group(1),
 				path=owner.path,
@@ -257,10 +268,15 @@ def parse_inner_class_members(
 
 	docs_buffer: list[str] = []
 	decorators: list[str] = []
+	structural_lines, starts_in_multiline = scan_gdscript_structure(lines)
 	i = start
 	while i < end:
 		raw_line = lines[i]
 		stripped = raw_line.strip()
+		structural = structural_lines[i].strip()
+		if starts_in_multiline[i]:
+			i += 1
+			continue
 		if not stripped:
 			i += 1
 			continue
@@ -272,42 +288,52 @@ def parse_inner_class_members(
 			docs_buffer.append(stripped[2:].strip())
 			i += 1
 			continue
-		decorated_var = parse_decorated_var_line(stripped)
-		if stripped.startswith("@") and decorated_var == None:
+		decorated_var = parse_decorated_var_line(structural)
+		if structural.startswith("@") and decorated_var == None:
 			decorators.append(stripped)
 			i += 1
 			continue
 
-		if match := re.match(r"signal\s+([A-Za-z_]\w*)", stripped):
-			inner_class.signals.append(make_member("signal", match.group(1), stripped, i, docs_buffer, decorators))
+		if match := re.match(r"signal\s+([A-Za-z_]\w*)", structural):
+			signature, next_index = collect_callable_signature(lines, i, "signal")
+			inner_class.signals.append(make_member("signal", match.group(1), signature, i, docs_buffer, decorators))
 			clear_buffers(docs_buffer, decorators)
-			i += 1
+			i = min(next_index, end)
 			continue
-		if match := re.match(r"enum\s+([A-Za-z_]\w*)", stripped):
-			signature, next_index = collect_block_signature(lines, i)
+		if match := re.match(r"enum\s+([A-Za-z_]\w*)", structural):
+			signature, next_index = collect_block_signature(lines, i, end)
 			inner_class.enums.append(make_member("enum", match.group(1), signature, i, docs_buffer, decorators))
 			clear_buffers(docs_buffer, decorators)
 			i = min(next_index, end)
 			continue
-		if match := re.match(r"const\s+([A-Za-z_]\w*)", stripped):
+		if match := re.match(r"const\s+([A-Za-z_]\w*)", structural):
 			name = match.group(1)
+			signature, next_index = collect_data_signature(lines, i, "const", limit=end)
 			if should_collect_member(name, docs_buffer):
-				inner_class.constants.append(make_member("const", name, stripped, i, docs_buffer, decorators))
+				inner_class.constants.append(make_member("const", name, signature, i, docs_buffer, decorators))
 			clear_buffers(docs_buffer, decorators)
-			i += 1
+			i = next_index
 			continue
-		var_line = stripped
+		var_line = strip_gdscript_comment(raw_line).strip()
 		if decorated_var != None:
-			decorators.append(decorated_var[0])
-			var_line = decorated_var[1]
+			original_decorated_var = parse_decorated_var_line(strip_gdscript_comment(raw_line).strip())
+			decorators.append(original_decorated_var[0] if original_decorated_var != None else decorated_var[0])
+			var_line = original_decorated_var[1] if original_decorated_var != None else decorated_var[1]
 		if match := re.match(r"var\s+([A-Za-z_]\w*)", var_line):
 			name = match.group(1)
+			signature, next_index = collect_data_signature(
+				lines,
+				i,
+				"var",
+				var_line,
+				end,
+			)
 			if should_collect_member(name, docs_buffer):
-				inner_class.properties.append(make_member("property", name, var_line, i, docs_buffer, decorators))
+				inner_class.properties.append(make_member("property", name, signature, i, docs_buffer, decorators))
 			clear_buffers(docs_buffer, decorators)
-			i += 1
+			i = next_index
 			continue
-		if stripped.startswith("func ") or stripped.startswith("static func "):
+		if structural.startswith("func ") or structural.startswith("static func "):
 			signature, next_index = collect_function_signature(lines, i)
 			name = parse_function_name(signature)
 			if name and should_collect_member(name, docs_buffer):
@@ -364,27 +390,127 @@ def make_member(
 
 
 def collect_function_signature(lines: list[str], start: int) -> tuple[str, int]:
-	parts = [lines[start].strip()]
-	depth = parenthesis_delta(parts[0])
-	i = start
-	while depth > 0 and i + 1 < len(lines):
-		i += 1
-		part = lines[i].strip()
-		parts.append(part)
-		depth += parenthesis_delta(part)
-	return " ".join(parts), i + 1
+	return collect_callable_signature(lines, start, "function")
 
 
-def collect_block_signature(lines: list[str], start: int) -> tuple[str, int]:
-	parts = [lines[start].strip()]
-	depth = brace_delta(parts[0])
+def collect_callable_signature(
+	lines: list[str],
+	start: int,
+	declaration_kind: str,
+) -> tuple[str, int]:
+	"""Collect a callable declaration using lexical, rather than raw, parentheses."""
+	parts: list[str] = []
+	state = _GdscriptLexState()
+	depth = 0
+	saw_opening_parenthesis = False
 	i = start
-	while depth > 0 and i + 1 < len(lines):
+	while i < len(lines):
+		structural, comment_index, _started_in_multiline = scan_gdscript_line(lines[i], state)
+		part = lines[i] if comment_index is None else lines[i][:comment_index]
+		part = part.strip()
+		if part:
+			parts.append(part)
+		opening_count = structural.count("(")
+		closing_count = structural.count(")")
+		if opening_count:
+			saw_opening_parenthesis = True
+		depth += opening_count - closing_count
+		if depth < 0:
+			raise ValueError(
+				f"Malformed {declaration_kind} declaration at line {start + 1}: unexpected ')'"
+			)
+		if not state.multiline_quote and (not saw_opening_parenthesis or depth == 0):
+			return " ".join(parts), i + 1
 		i += 1
-		part = lines[i].rstrip()
-		parts.append(part)
-		depth += brace_delta(part)
-	return "\n".join(parts), i + 1
+	raise ValueError(f"Unclosed {declaration_kind} declaration at line {start + 1}")
+
+
+def collect_block_signature(
+	lines: list[str],
+	start: int,
+	limit: int | None = None,
+) -> tuple[str, int]:
+	return collect_balanced_declaration(
+		lines,
+		start,
+		"enum",
+		required_opening="{",
+		preserve_comments=True,
+		limit=limit,
+	)
+
+
+def collect_data_signature(
+	lines: list[str],
+	start: int,
+	declaration_kind: str,
+	first_line: str | None = None,
+	limit: int | None = None,
+) -> tuple[str, int]:
+	return collect_balanced_declaration(
+		lines,
+		start,
+		declaration_kind,
+		first_line=first_line,
+		limit=limit,
+	)
+
+
+def collect_balanced_declaration(
+	lines: list[str],
+	start: int,
+	declaration_kind: str,
+	first_line: str | None = None,
+	required_opening: str = "",
+	preserve_comments: bool = False,
+	limit: int | None = None,
+) -> tuple[str, int]:
+	"""Collect a declaration while ignoring delimiters inside strings and comments."""
+	state = _GdscriptLexState()
+	depths = {"(": 0, "[": 0, "{": 0}
+	closing_to_opening = {")": "(", "]": "[", "}": "{"}
+	saw_required_opening = required_opening == ""
+	parts: list[str] = []
+	end = len(lines) if limit is None else min(limit, len(lines))
+	i = start
+	while i < end:
+		structural, comment_index, _started_in_multiline = scan_gdscript_line(lines[i], state)
+		raw_part = (
+			lines[i]
+			if preserve_comments or comment_index is None
+			else lines[i][:comment_index]
+		)
+		part = first_line.rstrip() if i == start and first_line is not None else raw_part.rstrip()
+		if i == start:
+			part = part.strip()
+		if part.strip():
+			parts.append(part)
+
+		for character in structural:
+			if character in depths:
+				depths[character] += 1
+				if character == required_opening:
+					saw_required_opening = True
+			elif character in closing_to_opening:
+				opener = closing_to_opening[character]
+				depths[opener] -= 1
+				if depths[opener] < 0:
+					raise ValueError(
+						f"Malformed {declaration_kind} declaration at line {start + 1}: "
+						f"unexpected {character!r}"
+					)
+
+		continues_explicitly = structural.rstrip().endswith("\\")
+		if (
+			not state.multiline_quote
+			and saw_required_opening
+			and all(depth == 0 for depth in depths.values())
+			and not continues_explicitly
+		):
+			return "\n".join(parts), i + 1
+		i += 1
+
+	raise ValueError(f"Unclosed {declaration_kind} declaration at line {start + 1}")
 
 
 def parse_function_name(signature: str) -> str:
@@ -440,7 +566,9 @@ def split_named_value(value: str) -> tuple[str, str]:
 
 
 def has_triple_quote(text: str) -> bool:
-	return (text.count('"""') + text.count("'''")) % 2 == 1
+	state = _GdscriptLexState()
+	scan_gdscript_line(text, state)
+	return bool(state.multiline_quote)
 
 
 def is_top_level(raw_line: str) -> bool:
@@ -460,11 +588,81 @@ def get_indent_level(raw_line: str) -> int:
 
 
 def parenthesis_delta(text: str) -> int:
-	return text.count("(") - text.count(")")
+	state = _GdscriptLexState()
+	structural, _comment_index, _started_in_multiline = scan_gdscript_line(text, state)
+	return structural.count("(") - structural.count(")")
+
+
+def scan_gdscript_structure(lines: list[str]) -> tuple[list[str], list[bool]]:
+	"""Return per-line structural code and whether each line starts in a triple string."""
+	state = _GdscriptLexState()
+	structural_lines: list[str] = []
+	starts_in_multiline: list[bool] = []
+	for line in lines:
+		structural, _comment_index, started_in_multiline = scan_gdscript_line(line, state)
+		structural_lines.append(structural)
+		starts_in_multiline.append(started_in_multiline)
+	return structural_lines, starts_in_multiline
+
+
+def strip_gdscript_comment(text: str) -> str:
+	state = _GdscriptLexState()
+	_structural, comment_index, _started_in_multiline = scan_gdscript_line(text, state)
+	return (text if comment_index is None else text[:comment_index]).strip()
+
+
+def scan_gdscript_line(
+	text: str,
+	state: _GdscriptLexState,
+) -> tuple[str, int | None, bool]:
+	"""Mask literals/comments while preserving structural character positions."""
+	structural = [" "] * len(text)
+	started_in_multiline = bool(state.multiline_quote)
+	comment_index: int | None = None
+	i = 0
+	while i < len(text):
+		if state.multiline_quote:
+			if text.startswith(state.multiline_quote, i) and not _is_escaped(text, i):
+				i += len(state.multiline_quote)
+				state.multiline_quote = ""
+				continue
+			i += 1
+			continue
+
+		if text[i] == "#":
+			comment_index = i
+			break
+		if text.startswith('"""', i) or text.startswith("'''", i):
+			state.multiline_quote = text[i:i + 3]
+			i += 3
+			continue
+		if text[i] in {'"', "'"}:
+			quote = text[i]
+			i += 1
+			while i < len(text):
+				if text[i] == quote and not _is_escaped(text, i):
+					i += 1
+					break
+				i += 1
+			continue
+		structural[i] = text[i]
+		i += 1
+	return "".join(structural), comment_index, started_in_multiline
+
+
+def _is_escaped(text: str, index: int) -> bool:
+	backslash_count = 0
+	i = index - 1
+	while i >= 0 and text[i] == "\\":
+		backslash_count += 1
+		i -= 1
+	return backslash_count % 2 == 1
 
 
 def brace_delta(text: str) -> int:
-	return text.count("{") - text.count("}")
+	state = _GdscriptLexState()
+	structural, _comment_index, _started_in_multiline = scan_gdscript_line(text, state)
+	return structural.count("{") - structural.count("}")
 
 
 def clear_buffers(docs_buffer: list[str], decorators: list[str]) -> None:

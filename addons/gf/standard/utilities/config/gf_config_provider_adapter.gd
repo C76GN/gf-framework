@@ -48,6 +48,8 @@ const STATUS_FAILED: StringName = &"failed"
 var _sources: Dictionary = {}
 var _loaded_tables: Dictionary = {}
 var _load_reports: Dictionary = {}
+var _loading_table_stack: Array[StringName] = []
+var _active_load_failures: Dictionary = {}
 
 
 # --- 公共方法 ---
@@ -303,11 +305,25 @@ func _load_table(table_name: StringName) -> Variant:
 	var source_record: Dictionary = _get_source_record(table_name)
 	var cache_enabled: bool = GFVariantData.get_option_bool(source_record, "cache", true)
 	if cache_enabled and _loaded_tables.has(table_name):
-		_load_reports[table_name] = _make_report(table_name, STATUS_LOADED, true, "", true, _estimate_record_count(_loaded_tables[table_name]))
-		return _loaded_tables[table_name]
+		var cached_table: Variant = _loaded_tables[table_name]
+		if _is_live_table_value(cached_table):
+			_load_reports[table_name] = _make_report(table_name, STATUS_LOADED, true, "", true, _estimate_record_count(cached_table))
+			return cached_table
+		var _removed_invalid_cache: bool = _loaded_tables.erase(table_name)
+
+	if _loading_table_stack.has(table_name):
+		_mark_load_cycle_failed(table_name)
+		return null
 
 	var source: Variant = GFVariantData.get_option_value(source_record, "source")
+	_loading_table_stack.append(table_name)
 	var loaded: Variant = _resolve_source_value(table_name, source_record, source)
+	_loading_table_stack.pop_back()
+	if _active_load_failures.has(table_name):
+		var load_error: String = GFVariantData.get_option_string(_active_load_failures, table_name)
+		var _removed_failure: bool = _active_load_failures.erase(table_name)
+		_load_reports[table_name] = _make_report(table_name, STATUS_FAILED, false, load_error)
+		return null
 	if loaded == null:
 		_load_reports[table_name] = _make_report(table_name, STATUS_FAILED, false, "表源返回空值。")
 		return null
@@ -321,6 +337,8 @@ func _load_table(table_name: StringName) -> Variant:
 func _resolve_source_value(table_name: StringName, source_record: Dictionary, source: Variant) -> Variant:
 	if source is Callable:
 		var loader: Callable = source
+		if not loader.is_valid():
+			return null
 		return loader.call(table_name, GFVariantData.get_option_dictionary(source_record, "metadata"))
 
 	if typeof(source) == TYPE_OBJECT:
@@ -333,6 +351,28 @@ func _resolve_source_value(table_name: StringName, source_record: Dictionary, so
 		return source_object
 
 	return source
+
+
+func _mark_load_cycle_failed(table_name: StringName) -> void:
+	var cycle_start: int = _loading_table_stack.find(table_name)
+	if cycle_start < 0:
+		return
+	var cycle_path: PackedStringArray = PackedStringArray()
+	for index: int in range(cycle_start, _loading_table_stack.size()):
+		var active_table: StringName = _loading_table_stack[index]
+		var _active_table_appended: bool = cycle_path.append(String(active_table))
+	var _closing_table_appended: bool = cycle_path.append(String(table_name))
+	var error: String = "检测到循环表源加载依赖：%s。" % " -> ".join(cycle_path)
+	for index: int in range(cycle_start, _loading_table_stack.size()):
+		var active_table: StringName = _loading_table_stack[index]
+		_active_load_failures[active_table] = error
+		_load_reports[active_table] = _make_report(active_table, STATUS_FAILED, false, error)
+
+
+func _is_live_table_value(table_data: Variant) -> bool:
+	if typeof(table_data) == TYPE_OBJECT:
+		return is_instance_valid(table_data)
+	return true
 
 
 func _read_record_from_table(table_data: Variant, record_id: Variant, source_record: Dictionary) -> Variant:

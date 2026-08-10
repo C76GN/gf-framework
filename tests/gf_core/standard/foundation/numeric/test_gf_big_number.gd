@@ -108,6 +108,29 @@ func test_powi_supports_large_integer_growth() -> void:
 	assert_almost_eq(value.mantissa, 4.987011, 0.000001, "大整数幂应保持可用的尾数精度。")
 
 
+func test_powi_preserves_integer_parity_beyond_exact_float_range() -> void:
+	var odd_positive: GFBigNumber = GFBigNumber.from_int(-1).powi(9_007_199_254_740_993)
+	var even_positive: GFBigNumber = GFBigNumber.from_int(-1).powi(9_007_199_254_740_992)
+	var odd_negative: GFBigNumber = GFBigNumber.from_int(-1).powi(-9_007_199_254_740_993)
+
+	assert_eq(odd_positive.compare_to(GFBigNumber.from_int(-1)), 0, "整数幂的奇偶性不得经 float 转换丢失。")
+	assert_eq(even_positive.compare_to(GFBigNumber.one()), 0)
+	assert_eq(odd_negative.compare_to(GFBigNumber.from_int(-1)), 0, "负整数幂也必须使用原始 int 的奇偶性。")
+
+
+func test_from_float_preserves_small_finite_non_zero_values() -> void:
+	var positive: GFBigNumber = GFBigNumber.from_float(1.0e-13)
+	var negative: GFBigNumber = GFBigNumber.from_float(-1.0e-13)
+	var from_text: GFBigNumber = GFBigNumber.from_string("1e-13")
+
+	assert_false(positive.is_zero(), "可表示的有限小数不得在归一化前被绝对 epsilon 吞掉。")
+	assert_almost_eq(positive.mantissa, 1.0, 0.000001)
+	assert_eq(positive.exponent, -13)
+	assert_eq(positive.compare_to(from_text), 0, "float 与字符串构造同一数值时应规范等价。")
+	assert_almost_eq(negative.mantissa, -1.0, 0.000001)
+	assert_eq(negative.exponent, -13)
+
+
 func test_powf_supports_fractional_exponents() -> void:
 	var value: GFBigNumber = GFBigNumber.from_int(50).powf(0.5)
 

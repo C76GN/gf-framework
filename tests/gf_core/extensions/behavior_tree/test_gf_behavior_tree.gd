@@ -16,6 +16,17 @@ func test_condition_node_rejects_non_bool_result() -> void:
 	assert_eq(invalid_condition.last_reason, &"invalid_condition_result", "非 bool 条件结果应被标记为非法结果。")
 
 
+func test_condition_node_distinguishes_invalid_callable_from_false() -> void:
+	var invalid_condition: GFBehaviorTree.Condition = GFBehaviorTree.Condition.new(Callable())
+
+	assert_eq(invalid_condition.tick({}), GFBehaviorTree.Status.FAILURE)
+	assert_eq(
+		invalid_condition.last_reason,
+		&"invalid_condition",
+		"无效 Callable 是生命周期/配置错误，不应伪装成合法 condition_false。"
+	)
+
+
 func test_action_node() -> void:
 	var bb_test: Dictionary = {"val": 0}
 	var act: GFBehaviorTree.Action = GFBehaviorTree.Action.new(func(bb: Dictionary) -> int:
@@ -331,6 +342,20 @@ func test_decorator_rejects_self_cycle() -> void:
 	assert_push_error("[GFBehaviorTree] 拒绝设置会形成循环的 decorator 子节点。")
 
 
+func test_decorator_resets_previous_running_child_before_replacement() -> void:
+	var previous_child: ResetCountingNode = ResetCountingNode.new()
+	var replacement: GFBehaviorTree.Action = GFBehaviorTree.Action.new(func(_bb: Dictionary) -> int:
+		return GFBehaviorTree.Status.SUCCESS
+	)
+	var inverter: GFBehaviorTree.Inverter = GFBehaviorTree.Inverter.new(previous_child)
+
+	assert_eq(inverter.tick({}), GFBehaviorTree.Status.RUNNING)
+	var _set_result: GFBehaviorTree.Decorator = inverter.set_child(replacement)
+
+	assert_eq(previous_child.reset_count, 1, "拓扑替换前必须结束旧 child 的运行态。")
+	assert_eq(inverter.tick({}), GFBehaviorTree.Status.FAILURE, "替换完成后只能推进新 child。")
+
+
 func test_limit_blocks_after_max_ticks() -> void:
 	var state: Dictionary = { "count": 0 }
 	var child: GFBehaviorTree.Action = GFBehaviorTree.Action.new(func(bb: Dictionary) -> int:
@@ -534,6 +559,31 @@ func test_cooldown_starts_after_condition_false_terminal_result() -> void:
 	assert_eq(GFVariantData.get_option_int(condition_count, "value"), 1, "冷却期内不应重复 tick 子条件。")
 
 
+func test_cooldown_starts_after_child_tick_finishes() -> void:
+	var clock_state: Dictionary = { "msec": 1000 }
+	var action_count: Dictionary = { "value": 0 }
+	var action: GFBehaviorTree.Action = GFBehaviorTree.Action.new(func(_bb: Dictionary) -> int:
+		action_count["value"] = GFVariantData.get_option_int(action_count, "value") + 1
+		clock_state["msec"] = 5000
+		return GFBehaviorTree.Status.SUCCESS
+	)
+	var cooldown: GFBehaviorTree.Cooldown = GFBehaviorTree.Cooldown.new(
+		action,
+		1.0,
+		_make_test_clock(clock_state)
+	)
+
+	assert_eq(cooldown.tick({}), GFBehaviorTree.Status.SUCCESS)
+	assert_eq(cooldown.tick({}), GFBehaviorTree.Status.FAILURE)
+	assert_eq(cooldown.last_reason, &"cooldown_active")
+	clock_state["msec"] = 5999
+	assert_eq(cooldown.tick({}), GFBehaviorTree.Status.FAILURE)
+	assert_eq(GFVariantData.get_option_int(action_count, "value"), 1, "子节点耗时不得抵扣完成后的冷却窗口。")
+	clock_state["msec"] = 6000
+	assert_eq(cooldown.tick({}), GFBehaviorTree.Status.SUCCESS)
+	assert_eq(GFVariantData.get_option_int(action_count, "value"), 2)
+
+
 func test_cooldown_survives_parent_runtime_reset() -> void:
 	var clock_state: Dictionary = { "msec": 1000 }
 	var action_count: Dictionary = { "value": 0 }
@@ -646,6 +696,81 @@ func test_runner_rejects_custom_node_without_duplicate_override() -> void:
 	assert_push_error("[GFBehaviorTree] BTNode 子类必须重写 duplicate_runtime() 才能被 Runner 默认复制；请返回独立运行副本，或显式创建 Runner(root, false) 共享运行树。")
 
 
+func test_runner_rejects_concrete_node_subclass_without_duplicate_override() -> void:
+	var custom_sequence: CustomSequenceWithoutDuplicate = CustomSequenceWithoutDuplicate.new()
+	var definition: GFBehaviorTree.Sequence = GFBehaviorTree.Sequence.new(_nodes([custom_sequence]))
+	var runner: GFBehaviorTree.Runner = GFBehaviorTree.Runner.new(definition)
+
+	assert_eq(
+		runner.tick(),
+		GFBehaviorTree.Status.FAILURE,
+		"继承具体内置节点时也不得被 duplicate_runtime() 静默切片为基类。"
+	)
+	var root_snapshot: Dictionary = GFVariantData.get_option_dictionary(
+		runner.get_debug_snapshot(),
+		"root"
+	)
+	assert_eq(
+		GFVariantData.get_option_string_name(root_snapshot, "reason"),
+		&"runtime_duplicate_missing_override"
+	)
+	assert_eq(custom_sequence.custom_tick_count, 0, "失败关闭不得执行原始定义节点。")
+	assert_push_error(
+		"[GFBehaviorTree] duplicate_runtime() 必须返回保持动态脚本类型的独立节点；具体内置节点的自定义子类也必须显式重写。"
+	)
+
+
+func test_runner_accepts_every_builtin_runtime_duplicate_type() -> void:
+	var success_action: GFBehaviorTree.Action = GFBehaviorTree.Action.new(func(_bb: Dictionary) -> int:
+		return GFBehaviorTree.Status.SUCCESS
+	)
+	var definitions: Array[GFBehaviorTree.BTNode] = _nodes([
+		GFBehaviorTree.Sequence.new([]),
+		GFBehaviorTree.Selector.new([]),
+		GFBehaviorTree.Parallel.new([]),
+		GFBehaviorTree.RandomSelector.new([]),
+		GFBehaviorTree.RandomSequence.new([]),
+		success_action,
+		GFBehaviorTree.Condition.new(func(_bb: Dictionary) -> bool: return true),
+		GFBehaviorTree.Decorator.new(null),
+		GFBehaviorTree.Inverter.new(success_action),
+		GFBehaviorTree.AlwaysSucceed.new(success_action),
+		GFBehaviorTree.AlwaysFail.new(success_action),
+		GFBehaviorTree.Probability.new(success_action),
+		GFBehaviorTree.Cooldown.new(success_action),
+		GFBehaviorTree.TimeLimit.new(success_action),
+		GFBehaviorTree.Limit.new(success_action),
+		GFBehaviorTree.Repeat.new(success_action),
+		GFBehaviorTree.UntilSuccess.new(success_action),
+		GFBehaviorTree.UntilFail.new(success_action),
+	])
+
+	for definition: GFBehaviorTree.BTNode in definitions:
+		var runner: GFBehaviorTree.Runner = GFBehaviorTree.Runner.new(definition)
+		var root: Dictionary = GFVariantData.get_option_dictionary(
+			runner.get_debug_snapshot(),
+			"root"
+		)
+		assert_ne(
+			GFVariantData.get_option_string_name(root, "reason"),
+			&"runtime_duplicate_missing_override",
+			"内置节点 duplicate_runtime() 必须保持自己的动态脚本类型：%s" % definition.name
+		)
+
+
+func test_runner_rejects_synchronous_reentrant_tick() -> void:
+	var node: ReentrantRunnerNode = ReentrantRunnerNode.new()
+	var runner: GFBehaviorTree.Runner = GFBehaviorTree.Runner.new(node, false)
+	node.runner = runner
+
+	var status: int = runner.tick()
+	node.runner = null
+
+	assert_eq(status, GFBehaviorTree.Status.ABORTED)
+	assert_eq(node.tick_call_count, 1, "同步重入必须在第二次推进根节点前失败关闭。")
+	assert_push_error("[GFBehaviorTree] Runner.tick() 不允许同步重入。")
+
+
 func test_runner_isolates_custom_node_when_duplicate_runtime_is_implemented() -> void:
 	var custom_node: DuplicatingCountingNode = DuplicatingCountingNode.new()
 	var sequence: GFBehaviorTree.Sequence = GFBehaviorTree.Sequence.new(_nodes([custom_node]))
@@ -719,6 +844,53 @@ func test_debug_snapshot_sanitizes_metadata_and_marks_debug_cycles() -> void:
 	assert_eq(GFVariantData.get_option_string(loop_marker, "type"), "CircularReference", "循环 metadata 应输出报告 marker。")
 	assert_true(GFVariantData.get_option_bool(cycle_child, "cycle"), "debug child 自环应被标记而不是递归展开。")
 	assert_ne(JSON.stringify(snapshot), "", "调试快照应可直接进入 JSON.stringify。")
+
+
+func test_debug_snapshot_distinguishes_shared_reference_from_cycle() -> void:
+	var shared: GFBehaviorTree.Action = GFBehaviorTree.Action.new(func(_bb: Dictionary) -> int:
+		return GFBehaviorTree.Status.SUCCESS
+	)
+	shared.node_id = &"shared"
+	var sequence: GFBehaviorTree.Sequence = GFBehaviorTree.Sequence.new(_nodes([shared, shared]))
+	var snapshot: Dictionary = sequence.get_debug_snapshot()
+	var children: Array = GFVariantData.get_option_array(snapshot, "children")
+	var first_child: Dictionary = GFVariantData.as_dictionary(children[0])
+	var second_child: Dictionary = GFVariantData.as_dictionary(children[1])
+
+	assert_false(GFVariantData.get_option_bool(first_child, "cycle"))
+	assert_false(GFVariantData.get_option_bool(second_child, "cycle"), "第二条合法引用不是递归回边。")
+	assert_true(
+		GFVariantData.get_option_bool(second_child, "shared_reference"),
+		"共享 identity 应与真实 cycle 分开表达。"
+	)
+	assert_eq(
+		GFVariantData.get_option_string_name(second_child, "reason"),
+		&"debug_shared_reference"
+	)
+
+
+func test_runtime_copy_and_blackboard_scope_handle_cyclic_dictionaries() -> void:
+	var circular: Dictionary = {}
+	circular["self"] = circular
+	var action: GFBehaviorTree.Action = GFBehaviorTree.Action.new(func(_bb: Dictionary) -> int:
+		return GFBehaviorTree.Status.SUCCESS
+	)
+	action.metadata = { "loop": circular }
+	var runner: GFBehaviorTree.Runner = GFBehaviorTree.Runner.new(action)
+	var scope: GFBehaviorTree.BlackboardScope = GFBehaviorTree.BlackboardScope.new({ &"loop": circular })
+
+	assert_eq(runner.tick(), GFBehaviorTree.Status.SUCCESS)
+	var root: Dictionary = GFVariantData.get_option_dictionary(runner.get_debug_snapshot(), "root")
+	var metadata: Dictionary = GFVariantData.get_option_dictionary(root, "metadata")
+	var encoded_loop: Dictionary = GFVariantData.get_option_dictionary(metadata, "loop")
+	var loop_reference: Dictionary = GFVariantData.get_option_dictionary(encoded_loop, "self")
+	var loop_marker: Dictionary = GFVariantData.get_option_dictionary(
+		loop_reference,
+		"__gf_report_value__"
+	)
+	assert_eq(GFVariantData.get_option_string(loop_marker, "type"), "CircularReference")
+	var scope_loop: Dictionary = GFVariantData.as_dictionary(scope.get_value(&"loop"))
+	assert_true(is_same(scope_loop, scope_loop.get("self")), "BlackboardScope 的循环快照必须保持自引用且不崩溃。")
 
 
 func test_build_debug_snapshot_sanitizes_arbitrary_snapshot_owner() -> void:
@@ -803,6 +975,28 @@ class DuplicatingCountingNode extends GFBehaviorTree.BTNode:
 		var copy: DuplicatingCountingNode = DuplicatingCountingNode.new()
 		_copy_base_fields_to(copy)
 		return copy
+
+
+class CustomSequenceWithoutDuplicate extends GFBehaviorTree.Sequence:
+	var custom_tick_count: int = 0
+
+	func _init() -> void:
+		super([])
+
+	func tick(_blackboard: Dictionary) -> int:
+		custom_tick_count += 1
+		return _record_tick(GFBehaviorTree.Status.ABORTED, &"custom_sequence_tick")
+
+
+class ReentrantRunnerNode extends GFBehaviorTree.BTNode:
+	var runner: GFBehaviorTree.Runner = null
+	var tick_call_count: int = 0
+
+	func tick(_blackboard: Dictionary) -> int:
+		tick_call_count += 1
+		if tick_call_count == 1 and runner != null:
+			return _record_tick(runner.tick())
+		return _record_tick(GFBehaviorTree.Status.SUCCESS)
 
 
 class SelfDebugNode extends GFBehaviorTree.BTNode:

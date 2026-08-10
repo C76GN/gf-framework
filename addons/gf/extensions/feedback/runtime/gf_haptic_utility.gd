@@ -87,6 +87,23 @@ enum OverflowPolicy {
 }
 
 
+# --- 常量 ---
+
+## 默认向输入系统刷新合成震动输出的间隔（秒）。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+const DEFAULT_OUTPUT_REFRESH_SECONDS: float = 0.05
+
+## 允许提交到底层输出的最短震动时长（秒）。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+const MIN_OUTPUT_DURATION_SECONDS: float = 0.001
+
+
 # --- 公共变量 ---
 
 ## 默认 channel。
@@ -110,7 +127,7 @@ var default_player_index: int = 0
 ## @since 7.0.0
 var master_strength: float = 1.0:
 	set(value):
-		master_strength = maxf(value, 0.0)
+		master_strength = _finite_nonnegative(value)
 
 ## 最大活跃震动数量；小于等于 0 表示不限制。
 ## [br]
@@ -126,22 +143,27 @@ var max_active_haptics: int = 64
 ## @since 7.0.0
 var overflow_policy: OverflowPolicy = OverflowPolicy.STOP_OLDEST
 
-## tick() 后是否自动把当前采样输出到设备。关闭时，调用方必须在 tick()、stop_haptic()
-## 或 clear() 等状态变化后自行调用 apply_current_outputs()，以刷新输出和停止已结束目标。
+## tick() 后是否自动把当前采样输出到设备。该开关只控制 tick()；显式 stop 与 clear
+## 仍会立即撤销已输出目标。关闭时，调用方必须在 tick() 后自行调用 apply_current_outputs()。
 ## [br]
 ## @api public
 ## [br]
 ## @since 7.0.0
 var auto_apply_on_tick: bool = true
 
-## 每次输出请求的刷新持续时间，单位秒。
+## 每次输出请求的刷新持续时间，单位秒。值始终收束为有限正数；非有限值回退到默认值，
+## 小于最小输出时长的值按最小值处理，避免平台把 0 解释为无限震动。
 ## [br]
 ## @api public
 ## [br]
 ## @since 7.0.0
-var output_refresh_seconds: float = 0.05:
+var output_refresh_seconds: float = DEFAULT_OUTPUT_REFRESH_SECONDS:
 	set(value):
-		output_refresh_seconds = maxf(value, 0.0)
+		output_refresh_seconds = (
+			maxf(value, MIN_OUTPUT_DURATION_SECONDS)
+			if is_finite(value)
+			else DEFAULT_OUTPUT_REFRESH_SECONDS
+		)
 
 ## 可选输入设备工具。为空时 ready() 会尝试从架构中获取。
 ## [br]
@@ -150,14 +172,16 @@ var output_refresh_seconds: float = 0.05:
 ## @since 7.0.0
 var input_device_utility: GFInputDeviceUtility = null
 
-## 可选震动输出后端。有效时优先于 output_handler 和默认 Input 路由。
+## 可选震动输出后端。必须同时实现 start_output() 与 stop_output()；有效时优先于
+## output_handler 和默认 Input 路由。一次成功输出会持续绑定其启动后端，直至停止。
 ## [br]
 ## @api public
 ## [br]
 ## @since 8.0.0
 var haptic_backend: Object = null
 
-## 可选输出回调。有效时替代默认 Input/GFInputDeviceUtility 路由。
+## 可选输出回调。必须与有效 stop_handler 成对配置；有效时替代默认
+## Input/GFInputDeviceUtility 路由。
 ## [br]
 ## @api public
 ## [br]
@@ -166,7 +190,8 @@ var haptic_backend: Object = null
 ## @schema output_handler: Callable(target_type: int, target_id: int, weak_magnitude: float, strong_magnitude: float, duration_seconds: float, metadata: Dictionary) -> bool。
 var output_handler: Callable = Callable()
 
-## 可选停止回调。有效时替代默认停止路由。
+## 可选停止回调。必须与有效 output_handler 成对配置；成功输出后的停止会使用启动时
+## 捕获的回调，而不是随后替换的公开字段。
 ## [br]
 ## @api public
 ## [br]
@@ -183,6 +208,8 @@ var _active_haptics: Dictionary = {}
 var _play_order: PackedInt32Array = PackedInt32Array()
 var _channel_strengths: Dictionary = {}
 var _last_output_targets: Dictionary = {}
+var _last_output_routes: Dictionary = {}
+var _last_output_report: Dictionary = {}
 var _is_dispatching_outputs: bool = false
 
 
@@ -194,6 +221,7 @@ var _is_dispatching_outputs: bool = false
 ## [br]
 ## @since 7.0.0
 func init() -> void:
+	_last_output_report.clear()
 	clear()
 
 
@@ -210,13 +238,18 @@ func ready() -> void:
 		input_device_utility = utility_object
 
 
-## 停止全部震动并释放状态。
+## 停止全部震动并释放状态。最终停止失败会保留在 get_last_output_report()，但不会在
+## provider 已释放后留下伪可重试目标。
 ## [br]
 ## @api public
 ## [br]
 ## @since 7.0.0
 func dispose() -> void:
+	if _reject_output_reentrant_mutation("dispose"):
+		return
 	clear()
+	_last_output_targets.clear()
+	_last_output_routes.clear()
 	input_device_utility = null
 	haptic_backend = null
 	output_handler = Callable()
@@ -238,13 +271,14 @@ func tick(delta: float) -> void:
 			var _apply_empty_result: Dictionary = apply_current_outputs()
 		return
 
+	var safe_delta: float = maxf(delta, 0.0) if is_finite(delta) else 0.0
 	var finished_ids: PackedInt32Array = PackedInt32Array()
 	for haptic_id: int in _active_haptics.keys():
 		var state: Dictionary = _get_haptic_state(haptic_id)
 		if state.is_empty():
 			var _invalid_state_appended: bool = finished_ids.append(haptic_id)
 			continue
-		state["elapsed_seconds"] = _get_state_float(state, "elapsed_seconds", 0.0) + maxf(delta, 0.0)
+		state["elapsed_seconds"] = _get_state_float(state, "elapsed_seconds", 0.0) + safe_delta
 		var preset: GFHapticPreset = _get_state_preset(state)
 		if preset == null or _get_state_float(state, "elapsed_seconds", 0.0) >= preset.get_duration_seconds():
 			var _finished_id_appended: bool = finished_ids.append(haptic_id)
@@ -279,7 +313,8 @@ func tick(delta: float) -> void:
 ## [br]
 ## @schema metadata: Dictionary，播放实例自定义元数据，会在 get_haptic_info() JSON-safe 快照中复制返回。
 ## [br]
-## @return: 播放实例 ID；无法播放时返回 -1。
+## @return: 逻辑排程实例 ID；参数或容量拒绝时返回 -1。物理输出是否被接受请读取
+## apply_current_outputs() 或 get_last_output_report()。
 func play_haptic(
 	channel: StringName,
 	preset: GFHapticPreset,
@@ -311,7 +346,8 @@ func play_haptic(
 ## [br]
 ## @schema metadata: Dictionary，播放实例自定义元数据，会在 get_haptic_info() JSON-safe 快照中复制返回。
 ## [br]
-## @return: 播放实例 ID；无法播放时返回 -1。
+## @return: 逻辑排程实例 ID；参数或容量拒绝时返回 -1。物理输出是否被接受请读取
+## apply_current_outputs() 或 get_last_output_report()。
 func play_haptic_for_device(
 	channel: StringName,
 	preset: GFHapticPreset,
@@ -412,6 +448,17 @@ func clear() -> void:
 	var stop_result: Dictionary = _stop_missing_outputs({})
 	_is_dispatching_outputs = false
 	_last_output_targets = GFVariantData.get_option_dictionary(stop_result, "pending_targets")
+	_last_output_routes = GFVariantData.get_option_dictionary(stop_result, "pending_routes")
+	var _remembered_clear_report: Dictionary = _remember_output_report({
+		"applied_count": 0,
+		"stopped_count": GFVariantData.get_option_array(stop_result, "stopped").size(),
+		"failed_stop_count": GFVariantData.get_option_array(stop_result, "failed_stops").size(),
+		"rejected_count": 0,
+		"applied": [],
+		"stopped": GFVariantData.get_option_array(stop_result, "stopped"),
+		"failed_stops": GFVariantData.get_option_array(stop_result, "failed_stops"),
+		"rejected": [],
+	})
 
 
 ## 检查震动实例是否仍在播放。
@@ -460,7 +507,7 @@ func get_active_haptic_count(channel: StringName = &"") -> int:
 func set_channel_strength(channel: StringName, strength: float) -> void:
 	if _reject_output_reentrant_mutation("set_channel_strength"):
 		return
-	_channel_strengths[_resolve_channel(channel)] = maxf(strength, 0.0)
+	_channel_strengths[_resolve_channel(channel)] = _finite_nonnegative(strength)
 
 
 ## 获取 channel 强度倍率。
@@ -532,37 +579,59 @@ func sample_device(device_id: int, channel: StringName = &"") -> Dictionary:
 ## [br]
 ## @since 7.0.0
 ## [br]
-## @param duration_seconds: 输出请求持续时间；小于 0 时使用 output_refresh_seconds。
+## @param duration_seconds: 输出请求持续时间；小于等于 0 或非有限值使用
+## output_refresh_seconds，传给 provider 的值始终为有限正数。
 ## [br]
 ## @return: 输出报告。
 ## [br]
-## @schema return: JSON-safe Dictionary，包含 applied_count、stopped_count、failed_stop_count、applied、stopped 与 failed_stops。
+## @schema return: JSON-safe Dictionary，包含 applied_count、stopped_count、failed_stop_count、rejected_count、applied、stopped、failed_stops 与 rejected。
 func apply_current_outputs(duration_seconds: float = -1.0) -> Dictionary:
 	if _reject_output_reentrant_mutation("apply_current_outputs"):
 		return _to_report_dictionary(_make_empty_output_report())
+	var duration: float = _resolve_output_duration(duration_seconds)
+	var output_plan: Array[Dictionary] = _build_output_plan(duration)
 	_is_dispatching_outputs = true
-	var duration: float = output_refresh_seconds if duration_seconds < 0.0 else maxf(duration_seconds, 0.0)
-	var target_records: Dictionary = _get_active_target_records()
 	var current_output_targets: Dictionary = {}
+	var current_output_routes: Dictionary = {}
 	var applied: Array[Dictionary] = []
-	for target_key: String in target_records.keys():
-		var target_record: Dictionary = _get_dictionary_value(target_records, target_key)
-		var target_type: int = GFVariantData.get_option_int(target_record, "target_type", TargetType.PLAYER)
-		var target_id: int = GFVariantData.get_option_int(target_record, "target_id", -1)
-		var sample: Dictionary = _sample_output_target(target_key, &"")
-		var weak_value: float = GFVariantData.get_option_float(sample, "weak_magnitude", 0.0)
-		var strong_value: float = GFVariantData.get_option_float(sample, "strong_magnitude", 0.0)
-		if weak_value <= 0.0 and strong_value <= 0.0:
-			continue
-		var metadata: Dictionary = _make_output_metadata(target_key, target_type, target_id, sample)
-		var applied_ok: bool = _start_output(target_type, target_id, weak_value, strong_value, duration, metadata)
+	var rejected: Array[Dictionary] = []
+	for plan_entry: Dictionary in output_plan:
+		var target_key: String = GFVariantData.get_option_string(plan_entry, "target_key")
+		var target_type: int = GFVariantData.get_option_int(plan_entry, "target_type", TargetType.PLAYER)
+		var target_id: int = GFVariantData.get_option_int(plan_entry, "target_id", -1)
+		var weak_value: float = GFVariantData.get_option_float(plan_entry, "weak_magnitude", 0.0)
+		var strong_value: float = GFVariantData.get_option_float(plan_entry, "strong_magnitude", 0.0)
+		var metadata: Dictionary = GFVariantData.get_option_dictionary(plan_entry, "metadata")
+		var route: Dictionary = GFVariantData.get_option_dictionary(plan_entry, "route")
+		var applied_ok: bool = (
+			not route.is_empty()
+			and _start_output_via_route(
+				route,
+				target_type,
+				target_id,
+				weak_value,
+				strong_value,
+				duration,
+				metadata
+			)
+		)
 		if not applied_ok:
+			rejected.append({
+				"target_type": target_type,
+				"target_id": target_id,
+				"weak_magnitude": weak_value,
+				"strong_magnitude": strong_value,
+				"duration_seconds": duration,
+				"metadata": metadata,
+				"reason": "route_unavailable" if route.is_empty() else "start_rejected",
+			})
 			continue
 		current_output_targets[target_key] = {
 			"target_type": target_type,
 			"target_id": target_id,
 			"metadata": metadata,
 		}
+		current_output_routes[target_key] = route
 		applied.append({
 			"target_type": target_type,
 			"target_id": target_id,
@@ -576,19 +645,24 @@ func apply_current_outputs(duration_seconds: float = -1.0) -> Dictionary:
 	var stopped: Array[Dictionary] = _get_dictionary_array(stop_result, "stopped")
 	var failed_stops: Array[Dictionary] = _get_dictionary_array(stop_result, "failed_stops")
 	var next_output_targets: Dictionary = GFVariantData.get_option_dictionary(stop_result, "pending_targets")
+	var next_output_routes: Dictionary = GFVariantData.get_option_dictionary(stop_result, "pending_routes")
 	for target_key: String in current_output_targets.keys():
 		next_output_targets[target_key] = _get_dictionary_value(current_output_targets, target_key)
+		next_output_routes[target_key] = _get_dictionary_value(current_output_routes, target_key)
 	_last_output_targets = next_output_targets
+	_last_output_routes = next_output_routes
 	_is_dispatching_outputs = false
 	var report: Dictionary = {
 		"applied_count": applied.size(),
 		"stopped_count": stopped.size(),
 		"failed_stop_count": failed_stops.size(),
+		"rejected_count": rejected.size(),
 		"applied": applied,
 		"stopped": stopped,
 		"failed_stops": failed_stops,
+		"rejected": rejected,
 	}
-	return _to_report_dictionary(report)
+	return _remember_output_report(report)
 
 
 ## 获取指定震动实例的只读快照。
@@ -619,6 +693,21 @@ func get_haptic_info(haptic_id: int) -> Dictionary:
 	})
 
 
+## 获取最近一次包含实际输出、停止或拒绝明细的报告。后续无活动空刷新不会覆盖该报告。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @return: 最近输出活动报告；尚无输出活动时返回计数和明细均为空的完整报告。
+## [br]
+## @schema return: JSON-safe Dictionary，包含 applied_count、stopped_count、failed_stop_count、rejected_count、applied、stopped、failed_stops 与 rejected。
+func get_last_output_report() -> Dictionary:
+	if _last_output_report.is_empty():
+		return _to_report_dictionary(_make_empty_output_report())
+	return _last_output_report.duplicate(true)
+
+
 ## 获取震动系统调试快照。
 ## [br]
 ## @api public
@@ -627,7 +716,7 @@ func get_haptic_info(haptic_id: int) -> Dictionary:
 ## [br]
 ## @return: 调试快照。
 ## [br]
-## @schema return: JSON-safe Dictionary，包含 active_count、max_active_haptics、channels、targets、play_order 与 last_output_targets。
+## @schema return: JSON-safe Dictionary，包含 active_count、max_active_haptics、channels、targets、play_order、last_output_targets 与 last_output_report。
 func get_debug_snapshot() -> Dictionary:
 	var channels: Dictionary = {}
 	var targets: Dictionary = {}
@@ -646,6 +735,7 @@ func get_debug_snapshot() -> Dictionary:
 		"targets": targets,
 		"play_order": _play_order,
 		"last_output_targets": _last_output_targets.duplicate(true),
+		"last_output_report": get_last_output_report(),
 	})
 
 
@@ -675,7 +765,7 @@ func _play_haptic_for_target(
 		"target_type": target_type,
 		"target_id": target_id,
 		"preset": preset,
-		"strength": maxf(strength, 0.0),
+		"strength": _finite_nonnegative(strength),
 		"elapsed_seconds": 0.0,
 		"metadata": metadata.duplicate(true),
 	}
@@ -764,20 +854,121 @@ func _sample_output_target(output_target_key: String, channel: StringName) -> Di
 	return GFHapticPreset.combine_samples(samples)
 
 
-func _get_active_target_records() -> Dictionary:
-	var result: Dictionary = {}
+func _build_output_plan(duration_seconds: float) -> Array[Dictionary]:
+	var grouped_targets: Dictionary = {}
 	for state_variant: Variant in _active_haptics.values():
 		var state: Dictionary = GFVariantData.as_dictionary(state_variant)
 		if state.is_empty():
 			continue
-		var target_type: int = _get_state_target_type(state)
-		var target_id: int = _get_state_target_id(state)
-		var output_record: Dictionary = _make_output_target_record(target_type, target_id)
-		result[GFVariantData.get_option_string(output_record, "target_key")] = output_record
-	return result
+		var preset: GFHapticPreset = _get_state_preset(state)
+		if preset == null:
+			continue
+		var state_target_type: int = _get_state_target_type(state)
+		var state_target_id: int = _get_state_target_id(state)
+		var output_record: Dictionary = _make_output_target_record(state_target_type, state_target_id)
+		var target_key: String = GFVariantData.get_option_string(output_record, "target_key")
+		var target_group: Dictionary = _get_dictionary_value(grouped_targets, target_key)
+		if target_group.is_empty():
+			target_group = {
+				"target_type": GFVariantData.get_option_int(
+					output_record,
+					"target_type",
+					TargetType.PLAYER
+				),
+				"target_id": GFVariantData.get_option_int(output_record, "target_id", -1),
+				"samples": [],
+				"haptic_ids": [],
+				"channels": [],
+				"channel_set": {},
+			}
+		var state_channel: StringName = _get_state_channel(state)
+		var state_strength: float = _finite_nonnegative(
+			_get_state_float(state, "strength", 1.0)
+			* master_strength
+			* get_channel_strength(state_channel)
+		)
+		var samples: Array = _get_array_value(target_group, "samples")
+		samples.append(preset.sample(_get_state_float(state, "elapsed_seconds", 0.0), state_strength))
+		var active_ids: Array = _get_array_value(target_group, "haptic_ids")
+		active_ids.append(GFVariantData.get_option_int(state, "id", -1))
+		var channels: Array = _get_array_value(target_group, "channels")
+		var channel_set: Dictionary = _get_dictionary_value(target_group, "channel_set")
+		var channel_text: String = String(state_channel)
+		if not channel_set.has(channel_text):
+			channels.append(channel_text)
+			channel_set[channel_text] = true
+		grouped_targets[target_key] = target_group
+
+	var output_plan: Array[Dictionary] = []
+	for target_key: String in grouped_targets.keys():
+		var target_group: Dictionary = _get_dictionary_value(grouped_targets, target_key)
+		var sample: Dictionary = GFHapticPreset.combine_samples(
+			_get_dictionary_array(target_group, "samples")
+		)
+		var weak_value: float = GFVariantData.get_option_float(sample, "weak_magnitude", 0.0)
+		var strong_value: float = GFVariantData.get_option_float(sample, "strong_magnitude", 0.0)
+		if weak_value <= 0.0 and strong_value <= 0.0:
+			continue
+		var target_type: int = GFVariantData.get_option_int(target_group, "target_type", TargetType.PLAYER)
+		var target_id: int = GFVariantData.get_option_int(target_group, "target_id", -1)
+		var route: Dictionary = _get_dictionary_value(_last_output_routes, target_key)
+		if route.is_empty():
+			route = _resolve_output_route(target_type)
+		output_plan.append({
+			"target_key": target_key,
+			"target_type": target_type,
+			"target_id": target_id,
+			"weak_magnitude": weak_value,
+			"strong_magnitude": strong_value,
+			"duration_seconds": duration_seconds,
+			"metadata": {
+				"target_type": target_type,
+				"target_id": target_id,
+				"haptic_ids": PackedInt32Array(_get_array_value(target_group, "haptic_ids")),
+				"channels": PackedStringArray(_get_array_value(target_group, "channels")),
+				"sample": sample.duplicate(true),
+			},
+			"route": route,
+		})
+	return output_plan
 
 
-func _start_output(
+func _resolve_output_route(target_type: int) -> Dictionary:
+	if haptic_backend != null:
+		if (
+			is_instance_valid(haptic_backend)
+			and haptic_backend.has_method("start_output")
+			and haptic_backend.has_method("stop_output")
+		):
+			return {
+				"kind": "backend",
+				"backend": haptic_backend,
+			}
+		return {}
+	if output_handler.is_valid() or stop_handler.is_valid():
+		if output_handler.is_valid() and stop_handler.is_valid():
+			return {
+				"kind": "callbacks",
+				"start_handler": output_handler,
+				"stop_handler": stop_handler,
+			}
+		return {}
+	match target_type:
+		TargetType.PLAYER:
+			if input_device_utility == null or not is_instance_valid(input_device_utility):
+				return {}
+			return {
+				"kind": "player_input",
+				"input_device_utility": input_device_utility,
+			}
+		TargetType.DEVICE:
+			return {"kind": "device_input"}
+		_:
+			return {}
+
+
+func _start_output_via_route(
+	route: Dictionary,
 	target_type: int,
 	target_id: int,
 	weak_magnitude: float,
@@ -785,37 +976,43 @@ func _start_output(
 	duration_seconds: float,
 	metadata: Dictionary
 ) -> bool:
-	if haptic_backend != null and haptic_backend.has_method("start_output"):
-		return GFVariantData.to_bool(haptic_backend.call(
-			"start_output",
-			target_type,
-			target_id,
-			weak_magnitude,
-			strong_magnitude,
-			duration_seconds,
-			metadata
-		), false)
-	if output_handler.is_valid():
-		return GFVariantData.to_bool(output_handler.call(
-			target_type,
-			target_id,
-			weak_magnitude,
-			strong_magnitude,
-			duration_seconds,
-			metadata
-		), false)
-
-	match target_type:
-		TargetType.PLAYER:
-			if input_device_utility == null:
+	match GFVariantData.get_option_string(route, "kind"):
+		"backend":
+			var backend: Object = _get_route_object(route, "backend")
+			if backend == null or not backend.has_method("start_output"):
 				return false
-			return input_device_utility.start_vibration_for_player(
+			return GFVariantData.to_bool(backend.call(
+				"start_output",
+				target_type,
+				target_id,
+				weak_magnitude,
+				strong_magnitude,
+				duration_seconds,
+				metadata
+			), false)
+		"callbacks":
+			var start_handler: Callable = _get_route_callable(route, "start_handler")
+			if not start_handler.is_valid():
+				return false
+			return GFVariantData.to_bool(start_handler.call(
+				target_type,
+				target_id,
+				weak_magnitude,
+				strong_magnitude,
+				duration_seconds,
+				metadata
+			), false)
+		"player_input":
+			var input_utility: GFInputDeviceUtility = _get_route_input_utility(route)
+			if input_utility == null:
+				return false
+			return input_utility.start_vibration_for_player(
 				target_id,
 				weak_magnitude,
 				strong_magnitude,
 				duration_seconds
 			)
-		TargetType.DEVICE:
+		"device_input":
 			if target_id < 0 or not Input.get_connected_joypads().has(target_id):
 				return false
 			Input.start_joy_vibration(target_id, weak_magnitude, strong_magnitude, duration_seconds)
@@ -824,18 +1021,33 @@ func _start_output(
 			return false
 
 
-func _stop_output(target_type: int, target_id: int, metadata: Dictionary) -> bool:
-	if haptic_backend != null and haptic_backend.has_method("stop_output"):
-		return GFVariantData.to_bool(haptic_backend.call("stop_output", target_type, target_id, metadata), false)
-	if stop_handler.is_valid():
-		return GFVariantData.to_bool(stop_handler.call(target_type, target_id, metadata), false)
-
-	match target_type:
-		TargetType.PLAYER:
-			if input_device_utility == null:
+func _stop_output_via_route(
+	route: Dictionary,
+	target_type: int,
+	target_id: int,
+	metadata: Dictionary
+) -> bool:
+	match GFVariantData.get_option_string(route, "kind"):
+		"backend":
+			var backend: Object = _get_route_object(route, "backend")
+			if backend == null or not backend.has_method("stop_output"):
 				return false
-			return input_device_utility.stop_vibration_for_player(target_id)
-		TargetType.DEVICE:
+			return GFVariantData.to_bool(
+				backend.call("stop_output", target_type, target_id, metadata),
+				false
+			)
+		"callbacks":
+			var route_stop_handler: Callable = _get_route_callable(route, "stop_handler")
+			if not route_stop_handler.is_valid():
+				return false
+			return GFVariantData.to_bool(
+				route_stop_handler.call(target_type, target_id, metadata),
+				false
+			)
+		"player_input":
+			var input_utility: GFInputDeviceUtility = _get_route_input_utility(route)
+			return input_utility != null and input_utility.stop_vibration_for_player(target_id)
+		"device_input":
 			if target_id < 0 or not Input.get_connected_joypads().has(target_id):
 				return false
 			Input.stop_joy_vibration(target_id)
@@ -848,6 +1060,7 @@ func _stop_missing_outputs(current_output_targets: Dictionary) -> Dictionary:
 	var stopped: Array[Dictionary] = []
 	var failed_stops: Array[Dictionary] = []
 	var pending_targets: Dictionary = {}
+	var pending_routes: Dictionary = {}
 	for target_key: String in _last_output_targets.keys():
 		if current_output_targets.has(target_key):
 			continue
@@ -855,7 +1068,8 @@ func _stop_missing_outputs(current_output_targets: Dictionary) -> Dictionary:
 		var target_type: int = GFVariantData.get_option_int(target_record, "target_type", TargetType.PLAYER)
 		var target_id: int = GFVariantData.get_option_int(target_record, "target_id", -1)
 		var metadata: Dictionary = GFVariantData.get_option_dictionary(target_record, "metadata")
-		if _stop_output(target_type, target_id, metadata):
+		var route: Dictionary = _get_dictionary_value(_last_output_routes, target_key)
+		if not route.is_empty() and _stop_output_via_route(route, target_type, target_id, metadata):
 			stopped.append({
 				"target_type": target_type,
 				"target_id": target_id,
@@ -866,14 +1080,17 @@ func _stop_missing_outputs(current_output_targets: Dictionary) -> Dictionary:
 				"target_type": target_type,
 				"target_id": target_id,
 				"metadata": metadata,
-				"reason": "stop_failed",
+				"reason": "stop_route_unavailable" if route.is_empty() else "stop_failed",
 			}
 			failed_stops.append(failed_report)
-			pending_targets[target_key] = target_record.duplicate(true)
+			if not route.is_empty():
+				pending_targets[target_key] = target_record.duplicate(true)
+				pending_routes[target_key] = route
 	return {
 		"stopped": stopped,
 		"failed_stops": failed_stops,
 		"pending_targets": pending_targets,
+		"pending_routes": pending_routes,
 	}
 
 
@@ -883,27 +1100,57 @@ func _to_report_dictionary(value: Dictionary) -> Dictionary:
 	})
 
 
-func _make_output_metadata(output_target_key: String, target_type: int, target_id: int, sample: Dictionary) -> Dictionary:
-	var active_ids: PackedInt32Array = PackedInt32Array()
-	var channels: PackedStringArray = PackedStringArray()
-	for state_variant: Variant in _active_haptics.values():
-		var state: Dictionary = GFVariantData.as_dictionary(state_variant)
-		if (
-			state.is_empty()
-			or _make_output_target_key(_get_state_target_type(state), _get_state_target_id(state)) != output_target_key
-		):
-			continue
-		var _id_appended: bool = active_ids.append(GFVariantData.get_option_int(state, "id", -1))
-		var channel_text: String = String(_get_state_channel(state))
-		if not channels.has(channel_text):
-			var _channel_appended: bool = channels.append(channel_text)
-	return {
-		"target_type": target_type,
-		"target_id": target_id,
-		"haptic_ids": active_ids,
-		"channels": channels,
-		"sample": sample.duplicate(true),
-	}
+func _resolve_output_duration(requested_duration_seconds: float) -> float:
+	if not is_finite(requested_duration_seconds) or requested_duration_seconds <= 0.0:
+		return maxf(output_refresh_seconds, MIN_OUTPUT_DURATION_SECONDS)
+	return maxf(requested_duration_seconds, MIN_OUTPUT_DURATION_SECONDS)
+
+
+func _remember_output_report(report: Dictionary) -> Dictionary:
+	var normalized_report: Dictionary = _to_report_dictionary(report)
+	var activity_count: int = (
+		GFVariantData.get_option_int(normalized_report, "applied_count")
+		+ GFVariantData.get_option_int(normalized_report, "stopped_count")
+		+ GFVariantData.get_option_int(normalized_report, "failed_stop_count")
+		+ GFVariantData.get_option_int(normalized_report, "rejected_count")
+	)
+	if activity_count > 0:
+		_last_output_report = normalized_report.duplicate(true)
+	return normalized_report
+
+
+func _finite_float(value: float, default_value: float = 0.0) -> float:
+	return value if is_finite(value) else default_value
+
+
+func _finite_nonnegative(value: float, default_value: float = 0.0) -> float:
+	return maxf(_finite_float(value, default_value), 0.0)
+
+
+func _get_route_object(route: Dictionary, key: String) -> Object:
+	var value: Variant = GFVariantData.get_option_value(route, key)
+	if value is Object:
+		var route_object: Object = value
+		if is_instance_valid(route_object):
+			return route_object
+	return null
+
+
+func _get_route_callable(route: Dictionary, key: String) -> Callable:
+	var value: Variant = GFVariantData.get_option_value(route, key)
+	if value is Callable:
+		var route_callable: Callable = value
+		return route_callable
+	return Callable()
+
+
+func _get_route_input_utility(route: Dictionary) -> GFInputDeviceUtility:
+	var value: Variant = GFVariantData.get_option_value(route, "input_device_utility")
+	if value is GFInputDeviceUtility:
+		var utility: GFInputDeviceUtility = value
+		if is_instance_valid(utility):
+			return utility
+	return null
 
 
 func _resolve_channel(channel: StringName) -> StringName:
@@ -1023,14 +1270,24 @@ func _get_dictionary_array(source: Dictionary, key: Variant) -> Array[Dictionary
 	return result
 
 
+func _get_array_value(source: Dictionary, key: Variant) -> Array:
+	var value: Variant = GFVariantData.get_option_value(source, key)
+	if value is Array:
+		var array_value: Array = value
+		return array_value
+	return []
+
+
 func _make_empty_output_report() -> Dictionary:
 	return {
 		"applied_count": 0,
 		"stopped_count": 0,
 		"failed_stop_count": 0,
+		"rejected_count": 0,
 		"applied": [],
 		"stopped": [],
 		"failed_stops": [],
+		"rejected": [],
 	}
 
 

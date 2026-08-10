@@ -44,7 +44,7 @@ static func get_snapshot( extra_root_paths: Array[String] = [], options: Diction
 
 结构：
 
-- `options`: Dictionary，支持 force_refresh；为 true 时跳过现有缓存并重新扫描。
+- `options`: Dictionary，支持 force_refresh、max_json_file_bytes、max_json_total_bytes 和 max_json_depth；预算只能收紧框架硬上限。
 - `return`: Dictionary，包含 ok、manifests、manifest_load_errors、manifest_validation_errors、invalid_manifests、external_roots、discovery_roots、signature、signature_hash、revision、manual、manifest_count、valid_manifest_count 和 invalid_manifest_count；错误条目包含 stage、extension_id、source_path 和 errors。
 
 <a id="member-gfextensionmanifestdiscovery-methods-clear_cache"></a>

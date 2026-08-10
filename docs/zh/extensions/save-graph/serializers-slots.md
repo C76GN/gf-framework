@@ -24,7 +24,7 @@ source.properties = PackedStringArray(["position", "rotation"])
 %Player.add_child(source)
 ```
 
-这个 Source 不引入独立存储格式；它生成的载荷仍然是 SaveGraph 的 `serializers` 片段，因此可以继续和注册表默认序列化器、自定义 Serializer、Pipeline Step 组合。
+这个 Source 不引入独立存储格式；它生成的载荷仍然是 SaveGraph 的 `serializers` 片段，因此可以继续和注册表默认序列化器、自定义 Serializer、Pipeline Step 组合。同一次 Source 计划中的 property、local 与 registry Serializer ID 必须全局唯一；冲突会在采集或应用前失败关闭，框架不会按集合顺序选择 codec。
 
 启用 Save 扩展后，Inspector 会在 `GFPersistPropertiesSource.properties` 上显示目标节点属性选择器。选择器只辅助填写白名单，不改变运行时保存协议；需要保存计算属性、跨节点聚合状态或业务校验时，仍应编写自定义 Serializer、`GFSaveDataSource` 或 `GFSaveSource`。
 
@@ -57,9 +57,9 @@ var schema := GFSaveDocumentSchema.new().configure(
 var validation := schema.validate_document(document, true)
 ```
 
-文档和 section 在写入、返回及迁移时都复制动态数据，避免调用方在校验后修改内部载荷。`GFSaveDocumentSchema` 负责当前文档版本、已知 section 版本、必需 section 和未知 section 策略。持久化字典使用精确字段集合；未知容器字段、错误 schema ID、未来版本、缺失必需 section 或不可持久化值都会 fail closed。
+文档和 section 会先对调用方原值执行有界持久化验收，再在写入、返回及迁移时复制动态数据，避免循环或超深输入先触发引擎深复制，也避免调用方在校验后修改内部载荷。`GFSaveDocumentSchema` 负责当前文档版本、已知 section 版本、必需 section 和未知 section 策略。持久化字典使用精确字段集合；未知容器字段、错误 schema ID、未来版本、缺失必需 section、非规范 section key 或不可持久化值都会 fail closed。
 
-旧版本通过 `GFSaveMigrationRegistry` 迁移。项目为文档或单个 section 实现 `GFSaveMigrationStep`，每一步只能声明相邻的 `N -> N + 1` 边；注册表先构建无副作用计划，再在隔离副本上执行完整链并进行最终 schema 校验。`GFSaveMigrationResult` 只在整条链成功后暴露目标文档，并保留步骤 trace 或失败边；缺边、重复边、步骤失败或最终校验失败都不会暴露半迁移文档。
+旧版本通过 `GFSaveMigrationRegistry` 迁移。项目为文档或单个 section 实现 `GFSaveMigrationStep`，每一步只能声明相邻的 `N -> N + 1` 边；注册表先冻结本次 step 快照并构建无副作用计划，再在隔离副本上执行完整链和最终 schema 校验。迁移 hook 对 live registry 的重入修改只影响后续操作，不会改变已验收计划。`GFSaveMigrationResult` 只在整条链成功后暴露目标文档，并保留步骤 trace 或失败边；缺边、重复边、步骤失败或最终校验失败都不会暴露半迁移文档。
 
 ## 槽位工作流
 
@@ -84,7 +84,7 @@ slot_store.save_slot(workflow.active_slot_index, document, metadata.to_dict())
 var cards := workflow.build_cards_from_slot_store(slot_store, [1, 2, 3])
 ```
 
-`GFSaveSlotStorageAdapter` 位于 Save 扩展包内，是推荐的通用槽位持久化入口。`save_slot()` 只接受通过校验的 `GFSaveDocument`，并要求 metadata 中已有的 schema 身份与文档一致；数据文件和元数据文件通过 `GFStorageUtility.save_data_group()` 同事务提交。`load_slot()` 返回 `GFSaveDocumentReadResult`，把底层存储结果、迁移结果、最终校验报告和错误分开，不用空字典表达失败。
+`GFSaveSlotStorageAdapter` 位于 Save 扩展包内，是推荐的通用槽位持久化入口。`save_slot()` 只接受通过校验的 `GFSaveDocument`，并要求 metadata 中已有的 schema 身份与文档一致；数据文件和元数据文件通过 `GFStorageUtility.save_data_group()` 同事务提交。`build_slot_file_plan()` 可在未 setup Storage 时预检 `{index}`、相对规范路径和 data/metadata 冲突。`load_slot()` 返回 `GFSaveDocumentReadResult`，把底层存储结果、迁移结果、最终校验报告和错误分开，不用空字典表达失败；`load_slot()`、`load_slot_metadata()` 与 `list_slots()` 都拒绝 Storage 明确标记为完整性无效的内容。
 
 ```gdscript
 var loaded := slot_store.load_slot(active_slot, schema, migration_registry)
@@ -96,7 +96,7 @@ var restored_document := loaded.get_document()
 
 Adapter 不定义业务字段、模块注册表、迁移内容或 UI 文案。裸 Dictionary 载荷不再被槽位入口接受；项目应先把旧聚合字典拆成稳定 section，再显式确定文档和 section 初始版本。
 
-需要把槽位文件交给两个 `GFStorageBackend` 同步时，可使用 `GFSaveSlotSyncBridge`。它只根据同一个 adapter 解析数据文件和元数据文件名，再调用 `GFStorageSyncUtility.sync_many()`；冲突策略、远端协议、账号和用户确认仍由项目通过后端与 sync options 提供。
+需要把槽位文件交给两个 `GFStorageBackend` 同步时，可使用 `GFSaveSlotSyncBridge`。它只消费同一个 adapter 返回的已验收文件计划，再调用 `GFStorageSyncUtility.sync_many()`；模板缺失 `{index}`、两个目标相同或 `./` 等语法别名指向同一目标时，会在访问任一 backend 前失败。冲突策略、远端协议、账号和用户确认仍由项目通过后端与 sync options 提供。
 
 ```gdscript
 var bridge := GFSaveSlotSyncBridge.new()

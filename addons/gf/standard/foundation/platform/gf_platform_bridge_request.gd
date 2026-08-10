@@ -64,6 +64,9 @@ extends Resource
 # --- 公共方法 ---
 
 ## 配置桥接请求。
+##
+## 三个稳定 ID 会移除首尾空白；直接写入导出属性的请求也会在 Runtime / Adapter
+## 边界复制为同一规范身份。
 ## [br]
 ## @api public
 ## [br]
@@ -94,9 +97,9 @@ func configure(
 	p_timeout_msec: int = 0,
 	p_metadata: Dictionary = {}
 ) -> GFPlatformBridgeRequest:
-	request_id = p_request_id
-	contract_id = p_contract_id
-	method_id = p_method_id
+	request_id = _normalize_id(p_request_id)
+	contract_id = _normalize_id(p_contract_id)
+	method_id = _normalize_id(p_method_id)
 	payload = p_payload.duplicate(true)
 	timeout_msec = max(p_timeout_msec, 0)
 	metadata = p_metadata.duplicate(true)
@@ -111,7 +114,11 @@ func configure(
 ## [br]
 ## @return 缺少 request_id、contract_id 或 method_id 时返回 true。
 func is_empty() -> bool:
-	return request_id == &"" or contract_id == &"" or method_id == &""
+	return (
+		_normalize_id(request_id) == &""
+		or _normalize_id(contract_id) == &""
+		or _normalize_id(method_id) == &""
+	)
 
 
 ## 转换为字典。
@@ -135,6 +142,8 @@ func to_dict() -> Dictionary:
 
 
 ## 从字典应用桥接请求字段。
+##
+## request_id、contract_id 与 method_id 会移除首尾空白。
 ## [br]
 ## @api public
 ## [br]
@@ -144,9 +153,9 @@ func to_dict() -> Dictionary:
 ## [br]
 ## @schema data: Dictionary platform bridge request.
 func apply_dict(data: Dictionary) -> void:
-	request_id = GFVariantData.get_option_string_name(data, "request_id")
-	contract_id = GFVariantData.get_option_string_name(data, "contract_id")
-	method_id = GFVariantData.get_option_string_name(data, "method_id")
+	request_id = _normalize_id(GFVariantData.get_option_string_name(data, "request_id"))
+	contract_id = _normalize_id(GFVariantData.get_option_string_name(data, "contract_id"))
+	method_id = _normalize_id(GFVariantData.get_option_string_name(data, "method_id"))
 	payload = GFVariantData.get_option_dictionary(data, "payload")
 	timeout_msec = max(GFVariantData.get_option_int(data, "timeout_msec"), 0)
 	metadata = GFVariantData.get_option_dictionary(data, "metadata")
@@ -178,3 +187,9 @@ static func from_dict(data: Dictionary) -> GFPlatformBridgeRequest:
 	var result: GFPlatformBridgeRequest = GFPlatformBridgeRequest.new()
 	result.apply_dict(data)
 	return result
+
+
+# --- 私有/辅助方法 ---
+
+static func _normalize_id(value: StringName) -> StringName:
+	return StringName(String(value).strip_edges())

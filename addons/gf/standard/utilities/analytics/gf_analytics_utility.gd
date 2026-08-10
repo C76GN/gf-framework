@@ -44,7 +44,7 @@ signal flush_started(batch: Array)
 ## [br]
 ## @param result: flush 结果。
 ## [br]
-## @schema result: Dictionary with `success`; may include `accepted`, `error`, `dry_run`, `dropped`, `retained`, `drop_reason`, or transport-specific fields.
+## @schema result: Dictionary with `success`; may include `accepted`, `error`, `response_code`, `dry_run`, `dropped`, `retained`, `drop_reason`, or transport-specific fields.
 signal flush_completed(result: Dictionary)
 
 ## flush 失败时额外发出。
@@ -55,7 +55,7 @@ signal flush_completed(result: Dictionary)
 ## [br]
 ## @param result: 失败结果。
 ## [br]
-## @schema result: Dictionary with `success: false`; may include `error`, `dropped`, `retained`, `drop_reason`, and payload budget fields.
+## @schema result: Dictionary with `success: false`; may include `error`, `response_code`, `dropped`, `retained`, `drop_reason`, and payload budget fields.
 signal flush_failed(result: Dictionary)
 
 
@@ -425,6 +425,17 @@ func get_queue_size() -> int:
 	return _queue.size()
 
 
+## 获取因队列或载荷预算而丢弃的累计事件数。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @return: 当前实例初始化以来的累计丢弃数量。
+func get_dropped_event_count() -> int:
+	return _dropped_event_count
+
+
 ## 获取当前会话标识。
 ## [br]
 ## @api public
@@ -537,6 +548,7 @@ func _track_event(
 	var max_queue_size: int = _get_max_queue_size()
 	while _queue.size() >= max_queue_size:
 		var _dropped_event: Variant = _queue.pop_front()
+		_dropped_event_count += 1
 	_queue.append(event_data)
 	_queue_generation += 1
 	event_tracked.emit(event_name, event_data.duplicate(true))
@@ -885,7 +897,8 @@ func _on_request_completed(
 	if response_code < 200 or response_code >= 300:
 		_finish_flush({
 			"success": false,
-			"error": "HTTP %d: %s" % [response_code, body.get_string_from_utf8()],
+			"error": "HTTP %d" % response_code,
+			"response_code": response_code,
 		}, completion_batch)
 		return
 

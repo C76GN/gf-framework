@@ -16,8 +16,8 @@
 | 类型 | 名称 | 签名 |
 |---|---|---|
 | 枚举 | [`PulseReplacementPolicy`](#member-gfvirtualinputsource-enums-pulsereplacementpolicy) | `enum PulseReplacementPolicy` |
-| 属性 | [`source_id`](#member-gfvirtualinputsource-properties-source_id) | `var source_id: StringName = &"virtual"` |
-| 属性 | [`player_index`](#member-gfvirtualinputsource-properties-player_index) | `var player_index: int = -1` |
+| 属性 | [`source_id`](#member-gfvirtualinputsource-properties-source_id) | `var source_id: StringName:` |
+| 属性 | [`player_index`](#member-gfvirtualinputsource-properties-player_index) | `var player_index: int:` |
 | 方法 | [`configure`](#member-gfvirtualinputsource-methods-configure) | `func configure( input_mapping: GFInputMappingUtility, p_source_id: StringName = &"virtual", p_player_index: int = -1, timer_utility: GFTimerUtility = null ) -> GFVirtualInputSource:` |
 | 方法 | [`set_timer_utility`](#member-gfvirtualinputsource-methods-set_timer_utility) | `func set_timer_utility(timer_utility: GFTimerUtility) -> GFVirtualInputSource:` |
 | 方法 | [`get_timer_utility`](#member-gfvirtualinputsource-methods-get_timer_utility) | `func get_timer_utility() -> GFTimerUtility:` |
@@ -62,24 +62,26 @@ enum PulseReplacementPolicy {
 ### `source_id`
 
 - API：`public`
+- 首次版本：`11.0.0`
 
 ```gdscript
-var source_id: StringName = &"virtual"
+var source_id: StringName:
 ```
 
-虚拟输入源标识。
+虚拟输入源标识。修改后会先释放该 handle 已写入的旧身份手动贡献； 已启动脉冲冻结创建时身份并继续独立运行。
 
 <a id="member-gfvirtualinputsource-properties-player_index"></a>
 
 ### `player_index`
 
 - API：`public`
+- 首次版本：`11.0.0`
 
 ```gdscript
-var player_index: int = -1
+var player_index: int:
 ```
 
-玩家索引；小于 0 时只写入全局动作状态。
+玩家索引；小于 0 时只写入全局动作状态。修改后会先释放旧玩家身份的 手动贡献；已启动脉冲冻结创建时身份并继续独立运行。
 
 ## 方法
 
@@ -94,7 +96,7 @@ var player_index: int = -1
 func configure( input_mapping: GFInputMappingUtility, p_source_id: StringName = &"virtual", p_player_index: int = -1, timer_utility: GFTimerUtility = null ) -> GFVirtualInputSource:
 ```
 
-配置虚拟输入源。
+配置虚拟输入源。身份或 mapping 改变时会先释放该 handle 追踪的旧身份手动贡献； 已启动脉冲冻结创建时依赖并继续运行。重复配置完全相同的身份只替换后续脉冲 使用的 timer，不清理当前状态。
 
 参数：
 
@@ -179,6 +181,7 @@ func pulse_action( action_id: StringName, value: Variant = true, duration_second
 ### `set_action_value`
 
 - API：`public`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func set_action_value(action_id: StringName, value: Variant) -> bool:
@@ -193,7 +196,7 @@ func set_action_value(action_id: StringName, value: Variant) -> bool:
 | `action_id` | 动作标识。 |
 | `value` | 动作值。 |
 
-返回：写入成功返回 true。
+返回：写入成功返回 true；非有限数值会被拒绝并保持旧贡献不变。
 
 结构：
 
@@ -375,12 +378,13 @@ func clear_action_for_player(action_id: StringName, next_player_index: int) -> b
 ### `clear_all`
 
 - API：`public`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func clear_all() -> void:
 ```
 
-清除当前虚拟源的所有动作贡献。
+清除同一 source_id 的所有玩家动作贡献。
 
 <a id="member-gfvirtualinputsource-methods-dispose"></a>
 
@@ -400,6 +404,7 @@ func dispose() -> void:
 ### `get_snapshot`
 
 - API：`public`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_snapshot() -> Dictionary:
@@ -411,4 +416,4 @@ func get_snapshot() -> Dictionary:
 
 结构：
 
-- `return`: Dictionary，包含 source_id: StringName、player_index: int，以及当前虚拟输入贡献的 actions: Array[Dictionary]。
+- `return`: Dictionary，包含 source_id: StringName、player_index: int，以及当前 source/player 身份的 actions: Array[Dictionary]。

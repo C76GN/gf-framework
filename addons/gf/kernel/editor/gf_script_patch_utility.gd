@@ -149,6 +149,7 @@ static func patch_script_path_annotation(
 	save_options["label"] = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(options, "label", "GFScriptPatchUtility")
 	save_options["artifact_owner"] = _GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(options, "artifact_owner", GFGeneratedArtifactReport.OWNER_USER)
 	save_options["generator_id"] = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(options, "generator_id", "GFScriptPatchUtility")
+	save_options["expected_previous_sha256"] = source_code.sha256_text()
 	var artifact_report: Dictionary = GFGeneratedArtifactReport.save_text(
 		script_path,
 		_GF_VARIANT_ACCESS_SCRIPT.get_option_string(patch, "source_code"),

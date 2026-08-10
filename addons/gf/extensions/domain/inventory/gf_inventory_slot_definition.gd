@@ -111,7 +111,9 @@ func can_accept(
 ## [br]
 ## @api public
 ## [br]
-## @return: 可序列化字典。
+## @since 11.0.0
+## [br]
+## @return: Godot Variant 字典；不保证可直接编码为 JSON。
 ## [br]
 ## @schema return: Dictionary，包含 display_name、accepted_item_ids、rejected_item_ids、accepted_categories、require_all_categories 与 metadata。
 func to_dict() -> Dictionary:

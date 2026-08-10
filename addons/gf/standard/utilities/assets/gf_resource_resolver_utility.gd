@@ -90,15 +90,13 @@ func register_path(
 	priority: int = 0,
 	metadata: Dictionary = {}
 ) -> bool:
-	var _removed_existing_path: bool = unregister_path(resource_key)
-	return _register_path_record(
+	return _replace_ownerless_path_record(
 		resource_key,
-		_OWNERLESS_REGISTRATION_ID,
 		path,
 		type_hint,
 		priority,
 		metadata
-	) != &""
+	)
 
 
 ## 注册一个带 owner 的资源键到资源路径映射。
@@ -635,6 +633,36 @@ func _register_path_record(
 	records.append(path_record)
 	_path_records[resource_key] = records
 	return GFVariantData.get_option_string_name(path_record, "registration_id")
+
+
+func _replace_ownerless_path_record(
+	resource_key: StringName,
+	path: String,
+	type_hint: String,
+	priority: int,
+	metadata: Dictionary
+) -> bool:
+	var next_registration_order: int = _registration_order + 1
+	var path_record: Dictionary = _make_path_record(
+		resource_key,
+		_OWNERLESS_REGISTRATION_ID,
+		path,
+		type_hint,
+		priority,
+		metadata,
+		next_registration_order
+	)
+	if path_record.is_empty():
+		return false
+
+	var records: Array[Dictionary] = _get_path_records(resource_key)
+	for index: int in range(records.size() - 1, -1, -1):
+		if GFVariantData.get_option_string_name(records[index], "owner_id") == _OWNERLESS_REGISTRATION_ID:
+			records.remove_at(index)
+	records.append(path_record)
+	_registration_order = next_registration_order
+	_path_records[resource_key] = records
+	return true
 
 
 func _make_path_record(

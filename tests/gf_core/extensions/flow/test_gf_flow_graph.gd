@@ -113,6 +113,27 @@ class NonWaitingSignalFlowNode extends GFFlowNode:
 		completed.emit()
 
 
+class CountingFlowContext extends GFFlowContext:
+	var full_serialize_count: int = 0
+	var full_deserialize_count: int = 0
+
+	func serialize_runtime_state(json_compatible: bool = false) -> Dictionary:
+		full_serialize_count += 1
+		return super.serialize_runtime_state(json_compatible)
+
+	func deserialize_runtime_state(data: Dictionary) -> void:
+		full_deserialize_count += 1
+		super.deserialize_runtime_state(data)
+
+
+class CountingFlowGraph extends GFFlowGraph:
+	var has_node_call_count: int = 0
+
+	func has_node(node_id: StringName) -> bool:
+		has_node_call_count += 1
+		return super.has_node(node_id)
+
+
 class MethodTrapFlowPort extends GFFlowPort:
 	var get_port_id_called: bool = false
 	var get_display_name_called: bool = false
@@ -456,6 +477,19 @@ func test_flow_runner_reports_real_signal_timeout_and_releases_runtime_lease() -
 	assert_false(node.is_runtime_state_leased(), "超时继续后必须释放节点运行态租约。")
 
 
+func test_flow_runner_signal_timeout_rejects_non_finite_values() -> void:
+	var runner: GFFlowRunner = GFFlowRunner.new()
+
+	runner.signal_timeout_seconds = INF
+	assert_eq(runner.signal_timeout_seconds, 30.0, "正 Infinity 应回退到稳定默认超时。")
+	runner.signal_timeout_seconds = NAN
+	assert_eq(runner.signal_timeout_seconds, 30.0, "NaN 应回退到稳定默认超时。")
+	runner.signal_timeout_seconds = -5.0
+	assert_eq(runner.signal_timeout_seconds, 0.0, "有限负值仍按公开合同关闭超时。")
+	var _configured_runner: GFFlowRunner = runner.with_signal_timeout(-INF, false)
+	assert_eq(runner.signal_timeout_seconds, 30.0, "链式配置也不得保留非有限超时。")
+
+
 func test_flow_runner_rejected_reentry_has_independent_report_and_does_not_replace_active_state() -> void:
 	var order: Array[String] = []
 	var graph: GFFlowGraph = GFFlowGraph.new()
@@ -487,6 +521,75 @@ func test_flow_runner_rejected_reentry_has_independent_report_and_does_not_repla
 	assert_eq(GFVariantData.get_option_string(completed_reports[0], "outcome"), "completed", "被拒绝的重入不得污染原运行终态。")
 	assert_ne(GFVariantData.get_option_int(completed_reports[0], "run_id"), GFVariantData.get_option_int(rejected, "run_id"), "每次调用报告应有独立 run_id。")
 	assert_eq(runner.get_last_run_report(), completed_reports[0], "原运行结束后最近报告应更新为其终态。")
+
+
+func test_flow_runner_running_guard_cannot_be_cleared_by_project_code() -> void:
+	var first_order: Array[String] = []
+	var first_graph: GFFlowGraph = GFFlowGraph.new()
+	var waiting_node: ManualWaitFlowNode = ManualWaitFlowNode.new(&"wait", first_order)
+	first_graph.start_node_id = waiting_node.node_id
+	first_graph.nodes = [waiting_node]
+	var second_order: Array[String] = []
+	var second_graph: GFFlowGraph = GFFlowGraph.new()
+	second_graph.start_node_id = &"second"
+	second_graph.nodes = [RecordingFlowNode.new(&"second", second_order)]
+	var runner: GFFlowRunner = GFFlowRunner.new()
+	var completed_reports: Array[Dictionary] = []
+	var _completed_connected: Error = runner.flow_completed.connect(
+		func(report: Dictionary) -> void: completed_reports.append(report)
+	) as Error
+	@warning_ignore("missing_await")
+	@warning_ignore("return_value_discarded")
+	runner.run(first_graph, GFFlowContext.new())
+	await get_tree().process_frame
+
+	runner.is_running = false
+	var rejected: Dictionary = await runner.run(second_graph, GFFlowContext.new())
+
+	assert_push_error("[GFFlowRunner] is_running 是只读运行状态，不能由调用方修改。")
+	assert_push_warning("[GFFlowRunner] 流程正在执行，忽略重复 run()。")
+	assert_eq(GFVariantData.get_option_string(rejected, "outcome"), "rejected", "写公开状态不得绕过同 Runner 重入保护。")
+	assert_eq(GFVariantData.get_option_string(rejected, "reason"), "run_in_progress", "敌意写入后的重入仍应给出稳定原因。")
+	assert_eq(second_order, [], "被拒绝的第二个流程不得执行节点。")
+
+	waiting_node.complete()
+	await get_tree().process_frame
+	await get_tree().process_frame
+	assert_eq(completed_reports.size(), 1, "首个流程应保持唯一活动状态并完整结束。")
+	assert_eq(first_order, ["wait"], "首个流程节点应只执行一次。")
+	assert_false(runner.is_running, "首个流程结束后只读状态应恢复 false。")
+
+
+func test_flow_runner_missing_start_node_aborts_instead_of_completing() -> void:
+	var graph: GFFlowGraph = GFFlowGraph.new()
+	graph.start_node_id = &"missing"
+	var runner: GFFlowRunner = GFFlowRunner.new()
+	watch_signals(runner)
+
+	var report: Dictionary = await runner.run(graph, GFFlowContext.new())
+
+	assert_push_warning("[GFFlowRunner] 缺少流程节点：missing")
+	assert_eq(GFVariantData.get_option_string(report, "outcome"), "aborted", "缺失 start 节点不得伪装成正常完成。")
+	assert_eq(GFVariantData.get_option_string(report, "reason"), "missing_node", "缺失节点应提供稳定中止原因。")
+	assert_eq(GFVariantData.get_option_int(report, "missing_node_count"), 1, "报告应保留缺失节点计数。")
+	assert_signal_not_emitted(runner, "flow_completed", "缺失节点不得发出正常完成信号。")
+	assert_signal_emitted(runner, "flow_cancelled", "缺失节点应走非完成终态。")
+
+
+func test_flow_runner_dynamic_missing_successor_aborts_instead_of_completing() -> void:
+	var graph: GFFlowGraph = GFFlowGraph.new()
+	var branch: BranchFlowNode = BranchFlowNode.new()
+	graph.start_node_id = branch.node_id
+	graph.nodes = [branch]
+	var runner: GFFlowRunner = GFFlowRunner.new()
+
+	var report: Dictionary = await runner.run(graph, GFFlowContext.new())
+
+	assert_push_warning("[GFFlowRunner] 缺少流程节点：right")
+	assert_eq(GFVariantData.get_option_string(report, "outcome"), "aborted", "动态分支到缺失节点必须失败关闭。")
+	assert_eq(GFVariantData.get_option_string(report, "reason"), "missing_node", "动态缺失后继应使用统一原因。")
+	assert_eq(GFVariantData.get_option_int(report, "completed_node_count"), 1, "缺失后继前已完成节点仍应准确计数。")
+	assert_eq(GFVariantData.get_option_int(report, "missing_node_count"), 1, "动态缺失后继应准确计数。")
 
 
 func test_flow_runner_holds_non_waiting_signal_lease_until_signal_emits() -> void:
@@ -1167,6 +1270,32 @@ func test_flow_runner_isolates_node_runtime_state_into_context() -> void:
 	assert_eq(GFVariantData.to_int(context.get_node_runtime_value(&"runtime", &"count", 0)), 1, "本次运行态应沉淀到 FlowContext。")
 
 
+func test_flow_runner_updates_only_the_current_context_node_state() -> void:
+	var graph: GFFlowGraph = GFFlowGraph.new()
+	var node: RuntimeStateFlowNode = RuntimeStateFlowNode.new()
+	graph.start_node_id = node.node_id
+	graph.nodes = [node]
+	var context: CountingFlowContext = CountingFlowContext.new()
+	context.set_node_runtime_value(node.node_id, &"count", 4)
+	context.set_node_runtime_value(&"unrelated", &"payload", {"value": 9})
+	var runner: GFFlowRunner = GFFlowRunner.new()
+
+	var report: Dictionary = await runner.run(graph, context)
+
+	assert_eq(GFVariantData.get_option_string(report, "outcome"), "completed", "单节点状态更新应正常完成。")
+	assert_eq(context.full_serialize_count, 0, "单节点执行不应深复制完整 Context 状态。")
+	assert_eq(context.full_deserialize_count, 0, "单节点写回不应重建完整 Context 状态。")
+	assert_eq(GFVariantData.to_int(context.get_node_runtime_value(node.node_id, &"count", 0)), 5, "目标节点状态应正确写回。")
+	assert_eq(
+		GFVariantData.get_option_int(
+			GFVariantData.as_dictionary(context.get_node_runtime_value(&"unrelated", &"payload", {})),
+			"value"
+		),
+		9,
+		"单节点写回不得影响无关节点状态。"
+	)
+
+
 func test_flow_context_runtime_snapshot_restores_values_and_node_state() -> void:
 	var context: GFFlowContext = GFFlowContext.new()
 	var configured_context: GFFlowContext = context.set_value(&"chapter", 2)
@@ -1484,6 +1613,251 @@ func test_flow_runner_signal_timeout_respects_time_utility() -> void:
 	)
 
 	arch.dispose()
+
+
+func test_flow_context_restore_rejects_malformed_snapshots_atomically() -> void:
+	var context: GFFlowContext = GFFlowContext.new()
+	context.values = {"chapter": 2, "nested": {"value": 7}}
+	context.set_next_nodes(PackedStringArray(["branch_a"]))
+	context.set_node_runtime_value(&"node", &"cursor", 4)
+	var before: Dictionary = context.create_runtime_snapshot({
+		"include_condition_handler_ids": false,
+	})
+	var invalid_snapshots: Array[Dictionary] = [
+		{"garbage": true},
+		{
+			"values": [],
+			"next_node_ids": PackedStringArray(["branch_b"]),
+			"has_next_node_override": true,
+			"runtime_state": {"nodes": {}},
+		},
+		{
+			"values": {},
+			"next_node_ids": ["branch_b"],
+			"has_next_node_override": true,
+			"runtime_state": {"nodes": {}},
+		},
+		{
+			"values": {},
+			"next_node_ids": PackedStringArray(),
+			"has_next_node_override": "yes",
+			"runtime_state": {"nodes": {}},
+		},
+		{
+			"values": {},
+			"next_node_ids": PackedStringArray(),
+			"has_next_node_override": false,
+			"runtime_state": {"nodes": {"node": []}},
+		},
+	]
+
+	for invalid_snapshot: Dictionary in invalid_snapshots:
+		assert_false(context.restore_runtime_snapshot(invalid_snapshot), "坏快照必须稳定返回 false。")
+		assert_eq(
+			context.create_runtime_snapshot({"include_condition_handler_ids": false}),
+			before,
+			"坏快照失败不得修改任何 Context 运行状态。"
+		)
+		assert_true(context.restore_runtime_snapshot(before), "测试基线快照本身应始终可恢复。")
+
+
+func test_flow_graph_restore_rejects_active_lease_without_partial_writes() -> void:
+	var first: GFFlowNode = GFFlowNode.new()
+	first.node_id = &"first"
+	first.set_runtime_value(&"value", 1)
+	var second: GFFlowNode = GFFlowNode.new()
+	second.node_id = &"second"
+	second.set_runtime_value(&"value", 2)
+	var graph: GFFlowGraph = GFFlowGraph.new()
+	graph.nodes = [first, second]
+	var lease_id: int = first.acquire_runtime_state_lease()
+	assert_gt(lease_id, 0, "测试必须先取得活动租约。")
+
+	graph.deserialize_runtime_state({
+		"nodes": {
+			"first": {"value": 10},
+			"second": {"value": 20},
+		},
+	})
+
+	assert_push_error("[GFFlowGraph] deserialize_runtime_state 失败：节点运行态正被执行租约占用：first。")
+	assert_eq(GFVariantData.to_int(first.get_runtime_value(&"value", 0)), 1, "leased 节点必须保持旧状态。")
+	assert_eq(GFVariantData.to_int(second.get_runtime_value(&"value", 0)), 2, "任一租约冲突时其他节点也不得部分写入。")
+	assert_true(first.release_runtime_state_lease(lease_id), "测试租约应正常释放。")
+
+
+func test_flow_runtime_and_editor_keep_empty_connection_evidence() -> void:
+	var start: GFFlowNode = GFFlowNode.new()
+	start.node_id = &"start"
+	var graph: GFFlowGraph = GFFlowGraph.new()
+	graph.start_node_id = start.node_id
+	graph.nodes = [start]
+	graph.connections = [{}]
+	var editor_model: GFFlowGraphEditorModel = GFFlowGraphEditorModel.new()
+
+	var runtime_report: Dictionary = graph.validate_graph()
+	var editor_report: Dictionary = editor_model.validate_graph_for_editor(graph)
+
+	assert_true(_has_issue(runtime_report, "invalid_connection"), "runtime 必须报告空连接。")
+	assert_true(_has_issue(editor_report, "invalid_connection"), "editor 不得在校验前删除空连接证据。")
+	assert_eq(GFVariantData.get_option_int(editor_report, "connection_count"), 1, "editor 连接计数应保留损坏项的位置。")
+	assert_eq(
+		GFVariantData.get_option_int(editor_report, "error_count"),
+		GFVariantData.get_option_int(runtime_report, "error_count"),
+		"同一空连接在 runtime/editor 应产生一致错误计数。"
+	)
+
+
+func test_flow_editor_connection_filter_uses_full_validation_semantics() -> void:
+	var wrong_source: GFFlowNode = GFFlowNode.new()
+	wrong_source.node_id = &"wrong_source"
+	wrong_source.output_ports = [_make_port(&"wrong_direction", GFFlowPort.Direction.INPUT)]
+	var type_source: GFFlowNode = GFFlowNode.new()
+	type_source.node_id = &"type_source"
+	type_source.output_ports = [_make_typed_port(&"number", GFFlowPort.Direction.OUTPUT, GFFlowPort.ValueType.NUMBER)]
+	var class_source: GFFlowNode = GFFlowNode.new()
+	class_source.node_id = &"class_source"
+	var class_output: GFFlowPort = _make_typed_port(&"object", GFFlowPort.Direction.OUTPUT, GFFlowPort.ValueType.OBJECT)
+	class_output.class_name_hint = &"Node"
+	class_source.output_ports = [class_output]
+	var multi_a: GFFlowNode = GFFlowNode.new()
+	multi_a.node_id = &"multi_a"
+	var multi_a_output: GFFlowPort = _make_port(&"out", GFFlowPort.Direction.OUTPUT)
+	multi_a_output.allow_multiple = true
+	multi_a.output_ports = [multi_a_output]
+	var multi_b: GFFlowNode = GFFlowNode.new()
+	multi_b.node_id = &"multi_b"
+	var multi_b_output: GFFlowPort = _make_port(&"out", GFFlowPort.Direction.OUTPUT)
+	multi_b_output.allow_multiple = true
+	multi_b.output_ports = [multi_b_output]
+	var target: GFFlowNode = GFFlowNode.new()
+	target.node_id = &"target"
+	var string_input: GFFlowPort = _make_typed_port(&"string", GFFlowPort.Direction.INPUT, GFFlowPort.ValueType.STRING)
+	var class_input: GFFlowPort = _make_typed_port(&"control", GFFlowPort.Direction.INPUT, GFFlowPort.ValueType.OBJECT)
+	class_input.class_name_hint = &"Control"
+	var single_input: GFFlowPort = _make_port(&"single", GFFlowPort.Direction.INPUT)
+	target.input_ports = [
+		_make_port(&"wrong_target", GFFlowPort.Direction.INPUT),
+		string_input,
+		class_input,
+		single_input,
+	]
+	var graph: GFFlowGraph = GFFlowGraph.new()
+	graph.start_node_id = wrong_source.node_id
+	graph.nodes = [wrong_source, type_source, class_source, multi_a, multi_b, target]
+	graph.connections = [
+		{"from_node_id": &"wrong_source", "from_port_id": &"wrong_direction", "to_node_id": &"target", "to_port_id": &"wrong_target"},
+		{"from_node_id": &"type_source", "from_port_id": &"number", "to_node_id": &"target", "to_port_id": &"string"},
+		{"from_node_id": &"class_source", "from_port_id": &"object", "to_node_id": &"target", "to_port_id": &"control"},
+		{"from_node_id": &"multi_a", "from_port_id": &"out", "to_node_id": &"target", "to_port_id": &"single"},
+		{"from_node_id": &"multi_b", "from_port_id": &"out", "to_node_id": &"target", "to_port_id": &"single"},
+	]
+	var editor_model: GFFlowGraphEditorModel = GFFlowGraphEditorModel.new()
+	editor_model.include_invalid_connections = true
+	var complete_view: Dictionary = editor_model.build_view_model(graph)
+	var complete_connections: Array = GFVariantData.get_option_array(complete_view, "connections")
+
+	assert_eq(complete_connections.size(), 5, "开启开关时应保留全部连接供修复。")
+	var invalid_count: int = 0
+	for entry_variant: Variant in complete_connections:
+		var entry: Dictionary = GFVariantData.as_dictionary(entry_variant)
+		if not GFVariantData.get_option_bool(entry, "valid", false):
+			invalid_count += 1
+			assert_false(
+				GFVariantData.get_option_packed_string_array(entry, "invalid_reasons").is_empty(),
+				"无效连接必须带稳定的逐连接原因。"
+			)
+	assert_eq(invalid_count, 4, "方向、类型、class 和第二条 multiplicity 连接都应逐项无效。")
+
+	editor_model.include_invalid_connections = false
+	var filtered_view: Dictionary = editor_model.build_view_model(graph)
+	var filtered_connections: Array = GFVariantData.get_option_array(filtered_view, "connections")
+	assert_eq(filtered_connections.size(), 1, "关闭开关时只应保留完整校验通过的连接。")
+	assert_eq(
+		GFVariantData.get_option_string_name(GFVariantData.as_dictionary(filtered_connections[0]), "from_node_id"),
+		&"multi_a",
+		"multiplicity 的首条合法连接应保留，超限后续连接应排除。"
+	)
+
+
+func test_flow_connection_identity_is_injective_for_delimiter_ids() -> void:
+	var first_source: GFFlowNode = GFFlowNode.new()
+	first_source.node_id = &"a"
+	first_source.output_ports = [_make_port(&"b:c", GFFlowPort.Direction.OUTPUT)]
+	var second_source: GFFlowNode = GFFlowNode.new()
+	second_source.node_id = &"a:b"
+	second_source.output_ports = [_make_port(&"c", GFFlowPort.Direction.OUTPUT)]
+	var target: GFFlowNode = GFFlowNode.new()
+	target.node_id = &"d"
+	var input: GFFlowPort = _make_port(&"e", GFFlowPort.Direction.INPUT)
+	input.allow_multiple = true
+	target.input_ports = [input]
+	var graph: GFFlowGraph = GFFlowGraph.new()
+	graph.start_node_id = first_source.node_id
+	graph.nodes = [first_source, second_source, target]
+	assert_true(graph.add_connection(&"a", &"b:c", &"d", &"e"), "第一条分隔符连接应可添加。")
+	assert_true(graph.add_connection(&"a:b", &"c", &"d", &"e"), "结构不同的第二条连接也应可添加。")
+
+	var runtime_report: Dictionary = graph.validate_graph()
+	var editor_report: Dictionary = GFFlowGraphEditorModel.new().validate_graph_for_editor(graph)
+
+	assert_false(_has_issue(runtime_report, "duplicate_connection"), "不同连接 tuple 不得因拼接字符串碰撞。")
+	assert_false(_has_issue(runtime_report, "output_port_allows_single_connection"), "不同 node/port tuple 不得共享 multiplicity 计数。")
+	assert_false(_has_issue(editor_report, "duplicate_connection"), "editor identity 必须与 runtime 同样单射。")
+	assert_false(_has_issue(editor_report, "output_port_allows_single_connection"), "editor port count 不得发生分隔符碰撞。")
+
+
+func test_flow_selection_paste_does_not_scan_graph_for_each_suffix_candidate() -> void:
+	var graph: CountingFlowGraph = CountingFlowGraph.new()
+	for index: int in range(1, 513):
+		var existing: GFFlowNode = GFFlowNode.new()
+		existing.node_id = StringName("node" if index == 1 else "node_%d" % index)
+		graph.nodes.append(existing)
+	var source: GFFlowNode = GFFlowNode.new()
+	source.node_id = &"node"
+	var selection_package: Dictionary = {
+		"nodes": [source],
+		"connections": [],
+	}
+
+	var report: Dictionary = GFFlowGraphEditorModel.new().paste_selection_package(
+		graph,
+		selection_package
+	)
+
+	assert_true(GFVariantData.get_option_bool(report, "ok"), "大量后缀碰撞时粘贴仍应成功。")
+	assert_eq(graph.has_node_call_count, 0, "粘贴应使用一次性 occupied index，而不是反复线性 has_node()。")
+	assert_eq(
+		GFVariantData.get_option_string_name(GFVariantData.get_option_dictionary(report, "id_map"), &"node"),
+		&"node_513",
+		"优化后 unique ID 仍必须保持既有确定性。"
+	)
+
+
+func test_flow_json_snapshot_bounds_cycles_depth_and_non_finite_values() -> void:
+	var cyclic: Dictionary = {"label": "cycle"}
+	cyclic["self"] = cyclic
+	var deep: Dictionary = {}
+	var cursor: Dictionary = deep
+	for depth: int in range(80):
+		var next_level: Dictionary = {"depth": depth}
+		cursor["next"] = next_level
+		cursor = next_level
+	var context: GFFlowContext = GFFlowContext.new()
+	context.values = {
+		"cyclic": cyclic,
+		"deep": deep,
+		"nan": NAN,
+		"infinity": INF,
+	}
+
+	var snapshot: Dictionary = context.create_runtime_snapshot({"json_compatible": true})
+	var json_text: String = JSON.stringify(snapshot)
+
+	assert_false(json_text.is_empty(), "对抗性 Flow 快照仍应可 JSON 编码。")
+	assert_true(json_text.contains("__gf_report_value__"), "循环、深度或非有限值应形成统一 marker。")
+	assert_true(json_text.contains("cycle"), "循环值应留下可诊断 marker。")
+	assert_true(json_text.contains("max_depth"), "超深值应按共享预算截断。")
 
 
 # --- 私有/辅助方法 ---

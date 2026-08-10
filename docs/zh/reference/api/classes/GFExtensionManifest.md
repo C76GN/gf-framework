@@ -386,7 +386,7 @@ static func from_json_file(path: String) -> GFExtensionManifest:
 
 | 名称 | 说明 |
 |---|---|
-| `path` | `gf_extension.json` 文件路径。 |
+| `path` | \`gf_extension.json\` 文件路径。 |
 
 返回：读取成功时返回 manifest；失败时返回 null。
 
@@ -407,7 +407,7 @@ static func from_json_file_report(path: String) -> Dictionary:
 
 | 名称 | 说明 |
 |---|---|
-| `path` | `gf_extension.json` 文件路径。 |
+| `path` | \`gf_extension.json\` 文件路径。 |
 
 返回：读取诊断，包含 ok、source_path、manifest_data 和 errors。
 

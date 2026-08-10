@@ -800,6 +800,34 @@ func test_play_bgm() -> void:
 	assert_false(_audio._bgm_player.playing, "传入空路径应停止播放。")
 
 
+func test_audio_utility_init_is_idempotent_and_reusable_after_dispose() -> void:
+	var original_bgm_player: AudioStreamPlayer = _audio._bgm_player
+	var original_fade_player: AudioStreamPlayer = _audio._bgm_fade_player
+	var clip: GFAudioClip = GFAudioClip.new()
+	clip.stream = AudioStreamGenerator.new()
+	var handle: GFAudioEmitterHandle = _audio.play_sfx_clip_handle(clip)
+
+	_audio.init()
+	await get_tree().process_frame
+
+	assert_same(_audio._bgm_player, original_bgm_player, "重复 init 必须保留当前 BGM generation。")
+	assert_same(_audio._bgm_fade_player, original_fade_player)
+	assert_true(handle.is_valid(), "重复 init 不得先丢账本再遗留活动 SFX。")
+	assert_eq(_count_root_audio_players_named("GFBGMPlayer"), 1)
+	assert_eq(_count_root_audio_players_named("GFBGMFadePlayer"), 1)
+	handle.stop()
+
+	_audio.dispose()
+	await get_tree().process_frame
+	_audio.init()
+	await get_tree().process_frame
+
+	assert_not_same(_audio._bgm_player, original_bgm_player, "dispose 后 init 应创建新生命周期 generation。")
+	assert_not_same(_audio._bgm_fade_player, original_fade_player)
+	assert_eq(_count_root_audio_players_named("GFBGMPlayer"), 1)
+	assert_eq(_count_root_audio_players_named("GFBGMFadePlayer"), 1)
+
+
 func test_play_bgm_empty_path_respects_crossfade() -> void:
 	var stream: AudioStreamGenerator = AudioStreamGenerator.new()
 	_audio._play_bgm_stream(stream)
@@ -1350,6 +1378,52 @@ func test_naturally_finished_sfx_handle_cannot_control_reused_pool_player() -> v
 	assert_true(new_handle.is_valid(), "旧句柄不得停止复用节点上的新播放 session。")
 	assert_eq(_audio._active_sfx_players.size(), 1, "旧句柄操作后新 session 仍应保持活跃。")
 	new_handle.stop()
+
+
+func test_pooled_sfx_reacquire_restores_template_properties() -> void:
+	var clip: GFAudioClip = GFAudioClip.new()
+	clip.stream = AudioStreamGenerator.new()
+	clip.bus_name = "Master"
+	var first_handle: GFAudioEmitterHandle = _audio.play_sfx_clip_handle(clip)
+	var first_player: AudioStreamPlayer = first_handle.get_player() as AudioStreamPlayer
+	var baseline_max_polyphony: int = first_player.max_polyphony
+	var baseline_mix_target: int = first_player.mix_target
+	var baseline_playback_type: int = first_player.playback_type
+
+	first_player.autoplay = true
+	first_player.stream_paused = true
+	first_player.max_polyphony = baseline_max_polyphony + 6
+	first_player.mix_target = AudioStreamPlayer.MIX_TARGET_SURROUND
+	first_player.playback_type = AudioServer.PLAYBACK_TYPE_SAMPLE
+	first_handle.stop()
+	# 旧调用方仍持有 raw player；acquire 边界也必须重建模板，不能只在 release 时清理。
+	first_player.autoplay = true
+	first_player.stream_paused = true
+	first_player.max_polyphony = baseline_max_polyphony + 7
+	first_player.mix_target = AudioStreamPlayer.MIX_TARGET_CENTER
+	first_player.playback_type = AudioServer.PLAYBACK_TYPE_STREAM
+
+	var second_handle: GFAudioEmitterHandle = _audio.play_sfx_clip_handle(clip)
+	var reused_player: AudioStreamPlayer = second_handle.get_player() as AudioStreamPlayer
+
+	assert_same(reused_player, first_player, "测试必须确认复用了同一池节点。")
+	assert_false(reused_player.autoplay, "复用播放器不得继承旧 lease 的 autoplay。")
+	assert_false(reused_player.stream_paused, "复用播放器不得继承旧 lease 的暂停状态。")
+	assert_eq(
+		reused_player.max_polyphony,
+		baseline_max_polyphony,
+		"复用播放器必须恢复模板 polyphony。"
+	)
+	assert_eq(reused_player.mix_target, baseline_mix_target, "复用播放器必须恢复模板 mix target。")
+	assert_eq(
+		reused_player.playback_type,
+		baseline_playback_type,
+		"复用播放器必须恢复模板 playback type。"
+	)
+	assert_eq(reused_player.bus, "Master", "本次 clip 的 bus 配置仍应在模板恢复后生效。")
+	assert_almost_eq(reused_player.volume_db, 0.0, 0.001)
+	assert_almost_eq(reused_player.pitch_scale, 1.0, 0.001)
+	second_handle.stop()
 
 
 func test_sfx_handle_can_bind_to_owner_exit() -> void:
@@ -3516,6 +3590,34 @@ func test_play_ambient_clip_uses_channel_player() -> void:
 	assert_false(_audio.is_ambient_playing(&"rain"), "停止通道后环境音应结束。")
 
 
+func test_stopped_ambient_player_cache_is_bounded() -> void:
+	_audio.max_idle_ambient_players = 2
+	var clip: GFAudioClip = GFAudioClip.new()
+	clip.stream = AudioStreamGenerator.new()
+	clip.bus_name = "Master"
+	_audio.play_ambient_clip(clip, &"active")
+	var active_player: AudioStreamPlayer = _audio._get_ambient_player(&"active")
+
+	for index: int in range(5):
+		var channel: StringName = StringName("idle_%d" % index)
+		_audio.play_ambient_clip(clip, channel)
+		_audio.stop_ambient(channel)
+
+	var snapshot: Dictionary = _audio.get_debug_snapshot()
+	assert_true(is_instance_valid(active_player), "活跃 channel 不得被空闲缓存淘汰。")
+	assert_true(active_player.playing)
+	assert_eq(_audio._ambient_players.size(), 3, "一个活跃播放器加两个近期空闲播放器应构成稳定上限。")
+	assert_eq(_audio._ambient_idle_channels.size(), 2)
+	assert_false(_audio._ambient_players.has(&"idle_0"), "最旧的停止 channel 应被淘汰。")
+	assert_false(_audio._ambient_players.has(&"idle_1"))
+	assert_false(_audio._ambient_players.has(&"idle_2"))
+	assert_true(_audio._ambient_players.has(&"idle_3"), "最近停止的 channel 应保留。")
+	assert_true(_audio._ambient_players.has(&"idle_4"))
+	assert_eq(GFVariantData.get_option_int(snapshot, "cached_ambient_player_count"), 3)
+	assert_eq(GFVariantData.get_option_int(snapshot, "idle_ambient_player_count"), 2)
+	assert_eq(GFVariantData.get_option_int(snapshot, "max_idle_ambient_players"), 2)
+
+
 func test_play_bgm_ignores_stale_async_load() -> void:
 	var mock_asset: MockAssetUtility = MockAssetUtility.new()
 	var audio: AssetBackedAudioUtility = AssetBackedAudioUtility.new(mock_asset)
@@ -3710,6 +3812,56 @@ func test_mix_snapshot_can_apply_bus_effect_property() -> void:
 
 	while AudioServer.get_bus_effect_count(bus_idx) > effect_count_before:
 		AudioServer.remove_bus_effect(bus_idx, AudioServer.get_bus_effect_count(bus_idx) - 1)
+
+
+func test_mix_snapshot_rejects_invalid_payload_shapes() -> void:
+	var cases: Array[Dictionary] = [
+		{
+			"snapshot": {"buses": []},
+			"reason": "invalid_buses_payload",
+		},
+		{
+			"snapshot": {"effects": 42},
+			"reason": "invalid_effects_payload",
+		},
+		{
+			"snapshot": {"effects": {"Master": 42}},
+			"reason": "invalid_effect_group",
+		},
+	]
+	for test_case: Dictionary in cases:
+		var report: Dictionary = _audio.apply_mix_snapshot(
+			GFVariantData.get_option_dictionary(test_case, "snapshot")
+		)
+		var failed: Array = GFVariantData.get_option_array(report, "failed")
+		var applied: PackedStringArray = GFVariantData.get_option_packed_string_array(
+			report,
+			"applied"
+		)
+
+		assert_false(
+			GFVariantData.get_option_bool(report, "ok"),
+			"结构错误的混音快照不得报告成功。"
+		)
+		assert_eq(failed.size(), 1, "每个结构错误应生成一个稳定失败条目。")
+		if not failed.is_empty() and failed[0] is Dictionary:
+			var failed_entry: Dictionary = failed[0]
+			assert_eq(
+				GFVariantData.get_option_string(failed_entry, "reason"),
+				GFVariantData.get_option_string(test_case, "reason")
+			)
+		assert_true(applied.is_empty(), "结构错误不得产生已应用字段。")
+
+	var empty_report: Dictionary = _audio.apply_mix_snapshot({})
+	var explicit_empty_report: Dictionary = _audio.apply_mix_snapshot({
+		"buses": {},
+		"effects": [],
+	})
+	assert_true(GFVariantData.get_option_bool(empty_report, "ok"), "空快照仍应是合法 no-op。")
+	assert_true(
+		GFVariantData.get_option_bool(explicit_empty_report, "ok"),
+		"显式空容器仍应是合法 no-op。"
+	)
 
 
 func test_audio_backend_can_handle_mix_controls() -> void:
@@ -4073,6 +4225,36 @@ func test_stale_bgm_stop_fade_cannot_stop_replacement_session() -> void:
 
 	assert_same(_audio._bgm_player.stream, second_stream, "旧 stop fade 完成时不得清理复用播放器上的新 BGM 会话。")
 	assert_true(_audio._bgm_player.playing, "旧 stop fade 完成时不得停止新 BGM 会话。")
+
+
+func test_bgm_stop_fallback_reuses_one_cancellable_timer() -> void:
+	var fallback_timer: Timer = null
+	for cycle: int in range(5):
+		_audio._play_bgm_stream(AudioStreamGenerator.new())
+		_audio.stop_bgm(3600.0)
+		var current_timer: Timer = _audio._bgm_stop_fallback_timer
+		assert_not_null(current_timer, "长 fade 应建立可取消 fallback。")
+		if current_timer == null:
+			return
+		if fallback_timer == null:
+			fallback_timer = current_timer
+		else:
+			assert_same(current_timer, fallback_timer, "replacement 不得累计新的长寿命 timer。")
+		assert_false(current_timer.is_stopped(), "当前 stop session 的 fallback 应处于计时状态。")
+
+		_audio._play_bgm_stream(AudioStreamGenerator.new())
+		assert_true(current_timer.is_stopped(), "replacement 必须主动取消旧 fallback。")
+
+	assert_eq(
+		_count_root_nodes_named("GFBGMStopFallbackTimer"),
+		1,
+		"任意时刻最多保留一个 utility-owned fallback timer。"
+	)
+	_audio.dispose()
+	assert_null(_audio._bgm_stop_fallback_timer, "dispose 必须释放 fallback owner 引用。")
+	assert_true(fallback_timer.is_queued_for_deletion(), "dispose 必须释放 fallback Timer 节点。")
+	_audio.init()
+	await get_tree().process_frame
 
 
 func test_rejected_bgm_region_does_not_cancel_active_crossfade() -> void:
@@ -5462,3 +5644,19 @@ func _wait_for_bus_volume_target(
 			return true
 		await get_tree().process_frame
 	return absf(AudioServer.get_bus_volume_db(bus_index) - expected_db) <= 0.001
+
+
+func _count_root_audio_players_named(player_name: String) -> int:
+	var count: int = 0
+	for child: Node in get_tree().root.get_children():
+		if child is AudioStreamPlayer and child.name == player_name:
+			count += 1
+	return count
+
+
+func _count_root_nodes_named(node_name: String) -> int:
+	var count: int = 0
+	for child: Node in get_tree().root.get_children():
+		if child.name == node_name:
+			count += 1
+	return count

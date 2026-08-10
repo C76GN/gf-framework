@@ -39,12 +39,12 @@ static func step_float( current_value: float, velocity: float, target_value: flo
 | 名称 | 说明 |
 |---|---|
 | `current_value` | 当前值。 |
-| `velocity` | 当前速度；调用方应保存返回的 `velocity` 用于下一次步进。 |
+| `velocity` | 当前速度；调用方应保存返回的 \`velocity\` 用于下一次步进。 |
 | `target_value` | 目标值。 |
 | `delta_seconds` | 本次步进时间；小于等于 0 时返回原状态。 |
 | `frequency_hz` | 弹簧频率，越大越快接近目标；会被限制为大于 0。 |
 | `damping_ratio` | 阻尼比；1 表示接近临界阻尼，0 表示无阻尼。 |
-| `response` | 目标速度响应系数；0 表示忽略 `target_velocity` 的前馈。 |
+| `response` | 目标速度响应系数；0 表示忽略 \`target_velocity\` 的前馈。 |
 | `target_velocity` | 目标值自身速度。 |
 
 返回：包含下一帧 `value` 与 `velocity` 的字典。
@@ -70,12 +70,12 @@ static func step_angle( current_radians: float, velocity: float, target_radians:
 | 名称 | 说明 |
 |---|---|
 | `current_radians` | 当前角度（弧度）。 |
-| `velocity` | 当前角速度；调用方应保存返回的 `velocity` 用于下一次步进。 |
+| `velocity` | 当前角速度；调用方应保存返回的 \`velocity\` 用于下一次步进。 |
 | `target_radians` | 目标角度（弧度）。 |
 | `delta_seconds` | 本次步进时间；小于等于 0 时返回原状态。 |
 | `frequency_hz` | 弹簧频率，越大越快接近目标；会被限制为大于 0。 |
 | `damping_ratio` | 阻尼比；1 表示接近临界阻尼，0 表示无阻尼。 |
-| `response` | 目标角速度响应系数；0 表示忽略 `target_velocity` 的前馈。 |
+| `response` | 目标角速度响应系数；0 表示忽略 \`target_velocity\` 的前馈。 |
 | `target_velocity` | 目标角度自身速度。 |
 
 返回：包含下一帧 `value` 与 `velocity` 的字典；`value` 不会自动归一化。
@@ -101,12 +101,12 @@ static func step_vector2( current_value: Vector2, velocity: Vector2, target_valu
 | 名称 | 说明 |
 |---|---|
 | `current_value` | 当前值。 |
-| `velocity` | 当前速度；调用方应保存返回的 `velocity` 用于下一次步进。 |
+| `velocity` | 当前速度；调用方应保存返回的 \`velocity\` 用于下一次步进。 |
 | `target_value` | 目标值。 |
 | `delta_seconds` | 本次步进时间；小于等于 0 时返回原状态。 |
 | `frequency_hz` | 弹簧频率，越大越快接近目标；会被限制为大于 0。 |
 | `damping_ratio` | 阻尼比；1 表示接近临界阻尼，0 表示无阻尼。 |
-| `response` | 目标速度响应系数；0 表示忽略 `target_velocity` 的前馈。 |
+| `response` | 目标速度响应系数；0 表示忽略 \`target_velocity\` 的前馈。 |
 | `target_velocity` | 目标值自身速度。 |
 
 返回：包含下一帧 `value` 与 `velocity` 的字典。
@@ -132,12 +132,12 @@ static func step_vector3( current_value: Vector3, velocity: Vector3, target_valu
 | 名称 | 说明 |
 |---|---|
 | `current_value` | 当前值。 |
-| `velocity` | 当前速度；调用方应保存返回的 `velocity` 用于下一次步进。 |
+| `velocity` | 当前速度；调用方应保存返回的 \`velocity\` 用于下一次步进。 |
 | `target_value` | 目标值。 |
 | `delta_seconds` | 本次步进时间；小于等于 0 时返回原状态。 |
 | `frequency_hz` | 弹簧频率，越大越快接近目标；会被限制为大于 0。 |
 | `damping_ratio` | 阻尼比；1 表示接近临界阻尼，0 表示无阻尼。 |
-| `response` | 目标速度响应系数；0 表示忽略 `target_velocity` 的前馈。 |
+| `response` | 目标速度响应系数；0 表示忽略 \`target_velocity\` 的前馈。 |
 | `target_velocity` | 目标值自身速度。 |
 
 返回：包含下一帧 `value` 与 `velocity` 的字典。

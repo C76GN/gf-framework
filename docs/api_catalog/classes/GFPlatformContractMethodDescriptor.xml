@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFPlatformContractMethodDescriptor" path="addons/gf/standard/foundation/platform/gf_platform_contract_method_descriptor.gd" module="standard" extends="Resource" classDigest="a9282b81bc06df2942f424c5d9a7cd344ac6ac95157253e91e7db582346e83d2">
+<class name="GFPlatformContractMethodDescriptor" path="addons/gf/standard/foundation/platform/gf_platform_contract_method_descriptor.gd" module="standard" extends="Resource" classDigest="7136ade3543219529e9bf98097bbbe39ffae1e0b7ab09b60d99020cf51c2fce9">
 	<description>GFPlatformContractMethodDescriptor: 平台桥接方法契约。
 描述单个 provider-neutral 方法的请求/结果 schema、能力前置条件、载荷预算、
 并发上限与取消语义。具体 SDK 错误码和项目业务规则不得写入该描述符。</description>
@@ -46,7 +46,7 @@
 		</member>
 		<member kind="property" name="max_request_bytes" decorators="@export">
 			<signature>var max_request_bytes: int = 0</signature>
-			<description>请求 JSON-compatible 编码后的最大字节数；0 表示不额外限制。</description>
+			<description>请求 JSON-compatible 编码后的最大字节数；0 表示不额外限制，负值会使定义校验失败。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="since">10.0.0</tag>
@@ -54,7 +54,7 @@
 		</member>
 		<member kind="property" name="max_result_bytes" decorators="@export">
 			<signature>var max_result_bytes: int = 0</signature>
-			<description>成功结果 JSON-compatible 编码后的最大字节数；0 表示不额外限制。</description>
+			<description>成功结果 JSON-compatible 编码后的最大字节数；0 表示不额外限制，负值会使定义校验失败。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="since">10.0.0</tag>
@@ -62,7 +62,7 @@
 		</member>
 		<member kind="property" name="max_concurrent_requests" decorators="@export">
 			<signature>var max_concurrent_requests: int = 0</signature>
-			<description>同一 adapter 上该方法允许的最大并发请求数；0 表示不额外限制。</description>
+			<description>同一 adapter 上该方法允许的最大并发请求数；0 表示不额外限制，负值会使定义校验失败。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="since">10.0.0</tag>
@@ -101,7 +101,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">p_method_id: 方法稳定标识。</tag>
-				<tag name="param">options: 可包含 request_schema、result_schema、required_capability_ids、max_request_bytes、max_result_bytes、max_concurrent_requests、supports_cancellation、sensitive_fields 和 metadata。</tag>
+				<tag name="param">options: 可包含 request_schema、result_schema、required_capability_ids、max_request_bytes、max_result_bytes、max_concurrent_requests、supports_cancellation、sensitive_fields 和 metadata；三个限制字段的负值会保留并由定义校验拒绝，不会降级成无限制。</tag>
 				<tag name="return">当前描述符。</tag>
 				<tag name="schema">options: Dictionary platform contract method options.</tag>
 				<tag name="since">10.0.0</tag>

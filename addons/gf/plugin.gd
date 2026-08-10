@@ -98,6 +98,9 @@ const GF_EDITOR_CONTRIBUTION_REGISTRY_SCRIPT = preload("res://addons/gf/kernel/e
 ## @layer plugin
 const STANDARD_EDITOR_CONTRIBUTIONS_MANIFEST_PATH: String = "res://addons/gf/standard/editor/gf_editor_contributions.json"
 const _GF_VARIANT_ACCESS_SCRIPT = preload("res://addons/gf/kernel/core/gf_variant_access.gd")
+const _GF_PLUGIN_REFRESH_STATE_SCRIPT = preload("res://addons/gf/kernel/editor/gf_plugin_refresh_state.gd")
+const _EDITOR_CONTRIBUTION_REFRESH_TIMEOUT_MSEC: int = 120_000
+const _EDITOR_CONTRIBUTION_DIAGNOSTIC_KIND_LIMIT: int = 16
 
 
 # --- 私有变量 ---
@@ -112,6 +115,8 @@ var _preview_tools: GFPluginPreviewTools
 var _gltf_document_tools: GFPluginGltfDocumentTools
 var _plugin_active: bool = false
 var _standard_editor_extension_records: Dictionary = {}
+var _standard_editor_contribution_report: Dictionary = {}
+var _refresh_state: _GF_PLUGIN_REFRESH_STATE_SCRIPT = _GF_PLUGIN_REFRESH_STATE_SCRIPT.new()
 
 
 # --- Godot 生命周期方法 ---
@@ -119,7 +124,7 @@ var _standard_editor_extension_records: Dictionary = {}
 func _enter_tree() -> void:
 	_plugin_active = true
 	GFPluginAutoload.ensure(self)
-	_standard_editor_extension_records = _collect_standard_editor_extension_records()
+	_reload_standard_editor_contribution_report()
 	GFPluginProjectSettings.ensure_all(_get_record_array(_standard_editor_extension_records, "project_setting_records"))
 	_setup_actions_and_menu()
 	var active_editor_records: Dictionary = _make_active_editor_records()
@@ -148,6 +153,7 @@ func _enter_tree() -> void:
 
 func _exit_tree() -> void:
 	_plugin_active = false
+	_cancel_editor_contribution_refresh()
 	GFPluginAutoload.remove(self)
 
 	if _dock_tools != null:
@@ -174,6 +180,8 @@ func _exit_tree() -> void:
 	if _inspector_tools != null:
 		_inspector_tools.cleanup(self)
 		_inspector_tools = null
+	_standard_editor_extension_records = {}
+	_standard_editor_contribution_report = {}
 
 
 # --- 私有/辅助方法 ---
@@ -218,10 +226,83 @@ func _connect_action_signals() -> void:
 func _refresh_editor_contributions() -> void:
 	if not _plugin_active:
 		return
+	if _refresh_state.request(
+		_refresh_now_msec(),
+		_EDITOR_CONTRIBUTION_REFRESH_TIMEOUT_MSEC
+	):
+		call_deferred("_begin_editor_contribution_refresh")
 
-	_scan_editor_filesystem()
+
+func _begin_editor_contribution_refresh() -> void:
+	if not _plugin_active or not _refresh_state.is_pending():
+		return
+	_execute_editor_contribution_refresh_action(
+		_refresh_state.begin(_is_editor_filesystem_scanning())
+	)
+
+
+func _schedule_editor_contribution_refresh_poll() -> void:
+	if not _plugin_active or not _refresh_state.is_pending():
+		return
+	var scene_tree: SceneTree = get_tree()
+	if scene_tree == null:
+		_fail_editor_contribution_refresh("scene_tree_unavailable")
+		return
+	var poll_callable: Callable = Callable(self, "_poll_editor_contribution_refresh")
+	var process_frame_signal: Signal = scene_tree.process_frame
+	if process_frame_signal.is_connected(poll_callable):
+		return
+	var connect_error: Error = process_frame_signal.connect(
+		poll_callable,
+		CONNECT_ONE_SHOT as Object.ConnectFlags
+	) as Error
+	if connect_error != OK:
+		_fail_editor_contribution_refresh("poll_connect_failed")
+
+
+func _poll_editor_contribution_refresh() -> void:
+	if not _plugin_active or not _refresh_state.is_pending():
+		return
+	if _refresh_state.is_expired(_refresh_now_msec()):
+		_fail_editor_contribution_refresh("scan_timeout")
+		return
+	if _is_editor_filesystem_scanning():
+		_schedule_editor_contribution_refresh_poll()
+		return
+	_execute_editor_contribution_refresh_action(_refresh_state.after_scan_idle())
+
+
+func _execute_editor_contribution_refresh_action(action: Dictionary) -> void:
+	var kind: StringName = _GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(action, "kind")
+	if kind == _GF_PLUGIN_REFRESH_STATE_SCRIPT.ACTION_WAIT:
+		_schedule_editor_contribution_refresh_poll()
+		return
+	if kind == _GF_PLUGIN_REFRESH_STATE_SCRIPT.ACTION_SCAN:
+		if not _scan_editor_filesystem():
+			_fail_editor_contribution_refresh("filesystem_unavailable")
+			return
+		_schedule_editor_contribution_refresh_poll()
+		return
+	if kind == _GF_PLUGIN_REFRESH_STATE_SCRIPT.ACTION_APPLY:
+		var generation: int = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(action, "generation", 0)
+		_apply_editor_contributions_refresh(generation)
+		if not _plugin_active:
+			_cancel_editor_contribution_refresh()
+			return
+		_execute_editor_contribution_refresh_action(
+			_refresh_state.after_applied(generation)
+		)
+		return
+	if kind == _GF_PLUGIN_REFRESH_STATE_SCRIPT.ACTION_DONE:
+		return
+	_fail_editor_contribution_refresh("invalid_state_action")
+
+
+func _apply_editor_contributions_refresh(generation: int) -> void:
+	if not _plugin_active:
+		return
 	GFExtensionSettingsBase.clear_manifest_cache()
-	_standard_editor_extension_records = _collect_standard_editor_extension_records()
+	_reload_standard_editor_contribution_report()
 	GFPluginProjectSettings.ensure_all(_get_record_array(_standard_editor_extension_records, "project_setting_records"))
 
 	if _inspector_tools != null:
@@ -254,19 +335,115 @@ func _refresh_editor_contributions() -> void:
 		dock_records.assign(_get_record_array(_standard_editor_extension_records, "dock_records"))
 		_dock_tools.setup(self, dock_records)
 
-	print("[GF Framework] 已刷新 GF 编辑器贡献记录。")
+	print("[GF Framework] 已刷新 GF 编辑器贡献记录（generation=%d）。" % generation)
 
 
-func _scan_editor_filesystem() -> void:
+func _scan_editor_filesystem() -> bool:
 	if not Engine.is_editor_hint():
-		return
+		return false
 	var filesystem: EditorFileSystem = EditorInterface.get_resource_filesystem()
-	if filesystem != null:
-		filesystem.scan()
+	if filesystem == null:
+		return false
+	filesystem.scan()
+	return true
 
 
-func _collect_standard_editor_extension_records() -> Dictionary:
-	return GF_EDITOR_CONTRIBUTION_REGISTRY_SCRIPT.load_manifest_records(STANDARD_EDITOR_CONTRIBUTIONS_MANIFEST_PATH)
+func _is_editor_filesystem_scanning() -> bool:
+	if not Engine.is_editor_hint():
+		return false
+	var filesystem: EditorFileSystem = EditorInterface.get_resource_filesystem()
+	return filesystem != null and filesystem.is_scanning()
+
+
+func _refresh_now_msec() -> int:
+	return Time.get_ticks_msec()
+
+
+func _fail_editor_contribution_refresh(kind: String) -> void:
+	_report_editor_contribution_refresh_issue(
+		kind,
+		_refresh_state.get_requested_generation()
+	)
+	_cancel_editor_contribution_refresh()
+
+
+func _report_editor_contribution_refresh_issue(kind: String, generation: int) -> void:
+	push_warning(
+		"[GF Framework][PLUGIN-BOOT-002] 编辑器贡献刷新未应用：kind=%s generation=%d。"
+		% [kind, generation]
+	)
+
+
+func _cancel_editor_contribution_refresh() -> void:
+	var scene_tree: SceneTree = get_tree()
+	var poll_callable: Callable = Callable(self, "_poll_editor_contribution_refresh")
+	if scene_tree != null and scene_tree.process_frame.is_connected(poll_callable):
+		scene_tree.process_frame.disconnect(poll_callable)
+	_refresh_state.cancel()
+
+
+func _reload_standard_editor_contribution_report() -> void:
+	_standard_editor_contribution_report = _collect_standard_editor_contribution_report()
+	_standard_editor_extension_records = _GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(
+		_standard_editor_contribution_report,
+		"records",
+		GF_EDITOR_CONTRIBUTION_REGISTRY_SCRIPT.empty_records()
+	)
+	_publish_standard_editor_contribution_diagnostic(_standard_editor_contribution_report)
+
+
+func _collect_standard_editor_contribution_report(
+	manifest_path: String = STANDARD_EDITOR_CONTRIBUTIONS_MANIFEST_PATH
+) -> Dictionary:
+	return GF_EDITOR_CONTRIBUTION_REGISTRY_SCRIPT.load_manifest_report(manifest_path)
+
+
+func _publish_standard_editor_contribution_diagnostic(report: Dictionary) -> void:
+	var state: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(report, "state")
+	if state == "absent" or state == "valid":
+		return
+	var issue_kinds: Array[String] = []
+	_append_report_issue_kinds(
+		issue_kinds,
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_array(report, "issues")
+	)
+	_append_report_issue_kinds(
+		issue_kinds,
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_array(report, "skipped_records")
+	)
+	issue_kinds.sort()
+	var kinds_truncated: bool = issue_kinds.size() > _EDITOR_CONTRIBUTION_DIAGNOSTIC_KIND_LIMIT
+	if kinds_truncated:
+		var _resize_error: Error = issue_kinds.resize(
+			_EDITOR_CONTRIBUTION_DIAGNOSTIC_KIND_LIMIT
+		) as Error
+	var kinds_text: String = ",".join(PackedStringArray(issue_kinds))
+	if kinds_text.is_empty():
+		kinds_text = "unknown"
+	if kinds_truncated:
+		kinds_text += ",..."
+	push_warning(
+		(
+			"[GF Framework][PLUGIN-BOOT-001] standard editor contribution manifest "
+			+ "state=%s issue_count=%d skipped_record_count=%d issue_kinds=%s。"
+		)
+		% [
+			state if not state.is_empty() else "invalid",
+			_GF_VARIANT_ACCESS_SCRIPT.get_option_int(report, "issue_count", 0),
+			_GF_VARIANT_ACCESS_SCRIPT.get_option_int(report, "skipped_record_count", 0),
+			kinds_text,
+		]
+	)
+
+
+func _append_report_issue_kinds(target: Array[String], values: Array) -> void:
+	for value: Variant in values:
+		if not value is Dictionary:
+			continue
+		var issue: Dictionary = value
+		var kind: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(issue, "kind").strip_edges()
+		if not kind.is_empty() and not target.has(kind):
+			target.append(kind)
 
 
 func _make_active_editor_records() -> Dictionary:
@@ -329,4 +506,4 @@ func _on_workspace_requested() -> void:
 
 
 func _on_editor_contributions_refresh_requested() -> void:
-	call_deferred("_refresh_editor_contributions")
+	_refresh_editor_contributions()

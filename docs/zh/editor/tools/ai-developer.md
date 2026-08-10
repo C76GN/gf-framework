@@ -30,7 +30,7 @@ python addons/gf/tools/ai_developer/gf_ai_project.py validate --project-root .
 
 初始化不会覆盖已有文件。契约使用严格 JSON Schema，未知字段、错误类型、重复声明、互相冲突的 required/optional/forbidden package，以及不存在的能力 ID 都会失败。模板中的 `unknowns` 不是待办装饰；会影响当前架构决策的未知项应标记为 blocking，并在确认后从契约中解决。
 
-项目存在 `.gf/packages.lock.json` 时，快照只接受 Package Manager 的正式 `schema_version: 1` 与 `installed` 结构，不会在 lockfile 损坏时静默退回目录猜测。没有 lockfile 的完整源码分发或开发仓库才根据当前版本目录中的代表文件生成 `filesystem` 观测；两种来源都会明确记录在 `framework.package_state`。
+项目存在 `.gf/packages.lock.json` 时，快照只接受 Package Manager 的正式闭合结构：根字段、`schema_version` 精确整数类型、registry source、每个完整 package entry、文件元数据、当前框架/entry 版本、包类型、`required_by` 与依赖闭包都必须有效。任何一项无效时只保留有界诊断，可信 `packages` 集合固定为空，也不会静默退回目录猜测。没有 lockfile 的完整源码分发或开发仓库才根据当前版本目录中的代表文件生成 `filesystem` 观测；两种来源都会明确记录在 `framework.package_state`。
 
 重点字段包括：
 
@@ -70,7 +70,7 @@ python addons/gf/tools/ai_developer/gf_ai_project.py agent-install --project-roo
 python addons/gf/tools/ai_developer/gf_ai_project.py agent-status --project-root .
 ```
 
-可通过重复 `--target` 选择 `agents`、`claude`、`codex`、`copilot`、`cursor` 或 `gemini`，也可以使用 `--target all`。`--dry-run` 只返回计划。安装和卸载遇到已修改、残缺或重复的托管内容都会拒绝覆盖；确认要用当前版本模板替换托管内容时，安装命令必须显式传 `--replace-drifted`。项目自己的非托管内容始终保留。
+可通过重复 `--target` 选择 `agents`、`claude`、`codex`、`copilot`、`cursor` 或 `gemini`，也可以使用 `--target all`。`--dry-run` 只返回计划。安装和卸载遇到已修改、残缺、重复、超出单文件/本次调用读取预算或穿越 symlink/junction/reparse 的托管内容都会拒绝覆盖；确认要用当前版本模板替换托管内容时，安装命令必须显式传 `--replace-drifted`。托管块替换只切换精确 marker 区间，块外 UTF-8 字节（包括 CRLF、首尾空行、Markdown 尾空格与缩进）保持不变；提交计划同时绑定原文件存在性和 SHA-256，计划后已发生的普通编辑会使整批操作失败并恢复已写目标。跨平台父目录 rename/reparse 的对抗性竞态仍需完整的 handle-pinned Project I/O 能力，不能把当前路径复核过度解释为已经封闭该窗口。
 
 独立插件已经从自身目录提供 Codex Skill，因此未安装项目内 tool package 时，默认 `agent-install` 只写 `AGENTS.md` 管理块，并拒绝 `--target codex` 产生一个无法独立解析 runtime 的项目副本。其他 Agent 目标仍可按需安装。
 
@@ -154,11 +154,11 @@ Steam、微信小游戏、Epic、主机平台、云服务、支付和广告 SDK 
 
 一个抽象只有在至少两个独立实现中都能保持相同的状态、失败、所有权和生命周期语义时，才值得反馈为 GF 能力。平台登录流程、商店政策、好友 UI、活动任务、奖励数值和 SDK 初始化细节继续留在 Adapter 或项目业务层。
 
-Kit 的 `templates/adapters/platform/` 提供 Platform contract、Lobby Backend、契约测试、兼容性 Profile 和故障矩阵起点。Agent 应先用 `GFPlatformContractDescriptor` 声明 Schema 与预算，用 `GFPlatformAdapterConformance` 做无 SDK 静态审查，再实现 Provider callback 映射；Provider 返回 Godot Peer 时采用 `GFMultiplayerPeerNetworkBackend` 并显式选择 owned/borrowed，不能生成平台命名的 GF Core Manager。
+Kit 的 `templates/adapters/platform/` 提供 Platform contract、Lobby Backend、契约测试、兼容性 Profile 和故障矩阵起点。源码检查会把该目录视为闭合的受控普通文件集合，以稳定文件/父链身份和单文件硬预算拒绝链接、意外文件、超限或读取期替换。Agent 应先用 `GFPlatformContractDescriptor` 声明 Schema 与预算，用 `GFPlatformAdapterConformance` 做无 SDK 静态审查，再实现 Provider callback 映射；Provider 返回 Godot Peer 时采用 `GFMultiplayerPeerNetworkBackend` 并显式选择 owned/borrowed，不能生成平台命名的 GF Core Manager。
 
 原生或 GDExtension-backed Adapter 还必须通过独立的原生边界验收：Profile 固定 descriptor、二进制哈希与 `platform + architecture + build_configuration` 矩阵；运行时只做无副作用可用性探测，必需能力缺失、目标歧义或证据不完整时 fail closed。后台回调只能先复制有界纯数据，再经主线程 callback pump 接触 Godot/GF 对象；关闭流程依次停止入口、取消句柄、解绑回调、有界等待自有线程并释放 Provider。依赖来源必须锁定且可离线复现，权限拒绝与敏感字段必须稳定失败并脱敏，编辑器专属产物不能进入运行时导出，所有声明目标都要在实际导出包中复跑加载、取消与关闭验收。
 
-Kit 的 `templates/adapters/storage/` 提供项目侧 `GFStorageBackend`、强类型 Provider 边界和可直接运行的 GUT 合约矩阵。复制模板后必须保持稳定协议版本和真实能力报告，拒绝空 Provider、路径逃逸、未知选项、矛盾的失败结果和超预算载荷，并验证 exists/read/write/delete/list、条件修订及失败时旧记录仍完整可见。Kit 验收会把受控普通文件复制到隔离项目，通过受监督且有界的 Godot import/GUT 进程复核生命周期证据，并把链接穿越、输出截断、日志缺失和脱敏 canary 视为失败。`GFStorageBackend` 是同步协议，模板不会虚报 cancellation 或 sync；异步 SDK 的取消、回调关联、主线程入口与有界关闭应由项目侧异步 facade 承担。云冲突、重试、离线和合并策略仍属于项目，不得写死到通用 Adapter。
+Kit 的 `templates/adapters/storage/` 提供项目侧 `GFStorageBackend`、强类型 Provider 边界和可直接运行的 GUT 合约矩阵。复制模板后必须保持稳定协议版本和真实能力报告，拒绝空 Provider、路径逃逸、未知选项、矛盾的失败结果和超预算载荷，并验证 exists/read/write/delete/list、条件修订及失败时旧记录仍完整可见。公共保存入口在复制前完成一次完整 payload 校验，受保护 hook 仍可独立防御直接调用；两者只把已验证数据交给共同的私有提交 helper，正常公共路径不再重复遍历同一图。Kit 验收会把受控普通文件复制到隔离项目，通过受监督且有界的 Godot import/GUT 进程复核生命周期证据，并把链接穿越、输出截断、日志缺失和脱敏 canary 视为失败。`GFStorageBackend` 是同步协议，模板不会虚报 cancellation 或 sync；异步 SDK 的取消、回调关联、主线程入口与有界关闭应由项目侧异步 facade 承担。云冲突、重试、离线和合并策略仍属于项目，不得写死到通用 Adapter。
 
 ## 反馈状态机
 

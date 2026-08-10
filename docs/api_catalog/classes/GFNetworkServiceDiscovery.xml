@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFNetworkServiceDiscovery" path="addons/gf/extensions/network/session/gf_network_service_discovery.gd" module="extensions/network" extends="RefCounted" classDigest="84b279ad39880fabb2991dc4d4056afb213bd6caba407a54b4add53aacd06579">
+<class name="GFNetworkServiceDiscovery" path="addons/gf/extensions/network/session/gf_network_service_discovery.gd" module="extensions/network" extends="RefCounted" classDigest="31cddbb2eca7d6de238546ff1b644b13b49495867b3d4e2f4db155299141c365">
 	<description>GFNetworkServiceDiscovery: 传输无关的网络服务发现记录器。
 负责生成服务广告字典、JSON bytes 编解码、接收入站广告并维护带 TTL 的服务列表。
 它不打开 socket、不决定广播地址，也不规定房间、账号、鉴权或同步协议。</description>
@@ -96,10 +96,10 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">advertisement: 服务广告字典。</tag>
-				<tag name="param">options: 可选项，支持 remote_address、remote_port 和 now_seconds。</tag>
+				<tag name="param">options: 可选项，支持 remote_address、remote_port 和 now_seconds；now_seconds 只用于记录时间字段，TTL 淘汰始终使用本实例的 elapsed clock。</tag>
 				<tag name="return">接收报告。</tag>
 				<tag name="schema">advertisement: Dictionary produced by make_advertisement() or decode_advertisement().</tag>
-				<tag name="schema">options: Dictionary with remote_address: String, remote_port: int, and now_seconds: float.</tag>
+				<tag name="schema">options: Dictionary with remote_address: String, remote_port: int, and now_seconds: non-negative finite float used for record timestamps only.</tag>
 				<tag name="schema">return: Dictionary with ok, status, service_key, record, error, issues, issue_count, and next_action.</tag>
 				<tag name="since">8.0.0</tag>
 			</tags>
@@ -112,7 +112,7 @@
 				<tag name="param">bytes: UTF-8 JSON bytes。</tag>
 				<tag name="param">remote_address: 底层传输报告的远端地址。</tag>
 				<tag name="param">remote_port: 底层传输报告的远端端口。</tag>
-				<tag name="param">options: 可选项，支持 json_codec_options、now_seconds 和广告结构预算。</tag>
+				<tag name="param">options: 可选项，支持 json_codec_options、记录时间 now_seconds 和广告结构预算；now_seconds 不改变 TTL clock domain。</tag>
 				<tag name="return">接收报告。</tag>
 				<tag name="schema">options: Dictionary with json_codec_options, now_seconds, max_advertisement_bytes, max_metadata_depth, and max_metadata_entries.</tag>
 				<tag name="schema">return: Dictionary with ok, status, service_key, record, error, issues, issue_count, and next_action.</tag>

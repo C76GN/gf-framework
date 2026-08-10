@@ -48,7 +48,7 @@
 signal audit_event_recorded(event: Dictionary)
 ```
 
-追加安全审计事件时触发。 事件只包含固定协议字段、稳定标识和 request id 摘要，不包含 token、payload、 handler 输出或策略返回数据。
+追加安全审计事件时触发。 事件只包含固定协议字段、稳定标识和 request id 摘要，不包含 token、payload、 handler 输出或策略返回数据。 重入 listener 产生的事件按 sequence 迭代派发；单次 drain 与待派发队列均有硬上限， 超限时只丢弃实时通知，不丢弃内存审计记录，listener 可通过 sequence 缺口识别。
 
 参数：
 

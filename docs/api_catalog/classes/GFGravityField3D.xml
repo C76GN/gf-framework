@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFGravityField3D" path="addons/gf/extensions/physics/nodes/gf_gravity_field_3d.gd" module="extensions/physics" extends="Node3D" classDigest="3f1be6919ac59af67ef0795a89d1550d16a757ab7f67db7c229a75445ef5fff8">
+<class name="GFGravityField3D" path="addons/gf/extensions/physics/nodes/gf_gravity_field_3d.gd" module="extensions/physics" extends="Node3D" classDigest="8b3f64586b5652ee1fa1e3adc6d1bf9d7c7918236351f011ebb3a7cafa91eb2c">
 	<description>GFGravityField3D: 通用 3D 重力/加速度场。
 提供点重力、远离中心和固定方向三种方向模式，以及常量、线性、平方反比
 和曲线衰减。项目可继承并重写方向或强度计算以实现更复杂的场。</description>
@@ -134,7 +134,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">world_position: 世界坐标。</tag>
-				<tag name="return">加速度向量。</tag>
+				<tag name="return">有限加速度向量；强度无法表示为 Vector3 时返回零向量。</tag>
 				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
@@ -144,7 +144,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">distance: 距离。</tag>
-				<tag name="return">加速度强度。</tag>
+				<tag name="return">有限加速度强度；计算溢出时返回 0。</tag>
 				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>

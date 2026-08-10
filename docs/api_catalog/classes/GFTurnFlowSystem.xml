@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFTurnFlowSystem" path="addons/gf/extensions/turn_based/runtime/gf_turn_flow_system.gd" module="extensions/turn_based" extends="GFSystem" classDigest="6bd39d07b5bf5ddd0b53c6e73c8a467affdcedc098bcc8c3c04d54a896a309ac">
+<class name="GFTurnFlowSystem" path="addons/gf/extensions/turn_based/runtime/gf_turn_flow_system.gd" module="extensions/turn_based" extends="GFSystem" classDigest="1f907f96cc6ef444d29047e89e0e25ab9b4e65939d2585932cfd56ecea7e6a0b">
 	<description>GFTurnFlowSystem: 通用回合流程系统。
 提供阶段推进、行动排队和按优先级解析能力。
 它不关心战斗、卡牌、棋盘等具体业务，只调度抽象行动。</description>
@@ -138,7 +138,7 @@
 			<description>停止流程。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="param">should_clear_actions: 是否清空待处理行动。</tag>
+				<tag name="param">should_clear_actions: 是否清空待处理行动。即使流程已经 stopped，true 仍会幂等清理并封存队列；此前的保留策略也会升级为清理。</tag>
 				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
@@ -188,7 +188,8 @@
 			<description>解析当前上下文中的所有行动。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="param">order_resolver: 可选排序回调，签名为 func(a, b) -&gt; bool。</tag>
+				<tag name="param">order_resolver: 可选排序回调，签名为 func(a, b) -&gt; bool；调用方必须提供无副作用、确定且满足严格弱序的比较器。自定义比较器不继承默认 non-finite 与入队顺序规则。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 	</methods>

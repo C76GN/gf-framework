@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFDictionarySchema" path="addons/gf/standard/foundation/schema/gf_dictionary_schema.gd" module="standard" extends="Resource" classDigest="7873957416011e40bc8ca1a32d907fd160b2f9f1c4ca650635c02c90d98c6cec">
+<class name="GFDictionarySchema" path="addons/gf/standard/foundation/schema/gf_dictionary_schema.gd" module="standard" extends="Resource" classDigest="512e765b72120cb6558a4e16dee6b09d19f5a0e46f8508056435577aa5cee2a8">
 	<description>GFDictionarySchema: 通用 Dictionary 结构声明与校验器。
 为任意 Dictionary 提供字段声明、默认值补齐、类型转换、嵌套结构校验和定义自检。
 它只描述数据形态，不包含配置表索引、跨表引用、内容包启用策略或游戏业务规则。</description>
@@ -108,17 +108,21 @@
 		</member>
 		<member kind="method" name="build_defaults">
 			<signature>func build_defaults(include_optional: bool = true) -&gt; Dictionary:</signature>
-			<description>创建默认 Dictionary。</description>
+			<description>创建默认 Dictionary。
+只写入可表达的默认值：default_value 非 null，或字段允许 null。没有可用默认值的
+non-nullable 字段保持缺失，不会被注入一个随后无法通过 schema 的 null。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">include_optional: 为 true 时包含非必填字段。</tag>
 				<tag name="return">默认数据字典。</tag>
 				<tag name="schema">return: Dictionary default values.</tag>
+				<tag name="since">4.4.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="apply_defaults">
 			<signature>func apply_defaults(values: Dictionary, include_optional: bool = true, should_coerce: bool = true) -&gt; Dictionary:</signature>
-			<description>为输入 Dictionary 补齐默认值。</description>
+			<description>为输入 Dictionary 补齐默认值。
+只为缺失字段写入可表达的默认值；没有可用默认值的 non-nullable 字段保持缺失。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">values: 输入字典。</tag>
@@ -127,6 +131,7 @@
 				<tag name="return">补齐后的新字典。</tag>
 				<tag name="schema">values: Dictionary source values.</tag>
 				<tag name="schema">return: Dictionary normalized values.</tag>
+				<tag name="since">4.4.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="coerce_dictionary">

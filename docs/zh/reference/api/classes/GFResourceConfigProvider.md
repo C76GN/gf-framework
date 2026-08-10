@@ -92,7 +92,7 @@ func register_tables(table_resources: Array[GFConfigTableResource]) -> int:
 func set_table_resources(table_resources: Array[GFConfigTableResource], duplicate_tables: bool = false) -> int:
 ```
 
-批量替换配置表资源并重建内部查询索引。
+以 best-effort 方式批量替换配置表资源并重建内部查询索引。 调用时会先清空旧表，再逐项注册候选；无效候选会被跳过并通过返回数量反映， 不会回滚已经接受的新表，也不保留旧表。需要 last-good 原子切换时，应在调用前 完整校验候选，或由项目层使用独立 Provider/Snapshot 完成 staging 与 swap。
 
 参数：
 
@@ -101,7 +101,7 @@ func set_table_resources(table_resources: Array[GFConfigTableResource], duplicat
 | `table_resources` | 要设置的配置表资源列表。 |
 | `duplicate_tables` | 为 true 时保存表资源副本。 |
 
-返回：成功注册的表数量。
+返回：成功注册的表数量；小于输入数量表示已留下部分新状态。
 
 结构：
 

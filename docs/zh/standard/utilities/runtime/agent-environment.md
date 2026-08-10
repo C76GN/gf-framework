@@ -237,6 +237,8 @@ request ID 在整个 session 内唯一，不按 endpoint 分区。`max_request_i
 `owner_thread_access`。跨线程快照是固定的零值拒绝视图，不读取共享 Dictionary。调用方仍应
 把 session ID、endpoint ID 和时间视作可能敏感的运行信息，并按项目保留策略处理。
 
+每条审计记录先进入有界保留区并提交 sequence，再进入实时 signal 通知队列。监听者同步触发新审计时，环境使用迭代 drain，单次最深通知栈保持为一；一次 drain 最多处理 256 条通知、最多保留 256 条待通知记录。持续恶意重入超过预算时只丢弃实时通知，已经提交的有界审计记录不回滚，调用方可通过 sequence 缺口识别通知丢失。审计 signal 仍是同进程受信观察面，不是可靠消息总线。
+
 ## 威胁模型与同步限制
 
 该环境保护的是“不可信协议数据进入受信同步 handler”这一层边界，不是 OS sandbox：

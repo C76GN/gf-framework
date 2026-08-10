@@ -39,6 +39,19 @@ var result := drag_drop.drop(session_id, release_position)
 
 更复杂的权限、容量、冷却、网格占用或跨模块事务应写在项目自己的 `can_accept` / `drop` 回调、Command 或 System 中，再把最终结果以 `{ "ok": true }` 或 `{ "ok": false, "reason": ... }` 返回给工具。
 
+## 同步回调与终态
+
+`GFDragDropUtility` 的 signal 与 `contains` / `can_accept` / `drop` Callable 都在当前调用栈同步执行，因此框架把它们视为可重入边界：
+
+- `start_drag()` 先注册会话再发出 `drag_started`；监听器若在回调中取消该会话，outer 调用返回 `-1`。
+- `drop()` 解析期间，同一会话再次调用 `drop()` 会返回 `session_resolving`。项目回调若取消同一会话，取消终态优先，outer 调用返回 `session_cancelled`，不会再发出 `drag_dropped`。
+- `get_drop_candidates()` / `get_best_drop_zone()` 的项目回调若取消或替换当前 session，本次查询立即失败关闭为空；控制器不会在该取消终态之后继续转发旧会话的 `drag_moved`。
+- `contains` / `can_accept` 回调返回时若候选已不再注册，业务 `drop` Callable 不会执行，本次返回 `drop_zone_changed`，会话保留以便重试。
+- `drop` 回调返回 `ok=false` 是可重试拒绝，会话继续活动；没有可用落点的 `no_drop_zone` 是终态拒绝，会话已经移除。
+- `clear_sessions()` 与 `clear_zones()` 只处理调用开始时的快照；同步回调中新建的会话或落点会保留，不会无通知消失。
+
+会话和落点的 JSON 调试快照直接进入带循环检测、深度、节点数和集合项预算的 `GFVariantJsonCodec`。循环值会输出 typed marker，遍历超限会输出 `TraversalLimit`，不会回退为 raw Object/Resource。metadata 的摄入容量策略仍应由项目在信任边界限制；不要把无界外部数据直接当作拖拽 metadata。
+
 ## 可选控制器
 
 如果项目需要把一次 UI 拖拽绑定到 source 节点生命周期、单指针捕获、取消和临时拖拽层，可以使用 `GFDragDropController`。控制器持有一个 `GFDragDropUtility`，一次只管理一个活动拖拽；需要多指或多窗口并行拖拽时，为每个交互域创建独立控制器即可。
@@ -64,6 +77,10 @@ controller.update_pointer(pointer_position, touch_index)
 var result := controller.drop(release_position, touch_index)
 ```
 
-`GFDragDropController` 会在 source 离开场景树或失效时取消活动拖拽，错误 pointer 不会更新或释放当前会话。传入 `drag_parent` 时，source 会临时 reparent 到拖拽层；默认取消和无落点结束会恢复原父级，成功 drop 后是否恢复由 `restore_source_parent_on_success` 显式控制，避免框架替项目决定最终摆放位置。
+`GFDragDropController` 会在 source 离开场景树或失效时取消活动拖拽，错误 pointer 不会更新或释放当前会话，`-1` 不能作为活动捕获 ID。传入 `drag_parent` 时，source 会临时 reparent 到拖拽层；默认取消和无落点结束会恢复原父级，成功 drop 后是否恢复由 `restore_source_parent_on_success` 显式控制，避免框架替项目决定最终摆放位置。
 
-控制器把底层 session、pointer capture、临时 reparent 和 source 生命周期监听作为同一个事务处理。`drag_parent` 不能是 source 自身或其子孙；底层拒绝启动时不会留下 capture 或错误父级。drop、cancel、无落点和 source 退出树等所有终态都会断开本次监听，重复拖拽同一节点不会累积旧回调。
+控制器把底层 session、pointer capture、临时 reparent 和 source 生命周期监听作为同一个事务处理。`drag_parent` 不能是 source 自身或其子孙；底层拒绝启动时不会留下 capture 或错误父级。`drag_started` 只在这些状态全部提交后发布；若 started 回调同步结束会话，outer `start_drag()` 返回 `-1`。drop、cancel、无落点和 source 退出树等终态会先恢复可恢复的 source、断开监听并释放 pointer，再发布控制器终态信号，因此终态监听器可以立即开始下一会话。
+
+仍有效但暂时 parentless 的 source 会用原父级重新挂载；原父级已释放、正在释放、拓扑非法或跨 SceneTree 时不会做非法 reparent，但会话和监听仍会安全闭合。需要业务层感知“视觉恢复失败”时，应在终态后检查 source 拓扑；框架当前没有单独的 restore-result signal。
+
+`get_utility()` 当前返回可写的 live Utility。直接对控制器管理的 session 调用底层 `update_drag()`、`drop()` 或 `cancel_drag()` 会绕过控制器 façade 的 pointer 检查；底层终态仍会触发控制器清理。需要把 pointer capture 当作强制 authority 时，只调用控制器入口，不向低信任代码暴露这个 getter。

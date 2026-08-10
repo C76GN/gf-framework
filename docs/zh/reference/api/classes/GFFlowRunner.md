@@ -24,9 +24,9 @@
 | 常量 | [`OUTCOME_CANCELLED`](#member-gfflowrunner-constants-outcome_cancelled) | `const OUTCOME_CANCELLED: StringName = &"cancelled"` |
 | 常量 | [`OUTCOME_ABORTED`](#member-gfflowrunner-constants-outcome_aborted) | `const OUTCOME_ABORTED: StringName = &"aborted"` |
 | 常量 | [`OUTCOME_REJECTED`](#member-gfflowrunner-constants-outcome_rejected) | `const OUTCOME_REJECTED: StringName = &"rejected"` |
-| 属性 | [`is_running`](#member-gfflowrunner-properties-is_running) | `var is_running: bool = false` |
+| 属性 | [`is_running`](#member-gfflowrunner-properties-is_running) | `var is_running: bool:` |
 | 属性 | [`max_executed_nodes`](#member-gfflowrunner-properties-max_executed_nodes) | `var max_executed_nodes: int = 1024` |
-| 属性 | [`signal_timeout_seconds`](#member-gfflowrunner-properties-signal_timeout_seconds) | `var signal_timeout_seconds: float = 30.0` |
+| 属性 | [`signal_timeout_seconds`](#member-gfflowrunner-properties-signal_timeout_seconds) | `var signal_timeout_seconds: float = _DEFAULT_SIGNAL_TIMEOUT_SECONDS:` |
 | 属性 | [`signal_timeout_respects_time_scale`](#member-gfflowrunner-properties-signal_timeout_respects_time_scale) | `var signal_timeout_respects_time_scale: bool = true` |
 | 属性 | [`isolate_graph_runtime_state`](#member-gfflowrunner-properties-isolate_graph_runtime_state) | `var isolate_graph_runtime_state: bool = true` |
 | 属性 | [`max_report_trace_entries`](#member-gfflowrunner-properties-max_report_trace_entries) | `var max_report_trace_entries: int = 128:` |
@@ -206,10 +206,10 @@ run() 请求在开始执行前被拒绝。
 - 首次版本：`3.17.0`
 
 ```gdscript
-var is_running: bool = false
+var is_running: bool:
 ```
 
-当前是否正在执行。
+当前是否正在执行。该状态只读；调用方不能用它控制或结束流程。
 
 <a id="member-gfflowrunner-properties-max_executed_nodes"></a>
 
@@ -232,7 +232,7 @@ var max_executed_nodes: int = 1024
 - 首次版本：`3.17.0`
 
 ```gdscript
-var signal_timeout_seconds: float = 30.0
+var signal_timeout_seconds: float = _DEFAULT_SIGNAL_TIMEOUT_SECONDS:
 ```
 
 Signal 等待超时时间。小于等于 0 表示不启用超时。

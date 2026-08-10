@@ -1,6 +1,14 @@
 # FAQ
 
-## GF 是游戏框架还是一组工具类？
+## 按主题查找
+
+- 框架定位、安装边界与文档入口：从 [GF 是游戏框架还是一组工具类？](#framework-boundaries) 开始。
+- UI、场景与层级行为：从 [3D 场景怎样与 GF UI 组合？](#ui-and-scenes) 开始。
+- 运行时服务、局部上下文与配置：从 [HTTPRequest 是否需要项目自己维护池？](#runtime-services) 开始。
+- 项目启动、模块职责与业务数据边界：从 [初始化、菜单、主页、战斗和退出流程怎样组织？](#project-architecture) 开始。
+- 支持请求与隐私：见 [提 Issue 时怎样收集场景树信息而不泄露本机路径？](#support-and-privacy)。
+
+## GF 是游戏框架还是一组工具类？ { #framework-boundaries }
 
 GF 是面向 Godot 项目的轻量架构框架。它提供启动装配、模块生命周期、事件、命令、查询、数据绑定、标准库工具和可选扩展，目标是让项目代码有稳定的分层和组合方式，而不是只提供零散 helper。
 
@@ -15,6 +23,10 @@ GF 是面向 Godot 项目的轻量架构框架。它提供启动装配、模块�
 ## 我需要启用所有 GF 内置扩展吗？
 
 不需要。GF 内置扩展按能力拆分，可以按项目需要启用。扩展之间保持原子化，不把其他扩展当作隐藏依赖；如果项目需要把多个扩展组合成完整玩法，应在项目 Installer 或项目自己的插件中完成组合。
+
+## 怎样完整卸载 GF？
+
+不要在插件仍启用时直接删除 `addons/gf`。先清理项目引用并禁用插件，让 GF 对称移除自己登记的 AutoLoad；再关闭编辑器、删除文件并重新验证项目。完整的状态保留、package 区分和失败恢复步骤见 [卸载、清理与恢复](overview/quickstart/uninstall.md)。
 
 ## 项目代码应该放进 `addons/gf` 吗？
 
@@ -32,7 +44,7 @@ GF 是面向 Godot 项目的轻量架构框架。它提供启动装配、模块�
 
 目前正式文档以职责边界、最小示例和 API Reference 为主，暂不承诺一套从零到完整项目的综合教程。遇到跨模块组合问题时，可以先按下面的边界选型，再进入对应专题页查看可独立复用的示例。
 
-## 3D 场景怎样与 GF UI 组合？
+## 3D 场景怎样与 GF UI 组合？ { #ui-and-scenes }
 
 GF 不替代 Godot 的 `Control` 和 `CanvasLayer`。`GFUIUtility` 会把 HUD、POPUP、TOP 层创建在 `SceneTree.root` 下，适合全局菜单、跨场景提示和只读取全局模块的 HUD；这些 Panel 不会随当前场景自动销毁，其中场景专属 Panel 应在离场时显式清理。
 
@@ -54,7 +66,7 @@ GF 不替代 Godot 的 `Control` 和 `CanvasLayer`。`GFUIUtility` 会把 HUD、
 
 不是。`register_routes()` 仍然存在；`Invalid call ... in base 'Nil'` 表示 Router 实例没有进入当前架构。检查 `gf/project/installers`、`await Gf.init()` 的布尔结果和 `last_initialization_error`，并确认 Installer 注册了 UI 与 Router。最小 package 安装还需要 `gf.standard.ui.navigation`。详见 [UI 路由与导航历史](standard/utilities/runtime/settings-ui-scene/ui-stack-routing/ui-router.md)。
 
-## HTTPRequest 是否需要项目自己维护池？
+## HTTPRequest 是否需要项目自己维护池？ { #runtime-services }
 
 低频请求可以直接用 `GFHttpRequestBuilder.execute()`；并发请求使用 `GFHttpClientUtility`，它提供活动数、等待队列、worker 复用、取消、父节点退出和诊断快照边界。鉴权、重试、分页和业务 DTO 仍由项目或平台 adapter 负责。详见 [HTTP 请求、客户端池与异步批处理](standard/utilities/io/config-remote-outbox/http-async-batch.md)。
 
@@ -70,7 +82,7 @@ GF 8 的正式类型名是 `GFNodeContext`，不存在另一个 `GFSceneContext`
 
 为了让调用方稳定地按抽象类型查询，Installer 中建议调用 `await architecture.register_utility_instance_as(provider, GFConfigProvider)`，并检查取消状态和注册结果。详见 [Provider 适配器](standard/utilities/io/config-remote-outbox/config-provider/provider-schema/provider-adapter.md) 和 [Config Pipeline 导表工具包](editor/tools/config-pipeline.md)。
 
-## 初始化、菜单、主页、战斗和退出流程怎样组织？
+## 初始化、菜单、主页、战斗和退出流程怎样组织？ { #project-architecture }
 
 `initializing → menu → home → battle / other → exit` 这类流程属于项目策略，GF 不预设状态名、合法转换图或场景路由。需要脱离场景树的应用流程时，通常由长期存在的 `GFSystem` 持有 `GFStateMachine.new(self)`，集中校验切换并推进状态；`GFController` 接收输入和 Godot 回调，再根据状态、事件或绑定结果切换 UI 与场景。
 
@@ -100,7 +112,7 @@ GF 不提供通用 `VehicleController`，因为街机赛车、履带车、船和
 
 `GFNodeStateMachine` 适合组织 `Parked / Driving / Airborne / Wrecked` 这类离散状态，不负责逐物理帧积分。摇杆幅度到输入响应可以使用 [`GFInputCurveModifier`](standard/input-flow/input-assist/input-modifiers-triggers.md)；车速到最大转角通常是车辆项目配置中的 `Curve`。单辆车的即时速度只需由车辆向自己的仪表盘发局部 signal；只有计时、回放、联网同步或存档等跨对象、跨场景流程确实需要稳定快照或领域事件时，才由项目 `GFSystem` 归纳事件，或由 `GFModel` 保存稳定状态，不要把每个物理帧的临时值直接提升为全局状态。参见 [原生物理节点桥接](kernel/lifecycle/controllers/native-physics-node.md) 和 [状态机选型](standard/input-flow/state-machines/index.md)。
 
-## 提 Issue 时怎样收集场景树信息而不泄露本机路径？
+## 提 Issue 时怎样收集场景树信息而不泄露本机路径？ { #support-and-privacy }
 
 先限制采集范围，只保留能解释问题的深度和节点数量，并显式开启路径脱敏：
 

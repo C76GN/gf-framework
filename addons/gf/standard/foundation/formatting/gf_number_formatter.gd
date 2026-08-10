@@ -96,7 +96,9 @@ static func get_default_compact_suffixes() -> PackedStringArray:
 ## [br]
 ## @api public
 ## [br]
-## @param value: 支持 int/float/String/GFBigNumber/GFFixedDecimal。
+## @since 3.17.0
+## [br]
+## @param value: 支持 int/float/String/GFBigNumber/GFFixedDecimal；普通十进制 String 会在文本域精确应用小数位与舍入参数。
 ## [br]
 ## @schema value: Variant numeric value accepted by the formatter.
 ## [br]
@@ -210,6 +212,12 @@ static func format_full(
 				text = GFVariantData.get_option_string(normalization, "text")
 				if text.contains("e") or text.contains("E"):
 					return format_full(GFBigNumber.from_string(text), decimal_places, trim_zeroes, use_grouping, use_truncation)
+				text = _DECIMAL_STRING_FORMATTER.format_decimal_text(
+					text,
+					decimal_places,
+					trim_zeroes,
+					use_truncation
+				)
 			_:
 				push_error("[GFNumberFormatter] format_full() 收到不支持的值类型。")
 				return "0"

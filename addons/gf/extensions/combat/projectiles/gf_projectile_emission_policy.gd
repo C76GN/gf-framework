@@ -89,6 +89,7 @@ var _last_emission_msec: int = -1
 var _last_charge_update_msec: int = -1
 var _charges: float = -1.0
 var _emission_count: int = 0
+var _state_generation: int = 0
 
 
 # --- 公共方法 ---
@@ -113,7 +114,7 @@ var _emission_count: int = 0
 ## [br]
 ## @schema projectile_context: Dictionary，本次发射上下文；策略会复制后返回，不修改调用方原始字典。
 ## [br]
-## @schema return: Dictionary，包含 ok、reason、policy_id、projectile_id、requested_count、emit_count、projectile_context、now_msec、remaining_cooldown_seconds、available_charges 和 required_charges。
+## @schema return: Dictionary，包含 ok、reason、policy_id、policy_instance_id、policy_state_generation、policy_enabled、projectile_id、requested_count、emit_count、projectile_context、now_msec、remaining_cooldown_seconds、available_charges 和 required_charges。
 func prepare_emission(
 	emitter: Node,
 	projectile_id: StringName,
@@ -128,7 +129,6 @@ func prepare_emission(
 	if not enabled:
 		return _make_prepare_report(true, &"", projectile_id, requested_count, requested_count, context, effective_now_msec)
 
-	_recover_charges(effective_now_msec)
 	var emit_count: int = maxi(requested_count, 0)
 	if max_projectiles_per_request > 0:
 		emit_count = mini(emit_count, max_projectiles_per_request)
@@ -159,6 +159,10 @@ func prepare_emission(
 	if not hook_report.is_empty():
 		for key: Variant in hook_report.keys():
 			report[key] = hook_report[key]
+	# 事务身份字段由策略签发，不能由扩展钩子覆盖。
+	report["policy_instance_id"] = get_instance_id()
+	report["policy_state_generation"] = _state_generation
+	report["policy_enabled"] = enabled
 	return report
 
 
@@ -176,27 +180,51 @@ func prepare_emission(
 ## [br]
 ## @return 提交报告。
 ## [br]
-## @schema prepare_report: Dictionary，prepare_emission() 返回的报告。
+## @schema prepare_report: Dictionary，prepare_emission() 返回的报告；只允许签发策略在同一状态代际提交。
 ## [br]
 ## @schema return: Dictionary，包含 ok、committed、reason、emitted_count、emission_count、available_charges 和 consumed_charges。
 func commit_emission(emitter: Node, prepare_report: Dictionary, emitted_count: int) -> Dictionary:
 	var now_msec: int = GFVariantData.get_option_int(prepare_report, "now_msec", _resolve_now_msec(-1))
 	if not is_configuration_valid():
 		return _make_commit_report(false, false, &"non_finite_policy_configuration", emitted_count, 0.0, now_msec)
-	if not enabled:
-		return _make_commit_report(true, true, &"", emitted_count, 0.0, now_msec)
 	if not GFVariantData.get_option_bool(prepare_report, "ok"):
 		return _make_commit_report(false, false, &"prepare_report_not_ok", emitted_count, 0.0, now_msec)
 	if emitted_count <= 0:
 		return _make_commit_report(false, false, &"nothing_emitted", emitted_count, 0.0, now_msec)
+	if GFVariantData.get_option_int(prepare_report, "policy_instance_id", -1) != get_instance_id():
+		return _make_commit_report(false, false, &"foreign_prepare_report", emitted_count, 0.0, now_msec)
+	if (
+		GFVariantData.get_option_int(prepare_report, "policy_state_generation", -1)
+		!= _state_generation
+	):
+		return _make_commit_report(false, false, &"stale_prepare_report", emitted_count, 0.0, now_msec)
+	if GFVariantData.get_option_bool(prepare_report, "policy_enabled", enabled) != enabled:
+		return _make_commit_report(false, false, &"stale_prepare_report", emitted_count, 0.0, now_msec)
+
+	var prepared_emit_count: int = GFVariantData.get_option_int(prepare_report, "emit_count", 0)
+	if emitted_count > prepared_emit_count:
+		return _make_commit_report(false, false, &"invalid_emitted_count", emitted_count, 0.0, now_msec)
+	if not enabled:
+		return _make_commit_report(true, true, &"", emitted_count, 0.0, now_msec)
+	if max_projectiles_per_request > 0 and emitted_count > max_projectiles_per_request:
+		return _make_commit_report(false, false, &"invalid_emitted_count", emitted_count, 0.0, now_msec)
+	if max_emission_count > 0 and _emission_count >= max_emission_count:
+		return _make_commit_report(false, false, &"emission_count_exhausted", emitted_count, 0.0, now_msec)
+	if get_remaining_cooldown_seconds(now_msec) > 0.0:
+		return _make_commit_report(false, false, &"cooldown", emitted_count, 0.0, now_msec)
+
+	var available_charges: float = get_available_charges(now_msec)
+	var consumed_charges: float = get_required_charges(emitted_count)
+	if consumed_charges > 0.0 and available_charges + 0.000001 < consumed_charges:
+		return _make_commit_report(false, false, &"insufficient_charges", emitted_count, 0.0, now_msec)
 
 	_recover_charges(now_msec)
-	var consumed_charges: float = get_required_charges(emitted_count)
 	if consumed_charges > 0.0:
 		_charges = maxf(0.0, get_available_charges(now_msec) - consumed_charges)
 		_last_charge_update_msec = now_msec
 	_last_emission_msec = now_msec
 	_emission_count += 1
+	_state_generation += 1
 	_commit_emission(emitter, prepare_report, emitted_count)
 	return _make_commit_report(true, true, &"", emitted_count, consumed_charges, now_msec)
 
@@ -214,6 +242,7 @@ func reset(now_msec: int = -1) -> void:
 	_last_charge_update_msec = effective_now_msec
 	_charges = _get_charge_capacity() if _uses_charges() else -1.0
 	_emission_count = 0
+	_state_generation += 1
 
 
 ## 获取当前可用 charge。
@@ -378,6 +407,9 @@ func _make_prepare_report(
 		"remaining_cooldown_seconds": get_remaining_cooldown_seconds(now_msec),
 		"available_charges": get_available_charges(now_msec),
 		"required_charges": get_required_charges(emit_count),
+		"policy_instance_id": get_instance_id(),
+		"policy_state_generation": _state_generation,
+		"policy_enabled": enabled,
 	}
 
 

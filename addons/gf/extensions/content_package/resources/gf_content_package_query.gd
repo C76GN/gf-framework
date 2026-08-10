@@ -155,10 +155,14 @@ func apply_dict(data: Dictionary) -> void:
 	allowed_safety_kinds = _normalize_string_set(
 		GFVariantData.get_option_packed_string_array(data, "allowed_safety_kinds")
 	)
-	required_metadata = GFVariantData.get_option_dictionary(data, "required_metadata").duplicate(true)
+	required_metadata = _duplicate_dictionary(
+		GFVariantData.as_dictionary(GFVariantData.get_option_value(data, "required_metadata", {}))
+	)
 	include_dependencies = GFVariantData.get_option_bool(data, "include_dependencies", false)
 	max_results = maxi(0, GFVariantData.get_option_int(data, "max_results", 0))
-	metadata = GFVariantData.get_option_dictionary(data, "metadata").duplicate(true)
+	metadata = _duplicate_dictionary(
+		GFVariantData.as_dictionary(GFVariantData.get_option_value(data, "metadata", {}))
+	)
 
 
 ## 转换为归一化字典。
@@ -171,19 +175,24 @@ func apply_dict(data: Dictionary) -> void:
 ## [br]
 ## @schema return: Dictionary with query_id, package_ids, search_text, required_content_types, required_dependencies, required_resource_keys, allowed_safety_kinds, required_metadata, include_dependencies, max_results, and metadata.
 func to_dict() -> Dictionary:
-	return {
-		"query_id": query_id,
-		"package_ids": _normalize_string_set(package_ids),
-		"search_text": search_text.strip_edges(),
-		"required_content_types": _normalize_string_set(required_content_types),
-		"required_dependencies": _normalize_string_set(required_dependencies),
-		"required_resource_keys": _normalize_string_set(required_resource_keys),
-		"allowed_safety_kinds": _normalize_string_set(allowed_safety_kinds),
-		"required_metadata": required_metadata.duplicate(true),
-		"include_dependencies": include_dependencies,
-		"max_results": maxi(0, max_results),
-		"metadata": metadata.duplicate(true),
-	}
+	return _make_dictionary(true)
+
+
+## 转换为 JSON-safe 报告字典。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param options: 传给 GFReportValueCodec 的编码选项。
+## [br]
+## @return: 查询报告字典。
+## [br]
+## @schema options: Dictionary with GFReportValueCodec encoding options.
+## [br]
+## @schema return: JSON-safe Dictionary based on the normalized query state.
+func to_report_dictionary(options: Dictionary = {}) -> Dictionary:
+	return GFReportValueCodec.to_report_dictionary(_make_dictionary(false), options)
 
 
 ## 创建查询深拷贝。
@@ -215,6 +224,24 @@ static func from_dict(data: Dictionary) -> GFContentPackageQuery:
 
 
 # --- 私有/辅助方法 ---
+
+func _make_dictionary(copy_nested_values: bool) -> Dictionary:
+	return {
+		"query_id": query_id,
+		"package_ids": _normalize_string_set(package_ids),
+		"search_text": search_text.strip_edges(),
+		"required_content_types": _normalize_string_set(required_content_types),
+		"required_dependencies": _normalize_string_set(required_dependencies),
+		"required_resource_keys": _normalize_string_set(required_resource_keys),
+		"allowed_safety_kinds": _normalize_string_set(allowed_safety_kinds),
+		"required_metadata": (
+			_duplicate_dictionary(required_metadata) if copy_nested_values else required_metadata
+		),
+		"include_dependencies": include_dependencies,
+		"max_results": maxi(0, max_results),
+		"metadata": _duplicate_dictionary(metadata) if copy_nested_values else metadata,
+	}
+
 
 func _matches_search_text(manifest: GFContentPackageManifest) -> bool:
 	var normalized_search: String = search_text.strip_edges().to_lower()
@@ -249,3 +276,7 @@ static func _normalize_string_set(items: PackedStringArray) -> PackedStringArray
 		var _item_appended: bool = result.append(normalized_item)
 	result.sort()
 	return result
+
+
+static func _duplicate_dictionary(value: Dictionary) -> Dictionary:
+	return GFVariantData.as_dictionary(GFVariantData.duplicate_variant(value, true, false))

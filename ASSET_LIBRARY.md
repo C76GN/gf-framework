@@ -20,9 +20,13 @@ The plugin folder contains its own `README.md` and `LICENSE.md`. Root-level docs
 - Description:
 
 ```text
-GF Framework is a lightweight architecture framework for Godot 4. It helps organize games into models, systems, controllers, utilities, foundation helpers, and optional extensions with managed lifecycles, typed events, bindable properties, commands and queries, installers, extension manifests, extension enablement/export filtering, capability components, action queues with resourceized tween configs, state machines with guards and blackboards, resourceized flow graphs with port metadata, connections, and validation, pluggable network backend foundations with optional ENet transport plus session/channel metadata, versioned storage/codecs with migration hooks and file management, snapshot history, save slot workflows, save graph composition with generic data sources, pipeline hooks, traces, and diagnostics, settings/audio/scene/remote-cache utilities, asset handles and groups, scene transition configs, player-scoped input mapping with modifiers, triggers, 3D values, formatter providers, rich text formatting, and conflict reports, debug draw command buffering, analytics transport hooks, governed runtime diagnostics, notification queues, grid/hex pathfinding helpers, stable 3D grid keys, 3D region maps, surface plane mapping helpers, tag expressions, generic domain data models, and lightweight combat helpers. New projects start with only the kernel and standard library active; bundled optional extensions are disabled by default and must be explicitly enabled by the project.
+GF Framework is a lightweight architecture framework for Godot 4. It organizes project code into lifecycle-managed models, systems, controllers, utilities, events, commands, queries, installers, and typed accessors.
 
-Enable the plugin to register the Gf AutoLoad and use the editor tools for extension management, GF module templates, typed accessors, and project constants. The full addon also contains an optional AI Developer Kit for explicit project intent and version-bound GF API discovery; it has no runtime or exported-game dependency. The official Asset Library package is the full `addons/gf` addon; advanced users can use the minimal kernel and modular packages from the GitHub Release when they intentionally want a package-managed bootstrap.
+Its standard library groups reusable input, storage, settings, audio, scene, UI, diagnostics, jobs, data-validation, graph, grid, pathfinding, and formatting tools. Optional atomic extensions add save graphs, flow graphs, networking, interaction, feedback, camera, dialogue, combat, and domain helpers without defining project gameplay rules.
+
+The Godot editor workspace manages extensions, templates, diagnostics, export filtering, and modular packages. New projects start with kernel and standard active while optional extensions remain disabled. The official package contains the complete `addons/gf` addon; advanced users can choose the minimal kernel and package-managed bootstrap.
+
+Documentation: https://gf-framework.readthedocs.io/
 ```
 
 - Category: `Tools`

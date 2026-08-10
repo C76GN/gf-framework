@@ -71,3 +71,24 @@ func test_report_helper_sanitizes_context_for_json() -> void:
 	assert_true(text.contains("__gf_report_value__"), "Object 上下文应被报告 codec 脱敏。")
 	assert_true(text.contains(GFVariantJsonCodec.JSON_MARKER_KEY), "NaN 和 Vector2 应被编码为 JSON-safe typed marker。")
 	assert_false(text.contains("\"actual_value\":null"), "NaN 不应在 JSON.stringify 边界退化为 null。")
+
+
+func test_report_helper_sanitizes_positional_row_key_for_json() -> void:
+	var helper: GFConfigValidationReport = GFConfigValidationReport.new()
+	var report: Dictionary = helper.make_report(&"items", 3)
+
+	helper.add_issue(report, "error", "object_key", &"items", RefCounted.new(), &"id", "Object key。")
+	helper.add_issue(report, "error", "nan_key", &"items", NAN, &"id", "NaN key。")
+	helper.add_issue(report, "error", "vector_key", &"items", Vector2(1.0, 2.0), &"id", "Vector key。")
+	var issues: Array = GFVariantData.get_option_array(report, "issues")
+	var object_key: Variant = GFVariantData.get_option_value(GFVariantData.as_dictionary(issues[0]), "row_key")
+	var nan_key: Variant = GFVariantData.get_option_value(GFVariantData.as_dictionary(issues[1]), "row_key")
+	var vector_key: Variant = GFVariantData.get_option_value(GFVariantData.as_dictionary(issues[2]), "row_key")
+	var text: String = JSON.stringify(report)
+
+	assert_true(object_key is Dictionary, "positional Object row_key 不得作为活对象进入 issue。")
+	assert_true(nan_key is Dictionary, "positional NaN row_key 应编码为 JSON-safe marker。")
+	assert_true(vector_key is Dictionary, "positional Vector row_key 应编码为 JSON-safe marker。")
+	assert_true(text.contains("__gf_report_value__"), "Object row_key 应使用报告 codec 脱敏。")
+	assert_true(text.contains(GFVariantJsonCodec.JSON_MARKER_KEY), "Variant row_key 应保留 typed marker。")
+	assert_false(text.contains("\"row_key\":null"), "非有限 row_key 不得在最终 stringify 时才退化为 null。")

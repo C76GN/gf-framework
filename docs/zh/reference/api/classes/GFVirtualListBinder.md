@@ -374,7 +374,7 @@ func scroll_to_item( item_index: int, alignment: ScrollAlignment = ScrollAlignme
 | 名称 | 说明 |
 |---|---|
 | `item_index` | 条目索引。 |
-| `alignment` | `ScrollAlignment` 值。 |
+| `alignment` | \`ScrollAlignment\` 值。 |
 
 返回：索引和绑定有效、当前不在同步 callback 内，且滚动操作期间 data generation、
 

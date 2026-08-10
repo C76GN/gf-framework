@@ -168,7 +168,9 @@ func duplicate_stack() -> GFInventoryStack:
 ## [br]
 ## @api public
 ## [br]
-## @return: 可序列化字典。
+## @since 11.0.0
+## [br]
+## @return: Godot Variant 字典；不保证可直接编码为 JSON。
 ## [br]
 ## @schema return: Dictionary，包含 item_id、amount 与 instance_data。
 func to_dict() -> Dictionary:

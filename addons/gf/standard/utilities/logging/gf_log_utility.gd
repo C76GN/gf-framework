@@ -138,6 +138,8 @@ var _file: FileAccess
 var _log_file_path: String
 var _muted_tags: Dictionary = {}
 var _last_file_flush_msec: int = 0
+var _file_flush_elapsed_msec: float = 0.0
+var _file_has_unflushed_data: bool = false
 var _memory_entries: Array[Dictionary] = []
 var _memory_head: int = 0
 var _memory_dropped_count: int = 0
@@ -159,6 +161,7 @@ var _is_dispatching_sinks: bool = false
 func init() -> void:
 	if _is_initialized:
 		return
+	ignore_pause = true
 	clear_memory_entries()
 	if not DirAccess.dir_exists_absolute(_LOG_DIR):
 		var make_log_dir_result: Error = DirAccess.make_dir_recursive_absolute(_LOG_DIR)
@@ -187,6 +190,8 @@ func init() -> void:
 		push_error("[GFLogUtility] 无法创建日志文件：%s，错误码：%s" % [_log_file_path, FileAccess.get_open_error()])
 	else:
 		_last_file_flush_msec = Time.get_ticks_msec()
+		_file_flush_elapsed_msec = 0.0
+		_file_has_unflushed_data = false
 
 	_cleanup_old_logs()
 	_is_initialized = true
@@ -209,12 +214,35 @@ func dispose() -> void:
 			sink.shutdown()
 
 	if _file != null:
-		_file.flush()
+		_flush_file()
 		_file.close()
 		_file = null
 
 	_is_initialized = false
 	_mark_shutdown_clean()
+
+
+## 推进日志文件和已注册 sink 的空闲时间行为。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param delta: 本帧时间增量（秒）；非有限或非正数不会推进状态。
+func tick(delta: float) -> void:
+	if not _is_initialized or not is_finite(delta) or delta <= 0.0:
+		return
+	_file_flush_elapsed_msec += delta * 1000.0
+	if (
+		_file_has_unflushed_data
+		and not flush_immediately
+		and flush_interval_msec > 0
+		and _file_flush_elapsed_msec >= float(flush_interval_msec)
+	):
+		_flush_file()
+	for sink: GFLogSink in _get_sink_snapshot():
+		if sink != null:
+			sink.tick(delta)
 
 
 # --- 公共方法 ---
@@ -814,8 +842,16 @@ func _flush_file_if_needed(level: int) -> void:
 		or level >= LogLevel.ERROR
 		or now - _last_file_flush_msec >= flush_interval_msec
 	):
-		_file.flush()
-		_last_file_flush_msec = now
+		_flush_file(now)
+
+
+func _flush_file(now_msec: int = -1) -> void:
+	if _file == null:
+		return
+	_file.flush()
+	_last_file_flush_msec = Time.get_ticks_msec() if now_msec < 0 else now_msec
+	_file_flush_elapsed_msec = 0.0
+	_file_has_unflushed_data = false
 
 
 func _make_entry(
@@ -999,6 +1035,8 @@ func _store_log_line(line: String) -> void:
 	var stored: bool = _file.store_line(line)
 	if not stored:
 		push_warning("[GFLogUtility] 无法写入日志文件：%s" % _log_file_path)
+		return
+	_file_has_unflushed_data = true
 
 
 func _get_log_entry_text(entry: Dictionary) -> String:

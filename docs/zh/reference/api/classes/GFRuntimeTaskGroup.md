@@ -9,7 +9,7 @@
 - 类别：运行时句柄 (`runtime_handle`)
 - 首次版本：`6.0.0`
 
-组合多个运行时任务的复合任务。 任务组用于把多个 [GFRuntimeTask] 编排为顺序、等待全部或等待任一完成的流程。 子任务在组内部推进，不会单独注册到外层调度器；外层调度器只看到一个占用聚合后的任务。
+组合多个运行时任务的复合任务。 任务组用于把多个 [GFRuntimeTask] 编排为顺序、等待全部或等待任一完成的流程。 子任务在组内部推进，不会单独注册到外层调度器；外层调度器只看到一个占用聚合后的任务。 子任务必须构成有界、无环且无重复实例的树；外层组进入调度器时会原子预留并冻结全部后代， 直到各后代完成或任务组结束。
 
 ## 成员概览
 
@@ -18,6 +18,12 @@
 | 枚举 | [`Mode`](#member-gfruntimetaskgroup-enums-mode) | `enum Mode` |
 | 常量 | [`REJECTION_CHILD_SCHEDULED`](#member-gfruntimetaskgroup-constants-rejection_child_scheduled) | `const REJECTION_CHILD_SCHEDULED: StringName = &"group_child_scheduled"` |
 | 常量 | [`REJECTION_PARALLEL_REQUIREMENT_CONFLICT`](#member-gfruntimetaskgroup-constants-rejection_parallel_requirement_conflict) | `const REJECTION_PARALLEL_REQUIREMENT_CONFLICT: StringName = &"group_parallel_requirement_conflict"` |
+| 常量 | [`REJECTION_TASK_GRAPH_CYCLE`](#member-gfruntimetaskgroup-constants-rejection_task_graph_cycle) | `const REJECTION_TASK_GRAPH_CYCLE: StringName = &"group_task_graph_cycle"` |
+| 常量 | [`REJECTION_TASK_GRAPH_REUSED`](#member-gfruntimetaskgroup-constants-rejection_task_graph_reused) | `const REJECTION_TASK_GRAPH_REUSED: StringName = &"group_task_graph_reused"` |
+| 常量 | [`REJECTION_TASK_GRAPH_LIMIT`](#member-gfruntimetaskgroup-constants-rejection_task_graph_limit) | `const REJECTION_TASK_GRAPH_LIMIT: StringName = &"group_task_graph_limit"` |
+| 常量 | [`REJECTION_INVALID_MODE`](#member-gfruntimetaskgroup-constants-rejection_invalid_mode) | `const REJECTION_INVALID_MODE: StringName = &"group_invalid_mode"` |
+| 常量 | [`MAX_TASK_GRAPH_DEPTH`](#member-gfruntimetaskgroup-constants-max_task_graph_depth) | `const MAX_TASK_GRAPH_DEPTH: int = 256` |
+| 常量 | [`MAX_TASK_GRAPH_NODES`](#member-gfruntimetaskgroup-constants-max_task_graph_nodes) | `const MAX_TASK_GRAPH_NODES: int = 4096` |
 | 属性 | [`cancel_remaining_on_finish`](#member-gfruntimetaskgroup-properties-cancel_remaining_on_finish) | `var cancel_remaining_on_finish: bool = true` |
 | 方法 | [`_init`](#member-gfruntimetaskgroup-methods-_init) | `func _init(p_tasks: Array[GFRuntimeTask] = [], p_mode: Mode = Mode.SEQUENCE) -> void:` |
 | 方法 | [`set_tasks`](#member-gfruntimetaskgroup-methods-set_tasks) | `func set_tasks(next_tasks: Array[GFRuntimeTask]) -> bool:` |
@@ -84,6 +90,84 @@ const REJECTION_PARALLEL_REQUIREMENT_CONFLICT: StringName = &"group_parallel_req
 
 并行任务组存在组内 requirement 冲突时的拒绝原因。
 
+<a id="member-gfruntimetaskgroup-constants-rejection_task_graph_cycle"></a>
+
+### `REJECTION_TASK_GRAPH_CYCLE`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+const REJECTION_TASK_GRAPH_CYCLE: StringName = &"group_task_graph_cycle"
+```
+
+子任务图包含 self-cycle 或祖先回边时的拒绝原因。
+
+<a id="member-gfruntimetaskgroup-constants-rejection_task_graph_reused"></a>
+
+### `REJECTION_TASK_GRAPH_REUSED`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+const REJECTION_TASK_GRAPH_REUSED: StringName = &"group_task_graph_reused"
+```
+
+同一任务实例从子任务图中的多个位置可达时的拒绝原因。
+
+<a id="member-gfruntimetaskgroup-constants-rejection_task_graph_limit"></a>
+
+### `REJECTION_TASK_GRAPH_LIMIT`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+const REJECTION_TASK_GRAPH_LIMIT: StringName = &"group_task_graph_limit"
+```
+
+子任务图超过框架有界遍历预算时的拒绝原因。
+
+<a id="member-gfruntimetaskgroup-constants-rejection_invalid_mode"></a>
+
+### `REJECTION_INVALID_MODE`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+const REJECTION_INVALID_MODE: StringName = &"group_invalid_mode"
+```
+
+子任务组模式不属于 [enum Mode] 闭合集合时的拒绝原因。
+
+<a id="member-gfruntimetaskgroup-constants-max_task_graph_depth"></a>
+
+### `MAX_TASK_GRAPH_DEPTH`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+const MAX_TASK_GRAPH_DEPTH: int = 256
+```
+
+子任务树允许的最大嵌套深度；根任务组深度为 0。
+
+<a id="member-gfruntimetaskgroup-constants-max_task_graph_nodes"></a>
+
+### `MAX_TASK_GRAPH_NODES`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+const MAX_TASK_GRAPH_NODES: int = 4096
+```
+
+单个任务组调度树允许的最大任务实例数，包含根任务组。
+
 ## 属性
 
 <a id="member-gfruntimetaskgroup-properties-cancel_remaining_on_finish"></a>
@@ -138,7 +222,7 @@ func set_tasks(next_tasks: Array[GFRuntimeTask]) -> bool:
 
 | 名称 | 说明 |
 |---|---|
-| `next_tasks` | 新的子任务列表；不接受空值、重复实例或已调度任务。 |
+| `next_tasks` | 新的子任务列表；不接受空值、重复/循环/超限图或已调度任务。 |
 
 返回：全部校验通过并完成替换时返回 true。
 

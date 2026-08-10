@@ -126,9 +126,13 @@ func make_record_key(record: Dictionary, outer_key: Variant = null) -> String:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param base_record: 原始记录。
 ## [br]
 ## @param patch_record: 补丁记录。
+## [br]
+## MERGE_FIELDS 会递归复制并合并嵌套 Dictionary；当前入口不执行深度或节点预算，只应接收已通过项目容量预检的配置记录。
 ## [br]
 ## @return 合并后的记录。
 ## [br]

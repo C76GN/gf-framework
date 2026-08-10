@@ -260,7 +260,7 @@ if GFVariantData.get_option_bool(resolved, "ok"):
 	print(GFVariantData.get_option_value(resolved, "result"))
 ```
 
-`invoke()` / `try_invoke()` 保留 handler 返回的原始 Godot Variant，适合运行时内部继续使用。需要写日志、导出 JSON 或把注册表状态交给外部工具时，使用 `GFRequestHandlerRegistry.to_json_compatible_result()`、`get_json_compatible_recent_events()` 或 `get_json_compatible_debug_snapshot()`，避免 `Resource`、`Callable`、`Signal`、`NaN` 或 PackedArray 直接进入 `JSON.stringify()`。
+`invoke()` / `try_invoke()` 保留 handler 返回的原始 Godot Variant，适合运行时内部继续使用。需要写日志、导出 JSON 或把注册表状态交给外部工具时，使用 `GFRequestHandlerRegistry.to_json_compatible_result()`、`get_json_compatible_recent_events()` 或 `get_json_compatible_debug_snapshot()`，避免 `Resource`、`Callable`、`Signal`、`NaN` 或 PackedArray 直接进入 `JSON.stringify()`。handler 是同步可重入边界；handler 在调用中注销或替换自身时，回调做出的最后一次注册表变更拥有优先权。调用完成后的统计只写回仍为同一 registration sequence 的记录，不会复活已注销 handler，也不会用旧调用覆盖新 handler 的计数。
 
 通道诊断可以从任何队列或批处理流程喂入，不要求这些流程使用同一个调度器：
 

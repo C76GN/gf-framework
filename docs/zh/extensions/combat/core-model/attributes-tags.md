@@ -18,6 +18,8 @@ Combat 的属性与标签组件只提供运行时数值和状态标记的通用�
 
 `GFModifiedAttributeSet` 用 `StringName` 管理一组 `GFModifiedAttribute`，适合角色、装备或能力对象集中维护移动速度、攻击、防御等运行时属性。它提供定义、查询、修饰器转发、值变化信号和基础值快照，但不规定属性业务含义，也不直接处理 Buff 生命周期。
 
+`clear()` 会先把原属性从索引和响应式信号中全部脱离，再逐项发送 `attribute_removed`。因此通知回调中重新定义的属性属于清理完成后的新状态，会继续留在集合中并保持正确连接，不会形成“索引已删除但仍发信号”的幽灵属性。
+
 ```gdscript
 var attrs := GFModifiedAttributeSet.new()
 attrs.define_defaults({

@@ -404,11 +404,12 @@ func broadcast_overlaps(
 # --- 私有/辅助方法 ---
 
 func _emit_send_result(context: GFCombatHitContext, receiver: Object, report: Dictionary) -> void:
-	hit_sent.emit(context, receiver, report)
-	if GFVariantData.get_option_bool(report, "ok", false):
-		hit_accepted.emit(context, receiver, report)
+	var accepted: bool = GFVariantData.get_option_bool(report, "ok", false)
+	hit_sent.emit(context, receiver, report.duplicate(true))
+	if accepted:
+		hit_accepted.emit(context, receiver, report.duplicate(true))
 	else:
-		hit_rejected.emit(context, receiver, report)
+		hit_rejected.emit(context, receiver, report.duplicate(true))
 
 
 func _emit_collision_dispatch_result(

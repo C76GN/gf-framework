@@ -31,9 +31,12 @@ signal playback_stopped
 ## @api public
 signal playback_finished
 
-## 一个录制事件已被应用。
+## 一个录制事件已被应用。事件索引会先提交再同步发出本信号；handler 可以调用
+## start/stop/reset/seek，旧 tick 会在 handler 返回后停止，不再推进新会话。
 ## [br]
 ## @api public
+## [br]
+## @since 11.0.0
 ## [br]
 ## @param event: 事件副本。
 ## [br]
@@ -132,13 +135,17 @@ var _next_event_index: int = 0
 var _event_snapshot: Array[Dictionary] = []
 var _duration_seconds: float = 0.0
 var _pending_advance_seconds: float = 0.0
+var _playback_epoch: int = 0
 
 
 # --- 公共方法 ---
 
-## 开始回放。
+## 开始回放。每次成功调用都会创建新的回放代际；同步回调中启动的新代际不会被
+## 旧 tick 的索引、完成状态或后续事件覆盖。
 ## [br]
 ## @api public
+## [br]
+## @since 11.0.0
 ## [br]
 ## @param next_recording: 要回放的录制。
 ## [br]
@@ -155,6 +162,10 @@ func start(
 	if next_recording == null or next_source == null:
 		return false
 
+	_playback_epoch += 1
+	var operation_epoch: int = _playback_epoch
+	var operation_recording: GFInputRecording = next_recording
+	var operation_source: GFVirtualInputSource = next_source
 	recording = next_recording
 	source = next_source
 	_event_snapshot = next_recording.get_events()
@@ -164,25 +175,51 @@ func start(
 	if restart:
 		elapsed_seconds = 0.0
 		_next_event_index = 0
-		source.clear_all()
+		operation_source.clear_all()
+		if not _is_playback_state_current(
+			operation_epoch,
+			operation_recording,
+			operation_source,
+			true
+		):
+			return false
 	else:
 		elapsed_seconds = _normalize_non_negative_time(elapsed_seconds)
 		if loop and _duration_seconds > 0.0:
 			elapsed_seconds = fmod(elapsed_seconds, _duration_seconds)
-		_rebuild_source_state_at_elapsed_time()
-	playback_started.emit(recording)
+		if not _rebuild_source_state_at_elapsed_time(
+			operation_epoch,
+			operation_recording,
+			operation_source,
+			true
+		):
+			return false
+	playback_started.emit(operation_recording)
+	var _still_current_after_started: bool = _is_playback_state_current(
+		operation_epoch,
+		operation_recording,
+		operation_source,
+		true
+	)
 	return true
 
 
-## 停止回放。
+## 停止回放。调用会先使当前代际失效，再按需清理 source 和发出停止信号。
 ## [br]
 ## @api public
 ## [br]
+## @since 11.0.0
+## [br]
 ## @param clear_source: 是否清空目标虚拟输入源。
 func stop(clear_source: bool = false) -> void:
-	if clear_source and source != null:
-		source.clear_all()
+	_playback_epoch += 1
+	var operation_epoch: int = _playback_epoch
+	var source_to_clear: GFVirtualInputSource = source
 	is_playing = false
+	if clear_source and source_to_clear != null:
+		source_to_clear.clear_all()
+		if _playback_epoch != operation_epoch:
+			return
 	playback_stopped.emit()
 
 
@@ -190,16 +227,30 @@ func stop(clear_source: bool = false) -> void:
 ## [br]
 ## @api public
 func reset() -> void:
+	_playback_epoch += 1
+	var operation_epoch: int = _playback_epoch
+	var operation_recording: GFInputRecording = recording
+	var operation_source: GFVirtualInputSource = source
+	var operation_was_playing: bool = is_playing
 	elapsed_seconds = 0.0
 	_next_event_index = 0
 	_pending_advance_seconds = 0.0
-	if source != null:
-		source.clear_all()
+	if operation_source != null:
+		operation_source.clear_all()
+		var _still_current_after_reset: bool = _is_playback_state_current(
+			operation_epoch,
+			operation_recording,
+			operation_source,
+			operation_was_playing
+		)
 
 
-## 推进回放并应用到期事件。
+## 推进回放并应用到期事件。一次调用只向进入 tick 时绑定的 recording/source
+## 提交；同步回调改变会话或 source 后，剩余到期事件留给新会话或后续显式操作。
 ## [br]
 ## @api public
+## [br]
+## @since 11.0.0
 ## [br]
 ## @param delta: 时间增量，单位秒。
 ## [br]
@@ -208,17 +259,36 @@ func tick(delta: float) -> int:
 	if not is_playing or recording == null or source == null:
 		return 0
 
+	var operation_epoch: int = _playback_epoch
+	var operation_recording: GFInputRecording = recording
+	var operation_source: GFVirtualInputSource = source
 	var advance_seconds: float = _safe_add_time(
 		_get_advance_seconds(delta),
 		_pending_advance_seconds
 	)
 	_pending_advance_seconds = 0.0
 	if loop and _duration_seconds > 0.0:
-		return _tick_looping(advance_seconds)
-	elapsed_seconds += advance_seconds
-	var applied: int = _apply_due_events()
+		return _tick_looping(
+			advance_seconds,
+			operation_epoch,
+			operation_recording,
+			operation_source
+		)
+	elapsed_seconds = _safe_add_time(elapsed_seconds, advance_seconds)
+	var applied: int = _apply_due_events(
+		operation_epoch,
+		operation_recording,
+		operation_source
+	)
+	if not _is_playback_state_current(
+		operation_epoch,
+		operation_recording,
+		operation_source,
+		true
+	):
+		return applied
 	if _next_event_index >= _event_snapshot.size():
-		_handle_end_reached()
+		_handle_end_reached(operation_epoch, operation_recording, operation_source)
 	return applied
 
 
@@ -228,11 +298,21 @@ func tick(delta: float) -> int:
 ## [br]
 ## @param time_seconds: 目标时间，单位秒。
 func seek(time_seconds: float) -> void:
+	_playback_epoch += 1
+	var operation_epoch: int = _playback_epoch
+	var operation_recording: GFInputRecording = recording
+	var operation_source: GFVirtualInputSource = source
+	var operation_was_playing: bool = is_playing
 	elapsed_seconds = _normalize_non_negative_time(time_seconds)
 	if loop and _duration_seconds > 0.0:
 		elapsed_seconds = fmod(elapsed_seconds, _duration_seconds)
 	_pending_advance_seconds = 0.0
-	_rebuild_source_state_at_elapsed_time()
+	var _rebuilt: bool = _rebuild_source_state_at_elapsed_time(
+		operation_epoch,
+		operation_recording,
+		operation_source,
+		operation_was_playing
+	)
 
 
 ## 检查是否已到达末尾。
@@ -270,19 +350,48 @@ func get_debug_snapshot() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
-func _apply_due_events() -> int:
+func _apply_due_events(
+	operation_epoch: int,
+	operation_recording: GFInputRecording,
+	operation_source: GFVirtualInputSource
+) -> int:
 	var applied: int = 0
-	while _next_event_index < _event_snapshot.size():
+	while (
+		_is_playback_state_current(
+			operation_epoch,
+			operation_recording,
+			operation_source,
+			true
+		)
+		and _next_event_index < _event_snapshot.size()
+	):
 		var event: Dictionary = _event_snapshot[_next_event_index]
 		if _get_event_time_seconds(event) > elapsed_seconds + 0.0001:
 			break
-		if _apply_event(event):
-			applied += 1
 		_next_event_index += 1
+		if _apply_event(event, operation_source):
+			applied += 1
+			if not _is_playback_state_current(
+				operation_epoch,
+				operation_recording,
+				operation_source,
+				true
+			):
+				return applied
+			event_applied.emit(GFVariantData.to_dictionary(event))
+			if not _is_playback_state_current(
+				operation_epoch,
+				operation_recording,
+				operation_source,
+				true
+			):
+				return applied
 	return applied
 
 
-func _apply_event(event: Dictionary, emit_event_signal: bool = true) -> bool:
+func _apply_event(event: Dictionary, target_source: GFVirtualInputSource) -> bool:
+	if target_source == null:
+		return false
 	var action_id: StringName = _get_event_action_id(event)
 	if action_id == &"":
 		return false
@@ -291,15 +400,25 @@ func _apply_event(event: Dictionary, emit_event_signal: bool = true) -> bool:
 	var player_index: int = _get_event_player_index(event)
 	var applied: bool = false
 	if respect_recorded_player_index and player_index >= 0:
-		applied = source.set_action_value_for_player(action_id, value, player_index)
+		applied = target_source.set_action_value_for_player(action_id, value, player_index)
 	else:
-		applied = source.set_action_value(action_id, value)
-	if applied and emit_event_signal:
-		event_applied.emit(GFVariantData.to_dictionary(event))
+		applied = target_source.set_action_value(action_id, value)
 	return applied
 
 
-func _handle_end_reached() -> void:
+func _handle_end_reached(
+	operation_epoch: int,
+	operation_recording: GFInputRecording,
+	operation_source: GFVirtualInputSource
+) -> void:
+	if not _is_playback_state_current(
+		operation_epoch,
+		operation_recording,
+		operation_source,
+		true
+	):
+		return
+	_playback_epoch += 1
 	is_playing = false
 	playback_finished.emit()
 
@@ -313,44 +432,127 @@ func _find_next_event_index(time_seconds: float) -> int:
 	return _event_snapshot.size()
 
 
-func _rebuild_source_state_at_elapsed_time() -> void:
+func _rebuild_source_state_at_elapsed_time(
+	operation_epoch: int,
+	operation_recording: GFInputRecording,
+	operation_source: GFVirtualInputSource,
+	operation_was_playing: bool
+) -> bool:
 	_next_event_index = 0
-	if recording == null:
-		return
-	if source == null:
+	if operation_recording == null:
+		return _is_playback_state_current(
+			operation_epoch,
+			operation_recording,
+			operation_source,
+			operation_was_playing
+		)
+	if operation_source == null:
 		_next_event_index = _find_next_event_index(elapsed_seconds)
-		return
-	source.clear_all()
+		return _is_playback_state_current(
+			operation_epoch,
+			operation_recording,
+			operation_source,
+			operation_was_playing
+		)
+	operation_source.clear_all()
+	if not _is_playback_state_current(
+		operation_epoch,
+		operation_recording,
+		operation_source,
+		operation_was_playing
+	):
+		return false
 	while _next_event_index < _event_snapshot.size():
 		var event: Dictionary = _event_snapshot[_next_event_index]
 		if _get_event_time_seconds(event) > elapsed_seconds + 0.0001:
 			break
-		var _applied: bool = _apply_event(event, false)
 		_next_event_index += 1
+		var _applied: bool = _apply_event(event, operation_source)
+		if not _is_playback_state_current(
+			operation_epoch,
+			operation_recording,
+			operation_source,
+			operation_was_playing
+		):
+			return false
+	return true
 
 
-func _tick_looping(advance_seconds: float) -> int:
-	var applied: int = _apply_due_events()
+func _tick_looping(
+	advance_seconds: float,
+	operation_epoch: int,
+	operation_recording: GFInputRecording,
+	operation_source: GFVirtualInputSource
+) -> int:
+	var applied: int = _apply_due_events(
+		operation_epoch,
+		operation_recording,
+		operation_source
+	)
+	if not _is_playback_state_current(
+		operation_epoch,
+		operation_recording,
+		operation_source,
+		true
+	):
+		return applied
 	var remaining: float = advance_seconds
 	var completed_cycles: int = 0
 	while remaining > 0.0:
 		var time_to_end: float = maxf(_duration_seconds - elapsed_seconds, 0.0)
 		if remaining < time_to_end:
 			elapsed_seconds += remaining
-			applied += _apply_due_events()
+			applied += _apply_due_events(
+				operation_epoch,
+				operation_recording,
+				operation_source
+			)
 			return applied
 
 		elapsed_seconds = _duration_seconds
-		applied += _apply_due_events()
+		applied += _apply_due_events(
+			operation_epoch,
+			operation_recording,
+			operation_source
+		)
+		if not _is_playback_state_current(
+			operation_epoch,
+			operation_recording,
+			operation_source,
+			true
+		):
+			return applied
 		remaining = maxf(remaining - time_to_end, 0.0)
 		completed_cycles += 1
-		_begin_loop_cycle()
+		if not _begin_loop_cycle(
+			operation_epoch,
+			operation_recording,
+			operation_source
+		):
+			return applied
 
 		if completed_cycles >= max_loop_cycles_per_tick and remaining >= _duration_seconds:
 			if loop_catch_up_policy == LoopCatchUpPolicy.DEFER_EXCESS:
 				_pending_advance_seconds = remaining
-				applied += _apply_due_events()
+				applied += _apply_due_events(
+					operation_epoch,
+					operation_recording,
+					operation_source
+				)
+				if not _is_playback_state_current(
+					operation_epoch,
+					operation_recording,
+					operation_source,
+					true
+				):
+					return applied
 				loop_catch_up_limited.emit(_pending_advance_seconds, 0)
+				var _still_current_after_limit: bool = _is_playback_state_current(
+					operation_epoch,
+					operation_recording,
+					operation_source,
+					true
+				)
 				return applied
 			var skipped_cycles_float: float = floor(remaining / _duration_seconds)
 			var skipped_cycles: int = int(minf(
@@ -359,16 +561,44 @@ func _tick_looping(advance_seconds: float) -> int:
 			))
 			remaining = fmod(remaining, _duration_seconds)
 			loop_catch_up_limited.emit(0.0, skipped_cycles)
+			if not _is_playback_state_current(
+				operation_epoch,
+				operation_recording,
+				operation_source,
+				true
+			):
+				return applied
 
-		applied += _apply_due_events()
+		applied += _apply_due_events(
+			operation_epoch,
+			operation_recording,
+			operation_source
+		)
+		if not _is_playback_state_current(
+			operation_epoch,
+			operation_recording,
+			operation_source,
+			true
+		):
+			return applied
 	return applied
 
 
-func _begin_loop_cycle() -> void:
+func _begin_loop_cycle(
+	operation_epoch: int,
+	operation_recording: GFInputRecording,
+	operation_source: GFVirtualInputSource
+) -> bool:
 	elapsed_seconds = 0.0
 	_next_event_index = 0
-	if source != null:
-		source.clear_all()
+	if operation_source != null:
+		operation_source.clear_all()
+	return _is_playback_state_current(
+		operation_epoch,
+		operation_recording,
+		operation_source,
+		true
+	)
 
 
 func _get_advance_seconds(delta: float) -> float:
@@ -389,6 +619,29 @@ func _safe_add_time(left: float, right: float) -> float:
 	if is_nan(result) or is_inf(result):
 		return maxf(left, right)
 	return maxf(result, 0.0)
+
+
+func _is_playback_state_current(
+	operation_epoch: int,
+	operation_recording: GFInputRecording,
+	operation_source: GFVirtualInputSource,
+	operation_was_playing: bool
+) -> bool:
+	var is_current: bool = (
+		_playback_epoch == operation_epoch
+		and recording == operation_recording
+		and source == operation_source
+		and is_playing == operation_was_playing
+	)
+	if is_current:
+		return true
+	if (
+		_playback_epoch == operation_epoch
+		and (recording != operation_recording or source != operation_source)
+	):
+		_playback_epoch += 1
+		is_playing = false
+	return false
 
 
 func _get_event_time_seconds(event: Dictionary) -> float:

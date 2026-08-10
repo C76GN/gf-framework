@@ -1003,9 +1003,9 @@ func _write_persisted_data(file_name: String, data: Dictionary) -> Error:
 	if file == null:
 		return FileAccess.get_open_error()
 
-	_store_string_checked(file, JSON.stringify(data, "\t"))
+	var store_error: Error = _store_string_checked(file, JSON.stringify(data, "\t"))
 	file.close()
-	return OK
+	return store_error
 
 
 # --- 私有/辅助方法 ---
@@ -1366,10 +1366,14 @@ func _increment_report_count(report: Dictionary, key: String) -> void:
 	report[key] = GFVariantData.get_option_int(report, key, 0) + 1
 
 
-func _store_string_checked(file: FileAccess, value: String) -> void:
-	var store_result: Variant = file.store_string(value)
-	if store_result != null:
-		return
+func _store_string_checked(file: FileAccess, value: String) -> Error:
+	if file == null:
+		return ERR_INVALID_PARAMETER
+	var stored: bool = file.store_string(value)
+	var store_error: Error = file.get_error()
+	if stored and store_error == OK:
+		return OK
+	return store_error if store_error != OK else ERR_FILE_CANT_WRITE
 
 
 func _get_fallback_path(file_name: String) -> String:

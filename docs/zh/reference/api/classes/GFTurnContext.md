@@ -75,6 +75,7 @@ var metadata: Dictionary = {}
 ### `add_actor`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func add_actor(actor: Object) -> void:
@@ -86,13 +87,14 @@ func add_actor(actor: Object) -> void:
 
 | 名称 | 说明 |
 |---|---|
-| `actor` | 参与者对象。 |
+| `actor` | 参与者对象。Context 会强持有 RefCounted，直到 remove_actor() 或 Context 自身释放。 |
 
 <a id="member-gfturncontext-methods-remove_actor"></a>
 
 ### `remove_actor`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func remove_actor(actor: Object) -> void:
@@ -104,7 +106,7 @@ func remove_actor(actor: Object) -> void:
 
 | 名称 | 说明 |
 |---|---|
-| `actor` | 参与者对象。 |
+| `actor` | 参与者对象；移除会释放 Context 对 RefCounted 的强所有权。 |
 
 <a id="member-gfturncontext-methods-get_actors"></a>
 
@@ -151,7 +153,7 @@ func cleanup_invalid_actors() -> int:
 func get_actor_value(actor: Object, key: StringName, fallback: Variant = null) -> Variant:
 ```
 
-从参与者读取排序或判定值。 优先调用 `get_turn_value(key, fallback)`，其次读取对象属性。
+从参与者读取排序或判定值。 优先调用参数兼容的 `get_turn_value(key, fallback)`，其次读取对象属性。 同名方法若不接受两个实参或参数类型不兼容，会被视为不可调用并继续属性读取。 GDScript 无法捕获方法内部脚本错误；项目实现必须自行保证回调可安全返回。
 
 参数：
 

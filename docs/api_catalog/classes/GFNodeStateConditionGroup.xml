@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFNodeStateConditionGroup" path="addons/gf/standard/state_machine/node/gf_node_state_condition_group.gd" module="standard" extends="GFNodeStateCondition" classDigest="c31158d4c984ed543402e42bf572bfd2c2c201538a9506dd1ee5e80a49a72026">
+<class name="GFNodeStateConditionGroup" path="addons/gf/standard/state_machine/node/gf_node_state_condition_group.gd" module="standard" extends="GFNodeStateCondition" classDigest="d91bd05b914e24af31eb270b82fdf57a342b18f9985206be71f75729fca78530">
 	<description>GFNodeStateConditionGroup: 节点状态条件组合资源。
 用于把多个 GFNodeStateCondition 或兼容 evaluate() 的 Resource 组合为 ALL / ANY / NONE 判断。
 条件组只返回布尔结果，不直接切换状态或修改状态机结构。</description>
@@ -55,6 +55,20 @@
 		</member>
 	</properties>
 	<methods>
+		<member kind="method" name="evaluate">
+			<signature>func evaluate( state: GFNodeState, phase: StringName, peer_state: StringName = &amp;"", args: Dictionary = {} ) -&gt; bool:</signature>
+			<description>评估条件组。递归条件图出现循环、超过深度或工作量上限时始终失败，invert 不会反转该失败。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">state: 当前条件所属状态。</tag>
+				<tag name="param">phase: 条件阶段，通常为 enter 或 exit。</tag>
+				<tag name="param">peer_state: 进入时为来源状态名，退出时为目标状态名。</tag>
+				<tag name="param">args: 状态切换参数。</tag>
+				<tag name="return">条件图有效且组合结果通过时返回 true。</tag>
+				<tag name="schema">args: 状态切换参数 Dictionary；键和值由调用方约定。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
 		<member kind="method" name="_evaluate">
 			<signature>func _evaluate( state: GFNodeState, phase: StringName, peer_state: StringName = &amp;"", args: Dictionary = {} ) -&gt; bool:</signature>
 			<description>条件评估扩展点。</description>

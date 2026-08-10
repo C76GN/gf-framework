@@ -1273,8 +1273,9 @@ func _normalize_scene_path(raw_path: String) -> String:
 		if segment.is_empty() or segment == ".":
 			continue
 		if segment == "..":
-			if not normalized_segments.is_empty():
-				normalized_segments.remove_at(normalized_segments.size() - 1)
+			if normalized_segments.is_empty():
+				return ""
+			normalized_segments.remove_at(normalized_segments.size() - 1)
 			continue
 		var _appended: bool = normalized_segments.append(segment)
 	return "res://%s" % "/".join(normalized_segments)
@@ -1806,14 +1807,24 @@ func _preload_scene_with_admission(
 		return ERR_INVALID_PARAMETER
 
 	if is_scene_preloaded(scene_path):
+		if fixed and not is_preloaded_scene_fixed(scene_path):
+			return (
+				OK
+				if move_preloaded_scene_to_fixed(scene_path)
+				else ERR_CANT_ACQUIRE_RESOURCE
+			)
 		_touch_preloaded_scene(scene_path)
 		return OK
 	if is_scene_preloading(scene_path):
-		return _merge_preload_interest(
+		var merge_error: Error = _merge_preload_interest(
 			scene_path,
 			admission_options,
 			auto_neighbor_generation
 		)
+		if merge_error == OK and fixed:
+			var existing_request: Dictionary = _get_preload_request(scene_path)
+			existing_request["fixed"] = true
+		return merge_error
 
 	var operation: _RESOURCE_LEASE_SCRIPT = _request_preload_operation_with_admission(
 		scene_path,

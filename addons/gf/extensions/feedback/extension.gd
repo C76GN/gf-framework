@@ -10,11 +10,41 @@ extends GFInstaller
 ## [br]
 ## @param architecture: 要装配的架构实例。
 ## [br]
-## @param _scope: 本轮安装的取消作用域。
-func install(architecture: GFArchitecture, _scope: GFAsyncScope) -> void:
-	if architecture == null:
+## @param scope: 本轮安装的取消作用域。
+func install(architecture: GFArchitecture, scope: GFAsyncScope) -> void:
+	if _should_stop_installation(architecture, scope):
 		return
 	if architecture.get_local_utility(GFShakeUtility) == null:
-		var _registered_shake: bool = await architecture.register_utility_instance(GFShakeUtility.new())
+		var registered_shake: bool = await architecture.register_utility_instance(
+			GFShakeUtility.new()
+		)
+		if _should_stop_installation(architecture, scope):
+			return
+		if not registered_shake:
+			architecture.fail_initialization(
+				"[GFFeedbackExtension] GFShakeUtility registration failed."
+			)
+			return
 	if architecture.get_local_utility(GFHapticUtility) == null:
-		var _registered_haptic: bool = await architecture.register_utility_instance(GFHapticUtility.new())
+		var registered_haptic: bool = await architecture.register_utility_instance(
+			GFHapticUtility.new()
+		)
+		if _should_stop_installation(architecture, scope):
+			return
+		if not registered_haptic:
+			architecture.fail_initialization(
+				"[GFFeedbackExtension] GFHapticUtility registration failed."
+			)
+
+
+func _should_stop_installation(
+	architecture: GFArchitecture,
+	scope: GFAsyncScope
+) -> bool:
+	return (
+		architecture == null
+		or scope == null
+		or not scope.is_active()
+		or architecture.has_initialization_failed()
+		or architecture.is_disposed()
+	)

@@ -128,6 +128,42 @@ func test_capture_burst_rejects_capture_count_above_limit() -> void:
 	assert_eq(finished_reports.size(), 1, "提前拒绝也应发出 burst_finished，方便 UI 复位。")
 
 
+func test_capture_burst_rejects_non_finite_frame_delay_before_environment_change() -> void:
+	var utility: GFScreenshotUtility = GFScreenshotUtility.new()
+	var original_locale: String = TranslationServer.get_locale()
+	var original_size: Vector2i = DisplayServer.window_get_size()
+
+	var report: Dictionary = await utility.capture_burst({
+		"locales": PackedStringArray(["fr"]),
+		"resolutions": [Vector2i(64, 64)],
+		"formats": PackedStringArray([GFScreenshotUtility.FORMAT_PNG]),
+		"frame_delay_seconds": NAN,
+		"directory": _make_test_directory(),
+	})
+	var infinity_report: Dictionary = await utility.capture_burst({
+		"locales": PackedStringArray(["fr"]),
+		"resolutions": [Vector2i(64, 64)],
+		"formats": PackedStringArray([GFScreenshotUtility.FORMAT_PNG]),
+		"frame_delay_seconds": INF,
+		"directory": _make_test_directory(),
+	})
+
+	assert_false(GFVariantData.get_option_bool(report, "ok"), "非有限 delay 不得启动截图批次。")
+	assert_eq(
+		GFVariantData.get_option_string(report, "error"),
+		"invalid_frame_delay_seconds",
+		"非有限 delay 应返回稳定拒绝原因。"
+	)
+	assert_eq(GFVariantData.get_option_array(report, "records").size(), 0, "拒绝前不得生成截图记录。")
+	assert_eq(
+		GFVariantData.get_option_string(infinity_report, "error"),
+		"invalid_frame_delay_seconds",
+		"Infinity delay 也必须在创建永不结束的 Timer 前拒绝。"
+	)
+	assert_eq(TranslationServer.get_locale(), original_locale, "拒绝前不得切换 locale。")
+	assert_eq(DisplayServer.window_get_size(), original_size, "拒绝前不得改变窗口尺寸。")
+
+
 func test_capture_burst_cancellation_restores_global_environment() -> void:
 	var utility: GFScreenshotUtility = GFScreenshotUtility.new()
 	var original_locale: String = TranslationServer.get_locale()

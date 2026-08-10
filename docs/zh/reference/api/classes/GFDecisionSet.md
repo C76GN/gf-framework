@@ -201,12 +201,13 @@ func clear_decisions() -> void:
 ### `score_all`
 
 - API：`public`
+- 首次版本：`4.3.0`
 
 ```gdscript
 func score_all(context: GFDecisionContext) -> Array[GFDecisionScore]:
 ```
 
-计算所有候选决策分数。
+计算所有候选决策分数。 本次调用会冻结候选数组成员与 include-disabled 开关；评分回调对 live 数组的修改只影响后续调用。
 
 参数：
 
@@ -257,13 +258,13 @@ func select_best_from_scores(scores: Array[GFDecisionScore]) -> GFDecisionScore:
 
 | 名称 | 说明 |
 |---|---|
-| `scores` | 已计算的候选评分。 |
+| `scores` | 已计算的候选评分；可为任意顺序，非法或非有限评分会被忽略。 |
 
 返回：最佳评分结果；没有可选候选时返回 rejected score。
 
 结构：
 
-- `scores`: Array[GFDecisionScore]，通常来自 score_all() 或 GFDecisionEvaluation.scores。
+- `scores`: Array[GFDecisionScore]，通常来自 score_all() 或 GFDecisionEvaluation.scores；不要求预排序。
 
 <a id="member-gfdecisionset-methods-evaluate"></a>
 

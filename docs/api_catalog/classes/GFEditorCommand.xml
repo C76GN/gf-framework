@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFEditorCommand" path="addons/gf/kernel/editor/gf_editor_command.gd" module="kernel" extends="RefCounted" classDigest="efb7f2ebb8b690615d6b0cd313d41e9219d51a36f7d5800e76214d5584312a60">
+<class name="GFEditorCommand" path="addons/gf/kernel/editor/gf_editor_command.gd" module="kernel" extends="RefCounted" classDigest="95c1c7e97fc552227a716384e4f92671a5588a9724637581581919b7f0d6c7fc">
 	<description>GFEditorCommand: 可撤销编辑器操作的通用基类。
 用于把编辑器 UI、快捷键或交互工具产生的修改收敛成可执行、可撤销的命令。
 命令只描述操作协议，不绑定具体资源、节点类型或业务含义。</description>
@@ -138,6 +138,27 @@
 			<tags>
 				<tag name="api">protected</tag>
 				<tag name="return">Godot 错误码。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_get_undo_context">
+			<signature>func _get_undo_context() -&gt; Object:</signature>
+			<description>返回用于 EditorUndoRedoManager 历史路由的实际变更上下文。
+修改 Node 或 Resource 的命令应返回被修改对象，而不是命令自身。没有明确目标、
+或使用普通 UndoRedo 兼容对象时可返回 null。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="return">用于选择 UndoRedo history 的对象。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_get_undo_targets">
+			<signature>func _get_undo_targets() -&gt; Array[Object]:</signature>
+			<description>返回命令会修改的全部对象，用于拒绝跨 UndoRedo history 的混合事务。
+默认只包含 `_get_undo_context()`。多目标命令应返回所有实际目标。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="return">命令的全部变更目标。</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
 		<member kind="method" name="_can_change_configuration">

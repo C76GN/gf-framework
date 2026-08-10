@@ -28,6 +28,26 @@ func test_set_value_reads_nested_path_and_emits_change() -> void:
 	)
 
 
+func test_failed_path_write_is_atomic() -> void:
+	var store: GFReactiveStateStoreBase = GFReactiveStateStoreBase.new({
+		"profile": {
+			"name": "Ada",
+		},
+	})
+	var before_state: Dictionary = store.get_state()
+	watch_signals(store)
+
+	assert_false(
+		store.set_value([&"profile", &"inventory", &"items", 0], "potion"),
+		"无法创建 Array 索引父级时写入应失败。"
+	)
+
+	assert_eq(store.get_state(), before_state, "失败写入不得遗留已创建的中间 Dictionary。")
+	assert_true(store.get_dirty_changes().is_empty(), "失败写入不得产生 dirty change。")
+	assert_signal_not_emitted(store, "state_changed", "失败写入不得派发 state_changed。")
+	assert_signal_not_emitted(store, "path_changed", "失败写入不得派发 path_changed。")
+
+
 func test_array_path_segments_read_write_erase_and_format() -> void:
 	var store: GFReactiveStateStoreBase = GFReactiveStateStoreBase.new({
 		"items": [

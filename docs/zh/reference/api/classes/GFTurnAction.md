@@ -109,7 +109,7 @@ var priority: int:
 var sort_value: float:
 ```
 
-次排序值，值越大越先处理。
+次排序值。默认比较器中，有限值越大越先处理；NaN 与正负 Infinity 统一排在有限值之后，并按入队顺序稳定处理。自定义比较器自行定义完整总序。
 
 <a id="member-gfturnaction-properties-is_cancelled"></a>
 

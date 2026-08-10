@@ -116,6 +116,23 @@ func test_heightfield_terrain_rgb_options_and_invalid_image_do_not_overwrite() -
 	assert_true(absf(heightfield.sample_cell(Vector2i.ZERO, -1.0) - 15.0) <= 0.001, "scale 与 offset 应作用于解码高度。")
 
 
+func test_heightfield_terrain_rgb_rejects_non_finite_derived_samples() -> void:
+	var image: Image = Image.create(1, 1, false, Image.FORMAT_RGBA8)
+	image.set_pixel(0, 0, _terrain_rgb_color_for_height(10.0))
+
+	var report: Dictionary = GFHeightfield3D.samples_from_terrain_rgb_image(
+		image,
+		{ "height_scale": 1.0e308 }
+	)
+	var samples_value: Variant = GFVariantData.get_option_value(report, "samples", PackedFloat32Array())
+	var samples: PackedFloat32Array = PackedFloat32Array()
+	if samples_value is PackedFloat32Array:
+		samples = samples_value
+
+	assert_false(GFVariantData.get_option_bool(report, "ok"), "有限输入的乘加结果溢出时必须失败。")
+	assert_true(samples.is_empty(), "失败报告不得保留非有限或部分样本。")
+
+
 func test_scatter_heightfield_is_deterministic_and_returns_transforms() -> void:
 	var heightfield: GFHeightfield3D = _make_flat_heightfield()
 	var options: Dictionary = {
@@ -156,6 +173,25 @@ func test_scatter_heightfield_is_deterministic_and_returns_transforms() -> void:
 		var second_transform: Transform3D = _transform_at(second_transforms, index)
 		assert_eq(first_transform.origin, second_transform.origin, "相同 seed 应生成稳定位置。")
 		assert_true(first_transform.basis.y.normalized().dot(Vector3.UP) > 0.999, "平面散布的 Y 轴应对齐上法线。")
+
+
+func test_scatter_attempt_budget_is_checked_before_multiplication() -> void:
+	var report: Dictionary = GFSurfaceScatterSampler3D.sample(
+		Rect2(Vector2.ZERO, Vector2.ONE),
+		2,
+		func(_world_x: float, _world_z: float) -> float:
+			return 0.0,
+		Callable(),
+		{
+			"max_attempt_multiplier": 9_223_372_036_854_775_807,
+			"max_random_attempts": 4,
+		}
+	)
+
+	assert_true(GFVariantData.get_option_bool(report, "ok"), "合法绝对上限应约束乘法前的尝试数。")
+	assert_eq(GFVariantData.get_option_int(report, "max_attempts"), 4)
+	assert_eq(GFVariantData.get_option_int(report, "accepted_count"), 2)
+	assert_eq(GFVariantData.get_option_int(report, "attempt_count"), 2)
 
 
 func test_surface_scatter_report_has_json_compatible_export() -> void:

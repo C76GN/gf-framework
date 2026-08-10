@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFTweenActionStep" path="addons/gf/extensions/action_queue/tween/gf_tween_action_step.gd" module="extensions/action_queue" extends="Resource" classDigest="fd30f2b5af42c245c933f997665dab67c69e8d637031cc33df692f46ba51e19e">
+<class name="GFTweenActionStep" path="addons/gf/extensions/action_queue/tween/gf_tween_action_step.gd" module="extensions/action_queue" extends="Resource" classDigest="07b7f966b671ab67ae36238a54cfad3a484ef3393abbdce052a984df9b9dc433">
 	<description>GFTweenActionStep: 配置化 Tween 属性步骤。
 描述一个目标对象属性如何缓动，不绑定具体节点或业务动作。</description>
 	<tags>
@@ -72,9 +72,11 @@
 		</member>
 		<member kind="property" name="marker_id" decorators="@export">
 			<signature>var marker_id: StringName = &amp;""</signature>
-			<description>可选步骤标记。非空时 GFConfiguredTweenAction 会在步骤结束后发出 marker_reached。</description>
+			<description>可选步骤标记。非空时 GFConfiguredTweenAction 会在步骤结束后发出 marker_reached；
+标记通知不会改变相邻步骤声明的并行拓扑。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 	</properties>

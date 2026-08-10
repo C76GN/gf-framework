@@ -90,6 +90,7 @@ static func get_default_compact_suffixes() -> PackedStringArray:
 ### `format_number`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 static func format_number( value: Variant, notation: Notation = Notation.AUTO, decimal_places: int = 2, trim_zeroes: bool = true, use_truncation: bool = false, scientific_style: ScientificStyle = ScientificStyle.E_LOWER ) -> String:
@@ -101,7 +102,7 @@ static func format_number( value: Variant, notation: Notation = Notation.AUTO, d
 
 | 名称 | 说明 |
 |---|---|
-| `value` | 支持 int/float/String/GFBigNumber/GFFixedDecimal。 |
+| `value` | 支持 int/float/String/GFBigNumber/GFFixedDecimal；普通十进制 String 会在文本域精确应用小数位与舍入参数。 |
 | `notation` | 目标记法。 |
 | `decimal_places` | 小数位数。 |
 | `trim_zeroes` | 是否裁掉尾部 0。 |

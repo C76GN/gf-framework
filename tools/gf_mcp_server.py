@@ -4,39 +4,93 @@
 from __future__ import annotations
 
 import json
+import math
 import sys
 import traceback
 from typing import Any
 
 import gf_maintenance
+from gf_maintenance_rendering import encode_strict_json
 
 
 PROTOCOL_VERSION = "2025-06-18"
 SERVER_NAME = "gf-maintenance"
 SERVER_VERSION = "1.0.0"
+MAX_MCP_REQUEST_BYTES = 1024 * 1024
+MAX_MCP_JSON_DEPTH = 64
+MAX_MCP_JSON_NODES = 20_000
+MAX_MCP_STRING_BYTES = 256 * 1024
+MAX_MCP_METHOD_LENGTH = 128
+MAX_MCP_ID_LENGTH = 256
+MAX_MCP_URI_LENGTH = 4096
+
+
+class McpRequestError(ValueError):
+	def __init__(self, code: int, message: str, *, fatal: bool = False) -> None:
+		super().__init__(message)
+		self.code = code
+		self.fatal = fatal
 
 
 def main() -> int:
 	gf_maintenance.configure_stdio()
-	for line in sys.stdin:
-		line = line.strip().removeprefix("\ufeff")
-		if not line:
-			continue
+	stream = sys.stdin.buffer
+	while True:
 		try:
-			message = json.loads(line)
+			request_bytes = read_request_bytes(stream)
+			if request_bytes == b"":
+				return 0
+			if not request_bytes.strip():
+				continue
+			message = decode_request_bytes(request_bytes)
 			response = handle_message(message)
 			if response is not None:
 				send_message(response)
+		except McpRequestError as exc:
+			send_message(error_response(None, exc.code, str(exc)))
+			if exc.fatal:
+				return 2
 		except Exception as exc:
 			print(traceback.format_exc(), file=sys.stderr)
 			send_message(error_response(None, -32603, str(exc)))
-	return 0
+
+
+def read_request_bytes(stream: Any) -> bytes:
+	line = stream.readline(MAX_MCP_REQUEST_BYTES + 1)
+	if len(line) > MAX_MCP_REQUEST_BYTES:
+		raise McpRequestError(
+			-32600,
+			"MCP request exceeds the configured byte limit.",
+			fatal=True,
+		)
+	return line
+
+
+def decode_request_bytes(request_bytes: bytes) -> dict[str, Any]:
+	try:
+		text = request_bytes.decode("utf-8-sig", errors="strict").strip()
+	except UnicodeDecodeError as error:
+		raise McpRequestError(-32700, "MCP request is not valid UTF-8.") from error
+	try:
+		message = json.loads(
+			text,
+			object_pairs_hook=_reject_duplicate_json_object_keys,
+			parse_constant=_reject_json_constant,
+		)
+	except (json.JSONDecodeError, RecursionError, ValueError) as error:
+		raise McpRequestError(-32700, f"Invalid MCP JSON: {error}") from error
+	_validate_json_domain(message)
+	if not isinstance(message, dict):
+		raise McpRequestError(-32600, "MCP request must be a JSON object.")
+	return message
 
 
 def handle_message(message: dict[str, Any]) -> dict[str, Any] | None:
+	_validate_request_envelope(message)
+	gf_maintenance.invalidate_api_cache()
 	method = message.get("method", "")
 	request_id = message.get("id")
-	params = message.get("params") or {}
+	params = message.get("params", {})
 
 	if method.startswith("notifications/"):
 		return None
@@ -73,6 +127,141 @@ def handle_message(message: dict[str, Any]) -> dict[str, Any] | None:
 	return error_response(request_id, -32601, f"Unknown method: {method}")
 
 
+def _validate_request_envelope(message: dict[str, Any]) -> None:
+	if not isinstance(message, dict):
+		raise McpRequestError(-32600, "MCP request must be an object.")
+	if message.get("jsonrpc") != "2.0":
+		raise McpRequestError(-32600, "MCP request jsonrpc must equal '2.0'.")
+	method = message.get("method")
+	if not isinstance(method, str) or not method or len(method) > MAX_MCP_METHOD_LENGTH:
+		raise McpRequestError(-32600, "MCP request method must be a bounded non-empty string.")
+	if "params" in message and not isinstance(message["params"], dict):
+		raise McpRequestError(-32602, "MCP request params must be an object.")
+	if "id" not in message:
+		return
+	request_id = message["id"]
+	if request_id is None:
+		return
+	if isinstance(request_id, bool) or not isinstance(request_id, (int, str)):
+		raise McpRequestError(-32600, "MCP request id must be a string, integer, or null.")
+	if isinstance(request_id, int) and abs(request_id) > 2**63 - 1:
+		raise McpRequestError(-32600, "MCP integer request id is outside the supported range.")
+	if isinstance(request_id, str) and len(request_id) > MAX_MCP_ID_LENGTH:
+		raise McpRequestError(-32600, "MCP string request id exceeds the configured length limit.")
+
+
+def _validate_json_domain(value: Any) -> None:
+	node_count = 0
+	stack: list[tuple[Any, int]] = [(value, 0)]
+	while stack:
+		current, depth = stack.pop()
+		node_count += 1
+		if node_count > MAX_MCP_JSON_NODES:
+			raise McpRequestError(-32600, "MCP JSON exceeds the configured node limit.")
+		if depth > MAX_MCP_JSON_DEPTH:
+			raise McpRequestError(-32600, "MCP JSON exceeds the configured nesting limit.")
+		if isinstance(current, dict):
+			for key, child in current.items():
+				if len(key.encode("utf-8")) > MAX_MCP_STRING_BYTES:
+					raise McpRequestError(-32600, "MCP JSON object key exceeds the string byte limit.")
+				stack.append((child, depth + 1))
+		elif isinstance(current, list):
+			stack.extend((child, depth + 1) for child in current)
+		elif isinstance(current, str):
+			if len(current.encode("utf-8")) > MAX_MCP_STRING_BYTES:
+				raise McpRequestError(-32600, "MCP JSON string exceeds the configured byte limit.")
+		elif isinstance(current, float) and not math.isfinite(current):
+			raise McpRequestError(-32600, "MCP JSON contains a non-finite number.")
+
+
+def _reject_duplicate_json_object_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+	result: dict[str, Any] = {}
+	for key, value in pairs:
+		if key in result:
+			raise ValueError(f"duplicate JSON object key: {key}")
+		result[key] = value
+	return result
+
+
+def _reject_json_constant(value: str) -> Any:
+	raise ValueError(f"non-finite JSON number: {value}")
+
+
+def _validate_object_fields(
+	value: dict[str, Any],
+	*,
+	required: set[str],
+	allowed: set[str],
+	path: str,
+) -> None:
+	missing = sorted(required.difference(value))
+	if missing:
+		raise McpRequestError(-32602, f"{path} is missing required field(s): {', '.join(missing)}")
+	unexpected = sorted(set(value).difference(allowed))
+	if unexpected:
+		raise McpRequestError(-32602, f"{path} contains unexpected field(s): {', '.join(unexpected)}")
+
+
+def _validate_schema(value: Any, schema: dict[str, Any], *, path: str) -> None:
+	expected_type = schema.get("type")
+	if expected_type == "object":
+		if not isinstance(value, dict):
+			raise McpRequestError(-32602, f"{path} must be an object.")
+		properties = schema.get("properties", {})
+		required = set(schema.get("required", []))
+		missing = sorted(required.difference(value))
+		if missing:
+			raise McpRequestError(-32602, f"{path} is missing required field(s): {', '.join(missing)}")
+		if schema.get("additionalProperties") is False:
+			unexpected = sorted(set(value).difference(properties))
+			if unexpected:
+				raise McpRequestError(-32602, f"{path} contains unexpected field(s): {', '.join(unexpected)}")
+		for key, child in value.items():
+			child_schema = properties.get(key)
+			if child_schema is not None:
+				_validate_schema(child, child_schema, path=f"{path}.{key}")
+		return
+	if expected_type == "array":
+		if not isinstance(value, list):
+			raise McpRequestError(-32602, f"{path} must be an array.")
+		if len(value) < int(schema.get("minItems", 0)):
+			raise McpRequestError(-32602, f"{path} contains too few items.")
+		if "maxItems" in schema and len(value) > int(schema["maxItems"]):
+			raise McpRequestError(-32602, f"{path} contains too many items.")
+		if schema.get("uniqueItems") and any(
+			item == previous
+			for index, item in enumerate(value)
+			for previous in value[:index]
+		):
+			raise McpRequestError(-32602, f"{path} must contain unique items.")
+		item_schema = schema.get("items")
+		if item_schema is not None:
+			for index, child in enumerate(value):
+				_validate_schema(child, item_schema, path=f"{path}[{index}]")
+		return
+	if expected_type == "string":
+		if not isinstance(value, str):
+			raise McpRequestError(-32602, f"{path} must be a string.")
+		if len(value) < int(schema.get("minLength", 0)):
+			raise McpRequestError(-32602, f"{path} is shorter than allowed.")
+		if "maxLength" in schema and len(value) > int(schema["maxLength"]):
+			raise McpRequestError(-32602, f"{path} is longer than allowed.")
+	elif expected_type == "integer":
+		if isinstance(value, bool) or not isinstance(value, int):
+			raise McpRequestError(-32602, f"{path} must be an integer.")
+	elif expected_type == "boolean":
+		if not isinstance(value, bool):
+			raise McpRequestError(-32602, f"{path} must be a boolean.")
+	elif expected_type is not None:
+		raise RuntimeError(f"Unsupported MCP schema type: {expected_type}")
+	if "enum" in schema and value not in schema["enum"]:
+		raise McpRequestError(-32602, f"{path} is not one of the allowed values.")
+	if "minimum" in schema and value < schema["minimum"]:
+		raise McpRequestError(-32602, f"{path} is below the allowed minimum.")
+	if "maximum" in schema and value > schema["maximum"]:
+		raise McpRequestError(-32602, f"{path} is above the allowed maximum.")
+
+
 def list_tools() -> list[dict[str, Any]]:
 	return [
 		{
@@ -91,7 +280,7 @@ def list_tools() -> list[dict[str, Any]]:
 			"inputSchema": {
 				"type": "object",
 				"properties": {
-					"query": {"type": "string"},
+					"query": {"type": "string", "minLength": 1, "maxLength": 256},
 					"kind": {"type": "string", "enum": ["all", "class", "member"], "default": "all"},
 					"limit": {"type": "integer", "minimum": 1, "maximum": 80, "default": 20},
 				},
@@ -106,7 +295,7 @@ def list_tools() -> list[dict[str, Any]]:
 			"inputSchema": {
 				"type": "object",
 				"properties": {
-					"class_name": {"type": "string"},
+					"class_name": {"type": "string", "minLength": 1, "maxLength": 256},
 					"include_members": {"type": "boolean", "default": True},
 				},
 				"required": ["class_name"],
@@ -120,7 +309,7 @@ def list_tools() -> list[dict[str, Any]]:
 			"inputSchema": {
 				"type": "object",
 				"properties": {
-					"module": {"type": "string", "description": "Module id such as kernel, standard, extensions/domain, or domain."},
+					"module": {"type": "string", "minLength": 1, "maxLength": 512, "description": "Module id such as kernel, standard, extensions/domain, or domain."},
 					"include_members": {"type": "boolean", "default": False},
 					"limit": {"type": "integer", "minimum": 1, "maximum": 160, "default": 80},
 				},
@@ -149,6 +338,8 @@ def list_tools() -> list[dict[str, Any]]:
 					"checks": {
 						"type": "array",
 						"minItems": 1,
+						"maxItems": 128,
+						"uniqueItems": True,
 						"items": {
 							"type": "string",
 							"enum": sorted([*gf_maintenance.CHECK_DEFINITIONS.keys(), "release_metadata"]),
@@ -187,6 +378,7 @@ def list_tools() -> list[dict[str, Any]]:
 					},
 					"artifact_manifest": {
 						"type": "string",
+						"maxLength": 4096,
 						"description": "Prebuilt release artifact manifest required when release_metadata is selected.",
 					},
 				},
@@ -200,7 +392,7 @@ def list_tools() -> list[dict[str, Any]]:
 			"inputSchema": {
 				"type": "object",
 				"properties": {
-					"version": {"type": "string", "description": "Expected SemVer. Defaults to addons/gf/plugin.cfg version."},
+					"version": {"type": "string", "maxLength": 64, "description": "Expected SemVer. Defaults to addons/gf/plugin.cfg version."},
 					"allow_dirty": {"type": "boolean", "default": False, "description": "Allow dirty-worktree diagnostics. Do not use for release packaging."},
 					"allow_breaking_api": {
 						"type": "boolean",
@@ -210,6 +402,7 @@ def list_tools() -> list[dict[str, Any]]:
 					"artifact_manifest": {
 						"type": "string",
 						"minLength": 1,
+						"maxLength": 4096,
 						"description": "Manifest created by tools/build_gf_release_artifacts.py.",
 					},
 				},
@@ -222,8 +415,25 @@ def list_tools() -> list[dict[str, Any]]:
 
 
 def call_tool(request_id: Any, params: dict[str, Any]) -> dict[str, Any]:
-	name = params.get("name", "")
-	arguments = params.get("arguments") or {}
+	try:
+		_validate_object_fields(
+			params,
+			required={"name"},
+			allowed={"name", "arguments"},
+			path="params",
+		)
+		name = params.get("name")
+		if not isinstance(name, str) or not name or len(name) > MAX_MCP_METHOD_LENGTH:
+			raise McpRequestError(-32602, "params.name must be a bounded non-empty string.")
+		arguments = params.get("arguments", {})
+		if not isinstance(arguments, dict):
+			raise McpRequestError(-32602, "params.arguments must be an object.")
+		tool = next((item for item in list_tools() if item["name"] == name), None)
+		if tool is None:
+			raise McpRequestError(-32602, f"Unknown tool: {name}")
+		_validate_schema(arguments, tool["inputSchema"], path="arguments")
+	except McpRequestError as error:
+		return error_response(request_id, error.code, str(error))
 	try:
 		if name == "gf_project_summary":
 			data = gf_maintenance.project_summary()
@@ -248,8 +458,6 @@ def call_tool(request_id: Any, params: dict[str, Any]) -> dict[str, Any]:
 			data = gf_maintenance.workspace_status()
 		elif name == "gf_run_checks":
 			checks = arguments.get("checks")
-			if checks == []:
-				checks = None
 			timeout_seconds = arguments.get("timeout_seconds")
 			suite_timeout_seconds = arguments.get("suite_timeout_seconds")
 			data = gf_maintenance.run_checks_with_log_hygiene(
@@ -273,15 +481,13 @@ def call_tool(request_id: Any, params: dict[str, Any]) -> dict[str, Any]:
 				allow_breaking_api=bool(arguments.get("allow_breaking_api", False)),
 				artifact_manifest=str(arguments.get("artifact_manifest", "")),
 			)
-		else:
-			return error_response(request_id, -32602, f"Unknown tool: {name}")
 		return result_response(request_id, tool_result(data, is_error=not data.get("ok", True) if isinstance(data, dict) else False))
 	except Exception as exc:
 		return result_response(request_id, tool_result({"error": str(exc)}, is_error=True))
 
 
 def tool_result(data: dict[str, Any], is_error: bool = False) -> dict[str, Any]:
-	text = json.dumps(data, ensure_ascii=False, indent=2)
+	text = encode_strict_json(data, indent=2)
 	return {
 		"content": [{"type": "text", "text": text}],
 		"structuredContent": data,
@@ -336,7 +542,19 @@ def list_resource_templates() -> list[dict[str, str]]:
 
 
 def read_resource(request_id: Any, params: dict[str, Any]) -> dict[str, Any]:
-	uri = str(params.get("uri", ""))
+	try:
+		_validate_object_fields(
+			params,
+			required={"uri"},
+			allowed={"uri"},
+			path="params",
+		)
+		uri_value = params.get("uri")
+		if not isinstance(uri_value, str) or not uri_value or len(uri_value) > MAX_MCP_URI_LENGTH:
+			raise McpRequestError(-32602, "params.uri must be a bounded non-empty string.")
+		uri = uri_value
+	except McpRequestError as error:
+		return error_response(request_id, error.code, str(error))
 	if uri == "gf://maintenance/project-summary":
 		return resource_response(request_id, uri, "application/json", gf_maintenance.project_summary())
 	if uri == "gf://maintenance/rules":
@@ -360,7 +578,7 @@ def resource_response(request_id: Any, uri: str, mime_type: str, data: dict[str,
 		"contents": [{
 			"uri": uri,
 			"mimeType": mime_type,
-			"text": json.dumps(data, ensure_ascii=False, indent=2),
+			"text": encode_strict_json(data, indent=2),
 		}]
 	})
 
@@ -374,7 +592,7 @@ def error_response(request_id: Any, code: int, message: str) -> dict[str, Any]:
 
 
 def send_message(message: dict[str, Any]) -> None:
-	print(json.dumps(message, ensure_ascii=False), flush=True)
+	print(encode_strict_json(message), flush=True)
 
 
 if __name__ == "__main__":

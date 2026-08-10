@@ -15,7 +15,7 @@
 
 | 类型 | 名称 | 签名 |
 |---|---|---|
-| 信号 | [`active_profile_changed`](#member-gfsaveprofiletransactioncoordinator-signals-active_profile_changed) | `signal active_profile_changed(` |
+| 信号 | [`active_profile_changed`](#member-gfsaveprofiletransactioncoordinator-signals-active_profile_changed) | `signal active_profile_changed( previous_profile_id: StringName, current_profile_id: StringName )` |
 | 信号 | [`transaction_completed`](#member-gfsaveprofiletransactioncoordinator-signals-transaction_completed) | `signal transaction_completed(result: GFSaveProfileTransactionResult)` |
 | 常量 | [`DOMAIN_STATE_INACTIVE`](#member-gfsaveprofiletransactioncoordinator-constants-domain_state_inactive) | `const DOMAIN_STATE_INACTIVE: StringName = &"inactive"` |
 | 常量 | [`DOMAIN_STATE_ACTIVE`](#member-gfsaveprofiletransactioncoordinator-constants-domain_state_active) | `const DOMAIN_STATE_ACTIVE: StringName = &"active"` |
@@ -51,7 +51,7 @@
 - 首次版本：`unreleased`
 
 ```gdscript
-signal active_profile_changed(
+signal active_profile_changed( previous_profile_id: StringName, current_profile_id: StringName )
 ```
 
 活动 Profile 身份完成原子提交后发出。

@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFInputMappingDock" path="addons/gf/standard/input/editor/gf_input_mapping_dock.gd" module="standard" extends="Control" classDigest="a7e9f8def0a6c47bab9f45980df03c493b3a13939048fa35aa506e71ff85678c">
+<class name="GFInputMappingDock" path="addons/gf/standard/input/editor/gf_input_mapping_dock.gd" module="standard" extends="Control" classDigest="18f5174deeef415afa1f37a7b728c8ed7e073c2f9507f920d034e96c29987c95">
 	<description>GFInputMappingDock: GF 输入映射工作区页面。
-读取 GFInputContext 资源，展示动作、绑定与重绑定冲突诊断。</description>
+读取 GFInputContext 资源，展示默认绑定或可选 GFInputRemapConfig 覆盖后的
+有效动作、绑定与重绑定冲突诊断。页面只读，不修改 InputMap 或重映射配置。</description>
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">editor_api</tag>
@@ -18,6 +19,24 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">context: 输入上下文资源。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="set_remap_config">
+			<signature>func set_remap_config(config: GFInputRemapConfig) -&gt; void:</signature>
+			<description>设置诊断使用的可选重映射配置。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">config: 玩家或项目层重映射配置；null 表示只诊断默认绑定。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_remap_config">
+			<signature>func get_remap_config() -&gt; GFInputRemapConfig:</signature>
+			<description>获取当前诊断使用的重映射配置。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">当前重映射配置；未配置时为 null。</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
 		<member kind="method" name="load_context_path">
@@ -42,7 +61,8 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">诊断报告副本。</tag>
-				<tag name="schema">return: Dictionary，基于当前 GFInputContext 构建的校验报告，包含摘要、问题计数、冲突和后续动作。</tag>
+				<tag name="schema">return: Dictionary，基于当前 GFInputContext 与可选 GFInputRemapConfig 构建的校验报告，包含摘要、问题计数、冲突、remap_configured 和后续动作。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 	</methods>

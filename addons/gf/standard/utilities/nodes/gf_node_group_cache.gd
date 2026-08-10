@@ -339,13 +339,18 @@ func _prune_stale_cached_nodes() -> void:
 func _sync_current_group_members() -> void:
 	if _tree == null or _group_name == &"":
 		return
+	var cached_instance_ids: Dictionary = {}
+	for cached_node: Node in _nodes:
+		cached_instance_ids[cached_node.get_instance_id()] = true
 	var added_count: int = 0
 	for node: Node in _tree.get_nodes_in_group(_group_name):
-		if _nodes.has(node):
+		var node_id: int = node.get_instance_id()
+		if cached_instance_ids.has(node_id):
 			continue
 		if not _is_node_match(node):
 			continue
 		_nodes.append(node)
+		cached_instance_ids[node_id] = true
 		added_count += 1
 	if added_count > 0:
 		_diagnostics.record_write(_group_name)

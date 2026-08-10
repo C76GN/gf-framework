@@ -9,7 +9,7 @@
 - 类别：运行时服务 (`runtime_service`)
 - 首次版本：`3.17.0`
 
-运行时信号发射追踪器。 以显式 watch 的方式连接节点信号，并把实际发射记录为只读事件快照。 它不修改被观察节点，不解释业务语义，也不应默认用于生产环境全局采样。
+运行时信号发射追踪器。 以显式 watch 的方式连接节点信号，并把实际发射记录为只读事件快照。 它不修改被观察节点，不解释业务语义，也不应默认用于生产环境全局采样。 Signal source 会持有连接 Callable；调用方结束观察时必须调用 dispose() 或 unwatch_all()，以便长寿命 source 不再持有 Probe。
 
 ## 成员概览
 
@@ -32,6 +32,7 @@
 | 属性 | [`max_snapshot_nodes`](#member-gfsignalruntimeprobe-properties-max_snapshot_nodes) | `var max_snapshot_nodes: int = DEFAULT_MAX_SNAPSHOT_NODES:` |
 | 属性 | [`max_snapshot_bytes`](#member-gfsignalruntimeprobe-properties-max_snapshot_bytes) | `var max_snapshot_bytes: int = DEFAULT_MAX_SNAPSHOT_BYTES:` |
 | 属性 | [`max_snapshot_depth`](#member-gfsignalruntimeprobe-properties-max_snapshot_depth) | `var max_snapshot_depth: int = DEFAULT_MAX_SNAPSHOT_DEPTH:` |
+| 方法 | [`dispose`](#member-gfsignalruntimeprobe-methods-dispose) | `func dispose() -> void:` |
 | 方法 | [`watch_node`](#member-gfsignalruntimeprobe-methods-watch_node) | `func watch_node(source: Node, options: Dictionary = {}) -> Dictionary:` |
 | 方法 | [`watch_tree`](#member-gfsignalruntimeprobe-methods-watch_tree) | `func watch_tree(root: Node, options: Dictionary = {}) -> Dictionary:` |
 | 方法 | [`unwatch_node`](#member-gfsignalruntimeprobe-methods-unwatch_node) | `func unwatch_node(source: Node) -> int:` |
@@ -286,6 +287,19 @@ var max_snapshot_depth: int = DEFAULT_MAX_SNAPSHOT_DEPTH:
 单次事件参数快照最大递归深度。
 
 ## 方法
+
+<a id="member-gfsignalruntimeprobe-methods-dispose"></a>
+
+### `dispose`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func dispose() -> void:
+```
+
+断开全部监听并清空事件历史。 该方法幂等；结束观察时应优先调用它，避免长寿命 signal source 继续持有 Probe。
 
 <a id="member-gfsignalruntimeprobe-methods-watch_node"></a>
 

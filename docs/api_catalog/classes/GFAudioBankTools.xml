@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFAudioBankTools" path="addons/gf/standard/utilities/audio/gf_audio_bank_tools.gd" module="standard" extends="RefCounted" classDigest="75f48cc71fee19f81eb7df55e691bd5e8bb75204ef4b3ceb31c29bfa40eb40ff">
+<class name="GFAudioBankTools" path="addons/gf/standard/utilities/audio/gf_audio_bank_tools.gd" module="standard" extends="RefCounted" classDigest="681351112c5e97af6a40eeba993f1a8386c5ade38bf503e517f0064457f75283">
 	<description>GFAudioBankTools: 音频集合扫描、导入和校验辅助。
 面向编辑器工具和构建脚本复用；它只生成 `GFAudioBank` / `GFAudioClip`
 配置，不接管运行时播放策略。</description>
@@ -54,6 +54,38 @@
 				<tag name="api">public</tag>
 			</tags>
 		</member>
+		<member kind="const" name="DEFAULT_MAX_SCANNED_ENTRIES">
+			<signature>const DEFAULT_MAX_SCANNED_ENTRIES: int = 100000</signature>
+			<description>默认单次扫描检查的目录项总数上限。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="ABSOLUTE_MAX_SCAN_DEPTH">
+			<signature>const ABSOLUTE_MAX_SCAN_DEPTH: int = 64</signature>
+			<description>单次扫描递归深度的框架绝对硬上限。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="ABSOLUTE_MAX_AUDIO_PATHS">
+			<signature>const ABSOLUTE_MAX_AUDIO_PATHS: int = 100000</signature>
+			<description>单次扫描收集音频路径数量的框架绝对硬上限。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="ABSOLUTE_MAX_SCANNED_ENTRIES">
+			<signature>const ABSOLUTE_MAX_SCANNED_ENTRIES: int = 1000000</signature>
+			<description>单次扫描检查目录项总数的框架绝对硬上限。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
 	</constants>
 	<properties />
 	<methods>
@@ -69,13 +101,17 @@
 		</member>
 		<member kind="method" name="scan_audio_paths">
 			<signature>static func scan_audio_paths(root_path: String = "res://", options: Dictionary = {}) -&gt; PackedStringArray:</signature>
-			<description>递归扫描音频路径。</description>
+			<description>递归扫描音频路径。
+默认跳过 DirAccess 可识别的 symbolic link。三个 `max_*` 预算始终受框架
+绝对上限约束：正数会被 clamp，0 表示请求框架绝对上限，负数恢复默认值。
+max_scan_depth、max_audio_paths 与 max_scanned_entries。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">root_path: 扫描起点，通常是 res:// 下的目录。</tag>
-				<tag name="param">options: 可选项，支持 recursive、include_addons、excluded_paths、extensions、max_scan_depth 与 max_audio_paths。</tag>
+				<tag name="param">options: 可选项，支持 recursive、include_addons、excluded_paths、extensions、</tag>
 				<tag name="return">按字典序排序的音频路径。</tag>
-				<tag name="schema">options: Dictionary，可包含 recursive、include_addons、excluded_paths、extensions、max_scan_depth 和 max_audio_paths 字段。</tag>
+				<tag name="schema">options: Dictionary，可包含 recursive、include_addons、excluded_paths、extensions、max_scan_depth、max_audio_paths 和 max_scanned_entries 字段。</tag>
+				<tag name="since">5.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="create_bank_from_paths">

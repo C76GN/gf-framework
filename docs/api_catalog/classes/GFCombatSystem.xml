@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFCombatSystem" path="addons/gf/extensions/combat/core/gf_combat_system.gd" module="extensions/combat" extends="GFSystem" classDigest="2bd0e2a705e4b1821abf7dcdf9263ae1ecccff0f9822d318b36fb059d3f6515e">
+<class name="GFCombatSystem" path="addons/gf/extensions/combat/core/gf_combat_system.gd" module="extensions/combat" extends="GFSystem" classDigest="19007fc8e989aed8cb6c5111893ed9cd51bbcaf58680eb733e1fa67a47c0cbbd">
 	<description>GFCombatSystem: 战斗核心系统。
 负责驱动所有注册实体的 Buff 计时、周期触发以及技能 CD 更新。
 继承自 GFSystem，可通过架构的 tick 自动运行。</description>
@@ -10,7 +10,7 @@
 	</tags>
 	<signals>
 		<member kind="signal" name="buff_removal_reported">
-			<signature>signal buff_removal_reported(</signature>
+			<signature>signal buff_removal_reported( entity: Object, buff_id: StringName, reason: StringName, lifecycle_report: Dictionary )</signature>
 			<description>Buff 已从系统索引移除并完成 best-effort 清理。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -139,17 +139,20 @@
 		</member>
 		<member kind="method" name="clear_buffs">
 			<signature>func clear_buffs(p_entity: Object, predicate: Callable = Callable()) -&gt; int:</signature>
-			<description>清理实体上的 Buff。predicate 为空时清理全部；否则仅清理返回 true 的 Buff。</description>
+			<description>清理实体上的 Buff。predicate 为空时清理全部；否则仅清理返回 true 的 Buff。
+候选按调用开始时的身份快照评估；回调已完成的移除不会重复计数。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">p_entity: 实体对象。</tag>
 				<tag name="param">predicate: 可选过滤回调，签名为 `func(buff: GFBuff) -&gt; bool`。</tag>
 				<tag name="return">被清理的 Buff 数量。</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="clear_buffs_with_reason">
 			<signature>func clear_buffs_with_reason( p_entity: Object, predicate: Callable = Callable(), reason: StringName = GFBuff.REMOVAL_REASON_CLEARED ) -&gt; int:</signature>
-			<description>清理实体上的 Buff，并记录移除原因。</description>
+			<description>清理实体上的 Buff，并记录移除原因。
+每次 predicate 返回后都会重新验证实体记录并按 Buff 身份定位。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">p_entity: 实体对象。</tag>

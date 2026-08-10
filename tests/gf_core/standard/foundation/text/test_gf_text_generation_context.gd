@@ -377,6 +377,21 @@ func test_render_template_enforces_output_limit_across_loop_iterations() -> void
 	assert_false(context.get_report().is_ok(), "循环累积输出超限应进入诊断报告。")
 
 
+func test_render_template_unterminated_tail_obeys_cumulative_output_limit() -> void:
+	var context: GFTextGenerationContext = GFTextGenerationContext.new({}, {
+		"max_output_length": 6,
+	})
+
+	var output: String = context.render_template("abc{{ comment split }}def{{")
+	var report: GFValidationReport = context.get_report()
+	var issue_counts: Dictionary = report.get_issue_counts_by_kind()
+
+	assert_true(output.length() <= 6, "未闭合 token 的恢复文本也不得越过累计输出上限。")
+	assert_false(report.is_ok(), "未闭合 token 与输出超限都应进入报告。")
+	assert_true(issue_counts.has(&"unterminated_token"), "报告应保留模板语法错误。")
+	assert_true(issue_counts.has(&"output_limit_exceeded"), "报告应同时记录累计输出预算超限。")
+
+
 func _format_token_for_test(format_context: Dictionary) -> Variant:
 	var data_path: String = GFVariantData.get_option_string(format_context, "path")
 	var token_value: Variant = GFVariantData.get_option_value(format_context, "value")

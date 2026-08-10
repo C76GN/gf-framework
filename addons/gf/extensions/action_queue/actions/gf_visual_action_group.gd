@@ -48,9 +48,12 @@ const _GF_ASYNC_CALL_SCRIPT = preload("res://addons/gf/kernel/core/gf_async_call
 
 # --- 公共变量 ---
 
-## 包含的子动作列表。
+## 包含的子动作列表。execute() 会冻结当前列表供本轮使用，运行期修改只影响下一轮；
+## 并行计划不接受重复的同一动作实例。
 ## [br]
 ## @api public
+## [br]
+## @since 11.0.0
 ## [br]
 ## @schema actions: Array，元素为 GFVisualAction 或实现 execute() 协议的动作对象。
 var actions: Array[Object] = []
@@ -85,6 +88,7 @@ var _active_is_parallel: bool = true
 var _active_parallel_completion_policy: ParallelCompletionPolicy = ParallelCompletionPolicy.WAIT_FOR_ALL
 var _active_cancel_remaining_on_first_completed: bool = true
 var _active_actions: Array[Object] = []
+var _control_callback_in_progress: bool = false
 
 
 # --- Godot 生命周期方法 ---
@@ -123,10 +127,20 @@ func add(action: Object) -> void:
 ## [br]
 ## @schema return: Variant，动作组为空时返回 null；否则返回内部完成 Signal。
 func execute() -> Variant:
-	if actions.is_empty():
+	if _control_callback_in_progress:
+		return null
+	var action_plan: Array[Object] = _snapshot_actions()
+	if action_plan.is_empty():
+		return null
+	var run_in_parallel: bool = is_parallel
+	if run_in_parallel and _has_duplicate_action_instance(action_plan):
+		push_error("[GFVisualActionGroup] 并行执行计划包含重复动作实例。")
 		return null
 
+	_control_callback_in_progress = true
 	if _is_executing:
+		_execution_serial += 1
+		_set_paused(false)
 		_cancel_active_actions()
 		_emit_active_completion()
 
@@ -135,23 +149,28 @@ func execute() -> Variant:
 	_is_executing = true
 	_set_paused(false)
 	_clear_active_actions()
-	_active_is_parallel = is_parallel
+	_active_is_parallel = run_in_parallel
 	_active_parallel_completion_policy = parallel_completion_policy
 	_active_cancel_remaining_on_first_completed = cancel_remaining_on_first_completed
+	_control_callback_in_progress = false
 
-	if is_parallel:
-		return _run_parallel(current_serial)
-	return _run_sequence(current_serial)
+	if _active_is_parallel:
+		return _run_parallel(current_serial, action_plan)
+	return _run_sequence(current_serial, action_plan)
 
 
 ## 请求取消当前动作组执行。
 ## [br]
 ## @api public
 func cancel() -> void:
+	if _control_callback_in_progress:
+		return
 	_execution_serial += 1
+	_control_callback_in_progress = true
 	_set_paused(false)
 	_cancel_active_actions()
 	_emit_active_completion()
+	_control_callback_in_progress = false
 
 
 ## 暂停当前已启动子动作，并阻止后续子动作启动。
@@ -160,8 +179,12 @@ func cancel() -> void:
 ## [br]
 ## @since 6.0.0
 func pause() -> void:
+	if _control_callback_in_progress:
+		return
+	_control_callback_in_progress = true
 	_set_paused(true)
 	_pause_active_actions()
+	_control_callback_in_progress = false
 
 
 ## 恢复当前已启动子动作，并允许后续子动作继续启动。
@@ -170,33 +193,41 @@ func pause() -> void:
 ## [br]
 ## @since 6.0.0
 func resume() -> void:
+	if _control_callback_in_progress:
+		return
+	_control_callback_in_progress = true
 	_resume_active_actions()
 	_set_paused(false)
+	_control_callback_in_progress = false
 
 
 ## 立即完成所有有效子动作并释放等待者。
 ## [br]
 ## @api public
 func finish() -> void:
+	if _control_callback_in_progress:
+		return
 	_execution_serial += 1
+	_control_callback_in_progress = true
 	_set_paused(false)
 	_finish_active_actions()
 	_emit_active_completion()
+	_control_callback_in_progress = false
 
 
 # --- 私有/辅助方法 ---
 
-func _run_parallel(current_serial: int) -> Variant:
-	call_deferred("_do_parallel_async", current_serial)
+func _run_parallel(current_serial: int, action_plan: Array[Object]) -> Variant:
+	call_deferred("_do_parallel_async", current_serial, action_plan)
 	return _parallel_completed
 
 
-func _run_sequence(current_serial: int) -> Variant:
-	call_deferred("_do_sequence_async", current_serial)
+func _run_sequence(current_serial: int, action_plan: Array[Object]) -> Variant:
+	call_deferred("_do_sequence_async", current_serial, action_plan)
 	return _sequence_completed
 
 
-func _do_parallel_async(current_serial: int) -> void:
+func _do_parallel_async(current_serial: int, action_plan: Array[Object]) -> void:
 	if current_serial != _execution_serial:
 		return
 	await _wait_until_resumed(current_serial)
@@ -210,17 +241,34 @@ func _do_parallel_async(current_serial: int) -> void:
 		"emitted": false,
 		"actions": [],
 	}
-	for action: Object in actions:
-		if not _ACTION_PROTOCOL.is_action_valid(action):
+	for action: Object in action_plan:
+		await _wait_until_resumed(current_serial)
+		if current_serial != _execution_serial:
+			return
+
+		var action_valid: bool = _ACTION_PROTOCOL.is_action_valid(action)
+		if current_serial != _execution_serial:
+			return
+		if not action_valid:
 			continue
 
 		_inject_action_dependencies(action)
-		if not _ACTION_PROTOCOL.can_execute(action):
+		if current_serial != _execution_serial:
+			return
+		var action_can_execute: bool = _ACTION_PROTOCOL.can_execute(action)
+		if current_serial != _execution_serial:
+			return
+		if not action_can_execute:
 			continue
 
 		_mark_action_active(action)
 		var result: Variant = _ACTION_PROTOCOL.execute(action)
-		if _ACTION_PROTOCOL.should_wait_for_result(action, result):
+		if current_serial != _execution_serial:
+			return
+		var should_wait: bool = _ACTION_PROTOCOL.should_wait_for_result(action, result)
+		if current_serial != _execution_serial:
+			return
+		if should_wait:
 			pending_state["count"] = GFVariantData.get_option_int(pending_state, "count") + 1
 			var pending_actions: Array = _get_pending_actions(pending_state)
 			pending_actions.append(action)
@@ -234,29 +282,44 @@ func _do_parallel_async(current_serial: int) -> void:
 		else:
 			_unmark_action_active(action)
 
+	if current_serial != _execution_serial:
+		return
 	pending_state["launching"] = false
 	_try_emit_parallel_completed(pending_state, current_serial)
 
 
-func _do_sequence_async(current_serial: int) -> void:
+func _do_sequence_async(current_serial: int, action_plan: Array[Object]) -> void:
 	if current_serial != _execution_serial:
 		return
 
-	for action: Object in actions:
+	for action: Object in action_plan:
 		await _wait_until_resumed(current_serial)
 		if current_serial != _execution_serial:
 			return
 
-		if not _ACTION_PROTOCOL.is_action_valid(action):
+		var action_valid: bool = _ACTION_PROTOCOL.is_action_valid(action)
+		if current_serial != _execution_serial:
+			return
+		if not action_valid:
 			continue
 
 		_inject_action_dependencies(action)
-		if not _ACTION_PROTOCOL.can_execute(action):
+		if current_serial != _execution_serial:
+			return
+		var action_can_execute: bool = _ACTION_PROTOCOL.can_execute(action)
+		if current_serial != _execution_serial:
+			return
+		if not action_can_execute:
 			continue
 
 		_mark_action_active(action)
 		var result: Variant = _ACTION_PROTOCOL.execute(action)
-		if _ACTION_PROTOCOL.should_wait_for_result(action, result):
+		if current_serial != _execution_serial:
+			return
+		var should_wait: bool = _ACTION_PROTOCOL.should_wait_for_result(action, result)
+		if current_serial != _execution_serial:
+			return
+		if should_wait:
 			await _ACTION_PROTOCOL.await_result_safely(
 				action,
 				result,
@@ -267,6 +330,8 @@ func _do_sequence_async(current_serial: int) -> void:
 			if current_serial != _execution_serial:
 				return
 			await _wait_until_resumed(current_serial)
+			if current_serial != _execution_serial:
+				return
 		_unmark_action_active(action)
 
 		if current_serial != _execution_serial:
@@ -300,9 +365,9 @@ func _wait_parallel_action(
 		_get_architecture_or_null()
 	)
 
-	_unmark_action_active(action)
 	if current_serial != _execution_serial:
 		return
+	_unmark_action_active(action)
 
 	pending_state["count"] = GFVariantData.get_option_int(pending_state, "count") - 1
 	pending_state["completed_count"] = GFVariantData.get_option_int(pending_state, "completed_count") + 1
@@ -337,9 +402,11 @@ func _try_emit_parallel_completed(
 	pending_state["emitted"] = true
 	if _active_parallel_completion_policy == ParallelCompletionPolicy.FIRST_COMPLETED:
 		_execution_serial += 1
+		_control_callback_in_progress = true
 		_set_paused(false)
 		if _active_cancel_remaining_on_first_completed:
 			_cancel_pending_parallel_actions(pending_state, completed_action)
+		_control_callback_in_progress = false
 	_is_executing = false
 	_clear_active_actions()
 	_parallel_completed.emit()
@@ -387,6 +454,23 @@ func _get_pending_actions(pending_state: Dictionary) -> Array:
 	return GFVariantData.as_array(GFVariantData.get_option_value(pending_state, "actions", []))
 
 
+func _snapshot_actions() -> Array[Object]:
+	var action_plan: Array[Object] = []
+	action_plan.assign(actions)
+	return action_plan
+
+
+func _has_duplicate_action_instance(action_plan: Array[Object]) -> bool:
+	var seen_actions: Array[Object] = []
+	for action: Object in action_plan:
+		if not is_instance_valid(action):
+			continue
+		if seen_actions.has(action):
+			return true
+		seen_actions.append(action)
+	return false
+
+
 func _mark_action_active(action: Object) -> void:
 	if is_instance_valid(action) and not _active_actions.has(action):
 		_active_actions.append(action)
@@ -418,13 +502,15 @@ func _finish_active_actions() -> void:
 
 
 func _pause_active_actions() -> void:
-	for action: Object in _active_actions:
+	var active_snapshot: Array[Object] = _active_actions.duplicate()
+	for action: Object in active_snapshot:
 		if is_instance_valid(action):
 			_ACTION_PROTOCOL.pause(action)
 
 
 func _resume_active_actions() -> void:
-	for action: Object in _active_actions:
+	var active_snapshot: Array[Object] = _active_actions.duplicate()
+	for action: Object in active_snapshot:
 		if is_instance_valid(action):
 			_ACTION_PROTOCOL.resume(action)
 

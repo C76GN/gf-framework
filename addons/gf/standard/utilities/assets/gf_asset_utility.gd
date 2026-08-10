@@ -502,10 +502,12 @@ func acquire_handle(
 		put_cache(path, resource)
 
 	var owner_id: int = _owner_instance_id(owner)
-	_increment_reference(path, owner, group_id)
+	var cache_key: String = _increment_reference(path, owner, group_id)
+	if cache_key.is_empty():
+		return null
 
 	var handle: GFAssetHandle = GFAssetHandle.new()
-	handle.setup_from_utility(self, path, resource, type_hint, group_id, owner_id)
+	handle.setup_from_utility(self, path, resource, type_hint, group_id, owner_id, cache_key)
 	_track_handle(handle)
 	asset_handle_acquired.emit(handle)
 	return handle
@@ -519,11 +521,14 @@ func acquire_handle(
 ## [br]
 ## @return 释放成功返回 true。
 func release_handle(handle: GFAssetHandle) -> bool:
-	if handle == null or handle.path.is_empty() or handle.is_released():
+	if handle == null or handle.is_released() or not handle.is_managed_by(self):
 		return false
 
-	var path: String = handle.path
-	var remaining: int = _decrement_reference(path, handle.get_owner_id())
+	var path: String = handle.get_lease_path()
+	var cache_key: String = handle.get_lease_cache_key()
+	if path.is_empty() or cache_key.is_empty():
+		return false
+	var remaining: int = _decrement_reference_by_cache_key(cache_key, handle.get_owner_id())
 	handle.release_local_reference()
 	_prune_handle_refs()
 	asset_handle_released.emit(path, remaining)
@@ -1004,7 +1009,7 @@ func pin_cache(path: String) -> void:
 	var cache_key: String = _get_cache_key_for_path(path)
 	if cache_key.is_empty():
 		return
-	_pinned_cache_paths[cache_key] = _get_count_value(_pinned_cache_paths, cache_key) + 1
+	_pin_cache_key(cache_key)
 
 
 ## 解除指定缓存路径的 LRU 锁定。
@@ -1014,15 +1019,9 @@ func pin_cache(path: String) -> void:
 ## @param path: 资源路径。
 func unpin_cache(path: String) -> void:
 	var cache_key: String = _get_cache_key_for_path(path)
-	if cache_key.is_empty() or not _pinned_cache_paths.has(cache_key):
+	if cache_key.is_empty():
 		return
-
-	var count: int = _get_count_value(_pinned_cache_paths, cache_key) - 1
-	if count > 0:
-		_pinned_cache_paths[cache_key] = count
-	else:
-		_erase_dictionary_key(_pinned_cache_paths, cache_key)
-	_evict_lru()
+	_unpin_cache_key(cache_key)
 
 
 ## 检查指定缓存路径是否已被锁定。
@@ -1737,28 +1736,33 @@ func _owner_instance_id(owner: Object) -> int:
 	return owner.get_instance_id() if owner != null else 0
 
 
-func _increment_reference(path: String, owner: Object, group_id: StringName) -> void:
+func _increment_reference(path: String, owner: Object, group_id: StringName) -> String:
 	var cache_key: String = _get_cache_key_for_path(path)
 	if cache_key.is_empty():
-		return
+		return ""
 	_reference_counts[cache_key] = _get_count_value(_reference_counts, cache_key) + 1
-	pin_cache(path)
+	_pin_cache_key(cache_key)
 	if group_id != &"":
 		register_group_path(group_id, path)
 
 	var owner_id: int = _owner_instance_id(owner)
 	if owner_id == 0:
-		return
+		return cache_key
 
 	if not _owner_reference_counts.has(cache_key):
 		_owner_reference_counts[cache_key] = {}
 	var owner_counts: Dictionary = GFVariantData.as_dictionary(_owner_reference_counts[cache_key])
 	owner_counts[owner_id] = _get_count_value(owner_counts, owner_id) + 1
 	_track_owner(owner)
+	return cache_key
 
 
 func _decrement_reference(path: String, owner_id: int, release_count: int = 1) -> int:
 	var cache_key: String = _get_cache_key_for_path(path)
+	return _decrement_reference_by_cache_key(cache_key, owner_id, release_count)
+
+
+func _decrement_reference_by_cache_key(cache_key: String, owner_id: int, release_count: int = 1) -> int:
 	if cache_key.is_empty():
 		return 0
 	var count_to_release: int = maxi(release_count, 1)
@@ -1770,7 +1774,7 @@ func _decrement_reference(path: String, owner_id: int, release_count: int = 1) -
 		_erase_dictionary_key(_reference_counts, cache_key)
 
 	for _i: int in range(current_count - next_count):
-		unpin_cache(path)
+		_unpin_cache_key(cache_key)
 
 	if owner_id != 0 and _owner_reference_counts.has(cache_key):
 		var owner_counts: Dictionary = GFVariantData.as_dictionary(_owner_reference_counts[cache_key])
@@ -1783,6 +1787,23 @@ func _decrement_reference(path: String, owner_id: int, release_count: int = 1) -
 			_erase_dictionary_key(_owner_reference_counts, cache_key)
 
 	return next_count
+
+
+func _pin_cache_key(cache_key: String) -> void:
+	if cache_key.is_empty():
+		return
+	_pinned_cache_paths[cache_key] = _get_count_value(_pinned_cache_paths, cache_key) + 1
+
+
+func _unpin_cache_key(cache_key: String) -> void:
+	if cache_key.is_empty() or not _pinned_cache_paths.has(cache_key):
+		return
+	var count: int = _get_count_value(_pinned_cache_paths, cache_key) - 1
+	if count > 0:
+		_pinned_cache_paths[cache_key] = count
+	else:
+		_erase_dictionary_key(_pinned_cache_paths, cache_key)
+	_evict_lru()
 
 
 func _track_owner(owner: Object) -> void:
@@ -1823,7 +1844,7 @@ func _release_handles_for_path(path: String) -> void:
 		var handle: GFAssetHandle = _get_asset_handle_value(_handle_refs[index].get_ref())
 		if handle == null or handle.is_released():
 			_handle_refs.remove_at(index)
-		elif _get_cache_key_for_path(handle.path) == cache_key:
+		elif handle.get_lease_cache_key() == cache_key:
 			handle.release_local_reference()
 			_handle_refs.remove_at(index)
 
@@ -1855,7 +1876,7 @@ func _release_owner_id(owner_id: int) -> int:
 		var count: int = _get_count_value(owner_counts, owner_id)
 		var path: String = _get_public_path_for_cache_key(cache_key)
 		released_count += count
-		var remaining: int = _decrement_reference(path, owner_id, count)
+		var remaining: int = _decrement_reference_by_cache_key(cache_key, owner_id, count)
 		asset_handle_released.emit(path, remaining)
 
 	_release_owner_handles(owner_id)

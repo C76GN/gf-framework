@@ -4,6 +4,7 @@
 ##
 ## 把 Variant、Array、Dictionary 和 allowlist 内的 Resource/Object 属性图
 ## 编码为纯 Dictionary，并在解码时按策略限制类、脚本、外部资源路径、深度和数量。
+## 容器解码会在扫描或暂存完整形状前，用直接子节点基数预检剩余 max_items 预算。
 ## 该类不注册 ResourceFormatLoader/Saver，不加载未授权资源，也不执行脚本表达式。
 ## [br]
 ## @api public
@@ -440,6 +441,8 @@ static func _decode_array(
 		_add_issue(state, &"encoded_shape_invalid", "Encoded array items must be an Array.")
 		return _make_decoded_failure(_get_first_issue(state))
 	var items: Array = raw_items
+	if not _preflight_decode_container_cardinality(state, items.size(), 1):
+		return _make_decoded_failure(_get_first_issue(state))
 	var item_nodes: Array[Dictionary] = []
 	for item_value: Variant in items:
 		if not item_value is Dictionary:
@@ -486,6 +489,8 @@ static func _decode_dictionary(
 		_add_issue(state, &"encoded_shape_invalid", "Encoded dictionary entries must be an Array.")
 		return _make_decoded_failure(_get_first_issue(state))
 	var entries: Array = raw_entries
+	if not _preflight_decode_container_cardinality(state, entries.size(), 2):
+		return _make_decoded_failure(_get_first_issue(state))
 	var entry_nodes: Array[Dictionary] = []
 	for entry_value: Variant in entries:
 		if not entry_value is Dictionary:
@@ -753,6 +758,8 @@ static func _decode_object(
 		_add_issue(state, &"encoded_shape_invalid", "Encoded object properties must be an Array.")
 		return _make_decoded_failure(_get_first_issue(state))
 	var properties: Array = raw_properties
+	if not _preflight_decode_container_cardinality(state, properties.size(), 1):
+		return _make_decoded_failure(_get_first_issue(state))
 	var property_nodes: Array[Dictionary] = []
 	var seen_property_ids: Dictionary = {}
 	for property_value: Variant in properties:
@@ -1122,6 +1129,26 @@ static func _consume_item(state: Dictionary, depth: int, phase: String) -> bool:
 	if item_count > GFVariantData.get_option_int(state, "max_items", 4096):
 		_add_issue(state, &"max_items_exceeded", "%s max_items exceeded." % phase)
 		return false
+	return true
+
+
+static func _preflight_decode_container_cardinality(
+	state: Dictionary,
+	container_size: int,
+	nodes_per_item: int
+) -> bool:
+	var consumed_items: int = GFVariantData.get_option_int(state, "item_count", 0)
+	var max_items: int = GFVariantData.get_option_int(state, "max_items", 4096)
+	if consumed_items > max_items:
+		_add_issue(state, &"max_items_exceeded", "decode max_items exceeded.")
+		return false
+	var remaining_items: int = max_items - consumed_items
+	var required_items: int = 0
+	for _node_index: int in range(nodes_per_item):
+		if container_size > remaining_items - required_items:
+			_add_issue(state, &"max_items_exceeded", "decode max_items exceeded.")
+			return false
+		required_items += container_size
 	return true
 
 

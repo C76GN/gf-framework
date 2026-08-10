@@ -57,6 +57,8 @@ const _EXACT_WORD_SCORE: float = 300.0
 const _PREFIX_WORD_SCORE: float = 220.0
 const _CONTAINS_WORD_SCORE: float = 120.0
 const _SUBSEQUENCE_SCORE: float = 40.0
+const _TRAVERSAL_VALUE: int = 0
+const _TRAVERSAL_EXIT_ARRAY: int = 1
 
 
 # --- 公共方法 ---
@@ -202,7 +204,7 @@ static func _score_candidate_with_context(candidate: Dictionary, context: Dictio
 	for field_entry: Dictionary in fields:
 		var field_key: StringName = GFVariantData.to_string_name(GFVariantData.get_option_value(field_entry, "key"))
 		var field_weight: float = GFVariantData.get_option_float(field_entry, "weight", 1.0)
-		if field_key == &"" or field_weight <= 0.0:
+		if field_key == &"" or not is_finite(field_weight) or field_weight <= 0.0:
 			continue
 
 		var field_text: String = _value_to_search_text(_get_candidate_value(candidate, field_key))
@@ -216,11 +218,14 @@ static func _score_candidate_with_context(candidate: Dictionary, context: Dictio
 			false
 		)
 		var field_score: float = GFVariantData.get_option_float(field_report, "score") * field_weight
-		if field_score <= 0.0:
+		if not is_finite(field_score) or field_score <= 0.0:
+			continue
+		var next_total_score: float = total_score + field_score
+		if not is_finite(next_total_score):
 			continue
 
 		field_scores[field_key] = field_score
-		total_score += field_score
+		total_score = next_total_score
 		var field_tokens: PackedStringArray = _get_report_tokens(field_report)
 		for matched_token: String in field_tokens:
 			matched_lookup[matched_token] = true
@@ -237,7 +242,7 @@ static func _score_candidate_with_context(candidate: Dictionary, context: Dictio
 		"score": total_score,
 		"matched_tokens": matched_tokens,
 		"field_scores": field_scores,
-		"candidate": candidate.duplicate(true) if duplicate_candidate else candidate,
+		"candidate": _duplicate_candidate(candidate) if duplicate_candidate else candidate,
 	}
 
 
@@ -334,9 +339,10 @@ static func _normalize_field_entry(field_variant: Variant) -> Dictionary:
 		var field_key: StringName = GFVariantData.to_string_name(GFVariantData.get_option_value(field_dictionary, "key"))
 		if field_key == &"":
 			return {}
+		var field_weight: float = GFVariantData.get_option_float(field_dictionary, "weight", 1.0)
 		return {
 			"key": field_key,
-			"weight": GFVariantData.get_option_float(field_dictionary, "weight", 1.0),
+			"weight": field_weight if is_finite(field_weight) else 0.0,
 		}
 	if field_variant is StringName:
 		return {
@@ -362,19 +368,124 @@ static func _get_candidate_value(candidate: Dictionary, field_key: StringName) -
 
 
 static func _value_to_search_text(value: Variant) -> String:
-	if value == null:
-		return ""
-	if value is PackedStringArray:
-		var packed_text: PackedStringArray = value
-		return " ".join(packed_text)
-	if value is Array:
-		var parts: PackedStringArray = PackedStringArray()
-		for item: Variant in value:
-			var text: String = _value_to_search_text(item)
-			if not text.is_empty():
-				var _append_result: bool = parts.append(text)
-		return " ".join(parts)
-	return GFVariantData.to_text(value)
+	var parts: PackedStringArray = PackedStringArray()
+	var active_arrays: Array = []
+	var pending: Array[Dictionary] = [{
+		"kind": _TRAVERSAL_VALUE,
+		"value": value,
+	}]
+	while not pending.is_empty():
+		var frame: Dictionary = pending.pop_back()
+		var frame_value: Variant = GFVariantData.get_option_value(frame, "value")
+		if GFVariantData.get_option_int(frame, "kind") == _TRAVERSAL_EXIT_ARRAY:
+			if not active_arrays.is_empty():
+				var _removed_active_array: Variant = active_arrays.pop_back()
+			continue
+		if frame_value == null:
+			continue
+		if frame_value is PackedStringArray:
+			var packed_text: PackedStringArray = frame_value
+			var joined_text: String = " ".join(packed_text)
+			if not joined_text.is_empty():
+				var _packed_text_appended: bool = parts.append(joined_text)
+			continue
+		if frame_value is Array:
+			var array_value: Array = frame_value
+			if _contains_active_array(active_arrays, array_value):
+				continue
+			active_arrays.append(array_value)
+			pending.append({
+				"kind": _TRAVERSAL_EXIT_ARRAY,
+				"value": array_value,
+			})
+			for index: int in range(array_value.size() - 1, -1, -1):
+				pending.append({
+					"kind": _TRAVERSAL_VALUE,
+					"value": array_value[index],
+				})
+			continue
+		var text: String = GFVariantData.to_text(frame_value)
+		if not text.is_empty():
+			var _text_appended: bool = parts.append(text)
+	return " ".join(parts)
+
+
+static func _contains_active_array(active_arrays: Array, value: Array) -> bool:
+	for active_value: Variant in active_arrays:
+		if is_same(active_value, value):
+			return true
+	return false
+
+
+static func _duplicate_candidate(candidate: Dictionary) -> Dictionary:
+	var candidate_copy: Dictionary = candidate.duplicate(false)
+	candidate_copy.clear()
+	var visited: Array[Dictionary] = [{
+		"source": candidate,
+		"copy": candidate_copy,
+	}]
+	var pending: Array[Dictionary] = [{
+		"source": candidate,
+		"copy": candidate_copy,
+	}]
+	while not pending.is_empty():
+		var frame: Dictionary = pending.pop_back()
+		var source: Variant = GFVariantData.get_option_value(frame, "source")
+		var target: Variant = GFVariantData.get_option_value(frame, "copy")
+		if source is Dictionary and target is Dictionary:
+			var source_dictionary: Dictionary = source
+			var target_dictionary: Dictionary = target
+			for key: Variant in source_dictionary.keys():
+				var copied_key: Variant = _get_or_create_candidate_copy(key, visited, pending)
+				var copied_value: Variant = _get_or_create_candidate_copy(
+					source_dictionary[key],
+					visited,
+					pending
+				)
+				target_dictionary[copied_key] = copied_value
+		elif source is Array and target is Array:
+			var source_array: Array = source
+			var target_array: Array = target
+			for item: Variant in source_array:
+				target_array.append(_get_or_create_candidate_copy(item, visited, pending))
+	return candidate_copy
+
+
+static func _get_or_create_candidate_copy(
+	value: Variant,
+	visited: Array[Dictionary],
+	pending: Array[Dictionary]
+) -> Variant:
+	if not (value is Dictionary or value is Array):
+		return GFVariantData.duplicate_variant(value, true, false)
+	for record: Dictionary in visited:
+		if is_same(GFVariantData.get_option_value(record, "source"), value):
+			return GFVariantData.get_option_value(record, "copy")
+	if value is Dictionary:
+		var source_dictionary: Dictionary = value
+		var dictionary_copy: Dictionary = source_dictionary.duplicate(false)
+		dictionary_copy.clear()
+		visited.append({
+			"source": source_dictionary,
+			"copy": dictionary_copy,
+		})
+		pending.append({
+			"source": source_dictionary,
+			"copy": dictionary_copy,
+		})
+		return dictionary_copy
+	var source_array: Array = value
+	var array_copy: Array = source_array.duplicate(false)
+	array_copy.clear()
+	visited.append({
+		"source": source_array,
+		"copy": array_copy,
+	})
+	pending.append({
+		"source": source_array,
+		"copy": array_copy,
+	})
+	return array_copy
 
 
 static func _normalize_search_text(text: String, case_sensitive: bool = false) -> String:

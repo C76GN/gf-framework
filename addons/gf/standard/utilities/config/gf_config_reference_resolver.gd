@@ -230,18 +230,26 @@ static func _get_reference_index(
 	field_names: PackedStringArray,
 	index_cache: Dictionary
 ) -> Dictionary:
-	var cache_key: String = _make_reference_index_cache_key(table_name, field_names)
-	if index_cache.has(cache_key):
-		var cached_value: Variant = index_cache[cache_key]
+	var table_cache: Dictionary = GFVariantData.get_option_dictionary(index_cache, table_name)
+	var field_key: String = _make_reference_index_field_key(field_names)
+	if table_cache.has(field_key):
+		var cached_value: Variant = table_cache[field_key]
 		return GFVariantData.as_dictionary(cached_value)
 
 	var index: Dictionary = build_index(target_table, field_names)
-	index_cache[cache_key] = index
+	table_cache[field_key] = index
+	index_cache[table_name] = table_cache
 	return index
 
 
-static func _make_reference_index_cache_key(table_name: StringName, field_names: PackedStringArray) -> String:
-	return "%s::%s" % [String(table_name), "|".join(field_names)]
+static func _make_reference_index_field_key(field_names: PackedStringArray) -> String:
+	var encoded_fields: PackedStringArray = PackedStringArray()
+	var _field_count_appended: bool = encoded_fields.append("%d:" % field_names.size())
+	for field_name: String in field_names:
+		var _field_appended: bool = encoded_fields.append(
+			"%d:%s" % [field_name.length(), field_name]
+		)
+	return "".join(encoded_fields)
 
 
 static func _get_schema_by_name(schemas_by_name: Dictionary, table_name: StringName) -> GFConfigTableSchema:

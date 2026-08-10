@@ -404,6 +404,7 @@ func win_current_level() -> void:
 ### `complete_current_level`
 
 - API：`public`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func complete_current_level( result: Dictionary = {}, unlock_next: bool = true, emit_win_signal: bool = true ) -> void:
@@ -416,7 +417,7 @@ func complete_current_level( result: Dictionary = {}, unlock_next: bool = true, 
 | 名称 | 说明 |
 |---|---|
 | `result` | 项目层结果数据。 |
-| `unlock_next` | 是否解锁目录中的后续关卡。 |
+| `unlock_next` | 是否额外解锁目录顺序中的相邻后续关卡；不影响条目声明的 unlocks_on_complete。 |
 | `emit_win_signal` | 是否发出 level_won。 |
 
 结构：

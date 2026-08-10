@@ -94,12 +94,13 @@ var previous_value: float = 0.0
 ### `current_value`
 
 - API：`public`
+- 首次版本：`11.0.0`
 
 ```gdscript
 var current_value: float = 0.0
 ```
 
-应用后数值。
+该动作提交后的数值快照；不包含观察信号触发的后续嵌套变更。
 
 <a id="member-gfcombatactionresult-properties-metadata"></a>
 

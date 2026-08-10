@@ -75,9 +75,12 @@ enum ValueType {
 ## @api public
 @export var allow_null: bool = true
 
-## 默认值。`GFDictionarySchema.apply_defaults()` 会在缺字段时使用。
+## 默认值。`GFDictionarySchema.apply_defaults()` 会在缺字段且该值可表达时使用；
+## 当前 default_value 为 null 且 allow_null 为 false 时视为没有可用默认值。
 ## [br]
 ## @api public
+## [br]
+## @since 4.4.0
 ## [br]
 ## @schema default_value: Variant default field value.
 @export var default_value: Variant = null
@@ -564,7 +567,9 @@ func _merge_rule_report(report: GFValidationReport, rule_report: GFValidationRep
 		if issue.path.is_empty():
 			issue.path = GFVariantData.get_option_string(context, "path", String(field_name))
 		if issue.key == null:
-			issue.key = GFVariantData.get_option_value(context, "key", field_name)
+			issue.key = GFVariantData.duplicate_variant(
+				GFVariantData.get_option_value(context, "key", field_name)
+			)
 		if issue.subject.is_empty():
 			issue.subject = GFVariantData.get_option_string(context, "subject", _make_subject(context))
 		var _rule_issue: RefCounted = report.add_issue(issue)

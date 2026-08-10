@@ -19,6 +19,7 @@ class WorkspaceSnapshot:
 	def __init__(self, root: Path) -> None:
 		self.root = root
 		self._text_by_identity: dict[tuple[str, int, int], str] = {}
+		self._identity_by_path: dict[str, tuple[str, int, int]] = {}
 		self._values: dict[tuple[str, Hashable], Any] = {}
 		self._text_hits = 0
 		self._text_misses = 0
@@ -33,13 +34,18 @@ class WorkspaceSnapshot:
 
 	def read_utf8_text_strict(self, path: Path) -> str:
 		file_stat = path.stat()
-		identity = (str(path), file_stat.st_mtime_ns, file_stat.st_size)
+		path_key = str(path)
+		identity = (path_key, file_stat.st_mtime_ns, file_stat.st_size)
 		cached = self._text_by_identity.get(identity)
 		if cached is not None:
 			self._text_hits += 1
 			return cached
 		text = path.read_text(encoding="utf-8")
+		previous_identity = self._identity_by_path.get(path_key)
+		if previous_identity is not None and previous_identity != identity:
+			self._text_by_identity.pop(previous_identity, None)
 		self._text_by_identity[identity] = text
+		self._identity_by_path[path_key] = identity
 		self._text_misses += 1
 		return text
 

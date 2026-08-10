@@ -136,7 +136,7 @@ func push(value: Variant, priority: float = 0.0, front: bool = false) -> bool:
 func push_with_order(value: Variant, priority: float = 0.0, order: int = 0) -> bool:
 ```
 
-按显式稳定顺序推入一个值。
+按显式稳定顺序推入一个值。 相同 priority 和 order 的条目按本次队列实例中的入队先后保持稳定。
 
 参数：
 

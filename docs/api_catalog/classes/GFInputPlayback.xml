@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFInputPlayback" path="addons/gf/standard/input/recording/gf_input_playback.gd" module="standard" extends="RefCounted" classDigest="777ba353b5790368b610135441a83076590d6849c8aa05be16a0b5d382876067">
+<class name="GFInputPlayback" path="addons/gf/standard/input/recording/gf_input_playback.gd" module="standard" extends="RefCounted" classDigest="6d86101a507f99b05fcb7d76a8d7348fda2851ffafa8f7b55ab6daec849b7d54">
 	<description>GFInputPlayback: 抽象输入录制回放器。
 按时间把 GFInputRecording 中的动作值写入 GFVirtualInputSource，适合测试、
 复现、教程或 AI 控制桥接。它只回放抽象动作，不模拟具体键鼠或手柄事件。</description>
@@ -33,11 +33,13 @@
 		</member>
 		<member kind="signal" name="event_applied">
 			<signature>signal event_applied(event: Dictionary)</signature>
-			<description>一个录制事件已被应用。</description>
+			<description>一个录制事件已被应用。事件索引会先提交再同步发出本信号；handler 可以调用
+start/stop/reset/seek，旧 tick 会在 handler 返回后停止，不再推进新会话。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">event: 事件副本。</tag>
 				<tag name="schema">event: Dictionary，包含 time_seconds、action_id、value、player_index、source_id 和 metadata。</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="signal" name="loop_catch_up_limited">
@@ -137,21 +139,24 @@
 	<methods>
 		<member kind="method" name="start">
 			<signature>func start( next_recording: GFInputRecording, next_source: GFVirtualInputSource, restart: bool = true ) -&gt; bool:</signature>
-			<description>开始回放。</description>
+			<description>开始回放。每次成功调用都会创建新的回放代际；同步回调中启动的新代际不会被
+旧 tick 的索引、完成状态或后续事件覆盖。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">next_recording: 要回放的录制。</tag>
 				<tag name="param">next_source: 目标虚拟输入源。</tag>
 				<tag name="param">restart: 是否从头开始。</tag>
 				<tag name="return">成功开始时返回 true。</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="stop">
 			<signature>func stop(clear_source: bool = false) -&gt; void:</signature>
-			<description>停止回放。</description>
+			<description>停止回放。调用会先使当前代际失效，再按需清理 source 和发出停止信号。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">clear_source: 是否清空目标虚拟输入源。</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="reset">
@@ -163,11 +168,13 @@
 		</member>
 		<member kind="method" name="tick">
 			<signature>func tick(delta: float) -&gt; int:</signature>
-			<description>推进回放并应用到期事件。</description>
+			<description>推进回放并应用到期事件。一次调用只向进入 tick 时绑定的 recording/source
+提交；同步回调改变会话或 source 后，剩余到期事件留给新会话或后续显式操作。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">delta: 时间增量，单位秒。</tag>
 				<tag name="return">本次应用的事件数量。</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="seek">

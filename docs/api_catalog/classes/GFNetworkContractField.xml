@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFNetworkContractField" path="addons/gf/extensions/network/contracts/gf_network_contract_field.gd" module="extensions/network" extends="Resource" classDigest="8817bbe2f16a872ea9b33d803b95ab06e4054b54a610205f648fde1f219f7bec">
+<class name="GFNetworkContractField" path="addons/gf/extensions/network/contracts/gf_network_contract_field.gd" module="extensions/network" extends="Resource" classDigest="bc6ccca870a365b6f77030219256705278ca687ae56fcd49cf5c988cd4b4c0a8">
 	<description>GFNetworkContractField: 网络契约中的单个 payload 字段。
 字段只描述名称、值类型、必填性和默认值，用于生成器、校验器或项目工具，
 不规定消息含义、权限或同步策略。</description>
@@ -88,10 +88,11 @@
 		</member>
 		<member kind="property" name="default_value" decorators="@export">
 			<signature>var default_value: Variant = null</signature>
-			<description>可选默认值。生成器会尽量把可表达的默认值写入生成函数签名。</description>
+			<description>可选默认值。非 null 值必须精确匹配 value_type 并满足 transport-safe 边界；生成器会完整写入生成函数签名。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="schema">default_value: Variant，字段默认值；建议使用与 value_type 匹配的可复制值。</tag>
+				<tag name="schema">default_value: Variant，字段默认值；非 null 时必须精确匹配 value_type，并且是可复制的 transport-safe 值。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="class_name_hint" decorators="@export">
@@ -142,9 +143,10 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">value: 输入值。</tag>
-				<tag name="return">归一化后的值。</tag>
+				<tag name="return">归一化后的值；allow_null 为 true 时显式 null 原样保留，否则可回落到非空默认值。</tag>
 				<tag name="schema">value: Variant，待归一化字段值。</tag>
 				<tag name="schema">return: Variant，字段默认值或输入值的安全副本。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="validate_definition">

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFPlatformAdapter" path="addons/gf/standard/platform/gf_platform_adapter.gd" module="standard" extends="RefCounted" classDigest="0762c09e7e7dc622e1be8ff7578ba02a369cae89c3f6f2095734771731095bed">
+<class name="GFPlatformAdapter" path="addons/gf/standard/platform/gf_platform_adapter.gd" module="standard" extends="RefCounted" classDigest="4326c018bade4f5164170bb8b71cb45ff0ad058db13ee76db4543caf676bb100">
 	<description>GFPlatformAdapter: 外部平台 adapter 协议。
 Steam、微信小游戏、主机平台或自建平台实现应继承该类型，把具体 SDK 回调
 转换为 GF 的上下文、生命周期事件和桥接结果。该基类不依赖任何平台 SDK。</description>
@@ -218,8 +218,8 @@ SHUTDOWN 为终态；需要重新连接时应创建新 adapter 实例。</descri
 			<description>获取 adapter 调试快照。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="return">Adapter 身份、状态、契约与脱敏上下文摘要。</tag>
-				<tag name="schema">return: Dictionary with adapter identity, state, contracts, and redacted context summary.</tag>
+				<tag name="return">Adapter 身份、状态、契约与脱敏上下文摘要；不会包含契约或方法自由 metadata。</tag>
+				<tag name="schema">return: Dictionary with adapter identity, state, metadata-free contract summaries, and redacted context summary.</tag>
 				<tag name="since">9.0.0</tag>
 			</tags>
 		</member>

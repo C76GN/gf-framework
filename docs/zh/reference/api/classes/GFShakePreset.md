@@ -203,7 +203,7 @@ var sample_seed: int = 1
 var tracks: Array[GFShakeTrack] = []
 ```
 
-可组合反馈轨道。为空时使用兼容的单波形字段。
+可组合反馈轨道。数组非空即选择轨道模式；只有空数组才使用兼容的单波形字段。 disabled、null 或当前进度范围外的轨道不参与合成，轨道采样出的数值零仍是有效贡献。
 
 结构：
 
@@ -326,9 +326,9 @@ func clear_tracks() -> void:
 func has_tracks() -> bool:
 ```
 
-检查是否存在有效轨道。
+检查是否存在已启用的非空轨道。该查询不决定采样模式；非空 tracks 始终使用轨道模式。
 
-返回：存在有效轨道返回 true。
+返回：存在已启用的非空轨道返回 true。
 
 <a id="member-gfshakepreset-methods-zero_sample"></a>
 

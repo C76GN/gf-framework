@@ -318,7 +318,7 @@ func clear_node_runtime_state(node_id: StringName = &"") -> void:
 ## [br]
 ## @schema options: Dictionary，包含 metadata: Dictionary、include_condition_handler_ids: bool 与 json_compatible: bool。
 ## [br]
-## @return 运行快照。
+## @return: 运行快照。
 ## [br]
 ## @schema return: Dictionary，包含 values、next_node_ids、has_next_node_override、runtime_state、condition_handler_ids 和 metadata。
 func create_runtime_snapshot(options: Dictionary = {}) -> Dictionary:
@@ -353,20 +353,16 @@ func create_runtime_snapshot(options: Dictionary = {}) -> Dictionary:
 ## [br]
 ## @schema snapshot: Dictionary，包含 values、next_node_ids、has_next_node_override 和 runtime_state。
 ## [br]
-## @return 快照有效并完成恢复时返回 true。
+## @return: 快照有效并完成恢复时返回 true。
 func restore_runtime_snapshot(snapshot: Dictionary) -> bool:
-	if snapshot.is_empty():
+	var parsed: Dictionary = _parse_runtime_snapshot(snapshot)
+	if not GFVariantData.get_option_bool(parsed, "valid", false):
 		return false
 
-	values = GFVariantData.get_option_dictionary(snapshot, "values").duplicate(true)
-	next_node_ids = GFVariantData.get_option_packed_string_array(snapshot, "next_node_ids")
-	has_next_node_override = GFVariantData.get_option_bool(snapshot, "has_next_node_override", not next_node_ids.is_empty())
-	var runtime_state: Dictionary = GFVariantData.get_option_dictionary(snapshot, "runtime_state")
-	if runtime_state.is_empty() and snapshot.has("nodes"):
-		runtime_state = {
-			"nodes": GFVariantData.get_option_dictionary(snapshot, "nodes"),
-		}
-	deserialize_runtime_state(runtime_state)
+	values = GFVariantData.get_option_dictionary(parsed, "values").duplicate(true)
+	next_node_ids = GFVariantData.get_option_packed_string_array(parsed, "next_node_ids")
+	has_next_node_override = GFVariantData.get_option_bool(parsed, "has_next_node_override")
+	_node_runtime_states = GFVariantData.get_option_dictionary(parsed, "node_states").duplicate(true)
 	return true
 
 
@@ -405,17 +401,121 @@ func serialize_runtime_state(json_compatible: bool = false) -> Dictionary:
 ## [br]
 ## @schema data: serialize_runtime_state() 返回的运行态 Dictionary。
 func deserialize_runtime_state(data: Dictionary) -> void:
-	_node_runtime_states.clear()
-	var node_states: Dictionary = GFVariantData.as_dictionary(GFVariantData.get_option_value(data, "nodes", {}))
-	if node_states.is_empty():
+	var parsed: Dictionary = _parse_node_runtime_states(data)
+	if not GFVariantData.get_option_bool(parsed, "valid", false):
+		push_error("[GFFlowContext] deserialize_runtime_state 失败：nodes 必须是节点 ID 到 Dictionary 的映射。")
 		return
-	for node_id_variant: Variant in node_states.keys():
-		var state: Dictionary = GFVariantData.as_dictionary(GFVariantData.get_option_value(node_states, node_id_variant, {}))
-		if not state.is_empty():
-			_node_runtime_states[GFVariantData.to_string_name(node_id_variant)] = state.duplicate(true)
+	_node_runtime_states = GFVariantData.get_option_dictionary(parsed, "node_states").duplicate(true)
+
+
+# --- 框架内部方法 ---
+
+## 获取单个节点运行态的隔离副本，供 Flow Runner 避免复制完整 Context。
+## [br]
+## @api framework_internal
+## [br]
+## @since 11.0.0
+## [br]
+## @param node_id: 节点标识。
+## [br]
+## @return: 节点运行态的深拷贝；不存在时为空字典。
+## [br]
+## @schema return: 指定节点的项目运行态 Dictionary。
+func get_node_runtime_state_snapshot(node_id: StringName) -> Dictionary:
+	var state_value: Variant = GFVariantData.get_option_value(_node_runtime_states, node_id, {})
+	if not (state_value is Dictionary):
+		return {}
+	var state: Dictionary = state_value
+	return state.duplicate(true)
+
+
+## 原子替换单个节点运行态，供 Flow Runner 写回隔离执行结果。
+## [br]
+## @api framework_internal
+## [br]
+## @since 11.0.0
+## [br]
+## @param node_id: 节点标识。
+## [br]
+## @param state: 新运行态；空字典表示删除该节点状态。
+## [br]
+## @schema state: 指定节点的项目运行态 Dictionary。
+func replace_node_runtime_state(node_id: StringName, state: Dictionary) -> void:
+	if node_id == &"":
+		return
+	if state.is_empty():
+		_erase_dictionary_key(_node_runtime_states, node_id)
+		return
+	_node_runtime_states[node_id] = state.duplicate(true)
 
 
 # --- 私有/辅助方法 ---
+
+func _parse_runtime_snapshot(snapshot: Dictionary) -> Dictionary:
+	if (
+		not snapshot.has("values")
+		or not snapshot.has("next_node_ids")
+		or not snapshot.has("has_next_node_override")
+	):
+		return {}
+	var values_value: Variant = snapshot["values"]
+	var next_node_ids_value: Variant = snapshot["next_node_ids"]
+	var override_value: Variant = snapshot["has_next_node_override"]
+	if (
+		not (values_value is Dictionary)
+		or not (next_node_ids_value is PackedStringArray)
+		or typeof(override_value) != TYPE_BOOL
+	):
+		return {}
+
+	var runtime_state: Dictionary = {}
+	if snapshot.has("runtime_state"):
+		var runtime_state_value: Variant = snapshot["runtime_state"]
+		if not (runtime_state_value is Dictionary):
+			return {}
+		runtime_state = runtime_state_value
+	elif snapshot.has("nodes"):
+		var legacy_nodes_value: Variant = snapshot["nodes"]
+		if not (legacy_nodes_value is Dictionary):
+			return {}
+		runtime_state = {"nodes": legacy_nodes_value}
+	else:
+		return {}
+
+	var parsed_runtime_state: Dictionary = _parse_node_runtime_states(runtime_state)
+	if not GFVariantData.get_option_bool(parsed_runtime_state, "valid", false):
+		return {}
+	var parsed_values: Dictionary = values_value
+	var parsed_next_node_ids: PackedStringArray = next_node_ids_value
+	return {
+		"valid": true,
+		"values": parsed_values.duplicate(true),
+		"next_node_ids": parsed_next_node_ids.duplicate(),
+		"has_next_node_override": override_value,
+		"node_states": GFVariantData.get_option_dictionary(parsed_runtime_state, "node_states"),
+	}
+
+
+func _parse_node_runtime_states(data: Dictionary) -> Dictionary:
+	if not data.has("nodes"):
+		return {}
+	var node_states_value: Variant = data["nodes"]
+	if not (node_states_value is Dictionary):
+		return {}
+	var node_states: Dictionary = node_states_value
+	var normalized: Dictionary = {}
+	for node_id_variant: Variant in node_states.keys():
+		var node_id: StringName = GFVariantData.to_string_name(node_id_variant)
+		var state_value: Variant = node_states[node_id_variant]
+		if node_id == &"" or not (state_value is Dictionary):
+			return {}
+		var state: Dictionary = state_value
+		if not state.is_empty():
+			normalized[node_id] = state.duplicate(true)
+	return {
+		"valid": true,
+		"node_states": normalized,
+	}
 
 func _normalize_condition_result(condition_id: StringName, raw_result: Variant, default_value: Variant) -> Dictionary:
 	if raw_result is Dictionary:

@@ -53,6 +53,7 @@ var max_immediate_iterations_per_frame: int = DEFAULT_MAX_IMMEDIATE_ITERATIONS_P
 var _execution_serial: int = 0
 var _paused: bool = false
 var _active_action: Object = null
+var _control_callback_in_progress: bool = false
 
 
 # --- Godot 生命周期方法 ---
@@ -72,16 +73,20 @@ func _init(p_action_factory: Callable = Callable(), p_repeat_count: int = 1) -> 
 ## [br]
 ## @schema return: Variant，返回 repeat_completed Signal 或 null。
 func execute() -> Variant:
-	if not action_factory.is_valid():
+	if _control_callback_in_progress or not action_factory.is_valid():
 		return null
 
-	if is_instance_valid(_active_action):
-		_ACTION_PROTOCOL.cancel(_active_action)
-		_active_action = null
-		repeat_completed.emit()
-
 	_execution_serial += 1
-	call_deferred("_run_repeat_async", _execution_serial)
+	var current_serial: int = _execution_serial
+	_paused = false
+	var previous_action: Object = _take_active_action()
+	if is_instance_valid(previous_action):
+		_control_callback_in_progress = true
+		_ACTION_PROTOCOL.cancel(previous_action)
+		repeat_completed.emit()
+		_control_callback_in_progress = false
+
+	call_deferred("_run_repeat_async", current_serial)
 	return repeat_completed
 
 
@@ -89,40 +94,58 @@ func execute() -> Variant:
 ## [br]
 ## @api public
 func cancel() -> void:
+	if _control_callback_in_progress:
+		return
 	_execution_serial += 1
 	_paused = false
-	if is_instance_valid(_active_action):
-		_ACTION_PROTOCOL.cancel(_active_action)
-	_active_action = null
+	var action: Object = _take_active_action()
+	if is_instance_valid(action):
+		_control_callback_in_progress = true
+		_ACTION_PROTOCOL.cancel(action)
+		_control_callback_in_progress = false
 
 
 ## 暂停重复流程和当前动作。
 ## [br]
 ## @api public
 func pause() -> void:
+	if _control_callback_in_progress:
+		return
 	_paused = true
-	if is_instance_valid(_active_action):
-		_ACTION_PROTOCOL.pause(_active_action)
+	var action: Object = _active_action
+	if is_instance_valid(action):
+		_control_callback_in_progress = true
+		_ACTION_PROTOCOL.pause(action)
+		_control_callback_in_progress = false
 
 
 ## 恢复重复流程和当前动作。
 ## [br]
 ## @api public
 func resume() -> void:
+	if _control_callback_in_progress:
+		return
 	_paused = false
-	if is_instance_valid(_active_action):
-		_ACTION_PROTOCOL.resume(_active_action)
+	var action: Object = _active_action
+	if is_instance_valid(action):
+		_control_callback_in_progress = true
+		_ACTION_PROTOCOL.resume(action)
+		_control_callback_in_progress = false
 
 
 ## 立即完成重复流程并释放等待者。
 ## [br]
 ## @api public
 func finish() -> void:
+	if _control_callback_in_progress:
+		return
 	_execution_serial += 1
 	_paused = false
-	if is_instance_valid(_active_action):
-		_ACTION_PROTOCOL.finish(_active_action)
-	_active_action = null
+	var action: Object = _take_active_action()
+	if is_instance_valid(action):
+		_control_callback_in_progress = true
+		_ACTION_PROTOCOL.finish(action)
+		_control_callback_in_progress = false
 	repeat_completed.emit()
 
 
@@ -146,14 +169,32 @@ func _run_repeat_async(current_serial: int) -> void:
 			return
 
 		var action: Object = _get_object_value(action_factory.call())
-		if not _ACTION_PROTOCOL.is_action_valid(action) or not _ACTION_PROTOCOL.can_execute(action):
+		if current_serial != _execution_serial:
+			return
+		var action_valid: bool = _ACTION_PROTOCOL.is_action_valid(action)
+		if current_serial != _execution_serial:
+			return
+		if not action_valid:
+			break
+
+		_ACTION_PROTOCOL.inject_dependencies(action, _get_architecture_or_null())
+		if current_serial != _execution_serial:
+			return
+		var action_can_execute: bool = _ACTION_PROTOCOL.can_execute(action)
+		if current_serial != _execution_serial:
+			return
+		if not action_can_execute:
 			break
 
 		_active_action = action
-		_ACTION_PROTOCOL.inject_dependencies(action, _get_architecture_or_null())
 		var result: Variant = _ACTION_PROTOCOL.execute(action)
+		if current_serial != _execution_serial:
+			return
 		var waited: bool = false
-		if _ACTION_PROTOCOL.should_wait_for_result(action, result):
+		var should_wait: bool = _ACTION_PROTOCOL.should_wait_for_result(action, result)
+		if current_serial != _execution_serial:
+			return
+		if should_wait:
 			waited = true
 			immediate_count = 0
 			await _ACTION_PROTOCOL.await_result_safely(
@@ -167,7 +208,8 @@ func _run_repeat_async(current_serial: int) -> void:
 		if current_serial != _execution_serial:
 			return
 
-		_active_action = null
+		if _active_action == action:
+			_active_action = null
 		completed_count += 1
 		if waited:
 			continue
@@ -187,6 +229,12 @@ func _is_execution_serial_current(serial: int) -> bool:
 
 func _is_timeout_paused(serial: int) -> bool:
 	return serial == _execution_serial and _paused
+
+
+func _take_active_action() -> Object:
+	var action: Object = _active_action
+	_active_action = null
+	return action
 
 
 func _get_scene_tree_value(value: Variant) -> SceneTree:

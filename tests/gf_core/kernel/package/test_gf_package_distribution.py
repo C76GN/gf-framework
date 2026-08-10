@@ -17,10 +17,14 @@ TOOLS_ROOT = ROOT / "tools"
 if str(TOOLS_ROOT) not in sys.path:
 	sys.path.insert(0, str(TOOLS_ROOT))
 
+import build_asset_store_package  # noqa: E402
 import build_gf_package  # noqa: E402
+import gf_maintenance  # noqa: E402
 import gf_package_cache  # noqa: E402
+import gf_package_paths  # noqa: E402
 import gf_package_resolver  # noqa: E402
 import gf_path_security  # noqa: E402
+import gf_repository_policy  # noqa: E402
 
 
 class BuildPackageManifestSchemaTests(unittest.TestCase):
@@ -55,6 +59,217 @@ class BuildPackageManifestSchemaTests(unittest.TestCase):
 			issues = result["issues"]
 			self.assertTrue(any("forbidden package manifest field: download_url" in issue for issue in issues), issues)
 			self.assertTrue(any("unsupported package manifest field: custom_field" in issue for issue in issues), issues)
+
+	def test_standalone_builder_rejects_forbidden_nested_metadata_policy_fields(self) -> None:
+		with tempfile.TemporaryDirectory(prefix="gf-package-builder-metadata-") as temp_dir:
+			root = Path(temp_dir)
+			package_root = root / "packages"
+			package_root.mkdir(parents=True)
+			(package_root / "gf.standard.fixture.json").write_text(
+				json.dumps(
+					{
+						"schema_version": 1,
+						"id": "gf.standard.fixture",
+						"kind": "standard",
+						"paths": ["addons/gf/standard/fixture/**"],
+						"dependencies": ["gf.kernel"],
+						"metadata": {
+							"stage": "fixture",
+							"download_url": "https://invalid.example/archive.zip",
+							"nested": {"load_after": ["gf.standard.other"]},
+						},
+					},
+					ensure_ascii=False,
+				),
+				encoding="utf-8",
+			)
+
+			with (
+				mock.patch.object(build_gf_package, "ROOT", root),
+				mock.patch.object(build_gf_package, "PACKAGE_ROOT", package_root),
+			):
+				result = build_gf_package.load_package_manifests()
+
+			issues = result["issues"]
+			self.assertTrue(
+				any("forbidden package manifest metadata field: metadata.download_url" in issue for issue in issues),
+				issues,
+			)
+			self.assertTrue(
+				any("forbidden package manifest metadata field: metadata.nested.load_after" in issue for issue in issues),
+				issues,
+			)
+
+	def test_standalone_builder_bounds_manifest_bytes_and_structure(self) -> None:
+		with tempfile.TemporaryDirectory(prefix="gf-package-builder-budget-") as temp_dir:
+			root = Path(temp_dir)
+			package_root = root / "packages"
+			package_root.mkdir(parents=True)
+			(package_root / "gf.standard.oversized.json").write_text(
+				json.dumps(
+					{
+						"schema_version": 1,
+						"id": "gf.standard.oversized",
+						"kind": "standard",
+						"paths": ["addons/gf/standard/oversized/**"],
+						"metadata": {"blob": "x" * (1024 * 1024)},
+					},
+					ensure_ascii=False,
+				),
+				encoding="utf-8",
+			)
+			deep_metadata: dict[str, object] = {}
+			cursor = deep_metadata
+			for index in range(70):
+				nested: dict[str, object] = {}
+				cursor[f"level_{index}"] = nested
+				cursor = nested
+			(package_root / "gf.standard.deep.json").write_text(
+				json.dumps(
+					{
+						"schema_version": 1,
+						"id": "gf.standard.deep",
+						"kind": "standard",
+						"paths": ["addons/gf/standard/deep/**"],
+						"metadata": deep_metadata,
+					},
+					ensure_ascii=False,
+				),
+				encoding="utf-8",
+			)
+			(package_root / "gf.standard.wide.json").write_text(
+				json.dumps(
+					{
+						"schema_version": 1,
+						"id": "gf.standard.wide",
+						"kind": "standard",
+						"paths": ["addons/gf/standard/wide/**"],
+						"metadata": {"values": [0] * (16 * 1024)},
+					},
+					ensure_ascii=False,
+				),
+				encoding="utf-8",
+			)
+
+			with (
+				mock.patch.object(build_gf_package, "ROOT", root),
+				mock.patch.object(build_gf_package, "PACKAGE_ROOT", package_root),
+			):
+				result = build_gf_package.load_package_manifests()
+
+			issues = result["issues"]
+			self.assertTrue(
+				any("gf.standard.oversized.json: package manifest exceeds 1048576 bytes" in issue for issue in issues),
+				issues,
+			)
+			self.assertTrue(
+				any("gf.standard.deep.json: package manifest nesting exceeds 64" in issue for issue in issues),
+				issues,
+			)
+			self.assertTrue(
+				any("gf.standard.wide.json: package manifest structure exceeds 16384 JSON values" in issue for issue in issues),
+				issues,
+			)
+
+	def test_builder_exclude_paths_carve_editor_payload_out_of_runtime_package(self) -> None:
+		with tempfile.TemporaryDirectory(prefix="gf-package-builder-exclude-") as temp_dir:
+			root = Path(temp_dir)
+			runtime_path = root / "addons/gf/standard/math/runtime.gd"
+			editor_path = root / "addons/gf/standard/math/editor/inspector.gd"
+			runtime_path.parent.mkdir(parents=True)
+			editor_path.parent.mkdir(parents=True)
+			runtime_path.write_text("extends RefCounted\n", encoding="utf-8")
+			editor_path.write_text("extends RefCounted\n", encoding="utf-8")
+			record = {
+				"id": "gf.standard.fixture",
+				"kind": "standard",
+				"paths": ["addons/gf/standard/math/**"],
+				"exclude_paths": ["addons/gf/standard/math/editor/**"],
+			}
+			issues: list[str] = []
+
+			with mock.patch.object(build_gf_package, "ROOT", root):
+				files = build_gf_package.collect_package_files(record, issues)
+
+			self.assertEqual(issues, [])
+			self.assertEqual(files, [runtime_path])
+
+	def test_closure_payload_metrics_detect_growth_without_package_id_changes(self) -> None:
+		records = [
+			{
+				"path": "packages/gf.kernel.json",
+				"id": "gf.kernel",
+				"kind": "kernel",
+				"dependencies": [],
+				"packages": [],
+				"paths": ["addons/gf/kernel/**"],
+				"exclude_paths": [],
+			},
+			{
+				"path": "packages/standard/gf.standard.base.json",
+				"id": "gf.standard.base",
+				"kind": "standard",
+				"dependencies": ["gf.kernel"],
+				"packages": [],
+				"paths": ["addons/gf/standard/base/**"],
+				"exclude_paths": [],
+			},
+			{
+				"path": "packages/presets/gf.preset.fixture.json",
+				"id": "gf.preset.fixture",
+				"kind": "preset",
+				"dependencies": [],
+				"packages": ["gf.standard.base"],
+				"paths": [],
+				"exclude_paths": [],
+			},
+		]
+		before_paths = [
+			"addons/gf/kernel/core.gd",
+			"addons/gf/standard/base/runtime.gd",
+		]
+		after_paths = [
+			*before_paths,
+			"addons/gf/standard/base/data.json",
+			"addons/gf/standard/base/new_runtime.gd",
+		]
+		sizes = {
+			"addons/gf/kernel/core.gd": 10,
+			"addons/gf/standard/base/runtime.gd": 20,
+			"addons/gf/standard/base/data.json": 40,
+			"addons/gf/standard/base/new_runtime.gd": 30,
+		}
+
+		before_metrics, before_issues = gf_maintenance.collect_package_payload_metrics(
+			records,
+			before_paths,
+			sizes,
+		)
+		after_metrics, after_issues = gf_maintenance.collect_package_payload_metrics(
+			records,
+			after_paths,
+			sizes,
+		)
+		before_row = next(
+			row
+			for row in gf_maintenance.collect_package_closure_rows(records, before_metrics)
+			if row["package_id"] == "gf.preset.fixture"
+		)
+		after_row = next(
+			row
+			for row in gf_maintenance.collect_package_closure_rows(records, after_metrics)
+			if row["package_id"] == "gf.preset.fixture"
+		)
+
+		self.assertEqual(before_issues, [])
+		self.assertEqual(after_issues, [])
+		self.assertEqual(before_row["closure_count"], after_row["closure_count"])
+		self.assertEqual(before_row["payload_file_count"], 2)
+		self.assertEqual(after_row["payload_file_count"], 4)
+		self.assertEqual(before_row["payload_gdscript_count"], 2)
+		self.assertEqual(after_row["payload_gdscript_count"], 3)
+		self.assertEqual(before_row["payload_size_bytes"], 30)
+		self.assertEqual(after_row["payload_size_bytes"], 100)
 
 	def test_standalone_builder_rejects_boolean_schema_version(self) -> None:
 		with tempfile.TemporaryDirectory(prefix="gf-package-builder-int-") as temp_dir:
@@ -126,6 +341,68 @@ class BuildPackageManifestSchemaTests(unittest.TestCase):
 			)
 		)
 
+	def test_manifest_pattern_entry_points_reject_noncanonical_raw_syntax(self) -> None:
+		canonical_path = "addons/gf/kernel/base/gf_model.gd"
+		noncanonical_patterns = (
+			" addons/gf/kernel/**",
+			"addons\\gf\\kernel\\**",
+			"res://addons/gf/kernel/**",
+			"./addons/gf/kernel/**",
+			"/addons/gf/kernel/**/",
+		)
+		for raw_pattern in noncanonical_patterns:
+			with self.subTest(pattern=repr(raw_pattern)):
+				self.assertFalse(
+					gf_package_paths.manifest_path_matches(
+						canonical_path,
+						raw_pattern,
+					)
+				)
+				index = gf_package_paths.ManifestPathIndex([
+					{"pattern": raw_pattern},
+				])
+				self.assertEqual(index.find_all(canonical_path), [])
+				self.assertEqual(
+					gf_maintenance.normalize_package_manifest_path_for_matching(
+						raw_pattern
+					),
+					"",
+				)
+				issues = gf_maintenance.audit_package_manifest_data(
+					{
+						"schema_version": 1,
+						"id": "gf.kernel.fixture",
+						"kind": "kernel",
+						"paths": [raw_pattern],
+					},
+					"packages/kernel/gf.kernel.fixture.json",
+				)
+				self.assertTrue(
+					any(
+						issue.get("kind") == "invalid_package_path"
+						for issue in issues
+					),
+					issues,
+				)
+				exclude_issues = gf_maintenance.audit_package_manifest_data(
+					{
+						"schema_version": 1,
+						"id": "gf.kernel",
+						"kind": "kernel",
+						"version": "unreleased",
+						"paths": ["addons/gf/kernel/**"],
+						"exclude_paths": [raw_pattern],
+					},
+					"packages/kernel/gf.kernel.json",
+				)
+				self.assertTrue(
+					any(
+						issue.get("kind") == "invalid_package_exclude_path"
+						for issue in exclude_issues
+					),
+					exclude_issues,
+				)
+
 	def test_builder_rejects_symlinked_package_source(self) -> None:
 		with tempfile.TemporaryDirectory(prefix="gf-package-builder-symlink-") as temp_dir:
 			root = Path(temp_dir)
@@ -185,7 +462,105 @@ class BuildPackageManifestSchemaTests(unittest.TestCase):
 			self.assertFalse(any(root.glob("*.backup")))
 
 
+class AssetStoreDistributionTests(unittest.TestCase):
+	def test_asset_store_builder_rejects_reparse_source_before_read(self) -> None:
+		with tempfile.TemporaryDirectory(prefix="gf-asset-store-reparse-") as temp_dir:
+			root = Path(temp_dir)
+			addon_root = root / "addons/gf"
+			addon_root.mkdir(parents=True)
+			source_path = addon_root / "fixture.gd"
+			source_path.write_text("extends RefCounted\n", encoding="utf-8")
+			output = root / "build/gf-framework-fixture.zip"
+
+			with (
+				mock.patch.object(build_asset_store_package, "ROOT", root),
+				mock.patch.object(build_asset_store_package, "ADDON_ROOT", addon_root),
+				mock.patch.object(
+					gf_path_security,
+					"path_has_reparse_component",
+					side_effect=lambda path: Path(path) == source_path,
+				),
+			):
+				with self.assertRaises(OSError):
+					build_asset_store_package.build_package(output)
+
+			self.assertFalse(output.exists(), "失败构建不得保留可能含根外字节的部分 ZIP。")
+
+	def test_asset_store_audit_rejects_readme_links_outside_zip(self) -> None:
+		with tempfile.TemporaryDirectory(prefix="gf-asset-store-readme-") as temp_dir:
+			output = Path(temp_dir) / "gf-framework-fixture.zip"
+			with zipfile.ZipFile(output, "w") as archive:
+				for required_path in build_asset_store_package.REQUIRED_PACKAGE_PATHS:
+					payload = (
+						b"[Repository README](../../README.md)\n"
+						if required_path == "addons/gf/README.md"
+						else b"fixture\n"
+					)
+					archive.writestr(required_path, payload)
+
+			result = build_asset_store_package.audit_package(output)
+
+			self.assertFalse(result["ok"], result)
+			self.assertTrue(
+				any("README link" in issue and "outside" in issue for issue in result["issues"]),
+				result,
+			)
+
+
 class PackageResolverPlanTests(unittest.TestCase):
+	def test_registry_loader_rejects_incomplete_wrong_typed_and_unknown_package_entries(self) -> None:
+		base_entry: dict[str, object] = {
+			"version": "7.0.0",
+			"kind": "standard",
+			"minimum_framework_version": "7.0.0",
+			"maximum_framework_version_exclusive": "8.0.0",
+			"dependencies": ["gf.kernel"],
+			"paths": ["addons/gf/standard/fixture/**"],
+			"archive": "gf-standard-fixture.zip",
+			"sha256": "a" * 64,
+			"size_bytes": 1,
+		}
+		mutations = {
+			"missing_version": lambda entry: entry.pop("version"),
+			"missing_archive": lambda entry: entry.pop("archive"),
+			"wrong_dependencies_type": lambda entry: entry.update({"dependencies": {"gf.kernel": True}}),
+			"boolean_size": lambda entry: entry.update({"size_bytes": True}),
+			"unknown_field": lambda entry: entry.update({"download_url": "https://invalid.example/package.zip"}),
+		}
+		for label, mutate in mutations.items():
+			with self.subTest(case=label):
+				with tempfile.TemporaryDirectory(prefix="gf-package-registry-schema-") as temp_dir:
+					entry = copy.deepcopy(base_entry)
+					mutate(entry)
+					registry_path = Path(temp_dir) / "registry.json"
+					registry_path.write_text(json.dumps({
+						"schema_version": 2,
+						"framework_version": "7.0.0",
+						"minimum_framework_version": "7.0.0",
+						"maximum_framework_version_exclusive": "8.0.0",
+						"packages": {"gf.standard.fixture": entry},
+					}), encoding="utf-8")
+
+					result = gf_package_resolver.load_registry(registry_path)
+
+					self.assertNotIn("gf.standard.fixture", result["packages"], result)
+					self.assertTrue(result["issues"], result)
+
+	def test_dependency_closure_handles_deep_acyclic_graph_without_python_recursion(self) -> None:
+		package_count = 1500
+		packages: dict[str, dict[str, object]] = {}
+		for index in range(package_count):
+			package_id = f"gf.standard.deep_{index}"
+			dependencies = [f"gf.standard.deep_{index + 1}"] if index + 1 < package_count else []
+			packages[package_id] = {"kind": "standard", "dependencies": dependencies}
+
+		result = gf_package_resolver.resolve_dependency_closure(packages, ["gf.standard.deep_0"])
+
+		self.assertEqual(result["issues"], [])
+		self.assertEqual(len(result["order"]), package_count)
+		self.assertEqual(result["order"][0], f"gf.standard.deep_{package_count - 1}")
+		self.assertEqual(result["order"][-1], "gf.standard.deep_0")
+
 	def test_install_and_update_plans_preserve_unchanged_dependency_file_metadata(self) -> None:
 		with tempfile.TemporaryDirectory(prefix="gf-package-plan-metadata-") as temp_dir:
 			root = Path(temp_dir)
@@ -319,9 +694,8 @@ class PackageResolverPlanTests(unittest.TestCase):
 			old_preset = {
 				"version": "7.0.0",
 				"kind": "preset",
+				"dependencies": [],
 				"paths": [],
-				"archive": "",
-				"sha256": "",
 				"packages": ["gf.standard.fixture"],
 				"minimum_framework_version": "7.0.0",
 				"maximum_framework_version_exclusive": "8.0.0",
@@ -432,6 +806,7 @@ class PackageResolverPlanTests(unittest.TestCase):
 			"paths": [f"addons/gf/{'kernel' if kind == 'kernel' else 'standard/fixture'}/**"],
 			"archive": f"{kind}.zip",
 			"sha256": "c" * 64,
+			"size_bytes": 1,
 			"dependencies": dependencies,
 			"minimum_framework_version": "7.0.0",
 			"maximum_framework_version_exclusive": "8.0.0",
@@ -711,6 +1086,105 @@ class PackageResolverUninstallTests(unittest.TestCase):
 	ROOT_PACKAGE_ID = "gf.extension.fixture"
 	DEPENDENCY_PACKAGE_ID = "gf.standard.fixture"
 
+	def test_batch_uninstall_uses_projected_required_by_state(self) -> None:
+		with tempfile.TemporaryDirectory(prefix="gf-package-batch-uninstall-") as temp_dir:
+			root = Path(temp_dir)
+			project_root = root / "project"
+			project_root.mkdir()
+			registry_path = root / "registry.json"
+			lockfile_path = project_root / ".gf/packages.lock.json"
+			root_entry = self._registry_entry(
+				"extension",
+				["addons/gf/extensions/fixture/**"],
+				[self.DEPENDENCY_PACKAGE_ID],
+			)
+			dependency_entry = self._registry_entry(
+				"standard",
+				["addons/gf/standard/fixture/**"],
+				[],
+			)
+			registry = {
+				"schema_version": 2,
+				"framework_version": "1.0.0",
+				"minimum_framework_version": "1.0.0",
+				"maximum_framework_version_exclusive": "2.0.0",
+				"packages": {
+					self.ROOT_PACKAGE_ID: root_entry,
+					self.DEPENDENCY_PACKAGE_ID: dependency_entry,
+				},
+			}
+			lockfile = {
+				"schema_version": 1,
+				"framework_version": "1.0.0",
+				"installed": {
+					self.ROOT_PACKAGE_ID: self._lock_entry(root_entry, [], ["manual"], []),
+					self.DEPENDENCY_PACKAGE_ID: self._lock_entry(
+						dependency_entry,
+						[],
+						["dependency", "manual"],
+						[self.ROOT_PACKAGE_ID],
+					),
+				},
+			}
+			self._write_json(registry_path, registry)
+			self._write_json(lockfile_path, lockfile)
+
+			result = gf_package_resolver.uninstall_plan(
+				registry_path=str(registry_path),
+				lockfile_path=str(lockfile_path),
+				package_ids=[self.ROOT_PACKAGE_ID, self.DEPENDENCY_PACKAGE_ID],
+				project_root=str(project_root),
+				force=False,
+			)
+
+			self.assertTrue(result["ok"], result)
+			self.assertEqual(result["blocked"], [])
+			self.assertEqual(
+				result["to_remove"],
+				sorted([self.ROOT_PACKAGE_ID, self.DEPENDENCY_PACKAGE_ID]),
+			)
+			self.assertEqual(result["planned_lockfile"]["installed"], {})
+
+			external_package_id = "gf.extension.external"
+			external_entry = self._registry_entry(
+				"extension",
+				["addons/gf/extensions/external/**"],
+				[self.DEPENDENCY_PACKAGE_ID],
+			)
+			registry["packages"][external_package_id] = external_entry
+			lockfile["installed"][external_package_id] = self._lock_entry(
+				external_entry,
+				[],
+				["manual"],
+				[],
+			)
+			lockfile["installed"][self.DEPENDENCY_PACKAGE_ID]["required_by"] = [
+				self.ROOT_PACKAGE_ID,
+				external_package_id,
+			]
+			self._write_json(registry_path, registry)
+			self._write_json(lockfile_path, lockfile)
+
+			blocked_result = gf_package_resolver.uninstall_plan(
+				registry_path=str(registry_path),
+				lockfile_path=str(lockfile_path),
+				package_ids=[self.ROOT_PACKAGE_ID, self.DEPENDENCY_PACKAGE_ID],
+				project_root=str(project_root),
+				force=False,
+			)
+
+			self.assertFalse(blocked_result["ok"], blocked_result)
+			self.assertEqual(blocked_result["to_remove"], [])
+			self.assertTrue(
+				any(
+					blocker.get("id") == self.DEPENDENCY_PACKAGE_ID
+					and blocker.get("reason") == "required_by"
+					and blocker.get("required_by") == [external_package_id]
+					for blocker in blocked_result["blocked"]
+				),
+				blocked_result["blocked"],
+			)
+
 	def test_uninstall_blocks_when_auto_pruned_dependency_has_project_reference(self) -> None:
 		with tempfile.TemporaryDirectory(prefix="gf-package-prune-reference-") as temp_dir:
 			root = Path(temp_dir)
@@ -831,6 +1305,42 @@ class PackageResolverUninstallTests(unittest.TestCase):
 	def _write_json(path: Path, data: dict[str, object]) -> None:
 		path.parent.mkdir(parents=True, exist_ok=True)
 		path.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+
+class ReleaseWorkflowPolicyTests(unittest.TestCase):
+	def test_ci_gate_policy_rejects_successful_failure_branch(self) -> None:
+		policy, policy_issues = gf_repository_policy.load_repository_policy()
+		self.assertEqual(policy_issues, [])
+		source = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
+		mutated = source.replace("            exit 1", "            exit 0", 1)
+
+		issues = gf_repository_policy.audit_ci_workflow(policy, mutated)
+
+		self.assertTrue(any("draft-gate evaluator" in issue for issue in issues), issues)
+
+	def test_release_policy_enforces_job_scoped_contents_write(self) -> None:
+		audit_release = getattr(gf_repository_policy, "audit_release_workflow", None)
+		self.assertTrue(callable(audit_release), "repository policy 必须提供 release workflow 权限审计。")
+		if not callable(audit_release):
+			return
+		source = (ROOT / ".github/workflows/release.yml").read_text(encoding="utf-8")
+		self.assertEqual(audit_release(source), [])
+
+		broad_write = source.replace("permissions:\n  contents: read", "permissions:\n  contents: write", 1)
+		missing_publish_write = source.replace(
+			"    permissions:\n      contents: write",
+			"    permissions:\n      contents: read",
+			1,
+		)
+		build_write = source.replace(
+			"  build-release-artifacts:\n",
+			"  build-release-artifacts:\n    permissions:\n      contents: write\n",
+			1,
+		)
+
+		self.assertTrue(any("top-level permission contents" in issue for issue in audit_release(broad_write)))
+		self.assertTrue(any("create-release permission contents" in issue for issue in audit_release(missing_publish_write)))
+		self.assertTrue(any("build-release-artifacts permission contents" in issue for issue in audit_release(build_write)))
 
 
 class PackageCacheContainmentTests(unittest.TestCase):

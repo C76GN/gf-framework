@@ -616,9 +616,9 @@ func list_files( directory_name: String = "", extension_filter: String = "", rec
 | 名称 | 说明 |
 |---|---|
 | `directory_name` | 相对存储目录；为空时枚举根存储目录。 |
-| `extension_filter` | 可选扩展名过滤，允许传入 `"json"` 或 `".json"`。 |
+| `extension_filter` | 可选扩展名过滤，允许传入 \`"json"\` 或 \`".json"\`。 |
 | `recursive` | 是否递归枚举子目录。 |
-| `options` | 可选参数，支持 `max_scan_depth` 与 `max_file_count`。 |
+| `options` | 可选参数，支持 \`max_scan_depth\` 与 \`max_file_count\`。 |
 
 返回：当前 Storage root 内的规范相对文件路径数组。
 
@@ -911,7 +911,7 @@ func register_migration(from_version: int, to_version: int, callback: Callable) 
 |---|---|
 | `from_version` | 来源版本。 |
 | `to_version` | 目标版本，必须大于来源版本。 |
-| `callback` | 迁移回调，签名为 `func(data: Dictionary, from_version: int, to_version: int) -> Dictionary`。 |
+| `callback` | 迁移回调，签名为 \`func(data: Dictionary, from_version: int, to_version: int) -> Dictionary\`。 |
 
 返回：注册成功时返回 true。
 

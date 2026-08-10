@@ -9,7 +9,7 @@
 - 类别：运行时服务 (`runtime_service`)
 - 首次版本：`6.0.0`
 
-安全资源图编解码工具。 把 Variant、Array、Dictionary 和 allowlist 内的 Resource/Object 属性图 编码为纯 Dictionary，并在解码时按策略限制类、脚本、外部资源路径、深度和数量。 该类不注册 ResourceFormatLoader/Saver，不加载未授权资源，也不执行脚本表达式。
+安全资源图编解码工具。 把 Variant、Array、Dictionary 和 allowlist 内的 Resource/Object 属性图 编码为纯 Dictionary，并在解码时按策略限制类、脚本、外部资源路径、深度和数量。 容器解码会在扫描或暂存完整形状前，用直接子节点基数预检剩余 max_items 预算。 该类不注册 ResourceFormatLoader/Saver，不加载未授权资源，也不执行脚本表达式。
 
 ## 成员概览
 

@@ -28,7 +28,7 @@ var report := hit_box.send_to(hurt_box)
 print(report["ok"])
 ```
 
-命中报告用于日志、诊断和 UI 展示，`receiver` 字段是 JSON-safe 摘要，不携带 live `Object`。运行时要操作接收对象时，使用 `hit_sent` / `hit_accepted` / `hit_rejected` 信号的 `receiver` 参数，或读取 `GFCombatHitContext.target`。
+命中报告用于日志、诊断和 UI 展示，`receiver` 字段是 JSON-safe 摘要，不携带 live `Object`。`hit_sent` / `scan_hit`、`hit_accepted`、`hit_rejected` 和 `scan_missed` 都收到彼此独立的报告深拷贝：它们是结果通知，不是校验入口，监听者修改副本不会改变权威返回值或 accepted / rejected 路由。运行时要操作接收对象时，使用信号的 `receiver` 参数，或读取 `GFCombatHitContext.target`。
 
 ## 2D 接入示例
 

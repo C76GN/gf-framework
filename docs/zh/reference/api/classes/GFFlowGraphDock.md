@@ -59,7 +59,7 @@ func set_graph_path(path: String) -> void:
 
 | 名称 | 说明 |
 |---|---|
-| `path` | `res://` 资源路径。 |
+| `path` | \`res://\` 资源路径。 |
 
 <a id="member-gfflowgraphdock-methods-refresh"></a>
 

@@ -216,7 +216,7 @@ func pick_entry(rng: Variant = null) -> GFWeightedEntry:
 
 | 名称 | 说明 |
 |---|---|
-| `rng` | 可选随机源；支持 `RandomNumberGenerator` 或 `GFDeterministicRandom`。 |
+| `rng` | 可选随机源；支持 \`RandomNumberGenerator\` 或 \`GFDeterministicRandom\`。 |
 
 返回：选中的条目；没有可选条目时返回 null。
 
@@ -241,7 +241,7 @@ func pick_value(rng: Variant = null) -> Variant:
 
 | 名称 | 说明 |
 |---|---|
-| `rng` | 可选随机源；支持 `RandomNumberGenerator` 或 `GFDeterministicRandom`。 |
+| `rng` | 可选随机源；支持 \`RandomNumberGenerator\` 或 \`GFDeterministicRandom\`。 |
 
 返回：选中条目的 value；没有可选条目时返回 default_value。
 
@@ -268,7 +268,7 @@ func pick_many( count: int, rng: Variant = null, allow_repeats: bool = true ) ->
 | 名称 | 说明 |
 |---|---|
 | `count` | 选择次数。 |
-| `rng` | 可选随机源；支持 `RandomNumberGenerator` 或 `GFDeterministicRandom`。 |
+| `rng` | 可选随机源；支持 \`RandomNumberGenerator\` 或 \`GFDeterministicRandom\`。 |
 | `allow_repeats` | 是否允许同一条目被重复选择。 |
 
 返回：选中的 value 数组。
@@ -332,7 +332,7 @@ func apply_dict(data: Dictionary) -> void:
 
 | 名称 | 说明 |
 |---|---|
-| `data` | 包含 `entries`、`default_value` 与 `deterministic_seed` 的字典。 |
+| `data` | 包含 \`entries\`、\`default_value\` 与 \`deterministic_seed\` 的字典。 |
 
 结构：
 
@@ -354,7 +354,7 @@ static func from_dict(data: Dictionary) -> GFWeightedTable:
 
 | 名称 | 说明 |
 |---|---|
-| `data` | 包含 `entries`、`default_value` 与 `deterministic_seed` 的字典。 |
+| `data` | 包含 \`entries\`、\`default_value\` 与 \`deterministic_seed\` 的字典。 |
 
 返回：新权重表实例。
 

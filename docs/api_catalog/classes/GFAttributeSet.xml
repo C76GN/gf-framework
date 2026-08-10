@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFAttributeSet" path="addons/gf/extensions/domain/attributes/gf_attribute_set.gd" module="extensions/domain" extends="Resource" classDigest="95c8c96bac71c5ae3644ca9f9bf67e2e561d33a19062b107479dd53942c5b942">
+<class name="GFAttributeSet" path="addons/gf/extensions/domain/attributes/gf_attribute_set.gd" module="extensions/domain" extends="Resource" classDigest="5d8e1cead35b5025bd39ae03192dfc6ded6c83a3136b4856ed6663425ea483d8">
 	<description>GFAttributeSet: 通用数值属性集合。
 用 StringName 管理一组可保存、可恢复、可限制范围的数值属性。它不规定
 属性含义，生命值、耐久、温度、声望或任意项目数值都由项目层命名和解释。</description>
@@ -236,8 +236,9 @@
 			<description>导出快照。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="return">可序列化字典。</tag>
+				<tag name="return">Godot Variant 字典；不保证可直接编码为 JSON。</tag>
 				<tag name="schema">return: Dictionary，键为 String 属性 ID，值为包含 base、current、min、max 与 metadata 的属性记录。</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="restore_snapshot">
@@ -254,8 +255,9 @@
 			<description>序列化为字典。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="return">可序列化字典。</tag>
+				<tag name="return">Godot Variant 字典；不保证可直接编码为 JSON。</tag>
 				<tag name="schema">return: Dictionary，键为 String 属性 ID，值为包含 base、current、min、max 与 metadata 的属性记录。</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="from_dict">

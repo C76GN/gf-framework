@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFTagExpression" path="addons/gf/standard/foundation/tags/gf_tag_expression.gd" module="standard" extends="Resource" classDigest="169967d22195d203e0342a22579604aef2b6d7c245017caf4ce7922c032aac47">
+<class name="GFTagExpression" path="addons/gf/standard/foundation/tags/gf_tag_expression.gd" module="standard" extends="Resource" classDigest="0884735835af393b56e19b8005a3f9c489feced8ca73df83b9ebbfd9c93a5353">
 	<description>GFTagExpression: 可嵌套标签查询表达式资源。
 在 GFTagQuery 的 all/any/none 单层查询之上提供组合表达式，适合描述
 “任意一组条件成立”“全部子条件成立”或“没有子条件成立”等通用标签规则。
@@ -74,17 +74,22 @@ GFTagExpression 或 null；其他 Resource 会保留索引并按 null_expression
 				<tag name="param">source: 标签源。</tag>
 				<tag name="return">表达式满足时返回 true。</tag>
 				<tag name="schema">source: Variant accepted by GFTagSourceAdapter through GFTagQuery.</tag>
+				<tag name="since">3.18.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_match_report">
 			<signature>func get_match_report(source: Variant) -&gt; Dictionary:</signature>
-			<description>获取匹配报告。</description>
+			<description>获取匹配报告。
+`valid` 表示表达式结构可安全求值，`matched` 表示在结构有效的前提下计算出的
+逻辑匹配结果，`ok` 仅在两者都为 true 时为 true。循环、过深嵌套、未知运算符
+和无效子项都会失败关闭。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">source: 标签源。</tag>
 				<tag name="return">匹配报告。</tag>
 				<tag name="schema">source: Variant accepted by GFTagSourceAdapter through GFTagQuery.</tag>
-				<tag name="schema">return: Dictionary，包含 ok、operator、query_report、child_reports、matched_indices、failed_indices、reason 等字段。</tag>
+				<tag name="schema">return: Dictionary，包含 ok、valid、matched、operator、query_report、child_reports、matched_indices、failed_indices、invalid_indices、reason 等字段。</tag>
+				<tag name="since">3.18.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="configure_query">

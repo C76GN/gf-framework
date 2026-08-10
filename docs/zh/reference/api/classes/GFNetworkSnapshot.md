@@ -286,6 +286,7 @@ func apply_delta(delta: Dictionary) -> GFNetworkSnapshot:
 ### `make_patch_to`
 
 - API：`public`
+- 首次版本：`3.20.0`
 
 ```gdscript
 func make_patch_to(target: GFNetworkSnapshot, options: Dictionary = {}) -> Dictionary:
@@ -304,8 +305,8 @@ func make_patch_to(target: GFNetworkSnapshot, options: Dictionary = {}) -> Dicti
 
 结构：
 
-- `options`: Dictionary，可选 recursive: bool = true，max_depth: int = 8。
-- `return`: Dictionary，成功时包含 ok、format、version、from_tick、to_tick、peer_id、set、erase、metadata；失败时包含 ok、error。
+- `options`: Dictionary，可选 recursive: bool = true，max_depth: int = 8；max_depth 会限制到 0..8。
+- `return`: Dictionary，成功时包含 ok、format、version、from_tick、to_tick、peer_id、set、erase、metadata；超过 4096 个操作或生成内容不可应用时返回 ok=false、error。
 
 <a id="member-gfnetworksnapshot-methods-apply_patch"></a>
 

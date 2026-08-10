@@ -59,6 +59,9 @@ signal cleared
 # --- 常量 ---
 
 const _GF_DEQUE_SCRIPT = preload("res://addons/gf/standard/foundation/collections/gf_deque.gd")
+const _TRANSITION_IDLE: StringName = &"idle"
+const _TRANSITION_COMMITTING: StringName = &"committing"
+const _TRANSITION_ROLLING_BACK: StringName = &"rolling_back"
 
 
 # --- 公共变量 ---
@@ -79,6 +82,7 @@ var auto_clear_committed_on_success: bool = false
 var _pending_operations: GFDeque = _GF_DEQUE_SCRIPT.new()
 var _committed_operations: Array[Dictionary] = []
 var _next_operation_id: int = 1
+var _transition_state: StringName = _TRANSITION_IDLE
 
 
 # --- 公共方法 ---
@@ -97,7 +101,7 @@ var _next_operation_id: int = 1
 ## [br]
 ## @schema metadata: Dictionary copied into the normalized operation result.
 func add_operation(operation: Callable, rollback: Callable = Callable(), metadata: Dictionary = {}) -> int:
-	if not operation.is_valid():
+	if _transition_state != _TRANSITION_IDLE or not operation.is_valid():
 		return -1
 
 	var operation_id: int = _next_operation_id
@@ -122,6 +126,9 @@ func add_operation(operation: Callable, rollback: Callable = Callable(), metadat
 ## [br]
 ## @schema return: Dictionary commit summary.
 func commit(max_operations: int = -1) -> Dictionary:
+	if _transition_state != _TRANSITION_IDLE:
+		return _make_transition_commit_failure()
+	_transition_state = _TRANSITION_COMMITTING
 	var committed_count: int = 0
 	var failed_count: int = 0
 	var errors: Array[Dictionary] = []
@@ -155,6 +162,7 @@ func commit(max_operations: int = -1) -> Dictionary:
 		_committed_operations.clear()
 	var summary: Dictionary = _make_commit_summary(committed_count, failed_count, errors)
 	batch_committed.emit(summary)
+	_transition_state = _TRANSITION_IDLE
 	return summary
 
 
@@ -168,6 +176,9 @@ func commit(max_operations: int = -1) -> Dictionary:
 ## [br]
 ## @schema return: Dictionary rollback summary.
 func rollback_committed(max_operations: int = -1) -> Dictionary:
+	if _transition_state != _TRANSITION_IDLE:
+		return _make_transition_rollback_failure()
+	_transition_state = _TRANSITION_ROLLING_BACK
 	var rolled_back_count: int = 0
 	var failed_count: int = 0
 	var skipped_count: int = 0
@@ -209,13 +220,20 @@ func rollback_committed(max_operations: int = -1) -> Dictionary:
 		"errors": errors,
 	}
 	batch_rolled_back.emit(summary)
+	_transition_state = _TRANSITION_IDLE
 	return summary
 
 
 ## 清空批次。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
+## [br]
+## commit/rollback 及其同步信号派发期间调用时不执行。
 func clear() -> void:
+	if _transition_state != _TRANSITION_IDLE:
+		return
 	_pending_operations.clear()
 	_committed_operations.clear()
 	cleared.emit()
@@ -243,14 +261,17 @@ func get_committed_count() -> int:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @return 调试信息字典。
 ## [br]
-## @schema return: Dictionary with pending_count, committed_count, next_operation_id, and options.
+## @schema return: Dictionary with pending_count, committed_count, next_operation_id, transition_state, and options.
 func get_debug_snapshot() -> Dictionary:
 	return {
 		"pending_count": _pending_operations.size(),
 		"committed_count": _committed_operations.size(),
 		"next_operation_id": _next_operation_id,
+		"transition_state": _transition_state,
 		"stop_on_error": stop_on_error,
 		"auto_clear_committed_on_success": auto_clear_committed_on_success,
 	}
@@ -288,6 +309,33 @@ func _make_commit_summary(committed_count: int, failed_count: int, errors: Array
 		"pending_count": _pending_operations.size(),
 		"stored_committed_count": _committed_operations.size(),
 		"errors": errors,
+	}
+
+
+func _make_transition_commit_failure() -> Dictionary:
+	return {
+		"ok": false,
+		"committed_count": 0,
+		"failed_count": 0,
+		"pending_count": _pending_operations.size(),
+		"stored_committed_count": _committed_operations.size(),
+		"errors": [],
+		"error": "transition_in_progress",
+		"transition_state": _transition_state,
+	}
+
+
+func _make_transition_rollback_failure() -> Dictionary:
+	return {
+		"ok": false,
+		"rolled_back_count": 0,
+		"failed_count": 0,
+		"skipped_count": 0,
+		"pending_count": _pending_operations.size(),
+		"committed_count": _committed_operations.size(),
+		"errors": [],
+		"error": "transition_in_progress",
+		"transition_state": _transition_state,
 	}
 
 

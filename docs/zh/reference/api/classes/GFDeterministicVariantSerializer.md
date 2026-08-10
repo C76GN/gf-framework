@@ -40,14 +40,14 @@ static func to_canonical_value(value: Variant, options: Dictionary = {}) -> Vari
 | 名称 | 说明 |
 |---|---|
 | `value` | 待编码的 Variant。应为纯数据结构；Object、Resource、Callable、RID 和循环引用会失败。 |
-| `options` | 可选项。支持 allow_floats、max_depth、max_items、max_string_length 和 max_output_bytes。 |
+| `options` | 可选项。支持 allow_floats、max_depth、max_items 和 max_string_length；该入口不生成 bytes，因此不接受 max_output_bytes 作为输出保证。 |
 
 返回：规范化后的 JSON 兼容 Variant；失败时返回 null 并输出错误。
 
 结构：
 
 - `value`: Variant value made from scalar, string, path, vector, rectangle, color, plane, quaternion, AABB, basis, transform, projection, array, dictionary, and packed array values. Float-based values require `options.allow_floats = true`.
-- `options`: Dictionary with optional allow_floats, max_depth, max_items, max_string_length, and max_output_bytes limits.
+- `options`: Dictionary with optional allow_floats, max_depth, max_items, and max_string_length limits.
 - `return`: Typed marker Dictionary using `__gf_deterministic_variant__`, or null when unsupported input is detected.
 
 <a id="member-gfdeterministicvariantserializer-methods-to_canonical_json"></a>

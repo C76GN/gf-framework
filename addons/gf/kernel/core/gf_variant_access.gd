@@ -21,7 +21,7 @@ const _MERGE_DEFAULT_MAX_DEPTH: int = 64
 const _MERGE_DEFAULT_MAX_NODES: int = 16_384
 const _MERGE_DEFAULT_MAX_COLLECTION_ITEMS: int = 65_536
 
-# --- 公共方法 ---
+# --- 框架内部方法 ---
 
 ## 安全比较两个 Variant 值是否等价。
 ## [br]
@@ -239,7 +239,7 @@ static func as_array(value: Variant, default_value: Variant = null) -> Array:
 		return fallback_array
 	return []
 
-# --- 公共方法（类型收窄） ---
+# --- 框架内部方法（类型收窄） ---
 
 ## 将常见标量 Variant 收窄为 bool。
 ## [br]

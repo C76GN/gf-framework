@@ -98,8 +98,8 @@ signal slot_state_changed(slot_index: int, before_stack_data: Dictionary, after_
 | 名称 | 说明 |
 |---|---|
 | `slot_index` | 变化的槽位索引。 |
-| `before_stack_data` | 变化前的槽位堆叠字典；空槽为 `{}`。 |
-| `after_stack_data` | 变化后的槽位堆叠字典；空槽为 `{}`。 |
+| `before_stack_data` | 变化前的槽位堆叠字典；空槽为 \`{}\`。 |
+| `after_stack_data` | 变化后的槽位堆叠字典；空槽为 \`{}\`。 |
 
 结构：
 
@@ -624,6 +624,7 @@ func remove_item_from_slot(slot_index: int, amount: int = 1) -> GFInventoryOpera
 ### `swap_slots`
 
 - API：`public`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func swap_slots(first_slot: int, second_slot: int) -> bool:
@@ -638,13 +639,14 @@ func swap_slots(first_slot: int, second_slot: int) -> bool:
 | `first_slot` | 第一个槽位。 |
 | `second_slot` | 第二个槽位。 |
 
-返回：成功返回 true。
+返回：成功返回 true；任一目标槽位规则拒绝交换后的物品时原子返回 false。
 
 <a id="member-gfslotinventorymodel-methods-sort_slots"></a>
 
 ### `sort_slots`
 
 - API：`public`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func sort_slots(order_resolver: Callable = Callable()) -> bool:
@@ -656,9 +658,9 @@ func sort_slots(order_resolver: Callable = Callable()) -> bool:
 
 | 名称 | 说明 |
 |---|---|
-| `order_resolver` | 可选比较回调，签名为 `func(left_slot_index, left_stack_data, right_slot_index, right_stack_data) -> bool`。 |
+| `order_resolver` | 可选比较回调，签名为 \`func(left_slot_index, left_stack_data, right_slot_index, right_stack_data) -> bool\`。 |
 
-返回：槽位顺序发生变化时返回 true。
+返回：槽位顺序发生变化时返回 true；规划布局违反目标槽位规则时原子返回 false。
 
 <a id="member-gfslotinventorymodel-methods-move_between_slots"></a>
 
@@ -846,6 +848,7 @@ func get_index_debug_snapshot() -> Dictionary:
 ### `validate_inventory`
 
 - API：`public`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func validate_inventory() -> Dictionary:
@@ -857,13 +860,14 @@ func validate_inventory() -> Dictionary:
 
 结构：
 
-- `return`: Dictionary，包含 ok、healthy、summary、next_action、issue_count 与 issues；issues 每项包含 severity、kind、slot_index、item_id 与 message。
+- `return`: Dictionary，包含 ok: bool、error_count: int、warning_count: int 与 issues: Array；issues 每项包含 severity: String、kind: String、slot_index: int、item_id: StringName 与 message: String。
 
 <a id="member-gfslotinventorymodel-methods-apply_registry_constraints"></a>
 
 ### `apply_registry_constraints`
 
 - API：`public`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func apply_registry_constraints(repair: bool = false) -> Dictionary:
@@ -881,7 +885,7 @@ func apply_registry_constraints(repair: bool = false) -> Dictionary:
 
 结构：
 
-- `return`: Dictionary，包含 ok、healthy、summary、next_action、issue_count 与 issues；repair 为 true 时会同步修复可修复堆叠。
+- `return`: Dictionary，包含 ok: bool、error_count: int、warning_count: int 与 issues: Array；issues 每项包含 severity: String、kind: String、slot_index: int、item_id: StringName 与 message: String；repair 为 true 时会同步修复可修复堆叠。
 
 <a id="member-gfslotinventorymodel-methods-get_debug_snapshot"></a>
 
@@ -906,6 +910,7 @@ func get_debug_snapshot() -> Dictionary:
 ### `to_dict`
 
 - API：`public`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func to_dict() -> Dictionary:
@@ -913,7 +918,7 @@ func to_dict() -> Dictionary:
 
 序列化为字典。
 
-返回：可序列化字典。
+返回：Godot Variant 字典；不保证可直接编码为 JSON。
 
 结构：
 

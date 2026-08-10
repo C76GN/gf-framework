@@ -317,9 +317,9 @@ func remove_buff_with_reason(
 	for index: int in range(buffs.size() - 1, -1, -1):
 		var buff: GFBuff = _get_buff_at(buffs, index)
 		if buff != null and buff.id == p_buff_id:
-			_remove_buff_at(p_entity, buffs, index, true, reason)
+			var removed: bool = _remove_buff_at(p_entity, buffs, index, true, reason)
 			_update_active_status(p_entity)
-			return true
+			return removed
 	return false
 
 
@@ -327,11 +327,14 @@ func remove_buff_with_reason(
 ## [br]
 ## @api public
 ## [br]
+## @since 11.0.0
+## [br]
 ## @param p_entity: 实体对象。
 ## [br]
 ## @param predicate: 可选过滤回调，签名为 `func(buff: GFBuff) -> bool`。
 ## [br]
 ## @return 被清理的 Buff 数量。
+## 候选按调用开始时的身份快照评估；回调已完成的移除不会重复计数。
 func clear_buffs(p_entity: Object, predicate: Callable = Callable()) -> int:
 	return clear_buffs_with_reason(p_entity, predicate, GFBuff.REMOVAL_REASON_CLEARED)
 
@@ -349,6 +352,7 @@ func clear_buffs(p_entity: Object, predicate: Callable = Callable()) -> int:
 ## @param reason: 移除原因。
 ## [br]
 ## @return 被清理的 Buff 数量。
+## 每次 predicate 返回后都会重新验证实体记录并按 Buff 身份定位。
 func clear_buffs_with_reason(
 	p_entity: Object,
 	predicate: Callable = Callable(),
@@ -363,16 +367,27 @@ func clear_buffs_with_reason(
 
 	var data: Dictionary = _get_entity_data(entity_id)
 	var buffs: Array = _get_entity_buffs(data)
+	var buff_snapshot: Array = buffs.duplicate()
 	var removed_count: int = 0
-	for index: int in range(buffs.size() - 1, -1, -1):
-		var buff: GFBuff = _get_buff_at(buffs, index)
+	for index: int in range(buff_snapshot.size() - 1, -1, -1):
+		var buff: GFBuff = _get_buff_at(buff_snapshot, index)
 		if buff == null:
-			buffs.remove_at(index)
+			var invalid_index: int = buffs.find(buff_snapshot[index])
+			if invalid_index >= 0:
+				buffs.remove_at(invalid_index)
 			continue
 		if not _predicate_accepts_buff(predicate, buff):
 			continue
-		_remove_buff_at(p_entity, buffs, index, true, reason)
-		removed_count += 1
+		# predicate 是同步用户回调；返回后必须重新取得实体记录并按身份定位。
+		if not _entities.has(entity_id):
+			break
+		data = _get_entity_data(entity_id)
+		buffs = _get_entity_buffs(data)
+		var live_index: int = buffs.find(buff)
+		if live_index < 0:
+			continue
+		if _remove_buff_at(p_entity, buffs, live_index, true, reason):
+			removed_count += 1
 
 	if removed_count > 0:
 		_update_active_status(p_entity)
@@ -613,13 +628,16 @@ func _remove_buff_at(
 	index: int,
 	remove_effects: bool,
 	reason: StringName = GFBuff.REMOVAL_REASON_REMOVED
-) -> void:
+) -> bool:
+	if index < 0 or index >= buffs.size():
+		return false
 	var buff: GFBuff = _get_buff_at(buffs, index)
 	buffs.remove_at(index)
 	if buff == null:
-		return
+		return false
 
 	var _remove_report: Dictionary = _finalize_buff_removal(p_entity, buff, remove_effects, reason)
+	return true
 
 
 func _finalize_buff_removal(
@@ -705,7 +723,13 @@ func _process_entity(p_entity: Object, p_delta: float) -> void:
 			continue
 		if buff.update(p_delta):
 			if buff_index < buffs.size() and buffs[buff_index] == buff:
-				_remove_buff_at(p_entity, buffs, buff_index, true, GFBuff.REMOVAL_REASON_EXPIRED)
+				var _expired_buff_removed: bool = _remove_buff_at(
+					p_entity,
+					buffs,
+					buff_index,
+					true,
+					GFBuff.REMOVAL_REASON_EXPIRED
+				)
 			else:
 				buffs.erase(buff)
 				var _remove_report: Dictionary = _finalize_buff_removal(

@@ -144,6 +144,33 @@ func test_range_and_ring_follow_movement_topology() -> void:
 	assert_eq(bounded_ring.size(), 3, "切比雪夫外环应能按边界过滤左上角越界格。")
 
 
+func test_bounded_ranges_intersect_before_enumeration() -> void:
+	var bounded_rectangle: Array[Vector2i] = GF_GRID_MATH.get_rectangle_cells(
+		Vector2i(-2_147_483_648, -2_147_483_648),
+		Vector2i(2_147_483_647, 2_147_483_647),
+		Vector2i(2, 2)
+	)
+	var bounded_range: Array[Vector2i] = GF_GRID_MATH.get_range(
+		Vector2i.ZERO,
+		1_000_000_000,
+		Vector2i(2, 2),
+		false
+	)
+	var bounded_ring: Array[Vector2i] = GF_GRID_MATH.get_ring(
+		Vector2i.ZERO,
+		1_000_000_000,
+		Vector2i(2, 2),
+		true
+	)
+
+	assert_eq(
+		bounded_rectangle,
+		[Vector2i(0, 0), Vector2i(1, 0), Vector2i(0, 1), Vector2i(1, 1)]
+	)
+	assert_eq(bounded_range, bounded_rectangle, "有界范围工作量应由实际网格交集决定。")
+	assert_true(bounded_ring.is_empty(), "小网格中不存在距离十亿的环格。")
+
+
 func test_chunk_window_supports_circle_square_and_diamond_shapes() -> void:
 	var center: Vector2i = Vector2i(10, -2)
 	var circle: Array[Vector2i] = GF_GRID_MATH.get_chunk_window(center, 2)

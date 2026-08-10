@@ -29,3 +29,28 @@ func test_platform_locale_map_replaces_entries_by_platform_and_key() -> void:
 	assert_eq(locale_map.map_locale(&"sample_platform", "english"), "en_US", "替换后的 locale 应生效。")
 	assert_true(locale_map.erase_mapping(&"sample_platform", "english"), "已存在映射应可移除。")
 	assert_true(locale_map.entries.is_empty(), "移除后映射表应为空。")
+
+
+func test_platform_locale_map_apply_dict_uses_same_last_write_wins_semantics() -> void:
+	var locale_map: GFPlatformLocaleMap = GFPlatformLocaleMap.new()
+	locale_map.apply_dict({
+		"entries": [
+			{
+				"platform_id": &"sample_platform",
+				"platform_locale": "English",
+				"locale": "en",
+			},
+			{
+				"platform_id": &"sample_platform",
+				"platform_locale": " english ",
+				"locale": "en_US",
+			},
+		],
+	})
+
+	assert_eq(locale_map.entries.size(), 1, "批量导入的规范化重复键必须收敛为单条映射。")
+	assert_eq(
+		locale_map.map_locale(&"sample_platform", "ENGLISH"),
+		"en_US",
+		"apply_dict 应与按顺序调用 set_mapping 一样由最后一条覆盖。"
+	)

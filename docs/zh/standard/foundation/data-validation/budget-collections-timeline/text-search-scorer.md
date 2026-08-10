@@ -23,6 +23,8 @@ var best := results[0]["candidate"]
 
 默认字段读取 `title`、`name`、`keywords`、`detail` 和 `path`，其中标题类字段权重更高。项目也可以通过 `fields` 传入自己的字段集合，字段值可以是 `String`、`StringName`、`Array` 或 `PackedStringArray`。
 
+Array 字段通过迭代式、identity-aware 遍历展开：self-cycle、双节点 cycle 和很深的无环数组都不会依赖递归调用栈，循环边会被跳过，其余有限文本仍可参与评分。字段 weight 必须为正有限数，并且乘权与累计结果也必须保持有限；无效或溢出的字段会失败关闭，不会把 NaN/Infinity 送入排序报告。
+
 ```gdscript
 var results := GFTextSearchScorer.rank_candidates("dash cooldown", actions, {
 	"fields": [

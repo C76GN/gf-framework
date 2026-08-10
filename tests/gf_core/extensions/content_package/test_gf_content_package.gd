@@ -292,6 +292,46 @@ func test_manifest_dictionary_schema_rejects_type_coercion() -> void:
 	assert_true(manifest.metadata.is_empty(), "非 Dictionary metadata 不应被吞入 manifest。")
 
 
+func test_manifest_rejects_conflicting_canonical_and_alias_fields() -> void:
+	var manifest: GFContentPackageManifest = GFContentPackageManifest.from_dictionary({
+		"schema_version": 1,
+		"package_id": "author.canonical",
+		"id": "author.alias",
+		"display_name": "Canonical Name",
+		"name": "Alias Name",
+		"version": "1.0.0",
+		"resources": [{
+			"key": "canonical.key",
+			"resource_key": "alias.key",
+			"path": "canonical.tres",
+			"resource_path": "alias.tres",
+		}],
+	}, TEMP_ROOT.path_join("alias_conflict"))
+	var report: Dictionary = manifest.get_validation_report()
+
+	assert_false(GFVariantData.get_option_bool(report, "ok"), "同一语义字段不能由两组冲突 wire name 定义。")
+	assert_eq(
+		_count_issues(report, "conflicting_alias_fields"),
+		4,
+		"package、display、resource key 和 resource path 冲突都应可诊断。"
+	)
+	var matching_alias_manifest: GFContentPackageManifest = GFContentPackageManifest.from_dictionary({
+		"schema_version": 1,
+		"package_id": "author.matching",
+		"id": "author.matching",
+		"display_name": "Matching",
+		"name": "Matching",
+		"version": "1.0.0",
+		"resources": [{
+			"key": "same.key",
+			"resource_key": "same.key",
+			"path": "same.tres",
+			"resource_path": "same.tres",
+		}],
+	}, TEMP_ROOT.path_join("matching_alias"))
+	assert_true(matching_alias_manifest.is_valid(), "值一致的 schema v1 兼容双写仍应归一到 canonical 字段。")
+
+
 func test_manifest_resource_exists_check_accepts_plain_files() -> void:
 	var root_path: String = TEMP_ROOT.path_join("plain_file")
 	_write_text_file(root_path.path_join("assets/readme.txt"), "plain")
@@ -324,6 +364,19 @@ func test_catalog_orders_dependencies_before_dependents() -> void:
 	var ordered: PackedStringArray = catalog.get_ordered_package_ids()
 
 	assert_eq(Array(ordered), ["author.base", "author.feature"], "依赖包应先于依赖方注册。")
+
+
+func test_catalog_reports_null_manifest_input_and_preserves_rejection_snapshot() -> void:
+	var catalog: GFContentPackageCatalog = GFContentPackageCatalog.new()
+	var added: bool = catalog.add_manifest(null)
+	var report: Dictionary = catalog.get_graph_report()
+	var copied_report: Dictionary = catalog.duplicate_catalog().get_graph_report()
+
+	assert_false(added)
+	assert_false(GFVariantData.get_option_bool(report, "ok"), "null manifest 必须成为可诊断拒绝，不能等价于空目录。")
+	assert_eq(GFVariantData.get_option_int(report, "rejected_manifest_count"), 1)
+	assert_eq(GFVariantData.get_option_string(_find_issue(report, "invalid_manifest"), "kind"), "invalid_manifest")
+	assert_eq(GFVariantData.get_option_int(copied_report, "rejected_manifest_count"), 1, "catalog 深快照必须保留拒绝事实。")
 
 
 func test_catalog_reports_missing_dependencies_and_cycles() -> void:
@@ -601,6 +654,38 @@ func test_utility_reports_invalid_manifest_files() -> void:
 		"invalid_manifest_file",
 		"坏 manifest 文件应有稳定 issue kind。"
 	)
+	utility.dispose()
+
+
+func test_utility_keeps_previous_catalog_when_discovered_manifest_has_empty_package_id() -> void:
+	var invalid_manifest_path: String = TEMP_ROOT.path_join("missing_id/gf_content_package.json")
+	_write_manifest_file(invalid_manifest_path, {
+		"schema_version": 1,
+		"version": "1.0.0",
+		"resources": [],
+	})
+	var utility: GFContentPackageUtility = GFContentPackageUtility.new()
+	utility.init()
+	var _registered: bool = utility.register_source_root(TEMP_ROOT)
+	var _valid_report: Dictionary = utility.set_manifests([_make_manifest(&"author.previous")])
+	watch_signals(utility)
+
+	var report: Dictionary = utility.rebuild_catalog()
+	var issue: Dictionary = _find_issue(report, "missing_package_id")
+	var rejected_inputs: Array = GFVariantData.get_option_array(report, "rejected_manifest_inputs")
+	assert_eq(rejected_inputs.size(), 1)
+	if rejected_inputs.is_empty():
+		utility.dispose()
+		return
+	var rejected_input: Dictionary = GFVariantData.as_dictionary(rejected_inputs[0])
+
+	assert_false(GFVariantData.get_option_bool(report, "ok"), "缺少 package_id 的已解析 manifest 必须拒绝整份候选目录。")
+	assert_eq(GFVariantData.get_option_int(report, "rejected_manifest_count"), 1)
+	assert_eq(GFVariantData.get_option_int(rejected_input, "input_index"), 0)
+	assert_eq(GFVariantData.get_option_string(rejected_input, "source_path"), invalid_manifest_path)
+	assert_eq(GFVariantData.get_option_string(issue, "source_path"), invalid_manifest_path, "拒绝诊断必须保留输入来源。")
+	assert_true(utility.get_catalog().has_package(&"author.previous"), "失败候选不得覆盖上一份有效目录。")
+	assert_signal_not_emitted(utility, "catalog_rebuilt", "失败候选不得发布 catalog_rebuilt。")
 	utility.dispose()
 
 

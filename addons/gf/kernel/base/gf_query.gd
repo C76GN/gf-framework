@@ -24,15 +24,6 @@ var _execution_started: bool = false
 
 # --- 公共方法 ---
 
-## 注入当前查询执行所在的架构实例。
-## [br]
-## @api framework_internal
-## [br]
-## @param architecture: 当前执行查询的架构。
-func inject_dependencies(architecture: GFArchitecture) -> void:
-	_gf_set_dependency_scope(architecture)
-
-
 ## 执行查询并返回结果。子类必须重写此方法。
 ## [br]
 ## @api public
@@ -102,6 +93,17 @@ func get_utility(utility_type: Script, require_ready: bool = false) -> Object:
 	if architecture == null:
 		return null
 	return architecture.get_utility(utility_type, require_ready)
+
+
+# --- 框架内部方法 ---
+
+## 注入当前查询执行所在的架构实例。
+## [br]
+## @api framework_internal
+## [br]
+## @param architecture: 当前执行查询的架构。
+func inject_dependencies(architecture: GFArchitecture) -> void:
+	_gf_set_dependency_scope(architecture)
 
 
 # --- 私有/辅助方法 ---

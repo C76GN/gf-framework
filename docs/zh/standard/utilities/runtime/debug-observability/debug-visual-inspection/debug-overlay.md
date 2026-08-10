@@ -58,3 +58,5 @@ debug.record_metric_sample(&"fps", Engine.get_frames_per_second(), {
 ```
 
 `include_metric_series_panel` 默认开启，会把已注册的可见指标序列附加到 Overlay 面板区。项目也可以创建并维护自己的 `GFMetricSeries`，再通过 `register_metric_series()` 交给 Overlay 展示。
+
+`record_metric_sample()` 只在采样真正进入序列时返回 `true`。NaN 或 Infinity 会在创建空序列前返回 `false`；底层 `GFMetricSeries` 也保持同一有限值不变量。

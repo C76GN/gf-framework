@@ -15,7 +15,7 @@ extends Node
 
 # --- 信号 ---
 
-## 拖拽开始时发出。
+## 控制器已提交 session、pointer、source 监听和可选 reparent 后同步发出。
 ## [br]
 ## @api public
 ## [br]
@@ -41,7 +41,7 @@ signal drag_started(session_id: int, drag_type: StringName)
 ## @param zone_id: 当前最佳落点 ID；没有落点时为空。
 signal drag_moved(session_id: int, position: Vector2, delta: Vector2, zone_id: StringName)
 
-## 拖拽成功释放到落点时发出。
+## 旧会话的 pointer/source/reparent lease 已清理后同步发出。
 ## [br]
 ## @api public
 ## [br]
@@ -56,7 +56,7 @@ signal drag_moved(session_id: int, position: Vector2, delta: Vector2, zone_id: S
 ## @schema result: Dictionary，由 GFDragDropUtility.drop() 规范化，包含 ok、session_id、zone_id、reason 和可选 value。
 signal drag_dropped(session_id: int, zone_id: StringName, result: Dictionary)
 
-## 拖拽释放被拒绝时发出。
+## 拖拽释放被拒绝时发出；终态拒绝会先清理旧 lease，可重试拒绝仍保留会话。
 ## [br]
 ## @api public
 ## [br]
@@ -67,7 +67,7 @@ signal drag_dropped(session_id: int, zone_id: StringName, result: Dictionary)
 ## @param reason: 拒绝原因。
 signal drag_drop_rejected(session_id: int, reason: StringName)
 
-## 拖拽取消时发出。
+## 旧会话的 pointer/source/reparent lease 已清理后同步发出。
 ## [br]
 ## @api public
 ## [br]
@@ -134,6 +134,9 @@ var _restore_source_parent_on_success: bool = false
 var _reparent_keep_global_transform: bool = true
 var _pending_cancel_reason: StringName = &""
 var _source_tree_exited_callable: Callable = Callable()
+var _start_in_progress: bool = false
+var _starting_session_id: int = -1
+var _finish_in_progress: bool = false
 
 
 # --- Godot 生命周期方法 ---
@@ -157,6 +160,9 @@ func _exit_tree() -> void:
 # --- 公共方法 ---
 
 ## 获取底层拖放数据工具。
+## 返回值是可写 live Utility；直接调用其 update/drop/cancel 会绕过控制器的
+## pointer 校验，但底层终态信号仍会驱动控制器清理。需要强制 pointer authority
+## 时只使用控制器命令入口。
 ## [br]
 ## @api public
 ## [br]
@@ -269,6 +275,7 @@ func clear_zones() -> void:
 ## [br]
 ## 控制器一次只管理一个活动会话。需要并行拖拽时可创建多个控制器；底层
 ## `GFDragDropUtility` 仍保留多会话能力。
+## started 只观察完整提交状态；若 started 监听器同步结束本会话，本方法返回 -1。
 ## [br]
 ## @api public
 ## [br]
@@ -284,7 +291,7 @@ func clear_zones() -> void:
 ## [br]
 ## @param options: 控制器选项。
 ## [br]
-## @return 会话 ID；失败时返回 -1。
+## @return: 仍保持活动的会话 ID；启动失败或 started 回调已结束会话时返回 -1。
 ## [br]
 ## @schema payload: Variant，透传给 drop zone 的项目侧拖拽载荷。
 ## [br]
@@ -296,7 +303,7 @@ func start_drag(
 	source: Object = null,
 	options: Dictionary = {}
 ) -> int:
-	if has_active_drag() or drag_type == &"":
+	if _start_in_progress or _finish_in_progress or has_active_drag() or drag_type == &"":
 		return -1
 
 	var source_node: Node = _node_from_object(source)
@@ -305,6 +312,8 @@ func start_drag(
 
 	var pointer_id: int = GFVariantData.get_option_int(options, "pointer_id", 0)
 	var capture_pointer: bool = GFVariantData.get_option_bool(options, "capture_pointer", true)
+	if capture_pointer and pointer_id == _NO_POINTER_ID:
+		return -1
 	_captures_pointer = capture_pointer
 	_active_pointer_id = pointer_id if capture_pointer else _NO_POINTER_ID
 
@@ -322,17 +331,24 @@ func start_drag(
 			_clear_active_source_state()
 			return -1
 
-	var metadata: Dictionary = GFVariantData.get_option_dictionary(options, "metadata")
+	var metadata: Dictionary = GFVariantData.as_dictionary(
+		GFVariantData.get_option_value(options, "metadata", {})
+	)
+	_start_in_progress = true
+	_starting_session_id = -1
 	var session_id: int = _utility.start_drag(drag_type, payload, position, source, metadata)
-	if session_id < 0:
-		_restore_active_source_parent()
-		_release_pointer_capture()
-		_clear_active_source_state()
+	_start_in_progress = false
+	_starting_session_id = -1
+	if session_id < 0 or not _utility.has_active_session(session_id):
+		_rollback_start_transaction()
 		return -1
 
 	_active_session_id = session_id
 	_connect_active_source_tree_exit(source_node, session_id)
 	set_process(true)
+	drag_started.emit(session_id, drag_type)
+	if _active_session_id != session_id or not _utility.has_active_session(session_id):
+		return -1
 	return session_id
 
 
@@ -491,7 +507,16 @@ func get_debug_snapshot(json_compatible: bool = true) -> Dictionary:
 		if encoded is Dictionary:
 			var encoded_dictionary: Dictionary = encoded
 			return encoded_dictionary
-	return result
+		return {
+			"ok": false,
+			"reason": "json_encoding_failed",
+			"type": "GFDragDropController",
+		}
+	var copied_result: Variant = GFVariantData.duplicate_variant(result)
+	if copied_result is Dictionary:
+		var copied_dictionary: Dictionary = copied_result
+		return copied_dictionary
+	return {}
 
 
 # --- 私有/辅助方法 ---
@@ -507,31 +532,51 @@ func _connect_utility_signals() -> void:
 
 
 func _on_utility_drag_started(session_id: int, drag_type: StringName) -> void:
+	if _start_in_progress:
+		_starting_session_id = session_id
+		return
 	drag_started.emit(session_id, drag_type)
 
 
 func _on_utility_drag_moved(session_id: int, position: Vector2, delta: Vector2) -> void:
 	var zone: GFDropZone = _utility.get_best_drop_zone(session_id, position)
+	if not _utility.has_active_session(session_id):
+		return
 	var zone_id: StringName = zone.zone_id if zone != null else &""
 	drag_moved.emit(session_id, position, delta, zone_id)
 
 
 func _on_utility_drag_dropped(session_id: int, zone_id: StringName, result: Dictionary) -> void:
+	var managed_session: bool = session_id == _active_session_id
+	var restore_source_parent: bool = _restore_source_parent_on_success
+	if managed_session:
+		_finish_controller_session(session_id, &"dropped", restore_source_parent)
 	drag_dropped.emit(session_id, zone_id, result)
-	_finish_controller_session(session_id, &"dropped", _restore_source_parent_on_success)
 
 
 func _on_utility_drag_drop_rejected(session_id: int, reason: StringName) -> void:
+	var terminal_reject: bool = not _utility.has_active_session(session_id)
+	var managed_session: bool = session_id == _active_session_id
+	var restore_source_parent: bool = _restore_source_parent_on_rejected_drop
+	if terminal_reject and managed_session:
+		_finish_controller_session(session_id, reason, restore_source_parent)
 	drag_drop_rejected.emit(session_id, reason)
-	if not _utility.has_active_session(session_id):
-		_finish_controller_session(session_id, reason, _restore_source_parent_on_rejected_drop)
 
 
 func _on_utility_drag_cancelled(session_id: int) -> void:
-	var reason: StringName = _pending_cancel_reason if _pending_cancel_reason != &"" else &"utility_cancelled"
-	_pending_cancel_reason = &""
+	if _start_in_progress and session_id == _starting_session_id:
+		return
+	var managed_session: bool = session_id == _active_session_id
+	var reason: StringName = (
+		_pending_cancel_reason
+		if managed_session and _pending_cancel_reason != &""
+		else &"utility_cancelled"
+	)
+	var restore_source_parent: bool = _restore_source_parent_on_cancel
+	if managed_session:
+		_pending_cancel_reason = &""
+		_finish_controller_session(session_id, reason, restore_source_parent)
 	drag_cancelled.emit(session_id, reason)
-	_finish_controller_session(session_id, reason, _restore_source_parent_on_cancel)
 
 
 func _on_utility_drop_zone_registered(zone_id: StringName) -> void:
@@ -566,16 +611,18 @@ func _cancel_active_drag_if_source_invalid() -> bool:
 
 
 func _finish_controller_session(session_id: int, _reason: StringName, restore_source_parent: bool) -> void:
-	if session_id != _active_session_id:
+	if session_id != _active_session_id or _finish_in_progress:
 		return
+	_finish_in_progress = true
 	_disconnect_active_source_tree_exit()
 	if restore_source_parent:
-		_restore_active_source_parent()
+		var _restored_source: bool = _restore_active_source_parent()
 	_release_pointer_capture()
 	_active_session_id = -1
 	_pending_cancel_reason = &""
 	_clear_active_source_state()
 	set_process(false)
+	_finish_in_progress = false
 
 
 func _capture_original_parent(source_node: Node) -> void:
@@ -617,20 +664,31 @@ func _get_requested_drag_parent(options: Dictionary) -> Node:
 	return _node_from_variant(GFVariantData.get_option_value(options, "drag_parent"))
 
 
-func _restore_active_source_parent() -> void:
+func _restore_active_source_parent() -> bool:
 	var source_node: Node = _get_source_node()
 	var original_parent: Node = _get_original_parent()
 	if source_node == null or original_parent == null:
-		return
-	if source_node.get_parent() == null or source_node.is_queued_for_deletion():
-		return
-	if source_node.get_parent() != original_parent:
+		return false
+	if source_node.is_queued_for_deletion() or original_parent.is_queued_for_deletion():
+		return false
+	if source_node == original_parent or source_node.is_ancestor_of(original_parent):
+		return false
+	var current_parent: Node = source_node.get_parent()
+	if source_node.is_inside_tree() and original_parent.is_inside_tree():
+		if source_node.get_tree() != original_parent.get_tree():
+			return false
+	if current_parent == null:
+		original_parent.add_child(source_node)
+	elif current_parent != original_parent:
 		source_node.reparent(original_parent, _reparent_keep_global_transform)
+	if source_node.get_parent() != original_parent:
+		return false
 	if source_node.get_parent() == original_parent and _original_index >= 0:
 		var max_index: int = max(0, original_parent.get_child_count() - 1)
 		var target_index: int = clampi(_original_index, 0, max_index)
 		if source_node.get_index() != target_index:
 			original_parent.move_child(source_node, target_index)
+	return source_node.get_parent() == original_parent
 
 
 func _connect_active_source_tree_exit(source_node: Node, session_id: int) -> void:
@@ -669,6 +727,12 @@ func _clear_active_source_state() -> void:
 func _release_pointer_capture() -> void:
 	_active_pointer_id = _NO_POINTER_ID
 	_captures_pointer = false
+
+
+func _rollback_start_transaction() -> void:
+	var _restored_source: bool = _restore_active_source_parent()
+	_release_pointer_capture()
+	_clear_active_source_state()
 
 
 func _get_pointer_capture_dictionary() -> Dictionary:

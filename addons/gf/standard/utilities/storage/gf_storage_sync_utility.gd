@@ -61,7 +61,7 @@ signal sync_failed(file_name: String, result: Dictionary)
 ## [br]
 ## @api public
 enum ConflictStrategy {
-	## 按后端元数据中的 revision/timestamp 选择更新的一侧；无法判断时保留冲突。
+	## 按后端元数据中的有限 revision/timestamp 选择更新的一侧；缺失或非有限值无法判断时保留冲突。
 	USE_NEWEST,
 	## 冲突时使用 local_backend 的数据。
 	USE_LOCAL,
@@ -90,6 +90,11 @@ enum SyncStatus {
 	## 同步失败。
 	FAILED,
 }
+
+
+# --- 常量 ---
+
+const _COMPARISON_UNORDERED: int = 2
 
 
 # --- 公共变量 ---
@@ -346,6 +351,11 @@ func _resolve_conflict(
 			return _make_record_resolution(report, remote_record, GFStorageConflictReport.Resolution.USE_REMOTE)
 		ConflictStrategy.USE_NEWEST:
 			var comparison: int = _compare_records(local_record, remote_record, options)
+			if comparison == _COMPARISON_UNORDERED:
+				return _make_unresolved_resolution(
+					report,
+					"Cannot determine newest storage record because comparison metadata is non-finite."
+				)
 			if comparison > 0:
 				return _make_record_resolution(report, local_record, GFStorageConflictReport.Resolution.USE_LOCAL)
 			if comparison < 0:
@@ -524,6 +534,8 @@ func _compare_metadata_values(left: Variant, right: Variant) -> int:
 	if _is_numeric_value(left) and _is_numeric_value(right):
 		var left_number: float = GFVariantData.to_float(left)
 		var right_number: float = GFVariantData.to_float(right)
+		if not is_finite(left_number) or not is_finite(right_number):
+			return _COMPARISON_UNORDERED
 		if is_equal_approx(left_number, right_number):
 			return 0
 		return 1 if left_number > right_number else -1

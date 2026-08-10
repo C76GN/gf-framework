@@ -2329,7 +2329,7 @@ func restore_all_models_state(data: Dictionary) -> Dictionary:
 
 | 名称 | 说明 |
 |---|---|
-| `data` | 由 get_all_models_state() 成功 Result 的 `snapshot` 字段。 |
+| `data` | 由 get_all_models_state() 成功 Result 的 \`snapshot\` 字段。 |
 
 返回：原子恢复 Result；任一步失败时回滚已应用 Model。
 
@@ -2355,7 +2355,7 @@ func restore_all_models_state_async( data: Dictionary, options: Dictionary = {} 
 
 | 名称 | 说明 |
 |---|---|
-| `data` | 由 get_all_models_state() 或 get_all_models_state_async() 成功 Result 的 `snapshot` 字段。 |
+| `data` | 由 get_all_models_state() 或 get_all_models_state_async() 成功 Result 的 \`snapshot\` 字段。 |
 | `options` | 可选参数，支持 max_models_per_frame；小于等于 0 时不主动让出帧。 |
 
 返回：原子恢复 Result；任一步失败时回滚已应用 Model。
@@ -2428,7 +2428,7 @@ func restore_global_snapshot( data: Dictionary, command_builder: Callable = Call
 
 | 名称 | 说明 |
 |---|---|
-| `data` | 由 get_global_snapshot() 成功 Result 的 `snapshot` 字段。 |
+| `data` | 由 get_global_snapshot() 成功 Result 的 \`snapshot\` 字段。 |
 | `command_builder` | 【可选】如果需要恢复历史记录，必须传入用于反序列化具体 Command 实例的 Callable。 |
 
 返回：原子恢复 Result；validate、apply 或 commit 失败时回滚全部 Model 与命令历史。
@@ -2455,7 +2455,7 @@ func restore_global_snapshot_async( data: Dictionary, command_builder: Callable 
 
 | 名称 | 说明 |
 |---|---|
-| `data` | 由 get_global_snapshot() 或 get_global_snapshot_async() 成功 Result 的 `snapshot` 字段。 |
+| `data` | 由 get_global_snapshot() 或 get_global_snapshot_async() 成功 Result 的 \`snapshot\` 字段。 |
 | `command_builder` | 【可选】如果需要恢复历史记录，必须传入用于反序列化具体 Command 实例的 Callable。 |
 | `options` | 可选参数，支持 max_models_per_frame；小于等于 0 时不主动让出帧。 |
 

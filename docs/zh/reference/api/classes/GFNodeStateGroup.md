@@ -539,12 +539,13 @@ func get_blackboard() -> Dictionary:
 ### `dispatch_state_event`
 
 - API：`public`
+- 首次版本：`8.0.0`
 
 ```gdscript
 func dispatch_state_event(event_id: StringName, payload: Variant = null) -> bool:
 ```
 
-从当前状态开始向暂停栈上抛状态事件。
+从当前状态开始向暂停栈上抛状态事件。 处理器改变激活集合时，本次派发会在当前处理器返回后终止；新激活或已退出状态不会接收旧周期事件。
 
 参数：
 

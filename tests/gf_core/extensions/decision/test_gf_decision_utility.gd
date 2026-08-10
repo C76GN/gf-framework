@@ -85,6 +85,58 @@ class CountingConsideration extends GFDecisionConsideration:
 		return 0.5
 
 
+class MissingDecisionSubject extends RefCounted:
+	var call_count: int = 0
+
+	func get_decision_snapshot() -> Dictionary:
+		return {}
+
+	func get_decision_value(_key: StringName, fallback: Variant = null) -> Variant:
+		call_count += 1
+		return fallback
+
+
+class InvalidSignatureDecisionSubject extends RefCounted:
+	var reflected_value: float = 0.35
+
+	func get_decision_snapshot(_unexpected_argument: Variant) -> Dictionary:
+		return { &"invalid": true }
+
+	func get_decision_value(_key: StringName) -> Variant:
+		return 1.0
+
+
+class ClearingDecisionSetConsideration extends GFDecisionConsideration:
+	var decision_set: GFDecisionSet = null
+	var mutated: bool = false
+
+	func _score(_context: GFDecisionContext) -> float:
+		if not mutated and decision_set != null:
+			mutated = true
+			decision_set.clear_decisions()
+		return 0.5
+
+
+class ClearingConsiderationList extends GFDecisionConsideration:
+	var decision_option: GFDecisionOption = null
+	var mutated: bool = false
+
+	func _score(_context: GFDecisionContext) -> float:
+		if not mutated and decision_option != null:
+			mutated = true
+			decision_option.clear_considerations()
+		return 0.5
+
+
+class MutatingDecisionSetIdentityConsideration extends GFDecisionConsideration:
+	var decision_set: GFDecisionSet = null
+
+	func _score(_context: GFDecisionContext) -> float:
+		if decision_set != null:
+			decision_set.decision_set_id = &"mutated_during_score"
+		return 1.0
+
+
 # --- 测试方法 ---
 
 func test_blackboard_tracks_values_and_emits_changes() -> void:
@@ -238,6 +290,65 @@ func test_decision_set_never_treats_nearby_unequal_scores_as_tied() -> void:
 	var best: GFDecisionScore = decision_set.select_best(context)
 
 	assert_eq(best.decision_id, &"higher", "只要分数严格更高，就不能由原始顺序覆盖。")
+
+
+func test_select_best_from_scores_handles_unsorted_external_scores() -> void:
+	var lower: GFDecisionScore = GFDecisionScore.new(null, 0.4, [], true, 0)
+	lower.decision_id = &"lower"
+	var higher: GFDecisionScore = GFDecisionScore.new(null, 0.9, [], true, 1)
+	higher.decision_id = &"higher"
+	var earlier_tie: GFDecisionScore = GFDecisionScore.new(null, 0.9, [], true, 0)
+	earlier_tie.decision_id = &"earlier_tie"
+	var invalid: GFDecisionScore = GFDecisionScore.new(null, 0.8, [], true, 2)
+	invalid.decision_id = &"invalid"
+	invalid.score = NAN
+	var decision_set: GFDecisionSet = GFDecisionSet.new()
+	decision_set.minimum_score = 0.3
+
+	var best: GFDecisionScore = decision_set.select_best_from_scores([
+		lower,
+		higher,
+		invalid,
+		earlier_tie,
+	])
+
+	assert_eq(best.decision_id, &"earlier_tie", "公开预计算入口必须扫描全部合法分数，并按 decision_order 稳定破平。")
+	assert_almost_eq(best.score, 0.9, 0.001)
+
+
+func test_scoring_uses_stable_decision_and_consideration_membership_snapshots() -> void:
+	var context: GFDecisionContext = GFDecisionContext.new()
+	var clearing_set: ClearingDecisionSetConsideration = ClearingDecisionSetConsideration.new()
+	clearing_set.consideration_id = &"clear_set"
+	var first: GFDecisionOption = GFDecisionOption.new()
+	first.decision_id = &"first"
+	first.considerations = [clearing_set]
+	var second: GFDecisionOption = GFDecisionOption.new()
+	second.decision_id = &"second"
+	var decision_set: GFDecisionSet = GFDecisionSet.new()
+	decision_set.decisions = [first, second]
+	clearing_set.decision_set = decision_set
+
+	var scores: Array[GFDecisionScore] = decision_set.score_all(context)
+
+	assert_eq(scores.size(), 2, "一次评分必须遍历开始时的候选成员快照。")
+	assert_true(decision_set.decisions.is_empty(), "项目回调对 live authoring 数组的修改仍应在评分后可见。")
+
+	var clearing_list: ClearingConsiderationList = ClearingConsiderationList.new()
+	clearing_list.consideration_id = &"clear_considerations"
+	var remaining: GFDecisionConsideration = GFDecisionConsideration.new()
+	remaining.consideration_id = &"remaining"
+	var option: GFDecisionOption = GFDecisionOption.new()
+	option.decision_id = &"option"
+	option.considerations = [clearing_list, remaining]
+	clearing_list.decision_option = option
+
+	var option_score: GFDecisionScore = option.score(context)
+
+	assert_eq(option_score.consideration_scores.size(), 2, "一次候选评分必须遍历开始时的考虑项成员快照。")
+	assert_true(option.considerations.is_empty())
+	clearing_set.decision_set = null
+	clearing_list.decision_option = null
 
 
 func test_weighted_average_uses_consideration_weights() -> void:
@@ -518,6 +629,61 @@ func test_context_capture_budget_blocks_unbounded_lazy_provider_reads() -> void:
 	assert_true(GFVariantData.get_option_bool(subject_diagnostics, "truncated"))
 
 
+func test_context_negative_caches_missing_provider_values_within_budget() -> void:
+	var subject: MissingDecisionSubject = MissingDecisionSubject.new()
+	var context: GFDecisionContext = GFDecisionContext.new(
+		GFDecisionBlackboard.new(),
+		subject,
+		null,
+		{},
+		{ "max_snapshot_entries": 2 }
+	)
+
+	var first_missing: Variant = context.get_subject_value(&"first", "first_fallback")
+	var repeated_missing: Variant = context.get_subject_value(&"first", "second_fallback")
+	var second_missing: Variant = context.get_subject_value(&"second", "third_fallback")
+	var over_budget: Variant = context.get_subject_value(&"third", "budget_fallback")
+	var duplicated: GFDecisionContext = context.duplicate_context()
+	var duplicated_missing: Variant = duplicated.get_subject_value(&"first", "duplicate_fallback")
+	var snapshot: Dictionary = context.get_debug_snapshot()
+	var diagnostics: Dictionary = GFVariantData.get_option_dictionary(snapshot, "capture_diagnostics")
+	var subject_diagnostics: Dictionary = GFVariantData.get_option_dictionary(diagnostics, "subject")
+
+	assert_eq(GFVariantData.to_text(first_missing), "first_fallback")
+	assert_eq(GFVariantData.to_text(repeated_missing), "second_fallback", "负缓存仍应使用本次调用的 fallback。")
+	assert_eq(GFVariantData.to_text(second_missing), "third_fallback")
+	assert_eq(GFVariantData.to_text(over_budget), "budget_fallback")
+	assert_eq(GFVariantData.to_text(duplicated_missing), "duplicate_fallback")
+	assert_eq(subject.call_count, 2, "重复 miss 与超预算新 key 都不能再次执行 provider。")
+	assert_eq(GFVariantData.get_option_int(subject_diagnostics, "attempted_count"), 2)
+	assert_eq(GFVariantData.get_option_int(subject_diagnostics, "captured_count"), 0)
+	assert_true(GFVariantData.get_option_bool(subject_diagnostics, "truncated"))
+
+
+func test_context_rejects_provider_methods_with_incompatible_signatures() -> void:
+	var subject: InvalidSignatureDecisionSubject = InvalidSignatureDecisionSubject.new()
+	var context: GFDecisionContext = GFDecisionContext.new(GFDecisionBlackboard.new(), subject)
+
+	var reflected: Variant = context.get_subject_value(&"reflected_value", -1.0)
+	var missing: Variant = context.get_subject_value(&"virtual", "fallback")
+
+	assert_almost_eq(GFVariantData.to_float(reflected), 0.35, 0.001, "无效 snapshot provider 应安全回退到反射捕获。")
+	assert_eq(GFVariantData.to_text(missing), "fallback", "错误参数个数的懒 provider 不得被调用。")
+
+
+func test_context_rebinding_clears_negative_provider_cache() -> void:
+	var first_subject: MissingDecisionSubject = MissingDecisionSubject.new()
+	var second_subject: MissingDecisionSubject = MissingDecisionSubject.new()
+	var context: GFDecisionContext = GFDecisionContext.new(GFDecisionBlackboard.new(), first_subject)
+
+	var _first_missing: Variant = context.get_subject_value(&"missing", null)
+	context.subject = second_subject
+	var _second_missing: Variant = context.get_subject_value(&"missing", null)
+
+	assert_eq(first_subject.call_count, 1)
+	assert_eq(second_subject.call_count, 1, "新 subject 必须拥有独立的 miss/cache frame。")
+
+
 func test_non_finite_consideration_scores_fall_back_to_missing_score() -> void:
 	var context: GFDecisionContext = GFDecisionContext.new()
 	var consideration: BadScoreConsideration = BadScoreConsideration.new()
@@ -528,6 +694,49 @@ func test_non_finite_consideration_scores_fall_back_to_missing_score() -> void:
 
 	consideration.raw_score = INF
 	assert_almost_eq(consideration.score(context), 0.25, 0.001, "INF 分数应失败闭合到 missing_score。")
+
+
+func test_consideration_debug_snapshot_can_reuse_precomputed_score() -> void:
+	var context: GFDecisionContext = GFDecisionContext.new()
+	var consideration: CountingConsideration = CountingConsideration.new()
+	consideration.consideration_id = &"counted"
+	var score_value: float = consideration.score(context)
+
+	assert_true(
+		consideration.has_method(&"get_debug_snapshot_from_score"),
+		"观察型快照必须提供不重放自定义 scorer 的预计算入口。"
+	)
+	if consideration.has_method(&"get_debug_snapshot_from_score"):
+		var snapshot_value: Variant = consideration.call(&"get_debug_snapshot_from_score", score_value)
+		var snapshot: Dictionary = GFVariantData.as_dictionary(snapshot_value)
+		assert_almost_eq(GFVariantData.get_option_float(snapshot, "score"), 0.5, 0.001)
+
+	assert_eq(consideration.call_count, 1, "预计算调试快照不得再次执行 scorer。")
+
+
+func test_decision_value_copies_support_cyclic_project_metadata() -> void:
+	var cyclic_metadata: Dictionary = {}
+	cyclic_metadata[&"self"] = cyclic_metadata
+	var option: GFDecisionOption = GFDecisionOption.new()
+	option.decision_id = &"cyclic"
+	option.metadata = cyclic_metadata
+
+	var score: GFDecisionScore = GFDecisionScore.new(option, 0.5, [], true)
+	var score_data: Dictionary = score.to_dictionary()
+	var copied_metadata_value: Variant = score_data.get("metadata")
+	var copied_metadata: Dictionary = {}
+	if copied_metadata_value is Dictionary:
+		copied_metadata = copied_metadata_value
+	var evaluation: GFDecisionEvaluation = GFDecisionEvaluation.new().configure(
+		&"cyclic_set",
+		[score],
+		score,
+		{ &"metadata": cyclic_metadata }
+	)
+	var report_text: String = JSON.stringify(evaluation.to_report_dictionary())
+
+	assert_true(is_same(copied_metadata.get(&"self"), copied_metadata), "原生 value-object 副本应保留循环图而不递归失败。")
+	assert_true(report_text.contains("__gf_report_value__"), "跨进程报告应把循环图编码为稳定 marker。")
 
 
 func test_decision_utility_registers_sets_and_selects_best() -> void:
@@ -599,6 +808,56 @@ func test_decision_utility_rejects_mismatched_decision_set_id() -> void:
 
 	assert_false(utility.register_decision_set(&"outer", decision_set), "注册 ID 与资源自身 ID 不一致时应拒绝。")
 	assert_false(utility.has_decision_set(&"outer"), "拒绝后不应留下注册项。")
+
+
+func test_decision_utility_keeps_registry_identity_authoritative_after_resource_mutation() -> void:
+	var utility: GFDecisionUtility = GFDecisionUtility.new()
+	var decision_set: GFDecisionSet = GFDecisionSet.new()
+	var identity_mutator: MutatingDecisionSetIdentityConsideration = MutatingDecisionSetIdentityConsideration.new()
+	identity_mutator.consideration_id = &"mutate_identity"
+	identity_mutator.decision_set = decision_set
+	var option: GFDecisionOption = GFDecisionOption.new()
+	option.decision_id = &"only"
+	option.considerations = [identity_mutator]
+	decision_set.decisions = [option]
+
+	assert_true(utility.register_decision_set(&"original", decision_set))
+	decision_set.decision_set_id = &"mutated"
+
+	assert_false(utility.register_decision_set(&"original", decision_set))
+	assert_eq(decision_set.decision_set_id, &"original", "重复 key 拒绝路径也必须恢复既有 binding 身份。")
+	decision_set.decision_set_id = &"mutated"
+	assert_false(
+		utility.register_decision_set(&"mutated", decision_set),
+		"同一 Resource 实例不能在一个 registry 中取得第二个身份。"
+	)
+	assert_eq(decision_set.decision_set_id, &"original", "registry key 应恢复为已注册资源的权威身份。")
+	assert_eq(utility.get_decision_set(&"original"), decision_set)
+	var evaluation: GFDecisionEvaluation = utility.evaluate(
+		&"original",
+		utility.make_context({ &"value": 1.0 })
+	)
+	assert_eq(decision_set.decision_set_id, &"original", "评分回调内的 ID 漂移也必须在发布结果前恢复。")
+	assert_eq(evaluation.decision_set_id, &"original")
+	var encoded_id: Dictionary = GFVariantData.get_option_dictionary(
+		evaluation.debug_snapshot,
+		"decision_set_id"
+	)
+	var encoded_payload: Dictionary = GFVariantData.get_option_dictionary(
+		encoded_id,
+		"__gf_variant__"
+	)
+	assert_eq(
+		GFVariantData.get_option_string_name(encoded_payload, "value"),
+		&"original",
+		"评价与调试身份必须服从 registry key。"
+	)
+
+	assert_true(utility.unregister_decision_set(&"original"))
+	decision_set.decision_set_id = &"mutated"
+	assert_true(utility.register_decision_set(&"mutated", decision_set), "显式注销后可用新身份重新注册。")
+	utility.clear_decision_sets()
+	identity_mutator.decision_set = null
 
 
 func test_decision_extension_installer_registers_utility() -> void:

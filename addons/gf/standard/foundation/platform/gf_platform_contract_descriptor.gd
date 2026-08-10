@@ -14,7 +14,7 @@ extends Resource
 
 # --- 导出变量 ---
 
-## 契约稳定标识。
+## 契约稳定标识；直接创作的值不得包含首尾空白。
 ## [br]
 ## @api public
 ## [br]
@@ -112,10 +112,16 @@ func validate_definition() -> GFValidationReport:
 	var report: GFValidationReport = GFValidationReport.new(
 		"Platform contract %s" % String(contract_id)
 	)
-	if contract_id == &"":
+	var normalized_contract_id: StringName = StringName(String(contract_id).strip_edges())
+	if normalized_contract_id == &"":
 		var _contract_issue: RefCounted = report.add_error(
 			&"missing_contract_id",
 			"Platform contract ID is required."
+		)
+	elif contract_id != normalized_contract_id:
+		var _contract_format_issue: RefCounted = report.add_error(
+			&"non_canonical_contract_id",
+			"Platform contract ID must not have surrounding whitespace."
 		)
 	if contract_version.is_empty():
 		var _version_issue: RefCounted = report.add_error(

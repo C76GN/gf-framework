@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFAudioLibraryTools" path="addons/gf/standard/utilities/audio/gf_audio_library_tools.gd" module="standard" extends="RefCounted" classDigest="70da9f8ad2d9c34e868586d95cad3720e8a8aa7ef56fcb468ff537af164618d5">
+<class name="GFAudioLibraryTools" path="addons/gf/standard/utilities/audio/gf_audio_library_tools.gd" module="standard" extends="RefCounted" classDigest="53bd69ff11d1002abe79f23f58c4ed0255c5d1200d6ffaa106e0c7fa1eedb7ff">
 	<description>GFAudioLibraryTools: 音频素材库扫描、搜索和导入计划工具。
 面向编辑器 Workspace、Inspector 和构建脚本复用；它只处理音频候选
 文件、目标路径规划和文件复制，不接管运行时播放、事件命名或混音策略。</description>
@@ -97,7 +97,9 @@
 		</member>
 		<member kind="method" name="copy_import_plan">
 			<signature>static func copy_import_plan(plan: Array[Dictionary], options: Dictionary = {}) -&gt; GFValidationReport:</signature>
-			<description>按导入计划复制音频文件。</description>
+			<description>按导入计划复制音频文件。
+当前纯 GDScript 实现仅适用于调用方独占的可信单写者目录；
+每个 target 对应的 `.gf-copy.tmp` 与 `.gf-copy.backup` 名称属于事务保留命名空间。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">plan: make_import_plan() 返回的导入计划。</tag>
@@ -105,6 +107,7 @@
 				<tag name="return">复制报告。</tag>
 				<tag name="schema">plan: Array[Dictionary]，元素包含 source_path、target_path、will_copy 和 reason 字段。</tag>
 				<tag name="schema">options: Dictionary，可包含 overwrite: bool、max_copy_files: int 与 max_copy_bytes: int；上限为 0 时表示不限制。</tag>
+				<tag name="schema">return: GFValidationReport；metadata 包含 planned_copy_count、planned_copy_bytes、copy_preflight_complete、copied_count、skipped_count、error_count、copied_paths、consumed_copy_bytes 和 committed_copy_bytes；恢复或清理失败通过结构化 issue metadata 暴露 deterministic temp/backup path 与 recovery state。</tag>
 				<tag name="since">5.0.0</tag>
 			</tags>
 		</member>

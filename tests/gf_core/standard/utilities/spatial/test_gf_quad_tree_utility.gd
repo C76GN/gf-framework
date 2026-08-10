@@ -79,6 +79,41 @@ func test_bounds_setter_prunes_entities_that_no_longer_fit() -> void:
 	assert_false(_tree.has_entity(2), "修改 bounds 后无法索引的实体应被剔除。")
 
 
+func test_bounds_setter_rejects_non_finite_values_atomically() -> void:
+	var original_bounds: Rect2 = _tree.bounds
+	var inserted: bool = _tree.insert_with_hit_test(
+		7,
+		Rect2(100, 100, 20, 20),
+		func(_entity_id: int, _point: Vector2, _rect: Rect2) -> bool:
+			return false
+	)
+
+	_tree.bounds = Rect2(Vector2(NAN, 0.0), Vector2.ONE)
+
+	assert_true(inserted)
+	assert_push_error("[GFQuadTreeUtility] bounds 必须只包含有限值。")
+	assert_eq(_tree.bounds, original_bounds, "非法配置不得覆盖最后有效边界。")
+	assert_eq(_tree.get_entity_rect(7), Rect2(100, 100, 20, 20), "非法配置不得删除实体。")
+	assert_true(_tree.query_point(Vector2(105, 105), false).has(7), "粗筛索引必须保留。")
+	assert_false(_tree.query_point(Vector2(105, 105), true).has(7), "精确 hit test 必须保留。")
+
+
+func test_setup_rejects_non_finite_bounds_before_mutating_limits_or_entities() -> void:
+	var original_bounds: Rect2 = _tree.bounds
+	var original_max_depth: int = _tree.max_depth
+	var original_max_entities: int = _tree.max_entities_per_node
+	var inserted: bool = _tree.insert(7, Rect2(100, 100, 20, 20))
+
+	_tree.setup(Rect2(Vector2.ZERO, Vector2(INF, 1.0)), 1, 1)
+
+	assert_true(inserted)
+	assert_push_error("[GFQuadTreeUtility] bounds 必须只包含有限值。")
+	assert_eq(_tree.bounds, original_bounds)
+	assert_eq(_tree.max_depth, original_max_depth)
+	assert_eq(_tree.max_entities_per_node, original_max_entities)
+	assert_true(_tree.has_entity(7), "非法 setup 不得清除实体。")
+
+
 func test_debug_snapshot_has_json_compatible_export() -> void:
 	var inserted: bool = _tree.insert(1, Rect2(10, 10, 10, 10))
 	var snapshot: Dictionary = _tree.get_json_compatible_debug_snapshot()

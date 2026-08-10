@@ -19,6 +19,8 @@ print(total.to_scientific_string()) # 1.45e18
 
 `GFBigNumber` 是显示和量级计算用的近似大数。它适合挂机资源、战力、收益预估和跨数量级比较，不适合作为付费货币、强精度经济结算、竞技排行榜最终判定或任何要求逐分逐厘精确的权威数据源。
 
+零值只由规范尾数精确为 `0.0` 表示；`from_float()` 不会用固定绝对 epsilon 吞掉很小但有限的非零值。需要把运算噪声视作零时，应由业务在比较边界显式选择相对或绝对容差，而不是改变大数可表达的最小量级。
+
 ## `GFFixedDecimal`
 
 `GFFixedDecimal` 适合货币、税率、百分比、经营数值这类对累计误差更敏感的场景。它内部用整数缩放保存值。
@@ -35,6 +37,8 @@ print(total.to_decimal_string()) # 13.33
 `GFFixedDecimal` 也是 GF deterministic math 的定点数底座。需要保存到 JSON、存档或配置时，优先使用 `to_dict()` / `from_dict()`：状态字典包含 `type`、`version`、`raw_value` 和 `decimal_places`，其中 `raw_value` 固定为十进制字符串，避免 JSON 64 位整数精度丢失。需要不依赖 Godot `Variant` 编码的二进制 golden 输出时，使用 `to_bytes()` / `from_bytes()`；该格式固定为 `GFFD` magic、版本、小数位、符号位和 8 字节大端绝对 raw 值。
 
 定点数 raw 值使用对称安全范围 `[-9223372036854775807, 9223372036854775807]`，而不是完整 int64 最小值。这可以保证绝对值、符号 magnitude 字节格式和溢出钳制规则在所有定点类型之间一致。
+
+跨 `decimal_places` 比较会按十进制 magnitude 做无溢出对齐，保持等价、反对称和传递；除法在原生整数中间乘法无法容纳精确缩放时会切换到宽十进制路径，只在最终 raw 边界执行舍入和饱和。
 
 直接写入 `raw_value` 或 `decimal_places` 也会触发同一套规范化规则；超出范围的 raw 值会被钳制，小数位会被限制到合法区间。二进制读取会拒绝“负号 + 零 magnitude”的非规范负零编码，避免同一个数值出现两种字节形态。
 

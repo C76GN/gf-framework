@@ -16,7 +16,7 @@
 | 类型 | 名称 | 签名 |
 |---|---|---|
 | 枚举 | [`EntryIdMode`](#member-gfresourceregistrytools-enums-entryidmode) | `enum EntryIdMode` |
-| 常量 | [`RESOURCE_EXTENSIONS`](#member-gfresourceregistrytools-constants-resource_extensions) | `const RESOURCE_EXTENSIONS: PackedStringArray = [` |
+| 常量 | [`RESOURCE_EXTENSIONS`](#member-gfresourceregistrytools-constants-resource_extensions) | `const RESOURCE_EXTENSIONS: PackedStringArray = [ 	"tres", 	"res", 	"tscn", 	"scn", 	"png", 	"jpg", 	"jpeg", 	"webp", 	"svg", 	"bmp", 	"tga", 	"exr", 	"hdr", 	"ktx", 	"ctex", 	"ogg", 	"wav", 	"mp3", 	"opus", 	"glb", 	"gltf", 	"obj", 	"fbx", 	"dae", 	"blend", 	"material", 	"shader", 	"gdshader", 	"gd", 	"cs", ]` |
 | 常量 | [`DEFAULT_EXCLUDED_PATHS`](#member-gfresourceregistrytools-constants-default_excluded_paths) | `const DEFAULT_EXCLUDED_PATHS: PackedStringArray = ["res://addons"]` |
 | 常量 | [`DEFAULT_MAX_SCAN_DEPTH`](#member-gfresourceregistrytools-constants-default_max_scan_depth) | `const DEFAULT_MAX_SCAN_DEPTH: int = 32` |
 | 常量 | [`DEFAULT_MAX_RESOURCE_PATHS`](#member-gfresourceregistrytools-constants-default_max_resource_paths) | `const DEFAULT_MAX_RESOURCE_PATHS: int = 10000` |
@@ -70,6 +70,37 @@ enum EntryIdMode {
 
 ```gdscript
 const RESOURCE_EXTENSIONS: PackedStringArray = [
+	"tres",
+	"res",
+	"tscn",
+	"scn",
+	"png",
+	"jpg",
+	"jpeg",
+	"webp",
+	"svg",
+	"bmp",
+	"tga",
+	"exr",
+	"hdr",
+	"ktx",
+	"ctex",
+	"ogg",
+	"wav",
+	"mp3",
+	"opus",
+	"glb",
+	"gltf",
+	"obj",
+	"fbx",
+	"dae",
+	"blend",
+	"material",
+	"shader",
+	"gdshader",
+	"gd",
+	"cs",
+]
 ```
 
 默认资源扩展名白名单，不包含点号。

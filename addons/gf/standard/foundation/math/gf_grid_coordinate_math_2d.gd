@@ -28,6 +28,9 @@ const _DIAGONAL_DIRECTIONS: Array[Vector2i] = [
 	Vector2i(-1, -1),
 ]
 
+const _MIN_VECTOR2I_COMPONENT: int = -2147483648
+const _MAX_VECTOR2I_COMPONENT: int = 2147483647
+
 
 # --- 公共方法 ---
 
@@ -225,11 +228,21 @@ static func get_rectangle_cells(
 	var max_x: int = maxi(from_cell.x, to_cell.x)
 	var min_y: int = mini(from_cell.y, to_cell.y)
 	var max_y: int = maxi(from_cell.y, to_cell.y)
+	var has_bounds: bool = grid_size.x >= 0 and grid_size.y >= 0
+	if has_bounds:
+		if grid_size.x <= 0 or grid_size.y <= 0:
+			return result
+		min_x = maxi(min_x, 0)
+		max_x = mini(max_x, grid_size.x - 1)
+		min_y = maxi(min_y, 0)
+		max_y = mini(max_y, grid_size.y - 1)
+		if min_x > max_x or min_y > max_y:
+			return result
 
 	for y: int in range(min_y, max_y + 1):
 		for x: int in range(min_x, max_x + 1):
 			var cell: Vector2i = Vector2i(x, y)
-			if _is_in_optional_bounds(cell, grid_size):
+			if has_bounds or _is_in_optional_bounds(cell, grid_size):
 				result.append(cell)
 	return result
 
@@ -259,11 +272,14 @@ static func get_range(
 	if radius < 0:
 		return result
 
-	for y: int in range(center.y - radius, center.y + radius + 1):
-		for x: int in range(center.x - radius, center.x + radius + 1):
+	var has_bounds: bool = grid_size.x >= 0 and grid_size.y >= 0
+	var x_span: Array[int] = _get_query_axis_span(center.x, radius, grid_size.x if has_bounds else -1)
+	var y_span: Array[int] = _get_query_axis_span(center.y, radius, grid_size.y if has_bounds else -1)
+	if x_span.is_empty() or y_span.is_empty():
+		return result
+	for y: int in range(y_span[0], y_span[1] + 1):
+		for x: int in range(x_span[0], x_span[1] + 1):
 			var cell: Vector2i = Vector2i(x, y)
-			if not _is_in_optional_bounds(cell, grid_size):
-				continue
 			if _get_grid_distance(center, cell, include_diagonal) <= radius:
 				result.append(cell)
 	return result
@@ -294,11 +310,14 @@ static func get_ring(
 	if radius < 0:
 		return result
 
-	for y: int in range(center.y - radius, center.y + radius + 1):
-		for x: int in range(center.x - radius, center.x + radius + 1):
+	var has_bounds: bool = grid_size.x >= 0 and grid_size.y >= 0
+	var x_span: Array[int] = _get_query_axis_span(center.x, radius, grid_size.x if has_bounds else -1)
+	var y_span: Array[int] = _get_query_axis_span(center.y, radius, grid_size.y if has_bounds else -1)
+	if x_span.is_empty() or y_span.is_empty():
+		return result
+	for y: int in range(y_span[0], y_span[1] + 1):
+		for x: int in range(x_span[0], x_span[1] + 1):
 			var cell: Vector2i = Vector2i(x, y)
-			if not _is_in_optional_bounds(cell, grid_size):
-				continue
 			if _get_grid_distance(center, cell, include_diagonal) == radius:
 				result.append(cell)
 	return result
@@ -514,6 +533,29 @@ static func _is_in_optional_bounds(cell: Vector2i, grid_size: Vector2i) -> bool:
 	if grid_size.x < 0 or grid_size.y < 0:
 		return true
 	return is_in_bounds(cell, grid_size)
+
+
+static func _get_query_axis_span(center: int, radius: int, grid_extent: int) -> Array[int]:
+	var minimum: int = _MIN_VECTOR2I_COMPONENT
+	var maximum: int = _MAX_VECTOR2I_COMPONENT
+	if grid_extent >= 0:
+		if grid_extent <= 0:
+			return []
+		minimum = 0
+		maximum = grid_extent - 1
+
+	if center < minimum and radius < minimum - center:
+		return []
+	if center > maximum and radius < center - maximum:
+		return []
+
+	var query_minimum: int = minimum
+	if center > minimum and radius < center - minimum:
+		query_minimum = center - radius
+	var query_maximum: int = maximum
+	if center < maximum and radius < maximum - center:
+		query_maximum = center + radius
+	return [query_minimum, query_maximum]
 
 
 static func _normalize_chunk_window_shape(shape: StringName) -> StringName:

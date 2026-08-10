@@ -6,7 +6,7 @@
 
 | 类别 | 类 | 成员 | 方法 |
 |---|---:|---:|---:|
-| [运行时服务](#category-runtime_service) | 7 | 117 | 84 |
+| [运行时服务](#category-runtime_service) | 7 | 118 | 85 |
 | [协议与扩展点](#category-protocol) | 10 | 114 | 69 |
 | [资源定义](#category-resource_definition) | 13 | 92 | 58 |
 | [运行时句柄](#category-runtime_handle) | 10 | 110 | 76 |

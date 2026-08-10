@@ -72,7 +72,7 @@ func _init(
 	consideration_scores = _normalize_consideration_scores(details)
 	if source_decision != null:
 		decision_id = source_decision.decision_id
-		metadata = source_decision.metadata.duplicate(true)
+		metadata = _copy_dictionary(source_decision.metadata)
 
 
 # --- 公共方法 ---
@@ -92,8 +92,8 @@ func to_dictionary() -> Dictionary:
 		"decision_order": decision_order,
 		"score": score,
 		"accepted": accepted,
-		"consideration_scores": consideration_scores.duplicate(true),
-		"metadata": metadata.duplicate(true),
+		"consideration_scores": GFVariantData.duplicate_variant(consideration_scores),
+		"metadata": _copy_dictionary(metadata),
 	}
 
 
@@ -145,3 +145,11 @@ func _normalize_consideration_scores(details: Array[Dictionary]) -> Array[Dictio
 			),
 		})
 	return result
+
+
+func _copy_dictionary(source: Dictionary) -> Dictionary:
+	var copied: Variant = GFVariantData.duplicate_variant(source)
+	if copied is Dictionary:
+		var copied_dictionary: Dictionary = copied
+		return copied_dictionary
+	return {}

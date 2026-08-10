@@ -39,9 +39,9 @@ const _DEFAULT_MAX_OUTPUT_BYTES: int = 16 * 1024 * 1024
 ## [br]
 ## @schema value: Variant value made from scalar, string, path, vector, rectangle, color, plane, quaternion, AABB, basis, transform, projection, array, dictionary, and packed array values. Float-based values require `options.allow_floats = true`.
 ## [br]
-## @param options: 可选项。支持 allow_floats、max_depth、max_items、max_string_length 和 max_output_bytes。
+## @param options: 可选项。支持 allow_floats、max_depth、max_items 和 max_string_length；该入口不生成 bytes，因此不接受 max_output_bytes 作为输出保证。
 ## [br]
-## @schema options: Dictionary with optional allow_floats, max_depth, max_items, max_string_length, and max_output_bytes limits.
+## @schema options: Dictionary with optional allow_floats, max_depth, max_items, and max_string_length limits.
 ## [br]
 ## @return 规范化后的 JSON 兼容 Variant；失败时返回 null 并输出错误。
 ## [br]

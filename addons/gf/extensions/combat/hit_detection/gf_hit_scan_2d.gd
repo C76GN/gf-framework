@@ -223,16 +223,17 @@ func _emit_missed(reason: StringName) -> Dictionary:
 		"reason": reason,
 		"metadata": metadata.duplicate(true),
 	}
-	scan_missed.emit(report)
+	scan_missed.emit(report.duplicate(true))
 	return report
 
 
 func _emit_scan_result(context: GFCombatHitContext, receiver: Object, report: Dictionary) -> void:
-	scan_hit.emit(context, receiver, report)
-	if GFVariantData.get_option_bool(report, "ok", false):
-		hit_accepted.emit(context, receiver, report)
+	var accepted: bool = GFVariantData.get_option_bool(report, "ok", false)
+	scan_hit.emit(context, receiver, report.duplicate(true))
+	if accepted:
+		hit_accepted.emit(context, receiver, report.duplicate(true))
 	else:
-		hit_rejected.emit(context, receiver, report)
+		hit_rejected.emit(context, receiver, report.duplicate(true))
 
 
 func _resolve_sender() -> Object:

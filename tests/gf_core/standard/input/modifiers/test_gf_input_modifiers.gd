@@ -52,6 +52,36 @@ func test_sign_clamp_modifier_filters_direction() -> void:
 	assert_eq(result, Vector2(0.75, 0.0), "只应保留负向输入并按配置转为正值。")
 
 
+func test_deadzone_equal_threshold_uses_defined_step_semantics() -> void:
+	var modifier: GFInputDeadzoneModifier = GFInputDeadzoneModifier.new()
+	modifier.lower_threshold = 0.5
+	modifier.upper_threshold = 0.5
+	modifier.rescale_after_deadzone = true
+
+	assert_eq(modifier.modify(Vector2(0.49, 0.0)), Vector2.ZERO, "零宽死区在阈值以下应输出零。")
+	assert_eq(modifier.modify(Vector2(0.5, 0.0)), Vector2.RIGHT, "达到共同阈值时应按 upper contract 输出满幅。")
+	assert_eq(modifier.modify(Vector2.RIGHT), Vector2.RIGHT, "超过共同阈值时不应被错误抹除。")
+
+	assert_eq(modifier.modify_3d(Vector3(0.49, 0.0, 0.0)), Vector3.ZERO, "三维零宽死区在阈值以下应输出零。")
+	assert_eq(modifier.modify_3d(Vector3(0.5, 0.0, 0.0)), Vector3.RIGHT, "三维输入达到共同阈值时应输出满幅。")
+	assert_eq(modifier.modify_3d(Vector3.RIGHT), Vector3.RIGHT, "三维输入超过共同阈值时不应被错误抹除。")
+
+
+func test_deadzone_equal_zero_and_one_thresholds_remain_defined() -> void:
+	var modifier: GFInputDeadzoneModifier = GFInputDeadzoneModifier.new()
+	modifier.rescale_after_deadzone = true
+
+	modifier.lower_threshold = 0.0
+	modifier.upper_threshold = 0.0
+	assert_eq(modifier.modify(Vector2.ZERO), Vector2.ZERO, "0/0 阈值仍应保持零向量。")
+	assert_eq(modifier.modify(Vector2(0.25, 0.0)), Vector2.RIGHT, "0/0 阈值应表示无死区的阶跃满幅。")
+
+	modifier.upper_threshold = 1.0
+	modifier.lower_threshold = 1.0
+	assert_eq(modifier.modify(Vector2(0.99, 0.0)), Vector2.ZERO, "1/1 阈值以下应保持零。")
+	assert_eq(modifier.modify(Vector2.RIGHT), Vector2.RIGHT, "1/1 阈值边界应达到满幅。")
+
+
 ## 验证虚拟光标修饰器按速度积分并限制范围。
 func test_virtual_cursor_modifier_integrates_position() -> void:
 	var modifier: GFInputVirtualCursorModifier = GFInputVirtualCursorModifier.new()

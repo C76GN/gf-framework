@@ -42,7 +42,7 @@
 var target_path: NodePath = NodePath(""):
 ```
 
-目标 Node2D 路径；为空时优先使用自身，其次使用父节点。
+目标 Node2D 路径；为空时优先使用自身，其次使用父节点。路径目标暂时不存在或被 重建时，receiver 会继续解析同一路径，并为新目标重新建立基准。
 
 <a id="member-gfshakereceiver2d-properties-channel"></a>
 

@@ -16,8 +16,8 @@
 | 类型 | 名称 | 签名 |
 |---|---|---|
 | 常量 | [`SCHEMA_VERSION`](#member-gfextensiontoolcontribution-constants-schema_version) | `const SCHEMA_VERSION: int = 2` |
-| 常量 | [`PATH_FIELDS`](#member-gfextensiontoolcontribution-constants-path_fields) | `const PATH_FIELDS: Array[String] = [` |
-| 常量 | [`ALLOWED_FIELDS`](#member-gfextensiontoolcontribution-constants-allowed_fields) | `const ALLOWED_FIELDS: Array[String] = [` |
+| 常量 | [`PATH_FIELDS`](#member-gfextensiontoolcontribution-constants-path_fields) | `const PATH_FIELDS: Array[String] = [ 	"access_generator_extension_paths", 	"debugger_plugin_paths", 	"editor_action_paths", 	"editor_dock_paths", 	"editor_inspector_paths", 	"export_plugin_paths", 	"gltf_document_extension_paths", 	"import_plugin_paths", ]` |
+| 常量 | [`ALLOWED_FIELDS`](#member-gfextensiontoolcontribution-constants-allowed_fields) | `const ALLOWED_FIELDS: Array[String] = [ 	"schema_version", 	"extension_id", 	"access_generator_extension_paths", 	"debugger_plugin_paths", 	"editor_action_paths", 	"editor_dock_paths", 	"editor_inspector_paths", 	"export_plugin_paths", 	"gltf_document_extension_paths", 	"import_plugin_paths", ]` |
 | 方法 | [`parse_dictionary`](#member-gfextensiontoolcontribution-methods-parse_dictionary) | `static func parse_dictionary(data: Dictionary, expected_extension_id: String = "") -> Dictionary:` |
 
 ## 常量
@@ -44,6 +44,15 @@ const SCHEMA_VERSION: int = 2
 
 ```gdscript
 const PATH_FIELDS: Array[String] = [
+	"access_generator_extension_paths",
+	"debugger_plugin_paths",
+	"editor_action_paths",
+	"editor_dock_paths",
+	"editor_inspector_paths",
+	"export_plugin_paths",
+	"gltf_document_extension_paths",
+	"import_plugin_paths",
+]
 ```
 
 所有可声明的工具贡献路径字段。
@@ -57,6 +66,17 @@ const PATH_FIELDS: Array[String] = [
 
 ```gdscript
 const ALLOWED_FIELDS: Array[String] = [
+	"schema_version",
+	"extension_id",
+	"access_generator_extension_paths",
+	"debugger_plugin_paths",
+	"editor_action_paths",
+	"editor_dock_paths",
+	"editor_inspector_paths",
+	"export_plugin_paths",
+	"gltf_document_extension_paths",
+	"import_plugin_paths",
+]
 ```
 
 工具贡献文件允许的全部顶层字段。

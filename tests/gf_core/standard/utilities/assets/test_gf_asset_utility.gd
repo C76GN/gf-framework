@@ -186,6 +186,34 @@ func test_asset_handle_pins_cache_until_release() -> void:
 	assert_false(handle.is_valid(), "释放后的句柄不应继续暴露资源。")
 
 
+func test_asset_handle_release_uses_immutable_lease_identity() -> void:
+	var original_path: String = "res://lease_original.tres"
+	var mutated_path: String = "res://lease_mutated.tres"
+	var handle: GFAssetHandle = _utility.acquire_handle(original_path, null, &"", "", Resource.new())
+	handle.path = mutated_path
+
+	var released: bool = handle.release()
+
+	assert_true(released, "修改公开展示 path 后仍应释放原始租约。")
+	assert_eq(_utility.get_asset_reference_count(original_path), 0, "释放必须扣减创建句柄时的资源身份。")
+	assert_false(_utility.is_cache_pinned(original_path), "原始缓存身份必须解除 pin。")
+	assert_eq(_utility.get_asset_reference_count(mutated_path), 0, "公开 path 不得变成释放授权。")
+
+
+func test_foreign_asset_utility_cannot_release_handle() -> void:
+	var handle: GFAssetHandle = _utility.acquire_handle("res://owned_by_primary.tres", null, &"", "", Resource.new())
+	var foreign_utility: GFAssetUtility = GFAssetUtility.new()
+	foreign_utility.init()
+
+	var foreign_release: bool = foreign_utility.release_handle(handle)
+
+	assert_false(foreign_release, "非创建方 utility 不得消费句柄租约。")
+	assert_false(handle.is_released(), "错误 utility 的释放尝试不得使句柄失效。")
+	assert_eq(_utility.get_asset_reference_count("res://owned_by_primary.tres"), 1, "原创建方引用计数应保持不变。")
+	assert_true(handle.release(), "句柄仍应能由原创建方正常释放。")
+	foreign_utility.dispose()
+
+
 func test_release_owner_releases_owned_asset_handles() -> void:
 	var handle_owner: Node = Node.new()
 	var handle: GFAssetHandle = _utility.acquire_handle("res://owned.tres", handle_owner, &"", "", Resource.new())

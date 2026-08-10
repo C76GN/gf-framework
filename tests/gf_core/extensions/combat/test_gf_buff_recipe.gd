@@ -9,6 +9,7 @@ func test_buff_recipe_creates_runtime_buff_without_business_semantics() -> void:
 	recipe.id = &"generic.power"
 	recipe.duration = 3.0
 	recipe.stacks = 2
+	recipe.max_stacks = 3
 	recipe.tags = [&"generic.tag"]
 	recipe.modifier_entries = [
 		{
@@ -46,6 +47,27 @@ func test_buff_recipe_creates_runtime_buff_without_business_semantics() -> void:
 	assert_true(GFVariantData.get_option_bool(buff.metadata, "runtime"), "运行时 metadata 应合并到 Buff。")
 	assert_eq(effect.events, [&"apply", &"tick", &"remove"], "效果应按 Buff 生命周期触发。")
 	assert_eq(buff.removal_reason, GFBuff.REMOVAL_REASON_CLEARED)
+
+
+func test_buff_recipe_rejects_non_finite_timing_and_invalid_stack_bounds() -> void:
+	var recipe: GFBuffRecipe = GFBuffRecipe.new()
+	recipe.id = &"invalid.timing"
+	recipe.duration = INF
+	recipe.tick_interval_seconds = NAN
+	recipe.stacks = 3
+	recipe.max_stacks = 2
+
+	var report: Dictionary = recipe.get_validation_report()
+	var issues: Array = GFVariantData.get_option_array(report, "issues")
+	var buff: GFBuff = recipe.create_buff()
+
+	assert_false(GFVariantData.get_option_bool(report, "ok"), "非有限时间和矛盾层数必须使配方校验失败。")
+	assert_true(_has_issue_kind(issues, &"invalid_duration"))
+	assert_true(_has_issue_kind(issues, &"non_finite_tick_interval"))
+	assert_true(_has_issue_kind(issues, &"invalid_initial_stacks"))
+	assert_true(is_finite(buff.duration), "即使调用方忽略校验，创建结果也不得携带非有限持续时间。")
+	assert_true(is_finite(buff.tick_interval_seconds), "即使调用方忽略校验，创建结果也不得携带非有限 Tick 间隔。")
+	assert_eq(buff.stacks, 2, "运行时初始层数必须夹在最大层数内。")
 
 
 func test_buff_check_blocks_combat_system_add_buff() -> void:
@@ -113,6 +135,14 @@ func _recording_effect(value: Variant) -> RecordingEffect:
 		var effect: RecordingEffect = value
 		return effect
 	return null
+
+
+func _has_issue_kind(issues: Array, expected_kind: StringName) -> bool:
+	for issue_value: Variant in issues:
+		var issue: Dictionary = GFVariantData.as_dictionary(issue_value)
+		if GFVariantData.get_option_string_name(issue, "kind") == expected_kind:
+			return true
+	return false
 
 
 # --- 内部类 ---

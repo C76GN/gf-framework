@@ -375,4 +375,4 @@ func get_debug_snapshot() -> Dictionary:
 
 结构：
 
-- `return`: Dictionary with task_id, interruptible, scheduled, initialized, and requirement_ids.
+- `return`: Dictionary with task_id, interruptible, scheduled, initialized, schedule_generation, and requirement_ids.

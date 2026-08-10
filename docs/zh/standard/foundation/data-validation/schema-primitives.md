@@ -43,6 +43,8 @@ var report := schema.validate_dictionary({
 - `coerce_values = true` 时，`validate_dictionary()` 会先尝试转换字段值。
 - `fail_on_coerce_error = false` 时，转换失败会记录 warning，并使用该字段类型的安全兜底值继续校验。
 
+默认构造只写入 `default_value != null` 的字段，以及 `allow_null = true` 的 null 默认字段。`allow_null = false` 且 `default_value == null` 表示当前模型中没有可用默认值；即使字段是 required，`build_defaults()` 与 `apply_defaults()` 也会保持该字段缺失，随后由正常 required 校验指出调用方仍需提供值。当前资源模型还不能区分“未声明默认值”和“显式声明 null 默认值”，不要用 non-nullable null 充当初始化占位符。
+
 转换只覆盖常见 Variant 类型：bool、int、float、String、StringName、Vector2/3、Vector2i/3i、Color、Dictionary、Array、Object、Resource 和 NodePath。复杂字符串格式、枚举集、资源存在性、跨字段关系和跨表引用应由字段级 `GFValidationRule`、更高层 schema 或项目工具处理。
 
 ## 字典数组规范化
@@ -103,6 +105,8 @@ var score_field := GFSchemaField.new().configure(&"score", GFSchemaField.ValueTy
 ```
 
 规则返回的普通 issue 会继承字段路径与 key；需要项目自定义跨字段、资源存在性或上下文相关校验时，仍可直接继承 `GFValidationRule`，或通过 `configure()` 的回调向传入的 `GFValidationReport` 写入自定义 issue。
+
+range 规则接受 int 与 float。int 输入不会先缩窄成 float，而是按其完整 64 位值与已配置的 float 边界比较，因此 `2^53` 以上的相邻整数仍能正确区分；float 输入继续遵循有限 IEEE-754 值语义。
 
 ## 与其他 Schema 的边界
 

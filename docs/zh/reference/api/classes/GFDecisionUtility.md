@@ -103,12 +103,13 @@ func make_context( values: Dictionary = {}, subject: Object = null, target: Obje
 ### `register_decision_set`
 
 - API：`public`
+- 首次版本：`4.3.0`
 
 ```gdscript
 func register_decision_set(decision_set_id: StringName, decision_set: GFDecisionSet) -> bool:
 ```
 
-注册决策集合。
+注册决策集合。 registry key 是注册期权威身份；同一 Resource 实例不能同时注册到第二个 key，注册后的 ID 漂移会在 Utility 访问边界恢复。
 
 参数：
 
@@ -144,6 +145,7 @@ func unregister_decision_set(decision_set_id: StringName) -> bool:
 ### `has_decision_set`
 
 - API：`public`
+- 首次版本：`4.3.0`
 
 ```gdscript
 func has_decision_set(decision_set_id: StringName) -> bool:
@@ -164,6 +166,7 @@ func has_decision_set(decision_set_id: StringName) -> bool:
 ### `get_decision_set`
 
 - API：`public`
+- 首次版本：`4.3.0`
 
 ```gdscript
 func get_decision_set(decision_set_id: StringName) -> GFDecisionSet:
@@ -184,6 +187,7 @@ func get_decision_set(decision_set_id: StringName) -> GFDecisionSet:
 ### `get_decision_set_ids`
 
 - API：`public`
+- 首次版本：`4.3.0`
 
 ```gdscript
 func get_decision_set_ids() -> PackedStringArray:
@@ -210,6 +214,7 @@ func clear_decision_sets() -> void:
 ### `score_all`
 
 - API：`public`
+- 首次版本：`4.3.0`
 
 ```gdscript
 func score_all(decision_set_id: StringName, context: GFDecisionContext) -> Array[GFDecisionScore]:

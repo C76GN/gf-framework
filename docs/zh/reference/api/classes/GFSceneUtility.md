@@ -129,7 +129,7 @@ signal scene_load_progress(path: String, progress: float)
 | 名称 | 说明 |
 |---|---|
 | `path` | 目标场景路径。 |
-| `progress` | 当前进度，范围在 `0.0` 到 `1.0` 之间。 |
+| `progress` | 当前进度，范围在 \`0.0\` 到 \`1.0\` 之间。 |
 
 <a id="member-gfsceneutility-signals-scene_load_completed"></a>
 
@@ -203,7 +203,7 @@ signal scene_preload_progress(path: String, progress: float)
 | 名称 | 说明 |
 |---|---|
 | `path` | 目标场景路径。 |
-| `progress` | 当前进度，范围在 `0.0` 到 `1.0` 之间。 |
+| `progress` | 当前进度，范围在 \`0.0\` 到 \`1.0\` 之间。 |
 
 <a id="member-gfsceneutility-signals-scene_preload_completed"></a>
 

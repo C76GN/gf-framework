@@ -425,7 +425,7 @@ func build_screenshot_path(options: Dictionary = {}) -> String:
 func capture_burst(options: Dictionary = {}) -> Dictionary:
 ```
 
-按尺寸、语言和格式批量保存 Viewport 截图。 该方法只负责临时切换窗口尺寸和 TranslationServer 语言，然后恢复原值；项目层仍应决定 何时调用、是否隐藏 UI、是否上传或纳入发布流程。
+按尺寸、语言和格式批量保存 Viewport 截图。 该方法只负责临时切换窗口尺寸和 TranslationServer 语言，然后恢复原值；项目层仍应决定 何时调用、是否隐藏 UI、是否上传或纳入发布流程。 frame_delay_seconds 必须是有限值；max_captures=0 仍表示由受信调用方显式选择不限制。
 
 参数：
 

@@ -163,7 +163,7 @@ static func analyze_mono_samples( samples: PackedFloat32Array, sample_rate: floa
 
 - `samples`: PackedFloat32Array mono samples in -1..1 range.
 - `options`: Dictionary，可包含 min_frequency_hz、max_frequency_hz、min_rms、confidence_threshold、start_index、sample_count、max_sample_count、max_lag_count 和 max_correlation_operations。
-- `return`: Dictionary with ok, detected, frequency_hz, confidence, rms, lag, note_number, note_name, cents, issues, and issue_count.
+- `return`: Dictionary with ok, detected, frequency_hz, confidence, rms, lag, note_number, note_name, cents, correlation_operation_budget, minimum_required_correlation_operations, correlation_operations, truncated, issues, and issue_count.
 
 <a id="member-gfaudiopitchanalysistools-methods-analyze_stereo_frames"></a>
 

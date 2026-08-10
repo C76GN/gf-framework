@@ -1,7 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFInputDetector" path="addons/gf/standard/input/rebinding/gf_input_detector.gd" module="standard" extends="Node" classDigest="576157018ebfe6d27df7d956c9b10049183c2603cf100b48a78bd1b3cfaa6f5a">
+<class name="GFInputDetector" path="addons/gf/standard/input/rebinding/gf_input_detector.gd" module="standard" extends="Node" classDigest="5dd42ecf76c6fd0a4b1a4c98fd28b633dc4ef1a3dd8f300575015be62a6a6fc2">
 	<description>GFInputDetector: 检测下一次输入事件的辅助节点。
-可用于项目自己的改键界面。检测结果只返回 Godot InputEvent，冲突处理由项目层决定。</description>
+可用于项目自己的改键界面。检测结果只返回 Godot InputEvent，冲突处理由项目层决定。
+一轮检测从 begin 到结构化 finish 全程累计 elapsed；signal handler 可同步开始新一轮，
+新会话会使尚未返回的旧 begin 调用栈失效，避免已宣布会话被静默覆盖。</description>
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">runtime_service</tag>
@@ -95,9 +97,10 @@
 		</member>
 		<member kind="property" name="timeout_seconds" decorators="@export">
 			<signature>var timeout_seconds: float = 0.0</signature>
-			<description>检测超时时间。小于等于 0 表示不超时。</description>
+			<description>检测超时时间。小于等于 0 表示不超时；是否启用超时不影响 elapsed 的累计口径。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="abort_events" decorators="@export">
@@ -126,11 +129,13 @@
 	<methods>
 		<member kind="method" name="begin_detection">
 			<signature>func begin_detection(allowed_device_types: Array[int] = []) -&gt; void:</signature>
-			<description>开始检测下一次输入。</description>
+			<description>开始检测下一次输入。已有会话会先以 REPLACED 完成；其完成回调若同步开始
+另一会话，则回调创建的最新会话优先，当前调用不会再覆盖它。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">allowed_device_types: 允许的设备类型。空数组表示不限制。</tag>
 				<tag name="schema">allowed_device_types: Array[int]，包含 DeviceType 枚举值；为空表示不过滤设备。</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="begin_detection_for_value_type">

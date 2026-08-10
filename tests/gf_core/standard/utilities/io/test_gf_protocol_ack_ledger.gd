@@ -48,6 +48,20 @@ func test_ack_ledger_prunes_terminal_records_before_pending_records() -> void:
 	assert_eq(GFVariantData.as_array(ledger.call("get_pending_ids")), [&"live", &"new"], "pending ID 顺序应稳定。")
 
 
+func test_ack_ledger_rejects_new_packet_when_capacity_contains_only_pending_records() -> void:
+	var ledger: GFProtocolAckLedger = GFProtocolAckLedger.new()
+	ledger.max_entries = 2
+
+	assert_true(ledger.register_packet(&"old_pending", {}, 1))
+	assert_true(ledger.register_packet(&"new_pending", {}, 2))
+	assert_false(ledger.register_packet(&"overflow", {}, 3), "全是 pending 时容量不足应显式拒绝新包。")
+
+	assert_true(ledger.is_pending(&"old_pending"), "容量拒绝不得静默淘汰未确认旧包。")
+	assert_true(ledger.is_pending(&"new_pending"), "容量拒绝不得改写现有 pending 集合。")
+	assert_false(ledger.has_packet(&"overflow"), "被拒绝的新包不得进入账本。")
+	assert_eq(ledger.get_pending_ids(), [&"old_pending", &"new_pending"], "pending 顺序应保持不变。")
+
+
 func test_ack_ledger_rejects_duplicate_and_empty_text_ids() -> void:
 	var ledger: RefCounted = GF_PROTOCOL_ACK_LEDGER_SCRIPT.new()
 

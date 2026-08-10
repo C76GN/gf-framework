@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFCapabilityUtility" path="addons/gf/extensions/capability/core/gf_capability_utility.gd" module="extensions/capability" extends="GFUtility" classDigest="c40bfd15b3046940a85df789e6e54f330730d51f4390609f1589116dfe2e2186">
+<class name="GFCapabilityUtility" path="addons/gf/extensions/capability/core/gf_capability_utility.gd" module="extensions/capability" extends="GFUtility" classDigest="1689f9469e3e00ad78fc8063faa369337c16cb6d9e403a34217d4d62567a31da">
 	<description>GFCapabilityUtility: 对象能力组件管理器。
 提供面向任意 Object / Node 的能力挂载、查询、移除、启停、索引查询与依赖补齐能力。
 能力组合是可选扩展，不改变核心分层容器。
@@ -163,12 +163,14 @@ Utility 不接管 receiver 生命周期，也不会在项目直接释放 receive
 		</member>
 		<member kind="method" name="get_capability_types">
 			<signature>func get_capability_types(receiver: Object) -&gt; Array[Script]:</signature>
-			<description>获取对象当前拥有的所有能力类型。</description>
+			<description>获取对象当前拥有的所有能力类型。
+该查询不会为了表示空结果而向未注册 receiver 写入能力元数据。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">receiver: 能力接收对象。</tag>
 				<tag name="return">当前注册的能力脚本类型列表。</tag>
 				<tag name="schema">return: Array[Script]，元素为 receiver 上当前注册的能力脚本类型。</tag>
+				<tag name="since">1.10.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_receivers_with">
@@ -187,7 +189,8 @@ Utility 不接管 receiver 生命周期，也不会在项目直接释放 receive
 			<description>获取同时满足多个能力条件的 receiver。
 receiver 必须拥有 required_capability_types 中的所有能力，
 且不能拥有 rejected_capability_types 中的任意能力。
-required_capability_types 为空时，会从当前已索引 receiver 或指定分组中筛选。</description>
+required_capability_types 为空时，会从当前已索引 receiver 或指定分组中筛选。
+任一条件列表包含 null 时视为非法查询，整次失败关闭为空结果。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">required_capability_types: 必须拥有的能力脚本类型列表。</tag>
@@ -215,7 +218,8 @@ required_capability_types 为空时，会从当前已索引 receiver 或指定�
 		</member>
 		<member kind="method" name="receiver_matches_query">
 			<signature>func receiver_matches_query(receiver: Object, query: GFCapabilityQuery) -&gt; bool:</signature>
-			<description>判断指定 receiver 是否满足资源化查询条件。</description>
+			<description>判断指定 receiver 是否满足资源化查询条件。
+query 的 required/rejected 列表包含 null 时失败关闭为 false。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">receiver: 要检查的能力接收对象。</tag>
@@ -356,12 +360,15 @@ Utility 对成功注册的实例拥有独占生命周期所有权。</descriptio
 		</member>
 		<member kind="method" name="set_capability_active">
 			<signature>func set_capability_active(receiver: Object, capability_type: Script, active: bool) -&gt; void:</signature>
-			<description>设置对象上指定能力的启停状态。</description>
+			<description>设置对象上指定能力的启停状态。
+Node 能力树会在写状态前完成有界预检；超出 max_capability_tree_nodes 时保持原状态，
+不调用 active Hook，也不发出 capability_active_changed。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">receiver: 能力接收对象。</tag>
 				<tag name="param">capability_type: 要查询、添加或移除的能力脚本类型。</tag>
 				<tag name="param">active: 要设置的激活状态。</tag>
+				<tag name="since">1.11.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="is_capability_active">

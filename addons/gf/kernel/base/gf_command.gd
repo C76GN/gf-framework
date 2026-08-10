@@ -26,15 +26,6 @@ var _execution_started: bool = false
 
 # --- 公共方法 ---
 
-## 注入当前命令执行所在的架构实例。
-## [br]
-## @api framework_internal
-## [br]
-## @param architecture: 当前执行命令的架构。
-func inject_dependencies(architecture: GFArchitecture) -> void:
-	_gf_set_dependency_scope(architecture)
-
-
 ## 执行命令逻辑。子类必须重写此方法。
 ## [br]
 ## @api public
@@ -152,6 +143,17 @@ func send_simple_event(event_id: StringName, payload: Variant = null) -> void:
 	var architecture: GFArchitecture = _get_architecture_or_null()
 	if architecture != null:
 		architecture.send_simple_event(event_id, payload)
+
+
+# --- 框架内部方法 ---
+
+## 注入当前命令执行所在的架构实例。
+## [br]
+## @api framework_internal
+## [br]
+## @param architecture: 当前执行命令的架构。
+func inject_dependencies(architecture: GFArchitecture) -> void:
+	_gf_set_dependency_scope(architecture)
 
 
 # --- 私有/辅助方法 ---

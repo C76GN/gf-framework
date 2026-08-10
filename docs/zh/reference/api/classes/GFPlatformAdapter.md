@@ -427,11 +427,11 @@ func get_debug_snapshot() -> Dictionary:
 
 获取 adapter 调试快照。
 
-返回：Adapter 身份、状态、契约与脱敏上下文摘要。
+返回：Adapter 身份、状态、契约与脱敏上下文摘要；不会包含契约或方法自由 metadata。
 
 结构：
 
-- `return`: Dictionary with adapter identity, state, contracts, and redacted context summary.
+- `return`: Dictionary with adapter identity, state, metadata-free contract summaries, and redacted context summary.
 
 <a id="member-gfplatformadapter-methods-_initialize"></a>
 

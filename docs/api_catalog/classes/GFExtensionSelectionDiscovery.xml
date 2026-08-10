@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFExtensionSelectionDiscovery" path="addons/gf/kernel/extension/gf_extension_selection_discovery.gd" module="kernel" extends="RefCounted" classDigest="802ab85607b42ca3066baf77106a61c84dd800b9b7b42e5df4c380e725b84b90">
+<class name="GFExtensionSelectionDiscovery" path="addons/gf/kernel/extension/gf_extension_selection_discovery.gd" module="kernel" extends="RefCounted" classDigest="19f85550bb8962e492e302692deb71fb7d32b6b70dfc27bcc7f0c4d9ada70341">
 	<description>GFExtensionSelectionDiscovery: GF 扩展启用选择与贡献路径快照缓存。
 基于 manifest 集合、当前启用 ID 和扩展工具贡献文件，生成启用选择、依赖图、
 enabled/disabled manifest 与各类贡献路径的稳定 snapshot。</description>
@@ -11,7 +11,32 @@ enabled/disabled manifest 与各类贡献路径的稳定 snapshot。</descriptio
 	</tags>
 	<signals />
 	<enums />
-	<constants />
+	<constants>
+		<member kind="const" name="STATUS_VALID">
+			<signature>const STATUS_VALID: StringName = &amp;"valid"</signature>
+			<description>启用选择完整有效。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_PARTIAL">
+			<signature>const STATUS_PARTIAL: StringName = &amp;"partial"</signature>
+			<description>启用选择包含可隔离的问题，但已验证的已知扩展路径仍可使用。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_INVALID">
+			<signature>const STATUS_INVALID: StringName = &amp;"invalid"</signature>
+			<description>Manifest 图无效，任何扩展路径都不得使用。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</constants>
 	<properties />
 	<methods>
 		<member kind="method" name="get_snapshot">
@@ -25,8 +50,8 @@ enabled/disabled manifest 与各类贡献路径的稳定 snapshot。</descriptio
 				<tag name="param">configured_ids: 项目配置中的启用扩展 ID。</tag>
 				<tag name="param">options: 发现选项。</tag>
 				<tag name="return">扩展启用选择快照。</tag>
-				<tag name="schema">options: Dictionary，支持 force_refresh、builtin_extension_ids 和 manifest_load_errors。</tag>
-				<tag name="schema">return: Dictionary，包含 ok、configured_ids、resolved_ids、unknown_enabled_ids、enabled_manifests、disabled_manifests、graph_report、manifest_paths、contribution_paths、paths、tool_contribution_errors、signature、signature_hash 和 revision。</tag>
+				<tag name="schema">options: Dictionary，支持 force_refresh、builtin_extension_ids、manifest_load_errors、max_json_file_bytes、max_json_total_bytes 和 max_json_depth；JSON 预算只能收紧框架硬上限。</tag>
+				<tag name="schema">return: Dictionary，包含 ok、status、partial、paths_allowed、configured_ids、resolved_ids、unknown_enabled_ids、enabled_manifests、disabled_manifests、graph_report、manifest_paths、contribution_paths、paths、tool_contribution_errors、signature、signature_hash 和 revision。</tag>
 				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFPriorityQueue" path="addons/gf/standard/foundation/collections/gf_priority_queue.gd" module="standard" extends="RefCounted" classDigest="4a9091743706623187d7af16a25c49f54bb9d556a16a9f80a39c36a4000fdeaf">
+<class name="GFPriorityQueue" path="addons/gf/standard/foundation/collections/gf_priority_queue.gd" module="standard" extends="RefCounted" classDigest="0616687b81a2b4968cd9479c7affb4a817cae512d25c65b7eb3e194479020c28">
 	<description>GFPriorityQueue: 稳定优先队列。
 用二叉堆保存带数值优先级的值，支持高优先级优先或低优先级优先，
 并在相同优先级下保持稳定顺序。它只管理排序和弹出顺序，不解释任务、
@@ -60,7 +60,8 @@
 		</member>
 		<member kind="method" name="push_with_order">
 			<signature>func push_with_order(value: Variant, priority: float = 0.0, order: int = 0) -&gt; bool:</signature>
-			<description>按显式稳定顺序推入一个值。</description>
+			<description>按显式稳定顺序推入一个值。
+相同 priority 和 order 的条目按本次队列实例中的入队先后保持稳定。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">value: 要入队的值。</tag>

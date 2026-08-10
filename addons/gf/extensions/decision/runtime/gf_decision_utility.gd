@@ -77,15 +77,24 @@ func make_context(
 ## [br]
 ## @api public
 ## [br]
+## @since 4.3.0
+## [br]
 ## @param decision_set_id: 决策集合标识。
 ## [br]
 ## @param decision_set: 决策集合资源。
 ## [br]
 ## @return: 注册成功返回 true。
+## [br]
+## registry key 是注册期权威身份；同一 Resource 实例不能同时注册到第二个 key，注册后的 ID 漂移会在 Utility 访问边界恢复。
 func register_decision_set(decision_set_id: StringName, decision_set: GFDecisionSet) -> bool:
 	if decision_set_id == &"" or decision_set == null:
 		return false
 	if _decision_sets.has(decision_set_id):
+		var _existing_set: GFDecisionSet = get_decision_set(decision_set_id)
+		return false
+	var existing_id: StringName = _find_registered_id_for_instance(decision_set)
+	if existing_id != &"":
+		_restore_registered_identity(existing_id, decision_set)
 		return false
 	if decision_set.decision_set_id != &"" and decision_set.decision_set_id != decision_set_id:
 		return false
@@ -117,16 +126,20 @@ func unregister_decision_set(decision_set_id: StringName) -> bool:
 ## [br]
 ## @api public
 ## [br]
+## @since 4.3.0
+## [br]
 ## @param decision_set_id: 决策集合标识。
 ## [br]
 ## @return: 存在返回 true。
 func has_decision_set(decision_set_id: StringName) -> bool:
-	return _decision_sets.has(decision_set_id)
+	return get_decision_set(decision_set_id) != null
 
 
 ## 获取决策集合。
 ## [br]
 ## @api public
+## [br]
+## @since 4.3.0
 ## [br]
 ## @param decision_set_id: 决策集合标识。
 ## [br]
@@ -135,6 +148,7 @@ func get_decision_set(decision_set_id: StringName) -> GFDecisionSet:
 	var value: Variant = _decision_sets.get(decision_set_id)
 	if value is GFDecisionSet:
 		var decision_set: GFDecisionSet = value
+		_restore_registered_identity(decision_set_id, decision_set)
 		return decision_set
 	return null
 
@@ -143,11 +157,18 @@ func get_decision_set(decision_set_id: StringName) -> GFDecisionSet:
 ## [br]
 ## @api public
 ## [br]
+## @since 4.3.0
+## [br]
 ## @return: 排序后的决策集合标识。
 func get_decision_set_ids() -> PackedStringArray:
 	var result: PackedStringArray = PackedStringArray()
 	for decision_set_id_variant: Variant in _decision_sets.keys():
-		var _append_result: Variant = result.append(GFVariantData.to_text(decision_set_id_variant))
+		var decision_set_id: StringName = GFVariantData.to_string_name(decision_set_id_variant)
+		var value: Variant = _decision_sets.get(decision_set_id_variant)
+		if value is GFDecisionSet:
+			var decision_set: GFDecisionSet = value
+			_restore_registered_identity(decision_set_id, decision_set)
+		var _append_result: Variant = result.append(String(decision_set_id))
 	result.sort()
 	return result
 
@@ -169,6 +190,8 @@ func clear_decision_sets() -> void:
 ## [br]
 ## @api public
 ## [br]
+## @since 4.3.0
+## [br]
 ## @param decision_set_id: 决策集合标识。
 ## [br]
 ## @param context: 决策上下文。
@@ -180,7 +203,9 @@ func score_all(decision_set_id: StringName, context: GFDecisionContext) -> Array
 	var decision_set: GFDecisionSet = get_decision_set(decision_set_id)
 	if decision_set == null:
 		return []
-	return decision_set.score_all(context)
+	var scores: Array[GFDecisionScore] = decision_set.score_all(context)
+	_restore_registered_identity(decision_set_id, decision_set)
+	return scores
 
 
 ## 一次性评价指定决策集合。
@@ -208,7 +233,11 @@ func evaluate(decision_set_id: StringName, context: GFDecisionContext) -> GFDeci
 				"scores": [],
 			}
 		)
-	return decision_set.evaluate(context)
+	var evaluation: GFDecisionEvaluation = decision_set.evaluate(context)
+	_restore_registered_identity(decision_set_id, decision_set)
+	evaluation.decision_set_id = decision_set_id
+	evaluation.debug_snapshot = decision_set.get_debug_snapshot(null, evaluation.scores)
+	return evaluation
 
 
 ## 选择指定决策集合中的最佳候选。
@@ -239,3 +268,21 @@ func get_debug_snapshot() -> Dictionary:
 		"decision_set_count": _decision_sets.size(),
 		"decision_set_ids": get_decision_set_ids(),
 	}
+
+
+# --- 私有/辅助方法 ---
+
+func _find_registered_id_for_instance(candidate: GFDecisionSet) -> StringName:
+	for registered_id_value: Variant in _decision_sets.keys():
+		var registered_value: Variant = _decision_sets.get(registered_id_value)
+		if registered_value is GFDecisionSet and is_same(registered_value, candidate):
+			return GFVariantData.to_string_name(registered_id_value)
+	return &""
+
+
+func _restore_registered_identity(
+	decision_set_id: StringName,
+	decision_set: GFDecisionSet
+) -> void:
+	if decision_set != null and decision_set.decision_set_id != decision_set_id:
+		decision_set.decision_set_id = decision_set_id

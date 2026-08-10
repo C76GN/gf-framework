@@ -202,7 +202,7 @@ func insert_with_hit_test(entity_id: int, rect: Rect2, hit_test: Callable) -> bo
 |---|---|
 | `entity_id` | 实体唯一标识。 |
 | `rect` | 实体的轴对齐包围矩形。 |
-| `hit_test` | 可选精确命中测试，签名为 `(entity_id, point, rect) -> bool`。 |
+| `hit_test` | 可选精确命中测试，签名为 \`(entity_id, point, rect) -> bool\`。 |
 
 返回：插入和命中测试注册都成功时返回 true。
 
@@ -263,7 +263,7 @@ func set_entity_hit_test(entity_id: int, hit_test: Callable) -> bool:
 | 名称 | 说明 |
 |---|---|
 | `entity_id` | 实体标识。 |
-| `hit_test` | 命中测试 Callable，签名为 `(entity_id, point, rect) -> bool`。 |
+| `hit_test` | 命中测试 Callable，签名为 \`(entity_id, point, rect) -> bool\`。 |
 
 返回：设置成功返回 true。
 

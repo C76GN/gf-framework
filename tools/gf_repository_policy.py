@@ -88,6 +88,15 @@ FULL_VALIDATION_RELAY_MAX_POLL_SECONDS = 60
 FULL_VALIDATION_RELAY_MAX_PAGES = 10
 GITHUB_REQUEST_TIMEOUT_SECONDS = 30.0
 MANUAL_CI_RUN_NAME = "GF manual diagnostics|ref=${{ github.ref }}|sha=${{ github.sha }}"
+MAINTENANCE_SKILL_PATHS = (
+	".codex/skills/gf-framework-maintenance/SKILL.md",
+	".codex/skills/gf-framework-maintenance/references/checks.md",
+	".codex/skills/gf-reference-boundary/SKILL.md",
+	".codex/skills/gf-reference-boundary/references/reference-project.md",
+	".codex/skills/gf-change-audit/SKILL.md",
+	".codex/skills/gf-release-flow/SKILL.md",
+	".codex/skills/gf-release-flow/references/release-checks.md",
+)
 MANUAL_MAIN_EVENT = "github.ref == 'refs/heads/main'"
 
 
@@ -303,6 +312,8 @@ def audit_repository_files(policy: dict[str, Any], root: Path = ROOT) -> list[st
 		root / ".github/PULL_REQUEST_TEMPLATE.md",
 		root / ".github/workflows/ci.yml",
 		root / ".github/workflows/ci-manual.yml",
+		root / ".github/workflows/release.yml",
+		*(root / path for path in MAINTENANCE_SKILL_PATHS),
 	)
 	for path in required_paths:
 		if not path.is_file():
@@ -314,6 +325,13 @@ def audit_repository_files(policy: dict[str, Any], root: Path = ROOT) -> list[st
 	issues.extend(audit_ci_workflow(policy, ci_source))
 	manual_ci_source = (root / ".github/workflows/ci-manual.yml").read_text(encoding="utf-8")
 	issues.extend(audit_manual_ci_workflow(manual_ci_source))
+	release_source = (root / ".github/workflows/release.yml").read_text(encoding="utf-8")
+	issues.extend(audit_release_workflow(release_source))
+	skill_sources = {
+		path: (root / path).read_text(encoding="utf-8")
+		for path in MAINTENANCE_SKILL_PATHS
+	}
+	issues.extend(audit_maintenance_skill_contracts(skill_sources))
 
 	owner = str(policy["repository"]).split("/", 1)[0]
 	codeowners_source = (root / ".github/CODEOWNERS").read_text(encoding="utf-8")
@@ -336,6 +354,70 @@ def audit_repository_files(policy: dict[str, Any], root: Path = ROOT) -> list[st
 			continue
 		if not isinstance(manifest, dict) or manifest.get("version") != source_version:
 			issues.append(f"Extension manifest version must match plugin.cfg: {relative_path(manifest_path, root)}")
+	return issues
+
+
+def audit_maintenance_skill_contracts(sources: dict[str, str]) -> list[str]:
+	issues: list[str] = []
+
+	def require(path: str, marker: str, label: str) -> None:
+		if marker not in sources.get(path, ""):
+			issues.append(f"Maintenance skill contract is missing {label}: {path}")
+
+	def forbid(path: str, marker: str, label: str) -> None:
+		if marker in sources.get(path, ""):
+			issues.append(f"Maintenance skill contract still contains {label}: {path}")
+
+	release_skill = ".codex/skills/gf-release-flow/SKILL.md"
+	release_checks = ".codex/skills/gf-release-flow/references/release-checks.md"
+	reference_skill = ".codex/skills/gf-reference-boundary/SKILL.md"
+	reference_notes = ".codex/skills/gf-reference-boundary/references/reference-project.md"
+	change_audit = ".codex/skills/gf-change-audit/SKILL.md"
+	framework_skill = ".codex/skills/gf-framework-maintenance/SKILL.md"
+	framework_checks = ".codex/skills/gf-framework-maintenance/references/checks.md"
+
+	require(release_skill, "already reviewed short-lived internal branch", "ordinary release branch rule")
+	require(release_skill, "real stabilization freeze", "release freeze rule")
+	require(release_skill, "affected immutable stable tag", "hotfix tag-origin rule")
+	require(
+		release_checks,
+		"check --suite release --artifact-manifest",
+		"pre-tag release-suite artifact validation",
+	)
+	forbid(release_checks, "check --suite full --json", "obsolete pre-tag full-suite command")
+
+	for path in (reference_skill, reference_notes):
+		require(path, "sync_reference_project.py --check", "path-configurable reference sync check")
+		require(path, "sync_reference_project.py --apply", "explicit reference sync apply command")
+		forbid(path, "--project-root ..\\gf-reference-project", "hard-coded reference project command")
+		forbid(path, "driftbound_", "product-specific reference scene command")
+	require(release_checks, "sync_reference_project.py --apply", "explicit release reference sync apply command")
+
+	for marker, label in (
+		("Freeze an audit input manifest", "immutable audit input preparation"),
+		("SHA-256", "audit digest binding"),
+		("recompute the audit input manifest", "end-of-audit drift check"),
+		("stale", "stale-result rejection"),
+	):
+		require(change_audit, marker, label)
+
+	require(
+		framework_skill,
+		"remove only logs created or rewritten by that invocation",
+		"session-owned automatic log cleanup",
+	)
+	require(framework_skill, "log-hygiene --dry-run --json", "log deletion preview")
+	require(framework_skill, "explicitly authorizes workspace-wide cleanup", "workspace-wide cleanup authority")
+	forbid(
+		framework_skill,
+		"Successful maintenance commands remove their session-owned logs and legacy top-level",
+		"automatic legacy-log deletion",
+	)
+	require(
+		framework_checks,
+		"Historical retention and legacy top-level `.gf/*.log` cleanup occur only through an explicit",
+		"explicit historical log cleanup",
+	)
 	return issues
 
 
@@ -459,6 +541,33 @@ def audit_manual_ci_workflow(source: str) -> list[str]:
 			),
 			issues,
 		)
+	return issues
+
+
+def audit_release_workflow(source: str) -> list[str]:
+	issues: list[str] = []
+	permissions_source = extract_yaml_top_level_block(source, "permissions")
+	top_level_permission_keys = extract_yaml_mapping_keys(source, "permissions", 0)
+	if top_level_permission_keys != ["contents"]:
+		issues.append("Release top-level permissions must contain only contents: read.")
+	if extract_yaml_scalar(permissions_source, "contents", 2) != "read":
+		issues.append("Release top-level permission contents must be read.")
+	jobs, duplicate_jobs = extract_ci_job_blocks(source)
+	if duplicate_jobs:
+		issues.append(f"Release workflow has duplicate job ids: {', '.join(sorted(duplicate_jobs))}.")
+	for job_id, job_source in jobs.items():
+		permission_keys = extract_yaml_mapping_keys(job_source, "permissions", 4)
+		contents_permission = extract_yaml_scalar(job_source, "contents", 6)
+		if job_id == "create-release":
+			if permission_keys != ["contents"] or contents_permission != "write":
+				issues.append("Release job create-release permission contents must be the only job permission and must be write.")
+			continue
+		if contents_permission == "write":
+			issues.append(f"Release job {job_id} permission contents must not be write.")
+		if permission_keys and (permission_keys != ["contents"] or contents_permission != "read"):
+			issues.append(f"Release job {job_id} may only narrow its permissions to contents: read.")
+	if "create-release" not in jobs:
+		issues.append("Release workflow is missing create-release job.")
 	return issues
 
 
@@ -598,6 +707,16 @@ def audit_ci_workflow(policy: dict[str, Any], source: str) -> list[str]:
 			issues,
 		)
 		require_exact_job_needs(draft_gate, "draft-gate", ("repository-policy", "quick-checks"), issues)
+		require_exact_gate_evaluator(
+			draft_gate,
+			"draft-gate",
+			"Evaluate Draft checks",
+			(
+				("POLICY_RESULT", "${{ needs.repository-policy.result }}", "Repository policy failed"),
+				("QUICK_RESULT", "${{ needs.quick-checks.result }}", "Draft quick checks failed"),
+			),
+			issues,
+		)
 
 	full_validation_gate = jobs.get("full-validation-gate", "")
 	if full_validation_gate:
@@ -623,6 +742,22 @@ def audit_ci_workflow(policy: dict[str, Any], source: str) -> list[str]:
 				"framework-checks",
 				"package-checks",
 				"windows-process-supervision",
+			),
+			issues,
+		)
+		require_exact_gate_evaluator(
+			full_validation_gate,
+			"full-validation-gate",
+			"Evaluate Full validation",
+			(
+				("POLICY_RESULT", "${{ needs.repository-policy.result }}", "Repository policy failed"),
+				("FRAMEWORK_RESULT", "${{ needs.framework-checks.result }}", "Framework checks failed"),
+				("PACKAGE_RESULT", "${{ needs.package-checks.result }}", "Package checks failed"),
+				(
+					"WINDOWS_PROCESS_RESULT",
+					"${{ needs.windows-process-supervision.result }}",
+					"Windows process supervision failed",
+				),
 			),
 			issues,
 		)
@@ -779,6 +914,29 @@ def extract_yaml_mapping_block(
 	return "\n".join(lines[start:end])
 
 
+def extract_yaml_mapping_keys(source: str, key: str, indent: int) -> list[str]:
+	lines = source.splitlines()
+	prefix = " " * indent
+	start = -1
+	for index, line in enumerate(lines):
+		if re.fullmatch(rf"{re.escape(prefix + key)}:\s*", strip_yaml_comment(line)) is not None:
+			if start >= 0:
+				return []
+			start = index
+	if start < 0:
+		return []
+	keys: list[str] = []
+	child_prefix = " " * (indent + 2)
+	for line in lines[start + 1:]:
+		code = strip_yaml_comment(line)
+		if code and len(code) - len(code.lstrip(" ")) <= indent:
+			break
+		match = re.fullmatch(rf"{re.escape(child_prefix)}([A-Za-z0-9_-]+):(?:\s*.*?)?", code)
+		if match is not None:
+			keys.append(match.group(1))
+	return keys
+
+
 def extract_yaml_scalar(source: str, key: str, indent: int) -> str:
 	values: list[str] = []
 	lines = source.splitlines()
@@ -892,6 +1050,39 @@ def require_exact_matrix_suites(
 		issues.append(f"CI job {job_id} matrix suites are {actual!r}, expected {list(expected)!r}.")
 
 
+def require_exact_gate_evaluator(
+	job_source: str,
+	job_id: str,
+	step_name: str,
+	results: tuple[tuple[str, str, str], ...],
+	issues: list[str],
+) -> None:
+	step_source = extract_ci_step_block(job_source, step_name)
+	if not step_source:
+		issues.append(f"CI job {job_id} evaluator step is missing or duplicated.")
+		return
+	expected_lines = [
+		f"      - name: {step_name}",
+		"        env:",
+		*(f"          {environment_name}: {expression}" for environment_name, expression, _message in results),
+		"        run: |",
+	]
+	for environment_name, _expression, message in results:
+		expected_lines.extend((
+			f'          if [ "${{{environment_name}}}" != "success" ]; then',
+			f'            echo "{message}: ${{{environment_name}}}"',
+			"            exit 1",
+			"          fi",
+		))
+	actual_lines = [
+		code
+		for line in step_source.splitlines()
+		if (code := strip_yaml_comment(line)).strip()
+	]
+	if actual_lines != expected_lines:
+		issues.append(f"CI job {job_id} evaluator must match the canonical fail-closed result mapping.")
+
+
 def require_job_code(job_source: str, job_id: str, fragment: str, issues: list[str]) -> None:
 	code_source = "\n".join(strip_yaml_comment(line) for line in job_source.splitlines())
 	if fragment not in code_source:
@@ -926,8 +1117,8 @@ def audit_pull_request(
 			issues.append(f"Pull request head branch cannot be {default_branch}.")
 		if not branch_name_is_allowed(policy, head_ref):
 			issues.append(f"Internal branch name does not match repository policy: {head_ref}")
-	if stable_source and (not internal_pull_request or not head_ref.startswith(("release/", "hotfix/"))):
-		issues.append("Stable source versions are allowed only on internal release/ or hotfix/ pull requests.")
+	if stable_source and not internal_pull_request:
+		issues.append("Stable source versions are allowed only on internal pull requests.")
 	return issues
 
 
@@ -946,7 +1137,7 @@ def run_policy_self_tests(policy: dict[str, Any]) -> list[str]:
 		("fork_name_exempt", [], audit_pull_request(policy, base_ref=default_branch, head_ref="My Branch", repository=repository, head_repository="contributor/fork", source_version=dev_version)),
 		("fork_stable_source", ["Stable source"], audit_pull_request(policy, base_ref=default_branch, head_ref="release/8.2.0", repository=repository, head_repository="contributor/fork", source_version="8.2.0")),
 		("wrong_base", ["target"], audit_pull_request(policy, base_ref="legacy", head_ref="fix/example", repository=repository, head_repository=repository, source_version=dev_version)),
-		("stable_normal_branch", ["Stable source"], audit_pull_request(policy, base_ref=default_branch, head_ref="fix/example", repository=repository, head_repository=repository, source_version="8.2.0")),
+		("stable_normal_branch", [], audit_pull_request(policy, base_ref=default_branch, head_ref="fix/example", repository=repository, head_repository=repository, source_version="8.2.0")),
 		("stable_release_branch", [], audit_pull_request(policy, base_ref=default_branch, head_ref="release/8.2.0", repository=repository, head_repository=repository, source_version="8.2.0")),
 		("malformed_source_version", ["source version"], audit_pull_request(policy, base_ref=default_branch, head_ref="fix/example", repository=repository, head_repository=repository, source_version="broken")),
 	)
@@ -1060,7 +1251,69 @@ def run_policy_self_tests(policy: dict[str, Any]) -> list[str]:
 		)
 	issues.extend(run_ci_workflow_mutation_self_tests(policy))
 	issues.extend(run_manual_ci_workflow_mutation_self_tests())
+	issues.extend(run_release_workflow_mutation_self_tests())
+	issues.extend(run_maintenance_skill_contract_mutation_self_tests())
 	issues.extend(run_full_validation_relay_self_tests(policy))
+	return issues
+
+
+def run_maintenance_skill_contract_mutation_self_tests() -> list[str]:
+	try:
+		sources = {
+			path: (ROOT / path).read_text(encoding="utf-8")
+			for path in MAINTENANCE_SKILL_PATHS
+		}
+	except (OSError, UnicodeDecodeError) as error:
+		return [f"Repository policy self-test could not read maintenance skills: {error}"]
+	if audit_maintenance_skill_contracts(sources):
+		return []
+	mutations = (
+		(
+			".codex/skills/gf-release-flow/references/release-checks.md",
+			"check --suite release --artifact-manifest",
+			"check --suite full --artifact-manifest",
+			"pre-tag release-suite artifact validation",
+		),
+		(
+			".codex/skills/gf-reference-boundary/references/reference-project.md",
+			"sync_reference_project.py --check",
+			"sync_reference_project.py --project-root ..\\gf-reference-project --check",
+			"hard-coded reference project command",
+		),
+		(
+			".codex/skills/gf-reference-boundary/references/reference-project.md",
+			"sync_reference_project.py --apply",
+			"sync_reference_project.py",
+			"explicit reference sync apply command",
+		),
+		(
+			".codex/skills/gf-change-audit/SKILL.md",
+			"recompute the audit input manifest",
+			"reuse the audit input manifest",
+			"end-of-audit drift check",
+		),
+		(
+			".codex/skills/gf-framework-maintenance/SKILL.md",
+			"remove only logs created or rewritten by that invocation",
+			"remove all managed logs after every invocation",
+			"session-owned automatic log cleanup",
+		),
+	)
+	issues: list[str] = []
+	for path, marker, replacement, expected_fragment in mutations:
+		if marker not in sources[path]:
+			issues.append(
+				f"Repository policy self-test fixture marker is missing from maintenance skill: {path}: {marker}"
+			)
+			continue
+		mutated_sources = dict(sources)
+		mutated_sources[path] = sources[path].replace(marker, replacement, 1)
+		actual_issues = audit_maintenance_skill_contracts(mutated_sources)
+		if not any(expected_fragment in issue for issue in actual_issues):
+			issues.append(
+				"Repository policy self-test did not detect maintenance skill drift "
+				f"for {path}: {actual_issues}"
+			)
 	return issues
 
 
@@ -1204,6 +1457,29 @@ def run_ci_workflow_mutation_self_tests(policy: dict[str, Any]) -> list[str]:
 			),
 			"quick-checks is missing governed command",
 		),
+		(
+			"draft_gate_non_failing_branch",
+			source.replace("            exit 1", "            exit 0", 1),
+			"draft-gate evaluator",
+		),
+		(
+			"draft_gate_wrong_result_mapping",
+			source.replace(
+				"          QUICK_RESULT: ${{ needs.quick-checks.result }}",
+				"          QUICK_RESULT: ${{ needs.repository-policy.result }}",
+				1,
+			),
+			"draft-gate evaluator",
+		),
+		(
+			"full_gate_wrong_result_mapping",
+			source.replace(
+				"          PACKAGE_RESULT: ${{ needs.package-checks.result }}",
+				"          PACKAGE_RESULT: ${{ needs.framework-checks.result }}",
+				1,
+			),
+			"full-validation-gate evaluator",
+		),
 	)
 	issues: list[str] = []
 	for name, mutated_source, expected_fragment in mutations:
@@ -1278,6 +1554,49 @@ def run_manual_ci_workflow_mutation_self_tests() -> list[str]:
 		if not any(expected_fragment in issue for issue in mutation_issues):
 			issues.append(
 				f"Repository policy self-test {name} did not detect its manual CI mutation: "
+				f"{mutation_issues}"
+			)
+	return issues
+
+
+def run_release_workflow_mutation_self_tests() -> list[str]:
+	try:
+		source = (ROOT / ".github/workflows/release.yml").read_text(encoding="utf-8")
+	except (OSError, UnicodeDecodeError) as error:
+		return [f"Repository policy self-test could not read release workflow: {error}"]
+	if audit_release_workflow(source):
+		return []
+	mutations = (
+		(
+			"broad_release_top_level_permission",
+			source.replace("permissions:\n  contents: read", "permissions:\n  contents: write", 1),
+			"top-level permission contents",
+		),
+		(
+			"missing_release_publish_permission",
+			source.replace(
+				"    permissions:\n      contents: write",
+				"    permissions:\n      contents: read",
+				1,
+			),
+			"create-release permission contents",
+		),
+		(
+			"release_build_job_write_permission",
+			source.replace(
+				"  build-release-artifacts:\n",
+				"  build-release-artifacts:\n    permissions:\n      contents: write\n",
+				1,
+			),
+			"build-release-artifacts permission contents must not be write",
+		),
+	)
+	issues: list[str] = []
+	for name, mutated_source, expected_fragment in mutations:
+		mutation_issues = audit_release_workflow(mutated_source)
+		if not any(expected_fragment in issue for issue in mutation_issues):
+			issues.append(
+				f"Repository policy self-test {name} did not detect its release workflow mutation: "
 				f"{mutation_issues}"
 			)
 	return issues

@@ -159,7 +159,7 @@ func matches_categories(required_categories: Array[StringName]) -> bool:
 ## @schema return: Dictionary，规范化后的物品实例数据副本；等价于默认实例数据时为空字典。
 func normalize_instance_data(instance_data: Dictionary = {}) -> Dictionary:
 	var data: Dictionary = instance_data.duplicate(true)
-	if are_instance_data_compatible(data, default_instance_data):
+	if _with_defaults(data) == _with_defaults({}):
 		return {}
 	return data
 
@@ -195,7 +195,9 @@ func are_instance_data_compatible(left: Dictionary = {}, right: Dictionary = {})
 ## [br]
 ## @api public
 ## [br]
-## @return: 可序列化字典。
+## @since 11.0.0
+## [br]
+## @return: Godot Variant 字典；不保证可直接编码为 JSON。
 ## [br]
 ## @schema return: Dictionary，包含 item_id、display_name、description、max_stack_amount、max_stack_count、categories、default_instance_data、stack_key_fields 与 metadata。
 func to_dict() -> Dictionary:

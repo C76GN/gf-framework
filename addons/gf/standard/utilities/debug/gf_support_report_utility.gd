@@ -161,9 +161,11 @@ func dispose() -> void:
 ## [br]
 ## @api public
 ## [br]
+## @since 11.0.0
+## [br]
 ## @param section_id: 分区标识。
 ## [br]
-## @param provider: 分区回调，建议签名为 func(options: Dictionary) -> Variant。
+## @param provider: 受信同步分区回调，必须接受一个 Dictionary 并直接返回 Variant；不得阻塞、await 或依赖框架隔离脚本错误。
 ## [br]
 ## @param options: 分区元数据，支持 label、metadata。
 ## [br]
@@ -320,11 +322,13 @@ func collect_runtime_snapshot(detail: RuntimeDetail = RuntimeDetail.MINIMAL) -> 
 ## [br]
 ## @api public
 ## [br]
+## @since 11.0.0
+## [br]
 ## @param options: 传给每个 provider 的选项。
 ## [br]
 ## @return 分区结果字典。
 ## [br]
-## @schema options: Dictionary，原样传给各分区 provider。
+## @schema options: Dictionary，隔离副本传给各受信同步分区 provider。
 ## [br]
 ## @schema return: Dictionary[StringName, Dictionary]，每个值包含 label、metadata、value、ok、error。
 func collect_sections(options: Dictionary = {}) -> Dictionary:
@@ -497,11 +501,13 @@ func export_report_markdown(report: Dictionary, options: Dictionary = {}) -> Str
 ## [br]
 ## @api public
 ## [br]
+## @since 11.0.0
+## [br]
 ## @param report: 报告字典。
 ## [br]
 ## @param path: 目标路径。
 ## [br]
-## @return Godot 错误码。
+## @return: Godot 错误码；目标替换成功但旧 backup 清理失败时也返回对应错误，不能视为 clean success。
 ## [br]
 ## @schema report: Dictionary，build_report() 返回结构。
 func save_report(report: Dictionary, path: String) -> Error:
@@ -532,7 +538,7 @@ func save_report(report: Dictionary, path: String) -> Error:
 	if error == OK:
 		error = _commit_report_temp_file(path, temp_path)
 	else:
-		_remove_file_if_exists(temp_path)
+		var _cleanup_error: Error = _remove_file_if_exists(temp_path)
 	if error == OK:
 		_reports_saved_count += 1
 	report_saved.emit(path, error)
@@ -560,9 +566,11 @@ func build_and_save_report(path: String, description: String = "", options: Dict
 ## [br]
 ## @api public
 ## [br]
+## @since 11.0.0
+## [br]
 ## @param report: 报告字典。
 ## [br]
-## @param transport: 提交回调，签名为 func(report: Dictionary, options: Dictionary) -> Variant。
+## @param transport: 受信同步提交回调，必须接受 report/options 两个 Dictionary 并直接返回 Variant；不得阻塞或 await。
 ## [br]
 ## @param options: 提交选项。
 ## [br]
@@ -635,17 +643,17 @@ func _commit_report_temp_file(path: String, temp_path: String) -> Error:
 	if FileAccess.file_exists(path):
 		var backup_error: Error = DirAccess.rename_absolute(absolute_path, absolute_backup_path)
 		if backup_error != OK:
-			_remove_file_if_exists(temp_path)
+			var _backup_cleanup_error: Error = _remove_file_if_exists(temp_path)
 			return backup_error
 		moved_existing = true
 
 	var replace_error: Error = DirAccess.rename_absolute(absolute_temp_path, absolute_path)
 	if replace_error == OK:
 		if moved_existing:
-			_remove_file_if_exists(backup_path)
+			return _remove_file_if_exists(backup_path)
 		return OK
 
-	_remove_file_if_exists(temp_path)
+	var _replace_cleanup_error: Error = _remove_file_if_exists(temp_path)
 	if moved_existing:
 		var rollback_error: Error = DirAccess.rename_absolute(absolute_backup_path, absolute_path)
 		if rollback_error != OK:
@@ -653,10 +661,10 @@ func _commit_report_temp_file(path: String, temp_path: String) -> Error:
 	return replace_error
 
 
-func _remove_file_if_exists(path: String) -> void:
+func _remove_file_if_exists(path: String) -> Error:
 	if path.is_empty() or not FileAccess.file_exists(path):
-		return
-	var _remove_error: Error = DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
+		return OK
+	return DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
 
 
 func _erase_dictionary_key(target: Dictionary, key: Variant) -> void:
@@ -933,7 +941,17 @@ func _save_attachment_if_requested(entry: Dictionary, bytes: PackedByteArray, op
 	var save_path: String = GFVariantData.get_option_string(options, "save_path")
 	if save_path.is_empty():
 		return
-	if not _is_path_under_allowed_roots(save_path, _get_path_roots(options, "allowed_output_roots", PackedStringArray(["user://"]))):
+	if (
+		not _is_path_under_allowed_roots(
+			save_path,
+			_get_path_roots(
+				options,
+				"allowed_output_roots",
+				PackedStringArray(["user://"])
+			)
+		)
+		or _path_has_link_component_for_write(save_path)
+	):
 		entry["save_error"] = ERR_UNAUTHORIZED
 		entry["save_error_reason"] = "save_path_not_allowed"
 		return
@@ -944,17 +962,37 @@ func _save_attachment_if_requested(entry: Dictionary, bytes: PackedByteArray, op
 		if dir_error != OK:
 			entry["save_error"] = dir_error
 			return
+	if _path_has_link_component(save_path):
+		entry["save_error"] = ERR_UNAUTHORIZED
+		entry["save_error_reason"] = "save_path_not_allowed"
+		return
 
 	var file: FileAccess = FileAccess.open(save_path, FileAccess.WRITE)
 	if file == null:
 		entry["save_error"] = FileAccess.get_open_error()
 		return
+	if _path_has_link_component(save_path):
+		file.close()
+		entry["save_error"] = ERR_UNAUTHORIZED
+		entry["save_error_reason"] = "save_path_not_allowed"
+		return
 
 	_store_file_buffer(file, bytes)
 	var error: Error = file.get_error()
 	file.close()
-	if error == OK:
-		entry["saved_path"] = save_path
+	if _path_has_link_component(save_path):
+		entry["save_error"] = ERR_UNAUTHORIZED
+		entry["save_error_reason"] = "save_path_not_allowed"
+	elif error == OK:
+		entry["saved_path"] = GFVariantData.to_text(
+			GFReportValueCodec.to_json_compatible(
+				save_path,
+				GFReportValueCodec.make_redaction_options(
+					GFReportValueCodec.REDACTION_PROFILE_SUPPORT
+				)
+			)
+		)
+		entry["saved_filename"] = save_path.get_file()
 	else:
 		entry["save_error"] = error
 
@@ -965,7 +1003,15 @@ func _make_path_attachment_entry(path: String, options: Dictionary) -> Dictionar
 	var metadata: Dictionary = _get_dictionary_option(options, "metadata")
 	if not GFVariantData.get_option_bool(options, "allow_path_attachments", false):
 		return _make_path_rejected_attachment_entry(filename, mime_type, 0, metadata, "attachment_path_not_allowed")
-	if not _is_path_under_allowed_roots(path, _get_path_roots(options, "allowed_attachment_roots", PackedStringArray(["user://"]))):
+	var allowed_roots: PackedStringArray = _get_path_roots(
+		options,
+		"allowed_attachment_roots",
+		PackedStringArray(["user://"])
+	)
+	if (
+		not _is_path_under_allowed_roots(path, allowed_roots)
+		or _path_has_link_component(path)
+	):
 		return _make_path_rejected_attachment_entry(filename, mime_type, 0, metadata, "attachment_path_not_allowed")
 	if path.is_empty() or not FileAccess.file_exists(path):
 		return _make_path_rejected_attachment_entry(filename, mime_type, 0, metadata, "attachment_path_missing")
@@ -973,6 +1019,9 @@ func _make_path_attachment_entry(path: String, options: Dictionary) -> Dictionar
 	var file: FileAccess = FileAccess.open(path, FileAccess.READ)
 	if file == null:
 		return _make_path_rejected_attachment_entry(filename, mime_type, 0, metadata, "attachment_path_open_failed")
+	if _path_has_link_component(path):
+		file.close()
+		return _make_path_rejected_attachment_entry(filename, mime_type, 0, metadata, "attachment_path_not_allowed")
 
 	var size_bytes: int = file.get_length()
 	var max_bytes: int = GFVariantData.get_option_int(options, "max_attachment_bytes", default_max_attachment_bytes)
@@ -982,6 +1031,8 @@ func _make_path_attachment_entry(path: String, options: Dictionary) -> Dictionar
 
 	var bytes: PackedByteArray = file.get_buffer(size_bytes)
 	file.close()
+	if _path_has_link_component(path):
+		return _make_path_rejected_attachment_entry(filename, mime_type, 0, metadata, "attachment_path_not_allowed")
 	return _make_binary_attachment_entry(bytes, filename, mime_type, metadata, options)
 
 
@@ -1057,6 +1108,62 @@ func _canonical_virtual_path(path: String, prefix: String) -> String:
 	if stack.is_empty():
 		return prefix
 	return prefix + "/".join(stack)
+
+
+func _path_has_link_component(path: String) -> bool:
+	var current: String = ProjectSettings.globalize_path(path).replace("\\", "/").simplify_path()
+	while not current.is_empty():
+		if _path_component_is_link(current):
+			return true
+		var parent: String = current.get_base_dir().replace("\\", "/")
+		while parent.length() > 1 and parent.ends_with("/"):
+			parent = parent.trim_suffix("/")
+		if parent.is_empty() or parent == current:
+			break
+		current = parent
+	return false
+
+
+func _path_has_link_component_for_write(path: String) -> bool:
+	var current: String = (
+		ProjectSettings.globalize_path(path)
+		.replace("\\", "/")
+		.simplify_path()
+	)
+	while not current.is_empty():
+		var normalized: String = current
+		while normalized.length() > 1 and normalized.ends_with("/"):
+			normalized = normalized.trim_suffix("/")
+		var parent: String = normalized.get_base_dir().replace("\\", "/")
+		var component_name: String = normalized.get_file()
+		if (
+			not parent.is_empty()
+			and not component_name.is_empty()
+			and DirAccess.dir_exists_absolute(parent)
+		):
+			var directory: DirAccess = DirAccess.open(parent)
+			if directory == null or directory.is_link(component_name):
+				return true
+		while parent.length() > 1 and parent.ends_with("/"):
+			parent = parent.trim_suffix("/")
+		if parent.is_empty() or parent == current:
+			break
+		current = parent
+	return false
+
+
+func _path_component_is_link(path: String) -> bool:
+	var normalized: String = path.replace("\\", "/")
+	while normalized.length() > 1 and normalized.ends_with("/"):
+		normalized = normalized.trim_suffix("/")
+	var parent: String = normalized.get_base_dir()
+	var component_name: String = normalized.get_file()
+	if parent.is_empty() or component_name.is_empty():
+		return false
+	var directory: DirAccess = DirAccess.open(parent)
+	if directory == null:
+		return true
+	return directory.is_link(component_name)
 
 
 func _normalize_submit_result(raw_result: Variant) -> Dictionary:

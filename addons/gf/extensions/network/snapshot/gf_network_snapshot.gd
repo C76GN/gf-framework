@@ -227,15 +227,17 @@ func apply_delta(delta: Dictionary) -> GFNetworkSnapshot:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.20.0
+## [br]
 ## @param target: 目标快照。
 ## [br]
 ## @param options: 生成选项。
 ## [br]
 ## @return patch 字典。
 ## [br]
-## @schema options: Dictionary，可选 recursive: bool = true，max_depth: int = 8。
+## @schema options: Dictionary，可选 recursive: bool = true，max_depth: int = 8；max_depth 会限制到 0..8。
 ## [br]
-## @schema return: Dictionary，成功时包含 ok、format、version、from_tick、to_tick、peer_id、set、erase、metadata；失败时包含 ok、error。
+## @schema return: Dictionary，成功时包含 ok、format、version、from_tick、to_tick、peer_id、set、erase、metadata；超过 4096 个操作或生成内容不可应用时返回 ok=false、error。
 func make_patch_to(target: GFNetworkSnapshot, options: Dictionary = {}) -> Dictionary:
 	if target == null:
 		return {
@@ -245,17 +247,41 @@ func make_patch_to(target: GFNetworkSnapshot, options: Dictionary = {}) -> Dicti
 
 	var set_ops: Array[Dictionary] = []
 	var erase_ops: Array[Array] = []
+	var operation_budget_exceeded: Array[bool] = [false]
 	var recursive: bool = GFVariantData.get_option_bool(options, "recursive", true)
-	var max_depth: int = maxi(
+	var max_depth: int = clampi(
 		GFVariantData.get_option_int(options, "max_depth", _DEFAULT_PATCH_MAX_DEPTH),
-		0
+		0,
+		_DEFAULT_PATCH_MAX_DEPTH
 	)
 	if recursive:
-		_diff_state_dictionaries(state, target.state, [], set_ops, erase_ops, max_depth)
+		_diff_state_dictionaries(
+			state,
+			target.state,
+			[],
+			set_ops,
+			erase_ops,
+			max_depth,
+			operation_budget_exceeded
+		)
 	else:
-		_diff_state_dictionaries(state, target.state, [], set_ops, erase_ops, 0)
+		_diff_state_dictionaries(
+			state,
+			target.state,
+			[],
+			set_ops,
+			erase_ops,
+			0,
+			operation_budget_exceeded
+		)
 
-	return {
+	if operation_budget_exceeded[0]:
+		return {
+			"ok": false,
+			"error": "patch_operation_budget_exceeded",
+		}
+
+	var patch: Dictionary = {
 		"ok": true,
 		"format": _PATCH_FORMAT,
 		"version": _PATCH_VERSION,
@@ -268,6 +294,12 @@ func make_patch_to(target: GFNetworkSnapshot, options: Dictionary = {}) -> Dicti
 		"set_count": set_ops.size(),
 		"erase_count": erase_ops.size(),
 	}
+	if not _is_valid_patch(patch):
+		return {
+			"ok": false,
+			"error": "generated_patch_not_applicable",
+		}
+	return patch
 
 
 ## 应用路径级 patch 并返回新快照。
@@ -403,20 +435,44 @@ func _diff_state_dictionaries(
 	path: Array,
 	set_ops: Array[Dictionary],
 	erase_ops: Array[Array],
-	max_depth: int
+	max_depth: int,
+	operation_budget_exceeded: Array[bool]
 ) -> void:
 	for target_key: Variant in target.keys():
+		if operation_budget_exceeded[0]:
+			return
 		var next_path: Array = _path_with_key(path, target_key)
 		if not _dictionary_has_key(source, target_key):
-			_append_set_op(set_ops, next_path, target[target_key])
+			_append_set_op(
+				set_ops,
+				erase_ops,
+				next_path,
+				target[target_key],
+				operation_budget_exceeded
+			)
 			continue
 
 		var source_value: Variant = source[_dictionary_existing_key(source, target_key)]
-		_diff_values(source_value, target[target_key], next_path, set_ops, erase_ops, max_depth)
+		_diff_values(
+			source_value,
+			target[target_key],
+			next_path,
+			set_ops,
+			erase_ops,
+			max_depth,
+			operation_budget_exceeded
+		)
 
 	for source_key: Variant in source.keys():
+		if operation_budget_exceeded[0]:
+			return
 		if not _dictionary_has_key(target, source_key):
-			_append_erase_op(erase_ops, _path_with_key(path, source_key))
+			_append_erase_op(
+				set_ops,
+				erase_ops,
+				_path_with_key(path, source_key),
+				operation_budget_exceeded
+			)
 
 
 func _diff_values(
@@ -425,7 +481,8 @@ func _diff_values(
 	path: Array,
 	set_ops: Array[Dictionary],
 	erase_ops: Array[Array],
-	max_depth: int
+	max_depth: int,
+	operation_budget_exceeded: Array[bool]
 ) -> void:
 	if (source_value is Dictionary
 		and target_value is Dictionary
@@ -437,22 +494,46 @@ func _diff_values(
 			path,
 			set_ops,
 			erase_ops,
-			max_depth
+			max_depth,
+			operation_budget_exceeded
 		)
 		return
 
 	if source_value != target_value:
-		_append_set_op(set_ops, path, target_value)
+		_append_set_op(
+			set_ops,
+			erase_ops,
+			path,
+			target_value,
+			operation_budget_exceeded
+		)
 
 
-func _append_set_op(set_ops: Array[Dictionary], path: Array, value: Variant) -> void:
+func _append_set_op(
+	set_ops: Array[Dictionary],
+	erase_ops: Array[Array],
+	path: Array,
+	value: Variant,
+	operation_budget_exceeded: Array[bool]
+) -> void:
+	if set_ops.size() + erase_ops.size() >= _MAX_PATCH_OPERATIONS:
+		operation_budget_exceeded[0] = true
+		return
 	set_ops.append({
 		"path": _duplicate_path(path),
 		"value": GFVariantData.duplicate_variant(value),
 	})
 
 
-func _append_erase_op(erase_ops: Array[Array], path: Array) -> void:
+func _append_erase_op(
+	set_ops: Array[Dictionary],
+	erase_ops: Array[Array],
+	path: Array,
+	operation_budget_exceeded: Array[bool]
+) -> void:
+	if set_ops.size() + erase_ops.size() >= _MAX_PATCH_OPERATIONS:
+		operation_budget_exceeded[0] = true
+		return
 	erase_ops.append(_duplicate_path(path))
 
 

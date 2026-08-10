@@ -4,7 +4,7 @@
   "kind": "standard",
   "version": "unreleased",
   "display_name": "GF Standard Editor Contributions",
-  "description": "Optional data-only standard editor contribution manifest and templates read by the root plugin when installed.",
+  "description": "Optional data-only standard editor contribution catalog read by the root plugin; contribution payloads remain owned by their declaring packages.",
   "dependencies": [
     "gf.kernel",
     "gf.standard.base",

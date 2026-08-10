@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFProjectileEmissionPolicy" path="addons/gf/extensions/combat/projectiles/gf_projectile_emission_policy.gd" module="extensions/combat" extends="Resource" classDigest="ce29c5666ff626f2629be56ca44bd2fefc2e4f543fd794f46af7fc93d90dded4">
+<class name="GFProjectileEmissionPolicy" path="addons/gf/extensions/combat/projectiles/gf_projectile_emission_policy.gd" module="extensions/combat" extends="Resource" classDigest="bb096991271a41dd4a19632502a2e8e3ce92b337720bf7c79ad2ea1b965447bf">
 	<description>GFProjectileEmissionPolicy: 发射体发射请求策略。
 用于在 GFProjectileEmitter2D / GFProjectileEmitter3D 生成节点前执行通用门控、数量裁剪和节奏控制。
 该策略只处理发射请求本身，不解释弹药、阵营、伤害、特效或输入规则。</description>
@@ -98,7 +98,7 @@
 				<tag name="param">now_msec: 可选当前毫秒时间；小于 0 时使用 Time.get_ticks_msec()。</tag>
 				<tag name="return">发射准备报告。</tag>
 				<tag name="schema">projectile_context: Dictionary，本次发射上下文；策略会复制后返回，不修改调用方原始字典。</tag>
-				<tag name="schema">return: Dictionary，包含 ok、reason、policy_id、projectile_id、requested_count、emit_count、projectile_context、now_msec、remaining_cooldown_seconds、available_charges 和 required_charges。</tag>
+				<tag name="schema">return: Dictionary，包含 ok、reason、policy_id、policy_instance_id、policy_state_generation、policy_enabled、projectile_id、requested_count、emit_count、projectile_context、now_msec、remaining_cooldown_seconds、available_charges 和 required_charges。</tag>
 				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
@@ -111,7 +111,7 @@
 				<tag name="param">prepare_report: prepare_emission() 返回的报告。</tag>
 				<tag name="param">emitted_count: 实际成功生成的发射体数量。</tag>
 				<tag name="return">提交报告。</tag>
-				<tag name="schema">prepare_report: Dictionary，prepare_emission() 返回的报告。</tag>
+				<tag name="schema">prepare_report: Dictionary，prepare_emission() 返回的报告；只允许签发策略在同一状态代际提交。</tag>
 				<tag name="schema">return: Dictionary，包含 ok、committed、reason、emitted_count、emission_count、available_charges 和 consumed_charges。</tag>
 				<tag name="since">8.0.0</tag>
 			</tags>

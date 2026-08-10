@@ -174,6 +174,53 @@ func test_begin_detection_cancels_previous_detection() -> void:
 	assert_true(_detector.is_detecting(), "新检测应继续进行。")
 
 
+func test_replaced_finish_callback_begin_wins_over_stale_outer_begin() -> void:
+	var callback_state: Dictionary = {
+		"started_count": 0,
+		"reentered": false,
+	}
+	var _started_connection: Variant = _detector.detection_started.connect(func() -> void:
+		callback_state["started_count"] = GFVariantData.get_option_int(callback_state, "started_count") + 1
+	)
+	var _reentry_connection: Variant = _detector.detection_finished.connect(
+		func(result: GFInputDetectionResult) -> void:
+			if (
+				result.reason != GFInputDetectionResult.FinishReason.REPLACED
+				or GFVariantData.get_option_bool(callback_state, "reentered")
+			):
+				return
+			callback_state["reentered"] = true
+			_detector.begin_detection([GFInputDetector.DeviceType.MOUSE])
+	)
+
+	_detector.begin_detection([GFInputDetector.DeviceType.KEYBOARD])
+	_detector.begin_detection([GFInputDetector.DeviceType.TOUCH])
+
+	assert_eq(GFVariantData.get_option_int(callback_state, "started_count"), 2, "替换回调开始的新会话应使旧 begin 调用栈失效，不能再宣布第三个会话。")
+	assert_eq(_received_result_count, 1, "初始会话应精确收到一次 replaced 结果。")
+
+	_detector._input(_make_key_event(KEY_SPACE, true))
+	assert_true(_detector.is_detecting(), "重入创建的鼠标会话不应被旧调用栈覆盖成键盘或触屏会话。")
+
+	_detector._input(_make_mouse_button_event(MOUSE_BUTTON_LEFT, true))
+
+	assert_eq(_received_result_count, 2, "重入会话成功后也应精确收到一次完成结果。")
+	assert_eq(_received_result.reason, GFInputDetectionResult.FinishReason.SUCCESS, "最终完成结果应属于重入会话。")
+	assert_eq(GFVariantData.get_option_int(callback_state, "started_count"), _received_result_count, "每个已宣布开始的会话都应恰好完成一次。")
+
+
+func test_default_detection_elapsed_includes_accepting_wait() -> void:
+	_detector.timeout_seconds = 0.0
+	_detector.wait_for_clear_before_detection = false
+	_detector.begin_detection()
+
+	_detector._process(0.25)
+	_detector._input(_make_key_event(KEY_SPACE, true))
+
+	assert_not_null(_received_result, "默认检测成功时应返回结构化结果。")
+	assert_almost_eq(_received_result.elapsed_seconds, 0.25, 0.0001, "无 timeout 时也必须累计正式等待输入的时间。")
+
+
 ## 验证显式取消会产生结构化取消结果。
 func test_cancel_detection_reports_cancelled_reason() -> void:
 	_detector.begin_detection()
@@ -212,6 +259,27 @@ func test_detection_result_dictionary_uses_input_identity() -> void:
 		assert_eq(identity_kind, "key", "输入身份应复用统一事件身份。")
 
 
+func test_detection_result_dictionary_normalizes_nonfinite_elapsed() -> void:
+	var result: GFInputDetectionResult = GFInputDetectionResult.create(
+		GFInputDetectionResult.FinishReason.CANCELLED,
+		null,
+		INF
+	)
+	var created_data: Dictionary = result.to_dictionary()
+
+	assert_eq(result.elapsed_seconds, 0.0, "create 应把非有限 elapsed 规范为稳定非负值。")
+	assert_eq(GFVariantData.get_option_float(created_data, &"elapsed_seconds"), 0.0, "JSON 字典不得泄漏 Infinity。")
+
+	result.elapsed_seconds = NAN
+	var mutated_data: Dictionary = result.to_dictionary()
+	var json_text: String = JSON.stringify(mutated_data)
+	var decoded: Variant = JSON.parse_string(json_text)
+
+	assert_eq(GFVariantData.get_option_float(mutated_data, &"elapsed_seconds"), 0.0, "直接变异字段后，JSON 边界仍应重新规范非有限值。")
+	assert_true(decoded is Dictionary, "非有限输入的检测结果仍应完成 JSON round-trip。")
+	assert_false(json_text.contains("null"), "elapsed 不应依赖 JSON 将非有限数退化为 null。")
+
+
 # --- 私有/辅助方法 ---
 
 func _make_key_event(key: Key, pressed: bool) -> InputEventKey:
@@ -226,6 +294,13 @@ func _make_joy_motion_event(axis: JoyAxis, axis_value: float) -> InputEventJoypa
 	var event: InputEventJoypadMotion = InputEventJoypadMotion.new()
 	event.axis = axis
 	event.axis_value = axis_value
+	return event
+
+
+func _make_mouse_button_event(button: MouseButton, pressed: bool) -> InputEventMouseButton:
+	var event: InputEventMouseButton = InputEventMouseButton.new()
+	event.button_index = button
+	event.pressed = pressed
 	return event
 
 

@@ -25,6 +25,7 @@ Save 扩展的通用槽位存储适配器。 把逻辑槽位索引映射到可�
 | 方法 | [`get_clock`](#member-gfsaveslotstorageadapter-methods-get_clock) | `func get_clock() -> GFClock:` |
 | 方法 | [`get_data_file_name`](#member-gfsaveslotstorageadapter-methods-get_data_file_name) | `func get_data_file_name(slot_index: int) -> String:` |
 | 方法 | [`get_metadata_file_name`](#member-gfsaveslotstorageadapter-methods-get_metadata_file_name) | `func get_metadata_file_name(slot_index: int) -> String:` |
+| 方法 | [`build_slot_file_plan`](#member-gfsaveslotstorageadapter-methods-build_slot_file_plan) | `func build_slot_file_plan(slot_index: int) -> Dictionary:` |
 | 方法 | [`save_slot`](#member-gfsaveslotstorageadapter-methods-save_slot) | `func save_slot( slot_index: int, document: GFSaveDocument, metadata: Dictionary = {} ) -> Error:` |
 | 方法 | [`load_slot`](#member-gfsaveslotstorageadapter-methods-load_slot) | `func load_slot( slot_index: int, target_schema: GFSaveDocumentSchema = null, migrations: GFSaveMigrationRegistry = null, context: Dictionary = {} ) -> GFSaveDocumentReadResult:` |
 | 方法 | [`load_slot_metadata`](#member-gfsaveslotstorageadapter-methods-load_slot_metadata) | `func load_slot_metadata(slot_index: int) -> Dictionary:` |
@@ -204,6 +205,31 @@ func get_metadata_file_name(slot_index: int) -> String:
 | `slot_index` | 槽位索引。 |
 
 返回：元数据文件名。
+
+<a id="member-gfsaveslotstorageadapter-methods-build_slot_file_plan"></a>
+
+### `build_slot_file_plan`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func build_slot_file_plan(slot_index: int) -> Dictionary:
+```
+
+构建并校验一个槽位的文件计划。 该方法不要求先配置 Storage，可供同步桥在访问任一后端前完成模板预检。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `slot_index` | 槽位索引；必须大于等于 0。 |
+
+返回：文件计划。
+
+结构：
+
+- `return`: Dictionary，包含 ok、error、data_file_name、metadata_file_name、data_target、metadata_target。
 
 <a id="member-gfsaveslotstorageadapter-methods-save_slot"></a>
 

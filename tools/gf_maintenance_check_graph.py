@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import os
 import stat
 import subprocess
@@ -38,6 +39,7 @@ def stable_fingerprint(value: Any) -> str:
 	"""Return a stable SHA-256 fingerprint for JSON-compatible maintenance data."""
 	payload = json.dumps(
 		value,
+		allow_nan=False,
 		ensure_ascii=False,
 		sort_keys=True,
 		separators=(",", ":"),
@@ -86,6 +88,11 @@ def workspace_fingerprint(root: Path, *, deadline: float | None = None) -> dict[
 			) from exc
 		digest.update(f"\0mode={file_stat.st_mode:o}\0size={file_stat.st_size}\0".encode("ascii"))
 		if stat.S_ISLNK(file_stat.st_mode):
+			if not _stat_has_verifiable_identity(file_stat):
+				raise WorkspaceFingerprintSetupError(
+					"Untracked workspace symlink identity is unavailable: "
+					f"{relative_path}"
+				)
 			try:
 				link_target = os.readlink(path)
 			except OSError as exc:
@@ -93,6 +100,18 @@ def workspace_fingerprint(root: Path, *, deadline: float | None = None) -> dict[
 					"Could not read Git-enumerated untracked workspace symlink: "
 					f"{relative_path}: {exc}"
 				) from exc
+			try:
+				symlink_after = path.lstat()
+			except OSError as exc:
+				raise WorkspaceFingerprintDriftError(
+					"Git-enumerated untracked workspace symlink disappeared while reading: "
+					f"{relative_path}: {exc}"
+				) from exc
+			if not _same_symlink_snapshot(file_stat, symlink_after):
+				raise WorkspaceFingerprintDriftError(
+					"Git-enumerated untracked workspace symlink changed while reading: "
+					f"{relative_path}"
+				)
 			digest.update(link_target.encode("utf-8", errors="surrogateescape"))
 		elif stat.S_ISREG(file_stat.st_mode):
 			if file_stat.st_size > MAX_WORKSPACE_FINGERPRINT_UNTRACKED_FILE_BYTES:
@@ -244,6 +263,23 @@ def _stat_is_regular_reparse(value: os.stat_result) -> bool:
 	return (
 		stat.S_ISREG(value.st_mode)
 		and bool(int(getattr(value, "st_file_attributes", 0)) & FILE_ATTRIBUTE_REPARSE_POINT)
+	)
+
+
+def _same_symlink_snapshot(left: os.stat_result, right: os.stat_result) -> bool:
+	return (
+		stat.S_ISLNK(left.st_mode)
+		and stat.S_ISLNK(right.st_mode)
+		and _stat_has_verifiable_identity(left)
+		and _stat_has_verifiable_identity(right)
+		and left.st_dev == right.st_dev
+		and left.st_ino == right.st_ino
+		and left.st_mode == right.st_mode
+		and left.st_size == right.st_size
+		and left.st_mtime_ns == right.st_mtime_ns
+		and left.st_ctime_ns == right.st_ctime_ns
+		and int(getattr(left, "st_file_attributes", 0))
+		== int(getattr(right, "st_file_attributes", 0))
 	)
 
 
@@ -404,6 +440,17 @@ def resolve_timeout_budget(
 	requested_minimum_seconds: float | None,
 	suite_remaining_seconds: float | None,
 ) -> TimeoutBudget:
+	policy_seconds = _validated_timeout_seconds("policy_seconds", policy_seconds)
+	if requested_minimum_seconds is not None:
+		requested_minimum_seconds = _validated_timeout_seconds(
+			"requested_minimum_seconds",
+			requested_minimum_seconds,
+		)
+	if suite_remaining_seconds is not None:
+		suite_remaining_seconds = _validated_timeout_seconds(
+			"suite_remaining_seconds",
+			suite_remaining_seconds,
+		)
 	check_seconds = policy_seconds
 	if requested_minimum_seconds is not None:
 		check_seconds = max(check_seconds, requested_minimum_seconds)
@@ -416,6 +463,15 @@ def resolve_timeout_budget(
 		suite_remaining_seconds=suite_remaining_seconds,
 		effective_seconds=effective_seconds,
 	)
+
+
+def _validated_timeout_seconds(field_name: str, value: float) -> float:
+	if isinstance(value, bool) or not isinstance(value, (int, float)):
+		raise ValueError(f"{field_name} must be a finite non-negative number.")
+	seconds = float(value)
+	if not math.isfinite(seconds) or seconds < 0.0:
+		raise ValueError(f"{field_name} must be a finite non-negative number.")
+	return seconds
 
 
 def make_check_input_fingerprint(

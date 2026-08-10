@@ -56,6 +56,93 @@ func test_thumbnail_renderer_submit_request_fails_invalid_request_via_task_queue
 	renderer.queue_free()
 
 
+func test_thumbnail_renderer_exit_completes_active_task_immediately() -> void:
+	var renderer: GFThumbnailRenderer = GFThumbnailRenderer.new()
+	var task: GFThumbnailRenderTask = GFThumbnailRenderTask.new(
+		GFThumbnailRenderRequest.new(),
+		1
+	)
+	var completed_count: Array[int] = [0]
+	var completed_callback: Callable = func(_completed_task: GFThumbnailRenderTask) -> void:
+		completed_count[0] += 1
+	var _connected: Error = task.completed.connect(completed_callback) as Error
+	assert_true(task.mark_running(), "测试任务应进入 RUNNING。")
+	renderer._active_task = task
+
+	renderer._cancel_all_tasks(&"renderer_exited")
+
+	assert_true(task.is_cancelled(), "renderer 退出时 active task 必须立即进入终态。")
+	assert_eq(task.get_cancel_reason(), &"renderer_exited", "取消原因应保留 renderer 生命周期来源。")
+	assert_eq(completed_count[0], 1, "active task 应只发出一次 completed。")
+	assert_null(renderer._active_task, "取消后不应保留 active task 指针。")
+	task.completed.disconnect(completed_callback)
+	renderer.free()
+
+
+func test_thumbnail_renderer_rejects_oversized_target_before_queueing() -> void:
+	var renderer: GFThumbnailRenderer = GFThumbnailRenderer.new()
+	var source: Node3D = Node3D.new()
+	var request: GFThumbnailRenderRequest = GFThumbnailRenderRequest.for_node3d_image(
+		source,
+		Vector2i(GFThumbnailRenderer.MAX_TARGET_DIMENSION + 1, 1)
+	)
+
+	var task: GFThumbnailRenderTask = renderer.submit_render_request(request)
+
+	assert_true(task.is_failed(), "超大目标应在进入队列前失败。")
+	assert_true(task.get_error().contains("dimension limit"), "失败应指出尺寸预算。")
+	assert_true(renderer._pending_tasks.is_empty(), "被拒请求不得占用队列。")
+	source.free()
+	renderer.free()
+
+
+func test_thumbnail_renderer_bounds_pending_queue() -> void:
+	var renderer: GFThumbnailRenderer = GFThumbnailRenderer.new()
+	var source: Node3D = Node3D.new()
+	var request: GFThumbnailRenderRequest = GFThumbnailRenderRequest.for_node3d_image(
+		source,
+		Vector2i.ONE
+	)
+	for _index: int in GFThumbnailRenderer.MAX_PENDING_TASKS:
+		var accepted_task: GFThumbnailRenderTask = renderer.submit_render_request(
+			request
+		)
+		assert_true(accepted_task.is_pending(), "预算内任务应进入等待队列。")
+
+	var overflow_task: GFThumbnailRenderTask = renderer.submit_render_request(request)
+
+	assert_true(overflow_task.is_failed(), "队列满后新任务应立即失败。")
+	assert_true(overflow_task.get_error().contains("task limit"), "失败应指出队列预算。")
+	assert_eq(
+		renderer._pending_tasks.size(),
+		GFThumbnailRenderer.MAX_PENDING_TASKS,
+		"拒绝请求不能扩大队列。"
+	)
+	renderer._cancel_all_tasks(&"test_cleanup")
+	source.free()
+	renderer.free()
+
+
+func test_canvas_item_request_rejects_non_finite_margin() -> void:
+	var renderer: GFThumbnailRenderer = GFThumbnailRenderer.new()
+	var source: Node2D = Node2D.new()
+	var request: GFThumbnailRenderRequest = GFThumbnailRenderRequest.for_canvas_item_image(
+		source,
+		Vector2i(64, 64),
+		true,
+		Rect2(),
+		NAN
+	)
+
+	var task: GFThumbnailRenderTask = renderer.submit_render_request(request)
+
+	assert_false(request.is_valid(), "非有限 margin 不应形成合法请求。")
+	assert_true(task.is_failed(), "非有限参数必须在进入渲染路径前失败。")
+	assert_true(renderer._pending_tasks.is_empty(), "非法参数不得占用队列。")
+	source.free()
+	renderer.free()
+
+
 func test_canvas_item_request_preserves_explicit_bounds_and_margin() -> void:
 	var source: Node2D = Node2D.new()
 	var content_bounds: Rect2 = Rect2(Vector2(-12.0, -8.0), Vector2(24.0, 16.0))

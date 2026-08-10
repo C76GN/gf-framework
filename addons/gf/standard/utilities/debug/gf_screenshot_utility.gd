@@ -326,6 +326,7 @@ func build_screenshot_path(options: Dictionary = {}) -> String:
 ## [br]
 ## 该方法只负责临时切换窗口尺寸和 TranslationServer 语言，然后恢复原值；项目层仍应决定
 ## 何时调用、是否隐藏 UI、是否上传或纳入发布流程。
+## frame_delay_seconds 必须是有限值；max_captures=0 仍表示由受信调用方显式选择不限制。
 ## [br]
 ## @api public
 ## [br]
@@ -347,6 +348,11 @@ func capture_burst(options: Dictionary = {}) -> Dictionary:
 	var records: Array[Dictionary] = []
 	var planned_count: int = _get_burst_capture_count(locales, resolutions, formats)
 	var max_captures: int = maxi(GFVariantData.get_option_int(options, "max_captures", DEFAULT_MAX_BURST_CAPTURES), 0)
+	var frame_delay_seconds: float = GFVariantData.get_option_float(
+		options,
+		"frame_delay_seconds",
+		0.0
+	)
 	var report: Dictionary = _make_burst_report(
 		records,
 		locales.size(),
@@ -357,6 +363,10 @@ func capture_burst(options: Dictionary = {}) -> Dictionary:
 	)
 	if max_captures > 0 and planned_count > max_captures:
 		report["error"] = "max_captures_exceeded"
+		burst_finished.emit(report)
+		return report
+	if is_nan(frame_delay_seconds) or is_inf(frame_delay_seconds):
+		report["error"] = "invalid_frame_delay_seconds"
 		burst_finished.emit(report)
 		return report
 	if target_viewport == null:
@@ -395,7 +405,7 @@ func capture_burst(options: Dictionary = {}) -> Dictionary:
 			if _is_valid_resolution(resolution):
 				DisplayServer.window_set_size(resolution)
 				_mark_burst_window_resized(environment_transaction)
-			await _wait_for_capture_frame(GFVariantData.get_option_float(options, "frame_delay_seconds", 0.0))
+			await _wait_for_capture_frame(frame_delay_seconds)
 			if _burst_should_cancel(scope, cancellation_token):
 				break
 

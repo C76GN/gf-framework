@@ -21,6 +21,11 @@ extends RefCounted
 ## @since 5.0.0
 const DEFAULT_MAX_RECTS: int = 4096
 
+const _MAX_INT64: int = 9223372036854775807
+const _MAX_VECTOR2I_COMPONENT: int = 2147483647
+const _MAX_POWER_OF_TWO_SIDE: int = 1073741824
+const _MAX_SQUARE_AREA: int = 4611686014132420609
+
 
 # --- 公共方法 ---
 
@@ -57,6 +62,9 @@ static func pack_fixed(
 		)
 
 	var padding: int = maxi(GFVariantData.get_option_int(options, "padding", 0), 0)
+	var padding_error: String = _get_padding_error(rect_sizes, padding)
+	if not padding_error.is_empty():
+		return _make_unplaced_result(rect_sizes.size(), container_size, padding_error)
 	var allow_rotate: bool = GFVariantData.get_option_bool(options, "allow_rotate", false)
 	var should_sort: bool = GFVariantData.get_option_bool(options, "sort", true)
 	var placements: Array[Rect2i] = []
@@ -126,31 +134,49 @@ static func pack_square(rect_sizes: Array[Vector2i], options: Dictionary = {}) -
 		)
 
 	var padding: int = maxi(GFVariantData.get_option_int(options, "padding", 0), 0)
+	var padding_error: String = _get_padding_error(rect_sizes, padding)
+	if not padding_error.is_empty():
+		return _make_unplaced_result(rect_sizes.size(), Vector2i.ZERO, padding_error)
 	var power_of_two: bool = GFVariantData.get_option_bool(options, "power_of_two", false)
 	var max_size: int = GFVariantData.get_option_int(options, "max_size", 0)
+	if max_size > _MAX_VECTOR2I_COMPONENT:
+		return _make_unplaced_result(
+			rect_sizes.size(),
+			Vector2i.ZERO,
+			"max_size exceeds representable Vector2i bounds."
+		)
 	var lower_bound: int = _get_square_lower_bound(rect_sizes, padding)
+	if lower_bound < 0:
+		return _make_unplaced_result(
+			rect_sizes.size(),
+			Vector2i.ZERO,
+			"required square container exceeds representable Vector2i bounds."
+		)
 	if lower_bound <= 0:
 		return pack_fixed(rect_sizes, Vector2i.ZERO, options)
 
 	var low: int = _next_power_of_two(lower_bound) if power_of_two else lower_bound
-	if max_size > 0 and low > max_size:
-		return pack_fixed(rect_sizes, Vector2i(max_size, max_size), options)
+	if low <= 0:
+		return _make_unplaced_result(
+			rect_sizes.size(),
+			Vector2i.ZERO,
+			"required power-of-two container exceeds representable Vector2i bounds."
+		)
+	var search_cap: int = max_size if max_size > 0 else _MAX_VECTOR2I_COMPONENT
+	if power_of_two:
+		search_cap = _previous_power_of_two(search_cap)
+	if low > search_cap:
+		return pack_fixed(rect_sizes, Vector2i(search_cap, search_cap), options)
 
 	var high: int = low
 	var high_result: Dictionary = pack_fixed(rect_sizes, Vector2i(high, high), options)
 	while not GFVariantData.get_option_bool(high_result, "ok", false):
-		var next_high: int = high * 2
-		if power_of_two:
-			next_high = _next_power_of_two(next_high)
-		if max_size > 0 and next_high > max_size:
-			if high == max_size:
-				return high_result
-			high = max_size
-			high_result = pack_fixed(rect_sizes, Vector2i(high, high), options)
-			if not GFVariantData.get_option_bool(high_result, "ok", false):
-				return high_result
-			break
-		high = next_high
+		if high >= search_cap:
+			return high_result
+		if high > _divide_truncated(search_cap, 2):
+			high = search_cap
+		else:
+			high *= 2
 		high_result = pack_fixed(rect_sizes, Vector2i(high, high), options)
 
 	if power_of_two:
@@ -231,7 +257,7 @@ static func _make_items(rect_sizes: Array[Vector2i], padding: int) -> Array[Dict
 		items.append({
 			"index": index,
 			"size": size,
-			"footprint_size": _get_padded_size(size, padding),
+			"footprint_size": _get_padded_size(size, padding) if valid else Vector2i.ZERO,
 			"valid": valid,
 		})
 	return items
@@ -240,6 +266,18 @@ static func _make_items(rect_sizes: Array[Vector2i], padding: int) -> Array[Dict
 static func _get_padded_size(size: Vector2i, padding: int) -> Vector2i:
 	var margin: int = maxi(padding, 0) * 2
 	return Vector2i(size.x + margin, size.y + margin)
+
+
+static func _get_padding_error(rect_sizes: Array[Vector2i], padding: int) -> String:
+	for size: Vector2i in rect_sizes:
+		if size.x <= 0 or size.y <= 0:
+			continue
+		if (
+			padding > _divide_truncated(_MAX_VECTOR2I_COMPONENT - int(size.x), 2)
+			or padding > _divide_truncated(_MAX_VECTOR2I_COMPONENT - int(size.y), 2)
+		):
+			return "padding produces dimensions outside representable Vector2i bounds."
+	return ""
 
 
 static func _sort_item_before(left: Dictionary, right: Dictionary) -> bool:
@@ -274,8 +312,8 @@ static func _find_best_placement(
 				continue
 			var footprint_rect: Rect2i = Rect2i(free_rect.position, footprint_size)
 			var placed_rect: Rect2i = Rect2i(free_rect.position + Vector2i(padding, padding), placed_size)
-			var score: Vector3i = _score_placement(free_rect, footprint_size)
-			if best.is_empty() or _score_is_better(score, _get_vector3i_value(GFVariantData.get_option_value(best, "score"))):
+			var score: Array[int] = _score_placement(free_rect, footprint_size)
+			if best.is_empty() or _score_is_better(score, _get_score_value(GFVariantData.get_option_value(best, "score"))):
 				best = {
 					"ok": true,
 					"rect": placed_rect,
@@ -295,22 +333,22 @@ static func _get_rotation_options(size: Vector2i, allow_rotate: bool) -> Array[b
 	return [false]
 
 
-static func _score_placement(free_rect: Rect2i, footprint_size: Vector2i) -> Vector3i:
+static func _score_placement(free_rect: Rect2i, footprint_size: Vector2i) -> Array[int]:
 	var leftover_width: int = free_rect.size.x - footprint_size.x
 	var leftover_height: int = free_rect.size.y - footprint_size.y
-	return Vector3i(
+	return [
 		mini(leftover_width, leftover_height),
 		maxi(leftover_width, leftover_height),
 		free_rect.size.x * free_rect.size.y - footprint_size.x * footprint_size.y
-	)
+	]
 
 
-static func _score_is_better(left: Vector3i, right: Vector3i) -> bool:
-	if left.x != right.x:
-		return left.x < right.x
-	if left.y != right.y:
-		return left.y < right.y
-	return left.z < right.z
+static func _score_is_better(left: Array[int], right: Array[int]) -> bool:
+	if left[0] != right[0]:
+		return left[0] < right[0]
+	if left[1] != right[1]:
+		return left[1] < right[1]
+	return left[2] < right[2]
 
 
 static func _split_free_rects(
@@ -411,7 +449,10 @@ static func _get_square_lower_bound(rect_sizes: Array[Vector2i], padding: int) -
 		if size.x <= 0 or size.y <= 0:
 			continue
 		var padded_size: Vector2i = _get_padded_size(size, padding)
-		total_area += padded_size.x * padded_size.y
+		var padded_area: int = padded_size.x * padded_size.y
+		if padded_area > _MAX_SQUARE_AREA - total_area:
+			return -1
+		total_area += padded_area
 		max_side = maxi(max_side, maxi(padded_size.x, padded_size.y))
 	if total_area <= 0:
 		return 0
@@ -419,10 +460,26 @@ static func _get_square_lower_bound(rect_sizes: Array[Vector2i], padding: int) -
 
 
 static func _next_power_of_two(value: int) -> int:
+	if value <= 0 or value > _MAX_POWER_OF_TWO_SIDE:
+		return 0
 	var result: int = 1
 	while result < value:
 		result *= 2
 	return result
+
+
+static func _previous_power_of_two(value: int) -> int:
+	if value <= 0:
+		return 0
+	var result: int = 1
+	while result <= _divide_truncated(value, 2):
+		result *= 2
+	return result
+
+
+static func _divide_truncated(numerator: int, denominator: int) -> int:
+	@warning_ignore("integer_division")
+	return numerator / denominator
 
 
 static func _make_result(
@@ -474,11 +531,17 @@ static func _get_vector2i_value(value: Variant) -> Vector2i:
 	return Vector2i.ZERO
 
 
-static func _get_vector3i_value(value: Variant) -> Vector3i:
-	if value is Vector3i:
-		var vector: Vector3i = value
-		return vector
-	return Vector3i(2147483647, 2147483647, 2147483647)
+static func _get_score_value(value: Variant) -> Array[int]:
+	var result: Array[int] = [_MAX_INT64, _MAX_INT64, _MAX_INT64]
+	if not (value is Array):
+		return result
+	var values: Array = GFVariantData.as_array(value)
+	if values.size() != 3:
+		return result
+	for index: int in range(3):
+		if values[index] is int:
+			result[index] = values[index]
+	return result
 
 
 static func _get_rect2i_value(value: Variant) -> Rect2i:

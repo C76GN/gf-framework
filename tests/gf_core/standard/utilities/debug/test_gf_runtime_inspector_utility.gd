@@ -164,6 +164,91 @@ func test_tunable_property_uses_custom_getter_and_setter() -> void:
 	assert_eq(GFVariantData.to_float(property.read_value(target)), 4.5, "自定义 getter 应返回外部存储值。")
 
 
+func test_tunable_property_rejects_reentrant_write() -> void:
+	var target: TunableTarget = TunableTarget.new()
+	var property: GFRuntimeTunableProperty = GFRuntimeTunableProperty.new(
+		&"health",
+		^"health",
+		GFRuntimeTunableProperty.ValueKind.INT
+	)
+	var callback_state: Dictionary = {
+		"nested_result": true,
+		"setter_calls": 0,
+	}
+	property.setter = func(
+		callback_target: Object,
+		callback_property: GFRuntimeTunableProperty,
+		value: Variant
+	) -> void:
+		callback_state["setter_calls"] = (
+			GFVariantData.get_option_int(callback_state, "setter_calls") + 1
+		)
+		if GFVariantData.get_option_int(callback_state, "setter_calls") == 1:
+			callback_state["nested_result"] = callback_property.write_value(
+				callback_target,
+				value
+			)
+
+	assert_true(property.write_value(target, 20), "外层写入应完成一次 setter 调用。")
+	assert_false(
+		GFVariantData.get_option_bool(callback_state, "nested_result"),
+		"同一属性的递归写入应被拒绝。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(callback_state, "setter_calls"),
+		1,
+		"递归写入不得再次进入 setter。"
+	)
+	property.setter = Callable()
+
+
+func test_runtime_inspector_rejects_commit_after_reentrant_registration_change() -> void:
+	var target: TunableTarget = TunableTarget.new()
+	var property: GFRuntimeTunableProperty = GFRuntimeTunableProperty.new(
+		&"health",
+		^"health",
+		GFRuntimeTunableProperty.ValueKind.INT
+	)
+	property.setter = func(
+		callback_target: Object,
+		_callback_property: GFRuntimeTunableProperty,
+		value: Variant
+	) -> void:
+		var typed_target: TunableTarget = callback_target as TunableTarget
+		typed_target.health = GFVariantData.to_int(value)
+		var _removed: bool = _inspector.unregister_target(&"reentrant")
+		var _replacement_registered: bool = _inspector.register_target(
+			&"reentrant",
+			callback_target,
+			[property]
+		)
+	var _initial_registered: bool = _inspector.register_target(
+		&"reentrant",
+		target,
+		[property]
+	)
+	watch_signals(_inspector)
+
+	var result: bool = _inspector.set_property_value(
+		&"reentrant",
+		&"health",
+		20
+	)
+
+	assert_false(
+		result,
+		"回调改变注册代际后，旧写操作不得报告成功提交。"
+	)
+	assert_signal_not_emitted(
+		_inspector,
+		"property_changed",
+		"旧代际写操作不得向新注册发出 property_changed。"
+	)
+	assert_true(_inspector.has_target(&"reentrant"), "回调建立的新注册应保持有效。")
+	assert_eq(target.health, 20, "已发生的项目 setter 副作用不能由 Inspector 伪装回滚。")
+	property.setter = Callable()
+
+
 func test_tunable_property_rejects_invalid_numeric_variants_without_writing() -> void:
 	var target: TunableTarget = TunableTarget.new()
 	var int_property: GFRuntimeTunableProperty = GFRuntimeTunableProperty.new(

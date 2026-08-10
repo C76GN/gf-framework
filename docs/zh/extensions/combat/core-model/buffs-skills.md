@@ -17,7 +17,7 @@
 - 数据化扩展：`GFBuffRecipe` 可创建通用运行时 Buff，`GFBuffCheck` 可组合应用检查，`GFBuffEffect` 可响应 apply、remove、refresh 和 tick。
 - 状态快照：`get_state_snapshot()` / `restore_state_snapshot()` 保存持续时间、层数、标签、修饰器、metadata 和 effect 状态。
 
-`max_periodic_ticks_per_update` 会限制单次卡顿后的补偿 tick 数，避免大量 Buff 在一帧内无上限追赶。`on_tick(delta)` 只在 Buff 存活帧调用，过期帧不会额外补一次 tick。`remove_on_expire = false` 时，持续时间耗尽后不会要求 `GFCombatSystem` 移除该 Buff，项目可自行决定何时清理或复用。
+`max_periodic_ticks_per_update` 会限制单次卡顿后的补偿 tick 数，避免大量 Buff 在一帧内无上限追赶。`update(delta)` 会在修改剩余时间或 tick 累加器前拒绝 NaN / Infinity 以及已经被非有限时间污染的运行态。`remove_on_expire = false` 时，持续时间耗尽后不会要求 `GFCombatSystem` 移除该 Buff，项目可自行决定何时清理或复用。
 
 需要替换强度、合并配置或触发项目事件时，继承 Buff 并覆写 `refresh_from()`。重复添加被 `StackMode.IGNORE` 忽略，或刷新后持续时间、剩余时间和层数都没有变化时，不会发出 Buff refreshed 事件。
 
@@ -37,6 +37,8 @@ recipe.modifier_entries = [{
 combat_system.add_buff(entity, recipe.create_buff(entity))
 ```
 
+`GFBuffRecipe.get_validation_report()` 会拒绝非有限或小于 `-1` 的持续时间、非有限 tick 间隔，以及不在 `1..max_stacks` 内的初始层数。即使调用方忽略报告并直接创建，运行时 Buff 也会把非法时间回退到有限默认值，并把初始层数夹在合法范围内。
+
 ## 技能
 
 `GFSkill` 提供技能的基础框架。
@@ -50,4 +52,4 @@ combat_system.add_buff(entity, recipe.create_buff(entity))
 - 自动化索敌：可集成 `GFSkillTargetingRule2D` 实现显式 2D 管线化自动索敌。
 - 执行结果：`execute()` 返回是否真正施放成功。
 
-需要在子类中拒绝施放或等待项目校验时，可继续重写 `_try_execute(targets) -> bool`，也可重写 `_try_activate(context) -> bool` 读取完整上下文。只有最终返回 `true`，技能事务才提交、发出 `activation_committed` 并进入冷却；检查、步骤应用或执行失败会回滚事务并发出 `activation_failed`。`GFSkillActivationStep` 钩子必须同步完成，异步成本流程应在项目层先完成预留，再进入技能激活事务。
+需要在子类中拒绝施放或等待项目校验时，可继续重写 `_try_execute(targets) -> bool`，也可重写 `_try_activate(context) -> bool` 读取完整上下文。只有最终返回 `true`，技能事务才提交、发出 `activation_committed` 并进入冷却；检查、步骤应用或执行失败会回滚事务并发出 `activation_failed`。同一 `GFSkill` 在任意同步检查、步骤、执行钩子或信号内再次调用 `execute()` 时，会以 `activation_in_progress` 失败关闭，防止同一事务重复扣费或执行；连锁技能应延迟调用或使用独立实例。`GFSkillActivationStep` 钩子必须同步完成，异步成本流程应在项目层先完成预留，再进入技能激活事务。

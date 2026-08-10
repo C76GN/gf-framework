@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFTimerUtility" path="addons/gf/standard/utilities/time/gf_timer_utility.gd" module="standard" extends="GFUtility" classDigest="8aeca5ec7bcd7025feeb919f61cfea4ae461c41f185e1c8a0f6f2d1f6f4917f0">
+<class name="GFTimerUtility" path="addons/gf/standard/utilities/time/gf_timer_utility.gd" module="standard" extends="GFUtility" classDigest="ede1d2703b0ce8f71dc4550452888a12fc90c47cb256920afacd312c6db72baf">
 	<description>GFTimerUtility: 纯代码驱动的全局定时器工具。
 通过框架 `tick()` 驱动延时回调，不依赖场景树中的 `Timer` 节点，
 因而可直接受到 `GFTimeUtility` 的时间缩放与暂停控制。适用于在
@@ -42,9 +42,10 @@
 基于框架 `tick()` 推进计时，因此会自动遵循 `GFTimeUtility` 的暂停与缩放结果。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="param">delay: 延迟时长，单位为秒。</tag>
+				<tag name="param">delay: 有限延迟时长，单位为秒。</tag>
 				<tag name="param">callback: 延迟结束后执行的无参回调函数。</tag>
 				<tag name="return">已排队定时器的句柄；无效回调或立即执行时返回 `0`。</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="execute_after_owned">
@@ -53,9 +54,10 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">owner: 定时器拥有者。</tag>
-				<tag name="param">delay: 延迟时长，单位为秒。</tag>
+				<tag name="param">delay: 有限延迟时长，单位为秒。</tag>
 				<tag name="param">callback: 延迟结束后执行的无参回调函数。</tag>
 				<tag name="return">已排队定时器的句柄；无效输入或立即执行时返回 `0`。</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="execute_repeating">
@@ -63,11 +65,12 @@
 			<description>按固定间隔重复执行回调。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="param">interval: 重复间隔，单位为秒。</tag>
+				<tag name="param">interval: 有限且大于 0 的重复间隔，单位为秒。</tag>
 				<tag name="param">callback: 每次触发时执行的无参回调函数。</tag>
 				<tag name="param">repeat_count: 触发次数；小于 0 表示无限重复。</tag>
-				<tag name="param">initial_delay: 首次触发延迟；小于 0 时使用 interval。</tag>
+				<tag name="param">initial_delay: 有限的首次触发延迟；小于 0 时使用 interval。</tag>
 				<tag name="return">已排队定时器的句柄；无效输入时返回 `0`。</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="execute_repeating_owned">
@@ -76,11 +79,12 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">owner: 定时器拥有者。</tag>
-				<tag name="param">interval: 重复间隔，单位为秒。</tag>
+				<tag name="param">interval: 有限且大于 0 的重复间隔，单位为秒。</tag>
 				<tag name="param">callback: 每次触发时执行的无参回调函数。</tag>
 				<tag name="param">repeat_count: 触发次数；小于 0 表示无限重复。</tag>
-				<tag name="param">initial_delay: 首次触发延迟；小于 0 时使用 interval。</tag>
+				<tag name="param">initial_delay: 有限的首次触发延迟；小于 0 时使用 interval。</tag>
 				<tag name="return">已排队定时器的句柄；无效输入时返回 `0`。</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="cancel">

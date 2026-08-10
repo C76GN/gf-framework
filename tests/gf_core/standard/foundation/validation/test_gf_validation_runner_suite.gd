@@ -37,6 +37,41 @@ func test_validation_runner_executes_callable_rules_on_targets() -> void:
 	assert_eq(runner_report.get_error_count(), 1, "无效节点名应生成一个错误。")
 
 
+func test_validation_rule_self_return_does_not_self_merge() -> void:
+	var rule: GFValidationRule = GFValidationRule.new().configure(
+		&"self_return",
+		func(_target: Variant, validation_report: GFValidationReport, _context: Dictionary) -> GFValidationReport:
+			var _issue: RefCounted = validation_report.add_error(&"self_return", "Self return.")
+			return validation_report
+	)
+
+	var report: GFValidationReport = rule.validate({})
+
+	assert_eq(report.get_error_count(), 1, "callback 返回当前报告时应视为已写入，而不是再次合并自身。")
+	assert_eq(report.issues.size(), 1, "self-return 不应复制或无界放大 issues。")
+
+
+func test_validation_report_merge_skips_shared_issue_array_aliases() -> void:
+	var report: GFValidationReport = GFValidationReport.new("Target")
+	var _issue: RefCounted = report.add_error(&"shared_issue", "Shared issue.")
+	var source_report: GFValidationReport = GFValidationReport.new("Source")
+	source_report.issues = report.issues
+	source_report.metadata["source"] = "object"
+
+	var _object_merge: RefCounted = report.merge(source_report)
+	assert_eq(report.issues.size(), 1, "不同对象共享同一 issues 数组时不得边遍历边追加。")
+	assert_eq(GFVariantData.get_option_string(report.metadata, "source"), "object", "跳过同源 issues 后仍应合并对象报告 metadata。")
+
+	var _dictionary_merge: RefCounted = report.merge({
+		"issues": report.issues,
+		"metadata": {
+			"source": "dictionary",
+		},
+	})
+	assert_eq(report.issues.size(), 1, "字典结果共享当前 issues 数组时不得无界放大。")
+	assert_eq(GFVariantData.get_option_string(report.metadata, "source"), "dictionary", "跳过同源 issues 后仍应合并字典 metadata。")
+
+
 func test_validation_suite_collects_matching_paths_with_excludes() -> void:
 	var suite: GFValidationSuite = GFValidationSuite.new()
 	suite.include_paths = PackedStringArray(["res://tests/gf_core/fixtures"])

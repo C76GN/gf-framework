@@ -139,6 +139,20 @@ static func get_tags(source: Variant) -> PackedStringArray:
 ## [br]
 ## @schema return: Dictionary[StringName, int]，只包含层数大于 0 的标签。
 static func get_tag_counts(source: Variant) -> Dictionary:
+	if source is Array or source is PackedStringArray:
+		var array_counts: Dictionary = _array_to_counts(source)
+		var array_tags: PackedStringArray = PackedStringArray()
+		for tag_variant: Variant in array_counts.keys():
+			var _tag_appended: bool = array_tags.append(GFVariantData.to_text(tag_variant))
+		array_tags.sort()
+		var sorted_counts: Dictionary = {}
+		for tag_text: String in array_tags:
+			var tag: StringName = StringName(tag_text)
+			var count: int = GFVariantData.get_option_int(array_counts, tag, 0)
+			if count > 0:
+				sorted_counts[tag] = count
+		return sorted_counts
+
 	var result: Dictionary = {}
 	for tag_text: String in get_tags(source):
 		var tag: StringName = StringName(tag_text)

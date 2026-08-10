@@ -33,6 +33,26 @@ func test_budget_ledger_rejects_insufficient_budget() -> void:
 	assert_eq(ledger.get_available(&"turn_points"), 2.0, "失败消费不应改变可用量。")
 
 
+func test_budget_ledger_rejects_positive_consumption_lost_to_float_precision() -> void:
+	var ledger: GFBudgetLedgerBase = GFBudgetLedgerBase.new()
+	var rejected_reasons: Array[String] = []
+	var _connect_result: Error = ledger.budget_rejected.connect(
+		func(_budget_id: StringName, _amount: float, reason: String) -> void:
+			rejected_reasons.append(reason)
+	) as Error
+	assert_eq(_connect_result, OK, "测试应能监听精度拒绝信号。")
+	ledger.set_capacity(&"quota", 1.0e20)
+	var before: float = ledger.get_available(&"quota")
+
+	var result: Dictionary = ledger.consume(&"quota", 1.0)
+
+	assert_false(ledger.can_consume(&"quota", 1.0), "不能表示余额变化的小正数不得被 can_consume 接受。")
+	assert_false(GFVariantData.get_option_bool(result, "ok", true), "正消费不会降低余额时必须失败关闭。")
+	assert_eq(GFVariantData.get_option_string(result, "reason"), "precision_loss", "精度拒绝应有稳定原因。")
+	assert_eq(ledger.get_available(&"quota"), before, "精度拒绝不得改变余额。")
+	assert_eq(rejected_reasons, ["precision_loss"], "精度拒绝应通过现有诊断信号可观察。")
+
+
 func test_budget_ledger_rejects_empty_id_and_nonfinite_amounts() -> void:
 	var ledger: GFBudgetLedgerBase = GFBudgetLedgerBase.new()
 	var rejected_reasons: Array[String] = []

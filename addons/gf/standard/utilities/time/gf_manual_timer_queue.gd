@@ -35,6 +35,8 @@ var _executed_count: int = 0
 var _cancelled_count: int = 0
 var _skipped_owner_count: int = 0
 var _failed_count: int = 0
+var _advance_in_progress: bool = false
+var _lifecycle_generation: int = 0
 
 
 # --- 公共方法 ---
@@ -118,22 +120,37 @@ func schedule_at_owned(owner: Object, target_tick: int, callback: Callable, opti
 ## [br]
 ## @param options: 推进选项，支持 max_callbacks。
 ## [br]
+## 同一队列的 callback 内再次推进会返回 status=advance_in_progress，不执行嵌套 drain。
+## [br]
 ## @schema options: Dictionary，可包含 max_callbacks: int。
 ## [br]
 ## @return 推进报告。
 ## [br]
 ## @schema return: Dictionary，包含 ok、status、from_tick、target_tick、current_tick、executed_count、failed_count、skipped_owner_count、truncated 和 pending_count。
 func advance_to(target_tick: int, options: Dictionary = {}) -> Dictionary:
+	if _advance_in_progress:
+		return _make_advance_report(
+			false,
+			&"advance_in_progress",
+			_current_tick,
+			target_tick,
+			0,
+			0,
+			0,
+			false
+		)
 	if target_tick < _current_tick:
 		return _make_advance_report(false, &"backward_tick", _current_tick, target_tick, 0, 0, 0, false)
 
 	var from_tick: int = _current_tick
+	var lifecycle_generation: int = _lifecycle_generation
 	var max_callbacks: int = GFVariantData.get_option_int(options, "max_callbacks", max_callbacks_per_advance)
 	var limit: int = maxi(max_callbacks, 1)
 	var executed_now: int = 0
 	var failed_now: int = 0
 	var skipped_owner_now: int = 0
 	var truncated: bool = false
+	_advance_in_progress = true
 
 	while true:
 		if executed_now + failed_now + skipped_owner_now >= limit and _has_due_timer(target_tick):
@@ -157,6 +174,18 @@ func advance_to(target_tick: int, options: Dictionary = {}) -> Dictionary:
 			continue
 
 		var result: Variant = callback.call()
+		if lifecycle_generation != _lifecycle_generation:
+			_advance_in_progress = false
+			return _make_advance_report(
+				false,
+				&"cleared_during_advance",
+				from_tick,
+				target_tick,
+				executed_now,
+				failed_now,
+				skipped_owner_now,
+				false
+			)
 		if _callback_result_is_failure(result):
 			failed_now += 1
 			_failed_count += 1
@@ -167,6 +196,7 @@ func advance_to(target_tick: int, options: Dictionary = {}) -> Dictionary:
 	if not truncated:
 		_current_tick = target_tick
 
+	_advance_in_progress = false
 	return _make_advance_report(true, &"advanced", from_tick, target_tick, executed_now, failed_now, skipped_owner_now, truncated)
 
 
@@ -239,6 +269,7 @@ func cancel_owner(owner: Object) -> int:
 ## [br]
 ## @since 7.0.0
 func clear() -> void:
+	_lifecycle_generation += 1
 	_current_tick = 0
 	_timers.clear()
 	_next_timer_id = 1

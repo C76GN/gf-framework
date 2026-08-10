@@ -93,6 +93,8 @@ var expiration := ledger.expire_pending()
 
 需要实现可靠消息时，可在发送前调用 `record_packet_attempt()` 递增尝试次数并写入下一次可重试时间，再用 `get_retry_ready_ids()` 取出当前已经允许重试的 packet。入站包可用 `accept_incoming_packet()` 做去重和同 channel 序号顺序检查；返回报告会说明本次是否 accepted、duplicated 或 out-of-order，项目协议层再决定丢弃、补发 ACK 还是进入重同步。
 
+`max_entries` 是背压上限。容量已满时，账本只会清理最旧终态记录；如果现有记录全是 pending，`register_packet()` 返回 `false` 并保持既有未确认集合，不会为新包静默丢弃旧包。调用方必须在实际发送前检查该返回值。`get_debug_snapshot()` 与条目 metadata 是进程内 Variant 诊断数据，不保证 JSON-safe；跨进程或持久化导出应由协议层先用自己的 schema/codec 做有界转换。
+
 这个账本适合被 WebSocket、蓝牙、本地进程桥接、平台 SDK 或自定义可靠消息层复用。具体协议帧格式、QoS、连接状态、重试节奏和安全策略都应留在项目或独立适配器里。
 
 `packet_id` 是协议身份，只接受可稳定比较的标量值；Array、Dictionary、Object 等可变或进程相关 Variant 会在注册前被拒绝。复杂业务身份应先由协议层编码成稳定字符串或整数。

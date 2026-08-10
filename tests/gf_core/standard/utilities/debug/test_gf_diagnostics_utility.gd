@@ -297,6 +297,73 @@ func test_diagnostics_command_schema_validates_arguments_and_defaults() -> void:
 	assert_true(GFVariantData.get_option_string(rejected, "error").contains("error"), "参数校验失败应返回校验摘要。")
 
 
+func test_diagnostics_command_schema_accepts_explicitly_nullable_typed_parameters() -> void:
+	var diagnostics: GFDiagnosticsUtility = GFDiagnosticsUtility.new()
+	var received: Dictionary = {}
+	for type_name: String in ["object", "dictionary", "string"]:
+		var command_name: StringName = StringName("runtime.nullable_%s" % type_name)
+		var registered: bool = diagnostics.register_command(
+			self,
+			command_name,
+			func(args: Dictionary) -> Dictionary:
+				received[type_name] = args["target"]
+				return { "accepted": true },
+			"",
+			GFDiagnosticsUtility.CommandTier.OBSERVE,
+			{
+				"parameters": [
+					{
+						"name": "target",
+						"type": type_name,
+						"required": true,
+						"allow_null": true,
+					},
+				],
+			}
+		)
+		var result: Dictionary = diagnostics.execute_command(command_name, { "target": null })
+		assert_true(registered, "合法 nullable typed schema 应成功注册：%s。" % type_name)
+		assert_true(GFVariantData.get_option_bool(result, "ok"), "显式允许的 null 应到达回调：%s。" % type_name)
+		assert_true(received.has(type_name), "nullable 回调应被调用：%s。" % type_name)
+		assert_true(received[type_name] == null, "回调收到的值应保持 null：%s。" % type_name)
+
+	var rejected_registered: bool = diagnostics.register_command(
+		self,
+		&"runtime.non_nullable_object",
+		func(_args: Dictionary) -> void:
+			pass,
+		"",
+		GFDiagnosticsUtility.CommandTier.OBSERVE,
+		{
+			"parameters": [
+				{
+					"name": "target",
+					"type": "object",
+					"required": true,
+					"allow_null": false,
+				},
+			],
+		}
+	)
+	var rejected: Dictionary = diagnostics.execute_command(
+		&"runtime.non_nullable_object",
+		{ "target": null }
+	)
+
+	assert_true(rejected_registered, "non-nullable schema 本身仍应合法。")
+	assert_false(GFVariantData.get_option_bool(rejected, "ok"), "未允许的 null 仍必须拒绝。")
+	assert_true(
+		GFVariantData.get_option_string(
+			GFVariantData.get_option_dictionary(
+				GFVariantData.get_option_dictionary(rejected, "metadata"),
+				"validation"
+			),
+			"summary"
+		).contains("null_parameter"),
+		"拒绝结果应保留 null_parameter 证据。"
+	)
+
+
 func test_diagnostics_command_rejects_non_finite_numeric_parameter() -> void:
 	var diagnostics: GFDiagnosticsUtility = GFDiagnosticsUtility.new()
 	var _command_registered: bool = diagnostics.register_command(

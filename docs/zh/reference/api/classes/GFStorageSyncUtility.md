@@ -126,7 +126,7 @@ signal sync_failed(file_name: String, result: Dictionary)
 
 ```gdscript
 enum ConflictStrategy {
-	## 按后端元数据中的 revision/timestamp 选择更新的一侧；无法判断时保留冲突。
+	## 按后端元数据中的有限 revision/timestamp 选择更新的一侧；缺失或非有限值无法判断时保留冲突。
 	USE_NEWEST,
 	## 冲突时使用 local_backend 的数据。
 	USE_LOCAL,

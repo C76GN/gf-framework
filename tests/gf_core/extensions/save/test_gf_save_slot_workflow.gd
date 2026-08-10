@@ -280,6 +280,30 @@ func test_save_slot_storage_adapter_requires_and_applies_section_migration() -> 
 	assert_false(_get_slot_payload(stored_again).has("hit_points"))
 
 
+func test_save_slot_read_entries_reject_invalid_integrity() -> void:
+	var storage: IntegrityMarkingStorage = IntegrityMarkingStorage.new()
+	storage.save_dir_name = "test_workflow_slot_integrity"
+	storage.init()
+	var adapter: GFSaveSlotStorageAdapter = GFSaveSlotStorageAdapter.new().setup(storage)
+	assert_eq(
+		adapter.save_slot(3, _make_slot_document({ "hp": 10 }), { "display_name": "Unsafe" }),
+		OK
+	)
+	storage.mark_reads_invalid = true
+
+	var document_result: GFSaveDocumentReadResult = adapter.load_slot(3)
+	var metadata: Dictionary = adapter.load_slot_metadata(3)
+	var summaries: Array[Dictionary] = adapter.list_slots()
+
+	assert_false(document_result.is_successful())
+	assert_eq(document_result.get_error_code(), ERR_FILE_CORRUPT)
+	assert_true(metadata.is_empty(), "明确 INVALID 的 metadata 不得进入 UI 摘要。")
+	assert_true(summaries.is_empty(), "list_slots 不得展示完整性失败的槽位。")
+	storage.mark_reads_invalid = false
+	assert_eq(adapter.delete_slot(3), OK)
+	storage.dispose()
+
+
 func test_save_slot_workflow_preflights_custom_script_base_type() -> void:
 	WrongMetadataResource.init_count = 0
 	WrongCardResource.init_count = 0
@@ -327,6 +351,37 @@ func test_save_slot_sync_bridge_syncs_adapter_files() -> void:
 	assert_eq(file_names, PackedStringArray(["slots/2/data.json", "slots/2/meta.json"]), "同步结果应暴露参与同步的文件。")
 
 
+func test_save_slot_sync_bridge_rejects_invalid_or_colliding_adapter_templates() -> void:
+	var cases: Array[Dictionary] = [
+		{
+			"data": "shared.sav",
+			"metadata": "slot_{index}_meta.sav",
+		},
+		{
+			"data": "slot_{index}.sav",
+			"metadata": "slot_{index}.sav",
+		},
+		{
+			"data": "slot_{index}.sav",
+			"metadata": "./slot_{index}.sav",
+		},
+	]
+	for case: Dictionary in cases:
+		var adapter: GFSaveSlotStorageAdapter = GFSaveSlotStorageAdapter.new()
+		adapter.data_file_template = GFVariantData.get_option_string(case, "data")
+		adapter.metadata_file_template = GFVariantData.get_option_string(case, "metadata")
+		var local: MemoryStorageBackend = MemoryStorageBackend.new()
+		var remote: MemoryStorageBackend = MemoryStorageBackend.new()
+		var bridge: GFSaveSlotSyncBridge = GFSaveSlotSyncBridge.new()
+
+		var result: Dictionary = bridge.sync_slot(2, adapter, local, remote)
+
+		assert_false(GFVariantData.get_option_bool(result, "ok"))
+		assert_true(GFVariantData.get_option_packed_string_array(result, "file_names").is_empty())
+		assert_eq(local.operation_count, 0, "模板 preflight 失败前不得访问本地 backend。")
+		assert_eq(remote.operation_count, 0, "模板 preflight 失败前不得访问远端 backend。")
+
+
 # --- 私有/辅助方法 ---
 
 func _make_slot_document(
@@ -369,6 +424,7 @@ class MemoryStorageBackend:
 	extends GFStorageBackend
 
 	var records: Dictionary = {}
+	var operation_count: int = 0
 
 	func set_record(file_name: String, data: Dictionary, metadata: Dictionary = {}) -> void:
 		records[file_name] = {
@@ -377,10 +433,12 @@ class MemoryStorageBackend:
 		}
 
 	func _save_data(file_name: String, data: Dictionary, metadata: Dictionary) -> Error:
+		operation_count += 1
 		set_record(file_name, data, metadata)
 		return OK
 
 	func _load_data(file_name: String) -> Dictionary:
+		operation_count += 1
 		if not records.has(file_name):
 			return {
 				"ok": false,
@@ -404,6 +462,16 @@ class MemoryStorageBackend:
 			"list": false,
 			"sync": true,
 		}
+
+
+class IntegrityMarkingStorage extends GFStorageUtility:
+	var mark_reads_invalid: bool = false
+
+	func load_data(file_name: String) -> GFStorageReadResult:
+		var result: GFStorageReadResult = super.load_data(file_name)
+		if mark_reads_invalid and result.ok:
+			result.integrity_status = GFStorageReadResult.IntegrityStatus.INVALID
+		return result
 
 
 class WrongMetadataResource extends Resource:

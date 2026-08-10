@@ -36,6 +36,8 @@ signal split_screen_cleared
 ## @api public
 var viewport_resolution_scale: float = 1.0:
 	set(value):
+		if not is_finite(value):
+			return
 		viewport_resolution_scale = maxf(value, 0.01)
 
 ## 新建 SubViewport 是否禁用 3D。
@@ -400,6 +402,18 @@ func calculate_control_window_rect(
 	window_size: Vector2i,
 	options: Dictionary = {}
 ) -> Dictionary:
+	if (
+		not _is_finite_rect2(control_rect)
+		or not _is_finite_vector2(viewport_size)
+		or not _control_window_options_are_finite(options)
+	):
+		return _make_control_window_rect_report(
+			control_rect,
+			viewport_size,
+			window_size,
+			Rect2i(),
+			options
+		)
 	var content_rect: Rect2i = _resolve_control_window_content_rect(options, window_size)
 	var report: Dictionary = _make_control_window_rect_report(control_rect, viewport_size, window_size, content_rect, options)
 	if viewport_size.x <= 0.0 or viewport_size.y <= 0.0 or content_rect.size.x <= 0 or content_rect.size.y <= 0:
@@ -484,7 +498,19 @@ func calculate_safe_area_margins(
 		normalized_safe_area = Rect2i(Vector2i.ZERO, window_size)
 
 	var report: Dictionary = _make_safe_area_report(normalized_safe_area, window_size, viewport_size)
-	if window_size.x <= 0 or window_size.y <= 0 or viewport_size.x <= 0.0 or viewport_size.y <= 0.0:
+	if (
+		window_size.x <= 0
+		or window_size.y <= 0
+		or not _is_finite_vector2(viewport_size)
+		or viewport_size.x <= 0.0
+		or viewport_size.y <= 0.0
+		or not _float_options_are_finite(extra_margins, PackedStringArray([
+			"top",
+			"left",
+			"bottom",
+			"right",
+		]))
+	):
 		return report
 
 	var scale_x: float = viewport_size.x / float(window_size.x)
@@ -546,10 +572,17 @@ func get_display_safe_area_margins(viewport: Viewport = null, extra_margins: Dic
 func apply_safe_area_margins(container: MarginContainer, margins: Dictionary) -> bool:
 	if not is_instance_valid(container):
 		return false
-	container.add_theme_constant_override("margin_top", maxi(roundi(GFVariantData.get_option_float(margins, "top")), 0))
-	container.add_theme_constant_override("margin_left", maxi(roundi(GFVariantData.get_option_float(margins, "left")), 0))
-	container.add_theme_constant_override("margin_bottom", maxi(roundi(GFVariantData.get_option_float(margins, "bottom")), 0))
-	container.add_theme_constant_override("margin_right", maxi(roundi(GFVariantData.get_option_float(margins, "right")), 0))
+	var margin_names: PackedStringArray = PackedStringArray(["top", "left", "bottom", "right"])
+	if not _float_options_are_finite(margins, margin_names):
+		return false
+	var top: int = maxi(roundi(GFVariantData.get_option_float(margins, "top")), 0)
+	var left: int = maxi(roundi(GFVariantData.get_option_float(margins, "left")), 0)
+	var bottom: int = maxi(roundi(GFVariantData.get_option_float(margins, "bottom")), 0)
+	var right: int = maxi(roundi(GFVariantData.get_option_float(margins, "right")), 0)
+	container.add_theme_constant_override("margin_top", top)
+	container.add_theme_constant_override("margin_left", left)
+	container.add_theme_constant_override("margin_bottom", bottom)
+	container.add_theme_constant_override("margin_right", right)
 	return true
 
 
@@ -649,7 +682,7 @@ func _resolve_viewport_size(options: Dictionary) -> Vector2i:
 			return _scale_size(size_2i)
 	if configured_size is Vector2:
 		var size_2: Vector2 = configured_size
-		if size_2.x > 0.0 and size_2.y > 0.0:
+		if _is_finite_vector2(size_2) and size_2.x > 0.0 and size_2.y > 0.0:
 			return _scale_size(Vector2i(roundi(size_2.x), roundi(size_2.y)))
 	return _scale_size(Vector2i(640, 360))
 
@@ -726,6 +759,8 @@ func _get_option_vector2i(options: Dictionary, key: String, default_value: Vecto
 		return vector_2i
 	if value is Vector2:
 		var vector_2: Vector2 = value
+		if not _is_finite_vector2(vector_2):
+			return default_value
 		return Vector2i(roundi(vector_2.x), roundi(vector_2.y))
 	return default_value
 
@@ -737,8 +772,39 @@ func _get_option_rect2i(options: Dictionary, key: String, default_value: Rect2i)
 		return rect_2i
 	if value is Rect2:
 		var rect_2: Rect2 = value
+		if not _is_finite_rect2(rect_2):
+			return default_value
 		return Rect2i(
 			Vector2i(roundi(rect_2.position.x), roundi(rect_2.position.y)),
 			Vector2i(roundi(rect_2.size.x), roundi(rect_2.size.y))
 		)
 	return default_value
+
+
+func _control_window_options_are_finite(options: Dictionary) -> bool:
+	var content_rect_value: Variant = GFVariantData.get_option_value(options, "content_rect")
+	if content_rect_value is Rect2:
+		var content_rect: Rect2 = content_rect_value
+		if not _is_finite_rect2(content_rect):
+			return false
+	var viewport_offset_value: Variant = GFVariantData.get_option_value(options, "viewport_offset")
+	if viewport_offset_value is Vector2:
+		var viewport_offset: Vector2 = viewport_offset_value
+		if not _is_finite_vector2(viewport_offset):
+			return false
+	return true
+
+
+func _float_options_are_finite(options: Dictionary, keys: PackedStringArray) -> bool:
+	for key: String in keys:
+		if options.has(key) and not is_finite(GFVariantData.get_option_float(options, key)):
+			return false
+	return true
+
+
+static func _is_finite_vector2(value: Vector2) -> bool:
+	return is_finite(value.x) and is_finite(value.y)
+
+
+static func _is_finite_rect2(value: Rect2) -> bool:
+	return _is_finite_vector2(value.position) and _is_finite_vector2(value.size)

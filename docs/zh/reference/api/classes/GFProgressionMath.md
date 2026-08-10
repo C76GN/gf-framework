@@ -61,7 +61,7 @@ static func evaluate_curve(level: int, curve_config: Dictionary) -> GFBigNumber:
 | 名称 | 说明 |
 |---|---|
 | `level` | 目标等级。 |
-| `curve_config` | 支持 `base_value/start_level/mode/per_level/multiplier/phases/overrides`。 |
+| `curve_config` | 支持 \`base_value/start_level/mode/per_level/multiplier/phases/overrides\`。 |
 
 返回：对应等级的曲线值。
 
@@ -87,7 +87,7 @@ static func apply_milestone_multipliers(value: Variant, level: int, milestones: 
 |---|---|
 | `value` | 基础数值。 |
 | `level` | 当前等级。 |
-| `milestones` | 里程碑数组；每项支持 `level/multiplier`。 |
+| `milestones` | 里程碑数组；每项支持 \`level/multiplier\`。 |
 
 返回：叠加后的数值。
 
@@ -141,7 +141,7 @@ static func settle_offline_progress( rate_per_second: Variant, offline_seconds: 
 |---|---|
 | `rate_per_second` | 基础每秒产出。 |
 | `offline_seconds` | 离线时长（秒）。 |
-| `options` | 支持 `max_seconds/storage_remaining/segments`。 |
+| `options` | 支持 \`max_seconds/storage_remaining/segments\`。 |
 
 返回：包含产出与时间统计的字典。
 

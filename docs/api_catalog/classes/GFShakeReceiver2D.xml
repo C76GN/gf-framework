@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFShakeReceiver2D" path="addons/gf/extensions/feedback/nodes/gf_shake_receiver_2d.gd" module="extensions/feedback" extends="Node" classDigest="0107c1c50b69196504d4bbd5446170fa4041a23fa1353f7276b59386b7479cba">
+<class name="GFShakeReceiver2D" path="addons/gf/extensions/feedback/nodes/gf_shake_receiver_2d.gd" module="extensions/feedback" extends="Node" classDigest="ab7fb807b8377504fc01f20fb6b47c62beeef3249c7d9aff8a532fc0bec9e77f">
 	<description>GFShakeReceiver2D: 将反馈采样应用到 Node2D 的通用接收器。</description>
 	<tags>
 		<tag name="api">public</tag>
@@ -12,7 +12,8 @@
 	<properties>
 		<member kind="property" name="target_path" decorators="@export_node_path(&quot;Node2D&quot;)">
 			<signature>var target_path: NodePath = NodePath(""):</signature>
-			<description>目标 Node2D 路径；为空时优先使用自身，其次使用父节点。</description>
+			<description>目标 Node2D 路径；为空时优先使用自身，其次使用父节点。路径目标暂时不存在或被
+重建时，receiver 会继续解析同一路径，并为新目标重新建立基准。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="since">3.17.0</tag>

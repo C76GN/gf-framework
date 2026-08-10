@@ -300,6 +300,7 @@ func get_property_value(target_id: StringName, property_id: StringName) -> Varia
 ### `set_property_value`
 
 - API：`public`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func set_property_value(target_id: StringName, property_id: StringName, value: Variant) -> bool:
@@ -315,7 +316,7 @@ func set_property_value(target_id: StringName, property_id: StringName, value: V
 | `property_id` | 属性 ID。 |
 | `value` | 请求写入的值。 |
 
-返回：写入成功返回 true。
+返回：当前注册代际仍有效且写入入口完成时返回 true；回调内重入同一属性或更改目标/属性注册会返回 false，且不发 property_changed。
 
 结构：
 

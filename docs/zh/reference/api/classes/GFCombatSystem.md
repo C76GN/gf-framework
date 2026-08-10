@@ -15,7 +15,7 @@
 
 | 类型 | 名称 | 签名 |
 |---|---|---|
-| 信号 | [`buff_removal_reported`](#member-gfcombatsystem-signals-buff_removal_reported) | `signal buff_removal_reported(` |
+| 信号 | [`buff_removal_reported`](#member-gfcombatsystem-signals-buff_removal_reported) | `signal buff_removal_reported( entity: Object, buff_id: StringName, reason: StringName, lifecycle_report: Dictionary )` |
 | 方法 | [`tick`](#member-gfcombatsystem-methods-tick) | `func tick(p_delta: float) -> void:` |
 | 方法 | [`dispose`](#member-gfcombatsystem-methods-dispose) | `func dispose() -> void:` |
 | 方法 | [`register_entity`](#member-gfcombatsystem-methods-register_entity) | `func register_entity(p_entity: Object) -> void:` |
@@ -42,7 +42,7 @@
 - 首次版本：`8.0.0`
 
 ```gdscript
-signal buff_removal_reported(
+signal buff_removal_reported( entity: Object, buff_id: StringName, reason: StringName, lifecycle_report: Dictionary )
 ```
 
 Buff 已从系统索引移除并完成 best-effort 清理。
@@ -298,19 +298,20 @@ func remove_buff_with_reason( p_entity: Object, p_buff_id: StringName, reason: S
 ### `clear_buffs`
 
 - API：`public`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func clear_buffs(p_entity: Object, predicate: Callable = Callable()) -> int:
 ```
 
-清理实体上的 Buff。predicate 为空时清理全部；否则仅清理返回 true 的 Buff。
+清理实体上的 Buff。predicate 为空时清理全部；否则仅清理返回 true 的 Buff。 候选按调用开始时的身份快照评估；回调已完成的移除不会重复计数。
 
 参数：
 
 | 名称 | 说明 |
 |---|---|
 | `p_entity` | 实体对象。 |
-| `predicate` | 可选过滤回调，签名为 `func(buff: GFBuff) -> bool`。 |
+| `predicate` | 可选过滤回调，签名为 \`func(buff: GFBuff) -> bool\`。 |
 
 返回：被清理的 Buff 数量。
 
@@ -325,14 +326,14 @@ func clear_buffs(p_entity: Object, predicate: Callable = Callable()) -> int:
 func clear_buffs_with_reason( p_entity: Object, predicate: Callable = Callable(), reason: StringName = GFBuff.REMOVAL_REASON_CLEARED ) -> int:
 ```
 
-清理实体上的 Buff，并记录移除原因。
+清理实体上的 Buff，并记录移除原因。 每次 predicate 返回后都会重新验证实体记录并按 Buff 身份定位。
 
 参数：
 
 | 名称 | 说明 |
 |---|---|
 | `p_entity` | 实体对象。 |
-| `predicate` | 可选过滤回调，签名为 `func(buff: GFBuff) -> bool`。 |
+| `predicate` | 可选过滤回调，签名为 \`func(buff: GFBuff) -> bool\`。 |
 | `reason` | 移除原因。 |
 
 返回：被清理的 Buff 数量。

@@ -17,6 +17,9 @@ extends Control
 # --- 常量 ---
 
 const _EDITOR_WORKSPACE_UI = preload("res://addons/gf/kernel/editor/gf_editor_workspace_ui.gd")
+const _DIAGNOSTIC_TREE_PRESENTER = preload(
+	"res://addons/gf/standard/utilities/debug/editor/gf_diagnostic_tree_presenter.gd"
+)
 
 
 # --- 私有变量 ---
@@ -295,28 +298,7 @@ func _render_dictionary(kind: String, payload: Dictionary) -> void:
 	_details.text = _safe_json(payload)
 	_set_status(_make_summary(kind, payload), _EDITOR_WORKSPACE_UI.OK_TEXT_COLOR)
 
-	var root_item: TreeItem = _tree.create_item()
-	for key_text: String in _get_sorted_keys(payload):
-		var value: Variant = payload[key_text]
-		var item: TreeItem = _tree.create_item(root_item)
-		item.set_text(0, key_text)
-		item.set_text(1, _get_value_kind(value))
-		item.set_text(2, _make_value_summary(value))
-		item.set_metadata(0, _sanitize_for_display(value))
-		_add_child_items(item, value)
-
-
-func _add_child_items(parent: TreeItem, value: Variant) -> void:
-	if not value is Dictionary:
-		return
-	var dictionary: Dictionary = value
-	for key_text: String in _get_sorted_keys(dictionary):
-		var child_value: Variant = dictionary[key_text]
-		var item: TreeItem = _tree.create_item(parent)
-		item.set_text(0, key_text)
-		item.set_text(1, _get_value_kind(child_value))
-		item.set_text(2, _make_value_summary(child_value))
-		item.set_metadata(0, _sanitize_for_display(child_value))
+	_DIAGNOSTIC_TREE_PRESENTER.populate_dictionary(_tree, payload)
 
 
 func _make_summary(kind: String, payload: Dictionary) -> String:
@@ -347,52 +329,8 @@ func _set_status(text: String, color: Color) -> void:
 	_EDITOR_WORKSPACE_UI.set_status(_summary_label, text, color)
 
 
-func _get_sorted_keys(source: Dictionary) -> PackedStringArray:
-	var keys: PackedStringArray = PackedStringArray()
-	for key: Variant in source.keys():
-		var _key_appended: bool = keys.append(str(key))
-	keys.sort()
-	return keys
-
-
-func _get_value_kind(value: Variant) -> String:
-	if value is Dictionary:
-		return "Dictionary"
-	if value is Array:
-		return "Array"
-	if value is PackedStringArray:
-		return "PackedStringArray"
-	return type_string(typeof(value))
-
-
-func _make_value_summary(value: Variant) -> String:
-	if value is Dictionary:
-		var dictionary: Dictionary = value
-		return "%d keys" % dictionary.size()
-	if value is Array:
-		var array: Array = value
-		return "%d items" % array.size()
-	if value is PackedStringArray:
-		var packed_strings: PackedStringArray = value
-		return "%d items" % packed_strings.size()
-	var text: String = str(value)
-	return text.substr(0, 120) if text.length() > 120 else text
-
-
 func _safe_json(value: Variant) -> String:
-	return GFReportValueCodec.stringify_json_compatible(
-		value,
-		"\t",
-		false,
-		GFReportValueCodec.make_redaction_options(GFReportValueCodec.REDACTION_PROFILE_DEBUG)
-	)
-
-
-func _sanitize_for_display(value: Variant) -> Variant:
-	return GFReportValueCodec.to_json_compatible(
-		value,
-		GFReportValueCodec.make_redaction_options(GFReportValueCodec.REDACTION_PROFILE_DEBUG)
-	)
+	return _DIAGNOSTIC_TREE_PRESENTER.safe_json(value)
 
 
 # --- 信号处理函数 ---
