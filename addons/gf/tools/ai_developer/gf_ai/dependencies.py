@@ -572,7 +572,7 @@ def _record_path_reference(
 		return 0, 0
 	target_module = matcher.owner_of(target_path)
 	if not target_module:
-		if target_path.startswith("res://addons/gf/"):
+		if is_reserved_framework_resource_path(target_path):
 			return 0, 0
 		candidate = {
 			"source_path": source_path,
