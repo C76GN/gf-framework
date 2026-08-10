@@ -179,6 +179,49 @@ func test_prune_stale_zones_reports_removed_count() -> void:
 	assert_eq(utility.prune_stale_zones(), 0, "重复剪枝不应重复报告。")
 
 
+## 验证剪枝按候选对象身份删除，不吞掉回调对后续 ID 的新注册。
+func test_prune_stale_zones_preserves_callback_replacement_for_later_id() -> void:
+	var utility: GFDragDropUtility = GFDragDropUtility.new()
+	var first_control: Control = Control.new()
+	var later_control: Control = Control.new()
+	add_child(first_control)
+	add_child(later_control)
+	await get_tree().process_frame
+	var _first_zone: GFDropZone = utility.register_control_zone(&"first", first_control)
+	var _later_zone: GFDropZone = utility.register_control_zone(&"later", later_control)
+	var replacement_zone: GFDropZone = GFDropZone.from_rect(
+		&"later",
+		Rect2(Vector2.ZERO, Vector2(2.0, 2.0))
+	)
+	var state: Dictionary = { "replacement_registered": false }
+	var unregistered_ids: Array[StringName] = []
+	var unregistered_callback: Callable = func(zone_id: StringName) -> void:
+		unregistered_ids.append(zone_id)
+		if zone_id == &"first":
+			state["replacement_registered"] = utility.register_zone(replacement_zone)
+	var _prune_connected: Error = utility.drop_zone_unregistered.connect(unregistered_callback) as Error
+	first_control.queue_free()
+	later_control.queue_free()
+	await get_tree().process_frame
+	await get_tree().process_frame
+
+	var removed_count: int = utility.prune_stale_zones()
+
+	assert_eq(removed_count, 1, "剪枝计数只能包含仍持有原对象 authority 的实际删除。")
+	assert_true(
+		GFVariantData.get_option_bool(state, "replacement_registered"),
+		"首个注销回调应能替换后续 ID 的失效落点。"
+	)
+	assert_same(utility.get_zone(&"later"), replacement_zone, "回调替换的后续落点不得被旧剪枝候选删除。")
+	assert_eq(
+		unregistered_ids,
+		[&"first", &"later"],
+		"两个原始失效落点应各注销一次，替换落点不得产生第三次 later 注销。"
+	)
+	utility.drop_zone_unregistered.disconnect(unregistered_callback)
+	var _replacement_removed: bool = utility.unregister_zone(&"later")
+
+
 ## 验证 only_accepting 查询会先检查接收规则，避免无意义命中检测。
 func test_only_accepting_candidates_skip_contains_when_zone_cannot_accept() -> void:
 	var utility: GFDragDropUtility = GFDragDropUtility.new()
@@ -1067,6 +1110,54 @@ func test_clear_zones_preserves_zone_registered_by_unregister_callback() -> void
 	assert_null(utility.get_zone(&"old"), "clear 开始时的旧落点必须被移除。")
 	assert_not_null(utility.get_zone(&"next"), "回调新注册落点不得被 outer clear 静默删除。")
 	utility.drop_zone_unregistered.disconnect(unregistered_callback)
+
+
+## 验证 clear 按调用开始时的对象身份删除，不吞掉回调对后续 ID 的替换。
+func test_clear_zones_preserves_callback_replacement_for_later_id() -> void:
+	var utility: GFDragDropUtility = GFDragDropUtility.new()
+	var first_zone: GFDropZone = GFDropZone.from_rect(
+		&"first",
+		Rect2(Vector2.ZERO, Vector2.ONE)
+	)
+	var original_later_zone: GFDropZone = GFDropZone.from_rect(
+		&"later",
+		Rect2(Vector2.ZERO, Vector2(2.0, 2.0))
+	)
+	var replacement_later_zone: GFDropZone = GFDropZone.from_rect(
+		&"later",
+		Rect2(Vector2.ZERO, Vector2(3.0, 3.0))
+	)
+	assert_true(utility.register_zone(first_zone), "首个原始落点应注册成功。")
+	assert_true(utility.register_zone(original_later_zone), "后续原始落点应注册成功。")
+	var state: Dictionary = { "replacement_registered": false }
+	var unregistered_ids: Array[StringName] = []
+	var unregistered_callback: Callable = func(zone_id: StringName) -> void:
+		unregistered_ids.append(zone_id)
+		if zone_id == &"first":
+			state["replacement_registered"] = utility.register_zone(replacement_later_zone)
+	var _clear_replacement_connected: Error = utility.drop_zone_unregistered.connect(
+		unregistered_callback
+	) as Error
+
+	utility.clear_zones()
+
+	assert_null(utility.get_zone(&"first"), "clear 开始时的首个原始落点必须被移除。")
+	assert_true(
+		GFVariantData.get_option_bool(state, "replacement_registered"),
+		"首个注销回调应能替换后续 ID 的原始落点。"
+	)
+	assert_same(
+		utility.get_zone(&"later"),
+		replacement_later_zone,
+		"回调替换的后续落点不得被旧 key 快照删除。"
+	)
+	assert_eq(
+		unregistered_ids,
+		[&"first", &"later"],
+		"两个原始落点应各注销一次，替换落点不得产生第三次 later 注销。"
+	)
+	utility.drop_zone_unregistered.disconnect(unregistered_callback)
+	var _replacement_removed: bool = utility.unregister_zone(&"later")
 
 
 ## 验证仍有效但 parentless 的 source 可在自动取消中恢复。

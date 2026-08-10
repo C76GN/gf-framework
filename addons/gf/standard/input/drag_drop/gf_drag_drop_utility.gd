@@ -215,9 +215,14 @@ func get_zone(zone_id: StringName) -> GFDropZone:
 ## [br]
 ## @since 11.0.0
 func clear_zones() -> void:
-	var zone_ids: Array = _zones.keys()
-	for zone_id_variant: Variant in zone_ids:
+	var zones_at_start: Dictionary = _zones.duplicate()
+	for zone_id_variant: Variant in zones_at_start.keys():
 		var zone_id: StringName = GFVariantData.to_string_name(zone_id_variant)
+		var zone: GFDropZone = _variant_to_drop_zone(
+			GFVariantData.get_option_value(zones_at_start, zone_id)
+		)
+		if not _is_registered_zone(zone_id, zone):
+			continue
 		var _unregistered: bool = unregister_zone(zone_id)
 
 
@@ -565,17 +570,24 @@ func _make_result(ok: bool, session_id: int, zone_id: StringName, reason: String
 
 
 func _prune_stale_zones() -> int:
-	var removed_zone_ids: Array[StringName] = []
+	var stale_zones: Dictionary = {}
 	for zone_id_variant: Variant in _zones.keys():
 		var zone_id: StringName = GFVariantData.to_string_name(zone_id_variant)
 		var zone: GFDropZone = _variant_to_drop_zone(GFVariantData.get_option_value(_zones, zone_id))
 		if zone != null and zone.is_stale():
-			removed_zone_ids.append(zone_id)
+			stale_zones[zone_id] = zone
 
-	for zone_id: StringName in removed_zone_ids:
-		var _removed: bool = _zones.erase(zone_id)
-		drop_zone_unregistered.emit(zone_id)
-	return removed_zone_ids.size()
+	var removed_count: int = 0
+	for zone_id_variant: Variant in stale_zones.keys():
+		var zone_id: StringName = GFVariantData.to_string_name(zone_id_variant)
+		var zone: GFDropZone = _variant_to_drop_zone(
+			GFVariantData.get_option_value(stale_zones, zone_id)
+		)
+		if not _is_registered_zone(zone_id, zone):
+			continue
+		if unregister_zone(zone_id):
+			removed_count += 1
+	return removed_count
 
 
 func _is_current_session(session_id: int, session: GFDragSession) -> bool:

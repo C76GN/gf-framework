@@ -141,7 +141,7 @@
 - 输入运行时新增显式派发 epoch：同步 action 回调清空、替换上下文或释放 utility 后，当前事件立即停止使用旧 entry；provider registry 在查询时按当前 priority 稳定重排，设备容量缩小时以一次集合变更裁剪越界席位并记录逐席位移除事件。
 - 输入检测与回放新增会话代际：detector 的无超时等待也累计完整 elapsed，REPLACED 回调开始的新检测优先于尚未返回的旧 begin；playback 在 `event_applied` 前提交事件索引，并在同步回调 stop/start/reset/seek 或替换 recording/source 后终止旧 tick。player-scoped Chord/Sequence 缺完整玩家查询协议时统一失败关闭，不再逐方法回落全局状态。
 - Input Mapping Dock 的预算预扫、正式报告、Tree 和详情现在共用当前有效 remap；Resource.changed 同帧风暴合并为一次最终刷新，页面脱树时立即释放 context/remap 订阅。`GFInputRemapConfig` 的公开 mutation 方法成功提交后会发出 `changed`。
-- 拖放 lifecycle signal 现在只观察已提交状态：controller started 在 session/pointer/source lease 完整提交后发布，终态 signal 在旧 lease 清理后发布；Utility drop 以 resolving guard、对象 identity 复核和单一终态提交约束任意项目 Callable，候选查询在回调结束 session 后失败关闭为空，clear 操作使用开始时快照并保留回调中新建对象。
+- 拖放 lifecycle signal 现在只观察已提交状态：controller started 在 session/pointer/source lease 完整提交后发布，终态 signal 在旧 lease 清理后发布；Utility drop 以 resolving guard、对象 identity 复核和单一终态提交约束任意项目 Callable，候选查询在回调结束 session 后失败关闭为空，clear/prune 操作同时快照 ID 与对象 identity，并保留回调中对后续同 ID 的替换对象。
 - 触屏按钮与摇杆为每次 gesture 冻结 action、虚拟 joypad lane 和 begin-time 定位模式；运行时 export 修改从下一次 gesture 生效。Node process mode 禁用与关闭 button mouse 接收都会先释放当前输出。
 - Feedback 的 haptic 输出改为单遍物理目标分组，并在任何 provider callback 前冻结整轮计划；成功 start 绑定原 backend/callback/input owner，partial provider 和未成对 callback 失败关闭。`auto_apply_on_tick` 仅控制 tick，显式 stop/clear 继续立即撤销输出。Shake 的非空 `tracks` 始终选择轨道模式，disabled 或范围外轨道不参与合成，数值零不再冒充“未参与”。
 - Interaction 的反射式 `set_interaction_context`、`get_candidate_objects`、`send_to` 与 `receive_interaction` 协议统一在调用前验证参数数量、Variant 类型和 Object 类约束；候选按实例 ID 线性去重，并以 WeakRef 跨越查询到实际分发的时间边界。Pointer 的 pressed 状态改为按 window、device 与 button 独立配对，交错按钮不会互相覆盖。
@@ -153,7 +153,7 @@
 
 ### 🐛 Bug 修复 (Fixed)
 
-- 修复 `GFObjectPoolUtility` 的同步、分批与时间预算预热在并发、回调重入或运行中缩小上限时可共同写穿 `max_available_per_scene` 的问题；同一场景现在共享当前生命周期的在途容量预留，变更上限、归还节点或 dispose/init 会在提交前重新验收并丢弃过期候选。
+- 修复 `GFObjectPoolUtility` 的同步、分批与时间预算预热在并发、回调重入或运行中缩小上限时可共同写穿 `max_available_per_scene` 的问题；同一场景现在共享当前生命周期的在途容量预留，变更上限、归还节点或 dispose/init 会在提交前重新验收并丢弃过期候选。普通 acquire 也会冻结生命周期与 parent authority，并在场景构造、状态 setter 和根/子节点 hook 的每个外部边界复核当前代次；旧调用栈不再继续激活、通知或发布已归还、已释放或跨生命周期的节点树。
 - 修复项目 Installer 主动取消并返回后仍保持 running、并发 `Gf.init()` 永久等待且半注册模块未回滚的问题；取消与 timeout 等失败入口现在统一在 Architecture 失败结算中先回滚再恰好一次唤醒等待方，terminal 回调不能重开或提交 Installer，detached 旧 continuation 收尾前继续阻止重试和迟到写入。
 - 修复 `GFUIUtility` 在 panel 入树并执行 `_ready()` 后才捕获 previous focus，导致 modal 在 `_ready()` 主动取得焦点时无法恢复外部焦点的问题；现在会从目标 `CanvasLayer` 的 `Viewport` 在入树前捕获。
 - 修复同一路径的场景预加载在底层请求 drain 前重复调用 `cancel_scene_preload()`、导致 Lease 取消副作用和 `scene_preload_cancelled` 信号重复发生的问题；首次调用后，同一规范化路径的后续调用会保持幂等，不改变既有的迟到完成清理和共享 path-level 取消边界。
@@ -176,12 +176,13 @@
 - 修复 Capability Node 树超过启停预算时先写 active/meta、仍调用 Hook 和成功信号但未更新节点树，生命周期 Hook 释放 receiver 后遗留注册事务并继续传递 freed Object，Inspector 把多个子类依赖误判为唯一命中，以及 Recipe 编辑器只信声明类型而接受不相关场景根脚本的问题。
 - 修复 Camera 允许负行列式 Basis 进入 Quaternion 插值并产生引擎错误或朝向跳变、Orbit 鼠标捕获在运行时改键或窗口失焦后残留，以及有限输入与 scale 的乘积溢出后仍报告已应用的问题；捕获现绑定创建时的设备/按键/Rig/代次，所有派生增量会在写入 Rig 前复核有限性。
 - 修复 Behavior Tree 具体内置节点子类被 Runner 静默切片、同一 Runner 同步重入重复推进、Cooldown 从 child tick 前计时、Decorator 替换遗弃旧运行态、无效 Condition 伪装成业务 false，以及循环 Dictionary 深复制触发 `Max recursion reached`；所有路径均增加失败关闭或精确诊断回归。
-- 修复 Action Queue、动作组与 RepeatAction 的控制 hook 同步反调时可递归或重复控制，parallel/repeat 在 execution generation 失效后仍启动旧工作，以及旧并行 waiter 可移除新一轮活动动作的问题；duck-typed 动作把非 `Signal` 结果声明为等待时现在受控拒绝并继续有界推进。
+- 修复 Action Queue、动作组与 RepeatAction 的控制 hook 同步反调时可递归或重复控制，pause/resume hook 内清空或释放队列时跳过当前动作取消并遗留陈旧所有权，parallel/repeat 在 execution generation 失效后仍启动旧工作，以及旧并行 waiter 可移除新一轮活动动作的问题；生命周期取消现在先解除当前所有权，再于外层控制 hook 返回后按 identity 去重、按 FIFO 恰好执行一次，duck-typed 动作把非 `Signal` 结果声明为等待时也会受控拒绝并继续有界推进。
 - 修复 Asset Metadata 将矛盾归因别名及嵌套/顶层声明按优先级静默折叠、让空白覆盖路径从审计分母消失，以及未受信文本可用控制字符伪造 NOTICE 分组或同级条目的问题；冲突和无效路径诊断只保留字段名、输入索引与稳定原因，不复制原始值。
 - 修复 configured Tween 的 marker callback 改写下一 `parallel` 步骤拓扑，以及 absolute step 只检查属性存在、让不兼容目标值通过预检的问题；标记现在在对应 Tweener 的同组结束点触发，类型不兼容会在追加 PropertyTweener 前由 validation/step preflight 拒绝。
 - 修复 Settings fallback 在文件打开后写入失败仍返回 `OK` 并发成功信号、同步 UI route replace 在新面板失败前删除旧历史、异步 Route 被可重入回调修改后失去完成关联，以及 shader copy-on-write 写回失败后继续修改共享原材质的问题；路由请求现在冻结入口快照，Shader Binder 复用已隔离材质并在外部替换后重新隔离。显示音量、Viewport 缩放、Control 窗口矩形和安全区边距同时在引擎副作用前拒绝 `NaN` / `Inf`。
 - 修复 Storage `USE_NEWEST` 把 `NaN` / `±Inf` 元数据解释成更新方向并覆盖另一后端，以及命令历史恢复在无效 builder 或中途构建失败时清空、部分替换旧栈的问题。
-- 修复响应式状态深层写入失败后仍遗留中间字典，以及状态守卫重入继续执行旧切换计划、节点 enter/push 重入追加过时历史或信号、状态事件在切换后继续调用旧候选的问题。
+- 修复响应式状态深层写入失败后仍遗留中间字典、`set_state()` 把不完整 diff 误判为相等或只发布部分路径，以及状态守卫重入继续执行旧切换计划、节点 enter/push 重入追加过时历史或信号、状态事件在切换后继续调用旧候选的问题；遍历不完整时现在会提交新状态并只发布根级 `state_replaced`。
+- 修复 Storage JSON 编码把 Variant 遍历预算耗尽产生的 `TraversalLimit` 诊断标记当作完整业务文档落盘的问题；编码、压缩、混淆和校验和路径现在统一失败关闭，同步与异步事务不会创建临时提交，并保留已有最终文件。
 - 修复共享资源与存储的取消、替换、恢复和释放边界：Broker 会在 queued Lease 离开后按剩余消费者重算类型与 admission 约束；Asset、Scene 与 BackgroundWork 私有 Broker 在 drain 完成前拒绝替换；Scene 自动邻居可加入外部消费者已活动且 type hint 兼容的同路径请求；BackgroundWork 不会把新任务并入已取消 Lease；Storage 异步单文件入口会按完整多文件事务恢复，并在 dispose 终态回调重入期间持续关闭新 admission。
 - 修复 Signal Runtime Probe 的 one-shot 连接断开后遗留幽灵账本和缺少幂等释放入口、Support Report replay 在 dispose/outbox 切换后提交旧 continuation、报告替换吞掉 backup 清理错误、路径附件/输出链接绕过与绝对保存路径泄露、Overlay 非有限采样伪报成功、Screenshot burst 接受非有限延迟、Debug Draw 非有限时间形成永久命令，以及 Runtime Inspector 递归 setter 或注册代际变化后仍报告成功的问题。
 - 修复重复 operation 终态与迟到回调可覆盖审计历史、活跃重复 incident 按首次插入顺序被误淘汰、异步 tracker 刷新失败后把 last-good 快照伪装成当前成功，以及非法控制台 tier 降级为 `OBSERVE` 的问题；tracker 现在保留成功时间并显式报告 attempt、error 与 stale，批量刷新也统计已登记后失效的 provider。

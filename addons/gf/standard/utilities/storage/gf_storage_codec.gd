@@ -117,6 +117,7 @@ const DOCUMENT_SCHEMA_VERSION: int = 2
 
 const _COMPRESSION_MODE: int = FileAccess.COMPRESSION_DEFLATE
 const _INTEGRITY_ALGORITHM: String = "sha256"
+const _TRAVERSAL_LIMIT_TYPE_NAME: String = "TraversalLimit"
 const _METADATA_FIELDS: Array = [
 	VERSION_KEY,
 	TIMESTAMP_KEY,
@@ -217,6 +218,8 @@ func encode(data: Dictionary, options: Dictionary = {}) -> PackedByteArray:
 		options
 	)
 	var bytes: PackedByteArray = _serialize_dictionary(document, active_format)
+	if bytes.is_empty():
+		return bytes
 	if should_compress:
 		bytes = bytes.compress(_COMPRESSION_MODE)
 	if key != 0:
@@ -387,6 +390,8 @@ func deserialize_dictionary(bytes: PackedByteArray, p_format: Format = Format.JS
 func calculate_checksum(data: Dictionary, p_format: Format = Format.JSON) -> String:
 	var checksum_data: Dictionary = _normalize_checksum_data(data, p_format)
 	var bytes: PackedByteArray = _serialize_dictionary(checksum_data, p_format)
+	if bytes.is_empty():
+		return ""
 	var hashing: HashingContext = HashingContext.new()
 	var _start_error: Error = hashing.start(HashingContext.HASH_SHA256)
 	var _update_error: Error = hashing.update(bytes)
@@ -533,7 +538,34 @@ func _serialize_dictionary(data: Dictionary, p_format: Format) -> PackedByteArra
 			return var_to_bytes(data)
 		_:
 			var sorted_data: Dictionary = GFVariantData.as_dictionary(_sort_value_recursive(data))
-			return GFVariantJsonCodec.stringify_json_compatible(sorted_data, "", true).to_utf8_buffer()
+			var json_value: Variant = GFVariantJsonCodec.variant_to_json_compatible(sorted_data)
+			if _is_json_traversal_limit_marker(json_value):
+				return PackedByteArray()
+			return JSON.stringify(json_value, "", true).to_utf8_buffer()
+
+
+func _is_json_traversal_limit_marker(value: Variant) -> bool:
+	if not (value is Dictionary):
+		return false
+	var document: Dictionary = value
+	if document.size() != 1 or not document.has(GFVariantJsonCodec.JSON_MARKER_KEY):
+		return false
+	var marker_value: Variant = GFVariantData.get_option_value(
+		document,
+		GFVariantJsonCodec.JSON_MARKER_KEY
+	)
+	if not (marker_value is Dictionary):
+		return false
+	var marker: Dictionary = marker_value
+	return (
+		GFVariantData.get_option_int(marker, GFVariantJsonCodec.JSON_VERSION_KEY, 0)
+		== GFVariantJsonCodec.JSON_SCHEMA_VERSION
+		and GFVariantData.get_option_string(marker, GFVariantJsonCodec.JSON_CODEC_KEY)
+		== GFVariantJsonCodec.JSON_CODEC_ID
+		and GFVariantData.get_option_string(marker, GFVariantJsonCodec.JSON_TYPE_KEY)
+		== _TRAVERSAL_LIMIT_TYPE_NAME
+		and marker.has(GFVariantJsonCodec.JSON_VALUE_KEY)
+	)
 
 
 func _deserialize_dictionary(bytes: PackedByteArray, p_format: Format) -> Dictionary:
@@ -601,6 +633,8 @@ func _normalize_checksum_data(data: Dictionary, p_format: Format) -> Dictionary:
 
 	var normalized: Dictionary = _normalize_dictionary_numbers(data)
 	var bytes: PackedByteArray = _serialize_dictionary(normalized, p_format)
+	if bytes.is_empty():
+		return normalized
 	var parsed: Variant = JSON.parse_string(bytes.get_string_from_utf8())
 	if parsed is Dictionary:
 		var parsed_dictionary: Dictionary = parsed

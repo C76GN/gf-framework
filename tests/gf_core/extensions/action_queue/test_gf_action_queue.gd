@@ -151,6 +151,8 @@ class ReentrantQueueControlAction:
 	signal completed
 
 	var queue: Object
+	var event_log: Array[String]
+	var event_label: String
 	var cancel_count: int = 0
 	var pause_count: int = 0
 	var resume_count: int = 0
@@ -159,32 +161,46 @@ class ReentrantQueueControlAction:
 	var reenter_pause: bool = false
 	var reenter_resume: bool = false
 	var reenter_finish: bool = false
+	var pause_callback: Callable = Callable()
+	var resume_callback: Callable = Callable()
 
-	func _init(p_queue: Object) -> void:
+	func _init(p_queue: Object, p_event_log: Array[String], p_event_label: String) -> void:
 		queue = p_queue
+		event_log = p_event_log
+		event_label = p_event_label
 
 	func execute() -> Variant:
 		return completed
 
 	func cancel() -> void:
 		cancel_count += 1
+		event_log.append("%s:cancel" % event_label)
 		if reenter_cancel and cancel_count == 1:
-			queue.call(&"skip_current_action")
+			var _skip_result: Variant = queue.call(&"skip_current_action")
 
 	func pause() -> void:
 		pause_count += 1
+		event_log.append("%s:pause_enter" % event_label)
 		if reenter_pause and pause_count == 1:
-			queue.call(&"pause_current_action")
+			var _pause_result: Variant = queue.call(&"pause_current_action")
+		if pause_callback.is_valid():
+			var _pause_callback_result: Variant = pause_callback.call()
+		event_log.append("%s:pause_exit" % event_label)
 
 	func resume() -> void:
 		resume_count += 1
+		event_log.append("%s:resume_enter" % event_label)
 		if reenter_resume and resume_count == 1:
-			queue.call(&"resume_current_action")
+			var _resume_result: Variant = queue.call(&"resume_current_action")
+		if resume_callback.is_valid():
+			var _resume_callback_result: Variant = resume_callback.call()
+		event_log.append("%s:resume_exit" % event_label)
 
 	func finish() -> void:
 		finish_count += 1
+		event_log.append("%s:finish" % event_label)
 		if reenter_finish and finish_count == 1:
-			queue.call(&"finish_current_action")
+			var _finish_result: Variant = queue.call(&"finish_current_action")
 
 
 ## 故意违反 duck-typed wait 协议：非 Signal 结果却声明需要等待。
@@ -402,7 +418,12 @@ func test_current_action_controls_delegate_to_running_action() -> void:
 
 
 func test_cancel_current_action_detaches_before_reentrant_cancel_hook() -> void:
-	var action: ReentrantQueueControlAction = ReentrantQueueControlAction.new(_system)
+	var events: Array[String] = []
+	var action: ReentrantQueueControlAction = ReentrantQueueControlAction.new(
+		_system,
+		events,
+		"current"
+	)
 	action.reenter_cancel = true
 	_enqueue(_system, action)
 	await get_tree().process_frame
@@ -415,7 +436,12 @@ func test_cancel_current_action_detaches_before_reentrant_cancel_hook() -> void:
 
 
 func test_pause_and_resume_current_action_ignore_same_hook_reentry() -> void:
-	var action: ReentrantQueueControlAction = ReentrantQueueControlAction.new(_system)
+	var events: Array[String] = []
+	var action: ReentrantQueueControlAction = ReentrantQueueControlAction.new(
+		_system,
+		events,
+		"current"
+	)
 	action.reenter_pause = true
 	_enqueue(_system, action)
 	await get_tree().process_frame
@@ -430,8 +456,122 @@ func test_pause_and_resume_current_action_ignore_same_hook_reentry() -> void:
 	_clear_queue(_system, true)
 
 
+func test_pause_hook_clear_queue_defers_cancellation_until_hook_returns() -> void:
+	var events: Array[String] = []
+	var order: Array = []
+	var action: ReentrantQueueControlAction = ReentrantQueueControlAction.new(
+		_system,
+		events,
+		"current"
+	)
+	action.reenter_pause = true
+	action.pause_callback = func() -> void:
+		_clear_queue(_system, true)
+	_enqueue(_system, action)
+	_enqueue(_system, OrderAction.new(order, "STALE"))
+	await get_tree().process_frame
+
+	assert_true(_pause_current_action(_system), "等待动作应接受外部暂停控制。")
+
+	assert_eq(action.pause_count, 1, "pause hook 反调 pause 时仍不得重复控制同一动作。")
+	assert_eq(action.cancel_count, 1, "clear_queue(true) 的取消请求必须在 pause hook 返回后执行一次。")
+	assert_eq(
+		events,
+		["current:pause_enter", "current:pause_exit", "current:cancel"],
+		"生命周期取消不得嵌套进入尚未返回的 pause hook。"
+	)
+	assert_null(_get_current_action(_system), "clear_queue(true) 必须立即解除当前动作所有权。")
+	assert_false(_is_queue_processing(_system), "清理后的队列必须回到空闲状态。")
+
+	_enqueue(_system, OrderAction.new(order, "FRESH"))
+	await get_tree().process_frame
+	await get_tree().process_frame
+
+	assert_eq(order, ["FRESH"], "清理后的新动作应正常执行，旧排队动作不得恢复。")
+	assert_eq(action.cancel_count, 1, "旧消费协程恢复时不得重复取消已清理动作。")
+
+
+func test_resume_hook_dispose_defers_cancellation_until_hook_returns() -> void:
+	var events: Array[String] = []
+	var action: ReentrantQueueControlAction = ReentrantQueueControlAction.new(
+		_system,
+		events,
+		"current"
+	)
+	action.resume_callback = func() -> void:
+		_dispose_queue(_system)
+	_enqueue(_system, action)
+	await get_tree().process_frame
+	assert_true(_pause_current_action(_system), "等待动作应先进入暂停状态。")
+	events.clear()
+
+	assert_true(_resume_current_action(_system), "暂停动作应接受恢复控制。")
+
+	assert_eq(action.resume_count, 1, "resume hook 应只执行一次。")
+	assert_eq(action.cancel_count, 1, "dispose() 必须在 resume hook 返回后取消当前动作一次。")
+	assert_eq(
+		events,
+		["current:resume_enter", "current:resume_exit", "current:cancel"],
+		"dispose() 的取消不得嵌套进入尚未返回的 resume hook。"
+	)
+	assert_null(_get_current_action(_system), "dispose() 后不得保留当前动作所有权。")
+	assert_false(_is_queue_processing(_system), "dispose() 后队列必须保持空闲。")
+
+	var order: Array = []
+	_enqueue(_system, OrderAction.new(order, "REJECTED"))
+	await get_tree().process_frame
+	_dispose_queue(_system)
+
+	assert_true(order.is_empty(), "已释放队列不得接受新动作。")
+	assert_eq(action.cancel_count, 1, "重复 dispose() 不得重复取消同一动作。")
+
+
+func test_control_hook_flushes_multiple_deferred_cancellations_fifo_once() -> void:
+	var events: Array[String] = []
+	var first: ReentrantQueueControlAction = ReentrantQueueControlAction.new(
+		_system,
+		events,
+		"first"
+	)
+	var second: ReentrantQueueControlAction = ReentrantQueueControlAction.new(
+		_system,
+		events,
+		"second"
+	)
+	first.pause_callback = func() -> void:
+		_clear_queue(_system, true)
+		_enqueue(_system, second)
+		_clear_queue(_system, true)
+	_enqueue(_system, first)
+	await get_tree().process_frame
+
+	assert_true(_pause_current_action(_system), "第一个等待动作应接受暂停控制。")
+	await get_tree().process_frame
+	await get_tree().process_frame
+
+	assert_eq(
+		events,
+		[
+			"first:pause_enter",
+			"first:pause_exit",
+			"first:cancel",
+			"second:cancel",
+		],
+		"同一控制 hook 累积的不同动作必须在 hook 返回后按请求顺序取消。"
+	)
+	assert_eq(first.cancel_count, 1, "第一个 pending 动作只能取消一次。")
+	assert_eq(second.cancel_count, 1, "第二个 pending 动作只能取消一次。")
+	assert_null(_get_current_action(_system), "批量刷新 pending 取消后不得保留当前动作。")
+	assert_false(_is_queue_processing(_system), "批量刷新 pending 取消后队列必须空闲。")
+
+
 func test_finish_current_action_detaches_before_reentrant_finish_hook() -> void:
-	var action: ReentrantQueueControlAction = ReentrantQueueControlAction.new(_system)
+	var events: Array[String] = []
+	var action: ReentrantQueueControlAction = ReentrantQueueControlAction.new(
+		_system,
+		events,
+		"current"
+	)
 	action.reenter_finish = true
 	_enqueue(_system, action)
 	await get_tree().process_frame

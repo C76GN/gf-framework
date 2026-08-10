@@ -125,6 +125,53 @@ func test_set_state_emits_root_replacement_when_diff_truncates() -> void:
 	assert_eq(GFVariantData.to_int(store.get_value("items.c")), 30, "状态本身应完成替换。")
 
 
+func test_set_state_emits_root_replacement_when_only_deep_difference_is_incomplete() -> void:
+	var store: GFReactiveStateStoreBase = GFReactiveStateStoreBase.new({
+		"deep": _make_nested_dictionary(70, 1),
+	})
+	var received_changes: Array[Dictionary] = []
+	var _unsubscribe: Callable = store.subscribe("", func(change: Dictionary, _store: GFReactiveStateStoreBase) -> void:
+		received_changes.append(change)
+	, {
+		"mode": GFReactiveStateStoreBase.SUBSCRIBE_ANY,
+	})
+
+	assert_true(store.set_state({
+		"deep": _make_nested_dictionary(70, 2),
+	}), "diff 无法完整核实时不得把深层变化误判为未变化。")
+
+	assert_eq(received_changes.size(), 1, "不完整 diff 应只派发一次根级失效通知。")
+	if received_changes.size() == 1:
+		assert_eq(GFVariantData.get_option_string(received_changes[0], "kind"), "state_replaced")
+		assert_eq(GFVariantData.get_option_string(received_changes[0], "path"), "")
+	assert_eq(GFVariantData.to_int(store.get_value(_make_nested_value_path(70, "deep"))), 2, "状态仍应完整替换。")
+
+
+func test_set_state_discards_partial_paths_when_later_diff_is_incomplete() -> void:
+	var store: GFReactiveStateStoreBase = GFReactiveStateStoreBase.new({
+		"early": 0,
+		"deep": _make_nested_dictionary(70, 1),
+	})
+	var received_changes: Array[Dictionary] = []
+	var _unsubscribe: Callable = store.subscribe("", func(change: Dictionary, _store: GFReactiveStateStoreBase) -> void:
+		received_changes.append(change)
+	, {
+		"mode": GFReactiveStateStoreBase.SUBSCRIBE_ANY,
+	})
+
+	assert_true(store.set_state({
+		"early": 1,
+		"deep": _make_nested_dictionary(70, 2),
+	}), "已发现浅层差异时，后续遍历不完整仍应替换状态。")
+
+	assert_eq(received_changes.size(), 1, "不完整 diff 不得派发可能遗漏深层变化的部分路径集合。")
+	if received_changes.size() == 1:
+		assert_eq(GFVariantData.get_option_string(received_changes[0], "kind"), "state_replaced")
+		assert_eq(GFVariantData.get_option_string(received_changes[0], "path"), "")
+	assert_eq(GFVariantData.to_int(store.get_value("early")), 1)
+	assert_eq(GFVariantData.to_int(store.get_value(_make_nested_value_path(70, "deep"))), 2)
+
+
 func test_batch_coalesces_repeated_path_and_flushes_once() -> void:
 	var store: GFReactiveStateStoreBase = GFReactiveStateStoreBase.new({
 		"score": 0,
@@ -384,6 +431,25 @@ func test_erase_value_reports_removed_change() -> void:
 
 
 # --- 私有/辅助方法 ---
+
+func _make_nested_dictionary(depth: int, leaf_value: Variant) -> Dictionary:
+	var root: Dictionary = {}
+	var current: Dictionary = root
+	for index: int in range(depth):
+		var child: Dictionary = {}
+		current["level_%d" % index] = child
+		current = child
+	current["value"] = leaf_value
+	return root
+
+
+func _make_nested_value_path(depth: int, root_key: StringName) -> Array:
+	var path: Array = [root_key]
+	for index: int in range(depth):
+		path.append(StringName("level_%d" % index))
+	path.append(&"value")
+	return path
+
 
 func _find_signal_change(store: GFReactiveStateStoreBase, signal_name: String, path: String) -> Dictionary:
 	var parameters: Array = get_signal_parameters(store, signal_name)

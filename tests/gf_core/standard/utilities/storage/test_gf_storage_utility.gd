@@ -63,6 +63,8 @@ func after_each() -> void:
 			"test_missing_checksum_migration.json",
 			"test_plain_json_strict.json",
 			"test_plain_json_migration.json",
+			"test_traversal_limit_preserves_existing.json",
+			"test_traversal_limit_async_preserves_existing.json",
 			"test_json_number_preserve.json",
 			"test_legacy_version.json",
 			"test_migrate_override.json",
@@ -129,6 +131,47 @@ func test_pure_data_methods() -> void:
 	var _save_data_result_152: Variant = _storage.save_data("test_legacy.json", {"old": "data"})
 	var data: Dictionary = _load_payload("test_legacy.json")
 	assert_eq(GFVariantData.get_option_string(data, "old"), "data", "旧版纯数据 API 仍应正常读写。")
+
+
+func test_save_data_preserves_existing_file_when_json_traversal_is_incomplete() -> void:
+	_storage.encrypt_key = 0
+	var file_name: String = "test_traversal_limit_preserves_existing.json"
+	assert_eq(_storage.save_data(file_name, { "version": 1 }), OK, "测试基线存档应写入成功。")
+	var path: String = _storage._get_full_path(file_name)
+	var before_bytes: PackedByteArray = FileAccess.get_file_as_bytes(path)
+
+	var save_error: Error = _storage.save_data(file_name, _make_nested_dictionary(70, 2))
+
+	assert_eq(save_error, ERR_INVALID_DATA, "JSON 遍历不完整时同步保存必须失败关闭。")
+	assert_eq(FileAccess.get_file_as_bytes(path), before_bytes, "失败保存不得覆盖已有最终文件。")
+	assert_eq(GFVariantData.get_option_int(_load_payload(file_name), "version"), 1, "旧存档应保持可读且内容不变。")
+	assert_false(FileAccess.file_exists(_storage._get_full_path(file_name + ".tmp")), "失败事务不得遗留临时文件。")
+
+
+func test_async_save_preserves_existing_file_when_json_traversal_is_incomplete() -> void:
+	_storage.encrypt_key = 0
+	var file_name: String = "test_traversal_limit_async_preserves_existing.json"
+	assert_eq(_storage.save_data(file_name, { "version": 1 }), OK, "测试基线存档应写入成功。")
+	var path: String = _storage._get_full_path(file_name)
+	var before_bytes: PackedByteArray = FileAccess.get_file_as_bytes(path)
+	var operation: GFStorageAsyncOperation = _storage.save_data_request_async(
+		file_name,
+		_make_nested_dictionary(70, 2)
+	)
+
+	await _pump_storage_async_tasks()
+
+	var result: GFStorageAsyncResult = operation.get_result()
+	assert_false(result.is_successful(), "JSON 遍历不完整时异步保存必须失败关闭。")
+	assert_eq(result.get_error_code(), ERR_INVALID_DATA)
+	assert_eq(
+		result.get_write_failure_kind(),
+		GFStorageAsyncResult.WriteFailureKind.ENCODE_FAILED,
+		"异步 worker 应把空编码结果归类为 ENCODE_FAILED。"
+	)
+	assert_eq(FileAccess.get_file_as_bytes(path), before_bytes, "失败异步保存不得覆盖已有最终文件。")
+	assert_eq(GFVariantData.get_option_int(_load_payload(file_name), "version"), 1, "旧存档应保持可读且内容不变。")
+	assert_false(FileAccess.file_exists(_storage._get_full_path(file_name + ".tmp")), "失败异步事务不得遗留临时文件。")
 
 
 func test_pure_data_api_rejects_empty_file_name() -> void:
@@ -1741,6 +1784,17 @@ func _load_payload(file_name: String) -> Dictionary:
 	if not result.ok:
 		return {}
 	return result.payload.duplicate(true)
+
+
+func _make_nested_dictionary(depth: int, leaf_value: Variant) -> Dictionary:
+	var root: Dictionary = {}
+	var current: Dictionary = root
+	for index: int in range(depth):
+		var child: Dictionary = {}
+		current["level_%d" % index] = child
+		current = child
+	current["value"] = leaf_value
+	return root
 
 
 func _pump_storage_async_tasks() -> void:

@@ -20,6 +20,29 @@ class_name GFObjectPoolUtility
 extends GFUtility
 
 
+# --- 枚举 ---
+
+enum _NodeOwnershipPhase {
+	ACTIVE,
+	TRANSITION,
+}
+
+enum _TreeOperation {
+	PREPARE,
+	ACTIVATE,
+	DEACTIVATE,
+	ACQUIRE_HOOKS,
+	RELEASE_HOOKS,
+	INTERNAL_RELEASE_HOOK,
+}
+
+enum _GuardStatus {
+	ABORT_OPERATION,
+	STOP_NODE,
+	CONTINUE,
+}
+
+
 # --- 常量 ---
 
 # 用于标记节点当前是否被激活使用的 metadata 键。
@@ -158,7 +181,7 @@ func acquire(scene: PackedScene, parent: Node, before_add: Callable = Callable()
 	if not is_instance_valid(scene):
 		push_error("[GFObjectPoolUtility] 传入了无效的 PackedScene。")
 		return null
-	if not is_instance_valid(parent):
+	if not _is_valid_acquire_parent(parent):
 		push_error("[GFObjectPoolUtility] acquire 失败：parent 无效。")
 		return null
 
@@ -168,6 +191,7 @@ func acquire(scene: PackedScene, parent: Node, before_add: Callable = Callable()
 
 	_prune_invalid_available_nodes_if_needed(scene)
 
+	var current_serial: int = _lifecycle_serial
 	var available_pool: Array = _get_available_pool(scene)
 
 	while not available_pool.is_empty():
@@ -179,25 +203,44 @@ func acquire(scene: PackedScene, parent: Node, before_add: Callable = Callable()
 				continue
 			var acquire_generation: int = _begin_node_acquire(node, scene)
 			_call_before_add(before_add, node)
-			if not _node_generation_matches(node, node_id, _active_generations, acquire_generation):
+			if not _acquire_operation_matches(
+				scene, parent, node, node_id, acquire_generation, current_serial
+			):
+				_cancel_or_discard_stale_acquire(node, scene, acquire_generation, current_serial)
 				return null
-			_set_node_tree_active_state(node, true)
-			if not _node_generation_matches(node, node_id, _active_generations, acquire_generation):
+			if not _run_guarded_tree_state_operation(
+				node, true, node_id, _NodeOwnershipPhase.ACTIVE,
+				acquire_generation, current_serial
+			):
+				_cancel_or_discard_stale_acquire(node, scene, acquire_generation, current_serial)
 				return null
 
-			if is_instance_valid(parent) and node.get_parent() != parent:
+			if not _acquire_operation_matches(
+				scene, parent, node, node_id, acquire_generation, current_serial
+			):
+				_cancel_or_discard_stale_acquire(node, scene, acquire_generation, current_serial)
+				return null
+			if node.get_parent() != parent:
 				if node.get_parent() != null:
 					node.reparent(parent, false)
 				else:
 					parent.add_child(node)
-			if not is_instance_valid(parent):
-				_cancel_acquire_if_owned(node, scene, acquire_generation)
-				return null
-			if not _node_generation_matches(node, node_id, _active_generations, acquire_generation):
+			if not _acquire_operation_matches(
+				scene, parent, node, node_id, acquire_generation, current_serial
+			) or node.get_parent() != parent:
+				_cancel_or_discard_stale_acquire(node, scene, acquire_generation, current_serial)
 				return null
 
-			_call_node_tree_hook(node, HOOK_ON_ACQUIRE)
-			if not _node_generation_matches(node, node_id, _active_generations, acquire_generation):
+			if not _run_guarded_tree_operation(
+				node, _TreeOperation.ACQUIRE_HOOKS, node_id, _NodeOwnershipPhase.ACTIVE,
+				acquire_generation, current_serial, parent
+			):
+				_cancel_or_discard_stale_acquire(node, scene, acquire_generation, current_serial)
+				return null
+			if not _acquire_operation_matches(
+				scene, parent, node, node_id, acquire_generation, current_serial
+			) or node.get_parent() != parent:
+				_cancel_or_discard_stale_acquire(node, scene, acquire_generation, current_serial)
 				return null
 			return node
 
@@ -205,54 +248,47 @@ func acquire(scene: PackedScene, parent: Node, before_add: Callable = Callable()
 	if new_node == null:
 		push_error("[GFObjectPoolUtility] PackedScene 未能实例化为 Node。")
 		return null
+	if not _is_acquire_context_valid(scene, parent, current_serial):
+		_discard_pool_candidate(new_node)
+		return null
 	var new_node_id: int = new_node.get_instance_id()
 	var new_acquire_generation: int = _begin_node_acquire(new_node, scene)
 	var all_nodes: Array = _get_all_nodes_pool(scene)
 	all_nodes.push_back(new_node)
-	_prepare_node_tree(new_node)
-	if not _node_generation_matches(
-		new_node,
-		new_node_id,
-		_active_generations,
-		new_acquire_generation
+	if not _run_guarded_tree_state_operation(
+		new_node, true, new_node_id, _NodeOwnershipPhase.ACTIVE,
+		new_acquire_generation, current_serial
 	):
+		_cancel_or_discard_stale_acquire(new_node, scene, new_acquire_generation, current_serial)
 		return null
-	_set_node_tree_active_state(new_node, true)
-	if not _node_generation_matches(
-		new_node,
-		new_node_id,
-		_active_generations,
-		new_acquire_generation
+	if not _acquire_operation_matches(
+		scene, parent, new_node, new_node_id, new_acquire_generation, current_serial
 	):
+		_cancel_or_discard_stale_acquire(new_node, scene, new_acquire_generation, current_serial)
 		return null
 	_call_before_add(before_add, new_node)
-	if not _node_generation_matches(
-		new_node,
-		new_node_id,
-		_active_generations,
-		new_acquire_generation
+	if not _acquire_operation_matches(
+		scene, parent, new_node, new_node_id, new_acquire_generation, current_serial
 	):
+		_cancel_or_discard_stale_acquire(new_node, scene, new_acquire_generation, current_serial)
 		return null
-	if is_instance_valid(parent):
-		parent.add_child(new_node)
-	if not is_instance_valid(parent):
-		_cancel_acquire_if_owned(new_node, scene, new_acquire_generation)
-		return null
-	if not _node_generation_matches(
-		new_node,
-		new_node_id,
-		_active_generations,
-		new_acquire_generation
-	):
+	parent.add_child(new_node)
+	if not _acquire_operation_matches(
+		scene, parent, new_node, new_node_id, new_acquire_generation, current_serial
+	) or new_node.get_parent() != parent:
+		_cancel_or_discard_stale_acquire(new_node, scene, new_acquire_generation, current_serial)
 		return null
 
-	_call_node_tree_hook(new_node, HOOK_ON_ACQUIRE)
-	if not _node_generation_matches(
-		new_node,
-		new_node_id,
-		_active_generations,
-		new_acquire_generation
+	if not _run_guarded_tree_operation(
+		new_node, _TreeOperation.ACQUIRE_HOOKS, new_node_id, _NodeOwnershipPhase.ACTIVE,
+		new_acquire_generation, current_serial, parent
 	):
+		_cancel_or_discard_stale_acquire(new_node, scene, new_acquire_generation, current_serial)
+		return null
+	if not _acquire_operation_matches(
+		scene, parent, new_node, new_node_id, new_acquire_generation, current_serial
+	) or new_node.get_parent() != parent:
+		_cancel_or_discard_stale_acquire(new_node, scene, new_acquire_generation, current_serial)
 		return null
 	return new_node
 
@@ -288,15 +324,26 @@ func release(node: Node, scene: PackedScene) -> void:
 		push_warning("[GFObjectPoolUtility] release 失败：节点不属于当前借用代次。")
 		return
 
+	var current_serial: int = _lifecycle_serial
 	var release_generation: int = _take_operation_generation()
 	var _active_generation_erased: bool = _active_generations.erase(node_id)
 	node.set_meta(_META_ACTIVE, false)
 	_transition_generations[node_id] = release_generation
-	_call_node_tree_hook(node, HOOK_ON_RELEASE)
-	if not _node_generation_matches(node, node_id, _transition_generations, release_generation):
+	if not _run_guarded_tree_operation(
+		node,
+		_TreeOperation.RELEASE_HOOKS,
+		node_id,
+		_NodeOwnershipPhase.TRANSITION,
+		release_generation,
+		current_serial
+	):
+		_discard_candidate_if_lifecycle_changed(node, current_serial)
 		return
-	_set_node_tree_active_state(node, false)
-	if not _node_generation_matches(node, node_id, _transition_generations, release_generation):
+	if not _run_guarded_tree_state_operation(
+		node, false, node_id, _NodeOwnershipPhase.TRANSITION,
+		release_generation, current_serial
+	):
+		_discard_candidate_if_lifecycle_changed(node, current_serial)
 		return
 
 	if not _available_pools.has(owner_scene):
@@ -311,7 +358,14 @@ func release(node: Node, scene: PackedScene) -> void:
 		return
 
 	_move_to_pool_root(node)
-	if not _node_generation_matches(node, node_id, _transition_generations, release_generation):
+	if not _node_operation_matches(
+		node,
+		node_id,
+		_NodeOwnershipPhase.TRANSITION,
+		release_generation,
+		current_serial
+	):
+		_discard_candidate_if_lifecycle_changed(node, current_serial)
 		return
 	var _release_transition_erased: bool = _transition_generations.erase(node_id)
 	available_pool.push_back(node)
@@ -581,23 +635,361 @@ func _node_generation_matches(
 	return false
 
 
-func _cancel_acquire_if_owned(
+func _node_operation_matches(
+	owner_node: Node,
+	owner_node_id: int,
+	ownership_phase: int,
+	expected_generation: int,
+	expected_lifecycle_serial: int
+) -> bool:
+	if expected_lifecycle_serial != _lifecycle_serial:
+		return false
+	match ownership_phase:
+		_NodeOwnershipPhase.ACTIVE:
+			return _node_generation_matches(
+				owner_node, owner_node_id, _active_generations, expected_generation
+			)
+		_NodeOwnershipPhase.TRANSITION:
+			return _node_generation_matches(
+				owner_node, owner_node_id, _transition_generations, expected_generation
+			)
+	return false
+
+
+func _is_valid_acquire_parent(parent: Node) -> bool:
+	return is_instance_valid(parent) and not parent.is_queued_for_deletion()
+
+
+func _is_acquire_context_valid(
+	scene: PackedScene,
+	parent: Node,
+	expected_lifecycle_serial: int
+) -> bool:
+	return (
+		not _is_disposed
+		and expected_lifecycle_serial == _lifecycle_serial
+		and is_instance_valid(scene)
+		and _is_valid_acquire_parent(parent)
+		and _all_nodes.has(scene)
+		and _available_pools.has(scene)
+	)
+
+
+func _acquire_operation_matches(
+	scene: PackedScene,
+	parent: Node,
+	node: Node,
+	node_id: int,
+	expected_generation: int,
+	expected_lifecycle_serial: int
+) -> bool:
+	return (
+		_is_acquire_context_valid(scene, parent, expected_lifecycle_serial)
+		and _node_operation_matches(
+			node,
+			node_id,
+			_NodeOwnershipPhase.ACTIVE,
+			expected_generation,
+			expected_lifecycle_serial
+		)
+	)
+
+
+func _guard_tree_node(
+	node_value: Variant,
+	owner_node: Node,
+	owner_node_id: int,
+	ownership_phase: int,
+	expected_generation: int,
+	expected_lifecycle_serial: int,
+	expected_parent: Node = null
+) -> int:
+	if not _node_operation_matches(
+		owner_node, owner_node_id, ownership_phase,
+		expected_generation, expected_lifecycle_serial
+	):
+		return _GuardStatus.ABORT_OPERATION
+	if expected_parent != null and (
+		not _is_valid_acquire_parent(expected_parent)
+		or owner_node.get_parent() != expected_parent
+	):
+		return _GuardStatus.ABORT_OPERATION
+	var node: Node = _get_valid_pool_node(node_value)
+	if node == null:
+		return _GuardStatus.STOP_NODE
+	if node != owner_node and not owner_node.is_ancestor_of(node):
+		return _GuardStatus.STOP_NODE
+	return _GuardStatus.CONTINUE
+
+
+func _run_guarded_tree_operation(
+	owner_node: Node,
+	operation: int,
+	owner_node_id: int,
+	ownership_phase: int,
+	expected_generation: int,
+	expected_lifecycle_serial: int,
+	expected_parent: Node = null
+) -> bool:
+	var pending_nodes: Array[Variant] = [owner_node]
+	var visited_ids: Dictionary = {}
+	while not pending_nodes.is_empty():
+		var node_value: Variant = pending_nodes.pop_back()
+		var guard_status: int = _guard_tree_node(
+			node_value,
+			owner_node,
+			owner_node_id,
+			ownership_phase,
+			expected_generation,
+			expected_lifecycle_serial,
+			expected_parent
+		)
+		if guard_status == _GuardStatus.ABORT_OPERATION:
+			return false
+		if guard_status == _GuardStatus.STOP_NODE:
+			continue
+		var node: Node = _get_valid_pool_node(node_value)
+		var node_id: int = node.get_instance_id()
+		if visited_ids.has(node_id):
+			continue
+		visited_ids[node_id] = true
+
+		guard_status = _apply_guarded_tree_node_operation(
+			node,
+			operation,
+			owner_node,
+			owner_node_id,
+			ownership_phase,
+			expected_generation,
+			expected_lifecycle_serial,
+			expected_parent
+		)
+		if guard_status == _GuardStatus.ABORT_OPERATION:
+			return false
+		if guard_status == _GuardStatus.STOP_NODE:
+			continue
+		if (
+			(operation == _TreeOperation.ACTIVATE or operation == _TreeOperation.DEACTIVATE)
+			and not manage_descendant_active_state
+		):
+			continue
+
+		var children: Array[Node] = node.get_children(true)
+		for child_index: int in range(children.size() - 1, -1, -1):
+			pending_nodes.push_back(children[child_index])
+	return _guard_tree_node(
+		owner_node, owner_node, owner_node_id, ownership_phase,
+		expected_generation, expected_lifecycle_serial, expected_parent
+	) == _GuardStatus.CONTINUE
+
+
+func _run_guarded_tree_state_operation(
+	owner_node: Node,
+	active: bool,
+	owner_node_id: int,
+	ownership_phase: int,
+	expected_generation: int,
+	expected_lifecycle_serial: int
+) -> bool:
+	if not _run_guarded_tree_operation(
+		owner_node, _TreeOperation.PREPARE, owner_node_id, ownership_phase,
+		expected_generation, expected_lifecycle_serial
+	):
+		return false
+	return _run_guarded_tree_operation(
+		owner_node, _TreeOperation.ACTIVATE if active else _TreeOperation.DEACTIVATE,
+		owner_node_id, ownership_phase, expected_generation, expected_lifecycle_serial
+	)
+
+
+func _apply_guarded_tree_node_operation(
+	node: Node,
+	operation: int,
+	owner_node: Node,
+	owner_node_id: int,
+	ownership_phase: int,
+	expected_generation: int,
+	expected_lifecycle_serial: int,
+	expected_parent: Node
+) -> int:
+	match operation:
+		_TreeOperation.ACQUIRE_HOOKS, _TreeOperation.RELEASE_HOOKS, _TreeOperation.INTERNAL_RELEASE_HOOK:
+			return _run_guarded_node_hooks(
+				node, operation, owner_node, owner_node_id,
+				ownership_phase, expected_generation, expected_lifecycle_serial, expected_parent
+			)
+		_TreeOperation.PREPARE:
+			return _prepare_guarded_node(
+				node, owner_node, owner_node_id, ownership_phase,
+				expected_generation, expected_lifecycle_serial
+			)
+		_TreeOperation.ACTIVATE, _TreeOperation.DEACTIVATE:
+			return _set_guarded_node_active_state(
+				node, operation == _TreeOperation.ACTIVATE, owner_node, owner_node_id,
+				ownership_phase, expected_generation, expected_lifecycle_serial
+			)
+	return _GuardStatus.CONTINUE
+
+
+func _set_guarded_node_active_state(
+	node: Node,
+	active: bool,
+	owner_node: Node,
+	owner_node_id: int,
+	ownership_phase: int,
+	expected_generation: int,
+	expected_lifecycle_serial: int
+) -> int:
+	var guard_status: int = _prepare_guarded_node(
+		node, owner_node, owner_node_id, ownership_phase,
+		expected_generation, expected_lifecycle_serial
+	)
+	if guard_status != _GuardStatus.CONTINUE:
+		return guard_status
+	var process_mode: int = Node.PROCESS_MODE_DISABLED
+	if active:
+		process_mode = GFVariantData.to_int(
+			node.get_meta(_META_ORIGINAL_PROCESS_MODE, Node.PROCESS_MODE_INHERIT),
+			Node.PROCESS_MODE_INHERIT
+		)
+	node.process_mode = _to_process_mode(process_mode)
+	guard_status = _guard_tree_node(
+		node, owner_node, owner_node_id, ownership_phase,
+		expected_generation, expected_lifecycle_serial
+	)
+	if guard_status != _GuardStatus.CONTINUE:
+		return guard_status
+
+	var canvas_item: CanvasItem = _variant_to_canvas_item(node)
+	if canvas_item != null:
+		canvas_item.visible = (
+			GFVariantData.to_bool(node.get_meta(_META_ORIGINAL_VISIBLE, true), true)
+			if active
+			else false
+		)
+		guard_status = _guard_tree_node(
+			node, owner_node, owner_node_id, ownership_phase,
+			expected_generation, expected_lifecycle_serial
+		)
+		if guard_status != _GuardStatus.CONTINUE:
+			return guard_status
+
+	if "disabled" in node:
+		node.set("disabled", node.get_meta(_META_ORIGINAL_DISABLED) if active else true)
+		return _guard_tree_node(
+			node, owner_node, owner_node_id, ownership_phase,
+			expected_generation, expected_lifecycle_serial
+		)
+	return _GuardStatus.CONTINUE
+
+
+func _prepare_guarded_node(
+	node: Node,
+	owner_node: Node,
+	owner_node_id: int,
+	ownership_phase: int,
+	expected_generation: int,
+	expected_lifecycle_serial: int
+) -> int:
+	if not node.has_meta(_META_ORIGINAL_PROCESS_MODE):
+		node.set_meta(_META_ORIGINAL_PROCESS_MODE, node.process_mode)
+	var canvas_item: CanvasItem = _variant_to_canvas_item(node)
+	if canvas_item != null and not node.has_meta(_META_ORIGINAL_VISIBLE):
+		node.set_meta(_META_ORIGINAL_VISIBLE, canvas_item.visible)
+	if "disabled" in node and not node.has_meta(_META_ORIGINAL_DISABLED):
+		var original_disabled: Variant = GFObjectPropertyTools.read_property(
+			node,
+			NodePath("disabled")
+		)
+		var guard_status: int = _guard_tree_node(
+			node, owner_node, owner_node_id, ownership_phase,
+			expected_generation, expected_lifecycle_serial
+		)
+		if guard_status != _GuardStatus.CONTINUE:
+			return guard_status
+		node.set_meta(_META_ORIGINAL_DISABLED, original_disabled)
+	return _GuardStatus.CONTINUE
+
+
+func _run_guarded_node_hooks(
+	node: Node,
+	operation: int,
+	owner_node: Node,
+	owner_node_id: int,
+	ownership_phase: int,
+	expected_generation: int,
+	expected_lifecycle_serial: int,
+	expected_parent: Node
+) -> int:
+	var guard_status: int = _GuardStatus.CONTINUE
+	if operation == _TreeOperation.ACQUIRE_HOOKS:
+		guard_status = _call_guarded_node_hook(
+			node, _HOOK_INTERNAL_ON_ACQUIRE, owner_node, owner_node_id,
+			ownership_phase, expected_generation, expected_lifecycle_serial, expected_parent
+		)
+		if guard_status != _GuardStatus.CONTINUE:
+			return guard_status
+		return _call_guarded_node_hook(
+			node, HOOK_ON_ACQUIRE, owner_node, owner_node_id,
+			ownership_phase, expected_generation, expected_lifecycle_serial, expected_parent
+		)
+	if operation == _TreeOperation.RELEASE_HOOKS:
+		guard_status = _call_guarded_node_hook(
+			node, HOOK_ON_RELEASE, owner_node, owner_node_id,
+			ownership_phase, expected_generation, expected_lifecycle_serial, expected_parent
+		)
+		if guard_status != _GuardStatus.CONTINUE:
+			return guard_status
+	return _call_guarded_node_hook(
+		node, _HOOK_INTERNAL_ON_RELEASE, owner_node, owner_node_id,
+		ownership_phase, expected_generation, expected_lifecycle_serial, expected_parent
+	)
+
+
+func _call_guarded_node_hook(
+	node: Node,
+	hook_name: StringName,
+	owner_node: Node,
+	owner_node_id: int,
+	ownership_phase: int,
+	expected_generation: int,
+	expected_lifecycle_serial: int,
+	expected_parent: Node
+) -> int:
+	if not node.has_method(hook_name):
+		return _GuardStatus.CONTINUE
+	var _hook_result: Variant = node.call(hook_name)
+	return _guard_tree_node(
+		node, owner_node, owner_node_id, ownership_phase,
+		expected_generation, expected_lifecycle_serial, expected_parent
+	)
+
+
+func _cancel_or_discard_stale_acquire(
 	node: Node,
 	scene: PackedScene,
-	expected_generation: int
+	expected_generation: int,
+	expected_lifecycle_serial: int
 ) -> void:
+	if expected_lifecycle_serial != _lifecycle_serial:
+		_discard_pool_candidate(node)
+		return
 	if not is_instance_valid(node):
 		return
 	var node_id: int = node.get_instance_id()
 	if not _node_generation_matches(node, node_id, _active_generations, expected_generation):
 		return
 	release(node, scene)
+	if expected_lifecycle_serial != _lifecycle_serial:
+		_discard_pool_candidate(node)
 
 
-func _prepare_node_tree(node: Node) -> void:
-	_prepare_node_for_pool(node)
-	for child: Node in node.get_children(true):
-		_prepare_node_tree(child)
+func _discard_candidate_if_lifecycle_changed(
+	node: Node,
+	expected_lifecycle_serial: int
+) -> void:
+	if expected_lifecycle_serial != _lifecycle_serial:
+		_discard_pool_candidate(node)
 
 
 func _ensure_scene_pool(scene: PackedScene) -> bool:
@@ -627,7 +1019,7 @@ func _prewarm_node(
 		push_error("[GFObjectPoolUtility] PackedScene 未能实例化为 Node。")
 		return false
 	if not _is_prewarm_candidate_valid(scene, parent, node, current_serial):
-		_discard_prewarm_candidate(node)
+		_discard_pool_candidate(node)
 		return false
 
 	var node_id: int = node.get_instance_id()
@@ -636,54 +1028,51 @@ func _prewarm_node(
 	node.set_meta(_META_SOURCE_SCENE, scene)
 	_transition_generations[node_id] = transition_generation
 	_get_all_nodes_pool(scene).push_back(node)
-	_prepare_node_tree(node)
-	if not _node_generation_matches(node, node_id, _transition_generations, transition_generation):
-		return false
-	if not _is_prewarm_candidate_valid(scene, parent, node, current_serial):
-		_remove_node_from_scene_pool(node, scene)
-		_discard_prewarm_candidate(node)
-		return false
-
-	_set_node_tree_active_state(node, false)
-	if not _node_generation_matches(node, node_id, _transition_generations, transition_generation):
-		return false
-	if not _is_prewarm_candidate_valid(scene, parent, node, current_serial):
-		_remove_node_from_scene_pool(node, scene)
-		_discard_prewarm_candidate(node)
+	if not _run_guarded_tree_state_operation(
+		node, false, node_id, _NodeOwnershipPhase.TRANSITION,
+		transition_generation, current_serial
+	):
+		_discard_tracked_pool_candidate(node, scene)
 		return false
 
 	_call_before_add(before_add, node)
-	if not _node_generation_matches(node, node_id, _transition_generations, transition_generation):
-		return false
 	if (
-		not _is_prewarm_candidate_valid(scene, parent, node, current_serial)
+		not _prewarm_operation_matches(
+			scene, parent, node, node_id, transition_generation, current_serial
+		)
 		or node.get_parent() != null
 	):
-		_remove_node_from_scene_pool(node, scene)
-		_discard_prewarm_candidate(node)
+		_discard_tracked_pool_candidate(node, scene)
 		return false
 
-	if is_instance_valid(parent):
+	if parent != null:
 		parent.add_child(node)
-	if not _node_generation_matches(node, node_id, _transition_generations, transition_generation):
-		return false
 	if (
-		not _is_prewarm_candidate_valid(scene, parent, node, current_serial)
+		not _prewarm_operation_matches(
+			scene, parent, node, node_id, transition_generation, current_serial
+		)
 		or (parent != null and node.get_parent() != parent)
 	):
-		_remove_node_from_scene_pool(node, scene)
-		_discard_prewarm_candidate(node)
+		_discard_tracked_pool_candidate(node, scene)
 		return false
 
-	_call_node_tree_internal_hook(node, _HOOK_INTERNAL_ON_RELEASE)
-	if not _node_generation_matches(node, node_id, _transition_generations, transition_generation):
+	if not _run_guarded_tree_operation(
+		node,
+		_TreeOperation.INTERNAL_RELEASE_HOOK,
+		node_id,
+		_NodeOwnershipPhase.TRANSITION,
+		transition_generation,
+		current_serial
+	):
+		_discard_tracked_pool_candidate(node, scene)
 		return false
 	if (
-		not _is_prewarm_candidate_valid(scene, parent, node, current_serial)
+		not _prewarm_operation_matches(
+			scene, parent, node, node_id, transition_generation, current_serial
+		)
 		or (parent != null and node.get_parent() != parent)
 	):
-		_remove_node_from_scene_pool(node, scene)
-		_discard_prewarm_candidate(node)
+		_discard_tracked_pool_candidate(node, scene)
 		return false
 
 	var _prewarm_transition_erased: bool = _transition_generations.erase(node_id)
@@ -802,75 +1191,35 @@ func _is_prewarm_candidate_valid(
 	return _get_valid_pool_node(node_value) != null
 
 
-func _discard_prewarm_candidate(node_value: Variant) -> void:
+func _prewarm_operation_matches(
+	scene: PackedScene,
+	parent: Node,
+	node: Node,
+	node_id: int,
+	expected_generation: int,
+	expected_lifecycle_serial: int
+) -> bool:
+	return (
+		_is_prewarm_candidate_valid(scene, parent, node, expected_lifecycle_serial)
+		and _node_operation_matches(
+			node,
+			node_id,
+			_NodeOwnershipPhase.TRANSITION,
+			expected_generation,
+			expected_lifecycle_serial
+		)
+	)
+
+
+func _discard_pool_candidate(node_value: Variant) -> void:
 	var node: Node = _INSTANCE_GUARD._get_live_node(node_value)
 	if node != null:
 		_queue_free_detached(node)
 
 
-func _prepare_node_for_pool(node: Node) -> void:
-	if not node.has_meta(_META_ORIGINAL_PROCESS_MODE):
-		node.set_meta(_META_ORIGINAL_PROCESS_MODE, node.process_mode)
-		
-	var canvas_item: CanvasItem = _variant_to_canvas_item(node)
-	if canvas_item != null and not node.has_meta(_META_ORIGINAL_VISIBLE):
-		node.set_meta(_META_ORIGINAL_VISIBLE, canvas_item.visible)
-		
-	if "disabled" in node and not node.has_meta(_META_ORIGINAL_DISABLED):
-		node.set_meta(_META_ORIGINAL_DISABLED, GFObjectPropertyTools.read_property(node, NodePath("disabled")))
-
-
-func _set_node_tree_active_state(node: Node, active: bool) -> void:
-	_set_node_active_state(node, active)
-	if not manage_descendant_active_state:
-		return
-	for child: Node in node.get_children(true):
-		_set_node_tree_active_state(child, active)
-
-
-func _set_node_active_state(node: Node, active: bool) -> void:
-	_prepare_node_for_pool(node)
-	
-	if active:
-		var original_process_mode: int = GFVariantData.to_int(
-			node.get_meta(_META_ORIGINAL_PROCESS_MODE, Node.PROCESS_MODE_INHERIT),
-			Node.PROCESS_MODE_INHERIT
-		)
-		node.process_mode = _to_process_mode(original_process_mode)
-		var canvas_item: CanvasItem = _variant_to_canvas_item(node)
-		if canvas_item != null:
-			canvas_item.visible = GFVariantData.to_bool(node.get_meta(_META_ORIGINAL_VISIBLE, true), true)
-		if "disabled" in node:
-			node.set("disabled", node.get_meta(_META_ORIGINAL_DISABLED))
-	else:
-		node.process_mode = Node.PROCESS_MODE_DISABLED as Node.ProcessMode
-		var canvas_item: CanvasItem = _variant_to_canvas_item(node)
-		if canvas_item != null:
-			canvas_item.visible = false
-		if "disabled" in node:
-			node.set("disabled", true)
-
-
-func _call_node_tree_hook(node: Node, hook_name: StringName) -> void:
-	_call_node_hook(node, hook_name)
-	for child: Node in node.get_children(true):
-		_call_node_tree_hook(child, hook_name)
-
-
-func _call_node_hook(node: Node, hook_name: StringName) -> void:
-	if hook_name == HOOK_ON_ACQUIRE and node.has_method(_HOOK_INTERNAL_ON_ACQUIRE):
-		var _internal_acquire_result: Variant = node.call(_HOOK_INTERNAL_ON_ACQUIRE)
-	if node.has_method(hook_name):
-		var _hook_result: Variant = node.call(hook_name)
-	if hook_name == HOOK_ON_RELEASE and node.has_method(_HOOK_INTERNAL_ON_RELEASE):
-		var _internal_release_result: Variant = node.call(_HOOK_INTERNAL_ON_RELEASE)
-
-
-func _call_node_tree_internal_hook(node: Node, hook_name: StringName) -> void:
-	if node.has_method(hook_name):
-		var _hook_result: Variant = node.call(hook_name)
-	for child: Node in node.get_children(true):
-		_call_node_tree_internal_hook(child, hook_name)
+func _discard_tracked_pool_candidate(node: Node, scene: PackedScene) -> void:
+	_remove_node_from_scene_pool(node, scene)
+	_discard_pool_candidate(node)
 
 
 func _get_valid_pool_node(value: Variant) -> Node:

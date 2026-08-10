@@ -197,12 +197,13 @@ func set_state(new_state: Dictionary, options: Dictionary = {}) -> bool:
 		"max_changes": GFVariantData.get_option_int(options, "max_changes", 1024),
 	}
 	var diff_report: Dictionary = GFVariantData.diff_variant(_state, next_state, diff_options)
-	if not GFVariantData.get_option_bool(diff_report, "changed", false):
+	var diff_complete: bool = GFVariantData.get_option_bool(diff_report, "complete", true)
+	if diff_complete and not GFVariantData.get_option_bool(diff_report, "changed", false):
 		return false
 
 	var previous_state: Dictionary = _state
 	_state = next_state
-	if GFVariantData.get_option_bool(diff_report, "truncated", false):
+	if not diff_complete or GFVariantData.get_option_bool(diff_report, "truncated", false):
 		_enqueue_change(_make_change("state_replaced", [], previous_state, next_state, true, true))
 	else:
 		_enqueue_report_changes(diff_report, [])

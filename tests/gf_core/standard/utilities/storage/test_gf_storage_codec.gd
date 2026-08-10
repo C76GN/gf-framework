@@ -13,6 +13,28 @@ func test_json_encoding_sorts_dictionary_keys() -> void:
 	assert_eq(left, right, "JSON 编码应递归排序字典键，保证输出稳定。")
 
 
+func test_json_encoding_rejects_traversal_limited_document() -> void:
+	var codec: GFStorageCodec = GFStorageCodec.new()
+	var deep_payload: Dictionary = _make_nested_dictionary(70, "leaf")
+
+	var plain_bytes: PackedByteArray = codec.encode(deep_payload, {
+		"obfuscation_key": 0,
+	})
+	var compressed_bytes: PackedByteArray = codec.encode(deep_payload, {
+		"use_compression": true,
+		"obfuscation_key": 0,
+	})
+	var obfuscated_bytes: PackedByteArray = codec.encode(deep_payload, {
+		"obfuscation_key": 77,
+	})
+
+	assert_true(plain_bytes.is_empty(), "JSON 遍历不完整时编码必须失败，不得持久化 TraversalLimit 标记。")
+	assert_true(compressed_bytes.is_empty(), "压缩不得把空失败结果转换成看似成功的字节流。")
+	assert_true(obfuscated_bytes.is_empty(), "混淆不得把空失败结果转换成看似成功的字节流。")
+	assert_true(codec.serialize_dictionary(deep_payload).is_empty(), "底层 JSON 序列化也必须 fail closed。")
+	assert_eq(codec.calculate_checksum(deep_payload), "", "不完整 JSON 文档不得生成可持久化的校验和。")
+
+
 func test_json_encoding_sorts_non_string_dictionary_keys() -> void:
 	var codec: GFStorageCodec = GFStorageCodec.new()
 
@@ -504,3 +526,16 @@ func test_compression_and_obfuscation_roundtrip() -> void:
 	var loaded: Dictionary = result.payload
 	var stats: Dictionary = GFVariantData.get_option_dictionary(loaded, "stats")
 	assert_eq(GFVariantData.get_option_int(stats, "hp"), 100, "嵌套字典应正确恢复。")
+
+
+# --- 私有/辅助方法 ---
+
+func _make_nested_dictionary(depth: int, leaf_value: Variant) -> Dictionary:
+	var root: Dictionary = {}
+	var current: Dictionary = root
+	for index: int in range(depth):
+		var child: Dictionary = {}
+		current["level_%d" % index] = child
+		current = child
+	current["value"] = leaf_value
+	return root

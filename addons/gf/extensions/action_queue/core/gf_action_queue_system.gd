@@ -76,6 +76,9 @@ var _current_action: Object = null
 # 外部动作控制 hook 正在执行；阻止 hook 同步反调队列后重复控制同一动作。
 var _current_action_control_in_progress: bool = false
 
+# 控制 hook 期间收到的生命周期取消请求；按动作身份去重并保持请求顺序。
+var _deferred_action_cancellations: Array[Object] = []
+
 # 按名称分流的子队列。
 var _named_queues: Dictionary = {}
 
@@ -527,6 +530,7 @@ func pause_current_action() -> bool:
 	_current_action_control_in_progress = true
 	_ACTION_PROTOCOL.pause(action)
 	_current_action_control_in_progress = false
+	_flush_deferred_action_cancellations()
 	return true
 
 
@@ -543,6 +547,7 @@ func resume_current_action() -> bool:
 	_ACTION_PROTOCOL.resume(action)
 	_current_action_control_in_progress = false
 	_set_paused(false)
+	_flush_deferred_action_cancellations()
 	return true
 
 
@@ -561,6 +566,7 @@ func finish_current_action() -> void:
 		_current_action_control_in_progress = true
 		_ACTION_PROTOCOL.finish(action)
 		_current_action_control_in_progress = false
+		_flush_deferred_action_cancellations()
 	is_processing = false
 	_try_start_processing()
 
@@ -864,15 +870,31 @@ func _set_paused(paused: bool) -> void:
 
 
 func _cancel_current_action() -> void:
-	if _current_action_control_in_progress:
-		return
 	var action: Object = _current_action
 	_current_action = null
 	_publish_diagnostics_contribution()
-	if is_instance_valid(action):
+	_queue_deferred_action_cancellation(action)
+	_flush_deferred_action_cancellations()
+
+
+func _queue_deferred_action_cancellation(action: Object) -> void:
+	if not is_instance_valid(action) or _deferred_action_cancellations.has(action):
+		return
+	_deferred_action_cancellations.append(action)
+
+
+func _flush_deferred_action_cancellations() -> void:
+	if _current_action_control_in_progress:
+		return
+	while not _deferred_action_cancellations.is_empty():
+		var action: Object = _deferred_action_cancellations[0]
+		if not is_instance_valid(action):
+			_deferred_action_cancellations.remove_at(0)
+			continue
 		_current_action_control_in_progress = true
 		_ACTION_PROTOCOL.cancel(action)
 		_current_action_control_in_progress = false
+		_deferred_action_cancellations.remove_at(0)
 
 
 func _dispose_all_named_queues() -> void:
