@@ -291,18 +291,244 @@ func test_storage_paths_reject_parent_segments_before_simplification() -> void:
 	assert_push_error("[GFStorageUtility] 已拒绝跨目录路径（file_name）：group/../escape.json")
 
 
-func test_absolute_path_is_rejected_to_save_directory_by_default() -> void:
+func test_runtime_storage_has_no_absolute_path_escape_hatch() -> void:
 	var path: String = _storage._get_full_path("C:/outside/save.json")
 
-	assert_false(_storage.allow_absolute_paths, "2.0 默认应拒绝绝对路径。")
-	assert_eq(path, "", "绝对路径默认应 fail closed，不应收敛到存档目录。")
+	assert_false(_storage.get_property_list().any(func(property: Dictionary) -> bool:
+		return GFVariantData.get_option_string(property, "name") == "allow_absolute_paths"
+	), "运行时 Storage 不应保留可重新启用绝对路径的公共能力。")
+	assert_eq(path, "", "绝对路径必须始终 fail closed，不应收敛到存档目录。")
 	assert_push_error("[GFStorageUtility] 已禁用绝对路径：C:/outside/save.json")
 
 
-func test_absolute_path_can_be_enabled_for_trusted_tools() -> void:
-	_storage.allow_absolute_paths = true
+func test_public_storage_file_and_directory_apis_reject_absolute_paths() -> void:
+	var absolute_file_name: String = "C:/outside/save.json"
+	var absolute_directory_name: String = "C:/outside"
 
-	assert_eq(_storage._get_full_path("C:/outside/save.json"), "C:/outside/save.json", "可信编辑器工具可显式启用绝对路径。")
+	assert_eq(
+		_storage.canonicalize_data_file_name(absolute_file_name),
+		"",
+		"规范化入口不得把绝对路径变成可用 file identity。"
+	)
+	assert_eq(
+		_storage.save_data(absolute_file_name, { "value": 1 }),
+		ERR_INVALID_PARAMETER,
+		"同步保存不得接受绝对路径。"
+	)
+	assert_eq(
+		_storage.ensure_directory(absolute_directory_name),
+		ERR_INVALID_PARAMETER,
+		"目录管理不得接受绝对路径。"
+	)
+	assert_eq(
+		_storage.get_storage_directory_path(absolute_directory_name),
+		"",
+		"目录解析不得泄漏 root 外的绝对路径。"
+	)
+	assert_true(
+		_storage.list_files(absolute_directory_name).is_empty(),
+		"枚举入口不得扫描 root 外的绝对目录。"
+	)
+	assert_eq(
+		_storage.delete_file(absolute_file_name),
+		ERR_INVALID_PARAMETER,
+		"删除入口不得接受绝对路径。"
+	)
+	assert_push_error("[GFStorageUtility] 已禁用绝对路径：C:/outside/save.json")
+	assert_push_error("[GFStorageUtility] 已禁用绝对路径：C:/outside/save.json")
+	assert_push_error("[GFStorageUtility] 已禁用绝对路径：C:/outside/save.json")
+	assert_push_error("[GFStorageUtility] 已禁用绝对路径：C:/outside")
+	assert_push_error("[GFStorageUtility] 已禁用绝对路径：C:/outside")
+	assert_push_error("[GFStorageUtility] 已禁用绝对路径：C:/outside")
+	assert_push_error("[GFStorageUtility] ensure_directory 失败：directory_name 非法。")
+	assert_push_error("[GFStorageUtility] get_storage_directory_path 失败：directory_name 非法。")
+	assert_push_error("[GFStorageUtility] list_files 失败：directory_name 非法。")
+
+
+func test_storage_rejects_cross_platform_absolute_path_forms() -> void:
+	var absolute_paths: Array[String] = [
+		"C:/outside/save.json",
+		"C:\\outside\\save.json",
+		"/tmp/outside/save.json",
+		"\\rooted\\save.json",
+		"//server/share/save.json",
+		"\\\\server\\share\\save.json",
+		"\\\\?\\C:\\outside\\save.json",
+		"\\\\?\\UNC\\server\\share\\save.json",
+		"\\\\.\\pipe\\gf_storage",
+		"\\??\\C:\\outside\\save.json",
+		"user://outside/save.json",
+		"res://outside/save.json",
+		"file://outside/save.json",
+		"pipe://gf_storage",
+	]
+
+	for absolute_path: String in absolute_paths:
+		assert_eq(
+			_storage.canonicalize_data_file_name(absolute_path),
+			"",
+			"Windows、POSIX、UNC 与 Godot scheme 绝对路径都必须失败关闭：%s" % absolute_path
+		)
+		assert_push_error("[GFStorageUtility] 已禁用绝对路径：%s" % absolute_path)
+
+
+func test_invalid_storage_root_configuration_fails_closed() -> void:
+	var invalid_roots: Array[Dictionary] = [
+		{
+			"value": "../escape",
+			"error": "[GFStorageUtility] 已拒绝跨目录路径（save_dir_name）：../escape",
+		},
+		{
+			"value": "nested/../escape",
+			"error": "[GFStorageUtility] 已拒绝跨目录路径（save_dir_name）：nested/../escape",
+		},
+		{
+			"value": "/outside",
+			"error": "[GFStorageUtility] 已禁用绝对路径：/outside",
+		},
+		{
+			"value": "\\outside",
+			"error": "[GFStorageUtility] 已禁用绝对路径：\\outside",
+		},
+		{
+			"value": "C:/outside",
+			"error": "[GFStorageUtility] 已禁用绝对路径：C:/outside",
+		},
+		{
+			"value": "user://outside",
+			"error": "[GFStorageUtility] 已禁用绝对路径：user://outside",
+		},
+		{
+			"value": ".",
+			"error": "[GFStorageUtility] save_dir_name 必须是规范相对目录：.",
+		},
+		{
+			"value": "nested//outside",
+			"error": "[GFStorageUtility] save_dir_name 必须是规范相对目录：nested//outside",
+		},
+		{
+			"value": "C:drive-relative",
+			"error": "[GFStorageUtility] save_dir_name 包含不支持的字符：C:drive-relative",
+		},
+	]
+
+	for invalid_root: Dictionary in invalid_roots:
+		var root_value: String = GFVariantData.get_option_string(invalid_root, "value")
+		var expected_error: String = GFVariantData.get_option_string(invalid_root, "error")
+		_storage.save_dir_name = root_value
+		assert_eq(_storage._get_save_base_path(), "", "非法配置不得退化为 user:// 根：%s" % root_value)
+		assert_push_error(expected_error)
+		assert_eq(_storage._get_full_path("probe.json"), "", "非法 root 不得拼出绝对文件路径。")
+		assert_push_error(expected_error)
+		assert_eq(_storage.get_storage_directory_path(), "", "公开目录解析必须失败关闭。")
+		assert_push_error(expected_error)
+		assert_true(_storage.list_files().is_empty(), "非法 root 不得退化为进程当前目录枚举。")
+		assert_push_error(expected_error)
+		assert_eq(
+			_storage.ensure_directory(),
+			ERR_INVALID_PARAMETER,
+			"非法 root 的目录创建不得伪装成成功。"
+		)
+		assert_push_error(expected_error)
+	_storage.save_dir_name = "test_saves"
+
+
+func test_invalid_storage_root_rejects_all_public_io_before_admission() -> void:
+	var root_error: String = "[GFStorageUtility] 已拒绝跨目录路径（save_dir_name）：../escape"
+	_storage.save_dir_name = "../escape"
+
+	assert_eq(_storage.canonicalize_data_file_name("probe.json"), "")
+	assert_push_error(root_error)
+	assert_eq(_storage.save_data("probe.json", {"value": 1}), ERR_INVALID_PARAMETER)
+	assert_push_error(root_error)
+	var load_result: GFStorageReadResult = _storage.load_data("probe.json")
+	assert_eq(load_result.error_code, ERR_INVALID_PARAMETER)
+	assert_eq(load_result.failure_kind, GFStorageReadResult.FailureKind.INVALID_REQUEST)
+	assert_push_error(root_error)
+	assert_eq(_storage.delete_file("probe.json"), ERR_INVALID_PARAMETER)
+	assert_push_error(root_error)
+	assert_eq(_storage.save_resource("probe.tres", Resource.new()), ERR_INVALID_PARAMETER)
+	assert_push_error(root_error)
+	assert_null(_storage.load_resource("probe.tres", "Resource"))
+	assert_push_error(root_error)
+	assert_eq(
+		_storage.save_data_group({"probe.json": {"value": 1}}),
+		ERR_INVALID_PARAMETER
+	)
+	assert_push_error(root_error)
+	assert_eq(_storage.save_data_async("probe.json", {"value": 1}), ERR_INVALID_PARAMETER)
+	assert_push_error(root_error)
+	assert_eq(_storage.load_data_async("probe.json"), ERR_INVALID_PARAMETER)
+	assert_push_error(root_error)
+
+	var save_operation: GFStorageAsyncOperation = _storage.save_data_request_async(
+		"probe.json",
+		{"value": 1}
+	)
+	assert_true(save_operation.is_completed())
+	assert_eq(save_operation.get_result().get_error_code(), ERR_INVALID_PARAMETER)
+	assert_eq(save_operation.get_file_name(), "")
+	assert_push_error(root_error)
+	var load_operation: GFStorageAsyncOperation = _storage.load_data_request_async("probe.json")
+	assert_true(load_operation.is_completed())
+	assert_eq(load_operation.get_result().get_error_code(), ERR_INVALID_PARAMETER)
+	assert_eq(load_operation.get_file_name(), "")
+	assert_push_error(root_error)
+
+	var transfer: GFStoragePayloadTransfer = GFStoragePayloadTransfer.take_ownership({"value": 1})
+	var payload_operation: GFStorageAsyncOperation = _storage.save_payload_request_async(
+		"probe.json",
+		transfer
+	)
+	assert_true(payload_operation.is_completed())
+	assert_eq(payload_operation.get_result().get_error_code(), ERR_INVALID_PARAMETER)
+	assert_eq(transfer.get_state(), GFStoragePayloadTransfer.State.READY)
+	assert_eq(transfer.get_active_attempt_count(), 0)
+	assert_push_error(root_error)
+	assert_true(transfer.release())
+
+	assert_true(_storage._async_queue.is_empty())
+	assert_true(_storage._async_tasks.is_empty())
+	assert_true(_storage._async_file_locks.is_empty())
+	_storage.save_dir_name = "test_saves"
+
+
+func test_group_resource_and_async_storage_entries_reject_absolute_paths() -> void:
+	var absolute_file_name: String = "C:/outside/save.json"
+	var group_files: Dictionary = {}
+	group_files[absolute_file_name] = { "value": 1 }
+
+	assert_eq(
+		_storage.save_resource(absolute_file_name, Resource.new()),
+		ERR_INVALID_PARAMETER,
+		"Resource 保存不得绕过相对路径边界。"
+	)
+	assert_eq(
+		_storage.save_data_group(group_files),
+		ERR_INVALID_PARAMETER,
+		"多文件事务不得接受任意绝对成员。"
+	)
+	var save_operation: GFStorageAsyncOperation = _storage.save_data_request_async(
+		absolute_file_name,
+		{ "value": 1 }
+	)
+	var load_operation: GFStorageAsyncOperation = _storage.load_data_request_async(
+		absolute_file_name
+	)
+	assert_true(save_operation.is_completed(), "非法异步保存必须同步进入失败终态。")
+	assert_eq(save_operation.get_result().get_error_code(), ERR_INVALID_PARAMETER)
+	assert_eq(save_operation.get_file_name(), "", "拒绝前不得发布未规范化的 caller path。")
+	assert_eq(save_operation.get_result().get_file_name(), "")
+	assert_true(load_operation.is_completed(), "非法异步读取必须同步进入失败终态。")
+	assert_eq(load_operation.get_result().get_error_code(), ERR_INVALID_PARAMETER)
+	assert_eq(load_operation.get_file_name(), "", "拒绝前不得发布未规范化的 caller path。")
+	assert_eq(load_operation.get_result().get_file_name(), "")
+	assert_true(_storage._async_queue.is_empty(), "非法绝对路径不得进入异步队列。")
+	assert_true(_storage._async_tasks.is_empty(), "非法绝对路径不得启动 worker。")
+	assert_push_error("[GFStorageUtility] 已禁用绝对路径：C:/outside/save.json")
+	assert_push_error("[GFStorageUtility] 已禁用绝对路径：C:/outside/save.json")
+	assert_push_error("[GFStorageUtility] 已禁用绝对路径：C:/outside/save.json")
+	assert_push_error("[GFStorageUtility] 已禁用绝对路径：C:/outside/save.json")
 
 
 func test_parent_directory_path_is_rejected() -> void:
@@ -602,7 +828,6 @@ func test_transaction_marker_cannot_expand_recovery_beyond_requested_files() -> 
 
 func test_async_group_marker_cannot_expand_to_unapproved_absolute_sibling() -> void:
 	_storage.encrypt_key = 0
-	_storage.allow_absolute_paths = false
 	var victim_file_name: String = "marker_victim.json"
 	var outsider_file_name: String = "marker_outsider.json"
 	var victim_path: String = _storage._get_full_path(victim_file_name)
@@ -659,7 +884,6 @@ func test_async_group_marker_cannot_expand_to_unapproved_absolute_sibling() -> v
 	)
 	var operation: GFStorageAsyncOperation = _storage.load_data_request_async(victim_file_name)
 	assert_eq(_storage._async_queue.size(), 1, "目标读取应先保持排队，以验证冻结的路径授权。")
-	_storage.allow_absolute_paths = true
 	_storage.wait_for_async_tasks()
 
 	assert_true(blocker.get_result().is_successful(), "占位任务应正常完成。")
@@ -684,6 +908,33 @@ func test_async_group_marker_cannot_expand_to_unapproved_absolute_sibling() -> v
 			ERR_UNAUTHORIZED,
 		]
 	)
+
+
+func test_frozen_async_task_rejects_absolute_storage_root() -> void:
+	var file_name: String = "probe.json"
+	var absolute_roots: Array[String] = [
+		ProjectSettings.globalize_path("user://gf_storage_absolute_root_probe").replace("\\", "/"),
+		"C:/gf_storage_absolute_root_probe",
+	]
+
+	for absolute_root: String in absolute_roots:
+		var final_path: String = absolute_root.path_join(file_name)
+		var task: Dictionary = {
+			"type": &"load",
+			"storage_file_name": file_name,
+			"storage_root_path": absolute_root,
+			"file_key": final_path,
+			"final_path": final_path,
+			"temp_path": final_path + ".tmp",
+			"backup_path": final_path + ".bak",
+			"transaction_path": final_path + ".txn",
+		}
+
+		assert_eq(
+			_storage._recover_frozen_async_transaction(task),
+			ERR_INVALID_PARAMETER,
+			"冻结 task 不得把 worker I/O root 扩大为任意绝对路径：%s" % absolute_root
+		)
 
 
 func test_save_data_group_removes_orphaned_files_when_member_write_fails() -> void:
@@ -1117,6 +1368,7 @@ func test_wait_for_async_tasks_drains_queued_tasks() -> void:
 
 	assert_true(_storage._async_tasks.is_empty(), "等待后不应残留运行中任务。")
 	assert_true(_storage._async_queue.is_empty(), "等待后不应残留排队任务。")
+	assert_true(_storage._async_file_locks.is_empty(), "等待后不应残留文件锁。")
 	assert_eq(GFVariantData.get_option_int(_load_payload("test_wait_async.json"), "value"), 2, "等待应处理完整队列并保留最后一次写入。")
 
 

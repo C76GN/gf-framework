@@ -2,7 +2,7 @@
   "schema_version": 1,
   "catalog_version": "1.0.0",
   "framework_version": "11.0.0-dev.0",
-  "source_digest": "105c37647b4b6a41703d4ed3882ac6f14043d7b2e905084c96ede3fa6bb0c025",
+  "source_digest": "26a8cb0edc078dc6cc5b56f0f76b470e50bcf938dadc99734f917c08204a0d26",
   "class_count": 789,
   "package_count": 52,
   "packages": [
@@ -81167,7 +81167,7 @@
           "kind": "var",
           "name": "save_dir_name",
           "signature": "var save_dir_name: String = \"saves\"",
-          "summary": "保存子目录名；为空时直接写入 `user://`。",
+          "summary": "保存子目录名；为空时直接写入 `user://`。非空值必须是规范相对目录，非法配置会失败关闭。",
           "visibility": "public"
         },
         {
@@ -81224,13 +81224,6 @@
           "name": "include_storage_metadata",
           "signature": "var include_storage_metadata: bool = false",
           "summary": "是否写入时间戳、编码格式和压缩方式等诊断元数据。",
-          "visibility": "public"
-        },
-        {
-          "kind": "var",
-          "name": "allow_absolute_paths",
-          "signature": "var allow_absolute_paths: bool = false",
-          "summary": "是否允许传入绝对路径。关闭后绝对路径会被拒绝。",
           "visibility": "public"
         },
         {

@@ -79,7 +79,7 @@ func get_operation() -> StringName:
 ## [br]
 ## @since 10.0.0
 ## [br]
-## @return 请求实际使用的存储相对文件名或绝对文件名。
+## @return 已通过路径校验的请求返回规范相对文件名；校验前被拒绝时返回空字符串。
 func get_file_name() -> String:
 	return _file_name
 
@@ -197,7 +197,7 @@ func to_dict() -> Dictionary:
 ## [br]
 ## @param operation: 请求类型。
 ## [br]
-## @param file_name: 规范化文件名。
+## @param file_name: 当前 Storage root 内的规范相对文件名；请求在路径校验前失败时为空。
 ## [br]
 ## @param ok: 请求是否成功。
 ## [br]

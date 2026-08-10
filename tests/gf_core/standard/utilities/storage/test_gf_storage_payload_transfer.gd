@@ -104,6 +104,33 @@ func test_invalid_path_does_not_claim_transfer() -> void:
 	assert_push_error("[GFStorageUtility] save_payload_request_async 失败：file_name 为空。")
 
 
+func test_absolute_path_does_not_claim_transfer() -> void:
+	var transfer: GFStoragePayloadTransfer = GFStoragePayloadTransfer.take_ownership({"value": 1})
+
+	var operation: GFStorageAsyncOperation = _storage.save_payload_request_async(
+		"C:/outside/transfer.json",
+		transfer
+	)
+
+	assert_true(operation.is_completed())
+	assert_false(operation.get_result().is_successful())
+	assert_eq(operation.get_result().get_error_code(), ERR_INVALID_PARAMETER)
+	assert_eq(operation.get_file_name(), "")
+	assert_eq(operation.get_result().get_file_name(), "")
+	assert_eq(
+		operation.get_result().get_write_failure_kind(),
+		GFStorageAsyncResult.WriteFailureKind.INVALID_REQUEST
+	)
+	assert_eq(transfer.get_state(), GFStoragePayloadTransfer.State.READY)
+	assert_eq(transfer.get_active_attempt_count(), 0)
+	assert_null(operation.get_payload_transfer())
+	assert_null(operation.reclaim_failed_payload())
+	assert_true(transfer.release())
+	assert_push_error(
+		"[GFStorageUtility] 已禁用绝对路径：C:/outside/transfer.json"
+	)
+
+
 func test_malformed_transfer_payload_fails_closed_before_queueing() -> void:
 	var transfer: GFStoragePayloadTransfer = MalformedPayloadTransfer.new()
 

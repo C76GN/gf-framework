@@ -83,7 +83,7 @@ func get_operation() -> StringName:
 ## [br]
 ## @since 10.0.0
 ## [br]
-## @return 请求实际使用的文件名。
+## @return 已通过路径校验的请求返回规范相对文件名；校验前被拒绝时返回空字符串。
 func get_file_name() -> String:
 	return _file_name
 
@@ -172,7 +172,7 @@ func reclaim_failed_payload() -> GFStoragePayloadTransfer:
 ## [br]
 ## @param operation: 请求类型。
 ## [br]
-## @param file_name: 规范化文件名。
+## @param file_name: 当前 Storage root 内的规范相对文件名；校验前初始化请求身份时允许为空。
 ## [br]
 ## @return 首次配置成功返回 true。
 func configure_for_framework(request_id: int, operation: StringName, file_name: String) -> bool:
@@ -192,7 +192,7 @@ func configure_for_framework(request_id: int, operation: StringName, file_name: 
 ## [br]
 ## @since 10.0.0
 ## [br]
-## @param file_name: 规范化文件名。
+## @param file_name: 当前 Storage root 内的规范相对文件名。
 ## [br]
 ## @return 请求仍在等待且文件名非空时返回 true。
 func set_file_name_for_framework(file_name: String) -> bool:

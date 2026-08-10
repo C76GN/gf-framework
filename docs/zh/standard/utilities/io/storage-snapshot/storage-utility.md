@@ -166,7 +166,9 @@ if not async_result.is_successful():
 
 除槽位和字典读写外，`get_storage_directory_path()`、`ensure_directory()`、`list_files()` 与 `delete_file()` 可用于管理同一存储根目录下的通用文件，例如列出本地缩略图、缓存 manifest 或项目自定义资源文件。
 
-`get_storage_directory_path()` 只解析路径，不创建目录；需要目录实际存在时再调用 `ensure_directory()`。这些 API 复用 `GFStorageUtility` 的路径安全策略：默认拒绝绝对路径并阻止 `..` 跨目录；纯字典读写和多文件事务 API 会直接拒绝空 `file_name` 或任意非法成员，而不是写入内部兜底文件名。
+`get_storage_directory_path()` 只解析路径，不创建目录；需要目录实际存在时再调用 `ensure_directory()`。这些 API 复用 `GFStorageUtility` 的路径安全策略：所有运行时入口只接受规范相对路径，并在词法上解析到当前 Storage root；绝对路径、`..` 跨目录路径和非法非空 `save_dir_name` 始终失败关闭，不会退化到 `user://` 根。纯字典读写和多文件事务 API 会直接拒绝空 `file_name` 或任意非法成员，而不是写入内部兜底文件名。需要读取任意本机路径的可信编辑器或离线迁移工具，应在自己的工具能力边界内直接使用 `FileAccess` / `DirAccess`，不能重新扩大运行时 Storage 的权限。
+
+这是一条 GF API 的词法身份与所有权边界，不是宿主文件系统安全沙箱：同进程代码仍可直接调用 `FileAccess` / `DirAccess`，宿主预先建立的 symlink、junction、挂载点或等价重定向也不在该保证内。涉及不可信宿主环境时，应由平台沙箱和文件系统权限提供实际隔离。
 
 递归枚举默认限制深度和返回数量，可通过 `list_files(..., { "max_scan_depth": 64, "max_file_count": 20000 })` 调整。枚举结果返回存储相对路径，适合交给 `load_data()`、显式启用后的 `load_resource()` 或项目自己的读取流程继续处理。
 

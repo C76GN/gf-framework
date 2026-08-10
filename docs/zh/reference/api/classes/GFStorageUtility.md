@@ -9,7 +9,7 @@
 - 类别：运行时服务 (`runtime_service`)
 - 首次版本：`3.17.0`
 
-基于 `user://` 的轻量存档系统。 支持槽位存档、元数据分离读取、`Resource` 存取， 以及可配置 codec、完整性校验、版本迁移和简单混淆，适合通用本地持久化场景。 该混淆不提供安全加密能力，请勿用于保护敏感数据。 `Resource` 存取只面向项目生成或项目已确认来源与格式的本地文件；它不是未确认来源资源的沙盒化导入器。
+基于 `user://` 的轻量存档系统。 支持槽位存档、元数据分离读取、`Resource` 存取， 以及可配置 codec、完整性校验、版本迁移和简单混淆，适合通用本地持久化场景。 所有公开文件与目录入口只接受当前 Storage root 内的规范相对路径；运行时不提供 任意绝对路径能力，需要访问外部路径的可信编辑器工具应直接使用其自有 FileAccess 边界。 这是 GF API 的词法路径与所有权边界，不是抵御同进程 FileAccess、宿主链接或挂载点的文件系统沙箱。 该混淆不提供安全加密能力，请勿用于保护敏感数据。 `Resource` 存取只面向项目生成或项目已确认来源与格式的本地文件；它不是未确认来源资源的沙盒化导入器。
 
 ## 成员概览
 
@@ -31,7 +31,6 @@
 | 属性 | [`strict_integrity`](#member-gfstorageutility-properties-strict_integrity) | `var strict_integrity: bool = true` |
 | 属性 | [`require_integrity_checksum`](#member-gfstorageutility-properties-require_integrity_checksum) | `var require_integrity_checksum: bool = true` |
 | 属性 | [`include_storage_metadata`](#member-gfstorageutility-properties-include_storage_metadata) | `var include_storage_metadata: bool = false` |
-| 属性 | [`allow_absolute_paths`](#member-gfstorageutility-properties-allow_absolute_paths) | `var allow_absolute_paths: bool = false` |
 | 属性 | [`allow_resource_loads`](#member-gfstorageutility-properties-allow_resource_loads) | `var allow_resource_loads: bool = false` |
 | 属性 | [`allowed_resource_load_extensions`](#member-gfstorageutility-properties-allowed_resource_load_extensions) | `var allowed_resource_load_extensions: PackedStringArray = PackedStringArray(["tres", "res"])` |
 | 属性 | [`allowed_resource_load_type_hints`](#member-gfstorageutility-properties-allowed_resource_load_type_hints) | `var allowed_resource_load_type_hints: PackedStringArray = PackedStringArray()` |
@@ -194,12 +193,13 @@ var encrypt_key: int = 42
 ### `save_dir_name`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var save_dir_name: String = "saves"
 ```
 
-保存子目录名；为空时直接写入 `user://`。
+保存子目录名；为空时直接写入 `user://`。非空值必须是规范相对目录，非法配置会失败关闭。
 
 <a id="member-gfstorageutility-properties-codec"></a>
 
@@ -297,19 +297,6 @@ var include_storage_metadata: bool = false
 ```
 
 是否写入时间戳、编码格式和压缩方式等诊断元数据。 数据版本始终写入独立文档 metadata，不受该选项影响。
-
-<a id="member-gfstorageutility-properties-allow_absolute_paths"></a>
-
-### `allow_absolute_paths`
-
-- API：`public`
-- 首次版本：`2.0.0`
-
-```gdscript
-var allow_absolute_paths: bool = false
-```
-
-是否允许传入绝对路径。关闭后绝对路径会被拒绝。
 
 <a id="member-gfstorageutility-properties-allow_resource_loads"></a>
 
@@ -616,6 +603,7 @@ func get_storage_directory_path(directory_name: String = "") -> String:
 ### `list_files`
 
 - API：`public`
+- 首次版本：`2.3.0`
 
 ```gdscript
 func list_files( directory_name: String = "", extension_filter: String = "", recursive: bool = false, options: Dictionary = {} ) -> PackedStringArray:
@@ -632,7 +620,7 @@ func list_files( directory_name: String = "", extension_filter: String = "", rec
 | `recursive` | 是否递归枚举子目录。 |
 | `options` | 可选参数，支持 `max_scan_depth` 与 `max_file_count`。 |
 
-返回：存储相对文件路径数组；若传入允许的绝对目录，则返回绝对文件路径。
+返回：当前 Storage root 内的规范相对文件路径数组。
 
 结构：
 
@@ -749,7 +737,7 @@ func canonicalize_data_file_name(file_name: String) -> String:
 |---|---|
 | `file_name` | 待校验文件名。 |
 
-返回：合法时返回规范化文件名；非法时返回空字符串。
+返回：合法时返回当前 Storage root 内的规范相对文件名；非法时返回空字符串。
 
 <a id="member-gfstorageutility-methods-save_data_async"></a>
 

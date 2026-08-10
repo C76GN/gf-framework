@@ -1,8 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFStorageUtility" path="addons/gf/standard/utilities/storage/gf_storage_utility.gd" module="standard" extends="GFUtility" classDigest="5ec43970f594a2213d612fdb8a22bff66a7eb291823462a37ee3db86872b3686">
+<class name="GFStorageUtility" path="addons/gf/standard/utilities/storage/gf_storage_utility.gd" module="standard" extends="GFUtility" classDigest="1362022a7a63c35105242627cddef6fa42ca7244f236a0494ca651b7f834a1e3">
 	<description>GFStorageUtility: 基于 `user://` 的轻量存档系统。
 支持槽位存档、元数据分离读取、`Resource` 存取，
 以及可配置 codec、完整性校验、版本迁移和简单混淆，适合通用本地持久化场景。
+所有公开文件与目录入口只接受当前 Storage root 内的规范相对路径；运行时不提供
+任意绝对路径能力，需要访问外部路径的可信编辑器工具应直接使用其自有 FileAccess 边界。
+这是 GF API 的词法路径与所有权边界，不是抵御同进程 FileAccess、宿主链接或挂载点的文件系统沙箱。
 该混淆不提供安全加密能力，请勿用于保护敏感数据。
 `Resource` 存取只面向项目生成或项目已确认来源与格式的本地文件；它不是未确认来源资源的沙盒化导入器。</description>
 	<tags>
@@ -77,9 +80,10 @@
 		</member>
 		<member kind="property" name="save_dir_name">
 			<signature>var save_dir_name: String = "saves"</signature>
-			<description>保存子目录名；为空时直接写入 `user://`。</description>
+			<description>保存子目录名；为空时直接写入 `user://`。非空值必须是规范相对目录，非法配置会失败关闭。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="codec">
@@ -138,14 +142,6 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="since">9.0.0</tag>
-			</tags>
-		</member>
-		<member kind="property" name="allow_absolute_paths">
-			<signature>var allow_absolute_paths: bool = false</signature>
-			<description>是否允许传入绝对路径。关闭后绝对路径会被拒绝。</description>
-			<tags>
-				<tag name="api">public</tag>
-				<tag name="since">2.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="allow_resource_loads">
@@ -320,8 +316,9 @@
 				<tag name="param">extension_filter: 可选扩展名过滤，允许传入 `"json"` 或 `".json"`。</tag>
 				<tag name="param">recursive: 是否递归枚举子目录。</tag>
 				<tag name="param">options: 可选参数，支持 `max_scan_depth` 与 `max_file_count`。</tag>
-				<tag name="return">存储相对文件路径数组；若传入允许的绝对目录，则返回绝对文件路径。</tag>
+				<tag name="return">当前 Storage root 内的规范相对文件路径数组。</tag>
 				<tag name="schema">options: Dictionary，包含 max_scan_depth: int 和 max_file_count: int。</tag>
+				<tag name="since">2.3.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="delete_file">
@@ -374,7 +371,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">file_name: 待校验文件名。</tag>
-				<tag name="return">合法时返回规范化文件名；非法时返回空字符串。</tag>
+				<tag name="return">合法时返回当前 Storage root 内的规范相对文件名；非法时返回空字符串。</tag>
 				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
