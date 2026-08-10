@@ -33,6 +33,8 @@ var projectile = pool.acquire(projectile_scene, projectile_parent, func(node: No
 
 `prewarm_async_budget()` 会按帧预算让出执行权，因此调用方如果还要等待宿主节点的 `ready` 信号，应先等待 `ready`，或在等待前用 `is_node_ready()` 判断宿主是否已经就绪。
 
+同一 `PackedScene` 的 `prewarm()`、`prewarm_async()` 与 `prewarm_async_budget()` 共享在途容量准入。`max_available_per_scene` 为正数时，并发或回调重入的预热请求不会分别占用同一批空余名额；运行中缩小上限、归还节点填满容量或对象池进入新生命周期时，尚未提交的预留会被跳过。预留只约束容量，不提供请求身份、进度或取消句柄。
+
 Godot 的 `ready` 是一次性信号；长时间预热跨过宿主就绪帧后再 `await host.ready`，后续初始化代码会停在调用方自己的等待语句上，这不是对象池预热卡死。
 
 ## 池化 Hook

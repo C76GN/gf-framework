@@ -82,6 +82,9 @@ var _all_nodes: Dictionary = {}
 
 # 可用对象池字典。Key 为 PackedScene 资源，Value 为当前可用的节点栈。
 var _available_pools: Dictionary = {}
+
+# 每个 PackedScene 尚未提交的预热容量总账。
+var _prewarm_reserved_counts: Dictionary = {}
 var _lifecycle_serial: int = 0
 var _pool_root: Node = null
 var _is_disposed: bool = false
@@ -99,6 +102,7 @@ func init() -> void:
 		_queue_free_detached(_pool_root)
 	_all_nodes = {}
 	_available_pools = {}
+	_prewarm_reserved_counts = {}
 	_pool_root = null
 
 
@@ -121,6 +125,7 @@ func dispose() -> void:
 		_queue_free_detached(_pool_root)
 	_all_nodes.clear()
 	_available_pools.clear()
+	_prewarm_reserved_counts.clear()
 	_pool_root = null
 
 
@@ -260,9 +265,15 @@ func prewarm(scene: PackedScene, parent: Node, count: int, before_add: Callable 
 	if count <= 0:
 		return
 
-	var create_count: int = _get_limited_prewarm_count(scene, count)
-	for _i: int in range(create_count):
-		_prewarm_node(scene, parent, before_add)
+	var current_serial: int = _lifecycle_serial
+	var reserved_remaining: int = _reserve_prewarm_capacity(scene, count)
+	while reserved_remaining > 0:
+		var node_created: bool = _prewarm_node(scene, parent, before_add, current_serial)
+		_release_prewarm_capacity(scene, 1, current_serial)
+		reserved_remaining -= 1
+		if not node_created:
+			break
+	_release_prewarm_capacity(scene, reserved_remaining, current_serial)
 
 
 ## 分批预热对象池，避免一次性实例化大量节点造成单帧卡顿。
@@ -299,20 +310,21 @@ func prewarm_async(
 		return
 
 	var current_serial: int = _lifecycle_serial
-	var create_count: int = _get_limited_prewarm_count(scene, count)
+	var reserved_remaining: int = _reserve_prewarm_capacity(scene, count)
 	var scene_tree: SceneTree = _get_scene_tree()
-	for i: int in range(create_count):
-		if current_serial != _lifecycle_serial:
-			return
-		if parent != null and not is_instance_valid(parent):
-			return
-		_prewarm_node(scene, parent, before_add)
-		if scene_tree != null and (i + 1) % batch_size == 0:
+	var created_count: int = 0
+	while reserved_remaining > 0:
+		if not _is_prewarm_context_valid(scene, parent, current_serial):
+			break
+		var node_created: bool = _prewarm_node(scene, parent, before_add, current_serial)
+		_release_prewarm_capacity(scene, 1, current_serial)
+		reserved_remaining -= 1
+		if not node_created:
+			break
+		created_count += 1
+		if scene_tree != null and created_count % batch_size == 0:
 			await scene_tree.process_frame
-			if current_serial != _lifecycle_serial:
-				return
-			if parent != null and not is_instance_valid(parent):
-				return
+	_release_prewarm_capacity(scene, reserved_remaining, current_serial)
 
 
 ## 按单帧时间预算预热对象池，适合复杂度差异较大的 PackedScene。
@@ -349,31 +361,31 @@ func prewarm_async_budget(
 		return
 
 	var current_serial: int = _lifecycle_serial
-	var create_count: int = _get_limited_prewarm_count(scene, count)
-	var created_count: int = 0
+	var reserved_remaining: int = _reserve_prewarm_capacity(scene, count)
 	var scene_tree: SceneTree = _get_scene_tree()
-	while created_count < create_count:
+	var stopped: bool = false
+	while reserved_remaining > 0 and not stopped:
 		var frame_start_usec: int = Time.get_ticks_usec()
 		var created_this_frame: int = 0
-		while created_count < create_count:
-			if current_serial != _lifecycle_serial:
-				return
-			if parent != null and not is_instance_valid(parent):
-				return
-			_prewarm_node(scene, parent, before_add)
-			created_count += 1
+		while reserved_remaining > 0:
+			if not _is_prewarm_context_valid(scene, parent, current_serial):
+				stopped = true
+				break
+			var node_created: bool = _prewarm_node(scene, parent, before_add, current_serial)
+			_release_prewarm_capacity(scene, 1, current_serial)
+			reserved_remaining -= 1
+			if not node_created:
+				stopped = true
+				break
 			created_this_frame += 1
 
 			var elapsed_msec: float = float(Time.get_ticks_usec() - frame_start_usec) / 1000.0
 			if created_this_frame > 0 and elapsed_msec >= msec_budget_per_frame:
 				break
 
-		if created_count < create_count and scene_tree != null:
+		if reserved_remaining > 0 and not stopped and scene_tree != null:
 			await scene_tree.process_frame
-			if current_serial != _lifecycle_serial:
-				return
-			if parent != null and not is_instance_valid(parent):
-				return
+	_release_prewarm_capacity(scene, reserved_remaining, current_serial)
 
 
 ## 获取指定场景当前池中可用（未使用）的节点数量。
@@ -481,27 +493,62 @@ func _ensure_scene_pool(scene: PackedScene) -> bool:
 	return true
 
 
-func _prewarm_node(scene: PackedScene, parent: Node, before_add: Callable = Callable()) -> void:
-	if not _ensure_scene_pool(scene):
-		return
-	if parent != null and not is_instance_valid(parent):
-		return
+func _prewarm_node(
+	scene: PackedScene,
+	parent: Node,
+	before_add: Callable,
+	current_serial: int
+) -> bool:
+	if not _is_prewarm_context_valid(scene, parent, current_serial):
+		return false
 
 	var node: Node = _variant_to_node(scene.instantiate())
+	if not _is_prewarm_context_valid(scene, parent, current_serial):
+		_discard_prewarm_candidate(node)
+		return false
 	if node == null:
 		push_error("[GFObjectPoolUtility] PackedScene 未能实例化为 Node。")
-		return
+		return false
+	if not _is_prewarm_candidate_valid(scene, parent, node, current_serial):
+		_discard_prewarm_candidate(node)
+		return false
+
 	node.set_meta(_META_ACTIVE, false)
 	node.set_meta(_META_SOURCE_SCENE, scene)
 	_prepare_node_tree(node)
 	_set_node_tree_active_state(node, false)
+	if not _is_prewarm_candidate_valid(scene, parent, node, current_serial):
+		_discard_prewarm_candidate(node)
+		return false
+
 	_call_before_add(before_add, node)
+	if (
+		not _is_prewarm_candidate_valid(scene, parent, node, current_serial)
+		or node.get_parent() != null
+	):
+		_discard_prewarm_candidate(node)
+		return false
+
 	if is_instance_valid(parent):
 		parent.add_child(node)
+	if (
+		not _is_prewarm_candidate_valid(scene, parent, node, current_serial)
+		or (parent != null and node.get_parent() != parent)
+	):
+		_discard_prewarm_candidate(node)
+		return false
 
 	_call_node_tree_internal_hook(node, _HOOK_INTERNAL_ON_RELEASE)
+	if (
+		not _is_prewarm_candidate_valid(scene, parent, node, current_serial)
+		or (parent != null and node.get_parent() != parent)
+	):
+		_discard_prewarm_candidate(node)
+		return false
+
 	_get_all_nodes_pool(scene).push_back(node)
 	_get_available_pool(scene).push_back(node)
+	return true
 
 
 func _move_to_pool_root(node: Node) -> void:
@@ -545,11 +592,80 @@ func _ensure_pool_root() -> Node:
 	return _pool_root
 
 
-func _get_limited_prewarm_count(scene: PackedScene, requested_count: int) -> int:
-	if max_available_per_scene <= 0:
-		return requested_count
+func _reserve_prewarm_capacity(scene: PackedScene, requested_count: int) -> int:
+	if requested_count <= 0:
+		return 0
 
-	return maxi(0, mini(requested_count, max_available_per_scene - get_available_count(scene)))
+	var reserved_count: int = _get_prewarm_reserved_count(scene)
+	var admitted_count: int = requested_count
+	if max_available_per_scene > 0:
+		var remaining_capacity: int = (
+			max_available_per_scene
+			- get_available_count(scene)
+			- reserved_count
+		)
+		admitted_count = maxi(0, mini(requested_count, remaining_capacity))
+	if admitted_count <= 0:
+		return 0
+
+	_prewarm_reserved_counts[scene] = reserved_count + admitted_count
+	return admitted_count
+
+
+func _release_prewarm_capacity(scene: PackedScene, count: int, current_serial: int) -> void:
+	if count <= 0 or current_serial != _lifecycle_serial:
+		return
+
+	var reserved_count: int = _get_prewarm_reserved_count(scene)
+	var remaining_count: int = maxi(0, reserved_count - count)
+	if remaining_count == 0:
+		var _erased_reservation: bool = _prewarm_reserved_counts.erase(scene)
+	else:
+		_prewarm_reserved_counts[scene] = remaining_count
+
+
+func _get_prewarm_reserved_count(scene: PackedScene) -> int:
+	var raw_count: Variant = _prewarm_reserved_counts.get(scene, 0)
+	if raw_count is int:
+		var count: int = raw_count
+		return maxi(0, count)
+	return 0
+
+
+func _is_prewarm_context_valid(
+	scene: PackedScene,
+	parent: Node,
+	current_serial: int
+) -> bool:
+	if _is_disposed or current_serial != _lifecycle_serial:
+		return false
+	if not is_instance_valid(scene):
+		return false
+	if parent != null:
+		if not is_instance_valid(parent) or parent.is_queued_for_deletion():
+			return false
+	if not _all_nodes.has(scene) or not _available_pools.has(scene):
+		return false
+	if max_available_per_scene > 0 and get_available_count(scene) >= max_available_per_scene:
+		return false
+	return true
+
+
+func _is_prewarm_candidate_valid(
+	scene: PackedScene,
+	parent: Node,
+	node_value: Variant,
+	current_serial: int
+) -> bool:
+	if not _is_prewarm_context_valid(scene, parent, current_serial):
+		return false
+	return _get_valid_pool_node(node_value) != null
+
+
+func _discard_prewarm_candidate(node_value: Variant) -> void:
+	var node: Node = _INSTANCE_GUARD._get_live_node(node_value)
+	if node != null:
+		_queue_free_detached(node)
 
 
 func _prepare_node_for_pool(node: Node) -> void:

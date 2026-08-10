@@ -251,6 +251,156 @@ func test_prewarm_async_batches_nodes() -> void:
 	assert_eq(_pool.get_available_count(_scene), 3, "prewarm_async 后可用节点数应正确。")
 
 
+func test_concurrent_async_prewarms_share_capacity() -> void:
+	_pool.max_available_per_scene = 4
+	@warning_ignore("missing_await")
+	_pool.prewarm_async(_scene, _parent, 4, 1)
+	assert_eq(_pool.get_available_count(_scene), 1, "首个异步预热应在首次让帧前创建一个节点。")
+
+	@warning_ignore("missing_await")
+	_pool.prewarm_async(_scene, _parent, 4, 1)
+	for _frame: int in range(8):
+		await get_tree().process_frame
+
+	assert_eq(_pool.get_available_count(_scene), 4, "并发异步预热必须共享同一场景的容量准入。")
+
+
+func test_sync_prewarm_cannot_consume_async_reserved_capacity() -> void:
+	_pool.max_available_per_scene = 4
+	@warning_ignore("missing_await")
+	_pool.prewarm_async(_scene, _parent, 4, 1)
+
+	_pool.prewarm(_scene, _parent, 4)
+	for _frame: int in range(6):
+		await get_tree().process_frame
+
+	assert_eq(_pool.get_available_count(_scene), 4, "同步预热不能占用异步请求尚未创建的预留容量。")
+
+
+func test_sync_prewarm_cannot_consume_budgeted_reserved_capacity() -> void:
+	_pool.max_available_per_scene = 4
+	@warning_ignore("missing_await")
+	_pool.prewarm_async_budget(
+		_scene,
+		_parent,
+		4,
+		0.001,
+		Callable(self, &"_consume_prewarm_frame_budget")
+	)
+	assert_eq(_pool.get_available_count(_scene), 1, "budget 预热应在耗尽首帧预算后保留未提交预留。")
+
+	_pool.prewarm(_scene, _parent, 4)
+	for _frame: int in range(8):
+		await get_tree().process_frame
+
+	assert_eq(_pool.get_available_count(_scene), 4, "同步预热不能占用 budget 请求跨帧持有的容量预留。")
+
+
+func test_budgeted_prewarm_cannot_reenter_sync_reservation() -> void:
+	_pool.max_available_per_scene = 4
+	var reentry_state: Array[bool] = [false]
+	_pool.prewarm(_scene, _parent, 4, func(_node: Node) -> void:
+		if reentry_state[0]:
+			return
+		reentry_state[0] = true
+		@warning_ignore("missing_await")
+		_pool.prewarm_async_budget(_scene, _parent, 4, 0.001)
+	)
+
+	for _frame: int in range(8):
+		await get_tree().process_frame
+
+	assert_eq(_pool.get_available_count(_scene), 4, "budget 预热重入时必须服从同步请求已取得的容量预留。")
+
+
+func test_unbounded_prewarm_tracks_reservation_if_limit_is_enabled_reentrantly() -> void:
+	_pool.max_available_per_scene = 0
+	var reentry_state: Array[bool] = [false]
+	_pool.prewarm(_scene, _parent, 4, func(_node: Node) -> void:
+		if reentry_state[0]:
+			return
+		reentry_state[0] = true
+		_pool.max_available_per_scene = 4
+		_pool.prewarm(_scene, _parent, 4)
+	)
+
+	assert_eq(_pool.get_available_count(_scene), 4, "无限容量下开始的请求也必须登记预留，供重入启用上限时复验。")
+
+
+func test_release_can_fill_capacity_before_prewarm_commit() -> void:
+	_pool.max_available_per_scene = 1
+	var active_node: Node = _pool.acquire(_scene, _parent)
+	var rejected_candidates: Array[Variant] = []
+	_pool.prewarm(_scene, _parent, 1, func(candidate: Node) -> void:
+		rejected_candidates.append(candidate)
+		_pool.release(active_node, _scene)
+	)
+
+	assert_eq(_pool.get_available_count(_scene), 1, "归还节点先填满实际容量时，预留候选不得无条件提交。")
+	await get_tree().process_frame
+	assert_eq(rejected_candidates.size(), 1, "测试应观察到一个未提交候选。")
+	assert_false(is_instance_valid(rejected_candidates[0]), "失去容量的预热候选必须被释放。")
+
+
+func test_async_prewarm_rechecks_lowered_capacity_after_yield() -> void:
+	_pool.max_available_per_scene = 4
+	@warning_ignore("missing_await")
+	_pool.prewarm_async(_scene, _parent, 4, 1)
+	assert_eq(_pool.get_available_count(_scene), 1, "异步预热应先创建一个节点再让帧。")
+
+	_pool.max_available_per_scene = 2
+	for _frame: int in range(6):
+		await get_tree().process_frame
+
+	assert_eq(_pool.get_available_count(_scene), 2, "运行中缩小容量后，旧预热计划不能继续写穿新上限。")
+
+
+func test_invalidated_parent_releases_reservation_for_retry() -> void:
+	_pool.max_available_per_scene = 2
+	var invalidated_parent: Node = _parent
+	var rejected_candidates: Array[Variant] = []
+	_pool.prewarm(_scene, invalidated_parent, 2, func(candidate: Node) -> void:
+		rejected_candidates.append(candidate)
+		invalidated_parent.queue_free()
+	)
+
+	_parent = Node.new()
+	add_child(_parent)
+	_pool.prewarm(_scene, _parent, 2)
+	await get_tree().process_frame
+
+	assert_eq(_pool.get_available_count(_scene), 2, "父节点失效后必须释放全部未提交预留，使同场景可完整重试。")
+	assert_false(is_instance_valid(rejected_candidates[0]), "父节点失效时尚未挂树的候选必须被释放。")
+
+
+func test_sync_prewarm_rejects_stale_generation_after_reentrant_init() -> void:
+	_pool.max_available_per_scene = 2
+	var restart_state: Array[bool] = [false]
+	var stale_candidates: Array[Variant] = []
+	_pool.prewarm(_scene, _parent, 2, func(candidate: Node) -> void:
+		if restart_state[0]:
+			return
+		restart_state[0] = true
+		stale_candidates.append(candidate)
+		_pool.dispose()
+		_pool.init()
+		_pool.max_available_per_scene = 2
+		@warning_ignore("missing_await")
+		_pool.prewarm_async(_scene, _parent, 2, 1)
+	)
+
+	assert_eq(_pool.get_available_count(_scene), 1, "新生命周期应保留一个尚未提交的异步预留。")
+	_pool.prewarm(_scene, _parent, 2)
+	assert_eq(_pool.get_available_count(_scene), 1, "旧代清理不得扣减新代 pending 预留并放开重复准入。")
+
+	for _frame: int in range(4):
+		await get_tree().process_frame
+
+	assert_eq(_pool.get_available_count(_scene), 2, "dispose/init 后旧代同步预热不能写入新代对象池。")
+	assert_eq(_parent.get_child_count(), 2, "旧代候选节点必须被释放，不能混入新代父节点。")
+	assert_false(is_instance_valid(stale_candidates[0]), "dispose/init 前创建的 provisional 节点不得泄漏。")
+
+
 func test_prewarm_async_stops_after_dispose() -> void:
 	@warning_ignore("missing_await")
 	_pool.prewarm_async(_scene, _parent, 5, 1)
@@ -447,6 +597,12 @@ func test_acquire_invalid_freed_instance_is_safe() -> void:
 
 
 # --- 私有/辅助方法 ---
+
+func _consume_prewarm_frame_budget(_node: Node) -> void:
+	var deadline_usec: int = Time.get_ticks_usec() + 1000
+	while Time.get_ticks_usec() < deadline_usec:
+		pass
+
 
 ## 创建一个最简 PackedScene（仅包含一个根 Node），用于测试。
 func _make_node_scene() -> PackedScene:
