@@ -473,7 +473,7 @@ class SceneUtilityProbe extends GFSceneUtility:
 	func _do_change_scene(_scene: PackedScene) -> bool:
 		packed_scene_changes += 1
 		var _callback_result: Variant = (
-			_auto_neighbor_scene_changed_callback.call(null)
+			_auto_neighbor_scene_changed_callback.call()
 			if _auto_neighbor_scene_changed_callback.is_valid()
 			else null
 		)
