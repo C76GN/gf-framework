@@ -2,6 +2,9 @@
 ##
 ## 支持槽位存档、元数据分离读取、`Resource` 存取，
 ## 以及可配置 codec、完整性校验、版本迁移和简单混淆，适合通用本地持久化场景。
+## 所有公开文件与目录入口只接受当前 Storage root 内的规范相对路径；运行时不提供
+## 任意绝对路径能力，需要访问外部路径的可信编辑器工具应直接使用其自有 FileAccess 边界。
+## 这是 GF API 的词法路径与所有权边界，不是抵御同进程 FileAccess、宿主链接或挂载点的文件系统沙箱。
 ## 该混淆不提供安全加密能力，请勿用于保护敏感数据。
 ## `Resource` 存取只面向项目生成或项目已确认来源与格式的本地文件；它不是未确认来源资源的沙盒化导入器。
 ## [br]
@@ -86,9 +89,11 @@ const DEFAULT_MAX_LISTED_FILES: int = 10000
 ## @api public
 var encrypt_key: int = 42
 
-## 保存子目录名；为空时直接写入 `user://`。
+## 保存子目录名；为空时直接写入 `user://`。非空值必须是规范相对目录，非法配置会失败关闭。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 var save_dir_name: String = "saves"
 
 ## 存档 codec。为 null 时会自动创建默认 GFStorageCodec。
@@ -133,13 +138,6 @@ var require_integrity_checksum: bool = true
 ## [br]
 ## @since 9.0.0
 var include_storage_metadata: bool = false
-
-## 是否允许传入绝对路径。关闭后绝对路径会被拒绝。
-## [br]
-## @api public
-## [br]
-## @since 2.0.0
-var allow_absolute_paths: bool = false
 
 ## 是否允许通过 `load_resource()` 调用 Godot `ResourceLoader`。默认关闭，避免未确认来源文件进入资源加载链路。
 ## [br]
@@ -243,6 +241,8 @@ func init() -> void:
 	_ensure_storage_helpers()
 	ignore_pause = true
 	var dir_path: String = _get_save_base_path()
+	if dir_path.is_empty():
+		return
 	var dir_error: Error = _ensure_directory_absolute(dir_path)
 	if dir_error != OK:
 		push_error("[GFStorageUtility] 无法初始化存储目录：%s，错误码：%s" % [dir_path, dir_error])
@@ -432,9 +432,11 @@ func ensure_directory(directory_name: String = "") -> Error:
 		return ERR_UNAVAILABLE
 	if not _validate_public_directory_name(directory_name, "ensure_directory"):
 		return ERR_INVALID_PARAMETER
-	init()
 	var normalized_directory: String = _normalize_storage_directory_name(directory_name)
 	var path: String = _get_full_directory_path_from_normalized(normalized_directory)
+	if path.is_empty():
+		return ERR_INVALID_PARAMETER
+	init()
 	var error: Error = _ensure_directory_absolute(path)
 	if error != OK:
 		push_error("[GFStorageUtility] 无法创建目录：%s，错误码：%s" % [path, error])
@@ -461,6 +463,8 @@ func get_storage_directory_path(directory_name: String = "") -> String:
 ## [br]
 ## @api public
 ## [br]
+## @since 2.3.0
+## [br]
 ## @param directory_name: 相对存储目录；为空时枚举根存储目录。
 ## [br]
 ## @param extension_filter: 可选扩展名过滤，允许传入 `"json"` 或 `".json"`。
@@ -471,7 +475,7 @@ func get_storage_directory_path(directory_name: String = "") -> String:
 ## [br]
 ## @schema options: Dictionary，包含 max_scan_depth: int 和 max_file_count: int。
 ## [br]
-## @return 存储相对文件路径数组；若传入允许的绝对目录，则返回绝对文件路径。
+## @return 当前 Storage root 内的规范相对文件路径数组。
 func list_files(
 	directory_name: String = "",
 	extension_filter: String = "",
@@ -482,10 +486,12 @@ func list_files(
 		return PackedStringArray()
 	if not _validate_public_directory_name(directory_name, "list_files"):
 		return PackedStringArray()
-	init()
 	var result: PackedStringArray = PackedStringArray()
 	var normalized_directory: String = _normalize_storage_directory_name(directory_name)
 	var directory_path: String = _get_full_directory_path_from_normalized(normalized_directory)
+	if directory_path.is_empty():
+		return result
+	init()
 	var normalized_extension: String = _normalize_extension_filter(extension_filter)
 	var max_scan_depth: int = maxi(GFVariantData.get_option_int(options, "max_scan_depth", DEFAULT_MAX_LIST_DEPTH), 0)
 	var max_file_count: int = maxi(GFVariantData.get_option_int(options, "max_file_count", DEFAULT_MAX_LISTED_FILES), 0)
@@ -673,7 +679,7 @@ func load_data(file_name: String) -> GFStorageReadResult:
 ## [br]
 ## @param file_name: 待校验文件名。
 ## [br]
-## @return 合法时返回规范化文件名；非法时返回空字符串。
+## @return 合法时返回当前 Storage root 内的规范相对文件名；非法时返回空字符串。
 func canonicalize_data_file_name(file_name: String) -> String:
 	if not _validate_public_file_name(file_name, "canonicalize_data_file_name"):
 		return ""
@@ -712,8 +718,7 @@ func save_data_async(file_name: String, data: Dictionary) -> Error:
 ## @return 已配置的请求句柄；输入无效或启动失败时句柄立即进入失败终态。
 func save_data_request_async(file_name: String, data: Dictionary) -> GFStorageAsyncOperation:
 	var operation: GFStorageAsyncOperation = _make_async_operation(
-		GFStorageAsyncOperation.OPERATION_SAVE,
-		file_name
+		GFStorageAsyncOperation.OPERATION_SAVE
 	)
 	var _error: Error = _enqueue_async_save(file_name, data, operation, "save_data_request_async")
 	return operation
@@ -740,8 +745,7 @@ func save_payload_request_async(
 	transfer: GFStoragePayloadTransfer
 ) -> GFStorageAsyncOperation:
 	var operation: GFStorageAsyncOperation = _make_async_operation(
-		GFStorageAsyncOperation.OPERATION_SAVE,
-		file_name
+		GFStorageAsyncOperation.OPERATION_SAVE
 	)
 	var _error: Error = _enqueue_async_payload_save(
 		file_name,
@@ -776,8 +780,7 @@ func load_data_async(file_name: String) -> Error:
 ## @return 已配置的请求句柄；输入无效或启动失败时句柄立即进入失败终态。
 func load_data_request_async(file_name: String) -> GFStorageAsyncOperation:
 	var operation: GFStorageAsyncOperation = _make_async_operation(
-		GFStorageAsyncOperation.OPERATION_LOAD,
-		file_name
+		GFStorageAsyncOperation.OPERATION_LOAD
 	)
 	var _error: Error = _enqueue_async_load(file_name, operation, "load_data_request_async")
 	return operation
@@ -915,20 +918,19 @@ func get_registered_migrations() -> Array[Dictionary]:
 
 # --- 私有/辅助方法 ---
 
-func _make_async_operation(operation_kind: StringName, file_name: String) -> GFStorageAsyncOperation:
+func _make_async_operation(operation_kind: StringName) -> GFStorageAsyncOperation:
 	var operation: GFStorageAsyncOperation = GFStorageAsyncOperation.new()
 	var request_id: int = _next_async_request_id
 	_next_async_request_id += 1
 	if _next_async_request_id <= 0:
 		_next_async_request_id = 1
-	var _configured: bool = operation.configure_for_framework(request_id, operation_kind, file_name)
+	var _configured: bool = operation.configure_for_framework(request_id, operation_kind, "")
 	return operation
 
 
 func _make_async_target_family(canonical_file_name: String) -> Dictionary:
 	var final_path: String = _get_full_path(canonical_file_name)
 	return {
-		"allow_absolute_paths": allow_absolute_paths,
 		"storage_root_path": _get_save_base_path(),
 		"file_key": final_path,
 		"final_path": final_path,
@@ -985,7 +987,6 @@ func _enqueue_async_save(
 		"type": &"save",
 		"file_name": file_name,
 		"storage_file_name": canonical_file_name,
-		"allow_absolute_paths": GFVariantData.get_option_bool(target_family, "allow_absolute_paths"),
 		"storage_root_path": GFVariantData.get_option_string(target_family, "storage_root_path"),
 		"file_key": GFVariantData.get_option_string(target_family, "file_key"),
 		"final_path": GFVariantData.get_option_string(target_family, "final_path"),
@@ -1084,7 +1085,6 @@ func _enqueue_async_payload_save(
 		"type": &"save",
 		"file_name": file_name,
 		"storage_file_name": canonical_file_name,
-		"allow_absolute_paths": GFVariantData.get_option_bool(target_family, "allow_absolute_paths"),
 		"storage_root_path": GFVariantData.get_option_string(target_family, "storage_root_path"),
 		"file_key": target_file_key,
 		"final_path": GFVariantData.get_option_string(target_family, "final_path"),
@@ -1140,7 +1140,6 @@ func _enqueue_async_load(
 		"type": &"load",
 		"file_name": file_name,
 		"storage_file_name": canonical_file_name,
-		"allow_absolute_paths": GFVariantData.get_option_bool(target_family, "allow_absolute_paths"),
 		"storage_root_path": GFVariantData.get_option_string(target_family, "storage_root_path"),
 		"file_key": GFVariantData.get_option_string(target_family, "file_key"),
 		"final_path": GFVariantData.get_option_string(target_family, "final_path"),
@@ -1227,7 +1226,9 @@ func _release_storage_helpers() -> void:
 
 
 func _ensure_directory_absolute(path: String) -> Error:
-	if path.is_empty() or DirAccess.dir_exists_absolute(path):
+	if path.is_empty():
+		return ERR_INVALID_PARAMETER
+	if DirAccess.dir_exists_absolute(path):
 		return OK
 	return DirAccess.make_dir_recursive_absolute(path)
 
@@ -1275,10 +1276,6 @@ func _get_task_file_name(task: Dictionary) -> String:
 
 func _get_task_storage_file_name(task: Dictionary) -> String:
 	return GFVariantData.get_option_string(task, "storage_file_name", _get_task_file_name(task))
-
-
-func _get_task_allow_absolute_paths(task: Dictionary) -> bool:
-	return GFVariantData.get_option_bool(task, "allow_absolute_paths")
 
 
 func _get_task_storage_root_path(task: Dictionary) -> String:
@@ -1435,15 +1432,16 @@ func _start_async_task(task: Dictionary) -> void:
 
 func _recover_frozen_async_transaction(task: Dictionary) -> Error:
 	var storage_file_name: String = _get_task_storage_file_name(task)
-	var allow_frozen_absolute_paths: bool = _get_task_allow_absolute_paths(task)
 	var storage_root_path: String = _get_task_storage_root_path(task)
 	var final_path: String = _get_task_final_path(task)
 	var temp_path: String = _get_task_temp_path(task)
 	var backup_path: String = _get_task_backup_path(task)
 	var transaction_path: String = _get_task_transaction_path(task)
+	_ensure_storage_helpers()
 	if (
 		storage_file_name.is_empty()
 		or storage_root_path.is_empty()
+		or not _path_policy._is_valid_frozen_storage_root_path(storage_root_path)
 		or final_path.is_empty()
 		or temp_path.is_empty()
 		or backup_path.is_empty()
@@ -1451,10 +1449,8 @@ func _recover_frozen_async_transaction(task: Dictionary) -> Error:
 		or _get_task_file_key(task) != final_path
 	):
 		return ERR_INVALID_PARAMETER
-	_ensure_storage_helpers()
 	var frozen_path_policy: _FrozenStoragePathPolicy = _FrozenStoragePathPolicy.new(
-		storage_root_path,
-		allow_frozen_absolute_paths
+		storage_root_path
 	)
 	var frozen_transaction_manager: _StorageTransactionManager = _StorageTransactionManager.new(
 		self,
@@ -1466,8 +1462,7 @@ func _recover_frozen_async_transaction(task: Dictionary) -> Error:
 		final_path,
 		temp_path,
 		backup_path,
-		transaction_path,
-		allow_frozen_absolute_paths
+		transaction_path
 	)
 	frozen_transaction_manager._dispose()
 	frozen_path_policy._dispose()
@@ -2390,6 +2385,12 @@ func _set_payload_validation_failure(
 
 
 func _load_data_thread(_file_name: String, path: String, codec_options: Dictionary) -> Dictionary:
+	if path.is_empty():
+		return _make_thread_load_failure(
+			"Storage path is invalid",
+			ERR_INVALID_PARAMETER,
+			GFStorageReadResult.FailureKind.INVALID_REQUEST
+		)
 	if not FileAccess.file_exists(path):
 		return _make_thread_load_failure(
 			"File not found",
@@ -2444,6 +2445,8 @@ func _write_buffer_absolute(path: String, bytes: PackedByteArray) -> Error:
 
 
 func _copy_file_bytes(source_path: String, target_path: String) -> Error:
+	if source_path.is_empty() or target_path.is_empty():
+		return ERR_INVALID_PARAMETER
 	var source_file: FileAccess = FileAccess.open(source_path, FileAccess.READ)
 	if source_file == null:
 		return FileAccess.get_open_error()
@@ -2561,6 +2564,8 @@ func _append_listed_files(
 	max_file_count: int,
 	scan_state: Dictionary
 ) -> void:
+	if directory_path.is_empty():
+		return
 	if not _can_append_listed_file(result, max_file_count):
 		_warn_list_file_limit(max_file_count, scan_state)
 		return
@@ -2670,16 +2675,18 @@ func _validate_public_file_name(file_name: String, operation: String) -> bool:
 		return false
 	if not _is_safe_storage_path(file_name, "file_name"):
 		return false
-	return true
+	return not _get_save_base_path().is_empty()
 
 
 func _validate_public_directory_name(directory_name: String, operation: String) -> bool:
-	if directory_name.is_empty() or directory_name == ".":
-		return true
-	if not _is_safe_storage_path(directory_name, "directory_name"):
+	if (
+		not directory_name.is_empty()
+		and directory_name != "."
+		and not _is_safe_storage_path(directory_name, "directory_name")
+	):
 		push_error("[GFStorageUtility] %s 失败：directory_name 非法。" % operation)
 		return false
-	return true
+	return not _get_save_base_path().is_empty()
 
 
 func _is_parent_directory_path(path: String) -> bool:
@@ -3127,53 +3134,88 @@ class _StoragePathPolicy:
 			return fallback
 		return str(value)
 
-	func _get_bool_property(property_name: String, fallback: bool = false) -> bool:
-		var value: Variant = _get_owner_property(property_name)
-		if value is bool:
-			return value
-		if value is int:
-			var int_value: int = value
-			return int_value != 0
-		if value is float:
-			var float_value: float = value
-			return not is_zero_approx(float_value)
-		return fallback
-
 	func _get_save_base_path() -> String:
 		var save_dir_name: String = _get_string_property("save_dir_name")
 		if save_dir_name.is_empty():
 			return "user://"
-		return "user://" + _sanitize_storage_relative_path(save_dir_name, "save_dir_name")
+		if _is_absolute_storage_path(save_dir_name):
+			push_error("[GFStorageUtility] 已禁用绝对路径：%s" % save_dir_name)
+			return ""
+		if _contains_parent_segment(save_dir_name):
+			push_error("[GFStorageUtility] 已拒绝跨目录路径（save_dir_name）：%s" % save_dir_name)
+			return ""
+		if _has_invalid_storage_root_character(save_dir_name):
+			push_error("[GFStorageUtility] save_dir_name 包含不支持的字符：%s" % save_dir_name)
+			return ""
+		var normalized_save_dir_name: String = save_dir_name.replace("\\", "/").simplify_path()
+		if (
+			normalized_save_dir_name.is_empty()
+			or normalized_save_dir_name == "."
+			or normalized_save_dir_name != save_dir_name
+		):
+			push_error("[GFStorageUtility] save_dir_name 必须是规范相对目录：%s" % save_dir_name)
+			return ""
+		return "user://" + normalized_save_dir_name
+
+	func _is_absolute_storage_path(path: String) -> bool:
+		return path.replace("\\", "/").is_absolute_path()
+
+	func _has_invalid_storage_root_character(path: String) -> bool:
+		const FORBIDDEN_CHARACTERS: String = "<>:\"|?*"
+		for index: int in range(path.length()):
+			var codepoint: int = path.unicode_at(index)
+			if codepoint < 32 or codepoint == 127:
+				return true
+			if FORBIDDEN_CHARACTERS.contains(String.chr(codepoint)):
+				return true
+		return false
+
+	func _is_valid_frozen_storage_root_path(storage_root_path: String) -> bool:
+		if storage_root_path == "user://":
+			return true
+		if not storage_root_path.begins_with("user://"):
+			return false
+		var relative_root: String = storage_root_path.trim_prefix("user://")
+		if (
+			relative_root.is_empty()
+			or relative_root.begins_with("/")
+			or relative_root.contains("\\")
+			or _contains_parent_segment(relative_root)
+			or _has_invalid_storage_root_character(relative_root)
+		):
+			return false
+		return relative_root == relative_root.simplify_path()
 
 	func _get_full_path(file_name: String) -> String:
-		if file_name.is_absolute_path():
-			if _get_bool_property("allow_absolute_paths"):
-				return file_name
+		if _is_absolute_storage_path(file_name):
 			push_error("[GFStorageUtility] 已禁用绝对路径：%s" % file_name)
 			return ""
 
 		file_name = _sanitize_storage_relative_path(file_name, "file_name")
 		if file_name.is_empty():
 			return ""
-		if _get_string_property("save_dir_name").is_empty():
+		var storage_root_path: String = _get_save_base_path()
+		if storage_root_path.is_empty():
+			return ""
+		if storage_root_path == "user://":
 			return "user://" + file_name
-		return _get_save_base_path() + "/" + file_name
+		return storage_root_path + "/" + file_name
 
 	func _get_full_directory_path_from_normalized(directory_name: String) -> String:
-		if directory_name.is_empty():
-			return _get_save_base_path()
-		if directory_name.is_absolute_path():
-			return directory_name
-		if _get_string_property("save_dir_name").is_empty():
+		if _is_absolute_storage_path(directory_name):
+			push_error("[GFStorageUtility] 已禁用绝对路径：%s" % directory_name)
+			return ""
+		var storage_root_path: String = _get_save_base_path()
+		if storage_root_path.is_empty() or directory_name.is_empty():
+			return storage_root_path
+		if storage_root_path == "user://":
 			return "user://" + directory_name
-		return _get_save_base_path().path_join(directory_name)
+		return storage_root_path.path_join(directory_name)
 
 	func _normalize_storage_directory_name(directory_name: String) -> String:
 		if directory_name.is_empty() or directory_name == ".":
 			return ""
-		if directory_name.is_absolute_path():
-			if _get_bool_property("allow_absolute_paths"):
-				return directory_name.replace("\\", "/").simplify_path()
+		if _is_absolute_storage_path(directory_name):
 			push_error("[GFStorageUtility] 已禁用绝对路径：%s" % directory_name)
 			return "_invalid_storage_directory"
 
@@ -3221,17 +3263,13 @@ class _StoragePathPolicy:
 		return false
 
 	func _canonicalize_file_name(path: String, label: String) -> String:
-		if path.is_absolute_path():
-			if not _get_bool_property("allow_absolute_paths"):
-				push_error("[GFStorageUtility] 已禁用绝对路径：%s" % path)
-				return ""
-			return path.replace("\\", "/").simplify_path()
+		if _is_absolute_storage_path(path):
+			push_error("[GFStorageUtility] 已禁用绝对路径：%s" % path)
+			return ""
 		return _sanitize_storage_relative_path(path, label)
 
 	func _is_safe_storage_path(path: String, label: String) -> bool:
-		if path.is_absolute_path():
-			if _get_bool_property("allow_absolute_paths"):
-				return true
+		if _is_absolute_storage_path(path):
 			push_error("[GFStorageUtility] 已禁用绝对路径：%s" % path)
 			return false
 
@@ -3252,21 +3290,17 @@ class _StoragePathPolicy:
 
 class _FrozenStoragePathPolicy extends _StoragePathPolicy:
 	var _storage_root_path: String
-	var _allow_absolute_paths: bool
 
-	func _init(storage_root_path: String, allow_absolute_paths: bool) -> void:
+	func _init(storage_root_path: String) -> void:
 		_storage_root_path = storage_root_path
-		_allow_absolute_paths = allow_absolute_paths
 
 	func _get_save_base_path() -> String:
 		return _storage_root_path
 
 	func _get_full_path(file_name: String) -> String:
-		if file_name.is_absolute_path():
-			if not _allow_absolute_paths:
-				push_error("[GFStorageUtility] 已禁用绝对路径：%s" % file_name)
-				return ""
-			return file_name
+		if _is_absolute_storage_path(file_name):
+			push_error("[GFStorageUtility] 已禁用绝对路径：%s" % file_name)
+			return ""
 		file_name = _sanitize_storage_relative_path(file_name, "file_name")
 		if file_name.is_empty():
 			return ""
@@ -3275,11 +3309,9 @@ class _FrozenStoragePathPolicy extends _StoragePathPolicy:
 		return _storage_root_path + "/" + file_name
 
 	func _canonicalize_file_name(path: String, label: String) -> String:
-		if path.is_absolute_path():
-			if not _allow_absolute_paths:
-				push_error("[GFStorageUtility] 已禁用绝对路径：%s" % path)
-				return ""
-			return path.replace("\\", "/").simplify_path()
+		if _is_absolute_storage_path(path):
+			push_error("[GFStorageUtility] 已禁用绝对路径：%s" % path)
+			return ""
 		return _sanitize_storage_relative_path(path, label)
 
 
@@ -3342,6 +3374,8 @@ class _StorageFileOps:
 			push_warning("[GFStorageUtility] 删除文件失败：%s，错误码：%s" % [path, remove_error])
 
 	func _ensure_absolute_parent_directory(path: String) -> Error:
+		if path.is_empty():
+			return ERR_INVALID_PARAMETER
 		var base_dir: String = path.get_base_dir()
 		if base_dir.is_empty() or base_dir == "user://":
 			return OK
@@ -3350,6 +3384,8 @@ class _StorageFileOps:
 		return DirAccess.make_dir_recursive_absolute(base_dir)
 
 	func _ensure_parent_directory(path: String) -> Error:
+		if path.is_empty():
+			return ERR_INVALID_PARAMETER
 		if not _get_bool_property("create_directories_for_nested_paths"):
 			return OK
 
@@ -3365,6 +3401,8 @@ class _StorageFileOps:
 		return error
 
 	func _write_buffer_absolute(path: String, bytes: PackedByteArray) -> Error:
+		if path.is_empty():
+			return ERR_INVALID_PARAMETER
 		var file: FileAccess = FileAccess.open(path, FileAccess.WRITE)
 		if file == null:
 			return FileAccess.get_open_error()
@@ -3374,6 +3412,8 @@ class _StorageFileOps:
 		return error
 
 	func _write_plain_json_absolute(path: String, data: Dictionary) -> Error:
+		if path.is_empty():
+			return ERR_INVALID_PARAMETER
 		var file: FileAccess = FileAccess.open(path, FileAccess.WRITE)
 		if file == null:
 			return FileAccess.get_open_error()
@@ -3389,12 +3429,16 @@ class _StorageFileOps:
 		_remove_absolute_if_exists(path)
 
 	func _move_file(from_path: String, to_path: String) -> Error:
+		if from_path.is_empty() or to_path.is_empty():
+			return ERR_INVALID_PARAMETER
 		if not FileAccess.file_exists(from_path):
 			return ERR_FILE_NOT_FOUND
 		return DirAccess.rename_absolute(from_path, to_path)
 
 	func _write_json(file_name: String, data: Dictionary) -> Error:
 		var path: String = _path_policy._get_full_path(file_name)
+		if path.is_empty():
+			return ERR_INVALID_PARAMETER
 		var dir_error: Error = _ensure_parent_directory(path)
 		if dir_error != OK:
 			return dir_error
@@ -3415,6 +3459,8 @@ class _StorageFileOps:
 
 	func _write_plain_json(file_name: String, data: Dictionary) -> Error:
 		var path: String = _path_policy._get_full_path(file_name)
+		if path.is_empty():
+			return ERR_INVALID_PARAMETER
 		var dir_error: Error = _ensure_parent_directory(path)
 		if dir_error != OK:
 			return dir_error
@@ -3489,8 +3535,7 @@ class _StorageTransactionManager:
 		final_path: String,
 		temp_path: String,
 		backup_path: String,
-		transaction_path: String,
-		allow_frozen_absolute_paths: bool
+		transaction_path: String
 	) -> Error:
 		if (
 			_path_policy._get_full_path(file_name) != final_path
@@ -3501,7 +3546,7 @@ class _StorageTransactionManager:
 			return ERR_INVALID_PARAMETER
 
 		var marker: Dictionary = _read_transaction_marker_absolute(transaction_path)
-		if _has_unauthorized_frozen_marker_member(marker, allow_frozen_absolute_paths):
+		if _has_absolute_marker_member(marker):
 			return ERR_UNAUTHORIZED
 		var transaction_files: Array[String] = _discover_transaction_marker_files(marker, file_name)
 		if transaction_files.size() > 1:
@@ -3883,12 +3928,7 @@ class _StorageTransactionManager:
 				result.append(file_name)
 		return result
 
-	func _has_unauthorized_frozen_marker_member(
-		marker: Dictionary,
-		allow_frozen_absolute_paths: bool
-	) -> bool:
-		if allow_frozen_absolute_paths:
-			return false
+	func _has_absolute_marker_member(marker: Dictionary) -> bool:
 		var raw_files: Variant = GFVariantData.get_option_value(marker, "files", [])
 		if not (raw_files is Array):
 			return false
@@ -3896,14 +3936,14 @@ class _StorageTransactionManager:
 			var file_name: String = _canonicalize_marker_file_name(
 				GFVariantData.to_text(raw_file)
 			)
-			if file_name.is_absolute_path():
+			if _path_policy._is_absolute_storage_path(file_name):
 				return true
 		return false
 
 	func _canonicalize_marker_file_name(file_name: String) -> String:
 		if file_name.is_empty():
 			return ""
-		if file_name.is_absolute_path():
+		if _path_policy._is_absolute_storage_path(file_name):
 			return file_name.replace("\\", "/").simplify_path()
 		if _path_policy._contains_parent_segment(file_name):
 			return ""

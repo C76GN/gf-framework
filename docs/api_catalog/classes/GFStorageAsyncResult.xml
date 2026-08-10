@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFStorageAsyncResult" path="addons/gf/standard/utilities/storage/gf_storage_async_result.gd" module="standard" extends="RefCounted" classDigest="28f26129816065b93a4e3cfa6949a31affef4d142a59c4709211d3992911e6a6">
+<class name="GFStorageAsyncResult" path="addons/gf/standard/utilities/storage/gf_storage_async_result.gd" module="standard" extends="RefCounted" classDigest="fb993505d167d3b286658bc5163c66c7c429a2a256e186406c42041ff14c2568">
 	<description>GFStorageAsyncResult: 单次异步存储请求的不可变终态。
 结果通过请求 ID 与具体句柄绑定；读取结果保留 `GFStorageReadResult` 的类型化
 失败分类；写入结果额外暴露稳定写入失败分类与隔离的 payload 预检报告。</description>
@@ -60,7 +60,7 @@
 			<description>获取规范化存储文件名。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="return">请求实际使用的存储相对文件名或绝对文件名。</tag>
+				<tag name="return">已通过路径校验的请求返回规范相对文件名；校验前被拒绝时返回空字符串。</tag>
 				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>

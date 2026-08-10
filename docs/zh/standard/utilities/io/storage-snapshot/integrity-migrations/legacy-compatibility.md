@@ -6,9 +6,9 @@
 
 JSON 读取默认保留解析出的数字类型。如果旧存档列表或元数据依赖把接近整数的 float 归一为 int，可临时开启 `GFStorageUtility.normalize_json_numbers` 或 `GFStorageCodec.normalize_json_numbers` 后读出并重写。
 
-`allow_absolute_paths` 默认关闭，绝对路径会被拒绝；包含 `..` 的跨目录相对路径同样会 fail closed，不再收敛到同名文件。
+11.0 移除了 `GFStorageUtility.allow_absolute_paths`。运行时 Storage 只接受规范相对路径并在词法上解析到当前 Storage root；绝对路径、包含 `..` 的跨目录路径和非法非空 `save_dir_name` 始终 fail closed，不再提供可重新开启的兼容开关。这是 GF API 边界，不替代宿主文件系统对 symlink、junction 或挂载点的隔离。
 
-只有可信编辑器工具或迁移脚本确实需要写入外部路径时，才应显式设为 `true`。
+可信编辑器工具或一次性迁移脚本确实需要访问外部路径时，应在独立工具边界直接使用 `FileAccess` / `DirAccess`，并自行承担来源授权、路径固定和生命周期清理；不要把该能力重新包装进运行时 Storage。
 
 内置整数槽位 facade 已移除。项目应由自己的 slot adapter 定义槽位身份、文件模板、metadata schema 和枚举策略，再通过 `save_data_group()` 完成 data/meta 事务写入，通过 `load_data_result()`、`list_files()` 和 `delete_file()` 组合读取与管理。标准存储层不认识读档 UI、自动存档、预览图或项目业务槽位。
 

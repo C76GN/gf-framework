@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFStorageAsyncOperation" path="addons/gf/standard/utilities/storage/gf_storage_async_operation.gd" module="standard" extends="RefCounted" classDigest="ef5af697d5600139f1dadc54792e4abe956dda1224b96f1825b4126873ed93e5">
+<class name="GFStorageAsyncOperation" path="addons/gf/standard/utilities/storage/gf_storage_async_operation.gd" module="standard" extends="RefCounted" classDigest="cbcc52e7f4693e4e1c4fd8aaf8ae5cba3e38feca504570921e31a39053527691">
 	<description>GFStorageAsyncOperation: 单次异步存储请求句柄。
 句柄由 `GFStorageUtility` 分配唯一请求 ID，并且只接受一个终态。调用方应先
 检查 `is_completed()`，再决定是否等待 `completed` 信号。</description>
@@ -63,7 +63,7 @@
 			<description>获取规范化存储文件名。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="return">请求实际使用的文件名。</tag>
+				<tag name="return">已通过路径校验的请求返回规范相对文件名；校验前被拒绝时返回空字符串。</tag>
 				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>

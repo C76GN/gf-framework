@@ -121,7 +121,7 @@ func get_file_name() -> String:
 
 获取规范化存储文件名。
 
-返回：请求实际使用的文件名。
+返回：已通过路径校验的请求返回规范相对文件名；校验前被拒绝时返回空字符串。
 
 <a id="member-gfstorageasyncoperation-methods-is_pending"></a>
 

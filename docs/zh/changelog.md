@@ -64,6 +64,7 @@
 
 ### 🔄 机制更改 (Changed)
 
+- `GFStorageUtility` 的所有运行时文件与目录入口统一使用规范相对身份，并在词法上解析到当前 Storage root；同步、异步、payload transfer、目录管理和事务恢复不再存在可动态扩大的绝对路径授权，非法非空 `save_dir_name` 也不再退化到 `user://` 根。需要任意本机路径的可信编辑器或离线迁移工具改由自身 `FileAccess` / `DirAccess` 边界负责；该约束不是宿主 symlink、junction 或挂载点沙箱。
 - 播放区间在请求开始时连同 `GFAudioClip` 一起复制；本地执行始终复制 `AudioStream`，只修改 session 私有副本。异步回调、crossfade 回退和环境音 session 都携带冻结后的规范化区间。
 - 本地音频只接受引擎能够精确表达的起点和循环点，不使用 Timer、每帧轮询或近似 seek 模拟非循环有限终点；有效但无法精确执行的组合明确返回 `UNSUPPORTED`。
 - WAV 终点按最后有效帧索引写入，原生无法保持初始位置语义的 backward 明确返回 `UNSUPPORTED`；Ogg Vorbis / MP3 私有循环副本清除会改变自然终点的 `beat_count`。后端评估与执行只接收由验证结果重建的规范化 clip/context 快照。
@@ -143,6 +144,7 @@
 
 ### ⚠️ 废弃与移除 (Deprecated/Removed)
 
+- 移除 `GFStorageUtility.allow_absolute_paths`；运行时 Storage 不再提供重新启用任意绝对路径的开关，也不保留 deprecated alias。
 - 移除 `play_bgm_with_options()` 的 `loop` / `playback_region` 通用选项，并保留事件 metadata/options 中的同名键；继续传入会在资源加载和后端派发前失败关闭，类型化区间只能来自 `GFAudioClip.playback_region`。
 - 移除框架内部 `gf_threaded_resource_coordinator.gd` 与 `gf_threaded_resource_operation.gd`；不保留双轨协调实现，统一由公开 `GFResourceBroker` / `GFResourceLease` 承担跨 Utility 所有权与 admission。
 - 移除 `GFSaveProfileUtility.save_profile(profile_id, metadata, context)` 字典重载；保存调用统一改用一次性 `GFSaveProfileRequest`，不保留隐式复制兼容路径。
@@ -154,6 +156,7 @@
 
 ### 🔧 API 变动说明 (API Changes)
 
+- `GFStorageUtility.allow_absolute_paths` 已移除；`list_files()` 只返回 Storage root 内的规范相对路径，`canonicalize_data_file_name()`、`GFStorageAsyncOperation.get_file_name()` 与 `GFStorageAsyncResult.get_file_name()` 不再产生绝对路径身份。
 - 本轮有意移除 10.x 已公开的通用 `loop` 输入与 `current_bgm_loop` 快照字段，开发身份进入 `11.0.0-dev.0` 主版本迁移线；不提供双轨兼容分支。
 - `GFAudioClip.playback_region: GFAudioPlaybackRegion` 为新的可选公开属性。
 - `GFAudioBackendCapability.supports_playback_region_contract`、`GFAudioBackend.evaluate_playback_region()`、`GFAudioUtility.playback_region_rejected` 与 `GFAudioUtility.get_last_playback_region_rejection()` 为新的公开 API。
@@ -233,6 +236,7 @@
 29. 大型列表把项目 `ScrollContainer` 的直接子内容根、行工厂、bind/unbind、稳定 identity 和 owner 交给 `GFVirtualListBinder`；内容根不能是接管子节点位置的 `Container`。排序、过滤或数据内容提交后显式调用 `invalidate_items()`，只使用稳定且有界的标量 identity；若在 Binder callback 内失效，当前结果会是非成功 `STATUS_DEFERRED`，副作用已开始时 active 可被安全清空，调用方应以结果索引为准等待下一轮重建。需要切换 `layout_axis`、`fill_cross_axis`、`auto_measure` 或 callback 内的预算时，先更新配置并调用 `request_sync()`，当前同步轮仍使用入口快照，下一轮才采用新值。`scroll_to_item()` 返回 `false` 表示操作快照或最终整数偏移未能完整提交，调用方不要把它当作部分成功。Binder 会按每段轴所有权恢复接管前的最小尺寸。owner 退出前让 Binder 自动或显式 `dispose()`，不得重挂载或释放 Binder-owned Control。
 30. 表格结构化过滤改为继承 `GFTableRowPredicate`，返回 `GFTableRowPredicateResult`，再用 `GFTableRowPredicateRegistration.create()` 批量事务注册。将 `row_id_column`、`case_sensitive_filter` 与 `selection_model` 直接赋值迁移到 `set_row_id_column()`、`set_filter_case_sensitive()` 与 `set_selection_model()`，并通过 getter 读取已提交配置。更新所有 `view_changed` 连接以接收 revision 与 visible count；只有 rebuild result 成功且 committed，或收到 `view_changed` 时，才更新 VirtualList count 与 Binder identity，失败时继续展示上一份已提交投影。谓词实例的项目参数改变后显式调用 `refresh_view()`，不要依赖框架观察任意成员写入。经 `GFTableDataView.commit_cell_value()` 或批量入口写入的行必须可安全隔离；把带任意副作用的 `value_setter` 移到项目事务层，提交完成后再用新的 source 行调用 `set_rows()`。
 31. Spatial Canvas 输入转发改为检查 `InputDisposition`：只有 `CONSUMED` 才停止项目路由。创建并校验 `GFSpatialCanvasInputPolicy` 来替代硬编码按键；嵌套滚动界面用 modifier-gated 或 parent-only wheel，让未匹配滚轮继续 GUI 冒泡。需要禁用单指时使用 `TouchPrimaryBehavior.NONE`，并分别决定 raw 多指 pan 与 pinch zoom；若二者也都关闭，首触点不会被 Canvas 捕获。取消行为使用只含非指针事件的项目 InputMap action，不得与鼠标、触摸或位置手势复用；项目运行时修改 InputMap 后，超出事件预算或变成指针映射的取消 action 会失败关闭。
+32. 删除对 `GFStorageUtility.allow_absolute_paths` 的赋值，并把传给 Storage 的文件名、目录名统一改为当前 Storage root 内的规范相对路径。可信编辑器或离线迁移工具若需要外部路径，直接在工具层使用 `FileAccess` / `DirAccess`，不要向运行时 Utility 重新注入绝对路径能力。
 
 ### 📁 核心受影响文件 (Affected Files)
 
