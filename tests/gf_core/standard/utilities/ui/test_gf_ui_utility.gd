@@ -88,6 +88,17 @@ class SampleModalPanel extends Control:
 		return true
 
 
+class ReadyFocusPanel extends Control:
+	var focus_button: Button = Button.new()
+
+	func _init() -> void:
+		focus_button.focus_mode = Control.FOCUS_ALL
+		add_child(focus_button)
+
+	func _ready() -> void:
+		focus_button.grab_focus()
+
+
 class ModalCallbackState:
 	var result: GFModalResult = null
 	var status: StringName = &""
@@ -472,6 +483,35 @@ func test_keep_focus_inside_top_modal() -> void:
 	assert_true(corrected, "焦点落在 modal 外部时应能被拉回 modal 内部。")
 	assert_eq(get_viewport().gui_get_focus_owner(), inside, "焦点应移动到 modal 内第一个可聚焦控件。")
 
+	outside.queue_free()
+
+
+func test_modal_restores_focus_captured_before_panel_ready() -> void:
+	var outside: Button = Button.new()
+	outside.focus_mode = Control.FOCUS_ALL
+	add_child(outside)
+	outside.grab_focus()
+	assert_same(get_viewport().gui_get_focus_owner(), outside)
+
+	var panel: ReadyFocusPanel = ReadyFocusPanel.new()
+	_ui_utility.push_panel_instance_with_options(panel, GFUIUtility.Layer.POPUP, {
+		"modal": true,
+		"focus_on_open": false,
+		"restore_focus_on_close": true,
+	})
+	assert_same(
+		get_viewport().gui_get_focus_owner(),
+		panel.focus_button,
+		"面板 _ready() 应能同步取得焦点。"
+	)
+
+	_ui_utility.pop_panel(GFUIUtility.Layer.POPUP, false)
+	assert_same(
+		get_viewport().gui_get_focus_owner(),
+		outside,
+		"关闭面板时应恢复其入树前的外部焦点。"
+	)
+	panel.queue_free()
 	outside.queue_free()
 
 
