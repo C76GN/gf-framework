@@ -107,6 +107,7 @@
 ### 🐛 Bug 修复 (Fixed)
 
 - 修复 `GFObjectPoolUtility` 的同步、分批与时间预算预热在并发、回调重入或运行中缩小上限时可共同写穿 `max_available_per_scene` 的问题；同一场景现在共享当前生命周期的在途容量预留，变更上限、归还节点或 dispose/init 会在提交前重新验收并丢弃过期候选。
+- 修复项目 Installer 主动取消并返回后仍保持 running、并发 `Gf.init()` 永久等待且半注册模块未回滚的问题；取消与 timeout 等失败入口现在统一在 Architecture 失败结算中先回滚再恰好一次唤醒等待方，terminal 回调不能重开或提交 Installer，detached 旧 continuation 收尾前继续阻止重试和迟到写入。
 - 修复 `GFUIUtility` 在 panel 入树并执行 `_ready()` 后才捕获 previous focus，导致 modal 在 `_ready()` 主动取得焦点时无法恢复外部焦点的问题；现在会从目标 `CanvasLayer` 的 `Viewport` 在入树前捕获。
 - 修复共享资源与存储的取消、替换、恢复和释放边界：Broker 会在 queued Lease 离开后按剩余消费者重算类型与 admission 约束；Asset、Scene 与 BackgroundWork 私有 Broker 在 drain 完成前拒绝替换；Scene 自动邻居可加入外部消费者已活动且 type hint 兼容的同路径请求；BackgroundWork 不会把新任务并入已取消 Lease；Storage 异步单文件入口会按完整多文件事务恢复，并在 dispose 终态回调重入期间持续关闭新 admission。
 - 修复 AI Developer 模块依赖分析只排除小写 `res://addons/gf/` 后代、导致框架保留根本身及大小写等价路径被误报为未归属项目资源的问题；路径引用现在统一复用框架保留资源边界判定，其他资源形状字符串的现行分类策略保持不变。
@@ -123,6 +124,7 @@
 - 修复 `GFDiagnosticsUtility` 在 strict architecture 中通过 reporting lookup 探测可选 Console、Log 和工具快照贡献者，导致合法缺失被误报为必需依赖的问题。
 - 修复场景树先释放 root-owned BGM 播放器后，`GFAudioUtility.dispose()` 在有效性检查前构造 typed array 而触发 freed-instance 转换错误的问题；两条 BGM 清理路径与重复 dispose 都收敛到幂等终态。
 - 修复场景切换完成帧立即启动邻居预载时与活动 Asset warmup 重叠，可能导致 `.tscn` 间歇解析失败的问题；邻居请求现在必须经过目标场景确认、稳定帧和共享 Broker idle 边界。
+- 修复 `GFSceneUtility` 自动邻居预载回调错误接收 `SceneTree.scene_changed` 不会提供的场景根参数，导致真实零参数信号触发时报参数数量错误、邻居预载无法启动的问题；回调现在从发出信号的 `SceneTree.current_scene` 读取目标根。
 - 修复 `save_profile()` 在提交调用栈内同步遍历大型 Provider、可造成超过 100ms 主线程停顿的问题；请求现在先返回句柄，再由生命周期 tick 在显式预算内推进准备。
 - 修复共享 Provider 的 Profile 切换由项目拼接 flush/load 时缺少原子活动身份、目标失败后
   可能遗留部分应用状态的问题；新 Coordinator 在精确 domain 锁内完成源屏障、逆序恢复

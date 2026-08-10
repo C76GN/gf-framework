@@ -2,7 +2,7 @@
   "schema_version": 1,
   "catalog_version": "1.0.0",
   "framework_version": "11.0.0-dev.0",
-  "source_digest": "95a9d6eaa1332964197ad119a48cb090ab1855446abee23c2cc8d041c4f2a4ae",
+  "source_digest": "105c37647b4b6a41703d4ed3882ac6f14043d7b2e905084c96ede3fa6bb0c025",
   "class_count": 789,
   "package_count": 52,
   "packages": [
@@ -2003,7 +2003,7 @@
           "kind": "signal",
           "name": "project_installers_finished",
           "signature": "signal project_installers_finished",
-          "summary": "当项目级 Installer 应用完成或被 dispose() 中断后发出。",
+          "summary": "当一轮项目级 Installer 成功提交、失败回滚完成或被 dispose() 中断后发出。",
           "visibility": "public"
         },
         {
@@ -2213,14 +2213,14 @@
           "kind": "func",
           "name": "mark_project_installers_applied",
           "signature": "func mark_project_installers_applied() -> void",
-          "summary": "标记项目级 Installer 已应用。由 Gf 启动入口调用。",
+          "summary": "标记项目级 Installer 已应用。由 Gf 启动入口调用。失败结算、迟到写屏障、",
           "visibility": "public"
         },
         {
           "kind": "func",
           "name": "finish_project_installers",
           "signature": "func finish_project_installers() -> void",
-          "summary": "标记项目级 Installer 应用完成并唤醒等待方。",
+          "summary": "标记项目级 Installer 应用完成并唤醒等待方；准入已关闭时保持 no-op。",
           "visibility": "public"
         },
         {
