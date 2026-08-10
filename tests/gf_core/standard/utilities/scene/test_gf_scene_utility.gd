@@ -292,6 +292,90 @@ func test_cancelled_scene_preload_drains_late_completion_without_cache() -> void
 	_scene_util.threaded_resource = null
 
 
+func test_repeated_scene_preload_cancel_emits_once_before_drain() -> void:
+	var scene_path: String = "res://addons/gut/gui/NormalGui.tscn"
+	_scene_util.use_fake_threaded_resource = true
+	_scene_util.threaded_resource = _make_empty_scene()
+	watch_signals(_scene_util)
+
+	var error: Error = _scene_util.preload_scene(scene_path)
+	_scene_util.cancel_scene_preload(scene_path)
+	_scene_util.cancel_scene_preload(scene_path)
+
+	assert_eq(error, OK, "模拟预加载应成功发起。")
+	assert_signal_emit_count(
+		_scene_util,
+		"scene_preload_cancelled",
+		1,
+		"同一路径在 drain 前重复取消只应发出一次取消信号。"
+	)
+	assert_false(_scene_util.is_scene_preloading(scene_path), "首次取消后请求不应再对外显示为进行中。")
+
+	_scene_util.threaded_complete = true
+	_scene_util.tick(0.0)
+
+	assert_signal_emit_count(
+		_scene_util,
+		"scene_preload_cancelled",
+		1,
+		"迟到完成 drain 不应补发取消信号。"
+	)
+	assert_false(_scene_util.is_scene_preloaded(scene_path), "重复取消后的迟到完成不应写入缓存。")
+	_scene_util.threaded_resource = null
+
+
+func test_cancel_all_reentry_does_not_repeat_first_path_cancel_signal() -> void:
+	var first_path: String = "res://addons/gut/gui/NormalGui.tscn"
+	var second_path: String = "res://addons/gut/gui/GutRunner.tscn"
+	_scene_util.use_fake_threaded_resource = true
+	_scene_util.threaded_resource = _make_empty_scene()
+	watch_signals(_scene_util)
+
+	var first_error: Error = _scene_util.preload_scene(first_path)
+	var second_error: Error = _scene_util.preload_scene(second_path)
+	var cancel_all_on_first: Callable = func(_cancelled_path: String) -> void:
+		_scene_util.cancel_all_scene_preloads()
+	var connect_error: Error = _scene_util.scene_preload_cancelled.connect(
+		cancel_all_on_first,
+		CONNECT_ONE_SHOT as Object.ConnectFlags
+	) as Error
+
+	_scene_util.cancel_scene_preload(first_path)
+
+	assert_eq(first_error, OK, "第一个模拟预加载应成功发起。")
+	assert_eq(second_error, OK, "第二个模拟预加载应成功发起。")
+	assert_eq(connect_error, OK, "一次性取消回调应成功连接。")
+	assert_signal_emit_count(
+		_scene_util,
+		"scene_preload_cancelled",
+		2,
+		"取消信号中的 cancel_all 重入应让两个路径各终止一次。"
+	)
+	assert_signal_emitted_with_parameters(
+		_scene_util,
+		"scene_preload_cancelled",
+		[first_path],
+		0
+	)
+	assert_signal_emitted_with_parameters(
+		_scene_util,
+		"scene_preload_cancelled",
+		[second_path],
+		1
+	)
+
+	_scene_util.threaded_complete = true
+	_scene_util.tick(0.0)
+
+	assert_signal_emit_count(
+		_scene_util,
+		"scene_preload_cancelled",
+		2,
+		"两个已取消请求 drain 后不应补发取消信号。"
+	)
+	_scene_util.threaded_resource = null
+
+
 func test_scene_load_completed_is_not_emitted_when_scene_change_fails() -> void:
 	var scene_path: String = "res://addons/gut/gui/NormalGui.tscn"
 	_scene_util.put_preloaded_scene(scene_path, _make_empty_scene())

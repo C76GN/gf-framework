@@ -109,6 +109,7 @@
 - 修复 `GFObjectPoolUtility` 的同步、分批与时间预算预热在并发、回调重入或运行中缩小上限时可共同写穿 `max_available_per_scene` 的问题；同一场景现在共享当前生命周期的在途容量预留，变更上限、归还节点或 dispose/init 会在提交前重新验收并丢弃过期候选。
 - 修复项目 Installer 主动取消并返回后仍保持 running、并发 `Gf.init()` 永久等待且半注册模块未回滚的问题；取消与 timeout 等失败入口现在统一在 Architecture 失败结算中先回滚再恰好一次唤醒等待方，terminal 回调不能重开或提交 Installer，detached 旧 continuation 收尾前继续阻止重试和迟到写入。
 - 修复 `GFUIUtility` 在 panel 入树并执行 `_ready()` 后才捕获 previous focus，导致 modal 在 `_ready()` 主动取得焦点时无法恢复外部焦点的问题；现在会从目标 `CanvasLayer` 的 `Viewport` 在入树前捕获。
+- 修复同一路径的场景预加载在底层请求 drain 前重复调用 `cancel_scene_preload()`、导致 Lease 取消副作用和 `scene_preload_cancelled` 信号重复发生的问题；首次调用后，同一规范化路径的后续调用会保持幂等，不改变既有的迟到完成清理和共享 path-level 取消边界。
 - 修复共享资源与存储的取消、替换、恢复和释放边界：Broker 会在 queued Lease 离开后按剩余消费者重算类型与 admission 约束；Asset、Scene 与 BackgroundWork 私有 Broker 在 drain 完成前拒绝替换；Scene 自动邻居可加入外部消费者已活动且 type hint 兼容的同路径请求；BackgroundWork 不会把新任务并入已取消 Lease；Storage 异步单文件入口会按完整多文件事务恢复，并在 dispose 终态回调重入期间持续关闭新 admission。
 - 修复 AI Developer 模块依赖分析只排除小写 `res://addons/gf/` 后代、导致框架保留根本身及大小写等价路径被误报为未归属项目资源的问题；路径引用现在统一复用框架保留资源边界判定，其他资源形状字符串的现行分类策略保持不变。
 - 修复 AI Developer 依赖分析只编译 Module roots、导致合法 Module → Adapter 资源引用被误报为未归属的问题；Adapter root 与其中声明的 `class_name` 现在作为目标所有权进入同一有界索引，但 Adapter 仍不作为依赖源或模块循环节点，缺失、不安全、不可读、歧义及预算耗尽继续失败关闭。

@@ -756,6 +756,8 @@ func cancel_scene_preload(path: String) -> void:
 		return
 
 	var request: Dictionary = _get_preload_request(scene_path)
+	if _is_preload_request_cancelled(request):
+		return
 	request["cancelled"] = true
 	_cancel_secondary_auto_neighbor_leases(
 		request,
