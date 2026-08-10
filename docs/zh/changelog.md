@@ -122,6 +122,7 @@
 - 修复 `GFDiagnosticsUtility` 在 strict architecture 中通过 reporting lookup 探测可选 Console、Log 和工具快照贡献者，导致合法缺失被误报为必需依赖的问题。
 - 修复场景树先释放 root-owned BGM 播放器后，`GFAudioUtility.dispose()` 在有效性检查前构造 typed array 而触发 freed-instance 转换错误的问题；两条 BGM 清理路径与重复 dispose 都收敛到幂等终态。
 - 修复场景切换完成帧立即启动邻居预载时与活动 Asset warmup 重叠，可能导致 `.tscn` 间歇解析失败的问题；邻居请求现在必须经过目标场景确认、稳定帧和共享 Broker idle 边界。
+- 修复 `GFSceneUtility` 自动邻居预载回调错误接收 `SceneTree.scene_changed` 不会提供的场景根参数，导致真实零参数信号触发时报参数数量错误、邻居预载无法启动的问题；回调现在从发出信号的 `SceneTree.current_scene` 读取目标根。
 - 修复 `save_profile()` 在提交调用栈内同步遍历大型 Provider、可造成超过 100ms 主线程停顿的问题；请求现在先返回句柄，再由生命周期 tick 在显式预算内推进准备。
 - 修复共享 Provider 的 Profile 切换由项目拼接 flush/load 时缺少原子活动身份、目标失败后
   可能遗留部分应用状态的问题；新 Coordinator 在精确 domain 锁内完成源屏障、逆序恢复
