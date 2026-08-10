@@ -12,6 +12,10 @@
 
 和模块 `async_init()` 一样，Godot coroutine 无法被框架抢占式终止。超时会取消当前 Installer 收到的 `GFAsyncScope`、执行 `scope.register_cleanup()` 登记的清理回调，并阻止本轮初始化继续推进；已经挂起的 Installer 恢复后应在每个 `await` 后检查 `scope.is_cancel_requested()`，避免继续写回失效架构。需要兼容旧式状态判断时，也可以检查 `architecture.is_project_installers_running()`。
 
+Installer 主动调用 `scope.cancel(reason)` 并返回时，同样会把本轮装配收敛到现有初始化失败终态：保留首次取消原因，清除 running、保持 applied 为 false，回滚本轮已注册模块，并恰好一次唤醒所有等待 `project_installers_finished` / `Gf.init()` 的调用方。通过 `Gf.init()` 初始化当前 Architecture 时，修正取消条件后可以复用同一实例重试；`Gf.set_architecture(candidate)` 的未发布候选仍按原子 assignment 规则释放，重试必须创建新 candidate。若启用了 Installer timeout，旧 detached continuation 尚未真正返回时，重试会 fail fast，待旧 continuation 收尾后才重新开放 Installer 准入。timeout 为 `0` 时没有 detached 轮询，框架只能在 Installer 方法返回后观察取消，不能抢占一个取消后仍永久挂起的 coroutine。
+
+`project_installers_finished` 只在本轮失败回滚完成、注册表已经清理后发出。失败结算或 quiesce/dispose 终态的同步回调中，`begin_project_installers()` 与 `architecture.init()` 返回 false，`mark_project_installers_applied()` / `finish_project_installers()` 保持 no-op；回调不能重新打开 running、覆盖 applied 终态或重启 lifecycle。
+
 超时不抢占首个 `await` 前的同步代码。Installer 如果需要扫描大量文件、解析大型表格或构建索引，应先拆成能让帧的步骤，再在每段之间检查架构状态；否则这段同步工作仍会阻塞编辑器或启动流程。
 
 架构进入初始化失败状态后，模块、工厂和别名注册入口会拒绝迟到写入，避免超时 coroutine 恢复后污染失败架构。

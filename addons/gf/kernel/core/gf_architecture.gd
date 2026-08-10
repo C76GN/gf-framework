@@ -39,9 +39,11 @@ signal initialization_failed(reason: String)
 ## @param result: 类型化关闭结果快照。
 signal shutdown_finished(result: GFArchitectureShutdownResult)
 
-## 当项目级 Installer 应用完成或被 dispose() 中断后发出。
+## 当一轮项目级 Installer 成功提交、失败回滚完成或被 dispose() 中断后发出。
 ## [br]
 ## @api public
+## [br]
+## @since 1.14.1
 signal project_installers_finished
 
 
@@ -234,6 +236,7 @@ var _parent_architecture: GFArchitecture = null
 var _project_installers_applied: bool = false
 var _project_installers_running: bool = false
 var _stale_async_write_block_count: int = 0
+var _initialization_failure_settlement_in_progress: bool = false
 var _active_async_scopes: Array[GFAsyncScope] = []
 var _active_lifecycle_plan: GFArchitectureLifecyclePlan = null
 var _lifecycle_plan_in_progress: GFArchitectureLifecyclePlan = null
@@ -480,15 +483,24 @@ func is_project_installers_running() -> bool:
 
 
 ## 标记项目级 Installer 已开始应用。
+## 失败结算、迟到写屏障或 quiesce/dispose 期间会拒绝开始。
 ## [br]
 ## @api public
 ## [br]
-## @return 成功开始返回 true；已经完成或正在运行时返回 false。
+## @since 1.14.1
+## [br]
+## @return 成功开始返回 true；已经完成、正在运行或生命周期拒绝准入时返回 false。
 func begin_project_installers() -> bool:
 	if _project_installers_applied or _project_installers_running:
 		return false
 
-	if _runtime.has_failed() and _stale_async_write_block_count > 0:
+	if (
+		_initialization_failure_settlement_in_progress
+		or _stale_async_write_block_count > 0
+		or _runtime.is_quiescing()
+		or _runtime.is_disposing()
+		or _runtime.is_disposed()
+	):
 		return false
 
 	if _runtime.has_failed() and not _runtime.is_ready() and not _runtime.is_initializing():
@@ -499,10 +511,23 @@ func begin_project_installers() -> bool:
 	return true
 
 
-## 标记项目级 Installer 已应用。由 Gf 启动入口调用。
+## 标记项目级 Installer 已应用。由 Gf 启动入口调用。失败结算、迟到写屏障、
+## 初始化失败或 quiesce/dispose 期间保持 no-op。
 ## [br]
 ## @api public
+## [br]
+## @since 1.14.1
 func mark_project_installers_applied() -> void:
+	if (
+		not _project_installers_running
+		or _initialization_failure_settlement_in_progress
+		or _stale_async_write_block_count > 0
+		or _runtime.has_failed()
+		or _runtime.is_quiescing()
+		or _runtime.is_disposing()
+		or _runtime.is_disposed()
+	):
+		return
 	var was_running: bool = _project_installers_running
 	_project_installers_applied = true
 	_project_installers_running = false
@@ -510,9 +535,11 @@ func mark_project_installers_applied() -> void:
 		project_installers_finished.emit()
 
 
-## 标记项目级 Installer 应用完成并唤醒等待方。
+## 标记项目级 Installer 应用完成并唤醒等待方；准入已关闭时保持 no-op。
 ## [br]
 ## @api public
+## [br]
+## @since 1.14.1
 func finish_project_installers() -> void:
 	mark_project_installers_applied()
 
@@ -535,7 +562,8 @@ func create_binder() -> GFBinder:
 ## 阶段四：按声明依赖顺序调用 begin_activation()，全部成功后才提交 READY。
 ## 并发调用复用同一初始化事务；首个调用拥有共享流程的取消策略，后续调用的
 ## token 只取消自身等待，不会中断共享初始化。架构已经 READY 时幂等成功优先于
-## 调用方 token 的取消状态。
+## 调用方 token 的取消状态。初始化失败尚在回滚与终态通知期间时，同步重入会
+## 返回 false，待结算完成后才允许安全重试。
 ## [br]
 ## @api public
 ## [br]
@@ -547,6 +575,8 @@ func create_binder() -> GFBinder:
 func init(cancellation_token: GFCancellationToken = null) -> bool:
 	if _runtime.is_quiescing() or _runtime.is_disposing() or _runtime.is_disposed():
 		push_error("[GFArchitecture] init 失败：架构正在或已经 dispose，不能重新初始化。")
+		return false
+	if _initialization_failure_settlement_in_progress:
 		return false
 	if _runtime.is_ready():
 		return true
@@ -6476,14 +6506,18 @@ func _fail_initialization(reason: String, lifecycle_serial: int) -> void:
 	if not _runtime.fail_initialization(lifecycle_serial):
 		return
 
+	_initialization_failure_settlement_in_progress = true
 	_fail_active_factory_resolution_contexts()
 	last_initialization_error = reason
 	_cancel_active_async_scopes(reason)
-	_stop_project_installers_after_failure()
+	var installers_were_running: bool = _stop_project_installers_after_failure()
 	_clear_failed_initialization_state()
+	if installers_were_running:
+		project_installers_finished.emit()
 	push_error(reason)
 	initialization_failed.emit(reason)
 	initialization_finished.emit()
+	_initialization_failure_settlement_in_progress = false
 
 
 func _track_registered_module(instance: Object) -> void:
@@ -7420,12 +7454,11 @@ func _release_module_dependencies(instance: Object) -> void:
 	_lifecycle_hook_depth -= 1
 
 
-func _stop_project_installers_after_failure() -> void:
+func _stop_project_installers_after_failure() -> bool:
 	var was_running: bool = _project_installers_running
 	_project_installers_applied = false
 	_project_installers_running = false
-	if was_running:
-		project_installers_finished.emit()
+	return was_running
 
 
 func _inject_node_tree(node: Node) -> void:
