@@ -1462,6 +1462,7 @@ func _add_panel_instance(
 			push_warning("[GFUIUtility] config_callback 销毁了面板实例，本次入栈已取消。")
 			return false
 
+	_capture_previous_focus(panel, normalized_options, canvas.get_viewport())
 	if panel.get_parent() != null and panel.get_parent() != canvas:
 		panel.get_parent().remove_child(panel)
 	if panel.get_parent() != canvas:
@@ -1473,7 +1474,6 @@ func _add_panel_instance(
 		_on_panel_tree_exited.bind(panel, layer),
 		CONNECT_ONE_SHOT as Object.ConnectFlags
 	) as Error
-	_capture_previous_focus(panel, normalized_options)
 	_apply_open_focus_policy(panel, normalized_options)
 	_sync_layer_visibility(layer)
 	panel_opened.emit(panel, layer)
@@ -1586,10 +1586,13 @@ func _normalize_panel_options(options: Dictionary, layer: int) -> Dictionary:
 	}
 
 
-func _capture_previous_focus(panel: Node, options: Dictionary) -> void:
+func _capture_previous_focus(
+	panel: Node,
+	options: Dictionary,
+	viewport: Viewport
+) -> void:
 	if not GFVariantData.get_option_bool(options, "restore_focus_on_close", false):
 		return
-	var viewport: Viewport = panel.get_viewport()
 	if viewport == null:
 		return
 	var focused: Control = viewport.gui_get_focus_owner()
