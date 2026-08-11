@@ -1,8 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFStorageAsyncResult" path="addons/gf/standard/utilities/storage/gf_storage_async_result.gd" module="standard" extends="RefCounted" classDigest="fb993505d167d3b286658bc5163c66c7c429a2a256e186406c42041ff14c2568">
+<class name="GFStorageAsyncResult" path="addons/gf/standard/utilities/storage/gf_storage_async_result.gd" module="standard" extends="RefCounted" classDigest="f1cfcd38081b506db1fbda448e4c31da89e400aedc2bf3f5ed6739dd244ea339">
 	<description>GFStorageAsyncResult: 单次异步存储请求的不可变终态。
 结果通过请求 ID 与具体句柄绑定；读取结果保留 `GFStorageReadResult` 的类型化
-失败分类；写入结果额外暴露稳定写入失败分类与隔离的 payload 预检报告。</description>
+失败分类；写入结果额外暴露稳定写入失败分类与隔离的 payload 预检报告；
+删除结果携带有界、路径无关的 family 成员终态。</description>
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">value_object</tag>
@@ -69,7 +70,7 @@
 			<description>检查请求是否成功。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="return">写入错误码为 OK，或读取结果成功时返回 true。</tag>
+				<tag name="return">当前请求的类型化领域结果成功时返回 true。</tag>
 				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
@@ -87,8 +88,17 @@
 			<description>获取读取结果副本。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="return">load 请求的结果；save 请求返回 null。</tag>
+				<tag name="return">load 请求的结果；save/delete 请求返回 null。</tag>
 				<tag name="since">10.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_delete_result">
+			<signature>func get_delete_result() -&gt; GFStorageDeleteResult:</signature>
+			<description>获取删除结果副本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">delete 请求的结果；save/load 请求返回 null。</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_write_failure_kind">
@@ -96,7 +106,7 @@
 			<description>获取异步写入失败的稳定分类。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="return">`WriteFailureKind` 枚举值；成功或 load 请求为 NONE。</tag>
+				<tag name="return">`WriteFailureKind` 枚举值；成功或 load/delete 请求为 NONE。</tag>
 				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
@@ -124,8 +134,8 @@
 			<description>转换为可报告字典。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="return">包含请求身份、终态、读取摘要和写入诊断的字典。</tag>
-				<tag name="schema">return: Dictionary with request_id, operation, file_name, ok, error_code, read_result, write_failure_kind, and write_validation_report fields.</tag>
+				<tag name="return">包含请求身份、终态、领域结果和写入诊断的字典。</tag>
+				<tag name="schema">return: Dictionary with request_id, operation, file_name, ok, error_code, read_result, write_failure_kind, write_validation_report, and delete_result fields.</tag>
 				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>

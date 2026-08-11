@@ -1,7 +1,8 @@
 ## GFStorageAsyncResult: 单次异步存储请求的不可变终态。
 ##
 ## 结果通过请求 ID 与具体句柄绑定；读取结果保留 `GFStorageReadResult` 的类型化
-## 失败分类；写入结果额外暴露稳定写入失败分类与隔离的 payload 预检报告。
+## 失败分类；写入结果额外暴露稳定写入失败分类与隔离的 payload 预检报告；
+## 删除结果携带有界、路径无关的 family 成员终态。
 ## [br]
 ## @api public
 ## [br]
@@ -45,6 +46,7 @@ var _file_name: String = ""
 var _ok: bool = false
 var _error_code: Error = FAILED
 var _read_result: GFStorageReadResult = null
+var _delete_result: GFStorageDeleteResult = null
 var _write_failure_kind: WriteFailureKind = WriteFailureKind.NONE
 var _write_validation_report: Dictionary = {}
 
@@ -90,7 +92,7 @@ func get_file_name() -> String:
 ## [br]
 ## @since 10.0.0
 ## [br]
-## @return 写入错误码为 OK，或读取结果成功时返回 true。
+## @return 当前请求的类型化领域结果成功时返回 true。
 func is_successful() -> bool:
 	return _ok
 
@@ -112,9 +114,20 @@ func get_error_code() -> Error:
 ## [br]
 ## @since 10.0.0
 ## [br]
-## @return load 请求的结果；save 请求返回 null。
+## @return load 请求的结果；save/delete 请求返回 null。
 func get_read_result() -> GFStorageReadResult:
 	return _read_result.duplicate_result() if _read_result != null else null
+
+
+## 获取删除结果副本。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @return delete 请求的结果；save/load 请求返回 null。
+func get_delete_result() -> GFStorageDeleteResult:
+	return _delete_result.duplicate_result() if _delete_result != null else null
 
 
 ## 获取异步写入失败的稳定分类。
@@ -123,7 +136,7 @@ func get_read_result() -> GFStorageReadResult:
 ## [br]
 ## @since unreleased
 ## [br]
-## @return `WriteFailureKind` 枚举值；成功或 load 请求为 NONE。
+## @return `WriteFailureKind` 枚举值；成功或 load/delete 请求为 NONE。
 func get_write_failure_kind() -> WriteFailureKind:
 	return _write_failure_kind
 
@@ -158,7 +171,8 @@ func duplicate_result() -> GFStorageAsyncResult:
 		_error_code,
 		_read_result,
 		_write_failure_kind,
-		_write_validation_report
+		_write_validation_report,
+		_delete_result
 	)
 	return copy
 
@@ -169,9 +183,9 @@ func duplicate_result() -> GFStorageAsyncResult:
 ## [br]
 ## @since 10.0.0
 ## [br]
-## @return 包含请求身份、终态、读取摘要和写入诊断的字典。
+## @return 包含请求身份、终态、领域结果和写入诊断的字典。
 ## [br]
-## @schema return: Dictionary with request_id, operation, file_name, ok, error_code, read_result, write_failure_kind, and write_validation_report fields.
+## @schema return: Dictionary with request_id, operation, file_name, ok, error_code, read_result, write_failure_kind, write_validation_report, and delete_result fields.
 func to_dict() -> Dictionary:
 	return {
 		"request_id": _request_id,
@@ -182,6 +196,7 @@ func to_dict() -> Dictionary:
 		"read_result": _read_result.to_dict() if _read_result != null else {},
 		"write_failure_kind": int(_write_failure_kind),
 		"write_validation_report": _write_validation_report.duplicate(true),
+		"delete_result": _delete_result.to_dict() if _delete_result != null else {},
 	}
 
 
@@ -211,6 +226,8 @@ func to_dict() -> Dictionary:
 ## [br]
 ## @schema write_validation_report: Dictionary with isolated payload validation diagnostics.
 ## [br]
+## @param delete_result: 可选删除结果。
+## [br]
 ## @return 首次配置成功返回 true。
 func configure_for_framework(
 	request_id: int,
@@ -220,28 +237,76 @@ func configure_for_framework(
 	error_code: Error,
 	read_result: GFStorageReadResult = null,
 	write_failure_kind: WriteFailureKind = WriteFailureKind.NONE,
-	write_validation_report: Dictionary = {}
+	write_validation_report: Dictionary = {},
+	delete_result: GFStorageDeleteResult = null
 ) -> bool:
 	if _request_id != 0 or request_id <= 0:
 		return false
+	if not _is_valid_configuration(
+		operation,
+		ok,
+		error_code,
+		read_result,
+		write_failure_kind,
+		write_validation_report,
+		delete_result
+	):
+		return false
+
 	_request_id = request_id
 	_operation = operation
 	_file_name = file_name
 	_ok = ok
 	_error_code = error_code
 	_read_result = read_result.duplicate_result() if read_result != null else null
-	_write_failure_kind = WriteFailureKind.NONE
-	if not ok and operation == GFStorageAsyncOperation.OPERATION_SAVE:
-		_write_failure_kind = _to_write_failure_kind(int(write_failure_kind))
-		if _write_failure_kind == WriteFailureKind.NONE:
-			_write_failure_kind = WriteFailureKind.IO_FAILED
+	_delete_result = delete_result.duplicate_result() if delete_result != null else null
+	_write_failure_kind = write_failure_kind
 	_write_validation_report = write_validation_report.duplicate(true)
 	return true
 
 
 # --- 私有/辅助方法 ---
 
-static func _to_write_failure_kind(value: int) -> WriteFailureKind:
-	if WriteFailureKind.values().has(value):
-		return value as WriteFailureKind
-	return WriteFailureKind.IO_FAILED
+static func _is_valid_configuration(
+	operation: StringName,
+	ok: bool,
+	error_code: Error,
+	read_result: GFStorageReadResult,
+	write_failure_kind: WriteFailureKind,
+	write_validation_report: Dictionary,
+	delete_result: GFStorageDeleteResult
+) -> bool:
+	if not WriteFailureKind.values().has(int(write_failure_kind)):
+		return false
+	if ok != (error_code == OK):
+		return false
+
+	match operation:
+		GFStorageAsyncOperation.OPERATION_SAVE:
+			if read_result != null or delete_result != null:
+				return false
+			return (
+				write_failure_kind == WriteFailureKind.NONE
+				if ok
+				else write_failure_kind != WriteFailureKind.NONE
+			)
+		GFStorageAsyncOperation.OPERATION_LOAD:
+			return (
+				read_result != null
+				and delete_result == null
+				and write_failure_kind == WriteFailureKind.NONE
+				and write_validation_report.is_empty()
+				and read_result.ok == ok
+				and read_result.error_code == error_code
+			)
+		GFStorageAsyncOperation.OPERATION_DELETE:
+			return (
+				read_result == null
+				and delete_result != null
+				and delete_result.is_configured_for_framework()
+				and write_failure_kind == WriteFailureKind.NONE
+				and write_validation_report.is_empty()
+				and delete_result.is_successful() == ok
+				and delete_result.get_error_code() == error_code
+			)
+	return false

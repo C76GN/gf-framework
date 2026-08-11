@@ -72,6 +72,14 @@ const _MAX_TRANSACTION_FILES: int = 64
 const _PAYLOAD_VALIDATION_MAX_DEPTH: int = 128
 const _PAYLOAD_VALIDATION_MAX_VALUES: int = 1_000_000
 const _PAYLOAD_VALIDATION_MAX_BYTES: int = 64 * 1024 * 1024
+const _DELETE_MEMBER_BACKUP: StringName = &"backup"
+const _DELETE_MEMBER_TRANSACTION_PREPARE_PENDING: StringName = &"transaction_prepare_pending"
+const _DELETE_MEMBER_TRANSACTION_PREPARE: StringName = &"transaction_prepare"
+const _DELETE_MEMBER_TRANSACTION_COMMIT_PENDING: StringName = &"transaction_commit_pending"
+const _DELETE_MEMBER_TRANSACTION_COMMIT: StringName = &"transaction_commit"
+const _DELETE_MEMBER_CANDIDATE: StringName = &"candidate"
+const _DELETE_MEMBER_RESOURCE_STAGE: StringName = &"resource_stage"
+const _DELETE_MEMBER_FINAL: StringName = &"final"
 
 ## 递归枚举文件时默认允许进入的最大目录深度。
 ## [br]
@@ -549,7 +557,7 @@ func has_file(file_name: String) -> bool:
 	return _family_store.has_file_for_framework(_make_family_descriptor(file_name))
 
 
-## 删除一个精确 logical family 的 committed payload 与私有事务证据。
+## 删除一个精确 logical family 的全部可变成员。
 ##
 ## 该方法不会扫描或收养 Storage root 下的旧版可见文件；immutable catalog/owner claim 会保留。
 ## [br]
@@ -559,76 +567,49 @@ func has_file(file_name: String) -> bool:
 ## [br]
 ## @param file_name: portable logical file identity。
 ## [br]
-## @return Godot 的 `Error` 结果码；文件不存在时返回 `ERR_FILE_NOT_FOUND`。
+## @return Godot 的 `Error` 结果码；family 未 claim 或没有可变成员时返回 `ERR_FILE_NOT_FOUND`。
 func delete_file(file_name: String) -> Error:
 	if not _io_admission_open:
 		return ERR_UNAVAILABLE
 	if not _validate_public_file_name(file_name, "delete_file"):
 		return ERR_INVALID_PARAMETER
+	var canonical_file_name: String = _canonicalize_storage_file_name(file_name)
+	if canonical_file_name.is_empty():
+		return ERR_INVALID_PARAMETER
+	var target_family: Dictionary = _freeze_async_target_family(canonical_file_name)
+	if target_family.is_empty():
+		return ERR_INVALID_PARAMETER
 
-	init()
-	_wait_for_async_tasks_for_file(file_name)
-	var readiness_error: Error = _ensure_storage_ready()
-	if readiness_error != OK:
-		return readiness_error
-	var validate_error: Error = _family_store.validate_family_for_framework(
-		_make_family_descriptor(file_name)
+	_wait_for_async_tasks_for_file(canonical_file_name)
+	var worker_result: Dictionary = _delete_file_thread(
+		GFVariantData.get_option_string(target_family, "storage_root_path"),
+		canonical_file_name
 	)
-	if validate_error == ERR_FILE_NOT_FOUND:
-		return ERR_FILE_NOT_FOUND
-	if validate_error != OK:
-		return validate_error
-	var recovery_error: Error = _recover_transaction_files([file_name])
-	if recovery_error != OK:
-		return recovery_error
+	return _make_delete_result_from_worker(worker_result).get_error_code()
 
-	var descriptor: Dictionary = _make_family_descriptor(file_name)
-	var path: String = GFVariantData.get_option_string(descriptor, "payload_path")
-	var temp_path: String = GFVariantData.get_option_string(descriptor, "candidate_path")
-	var backup_path: String = GFVariantData.get_option_string(descriptor, "backup_path")
-	var transaction_path: String = GFVariantData.get_option_string(descriptor, "transaction_path")
-	var transaction_pending_path: String = GFVariantData.get_option_string(
-		descriptor,
-		"transaction_pending_path"
-	)
-	var transaction_commit_path: String = GFVariantData.get_option_string(
-		descriptor,
-		"transaction_commit_path"
-	)
-	var transaction_commit_pending_path: String = GFVariantData.get_option_string(
-		descriptor,
-		"transaction_commit_pending_path"
-	)
-	var resource_stage_path: String = GFVariantData.get_option_string(
-		descriptor,
-		"resource_stage_path"
-	)
-	var has_storage_family: bool = (
-		FileAccess.file_exists(path)
-		or FileAccess.file_exists(temp_path)
-		or FileAccess.file_exists(backup_path)
-		or FileAccess.file_exists(transaction_path)
-		or FileAccess.file_exists(transaction_pending_path)
-		or FileAccess.file_exists(transaction_commit_path)
-		or FileAccess.file_exists(transaction_commit_pending_path)
-		or FileAccess.file_exists(resource_stage_path)
-	)
-	if not has_storage_family:
-		return ERR_FILE_NOT_FOUND
 
-	for sidecar_path: String in [
-		backup_path,
-		transaction_commit_pending_path,
-		transaction_commit_path,
-		transaction_pending_path,
-		transaction_path,
-		temp_path,
-		resource_stage_path,
-	]:
-		var sidecar_error: Error = _remove_absolute_file(sidecar_path)
-		if sidecar_error != OK:
-			return sidecar_error
-	return _remove_absolute_file(path)
+## 在线程中删除一个精确 logical family，并返回请求专属句柄。
+##
+## 请求只删除冻结 family 的八个可变物理成员；catalog 与 owner identity 保留。
+## 删除不会隐式恢复事务，也不会扫描或收养 sibling family。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param file_name: portable logical file identity。
+## [br]
+## @return 已配置的 typed 请求句柄；路径或生命周期校验失败时立即进入失败终态。
+func delete_file_request_async(file_name: String) -> GFStorageAsyncOperation:
+	var operation: GFStorageAsyncOperation = _make_async_operation(
+		GFStorageAsyncOperation.OPERATION_DELETE
+	)
+	var _error: Error = _enqueue_async_delete(
+		file_name,
+		operation,
+		"delete_file_request_async"
+	)
+	return operation
 
 
 # --- 公共方法（纯数据存取） ---
@@ -1033,6 +1014,71 @@ func get_registered_migrations() -> Array[Dictionary]:
 	return result
 
 
+# --- 框架内部方法 ---
+
+## 启动一个已经完成主线程冻结与校验的 Storage worker。
+## [br]
+## @api framework_internal
+## [br]
+## @layer standard/utilities/storage
+## [br]
+## @since unreleased
+## [br]
+## @param task_type: `save`、`load` 或 `delete`。
+## [br]
+## @param thread: 由 Utility 为当前请求独占创建的线程。
+## [br]
+## @param callback: 只捕获冻结纯数据的 worker Callable。
+## [br]
+## @return `Thread.start()` 的 Error；参数不合法时返回 `ERR_INVALID_PARAMETER`。
+func start_async_worker_for_framework(
+	task_type: StringName,
+	thread: Thread,
+	callback: Callable
+) -> Error:
+	if (
+		thread == null
+		or not callback.is_valid()
+		or task_type not in [&"save", &"load", &"delete"]
+	):
+		return ERR_INVALID_PARAMETER
+	return thread.start(callback)
+
+
+## 删除一个冻结 delete family 的精确物理成员。
+## [br]
+## @api framework_internal
+## [br]
+## @layer standard/utilities/storage
+## [br]
+## @since unreleased
+## [br]
+## @param member_kind: 八个冻结 delete stage kind 之一。
+## [br]
+## @param path: 已由 exact descriptor 派生的私有绝对成员路径。
+## [br]
+## @return 删除成功或成员已不存在时返回 `OK`。
+func remove_delete_family_member_for_framework(
+	member_kind: StringName,
+	path: String
+) -> Error:
+	if (
+		path.is_empty()
+		or member_kind not in [
+			_DELETE_MEMBER_BACKUP,
+			_DELETE_MEMBER_TRANSACTION_PREPARE_PENDING,
+			_DELETE_MEMBER_TRANSACTION_PREPARE,
+			_DELETE_MEMBER_TRANSACTION_COMMIT_PENDING,
+			_DELETE_MEMBER_TRANSACTION_COMMIT,
+			_DELETE_MEMBER_CANDIDATE,
+			_DELETE_MEMBER_RESOURCE_STAGE,
+			_DELETE_MEMBER_FINAL,
+		]
+	):
+		return ERR_INVALID_PARAMETER
+	return _remove_absolute_file(path)
+
+
 # --- 私有/辅助方法 ---
 
 func _make_async_operation(operation_kind: StringName) -> GFStorageAsyncOperation:
@@ -1066,6 +1112,29 @@ func _make_async_target_family(canonical_file_name: String) -> Dictionary:
 		"transaction_commit_pending_path": GFVariantData.get_option_string(descriptor, "transaction_commit_pending_path"),
 		"resource_stage_path": GFVariantData.get_option_string(descriptor, "resource_stage_path"),
 	}
+
+
+func _freeze_async_target_family(canonical_file_name: String) -> Dictionary:
+	var target_family: Dictionary = _make_async_target_family(canonical_file_name)
+	for required_key: String in [
+		"storage_root_path",
+		"family_id",
+		"file_key",
+		"catalog_path",
+		"owner_path",
+		"final_path",
+		"temp_path",
+		"backup_path",
+		"transaction_path",
+		"transaction_pending_path",
+		"transaction_commit_path",
+		"transaction_commit_pending_path",
+		"resource_stage_path",
+	]:
+		if GFVariantData.get_option_string(target_family, required_key).is_empty():
+			return {}
+	_storage_root_frozen = true
+	return target_family
 
 
 func _make_async_transaction_id() -> String:
@@ -1302,30 +1371,226 @@ func _enqueue_async_load(
 	return OK
 
 
+func _enqueue_async_delete(
+	file_name: String,
+	operation: GFStorageAsyncOperation,
+	operation_name: String
+) -> Error:
+	if _is_disposing or not _io_admission_open:
+		var unavailable_result: GFStorageDeleteResult = _make_delete_result(
+			ERR_UNAVAILABLE,
+			GFStorageDeleteResult.FailureKind.UNAVAILABLE,
+			0,
+			0,
+			0,
+			GFStorageDeleteResult.FamilyMember.NONE
+		)
+		_complete_async_operation(
+			operation,
+			unavailable_result.get_error_code(),
+			null,
+			GFStorageAsyncResult.WriteFailureKind.NONE,
+			{},
+			unavailable_result
+		)
+		return ERR_UNAVAILABLE
+
+	var canonical_file_name: String = ""
+	if _validate_public_file_name(file_name, operation_name):
+		canonical_file_name = _canonicalize_storage_file_name(file_name)
+	if canonical_file_name.is_empty():
+		var invalid_result: GFStorageDeleteResult = _make_delete_result(
+			ERR_INVALID_PARAMETER,
+			GFStorageDeleteResult.FailureKind.INVALID_REQUEST,
+			0,
+			0,
+			0,
+			GFStorageDeleteResult.FamilyMember.NONE
+		)
+		_complete_async_operation(
+			operation,
+			invalid_result.get_error_code(),
+			null,
+			GFStorageAsyncResult.WriteFailureKind.NONE,
+			{},
+			invalid_result
+		)
+		return ERR_INVALID_PARAMETER
+
+	if operation != null:
+		var file_name_updated: bool = operation.set_file_name_for_framework(canonical_file_name)
+		if not file_name_updated:
+			var identity_result: GFStorageDeleteResult = _make_delete_result(
+				ERR_INVALID_PARAMETER,
+				GFStorageDeleteResult.FailureKind.INVALID_REQUEST,
+				0,
+				0,
+				0,
+				GFStorageDeleteResult.FamilyMember.NONE
+			)
+			_complete_async_operation(
+				operation,
+				identity_result.get_error_code(),
+				null,
+				GFStorageAsyncResult.WriteFailureKind.NONE,
+				{},
+				identity_result
+			)
+			return ERR_INVALID_PARAMETER
+
+	var target_family: Dictionary = _freeze_async_target_family(canonical_file_name)
+	if target_family.is_empty():
+		var target_result: GFStorageDeleteResult = _make_delete_result(
+			ERR_INVALID_PARAMETER,
+			GFStorageDeleteResult.FailureKind.INVALID_REQUEST,
+			0,
+			0,
+			0,
+			GFStorageDeleteResult.FamilyMember.NONE
+		)
+		_complete_async_operation(
+			operation,
+			target_result.get_error_code(),
+			null,
+			GFStorageAsyncResult.WriteFailureKind.NONE,
+			{},
+			target_result
+		)
+		return ERR_INVALID_PARAMETER
+
+	_async_queue.append({
+		"type": &"delete",
+		"file_name": file_name,
+		"storage_file_name": canonical_file_name,
+		"storage_root_path": GFVariantData.get_option_string(target_family, "storage_root_path"),
+		"family_id": GFVariantData.get_option_string(target_family, "family_id"),
+		"file_key": GFVariantData.get_option_string(target_family, "file_key"),
+		"catalog_path": GFVariantData.get_option_string(target_family, "catalog_path"),
+		"owner_path": GFVariantData.get_option_string(target_family, "owner_path"),
+		"final_path": GFVariantData.get_option_string(target_family, "final_path"),
+		"temp_path": GFVariantData.get_option_string(target_family, "temp_path"),
+		"backup_path": GFVariantData.get_option_string(target_family, "backup_path"),
+		"transaction_path": GFVariantData.get_option_string(target_family, "transaction_path"),
+		"transaction_pending_path": GFVariantData.get_option_string(target_family, "transaction_pending_path"),
+		"transaction_commit_path": GFVariantData.get_option_string(target_family, "transaction_commit_path"),
+		"transaction_commit_pending_path": GFVariantData.get_option_string(target_family, "transaction_commit_pending_path"),
+		"resource_stage_path": GFVariantData.get_option_string(target_family, "resource_stage_path"),
+		"operation": operation,
+	})
+	_start_queued_async_tasks()
+	return OK
+
+
 func _complete_async_operation(
 	operation: GFStorageAsyncOperation,
 	error_code: Error,
 	read_result: GFStorageReadResult,
 	write_failure_kind: GFStorageAsyncResult.WriteFailureKind = GFStorageAsyncResult.WriteFailureKind.NONE,
-	write_validation_report: Dictionary = {}
+	write_validation_report: Dictionary = {},
+	delete_result: GFStorageDeleteResult = null
 ) -> void:
 	if operation == null or operation.is_completed():
 		return
+
+	var operation_kind: StringName = operation.get_operation()
+	match operation_kind:
+		GFStorageAsyncOperation.OPERATION_SAVE:
+			read_result = null
+			delete_result = null
+		GFStorageAsyncOperation.OPERATION_LOAD:
+			write_failure_kind = GFStorageAsyncResult.WriteFailureKind.NONE
+			write_validation_report = {}
+			delete_result = null
+		GFStorageAsyncOperation.OPERATION_DELETE:
+			read_result = null
+			write_failure_kind = GFStorageAsyncResult.WriteFailureKind.NONE
+			write_validation_report = {}
+			if delete_result == null or not delete_result.is_configured_for_framework():
+				delete_result = _make_delete_result_fallback()
+			error_code = delete_result.get_error_code()
+
 	var ok: bool = error_code == OK
-	if operation.get_operation() == GFStorageAsyncOperation.OPERATION_LOAD:
+	if operation_kind == GFStorageAsyncOperation.OPERATION_LOAD:
 		ok = read_result != null and read_result.ok
+	elif operation_kind == GFStorageAsyncOperation.OPERATION_DELETE:
+		ok = delete_result != null and delete_result.is_successful()
 	var result: GFStorageAsyncResult = GFStorageAsyncResult.new()
-	var _configured: bool = result.configure_for_framework(
+	var configured: bool = result.configure_for_framework(
 		operation.get_request_id(),
-		operation.get_operation(),
+		operation_kind,
 		operation.get_file_name(),
 		ok,
 		error_code,
 		read_result,
 		write_failure_kind,
-		write_validation_report
+		write_validation_report,
+		delete_result
 	)
-	var _completed: bool = operation.complete_for_framework(result)
+	if not configured:
+		result = _make_async_operation_fallback_result(operation)
+	if result == null:
+		push_error("[GFStorageUtility] 无法构造异步请求 fallback 终态。")
+		return
+
+	var completed: bool = operation.complete_for_framework(result)
+	if completed or not operation.is_pending():
+		return
+	_finish_payload_attempt(operation)
+	var fallback_result: GFStorageAsyncResult = _make_async_operation_fallback_result(operation)
+	if fallback_result == null:
+		push_error("[GFStorageUtility] 无法构造异步请求 guaranteed fallback 终态。")
+		return
+	var fallback_completed: bool = operation.complete_for_framework(fallback_result)
+	if not fallback_completed:
+		push_error("[GFStorageUtility] 异步请求未能进入 guaranteed fallback 终态。")
+
+
+func _make_async_operation_fallback_result(
+	operation: GFStorageAsyncOperation
+) -> GFStorageAsyncResult:
+	if operation == null:
+		return null
+	var result: GFStorageAsyncResult = GFStorageAsyncResult.new()
+	var configured: bool = false
+	match operation.get_operation():
+		GFStorageAsyncOperation.OPERATION_SAVE:
+			configured = result.configure_for_framework(
+				operation.get_request_id(),
+				operation.get_operation(),
+				operation.get_file_name(),
+				false,
+				ERR_BUG,
+				null,
+				GFStorageAsyncResult.WriteFailureKind.IO_FAILED
+			)
+		GFStorageAsyncOperation.OPERATION_LOAD:
+			var read_failure: GFStorageReadResult = _make_load_failure(
+				"Storage async result configuration failed.",
+				ERR_BUG,
+				GFStorageReadResult.FailureKind.IO_FAILED
+			)
+			configured = result.configure_for_framework(
+				operation.get_request_id(),
+				operation.get_operation(),
+				operation.get_file_name(),
+				false,
+				read_failure.error_code,
+				read_failure
+			)
+		GFStorageAsyncOperation.OPERATION_DELETE:
+			var delete_failure: GFStorageDeleteResult = _make_delete_result_fallback()
+			configured = result.configure_for_framework(
+				operation.get_request_id(),
+				operation.get_operation(),
+				operation.get_file_name(),
+				false,
+				delete_failure.get_error_code(),
+				null,
+				GFStorageAsyncResult.WriteFailureKind.NONE,
+				{},
+				delete_failure
+			)
+	return result if configured else null
 
 
 func _get_task_operation(task: Dictionary) -> GFStorageAsyncOperation:
@@ -1617,20 +1882,31 @@ func _find_startable_async_task_index() -> int:
 func _start_async_task(task: Dictionary) -> void:
 	var storage_file_name: String = _get_task_storage_file_name(task)
 	var task_type: StringName = _get_task_type(task)
-	var thread: Thread = Thread.new()
-	var recovery_error: Error = _recover_frozen_async_transaction(task)
-	if recovery_error != OK:
+	var target_error: Error = _validate_frozen_async_target(task)
+	if target_error != OK:
 		_emit_async_start_failed(
 			task,
-			recovery_error,
-			GFStorageAsyncResult.WriteFailureKind.IO_FAILED,
-			"Transaction recovery failed"
+			target_error,
+			GFStorageAsyncResult.WriteFailureKind.INVALID_REQUEST,
+			"Frozen target validation failed",
+			GFStorageDeleteResult.FailureKind.INVALID_REQUEST
 		)
 		return
 
-	var error: Error = ERR_INVALID_PARAMETER
+	if task_type != &"delete":
+		var recovery_error: Error = _recover_frozen_async_transaction(task)
+		if recovery_error != OK:
+			_emit_async_start_failed(
+				task,
+				recovery_error,
+				GFStorageAsyncResult.WriteFailureKind.IO_FAILED,
+				"Transaction recovery failed"
+			)
+			return
+
+	var callback: Callable = Callable()
 	if task_type == &"save":
-		error = thread.start(Callable(self, "_save_data_thread").bind(
+		callback = Callable(self, "_save_data_thread").bind(
 			storage_file_name,
 			_get_task_final_path(task),
 			_get_task_temp_path(task),
@@ -1642,14 +1918,21 @@ func _start_async_task(task: Dictionary) -> void:
 			_get_task_transaction_id(task),
 			_get_task_dictionary_reference(task, "data"),
 			_get_task_dictionary(task, "codec_options")
-		))
+		)
 	elif task_type == &"load":
-		error = thread.start(Callable(self, "_load_data_thread").bind(
+		callback = Callable(self, "_load_data_thread").bind(
 			storage_file_name,
 			_get_task_final_path(task),
 			_get_task_dictionary(task, "codec_options")
-		))
+		)
+	elif task_type == &"delete":
+		callback = Callable(self, "_delete_file_thread").bind(
+			_get_task_storage_root_path(task),
+			storage_file_name
+		)
 
+	var thread: Thread = Thread.new()
+	var error: Error = start_async_worker_for_framework(task_type, thread, callback)
 	if error != OK:
 		_emit_async_start_failed(task, error)
 		return
@@ -1659,7 +1942,7 @@ func _start_async_task(task: Dictionary) -> void:
 	_async_tasks.append(task)
 
 
-func _recover_frozen_async_transaction(task: Dictionary) -> Error:
+func _validate_frozen_async_target(task: Dictionary) -> Error:
 	var storage_file_name: String = _get_task_storage_file_name(task)
 	var storage_root_path: String = _get_task_storage_root_path(task)
 	_ensure_storage_helpers()
@@ -1687,6 +1970,16 @@ func _recover_frozen_async_transaction(task: Dictionary) -> Error:
 		or _get_task_resource_stage_path(task) != GFVariantData.get_option_string(expected, "resource_stage_path")
 	):
 		return ERR_INVALID_PARAMETER
+	return OK
+
+
+func _recover_frozen_async_transaction(task: Dictionary) -> Error:
+	var storage_file_name: String = _get_task_storage_file_name(task)
+	var storage_root_path: String = _get_task_storage_root_path(task)
+	var expected: Dictionary = GFStorageFamilyStore.make_family_descriptor_for_framework(
+		storage_root_path,
+		storage_file_name
+	)
 	var frozen_family_store: GFStorageFamilyStore = _GF_STORAGE_FAMILY_STORE_SCRIPT.new()
 	if not frozen_family_store.configure_for_framework(storage_root_path):
 		return ERR_INVALID_PARAMETER
@@ -1722,7 +2015,8 @@ func _emit_async_start_failed(
 	task: Dictionary,
 	error: Error,
 	write_failure_kind: GFStorageAsyncResult.WriteFailureKind = GFStorageAsyncResult.WriteFailureKind.THREAD_START_FAILED,
-	failure_reason: String = "Thread start failed"
+	failure_reason: String = "Thread start failed",
+	delete_failure_kind: GFStorageDeleteResult.FailureKind = GFStorageDeleteResult.FailureKind.THREAD_START_FAILED
 ) -> void:
 	var file_name: String = _get_task_file_name(task)
 	var task_type: StringName = _get_task_type(task)
@@ -1757,6 +2051,28 @@ func _emit_async_start_failed(
 		last_load_result = failed_result.duplicate_result()
 		_complete_async_operation(operation, failed_result.error_code, failed_result)
 		load_completed.emit(file_name, failed_result.duplicate_result())
+	elif task_type == &"delete":
+		push_error("[GFStorageUtility] 异步删除失败：%s，原因：%s，错误码：%s" % [
+			file_name,
+			failure_reason,
+			error,
+		])
+		var delete_result: GFStorageDeleteResult = _make_delete_result(
+			error,
+			delete_failure_kind,
+			0,
+			0,
+			0,
+			GFStorageDeleteResult.FamilyMember.NONE
+		)
+		_complete_async_operation(
+			operation,
+			delete_result.get_error_code(),
+			null,
+			GFStorageAsyncResult.WriteFailureKind.NONE,
+			{},
+			delete_result
+		)
 
 
 func _complete_finished_async_task(task: Dictionary, result_variant: Variant) -> void:
@@ -1792,6 +2108,18 @@ func _complete_finished_async_task(task: Dictionary, result_variant: Variant) ->
 		save_completed.emit(file_name, error)
 	elif task_type == &"load":
 		_complete_async_load(file_name, result_variant, operation)
+	elif task_type == &"delete":
+		var delete_result: GFStorageDeleteResult = _make_delete_result_from_worker(
+			result_variant
+		)
+		_complete_async_operation(
+			operation,
+			delete_result.get_error_code(),
+			null,
+			GFStorageAsyncResult.WriteFailureKind.NONE,
+			{},
+			delete_result
+		)
 
 
 func _fail_queued_async_tasks(reason: String) -> void:
@@ -1817,6 +2145,23 @@ func _fail_queued_async_tasks(reason: String) -> void:
 			last_load_result = failed_result.duplicate_result()
 			_complete_async_operation(operation, failed_result.error_code, failed_result)
 			load_completed.emit(file_name, failed_result.duplicate_result())
+		elif task_type == &"delete":
+			var delete_result: GFStorageDeleteResult = _make_delete_result(
+				ERR_UNAVAILABLE,
+				GFStorageDeleteResult.FailureKind.UNAVAILABLE,
+				0,
+				0,
+				0,
+				GFStorageDeleteResult.FamilyMember.NONE
+			)
+			_complete_async_operation(
+				operation,
+				delete_result.get_error_code(),
+				null,
+				GFStorageAsyncResult.WriteFailureKind.NONE,
+				{},
+				delete_result
+			)
 
 
 func _finish_payload_attempt(operation: GFStorageAsyncOperation) -> void:
@@ -1829,6 +2174,100 @@ func _to_write_failure_kind(value: int) -> GFStorageAsyncResult.WriteFailureKind
 	if GFStorageAsyncResult.WriteFailureKind.values().has(value):
 		return value as GFStorageAsyncResult.WriteFailureKind
 	return GFStorageAsyncResult.WriteFailureKind.IO_FAILED
+
+
+func _make_delete_result(
+	error_code: Error,
+	failure_kind: GFStorageDeleteResult.FailureKind,
+	existing_member_count: int,
+	removed_member_count: int,
+	remaining_member_count: int,
+	failed_member: GFStorageDeleteResult.FamilyMember
+) -> GFStorageDeleteResult:
+	var result: GFStorageDeleteResult = GFStorageDeleteResult.new()
+	var configured: bool = result.configure_for_framework(
+		error_code,
+		failure_kind,
+		existing_member_count,
+		removed_member_count,
+		remaining_member_count,
+		failed_member
+	)
+	return result if configured else _make_delete_result_fallback()
+
+
+func _make_delete_result_fallback() -> GFStorageDeleteResult:
+	var result: GFStorageDeleteResult = GFStorageDeleteResult.new()
+	var configured: bool = result.configure_for_framework(
+		ERR_BUG,
+		GFStorageDeleteResult.FailureKind.IO_FAILED,
+		0,
+		0,
+		0,
+		GFStorageDeleteResult.FamilyMember.FAMILY_METADATA
+	)
+	if not configured:
+		push_error("[GFStorageUtility] 无法配置删除 fallback 结果。")
+	return result
+
+
+func _make_delete_result_from_worker(result_variant: Variant) -> GFStorageDeleteResult:
+	if not result_variant is Dictionary:
+		return _make_delete_result_fallback()
+	var raw_result: Dictionary = result_variant
+	var required_keys: Array[String] = [
+		"error_code",
+		"failure_kind",
+		"existing_member_count",
+		"removed_member_count",
+		"remaining_member_count",
+		"failed_member",
+	]
+	if raw_result.size() != required_keys.size():
+		return _make_delete_result_fallback()
+	for required_key: String in required_keys:
+		if not raw_result.has(required_key):
+			return _make_delete_result_fallback()
+
+	var error_code_value: Variant = raw_result.get("error_code")
+	var failure_kind_value: Variant = raw_result.get("failure_kind")
+	var existing_count_value: Variant = raw_result.get("existing_member_count")
+	var removed_count_value: Variant = raw_result.get("removed_member_count")
+	var remaining_count_value: Variant = raw_result.get("remaining_member_count")
+	var failed_member_value: Variant = raw_result.get("failed_member")
+	if (
+		not error_code_value is int
+		or not failure_kind_value is int
+		or not existing_count_value is int
+		or not removed_count_value is int
+		or not remaining_count_value is int
+		or not failed_member_value is int
+	):
+		return _make_delete_result_fallback()
+
+	var numeric_error_code: int = error_code_value
+	var numeric_failure_kind: int = failure_kind_value
+	var existing_member_count: int = existing_count_value
+	var removed_member_count: int = removed_count_value
+	var remaining_member_count: int = remaining_count_value
+	var numeric_failed_member: int = failed_member_value
+	if (
+		numeric_error_code < OK
+		or numeric_error_code > ERR_PRINTER_ON_FIRE
+		or not GFStorageDeleteResult.FailureKind.values().has(numeric_failure_kind)
+		or not GFStorageDeleteResult.FamilyMember.values().has(numeric_failed_member)
+	):
+		return _make_delete_result_fallback()
+	var result: GFStorageDeleteResult = GFStorageDeleteResult.new()
+	var configured: bool = result.configure_for_framework(
+		numeric_error_code as Error,
+		numeric_failure_kind as GFStorageDeleteResult.FailureKind,
+		existing_member_count,
+		removed_member_count,
+		remaining_member_count,
+		numeric_failed_member as GFStorageDeleteResult.FamilyMember
+	)
+	return result if configured else _make_delete_result_fallback()
 
 
 func _complete_async_load(
@@ -1962,6 +2401,332 @@ static func _is_valid_single_file_transaction_marker(
 		and member_family_id_value == GFStorageFamilyStore.make_family_id_for_framework(file_name)
 		and only_member.get("had_final") is bool
 	)
+
+
+func _delete_file_thread(storage_root_path: String, logical_name: String) -> Dictionary:
+	var descriptor: Dictionary = GFStorageFamilyStore.make_family_descriptor_for_framework(
+		storage_root_path,
+		logical_name
+	)
+	if descriptor.is_empty():
+		return _make_delete_worker_result(
+			ERR_INVALID_PARAMETER,
+			GFStorageDeleteResult.FailureKind.INVALID_REQUEST,
+			0,
+			0,
+			0,
+			GFStorageDeleteResult.FamilyMember.NONE
+		)
+	var members: Array[Dictionary] = _make_delete_family_members(descriptor)
+	if members.size() != 8:
+		return _make_delete_worker_result(
+			ERR_INVALID_PARAMETER,
+			GFStorageDeleteResult.FailureKind.INVALID_REQUEST,
+			0,
+			0,
+			0,
+			GFStorageDeleteResult.FamilyMember.NONE
+		)
+	var existing_member_count: int = _count_existing_delete_members(members)
+
+	var family_store: GFStorageFamilyStore = _GF_STORAGE_FAMILY_STORE_SCRIPT.new()
+	if not family_store.configure_for_framework(storage_root_path):
+		return _make_delete_worker_result(
+			ERR_INVALID_PARAMETER,
+			GFStorageDeleteResult.FailureKind.INVALID_REQUEST,
+			0,
+			0,
+			0,
+			GFStorageDeleteResult.FamilyMember.NONE
+		)
+	var layout_error: Error = family_store.ensure_layout_for_framework()
+	if layout_error != OK:
+		return _make_delete_metadata_worker_failure(
+			layout_error,
+			existing_member_count
+		)
+	var family_error: Error = family_store.validate_family_for_framework(descriptor)
+	if family_error == ERR_FILE_NOT_FOUND:
+		return _make_delete_worker_result(
+			ERR_FILE_NOT_FOUND,
+			GFStorageDeleteResult.FailureKind.NOT_FOUND,
+			0,
+			0,
+			0,
+			GFStorageDeleteResult.FamilyMember.NONE
+		)
+	if family_error != OK:
+		return _make_delete_metadata_worker_failure(
+			family_error,
+			existing_member_count
+		)
+	if existing_member_count == 0:
+		return _make_delete_worker_result(
+			ERR_FILE_NOT_FOUND,
+			GFStorageDeleteResult.FailureKind.NOT_FOUND,
+			0,
+			0,
+			0,
+			GFStorageDeleteResult.FamilyMember.NONE
+		)
+
+	var evidence_error: Error = _validate_delete_transaction_evidence(
+		logical_name,
+		descriptor
+	)
+	if evidence_error != OK:
+		return _make_delete_worker_result(
+			evidence_error,
+			GFStorageDeleteResult.FailureKind.CONFLICT,
+			existing_member_count,
+			0,
+			existing_member_count,
+			GFStorageDeleteResult.FamilyMember.TRANSACTION_EVIDENCE
+		)
+
+	var existing_paths: Dictionary = {}
+	for member: Dictionary in members:
+		var member_path: String = GFVariantData.get_option_string(member, "path")
+		if FileAccess.file_exists(member_path):
+			existing_paths[member_path] = true
+	var removed_member_count: int = 0
+	for member: Dictionary in members:
+		var member_path: String = GFVariantData.get_option_string(member, "path")
+		if not existing_paths.has(member_path):
+			continue
+		var member_kind: StringName = GFVariantData.get_option_string_name(member, "kind")
+		var numeric_family_member: int = GFVariantData.get_option_int(
+			member,
+			"family_member",
+			GFStorageDeleteResult.FamilyMember.FAMILY_METADATA
+		)
+		var family_member: GFStorageDeleteResult.FamilyMember = (
+			numeric_family_member as GFStorageDeleteResult.FamilyMember
+		)
+		var remove_error: Error = remove_delete_family_member_for_framework(
+			member_kind,
+			member_path
+		)
+		var member_still_exists: bool = (
+			FileAccess.file_exists(member_path)
+			or DirAccess.dir_exists_absolute(member_path)
+		)
+		if not member_still_exists:
+			removed_member_count += 1
+		if remove_error != OK or member_still_exists:
+			return _make_delete_worker_result(
+				remove_error if remove_error != OK else FAILED,
+				GFStorageDeleteResult.FailureKind.IO_FAILED,
+				existing_member_count,
+				removed_member_count,
+				existing_member_count - removed_member_count,
+				family_member
+			)
+	return _make_delete_worker_result(
+		OK,
+		GFStorageDeleteResult.FailureKind.NONE,
+		existing_member_count,
+		removed_member_count,
+		0,
+		GFStorageDeleteResult.FamilyMember.NONE
+	)
+
+
+func _make_delete_family_members(descriptor: Dictionary) -> Array[Dictionary]:
+	var result: Array[Dictionary] = [
+		{
+			"kind": _DELETE_MEMBER_BACKUP,
+			"family_member": GFStorageDeleteResult.FamilyMember.BACKUP,
+			"path": GFVariantData.get_option_string(descriptor, "backup_path"),
+		},
+		{
+			"kind": _DELETE_MEMBER_TRANSACTION_PREPARE_PENDING,
+			"family_member": GFStorageDeleteResult.FamilyMember.TRANSACTION_EVIDENCE,
+			"path": GFVariantData.get_option_string(descriptor, "transaction_pending_path"),
+		},
+		{
+			"kind": _DELETE_MEMBER_TRANSACTION_PREPARE,
+			"family_member": GFStorageDeleteResult.FamilyMember.TRANSACTION_EVIDENCE,
+			"path": GFVariantData.get_option_string(descriptor, "transaction_path"),
+		},
+		{
+			"kind": _DELETE_MEMBER_TRANSACTION_COMMIT_PENDING,
+			"family_member": GFStorageDeleteResult.FamilyMember.TRANSACTION_EVIDENCE,
+			"path": GFVariantData.get_option_string(
+				descriptor,
+				"transaction_commit_pending_path"
+			),
+		},
+		{
+			"kind": _DELETE_MEMBER_TRANSACTION_COMMIT,
+			"family_member": GFStorageDeleteResult.FamilyMember.TRANSACTION_EVIDENCE,
+			"path": GFVariantData.get_option_string(descriptor, "transaction_commit_path"),
+		},
+		{
+			"kind": _DELETE_MEMBER_CANDIDATE,
+			"family_member": GFStorageDeleteResult.FamilyMember.CANDIDATE,
+			"path": GFVariantData.get_option_string(descriptor, "candidate_path"),
+		},
+		{
+			"kind": _DELETE_MEMBER_RESOURCE_STAGE,
+			"family_member": GFStorageDeleteResult.FamilyMember.RESOURCE_STAGE,
+			"path": GFVariantData.get_option_string(descriptor, "resource_stage_path"),
+		},
+		{
+			"kind": _DELETE_MEMBER_FINAL,
+			"family_member": GFStorageDeleteResult.FamilyMember.FINAL,
+			"path": GFVariantData.get_option_string(descriptor, "payload_path"),
+		},
+	]
+	var unique_paths: Dictionary = {}
+	for member: Dictionary in result:
+		var member_path: String = GFVariantData.get_option_string(member, "path")
+		if member_path.is_empty() or unique_paths.has(member_path):
+			return []
+		unique_paths[member_path] = true
+	return result
+
+
+func _count_existing_delete_members(members: Array[Dictionary]) -> int:
+	var result: int = 0
+	for member: Dictionary in members:
+		if FileAccess.file_exists(GFVariantData.get_option_string(member, "path")):
+			result += 1
+	return result
+
+
+func _make_delete_metadata_worker_failure(
+	error_code: Error,
+	existing_member_count: int
+) -> Dictionary:
+	var failure_kind: GFStorageDeleteResult.FailureKind = (
+		GFStorageDeleteResult.FailureKind.CONFLICT
+		if error_code == ERR_FILE_CORRUPT
+		else GFStorageDeleteResult.FailureKind.IO_FAILED
+	)
+	return _make_delete_worker_result(
+		error_code,
+		failure_kind,
+		existing_member_count,
+		0,
+		existing_member_count,
+		GFStorageDeleteResult.FamilyMember.FAMILY_METADATA
+	)
+
+
+func _validate_delete_transaction_evidence(
+	logical_name: String,
+	descriptor: Dictionary
+) -> Error:
+	var evidence: Array[Dictionary] = [
+		{
+			"path": GFVariantData.get_option_string(descriptor, "transaction_pending_path"),
+			"committed": false,
+			"phase": &"prepare",
+		},
+		{
+			"path": GFVariantData.get_option_string(descriptor, "transaction_path"),
+			"committed": false,
+			"phase": &"prepare",
+		},
+		{
+			"path": GFVariantData.get_option_string(
+				descriptor,
+				"transaction_commit_pending_path"
+			),
+			"committed": true,
+			"phase": &"commit",
+		},
+		{
+			"path": GFVariantData.get_option_string(descriptor, "transaction_commit_path"),
+			"committed": true,
+			"phase": &"commit",
+		},
+	]
+	var prepare_reference: Dictionary = {}
+	var commit_reference: Dictionary = {}
+	for evidence_entry: Dictionary in evidence:
+		var evidence_path: String = GFVariantData.get_option_string(evidence_entry, "path")
+		if not FileAccess.file_exists(evidence_path):
+			continue
+		var marker: Dictionary = _read_transaction_record_absolute(evidence_path)
+		var expected_committed: bool = GFVariantData.get_option_bool(
+			evidence_entry,
+			"committed"
+		)
+		if (
+			marker.is_empty()
+			or not _is_valid_single_file_transaction_marker(marker, logical_name)
+			or GFVariantData.get_option_bool(marker, "committed") != expected_committed
+		):
+			return ERR_FILE_CORRUPT
+		var phase: StringName = GFVariantData.get_option_string_name(evidence_entry, "phase")
+		if phase == &"prepare":
+			if prepare_reference.is_empty():
+				prepare_reference = marker
+			elif not _single_transaction_records_match(
+				prepare_reference,
+				marker,
+				logical_name
+			):
+				return ERR_FILE_CORRUPT
+		else:
+			if commit_reference.is_empty():
+				commit_reference = marker
+			elif not _single_transaction_records_match(
+				commit_reference,
+				marker,
+				logical_name
+			):
+				return ERR_FILE_CORRUPT
+	if (
+		not prepare_reference.is_empty()
+		and not commit_reference.is_empty()
+		and not _single_transaction_snapshots_match(
+			prepare_reference,
+			commit_reference,
+			logical_name
+		)
+	):
+		return ERR_FILE_CORRUPT
+	return OK
+
+
+func _single_transaction_snapshots_match(
+	prepare_record: Dictionary,
+	commit_record: Dictionary,
+	logical_name: String
+) -> bool:
+	return (
+		_is_valid_single_file_transaction_marker(prepare_record, logical_name)
+		and _is_valid_single_file_transaction_marker(commit_record, logical_name)
+		and not GFVariantData.get_option_bool(prepare_record, "committed")
+		and GFVariantData.get_option_bool(commit_record, "committed")
+		and GFVariantData.get_option_string(prepare_record, "transaction_id")
+		== GFVariantData.get_option_string(commit_record, "transaction_id")
+		and GFVariantData.get_option_dictionary(prepare_record, "owner")
+		== GFVariantData.get_option_dictionary(commit_record, "owner")
+		and GFVariantData.get_option_array(prepare_record, "members")
+		== GFVariantData.get_option_array(commit_record, "members")
+	)
+
+
+func _make_delete_worker_result(
+	error_code: Error,
+	failure_kind: GFStorageDeleteResult.FailureKind,
+	existing_member_count: int,
+	removed_member_count: int,
+	remaining_member_count: int,
+	failed_member: GFStorageDeleteResult.FamilyMember
+) -> Dictionary:
+	return {
+		"error_code": int(error_code),
+		"failure_kind": int(failure_kind),
+		"existing_member_count": existing_member_count,
+		"removed_member_count": removed_member_count,
+		"remaining_member_count": remaining_member_count,
+		"failed_member": int(failed_member),
+	}
 
 
 func _save_data_thread(
@@ -2876,7 +3641,11 @@ func _read_transaction_record_absolute(path: String) -> Dictionary:
 	file.close()
 	if read_error != OK:
 		return {}
-	var parsed: Variant = JSON.parse_string(content)
+	var json_parser: JSON = JSON.new()
+	var parse_error: Error = json_parser.parse(content)
+	if parse_error != OK:
+		return {}
+	var parsed: Variant = json_parser.data
 	return GFVariantData.as_dictionary(parsed) if parsed is Dictionary else {}
 
 

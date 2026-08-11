@@ -40,6 +40,13 @@ const OPERATION_SAVE: StringName = &"save"
 ## @since 10.0.0
 const OPERATION_LOAD: StringName = &"load"
 
+## 异步删除请求。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+const OPERATION_DELETE: StringName = &"delete"
+
 
 # --- 私有变量 ---
 
@@ -72,7 +79,7 @@ func get_request_id() -> int:
 ## [br]
 ## @since 10.0.0
 ## [br]
-## @return `OPERATION_SAVE` 或 `OPERATION_LOAD`。
+## @return `OPERATION_SAVE`、`OPERATION_LOAD` 或 `OPERATION_DELETE`。
 func get_operation() -> StringName:
 	return _operation
 
@@ -130,7 +137,7 @@ func get_result() -> GFStorageAsyncResult:
 ## [br]
 ## @since unreleased
 ## [br]
-## @return 等待中的 transfer-backed save 请求返回句柄；终态及普通 save/load 请求返回 null。
+## @return 等待中的 transfer-backed save 请求返回句柄；终态及普通 save/load/delete 请求返回 null。
 func get_payload_transfer() -> GFStoragePayloadTransfer:
 	if not is_pending():
 		return null
@@ -178,7 +185,7 @@ func reclaim_failed_payload() -> GFStoragePayloadTransfer:
 func configure_for_framework(request_id: int, operation: StringName, file_name: String) -> bool:
 	if _request_id != 0 or request_id <= 0:
 		return false
-	if operation not in [OPERATION_SAVE, OPERATION_LOAD]:
+	if operation not in [OPERATION_SAVE, OPERATION_LOAD, OPERATION_DELETE]:
 		return false
 	_request_id = request_id
 	_operation = operation
@@ -194,9 +201,9 @@ func configure_for_framework(request_id: int, operation: StringName, file_name: 
 ## [br]
 ## @param file_name: 当前 Storage root 内的规范相对文件名。
 ## [br]
-## @return 请求仍在等待且文件名非空时返回 true。
+## @return 请求仍在等待、尚无文件名且新文件名非空时返回 true。
 func set_file_name_for_framework(file_name: String) -> bool:
-	if not is_pending() or file_name.is_empty():
+	if not is_pending() or not _file_name.is_empty() or file_name.is_empty():
 		return false
 	_file_name = file_name
 	return true
@@ -212,13 +219,14 @@ func set_file_name_for_framework(file_name: String) -> bool:
 ## [br]
 ## @param attempt_id: transfer 分配的活动 attempt ID。
 ## [br]
-## @return 首次关联合法 attempt 时返回 true。
+## @return save 请求首次关联合法 attempt 时返回 true。
 func configure_payload_attempt_for_framework(
 	transfer: GFStoragePayloadTransfer,
 	attempt_id: int
 ) -> bool:
 	if (
 		not is_pending()
+		or _operation != OPERATION_SAVE
 		or transfer == null
 		or attempt_id <= 0
 		or _payload_transfer != null
@@ -261,7 +269,11 @@ func finish_payload_attempt_for_framework() -> bool:
 func complete_for_framework(result: GFStorageAsyncResult) -> bool:
 	if not is_pending() or result == null:
 		return false
-	if result.get_request_id() != _request_id or result.get_operation() != _operation:
+	if (
+		result.get_request_id() != _request_id
+		or result.get_operation() != _operation
+		or result.get_file_name() != _file_name
+	):
 		return false
 	if _payload_transfer != null and not _payload_attempt_finished:
 		return false

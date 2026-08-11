@@ -165,6 +165,13 @@ class FaultStorage extends GFStorageUtility:
 		var successful: bool = error_code == OK
 		if operation.get_operation() == GFStorageAsyncOperation.OPERATION_LOAD:
 			successful = read_result != null and read_result.ok
+		var resolved_write_failure_kind: GFStorageAsyncResult.WriteFailureKind = (
+			_resolve_write_failure_kind(
+				operation.get_operation(),
+				error_code,
+				write_failure_kind
+			)
+		)
 		var _configured: bool = result.configure_for_framework(
 			operation.get_request_id(),
 			operation.get_operation(),
@@ -172,10 +179,28 @@ class FaultStorage extends GFStorageUtility:
 			successful,
 			error_code,
 			read_result,
-			write_failure_kind,
+			resolved_write_failure_kind,
 			write_validation_report
 		)
 		var _completed: bool = operation.complete_for_framework(result)
+
+	static func _resolve_write_failure_kind(
+		operation_kind: StringName,
+		error_code: Error,
+		requested_failure_kind: GFStorageAsyncResult.WriteFailureKind
+	) -> GFStorageAsyncResult.WriteFailureKind:
+		if operation_kind != GFStorageAsyncOperation.OPERATION_SAVE or error_code == OK:
+			return GFStorageAsyncResult.WriteFailureKind.NONE
+		if requested_failure_kind != GFStorageAsyncResult.WriteFailureKind.NONE:
+			return requested_failure_kind
+		match error_code:
+			ERR_INVALID_PARAMETER:
+				return GFStorageAsyncResult.WriteFailureKind.INVALID_REQUEST
+			ERR_UNAVAILABLE:
+				return GFStorageAsyncResult.WriteFailureKind.UNAVAILABLE
+			ERR_CANT_CREATE:
+				return GFStorageAsyncResult.WriteFailureKind.THREAD_START_FAILED
+		return GFStorageAsyncResult.WriteFailureKind.IO_FAILED
 
 
 class MemorySectionProvider extends GFSaveSectionProvider:

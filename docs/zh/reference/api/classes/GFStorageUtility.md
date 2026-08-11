@@ -50,6 +50,7 @@
 | 方法 | [`list_files`](#member-gfstorageutility-methods-list_files) | `func list_files( directory_name: String = "", extension_filter: String = "", recursive: bool = false, options: Dictionary = {} ) -> PackedStringArray:` |
 | 方法 | [`has_file`](#member-gfstorageutility-methods-has_file) | `func has_file(file_name: String) -> bool:` |
 | 方法 | [`delete_file`](#member-gfstorageutility-methods-delete_file) | `func delete_file(file_name: String) -> Error:` |
+| 方法 | [`delete_file_request_async`](#member-gfstorageutility-methods-delete_file_request_async) | `func delete_file_request_async(file_name: String) -> GFStorageAsyncOperation:` |
 | 方法 | [`save_data`](#member-gfstorageutility-methods-save_data) | `func save_data(file_name: String, data: Dictionary) -> Error:` |
 | 方法 | [`save_data_group`](#member-gfstorageutility-methods-save_data_group) | `func save_data_group(files: Dictionary) -> Error:` |
 | 方法 | [`load_data`](#member-gfstorageutility-methods-load_data) | `func load_data(file_name: String) -> GFStorageReadResult:` |
@@ -603,7 +604,7 @@ func has_file(file_name: String) -> bool:
 func delete_file(file_name: String) -> Error:
 ```
 
-删除一个精确 logical family 的 committed payload 与私有事务证据。 该方法不会扫描或收养 Storage root 下的旧版可见文件；immutable catalog/owner claim 会保留。
+删除一个精确 logical family 的全部可变成员。 该方法不会扫描或收养 Storage root 下的旧版可见文件；immutable catalog/owner claim 会保留。
 
 参数：
 
@@ -611,7 +612,28 @@ func delete_file(file_name: String) -> Error:
 |---|---|
 | `file_name` | portable logical file identity。 |
 
-返回：Godot 的 `Error` 结果码；文件不存在时返回 `ERR_FILE_NOT_FOUND`。
+返回：Godot 的 `Error` 结果码；family 未 claim 或没有可变成员时返回 `ERR_FILE_NOT_FOUND`。
+
+<a id="member-gfstorageutility-methods-delete_file_request_async"></a>
+
+### `delete_file_request_async`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func delete_file_request_async(file_name: String) -> GFStorageAsyncOperation:
+```
+
+在线程中删除一个精确 logical family，并返回请求专属句柄。 请求只删除冻结 family 的八个可变物理成员；catalog 与 owner identity 保留。 删除不会隐式恢复事务，也不会扫描或收养 sibling family。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `file_name` | portable logical file identity。 |
+
+返回：已配置的 typed 请求句柄；路径或生命周期校验失败时立即进入失败终态。
 
 <a id="member-gfstorageutility-methods-save_data"></a>
 

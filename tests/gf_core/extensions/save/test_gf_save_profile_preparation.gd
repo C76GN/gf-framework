@@ -120,14 +120,33 @@ class CaptureStorage extends GFStorageUtility:
 	func _complete(operation: GFStorageAsyncOperation, error_code: Error) -> void:
 		var _finished: bool = operation.finish_payload_attempt_for_framework()
 		var result: GFStorageAsyncResult = GFStorageAsyncResult.new()
+		var write_failure_kind: GFStorageAsyncResult.WriteFailureKind = (
+			_resolve_write_failure_kind(error_code)
+		)
 		var _configured: bool = result.configure_for_framework(
 			operation.get_request_id(),
 			operation.get_operation(),
 			operation.get_file_name(),
 			error_code == OK,
-			error_code
+			error_code,
+			null,
+			write_failure_kind
 		)
 		var _completed: bool = operation.complete_for_framework(result)
+
+	static func _resolve_write_failure_kind(
+		error_code: Error
+	) -> GFStorageAsyncResult.WriteFailureKind:
+		if error_code == OK:
+			return GFStorageAsyncResult.WriteFailureKind.NONE
+		match error_code:
+			ERR_INVALID_PARAMETER:
+				return GFStorageAsyncResult.WriteFailureKind.INVALID_REQUEST
+			ERR_UNAVAILABLE:
+				return GFStorageAsyncResult.WriteFailureKind.UNAVAILABLE
+			ERR_CANT_CREATE:
+				return GFStorageAsyncResult.WriteFailureKind.THREAD_START_FAILED
+		return GFStorageAsyncResult.WriteFailureKind.IO_FAILED
 
 
 var _clock: GFManualClock

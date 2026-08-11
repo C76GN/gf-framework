@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFStorageUtility" path="addons/gf/standard/utilities/storage/gf_storage_utility.gd" module="standard" extends="GFUtility" classDigest="ea7315824a3fac61bdc1b32c15ff581a2faee9ab41ceb5c9859bdce1adddd9f0">
+<class name="GFStorageUtility" path="addons/gf/standard/utilities/storage/gf_storage_utility.gd" module="standard" extends="GFUtility" classDigest="294a5c3a9e2bf59c950650ba64b261945caad37eb11450979f8feced9afe8805">
 	<description>GFStorageUtility: 基于 `user://` 的轻量存档系统。
 支持槽位存档、元数据分离读取、`Resource` 存取，
 以及可配置 codec、完整性校验、版本迁移和简单混淆，适合通用本地持久化场景。
@@ -308,13 +308,25 @@
 		</member>
 		<member kind="method" name="delete_file">
 			<signature>func delete_file(file_name: String) -&gt; Error:</signature>
-			<description>删除一个精确 logical family 的 committed payload 与私有事务证据。
+			<description>删除一个精确 logical family 的全部可变成员。
 该方法不会扫描或收养 Storage root 下的旧版可见文件；immutable catalog/owner claim 会保留。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">file_name: portable logical file identity。</tag>
-				<tag name="return">Godot 的 `Error` 结果码；文件不存在时返回 `ERR_FILE_NOT_FOUND`。</tag>
+				<tag name="return">Godot 的 `Error` 结果码；family 未 claim 或没有可变成员时返回 `ERR_FILE_NOT_FOUND`。</tag>
 				<tag name="since">3.17.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="delete_file_request_async">
+			<signature>func delete_file_request_async(file_name: String) -&gt; GFStorageAsyncOperation:</signature>
+			<description>在线程中删除一个精确 logical family，并返回请求专属句柄。
+请求只删除冻结 family 的八个可变物理成员；catalog 与 owner identity 保留。
+删除不会隐式恢复事务，也不会扫描或收养 sibling family。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">file_name: portable logical file identity。</tag>
+				<tag name="return">已配置的 typed 请求句柄；路径或生命周期校验失败时立即进入失败终态。</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
 		<member kind="method" name="save_data">
