@@ -2,7 +2,7 @@
   "schema_version": 1,
   "catalog_version": "1.0.0",
   "framework_version": "11.0.0-dev.0",
-  "source_digest": "94d3e6674de0eadffcdc7ec2c0b35f0cb4feb9d0c3379a7c00cbe25b67e5cc51",
+  "source_digest": "6a3278376aee95062513634e8b39c4fdcfc5c1333d85bc0e99f304d9322e451d",
   "class_count": 812,
   "package_count": 55,
   "packages": [
@@ -539,6 +539,7 @@
       "kind": "tool",
       "dependencies": [
         "gf.kernel",
+        "gf.standard.base",
         "gf.standard.assets"
       ],
       "description": "Optional model-first asset browsing state and bounded preview coordination.",
