@@ -7,7 +7,7 @@
 | 模块 | 类 | 成员 | 页面内索引 |
 |---|---:|---:|---|
 | Kernel | 74 | 1108 | [Kernel](#module-kernel) |
-| Standard | 454 | 7270 | [Standard](#module-standard) |
+| Standard | 455 | 7284 | [Standard](#module-standard) |
 | Action Queue | 16 | 214 | [Action Queue](#module-extensions-action_queue) |
 | Asset Metadata | 4 | 33 | [Asset Metadata](#module-extensions-asset_metadata) |
 | Behavior Tree | 22 | 89 | [Behavior Tree](#module-extensions-behavior_tree) |
@@ -267,7 +267,7 @@
 | [`GFSteeringMath`](GFSteeringMath.md#gfsteeringmath) | 运行时服务 (`runtime_service`) | `RefCounted` | 16 | `addons/gf/standard/foundation/math/gf_steering_math.gd` |
 | [`GFStorageFailoverBackend`](GFStorageFailoverBackend.md#gfstoragefailoverbackend) | 运行时服务 (`runtime_service`) | `GFStorageBackend` | 16 | `addons/gf/standard/utilities/storage/gf_storage_failover_backend.gd` |
 | [`GFStorageSyncUtility`](GFStorageSyncUtility.md#gfstoragesyncutility) | 运行时服务 (`runtime_service`) | `GFUtility` | 11 | `addons/gf/standard/utilities/storage/gf_storage_sync_utility.gd` |
-| [`GFStorageUtility`](GFStorageUtility.md#gfstorageutility) | 运行时服务 (`runtime_service`) | `GFUtility` | 50 | `addons/gf/standard/utilities/storage/gf_storage_utility.gd` |
+| [`GFStorageUtility`](GFStorageUtility.md#gfstorageutility) | 运行时服务 (`runtime_service`) | `GFUtility` | 51 | `addons/gf/standard/utilities/storage/gf_storage_utility.gd` |
 | [`GFSupportReportUtility`](GFSupportReportUtility.md#gfsupportreportutility) | 运行时服务 (`runtime_service`) | `GFUtility` | 32 | `addons/gf/standard/utilities/debug/gf_support_report_utility.gd` |
 | [`GFSupportReportWorkflow`](GFSupportReportWorkflow.md#gfsupportreportworkflow) | 运行时服务 (`runtime_service`) | `GFUtility` | 23 | `addons/gf/standard/utilities/debug/gf_support_report_workflow.gd` |
 | [`GFSurfaceScatterSampler3D`](GFSurfaceScatterSampler3D.md#gfsurfacescattersampler3d) | 运行时服务 (`runtime_service`) | `RefCounted` | 7 | `addons/gf/standard/foundation/math/gf_surface_scatter_sampler_3d.gd` |
@@ -491,7 +491,7 @@
 | [`GFShaderParameterBinder`](GFShaderParameterBinder.md#gfshaderparameterbinder) | 运行时句柄 (`runtime_handle`) | `Node` | 14 | `addons/gf/standard/utilities/display/gf_shader_parameter_binder.gd` |
 | [`GFSignalBridgeBinding`](GFSignalBridgeBinding.md#gfsignalbridgebinding) | 运行时句柄 (`runtime_handle`) | `RefCounted` | 5 | `addons/gf/standard/utilities/signals/bridge/gf_signal_bridge_binding.gd` |
 | [`GFSignalConnection`](GFSignalConnection.md#gfsignalconnection) | 运行时句柄 (`runtime_handle`) | `RefCounted` | 18 | `addons/gf/standard/utilities/signals/gf_signal_connection.gd` |
-| [`GFStorageAsyncOperation`](GFStorageAsyncOperation.md#gfstorageasyncoperation) | 运行时句柄 (`runtime_handle`) | `RefCounted` | 11 | `addons/gf/standard/utilities/storage/gf_storage_async_operation.gd` |
+| [`GFStorageAsyncOperation`](GFStorageAsyncOperation.md#gfstorageasyncoperation) | 运行时句柄 (`runtime_handle`) | `RefCounted` | 12 | `addons/gf/standard/utilities/storage/gf_storage_async_operation.gd` |
 | [`GFStoragePayloadTransfer`](GFStoragePayloadTransfer.md#gfstoragepayloadtransfer) | 运行时句柄 (`runtime_handle`) | `RefCounted` | 7 | `addons/gf/standard/utilities/storage/gf_storage_payload_transfer.gd` |
 | [`GFTextGenerationContext`](GFTextGenerationContext.md#gftextgenerationcontext) | 运行时句柄 (`runtime_handle`) | `RefCounted` | 24 | `addons/gf/standard/foundation/text/gf_text_generation_context.gd` |
 | [`GFTimeoutController`](GFTimeoutController.md#gftimeoutcontroller) | 运行时句柄 (`runtime_handle`) | `RefCounted` | 19 | `addons/gf/standard/common/gf_timeout_controller.gd` |
@@ -533,8 +533,9 @@
 | [`GFSpatialQueryIdentity`](GFSpatialQueryIdentity.md#gfspatialqueryidentity) | 值对象 (`value_object`) | `RefCounted` | 19 | `addons/gf/standard/foundation/math/gf_spatial_query_identity.gd` |
 | [`GFSteeringAcceleration`](GFSteeringAcceleration.md#gfsteeringacceleration) | 值对象 (`value_object`) | `RefCounted` | 8 | `addons/gf/standard/foundation/math/gf_steering_acceleration.gd` |
 | [`GFSteeringAgent`](GFSteeringAgent.md#gfsteeringagent) | 值对象 (`value_object`) | `RefCounted` | 12 | `addons/gf/standard/foundation/math/gf_steering_agent.gd` |
-| [`GFStorageAsyncResult`](GFStorageAsyncResult.md#gfstorageasyncresult) | 值对象 (`value_object`) | `RefCounted` | 11 | `addons/gf/standard/utilities/storage/gf_storage_async_result.gd` |
+| [`GFStorageAsyncResult`](GFStorageAsyncResult.md#gfstorageasyncresult) | 值对象 (`value_object`) | `RefCounted` | 12 | `addons/gf/standard/utilities/storage/gf_storage_async_result.gd` |
 | [`GFStorageConflictReport`](GFStorageConflictReport.md#gfstorageconflictreport) | 值对象 (`value_object`) | `Resource` | 14 | `addons/gf/standard/utilities/storage/gf_storage_conflict_report.gd` |
+| [`GFStorageDeleteResult`](GFStorageDeleteResult.md#gfstoragedeleteresult) | 值对象 (`value_object`) | `RefCounted` | 11 | `addons/gf/standard/utilities/storage/gf_storage_delete_result.gd` |
 | [`GFStorageReadResult`](GFStorageReadResult.md#gfstoragereadresult) | 值对象 (`value_object`) | `RefCounted` | 20 | `addons/gf/standard/utilities/storage/gf_storage_read_result.gd` |
 | [`GFStorageSectionCache`](GFStorageSectionCache.md#gfstoragesectioncache) | 值对象 (`value_object`) | `RefCounted` | 14 | `addons/gf/standard/utilities/storage/gf_storage_section_cache.gd` |
 | [`GFTableRowPredicateRegistration`](GFTableRowPredicateRegistration.md#gftablerowpredicateregistration) | 值对象 (`value_object`) | `RefCounted` | 6 | `addons/gf/standard/utilities/ui/gf_table_row_predicate_registration.gd` |

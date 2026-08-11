@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFStorageAsyncOperation" path="addons/gf/standard/utilities/storage/gf_storage_async_operation.gd" module="standard" extends="RefCounted" classDigest="cbcc52e7f4693e4e1c4fd8aaf8ae5cba3e38feca504570921e31a39053527691">
+<class name="GFStorageAsyncOperation" path="addons/gf/standard/utilities/storage/gf_storage_async_operation.gd" module="standard" extends="RefCounted" classDigest="a67623656088095c9ae70e244a4c3ed2ee0fe6df0f4520f1527ee60a5bf8f23e">
 	<description>GFStorageAsyncOperation: 单次异步存储请求句柄。
 句柄由 `GFStorageUtility` 分配唯一请求 ID，并且只接受一个终态。调用方应先
 检查 `is_completed()`，再决定是否等待 `completed` 信号。</description>
@@ -37,6 +37,14 @@
 				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
+		<member kind="const" name="OPERATION_DELETE">
+			<signature>const OPERATION_DELETE: StringName = &amp;"delete"</signature>
+			<description>异步删除请求。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
 	</constants>
 	<properties />
 	<methods>
@@ -54,7 +62,7 @@
 			<description>获取请求类型。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="return">`OPERATION_SAVE` 或 `OPERATION_LOAD`。</tag>
+				<tag name="return">`OPERATION_SAVE`、`OPERATION_LOAD` 或 `OPERATION_DELETE`。</tag>
 				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
@@ -101,7 +109,7 @@
 发起 timeout retry。调用方完成整个重试 generation 后必须显式 `release()`。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="return">等待中的 transfer-backed save 请求返回句柄；终态及普通 save/load 请求返回 null。</tag>
+				<tag name="return">等待中的 transfer-backed save 请求返回句柄；终态及普通 save/load/delete 请求返回 null。</tag>
 				<tag name="since">unreleased</tag>
 			</tags>
 		</member>

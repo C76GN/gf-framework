@@ -6,11 +6,11 @@
 
 | 类别 | 类 | 成员 | 方法 |
 |---|---:|---:|---:|
-| [运行时服务](#category-runtime_service) | 188 | 3433 | 2318 |
+| [运行时服务](#category-runtime_service) | 188 | 3434 | 2319 |
 | [协议与扩展点](#category-protocol) | 25 | 342 | 270 |
 | [资源定义](#category-resource_definition) | 122 | 1572 | 797 |
-| [运行时句柄](#category-runtime_handle) | 50 | 887 | 560 |
-| [值对象](#category-value_object) | 45 | 795 | 509 |
+| [运行时句柄](#category-runtime_handle) | 50 | 888 | 560 |
+| [值对象](#category-value_object) | 46 | 807 | 519 |
 | [领域模型](#category-domain_model) | 4 | 61 | 42 |
 | [事件契约](#category-event_contract) | 6 | 61 | 23 |
 | [编辑器 API](#category-editor_api) | 11 | 70 | 48 |
@@ -471,6 +471,7 @@
 | [`GFSteeringAgent`](classes/GFSteeringAgent.md#gfsteeringagent) | `RefCounted` | `addons/gf/standard/foundation/math/gf_steering_agent.gd` |
 | [`GFStorageAsyncResult`](classes/GFStorageAsyncResult.md#gfstorageasyncresult) | `RefCounted` | `addons/gf/standard/utilities/storage/gf_storage_async_result.gd` |
 | [`GFStorageConflictReport`](classes/GFStorageConflictReport.md#gfstorageconflictreport) | `Resource` | `addons/gf/standard/utilities/storage/gf_storage_conflict_report.gd` |
+| [`GFStorageDeleteResult`](classes/GFStorageDeleteResult.md#gfstoragedeleteresult) | `RefCounted` | `addons/gf/standard/utilities/storage/gf_storage_delete_result.gd` |
 | [`GFStorageReadResult`](classes/GFStorageReadResult.md#gfstoragereadresult) | `RefCounted` | `addons/gf/standard/utilities/storage/gf_storage_read_result.gd` |
 | [`GFStorageSectionCache`](classes/GFStorageSectionCache.md#gfstoragesectioncache) | `RefCounted` | `addons/gf/standard/utilities/storage/gf_storage_section_cache.gd` |
 | [`GFTableRowPredicateRegistration`](classes/GFTableRowPredicateRegistration.md#gftablerowpredicateregistration) | `RefCounted` | `addons/gf/standard/utilities/ui/gf_table_row_predicate_registration.gd` |

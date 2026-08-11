@@ -133,7 +133,8 @@ var loaded_res := storage.load_resource("my_custom_resource.tres", "Resource")
 ## 异步请求身份
 
 简单调用方可以继续使用 `save_data_async()` / `load_data_async()` 和全局完成信号。需要把
-终态精确关联到一次请求的协调器、自动保存服务或并发调用方，应使用请求句柄：
+终态精确关联到一次请求的协调器、自动保存服务或并发调用方，应使用请求句柄。删除没有
+全局完成信号，异步删除必须使用 `delete_file_request_async()` 返回的请求句柄：
 
 ```gdscript
 var operation: GFStorageAsyncOperation = storage.load_data_request_async("profile.json")
@@ -154,6 +155,28 @@ if not async_result.is_successful():
 			_report_storage_failure(read_failure)
 ```
 
+删除句柄使用 `GFStorageAsyncOperation.OPERATION_DELETE`，其 `GFStorageAsyncResult` 只携带
+`GFStorageDeleteResult`，不会同时伪装成读或写终态：
+
+```gdscript
+var delete_operation := storage.delete_file_request_async("profile.json")
+var delete_async_result: GFStorageAsyncResult
+if delete_operation.is_completed():
+	delete_async_result = delete_operation.get_result()
+else:
+	delete_async_result = await delete_operation.completed
+
+var delete_result: GFStorageDeleteResult = delete_async_result.get_delete_result()
+if not delete_result.is_successful():
+	match delete_result.get_failure_kind():
+		GFStorageDeleteResult.FailureKind.NOT_FOUND:
+			_pass()
+		GFStorageDeleteResult.FailureKind.CONFLICT:
+			_report_storage_conflict(delete_result)
+		_:
+			_report_storage_failure(delete_result)
+```
+
 每个 `GFStorageAsyncOperation` 都持有唯一 request ID、规范文件名、操作类型和 exactly-once
 终态，`GFStorageAsyncResult` 是该请求身份与读写结果的不可变终态快照。不得用文件名或
 `last_load_result` 猜测某个句柄是否完成；同一文件可以存在来自不同调用方的多个排队
@@ -161,13 +184,43 @@ if not async_result.is_successful():
 
 `GFStorageReadResult` 分离 `payload`、框架 `metadata`、`integrity_status`、Godot `error_code`、物理文档版本、数据迁移前后版本和 `migrated`。`failure_kind` 进一步区分非法请求、不存在、普通 IO、损坏、未来格式、迁移失败和服务不可用；上层恢复政策应根据该分类决定，不能仅凭同一个 `Error` 码把未来格式或迁移失败当成损坏。异步读取完成信号同样传递这个结果；`last_load_result` 只用于诊断最近一次读取，不应替代当前调用返回值。
 
+`GFStorageDeleteResult.FailureKind` 把删除终态分为 `NONE`、`INVALID_REQUEST`、
+`NOT_FOUND`、`CONFLICT`、`THREAD_START_FAILED`、`UNAVAILABLE` 和 `IO_FAILED`。
+`NOT_FOUND` 表示精确 family 尚未 claim，或已 claim family 已没有任何可变成员；它不等同于
+“final payload 不存在”，因为只有 markerless sidecar 的精确 family 仍可被成功清理。
+`get_existing_member_count()`、`get_removed_member_count()` 与
+`get_remaining_member_count()` 只统计本次可变 family 成员，始终满足
+existing = removed + remaining，且每项最多为 8；`get_failed_member()` 只返回 `NONE`、
+`FAMILY_METADATA`、`BACKUP`、`TRANSACTION_EVIDENCE`、`CANDIDATE`、`RESOURCE_STAGE` 或
+`FINAL` 这类有界语义分类，不暴露 Storage root、opaque family ID 或私有文件名。调用方可以
+据此区分“没有目标”“删除前发现冲突”和“已经删除部分 sidecar 后发生 IO 故障”，但不能用
+这些计数重建或直接管理物理布局。
+
 9.0 的物理存储文档是有意收紧的契约，不会把旧明文 JSON 或旧 envelope 当成当前格式。需要保留既有玩家数据的项目应在升级发布前使用独立、版本锁定的一次性导入器读取旧文件，验证后写成当前文档，再移除导入入口；不要在主读取路径长期保留格式猜测。
 
 `save_data_group()` 要求所有成员本身已经是唯一 portable logical identity；`group/a.json` 与 `group//a.json`、大小写别名或反斜杠输入不会被偷偷归一，而是在任何 claim 或写入前被拒绝。事务 record 带版本、transaction id、精确排序成员、opaque family ID、每成员原 final 状态和数量上限，恢复时磁盘证据只能引用 catalog 已授权的精确 family，不能扩大到请求范围之外。提交失败会按同一 family 集合恢复备份，并在物理状态确认收敛前保留恢复证据。
 
 ## 文件管理
 
-运行时文件管理只公开 logical API：`has_file()` 判断 committed payload，`list_files()` 从 catalog 投影 logical identity，`delete_file()` 删除一个精确 family。框架不再公开 Storage 物理根、目录创建或嵌套目录开关；logical 目录只是 selector，不对应调用方可管理的物理目录。项目 slot adapter 应使用受控模板与 logical API，不能扫描或拼接内部事务、备份和 family 路径。
+运行时文件管理只公开 logical API：`has_file()` 判断 committed payload，`list_files()` 从 catalog 投影 logical identity，`delete_file()` 同步删除一个精确 family，`delete_file_request_async()` 返回逐请求 typed handle 并让物理删除在 worker 线程执行。框架不再公开 Storage 物理根、目录创建或嵌套目录开关；logical 目录只是 selector，不对应调用方可管理的物理目录。项目 slot adapter 应使用受控模板与 logical API，不能扫描或拼接内部事务、备份和 family 路径。
+
+同步与异步删除共享同一套 fail-closed family executor。删除不会在开始前自动执行事务
+recovery 或 repair，也不会把冲突证据改写成可删除状态；worker 会重新验证冻结的 logical
+identity、catalog 与 owner 互证，以及四个事务证据位置。有效的、只引用该目标的精确单成员
+prepare/commit evidence 可以随 family 删除；没有 marker 但可由该 opaque family 独占证明的
+candidate、backup 或 Resource stage 也可以删除。引用多个成员的 group evidence、损坏 record、
+pending/final 不一致、prepare/commit 身份不一致或任何无法证明精确 family 所有权的状态都会以
+`CONFLICT` 在首次删除前失败关闭，不会借删除入口扩大恢复或清理范围。
+
+通过授权后，成员按 `backup → prepare.pending → prepare → commit.pending → commit → candidate →
+resource stage → final` 的固定顺序删除。执行在首个 IO 失败处停止，不回滚已经删除的 sidecar；
+final 始终最后删除，因此失败结果可以通过 removed/remaining 计数与粗粒度 failed member 精确表示
+部分进度。成功删除仍保留 immutable catalog/owner tombstone，同一 logical identity 不会在以后映射
+到另一个 family。
+
+同一个 `GFStorageUtility` 内，同一 canonical family 的保存、读取和删除请求按 FIFO 串行；不同
+family 在 worker 配额允许时可以并行。这个顺序只覆盖同一 Utility，仍以“同一 Storage root 只有
+一个活动 writer Utility/进程”为前提，不提供跨 Utility 或跨进程线性化。
 
 `portable-ascii-v1` 不做 `replace()`、`simplify_path()`、大小写折叠或 Unicode 规范化。文件路径由 1 到 16 个 `/` 分隔的 segment 组成，总长最多 255 个 ASCII 字节；每段 1 到 64 字节，首尾必须是小写字母或数字，中间只允许 `[a-z0-9._-]`，并拒绝 Windows 设备名 stem。空字符串只可作为根目录 selector；反斜杠、空段、`.`、`..`、大写、Unicode、控制字符、尾点/空格和非 canonical 输入都在副作用前失败关闭。`.tmp`、`.bak`、`.txn` 只是普通 logical leaf 后缀，各自拥有独立 family，不再与事务 sidecar 冲突。
 

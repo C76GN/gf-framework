@@ -2,8 +2,8 @@
   "schema_version": 1,
   "catalog_version": "1.0.0",
   "framework_version": "11.0.0-dev.0",
-  "source_digest": "f90fd727a085bdb192d650f96c921653b625826c47c78dc19e1fd817fda31a09",
-  "class_count": 789,
+  "source_digest": "9ca2803f765901150bd17dbe87def12a8d97a1a8c98f4e9998610753f516b63e",
+  "class_count": 790,
   "package_count": 52,
   "packages": [
     {
@@ -80274,6 +80274,13 @@
           "visibility": "public"
         },
         {
+          "kind": "const",
+          "name": "OPERATION_DELETE",
+          "signature": "const OPERATION_DELETE: StringName = &\"delete\"",
+          "summary": "异步删除请求。",
+          "visibility": "public"
+        },
+        {
           "kind": "func",
           "name": "get_request_id",
           "signature": "func get_request_id() -> int",
@@ -80336,7 +80343,7 @@
       "module": "standard",
       "package_id": "gf.standard.storage",
       "path": "addons/gf/standard/utilities/storage/gf_storage_async_result.gd",
-      "summary": "GFStorageAsyncResult: 单次异步存储请求的不可变终态。 结果通过请求 ID 与具体句柄绑定；读取结果保留 `GFStorageReadResult` 的类型化 失败分类；写入结果额外暴露稳定写入失败分类与隔离的 payload 预检报告。",
+      "summary": "GFStorageAsyncResult: 单次异步存储请求的不可变终态。 结果通过请求 ID 与具体句柄绑定；读取结果保留 `GFStorageReadResult` 的类型化 失败分类；写入结果额外暴露稳定写入失败分类与隔离的 payload 预检报告；",
       "visibility": "public",
       "category": "value_object",
       "since": "10.0.0",
@@ -80388,6 +80395,13 @@
           "name": "get_read_result",
           "signature": "func get_read_result() -> GFStorageReadResult",
           "summary": "获取读取结果副本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_delete_result",
+          "signature": "func get_delete_result() -> GFStorageDeleteResult",
+          "summary": "获取删除结果副本。",
           "visibility": "public"
         },
         {
@@ -80865,6 +80879,95 @@
           "name": "from_dict",
           "signature": "static func from_dict(data: Dictionary) -> GFStorageConflictReport",
           "summary": "从字典创建冲突报告。",
+          "visibility": "public"
+        }
+      ]
+    },
+    "GFStorageDeleteResult": {
+      "extends": "RefCounted",
+      "module": "standard",
+      "package_id": "gf.standard.storage",
+      "path": "addons/gf/standard/utilities/storage/gf_storage_delete_result.gd",
+      "summary": "GFStorageDeleteResult: 单次异步 Storage family 删除的不可变终态。 结果只公开有界成员计数与失败成员分类，不暴露 Storage root、family path 或 私有 sidecar 文件名。实例只能由 Storage 框架内部配置一次。",
+      "visibility": "public",
+      "category": "value_object",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "enum",
+          "name": "FailureKind",
+          "signature": "enum FailureKind {\n\t## 删除成功。\n\tNONE,\n\t## 请求参数或 logical identity 无效。\n\tINVALID_REQUEST,\n\t## 精确 logical family 未 claim，或已 claim family 不存在任何可变成员。\n\tNOT_FOUND,\n\t## family metadata、owner 或事务证据发生冲突。\n\tCONFLICT,\n\t## 删除 worker 线程未能启动。\n\tTHREAD_START_FAILED,\n\t## Utility 生命周期边界拒绝或终止了尚未执行的请求。\n\tUNAVAILABLE,\n\t## family 成员删除或底层文件 I/O 失败；无法解析 worker 终态时也使用此回退分类。\n\tIO_FAILED,\n}",
+          "summary": "删除失败的稳定分类。",
+          "visibility": "public"
+        },
+        {
+          "kind": "enum",
+          "name": "FamilyMember",
+          "signature": "enum FamilyMember {\n\t## 没有失败成员。\n\tNONE,\n\t## layout、catalog、owner 或 family metadata。\n\tFAMILY_METADATA,\n\t## 已提交 payload 的备份成员。\n\tBACKUP,\n\t## prepare、commit 或 pending 事务证据。\n\tTRANSACTION_EVIDENCE,\n\t## 尚未提交的 candidate payload。\n\tCANDIDATE,\n\t## Resource 保存使用的 staging 成员。\n\tRESOURCE_STAGE,\n\t## committed final payload。\n\tFINAL,\n}",
+          "summary": "删除 family 时可报告的有界成员分类。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "is_successful",
+          "signature": "func is_successful() -> bool",
+          "summary": "检查删除是否成功。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_error_code",
+          "signature": "func get_error_code() -> Error",
+          "summary": "获取删除 Error 码。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_failure_kind",
+          "signature": "func get_failure_kind() -> FailureKind",
+          "summary": "获取删除失败分类。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_existing_member_count",
+          "signature": "func get_existing_member_count() -> int",
+          "summary": "获取删除开始时存在的可变 family 成员数量。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_removed_member_count",
+          "signature": "func get_removed_member_count() -> int",
+          "summary": "获取本次请求已删除的 family 成员数量。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_remaining_member_count",
+          "signature": "func get_remaining_member_count() -> int",
+          "summary": "获取本次请求终态仍存在的 family 成员数量。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_failed_member",
+          "signature": "func get_failed_member() -> FamilyMember",
+          "summary": "获取阻止删除继续执行的成员分类。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "duplicate_result",
+          "signature": "func duplicate_result() -> GFStorageDeleteResult",
+          "summary": "创建隔离结果副本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "to_dict",
+          "signature": "func to_dict() -> Dictionary",
+          "summary": "转换为不含物理路径的可报告字典。",
           "visibility": "public"
         }
       ]
@@ -81657,7 +81760,14 @@
           "kind": "func",
           "name": "delete_file",
           "signature": "func delete_file(file_name: String) -> Error",
-          "summary": "删除一个精确 logical family 的 committed payload 与私有事务证据。",
+          "summary": "删除一个精确 logical family 的全部可变成员。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "delete_file_request_async",
+          "signature": "func delete_file_request_async(file_name: String) -> GFStorageAsyncOperation",
+          "summary": "在线程中删除一个精确 logical family，并返回请求专属句柄。",
           "visibility": "public"
         },
         {
