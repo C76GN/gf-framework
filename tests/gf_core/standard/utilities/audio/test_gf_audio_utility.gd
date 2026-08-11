@@ -853,6 +853,65 @@ func test_init_dispose_reentry_from_first_player_insertion_converges_atomically(
 	assert_eq(_count_root_audio_players_named("GFBGMFadePlayer"), fade_count_before)
 
 
+func test_init_requires_exact_physical_player_root_topology() -> void:
+	await _assert_invalid_init_player_topology_converges(false, 1)
+	await _assert_invalid_init_player_topology_converges(true, 2)
+
+
+func _assert_invalid_init_player_topology_converges(
+	reparent_player: bool,
+	target_insertion: int
+) -> void:
+	var standalone_audio: GFAudioUtility = GFAudioUtility.new()
+	var root: Window = get_tree().root
+	var holder: Node = Node.new()
+	holder.name = "GFInvalidAudioPlayerParent"
+	root.add_child(holder)
+	var primary_count_before: int = _count_root_audio_players_named("GFBGMPlayer")
+	var fade_count_before: int = _count_root_audio_players_named("GFBGMFadePlayer")
+	var insertion_state: Dictionary = {"count": 0, "mutated": false}
+	var topology_callback: Callable = func(child: Node) -> void:
+		if not child is AudioStreamPlayer:
+			return
+		insertion_state["count"] = GFVariantData.get_option_int(
+			insertion_state,
+			"count"
+		) + 1
+		if (
+			GFVariantData.get_option_bool(insertion_state, "mutated")
+			or GFVariantData.get_option_int(insertion_state, "count")
+			!= target_insertion
+		):
+			return
+		insertion_state["mutated"] = true
+		if reparent_player:
+			child.reparent(holder)
+		else:
+			root.remove_child(child)
+	var connect_error: Error = (
+		root.child_entered_tree.connect(topology_callback) as Error
+	)
+	assert_eq(connect_error, OK)
+
+	standalone_audio.init()
+	if root.child_entered_tree.is_connected(topology_callback):
+		root.child_entered_tree.disconnect(topology_callback)
+	await get_tree().process_frame
+
+	assert_true(GFVariantData.get_option_bool(insertion_state, "mutated"))
+	assert_false(standalone_audio._is_initialized)
+	assert_null(standalone_audio._root)
+	assert_null(standalone_audio._bgm_player)
+	assert_null(standalone_audio._bgm_fade_player)
+	assert_eq(holder.get_child_count(), 0)
+	assert_eq(_count_root_audio_players_named("GFBGMPlayer"), primary_count_before)
+	assert_eq(_count_root_audio_players_named("GFBGMFadePlayer"), fade_count_before)
+
+	standalone_audio.dispose()
+	holder.queue_free()
+	await get_tree().process_frame
+
+
 func test_pre_init_backend_topology_reports_committed_set_and_clear() -> void:
 	var standalone_audio: GFAudioUtility = GFAudioUtility.new()
 	var backend: MockAudioBackend = MockAudioBackend.new()

@@ -65,6 +65,40 @@ class AssetBackedAudioUtility:
 		return asset_utility
 
 
+class ReentrantSourceClip:
+	extends GFAudioClip
+
+	var host: GFAudioUtility = null
+	var newer_clip: GFAudioClip = null
+	var newer_operation: Object = null
+	var reentered: bool = false
+
+	func has_source() -> bool:
+		if not reentered and host != null and newer_clip != null:
+			reentered = true
+			newer_operation = host.start_bgm_clip(newer_clip, 0.0)
+		return super.has_source()
+
+
+class ReentrantSnapshotResource:
+	extends Resource
+
+	var host: GFAudioUtility = null
+	var newer_clip: GFAudioClip = null
+	var newer_operation: Object = null
+	var reentered: bool = false
+	var _payload: int = 7
+
+	@export var payload: int:
+		get:
+			if not reentered and host != null and newer_clip != null:
+				reentered = true
+				newer_operation = host.start_bgm_clip(newer_clip, 0.0)
+			return _payload
+		set(value):
+			_payload = value
+
+
 class RecordingBgmBackend:
 	extends GFAudioBackend
 
@@ -2183,6 +2217,52 @@ func _assert_terminal_drain_preserves_newer_reentrant_request(
 	assert_signal_emit_count(first_session, "ended", 1)
 
 
+func test_clip_source_hook_cannot_admit_older_request_after_newer_start() -> void:
+	if _skip_runtime_scenario_until_contract_exists():
+		return
+	await _activate_audio(GFAudioUtility.new())
+	var hostile_clip: ReentrantSourceClip = ReentrantSourceClip.new()
+	hostile_clip.path = "issue88-hostile-source-outer"
+	hostile_clip.stream = AudioStreamGenerator.new()
+	hostile_clip.host = _audio
+	hostile_clip.newer_clip = _make_clip("issue88-hostile-source-newer")
+
+	var outer_operation: Object = _start_bgm_clip(hostile_clip, 0.0)
+
+	_assert_newer_reentrant_start_wins(
+		outer_operation,
+		hostile_clip.newer_operation,
+		"issue88-hostile-source-newer"
+	)
+
+
+func test_option_snapshot_hook_cannot_admit_older_request_after_newer_start() -> void:
+	if _skip_runtime_scenario_until_contract_exists():
+		return
+	await _activate_audio(
+		AssetBackedAudioUtility.new(
+			ImmediateAssetUtility.new(AudioStreamGenerator.new())
+		)
+	)
+	var hostile_resource: ReentrantSnapshotResource = ReentrantSnapshotResource.new()
+	hostile_resource.host = _audio
+	hostile_resource.newer_clip = _make_clip("issue88-hostile-snapshot-newer")
+
+	var outer_operation: Object = _start_bgm(
+		"res://audio/issue88-hostile-snapshot-outer.ogg",
+		{
+			"history_key": "issue88-hostile-snapshot-outer",
+			"hostile_resource": hostile_resource,
+		}
+	)
+
+	_assert_newer_reentrant_start_wins(
+		outer_operation,
+		hostile_resource.newer_operation,
+		"issue88-hostile-snapshot-newer"
+	)
+
+
 func test_replacement_player_insertion_dispose_reentry_cancels_before_commit() -> void:
 	if _skip_runtime_scenario_until_contract_exists():
 		return
@@ -2288,6 +2368,75 @@ func test_replacement_player_insertion_stop_reentry_cancels_before_commit() -> v
 	assert_true(_audio._is_initialized)
 	assert_eq(_audio.get_current_bgm_key(), "")
 	assert_false(_audio.is_bgm_playing())
+
+
+func test_local_candidate_requires_exact_root_parent_for_both_players() -> void:
+	await _assert_reparented_local_candidate_fails_before_commit(1)
+	await _assert_reparented_local_candidate_fails_before_commit(2)
+
+
+func _assert_reparented_local_candidate_fails_before_commit(
+	target_insertion: int
+) -> void:
+	if _skip_runtime_scenario_until_contract_exists():
+		return
+	await _activate_audio(GFAudioUtility.new())
+	var root: Window = get_tree().root
+	var holder: Node = Node.new()
+	holder.name = "GFInvalidBgmCandidateParent"
+	root.add_child(holder)
+	var insertion_state: Dictionary = {"count": 0, "reparented": false}
+	var reparent_callback: Callable = func(child: Node) -> void:
+		if not child is AudioStreamPlayer:
+			return
+		insertion_state["count"] = GFVariantData.get_option_int(
+			insertion_state,
+			"count"
+		) + 1
+		if (
+			GFVariantData.get_option_bool(insertion_state, "reparented")
+			or GFVariantData.get_option_int(insertion_state, "count")
+			!= target_insertion
+		):
+			return
+		insertion_state["reparented"] = true
+		child.reparent(holder)
+	var connect_error: Error = (
+		root.child_entered_tree.connect(reparent_callback) as Error
+	)
+	assert_eq(connect_error, OK)
+
+	var operation: Object = _start_bgm_clip(
+		_make_clip("issue88-reparented-candidate-%d" % target_insertion),
+		0.0
+	)
+	if root.child_entered_tree.is_connected(reparent_callback):
+		root.child_entered_tree.disconnect(reparent_callback)
+	var result: Object = _assert_completed_with_status(operation, "FAILED")
+	if result != null:
+		assert_eq(
+			_call_string_name(result, &"get_reason"),
+			_script_string_name_constant(
+				_RESULT_SCRIPT_PATH,
+				"REASON_LOCAL_PLAYER_REJECTED"
+			)
+		)
+		assert_eq(_call_int(result, &"get_error_code", OK), ERR_CANT_CREATE)
+	await get_tree().process_frame
+
+	assert_true(GFVariantData.get_option_bool(insertion_state, "reparented"))
+	assert_true(_audio._is_initialized)
+	assert_eq(_audio.get_current_bgm_key(), "")
+	assert_false(_audio.is_bgm_playing())
+	assert_true(_audio._bgm_player.is_inside_tree())
+	assert_same(_audio._bgm_player.get_parent(), root)
+	assert_true(_audio._bgm_fade_player.is_inside_tree())
+	assert_same(_audio._bgm_fade_player.get_parent(), root)
+	assert_eq(holder.get_child_count(), 0)
+
+	_audio.dispose()
+	holder.queue_free()
+	await get_tree().process_frame
 
 
 func test_local_eof_during_stop_converges_physical_and_logical_session() -> void:
@@ -2789,6 +2938,35 @@ func _assert_cancelled_topology_result(
 	)
 	assert_eq(_call_int(result, &"get_session_id", -1), 0)
 	assert_null(_call_object(result, &"get_session_handle"))
+
+
+func _assert_newer_reentrant_start_wins(
+	outer_operation: Object,
+	newer_operation: Object,
+	expected_history_key: String
+) -> void:
+	var outer_result: Object = _assert_completed_with_status(
+		outer_operation,
+		"SUPERSEDED"
+	)
+	if outer_result == null:
+		return
+	assert_eq(
+		_call_string_name(outer_result, &"get_reason"),
+		_script_string_name_constant(_RESULT_SCRIPT_PATH, "REASON_NEWER_REQUEST")
+	)
+	assert_eq(_call_int(outer_result, &"get_error_code", OK), ERR_BUSY)
+	assert_eq(
+		_call_int(outer_result, &"get_backend_disposition", -1),
+		_enum_value(_RESULT_SCRIPT_PATH, "BackendDisposition", "NOT_ATTEMPTED")
+	)
+	var newer_result: Object = _assert_completed_with_status(
+		newer_operation,
+		"STARTED"
+	)
+	assert_not_null(newer_result)
+	assert_eq(_audio.get_current_bgm_key(), expected_history_key)
+	assert_true(_audio.is_bgm_playing())
 
 
 func _accept_test_session_stop(_handle: Object, _fade_seconds: float) -> bool:

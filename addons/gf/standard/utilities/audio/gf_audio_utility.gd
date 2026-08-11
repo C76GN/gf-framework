@@ -291,20 +291,30 @@ func init() -> void:
 	_connect_signal_checked(_bgm_fade_player.finished, _on_bgm_player_finished.bind(_bgm_fade_player))
 	
 	var tree: SceneTree = _get_scene_tree()
-	if tree != null:
-		_root = tree.root
-		var initialization_root: Node = _root
-		var initialization_primary: AudioStreamPlayer = _bgm_player
-		var initialization_fade: AudioStreamPlayer = _bgm_fade_player
-		initialization_root.add_child(initialization_primary)
-		if (
-			not _is_initialized
-			or _root != initialization_root
-			or _bgm_player != initialization_primary
-			or _bgm_fade_player != initialization_fade
-		):
-			return
-		initialization_root.add_child(initialization_fade)
+	if tree == null or not _is_live_audio_root(tree.root):
+		dispose()
+		return
+	_root = tree.root
+	var initialization_root: Node = _root
+	var initialization_primary: AudioStreamPlayer = _bgm_player
+	var initialization_fade: AudioStreamPlayer = _bgm_fade_player
+	initialization_root.add_child(initialization_primary)
+	if not _is_audio_initialization_topology_current(
+		initialization_root,
+		initialization_primary,
+		initialization_fade,
+		false
+	):
+		dispose()
+		return
+	initialization_root.add_child(initialization_fade)
+	if not _is_audio_initialization_topology_current(
+		initialization_root,
+		initialization_primary,
+		initialization_fade,
+		true
+	):
+		dispose()
 
 
 ## 释放播放器、后端、环境音和 SFX 运行时状态。
@@ -365,14 +375,6 @@ func start_bgm(
 	if operation == null:
 		return null
 	_drain_bgm_terminal_barrier_if_needed()
-	if _latest_admitted_bgm_start_request_id > operation.get_request_id():
-		_complete_unadmitted_bgm_start(
-			operation,
-			GFBgmStartResult.Status.SUPERSEDED,
-			GFBgmStartResult.REASON_NEWER_REQUEST,
-			ERR_BUSY
-		)
-		return operation
 	if not _is_initialized or not _bgm_start_admission_open:
 		_complete_unadmitted_bgm_start(
 			operation,
@@ -450,13 +452,14 @@ func start_bgm(
 		owner
 	)
 	if not _admit_bgm_start_request(request):
-		_complete_unadmitted_bgm_start(
-			operation,
-			GFBgmStartResult.Status.REJECTED,
-			GFBgmStartResult.REASON_OWNER_UNAVAILABLE,
-			ERR_UNAVAILABLE,
-			GFVariantData.get_option_string(request, "history_key")
-		)
+		if operation.is_pending():
+			_complete_unadmitted_bgm_start(
+				operation,
+				GFBgmStartResult.Status.REJECTED,
+				GFBgmStartResult.REASON_OWNER_UNAVAILABLE,
+				ERR_UNAVAILABLE,
+				GFVariantData.get_option_string(request, "history_key")
+			)
 		return operation
 	_dispatch_pending_bgm_path_request(operation.get_request_id())
 	return operation
@@ -484,14 +487,6 @@ func start_bgm_clip(
 	if operation == null:
 		return null
 	_drain_bgm_terminal_barrier_if_needed()
-	if _latest_admitted_bgm_start_request_id > operation.get_request_id():
-		_complete_unadmitted_bgm_start(
-			operation,
-			GFBgmStartResult.Status.SUPERSEDED,
-			GFBgmStartResult.REASON_NEWER_REQUEST,
-			ERR_BUSY
-		)
-		return operation
 	if not _is_initialized or not _bgm_start_admission_open:
 		_complete_unadmitted_bgm_start(
 			operation,
@@ -559,13 +554,14 @@ func start_bgm_clip(
 		playback_region
 	)
 	if not _admit_bgm_start_request(request):
-		_complete_unadmitted_bgm_start(
-			operation,
-			GFBgmStartResult.Status.REJECTED,
-			GFBgmStartResult.REASON_OWNER_UNAVAILABLE,
-			ERR_UNAVAILABLE,
-			GFVariantData.get_option_string(request, "history_key")
-		)
+		if operation.is_pending():
+			_complete_unadmitted_bgm_start(
+				operation,
+				GFBgmStartResult.Status.REJECTED,
+				GFBgmStartResult.REASON_OWNER_UNAVAILABLE,
+				ERR_UNAVAILABLE,
+				GFVariantData.get_option_string(request, "history_key")
+			)
 		return operation
 	_dispatch_pending_bgm_clip_request(operation.get_request_id())
 	return operation
@@ -3525,6 +3521,52 @@ func _get_scene_tree() -> SceneTree:
 		return null
 	var tree: SceneTree = main_loop
 	return tree
+
+
+func _is_live_audio_root(root: Node) -> bool:
+	return (
+		is_instance_valid(root)
+		and not root.is_queued_for_deletion()
+		and root.is_inside_tree()
+	)
+
+
+func _is_exact_audio_root_child(
+	root: Node,
+	player: AudioStreamPlayer
+) -> bool:
+	return (
+		_is_live_audio_root(root)
+		and is_instance_valid(player)
+		and not player.is_queued_for_deletion()
+		and player.is_inside_tree()
+		and player.get_parent() == root
+	)
+
+
+func _is_audio_initialization_topology_current(
+	initialization_root: Node,
+	initialization_primary: AudioStreamPlayer,
+	initialization_fade: AudioStreamPlayer,
+	require_fade_inserted: bool
+) -> bool:
+	return (
+		_is_initialized
+		and _root == initialization_root
+		and _bgm_player == initialization_primary
+		and _bgm_fade_player == initialization_fade
+		and _is_exact_audio_root_child(
+			initialization_root,
+			initialization_primary
+		)
+		and (
+			not require_fade_inserted
+			or _is_exact_audio_root_child(
+				initialization_root,
+				initialization_fade
+			)
+		)
+	)
 
 
 func _snapshot_playback_region(
@@ -7093,10 +7135,19 @@ func _make_bgm_start_request(
 func _admit_bgm_start_request(request: Dictionary) -> bool:
 	var operation: GFBgmStartOperation = _get_bgm_start_operation(request)
 	var owner: Node = _get_bgm_start_owner(request)
+	if operation == null or not operation.is_pending():
+		return false
+	if _latest_admitted_bgm_start_request_id > operation.get_request_id():
+		_complete_unadmitted_bgm_start(
+			operation,
+			GFBgmStartResult.Status.SUPERSEDED,
+			GFBgmStartResult.REASON_NEWER_REQUEST,
+			ERR_BUSY,
+			GFVariantData.get_option_string(request, "history_key")
+		)
+		return false
 	if (
-		operation == null
-		or not operation.is_pending()
-		or not _bgm_start_admission_open
+		not _bgm_start_admission_open
 		or (
 			_pending_bgm_start_has_owner(request)
 			and (
@@ -8175,12 +8226,13 @@ func _is_typed_bgm_candidate_insertion_current(
 	if (
 		not _is_initialized
 		or _root != candidate_root
+		or not _is_live_audio_root(candidate_root)
 		or not _is_pending_bgm_start_request(request_id)
 		or _pending_bgm_has_terminal_intent(request_id)
 	):
 		return false
 	for player: AudioStreamPlayer in players:
-		if not is_instance_valid(player) or player.is_queued_for_deletion():
+		if not _is_exact_audio_root_child(candidate_root, player):
 			return false
 	return true
 

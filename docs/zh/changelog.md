@@ -161,7 +161,7 @@
 
 ### 🐛 Bug 修复 (Fixed)
 
-- 修复 Audio Utility 在播放器入树、BGM 终态通知与后端回调的同步重入中可能半提交旧代状态的问题；初始化和本地候选现在逐边界复核生命周期与请求身份，终态监听器启动的较新请求优先于仍在排空的外层调用，本地 stop 期间提前 EOF 会同步清除物理与逻辑会话，pre-init backend topology 操作也按实际提交结果返回。
+- 修复 Audio Utility 在播放器入树、BGM 终态通知、请求快照与后端回调的同步重入中可能半提交旧代状态的问题；初始化和本地候选现在逐边界复核生命周期、请求身份与实际场景树 parent，校验或终态监听器启动的较新请求优先于仍在外层调用栈中的旧请求，本地 stop 期间提前 EOF 会同步清除物理与逻辑会话，pre-init backend topology 操作也按实际提交结果返回。
 - 修复公开 logical 文件名以 `.tmp`、`.bak` 或 `.txn` 结尾时与另一文件事务 sidecar 共享物理路径、可能跨 file key 误读或误删的问题；每个 logical identity 现在映射到独立 opaque family，旧 root 可见文件不会被运行时猜测收养。
 - 修复 `GFObjectPoolUtility` 的同步、分批与时间预算预热在并发、回调重入或运行中缩小上限时可共同写穿 `max_available_per_scene` 的问题；同一场景现在共享当前生命周期的在途容量预留，变更上限、归还节点或 dispose/init 会在提交前重新验收并丢弃过期候选。普通 acquire 也会冻结生命周期与 parent authority，并在场景构造、状态 setter 和根/子节点 hook 的每个外部边界复核当前代次；旧调用栈不再继续激活、通知或发布已归还、已释放或跨生命周期的节点树。
 - 修复项目 Installer 主动取消并返回后仍保持 running、并发 `Gf.init()` 永久等待且半注册模块未回滚的问题；取消与 timeout 等失败入口现在统一在 Architecture 失败结算中先回滚再恰好一次唤醒等待方，terminal 回调不能重开或提交 Installer，detached 旧 continuation 收尾前继续阻止重试和迟到写入。
