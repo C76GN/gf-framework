@@ -209,8 +209,36 @@ static func _make_debug_budget_report(budget: Dictionary) -> Dictionary:
 
 
 static func _finalize_debug_snapshot(snapshot: Dictionary, budget: Dictionary) -> Dictionary:
-	snapshot["debug_budget"] = _make_debug_budget_report(budget)
-	return _encode_debug_snapshot_with_budget(snapshot, budget)
+	var debug_budget_report: Dictionary = _make_debug_budget_report(budget)
+	var debug_budget_field: Dictionary = {
+		"debug_budget": debug_budget_report,
+	}
+	var reserved_debug_bytes: int = JSON.stringify(
+		debug_budget_field
+	).to_utf8_buffer().size()
+	var isolation_budget: Dictionary = budget.duplicate(true)
+	isolation_budget["max_total_bytes"] = maxi(
+		_read_debug_budget_int(
+			budget,
+			"max_total_bytes",
+			_DEFAULT_DEBUG_MAX_TOTAL_BYTES
+		) - reserved_debug_bytes,
+		0
+	)
+	var bounded_snapshot: Dictionary = _encode_debug_snapshot_with_budget(
+		snapshot,
+		isolation_budget
+	)
+	var finalized_snapshot: Dictionary = bounded_snapshot.duplicate(false)
+	finalized_snapshot["debug_budget"] = debug_budget_report
+	var max_total_bytes: int = _read_debug_budget_int(
+		budget,
+		"max_total_bytes",
+		_DEFAULT_DEBUG_MAX_TOTAL_BYTES
+	)
+	if JSON.stringify(finalized_snapshot).to_utf8_buffer().size() <= max_total_bytes:
+		return finalized_snapshot
+	return _encode_debug_snapshot_with_budget(debug_budget_field, budget)
 
 
 static func _read_debug_budget_int(

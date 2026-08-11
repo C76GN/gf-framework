@@ -1108,6 +1108,29 @@ func test_build_debug_snapshot_finalizes_arbitrary_snapshot_owner_budget() -> vo
 	assert_eq(GFVariantData.get_option_int(debug_budget, "node_count"), 0)
 
 
+func test_build_debug_snapshot_isolates_read_only_arbitrary_owner_result() -> void:
+	var snapshot_source: ReadOnlyDebugOwner = ReadOnlyDebugOwner.new()
+	var source_json: String = JSON.stringify(snapshot_source.snapshot_payload)
+
+	var snapshot: Dictionary = GFBehaviorTree.build_debug_snapshot(snapshot_source, {
+		"max_total_bytes": 4096,
+		"max_text_length": 64,
+	})
+	var debug_budget: Dictionary = GFVariantData.get_option_dictionary(
+		snapshot,
+		"debug_budget"
+	)
+
+	assert_true(snapshot_source.snapshot_payload.is_read_only())
+	assert_false(snapshot_source.snapshot_payload.has("debug_budget"))
+	assert_eq(JSON.stringify(snapshot_source.snapshot_payload), source_json)
+	assert_false(debug_budget.is_empty(), "只读 owner 快照也必须发布统一 debug_budget。")
+	assert_true(
+		JSON.stringify(snapshot).to_utf8_buffer().size() <= 4096,
+		"隔离后追加 debug_budget 仍必须遵守最终总字节预算。"
+	)
+
+
 func _run_random_sequence_with_seed(seed_value: int) -> Array:
 	var state: Dictionary = { "order": [] }
 	var random_sequence: GFBehaviorTree.RandomSequence = GFBehaviorTree.RandomSequence.new(_nodes([
@@ -1286,3 +1309,16 @@ class UnsafeDebugOwner extends RefCounted:
 			"resource": Resource.new(),
 			"loop": loop,
 		}
+
+
+class ReadOnlyDebugOwner extends RefCounted:
+	var snapshot_payload: Dictionary = {
+		"message": "x".repeat(16_384),
+		"stable": { "id": 7 },
+	}
+
+	func _init() -> void:
+		snapshot_payload.make_read_only()
+
+	func get_debug_snapshot() -> Dictionary:
+		return snapshot_payload

@@ -62,7 +62,7 @@ signal selection_changed(asset_id: StringName)
 ## [br]
 ## @param report: 预览终态报告。
 ## [br]
-## @schema report: Dictionary with asset_id, preview_generation, catalog_revision, query_generation, state, result, error, and cancel_reason.
+## @schema report: 闭合 Dictionary，精确包含 asset_id: StringName、preview_generation: int、catalog_revision: int、query_generation: int、state: StringName、result、error: String 和 cancel_reason: StringName。result 只能是 null、Image、ImageTexture，或精确包含 ok: true、generated_count: 非负 int、cancelled: bool、changes: Array 的 MeshLibrary plan；generated_count 必须等于 changes 数量且最多为 MAX_RESULT_COUNT，每个 change 精确包含非负 item_id: int、可空 old_preview: Texture2D 和非空 new_preview: Texture2D。所有 Dictionary / Array 容器只读；Image / Texture2D 是无法冻结的 Engine Object 句柄，listener 必须按只读引用使用。
 signal preview_resolved(report: Dictionary)
 
 

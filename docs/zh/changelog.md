@@ -12,7 +12,7 @@
 - AI Developer 新增显式离线上下文包：调用方逐项选择已保存 UTF-8 文件与项目设置，先取得不含正文的哈希绑定计划，再由交互终端确认并在导出前复核来源；该能力不读取实时 Editor 状态、未保存缓冲区或截图，也不提供无人值守的自动导出入口。
 - 新增 `GFViewportSurfaceInputBridge` 与不可伪造的 `GFViewportSurfaceInputCapture` 回执：把调用方已解析的标准化表面坐标同步投递到 `Viewport`，并以 bridge、pointer、capture generation 和 target generation 拒绝迟到 move/release/cancel；独立有界的 pointer timestamp 高水位还能在双击历史关闭或裁剪后拒绝仍受保护 key 的跨代际迟到 press，已捕获 key 的 hover 与不受支持的鼠标 release 均 fail-closed；射线、UV、Mesh、XR 和目标选择仍由外部 Resolver 负责。
 - 新增可选制作期包 `gf.tool.lsp_workspace_edit`：把调用方已经取得的闭合 `WorkspaceEdit`、已保存文档版本、来源摘要与工作区代际绑定成一次性计划，再通过 `GFArtifactWriteTransaction` 提交；它不是 LSP client、Rename 引擎或编辑器 UI。
-- Behavior Tree 新增有界调试快照选项：`BTNode` / `Runner` 在遍历和黑板键物化前限制节点、深度、子项与键数，末端统一通过报告编码器约束文本、集合和总字节；快照不保留 live Object、Callable 或黑板值。通用 Object 只保证返回值的有界后投影，不承诺约束其方法内部构造成本。
+- Behavior Tree 新增有界调试快照选项：`BTNode` / `Runner` 在遍历和黑板键物化前限制节点、深度、子项与键数，末端统一通过报告编码器约束文本、集合和总字节；快照不保留 live Object、Callable 或黑板值。通用 Object 只保证返回值的有界后投影，不承诺约束其方法内部构造成本，也不会向 owner 返回的 Dictionary 注入诊断字段。
 - Domain Inventory 新增一次性 `GFInventoryTransferTransaction`、类型化 `GFInventoryTransferResult` 与短生命周期只读 `GFInventoryReadView`：跨两个 `GFSlotInventoryModel` 先有界规划并绑定 identity、revision 和计划摘要，提交时重验后同时替换两边状态，再按来源、目标、事务终态顺序统一通知；普通 mutation 与事务规则都读取同一种逐步候选投影，失败不会先写入或用补偿伪装原子性。
 - 新增 Achievement 组合 Recipe：复用 `GFQuestUtility`、Save Profile、项目 `GFPlatformAdapter` 与 Outbox 组合持久化和平台同步；本项只增加文档与 AI Developer Recipe，不新增 Achievement Runtime、package、奖励或通知系统。
 - 新增 Environment Query 组合 Recipe：复用 Spatial/Physics、Decision、`GFExecutionBudget` 与只读诊断，把有限候选、预计算评分、generation 和取消组成项目 Pipeline；本项只增加文档与 AI Developer Recipe，不新增平行查询 Runtime、评分器或预算体系。

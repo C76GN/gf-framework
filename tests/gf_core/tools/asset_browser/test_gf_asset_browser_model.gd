@@ -295,8 +295,12 @@ func test_preview_resolution_recursively_freezes_nested_result() -> void:
 	)
 	var second_listener_label: Array[String] = []
 	var first_callback: Callable = func(report: Dictionary) -> void:
-		var result: Dictionary = GFVariantData.get_option_dictionary(report, "result")
-		var changes: Array = GFVariantData.get_option_array(result, "changes")
+		var result: Dictionary = GFVariantData.as_dictionary(
+			GFVariantData.get_option_value(report, "result")
+		)
+		var changes: Array = GFVariantData.as_array(
+			GFVariantData.get_option_value(result, "changes")
+		)
 		var first_change: Dictionary = GFVariantData.as_dictionary(changes[0])
 		if not result.is_read_only():
 			result["generated_count"] = 99
@@ -305,8 +309,12 @@ func test_preview_resolution_recursively_freezes_nested_result() -> void:
 		if not first_change.is_read_only():
 			first_change["item_id"] = 99
 	var second_callback: Callable = func(report: Dictionary) -> void:
-		var result: Dictionary = GFVariantData.get_option_dictionary(report, "result")
-		var changes: Array = GFVariantData.get_option_array(result, "changes")
+		var result: Dictionary = GFVariantData.as_dictionary(
+			GFVariantData.get_option_value(report, "result")
+		)
+		var changes: Array = GFVariantData.as_array(
+			GFVariantData.get_option_value(result, "changes")
+		)
 		var first_change: Dictionary = GFVariantData.as_dictionary(changes[0])
 		assert_true(result.is_read_only(), "预览 result Dictionary 必须冻结。")
 		assert_true(changes.is_read_only(), "预览 result 的嵌套 Array 必须冻结。")
