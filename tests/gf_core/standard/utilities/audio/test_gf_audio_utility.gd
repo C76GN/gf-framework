@@ -5562,6 +5562,7 @@ func test_backend_callback_rejects_same_backend_fast_path_reentry() -> void:
 		backend.played_bgm_paths,
 		PackedStringArray(["event://music/same-backend-reentry"])
 	)
+	backend.replacement_backend = null
 
 
 func test_backend_bgm_pause_query_rejects_reentrant_host_mutation() -> void:
