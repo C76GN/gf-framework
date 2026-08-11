@@ -720,6 +720,7 @@ func _remove_tree(path: String) -> Error:
 	var directory: DirAccess = DirAccess.open(path)
 	if directory == null:
 		return ERR_FILE_CANT_OPEN
+	directory.include_hidden = true
 	var begin_error: Error = directory.list_dir_begin()
 	if begin_error != OK:
 		return begin_error

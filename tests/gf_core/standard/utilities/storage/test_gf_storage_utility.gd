@@ -112,6 +112,7 @@ func _remove_owned_test_tree(path: String) -> Error:
 	var directory: DirAccess = DirAccess.open(path)
 	if directory == null:
 		return DirAccess.get_open_error()
+	directory.include_hidden = true
 	for file_name: String in directory.get_files():
 		var remove_file_error: Error = DirAccess.remove_absolute(path.path_join(file_name))
 		if remove_file_error != OK:
