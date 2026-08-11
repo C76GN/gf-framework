@@ -2,6 +2,15 @@
 extends GutTest
 
 
+const _GF_STORAGE_FAMILY_STORE_SCRIPT = preload(
+	"res://addons/gf/standard/utilities/storage/gf_storage_family_store.gd"
+)
+
+const _STORAGE_ROOTS: Array[String] = [
+	"test_storage_payload_transfer",
+	"test_storage_payload_transfer_frozen_a",
+	"test_storage_payload_transfer_frozen_b",
+]
 const _FILES: Array[String] = [
 	"test_transfer_success.json",
 	"test_transfer_invalid_payload.json",
@@ -15,6 +24,7 @@ const _FILES: Array[String] = [
 	"test_transfer_uncommitted_recovery.json",
 	"test_transfer_path_freeze.json",
 	"test_transfer_path_blocker.json",
+	"test_transfer_legacy_visible.json",
 ]
 
 
@@ -34,44 +44,237 @@ class MalformedPayloadTransfer extends GFStoragePayloadTransfer:
 
 class CleanupPreservingStorage extends GFStorageUtility:
 	var preserve_committed_artifacts: bool = false
+	var preserved_paths: Dictionary = {}
 
-	func _remove_absolute_file_if_exists(path: String) -> void:
-		if (
-			preserve_committed_artifacts
-			and (path.ends_with(".bak") or path.ends_with(".txn"))
-		):
-			return
-		super._remove_absolute_file_if_exists(path)
+	func _remove_absolute_file(path: String) -> Error:
+		if preserve_committed_artifacts and preserved_paths.has(path):
+			return OK
+		if path.is_empty():
+			return ERR_INVALID_PARAMETER
+		if not FileAccess.file_exists(path):
+			return OK
+		return DirAccess.remove_absolute(path)
 
 
 var _storage: GFStorageUtility
+var _additional_storages: Array[GFStorageUtility] = []
+
+
+func _make_family_descriptor(save_dir_name: String, file_name: String) -> Dictionary:
+	var storage_root_path: String = _GF_STORAGE_FAMILY_STORE_SCRIPT.make_storage_root_path_for_framework(
+		save_dir_name
+	)
+	return _GF_STORAGE_FAMILY_STORE_SCRIPT.make_family_descriptor_for_framework(
+		storage_root_path,
+		file_name
+	)
+
+
+func _cleanup_file_family(save_dir_name: String, file_name: String) -> void:
+	var descriptor: Dictionary = _make_family_descriptor(save_dir_name, file_name)
+	if descriptor.is_empty():
+		return
+	for path_key: String in [
+		"payload_path",
+		"candidate_path",
+		"backup_path",
+		"transaction_path",
+		"transaction_pending_path",
+		"transaction_commit_path",
+		"transaction_commit_pending_path",
+		"resource_stage_path",
+		"owner_path",
+	]:
+		var path: String = GFVariantData.get_option_string(descriptor, path_key)
+		if FileAccess.file_exists(path):
+			var _remove_path_result: Error = DirAccess.remove_absolute(path)
+	var family_path: String = GFVariantData.get_option_string(descriptor, "family_path")
+	for legacy_leaf: String in [
+		"payload.json.tmp",
+		"payload.json.bak",
+		"payload.json.txn",
+		"transaction.json",
+	]:
+		var legacy_path: String = family_path.path_join(legacy_leaf)
+		if FileAccess.file_exists(legacy_path):
+			var _remove_legacy_result: Error = DirAccess.remove_absolute(legacy_path)
+	if DirAccess.dir_exists_absolute(family_path):
+		var _remove_family_result: Error = DirAccess.remove_absolute(family_path)
+	var catalog_path: String = GFVariantData.get_option_string(descriptor, "catalog_path")
+	if FileAccess.file_exists(catalog_path):
+		var _remove_catalog_result: Error = DirAccess.remove_absolute(catalog_path)
+
+
+func _cleanup_legacy_visible_files(save_dir_name: String, file_name: String) -> void:
+	var storage_root_path: String = _GF_STORAGE_FAMILY_STORE_SCRIPT.make_storage_root_path_for_framework(
+		save_dir_name
+	)
+	for suffix: String in ["", ".tmp", ".bak", ".txn"]:
+		var visible_path: String = storage_root_path.path_join(file_name + suffix)
+		if FileAccess.file_exists(visible_path):
+			var _remove_visible_result: Error = DirAccess.remove_absolute(visible_path)
+
+
+func _remove_owned_directory_tree(path: String) -> Error:
+	if not DirAccess.dir_exists_absolute(path):
+		return OK
+	var directory: DirAccess = DirAccess.open(path)
+	if directory == null:
+		return DirAccess.get_open_error()
+	directory.include_hidden = true
+	for file_name: String in directory.get_files():
+		var remove_file_error: Error = DirAccess.remove_absolute(path.path_join(file_name))
+		if remove_file_error != OK:
+			return remove_file_error
+	for directory_name: String in directory.get_directories():
+		var child_path: String = path.path_join(directory_name)
+		var remove_directory_error: Error = (
+			DirAccess.remove_absolute(child_path)
+			if directory.is_link(directory_name)
+			else _remove_owned_directory_tree(child_path)
+		)
+		if remove_directory_error != OK:
+			return remove_directory_error
+	directory = null
+	return DirAccess.remove_absolute(path)
+
+
+func _cleanup_owned_private_namespace(save_dir_name: String) -> Error:
+	if not _STORAGE_ROOTS.has(save_dir_name):
+		return ERR_UNAUTHORIZED
+	var storage_root_path: String = _GF_STORAGE_FAMILY_STORE_SCRIPT.make_storage_root_path_for_framework(
+		save_dir_name
+	).simplify_path()
+	var private_root_name: String = ".gf-storage"
+	var private_root_path: String = storage_root_path.path_join(private_root_name).simplify_path()
+	if (
+		storage_root_path.is_empty()
+		or storage_root_path == "user://"
+		or private_root_path.get_base_dir() != storage_root_path
+		or private_root_path.get_file() != private_root_name
+	):
+		return ERR_UNAUTHORIZED
+	return _remove_owned_directory_tree(private_root_path)
+
+
+func _cleanup_known_test_artifacts() -> Error:
+	for save_dir_name: String in _STORAGE_ROOTS:
+		var private_cleanup_error: Error = _cleanup_owned_private_namespace(save_dir_name)
+		if private_cleanup_error != OK:
+			return private_cleanup_error
+		for file_name: String in _FILES:
+			_cleanup_file_family(save_dir_name, file_name)
+			_cleanup_legacy_visible_files(save_dir_name, file_name)
+	return OK
+
+
+func _read_plain_json_file(path: String) -> Dictionary:
+	if not FileAccess.file_exists(path):
+		return {}
+	var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string(path))
+	return GFVariantData.as_dictionary(parsed)
+
+
+func _write_legacy_visible_data_file(file_name: String, data: Dictionary) -> String:
+	var path: String = _storage._get_save_base_path().path_join(file_name)
+	var file: FileAccess = FileAccess.open(path, FileAccess.WRITE)
+	assert_not_null(file, "测试夹具应能写入 legacy visible payload。")
+	if file == null:
+		return path
+	var bytes: PackedByteArray = _storage._get_codec().encode(
+		data,
+		_storage._get_codec_options()
+	)
+	var _store_buffer_result: Variant = file.store_buffer(bytes)
+	var write_error: Error = file.get_error()
+	file.close()
+	assert_eq(write_error, OK, "测试夹具应完整写入 legacy visible payload。")
+	return path
+
+
+func _assert_transaction_records_absent(
+	storage_utility: GFStorageUtility,
+	file_name: String
+) -> void:
+	var descriptor: Dictionary = _make_family_descriptor(
+		storage_utility.save_dir_name,
+		file_name
+	)
+	for path_key: String in [
+		"transaction_path",
+		"transaction_pending_path",
+		"transaction_commit_path",
+		"transaction_commit_pending_path",
+	]:
+		assert_false(
+			FileAccess.file_exists(GFVariantData.get_option_string(descriptor, path_key)),
+			"事务收敛后不应残留 %s。" % path_key
+		)
+
+
+func _assert_single_member_transaction_record(
+	record: Dictionary,
+	descriptor: Dictionary,
+	committed: bool,
+	had_final: bool
+) -> void:
+	var logical_path: String = GFVariantData.get_option_string(descriptor, "logical_path")
+	var family_id: String = GFVariantData.get_option_string(descriptor, "family_id")
+	assert_eq(record.size(), 6, "v2 transaction record 必须使用固定六字段 envelope。")
+	assert_eq(
+		GFVariantData.get_option_string(record, "schema"),
+		"gf.storage.transaction-commit" if committed else "gf.storage.transaction-prepare"
+	)
+	assert_eq(GFVariantData.get_option_int(record, "schema_version"), 2)
+	assert_false(GFVariantData.get_option_string(record, "transaction_id").is_empty())
+	assert_true(record.get("committed") is bool)
+	assert_eq(GFVariantData.get_option_bool(record, "committed"), committed)
+	assert_eq(
+		GFVariantData.get_option_dictionary(record, "owner"),
+		{
+			"logical_path": logical_path,
+			"family_id": family_id,
+		}
+	)
+	var members: Array = GFVariantData.get_option_array(record, "members")
+	assert_eq(members.size(), 1)
+	if members.size() != 1:
+		return
+	assert_eq(
+		GFVariantData.as_dictionary(members[0]),
+		{
+			"logical_path": logical_path,
+			"family_id": family_id,
+			"had_final": had_final,
+		}
+	)
 
 
 func before_each() -> void:
+	assert_eq(
+		_cleanup_known_test_artifacts(),
+		OK,
+		"setup 必须只清理本测试白名单内的 private namespace。"
+	)
 	_storage = GFStorageUtility.new()
-	_storage.save_dir_name = "test_saves"
+	_storage.save_dir_name = "test_storage_payload_transfer"
 	_storage.encrypt_key = 0
 	_storage.init()
 
 
 func after_each() -> void:
-	if _storage == null:
-		return
-	var original_save_dir_name: String = _storage.save_dir_name
-	for save_dir_name: String in [
-		"test_saves",
-		"test_saves_frozen_a",
-		"test_saves_frozen_b",
-	]:
-		_storage.save_dir_name = save_dir_name
-		for file_name: String in _FILES:
-			for suffix: String in ["", ".tmp", ".bak", ".txn"]:
-				var path: String = _storage._get_full_path(file_name + suffix)
-				if FileAccess.file_exists(path):
-					var _removed: Error = DirAccess.remove_absolute(path)
-	_storage.save_dir_name = original_save_dir_name
-	_storage.dispose()
+	if _storage != null:
+		_storage.dispose()
+	for storage_utility: GFStorageUtility in _additional_storages:
+		if storage_utility != null:
+			storage_utility.dispose()
+	assert_eq(
+		_cleanup_known_test_artifacts(),
+		OK,
+		"teardown 必须完整清理本测试拥有的 private namespace。"
+	)
 	_storage = null
+	_additional_storages.clear()
 
 
 func test_transfer_takes_and_releases_ownership_once_without_public_payload_getter() -> void:
@@ -127,7 +330,7 @@ func test_absolute_path_does_not_claim_transfer() -> void:
 	assert_null(operation.reclaim_failed_payload())
 	assert_true(transfer.release())
 	assert_push_error(
-		"[GFStorageUtility] 已禁用绝对路径：C:/outside/transfer.json"
+		"[GFStorageUtility] save_payload_request_async 失败：file_name 不满足 portable logical path profile。"
 	)
 
 
@@ -178,6 +381,42 @@ func test_successful_attempt_cannot_be_reclaimed_and_release_clears_payload() ->
 	var loaded: GFStorageReadResult = _storage.load_data("test_transfer_success.json")
 	assert_true(loaded.ok)
 	assert_eq(GFVariantData.get_option_int(loaded.payload, "coins"), 42)
+
+
+func test_payload_transfer_does_not_read_or_adopt_legacy_visible_file() -> void:
+	var file_name: String = "test_transfer_legacy_visible.json"
+	var visible_path: String = _write_legacy_visible_data_file(file_name, { "value": 1 })
+	var visible_before: PackedByteArray = FileAccess.get_file_as_bytes(visible_path)
+	var descriptor: Dictionary = _make_family_descriptor(_storage.save_dir_name, file_name)
+
+	var missing_result: GFStorageReadResult = _storage.load_data(file_name)
+
+	assert_false(missing_result.ok, "没有 catalog/owner 的 visible 文件不得成为可读 family。")
+	assert_eq(missing_result.error_code, ERR_FILE_NOT_FOUND)
+	assert_false(
+		FileAccess.file_exists(GFVariantData.get_option_string(descriptor, "catalog_path")),
+		"读取 legacy visible 文件不得隐式创建 catalog。"
+	)
+	assert_eq(FileAccess.get_file_as_bytes(visible_path), visible_before)
+
+	var transfer: GFStoragePayloadTransfer = GFStoragePayloadTransfer.take_ownership({ "value": 2 })
+	var operation: GFStorageAsyncOperation = _storage.save_payload_request_async(
+		file_name,
+		transfer
+	)
+	await _pump_storage_async_tasks()
+
+	assert_true(operation.get_result().is_successful())
+	assert_true(FileAccess.file_exists(GFVariantData.get_option_string(descriptor, "payload_path")))
+	assert_eq(
+		FileAccess.get_file_as_bytes(visible_path),
+		visible_before,
+		"claim 私有 family 不得修改或领养同名 legacy visible 文件。"
+	)
+	var loaded: GFStorageReadResult = _storage.load_data(file_name)
+	assert_true(loaded.ok)
+	assert_eq(GFVariantData.get_option_int(loaded.payload, "value"), 2)
+	assert_true(transfer.release())
 
 
 func test_invalid_payload_reports_stable_failure_and_reclaims_same_transfer_once() -> void:
@@ -445,49 +684,62 @@ func test_claim_freezes_storage_file_and_codec_binding() -> void:
 	assert_true(transfer.release())
 
 
-func test_claim_freezes_target_family_while_queued_task_keeps_original_path() -> void:
-	_storage.max_async_thread_count = 1
-	_storage.save_dir_name = "test_saves_frozen_a"
+func test_initialized_root_is_frozen_while_queued_task_keeps_original_family() -> void:
+	var storage_utility: GFStorageUtility = GFStorageUtility.new()
+	storage_utility.save_dir_name = "test_storage_payload_transfer_frozen_a"
+	storage_utility.encrypt_key = 0
+	storage_utility.init()
+	storage_utility.max_async_thread_count = 1
+	_additional_storages.append(storage_utility)
 	var blocker_transfer: GFStoragePayloadTransfer = GFStoragePayloadTransfer.take_ownership({
 		"value": 1,
 	})
-	var blocker_operation: GFStorageAsyncOperation = _storage.save_payload_request_async(
+	var blocker_operation: GFStorageAsyncOperation = storage_utility.save_payload_request_async(
 		"test_transfer_path_blocker.json",
 		blocker_transfer
 	)
 	var target_transfer: GFStoragePayloadTransfer = GFStoragePayloadTransfer.take_ownership({
 		"value": 2,
 	})
-	var target_operation: GFStorageAsyncOperation = _storage.save_payload_request_async(
+	var target_operation: GFStorageAsyncOperation = storage_utility.save_payload_request_async(
 		"test_transfer_path_freeze.json",
 		target_transfer
 	)
-	assert_eq(_storage._async_queue.size(), 1)
+	assert_eq(storage_utility._async_queue.size(), 1)
 
-	_storage.save_dir_name = "test_saves_frozen_b"
-	var rejected_retry: GFStorageAsyncOperation = _storage.save_payload_request_async(
-		"test_transfer_path_freeze.json",
-		target_transfer
-	)
+	storage_utility.save_dir_name = "test_storage_payload_transfer_frozen_b"
 
-	assert_true(rejected_retry.is_completed())
 	assert_eq(
-		rejected_retry.get_result().get_write_failure_kind(),
-		GFStorageAsyncResult.WriteFailureKind.INVALID_REQUEST
+		storage_utility.save_dir_name,
+		"test_storage_payload_transfer_frozen_a",
+		"初始化后的 Storage root 不得漂移。"
+	)
+	assert_push_error(
+		"[GFStorageUtility] save_dir_name 已在 Storage 初始化后冻结；请为另一个 root 创建新的 Utility。"
 	)
 	assert_eq(target_transfer.get_active_attempt_count(), 1)
-	await _pump_storage_async_tasks()
+	await _pump_specific_storage(storage_utility)
 	assert_true(blocker_operation.get_result().is_successful())
 	assert_true(target_operation.get_result().is_successful())
 
-	_storage.save_dir_name = "test_saves_frozen_a"
-	var loaded: GFStorageReadResult = _storage.load_data("test_transfer_path_freeze.json")
+	var loaded: GFStorageReadResult = storage_utility.load_data("test_transfer_path_freeze.json")
 	assert_true(loaded.ok)
 	assert_eq(GFVariantData.get_option_int(loaded.payload, "value"), 2)
-	_storage.save_dir_name = "test_saves_frozen_b"
+	var frozen_descriptor: Dictionary = _make_family_descriptor(
+		storage_utility.save_dir_name,
+		"test_transfer_path_freeze.json"
+	)
+	var other_descriptor: Dictionary = _make_family_descriptor(
+		"test_storage_payload_transfer_frozen_b",
+		"test_transfer_path_freeze.json"
+	)
+	assert_true(
+		FileAccess.file_exists(GFVariantData.get_option_string(frozen_descriptor, "payload_path")),
+		"queued task 应提交到初始化时冻结的 private family。"
+	)
 	assert_false(
-		FileAccess.file_exists(_storage._get_full_path("test_transfer_path_freeze.json")),
-		"Utility 配置变化不得让已 claim 的 queued task 漂移到新目录。"
+		FileAccess.file_exists(GFVariantData.get_option_string(other_descriptor, "payload_path")),
+		"被拒绝的 root 变更不得创建另一 private family。"
 	)
 	assert_true(blocker_transfer.release())
 	assert_true(target_transfer.release())
@@ -566,62 +818,76 @@ func test_dispose_closes_async_admission_before_terminal_callbacks() -> void:
 
 
 func test_worker_committed_marker_uses_shared_schema_and_recovery_keeps_new_file() -> void:
+	var file_name: String = "test_transfer_committed_recovery.json"
+	_storage.dispose()
+	_storage = null
 	var probe: CleanupPreservingStorage = CleanupPreservingStorage.new()
-	probe.save_dir_name = "test_saves"
+	probe.save_dir_name = "test_storage_payload_transfer"
 	probe.encrypt_key = 0
 	probe.init()
+	_additional_storages.append(probe)
+	var descriptor: Dictionary = _make_family_descriptor(probe.save_dir_name, file_name)
+	probe.preserved_paths[GFVariantData.get_option_string(descriptor, "backup_path")] = true
+	probe.preserved_paths[GFVariantData.get_option_string(descriptor, "transaction_path")] = true
+	probe.preserved_paths[
+		GFVariantData.get_option_string(descriptor, "transaction_commit_path")
+	] = true
 	probe.preserve_committed_artifacts = true
 	var transfer: GFStoragePayloadTransfer = GFStoragePayloadTransfer.take_ownership({
 		"value": 9,
 	})
 	var operation: GFStorageAsyncOperation = probe.save_payload_request_async(
-		"test_transfer_committed_recovery.json",
+		file_name,
 		transfer
 	)
 	await _pump_specific_storage(probe)
 
 	assert_true(operation.get_result().is_successful())
-	var marker: Dictionary = probe._read_transaction_marker(
-		"test_transfer_committed_recovery.json"
+	var prepare_record: Dictionary = _read_plain_json_file(
+		GFVariantData.get_option_string(descriptor, "transaction_path")
 	)
-	assert_eq(GFVariantData.get_option_int(marker, "schema_version"), 1)
-	assert_false(GFVariantData.get_option_string(marker, "transaction_id").is_empty())
+	var commit_record: Dictionary = _read_plain_json_file(
+		GFVariantData.get_option_string(descriptor, "transaction_commit_path")
+	)
+	_assert_single_member_transaction_record(prepare_record, descriptor, false, false)
+	_assert_single_member_transaction_record(commit_record, descriptor, true, false)
 	assert_eq(
-		GFVariantData.get_option_string(marker, "file_key"),
-		"test_transfer_committed_recovery.json"
+		GFVariantData.get_option_string(prepare_record, "transaction_id"),
+		GFVariantData.get_option_string(commit_record, "transaction_id"),
+		"prepare/commit 必须证明同一个 frozen transaction snapshot。"
 	)
-	assert_true(GFVariantData.get_option_bool(marker, "committed"))
-	assert_false(GFVariantData.get_option_bool(marker, "had_final"))
 	assert_true(transfer.release())
 	probe.preserve_committed_artifacts = false
 	probe.dispose()
+	_storage = GFStorageUtility.new()
+	_storage.save_dir_name = "test_storage_payload_transfer"
+	_storage.encrypt_key = 0
+	_storage.init()
 
-	var load_operation: GFStorageAsyncOperation = _storage.load_data_request_async(
-		"test_transfer_committed_recovery.json"
-	)
+	var load_operation: GFStorageAsyncOperation = _storage.load_data_request_async(file_name)
 	await _pump_storage_async_tasks()
 	var loaded: GFStorageReadResult = load_operation.get_result().get_read_result()
 	assert_true(loaded.ok)
 	assert_eq(GFVariantData.get_option_int(loaded.payload, "value"), 9)
-	assert_false(
-		FileAccess.file_exists(_storage._get_full_path(
-			"test_transfer_committed_recovery.json.txn"
-		))
-	)
+	_assert_transaction_records_absent(_storage, file_name)
 
 
 func test_frozen_async_recovery_rolls_back_valid_uncommitted_marker() -> void:
 	var file_name: String = "test_transfer_uncommitted_recovery.json"
-	assert_eq(_storage.save_data(file_name, {"value": 1}), OK)
+	assert_eq(_storage.save_data(file_name, { "value": 1 }), OK)
+	var descriptor: Dictionary = _make_family_descriptor(_storage.save_dir_name, file_name)
+	var payload_path: String = GFVariantData.get_option_string(descriptor, "payload_path")
+	var backup_path: String = GFVariantData.get_option_string(descriptor, "backup_path")
 	assert_eq(_storage._write_transaction_markers([file_name], false), OK)
+	var prepare_record: Dictionary = _read_plain_json_file(
+		GFVariantData.get_option_string(descriptor, "transaction_path")
+	)
+	_assert_single_member_transaction_record(prepare_record, descriptor, false, true)
 	assert_eq(
-		DirAccess.rename_absolute(
-			_storage._get_full_path(file_name),
-			_storage._get_full_path(file_name + ".bak")
-		),
+		DirAccess.rename_absolute(payload_path, backup_path),
 		OK
 	)
-	assert_eq(_storage._write_json(file_name, {"value": 2}), OK)
+	assert_eq(_storage._write_json(file_name, { "value": 2 }), OK)
 
 	var operation: GFStorageAsyncOperation = _storage.load_data_request_async(file_name)
 	await _pump_storage_async_tasks()
@@ -633,12 +899,8 @@ func test_frozen_async_recovery_rolls_back_valid_uncommitted_marker() -> void:
 		1,
 		"valid uncommitted marker 必须恢复旧 final，而不是保留部分提交的新代次。"
 	)
-	assert_false(
-		FileAccess.file_exists(_storage._get_full_path(file_name + ".txn"))
-	)
-	assert_false(
-		FileAccess.file_exists(_storage._get_full_path(file_name + ".bak"))
-	)
+	_assert_transaction_records_absent(_storage, file_name)
+	assert_false(FileAccess.file_exists(backup_path))
 
 
 func test_release_waits_for_active_attempt_before_clearing_payload() -> void:

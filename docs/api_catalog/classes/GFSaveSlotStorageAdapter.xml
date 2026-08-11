@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFSaveSlotStorageAdapter" path="addons/gf/extensions/save/slots/gf_save_slot_storage_adapter.gd" module="extensions/save" extends="Resource" classDigest="13383be300833197cfd7f9a726debc310357154c26b1335b4ffe726e5cae1ab5">
+<class name="GFSaveSlotStorageAdapter" path="addons/gf/extensions/save/slots/gf_save_slot_storage_adapter.gd" module="extensions/save" extends="Resource" classDigest="679d34f99d6500a529607d041e1ec54235877e7cf70a127d17abafafd9c440b4">
 	<description>GFSaveSlotStorageAdapter: Save 扩展的通用槽位存储适配器。
 把逻辑槽位索引映射到可配置的数据/元数据文件名，并通过 GFStorageUtility
 的通用字典事务 API 完成持久化。该类不定义项目存档字段，也不绑定 UI。</description>
@@ -109,7 +109,7 @@
 		<member kind="method" name="build_slot_file_plan">
 			<signature>func build_slot_file_plan(slot_index: int) -&gt; Dictionary:</signature>
 			<description>构建并校验一个槽位的文件计划。
-该方法不要求先配置 Storage，可供同步桥在访问任一后端前完成模板预检。</description>
+该方法不要求先配置 Storage，可供同步桥在访问任一后端前完成 portable logical identity 模板预检。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">slot_index: 槽位索引；必须大于等于 0。</tag>
@@ -182,7 +182,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">槽位摘要数组。</tag>
-				<tag name="schema">return: Array[Dictionary]，每项包含 slot_index、slot_id、metadata 和 modified_time。</tag>
+				<tag name="schema">return: Array[Dictionary]，每项包含 slot_index、slot_id、metadata，以及来自 metadata.updated_at_unix 的领域更新时间 modified_time: int；它不是文件系统 mtime。</tag>
 				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>

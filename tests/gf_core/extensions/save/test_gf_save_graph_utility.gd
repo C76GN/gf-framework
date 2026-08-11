@@ -361,7 +361,7 @@ func test_save_scope_rejects_unsafe_values_at_persisted_boundary() -> void:
 	var save_error: Error = _utility.save_scope("unsafe_graph.sav", _scope, {"unsafe": unsafe_object})
 
 	assert_eq(save_error, ERR_INVALID_DATA, "Save Graph 的持久化入口不得把 Object 静默转换为 null。")
-	assert_false(FileAccess.file_exists(storage.get_storage_directory_path("").path_join("unsafe_graph.sav")))
+	assert_false(storage.has_file("unsafe_graph.sav"))
 	assert_push_error("[GFSaveGraphUtility] save_scope 失败：payload")
 	var _delete_result: Error = storage.delete_file("unsafe_graph.sav")
 	_utility.release_dependencies()

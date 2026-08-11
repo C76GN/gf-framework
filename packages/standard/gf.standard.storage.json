@@ -23,6 +23,8 @@
     "addons/gf/standard/utilities/storage/gf_storage_backend.gd.uid",
     "addons/gf/standard/utilities/storage/gf_storage_failover_backend.gd",
     "addons/gf/standard/utilities/storage/gf_storage_failover_backend.gd.uid",
+    "addons/gf/standard/utilities/storage/gf_storage_family_store.gd",
+    "addons/gf/standard/utilities/storage/gf_storage_family_store.gd.uid",
     "addons/gf/standard/utilities/storage/gf_storage_payload_transfer.gd",
     "addons/gf/standard/utilities/storage/gf_storage_payload_transfer.gd.uid",
     "addons/gf/standard/utilities/storage/gf_storage_codec.gd",

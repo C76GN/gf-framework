@@ -6,7 +6,7 @@
 
 JSON 读取默认保留解析出的数字类型。如果旧存档列表或元数据依赖把接近整数的 float 归一为 int，可临时开启 `GFStorageUtility.normalize_json_numbers` 或 `GFStorageCodec.normalize_json_numbers` 后读出并重写。
 
-11.0 移除了 `GFStorageUtility.allow_absolute_paths`。运行时 Storage 只接受规范相对路径并在词法上解析到当前 Storage root；绝对路径、包含 `..` 的跨目录路径和非法非空 `save_dir_name` 始终 fail closed，不再提供可重新开启的兼容开关。这是 GF API 边界，不替代宿主文件系统对 symlink、junction 或挂载点的隔离。
+11.0 移除了 `GFStorageUtility.allow_absolute_paths`。运行时 Storage 只接受未经改写、已经满足 `portable-ascii-v1` 的 logical identity，并通过 `.gf-storage/v1` 分片 catalog 映射到当前 Storage root 内的私有 family；绝对路径、路径别名、包含 `..` 的跨目录路径和非法非空 `save_dir_name` 始终 fail closed，不再提供可重新开启的兼容开关。旧版直接位于 Storage root 的可见文件不会被自动扫描、领养或迁移，必须由显式离线/编辑器迁移工具读取并重写为新 family。这是 GF API 边界，不替代宿主文件系统对 symlink、junction 或挂载点的隔离。
 
 可信编辑器工具或一次性迁移脚本确实需要访问外部路径时，应在独立工具边界直接使用 `FileAccess` / `DirAccess`，并自行承担来源授权、路径固定和生命周期清理；不要把该能力重新包装进运行时 Storage。
 

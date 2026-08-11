@@ -22,7 +22,7 @@
 | 常量 | [`DEFAULT_MAX_LIST_DEPTH`](#member-gfstorageutility-constants-default_max_list_depth) | `const DEFAULT_MAX_LIST_DEPTH: int = 32` |
 | 常量 | [`DEFAULT_MAX_LISTED_FILES`](#member-gfstorageutility-constants-default_max_listed_files) | `const DEFAULT_MAX_LISTED_FILES: int = 10000` |
 | 属性 | [`encrypt_key`](#member-gfstorageutility-properties-encrypt_key) | `var encrypt_key: int = 42` |
-| 属性 | [`save_dir_name`](#member-gfstorageutility-properties-save_dir_name) | `var save_dir_name: String = "saves"` |
+| 属性 | [`save_dir_name`](#member-gfstorageutility-properties-save_dir_name) | `var save_dir_name: String = "saves":` |
 | 属性 | [`codec`](#member-gfstorageutility-properties-codec) | `var codec: GFStorageCodec = GFStorageCodec.new()` |
 | 属性 | [`file_format`](#member-gfstorageutility-properties-file_format) | `var file_format: GFStorageCodec.Format = GFStorageCodec.Format.JSON` |
 | 属性 | [`use_compression`](#member-gfstorageutility-properties-use_compression) | `var use_compression: bool = false` |
@@ -35,7 +35,6 @@
 | 属性 | [`allowed_resource_load_extensions`](#member-gfstorageutility-properties-allowed_resource_load_extensions) | `var allowed_resource_load_extensions: PackedStringArray = PackedStringArray(["tres", "res"])` |
 | 属性 | [`allowed_resource_load_type_hints`](#member-gfstorageutility-properties-allowed_resource_load_type_hints) | `var allowed_resource_load_type_hints: PackedStringArray = PackedStringArray()` |
 | 属性 | [`require_resource_load_type_hint`](#member-gfstorageutility-properties-require_resource_load_type_hint) | `var require_resource_load_type_hint: bool = true` |
-| 属性 | [`create_directories_for_nested_paths`](#member-gfstorageutility-properties-create_directories_for_nested_paths) | `var create_directories_for_nested_paths: bool = true` |
 | 属性 | [`max_async_thread_count`](#member-gfstorageutility-properties-max_async_thread_count) | `var max_async_thread_count: int = 4:` |
 | 属性 | [`save_version`](#member-gfstorageutility-properties-save_version) | `var save_version: int = 1:` |
 | 属性 | [`strict_schema_migrations`](#member-gfstorageutility-properties-strict_schema_migrations) | `var strict_schema_migrations: bool = false` |
@@ -48,9 +47,8 @@
 | 方法 | [`begin_quiesce`](#member-gfstorageutility-methods-begin_quiesce) | `func begin_quiesce(scope: GFAsyncScope) -> GFAsyncCompletion:` |
 | 方法 | [`save_resource`](#member-gfstorageutility-methods-save_resource) | `func save_resource(file_name: String, resource: Resource) -> Error:` |
 | 方法 | [`load_resource`](#member-gfstorageutility-methods-load_resource) | `func load_resource(file_name: String, type_hint: String = "") -> Resource:` |
-| 方法 | [`ensure_directory`](#member-gfstorageutility-methods-ensure_directory) | `func ensure_directory(directory_name: String = "") -> Error:` |
-| 方法 | [`get_storage_directory_path`](#member-gfstorageutility-methods-get_storage_directory_path) | `func get_storage_directory_path(directory_name: String = "") -> String:` |
 | 方法 | [`list_files`](#member-gfstorageutility-methods-list_files) | `func list_files( directory_name: String = "", extension_filter: String = "", recursive: bool = false, options: Dictionary = {} ) -> PackedStringArray:` |
+| 方法 | [`has_file`](#member-gfstorageutility-methods-has_file) | `func has_file(file_name: String) -> bool:` |
 | 方法 | [`delete_file`](#member-gfstorageutility-methods-delete_file) | `func delete_file(file_name: String) -> Error:` |
 | 方法 | [`save_data`](#member-gfstorageutility-methods-save_data) | `func save_data(file_name: String, data: Dictionary) -> Error:` |
 | 方法 | [`save_data_group`](#member-gfstorageutility-methods-save_data_group) | `func save_data_group(files: Dictionary) -> Error:` |
@@ -196,10 +194,10 @@ var encrypt_key: int = 42
 - 首次版本：`3.17.0`
 
 ```gdscript
-var save_dir_name: String = "saves"
+var save_dir_name: String = "saves":
 ```
 
-保存子目录名；为空时直接写入 `user://`。非空值必须是规范相对目录，非法配置会失败关闭。
+Storage root 的 portable logical 目录名；为空时使用 `user://`。 首次 activation、显式 `init()` 或合法 I/O 尝试后冻结；非法配置失败关闭。
 
 <a id="member-gfstorageutility-properties-codec"></a>
 
@@ -349,18 +347,6 @@ var require_resource_load_type_hint: bool = true
 ```
 
 `load_resource()` 是否要求调用方传入非空 `type_hint`。
-
-<a id="member-gfstorageutility-properties-create_directories_for_nested_paths"></a>
-
-### `create_directories_for_nested_paths`
-
-- API：`public`
-
-```gdscript
-var create_directories_for_nested_paths: bool = true
-```
-
-写入嵌套相对路径时是否自动创建目录。
 
 <a id="member-gfstorageutility-properties-max_async_thread_count"></a>
 
@@ -557,47 +543,6 @@ func load_resource(file_name: String, type_hint: String = "") -> Resource:
 
 返回：读取到的资源实例；不存在时返回 `null`。
 
-<a id="member-gfstorageutility-methods-ensure_directory"></a>
-
-### `ensure_directory`
-
-- API：`public`
-
-```gdscript
-func ensure_directory(directory_name: String = "") -> Error:
-```
-
-确保存储相对目录存在。
-
-参数：
-
-| 名称 | 说明 |
-|---|---|
-| `directory_name` | 相对存储目录；为空时只确保根存储目录存在。 |
-
-返回：Godot 的 `Error` 结果码。
-
-<a id="member-gfstorageutility-methods-get_storage_directory_path"></a>
-
-### `get_storage_directory_path`
-
-- API：`public`
-- 首次版本：`4.4.0`
-
-```gdscript
-func get_storage_directory_path(directory_name: String = "") -> String:
-```
-
-获取存储目录路径，不创建目录。
-
-参数：
-
-| 名称 | 说明 |
-|---|---|
-| `directory_name` | 相对存储目录；为空时返回根存储目录。 |
-
-返回：按当前路径策略解析后的目录路径。
-
 <a id="member-gfstorageutility-methods-list_files"></a>
 
 ### `list_files`
@@ -616,15 +561,36 @@ func list_files( directory_name: String = "", extension_filter: String = "", rec
 | 名称 | 说明 |
 |---|---|
 | `directory_name` | 相对存储目录；为空时枚举根存储目录。 |
-| `extension_filter` | 可选扩展名过滤，允许传入 \`"json"\` 或 \`".json"\`。 |
+| `extension_filter` | 可选 canonical lowercase 扩展名过滤，不包含点号。 |
 | `recursive` | 是否递归枚举子目录。 |
 | `options` | 可选参数，支持 \`max_scan_depth\` 与 \`max_file_count\`。 |
 
-返回：当前 Storage root 内的规范相对文件路径数组。
+返回：从已校验 catalog 投影的 committed portable logical file identity 数组。
 
 结构：
 
 - `options`: Dictionary，包含 max_scan_depth: int 和 max_file_count: int。
+
+<a id="member-gfstorageutility-methods-has_file"></a>
+
+### `has_file`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func has_file(file_name: String) -> bool:
+```
+
+判断一个 logical file 是否存在 committed payload。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `file_name` | portable logical file identity。 |
+
+返回：catalog、owner 与 payload 均有效时返回 true。
 
 <a id="member-gfstorageutility-methods-delete_file"></a>
 
@@ -637,13 +603,13 @@ func list_files( directory_name: String = "", extension_filter: String = "", rec
 func delete_file(file_name: String) -> Error:
 ```
 
-删除一个存储文件。 同时清理同名事务临时文件、备份文件和事务标记，避免删除后被遗留事务恢复。
+删除一个精确 logical family 的 committed payload 与私有事务证据。 该方法不会扫描或收养 Storage root 下的旧版可见文件；immutable catalog/owner claim 会保留。
 
 参数：
 
 | 名称 | 说明 |
 |---|---|
-| `file_name` | 存储相对文件路径。 |
+| `file_name` | portable logical file identity。 |
 
 返回：Godot 的 `Error` 结果码；文件不存在时返回 `ERR_FILE_NOT_FOUND`。
 
@@ -695,7 +661,7 @@ func save_data_group(files: Dictionary) -> Error:
 
 结构：
 
-- `files`: Dictionary，键为存储相对文件名，值为要序列化并保存的 Dictionary 载荷。
+- `files`: Dictionary，键必须是未经改写的 String portable logical identity，值为要序列化并保存的 Dictionary 载荷。
 
 <a id="member-gfstorageutility-methods-load_data"></a>
 
@@ -729,7 +695,7 @@ func load_data(file_name: String) -> GFStorageReadResult:
 func canonicalize_data_file_name(file_name: String) -> String:
 ```
 
-规范化并校验一个数据文件名。 返回值与异步队列的同文件锁使用相同路径规则，可用于建立稳定所有权键。
+校验一个已经 canonical 的 portable logical 数据文件名。 返回值与异步队列的同文件锁使用相同路径规则，可用于建立稳定所有权键。
 
 参数：
 
@@ -737,7 +703,7 @@ func canonicalize_data_file_name(file_name: String) -> String:
 |---|---|
 | `file_name` | 待校验文件名。 |
 
-返回：合法时返回当前 Storage root 内的规范相对文件名；非法时返回空字符串。
+返回：输入本身满足 portable-ascii-v1 时原样返回；不会改写别名，非法时返回空字符串。
 
 <a id="member-gfstorageutility-methods-save_data_async"></a>
 

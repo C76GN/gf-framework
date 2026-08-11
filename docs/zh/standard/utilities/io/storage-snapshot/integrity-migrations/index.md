@@ -2,7 +2,7 @@
 
 这一组文档说明 `GFStorageUtility` 的写入策略、完整性校验、旧存档兼容和版本迁移链。
 
-`GFStorageUtility` 的本地写入路径、文件操作和事务提交/恢复共用同一套内部策略。槽位存档、纯字典存档和异步纯字典存档会遵循一致的路径规整、目录创建、临时文件、备份文件与事务标记规则。
+`GFStorageUtility` 的 logical identity、family claim、文件操作和事务提交/恢复共用同一套内部策略。槽位存档、纯字典存档和异步纯字典存档都会先通过相同的 portable path admission，再写入 catalog 授权的私有 family，并使用不可变 prepare/commit evidence 收敛事务。
 
 ## 阅读入口
 
@@ -12,4 +12,4 @@
 
 ## 使用边界
 
-项目层不应依赖 `.tmp`、`.bak`、`.txn` 这些内部文件。恢复流程会在下次读取、写入或槽位检查时自动收敛。
+`.tmp`、`.bak`、`.txn` 是合法的普通 logical leaf 后缀，各自映射到独立 family；项目层不能把它们解释成物理事务 sidecar。真正的 candidate、backup、resource stage 与 prepare/commit evidence 只存在于 `.gf-storage/v1` 私有 namespace，恢复流程会在 activation、后续读写或 committed-view 枚举前收敛。
