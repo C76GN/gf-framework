@@ -7,6 +7,7 @@
   "description": "Optional model-first asset browsing state and bounded preview coordination.",
   "dependencies": [
     "gf.kernel",
+    "gf.standard.base",
     "gf.standard.assets"
   ],
   "paths": [
