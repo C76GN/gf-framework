@@ -95,7 +95,12 @@ class ControlledStorage extends GFStorageUtility:
 	var _pending_save_operations: Array[GFStorageAsyncOperation] = []
 	var _pending_load_operations: Array[GFStorageAsyncOperation] = []
 
-	func save_data_request_async(file_name: String, data: Dictionary) -> GFStorageAsyncOperation:
+	func save_data_request_async(
+		file_name: String,
+		data: Dictionary,
+		options: GFStorageAsyncRequestOptions = null
+	) -> GFStorageAsyncOperation:
+		var _ignored_options: GFStorageAsyncRequestOptions = options
 		var operation: GFStorageAsyncOperation = _make_operation(
 			GFStorageAsyncOperation.OPERATION_SAVE,
 			file_name
@@ -107,8 +112,10 @@ class ControlledStorage extends GFStorageUtility:
 
 	func save_payload_request_async(
 		file_name: String,
-		transfer: GFStoragePayloadTransfer
+		transfer: GFStoragePayloadTransfer,
+		options: GFStorageAsyncRequestOptions = null
 	) -> GFStorageAsyncOperation:
+		var _ignored_options: GFStorageAsyncRequestOptions = options
 		var operation: GFStorageAsyncOperation = _make_operation(
 			GFStorageAsyncOperation.OPERATION_SAVE,
 			file_name
@@ -145,7 +152,11 @@ class ControlledStorage extends GFStorageUtility:
 		_begin_io()
 		return operation
 
-	func load_data_request_async(file_name: String) -> GFStorageAsyncOperation:
+	func load_data_request_async(
+		file_name: String,
+		options: GFStorageAsyncRequestOptions = null
+	) -> GFStorageAsyncOperation:
+		var _ignored_options: GFStorageAsyncRequestOptions = options
 		var operation: GFStorageAsyncOperation = _make_operation(
 			GFStorageAsyncOperation.OPERATION_LOAD,
 			file_name

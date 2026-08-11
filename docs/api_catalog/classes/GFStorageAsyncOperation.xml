@@ -1,8 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFStorageAsyncOperation" path="addons/gf/standard/utilities/storage/gf_storage_async_operation.gd" module="standard" extends="RefCounted" classDigest="a67623656088095c9ae70e244a4c3ed2ee0fe6df0f4520f1527ee60a5bf8f23e">
+<class name="GFStorageAsyncOperation" path="addons/gf/standard/utilities/storage/gf_storage_async_operation.gd" module="standard" extends="RefCounted" classDigest="641fc5571617adba17ce37121882b42d405f8be9456cc3b1fd75ea0b18adfca7">
 	<description>GFStorageAsyncOperation: 单次异步存储请求句柄。
-句柄由 `GFStorageUtility` 分配唯一请求 ID，并且只接受一个终态。调用方应先
-检查 `is_completed()`，再决定是否等待 `completed` 信号。</description>
+句柄同时表达单个 consumer 的 caller 终态与共享物理请求终态。既有
+`completed/is_completed/get_result` 始终表示物理终态；caller 可通过独立查询和
+`caller_completed` 提前结束观察，而不会伪造磁盘工作已经停止。</description>
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">runtime_handle</tag>
@@ -11,11 +12,22 @@
 	<signals>
 		<member kind="signal" name="completed">
 			<signature>signal completed(result: GFStorageAsyncResult)</signature>
-			<description>请求进入终态时发出一次。</description>
+			<description>物理请求进入终态时发出一次；caller 提前结束观察不会触发该信号。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">result: 与当前请求 ID 匹配的隔离结果。</tag>
 				<tag name="since">10.0.0</tag>
+			</tags>
+		</member>
+		<member kind="signal" name="caller_completed">
+			<signature>signal caller_completed(result: GFStorageAsyncCallerResult)</signature>
+			<description>当前 consumer 进入 caller 终态时发出一次。
+owner 已释放时框架可抑制该信号；终态仍可通过 `get_caller_result()` 查询。该信号
+不代表物理工作已结束。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">result: 与当前 consumer ID 匹配的隔离 caller 结果。</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
 	</signals>
@@ -57,6 +69,15 @@
 				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
+		<member kind="method" name="get_consumer_id">
+			<signature>func get_consumer_id() -&gt; int:</signature>
+			<description>获取当前 consumer 的 Utility 内唯一 ID。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">大于零的 consumer ID；尚未配置时返回 0。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
 		<member kind="method" name="get_operation">
 			<signature>func get_operation() -&gt; StringName:</signature>
 			<description>获取请求类型。</description>
@@ -77,7 +98,7 @@
 		</member>
 		<member kind="method" name="is_pending">
 			<signature>func is_pending() -&gt; bool:</signature>
-			<description>检查请求是否等待终态。</description>
+			<description>检查物理请求是否等待终态。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">已配置且未完成时返回 true。</tag>
@@ -86,7 +107,7 @@
 		</member>
 		<member kind="method" name="is_completed">
 			<signature>func is_completed() -&gt; bool:</signature>
-			<description>检查请求是否已有终态。</description>
+			<description>检查物理请求是否已有终态。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">已完成时返回 true。</tag>
@@ -95,11 +116,50 @@
 		</member>
 		<member kind="method" name="get_result">
 			<signature>func get_result() -&gt; GFStorageAsyncResult:</signature>
-			<description>获取终态结果副本。</description>
+			<description>获取物理终态结果副本。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">已完成结果；等待中返回 null。</tag>
 				<tag name="since">10.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_caller_pending">
+			<signature>func is_caller_pending() -&gt; bool:</signature>
+			<description>检查当前 consumer 是否仍等待 caller 终态。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">已配置且 caller 尚未完成时返回 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_caller_completed">
+			<signature>func is_caller_completed() -&gt; bool:</signature>
+			<description>检查当前 consumer 是否已有 caller 终态。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">caller 已完成时返回 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_caller_result">
+			<signature>func get_caller_result() -&gt; GFStorageAsyncCallerResult:</signature>
+			<description>获取 caller 终态结果副本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">caller 已完成时返回隔离结果；等待中返回 null。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="cancel_observation">
+			<signature>func cancel_observation(reason: StringName = &amp;"cancelled") -&gt; bool:</signature>
+			<description>显式结束当前 consumer 对物理请求的观察。
+返回 true 只表示 caller 终态已被 Utility 线性化，不保证物理 worker 已取消。
+save/delete 已接纳时可能进入 `OUTCOME_UNKNOWN`，物理终态仍通过 `completed` 到达。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">reason: 最长保留 128 字符的稳定原因；空值规范化为 `cancelled`。</tag>
+				<tag name="return">本次调用首次结束 caller 观察时返回 true。</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_payload_transfer">

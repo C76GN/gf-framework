@@ -9,16 +9,19 @@
 - 类别：值对象 (`value_object`)
 - 首次版本：`10.0.0`
 
-单次异步存储请求的不可变终态。 结果通过请求 ID 与具体句柄绑定；读取结果保留 `GFStorageReadResult` 的类型化 失败分类；写入结果额外暴露稳定写入失败分类与隔离的 payload 预检报告； 删除结果携带有界、路径无关的 family 成员终态。
+单次异步存储请求的不可变终态。 结果通过请求 ID 与具体句柄绑定；读取结果保留 `GFStorageReadResult` 的类型化 失败分类；写入结果额外暴露稳定写入失败分类与隔离的 payload 预检报告； 删除结果携带有界、路径无关的 family 成员终态。 未被 worker 接纳即取消的请求使用独立 `SettlementKind.CANCELLED` 分支，不会伪造 save/load/delete 的领域失败结果。
 
 ## 成员概览
 
 | 类型 | 名称 | 签名 |
 |---|---|---|
+| 枚举 | [`SettlementKind`](#member-gfstorageasyncresult-enums-settlementkind) | `enum SettlementKind` |
 | 枚举 | [`WriteFailureKind`](#member-gfstorageasyncresult-enums-writefailurekind) | `enum WriteFailureKind` |
 | 方法 | [`get_request_id`](#member-gfstorageasyncresult-methods-get_request_id) | `func get_request_id() -> int:` |
 | 方法 | [`get_operation`](#member-gfstorageasyncresult-methods-get_operation) | `func get_operation() -> StringName:` |
 | 方法 | [`get_file_name`](#member-gfstorageasyncresult-methods-get_file_name) | `func get_file_name() -> String:` |
+| 方法 | [`get_settlement_kind`](#member-gfstorageasyncresult-methods-get_settlement_kind) | `func get_settlement_kind() -> SettlementKind:` |
+| 方法 | [`is_cancelled`](#member-gfstorageasyncresult-methods-is_cancelled) | `func is_cancelled() -> bool:` |
 | 方法 | [`is_successful`](#member-gfstorageasyncresult-methods-is_successful) | `func is_successful() -> bool:` |
 | 方法 | [`get_error_code`](#member-gfstorageasyncresult-methods-get_error_code) | `func get_error_code() -> Error:` |
 | 方法 | [`get_read_result`](#member-gfstorageasyncresult-methods-get_read_result) | `func get_read_result() -> GFStorageReadResult:` |
@@ -29,6 +32,24 @@
 | 方法 | [`to_dict`](#member-gfstorageasyncresult-methods-to_dict) | `func to_dict() -> Dictionary:` |
 
 ## 枚举
+
+<a id="member-gfstorageasyncresult-enums-settlementkind"></a>
+
+### `SettlementKind`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+enum SettlementKind {
+	## 存在对应 save/load/delete 类型化领域结果；也包含接纳前校验或启动失败。
+	DOMAIN_RESULT,
+	## 请求在 worker 接纳前被取消，没有执行领域物理工作。
+	CANCELLED,
+}
+```
+
+物理终态的闭合判别种类。
 
 <a id="member-gfstorageasyncresult-enums-writefailurekind"></a>
 
@@ -105,6 +126,36 @@ func get_file_name() -> String:
 
 返回：已通过路径校验的请求返回规范相对文件名；校验前被拒绝时返回空字符串。
 
+<a id="member-gfstorageasyncresult-methods-get_settlement_kind"></a>
+
+### `get_settlement_kind`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func get_settlement_kind() -> SettlementKind:
+```
+
+获取物理终态的判别种类。
+
+返回：`DOMAIN_RESULT` 或接纳前 `CANCELLED`。
+
+<a id="member-gfstorageasyncresult-methods-is_cancelled"></a>
+
+### `is_cancelled`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func is_cancelled() -> bool:
+```
+
+返回请求是否在 worker 接纳前被取消。
+
+返回：请求在 worker 接纳前被取消时返回 true。
+
 <a id="member-gfstorageasyncresult-methods-is_successful"></a>
 
 ### `is_successful`
@@ -148,7 +199,7 @@ func get_read_result() -> GFStorageReadResult:
 
 获取读取结果副本。
 
-返回：load 请求的结果；save/delete 请求返回 null。
+返回：`DOMAIN_RESULT` load 请求的结果；save/delete 或 `CANCELLED` 返回 null。
 
 <a id="member-gfstorageasyncresult-methods-get_delete_result"></a>
 
@@ -163,7 +214,7 @@ func get_delete_result() -> GFStorageDeleteResult:
 
 获取删除结果副本。
 
-返回：delete 请求的结果；save/load 请求返回 null。
+返回：`DOMAIN_RESULT` delete 请求的结果；save/load 或 `CANCELLED` 返回 null。
 
 <a id="member-gfstorageasyncresult-methods-get_write_failure_kind"></a>
 
@@ -178,7 +229,7 @@ func get_write_failure_kind() -> WriteFailureKind:
 
 获取异步写入失败的稳定分类。
 
-返回：`WriteFailureKind` 枚举值；成功或 load/delete 请求为 NONE。
+返回：`WriteFailureKind` 枚举值；成功、load/delete 或 `CANCELLED` 为 NONE。
 
 <a id="member-gfstorageasyncresult-methods-get_write_validation_report"></a>
 
@@ -231,4 +282,4 @@ func to_dict() -> Dictionary:
 
 结构：
 
-- `return`: Dictionary with request_id, operation, file_name, ok, error_code, read_result, write_failure_kind, write_validation_report, and delete_result fields.
+- `return`: Exact Dictionary with request_id: int, operation: StringName, file_name: String, settlement_kind: int enum, ok: bool, error_code: int, read_result: Dictionary, write_failure_kind: int enum, write_validation_report: Dictionary, and delete_result: Dictionary fields.

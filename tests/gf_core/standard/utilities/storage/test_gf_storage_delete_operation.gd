@@ -876,15 +876,7 @@ func test_dispose_completes_active_delete_but_rejects_queued_and_reentrant_delet
 	assert_eq(active_signal_count[0], 1)
 	assert_eq(queued_signal_count[0], 1)
 	_assert_delete_terminal(active_operation, OK, "NONE", 1, 1, 0, "NONE")
-	_assert_delete_terminal(
-		queued_operation,
-		ERR_UNAVAILABLE,
-		"UNAVAILABLE",
-		0,
-		0,
-		0,
-		"NONE"
-	)
+	_assert_cancelled_terminal(queued_operation)
 	assert_eq(reentrant_operations.size(), 1)
 	if reentrant_operations.size() == 1:
 		_assert_delete_terminal(
@@ -1189,6 +1181,30 @@ func _assert_delete_terminal(
 		GFVariantData.to_int(delete_result.call("get_failed_member")),
 		GFVariantData.get_option_int(family_members, expected_failed_member_name, -1)
 	)
+
+
+func _assert_cancelled_terminal(operation: GFStorageAsyncOperation) -> void:
+	assert_not_null(operation)
+	if operation == null:
+		return
+	assert_true(operation.is_completed())
+	var async_result: GFStorageAsyncResult = operation.get_result()
+	assert_not_null(async_result)
+	if async_result == null:
+		return
+	assert_eq(
+		async_result.get_settlement_kind(),
+		GFStorageAsyncResult.SettlementKind.CANCELLED
+	)
+	assert_eq(async_result.get_error_code(), ERR_SKIP)
+	assert_false(async_result.is_successful())
+	assert_null(async_result.get_read_result())
+	assert_null(async_result.get_delete_result())
+	assert_eq(
+		async_result.get_write_failure_kind(),
+		GFStorageAsyncResult.WriteFailureKind.NONE
+	)
+	assert_true(async_result.get_write_validation_report().is_empty())
 
 
 func _delete_enum_values(enum_name: String) -> Dictionary:

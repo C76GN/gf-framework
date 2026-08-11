@@ -3,6 +3,8 @@
 ## 结果通过请求 ID 与具体句柄绑定；读取结果保留 `GFStorageReadResult` 的类型化
 ## 失败分类；写入结果额外暴露稳定写入失败分类与隔离的 payload 预检报告；
 ## 删除结果携带有界、路径无关的 family 成员终态。
+## 未被 worker 接纳即取消的请求使用独立 `SettlementKind.CANCELLED` 分支，不会伪造
+## save/load/delete 的领域失败结果。
 ## [br]
 ## @api public
 ## [br]
@@ -14,6 +16,18 @@ extends RefCounted
 
 
 # --- 枚举 ---
+
+## 物理终态的闭合判别种类。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+enum SettlementKind {
+	## 存在对应 save/load/delete 类型化领域结果；也包含接纳前校验或启动失败。
+	DOMAIN_RESULT,
+	## 请求在 worker 接纳前被取消，没有执行领域物理工作。
+	CANCELLED,
+}
 
 ## 异步写入失败的稳定分类。
 ## [br]
@@ -43,6 +57,7 @@ enum WriteFailureKind {
 var _request_id: int = 0
 var _operation: StringName = &""
 var _file_name: String = ""
+var _settlement_kind: SettlementKind = SettlementKind.DOMAIN_RESULT
 var _ok: bool = false
 var _error_code: Error = FAILED
 var _read_result: GFStorageReadResult = null
@@ -86,6 +101,28 @@ func get_file_name() -> String:
 	return _file_name
 
 
+## 获取物理终态的判别种类。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @return `DOMAIN_RESULT` 或接纳前 `CANCELLED`。
+func get_settlement_kind() -> SettlementKind:
+	return _settlement_kind
+
+
+## 返回请求是否在 worker 接纳前被取消。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @return 请求在 worker 接纳前被取消时返回 true。
+func is_cancelled() -> bool:
+	return _settlement_kind == SettlementKind.CANCELLED
+
+
 ## 检查请求是否成功。
 ## [br]
 ## @api public
@@ -114,7 +151,7 @@ func get_error_code() -> Error:
 ## [br]
 ## @since 10.0.0
 ## [br]
-## @return load 请求的结果；save/delete 请求返回 null。
+## @return `DOMAIN_RESULT` load 请求的结果；save/delete 或 `CANCELLED` 返回 null。
 func get_read_result() -> GFStorageReadResult:
 	return _read_result.duplicate_result() if _read_result != null else null
 
@@ -125,7 +162,7 @@ func get_read_result() -> GFStorageReadResult:
 ## [br]
 ## @since unreleased
 ## [br]
-## @return delete 请求的结果；save/load 请求返回 null。
+## @return `DOMAIN_RESULT` delete 请求的结果；save/load 或 `CANCELLED` 返回 null。
 func get_delete_result() -> GFStorageDeleteResult:
 	return _delete_result.duplicate_result() if _delete_result != null else null
 
@@ -136,7 +173,7 @@ func get_delete_result() -> GFStorageDeleteResult:
 ## [br]
 ## @since unreleased
 ## [br]
-## @return `WriteFailureKind` 枚举值；成功或 load/delete 请求为 NONE。
+## @return `WriteFailureKind` 枚举值；成功、load/delete 或 `CANCELLED` 为 NONE。
 func get_write_failure_kind() -> WriteFailureKind:
 	return _write_failure_kind
 
@@ -172,7 +209,8 @@ func duplicate_result() -> GFStorageAsyncResult:
 		_read_result,
 		_write_failure_kind,
 		_write_validation_report,
-		_delete_result
+		_delete_result,
+		_settlement_kind
 	)
 	return copy
 
@@ -185,12 +223,13 @@ func duplicate_result() -> GFStorageAsyncResult:
 ## [br]
 ## @return 包含请求身份、终态、领域结果和写入诊断的字典。
 ## [br]
-## @schema return: Dictionary with request_id, operation, file_name, ok, error_code, read_result, write_failure_kind, write_validation_report, and delete_result fields.
+## @schema return: Exact Dictionary with request_id: int, operation: StringName, file_name: String, settlement_kind: int enum, ok: bool, error_code: int, read_result: Dictionary, write_failure_kind: int enum, write_validation_report: Dictionary, and delete_result: Dictionary fields.
 func to_dict() -> Dictionary:
 	return {
 		"request_id": _request_id,
 		"operation": _operation,
 		"file_name": _file_name,
+		"settlement_kind": int(_settlement_kind),
 		"ok": _ok,
 		"error_code": int(_error_code),
 		"read_result": _read_result.to_dict() if _read_result != null else {},
@@ -205,6 +244,8 @@ func to_dict() -> Dictionary:
 ## 由 Storage Utility 写入唯一终态。
 ## [br]
 ## @api framework_internal
+## [br]
+## @layer standard/utilities/storage
 ## [br]
 ## @since 10.0.0
 ## [br]
@@ -228,6 +269,8 @@ func to_dict() -> Dictionary:
 ## [br]
 ## @param delete_result: 可选删除结果。
 ## [br]
+## @param settlement_kind: 领域结果或 worker 接纳前取消的物理终态判别。
+## [br]
 ## @return 首次配置成功返回 true。
 func configure_for_framework(
 	request_id: int,
@@ -238,7 +281,8 @@ func configure_for_framework(
 	read_result: GFStorageReadResult = null,
 	write_failure_kind: WriteFailureKind = WriteFailureKind.NONE,
 	write_validation_report: Dictionary = {},
-	delete_result: GFStorageDeleteResult = null
+	delete_result: GFStorageDeleteResult = null,
+	settlement_kind: SettlementKind = SettlementKind.DOMAIN_RESULT
 ) -> bool:
 	if _request_id != 0 or request_id <= 0:
 		return false
@@ -249,13 +293,15 @@ func configure_for_framework(
 		read_result,
 		write_failure_kind,
 		write_validation_report,
-		delete_result
+		delete_result,
+		settlement_kind
 	):
 		return false
 
 	_request_id = request_id
 	_operation = operation
 	_file_name = file_name
+	_settlement_kind = settlement_kind
 	_ok = ok
 	_error_code = error_code
 	_read_result = read_result.duplicate_result() if read_result != null else null
@@ -263,6 +309,40 @@ func configure_for_framework(
 	_write_failure_kind = write_failure_kind
 	_write_validation_report = write_validation_report.duplicate(true)
 	return true
+
+
+## 配置一个 worker 接纳前取消的物理终态。
+## [br]
+## @api framework_internal
+## [br]
+## @layer standard/utilities/storage
+## [br]
+## @since unreleased
+## [br]
+## @param request_id: Utility 内唯一且大于零的请求 ID。
+## [br]
+## @param operation: `save`、`load` 或 `delete`。
+## [br]
+## @param file_name: 当前请求的 portable logical identity；校验前失败时允许为空。
+## [br]
+## @return 身份合法且对象尚未配置时返回 true。
+func configure_cancelled_for_framework(
+	request_id: int,
+	operation: StringName,
+	file_name: String
+) -> bool:
+	return configure_for_framework(
+		request_id,
+		operation,
+		file_name,
+		false,
+		ERR_SKIP,
+		null,
+		WriteFailureKind.NONE,
+		{},
+		null,
+		SettlementKind.CANCELLED
+	)
 
 
 # --- 私有/辅助方法 ---
@@ -274,10 +354,28 @@ static func _is_valid_configuration(
 	read_result: GFStorageReadResult,
 	write_failure_kind: WriteFailureKind,
 	write_validation_report: Dictionary,
-	delete_result: GFStorageDeleteResult
+	delete_result: GFStorageDeleteResult,
+	settlement_kind: SettlementKind
 ) -> bool:
 	if not WriteFailureKind.values().has(int(write_failure_kind)):
 		return false
+	if not SettlementKind.values().has(int(settlement_kind)):
+		return false
+	if operation not in [
+		GFStorageAsyncOperation.OPERATION_SAVE,
+		GFStorageAsyncOperation.OPERATION_LOAD,
+		GFStorageAsyncOperation.OPERATION_DELETE,
+	]:
+		return false
+	if settlement_kind == SettlementKind.CANCELLED:
+		return (
+			not ok
+			and error_code == ERR_SKIP
+			and read_result == null
+			and delete_result == null
+			and write_failure_kind == WriteFailureKind.NONE
+			and write_validation_report.is_empty()
+		)
 	if ok != (error_code == OK):
 		return false
 

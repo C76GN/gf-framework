@@ -646,11 +646,20 @@ func test_same_binding_can_lease_pending_snapshot_and_dispose_reclaims_queued_at
 	assert_true(first_operation.is_completed())
 	assert_true(first_operation.get_result().is_successful())
 	assert_true(queued_operation.is_completed())
-	assert_false(queued_operation.get_result().is_successful())
+	var queued_result: GFStorageAsyncResult = queued_operation.get_result()
+	assert_false(queued_result.is_successful())
 	assert_eq(
-		queued_operation.get_result().get_write_failure_kind(),
-		GFStorageAsyncResult.WriteFailureKind.UNAVAILABLE
+		queued_result.get_settlement_kind(),
+		GFStorageAsyncResult.SettlementKind.CANCELLED
 	)
+	assert_eq(queued_result.get_error_code(), ERR_SKIP)
+	assert_null(queued_result.get_read_result())
+	assert_null(queued_result.get_delete_result())
+	assert_eq(
+		queued_result.get_write_failure_kind(),
+		GFStorageAsyncResult.WriteFailureKind.NONE
+	)
+	assert_true(queued_result.get_write_validation_report().is_empty())
 	assert_eq(transfer.get_active_attempt_count(), 0)
 	assert_same(queued_operation.reclaim_failed_payload(), transfer)
 	assert_null(queued_operation.reclaim_failed_payload())

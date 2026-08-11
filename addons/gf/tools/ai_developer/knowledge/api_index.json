@@ -2,8 +2,8 @@
   "schema_version": 1,
   "catalog_version": "1.0.0",
   "framework_version": "11.0.0-dev.0",
-  "source_digest": "9ca2803f765901150bd17dbe87def12a8d97a1a8c98f4e9998610753f516b63e",
-  "class_count": 790,
+  "source_digest": "6034347f15d4a96065675cbfd8ee220faee0cedd433232ad719e68f0f5d1fd96",
+  "class_count": 792,
   "package_count": 52,
   "packages": [
     {
@@ -80242,12 +80242,136 @@
         }
       ]
     },
+    "GFStorageAsyncCallerResult": {
+      "extends": "RefCounted",
+      "module": "standard",
+      "package_id": "gf.standard.storage",
+      "path": "addons/gf/standard/utilities/storage/gf_storage_async_caller_result.gd",
+      "summary": "GFStorageAsyncCallerResult: 单个 Storage consumer 的不可变 caller 终态。 caller 终态与 `GFStorageAsyncOperation.completed` 表示的物理终态彼此独立。已接纳 save/delete 在 caller 提前离开时返回 `OUTCOME_UNKNOWN`，不会把“停止观察”伪装成",
+      "visibility": "public",
+      "category": "value_object",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "enum",
+          "name": "Status",
+          "signature": "enum Status {\n\t## caller 获得了同一请求的确定物理终态。\n\tPHYSICAL_SETTLED,\n\t## caller 已安全停止观察，且不会声称存在持久化副作用的不确定性。\n\tCANCELLED,\n\t## caller 已停止观察，但 save/delete 的持久化结果仍未知。\n\tOUTCOME_UNKNOWN,\n}",
+          "summary": "caller 观察的闭合终态分类。",
+          "visibility": "public"
+        },
+        {
+          "kind": "enum",
+          "name": "EndKind",
+          "signature": "enum EndKind {\n\t## 物理工作先结算。\n\tPHYSICAL_SETTLEMENT,\n\t## 调用方显式调用 `cancel_observation()`。\n\tEXPLICIT_CANCEL,\n\t## 绑定的 `GFCancellationToken` 首次请求取消。\n\tTOKEN_CANCELLED,\n\t## 单调 caller deadline 到期。\n\tDEADLINE_EXPIRED,\n\t## 弱 owner 已经释放。\n\tOWNER_RELEASED,\n\t## Utility dispose 在 worker 接纳前终止了排队请求。\n\tUTILITY_DISPOSED,\n}",
+          "summary": "caller 终态的稳定来源分类。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_consumer_id",
+          "signature": "func get_consumer_id() -> int",
+          "summary": "获取当前 consumer 的 Utility 内唯一 ID。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_request_id",
+          "signature": "func get_request_id() -> int",
+          "summary": "获取物理请求 ID。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_operation",
+          "signature": "func get_operation() -> StringName",
+          "summary": "获取请求类型。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_file_name",
+          "signature": "func get_file_name() -> String",
+          "summary": "获取 portable logical 文件名。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_status",
+          "signature": "func get_status() -> Status",
+          "summary": "获取 caller 终态分类。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_end_kind",
+          "signature": "func get_end_kind() -> EndKind",
+          "summary": "获取 caller 结束来源分类。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_reason",
+          "signature": "func get_reason() -> StringName",
+          "summary": "获取最长 128 字符的稳定原因。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_completed_at_msec",
+          "signature": "func get_completed_at_msec() -> int",
+          "summary": "获取 caller 终态的单调毫秒时间。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_error_code",
+          "signature": "func get_error_code() -> Error",
+          "summary": "获取 caller Error 码。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "is_successful",
+          "signature": "func is_successful() -> bool",
+          "summary": "返回 caller 是否获得了成功的物理领域结果。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "is_outcome_unknown",
+          "signature": "func is_outcome_unknown() -> bool",
+          "summary": "返回 caller 是否因潜在持久化副作用进入未知结果。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_physical_result",
+          "signature": "func get_physical_result() -> GFStorageAsyncResult",
+          "summary": "获取 caller 已知的物理终态副本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "duplicate_result",
+          "signature": "func duplicate_result() -> GFStorageAsyncCallerResult",
+          "summary": "创建隔离副本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "to_dict",
+          "signature": "func to_dict() -> Dictionary",
+          "summary": "转换为可报告字典。",
+          "visibility": "public"
+        }
+      ]
+    },
     "GFStorageAsyncOperation": {
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.storage",
       "path": "addons/gf/standard/utilities/storage/gf_storage_async_operation.gd",
-      "summary": "GFStorageAsyncOperation: 单次异步存储请求句柄。 句柄由 `GFStorageUtility` 分配唯一请求 ID，并且只接受一个终态。调用方应先 检查 `is_completed()`，再决定是否等待 `completed` 信号。",
+      "summary": "GFStorageAsyncOperation: 单次异步存储请求句柄。 句柄同时表达单个 consumer 的 caller 终态与共享物理请求终态。既有 `completed/is_completed/get_result` 始终表示物理终态；caller 可通过独立查询和",
       "visibility": "public",
       "category": "runtime_handle",
       "since": "10.0.0",
@@ -80256,7 +80380,14 @@
           "kind": "signal",
           "name": "completed",
           "signature": "signal completed(result: GFStorageAsyncResult)",
-          "summary": "请求进入终态时发出一次。",
+          "summary": "物理请求进入终态时发出一次；caller 提前结束观察不会触发该信号。",
+          "visibility": "public"
+        },
+        {
+          "kind": "signal",
+          "name": "caller_completed",
+          "signature": "signal caller_completed(result: GFStorageAsyncCallerResult)",
+          "summary": "当前 consumer 进入 caller 终态时发出一次。",
           "visibility": "public"
         },
         {
@@ -80289,6 +80420,13 @@
         },
         {
           "kind": "func",
+          "name": "get_consumer_id",
+          "signature": "func get_consumer_id() -> int",
+          "summary": "获取当前 consumer 的 Utility 内唯一 ID。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
           "name": "get_operation",
           "signature": "func get_operation() -> StringName",
           "summary": "获取请求类型。",
@@ -80305,21 +80443,49 @@
           "kind": "func",
           "name": "is_pending",
           "signature": "func is_pending() -> bool",
-          "summary": "检查请求是否等待终态。",
+          "summary": "检查物理请求是否等待终态。",
           "visibility": "public"
         },
         {
           "kind": "func",
           "name": "is_completed",
           "signature": "func is_completed() -> bool",
-          "summary": "检查请求是否已有终态。",
+          "summary": "检查物理请求是否已有终态。",
           "visibility": "public"
         },
         {
           "kind": "func",
           "name": "get_result",
           "signature": "func get_result() -> GFStorageAsyncResult",
-          "summary": "获取终态结果副本。",
+          "summary": "获取物理终态结果副本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "is_caller_pending",
+          "signature": "func is_caller_pending() -> bool",
+          "summary": "检查当前 consumer 是否仍等待 caller 终态。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "is_caller_completed",
+          "signature": "func is_caller_completed() -> bool",
+          "summary": "检查当前 consumer 是否已有 caller 终态。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_caller_result",
+          "signature": "func get_caller_result() -> GFStorageAsyncCallerResult",
+          "summary": "获取 caller 终态结果副本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "cancel_observation",
+          "signature": "func cancel_observation(reason: StringName = &\"cancelled\") -> bool",
+          "summary": "显式结束当前 consumer 对物理请求的观察。",
           "visibility": "public"
         },
         {
@@ -80338,6 +80504,32 @@
         }
       ]
     },
+    "GFStorageAsyncRequestOptions": {
+      "extends": "RefCounted",
+      "module": "standard",
+      "package_id": "gf.standard.storage",
+      "path": "addons/gf/standard/utilities/storage/gf_storage_async_request_options.gd",
+      "summary": "GFStorageAsyncRequestOptions: 异步 Storage caller 观察生命周期的不可变选项。 选项只弱持有 owner，并可绑定只读取消令牌与单调 timeout。必须通过 `create()` 构造；直接 `new()` 或非法参数会得到 `is_valid() == false` 的对象，避免把错误选项",
+      "visibility": "public",
+      "category": "value_object",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "func",
+          "name": "create",
+          "signature": "static func create( owner: Object, cancel_token: GFCancellationToken = null, timeout_msec: int = 0 ) -> GFStorageAsyncRequestOptions",
+          "summary": "创建 caller 生命周期选项。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "is_valid",
+          "signature": "func is_valid() -> bool",
+          "summary": "返回选项是否由合法参数创建。",
+          "visibility": "public"
+        }
+      ]
+    },
     "GFStorageAsyncResult": {
       "extends": "RefCounted",
       "module": "standard",
@@ -80348,6 +80540,13 @@
       "category": "value_object",
       "since": "10.0.0",
       "members": [
+        {
+          "kind": "enum",
+          "name": "SettlementKind",
+          "signature": "enum SettlementKind {\n\t## 存在对应 save/load/delete 类型化领域结果；也包含接纳前校验或启动失败。\n\tDOMAIN_RESULT,\n\t## 请求在 worker 接纳前被取消，没有执行领域物理工作。\n\tCANCELLED,\n}",
+          "summary": "物理终态的闭合判别种类。",
+          "visibility": "public"
+        },
         {
           "kind": "enum",
           "name": "WriteFailureKind",
@@ -80374,6 +80573,20 @@
           "name": "get_file_name",
           "signature": "func get_file_name() -> String",
           "summary": "获取规范化存储文件名。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_settlement_kind",
+          "signature": "func get_settlement_kind() -> SettlementKind",
+          "summary": "获取物理终态的判别种类。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "is_cancelled",
+          "signature": "func is_cancelled() -> bool",
+          "summary": "返回请求是否在 worker 接纳前被取消。",
           "visibility": "public"
         },
         {
@@ -81766,7 +81979,7 @@
         {
           "kind": "func",
           "name": "delete_file_request_async",
-          "signature": "func delete_file_request_async(file_name: String) -> GFStorageAsyncOperation",
+          "signature": "func delete_file_request_async( file_name: String, options: GFStorageAsyncRequestOptions = null ) -> GFStorageAsyncOperation",
           "summary": "在线程中删除一个精确 logical family，并返回请求专属句柄。",
           "visibility": "public"
         },
@@ -81808,14 +82021,14 @@
         {
           "kind": "func",
           "name": "save_data_request_async",
-          "signature": "func save_data_request_async(file_name: String, data: Dictionary) -> GFStorageAsyncOperation",
+          "signature": "func save_data_request_async( file_name: String, data: Dictionary, options: GFStorageAsyncRequestOptions = null ) -> GFStorageAsyncOperation",
           "summary": "在线程中异步保存纯字典数据，并返回请求专属句柄。",
           "visibility": "public"
         },
         {
           "kind": "func",
           "name": "save_payload_request_async",
-          "signature": "func save_payload_request_async( file_name: String, transfer: GFStoragePayloadTransfer ) -> GFStorageAsyncOperation",
+          "signature": "func save_payload_request_async( file_name: String, transfer: GFStoragePayloadTransfer, options: GFStorageAsyncRequestOptions = null ) -> GFStorageAsyncOperation",
           "summary": "在线程中保存由单所有者 transfer 移交的纯 Variant payload。",
           "visibility": "public"
         },
@@ -81829,8 +82042,15 @@
         {
           "kind": "func",
           "name": "load_data_request_async",
-          "signature": "func load_data_request_async(file_name: String) -> GFStorageAsyncOperation",
+          "signature": "func load_data_request_async( file_name: String, options: GFStorageAsyncRequestOptions = null ) -> GFStorageAsyncOperation",
           "summary": "在线程中异步读取纯字典数据，并返回请求专属句柄。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_late_settlement_diagnostics",
+          "signature": "func get_late_settlement_diagnostics() -> Array[Dictionary]",
+          "summary": "获取最近的 late physical settlement 脱敏诊断。",
           "visibility": "public"
         },
         {

@@ -50,16 +50,17 @@
 | 方法 | [`list_files`](#member-gfstorageutility-methods-list_files) | `func list_files( directory_name: String = "", extension_filter: String = "", recursive: bool = false, options: Dictionary = {} ) -> PackedStringArray:` |
 | 方法 | [`has_file`](#member-gfstorageutility-methods-has_file) | `func has_file(file_name: String) -> bool:` |
 | 方法 | [`delete_file`](#member-gfstorageutility-methods-delete_file) | `func delete_file(file_name: String) -> Error:` |
-| 方法 | [`delete_file_request_async`](#member-gfstorageutility-methods-delete_file_request_async) | `func delete_file_request_async(file_name: String) -> GFStorageAsyncOperation:` |
+| 方法 | [`delete_file_request_async`](#member-gfstorageutility-methods-delete_file_request_async) | `func delete_file_request_async( file_name: String, options: GFStorageAsyncRequestOptions = null ) -> GFStorageAsyncOperation:` |
 | 方法 | [`save_data`](#member-gfstorageutility-methods-save_data) | `func save_data(file_name: String, data: Dictionary) -> Error:` |
 | 方法 | [`save_data_group`](#member-gfstorageutility-methods-save_data_group) | `func save_data_group(files: Dictionary) -> Error:` |
 | 方法 | [`load_data`](#member-gfstorageutility-methods-load_data) | `func load_data(file_name: String) -> GFStorageReadResult:` |
 | 方法 | [`canonicalize_data_file_name`](#member-gfstorageutility-methods-canonicalize_data_file_name) | `func canonicalize_data_file_name(file_name: String) -> String:` |
 | 方法 | [`save_data_async`](#member-gfstorageutility-methods-save_data_async) | `func save_data_async(file_name: String, data: Dictionary) -> Error:` |
-| 方法 | [`save_data_request_async`](#member-gfstorageutility-methods-save_data_request_async) | `func save_data_request_async(file_name: String, data: Dictionary) -> GFStorageAsyncOperation:` |
-| 方法 | [`save_payload_request_async`](#member-gfstorageutility-methods-save_payload_request_async) | `func save_payload_request_async( file_name: String, transfer: GFStoragePayloadTransfer ) -> GFStorageAsyncOperation:` |
+| 方法 | [`save_data_request_async`](#member-gfstorageutility-methods-save_data_request_async) | `func save_data_request_async( file_name: String, data: Dictionary, options: GFStorageAsyncRequestOptions = null ) -> GFStorageAsyncOperation:` |
+| 方法 | [`save_payload_request_async`](#member-gfstorageutility-methods-save_payload_request_async) | `func save_payload_request_async( file_name: String, transfer: GFStoragePayloadTransfer, options: GFStorageAsyncRequestOptions = null ) -> GFStorageAsyncOperation:` |
 | 方法 | [`load_data_async`](#member-gfstorageutility-methods-load_data_async) | `func load_data_async(file_name: String) -> Error:` |
-| 方法 | [`load_data_request_async`](#member-gfstorageutility-methods-load_data_request_async) | `func load_data_request_async(file_name: String) -> GFStorageAsyncOperation:` |
+| 方法 | [`load_data_request_async`](#member-gfstorageutility-methods-load_data_request_async) | `func load_data_request_async( file_name: String, options: GFStorageAsyncRequestOptions = null ) -> GFStorageAsyncOperation:` |
+| 方法 | [`get_late_settlement_diagnostics`](#member-gfstorageutility-methods-get_late_settlement_diagnostics) | `func get_late_settlement_diagnostics() -> Array[Dictionary]:` |
 | 方法 | [`wait_for_async_tasks`](#member-gfstorageutility-methods-wait_for_async_tasks) | `func wait_for_async_tasks() -> void:` |
 | 方法 | [`migrate_data`](#member-gfstorageutility-methods-migrate_data) | `func migrate_data(data: Dictionary, _from_version: int, _to_version: int) -> Dictionary:` |
 | 方法 | [`register_migration`](#member-gfstorageutility-methods-register_migration) | `func register_migration(from_version: int, to_version: int, callback: Callable) -> bool:` |
@@ -622,7 +623,7 @@ func delete_file(file_name: String) -> Error:
 - 首次版本：`unreleased`
 
 ```gdscript
-func delete_file_request_async(file_name: String) -> GFStorageAsyncOperation:
+func delete_file_request_async( file_name: String, options: GFStorageAsyncRequestOptions = null ) -> GFStorageAsyncOperation:
 ```
 
 在线程中删除一个精确 logical family，并返回请求专属句柄。 请求只删除冻结 family 的八个可变物理成员；catalog 与 owner identity 保留。 删除不会隐式恢复事务，也不会扫描或收养 sibling family。
@@ -632,6 +633,7 @@ func delete_file_request_async(file_name: String) -> GFStorageAsyncOperation:
 | 名称 | 说明 |
 |---|---|
 | `file_name` | portable logical file identity。 |
+| `options` | 可选 caller owner、取消 token 与单调 deadline；null 表示无 caller 生命周期约束。 |
 
 返回：已配置的 typed 请求句柄；路径或生命周期校验失败时立即进入失败终态。
 
@@ -760,7 +762,7 @@ func save_data_async(file_name: String, data: Dictionary) -> Error:
 - 首次版本：`10.0.0`
 
 ```gdscript
-func save_data_request_async(file_name: String, data: Dictionary) -> GFStorageAsyncOperation:
+func save_data_request_async( file_name: String, data: Dictionary, options: GFStorageAsyncRequestOptions = null ) -> GFStorageAsyncOperation:
 ```
 
 在线程中异步保存纯字典数据，并返回请求专属句柄。 句柄终态不会与共享 Storage 上同文件的其他请求混淆。
@@ -771,6 +773,7 @@ func save_data_request_async(file_name: String, data: Dictionary) -> GFStorageAs
 |---|---|
 | `file_name` | 目标文件名。 |
 | `data` | 要保存的字典。 |
+| `options` | 可选 caller owner、取消 token 与单调 deadline；null 表示无 caller 生命周期约束。 |
 
 返回：已配置的请求句柄；输入无效或启动失败时句柄立即进入失败终态。
 
@@ -786,7 +789,7 @@ func save_data_request_async(file_name: String, data: Dictionary) -> GFStorageAs
 - 首次版本：`unreleased`
 
 ```gdscript
-func save_payload_request_async( file_name: String, transfer: GFStoragePayloadTransfer ) -> GFStorageAsyncOperation:
+func save_payload_request_async( file_name: String, transfer: GFStoragePayloadTransfer, options: GFStorageAsyncRequestOptions = null ) -> GFStorageAsyncOperation:
 ```
 
 在线程中保存由单所有者 transfer 移交的纯 Variant payload。 路径校验在 claim 前完成；非法路径不会消费 transfer。首次合法请求会冻结当前 Storage 实例、规范文件名与 codec options。同一 transfer 可在旧 attempt 尚未 完成时提交给相同绑定，用于 timeout retry；所有 attempt 只读同一逻辑快照。 调用方完成整个重试 generation 后必须显式调用 transfer.release()。
@@ -797,6 +800,7 @@ func save_payload_request_async( file_name: String, transfer: GFStoragePayloadTr
 |---|---|
 | `file_name` | 目标文件名。 |
 | `transfer` | 已通过 take_ownership() 接收 payload 的 opaque transfer。 |
+| `options` | 可选 caller owner、取消 token 与单调 deadline；null 表示无 caller 生命周期约束。 |
 
 返回：已配置请求句柄；输入无效或启动失败时句柄立即进入失败终态。
 
@@ -828,7 +832,7 @@ func load_data_async(file_name: String) -> Error:
 - 首次版本：`10.0.0`
 
 ```gdscript
-func load_data_request_async(file_name: String) -> GFStorageAsyncOperation:
+func load_data_request_async( file_name: String, options: GFStorageAsyncRequestOptions = null ) -> GFStorageAsyncOperation:
 ```
 
 在线程中异步读取纯字典数据，并返回请求专属句柄。 读取终态通过句柄携带 `GFStorageReadResult`，调用方无需监听全局文件名信号。
@@ -838,8 +842,28 @@ func load_data_request_async(file_name: String) -> GFStorageAsyncOperation:
 | 名称 | 说明 |
 |---|---|
 | `file_name` | 目标文件名。 |
+| `options` | 可选 caller owner、取消 token 与单调 deadline；null 表示无 caller 生命周期约束。 |
 
 返回：已配置的请求句柄；输入无效或启动失败时句柄立即进入失败终态。
+
+<a id="member-gfstorageutility-methods-get_late_settlement_diagnostics"></a>
+
+### `get_late_settlement_diagnostics`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func get_late_settlement_diagnostics() -> Array[Dictionary]:
+```
+
+获取最近的 late physical settlement 脱敏诊断。 诊断按物理终态到达顺序保留最近 64 条；不包含读载荷、写 payload、绝对路径或 family 私有身份。返回值为深复制，调用方修改不会影响 Utility 内部 ring。
+
+返回：最旧到最新排列的有界 late settlement 诊断副本。
+
+结构：
+
+- `return`: Array of exact Dictionary entries with consumer_id, request_id, operation, file_name, caller_status, caller_end_kind, caller_reason, caller_completed_msec, worker_accepted, physical_cancel_requested, settlement_kind, physical_ok, physical_error_code, physical_completed_msec, late_duration_msec, read_failure_kind, write_failure_kind, delete_failure_kind, delete_existing_member_count, delete_removed_member_count, delete_remaining_member_count, and delete_failed_member fields.
 
 <a id="member-gfstorageutility-methods-wait_for_async_tasks"></a>
 

@@ -6,11 +6,11 @@
 
 | 类别 | 类 | 成员 | 方法 |
 |---|---:|---:|---:|
-| [运行时服务](#category-runtime_service) | 188 | 3434 | 2319 |
+| [运行时服务](#category-runtime_service) | 188 | 3435 | 2320 |
 | [协议与扩展点](#category-protocol) | 25 | 342 | 270 |
 | [资源定义](#category-resource_definition) | 122 | 1572 | 797 |
-| [运行时句柄](#category-runtime_handle) | 50 | 888 | 560 |
-| [值对象](#category-value_object) | 46 | 807 | 519 |
+| [运行时句柄](#category-runtime_handle) | 50 | 894 | 565 |
+| [值对象](#category-value_object) | 48 | 828 | 537 |
 | [领域模型](#category-domain_model) | 4 | 61 | 42 |
 | [事件契约](#category-event_contract) | 6 | 61 | 23 |
 | [编辑器 API](#category-editor_api) | 11 | 70 | 48 |
@@ -469,6 +469,8 @@
 | [`GFSpatialQueryIdentity`](classes/GFSpatialQueryIdentity.md#gfspatialqueryidentity) | `RefCounted` | `addons/gf/standard/foundation/math/gf_spatial_query_identity.gd` |
 | [`GFSteeringAcceleration`](classes/GFSteeringAcceleration.md#gfsteeringacceleration) | `RefCounted` | `addons/gf/standard/foundation/math/gf_steering_acceleration.gd` |
 | [`GFSteeringAgent`](classes/GFSteeringAgent.md#gfsteeringagent) | `RefCounted` | `addons/gf/standard/foundation/math/gf_steering_agent.gd` |
+| [`GFStorageAsyncCallerResult`](classes/GFStorageAsyncCallerResult.md#gfstorageasynccallerresult) | `RefCounted` | `addons/gf/standard/utilities/storage/gf_storage_async_caller_result.gd` |
+| [`GFStorageAsyncRequestOptions`](classes/GFStorageAsyncRequestOptions.md#gfstorageasyncrequestoptions) | `RefCounted` | `addons/gf/standard/utilities/storage/gf_storage_async_request_options.gd` |
 | [`GFStorageAsyncResult`](classes/GFStorageAsyncResult.md#gfstorageasyncresult) | `RefCounted` | `addons/gf/standard/utilities/storage/gf_storage_async_result.gd` |
 | [`GFStorageConflictReport`](classes/GFStorageConflictReport.md#gfstorageconflictreport) | `Resource` | `addons/gf/standard/utilities/storage/gf_storage_conflict_report.gd` |
 | [`GFStorageDeleteResult`](classes/GFStorageDeleteResult.md#gfstoragedeleteresult) | `RefCounted` | `addons/gf/standard/utilities/storage/gf_storage_delete_result.gd` |

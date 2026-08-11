@@ -17,7 +17,12 @@ class FaultStorage extends GFStorageUtility:
 	var _pending_save_operations: Array[GFStorageAsyncOperation] = []
 	var _pending_load_operations: Array[GFStorageAsyncOperation] = []
 
-	func save_data_request_async(file_name: String, data: Dictionary) -> GFStorageAsyncOperation:
+	func save_data_request_async(
+		file_name: String,
+		data: Dictionary,
+		options: GFStorageAsyncRequestOptions = null
+	) -> GFStorageAsyncOperation:
+		var _ignored_options: GFStorageAsyncRequestOptions = options
 		var operation: GFStorageAsyncOperation = _make_operation(
 			GFStorageAsyncOperation.OPERATION_SAVE,
 			file_name
@@ -36,8 +41,10 @@ class FaultStorage extends GFStorageUtility:
 
 	func save_payload_request_async(
 		file_name: String,
-		transfer: GFStoragePayloadTransfer
+		transfer: GFStoragePayloadTransfer,
+		options: GFStorageAsyncRequestOptions = null
 	) -> GFStorageAsyncOperation:
+		var _ignored_options: GFStorageAsyncRequestOptions = options
 		var operation: GFStorageAsyncOperation = _make_operation(
 			GFStorageAsyncOperation.OPERATION_SAVE,
 			file_name
@@ -77,7 +84,11 @@ class FaultStorage extends GFStorageUtility:
 		max_active_io_count = maxi(max_active_io_count, active_io_count)
 		return operation
 
-	func load_data_request_async(file_name: String) -> GFStorageAsyncOperation:
+	func load_data_request_async(
+		file_name: String,
+		options: GFStorageAsyncRequestOptions = null
+	) -> GFStorageAsyncOperation:
+		var _ignored_options: GFStorageAsyncRequestOptions = options
 		var operation: GFStorageAsyncOperation = _make_operation(
 			GFStorageAsyncOperation.OPERATION_LOAD,
 			file_name

@@ -38,8 +38,10 @@ class TimedStorage extends GFStorageUtility:
 
 	func save_payload_request_async(
 		file_name: String,
-		transfer: GFStoragePayloadTransfer
+		transfer: GFStoragePayloadTransfer,
+		options: GFStorageAsyncRequestOptions = null
 	) -> GFStorageAsyncOperation:
+		var _ignored_options: GFStorageAsyncRequestOptions = options
 		var operation: GFStorageAsyncOperation = GFStorageAsyncOperation.new()
 		var _configured: bool = operation.configure_for_framework(
 			_next_request_id,

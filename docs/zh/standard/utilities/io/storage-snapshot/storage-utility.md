@@ -182,6 +182,61 @@ if not delete_result.is_successful():
 `last_load_result` 猜测某个句柄是否完成；同一文件可以存在来自不同调用方的多个排队
 请求。同步拒绝的非法请求也会返回已失败句柄，不会留下永不完成的等待。
 
+### Caller 与物理双终态
+
+`GFStorageAsyncOperation` 在兼容的物理终态之外增加了独立 consumer 终态。既有
+`completed`、`is_pending()`、`is_completed()` 与 `get_result()` 始终只表示物理请求是否已经
+结算；它们不会因为 owner 释放、deadline 或调用方停止观察而提前完成。新的
+`caller_completed`、`is_caller_pending()`、`is_caller_completed()` 与 `get_caller_result()`
+表示当前 consumer 是否已经得到确定结果，或已经安全离开等待。未传 options 的请求仍有
+caller 轴，但 caller 终态会跟随物理终态，不增加额外生命周期约束。
+
+需要限定 consumer 生命周期时，通过
+`GFStorageAsyncRequestOptions.create(owner, cancel_token, timeout_msec)` 创建有效选项，再把它
+作为 typed request 方法的最后一个参数。选项只弱持有 owner，token 为只读取消信号，timeout
+使用 Utility 的单调时钟且 `0` 表示不设 deadline；直接 `new()`、空 owner 或负 timeout 都是
+无效配置。Node 仅退出 SceneTree 不等于 owner 已释放；需要离树即取消时，应显式绑定由项目
+生命周期驱动的 cancellation token。
+
+弱 owner 释放时 caller 终态仍可由 Operation 查询，但框架可能抑制发给已失效 consumer 的
+`caller_completed` 信号；不要把信号缺席解释成物理请求没有结算。
+
+caller 生命周期触发时，框架先区分请求是否已被 worker 接纳：
+
+- 排队请求若能在线程接纳前移除，会得到真实物理取消。`GFStorageAsyncResult` 的
+  `SettlementKind` 为 `CANCELLED`、Error 为 `ERR_SKIP`，并且不会伪造 read、write 或 delete
+  领域结果；caller 同时得到包含该物理取消结果的
+  `GFStorageAsyncCallerResult.Status.PHYSICAL_SETTLED`。
+- 已接纳的 load 没有持久化副作用，caller 终态为
+  `GFStorageAsyncCallerResult.Status.CANCELLED`；已接纳的 save/delete 可能已经产生持久化
+  副作用，caller 终态为 `GFStorageAsyncCallerResult.Status.OUTCOME_UNKNOWN`。
+  这两种情况都只停止当前 consumer 的等待：线程槽至少保留到真实线程退出，family 文件锁
+  与 settling ownership 则保留到物理终态写入，不能让同文件 follower 越过结算边界。
+
+同一调度轮先收割已经完成的 worker，再仲裁显式取消、token、owner 与 deadline，因此已经
+可观察的物理终态优先；否则首个 caller 结束原因获胜。物理先完成时，Operation 先写入两条
+终态，依次发出 `completed`、`caller_completed`。caller 先完成时只发出
+`caller_completed`，晚到物理终态随后仍恰好发出一次 `completed`，不会改写或重发 caller
+终态。`dispose()` 会把尚未接纳的排队请求按真实取消结算，并同步 join 已接纳 worker 后返回
+真实物理结果；不会在 worker 退出前释放线程槽或 family 锁。
+
+`GFStorageUtility.get_late_settlement_diagnostics()` 按物理结算顺序保留最近 64 条 caller-first
+记录，返回顺序为最旧到最新，ring 在 `dispose()` 后仍可读取。每条记录使用精确 22 字段
+schema：
+
+```text
+consumer_id, request_id, operation, file_name,
+caller_status, caller_end_kind, caller_reason, caller_completed_msec,
+worker_accepted, physical_cancel_requested,
+settlement_kind, physical_ok, physical_error_code, physical_completed_msec,
+late_duration_msec, read_failure_kind, write_failure_kind, delete_failure_kind,
+delete_existing_member_count, delete_removed_member_count,
+delete_remaining_member_count, delete_failed_member
+```
+
+诊断不包含读 payload、待写 payload、write report、Storage root、opaque family ID 或私有物理
+路径；不适用的类型化字段固定为 `-1`。它用于对账和运行诊断，不替代 Operation 的物理终态。
+
 `GFStorageReadResult` 分离 `payload`、框架 `metadata`、`integrity_status`、Godot `error_code`、物理文档版本、数据迁移前后版本和 `migrated`。`failure_kind` 进一步区分非法请求、不存在、普通 IO、损坏、未来格式、迁移失败和服务不可用；上层恢复政策应根据该分类决定，不能仅凭同一个 `Error` 码把未来格式或迁移失败当成损坏。异步读取完成信号同样传递这个结果；`last_load_result` 只用于诊断最近一次读取，不应替代当前调用返回值。
 
 `GFStorageDeleteResult.FailureKind` 把删除终态分为 `NONE`、`INVALID_REQUEST`、

@@ -897,14 +897,19 @@ func test_dispose_blocks_reentrant_tick_and_wait_from_starting_queued_tasks() ->
 	assert_true(first_operation.get_result().is_successful(), "已启动任务应在 dispose 中正常收敛。")
 	assert_false(queued_operation.get_result().is_successful(), "排队任务不得由重入 tick/wait 启动。")
 	var queued_result: GFStorageAsyncResult = queued_operation.get_result()
-	var result_script: Script = queued_result.get_script()
-	var result_constants: Dictionary = result_script.get_script_constant_map()
-	var failure_kinds: Dictionary = GFVariantData.get_option_dictionary(result_constants, "WriteFailureKind")
 	assert_eq(
-		GFVariantData.to_int(queued_result.call("get_write_failure_kind")),
-		GFVariantData.get_option_int(failure_kinds, "UNAVAILABLE", -1),
-		"dispose 期间排队任务应稳定终止为 UNAVAILABLE。"
+		queued_result.get_settlement_kind(),
+		GFStorageAsyncResult.SettlementKind.CANCELLED,
+		"dispose 期间排队任务应稳定终止为 worker 接纳前取消。"
 	)
+	assert_eq(queued_result.get_error_code(), ERR_SKIP)
+	assert_null(queued_result.get_read_result())
+	assert_null(queued_result.get_delete_result())
+	assert_eq(
+		queued_result.get_write_failure_kind(),
+		GFStorageAsyncResult.WriteFailureKind.NONE
+	)
+	assert_true(queued_result.get_write_validation_report().is_empty())
 	var observer: GFStorageUtility = GFStorageUtility.new()
 	observer.save_dir_name = _storage.save_dir_name
 	observer.encrypt_key = _storage.encrypt_key

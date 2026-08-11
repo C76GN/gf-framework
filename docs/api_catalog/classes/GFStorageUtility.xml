@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFStorageUtility" path="addons/gf/standard/utilities/storage/gf_storage_utility.gd" module="standard" extends="GFUtility" classDigest="294a5c3a9e2bf59c950650ba64b261945caad37eb11450979f8feced9afe8805">
+<class name="GFStorageUtility" path="addons/gf/standard/utilities/storage/gf_storage_utility.gd" module="standard" extends="GFUtility" classDigest="bbd7196109beae157d89d2c3179051a12079c403a3ff3ca0bd767c2100bbe206">
 	<description>GFStorageUtility: 基于 `user://` 的轻量存档系统。
 支持槽位存档、元数据分离读取、`Resource` 存取，
 以及可配置 codec、完整性校验、版本迁移和简单混淆，适合通用本地持久化场景。
@@ -318,13 +318,14 @@
 			</tags>
 		</member>
 		<member kind="method" name="delete_file_request_async">
-			<signature>func delete_file_request_async(file_name: String) -&gt; GFStorageAsyncOperation:</signature>
+			<signature>func delete_file_request_async( file_name: String, options: GFStorageAsyncRequestOptions = null ) -&gt; GFStorageAsyncOperation:</signature>
 			<description>在线程中删除一个精确 logical family，并返回请求专属句柄。
 请求只删除冻结 family 的八个可变物理成员；catalog 与 owner identity 保留。
 删除不会隐式恢复事务，也不会扫描或收养 sibling family。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">file_name: portable logical file identity。</tag>
+				<tag name="param">options: 可选 caller owner、取消 token 与单调 deadline；null 表示无 caller 生命周期约束。</tag>
 				<tag name="return">已配置的 typed 请求句柄；路径或生命周期校验失败时立即进入失败终态。</tag>
 				<tag name="since">unreleased</tag>
 			</tags>
@@ -384,20 +385,21 @@
 			</tags>
 		</member>
 		<member kind="method" name="save_data_request_async">
-			<signature>func save_data_request_async(file_name: String, data: Dictionary) -&gt; GFStorageAsyncOperation:</signature>
+			<signature>func save_data_request_async( file_name: String, data: Dictionary, options: GFStorageAsyncRequestOptions = null ) -&gt; GFStorageAsyncOperation:</signature>
 			<description>在线程中异步保存纯字典数据，并返回请求专属句柄。
 句柄终态不会与共享 Storage 上同文件的其他请求混淆。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">file_name: 目标文件名。</tag>
 				<tag name="param">data: 要保存的字典。</tag>
+				<tag name="param">options: 可选 caller owner、取消 token 与单调 deadline；null 表示无 caller 生命周期约束。</tag>
 				<tag name="return">已配置的请求句柄；输入无效或启动失败时句柄立即进入失败终态。</tag>
 				<tag name="schema">data: Dictionary，要序列化并保存的数据载荷。</tag>
 				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="save_payload_request_async">
-			<signature>func save_payload_request_async( file_name: String, transfer: GFStoragePayloadTransfer ) -&gt; GFStorageAsyncOperation:</signature>
+			<signature>func save_payload_request_async( file_name: String, transfer: GFStoragePayloadTransfer, options: GFStorageAsyncRequestOptions = null ) -&gt; GFStorageAsyncOperation:</signature>
 			<description>在线程中保存由单所有者 transfer 移交的纯 Variant payload。
 路径校验在 claim 前完成；非法路径不会消费 transfer。首次合法请求会冻结当前
 Storage 实例、规范文件名与 codec options。同一 transfer 可在旧 attempt 尚未
@@ -407,6 +409,7 @@ Storage 实例、规范文件名与 codec options。同一 transfer 可在旧 at
 				<tag name="api">public</tag>
 				<tag name="param">file_name: 目标文件名。</tag>
 				<tag name="param">transfer: 已通过 take_ownership() 接收 payload 的 opaque transfer。</tag>
+				<tag name="param">options: 可选 caller owner、取消 token 与单调 deadline；null 表示无 caller 生命周期约束。</tag>
 				<tag name="return">已配置请求句柄；输入无效或启动失败时句柄立即进入失败终态。</tag>
 				<tag name="since">unreleased</tag>
 			</tags>
@@ -421,14 +424,27 @@ Storage 实例、规范文件名与 codec options。同一 transfer 可在旧 at
 			</tags>
 		</member>
 		<member kind="method" name="load_data_request_async">
-			<signature>func load_data_request_async(file_name: String) -&gt; GFStorageAsyncOperation:</signature>
+			<signature>func load_data_request_async( file_name: String, options: GFStorageAsyncRequestOptions = null ) -&gt; GFStorageAsyncOperation:</signature>
 			<description>在线程中异步读取纯字典数据，并返回请求专属句柄。
 读取终态通过句柄携带 `GFStorageReadResult`，调用方无需监听全局文件名信号。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">file_name: 目标文件名。</tag>
+				<tag name="param">options: 可选 caller owner、取消 token 与单调 deadline；null 表示无 caller 生命周期约束。</tag>
 				<tag name="return">已配置的请求句柄；输入无效或启动失败时句柄立即进入失败终态。</tag>
 				<tag name="since">10.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_late_settlement_diagnostics">
+			<signature>func get_late_settlement_diagnostics() -&gt; Array[Dictionary]:</signature>
+			<description>获取最近的 late physical settlement 脱敏诊断。
+诊断按物理终态到达顺序保留最近 64 条；不包含读载荷、写 payload、绝对路径或
+family 私有身份。返回值为深复制，调用方修改不会影响 Utility 内部 ring。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">最旧到最新排列的有界 late settlement 诊断副本。</tag>
+				<tag name="schema">return: Array of exact Dictionary entries with consumer_id, request_id, operation, file_name, caller_status, caller_end_kind, caller_reason, caller_completed_msec, worker_accepted, physical_cancel_requested, settlement_kind, physical_ok, physical_error_code, physical_completed_msec, late_duration_msec, read_failure_kind, write_failure_kind, delete_failure_kind, delete_existing_member_count, delete_removed_member_count, delete_remaining_member_count, and delete_failed_member fields.</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
 		<member kind="method" name="wait_for_async_tasks">
