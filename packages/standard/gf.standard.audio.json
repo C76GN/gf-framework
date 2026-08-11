@@ -46,7 +46,13 @@
     "addons/gf/standard/utilities/audio/gf_audio_switch.gd",
     "addons/gf/standard/utilities/audio/gf_audio_switch.gd.uid",
     "addons/gf/standard/utilities/audio/gf_audio_utility.gd",
-    "addons/gf/standard/utilities/audio/gf_audio_utility.gd.uid"
+    "addons/gf/standard/utilities/audio/gf_audio_utility.gd.uid",
+    "addons/gf/standard/utilities/audio/gf_bgm_session_handle.gd",
+    "addons/gf/standard/utilities/audio/gf_bgm_session_handle.gd.uid",
+    "addons/gf/standard/utilities/audio/gf_bgm_start_operation.gd",
+    "addons/gf/standard/utilities/audio/gf_bgm_start_operation.gd.uid",
+    "addons/gf/standard/utilities/audio/gf_bgm_start_result.gd",
+    "addons/gf/standard/utilities/audio/gf_bgm_start_result.gd.uid"
   ],
   "metadata": {
     "stage": "standard-split-v1"

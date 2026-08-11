@@ -1021,12 +1021,27 @@ func test_play_bgm_with_options_rejects_unbounded_graphs_before_backend_dispatch
 func test_bgm_finished_signal_emits_for_active_player() -> void:
 	watch_signals(_audio)
 	var stream: AudioStreamGenerator = AudioStreamGenerator.new()
-	_audio._play_bgm_stream_with_settings(stream, GFAudioUtility.BGM_BUS_NAME, 0.0, 1.0, -1.0, "finish-test")
+	var clip: GFAudioClip = GFAudioClip.new()
+	clip.path = "finish-test"
+	clip.stream = stream
+	clip.bus_name = GFAudioUtility.BGM_BUS_NAME
+	var operation: GFBgmStartOperation = _audio.start_bgm_clip(clip, 0.0)
+	assert_not_null(operation)
+	assert_true(operation.is_completed())
+	var result: GFBgmStartResult = operation.get_result()
+	assert_not_null(result)
+	assert_eq(result.get_status(), GFBgmStartResult.Status.STARTED)
+	var session: GFBgmSessionHandle = result.get_session_handle()
+	assert_not_null(session)
+	watch_signals(session)
 
 	_audio._bgm_player.finished.emit()
 
 	assert_signal_emitted_with_parameters(_audio, "bgm_finished", ["finish-test"])
 	assert_eq(_audio.get_current_bgm_key(), "", "自然结束后当前 BGM key 应清空。")
+	assert_true(session.is_terminal())
+	assert_eq(session.get_end_kind(), GFBgmSessionHandle.EndKind.NATURAL_FINISH)
+	assert_signal_emit_count(session, "ended", 1)
 
 
 func test_play_bgm_clip_applies_settings() -> void:
@@ -4339,18 +4354,37 @@ func test_async_bgm_clip_admission_keeps_active_crossfade_until_commit() -> void
 	await get_tree().process_frame
 
 
-func test_bgm_crossfade_finished_signal_belongs_to_outgoing_session() -> void:
+func test_replaced_crossfade_outgoing_finish_does_not_emit_natural_signal() -> void:
 	watch_signals(_audio)
-	var first_stream: AudioStreamGenerator = AudioStreamGenerator.new()
-	var second_stream: AudioStreamGenerator = AudioStreamGenerator.new()
-
-	_audio._play_bgm_stream_with_settings(first_stream, "Master", -3.0, 1.0, 0.0, "first")
-	_audio._play_bgm_stream_with_settings(second_stream, "Master", -6.0, 1.0, 0.05, "second")
+	var first_clip: GFAudioClip = _make_test_bgm_clip(
+		"first",
+		GFAudioPlaybackRegion.new()
+	)
+	first_clip.volume_db = -3.0
+	var second_clip: GFAudioClip = _make_test_bgm_clip(
+		"second",
+		GFAudioPlaybackRegion.new()
+	)
+	second_clip.volume_db = -6.0
+	var first_operation: GFBgmStartOperation = _audio.start_bgm_clip(first_clip, 0.0)
+	var first_result: GFBgmStartResult = first_operation.get_result()
+	var first_session: GFBgmSessionHandle = first_result.get_session_handle()
+	assert_not_null(first_session)
+	watch_signals(first_session)
+	var second_operation: GFBgmStartOperation = _audio.start_bgm_clip(second_clip, 0.05)
+	var second_result: GFBgmStartResult = second_operation.get_result()
+	var second_session: GFBgmSessionHandle = second_result.get_session_handle()
+	assert_not_null(second_session)
 	var outgoing_player: AudioStreamPlayer = _audio._bgm_player
 	var incoming_player: AudioStreamPlayer = _audio._bgm_fade_player
 
+	assert_true(first_session.is_terminal())
+	assert_eq(first_session.get_end_kind(), GFBgmSessionHandle.EndKind.REPLACED)
+	assert_signal_emit_count(first_session, "ended", 1)
 	outgoing_player.finished.emit()
-	assert_signal_emitted_with_parameters(_audio, "bgm_finished", ["first"])
+	assert_signal_emit_count(first_session, "ended", 1)
+	assert_signal_emit_count(_audio, "bgm_finished", 0)
+	assert_true(second_session.is_active())
 	assert_eq(_audio.get_current_bgm_key(), "second", "旧会话结束不得清空交叉淡入中的新会话 key。")
 
 	await get_tree().create_timer(0.08).timeout
@@ -4358,7 +4392,8 @@ func test_bgm_crossfade_finished_signal_belongs_to_outgoing_session() -> void:
 	assert_true(_audio._bgm_player.playing, "提交后的 incoming 会话应保持播放。")
 
 
-func test_bgm_crossfade_does_not_commit_finished_incoming_session() -> void:
+func test_post_commit_incoming_failure_does_not_revive_outgoing() -> void:
+	watch_signals(_audio)
 	var first_region: GFAudioPlaybackRegion = GFAudioPlaybackRegion.new()
 	first_region.start_seconds = 0.1
 	first_region.loop_mode = GFAudioPlaybackRegion.LoopMode.FORWARD
@@ -4370,34 +4405,38 @@ func test_bgm_crossfade_does_not_commit_finished_incoming_session() -> void:
 	second_region.loop_start_seconds = 0.5
 	var second_clip: GFAudioClip = _make_test_bgm_clip("second", second_region)
 
-	_audio.play_bgm_clip(first_clip, 0.0)
-	_audio.play_bgm_clip(second_clip, 0.05)
+	var first_operation: GFBgmStartOperation = _audio.start_bgm_clip(first_clip, 0.0)
+	var first_result: GFBgmStartResult = first_operation.get_result()
+	var first_session: GFBgmSessionHandle = first_result.get_session_handle()
+	assert_not_null(first_session)
+	watch_signals(first_session)
+	var second_operation: GFBgmStartOperation = _audio.start_bgm_clip(second_clip, 0.05)
+	var second_result: GFBgmStartResult = second_operation.get_result()
+	var second_session: GFBgmSessionHandle = second_result.get_session_handle()
+	assert_not_null(second_session)
+	watch_signals(second_session)
 	var outgoing_player: AudioStreamPlayer = _audio._bgm_player
 	var incoming_player: AudioStreamPlayer = _audio._bgm_fade_player
 
 	incoming_player.stop()
-	incoming_player.finished.emit()
 	await get_tree().create_timer(0.08).timeout
 
-	assert_same(_audio._bgm_player, outgoing_player, "incoming 提前结束时不得提交已停止播放器。")
-	assert_true(outgoing_player.playing, "incoming 失败时应恢复仍有效的 outgoing 会话。")
-	assert_eq(_audio.get_current_bgm_key(), "first", "incoming 失败后当前 key 应回到仍在播放的 outgoing 会话。")
+	assert_true(first_session.is_terminal())
+	assert_eq(first_session.get_end_kind(), GFBgmSessionHandle.EndKind.REPLACED)
+	assert_signal_emit_count(first_session, "ended", 1)
+	assert_true(second_session.is_terminal())
+	assert_eq(second_session.get_end_kind(), GFBgmSessionHandle.EndKind.PLAYBACK_FAILED)
+	assert_signal_emit_count(second_session, "ended", 1)
+	assert_false(outgoing_player.playing, "已终结的 outgoing 会话不得在 incoming 失败后复活。")
+	assert_false(incoming_player.playing)
+	assert_eq(_audio.get_current_bgm_key(), "", "post-commit incoming 失败必须清空当前 key。")
 	var snapshot: Dictionary = _audio.get_debug_snapshot()
 	var current_region: Dictionary = GFVariantData.get_option_dictionary(
 		snapshot,
 		"current_bgm_region"
 	)
-	assert_almost_eq(
-		GFVariantData.get_option_float(current_region, "start_seconds"),
-		0.1,
-		0.001,
-		"incoming 失败后应恢复 outgoing session 的类型化播放起点。"
-	)
-	assert_eq(
-		GFVariantData.get_option_int(current_region, "loop_mode"),
-		GFAudioPlaybackRegion.LoopMode.FORWARD,
-		"incoming 失败后应恢复 outgoing session 的循环模式。"
-	)
+	assert_true(current_region.is_empty(), "post-commit incoming 失败必须清空播放区间。")
+	assert_signal_emit_count(_audio, "bgm_finished", 0)
 
 
 func test_stop_during_crossfade_clears_terminal_key_and_playback_region() -> void:
@@ -5415,14 +5454,8 @@ func test_backend_bgm_playing_query_does_not_commit_stale_result_after_dispose()
 	backend.dispose_host_on_playing_query = true
 
 	assert_false(_audio.is_bgm_playing(), "查询回调终结 Utility 后不得提交陈旧 playing 结果。")
-	assert_push_warning(
-		"[GFAudioUtility] dispose 强制终结：后端拒绝停止或正在回调，"
-		+ "将解除内部 owner 并继续释放生命周期资源。"
-	)
-	assert_push_warning(
-		"[GFAudioUtility] dispose 强制终结：后端 dispose 回调未完成，"
-		+ "已解除内部后端引用。"
-	)
+	assert_eq(backend.stop_bgm_count, 1, "延迟 dispose 应在查询回调退出后恰好停止一次后端 BGM。")
+	assert_true(backend.disposed, "延迟 dispose 应在查询回调退出后完成后端释放。")
 	assert_null(_audio.get_audio_backend(), "陈旧查询结果不得复活已释放后端。")
 	assert_eq(_audio._bgm_owner, &"none")
 	assert_eq(_audio._bgm_state, &"stopped")

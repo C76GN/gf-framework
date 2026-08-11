@@ -7,7 +7,7 @@
 | 模块 | 类 | 成员 | 页面内索引 |
 |---|---:|---:|---|
 | Kernel | 74 | 1108 | [Kernel](#module-kernel) |
-| Standard | 457 | 7312 | [Standard](#module-standard) |
+| Standard | 460 | 7368 | [Standard](#module-standard) |
 | Action Queue | 16 | 214 | [Action Queue](#module-extensions-action_queue) |
 | Asset Metadata | 4 | 33 | [Asset Metadata](#module-extensions-asset_metadata) |
 | Behavior Tree | 22 | 89 | [Behavior Tree](#module-extensions-behavior_tree) |
@@ -130,7 +130,7 @@
 | [`GFAudioCatalogProvider`](GFAudioCatalogProvider.md#gfaudiocatalogprovider) | 运行时服务 (`runtime_service`) | `RefCounted` | 9 | `addons/gf/standard/utilities/audio/gf_audio_catalog_provider.gd` |
 | [`GFAudioMetadataTools`](GFAudioMetadataTools.md#gfaudiometadatatools) | 运行时服务 (`runtime_service`) | `RefCounted` | 11 | `addons/gf/standard/utilities/audio/gf_audio_metadata_tools.gd` |
 | [`GFAudioPitchAnalysisTools`](GFAudioPitchAnalysisTools.md#gfaudiopitchanalysistools) | 运行时服务 (`runtime_service`) | `RefCounted` | 12 | `addons/gf/standard/utilities/audio/gf_audio_pitch_analysis_tools.gd` |
-| [`GFAudioUtility`](GFAudioUtility.md#gfaudioutility) | 运行时服务 (`runtime_service`) | `GFUtility` | 78 | `addons/gf/standard/utilities/audio/gf_audio_utility.gd` |
+| [`GFAudioUtility`](GFAudioUtility.md#gfaudioutility) | 运行时服务 (`runtime_service`) | `GFUtility` | 80 | `addons/gf/standard/utilities/audio/gf_audio_utility.gd` |
 | [`GFBackgroundWorkUtility`](GFBackgroundWorkUtility.md#gfbackgroundworkutility) | 运行时服务 (`runtime_service`) | `GFUtility` | 35 | `addons/gf/standard/utilities/jobs/gf_background_work_utility.gd` |
 | [`GFBatchedLogSink`](GFBatchedLogSink.md#gfbatchedlogsink) | 运行时服务 (`runtime_service`) | `GFLogSink` | 16 | `addons/gf/standard/utilities/logging/gf_batched_log_sink.gd` |
 | [`GFBridgeContractReport`](GFBridgeContractReport.md#gfbridgecontractreport) | 运行时服务 (`runtime_service`) | `RefCounted` | 26 | `addons/gf/standard/foundation/validation/gf_bridge_contract_report.gd` |
@@ -465,6 +465,8 @@
 | [`GFAudioBeatClock`](GFAudioBeatClock.md#gfaudiobeatclock) | 运行时句柄 (`runtime_handle`) | `RefCounted` | 33 | `addons/gf/standard/utilities/audio/gf_audio_beat_clock.gd` |
 | [`GFAudioEmitterHandle`](GFAudioEmitterHandle.md#gfaudioemitterhandle) | 运行时句柄 (`runtime_handle`) | `RefCounted` | 20 | `addons/gf/standard/utilities/audio/gf_audio_emitter_handle.gd` |
 | [`GFBackgroundWorkTask`](GFBackgroundWorkTask.md#gfbackgroundworktask) | 运行时句柄 (`runtime_handle`) | `RefCounted` | 22 | `addons/gf/standard/utilities/jobs/gf_background_work_task.gd` |
+| [`GFBgmSessionHandle`](GFBgmSessionHandle.md#gfbgmsessionhandle) | 运行时句柄 (`runtime_handle`) | `RefCounted` | 11 | `addons/gf/standard/utilities/audio/gf_bgm_session_handle.gd` |
+| [`GFBgmStartOperation`](GFBgmStartOperation.md#gfbgmstartoperation) | 运行时句柄 (`runtime_handle`) | `RefCounted` | 6 | `addons/gf/standard/utilities/audio/gf_bgm_start_operation.gd` |
 | [`GFCallableRuntimeTask`](GFCallableRuntimeTask.md#gfcallableruntimetask) | 运行时句柄 (`runtime_handle`) | `GFRuntimeTask` | 13 | `addons/gf/standard/sequence/gf_callable_runtime_task.gd` |
 | [`GFConfigTableQuery`](GFConfigTableQuery.md#gfconfigtablequery) | 运行时句柄 (`runtime_handle`) | `RefCounted` | 27 | `addons/gf/standard/utilities/config/gf_config_table_query.gd` |
 | [`GFDeterministicRandom`](GFDeterministicRandom.md#gfdeterministicrandom) | 运行时句柄 (`runtime_handle`) | `RefCounted` | 15 | `addons/gf/standard/foundation/deterministic/gf_deterministic_random.gd` |
@@ -504,6 +506,7 @@
 | [`GFAssetLoadSessionResult`](GFAssetLoadSessionResult.md#gfassetloadsessionresult) | 值对象 (`value_object`) | `RefCounted` | 16 | `addons/gf/standard/utilities/assets/gf_asset_load_session_result.gd` |
 | [`GFAudioBackendCapability`](GFAudioBackendCapability.md#gfaudiobackendcapability) | 值对象 (`value_object`) | `Resource` | 15 | `addons/gf/standard/utilities/audio/gf_audio_backend_capability.gd` |
 | [`GFAudioPlaybackRegionResult`](GFAudioPlaybackRegionResult.md#gfaudioplaybackregionresult) | 值对象 (`value_object`) | `RefCounted` | 14 | `addons/gf/standard/utilities/audio/gf_audio_playback_region_result.gd` |
+| [`GFBgmStartResult`](GFBgmStartResult.md#gfbgmstartresult) | 值对象 (`value_object`) | `RefCounted` | 37 | `addons/gf/standard/utilities/audio/gf_bgm_start_result.gd` |
 | [`GFBigNumber`](GFBigNumber.md#gfbignumber) | 值对象 (`value_object`) | `RefCounted` | 23 | `addons/gf/standard/foundation/numeric/gf_big_number.gd` |
 | [`GFBuildInfo`](GFBuildInfo.md#gfbuildinfo) | 值对象 (`value_object`) | `Resource` | 35 | `addons/gf/standard/utilities/debug/gf_build_info.gd` |
 | [`GFByteCursor`](GFByteCursor.md#gfbytecursor) | 值对象 (`value_object`) | `RefCounted` | 47 | `addons/gf/standard/foundation/binary/gf_byte_cursor.gd` |

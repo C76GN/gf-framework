@@ -1,0 +1,358 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFBgmStartResult" path="addons/gf/standard/utilities/audio/gf_bgm_start_result.gd" module="standard" extends="RefCounted" classDigest="e894a6ed8f45646fe7e86834838156bbb4f0c66ef400663aac5182c32913e977">
+	<description>GFBgmStartResult: 单次 BGM start request 的不可变类型化终态。
+结果使用闭合 status/reason/error/disposition 联合。只有 `STARTED` 携带已提交的规范
+会话句柄；其他终态不伪造会话身份或播放 owner。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">value_object</tag>
+		<tag name="layer">standard/utilities/audio</tag>
+		<tag name="since">unreleased</tag>
+	</tags>
+	<signals />
+	<enums>
+		<member kind="enum" name="Status">
+			<signature>enum Status {
+	## 后端或本地播放器已经接受并提交会话。
+	STARTED,
+	## 请求在接纳前因输入、生命周期或重入边界被拒绝。
+	REJECTED,
+	## 有效请求在准备或提交阶段失败。
+	FAILED,
+	## 更新且有效的 BGM 请求取代了当前等待请求。
+	SUPERSEDED,
+	## 调用方或 owner/Utility 生命周期取消了等待请求。
+	CANCELLED,
+}</signature>
+			<description>BGM start request 的唯一 caller 终态。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="enum" name="BackendDisposition">
+			<signature>enum BackendDisposition {
+	## 没有可用后端，或请求在探测前终结。
+	NOT_ATTEMPTED,
+	## 后端明确不处理该请求，本地路径可继续准备。
+	NOT_CLAIMED,
+	## 后端声明可处理但拒绝接受播放，本地路径可继续准备。
+	REJECTED,
+	## 后端接受并持有已提交的 BGM 会话。
+	STARTED,
+	## 后端调用身份、backend topology/epoch 变化，或已接受候选的 Session 发布失败，
+	## 使原请求失效；返回值不得提交。
+	INVALIDATED,
+}</signature>
+			<description>当前请求与可选 Audio Backend 的交互结果。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</enums>
+	<constants>
+		<member kind="const" name="REASON_LOCAL_STARTED">
+			<signature>const REASON_LOCAL_STARTED: StringName = &amp;"local_started"</signature>
+			<description>本地播放器接受并提交会话。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="REASON_BACKEND_STARTED">
+			<signature>const REASON_BACKEND_STARTED: StringName = &amp;"backend_started"</signature>
+			<description>Audio Backend 接受并提交会话。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="REASON_BACKEND_FALLBACK_STARTED">
+			<signature>const REASON_BACKEND_FALLBACK_STARTED: StringName = &amp;"backend_fallback_started"</signature>
+			<description>后端未接受请求，本地 fallback 接受并提交会话。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="REASON_INVALID_PATH">
+			<signature>const REASON_INVALID_PATH: StringName = &amp;"invalid_path"</signature>
+			<description>BGM 路径为空或不符合请求契约。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="REASON_INVALID_OPTIONS">
+			<signature>const REASON_INVALID_OPTIONS: StringName = &amp;"invalid_options"</signature>
+			<description>BGM options 不符合闭合选项契约。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="REASON_INVALID_CLIP">
+			<signature>const REASON_INVALID_CLIP: StringName = &amp;"invalid_clip"</signature>
+			<description>GFAudioClip 为空、没有 source 或无法冻结。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="REASON_INVALID_PLAYBACK_REGION">
+			<signature>const REASON_INVALID_PLAYBACK_REGION: StringName = &amp;"invalid_playback_region"</signature>
+			<description>播放区间不符合本地或后端的精确执行契约。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="REASON_UTILITY_NOT_INITIALIZED">
+			<signature>const REASON_UTILITY_NOT_INITIALIZED: StringName = &amp;"utility_not_initialized"</signature>
+			<description>Audio Utility 尚未初始化或已经释放。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="REASON_BACKEND_DISPATCH_IN_PROGRESS">
+			<signature>const REASON_BACKEND_DISPATCH_IN_PROGRESS: StringName = &amp;"backend_dispatch_in_progress"</signature>
+			<description>BGM 请求从 Audio Backend 回调中重入，不能安全接纳。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="REASON_OWNER_UNAVAILABLE">
+			<signature>const REASON_OWNER_UNAVAILABLE: StringName = &amp;"owner_unavailable"</signature>
+			<description>请求 owner 在接纳前已经无效。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="REASON_ASSET_LOAD_FAILED">
+			<signature>const REASON_ASSET_LOAD_FAILED: StringName = &amp;"asset_load_failed"</signature>
+			<description>异步或同步资源加载没有取得音频流。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="REASON_STREAM_UNPLAYABLE">
+			<signature>const REASON_STREAM_UNPLAYABLE: StringName = &amp;"stream_unplayable"</signature>
+			<description>取得的音频流无法构造可执行播放计划。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="REASON_BACKEND_REJECTED_AND_LOCAL_FAILED">
+			<signature>const REASON_BACKEND_REJECTED_AND_LOCAL_FAILED: StringName = (
+	&amp;"backend_rejected_and_local_failed"
+)</signature>
+			<description>后端拒绝后，本地 fallback 也无法开始。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="REASON_BACKEND_OWNER_RELEASE_FAILED">
+			<signature>const REASON_BACKEND_OWNER_RELEASE_FAILED: StringName = &amp;"backend_owner_release_failed"</signature>
+			<description>从旧 backend-owned 会话交接到本地会话时，后端拒绝释放 owner。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="REASON_LOCAL_PLAYER_REJECTED">
+			<signature>const REASON_LOCAL_PLAYER_REJECTED: StringName = &amp;"local_player_rejected"</signature>
+			<description>本地播放器拒绝已经准备完成的执行计划。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="REASON_SESSION_PUBLICATION_FAILED">
+			<signature>const REASON_SESSION_PUBLICATION_FAILED: StringName = &amp;"session_publication_failed"</signature>
+			<description>Audio Backend 已接受物理播放候选，但框架无法发布规范 Session 身份。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="REASON_NEWER_REQUEST">
+			<signature>const REASON_NEWER_REQUEST: StringName = &amp;"newer_request"</signature>
+			<description>更新且有效的 BGM 请求取代了当前等待请求。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="REASON_CALLER_CANCELLED">
+			<signature>const REASON_CALLER_CANCELLED: StringName = &amp;"caller_cancelled"</signature>
+			<description>调用方显式取消等待中的 start request。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="REASON_OWNER_RELEASED">
+			<signature>const REASON_OWNER_RELEASED: StringName = &amp;"owner_released"</signature>
+			<description>请求 owner 已退出生命周期。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="REASON_STOP_REQUESTED">
+			<signature>const REASON_STOP_REQUESTED: StringName = &amp;"stop_requested"</signature>
+			<description>BGM 通道被显式停止。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="REASON_UTILITY_DISPOSED">
+			<signature>const REASON_UTILITY_DISPOSED: StringName = &amp;"utility_disposed"</signature>
+			<description>Audio Utility 已释放。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="REASON_BACKEND_CHANGED">
+			<signature>const REASON_BACKEND_CHANGED: StringName = &amp;"backend_changed"</signature>
+			<description>Audio Backend topology 变更流程在请求等待期间开始，并使当前请求失效。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</constants>
+	<properties />
+	<methods>
+		<member kind="method" name="get_status">
+			<signature>func get_status() -&gt; Status:</signature>
+			<description>获取请求终态。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">`STARTED`、`REJECTED`、`FAILED`、`SUPERSEDED` 或 `CANCELLED`。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_successful">
+			<signature>func is_successful() -&gt; bool:</signature>
+			<description>检查请求是否成功提交播放会话。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">仅 `STARTED` 返回 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_request_id">
+			<signature>func get_request_id() -&gt; int:</signature>
+			<description>获取 Utility 内唯一请求 ID。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">大于零的请求 ID；尚未配置时返回 0。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_reason">
+			<signature>func get_reason() -&gt; StringName:</signature>
+			<description>获取闭合终态原因。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">当前 status 允许的 `REASON_*` 常量之一。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_error_code">
+			<signature>func get_error_code() -&gt; Error:</signature>
+			<description>获取终态 Error 码。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">`STARTED` 为 OK；其他 status 为与 reason 对应的非 OK 码。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_history_key">
+			<signature>func get_history_key() -&gt; String:</signature>
+			<description>获取请求冻结的 BGM history key。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">请求 history key；未提供时为空字符串。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_owner_kind">
+			<signature>func get_owner_kind() -&gt; GFBgmSessionHandle.OwnerKind:</signature>
+			<description>获取已提交会话的物理播放 owner。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">`STARTED` 为 `LOCAL` 或 `BACKEND`；其他终态为 `NONE`。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_backend_disposition">
+			<signature>func get_backend_disposition() -&gt; BackendDisposition:</signature>
+			<description>获取本次请求的 Audio Backend 处理结果。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">`BackendDisposition` 闭合枚举值。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="used_backend_fallback">
+			<signature>func used_backend_fallback() -&gt; bool:</signature>
+			<description>检查请求是否在 backend 未接纳后由本地播放器成功提交。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">`STARTED/LOCAL` 且 backend 为 `NOT_CLAIMED` 或 `REJECTED` 时返回 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_session_id">
+			<signature>func get_session_id() -&gt; int:</signature>
+			<description>获取已提交会话 ID。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">`STARTED` 返回大于零的会话 ID；其他终态返回 0。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_session_handle">
+			<signature>func get_session_handle() -&gt; GFBgmSessionHandle:</signature>
+			<description>获取已提交的规范会话句柄。
+结果副本共享同一个会话 capability，避免复制出彼此独立的终态或停止权限。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">`STARTED` 返回规范句柄；其他终态返回 null。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="duplicate_result">
+			<signature>func duplicate_result() -&gt; GFBgmStartResult:</signature>
+			<description>创建隔离的结果 value 副本。
+标量字段会复制；会话句柄保持规范共享引用。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">新结果对象。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="to_dict">
+			<signature>func to_dict() -&gt; Dictionary:</signature>
+			<description>转换为不暴露对象引用的闭合报告字典。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">请求、终态、backend 处理结果和会话身份的隔离报告。</tag>
+				<tag name="schema">return: Exact Dictionary with status: int enum, request_id: int, reason: StringName, error_code: int, history_key: String, owner_kind: int enum, backend_disposition: int enum, used_backend_fallback: bool, and session_id: int fields.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

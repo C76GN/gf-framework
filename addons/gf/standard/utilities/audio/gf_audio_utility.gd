@@ -93,6 +93,7 @@ const _AUDIO_BANK_MAX_CANDIDATE_COUNT: int = 1024
 const _AUDIO_BANK_MAX_IDENTIFIER_CHARACTERS: int = 1024
 const _AUDIO_BANK_MAX_SEPARATOR_CHARACTERS: int = 16
 const _AUDIO_BANK_MAX_FALLBACK_STEPS: int = 16
+const _MAX_STABLE_ID: int = 9223372036854775807
 
 
 # --- 公共变量 ---
@@ -139,12 +140,21 @@ var _sfx_scene: PackedScene
 var _root: Node
 var _bgm_pending_request_counter: int = 0
 var _bgm_pending_request_token: int = 0
+var _next_bgm_start_request_id: int = 1
+var _bgm_pending_start_request: Dictionary = {}
+var _bgm_start_admission_open: bool = false
+var _audio_dispose_deferred: bool = false
+var _audio_dispose_in_progress: bool = false
+var _deferred_audio_drain_scheduled: bool = false
+var _deferred_bgm_session_terminal: Dictionary = {}
 var _bgm_request_serial: int = 0
 var _bgm_generation: int = 0
 var _next_bgm_session_id: int = 1
 var _bgm_current_session_id: int = 0
 var _bgm_incoming_session_id: int = 0
+var _bgm_committed_session_id: int = 0
 var _bgm_sessions: Dictionary = {}
+var _bgm_session_lifecycles: Dictionary = {}
 var _bgm_state: StringName = _STATE_STOPPED
 var _bgm_owner: StringName = _OWNER_NONE
 var _bgm_fade_serial: int = 0
@@ -199,9 +209,18 @@ var _is_initialized: bool = false
 ## [br]
 ## @api public
 func init() -> void:
-	if _is_initialized or _is_backend_dispatch_in_progress():
+	if (
+		_is_initialized
+		or _is_backend_dispatch_in_progress()
+		or _audio_dispose_deferred
+		or _audio_dispose_in_progress
+	):
 		return
 	_is_initialized = true
+	_bgm_start_admission_open = true
+	_audio_dispose_deferred = false
+	_deferred_audio_drain_scheduled = false
+	_deferred_bgm_session_terminal.clear()
 	var _duck_buses_restored: bool = _restore_all_ducked_buses_for_lifecycle()
 	_invalidate_bgm_pending_request()
 	_bgm_request_serial += 1
@@ -209,7 +228,9 @@ func init() -> void:
 	_next_bgm_session_id = maxi(_next_bgm_session_id, 1)
 	_bgm_current_session_id = 0
 	_bgm_incoming_session_id = 0
+	_bgm_committed_session_id = 0
 	_bgm_sessions.clear()
+	_bgm_session_lifecycles.clear()
 	_bgm_state = _STATE_STOPPED
 	_bgm_owner = _OWNER_NONE
 	_bgm_fade_serial += 1
@@ -271,8 +292,8 @@ func init() -> void:
 	var tree: SceneTree = _get_scene_tree()
 	if tree != null:
 		_root = tree.root
-		_root.call_deferred("add_child", _bgm_player)
-		_root.call_deferred("add_child", _bgm_fade_player)
+		_root.add_child(_bgm_player)
+		_root.add_child(_bgm_fade_player)
 
 
 ## 释放播放器、后端、环境音和 SFX 运行时状态。
@@ -282,75 +303,245 @@ func init() -> void:
 ## [br]
 ## @since 8.0.0
 func dispose() -> void:
-	if not _is_initialized:
+	if not _is_initialized or _audio_dispose_in_progress:
 		return
-	var backend_stop_succeeded: bool = true
-	if _audio_backend != null:
-		if _is_backend_dispatch_in_progress():
-			backend_stop_succeeded = false
-		else:
-			backend_stop_succeeded = _stop_backend_owned_sessions()
-	if not backend_stop_succeeded:
-		push_warning(
-			"[GFAudioUtility] dispose 强制终结：后端拒绝停止或正在回调，"
-			+ "将解除内部 owner 并继续释放生命周期资源。"
+	_bgm_start_admission_open = false
+	if _is_backend_dispatch_in_progress():
+		var _intent_recorded: bool = _record_pending_bgm_terminal_intent(
+			GFBgmStartResult.Status.CANCELLED,
+			GFBgmStartResult.REASON_UTILITY_DISPOSED,
+			ERR_SKIP
 		)
-	var _duck_buses_restored: bool = _restore_all_ducked_buses_for_lifecycle()
-	_invalidate_bgm_pending_request()
-	_invalidate_all_ambient_pending_requests()
-	_bgm_request_serial += 1
-	_bgm_generation += 1
-	_bgm_fade_serial += 1
-	_bgm_pause_serial += 1
-	_cancel_bgm_fade_tween()
-	_cancel_bgm_stop_tween()
-	_cancel_bgm_transport_tween()
-	_sfx_lifecycle_serial += 1
-	_bgm_paused = false
-	_current_bgm_region.clear()
-	_stop_all_local_bgm_players()
-	_free_bgm_stop_fallback_timer()
-	_clear_bgm_session_state()
-	var backend_cleared: bool = false
-	if not _is_backend_dispatch_in_progress():
-		backend_cleared = _clear_audio_backend(true)
-	if not backend_cleared and _audio_backend != null:
-		push_warning(
-			"[GFAudioUtility] dispose 强制终结：后端 dispose 回调未完成，"
-			+ "已解除内部后端引用。"
+		var _session_intent_recorded: bool = _record_deferred_bgm_session_terminal(
+			_bgm_committed_session_id,
+			GFBgmSessionHandle.EndKind.UTILITY_DISPOSED,
+			0.0
 		)
-		_audio_backend = null
-	_release_all_sfx_players(0.0)
-	_release_all_spatial_sfx_players(0.0)
-	_free_all_ambient_players()
-	_complete_all_playback_session_handles()
-	_playback_session_handles.clear()
-	_playback_sessions.clear()
-	_clear_mix_control_tweens()
-	if is_instance_valid(_bgm_player):
-		_bgm_player.queue_free()
-	_bgm_player = null
-	if is_instance_valid(_bgm_fade_player):
-		_bgm_fade_player.queue_free()
-	_bgm_fade_player = null
-	_root = null
-	_audio_banks.clear()
-	_audio_bank_base_values.clear()
-	_audio_bank_mount_stacks.clear()
-	_audio_bank_retained_mount_count = 0
-	_bgm_sessions.clear()
-	_bgm_current_session_id = 0
-	_bgm_incoming_session_id = 0
-	_bgm_state = _STATE_STOPPED
-	_bgm_owner = _OWNER_NONE
-	_bus_transaction_generations.clear()
-	_duck_bus_states.clear()
-	_is_initialized = false
-	
-	# SFX 节点已由 _release_all_sfx_players() 统一释放。
+		_audio_dispose_deferred = true
+		_schedule_deferred_audio_drain()
+		return
+	_dispose_audio_now()
 
 
 # --- 公共方法 ---
+
+## 启动一个类型化 BGM 路径请求。
+##
+## 本地 standby 或 backend 接受前失败、取消或被替换时，当前已提交会话保持不变。
+## backend 已物理接受后若请求身份失效，框架只保证 best-effort 补偿停止新候选；
+## 无法恢复的旧 backend 会话会以 PLAYBACK_FAILED 终结。同步 validation、backend
+## 或已加载资源可能在方法返回前完成，调用方应先查询 Operation，再按需连接 completed 信号。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param path: 非空音频资源路径或后端事件路径。
+## [br]
+## @param options: 支持 crossfade_seconds、history_key、bus_name、volume_db 和 pitch_scale；不得包含 loop 或 playback_region。
+## [br]
+## @param owner: 可选生命周期 owner；其退出树时取消 pending 请求，或停止已提交的精确会话。
+## [br]
+## @return: 带稳定 request ID 和唯一类型化终态的 Operation。
+## [br]
+## @schema options: Dictionary，可包含 crossfade_seconds（float-compatible，缺省 -1.0；负值使用 Utility 默认淡变，非法或非有限值回退 -1.0）、history_key（text-compatible，缺省 path）、bus_name（text-compatible，缺省 BGM）、volume_db（float-compatible，缺省 0.0；非法或非有限值回退 0.0）和 pitch_scale（float-compatible，缺省 1.0；非法或非有限值回退 1.0）；float-compatible 指 float、int、bool 或数值 String/StringName，text-compatible 按 GFVariantData.to_text 归一；loop 与 playback_region 禁止，其他字段不参与 BGM start，整个 Dictionary 无法受控快照时以 REJECTED/INVALID_OPTIONS 结束。
+func start_bgm(
+	path: String,
+	options: Dictionary = {},
+	owner: Node = null
+) -> GFBgmStartOperation:
+	_drain_bgm_terminal_barrier_if_needed()
+	var operation: GFBgmStartOperation = _make_bgm_start_operation()
+	if operation == null:
+		return null
+	if not _is_initialized or not _bgm_start_admission_open:
+		_complete_unadmitted_bgm_start(
+			operation,
+			GFBgmStartResult.Status.REJECTED,
+			GFBgmStartResult.REASON_UTILITY_NOT_INITIALIZED,
+			ERR_UNAVAILABLE
+		)
+		return operation
+	if _is_backend_dispatch_in_progress():
+		_complete_unadmitted_bgm_start(
+			operation,
+			GFBgmStartResult.Status.REJECTED,
+			GFBgmStartResult.REASON_BACKEND_DISPATCH_IN_PROGRESS,
+			ERR_BUSY
+		)
+		return operation
+	if not _is_bgm_start_owner_available(owner):
+		_complete_unadmitted_bgm_start(
+			operation,
+			GFBgmStartResult.Status.REJECTED,
+			GFBgmStartResult.REASON_OWNER_UNAVAILABLE,
+			ERR_UNAVAILABLE
+		)
+		return operation
+
+	var request_result: Dictionary = _try_snapshot_audio_options({
+		"path": path,
+		"options": options,
+	})
+	if not _backend_request_snapshot_succeeded(request_result):
+		_complete_unadmitted_bgm_start(
+			operation,
+			GFBgmStartResult.Status.REJECTED,
+			GFBgmStartResult.REASON_INVALID_OPTIONS,
+			ERR_INVALID_PARAMETER
+		)
+		return operation
+	var request_envelope: Dictionary = _get_backend_request_snapshot_dictionary(
+		request_result
+	)
+	var request_path: String = GFVariantData.get_option_string(
+		request_envelope,
+		"path"
+	)
+	var request_options: Dictionary = GFVariantData.get_option_dictionary(
+		request_envelope,
+		"options"
+	)
+	if request_options.has("loop") or request_options.has("playback_region"):
+		push_warning(
+			"[GFAudioUtility] start_bgm 不接受 loop 或 playback_region；"
+			+ "请使用 GFAudioClip.playback_region 表达唯一的循环契约。"
+		)
+		_complete_unadmitted_bgm_start(
+			operation,
+			GFBgmStartResult.Status.REJECTED,
+			GFBgmStartResult.REASON_INVALID_OPTIONS,
+			ERR_INVALID_PARAMETER
+		)
+		return operation
+	if request_path.is_empty():
+		_complete_unadmitted_bgm_start(
+			operation,
+			GFBgmStartResult.Status.REJECTED,
+			GFBgmStartResult.REASON_INVALID_PATH,
+			ERR_INVALID_PARAMETER
+		)
+		return operation
+
+	var request: Dictionary = _make_bgm_start_request(
+		operation,
+		request_path,
+		request_options,
+		null,
+		owner
+	)
+	if not _admit_bgm_start_request(request):
+		_complete_unadmitted_bgm_start(
+			operation,
+			GFBgmStartResult.Status.REJECTED,
+			GFBgmStartResult.REASON_OWNER_UNAVAILABLE,
+			ERR_UNAVAILABLE,
+			GFVariantData.get_option_string(request, "history_key")
+		)
+		return operation
+	_dispatch_pending_bgm_path_request(operation.get_request_id())
+	return operation
+
+
+## 启动一个类型化 BGM Clip 请求。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param clip: 具有 path 或 stream source 的音频片段快照。
+## [br]
+## @param crossfade_seconds: 淡入淡出秒数；小于 0 时使用默认值。
+## [br]
+## @param owner: 可选生命周期 owner；其退出树时取消 pending 请求，或停止已提交的精确会话。
+## [br]
+## @return: 带稳定 request ID 和唯一类型化终态的 Operation。
+func start_bgm_clip(
+	clip: GFAudioClip,
+	crossfade_seconds: float = -1.0,
+	owner: Node = null
+) -> GFBgmStartOperation:
+	_drain_bgm_terminal_barrier_if_needed()
+	var operation: GFBgmStartOperation = _make_bgm_start_operation()
+	if operation == null:
+		return null
+	if not _is_initialized or not _bgm_start_admission_open:
+		_complete_unadmitted_bgm_start(
+			operation,
+			GFBgmStartResult.Status.REJECTED,
+			GFBgmStartResult.REASON_UTILITY_NOT_INITIALIZED,
+			ERR_UNAVAILABLE
+		)
+		return operation
+	if _is_backend_dispatch_in_progress():
+		_complete_unadmitted_bgm_start(
+			operation,
+			GFBgmStartResult.Status.REJECTED,
+			GFBgmStartResult.REASON_BACKEND_DISPATCH_IN_PROGRESS,
+			ERR_BUSY
+		)
+		return operation
+	if not _is_bgm_start_owner_available(owner):
+		_complete_unadmitted_bgm_start(
+			operation,
+			GFBgmStartResult.Status.REJECTED,
+			GFBgmStartResult.REASON_OWNER_UNAVAILABLE,
+			ERR_UNAVAILABLE
+		)
+		return operation
+	if clip == null or not clip.has_source():
+		_complete_unadmitted_bgm_start(
+			operation,
+			GFBgmStartResult.Status.REJECTED,
+			GFBgmStartResult.REASON_INVALID_CLIP,
+			ERR_INVALID_PARAMETER
+		)
+		return operation
+	var playback_region: GFAudioPlaybackRegion = _snapshot_playback_region(
+		clip.playback_region
+	)
+	if not _validate_playback_region_request(playback_region, &"bgm"):
+		_complete_unadmitted_bgm_start(
+			operation,
+			GFBgmStartResult.Status.REJECTED,
+			GFBgmStartResult.REASON_INVALID_PLAYBACK_REGION,
+			ERR_INVALID_PARAMETER
+		)
+		return operation
+	var request_clip: GFAudioClip = _snapshot_audio_clip(clip, playback_region)
+	if request_clip == null:
+		_complete_unadmitted_bgm_start(
+			operation,
+			GFBgmStartResult.Status.REJECTED,
+			GFBgmStartResult.REASON_INVALID_CLIP,
+			ERR_INVALID_PARAMETER
+		)
+		return operation
+	var request: Dictionary = _make_bgm_start_request(
+		operation,
+		request_clip.path,
+		{
+			"crossfade_seconds": crossfade_seconds,
+			"history_key": _get_clip_history_key(clip),
+			"bus_name": request_clip.resolve_bus(BGM_BUS_NAME),
+			"volume_db": request_clip.volume_db,
+			"pitch_scale": request_clip.resolve_pitch(_audio_rng),
+		},
+		request_clip,
+		owner,
+		playback_region
+	)
+	if not _admit_bgm_start_request(request):
+		_complete_unadmitted_bgm_start(
+			operation,
+			GFBgmStartResult.Status.REJECTED,
+			GFBgmStartResult.REASON_OWNER_UNAVAILABLE,
+			ERR_UNAVAILABLE,
+			GFVariantData.get_option_string(request, "history_key")
+		)
+		return operation
+	_dispatch_pending_bgm_clip_request(operation.get_request_id())
+	return operation
 
 ## 播放 BGM（背景音乐）
 ## [br]
@@ -376,10 +567,11 @@ func play_bgm(path: String, crossfade_seconds: float = -1.0) -> void:
 ## @param options: 支持 crossfade_seconds、history_key、bus_name、volume_db 和 pitch_scale；
 ## loop 与 playback_region 是保留键，必须通过 GFAudioClip.playback_region 表达。
 ## [br]
-## @schema options: Dictionary，可包含 crossfade_seconds、history_key、bus_name、volume_db 和 pitch_scale 字段；不得包含 loop 或 playback_region。
+## @schema options: Dictionary，可包含 crossfade_seconds（float-compatible，缺省 -1.0；负值使用 Utility 默认淡变，非法或非有限值回退 -1.0）、history_key（text-compatible，缺省 path）、bus_name（text-compatible，缺省 BGM）、volume_db（float-compatible，缺省 0.0；非法或非有限值回退 0.0）和 pitch_scale（float-compatible，缺省 1.0；非法或非有限值回退 1.0）；float-compatible 指 float、int、bool 或数值 String/StringName，text-compatible 按 GFVariantData.to_text 归一；loop 与 playback_region 禁止，其他字段不参与 BGM start，整个 Dictionary 无法受控快照时失败关闭。
 func play_bgm_with_options(path: String, options: Dictionary = {}) -> void:
 	if _is_backend_dispatch_in_progress():
 		return
+	_drain_bgm_terminal_barrier_if_needed()
 	var request_result: Dictionary = _try_snapshot_audio_options({
 		"path": path,
 		"options": options,
@@ -403,66 +595,18 @@ func play_bgm_with_options(path: String, options: Dictionary = {}) -> void:
 			+ "请使用 GFAudioClip.playback_region 表达唯一的循环契约。"
 		)
 		return
-	var crossfade_seconds: float = _finite_or_default(
-		GFVariantData.get_option_float(request_options, "crossfade_seconds", -1.0),
-		-1.0
-	)
-	var history_key: String = request_path
-	if request_options.has("history_key"):
-		history_key = GFVariantData.to_text(request_options["history_key"])
-	var bus_name: String = BGM_BUS_NAME
-	if request_options.has("bus_name"):
-		bus_name = GFVariantData.to_text(
-			request_options["bus_name"],
-			BGM_BUS_NAME
-		)
-	var volume_db: float = _finite_or_default(
-		GFVariantData.get_option_float(request_options, "volume_db", 0.0),
-		0.0
-	)
-	var pitch_scale: float = _finite_or_default(
-		GFVariantData.get_option_float(request_options, "pitch_scale", 1.0),
-		1.0
-	)
 	if request_path.is_empty():
-		stop_bgm(crossfade_seconds)
-		return
-	var request_serial: int = _begin_bgm_replacement()
-
-	var backend_options: Dictionary = request_options
-	backend_options["crossfade_seconds"] = _resolve_bgm_crossfade_seconds(crossfade_seconds)
-	backend_options["history_key"] = history_key
-	backend_options["bus_name"] = bus_name
-	backend_options["volume_db"] = volume_db
-	backend_options["pitch_scale"] = pitch_scale
-	if _try_backend_play_bgm_path(request_path, backend_options):
-		_commit_backend_bgm_session(request_serial, history_key)
-		return
-		
-	var asset_util: GFAssetUtility = _get_asset_util()
-	if asset_util == null:
-		var stream: AudioStream = _get_audio_stream_value(load(request_path))
-		_apply_bgm_request_with_settings(
-			request_serial,
-			stream,
-			bus_name,
-			volume_db,
-			pitch_scale,
-			crossfade_seconds,
-			history_key
+		var legacy_crossfade: float = _finite_or_default(
+			GFVariantData.get_option_float(
+				request_options,
+				"crossfade_seconds",
+				-1.0
+			),
+			-1.0
 		)
-	else:
-		var on_loaded: Callable = func(res: Resource) -> void:
-			_apply_bgm_request_with_settings(
-				request_serial,
-				_get_audio_stream_value(res),
-				bus_name,
-				volume_db,
-				pitch_scale,
-				crossfade_seconds,
-				history_key
-			)
-		asset_util.load_async(request_path, on_loaded)
+		stop_bgm(legacy_crossfade)
+		return
+	var _operation: GFBgmStartOperation = start_bgm(request_path, request_options)
 
 
 ## 播放资源化 BGM 配置。后端与本地播放器按请求结果原子交接唯一通道所有权。
@@ -475,88 +619,7 @@ func play_bgm_with_options(path: String, options: Dictionary = {}) -> void:
 ## [br]
 ## @param crossfade_seconds: 淡入淡出秒数；小于 0 时使用默认值。
 func play_bgm_clip(clip: GFAudioClip, crossfade_seconds: float = -1.0) -> void:
-	if _is_backend_dispatch_in_progress():
-		return
-	if clip == null or not clip.has_source():
-		return
-	var playback_region: GFAudioPlaybackRegion = _snapshot_playback_region(clip.playback_region)
-	if not _validate_playback_region_request(playback_region, &"bgm"):
-		return
-	var request_clip: GFAudioClip = _snapshot_audio_clip(clip, playback_region)
-	if request_clip == null:
-		return
-
-	var bus_name: String = request_clip.resolve_bus(BGM_BUS_NAME)
-	var volume_db: float = _finite_or_default(request_clip.volume_db, 0.0)
-	var pitch_scale: float = _finite_or_default(request_clip.resolve_pitch(_audio_rng), 1.0)
-	var history_key: String = _get_clip_history_key(clip)
-	var backend_options: Dictionary = {
-		"crossfade_seconds": _resolve_bgm_crossfade_seconds(crossfade_seconds),
-		"bus_name": bus_name,
-		"volume_db": volume_db,
-		"pitch_scale": pitch_scale,
-		"history_key": history_key,
-	}
-	if playback_region != null:
-		backend_options["playback_region"] = playback_region.duplicate_region()
-
-	var pending_token: int = _reserve_bgm_pending_request()
-	var backend_result: Dictionary = _try_backend_play_bgm_clip(request_clip, backend_options)
-	if not _is_bgm_pending_request_current(pending_token):
-		return
-	if GFVariantData.get_option_bool(backend_result, "rejected"):
-		_complete_bgm_pending_request(pending_token)
-		return
-	if GFVariantData.get_option_bool(backend_result, "handled"):
-		var request_serial: int = _begin_bgm_replacement(pending_token)
-		if request_serial <= 0:
-			return
-		_commit_backend_bgm_session(
-			request_serial,
-			history_key,
-			GFVariantData.get_option_dictionary(backend_result, "playback_region")
-		)
-		return
-
-	if request_clip.stream != null:
-		_try_commit_pending_local_bgm_request(
-			pending_token,
-			request_clip.stream,
-			bus_name,
-			volume_db,
-			pitch_scale,
-			crossfade_seconds,
-			history_key,
-			playback_region
-		)
-		return
-
-	var asset_util: GFAssetUtility = _get_asset_util()
-	if asset_util == null:
-		var stream: AudioStream = _get_audio_stream_value(load(request_clip.path))
-		_try_commit_pending_local_bgm_request(
-			pending_token,
-			stream,
-			bus_name,
-			volume_db,
-			pitch_scale,
-			crossfade_seconds,
-			history_key,
-			playback_region
-		)
-	else:
-		var on_loaded: Callable = func(res: Resource) -> void:
-			_try_commit_pending_local_bgm_request(
-				pending_token,
-				_get_audio_stream_value(res),
-				bus_name,
-				volume_db,
-				pitch_scale,
-				crossfade_seconds,
-				history_key,
-				playback_region
-			)
-		asset_util.load_async(request_clip.path, on_loaded)
+	var _operation: GFBgmStartOperation = start_bgm_clip(clip, crossfade_seconds)
 
 
 ## 从音频集合播放 BGM。
@@ -603,42 +666,66 @@ func play_bgm_event(
 ## [br]
 ## @param fade_seconds: 淡出秒数。
 func stop_bgm(fade_seconds: float = 0.0) -> void:
-	if _is_backend_dispatch_in_progress():
-		return
 	var safe_fade: float = _finite_non_negative_or_zero(fade_seconds)
-	var previous_state: StringName = _bgm_state
-	var previous_paused: bool = _bgm_paused
-	_invalidate_bgm_pending_request()
-	_bgm_request_serial += 1
-	_bgm_generation += 1
-	var operation_generation: int = _bgm_generation
-	_bgm_pause_serial += 1
-	_cancel_bgm_fade_tween()
-	_cancel_bgm_stop_tween()
-	_cancel_bgm_transport_tween()
-	_bgm_paused = false
-	if _bgm_owner == _OWNER_BACKEND:
-		if not _notify_backend_stop_bgm(safe_fade):
-			_bgm_state = previous_state
-			_bgm_paused = previous_paused
-			return
-		_stop_all_local_bgm_players()
-		_clear_bgm_session_state()
+	var captured_session_id: int = _bgm_committed_session_id
+	var captured_request_serial: int = _bgm_request_serial
+	if _is_backend_dispatch_in_progress():
+		var _intent_recorded: bool = _record_pending_bgm_terminal_intent(
+			GFBgmStartResult.Status.CANCELLED,
+			GFBgmStartResult.REASON_STOP_REQUESTED,
+			ERR_SKIP
+		)
+		var _session_intent_recorded: bool = _record_deferred_bgm_session_terminal(
+			captured_session_id,
+			GFBgmSessionHandle.EndKind.STOPPED,
+			safe_fade
+		)
+		_schedule_deferred_audio_drain()
 		return
-
-	_cancel_bgm_incoming_session()
-	_current_bgm_key = ""
-	_current_bgm_region.clear()
-	var session: Dictionary = _get_bgm_session(_bgm_current_session_id)
-	var player: AudioStreamPlayer = _get_bgm_session_player(session)
-	if _bgm_owner != _OWNER_LOCAL or not is_instance_valid(player):
-		_stop_all_local_bgm_players()
-		_clear_bgm_session_state()
+	var has_pending_axis: bool = not _bgm_pending_start_request.is_empty()
+	var has_deferred_active_axis: bool = (
+		GFVariantData.get_option_int(
+			_deferred_bgm_session_terminal,
+			"session_id"
+		) == captured_session_id
+		and captured_session_id > 0
+	)
+	if _audio_dispose_deferred or has_pending_axis or has_deferred_active_axis:
+		if has_pending_axis:
+			var _pending_intent_recorded: bool = (
+				_record_pending_bgm_terminal_intent(
+					GFBgmStartResult.Status.CANCELLED,
+					GFBgmStartResult.REASON_STOP_REQUESTED,
+					ERR_SKIP
+				)
+			)
+		if captured_session_id > 0:
+			var _active_intent_recorded: bool = (
+				_record_deferred_bgm_session_terminal(
+					captured_session_id,
+					GFBgmSessionHandle.EndKind.STOPPED,
+					safe_fade
+				)
+			)
+		_run_deferred_audio_dispose_if_needed()
 		return
-
-	_bgm_state = _STATE_STOPPING
-	player.stream_paused = false
-	_start_bgm_session_stop(player, _bgm_current_session_id, operation_generation, safe_fade)
+	var _pending_cancelled: bool = _cancel_pending_bgm_start(
+		GFBgmStartResult.Status.CANCELLED,
+		GFBgmStartResult.REASON_STOP_REQUESTED,
+		ERR_SKIP
+	)
+	if captured_session_id > 0:
+		var _stopped: bool = _stop_exact_committed_bgm_session(
+			captured_session_id,
+			safe_fade,
+			GFBgmSessionHandle.EndKind.STOPPED
+		)
+		return
+	if (
+		_bgm_committed_session_id == 0
+		and _bgm_request_serial == captured_request_serial
+	):
+		_stop_untracked_bgm_physical(safe_fade)
 
 
 ## 暂停当前 BGM。仅 playing 状态可进入 pausing/paused，非法重复操作返回 false。
@@ -651,6 +738,10 @@ func stop_bgm(fade_seconds: float = 0.0) -> void:
 ## [br]
 ## @return: 成功暂停或后端已处理时返回 true。
 func pause_bgm(fade_seconds: float = 0.0) -> bool:
+	var captured_session_id: int = _bgm_committed_session_id
+	_drain_bgm_terminal_barrier_if_needed()
+	if captured_session_id != _bgm_committed_session_id:
+		return false
 	if _is_backend_dispatch_in_progress():
 		return false
 	var safe_fade: float = _finite_non_negative_or_zero(fade_seconds)
@@ -665,6 +756,7 @@ func pause_bgm(fade_seconds: float = 0.0) -> bool:
 			[safe_fade],
 			expected_backend
 		)
+		_drain_bgm_terminal_barrier_if_needed()
 		if (
 			not _backend_dispatch_returned_true(backend_result)
 			or expected_request_serial != _bgm_request_serial
@@ -726,6 +818,10 @@ func pause_bgm(fade_seconds: float = 0.0) -> bool:
 ## [br]
 ## @return: 成功恢复或后端已处理时返回 true。
 func resume_bgm(from_position: float = -1.0, fade_seconds: float = 0.0) -> bool:
+	var captured_session_id: int = _bgm_committed_session_id
+	_drain_bgm_terminal_barrier_if_needed()
+	if captured_session_id != _bgm_committed_session_id:
+		return false
 	if _is_backend_dispatch_in_progress():
 		return false
 	var normalized_position: float = _finite_or_default(from_position, -1.0)
@@ -743,6 +839,7 @@ func resume_bgm(from_position: float = -1.0, fade_seconds: float = 0.0) -> bool:
 			[normalized_position, safe_fade],
 			expected_backend
 		)
+		_drain_bgm_terminal_barrier_if_needed()
 		if (
 			not _backend_dispatch_returned_true(backend_result)
 			or expected_request_serial != _bgm_request_serial
@@ -806,6 +903,10 @@ func resume_bgm(from_position: float = -1.0, fade_seconds: float = 0.0) -> bool:
 ## [br]
 ## @return: 成功跳转或后端已处理时返回 true。
 func seek_bgm(position_seconds: float) -> bool:
+	var captured_session_id: int = _bgm_committed_session_id
+	_drain_bgm_terminal_barrier_if_needed()
+	if captured_session_id != _bgm_committed_session_id:
+		return false
 	if _is_backend_dispatch_in_progress():
 		return false
 	if not _is_finite_float(position_seconds):
@@ -820,6 +921,7 @@ func seek_bgm(position_seconds: float) -> bool:
 			[safe_position],
 			expected_backend
 		)
+		_drain_bgm_terminal_barrier_if_needed()
 		return (
 			_backend_dispatch_returned_true(backend_result)
 			and expected_request_serial == _bgm_request_serial
@@ -844,9 +946,30 @@ func seek_bgm(position_seconds: float) -> bool:
 ## [br]
 ## @return: 当前播放秒数；无可查询播放器时返回 0。
 func get_bgm_playback_position() -> float:
+	var captured_session_id: int = _bgm_committed_session_id
+	_drain_bgm_terminal_barrier_if_needed()
+	if captured_session_id != _bgm_committed_session_id:
+		return 0.0
 	if _bgm_owner == _OWNER_BACKEND and _audio_backend != null:
+		var expected_backend: GFAudioBackend = _audio_backend
+		var expected_request_serial: int = _bgm_request_serial
+		var expected_generation: int = _bgm_generation
+		var backend_result: Dictionary = _dispatch_backend_call(
+			&"get_bgm_playback_position",
+			[],
+			expected_backend
+		)
+		_drain_bgm_terminal_barrier_if_needed()
+		if (
+			captured_session_id != _bgm_committed_session_id
+			or _bgm_owner != _OWNER_BACKEND
+			or _audio_backend != expected_backend
+			or _bgm_request_serial != expected_request_serial
+			or _bgm_generation != expected_generation
+		):
+			return 0.0
 		var backend_position: float = _backend_dispatch_float(
-			_dispatch_backend_call(&"get_bgm_playback_position", [], _audio_backend),
+			backend_result,
 			-1.0
 		)
 		if backend_position >= 0.0:
@@ -869,11 +992,25 @@ func get_bgm_playback_position() -> float:
 ## [br]
 ## @return: 当前 BGM 正在播放、淡变或暂停时返回 true。
 func is_bgm_playing() -> bool:
+	_drain_bgm_terminal_barrier_if_needed()
 	if _bgm_owner == _OWNER_BACKEND:
 		if _audio_backend == null or _bgm_state == _STATE_STOPPED:
 			return false
 		if _is_backend_dispatch_in_progress():
 			return true
+		if (
+			_audio_dispose_deferred
+			or GFVariantData.get_option_int(
+				_deferred_bgm_session_terminal,
+				"session_id"
+			) == _bgm_committed_session_id
+		):
+			_run_deferred_audio_dispose_if_needed()
+			return (
+				_bgm_owner == _OWNER_BACKEND
+				and _audio_backend != null
+				and _bgm_state != _STATE_STOPPED
+			)
 
 		var expected_backend: GFAudioBackend = _audio_backend
 		var expected_request_serial: int = _bgm_request_serial
@@ -885,24 +1022,38 @@ func is_bgm_playing() -> bool:
 			[],
 			expected_backend
 		)
-		if (
-			not _backend_dispatch_completed(backend_result)
-			or not _is_backend_bgm_session_current(
+		var identity_is_stable: bool = (
+			_backend_dispatch_completed(backend_result)
+			and _is_backend_bgm_session_current(
 				expected_backend,
 				expected_request_serial,
 				expected_generation,
 				expected_state,
 				expected_history_key
 			)
-		):
+		)
+		if not identity_is_stable:
+			_drain_bgm_terminal_barrier_if_needed()
 			return (
 				_bgm_owner == _OWNER_BACKEND
 				and _audio_backend != null
 				and _bgm_state != _STATE_STOPPED
 			)
 		if _backend_dispatch_returned_true(backend_result):
-			return true
-		_commit_backend_bgm_natural_end(expected_history_key)
+			_drain_bgm_terminal_barrier_if_needed()
+			return (
+				_bgm_owner == _OWNER_BACKEND
+				and _audio_backend != null
+				and _bgm_state != _STATE_STOPPED
+			)
+		var _natural_intent_recorded: bool = (
+			_record_deferred_bgm_session_terminal(
+				_bgm_committed_session_id,
+				GFBgmSessionHandle.EndKind.NATURAL_FINISH,
+				0.0
+			)
+		)
+		_drain_bgm_terminal_barrier_if_needed()
 		return false
 
 	if _bgm_owner != _OWNER_LOCAL or _bgm_state == _STATE_STOPPED:
@@ -915,6 +1066,15 @@ func is_bgm_playing() -> bool:
 			and (player.playing or player.stream_paused)
 		):
 			return true
+	if _bgm_committed_session_id > 0:
+		var failed_handle: GFBgmSessionHandle = _freeze_bgm_session_handle(
+			_bgm_committed_session_id,
+			GFBgmSessionHandle.EndKind.PLAYBACK_FAILED
+		)
+		_stop_all_local_bgm_players()
+		_clear_bgm_session_state()
+		if failed_handle != null:
+			var _failed_emitted: bool = failed_handle.emit_ended_for_framework()
 	return false
 
 
@@ -924,6 +1084,7 @@ func is_bgm_playing() -> bool:
 ## [br]
 ## @return: 暂停时返回 true。
 func is_bgm_paused() -> bool:
+	_drain_bgm_terminal_barrier_if_needed()
 	if _bgm_owner != _OWNER_BACKEND or _audio_backend == null:
 		return _bgm_state == _STATE_PAUSED
 	if _is_backend_dispatch_in_progress():
@@ -937,6 +1098,7 @@ func is_bgm_paused() -> bool:
 		[],
 		expected_backend
 	)
+	_drain_bgm_terminal_barrier_if_needed()
 	if (
 		not _backend_dispatch_completed(backend_result)
 		or _audio_backend != expected_backend
@@ -974,6 +1136,7 @@ func get_current_bgm_key() -> String:
 ## [br]
 ## @api public
 func clear_bgm_history() -> void:
+	_drain_bgm_terminal_barrier_if_needed()
 	_bgm_history = PackedStringArray()
 
 
@@ -1136,24 +1299,60 @@ func get_audio_bank(bank_id: StringName) -> GFAudioBank:
 ## [br]
 ## @return: 后端已设置；旧通道停止、duck 基准恢复、dispose 或 setup 未完成时返回 false。
 func set_audio_backend(backend: GFAudioBackend) -> bool:
+	if _audio_backend == backend:
+		return true
 	if _is_backend_dispatch_in_progress():
+		return false
+	var dispose_was_pending: bool = _audio_dispose_deferred
+	_drain_bgm_terminal_barrier_if_needed()
+	if dispose_was_pending and not _is_initialized:
 		return false
 	if _audio_backend == backend:
 		return true
-	if not _stop_backend_owned_sessions():
-		return false
-	if not _restore_ducked_buses_for_backend_transition(_audio_backend):
-		return false
-	if not _clear_audio_backend(true):
-		return false
-	_invalidate_bgm_pending_request()
-	_invalidate_all_ambient_pending_requests()
-	_audio_backend = backend
-	if _audio_backend != null:
-		var setup_result: Dictionary = _dispatch_backend_call(&"setup", [self], _audio_backend)
-		if not _backend_dispatch_completed(setup_result):
-			return false
-	return true
+	var reopen_admission: bool = _bgm_start_admission_open
+	_bgm_start_admission_open = false
+	var pending_operation: GFBgmStartOperation = (
+		_freeze_pending_bgm_start_for_backend_change()
+	)
+	var topology_handles: Array[GFBgmSessionHandle] = []
+	var topology_natural_history_keys: Array[String] = []
+	var changed: bool = _stop_backend_owned_sessions(
+		false,
+		topology_handles,
+		topology_natural_history_keys
+	)
+	if changed:
+		changed = _restore_ducked_buses_for_backend_transition(_audio_backend)
+	if changed:
+		changed = _clear_audio_backend(true)
+	if changed:
+		_invalidate_bgm_pending_request()
+		_invalidate_all_ambient_pending_requests()
+		_audio_backend = backend
+		if _audio_backend != null:
+			var setup_result: Dictionary = _dispatch_backend_call(
+				&"setup",
+				[self],
+				_audio_backend
+			)
+			changed = _backend_dispatch_completed(setup_result)
+	_bgm_start_admission_open = (
+		reopen_admission
+		and _is_initialized
+		and not _audio_dispose_deferred
+		and not _audio_dispose_in_progress
+	)
+	if pending_operation != null:
+		var _pending_emitted: bool = pending_operation.emit_completed_for_framework()
+	_emit_bgm_session_handles(topology_handles)
+	for natural_history_key: String in topology_natural_history_keys:
+		bgm_finished.emit(natural_history_key)
+	return (
+		changed
+		and _is_initialized
+		and not _audio_dispose_deferred
+		and _audio_backend == backend
+	)
 
 
 ## 获取当前音频后端。
@@ -1176,15 +1375,46 @@ func get_audio_backend() -> GFAudioBackend:
 ## [br]
 ## @return: 后端已清除；通道停止、duck 基准恢复或 backend dispose 未完成时返回 false。
 func clear_audio_backend(dispose_backend: bool = true) -> bool:
-	if _is_backend_dispatch_in_progress():
-		return false
 	if _audio_backend == null:
 		return true
-	if not _stop_backend_owned_sessions():
+	if _is_backend_dispatch_in_progress():
 		return false
-	if not _restore_ducked_buses_for_backend_transition(_audio_backend):
-		return false
-	return _clear_audio_backend(dispose_backend)
+	_drain_bgm_terminal_barrier_if_needed()
+	if _audio_backend == null:
+		return true
+	var reopen_admission: bool = _bgm_start_admission_open
+	_bgm_start_admission_open = false
+	var pending_operation: GFBgmStartOperation = (
+		_freeze_pending_bgm_start_for_backend_change()
+	)
+	var topology_handles: Array[GFBgmSessionHandle] = []
+	var topology_natural_history_keys: Array[String] = []
+	var cleared: bool = _stop_backend_owned_sessions(
+		false,
+		topology_handles,
+		topology_natural_history_keys
+	)
+	if cleared:
+		cleared = _restore_ducked_buses_for_backend_transition(_audio_backend)
+	if cleared:
+		cleared = _clear_audio_backend(dispose_backend)
+	_bgm_start_admission_open = (
+		reopen_admission
+		and _is_initialized
+		and not _audio_dispose_deferred
+		and not _audio_dispose_in_progress
+	)
+	if pending_operation != null:
+		var _pending_emitted: bool = pending_operation.emit_completed_for_framework()
+	_emit_bgm_session_handles(topology_handles)
+	for natural_history_key: String in topology_natural_history_keys:
+		bgm_finished.emit(natural_history_key)
+	return (
+		cleared
+		and _is_initialized
+		and not _audio_dispose_deferred
+		and _audio_backend == null
+	)
 
 
 ## 发布资源化音频事件。
@@ -2833,6 +3063,120 @@ func get_last_playback_region_rejection() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+func _dispose_audio_now() -> void:
+	if not _is_initialized or _audio_dispose_in_progress:
+		return
+	_audio_dispose_in_progress = true
+	_bgm_start_admission_open = false
+	_audio_dispose_deferred = false
+	var deferred_natural_history_key: String = ""
+	if GFVariantData.get_option_int(
+		_deferred_bgm_session_terminal,
+		"end_kind"
+	) == GFBgmSessionHandle.EndKind.NATURAL_FINISH:
+		deferred_natural_history_key = GFVariantData.get_option_string(
+			_get_bgm_session(
+				GFVariantData.get_option_int(
+					_deferred_bgm_session_terminal,
+					"session_id"
+				)
+			),
+			"history_key"
+		)
+	var pending_operation: GFBgmStartOperation = null
+	if not _bgm_pending_start_request.is_empty():
+		var pending_request: Dictionary = _bgm_pending_start_request
+		_bgm_pending_start_request = {}
+		_complete_bgm_pending_request(
+			GFVariantData.get_option_int(pending_request, "pending_token")
+		)
+		pending_operation = _freeze_bgm_start_record(
+			pending_request,
+			GFBgmStartResult.Status.CANCELLED,
+			GFBgmStartResult.REASON_UTILITY_DISPOSED,
+			ERR_SKIP
+		)
+	var terminal_handles: Array[GFBgmSessionHandle] = (
+		_freeze_all_bgm_session_handles(
+			GFBgmSessionHandle.EndKind.UTILITY_DISPOSED
+		)
+	)
+	_deferred_bgm_session_terminal.clear()
+	var backend_stop_succeeded: bool = true
+	if _audio_backend != null:
+		backend_stop_succeeded = _stop_backend_owned_sessions()
+	if not backend_stop_succeeded:
+		push_warning(
+			"[GFAudioUtility] dispose 强制终结：后端拒绝停止或正在回调，"
+			+ "将解除内部 owner 并继续释放生命周期资源。"
+		)
+	var _duck_buses_restored: bool = _restore_all_ducked_buses_for_lifecycle()
+	_invalidate_bgm_pending_request()
+	_invalidate_all_ambient_pending_requests()
+	_bgm_request_serial += 1
+	_bgm_generation += 1
+	_bgm_fade_serial += 1
+	_bgm_pause_serial += 1
+	_cancel_bgm_fade_tween()
+	_cancel_bgm_stop_tween()
+	_cancel_bgm_transport_tween()
+	_sfx_lifecycle_serial += 1
+	_bgm_paused = false
+	_current_bgm_region.clear()
+	_stop_all_local_bgm_players()
+	_free_bgm_stop_fallback_timer()
+	_clear_bgm_session_state()
+	var backend_cleared: bool = false
+	if not _is_backend_dispatch_in_progress():
+		backend_cleared = _clear_audio_backend(true)
+	if not backend_cleared and _audio_backend != null:
+		push_warning(
+			"[GFAudioUtility] dispose 强制终结：后端 dispose 回调未完成，"
+			+ "已解除内部后端引用。"
+		)
+		_audio_backend = null
+	_release_all_sfx_players(0.0)
+	_release_all_spatial_sfx_players(0.0)
+	_free_all_ambient_players()
+	_complete_all_playback_session_handles()
+	_playback_session_handles.clear()
+	_playback_sessions.clear()
+	_clear_mix_control_tweens()
+	if is_instance_valid(_bgm_player):
+		_bgm_player.queue_free()
+	_bgm_player = null
+	if is_instance_valid(_bgm_fade_player):
+		_bgm_fade_player.queue_free()
+	_bgm_fade_player = null
+	_root = null
+	_audio_banks.clear()
+	_audio_bank_base_values.clear()
+	_audio_bank_mount_stacks.clear()
+	_audio_bank_retained_mount_count = 0
+	_bgm_sessions.clear()
+	_bgm_current_session_id = 0
+	_bgm_incoming_session_id = 0
+	_bgm_committed_session_id = 0
+	_bgm_state = _STATE_STOPPED
+	_bgm_owner = _OWNER_NONE
+	_bus_transaction_generations.clear()
+	_duck_bus_states.clear()
+	_is_initialized = false
+	_audio_dispose_deferred = false
+	_deferred_audio_drain_scheduled = false
+	_deferred_bgm_session_terminal.clear()
+	_audio_dispose_in_progress = false
+	if pending_operation != null:
+		var _pending_emitted: bool = (
+			pending_operation.emit_completed_for_framework()
+		)
+	_emit_bgm_session_handles(terminal_handles)
+	if not deferred_natural_history_key.is_empty():
+		bgm_finished.emit(deferred_natural_history_key)
+
+	# SFX 节点已由 _release_all_sfx_players() 统一释放。
+
+
 func _post_audio_event_locally(
 	request_event: GFAudioEvent,
 	request_options: Dictionary
@@ -2957,10 +3301,28 @@ func _is_backend_dispatch_in_progress() -> bool:
 	return _backend_dispatch_depth > 0
 
 
+func _has_bgm_terminal_barrier_work() -> bool:
+	return (
+		_audio_dispose_deferred
+		or not _deferred_bgm_session_terminal.is_empty()
+		or (
+			not _bgm_pending_start_request.is_empty()
+			and _bgm_pending_start_request.has("terminal_intent")
+		)
+	)
+
+
+func _drain_bgm_terminal_barrier_if_needed() -> void:
+	if _is_backend_dispatch_in_progress() or not _has_bgm_terminal_barrier_work():
+		return
+	_run_deferred_audio_dispose_if_needed()
+
+
 func _dispatch_backend_call(
 	method_name: StringName,
 	arguments: Array,
-	expected_backend: GFAudioBackend
+	expected_backend: GFAudioBackend,
+	bypass_bgm_terminal_barrier: bool = false
 ) -> Dictionary:
 	if (
 		expected_backend == null
@@ -2972,9 +3334,28 @@ func _dispatch_backend_call(
 			"backend_current": _audio_backend == expected_backend,
 			"value": null,
 		}
+	if not bypass_bgm_terminal_barrier and _has_bgm_terminal_barrier_work():
+		_drain_bgm_terminal_barrier_if_needed()
+		return {
+			"called": false,
+			"backend_current": _audio_backend == expected_backend,
+			"value": null,
+		}
 	_backend_dispatch_depth += 1
 	var value: Variant = expected_backend.callv(method_name, arguments)
 	_backend_dispatch_depth -= 1
+	if (
+		_backend_dispatch_depth == 0
+		and (
+			_audio_dispose_deferred
+			or not _deferred_bgm_session_terminal.is_empty()
+			or (
+				not _bgm_pending_start_request.is_empty()
+				and _bgm_pending_start_request.has("terminal_intent")
+			)
+		)
+	):
+		_schedule_deferred_audio_drain()
 	return {
 		"called": true,
 		"backend_current": _audio_backend == expected_backend,
@@ -4307,7 +4688,8 @@ func _evaluate_backend_playback_region(
 	expected_backend: GFAudioBackend,
 	clip: GFAudioClip,
 	channel: StringName,
-	context: Dictionary
+	context: Dictionary,
+	typed_request_id: int = 0
 ) -> GFAudioPlaybackRegionResult:
 	if clip == null or clip.playback_region == null:
 		return null
@@ -4322,6 +4704,15 @@ func _evaluate_backend_playback_region(
 		[&"playback_region_contract"],
 		expected_backend
 	)
+	if (
+		typed_request_id > 0
+		and (
+			not _is_pending_bgm_start_request(typed_request_id)
+			or _pending_bgm_has_terminal_intent(typed_request_id)
+			or _audio_backend != expected_backend
+		)
+	):
+		return null
 	if not _backend_dispatch_returned_true(capability_result):
 		return GFAudioPlaybackRegionResult.unsupported(
 			&"backend_contract_unavailable",
@@ -4349,6 +4740,15 @@ func _evaluate_backend_playback_region(
 		],
 		expected_backend
 	)
+	if (
+		typed_request_id > 0
+		and (
+			not _is_pending_bgm_start_request(typed_request_id)
+			or _pending_bgm_has_terminal_intent(typed_request_id)
+			or _audio_backend != expected_backend
+		)
+	):
+		return null
 	if not _backend_dispatch_completed(evaluation_result):
 		return GFAudioPlaybackRegionResult.unsupported(
 			&"backend_evaluation_failed",
@@ -5309,7 +5709,11 @@ func _clear_audio_backend(dispose_backend: bool) -> bool:
 	return true
 
 
-func _stop_backend_owned_sessions() -> bool:
+func _stop_backend_owned_sessions(
+	emit_bgm_terminal_signal: bool = true,
+	frozen_bgm_handles: Array[GFBgmSessionHandle] = [],
+	frozen_natural_history_keys: Array[String] = []
+) -> bool:
 	if _audio_backend == null:
 		return true
 	if _is_backend_dispatch_in_progress():
@@ -5324,15 +5728,63 @@ func _stop_backend_owned_sessions() -> bool:
 			continue
 		backend_ambient_channels.append(channel)
 	backend_ambient_channels.sort_custom(_is_string_name_lexically_before)
+	var terminal_bgm_handle: GFBgmSessionHandle = null
 
 	if backend_owns_bgm:
-		if not _notify_backend_stop_bgm(0.0):
+		var stopped_session_id: int = _bgm_committed_session_id
+		var first_terminal_intent: Dictionary = (
+			_take_deferred_bgm_session_terminal(stopped_session_id)
+		)
+		var end_kind: GFBgmSessionHandle.EndKind = (
+			GFBgmSessionHandle.EndKind.STOPPED
+		)
+		var stop_fade_seconds: float = 0.0
+		if not first_terminal_intent.is_empty():
+			end_kind = GFVariantData.get_option_int(
+				first_terminal_intent,
+				"end_kind"
+			) as GFBgmSessionHandle.EndKind
+			stop_fade_seconds = GFVariantData.get_option_float(
+				first_terminal_intent,
+				"fade_seconds"
+			)
+		var backend_stopped: bool = _notify_backend_stop_bgm(
+			stop_fade_seconds
+		)
+		var later_terminal_intent: Dictionary = _take_deferred_bgm_session_terminal(
+			stopped_session_id
+		)
+		if (
+			not backend_stopped
+			and first_terminal_intent.is_empty()
+			and later_terminal_intent.is_empty()
+		):
 			return false
+		var natural_history_key: String = ""
+		if end_kind == GFBgmSessionHandle.EndKind.NATURAL_FINISH:
+			natural_history_key = GFVariantData.get_option_string(
+				_get_bgm_session(stopped_session_id),
+				"history_key"
+			)
+		terminal_bgm_handle = _freeze_bgm_session_handle(
+			stopped_session_id,
+			end_kind
+		)
 		_bgm_request_serial += 1
 		_bgm_generation += 1
 		_clear_bgm_session_state()
 		_current_bgm_key = ""
 		_current_bgm_region.clear()
+		if terminal_bgm_handle != null:
+			if emit_bgm_terminal_signal:
+				var _emitted: bool = terminal_bgm_handle.emit_ended_for_framework()
+			else:
+				frozen_bgm_handles.append(terminal_bgm_handle)
+			terminal_bgm_handle = null
+		if emit_bgm_terminal_signal:
+			_emit_bgm_natural_history_if_needed(end_kind, natural_history_key)
+		elif not natural_history_key.is_empty():
+			frozen_natural_history_keys.append(natural_history_key)
 	for channel: StringName in backend_ambient_channels:
 		if _audio_backend != expected_backend:
 			return false
@@ -5343,7 +5795,11 @@ func _stop_backend_owned_sessions() -> bool:
 			return false
 		var generation: int = _next_ambient_request_serial(channel)
 		_set_ambient_session(channel, generation, _STATE_STOPPED, _OWNER_NONE, 0)
-	return _audio_backend == expected_backend
+	var still_current: bool = (
+		_audio_backend == expected_backend
+		and not _audio_dispose_deferred
+	)
+	return still_current
 
 
 func _try_backend_stop_all_ambient(
@@ -5554,6 +6010,166 @@ func _try_backend_play_bgm_clip(clip: GFAudioClip, options: Dictionary) -> Dicti
 		and _bgm_generation == expected_generation
 		and _bgm_owner == expected_owner
 	)
+	return outcome
+
+
+func _try_typed_backend_bgm_path(
+	request_id: int,
+	path: String,
+	options: Dictionary
+) -> Dictionary:
+	var outcome: Dictionary = {
+		"started": false,
+		"disposition": GFBgmStartResult.BackendDisposition.NOT_ATTEMPTED,
+	}
+	var expected_backend: GFAudioBackend = _audio_backend
+	if expected_backend == null:
+		return outcome
+	var probe_options_result: Dictionary = _try_snapshot_audio_options(options)
+	if not _backend_request_snapshot_succeeded(probe_options_result):
+		outcome["disposition"] = GFBgmStartResult.BackendDisposition.REJECTED
+		return outcome
+	var can_handle_result: Dictionary = _dispatch_backend_call(
+		&"can_handle_path",
+		[path, &"bgm", _get_backend_request_snapshot_dictionary(probe_options_result)],
+		expected_backend
+	)
+	if not _is_pending_bgm_start_request(request_id) or _audio_backend != expected_backend:
+		outcome["disposition"] = GFBgmStartResult.BackendDisposition.INVALIDATED
+		return outcome
+	if _pending_bgm_has_terminal_intent(request_id):
+		outcome["disposition"] = GFBgmStartResult.BackendDisposition.INVALIDATED
+		return outcome
+	if not _backend_dispatch_returned_true(can_handle_result):
+		outcome["disposition"] = GFBgmStartResult.BackendDisposition.NOT_CLAIMED
+		return outcome
+	var execution_options_result: Dictionary = _try_snapshot_audio_options(options)
+	if not _backend_request_snapshot_succeeded(execution_options_result):
+		outcome["disposition"] = GFBgmStartResult.BackendDisposition.REJECTED
+		return outcome
+	var play_result: Dictionary = _dispatch_backend_call(
+		&"play_bgm_path",
+		[path, _get_backend_request_snapshot_dictionary(execution_options_result)],
+		expected_backend
+	)
+	if not _is_pending_bgm_start_request(request_id) or _audio_backend != expected_backend:
+		outcome["disposition"] = GFBgmStartResult.BackendDisposition.INVALIDATED
+		return outcome
+	if _pending_bgm_has_terminal_intent(request_id):
+		outcome["disposition"] = GFBgmStartResult.BackendDisposition.INVALIDATED
+		if _backend_dispatch_returned_true(play_result):
+			outcome["started"] = true
+		return outcome
+	if not _backend_dispatch_returned_true(play_result):
+		outcome["disposition"] = GFBgmStartResult.BackendDisposition.REJECTED
+		return outcome
+	outcome["started"] = true
+	outcome["disposition"] = GFBgmStartResult.BackendDisposition.STARTED
+	return outcome
+
+
+func _try_typed_backend_bgm_clip(
+	request_id: int,
+	clip: GFAudioClip,
+	options: Dictionary
+) -> Dictionary:
+	var outcome: Dictionary = {
+		"started": false,
+		"request_rejected": false,
+		"playback_region": {},
+		"disposition": GFBgmStartResult.BackendDisposition.NOT_ATTEMPTED,
+	}
+	var expected_backend: GFAudioBackend = _audio_backend
+	if expected_backend == null:
+		return outcome
+	var probe_clip: GFAudioClip = _snapshot_audio_clip(
+		clip,
+		clip.playback_region,
+		true
+	)
+	if probe_clip == null:
+		outcome["request_rejected"] = true
+		outcome["disposition"] = GFBgmStartResult.BackendDisposition.REJECTED
+		return outcome
+	var probe_options_result: Dictionary = _try_snapshot_audio_options(options)
+	if not _backend_request_snapshot_succeeded(probe_options_result):
+		outcome["request_rejected"] = true
+		outcome["disposition"] = GFBgmStartResult.BackendDisposition.REJECTED
+		return outcome
+	var can_handle_result: Dictionary = _dispatch_backend_call(
+		&"can_handle_clip",
+		[
+			probe_clip,
+			&"bgm",
+			_get_backend_request_snapshot_dictionary(probe_options_result),
+		],
+		expected_backend
+	)
+	if not _is_pending_bgm_start_request(request_id) or _audio_backend != expected_backend:
+		outcome["disposition"] = GFBgmStartResult.BackendDisposition.INVALIDATED
+		return outcome
+	if _pending_bgm_has_terminal_intent(request_id):
+		outcome["disposition"] = GFBgmStartResult.BackendDisposition.INVALIDATED
+		return outcome
+	if not _backend_dispatch_returned_true(can_handle_result):
+		outcome["disposition"] = GFBgmStartResult.BackendDisposition.NOT_CLAIMED
+		return outcome
+	var region_result: GFAudioPlaybackRegionResult = _evaluate_backend_playback_region(
+		expected_backend,
+		clip,
+		&"bgm",
+		options,
+		request_id
+	)
+	if not _is_pending_bgm_start_request(request_id) or _audio_backend != expected_backend:
+		outcome["disposition"] = GFBgmStartResult.BackendDisposition.INVALIDATED
+		return outcome
+	if _pending_bgm_has_terminal_intent(request_id):
+		outcome["disposition"] = GFBgmStartResult.BackendDisposition.INVALIDATED
+		return outcome
+	if region_result != null:
+		if region_result.status == GFAudioPlaybackRegionResult.Status.INVALID:
+			_reject_playback_region(&"bgm", region_result)
+			outcome["request_rejected"] = true
+			outcome["disposition"] = GFBgmStartResult.BackendDisposition.REJECTED
+			return outcome
+		if not region_result.is_success():
+			outcome["disposition"] = GFBgmStartResult.BackendDisposition.REJECTED
+			return outcome
+		outcome["playback_region"] = _snapshot_playback_region_result(region_result)
+	var execution_clip: GFAudioClip = _snapshot_audio_clip(
+		clip,
+		clip.playback_region,
+		true
+	)
+	var execution_options_result: Dictionary = _try_snapshot_audio_options(options)
+	if execution_clip == null or not _backend_request_snapshot_succeeded(
+		execution_options_result
+	):
+		outcome["request_rejected"] = true
+		outcome["disposition"] = GFBgmStartResult.BackendDisposition.REJECTED
+		return outcome
+	var play_result: Dictionary = _dispatch_backend_call(
+		&"play_bgm_clip",
+		[
+			execution_clip,
+			_get_backend_request_snapshot_dictionary(execution_options_result),
+		],
+		expected_backend
+	)
+	if not _is_pending_bgm_start_request(request_id) or _audio_backend != expected_backend:
+		outcome["disposition"] = GFBgmStartResult.BackendDisposition.INVALIDATED
+		return outcome
+	if _pending_bgm_has_terminal_intent(request_id):
+		outcome["disposition"] = GFBgmStartResult.BackendDisposition.INVALIDATED
+		if _backend_dispatch_returned_true(play_result):
+			outcome["started"] = true
+		return outcome
+	if not _backend_dispatch_returned_true(play_result):
+		outcome["disposition"] = GFBgmStartResult.BackendDisposition.REJECTED
+		return outcome
+	outcome["started"] = true
+	outcome["disposition"] = GFBgmStartResult.BackendDisposition.STARTED
 	return outcome
 
 
@@ -6353,7 +6969,7 @@ func _play_bgm_stream_with_settings(
 		return
 
 	var request_serial: int = _begin_bgm_replacement()
-	_commit_local_bgm_request(
+	var _session_id: int = _commit_local_bgm_request(
 		request_serial,
 		stream,
 		bus_name,
@@ -6361,6 +6977,1972 @@ func _play_bgm_stream_with_settings(
 		pitch_scale,
 		crossfade_seconds,
 		history_key
+	)
+
+
+func _make_bgm_start_operation() -> GFBgmStartOperation:
+	if _next_bgm_start_request_id <= 0 or _next_bgm_start_request_id >= _MAX_STABLE_ID:
+		push_error("[GFAudioUtility] BGM start request ID 空间已耗尽。")
+		return null
+	var request_id: int = _next_bgm_start_request_id
+	_next_bgm_start_request_id += 1
+	var operation: GFBgmStartOperation = GFBgmStartOperation.new()
+	if not operation.configure_for_framework(
+		request_id,
+		Callable(self, "_cancel_bgm_start_operation_for_framework")
+	):
+		push_error("[GFAudioUtility] 无法配置 BGM start Operation。")
+		return null
+	return operation
+
+
+func _complete_unadmitted_bgm_start(
+	operation: GFBgmStartOperation,
+	status: GFBgmStartResult.Status,
+	reason: StringName,
+	error_code: Error,
+	history_key: String = ""
+) -> void:
+	if operation == null or not operation.is_pending():
+		return
+	var result: GFBgmStartResult = GFBgmStartResult.new()
+	if not result.configure_for_framework(
+		status,
+		operation.get_request_id(),
+		reason,
+		error_code,
+		history_key,
+		GFBgmSessionHandle.OwnerKind.NONE,
+		GFBgmStartResult.BackendDisposition.NOT_ATTEMPTED
+	):
+		push_error("[GFAudioUtility] 无法配置未接纳 BGM start 终态。")
+		return
+	if not operation.complete_for_framework(result):
+		push_error("[GFAudioUtility] 无法完成未接纳 BGM start Operation。")
+
+
+func _make_bgm_start_request(
+	operation: GFBgmStartOperation,
+	path: String,
+	options: Dictionary,
+	clip: GFAudioClip,
+	owner: Node,
+	playback_region: GFAudioPlaybackRegion = null
+) -> Dictionary:
+	var history_key: String = path
+	if options.has("history_key"):
+		history_key = GFVariantData.to_text(options["history_key"])
+	var bus_name: String = BGM_BUS_NAME
+	if options.has("bus_name"):
+		bus_name = GFVariantData.to_text(options["bus_name"], BGM_BUS_NAME)
+	return {
+		"request_id": operation.get_request_id(),
+		"operation": operation,
+		"path": path,
+		"clip": clip,
+		"history_key": history_key,
+		"bus_name": bus_name,
+		"volume_db": _finite_or_default(
+			GFVariantData.get_option_float(options, "volume_db", 0.0),
+			0.0
+		),
+		"pitch_scale": _finite_or_default(
+			GFVariantData.get_option_float(options, "pitch_scale", 1.0),
+			1.0
+		),
+		"crossfade_seconds": _finite_or_default(
+			GFVariantData.get_option_float(options, "crossfade_seconds", -1.0),
+			-1.0
+		),
+		"playback_region": playback_region,
+		"backend_disposition": GFBgmStartResult.BackendDisposition.NOT_ATTEMPTED,
+		"pending_token": 0,
+		"owner_ref": weakref(owner) if owner != null else null,
+		"owner_instance_id": owner.get_instance_id() if owner != null else 0,
+		"owner_exit_callback": Callable(),
+	}
+
+
+func _admit_bgm_start_request(request: Dictionary) -> bool:
+	var operation: GFBgmStartOperation = _get_bgm_start_operation(request)
+	var owner: Node = _get_bgm_start_owner(request)
+	if (
+		operation == null
+		or not operation.is_pending()
+		or not _bgm_start_admission_open
+		or (
+			_pending_bgm_start_has_owner(request)
+			and (
+				owner == null
+				or not _is_bgm_start_owner_available(owner)
+			)
+		)
+	):
+		return false
+	var previous_request: Dictionary = _bgm_pending_start_request
+	if owner != null:
+		var invocation: GFWeakMethodInvocation = GFWeakMethodInvocation.new(
+			self,
+			&"_on_bgm_start_owner_tree_exiting"
+		)
+		var request_id: int = operation.get_request_id()
+		var callback: Callable = func() -> void:
+			var _invoke_result: Dictionary = invocation.invoke([request_id])
+		request["owner_exit_callback"] = callback
+		if not owner.tree_exiting.is_connected(callback):
+			var connect_error: Error = owner.tree_exiting.connect(
+				callback,
+				CONNECT_ONE_SHOT
+			) as Error
+			if connect_error != OK:
+				return false
+	var pending_token: int = _reserve_bgm_pending_request()
+	request["pending_token"] = pending_token
+	_bgm_pending_start_request = request
+	if not previous_request.is_empty():
+		var _previous_completed: bool = _complete_bgm_start_record(
+			previous_request,
+			GFBgmStartResult.Status.SUPERSEDED,
+			GFBgmStartResult.REASON_NEWER_REQUEST,
+			ERR_BUSY
+		)
+	return _is_pending_bgm_start_request(operation.get_request_id())
+
+
+func _is_bgm_start_owner_available(owner: Node) -> bool:
+	return (
+		owner == null
+		or (
+			is_instance_valid(owner)
+			and not owner.is_queued_for_deletion()
+			and owner.is_inside_tree()
+		)
+	)
+
+
+func _get_bgm_start_operation(request: Dictionary) -> GFBgmStartOperation:
+	var value: Variant = GFVariantData.get_option_value(request, "operation")
+	if value is GFBgmStartOperation:
+		var operation: GFBgmStartOperation = value
+		return operation
+	return null
+
+
+func _get_bgm_start_owner(request: Dictionary) -> Node:
+	var owner_ref_value: Variant = GFVariantData.get_option_value(request, "owner_ref")
+	if not owner_ref_value is WeakRef:
+		return null
+	var owner_ref: WeakRef = owner_ref_value
+	var owner_value: Variant = owner_ref.get_ref()
+	if not owner_value is Node:
+		return null
+	var owner: Node = owner_value
+	if (
+		not is_instance_valid(owner)
+		or owner.get_instance_id()
+		!= GFVariantData.get_option_int(request, "owner_instance_id")
+	):
+		return null
+	return owner
+
+
+func _pending_bgm_start_has_owner(request: Dictionary) -> bool:
+	return GFVariantData.get_option_int(request, "owner_instance_id") != 0
+
+
+func _is_pending_bgm_start_request(request_id: int) -> bool:
+	return (
+		request_id > 0
+		and GFVariantData.get_option_int(
+			_bgm_pending_start_request,
+			"request_id"
+		) == request_id
+		and _get_bgm_start_operation(_bgm_pending_start_request) != null
+	)
+
+
+func _disconnect_bgm_start_owner(request: Dictionary) -> void:
+	var owner: Node = _get_bgm_start_owner(request)
+	var callback_value: Variant = GFVariantData.get_option_value(
+		request,
+		"owner_exit_callback"
+	)
+	if owner != null and callback_value is Callable:
+		var callback: Callable = callback_value
+		if callback.is_valid() and owner.tree_exiting.is_connected(callback):
+			owner.tree_exiting.disconnect(callback)
+
+
+func _cancel_bgm_start_operation_for_framework(
+	operation: GFBgmStartOperation
+) -> bool:
+	if (
+		not Thread.is_main_thread()
+		or operation == null
+		or not operation.is_pending()
+		or not _is_pending_bgm_start_request(operation.get_request_id())
+	):
+		return false
+	return _cancel_pending_bgm_start(
+		GFBgmStartResult.Status.CANCELLED,
+		GFBgmStartResult.REASON_CALLER_CANCELLED,
+		ERR_SKIP
+	)
+
+
+func _cancel_pending_bgm_start(
+	status: GFBgmStartResult.Status,
+	reason: StringName,
+	error_code: Error
+) -> bool:
+	if _bgm_pending_start_request.is_empty():
+		return false
+	if _is_backend_dispatch_in_progress() or _has_bgm_terminal_barrier_work():
+		var intent_recorded: bool = _record_pending_bgm_terminal_intent(
+			status,
+			reason,
+			error_code
+		)
+		if _is_backend_dispatch_in_progress():
+			_schedule_deferred_audio_drain()
+		else:
+			_drain_bgm_terminal_barrier_if_needed()
+		return intent_recorded
+	var request: Dictionary = _bgm_pending_start_request
+	_bgm_pending_start_request = {}
+	_complete_bgm_pending_request(
+		GFVariantData.get_option_int(request, "pending_token")
+	)
+	return _complete_bgm_start_record(request, status, reason, error_code)
+
+
+func _freeze_pending_bgm_start_for_backend_change() -> GFBgmStartOperation:
+	if _bgm_pending_start_request.is_empty():
+		return null
+	var request: Dictionary = _bgm_pending_start_request
+	_bgm_pending_start_request = {}
+	_complete_bgm_pending_request(
+		GFVariantData.get_option_int(request, "pending_token")
+	)
+	if GFVariantData.get_option_dictionary(request, "terminal_intent").is_empty():
+		request["backend_disposition"] = (
+			GFBgmStartResult.BackendDisposition.INVALIDATED
+		)
+	return _freeze_bgm_start_record(
+		request,
+		GFBgmStartResult.Status.CANCELLED,
+		GFBgmStartResult.REASON_BACKEND_CHANGED,
+		ERR_SKIP
+	)
+
+
+func _complete_bgm_start_record(
+	request: Dictionary,
+	status: GFBgmStartResult.Status,
+	reason: StringName,
+	error_code: Error
+) -> bool:
+	var operation: GFBgmStartOperation = _freeze_bgm_start_record(
+		request,
+		status,
+		reason,
+		error_code
+	)
+	return operation != null and operation.emit_completed_for_framework()
+
+
+func _freeze_bgm_start_record(
+	request: Dictionary,
+	status: GFBgmStartResult.Status,
+	reason: StringName,
+	error_code: Error
+) -> GFBgmStartOperation:
+	var effective_status: GFBgmStartResult.Status = status
+	var effective_reason: StringName = reason
+	var effective_error_code: Error = error_code
+	var first_intent: Dictionary = GFVariantData.get_option_dictionary(
+		request,
+		"terminal_intent"
+	)
+	if not first_intent.is_empty():
+		effective_status = GFVariantData.get_option_int(
+			first_intent,
+			"status"
+		) as GFBgmStartResult.Status
+		effective_reason = GFVariantData.get_option_string_name(
+			first_intent,
+			"reason"
+		)
+		effective_error_code = GFVariantData.get_option_int(
+			first_intent,
+			"error_code"
+		) as Error
+	var operation: GFBgmStartOperation = _get_bgm_start_operation(request)
+	var disposition: GFBgmStartResult.BackendDisposition = (
+		GFVariantData.get_option_int(
+			request,
+			"backend_disposition",
+			GFBgmStartResult.BackendDisposition.NOT_ATTEMPTED
+		) as GFBgmStartResult.BackendDisposition
+	)
+	_disconnect_bgm_start_owner(request)
+	if operation == null or not operation.is_pending():
+		return null
+	var result: GFBgmStartResult = GFBgmStartResult.new()
+	if not result.configure_for_framework(
+		effective_status,
+		operation.get_request_id(),
+		effective_reason,
+		effective_error_code,
+		GFVariantData.get_option_string(request, "history_key"),
+		GFBgmSessionHandle.OwnerKind.NONE,
+		disposition
+	):
+		push_error("[GFAudioUtility] 无法配置 pending BGM start 终态。")
+		return null
+	if not operation.complete_for_framework(result, false):
+		push_error("[GFAudioUtility] 无法完成 pending BGM start Operation。")
+		return null
+	return operation
+
+
+func _record_pending_bgm_terminal_intent(
+	status: GFBgmStartResult.Status,
+	reason: StringName,
+	error_code: Error
+) -> bool:
+	if _bgm_pending_start_request.is_empty():
+		return false
+	if _bgm_pending_start_request.has("terminal_intent"):
+		return false
+	_bgm_pending_start_request["terminal_intent"] = {
+		"status": int(status),
+		"reason": reason,
+		"error_code": int(error_code),
+	}
+	if reason == GFBgmStartResult.REASON_BACKEND_CHANGED:
+		_bgm_pending_start_request["backend_disposition"] = (
+			GFBgmStartResult.BackendDisposition.INVALIDATED
+		)
+	return true
+
+
+func _pending_bgm_has_terminal_intent(request_id: int) -> bool:
+	return (
+		_is_pending_bgm_start_request(request_id)
+		and _bgm_pending_start_request.has("terminal_intent")
+	)
+
+
+func _compensate_invalidated_backend_bgm_start() -> void:
+	var expected_backend: GFAudioBackend = _audio_backend
+	if expected_backend == null:
+		return
+	var stop_result: Dictionary = _dispatch_backend_call(
+		&"stop_bgm",
+		[0.0],
+		expected_backend,
+		true
+	)
+	if not _backend_dispatch_returned_true(stop_result):
+		push_warning(
+			"[GFAudioUtility] 已失效 backend BGM start 无法完成补偿停止。"
+		)
+
+
+func _settle_invalidated_backend_bgm_start(
+	request_id: int,
+	backend_started: bool
+) -> void:
+	if not _is_pending_bgm_start_request(request_id):
+		return
+	var previous_owner: StringName = _bgm_owner
+	if backend_started:
+		_compensate_invalidated_backend_bgm_start()
+	if not _is_pending_bgm_start_request(request_id):
+		return
+	var intent: Dictionary = GFVariantData.get_option_dictionary(
+		_bgm_pending_start_request,
+		"terminal_intent"
+	)
+	if intent.is_empty():
+		return
+	var request: Dictionary = _bgm_pending_start_request
+	_bgm_pending_start_request = {}
+	_complete_bgm_pending_request(
+		GFVariantData.get_option_int(request, "pending_token")
+	)
+	request["backend_disposition"] = (
+		GFBgmStartResult.BackendDisposition.INVALIDATED
+	)
+	var operation: GFBgmStartOperation = _freeze_bgm_start_record(
+		request,
+		GFVariantData.get_option_int(intent, "status") as GFBgmStartResult.Status,
+		GFVariantData.get_option_string_name(intent, "reason"),
+		GFVariantData.get_option_int(intent, "error_code") as Error
+	)
+	var handle: GFBgmSessionHandle = null
+	var session_id: int = _bgm_committed_session_id
+	var active_intent: Dictionary = _take_deferred_bgm_session_terminal(
+		session_id
+	)
+	var active_end_kind: GFBgmSessionHandle.EndKind = (
+		GFBgmSessionHandle.EndKind.NONE
+	)
+	if not active_intent.is_empty():
+		active_end_kind = GFVariantData.get_option_int(
+			active_intent,
+			"end_kind"
+		) as GFBgmSessionHandle.EndKind
+	elif backend_started and previous_owner == _OWNER_BACKEND:
+		active_end_kind = GFBgmSessionHandle.EndKind.PLAYBACK_FAILED
+	var natural_history_key: String = ""
+	if active_end_kind != GFBgmSessionHandle.EndKind.NONE:
+		if active_end_kind == GFBgmSessionHandle.EndKind.NATURAL_FINISH:
+			natural_history_key = GFVariantData.get_option_string(
+				_get_bgm_session(session_id),
+				"history_key"
+			)
+		handle = _freeze_bgm_session_handle(session_id, active_end_kind)
+		_stop_all_local_bgm_players()
+		_clear_bgm_session_state()
+	if operation != null:
+		var _operation_emitted: bool = operation.emit_completed_for_framework()
+	if handle != null:
+		var _handle_emitted: bool = handle.emit_ended_for_framework()
+	if (
+		active_end_kind == GFBgmSessionHandle.EndKind.NATURAL_FINISH
+		and not natural_history_key.is_empty()
+	):
+		bgm_finished.emit(natural_history_key)
+
+
+func _record_deferred_bgm_session_terminal(
+	session_id: int,
+	end_kind: GFBgmSessionHandle.EndKind,
+	fade_seconds: float
+) -> bool:
+	if session_id <= 0 or end_kind == GFBgmSessionHandle.EndKind.NONE:
+		return false
+	if not _deferred_bgm_session_terminal.is_empty():
+		return false
+	_deferred_bgm_session_terminal = {
+		"session_id": session_id,
+		"end_kind": int(end_kind),
+		"fade_seconds": _finite_non_negative_or_zero(fade_seconds),
+	}
+	return true
+
+
+func _take_deferred_bgm_session_terminal(session_id: int) -> Dictionary:
+	if (
+		session_id <= 0
+		or GFVariantData.get_option_int(
+			_deferred_bgm_session_terminal,
+			"session_id"
+		) != session_id
+	):
+		return {}
+	var terminal_intent: Dictionary = _deferred_bgm_session_terminal
+	_deferred_bgm_session_terminal = {}
+	return terminal_intent
+
+
+func _take_effective_bgm_session_end_kind(
+	session_id: int,
+	fallback_end_kind: GFBgmSessionHandle.EndKind
+) -> GFBgmSessionHandle.EndKind:
+	var terminal_intent: Dictionary = _take_deferred_bgm_session_terminal(
+		session_id
+	)
+	if terminal_intent.is_empty():
+		return fallback_end_kind
+	return GFVariantData.get_option_int(
+		terminal_intent,
+		"end_kind"
+	) as GFBgmSessionHandle.EndKind
+
+
+func _emit_bgm_natural_history_if_needed(
+	end_kind: GFBgmSessionHandle.EndKind,
+	history_key: String
+) -> void:
+	if (
+		end_kind == GFBgmSessionHandle.EndKind.NATURAL_FINISH
+		and not history_key.is_empty()
+	):
+		bgm_finished.emit(history_key)
+
+
+func _capture_bgm_session_terminal_notification(
+	handle: GFBgmSessionHandle,
+	end_kind: GFBgmSessionHandle.EndKind,
+	history_key: String,
+	should_emit: bool,
+	settlement: Dictionary
+) -> void:
+	settlement["handle"] = handle
+	settlement["end_kind"] = int(end_kind)
+	settlement["history_key"] = history_key
+	if should_emit:
+		_emit_captured_bgm_session_terminal_notification(settlement)
+
+
+func _emit_captured_bgm_session_terminal_notification(
+	settlement: Dictionary
+) -> void:
+	var handle_value: Variant = GFVariantData.get_option_value(
+		settlement,
+		"handle"
+	)
+	if handle_value is GFBgmSessionHandle:
+		var handle: GFBgmSessionHandle = handle_value
+		var _handle_emitted: bool = handle.emit_ended_for_framework()
+	_emit_bgm_natural_history_if_needed(
+		GFVariantData.get_option_int(
+			settlement,
+			"end_kind",
+			GFBgmSessionHandle.EndKind.NONE
+		) as GFBgmSessionHandle.EndKind,
+		GFVariantData.get_option_string(settlement, "history_key")
+	)
+
+
+func _schedule_deferred_audio_drain() -> void:
+	if _deferred_audio_drain_scheduled:
+		return
+	_deferred_audio_drain_scheduled = true
+	call_deferred("_run_deferred_audio_dispose_if_needed")
+
+
+func _run_deferred_audio_dispose_if_needed() -> void:
+	_deferred_audio_drain_scheduled = false
+	if _is_backend_dispatch_in_progress():
+		_schedule_deferred_audio_drain()
+		return
+	if _audio_dispose_deferred:
+		_audio_dispose_deferred = false
+		_dispose_audio_now()
+		return
+	var pending_operation: GFBgmStartOperation = null
+	if (
+		not _bgm_pending_start_request.is_empty()
+		and _bgm_pending_start_request.has("terminal_intent")
+	):
+		var pending_request: Dictionary = _bgm_pending_start_request
+		_bgm_pending_start_request = {}
+		_complete_bgm_pending_request(
+			GFVariantData.get_option_int(pending_request, "pending_token")
+		)
+		var pending_intent: Dictionary = GFVariantData.get_option_dictionary(
+			pending_request,
+			"terminal_intent"
+		)
+		pending_operation = _freeze_bgm_start_record(
+			pending_request,
+			GFVariantData.get_option_int(
+				pending_intent,
+				"status"
+			) as GFBgmStartResult.Status,
+			GFVariantData.get_option_string_name(pending_intent, "reason"),
+			GFVariantData.get_option_int(
+				pending_intent,
+				"error_code"
+			) as Error
+		)
+	var terminal_intent: Dictionary = _deferred_bgm_session_terminal
+	_deferred_bgm_session_terminal = {}
+	var session_terminal_settlement: Dictionary = {}
+	if not terminal_intent.is_empty():
+		var deferred_session_id: int = GFVariantData.get_option_int(
+			terminal_intent,
+			"session_id"
+		)
+		if deferred_session_id == _bgm_committed_session_id:
+			var terminal_end_kind: GFBgmSessionHandle.EndKind = (
+				GFVariantData.get_option_int(
+					terminal_intent,
+					"end_kind"
+				) as GFBgmSessionHandle.EndKind
+			)
+			var _session_settled: bool = _stop_exact_committed_bgm_session(
+				deferred_session_id,
+				GFVariantData.get_option_float(
+					terminal_intent,
+					"fade_seconds"
+				),
+				terminal_end_kind,
+				true,
+				false,
+				session_terminal_settlement
+			)
+	if pending_operation != null:
+		var _pending_emitted: bool = (
+			pending_operation.emit_completed_for_framework()
+		)
+	if not session_terminal_settlement.is_empty():
+		_emit_captured_bgm_session_terminal_notification(
+			session_terminal_settlement
+		)
+
+
+func _consume_pending_bgm_terminal_intent(request_id: int) -> bool:
+	if not _is_pending_bgm_start_request(request_id):
+		return false
+	var intent: Dictionary = GFVariantData.get_option_dictionary(
+		_bgm_pending_start_request,
+		"terminal_intent"
+	)
+	if intent.is_empty():
+		return false
+	var request: Dictionary = _bgm_pending_start_request
+	_bgm_pending_start_request = {}
+	_complete_bgm_pending_request(
+		GFVariantData.get_option_int(request, "pending_token")
+	)
+	return _complete_bgm_start_record(
+		request,
+		GFVariantData.get_option_int(intent, "status") as GFBgmStartResult.Status,
+		GFVariantData.get_option_string_name(intent, "reason"),
+		GFVariantData.get_option_int(intent, "error_code") as Error
+	)
+
+
+func _on_bgm_start_owner_tree_exiting(request_id: int) -> void:
+	if _is_pending_bgm_start_request(request_id):
+		var _pending_cancelled: bool = _cancel_pending_bgm_start(
+			GFBgmStartResult.Status.CANCELLED,
+			GFBgmStartResult.REASON_OWNER_RELEASED,
+			ERR_SKIP
+		)
+		return
+	var session_id: int = _find_bgm_lifecycle_session_for_request(request_id)
+	if session_id > 0:
+		var _session_stop_requested: bool = _request_bgm_session_stop_by_id(
+			session_id,
+			0.0,
+			GFBgmSessionHandle.EndKind.OWNER_RELEASED
+		)
+
+
+func _dispatch_pending_bgm_path_request(request_id: int) -> void:
+	if not _is_pending_bgm_start_request(request_id):
+		return
+	if _reserve_pending_bgm_start_session_id(request_id) <= 0:
+		_fail_pending_bgm_start(
+			request_id,
+			GFBgmStartResult.REASON_LOCAL_PLAYER_REJECTED,
+			ERR_CANT_CREATE
+		)
+		return
+	var request: Dictionary = _bgm_pending_start_request
+	var backend_options: Dictionary = _make_pending_bgm_backend_options(request)
+	var backend_outcome: Dictionary = _try_typed_backend_bgm_path(
+		request_id,
+		GFVariantData.get_option_string(request, "path"),
+		backend_options
+	)
+	if not _is_pending_bgm_start_request(request_id):
+		return
+	_set_pending_bgm_backend_disposition(
+		request_id,
+		GFVariantData.get_option_int(
+			backend_outcome,
+			"disposition",
+			GFBgmStartResult.BackendDisposition.NOT_ATTEMPTED
+		) as GFBgmStartResult.BackendDisposition
+	)
+	if _pending_bgm_has_terminal_intent(request_id):
+		_set_pending_bgm_backend_disposition(
+			request_id,
+			GFBgmStartResult.BackendDisposition.INVALIDATED
+		)
+		_settle_invalidated_backend_bgm_start(
+			request_id,
+			GFVariantData.get_option_bool(backend_outcome, "started")
+		)
+		_run_deferred_audio_dispose_if_needed()
+		return
+	if GFVariantData.get_option_bool(backend_outcome, "started"):
+		_commit_pending_backend_bgm_start(request_id, {})
+		_run_deferred_audio_dispose_if_needed()
+		return
+	_load_pending_local_bgm_start(request_id, null)
+	_run_deferred_audio_dispose_if_needed()
+
+
+func _dispatch_pending_bgm_clip_request(request_id: int) -> void:
+	if not _is_pending_bgm_start_request(request_id):
+		return
+	if _reserve_pending_bgm_start_session_id(request_id) <= 0:
+		_fail_pending_bgm_start(
+			request_id,
+			GFBgmStartResult.REASON_LOCAL_PLAYER_REJECTED,
+			ERR_CANT_CREATE
+		)
+		return
+	var request: Dictionary = _bgm_pending_start_request
+	var clip_value: Variant = GFVariantData.get_option_value(request, "clip")
+	if not clip_value is GFAudioClip:
+		_fail_pending_bgm_start(
+			request_id,
+			GFBgmStartResult.REASON_INVALID_CLIP,
+			ERR_INVALID_PARAMETER,
+			GFBgmStartResult.Status.REJECTED
+		)
+		return
+	var clip: GFAudioClip = clip_value
+	var backend_outcome: Dictionary = _try_typed_backend_bgm_clip(
+		request_id,
+		clip,
+		_make_pending_bgm_backend_options(request)
+	)
+	if not _is_pending_bgm_start_request(request_id):
+		return
+	_set_pending_bgm_backend_disposition(
+		request_id,
+		GFVariantData.get_option_int(
+			backend_outcome,
+			"disposition",
+			GFBgmStartResult.BackendDisposition.NOT_ATTEMPTED
+		) as GFBgmStartResult.BackendDisposition
+	)
+	if _pending_bgm_has_terminal_intent(request_id):
+		_set_pending_bgm_backend_disposition(
+			request_id,
+			GFBgmStartResult.BackendDisposition.INVALIDATED
+		)
+		_settle_invalidated_backend_bgm_start(
+			request_id,
+			GFVariantData.get_option_bool(backend_outcome, "started")
+		)
+		_run_deferred_audio_dispose_if_needed()
+		return
+	if GFVariantData.get_option_bool(backend_outcome, "request_rejected"):
+		_fail_pending_bgm_start(
+			request_id,
+			GFBgmStartResult.REASON_INVALID_PLAYBACK_REGION,
+			ERR_INVALID_PARAMETER,
+			GFBgmStartResult.Status.REJECTED
+		)
+		_run_deferred_audio_dispose_if_needed()
+		return
+	if GFVariantData.get_option_bool(backend_outcome, "started"):
+		_commit_pending_backend_bgm_start(
+			request_id,
+			GFVariantData.get_option_dictionary(
+				backend_outcome,
+				"playback_region"
+			)
+		)
+		_run_deferred_audio_dispose_if_needed()
+		return
+	_load_pending_local_bgm_start(request_id, clip.stream)
+	_run_deferred_audio_dispose_if_needed()
+
+
+func _make_pending_bgm_backend_options(request: Dictionary) -> Dictionary:
+	var backend_options: Dictionary = {
+		"crossfade_seconds": _resolve_bgm_crossfade_seconds(
+			GFVariantData.get_option_float(request, "crossfade_seconds", -1.0)
+		),
+		"history_key": GFVariantData.get_option_string(request, "history_key"),
+		"bus_name": GFVariantData.get_option_string(
+			request,
+			"bus_name",
+			BGM_BUS_NAME
+		),
+		"volume_db": GFVariantData.get_option_float(request, "volume_db"),
+		"pitch_scale": GFVariantData.get_option_float(request, "pitch_scale", 1.0),
+	}
+	var playback_region_value: Variant = GFVariantData.get_option_value(
+		request,
+		"playback_region"
+	)
+	if playback_region_value is GFAudioPlaybackRegion:
+		var playback_region: GFAudioPlaybackRegion = playback_region_value
+		backend_options["playback_region"] = playback_region.duplicate_region()
+	return backend_options
+
+
+func _set_pending_bgm_backend_disposition(
+	request_id: int,
+	disposition: GFBgmStartResult.BackendDisposition
+) -> void:
+	if not _is_pending_bgm_start_request(request_id):
+		return
+	_bgm_pending_start_request["backend_disposition"] = disposition
+
+
+func _reserve_pending_bgm_start_session_id(request_id: int) -> int:
+	if not _is_pending_bgm_start_request(request_id):
+		return 0
+	var reserved_session_id: int = GFVariantData.get_option_int(
+		_bgm_pending_start_request,
+		"reserved_session_id"
+	)
+	if reserved_session_id > 0:
+		return reserved_session_id
+	reserved_session_id = _reserve_bgm_session_id()
+	if reserved_session_id > 0:
+		_bgm_pending_start_request["reserved_session_id"] = reserved_session_id
+	return reserved_session_id
+
+
+func _load_pending_local_bgm_start(
+	request_id: int,
+	immediate_stream: AudioStream
+) -> void:
+	if not _is_pending_bgm_start_request(request_id):
+		return
+	if immediate_stream != null:
+		_try_commit_typed_pending_local_bgm_start(request_id, immediate_stream)
+		return
+	var path: String = GFVariantData.get_option_string(
+		_bgm_pending_start_request,
+		"path"
+	)
+	if path.is_empty():
+		_fail_pending_bgm_start(
+			request_id,
+			_resolve_pending_bgm_local_failure_reason(request_id),
+			ERR_CANT_OPEN
+		)
+		return
+	var asset_util: GFAssetUtility = _get_asset_util()
+	if asset_util == null:
+		var stream: AudioStream = _get_audio_stream_value(load(path))
+		_on_bgm_start_asset_loaded(request_id, stream)
+		return
+	var invocation: GFWeakMethodInvocation = GFWeakMethodInvocation.new(
+		self,
+		&"_on_bgm_start_asset_loaded"
+	)
+	var on_loaded: Callable = func(resource: Resource) -> void:
+		var _invoke_result: Dictionary = invocation.invoke([request_id, resource])
+	asset_util.load_async(path, on_loaded)
+
+
+func _on_bgm_start_asset_loaded(request_id: int, resource: Resource) -> void:
+	if not _is_pending_bgm_start_request(request_id):
+		return
+	var stream: AudioStream = _get_audio_stream_value(resource)
+	if stream == null:
+		_fail_pending_bgm_start(
+			request_id,
+			_resolve_pending_bgm_local_failure_reason(request_id),
+			ERR_CANT_OPEN
+		)
+		return
+	_try_commit_typed_pending_local_bgm_start(request_id, stream)
+
+
+func _resolve_pending_bgm_local_failure_reason(request_id: int) -> StringName:
+	if not _is_pending_bgm_start_request(request_id):
+		return GFBgmStartResult.REASON_ASSET_LOAD_FAILED
+	var disposition: int = GFVariantData.get_option_int(
+		_bgm_pending_start_request,
+		"backend_disposition",
+		GFBgmStartResult.BackendDisposition.NOT_ATTEMPTED
+	)
+	return (
+		GFBgmStartResult.REASON_BACKEND_REJECTED_AND_LOCAL_FAILED
+		if disposition == GFBgmStartResult.BackendDisposition.REJECTED
+		else GFBgmStartResult.REASON_ASSET_LOAD_FAILED
+	)
+
+
+func _fail_pending_bgm_start(
+	request_id: int,
+	reason: StringName,
+	error_code: Error,
+	status: GFBgmStartResult.Status = GFBgmStartResult.Status.FAILED
+) -> void:
+	if not _is_pending_bgm_start_request(request_id):
+		return
+	var request: Dictionary = _bgm_pending_start_request
+	_bgm_pending_start_request = {}
+	_complete_bgm_pending_request(
+		GFVariantData.get_option_int(request, "pending_token")
+	)
+	var _completed: bool = _complete_bgm_start_record(
+		request,
+		status,
+		reason,
+		error_code
+	)
+
+
+func _try_commit_typed_pending_local_bgm_start(
+	request_id: int,
+	stream: AudioStream
+) -> void:
+	if not _is_pending_bgm_start_request(request_id):
+		return
+	if _pending_bgm_start_has_owner(_bgm_pending_start_request):
+		if _get_bgm_start_owner(_bgm_pending_start_request) == null:
+			var _pending_cancelled: bool = _cancel_pending_bgm_start(
+				GFBgmStartResult.Status.CANCELLED,
+				GFBgmStartResult.REASON_OWNER_RELEASED,
+				ERR_SKIP
+			)
+			return
+	if stream == null:
+		_fail_pending_bgm_start(
+			request_id,
+			_resolve_pending_bgm_local_failure_reason(request_id),
+			ERR_CANT_OPEN
+		)
+		return
+	var request: Dictionary = _bgm_pending_start_request
+	var playback_region_value: Variant = GFVariantData.get_option_value(
+		request,
+		"playback_region"
+	)
+	var playback_region: GFAudioPlaybackRegion = null
+	if playback_region_value is GFAudioPlaybackRegion:
+		playback_region = playback_region_value
+	var execution_plan: Dictionary = _build_local_playback_execution_plan(
+		stream,
+		playback_region,
+		&"bgm"
+	)
+	if (
+		not GFVariantData.get_option_bool(execution_plan, "accepted")
+		or _get_audio_stream_value(
+			GFVariantData.get_option_value(execution_plan, "prepared_stream")
+		) == null
+	):
+		var failure_reason: StringName = (
+			GFBgmStartResult.REASON_BACKEND_REJECTED_AND_LOCAL_FAILED
+			if GFVariantData.get_option_int(
+				request,
+				"backend_disposition"
+			) == GFBgmStartResult.BackendDisposition.REJECTED
+			else GFBgmStartResult.REASON_STREAM_UNPLAYABLE
+		)
+		_fail_pending_bgm_start(
+			request_id,
+			failure_reason,
+			ERR_CANT_OPEN
+			if failure_reason
+			== GFBgmStartResult.REASON_BACKEND_REJECTED_AND_LOCAL_FAILED
+			else ERR_INVALID_DATA
+		)
+		return
+	if not is_instance_valid(_root):
+		_fail_pending_bgm_start(
+			request_id,
+			GFBgmStartResult.REASON_LOCAL_PLAYER_REJECTED,
+			ERR_CANT_CREATE
+		)
+		return
+	var candidate: Dictionary = _prepare_typed_local_bgm_candidate(
+		request,
+		execution_plan
+	)
+	if candidate.is_empty():
+		_fail_pending_bgm_start(
+			request_id,
+			GFBgmStartResult.REASON_LOCAL_PLAYER_REJECTED,
+			ERR_CANT_CREATE
+		)
+		return
+	var candidate_player: AudioStreamPlayer = _get_bgm_candidate_player(candidate)
+	if (
+		not _is_pending_bgm_start_request(request_id)
+		or _pending_bgm_has_terminal_intent(request_id)
+		or (
+			_pending_bgm_start_has_owner(_bgm_pending_start_request)
+			and _get_bgm_start_owner(_bgm_pending_start_request) == null
+		)
+	):
+		_release_typed_bgm_candidate(candidate_player)
+		if _is_pending_bgm_start_request(request_id):
+			if not _pending_bgm_has_terminal_intent(request_id):
+				var _owner_intent_recorded: bool = (
+					_record_pending_bgm_terminal_intent(
+						GFBgmStartResult.Status.CANCELLED,
+						GFBgmStartResult.REASON_OWNER_RELEASED,
+						ERR_SKIP
+					)
+				)
+			var _intent_completed: bool = _consume_pending_bgm_terminal_intent(
+				request_id
+			)
+		return
+	request = _bgm_pending_start_request
+	var session_id: int = GFVariantData.get_option_int(
+		request,
+		"reserved_session_id"
+	)
+	if session_id <= 0:
+		_release_typed_bgm_candidate(candidate_player)
+		_fail_pending_bgm_start(
+			request_id,
+			GFBgmStartResult.REASON_LOCAL_PLAYER_REJECTED,
+			ERR_CANT_CREATE
+		)
+		return
+
+	var backend_was_released: bool = false
+	if _bgm_owner == _OWNER_BACKEND:
+		var expected_backend: GFAudioBackend = _audio_backend
+		var stop_result: Dictionary = _dispatch_backend_call(
+			&"stop_bgm",
+			[0.0],
+			expected_backend
+		)
+		backend_was_released = _backend_dispatch_returned_true(stop_result)
+		if _pending_bgm_has_terminal_intent(request_id):
+			_release_typed_bgm_candidate(candidate_player)
+			_settle_pending_local_handoff_intent(
+				request_id,
+				backend_was_released
+			)
+			_run_deferred_audio_dispose_if_needed()
+			return
+		if not backend_was_released or _audio_backend != expected_backend:
+			_release_typed_bgm_candidate(candidate_player)
+			_fail_pending_bgm_start(
+				request_id,
+				GFBgmStartResult.REASON_BACKEND_OWNER_RELEASE_FAILED,
+				ERR_UNAVAILABLE
+			)
+			return
+	if not _is_pending_bgm_start_request(request_id):
+		_release_typed_bgm_candidate(candidate_player)
+		return
+	request = _bgm_pending_start_request
+	var publication: Dictionary = _prepare_started_bgm_publication(
+		request_id,
+		session_id,
+		GFBgmSessionHandle.OwnerKind.LOCAL
+	)
+	if publication.is_empty():
+		_release_typed_bgm_candidate(candidate_player)
+		_settle_failed_bgm_publication(
+			request_id,
+			GFBgmStartResult.REASON_LOCAL_PLAYER_REJECTED,
+			GFVariantData.get_option_int(
+				_bgm_pending_start_request,
+				"backend_disposition"
+			) as GFBgmStartResult.BackendDisposition,
+			backend_was_released
+		)
+		return
+	_commit_typed_local_bgm_candidate(
+		request,
+		execution_plan,
+		candidate,
+		session_id
+	)
+	_finalize_started_bgm_publication(publication)
+
+
+func _prepare_typed_local_bgm_candidate(
+	request: Dictionary,
+	execution_plan: Dictionary
+) -> Dictionary:
+	var stream: AudioStream = _get_audio_stream_value(
+		GFVariantData.get_option_value(execution_plan, "prepared_stream")
+	)
+	if stream == null or not is_instance_valid(_root):
+		return {}
+	var player: AudioStreamPlayer = AudioStreamPlayer.new()
+	player.name = "GFBGMStandbyPlayer"
+	_connect_signal_checked(player.finished, _on_bgm_player_finished.bind(player))
+	_root.add_child(player)
+	var target_volume_db: float = GFVariantData.get_option_float(
+		request,
+		"volume_db"
+	)
+	var fade_seconds: float = _resolve_bgm_crossfade_seconds(
+		GFVariantData.get_option_float(request, "crossfade_seconds", -1.0)
+	)
+	var previous_session: Dictionary = _get_bgm_session(
+		_bgm_committed_session_id
+	)
+	var previous_player: AudioStreamPlayer = _get_bgm_session_player(
+		previous_session
+	)
+	var can_crossfade: bool = (
+		fade_seconds > 0.0
+		and _bgm_owner == _OWNER_LOCAL
+		and is_instance_valid(previous_player)
+		and previous_player.playing
+		and previous_player.stream != null
+	)
+	_apply_player_settings(
+		player,
+		stream,
+		GFVariantData.get_option_string(request, "bus_name", BGM_BUS_NAME),
+		SILENCE_VOLUME_DB,
+		GFVariantData.get_option_float(request, "pitch_scale", 1.0)
+	)
+	player.play(GFVariantData.get_option_float(execution_plan, "start_seconds"))
+	if not player.playing and not player.stream_paused:
+		_release_typed_bgm_candidate(player)
+		return {}
+	return {
+		"player": player,
+		"can_crossfade": can_crossfade,
+		"fade_seconds": fade_seconds,
+		"target_volume_db": target_volume_db,
+	}
+
+
+func _get_bgm_candidate_player(candidate: Dictionary) -> AudioStreamPlayer:
+	var value: Variant = GFVariantData.get_option_value(candidate, "player")
+	if value is AudioStreamPlayer:
+		var player: AudioStreamPlayer = value
+		return player
+	return null
+
+
+func _release_typed_bgm_candidate(player: AudioStreamPlayer) -> void:
+	if not is_instance_valid(player):
+		return
+	_stop_local_bgm_player(player)
+	player.queue_free()
+
+
+func _settle_pending_local_handoff_intent(
+	request_id: int,
+	backend_was_released: bool
+) -> void:
+	if not _is_pending_bgm_start_request(request_id):
+		return
+	var intent: Dictionary = GFVariantData.get_option_dictionary(
+		_bgm_pending_start_request,
+		"terminal_intent"
+	)
+	if intent.is_empty():
+		return
+	var request: Dictionary = _bgm_pending_start_request
+	_bgm_pending_start_request = {}
+	_complete_bgm_pending_request(
+		GFVariantData.get_option_int(request, "pending_token")
+	)
+	request["backend_disposition"] = (
+		GFBgmStartResult.BackendDisposition.INVALIDATED
+	)
+	var operation: GFBgmStartOperation = _freeze_bgm_start_record(
+		request,
+		GFVariantData.get_option_int(intent, "status") as GFBgmStartResult.Status,
+		GFVariantData.get_option_string_name(intent, "reason"),
+		GFVariantData.get_option_int(intent, "error_code") as Error
+	)
+	var session_id: int = _bgm_committed_session_id
+	var active_intent: Dictionary = _take_deferred_bgm_session_terminal(
+		session_id
+	)
+	var handle: GFBgmSessionHandle = null
+	if backend_was_released or not active_intent.is_empty():
+		var end_kind: GFBgmSessionHandle.EndKind = (
+			GFBgmSessionHandle.EndKind.PLAYBACK_FAILED
+		)
+		if not active_intent.is_empty():
+			end_kind = GFVariantData.get_option_int(
+				active_intent,
+				"end_kind"
+			) as GFBgmSessionHandle.EndKind
+		handle = _freeze_bgm_session_handle(session_id, end_kind)
+		_stop_all_local_bgm_players()
+		_clear_bgm_session_state()
+	if operation != null:
+		var _operation_emitted: bool = operation.emit_completed_for_framework()
+	if handle != null:
+		var _handle_emitted: bool = handle.emit_ended_for_framework()
+
+
+func _settle_failed_bgm_publication(
+	request_id: int,
+	reason: StringName,
+	backend_disposition: GFBgmStartResult.BackendDisposition,
+	previous_session_was_lost: bool
+) -> void:
+	if not _is_pending_bgm_start_request(request_id):
+		return
+	var request: Dictionary = _bgm_pending_start_request
+	_bgm_pending_start_request = {}
+	_complete_bgm_pending_request(
+		GFVariantData.get_option_int(request, "pending_token")
+	)
+	request["backend_disposition"] = backend_disposition
+	var operation: GFBgmStartOperation = _freeze_bgm_start_record(
+		request,
+		GFBgmStartResult.Status.FAILED,
+		reason,
+		ERR_CANT_CREATE
+	)
+	var session_id: int = _bgm_committed_session_id
+	var active_intent: Dictionary = _take_deferred_bgm_session_terminal(
+		session_id
+	)
+	var end_kind: GFBgmSessionHandle.EndKind = GFBgmSessionHandle.EndKind.NONE
+	if not active_intent.is_empty():
+		end_kind = GFVariantData.get_option_int(
+			active_intent,
+			"end_kind"
+		) as GFBgmSessionHandle.EndKind
+	elif previous_session_was_lost:
+		end_kind = GFBgmSessionHandle.EndKind.PLAYBACK_FAILED
+	var natural_history_key: String = ""
+	var handle: GFBgmSessionHandle = null
+	if end_kind != GFBgmSessionHandle.EndKind.NONE:
+		if end_kind == GFBgmSessionHandle.EndKind.NATURAL_FINISH:
+			natural_history_key = GFVariantData.get_option_string(
+				_get_bgm_session(session_id),
+				"history_key"
+			)
+		handle = _freeze_bgm_session_handle(session_id, end_kind)
+		_stop_all_local_bgm_players()
+		_clear_bgm_session_state()
+	if operation != null:
+		var _operation_emitted: bool = operation.emit_completed_for_framework()
+	if handle != null:
+		var _handle_emitted: bool = handle.emit_ended_for_framework()
+	_emit_bgm_natural_history_if_needed(end_kind, natural_history_key)
+
+
+func _commit_typed_local_bgm_candidate(
+	request: Dictionary,
+	execution_plan: Dictionary,
+	candidate: Dictionary,
+	session_id: int
+) -> void:
+	var candidate_player: AudioStreamPlayer = _get_bgm_candidate_player(candidate)
+	var previous_session_id: int = _bgm_committed_session_id
+	var previous_session: Dictionary = _get_bgm_session(previous_session_id)
+	var previous_player: AudioStreamPlayer = _get_bgm_session_player(
+		previous_session
+	)
+	var can_crossfade: bool = (
+		GFVariantData.get_option_bool(candidate, "can_crossfade")
+		and is_instance_valid(previous_player)
+		and previous_player.playing
+	)
+	_bgm_request_serial += 1
+	_bgm_generation += 1
+	_bgm_pause_serial += 1
+	_bgm_fade_serial += 1
+	_cancel_bgm_fade_tween()
+	_cancel_bgm_stop_tween()
+	_cancel_bgm_transport_tween()
+	_bgm_paused = false
+	var prior_primary: AudioStreamPlayer = _bgm_player
+	var prior_fade: AudioStreamPlayer = _bgm_fade_player
+	for old_player: AudioStreamPlayer in [prior_primary, prior_fade]:
+		if (
+			is_instance_valid(old_player)
+			and old_player != candidate_player
+			and (not can_crossfade or old_player != previous_player)
+		):
+			_remove_bgm_session_for_player(old_player, true)
+			_stop_local_bgm_player(old_player)
+			old_player.queue_free()
+	if not can_crossfade:
+		_bgm_sessions.clear()
+		_bgm_current_session_id = 0
+		_bgm_incoming_session_id = 0
+	_install_local_bgm_session(
+		session_id,
+		candidate_player,
+		_bgm_request_serial,
+		GFVariantData.get_option_string(request, "history_key"),
+		GFVariantData.get_option_float(candidate, "target_volume_db"),
+		GFVariantData.get_option_dictionary(execution_plan, "playback_region"),
+		&"incoming" if can_crossfade else &"current"
+	)
+	_bgm_owner = _OWNER_LOCAL
+	_current_bgm_region = GFVariantData.get_option_dictionary(
+		execution_plan,
+		"playback_region"
+	).duplicate(true)
+	if can_crossfade:
+		_set_bgm_session_role(previous_session_id, &"outgoing")
+		_bgm_player = previous_player
+		_bgm_fade_player = candidate_player
+		_bgm_current_session_id = previous_session_id
+		_bgm_incoming_session_id = session_id
+		_bgm_state = _STATE_CROSSFADING
+		_start_committed_bgm_crossfade(
+			previous_session_id,
+			session_id,
+			GFVariantData.get_option_float(candidate, "target_volume_db"),
+			GFVariantData.get_option_float(candidate, "fade_seconds")
+		)
+	else:
+		candidate_player.volume_db = GFVariantData.get_option_float(
+			candidate,
+			"target_volume_db"
+		)
+		_bgm_player = candidate_player
+		_bgm_fade_player = AudioStreamPlayer.new()
+		_bgm_fade_player.name = "GFBGMFadePlayer"
+		_bgm_fade_player.bus = _resolve_bus_name(BGM_BUS_NAME)
+		_connect_signal_checked(
+			_bgm_fade_player.finished,
+			_on_bgm_player_finished.bind(_bgm_fade_player)
+		)
+		_root.add_child(_bgm_fade_player)
+		_bgm_current_session_id = session_id
+		_bgm_incoming_session_id = 0
+		_bgm_state = _STATE_PLAYING
+	_record_bgm_history(GFVariantData.get_option_string(request, "history_key"))
+
+
+func _start_committed_bgm_crossfade(
+	outgoing_session_id: int,
+	incoming_session_id: int,
+	target_volume_db: float,
+	fade_seconds: float
+) -> void:
+	var fade_serial: int = _bgm_fade_serial
+	var operation_generation: int = _bgm_generation
+	var tween: Tween = _create_tween_or_null()
+	if tween == null:
+		_complete_bgm_crossfade(
+			operation_generation,
+			fade_serial,
+			outgoing_session_id,
+			incoming_session_id,
+			target_volume_db
+		)
+		return
+	_bgm_fade_tween_ref = weakref(tween)
+	_add_tween_property(tween, _bgm_player, "volume_db", SILENCE_VOLUME_DB, fade_seconds)
+	var parallel_tween: Tween = tween.parallel()
+	_add_tween_property(
+		parallel_tween,
+		_bgm_fade_player,
+		"volume_db",
+		target_volume_db,
+		fade_seconds
+	)
+	_connect_signal_checked(
+		tween.finished,
+		_complete_bgm_crossfade.bind(
+			operation_generation,
+			fade_serial,
+			outgoing_session_id,
+			incoming_session_id,
+			target_volume_db
+		),
+		CONNECT_ONE_SHOT
+	)
+
+
+func _commit_pending_backend_bgm_start(
+	request_id: int,
+	playback_region: Dictionary
+) -> void:
+	if not _is_pending_bgm_start_request(request_id):
+		return
+	if _pending_bgm_start_has_owner(_bgm_pending_start_request):
+		if _get_bgm_start_owner(_bgm_pending_start_request) == null:
+			_set_pending_bgm_backend_disposition(
+				request_id,
+				GFBgmStartResult.BackendDisposition.INVALIDATED
+			)
+			var _intent_recorded: bool = _record_pending_bgm_terminal_intent(
+				GFBgmStartResult.Status.CANCELLED,
+				GFBgmStartResult.REASON_OWNER_RELEASED,
+				ERR_SKIP
+			)
+			_settle_invalidated_backend_bgm_start(request_id, true)
+			return
+	var request: Dictionary = _bgm_pending_start_request
+	var previous_owner: StringName = _bgm_owner
+	var session_id: int = GFVariantData.get_option_int(
+		request,
+		"reserved_session_id"
+	)
+	if session_id <= 0:
+		_settle_backend_bgm_publication_failure(request_id, previous_owner)
+		return
+	var publication: Dictionary = _prepare_started_bgm_publication(
+		request_id,
+		session_id,
+		GFBgmSessionHandle.OwnerKind.BACKEND
+	)
+	if publication.is_empty():
+		_settle_backend_bgm_publication_failure(request_id, previous_owner)
+		return
+	_bgm_request_serial += 1
+	_bgm_generation += 1
+	_bgm_pause_serial += 1
+	_cancel_bgm_fade_tween()
+	_cancel_bgm_stop_tween()
+	_cancel_bgm_transport_tween()
+	_bgm_paused = false
+	if previous_owner == _OWNER_LOCAL:
+		_stop_all_local_bgm_players()
+	_bgm_sessions.clear()
+	_bgm_sessions[session_id] = {
+		"id": session_id,
+		"request_serial": _bgm_request_serial,
+		"history_key": GFVariantData.get_option_string(request, "history_key"),
+		"target_volume_db": 0.0,
+		"playback_region": playback_region.duplicate(true),
+		"role": &"current",
+		"player": null,
+	}
+	_bgm_owner = _OWNER_BACKEND
+	_bgm_state = _STATE_PLAYING
+	_bgm_current_session_id = session_id
+	_bgm_incoming_session_id = 0
+	_current_bgm_region = playback_region.duplicate(true)
+	_record_bgm_history(GFVariantData.get_option_string(request, "history_key"))
+	_finalize_started_bgm_publication(publication)
+
+
+func _settle_backend_bgm_publication_failure(
+	request_id: int,
+	previous_owner: StringName
+) -> void:
+	if not _is_pending_bgm_start_request(request_id):
+		return
+	_set_pending_bgm_backend_disposition(
+		request_id,
+		GFBgmStartResult.BackendDisposition.INVALIDATED
+	)
+	var _failure_intent_recorded: bool = _record_pending_bgm_terminal_intent(
+		GFBgmStartResult.Status.FAILED,
+		GFBgmStartResult.REASON_SESSION_PUBLICATION_FAILED,
+		ERR_CANT_CREATE
+	)
+	var previous_session_was_lost: bool = previous_owner == _OWNER_BACKEND
+	if previous_session_was_lost:
+		var _active_failure_recorded: bool = (
+			_record_deferred_bgm_session_terminal(
+				_bgm_committed_session_id,
+				GFBgmSessionHandle.EndKind.PLAYBACK_FAILED,
+				0.0
+			)
+		)
+	_compensate_invalidated_backend_bgm_start()
+	_settle_failed_bgm_publication(
+		request_id,
+		GFBgmStartResult.REASON_SESSION_PUBLICATION_FAILED,
+		GFBgmStartResult.BackendDisposition.INVALIDATED,
+		previous_session_was_lost
+	)
+
+
+func _prepare_started_bgm_publication(
+	request_id: int,
+	session_id: int,
+	owner_kind: GFBgmSessionHandle.OwnerKind
+) -> Dictionary:
+	if not _is_pending_bgm_start_request(request_id) or session_id <= 0:
+		return {}
+	var request: Dictionary = _bgm_pending_start_request
+	var operation: GFBgmStartOperation = _get_bgm_start_operation(request)
+	if operation == null or not operation.is_pending():
+		return {}
+	var history_key: String = GFVariantData.get_option_string(request, "history_key")
+	var handle: GFBgmSessionHandle = GFBgmSessionHandle.new()
+	if not handle.configure_for_framework(
+		session_id,
+		request_id,
+		history_key,
+		owner_kind,
+		Callable(self, "_request_bgm_session_stop_for_framework")
+	):
+		push_error("[GFAudioUtility] 无法配置 BGM Session Handle。")
+		return {}
+	var disposition: GFBgmStartResult.BackendDisposition = (
+		GFVariantData.get_option_int(
+			request,
+			"backend_disposition"
+		) as GFBgmStartResult.BackendDisposition
+	)
+	var started_reason: StringName = GFBgmStartResult.REASON_LOCAL_STARTED
+	if owner_kind == GFBgmSessionHandle.OwnerKind.BACKEND:
+		started_reason = GFBgmStartResult.REASON_BACKEND_STARTED
+	elif disposition in [
+		GFBgmStartResult.BackendDisposition.NOT_CLAIMED,
+		GFBgmStartResult.BackendDisposition.REJECTED,
+	]:
+		started_reason = GFBgmStartResult.REASON_BACKEND_FALLBACK_STARTED
+	var result: GFBgmStartResult = GFBgmStartResult.new()
+	if not result.configure_for_framework(
+		GFBgmStartResult.Status.STARTED,
+		request_id,
+		started_reason,
+		OK,
+		history_key,
+		owner_kind,
+		disposition,
+		handle
+	):
+		push_error("[GFAudioUtility] 无法配置 STARTED BGM 终态。")
+		return {}
+	if not operation.complete_for_framework(result, false):
+		push_error("[GFAudioUtility] 无法冻结 STARTED BGM Operation。")
+		return {}
+	var previous_session_id: int = _bgm_committed_session_id
+	var previous_end_kind: GFBgmSessionHandle.EndKind = (
+		GFBgmSessionHandle.EndKind.REPLACED
+	)
+	var previous_terminal_intent: Dictionary = (
+		_take_deferred_bgm_session_terminal(previous_session_id)
+	)
+	if not previous_terminal_intent.is_empty():
+		previous_end_kind = GFVariantData.get_option_int(
+			previous_terminal_intent,
+			"end_kind"
+		) as GFBgmSessionHandle.EndKind
+	return {
+		"request": request,
+		"operation": operation,
+		"handle": handle,
+		"session_id": session_id,
+		"previous_session_id": previous_session_id,
+		"previous_end_kind": int(previous_end_kind),
+		"previous_history_key": GFVariantData.get_option_string(
+			_get_bgm_session(previous_session_id),
+			"history_key"
+		),
+	}
+
+
+func _finalize_started_bgm_publication(publication: Dictionary) -> void:
+	var request: Dictionary = GFVariantData.get_option_dictionary(
+		publication,
+		"request"
+	)
+	var operation_value: Variant = GFVariantData.get_option_value(
+		publication,
+		"operation"
+	)
+	var handle_value: Variant = GFVariantData.get_option_value(
+		publication,
+		"handle"
+	)
+	if not operation_value is GFBgmStartOperation:
+		return
+	if not handle_value is GFBgmSessionHandle:
+		return
+	var operation: GFBgmStartOperation = operation_value
+	var handle: GFBgmSessionHandle = handle_value
+	var session_id: int = GFVariantData.get_option_int(publication, "session_id")
+	var previous_session_id: int = GFVariantData.get_option_int(
+		publication,
+		"previous_session_id"
+	)
+	_register_bgm_session_lifecycle(session_id, request, handle)
+	_bgm_committed_session_id = session_id
+	_bgm_pending_start_request = {}
+	_complete_bgm_pending_request(
+		GFVariantData.get_option_int(request, "pending_token")
+	)
+	var previous_handle: GFBgmSessionHandle = null
+	var previous_end_kind: GFBgmSessionHandle.EndKind = (
+		GFVariantData.get_option_int(
+			publication,
+			"previous_end_kind",
+			GFBgmSessionHandle.EndKind.REPLACED
+		) as GFBgmSessionHandle.EndKind
+	)
+	if previous_session_id > 0 and previous_session_id != session_id:
+		previous_handle = _freeze_bgm_session_handle(
+			previous_session_id,
+			previous_end_kind
+		)
+	var _operation_emitted: bool = operation.emit_completed_for_framework()
+	if previous_handle != null:
+		var _previous_emitted: bool = previous_handle.emit_ended_for_framework()
+	if previous_end_kind == GFBgmSessionHandle.EndKind.NATURAL_FINISH:
+		var previous_history_key: String = GFVariantData.get_option_string(
+			publication,
+			"previous_history_key"
+		)
+		if not previous_history_key.is_empty():
+			bgm_finished.emit(previous_history_key)
+
+
+func _register_bgm_session_lifecycle(
+	session_id: int,
+	request: Dictionary,
+	handle: GFBgmSessionHandle
+) -> void:
+	_bgm_session_lifecycles[session_id] = {
+		"request_id": GFVariantData.get_option_int(request, "request_id"),
+		"handle_ref": weakref(handle),
+		"owner_ref": GFVariantData.get_option_value(request, "owner_ref"),
+		"owner_instance_id": GFVariantData.get_option_int(
+			request,
+			"owner_instance_id"
+		),
+		"owner_exit_callback": GFVariantData.get_option_value(
+			request,
+			"owner_exit_callback"
+		),
+	}
+
+
+func _get_bgm_session_handle(session_id: int) -> GFBgmSessionHandle:
+	var lifecycle: Dictionary = GFVariantData.as_dictionary(
+		_bgm_session_lifecycles.get(session_id)
+	)
+	var handle_ref_value: Variant = GFVariantData.get_option_value(
+		lifecycle,
+		"handle_ref"
+	)
+	if handle_ref_value is WeakRef:
+		var handle_ref: WeakRef = handle_ref_value
+		var handle_value: Variant = handle_ref.get_ref()
+		if handle_value is GFBgmSessionHandle:
+			var handle: GFBgmSessionHandle = handle_value
+			return handle
+	return null
+
+
+func _freeze_bgm_session_handle(
+	session_id: int,
+	end_kind: GFBgmSessionHandle.EndKind
+) -> GFBgmSessionHandle:
+	var effective_end_kind: GFBgmSessionHandle.EndKind = (
+		_take_effective_bgm_session_end_kind(session_id, end_kind)
+	)
+	var lifecycle: Dictionary = GFVariantData.as_dictionary(
+		_bgm_session_lifecycles.get(session_id)
+	)
+	var handle: GFBgmSessionHandle = _get_bgm_session_handle(session_id)
+	_disconnect_bgm_session_owner(lifecycle)
+	var _erased: bool = _bgm_session_lifecycles.erase(session_id)
+	if _bgm_committed_session_id == session_id:
+		_bgm_committed_session_id = 0
+	if handle != null and handle.is_active():
+		if handle.complete_for_framework(effective_end_kind, false):
+			return handle
+	return null
+
+
+func _complete_bgm_session_handle(
+	session_id: int,
+	end_kind: GFBgmSessionHandle.EndKind
+) -> bool:
+	var handle: GFBgmSessionHandle = _freeze_bgm_session_handle(
+		session_id,
+		end_kind
+	)
+	return handle != null and handle.emit_ended_for_framework()
+
+
+func _complete_all_bgm_session_handles(
+	end_kind: GFBgmSessionHandle.EndKind
+) -> void:
+	var handles: Array[GFBgmSessionHandle] = _freeze_all_bgm_session_handles(
+		end_kind
+	)
+	_emit_bgm_session_handles(handles)
+
+
+func _freeze_all_bgm_session_handles(
+	end_kind: GFBgmSessionHandle.EndKind
+) -> Array[GFBgmSessionHandle]:
+	var handles: Array[GFBgmSessionHandle] = []
+	var session_ids: Array = _bgm_session_lifecycles.keys()
+	session_ids.sort()
+	for session_id_value: Variant in session_ids:
+		var handle: GFBgmSessionHandle = _freeze_bgm_session_handle(
+			GFVariantData.to_int(session_id_value),
+			end_kind
+		)
+		if handle != null:
+			handles.append(handle)
+	_bgm_session_lifecycles.clear()
+	_bgm_committed_session_id = 0
+	return handles
+
+
+func _emit_bgm_session_handles(handles: Array[GFBgmSessionHandle]) -> void:
+	for handle: GFBgmSessionHandle in handles:
+		var _emitted: bool = handle.emit_ended_for_framework()
+
+
+func _disconnect_bgm_session_owner(lifecycle: Dictionary) -> void:
+	var owner_ref_value: Variant = GFVariantData.get_option_value(
+		lifecycle,
+		"owner_ref"
+	)
+	var callback_value: Variant = GFVariantData.get_option_value(
+		lifecycle,
+		"owner_exit_callback"
+	)
+	if not owner_ref_value is WeakRef or not callback_value is Callable:
+		return
+	var owner_ref: WeakRef = owner_ref_value
+	var owner_value: Variant = owner_ref.get_ref()
+	if owner_value is Node:
+		var owner: Node = owner_value
+		var callback: Callable = callback_value
+		if callback.is_valid() and owner.tree_exiting.is_connected(callback):
+			owner.tree_exiting.disconnect(callback)
+
+
+func _find_bgm_lifecycle_session_for_request(request_id: int) -> int:
+	for session_id_value: Variant in _bgm_session_lifecycles.keys():
+		var session_id: int = GFVariantData.to_int(session_id_value)
+		var lifecycle: Dictionary = GFVariantData.as_dictionary(
+			_bgm_session_lifecycles.get(session_id)
+		)
+		if GFVariantData.get_option_int(lifecycle, "request_id") == request_id:
+			return session_id
+	return 0
+
+
+func _request_bgm_session_stop_for_framework(
+	handle: GFBgmSessionHandle,
+	fade_seconds: float
+) -> bool:
+	if (
+		not Thread.is_main_thread()
+		or handle == null
+		or not handle.is_active()
+		or handle.get_session_id() != _bgm_committed_session_id
+	):
+		return false
+	return _request_bgm_session_stop_by_id(
+		handle.get_session_id(),
+		fade_seconds,
+		GFBgmSessionHandle.EndKind.STOPPED
+	)
+
+
+func _request_bgm_session_stop_by_id(
+	session_id: int,
+	fade_seconds: float,
+	end_kind: GFBgmSessionHandle.EndKind
+) -> bool:
+	if session_id <= 0 or session_id != _bgm_committed_session_id:
+		return false
+	if _is_backend_dispatch_in_progress():
+		var accepted: bool = _record_deferred_bgm_session_terminal(
+			session_id,
+			end_kind,
+			fade_seconds
+		)
+		if accepted:
+			_schedule_deferred_audio_drain()
+		return accepted
+	var pending_terminal_waiting: bool = (
+		not _bgm_pending_start_request.is_empty()
+		and _bgm_pending_start_request.has("terminal_intent")
+	)
+	var active_terminal_waiting: bool = (
+		GFVariantData.get_option_int(
+			_deferred_bgm_session_terminal,
+			"session_id"
+		) == session_id
+	)
+	if (
+		_audio_dispose_deferred
+		or pending_terminal_waiting
+		or active_terminal_waiting
+	):
+		var terminal_intent_recorded: bool = (
+			_record_deferred_bgm_session_terminal(
+				session_id,
+				end_kind,
+				fade_seconds
+			)
+		)
+		_run_deferred_audio_dispose_if_needed()
+		return terminal_intent_recorded
+	return _stop_exact_committed_bgm_session(session_id, fade_seconds, end_kind)
+
+
+func _stop_exact_committed_bgm_session(
+	session_id: int,
+	fade_seconds: float,
+	end_kind: GFBgmSessionHandle.EndKind,
+	accepted_deferred: bool = false,
+	should_emit_terminal: bool = true,
+	terminal_settlement: Dictionary = {}
+) -> bool:
+	if (
+		_is_backend_dispatch_in_progress()
+		or session_id <= 0
+		or session_id != _bgm_committed_session_id
+	):
+		return false
+	var first_terminal_intent: Dictionary = (
+		_take_deferred_bgm_session_terminal(session_id)
+	)
+	var effective_end_kind: GFBgmSessionHandle.EndKind = end_kind
+	var effective_fade_seconds: float = fade_seconds
+	if not first_terminal_intent.is_empty():
+		effective_end_kind = GFVariantData.get_option_int(
+			first_terminal_intent,
+			"end_kind"
+		) as GFBgmSessionHandle.EndKind
+		effective_fade_seconds = GFVariantData.get_option_float(
+			first_terminal_intent,
+			"fade_seconds"
+		)
+	var effective_was_deferred: bool = (
+		accepted_deferred or not first_terminal_intent.is_empty()
+	)
+	var natural_history_key: String = ""
+	if effective_end_kind == GFBgmSessionHandle.EndKind.NATURAL_FINISH:
+		natural_history_key = GFVariantData.get_option_string(
+			_get_bgm_session(session_id),
+			"history_key"
+		)
+	var safe_fade: float = _finite_non_negative_or_zero(
+		effective_fade_seconds
+	)
+	var previous_state: StringName = _bgm_state
+	var previous_paused: bool = _bgm_paused
+	_bgm_request_serial += 1
+	_bgm_generation += 1
+	var operation_generation: int = _bgm_generation
+	_bgm_pause_serial += 1
+	_cancel_bgm_fade_tween()
+	_cancel_bgm_stop_tween()
+	_cancel_bgm_transport_tween()
+	_bgm_paused = false
+	if _bgm_owner == _OWNER_BACKEND:
+		var backend_stopped: bool = true
+		var later_terminal_intent: Dictionary = {}
+		if effective_end_kind != GFBgmSessionHandle.EndKind.NATURAL_FINISH:
+			backend_stopped = _notify_backend_stop_bgm(safe_fade)
+			later_terminal_intent = _take_deferred_bgm_session_terminal(
+				session_id
+			)
+		if not backend_stopped:
+			_bgm_state = previous_state
+			_bgm_paused = previous_paused
+			if (
+				not effective_was_deferred
+				and later_terminal_intent.is_empty()
+				and effective_end_kind not in [
+					GFBgmSessionHandle.EndKind.OWNER_RELEASED,
+					GFBgmSessionHandle.EndKind.UTILITY_DISPOSED,
+				]
+			):
+				return false
+			push_warning(
+				"[GFAudioUtility] backend 拒绝停止已接纳的 BGM 终态；"
+				+ "框架将终结逻辑 Session Handle 并解除 owner。"
+			)
+		var handle: GFBgmSessionHandle = _freeze_bgm_session_handle(
+			session_id,
+			effective_end_kind
+		)
+		_stop_all_local_bgm_players()
+		_clear_bgm_session_state()
+		_capture_bgm_session_terminal_notification(
+			handle,
+			effective_end_kind,
+			natural_history_key,
+			should_emit_terminal,
+			terminal_settlement
+		)
+		return true
+
+	if (
+		_bgm_state == _STATE_CROSSFADING
+		or session_id != _bgm_current_session_id
+	):
+		var crossfade_handle: GFBgmSessionHandle = _freeze_bgm_session_handle(
+			session_id,
+			effective_end_kind
+		)
+		_stop_all_local_bgm_players()
+		_clear_bgm_session_state()
+		_capture_bgm_session_terminal_notification(
+			crossfade_handle,
+			effective_end_kind,
+			natural_history_key,
+			should_emit_terminal,
+			terminal_settlement
+		)
+		return true
+	_current_bgm_key = ""
+	_current_bgm_region.clear()
+	var session: Dictionary = _get_bgm_session(_bgm_current_session_id)
+	var player: AudioStreamPlayer = _get_bgm_session_player(session)
+	if _bgm_owner != _OWNER_LOCAL or not is_instance_valid(player):
+		var missing_handle: GFBgmSessionHandle = _freeze_bgm_session_handle(
+			session_id,
+			effective_end_kind
+		)
+		_stop_all_local_bgm_players()
+		_clear_bgm_session_state()
+		_capture_bgm_session_terminal_notification(
+			missing_handle,
+			effective_end_kind,
+			natural_history_key,
+			should_emit_terminal,
+			terminal_settlement
+		)
+		return true
+
+	_bgm_state = _STATE_STOPPING
+	player.stream_paused = false
+	var local_handle: GFBgmSessionHandle = _freeze_bgm_session_handle(
+		session_id,
+		effective_end_kind
+	)
+	_start_bgm_session_stop(
+		player,
+		_bgm_current_session_id,
+		operation_generation,
+		safe_fade
+	)
+	_capture_bgm_session_terminal_notification(
+		local_handle,
+		effective_end_kind,
+		natural_history_key,
+		should_emit_terminal,
+		terminal_settlement
+	)
+	return true
+
+
+func _stop_untracked_bgm_physical(fade_seconds: float) -> void:
+	var previous_state: StringName = _bgm_state
+	var previous_paused: bool = _bgm_paused
+	_invalidate_bgm_pending_request()
+	_bgm_request_serial += 1
+	_bgm_generation += 1
+	var operation_generation: int = _bgm_generation
+	_bgm_pause_serial += 1
+	_cancel_bgm_fade_tween()
+	_cancel_bgm_stop_tween()
+	_cancel_bgm_transport_tween()
+	_bgm_paused = false
+	if _bgm_owner == _OWNER_BACKEND:
+		if not _notify_backend_stop_bgm(fade_seconds):
+			_bgm_state = previous_state
+			_bgm_paused = previous_paused
+			return
+		_stop_all_local_bgm_players()
+		_clear_bgm_session_state()
+		return
+
+	_cancel_bgm_incoming_session()
+	_current_bgm_key = ""
+	_current_bgm_region.clear()
+	var session: Dictionary = _get_bgm_session(_bgm_current_session_id)
+	var player: AudioStreamPlayer = _get_bgm_session_player(session)
+	if _bgm_owner != _OWNER_LOCAL or not is_instance_valid(player):
+		_stop_all_local_bgm_players()
+		_clear_bgm_session_state()
+		return
+	_bgm_state = _STATE_STOPPING
+	player.stream_paused = false
+	_start_bgm_session_stop(
+		player,
+		_bgm_current_session_id,
+		operation_generation,
+		fade_seconds
 	)
 
 
@@ -6407,15 +8989,21 @@ func _commit_backend_bgm_session(
 	request_serial: int,
 	history_key: String,
 	playback_region: Dictionary = {}
-) -> void:
+) -> int:
 	if request_serial != _bgm_request_serial:
-		return
+		return 0
 	if _bgm_owner == _OWNER_LOCAL:
 		_stop_all_local_bgm_players()
 	_bgm_owner = _OWNER_BACKEND
 	_bgm_state = _STATE_PLAYING
 	_current_bgm_region = playback_region.duplicate(true)
+	_bgm_current_session_id = _create_backend_bgm_session(
+		request_serial,
+		history_key,
+		playback_region
+	)
 	_record_bgm_history(history_key)
+	return _bgm_current_session_id
 
 
 func _is_backend_bgm_session_current(
@@ -6436,20 +9024,6 @@ func _is_backend_bgm_session_current(
 	)
 
 
-func _commit_backend_bgm_natural_end(history_key: String) -> void:
-	_bgm_request_serial += 1
-	_bgm_generation += 1
-	_bgm_fade_serial += 1
-	_bgm_pause_serial += 1
-	_cancel_bgm_fade_tween()
-	_cancel_bgm_stop_tween()
-	_cancel_bgm_transport_tween()
-	_stop_all_local_bgm_players()
-	_clear_bgm_session_state()
-	if not history_key.is_empty():
-		bgm_finished.emit(history_key)
-
-
 func _commit_local_bgm_request(
 	request_serial: int,
 	stream: AudioStream,
@@ -6459,9 +9033,9 @@ func _commit_local_bgm_request(
 	crossfade_seconds: float,
 	history_key: String,
 	playback_region: GFAudioPlaybackRegion = null
-) -> void:
+) -> int:
 	if request_serial != _bgm_request_serial:
-		return
+		return 0
 	var execution_plan: Dictionary = _build_local_playback_execution_plan(
 		stream,
 		playback_region,
@@ -6469,8 +9043,8 @@ func _commit_local_bgm_request(
 	)
 	if not GFVariantData.get_option_bool(execution_plan, "accepted"):
 		_restore_bgm_state_after_failed_request(request_serial)
-		return
-	_commit_local_bgm_execution_plan(
+		return 0
+	return _commit_local_bgm_execution_plan(
 		request_serial,
 		execution_plan,
 		bus_name,
@@ -6488,10 +9062,11 @@ func _commit_local_bgm_execution_plan(
 	volume_db: float,
 	pitch_scale: float,
 	crossfade_seconds: float,
-	history_key: String
-) -> void:
+	history_key: String,
+	backend_already_released: bool = false
+) -> int:
 	if request_serial != _bgm_request_serial:
-		return
+		return 0
 	var prepared_stream: AudioStream = _get_audio_stream_value(
 		GFVariantData.get_option_value(execution_plan, "prepared_stream")
 	)
@@ -6501,7 +9076,7 @@ func _commit_local_bgm_execution_plan(
 		or not is_instance_valid(_bgm_player)
 	):
 		_restore_bgm_state_after_failed_request(request_serial)
-		return
+		return 0
 	var start_seconds: float = GFVariantData.get_option_float(
 		execution_plan,
 		"start_seconds"
@@ -6512,9 +9087,9 @@ func _commit_local_bgm_execution_plan(
 	)
 
 	if _bgm_owner == _OWNER_BACKEND:
-		if not _notify_backend_stop_bgm(0.0):
+		if not backend_already_released and not _notify_backend_stop_bgm(0.0):
 			_restore_bgm_state_after_failed_request(request_serial)
-			return
+			return 0
 		_clear_bgm_session_state()
 	_bgm_owner = _OWNER_LOCAL
 	_current_bgm_region = playback_region_snapshot.duplicate(true)
@@ -6527,8 +9102,7 @@ func _commit_local_bgm_execution_plan(
 		and current_player.playing
 		and current_player.stream != null
 	):
-		_record_bgm_history(history_key)
-		_start_bgm_crossfade(
+		return _start_bgm_crossfade(
 			request_serial,
 			prepared_stream,
 			bus_name,
@@ -6539,7 +9113,6 @@ func _commit_local_bgm_execution_plan(
 			playback_region_snapshot,
 			start_seconds
 		)
-		return
 
 	_stop_all_local_bgm_players()
 	_bgm_owner = _OWNER_LOCAL
@@ -6555,6 +9128,7 @@ func _commit_local_bgm_execution_plan(
 	_bgm_player.play(start_seconds)
 	_bgm_state = _STATE_PLAYING
 	_record_bgm_history(history_key)
+	return _bgm_current_session_id
 
 
 func _try_commit_pending_local_bgm_request(
@@ -6582,7 +9156,7 @@ func _try_commit_pending_local_bgm_request(
 	var request_serial: int = _begin_bgm_replacement(pending_token)
 	if request_serial <= 0:
 		return
-	_commit_local_bgm_execution_plan(
+	var _session_id: int = _commit_local_bgm_execution_plan(
 		request_serial,
 		execution_plan,
 		bus_name,
@@ -6602,7 +9176,7 @@ func _apply_bgm_request(
 	if request_serial != _bgm_request_serial:
 		return
 
-	_commit_local_bgm_request(
+	var _session_id: int = _commit_local_bgm_request(
 		request_serial,
 		stream,
 		BGM_BUS_NAME,
@@ -6626,7 +9200,7 @@ func _apply_bgm_request_with_settings(
 	if request_serial != _bgm_request_serial:
 		return
 
-	_commit_local_bgm_request(
+	var _session_id: int = _commit_local_bgm_request(
 		request_serial,
 		stream,
 		bus_name,
@@ -6648,7 +9222,7 @@ func _start_bgm_crossfade(
 	history_key: String,
 	playback_region: Dictionary,
 	start_seconds: float
-) -> void:
+) -> int:
 	if not is_instance_valid(_bgm_fade_player):
 		_stop_all_local_bgm_players()
 		_bgm_owner = _OWNER_LOCAL
@@ -6663,7 +9237,8 @@ func _start_bgm_crossfade(
 		)
 		_bgm_player.play(start_seconds)
 		_bgm_state = _STATE_PLAYING
-		return
+		_record_bgm_history(history_key)
+		return _bgm_current_session_id
 
 	_bgm_fade_serial += 1
 	var fade_serial: int = _bgm_fade_serial
@@ -6683,6 +9258,7 @@ func _start_bgm_crossfade(
 	var incoming_session_id: int = _bgm_incoming_session_id
 	_bgm_fade_player.play(start_seconds)
 	_bgm_state = _STATE_CROSSFADING
+	_record_bgm_history(history_key)
 
 	var tween: Tween = _create_tween_or_null()
 	if tween == null:
@@ -6693,7 +9269,7 @@ func _start_bgm_crossfade(
 			incoming_session_id,
 			volume_db
 		)
-		return
+		return incoming_session_id
 
 	_bgm_fade_tween_ref = weakref(tween)
 	_add_tween_property(tween, _bgm_player, "volume_db", -80.0, fade_seconds)
@@ -6708,6 +9284,7 @@ func _start_bgm_crossfade(
 			volume_db
 		)
 	_connect_signal_checked(tween.finished, finished_callback, CONNECT_ONE_SHOT)
+	return incoming_session_id
 
 
 func _complete_bgm_crossfade(
@@ -6717,6 +9294,7 @@ func _complete_bgm_crossfade(
 	incoming_session_id: int,
 	target_volume_db: float
 ) -> void:
+	_drain_bgm_terminal_barrier_if_needed()
 	if (
 		operation_generation != _bgm_generation
 		or fade_serial != _bgm_fade_serial
@@ -6728,7 +9306,17 @@ func _complete_bgm_crossfade(
 	var incoming_session: Dictionary = _get_bgm_session(incoming_session_id)
 	var incoming_player: AudioStreamPlayer = _get_bgm_session_player(incoming_session)
 	if not is_instance_valid(incoming_player) or not incoming_player.playing:
-		_abort_bgm_incoming_session(true)
+		if incoming_session_id == _bgm_committed_session_id:
+			var handle: GFBgmSessionHandle = _freeze_bgm_session_handle(
+				incoming_session_id,
+				GFBgmSessionHandle.EndKind.PLAYBACK_FAILED
+			)
+			_stop_all_local_bgm_players()
+			_clear_bgm_session_state()
+			if handle != null:
+				var _emitted: bool = handle.emit_ended_for_framework()
+		else:
+			_abort_bgm_incoming_session(true)
 		return
 
 	_bgm_fade_tween_ref = null
@@ -6796,8 +9384,39 @@ func _create_bgm_session(
 	if not is_instance_valid(player):
 		return 0
 	_remove_bgm_session_for_player(player, false)
+	var session_id: int = _reserve_bgm_session_id()
+	if session_id <= 0:
+		return 0
+	_install_local_bgm_session(
+		session_id,
+		player,
+		request_serial,
+		history_key,
+		target_volume_db,
+		playback_region,
+		role
+	)
+	return session_id
+
+
+func _reserve_bgm_session_id() -> int:
+	if _next_bgm_session_id <= 0 or _next_bgm_session_id >= _MAX_STABLE_ID:
+		push_error("[GFAudioUtility] BGM session ID 空间已耗尽。")
+		return 0
 	var session_id: int = _next_bgm_session_id
 	_next_bgm_session_id += 1
+	return session_id
+
+
+func _install_local_bgm_session(
+	session_id: int,
+	player: AudioStreamPlayer,
+	request_serial: int,
+	history_key: String,
+	target_volume_db: float,
+	playback_region: Dictionary,
+	role: StringName
+) -> void:
 	_bgm_sessions[session_id] = {
 		"id": session_id,
 		"request_serial": request_serial,
@@ -6808,6 +9427,25 @@ func _create_bgm_session(
 		"player": player,
 	}
 	player.set_meta(_BGM_SESSION_META, session_id)
+
+
+func _create_backend_bgm_session(
+	request_serial: int,
+	history_key: String,
+	playback_region: Dictionary
+) -> int:
+	var session_id: int = _reserve_bgm_session_id()
+	if session_id <= 0:
+		return 0
+	_bgm_sessions[session_id] = {
+		"id": session_id,
+		"request_serial": request_serial,
+		"history_key": history_key,
+		"target_volume_db": 0.0,
+		"playback_region": playback_region.duplicate(true),
+		"role": &"current",
+		"player": null,
+	}
 	return session_id
 
 
@@ -7916,25 +10554,30 @@ func _on_bgm_player_finished(player: AudioStreamPlayer) -> void:
 	var session: Dictionary = _get_bgm_session(session_id)
 	if session.is_empty():
 		return
-	var history_key: String = GFVariantData.get_option_string(session, "history_key")
 	var role: StringName = GFVariantData.get_option_string_name(session, "role", &"")
+	var logical_current_finished: bool = session_id == _bgm_committed_session_id
 	player.stream = null
-
-	if role == &"incoming" and session_id == _bgm_incoming_session_id:
-		player.stop()
-		_abort_bgm_incoming_session(true)
-	elif role == &"outgoing" and _bgm_state == _STATE_CROSSFADING:
+	if logical_current_finished:
+		var _natural_intent_recorded: bool = (
+			_record_deferred_bgm_session_terminal(
+				session_id,
+				GFBgmSessionHandle.EndKind.NATURAL_FINISH,
+				0.0
+			)
+		)
+		if _is_backend_dispatch_in_progress():
+			_schedule_deferred_audio_drain()
+		else:
+			_drain_bgm_terminal_barrier_if_needed()
+		return
+	if role == &"outgoing" and not logical_current_finished:
 		player.stop()
 		_remove_bgm_session(session_id, false)
-	elif session_id == _bgm_current_session_id:
+		return
+	if not logical_current_finished:
 		player.stop()
 		_remove_bgm_session(session_id, false)
-		_clear_bgm_session_state()
-		_current_bgm_key = ""
-		_current_bgm_region.clear()
-		_bgm_paused = false
-	if not history_key.is_empty():
-		bgm_finished.emit(history_key)
+		return
 
 
 func _on_sfx_finished(player: AudioStreamPlayer, playback_session_id: int) -> void:

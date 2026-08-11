@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFAudioUtility" path="addons/gf/standard/utilities/audio/gf_audio_utility.gd" module="standard" extends="GFUtility" classDigest="f93d4aebb13a21ebffde42e9515ba81b19a8fb3274ad8610d29e8fd24458d257">
+<class name="GFAudioUtility" path="addons/gf/standard/utilities/audio/gf_audio_utility.gd" module="standard" extends="GFUtility" classDigest="077de2474aa3be200157e5f69e6ff921efaec4f8ed298b469d86ce5334fe6b12">
 	<description>GFAudioUtility: 全局音频管理器。
 管理 BGM 和 SFX 的播放与音量。
 注册 GFObjectPoolUtility 时会复用 AudioStreamPlayer，未注册时使用普通播放器。
@@ -123,6 +123,35 @@
 				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
+		<member kind="method" name="start_bgm">
+			<signature>func start_bgm( path: String, options: Dictionary = {}, owner: Node = null ) -&gt; GFBgmStartOperation:</signature>
+			<description>启动一个类型化 BGM 路径请求。
+本地 standby 或 backend 接受前失败、取消或被替换时，当前已提交会话保持不变。
+backend 已物理接受后若请求身份失效，框架只保证 best-effort 补偿停止新候选；
+无法恢复的旧 backend 会话会以 PLAYBACK_FAILED 终结。同步 validation、backend
+或已加载资源可能在方法返回前完成，调用方应先查询 Operation，再按需连接 completed 信号。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">path: 非空音频资源路径或后端事件路径。</tag>
+				<tag name="param">options: 支持 crossfade_seconds、history_key、bus_name、volume_db 和 pitch_scale；不得包含 loop 或 playback_region。</tag>
+				<tag name="param">owner: 可选生命周期 owner；其退出树时取消 pending 请求，或停止已提交的精确会话。</tag>
+				<tag name="return">带稳定 request ID 和唯一类型化终态的 Operation。</tag>
+				<tag name="schema">options: Dictionary，可包含 crossfade_seconds（float-compatible，缺省 -1.0；负值使用 Utility 默认淡变，非法或非有限值回退 -1.0）、history_key（text-compatible，缺省 path）、bus_name（text-compatible，缺省 BGM）、volume_db（float-compatible，缺省 0.0；非法或非有限值回退 0.0）和 pitch_scale（float-compatible，缺省 1.0；非法或非有限值回退 1.0）；float-compatible 指 float、int、bool 或数值 String/StringName，text-compatible 按 GFVariantData.to_text 归一；loop 与 playback_region 禁止，其他字段不参与 BGM start，整个 Dictionary 无法受控快照时以 REJECTED/INVALID_OPTIONS 结束。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="start_bgm_clip">
+			<signature>func start_bgm_clip( clip: GFAudioClip, crossfade_seconds: float = -1.0, owner: Node = null ) -&gt; GFBgmStartOperation:</signature>
+			<description>启动一个类型化 BGM Clip 请求。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">clip: 具有 path 或 stream source 的音频片段快照。</tag>
+				<tag name="param">crossfade_seconds: 淡入淡出秒数；小于 0 时使用默认值。</tag>
+				<tag name="param">owner: 可选生命周期 owner；其退出树时取消 pending 请求，或停止已提交的精确会话。</tag>
+				<tag name="return">带稳定 request ID 和唯一类型化终态的 Operation。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
 		<member kind="method" name="play_bgm">
 			<signature>func play_bgm(path: String, crossfade_seconds: float = -1.0) -&gt; void:</signature>
 			<description>播放 BGM（背景音乐）</description>
@@ -140,7 +169,7 @@ loop 与 playback_region 是保留键，必须通过 GFAudioClip.playback_region
 				<tag name="api">public</tag>
 				<tag name="param">path: 音频资源路径或后端事件路径。</tag>
 				<tag name="param">options: 支持 crossfade_seconds、history_key、bus_name、volume_db 和 pitch_scale；</tag>
-				<tag name="schema">options: Dictionary，可包含 crossfade_seconds、history_key、bus_name、volume_db 和 pitch_scale 字段；不得包含 loop 或 playback_region。</tag>
+				<tag name="schema">options: Dictionary，可包含 crossfade_seconds（float-compatible，缺省 -1.0；负值使用 Utility 默认淡变，非法或非有限值回退 -1.0）、history_key（text-compatible，缺省 path）、bus_name（text-compatible，缺省 BGM）、volume_db（float-compatible，缺省 0.0；非法或非有限值回退 0.0）和 pitch_scale（float-compatible，缺省 1.0；非法或非有限值回退 1.0）；float-compatible 指 float、int、bool 或数值 String/StringName，text-compatible 按 GFVariantData.to_text 归一；loop 与 playback_region 禁止，其他字段不参与 BGM start，整个 Dictionary 无法受控快照时失败关闭。</tag>
 				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>

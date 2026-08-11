@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<apiCatalog schemaVersion="2" name="GF Framework" sourceRoot="addons/gf" sourceDigest="4ed5623cadbaeb4f952d6f69c760211c719748e4e12aeb0f0047cdfd4b2a390a" classCount="816" methodCount="7462">
+<apiCatalog schemaVersion="2" name="GF Framework" sourceRoot="addons/gf" sourceDigest="049ecfbbad474fc0ea76bdd55717634b1a04aec7a4d8459bed0c0b19487f0062" classCount="819" methodCount="7490">
 	<module id="kernel" label="Kernel" classCount="74" methodCount="799">
 		<class name="GFAccessGenerator" path="classes/GFAccessGenerator.xml" sourcePath="addons/gf/kernel/editor/gf_access_generator.gd" extends="RefCounted" />
 		<class name="GFArchitecture" path="classes/GFArchitecture.xml" sourcePath="addons/gf/kernel/core/gf_architecture.gd" extends="Object" />
@@ -76,7 +76,7 @@
 		<class name="GFUtility" path="classes/GFUtility.xml" sourcePath="addons/gf/kernel/base/gf_utility.gd" extends="Object" />
 		<class name="GFWeakMethodInvocation" path="classes/GFWeakMethodInvocation.xml" sourcePath="addons/gf/kernel/core/gf_weak_method_invocation.gd" extends="RefCounted" />
 	</module>
-	<module id="standard" label="Standard" classCount="457" methodCount="4627">
+	<module id="standard" label="Standard" classCount="460" methodCount="4655">
 		<class name="GFActivationTransaction" path="classes/GFActivationTransaction.xml" sourcePath="addons/gf/standard/foundation/policy/gf_activation_transaction.gd" extends="RefCounted" />
 		<class name="GFAnalyticsConfig" path="classes/GFAnalyticsConfig.xml" sourcePath="addons/gf/standard/utilities/analytics/gf_analytics_config.gd" extends="Resource" />
 		<class name="GFAnalyticsEventSchema" path="classes/GFAnalyticsEventSchema.xml" sourcePath="addons/gf/standard/utilities/analytics/gf_analytics_event_schema.gd" extends="Resource" />
@@ -129,6 +129,9 @@
 		<class name="GFBackgroundWorkTask" path="classes/GFBackgroundWorkTask.xml" sourcePath="addons/gf/standard/utilities/jobs/gf_background_work_task.gd" extends="RefCounted" />
 		<class name="GFBackgroundWorkUtility" path="classes/GFBackgroundWorkUtility.xml" sourcePath="addons/gf/standard/utilities/jobs/gf_background_work_utility.gd" extends="GFUtility" />
 		<class name="GFBatchedLogSink" path="classes/GFBatchedLogSink.xml" sourcePath="addons/gf/standard/utilities/logging/gf_batched_log_sink.gd" extends="GFLogSink" />
+		<class name="GFBgmSessionHandle" path="classes/GFBgmSessionHandle.xml" sourcePath="addons/gf/standard/utilities/audio/gf_bgm_session_handle.gd" extends="RefCounted" />
+		<class name="GFBgmStartOperation" path="classes/GFBgmStartOperation.xml" sourcePath="addons/gf/standard/utilities/audio/gf_bgm_start_operation.gd" extends="RefCounted" />
+		<class name="GFBgmStartResult" path="classes/GFBgmStartResult.xml" sourcePath="addons/gf/standard/utilities/audio/gf_bgm_start_result.gd" extends="RefCounted" />
 		<class name="GFBigNumber" path="classes/GFBigNumber.xml" sourcePath="addons/gf/standard/foundation/numeric/gf_big_number.gd" extends="RefCounted" />
 		<class name="GFBlackboardEntry" path="classes/GFBlackboardEntry.xml" sourcePath="addons/gf/standard/foundation/blackboard/gf_blackboard_entry.gd" extends="Resource" />
 		<class name="GFBlackboardSchema" path="classes/GFBlackboardSchema.xml" sourcePath="addons/gf/standard/foundation/blackboard/gf_blackboard_schema.gd" extends="Resource" />
