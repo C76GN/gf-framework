@@ -853,6 +853,56 @@ func test_init_dispose_reentry_from_first_player_insertion_converges_atomically(
 	assert_eq(_count_root_audio_players_named("GFBGMFadePlayer"), fade_count_before)
 
 
+func test_init_dispose_and_reinit_reentry_preserves_new_generation() -> void:
+	var standalone_audio: GFAudioUtility = GFAudioUtility.new()
+	var root: Window = get_tree().root
+	var reentry_state: Dictionary = {
+		"ran": false,
+		"old_primary_id": 0,
+	}
+	var reinit_callback: Callable = func(child: Node) -> void:
+		if (
+			not child is AudioStreamPlayer
+			or GFVariantData.get_option_bool(reentry_state, "ran")
+		):
+			return
+		reentry_state["ran"] = true
+		reentry_state["old_primary_id"] = child.get_instance_id()
+		standalone_audio.dispose()
+		standalone_audio.init()
+	var connect_error: Error = (
+		root.child_entered_tree.connect(reinit_callback) as Error
+	)
+	assert_eq(connect_error, OK)
+
+	standalone_audio.init()
+	if root.child_entered_tree.is_connected(reinit_callback):
+		root.child_entered_tree.disconnect(reinit_callback)
+
+	var new_primary: AudioStreamPlayer = standalone_audio._bgm_player
+	var new_fade: AudioStreamPlayer = standalone_audio._bgm_fade_player
+	assert_true(GFVariantData.get_option_bool(reentry_state, "ran"))
+	assert_true(standalone_audio._is_initialized)
+	assert_same(standalone_audio._root, root)
+	assert_not_null(new_primary)
+	assert_not_null(new_fade)
+	if new_primary != null:
+		assert_ne(
+			new_primary.get_instance_id(),
+			GFVariantData.get_option_int(reentry_state, "old_primary_id")
+		)
+		assert_true(
+			standalone_audio._is_exact_audio_root_child(root, new_primary)
+		)
+	if new_fade != null:
+		assert_true(
+			standalone_audio._is_exact_audio_root_child(root, new_fade)
+		)
+
+	standalone_audio.dispose()
+	await get_tree().process_frame
+
+
 func test_init_requires_exact_physical_player_root_topology() -> void:
 	await _assert_invalid_init_player_topology_converges(false, 1)
 	await _assert_invalid_init_player_topology_converges(true, 2)

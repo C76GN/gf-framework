@@ -289,15 +289,18 @@ func init() -> void:
 	_bgm_fade_player.name = "GFBGMFadePlayer"
 	_bgm_fade_player.bus = _resolve_bus_name(BGM_BUS_NAME)
 	_connect_signal_checked(_bgm_fade_player.finished, _on_bgm_player_finished.bind(_bgm_fade_player))
+	var initialization_primary: AudioStreamPlayer = _bgm_player
+	var initialization_fade: AudioStreamPlayer = _bgm_fade_player
 	
 	var tree: SceneTree = _get_scene_tree()
 	if tree == null or not _is_live_audio_root(tree.root):
-		dispose()
+		_rollback_audio_initialization(
+			initialization_primary,
+			initialization_fade
+		)
 		return
 	_root = tree.root
 	var initialization_root: Node = _root
-	var initialization_primary: AudioStreamPlayer = _bgm_player
-	var initialization_fade: AudioStreamPlayer = _bgm_fade_player
 	initialization_root.add_child(initialization_primary)
 	if not _is_audio_initialization_topology_current(
 		initialization_root,
@@ -305,7 +308,10 @@ func init() -> void:
 		initialization_fade,
 		false
 	):
-		dispose()
+		_rollback_audio_initialization(
+			initialization_primary,
+			initialization_fade
+		)
 		return
 	initialization_root.add_child(initialization_fade)
 	if not _is_audio_initialization_topology_current(
@@ -314,7 +320,10 @@ func init() -> void:
 		initialization_fade,
 		true
 	):
-		dispose()
+		_rollback_audio_initialization(
+			initialization_primary,
+			initialization_fade
+		)
 
 
 ## 释放播放器、后端、环境音和 SFX 运行时状态。
@@ -3542,6 +3551,23 @@ func _is_exact_audio_root_child(
 		and player.is_inside_tree()
 		and player.get_parent() == root
 	)
+
+
+func _rollback_audio_initialization(
+	initialization_primary: AudioStreamPlayer,
+	initialization_fade: AudioStreamPlayer
+) -> void:
+	if (
+		_is_initialized
+		and _bgm_player == initialization_primary
+		and _bgm_fade_player == initialization_fade
+	):
+		dispose()
+		return
+	if is_instance_valid(initialization_primary):
+		initialization_primary.queue_free()
+	if is_instance_valid(initialization_fade):
+		initialization_fade.queue_free()
 
 
 func _is_audio_initialization_topology_current(
