@@ -8120,6 +8120,23 @@ func _try_commit_typed_pending_local_bgm_start(
 	if not _is_pending_bgm_start_request(request_id):
 		_release_typed_bgm_candidate(candidate)
 		return
+	var candidate_root: Node = _get_bgm_candidate_root(candidate)
+	if not _seal_typed_local_bgm_candidate(
+		request_id,
+		candidate_root,
+		candidate
+	):
+		_release_typed_bgm_candidate(candidate)
+		_settle_failed_bgm_publication(
+			request_id,
+			GFBgmStartResult.REASON_LOCAL_PLAYER_REJECTED,
+			GFVariantData.get_option_int(
+				_bgm_pending_start_request,
+				"backend_disposition"
+			) as GFBgmStartResult.BackendDisposition,
+			backend_was_released
+		)
+		return
 	request = _bgm_pending_start_request
 	var publication: Dictionary = _prepare_started_bgm_publication(
 		request_id,
@@ -8184,20 +8201,14 @@ func _prepare_typed_local_bgm_candidate(
 	)
 	var can_crossfade: bool = (
 		fade_seconds > 0.0
-		and _bgm_owner == _OWNER_LOCAL
-		and is_instance_valid(previous_player)
-		and previous_player.playing
-		and previous_player.stream != null
+		and _is_typed_bgm_crossfade_source_ready(
+			candidate_root,
+			previous_player
+		)
 	)
 	var replacement_player: AudioStreamPlayer = null
 	if not can_crossfade:
-		replacement_player = AudioStreamPlayer.new()
-		replacement_player.name = "GFBGMFadePlayer"
-		replacement_player.bus = _resolve_bus_name(BGM_BUS_NAME)
-		_connect_signal_checked(
-			replacement_player.finished,
-			_on_bgm_player_finished.bind(replacement_player)
-		)
+		replacement_player = _create_typed_bgm_replacement_player()
 		candidate_root.add_child(replacement_player)
 		if not _is_typed_bgm_candidate_insertion_current(
 			request_id,
@@ -8215,17 +8226,131 @@ func _prepare_typed_local_bgm_candidate(
 		GFVariantData.get_option_float(request, "pitch_scale", 1.0)
 	)
 	player.play(GFVariantData.get_option_float(execution_plan, "start_seconds"))
-	if not player.playing and not player.stream_paused:
-		_release_typed_bgm_player(player)
-		_release_typed_bgm_player(replacement_player)
-		return {}
-	return {
+	var candidate: Dictionary = {
+		"candidate_root": candidate_root,
 		"player": player,
 		"replacement_player": replacement_player,
 		"can_crossfade": can_crossfade,
 		"fade_seconds": fade_seconds,
 		"target_volume_db": target_volume_db,
 	}
+	if not _seal_typed_local_bgm_candidate(
+		request_id,
+		candidate_root,
+		candidate
+	):
+		_release_typed_bgm_candidate(candidate)
+		return {}
+	return candidate
+
+
+func _create_typed_bgm_replacement_player() -> AudioStreamPlayer:
+	var player: AudioStreamPlayer = AudioStreamPlayer.new()
+	player.name = "GFBGMFadePlayer"
+	player.bus = _resolve_bus_name(BGM_BUS_NAME)
+	_connect_signal_checked(
+		player.finished,
+		_on_bgm_player_finished.bind(player)
+	)
+	return player
+
+
+func _seal_typed_local_bgm_candidate(
+	request_id: int,
+	candidate_root: Node,
+	candidate: Dictionary
+) -> bool:
+	var player: AudioStreamPlayer = _get_bgm_candidate_player(candidate)
+	var replacement_player: AudioStreamPlayer = (
+		_get_bgm_candidate_replacement_player(candidate)
+	)
+	var can_crossfade: bool = GFVariantData.get_option_bool(
+		candidate,
+		"can_crossfade"
+	)
+	var candidate_players: Array[AudioStreamPlayer] = [player]
+	if replacement_player != null:
+		candidate_players.append(replacement_player)
+	if not _is_typed_bgm_candidate_insertion_current(
+		request_id,
+		candidate_root,
+		candidate_players
+	):
+		return false
+	if not _is_typed_bgm_candidate_player_ready(candidate_root, player):
+		return false
+	if can_crossfade:
+		var previous_player: AudioStreamPlayer = _get_bgm_session_player(
+			_get_bgm_session(_bgm_committed_session_id)
+		)
+		if not _is_typed_bgm_crossfade_source_ready(
+			candidate_root,
+			previous_player
+		):
+			can_crossfade = false
+			candidate["can_crossfade"] = false
+	if not can_crossfade and replacement_player == null:
+		replacement_player = _create_typed_bgm_replacement_player()
+		candidate["replacement_player"] = replacement_player
+		candidate_root.add_child(replacement_player)
+	candidate_players = [player]
+	if replacement_player != null:
+		candidate_players.append(replacement_player)
+	if not _is_typed_bgm_candidate_insertion_current(
+		request_id,
+		candidate_root,
+		candidate_players
+	):
+		return false
+	if not _is_typed_bgm_candidate_player_ready(candidate_root, player):
+		return false
+	if can_crossfade:
+		var previous_player: AudioStreamPlayer = _get_bgm_session_player(
+			_get_bgm_session(_bgm_committed_session_id)
+		)
+		return _is_typed_bgm_crossfade_source_ready(
+			candidate_root,
+			previous_player
+		)
+	return _is_typed_bgm_replacement_player_ready(
+		candidate_root,
+		replacement_player
+	)
+
+
+func _is_typed_bgm_crossfade_source_ready(
+	candidate_root: Node,
+	player: AudioStreamPlayer
+) -> bool:
+	return (
+		_bgm_owner == _OWNER_LOCAL
+		and _is_exact_audio_root_child(candidate_root, player)
+		and player.playing
+		and player.stream != null
+	)
+
+
+func _is_typed_bgm_candidate_player_ready(
+	candidate_root: Node,
+	player: AudioStreamPlayer
+) -> bool:
+	return (
+		_is_exact_audio_root_child(candidate_root, player)
+		and player.stream != null
+		and (player.playing or player.stream_paused)
+	)
+
+
+func _is_typed_bgm_replacement_player_ready(
+	candidate_root: Node,
+	player: AudioStreamPlayer
+) -> bool:
+	return (
+		_is_exact_audio_root_child(candidate_root, player)
+		and not player.playing
+		and not player.stream_paused
+		and player.stream == null
+	)
 
 
 func _get_bgm_candidate_player(candidate: Dictionary) -> AudioStreamPlayer:
@@ -8233,6 +8358,14 @@ func _get_bgm_candidate_player(candidate: Dictionary) -> AudioStreamPlayer:
 	if value is AudioStreamPlayer:
 		var player: AudioStreamPlayer = value
 		return player
+	return null
+
+
+func _get_bgm_candidate_root(candidate: Dictionary) -> Node:
+	var value: Variant = GFVariantData.get_option_value(candidate, "candidate_root")
+	if value is Node:
+		var root: Node = value
+		return root
 	return null
 
 
@@ -8389,10 +8522,9 @@ func _commit_typed_local_bgm_candidate(
 	var previous_player: AudioStreamPlayer = _get_bgm_session_player(
 		previous_session
 	)
-	var can_crossfade: bool = (
-		GFVariantData.get_option_bool(candidate, "can_crossfade")
-		and is_instance_valid(previous_player)
-		and previous_player.playing
+	var can_crossfade: bool = GFVariantData.get_option_bool(
+		candidate,
+		"can_crossfade"
 	)
 	_bgm_request_serial += 1
 	_bgm_generation += 1

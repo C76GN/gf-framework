@@ -99,6 +99,109 @@ class ReentrantSnapshotResource:
 			_payload = value
 
 
+class ReentrantPlaybackStream:
+	extends AudioStream
+
+	enum Action {
+		NONE,
+		REPARENT_CANDIDATE_PLAYER,
+		REPARENT_REPLACEMENT_PLAYER,
+		QUEUE_FREE_CANDIDATE_PLAYER,
+		ACTIVATE_REPLACEMENT_PLAYER,
+		STOP_ACTIVE_PLAYER,
+		REPARENT_ACTIVE_PLAYER,
+		DISPOSE_AND_REINITIALIZE,
+	}
+
+	var action: Action = Action.NONE
+	var host: GFAudioUtility = null
+	var root: Node = null
+	var holder: Node = null
+	var invoked: bool = false
+	var playback_source: AudioStreamGenerator = AudioStreamGenerator.new()
+
+	func _instantiate_playback() -> AudioStreamPlayback:
+		if not invoked:
+			invoked = true
+			match action:
+				Action.REPARENT_CANDIDATE_PLAYER:
+					_reparent_candidate(false)
+				Action.REPARENT_REPLACEMENT_PLAYER:
+					_reparent_candidate(true)
+				Action.QUEUE_FREE_CANDIDATE_PLAYER:
+					_queue_free_candidate_player()
+				Action.ACTIVATE_REPLACEMENT_PLAYER:
+					_activate_replacement_player()
+				Action.STOP_ACTIVE_PLAYER:
+					if host != null and is_instance_valid(host._bgm_player):
+						host._bgm_player.stop()
+				Action.REPARENT_ACTIVE_PLAYER:
+					if (
+						host != null
+						and holder != null
+						and is_instance_valid(host._bgm_player)
+					):
+						host._bgm_player.reparent(holder)
+				Action.DISPOSE_AND_REINITIALIZE:
+					if host != null and root != null:
+						host.dispose()
+						host.init()
+		return playback_source.instantiate_playback()
+
+	func clear_reentry_context() -> void:
+		host = null
+		root = null
+		holder = null
+
+	func _reparent_candidate(target_replacement: bool) -> void:
+		if root == null or holder == null:
+			return
+		for child: Node in root.get_children():
+			if not child is AudioStreamPlayer:
+				continue
+			var player: AudioStreamPlayer = child
+			if target_replacement:
+				if (
+					player == host._bgm_player
+					or player == host._bgm_fade_player
+					or player.stream != null
+				):
+					continue
+			elif player.stream != self:
+				continue
+			player.reparent(holder)
+			return
+
+	func _queue_free_candidate_player() -> void:
+		if root == null:
+			return
+		for child: Node in root.get_children():
+			if not child is AudioStreamPlayer:
+				continue
+			var player: AudioStreamPlayer = child
+			if player.stream != self:
+				continue
+			player.queue_free()
+			return
+
+	func _activate_replacement_player() -> void:
+		if root == null or host == null:
+			return
+		for child: Node in root.get_children():
+			if not child is AudioStreamPlayer:
+				continue
+			var player: AudioStreamPlayer = child
+			if (
+				player == host._bgm_player
+				or player == host._bgm_fade_player
+				or player.stream != null
+			):
+				continue
+			player.stream = AudioStreamGenerator.new()
+			player.play()
+			return
+
+
 class RecordingBgmBackend:
 	extends GFAudioBackend
 
@@ -2373,6 +2476,191 @@ func test_replacement_player_insertion_stop_reentry_cancels_before_commit() -> v
 func test_local_candidate_requires_exact_root_parent_for_both_players() -> void:
 	await _assert_reparented_local_candidate_fails_before_commit(1)
 	await _assert_reparented_local_candidate_fails_before_commit(2)
+
+
+func test_custom_playback_hook_cannot_invalidate_candidate_topology() -> void:
+	await _assert_custom_playback_action_fails_before_commit(
+		ReentrantPlaybackStream.Action.REPARENT_CANDIDATE_PLAYER
+	)
+	await _assert_custom_playback_action_fails_before_commit(
+		ReentrantPlaybackStream.Action.REPARENT_REPLACEMENT_PLAYER
+	)
+	await _assert_custom_playback_action_fails_before_commit(
+		ReentrantPlaybackStream.Action.QUEUE_FREE_CANDIDATE_PLAYER
+	)
+	await _assert_custom_playback_action_fails_before_commit(
+		ReentrantPlaybackStream.Action.ACTIVATE_REPLACEMENT_PLAYER
+	)
+
+
+func _assert_custom_playback_action_fails_before_commit(action: int) -> void:
+	if _skip_runtime_scenario_until_contract_exists():
+		return
+	await _activate_audio(GFAudioUtility.new())
+	var root: Window = get_tree().root
+	var holder: Node = Node.new()
+	holder.name = "GFInvalidPlaybackHookParent"
+	root.add_child(holder)
+	var stream: ReentrantPlaybackStream = ReentrantPlaybackStream.new()
+	stream.action = action as ReentrantPlaybackStream.Action
+	stream.host = _audio
+	stream.root = root
+	stream.holder = holder
+	var clip: GFAudioClip = _make_clip(
+		"issue88-playback-hook-invalid-%d" % action
+	)
+	clip.stream = stream
+
+	var operation: Object = _start_bgm_clip(clip, 1.0)
+	var result: Object = _assert_completed_with_status(operation, "FAILED")
+	if result != null:
+		assert_eq(
+			_call_string_name(result, &"get_reason"),
+			_script_string_name_constant(
+				_RESULT_SCRIPT_PATH,
+				"REASON_LOCAL_PLAYER_REJECTED"
+			)
+		)
+		assert_eq(_call_int(result, &"get_error_code", OK), ERR_CANT_CREATE)
+	await get_tree().process_frame
+
+	assert_true(stream.invoked)
+	assert_eq(holder.get_child_count(), 0)
+	assert_true(_audio._is_initialized)
+	assert_eq(_audio.get_current_bgm_key(), "")
+	assert_false(_audio.is_bgm_playing())
+	assert_true(_audio._is_exact_audio_root_child(root, _audio._bgm_player))
+	assert_true(_audio._is_exact_audio_root_child(root, _audio._bgm_fade_player))
+
+	stream.clear_reentry_context()
+	holder.queue_free()
+	await get_tree().process_frame
+
+
+func test_playback_hook_crossfade_loss_preserves_spare_player() -> void:
+	await _assert_playback_hook_crossfade_loss_preserves_spare_player(
+		ReentrantPlaybackStream.Action.STOP_ACTIVE_PLAYER
+	)
+
+
+func test_playback_hook_reparented_crossfade_source_degrades_to_spare() -> void:
+	await _assert_playback_hook_crossfade_loss_preserves_spare_player(
+		ReentrantPlaybackStream.Action.REPARENT_ACTIVE_PLAYER
+	)
+
+
+func _assert_playback_hook_crossfade_loss_preserves_spare_player(
+	action: int
+) -> void:
+	if _skip_runtime_scenario_until_contract_exists():
+		return
+	await _activate_audio(GFAudioUtility.new())
+	var root: Window = get_tree().root
+	var holder: Node = Node.new()
+	holder.name = "GFInvalidPlaybackHookSourceParent"
+	root.add_child(holder)
+	var active_operation: Object = _start_bgm_clip(
+		_make_clip("issue88-playback-hook-active-%d" % action),
+		0.0
+	)
+	assert_not_null(_assert_completed_with_status(active_operation, "STARTED"))
+	var stream: ReentrantPlaybackStream = ReentrantPlaybackStream.new()
+	stream.action = action as ReentrantPlaybackStream.Action
+	stream.host = _audio
+	stream.root = root
+	stream.holder = holder
+	var clip: GFAudioClip = _make_clip(
+		"issue88-playback-hook-fallback-%d" % action
+	)
+	clip.stream = stream
+
+	var operation: Object = _start_bgm_clip(clip, 1.0)
+	assert_not_null(_assert_completed_with_status(operation, "STARTED"))
+
+	assert_true(stream.invoked)
+	assert_true(_audio._is_initialized)
+	assert_eq(
+		_audio.get_current_bgm_key(),
+		"issue88-playback-hook-fallback-%d" % action
+	)
+	assert_true(_audio.is_bgm_playing())
+	assert_not_null(_audio._bgm_fade_player)
+	if _audio._bgm_fade_player != null:
+		assert_true(
+			_audio._is_exact_audio_root_child(
+				root,
+				_audio._bgm_fade_player
+			)
+		)
+		assert_not_same(_audio._bgm_fade_player, _audio._bgm_player)
+	await get_tree().process_frame
+	assert_eq(holder.get_child_count(), 0)
+
+	stream.clear_reentry_context()
+	holder.queue_free()
+	await get_tree().process_frame
+
+
+func test_playback_hook_old_request_does_not_insert_into_reinitialized_generation() -> void:
+	if _skip_runtime_scenario_until_contract_exists():
+		return
+	await _activate_audio(GFAudioUtility.new())
+	var active_operation: Object = _start_bgm_clip(
+		_make_clip("issue88-playback-hook-reinitialize-active"),
+		0.0
+	)
+	assert_not_null(_assert_completed_with_status(active_operation, "STARTED"))
+	var root: Window = get_tree().root
+	var insertion_state: Dictionary = {
+		"player_count": 0,
+		"player_names": PackedStringArray(),
+	}
+	var count_inserted_players: Callable = func(child: Node) -> void:
+		if child is AudioStreamPlayer:
+			insertion_state["player_count"] = GFVariantData.get_option_int(
+				insertion_state,
+				"player_count"
+			) + 1
+			var player_names: PackedStringArray = insertion_state["player_names"]
+			var _name_appended: bool = player_names.append(String(child.name))
+			insertion_state["player_names"] = player_names
+	var connect_error: Error = (
+		root.child_entered_tree.connect(count_inserted_players) as Error
+	)
+	assert_eq(connect_error, OK)
+	var stream: ReentrantPlaybackStream = ReentrantPlaybackStream.new()
+	stream.action = ReentrantPlaybackStream.Action.DISPOSE_AND_REINITIALIZE
+	stream.host = _audio
+	stream.root = root
+	var clip: GFAudioClip = _make_clip("issue88-playback-hook-reinitialize")
+	clip.stream = stream
+
+	var operation: Object = _start_bgm_clip(clip, 1.0)
+	if root.child_entered_tree.is_connected(count_inserted_players):
+		root.child_entered_tree.disconnect(count_inserted_players)
+	var result: Object = _assert_completed_with_status(operation, "CANCELLED")
+	if result != null:
+		_assert_cancelled_topology_result(
+			result,
+			"REASON_UTILITY_DISPOSED",
+			"NOT_ATTEMPTED"
+		)
+	await get_tree().process_frame
+
+	assert_true(stream.invoked)
+	assert_eq(
+		GFVariantData.get_option_int(insertion_state, "player_count"),
+		3,
+		str(GFVariantData.get_option_value(insertion_state, "player_names"))
+	)
+	assert_true(_audio._is_initialized)
+	assert_same(_audio._root, root)
+	assert_true(_audio._is_exact_audio_root_child(root, _audio._bgm_player))
+	assert_true(_audio._is_exact_audio_root_child(root, _audio._bgm_fade_player))
+	assert_eq(_audio.get_current_bgm_key(), "")
+	assert_false(_audio.is_bgm_playing())
+
+	stream.clear_reentry_context()
 
 
 func _assert_reparented_local_candidate_fails_before_commit(
