@@ -136,6 +136,7 @@ var _speed_scale: float = 1.0
 var _playing: bool = false
 var _resume_cursor_available: bool = false
 var _configuration_in_progress: bool = false
+var _frame_identity_generation: int = 0
 var _state_generation: int = 0
 var _last_rejection_reason: StringName = &""
 
@@ -217,11 +218,12 @@ func configure(definition: GFLayeredSpriteDefinition) -> bool:
 	_resume_cursor_available = false
 	_last_rejection_reason = &""
 	_bump_state_generation()
-	var committed_generation: int = _state_generation
+	_bump_frame_identity_generation()
+	var committed_identity_generation: int = _frame_identity_generation
 	_configuration_in_progress = false
 	queue_redraw()
 	configuration_changed.emit()
-	if _state_generation == committed_generation:
+	if _frame_identity_generation == committed_identity_generation:
 		frame_changed.emit(_current_animation, _current_frame)
 	return true
 
@@ -232,6 +234,7 @@ func configure(definition: GFLayeredSpriteDefinition) -> bool:
 ## [br]
 ## @since unreleased
 func clear_configuration() -> void:
+	var identity_changed: bool = _timeline_frames != null or _current_animation != &""
 	stop(false)
 	_timeline_frames = null
 	_animation_names.clear()
@@ -243,6 +246,8 @@ func clear_configuration() -> void:
 	_resume_cursor_available = false
 	_last_rejection_reason = &""
 	_bump_state_generation()
+	if identity_changed:
+		_bump_frame_identity_generation()
 	queue_redraw()
 	configuration_changed.emit()
 
@@ -327,15 +332,22 @@ func play(
 	_resume_cursor_available = true
 	_last_rejection_reason = &""
 	_bump_state_generation()
+	var frame_identity_changed: bool = (
+		previous_animation != _current_animation or previous_frame != _current_frame
+	)
+	if frame_identity_changed:
+		_bump_frame_identity_generation()
+	var committed_identity_generation: int = _frame_identity_generation
 	var committed_animation: StringName = _current_animation
 	var committed_frame: int = _current_frame
 	set_process(true)
 	queue_redraw()
 	animation_started.emit(animation)
 	if (
-		_current_animation == committed_animation
+		_frame_identity_generation == committed_identity_generation
+		and _current_animation == committed_animation
 		and _current_frame == committed_frame
-		and (previous_animation != committed_animation or previous_frame != committed_frame)
+		and frame_identity_changed
 	):
 		frame_changed.emit(committed_animation, committed_frame)
 	return true
@@ -377,6 +389,7 @@ func stop(reset_to_start: bool = true) -> void:
 		queue_redraw()
 	_bump_state_generation()
 	if frame_identity_changed:
+		_bump_frame_identity_generation()
 		frame_changed.emit(_current_animation, _current_frame)
 
 
@@ -406,6 +419,7 @@ func seek(frame: int, frame_progress: float = 0.0) -> bool:
 	_bump_state_generation()
 	queue_redraw()
 	if changed:
+		_bump_frame_identity_generation()
 		frame_changed.emit(_current_animation, _current_frame)
 	return true
 
@@ -888,6 +902,7 @@ func _advance_frame_boundary(forward: bool) -> bool:
 		_current_frame = next_frame
 		_frame_progress = 0.0 if forward else 1.0
 		queue_redraw()
+		_bump_frame_identity_generation()
 		frame_changed.emit(_current_animation, _current_frame)
 		return true
 	if _timeline_frames.get_animation_loop(_current_animation):
@@ -895,6 +910,7 @@ func _advance_frame_boundary(forward: bool) -> bool:
 		_frame_progress = 0.0 if forward else 1.0
 		queue_redraw()
 		if _current_frame != previous_frame:
+			_bump_frame_identity_generation()
 			frame_changed.emit(_current_animation, _current_frame)
 		return true
 	_current_frame = frame_count - 1 if forward else 0
@@ -942,6 +958,10 @@ func _is_finite_float(value: float) -> bool:
 
 func _bump_state_generation() -> void:
 	_state_generation += 1
+
+
+func _bump_frame_identity_generation() -> void:
+	_frame_identity_generation += 1
 
 
 func _reject(reason: StringName) -> bool:

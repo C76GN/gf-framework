@@ -42,13 +42,13 @@ bridge.release_pointer(capture, release_timestamp_msec)
 
 ## 坐标、事件类型与生命周期
 
-- 输入坐标必须有限且两轴都位于闭区间 `0.0..1.0`；精确的 `1.0` 会映射到对应轴最后一个有效像素，避免落到 Viewport 的右侧或底部排他边界。`NaN`、Infinity 和越界值会被拒绝。
+- 输入坐标必须有限且两轴都位于闭区间 `0.0..1.0`；每一轴按 `uv * (size - 1)` 连续单调地映射到首尾有效像素，因此 `0.0` 对应首像素、`1.0` 对应末像素，不会落到 Viewport 的右侧或底部排他边界。`NaN`、Infinity 和越界值会被拒绝。
 - `PointerType.MOUSE` 产生 `InputEventMouseButton` / `InputEventMouseMotion`；`PointerType.TOUCH` 产生 `InputEventScreenTouch` / `InputEventScreenDrag`。桥不会在两类之间隐式转换。
 - `forward_mouse_hover()` 只接受未捕获的 mouse key；同一 key 已按下时必须继续走 capture 的 move/release/cancel API，桥会拒绝伪造 `button_mask=0` 的 hover motion。
 - 每次投递时都读取目标当前尺寸。Viewport resize 后，move、release 和 cancel 会用当前尺寸换算最后合法标准化坐标。
 - 离面 release/cancel 不需要再次提供目标，因此仍投递到按下时捕获的弱引用目标；若目标已释放或离开 SceneTree，则清理捕获并返回失败。
 - 重复 press、重复按钮 press/release 不会重复产生状态事件，但成功接受的重复样本仍会推进最后合法位置或时间。鼠标 release 只接受左、右、中与两个扩展按钮，滚轮按钮返回 `false`。活动指针数、跨代际时间表、双击历史、双击时间窗口和像素距离都有显式上限；预算只能在首个样本前配置。
-- provider 停用时调用 `cancel_source()`，目标代际失效时调用 `cancel_target()`，所有者销毁时调用 `dispose()`。`cancel_source()` 还会按 source/device 清除调用前已经释放的双击记录与时间高水位，使重新启用的 provider 从新的生命周期开始；同步取消回调中新建的 capture 代际不属于旧入口快照。批量取消仍在各自最后合法位置产生 cancel 事件。
+- provider 停用时调用 `cancel_source()`，目标代际失效时调用 `cancel_target()`，所有者销毁时调用 `dispose()`。`cancel_source()` 还会按 source/device 清除调用前已经释放的双击记录与时间高水位，使重新启用的 provider 从新的生命周期开始；若在同步 Viewport 回调中终止 source，仍在调用栈上的旧 hover/release 会失效，而回调后新建的 capture 代际不属于旧入口快照。批量取消仍在各自最后合法位置产生 cancel 事件。
 
 ## 所有权边界
 

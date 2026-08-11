@@ -28,7 +28,7 @@ if sprite.configure(definition):
 
 每次推进最多跨越 `MAX_FRAME_ADVANCES_PER_TICK` 个帧边界，速度绝对值也受硬上限约束。极端时间跳跃不会触发无界循环；调用方若收到 `false`，可读取 `get_last_rejection_reason()` 并决定丢弃该次推进、缩小步长或记录诊断。
 
-配置、动画和帧信号都是同步信号。监听器若在回调内重新配置，后提交的完整配置获胜，外层调用不会再补发陈旧帧事件；`animation_started` 监听器只调用 `pause()`、`stop(false)` 或以新速度重播同一动画时，不会替换刚提交的动画/帧身份，因此对应 `frame_changed` 仍会恰好发出。监听器若在 `frame_changed` 中调用 `play()`、`seek()`、`pause()` 或 `stop()`，当前 `advance()` 会停止消费剩余时间，不会把旧时间量推进到新的播放代际。
+配置、动画和帧信号都是同步信号。监听器若在回调内重新配置，后提交的完整配置获胜，外层调用不会再补发陈旧帧事件；`animation_started` 监听器只调用 `pause()`、`stop(false)` 或以新速度重播同一动画时，不会替换刚提交的动画/帧身份，因此对应 `frame_changed` 仍会恰好发出。帧或配置身份一旦被替换，即使监听器随后回到相同的动画 ID 与帧索引，身份代际也不会倒退，外层不会重复发布 ABA 终态。监听器若在 `frame_changed` 中调用 `play()`、`seek()`、`pause()` 或 `stop()`，当前 `advance()` 会停止消费剩余时间，不会把旧时间量推进到新的播放代际。
 
 ## 配置不变量和预算
 

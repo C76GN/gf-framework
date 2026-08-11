@@ -1333,6 +1333,7 @@ func _remove_completed_source_lifecycle_state(source_id: StringName, device_id: 
 	for pointer_key_variant: Variant in affected_pointer_keys.keys():
 		if pointer_key_variant is String:
 			var pointer_key: String = pointer_key_variant
+			_advance_pointer_epoch(pointer_key)
 			_prune_pointer_epoch(pointer_key)
 
 
@@ -1450,17 +1451,11 @@ static func _normalized_position_is_valid(position: Vector2) -> bool:
 
 
 static func _uv_to_position(normalized_position: Vector2, size: Vector2) -> Vector2:
-	var position_x: float = (
-		maxf(size.x - 1.0, 0.0)
-		if normalized_position.x == 1.0
-		else normalized_position.x * size.x
-	)
-	var position_y: float = (
+	var last_position: Vector2 = Vector2(
+		maxf(size.x - 1.0, 0.0),
 		maxf(size.y - 1.0, 0.0)
-		if normalized_position.y == 1.0
-		else normalized_position.y * size.y
 	)
-	return Vector2(position_x, position_y)
+	return normalized_position * last_position
 
 
 static func _mouse_button_is_supported(mouse_button: MouseButton) -> bool:

@@ -50,6 +50,28 @@ func after_each() -> void:
 
 # --- 测试方法 ---
 
+## 验证 hover 投递中的 source 终止会使尚未发布的旧调用栈失效。
+func test_reentrant_cancel_source_invalidates_hover_dispatch() -> void:
+	var viewport: SubViewport = _make_viewport(Vector2i(200, 100))
+	var receiver: ReentrantInputReceiver = ReentrantInputReceiver.new()
+	viewport.add_child(receiver)
+	receiver.arm(func(_event: InputEvent) -> void:
+		assert_eq(_bridge.cancel_source(&"hover_cancel", 20), 0)
+	)
+
+	assert_false(_bridge.forward_mouse_hover(
+		&"hover_cancel",
+		1,
+		0,
+		viewport,
+		1,
+		Vector2(0.5, 0.5),
+		10
+	))
+	assert_eq(_events.size(), 0, "已终止 source 的旧 hover 不得再发布 input_forwarded。")
+	assert_eq(_bridge.get_pointer_timestamp_count(), 0)
+
+
 ## 验证 Viewport 输入回调取消并重捕获同 key 时，外层 press 不得返回或发布旧代际。
 func test_reentrant_recapture_suppresses_stale_outer_press_completion() -> void:
 	var viewport: SubViewport = _make_viewport(Vector2i(200, 100))
@@ -281,6 +303,33 @@ func test_reentrant_recapture_during_release_keeps_new_generation() -> void:
 	assert_eq(_forwarded_generations[0], _reentrant_capture.get_capture_generation())
 
 
+## 验证 terminal 回调中的 source 终止使旧 release 失效，并允许新的 source 生命周期。
+func test_reentrant_cancel_source_invalidates_release_and_allows_restart() -> void:
+	var viewport: SubViewport = _make_viewport(Vector2i(200, 100))
+	var stale_capture: GFViewportSurfaceInputCapture = _capture_mouse(
+		viewport, &"release_cancel", 6, 0, 13, Vector2(0.25, 0.5), 10
+	)
+	assert_not_null(stale_capture)
+	if stale_capture == null:
+		return
+	var receiver: ReentrantInputReceiver = ReentrantInputReceiver.new()
+	viewport.add_child(receiver)
+	_events.clear()
+	_forwarded_generations.clear()
+	receiver.arm(func(_event: InputEvent) -> void:
+		assert_eq(_bridge.cancel_source(&"release_cancel", 20), 0)
+	)
+
+	assert_false(_bridge.release_pointer(stale_capture, 11))
+	assert_eq(_events.size(), 0, "已终止 source 的旧 release 不得再发布 input_forwarded。")
+	_reentrant_capture = _capture_mouse(
+		viewport, &"release_cancel", 6, 0, 13, Vector2(0.5, 0.5), 1
+	)
+	assert_not_null(_reentrant_capture)
+	if _reentrant_capture != null:
+		assert_true(_bridge.has_capture(_reentrant_capture))
+
+
 ## 验证主动 dispose 会先完整转发每个已按下鼠标按钮的 cancel，再保持终态。
 func test_dispose_forwards_all_pressed_mouse_button_cancels() -> void:
 	var viewport: SubViewport = _make_viewport(Vector2i(200, 100))
@@ -354,7 +403,7 @@ func test_mouse_move_and_off_surface_release_use_current_viewport_size() -> void
 	assert_not_null(press)
 	if press == null:
 		return
-	assert_eq(press.position, Vector2(50.0, 50.0))
+	assert_eq(press.position, Vector2(49.75, 49.5))
 	assert_true(press.pressed)
 
 	viewport.size = Vector2i(400, 200)
@@ -363,8 +412,8 @@ func test_mouse_move_and_off_surface_release_use_current_viewport_size() -> void
 	assert_not_null(motion)
 	if motion == null:
 		return
-	assert_eq(motion.position, Vector2(300.0, 50.0))
-	assert_eq(motion.relative, Vector2(200.0, -50.0))
+	assert_eq(motion.position, Vector2(299.25, 49.75))
+	assert_eq(motion.relative, Vector2(199.5, -49.75))
 
 	viewport.size = Vector2i(800, 400)
 	assert_true(_bridge.release_pointer(capture, 120))
@@ -372,7 +421,7 @@ func test_mouse_move_and_off_surface_release_use_current_viewport_size() -> void
 	assert_not_null(release)
 	if release == null:
 		return
-	assert_eq(release.position, Vector2(600.0, 100.0))
+	assert_eq(release.position, Vector2(599.25, 99.75))
 	assert_false(release.pressed)
 	assert_eq(release.button_mask, 0)
 
@@ -399,8 +448,8 @@ func test_touch_capture_keys_are_isolated_and_typed() -> void:
 		return
 	assert_eq(first_press.index, 0)
 	assert_eq(second_press.index, 0)
-	assert_eq(first_press.position, Vector2(30.0, 30.0))
-	assert_eq(second_press.position, Vector2(240.0, 105.0))
+	assert_true(first_press.position.is_equal_approx(Vector2(29.9, 29.8)))
+	assert_true(second_press.position.is_equal_approx(Vector2(239.2, 104.3)))
 
 	assert_true(_bridge.release_pointer(first, 30))
 	assert_false(_bridge.has_capture(first))
@@ -465,7 +514,7 @@ func test_invalid_samples_and_freed_targets_fail_closed() -> void:
 	var release: InputEventMouseButton = _mouse_button_event_at(1)
 	assert_not_null(release)
 	if release != null:
-		assert_eq(release.position, Vector2(30.0, 40.0))
+		assert_eq(release.position, Vector2(29.75, 39.5))
 
 	var doomed: SubViewport = _make_viewport(Vector2i(100, 100))
 	var doomed_capture: GFViewportSurfaceInputCapture = _capture_touch(
@@ -481,19 +530,30 @@ func test_invalid_samples_and_freed_targets_fail_closed() -> void:
 	assert_eq(_bridge.get_active_pointer_count(), 0)
 
 
-## 验证闭区间 UV 的右下端点映射到 Viewport 内最后一个像素。
-func test_inclusive_uv_endpoint_stays_inside_viewport() -> void:
+## 验证闭区间 UV 全域连续单调地映射到首尾有效像素。
+func test_inclusive_uv_mapping_is_continuous_monotonic_and_in_bounds() -> void:
 	var viewport: SubViewport = _make_viewport(Vector2i(120, 80))
-	var capture: GFViewportSurfaceInputCapture = _capture_touch(
-		viewport, &"inclusive_edge", 1, 0, 1, Vector2.ONE, 10
-	)
-	assert_not_null(capture)
-	if capture == null:
-		return
-	var press: InputEventScreenTouch = _touch_event_at(0)
-	assert_not_null(press)
-	if press != null:
-		assert_eq(press.position, Vector2(119.0, 79.0))
+	var normalized_values: Array[float] = [0.0, 0.5, 0.999, 1.0]
+	var expected_positions: Array[float] = [0.0, 59.5, 118.881, 119.0]
+	var mapped_positions: Array[float] = []
+	for index: int in normalized_values.size():
+		assert_true(_bridge.forward_mouse_hover(
+			&"inclusive_edge",
+			1,
+			0,
+			viewport,
+			1,
+			Vector2(normalized_values[index], 0.0),
+			10 + index
+		))
+		var motion: InputEventMouseMotion = _mouse_motion_event_at(index)
+		assert_not_null(motion)
+		if motion != null:
+			mapped_positions.append(motion.position.x)
+			assert_almost_eq(motion.position.x, expected_positions[index], 0.0001)
+	assert_eq(mapped_positions.size(), normalized_values.size())
+	for index: int in range(1, mapped_positions.size()):
+		assert_gt(mapped_positions[index], mapped_positions[index - 1])
 
 
 ## 验证禁用双击历史时，同一指针上一代之后的迟到 press 仍按时间高水位拒绝。
@@ -615,7 +675,7 @@ func test_on_surface_release_rejects_unsupported_mouse_button() -> void:
 	var release: InputEventMouseButton = _mouse_button_event_at(1)
 	assert_not_null(release)
 	if release != null:
-		assert_eq(release.position, Vector2(30.0, 40.0), "失败 release 不得更新最后合法位置。")
+		assert_eq(release.position, Vector2(29.75, 39.5), "失败 release 不得更新最后合法位置。")
 
 
 ## 验证同一 pointer key 已捕获时，未按下 hover 不能伪造无按钮 motion。
@@ -661,7 +721,7 @@ func test_duplicate_capture_press_advances_last_sample() -> void:
 	var release: InputEventMouseButton = _mouse_button_event_at(1)
 	assert_not_null(release)
 	if release != null:
-		assert_eq(release.position, Vector2(90.0, 40.0))
+		assert_eq(release.position, Vector2(89.25, 39.5))
 
 
 ## 验证成功的重复按钮 press/release 会推进捕获的单调时间而不重复发事件。
@@ -822,7 +882,7 @@ func test_cancel_uses_last_legal_position_after_resize() -> void:
 	assert_not_null(cancelled)
 	if cancelled == null:
 		return
-	assert_eq(cancelled.position, Vector2(100.0, 40.0))
+	assert_eq(cancelled.position, Vector2(99.5, 39.75))
 	assert_false(cancelled.pressed)
 	assert_true(cancelled.canceled)
 	assert_eq(_bridge.get_active_pointer_count(), 0)

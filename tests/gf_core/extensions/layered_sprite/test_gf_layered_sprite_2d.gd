@@ -286,6 +286,75 @@ func test_playback_only_started_reentry_preserves_committed_frame_signal() -> vo
 		node.free()
 
 
+## 验证 animation_started 中帧身份离开再返回时，外层不会重复发布 ABA 终态。
+func test_started_reentry_seek_aba_suppresses_stale_outer_frame_signal() -> void:
+	var node: GFLayeredSprite2D = GFLayeredSprite2D.new()
+	assert_true(node.configure(_make_definition()))
+	var reentered: Array[bool] = [false]
+	var seek_results: Array[bool] = []
+	var frame_events: Array[int] = []
+	var started_connection: int = node.animation_started.connect(func(
+		animation: StringName
+	) -> void:
+		if animation != &"run" or reentered[0]:
+			return
+		reentered[0] = true
+		seek_results.append(node.seek(1))
+		seek_results.append(node.seek(0))
+	)
+	var frame_connection: int = node.frame_changed.connect(func(
+		animation: StringName,
+		frame: int
+	) -> void:
+		if animation == &"run":
+			frame_events.append(frame)
+	)
+	assert_eq(started_connection, OK)
+	assert_eq(frame_connection, OK)
+
+	assert_true(node.play(&"run"))
+	assert_eq(seek_results, [true, true])
+	assert_eq(frame_events, [1, 0], "外层 play 不得在帧身份 ABA 后重复 run/0。")
+
+	node.free()
+
+
+## 验证配置身份清除再回到同一动画/帧元组时，外层不会重复发布 ABA 终态。
+func test_started_reentry_configuration_aba_suppresses_stale_outer_frame_signal() -> void:
+	var node: GFLayeredSprite2D = GFLayeredSprite2D.new()
+	assert_true(node.configure(_make_definition()))
+	var replacement: GFLayeredSpriteDefinition = _make_definition()
+	replacement.default_animation = &"run"
+	var reentered: Array[bool] = [false]
+	var configure_results: Array[bool] = []
+	var frame_events: Array[StringName] = []
+	var started_connection: int = node.animation_started.connect(func(
+		animation: StringName
+	) -> void:
+		if animation != &"run" or reentered[0]:
+			return
+		reentered[0] = true
+		node.clear_configuration()
+		configure_results.append(node.configure(replacement))
+	)
+	var frame_connection: int = node.frame_changed.connect(func(
+		animation: StringName,
+		_frame: int
+	) -> void:
+		frame_events.append(animation)
+	)
+	assert_eq(started_connection, OK)
+	assert_eq(frame_connection, OK)
+
+	assert_true(node.play(&"run"))
+	assert_eq(configure_results, [true])
+	assert_eq(node.get_current_animation(), &"run")
+	assert_eq(node.get_current_frame(), 0)
+	assert_eq(frame_events, [&"run"], "外层 play 不得在配置身份 ABA 后重复 run/0。")
+
+	node.free()
+
+
 func test_frame_signal_reentry_does_not_spend_remaining_delta_on_new_animation() -> void:
 	var node: GFLayeredSprite2D = GFLayeredSprite2D.new()
 	assert_true(node.configure(_make_definition()))
