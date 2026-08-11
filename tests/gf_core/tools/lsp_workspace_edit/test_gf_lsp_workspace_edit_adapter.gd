@@ -233,8 +233,8 @@ func test_commit_rejects_disk_source_drift_before_consuming_plan() -> void:
 	assert_eq(FileAccess.get_file_as_string(target_path), "var value = 9\n")
 
 
-func test_commit_compare_exchange_rejects_drift_after_freshness_check() -> void:
-	var fixture: Dictionary = _make_valid_fixture("compare_exchange", 8, "var value = 1\n")
+func test_commit_observable_freshness_rejects_drift_before_artifact_preflight() -> void:
+	var fixture: Dictionary = _make_valid_fixture("observable_freshness", 8, "var value = 1\n")
 	var target_path: String = GFVariantData.get_option_string(fixture, "target_path")
 	var target_uri: String = GFVariantData.get_option_string(fixture, "target_uri")
 	var snapshot: Dictionary = GFVariantData.get_option_dictionary(fixture, "snapshot")
@@ -255,7 +255,7 @@ func test_commit_compare_exchange_rejects_drift_after_freshness_check() -> void:
 	assert_true(plan.is_valid())
 	var concurrent_text: String = "var value = 9\n"
 	_GF_LSP_WORKSPACE_EDIT_ADAPTER_SCRIPT._configure_test_before_artifact_commit(
-		Callable(self, "_rewrite_target_for_compare_exchange").bind(
+		Callable(self, "_rewrite_target_before_artifact_preflight").bind(
 			target_path,
 			concurrent_text
 		)
@@ -267,14 +267,14 @@ func test_commit_compare_exchange_rejects_drift_after_freshness_check() -> void:
 
 	assert_false(
 		GFVariantData.get_option_bool(commit_report, "ok"),
-		"freshness 与 artifact commit 之间的并发写入必须由 old-hash CAS 拒绝。"
+		"freshness 与 artifact preflight 之间已可观察到的漂移必须失败关闭。"
 	)
 	assert_eq(GFVariantData.get_option_string(commit_report, "status"), "transaction_failed")
 	assert_true(plan.is_consumed(), "进入写事务边界后的计划必须保持一次性语义。")
 	assert_eq(
 		FileAccess.get_file_as_string(target_path),
 		concurrent_text,
-		"CAS 失败不得覆盖并发写入。"
+		"可观察 freshness 失败不得覆盖外部写入。"
 	)
 
 
@@ -676,7 +676,7 @@ func _change_first_ascii_letter_case(value: String) -> String:
 	return value
 
 
-func _rewrite_target_for_compare_exchange(path: String, text: String) -> void:
+func _rewrite_target_before_artifact_preflight(path: String, text: String) -> void:
 	var file: FileAccess = FileAccess.open(path, FileAccess.WRITE)
 	assert_not_null(file, "并发写入夹具必须能打开目标。")
 	if file == null:
