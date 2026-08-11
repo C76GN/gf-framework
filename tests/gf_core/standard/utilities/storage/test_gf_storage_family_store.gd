@@ -338,6 +338,40 @@ func test_claim_staging_recovers_owner_only_and_rejects_physical_work() -> void:
 	assert_false(FileAccess.file_exists(blocked_catalog_path))
 
 
+func test_claim_staging_discards_empty_or_truncated_owner_write() -> void:
+	assert_eq(_ensure_layout(), OK)
+	for case_name: String in ["empty", "truncated"]:
+		var descriptor: Dictionary = _descriptor(
+			"slots/recover-incomplete-%s.json" % case_name
+		)
+		var family_path: String = GFVariantData.get_option_string(
+			descriptor,
+			"family_path"
+		)
+		var staging_path: String = family_path + ".claim-" + GFUuid.generate_v4()
+		assert_eq(DirAccess.make_dir_recursive_absolute(staging_path), OK)
+		if case_name == "truncated":
+			assert_eq(_write_text(staging_path.path_join("owner.json"), "{"), OK)
+
+		assert_eq(
+			_claim_family(descriptor),
+			OK,
+			"未发布的 %s claim staging 应作为可恢复崩溃窗口丢弃。" % case_name
+		)
+		assert_false(DirAccess.dir_exists_absolute(staging_path))
+		assert_true(DirAccess.dir_exists_absolute(family_path))
+		assert_true(
+			FileAccess.file_exists(
+				GFVariantData.get_option_string(descriptor, "owner_path")
+			)
+		)
+		assert_true(
+			FileAccess.file_exists(
+				GFVariantData.get_option_string(descriptor, "catalog_path")
+			)
+		)
+
+
 func test_owner_and_catalog_records_fail_closed_on_reciprocal_corruption() -> void:
 	var descriptor: Dictionary = _descriptor("slots/corrupt-owner.json")
 	assert_eq(_claim_family(descriptor), OK)

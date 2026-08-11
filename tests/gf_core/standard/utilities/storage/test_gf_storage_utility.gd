@@ -387,6 +387,31 @@ func test_save_data_group_rejects_non_string_key_before_claiming_any_family() ->
 	assert_push_error("[GFStorageUtility] save_data_group 失败：文件名键必须是 String。")
 
 
+func test_save_data_group_rejects_oversized_group_before_claiming_any_family() -> void:
+	var files: Dictionary = {}
+	var descriptors: Array[Dictionary] = []
+	for index: int in range(65):
+		var file_name: String = "oversized/member_%02d.json" % index
+		files[file_name] = {"value": index}
+		descriptors.append(_storage._make_family_descriptor(file_name))
+
+	assert_eq(_storage.save_data_group(files), ERR_INVALID_PARAMETER)
+	assert_push_error("[GFStorageUtility] save_data_group 失败：成员数超过上限 64。")
+	for descriptor: Dictionary in descriptors:
+		assert_false(
+			FileAccess.file_exists(
+				GFVariantData.get_option_string(descriptor, "catalog_path")
+			),
+			"超限 group 不得创建 catalog tombstone。"
+		)
+		assert_false(
+			FileAccess.file_exists(
+				GFVariantData.get_option_string(descriptor, "owner_path")
+			),
+			"超限 group 不得创建 owner tombstone。"
+		)
+
+
 func test_portable_logical_file_path_profile_rejects_noncanonical_identities() -> void:
 	var overlong_segment: String = "a".repeat(65) + ".json"
 	var overlong_path: String = "/".join([

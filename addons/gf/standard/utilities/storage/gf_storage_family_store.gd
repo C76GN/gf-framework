@@ -769,6 +769,12 @@ func _reconcile_claim_staging(descriptor: Dictionary) -> Error:
 		if not DirAccess.dir_exists_absolute(staging_path):
 			return ERR_FILE_CORRUPT
 		var staging_error: Error = _validate_claim_staging(descriptor, staging_path)
+		if staging_error == ERR_FILE_NOT_FOUND:
+			# staging 尚未发布；在单写者 root 契约下，空目录或截断的 owner 写入可安全丢弃。
+			var incomplete_cleanup_error: Error = _remove_claim_staging(staging_path)
+			if incomplete_cleanup_error != OK:
+				return incomplete_cleanup_error
+			continue
 		if staging_error != OK:
 			return staging_error
 		staging_paths.append(staging_path)
@@ -791,11 +797,19 @@ func _validate_claim_staging(descriptor: Dictionary, staging_path: String) -> Er
 	var entries_error: Error = GFVariantData.get_option_int(entries, "error", OK) as Error
 	if entries_error != OK:
 		return entries_error
-	if GFVariantData.get_option_array(entries, "names") != ["owner.json"]:
+	var names: Array = GFVariantData.get_option_array(entries, "names")
+	if names.is_empty():
+		return ERR_FILE_NOT_FOUND
+	if names != ["owner.json"]:
 		return ERR_FILE_CORRUPT
 	var owner_result: Dictionary = _read_json_dictionary(staging_path.path_join("owner.json"))
 	if not GFVariantData.get_option_bool(owner_result, "ok"):
-		return ERR_FILE_CORRUPT
+		var owner_error: Error = GFVariantData.get_option_int(
+			owner_result,
+			"error",
+			ERR_FILE_CORRUPT
+		) as Error
+		return ERR_FILE_NOT_FOUND if owner_error in [ERR_FILE_NOT_FOUND, ERR_FILE_CORRUPT] else owner_error
 	return OK if _matches_identity_record(
 		GFVariantData.get_option_dictionary(owner_result, "data"),
 		_OWNER_SCHEMA,
@@ -1137,7 +1151,10 @@ static func _read_json_dictionary(path: String) -> Dictionary:
 	file.close()
 	if read_error != OK:
 		return {"ok": false, "error": read_error, "data": {}}
-	var parsed: Variant = JSON.parse_string(text)
+	var parser: JSON = JSON.new()
+	if parser.parse(text) != OK:
+		return {"ok": false, "error": ERR_FILE_CORRUPT, "data": {}}
+	var parsed: Variant = parser.data
 	if not parsed is Dictionary:
 		return {"ok": false, "error": ERR_FILE_CORRUPT, "data": {}}
 	var data: Dictionary = parsed

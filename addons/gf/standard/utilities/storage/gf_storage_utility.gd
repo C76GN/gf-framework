@@ -686,6 +686,12 @@ func save_data_group(files: Dictionary) -> Error:
 	if files.is_empty():
 		push_error("[GFStorageUtility] save_data_group 失败：files 为空。")
 		return ERR_INVALID_PARAMETER
+	if files.size() > _MAX_TRANSACTION_FILES:
+		push_error(
+			"[GFStorageUtility] save_data_group 失败：成员数超过上限 %d。"
+			% _MAX_TRANSACTION_FILES
+		)
+		return ERR_INVALID_PARAMETER
 
 	var file_names: Array[String] = []
 	var payloads_by_file: Dictionary = {}
