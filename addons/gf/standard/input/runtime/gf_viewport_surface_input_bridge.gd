@@ -538,7 +538,7 @@ func cancel_pointer(capture: GFViewportSurfaceInputCapture, timestamp_msec: int)
 	return _cancel_record(record, timestamp_msec)
 
 
-## 取消指定输入源的全部捕获。
+## 取消指定输入源的全部捕获，并清除调用前已结束指针的双击与时间状态。
 ## [br]
 ## @api public
 ## [br]
@@ -558,13 +558,23 @@ func cancel_source(
 ) -> int:
 	if not _can_accept_input() or source_id == &"" or timestamp_msec < 0 or device_id < -1:
 		return 0
+	_remove_completed_source_lifecycle_state(source_id, device_id)
 	var removed: int = 0
 	for record: CaptureRecord in _get_capture_snapshot():
 		if _get_capture_record(record.key) != record or record.source_id != source_id:
 			continue
 		if device_id >= 0 and record.device_id != device_id:
 			continue
+		var epoch_before_cancel: int = _begin_pointer_dispatch(record.key)
+		var expected_cancel_epoch: int = _next_pointer_epoch_value(epoch_before_cancel)
 		var _cancelled: bool = _cancel_record(record, maxi(timestamp_msec, record.last_timestamp_msec))
+		if (
+			not _captures.has(record.key)
+			and not _pointer_has_click_history(record.key)
+			and _get_pointer_epoch(record.key) == expected_cancel_epoch
+		):
+			var _erased_timestamp: bool = _pointer_timestamp_high_water.erase(record.key)
+		_end_pointer_dispatch(record.key)
 		removed += 1
 	return removed
 
@@ -1135,8 +1145,11 @@ func _end_pointer_dispatch(pointer_key: String) -> void:
 
 func _advance_pointer_epoch(pointer_key: String) -> void:
 	var current: int = _get_pointer_epoch(pointer_key)
-	var next_epoch: int = 1 if current >= _MAX_POINTER_EPOCH else current + 1
-	_pointer_epochs[pointer_key] = next_epoch
+	_pointer_epochs[pointer_key] = _next_pointer_epoch_value(current)
+
+
+static func _next_pointer_epoch_value(current: int) -> int:
+	return 1 if current >= _MAX_POINTER_EPOCH else current + 1
 
 
 func _get_pointer_epoch(pointer_key: String) -> int:
@@ -1228,7 +1241,6 @@ func _remember_click(record: CaptureRecord, mouse_button: int, timestamp_msec: i
 				oldest_click.device_id,
 				oldest_click.pointer_id
 			)
-			_advance_pointer_epoch(oldest_pointer_key)
 			_prune_pointer_epoch(oldest_pointer_key)
 
 
@@ -1283,6 +1295,64 @@ func _remove_click_history_for_pointer(
 			and click.pointer_id == pointer_id
 		):
 			var _erased_click: bool = _click_history.erase(key)
+
+
+func _remove_completed_source_lifecycle_state(source_id: StringName, device_id: int) -> void:
+	var affected_pointer_keys: Dictionary = {}
+	for click_key_variant: Variant in _click_history.keys():
+		if not click_key_variant is String:
+			continue
+		var click_key: String = click_key_variant
+		var click: ClickRecord = _get_click_record(click_key)
+		if (
+			click == null
+			or click.source_id != source_id
+			or (device_id >= 0 and click.device_id != device_id)
+		):
+			continue
+		var pointer_key: String = _make_pointer_key(
+			click.source_id,
+			click.device_id,
+			click.pointer_id
+		)
+		if _captures.has(pointer_key):
+			continue
+		var _erased_click: bool = _click_history.erase(click_key)
+		affected_pointer_keys[pointer_key] = true
+	for pointer_key_variant: Variant in _pointer_timestamp_high_water.keys():
+		if not pointer_key_variant is String:
+			continue
+		var pointer_key: String = pointer_key_variant
+		if (
+			_captures.has(pointer_key)
+			or not _pointer_key_matches_source(pointer_key, source_id, device_id)
+		):
+			continue
+		var _erased_timestamp: bool = _pointer_timestamp_high_water.erase(pointer_key)
+		affected_pointer_keys[pointer_key] = true
+	for pointer_key_variant: Variant in affected_pointer_keys.keys():
+		if pointer_key_variant is String:
+			var pointer_key: String = pointer_key_variant
+			_prune_pointer_epoch(pointer_key)
+
+
+static func _pointer_key_matches_source(
+	pointer_key: String,
+	source_id: StringName,
+	device_id: int
+) -> bool:
+	var source: String = String(source_id)
+	var prefix: String = "%d:%s:" % [source.length(), source]
+	if not pointer_key.begins_with(prefix):
+		return false
+	if device_id < 0:
+		return true
+	var remainder: String = pointer_key.substr(prefix.length())
+	var separator: int = remainder.find(":")
+	if separator <= 0:
+		return false
+	var device_text: String = remainder.left(separator)
+	return device_text.is_valid_int() and int(device_text) == device_id
 
 
 func _get_capture_record(key: String) -> CaptureRecord:
@@ -1380,7 +1450,17 @@ static func _normalized_position_is_valid(position: Vector2) -> bool:
 
 
 static func _uv_to_position(normalized_position: Vector2, size: Vector2) -> Vector2:
-	return Vector2(normalized_position.x * size.x, normalized_position.y * size.y)
+	var position_x: float = (
+		maxf(size.x - 1.0, 0.0)
+		if normalized_position.x == 1.0
+		else normalized_position.x * size.x
+	)
+	var position_y: float = (
+		maxf(size.y - 1.0, 0.0)
+		if normalized_position.y == 1.0
+		else normalized_position.y * size.y
+	)
+	return Vector2(position_x, position_y)
 
 
 static func _mouse_button_is_supported(mouse_button: MouseButton) -> bool:

@@ -481,6 +481,21 @@ func test_invalid_samples_and_freed_targets_fail_closed() -> void:
 	assert_eq(_bridge.get_active_pointer_count(), 0)
 
 
+## 验证闭区间 UV 的右下端点映射到 Viewport 内最后一个像素。
+func test_inclusive_uv_endpoint_stays_inside_viewport() -> void:
+	var viewport: SubViewport = _make_viewport(Vector2i(120, 80))
+	var capture: GFViewportSurfaceInputCapture = _capture_touch(
+		viewport, &"inclusive_edge", 1, 0, 1, Vector2.ONE, 10
+	)
+	assert_not_null(capture)
+	if capture == null:
+		return
+	var press: InputEventScreenTouch = _touch_event_at(0)
+	assert_not_null(press)
+	if press != null:
+		assert_eq(press.position, Vector2(119.0, 79.0))
+
+
 ## 验证禁用双击历史时，同一指针上一代之后的迟到 press 仍按时间高水位拒绝。
 func test_stale_press_is_rejected_across_capture_generations_without_click_history() -> void:
 	assert_true(_bridge.configure_limits(4, 0, 100, 10.0))
@@ -515,6 +530,33 @@ func test_cancel_timestamp_rejects_late_press_in_next_generation() -> void:
 	assert_null(_capture_touch(
 		viewport, &"cancel_monotonic", 1, 0, 1, Vector2(0.5, 0.5), 150
 	))
+
+
+## 验证 source 生命周期终止会清除已释放指针的双击与时间高水位。
+func test_cancel_source_clears_completed_pointer_lifecycle_state() -> void:
+	var viewport: SubViewport = _make_viewport(Vector2i(120, 80))
+	var first: GFViewportSurfaceInputCapture = _capture_mouse(
+		viewport, &"provider", 1, 0, 1, Vector2(0.25, 0.5), 100
+	)
+	assert_not_null(first)
+	if first == null:
+		return
+	assert_true(_bridge.release_pointer(first, 110))
+	assert_eq(_bridge.get_click_history_count(), 1)
+	assert_eq(_bridge.get_pointer_timestamp_count(), 1)
+
+	assert_eq(_bridge.cancel_source(&"provider", 120), 0)
+	assert_eq(_bridge.get_click_history_count(), 0)
+	assert_eq(_bridge.get_pointer_timestamp_count(), 0)
+	var restarted: GFViewportSurfaceInputCapture = _capture_mouse(
+		viewport, &"provider", 1, 0, 1, Vector2(0.25, 0.5), 1
+	)
+	assert_not_null(restarted, "新 provider 生命周期必须允许从自己的单调时钟起点开始。")
+	if restarted != null:
+		var restarted_press: InputEventMouseButton = _mouse_button_event_at(2)
+		assert_not_null(restarted_press)
+		if restarted_press != null:
+			assert_false(restarted_press.double_click)
 
 
 ## 验证时间高水位拥有独立有界预算，双击历史裁剪不会移除仍在预算内的时间保护。
@@ -729,6 +771,39 @@ func test_double_click_history_is_windowed_and_bounded() -> void:
 		if history_capture != null:
 			assert_true(_bridge.release_pointer(history_capture, 105 + index * 10))
 	assert_eq(_bridge.get_click_history_count(), 2)
+
+
+## 验证重入的历史预算淘汰不会伪装成另一指针的 capture 代际变化。
+func test_click_history_eviction_does_not_invalidate_unrelated_active_dispatch() -> void:
+	assert_true(_bridge.configure_limits(4, 1, 100, 10.0))
+	var viewport: SubViewport = _make_viewport(Vector2i(200, 100))
+	var receiver: ReentrantInputReceiver = ReentrantInputReceiver.new()
+	viewport.add_child(receiver)
+	var previous_a: GFViewportSurfaceInputCapture = _capture_mouse(
+		viewport, &"evict_a", 1, 0, 1, Vector2(0.2, 0.5), 0
+	)
+	assert_not_null(previous_a)
+	if previous_a == null:
+		return
+	assert_true(_bridge.release_pointer(previous_a, 10))
+	var active_b: GFViewportSurfaceInputCapture = _capture_mouse(
+		viewport, &"evict_b", 1, 0, 1, Vector2(0.8, 0.5), 20
+	)
+	assert_not_null(active_b)
+	if active_b == null:
+		return
+	receiver.arm(func(_event: InputEvent) -> void:
+		assert_true(_bridge.release_pointer(active_b, 30))
+	)
+
+	var active_a: GFViewportSurfaceInputCapture = _capture_mouse(
+		viewport, &"evict_a", 1, 0, 1, Vector2(0.21, 0.5), 25
+	)
+
+	assert_not_null(active_a, "历史淘汰不能使已投递的 A press 报告失败。")
+	if active_a != null:
+		assert_true(_bridge.has_capture(active_a))
+	assert_eq(_bridge.get_click_history_count(), 1)
 
 
 ## 验证 cancel 使用 resize 后的最后合法位置，并发出 Touch cancel。

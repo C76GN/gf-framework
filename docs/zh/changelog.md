@@ -175,6 +175,7 @@
 
 ### 🐛 Bug 修复 (Fixed)
 
+- 修复 Viewport 表面输入把合法 `UV=1.0` 投到右/下排他边界、双击历史预算淘汰错误推进无关 capture dispatch epoch，以及 `cancel_source()` 遗留已释放指针的双击/时间生命周期状态的问题；同时修复 Layered Sprite 的 `animation_started` 监听器只改变播放态时吞掉已提交动画/帧通知的问题。
 - 修复公开 logical 文件名以 `.tmp`、`.bak` 或 `.txn` 结尾时与另一文件事务 sidecar 共享物理路径、可能跨 file key 误读或误删的问题；每个 logical identity 现在映射到独立 opaque family，旧 root 可见文件不会被运行时猜测收养。
 - 修复 `GFObjectPoolUtility` 的同步、分批与时间预算预热在并发、回调重入或运行中缩小上限时可共同写穿 `max_available_per_scene` 的问题；同一场景现在共享当前生命周期的在途容量预留，变更上限、归还节点或 dispose/init 会在提交前重新验收并丢弃过期候选。普通 acquire 也会冻结生命周期与 parent authority，并在场景构造、状态 setter 和根/子节点 hook 的每个外部边界复核当前代次；旧调用栈不再继续激活、通知或发布已归还、已释放或跨生命周期的节点树。
 - 修复项目 Installer 主动取消并返回后仍保持 running、并发 `Gf.init()` 永久等待且半注册模块未回滚的问题；取消与 timeout 等失败入口现在统一在 Architecture 失败结算中先回滚再恰好一次唤醒等待方，terminal 回调不能重开或提交 Installer，detached 旧 continuation 收尾前继续阻止重试和迟到写入。

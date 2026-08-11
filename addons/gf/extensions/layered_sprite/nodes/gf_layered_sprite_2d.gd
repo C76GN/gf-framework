@@ -327,15 +327,17 @@ func play(
 	_resume_cursor_available = true
 	_last_rejection_reason = &""
 	_bump_state_generation()
-	var playback_generation: int = _state_generation
+	var committed_animation: StringName = _current_animation
+	var committed_frame: int = _current_frame
 	set_process(true)
 	queue_redraw()
 	animation_started.emit(animation)
 	if (
-		_state_generation == playback_generation
-		and (previous_animation != _current_animation or previous_frame != _current_frame)
+		_current_animation == committed_animation
+		and _current_frame == committed_frame
+		and (previous_animation != committed_animation or previous_frame != committed_frame)
 	):
-		frame_changed.emit(_current_animation, _current_frame)
+		frame_changed.emit(committed_animation, committed_frame)
 	return true
 
 

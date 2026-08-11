@@ -245,6 +245,47 @@ func test_reentrant_configuration_wins_without_stale_outer_frame_signal() -> voi
 	node.free()
 
 
+## 验证 animation_started 中仅改变播放态不会吞掉已提交帧身份的通知。
+func test_playback_only_started_reentry_preserves_committed_frame_signal() -> void:
+	for reentry_mode: StringName in [&"pause", &"stop", &"replay"]:
+		var node: GFLayeredSprite2D = GFLayeredSprite2D.new()
+		assert_true(node.configure(_make_definition()))
+		var reentered: Array[bool] = [false]
+		var replay_results: Array[bool] = []
+		var frame_events: Array[StringName] = []
+		var started_connection: int = node.animation_started.connect(func(
+			animation: StringName
+		) -> void:
+			if reentered[0]:
+				return
+			reentered[0] = true
+			match reentry_mode:
+				&"pause":
+					node.pause()
+				&"stop":
+					node.stop(false)
+				&"replay":
+					replay_results.append(node.play(animation, 2.0))
+		)
+		var frame_connection: int = node.frame_changed.connect(func(
+			animation: StringName,
+			_frame: int
+		) -> void:
+			frame_events.append(animation)
+		)
+		assert_eq(started_connection, OK)
+		assert_eq(frame_connection, OK)
+
+		assert_true(node.play(&"run"))
+		assert_eq(node.get_current_animation(), &"run")
+		assert_eq(node.get_current_frame(), 0)
+		assert_eq(frame_events, [&"run"], "%s 重入仍应保留 run/0 通知。" % reentry_mode)
+		if reentry_mode == &"replay":
+			assert_eq(replay_results, [true])
+
+		node.free()
+
+
 func test_frame_signal_reentry_does_not_spend_remaining_delta_on_new_animation() -> void:
 	var node: GFLayeredSprite2D = GFLayeredSprite2D.new()
 	assert_true(node.configure(_make_definition()))
