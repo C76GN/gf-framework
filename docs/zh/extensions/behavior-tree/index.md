@@ -36,7 +36,11 @@ runner.tick()
 
 `BlackboardScope` 可通过 `set_parent()` 组合父级读取链。该入口会拒绝形成循环的父级关系，避免 `get_value()`、`has_value()` 或调试导出在错误黑板图中递归失控。构造、`set_value()`、`get_value()` 与 `to_dictionary()` 使用循环安全的集合副本；公开 `values` 字段则是当前作用域的 live mutable storage，直接写入会绕过这些复制边界。
 
-`get_debug_snapshot()` 会输出根节点状态、tick 次数、耗时和黑板键；节点和 Runner 都可以清理调试状态，便于测试断言或运行时面板刷新。调试快照会对 metadata 做 JSON-safe 转换；递归回边使用 `cycle`，已经完整展开过但不在当前递归栈中的同一节点使用 `shared_reference`，不会再把共享引用误报为循环。
+`get_debug_snapshot()` 会输出根节点状态、tick 次数、耗时和黑板键；节点和 Runner 都可以清理调试状态，便于测试断言或运行时面板刷新。`GFBehaviorTree.build_debug_snapshot(node, options)` 可限制 `max_nodes`、`max_depth`、`max_children`、`max_blackboard_keys`、`max_text_length` 和 `max_total_bytes`。内建节点返回已持有的子节点集合后，节点数、深度和单节点子项会在递归前限流；Runner 的黑板键会在完整物化前限流。项目自定义 `_get_debug_children()` 必须自行保证 override 内部构造有界，GF 只能限制其返回后的遍历。节点快照通过 `child_count`、`captured_child_count`、`omitted_child_count`、`truncated` 和 `truncation_reason` 说明遗漏原因，顶层 `debug_budget` 汇总实际遍历节点数和结构截断原因；空子节点槽使用稳定原因 `null_child`。
+
+整棵原始快照只在末端进入一次 `GFReportValueCodec`。因此 metadata 中的循环、Object、Callable、非 JSON Variant、文本、集合、节点数和总字节统一使用框架报告编码规则投影，不会保留 live Object / Callable；递归回边使用 `cycle`，已经完整展开过但不在当前递归栈中的同一行为树节点使用 `shared_reference`，不会再把共享引用误报为循环。编码预算耗尽时会返回报告 codec 的结构化 budget marker，而不是半编码 live 值。
+
+Runner 的调试快照只迭代并输出受 `max_blackboard_keys` 限制的排序键样本，同时报告完整 `blackboard_key_count`；它从不读取或输出黑板值。这里的遍历期保证只适用于 `BTNode` 和 `Runner`。传入仅实现 `get_debug_snapshot()` 的通用 Object 时，对象方法必须先自行构造返回值，GF 只能对返回值执行有界 post-projection，无法约束第三方方法内部的工作量。
 
 `TimeLimit(0)` 表示立即超时，不会先执行一次子节点。`UntilSuccess` / `UntilFail` 会把子节点的非目标终态视为一次完整尝试，并在下一次重试前 reset 子节点，避免上一次尝试的运行态泄漏到下一轮。
 

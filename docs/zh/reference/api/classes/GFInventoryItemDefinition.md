@@ -175,12 +175,13 @@ var metadata: Dictionary = {}
 ### `compatibility_checker`
 
 - API：`public`
+- 首次版本：`3.3.0`
 
 ```gdscript
 var compatibility_checker: Callable = Callable()
 ```
 
-可选堆叠兼容性回调。签名为 Callable(left: Dictionary, right: Dictionary, definition: GFInventoryItemDefinition) -> bool。
+可选堆叠兼容性回调。签名为 `Callable(left: Dictionary, right: Dictionary, definition: GFInventoryItemDefinition) -> bool`。 回调必须同步、确定、只读且有界，不得执行 I/O、产生外部副作用或依赖调用次数； 一次 mutation 或事务的 prepare/commit 重规划可能调用零次或多次。回调必须指向 可反射参数元数据的具名 Object 方法；匿名 lambda 和其他不透明 Callable 会在 调用前失败关闭。
 
 ## 方法
 

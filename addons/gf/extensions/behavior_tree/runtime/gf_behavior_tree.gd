@@ -45,6 +45,21 @@ enum ParallelPolicy {
 
 const _MAX_DURATION_MSEC: int = 9_223_372_036_854_775_807
 const _MAX_DURATION_SECONDS: float = 9_223_372_036_854_775.0
+const _DEFAULT_DEBUG_MAX_NODES: int = 256
+const _DEFAULT_DEBUG_MAX_DEPTH: int = 16
+const _DEFAULT_DEBUG_MAX_CHILDREN: int = 64
+const _DEFAULT_DEBUG_MAX_TOTAL_BYTES: int = 256 * 1024
+const _DEFAULT_DEBUG_MAX_TEXT_LENGTH: int = 512
+const _DEFAULT_DEBUG_MAX_BLACKBOARD_KEYS: int = 128
+const _HARD_DEBUG_MAX_NODES: int = 4096
+const _HARD_DEBUG_MAX_DEPTH: int = 64
+const _HARD_DEBUG_MAX_CHILDREN: int = 256
+const _HARD_DEBUG_MAX_TOTAL_BYTES: int = 1024 * 1024
+const _HARD_DEBUG_MAX_TEXT_LENGTH: int = 4096
+const _HARD_DEBUG_MAX_BLACKBOARD_KEYS: int = 1024
+const _DEBUG_CODEC_MAX_COLLECTION_ITEMS: int = 1024
+const _DEBUG_CODEC_NODE_MULTIPLIER: int = 32
+const _DEBUG_CODEC_NODE_OVERHEAD: int = 512
 
 
 # --- 公共方法 ---
@@ -73,26 +88,46 @@ static func status_to_string(status: int) -> StringName:
 
 
 ## 获取节点调试快照。
+##
+## 内建 BTNode 返回其已持有的子节点集合后，GF 会在递归前执行节点、深度和子项
+## 预算；项目自定义的 _get_debug_children() 必须自行保证构造有界，GF 无法中断
+## override 内部工作。Runner 会在黑板键物化前限流。通用 Object 则必须先由对象
+## 自身完成 get_debug_snapshot()，GF 只能对其返回值执行有界后投影。
 ## [br]
 ## @api public
 ## [br]
+## @since 3.3.0
+## [br]
 ## @param node: 行为树节点。
+## [br]
+## @param options: 有界快照选项。
 ## [br]
 ## @return: 调试快照字典。
 ## [br]
-## @schema node: GFBehaviorTree.BTNode、null 或提供 get_debug_snapshot() 的对象。
+## @schema node: GFBehaviorTree.BTNode、GFBehaviorTree.Runner、null 或提供 get_debug_snapshot() 的对象；内建 BTNode 在取得已有子节点集合后限制递归，Runner 在黑板键物化前限流；自定义 _get_debug_children() 与通用对象方法的内部工作不受 GF 抢占，仅其返回后的遍历或投影有界。
 ## [br]
-## @schema return: 包含节点调试状态的 Dictionary；null 节点返回空字典。
-static func build_debug_snapshot(node: Variant) -> Dictionary:
+## @schema options: Dictionary with optional max_nodes, max_depth, max_children, max_total_bytes, max_text_length, and max_blackboard_keys; values are clamped to framework hard limits.
+## [br]
+## @schema return: 包含节点调试状态和 debug_budget 的 Dictionary；null 节点返回空字典。
+static func build_debug_snapshot(node: Variant, options: Dictionary = {}) -> Dictionary:
 	if node is BTNode:
 		var tree_node: BTNode = node
-		return _encode_debug_snapshot(tree_node._get_debug_snapshot_internal({}, {}))
+		var node_budget: Dictionary = _make_debug_snapshot_budget(options)
+		var node_snapshot: Dictionary = tree_node._get_debug_snapshot_internal(
+			{},
+			{},
+			node_budget,
+			0
+		)
+		return _finalize_debug_snapshot(node_snapshot, node_budget)
 	if node is Runner:
 		var runner: Runner = node
-		return _encode_debug_snapshot(runner._get_debug_snapshot_raw())
+		var runner_budget: Dictionary = _make_debug_snapshot_budget(options)
+		var runner_snapshot: Dictionary = runner._get_debug_snapshot_raw(runner_budget)
+		return _finalize_debug_snapshot(runner_snapshot, runner_budget)
 	if node is Object:
 		var snapshot_owner: Object = node
-		return _encode_debug_snapshot(_call_debug_snapshot(snapshot_owner))
+		return _encode_debug_snapshot(_call_debug_snapshot(snapshot_owner), options)
 	return {}
 
 
@@ -104,6 +139,88 @@ static func _call_debug_snapshot(snapshot_owner: Object) -> Dictionary:
 
 	var snapshot_value: Variant = snapshot_owner.call("get_debug_snapshot")
 	return GFVariantData.as_dictionary(snapshot_value)
+
+
+static func _make_debug_snapshot_budget(options: Dictionary) -> Dictionary:
+	return {
+		"max_nodes": _get_bounded_debug_option(options, "max_nodes", _DEFAULT_DEBUG_MAX_NODES, _HARD_DEBUG_MAX_NODES),
+		"max_depth": _get_bounded_debug_option(options, "max_depth", _DEFAULT_DEBUG_MAX_DEPTH, _HARD_DEBUG_MAX_DEPTH),
+		"max_children": _get_bounded_debug_option(options, "max_children", _DEFAULT_DEBUG_MAX_CHILDREN, _HARD_DEBUG_MAX_CHILDREN),
+		"max_total_bytes": _get_bounded_debug_option(options, "max_total_bytes", _DEFAULT_DEBUG_MAX_TOTAL_BYTES, _HARD_DEBUG_MAX_TOTAL_BYTES),
+		"max_text_length": _get_bounded_debug_option(options, "max_text_length", _DEFAULT_DEBUG_MAX_TEXT_LENGTH, _HARD_DEBUG_MAX_TEXT_LENGTH),
+		"max_blackboard_keys": _get_bounded_debug_option(options, "max_blackboard_keys", _DEFAULT_DEBUG_MAX_BLACKBOARD_KEYS, _HARD_DEBUG_MAX_BLACKBOARD_KEYS),
+		"node_count": 0,
+		"truncated": false,
+		"truncation_reasons": {},
+	}
+
+
+static func _get_bounded_debug_option(
+	options: Dictionary,
+	key: String,
+	fallback: int,
+	hard_maximum: int
+) -> int:
+	var value: Variant = options.get(key, fallback)
+	if not value is int:
+		return fallback
+	var int_value: int = value
+	return clampi(int_value, 0, hard_maximum)
+
+
+static func _mark_debug_snapshot_truncated(budget: Dictionary, reason: StringName) -> void:
+	budget["truncated"] = true
+	var reasons_value: Variant = budget.get("truncation_reasons", {})
+	var reasons: Dictionary = {}
+	if reasons_value is Dictionary:
+		reasons = reasons_value
+	reasons[reason] = true
+	budget["truncation_reasons"] = reasons
+
+
+static func _has_debug_node_capacity(budget: Dictionary) -> bool:
+	return (
+		_read_debug_budget_int(budget, "node_count")
+		< _read_debug_budget_int(budget, "max_nodes", _DEFAULT_DEBUG_MAX_NODES)
+	)
+
+
+static func _consume_debug_node(budget: Dictionary) -> bool:
+	if not _has_debug_node_capacity(budget):
+		_mark_debug_snapshot_truncated(budget, &"max_nodes")
+		return false
+	budget["node_count"] = _read_debug_budget_int(budget, "node_count") + 1
+	return true
+
+
+static func _make_debug_budget_report(budget: Dictionary) -> Dictionary:
+	var reasons: Array[String] = []
+	var reasons_value: Variant = budget.get("truncation_reasons", {})
+	if reasons_value is Dictionary:
+		var reason_lookup: Dictionary = reasons_value
+		for reason_value: Variant in reason_lookup.keys():
+			reasons.append(GFVariantData.to_text(reason_value))
+	reasons.sort()
+	var report: Dictionary = budget.duplicate(true)
+	report["truncation_reasons"] = reasons
+	return report
+
+
+static func _finalize_debug_snapshot(snapshot: Dictionary, budget: Dictionary) -> Dictionary:
+	snapshot["debug_budget"] = _make_debug_budget_report(budget)
+	return _encode_debug_snapshot_with_budget(snapshot, budget)
+
+
+static func _read_debug_budget_int(
+	budget: Dictionary,
+	key: String,
+	fallback: int = 0
+) -> int:
+	var value: Variant = budget.get(key, fallback)
+	if value is int:
+		var int_value: int = value
+		return int_value
+	return fallback
 
 
 static func _variant_to_status(value: Variant, fallback_status: int = Status.FAILURE) -> int:
@@ -294,12 +411,52 @@ static func _resolve_monotonic_time_msec(clock_msec: Callable, previous_msec: in
 	return maxi(current_msec, previous_msec)
 
 
-static func _encode_debug_snapshot(snapshot: Dictionary) -> Dictionary:
+static func _encode_debug_snapshot(
+	snapshot: Dictionary,
+	options: Dictionary = {}
+) -> Dictionary:
+	var budget: Dictionary = _make_debug_snapshot_budget(options)
+	return _encode_debug_snapshot_with_budget(snapshot, budget)
+
+
+static func _encode_debug_snapshot_with_budget(
+	snapshot: Dictionary,
+	budget: Dictionary
+) -> Dictionary:
+	var traversal_max_depth: int = _read_debug_budget_int(
+		budget,
+		"max_depth",
+		_DEFAULT_DEBUG_MAX_DEPTH
+	)
+	var traversal_max_nodes: int = _read_debug_budget_int(
+		budget,
+		"max_nodes",
+		_DEFAULT_DEBUG_MAX_NODES
+	)
 	return GFReportValueCodec.to_report_dictionary(
 		snapshot,
 		GFReportValueCodec.make_redaction_options(
 			GFReportValueCodec.REDACTION_PROFILE_DEBUG,
-			{ "path_redaction": "none" }
+			{
+				"path_redaction": "none",
+				"max_depth": traversal_max_depth * 2 + 8,
+				"max_string_length": _read_debug_budget_int(
+					budget,
+					"max_text_length",
+					_DEFAULT_DEBUG_MAX_TEXT_LENGTH
+				),
+				"max_collection_items": _DEBUG_CODEC_MAX_COLLECTION_ITEMS,
+				"max_packed_length": _DEBUG_CODEC_MAX_COLLECTION_ITEMS,
+				"max_total_nodes": (
+					traversal_max_nodes * _DEBUG_CODEC_NODE_MULTIPLIER
+					+ _DEBUG_CODEC_NODE_OVERHEAD
+				),
+				"max_total_bytes": _read_debug_budget_int(
+					budget,
+					"max_total_bytes",
+					_DEFAULT_DEBUG_MAX_TOTAL_BYTES
+				),
+			}
 		)
 	)
 
@@ -435,13 +592,13 @@ class BTNode extends RefCounted:
 	## [br]
 	## @api public
 	## [br]
-	## @since 3.6.0
+	## @since 3.3.0
 	## [br]
 	## @return: 调试快照字典。
 	## [br]
-	## @schema return: 包含 node_id、name、status、status_text、reason、tick_count、last_tick_usec、child_count、children 和 metadata 字段的 Dictionary；children 为子节点快照数组；metadata 为 JSON-safe 投影；真实回边以 cycle=true 表示，非回边的重复 identity 以 shared_reference=true 表示。
+	## @schema return: 包含 node_id、name、status、status_text、reason、tick_count、last_tick_usec、child_count、captured_child_count、omitted_child_count、children 和 metadata 字段的 Dictionary；children 在 _get_debug_children() 返回后按递归预算限制，自定义 override 必须自行保证其内部构造有界；metadata 为有界 JSON-safe 投影；截断会通过节点字段和顶层 debug_budget 诊断；真实回边以 cycle=true 表示，非回边的重复 identity 以 shared_reference=true 表示。
 	func get_debug_snapshot() -> Dictionary:
-		return GFBehaviorTree._encode_debug_snapshot(_get_debug_snapshot_internal({}, {}))
+		return GFBehaviorTree.build_debug_snapshot(self)
 
 
 	func _clear_debug_state_internal(recursive: bool, visited: Dictionary) -> void:
@@ -462,8 +619,15 @@ class BTNode extends RefCounted:
 
 	func _get_debug_snapshot_internal(
 		active_path: Dictionary,
-		seen: Dictionary
+		seen: Dictionary,
+		budget: Dictionary,
+		depth: int
 	) -> Dictionary:
+		if not GFBehaviorTree._consume_debug_node(budget):
+			return {
+				"truncated": true,
+				"truncation_reason": "max_nodes",
+			}
 		var instance_id: int = get_instance_id()
 		if active_path.has(instance_id):
 			return {
@@ -475,6 +639,8 @@ class BTNode extends RefCounted:
 				"tick_count": tick_count,
 				"last_tick_usec": last_tick_usec,
 				"child_count": 0,
+				"captured_child_count": 0,
+				"omitted_child_count": 0,
 				"children": [],
 				"metadata": {},
 				"cycle": true,
@@ -489,6 +655,8 @@ class BTNode extends RefCounted:
 				"tick_count": tick_count,
 				"last_tick_usec": last_tick_usec,
 				"child_count": 0,
+				"captured_child_count": 0,
+				"omitted_child_count": 0,
 				"children": [],
 				"metadata": {},
 				"shared_reference": true,
@@ -497,11 +665,47 @@ class BTNode extends RefCounted:
 		seen[instance_id] = true
 
 		var children: Array[Dictionary] = []
-		for child: BTNode in _get_debug_children():
-			if child != null:
-				children.append(child._get_debug_snapshot_internal(active_path, seen))
+		var debug_children: Array[BTNode] = _get_debug_children()
+		var child_count: int = debug_children.size()
+		var max_children: int = GFBehaviorTree._read_debug_budget_int(
+			budget,
+			"max_children",
+			GFBehaviorTree._DEFAULT_DEBUG_MAX_CHILDREN
+		)
+		var child_limit: int = mini(child_count, max_children)
+		var truncation_reason: StringName = &""
+		for child_index: int in range(child_limit):
+			var child: BTNode = debug_children[child_index]
+			if child == null:
+				if truncation_reason == &"":
+					truncation_reason = &"null_child"
+				GFBehaviorTree._mark_debug_snapshot_truncated(budget, &"null_child")
+				continue
+			if depth >= GFBehaviorTree._read_debug_budget_int(
+				budget,
+				"max_depth",
+				GFBehaviorTree._DEFAULT_DEBUG_MAX_DEPTH
+			):
+				truncation_reason = &"max_depth"
+				GFBehaviorTree._mark_debug_snapshot_truncated(budget, truncation_reason)
+				break
+			if not GFBehaviorTree._has_debug_node_capacity(budget):
+				truncation_reason = &"max_nodes"
+				GFBehaviorTree._mark_debug_snapshot_truncated(budget, truncation_reason)
+				break
+			children.append(child._get_debug_snapshot_internal(
+				active_path,
+				seen,
+				budget,
+				depth + 1
+			))
 		var _active_path_erased: bool = active_path.erase(instance_id)
-		return {
+		if child_count > child_limit:
+			if truncation_reason == &"":
+				truncation_reason = &"max_children"
+			GFBehaviorTree._mark_debug_snapshot_truncated(budget, &"max_children")
+		var omitted_child_count: int = child_count - children.size()
+		var snapshot: Dictionary = {
 			"node_id": String(node_id),
 			"name": name,
 			"status": last_status,
@@ -509,10 +713,16 @@ class BTNode extends RefCounted:
 			"reason": String(last_reason),
 			"tick_count": tick_count,
 			"last_tick_usec": last_tick_usec,
-			"child_count": children.size(),
+			"child_count": child_count,
+			"captured_child_count": children.size(),
+			"omitted_child_count": omitted_child_count,
 			"children": children,
 			"metadata": metadata,
 		}
+		if omitted_child_count > 0:
+			snapshot["truncated"] = true
+			snapshot["truncation_reason"] = String(truncation_reason)
+		return snapshot
 
 
 	func _record_tick(status: int, reason: StringName = &"", started_usec: int = 0) -> int:
@@ -612,7 +822,7 @@ class BlackboardScope extends RefCounted:
 	## [br]
 	## @api public
 	## [br]
-	## @since 3.6.0
+	## @since 3.3.0
 	var parent: BlackboardScope:
 		get:
 			return _parent
@@ -2140,23 +2350,44 @@ class Runner extends RefCounted:
 	## [br]
 	## @api public
 	## [br]
+	## @since 3.3.0
+	## [br]
 	## @return: 调试快照字典。
 	## [br]
-	## @schema return: 包含 root 和 blackboard_keys 字段的 Dictionary；root 为根节点调试快照，blackboard_keys 为排序后的黑板键列表。
+	## @schema return: 包含 root、blackboard_keys、blackboard_key_count、blackboard_keys_truncated 和 debug_budget 字段的 Dictionary；root 为遍历期受限的根节点调试快照；blackboard_keys 是按 max_blackboard_keys 在物化前限流后排序的键样本，不包含黑板值。
 	func get_debug_snapshot() -> Dictionary:
-		return GFBehaviorTree._encode_debug_snapshot(_get_debug_snapshot_raw())
+		return GFBehaviorTree.build_debug_snapshot(self)
 
 
-	func _get_debug_snapshot_raw() -> Dictionary:
+	func _get_debug_snapshot_raw(budget: Dictionary) -> Dictionary:
+		var blackboard_keys: Array[String] = _get_blackboard_keys(budget)
+		var blackboard_key_count: int = blackboard.size()
+		var blackboard_keys_truncated: bool = (
+			blackboard_key_count > blackboard_keys.size()
+		)
+		if blackboard_keys_truncated:
+			GFBehaviorTree._mark_debug_snapshot_truncated(
+				budget,
+				&"max_blackboard_keys"
+			)
 		return {
-			"root": _root_node._get_debug_snapshot_internal({}, {}) if _root_node != null else {},
-			"blackboard_keys": _get_blackboard_keys(),
+			"root": _root_node._get_debug_snapshot_internal({}, {}, budget, 0) if _root_node != null else {},
+			"blackboard_keys": blackboard_keys,
+			"blackboard_key_count": blackboard_key_count,
+			"blackboard_keys_truncated": blackboard_keys_truncated,
 		}
 
 
-	func _get_blackboard_keys() -> Array[String]:
+	func _get_blackboard_keys(budget: Dictionary) -> Array[String]:
 		var result: Array[String] = []
-		for key: Variant in blackboard.keys():
+		var max_blackboard_keys: int = GFBehaviorTree._read_debug_budget_int(
+			budget,
+			"max_blackboard_keys",
+			GFBehaviorTree._DEFAULT_DEBUG_MAX_BLACKBOARD_KEYS
+		)
+		for key: Variant in blackboard:
+			if result.size() >= max_blackboard_keys:
+				break
 			var key_text: String = GFVariantData.to_text(key)
 			result.append(key_text)
 		result.sort()

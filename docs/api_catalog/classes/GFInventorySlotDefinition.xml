@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFInventorySlotDefinition" path="addons/gf/extensions/domain/inventory/gf_inventory_slot_definition.gd" module="extensions/domain" extends="Resource" classDigest="2e0da14ffba56af7745ddb1df94536577cae0f5bb747b47d068d8bb4f2e09a7c">
+<class name="GFInventorySlotDefinition" path="addons/gf/extensions/domain/inventory/gf_inventory_slot_definition.gd" module="extensions/domain" extends="Resource" classDigest="e84462e1af4e40a7e36d2dc98dc4459272076f715ba862ba2f8972857152cf31">
 	<description>GFInventorySlotDefinition: 通用库存槽位接收规则。
 只描述一个槽位允许接收哪些物品或分类，不保存槽位内容，也不绑定 UI、
 拖拽、装备类型或具体项目玩法。项目可把它挂到 `GFSlotInventoryModel.slot_definitions`
@@ -61,15 +61,22 @@
 		</member>
 		<member kind="property" name="acceptance_checker">
 			<signature>var acceptance_checker: Callable = Callable()</signature>
-			<description>可选接收检查回调。签名为 Callable(item_id, definition, instance_data, slot_index, inventory) -&gt; bool。</description>
+			<description>可选接收检查回调。签名为
+`Callable(item_id, definition, instance_data, slot_index, inventory_view) -&gt; bool`。
+`inventory_view` 是仅在本次同步回调内有效的 [GFInventoryReadView]；回调必须
+同步、确定、只读且有界，不得保存视图、执行 I/O、产生外部副作用、依赖调用次数，
+或把参数声明为可变库存模型类型。回调必须指向可反射参数元数据的具名 Object
+方法；匿名 lambda 和其他不透明 Callable 会在调用前失败关闭。一次 mutation 或事务
+的 prepare/commit 重规划可能调用零次或多次。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.20.0</tag>
 			</tags>
 		</member>
 	</properties>
 	<methods>
 		<member kind="method" name="can_accept">
-			<signature>func can_accept( item_id: StringName, definition: GFInventoryItemDefinition = null, instance_data: Dictionary = {}, slot_index: int = -1, inventory: Object = null ) -&gt; bool:</signature>
+			<signature>func can_accept( item_id: StringName, definition: GFInventoryItemDefinition = null, instance_data: Dictionary = {}, slot_index: int = -1, inventory: GFInventoryReadView = null ) -&gt; bool:</signature>
 			<description>判断槽位是否接受指定物品。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -77,9 +84,10 @@
 				<tag name="param">definition: 可选物品定义；分类规则需要该定义。</tag>
 				<tag name="param">instance_data: 物品实例数据。</tag>
 				<tag name="param">slot_index: 槽位索引。</tag>
-				<tag name="param">inventory: 调用方库存模型。</tag>
+				<tag name="param">inventory: 当前逐步候选的短生命周期 [GFInventoryReadView]；手工调用可传 null。</tag>
 				<tag name="return">接受时返回 true。</tag>
 				<tag name="schema">instance_data: Dictionary，项目自定义物品实例数据。</tag>
+				<tag name="since">3.20.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="to_dict">

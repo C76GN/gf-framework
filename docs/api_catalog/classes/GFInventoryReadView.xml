@@ -1,0 +1,133 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFInventoryReadView" path="addons/gf/extensions/domain/inventory/gf_inventory_read_view.gd" module="extensions/domain" extends="RefCounted" classDigest="7360227fa088fcc8f6a791f576a261dd3bcb780d70f71238a864ec9c13201c88">
+	<description>GFInventoryReadView: 槽位接收回调的临时只读库存投影。
+库存模型与原子转移规划器会为每次槽位接收检查创建此视图。查询反映
+当前逐步候选，因而后续槽位可观察此前写入；视图不暴露可变库存引用。
+回调返回后视图立即失效，项目不得跨回调保存并依赖它。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_handle</tag>
+		<tag name="since">unreleased</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties />
+	<methods>
+		<member kind="method" name="is_active">
+			<signature>func is_active() -&gt; bool:</signature>
+			<description>检查视图是否仍处于当前同步接收回调内。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">仍可查询时返回 true；回调返回后为 false。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_slot_count">
+			<signature>func get_slot_count() -&gt; int:</signature>
+			<description>获取候选槽位数量。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">当前候选槽位数量；失效后返回 0。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_valid_slot">
+			<signature>func is_valid_slot(slot_index: int) -&gt; bool:</signature>
+			<description>检查候选槽位索引是否有效。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">slot_index: 槽位索引。</tag>
+				<tag name="return">视图有效且索引存在时返回 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_stack">
+			<signature>func get_stack(slot_index: int) -&gt; GFInventoryStack:</signature>
+			<description>获取候选堆叠的隔离副本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">slot_index: 槽位索引。</tag>
+				<tag name="return">候选堆叠副本；空槽、无效索引或失效视图返回 null。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_stack_data">
+			<signature>func get_stack_data(slot_index: int) -&gt; Dictionary:</signature>
+			<description>获取候选堆叠字典快照。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">slot_index: 槽位索引。</tag>
+				<tag name="return">候选堆叠字典；空槽、无效索引或失效视图返回空字典。</tag>
+				<tag name="schema">return: Dictionary，包含 item_id、amount 与 instance_data。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_slot_empty">
+			<signature>func is_slot_empty(slot_index: int) -&gt; bool:</signature>
+			<description>检查候选槽位是否为空。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">slot_index: 槽位索引。</tag>
+				<tag name="return">空槽返回 true；无效索引或失效视图也返回 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_item_total">
+			<signature>func get_item_total(item_id: StringName, instance_data: Dictionary = {}) -&gt; int:</signature>
+			<description>获取候选中指定物品总数量。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">item_id: 物品标识。</tag>
+				<tag name="param">instance_data: 可选实例数据过滤条件；空字典匹配全部同 ID 堆叠。</tag>
+				<tag name="return">候选总数量；失效视图返回 0。</tag>
+				<tag name="schema">instance_data: Dictionary，项目自定义物品实例数据。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="has_item">
+			<signature>func has_item( item_id: StringName, amount: int = 1, instance_data: Dictionary = {} ) -&gt; bool:</signature>
+			<description>检查候选中是否拥有足够数量。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">item_id: 物品标识。</tag>
+				<tag name="param">amount: 需要数量。</tag>
+				<tag name="param">instance_data: 可选实例数据过滤条件。</tag>
+				<tag name="return">数量足够返回 true。</tag>
+				<tag name="schema">instance_data: Dictionary，项目自定义物品实例数据。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_empty_slot_indices">
+			<signature>func get_empty_slot_indices() -&gt; PackedInt32Array:</signature>
+			<description>获取候选空槽位索引。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">空槽位索引；失效视图返回空数组。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_occupied_slot_indices">
+			<signature>func get_occupied_slot_indices() -&gt; PackedInt32Array:</signature>
+			<description>获取候选已占用槽位索引。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">已占用槽位索引；失效视图返回空数组。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_slots_for_item">
+			<signature>func get_slots_for_item( item_id: StringName, instance_data: Dictionary = {} ) -&gt; PackedInt32Array:</signature>
+			<description>获取候选中指定物品所在槽位。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">item_id: 物品标识。</tag>
+				<tag name="param">instance_data: 可选实例数据过滤条件；空字典匹配全部同 ID 堆叠。</tag>
+				<tag name="return">匹配槽位索引；失效视图返回空数组。</tag>
+				<tag name="schema">instance_data: Dictionary，项目自定义物品实例数据。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

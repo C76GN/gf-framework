@@ -191,6 +191,8 @@ FAULTED ──> 只能重建 coordinator 与 Adapter
 
 这些上限保证资源不会无界增长，但不提供多 peer 公平调度或每 peer 速率政策。项目 session 应在协调器外增加连接级限流、滥用处置和服务质量策略。
 
+若项目把模拟交给第三方原生物理后端，后端仍应由项目 Adapter 独立验证身份、能力和每个目标组合的重放证据；协调器只调用 `GFNetworkSimulationAdapter`，不会从后端名称、构建风味或状态哈希能力推断跨平台确定性。完整组合边界见 [Physics 的第三方原生物理后端 Adapter 配方](../physics/index.md)。
+
 ## 明确不负责
 
 首版协调器只使用全量快照，不接收入站 delta/patch。以下内容仍由项目负责：

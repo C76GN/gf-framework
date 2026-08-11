@@ -305,37 +305,56 @@ static func _sanitize_report_value(
 			var dictionary_value: Dictionary = value
 			var dictionary_result: Dictionary = {}
 			var encoded_entries: Array[Dictionary] = []
-			var requires_entry_encoding: bool = _uses_reserved_report_marker_key(dictionary_value)
-			var dictionary_keys: Array = dictionary_value.keys()
-			var dictionary_limit: int = _get_collection_limit(dictionary_keys.size(), options)
-			for index: int in range(dictionary_limit):
-				var key: Variant = dictionary_keys[index]
-				var sanitized_key: Variant = _sanitize_report_value(key, options, visited, depth + 1, budget_state)
-				if _is_budget_exhausted(budget_state):
-					break
-				var sanitized_value: Variant = _sanitize_report_value(dictionary_value[key], options, visited, depth + 1, budget_state)
-				if _is_budget_exhausted(budget_state):
-					break
-				encoded_entries.append({
-					"key": sanitized_key,
-					"value": sanitized_value,
-				})
-				if _report_key_requires_entry_encoding(key, sanitized_key):
-					requires_entry_encoding = true
-				else:
-					dictionary_result[key] = sanitized_value
+			var requires_entry_encoding: bool = false
+			var dictionary_size: int = dictionary_value.size()
+			var dictionary_limit: int = _get_collection_limit(dictionary_size, options)
+			if dictionary_limit > 0:
+				var encoded_entry_count: int = 0
+				for key: Variant in dictionary_value:
+					if key is String or key is StringName:
+						if str(key) == _REPORT_MARKER_KEY:
+							requires_entry_encoding = true
+					var sanitized_key: Variant = _sanitize_report_value(
+						key,
+						options,
+						visited,
+						depth + 1,
+						budget_state
+					)
+					if _is_budget_exhausted(budget_state):
+						break
+					var sanitized_value: Variant = _sanitize_report_value(
+						dictionary_value[key],
+						options,
+						visited,
+						depth + 1,
+						budget_state
+					)
+					if _is_budget_exhausted(budget_state):
+						break
+					encoded_entries.append({
+						"key": sanitized_key,
+						"value": sanitized_value,
+					})
+					if _report_key_requires_entry_encoding(key, sanitized_key):
+						requires_entry_encoding = true
+					else:
+						dictionary_result[key] = sanitized_value
+					encoded_entry_count += 1
+					if encoded_entry_count >= dictionary_limit:
+						break
 			var _removed_dictionary_reference: Variant = visited.pop_back()
 			if _is_budget_exhausted(budget_state):
 				return _make_budget_exhaustion_marker(budget_state, options)
-			if dictionary_keys.size() > dictionary_limit:
+			if dictionary_size > dictionary_limit:
 				_mark_budget_truncated(budget_state)
 				var collection_sample: Variant = dictionary_result
 				if requires_entry_encoding:
 					collection_sample = encoded_entries
 				return _make_marker("CollectionBudget", {
 					"collection_type": "Dictionary",
-					"count": dictionary_keys.size(),
-					"omitted_count": dictionary_keys.size() - dictionary_limit,
+					"count": dictionary_size,
+					"omitted_count": dictionary_size - dictionary_limit,
 					"sample": collection_sample,
 				})
 			if requires_entry_encoding:
@@ -862,7 +881,7 @@ static func _collection_to_array(value: Variant) -> Array:
 		TYPE_DICTIONARY:
 			var dictionary_value: Dictionary = value
 			var entries: Array = []
-			for key: Variant in dictionary_value.keys():
+			for key: Variant in dictionary_value:
 				entries.append({
 					"key": key,
 					"value": dictionary_value[key],
@@ -891,14 +910,6 @@ static func _has_reserved_variant_marker_shape(value: Dictionary) -> bool:
 		return false
 	var marker: Dictionary = _as_dictionary(_option_value(value, _VARIANT_MARKER_KEY))
 	return marker.has("type") and marker.has("value")
-
-
-static func _uses_reserved_report_marker_key(value: Dictionary) -> bool:
-	for key: Variant in value.keys():
-		if key is String or key is StringName:
-			if str(key) == _REPORT_MARKER_KEY:
-				return true
-	return false
 
 
 static func _visited_contains_reference(visited: Array, value: Variant) -> bool:

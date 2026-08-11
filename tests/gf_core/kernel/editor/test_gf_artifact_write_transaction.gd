@@ -268,6 +268,135 @@ func test_dry_run_and_overwrite_policy_leave_targets_untouched() -> void:
 	assert_eq(_count_transaction_sidecars(), 0)
 
 
+func test_expected_existing_sha256_guards_compare_exchange_commit() -> void:
+	var target_path: String = _temp_root.path_join("compare-exchange.txt")
+	_write_text(target_path, "reviewed")
+	var reviewed_sha256: String = "reviewed".sha256_text()
+	var guarded_entry: Dictionary = (
+		_GF_ARTIFACT_WRITE_TRANSACTION_SCRIPT.make_text_entry(
+			target_path,
+			"replacement",
+			{
+				"expected_existing_sha256": reviewed_sha256,
+			}
+		)
+	)
+	var options: Dictionary = {
+		"allowed_roots": [_temp_root],
+		"scan_filesystem": false,
+	}
+	var reviewed_report: Dictionary = (
+		_GF_ARTIFACT_WRITE_TRANSACTION_SCRIPT.get_preflight_report(
+			[guarded_entry],
+			options
+		)
+	)
+	assert_true(
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_bool(reviewed_report, "ok"),
+		"目标仍匹配审阅摘要时 compare-exchange 预检应成功。"
+	)
+
+	_write_text(target_path, "concurrent-writer")
+	var rejected_report: Dictionary = (
+		_GF_ARTIFACT_WRITE_TRANSACTION_SCRIPT.commit(
+			[guarded_entry],
+			options
+		)
+	)
+	assert_false(
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_bool(rejected_report, "ok"),
+		"审阅后目标漂移必须在 staging 或删除目标前失败。"
+	)
+	assert_eq(
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_string(
+			rejected_report,
+			"status"
+		),
+		"preflight_failed"
+	)
+	assert_eq(
+		_read_text(target_path),
+		"concurrent-writer",
+		"compare-exchange 失败不得覆盖并发写入。"
+	)
+	assert_eq(_count_transaction_sidecars(), 0)
+
+	var current_sha256: String = "concurrent-writer".sha256_text()
+	var accepted_report: Dictionary = (
+		_GF_ARTIFACT_WRITE_TRANSACTION_SCRIPT.commit(
+			[
+				_GF_ARTIFACT_WRITE_TRANSACTION_SCRIPT.make_text_entry(
+					target_path,
+					"replacement",
+					{
+						"expected_existing_sha256": current_sha256,
+					}
+				),
+			],
+			options
+		)
+	)
+	assert_true(
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_bool(accepted_report, "ok"),
+		"目标仍匹配 expected_existing_sha256 时提交应成功。"
+	)
+	assert_eq(_read_text(target_path), "replacement")
+
+
+func test_hash_options_require_exact_strings_for_builder_and_direct_entries() -> void:
+	var target_path: String = _temp_root.path_join("exact-hash-options.txt")
+	_write_text(target_path, "original")
+	var invalid_entries: Array[Dictionary] = []
+	invalid_entries.append(
+		_GF_ARTIFACT_WRITE_TRANSACTION_SCRIPT.make_text_entry(
+			target_path,
+			"replacement",
+			{ "expected_existing_sha256": null }
+		)
+	)
+	var direct_existing_hash_entry: Dictionary = (
+		_GF_ARTIFACT_WRITE_TRANSACTION_SCRIPT.make_text_entry(
+			target_path,
+			"replacement"
+		)
+	)
+	direct_existing_hash_entry["expected_existing_sha256"] = null
+	invalid_entries.append(direct_existing_hash_entry)
+	invalid_entries.append(
+		_GF_ARTIFACT_WRITE_TRANSACTION_SCRIPT.make_text_entry(
+			target_path,
+			"replacement",
+			{ "expected_sha256": null }
+		)
+	)
+	var direct_content_hash_entry: Dictionary = (
+		_GF_ARTIFACT_WRITE_TRANSACTION_SCRIPT.make_text_entry(
+			target_path,
+			"replacement"
+		)
+	)
+	direct_content_hash_entry["expected_sha256"] = null
+	invalid_entries.append(direct_content_hash_entry)
+	var options: Dictionary = {
+		"allowed_roots": [_temp_root],
+		"scan_filesystem": false,
+	}
+
+	for invalid_entry: Dictionary in invalid_entries:
+		var report: Dictionary = (
+			_GF_ARTIFACT_WRITE_TRANSACTION_SCRIPT.get_preflight_report(
+				[invalid_entry],
+				options
+			)
+		)
+		assert_false(
+			_GF_VARIANT_ACCESS_SCRIPT.get_option_bool(report, "ok"),
+			"hash 约束字段类型错误时不得静默取消校验。"
+		)
+	assert_eq(_read_text(target_path), "original")
+	assert_eq(_count_transaction_sidecars(), 0)
+
+
 func test_unchanged_batch_commits_without_sidecars() -> void:
 	var target_path: String = _temp_root.path_join("unchanged.txt")
 	_write_text(target_path, "same")

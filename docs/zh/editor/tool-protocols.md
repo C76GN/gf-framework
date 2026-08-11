@@ -162,7 +162,11 @@ JSON 文本和 sidecar 在解析前都受 1 MiB UTF-8 字节上限与 64 层嵌�
 var entries: Array[Dictionary] = [
 	GFArtifactWriteTransaction.make_text_entry(
 		"res://generated/catalog.json",
-		catalog_json
+		catalog_json,
+		{
+			"expected_existing_sha256": reviewed_catalog_sha256,
+			"expected_sha256": catalog_json.sha256_text(),
+		}
 	),
 	GFArtifactWriteTransaction.make_bytes_entry(
 		"res://generated/preview.bin",
@@ -183,7 +187,7 @@ if preview.ok:
 	var committed := GFArtifactWriteTransaction.commit(entries, options)
 ```
 
-`allowed_roots` 是必填的非空边界，不存在隐式的整个 `res://` / `user://` 写权限。预检会拒绝空批次、重复的跨平台路径身份、非 `res://` / `user://` 目标、越出根目录的目标、非 ASCII 或非便携文件名、文件系统 link、禁止覆盖、摘要不匹配和所有预算溢出。ASCII portable 策略避免 NFC/NFD、语言相关 case fold 与宿主文件系统别名让两个逻辑目标落到同一实体。全部变化内容先写到目标同目录的 staging 文件并复核大小与 SHA-256；删除目标前会再次绑定 staging 身份和内容，rename 后还会复核目标边界、长度与 SHA-256。任一替换失败时只逆序恢复本事务已触碰且仍匹配事务记录 post-state 的目标；目标后来漂移时回滚 fail closed 并返回恢复句柄，不会盲删未知内容。内容完全未变化的批次幂等返回成功且不创建 sidecar。报告只暴露路径、计数、状态和内容摘要，调用方 metadata 会通过支持报告脱敏边界收束。
+`allowed_roots` 是必填的非空边界，不存在隐式的整个 `res://` / `user://` 写权限。`expected_sha256` 约束待写入的新内容，`expected_existing_sha256` 则把调用方审阅过的既有目标绑定成 compare-and-exchange 前置条件；两者出现时都必须是精确 `String`，`null`、数字、`StringName` 或其他类型会失败关闭，不能静默取消校验。预检会拒绝空批次、重复的跨平台路径身份、非 `res://` / `user://` 目标、越出根目录的目标、非 ASCII 或非便携文件名、文件系统 link、禁止覆盖、摘要不匹配和所有预算溢出。ASCII portable 策略避免 NFC/NFD、语言相关 case fold 与宿主文件系统别名让两个逻辑目标落到同一实体。全部变化内容先写到目标同目录的 staging 文件并复核大小与 SHA-256；删除每个目标前会再次确认它仍匹配预检时的旧内容，随后重新绑定 staging 身份和内容，rename 后还会复核目标边界、长度与 SHA-256。任一替换失败时只逆序恢复本事务已触碰且仍匹配事务记录 post-state 的目标；目标后来漂移时回滚 fail closed 并返回恢复句柄，不会盲删未知内容。内容完全未变化的批次幂等返回成功且不创建 sidecar。报告只暴露路径、计数、状态和内容摘要，调用方 metadata 会通过支持报告脱敏边界收束。
 
 某些产物必须由 `ResourceSaver` 或专用 importer 直接写到最终路径，不能先变成文本或字节 entry。此时先调用 `begin(paths, options)`，成功后执行专用写入，并且恰好调用一次 `complete(transaction)` 或 `rollback(transaction)`：
 

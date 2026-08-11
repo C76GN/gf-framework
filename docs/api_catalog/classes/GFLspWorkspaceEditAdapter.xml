@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFLspWorkspaceEditAdapter" path="addons/gf/tools/lsp_workspace_edit/gf_lsp_workspace_edit_adapter.gd" module="tools" extends="RefCounted" classDigest="d7e29f9767f62aad85e6c045a99d745c19cc8512f63c6376770232e43beb9f1b">
+	<description>GFLspWorkspaceEditAdapter: 调用方提供的闭合 LSP WorkspaceEdit 安全适配器。
+该工具只把已完成的 `documentChanges` 文本编辑转换为一次性预检计划，并在
+工作区、文档版本和磁盘来源摘要仍一致时通过 GFArtifactWriteTransaction 提交。
+它不建立 LSP 连接、不请求 rename/code action、不处理 create/rename/delete
+文件操作、不读取未保存缓冲区、不驱动 UI，也不触发编辑器文件系统扫描。
+允许目标严格限定为当前 `res://` 内已存在且未经过链接的 portable `.gd` 文件。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">tool_api</tag>
+		<tag name="since">unreleased</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants>
+		<member kind="const" name="POSITION_ENCODING_UTF8">
+			<signature>const POSITION_ENCODING_UTF8: String = "utf-8"</signature>
+			<description>LSP UTF-8 position encoding 标识。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="POSITION_ENCODING_UTF16">
+			<signature>const POSITION_ENCODING_UTF16: String = "utf-16"</signature>
+			<description>LSP UTF-16 position encoding 标识。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</constants>
+	<properties />
+	<methods>
+		<member kind="method" name="build_plan">
+			<signature>static func build_plan( workspace_edit: Dictionary, workspace_snapshot: Dictionary, options: Dictionary = {} ) -&gt; GFLspWorkspaceEditPlan:</signature>
+			<description>预检调用方已经取得的闭合 WorkspaceEdit。
+只接受带版本的 `documentChanges` / `TextDocumentEdit`，每个目标必须在
+workspace_snapshot 中恰好出现一次且 saved=true。计划阶段会读取严格 UTF-8
+磁盘字节、精确换算 UTF-8 或 UTF-16 坐标、拒绝重叠并执行底层写事务预检，
+但不会写文件。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">workspace_edit: 调用方提供且已闭合的 LSP WorkspaceEdit。</tag>
+				<tag name="param">workspace_snapshot: 调用方提供的工作区与已保存文档状态。</tag>
+				<tag name="param">options: position encoding 与资源预算。</tag>
+				<tag name="return">有效或带拒绝证据的 WorkspaceEdit 计划。</tag>
+				<tag name="schema">workspace_edit: closed Dictionary，仅包含 documentChanges；每项仅包含 textDocument={uri:String,version:int} 和 edits；每个 edit 仅包含 range={start={line:int,character:int},end={line:int,character:int}} 与 newText:String。</tag>
+				<tag name="schema">workspace_snapshot: closed Dictionary，仅包含 workspace_uri:String、workspace_version:int 和 documents:Array；每个 document 仅包含 uri:String、version:int、saved:bool、source_sha256:String，且 documents 必须与 edit 目标集合完全一致。</tag>
+				<tag name="schema">options: closed Dictionary，必须包含 position_encoding=utf-8|utf-16；可包含 max_file_count、max_edits_per_file、max_file_bytes、max_total_bytes、max_workspace_edit_bytes，均为正整数且不得超过工具绝对上限。</tag>
+				<tag name="schema">return: GFLspWorkspaceEditPlan；使用 get_report() 读取不含源码正文的 JSON-safe 证据。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="commit_plan">
+			<signature>static func commit_plan( plan: GFLspWorkspaceEditPlan, workspace_snapshot: Dictionary ) -&gt; Dictionary:</signature>
+			<description>在绑定状态仍一致时一次性提交计划。
+提交前会重新验证计划 SHA、当前工作区身份与版本、全部文档 saved/version/hash，
+并重新读取磁盘严格 UTF-8 字节。通过后计划先被消费，再以 scan_filesystem=false
+调用 GFArtifactWriteTransaction；失败报告会原样保留需要调用方处理的恢复句柄。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">plan: build_plan() 返回且尚未消费的计划。</tag>
+				<tag name="param">workspace_snapshot: 提交瞬间由调用方重新采集的已保存工作区状态。</tag>
+				<tag name="return">不含源码正文的闭合提交报告。</tag>
+				<tag name="schema">workspace_snapshot: 与 build_plan() 的 workspace_snapshot 相同，且工作区身份/版本、目标集合、文档版本与来源 SHA-256 必须仍匹配计划。</tag>
+				<tag name="schema">return: closed Dictionary，仅包含 ok、status、plan_sha256、written_count、unchanged_count、recovery_required、recovery_action、recovery_transaction、issues、artifact_report；recovery_required=true 时调用方必须按 recovery_action 将 recovery_transaction 原样交给 GFArtifactWriteTransaction.rollback() 或 complete()。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

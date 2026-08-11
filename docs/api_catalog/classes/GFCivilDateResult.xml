@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFCivilDateResult" path="addons/gf/standard/utilities/time/gf_civil_date_result.gd" module="standard" extends="RefCounted" classDigest="2ea4f58412eb7d9b69df503ddb36217d70a8ce38ef0bb92c380dfe4202e4d192">
+	<description>GFCivilDateResult: 公民日期创建或运算的不可变结果。
+成功与失败都使用稳定状态表达，避免用零值日期、隐式钳制或 null 猜测失败原因。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">value_object</tag>
+		<tag name="since">unreleased</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants>
+		<member kind="const" name="STATUS_OK">
+			<signature>const STATUS_OK: StringName = &amp;"ok"</signature>
+			<description>日期已成功创建或计算。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_OUT_OF_RANGE">
+			<signature>const STATUS_OUT_OF_RANGE: StringName = &amp;"out_of_range"</signature>
+			<description>年份或运算结果超出支持范围。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_INVALID_DATE">
+			<signature>const STATUS_INVALID_DATE: StringName = &amp;"invalid_date"</signature>
+			<description>年、月、日组合不是有效公民日期。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_INVALID_FORMAT">
+			<signature>const STATUS_INVALID_FORMAT: StringName = &amp;"invalid_format"</signature>
+			<description>日期文本或字典不符合声明的稳定格式。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</constants>
+	<properties />
+	<methods>
+		<member kind="method" name="is_successful">
+			<signature>func is_successful() -&gt; bool:</signature>
+			<description>检查操作是否成功。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">包含有效日期时返回 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_status">
+			<signature>func get_status() -&gt; StringName:</signature>
+			<description>获取稳定结果状态。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">`STATUS_*` 常量之一。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_date">
+			<signature>func get_date() -&gt; GFCivilDate:</signature>
+			<description>获取成功日期。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">成功时返回不可变日期；失败时返回 null。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_error">
+			<signature>func get_error() -&gt; String:</signature>
+			<description>获取稳定失败说明。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">成功时为空字符串。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

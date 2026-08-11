@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "id": "gf.tool.lsp_workspace_edit",
+  "kind": "tool",
+  "version": "unreleased",
+  "display_name": "GF LSP WorkspaceEdit Tool",
+  "description": "Closed, version-bound LSP WorkspaceEdit planning and transactional commit support for saved project GDScript files.",
+  "dependencies": [
+    "gf.kernel",
+    "gf.standard.base"
+  ],
+  "paths": [
+    "addons/gf/tools/lsp_workspace_edit/**"
+  ],
+  "metadata": {
+    "stage": "workspace-edit-transaction-v1"
+  }
+}

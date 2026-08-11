@@ -22,11 +22,13 @@
 | 信号 | [`item_added`](#member-gfslotinventorymodel-signals-item_added) | `signal item_added(slot_index: int, item_id: StringName, amount: int)` |
 | 信号 | [`item_removed`](#member-gfslotinventorymodel-signals-item_removed) | `signal item_removed(slot_index: int, item_id: StringName, amount: int)` |
 | 信号 | [`inventory_changed`](#member-gfslotinventorymodel-signals-inventory_changed) | `signal inventory_changed` |
-| 属性 | [`registry`](#member-gfslotinventorymodel-properties-registry) | `var registry: GFInventoryItemRegistry = null` |
-| 属性 | [`slot_definitions`](#member-gfslotinventorymodel-properties-slot_definitions) | `var slot_definitions: Array[GFInventorySlotDefinition] = []` |
-| 属性 | [`allow_growth`](#member-gfslotinventorymodel-properties-allow_growth) | `var allow_growth: bool = false` |
+| 属性 | [`registry`](#member-gfslotinventorymodel-properties-registry) | `var registry: GFInventoryItemRegistry:` |
+| 属性 | [`slot_definitions`](#member-gfslotinventorymodel-properties-slot_definitions) | `var slot_definitions: Array[GFInventorySlotDefinition]:` |
+| 属性 | [`allow_growth`](#member-gfslotinventorymodel-properties-allow_growth) | `var allow_growth: bool:` |
 | 属性 | [`default_slot_count`](#member-gfslotinventorymodel-properties-default_slot_count) | `var default_slot_count: int = 0` |
 | 方法 | [`set_registry`](#member-gfslotinventorymodel-methods-set_registry) | `func set_registry(item_registry: GFInventoryItemRegistry) -> void:` |
+| 方法 | [`set_allow_growth`](#member-gfslotinventorymodel-methods-set_allow_growth) | `func set_allow_growth(enabled: bool) -> void:` |
+| 方法 | [`get_revision`](#member-gfslotinventorymodel-methods-get_revision) | `func get_revision() -> int:` |
 | 方法 | [`set_slot_count`](#member-gfslotinventorymodel-methods-set_slot_count) | `func set_slot_count(count: int, preserve_existing: bool = true) -> void:` |
 | 方法 | [`get_slot_count`](#member-gfslotinventorymodel-methods-get_slot_count) | `func get_slot_count() -> int:` |
 | 方法 | [`is_valid_slot`](#member-gfslotinventorymodel-methods-is_valid_slot) | `func is_valid_slot(slot_index: int) -> bool:` |
@@ -211,9 +213,10 @@ signal inventory_changed
 ### `registry`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-var registry: GFInventoryItemRegistry = null
+var registry: GFInventoryItemRegistry:
 ```
 
 可选物品定义注册表。
@@ -223,25 +226,27 @@ var registry: GFInventoryItemRegistry = null
 ### `slot_definitions`
 
 - API：`public`
+- 首次版本：`3.20.0`
 
 ```gdscript
-var slot_definitions: Array[GFInventorySlotDefinition] = []
+var slot_definitions: Array[GFInventorySlotDefinition]:
 ```
 
-可选槽位定义。索引与库存槽位一致；空项表示该槽位不添加额外接收限制。
+可选槽位定义。数量必须与库存槽位精确一致；空项表示该槽位不添加额外接收限制。
 
 结构：
 
-- `slot_definitions`: Array[GFInventorySlotDefinition]，按槽位索引存放的接收规则；空项表示不限制。
+- `slot_definitions`: Array[GFInventorySlotDefinition]，数量必须等于 get_slot_count()；按槽位索引存放接收规则，空项表示不限制。
 
 <a id="member-gfslotinventorymodel-properties-allow_growth"></a>
 
 ### `allow_growth`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-var allow_growth: bool = false
+var allow_growth: bool:
 ```
 
 是否允许库存在创建新堆叠时自动增长。 为 false 时，0 槽位库存不会接收 `add_item()` 的新堆叠。
@@ -277,6 +282,40 @@ func set_registry(item_registry: GFInventoryItemRegistry) -> void:
 | 名称 | 说明 |
 |---|---|
 | `item_registry` | 物品注册表。 |
+
+<a id="member-gfslotinventorymodel-methods-set_allow_growth"></a>
+
+### `set_allow_growth`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func set_allow_growth(enabled: bool) -> void:
+```
+
+设置是否允许自动增长槽位。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `enabled` | 是否允许 \`add_item()\` 在需要新堆叠时增长槽位。 |
+
+<a id="member-gfslotinventorymodel-methods-get_revision"></a>
+
+### `get_revision`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func get_revision() -> int:
+```
+
+获取会使已准备转移失效的单调 revision。 每次实际公开内容、结构或转移相关配置变化最多递增一次；被拒绝和 no-op 操作保持不变。
+
+返回：当前非负 revision。
 
 <a id="member-gfslotinventorymodel-methods-set_slot_count"></a>
 

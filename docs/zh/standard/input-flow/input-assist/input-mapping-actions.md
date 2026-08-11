@@ -40,6 +40,20 @@ if input_map.consume_action(&"jump"):
 
 运行时按“绑定 × 物理来源”保存贡献：不同手柄和不同 touch index 即使命中同一 binding，也会独立保持按下状态，只有最后一个来源释放后聚合动作才结束。虚拟输入同样先拒绝 `NaN` / Infinity，再把有限轴值限制到动作值域；无效写入返回 `false`，不会把坏数据解释成 release 或覆盖上一次合法贡献。
 
+## 动作迟滞阈值
+
+`GFInputAction.activation_threshold` 与 `release_threshold` 只用于轴动作，分别控制“尚未激活时何时进入 raw-active”和“已经激活后何时退出 raw-active”；`BOOL` 动作完全忽略这两个字段。运行时仍按“绑定 × 物理来源”保存输入贡献，再聚合为动作值；迟滞状态则分别由全局动作和每个玩家动作保存。尚未激活时只有非中立聚合值达到 activation threshold 才进入 raw-active；激活后只要非中立聚合值仍不低于 release threshold 就保持。精确 `0` / 零向量始终结束轴动作，因此 `release_threshold = 0` 仍能在输入回到 neutral 时可靠释放。这个迟滞窗口适合抑制模拟摇杆、扳机或其他连续值在阈值附近抖动，但不包含任何设备型号特例。
+
+```gdscript
+var throttle := GFInputAction.new()
+throttle.action_id = &"throttle"
+throttle.value_type = GFInputAction.ValueType.AXIS_1D
+throttle.activation_threshold = 0.65
+throttle.release_threshold = 0.45
+```
+
+对轴动作，把两个正阈值设为相等值即可得到旧式单阈值语义。两者都必须是有限的 `0.0..1.0`，且 release threshold 不得大于 activation threshold；`NaN`、Infinity、越界值或反向迟滞组合不会被猜测或自动修复，对应轴 mapping 会在有效 entry 重建时 fail-closed 跳过。布尔动作不使用也不诊断轴阈值。可在启用上下文前用 `GFInputContextDiagnostics` 报告配置问题。
+
 `consume_action(action_id)` 消费的是 `GFInputMappingUtility` 已经处理出的 just-started 状态，不会读取任意节点 `_input(event)` 正在收到的当前 `InputEvent`。Utility 初始化后会创建内部 `GFInputMappingRouter` 节点并在它自己的 `_input()` 中调用 `handle_input_event(event)`；Godot 对不同节点 `_input()` 的调用顺序不应该作为项目逻辑依赖。如果项目节点先于内部 router 收到同一个事件，直接在该节点 `_input()` 中调用 `consume_action()` 可能返回 `false`，因为当前事件还没有被 GF 输入映射转换成抽象动作。
 
 因此，一次性动作的推荐读取位置是 `GFSystem.tick()`、状态机 `update()`，或监听 `action_started(action_id, value)` / `player_action_started(player_index, action_id, value)`。如果项目只想在 `_input(event)` 中判断 Godot 原生 InputMap 的当前事件，应直接使用 `event.is_action_pressed("jump")` 等 Godot API；如果确实要在项目自己的 `_input(event)` 中接管 GF 输入桥接，需要先调用 `input_map.handle_input_event(event)` 再查询或消费动作，并确保同一个事件不会又被内部 router 重复处理。

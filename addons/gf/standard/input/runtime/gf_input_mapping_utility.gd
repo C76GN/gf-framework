@@ -1572,6 +1572,8 @@ func _rebuild_effective_entries() -> void:
 		for mapping: GFInputMapping in context.mappings:
 			if mapping == null or mapping.action == null:
 				continue
+			if not _action_thresholds_are_valid(mapping.action):
+				continue
 
 			var action_id: StringName = mapping.get_action_id()
 			if action_id == &"":
@@ -1684,7 +1686,11 @@ func _refresh_action_state(action_id: StringName, action: GFInputAction) -> void
 	)
 	var previous_active: bool = _get_action_active(action_id)
 	var next_value: Variant = _calculate_action_value(action_id, action.value_type)
-	var raw_active: bool = _is_value_active(next_value, action)
+	var raw_active: bool = _is_value_active(
+		next_value,
+		action,
+		_get_raw_action_active(action_id)
+	)
 	var next_active: bool = _evaluate_action_triggers(action_id, raw_active, next_value, 0.0)
 
 	_action_values[action_id] = next_value
@@ -1771,18 +1777,42 @@ func _default_value_for_type(value_type: GFInputAction.ValueType) -> Variant:
 			return null
 
 
-func _is_value_active(value: Variant, action: GFInputAction) -> bool:
+func _is_value_active(value: Variant, action: GFInputAction, was_raw_active: bool) -> bool:
+	if action.value_type == GFInputAction.ValueType.BOOL:
+		return GFVariantData.to_bool(value)
+	var threshold: float = (
+		action.release_threshold
+		if was_raw_active
+		else action.activation_threshold
+	)
+	var magnitude: float = 0.0
 	match action.value_type:
-		GFInputAction.ValueType.BOOL:
-			return GFVariantData.to_bool(value)
 		GFInputAction.ValueType.AXIS_1D:
-			return absf(GFVariantData.to_float(value)) >= action.activation_threshold
+			magnitude = absf(GFVariantData.to_float(value))
 		GFInputAction.ValueType.AXIS_2D:
-			return GFVariantData.to_vector2(value).length() >= action.activation_threshold
+			magnitude = GFVariantData.to_vector2(value).length()
 		GFInputAction.ValueType.AXIS_3D:
-			return GFVariantData.to_vector3(value).length() >= action.activation_threshold
+			magnitude = GFVariantData.to_vector3(value).length()
 		_:
 			return false
+	return magnitude > 0.0 and magnitude >= threshold
+
+
+func _action_thresholds_are_valid(action: GFInputAction) -> bool:
+	if action.value_type == GFInputAction.ValueType.BOOL:
+		return true
+	var activation_threshold: float = action.activation_threshold
+	var release_threshold: float = action.release_threshold
+	return (
+		not is_nan(activation_threshold)
+		and not is_inf(activation_threshold)
+		and activation_threshold >= 0.0
+		and activation_threshold <= 1.0
+		and not is_nan(release_threshold)
+		and not is_inf(release_threshold)
+		and release_threshold >= 0.0
+		and release_threshold <= activation_threshold
+	)
 
 
 func _values_equal(left: Variant, right: Variant) -> bool:
@@ -2197,7 +2227,11 @@ func _refresh_player_action_state(
 	var previous_value: Variant = _get_player_action_value_or_default(key, action.value_type)
 	var previous_active: bool = _get_player_action_active_by_key(key)
 	var next_value: Variant = _calculate_player_action_value(player_index, action_id, action.value_type)
-	var raw_active: bool = _is_value_active(next_value, action)
+	var raw_active: bool = _is_value_active(
+		next_value,
+		action,
+		_get_player_raw_action_active(key)
+	)
 	var next_active: bool = _evaluate_player_action_triggers(player_index, action_id, raw_active, next_value, 0.0)
 
 	_player_action_values[key] = next_value

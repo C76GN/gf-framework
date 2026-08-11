@@ -6,6 +6,7 @@
 
 - [逻辑延迟定时器](timer-utility.md)：`GFTimerUtility` 的一次性延迟、重复任务、owner 清理和调试快照；需要测试、回放或模拟中手动推进整数 tick 时使用 `GFManualTimerQueue`。
 - [动态时间缩放](time-utility.md)：`GFTimeUtility` 的全局缩放、分组暂停和物理子步。
+- [民用日期与月历网格](civil-date-calendar-grid.md)：纯数学的 Gregorian 日期、ISO 周、显式日期运算结果和 7 列月历数据。
 - [异步取消、等待与进度](async-primitives.md)：Kernel 级 `GFCancellationToken`、`GFCancellationSource`、`GFAsyncCompletion`，以及标准层 `GFAsyncWaitUtility`、`GFMainThreadDispatchQueue`、`GFDeferredMutationQueue`、`GFExecutionRequirement`、`GFAsyncKeyedGate`、`GFRequestHandlerRegistry` 与 `GFExecutionLaneDiagnostics`。
 - [按 Key 的异步租约门禁](keyed-gate.md)：`GFAsyncKeyedGate` 的等待、fail-fast、公平推进、取消、超时和通知重入边界。
 - [原生信号连接工具](signal-utility/index.md)：`GFSignalUtility`、链式信号处理、owner 断开和信号桥接。

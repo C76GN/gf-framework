@@ -1,0 +1,199 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFInventoryTransferResult" path="addons/gf/extensions/domain/inventory/gf_inventory_transfer_result.gd" module="extensions/domain" extends="RefCounted" classDigest="888423f74810f63e5e709f347ba97b5a3bba63de1c941d38f9b27171b9b656f6">
+	<description>GFInventoryTransferResult: 槽位库存转移的类型化阶段结果。
+结果只保存事务状态、稳定身份、数量与 revision，不保留库存模型或候选堆叠。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">value_object</tag>
+		<tag name="since">unreleased</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants>
+		<member kind="const" name="STATUS_PREPARED">
+			<signature>const STATUS_PREPARED: StringName = &amp;"prepared"</signature>
+			<description>已完成隔离规划，可尝试提交。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_COMMITTED">
+			<signature>const STATUS_COMMITTED: StringName = &amp;"committed"</signature>
+			<description>两个库存已完成原子内存提交；不表示库存通知已经派发完毕。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_INVALID_REQUEST">
+			<signature>const STATUS_INVALID_REQUEST: StringName = &amp;"invalid_request"</signature>
+			<description>请求参数、模型身份或槽位无效。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_BUSY">
+			<signature>const STATUS_BUSY: StringName = &amp;"busy"</signature>
+			<description>模型正在处理其他变更或通知，无法取得协调锁。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_NOT_ENOUGH_ITEMS">
+			<signature>const STATUS_NOT_ENOUGH_ITEMS: StringName = &amp;"not_enough_items"</signature>
+			<description>来源槽位没有可转移堆叠或请求数量超过来源且不允许部分转移。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_NOT_ENOUGH_SPACE">
+			<signature>const STATUS_NOT_ENOUGH_SPACE: StringName = &amp;"not_enough_space"</signature>
+			<description>目标容量不足或目标槽位拒绝物品。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_UNSUPPORTED_DATA">
+			<signature>const STATUS_UNSUPPORTED_DATA: StringName = &amp;"unsupported_data"</signature>
+			<description>实例数据或规则数据包含不支持、循环或超预算的结构。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_STALE_REVISION">
+			<signature>const STATUS_STALE_REVISION: StringName = &amp;"stale_revision"</signature>
+			<description>模型 identity 或 revision 在 prepare 后发生变化。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_STALE_PLAN">
+			<signature>const STATUS_STALE_PLAN: StringName = &amp;"stale_plan"</signature>
+			<description>重新规划结果与 prepare 阶段绑定的计划摘要不同。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</constants>
+	<properties />
+	<methods>
+		<member kind="method" name="is_successful">
+			<signature>func is_successful() -&gt; bool:</signature>
+			<description>检查结果是否表示可继续的成功阶段。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">状态为 prepared 或 committed 时返回 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_status">
+			<signature>func get_status() -&gt; StringName:</signature>
+			<description>获取稳定状态。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">`STATUS_*` 常量之一。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_item_id">
+			<signature>func get_item_id() -&gt; StringName:</signature>
+			<description>获取物品标识。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">转移物品 ID；请求尚未识别物品时为空。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_requested_amount">
+			<signature>func get_requested_amount() -&gt; int:</signature>
+			<description>获取本次规划请求处理的数量。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">非负请求数量。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_transferred_amount">
+			<signature>func get_transferred_amount() -&gt; int:</signature>
+			<description>获取规划或提交的实际转移数量。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">非负转移数量。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_remaining_amount">
+			<signature>func get_remaining_amount() -&gt; int:</signature>
+			<description>获取未转移数量。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">请求数量减去实际转移数量。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_source_slot">
+			<signature>func get_source_slot() -&gt; int:</signature>
+			<description>获取来源槽位。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">来源槽位索引；无有效槽位时为 -1。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_target_slot">
+			<signature>func get_target_slot() -&gt; int:</signature>
+			<description>获取显式目标槽位。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">显式目标槽位索引；自动选择时为 -1。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_source_revision">
+			<signature>func get_source_revision() -&gt; int:</signature>
+			<description>获取结果绑定的来源 revision。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">非负 revision；无有效来源时为 -1。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_target_revision">
+			<signature>func get_target_revision() -&gt; int:</signature>
+			<description>获取结果绑定的目标 revision。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">非负 revision；无有效目标时为 -1。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="duplicate_result">
+			<signature>func duplicate_result() -&gt; GFInventoryTransferResult:</signature>
+			<description>创建隔离结果副本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">不共享可变集合的新结果。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="to_dict">
+			<signature>func to_dict() -&gt; Dictionary:</signature>
+			<description>转换为稳定字典。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">只含状态、物品、数量、槽位与 revision 的字典。</tag>
+				<tag name="schema">return: Dictionary with status, ok, item_id, requested_amount, transferred_amount, remaining_amount, source_slot, target_slot, source_revision, and target_revision.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

@@ -6,6 +6,17 @@
 
 ### 🚀 新增特性 (Added)
 
+- 新增可选制作期包 `gf.tool.asset_browser`：`GFAssetBrowserModel` 以原子隔离的 `GFAssetCatalog` 快照、稳定选择、有界分页和缩略图任务代际提供 model-first 素材浏览状态；当前不注册 Dock，也不接管目录扫描、Provider、下载、导入或缓存。
+- 新增默认关闭的 `gf.layered_sprite`（包 ID `gf.extension.layered_sprite`）：用单一共享时间轴、稳定层和层内变体组合 2D 外观，配置经过有界完整校验后原子替换；扩展不内建角色、装备或素材导入语义。
+- 新增第三方原生物理后端 Adapter 组合 Recipe：冻结后端、平台、架构、ABI、依赖、许可证与制品摘要，并分别验证本地、跨目标和完整项目状态的可复现性；本项只增加文档与 AI Developer Recipe，不新增 Runtime 或 package。
+- AI Developer 新增显式离线上下文包：调用方逐项选择已保存 UTF-8 文件与项目设置，先取得不含正文的哈希绑定计划，再由交互终端确认并在导出前复核来源；该能力不读取实时 Editor 状态、未保存缓冲区或截图，也不提供无人值守的自动导出入口。
+- 新增 `GFViewportSurfaceInputBridge` 与不可伪造的 `GFViewportSurfaceInputCapture` 回执：把调用方已解析的标准化表面坐标同步投递到 `Viewport`，并以 bridge、pointer、capture generation 和 target generation 拒绝迟到 move/release/cancel；独立有界的 pointer timestamp 高水位还能在双击历史关闭或裁剪后拒绝仍受保护 key 的跨代际迟到 press，已捕获 key 的 hover 与不受支持的鼠标 release 均 fail-closed；射线、UV、Mesh、XR 和目标选择仍由外部 Resolver 负责。
+- 新增可选制作期包 `gf.tool.lsp_workspace_edit`：把调用方已经取得的闭合 `WorkspaceEdit`、已保存文档版本、来源摘要与工作区代际绑定成一次性计划，再通过 `GFArtifactWriteTransaction` 提交；它不是 LSP client、Rename 引擎或编辑器 UI。
+- Behavior Tree 新增有界调试快照选项：`BTNode` / `Runner` 在遍历和黑板键物化前限制节点、深度、子项与键数，末端统一通过报告编码器约束文本、集合和总字节；快照不保留 live Object、Callable 或黑板值。通用 Object 只保证返回值的有界后投影，不承诺约束其方法内部构造成本。
+- Domain Inventory 新增一次性 `GFInventoryTransferTransaction`、类型化 `GFInventoryTransferResult` 与短生命周期只读 `GFInventoryReadView`：跨两个 `GFSlotInventoryModel` 先有界规划并绑定 identity、revision 和计划摘要，提交时重验后同时替换两边状态，再按来源、目标、事务终态顺序统一通知；普通 mutation 与事务规则都读取同一种逐步候选投影，失败不会先写入或用补偿伪装原子性。
+- 新增 Achievement 组合 Recipe：复用 `GFQuestUtility`、Save Profile、项目 `GFPlatformAdapter` 与 Outbox 组合持久化和平台同步；本项只增加文档与 AI Developer Recipe，不新增 Achievement Runtime、package、奖励或通知系统。
+- 新增 Environment Query 组合 Recipe：复用 Spatial/Physics、Decision、`GFExecutionBudget` 与只读诊断，把有限候选、预计算评分、generation 和取消组成项目 Pipeline；本项只增加文档与 AI Developer Recipe，不新增平行查询 Runtime、评分器或预算体系。
+- 新增纯数学 `GFCivilDate`、类型化日期结果与 `GFCalendarGridTools`：支持 `0001-01-01..9999-12-31` 的 proleptic Gregorian 日期、ISO 周、显式月末策略和 7 列月历网格，不读取系统时钟、时区、locale 或外部服务。
 - `GFAnalyticsUtility` 新增 `get_dropped_event_count()`，统一公开普通队列溢出、失败回灌裁剪与最终信封超限造成的累计事件丢弃数。
 - `GFConfigAccessGenerator.build_source_with_report()` 新增访问器完整发射报告；`GFConfigPipelineArtifactManifest.make_source_receipt_validation_report()` 新增编译来源收据与当前文件的独立稳定性校验。
 - `GFDecisionConsideration` 新增 `get_debug_snapshot_from_score()`，诊断调用方可复用预计算分数而不再次执行项目 scorer；Decision capture diagnostics 新增 `attempted_count`，区分成功捕获与已消费的懒读取尝试。
@@ -17,7 +28,7 @@
 - `GFAudioBackendCapability` 新增播放区间协议发现能力，`GFAudioBackend.evaluate_playback_region()` 提供无副作用的逐片段、逐通道协商；粗粒度能力声明不能替代具体请求评估。
 - 新增 Headless 服务健康/探针组合配方：组合惰性诊断 Provider、有界会话字段与类型化传输指标，由项目 Adapter 决定 liveness/readiness、传输协议、鉴权和部署政策；Backend 指标补充使用通用执行预算，并对总指标、自定义指标和 ID 长度设置绝对上限。
 - 新增周期环境表现组合配方：组合可注入时钟、项目环境样本、Shader Profile、接口快照与 Binder；周期、天气、天文、时区和持久化策略继续由项目负责。
-- AI Developer Capability / Recipe 知识目录升级到 `1.9.0`，加入两份环境组合配方，并让目录认识类型化播放区间、虚拟列表 Binder、事务式表格谓词和 Spatial Canvas 输入策略的可搜索组合边界。
+- AI Developer Capability / Recipe / Evaluation 知识目录升级到 `1.10.0`，加入第三方原生物理后端 Adapter、Achievement 与 Environment Query 三份组合配方，并让目录认识类型化播放区间、虚拟列表 Binder、事务式表格谓词和 Spatial Canvas 输入策略的可搜索组合边界。
 - `GFModel`、`GFSystem` 与 `GFUtility` 新增 `begin_activation(scope)` / `begin_quiesce(scope)`；`GFArchitecture` 新增 activation/shutdown deadline、激活与 quiescing 状态查询，以及依赖 DAG 驱动的第四阶段 bootstrap。
 - 新增 `GFArchitectureShutdownResult`：类型化区分正常完成、失败、取消、超时、强制释放与幂等重复关闭，并以有界模块条目保存 quiesce 证据；并发 `shutdown_async()` 调用共享同一关闭流程。
 - 新增 Save Profile bootstrap 组合配方：项目 System 声明依赖 `GFSaveProfileUtility`，在 `begin_activation()` 中把 `load_profile()` / `flush_profile()` Operation 桥接到一次性完成源；框架不新增项目存档业务类。
@@ -54,6 +65,9 @@
 
 ### 🔄 机制更改 (Changed)
 
+- **破坏性变更**：`GFInputAction` 新增默认值为 `0.5` 的 `release_threshold`，模拟量动作改为分别在全局与玩家作用域保留聚合后的 raw-active 迟滞状态；轴阈值必须有限、位于 `0.0..1.0` 且 release 不高于 activation，否则对应轴 mapping 会失败关闭并从有效 entry 中排除。精确中立值始终释放，`BOOL` 动作不使用也不诊断轴阈值。既有自定义 `activation_threshold` 轴资源必须显式迁移 `release_threshold`，不能依赖新默认值保持旧单阈值行为。
+- **破坏性变更**：`GFSlotInventoryModel` 的 `registry`、`allow_growth` 与 `slot_definitions` 现在通过受保护属性入口推进单调 revision 并拒绝通知期重入；`slot_definitions` 必须与槽位数量精确等长，错长赋值原子拒绝，自动增长只追加 `null` 规则。`acceptance_checker` 的第五个参数及 `GFInventorySlotDefinition.can_accept()` 的 `inventory` 参数统一收紧为 `GFInventoryReadView`，旧的 `GFSlotInventoryModel` / 任意 `Object` 类型不再接受。两类库存规则 Callable 现在必须指向可反射参数元数据的具名 Object 方法；匿名 lambda、不透明 Callable 与不兼容签名会在调用前静默失败关闭，不保留兼容重载。规则 Resource 字段漂移不会冒充模型 revision，但跨库存 commit 会重新规划并按当前配置摘要拒绝陈旧计划。
+- **破坏性变更**：`GFArtifactWriteTransaction` 的 `expected_sha256` 现在要求精确 `String`，不再把 `null` 或其他错误类型静默解释为未设置；新增 `expected_existing_sha256`，用审阅时旧内容 SHA-256 在预检与替换边界执行 compare-and-exchange，协作式并发写入不会被后续事务覆盖。
 - `GFStorageUtility` 的所有运行时文件与目录入口统一使用规范相对身份，并在词法上解析到当前 Storage root；同步、异步、payload transfer、目录管理和事务恢复不再存在可动态扩大的绝对路径授权，非法非空 `save_dir_name` 也不再退化到 `user://` 根。需要任意本机路径的可信编辑器或离线迁移工具改由自身 `FileAccess` / `DirAccess` 边界负责；该约束不是宿主 symlink、junction 或挂载点沙箱。
 - `GFStorageUtility` 采用 `portable-ascii-v1` logical identity 与 `.gf-storage/v1` 私有布局：输入必须原样满足小写 ASCII segment 规则，不再归一化别名；SHA-256 分片 catalog 与 reciprocal owner record 绑定 domain-separated UUID v8 family，payload、candidate、backup、prepare/commit evidence 和 Resource stage 全部位于 family namespace。同步/异步事务先发布 immutable prepare，再写 candidate，final 切换后发布独立 commit evidence；partial prepare、partial commit、rollback 和证据清理按 exact family 状态恢复，任何歧义失败关闭。首次 activation、显式 `init()` 或首次合法 I/O 尝试会冻结 root，quiesce 排空已接纳工作，`list_files()` 从 catalog 投影并在 drain 后重新恢复 committed view；同一 root 当前要求 single writer。
 - Storage 同步与 typed 异步删除现在共享精确 family executor：删除不隐式执行 recovery/repair，只接受 catalog/owner 互证、精确单成员事务证据或由目标 opaque family 独占证明的 markerless sidecar；group、损坏或不一致证据在任何删除前以冲突失败关闭。授权后的成员按 backup、prepare pending、prepare、commit pending、commit、candidate、Resource stage、final 顺序 fail-fast 删除，final 始终最后；已删除/剩余成员可由结果观察且 catalog/owner tombstone 保留。同一 Utility 的同 family 请求继续 FIFO，不同 family 可受 worker 配额并发。本变更不提升 `.gf-storage/v1` layout/catalog schema，也不需要迁移。
@@ -296,6 +310,14 @@
 - `GFStorageUtility.save_data_request_async()`、`save_payload_request_async()`、`load_data_request_async()` 与 `delete_file_request_async()` 新增尾部可选 `GFStorageAsyncRequestOptions`；`GFStorageAsyncOperation` 新增 `caller_completed`、consumer ID、caller 状态查询、`get_caller_result()` 与 `cancel_observation()`，`GFStorageUtility` 新增 `get_late_settlement_diagnostics()`。不传 options 的既有调用保持物理终态兼容。
 - `GFStorageAsyncResult` 新增 `SettlementKind`、`get_settlement_kind()` 与 `is_cancelled()`；worker 接纳前取消固定为 `SettlementKind.CANCELLED` / `ERR_SKIP`。`to_dict()` 的 exact schema 在 11.0 主版本迁移线新增必需 `settlement_kind` 字段，严格 Dictionary 消费者必须同步升级 schema。
 - `GFSaveSlotStorageAdapter.list_slots()` 的 `modified_time` 不再读取物理文件系统 mtime，改为 metadata 中的领域时间 `updated_at_unix`；字段缺失时固定为 `0`。`build_slot_file_plan()` 现在按同一 portable logical identity 规则预检模板，不会静默规范化别名。
+- `GFAssetBrowserModel` 是 `gf.tool.asset_browser` 新增的公开 model-first API；它消费 Standard Assets 的 `GFAssetCatalog` 与 Kernel 缩略图协议，不新增 Dock、Provider 注册表或 Runtime 所有权。
+- `GFLayeredSpriteDefinition`、`GFLayeredSpriteLayerDefinition`、`GFLayeredSpriteVariant` 与 `GFLayeredSprite2D` 构成默认关闭的 `gf.layered_sprite` 新公开 API。
+- `GFInputAction.release_threshold` 是新的公开属性；`GFViewportSurfaceInputBridge` 与 `GFViewportSurfaceInputCapture` 是新的 provider-neutral 表面输入投递与回执 API。
+- `GFLspWorkspaceEditAdapter` 与一次性 `GFLspWorkspaceEditPlan` 是 `gf.tool.lsp_workspace_edit` 新公开 API，只接受版本绑定、已保存的项目内 GDScript 文本修改。
+- `GFArtifactWriteTransaction.make_text_entry()`、`make_bytes_entry()` 与 `make_file_entry()` 的 options/entry schema 新增精确 String `expected_existing_sha256`；`expected_sha256` 与新字段的错误类型现在都会预检失败。
+- `GFBehaviorTree.build_debug_snapshot(node, options = {})` 新增遍历、黑板键与最终报告编码预算；节点和 Runner 调试快照新增截断与 `debug_budget` 诊断字段。
+- `GFInventoryTransferTransaction`、`GFInventoryTransferResult`、`GFInventoryReadView` 与 `GFSlotInventoryModel.get_revision()` / `set_allow_growth()` 是新的 Domain Inventory 公开 API；`GFInventorySlotDefinition.can_accept()` 的 `inventory` 参数从通用 `Object` 收紧为 `GFInventoryReadView`，这是有意的破坏性 API 变更，不保留兼容重载。模型协调锁、候选替换与事件 flush 入口以及 `GFInventoryTransferPlanner` 仅为 `framework_internal` 原子提交协议。
+- `GFCivilDate`、`GFCivilDateResult`、`GFCivilDateDifferenceResult`、`GFCalendarGrid` 与 `GFCalendarGridTools` 是新的纯数学日期与网格 API。
 - `GFLogSink.tick(delta)`、`GFLogUtility.tick(delta)` 及内置 timed sink 覆写是新的 11.0.0 公开时间推进契约；`GFAnalyticsUtility.get_dropped_event_count()` 是新的 11.0.0 聚合丢弃观察 API。Analytics 内置 HTTP 非 2xx 失败报告新增 `response_code`，`error` 收紧为不含正文的稳定 `HTTP {status}`。
 - `GFConfigAccessGenerator.build_source_with_report()` 与 `GFConfigPipelineArtifactManifest.make_source_receipt_validation_report()` 是新的 11.0.0 公开 API。Reader/Layout/Validation Stage 的内置契约版本和实现版本已升级；Stage descriptor 新增 `implementation_dependencies`。`build_table()` / `build_database()` 的表结果新增 `source_receipt`，`export_profile()` 新增 `source_validation_report`，访问器生成结果新增 input/emitted/skipped 计数与 `issues`，JSON 导出 options 新增 `max_nodes` / `max_output_bytes` 并收紧 `max_depth` 到绝对上限。
 - 本轮有意移除 10.x 已公开的通用 `loop` 输入与 `current_bgm_loop` 快照字段，开发身份进入 `11.0.0-dev.0` 主版本迁移线；不提供双轨兼容分支。
@@ -450,3 +472,7 @@
 72. 迁移参考工程同步命令：删除固定 source 参数，把 `--project` 改为 `--project-root`、`--dry-run` 改为 `--plan`，并移除 `--no-clean`；无操作参数现在等价于只读 `--check`，任何写入都必须显式使用 `--apply`。机器消费者同时迁移到 JSON schema v2：用 `operation` 取代 `dry_run`，用 `planned_actions` / `applied_actions` 取代 `cleaned` / `linked`，用 `file_count` / `directory_count` / `total_bytes` 取代旧复数计数字段，用 `skipped_count` 取代 `skipped`，并以 `payload_sha256` 绑定本次同步输入；检查结果另用 `target_mode`、`mismatch_count` 与 `mismatches` 判断目标状态。
 73. 只需要物理完成的 Storage 调用可以继续等待 `completed` 并读取 `get_result()`；需要 owner、取消或 timeout 边界时，改为用 `GFStorageAsyncRequestOptions.create()` 构造选项并等待 `caller_completed` 或查询 `get_caller_result()`。不要把 caller 的 `OUTCOME_UNKNOWN` 当作磁盘取消，也不要在该终态提前结束 payload transfer attempt；继续通过同一 Operation 收集物理终态并按项目策略对账。严格解析 `GFStorageAsyncResult.to_dict()` 的代码必须在 11.0 schema 中加入 `settlement_kind`，并把 `CANCELLED` / `ERR_SKIP` 视为未接纳物理工作，而不是 read/write/delete 领域失败。
 74. 既有 fire-and-forget BGM 调用可以继续使用 `play_bgm*()`；需要可靠终态时迁移到 `start_bgm()` / `start_bgm_clip()`，先查询 Operation 是否同步完成，再连接一次性 `completed`。只有 `STARTED` 才读取 `get_session_handle()`；后续停止该精确会话时使用 handle，不要缓存或推断内部播放器。把“发起请求即视为成功”的逻辑改为检查 status、reason 与 backend disposition。本地 standby 或 backend 接受前的候选失败/取消会保留旧 Session；backend 已接受后的身份失效只能 best-effort 补偿，调用方还应处理旧 backend-owned Session 的 `PLAYBACK_FAILED`。
+75. 检查全部既有模拟量 `GFInputAction` 资源：若要保留旧单阈值语义，把两个正阈值设为相同值；若要采用迟滞，则把 `release_threshold` 设为更低的有限 `0.0..1.0` 值。`release_threshold = 0` 仍会在精确中立值释放。尤其是 `activation_threshold < 0.5` 的旧轴资源，若保留新字段默认值 `0.5` 会形成非法阈值顺序并让对应 mapping 失败关闭；`BOOL` 动作无需迁移这两个轴字段。
+76. 检查直接改写 `GFSlotInventoryModel.slot_definitions` getter 返回数组的代码：先用 `set_slot_count()` 建立最终槽位数，单槽改用 `set_slot_definition()`，批量数组必须与当前槽位数精确等长；自动增长的新槽规则始终为 `null`。把 `acceptance_checker` 第五参数与手工 `can_accept()` 的 `inventory` 实参从 `GFSlotInventoryModel` / 任意 `Object` 改为短生命周期 `GFInventoryReadView`，仅在同步回调内查询；把 `acceptance_checker` 与 `compatibility_checker` 的匿名 lambda 改为 `Callable(object, &"method_name")` 指向签名可反射的具名方法。接收与兼容性回调可能调用零次或多次，必须同步、确定、只读、有界、无 I/O/外部副作用且不依赖调用次数。若项目缓存了跨库存 prepared transaction，规则或定义资源字段变化后应丢弃旧句柄并重新 prepare，不要把 `stale_plan` 当成可强制提交的警告。
+77. 检查所有 `GFArtifactWriteTransaction` entry builder 和直接 entry：`expected_sha256` / `expected_existing_sha256` 只能传精确 `String`，不再用 `null` 表示关闭校验；无需对应约束时省略字段或传空字符串。覆盖已审阅既有文件时传旧内容摘要给 `expected_existing_sha256`，把新内容摘要传给 `expected_sha256`。
+78. 检查依赖完整 Behavior Tree 调试快照的工具：`BTNode.get_debug_snapshot()` 与 `Runner.get_debug_snapshot()` 现在使用框架默认预算，调用方必须读取顶层 `debug_budget.truncated` / `truncation_reasons` 以及节点级截断字段，不能再假设返回整棵树。需要不同预算时改用 `GFBehaviorTree.build_debug_snapshot(node, options)`，并在框架硬上限内显式设置 `max_nodes`、`max_depth`、`max_children`、`max_total_bytes`、`max_text_length` 与 `max_blackboard_keys`。

@@ -81,9 +81,16 @@ extends Resource
 
 # --- 公共变量 ---
 
-## 可选堆叠兼容性回调。签名为 Callable(left: Dictionary, right: Dictionary, definition: GFInventoryItemDefinition) -> bool。
+## 可选堆叠兼容性回调。签名为
+## `Callable(left: Dictionary, right: Dictionary, definition: GFInventoryItemDefinition) -> bool`。
+## 回调必须同步、确定、只读且有界，不得执行 I/O、产生外部副作用或依赖调用次数；
+## 一次 mutation 或事务的 prepare/commit 重规划可能调用零次或多次。回调必须指向
+## 可反射参数元数据的具名 Object 方法；匿名 lambda 和其他不透明 Callable 会在
+## 调用前失败关闭。
 ## [br]
 ## @api public
+## [br]
+## @since 3.3.0
 var compatibility_checker: Callable = Callable()
 
 
@@ -181,7 +188,19 @@ func are_instance_data_compatible(left: Dictionary = {}, right: Dictionary = {})
 	var left_data: Dictionary = _with_defaults(left)
 	var right_data: Dictionary = _with_defaults(right)
 	if compatibility_checker.is_valid():
-		return GFVariantData.to_bool(compatibility_checker.call(left_data.duplicate(true), right_data.duplicate(true), self))
+		var arguments: Array = [
+			left_data.duplicate(true),
+			right_data.duplicate(true),
+			self,
+		]
+		var result_output: Array = []
+		if not GFInventoryRuleCallableSupport.try_call_for_framework(
+			compatibility_checker,
+			arguments,
+			result_output
+		):
+			return false
+		return GFVariantData.to_bool(result_output[0])
 	if stack_key_fields.is_empty():
 		return left_data == right_data
 

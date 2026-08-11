@@ -7,7 +7,7 @@
 | 模块 | 类 | 成员 | 页面内索引 |
 |---|---:|---:|---|
 | Kernel | 74 | 1108 | [Kernel](#module-kernel) |
-| Standard | 460 | 7368 | [Standard](#module-standard) |
+| Standard | 467 | 7452 | [Standard](#module-standard) |
 | Action Queue | 16 | 214 | [Action Queue](#module-extensions-action_queue) |
 | Asset Metadata | 4 | 33 | [Asset Metadata](#module-extensions-asset_metadata) |
 | Behavior Tree | 22 | 89 | [Behavior Tree](#module-extensions-behavior_tree) |
@@ -17,15 +17,16 @@
 | Extensions / Content Package | 7 | 109 | [Extensions / Content Package](#module-extensions-content_package) |
 | Decision | 8 | 111 | [Decision](#module-extensions-decision) |
 | Dialogue | 5 | 75 | [Dialogue](#module-extensions-dialogue) |
-| Domain | 18 | 295 | [Domain](#module-extensions-domain) |
+| Domain | 21 | 336 | [Domain](#module-extensions-domain) |
 | Feedback | 8 | 141 | [Feedback](#module-extensions-feedback) |
 | Flow | 7 | 138 | [Flow](#module-extensions-flow) |
 | Interaction | 6 | 82 | [Interaction](#module-extensions-interaction) |
+| Extensions / Layered Sprite | 4 | 46 | [Extensions / Layered Sprite](#module-extensions-layered_sprite) |
 | Network | 38 | 602 | [Network](#module-extensions-network) |
 | Physics | 4 | 50 | [Physics](#module-extensions-physics) |
 | Save | 52 | 651 | [Save](#module-extensions-save) |
 | Turn Based | 4 | 49 | [Turn Based](#module-extensions-turn_based) |
-| Tool Packages | 17 | 137 | [Tool Packages](#module-tools) |
+| Tool Packages | 20 | 165 | [Tool Packages](#module-tools) |
 
 ## 模块索引
 
@@ -137,6 +138,7 @@
 | [`GFBudgetLedger`](GFBudgetLedger.md#gfbudgetledger) | 运行时服务 (`runtime_service`) | `RefCounted` | 14 | `addons/gf/standard/foundation/budget/gf_budget_ledger.gd` |
 | [`GFBuildInfoUtility`](GFBuildInfoUtility.md#gfbuildinfoutility) | 运行时服务 (`runtime_service`) | `GFUtility` | 8 | `addons/gf/standard/utilities/debug/gf_build_info_utility.gd` |
 | [`GFCacheDiagnostics`](GFCacheDiagnostics.md#gfcachediagnostics) | 运行时服务 (`runtime_service`) | `RefCounted` | 9 | `addons/gf/standard/foundation/collections/gf_cache_diagnostics.gd` |
+| [`GFCalendarGridTools`](GFCalendarGridTools.md#gfcalendargridtools) | 运行时服务 (`runtime_service`) | `RefCounted` | 1 | `addons/gf/standard/utilities/time/gf_calendar_grid_tools.gd` |
 | [`GFCollisionBroadphase2D`](GFCollisionBroadphase2D.md#gfcollisionbroadphase2d) | 运行时服务 (`runtime_service`) | `RefCounted` | 13 | `addons/gf/standard/foundation/math/gf_collision_broadphase_2d.gd` |
 | [`GFCollisionBroadphase3D`](GFCollisionBroadphase3D.md#gfcollisionbroadphase3d) | 运行时服务 (`runtime_service`) | `RefCounted` | 11 | `addons/gf/standard/foundation/math/gf_collision_broadphase_3d.gd` |
 | [`GFCollisionNarrowphase2D`](GFCollisionNarrowphase2D.md#gfcollisionnarrowphase2d) | 运行时服务 (`runtime_service`) | `RefCounted` | 12 | `addons/gf/standard/foundation/math/gf_collision_narrowphase_2d.gd` |
@@ -298,6 +300,7 @@
 | [`GFVariantJsonCodec`](GFVariantJsonCodec.md#gfvariantjsoncodec) | 运行时服务 (`runtime_service`) | `RefCounted` | 13 | `addons/gf/standard/foundation/variant/gf_variant_json_codec.gd` |
 | [`GFVariantKeyCodec`](GFVariantKeyCodec.md#gfvariantkeycodec) | 运行时服务 (`runtime_service`) | `RefCounted` | 3 | `addons/gf/standard/foundation/variant/gf_variant_key_codec.gd` |
 | [`GFVariantReferenceCodec`](GFVariantReferenceCodec.md#gfvariantreferencecodec) | 运行时服务 (`runtime_service`) | `RefCounted` | 21 | `addons/gf/standard/foundation/variant/gf_variant_reference_codec.gd` |
+| [`GFViewportSurfaceInputBridge`](GFViewportSurfaceInputBridge.md#gfviewportsurfaceinputbridge) | 运行时服务 (`runtime_service`) | `RefCounted` | 19 | `addons/gf/standard/input/runtime/gf_viewport_surface_input_bridge.gd` |
 | [`GFViewportUtility`](GFViewportUtility.md#gfviewportutility) | 运行时服务 (`runtime_service`) | `GFUtility` | 27 | `addons/gf/standard/utilities/display/gf_viewport_utility.gd` |
 | [`GFVirtualInputBridge`](GFVirtualInputBridge.md#gfvirtualinputbridge) | 运行时服务 (`runtime_service`) | `RefCounted` | 7 | `addons/gf/standard/input/common/gf_virtual_input_bridge.gd` |
 | [`GFVirtualListFocusModel`](GFVirtualListFocusModel.md#gfvirtuallistfocusmodel) | 运行时服务 (`runtime_service`) | `RefCounted` | 20 | `addons/gf/standard/utilities/ui/gf_virtual_list_focus_model.gd` |
@@ -364,7 +367,7 @@
 | [`GFGridGenerationPipeline2D`](GFGridGenerationPipeline2D.md#gfgridgenerationpipeline2d) | 资源定义 (`resource_definition`) | `Resource` | 12 | `addons/gf/standard/foundation/math/gf_grid_generation_pipeline_2d.gd` |
 | [`GFGridGenerationStep2D`](GFGridGenerationStep2D.md#gfgridgenerationstep2d) | 资源定义 (`resource_definition`) | `Resource` | 8 | `addons/gf/standard/foundation/math/gf_grid_generation_step_2d.gd` |
 | [`GFImportPlan`](GFImportPlan.md#gfimportplan) | 资源定义 (`resource_definition`) | `Resource` | 15 | `addons/gf/standard/utilities/assets/gf_import_plan.gd` |
-| [`GFInputAction`](GFInputAction.md#gfinputaction) | 资源定义 (`resource_definition`) | `Resource` | 10 | `addons/gf/standard/input/mapping/gf_input_action.gd` |
+| [`GFInputAction`](GFInputAction.md#gfinputaction) | 资源定义 (`resource_definition`) | `Resource` | 11 | `addons/gf/standard/input/mapping/gf_input_action.gd` |
 | [`GFInputBinding`](GFInputBinding.md#gfinputbinding) | 资源定义 (`resource_definition`) | `Resource` | 14 | `addons/gf/standard/input/mapping/gf_input_binding.gd` |
 | [`GFInputChordTrigger`](GFInputChordTrigger.md#gfinputchordtrigger) | 资源定义 (`resource_definition`) | `GFInputTrigger` | 4 | `addons/gf/standard/input/triggers/gf_input_chord_trigger.gd` |
 | [`GFInputContext`](GFInputContext.md#gfinputcontext) | 资源定义 (`resource_definition`) | `Resource` | 5 | `addons/gf/standard/input/mapping/gf_input_context.gd` |
@@ -510,6 +513,10 @@
 | [`GFBigNumber`](GFBigNumber.md#gfbignumber) | 值对象 (`value_object`) | `RefCounted` | 23 | `addons/gf/standard/foundation/numeric/gf_big_number.gd` |
 | [`GFBuildInfo`](GFBuildInfo.md#gfbuildinfo) | 值对象 (`value_object`) | `Resource` | 35 | `addons/gf/standard/utilities/debug/gf_build_info.gd` |
 | [`GFByteCursor`](GFByteCursor.md#gfbytecursor) | 值对象 (`value_object`) | `RefCounted` | 47 | `addons/gf/standard/foundation/binary/gf_byte_cursor.gd` |
+| [`GFCalendarGrid`](GFCalendarGrid.md#gfcalendargrid) | 值对象 (`value_object`) | `RefCounted` | 16 | `addons/gf/standard/utilities/time/gf_calendar_grid.gd` |
+| [`GFCivilDate`](GFCivilDate.md#gfcivildate) | 值对象 (`value_object`) | `RefCounted` | 25 | `addons/gf/standard/utilities/time/gf_civil_date.gd` |
+| [`GFCivilDateDifferenceResult`](GFCivilDateDifferenceResult.md#gfcivildatedifferenceresult) | 值对象 (`value_object`) | `RefCounted` | 7 | `addons/gf/standard/utilities/time/gf_civil_date_difference_result.gd` |
+| [`GFCivilDateResult`](GFCivilDateResult.md#gfcivildateresult) | 值对象 (`value_object`) | `RefCounted` | 8 | `addons/gf/standard/utilities/time/gf_civil_date_result.gd` |
 | [`GFConfigValidationReport`](GFConfigValidationReport.md#gfconfigvalidationreport) | 值对象 (`value_object`) | `RefCounted` | 6 | `addons/gf/standard/utilities/config/gf_config_validation_report.gd` |
 | [`GFDeque`](GFDeque.md#gfdeque) | 值对象 (`value_object`) | `RefCounted` | 20 | `addons/gf/standard/foundation/collections/gf_deque.gd` |
 | [`GFDiagnosticProviderResult`](GFDiagnosticProviderResult.md#gfdiagnosticproviderresult) | 值对象 (`value_object`) | `RefCounted` | 7 | `addons/gf/standard/utilities/debug/gf_diagnostic_provider_result.gd` |
@@ -551,6 +558,7 @@
 | [`GFUuid`](GFUuid.md#gfuuid) | 值对象 (`value_object`) | `RefCounted` | 5 | `addons/gf/standard/foundation/identity/gf_uuid.gd` |
 | [`GFValidationIssue`](GFValidationIssue.md#gfvalidationissue) | 值对象 (`value_object`) | `RefCounted` | 32 | `addons/gf/standard/foundation/validation/gf_validation_issue.gd` |
 | [`GFValidationReport`](GFValidationReport.md#gfvalidationreport) | 值对象 (`value_object`) | `RefCounted` | 29 | `addons/gf/standard/foundation/validation/gf_validation_report.gd` |
+| [`GFViewportSurfaceInputCapture`](GFViewportSurfaceInputCapture.md#gfviewportsurfaceinputcapture) | 值对象 (`value_object`) | `RefCounted` | 7 | `addons/gf/standard/input/runtime/gf_viewport_surface_input_capture.gd` |
 | [`GFVirtualListSyncResult`](GFVirtualListSyncResult.md#gfvirtuallistsyncresult) | 值对象 (`value_object`) | `RefCounted` | 29 | `addons/gf/standard/utilities/ui/gf_virtual_list_sync_result.gd` |
 | [`GFDropZone`](GFDropZone.md#gfdropzone) | 领域模型 (`domain_model`) | `RefCounted` | 15 | `addons/gf/standard/input/drag_drop/gf_drop_zone.gd` |
 | [`GFInputDirectionHistory`](GFInputDirectionHistory.md#gfinputdirectionhistory) | 领域模型 (`domain_model`) | `RefCounted` | 9 | `addons/gf/standard/input/history/gf_input_direction_history.gd` |
@@ -787,13 +795,16 @@
 | [`GFLevelCatalog`](GFLevelCatalog.md#gflevelcatalog) | 资源定义 (`resource_definition`) | `Resource` | 8 | `addons/gf/extensions/domain/level/gf_level_catalog.gd` |
 | [`GFLevelEntry`](GFLevelEntry.md#gflevelentry) | 资源定义 (`resource_definition`) | `Resource` | 8 | `addons/gf/extensions/domain/level/gf_level_entry.gd` |
 | [`GFTrait`](GFTrait.md#gftrait) | 资源定义 (`resource_definition`) | `Resource` | 9 | `addons/gf/extensions/domain/traits/gf_trait.gd` |
+| [`GFInventoryReadView`](GFInventoryReadView.md#gfinventoryreadview) | 运行时句柄 (`runtime_handle`) | `RefCounted` | 11 | `addons/gf/extensions/domain/inventory/gf_inventory_read_view.gd` |
+| [`GFInventoryTransferTransaction`](GFInventoryTransferTransaction.md#gfinventorytransfertransaction) | 运行时句柄 (`runtime_handle`) | `RefCounted` | 7 | `addons/gf/extensions/domain/inventory/gf_inventory_transfer_transaction.gd` |
 | [`GFInventoryOperationResult`](GFInventoryOperationResult.md#gfinventoryoperationresult) | 值对象 (`value_object`) | `RefCounted` | 13 | `addons/gf/extensions/domain/inventory/gf_inventory_operation_result.gd` |
+| [`GFInventoryTransferResult`](GFInventoryTransferResult.md#gfinventorytransferresult) | 值对象 (`value_object`) | `RefCounted` | 21 | `addons/gf/extensions/domain/inventory/gf_inventory_transfer_result.gd` |
 | [`GFAttributeSet`](GFAttributeSet.md#gfattributeset) | 领域模型 (`domain_model`) | `Resource` | 27 | `addons/gf/extensions/domain/attributes/gf_attribute_set.gd` |
 | [`GFEquipmentSet`](GFEquipmentSet.md#gfequipmentset) | 领域模型 (`domain_model`) | `Resource` | 6 | `addons/gf/extensions/domain/equipment/gf_equipment_set.gd` |
 | [`GFInventoryModel`](GFInventoryModel.md#gfinventorymodel) | 领域模型 (`domain_model`) | `GFModel` | 10 | `addons/gf/extensions/domain/inventory/gf_inventory_model.gd` |
 | [`GFInventoryStack`](GFInventoryStack.md#gfinventorystack) | 领域模型 (`domain_model`) | `Resource` | 14 | `addons/gf/extensions/domain/inventory/gf_inventory_stack.gd` |
 | [`GFLevelProgressModel`](GFLevelProgressModel.md#gflevelprogressmodel) | 领域模型 (`domain_model`) | `GFModel` | 14 | `addons/gf/extensions/domain/level/gf_level_progress_model.gd` |
-| [`GFSlotInventoryModel`](GFSlotInventoryModel.md#gfslotinventorymodel) | 领域模型 (`domain_model`) | `GFModel` | 45 | `addons/gf/extensions/domain/inventory/gf_slot_inventory_model.gd` |
+| [`GFSlotInventoryModel`](GFSlotInventoryModel.md#gfslotinventorymodel) | 领域模型 (`domain_model`) | `GFModel` | 47 | `addons/gf/extensions/domain/inventory/gf_slot_inventory_model.gd` |
 | [`GFTraitSet`](GFTraitSet.md#gftraitset) | 领域模型 (`domain_model`) | `Resource` | 6 | `addons/gf/extensions/domain/traits/gf_trait_set.gd` |
 
 <a id="module-extensions-feedback"></a>
@@ -837,6 +848,17 @@
 | [`GFInteractionReceiver`](GFInteractionReceiver.md#gfinteractionreceiver) | 运行时句柄 (`runtime_handle`) | `Node` | 11 | `addons/gf/extensions/interaction/nodes/gf_interaction_receiver.gd` |
 | [`GFInteractionSensor`](GFInteractionSensor.md#gfinteractionsensor) | 运行时句柄 (`runtime_handle`) | `Node` | 19 | `addons/gf/extensions/interaction/nodes/gf_interaction_sensor.gd` |
 | [`GFPointerInteraction3D`](GFPointerInteraction3D.md#gfpointerinteraction3d) | 运行时句柄 (`runtime_handle`) | `Node` | 28 | `addons/gf/extensions/interaction/nodes/gf_pointer_interaction_3d.gd` |
+
+<a id="module-extensions-layered_sprite"></a>
+
+### Extensions / Layered Sprite
+
+| 类 | 类别 | 继承 | 成员 | 源文件 |
+|---|---|---|---:|---|
+| [`GFLayeredSprite2D`](GFLayeredSprite2D.md#gflayeredsprite2d) | 运行时服务 (`runtime_service`) | `Node2D` | 34 | `addons/gf/extensions/layered_sprite/nodes/gf_layered_sprite_2d.gd` |
+| [`GFLayeredSpriteDefinition`](GFLayeredSpriteDefinition.md#gflayeredspritedefinition) | 资源定义 (`resource_definition`) | `Resource` | 3 | `addons/gf/extensions/layered_sprite/resources/gf_layered_sprite_definition.gd` |
+| [`GFLayeredSpriteLayerDefinition`](GFLayeredSpriteLayerDefinition.md#gflayeredspritelayerdefinition) | 资源定义 (`resource_definition`) | `Resource` | 7 | `addons/gf/extensions/layered_sprite/resources/gf_layered_sprite_layer_definition.gd` |
+| [`GFLayeredSpriteVariant`](GFLayeredSpriteVariant.md#gflayeredspritevariant) | 资源定义 (`resource_definition`) | `Resource` | 2 | `addons/gf/extensions/layered_sprite/resources/gf_layered_sprite_variant.gd` |
 
 <a id="module-extensions-network"></a>
 
@@ -970,6 +992,8 @@
 
 | 类 | 类别 | 继承 | 成员 | 源文件 |
 |---|---|---|---:|---|
+| [`GFLspWorkspaceEditPlan`](GFLspWorkspaceEditPlan.md#gflspworkspaceeditplan) | 值对象 (`value_object`) | `RefCounted` | 4 | `addons/gf/tools/lsp_workspace_edit/gf_lsp_workspace_edit_plan.gd` |
+| [`GFAssetBrowserModel`](GFAssetBrowserModel.md#gfassetbrowsermodel) | 工具 API (`tool_api`) | `RefCounted` | 20 | `addons/gf/tools/asset_browser/gf_asset_browser_model.gd` |
 | [`GFConfigAccessGenerator`](GFConfigAccessGenerator.md#gfconfigaccessgenerator) | 工具 API (`tool_api`) | `RefCounted` | 9 | `addons/gf/tools/config_pipeline/gf_config_access_generator.gd` |
 | [`GFConfigPipeline`](GFConfigPipeline.md#gfconfigpipeline) | 工具 API (`tool_api`) | `RefCounted` | 10 | `addons/gf/tools/config_pipeline/gf_config_pipeline.gd` |
 | [`GFConfigPipelineArtifactManifest`](GFConfigPipelineArtifactManifest.md#gfconfigpipelineartifactmanifest) | 工具 API (`tool_api`) | `RefCounted` | 8 | `addons/gf/tools/config_pipeline/gf_config_pipeline_artifact_manifest.gd` |
@@ -985,5 +1009,6 @@
 | [`GFConfigPipelineTargetStage`](GFConfigPipelineTargetStage.md#gfconfigpipelinetargetstage) | 工具 API (`tool_api`) | `RefCounted` | 7 | `addons/gf/tools/config_pipeline/gf_config_pipeline_target_stage.gd` |
 | [`GFConfigPipelineValidationStage`](GFConfigPipelineValidationStage.md#gfconfigpipelinevalidationstage) | 工具 API (`tool_api`) | `RefCounted` | 4 | `addons/gf/tools/config_pipeline/gf_config_pipeline_validation_stage.gd` |
 | [`GFDialogueTextCompiler`](GFDialogueTextCompiler.md#gfdialoguetextcompiler) | 工具 API (`tool_api`) | `RefCounted` | 4 | `addons/gf/tools/dialogue_text/gf_dialogue_text_compiler.gd` |
+| [`GFLspWorkspaceEditAdapter`](GFLspWorkspaceEditAdapter.md#gflspworkspaceeditadapter) | 工具 API (`tool_api`) | `RefCounted` | 4 | `addons/gf/tools/lsp_workspace_edit/gf_lsp_workspace_edit_adapter.gd` |
 | [`GFProjectLayoutScaffolder`](GFProjectLayoutScaffolder.md#gfprojectlayoutscaffolder) | 工具 API (`tool_api`) | `RefCounted` | 5 | `addons/gf/tools/project_layout/gf_project_layout_scaffolder.gd` |
 | [`GFProjectLayoutValidator`](GFProjectLayoutValidator.md#gfprojectlayoutvalidator) | 工具 API (`tool_api`) | `RefCounted` | 4 | `addons/gf/tools/project_layout/gf_project_layout_validator.gd` |

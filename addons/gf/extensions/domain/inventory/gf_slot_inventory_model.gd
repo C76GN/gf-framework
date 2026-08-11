@@ -91,20 +91,50 @@ signal inventory_changed
 ## 可选物品定义注册表。
 ## [br]
 ## @api public
-var registry: GFInventoryItemRegistry = null
+## [br]
+## @since 3.17.0
+var registry: GFInventoryItemRegistry:
+	get:
+		return _registry
+	set(value):
+		set_registry(value)
 
-## 可选槽位定义。索引与库存槽位一致；空项表示该槽位不添加额外接收限制。
+## 可选槽位定义。数量必须与库存槽位精确一致；空项表示该槽位不添加额外接收限制。
 ## [br]
 ## @api public
 ## [br]
-## @schema slot_definitions: Array[GFInventorySlotDefinition]，按槽位索引存放的接收规则；空项表示不限制。
-var slot_definitions: Array[GFInventorySlotDefinition] = []
+## @since 3.20.0
+## [br]
+## @schema slot_definitions: Array[GFInventorySlotDefinition]，数量必须等于 get_slot_count()；按槽位索引存放接收规则，空项表示不限制。
+var slot_definitions: Array[GFInventorySlotDefinition]:
+	get:
+		return _slot_definitions.duplicate()
+	set(value):
+		if _reject_reentrant_mutation("slot_definitions"):
+			return
+		if value.size() != _slots.size():
+			push_error(
+				"[GFSlotInventoryModel] slot_definitions 失败：规则数量必须与槽位数量一致"
+				+ "（expected=%d, actual=%d）。请先调用 set_slot_count() 调整槽位。"
+				% [_slots.size(), value.size()]
+			)
+			return
+		if _same_slot_definition_array(_slot_definitions, value):
+			return
+		_slot_definitions = value.duplicate()
+		_revision += 1
 
 ## 是否允许库存在创建新堆叠时自动增长。
 ## 为 false 时，0 槽位库存不会接收 `add_item()` 的新堆叠。
 ## [br]
 ## @api public
-var allow_growth: bool = false
+## [br]
+## @since 3.17.0
+var allow_growth: bool:
+	get:
+		return _allow_growth
+	set(value):
+		set_allow_growth(value)
 
 ## 默认初始槽位数量。仅在 GF 生命周期调用 `init()` 时自动应用。
 ## 手动创建后直接使用时，应调用 `set_slot_count()` 或启用 `allow_growth`。
@@ -116,10 +146,15 @@ var default_slot_count: int = 0
 # --- 私有变量 ---
 
 var _slots: Array = []
+var _registry: GFInventoryItemRegistry = null
+var _allow_growth: bool = false
+var _slot_definitions: Array[GFInventorySlotDefinition] = []
 var _item_slot_index: Dictionary = {}
 var _index_dirty: bool = true
+var _revision: int = 0
 var _mutation_depth: int = 0
 var _is_emitting_inventory_events: bool = false
+var _transfer_lock_owner: WeakRef = null
 var _inventory_changed_pending: bool = false
 var _pending_slot_changes: Dictionary = {}
 var _pending_slot_change_order: Array[int] = []
@@ -147,8 +182,41 @@ func init() -> void:
 func set_registry(item_registry: GFInventoryItemRegistry) -> void:
 	if _reject_reentrant_mutation("set_registry"):
 		return
-	registry = item_registry
+	if _registry == item_registry:
+		return
+	_registry = item_registry
 	_mark_index_dirty()
+	_revision += 1
+
+
+## 设置是否允许自动增长槽位。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param enabled: 是否允许 `add_item()` 在需要新堆叠时增长槽位。
+func set_allow_growth(enabled: bool) -> void:
+	if _reject_reentrant_mutation("set_allow_growth"):
+		return
+	if _allow_growth == enabled:
+		return
+	_allow_growth = enabled
+	_revision += 1
+
+
+## 获取会使已准备转移失效的单调 revision。
+##
+## 每次实际公开内容、结构或转移相关配置变化最多递增一次；被拒绝和 no-op
+## 操作保持不变。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @return: 当前非负 revision。
+func get_revision() -> int:
+	return _revision
 
 
 ## 设置槽位数量。
@@ -162,6 +230,8 @@ func set_slot_count(count: int, preserve_existing: bool = true) -> void:
 	if not _begin_inventory_mutation("set_slot_count"):
 		return
 	var next_count: int = maxi(count, 0)
+	var structure_changed: bool = next_count != _slots.size()
+	var definition_structure_changed: bool = next_count != _slot_definitions.size()
 	var before_slots: Array[Dictionary] = _snapshot_slots(maxi(_slots.size(), next_count))
 	var next_slots: Array = []
 	for index: int in range(next_count):
@@ -173,7 +243,8 @@ func set_slot_count(count: int, preserve_existing: bool = true) -> void:
 	_resize_slot_definitions(next_count)
 	for index: int in range(before_slots.size()):
 		_record_slot_change(index, before_slots[index], _snapshot_slot_data(index))
-	_mark_inventory_changed()
+	if structure_changed or definition_structure_changed:
+		_mark_inventory_changed()
 	_end_inventory_mutation()
 
 
@@ -211,8 +282,13 @@ func set_slot_definition(slot_index: int, definition: GFInventorySlotDefinition)
 		return false
 	if not is_valid_slot(slot_index):
 		return false
-	_resize_slot_definitions(_slots.size())
-	slot_definitions[slot_index] = definition
+	if _slot_definitions.size() != _slots.size():
+		push_error("[GFSlotInventoryModel] set_slot_definition 失败：槽位规则内部结构与槽位数量不一致。")
+		return false
+	if _slot_definitions[slot_index] == definition:
+		return true
+	_slot_definitions[slot_index] = definition
+	_revision += 1
 	return true
 
 
@@ -224,9 +300,9 @@ func set_slot_definition(slot_index: int, definition: GFInventorySlotDefinition)
 ## [br]
 ## @return: 槽位定义；无额外规则或无效槽位返回 null。
 func get_slot_definition(slot_index: int) -> GFInventorySlotDefinition:
-	if not is_valid_slot(slot_index) or slot_index >= slot_definitions.size():
+	if not is_valid_slot(slot_index) or slot_index >= _slot_definitions.size():
 		return null
-	return slot_definitions[slot_index]
+	return _slot_definitions[slot_index]
 
 
 ## 检查指定物品是否可被槽位接收。
@@ -347,7 +423,6 @@ func clear() -> void:
 	for index: int in range(_slots.size()):
 		_slots[index] = null
 		_record_slot_change(index, before_slots[index], _snapshot_slot_data(index))
-	_mark_inventory_changed()
 	_end_inventory_mutation()
 
 
@@ -398,7 +473,7 @@ func add_item(
 		var empty_slot: int = _find_empty_slot_for_item(item_id, normalized_data)
 		if empty_slot == -1 and allow_growth:
 			_slots.append(null)
-			slot_definitions.append(null)
+			_slot_definitions.append(null)
 			empty_slot = _slots.size() - 1
 		if empty_slot == -1:
 			break
@@ -1010,10 +1085,14 @@ func from_dict(data: Dictionary) -> void:
 		return
 	if not _begin_inventory_mutation("from_dict"):
 		return
-	allow_growth = GFVariantData.get_option_bool(data, "allow_growth", allow_growth)
+	var next_allow_growth: bool = GFVariantData.get_option_bool(data, "allow_growth", allow_growth)
+	var growth_changed: bool = next_allow_growth != _allow_growth
+	_allow_growth = next_allow_growth
 	var slot_count: int = GFVariantData.get_option_int(data, "slot_count")
 	var raw_slots: Array = GFVariantData.get_option_array(data, "slots")
 	var count: int = maxi(slot_count, 0)
+	var old_count: int = _slots.size()
+	var old_definition_count: int = _slot_definitions.size()
 	var before_slots: Array[Dictionary] = _snapshot_slots(maxi(_slots.size(), count))
 	_slots.clear()
 	for index: int in range(count):
@@ -1028,7 +1107,8 @@ func from_dict(data: Dictionary) -> void:
 	_resize_slot_definitions(count)
 	for index: int in range(before_slots.size()):
 		_record_slot_change(index, before_slots[index], _snapshot_slot_data(index))
-	_mark_inventory_changed()
+	if count != old_count or count != old_definition_count or growth_changed:
+		_mark_inventory_changed()
 	_end_inventory_mutation()
 
 
@@ -1074,7 +1154,135 @@ func _should_sort_slot_before(
 	return left_slot_index < right_slot_index
 
 
+# --- 框架内部方法 ---
+
+## 为一次跨模型转移取得逻辑协调锁。
+## [br]
+## @api framework_internal
+## [br]
+## @since unreleased
+## [br]
+## @param owner: 本次转移事务句柄。
+## [br]
+## @return: 模型空闲且锁由 owner 取得时返回 true。
+func lock_inventory_transfer_for_framework(owner: Object) -> bool:
+	if owner == null or _mutation_depth > 0 or _is_emitting_inventory_events:
+		return false
+	var current_owner: Object = _get_transfer_lock_owner()
+	if current_owner != null:
+		return current_owner == owner
+	_transfer_lock_owner = weakref(owner)
+	return true
+
+
+## 释放由同一事务持有的逻辑协调锁。
+## [br]
+## @api framework_internal
+## [br]
+## @since unreleased
+## [br]
+## @param owner: 当前锁持有者。
+func unlock_inventory_transfer_for_framework(owner: Object) -> void:
+	if owner != null and _get_transfer_lock_owner() == owner:
+		_transfer_lock_owner = null
+
+
+## 在协调锁内向专用规划器提供只读堆叠引用。
+##
+## 返回值不得逃逸当前规划调用，也不得被规划器修改；候选必须另行有界复制。
+## [br]
+## @api framework_internal
+## [br]
+## @since unreleased
+## [br]
+## @param owner: 当前锁持有者。
+## [br]
+## @param slot_index: 槽位索引。
+## [br]
+## @return: 锁和槽位均有效时返回内部只读引用，否则返回 null。
+func get_inventory_transfer_stack_for_framework(
+	owner: Object,
+	slot_index: int
+) -> GFInventoryStack:
+	if _get_transfer_lock_owner() != owner:
+		return null
+	return _get_stack_ref(slot_index)
+
+
+## 用已验证候选替换内存状态并准备通知，不调用项目回调。
+## [br]
+## @api framework_internal
+## [br]
+## @since unreleased
+## [br]
+## @param owner: 当前锁持有者。
+## [br]
+## @param plan: 同一锁窗口内重新规划得到的候选。
+## [br]
+## @param is_source: true 写入 item_removed，false 写入 item_added。
+## [br]
+## @schema plan: Internal bounded transfer plan from GFInventoryTransferPlanner.
+func apply_inventory_transfer_plan_for_framework(
+	owner: Object,
+	plan: Dictionary,
+	is_source: bool
+) -> void:
+	assert(_get_transfer_lock_owner() == owner)
+	assert(GFVariantData.get_option_string_name(plan, "status") == GFInventoryTransferResult.STATUS_PREPARED)
+	_slots = GFVariantData.get_option_array(plan, "slots")
+	_resize_slot_definitions(_slots.size())
+	_pending_slot_changes = GFVariantData.get_option_dictionary(plan, "slot_changes")
+	_pending_slot_change_order.clear()
+	for slot_index: Variant in GFVariantData.get_option_array(plan, "slot_change_order"):
+		_pending_slot_change_order.append(GFVariantData.to_int(slot_index, -1))
+	var item_events: Array = GFVariantData.get_option_array(plan, "item_events")
+	if is_source:
+		_pending_item_removed_events.clear()
+		for event_value: Variant in item_events:
+			_pending_item_removed_events.append(GFVariantData.as_dictionary(event_value))
+	else:
+		_pending_item_added_events.clear()
+		for event_value: Variant in item_events:
+			_pending_item_added_events.append(GFVariantData.as_dictionary(event_value))
+	_mark_index_dirty()
+	_mark_inventory_changed()
+	_revision += 1
+
+
+## 在协调锁保持期间派发已提交的库存通知。
+## [br]
+## @api framework_internal
+## [br]
+## @since unreleased
+## [br]
+## @param owner: 当前锁持有者。
+func flush_inventory_transfer_events_for_framework(owner: Object) -> void:
+	assert(_get_transfer_lock_owner() == owner)
+	_flush_inventory_events()
+
+
 # --- 私有/辅助方法 ---
+
+func _get_transfer_lock_owner() -> Object:
+	if _transfer_lock_owner == null:
+		return null
+	var owner: Object = _transfer_lock_owner.get_ref()
+	if owner == null:
+		_transfer_lock_owner = null
+	return owner
+
+
+func _same_slot_definition_array(
+	left: Array[GFInventorySlotDefinition],
+	right: Array[GFInventorySlotDefinition]
+) -> bool:
+	if left.size() != right.size():
+		return false
+	for index: int in range(left.size()):
+		if left[index] != right[index]:
+			return false
+	return true
+
 
 func _get_non_empty_string_name(value: Variant, default_value: StringName = &"") -> StringName:
 	if value is StringName:
@@ -1126,6 +1334,9 @@ func _begin_inventory_mutation(method_name: String) -> bool:
 	if _mutation_depth > 0:
 		push_error("[GFSlotInventoryModel] %s 失败：库存变更处理中不允许同步修改库存。请在当前操作结束后再修改。" % method_name)
 		return false
+	if _get_transfer_lock_owner() != null:
+		push_error("[GFSlotInventoryModel] %s 失败：库存原子转移期间不允许同步修改库存。请在事务终态后再修改。" % method_name)
+		return false
 	_mutation_depth += 1
 	return true
 
@@ -1133,6 +1344,8 @@ func _begin_inventory_mutation(method_name: String) -> bool:
 func _end_inventory_mutation() -> void:
 	_mutation_depth = maxi(_mutation_depth - 1, 0)
 	if _mutation_depth == 0:
+		if _inventory_changed_pending:
+			_revision += 1
 		_flush_inventory_events()
 
 
@@ -1142,6 +1355,9 @@ func _reject_reentrant_mutation(method_name: String) -> bool:
 		return true
 	if _mutation_depth > 0:
 		push_error("[GFSlotInventoryModel] %s 失败：库存变更处理中不允许同步修改库存。请在当前操作结束后再修改。" % method_name)
+		return true
+	if _get_transfer_lock_owner() != null:
+		push_error("[GFSlotInventoryModel] %s 失败：库存原子转移期间不允许同步修改库存。请在事务终态后再修改。" % method_name)
 		return true
 	return false
 
@@ -1191,10 +1407,10 @@ func _can_create_new_stack(item_id: StringName) -> bool:
 
 
 func _resize_slot_definitions(count: int) -> void:
-	while slot_definitions.size() < count:
-		slot_definitions.append(null)
-	while slot_definitions.size() > count:
-		slot_definitions.remove_at(slot_definitions.size() - 1)
+	while _slot_definitions.size() < count:
+		_slot_definitions.append(null)
+	while _slot_definitions.size() > count:
+		_slot_definitions.remove_at(_slot_definitions.size() - 1)
 
 
 func _slot_accepts_item(slot_index: int, item_id: StringName, instance_data: Dictionary) -> bool:
@@ -1208,7 +1424,27 @@ func _slot_accepts_item(slot_index: int, item_id: StringName, instance_data: Dic
 	var item_definition: GFInventoryItemDefinition = null
 	if registry != null:
 		item_definition = registry.get_definition(item_id)
-	return slot_definition.can_accept(item_id, item_definition, instance_data, slot_index, self)
+	if not slot_definition.acceptance_checker.is_valid():
+		return slot_definition.can_accept(
+			item_id,
+			item_definition,
+			instance_data,
+			slot_index,
+			null
+		)
+	var read_view: GFInventoryReadView = GFInventoryReadView.new()
+	if not read_view.configure_for_framework(_slots, registry):
+		push_error("[GFSlotInventoryModel] 槽位规则失败：无法创建只读候选投影。")
+		return false
+	var accepted: bool = slot_definition.can_accept(
+		item_id,
+		item_definition,
+		instance_data,
+		slot_index,
+		read_view
+	)
+	read_view.invalidate_for_framework()
+	return accepted
 
 
 func _slot_accepts_stack(slot_index: int, stack: GFInventoryStack) -> bool:

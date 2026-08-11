@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFLayeredSpriteVariant" path="addons/gf/extensions/layered_sprite/resources/gf_layered_sprite_variant.gd" module="extensions/layered_sprite" extends="Resource" classDigest="88a2fbc91fc63e80905c5830a17b93301813aa4fbcc507d561045b976b7ed2b5">
+	<description>GFLayeredSpriteVariant：分层精灵单层的帧资源变体。
+变体只以稳定 ID 关联一组 [SpriteFrames]，不包含服装、装备或角色等业务语义。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">resource_definition</tag>
+		<tag name="since">unreleased</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties>
+		<member kind="property" name="variant_id" decorators="@export">
+			<signature>var variant_id: StringName = &amp;""</signature>
+			<description>变体稳定 ID。同一层内必须唯一、非空且无首尾空白。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="sprite_frames" decorators="@export">
+			<signature>var sprite_frames: SpriteFrames = null</signature>
+			<description>该变体的帧资源。动画名称和每个动画的帧数必须与时间轴完全一致。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</properties>
+	<methods />
+	<innerClasses />
+</class>

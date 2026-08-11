@@ -6,10 +6,11 @@ import json
 from pathlib import Path
 
 
-TOOL_VERSION = "4.0.2"
+TOOL_VERSION = "4.1.0"
 CONTRACT_SCHEMA_VERSION = 2
 SNAPSHOT_SCHEMA_VERSION = 4
 FEEDBACK_SCHEMA_VERSION = 1
+CONTEXT_BUNDLE_SCHEMA_VERSION = 1
 DEFAULT_OFFICIAL_REPOSITORY = "C76GN/gf-framework"
 RESERVED_DEPENDENCY_IDS = frozenset({"gf", "godot"})
 MANAGED_BLOCK_START = "<!-- gf-ai-developer:start schema=1 -->"

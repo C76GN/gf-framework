@@ -1,0 +1,338 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFLayeredSprite2D" path="addons/gf/extensions/layered_sprite/nodes/gf_layered_sprite_2d.gd" module="extensions/layered_sprite" extends="Node2D" classDigest="bbfa546844cfedb5c37f49c619c85754aa855e15f2f60236d28eb2434301ddec">
+	<description>GFLayeredSprite2D：由单一时间轴驱动的通用分层精灵节点。
+配置会先完整校验并复制帧拓扑，再原子替换当前状态。节点只负责层、变体和播放，
+不拥有资源发现、下载、缓存或任何项目业务分类。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_service</tag>
+		<tag name="since">unreleased</tag>
+	</tags>
+	<signals>
+		<member kind="signal" name="configuration_changed">
+			<signature>signal configuration_changed</signature>
+			<description>完整配置成功替换后发出。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="signal" name="animation_started">
+			<signature>signal animation_started(animation: StringName)</signature>
+			<description>动画开始或恢复播放时发出。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">animation: 已开始或恢复的动画 ID。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="signal" name="animation_finished">
+			<signature>signal animation_finished(animation: StringName)</signature>
+			<description>非循环动画到达边界时发出。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">animation: 已到达非循环边界的动画 ID。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="signal" name="frame_changed">
+			<signature>signal frame_changed(animation: StringName, frame: int)</signature>
+			<description>当前帧身份改变时发出。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">animation: 当前动画 ID。</tag>
+				<tag name="param">frame: 当前从 0 开始的帧索引。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="signal" name="layer_variant_changed">
+			<signature>signal layer_variant_changed(layer_id: StringName, variant_id: StringName)</signature>
+			<description>某层成功切换变体后发出。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">layer_id: 已切换的稳定层 ID。</tag>
+				<tag name="param">variant_id: 新的稳定变体 ID。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</signals>
+	<enums />
+	<constants>
+		<member kind="const" name="MAX_LAYERS">
+			<signature>const MAX_LAYERS: int = 32</signature>
+			<description>单个定义允许的最大层数。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="MAX_VARIANTS_PER_LAYER">
+			<signature>const MAX_VARIANTS_PER_LAYER: int = 64</signature>
+			<description>单层允许的最大变体数。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="MAX_ANIMATIONS">
+			<signature>const MAX_ANIMATIONS: int = 128</signature>
+			<description>时间轴允许的最大动画数。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="MAX_FRAMES_PER_ANIMATION">
+			<signature>const MAX_FRAMES_PER_ANIMATION: int = 4096</signature>
+			<description>单动画允许的最大帧数。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="MAX_TOTAL_FRAME_REFERENCES">
+			<signature>const MAX_TOTAL_FRAME_REFERENCES: int = 65536</signature>
+			<description>一个配置允许引用的最大总帧数。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="MAX_UNIQUE_TEXTURES">
+			<signature>const MAX_UNIQUE_TEXTURES: int = 8192</signature>
+			<description>一个配置允许引用的最大唯一纹理数。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="MAX_FRAME_ADVANCES_PER_TICK">
+			<signature>const MAX_FRAME_ADVANCES_PER_TICK: int = 4096</signature>
+			<description>单次推进允许跨越的最大帧边界数。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="MAX_SPEED_SCALE">
+			<signature>const MAX_SPEED_SCALE: float = 1024.0</signature>
+			<description>播放速度绝对值上限。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</constants>
+	<properties />
+	<methods>
+		<member kind="method" name="configure">
+			<signature>func configure(definition: GFLayeredSpriteDefinition) -&gt; bool:</signature>
+			<description>原子配置时间轴与全部层。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">definition: 待验证并复制的定义资源。</tag>
+				<tag name="return">配置完整有效且已替换时返回 true；失败时保留原配置。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="clear_configuration">
+			<signature>func clear_configuration() -&gt; void:</signature>
+			<description>清除当前配置和播放状态。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_configured">
+			<signature>func is_configured() -&gt; bool:</signature>
+			<description>是否持有完整有效的配置快照。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">已配置时返回 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_animation_names">
+			<signature>func get_animation_names() -&gt; Array[StringName]:</signature>
+			<description>返回稳定排序的动画名称快照。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">与内部数组隔离的动画名称数组。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_layer_ids">
+			<signature>func get_layer_ids() -&gt; Array[StringName]:</signature>
+			<description>返回按绘制顺序排列的层 ID 快照。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">与内部数组隔离的层 ID 数组。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="play">
+			<signature>func play( animation: StringName, speed_scale: float = 1.0, from_end: bool = false ) -&gt; bool:</signature>
+			<description>播放指定动画。
+暂停或显式定位后的同名动画会从保留游标继续；首次播放、停止或完成后的
+同名动画会按速度方向重新初始化，反向播放从末端开始。[param from_end]
+会显式强制从末端重新开始。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">animation: 时间轴动画 ID。</tag>
+				<tag name="param">speed_scale: 有限且非零的播放速度；负值表示反向播放。</tag>
+				<tag name="param">from_end: 是否从动画末帧开始。</tag>
+				<tag name="return">参数有效且已开始播放时返回 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="pause">
+			<signature>func pause() -&gt; void:</signature>
+			<description>暂停并保留当前帧位置。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="stop">
+			<signature>func stop(reset_to_start: bool = true) -&gt; void:</signature>
+			<description>停止播放。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">reset_to_start: 是否将当前动画重置到首帧。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="seek">
+			<signature>func seek(frame: int, frame_progress: float = 0.0) -&gt; bool:</signature>
+			<description>将当前动画定位到指定帧和帧内进度。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">frame: 从 0 开始的帧索引。</tag>
+				<tag name="param">frame_progress: 当前帧内 0..1 的时间进度。</tag>
+				<tag name="return">定位参数有效时返回 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="advance">
+			<signature>func advance(delta_seconds: float) -&gt; bool:</signature>
+			<description>以秒为单位推进共享时间轴。
+节点在播放时会自动调用本方法；确定性模拟也可在节点未入树时显式调用。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">delta_seconds: 非负、有限的推进时间。</tag>
+				<tag name="return">完整消费本次推进量时返回 true；参数非法或跨帧预算耗尽时返回 false。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_playing">
+			<signature>func is_playing() -&gt; bool:</signature>
+			<description>当前是否正在播放。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">正在自动推进时返回 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_current_animation">
+			<signature>func get_current_animation() -&gt; StringName:</signature>
+			<description>返回当前动画 ID。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">当前动画 ID；未配置时为空。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_current_frame">
+			<signature>func get_current_frame() -&gt; int:</signature>
+			<description>返回当前帧索引。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">当前帧索引。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_frame_progress">
+			<signature>func get_frame_progress() -&gt; float:</signature>
+			<description>返回当前帧内的 0..1 时间进度。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">当前帧内进度。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="set_layer_variant">
+			<signature>func set_layer_variant(layer_id: StringName, variant_id: StringName) -&gt; bool:</signature>
+			<description>切换指定层的帧变体。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">layer_id: 待切换的稳定层 ID。</tag>
+				<tag name="param">variant_id: 该层中已配置的稳定变体 ID。</tag>
+				<tag name="return">层和变体均存在时返回 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_layer_variant">
+			<signature>func get_layer_variant(layer_id: StringName) -&gt; StringName:</signature>
+			<description>返回指定层的当前变体 ID。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">layer_id: 待读取的稳定层 ID。</tag>
+				<tag name="return">当前变体 ID；层不存在时为空。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="set_layer_visible">
+			<signature>func set_layer_visible(layer_id: StringName, layer_visible: bool) -&gt; bool:</signature>
+			<description>设置指定层可见性。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">layer_id: 待修改的稳定层 ID。</tag>
+				<tag name="param">layer_visible: 新可见状态。</tag>
+				<tag name="return">层存在时返回 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_layer_visible">
+			<signature>func is_layer_visible(layer_id: StringName) -&gt; bool:</signature>
+			<description>返回指定层可见性。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">layer_id: 待读取的稳定层 ID。</tag>
+				<tag name="return">层存在且可见时返回 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="set_layer_modulate">
+			<signature>func set_layer_modulate(layer_id: StringName, layer_modulate: Color) -&gt; bool:</signature>
+			<description>设置指定层调制颜色。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">layer_id: 待修改的稳定层 ID。</tag>
+				<tag name="param">layer_modulate: 所有分量均须有限的新调制颜色。</tag>
+				<tag name="return">层存在且颜色分量均有限时返回 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="set_layer_offset">
+			<signature>func set_layer_offset(layer_id: StringName, layer_offset: Vector2) -&gt; bool:</signature>
+			<description>设置指定层绘制偏移。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">layer_id: 待修改的稳定层 ID。</tag>
+				<tag name="param">layer_offset: 两分量均须有限的新绘制偏移。</tag>
+				<tag name="return">层存在且偏移分量均有限时返回 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_last_rejection_reason">
+			<signature>func get_last_rejection_reason() -&gt; StringName:</signature>
+			<description>返回最近一次拒绝原因。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">稳定原因 ID；最近一次操作成功时为空。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

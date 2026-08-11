@@ -151,6 +151,8 @@ static func get_next_actions() -> Dictionary:
 		"empty_action_id": "为动作设置稳定 action_id。",
 		"duplicate_action_id": "合并重复 action_id 的映射，或为动作分配不同稳定标识。",
 		"invalid_activation_threshold": "把动作 activation_threshold 调整到 0.0 到 1.0。",
+		"invalid_release_threshold": "把动作 release_threshold 调整到 0.0 到 1.0。",
+		"invalid_threshold_order": "把 release_threshold 调整为不高于 activation_threshold。",
 		"empty_bindings": "按需补齐输入绑定，或确认该动作只由虚拟输入驱动。",
 		"null_mapping_modifier": "移除空映射修饰器槽位或补齐 GFInputModifier。",
 		"null_trigger": "移除空触发器槽位或补齐 GFInputTrigger。",
@@ -235,18 +237,53 @@ static func _collect_action_id_issue(
 		action_paths_by_id[action_id] = mapping_path
 
 
-static func _collect_action_threshold_issue(mapping: GFInputMapping, mapping_path: String, issues: Array[Dictionary]) -> void:
+static func _collect_action_threshold_issue(
+	mapping: GFInputMapping,
+	mapping_path: String,
+	issues: Array[Dictionary]
+) -> void:
 	if mapping.action == null:
 		return
-	var threshold: float = mapping.action.activation_threshold
-	if is_nan(threshold) or is_inf(threshold) or threshold < 0.0 or threshold > 1.0:
+	if mapping.action.value_type == GFInputAction.ValueType.BOOL:
+		return
+	var activation_threshold: float = mapping.action.activation_threshold
+	var release_threshold: float = mapping.action.release_threshold
+	var activation_valid: bool = _is_unit_threshold(activation_threshold)
+	var release_valid: bool = _is_unit_threshold(release_threshold)
+	if not activation_valid:
 		issues.append(_make_issue(
 			"warning",
 			"invalid_activation_threshold",
 			"%s/action" % mapping_path,
-			"动作 activation_threshold 超出 0.0 到 1.0：%.3f。" % threshold,
-			{ "value": threshold }
+			"动作 activation_threshold 超出 0.0 到 1.0：%.3f。" % activation_threshold,
+			{ "value": activation_threshold }
 		))
+	if not release_valid:
+		issues.append(_make_issue(
+			"warning",
+			"invalid_release_threshold",
+			"%s/action" % mapping_path,
+			"动作 release_threshold 超出 0.0 到 1.0：%.3f。" % release_threshold,
+			{ "value": release_threshold }
+		))
+	if activation_valid and release_valid and release_threshold > activation_threshold:
+		issues.append(_make_issue(
+			"warning",
+			"invalid_threshold_order",
+			"%s/action" % mapping_path,
+			(
+				"动作 release_threshold %.3f 高于 activation_threshold %.3f。"
+				% [release_threshold, activation_threshold]
+			),
+			{
+				"activation_threshold": activation_threshold,
+				"release_threshold": release_threshold,
+			}
+		))
+
+
+static func _is_unit_threshold(value: float) -> bool:
+	return not is_nan(value) and not is_inf(value) and value >= 0.0 and value <= 1.0
 
 
 static func _collect_binding_issues(

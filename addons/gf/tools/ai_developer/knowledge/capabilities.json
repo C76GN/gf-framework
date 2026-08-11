@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "catalog_version": "1.9.0",
+  "catalog_version": "1.10.0",
   "capabilities": [
     {
       "id": "architecture",
@@ -122,10 +122,10 @@
       "id": "state-flow",
       "title": "State machines and flow orchestration",
       "summary": "Node and resource state machines, flow graphs, action queues, behavior trees, and decision mechanisms.",
-      "keywords": ["state", "fsm", "flow", "graph", "action queue", "behavior tree", "sequence", "orchestration"],
+      "keywords": ["state", "fsm", "flow", "graph", "action queue", "behavior tree", "sequence", "orchestration", "decision", "environment query", "candidate scoring"],
       "packages": ["gf.standard.state_machine", "gf.extension.flow", "gf.extension.action_queue", "gf.extension.behavior_tree", "gf.extension.decision"],
-      "primary_classes": ["GFNodeStateMachine", "GFFlowRunner", "GFFlowGraph", "GFActionQueueSystem", "GFBehaviorTree"],
-      "recipes": ["state-or-flow"],
+      "primary_classes": ["GFNodeStateMachine", "GFFlowRunner", "GFFlowGraph", "GFActionQueueSystem", "GFBehaviorTree", "GFDecisionSet"],
+      "recipes": ["state-or-flow", "environment-query-composition"],
       "boundary": "Select one mechanism by state ownership and observability; do not layer several orchestrators without a distinct responsibility."
     },
     {
@@ -158,10 +158,10 @@
       "id": "diagnostics",
       "title": "Diagnostics, logs, support, and operations",
       "summary": "Structured logs, bounded lazy diagnostic providers, headless health evidence, operation timelines, session traces, debug surfaces, support reports, and build metadata.",
-      "keywords": ["diagnostics", "lazy", "provider", "headless", "health probe", "liveness", "readiness", "session trace", "log", "debug", "support report", "operation", "metrics", "build info", "console"],
+      "keywords": ["diagnostics", "lazy", "provider", "headless", "health probe", "liveness", "readiness", "session trace", "log", "debug", "support report", "operation", "metrics", "build info", "console", "environment query", "physics backend"],
       "packages": ["gf.standard.diagnostics", "gf.standard.debug"],
       "primary_classes": ["GFDiagnosticsUtility", "GFDiagnosticSnapshotProvider", "GFDiagnosticProviderResult", "GFSessionTraceUtility", "GFSessionTraceRecipe", "GFOperationDiagnosticsUtility", "GFSupportReportUtility"],
-      "recipes": ["diagnostic-contribution", "headless-health-probe", "session-trace", "feedback-candidate"],
+      "recipes": ["diagnostic-contribution", "headless-health-probe", "session-trace", "feedback-candidate", "physics-backend-adapter", "environment-query-composition"],
       "boundary": "Collect the minimum needed data, bound all histories, and require explicit consent for precise or private diagnostics."
     },
     {
@@ -188,30 +188,30 @@
       "id": "network",
       "title": "Network transport and contracts",
       "summary": "Replaceable byte transports, adoptable MultiplayerPeer bridges, typed lobby operations, transport metrics, snapshots, histories, and bounded authoritative synchronization with optional prediction correction.",
-      "keywords": ["network", "multiplayer", "transport", "rpc", "snapshot", "authority", "prediction", "rollback", "synchronization", "lobby", "steam", "server"],
+      "keywords": ["network", "multiplayer", "transport", "rpc", "snapshot", "authority", "prediction", "rollback", "synchronization", "lobby", "steam", "server", "physics backend"],
       "packages": ["gf.extension.network"],
       "primary_classes": ["GFNetworkBackend", "GFMultiplayerPeerNetworkBackend", "GFENetNetworkBackend", "GFNetworkLobbyService", "GFNetworkTransportMetrics", "GFNetworkContract", "GFNetworkUtility", "GFNetworkHistoryBuffer", "GFNetworkSyncCoordinator", "GFNetworkSimulationAdapter", "GFNetworkInputFrame"],
-      "recipes": ["network-backend-adapter", "network-sync-coordinator", "headless-health-probe", "platform-lobby-adapter"],
+      "recipes": ["network-backend-adapter", "network-sync-coordinator", "headless-health-probe", "platform-lobby-adapter", "physics-backend-adapter"],
       "boundary": "GF can coordinate a bounded full-snapshot authority flow, but the project chooses trusted authority identity, entity control, state and input schemas, business conflict policy, matchmaking, lobby policy, and provider identity."
     },
     {
       "id": "platform-adapters",
       "title": "Platform and SDK adapters",
       "summary": "Contract-described project-owned translation boundaries for identity, lobby, activation intents, storage, achievements, social, lifecycle, payment, and other provider capabilities.",
-      "keywords": ["steam", "wechat", "epic", "console", "sdk", "adapter", "identity", "achievement", "leaderboard", "payment"],
+      "keywords": ["steam", "wechat", "epic", "console", "sdk", "adapter", "identity", "achievement", "leaderboard", "payment", "offline sync"],
       "packages": ["gf.kernel", "gf.standard.platform", "gf.standard.storage", "gf.extension.network"],
       "primary_classes": ["GFPlatformAdapter", "GFPlatformContractDescriptor", "GFPlatformAdapterConformance", "GFStorageBackend", "GFNetworkLobbyBackend"],
-      "recipes": ["platform-lobby-adapter", "platform-storage-adapter", "provider-backend"],
+      "recipes": ["platform-lobby-adapter", "platform-storage-adapter", "provider-backend", "achievement-composition"],
       "boundary": "Provider code is a separate adapter. Only stable provider-neutral contracts are candidates for GF."
     },
     {
       "id": "domain-components",
       "title": "Reusable domain components",
       "summary": "Generic inventory, attributes, traits, equipment, quests, level catalogs, interactions, combat, and turn-based primitives.",
-      "keywords": ["inventory", "attributes", "equipment", "quest", "level", "combat", "turn based", "interaction", "rpg"],
+      "keywords": ["inventory", "attributes", "equipment", "quest", "achievement", "progress", "level", "combat", "turn based", "interaction", "rpg"],
       "packages": ["gf.extension.domain", "gf.extension.interaction", "gf.extension.combat", "gf.extension.turn_based"],
       "primary_classes": ["GFInventoryModel", "GFAttributeSet", "GFQuestUtility", "GFInteractionFlow", "GFTurnFlowSystem"],
-      "recipes": ["domain-component"],
+      "recipes": ["domain-component", "achievement-composition"],
       "boundary": "GF components store generic state and mechanisms; game economy, rewards, balance, and content semantics remain project code."
     },
     {
@@ -228,16 +228,16 @@
       "id": "spatial-physics",
       "title": "Spatial math and physics mechanisms",
       "summary": "Grid/path math, spatial queries, policy-driven bounded 2D canvas orchestration, camera mechanisms, hit detection, buoyancy sampling, and physics-independent policies.",
-      "keywords": ["spatial", "grid", "path", "grid path", "path preview", "grid path preview", "pathfinding", "canvas", "input policy", "gesture arbitration", "parent scroll", "selection", "placement", "physics", "camera", "hitbox", "buoyancy", "2d", "3d"],
+      "keywords": ["spatial", "grid", "path", "grid path", "path preview", "grid path preview", "pathfinding", "canvas", "input policy", "gesture arbitration", "parent scroll", "selection", "placement", "physics", "physics backend", "determinism", "environment query", "candidate scoring", "camera", "hitbox", "buoyancy", "2d", "3d"],
       "packages": ["gf.standard.spatial", "gf.standard.spatial.canvas", "gf.extension.physics", "gf.extension.camera", "gf.extension.combat"],
-      "primary_classes": ["GFSpatialQueryIndex2D", "GFGridPathMath2D", "GFGraphPathSearchState", "GFSpatialCanvas2D", "GFSpatialCanvasInputPolicy", "GFBuoyancyField3D", "GFCameraOrbitRig3D", "GFHitBox2D"],
+      "primary_classes": ["GFSpatialQueryIndex2D", "GFSpatialQueryIndex3D", "GFPhysicsQueryUtility", "GFGridPathMath2D", "GFGraphPathSearchState", "GFSpatialCanvas2D", "GFSpatialCanvasInputPolicy", "GFBuoyancyField3D", "GFCameraOrbitRig3D", "GFHitBox2D"],
       "required_api_members": [
         {
           "class_name": "GFSpatialCanvasInputPolicy",
           "members": ["validate_policy", "duplicate_policy"]
         }
       ],
-      "recipes": ["spatial-policy", "asset-catalog-spatial-placement"],
+      "recipes": ["spatial-policy", "asset-catalog-spatial-placement", "physics-backend-adapter", "environment-query-composition"],
       "boundary": "GFSpatialCanvas2D orchestrates view, validated input routing, selection, and placement operation records only; projects own action naming, TileMap or scene mutation, business legality, persistence, UGC, collision layers, world semantics, authority, and force application policy."
     },
     {

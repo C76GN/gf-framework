@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFInventoryItemDefinition" path="addons/gf/extensions/domain/inventory/gf_inventory_item_definition.gd" module="extensions/domain" extends="Resource" classDigest="f04713ea8d0491f64831c68da63dfe8987397acd7635fac8a0c04d67a786e09a">
+<class name="GFInventoryItemDefinition" path="addons/gf/extensions/domain/inventory/gf_inventory_item_definition.gd" module="extensions/domain" extends="Resource" classDigest="01b08d9e951cdae7ddacd9f1af94c38580dcdd4d3485402a04d1dcb3c6efcdbc">
 	<description>GFInventoryItemDefinition: 通用库存物品定义。
 只描述库存系统需要理解的堆叠、分类和实例数据匹配规则，
 不规定品质、装备、货币、掉落等项目业务语义。</description>
@@ -87,9 +87,15 @@
 		</member>
 		<member kind="property" name="compatibility_checker">
 			<signature>var compatibility_checker: Callable = Callable()</signature>
-			<description>可选堆叠兼容性回调。签名为 Callable(left: Dictionary, right: Dictionary, definition: GFInventoryItemDefinition) -&gt; bool。</description>
+			<description>可选堆叠兼容性回调。签名为
+`Callable(left: Dictionary, right: Dictionary, definition: GFInventoryItemDefinition) -&gt; bool`。
+回调必须同步、确定、只读且有界，不得执行 I/O、产生外部副作用或依赖调用次数；
+一次 mutation 或事务的 prepare/commit 重规划可能调用零次或多次。回调必须指向
+可反射参数元数据的具名 Object 方法；匿名 lambda 和其他不透明 Callable 会在
+调用前失败关闭。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.3.0</tag>
 			</tags>
 		</member>
 	</properties>

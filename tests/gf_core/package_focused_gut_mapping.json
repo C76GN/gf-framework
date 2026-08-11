@@ -38,6 +38,7 @@
     ],
     "gf.extension.domain": [
       "res://tests/gf_core/extensions/domain/test_gf_domain_extensions.gd",
+      "res://tests/gf_core/extensions/domain/test_gf_inventory_transfer_transaction.gd",
       "res://tests/gf_core/extensions/domain/test_gf_level_utility.gd",
       "res://tests/gf_core/extensions/domain/test_gf_quest_utility.gd"
     ],
@@ -50,6 +51,9 @@
     "gf.extension.interaction": [
       "res://tests/gf_core/extensions/interaction/test_gf_interaction_flow_context.gd",
       "res://tests/gf_core/extensions/interaction/test_gf_interaction_nodes.gd"
+    ],
+    "gf.extension.layered_sprite": [
+      "res://tests/gf_core/extensions/layered_sprite/test_gf_layered_sprite_2d.gd"
     ],
     "gf.extension.network": [
       "res://tests/gf_core/extensions/network/test_gf_network_extension.gd",
@@ -166,6 +170,7 @@
       "res://tests/gf_core/standard/utilities/signals/test_gf_async_flow_tools.gd",
       "res://tests/gf_core/standard/utilities/signals/test_gf_async_primitives.gd",
       "res://tests/gf_core/standard/utilities/signals/test_gf_signal_utility.gd",
+      "res://tests/gf_core/standard/utilities/time/test_gf_civil_date.gd",
       "res://tests/gf_core/standard/utilities/time/test_gf_manual_timer_queue.gd",
       "res://tests/gf_core/standard/utilities/time/test_gf_time_utility.gd"
     ],
@@ -219,6 +224,7 @@
       "res://tests/gf_core/standard/input/runtime/test_gf_input_mapping_utility.gd",
       "res://tests/gf_core/standard/input/runtime/test_gf_pointer_activity_utility.gd",
       "res://tests/gf_core/standard/input/runtime/test_gf_pointer_gesture_utility.gd",
+      "res://tests/gf_core/standard/input/runtime/test_gf_viewport_surface_input_bridge.gd",
       "res://tests/gf_core/standard/input/touch/test_gf_touch_controls.gd"
     ],
     "gf.standard.input.editor": [
@@ -304,6 +310,9 @@
       "res://tests/gf_core/standard/utilities/ui/test_gf_reactive_state_control_binder.gd",
       "res://tests/gf_core/standard/utilities/ui/test_gf_repeater_binder.gd"
     ],
+    "gf.tool.asset_browser": [
+      "res://tests/gf_core/tools/asset_browser/test_gf_asset_browser_model.gd"
+    ],
     "gf.tool.config_pipeline": [
       "res://tests/gf_core/tools/config_pipeline/test_gf_config_pipeline.gd",
       "res://tests/gf_core/tools/config_pipeline/test_gf_config_pipeline_stages.gd",
@@ -314,6 +323,9 @@
     ],
     "gf.tool.ai_developer": [
       "res://tests/gf_core/tools/ai_developer/test_gf_ai_developer_tool_package.gd"
+    ],
+    "gf.tool.lsp_workspace_edit": [
+      "res://tests/gf_core/tools/lsp_workspace_edit/test_gf_lsp_workspace_edit_adapter.gd"
     ],
     "gf.tool.network.editor": [
       "res://tests/gf_core/tools/network.editor/test_gf_network_editor_tool_package.gd"
