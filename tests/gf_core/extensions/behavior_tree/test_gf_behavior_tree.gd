@@ -1089,6 +1089,25 @@ func test_build_debug_snapshot_sanitizes_arbitrary_snapshot_owner() -> void:
 	assert_false(JSON.stringify(snapshot).contains(":null"), "NaN 不应在调试报告中退化为 null。")
 
 
+func test_build_debug_snapshot_finalizes_arbitrary_snapshot_owner_budget() -> void:
+	var snapshot_source: UnsafeDebugOwner = UnsafeDebugOwner.new()
+
+	var snapshot: Dictionary = GFBehaviorTree.build_debug_snapshot(snapshot_source, {
+		"max_nodes": 7,
+		"max_depth": 3,
+		"max_total_bytes": 8192,
+	})
+	var debug_budget: Dictionary = GFVariantData.get_option_dictionary(
+		snapshot,
+		"debug_budget"
+	)
+
+	assert_false(debug_budget.is_empty(), "通用 Object 快照也必须发布统一 debug_budget。")
+	assert_eq(GFVariantData.get_option_int(debug_budget, "max_nodes"), 7)
+	assert_eq(GFVariantData.get_option_int(debug_budget, "max_depth"), 3)
+	assert_eq(GFVariantData.get_option_int(debug_budget, "node_count"), 0)
+
+
 func _run_random_sequence_with_seed(seed_value: int) -> Array:
 	var state: Dictionary = { "order": [] }
 	var random_sequence: GFBehaviorTree.RandomSequence = GFBehaviorTree.RandomSequence.new(_nodes([

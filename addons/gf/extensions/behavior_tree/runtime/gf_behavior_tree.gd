@@ -127,7 +127,9 @@ static func build_debug_snapshot(node: Variant, options: Dictionary = {}) -> Dic
 		return _finalize_debug_snapshot(runner_snapshot, runner_budget)
 	if node is Object:
 		var snapshot_owner: Object = node
-		return _encode_debug_snapshot(_call_debug_snapshot(snapshot_owner), options)
+		var object_budget: Dictionary = _make_debug_snapshot_budget(options)
+		var object_snapshot: Dictionary = _call_debug_snapshot(snapshot_owner)
+		return _finalize_debug_snapshot(object_snapshot, object_budget)
 	return {}
 
 
@@ -409,14 +411,6 @@ static func _resolve_monotonic_time_msec(clock_msec: Callable, previous_msec: in
 			if injected_msec >= 0:
 				current_msec = injected_msec
 	return maxi(current_msec, previous_msec)
-
-
-static func _encode_debug_snapshot(
-	snapshot: Dictionary,
-	options: Dictionary = {}
-) -> Dictionary:
-	var budget: Dictionary = _make_debug_snapshot_budget(options)
-	return _encode_debug_snapshot_with_budget(snapshot, budget)
 
 
 static func _encode_debug_snapshot_with_budget(

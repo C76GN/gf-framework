@@ -157,9 +157,9 @@ static var _test_owned_remove_failures: int = 0
 ## [br]
 ## @return 可交给 commit() 的 entry 副本。
 ## [br]
-## @schema options: Dictionary，可包含 overwrite、expected_sha256、expected_existing_sha256、artifact_id 和 metadata；两个 hash 字段都必须是精确 String，expected_sha256 约束新内容，expected_existing_sha256 约束提交前既有目标。
+## @schema options: Dictionary，可包含 overwrite、expected_sha256、preflight_existing_sha256、artifact_id 和 metadata；两个 hash 字段都必须是精确 String。expected_sha256 约束新内容；preflight_existing_sha256 在预检与每个可观察替换边界复核既有目标，但不提供跨进程原子 compare-and-exchange。
 ## [br]
-## @schema return: Dictionary，包含 kind、target_path、text、overwrite、expected_sha256、expected_existing_sha256、artifact_id 和 metadata。
+## @schema return: Dictionary，包含 kind、target_path、text、overwrite、expected_sha256、preflight_existing_sha256、artifact_id 和 metadata。
 static func make_text_entry(
 	target_path: String,
 	text: String,
@@ -182,9 +182,9 @@ static func make_text_entry(
 ## [br]
 ## @return 可交给 commit() 的 entry 副本。
 ## [br]
-## @schema options: Dictionary，可包含 overwrite、expected_sha256、expected_existing_sha256、artifact_id 和 metadata；两个 hash 字段都必须是精确 String，expected_sha256 约束新内容，expected_existing_sha256 约束提交前既有目标。
+## @schema options: Dictionary，可包含 overwrite、expected_sha256、preflight_existing_sha256、artifact_id 和 metadata；两个 hash 字段都必须是精确 String。expected_sha256 约束新内容；preflight_existing_sha256 在预检与每个可观察替换边界复核既有目标，但不提供跨进程原子 compare-and-exchange。
 ## [br]
-## @schema return: Dictionary，包含 kind、target_path、bytes、overwrite、expected_sha256、expected_existing_sha256、artifact_id 和 metadata。
+## @schema return: Dictionary，包含 kind、target_path、bytes、overwrite、expected_sha256、preflight_existing_sha256、artifact_id 和 metadata。
 static func make_bytes_entry(
 	target_path: String,
 	bytes: PackedByteArray,
@@ -209,9 +209,9 @@ static func make_bytes_entry(
 ## [br]
 ## @return 可交给 commit() 的 entry 副本。
 ## [br]
-## @schema options: Dictionary，可包含 overwrite、expected_sha256、expected_existing_sha256、artifact_id 和 metadata；两个 hash 字段都必须是精确 String，expected_sha256 约束新内容，expected_existing_sha256 约束提交前既有目标。
+## @schema options: Dictionary，可包含 overwrite、expected_sha256、preflight_existing_sha256、artifact_id 和 metadata；两个 hash 字段都必须是精确 String。expected_sha256 约束新内容；preflight_existing_sha256 在预检与每个可观察替换边界复核既有目标，但不提供跨进程原子 compare-and-exchange。
 ## [br]
-## @schema return: Dictionary，包含 kind、target_path、source_path、overwrite、expected_sha256、expected_existing_sha256、artifact_id 和 metadata。
+## @schema return: Dictionary，包含 kind、target_path、source_path、overwrite、expected_sha256、preflight_existing_sha256、artifact_id 和 metadata。
 static func make_file_entry(
 	target_path: String,
 	source_path: String,
@@ -1131,17 +1131,17 @@ static func _make_entry(
 	options: Dictionary
 ) -> Dictionary:
 	var expected_sha256_value: Variant = options.get("expected_sha256", "")
-	var expected_existing_sha256_value: Variant = options.get(
-		"expected_existing_sha256",
+	var preflight_existing_sha256_value: Variant = options.get(
+		"preflight_existing_sha256",
 		""
 	)
 	if expected_sha256_value is String:
 		var expected_sha256_text: String = expected_sha256_value
 		expected_sha256_value = expected_sha256_text.strip_edges().to_lower()
-	if expected_existing_sha256_value is String:
-		var expected_existing_sha256_text: String = expected_existing_sha256_value
-		expected_existing_sha256_value = (
-			expected_existing_sha256_text.strip_edges().to_lower()
+	if preflight_existing_sha256_value is String:
+		var preflight_existing_sha256_text: String = preflight_existing_sha256_value
+		preflight_existing_sha256_value = (
+			preflight_existing_sha256_text.strip_edges().to_lower()
 		)
 	var entry: Dictionary = {
 		"kind": kind,
@@ -1150,10 +1150,12 @@ static func _make_entry(
 		"bytes": bytes.duplicate(),
 		"source_path": source_path,
 		"expected_sha256": expected_sha256_value,
-		"expected_existing_sha256": expected_existing_sha256_value,
+		"preflight_existing_sha256": preflight_existing_sha256_value,
 		"artifact_id": _GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(options, "artifact_id"),
 		"metadata": _GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(options, "metadata"),
 	}
+	if options.has("expected_existing_sha256") or options.has(&"expected_existing_sha256"):
+		entry["expected_existing_sha256"] = options.get("expected_existing_sha256")
 	if options.has("overwrite") or options.has(&"overwrite"):
 		entry["overwrite"] = _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
 			options,
@@ -1327,27 +1329,32 @@ static func _normalize_entries(
 				"Artifact target could not be read for preflight: %s." % target_path
 			)
 			continue
-		if (
-			entry.has("expected_existing_sha256")
-			and typeof(entry["expected_existing_sha256"]) != TYPE_STRING
-		):
-			var _existing_hash_type_issue_appended: bool = issues.append(
-				"Artifact entry %d expected_existing_sha256 must be an exact String." % entry_index
+		if entry.has("expected_existing_sha256"):
+			var _legacy_existing_hash_issue_appended: bool = issues.append(
+				"Artifact entry %d expected_existing_sha256 is unsupported; use preflight_existing_sha256 for a non-atomic observable freshness check." % entry_index
 			)
 			continue
-		var expected_existing_sha256: String = (
+		if (
+			entry.has("preflight_existing_sha256")
+			and typeof(entry["preflight_existing_sha256"]) != TYPE_STRING
+		):
+			var _existing_hash_type_issue_appended: bool = issues.append(
+				"Artifact entry %d preflight_existing_sha256 must be an exact String." % entry_index
+			)
+			continue
+		var preflight_existing_sha256: String = (
 			_GF_VARIANT_ACCESS_SCRIPT.get_option_string(
 				entry,
-				"expected_existing_sha256"
+				"preflight_existing_sha256"
 			).strip_edges().to_lower()
 		)
-		if not expected_existing_sha256.is_empty() and (
-			not _is_sha256(expected_existing_sha256)
+		if not preflight_existing_sha256.is_empty() and (
+			not _is_sha256(preflight_existing_sha256)
 			or not existed
-			or previous_sha256 != expected_existing_sha256
+			or previous_sha256 != preflight_existing_sha256
 		):
 			var _existing_hash_issue_appended: bool = issues.append(
-				"Artifact entry %d expected_existing_sha256 does not match its existing target." % entry_index
+				"Artifact entry %d preflight_existing_sha256 does not match its existing target." % entry_index
 			)
 			continue
 		var changed: bool = not existed or previous_sha256 != content_sha256

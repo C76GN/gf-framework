@@ -52,7 +52,9 @@ signal selection_changed(asset_id: StringName)
 
 ## 当前代际的预览任务进入终态后发出。
 ##
-## 被目录、查询或新预览代际淘汰的旧任务不会发布结果。
+## 被目录、查询或新预览代际淘汰的旧任务不会发布结果。报告与预览计划的
+## Dictionary / Array 容器只读；Image / ImageTexture 等引擎对象句柄仍由
+## listener 按只读引用使用。
 ## [br]
 ## @api public
 ## [br]
@@ -105,6 +107,8 @@ const _MAX_SUMMARY_BYTES: int = 32 * 1024
 const _MAX_SUMMARY_NODES: int = 512
 const _MAX_SUMMARY_COLLECTION_ITEMS: int = 128
 const _MAX_SUMMARY_STRING_LENGTH: int = 4096
+const _PREVIEW_PLAN_KEY_COUNT: int = 4
+const _PREVIEW_PLAN_CHANGE_KEY_COUNT: int = 3
 const _NOTIFICATION_CATALOG_CHANGED: StringName = &"catalog_changed"
 const _NOTIFICATION_QUERY_CHANGED: StringName = &"query_changed"
 const _NOTIFICATION_SELECTION_CHANGED: StringName = &"selection_changed"
@@ -924,20 +928,134 @@ func _resolve_preview_task(
 		state = &"succeeded"
 	elif task.is_cancelled():
 		state = &"cancelled"
+	var preview_result_report: Dictionary = _make_frozen_preview_result(
+		task.get_result(),
+		not task.is_succeeded()
+	)
+	var preview_result: Variant = preview_result_report.get("result")
+	var preview_error: String = task.get_error()
+	if not _read_bool(preview_result_report, "ok"):
+		state = &"failed"
+		preview_error = GFVariantData.get_option_string(
+			preview_result_report,
+			"error"
+		)
 	var report: Dictionary = {
 		"asset_id": asset_id,
 		"preview_generation": preview_generation,
 		"catalog_revision": catalog_revision,
 		"query_generation": query_generation,
 		"state": state,
-		"result": task.get_result(),
-		"error": task.get_error(),
+		"result": preview_result,
+		"error": preview_error,
 		"cancel_reason": task.get_cancel_reason(),
 	}
 	report.make_read_only()
 	_publish_notification(_make_notification(_NOTIFICATION_PREVIEW_RESOLVED, {
 		"report": report,
 	}))
+
+
+static func _make_frozen_preview_result(
+	value: Variant,
+	allow_null: bool
+) -> Dictionary:
+	if value == null:
+		return {
+			"ok": allow_null,
+			"result": null,
+			"error": "" if allow_null else "invalid_preview_result",
+		}
+	if value is Image or value is ImageTexture:
+		return {
+			"ok": true,
+			"result": value,
+			"error": "",
+		}
+	if not value is Dictionary:
+		return {
+			"ok": false,
+			"result": null,
+			"error": "invalid_preview_result",
+		}
+	var plan: Dictionary = value
+	return _make_frozen_preview_plan(plan)
+
+
+static func _make_frozen_preview_plan(plan: Dictionary) -> Dictionary:
+	if (
+		plan.size() != _PREVIEW_PLAN_KEY_COUNT
+		or not plan.has("ok")
+		or not plan.has("generated_count")
+		or not plan.has("cancelled")
+		or not plan.has("changes")
+		or not plan["ok"] is bool
+		or not plan["generated_count"] is int
+		or not plan["cancelled"] is bool
+		or not plan["changes"] is Array
+	):
+		return _make_invalid_preview_result("invalid_preview_plan")
+	var plan_ok: bool = plan["ok"]
+	var generated_count: int = plan["generated_count"]
+	var cancelled: bool = plan["cancelled"]
+	var changes: Array = plan["changes"]
+	if changes.size() > MAX_RESULT_COUNT:
+		return _make_invalid_preview_result(
+			"preview_plan_change_limit_exceeded"
+		)
+	if not plan_ok or generated_count < 0 or generated_count != changes.size():
+		return _make_invalid_preview_result("invalid_preview_plan")
+
+	var frozen_changes: Array = []
+	for change_value: Variant in changes:
+		if not change_value is Dictionary:
+			return _make_invalid_preview_result("invalid_preview_plan")
+		var change: Dictionary = change_value
+		if (
+			change.size() != _PREVIEW_PLAN_CHANGE_KEY_COUNT
+			or not change.has("item_id")
+			or not change.has("old_preview")
+			or not change.has("new_preview")
+			or not change["item_id"] is int
+		):
+			return _make_invalid_preview_result("invalid_preview_plan")
+		var item_id: int = change["item_id"]
+		var old_preview: Variant = change["old_preview"]
+		var new_preview: Variant = change["new_preview"]
+		if (
+			item_id < 0
+			or (old_preview != null and not old_preview is Texture2D)
+			or not new_preview is Texture2D
+		):
+			return _make_invalid_preview_result("invalid_preview_plan")
+		var frozen_change: Dictionary = {
+			"item_id": item_id,
+			"old_preview": old_preview,
+			"new_preview": new_preview,
+		}
+		frozen_change.make_read_only()
+		frozen_changes.append(frozen_change)
+	frozen_changes.make_read_only()
+	var frozen_plan: Dictionary = {
+		"ok": plan_ok,
+		"generated_count": generated_count,
+		"cancelled": cancelled,
+		"changes": frozen_changes,
+	}
+	frozen_plan.make_read_only()
+	return {
+		"ok": true,
+		"result": frozen_plan,
+		"error": "",
+	}
+
+
+static func _make_invalid_preview_result(error_text: String) -> Dictionary:
+	return {
+		"ok": false,
+		"result": null,
+		"error": error_text,
+	}
 
 
 # --- 信号处理函数 ---

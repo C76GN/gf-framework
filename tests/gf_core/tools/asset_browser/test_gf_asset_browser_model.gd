@@ -12,6 +12,51 @@ class ImmediateFailRenderer extends GFThumbnailRenderer:
 		return task
 
 
+class ImmediateSuccessRenderer extends GFThumbnailRenderer:
+	func submit_render_request(request: GFThumbnailRenderRequest) -> GFThumbnailRenderTask:
+		var task: GFThumbnailRenderTask = GFThumbnailRenderTask.new(request, 1)
+		var image: Image = Image.create(1, 1, false, Image.FORMAT_RGBA8)
+		var texture: ImageTexture = ImageTexture.create_from_image(image)
+		var _succeeded: bool = task.succeed({
+			"ok": true,
+			"generated_count": 1,
+			"cancelled": false,
+			"changes": [
+				{
+					"item_id": 7,
+					"old_preview": null,
+					"new_preview": texture,
+				},
+			],
+		})
+		return task
+
+
+class CyclicResultRenderer extends GFThumbnailRenderer:
+	func submit_render_request(request: GFThumbnailRenderRequest) -> GFThumbnailRenderTask:
+		var task: GFThumbnailRenderTask = GFThumbnailRenderTask.new(request, 1)
+		var cyclic_result: Dictionary = {}
+		cyclic_result["self"] = cyclic_result
+		var _succeeded: bool = task.succeed(cyclic_result)
+		return task
+
+
+class OversizedPlanRenderer extends GFThumbnailRenderer:
+	func submit_render_request(request: GFThumbnailRenderRequest) -> GFThumbnailRenderTask:
+		var task: GFThumbnailRenderTask = GFThumbnailRenderTask.new(request, 1)
+		var changes: Array = []
+		var _resized: Error = changes.resize(
+			GF_ASSET_BROWSER_MODEL_SCRIPT.MAX_RESULT_COUNT + 1
+		) as Error
+		var _succeeded: bool = task.succeed({
+			"ok": true,
+			"generated_count": changes.size(),
+			"cancelled": false,
+			"changes": changes,
+		})
+		return task
+
+
 func test_catalog_replacement_is_isolated_and_invalidates_missing_selection() -> void:
 	var source_catalog: GFAssetCatalog = _make_catalog([
 		_make_entry(&"alpha", "Alpha", { "license": "CC0" }),
@@ -233,6 +278,111 @@ func test_nested_preview_resolution_notifications_are_fifo() -> void:
 	)
 	model.preview_resolved.disconnect(first_callback)
 	model.preview_resolved.disconnect(second_callback)
+	model.dispose()
+	renderer.free()
+
+
+func test_preview_resolution_recursively_freezes_nested_result() -> void:
+	var model: GF_ASSET_BROWSER_MODEL_SCRIPT = GF_ASSET_BROWSER_MODEL_SCRIPT.new()
+	var _replace_report: Dictionary = model.replace_catalog(_make_catalog([
+		_make_entry(&"mesh", "Mesh"),
+	]))
+	var renderer: ImmediateSuccessRenderer = ImmediateSuccessRenderer.new()
+	var request: GFThumbnailRenderRequest = (
+		GFThumbnailRenderRequest.for_mesh_library_preview_plan(
+			MeshLibrary.new()
+		)
+	)
+	var second_listener_label: Array[String] = []
+	var first_callback: Callable = func(report: Dictionary) -> void:
+		var result: Dictionary = GFVariantData.get_option_dictionary(report, "result")
+		var changes: Array = GFVariantData.get_option_array(result, "changes")
+		var first_change: Dictionary = GFVariantData.as_dictionary(changes[0])
+		if not result.is_read_only():
+			result["generated_count"] = 99
+		if not changes.is_read_only():
+			changes[0] = { "item_id": 99 }
+		if not first_change.is_read_only():
+			first_change["item_id"] = 99
+	var second_callback: Callable = func(report: Dictionary) -> void:
+		var result: Dictionary = GFVariantData.get_option_dictionary(report, "result")
+		var changes: Array = GFVariantData.get_option_array(result, "changes")
+		var first_change: Dictionary = GFVariantData.as_dictionary(changes[0])
+		assert_true(result.is_read_only(), "预览 result Dictionary 必须冻结。")
+		assert_true(changes.is_read_only(), "预览 result 的嵌套 Array 必须冻结。")
+		assert_true(first_change.is_read_only(), "预览 result 的叶级 Dictionary 必须冻结。")
+		second_listener_label.append(str(GFVariantData.get_option_int(first_change, "item_id")))
+	var _first_connected: Error = model.preview_resolved.connect(first_callback) as Error
+	var _second_connected: Error = model.preview_resolved.connect(second_callback) as Error
+
+	var task: GFThumbnailRenderTask = model.request_preview(&"mesh", renderer, request)
+
+	assert_not_null(task)
+	assert_true(task.is_succeeded())
+	assert_eq(
+		second_listener_label,
+		["7"],
+		"先注册 listener 不能改写后续 listener 观察到的 nested result。"
+	)
+	model.preview_resolved.disconnect(first_callback)
+	model.preview_resolved.disconnect(second_callback)
+	model.dispose()
+	renderer.free()
+
+
+func test_preview_resolution_rejects_cyclic_custom_result() -> void:
+	var model: GF_ASSET_BROWSER_MODEL_SCRIPT = GF_ASSET_BROWSER_MODEL_SCRIPT.new()
+	var _replace_report: Dictionary = model.replace_catalog(_make_catalog([
+		_make_entry(&"mesh", "Mesh"),
+	]))
+	var renderer: CyclicResultRenderer = CyclicResultRenderer.new()
+	var reports: Array[Dictionary] = []
+	var callback: Callable = func(report: Dictionary) -> void:
+		reports.append(report)
+	var _connected: Error = model.preview_resolved.connect(callback) as Error
+
+	var task: GFThumbnailRenderTask = model.request_preview(
+		&"mesh",
+		renderer,
+		GFThumbnailRenderRequest.for_mesh_library_preview_plan(MeshLibrary.new())
+	)
+
+	assert_true(task.is_succeeded())
+	assert_eq(reports.size(), 1)
+	assert_eq(GFVariantData.get_option_string_name(reports[0], "state"), &"failed")
+	assert_eq(GFVariantData.get_option_string(reports[0], "error"), "invalid_preview_plan")
+	assert_true(GFVariantData.get_option_value(reports[0], "result") == null)
+	model.preview_resolved.disconnect(callback)
+	model.dispose()
+	renderer.free()
+
+
+func test_preview_resolution_rejects_oversized_preview_plan() -> void:
+	var model: GF_ASSET_BROWSER_MODEL_SCRIPT = GF_ASSET_BROWSER_MODEL_SCRIPT.new()
+	var _replace_report: Dictionary = model.replace_catalog(_make_catalog([
+		_make_entry(&"mesh", "Mesh"),
+	]))
+	var renderer: OversizedPlanRenderer = OversizedPlanRenderer.new()
+	var reports: Array[Dictionary] = []
+	var callback: Callable = func(report: Dictionary) -> void:
+		reports.append(report)
+	var _connected: Error = model.preview_resolved.connect(callback) as Error
+
+	var task: GFThumbnailRenderTask = model.request_preview(
+		&"mesh",
+		renderer,
+		GFThumbnailRenderRequest.for_mesh_library_preview_plan(MeshLibrary.new())
+	)
+
+	assert_true(task.is_succeeded())
+	assert_eq(reports.size(), 1)
+	assert_eq(GFVariantData.get_option_string_name(reports[0], "state"), &"failed")
+	assert_eq(
+		GFVariantData.get_option_string(reports[0], "error"),
+		"preview_plan_change_limit_exceeded"
+	)
+	assert_true(GFVariantData.get_option_value(reports[0], "result") == null)
+	model.preview_resolved.disconnect(callback)
 	model.dispose()
 	renderer.free()
 

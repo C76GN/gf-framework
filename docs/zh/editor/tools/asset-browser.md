@@ -48,6 +48,8 @@ model.select_asset(&"hero.idle")
 
 预览入口只接受当前目录中的稳定 ID、有效 `GFThumbnailRenderer` 和有效 `GFThumbnailRenderRequest`。新预览会取消上一代等待任务；目录或查询变化会使旧任务失效，旧代际完成后不能发布为当前结果。模型不从路径隐式加载资源，也不替调用方决定 Mesh、Texture、Scene 或自定义 renderer 的物化策略。
 
+`preview_resolved` 只接受 Kernel 缩略图协议声明的结果：`Image`、`ImageTexture`、`null`，或精确包含 `ok`、`generated_count`、`cancelled` 与 `changes` 的 MeshLibrary 预览计划。计划最多包含 `MAX_RESULT_COUNT` 项；每项必须精确包含非负 `item_id`、可空的 `old_preview` 和非空 `new_preview`，预览值必须是 `Texture2D`。模型先按这个闭合、有界 schema 重建计划，再递归冻结所有 `Dictionary` / `Array` 容器；循环、超限、额外字段或错误类型都会把本次通知降为失败，不会在校验前执行无界深复制。`Image`、`ImageTexture` 与计划中的纹理是 Godot 引擎对象句柄，不能变为只读对象；listener 必须把它们当作只读引用，不得在同一通知链中修改资源内容。
+
 `catalog_changed`、`query_changed`、`selection_changed` 和 `preview_resolved` 共用一个非重入 FIFO 通知队列。每次状态提交都会立即冻结本次通知参数；监听器同步发起的嵌套 mutation 只把新通知排到队尾，不会在当前 signal 的 listener 链中穿插发布。当前 signal 的全部 listener 返回后，模型才继续按提交顺序派发队列，因此后注册监听器不会先观察新 revision / generation、再收到旧通知，也不会从已经变化的 live state 重读旧 payload。
 
 监听器必须保证同步反馈 mutation 有限并最终收敛。模型不会用任意派发上限丢弃已经提交的通知，也不会把同步契约静默改成依赖 SceneTree 帧循环的延迟契约；持续生成 mutation 的监听器反馈环属于调用方错误。若 listener 在派发中调用 `dispose()`，当前已经开始的 signal 仍会完成其 listener 链，但尚未开始派发的队尾通知会被丢弃。

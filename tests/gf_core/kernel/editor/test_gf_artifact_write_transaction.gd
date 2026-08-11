@@ -268,8 +268,8 @@ func test_dry_run_and_overwrite_policy_leave_targets_untouched() -> void:
 	assert_eq(_count_transaction_sidecars(), 0)
 
 
-func test_expected_existing_sha256_guards_compare_exchange_commit() -> void:
-	var target_path: String = _temp_root.path_join("compare-exchange.txt")
+func test_preflight_existing_sha256_rejects_observable_target_drift() -> void:
+	var target_path: String = _temp_root.path_join("observable-freshness.txt")
 	_write_text(target_path, "reviewed")
 	var reviewed_sha256: String = "reviewed".sha256_text()
 	var guarded_entry: Dictionary = (
@@ -277,7 +277,7 @@ func test_expected_existing_sha256_guards_compare_exchange_commit() -> void:
 			target_path,
 			"replacement",
 			{
-				"expected_existing_sha256": reviewed_sha256,
+				"preflight_existing_sha256": reviewed_sha256,
 			}
 		)
 	)
@@ -293,7 +293,7 @@ func test_expected_existing_sha256_guards_compare_exchange_commit() -> void:
 	)
 	assert_true(
 		_GF_VARIANT_ACCESS_SCRIPT.get_option_bool(reviewed_report, "ok"),
-		"目标仍匹配审阅摘要时 compare-exchange 预检应成功。"
+		"目标仍匹配审阅摘要时 freshness 预检应成功。"
 	)
 
 	_write_text(target_path, "concurrent-writer")
@@ -317,7 +317,7 @@ func test_expected_existing_sha256_guards_compare_exchange_commit() -> void:
 	assert_eq(
 		_read_text(target_path),
 		"concurrent-writer",
-		"compare-exchange 失败不得覆盖并发写入。"
+		"可观察到的 freshness 失败不得覆盖并发写入。"
 	)
 	assert_eq(_count_transaction_sidecars(), 0)
 
@@ -329,7 +329,7 @@ func test_expected_existing_sha256_guards_compare_exchange_commit() -> void:
 					target_path,
 					"replacement",
 					{
-						"expected_existing_sha256": current_sha256,
+						"preflight_existing_sha256": current_sha256,
 					}
 				),
 			],
@@ -338,7 +338,7 @@ func test_expected_existing_sha256_guards_compare_exchange_commit() -> void:
 	)
 	assert_true(
 		_GF_VARIANT_ACCESS_SCRIPT.get_option_bool(accepted_report, "ok"),
-		"目标仍匹配 expected_existing_sha256 时提交应成功。"
+		"目标仍匹配 preflight_existing_sha256 时提交应成功。"
 	)
 	assert_eq(_read_text(target_path), "replacement")
 
@@ -351,7 +351,7 @@ func test_hash_options_require_exact_strings_for_builder_and_direct_entries() ->
 		_GF_ARTIFACT_WRITE_TRANSACTION_SCRIPT.make_text_entry(
 			target_path,
 			"replacement",
-			{ "expected_existing_sha256": null }
+			{ "preflight_existing_sha256": null }
 		)
 	)
 	var direct_existing_hash_entry: Dictionary = (
@@ -360,8 +360,15 @@ func test_hash_options_require_exact_strings_for_builder_and_direct_entries() ->
 			"replacement"
 		)
 	)
-	direct_existing_hash_entry["expected_existing_sha256"] = null
+	direct_existing_hash_entry["preflight_existing_sha256"] = null
 	invalid_entries.append(direct_existing_hash_entry)
+	invalid_entries.append(
+		_GF_ARTIFACT_WRITE_TRANSACTION_SCRIPT.make_text_entry(
+			target_path,
+			"replacement",
+			{ "expected_existing_sha256": "original".sha256_text() }
+		)
+	)
 	invalid_entries.append(
 		_GF_ARTIFACT_WRITE_TRANSACTION_SCRIPT.make_text_entry(
 			target_path,

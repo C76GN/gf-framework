@@ -130,7 +130,7 @@ static func build_plan(
 					document,
 					"result_sha256"
 				),
-				"expected_existing_sha256": GFVariantData.get_option_string(
+				"preflight_existing_sha256": GFVariantData.get_option_string(
 					document,
 					"source_sha256"
 				),
@@ -341,7 +341,7 @@ static func commit_plan(
 					document,
 					"result_sha256"
 				),
-				"expected_existing_sha256": GFVariantData.get_option_string(
+				"preflight_existing_sha256": GFVariantData.get_option_string(
 					document,
 					"source_sha256"
 				),
