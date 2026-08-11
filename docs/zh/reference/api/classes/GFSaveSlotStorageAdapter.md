@@ -217,7 +217,7 @@ func get_metadata_file_name(slot_index: int) -> String:
 func build_slot_file_plan(slot_index: int) -> Dictionary:
 ```
 
-构建并校验一个槽位的文件计划。 该方法不要求先配置 Storage，可供同步桥在访问任一后端前完成模板预检。
+构建并校验一个槽位的文件计划。 该方法不要求先配置 Storage，可供同步桥在访问任一后端前完成 portable logical identity 模板预检。
 
 参数：
 
@@ -370,4 +370,4 @@ func list_slots() -> Array[Dictionary]:
 
 结构：
 
-- `return`: Array[Dictionary]，每项包含 slot_index、slot_id、metadata 和 modified_time。
+- `return`: Array[Dictionary]，每项包含 slot_index、slot_id、metadata，以及来自 metadata.updated_at_unix 的领域更新时间 modified_time: int；它不是文件系统 mtime。

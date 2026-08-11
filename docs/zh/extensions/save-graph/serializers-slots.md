@@ -84,7 +84,7 @@ slot_store.save_slot(workflow.active_slot_index, document, metadata.to_dict())
 var cards := workflow.build_cards_from_slot_store(slot_store, [1, 2, 3])
 ```
 
-`GFSaveSlotStorageAdapter` 位于 Save 扩展包内，是推荐的通用槽位持久化入口。`save_slot()` 只接受通过校验的 `GFSaveDocument`，并要求 metadata 中已有的 schema 身份与文档一致；数据文件和元数据文件通过 `GFStorageUtility.save_data_group()` 同事务提交。`build_slot_file_plan()` 可在未 setup Storage 时预检 `{index}`、相对规范路径和 data/metadata 冲突。`load_slot()` 返回 `GFSaveDocumentReadResult`，把底层存储结果、迁移结果、最终校验报告和错误分开，不用空字典表达失败；`load_slot()`、`load_slot_metadata()` 与 `list_slots()` 都拒绝 Storage 明确标记为完整性无效的内容。
+`GFSaveSlotStorageAdapter` 位于 Save 扩展包内，是推荐的通用槽位持久化入口。`save_slot()` 只接受通过校验的 `GFSaveDocument`，并要求 metadata 中已有的 schema 身份与文档一致；数据文件和元数据文件通过 `GFStorageUtility.save_data_group()` 同事务提交。`build_slot_file_plan()` 可在未 setup Storage 时预检 `{index}`、原样满足 `portable-ascii-v1` 的 logical identity 和 data/metadata 冲突，不会替调用方规范化别名。`load_slot()` 返回 `GFSaveDocumentReadResult`，把底层存储结果、迁移结果、最终校验报告和错误分开，不用空字典表达失败；`load_slot()`、`load_slot_metadata()` 与 `list_slots()` 都拒绝 Storage 明确标记为完整性无效的内容。
 
 ```gdscript
 var loaded := slot_store.load_slot(active_slot, schema, migration_registry)
@@ -109,4 +109,4 @@ var sync_result := bridge.sync_slot(active_slot, slot_store, local_backend, remo
 
 槽位工作流内部使用 `GFSaveSlotMetadata` 描述槽位 ID、展示名、schema、版本、标签、耗时和自定义元数据；`validate_metadata()` 返回标准校验报告字典，用 `kind`、统计、摘要和下一步建议描述元数据结构问题。空槽不会默认生成 `Slot N` 这类展示名；如果项目需要统一占位名，可以显式设置 `empty_display_name_template`，或在 UI 渲染层自行映射。
 
-`GFSaveSlotCard` 是给项目读档 UI 消费的轻量 DTO，包含空槽、当前选中、兼容性、非本地化 `status_id`、修改时间和原始 metadata 副本。卡片会从整数 `slot_index`、整数/字符串 `slot_id`、metadata 里的 `slot_id` 或兜底逻辑 ID 中反推整数索引，兼容默认 `slot_3` 这类逻辑标识。它们都不绑定具体 UI 卡片布局，也不定义项目的存档字段、状态文案或按钮行为。
+`GFSaveSlotCard` 是给项目读档 UI 消费的轻量 DTO，包含空槽、当前选中、兼容性、非本地化 `status_id`、修改时间和原始 metadata 副本。`GFSaveSlotStorageAdapter.list_slots()` 的 `modified_time` 来自 metadata 的 `updated_at_unix`，表示领域层最后更新时间，不是 Storage family payload 的文件系统 mtime；缺失时为 `0`。卡片会从整数 `slot_index`、整数/字符串 `slot_id`、metadata 里的 `slot_id` 或兜底逻辑 ID 中反推整数索引，兼容默认 `slot_3` 这类逻辑标识。它们都不绑定具体 UI 卡片布局，也不定义项目的存档字段、状态文案或按钮行为。

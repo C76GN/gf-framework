@@ -714,15 +714,28 @@ func test_registered_profile_uses_compiled_identity_after_resource_mutation() ->
 	assert_true(operation.get_result().is_successful())
 
 
-func test_registration_rejects_duplicate_canonical_storage_targets() -> void:
+func test_registration_rejects_duplicate_exact_storage_targets() -> void:
 	var first: GFSaveProfile = _make_profile(&"test.path.first", _make_provider(&"state", 1))
-	first.file_name = "slot\\data.sav"
+	first.file_name = "slot/data.sav"
 	var second: GFSaveProfile = _make_profile(&"test.path.second", _make_provider(&"state", 2))
 	second.file_name = "slot/data.sav"
 	assert_true(_register(first))
 	var report: Dictionary = _utility.register_profile(second)
 	assert_false(GFVariantData.get_option_bool(report, "registered"))
 	assert_true(_report_contains_issue(report, &"duplicate_storage_target"))
+
+
+func test_registration_rejects_noncanonical_storage_target_before_claim() -> void:
+	var profile: GFSaveProfile = _make_profile(&"test.path.invalid", _make_provider(&"state", 1))
+	profile.file_name = "slot\\data.sav"
+
+	var report: Dictionary = _utility.register_profile(profile)
+
+	assert_false(GFVariantData.get_option_bool(report, "registered"))
+	assert_true(_report_contains_issue(report, &"invalid_storage_path"))
+	assert_push_error(
+		"[GFStorageUtility] canonicalize_data_file_name 失败：file_name 不满足 portable logical path profile。"
+	)
 
 
 func test_save_is_explicitly_rejected_while_load_is_active() -> void:

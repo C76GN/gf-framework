@@ -1,12 +1,12 @@
 # 本地存档管理器
 
-`GFStorageUtility` 是基于 Godot `user://` 的本地持久化工具。它负责把字典和 `Resource` 文件写入项目可写目录，并在读取时执行 codec 解码、完整性校验、事务恢复和版本迁移。字典读取统一返回 `GFStorageReadResult`，调用方必须检查 `ok`，不能再用空字典猜测“合法空载荷”还是“读取失败”。
+`GFStorageUtility` 是基于 Godot `user://` 的本地持久化工具。它把调用方提供的 portable logical path 映射到 Storage root 内的私有 family namespace，通过分片 catalog、双向 owner 记录和 opaque UUID family 管理字典与 `Resource`，并在读取时执行 codec 解码、完整性校验、事务恢复和版本迁移。字典读取统一返回 `GFStorageReadResult`，调用方必须检查 `ok`，不能再用空字典猜测“合法空载荷”还是“读取失败”。
 
 底层 storage 不作为项目槽位门面。项目需要槽位工作流时，应由项目自有的 slot adapter 把槽位身份映射到可配置文件名，再通过 `GFStorageUtility.save_data_group()` 让数据与 metadata 同事务落盘；标准层不规定槽位编号、命名、预览字段或 UI 语义。
 
 `GFStorageCodec` 提供 JSON/Binary 编码、可选压缩、SHA-256 完整性校验、轻量 XOR 混淆和框架存储元信息。物理文档只接受当前 schema 和精确字段集合，业务数据始终位于独立 `payload`，即使包含 `__gf_storage_document`、`payload`、`data` 或 `_meta` 等相似键也会完整往返。未知物理字段、错误格式、未来版本、缺失完整性摘要或摘要不匹配会产生明确失败结果，不会回退成另一种格式继续猜测。这里的混淆只用于降低误编辑概率，不能用于保护敏感数据。
 
-同时原生支持 Godot 的 `Resource` 类型保存，例如 `.tres` 或 `.res`。读取 Resource 会进入 Godot `ResourceLoader`，因此默认关闭；项目必须先显式启用 `allow_resource_loads`，配置 `allowed_resource_load_type_hints` 与扩展名 allowlist，并用存储路径策略收窄加载边界。`load_resource()` 会在加载后再次确认实际资源实例匹配 `type_hint`，这个入口只面向项目生成或项目已确认来源与格式的本地文件，不是沙盒化的资源导入器；对用户下载、导入或可被篡改的资源，项目层应先做来源检查、格式转换，或改用纯 `Dictionary` / JSON 载荷。
+同时原生支持 Godot 的 `Resource` 类型保存，例如 `.tres` 或 `.res`。Resource logical path 必须带有 1 到 16 字节的 canonical lowercase 扩展名；无扩展名或无法稳定映射的扩展会在 claim 前被拒绝。读取 Resource 会进入 Godot `ResourceLoader`，因此默认关闭；项目必须先显式启用 `allow_resource_loads`，配置 `allowed_resource_load_type_hints` 与扩展名 allowlist，并用存储路径策略收窄加载边界。`load_resource()` 会在加载后再次确认实际资源实例匹配 `type_hint`，这个入口只面向项目生成或项目已确认来源与格式的本地文件，不是沙盒化的资源导入器；对用户下载、导入或可被篡改的资源，项目层应先做来源检查、格式转换，或改用纯 `Dictionary` / JSON 载荷。
 
 `GFStorageCodec` 的 JSON 格式会自动通过 `GFVariantJsonCodec` 把 Vector、Color、PackedArray、AABB、Transform 和 `NaN` / `INF` / `-INF` 等值转换为 JSON 安全标记，再在读取时恢复为 Godot Variant；不会把非有限值直接交给 `JSON.stringify()` 后静默变成 `null`。若编码超过 Variant 遍历预算，codec 会把它视为编码失败，`GFStorageUtility` 的同步与异步事务都会拒绝提交并保留已有文件，不会把内部 `TraversalLimit` 标记当作业务存档落盘。需要保存 Resource 或 Node 引用时，仍应使用 `GFVariantReferenceCodec` 的显式引用标记，或由 SaveGraph 属性序列化器代为处理。
 
@@ -69,7 +69,7 @@ else:
 永久放弃源 `Dictionary` 及全部嵌套 `Array` / `Dictionary` alias；GDScript 不会替框架
 执行语言级 move，继续访问这些 alias 会破坏跨线程只读不变量。
 
-首次合法请求会冻结 Storage 实例、规范文件名、canonical target file-family identity
+首次合法请求会冻结 Storage 实例、原样合法的 portable logical path、canonical target file-family identity
 和 codec options；Utility 的存储目录或 codec 配置发生变化后，旧 transfer 不会漂移到
 新目标，也不能伪装成同一 retry binding。同一 transfer 可以让超时后仍在运行的
 detached attempt 与有界重试分别取得只读 lease；重试复用同一个逻辑 Snapshot，不重新
@@ -87,11 +87,14 @@ Float/Vector/Color 也必须先通过预算才能开始扫描。携带 Object、
 类型元数据的空 typed Array/Dictionary 同样会被拒绝，不能借空容器把对象约束带入
 worker。
 
-启动前的既有事务 recovery 与目录初始化属于独立前置生命周期，不受这条“新写入尚未
-提交”的保证覆盖。异步单文件写入与同步事务共用同一个 marker schema；单文件入口
-发现经过交叉校验的多文件 marker 时，会先核对并恢复完整成员集合，再开始该成员的
-异步 I/O。若进程在 committed marker 已落盘但 cleanup 尚未完成时退出，后续 recovery
-会保留新 final，而不是把已提交代次误判为回滚。`dispose()` 会先关闭新的异步 admission，
+启动前的既有事务 recovery 与 layout 初始化属于独立前置生命周期，不受这条“新写入尚未
+提交”的保证覆盖。同步与异步写入都先原子发布不可变 prepare record，再创建 candidate；
+只有 final 已完成切换后才发布独立、不可变的 commit evidence。单文件入口发现经过交叉
+校验的多文件 record 时，会先核对并恢复完整成员集合，再开始该成员的异步 I/O。只有完整
+commit evidence 集合才提交新代次；部分 prepare、部分 commit、部分证据清理和 rollback
+重试都按物理状态与每成员 `had_final` 快照收敛，任何歧义、损坏或缺失恢复证据都失败关闭。
+若进程在 commit evidence 已落盘但 cleanup 尚未完成时退出，后续 recovery 会保留新 final，
+而不是把已提交代次误判为回滚。`dispose()` 会先关闭新的异步 admission，
 再 drain 活动 attempt 并拒绝终态回调中的重入提交，所有 transfer lease 仍须在终态前收敛。
 `GFStorageAsyncResult.get_write_failure_kind()` 区分请求、载荷、编码、线程、生命周期和
 IO 故障；`get_write_validation_report()` 只暴露有界的结构索引、类型和预算计数，不
@@ -160,16 +163,20 @@ if not async_result.is_successful():
 
 9.0 的物理存储文档是有意收紧的契约，不会把旧明文 JSON 或旧 envelope 当成当前格式。需要保留既有玩家数据的项目应在升级发布前使用独立、版本锁定的一次性导入器读取旧文件，验证后写成当前文档，再移除导入入口；不要在主读取路径长期保留格式猜测。
 
-`save_data_group()` 会先把所有成员规范化成唯一 file-family 身份；`group/a.json` 与 `group//a.json` 这类别名会在写入前被拒绝。事务 journal 带版本、transaction id、精确文件集合和数量上限，恢复时磁盘 marker 只能引用本次调用已经授权的 canonical 文件，不能扩大到请求范围之外。提交失败会按同一 file-family 集合恢复备份。
+`save_data_group()` 要求所有成员本身已经是唯一 portable logical identity；`group/a.json` 与 `group//a.json`、大小写别名或反斜杠输入不会被偷偷归一，而是在任何 claim 或写入前被拒绝。事务 record 带版本、transaction id、精确排序成员、opaque family ID、每成员原 final 状态和数量上限，恢复时磁盘证据只能引用 catalog 已授权的精确 family，不能扩大到请求范围之外。提交失败会按同一 family 集合恢复备份，并在物理状态确认收敛前保留恢复证据。
 
 ## 文件管理
 
-除槽位和字典读写外，`get_storage_directory_path()`、`ensure_directory()`、`list_files()` 与 `delete_file()` 可用于管理同一存储根目录下的通用文件，例如列出本地缩略图、缓存 manifest 或项目自定义资源文件。
+运行时文件管理只公开 logical API：`has_file()` 判断 committed payload，`list_files()` 从 catalog 投影 logical identity，`delete_file()` 删除一个精确 family。框架不再公开 Storage 物理根、目录创建或嵌套目录开关；logical 目录只是 selector，不对应调用方可管理的物理目录。项目 slot adapter 应使用受控模板与 logical API，不能扫描或拼接内部事务、备份和 family 路径。
 
-`get_storage_directory_path()` 只解析路径，不创建目录；需要目录实际存在时再调用 `ensure_directory()`。这些 API 复用 `GFStorageUtility` 的路径安全策略：所有运行时入口只接受规范相对路径，并在词法上解析到当前 Storage root；绝对路径、`..` 跨目录路径和非法非空 `save_dir_name` 始终失败关闭，不会退化到 `user://` 根。纯字典读写和多文件事务 API 会直接拒绝空 `file_name` 或任意非法成员，而不是写入内部兜底文件名。需要读取任意本机路径的可信编辑器或离线迁移工具，应在自己的工具能力边界内直接使用 `FileAccess` / `DirAccess`，不能重新扩大运行时 Storage 的权限。
+`portable-ascii-v1` 不做 `replace()`、`simplify_path()`、大小写折叠或 Unicode 规范化。文件路径由 1 到 16 个 `/` 分隔的 segment 组成，总长最多 255 个 ASCII 字节；每段 1 到 64 字节，首尾必须是小写字母或数字，中间只允许 `[a-z0-9._-]`，并拒绝 Windows 设备名 stem。空字符串只可作为根目录 selector；反斜杠、空段、`.`、`..`、大写、Unicode、控制字符、尾点/空格和非 canonical 输入都在副作用前失败关闭。`.tmp`、`.bak`、`.txn` 只是普通 logical leaf 后缀，各自拥有独立 family，不再与事务 sidecar 冲突。
 
-这是一条 GF API 的词法身份与所有权边界，不是宿主文件系统安全沙箱：同进程代码仍可直接调用 `FileAccess` / `DirAccess`，宿主预先建立的 symlink、junction、挂载点或等价重定向也不在该保证内。涉及不可信宿主环境时，应由平台沙箱和文件系统权限提供实际隔离。
+物理布局固定在 Storage root 的 `.gf-storage/v1` 私有 namespace：框架内部协作者 `GFStorageFamilyStore` 负责冻结 layout manifest 的 path profile 与 identity algorithm；SHA-256 分片 catalog 把 logical identity 绑定到 domain-separated UUID v8 family；family 内 owner 记录反向绑定 logical digest、family ID 和 payload leaf。catalog 与 owner 必须精确互证，错误 shard、未知字段、损坏 record、未知 family entry、无证据 candidate/backup 或事务歧义全部失败关闭。删除 payload 会保留 immutable catalog/owner tombstone，因此同一 logical identity 始终归属于同一 family；`list_files()` 的扫描成本随已 claim identity 数增长，`max_file_count` 只限制返回数量，不是 catalog 工作量预算。
 
-递归枚举默认限制深度和返回数量，可通过 `list_files(..., { "max_scan_depth": 64, "max_file_count": 20000 })` 调整。枚举结果返回存储相对路径，适合交给 `load_data()`、显式启用后的 `load_resource()` 或项目自己的读取流程继续处理。
+旧版在 Storage root 可见位置写入的文件永远不会被运行时自动收养、读取、列出或删除。由于旧 `.tmp` / `.bak` / `.txn` 可同时是合法业务文件和旧 sidecar，运行时无法安全猜测其所有权；需要导入旧数据时，使用版本锁定的编辑器或离线迁移工具显式读取、验证并写入新 logical API，然后移除迁移能力。
 
-项目 slot adapter 枚举槽位时应使用自己的受控文件模板，不要把内部事务文件、备份文件或项目临时文件混入读档 UI。
+首次 activation、显式 `init()` 或首次合法 I/O 尝试会冻结当前 `save_dir_name`，加载 layout 并全量收敛 catalog 中的事务；损坏 layout 会让 activation 失败并关闭 I/O admission。`begin_quiesce()` 关闭新准入并等待已接纳异步工作排空。`list_files()` 还会先等待当前 Utility 的异步任务，再重新执行 root recovery，因而只投影该实例可证明的 committed view。同一 Storage root 只允许一个活动 writer Utility/进程；当前没有跨 Utility 或跨进程 lease，违反 single-writer 约束时不承诺线性化。
+
+这是一条 GF API 的词法身份、catalog ownership 与单 writer 边界，不是宿主文件系统安全沙箱：同进程代码仍可直接调用 `FileAccess` / `DirAccess`，宿主预先建立的 symlink、junction、挂载点或等价重定向也不在该保证内。涉及不可信宿主环境时，应由平台沙箱和文件系统权限提供实际隔离。需要任意本机路径的可信编辑器或离线工具，应在自己的能力边界内直接使用 Godot 文件 API，不能重新扩大 runtime Storage。
+
+递归枚举默认限制 logical 深度和返回数量，可通过 `list_files(..., { "max_scan_depth": 64, "max_file_count": 20000 })` 调整。扩展名过滤器使用不带点号的 canonical lowercase token，例如 `"json"`；`.json` 会被拒绝。枚举结果可直接交给 `load_data()`、显式启用后的 `load_resource()` 或项目自己的 logical 读取流程。

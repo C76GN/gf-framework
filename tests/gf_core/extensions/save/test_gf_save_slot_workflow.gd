@@ -2,21 +2,78 @@
 extends GutTest
 
 
+const _GF_STORAGE_FAMILY_STORE_SCRIPT = preload(
+	"res://addons/gf/standard/utilities/storage/gf_storage_family_store.gd"
+)
+
+
 var _storage: GFStorageUtility
+var _save_dir_name: String = ""
+
+
+class CorruptMetadataStorageUtility extends GFStorageUtility:
+	var corrupt_file_name: String = ""
+
+	func load_data(file_name: String) -> GFStorageReadResult:
+		if file_name == corrupt_file_name:
+			return GFStorageReadResult.new().configure_failure(
+				"Injected corrupt slot metadata.",
+				ERR_FILE_CORRUPT,
+				{},
+				GFStorageReadResult.IntegrityStatus.INVALID,
+				0,
+				GFStorageReadResult.FailureKind.CORRUPT
+			)
+		return super.load_data(file_name)
 
 
 func before_each() -> void:
+	_save_dir_name = "gf-save-slot-workflow-" + GFUuid.generate_v4()
 	_storage = GFStorageUtility.new()
-	_storage.save_dir_name = "test_workflow_slot_build"
+	_storage.save_dir_name = _save_dir_name
 	_storage.init()
 
 
 func after_each() -> void:
 	if _storage != null:
-		for file_name: String in _storage.list_files("", "", true):
-			var _delete_result: Error = _storage.delete_file(file_name)
 		_storage.dispose()
 		_storage = null
+	if not _save_dir_name.is_empty():
+		var storage_root_path: String = _GF_STORAGE_FAMILY_STORE_SCRIPT.make_storage_root_path_for_framework(
+			_save_dir_name
+		)
+		assert_true(
+			storage_root_path.begins_with("user://gf-save-slot-workflow-"),
+			"测试清理只能作用于本例 UUID root。"
+		)
+		if storage_root_path.begins_with("user://gf-save-slot-workflow-"):
+			assert_eq(_remove_owned_test_tree(storage_root_path), OK)
+	_save_dir_name = ""
+
+
+func _remove_owned_test_tree(path: String) -> Error:
+	if FileAccess.file_exists(path):
+		return DirAccess.remove_absolute(path)
+	if not DirAccess.dir_exists_absolute(path):
+		return OK
+	var directory: DirAccess = DirAccess.open(path)
+	if directory == null:
+		return DirAccess.get_open_error()
+	for file_name: String in directory.get_files():
+		var remove_file_error: Error = DirAccess.remove_absolute(path.path_join(file_name))
+		if remove_file_error != OK:
+			return remove_file_error
+	for directory_name: String in directory.get_directories():
+		var child_path: String = path.path_join(directory_name)
+		var remove_directory_error: Error = (
+			DirAccess.remove_absolute(child_path)
+			if directory.is_link(directory_name)
+			else _remove_owned_test_tree(child_path)
+		)
+		if remove_directory_error != OK:
+			return remove_directory_error
+	directory = null
+	return DirAccess.remove_absolute(path)
 
 
 func test_get_slot_id_for_index_replaces_template() -> void:
@@ -133,9 +190,35 @@ func test_save_slot_storage_adapter_round_trips_slots_and_cards() -> void:
 	assert_eq(GFVariantData.get_option_int(metadata, "updated_at_unix"), 1700000010, "缺省更新时间应使用适配器时钟。")
 	assert_eq(summaries.size(), 1, "slot adapter 应枚举完整槽位。")
 	assert_eq(GFVariantData.get_option_int(summaries[0], "slot_index"), 2, "slot summary 应包含槽位索引。")
+	assert_eq(GFVariantData.get_option_int(summaries[0], "modified_time"), 1700000010, "slot summary 应复用已读取 metadata 的更新时间。")
 	assert_false(cards[0].is_empty, "已有槽位应构建为非空卡片。")
 	assert_eq(cards[0].display_name, "手动二", "卡片应读取元数据显示名。")
 	assert_true(cards[1].is_empty, "缺失槽位应构建为空卡片。")
+
+
+func test_save_slot_storage_adapter_uses_zero_when_domain_update_time_is_missing() -> void:
+	var adapter: GFSaveSlotStorageAdapter = GFSaveSlotStorageAdapter.new().setup(_storage)
+	var slot_index: int = 10
+	assert_eq(
+		_storage.save_data_group({
+			adapter.get_data_file_name(slot_index): {"legacy": true},
+			adapter.get_metadata_file_name(slot_index): {
+				"slot_id": "legacy_10",
+				"display_name": "Legacy",
+			},
+		}),
+		OK,
+		"测试夹具应能写入没有 updated_at_unix 的完整旧槽位。"
+	)
+
+	var summaries: Array[Dictionary] = adapter.list_slots()
+
+	assert_eq(summaries.size(), 1)
+	assert_eq(
+		GFVariantData.get_option_int(summaries[0], "modified_time", -1),
+		0,
+		"缺少领域更新时间时 modified_time 必须稳定回退为 0。"
+	)
 
 
 func test_save_slot_storage_adapter_supports_custom_file_templates() -> void:
@@ -175,32 +258,42 @@ func test_save_slot_storage_adapter_rejects_data_metadata_path_collision() -> vo
 	assert_push_error("[GFSaveSlotStorageAdapter] save_slot 失败：数据与元数据模板解析到同一存储目标")
 
 
-func test_save_slot_storage_adapter_rejects_canonical_target_alias_collision() -> void:
+func test_save_slot_storage_adapter_rejects_noncanonical_template_before_writing() -> void:
 	var adapter: GFSaveSlotStorageAdapter = GFSaveSlotStorageAdapter.new().setup(_storage)
 	adapter.data_file_template = "slot_{index}.sav"
 	adapter.metadata_file_template = "./slot_{index}.sav"
 
 	var save_error: Error = adapter.save_slot(7, _make_slot_document({"hp": 10}))
 
-	assert_eq(save_error, ERR_INVALID_PARAMETER, "语法不同但指向同一最终文件的模板必须在写入前拒绝。")
-	assert_false(FileAccess.file_exists(_storage.get_storage_directory_path("").path_join("slot_7.sav")), "碰撞校验失败时不得写入任一存储目标。")
-	assert_push_error("[GFSaveSlotStorageAdapter] save_slot 失败：数据与元数据模板解析到同一存储目标")
+	assert_eq(save_error, ERR_INVALID_PARAMETER, "非规范 logical identity 必须在写入前拒绝。")
+	assert_false(_storage.has_file("slot_7.sav"), "模板校验失败时不得写入任一 logical target。")
+	assert_push_error_count(1, "无 Storage 的模板预检应在 backend 准入前报告一次有界诊断。")
+
+
+func test_save_slot_storage_adapter_excludes_missing_metadata_from_summaries() -> void:
+	var adapter: GFSaveSlotStorageAdapter = GFSaveSlotStorageAdapter.new().setup(_storage)
+	assert_eq(adapter.save_slot(5, _make_slot_document({"hp": 10}), {"display_name": "Healthy"}), OK)
+	assert_eq(_storage.delete_file(adapter.get_metadata_file_name(5)), OK)
+
+	var summaries: Array[Dictionary] = adapter.list_slots()
+
+	assert_eq(summaries.size(), 0, "metadata 缺失的半槽位不得伪装成健康非空槽位。")
 
 
 func test_save_slot_storage_adapter_excludes_corrupt_metadata_from_summaries() -> void:
 	var adapter: GFSaveSlotStorageAdapter = GFSaveSlotStorageAdapter.new().setup(_storage)
 	assert_eq(adapter.save_slot(5, _make_slot_document({"hp": 10}), {"display_name": "Healthy"}), OK)
-	var metadata_path: String = _storage.get_storage_directory_path("").path_join(adapter.get_metadata_file_name(5))
-	var file: FileAccess = FileAccess.open(metadata_path, FileAccess.WRITE)
-	assert_not_null(file, "测试应能覆盖 metadata 文件。")
-	if file != null:
-		assert_true(file.store_string("{ malformed"), "测试应能写入损坏 metadata。")
-		file.close()
+	var corrupt_storage: CorruptMetadataStorageUtility = CorruptMetadataStorageUtility.new()
+	corrupt_storage.save_dir_name = _save_dir_name
+	corrupt_storage.corrupt_file_name = adapter.get_metadata_file_name(5)
+	_storage.dispose()
+	_storage = corrupt_storage
+	_storage.init()
+	adapter = GFSaveSlotStorageAdapter.new().setup(_storage)
 
 	var summaries: Array[Dictionary] = adapter.list_slots()
 
-	assert_eq(summaries.size(), 0, "无法解码的 metadata 不得伪装成健康非空槽位。")
-	assert_push_error("[GFStorageUtility] 读取数据失败")
+	assert_eq(summaries.size(), 0, "类型化 CORRUPT metadata 不得伪装成健康非空槽位。")
 
 
 func test_save_slot_storage_adapter_reports_partial_delete_as_failure() -> void:
@@ -210,7 +303,7 @@ func test_save_slot_storage_adapter_reports_partial_delete_as_failure() -> void:
 	var delete_error: Error = adapter.delete_slot(6)
 
 	assert_eq(delete_error, ERR_FILE_NOT_FOUND, "缺少 metadata 的半槽位不能报告完整删除成功。")
-	assert_false(FileAccess.file_exists(_storage.get_storage_directory_path("").path_join(adapter.get_data_file_name(6))))
+	assert_false(_storage.has_file(adapter.get_data_file_name(6)))
 
 
 func test_save_slot_storage_adapter_rejects_unsafe_persisted_values() -> void:

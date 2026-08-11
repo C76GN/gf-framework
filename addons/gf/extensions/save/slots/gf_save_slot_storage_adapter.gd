@@ -15,6 +15,7 @@ extends Resource
 # --- 常量 ---
 
 const _GF_SAVE_PERSISTED_VALUE_VALIDATOR = preload("res://addons/gf/extensions/save/core/gf_save_persisted_value_validator.gd")
+const _GF_STORAGE_FAMILY_STORE_SCRIPT = preload("res://addons/gf/standard/utilities/storage/gf_storage_family_store.gd")
 
 ## 默认槽位数据文件模板。
 ## [br]
@@ -140,7 +141,7 @@ func get_metadata_file_name(slot_index: int) -> String:
 
 ## 构建并校验一个槽位的文件计划。
 ##
-## 该方法不要求先配置 Storage，可供同步桥在访问任一后端前完成模板预检。
+## 该方法不要求先配置 Storage，可供同步桥在访问任一后端前完成 portable logical identity 模板预检。
 ## [br]
 ## @api public
 ## [br]
@@ -172,8 +173,16 @@ func build_slot_file_plan(slot_index: int) -> Dictionary:
 
 	var data_file_name: String = _format_slot_file_name(data_file_template, slot_index)
 	var metadata_file_name: String = _format_slot_file_name(metadata_file_template, slot_index)
-	var data_target: String = _get_canonical_relative_target(data_file_name)
-	var metadata_target: String = _get_canonical_relative_target(metadata_file_name)
+	var data_target: String = (
+		data_file_name
+		if _GF_STORAGE_FAMILY_STORE_SCRIPT.is_valid_logical_file_path_for_framework(data_file_name)
+		else ""
+	)
+	var metadata_target: String = (
+		metadata_file_name
+		if _GF_STORAGE_FAMILY_STORE_SCRIPT.is_valid_logical_file_path_for_framework(metadata_file_name)
+		else ""
+	)
 	result["data_file_name"] = data_file_name
 	result["metadata_file_name"] = metadata_file_name
 	result["data_target"] = data_target
@@ -181,7 +190,7 @@ func build_slot_file_plan(slot_index: int) -> Dictionary:
 	if data_target.is_empty() or metadata_target.is_empty():
 		result["error"] = "文件模板无法解析到有效存储目标。"
 		return result
-	if data_target.to_lower() == metadata_target.to_lower():
+	if data_target == metadata_target:
 		result["error"] = "数据与元数据模板解析到同一存储目标：%s。" % data_target
 		return result
 	result["ok"] = true
@@ -356,8 +365,8 @@ func has_slot(slot_index: int) -> bool:
 	if not _can_access_slot(slot_index, "has_slot"):
 		return false
 	return (
-		FileAccess.file_exists(_get_full_storage_path(get_data_file_name(slot_index)))
-		and FileAccess.file_exists(_get_full_storage_path(get_metadata_file_name(slot_index)))
+		_storage.has_file(get_data_file_name(slot_index))
+		and _storage.has_file(get_metadata_file_name(slot_index))
 	)
 
 
@@ -392,7 +401,7 @@ func delete_slot(slot_index: int) -> Error:
 ## [br]
 ## @return 槽位摘要数组。
 ## [br]
-## @schema return: Array[Dictionary]，每项包含 slot_index、slot_id、metadata 和 modified_time。
+## @schema return: Array[Dictionary]，每项包含 slot_index、slot_id、metadata，以及来自 metadata.updated_at_unix 的领域更新时间 modified_time: int；它不是文件系统 mtime。
 func list_slots() -> Array[Dictionary]:
 	if _storage == null:
 		return []
@@ -417,7 +426,7 @@ func list_slots() -> Array[Dictionary]:
 			"slot_index": slot_index,
 			"slot_id": GFVariantData.get_option_string_name(metadata, "slot_id", StringName(str(slot_index))),
 			"metadata": metadata,
-			"modified_time": FileAccess.get_modified_time(_get_full_storage_path(metadata_file_name)),
+			"modified_time": GFVariantData.get_option_int(metadata, "updated_at_unix"),
 		})
 	return result
 
@@ -561,26 +570,3 @@ func _parse_slot_index_from_file_name(file_name: String, template: String) -> in
 	if not index_text.is_valid_int():
 		return -1
 	return index_text.to_int()
-
-
-func _get_full_storage_path(file_name: String) -> String:
-	var directory_name: String = file_name.get_base_dir()
-	if directory_name == ".":
-		directory_name = ""
-	var directory_path: String = _storage.get_storage_directory_path(directory_name)
-	if directory_path.is_empty():
-		return ""
-	return directory_path.path_join(file_name.get_file())
-
-
-func _get_canonical_relative_target(file_name: String) -> String:
-	var normalized: String = file_name.replace("\\", "/").simplify_path()
-	if (
-		normalized.is_empty()
-		or normalized == "."
-		or normalized == ".."
-		or normalized.begins_with("../")
-		or normalized.is_absolute_path()
-	):
-		return ""
-	return normalized

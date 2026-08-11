@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFStorageUtility" path="addons/gf/standard/utilities/storage/gf_storage_utility.gd" module="standard" extends="GFUtility" classDigest="1362022a7a63c35105242627cddef6fa42ca7244f236a0494ca651b7f834a1e3">
+<class name="GFStorageUtility" path="addons/gf/standard/utilities/storage/gf_storage_utility.gd" module="standard" extends="GFUtility" classDigest="ea7315824a3fac61bdc1b32c15ff581a2faee9ab41ceb5c9859bdce1adddd9f0">
 	<description>GFStorageUtility: 基于 `user://` 的轻量存档系统。
 支持槽位存档、元数据分离读取、`Resource` 存取，
 以及可配置 codec、完整性校验、版本迁移和简单混淆，适合通用本地持久化场景。
@@ -79,8 +79,9 @@
 			</tags>
 		</member>
 		<member kind="property" name="save_dir_name">
-			<signature>var save_dir_name: String = "saves"</signature>
-			<description>保存子目录名；为空时直接写入 `user://`。非空值必须是规范相对目录，非法配置会失败关闭。</description>
+			<signature>var save_dir_name: String = "saves":</signature>
+			<description>Storage root 的 portable logical 目录名；为空时使用 `user://`。
+首次 activation、显式 `init()` 或合法 I/O 尝试后冻结；非法配置失败关闭。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="since">3.17.0</tag>
@@ -174,13 +175,6 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="since">6.0.0</tag>
-			</tags>
-		</member>
-		<member kind="property" name="create_directories_for_nested_paths">
-			<signature>var create_directories_for_nested_paths: bool = true</signature>
-			<description>写入嵌套相对路径时是否自动创建目录。</description>
-			<tags>
-				<tag name="api">public</tag>
 			</tags>
 		</member>
 		<member kind="property" name="max_async_thread_count">
@@ -288,46 +282,37 @@
 				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
-		<member kind="method" name="ensure_directory">
-			<signature>func ensure_directory(directory_name: String = "") -&gt; Error:</signature>
-			<description>确保存储相对目录存在。</description>
-			<tags>
-				<tag name="api">public</tag>
-				<tag name="param">directory_name: 相对存储目录；为空时只确保根存储目录存在。</tag>
-				<tag name="return">Godot 的 `Error` 结果码。</tag>
-			</tags>
-		</member>
-		<member kind="method" name="get_storage_directory_path">
-			<signature>func get_storage_directory_path(directory_name: String = "") -&gt; String:</signature>
-			<description>获取存储目录路径，不创建目录。</description>
-			<tags>
-				<tag name="api">public</tag>
-				<tag name="param">directory_name: 相对存储目录；为空时返回根存储目录。</tag>
-				<tag name="return">按当前路径策略解析后的目录路径。</tag>
-				<tag name="since">4.4.0</tag>
-			</tags>
-		</member>
 		<member kind="method" name="list_files">
 			<signature>func list_files( directory_name: String = "", extension_filter: String = "", recursive: bool = false, options: Dictionary = {} ) -&gt; PackedStringArray:</signature>
 			<description>枚举指定存储目录下的文件。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">directory_name: 相对存储目录；为空时枚举根存储目录。</tag>
-				<tag name="param">extension_filter: 可选扩展名过滤，允许传入 `"json"` 或 `".json"`。</tag>
+				<tag name="param">extension_filter: 可选 canonical lowercase 扩展名过滤，不包含点号。</tag>
 				<tag name="param">recursive: 是否递归枚举子目录。</tag>
 				<tag name="param">options: 可选参数，支持 `max_scan_depth` 与 `max_file_count`。</tag>
-				<tag name="return">当前 Storage root 内的规范相对文件路径数组。</tag>
+				<tag name="return">从已校验 catalog 投影的 committed portable logical file identity 数组。</tag>
 				<tag name="schema">options: Dictionary，包含 max_scan_depth: int 和 max_file_count: int。</tag>
 				<tag name="since">2.3.0</tag>
 			</tags>
 		</member>
-		<member kind="method" name="delete_file">
-			<signature>func delete_file(file_name: String) -&gt; Error:</signature>
-			<description>删除一个存储文件。
-同时清理同名事务临时文件、备份文件和事务标记，避免删除后被遗留事务恢复。</description>
+		<member kind="method" name="has_file">
+			<signature>func has_file(file_name: String) -&gt; bool:</signature>
+			<description>判断一个 logical file 是否存在 committed payload。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="param">file_name: 存储相对文件路径。</tag>
+				<tag name="param">file_name: portable logical file identity。</tag>
+				<tag name="return">catalog、owner 与 payload 均有效时返回 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="delete_file">
+			<signature>func delete_file(file_name: String) -&gt; Error:</signature>
+			<description>删除一个精确 logical family 的 committed payload 与私有事务证据。
+该方法不会扫描或收养 Storage root 下的旧版可见文件；immutable catalog/owner claim 会保留。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">file_name: portable logical file identity。</tag>
 				<tag name="return">Godot 的 `Error` 结果码；文件不存在时返回 `ERR_FILE_NOT_FOUND`。</tag>
 				<tag name="since">3.17.0</tag>
 			</tags>
@@ -350,7 +335,7 @@
 				<tag name="api">public</tag>
 				<tag name="param">files: 文件名到字典载荷的映射。</tag>
 				<tag name="return">Godot 的 `Error` 结果码。</tag>
-				<tag name="schema">files: Dictionary，键为存储相对文件名，值为要序列化并保存的 Dictionary 载荷。</tag>
+				<tag name="schema">files: Dictionary，键必须是未经改写的 String portable logical identity，值为要序列化并保存的 Dictionary 载荷。</tag>
 				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
@@ -366,12 +351,12 @@
 		</member>
 		<member kind="method" name="canonicalize_data_file_name">
 			<signature>func canonicalize_data_file_name(file_name: String) -&gt; String:</signature>
-			<description>规范化并校验一个数据文件名。
+			<description>校验一个已经 canonical 的 portable logical 数据文件名。
 返回值与异步队列的同文件锁使用相同路径规则，可用于建立稳定所有权键。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">file_name: 待校验文件名。</tag>
-				<tag name="return">合法时返回当前 Storage root 内的规范相对文件名；非法时返回空字符串。</tag>
+				<tag name="return">输入本身满足 portable-ascii-v1 时原样返回；不会改写别名，非法时返回空字符串。</tag>
 				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>

@@ -2,7 +2,7 @@
   "schema_version": 1,
   "catalog_version": "1.0.0",
   "framework_version": "11.0.0-dev.0",
-  "source_digest": "d1332342a5d8b796486e70184811fabade5c17e90c75c20068181d32e86bbd1c",
+  "source_digest": "f90fd727a085bdb192d650f96c921653b625826c47c78dc19e1fd817fda31a09",
   "class_count": 789,
   "package_count": 52,
   "packages": [
@@ -81468,7 +81468,7 @@
           "kind": "var",
           "name": "save_dir_name",
           "signature": "var save_dir_name: String = \"saves\"",
-          "summary": "保存子目录名；为空时直接写入 `user://`。非空值必须是规范相对目录，非法配置会失败关闭。",
+          "summary": "Storage root 的 portable logical 目录名；为空时使用 `user://`。",
           "visibility": "public"
         },
         {
@@ -81557,13 +81557,6 @@
         },
         {
           "kind": "var",
-          "name": "create_directories_for_nested_paths",
-          "signature": "var create_directories_for_nested_paths: bool = true",
-          "summary": "写入嵌套相对路径时是否自动创建目录。",
-          "visibility": "public"
-        },
-        {
-          "kind": "var",
           "name": "max_async_thread_count",
           "signature": "var max_async_thread_count: int = 4",
           "summary": "同时运行的异步存取线程数量。小于 1 时会被钳制为 1。",
@@ -81648,20 +81641,6 @@
         },
         {
           "kind": "func",
-          "name": "ensure_directory",
-          "signature": "func ensure_directory(directory_name: String = \"\") -> Error",
-          "summary": "确保存储相对目录存在。",
-          "visibility": "public"
-        },
-        {
-          "kind": "func",
-          "name": "get_storage_directory_path",
-          "signature": "func get_storage_directory_path(directory_name: String = \"\") -> String",
-          "summary": "获取存储目录路径，不创建目录。",
-          "visibility": "public"
-        },
-        {
-          "kind": "func",
           "name": "list_files",
           "signature": "func list_files( directory_name: String = \"\", extension_filter: String = \"\", recursive: bool = false, options: Dictionary = {} ) -> PackedStringArray",
           "summary": "枚举指定存储目录下的文件。",
@@ -81669,9 +81648,16 @@
         },
         {
           "kind": "func",
+          "name": "has_file",
+          "signature": "func has_file(file_name: String) -> bool",
+          "summary": "判断一个 logical file 是否存在 committed payload。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
           "name": "delete_file",
           "signature": "func delete_file(file_name: String) -> Error",
-          "summary": "删除一个存储文件。",
+          "summary": "删除一个精确 logical family 的 committed payload 与私有事务证据。",
           "visibility": "public"
         },
         {
@@ -81699,7 +81685,7 @@
           "kind": "func",
           "name": "canonicalize_data_file_name",
           "signature": "func canonicalize_data_file_name(file_name: String) -> String",
-          "summary": "规范化并校验一个数据文件名。",
+          "summary": "校验一个已经 canonical 的 portable logical 数据文件名。",
           "visibility": "public"
         },
         {

@@ -27,6 +27,7 @@
 - Save Profile 新增一次性 opaque `GFSaveProfileRequest`：`take_ownership()` 分别接管 document metadata、Provider context 与 result metadata，不提供 payload getter；合法边界只做 O(1) claim，成功后调用方必须放弃三个输入图的全部嵌套 alias。
 - Save Profile 新增 `GFSaveSectionSnapshot` 与 `GFSaveSectionSnapshotOperation`：Provider 通过 `begin_save_snapshot()` / `_begin_save_snapshot()` 在主线程按 work unit 分片生成不可变 section Snapshot；固定且很小的载荷可用 `make_completed_snapshot()`，大型载荷必须实现有界 Operation。
 - Storage 新增 `GFStoragePayloadTransfer` 与 `save_payload_request_async()`：以 opaque 单所有者句柄逻辑移交纯 Variant 载荷，并允许同一冻结绑定上的 timeout-detached attempt 与有界重试共享只读 Snapshot。
+- `GFStorageUtility` 新增 `has_file(logical_path)`；Storage 内部新增分片 catalog 与 opaque UUID family store，把 portable logical identity、owner 和 committed payload 建立可双向审计的稳定映射。
 - `GFSaveProfileUtility` 新增全局准备 work budget、单 profile slice budget 和软时间 budget；`GFSaveProfileResult` 新增准备耗时、Storage attempt 累计耗时与准备 work units 诊断。
 - 新增 `GFSaveProfileTransactionCoordinator`、`GFSaveProfileTransactionOperation` 与
   `GFSaveProfileTransactionResult`：在单 Profile 原语之上按精确有序 Provider 身份管理
@@ -37,7 +38,7 @@
   写入结果未知时冻结 domain，等待底层证据 settled 后通过显式严格重读收敛。
 - 新增 `GFSaveSectionMutation` 与 `GFSaveProfileMutationRequest`：用 move-only 候选 section
   清单替代事务内任意回调，固定 Provider 顺序并在确定失败时逆序恢复。
-- `GFSaveSlotStorageAdapter` 新增 `build_slot_file_plan()`：无需配置 Storage 即可返回已校验的数据/元数据文件名和规范目标，供同步入口在访问 backend 前复用同一模板安全规则。
+- `GFSaveSlotStorageAdapter` 新增 `build_slot_file_plan()`：无需配置 Storage 即可返回已校验的数据/元数据文件名和 portable logical target，供同步入口在访问 backend 前复用同一模板安全规则。
 - `GFStorageAsyncResult` 新增 `WriteFailureKind` 与隔离的 worker 载荷预检报告，区分非法请求、不可持久化载荷、编码、线程、生命周期和 IO 故障。
 - `GFArchitecture` 新增统一的 `resolve_module_access()`、模块类型与查询作用域枚举；Access Generator 可按精确模块脚本路径冻结 inherited/local、required 与 require-ready 策略，生成结果不再依赖运行时隐式选择。
 - 新增 `GFUIPanelAsyncOperation`：为每次底层异步 push/replace 冻结单调 serial、路径、层级和操作类型，并以弱面板引用暴露唯一终态；`GFUIRouterUtility` 的异步打开选项新增 owner 与 `GFAsyncScope` 生命周期锚点。
@@ -51,6 +52,7 @@
 ### 🔄 机制更改 (Changed)
 
 - `GFStorageUtility` 的所有运行时文件与目录入口统一使用规范相对身份，并在词法上解析到当前 Storage root；同步、异步、payload transfer、目录管理和事务恢复不再存在可动态扩大的绝对路径授权，非法非空 `save_dir_name` 也不再退化到 `user://` 根。需要任意本机路径的可信编辑器或离线迁移工具改由自身 `FileAccess` / `DirAccess` 边界负责；该约束不是宿主 symlink、junction 或挂载点沙箱。
+- `GFStorageUtility` 采用 `portable-ascii-v1` logical identity 与 `.gf-storage/v1` 私有布局：输入必须原样满足小写 ASCII segment 规则，不再归一化别名；SHA-256 分片 catalog 与 reciprocal owner record 绑定 domain-separated UUID v8 family，payload、candidate、backup、prepare/commit evidence 和 Resource stage 全部位于 family namespace。同步/异步事务先发布 immutable prepare，再写 candidate，final 切换后发布独立 commit evidence；partial prepare、partial commit、rollback 和证据清理按 exact family 状态恢复，任何歧义失败关闭。首次 activation、显式 `init()` 或首次合法 I/O 尝试会冻结 root，quiesce 排空已接纳工作，`list_files()` 从 catalog 投影并在 drain 后重新恢复 committed view；同一 root 当前要求 single writer。
 - AI Developer 的 package 状态只从完整闭合且版本一致的正式 lockfile 产生可信事实；无效 lockfile 不再向 Snapshot/Capability readiness 泄露 package ID。项目路径授权改为保留词法身份并拒绝根内 link/reparse，Agent 规则读入增加单文件与调用级预算，托管块替换保持 marker 外字节并以源 SHA-256 拒绝计划后的普通并发编辑。Platform/Storage 模板共用受控文件读取边界，Storage 正常保存路径不再重复遍历同一 payload 图。
 - 维护契约现在区分普通发布、真实冻结与 tag-origin hotfix，并在 tag 前以同一不可变产物 manifest 运行完整 `release` suite；参考工程同步默认只读，明确区分 `--plan` 与 `--apply`，统一遵守路径优先级，并以有界、带 SHA-256 的二进制精确 payload manifest 拒绝源/目标重叠、link/reparse、特殊文件、捕获期漂移和跨平台路径碰撞。Copy 同步改为异常可回滚的完整树替换，Link 同步不再删除未知既有目标，机器输出只暴露逻辑路径及稳定规则 ID。维护 CLI 只自动清理本次命令拥有的成功日志，历史/legacy 清理由显式预览后的 `log-hygiene` 负责；`path-hygiene` 同时强制 GF 自有 GDScript 使用无 BOM 严格 UTF-8、LF、末尾换行与 Tab 缩进。
 - 正式 API Catalog / Reference 生成链现在完整收集多行 `signal`、`enum`、`const` 与 `var`，字符串、转义和注释中的括号不再改变声明边界；未闭合声明、重复或大小写冲突 owner/anchor、错误 owner section 以及候选树中的坏链接会在事务写入前失败关闭。`sourceDigest` 的语义 payload 边界和当前尚未纳入 Catalog 的 `Gf` AutoLoad 例外也已显式记录，避免把 parser 自证误当作完整源码 provenance。
@@ -153,6 +155,7 @@
 
 ### 🐛 Bug 修复 (Fixed)
 
+- 修复公开 logical 文件名以 `.tmp`、`.bak` 或 `.txn` 结尾时与另一文件事务 sidecar 共享物理路径、可能跨 file key 误读或误删的问题；每个 logical identity 现在映射到独立 opaque family，旧 root 可见文件不会被运行时猜测收养。
 - 修复 `GFObjectPoolUtility` 的同步、分批与时间预算预热在并发、回调重入或运行中缩小上限时可共同写穿 `max_available_per_scene` 的问题；同一场景现在共享当前生命周期的在途容量预留，变更上限、归还节点或 dispose/init 会在提交前重新验收并丢弃过期候选。普通 acquire 也会冻结生命周期与 parent authority，并在场景构造、状态 setter 和根/子节点 hook 的每个外部边界复核当前代次；旧调用栈不再继续激活、通知或发布已归还、已释放或跨生命周期的节点树。
 - 修复项目 Installer 主动取消并返回后仍保持 running、并发 `Gf.init()` 永久等待且半注册模块未回滚的问题；取消与 timeout 等失败入口现在统一在 Architecture 失败结算中先回滚再恰好一次唤醒等待方，terminal 回调不能重开或提交 Installer，detached 旧 continuation 收尾前继续阻止重试和迟到写入。
 - 修复 `GFUIUtility` 在 panel 入树并执行 `_ready()` 后才捕获 previous focus，导致 modal 在 `_ready()` 主动取得焦点时无法恢复外部焦点的问题；现在会从目标 `CanvasLayer` 的 `Viewport` 在入树前捕获。
@@ -269,6 +272,7 @@
 ### ⚠️ 废弃与移除 (Deprecated/Removed)
 
 - 移除 `GFStorageUtility.allow_absolute_paths`；运行时 Storage 不再提供重新启用任意绝对路径的开关，也不保留 deprecated alias。
+- 移除 `GFStorageUtility.get_storage_directory_path()`、`ensure_directory()` 与 `create_directories_for_nested_paths`；runtime Storage 不再暴露或让调用方管理物理目录，目录只保留为 logical catalog selector。
 - 移除 `play_bgm_with_options()` 的 `loop` / `playback_region` 通用选项，并保留事件 metadata/options 中的同名键；继续传入会在资源加载和后端派发前失败关闭，类型化区间只能来自 `GFAudioClip.playback_region`。
 - 移除框架内部 `gf_threaded_resource_coordinator.gd` 与 `gf_threaded_resource_operation.gd`；不保留双轨协调实现，统一由公开 `GFResourceBroker` / `GFResourceLease` 承担跨 Utility 所有权与 admission。
 - 移除 `GFSaveProfileUtility.save_profile(profile_id, metadata, context)` 字典重载；保存调用统一改用一次性 `GFSaveProfileRequest`，不保留隐式复制兼容路径。
@@ -280,7 +284,8 @@
 
 ### 🔧 API 变动说明 (API Changes)
 
-- `GFStorageUtility.allow_absolute_paths` 已移除；`list_files()` 只返回 Storage root 内的规范相对路径，`canonicalize_data_file_name()`、`GFStorageAsyncOperation.get_file_name()` 与 `GFStorageAsyncResult.get_file_name()` 不再产生绝对路径身份。
+- `GFStorageUtility.allow_absolute_paths`、`get_storage_directory_path()`、`ensure_directory()` 与 `create_directories_for_nested_paths` 已移除；新增 `has_file()`。`list_files()` 只接受 portable logical directory 与不带点号的 lowercase extension token，并只返回 catalog 中存在 committed payload 的规范相对 logical identity；`canonicalize_data_file_name()` 只接受已经 canonical 的输入，不再改写分隔符、大小写或路径别名；`GFStorageAsyncOperation.get_file_name()` 与 `GFStorageAsyncResult.get_file_name()` 同样只暴露 logical identity，不再产生绝对路径身份。`save_dir_name` 必须在 activation、`init()` 或首次 I/O 前配置，Storage root 一经加载即冻结；切换 root 必须创建新的 Utility。
+- `GFSaveSlotStorageAdapter.list_slots()` 的 `modified_time` 不再读取物理文件系统 mtime，改为 metadata 中的领域时间 `updated_at_unix`；字段缺失时固定为 `0`。`build_slot_file_plan()` 现在按同一 portable logical identity 规则预检模板，不会静默规范化别名。
 - `GFLogSink.tick(delta)`、`GFLogUtility.tick(delta)` 及内置 timed sink 覆写是新的 11.0.0 公开时间推进契约；`GFAnalyticsUtility.get_dropped_event_count()` 是新的 11.0.0 聚合丢弃观察 API。Analytics 内置 HTTP 非 2xx 失败报告新增 `response_code`，`error` 收紧为不含正文的稳定 `HTTP {status}`。
 - `GFConfigAccessGenerator.build_source_with_report()` 与 `GFConfigPipelineArtifactManifest.make_source_receipt_validation_report()` 是新的 11.0.0 公开 API。Reader/Layout/Validation Stage 的内置契约版本和实现版本已升级；Stage descriptor 新增 `implementation_dependencies`。`build_table()` / `build_database()` 的表结果新增 `source_receipt`，`export_profile()` 新增 `source_validation_report`，访问器生成结果新增 input/emitted/skipped 计数与 `issues`，JSON 导出 options 新增 `max_nodes` / `max_output_bytes` 并收紧 `max_depth` 到绝对上限。
 - 本轮有意移除 10.x 已公开的通用 `loop` 输入与 `current_bgm_loop` 快照字段，开发身份进入 `11.0.0-dev.0` 主版本迁移线；不提供双轨兼容分支。
@@ -391,7 +396,7 @@
 29. 大型列表把项目 `ScrollContainer` 的直接子内容根、行工厂、bind/unbind、稳定 identity 和 owner 交给 `GFVirtualListBinder`；内容根不能是接管子节点位置的 `Container`。排序、过滤或数据内容提交后显式调用 `invalidate_items()`，只使用稳定且有界的标量 identity；若在 Binder callback 内失效，当前结果会是非成功 `STATUS_DEFERRED`，副作用已开始时 active 可被安全清空，调用方应以结果索引为准等待下一轮重建。需要切换 `layout_axis`、`fill_cross_axis`、`auto_measure` 或 callback 内的预算时，先更新配置并调用 `request_sync()`，当前同步轮仍使用入口快照，下一轮才采用新值。`scroll_to_item()` 返回 `false` 表示操作快照或最终整数偏移未能完整提交，调用方不要把它当作部分成功。Binder 会按每段轴所有权恢复接管前的最小尺寸。owner 退出前让 Binder 自动或显式 `dispose()`，不得重挂载或释放 Binder-owned Control。
 30. 表格结构化过滤改为继承 `GFTableRowPredicate`，返回 `GFTableRowPredicateResult`，再用 `GFTableRowPredicateRegistration.create()` 批量事务注册。将 `row_id_column`、`case_sensitive_filter` 与 `selection_model` 直接赋值迁移到 `set_row_id_column()`、`set_filter_case_sensitive()` 与 `set_selection_model()`，并通过 getter 读取已提交配置。更新所有 `view_changed` 连接以接收 revision 与 visible count；只有 rebuild result 成功且 committed，或收到 `view_changed` 时，才更新 VirtualList count 与 Binder identity，失败时继续展示上一份已提交投影。谓词实例的项目参数改变后显式调用 `refresh_view()`，不要依赖框架观察任意成员写入。经 `GFTableDataView.commit_cell_value()` 或批量入口写入的行必须可安全隔离；把带任意副作用的 `value_setter` 移到项目事务层，提交完成后再用新的 source 行调用 `set_rows()`。
 31. Spatial Canvas 输入转发改为检查 `InputDisposition`：只有 `CONSUMED` 才停止项目路由。创建并校验 `GFSpatialCanvasInputPolicy` 来替代硬编码按键；嵌套滚动界面用 modifier-gated 或 parent-only wheel，让未匹配滚轮继续 GUI 冒泡。需要禁用单指时使用 `TouchPrimaryBehavior.NONE`，并分别决定 raw 多指 pan 与 pinch zoom；若二者也都关闭，首触点不会被 Canvas 捕获。取消行为使用只含非指针事件的项目 InputMap action，不得与鼠标、触摸或位置手势复用；项目运行时修改 InputMap 后，超出事件预算或变成指针映射的取消 action 会失败关闭。
-32. 删除对 `GFStorageUtility.allow_absolute_paths` 的赋值，并把传给 Storage 的文件名、目录名统一改为当前 Storage root 内的规范相对路径。可信编辑器或离线迁移工具若需要外部路径，直接在工具层使用 `FileAccess` / `DirAccess`，不要向运行时 Utility 重新注入绝对路径能力。
+32. 删除对 `GFStorageUtility.allow_absolute_paths`、`create_directories_for_nested_paths`、`get_storage_directory_path()` 与 `ensure_directory()` 的使用。把文件名改为原样 canonical 的小写 ASCII logical path；不要传反斜杠、大写、Unicode、空段、`.` / `..`、设备名或 `.json` 形式的扩展过滤器。项目维护的编辑器或离线迁移工具若需要任意外部路径，直接在工具层使用 `FileAccess` / `DirAccess`，不要向 runtime Utility 重新注入绝对路径能力。存在性检查改用 `has_file()`，枚举改用 catalog-backed `list_files()`。在 activation、`init()` 或首次 I/O 前完成 `save_dir_name` 配置；root 冻结后需要切换时创建新的 Utility。把槽位 UI 对 `list_slots().modified_time` 的解释改为 metadata `updated_at_unix` 的领域更新时间，缺失值按 `0` 处理。旧 root 可见文件不能自动迁移；先用版本锁定的离线/编辑器工具验证旧 final 与 sidecar 所有权，再通过新 Storage API 重写。每个 Storage root 只保留一个活动 writer Utility/进程；当前没有跨 Utility/进程 lease。私有 namespace 是 GF 公共寻址与所有权边界，不是抵御同进程 `FileAccess`、symlink、junction 或 mount 重定向的安全沙箱。
 33. 读取扩展选择诊断的项目工具改为检查 `status` 与 `paths_allowed`；如需展示工具贡献错误，同时读取 `tool_contribution_errors`。
 34. 依赖“未发现禁用扩展引用”作安全判断的工具改用 `GFExtensionUsageAudit.find_references_to_root_report()`，并在 `ok=false` 或 `partial_scan=true` 时失败关闭。
 35. 检查传给 `GFTimeUtility`、`GFTimerUtility` 和相关调度入口的秒数来源；`NaN` 与无穷不再进入状态或形成 pending timer，应在项目输入边界修正数据并处理返回 `0`。
@@ -420,7 +425,7 @@
 58. 检查 Physics 自定义 field/provider：回调中修改 Probe 的位置、组合模式、fallback 或分组只会影响下一次采样；不要依赖同步重入同一 Probe 获取中间结果。duck provider 同帧修改私有状态后调用 `invalidate_cache()` 或关闭缓存。处理 SUM/HIGHEST_PRIORITY 的零向量失败关闭结果，不要把它解释为可继续施力的溢出值；如需 lockstep，项目应先固定候选顺序并使用自己的确定性数值方案。
 59. 检查所有 SaveGraph apply/load 调用：失败时除 `ok` / `errors` 外读取 `atomicity_restored`；为 `false` 时停止使用可能部分提交的场景状态，并按项目恢复策略消费 `rollback_failures`。不要依赖 `include_pipeline_trace` 才发现回滚失败，也不要在 Source callback 内同步重入同一个 Utility。
 60. 修正自定义 SaveGraph payload 的 `format_version` 为精确当前整数，并保证同一 `GFPersistPropertiesSource` 的 property、local 与 registry Serializer ID 唯一；已记录 pipeline error 的采集现在整体失败，调用方不得把空 payload 当作成功快照。
-61. 自定义槽位模板在保存或同步前调用 `build_slot_file_plan()` 并处理失败；两个模板都必须含 `{index}`，且规范相对目标不能相同。自定义 Storage 若返回 `ok=true` 与 `IntegrityStatus.INVALID`，Graph/Slot 读取入口现在仍会拒绝该结果。
+61. 自定义槽位模板在保存或同步前调用 `build_slot_file_plan()` 并处理失败；两个模板都必须含 `{index}`、原样满足 portable logical identity 规则，且 data/metadata target 不能相同。自定义 Storage 若返回 `ok=true` 与 `IntegrityStatus.INVALID`，Graph/Slot 读取入口现在仍会拒绝该结果。
 62. TurnBased teardown 可重复调用 `stop(true)` 清理并封存队列，不必在 stopped 状态另调 `clear_actions()`；自定义 action comparator 改为无副作用的确定严格弱序，并显式处理 non-finite/平局。为 phase 的 timer/动画/网络 completion 在 stop/timeout 时断开旧回调，不要让 context-only `finish(context)` 跨同 Context restart；同一可变 Context 也不要同时交给两个 Flow System。
 63. 自定义 Config Pipeline Stage 在 descriptor 中列出所有会影响输出的 `implementation_dependencies`，并把 Reader/Layout 输入输出契约迁移到 `reader_result@2` / `layout_result@2`。消费访问器报告时改用 `emitted_schema_count` 判断实际发射数并处理 `issues`；消费导出报告时检查 `source_validation_report`。JSON 导出的项目上限改用 `max_depth`、`max_nodes`、`max_output_bytes` 收紧框架默认值，不要再用零或负数表达无界。批量产物路径统一改为显式 `res://` 或 `user://`。
 64. 自定义 `GFLogSink` 若有依赖时间的缓冲行为，覆写 `tick(delta)`；脱离 Architecture 单独使用 `GFLogUtility` 时，由项目每帧显式调用 `tick(delta)`。不要再依赖“下一条日志”触发非零 interval。
