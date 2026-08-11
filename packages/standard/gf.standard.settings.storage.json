@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "gf.standard.settings.storage",
+  "kind": "standard",
+  "version": "unreleased",
+  "display_name": "GF Standard Settings Storage",
+  "description": "Lifecycle-aware adapter that connects the backend-neutral settings persistence port to GFStorageUtility.",
+  "dependencies": [
+    "gf.kernel",
+    "gf.standard.base",
+    "gf.standard.settings",
+    "gf.standard.storage"
+  ],
+  "paths": [
+    "addons/gf/standard/utilities/settings_storage/gf_storage_settings_store_utility.gd",
+    "addons/gf/standard/utilities/settings_storage/gf_storage_settings_store_utility.gd.uid"
+  ],
+  "metadata": {
+    "stage": "settings-store-port-v1"
+  }
+}

@@ -25,8 +25,14 @@
 | 属性 | [`auto_load_on_init`](#member-gfsettingsutility-properties-auto_load_on_init) | `var auto_load_on_init: bool = true` |
 | 属性 | [`auto_save_on_change`](#member-gfsettingsutility-properties-auto_save_on_change) | `var auto_save_on_change: bool = true` |
 | 属性 | [`save_debounce_seconds`](#member-gfsettingsutility-properties-save_debounce_seconds) | `var save_debounce_seconds: float = 0.25` |
+| 属性 | [`persistence_enabled`](#member-gfsettingsutility-properties-persistence_enabled) | `var persistence_enabled: bool = true:` |
 | 方法 | [`init`](#member-gfsettingsutility-methods-init) | `func init() -> void:` |
+| 方法 | [`get_required_utilities`](#member-gfsettingsutility-methods-get_required_utilities) | `func get_required_utilities() -> Array[Script]:` |
+| 方法 | [`ready`](#member-gfsettingsutility-methods-ready) | `func ready() -> void:` |
+| 方法 | [`begin_activation`](#member-gfsettingsutility-methods-begin_activation) | `func begin_activation(_scope: GFAsyncScope) -> GFAsyncCompletion:` |
+| 方法 | [`begin_quiesce`](#member-gfsettingsutility-methods-begin_quiesce) | `func begin_quiesce(scope: GFAsyncScope) -> GFAsyncCompletion:` |
 | 方法 | [`dispose`](#member-gfsettingsutility-methods-dispose) | `func dispose() -> void:` |
+| 方法 | [`release_dependencies`](#member-gfsettingsutility-methods-release_dependencies) | `func release_dependencies() -> void:` |
 | 方法 | [`register_definition`](#member-gfsettingsutility-methods-register_definition) | `func register_definition(definition: GFSettingDefinition, apply_default: bool = true) -> void:` |
 | 方法 | [`register_setting`](#member-gfsettingsutility-methods-register_setting) | `func register_setting( key: StringName, default_value: Variant = null, value_type: GFSettingDefinition.ValueType = GFSettingDefinition.ValueType.ANY, persistent: bool = true, metadata: Dictionary = {} ) -> GFSettingDefinition:` |
 | 方法 | [`register_definitions`](#member-gfsettingsutility-methods-register_definitions) | `func register_definitions(definitions: Array[GFSettingDefinition]) -> void:` |
@@ -210,12 +216,13 @@ var storage_file_name: String = "settings.sav"
 ### `auto_load_on_init`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var auto_load_on_init: bool = true
 ```
 
-init() 时是否自动读取持久化设置。
+standalone 模式在 init()、Architecture 模式在 activation 阶段是否自动读取持久化设置。
 
 <a id="member-gfsettingsutility-properties-auto_save_on_change"></a>
 
@@ -241,6 +248,19 @@ var save_debounce_seconds: float = 0.25
 
 自动保存的防抖秒数；小于等于 0 时保持立即保存。
 
+<a id="member-gfsettingsutility-properties-persistence_enabled"></a>
+
+### `persistence_enabled`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+var persistence_enabled: bool = true:
+```
+
+是否启用设置持久化。 架构模式启用时必须注册唯一的 GFSettingsStoreUtility；关闭时设置工具保持纯内存模式。
+
 ## 方法
 
 <a id="member-gfsettingsutility-methods-init"></a>
@@ -248,24 +268,109 @@ var save_debounce_seconds: float = 0.25
 ### `init`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func init() -> void:
 ```
 
-初始化设置工具，并按配置自动加载持久化设置或应用默认值。
+初始化设置工具，并在 standalone 模式按配置自动加载持久化设置或应用默认值。
+
+<a id="member-gfsettingsutility-methods-get_required_utilities"></a>
+
+### `get_required_utilities`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func get_required_utilities() -> Array[Script]:
+```
+
+返回设置持久化端口依赖。
+
+返回：启用持久化时仅包含 GFSettingsStoreUtility，否则为空。
+
+<a id="member-gfsettingsutility-methods-ready"></a>
+
+### `ready`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func ready() -> void:
+```
+
+在架构 ready 阶段解析唯一的设置持久化端口。
+
+<a id="member-gfsettingsutility-methods-begin_activation"></a>
+
+### `begin_activation`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func begin_activation(_scope: GFAsyncScope) -> GFAsyncCompletion:
+```
+
+在依赖完成 activation 后执行架构模式的自动加载。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `_scope` | 当前 Settings 激活阶段的取消作用域。 |
+
+返回：Store 可用并完成同步自动加载尝试时成功的一次性完成源。
+
+<a id="member-gfsettingsutility-methods-begin_quiesce"></a>
+
+### `begin_quiesce`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func begin_quiesce(scope: GFAsyncScope) -> GFAsyncCompletion:
+```
+
+停止接纳设置变化与保存请求，并排空全部已接纳的冻结保存记录。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `scope` | 当前 Settings 静默阶段的取消作用域。 |
+
+返回：全部已接纳记录成功持久化时成功；失败时保留 target 证据；scope 取消时返回 CANCELLED，提升开放 batch 但不启动新 I/O，并保留 pending 供显式重试。
 
 <a id="member-gfsettingsutility-methods-dispose"></a>
 
 ### `dispose`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func dispose() -> void:
 ```
 
-释放设置工具，并清理已注册定义、当前值和等待中的自动保存状态。
+释放设置工具，并清理内存状态；持久化排空由 begin_quiesce() 负责。
+
+<a id="member-gfsettingsutility-methods-release_dependencies"></a>
+
+### `release_dependencies`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func release_dependencies() -> void:
+```
+
+释放架构 Store 引用和基类依赖作用域。
 
 <a id="member-gfsettingsutility-methods-register_definition"></a>
 
@@ -291,6 +396,7 @@ func register_definition(definition: GFSettingDefinition, apply_default: bool = 
 ### `register_setting`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func register_setting( key: StringName, default_value: Variant = null, value_type: GFSettingDefinition.ValueType = GFSettingDefinition.ValueType.ANY, persistent: bool = true, metadata: Dictionary = {} ) -> GFSettingDefinition:
@@ -308,7 +414,7 @@ func register_setting( key: StringName, default_value: Variant = null, value_typ
 | `persistent` | 是否持久化。 |
 | `metadata` | 可选元数据。 |
 
-返回：新设置定义。
+返回：注册成功时返回新设置定义；mutation gate 关闭时返回 null。
 
 结构：
 
@@ -675,6 +781,7 @@ func queue_save() -> void:
 ### `flush_pending_save`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func flush_pending_save() -> Error:
@@ -682,7 +789,7 @@ func flush_pending_save() -> Error:
 
 立即执行正在等待的自动保存。
 
-返回：保存结果；没有待保存内容时返回 OK。
+返回：返回 OK、ERR_UNAVAILABLE、ERR_BUSY、冻结快照捕获错误或 Store 写入错误。
 
 <a id="member-gfsettingsutility-methods-get_value"></a>
 
@@ -754,6 +861,7 @@ func reset_value(key: StringName, save_after_change: bool = true) -> void:
 ### `reset_all`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func reset_all(save_after_change: bool = true) -> void:
@@ -772,6 +880,7 @@ func reset_all(save_after_change: bool = true) -> void:
 ### `to_dict`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func to_dict(persistent_only: bool = true) -> Dictionary:
@@ -885,6 +994,7 @@ func get_last_load_result() -> GFSettingsLoadResult:
 ### `save_settings`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func save_settings(file_name: String = "") -> Error:
@@ -898,13 +1008,14 @@ func save_settings(file_name: String = "") -> Error:
 |---|---|
 | `file_name` | 可选文件名；为空时使用 storage_file_name。 |
 
-返回：Godot 错误码。
+返回：返回 OK、ERR_UNAVAILABLE、ERR_BUSY、快照捕获错误或 Store 写入错误。
 
 <a id="member-gfsettingsutility-methods-tick"></a>
 
 ### `tick`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func tick(delta: float = 0.0) -> void:
@@ -948,6 +1059,7 @@ func _read_persisted_data(file_name: String) -> GFStorageReadResult:
 ### `_write_persisted_data`
 
 - API：`protected`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func _write_persisted_data(file_name: String, data: Dictionary) -> Error:

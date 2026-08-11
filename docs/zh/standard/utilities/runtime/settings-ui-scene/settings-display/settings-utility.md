@@ -2,7 +2,7 @@
 
 游戏设置页通常会混合窗口模式、分辨率、语言、音量、难度、辅助功能等数据。如果这些逻辑直接写进 UI 节点，后续存档、重置默认值、平台差异和测试都会变得困难。
 
-`GFSettingsUtility` 只管理抽象设置定义和值，不知道它们会被哪个 UI 或引擎 API 使用。
+`GFSettingsUtility` 是设置定义、当前值、暂存值和待保存快照的内存核心，不知道它们会被哪个 UI、引擎 API 或物理存储使用。持久化通过独立的 `GFSettingsStoreUtility` 同步端口接入。
 
 ```gdscript
 var settings := Gf.get_utility(GFSettingsUtility) as GFSettingsUtility
@@ -13,16 +13,83 @@ settings.register_setting(
 	GFSettingDefinition.ValueType.STRING
 )
 settings.set_value(&"gameplay/difficulty", "hard")
-settings.save_settings()
+var save_error: Error = settings.save_settings()
+if save_error != OK:
+	push_warning("设置保存失败：%s" % error_string(save_error))
 ```
 
 `GFSettingDefinition` 可以资源化描述稳定键、默认值、值类型、是否持久化和 UI 元数据。`set_value()` 会按定义做类型转换，`to_dict(true)` 只导出持久化设置；未注册定义的临时值也能读写，但不会获得默认值、类型钳制或元数据。
 
+## 持久化端口与运行模式
+
+`GFSettingsStoreUtility` 只定义三个物理同步入口：`is_persistence_enabled()` 查询 capability，`read_settings(file_name)` 返回 `GFStorageReadResult`，`write_settings(file_name, data)` 返回 Godot `Error`。自定义后端必须保留成功空字典与失败终态的区别，不能用 `{}` 同时表达“空设置”和“读取失败”。
+
+| 实现 | 所属 package | 用途 |
+| --- | --- | --- |
+| `GFSettingsFileStoreUtility` | `gf.standard.settings` | 把 JSON 写入 `user://`，保留 standalone 的历史默认行为 |
+| `GFSettingsNullStoreUtility` | `gf.standard.settings` | 显式返回 `UNAVAILABLE` 的 capability 哨兵，适合测试或缺失后端诊断 |
+| `GFStorageSettingsStoreUtility` | `gf.standard.settings.storage` | 声明并缓存 `GFStorageUtility` 依赖，把 Settings 端口同步转发到 Storage |
+
+模块化项目只需要内存核心或 File Store 时安装 `gf.standard.settings`。该端口在本阶段仍复用 `GFStorageReadResult`，所以 `gf.standard.settings` 的安装闭包仍包含 `gf.standard.storage`；这里的中立性是后端中立，不表示类型或 package 已与 Storage 完全解耦。Architecture 要复用 `GFStorageUtility` 的 root、完整性与恢复边界时，再安装只提供 adapter 的 `gf.standard.settings.storage`；该命令会解析完整依赖闭包：
+
+```powershell
+godot --headless --path . --script res://addons/gf/kernel/package/gf_package_cli.gd -- install gf.standard.settings.storage
+```
+
+### Standalone 兼容路径
+
+脱离 Architecture 直接创建 `GFSettingsUtility` 时，`init()` 仍会在 `persistence_enabled=true` 且没有预置 Store 的情况下自动持有一个 `GFSettingsFileStoreUtility`，并按 `auto_load_on_init` 立即尝试一次加载。后续再调用 `begin_activation()` 不会重复这次 standalone 加载，因此既有 `init()` 调用形状保持兼容。
+
+```gdscript
+var settings := GFSettingsUtility.new()
+settings.storage_file_name = "settings.sav"
+settings.init()
+```
+
+需要纯内存设置时，应在生命周期计划冻结前关闭持久化：
+
+```gdscript
+var settings := GFSettingsUtility.new()
+settings.persistence_enabled = false
+settings.init()
+```
+
+此模式不要求 Store，不执行 FileAccess，加载和保存入口会明确报告不可用，但设置定义、默认值、暂存与批量应用仍可使用。`GFSettingsNullStoreUtility` 不是纯内存开关；启用持久化却注册 Null Store 会让 Architecture 激活因 capability 不可用而失败。
+
+### Architecture 激活与迁移
+
+Architecture 模式不会隐式回退到 `user://`。启用持久化时，项目必须在初始化前把一个可用实现注册为精确的 `GFSettingsStoreUtility` alias；只按具体实现类型注册不能满足 Settings 的依赖声明。迁移时按原有后端分流：
+
+- 原先依赖隐式 `user://` fallback 的项目，注册 `GFSettingsFileStoreUtility` 为精确 base alias，保持文件语义不变。
+- 原先已经让 Settings 复用 `GFStorageUtility` 的项目，安装 `gf.standard.settings.storage`，并注册 `GFStorageSettingsStoreUtility` 为精确 base alias。
+- 不需要持久化的项目，在注册和初始化前设置 `persistence_enabled=false`，不注册 Store。
+
+下面演示第二条 Storage adapter 路径：
+
+```gdscript
+var architecture := GFArchitecture.new()
+var storage := GFStorageUtility.new()
+var settings_store := GFStorageSettingsStoreUtility.new()
+var settings := GFSettingsUtility.new()
+
+await architecture.register_utility_instance(storage)
+await architecture.register_utility_instance_as(
+	settings_store,
+	GFSettingsStoreUtility
+)
+await architecture.register_utility_instance(settings)
+
+if not await architecture.init():
+	push_error("Settings Architecture 激活失败。")
+```
+
+依赖 DAG 会先让 `GFStorageUtility` ready，再让 adapter 缓存依赖，最后在 Settings activation 中执行 `auto_load_on_init`。File Store 路径同样必须使用 `register_utility_instance_as(file_store, GFSettingsStoreUtility)` 注册精确 alias。所有 Store、文件名和 `persistence_enabled` 配置都应在注册与初始化前完成。原先通过继承 `GFSettingsUtility` 覆写物理读写的项目，应把后端逻辑移到 `GFSettingsStoreUtility` 派生类的三个公开入口，并按上述 base alias 注册。
+
 持久化设置会保留 `Vector2`、`Vector2i`、`Color`、`StringName` 等常见 Godot 值；其他需要 JSON 类型标记的值会复用 `GFVariantJsonCodec`，因此超出 JSON 安全范围的 64 位整数也能精确往返。字典 key 也会使用稳定编码，避免 `1` 与 `"1"` 等跨类型 key 在 JSON 对象中互相覆盖；循环引用会让保存返回 `ERR_INVALID_DATA`，调用方应先清理设置值。
 
-未接入存储后端时，fallback 文件名必须是简单 basename，不能包含路径分隔符、`..`、盘符或绝对路径。需要把设置写到项目自定义目录时，应实现明确的存储后端，而不是把外部路径塞进 fallback 文件名。
+File Store 的文件名必须是简单 basename，不能包含路径分隔符、`..`、盘符、绝对路径或首尾空白。需要把设置写到其他逻辑目录时，应实现明确的 Store，不能把外部路径塞进 File Store 文件名。
 
-fallback 保存的 `OK` 与 `settings_saved` 只在 payload 实际写入且 `FileAccess` 没有报告错误时产生；文件可以打开但写入失败时会返回真实 `Error`，不会发出成功信号。显式 `save_settings()` / `flush_pending_save()` 的调用方应处理该错误。自动保存失败后的重试和失败可观察策略尚未由框架替调用方猜测，不能仅凭启用 `auto_save_on_change` 假定永久落盘成功。
+File Store 保存的 `OK` 与 `settings_saved` 只在 payload 实际写入且 `FileAccess` 没有报告错误时产生；文件可以打开但写入失败时会返回真实 `Error`，不会发出成功信号。显式 `save_settings()` / `flush_pending_save()` 的调用方应处理该错误，不能仅凭启用 `auto_save_on_change` 假定永久落盘成功。
 
 从合法持久化数据恢复时使用 `replace_from_dict()`：输入中缺失的已定义键恢复默认值，缺失的未定义旧键被移除；`load_settings()` 固定采用这一语义。只有明确把输入当作覆盖层时才使用 `merge_from_dict()`，它会保留输入中未出现的当前值。两种入口分离后，切换 profile 或读取合法空对象不会静默继承上一份 profile 的残留字段。
 
@@ -57,6 +124,18 @@ if result.was_recovered():
 `auto_load_on_init` 使用严格 null 策略。启动阶段需要自定义恢复时，应把它设为 `false`，先完成设置定义注册，再显式调用带策略的 `load_settings()`；不要依赖初始化时自动猜测恢复动作。每次终态都会通过 `settings_load_completed` 发出隔离结果，也可用 `get_last_load_result()` 获取最近结果的副本。
 
 自动保存默认会按 `save_debounce_seconds` 做防抖，避免设置页拖动滑块时每次变化都落盘。需要一次性应用多个字段时，可用 `begin_batch()` / `end_batch()` 包裹，或手动 `queue_save()` 后在合适时机 `flush_pending_save()`。
+
+## 静默、排空与重试
+
+每次保存请求获准时，Settings 会冻结目标文件名和持久化 payload 快照；同一目标后续获准的新快照替代旧快照，不同目标则分别保留。未在 flush 开始前取消的 `begin_quiesce()` 会先关闭设置变化与新保存请求的准入，再把尚未结束的 batch 提升为待保存记录，并按准入顺序 flush 全部目标，而不是只处理调用时的 `storage_file_name`。Store 写入期间的同步重入也无法越过已经关闭的 mutation gate。
+
+如果绑定的 scope 在同步 flush 启动前已取消，quiesce completion 以 `CANCELLED` 终结：这条路径仍关闭准入并提升开放 batch，但不会启动 Store I/O，pending 记录继续保留。实例仍存活时可显式调用 `flush_pending_save()` 处理这些记录；重复调用 `begin_quiesce()` 只返回同一个已提交的取消终态，不会隐式 flush 或改写证据。
+
+成功写入的记录会被移除并发出 `settings_saved`。已经成功捕获 payload、但物理写入失败的记录会连同冻结 payload 保留在 pending 集合中；quiesce completion 以失败终结，并在 metadata 中报告失败文件名、错误码和仍待处理目标。后续 `tick()` 不会热重试这类失败，实例仍存活时必须显式调用 `flush_pending_save()` 才会复用同一冻结快照；重试成功也不会把既有 quiesce 失败终态改写为成功。
+
+循环引用等捕获失败不会保留可写 payload，只保留 target 与 `ERR_INVALID_DATA` 证据。单独调用 `flush_pending_save()` 只会重复同一捕获错误；调用方必须先修正内存值，再让同一 target 接纳一份新快照以覆盖失败记录。重复调用失败的 `begin_quiesce()` 同样只返回原终态，不会自动重试。项目必须自行决定修正、显式重试与最终失败处理时机。
+
+`dispose()` 不再承担权威持久化排空：它只关闭准入、清理内存记录并释放 Settings 自己拥有的 Store。正常的 Architecture 关闭应等待 `shutdown_async()`，直接管理 Utility 生命周期时则先调用并检查 `begin_quiesce()`；只有无法等待的强制清理路径才直接 `dispose()`。一旦 dispose，仍 pending 的失败记录也会被清除，不能再重试。
 
 ## 暂存设置
 

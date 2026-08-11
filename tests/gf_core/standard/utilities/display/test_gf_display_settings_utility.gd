@@ -38,6 +38,7 @@ func test_runtime_locale_works_without_settings_utility() -> void:
 func test_external_settings_change_auto_applies_locale() -> void:
 	_arch = GFArchitecture.new()
 	var settings: GFSettingsUtility = GFSettingsUtility.new()
+	settings.persistence_enabled = false
 	settings.auto_load_on_init = false
 	settings.auto_save_on_change = false
 	var display: GFDisplaySettingsUtility = GFDisplaySettingsUtility.new()
@@ -56,6 +57,7 @@ func test_external_settings_change_auto_applies_locale() -> void:
 func test_external_window_mode_change_to_windowed_applies_saved_size() -> void:
 	_arch = GFArchitecture.new()
 	var settings: GFSettingsUtility = GFSettingsUtility.new()
+	settings.persistence_enabled = false
 	settings.auto_load_on_init = false
 	settings.auto_save_on_change = false
 	var display: GFDisplaySettingsUtility = GFDisplaySettingsUtility.new()
@@ -117,6 +119,7 @@ func test_leaving_windowed_mode_captures_current_window_size() -> void:
 func test_audio_bus_volume_uses_registered_setting_value() -> void:
 	_arch = GFArchitecture.new()
 	var settings: GFSettingsUtility = GFSettingsUtility.new()
+	settings.persistence_enabled = false
 	settings.auto_load_on_init = false
 	settings.auto_save_on_change = false
 	var display: GFDisplaySettingsUtility = GFDisplaySettingsUtility.new()
