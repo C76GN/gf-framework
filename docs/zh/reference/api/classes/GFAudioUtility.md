@@ -28,6 +28,8 @@
 | 属性 | [`max_bgm_history`](#member-gfaudioutility-properties-max_bgm_history) | `var max_bgm_history: int = 16` |
 | 方法 | [`init`](#member-gfaudioutility-methods-init) | `func init() -> void:` |
 | 方法 | [`dispose`](#member-gfaudioutility-methods-dispose) | `func dispose() -> void:` |
+| 方法 | [`start_bgm`](#member-gfaudioutility-methods-start_bgm) | `func start_bgm( path: String, options: Dictionary = {}, owner: Node = null ) -> GFBgmStartOperation:` |
+| 方法 | [`start_bgm_clip`](#member-gfaudioutility-methods-start_bgm_clip) | `func start_bgm_clip( clip: GFAudioClip, crossfade_seconds: float = -1.0, owner: Node = null ) -> GFBgmStartOperation:` |
 | 方法 | [`play_bgm`](#member-gfaudioutility-methods-play_bgm) | `func play_bgm(path: String, crossfade_seconds: float = -1.0) -> void:` |
 | 方法 | [`play_bgm_with_options`](#member-gfaudioutility-methods-play_bgm_with_options) | `func play_bgm_with_options(path: String, options: Dictionary = {}) -> void:` |
 | 方法 | [`play_bgm_clip`](#member-gfaudioutility-methods-play_bgm_clip) | `func play_bgm_clip(clip: GFAudioClip, crossfade_seconds: float = -1.0) -> void:` |
@@ -282,6 +284,56 @@ func dispose() -> void:
 
 释放播放器、后端、环境音和 SFX 运行时状态。 后端拒绝停止时会记录 warning，但生命周期仍会强制收敛为终态。
 
+<a id="member-gfaudioutility-methods-start_bgm"></a>
+
+### `start_bgm`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func start_bgm( path: String, options: Dictionary = {}, owner: Node = null ) -> GFBgmStartOperation:
+```
+
+启动一个类型化 BGM 路径请求。 本地 standby 或 backend 接受前失败、取消或被替换时，当前已提交会话保持不变。 backend 已物理接受后若请求身份失效，框架只保证 best-effort 补偿停止新候选； 无法恢复的旧 backend 会话会以 PLAYBACK_FAILED 终结。同步 validation、backend 或已加载资源可能在方法返回前完成，调用方应先查询 Operation，再按需连接 completed 信号。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `path` | 非空音频资源路径或后端事件路径。 |
+| `options` | 支持 crossfade_seconds、history_key、bus_name、volume_db 和 pitch_scale；不得包含 loop 或 playback_region。 |
+| `owner` | 可选生命周期 owner；其退出树时取消 pending 请求，或停止已提交的精确会话。 |
+
+返回：带稳定 request ID 和唯一类型化终态的 Operation。
+
+结构：
+
+- `options`: Dictionary，可包含 crossfade_seconds（float-compatible，缺省 -1.0；负值使用 Utility 默认淡变，非法或非有限值回退 -1.0）、history_key（text-compatible，缺省 path）、bus_name（text-compatible，缺省 BGM）、volume_db（float-compatible，缺省 0.0；非法或非有限值回退 0.0）和 pitch_scale（float-compatible，缺省 1.0；非法或非有限值回退 1.0）；float-compatible 指 float、int、bool 或数值 String/StringName，text-compatible 按 GFVariantData.to_text 归一；loop 与 playback_region 禁止，其他字段不参与 BGM start，整个 Dictionary 无法受控快照时以 REJECTED/INVALID_OPTIONS 结束。
+
+<a id="member-gfaudioutility-methods-start_bgm_clip"></a>
+
+### `start_bgm_clip`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func start_bgm_clip( clip: GFAudioClip, crossfade_seconds: float = -1.0, owner: Node = null ) -> GFBgmStartOperation:
+```
+
+启动一个类型化 BGM Clip 请求。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `clip` | 具有 path 或 stream source 的音频片段快照。 |
+| `crossfade_seconds` | 淡入淡出秒数；小于 0 时使用默认值。 |
+| `owner` | 可选生命周期 owner；其退出树时取消 pending 请求，或停止已提交的精确会话。 |
+
+返回：带稳定 request ID 和唯一类型化终态的 Operation。
+
 <a id="member-gfaudioutility-methods-play_bgm"></a>
 
 ### `play_bgm`
@@ -323,7 +375,7 @@ func play_bgm_with_options(path: String, options: Dictionary = {}) -> void:
 
 结构：
 
-- `options`: Dictionary，可包含 crossfade_seconds、history_key、bus_name、volume_db 和 pitch_scale 字段；不得包含 loop 或 playback_region。
+- `options`: Dictionary，可包含 crossfade_seconds（float-compatible，缺省 -1.0；负值使用 Utility 默认淡变，非法或非有限值回退 -1.0）、history_key（text-compatible，缺省 path）、bus_name（text-compatible，缺省 BGM）、volume_db（float-compatible，缺省 0.0；非法或非有限值回退 0.0）和 pitch_scale（float-compatible，缺省 1.0；非法或非有限值回退 1.0）；float-compatible 指 float、int、bool 或数值 String/StringName，text-compatible 按 GFVariantData.to_text 归一；loop 与 playback_region 禁止，其他字段不参与 BGM start，整个 Dictionary 无法受控快照时失败关闭。
 
 <a id="member-gfaudioutility-methods-play_bgm_clip"></a>
 

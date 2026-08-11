@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFBgmStartOperation" path="addons/gf/standard/utilities/audio/gf_bgm_start_operation.gd" module="standard" extends="RefCounted" classDigest="9d995014f492c67f77a91bb526433f38c930acdd42eb1cc136388dc95be0cd84">
+	<description>GFBgmStartOperation: 单次 BGM start request 的类型化 caller Operation。
+Operation 只表达“是否已经提交播放会话”的短生命周期终态。成功返回的
+`GFBgmSessionHandle` 独立表达后续播放会话生命周期；会话结束不会改写 start 结果。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_handle</tag>
+		<tag name="layer">standard/utilities/audio</tag>
+		<tag name="since">unreleased</tag>
+	</tags>
+	<signals>
+		<member kind="signal" name="completed">
+			<signature>signal completed(result: GFBgmStartResult)</signature>
+			<description>start request 进入唯一 caller 终态时发出一次。
+同步 validation/backend/local clip 可能在 typed start 方法返回前完成；调用方必须先查询
+`is_completed()`，只在仍 pending 时连接该信号。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">result: 当前请求的隔离终态结果。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</signals>
+	<enums />
+	<constants />
+	<properties />
+	<methods>
+		<member kind="method" name="get_request_id">
+			<signature>func get_request_id() -&gt; int:</signature>
+			<description>获取 Audio Utility 分配的请求 ID。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">大于零的请求 ID；尚未配置时返回 0。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_pending">
+			<signature>func is_pending() -&gt; bool:</signature>
+			<description>检查请求是否仍等待 caller 终态。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">已配置且尚未完成时返回 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_completed">
+			<signature>func is_completed() -&gt; bool:</signature>
+			<description>检查请求是否已经进入 caller 终态。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">已有终态结果时返回 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_result">
+			<signature>func get_result() -&gt; GFBgmStartResult:</signature>
+			<description>获取 caller 终态结果副本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">已完成时返回隔离结果；等待中返回 null。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="cancel">
+			<signature>func cancel() -&gt; bool:</signature>
+			<description>取消等待中的 start request。
+返回 true 表示 Audio Utility 首次接受取消 intent；backend dispatch 正在进行时，终态可在
+当前 dispatch 收敛后写入。已提交 Session 不受该 Operation 的后续 cancel 影响，必须通过
+Session Handle 精确停止。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">本次调用首次取消等待请求时返回 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

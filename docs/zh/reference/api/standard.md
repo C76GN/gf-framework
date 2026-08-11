@@ -6,11 +6,11 @@
 
 | 类别 | 类 | 成员 | 方法 |
 |---|---:|---:|---:|
-| [运行时服务](#category-runtime_service) | 188 | 3435 | 2320 |
+| [运行时服务](#category-runtime_service) | 188 | 3437 | 2322 |
 | [协议与扩展点](#category-protocol) | 25 | 342 | 270 |
 | [资源定义](#category-resource_definition) | 122 | 1572 | 797 |
-| [运行时句柄](#category-runtime_handle) | 50 | 894 | 565 |
-| [值对象](#category-value_object) | 48 | 828 | 537 |
+| [运行时句柄](#category-runtime_handle) | 52 | 911 | 578 |
+| [值对象](#category-value_object) | 49 | 865 | 550 |
 | [领域模型](#category-domain_model) | 4 | 61 | 42 |
 | [事件契约](#category-event_contract) | 6 | 61 | 23 |
 | [编辑器 API](#category-editor_api) | 11 | 70 | 48 |
@@ -394,6 +394,8 @@
 | [`GFAudioBeatClock`](classes/GFAudioBeatClock.md#gfaudiobeatclock) | `RefCounted` | `addons/gf/standard/utilities/audio/gf_audio_beat_clock.gd` |
 | [`GFAudioEmitterHandle`](classes/GFAudioEmitterHandle.md#gfaudioemitterhandle) | `RefCounted` | `addons/gf/standard/utilities/audio/gf_audio_emitter_handle.gd` |
 | [`GFBackgroundWorkTask`](classes/GFBackgroundWorkTask.md#gfbackgroundworktask) | `RefCounted` | `addons/gf/standard/utilities/jobs/gf_background_work_task.gd` |
+| [`GFBgmSessionHandle`](classes/GFBgmSessionHandle.md#gfbgmsessionhandle) | `RefCounted` | `addons/gf/standard/utilities/audio/gf_bgm_session_handle.gd` |
+| [`GFBgmStartOperation`](classes/GFBgmStartOperation.md#gfbgmstartoperation) | `RefCounted` | `addons/gf/standard/utilities/audio/gf_bgm_start_operation.gd` |
 | [`GFCallableRuntimeTask`](classes/GFCallableRuntimeTask.md#gfcallableruntimetask) | `GFRuntimeTask` | `addons/gf/standard/sequence/gf_callable_runtime_task.gd` |
 | [`GFConfigTableQuery`](classes/GFConfigTableQuery.md#gfconfigtablequery) | `RefCounted` | `addons/gf/standard/utilities/config/gf_config_table_query.gd` |
 | [`GFDeterministicRandom`](classes/GFDeterministicRandom.md#gfdeterministicrandom) | `RefCounted` | `addons/gf/standard/foundation/deterministic/gf_deterministic_random.gd` |
@@ -440,6 +442,7 @@
 | [`GFAssetLoadSessionResult`](classes/GFAssetLoadSessionResult.md#gfassetloadsessionresult) | `RefCounted` | `addons/gf/standard/utilities/assets/gf_asset_load_session_result.gd` |
 | [`GFAudioBackendCapability`](classes/GFAudioBackendCapability.md#gfaudiobackendcapability) | `Resource` | `addons/gf/standard/utilities/audio/gf_audio_backend_capability.gd` |
 | [`GFAudioPlaybackRegionResult`](classes/GFAudioPlaybackRegionResult.md#gfaudioplaybackregionresult) | `RefCounted` | `addons/gf/standard/utilities/audio/gf_audio_playback_region_result.gd` |
+| [`GFBgmStartResult`](classes/GFBgmStartResult.md#gfbgmstartresult) | `RefCounted` | `addons/gf/standard/utilities/audio/gf_bgm_start_result.gd` |
 | [`GFBigNumber`](classes/GFBigNumber.md#gfbignumber) | `RefCounted` | `addons/gf/standard/foundation/numeric/gf_big_number.gd` |
 | [`GFBuildInfo`](classes/GFBuildInfo.md#gfbuildinfo) | `Resource` | `addons/gf/standard/utilities/debug/gf_build_info.gd` |
 | [`GFByteCursor`](classes/GFByteCursor.md#gfbytecursor) | `RefCounted` | `addons/gf/standard/foundation/binary/gf_byte_cursor.gd` |

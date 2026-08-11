@@ -1,0 +1,144 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFBgmSessionHandle" path="addons/gf/standard/utilities/audio/gf_bgm_session_handle.gd" module="standard" extends="RefCounted" classDigest="be252025f822717f6add598512788a9b4b2bc6b3c4851051b02e5e0b66c72ec9">
+	<description>GFBgmSessionHandle: 已提交 BGM 播放会话的类型化控制句柄。
+句柄只代表一个精确的逻辑会话身份，不暴露本地播放器或后端对象。替换后的旧句柄
+不能停止新会话；会话终态只由 Audio Utility 写入一次。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_handle</tag>
+		<tag name="layer">standard/utilities/audio</tag>
+		<tag name="since">unreleased</tag>
+	</tags>
+	<signals>
+		<member kind="signal" name="ended">
+			<signature>signal ended(handle: GFBgmSessionHandle, end_kind: EndKind)</signature>
+			<description>会话进入终态时发出一次。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">handle: 当前规范会话句柄。</tag>
+				<tag name="param">end_kind: 会话的唯一终结原因。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</signals>
+	<enums>
+		<member kind="enum" name="OwnerKind">
+			<signature>enum OwnerKind {
+	## 尚未配置或没有播放 owner。
+	NONE,
+	## GF 本地 AudioStreamPlayer 会话。
+	LOCAL,
+	## GFAudioBackend 持有的会话。
+	BACKEND,
+}</signature>
+			<description>BGM 会话的物理播放 owner。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="enum" name="EndKind">
+			<signature>enum EndKind {
+	## 会话仍在活动中；不是终态。
+	NONE,
+	## 音频自然播放完毕。
+	NATURAL_FINISH,
+	## 调用方或全局通道显式停止会话。
+	STOPPED,
+	## 新会话替换了当前会话。
+	REPLACED,
+	## 会话 owner 已退出生命周期。
+	OWNER_RELEASED,
+	## Audio Utility 已释放。
+	UTILITY_DISPOSED,
+	## 已提交的播放会话随后发生物理播放失败。
+	PLAYBACK_FAILED,
+}</signature>
+			<description>BGM 会话的终结原因。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</enums>
+	<constants />
+	<properties />
+	<methods>
+		<member kind="method" name="get_session_id">
+			<signature>func get_session_id() -&gt; int:</signature>
+			<description>获取 Utility 内唯一会话 ID。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">大于零的会话 ID；尚未配置时返回 0。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_request_id">
+			<signature>func get_request_id() -&gt; int:</signature>
+			<description>获取创建当前会话的 BGM start request ID。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">大于零的请求 ID；尚未配置时返回 0。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_history_key">
+			<signature>func get_history_key() -&gt; String:</signature>
+			<description>获取提交会话时冻结的 BGM history key。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">会话 history key；未提供时为空字符串。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_owner_kind">
+			<signature>func get_owner_kind() -&gt; OwnerKind:</signature>
+			<description>获取提交会话的物理播放 owner。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">`LOCAL`、`BACKEND` 或尚未配置时的 `NONE`。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_active">
+			<signature>func is_active() -&gt; bool:</signature>
+			<description>检查会话是否仍处于活动状态。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">已配置且尚未终结时返回 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_terminal">
+			<signature>func is_terminal() -&gt; bool:</signature>
+			<description>检查会话是否已经进入终态。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">已配置并终结时返回 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_end_kind">
+			<signature>func get_end_kind() -&gt; EndKind:</signature>
+			<description>获取会话终结原因。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">活动会话返回 `NONE`；终态会话返回其唯一终结原因。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="stop">
+			<signature>func stop(fade_seconds: float = 0.0) -&gt; bool:</signature>
+			<description>请求停止当前精确会话。
+返回 true 只表示 Audio Utility 接受了该会话的停止请求；淡出可能在之后完成。
+句柄已终结、会话已被替换、Utility 已释放或参数非法时返回 false。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">fade_seconds: 非负且有限的淡出秒数。</tag>
+				<tag name="return">本次精确会话停止请求被接受时返回 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

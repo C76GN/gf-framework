@@ -6,7 +6,7 @@
 
 - [SFX 与音频片段](sfx-clips.md)：`play_sfx()`、`GFAudioClip`、异步加载、对象池复用和停止句柄。
 - [类型化播放区间与循环点](playback-regions.md)：播放起止边界、循环模式、原生流能力矩阵和后端逐请求协商。
-- [BGM 控制](bgm-control.md)：切歌、crossfade、暂停恢复、seek、播放历史和自然结束信号。
+- [BGM 控制](bgm-control.md)：类型化 start Operation、精确 Session Handle、切歌、crossfade、暂停恢复、seek、播放历史和自然结束信号。
 - [环境音、总线与并发](ambient-bus-concurrency.md)：ambient channel、总线音量、混音快照、SFX 并发上限和溢出策略。
 - [节拍时钟](beat-clock.md)：`GFAudioBeatClock`、BPM/拍号、offset、边界事件和时间量化。
 

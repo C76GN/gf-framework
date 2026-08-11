@@ -2,8 +2,8 @@
   "schema_version": 1,
   "catalog_version": "1.0.0",
   "framework_version": "11.0.0-dev.0",
-  "source_digest": "6034347f15d4a96065675cbfd8ee220faee0cedd433232ad719e68f0f5d1fd96",
-  "class_count": 792,
+  "source_digest": "b33435c4a88da7a73cf0189aab7ef3c9a833879a71112add71213050fa7ce527",
+  "class_count": 795,
   "package_count": 52,
   "packages": [
     {
@@ -9574,6 +9574,20 @@
         },
         {
           "kind": "func",
+          "name": "start_bgm",
+          "signature": "func start_bgm( path: String, options: Dictionary = {}, owner: Node = null ) -> GFBgmStartOperation",
+          "summary": "启动一个类型化 BGM 路径请求。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "start_bgm_clip",
+          "signature": "func start_bgm_clip( clip: GFAudioClip, crossfade_seconds: float = -1.0, owner: Node = null ) -> GFBgmStartOperation",
+          "summary": "启动一个类型化 BGM Clip 请求。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
           "name": "play_bgm",
           "signature": "func play_bgm(path: String, crossfade_seconds: float = -1.0) -> void",
           "summary": "播放 BGM（背景音乐）",
@@ -10771,6 +10785,420 @@
           "name": "build_debug_snapshot",
           "signature": "static func build_debug_snapshot(node: Variant) -> Dictionary",
           "summary": "获取节点调试快照。",
+          "visibility": "public"
+        }
+      ]
+    },
+    "GFBgmSessionHandle": {
+      "extends": "RefCounted",
+      "module": "standard",
+      "package_id": "gf.standard.audio",
+      "path": "addons/gf/standard/utilities/audio/gf_bgm_session_handle.gd",
+      "summary": "GFBgmSessionHandle: 已提交 BGM 播放会话的类型化控制句柄。 句柄只代表一个精确的逻辑会话身份，不暴露本地播放器或后端对象。替换后的旧句柄 不能停止新会话；会话终态只由 Audio Utility 写入一次。",
+      "visibility": "public",
+      "category": "runtime_handle",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "signal",
+          "name": "ended",
+          "signature": "signal ended(handle: GFBgmSessionHandle, end_kind: EndKind)",
+          "summary": "会话进入终态时发出一次。",
+          "visibility": "public"
+        },
+        {
+          "kind": "enum",
+          "name": "OwnerKind",
+          "signature": "enum OwnerKind {\n\t## 尚未配置或没有播放 owner。\n\tNONE,\n\t## GF 本地 AudioStreamPlayer 会话。\n\tLOCAL,\n\t## GFAudioBackend 持有的会话。\n\tBACKEND,\n}",
+          "summary": "BGM 会话的物理播放 owner。",
+          "visibility": "public"
+        },
+        {
+          "kind": "enum",
+          "name": "EndKind",
+          "signature": "enum EndKind {\n\t## 会话仍在活动中；不是终态。\n\tNONE,\n\t## 音频自然播放完毕。\n\tNATURAL_FINISH,\n\t## 调用方或全局通道显式停止会话。\n\tSTOPPED,\n\t## 新会话替换了当前会话。\n\tREPLACED,\n\t## 会话 owner 已退出生命周期。\n\tOWNER_RELEASED,\n\t## Audio Utility 已释放。\n\tUTILITY_DISPOSED,\n\t## 已提交的播放会话随后发生物理播放失败。\n\tPLAYBACK_FAILED,\n}",
+          "summary": "BGM 会话的终结原因。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_session_id",
+          "signature": "func get_session_id() -> int",
+          "summary": "获取 Utility 内唯一会话 ID。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_request_id",
+          "signature": "func get_request_id() -> int",
+          "summary": "获取创建当前会话的 BGM start request ID。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_history_key",
+          "signature": "func get_history_key() -> String",
+          "summary": "获取提交会话时冻结的 BGM history key。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_owner_kind",
+          "signature": "func get_owner_kind() -> OwnerKind",
+          "summary": "获取提交会话的物理播放 owner。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "is_active",
+          "signature": "func is_active() -> bool",
+          "summary": "检查会话是否仍处于活动状态。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "is_terminal",
+          "signature": "func is_terminal() -> bool",
+          "summary": "检查会话是否已经进入终态。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_end_kind",
+          "signature": "func get_end_kind() -> EndKind",
+          "summary": "获取会话终结原因。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "stop",
+          "signature": "func stop(fade_seconds: float = 0.0) -> bool",
+          "summary": "请求停止当前精确会话。",
+          "visibility": "public"
+        }
+      ]
+    },
+    "GFBgmStartOperation": {
+      "extends": "RefCounted",
+      "module": "standard",
+      "package_id": "gf.standard.audio",
+      "path": "addons/gf/standard/utilities/audio/gf_bgm_start_operation.gd",
+      "summary": "GFBgmStartOperation: 单次 BGM start request 的类型化 caller Operation。 Operation 只表达“是否已经提交播放会话”的短生命周期终态。成功返回的 `GFBgmSessionHandle` 独立表达后续播放会话生命周期；会话结束不会改写 start 结果。",
+      "visibility": "public",
+      "category": "runtime_handle",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "signal",
+          "name": "completed",
+          "signature": "signal completed(result: GFBgmStartResult)",
+          "summary": "start request 进入唯一 caller 终态时发出一次。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_request_id",
+          "signature": "func get_request_id() -> int",
+          "summary": "获取 Audio Utility 分配的请求 ID。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "is_pending",
+          "signature": "func is_pending() -> bool",
+          "summary": "检查请求是否仍等待 caller 终态。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "is_completed",
+          "signature": "func is_completed() -> bool",
+          "summary": "检查请求是否已经进入 caller 终态。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_result",
+          "signature": "func get_result() -> GFBgmStartResult",
+          "summary": "获取 caller 终态结果副本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "cancel",
+          "signature": "func cancel() -> bool",
+          "summary": "取消等待中的 start request。",
+          "visibility": "public"
+        }
+      ]
+    },
+    "GFBgmStartResult": {
+      "extends": "RefCounted",
+      "module": "standard",
+      "package_id": "gf.standard.audio",
+      "path": "addons/gf/standard/utilities/audio/gf_bgm_start_result.gd",
+      "summary": "GFBgmStartResult: 单次 BGM start request 的不可变类型化终态。 结果使用闭合 status/reason/error/disposition 联合。只有 `STARTED` 携带已提交的规范 会话句柄；其他终态不伪造会话身份或播放 owner。",
+      "visibility": "public",
+      "category": "value_object",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "enum",
+          "name": "Status",
+          "signature": "enum Status {\n\t## 后端或本地播放器已经接受并提交会话。\n\tSTARTED,\n\t## 请求在接纳前因输入、生命周期或重入边界被拒绝。\n\tREJECTED,\n\t## 有效请求在准备或提交阶段失败。\n\tFAILED,\n\t## 更新且有效的 BGM 请求取代了当前等待请求。\n\tSUPERSEDED,\n\t## 调用方或 owner/Utility 生命周期取消了等待请求。\n\tCANCELLED,\n}",
+          "summary": "BGM start request 的唯一 caller 终态。",
+          "visibility": "public"
+        },
+        {
+          "kind": "enum",
+          "name": "BackendDisposition",
+          "signature": "enum BackendDisposition {\n\t## 没有可用后端，或请求在探测前终结。\n\tNOT_ATTEMPTED,\n\t## 后端明确不处理该请求，本地路径可继续准备。\n\tNOT_CLAIMED,\n\t## 后端声明可处理但拒绝接受播放，本地路径可继续准备。\n\tREJECTED,\n\t## 后端接受并持有已提交的 BGM 会话。\n\tSTARTED,\n\t## 后端调用身份、backend topology/epoch 变化，或已接受候选的 Session 发布失败，\n\t## 使原请求失效；返回值不得提交。\n\tINVALIDATED,\n}",
+          "summary": "当前请求与可选 Audio Backend 的交互结果。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "REASON_LOCAL_STARTED",
+          "signature": "const REASON_LOCAL_STARTED: StringName = &\"local_started\"",
+          "summary": "本地播放器接受并提交会话。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "REASON_BACKEND_STARTED",
+          "signature": "const REASON_BACKEND_STARTED: StringName = &\"backend_started\"",
+          "summary": "Audio Backend 接受并提交会话。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "REASON_BACKEND_FALLBACK_STARTED",
+          "signature": "const REASON_BACKEND_FALLBACK_STARTED: StringName = &\"backend_fallback_started\"",
+          "summary": "后端未接受请求，本地 fallback 接受并提交会话。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "REASON_INVALID_PATH",
+          "signature": "const REASON_INVALID_PATH: StringName = &\"invalid_path\"",
+          "summary": "BGM 路径为空或不符合请求契约。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "REASON_INVALID_OPTIONS",
+          "signature": "const REASON_INVALID_OPTIONS: StringName = &\"invalid_options\"",
+          "summary": "BGM options 不符合闭合选项契约。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "REASON_INVALID_CLIP",
+          "signature": "const REASON_INVALID_CLIP: StringName = &\"invalid_clip\"",
+          "summary": "GFAudioClip 为空、没有 source 或无法冻结。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "REASON_INVALID_PLAYBACK_REGION",
+          "signature": "const REASON_INVALID_PLAYBACK_REGION: StringName = &\"invalid_playback_region\"",
+          "summary": "播放区间不符合本地或后端的精确执行契约。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "REASON_UTILITY_NOT_INITIALIZED",
+          "signature": "const REASON_UTILITY_NOT_INITIALIZED: StringName = &\"utility_not_initialized\"",
+          "summary": "Audio Utility 尚未初始化或已经释放。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "REASON_BACKEND_DISPATCH_IN_PROGRESS",
+          "signature": "const REASON_BACKEND_DISPATCH_IN_PROGRESS: StringName = &\"backend_dispatch_in_progress\"",
+          "summary": "BGM 请求从 Audio Backend 回调中重入，不能安全接纳。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "REASON_OWNER_UNAVAILABLE",
+          "signature": "const REASON_OWNER_UNAVAILABLE: StringName = &\"owner_unavailable\"",
+          "summary": "请求 owner 在接纳前已经无效。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "REASON_ASSET_LOAD_FAILED",
+          "signature": "const REASON_ASSET_LOAD_FAILED: StringName = &\"asset_load_failed\"",
+          "summary": "异步或同步资源加载没有取得音频流。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "REASON_STREAM_UNPLAYABLE",
+          "signature": "const REASON_STREAM_UNPLAYABLE: StringName = &\"stream_unplayable\"",
+          "summary": "取得的音频流无法构造可执行播放计划。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "REASON_BACKEND_REJECTED_AND_LOCAL_FAILED",
+          "signature": "const REASON_BACKEND_REJECTED_AND_LOCAL_FAILED: StringName = (\n\t&\"backend_rejected_and_local_failed\"\n)",
+          "summary": "后端拒绝后，本地 fallback 也无法开始。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "REASON_BACKEND_OWNER_RELEASE_FAILED",
+          "signature": "const REASON_BACKEND_OWNER_RELEASE_FAILED: StringName = &\"backend_owner_release_failed\"",
+          "summary": "从旧 backend-owned 会话交接到本地会话时，后端拒绝释放 owner。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "REASON_LOCAL_PLAYER_REJECTED",
+          "signature": "const REASON_LOCAL_PLAYER_REJECTED: StringName = &\"local_player_rejected\"",
+          "summary": "本地播放器拒绝已经准备完成的执行计划。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "REASON_SESSION_PUBLICATION_FAILED",
+          "signature": "const REASON_SESSION_PUBLICATION_FAILED: StringName = &\"session_publication_failed\"",
+          "summary": "Audio Backend 已接受物理播放候选，但框架无法发布规范 Session 身份。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "REASON_NEWER_REQUEST",
+          "signature": "const REASON_NEWER_REQUEST: StringName = &\"newer_request\"",
+          "summary": "更新且有效的 BGM 请求取代了当前等待请求。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "REASON_CALLER_CANCELLED",
+          "signature": "const REASON_CALLER_CANCELLED: StringName = &\"caller_cancelled\"",
+          "summary": "调用方显式取消等待中的 start request。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "REASON_OWNER_RELEASED",
+          "signature": "const REASON_OWNER_RELEASED: StringName = &\"owner_released\"",
+          "summary": "请求 owner 已退出生命周期。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "REASON_STOP_REQUESTED",
+          "signature": "const REASON_STOP_REQUESTED: StringName = &\"stop_requested\"",
+          "summary": "BGM 通道被显式停止。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "REASON_UTILITY_DISPOSED",
+          "signature": "const REASON_UTILITY_DISPOSED: StringName = &\"utility_disposed\"",
+          "summary": "Audio Utility 已释放。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "REASON_BACKEND_CHANGED",
+          "signature": "const REASON_BACKEND_CHANGED: StringName = &\"backend_changed\"",
+          "summary": "Audio Backend topology 变更流程在请求等待期间开始，并使当前请求失效。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_status",
+          "signature": "func get_status() -> Status",
+          "summary": "获取请求终态。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "is_successful",
+          "signature": "func is_successful() -> bool",
+          "summary": "检查请求是否成功提交播放会话。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_request_id",
+          "signature": "func get_request_id() -> int",
+          "summary": "获取 Utility 内唯一请求 ID。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_reason",
+          "signature": "func get_reason() -> StringName",
+          "summary": "获取闭合终态原因。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_error_code",
+          "signature": "func get_error_code() -> Error",
+          "summary": "获取终态 Error 码。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_history_key",
+          "signature": "func get_history_key() -> String",
+          "summary": "获取请求冻结的 BGM history key。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_owner_kind",
+          "signature": "func get_owner_kind() -> GFBgmSessionHandle.OwnerKind",
+          "summary": "获取已提交会话的物理播放 owner。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_backend_disposition",
+          "signature": "func get_backend_disposition() -> BackendDisposition",
+          "summary": "获取本次请求的 Audio Backend 处理结果。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "used_backend_fallback",
+          "signature": "func used_backend_fallback() -> bool",
+          "summary": "检查请求是否在 backend 未接纳后由本地播放器成功提交。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_session_id",
+          "signature": "func get_session_id() -> int",
+          "summary": "获取已提交会话 ID。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_session_handle",
+          "signature": "func get_session_handle() -> GFBgmSessionHandle",
+          "summary": "获取已提交的规范会话句柄。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "duplicate_result",
+          "signature": "func duplicate_result() -> GFBgmStartResult",
+          "summary": "创建隔离的结果 value 副本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "to_dict",
+          "signature": "func to_dict() -> Dictionary",
+          "summary": "转换为不暴露对象引用的闭合报告字典。",
           "visibility": "public"
         }
       ]
