@@ -81,6 +81,25 @@ class ThreadStartFaultStorageUtility extends GFStorageUtility:
 		return thread.start(callback)
 
 
+class LayoutAdmissionProbeStorageUtility extends GFStorageUtility:
+	var expected_layout_path: String = ""
+	var delete_start_count: int = 0
+	var all_delete_starts_observed_layout: bool = true
+
+	func start_async_worker_for_framework(
+		task_type: StringName,
+		thread: Thread,
+		callback: Callable
+	) -> Error:
+		if task_type == &"delete":
+			delete_start_count += 1
+			all_delete_starts_observed_layout = (
+				all_delete_starts_observed_layout
+				and FileAccess.file_exists(expected_layout_path)
+			)
+		return thread.start(callback)
+
+
 class BlockingDeleteStorageUtility extends GFStorageUtility:
 	var blocked_path: String = ""
 	var started_semaphore: Semaphore = Semaphore.new()
@@ -247,6 +266,67 @@ func test_delete_request_exposes_typed_missing_family_result_without_claiming() 
 		FileAccess.file_exists(GFVariantData.get_option_string(descriptor, "catalog_path")),
 		"missing delete 不得创建 catalog shard。"
 	)
+
+
+func test_concurrent_missing_deletes_initialize_layout_before_worker_start() -> void:
+	var probe_storage: LayoutAdmissionProbeStorageUtility = (
+		LayoutAdmissionProbeStorageUtility.new()
+	)
+	probe_storage.expected_layout_path = _storage_root_path.path_join(
+		".gf-storage/v1/layout.json"
+	)
+	assert_false(
+		FileAccess.file_exists(probe_storage.expected_layout_path),
+		"并发删除回归必须从尚未初始化 layout 的独占 root 开始。"
+	)
+	_replace_storage(probe_storage)
+	_storage.max_async_thread_count = 2
+	var first_operation: GFStorageAsyncOperation = _request_delete(
+		"fresh-layout/first.json"
+	)
+	var second_operation: GFStorageAsyncOperation = _request_delete(
+		"fresh-layout/second.json"
+	)
+	if first_operation == null or second_operation == null:
+		return
+
+	_storage.wait_for_async_tasks()
+	assert_eq(probe_storage.delete_start_count, 2)
+	assert_true(
+		probe_storage.all_delete_starts_observed_layout,
+		"fresh root 的 layout 必须在任一 delete worker 启动前由主线程完成。"
+	)
+	_assert_delete_terminal(
+		first_operation,
+		ERR_FILE_NOT_FOUND,
+		"NOT_FOUND",
+		0,
+		0,
+		0,
+		"NONE"
+	)
+	_assert_delete_terminal(
+		second_operation,
+		ERR_FILE_NOT_FOUND,
+		"NOT_FOUND",
+		0,
+		0,
+		0,
+		"NONE"
+	)
+	for file_name: String in [
+		"fresh-layout/first.json",
+		"fresh-layout/second.json",
+	]:
+		var descriptor: Dictionary = _descriptor(file_name)
+		assert_false(
+			FileAccess.file_exists(GFVariantData.get_option_string(descriptor, "owner_path")),
+			"missing delete 不得创建 owner claim。"
+		)
+		assert_false(
+			FileAccess.file_exists(GFVariantData.get_option_string(descriptor, "catalog_path")),
+			"missing delete 不得创建 catalog shard。"
+		)
 
 
 func test_delete_removes_complete_family_in_final_last_order_and_keeps_claim() -> void:

@@ -1457,6 +1457,30 @@ func _enqueue_async_delete(
 			target_result
 		)
 		return ERR_INVALID_PARAMETER
+	var layout_error: Error = _ensure_storage_layout_ready()
+	if layout_error != OK:
+		var layout_failure_kind: GFStorageDeleteResult.FailureKind = (
+			GFStorageDeleteResult.FailureKind.CONFLICT
+			if layout_error == ERR_FILE_CORRUPT
+			else GFStorageDeleteResult.FailureKind.IO_FAILED
+		)
+		var layout_result: GFStorageDeleteResult = _make_delete_result(
+			layout_error,
+			layout_failure_kind,
+			0,
+			0,
+			0,
+			GFStorageDeleteResult.FamilyMember.FAMILY_METADATA
+		)
+		_complete_async_operation(
+			operation,
+			layout_result.get_error_code(),
+			null,
+			GFStorageAsyncResult.WriteFailureKind.NONE,
+			{},
+			layout_result
+		)
+		return layout_error
 
 	_async_queue.append({
 		"type": &"delete",
@@ -1639,7 +1663,7 @@ func _ensure_storage_helpers() -> void:
 		)
 
 
-func _ensure_storage_ready() -> Error:
+func _ensure_storage_layout_ready() -> Error:
 	_ensure_storage_helpers()
 	var storage_root_path: String = _get_save_base_path()
 	if storage_root_path.is_empty():
@@ -1648,6 +1672,13 @@ func _ensure_storage_ready() -> Error:
 		return ERR_INVALID_PARAMETER
 	_storage_root_frozen = true
 	var layout_error: Error = _family_store.ensure_layout_for_framework()
+	if layout_error != OK:
+		return layout_error
+	return OK
+
+
+func _ensure_storage_ready() -> Error:
+	var layout_error: Error = _ensure_storage_layout_ready()
 	if layout_error != OK:
 		return layout_error
 	if not _storage_reconciled:
