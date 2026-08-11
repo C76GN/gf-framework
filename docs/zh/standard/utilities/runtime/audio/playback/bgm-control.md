@@ -80,7 +80,7 @@ func _on_bgm_start_completed(result: GFBgmStartResult) -> void:
 
 只有 `STARTED` 可以携带非 `NONE` owner 和规范 `GFBgmSessionHandle`；`REASON_LOCAL_STARTED` 与 `REASON_BACKEND_FALLBACK_STARTED` 固定使用 `OwnerKind.LOCAL`，`REASON_BACKEND_STARTED` 固定使用 `OwnerKind.BACKEND`。其他终态固定使用 `OwnerKind.NONE`、`session_id == 0` 与空句柄。`BackendDisposition.STARTED` 也只允许与 `STARTED/REASON_BACKEND_STARTED/OwnerKind.BACKEND` 同时出现；`FAILED/REASON_SESSION_PUBLICATION_FAILED/INVALIDATED` 同样不得携带 Session 身份。
 
-有效请求只会取代仍 pending 的旧请求，不会在加载、校验或本地 standby 阶段停止当前已提交会话。候选必须先完成资源冻结、播放区间验证和 backend/local 接受，再一次提交新的逻辑 session、history key 与 owner；本地候选或 backend 接受前失败、取消时，原会话、history 和控制句柄保持有效。现有 backend 协议只有同步 `play_bgm_*() -> bool` 接受点：若 backend 已物理接受候选后请求身份才失效，Utility 会 best-effort 补偿停止候选；旧 backend-owned 会话无法恢复时会以 `PLAYBACK_FAILED` 终结，不能承诺继续播放。提交 replacement 时，新 Operation 结果与旧 Session 终态会先全部冻结，再通知监听器，因此回调中的查询与精确 stop 不会观察到半提交状态。调用方传入的可选 `owner` 必须是仍在场景树中的活动 Node，并且只以弱身份绑定：等待期间退出树会取消 Operation，提交后退出树只停止对应的精确 Session；不传 owner 的 BGM 属于全局会话。
+有效请求只会取代仍 pending 的旧请求，不会在加载、校验或本地 standby 阶段停止当前已提交会话。候选必须先完成资源冻结、播放区间验证和 backend/local 接受，再一次提交新的逻辑 session、history key 与 owner；本地候选或 backend 接受前失败、取消时，原会话、history 和控制句柄保持有效。现有 backend 协议只有同步 `play_bgm_*() -> bool` 接受点：若 backend 已物理接受候选后请求身份才失效，Utility 会 best-effort 补偿停止候选；旧 backend-owned 会话无法恢复时会以 `PLAYBACK_FAILED` 终结，不能承诺继续播放。提交 replacement 时，新 Operation 结果与旧 Session 终态会先全部冻结，再通知监听器，因此回调中的查询与精确 stop 不会观察到半提交状态。若 typed start 在入口排空旧 Session 终态，而其 `ended` 监听器同步接纳了新 start，监听器请求保持最新代，仍在外层调用栈中的旧请求以 `SUPERSEDED/newer_request` 结束。调用方传入的可选 `owner` 必须是仍在场景树中的活动 Node，并且只以弱身份绑定：等待期间退出树会取消 Operation，提交后退出树只停止对应的精确 Session；不传 owner 的 BGM 属于全局会话。
 
 ## 生命周期与传输边界
 
@@ -90,7 +90,7 @@ BGM transport 接口面向暂停菜单、剧情演出、音量淡入淡出和进
 
 crossfade 的逻辑提交点是 incoming 播放器接受候选之时，不等待物理淡出完成。该时刻旧 Session 以 `REPLACED` 终结并成为仅供物理淡出的 retiring voice；incoming 随后提前自然结束也不会复活已被替换的旧 Session。候选在接受前失败则保留 outgoing Session。只有当前逻辑 Session 自然结束才会按其 `history_key` 发出一次 `bgm_finished(history_key)`；retiring voice 的 `finished` 回调不会重复发出。第三方后端必须实现 `GFAudioBackend.is_bgm_playing()`；当 Utility 查询到稳定的 backend-owned Session 已结束时，也会先提交 `NATURAL_FINISH`，再按同一 history key 发出一次 `bgm_finished`。调试快照会执行这次收敛查询。
 
-`GFBgmSessionHandle.stop(fade_seconds)` 只停止句柄代表的精确逻辑 Session；返回 `true` 表示该 stop 终态 intent 已按 first-wins 接受，句柄会在当前安全收敛边界进入 `STOPPED`，物理淡出可在之后完成。过期、已终结或被替换的句柄返回 `false`，不会影响当前 replacement。`stop_bgm()` 仍用于全局停止入场时的 pending 请求和当前精确 Session；legacy `play_bgm("", crossfade_seconds)` 保留相同兼容语义，而 typed `start_bgm("")` 会以 `REJECTED/invalid_path` 结束。带时长的本地 stop 使用一个由 `GFAudioUtility` 自己持有、停止和复用的 fallback `Timer` 保障 Tween 丢失时仍能收敛；replacement、session clear 和 dispose 会主动取消它，不会为每次旧请求遗留不可取消的 `SceneTreeTimer`。
+`GFBgmSessionHandle.stop(fade_seconds)` 只停止句柄代表的精确逻辑 Session；返回 `true` 表示该 stop 终态 intent 已按 first-wins 接受，句柄会在当前安全收敛边界进入 `STOPPED`，物理淡出可在之后完成。过期、已终结或被替换的句柄返回 `false`，不会影响当前 replacement。`stop_bgm()` 仍用于全局停止入场时的 pending 请求和当前精确 Session；legacy `play_bgm("", crossfade_seconds)` 保留相同兼容语义，而 typed `start_bgm("")` 会以 `REJECTED/invalid_path` 结束。带时长的本地 stop 使用一个由 `GFAudioUtility` 自己持有、停止和复用的 fallback `Timer` 保障 Tween 丢失时仍能收敛；replacement、session clear 和 dispose 会主动取消它，不会为每次旧请求遗留不可取消的 `SceneTreeTimer`。若流在 stop 淡出完成前已到 EOF，Utility 会保留既有 `STOPPED` 终态并立即收敛播放器、owner、session 与 fallback，不会补发自然结束。
 
 同一实例重复调用 `init()` 是幂等 no-op，不会清空当前 session 或创建第二代播放器；`dispose()` 后可再次 `init()` 开始新生命周期。调用方仍应让 architecture 管理正常 init/dispose 顺序，不应把重复 init 当作 reset API。
 

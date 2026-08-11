@@ -141,6 +141,7 @@ var _root: Node
 var _bgm_pending_request_counter: int = 0
 var _bgm_pending_request_token: int = 0
 var _next_bgm_start_request_id: int = 1
+var _latest_admitted_bgm_start_request_id: int = 0
 var _bgm_pending_start_request: Dictionary = {}
 var _bgm_start_admission_open: bool = false
 var _audio_dispose_deferred: bool = false
@@ -292,8 +293,18 @@ func init() -> void:
 	var tree: SceneTree = _get_scene_tree()
 	if tree != null:
 		_root = tree.root
-		_root.add_child(_bgm_player)
-		_root.add_child(_bgm_fade_player)
+		var initialization_root: Node = _root
+		var initialization_primary: AudioStreamPlayer = _bgm_player
+		var initialization_fade: AudioStreamPlayer = _bgm_fade_player
+		initialization_root.add_child(initialization_primary)
+		if (
+			not _is_initialized
+			or _root != initialization_root
+			or _bgm_player != initialization_primary
+			or _bgm_fade_player != initialization_fade
+		):
+			return
+		initialization_root.add_child(initialization_fade)
 
 
 ## 释放播放器、后端、环境音和 SFX 运行时状态。
@@ -350,10 +361,18 @@ func start_bgm(
 	options: Dictionary = {},
 	owner: Node = null
 ) -> GFBgmStartOperation:
-	_drain_bgm_terminal_barrier_if_needed()
 	var operation: GFBgmStartOperation = _make_bgm_start_operation()
 	if operation == null:
 		return null
+	_drain_bgm_terminal_barrier_if_needed()
+	if _latest_admitted_bgm_start_request_id > operation.get_request_id():
+		_complete_unadmitted_bgm_start(
+			operation,
+			GFBgmStartResult.Status.SUPERSEDED,
+			GFBgmStartResult.REASON_NEWER_REQUEST,
+			ERR_BUSY
+		)
+		return operation
 	if not _is_initialized or not _bgm_start_admission_open:
 		_complete_unadmitted_bgm_start(
 			operation,
@@ -461,10 +480,18 @@ func start_bgm_clip(
 	crossfade_seconds: float = -1.0,
 	owner: Node = null
 ) -> GFBgmStartOperation:
-	_drain_bgm_terminal_barrier_if_needed()
 	var operation: GFBgmStartOperation = _make_bgm_start_operation()
 	if operation == null:
 		return null
+	_drain_bgm_terminal_barrier_if_needed()
+	if _latest_admitted_bgm_start_request_id > operation.get_request_id():
+		_complete_unadmitted_bgm_start(
+			operation,
+			GFBgmStartResult.Status.SUPERSEDED,
+			GFBgmStartResult.REASON_NEWER_REQUEST,
+			ERR_BUSY
+		)
+		return operation
 	if not _is_initialized or not _bgm_start_admission_open:
 		_complete_unadmitted_bgm_start(
 			operation,
@@ -1299,10 +1326,10 @@ func get_audio_bank(bank_id: StringName) -> GFAudioBank:
 ## [br]
 ## @return: 后端已设置；旧通道停止、duck 基准恢复、dispose 或 setup 未完成时返回 false。
 func set_audio_backend(backend: GFAudioBackend) -> bool:
-	if _audio_backend == backend:
-		return true
 	if _is_backend_dispatch_in_progress():
 		return false
+	if _audio_backend == backend:
+		return true
 	var dispose_was_pending: bool = _audio_dispose_deferred
 	_drain_bgm_terminal_barrier_if_needed()
 	if dispose_was_pending and not _is_initialized:
@@ -1349,8 +1376,8 @@ func set_audio_backend(backend: GFAudioBackend) -> bool:
 		bgm_finished.emit(natural_history_key)
 	return (
 		changed
-		and _is_initialized
 		and not _audio_dispose_deferred
+		and not _audio_dispose_in_progress
 		and _audio_backend == backend
 	)
 
@@ -1411,8 +1438,8 @@ func clear_audio_backend(dispose_backend: bool = true) -> bool:
 		bgm_finished.emit(natural_history_key)
 	return (
 		cleared
-		and _is_initialized
 		and not _audio_dispose_deferred
+		and not _audio_dispose_in_progress
 		and _audio_backend == null
 	)
 
@@ -7099,6 +7126,10 @@ func _admit_bgm_start_request(request: Dictionary) -> bool:
 	var pending_token: int = _reserve_bgm_pending_request()
 	request["pending_token"] = pending_token
 	_bgm_pending_start_request = request
+	_latest_admitted_bgm_start_request_id = maxi(
+		_latest_admitted_bgm_start_request_id,
+		operation.get_request_id()
+	)
 	if not previous_request.is_empty():
 		var _previous_completed: bool = _complete_bgm_start_record(
 			previous_request,
@@ -7948,7 +7979,6 @@ func _try_commit_typed_pending_local_bgm_start(
 			ERR_CANT_CREATE
 		)
 		return
-	var candidate_player: AudioStreamPlayer = _get_bgm_candidate_player(candidate)
 	if (
 		not _is_pending_bgm_start_request(request_id)
 		or _pending_bgm_has_terminal_intent(request_id)
@@ -7957,7 +7987,7 @@ func _try_commit_typed_pending_local_bgm_start(
 			and _get_bgm_start_owner(_bgm_pending_start_request) == null
 		)
 	):
-		_release_typed_bgm_candidate(candidate_player)
+		_release_typed_bgm_candidate(candidate)
 		if _is_pending_bgm_start_request(request_id):
 			if not _pending_bgm_has_terminal_intent(request_id):
 				var _owner_intent_recorded: bool = (
@@ -7977,7 +8007,7 @@ func _try_commit_typed_pending_local_bgm_start(
 		"reserved_session_id"
 	)
 	if session_id <= 0:
-		_release_typed_bgm_candidate(candidate_player)
+		_release_typed_bgm_candidate(candidate)
 		_fail_pending_bgm_start(
 			request_id,
 			GFBgmStartResult.REASON_LOCAL_PLAYER_REJECTED,
@@ -7995,7 +8025,7 @@ func _try_commit_typed_pending_local_bgm_start(
 		)
 		backend_was_released = _backend_dispatch_returned_true(stop_result)
 		if _pending_bgm_has_terminal_intent(request_id):
-			_release_typed_bgm_candidate(candidate_player)
+			_release_typed_bgm_candidate(candidate)
 			_settle_pending_local_handoff_intent(
 				request_id,
 				backend_was_released
@@ -8003,7 +8033,7 @@ func _try_commit_typed_pending_local_bgm_start(
 			_run_deferred_audio_dispose_if_needed()
 			return
 		if not backend_was_released or _audio_backend != expected_backend:
-			_release_typed_bgm_candidate(candidate_player)
+			_release_typed_bgm_candidate(candidate)
 			_fail_pending_bgm_start(
 				request_id,
 				GFBgmStartResult.REASON_BACKEND_OWNER_RELEASE_FAILED,
@@ -8011,7 +8041,7 @@ func _try_commit_typed_pending_local_bgm_start(
 			)
 			return
 	if not _is_pending_bgm_start_request(request_id):
-		_release_typed_bgm_candidate(candidate_player)
+		_release_typed_bgm_candidate(candidate)
 		return
 	request = _bgm_pending_start_request
 	var publication: Dictionary = _prepare_started_bgm_publication(
@@ -8020,7 +8050,7 @@ func _try_commit_typed_pending_local_bgm_start(
 		GFBgmSessionHandle.OwnerKind.LOCAL
 	)
 	if publication.is_empty():
-		_release_typed_bgm_candidate(candidate_player)
+		_release_typed_bgm_candidate(candidate)
 		_settle_failed_bgm_publication(
 			request_id,
 			GFBgmStartResult.REASON_LOCAL_PLAYER_REJECTED,
@@ -8052,7 +8082,16 @@ func _prepare_typed_local_bgm_candidate(
 	var player: AudioStreamPlayer = AudioStreamPlayer.new()
 	player.name = "GFBGMStandbyPlayer"
 	_connect_signal_checked(player.finished, _on_bgm_player_finished.bind(player))
-	_root.add_child(player)
+	var candidate_root: Node = _root
+	var request_id: int = GFVariantData.get_option_int(request, "request_id")
+	candidate_root.add_child(player)
+	if not _is_typed_bgm_candidate_insertion_current(
+		request_id,
+		candidate_root,
+		[player]
+	):
+		_release_typed_bgm_player(player)
+		return {}
 	var target_volume_db: float = GFVariantData.get_option_float(
 		request,
 		"volume_db"
@@ -8073,6 +8112,24 @@ func _prepare_typed_local_bgm_candidate(
 		and previous_player.playing
 		and previous_player.stream != null
 	)
+	var replacement_player: AudioStreamPlayer = null
+	if not can_crossfade:
+		replacement_player = AudioStreamPlayer.new()
+		replacement_player.name = "GFBGMFadePlayer"
+		replacement_player.bus = _resolve_bus_name(BGM_BUS_NAME)
+		_connect_signal_checked(
+			replacement_player.finished,
+			_on_bgm_player_finished.bind(replacement_player)
+		)
+		candidate_root.add_child(replacement_player)
+		if not _is_typed_bgm_candidate_insertion_current(
+			request_id,
+			candidate_root,
+			[player, replacement_player]
+		):
+			_release_typed_bgm_player(player)
+			_release_typed_bgm_player(replacement_player)
+			return {}
 	_apply_player_settings(
 		player,
 		stream,
@@ -8082,10 +8139,12 @@ func _prepare_typed_local_bgm_candidate(
 	)
 	player.play(GFVariantData.get_option_float(execution_plan, "start_seconds"))
 	if not player.playing and not player.stream_paused:
-		_release_typed_bgm_candidate(player)
+		_release_typed_bgm_player(player)
+		_release_typed_bgm_player(replacement_player)
 		return {}
 	return {
 		"player": player,
+		"replacement_player": replacement_player,
 		"can_crossfade": can_crossfade,
 		"fade_seconds": fade_seconds,
 		"target_volume_db": target_volume_db,
@@ -8100,7 +8159,38 @@ func _get_bgm_candidate_player(candidate: Dictionary) -> AudioStreamPlayer:
 	return null
 
 
-func _release_typed_bgm_candidate(player: AudioStreamPlayer) -> void:
+func _get_bgm_candidate_replacement_player(candidate: Dictionary) -> AudioStreamPlayer:
+	var value: Variant = GFVariantData.get_option_value(candidate, "replacement_player")
+	if value is AudioStreamPlayer:
+		var player: AudioStreamPlayer = value
+		return player
+	return null
+
+
+func _is_typed_bgm_candidate_insertion_current(
+	request_id: int,
+	candidate_root: Node,
+	players: Array[AudioStreamPlayer]
+) -> bool:
+	if (
+		not _is_initialized
+		or _root != candidate_root
+		or not _is_pending_bgm_start_request(request_id)
+		or _pending_bgm_has_terminal_intent(request_id)
+	):
+		return false
+	for player: AudioStreamPlayer in players:
+		if not is_instance_valid(player) or player.is_queued_for_deletion():
+			return false
+	return true
+
+
+func _release_typed_bgm_candidate(candidate: Dictionary) -> void:
+	_release_typed_bgm_player(_get_bgm_candidate_player(candidate))
+	_release_typed_bgm_player(_get_bgm_candidate_replacement_player(candidate))
+
+
+func _release_typed_bgm_player(player: AudioStreamPlayer) -> void:
 	if not is_instance_valid(player):
 		return
 	_stop_local_bgm_player(player)
@@ -8213,6 +8303,9 @@ func _commit_typed_local_bgm_candidate(
 	session_id: int
 ) -> void:
 	var candidate_player: AudioStreamPlayer = _get_bgm_candidate_player(candidate)
+	var replacement_player: AudioStreamPlayer = (
+		_get_bgm_candidate_replacement_player(candidate)
+	)
 	var previous_session_id: int = _bgm_committed_session_id
 	var previous_session: Dictionary = _get_bgm_session(previous_session_id)
 	var previous_player: AudioStreamPlayer = _get_bgm_session_player(
@@ -8279,14 +8372,7 @@ func _commit_typed_local_bgm_candidate(
 			"target_volume_db"
 		)
 		_bgm_player = candidate_player
-		_bgm_fade_player = AudioStreamPlayer.new()
-		_bgm_fade_player.name = "GFBGMFadePlayer"
-		_bgm_fade_player.bus = _resolve_bus_name(BGM_BUS_NAME)
-		_connect_signal_checked(
-			_bgm_fade_player.finished,
-			_on_bgm_player_finished.bind(_bgm_fade_player)
-		)
-		_root.add_child(_bgm_fade_player)
+		_bgm_fade_player = replacement_player
 		_bgm_current_session_id = session_id
 		_bgm_incoming_session_id = 0
 		_bgm_state = _STATE_PLAYING
@@ -10569,6 +10655,16 @@ func _on_bgm_player_finished(player: AudioStreamPlayer) -> void:
 			_schedule_deferred_audio_drain()
 		else:
 			_drain_bgm_terminal_barrier_if_needed()
+		return
+	if (
+		role == &"current"
+		and _bgm_state == _STATE_STOPPING
+		and session_id == _bgm_current_session_id
+	):
+		_cancel_bgm_stop_tween()
+		player.stop()
+		_remove_bgm_session(session_id, false)
+		_clear_bgm_session_state()
 		return
 	if role == &"outgoing" and not logical_current_finished:
 		player.stop()

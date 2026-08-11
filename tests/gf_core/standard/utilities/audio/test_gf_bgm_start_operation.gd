@@ -2102,6 +2102,241 @@ func test_stop_ended_callback_can_start_replacement_without_old_continuation_clo
 	assert_true(_audio.is_bgm_playing())
 
 
+func test_clip_start_terminal_drain_preserves_newer_reentrant_request() -> void:
+	await _assert_terminal_drain_preserves_newer_reentrant_request(true)
+
+
+func test_path_start_terminal_drain_preserves_newer_reentrant_request() -> void:
+	await _assert_terminal_drain_preserves_newer_reentrant_request(false)
+
+
+func _assert_terminal_drain_preserves_newer_reentrant_request(
+	outer_is_clip: bool
+) -> void:
+	if _skip_runtime_scenario_until_contract_exists():
+		return
+	var replacement: GFAudioUtility = GFAudioUtility.new()
+	if not outer_is_clip:
+		replacement = AssetBackedAudioUtility.new(
+			ImmediateAssetUtility.new(AudioStreamGenerator.new())
+		)
+	await _activate_audio(replacement)
+	var first_operation: Object = _start_bgm_clip(
+		_make_clip("issue88-drain-first"),
+		0.0
+	)
+	var first_result: Object = _assert_completed_with_status(first_operation, "STARTED")
+	if first_result == null:
+		return
+	var first_session: Object = _call_object(first_result, &"get_session_handle")
+	assert_not_null(first_session)
+	if first_session == null:
+		return
+	watch_signals(first_session)
+	_reentrant_clip = _make_clip("issue88-drain-newer")
+	assert_eq(
+		first_session.connect(&"ended", Callable(self, "_on_reentrant_session_ended")),
+		OK
+	)
+	assert_true(
+		_audio._record_deferred_bgm_session_terminal(
+			_call_int(first_session, &"get_session_id", 0),
+			GFBgmSessionHandle.EndKind.STOPPED,
+			0.0
+		)
+	)
+
+	var outer_operation: Object = null
+	if outer_is_clip:
+		outer_operation = _start_bgm_clip(
+			_make_clip("issue88-drain-outer"),
+			0.0
+		)
+	else:
+		outer_operation = _start_bgm(
+			"res://audio/issue88-drain-outer.ogg",
+			{"history_key": "issue88-drain-outer"}
+		)
+	var outer_result: Object = _assert_completed_with_status(
+		outer_operation,
+		"SUPERSEDED"
+	)
+	if outer_result == null:
+		return
+	assert_eq(
+		_call_string_name(outer_result, &"get_reason"),
+		_script_string_name_constant(_RESULT_SCRIPT_PATH, "REASON_NEWER_REQUEST")
+	)
+	assert_eq(_call_int(outer_result, &"get_error_code", OK), ERR_BUSY)
+	assert_eq(
+		_call_int(outer_result, &"get_backend_disposition", -1),
+		_enum_value(_RESULT_SCRIPT_PATH, "BackendDisposition", "NOT_ATTEMPTED")
+	)
+	assert_not_null(_reentrant_operation)
+	var newer_result: Object = _assert_completed_with_status(
+		_reentrant_operation,
+		"STARTED"
+	)
+	assert_not_null(newer_result)
+	assert_eq(_audio.get_current_bgm_key(), "issue88-drain-newer")
+	assert_true(_audio.is_bgm_playing())
+	assert_signal_emit_count(first_session, "ended", 1)
+
+
+func test_replacement_player_insertion_dispose_reentry_cancels_before_commit() -> void:
+	if _skip_runtime_scenario_until_contract_exists():
+		return
+	await _activate_audio(GFAudioUtility.new())
+	var root: Window = get_tree().root
+	var player_count_before: int = _count_root_audio_stream_players()
+	var insertion_state: Dictionary = { "count": 0 }
+	var dispose_callback: Callable = func(child: Node) -> void:
+		if not child is AudioStreamPlayer:
+			return
+		insertion_state["count"] = GFVariantData.get_option_int(
+			insertion_state,
+			"count"
+		) + 1
+		if GFVariantData.get_option_int(insertion_state, "count") == 2:
+			_audio.dispose()
+	var connect_error: Error = (
+		root.child_entered_tree.connect(dispose_callback) as Error
+	)
+	assert_eq(connect_error, OK)
+
+	var operation: Object = _start_bgm_clip(
+		_make_clip("issue88-reentrant-insertion-dispose"),
+		0.0
+	)
+	if root.child_entered_tree.is_connected(dispose_callback):
+		root.child_entered_tree.disconnect(dispose_callback)
+	var result: Object = _assert_completed_with_status(operation, "CANCELLED")
+	if result == null:
+		return
+	_assert_cancelled_topology_result(
+		result,
+		"REASON_UTILITY_DISPOSED",
+		"NOT_ATTEMPTED"
+	)
+	await get_tree().process_frame
+
+	assert_eq(GFVariantData.get_option_int(insertion_state, "count"), 2)
+	assert_false(_audio._is_initialized)
+	assert_null(_audio._root)
+	assert_eq(_audio.get_current_bgm_key(), "")
+	assert_eq(_count_root_audio_stream_players(), player_count_before - 2)
+
+
+func test_replacement_player_insertion_stop_reentry_cancels_before_commit() -> void:
+	if _skip_runtime_scenario_until_contract_exists():
+		return
+	await _activate_audio(GFAudioUtility.new())
+	var active_operation: Object = _start_bgm_clip(
+		_make_clip("issue88-reentrant-insertion-active"),
+		0.0
+	)
+	var active_result: Object = _assert_completed_with_status(active_operation, "STARTED")
+	if active_result == null:
+		return
+	var active_session: Object = _call_object(active_result, &"get_session_handle")
+	assert_not_null(active_session)
+	if active_session == null:
+		return
+	watch_signals(active_session)
+	var root: Window = get_tree().root
+	var insertion_state: Dictionary = { "count": 0 }
+	var stop_callback: Callable = func(child: Node) -> void:
+		if not child is AudioStreamPlayer:
+			return
+		insertion_state["count"] = GFVariantData.get_option_int(
+			insertion_state,
+			"count"
+		) + 1
+		if GFVariantData.get_option_int(insertion_state, "count") == 2:
+			_audio.stop_bgm(0.0)
+	var connect_error: Error = (
+		root.child_entered_tree.connect(stop_callback) as Error
+	)
+	assert_eq(connect_error, OK)
+
+	var pending_operation: Object = _start_bgm_clip(
+		_make_clip("issue88-reentrant-insertion-pending"),
+		0.0
+	)
+	if root.child_entered_tree.is_connected(stop_callback):
+		root.child_entered_tree.disconnect(stop_callback)
+	var pending_result: Object = _assert_completed_with_status(
+		pending_operation,
+		"CANCELLED"
+	)
+	if pending_result == null:
+		return
+	_assert_cancelled_topology_result(
+		pending_result,
+		"REASON_STOP_REQUESTED",
+		"NOT_ATTEMPTED"
+	)
+	await get_tree().process_frame
+
+	assert_eq(GFVariantData.get_option_int(insertion_state, "count"), 2)
+	assert_true(_call_bool(active_session, &"is_terminal"))
+	assert_eq(
+		_call_int(active_session, &"get_end_kind", -1),
+		_enum_value(_SESSION_HANDLE_SCRIPT_PATH, "EndKind", "STOPPED")
+	)
+	assert_signal_emit_count(active_session, "ended", 1)
+	assert_true(_audio._is_initialized)
+	assert_eq(_audio.get_current_bgm_key(), "")
+	assert_false(_audio.is_bgm_playing())
+
+
+func test_local_eof_during_stop_converges_physical_and_logical_session() -> void:
+	if _skip_runtime_scenario_until_contract_exists():
+		return
+	await _activate_audio(GFAudioUtility.new())
+	watch_signals(_audio)
+	var operation: Object = _start_bgm_clip(
+		_make_clip("issue88-stop-eof"),
+		0.0
+	)
+	var result: Object = _assert_completed_with_status(operation, "STARTED")
+	if result == null:
+		return
+	var session: Object = _call_object(result, &"get_session_handle")
+	assert_not_null(session)
+	if session == null:
+		return
+	watch_signals(session)
+	var player: AudioStreamPlayer = _audio._bgm_player
+	var session_id: int = _call_int(session, &"get_session_id", 0)
+
+	assert_true(_call_bool_with_args(session, &"stop", [3600.0]))
+	assert_eq(_audio._bgm_state, &"stopping")
+	assert_eq(_audio._bgm_owner, &"local")
+	assert_eq(_audio._bgm_current_session_id, session_id)
+	assert_eq(_audio._bgm_committed_session_id, 0)
+	assert_eq(
+		_call_int(session, &"get_end_kind", -1),
+		_enum_value(_SESSION_HANDLE_SCRIPT_PATH, "EndKind", "STOPPED")
+	)
+	assert_signal_emit_count(session, "ended", 1)
+
+	player.finished.emit()
+
+	assert_eq(_audio._bgm_state, &"stopped")
+	assert_eq(_audio._bgm_owner, &"none")
+	assert_eq(_audio._bgm_current_session_id, 0)
+	assert_eq(_audio._bgm_committed_session_id, 0)
+	assert_eq(_audio.get_current_bgm_key(), "")
+	assert_false(_audio.is_bgm_playing())
+	assert_signal_emit_count(session, "ended", 1)
+	assert_signal_emit_count(_audio, "bgm_finished", 0)
+	assert_true(
+		_audio._bgm_stop_fallback_timer == null
+		or _audio._bgm_stop_fallback_timer.is_stopped()
+	)
+
+
 func test_active_dispatch_stop_natural_and_dispose_preserve_first_terminals() -> void:
 	if _skip_runtime_scenario_until_contract_exists():
 		return
@@ -2476,6 +2711,14 @@ func _has_audible_standby_player() -> bool:
 		):
 			return true
 	return false
+
+
+func _count_root_audio_stream_players() -> int:
+	var player_count: int = 0
+	for child: Node in get_tree().root.get_children():
+		if child is AudioStreamPlayer:
+			player_count += 1
+	return player_count
 
 
 func _new_script_object(path: String) -> Object:
