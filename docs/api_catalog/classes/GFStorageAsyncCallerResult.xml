@@ -1,0 +1,183 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFStorageAsyncCallerResult" path="addons/gf/standard/utilities/storage/gf_storage_async_caller_result.gd" module="standard" extends="RefCounted" classDigest="380aa51c09ac1d7ee23e6076ae02479db2267a74299aef07fdb6c2a0a990fffc">
+	<description>GFStorageAsyncCallerResult: 单个 Storage consumer 的不可变 caller 终态。
+caller 终态与 `GFStorageAsyncOperation.completed` 表示的物理终态彼此独立。已接纳
+save/delete 在 caller 提前离开时返回 `OUTCOME_UNKNOWN`，不会把“停止观察”伪装成
+磁盘工作已取消；晚到物理结果仍由原 Operation 恰好结算一次。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">value_object</tag>
+		<tag name="since">unreleased</tag>
+	</tags>
+	<signals />
+	<enums>
+		<member kind="enum" name="Status">
+			<signature>enum Status {
+	## caller 获得了同一请求的确定物理终态。
+	PHYSICAL_SETTLED,
+	## caller 已安全停止观察，且不会声称存在持久化副作用的不确定性。
+	CANCELLED,
+	## caller 已停止观察，但 save/delete 的持久化结果仍未知。
+	OUTCOME_UNKNOWN,
+}</signature>
+			<description>caller 观察的闭合终态分类。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="enum" name="EndKind">
+			<signature>enum EndKind {
+	## 物理工作先结算。
+	PHYSICAL_SETTLEMENT,
+	## 调用方显式调用 `cancel_observation()`。
+	EXPLICIT_CANCEL,
+	## 绑定的 `GFCancellationToken` 首次请求取消。
+	TOKEN_CANCELLED,
+	## 单调 caller deadline 到期。
+	DEADLINE_EXPIRED,
+	## 弱 owner 已经释放。
+	OWNER_RELEASED,
+	## Utility dispose 在 worker 接纳前终止了排队请求。
+	UTILITY_DISPOSED,
+}</signature>
+			<description>caller 终态的稳定来源分类。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</enums>
+	<constants />
+	<properties />
+	<methods>
+		<member kind="method" name="get_consumer_id">
+			<signature>func get_consumer_id() -&gt; int:</signature>
+			<description>获取当前 consumer 的 Utility 内唯一 ID。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">大于零的当前 consumer ID；尚未配置时返回 0。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_request_id">
+			<signature>func get_request_id() -&gt; int:</signature>
+			<description>获取物理请求 ID。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">大于零的物理请求 ID；尚未配置时返回 0。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_operation">
+			<signature>func get_operation() -&gt; StringName:</signature>
+			<description>获取请求类型。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">`save`、`load` 或 `delete`；尚未配置时返回空值。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_file_name">
+			<signature>func get_file_name() -&gt; String:</signature>
+			<description>获取 portable logical 文件名。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">已验证的 portable logical identity；校验前失败时可能为空。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_status">
+			<signature>func get_status() -&gt; Status:</signature>
+			<description>获取 caller 终态分类。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">当前 caller 终态分类。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_end_kind">
+			<signature>func get_end_kind() -&gt; EndKind:</signature>
+			<description>获取 caller 结束来源分类。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">当前 caller 终态的稳定来源分类。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_reason">
+			<signature>func get_reason() -&gt; StringName:</signature>
+			<description>获取最长 128 字符的稳定原因。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">已规范化且最长 128 字符的稳定原因。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_completed_at_msec">
+			<signature>func get_completed_at_msec() -&gt; int:</signature>
+			<description>获取 caller 终态的单调毫秒时间。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">caller 终态写入时的非负单调毫秒值。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_error_code">
+			<signature>func get_error_code() -&gt; Error:</signature>
+			<description>获取 caller Error 码。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">caller 终态对应的 Godot `Error`。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_successful">
+			<signature>func is_successful() -&gt; bool:</signature>
+			<description>返回 caller 是否获得了成功的物理领域结果。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">caller 获得成功物理领域结果时返回 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_outcome_unknown">
+			<signature>func is_outcome_unknown() -&gt; bool:</signature>
+			<description>返回 caller 是否因潜在持久化副作用进入未知结果。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">caller 已离开但 save/delete 物理结果未知时返回 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_physical_result">
+			<signature>func get_physical_result() -&gt; GFStorageAsyncResult:</signature>
+			<description>获取 caller 已知的物理终态副本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">`PHYSICAL_SETTLED` 时返回结果；其他 caller 终态返回 null。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="duplicate_result">
+			<signature>func duplicate_result() -&gt; GFStorageAsyncCallerResult:</signature>
+			<description>创建隔离副本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">当前不可变 caller 终态的隔离副本。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="to_dict">
+			<signature>func to_dict() -&gt; Dictionary:</signature>
+			<description>转换为可报告字典。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">当前 caller 终态的隔离字典表示。</tag>
+				<tag name="schema">return: Exact Dictionary with consumer_id: int, request_id: int, operation: StringName, file_name: String, status: int enum, end_kind: int enum, reason: StringName, completed_at_msec: int, error_code: int, and physical_result: Dictionary fields.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

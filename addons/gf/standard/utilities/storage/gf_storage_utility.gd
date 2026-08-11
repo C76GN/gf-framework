@@ -72,6 +72,7 @@ const _MAX_TRANSACTION_FILES: int = 64
 const _PAYLOAD_VALIDATION_MAX_DEPTH: int = 128
 const _PAYLOAD_VALIDATION_MAX_VALUES: int = 1_000_000
 const _PAYLOAD_VALIDATION_MAX_BYTES: int = 64 * 1024 * 1024
+const _ASYNC_LATE_SETTLEMENT_CAPACITY: int = 64
 const _DELETE_MEMBER_BACKUP: StringName = &"backup"
 const _DELETE_MEMBER_TRANSACTION_PREPARE_PENDING: StringName = &"transaction_prepare_pending"
 const _DELETE_MEMBER_TRANSACTION_PREPARE: StringName = &"transaction_prepare"
@@ -80,6 +81,13 @@ const _DELETE_MEMBER_TRANSACTION_COMMIT: StringName = &"transaction_commit"
 const _DELETE_MEMBER_CANDIDATE: StringName = &"candidate"
 const _DELETE_MEMBER_RESOURCE_STAGE: StringName = &"resource_stage"
 const _DELETE_MEMBER_FINAL: StringName = &"final"
+
+enum _AsyncTaskState {
+	QUEUED,
+	ACCEPTED,
+	RUNNING,
+	SETTLING,
+}
 
 ## 递归枚举文件时默认允许进入的最大目录深度。
 ## [br]
@@ -233,8 +241,21 @@ var last_load_result: GFStorageReadResult
 var _async_tasks: Array[Dictionary] = []
 var _async_queue: Array[Dictionary] = []
 var _async_file_locks: Dictionary = {}
+var _async_settling_records: Dictionary = {}
+var _async_observers: Dictionary = {}
+var _async_late_settlements: Array[Dictionary] = []
+var _clock: GFClock = GFClock.new()
 var _next_async_request_id: int = 1
+var _next_async_consumer_id: int = 1
+var _next_async_record_id: int = 1
 var _next_async_transaction_id: int = 1
+var _async_scheduler_running: bool = false
+var _async_scheduler_requested: bool = false
+var _async_start_only_running: bool = false
+var _async_start_only_requested: bool = false
+var _async_completion_depth: int = 0
+var _async_worker_start_depth: int = 0
+var _async_deferred_dispose_requested: bool = false
 var _is_disposing: bool = false
 var _io_admission_open: bool = true
 var _quiesce_completion: GFAsyncCompletion = null
@@ -274,16 +295,25 @@ func dispose() -> void:
 	if _is_disposing:
 		return
 	_io_admission_open = false
+	if _async_completion_depth > 0 or _async_worker_start_depth > 0:
+		_async_deferred_dispose_requested = true
+		return
+	_async_deferred_dispose_requested = false
 	_is_disposing = true
 	_wait_for_async_tasks()
 	_async_tasks.clear()
 	_async_queue.clear()
 	_async_file_locks.clear()
+	_async_settling_records.clear()
+	_async_observers.clear()
+	_async_scheduler_requested = false
+	_async_start_only_requested = false
 	_migration_steps.clear()
 	_storage_reconciled = false
 	last_load_result = null
 	_release_storage_helpers()
 	_is_disposing = false
+	_async_deferred_dispose_requested = false
 	_try_complete_quiesce()
 
 
@@ -308,7 +338,7 @@ func tick(_delta: float = 0.0) -> void:
 ## @return 成功打开 I/O 准入；正在 dispose 或已经进入过 quiesce 时返回失败终态。
 func begin_activation(_scope: GFAsyncScope) -> GFAsyncCompletion:
 	var completion: GFAsyncCompletion = GFAsyncCompletion.new()
-	if _is_disposing:
+	if _is_disposing or _async_deferred_dispose_requested:
 		var _failed: bool = completion.fail("Storage utility is disposing.")
 		return completion
 	if _quiesce_completion != null:
@@ -375,7 +405,8 @@ func save_resource(file_name: String, resource: Resource) -> Error:
 		return ERR_INVALID_PARAMETER
 
 	init()
-	_wait_for_async_tasks_for_file(file_name)
+	if not _wait_for_async_tasks_for_file(file_name):
+		return ERR_BUSY
 	var prepare_error: Error = _prepare_family_for_write(file_name)
 	if prepare_error != OK:
 		return prepare_error
@@ -433,7 +464,8 @@ func load_resource(file_name: String, type_hint: String = "") -> Resource:
 		return null
 
 	init()
-	_wait_for_async_tasks_for_file(file_name)
+	if not _wait_for_async_tasks_for_file(file_name):
+		return null
 	var prepare_error: Error = _prepare_family_for_read(file_name)
 	if prepare_error != OK:
 		return null
@@ -506,6 +538,8 @@ func list_files(
 	wait_for_async_tasks()
 	if (
 		not _io_admission_open
+		or not _async_queue.is_empty()
+		or not _async_file_locks.is_empty()
 		or _transaction_manager != transaction_manager_at_entry
 		or _family_store != family_store_at_entry
 	):
@@ -551,7 +585,8 @@ func has_file(file_name: String) -> bool:
 	if not _validate_public_file_name(file_name, "has_file"):
 		return false
 	init()
-	_wait_for_async_tasks_for_file(file_name)
+	if not _wait_for_async_tasks_for_file(file_name):
+		return false
 	if _prepare_family_for_read(file_name) != OK:
 		return false
 	return _family_store.has_file_for_framework(_make_family_descriptor(file_name))
@@ -580,7 +615,8 @@ func delete_file(file_name: String) -> Error:
 	if target_family.is_empty():
 		return ERR_INVALID_PARAMETER
 
-	_wait_for_async_tasks_for_file(canonical_file_name)
+	if not _wait_for_async_tasks_for_file(canonical_file_name):
+		return ERR_BUSY
 	var worker_result: Dictionary = _delete_file_thread(
 		GFVariantData.get_option_string(target_family, "storage_root_path"),
 		canonical_file_name
@@ -599,11 +635,19 @@ func delete_file(file_name: String) -> Error:
 ## [br]
 ## @param file_name: portable logical file identity。
 ## [br]
+## @param options: 可选 caller owner、取消 token 与单调 deadline；null 表示无 caller 生命周期约束。
+## [br]
 ## @return 已配置的 typed 请求句柄；路径或生命周期校验失败时立即进入失败终态。
-func delete_file_request_async(file_name: String) -> GFStorageAsyncOperation:
+func delete_file_request_async(
+	file_name: String,
+	options: GFStorageAsyncRequestOptions = null
+) -> GFStorageAsyncOperation:
 	var operation: GFStorageAsyncOperation = _make_async_operation(
-		GFStorageAsyncOperation.OPERATION_DELETE
+		GFStorageAsyncOperation.OPERATION_DELETE,
+		options
 	)
+	if operation.is_completed():
+		return operation
 	var _error: Error = _enqueue_async_delete(
 		file_name,
 		operation,
@@ -632,7 +676,8 @@ func save_data(file_name: String, data: Dictionary) -> Error:
 		return ERR_INVALID_PARAMETER
 
 	init()
-	_wait_for_async_tasks_for_file(file_name)
+	if not _wait_for_async_tasks_for_file(file_name):
+		return ERR_BUSY
 	var prepare_error: Error = _prepare_family_for_write(file_name)
 	if prepare_error != OK:
 		return prepare_error
@@ -701,7 +746,8 @@ func save_data_group(files: Dictionary) -> Error:
 	if readiness_error != OK:
 		return readiness_error
 	for file_name: String in file_names:
-		_wait_for_async_tasks_for_file(file_name)
+		if not _wait_for_async_tasks_for_file(file_name):
+			return ERR_BUSY
 	for file_name: String in file_names:
 		var claim_error: Error = _family_store.claim_family_for_framework(
 			_make_family_descriptor(file_name)
@@ -752,7 +798,13 @@ func load_data(file_name: String) -> GFStorageReadResult:
 		return last_load_result.duplicate_result()
 
 	init()
-	_wait_for_async_tasks_for_file(file_name)
+	if not _wait_for_async_tasks_for_file(file_name):
+		last_load_result = _make_load_failure(
+			"Storage file is still settling an async result.",
+			ERR_BUSY,
+			GFStorageReadResult.FailureKind.UNAVAILABLE
+		)
+		return last_load_result.duplicate_result()
 	var prepare_error: Error = _prepare_family_for_read(file_name)
 	if prepare_error != OK:
 		var failure_kind: GFStorageReadResult.FailureKind = _classify_load_failure(
@@ -813,11 +865,20 @@ func save_data_async(file_name: String, data: Dictionary) -> Error:
 ## [br]
 ## @schema data: Dictionary，要序列化并保存的数据载荷。
 ## [br]
+## @param options: 可选 caller owner、取消 token 与单调 deadline；null 表示无 caller 生命周期约束。
+## [br]
 ## @return 已配置的请求句柄；输入无效或启动失败时句柄立即进入失败终态。
-func save_data_request_async(file_name: String, data: Dictionary) -> GFStorageAsyncOperation:
+func save_data_request_async(
+	file_name: String,
+	data: Dictionary,
+	options: GFStorageAsyncRequestOptions = null
+) -> GFStorageAsyncOperation:
 	var operation: GFStorageAsyncOperation = _make_async_operation(
-		GFStorageAsyncOperation.OPERATION_SAVE
+		GFStorageAsyncOperation.OPERATION_SAVE,
+		options
 	)
+	if operation.is_completed():
+		return operation
 	var _error: Error = _enqueue_async_save(file_name, data, operation, "save_data_request_async")
 	return operation
 
@@ -837,14 +898,20 @@ func save_data_request_async(file_name: String, data: Dictionary) -> GFStorageAs
 ## [br]
 ## @param transfer: 已通过 take_ownership() 接收 payload 的 opaque transfer。
 ## [br]
+## @param options: 可选 caller owner、取消 token 与单调 deadline；null 表示无 caller 生命周期约束。
+## [br]
 ## @return 已配置请求句柄；输入无效或启动失败时句柄立即进入失败终态。
 func save_payload_request_async(
 	file_name: String,
-	transfer: GFStoragePayloadTransfer
+	transfer: GFStoragePayloadTransfer,
+	options: GFStorageAsyncRequestOptions = null
 ) -> GFStorageAsyncOperation:
 	var operation: GFStorageAsyncOperation = _make_async_operation(
-		GFStorageAsyncOperation.OPERATION_SAVE
+		GFStorageAsyncOperation.OPERATION_SAVE,
+		options
 	)
+	if operation.is_completed():
+		return operation
 	var _error: Error = _enqueue_async_payload_save(
 		file_name,
 		transfer,
@@ -875,13 +942,37 @@ func load_data_async(file_name: String) -> Error:
 ## [br]
 ## @param file_name: 目标文件名。
 ## [br]
+## @param options: 可选 caller owner、取消 token 与单调 deadline；null 表示无 caller 生命周期约束。
+## [br]
 ## @return 已配置的请求句柄；输入无效或启动失败时句柄立即进入失败终态。
-func load_data_request_async(file_name: String) -> GFStorageAsyncOperation:
+func load_data_request_async(
+	file_name: String,
+	options: GFStorageAsyncRequestOptions = null
+) -> GFStorageAsyncOperation:
 	var operation: GFStorageAsyncOperation = _make_async_operation(
-		GFStorageAsyncOperation.OPERATION_LOAD
+		GFStorageAsyncOperation.OPERATION_LOAD,
+		options
 	)
+	if operation.is_completed():
+		return operation
 	var _error: Error = _enqueue_async_load(file_name, operation, "load_data_request_async")
 	return operation
+
+
+## 获取最近的 late physical settlement 脱敏诊断。
+##
+## 诊断按物理终态到达顺序保留最近 64 条；不包含读载荷、写 payload、绝对路径或
+## family 私有身份。返回值为深复制，调用方修改不会影响 Utility 内部 ring。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @return 最旧到最新排列的有界 late settlement 诊断副本。
+## [br]
+## @schema return: Array of exact Dictionary entries with consumer_id, request_id, operation, file_name, caller_status, caller_end_kind, caller_reason, caller_completed_msec, worker_accepted, physical_cancel_requested, settlement_kind, physical_ok, physical_error_code, physical_completed_msec, late_duration_msec, read_failure_kind, write_failure_kind, delete_failure_kind, delete_existing_member_count, delete_removed_member_count, delete_remaining_member_count, and delete_failed_member fields.
+func get_late_settlement_diagnostics() -> Array[Dictionary]:
+	return _async_late_settlements.duplicate(true)
 
 
 ## 等待已经入队和正在执行的异步纯数据任务全部完成。
@@ -890,23 +981,14 @@ func load_data_request_async(file_name: String) -> GFStorageAsyncOperation:
 ## @api public
 func wait_for_async_tasks() -> void:
 	while not _async_tasks.is_empty() or not _async_queue.is_empty():
-		_start_queued_async_tasks()
+		_request_async_scheduler_run()
 		if _async_tasks.is_empty():
 			break
 
-		var tasks: Array = _async_tasks.duplicate()
-		_async_tasks.clear()
-		for task_variant: Variant in tasks:
-			var task: Dictionary = GFVariantData.as_dictionary(task_variant)
-			if task.is_empty():
-				continue
-			var thread: Thread = _get_task_thread(task)
-			var result_variant: Variant = null
-			if thread != null:
-				result_variant = thread.wait_to_finish()
-			_erase_dictionary_key(_async_file_locks, _get_task_file_key(task))
-			_complete_finished_async_task(task, result_variant)
-		_start_queued_async_tasks()
+		var task: Dictionary = GFVariantData.as_dictionary(_async_tasks.front())
+		if task.is_empty() or _get_task_thread(task) == null:
+			break
+		_join_async_task(task)
 	_try_complete_quiesce()
 
 
@@ -1016,6 +1098,29 @@ func get_registered_migrations() -> Array[Dictionary]:
 
 # --- 框架内部方法 ---
 
+## 在首个异步请求前替换异步生命周期使用的单调时钟。
+## [br]
+## @api framework_internal
+## [br]
+## @layer standard/utilities/storage
+## [br]
+## @since unreleased
+## [br]
+## @param clock: 非空单调时钟。
+## [br]
+## @return 尚未分配请求且没有排队或活动任务时返回 true。
+func set_async_clock_for_framework(clock: GFClock) -> bool:
+	if (
+		clock == null
+		or _next_async_request_id != 1
+		or not _async_queue.is_empty()
+		or not _async_tasks.is_empty()
+	):
+		return false
+	_clock = clock
+	return true
+
+
 ## 启动一个已经完成主线程冻结与校验的 Storage worker。
 ## [br]
 ## @api framework_internal
@@ -1043,6 +1148,77 @@ func start_async_worker_for_framework(
 	):
 		return ERR_INVALID_PARAMETER
 	return thread.start(callback)
+
+
+## 由请求句柄在线性化点提交 caller 取消、deadline 或 owner 释放。
+##
+## 尚未接纳的记录会被精确移出队列并形成真实的接纳前取消物理终态；已接纳记录
+## 只结束 caller 观察，线程、slot 与同文件锁继续保留到 worker 退出。
+## [br]
+## @api framework_internal
+## [br]
+## @layer standard/utilities/storage
+## [br]
+## @since unreleased
+## [br]
+## @param operation: 发起请求的同一 consumer operation。
+## [br]
+## @param end_kind: `GFStorageAsyncCallerResult.EndKind` 的稳定终结分类。
+## [br]
+## @param reason: 有界稳定原因。
+## [br]
+## @return 本次调用首次线性化 caller 终态时返回 true。
+func request_async_operation_cancel_for_framework(
+	operation: GFStorageAsyncOperation,
+	end_kind: int,
+	reason: StringName
+) -> bool:
+	if not Thread.is_main_thread() or operation == null or not operation.is_caller_pending():
+		return false
+	if not GFStorageAsyncCallerResult.EndKind.values().has(end_kind):
+		return false
+	var observer: Dictionary = _get_async_observer(operation)
+	if (
+		observer.is_empty()
+		or _get_observer_operation(observer) != operation
+		or GFVariantData.get_option_int(observer, "consumer_id", 0)
+			!= operation.get_consumer_id()
+	):
+		return false
+
+	var record_id: int = GFVariantData.get_option_int(observer, "record_id", 0)
+	var active_index: int = _find_active_async_task_index(record_id)
+	if active_index >= 0:
+		var active_task: Dictionary = GFVariantData.as_dictionary(_async_tasks[active_index])
+		var active_thread: Thread = _get_task_thread(active_task)
+		if active_thread != null and not active_thread.is_alive():
+			_join_async_task(active_task)
+			return false
+		var caller_status: GFStorageAsyncCallerResult.Status = (
+			GFStorageAsyncCallerResult.Status.CANCELLED
+			if operation.get_operation() == GFStorageAsyncOperation.OPERATION_LOAD
+			else GFStorageAsyncCallerResult.Status.OUTCOME_UNKNOWN
+		)
+		return operation.complete_caller_for_framework(
+			caller_status,
+			end_kind as GFStorageAsyncCallerResult.EndKind,
+			reason,
+			end_kind != GFStorageAsyncCallerResult.EndKind.OWNER_RELEASED
+		)
+	if _async_settling_records.has(record_id):
+		return false
+
+	var queued_index: int = _find_queued_async_task_index(record_id)
+	var queued_task: Dictionary = {}
+	if queued_index >= 0:
+		queued_task = GFVariantData.as_dictionary(_async_queue[queued_index])
+	return _complete_cancelled_before_acceptance(
+		operation,
+		queued_task,
+		end_kind as GFStorageAsyncCallerResult.EndKind,
+		reason,
+		end_kind != GFStorageAsyncCallerResult.EndKind.OWNER_RELEASED
+	)
 
 
 ## 删除一个冻结 delete family 的精确物理成员。
@@ -1081,14 +1257,113 @@ func remove_delete_family_member_for_framework(
 
 # --- 私有/辅助方法 ---
 
-func _make_async_operation(operation_kind: StringName) -> GFStorageAsyncOperation:
+func _make_async_operation(
+	operation_kind: StringName,
+	options: GFStorageAsyncRequestOptions = null
+) -> GFStorageAsyncOperation:
 	var operation: GFStorageAsyncOperation = GFStorageAsyncOperation.new()
 	var request_id: int = _next_async_request_id
 	_next_async_request_id += 1
 	if _next_async_request_id <= 0:
 		_next_async_request_id = 1
-	var _configured: bool = operation.configure_for_framework(request_id, operation_kind, "")
+	var configured: bool = operation.configure_for_framework(request_id, operation_kind, "")
+	if not configured:
+		return operation
+	var consumer_id: int = _next_async_consumer_id
+	_next_async_consumer_id += 1
+	if _next_async_consumer_id <= 0:
+		_next_async_consumer_id = 1
+	var options_invalid: bool = options != null and not options.is_valid()
+	var effective_options: GFStorageAsyncRequestOptions = null if options_invalid else options
+	var consumer_configured: bool = operation.configure_consumer_for_framework(
+		consumer_id,
+		effective_options,
+		_clock,
+		Callable(self, &"request_async_operation_cancel_for_framework")
+	)
+	if not consumer_configured:
+		_complete_invalid_async_consumer(operation)
+		return operation
+	_async_observers[request_id] = {
+		"consumer_id": consumer_id,
+		"operation": operation,
+		"record_id": 0,
+	}
+	var observer_invocation: GFWeakMethodInvocation = GFWeakMethodInvocation.new(
+		self,
+		&"_on_async_operation_completed_for_observer"
+	)
+	var observer_callback: Callable = func(_result: GFStorageAsyncResult) -> void:
+		var _invocation_result: Dictionary = observer_invocation.invoke([request_id])
+	var observer_connect_error: Error = operation.completed.connect(
+		observer_callback,
+		CONNECT_ONE_SHOT as Object.ConnectFlags
+	) as Error
+	if observer_connect_error != OK:
+		push_error("[GFStorageUtility] 无法连接异步请求物理终态观察器。")
+	if options_invalid:
+		_complete_invalid_async_consumer(operation)
 	return operation
+
+
+func _complete_invalid_async_consumer(operation: GFStorageAsyncOperation) -> void:
+	match operation.get_operation():
+		GFStorageAsyncOperation.OPERATION_SAVE:
+			_complete_async_operation(
+				operation,
+				ERR_INVALID_PARAMETER,
+				null,
+				GFStorageAsyncResult.WriteFailureKind.INVALID_REQUEST
+			)
+		GFStorageAsyncOperation.OPERATION_LOAD:
+			var read_result: GFStorageReadResult = _make_load_failure(
+				"Storage async request options are invalid.",
+				ERR_INVALID_PARAMETER,
+				GFStorageReadResult.FailureKind.INVALID_REQUEST
+			)
+			_complete_async_operation(operation, read_result.error_code, read_result)
+		GFStorageAsyncOperation.OPERATION_DELETE:
+			var delete_result: GFStorageDeleteResult = _make_delete_result(
+				ERR_INVALID_PARAMETER,
+				GFStorageDeleteResult.FailureKind.INVALID_REQUEST,
+				0,
+				0,
+				0,
+				GFStorageDeleteResult.FamilyMember.NONE
+			)
+			_complete_async_operation(
+				operation,
+				delete_result.get_error_code(),
+				null,
+				GFStorageAsyncResult.WriteFailureKind.NONE,
+				{},
+				delete_result
+			)
+
+
+func _queue_async_task(task: Dictionary) -> void:
+	var record_id: int = _next_async_record_id
+	_next_async_record_id += 1
+	if _next_async_record_id <= 0:
+		_next_async_record_id = 1
+	task["record_id"] = record_id
+	task["state"] = _AsyncTaskState.QUEUED
+	var operation: GFStorageAsyncOperation = _get_task_operation(task)
+	if operation != null:
+		var observer: Dictionary = _get_async_observer(operation)
+		if not observer.is_empty():
+			observer["record_id"] = record_id
+			observer["file_key"] = _get_task_file_key(task)
+	_async_queue.append(task)
+
+
+func _cancel_async_operation_before_queue_if_needed(
+	operation: GFStorageAsyncOperation
+) -> bool:
+	if operation == null:
+		return false
+	var _terminal_linearized: bool = operation.poll_caller_lifecycle_for_framework()
+	return operation.is_completed()
 
 
 func _make_async_target_family(canonical_file_name: String) -> Dictionary:
@@ -1178,9 +1453,11 @@ func _enqueue_async_save(
 		return ERR_INVALID_PARAMETER
 	if operation != null:
 		var _updated: bool = operation.set_file_name_for_framework(canonical_file_name)
+		if _cancel_async_operation_before_queue_if_needed(operation):
+			return ERR_SKIP
 	init()
 	var target_family: Dictionary = _make_async_target_family(canonical_file_name)
-	_async_queue.append({
+	_queue_async_task({
 		"type": &"save",
 		"file_name": file_name,
 		"storage_file_name": canonical_file_name,
@@ -1202,7 +1479,7 @@ func _enqueue_async_save(
 		"codec_options": _get_codec_options(),
 		"operation": operation,
 	})
-	_start_queued_async_tasks()
+	_request_async_start_only()
 	return OK
 
 
@@ -1243,6 +1520,8 @@ func _enqueue_async_payload_save(
 		)
 		save_completed.emit(file_name, ERR_INVALID_PARAMETER)
 		return ERR_INVALID_PARAMETER
+	if _cancel_async_operation_before_queue_if_needed(operation):
+		return ERR_SKIP
 
 	init()
 	var target_family: Dictionary = _make_async_target_family(canonical_file_name)
@@ -1285,7 +1564,7 @@ func _enqueue_async_payload_save(
 		return ERR_INVALID_PARAMETER
 
 	var payload: Dictionary = payload_value
-	_async_queue.append({
+	_queue_async_task({
 		"type": &"save",
 		"file_name": file_name,
 		"storage_file_name": canonical_file_name,
@@ -1307,7 +1586,7 @@ func _enqueue_async_payload_save(
 		"codec_options": codec_options,
 		"operation": operation,
 	})
-	_start_queued_async_tasks()
+	_request_async_start_only()
 	return OK
 
 
@@ -1345,9 +1624,11 @@ func _enqueue_async_load(
 		return ERR_INVALID_PARAMETER
 	if operation != null:
 		var _updated: bool = operation.set_file_name_for_framework(canonical_file_name)
+		if _cancel_async_operation_before_queue_if_needed(operation):
+			return ERR_SKIP
 	init()
 	var target_family: Dictionary = _make_async_target_family(canonical_file_name)
-	_async_queue.append({
+	_queue_async_task({
 		"type": &"load",
 		"file_name": file_name,
 		"storage_file_name": canonical_file_name,
@@ -1367,7 +1648,7 @@ func _enqueue_async_load(
 		"codec_options": _get_codec_options(),
 		"operation": operation,
 	})
-	_start_queued_async_tasks()
+	_request_async_start_only()
 	return OK
 
 
@@ -1437,6 +1718,8 @@ func _enqueue_async_delete(
 				identity_result
 			)
 			return ERR_INVALID_PARAMETER
+		if _cancel_async_operation_before_queue_if_needed(operation):
+			return ERR_SKIP
 
 	var target_family: Dictionary = _freeze_async_target_family(canonical_file_name)
 	if target_family.is_empty():
@@ -1482,7 +1765,7 @@ func _enqueue_async_delete(
 		)
 		return layout_error
 
-	_async_queue.append({
+	_queue_async_task({
 		"type": &"delete",
 		"file_name": file_name,
 		"storage_file_name": canonical_file_name,
@@ -1501,7 +1784,7 @@ func _enqueue_async_delete(
 		"resource_stage_path": GFVariantData.get_option_string(target_family, "resource_stage_path"),
 		"operation": operation,
 	})
-	_start_queued_async_tasks()
+	_request_async_start_only()
 	return OK
 
 
@@ -1557,7 +1840,11 @@ func _complete_async_operation(
 		return
 
 	var completed: bool = operation.complete_for_framework(result)
-	if completed or not operation.is_pending():
+	if completed:
+		_finalize_async_observer_after_physical_settlement(operation)
+		return
+	if not operation.is_pending():
+		_finalize_async_observer_after_physical_settlement(operation)
 		return
 	_finish_payload_attempt(operation)
 	var fallback_result: GFStorageAsyncResult = _make_async_operation_fallback_result(operation)
@@ -1567,6 +1854,38 @@ func _complete_async_operation(
 	var fallback_completed: bool = operation.complete_for_framework(fallback_result)
 	if not fallback_completed:
 		push_error("[GFStorageUtility] 异步请求未能进入 guaranteed fallback 终态。")
+		return
+	_finalize_async_observer_after_physical_settlement(operation)
+
+
+func _finalize_async_observer_after_physical_settlement(
+	operation: GFStorageAsyncOperation
+) -> void:
+	if operation == null:
+		return
+	var diagnostic: Dictionary = operation.take_late_settlement_diagnostic_for_framework()
+	if not diagnostic.is_empty():
+		_async_late_settlements.append(diagnostic.duplicate(true))
+		while _async_late_settlements.size() > _ASYNC_LATE_SETTLEMENT_CAPACITY:
+			_async_late_settlements.pop_front()
+	var _removed: bool = _async_observers.erase(operation.get_request_id())
+
+
+func _on_async_operation_completed_for_observer(request_id: int) -> void:
+	var observer_value: Variant = _async_observers.get(request_id)
+	if not observer_value is Dictionary:
+		return
+	var observer: Dictionary = observer_value
+	var operation: GFStorageAsyncOperation = _get_observer_operation(observer)
+	if operation == null or operation.get_request_id() != request_id:
+		return
+	var record_id: int = GFVariantData.get_option_int(observer, "record_id", 0)
+	var file_key: String = GFVariantData.get_option_string(observer, "file_key")
+	_finalize_async_observer_after_physical_settlement(operation)
+	_release_async_file_lock_for_record(
+		record_id,
+		file_key
+	)
 
 
 func _make_async_operation_fallback_result(
@@ -1625,10 +1944,33 @@ func _get_task_operation(task: Dictionary) -> GFStorageAsyncOperation:
 	return null
 
 
-func _wait_for_async_tasks_for_file(file_name: String) -> void:
+func _get_task_record_id(task: Dictionary) -> int:
+	return GFVariantData.get_option_int(task, "record_id", 0)
+
+
+func _get_async_observer(operation: GFStorageAsyncOperation) -> Dictionary:
+	if operation == null:
+		return {}
+	var observer_value: Variant = _async_observers.get(operation.get_request_id())
+	if observer_value is Dictionary:
+		var observer: Dictionary = observer_value
+		return observer
+	return {}
+
+
+func _get_observer_operation(observer: Dictionary) -> GFStorageAsyncOperation:
+	var operation_value: Variant = GFVariantData.get_option_value(observer, "operation")
+	if operation_value is GFStorageAsyncOperation:
+		var operation: GFStorageAsyncOperation = operation_value
+		return operation
+	return null
+
+
+func _wait_for_async_tasks_for_file(file_name: String) -> bool:
 	if not _has_pending_async_task_for_file(file_name):
-		return
+		return true
 	wait_for_async_tasks()
+	return not _has_pending_async_task_for_file(file_name)
 
 
 func _has_pending_async_task_for_file(file_name: String) -> bool:
@@ -1849,17 +2191,51 @@ func _get_result_error(result: Dictionary, default_value: Error = ERR_BUG) -> Er
 
 
 func _poll_async_tasks() -> void:
-	for i: int in range(_async_tasks.size() - 1, -1, -1):
-		var task: Dictionary = GFVariantData.as_dictionary(_async_tasks[i])
+	_request_async_scheduler_run()
+
+
+func _request_async_scheduler_run() -> void:
+	_async_scheduler_requested = true
+	if _async_scheduler_running:
+		return
+	_async_scheduler_running = true
+	while _async_scheduler_requested:
+		_async_scheduler_requested = false
+		_harvest_finished_async_tasks()
+		_poll_async_operation_lifecycles()
+		if not _is_disposing:
+			_start_queued_async_tasks()
+	_async_scheduler_running = false
+
+
+func _request_async_start_only() -> void:
+	_async_start_only_requested = true
+	if _async_start_only_running or _is_disposing:
+		return
+	_async_start_only_running = true
+	while _async_start_only_requested and not _is_disposing:
+		_async_start_only_requested = false
+		_start_queued_async_tasks()
+	_async_start_only_running = false
+
+
+func _harvest_finished_async_tasks() -> void:
+	var active_tasks: Array[Dictionary] = _async_tasks.duplicate()
+	for task: Dictionary in active_tasks:
 		var thread: Thread = _get_task_thread(task)
 		if thread == null or thread.is_alive():
 			continue
+		_join_async_task(task)
 
-		var result_variant: Variant = thread.wait_to_finish()
-		_async_tasks.remove_at(i)
-		_erase_dictionary_key(_async_file_locks, _get_task_file_key(task))
-		_complete_finished_async_task(task, result_variant)
-	_start_queued_async_tasks()
+
+func _poll_async_operation_lifecycles() -> void:
+	var observer_values: Array = _async_observers.values().duplicate()
+	for observer_value: Variant in observer_values:
+		var observer: Dictionary = GFVariantData.as_dictionary(observer_value)
+		var operation: GFStorageAsyncOperation = _get_observer_operation(observer)
+		if operation == null or not operation.is_caller_pending():
+			continue
+		var _terminal_linearized: bool = operation.poll_caller_lifecycle_for_framework()
 
 
 func _try_complete_quiesce() -> void:
@@ -1875,29 +2251,52 @@ func _try_complete_quiesce() -> void:
 
 
 func _wait_for_async_tasks() -> void:
-	var active_tasks: Array[Dictionary] = _async_tasks.duplicate()
-	_async_tasks.clear()
-	for task: Dictionary in active_tasks:
-		var thread: Thread = _get_task_thread(task)
-		if thread != null:
-			var result_variant: Variant = thread.wait_to_finish()
-			_erase_dictionary_key(_async_file_locks, _get_task_file_key(task))
-			_complete_finished_async_task(task, result_variant)
-	_async_file_locks.clear()
-	_fail_queued_async_tasks("Storage utility disposed before task started.")
-	_async_queue.clear()
+	_harvest_finished_async_tasks()
+	_poll_async_operation_lifecycles()
+	_cancel_all_queued_async_tasks_for_dispose()
+	while not _async_tasks.is_empty() or not _async_queue.is_empty():
+		_start_queued_async_tasks(true)
+		if _async_tasks.is_empty():
+			break
+		var task: Dictionary = GFVariantData.as_dictionary(_async_tasks.front())
+		if task.is_empty() or _get_task_thread(task) == null:
+			break
+		_join_async_task(task)
 
 
-func _start_queued_async_tasks() -> void:
-	if _is_disposing:
+func _start_queued_async_tasks(allow_during_dispose: bool = false) -> void:
+	if _is_disposing and not allow_during_dispose:
 		return
-	while not _is_disposing and _async_tasks.size() < maxi(max_async_thread_count, 1):
+	while (
+		(not _is_disposing or allow_during_dispose)
+		and _async_tasks.size() < maxi(max_async_thread_count, 1)
+	):
 		var task_index: int = _find_startable_async_task_index()
 		if task_index < 0:
 			return
 
 		var task: Dictionary = GFVariantData.as_dictionary(_async_queue[task_index])
+		var operation: GFStorageAsyncOperation = _get_task_operation(task)
+		if operation != null:
+			var _terminal_linearized: bool = operation.poll_caller_lifecycle_for_framework()
+			task_index = _find_queued_async_task_index(_get_task_record_id(task))
+			if task_index < 0:
+				continue
+			if not operation.mark_worker_accepted_for_framework():
+				var _cancelled: bool = _cancel_queued_async_task(
+					task,
+					GFStorageAsyncCallerResult.EndKind.EXPLICIT_CANCEL,
+					&"request_not_accepted",
+					true
+				)
+				continue
+
 		_async_queue.remove_at(task_index)
+		task["state"] = _AsyncTaskState.ACCEPTED
+		_async_tasks.append(task)
+		var file_key: String = _get_task_file_key(task)
+		if not file_key.is_empty():
+			_async_file_locks[file_key] = _get_task_record_id(task)
 		_start_async_task(task)
 
 
@@ -1915,24 +2314,28 @@ func _start_async_task(task: Dictionary) -> void:
 	var task_type: StringName = _get_task_type(task)
 	var target_error: Error = _validate_frozen_async_target(task)
 	if target_error != OK:
-		_emit_async_start_failed(
-			task,
-			target_error,
-			GFStorageAsyncResult.WriteFailureKind.INVALID_REQUEST,
-			"Frozen target validation failed",
-			GFStorageDeleteResult.FailureKind.INVALID_REQUEST
-		)
+		if _begin_async_task_settlement(task):
+			_emit_async_start_failed(
+				task,
+				target_error,
+				GFStorageAsyncResult.WriteFailureKind.INVALID_REQUEST,
+				"Frozen target validation failed",
+				GFStorageDeleteResult.FailureKind.INVALID_REQUEST
+			)
+			_end_async_task_settlement(task)
 		return
 
 	if task_type != &"delete":
 		var recovery_error: Error = _recover_frozen_async_transaction(task)
 		if recovery_error != OK:
-			_emit_async_start_failed(
-				task,
-				recovery_error,
-				GFStorageAsyncResult.WriteFailureKind.IO_FAILED,
-				"Transaction recovery failed"
-			)
+			if _begin_async_task_settlement(task):
+				_emit_async_start_failed(
+					task,
+					recovery_error,
+					GFStorageAsyncResult.WriteFailureKind.IO_FAILED,
+					"Transaction recovery failed"
+				)
+				_end_async_task_settlement(task)
 			return
 
 	var callback: Callable = Callable()
@@ -1963,14 +2366,281 @@ func _start_async_task(task: Dictionary) -> void:
 		)
 
 	var thread: Thread = Thread.new()
+	_async_worker_start_depth += 1
 	var error: Error = start_async_worker_for_framework(task_type, thread, callback)
-	if error != OK:
-		_emit_async_start_failed(task, error)
+	_async_worker_start_depth = maxi(_async_worker_start_depth - 1, 0)
+	var worker_started: bool = thread.is_started()
+	var ownership_valid: bool = _has_exact_active_task_ownership(task)
+	if worker_started:
+		task["thread"] = thread
+		task["state"] = _AsyncTaskState.RUNNING
+		if not ownership_valid and not _restore_exact_active_task_ownership(task):
+			push_error("[GFStorageUtility] worker 启动后丢失 exact active/file-lock ownership。")
+			var emergency_result: Variant = thread.wait_to_finish()
+			_begin_unowned_async_task_settlement(task)
+			_complete_finished_async_task(task, emergency_result)
+			_end_async_task_settlement(task)
+			return
+		_run_deferred_async_dispose_if_ready()
 		return
 
-	task["thread"] = thread
-	_async_file_locks[_get_task_file_key(task)] = true
-	_async_tasks.append(task)
+	var start_error: Error = error
+	if start_error == OK:
+		start_error = ERR_CANT_CREATE
+	if ownership_valid and _begin_async_task_settlement(task):
+		_emit_async_start_failed(task, start_error)
+		_end_async_task_settlement(task)
+		return
+	push_error("[GFStorageUtility] worker 未启动且丢失 exact active/file-lock ownership。")
+	_begin_unowned_async_task_settlement(task)
+	_emit_async_start_failed(task, start_error)
+	_end_async_task_settlement(task)
+
+
+func _join_async_task(task: Dictionary) -> void:
+	var active_index: int = _find_active_async_task_index(_get_task_record_id(task))
+	if active_index < 0:
+		return
+	var thread: Thread = _get_task_thread(task)
+	if thread == null:
+		return
+	var result_variant: Variant = thread.wait_to_finish()
+	if not _begin_async_task_settlement(task):
+		push_error("[GFStorageUtility] worker 退出后无法取得 settling ownership。")
+		return
+	_complete_finished_async_task(task, result_variant)
+	_end_async_task_settlement(task)
+
+
+func _begin_async_task_settlement(task: Dictionary) -> bool:
+	var record_id: int = _get_task_record_id(task)
+	var file_key: String = _get_task_file_key(task)
+	if (
+		record_id <= 0
+		or _async_settling_records.has(record_id)
+		or _find_active_async_task_index(record_id) < 0
+		or (
+			not file_key.is_empty()
+			and GFVariantData.get_option_int(_async_file_locks, file_key, 0) != record_id
+		)
+	):
+		return false
+	var active_index: int = _find_active_async_task_index(record_id)
+	_async_tasks.remove_at(active_index)
+	task["state"] = _AsyncTaskState.SETTLING
+	task["settlement_depth_owned"] = true
+	_async_settling_records[record_id] = {
+		"file_key": file_key,
+	}
+	_async_completion_depth += 1
+	return true
+
+
+func _begin_unowned_async_task_settlement(task: Dictionary) -> void:
+	var active_index: int = _find_active_async_task_index(_get_task_record_id(task))
+	if active_index >= 0:
+		_async_tasks.remove_at(active_index)
+	task["state"] = _AsyncTaskState.SETTLING
+	task["settlement_depth_owned"] = true
+	_async_completion_depth += 1
+
+
+func _end_async_task_settlement(task: Dictionary) -> void:
+	_release_async_file_lock_for_record(
+		_get_task_record_id(task),
+		_get_task_file_key(task)
+	)
+	if GFVariantData.get_option_bool(task, "settlement_depth_owned", false):
+		task["settlement_depth_owned"] = false
+		_async_completion_depth = maxi(_async_completion_depth - 1, 0)
+	_run_deferred_async_dispose_if_ready()
+
+
+func _release_async_file_lock_for_record(record_id: int, file_key: String) -> void:
+	if record_id <= 0:
+		return
+	var settling_value: Variant = _async_settling_records.get(record_id)
+	if not settling_value is Dictionary:
+		return
+	var settling_record: Dictionary = settling_value
+	if GFVariantData.get_option_string(settling_record, "file_key") != file_key:
+		return
+	if (
+		not file_key.is_empty()
+		and GFVariantData.get_option_int(_async_file_locks, file_key, 0) == record_id
+	):
+		_erase_dictionary_key(_async_file_locks, file_key)
+	var _settling_removed: bool = _async_settling_records.erase(record_id)
+	_try_complete_quiesce()
+
+
+func _release_async_file_lock_for_task(task: Dictionary) -> void:
+	_release_async_file_lock_for_record(
+		_get_task_record_id(task),
+		_get_task_file_key(task)
+	)
+
+
+func _has_exact_active_task_ownership(task: Dictionary) -> bool:
+	var record_id: int = _get_task_record_id(task)
+	if record_id <= 0 or _find_active_async_task_index(record_id) < 0:
+		return false
+	var file_key: String = _get_task_file_key(task)
+	return (
+		file_key.is_empty()
+		or GFVariantData.get_option_int(_async_file_locks, file_key, 0) == record_id
+	)
+
+
+func _restore_exact_active_task_ownership(task: Dictionary) -> bool:
+	var record_id: int = _get_task_record_id(task)
+	if record_id <= 0 or _async_settling_records.has(record_id):
+		return false
+	var file_key: String = _get_task_file_key(task)
+	var lock_owner: int = GFVariantData.get_option_int(_async_file_locks, file_key, 0)
+	if not file_key.is_empty() and lock_owner not in [0, record_id]:
+		return false
+	if _find_active_async_task_index(record_id) < 0:
+		_async_tasks.append(task)
+	if not file_key.is_empty():
+		_async_file_locks[file_key] = record_id
+	return true
+
+
+func _run_deferred_async_dispose_if_ready() -> void:
+	if (
+		not _async_deferred_dispose_requested
+		or _is_disposing
+		or _async_completion_depth > 0
+		or _async_worker_start_depth > 0
+	):
+		return
+	_async_deferred_dispose_requested = false
+	dispose()
+
+
+func _find_active_async_task_index(record_id: int) -> int:
+	if record_id <= 0:
+		return -1
+	for index: int in range(_async_tasks.size()):
+		var task: Dictionary = GFVariantData.as_dictionary(_async_tasks[index])
+		if _get_task_record_id(task) == record_id:
+			return index
+	return -1
+
+
+func _find_queued_async_task_index(record_id: int) -> int:
+	if record_id <= 0:
+		return -1
+	for index: int in range(_async_queue.size()):
+		var task: Dictionary = GFVariantData.as_dictionary(_async_queue[index])
+		if _get_task_record_id(task) == record_id:
+			return index
+	return -1
+
+
+func _cancel_all_queued_async_tasks_for_dispose() -> void:
+	var queued_tasks: Array[Dictionary] = _async_queue.duplicate()
+	for task: Dictionary in queued_tasks:
+		var operation: GFStorageAsyncOperation = _get_task_operation(task)
+		if operation != null:
+			var _cancelled: bool = _complete_cancelled_before_acceptance(
+				operation,
+				task,
+				GFStorageAsyncCallerResult.EndKind.UTILITY_DISPOSED,
+				&"utility_disposed",
+				true
+			)
+			continue
+		var queued_index: int = _find_queued_async_task_index(_get_task_record_id(task))
+		if queued_index >= 0:
+			_async_queue.remove_at(queued_index)
+		_complete_legacy_queued_dispose(task)
+
+
+func _complete_legacy_queued_dispose(task: Dictionary) -> void:
+	var file_name: String = _get_task_file_name(task)
+	match _get_task_type(task):
+		&"save":
+			save_completed.emit(file_name, ERR_UNAVAILABLE)
+		&"load":
+			var failed_result: GFStorageReadResult = _make_load_failure(
+				"Storage utility disposed before task started.",
+				ERR_UNAVAILABLE,
+				GFStorageReadResult.FailureKind.UNAVAILABLE
+			)
+			last_load_result = failed_result.duplicate_result()
+			load_completed.emit(file_name, failed_result.duplicate_result())
+
+
+func _cancel_queued_async_task(
+	task: Dictionary,
+	end_kind: GFStorageAsyncCallerResult.EndKind,
+	reason: StringName,
+	emit_caller_signal: bool
+) -> bool:
+	var operation: GFStorageAsyncOperation = _get_task_operation(task)
+	if operation == null:
+		return false
+	return _complete_cancelled_before_acceptance(
+		operation,
+		task,
+		end_kind,
+		reason,
+		emit_caller_signal
+	)
+
+
+func _complete_cancelled_before_acceptance(
+	operation: GFStorageAsyncOperation,
+	task: Dictionary,
+	end_kind: GFStorageAsyncCallerResult.EndKind,
+	reason: StringName,
+	emit_caller_signal: bool
+) -> bool:
+	if operation == null or not operation.is_caller_pending():
+		return false
+	if not task.is_empty() and _get_task_operation(task) != operation:
+		return false
+	_finish_payload_attempt(operation)
+	if not operation.is_payload_attempt_ready_for_settlement_for_framework():
+		var degraded: bool = operation.complete_caller_for_framework(
+			GFStorageAsyncCallerResult.Status.OUTCOME_UNKNOWN,
+			end_kind,
+			reason,
+			emit_caller_signal
+		)
+		if degraded:
+			_request_async_start_only()
+		return degraded
+	var cancelled_result: GFStorageAsyncResult = GFStorageAsyncResult.new()
+	if not cancelled_result.configure_cancelled_for_framework(
+		operation.get_request_id(),
+		operation.get_operation(),
+		operation.get_file_name()
+	):
+		push_error("[GFStorageUtility] 接纳前取消无法构造闭合物理终态。")
+		return false
+	if not operation.mark_physical_cancel_requested_for_framework():
+		return false
+	if not task.is_empty():
+		var queued_index: int = _find_queued_async_task_index(_get_task_record_id(task))
+		if queued_index < 0:
+			push_error("[GFStorageUtility] 接纳前取消丢失权威 queued record。")
+			return false
+		_async_queue.remove_at(queued_index)
+	var completed: bool = operation.complete_for_framework(
+		cancelled_result,
+		end_kind,
+		reason,
+		emit_caller_signal
+	)
+	if not completed:
+		push_error("[GFStorageUtility] 接纳前取消未能提交 guaranteed physical terminal。")
+		return false
+	_finalize_async_observer_after_physical_settlement(operation)
+	_request_async_start_only()
+	return true
 
 
 func _validate_frozen_async_target(task: Dictionary) -> Error:
@@ -2065,6 +2735,7 @@ func _emit_async_start_failed(
 			null,
 			write_failure_kind
 		)
+		_release_async_file_lock_for_task(task)
 		save_completed.emit(file_name, error)
 	elif task_type == &"load":
 		if error != ERR_FILE_NOT_FOUND:
@@ -2081,6 +2752,7 @@ func _emit_async_start_failed(
 		)
 		last_load_result = failed_result.duplicate_result()
 		_complete_async_operation(operation, failed_result.error_code, failed_result)
+		_release_async_file_lock_for_task(task)
 		load_completed.emit(file_name, failed_result.duplicate_result())
 	elif task_type == &"delete":
 		push_error("[GFStorageUtility] 异步删除失败：%s，原因：%s，错误码：%s" % [
@@ -2104,6 +2776,7 @@ func _emit_async_start_failed(
 			{},
 			delete_result
 		)
+		_release_async_file_lock_for_task(task)
 
 
 func _complete_finished_async_task(task: Dictionary, result_variant: Variant) -> void:
@@ -2136,9 +2809,10 @@ func _complete_finished_async_task(task: Dictionary, result_variant: Variant) ->
 			write_failure_kind,
 			validation_report
 		)
+		_release_async_file_lock_for_task(task)
 		save_completed.emit(file_name, error)
 	elif task_type == &"load":
-		_complete_async_load(file_name, result_variant, operation)
+		_complete_async_load(task, result_variant, operation)
 	elif task_type == &"delete":
 		var delete_result: GFStorageDeleteResult = _make_delete_result_from_worker(
 			result_variant
@@ -2151,48 +2825,7 @@ func _complete_finished_async_task(task: Dictionary, result_variant: Variant) ->
 			{},
 			delete_result
 		)
-
-
-func _fail_queued_async_tasks(reason: String) -> void:
-	for task: Dictionary in _async_queue:
-		var file_name: String = _get_task_file_name(task)
-		var task_type: StringName = _get_task_type(task)
-		var operation: GFStorageAsyncOperation = _get_task_operation(task)
-		if task_type == &"save":
-			_finish_payload_attempt(operation)
-			_complete_async_operation(
-				operation,
-				ERR_UNAVAILABLE,
-				null,
-				GFStorageAsyncResult.WriteFailureKind.UNAVAILABLE
-			)
-			save_completed.emit(file_name, ERR_UNAVAILABLE)
-		elif task_type == &"load":
-			var failed_result: GFStorageReadResult = _make_load_failure(
-				reason,
-				ERR_UNAVAILABLE,
-				GFStorageReadResult.FailureKind.UNAVAILABLE
-			)
-			last_load_result = failed_result.duplicate_result()
-			_complete_async_operation(operation, failed_result.error_code, failed_result)
-			load_completed.emit(file_name, failed_result.duplicate_result())
-		elif task_type == &"delete":
-			var delete_result: GFStorageDeleteResult = _make_delete_result(
-				ERR_UNAVAILABLE,
-				GFStorageDeleteResult.FailureKind.UNAVAILABLE,
-				0,
-				0,
-				0,
-				GFStorageDeleteResult.FamilyMember.NONE
-			)
-			_complete_async_operation(
-				operation,
-				delete_result.get_error_code(),
-				null,
-				GFStorageAsyncResult.WriteFailureKind.NONE,
-				{},
-				delete_result
-			)
+		_release_async_file_lock_for_task(task)
 
 
 func _finish_payload_attempt(operation: GFStorageAsyncOperation) -> void:
@@ -2302,10 +2935,11 @@ func _make_delete_result_from_worker(result_variant: Variant) -> GFStorageDelete
 
 
 func _complete_async_load(
-	file_name: String,
+	task: Dictionary,
 	result_variant: Variant,
 	operation: GFStorageAsyncOperation
 ) -> void:
+	var file_name: String = _get_task_file_name(task)
 	var result_data: Dictionary = GFVariantData.as_dictionary(result_variant)
 	var result: GFStorageReadResult
 	if result_data.is_empty():
@@ -2316,18 +2950,37 @@ func _complete_async_load(
 		)
 	else:
 		result = GFStorageReadResult.from_dict(result_data)
-	result = _apply_schema_migrations(file_name, result)
+	var from_version: int = result.data_version if result != null else 0
+	result = _apply_schema_migrations(file_name, result, false)
+	var migration_to_version: int = result.data_version if result != null else from_version
+	var should_emit_migrated: bool = (
+		result != null
+		and result.ok
+		and result.migrated
+		and migration_to_version > from_version
+	)
+	var integrity_failure: String = ""
 	last_load_result = result.duplicate_result()
 	if not result.ok:
 		if _should_emit_load_integrity_failed(result):
-			data_integrity_failed.emit(file_name, result.error)
+			integrity_failure = result.error
 		_complete_async_operation(operation, result.error_code, result)
+		_release_async_file_lock_for_task(task)
+		if should_emit_migrated:
+			data_migrated.emit(file_name, from_version, migration_to_version)
+		if not integrity_failure.is_empty():
+			data_integrity_failed.emit(file_name, integrity_failure)
 		load_completed.emit(file_name, last_load_result.duplicate_result())
 		return
 
 	if result.integrity_status == GFStorageReadResult.IntegrityStatus.INVALID:
-		data_integrity_failed.emit(file_name, "Integrity checksum mismatch")
+		integrity_failure = "Integrity checksum mismatch"
 	_complete_async_operation(operation, OK, result)
+	_release_async_file_lock_for_task(task)
+	if should_emit_migrated:
+		data_migrated.emit(file_name, from_version, migration_to_version)
+	if not integrity_failure.is_empty():
+		data_integrity_failed.emit(file_name, integrity_failure)
 	load_completed.emit(file_name, last_load_result.duplicate_result())
 
 
@@ -4263,7 +4916,11 @@ func _get_codec_options() -> Dictionary:
 	}
 
 
-func _apply_schema_migrations(file_name: String, result: GFStorageReadResult) -> GFStorageReadResult:
+func _apply_schema_migrations(
+	file_name: String,
+	result: GFStorageReadResult,
+	emit_migrated_signal: bool = true
+) -> GFStorageReadResult:
 	if result == null or not result.ok:
 		return result
 	var from_version: int = result.data_version
@@ -4310,7 +4967,8 @@ func _apply_schema_migrations(file_name: String, result: GFStorageReadResult) ->
 	result.metadata = migrated_metadata
 	result.data_version = to_version
 	result.migrated = true
-	data_migrated.emit(file_name, from_version, to_version)
+	if emit_migrated_signal:
+		data_migrated.emit(file_name, from_version, to_version)
 	return result
 
 

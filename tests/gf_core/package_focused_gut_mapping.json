@@ -256,6 +256,7 @@
     ],
     "gf.standard.storage": [
       "res://tests/gf_core/standard/utilities/history/test_gf_snapshot_history_utility.gd",
+      "res://tests/gf_core/standard/utilities/storage/test_gf_storage_async_operation_lifecycle.gd",
       "res://tests/gf_core/standard/utilities/storage/test_gf_safe_resource_codec.gd",
       "res://tests/gf_core/standard/utilities/storage/test_gf_storage_codec.gd",
       "res://tests/gf_core/standard/utilities/storage/test_gf_storage_delete_operation.gd",
