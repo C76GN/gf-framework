@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFArtifactWriteTransaction" path="addons/gf/kernel/editor/gf_artifact_write_transaction.gd" module="kernel" extends="RefCounted" classDigest="ecee34d2b565a951c580554cc91f4484eb475fbd78fb0c1ec2a14453d47c8025">
+<class name="GFArtifactWriteTransaction" path="addons/gf/kernel/editor/gf_artifact_write_transaction.gd" module="kernel" extends="RefCounted" classDigest="efd031a0f4d42387db915cbd1e1ed0918604171335fb33867aea39a8c98bab3b">
 	<description>GFArtifactWriteTransaction: 编辑器与项目工具可复用的多产物文件提交事务。
 在显式资源根、文件数量和字节预算内预检文本、字节或临时文件产物，
 先把全部内容写入目标同目录的 staging 文件，再逐项替换目标。任一提交
@@ -141,8 +141,8 @@ allowed_roots 必须位于调用方信任且不会被本机其他进程恶意交
 				<tag name="param">text: UTF-8 文本内容。</tag>
 				<tag name="param">options: 单 entry 选项。</tag>
 				<tag name="return">可交给 commit() 的 entry 副本。</tag>
-				<tag name="schema">options: Dictionary，可包含 overwrite、expected_sha256、expected_existing_sha256、artifact_id 和 metadata；两个 hash 字段都必须是精确 String，expected_sha256 约束新内容，expected_existing_sha256 约束提交前既有目标。</tag>
-				<tag name="schema">return: Dictionary，包含 kind、target_path、text、overwrite、expected_sha256、expected_existing_sha256、artifact_id 和 metadata。</tag>
+				<tag name="schema">options: Dictionary，可包含 overwrite、expected_sha256、preflight_existing_sha256、artifact_id 和 metadata；两个 hash 字段都必须是精确 String。expected_sha256 约束新内容；preflight_existing_sha256 在预检与每个可观察替换边界复核既有目标，但不提供跨进程原子 compare-and-exchange。</tag>
+				<tag name="schema">return: Dictionary，包含 kind、target_path、text、overwrite、expected_sha256、preflight_existing_sha256、artifact_id 和 metadata。</tag>
 				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
@@ -155,8 +155,8 @@ allowed_roots 必须位于调用方信任且不会被本机其他进程恶意交
 				<tag name="param">bytes: 产物字节；entry 持有隔离副本。</tag>
 				<tag name="param">options: 单 entry 选项。</tag>
 				<tag name="return">可交给 commit() 的 entry 副本。</tag>
-				<tag name="schema">options: Dictionary，可包含 overwrite、expected_sha256、expected_existing_sha256、artifact_id 和 metadata；两个 hash 字段都必须是精确 String，expected_sha256 约束新内容，expected_existing_sha256 约束提交前既有目标。</tag>
-				<tag name="schema">return: Dictionary，包含 kind、target_path、bytes、overwrite、expected_sha256、expected_existing_sha256、artifact_id 和 metadata。</tag>
+				<tag name="schema">options: Dictionary，可包含 overwrite、expected_sha256、preflight_existing_sha256、artifact_id 和 metadata；两个 hash 字段都必须是精确 String。expected_sha256 约束新内容；preflight_existing_sha256 在预检与每个可观察替换边界复核既有目标，但不提供跨进程原子 compare-and-exchange。</tag>
+				<tag name="schema">return: Dictionary，包含 kind、target_path、bytes、overwrite、expected_sha256、preflight_existing_sha256、artifact_id 和 metadata。</tag>
 				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
@@ -170,8 +170,8 @@ source_path 只在 commit() 期间读取，不会被移动或删除。</descript
 				<tag name="param">source_path: 已生成文件路径。</tag>
 				<tag name="param">options: 单 entry 选项。</tag>
 				<tag name="return">可交给 commit() 的 entry 副本。</tag>
-				<tag name="schema">options: Dictionary，可包含 overwrite、expected_sha256、expected_existing_sha256、artifact_id 和 metadata；两个 hash 字段都必须是精确 String，expected_sha256 约束新内容，expected_existing_sha256 约束提交前既有目标。</tag>
-				<tag name="schema">return: Dictionary，包含 kind、target_path、source_path、overwrite、expected_sha256、expected_existing_sha256、artifact_id 和 metadata。</tag>
+				<tag name="schema">options: Dictionary，可包含 overwrite、expected_sha256、preflight_existing_sha256、artifact_id 和 metadata；两个 hash 字段都必须是精确 String。expected_sha256 约束新内容；preflight_existing_sha256 在预检与每个可观察替换边界复核既有目标，但不提供跨进程原子 compare-and-exchange。</tag>
+				<tag name="schema">return: Dictionary，包含 kind、target_path、source_path、overwrite、expected_sha256、preflight_existing_sha256、artifact_id 和 metadata。</tag>
 				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>

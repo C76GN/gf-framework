@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFAssetBrowserModel" path="addons/gf/tools/asset_browser/gf_asset_browser_model.gd" module="tools" extends="RefCounted" classDigest="885853506a1623652b2c34a9b78c4e9b3e69e62fa82842b3fb80c81abb41489d">
+<class name="GFAssetBrowserModel" path="addons/gf/tools/asset_browser/gf_asset_browser_model.gd" module="tools" extends="RefCounted" classDigest="4ae48227074ed92c7c12d2daf6a772e15122e6e05d5dda3eb2ceeefa30450ff8">
 	<description>GFAssetBrowserModel: 资产浏览器的无界面状态模型。
 持有隔离的 GFAssetCatalog 快照、查询代际和稳定 ID 选择，供项目编辑器
 页面自行决定布局、来源注入和资源物化策略。本模型不扫描目录、不下载、
@@ -44,11 +44,13 @@ listener 触发的嵌套 mutation 只会排到队尾；当前 signal 的全部 l
 		<member kind="signal" name="preview_resolved">
 			<signature>signal preview_resolved(report: Dictionary)</signature>
 			<description>当前代际的预览任务进入终态后发出。
-被目录、查询或新预览代际淘汰的旧任务不会发布结果。</description>
+被目录、查询或新预览代际淘汰的旧任务不会发布结果。报告与预览计划的
+Dictionary / Array 容器只读；Image / ImageTexture 等引擎对象句柄仍由
+listener 按只读引用使用。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">report: 预览终态报告。</tag>
-				<tag name="schema">report: Dictionary with asset_id, preview_generation, catalog_revision, query_generation, state, result, error, and cancel_reason.</tag>
+				<tag name="schema">report: 闭合 Dictionary，精确包含 asset_id: StringName、preview_generation: int、catalog_revision: int、query_generation: int、state: StringName、result、error: String 和 cancel_reason: StringName。result 只能是 null、Image、ImageTexture，或精确包含 ok: true、generated_count: 非负 int、cancelled: bool、changes: Array 的 MeshLibrary plan；generated_count 必须等于 changes 数量且最多为 MAX_RESULT_COUNT，每个 change 精确包含非负 item_id: int、可空 old_preview: Texture2D 和非空 new_preview: Texture2D。所有 Dictionary / Array 容器只读；Image / Texture2D 是无法冻结的 Engine Object 句柄，listener 必须按只读引用使用。</tag>
 				<tag name="since">unreleased</tag>
 			</tags>
 		</member>

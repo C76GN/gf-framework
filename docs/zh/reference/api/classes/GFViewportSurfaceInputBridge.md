@@ -298,7 +298,7 @@ func cancel_pointer(capture: GFViewportSurfaceInputCapture, timestamp_msec: int)
 func cancel_source( source_id: StringName, timestamp_msec: int, device_id: int = -1 ) -> int:
 ```
 
-取消指定输入源的全部捕获。
+取消指定输入源的全部捕获，并清除调用前已结束指针的双击与时间状态。
 
 参数：
 

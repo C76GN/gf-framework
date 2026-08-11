@@ -249,8 +249,8 @@ static func make_text_entry( target_path: String, text: String, options: Diction
 
 结构：
 
-- `options`: Dictionary，可包含 overwrite、expected_sha256、expected_existing_sha256、artifact_id 和 metadata；两个 hash 字段都必须是精确 String，expected_sha256 约束新内容，expected_existing_sha256 约束提交前既有目标。
-- `return`: Dictionary，包含 kind、target_path、text、overwrite、expected_sha256、expected_existing_sha256、artifact_id 和 metadata。
+- `options`: Dictionary，可包含 overwrite、expected_sha256、preflight_existing_sha256、artifact_id 和 metadata；两个 hash 字段都必须是精确 String。expected_sha256 约束新内容；preflight_existing_sha256 在预检与每个可观察替换边界复核既有目标，但不提供跨进程原子 compare-and-exchange。
+- `return`: Dictionary，包含 kind、target_path、text、overwrite、expected_sha256、preflight_existing_sha256、artifact_id 和 metadata。
 
 <a id="member-gfartifactwritetransaction-methods-make_bytes_entry"></a>
 
@@ -277,8 +277,8 @@ static func make_bytes_entry( target_path: String, bytes: PackedByteArray, optio
 
 结构：
 
-- `options`: Dictionary，可包含 overwrite、expected_sha256、expected_existing_sha256、artifact_id 和 metadata；两个 hash 字段都必须是精确 String，expected_sha256 约束新内容，expected_existing_sha256 约束提交前既有目标。
-- `return`: Dictionary，包含 kind、target_path、bytes、overwrite、expected_sha256、expected_existing_sha256、artifact_id 和 metadata。
+- `options`: Dictionary，可包含 overwrite、expected_sha256、preflight_existing_sha256、artifact_id 和 metadata；两个 hash 字段都必须是精确 String。expected_sha256 约束新内容；preflight_existing_sha256 在预检与每个可观察替换边界复核既有目标，但不提供跨进程原子 compare-and-exchange。
+- `return`: Dictionary，包含 kind、target_path、bytes、overwrite、expected_sha256、preflight_existing_sha256、artifact_id 和 metadata。
 
 <a id="member-gfartifactwritetransaction-methods-make_file_entry"></a>
 
@@ -305,8 +305,8 @@ static func make_file_entry( target_path: String, source_path: String, options: 
 
 结构：
 
-- `options`: Dictionary，可包含 overwrite、expected_sha256、expected_existing_sha256、artifact_id 和 metadata；两个 hash 字段都必须是精确 String，expected_sha256 约束新内容，expected_existing_sha256 约束提交前既有目标。
-- `return`: Dictionary，包含 kind、target_path、source_path、overwrite、expected_sha256、expected_existing_sha256、artifact_id 和 metadata。
+- `options`: Dictionary，可包含 overwrite、expected_sha256、preflight_existing_sha256、artifact_id 和 metadata；两个 hash 字段都必须是精确 String。expected_sha256 约束新内容；preflight_existing_sha256 在预检与每个可观察替换边界复核既有目标，但不提供跨进程原子 compare-and-exchange。
+- `return`: Dictionary，包含 kind、target_path、source_path、overwrite、expected_sha256、preflight_existing_sha256、artifact_id 和 metadata。
 
 <a id="member-gfartifactwritetransaction-methods-get_preflight_report"></a>
 

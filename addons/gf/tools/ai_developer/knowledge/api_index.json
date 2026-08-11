@@ -2,7 +2,7 @@
   "schema_version": 1,
   "catalog_version": "1.0.0",
   "framework_version": "11.0.0-dev.0",
-  "source_digest": "ec27a158a337d502e6cc71c7154846a277612948b6321312ec67a5e2e26ceeff",
+  "source_digest": "94d3e6674de0eadffcdc7ec2c0b35f0cb4feb9d0c3379a7c00cbe25b67e5cc51",
   "class_count": 812,
   "package_count": 55,
   "packages": [
@@ -93681,7 +93681,7 @@
           "kind": "func",
           "name": "cancel_source",
           "signature": "func cancel_source( source_id: StringName, timestamp_msec: int, device_id: int = -1 ) -> int",
-          "summary": "取消指定输入源的全部捕获。",
+          "summary": "取消指定输入源的全部捕获，并清除调用前已结束指针的双击与时间状态。",
           "visibility": "public"
         },
         {

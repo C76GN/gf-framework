@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFViewportSurfaceInputBridge" path="addons/gf/standard/input/runtime/gf_viewport_surface_input_bridge.gd" module="standard" extends="RefCounted" classDigest="7f3582aac1899290869058f70637c08e9d59dcf3a8790ca9eedcb465faacd700">
+<class name="GFViewportSurfaceInputBridge" path="addons/gf/standard/input/runtime/gf_viewport_surface_input_bridge.gd" module="standard" extends="RefCounted" classDigest="15aa0857c228ab21ff097ca493ca733c80a2aef94eb35624ff6ca0d194eb1db5">
 	<description>GFViewportSurfaceInputBridge: 将外部表面命中桥接为 Viewport 指针事件。
 调用方只提供稳定 source/device/pointer 身份、目标 Viewport 代际、
 0..1 标准化表面坐标和显式单调毫秒。桥不求解射线、UV、Mesh、XR 或交互模式；
@@ -161,7 +161,7 @@
 		</member>
 		<member kind="method" name="cancel_source">
 			<signature>func cancel_source( source_id: StringName, timestamp_msec: int, device_id: int = -1 ) -&gt; int:</signature>
-			<description>取消指定输入源的全部捕获。</description>
+			<description>取消指定输入源的全部捕获，并清除调用前已结束指针的双击与时间状态。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">source_id: 待清理的输入源标识。</tag>

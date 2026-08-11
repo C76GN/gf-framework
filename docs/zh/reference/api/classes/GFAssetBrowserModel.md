@@ -107,7 +107,7 @@ signal selection_changed(asset_id: StringName)
 signal preview_resolved(report: Dictionary)
 ```
 
-当前代际的预览任务进入终态后发出。 被目录、查询或新预览代际淘汰的旧任务不会发布结果。
+当前代际的预览任务进入终态后发出。 被目录、查询或新预览代际淘汰的旧任务不会发布结果。报告与预览计划的 Dictionary / Array 容器只读；Image / ImageTexture 等引擎对象句柄仍由 listener 按只读引用使用。
 
 参数：
 
@@ -117,7 +117,7 @@ signal preview_resolved(report: Dictionary)
 
 结构：
 
-- `report`: Dictionary with asset_id, preview_generation, catalog_revision, query_generation, state, result, error, and cancel_reason.
+- `report`: 闭合 Dictionary，精确包含 asset_id: StringName、preview_generation: int、catalog_revision: int、query_generation: int、state: StringName、result、error: String 和 cancel_reason: StringName。result 只能是 null、Image、ImageTexture，或精确包含 ok: true、generated_count: 非负 int、cancelled: bool、changes: Array 的 MeshLibrary plan；generated_count 必须等于 changes 数量且最多为 MAX_RESULT_COUNT，每个 change 精确包含非负 item_id: int、可空 old_preview: Texture2D 和非空 new_preview: Texture2D。所有 Dictionary / Array 容器只读；Image / Texture2D 是无法冻结的 Engine Object 句柄，listener 必须按只读引用使用。
 
 ## 常量
 
