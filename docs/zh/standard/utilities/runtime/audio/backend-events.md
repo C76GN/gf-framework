@@ -26,7 +26,7 @@ audio.play_sfx("event://ui/confirm")
 
 后端需要接管类型化区间时，应把 `supports_playback_region_contract` 设为 `true`，并实现无副作用的 `evaluate_playback_region(clip, channel, region, context)`。只有该次请求返回 `APPLIED` 后 Utility 才调用对应 `play_*_clip()`，或在资源化事件路径调用 `post_event()`；`NONE` / `VALID` 不代表已应用，`UNSUPPORTED` 允许转入本地原生能力判断，`INVALID` 会终止请求。能力标记不能代替逐次评估，也不能把近似 seek、Timer 停止或后台轮询伪装成精确支持。完整边界见[类型化播放区间与循环点](playback/playback-regions.md)。
 
-`set_audio_backend()` 与 `clear_audio_backend()` 都返回 `bool`，调用方必须检查结果。backend topology 开始变化时，等待中的 typed BGM start 会以 `CANCELLED/backend_changed` 终结，迟到的资源或 backend 回调不能提交旧请求。替换或显式清除前，Utility 会按确定顺序停止当前后端拥有的 BGM 与环境音 channel，再按记录的 owner/backend identity 恢复并清除全部活跃 duck 作用域。某个 `stop_*()` 返回 `true` 且通过 backend/request/owner identity 复核后，该通道会立即提交为 `stopped`；若后续通道或 duck 基准拒绝恢复，本次 detach/replace 返回 `false`，原 backend 保持绑定且不会被 dispose，但已经确认停止的通道不会被伪装成仍在播放或回滚 owner。修正后端状态后重试时，只会处理仍未收敛的状态。
+`set_audio_backend()` 与 `clear_audio_backend()` 都返回 `bool`，调用方必须检查结果。backend topology 可以在 Utility `init()` 前配置或清除；此时 `true` 只表示 setup/dispose 与 backend identity 已按请求提交，不会提前开放 BGM 准入。backend topology 开始变化时，等待中的 typed BGM start 会以 `CANCELLED/backend_changed` 终结，迟到的资源或 backend 回调不能提交旧请求。替换或显式清除前，Utility 会按确定顺序停止当前后端拥有的 BGM 与环境音 channel，再按记录的 owner/backend identity 恢复并清除全部活跃 duck 作用域。某个 `stop_*()` 返回 `true` 且通过 backend/request/owner identity 复核后，该通道会立即提交为 `stopped`；若后续通道或 duck 基准拒绝恢复，本次 detach/replace 返回 `false`，原 backend 保持绑定且不会被 dispose，但已经确认停止的通道不会被伪装成仍在播放或回滚 owner。修正后端状态后重试时，只会处理仍未收敛的状态。
 
 `dispose()` 属于不可重试的生命周期终态，不沿用 detach/replace 的保留语义。dispose 发生在后端回调边界内时会先延迟到安全排空点；只有排空后后端仍拒绝停止 owned channel 或拒绝 dispose，Utility 才记录 warning。随后框架会强制解除内部 owner，恢复仍登记的 duck 总线基准，终结全部本地 playback handle，释放根播放器，并 dispose 或至少解除当前后端引用。架构释放因此不会被第三方后端的返回值卡住。
 
