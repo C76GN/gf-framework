@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFSettingsStoreUtility" path="addons/gf/standard/utilities/settings/gf_settings_store_utility.gd" module="standard" extends="GFUtility" classDigest="dc62204f7e5ff5dbf47d48258bad4ca7aada1564b2c3089cf0bae558d26f4a92">
+	<description>GFSettingsStoreUtility: 设置持久化的同步物理端口。
+该协议只定义设置载荷的读取、写入与能力查询，不绑定文件、Storage Utility、
+云服务或平台 SDK。Architecture 模式且启用持久化时应注册一个派生 Store Utility；
+standalone 模式会由 GFSettingsUtility 自动持有 File Store。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">protocol</tag>
+		<tag name="since">unreleased</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties />
+	<methods>
+		<member kind="method" name="is_persistence_enabled">
+			<signature>func is_persistence_enabled() -&gt; bool:</signature>
+			<description>检查当前 Store 是否可以接纳同步持久化请求。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">可以读取和写入设置时返回 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="read_settings">
+			<signature>func read_settings(file_name: String) -&gt; GFStorageReadResult:</signature>
+			<description>读取一个设置载荷。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">file_name: Store 内的逻辑设置文件名。</tag>
+				<tag name="return">强类型读取结果；默认返回 UNAVAILABLE。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="write_settings">
+			<signature>func write_settings(file_name: String, data: Dictionary) -&gt; Error:</signature>
+			<description>写入一个设置载荷。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">file_name: Store 内的逻辑设置文件名。</tag>
+				<tag name="param">data: 已由 Settings Utility 序列化的设置字典。</tag>
+				<tag name="return">Godot Error 结果码；默认返回 ERR_UNAVAILABLE。</tag>
+				<tag name="schema">data: Dictionary[String, Variant] persisted settings payload produced by GFSettingsUtility.to_dict(true).</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

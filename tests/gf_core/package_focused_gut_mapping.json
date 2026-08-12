@@ -290,7 +290,12 @@
       "res://tests/gf_core/standard/platform/test_gf_platform_runtime.gd"
     ],
     "gf.standard.settings": [
+      "res://tests/gf_core/standard/utilities/settings/test_gf_settings_lifecycle.gd",
+      "res://tests/gf_core/standard/utilities/settings/test_gf_settings_store_utility.gd",
       "res://tests/gf_core/standard/utilities/settings/test_gf_settings_utility.gd"
+    ],
+    "gf.standard.settings.storage": [
+      "res://tests/gf_core/standard/utilities/settings/test_gf_storage_settings_store_utility.gd"
     ],
     "gf.standard.ui": [
       "res://tests/gf_core/standard/utilities/ui/test_gf_table_data_view.gd",

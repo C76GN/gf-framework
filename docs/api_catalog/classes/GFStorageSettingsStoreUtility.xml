@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFStorageSettingsStoreUtility" path="addons/gf/standard/utilities/settings_storage/gf_storage_settings_store_utility.gd" module="standard" extends="GFSettingsStoreUtility" classDigest="0e067d5dbf7835c664990de02dcb2ec34a79484536afaf023b9a6d755e3abb21">
+	<description>GFStorageSettingsStoreUtility: GFStorageUtility 的设置持久化适配器。
+该 Utility 声明显式 Storage 生命周期依赖，只在依赖完成 ready 后缓存并同步转发
+设置读取和写入；释放依赖时清理缓存，避免在 Storage quiesce 或 dispose 后继续访问。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_service</tag>
+		<tag name="since">unreleased</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties />
+	<methods>
+		<member kind="method" name="ready">
+			<signature>func ready() -&gt; void:</signature>
+			<description>在已声明的 Storage 依赖完成 ready 后缓存其实例。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="release_dependencies">
+			<signature>func release_dependencies() -&gt; void:</signature>
+			<description>释放缓存的 Storage 引用和架构依赖作用域。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_required_utilities">
+			<signature>func get_required_utilities() -&gt; Array[Script]:</signature>
+			<description>声明同步设置持久化所需的 Storage Utility。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">只包含 GFStorageUtility 的依赖声明。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_persistence_enabled">
+			<signature>func is_persistence_enabled() -&gt; bool:</signature>
+			<description>检查 ready 阶段是否已经解析到 Storage Utility。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">Storage 依赖已缓存时返回 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="read_settings">
+			<signature>func read_settings(file_name: String) -&gt; GFStorageReadResult:</signature>
+			<description>通过缓存的 GFStorageUtility 同步读取设置。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">file_name: Storage root 内的逻辑文件名。</tag>
+				<tag name="return">GFStorageUtility 的隔离读取结果；依赖不可用时返回 UNAVAILABLE。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="write_settings">
+			<signature>func write_settings(file_name: String, data: Dictionary) -&gt; Error:</signature>
+			<description>通过缓存的 GFStorageUtility 同步写入设置。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">file_name: Storage root 内的逻辑文件名。</tag>
+				<tag name="param">data: 已由 Settings Utility 序列化的设置字典。</tag>
+				<tag name="return">GFStorageUtility 返回的 Godot Error 结果码；依赖不可用时返回 ERR_UNAVAILABLE。</tag>
+				<tag name="schema">data: Dictionary[String, Variant] persisted settings payload produced by GFSettingsUtility.to_dict(true).</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

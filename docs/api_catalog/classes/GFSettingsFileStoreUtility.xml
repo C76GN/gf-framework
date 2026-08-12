@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFSettingsFileStoreUtility" path="addons/gf/standard/utilities/settings/gf_settings_file_store_utility.gd" module="standard" extends="GFSettingsStoreUtility" classDigest="ad17942337a9e7da546b9a61beed6ea0056cc8d9c18abe60ff3686dc43cbd5a2">
+	<description>GFSettingsFileStoreUtility: 基于 `user://` 的设置文件 Store。
+该实现保留 GFSettingsUtility 历史 fallback 的同步 JSON 语义，只接受不含路径、
+`..`、盘符或前后空白的简单 basename，并返回严格 GFStorageReadResult。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_service</tag>
+		<tag name="since">unreleased</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties />
+	<methods>
+		<member kind="method" name="is_persistence_enabled">
+			<signature>func is_persistence_enabled() -&gt; bool:</signature>
+			<description>检查当前 FileAccess Store 是否可以接纳同步持久化请求。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">始终返回 true；单次文件错误由读写结果报告。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="read_settings">
+			<signature>func read_settings(file_name: String) -&gt; GFStorageReadResult:</signature>
+			<description>从 `user://` 读取一个 JSON 设置载荷。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">file_name: 不含目录部分的安全文件名。</tag>
+				<tag name="return">区分成功空载荷、缺失、损坏、无效请求与 IO 失败的读取结果。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="write_settings">
+			<signature>func write_settings(file_name: String, data: Dictionary) -&gt; Error:</signature>
+			<description>向 `user://` 写入一个 JSON 设置载荷。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">file_name: 不含目录部分的安全文件名。</tag>
+				<tag name="param">data: 已由 Settings Utility 序列化的设置字典。</tag>
+				<tag name="return">Godot Error 结果码。</tag>
+				<tag name="schema">data: Dictionary[String, Variant] persisted settings payload produced by GFSettingsUtility.to_dict(true).</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

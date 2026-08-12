@@ -2,9 +2,9 @@
   "schema_version": 1,
   "catalog_version": "1.0.0",
   "framework_version": "11.0.0-dev.0",
-  "source_digest": "6a3278376aee95062513634e8b39c4fdcfc5c1333d85bc0e99f304d9322e451d",
-  "class_count": 812,
-  "package_count": 55,
+  "source_digest": "2d4875f8d2b46a07b73a8b2813680ff9d201deb0af2258cb3d399efd673400aa",
+  "class_count": 816,
+  "package_count": 56,
   "packages": [
     {
       "id": "gf.extension.action_queue",
@@ -402,8 +402,20 @@
         "gf.standard.base",
         "gf.standard.storage"
       ],
-      "description": "Generic runtime settings definitions, staging, validation, and persistence through GFStorageUtility.",
+      "description": "Generic runtime settings definitions, staging, validation, and a synchronous persistence port.",
       "representative_path": "addons/gf/standard/utilities/settings/gf_setting_definition.gd"
+    },
+    {
+      "id": "gf.standard.settings.storage",
+      "kind": "standard",
+      "dependencies": [
+        "gf.kernel",
+        "gf.standard.base",
+        "gf.standard.settings",
+        "gf.standard.storage"
+      ],
+      "description": "Lifecycle-aware adapter that connects the backend-neutral settings persistence port to GFStorageUtility.",
+      "representative_path": "addons/gf/standard/utilities/settings_storage/gf_storage_settings_store_utility.gd"
     },
     {
       "id": "gf.standard.spatial",
@@ -27361,7 +27373,7 @@
           "kind": "var",
           "name": "apply_on_ready",
           "signature": "var apply_on_ready: bool = true",
-          "summary": "ready() 时是否立刻应用当前设置。",
+          "summary": "ready() 时是否立刻应用当前设置，并在延迟加载成功替换设置后重新应用完整状态。",
           "visibility": "public"
         },
         {
@@ -75732,6 +75744,39 @@
         }
       ]
     },
+    "GFSettingsFileStoreUtility": {
+      "extends": "GFSettingsStoreUtility",
+      "module": "standard",
+      "package_id": "gf.standard.settings",
+      "path": "addons/gf/standard/utilities/settings/gf_settings_file_store_utility.gd",
+      "summary": "GFSettingsFileStoreUtility: 基于 `user://` 的设置文件 Store。 该实现保留 GFSettingsUtility 历史 fallback 的同步 JSON 语义，只接受不含路径、 `..`、盘符或前后空白的简单 basename，并返回严格 GFStorageReadResult。",
+      "visibility": "public",
+      "category": "runtime_service",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "func",
+          "name": "is_persistence_enabled",
+          "signature": "func is_persistence_enabled() -> bool",
+          "summary": "检查当前 FileAccess Store 是否可以接纳同步持久化请求。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "read_settings",
+          "signature": "func read_settings(file_name: String) -> GFStorageReadResult",
+          "summary": "从 `user://` 读取一个 JSON 设置载荷。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "write_settings",
+          "signature": "func write_settings(file_name: String, data: Dictionary) -> Error",
+          "summary": "向 `user://` 写入一个 JSON 设置载荷。",
+          "visibility": "public"
+        }
+      ]
+    },
     "GFSettingsLoadResult": {
       "extends": "RefCounted",
       "module": "standard",
@@ -75877,6 +75922,17 @@
         }
       ]
     },
+    "GFSettingsNullStoreUtility": {
+      "extends": "GFSettingsStoreUtility",
+      "module": "standard",
+      "package_id": "gf.standard.settings",
+      "path": "addons/gf/standard/utilities/settings/gf_settings_null_store_utility.gd",
+      "summary": "GFSettingsNullStoreUtility: 显式不可用的设置持久化 Store 哨兵。 该实现继承 GFSettingsStoreUtility 的明确 UNAVAILABLE 结果，适合测试隔离或显式 表达 Store capability 缺失。纯内存模式应在 GFSettingsUtility 上设置",
+      "visibility": "public",
+      "category": "runtime_service",
+      "since": "unreleased",
+      "members": []
+    },
     "GFSettingsRecoveryPolicy": {
       "extends": "Resource",
       "module": "standard",
@@ -75927,6 +75983,39 @@
           "name": "validate_policy",
           "signature": "func validate_policy() -> Dictionary",
           "summary": "检查策略自身是否合法。",
+          "visibility": "public"
+        }
+      ]
+    },
+    "GFSettingsStoreUtility": {
+      "extends": "GFUtility",
+      "module": "standard",
+      "package_id": "gf.standard.settings",
+      "path": "addons/gf/standard/utilities/settings/gf_settings_store_utility.gd",
+      "summary": "GFSettingsStoreUtility: 设置持久化的同步物理端口。 该协议只定义设置载荷的读取、写入与能力查询，不绑定文件、Storage Utility、 云服务或平台 SDK。Architecture 模式且启用持久化时应注册一个派生 Store Utility；",
+      "visibility": "public",
+      "category": "protocol",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "func",
+          "name": "is_persistence_enabled",
+          "signature": "func is_persistence_enabled() -> bool",
+          "summary": "检查当前 Store 是否可以接纳同步持久化请求。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "read_settings",
+          "signature": "func read_settings(file_name: String) -> GFStorageReadResult",
+          "summary": "读取一个设置载荷。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "write_settings",
+          "signature": "func write_settings(file_name: String, data: Dictionary) -> Error",
+          "summary": "写入一个设置载荷。",
           "visibility": "public"
         }
       ]
@@ -75994,7 +76083,7 @@
           "kind": "var",
           "name": "auto_load_on_init",
           "signature": "var auto_load_on_init: bool = true",
-          "summary": "init() 时是否自动读取持久化设置。",
+          "summary": "standalone 模式在 init()、Architecture 模式在 activation 阶段是否自动读取持久化设置。",
           "visibility": "public"
         },
         {
@@ -76012,17 +76101,59 @@
           "visibility": "public"
         },
         {
+          "kind": "var",
+          "name": "persistence_enabled",
+          "signature": "var persistence_enabled: bool = true",
+          "summary": "是否启用设置持久化。",
+          "visibility": "public"
+        },
+        {
           "kind": "func",
           "name": "init",
           "signature": "func init() -> void",
-          "summary": "初始化设置工具，并按配置自动加载持久化设置或应用默认值。",
+          "summary": "初始化设置工具，并在 standalone 模式按配置自动加载持久化设置或应用默认值。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_required_utilities",
+          "signature": "func get_required_utilities() -> Array[Script]",
+          "summary": "返回设置持久化端口依赖。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "ready",
+          "signature": "func ready() -> void",
+          "summary": "在架构 ready 阶段解析唯一的设置持久化端口。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "begin_activation",
+          "signature": "func begin_activation(_scope: GFAsyncScope) -> GFAsyncCompletion",
+          "summary": "在依赖完成 activation 后执行架构模式的自动加载。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "begin_quiesce",
+          "signature": "func begin_quiesce(scope: GFAsyncScope) -> GFAsyncCompletion",
+          "summary": "停止接纳设置变化与保存请求，并排空全部已接纳的冻结保存记录。",
           "visibility": "public"
         },
         {
           "kind": "func",
           "name": "dispose",
           "signature": "func dispose() -> void",
-          "summary": "释放设置工具，并清理已注册定义、当前值和等待中的自动保存状态。",
+          "summary": "释放设置工具，并清理内存状态；持久化排空由 begin_quiesce() 负责。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "release_dependencies",
+          "signature": "func release_dependencies() -> void",
+          "summary": "释放架构 Store 引用和基类依赖作用域。",
           "visibility": "public"
         },
         {
@@ -83478,6 +83609,60 @@
           "name": "get_debug_snapshot",
           "signature": "func get_debug_snapshot() -> Dictionary",
           "summary": "获取调试快照。",
+          "visibility": "public"
+        }
+      ]
+    },
+    "GFStorageSettingsStoreUtility": {
+      "extends": "GFSettingsStoreUtility",
+      "module": "standard",
+      "package_id": "gf.standard.settings.storage",
+      "path": "addons/gf/standard/utilities/settings_storage/gf_storage_settings_store_utility.gd",
+      "summary": "GFStorageSettingsStoreUtility: GFStorageUtility 的设置持久化适配器。 该 Utility 声明显式 Storage 生命周期依赖，只在依赖完成 ready 后缓存并同步转发 设置读取和写入；释放依赖时清理缓存，避免在 Storage quiesce 或 dispose 后继续访问。",
+      "visibility": "public",
+      "category": "runtime_service",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "func",
+          "name": "ready",
+          "signature": "func ready() -> void",
+          "summary": "在已声明的 Storage 依赖完成 ready 后缓存其实例。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "release_dependencies",
+          "signature": "func release_dependencies() -> void",
+          "summary": "释放缓存的 Storage 引用和架构依赖作用域。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_required_utilities",
+          "signature": "func get_required_utilities() -> Array[Script]",
+          "summary": "声明同步设置持久化所需的 Storage Utility。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "is_persistence_enabled",
+          "signature": "func is_persistence_enabled() -> bool",
+          "summary": "检查 ready 阶段是否已经解析到 Storage Utility。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "read_settings",
+          "signature": "func read_settings(file_name: String) -> GFStorageReadResult",
+          "summary": "通过缓存的 GFStorageUtility 同步读取设置。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "write_settings",
+          "signature": "func write_settings(file_name: String, data: Dictionary) -> Error",
+          "summary": "通过缓存的 GFStorageUtility 同步写入设置。",
           "visibility": "public"
         }
       ]

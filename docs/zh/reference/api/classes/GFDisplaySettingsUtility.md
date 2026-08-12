@@ -145,12 +145,13 @@ ready() 时是否注册默认设置定义。
 ### `apply_on_ready`
 
 - API：`public`
+- 首次版本：`11.0.0`
 
 ```gdscript
 var apply_on_ready: bool = true
 ```
 
-ready() 时是否立刻应用当前设置。
+ready() 时是否立刻应用当前设置，并在延迟加载成功替换设置后重新应用完整状态。
 
 <a id="member-gfdisplaysettingsutility-properties-auto_apply_setting_changes"></a>
 

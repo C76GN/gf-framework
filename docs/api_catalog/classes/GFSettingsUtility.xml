@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFSettingsUtility" path="addons/gf/standard/utilities/settings/gf_settings_utility.gd" module="standard" extends="GFUtility" classDigest="73720acc91a457cc01e68e8a8c403808848cd61bb8b7881845b44c93d042c5ec">
+<class name="GFSettingsUtility" path="addons/gf/standard/utilities/settings/gf_settings_utility.gd" module="standard" extends="GFUtility" classDigest="cb6dd439165c4ef7d84cdfa3ed53f926cbeb092c5e8fb97d3f07d9f2a941d5e9">
 	<description>GFSettingsUtility: 通用设置注册、读写与持久化工具。
 设置项以 StringName 键访问，可选使用 GFSettingDefinition 声明默认值和类型。
 该工具只管理抽象设置值，不直接绑定窗口、音频、输入或任何项目业务。</description>
@@ -80,9 +80,10 @@
 		</member>
 		<member kind="property" name="auto_load_on_init">
 			<signature>var auto_load_on_init: bool = true</signature>
-			<description>init() 时是否自动读取持久化设置。</description>
+			<description>standalone 模式在 init()、Architecture 模式在 activation 阶段是否自动读取持久化设置。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="auto_save_on_change">
@@ -99,20 +100,76 @@
 				<tag name="api">public</tag>
 			</tags>
 		</member>
+		<member kind="property" name="persistence_enabled">
+			<signature>var persistence_enabled: bool = true:</signature>
+			<description>是否启用设置持久化。
+架构模式启用时必须注册唯一的 GFSettingsStoreUtility；关闭时设置工具保持纯内存模式。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
 	</properties>
 	<methods>
 		<member kind="method" name="init">
 			<signature>func init() -&gt; void:</signature>
-			<description>初始化设置工具，并按配置自动加载持久化设置或应用默认值。</description>
+			<description>初始化设置工具，并在 standalone 模式按配置自动加载持久化设置或应用默认值。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_required_utilities">
+			<signature>func get_required_utilities() -&gt; Array[Script]:</signature>
+			<description>返回设置持久化端口依赖。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">启用持久化时仅包含 GFSettingsStoreUtility，否则为空。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="ready">
+			<signature>func ready() -&gt; void:</signature>
+			<description>在架构 ready 阶段解析唯一的设置持久化端口。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="begin_activation">
+			<signature>func begin_activation(_scope: GFAsyncScope) -&gt; GFAsyncCompletion:</signature>
+			<description>在依赖完成 activation 后执行架构模式的自动加载。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">_scope: 当前 Settings 激活阶段的取消作用域。</tag>
+				<tag name="return">Store 可用并完成同步自动加载尝试时成功的一次性完成源。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="begin_quiesce">
+			<signature>func begin_quiesce(scope: GFAsyncScope) -&gt; GFAsyncCompletion:</signature>
+			<description>停止接纳设置变化与保存请求，并排空全部已接纳的冻结保存记录。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">scope: 当前 Settings 静默阶段的取消作用域。</tag>
+				<tag name="return">全部已接纳记录成功持久化时成功；失败时保留 target 证据；scope 取消时返回 CANCELLED，提升开放 batch 但不启动新 I/O，并保留 pending 供显式重试。</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
 		<member kind="method" name="dispose">
 			<signature>func dispose() -&gt; void:</signature>
-			<description>释放设置工具，并清理已注册定义、当前值和等待中的自动保存状态。</description>
+			<description>释放设置工具，并清理内存状态；持久化排空由 begin_quiesce() 负责。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="release_dependencies">
+			<signature>func release_dependencies() -&gt; void:</signature>
+			<description>释放架构 Store 引用和基类依赖作用域。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
 		<member kind="method" name="register_definition">
@@ -134,9 +191,10 @@
 				<tag name="param">value_type: 值类型。</tag>
 				<tag name="param">persistent: 是否持久化。</tag>
 				<tag name="param">metadata: 可选元数据。</tag>
-				<tag name="return">新设置定义。</tag>
+				<tag name="return">注册成功时返回新设置定义；mutation gate 关闭时返回 null。</tag>
 				<tag name="schema">default_value: Variant default setting value accepted by value_type.</tag>
 				<tag name="schema">metadata: Dictionary with optional UI grouping, ordering, label, and project-defined metadata.</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="register_definitions">
@@ -326,7 +384,8 @@
 			<description>立即执行正在等待的自动保存。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="return">保存结果；没有待保存内容时返回 OK。</tag>
+				<tag name="return">返回 OK、ERR_UNAVAILABLE、ERR_BUSY、冻结快照捕获错误或 Store 写入错误。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_value">
@@ -365,6 +424,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">save_after_change: 是否保存。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="to_dict">
@@ -375,6 +435,7 @@
 				<tag name="param">persistent_only: 是否仅包含 persistent 定义。</tag>
 				<tag name="return">设置字典。</tag>
 				<tag name="schema">return: Dictionary[String, Variant] serialized setting values suitable for persistence.</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="replace_from_dict">
@@ -430,7 +491,8 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">file_name: 可选文件名；为空时使用 storage_file_name。</tag>
-				<tag name="return">Godot 错误码。</tag>
+				<tag name="return">返回 OK、ERR_UNAVAILABLE、ERR_BUSY、快照捕获错误或 Store 写入错误。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="tick">
@@ -439,6 +501,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">delta: 距离上一帧的秒数。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="_read_persisted_data">
@@ -461,6 +524,7 @@
 				<tag name="param">data: 要写入的设置数据。</tag>
 				<tag name="return">Godot 错误码。</tag>
 				<tag name="schema">data: Dictionary[String, Variant] persisted settings data produced by to_dict(true).</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 	</methods>

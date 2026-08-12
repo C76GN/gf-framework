@@ -726,8 +726,10 @@ func test_save_settings_rejects_cyclic_values_without_recursing() -> void:
 	assert_push_error("[GFSettingsUtility] 设置数据包含循环引用，已拒绝持久化：cyclic_settings.json。")
 
 
-func test_fallback_store_failure_is_returned_without_success_signal() -> void:
-	var settings: FailingStoreSettingsUtility = FailingStoreSettingsUtility.new()
+func test_store_port_write_failure_is_returned_without_success_signal() -> void:
+	var settings: GFSettingsUtility = GFSettingsUtility.new()
+	var failing_store: FailingSettingsStoreUtility = FailingSettingsStoreUtility.new()
+	assert_eq(settings.set_settings_store_for_framework(failing_store, true), OK)
 	settings.auto_load_on_init = false
 	settings.auto_save_on_change = false
 	settings.init()
@@ -741,7 +743,7 @@ func test_fallback_store_failure_is_returned_without_success_signal() -> void:
 
 	var save_error: Error = settings.save_settings(file_name)
 
-	assert_eq(save_error, ERR_FILE_CANT_WRITE, "fallback 必须传播 open 后的实际写入失败。")
+	assert_eq(save_error, ERR_FILE_CANT_WRITE, "Store port 必须传播实际写入失败。")
 	assert_signal_not_emitted(settings, "settings_saved", "payload 未写入时不得发出保存成功信号。")
 	settings.dispose()
 
@@ -971,8 +973,12 @@ func test_storage_backed_settings_roundtrip_keeps_framework_metadata_out_of_busi
 	storage.include_storage_metadata = true
 	storage.init()
 	var file_name: String = "settings_roundtrip.sav"
-	var settings: StorageBackedSettingsUtility = StorageBackedSettingsUtility.new()
-	settings.storage_backend = storage
+	var settings: GFSettingsUtility = GFSettingsUtility.new()
+	var settings_store: StorageBackedSettingsStoreUtility = (
+		StorageBackedSettingsStoreUtility.new()
+	)
+	settings_store.storage_backend = storage
+	assert_eq(settings.set_settings_store_for_framework(settings_store, true), OK)
 	settings.storage_file_name = file_name
 	settings.auto_load_on_init = false
 	settings.auto_save_on_change = false
@@ -993,8 +999,12 @@ func test_storage_backed_settings_roundtrip_keeps_framework_metadata_out_of_busi
 	assert_true(storage_result.metadata.has(GFStorageCodec.VERSION_KEY), "存储版本应位于独立 metadata。")
 	assert_false(storage_result.payload.has(GFStorageCodec.VERSION_KEY), "存储版本不得渗入 Settings 业务字典。")
 
-	var restored: StorageBackedSettingsUtility = StorageBackedSettingsUtility.new()
-	restored.storage_backend = storage
+	var restored: GFSettingsUtility = GFSettingsUtility.new()
+	var restored_store: StorageBackedSettingsStoreUtility = (
+		StorageBackedSettingsStoreUtility.new()
+	)
+	restored_store.storage_backend = storage
+	assert_eq(restored.set_settings_store_for_framework(restored_store, true), OK)
 	restored.storage_file_name = file_name
 	restored.auto_load_on_init = false
 	restored.auto_save_on_change = false
@@ -1144,10 +1154,13 @@ class RecordingSettingsUtility:
 		return OK
 
 
-class FailingStoreSettingsUtility:
-	extends GFSettingsUtility
+class FailingSettingsStoreUtility:
+	extends GFSettingsStoreUtility
 
-	func _store_string_checked(_file: FileAccess, _value: String) -> Error:
+	func is_persistence_enabled() -> bool:
+		return true
+
+	func write_settings(_file_name: String, _data: Dictionary) -> Error:
 		return ERR_FILE_CANT_WRITE
 
 
@@ -1176,10 +1189,20 @@ class ScriptedSettingsUtility:
 		return OK
 
 
-class StorageBackedSettingsUtility:
-	extends GFSettingsUtility
+class StorageBackedSettingsStoreUtility:
+	extends GFSettingsStoreUtility
 
 	var storage_backend: GFStorageUtility
 
-	func _get_storage_utility() -> GFStorageUtility:
-		return storage_backend
+	func is_persistence_enabled() -> bool:
+		return storage_backend != null
+
+	func read_settings(file_name: String) -> GFStorageReadResult:
+		if storage_backend == null:
+			return super.read_settings(file_name)
+		return storage_backend.load_data(file_name)
+
+	func write_settings(file_name: String, data: Dictionary) -> Error:
+		if storage_backend == null:
+			return ERR_UNAVAILABLE
+		return storage_backend.save_data(file_name, data)

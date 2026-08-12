@@ -4,14 +4,27 @@
   "kind": "standard",
   "version": "unreleased",
   "display_name": "GF Standard Settings",
-  "description": "Generic runtime settings definitions, staging, validation, and persistence through GFStorageUtility.",
+  "description": "Generic runtime settings definitions, staging, validation, and a synchronous persistence port.",
   "dependencies": [
     "gf.kernel",
     "gf.standard.base",
     "gf.standard.storage"
   ],
   "paths": [
-    "addons/gf/standard/utilities/settings/**"
+    "addons/gf/standard/utilities/settings/gf_setting_definition.gd",
+    "addons/gf/standard/utilities/settings/gf_setting_definition.gd.uid",
+    "addons/gf/standard/utilities/settings/gf_settings_file_store_utility.gd",
+    "addons/gf/standard/utilities/settings/gf_settings_file_store_utility.gd.uid",
+    "addons/gf/standard/utilities/settings/gf_settings_load_result.gd",
+    "addons/gf/standard/utilities/settings/gf_settings_load_result.gd.uid",
+    "addons/gf/standard/utilities/settings/gf_settings_null_store_utility.gd",
+    "addons/gf/standard/utilities/settings/gf_settings_null_store_utility.gd.uid",
+    "addons/gf/standard/utilities/settings/gf_settings_recovery_policy.gd",
+    "addons/gf/standard/utilities/settings/gf_settings_recovery_policy.gd.uid",
+    "addons/gf/standard/utilities/settings/gf_settings_store_utility.gd",
+    "addons/gf/standard/utilities/settings/gf_settings_store_utility.gd.uid",
+    "addons/gf/standard/utilities/settings/gf_settings_utility.gd",
+    "addons/gf/standard/utilities/settings/gf_settings_utility.gd.uid"
   ],
   "metadata": {
     "stage": "standard-ui-core-split-v1"
