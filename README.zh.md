@@ -2,6 +2,13 @@
 
 [English](README.md) | 简体中文
 
+[![CI](https://github.com/C76GN/gf-framework/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/C76GN/gf-framework/actions/workflows/ci.yml)
+[![文档](https://readthedocs.org/projects/gf-framework/badge/?version=latest)](https://gf-framework.readthedocs.io/)
+[![最新版本](https://img.shields.io/github/v/release/C76GN/gf-framework?display_name=tag&sort=semver)](https://github.com/C76GN/gf-framework/releases/latest)
+[![许可证](https://img.shields.io/github/license/C76GN/gf-framework)](LICENSE.md)
+[![Godot 4.7+](https://img.shields.io/badge/Godot-4.7%2B-478CBF?logo=godotengine&logoColor=white)](https://godotengine.org/)
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/C76GN/gf-framework)
+
 GF Framework 是一个面向 Godot 4 的轻量级游戏架构框架。它把数据、逻辑、表现、运行时服务和纯算法基础件拆开管理，让规模更大的项目仍然能保持可预测的生命周期、清晰的依赖边界和可测试的玩法代码。
 
 ## 文档
@@ -13,6 +20,12 @@ GF Framework 是一个面向 Godot 4 的轻量级游戏架构框架。它把数�
 - 贡献与协作流程：[`CONTRIBUTING.md`](CONTRIBUTING.md)
 
 旧 GitHub Wiki 只保留入口链接。Read the Docs 是唯一正式文档来源。
+
+## Star History
+
+[![Star History Chart](https://api.star-history.com/chart?repos=C76GN/gf-framework&type=date&legend=top-left)](https://www.star-history.com/?repos=C76GN%2Fgf-framework&type=date&legend=top-left)
+
+该图表由 Star History 提供。GitHub 当前的 stargazer API 政策可能要求仓库级 token 才能获取最新历史；如果图片停止更新，可以打开上面的图表链接，并在 Star History 页面重新生成 README 嵌入代码。
 
 ## 环境要求
 
