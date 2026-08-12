@@ -54,6 +54,100 @@ func test_external_settings_change_auto_applies_locale() -> void:
 	assert_eq(TranslationServer.get_locale(), "en", "外部设置变化应自动应用到引擎层。")
 
 
+func test_architecture_activation_load_reapplies_persisted_display_state() -> void:
+	_arch = GFArchitecture.new()
+	var store: RecordingSettingsLoadStore = RecordingSettingsLoadStore.new()
+	store.payload = {
+		GFDisplaySettingsUtility.WINDOW_MODE_KEY: int(DisplayServer.WINDOW_MODE_WINDOWED),
+		GFDisplaySettingsUtility.WINDOW_SIZE_KEY: Vector2i(960, 540),
+	}
+	var settings: GFSettingsUtility = GFSettingsUtility.new()
+	settings.auto_load_on_init = true
+	settings.auto_save_on_change = false
+	var display: FakeWindowDisplaySettingsUtility = FakeWindowDisplaySettingsUtility.new()
+	display.engine_mode = DisplayServer.WINDOW_MODE_WINDOWED
+	display.engine_size = Vector2i(1152, 648)
+
+	assert_true(await _arch.register_utility_instance_as(store, GFSettingsStoreUtility))
+	assert_true(await _arch.register_utility_instance(settings))
+	assert_true(await _arch.register_utility_instance(display))
+	assert_true(await _arch.init())
+
+	var restored_size_value: Variant = settings.get_value(
+		GFDisplaySettingsUtility.WINDOW_SIZE_KEY
+	)
+	assert_true(restored_size_value is Vector2i)
+	if restored_size_value is Vector2i:
+		var restored_size: Vector2i = restored_size_value
+		assert_eq(
+			restored_size,
+			Vector2i(960, 540),
+			"Settings activation 必须先恢复持久化显示尺寸。"
+		)
+	assert_eq(
+		display.engine_size,
+		Vector2i(960, 540),
+		"Settings activation 静默替换完成后，Display 必须重新应用完整持久化状态。"
+	)
+
+
+func test_architecture_activation_load_respects_apply_on_ready_opt_out() -> void:
+	_arch = GFArchitecture.new()
+	var store: RecordingSettingsLoadStore = RecordingSettingsLoadStore.new()
+	store.payload = {
+		GFDisplaySettingsUtility.WINDOW_MODE_KEY: int(DisplayServer.WINDOW_MODE_WINDOWED),
+		GFDisplaySettingsUtility.WINDOW_SIZE_KEY: Vector2i(960, 540),
+	}
+	var settings: GFSettingsUtility = GFSettingsUtility.new()
+	settings.auto_load_on_init = true
+	settings.auto_save_on_change = false
+	var display: FakeWindowDisplaySettingsUtility = FakeWindowDisplaySettingsUtility.new()
+	display.apply_on_ready = false
+	display.engine_mode = DisplayServer.WINDOW_MODE_WINDOWED
+	display.engine_size = Vector2i(1152, 648)
+
+	assert_true(await _arch.register_utility_instance_as(store, GFSettingsStoreUtility))
+	assert_true(await _arch.register_utility_instance(settings))
+	assert_true(await _arch.register_utility_instance(display))
+	assert_true(await _arch.init())
+
+	assert_eq(
+		display.engine_size,
+		Vector2i(1152, 648),
+		"apply_on_ready=false 必须同时关闭 ready 与延迟加载完成后的自动应用。"
+	)
+
+
+func test_dispose_disconnects_settings_load_completion() -> void:
+	_arch = GFArchitecture.new()
+	var store: RecordingSettingsLoadStore = RecordingSettingsLoadStore.new()
+	var settings: GFSettingsUtility = GFSettingsUtility.new()
+	settings.auto_load_on_init = false
+	settings.auto_save_on_change = false
+	var display: FakeWindowDisplaySettingsUtility = FakeWindowDisplaySettingsUtility.new()
+	display.engine_mode = DisplayServer.WINDOW_MODE_WINDOWED
+	display.engine_size = Vector2i(1152, 648)
+
+	assert_true(await _arch.register_utility_instance_as(store, GFSettingsStoreUtility))
+	assert_true(await _arch.register_utility_instance(settings))
+	assert_true(await _arch.register_utility_instance(display))
+	assert_true(await _arch.init())
+	display.dispose()
+	store.payload = {
+		GFDisplaySettingsUtility.WINDOW_MODE_KEY: int(DisplayServer.WINDOW_MODE_WINDOWED),
+		GFDisplaySettingsUtility.WINDOW_SIZE_KEY: Vector2i(960, 540),
+	}
+
+	var load_result: GFSettingsLoadResult = settings.load_settings()
+
+	assert_true(load_result.was_applied())
+	assert_eq(
+		display.engine_size,
+		Vector2i(1152, 648),
+		"Display dispose 后不得继续响应 Settings 加载完成信号。"
+	)
+
+
 func test_external_window_mode_change_to_windowed_applies_saved_size() -> void:
 	_arch = GFArchitecture.new()
 	var settings: GFSettingsUtility = GFSettingsUtility.new()
@@ -194,6 +288,21 @@ class RecordingAudioDisplaySettingsUtility:
 
 	func _get_audio_utility() -> GFAudioUtility:
 		return audio_backend
+
+
+class RecordingSettingsLoadStore:
+	extends GFSettingsStoreUtility
+
+	var payload: Dictionary = {}
+
+	func is_persistence_enabled() -> bool:
+		return true
+
+	func read_settings(_file_name: String) -> GFStorageReadResult:
+		return GFStorageReadResult.new().configure_success(payload)
+
+	func write_settings(_file_name: String, _data: Dictionary) -> Error:
+		return OK
 
 
 

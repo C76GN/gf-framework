@@ -69,6 +69,8 @@ var init_settings_on_dispose_for_test: bool = false
 var settings_store_after_dispose_init_for_test: Object = null
 var dispose_reentry_consumed_for_test: bool = false
 var dispose_count_for_test: int = 0
+var quiesce_scope_for_test: GFAsyncScope = null
+var cancel_quiesce_scope_on_write_for_test: bool = false
 
 
 func ready() -> void:
@@ -193,14 +195,24 @@ func write_settings(file_name: String, data: Dictionary) -> Error:
 		and begin_quiesce_on_write_for_test
 		and write_quiesce_completion_for_test == null
 	):
+		var quiesce_scope: GFAsyncScope = (
+			quiesce_scope_for_test
+			if quiesce_scope_for_test != null
+			else GFAsyncScope.new()
+		)
 		var completion_value: Variant = settings_for_test.call(
 			&"begin_quiesce",
-			GFAsyncScope.new()
+			quiesce_scope
 		)
 		if completion_value is GFAsyncCompletion:
 			var completion: GFAsyncCompletion = completion_value
 			write_quiesce_completion_for_test = completion
 			write_quiesce_was_pending_for_test = completion.is_pending()
+	if quiesce_scope_for_test != null and cancel_quiesce_scope_on_write_for_test:
+		cancel_quiesce_scope_on_write_for_test = false
+		var _scope_cancelled: bool = quiesce_scope_for_test.cancel(
+			"settings_quiesce_cancelled_during_write"
+		)
 	if settings_for_test != null and mutation_key_for_test != &"":
 		var _mutation_result: Variant = settings_for_test.call(
 			"set_value",
@@ -1678,6 +1690,85 @@ func test_deferred_quiesce_scope_cancel_starts_no_io_and_preserves_accepted_set(
 	_assert_single_write_payload(store, "cancel-deferred.json", {
 		"cancel/deferred": 43,
 	})
+
+
+func test_quiesce_scope_cancel_during_write_stops_later_target_io() -> void:
+	var settings: GFSettingsUtility = _new_settings()
+	var store: Object = _new_recording_store()
+	if not _activate_without_load(settings, store):
+		return
+	settings.auto_save_on_change = true
+	settings.save_debounce_seconds = 60.0
+	settings.storage_file_name = "cancel-during-write-a.json"
+	settings.set_value(&"cancel/first", 47)
+	settings.storage_file_name = "cancel-during-write-b.json"
+	settings.set_value(&"cancel/second", 53)
+	var scope: GFAsyncScope = GFAsyncScope.new()
+	store.set(&"quiesce_scope_for_test", scope)
+	store.set(&"cancel_quiesce_scope_on_write_for_test", true)
+
+	var quiesce: GFAsyncCompletion = settings.begin_quiesce(scope)
+
+	assert_true(quiesce.is_cancelled())
+	assert_eq(quiesce.get_cancel_reason(), &"settings_quiesce_cancelled_during_write")
+	assert_eq(
+		_get_written_file_names(store),
+		PackedStringArray(["cancel-during-write-a.json"]),
+		"首个 Store write 取消 quiesce 后，不得再启动后续 target I/O。"
+	)
+	assert_eq(settings.flush_pending_save(), OK)
+	assert_eq(
+		_get_written_file_names(store),
+		PackedStringArray([
+			"cancel-during-write-a.json",
+			"cancel-during-write-b.json",
+		]),
+		"未尝试 target 必须保留，且 cancelled quiesce 后仍可显式 retry。"
+	)
+
+
+func test_joined_flush_cancel_stops_later_target_io_and_reports_busy() -> void:
+	var settings: GFSettingsUtility = _new_settings()
+	var store: Object = _new_recording_store()
+	if not _activate_without_load(settings, store):
+		return
+	settings.auto_save_on_change = true
+	settings.save_debounce_seconds = 60.0
+	settings.storage_file_name = "cancel-joined-write-a.json"
+	settings.set_value(&"cancel/joined_first", 59)
+	settings.storage_file_name = "cancel-joined-write-b.json"
+	settings.set_value(&"cancel/joined_second", 61)
+	var scope: GFAsyncScope = GFAsyncScope.new()
+	store.set(&"settings_for_test", settings)
+	store.set(&"begin_quiesce_on_write_for_test", true)
+	store.set(&"quiesce_scope_for_test", scope)
+	store.set(&"cancel_quiesce_scope_on_write_for_test", true)
+
+	assert_eq(
+		settings.flush_pending_save(),
+		ERR_BUSY,
+		"被 cancelled quiesce 截断的 public flush 不得把未尝试 target 伪报为成功。"
+	)
+	var completion_value: Variant = store.get(&"write_quiesce_completion_for_test")
+	assert_true(completion_value is GFAsyncCompletion)
+	if completion_value is GFAsyncCompletion:
+		var quiesce: GFAsyncCompletion = completion_value
+		assert_true(quiesce.is_cancelled())
+	assert_eq(
+		_get_written_file_names(store),
+		PackedStringArray(["cancel-joined-write-a.json"]),
+		"joined flush 被取消后不得启动第二个 target。"
+	)
+
+	assert_eq(settings.flush_pending_save(), OK)
+	assert_eq(
+		_get_written_file_names(store),
+		PackedStringArray([
+			"cancel-joined-write-a.json",
+			"cancel-joined-write-b.json",
+		]),
+		"joined flush 未尝试的 target 必须保留供显式 retry。"
+	)
 
 
 func test_dispose_after_quiesce_does_not_repeat_io() -> void:

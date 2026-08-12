@@ -1429,13 +1429,16 @@ func _try_finish_quiesce() -> void:
 				remaining_record_ids.append(record_id)
 		var remaining_flush_report: Dictionary = {}
 		if not remaining_record_ids.is_empty():
-			remaining_flush_report = _flush_pending_save_records(remaining_record_ids)
+			remaining_flush_report = _flush_pending_save_records(
+				remaining_record_ids,
+				true
+			)
 		flush_report = _merge_flush_reports(
 			_quiesce_joined_flush_report,
 			remaining_flush_report
 		)
 	else:
-		flush_report = _flush_pending_save_records()
+		flush_report = _flush_pending_save_records([], true)
 	if not _quiesce_completion.is_pending():
 		return
 	var flush_error: Error = (
@@ -1893,7 +1896,10 @@ func _promote_open_batch_save_records() -> void:
 	var _promoted_record_ids: Array[int] = _promote_batch_save_records()
 
 
-func _flush_pending_save_records(record_ids: Array[int] = []) -> Dictionary:
+func _flush_pending_save_records(
+	record_ids: Array[int] = [],
+	is_quiesce_drain: bool = false
+) -> Dictionary:
 	if _save_flush_in_progress or _persistence_hook_depth > 0:
 		return {
 			"error_code": int(ERR_BUSY),
@@ -1919,6 +1925,10 @@ func _flush_pending_save_records(record_ids: Array[int] = []) -> Dictionary:
 		var record_id: int = GFVariantData.get_option_int(record, _SAVE_RECORD_ID_KEY, 0)
 		if _find_pending_save_record_index(record_id) < 0:
 			continue
+		if _should_stop_current_flush_for_quiesce(is_quiesce_drain):
+			if not is_quiesce_drain and first_error == OK:
+				first_error = ERR_BUSY
+			break
 		attempted_record_ids.append(record_id)
 		var file_name: String = GFVariantData.get_option_string(
 			record,
@@ -1967,6 +1977,14 @@ func _flush_pending_save_records(record_ids: Array[int] = []) -> Dictionary:
 	_save_flush_in_progress = false
 	_leave_lifecycle_critical()
 	return flush_report
+
+
+func _should_stop_current_flush_for_quiesce(is_quiesce_drain: bool) -> bool:
+	if _quiesce_completion == null or _quiesce_completion.is_pending():
+		return false
+	if is_quiesce_drain:
+		return true
+	return _quiesce_join_active_flush and not _quiesce_prepared
 
 
 func _find_pending_save_record_index(record_id: int) -> int:

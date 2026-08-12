@@ -62,9 +62,11 @@ const _ENGINE_DEFAULT_WINDOWED_SIZE: Vector2i = Vector2i(1152, 648)
 ## @api public
 var register_defaults_on_ready: bool = true
 
-## ready() 时是否立刻应用当前设置。
+## ready() 时是否立刻应用当前设置，并在延迟加载成功替换设置后重新应用完整状态。
 ## [br]
 ## @api public
+## [br]
+## @since 11.0.0
 var apply_on_ready: bool = true
 
 ## GFSettingsUtility 中相关设置变化时是否自动应用。
@@ -115,7 +117,7 @@ func init() -> void:
 func ready() -> void:
 	if register_defaults_on_ready:
 		register_default_settings()
-	_connect_settings_changed()
+	_connect_settings_signals()
 	if apply_on_ready:
 		apply_all()
 
@@ -124,7 +126,7 @@ func ready() -> void:
 ## [br]
 ## @api public
 func dispose() -> void:
-	_disconnect_settings_changed()
+	_disconnect_settings_signals()
 	_runtime_values.clear()
 
 
@@ -534,22 +536,37 @@ func _get_audio_bus_volume_key(bus_name: String) -> StringName:
 	return StringName("%s/%s/volume" % [String(audio_setting_prefix), bus_name])
 
 
-func _connect_settings_changed() -> void:
+func _connect_settings_signals() -> void:
 	var settings: GFSettingsUtility = _get_settings_utility()
 	if settings == null or settings == _connected_settings:
 		return
 
-	_disconnect_settings_changed()
+	_disconnect_settings_signals()
 	_connected_settings = settings
 	if not _connected_settings.setting_changed.is_connected(_on_setting_changed):
-		var _settings_changed_connected: int = _connected_settings.setting_changed.connect(_on_setting_changed)
+		var settings_changed_error: Error = (
+			_connected_settings.setting_changed.connect(_on_setting_changed) as Error
+		)
+		if settings_changed_error != OK:
+			_connected_settings = null
+			return
+	if not _connected_settings.settings_load_completed.is_connected(_on_settings_load_completed):
+		var settings_load_completed_error: Error = (
+			_connected_settings.settings_load_completed.connect(_on_settings_load_completed) as Error
+		)
+		if settings_load_completed_error != OK:
+			if _connected_settings.setting_changed.is_connected(_on_setting_changed):
+				_connected_settings.setting_changed.disconnect(_on_setting_changed)
+			_connected_settings = null
 
 
-func _disconnect_settings_changed() -> void:
+func _disconnect_settings_signals() -> void:
 	if _connected_settings == null:
 		return
 	if _connected_settings.setting_changed.is_connected(_on_setting_changed):
 		_connected_settings.setting_changed.disconnect(_on_setting_changed)
+	if _connected_settings.settings_load_completed.is_connected(_on_settings_load_completed):
+		_connected_settings.settings_load_completed.disconnect(_on_settings_load_completed)
 	_connected_settings = null
 
 
@@ -580,6 +597,12 @@ func _to_vsync_mode(value: int) -> DisplayServer.VSyncMode:
 
 
 # --- 信号处理函数 ---
+
+func _on_settings_load_completed(result: GFSettingsLoadResult) -> void:
+	if not apply_on_ready or not result.was_applied():
+		return
+	apply_all()
+
 
 func _on_setting_changed(key: StringName, _old_value: Variant, _new_value: Variant) -> void:
 	if not auto_apply_setting_changes or _internal_setting_write_depth > 0:

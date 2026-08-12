@@ -7,7 +7,7 @@
 | 模块 | 类 | 成员 | 页面内索引 |
 |---|---:|---:|---|
 | Kernel | 74 | 1108 | [Kernel](#module-kernel) |
-| Standard | 467 | 7452 | [Standard](#module-standard) |
+| Standard | 471 | 7470 | [Standard](#module-standard) |
 | Action Queue | 16 | 214 | [Action Queue](#module-extensions-action_queue) |
 | Asset Metadata | 4 | 33 | [Asset Metadata](#module-extensions-asset_metadata) |
 | Behavior Tree | 22 | 89 | [Behavior Tree](#module-extensions-behavior_tree) |
@@ -253,7 +253,9 @@
 | [`GFScriptStructureTools`](GFScriptStructureTools.md#gfscriptstructuretools) | 运行时服务 (`runtime_service`) | `RefCounted` | 7 | `addons/gf/standard/utilities/assets/gf_script_structure_tools.gd` |
 | [`GFSeedUtility`](GFSeedUtility.md#gfseedutility) | 运行时服务 (`runtime_service`) | `GFUtility` | 18 | `addons/gf/standard/utilities/random/gf_seed_utility.gd` |
 | [`GFSessionTraceUtility`](GFSessionTraceUtility.md#gfsessiontraceutility) | 运行时服务 (`runtime_service`) | `GFUtility` | 47 | `addons/gf/standard/utilities/debug/gf_session_trace_utility.gd` |
-| [`GFSettingsUtility`](GFSettingsUtility.md#gfsettingsutility) | 运行时服务 (`runtime_service`) | `GFUtility` | 46 | `addons/gf/standard/utilities/settings/gf_settings_utility.gd` |
+| [`GFSettingsFileStoreUtility`](GFSettingsFileStoreUtility.md#gfsettingsfilestoreutility) | 运行时服务 (`runtime_service`) | `GFSettingsStoreUtility` | 3 | `addons/gf/standard/utilities/settings/gf_settings_file_store_utility.gd` |
+| [`GFSettingsNullStoreUtility`](GFSettingsNullStoreUtility.md#gfsettingsnullstoreutility) | 运行时服务 (`runtime_service`) | `GFSettingsStoreUtility` | 0 | `addons/gf/standard/utilities/settings/gf_settings_null_store_utility.gd` |
+| [`GFSettingsUtility`](GFSettingsUtility.md#gfsettingsutility) | 运行时服务 (`runtime_service`) | `GFUtility` | 52 | `addons/gf/standard/utilities/settings/gf_settings_utility.gd` |
 | [`GFShaderParameterUtility`](GFShaderParameterUtility.md#gfshaderparameterutility) | 运行时服务 (`runtime_service`) | `GFUtility` | 18 | `addons/gf/standard/utilities/display/gf_shader_parameter_utility.gd` |
 | [`GFSignalRuntimeProbe`](GFSignalRuntimeProbe.md#gfsignalruntimeprobe) | 运行时服务 (`runtime_service`) | `RefCounted` | 28 | `addons/gf/standard/utilities/debug/gf_signal_runtime_probe.gd` |
 | [`GFSignalUtility`](GFSignalUtility.md#gfsignalutility) | 运行时服务 (`runtime_service`) | `GFUtility` | 10 | `addons/gf/standard/utilities/signals/gf_signal_utility.gd` |
@@ -268,6 +270,7 @@
 | [`GFStateMachine`](GFStateMachine.md#gfstatemachine) | 运行时服务 (`runtime_service`) | `RefCounted` | 38 | `addons/gf/standard/state_machine/pure/gf_state_machine.gd` |
 | [`GFSteeringMath`](GFSteeringMath.md#gfsteeringmath) | 运行时服务 (`runtime_service`) | `RefCounted` | 16 | `addons/gf/standard/foundation/math/gf_steering_math.gd` |
 | [`GFStorageFailoverBackend`](GFStorageFailoverBackend.md#gfstoragefailoverbackend) | 运行时服务 (`runtime_service`) | `GFStorageBackend` | 16 | `addons/gf/standard/utilities/storage/gf_storage_failover_backend.gd` |
+| [`GFStorageSettingsStoreUtility`](GFStorageSettingsStoreUtility.md#gfstoragesettingsstoreutility) | 运行时服务 (`runtime_service`) | `GFSettingsStoreUtility` | 6 | `addons/gf/standard/utilities/settings_storage/gf_storage_settings_store_utility.gd` |
 | [`GFStorageSyncUtility`](GFStorageSyncUtility.md#gfstoragesyncutility) | 运行时服务 (`runtime_service`) | `GFUtility` | 11 | `addons/gf/standard/utilities/storage/gf_storage_sync_utility.gd` |
 | [`GFStorageUtility`](GFStorageUtility.md#gfstorageutility) | 运行时服务 (`runtime_service`) | `GFUtility` | 52 | `addons/gf/standard/utilities/storage/gf_storage_utility.gd` |
 | [`GFSupportReportUtility`](GFSupportReportUtility.md#gfsupportreportutility) | 运行时服务 (`runtime_service`) | `GFUtility` | 32 | `addons/gf/standard/utilities/debug/gf_support_report_utility.gd` |
@@ -327,6 +330,7 @@
 | [`GFPolicyProvider`](GFPolicyProvider.md#gfpolicyprovider) | 协议与扩展点 (`protocol`) | `Resource` | 14 | `addons/gf/standard/foundation/policy/gf_policy_provider.gd` |
 | [`GFRuntimeTask`](GFRuntimeTask.md#gfruntimetask) | 协议与扩展点 (`protocol`) | `RefCounted` | 19 | `addons/gf/standard/sequence/gf_runtime_task.gd` |
 | [`GFSequenceStep`](GFSequenceStep.md#gfsequencestep) | 协议与扩展点 (`protocol`) | `Resource` | 4 | `addons/gf/standard/sequence/gf_sequence_step.gd` |
+| [`GFSettingsStoreUtility`](GFSettingsStoreUtility.md#gfsettingsstoreutility) | 协议与扩展点 (`protocol`) | `GFUtility` | 3 | `addons/gf/standard/utilities/settings/gf_settings_store_utility.gd` |
 | [`GFState`](GFState.md#gfstate) | 协议与扩展点 (`protocol`) | `RefCounted` | 26 | `addons/gf/standard/state_machine/pure/gf_state.gd` |
 | [`GFStorageBackend`](GFStorageBackend.md#gfstoragebackend) | 协议与扩展点 (`protocol`) | `RefCounted` | 17 | `addons/gf/standard/utilities/storage/gf_storage_backend.gd` |
 | [`GFTableRowPredicate`](GFTableRowPredicate.md#gftablerowpredicate) | 协议与扩展点 (`protocol`) | `RefCounted` | 2 | `addons/gf/standard/utilities/ui/gf_table_row_predicate.gd` |

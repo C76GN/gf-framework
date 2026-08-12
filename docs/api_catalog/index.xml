@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<apiCatalog schemaVersion="2" name="GF Framework" sourceRoot="addons/gf" sourceDigest="1b09b7d13278f47c1e32c495a8f0dcb94c3cec6fc8686b382c90eb9d3e902e4d" classCount="836" methodCount="7627">
+<apiCatalog schemaVersion="2" name="GF Framework" sourceRoot="addons/gf" sourceDigest="6f808d9c8cee8467606b0f259983752acc585e17737c57ffd105a5201f75cf1c" classCount="840" methodCount="7644">
 	<module id="kernel" label="Kernel" classCount="74" methodCount="799">
 		<class name="GFAccessGenerator" path="classes/GFAccessGenerator.xml" sourcePath="addons/gf/kernel/editor/gf_access_generator.gd" extends="RefCounted" />
 		<class name="GFArchitecture" path="classes/GFArchitecture.xml" sourcePath="addons/gf/kernel/core/gf_architecture.gd" extends="Object" />
@@ -76,7 +76,7 @@
 		<class name="GFUtility" path="classes/GFUtility.xml" sourcePath="addons/gf/kernel/base/gf_utility.gd" extends="Object" />
 		<class name="GFWeakMethodInvocation" path="classes/GFWeakMethodInvocation.xml" sourcePath="addons/gf/kernel/core/gf_weak_method_invocation.gd" extends="RefCounted" />
 	</module>
-	<module id="standard" label="Standard" classCount="467" methodCount="4722">
+	<module id="standard" label="Standard" classCount="471" methodCount="4739">
 		<class name="GFActivationTransaction" path="classes/GFActivationTransaction.xml" sourcePath="addons/gf/standard/foundation/policy/gf_activation_transaction.gd" extends="RefCounted" />
 		<class name="GFAnalyticsConfig" path="classes/GFAnalyticsConfig.xml" sourcePath="addons/gf/standard/utilities/analytics/gf_analytics_config.gd" extends="Resource" />
 		<class name="GFAnalyticsEventSchema" path="classes/GFAnalyticsEventSchema.xml" sourcePath="addons/gf/standard/utilities/analytics/gf_analytics_event_schema.gd" extends="Resource" />
@@ -419,8 +419,11 @@
 		<class name="GFSessionTraceRecipe" path="classes/GFSessionTraceRecipe.xml" sourcePath="addons/gf/standard/utilities/debug/gf_session_trace_recipe.gd" extends="Resource" />
 		<class name="GFSessionTraceUtility" path="classes/GFSessionTraceUtility.xml" sourcePath="addons/gf/standard/utilities/debug/gf_session_trace_utility.gd" extends="GFUtility" />
 		<class name="GFSettingDefinition" path="classes/GFSettingDefinition.xml" sourcePath="addons/gf/standard/utilities/settings/gf_setting_definition.gd" extends="Resource" />
+		<class name="GFSettingsFileStoreUtility" path="classes/GFSettingsFileStoreUtility.xml" sourcePath="addons/gf/standard/utilities/settings/gf_settings_file_store_utility.gd" extends="GFSettingsStoreUtility" />
 		<class name="GFSettingsLoadResult" path="classes/GFSettingsLoadResult.xml" sourcePath="addons/gf/standard/utilities/settings/gf_settings_load_result.gd" extends="RefCounted" />
+		<class name="GFSettingsNullStoreUtility" path="classes/GFSettingsNullStoreUtility.xml" sourcePath="addons/gf/standard/utilities/settings/gf_settings_null_store_utility.gd" extends="GFSettingsStoreUtility" />
 		<class name="GFSettingsRecoveryPolicy" path="classes/GFSettingsRecoveryPolicy.xml" sourcePath="addons/gf/standard/utilities/settings/gf_settings_recovery_policy.gd" extends="Resource" />
+		<class name="GFSettingsStoreUtility" path="classes/GFSettingsStoreUtility.xml" sourcePath="addons/gf/standard/utilities/settings/gf_settings_store_utility.gd" extends="GFUtility" />
 		<class name="GFSettingsUtility" path="classes/GFSettingsUtility.xml" sourcePath="addons/gf/standard/utilities/settings/gf_settings_utility.gd" extends="GFUtility" />
 		<class name="GFShaderInterfaceSnapshot" path="classes/GFShaderInterfaceSnapshot.xml" sourcePath="addons/gf/standard/utilities/display/gf_shader_interface_snapshot.gd" extends="Resource" />
 		<class name="GFShaderParameterBinder" path="classes/GFShaderParameterBinder.xml" sourcePath="addons/gf/standard/utilities/display/gf_shader_parameter_binder.gd" extends="Node" />
@@ -464,6 +467,7 @@
 		<class name="GFStoragePayloadTransfer" path="classes/GFStoragePayloadTransfer.xml" sourcePath="addons/gf/standard/utilities/storage/gf_storage_payload_transfer.gd" extends="RefCounted" />
 		<class name="GFStorageReadResult" path="classes/GFStorageReadResult.xml" sourcePath="addons/gf/standard/utilities/storage/gf_storage_read_result.gd" extends="RefCounted" />
 		<class name="GFStorageSectionCache" path="classes/GFStorageSectionCache.xml" sourcePath="addons/gf/standard/utilities/storage/gf_storage_section_cache.gd" extends="RefCounted" />
+		<class name="GFStorageSettingsStoreUtility" path="classes/GFStorageSettingsStoreUtility.xml" sourcePath="addons/gf/standard/utilities/settings_storage/gf_storage_settings_store_utility.gd" extends="GFSettingsStoreUtility" />
 		<class name="GFStorageSyncUtility" path="classes/GFStorageSyncUtility.xml" sourcePath="addons/gf/standard/utilities/storage/gf_storage_sync_utility.gd" extends="GFUtility" />
 		<class name="GFStorageUtility" path="classes/GFStorageUtility.xml" sourcePath="addons/gf/standard/utilities/storage/gf_storage_utility.gd" extends="GFUtility" />
 		<class name="GFStorageViewerDock" path="classes/GFStorageViewerDock.xml" sourcePath="addons/gf/standard/utilities/storage/editor/gf_storage_viewer_dock.gd" extends="VBoxContainer" />

@@ -6,8 +6,8 @@
 
 | 类别 | 类 | 成员 | 方法 |
 |---|---:|---:|---:|
-| [运行时服务](#category-runtime_service) | 190 | 3457 | 2340 |
-| [协议与扩展点](#category-protocol) | 25 | 342 | 270 |
+| [运行时服务](#category-runtime_service) | 193 | 3472 | 2354 |
+| [协议与扩展点](#category-protocol) | 26 | 345 | 273 |
 | [资源定义](#category-resource_definition) | 122 | 1573 | 797 |
 | [运行时句柄](#category-runtime_handle) | 52 | 911 | 578 |
 | [值对象](#category-value_object) | 54 | 928 | 599 |
@@ -160,6 +160,8 @@
 | [`GFScriptStructureTools`](classes/GFScriptStructureTools.md#gfscriptstructuretools) | `RefCounted` | `addons/gf/standard/utilities/assets/gf_script_structure_tools.gd` |
 | [`GFSeedUtility`](classes/GFSeedUtility.md#gfseedutility) | `GFUtility` | `addons/gf/standard/utilities/random/gf_seed_utility.gd` |
 | [`GFSessionTraceUtility`](classes/GFSessionTraceUtility.md#gfsessiontraceutility) | `GFUtility` | `addons/gf/standard/utilities/debug/gf_session_trace_utility.gd` |
+| [`GFSettingsFileStoreUtility`](classes/GFSettingsFileStoreUtility.md#gfsettingsfilestoreutility) | `GFSettingsStoreUtility` | `addons/gf/standard/utilities/settings/gf_settings_file_store_utility.gd` |
+| [`GFSettingsNullStoreUtility`](classes/GFSettingsNullStoreUtility.md#gfsettingsnullstoreutility) | `GFSettingsStoreUtility` | `addons/gf/standard/utilities/settings/gf_settings_null_store_utility.gd` |
 | [`GFSettingsUtility`](classes/GFSettingsUtility.md#gfsettingsutility) | `GFUtility` | `addons/gf/standard/utilities/settings/gf_settings_utility.gd` |
 | [`GFShaderParameterUtility`](classes/GFShaderParameterUtility.md#gfshaderparameterutility) | `GFUtility` | `addons/gf/standard/utilities/display/gf_shader_parameter_utility.gd` |
 | [`GFSignalRuntimeProbe`](classes/GFSignalRuntimeProbe.md#gfsignalruntimeprobe) | `RefCounted` | `addons/gf/standard/utilities/debug/gf_signal_runtime_probe.gd` |
@@ -175,6 +177,7 @@
 | [`GFStateMachine`](classes/GFStateMachine.md#gfstatemachine) | `RefCounted` | `addons/gf/standard/state_machine/pure/gf_state_machine.gd` |
 | [`GFSteeringMath`](classes/GFSteeringMath.md#gfsteeringmath) | `RefCounted` | `addons/gf/standard/foundation/math/gf_steering_math.gd` |
 | [`GFStorageFailoverBackend`](classes/GFStorageFailoverBackend.md#gfstoragefailoverbackend) | `GFStorageBackend` | `addons/gf/standard/utilities/storage/gf_storage_failover_backend.gd` |
+| [`GFStorageSettingsStoreUtility`](classes/GFStorageSettingsStoreUtility.md#gfstoragesettingsstoreutility) | `GFSettingsStoreUtility` | `addons/gf/standard/utilities/settings_storage/gf_storage_settings_store_utility.gd` |
 | [`GFStorageSyncUtility`](classes/GFStorageSyncUtility.md#gfstoragesyncutility) | `GFUtility` | `addons/gf/standard/utilities/storage/gf_storage_sync_utility.gd` |
 | [`GFStorageUtility`](classes/GFStorageUtility.md#gfstorageutility) | `GFUtility` | `addons/gf/standard/utilities/storage/gf_storage_utility.gd` |
 | [`GFSupportReportUtility`](classes/GFSupportReportUtility.md#gfsupportreportutility) | `GFUtility` | `addons/gf/standard/utilities/debug/gf_support_report_utility.gd` |
@@ -241,6 +244,7 @@
 | [`GFPolicyProvider`](classes/GFPolicyProvider.md#gfpolicyprovider) | `Resource` | `addons/gf/standard/foundation/policy/gf_policy_provider.gd` |
 | [`GFRuntimeTask`](classes/GFRuntimeTask.md#gfruntimetask) | `RefCounted` | `addons/gf/standard/sequence/gf_runtime_task.gd` |
 | [`GFSequenceStep`](classes/GFSequenceStep.md#gfsequencestep) | `Resource` | `addons/gf/standard/sequence/gf_sequence_step.gd` |
+| [`GFSettingsStoreUtility`](classes/GFSettingsStoreUtility.md#gfsettingsstoreutility) | `GFUtility` | `addons/gf/standard/utilities/settings/gf_settings_store_utility.gd` |
 | [`GFState`](classes/GFState.md#gfstate) | `RefCounted` | `addons/gf/standard/state_machine/pure/gf_state.gd` |
 | [`GFStorageBackend`](classes/GFStorageBackend.md#gfstoragebackend) | `RefCounted` | `addons/gf/standard/utilities/storage/gf_storage_backend.gd` |
 | [`GFTableRowPredicate`](classes/GFTableRowPredicate.md#gftablerowpredicate) | `RefCounted` | `addons/gf/standard/utilities/ui/gf_table_row_predicate.gd` |

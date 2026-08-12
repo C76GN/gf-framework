@@ -129,7 +129,7 @@ if result.was_recovered():
 
 每次保存请求获准时，Settings 会冻结目标文件名和持久化 payload 快照；同一目标后续获准的新快照替代旧快照，不同目标则分别保留。未在 flush 开始前取消的 `begin_quiesce()` 会先关闭设置变化与新保存请求的准入，再把尚未结束的 batch 提升为待保存记录，并按准入顺序 flush 全部目标，而不是只处理调用时的 `storage_file_name`。Store 写入期间的同步重入也无法越过已经关闭的 mutation gate。
 
-如果绑定的 scope 在同步 flush 启动前已取消，quiesce completion 以 `CANCELLED` 终结：这条路径仍关闭准入并提升开放 batch，但不会启动 Store I/O，pending 记录继续保留。实例仍存活时可显式调用 `flush_pending_save()` 处理这些记录；重复调用 `begin_quiesce()` 只返回同一个已提交的取消终态，不会隐式 flush 或改写证据。
+如果绑定的 scope 在同步 flush 启动前已取消，quiesce completion 以 `CANCELLED` 终结：这条路径仍关闭准入并提升开放 batch，但不会启动 Store I/O，pending 记录继续保留。若 scope 在某个同步 Store write 内被取消，已经启动的当前 write 仍按真实结果结算；循环会在启动下一个 target 前停止，未尝试记录继续保留。实例仍存活时可显式调用 `flush_pending_save()` 处理这些记录；重复调用 `begin_quiesce()` 只返回同一个已提交的取消终态，不会隐式 flush 或改写证据。
 
 成功写入的记录会被移除并发出 `settings_saved`。已经成功捕获 payload、但物理写入失败的记录会连同冻结 payload 保留在 pending 集合中；quiesce completion 以失败终结，并在 metadata 中报告失败文件名、错误码和仍待处理目标。后续 `tick()` 不会热重试这类失败，实例仍存活时必须显式调用 `flush_pending_save()` 才会复用同一冻结快照；重试成功也不会把既有 quiesce 失败终态改写为成功。
 
