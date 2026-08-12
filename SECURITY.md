@@ -23,9 +23,10 @@ Use GitHub's private vulnerability reporting form:
 
 <https://github.com/C76GN/gf-framework/security/advisories/new>
 
-If private reporting is unavailable, contact the maintainers through the
-[C76GN GitHub profile](https://github.com/C76GN) and clearly mark the message
-as a confidential security report.
+If private reporting is unavailable, email
+[`cl7o6dgyn@gmail.com`](mailto:cl7o6dgyn@gmail.com) with the subject
+`[GF Security] Confidential vulnerability report`. Please do not include
+secrets or a full exploit in the subject line.
 
 Include, where possible:
 
