@@ -828,6 +828,158 @@ func test_audio_utility_init_is_idempotent_and_reusable_after_dispose() -> void:
 	assert_eq(_count_root_audio_players_named("GFBGMFadePlayer"), 1)
 
 
+func test_init_dispose_reentry_from_first_player_insertion_converges_atomically() -> void:
+	var standalone_audio: GFAudioUtility = GFAudioUtility.new()
+	var root: Window = get_tree().root
+	var primary_count_before: int = _count_root_audio_players_named("GFBGMPlayer")
+	var fade_count_before: int = _count_root_audio_players_named("GFBGMFadePlayer")
+	var dispose_callback: Callable = func(child: Node) -> void:
+		if child is AudioStreamPlayer:
+			standalone_audio.dispose()
+	var connect_error: Error = root.child_entered_tree.connect(
+		dispose_callback,
+		CONNECT_ONE_SHOT as Object.ConnectFlags
+	) as Error
+	assert_eq(connect_error, OK)
+
+	standalone_audio.init()
+	await get_tree().process_frame
+
+	assert_false(standalone_audio._is_initialized)
+	assert_null(standalone_audio._root)
+	assert_null(standalone_audio._bgm_player)
+	assert_null(standalone_audio._bgm_fade_player)
+	assert_eq(_count_root_audio_players_named("GFBGMPlayer"), primary_count_before)
+	assert_eq(_count_root_audio_players_named("GFBGMFadePlayer"), fade_count_before)
+
+
+func test_init_dispose_and_reinit_reentry_preserves_new_generation() -> void:
+	var standalone_audio: GFAudioUtility = GFAudioUtility.new()
+	var root: Window = get_tree().root
+	var reentry_state: Dictionary = {
+		"ran": false,
+		"old_primary_id": 0,
+	}
+	var reinit_callback: Callable = func(child: Node) -> void:
+		if (
+			not child is AudioStreamPlayer
+			or GFVariantData.get_option_bool(reentry_state, "ran")
+		):
+			return
+		reentry_state["ran"] = true
+		reentry_state["old_primary_id"] = child.get_instance_id()
+		standalone_audio.dispose()
+		standalone_audio.init()
+	var connect_error: Error = (
+		root.child_entered_tree.connect(reinit_callback) as Error
+	)
+	assert_eq(connect_error, OK)
+
+	standalone_audio.init()
+	if root.child_entered_tree.is_connected(reinit_callback):
+		root.child_entered_tree.disconnect(reinit_callback)
+
+	var new_primary: AudioStreamPlayer = standalone_audio._bgm_player
+	var new_fade: AudioStreamPlayer = standalone_audio._bgm_fade_player
+	assert_true(GFVariantData.get_option_bool(reentry_state, "ran"))
+	assert_true(standalone_audio._is_initialized)
+	assert_same(standalone_audio._root, root)
+	assert_not_null(new_primary)
+	assert_not_null(new_fade)
+	if new_primary != null:
+		assert_ne(
+			new_primary.get_instance_id(),
+			GFVariantData.get_option_int(reentry_state, "old_primary_id")
+		)
+		assert_true(
+			standalone_audio._is_exact_audio_root_child(root, new_primary)
+		)
+	if new_fade != null:
+		assert_true(
+			standalone_audio._is_exact_audio_root_child(root, new_fade)
+		)
+
+	standalone_audio.dispose()
+	await get_tree().process_frame
+
+
+func test_init_requires_exact_physical_player_root_topology() -> void:
+	await _assert_invalid_init_player_topology_converges(false, 1)
+	await _assert_invalid_init_player_topology_converges(true, 2)
+
+
+func _assert_invalid_init_player_topology_converges(
+	reparent_player: bool,
+	target_insertion: int
+) -> void:
+	var standalone_audio: GFAudioUtility = GFAudioUtility.new()
+	var root: Window = get_tree().root
+	var holder: Node = Node.new()
+	holder.name = "GFInvalidAudioPlayerParent"
+	root.add_child(holder)
+	var primary_count_before: int = _count_root_audio_players_named("GFBGMPlayer")
+	var fade_count_before: int = _count_root_audio_players_named("GFBGMFadePlayer")
+	var insertion_state: Dictionary = {"count": 0, "mutated": false}
+	var topology_callback: Callable = func(child: Node) -> void:
+		if not child is AudioStreamPlayer:
+			return
+		insertion_state["count"] = GFVariantData.get_option_int(
+			insertion_state,
+			"count"
+		) + 1
+		if (
+			GFVariantData.get_option_bool(insertion_state, "mutated")
+			or GFVariantData.get_option_int(insertion_state, "count")
+			!= target_insertion
+		):
+			return
+		insertion_state["mutated"] = true
+		if reparent_player:
+			child.reparent(holder)
+		else:
+			root.remove_child(child)
+	var connect_error: Error = (
+		root.child_entered_tree.connect(topology_callback) as Error
+	)
+	assert_eq(connect_error, OK)
+
+	standalone_audio.init()
+	if root.child_entered_tree.is_connected(topology_callback):
+		root.child_entered_tree.disconnect(topology_callback)
+	await get_tree().process_frame
+
+	assert_true(GFVariantData.get_option_bool(insertion_state, "mutated"))
+	assert_false(standalone_audio._is_initialized)
+	assert_null(standalone_audio._root)
+	assert_null(standalone_audio._bgm_player)
+	assert_null(standalone_audio._bgm_fade_player)
+	assert_eq(holder.get_child_count(), 0)
+	assert_eq(_count_root_audio_players_named("GFBGMPlayer"), primary_count_before)
+	assert_eq(_count_root_audio_players_named("GFBGMFadePlayer"), fade_count_before)
+
+	standalone_audio.dispose()
+	holder.queue_free()
+	await get_tree().process_frame
+
+
+func test_pre_init_backend_topology_reports_committed_set_and_clear() -> void:
+	var standalone_audio: GFAudioUtility = GFAudioUtility.new()
+	var backend: MockAudioBackend = MockAudioBackend.new()
+
+	assert_true(
+		standalone_audio.set_audio_backend(backend),
+		"pre-init set 已完成 setup 与 identity 提交时必须返回 true。"
+	)
+	assert_true(backend.setup_called)
+	assert_same(standalone_audio.get_audio_backend(), backend)
+	assert_true(
+		standalone_audio.clear_audio_backend(),
+		"pre-init clear 已完成 dispose 与 identity 清除时必须返回 true。"
+	)
+	assert_true(backend.disposed)
+	assert_null(standalone_audio.get_audio_backend())
+
+
 func test_play_bgm_empty_path_respects_crossfade() -> void:
 	var stream: AudioStreamGenerator = AudioStreamGenerator.new()
 	_audio._play_bgm_stream(stream)
@@ -5389,6 +5541,28 @@ func test_backend_can_handle_and_play_callbacks_reject_reentrant_host_mutation()
 		GFVariantData.to_bool(backend.replacement_result, true),
 		"play 回调中的重入替换应明确返回 false。"
 	)
+
+
+func test_backend_callback_rejects_same_backend_fast_path_reentry() -> void:
+	var backend: ReentrantAudioBackend = ReentrantAudioBackend.new()
+	backend.handle_bgm_paths = true
+	backend.replacement_backend = backend
+	assert_true(_audio.set_audio_backend(backend), "测试后端应成功绑定。")
+	backend.reentry_stage = ReentrantAudioBackend.ReentryStage.PLAY_BGM_PATH
+
+	_audio.play_bgm("event://music/same-backend-reentry")
+
+	assert_eq(backend.reentry_count, 1)
+	assert_false(
+		GFVariantData.to_bool(backend.replacement_result, true),
+		"后端回调期间即使 identity 相同，拓扑变更入口也必须 fail closed。"
+	)
+	assert_same(_audio.get_audio_backend(), backend)
+	assert_eq(
+		backend.played_bgm_paths,
+		PackedStringArray(["event://music/same-backend-reentry"])
+	)
+	backend.replacement_backend = null
 
 
 func test_backend_bgm_pause_query_rejects_reentrant_host_mutation() -> void:
