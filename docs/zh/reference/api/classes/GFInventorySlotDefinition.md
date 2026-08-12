@@ -22,7 +22,7 @@
 | 属性 | [`require_all_categories`](#member-gfinventoryslotdefinition-properties-require_all_categories) | `var require_all_categories: bool = false` |
 | 属性 | [`metadata`](#member-gfinventoryslotdefinition-properties-metadata) | `var metadata: Dictionary = {}` |
 | 属性 | [`acceptance_checker`](#member-gfinventoryslotdefinition-properties-acceptance_checker) | `var acceptance_checker: Callable = Callable()` |
-| 方法 | [`can_accept`](#member-gfinventoryslotdefinition-methods-can_accept) | `func can_accept( item_id: StringName, definition: GFInventoryItemDefinition = null, instance_data: Dictionary = {}, slot_index: int = -1, inventory: Object = null ) -> bool:` |
+| 方法 | [`can_accept`](#member-gfinventoryslotdefinition-methods-can_accept) | `func can_accept( item_id: StringName, definition: GFInventoryItemDefinition = null, instance_data: Dictionary = {}, slot_index: int = -1, inventory: GFInventoryReadView = null ) -> bool:` |
 | 方法 | [`to_dict`](#member-gfinventoryslotdefinition-methods-to_dict) | `func to_dict() -> Dictionary:` |
 | 方法 | [`apply_dict`](#member-gfinventoryslotdefinition-methods-apply_dict) | `func apply_dict(data: Dictionary) -> void:` |
 | 方法 | [`from_dict`](#member-gfinventoryslotdefinition-methods-from_dict) | `static func from_dict(data: Dictionary) -> GFInventorySlotDefinition:` |
@@ -122,12 +122,13 @@ var metadata: Dictionary = {}
 ### `acceptance_checker`
 
 - API：`public`
+- 首次版本：`3.20.0`
 
 ```gdscript
 var acceptance_checker: Callable = Callable()
 ```
 
-可选接收检查回调。签名为 Callable(item_id, definition, instance_data, slot_index, inventory) -> bool。
+可选接收检查回调。签名为 `Callable(item_id, definition, instance_data, slot_index, inventory_view) -> bool`。 `inventory_view` 是仅在本次同步回调内有效的 [GFInventoryReadView]；回调必须 同步、确定、只读且有界，不得保存视图、执行 I/O、产生外部副作用、依赖调用次数， 或把参数声明为可变库存模型类型。回调必须指向可反射参数元数据的具名 Object 方法；匿名 lambda 和其他不透明 Callable 会在调用前失败关闭。一次 mutation 或事务 的 prepare/commit 重规划可能调用零次或多次。
 
 ## 方法
 
@@ -136,9 +137,10 @@ var acceptance_checker: Callable = Callable()
 ### `can_accept`
 
 - API：`public`
+- 首次版本：`3.20.0`
 
 ```gdscript
-func can_accept( item_id: StringName, definition: GFInventoryItemDefinition = null, instance_data: Dictionary = {}, slot_index: int = -1, inventory: Object = null ) -> bool:
+func can_accept( item_id: StringName, definition: GFInventoryItemDefinition = null, instance_data: Dictionary = {}, slot_index: int = -1, inventory: GFInventoryReadView = null ) -> bool:
 ```
 
 判断槽位是否接受指定物品。
@@ -151,7 +153,7 @@ func can_accept( item_id: StringName, definition: GFInventoryItemDefinition = nu
 | `definition` | 可选物品定义；分类规则需要该定义。 |
 | `instance_data` | 物品实例数据。 |
 | `slot_index` | 槽位索引。 |
-| `inventory` | 调用方库存模型。 |
+| `inventory` | 当前逐步候选的短生命周期 [GFInventoryReadView]；手工调用可传 null。 |
 
 返回：接受时返回 true。
 

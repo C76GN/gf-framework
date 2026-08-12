@@ -651,7 +651,7 @@ PACKAGE_AGGREGATE_CLOSURE_BASELINES = {
 	"gf.standard.editor": 20,
 }
 PACKAGE_STANDARD_FAN_IN_BASELINES = {
-	"gf.standard.base": 50,
+	"gf.standard.base": 54,
 }
 PACKAGE_MANIFEST_SCAN_EXCLUDED_PREFIXES = (
 	".git/",

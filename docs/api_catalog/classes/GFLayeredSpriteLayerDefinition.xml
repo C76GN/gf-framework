@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFLayeredSpriteLayerDefinition" path="addons/gf/extensions/layered_sprite/resources/gf_layered_sprite_layer_definition.gd" module="extensions/layered_sprite" extends="Resource" classDigest="33435fb2fe32b6a95f718d95c0b240d9e88d6fb7a5df2ee8859b20be5ab077d8">
+	<description>GFLayeredSpriteLayerDefinition：分层精灵的单层定义。
+层定义只描述稳定身份、绘制属性和可选帧变体；具体业务含义由项目自行解释。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">resource_definition</tag>
+		<tag name="since">unreleased</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties>
+		<member kind="property" name="layer_id" decorators="@export">
+			<signature>var layer_id: StringName = &amp;""</signature>
+			<description>层稳定 ID。同一定义内必须唯一、非空且无首尾空白。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="default_variant_id" decorators="@export">
+			<signature>var default_variant_id: StringName = &amp;""</signature>
+			<description>初始变体 ID，必须引用 [member variants] 中的条目。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="variants" decorators="@export">
+			<signature>var variants: Array[GFLayeredSpriteVariant] = []</signature>
+			<description>同一层可切换的帧变体。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="offset" decorators="@export">
+			<signature>var offset: Vector2 = Vector2.ZERO</signature>
+			<description>相对节点原点的绘制偏移。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="modulate" decorators="@export">
+			<signature>var modulate: Color = Color.WHITE</signature>
+			<description>初始调制颜色。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="visible" decorators="@export">
+			<signature>var visible: bool = true</signature>
+			<description>初始可见性。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="draw_order" decorators="@export_range(-4096, 4096, 1)">
+			<signature>var draw_order: int = 0</signature>
+			<description>层内绘制顺序；数值较小的层先绘制。相同值保持定义顺序。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</properties>
+	<methods />
+	<innerClasses />
+</class>

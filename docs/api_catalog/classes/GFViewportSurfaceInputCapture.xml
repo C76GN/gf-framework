@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFViewportSurfaceInputCapture" path="addons/gf/standard/input/runtime/gf_viewport_surface_input_capture.gd" module="standard" extends="RefCounted" classDigest="80feebb771350e7481fe1373889a5544ec667a5a2a2bc15ba3762f0c041b6139">
+	<description>GFViewportSurfaceInputCapture: 表面指针按下代际的不可变回执。
+调用方必须保留该回执并在 move、release 或 cancel 时原样交回创建它的
+[code]GFViewportSurfaceInputBridge[/code]。同一 source/device/pointer key 重用后，旧回执不能操作新代际。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">value_object</tag>
+		<tag name="since">unreleased</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties />
+	<methods>
+		<member kind="method" name="is_valid">
+			<signature>func is_valid() -&gt; bool:</signature>
+			<description>检查回执是否已由桥成功配置。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">包含完整指针与代际身份时返回 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_source_id">
+			<signature>func get_source_id() -&gt; StringName:</signature>
+			<description>获取输入源标识。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">Resolver 提供的稳定输入源标识。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_device_id">
+			<signature>func get_device_id() -&gt; int:</signature>
+			<description>获取设备标识。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">按下时的非负设备标识。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_pointer_id">
+			<signature>func get_pointer_id() -&gt; int:</signature>
+			<description>获取输入源内的指针标识。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">按下时的非负指针标识。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_pointer_type">
+			<signature>func get_pointer_type() -&gt; int:</signature>
+			<description>获取指针类型。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">`GFViewportSurfaceInputBridge.PointerType` 值。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_capture_generation">
+			<signature>func get_capture_generation() -&gt; int:</signature>
+			<description>获取桥分配的单调捕获代际。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">大于 0 的捕获代际。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_target_generation">
+			<signature>func get_target_generation() -&gt; int:</signature>
+			<description>获取 Resolver 在按下时提供的目标代际。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">大于 0 的外部目标代际。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

@@ -54,3 +54,15 @@ print(tree_report["aggregate_progress"])
 ```
 
 需要保存任务状态时，项目层应把任务定义、父子关系、条件来源和进度数据放进自己的 Model 或存档结构。
+
+## Achievement 组合配方
+
+成就可以复用 `GFQuestUtility` 的通用定义、事件累计和终态机制，但长期权威数据仍应由项目 Model 与 Save Profile 持有。稳定 `StringName` 成就 ID 是跨版本身份；显示文本、资源路径、数组顺序和文件顺序都不能作为身份。项目必须显式定义 ID 重命名、删除、未知 ID 和存档 Schema 迁移政策，隐藏描述、图标、奖励与通知表现继续属于业务层。
+
+为成就进度实现一个版本化 `GFSaveSectionProvider`，只保存有界、data-only 的项目模型。只有 Save Profile 的成功终态才能证明本地状态已经持久化；平台回调成功不能替代本地提交。Provider 的事务与恢复边界见 [Save Profile 运行时](../save-graph/save-profile-runtime.md) 和 [Save Profile 会话与事务](../save-graph/save-profile-transactions.md)。
+
+`GFQuestUtility` 当前没有快照导入 API。启动时应先加载和迁移项目模型，再在一份干净的 Quest 运行时中注册定义、接取必要条目并重放已保存进度；通知、奖励和平台同步观察者只能在 hydration 完成后连接，避免把历史进度再次解释为新完成事件。运行时切换 Profile 时，应先停止新事件和副作用观察者，以持久模型为权威替换并重新 hydration Quest Utility，成功后再恢复订阅；不要修改其私有任务表。
+
+平台同步由项目 `GFPlatformAdapter` 翻译稳定成就 ID 与类型化结果。离线或临时失败请求可以进入专用 `GFRequestOutboxUtility`，使用稳定幂等键并接受 at-least-once 重放；本地持久化与远端确认是两个独立终态，不能用一个布尔值合并。Adapter 边界见 [Platform Runtime](../../standard/foundation/platform-runtime.md)，离线队列边界见 [通用请求 Outbox](../../standard/utilities/io/config-remote-outbox/request-outbox.md)。
+
+项目至少应验证普通与累计进度、重复完成、回调重入、保存失败、旧 Schema 迁移、未知与改名 ID、启动 hydration、Profile 替换、离线重试和平台重复投递。GF 不新增第二套 Achievement Runtime，也不接管奖励、通知、展示和平台产品政策。

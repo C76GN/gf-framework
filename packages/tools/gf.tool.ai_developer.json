@@ -4,7 +4,7 @@
   "kind": "tool",
   "version": "unreleased",
   "display_name": "GF AI Developer Kit",
-  "description": "Optional project intent contract, target-bound interactive contract migration, capability readiness evidence, versioned GF knowledge, agent skills, local MCP/CLI, and approval-gated framework feedback workflow.",
+  "description": "Optional project intent contract, target-bound migrations, explicit hash-bound offline context bundles, capability readiness evidence, versioned GF knowledge, agent skills, local MCP/CLI, and approval-gated framework feedback workflow.",
   "dependencies": [
     "gf.kernel"
   ],
@@ -12,6 +12,6 @@
     "addons/gf/tools/ai_developer/**"
   ],
   "metadata": {
-    "stage": "project-ai-kit-v2"
+    "stage": "project-ai-kit-v3"
   }
 }

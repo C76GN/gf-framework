@@ -1,0 +1,275 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFCivilDate" path="addons/gf/standard/utilities/time/gf_civil_date.gd" module="standard" extends="RefCounted" classDigest="32d580d4bf7ead9004621401c4dc7fd183191a715de7635cae99525780d5fb9e">
+	<description>GFCivilDate: 无时区、无时刻的不可变公民日期。
+使用前推格里高利历，支持 0001-01-01 到 9999-12-31。
+本类只处理日期数学，不读取系统时钟，不包含时区、语言区域、节假日或业务日规则。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">value_object</tag>
+		<tag name="since">unreleased</tag>
+	</tags>
+	<signals />
+	<enums>
+		<member kind="enum" name="Weekday">
+			<signature>enum Weekday {
+	## 星期一。
+	MONDAY = 1,
+	## 星期二。
+	TUESDAY = 2,
+	## 星期三。
+	WEDNESDAY = 3,
+	## 星期四。
+	THURSDAY = 4,
+	## 星期五。
+	FRIDAY = 5,
+	## 星期六。
+	SATURDAY = 6,
+	## 星期日。
+	SUNDAY = 7,
+}</signature>
+			<description>ISO 8601 星期编号，星期一为 1，星期日为 7。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</enums>
+	<constants>
+		<member kind="const" name="MIN_YEAR">
+			<signature>const MIN_YEAR: int = 1</signature>
+			<description>最小支持年份。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="MAX_YEAR">
+			<signature>const MAX_YEAR: int = 9999</signature>
+			<description>最大支持年份。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</constants>
+	<properties />
+	<methods>
+		<member kind="method" name="create">
+			<signature>static func create(year: int, month: int, day: int) -&gt; GFCivilDateResult:</signature>
+			<description>创建公民日期。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">year: 1 到 9999 的年份。</tag>
+				<tag name="param">month: 1 到 12 的月份。</tag>
+				<tag name="param">day: 当月有效日。</tag>
+				<tag name="return">显式成功或失败结果；不钳制输入。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="parse_iso8601">
+			<signature>static func parse_iso8601(text: String) -&gt; GFCivilDateResult:</signature>
+			<description>解析固定长度 ISO 8601 日期文本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">text: 严格的 `YYYY-MM-DD` 文本，不接受空白、符号或可变位数。</tag>
+				<tag name="return">解析结果；格式错误与日期错误使用不同状态。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="from_dict">
+			<signature>static func from_dict(data: Dictionary) -&gt; GFCivilDateResult:</signature>
+			<description>从稳定字典 schema 恢复日期。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">data: 包含整数 year、month 与 day 的字典。</tag>
+				<tag name="return">解析结果；缺少字段或字段类型错误时为 `STATUS_INVALID_FORMAT`。</tag>
+				<tag name="schema">data: Closed Dictionary with exactly integer year, month, and day fields.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="from_ordinal">
+			<signature>static func from_ordinal(ordinal: int) -&gt; GFCivilDateResult:</signature>
+			<description>从零起点日序号创建日期。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">ordinal: 0001-01-01 为 0 的日序号。</tag>
+				<tag name="return">序号在支持范围内时的日期结果。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_leap_year">
+			<signature>static func is_leap_year(year: int) -&gt; bool:</signature>
+			<description>检查年份是否为前推格里高利历闰年。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">year: 待检查年份。</tag>
+				<tag name="return">1 到 9999 之内且符合闰年规则时返回 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_days_in_month">
+			<signature>static func get_days_in_month(year: int, month: int) -&gt; int:</signature>
+			<description>获取指定月天数。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">year: 1 到 9999 的年份。</tag>
+				<tag name="param">month: 1 到 12 的月份。</tag>
+				<tag name="return">当月天数；输入越界时返回 0。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_valid">
+			<signature>func is_valid() -&gt; bool:</signature>
+			<description>检查实例是否由日期工厂成功配置。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">包含支持范围内有效日期时返回 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_year">
+			<signature>func get_year() -&gt; int:</signature>
+			<description>获取年份。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">年份；未配置实例返回 0。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_month">
+			<signature>func get_month() -&gt; int:</signature>
+			<description>获取月份。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">1 到 12；未配置实例返回 0。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_day">
+			<signature>func get_day() -&gt; int:</signature>
+			<description>获取月内日。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">1 到当月天数；未配置实例返回 0。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="to_iso8601">
+			<signature>func to_iso8601() -&gt; String:</signature>
+			<description>转换为固定长度 ISO 8601 日期文本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">`YYYY-MM-DD`；未配置实例返回空字符串。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="to_dict">
+			<signature>func to_dict() -&gt; Dictionary:</signature>
+			<description>转换为稳定组件字典。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">包含整数 year、month 与 day 的新字典；未配置时为空字典。</tag>
+				<tag name="schema">return: Dictionary with integer year, month, and day fields.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="to_ordinal">
+			<signature>func to_ordinal() -&gt; int:</signature>
+			<description>获取零起点日序号。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">0001-01-01 为 0 的日序号；未配置时返回 -1。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_weekday">
+			<signature>func get_weekday() -&gt; int:</signature>
+			<description>获取 ISO 8601 星期编号。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">`Weekday` 值；未配置时返回 0。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_day_of_year">
+			<signature>func get_day_of_year() -&gt; int:</signature>
+			<description>获取年内日序号。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">1 到 366；未配置时返回 0。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_iso_week_year">
+			<signature>func get_iso_week_year() -&gt; int:</signature>
+			<description>获取 ISO 周所属周年。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">ISO 周年；未配置时返回 0。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_iso_week_number">
+			<signature>func get_iso_week_number() -&gt; int:</signature>
+			<description>获取 ISO 周序号。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">1 到 53；未配置时返回 0。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="add_days">
+			<signature>func add_days(days: int) -&gt; GFCivilDateResult:</signature>
+			<description>加减日数。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">days: 可为负数的日偏移。</tag>
+				<tag name="return">偏移后日期；未配置或超出支持范围时失败。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="add_months">
+			<signature>func add_months(months: int, clamp_day: bool = true) -&gt; GFCivilDateResult:</signature>
+			<description>加减自然月。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">months: 可为负数的月偏移。</tag>
+				<tag name="param">clamp_day: 目标月不含原月内日时，true 钳制到月末，false 返回失败。</tag>
+				<tag name="return">偏移后日期或显式失败。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="add_years">
+			<signature>func add_years(years: int, clamp_day: bool = true) -&gt; GFCivilDateResult:</signature>
+			<description>加减公民年。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">years: 可为负数的年偏移。</tag>
+				<tag name="param">clamp_day: 目标年不含原月内日时，true 钳制到月末，false 返回失败。</tag>
+				<tag name="return">偏移后日期或显式失败。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="compare_to">
+			<signature>func compare_to(other: GFCivilDate) -&gt; GFCivilDateDifferenceResult:</signature>
+			<description>比较当前日期与另一日期。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">other: 右侧日期。</tag>
+				<tag name="return">包含比较次序与 `other - self` 日差的类型化结果。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="days_until">
+			<signature>func days_until(other: GFCivilDate) -&gt; GFCivilDateDifferenceResult:</signature>
+			<description>计算从当前日期到另一日期的有符号日数。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">other: 右侧日期。</tag>
+				<tag name="return">包含 `other - self` 日差和比较次序的类型化结果。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

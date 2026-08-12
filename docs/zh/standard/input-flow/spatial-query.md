@@ -79,6 +79,12 @@ facade 只输出实体值、统一 `identity` 快照和调用方 metadata。阵�
 
 `GFSpatialQueryIdentity` 只接受 `Object`、非空 `StringName`、非空 `String` 或 `int`。`Object` 以 weakref 方式保存，不会因为进入空间索引而被强持有；`Array`、`Dictionary` 等可变复合值会被拒绝，避免索引键在插入后被调用方修改而导致删除、更新和查询结果不可预测。2D facade 会把稳定身份映射为四叉树内部 surrogate int，因此底层 `GFQuadTreeUtility` 的 `int entity_id` 限制不会泄漏到 facade API。AABB 覆盖格子时使用半开最大边界，恰好落在格子边界的盒子不会额外占用相邻格。
 
+## Environment Query 组合边界
+
+需要把空间候选交给 Decision 评分时，先把查询记录冻结成有界的 data-only 候选；`query_records_*()` 返回的 `entity` 可能是实时 Object，不能进入异步任务、持久化或诊断快照。只保留稳定 `identity`、位置或 bounds，以及项目白名单允许的 metadata，随后在项目层完成过滤、测试和评分。完整流程见 [Decision 的 Environment Query 组合配方](../../extensions/decision/index.md)。
+
+当前 `GFSpatialQueryIndex2D` / `GFSpatialQueryIndex3D` 查询没有 `max_results` 或取消参数，单次调用不会被 `GFExecutionBudget` 抢占。需要硬延迟上限时，应在调用前限制索引人口、世界分区、查询半径和调用频率；不要先扫描无界世界，再对返回数组做截断。
+
 ---
 
 

@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFLspWorkspaceEditPlan" path="addons/gf/tools/lsp_workspace_edit/gf_lsp_workspace_edit_plan.gd" module="tools" extends="RefCounted" classDigest="f3e9242a383a7a44530503b23047584415a0402687b601075f1bf8c0f2e3df2a">
+	<description>GFLspWorkspaceEditPlan: 已预检 LSP WorkspaceEdit 的一次性提交计划。
+该值对象由 GFLspWorkspaceEditAdapter 创建，绑定工作区身份与版本、文档版本、
+来源 SHA-256、结果 SHA-256 和完整计划 SHA-256。公开读取只返回隔离副本，
+不暴露待写入源码；计划一旦进入底层写事务即被消费，不能重复提交。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">value_object</tag>
+		<tag name="since">unreleased</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties />
+	<methods>
+		<member kind="method" name="is_valid">
+			<signature>func is_valid() -&gt; bool:</signature>
+			<description>返回计划当前是否可提交。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">计划已成功预检且尚未被消费时为 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_consumed">
+			<signature>func is_consumed() -&gt; bool:</signature>
+			<description>返回计划是否已经进入过底层写事务。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">计划已被一次性消费时为 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_plan_sha256">
+			<signature>func get_plan_sha256() -&gt; String:</signature>
+			<description>返回绑定完整计划内容的 SHA-256。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">有效计划的 64 位小写十六进制摘要；无效计划返回空字符串。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_report">
+			<signature>func get_report() -&gt; Dictionary:</signature>
+			<description>返回不含源码正文的隔离计划报告。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">JSON-safe 报告副本。</tag>
+				<tag name="schema">return: closed Dictionary，包含 ok、status、plan_sha256、workspace_uri、workspace_version、position_encoding、document_count、edit_count、changed_count、source_bytes、result_bytes、issues、documents、consumed。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFSlotInventoryModel" path="addons/gf/extensions/domain/inventory/gf_slot_inventory_model.gd" module="extensions/domain" extends="GFModel" classDigest="a2ac557bd2ab264d795f01a86c062a726ec7ce865875801c4d775e5abf71c94a">
+<class name="GFSlotInventoryModel" path="addons/gf/extensions/domain/inventory/gf_slot_inventory_model.gd" module="extensions/domain" extends="GFModel" classDigest="c2704aefe7c36e2eb1f51ab6cc8bcbf511083dca4bd42a2b6ab7303c34189f40">
 	<description>GFSlotInventoryModel: 通用可序列化槽位库存模型。
 管理固定或可增长槽位中的 `GFInventoryStack`，支持槽位接收规则、
 堆叠容量、最大堆叠数量、实例数据兼容性、移动、交换和序列化。</description>
@@ -81,26 +81,29 @@
 	<constants />
 	<properties>
 		<member kind="property" name="registry">
-			<signature>var registry: GFInventoryItemRegistry = null</signature>
+			<signature>var registry: GFInventoryItemRegistry:</signature>
 			<description>可选物品定义注册表。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="slot_definitions">
-			<signature>var slot_definitions: Array[GFInventorySlotDefinition] = []</signature>
-			<description>可选槽位定义。索引与库存槽位一致；空项表示该槽位不添加额外接收限制。</description>
+			<signature>var slot_definitions: Array[GFInventorySlotDefinition]:</signature>
+			<description>可选槽位定义。数量必须与库存槽位精确一致；空项表示该槽位不添加额外接收限制。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="schema">slot_definitions: Array[GFInventorySlotDefinition]，按槽位索引存放的接收规则；空项表示不限制。</tag>
+				<tag name="schema">slot_definitions: Array[GFInventorySlotDefinition]，数量必须等于 get_slot_count()；按槽位索引存放接收规则，空项表示不限制。</tag>
+				<tag name="since">3.20.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="allow_growth">
-			<signature>var allow_growth: bool = false</signature>
+			<signature>var allow_growth: bool:</signature>
 			<description>是否允许库存在创建新堆叠时自动增长。
 为 false 时，0 槽位库存不会接收 `add_item()` 的新堆叠。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="default_slot_count">
@@ -119,6 +122,26 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">item_registry: 物品注册表。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="set_allow_growth">
+			<signature>func set_allow_growth(enabled: bool) -&gt; void:</signature>
+			<description>设置是否允许自动增长槽位。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">enabled: 是否允许 `add_item()` 在需要新堆叠时增长槽位。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_revision">
+			<signature>func get_revision() -&gt; int:</signature>
+			<description>获取会使已准备转移失效的单调 revision。
+每次实际公开内容、结构或转移相关配置变化最多递增一次；被拒绝和 no-op
+操作保持不变。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">当前非负 revision。</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
 		<member kind="method" name="set_slot_count">

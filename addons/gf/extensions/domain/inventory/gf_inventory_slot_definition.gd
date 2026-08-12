@@ -56,9 +56,17 @@ extends Resource
 
 # --- 公共变量 ---
 
-## 可选接收检查回调。签名为 Callable(item_id, definition, instance_data, slot_index, inventory) -> bool。
+## 可选接收检查回调。签名为
+## `Callable(item_id, definition, instance_data, slot_index, inventory_view) -> bool`。
+## `inventory_view` 是仅在本次同步回调内有效的 [GFInventoryReadView]；回调必须
+## 同步、确定、只读且有界，不得保存视图、执行 I/O、产生外部副作用、依赖调用次数，
+## 或把参数声明为可变库存模型类型。回调必须指向可反射参数元数据的具名 Object
+## 方法；匿名 lambda 和其他不透明 Callable 会在调用前失败关闭。一次 mutation 或事务
+## 的 prepare/commit 重规划可能调用零次或多次。
 ## [br]
 ## @api public
+## [br]
+## @since 3.20.0
 var acceptance_checker: Callable = Callable()
 
 
@@ -68,6 +76,8 @@ var acceptance_checker: Callable = Callable()
 ## [br]
 ## @api public
 ## [br]
+## @since 3.20.0
+## [br]
 ## @param item_id: 物品标识。
 ## [br]
 ## @param definition: 可选物品定义；分类规则需要该定义。
@@ -76,7 +86,7 @@ var acceptance_checker: Callable = Callable()
 ## [br]
 ## @param slot_index: 槽位索引。
 ## [br]
-## @param inventory: 调用方库存模型。
+## @param inventory: 当前逐步候选的短生命周期 [GFInventoryReadView]；手工调用可传 null。
 ## [br]
 ## @return: 接受时返回 true。
 ## [br]
@@ -86,7 +96,7 @@ func can_accept(
 	definition: GFInventoryItemDefinition = null,
 	instance_data: Dictionary = {},
 	slot_index: int = -1,
-	inventory: Object = null
+	inventory: GFInventoryReadView = null
 ) -> bool:
 	if item_id == &"":
 		return false
@@ -97,13 +107,21 @@ func can_accept(
 	if not _matches_categories(definition):
 		return false
 	if acceptance_checker.is_valid():
-		return GFVariantData.to_bool(acceptance_checker.call(
+		var arguments: Array = [
 			item_id,
 			definition,
 			instance_data.duplicate(true),
 			slot_index,
-			inventory
-		))
+			inventory,
+		]
+		var result_output: Array = []
+		if not GFInventoryRuleCallableSupport.try_call_for_framework(
+			acceptance_checker,
+			arguments,
+			result_output
+		):
+			return false
+		return GFVariantData.to_bool(result_output[0])
 	return true
 
 

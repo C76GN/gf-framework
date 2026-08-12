@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFInputAction" path="addons/gf/standard/input/mapping/gf_input_action.gd" module="standard" extends="Resource" classDigest="3137015960ee314f2c1e0440afcf361799c43e0efbc2a4f1ddfc99b1f2a9a101">
+<class name="GFInputAction" path="addons/gf/standard/input/mapping/gf_input_action.gd" module="standard" extends="Resource" classDigest="6d1908dfeb47b56e432a724a387811581701955c9fef83bdd73c9e8889a5ef9e">
 	<description>GFInputAction: 资源化输入动作描述。
 只描述“项目想要读取的抽象动作”，不绑定具体按键、设备或玩法逻辑。</description>
 	<tags>
@@ -75,6 +75,16 @@
 			<description>判断轴动作是否活跃的阈值。</description>
 			<tags>
 				<tag name="api">public</tag>
+			</tags>
+		</member>
+		<member kind="property" name="release_threshold" decorators="@export_range(0.0, 1.0, 0.01)">
+			<signature>var release_threshold: float = 0.5</signature>
+			<description>轴动作活跃后判断其是否释放的阈值。
+仅用于轴动作，必须处于 0.0 到 1.0 且不高于 [member activation_threshold]。
+精确中立值始终释放；两个正阈值相等时与旧式单阈值行为一致。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
 	</properties>

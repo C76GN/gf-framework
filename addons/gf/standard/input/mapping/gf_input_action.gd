@@ -65,6 +65,15 @@ enum ValueType {
 ## @api public
 @export_range(0.0, 1.0, 0.01) var activation_threshold: float = 0.5
 
+## 轴动作活跃后判断其是否释放的阈值。
+## 仅用于轴动作，必须处于 0.0 到 1.0 且不高于 [member activation_threshold]。
+## 精确中立值始终释放；两个正阈值相等时与旧式单阈值行为一致。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+@export_range(0.0, 1.0, 0.01) var release_threshold: float = 0.5
+
 
 # --- 公共方法 ---
 

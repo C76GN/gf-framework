@@ -6,11 +6,11 @@
 
 | 类别 | 类 | 成员 | 方法 |
 |---|---:|---:|---:|
-| [运行时服务](#category-runtime_service) | 188 | 3437 | 2322 |
+| [运行时服务](#category-runtime_service) | 190 | 3457 | 2340 |
 | [协议与扩展点](#category-protocol) | 25 | 342 | 270 |
-| [资源定义](#category-resource_definition) | 122 | 1572 | 797 |
+| [资源定义](#category-resource_definition) | 122 | 1573 | 797 |
 | [运行时句柄](#category-runtime_handle) | 52 | 911 | 578 |
-| [值对象](#category-value_object) | 49 | 865 | 550 |
+| [值对象](#category-value_object) | 54 | 928 | 599 |
 | [领域模型](#category-domain_model) | 4 | 61 | 42 |
 | [事件契约](#category-event_contract) | 6 | 61 | 23 |
 | [编辑器 API](#category-editor_api) | 11 | 70 | 48 |
@@ -45,6 +45,7 @@
 | [`GFBudgetLedger`](classes/GFBudgetLedger.md#gfbudgetledger) | `RefCounted` | `addons/gf/standard/foundation/budget/gf_budget_ledger.gd` |
 | [`GFBuildInfoUtility`](classes/GFBuildInfoUtility.md#gfbuildinfoutility) | `GFUtility` | `addons/gf/standard/utilities/debug/gf_build_info_utility.gd` |
 | [`GFCacheDiagnostics`](classes/GFCacheDiagnostics.md#gfcachediagnostics) | `RefCounted` | `addons/gf/standard/foundation/collections/gf_cache_diagnostics.gd` |
+| [`GFCalendarGridTools`](classes/GFCalendarGridTools.md#gfcalendargridtools) | `RefCounted` | `addons/gf/standard/utilities/time/gf_calendar_grid_tools.gd` |
 | [`GFCollisionBroadphase2D`](classes/GFCollisionBroadphase2D.md#gfcollisionbroadphase2d) | `RefCounted` | `addons/gf/standard/foundation/math/gf_collision_broadphase_2d.gd` |
 | [`GFCollisionBroadphase3D`](classes/GFCollisionBroadphase3D.md#gfcollisionbroadphase3d) | `RefCounted` | `addons/gf/standard/foundation/math/gf_collision_broadphase_3d.gd` |
 | [`GFCollisionNarrowphase2D`](classes/GFCollisionNarrowphase2D.md#gfcollisionnarrowphase2d) | `RefCounted` | `addons/gf/standard/foundation/math/gf_collision_narrowphase_2d.gd` |
@@ -206,6 +207,7 @@
 | [`GFVariantJsonCodec`](classes/GFVariantJsonCodec.md#gfvariantjsoncodec) | `RefCounted` | `addons/gf/standard/foundation/variant/gf_variant_json_codec.gd` |
 | [`GFVariantKeyCodec`](classes/GFVariantKeyCodec.md#gfvariantkeycodec) | `RefCounted` | `addons/gf/standard/foundation/variant/gf_variant_key_codec.gd` |
 | [`GFVariantReferenceCodec`](classes/GFVariantReferenceCodec.md#gfvariantreferencecodec) | `RefCounted` | `addons/gf/standard/foundation/variant/gf_variant_reference_codec.gd` |
+| [`GFViewportSurfaceInputBridge`](classes/GFViewportSurfaceInputBridge.md#gfviewportsurfaceinputbridge) | `RefCounted` | `addons/gf/standard/input/runtime/gf_viewport_surface_input_bridge.gd` |
 | [`GFViewportUtility`](classes/GFViewportUtility.md#gfviewportutility) | `GFUtility` | `addons/gf/standard/utilities/display/gf_viewport_utility.gd` |
 | [`GFVirtualInputBridge`](classes/GFVirtualInputBridge.md#gfvirtualinputbridge) | `RefCounted` | `addons/gf/standard/input/common/gf_virtual_input_bridge.gd` |
 | [`GFVirtualListFocusModel`](classes/GFVirtualListFocusModel.md#gfvirtuallistfocusmodel) | `RefCounted` | `addons/gf/standard/utilities/ui/gf_virtual_list_focus_model.gd` |
@@ -446,6 +448,10 @@
 | [`GFBigNumber`](classes/GFBigNumber.md#gfbignumber) | `RefCounted` | `addons/gf/standard/foundation/numeric/gf_big_number.gd` |
 | [`GFBuildInfo`](classes/GFBuildInfo.md#gfbuildinfo) | `Resource` | `addons/gf/standard/utilities/debug/gf_build_info.gd` |
 | [`GFByteCursor`](classes/GFByteCursor.md#gfbytecursor) | `RefCounted` | `addons/gf/standard/foundation/binary/gf_byte_cursor.gd` |
+| [`GFCalendarGrid`](classes/GFCalendarGrid.md#gfcalendargrid) | `RefCounted` | `addons/gf/standard/utilities/time/gf_calendar_grid.gd` |
+| [`GFCivilDate`](classes/GFCivilDate.md#gfcivildate) | `RefCounted` | `addons/gf/standard/utilities/time/gf_civil_date.gd` |
+| [`GFCivilDateDifferenceResult`](classes/GFCivilDateDifferenceResult.md#gfcivildatedifferenceresult) | `RefCounted` | `addons/gf/standard/utilities/time/gf_civil_date_difference_result.gd` |
+| [`GFCivilDateResult`](classes/GFCivilDateResult.md#gfcivildateresult) | `RefCounted` | `addons/gf/standard/utilities/time/gf_civil_date_result.gd` |
 | [`GFConfigValidationReport`](classes/GFConfigValidationReport.md#gfconfigvalidationreport) | `RefCounted` | `addons/gf/standard/utilities/config/gf_config_validation_report.gd` |
 | [`GFDeque`](classes/GFDeque.md#gfdeque) | `RefCounted` | `addons/gf/standard/foundation/collections/gf_deque.gd` |
 | [`GFDiagnosticProviderResult`](classes/GFDiagnosticProviderResult.md#gfdiagnosticproviderresult) | `RefCounted` | `addons/gf/standard/utilities/debug/gf_diagnostic_provider_result.gd` |
@@ -487,6 +493,7 @@
 | [`GFUuid`](classes/GFUuid.md#gfuuid) | `RefCounted` | `addons/gf/standard/foundation/identity/gf_uuid.gd` |
 | [`GFValidationIssue`](classes/GFValidationIssue.md#gfvalidationissue) | `RefCounted` | `addons/gf/standard/foundation/validation/gf_validation_issue.gd` |
 | [`GFValidationReport`](classes/GFValidationReport.md#gfvalidationreport) | `RefCounted` | `addons/gf/standard/foundation/validation/gf_validation_report.gd` |
+| [`GFViewportSurfaceInputCapture`](classes/GFViewportSurfaceInputCapture.md#gfviewportsurfaceinputcapture) | `RefCounted` | `addons/gf/standard/input/runtime/gf_viewport_surface_input_capture.gd` |
 | [`GFVirtualListSyncResult`](classes/GFVirtualListSyncResult.md#gfvirtuallistsyncresult) | `RefCounted` | `addons/gf/standard/utilities/ui/gf_virtual_list_sync_result.gd` |
 
 <a id="category-domain_model"></a>

@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "catalog_version": "1.9.0",
+  "catalog_version": "1.10.0",
   "recipes": [
     {
       "id": "project-feature",
@@ -257,6 +257,32 @@
         "Handle resync and permanent fault terminals explicitly, rebuild adapter state before a new epoch, and test spoofing, replay, stale packets, budget exhaustion, rollback failure, and callback reentry."
       ],
       "avoid": ["Authority inferred from payload or lobby metadata", "Automatic scene-tree or entity replication", "Inbound delta or patch without a versioned baseline protocol", "Unbounded history, pending input, replay, or packet limits", "Awaiting, networking, or state mutation inside adapter validation hooks"]
+    },
+    {
+      "id": "physics-backend-adapter",
+      "title": "Adapt a native physics backend without claiming unverified determinism",
+      "package_requirements": {"all_of": ["gf.standard.diagnostics"], "any_of": []},
+      "primary_classes": ["GFDiagnosticSnapshotProvider", "GFExecutionBudget"],
+      "required_api_members": [
+        {
+          "class_name": "GFDiagnosticSnapshotProvider",
+          "members": ["collect_snapshot"]
+        },
+        {
+          "class_name": "GFExecutionBudget",
+          "members": ["consume_steps", "check"]
+        }
+      ],
+      "steps": [
+        "Keep the native backend in a separately owned project adapter and freeze the actual physics server, backend version, build flavour, platform, architecture, ABI, dependency closure, license, artifact size, and SHA-256 before initialization.",
+        "Reuse the AI Developer platform compatibility profile as the single native artifact identity matrix; reject missing, ambiguous, stale, wrong-architecture, wrong-hash, or only partially readable evidence without filename or class-name fallback.",
+        "Report local reproducibility, cross-target reproducibility, and complete project-state reproducibility separately, and treat every unverified dimension as unknown rather than false proof of support.",
+        "Probe snapshot, restore, manual-step, and state-hash capabilities through bounded side-effect-free diagnostics, then verify fixed snapshot and input golden replays on every declared target tuple.",
+        "When network synchronization is required, implement GFNetworkSimulationAdapter as a synchronous project translation boundary; keep tick scheduling, authority, input meaning, complete game state, and fallback policy outside the backend adapter.",
+        "Publish only bounded redacted identity and capability evidence through GFDiagnosticSnapshotProvider, and fail initialization when a required backend or verified capability is unavailable.",
+        "Test artifact absence and mismatch, dependency gaps, unsupported ABI, snapshot and restore failure, replay divergence, late callbacks, and shutdown without silently selecting another physics mode."
+      ],
+      "avoid": ["Determinism inferred from a package name, filename, runtime class, or advertised flavour", "Third-party physics types added to GF protocols", "Requiring GFNetworkSimulationAdapter when no network synchronization is needed", "One boolean combining local, cross-platform, and complete-state reproducibility", "Silent fallback to an unverified backend", "Golden replay claims without every exported target tuple"]
     },
     {
       "id": "feedback-candidate",
@@ -595,6 +621,40 @@
       "avoid": ["Subclassing generic data to hide an entire gameplay system", "Adding one game's vocabulary to GF component code"]
     },
     {
+      "id": "achievement-composition",
+      "title": "Compose persistent achievements and platform synchronization",
+      "package_requirements": {"all_of": ["gf.extension.domain", "gf.extension.save", "gf.standard.platform", "gf.standard.assets"], "any_of": []},
+      "primary_classes": ["GFQuestUtility", "GFSaveSectionProvider", "GFSaveProfileUtility", "GFPlatformAdapter", "GFRequestOutboxUtility"],
+      "required_api_members": [
+        {
+          "class_name": "GFQuestUtility",
+          "members": ["define_quest", "emit_quest_event", "get_quest_report"]
+        },
+        {
+          "class_name": "GFSaveSectionProvider",
+          "members": ["capture_section", "apply_section", "make_section"]
+        },
+        {
+          "class_name": "GFPlatformAdapter",
+          "members": ["invoke"]
+        },
+        {
+          "class_name": "GFRequestOutboxUtility",
+          "members": ["enqueue_with_report"]
+        }
+      ],
+      "steps": [
+        "Define immutable StringName achievement IDs and explicit rename, deletion, unknown-ID, and schema migration policy; never use display text, array order, or file order as identity.",
+        "Register project-owned definitions in GFQuestUtility and keep hidden text, descriptions, icons, rewards, and notification presentation outside the generic runtime.",
+        "Own one versioned GFSaveSectionProvider for achievement progress, persist only bounded data, and treat Save Profile success as the sole evidence that local state is durable.",
+        "Hydrate a fresh quest utility during bootstrap before notification, reward, and platform-sync observers are connected; current GFQuestUtility has no snapshot import API, so do not replay saved progress through an already-observed runtime.",
+        "For runtime profile switching, keep the persistent project model authoritative and rebuild the quest utility and its subscriptions instead of mutating private quest state.",
+        "Translate platform IDs and results only in a project-owned GFPlatformAdapter, enqueue idempotent synchronization requests in a dedicated GFRequestOutboxUtility, and keep local persistence and remote acknowledgement as independent terminal states.",
+        "Test normal and cumulative progress, duplicate completion, callback reentry, save failure, old-schema migration, unknown and renamed IDs, offline retry, duplicate platform delivery, bootstrap hydration, and profile replacement."
+      ],
+      "avoid": ["A second achievement runtime beside GFQuestUtility", "Notifications, rewards, or hidden presentation fields treated as generic state", "Progress replay after side-effect observers are connected", "Platform acknowledgement treated as proof of local persistence", "Unversioned save payloads or provider IDs in portable domain data"]
+    },
+    {
       "id": "dialogue-pipeline",
       "title": "Build a dialogue pipeline",
       "package_requirements": {"all_of": ["gf.extension.dialogue", "gf.tool.dialogue_text"], "any_of": []},
@@ -624,6 +684,49 @@
         "Test empty worlds, invalid values, large coordinates, frame-rate variation, and disposal."
       ],
       "avoid": ["Physics ownership hidden inside a math helper", "Treating GFSpatialCanvas2D as a TileMap editor, business-rule authority, save system, or UGC store", "Canvas code scanning or commanding parent ScrollContainers", "Unbounded world scans on frame callbacks"]
+    },
+    {
+      "id": "environment-query-composition",
+      "title": "Compose a bounded environment query and read-only diagnostics",
+      "package_requirements": {"all_of": ["gf.standard.spatial", "gf.extension.decision", "gf.standard.diagnostics"], "any_of": []},
+      "primary_classes": ["GFExecutionBudget", "GFSpatialQueryIndex2D", "GFSpatialQueryIndex3D", "GFPhysicsQueryUtility", "GFDecisionOption", "GFDecisionSet", "GFDecisionEvaluation", "GFDiagnosticSnapshotProvider"],
+      "required_api_members": [
+        {
+          "class_name": "GFExecutionBudget",
+          "members": ["consume_steps", "check"]
+        },
+        {
+          "class_name": "GFSpatialQueryIndex2D",
+          "members": ["query_records_radius"]
+        },
+        {
+          "class_name": "GFSpatialQueryIndex3D",
+          "members": ["query_records_radius"]
+        },
+        {
+          "class_name": "GFDecisionOption",
+          "members": ["score"]
+        },
+        {
+          "class_name": "GFDecisionSet",
+          "members": ["select_best_from_scores"]
+        },
+        {
+          "class_name": "GFDiagnosticSnapshotProvider",
+          "members": ["collect_snapshot"]
+        }
+      ],
+      "steps": [
+        "Create a project-owned query generation and freeze its context, generation, test plan, and a finite candidate list before scoring; copy only stable identity, position or bounds, and bounded data-only metadata.",
+        "Treat GFSpatialQueryIndex query calls as atomic work: they currently expose no max-results or cancellation parameter, so bound index population and query scope before calling them and never claim GFExecutionBudget can interrupt an in-progress index query.",
+        "Discard live entity references from spatial records and precompute finite project test values before Decision scoring; reject invalid, non-finite, or side-effecting test results instead of normalizing them into valid candidates.",
+        "Score each frozen candidate through the same read-only GFDecisionOption, assign its stable candidate identity and deterministic order to the resulting GFDecisionScore, then select from the precomputed scores with GFDecisionSet.select_best_from_scores.",
+        "Consume GFExecutionBudget only in project-owned generation, physics-test, scoring, output, and diagnostic loops; use an explicit cancellation token and generation check so one terminal completion, failure, or cancellation wins.",
+        "Use stable identity and order for ties; inject and record a reproducible seed when project policy selects from a top-N set.",
+        "Publish a bounded diagnostic copy of positions, filtering reasons, precomputed scores, terminal state, and budget evidence through GFDiagnosticSnapshotProvider without retaining Nodes or executing generators and scorers again.",
+        "Test empty and fully filtered results, non-finite scores, exact ties, candidate mutation during execution, cancellation, reentry, generation replacement, diagnostic reads, and budget exhaustion."
+      ],
+      "avoid": ["A parallel spatial index, score normalization system, or execution budget", "Live Node references in frozen or diagnostic snapshots", "Diagnostics that rerun generators, physics tests, or scorers", "Claims that GFExecutionBudget preempts atomic spatial queries", "Provider callbacks with project mutation hidden inside scoring"]
     }
   ]
 }

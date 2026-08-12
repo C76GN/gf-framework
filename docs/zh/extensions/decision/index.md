@@ -81,6 +81,18 @@ subject/target 顶层句柄是 `WeakRef`，但 `subject_values`、`target_values
 
 通过 `GFDecisionUtility.register_decision_set(decision_set_id, decision_set)` 注册集合时，外部 ID 必须和资源内 `decision_set.decision_set_id` 一致；如果资源内 ID 为空，则注册入口会写入该 ID。registry key 在注册生命周期内是权威身份：同一 Resource 实例不能再次注册到另一个 key，外部热修改 ID 后，后续 Utility lookup/score/evaluate 会恢复原 key，评价与调试报告也继续使用该身份。若要改名，应先显式注销，再修改并用新 key 注册。
 
+## Environment Query 组合配方
+
+环境查询不需要新增一套平行运行时，可以把现有 Spatial、Physics、Decision、执行预算和诊断能力组合成项目 Pipeline：
+
+1. 项目为本次请求分配 generation，冻结上下文、测试计划和有限候选集合。`GFSpatialQueryIndex2D` / `GFSpatialQueryIndex3D` 的记录可能包含实时 `entity` 引用；冻结层只复制稳定 identity、位置或 bounds，以及经过校验的有界 data-only metadata，不保留 Node 或 Resource。
+2. 空间索引查询当前没有 `max_results` 或取消参数，一次调用属于不可抢占的原子工作。项目必须在调用前通过分区、半径、索引人口和调用频率限制查询规模；`GFExecutionBudget` 只能约束项目拥有的候选生成、物理测试、评分、输出和诊断循环，不能中断已经进入的索引查询。
+3. 项目先完成有界物理测试与业务过滤，并把结果转换为有限、只读的 `GFDecisionContext` 输入。非法、非有限或产生副作用的测试结果应拒绝候选，不能依赖 Decision 的分数归一化把失败伪装成合法低分。
+4. 每个冻结候选都通过同一只读 `GFDecisionOption` 评分，再把稳定候选 ID 和确定性原始顺序写入对应 `GFDecisionScore`；最终使用 `GFDecisionSet.select_best_from_scores()` 从预计算结果选择，避免为了查看最佳项再次执行 scorer。同分按稳定顺序裁决；项目若从 top-N 随机选择，必须注入并记录可复现 seed。
+5. 显式 cancellation token 与 generation 检查决定唯一终态，过期 generation 的完成结果不得提交。`GFDiagnosticSnapshotProvider` 只复制已经计算的候选位置、过滤原因、评分、终态和预算证据，不能在诊断回调里重跑生成器、物理测试或 scorer。
+
+至少测试空结果、全部过滤、非有限值、完全同分、执行期间候选变化、取消、重入、generation 替换、预算耗尽和重复读取诊断。只有多个项目反复出现无法由这条组合边界解决的共同生命周期问题时，才应评估新增 Environment Query Runtime。
+
 ## 使用边界
 
 - 不要把具体玩法字段写进 GF 扩展；黑板键、候选 ID 和元数据都由项目定义。

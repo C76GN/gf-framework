@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "id": "gf.tool.asset_browser",
+  "kind": "tool",
+  "version": "unreleased",
+  "display_name": "GF Asset Browser Tool",
+  "description": "Optional model-first asset browsing state and bounded preview coordination.",
+  "dependencies": [
+    "gf.kernel",
+    "gf.standard.base",
+    "gf.standard.assets"
+  ],
+  "paths": [
+    "addons/gf/tools/asset_browser/**"
+  ],
+  "metadata": {
+    "stage": "model-first-v1"
+  }
+}

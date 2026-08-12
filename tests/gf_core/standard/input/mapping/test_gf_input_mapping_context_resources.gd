@@ -100,6 +100,7 @@ func test_input_context_diagnostics_reports_structure_issues() -> void:
 	var context: GFInputContext = GFInputContext.new()
 	var missing_action_mapping: GFInputMapping = GFInputMapping.new()
 	var invalid_mapping: GFInputMapping = _make_valid_mapping(&"jump")
+	invalid_mapping.action.value_type = GFInputAction.ValueType.AXIS_1D
 	invalid_mapping.action.activation_threshold = 1.5
 	invalid_mapping.modifiers = [null]
 	invalid_mapping.triggers = [null]
@@ -137,12 +138,16 @@ func test_input_context_diagnostics_reports_structure_issues() -> void:
 
 func test_input_context_diagnostics_rejects_nonfinite_threshold_and_deadzone() -> void:
 	var threshold_mapping: GFInputMapping = _make_valid_mapping(&"nonfinite_threshold")
+	threshold_mapping.action.value_type = GFInputAction.ValueType.AXIS_1D
 	threshold_mapping.action.activation_threshold = NAN
+	var release_mapping: GFInputMapping = _make_valid_mapping(&"nonfinite_release")
+	release_mapping.action.value_type = GFInputAction.ValueType.AXIS_1D
+	release_mapping.action.release_threshold = INF
 	var deadzone_mapping: GFInputMapping = _make_valid_mapping(&"nonfinite_deadzone")
 	deadzone_mapping.bindings[0].deadzone = INF
 	var context: GFInputContext = GFInputContext.new()
 	context.context_id = &"nonfinite"
-	context.mappings = [threshold_mapping, deadzone_mapping]
+	context.mappings = [threshold_mapping, release_mapping, deadzone_mapping]
 
 	var report: Dictionary = _GFInputContextDiagnostics.build_context_report(context)
 	var issue_counts: Dictionary = GFVariantData.get_option_dictionary(report, "issue_counts_by_kind")
@@ -153,11 +158,61 @@ func test_input_context_diagnostics_rejects_nonfinite_threshold_and_deadzone() -
 		"NaN activation threshold 必须被诊断为无效。"
 	)
 	assert_eq(
+		GFVariantData.get_option_int(issue_counts, "invalid_release_threshold"),
+		1,
+		"Infinity release threshold 必须被诊断为无效。"
+	)
+	assert_eq(
 		GFVariantData.get_option_int(issue_counts, "invalid_deadzone"),
 		1,
 		"Infinity deadzone 必须被诊断为无效。"
 	)
 	assert_false(GFVariantData.get_option_bool(report, "healthy"), "非有限映射参数不得被报告为健康。")
+
+
+func test_input_context_diagnostics_rejects_release_above_activation() -> void:
+	var mapping: GFInputMapping = _make_valid_mapping(&"invalid_hysteresis")
+	mapping.action.value_type = GFInputAction.ValueType.AXIS_1D
+	mapping.action.activation_threshold = 0.25
+	mapping.action.release_threshold = 0.5
+	var context: GFInputContext = GFInputContext.new()
+	context.context_id = &"invalid_hysteresis"
+	context.mappings = [mapping]
+
+	var report: Dictionary = _GFInputContextDiagnostics.build_context_report(context)
+	var issue_counts: Dictionary = GFVariantData.get_option_dictionary(report, "issue_counts_by_kind")
+
+	assert_eq(GFVariantData.get_option_int(issue_counts, "invalid_threshold_order"), 1)
+	assert_false(GFVariantData.get_option_bool(report, "healthy"))
+
+
+func test_input_context_diagnostics_ignore_axis_thresholds_for_bool_action() -> void:
+	var mapping: GFInputMapping = _make_valid_mapping(&"confirm")
+	mapping.action.value_type = GFInputAction.ValueType.BOOL
+	mapping.action.activation_threshold = NAN
+	mapping.action.release_threshold = INF
+	var context: GFInputContext = GFInputContext.new()
+	context.context_id = &"menu"
+	context.mappings = [mapping]
+
+	var report: Dictionary = _GFInputContextDiagnostics.build_context_report(
+		context,
+		null,
+		true,
+		{ "include_project_input_map_checks": false }
+	)
+	var issue_counts: Dictionary = GFVariantData.get_option_dictionary(
+		report,
+		"issue_counts_by_kind"
+	)
+
+	assert_false(issue_counts.has("invalid_activation_threshold"))
+	assert_false(issue_counts.has("invalid_release_threshold"))
+	assert_false(issue_counts.has("invalid_threshold_order"))
+	assert_true(
+		GFVariantData.get_option_bool(report, "healthy"),
+		"布尔动作的无语义轴阈值不得污染上下文健康诊断。"
+	)
 
 
 func test_input_context_diagnostics_can_skip_project_input_map_checks() -> void:

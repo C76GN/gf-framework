@@ -2,9 +2,9 @@
   "schema_version": 1,
   "catalog_version": "1.0.0",
   "framework_version": "11.0.0-dev.0",
-  "source_digest": "b33435c4a88da7a73cf0189aab7ef3c9a833879a71112add71213050fa7ce527",
-  "class_count": 795,
-  "package_count": 52,
+  "source_digest": "6a3278376aee95062513634e8b39c4fdcfc5c1333d85bc0e99f304d9322e451d",
+  "class_count": 812,
+  "package_count": 55,
   "packages": [
     {
       "id": "gf.extension.action_queue",
@@ -144,6 +144,16 @@
       ],
       "description": "Package manifest for the bundled Interaction extension.",
       "representative_path": "addons/gf/extensions/interaction/nodes/gf_interaction_receiver.gd"
+    },
+    {
+      "id": "gf.extension.layered_sprite",
+      "kind": "extension",
+      "dependencies": [
+        "gf.kernel",
+        "gf.standard.base"
+      ],
+      "description": "Package manifest for the optional Layered Sprite extension.",
+      "representative_path": "addons/gf/extensions/layered_sprite/nodes/gf_layered_sprite_2d.gd"
     },
     {
       "id": "gf.extension.network",
@@ -521,8 +531,19 @@
       "dependencies": [
         "gf.kernel"
       ],
-      "description": "Optional project intent contract, target-bound interactive contract migration, capability readiness evidence, versioned GF knowledge, agent skills, local MCP/CLI, and approval-gated framework feedback workflow.",
+      "description": "Optional project intent contract, target-bound migrations, explicit hash-bound offline context bundles, capability readiness evidence, versioned GF knowledge, agent skills, local MCP/CLI, and approval-gated framework feedback workflow.",
       "representative_path": "addons/gf/tools/ai_developer/knowledge/capabilities.json"
+    },
+    {
+      "id": "gf.tool.asset_browser",
+      "kind": "tool",
+      "dependencies": [
+        "gf.kernel",
+        "gf.standard.base",
+        "gf.standard.assets"
+      ],
+      "description": "Optional model-first asset browsing state and bounded preview coordination.",
+      "representative_path": "addons/gf/tools/asset_browser/gf_asset_browser_model.gd"
     },
     {
       "id": "gf.tool.config_pipeline",
@@ -546,6 +567,16 @@
       ],
       "description": "Optional authoring tool that compiles strict JSON text into GF dialogue resources.",
       "representative_path": "addons/gf/tools/dialogue_text/gf_dialogue_json_source_parser.gd"
+    },
+    {
+      "id": "gf.tool.lsp_workspace_edit",
+      "kind": "tool",
+      "dependencies": [
+        "gf.kernel",
+        "gf.standard.base"
+      ],
+      "description": "Closed, version-bound LSP WorkspaceEdit planning and transactional commit support for saved project GDScript files.",
+      "representative_path": "addons/gf/tools/lsp_workspace_edit/gf_lsp_workspace_edit_adapter.gd"
     },
     {
       "id": "gf.tool.network.editor",
@@ -3298,6 +3329,158 @@
           "name": "format_notice_text",
           "signature": "static func format_notice_text(report: Dictionary, options: Dictionary = {}) -> String",
           "summary": "将归因报告格式化为稳定的通知文本。",
+          "visibility": "public"
+        }
+      ]
+    },
+    "GFAssetBrowserModel": {
+      "extends": "RefCounted",
+      "module": "tools",
+      "package_id": "gf.tool.asset_browser",
+      "path": "addons/gf/tools/asset_browser/gf_asset_browser_model.gd",
+      "summary": "GFAssetBrowserModel: 资产浏览器的无界面状态模型。 持有隔离的 GFAssetCatalog 快照、查询代际和稳定 ID 选择，供项目编辑器 页面自行决定布局、来源注入和资源物化策略。本模型不扫描目录、不下载、",
+      "visibility": "public",
+      "category": "tool_api",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "signal",
+          "name": "catalog_changed",
+          "signature": "signal catalog_changed(catalog_revision: int, query_generation: int)",
+          "summary": "隔离目录成功替换后发出。",
+          "visibility": "public"
+        },
+        {
+          "kind": "signal",
+          "name": "query_changed",
+          "signature": "signal query_changed(query_generation: int)",
+          "summary": "查询条件实际变化后发出。",
+          "visibility": "public"
+        },
+        {
+          "kind": "signal",
+          "name": "selection_changed",
+          "signature": "signal selection_changed(asset_id: StringName)",
+          "summary": "稳定资产选择实际变化后发出。",
+          "visibility": "public"
+        },
+        {
+          "kind": "signal",
+          "name": "preview_resolved",
+          "signature": "signal preview_resolved(report: Dictionary)",
+          "summary": "当前代际的预览任务进入终态后发出。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "MAX_CATALOG_ENTRIES",
+          "signature": "const MAX_CATALOG_ENTRIES: int = 10_000",
+          "summary": "单个模型快照允许的最大资产数。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "MAX_QUERY_LENGTH",
+          "signature": "const MAX_QUERY_LENGTH: int = 512",
+          "summary": "查询文本允许的最大字符数。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "MAX_PAGE_SIZE",
+          "signature": "const MAX_PAGE_SIZE: int = 100",
+          "summary": "单页允许返回的最大资产数。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "MAX_RESULT_COUNT",
+          "signature": "const MAX_RESULT_COUNT: int = 10_000",
+          "summary": "一次查询允许保留的最大匹配资产数。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "replace_catalog",
+          "signature": "func replace_catalog(catalog: GFAssetCatalog) -> Dictionary",
+          "summary": "用隔离副本替换当前目录。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "select_asset",
+          "signature": "func select_asset(asset_id: StringName) -> bool",
+          "summary": "选择当前目录中的稳定资产 ID。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "set_query",
+          "signature": "func set_query( query_text: String, asset_ids: PackedStringArray = PackedStringArray() ) -> Dictionary",
+          "summary": "设置浏览查询和可选资产 ID 闭集。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_selected_asset_id",
+          "signature": "func get_selected_asset_id() -> StringName",
+          "summary": "获取当前选择的稳定资产 ID。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_catalog_revision",
+          "signature": "func get_catalog_revision() -> int",
+          "summary": "获取当前目录 revision。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_query_generation",
+          "signature": "func get_query_generation() -> int",
+          "summary": "获取当前查询 generation。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "request_preview",
+          "signature": "func request_preview( asset_id: StringName, renderer: GFThumbnailRenderer, request: GFThumbnailRenderRequest ) -> GFThumbnailRenderTask",
+          "summary": "提交与目录资产关联的缩略图请求。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "cancel_preview",
+          "signature": "func cancel_preview(reason: StringName = &\"cancelled\") -> bool",
+          "summary": "取消当前预览任务。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_preview_generation",
+          "signature": "func get_preview_generation() -> int",
+          "summary": "获取预览请求的当前代际。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_active_preview_task",
+          "signature": "func get_active_preview_task() -> GFThumbnailRenderTask",
+          "summary": "获取当前仍未完成的预览任务。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "dispose",
+          "signature": "func dispose() -> void",
+          "summary": "释放模型持有的预览任务。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_page",
+          "signature": "func get_page(page: int = 1, page_size: int = 50) -> Dictionary",
+          "summary": "获取当前目录的分页摘要。",
           "visibility": "public"
         }
       ]
@@ -10783,7 +10966,7 @@
         {
           "kind": "func",
           "name": "build_debug_snapshot",
-          "signature": "static func build_debug_snapshot(node: Variant) -> Dictionary",
+          "signature": "static func build_debug_snapshot(node: Variant, options: Dictionary = {}) -> Dictionary",
           "summary": "获取节点调试快照。",
           "visibility": "public"
         }
@@ -13690,6 +13873,149 @@
         }
       ]
     },
+    "GFCalendarGrid": {
+      "extends": "RefCounted",
+      "module": "standard",
+      "package_id": "gf.standard.base",
+      "path": "addons/gf/standard/utilities/time/gf_calendar_grid.gd",
+      "summary": "GFCalendarGrid: 完整周构成的不可变月历网格结果。 成功网格始终为 7 列、4 到 6 行，并包含目标月的全部日期。 返回的日期集合是隔离副本，不暴露内部数组。",
+      "visibility": "public",
+      "category": "value_object",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "const",
+          "name": "STATUS_BUILT",
+          "signature": "const STATUS_BUILT: StringName = &\"built\"",
+          "summary": "网格已成功构建。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "STATUS_INVALID_REQUEST",
+          "signature": "const STATUS_INVALID_REQUEST: StringName = &\"invalid_request\"",
+          "summary": "目标日期、周起点或固定行数无效。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "STATUS_INSUFFICIENT_ROWS",
+          "signature": "const STATUS_INSUFFICIENT_ROWS: StringName = &\"insufficient_rows\"",
+          "summary": "指定行数无法容纳目标月的全部日期。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "STATUS_OUT_OF_RANGE",
+          "signature": "const STATUS_OUT_OF_RANGE: StringName = &\"out_of_range\"",
+          "summary": "完整周所需的相邻日期超出支持年份范围。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "COLUMN_COUNT",
+          "signature": "const COLUMN_COUNT: int = 7",
+          "summary": "网格固定列数。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "is_successful",
+          "signature": "func is_successful() -> bool",
+          "summary": "检查网格是否成功构建。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_status",
+          "signature": "func get_status() -> StringName",
+          "summary": "获取稳定构建状态。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_error",
+          "signature": "func get_error() -> String",
+          "summary": "获取失败说明。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_year",
+          "signature": "func get_year() -> int",
+          "summary": "获取目标年份。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_month",
+          "signature": "func get_month() -> int",
+          "summary": "获取目标月份。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_week_start",
+          "signature": "func get_week_start() -> int",
+          "summary": "获取每周第一天。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_row_count",
+          "signature": "func get_row_count() -> int",
+          "summary": "获取网格行数。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_column_count",
+          "signature": "func get_column_count() -> int",
+          "summary": "获取固定列数。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_cell_count",
+          "signature": "func get_cell_count() -> int",
+          "summary": "获取单元数。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_cell",
+          "signature": "func get_cell(index: int) -> GFCivilDate",
+          "summary": "获取指定单元的日期。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_cells",
+          "signature": "func get_cells() -> Array[GFCivilDate]",
+          "summary": "获取全部单元日期。",
+          "visibility": "public"
+        }
+      ]
+    },
+    "GFCalendarGridTools": {
+      "extends": "RefCounted",
+      "module": "standard",
+      "package_id": "gf.standard.base",
+      "path": "addons/gf/standard/utilities/time/gf_calendar_grid_tools.gd",
+      "summary": "GFCalendarGridTools: 从公民日期构建通用月历网格。 只计算完整周和相邻日期，不创建 UI 节点，不决定语言区域、节假日、选中态或业务标记。",
+      "visibility": "public",
+      "category": "runtime_service",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "func",
+          "name": "build_month_grid",
+          "signature": "static func build_month_grid( month: GFCivilDate, week_start: int = GFCivilDate.Weekday.MONDAY, fixed_rows: int = 0 ) -> GFCalendarGrid",
+          "summary": "构建包含目标月全部日期的完整周网格。",
+          "visibility": "public"
+        }
+      ]
+    },
     "GFCallableAction": {
       "extends": "GFVisualAction",
       "module": "extensions/action_queue",
@@ -15701,6 +16027,322 @@
           "name": "inspect_receiver",
           "signature": "func inspect_receiver(receiver: Object) -> Dictionary",
           "summary": "获取 receiver 能力诊断报告。",
+          "visibility": "public"
+        }
+      ]
+    },
+    "GFCivilDate": {
+      "extends": "RefCounted",
+      "module": "standard",
+      "package_id": "gf.standard.base",
+      "path": "addons/gf/standard/utilities/time/gf_civil_date.gd",
+      "summary": "GFCivilDate: 无时区、无时刻的不可变公民日期。 使用前推格里高利历，支持 0001-01-01 到 9999-12-31。 本类只处理日期数学，不读取系统时钟，不包含时区、语言区域、节假日或业务日规则。",
+      "visibility": "public",
+      "category": "value_object",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "enum",
+          "name": "Weekday",
+          "signature": "enum Weekday {\n\t## 星期一。\n\tMONDAY = 1,\n\t## 星期二。\n\tTUESDAY = 2,\n\t## 星期三。\n\tWEDNESDAY = 3,\n\t## 星期四。\n\tTHURSDAY = 4,\n\t## 星期五。\n\tFRIDAY = 5,\n\t## 星期六。\n\tSATURDAY = 6,\n\t## 星期日。\n\tSUNDAY = 7,\n}",
+          "summary": "ISO 8601 星期编号，星期一为 1，星期日为 7。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "MIN_YEAR",
+          "signature": "const MIN_YEAR: int = 1",
+          "summary": "最小支持年份。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "MAX_YEAR",
+          "signature": "const MAX_YEAR: int = 9999",
+          "summary": "最大支持年份。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "create",
+          "signature": "static func create(year: int, month: int, day: int) -> GFCivilDateResult",
+          "summary": "创建公民日期。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "parse_iso8601",
+          "signature": "static func parse_iso8601(text: String) -> GFCivilDateResult",
+          "summary": "解析固定长度 ISO 8601 日期文本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "from_dict",
+          "signature": "static func from_dict(data: Dictionary) -> GFCivilDateResult",
+          "summary": "从稳定字典 schema 恢复日期。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "from_ordinal",
+          "signature": "static func from_ordinal(ordinal: int) -> GFCivilDateResult",
+          "summary": "从零起点日序号创建日期。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "is_leap_year",
+          "signature": "static func is_leap_year(year: int) -> bool",
+          "summary": "检查年份是否为前推格里高利历闰年。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_days_in_month",
+          "signature": "static func get_days_in_month(year: int, month: int) -> int",
+          "summary": "获取指定月天数。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "is_valid",
+          "signature": "func is_valid() -> bool",
+          "summary": "检查实例是否由日期工厂成功配置。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_year",
+          "signature": "func get_year() -> int",
+          "summary": "获取年份。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_month",
+          "signature": "func get_month() -> int",
+          "summary": "获取月份。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_day",
+          "signature": "func get_day() -> int",
+          "summary": "获取月内日。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "to_iso8601",
+          "signature": "func to_iso8601() -> String",
+          "summary": "转换为固定长度 ISO 8601 日期文本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "to_dict",
+          "signature": "func to_dict() -> Dictionary",
+          "summary": "转换为稳定组件字典。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "to_ordinal",
+          "signature": "func to_ordinal() -> int",
+          "summary": "获取零起点日序号。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_weekday",
+          "signature": "func get_weekday() -> int",
+          "summary": "获取 ISO 8601 星期编号。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_day_of_year",
+          "signature": "func get_day_of_year() -> int",
+          "summary": "获取年内日序号。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_iso_week_year",
+          "signature": "func get_iso_week_year() -> int",
+          "summary": "获取 ISO 周所属周年。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_iso_week_number",
+          "signature": "func get_iso_week_number() -> int",
+          "summary": "获取 ISO 周序号。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "add_days",
+          "signature": "func add_days(days: int) -> GFCivilDateResult",
+          "summary": "加减日数。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "add_months",
+          "signature": "func add_months(months: int, clamp_day: bool = true) -> GFCivilDateResult",
+          "summary": "加减自然月。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "add_years",
+          "signature": "func add_years(years: int, clamp_day: bool = true) -> GFCivilDateResult",
+          "summary": "加减公民年。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "compare_to",
+          "signature": "func compare_to(other: GFCivilDate) -> GFCivilDateDifferenceResult",
+          "summary": "比较当前日期与另一日期。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "days_until",
+          "signature": "func days_until(other: GFCivilDate) -> GFCivilDateDifferenceResult",
+          "summary": "计算从当前日期到另一日期的有符号日数。",
+          "visibility": "public"
+        }
+      ]
+    },
+    "GFCivilDateDifferenceResult": {
+      "extends": "RefCounted",
+      "module": "standard",
+      "package_id": "gf.standard.base",
+      "path": "addons/gf/standard/utilities/time/gf_civil_date_difference_result.gd",
+      "summary": "GFCivilDateDifferenceResult: 两个公民日期的不可变关系结果。 成功时同时表达有符号日差与比较次序，失败时不使用 0 伪装相等。",
+      "visibility": "public",
+      "category": "value_object",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "const",
+          "name": "STATUS_OK",
+          "signature": "const STATUS_OK: StringName = &\"ok\"",
+          "summary": "日期关系已成功计算。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "STATUS_INVALID_DATE",
+          "signature": "const STATUS_INVALID_DATE: StringName = &\"invalid_date\"",
+          "summary": "任一输入不是有效公民日期。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "is_successful",
+          "signature": "func is_successful() -> bool",
+          "summary": "检查日期关系是否成功计算。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_status",
+          "signature": "func get_status() -> StringName",
+          "summary": "获取稳定结果状态。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_days",
+          "signature": "func get_days() -> int",
+          "summary": "获取从左侧日期到右侧日期的有符号日数。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_comparison",
+          "signature": "func get_comparison() -> int",
+          "summary": "获取左侧日期相对右侧日期的比较结果。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_error",
+          "signature": "func get_error() -> String",
+          "summary": "获取失败说明。",
+          "visibility": "public"
+        }
+      ]
+    },
+    "GFCivilDateResult": {
+      "extends": "RefCounted",
+      "module": "standard",
+      "package_id": "gf.standard.base",
+      "path": "addons/gf/standard/utilities/time/gf_civil_date_result.gd",
+      "summary": "GFCivilDateResult: 公民日期创建或运算的不可变结果。 成功与失败都使用稳定状态表达，避免用零值日期、隐式钳制或 null 猜测失败原因。",
+      "visibility": "public",
+      "category": "value_object",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "const",
+          "name": "STATUS_OK",
+          "signature": "const STATUS_OK: StringName = &\"ok\"",
+          "summary": "日期已成功创建或计算。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "STATUS_OUT_OF_RANGE",
+          "signature": "const STATUS_OUT_OF_RANGE: StringName = &\"out_of_range\"",
+          "summary": "年份或运算结果超出支持范围。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "STATUS_INVALID_DATE",
+          "signature": "const STATUS_INVALID_DATE: StringName = &\"invalid_date\"",
+          "summary": "年、月、日组合不是有效公民日期。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "STATUS_INVALID_FORMAT",
+          "signature": "const STATUS_INVALID_FORMAT: StringName = &\"invalid_format\"",
+          "summary": "日期文本或字典不符合声明的稳定格式。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "is_successful",
+          "signature": "func is_successful() -> bool",
+          "summary": "检查操作是否成功。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_status",
+          "signature": "func get_status() -> StringName",
+          "summary": "获取稳定结果状态。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_date",
+          "signature": "func get_date() -> GFCivilDate",
+          "summary": "获取成功日期。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_error",
+          "signature": "func get_error() -> String",
+          "summary": "获取稳定失败说明。",
           "visibility": "public"
         }
       ]
@@ -38393,6 +39035,13 @@
           "visibility": "public"
         },
         {
+          "kind": "var",
+          "name": "release_threshold",
+          "signature": "var release_threshold: float = 0.5",
+          "summary": "轴动作活跃后判断其是否释放的阈值。",
+          "visibility": "public"
+        },
+        {
           "kind": "func",
           "name": "get_display_name",
           "signature": "func get_display_name() -> String",
@@ -43048,7 +43697,7 @@
           "kind": "var",
           "name": "compatibility_checker",
           "signature": "var compatibility_checker: Callable = Callable()",
-          "summary": "可选堆叠兼容性回调。签名为 Callable(left: Dictionary, right: Dictionary, definition: GFInventoryItemDefinition) -> bool。",
+          "summary": "可选堆叠兼容性回调。签名为",
           "visibility": "public"
         },
         {
@@ -43432,6 +44081,95 @@
         }
       ]
     },
+    "GFInventoryReadView": {
+      "extends": "RefCounted",
+      "module": "extensions/domain",
+      "package_id": "gf.extension.domain",
+      "path": "addons/gf/extensions/domain/inventory/gf_inventory_read_view.gd",
+      "summary": "GFInventoryReadView: 槽位接收回调的临时只读库存投影。 库存模型与原子转移规划器会为每次槽位接收检查创建此视图。查询反映 当前逐步候选，因而后续槽位可观察此前写入；视图不暴露可变库存引用。",
+      "visibility": "public",
+      "category": "runtime_handle",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "func",
+          "name": "is_active",
+          "signature": "func is_active() -> bool",
+          "summary": "检查视图是否仍处于当前同步接收回调内。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_slot_count",
+          "signature": "func get_slot_count() -> int",
+          "summary": "获取候选槽位数量。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "is_valid_slot",
+          "signature": "func is_valid_slot(slot_index: int) -> bool",
+          "summary": "检查候选槽位索引是否有效。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_stack",
+          "signature": "func get_stack(slot_index: int) -> GFInventoryStack",
+          "summary": "获取候选堆叠的隔离副本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_stack_data",
+          "signature": "func get_stack_data(slot_index: int) -> Dictionary",
+          "summary": "获取候选堆叠字典快照。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "is_slot_empty",
+          "signature": "func is_slot_empty(slot_index: int) -> bool",
+          "summary": "检查候选槽位是否为空。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_item_total",
+          "signature": "func get_item_total(item_id: StringName, instance_data: Dictionary = {}) -> int",
+          "summary": "获取候选中指定物品总数量。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "has_item",
+          "signature": "func has_item( item_id: StringName, amount: int = 1, instance_data: Dictionary = {} ) -> bool",
+          "summary": "检查候选中是否拥有足够数量。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_empty_slot_indices",
+          "signature": "func get_empty_slot_indices() -> PackedInt32Array",
+          "summary": "获取候选空槽位索引。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_occupied_slot_indices",
+          "signature": "func get_occupied_slot_indices() -> PackedInt32Array",
+          "summary": "获取候选已占用槽位索引。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_slots_for_item",
+          "signature": "func get_slots_for_item( item_id: StringName, instance_data: Dictionary = {} ) -> PackedInt32Array",
+          "summary": "获取候选中指定物品所在槽位。",
+          "visibility": "public"
+        }
+      ]
+    },
     "GFInventorySlotDefinition": {
       "extends": "Resource",
       "module": "extensions/domain",
@@ -43488,13 +44226,13 @@
           "kind": "var",
           "name": "acceptance_checker",
           "signature": "var acceptance_checker: Callable = Callable()",
-          "summary": "可选接收检查回调。签名为 Callable(item_id, definition, instance_data, slot_index, inventory) -> bool。",
+          "summary": "可选接收检查回调。签名为",
           "visibility": "public"
         },
         {
           "kind": "func",
           "name": "can_accept",
-          "signature": "func can_accept( item_id: StringName, definition: GFInventoryItemDefinition = null, instance_data: Dictionary = {}, slot_index: int = -1, inventory: Object = null ) -> bool",
+          "signature": "func can_accept( item_id: StringName, definition: GFInventoryItemDefinition = null, instance_data: Dictionary = {}, slot_index: int = -1, inventory: GFInventoryReadView = null ) -> bool",
           "summary": "判断槽位是否接受指定物品。",
           "visibility": "public"
         },
@@ -43627,6 +44365,226 @@
           "name": "from_dict",
           "signature": "static func from_dict(data: Dictionary) -> GFInventoryStack",
           "summary": "从字典创建堆叠。",
+          "visibility": "public"
+        }
+      ]
+    },
+    "GFInventoryTransferResult": {
+      "extends": "RefCounted",
+      "module": "extensions/domain",
+      "package_id": "gf.extension.domain",
+      "path": "addons/gf/extensions/domain/inventory/gf_inventory_transfer_result.gd",
+      "summary": "GFInventoryTransferResult: 槽位库存转移的类型化阶段结果。 结果只保存事务状态、稳定身份、数量与 revision，不保留库存模型或候选堆叠。",
+      "visibility": "public",
+      "category": "value_object",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "const",
+          "name": "STATUS_PREPARED",
+          "signature": "const STATUS_PREPARED: StringName = &\"prepared\"",
+          "summary": "已完成隔离规划，可尝试提交。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "STATUS_COMMITTED",
+          "signature": "const STATUS_COMMITTED: StringName = &\"committed\"",
+          "summary": "两个库存已完成原子内存提交；不表示库存通知已经派发完毕。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "STATUS_INVALID_REQUEST",
+          "signature": "const STATUS_INVALID_REQUEST: StringName = &\"invalid_request\"",
+          "summary": "请求参数、模型身份或槽位无效。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "STATUS_BUSY",
+          "signature": "const STATUS_BUSY: StringName = &\"busy\"",
+          "summary": "模型正在处理其他变更或通知，无法取得协调锁。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "STATUS_NOT_ENOUGH_ITEMS",
+          "signature": "const STATUS_NOT_ENOUGH_ITEMS: StringName = &\"not_enough_items\"",
+          "summary": "来源槽位没有可转移堆叠或请求数量超过来源且不允许部分转移。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "STATUS_NOT_ENOUGH_SPACE",
+          "signature": "const STATUS_NOT_ENOUGH_SPACE: StringName = &\"not_enough_space\"",
+          "summary": "目标容量不足或目标槽位拒绝物品。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "STATUS_UNSUPPORTED_DATA",
+          "signature": "const STATUS_UNSUPPORTED_DATA: StringName = &\"unsupported_data\"",
+          "summary": "实例数据或规则数据包含不支持、循环或超预算的结构。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "STATUS_STALE_REVISION",
+          "signature": "const STATUS_STALE_REVISION: StringName = &\"stale_revision\"",
+          "summary": "模型 identity 或 revision 在 prepare 后发生变化。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "STATUS_STALE_PLAN",
+          "signature": "const STATUS_STALE_PLAN: StringName = &\"stale_plan\"",
+          "summary": "重新规划结果与 prepare 阶段绑定的计划摘要不同。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "is_successful",
+          "signature": "func is_successful() -> bool",
+          "summary": "检查结果是否表示可继续的成功阶段。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_status",
+          "signature": "func get_status() -> StringName",
+          "summary": "获取稳定状态。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_item_id",
+          "signature": "func get_item_id() -> StringName",
+          "summary": "获取物品标识。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_requested_amount",
+          "signature": "func get_requested_amount() -> int",
+          "summary": "获取本次规划请求处理的数量。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_transferred_amount",
+          "signature": "func get_transferred_amount() -> int",
+          "summary": "获取规划或提交的实际转移数量。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_remaining_amount",
+          "signature": "func get_remaining_amount() -> int",
+          "summary": "获取未转移数量。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_source_slot",
+          "signature": "func get_source_slot() -> int",
+          "summary": "获取来源槽位。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_target_slot",
+          "signature": "func get_target_slot() -> int",
+          "summary": "获取显式目标槽位。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_source_revision",
+          "signature": "func get_source_revision() -> int",
+          "summary": "获取结果绑定的来源 revision。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_target_revision",
+          "signature": "func get_target_revision() -> int",
+          "summary": "获取结果绑定的目标 revision。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "duplicate_result",
+          "signature": "func duplicate_result() -> GFInventoryTransferResult",
+          "summary": "创建隔离结果副本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "to_dict",
+          "signature": "func to_dict() -> Dictionary",
+          "summary": "转换为稳定字典。",
+          "visibility": "public"
+        }
+      ]
+    },
+    "GFInventoryTransferTransaction": {
+      "extends": "RefCounted",
+      "module": "extensions/domain",
+      "package_id": "gf.extension.domain",
+      "path": "addons/gf/extensions/domain/inventory/gf_inventory_transfer_transaction.gd",
+      "summary": "GFInventoryTransferTransaction: 两个槽位库存之间的一次性原子转移句柄。 `prepare()` 只构建有界隔离候选；`commit()` 会重新取得稳定顺序锁、校验 model identity 与 revision，并重新规划后才执行无回调的内存替换。跨模型成功",
+      "visibility": "public",
+      "category": "runtime_handle",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "signal",
+          "name": "completed",
+          "signature": "signal completed(result: GFInventoryTransferResult)",
+          "summary": "事务提交尝试进入终态时发出一次。成功提交时，该信号只在所有参与库存的",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "prepare",
+          "signature": "static func prepare( source: GFSlotInventoryModel, target: GFSlotInventoryModel, source_slot: int, target_slot: int = -1, amount: int = 0, allow_partial: bool = false ) -> GFInventoryTransferTransaction",
+          "summary": "构建一次不写入模型的有界转移计划。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "is_prepared",
+          "signature": "func is_prepared() -> bool",
+          "summary": "检查 prepare 是否生成可提交计划。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "is_completed",
+          "signature": "func is_completed() -> bool",
+          "summary": "检查句柄是否已进入唯一终态。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_prepare_result",
+          "signature": "func get_prepare_result() -> GFInventoryTransferResult",
+          "summary": "获取 prepare 阶段结果副本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_result",
+          "signature": "func get_result() -> GFInventoryTransferResult",
+          "summary": "获取终态结果副本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "commit",
+          "signature": "func commit() -> GFInventoryTransferResult",
+          "summary": "一次性提交已准备计划。",
           "visibility": "public"
         }
       ]
@@ -44371,6 +45329,376 @@
           "name": "get_project_physics_layer_names",
           "signature": "static func get_project_physics_layer_names( dimension: int = 2, fallback_to_default_names: bool = false ) -> PackedStringArray",
           "summary": "读取项目的 2D 或 3D 物理层名称。",
+          "visibility": "public"
+        }
+      ]
+    },
+    "GFLayeredSprite2D": {
+      "extends": "Node2D",
+      "module": "extensions/layered_sprite",
+      "package_id": "gf.extension.layered_sprite",
+      "path": "addons/gf/extensions/layered_sprite/nodes/gf_layered_sprite_2d.gd",
+      "summary": "GFLayeredSprite2D：由单一时间轴驱动的通用分层精灵节点。 配置会先完整校验并复制帧拓扑，再原子替换当前状态。节点只负责层、变体和播放， 不拥有资源发现、下载、缓存或任何项目业务分类。",
+      "visibility": "public",
+      "category": "runtime_service",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "signal",
+          "name": "configuration_changed",
+          "signature": "signal configuration_changed",
+          "summary": "完整配置成功替换后发出。",
+          "visibility": "public"
+        },
+        {
+          "kind": "signal",
+          "name": "animation_started",
+          "signature": "signal animation_started(animation: StringName)",
+          "summary": "动画开始或恢复播放时发出。",
+          "visibility": "public"
+        },
+        {
+          "kind": "signal",
+          "name": "animation_finished",
+          "signature": "signal animation_finished(animation: StringName)",
+          "summary": "非循环动画到达边界时发出。",
+          "visibility": "public"
+        },
+        {
+          "kind": "signal",
+          "name": "frame_changed",
+          "signature": "signal frame_changed(animation: StringName, frame: int)",
+          "summary": "当前帧身份改变时发出。",
+          "visibility": "public"
+        },
+        {
+          "kind": "signal",
+          "name": "layer_variant_changed",
+          "signature": "signal layer_variant_changed(layer_id: StringName, variant_id: StringName)",
+          "summary": "某层成功切换变体后发出。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "MAX_LAYERS",
+          "signature": "const MAX_LAYERS: int = 32",
+          "summary": "单个定义允许的最大层数。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "MAX_VARIANTS_PER_LAYER",
+          "signature": "const MAX_VARIANTS_PER_LAYER: int = 64",
+          "summary": "单层允许的最大变体数。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "MAX_ANIMATIONS",
+          "signature": "const MAX_ANIMATIONS: int = 128",
+          "summary": "时间轴允许的最大动画数。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "MAX_FRAMES_PER_ANIMATION",
+          "signature": "const MAX_FRAMES_PER_ANIMATION: int = 4096",
+          "summary": "单动画允许的最大帧数。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "MAX_TOTAL_FRAME_REFERENCES",
+          "signature": "const MAX_TOTAL_FRAME_REFERENCES: int = 65536",
+          "summary": "一个配置允许引用的最大总帧数。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "MAX_UNIQUE_TEXTURES",
+          "signature": "const MAX_UNIQUE_TEXTURES: int = 8192",
+          "summary": "一个配置允许引用的最大唯一纹理数。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "MAX_FRAME_ADVANCES_PER_TICK",
+          "signature": "const MAX_FRAME_ADVANCES_PER_TICK: int = 4096",
+          "summary": "单次推进允许跨越的最大帧边界数。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "MAX_SPEED_SCALE",
+          "signature": "const MAX_SPEED_SCALE: float = 1024.0",
+          "summary": "播放速度绝对值上限。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "configure",
+          "signature": "func configure(definition: GFLayeredSpriteDefinition) -> bool",
+          "summary": "原子配置时间轴与全部层。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "clear_configuration",
+          "signature": "func clear_configuration() -> void",
+          "summary": "清除当前配置和播放状态。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "is_configured",
+          "signature": "func is_configured() -> bool",
+          "summary": "是否持有完整有效的配置快照。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_animation_names",
+          "signature": "func get_animation_names() -> Array[StringName]",
+          "summary": "返回稳定排序的动画名称快照。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_layer_ids",
+          "signature": "func get_layer_ids() -> Array[StringName]",
+          "summary": "返回按绘制顺序排列的层 ID 快照。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "play",
+          "signature": "func play( animation: StringName, speed_scale: float = 1.0, from_end: bool = false ) -> bool",
+          "summary": "播放指定动画。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "pause",
+          "signature": "func pause() -> void",
+          "summary": "暂停并保留当前帧位置。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "stop",
+          "signature": "func stop(reset_to_start: bool = true) -> void",
+          "summary": "停止播放。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "seek",
+          "signature": "func seek(frame: int, frame_progress: float = 0.0) -> bool",
+          "summary": "将当前动画定位到指定帧和帧内进度。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "advance",
+          "signature": "func advance(delta_seconds: float) -> bool",
+          "summary": "以秒为单位推进共享时间轴。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "is_playing",
+          "signature": "func is_playing() -> bool",
+          "summary": "当前是否正在播放。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_current_animation",
+          "signature": "func get_current_animation() -> StringName",
+          "summary": "返回当前动画 ID。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_current_frame",
+          "signature": "func get_current_frame() -> int",
+          "summary": "返回当前帧索引。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_frame_progress",
+          "signature": "func get_frame_progress() -> float",
+          "summary": "返回当前帧内的 0..1 时间进度。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "set_layer_variant",
+          "signature": "func set_layer_variant(layer_id: StringName, variant_id: StringName) -> bool",
+          "summary": "切换指定层的帧变体。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_layer_variant",
+          "signature": "func get_layer_variant(layer_id: StringName) -> StringName",
+          "summary": "返回指定层的当前变体 ID。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "set_layer_visible",
+          "signature": "func set_layer_visible(layer_id: StringName, layer_visible: bool) -> bool",
+          "summary": "设置指定层可见性。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "is_layer_visible",
+          "signature": "func is_layer_visible(layer_id: StringName) -> bool",
+          "summary": "返回指定层可见性。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "set_layer_modulate",
+          "signature": "func set_layer_modulate(layer_id: StringName, layer_modulate: Color) -> bool",
+          "summary": "设置指定层调制颜色。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "set_layer_offset",
+          "signature": "func set_layer_offset(layer_id: StringName, layer_offset: Vector2) -> bool",
+          "summary": "设置指定层绘制偏移。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_last_rejection_reason",
+          "signature": "func get_last_rejection_reason() -> StringName",
+          "summary": "返回最近一次拒绝原因。",
+          "visibility": "public"
+        }
+      ]
+    },
+    "GFLayeredSpriteDefinition": {
+      "extends": "Resource",
+      "module": "extensions/layered_sprite",
+      "package_id": "gf.extension.layered_sprite",
+      "path": "addons/gf/extensions/layered_sprite/resources/gf_layered_sprite_definition.gd",
+      "summary": "GFLayeredSpriteDefinition：分层精灵的时间轴和层集合。 时间轴唯一拥有动画速度、循环和帧时长；各层变体只提供同拓扑的帧纹理。",
+      "visibility": "public",
+      "category": "resource_definition",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "var",
+          "name": "timeline_frames",
+          "signature": "var timeline_frames: SpriteFrames = null",
+          "summary": "共享时间轴。其动画名称、帧数、帧时长和循环设置驱动全部层。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "default_animation",
+          "signature": "var default_animation: StringName = &\"\"",
+          "summary": "配置完成后使用的初始动画。为空时按动画名称稳定排序后选择第一项。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "layers",
+          "signature": "var layers: Array[GFLayeredSpriteLayerDefinition] = []",
+          "summary": "分层定义集合。",
+          "visibility": "public"
+        }
+      ]
+    },
+    "GFLayeredSpriteLayerDefinition": {
+      "extends": "Resource",
+      "module": "extensions/layered_sprite",
+      "package_id": "gf.extension.layered_sprite",
+      "path": "addons/gf/extensions/layered_sprite/resources/gf_layered_sprite_layer_definition.gd",
+      "summary": "GFLayeredSpriteLayerDefinition：分层精灵的单层定义。 层定义只描述稳定身份、绘制属性和可选帧变体；具体业务含义由项目自行解释。",
+      "visibility": "public",
+      "category": "resource_definition",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "var",
+          "name": "layer_id",
+          "signature": "var layer_id: StringName = &\"\"",
+          "summary": "层稳定 ID。同一定义内必须唯一、非空且无首尾空白。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "default_variant_id",
+          "signature": "var default_variant_id: StringName = &\"\"",
+          "summary": "初始变体 ID，必须引用 [member variants] 中的条目。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "variants",
+          "signature": "var variants: Array[GFLayeredSpriteVariant] = []",
+          "summary": "同一层可切换的帧变体。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "offset",
+          "signature": "var offset: Vector2 = Vector2.ZERO",
+          "summary": "相对节点原点的绘制偏移。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "modulate",
+          "signature": "var modulate: Color = Color.WHITE",
+          "summary": "初始调制颜色。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "visible",
+          "signature": "var visible: bool = true",
+          "summary": "初始可见性。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "draw_order",
+          "signature": "var draw_order: int = 0",
+          "summary": "层内绘制顺序；数值较小的层先绘制。相同值保持定义顺序。",
+          "visibility": "public"
+        }
+      ]
+    },
+    "GFLayeredSpriteVariant": {
+      "extends": "Resource",
+      "module": "extensions/layered_sprite",
+      "package_id": "gf.extension.layered_sprite",
+      "path": "addons/gf/extensions/layered_sprite/resources/gf_layered_sprite_variant.gd",
+      "summary": "GFLayeredSpriteVariant：分层精灵单层的帧资源变体。 变体只以稳定 ID 关联一组 [SpriteFrames]，不包含服装、装备或角色等业务语义。",
+      "visibility": "public",
+      "category": "resource_definition",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "var",
+          "name": "variant_id",
+          "signature": "var variant_id: StringName = &\"\"",
+          "summary": "变体稳定 ID。同一层内必须唯一、非空且无首尾空白。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "sprite_frames",
+          "signature": "var sprite_frames: SpriteFrames = null",
+          "summary": "该变体的帧资源。动画名称和每个动画的帧数必须与时间轴完全一致。",
           "visibility": "public"
         }
       ]
@@ -45349,6 +46677,86 @@
           "name": "sanitize_log_value",
           "signature": "static func sanitize_log_value(value: Variant) -> Variant",
           "summary": "清洗任意值，使它适合进入结构化日志和 JSON sink。",
+          "visibility": "public"
+        }
+      ]
+    },
+    "GFLspWorkspaceEditAdapter": {
+      "extends": "RefCounted",
+      "module": "tools",
+      "package_id": "gf.tool.lsp_workspace_edit",
+      "path": "addons/gf/tools/lsp_workspace_edit/gf_lsp_workspace_edit_adapter.gd",
+      "summary": "GFLspWorkspaceEditAdapter: 调用方提供的闭合 LSP WorkspaceEdit 安全适配器。 该工具只把已完成的 `documentChanges` 文本编辑转换为一次性预检计划，并在 工作区、文档版本和磁盘来源摘要仍一致时通过 GFArtifactWriteTransaction 提交。",
+      "visibility": "public",
+      "category": "tool_api",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "const",
+          "name": "POSITION_ENCODING_UTF8",
+          "signature": "const POSITION_ENCODING_UTF8: String = \"utf-8\"",
+          "summary": "LSP UTF-8 position encoding 标识。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "POSITION_ENCODING_UTF16",
+          "signature": "const POSITION_ENCODING_UTF16: String = \"utf-16\"",
+          "summary": "LSP UTF-16 position encoding 标识。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "build_plan",
+          "signature": "static func build_plan( workspace_edit: Dictionary, workspace_snapshot: Dictionary, options: Dictionary = {} ) -> GFLspWorkspaceEditPlan",
+          "summary": "预检调用方已经取得的闭合 WorkspaceEdit。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "commit_plan",
+          "signature": "static func commit_plan( plan: GFLspWorkspaceEditPlan, workspace_snapshot: Dictionary ) -> Dictionary",
+          "summary": "在绑定状态仍一致时一次性提交计划。",
+          "visibility": "public"
+        }
+      ]
+    },
+    "GFLspWorkspaceEditPlan": {
+      "extends": "RefCounted",
+      "module": "tools",
+      "package_id": "gf.tool.lsp_workspace_edit",
+      "path": "addons/gf/tools/lsp_workspace_edit/gf_lsp_workspace_edit_plan.gd",
+      "summary": "GFLspWorkspaceEditPlan: 已预检 LSP WorkspaceEdit 的一次性提交计划。 该值对象由 GFLspWorkspaceEditAdapter 创建，绑定工作区身份与版本、文档版本、 来源 SHA-256、结果 SHA-256 和完整计划 SHA-256。公开读取只返回隔离副本，",
+      "visibility": "public",
+      "category": "value_object",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "func",
+          "name": "is_valid",
+          "signature": "func is_valid() -> bool",
+          "summary": "返回计划当前是否可提交。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "is_consumed",
+          "signature": "func is_consumed() -> bool",
+          "summary": "返回计划是否已经进入过底层写事务。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_plan_sha256",
+          "signature": "func get_plan_sha256() -> String",
+          "summary": "返回绑定完整计划内容的 SHA-256。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_report",
+          "signature": "func get_report() -> Dictionary",
+          "summary": "返回不含源码正文的隔离计划报告。",
           "visibility": "public"
         }
       ]
@@ -77400,21 +78808,21 @@
         {
           "kind": "var",
           "name": "registry",
-          "signature": "var registry: GFInventoryItemRegistry = null",
+          "signature": "var registry: GFInventoryItemRegistry",
           "summary": "可选物品定义注册表。",
           "visibility": "public"
         },
         {
           "kind": "var",
           "name": "slot_definitions",
-          "signature": "var slot_definitions: Array[GFInventorySlotDefinition] = []",
-          "summary": "可选槽位定义。索引与库存槽位一致；空项表示该槽位不添加额外接收限制。",
+          "signature": "var slot_definitions: Array[GFInventorySlotDefinition]",
+          "summary": "可选槽位定义。数量必须与库存槽位精确一致；空项表示该槽位不添加额外接收限制。",
           "visibility": "public"
         },
         {
           "kind": "var",
           "name": "allow_growth",
-          "signature": "var allow_growth: bool = false",
+          "signature": "var allow_growth: bool",
           "summary": "是否允许库存在创建新堆叠时自动增长。",
           "visibility": "public"
         },
@@ -77430,6 +78838,20 @@
           "name": "set_registry",
           "signature": "func set_registry(item_registry: GFInventoryItemRegistry) -> void",
           "summary": "设置物品注册表。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "set_allow_growth",
+          "signature": "func set_allow_growth(enabled: bool) -> void",
+          "summary": "设置是否允许自动增长槽位。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_revision",
+          "signature": "func get_revision() -> int",
+          "summary": "获取会使已准备转移失效的单调 revision。",
           "visibility": "public"
         },
         {
@@ -92172,6 +93594,212 @@
           "name": "decode_reference",
           "signature": "static func decode_reference(value: Variant, options: Dictionary = {}) -> Dictionary",
           "summary": "解码引用标记。",
+          "visibility": "public"
+        }
+      ]
+    },
+    "GFViewportSurfaceInputBridge": {
+      "extends": "RefCounted",
+      "module": "standard",
+      "package_id": "gf.standard.input",
+      "path": "addons/gf/standard/input/runtime/gf_viewport_surface_input_bridge.gd",
+      "summary": "GFViewportSurfaceInputBridge: 将外部表面命中桥接为 Viewport 指针事件。 调用方只提供稳定 source/device/pointer 身份、目标 Viewport 代际、 0..1 标准化表面坐标和显式单调毫秒。桥不求解射线、UV、Mesh、XR 或交互模式；",
+      "visibility": "public",
+      "category": "runtime_service",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "signal",
+          "name": "input_forwarded",
+          "signature": "signal input_forwarded( source_id: StringName, device_id: int, pointer_id: int, capture_generation: int, target_generation: int, target: Viewport, event: InputEvent )",
+          "summary": "一个经过校验的指针事件已推送到目标 Viewport 后发出。",
+          "visibility": "public"
+        },
+        {
+          "kind": "enum",
+          "name": "PointerType",
+          "signature": "enum PointerType {\n\t## `InputEventMouseButton` / `InputEventMouseMotion`。\n\tMOUSE,\n\t## `InputEventScreenTouch` / `InputEventScreenDrag`。\n\tTOUCH,\n}",
+          "summary": "输出到 Viewport 的指针事件家族。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "configure_limits",
+          "signature": "func configure_limits( max_active_pointers: int = _DEFAULT_MAX_ACTIVE_POINTERS, max_click_history: int = _DEFAULT_MAX_CLICK_HISTORY, double_click_interval_msec: int = _DEFAULT_DOUBLE_CLICK_INTERVAL_MSEC, double_click_distance_pixels: float = _DEFAULT_DOUBLE_CLICK_DISTANCE_PIXELS, max_pointer_timestamps: int = _DEFAULT_MAX_POINTER_TIMESTAMPS ) -> bool",
+          "summary": "在首个样本前配置活动指针、跨代际时间与双击状态预算。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "forward_mouse_hover",
+          "signature": "func forward_mouse_hover( source_id: StringName, device_id: int, pointer_id: int, target: Viewport, target_generation: int, normalized_position: Vector2, timestamp_msec: int ) -> bool",
+          "summary": "转发未按下鼠标在表面上的 hover motion。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "capture_pointer",
+          "signature": "func capture_pointer( source_id: StringName, device_id: int, pointer_id: int, pointer_type: PointerType, target: Viewport, target_generation: int, normalized_position: Vector2, timestamp_msec: int, mouse_button: MouseButton = MOUSE_BUTTON_LEFT ) -> GFViewportSurfaceInputCapture",
+          "summary": "按下指针并创建调用方必须保留的代际回执。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "move_pointer",
+          "signature": "func move_pointer( capture: GFViewportSurfaceInputCapture, target: Viewport, target_generation: int, normalized_position: Vector2, timestamp_msec: int ) -> bool",
+          "summary": "在捕获目标内移动指针。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "press_mouse_button",
+          "signature": "func press_mouse_button( capture: GFViewportSurfaceInputCapture, target: Viewport, target_generation: int, normalized_position: Vector2, timestamp_msec: int, mouse_button: MouseButton ) -> bool",
+          "summary": "在已捕获鼠标上增加一个非滚轮按钮。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "release_pointer",
+          "signature": "func release_pointer( capture: GFViewportSurfaceInputCapture, timestamp_msec: int, mouse_button: MouseButton = MOUSE_BUTTON_LEFT ) -> bool",
+          "summary": "在最后一个合法表面位置释放指针或鼠标按钮。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "release_pointer_on_surface",
+          "signature": "func release_pointer_on_surface( capture: GFViewportSurfaceInputCapture, target: Viewport, target_generation: int, normalized_position: Vector2, timestamp_msec: int, mouse_button: MouseButton = MOUSE_BUTTON_LEFT ) -> bool",
+          "summary": "更新最后合法表面位置后释放指针或鼠标按钮。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "cancel_pointer",
+          "signature": "func cancel_pointer(capture: GFViewportSurfaceInputCapture, timestamp_msec: int) -> bool",
+          "summary": "在最后合法位置取消整个指针捕获。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "cancel_source",
+          "signature": "func cancel_source( source_id: StringName, timestamp_msec: int, device_id: int = -1 ) -> int",
+          "summary": "取消指定输入源的全部捕获，并清除调用前已结束指针的双击与时间状态。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "cancel_target",
+          "signature": "func cancel_target(target: Viewport, target_generation: int, timestamp_msec: int) -> int",
+          "summary": "取消指定 Viewport 外部代际的全部捕获。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "prune_released_captures",
+          "signature": "func prune_released_captures(timestamp_msec: int = 0) -> int",
+          "summary": "清理回执、目标或 SceneTree 生命周期已结束的捕获。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "has_capture",
+          "signature": "func has_capture(capture: GFViewportSurfaceInputCapture) -> bool",
+          "summary": "检查回执是否仍指向当前活动捕获。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_active_pointer_count",
+          "signature": "func get_active_pointer_count() -> int",
+          "summary": "获取当前活动指针 key 数。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_click_history_count",
+          "signature": "func get_click_history_count() -> int",
+          "summary": "获取当前双击历史数。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_pointer_timestamp_count",
+          "signature": "func get_pointer_timestamp_count() -> int",
+          "summary": "获取当前跨代际指针时间高水位数。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "is_disposed",
+          "signature": "func is_disposed() -> bool",
+          "summary": "检查桥是否已进入不可复用终态。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "dispose",
+          "signature": "func dispose(timestamp_msec: int = 0) -> void",
+          "summary": "取消所有活动捕获并清空有界历史。",
+          "visibility": "public"
+        }
+      ]
+    },
+    "GFViewportSurfaceInputCapture": {
+      "extends": "RefCounted",
+      "module": "standard",
+      "package_id": "gf.standard.input",
+      "path": "addons/gf/standard/input/runtime/gf_viewport_surface_input_capture.gd",
+      "summary": "GFViewportSurfaceInputCapture: 表面指针按下代际的不可变回执。 调用方必须保留该回执并在 move、release 或 cancel 时原样交回创建它的 [code]GFViewportSurfaceInputBridge[/code]。同一 source/device/pointer key 重用后，旧回执不能操作新代际。",
+      "visibility": "public",
+      "category": "value_object",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "func",
+          "name": "is_valid",
+          "signature": "func is_valid() -> bool",
+          "summary": "检查回执是否已由桥成功配置。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_source_id",
+          "signature": "func get_source_id() -> StringName",
+          "summary": "获取输入源标识。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_device_id",
+          "signature": "func get_device_id() -> int",
+          "summary": "获取设备标识。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_pointer_id",
+          "signature": "func get_pointer_id() -> int",
+          "summary": "获取输入源内的指针标识。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_pointer_type",
+          "signature": "func get_pointer_type() -> int",
+          "summary": "获取指针类型。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_capture_generation",
+          "signature": "func get_capture_generation() -> int",
+          "summary": "获取桥分配的单调捕获代际。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_target_generation",
+          "signature": "func get_target_generation() -> int",
+          "summary": "获取 Resolver 在按下时提供的目标代际。",
           "visibility": "public"
         }
       ]

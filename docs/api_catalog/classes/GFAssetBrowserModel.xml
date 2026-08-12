@@ -1,0 +1,224 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFAssetBrowserModel" path="addons/gf/tools/asset_browser/gf_asset_browser_model.gd" module="tools" extends="RefCounted" classDigest="4ae48227074ed92c7c12d2daf6a772e15122e6e05d5dda3eb2ceeefa30450ff8">
+	<description>GFAssetBrowserModel: 资产浏览器的无界面状态模型。
+持有隔离的 GFAssetCatalog 快照、查询代际和稳定 ID 选择，供项目编辑器
+页面自行决定布局、来源注入和资源物化策略。本模型不扫描目录、不下载、
+不导入资源，也不拥有 provider 或缓存。
+catalog、query、selection 与 preview 通知共用非重入 FIFO 队列。同步
+listener 触发的嵌套 mutation 只会排到队尾；当前 signal 的全部 listener
+返回后才按提交顺序继续发布冻结参数。dispose() 会丢弃尚未派发的队尾通知。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">tool_api</tag>
+		<tag name="since">unreleased</tag>
+	</tags>
+	<signals>
+		<member kind="signal" name="catalog_changed">
+			<signature>signal catalog_changed(catalog_revision: int, query_generation: int)</signature>
+			<description>隔离目录成功替换后发出。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">catalog_revision: 新目录 revision。</tag>
+				<tag name="param">query_generation: 新查询 generation。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="signal" name="query_changed">
+			<signature>signal query_changed(query_generation: int)</signature>
+			<description>查询条件实际变化后发出。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">query_generation: 新查询 generation。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="signal" name="selection_changed">
+			<signature>signal selection_changed(asset_id: StringName)</signature>
+			<description>稳定资产选择实际变化后发出。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">asset_id: 新选择；空 ID 表示没有选择。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="signal" name="preview_resolved">
+			<signature>signal preview_resolved(report: Dictionary)</signature>
+			<description>当前代际的预览任务进入终态后发出。
+被目录、查询或新预览代际淘汰的旧任务不会发布结果。报告与预览计划的
+Dictionary / Array 容器只读；Image / ImageTexture 等引擎对象句柄仍由
+listener 按只读引用使用。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">report: 预览终态报告。</tag>
+				<tag name="schema">report: 闭合 Dictionary，精确包含 asset_id: StringName、preview_generation: int、catalog_revision: int、query_generation: int、state: StringName、result、error: String 和 cancel_reason: StringName。result 只能是 null、Image、ImageTexture，或精确包含 ok: true、generated_count: 非负 int、cancelled: bool、changes: Array 的 MeshLibrary plan；generated_count 必须等于 changes 数量且最多为 MAX_RESULT_COUNT，每个 change 精确包含非负 item_id: int、可空 old_preview: Texture2D 和非空 new_preview: Texture2D。所有 Dictionary / Array 容器只读；Image / Texture2D 是无法冻结的 Engine Object 句柄，listener 必须按只读引用使用。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</signals>
+	<enums />
+	<constants>
+		<member kind="const" name="MAX_CATALOG_ENTRIES">
+			<signature>const MAX_CATALOG_ENTRIES: int = 10_000</signature>
+			<description>单个模型快照允许的最大资产数。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="MAX_QUERY_LENGTH">
+			<signature>const MAX_QUERY_LENGTH: int = 512</signature>
+			<description>查询文本允许的最大字符数。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="MAX_PAGE_SIZE">
+			<signature>const MAX_PAGE_SIZE: int = 100</signature>
+			<description>单页允许返回的最大资产数。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="MAX_RESULT_COUNT">
+			<signature>const MAX_RESULT_COUNT: int = 10_000</signature>
+			<description>一次查询允许保留的最大匹配资产数。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</constants>
+	<properties />
+	<methods>
+		<member kind="method" name="replace_catalog">
+			<signature>func replace_catalog(catalog: GFAssetCatalog) -&gt; Dictionary:</signature>
+			<description>用隔离副本替换当前目录。
+超过 MAX_CATALOG_ENTRIES 的目录会整体拒绝，不会静默截断。成功替换会
+推进目录 revision 和查询 generation；已经不存在的选择会被清除。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">catalog: 要复制的资产目录。</tag>
+				<tag name="return">替换报告。</tag>
+				<tag name="schema">return: Dictionary with ok, changed, error, asset_count, catalog_revision, and query_generation.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="select_asset">
+			<signature>func select_asset(asset_id: StringName) -&gt; bool:</signature>
+			<description>选择当前目录中的稳定资产 ID。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">asset_id: 要选择的资产 ID；空 ID 用于清除选择。</tag>
+				<tag name="return">选择请求有效时返回 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="set_query">
+			<signature>func set_query( query_text: String, asset_ids: PackedStringArray = PackedStringArray() ) -&gt; Dictionary:</signature>
+			<description>设置浏览查询和可选资产 ID 闭集。
+资产 ID 会去重并排序。超长查询、超量过滤 ID 或超长 ID 会整体拒绝，
+被拒绝的输入不会推进 generation。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">query_text: 交给 GFAssetCatalog 的文本查询。</tag>
+				<tag name="param">asset_ids: 可选查询闭集；为空时查询整个目录。</tag>
+				<tag name="return">查询更新报告。</tag>
+				<tag name="schema">return: Dictionary with ok, changed, error, query_generation, query, and filter_count.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_selected_asset_id">
+			<signature>func get_selected_asset_id() -&gt; StringName:</signature>
+			<description>获取当前选择的稳定资产 ID。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">当前选择；没有选择时返回空 StringName。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_catalog_revision">
+			<signature>func get_catalog_revision() -&gt; int:</signature>
+			<description>获取当前目录 revision。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">从 0 开始、成功替换后递增的 revision。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_query_generation">
+			<signature>func get_query_generation() -&gt; int:</signature>
+			<description>获取当前查询 generation。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">从 0 开始、目录或查询变化后递增的 generation。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="request_preview">
+			<signature>func request_preview( asset_id: StringName, renderer: GFThumbnailRenderer, request: GFThumbnailRenderRequest ) -&gt; GFThumbnailRenderTask:</signature>
+			<description>提交与目录资产关联的缩略图请求。
+调用方负责把资产物化为 GFThumbnailRenderRequest；模型只校验稳定 ID，
+并通过 GFThumbnailRenderer 管理一个当前代际任务。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">asset_id: 当前目录中的稳定资产 ID。</tag>
+				<tag name="param">renderer: 执行请求的缩略图渲染器。</tag>
+				<tag name="param">request: 已由调用方构建的渲染请求。</tag>
+				<tag name="return">当前代际任务；输入无效时返回 null。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="cancel_preview">
+			<signature>func cancel_preview(reason: StringName = &amp;"cancelled") -&gt; bool:</signature>
+			<description>取消当前预览任务。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">reason: 取消原因。</tag>
+				<tag name="return">本次调用是否发出新的取消请求。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_preview_generation">
+			<signature>func get_preview_generation() -&gt; int:</signature>
+			<description>获取预览请求的当前代际。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">从 0 开始、新预览或主动失效时递增的 generation。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_active_preview_task">
+			<signature>func get_active_preview_task() -&gt; GFThumbnailRenderTask:</signature>
+			<description>获取当前仍未完成的预览任务。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">当前任务；没有任务时返回 null。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="dispose">
+			<signature>func dispose() -&gt; void:</signature>
+			<description>释放模型持有的预览任务。
+dispose() 是终态操作；调用后目录、查询、选择和预览写入口均会拒绝新请求。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_page">
+			<signature>func get_page(page: int = 1, page_size: int = 50) -&gt; Dictionary:</signature>
+			<description>获取当前目录的分页摘要。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">page: 从 1 开始的页码。</tag>
+				<tag name="param">page_size: 每页数量。</tag>
+				<tag name="return">分页浏览报告。</tag>
+				<tag name="schema">return: Dictionary with catalog_revision, query_generation, query, page, page_size, page_count, total_count, has_previous, has_next, asset_ids, and items.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

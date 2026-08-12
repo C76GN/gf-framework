@@ -7,16 +7,16 @@
 ## 范围
 
 - 源码根目录：`addons/gf`
-- 公开类：`819`
-- 公开成员：`12139`
-- 公开方法：`7490`
+- 公开类：`836`
+- 公开成员：`12338`
+- 公开方法：`7627`
 
 ## 模块
 
 | 模块 | 类 | 成员 | 方法 | 页面 |
 |---|---:|---:|---:|---|
 | Kernel | 74 | 1108 | 799 | [kernel.md](kernel.md) |
-| Standard | 460 | 7368 | 4655 | [standard.md](standard.md) |
+| Standard | 467 | 7452 | 4722 | [standard.md](standard.md) |
 | Action Queue | 16 | 214 | 136 | [extensions-action-queue.md](extensions-action-queue.md) |
 | Asset Metadata | 4 | 33 | 24 | [extensions-asset-metadata.md](extensions-asset-metadata.md) |
 | Behavior Tree | 22 | 89 | 65 | [extensions-behavior-tree.md](extensions-behavior-tree.md) |
@@ -26,15 +26,16 @@
 | Extensions / Content Package | 7 | 109 | 71 | [extensions-content-package.md](extensions-content-package.md) |
 | Decision | 8 | 111 | 62 | [extensions-decision.md](extensions-decision.md) |
 | Dialogue | 5 | 75 | 36 | [extensions-dialogue.md](extensions-dialogue.md) |
-| Domain | 18 | 295 | 185 | [extensions-domain.md](extensions-domain.md) |
+| Domain | 21 | 336 | 216 | [extensions-domain.md](extensions-domain.md) |
 | Feedback | 8 | 141 | 65 | [extensions-feedback.md](extensions-feedback.md) |
 | Flow | 7 | 138 | 84 | [extensions-flow.md](extensions-flow.md) |
 | Interaction | 6 | 82 | 29 | [extensions-interaction.md](extensions-interaction.md) |
+| Extensions / Layered Sprite | 4 | 46 | 21 | [extensions-layered-sprite.md](extensions-layered-sprite.md) |
 | Network | 38 | 602 | 323 | [extensions-network.md](extensions-network.md) |
 | Physics | 4 | 50 | 23 | [extensions-physics.md](extensions-physics.md) |
 | Save | 52 | 651 | 414 | [extensions-save.md](extensions-save.md) |
 | Turn Based | 4 | 49 | 24 | [extensions-turn-based.md](extensions-turn-based.md) |
-| Tool Packages | 17 | 137 | 88 | [tools.md](tools.md) |
+| Tool Packages | 20 | 165 | 106 | [tools.md](tools.md) |
 
 ## 类索引
 

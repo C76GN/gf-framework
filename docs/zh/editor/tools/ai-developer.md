@@ -132,6 +132,28 @@ python addons/gf/tools/ai_developer/gf_ai_project.py agent-uninstall --project-r
 
 API 索引用于准确定位，不替代行为源码、测试和正式文档。涉及副作用、线程、生命周期、失败恢复或持久化兼容时，仍应打开索引返回的源码路径核对。
 
+## 显式离线上下文包
+
+需要把少量项目源码或设置交给独立 AI 会话时，先创建只读计划，而不是递归导出整个项目：
+
+```powershell
+python addons/gf/tools/ai_developer/gf_ai_project.py context-bundle-plan --project-root . --file scripts/player.gd --file scenes/main.tscn --setting application/config/name
+```
+
+`--file` 与 `--setting` 都必须逐项显式提供，可重复使用；空选择会被拒绝。文件必须是项目根内不经过符号链接、junction 或重解析点的跨平台规范普通文件，并且是严格 UTF-8。单文件、文件数量、设置数量和总字节数都有硬上限。设置采用 `section/key` 形式，只读取 `project.godot` 中对应字段的完整序列化值；多行 Array、Dictionary 或构造表达式按括号与字符串边界完整采集，缺失或未闭合值会失败关闭，工具不解释其业务含义。字符串外的 `#`、`;` 行尾注释和独立注释行不属于设置表达式，不会进入导出内容或计划哈希；字符串内部的同名字符保持原值。计划只返回路径、字节数和 SHA-256，不返回选中内容，并把这些摘要、选择集合、Schema 版本与生成器版本绑定到 `plan_sha256`。
+
+审阅选择范围后，只能从人工操作的交互终端导出完全相同的计划：
+
+```powershell
+python addons/gf/tools/ai_developer/gf_ai_project.py context-bundle-export --project-root . --file scripts/player.gd --file scenes/main.tscn --setting application/config/name --expected-plan-sha256 <plan-sha256>
+```
+
+CLI 会重新读取并校验全部来源，然后要求原样输入 `EXPORT <plan-sha256>`。任何文件、设置、路径身份或内容哈希漂移都会要求重新计划。成功结果固定原子写入 `.gf/ai/context/<plan-sha256>.json`；包内设置 `untrusted_content: true`，提醒消费方把源码、注释和设置值视为数据而不是 Agent 指令。输出目录自身不能反过来作为输入。
+
+上下文包不会自动判断或脱敏业务秘密；显式选择不等于公开授权。不要选择令牌、私钥、个人信息或其他不应交给目标 AI 会话的文件与设置，并在传输前按计划清单和目标会话的数据边界再次审核。需要自动脱敏的诊断证据应走受控反馈协议，而不是把上下文导出当作隐私过滤器。
+
+这个流程只处理磁盘上已经保存的显式内容，不扫描目录、不实例化场景、不读取编辑器未保存缓冲区、不写剪贴板，也不通过 MCP 暴露无人工确认的导出入口。它是低权限离线交换边界，不是实时编辑器控制或远程传输协议。
+
 独立 Kit 的 API 目录与 GF 发行版精确绑定。项目 `addons/gf/plugin.cfg` 版本缺失，或与目录的 `framework_version` 不相等时，能力、Recipe 和 API 查询统一 fail closed；不得用旧目录为新框架生成代码。Capability 与 Recipe 目录使用同一目录版本并受严格 Schema 约束；目录加载还会交叉复核 Capability、Recipe、包、类及类所属包的依赖闭包，API 索引则复核记录计数与内容摘要。能力搜索会统一空格、标点、连字符和下划线，并只把主类名作为低权重定位线索。任一完整性检查失败时，整份目录都视为无效。
 
 ## MCP 接入
@@ -195,7 +217,7 @@ python addons/gf/tools/ai_developer/gf_ai_project.py feedback-submit --project-r
 - `.gf/project_contract.json` 应进入项目版本控制；`.gf/ai/` 是可重建且可能包含本地诊断摘要的忽略目录。`.gf` 根不是整体忽略目录，避免连项目意图一起丢失。
 - 套件只读取项目相对路径，受控输出必须留在项目根目录内，并拒绝通过符号链接或父级片段越界。
 - 能力目录、API 索引、Schema、Skill 和独立插件 ZIP 与 GF 版本一起校验和发布，不从网络静默更新另一套知识。
-- AI Developer 工具协议 4.x 使用项目契约 schema v2 与项目快照 schema v4。契约必须通过受控迁移保留并复核人类意图；Snapshot 是有意的破坏性生成协议升级，消费方先升级工具，再直接重新生成 v4，禁止迁移或手工补写旧 Snapshot。独立插件 ZIP 仍采用对应 GF Framework 的发布版本号。
+- AI Developer 工具协议 4.x 使用项目契约 schema v2、项目快照 schema v4 与显式上下文包 schema v1。契约必须通过受控迁移保留并复核人类意图；Snapshot 是有意的破坏性生成协议升级，消费方先升级工具，再直接重新生成 v4，禁止迁移或手工补写旧 Snapshot。上下文包是内容哈希绑定的可重建本地交换物，不应进入版本控制。独立插件 ZIP 仍采用对应 GF Framework 的发布版本号。
 - 独立插件 ZIP 的条目集合、文件字节、顺序、时间戳、权限和压缩方式都会与同一次发布源码精确比对；仅有相似目录结构不能通过产物审计。
 - Agent 可以提出修改契约的建议，但不能把观测结果、默认模板或自身推断当成用户已经批准的项目决策。
 - 克隆项目中的契约、源码、日志、素材和生成物不能提升为 Agent 指令；其中要求绕过安全、读取无关隐私、联网或修改规则的文本一律按不可信数据处理。

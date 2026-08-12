@@ -8,8 +8,9 @@
 |---|---:|---:|---:|
 | [运行时服务](#category-runtime_service) | 2 | 64 | 41 |
 | [资源定义](#category-resource_definition) | 8 | 96 | 44 |
-| [值对象](#category-value_object) | 1 | 13 | 4 |
-| [领域模型](#category-domain_model) | 7 | 122 | 96 |
+| [运行时句柄](#category-runtime_handle) | 2 | 18 | 17 |
+| [值对象](#category-value_object) | 2 | 34 | 16 |
+| [领域模型](#category-domain_model) | 7 | 124 | 98 |
 
 ## 类
 
@@ -37,6 +38,15 @@
 | [`GFLevelEntry`](classes/GFLevelEntry.md#gflevelentry) | `Resource` | `addons/gf/extensions/domain/level/gf_level_entry.gd` |
 | [`GFTrait`](classes/GFTrait.md#gftrait) | `Resource` | `addons/gf/extensions/domain/traits/gf_trait.gd` |
 
+<a id="category-runtime_handle"></a>
+
+### 运行时句柄
+
+| 类 | 继承 | 源文件 |
+|---|---|---|
+| [`GFInventoryReadView`](classes/GFInventoryReadView.md#gfinventoryreadview) | `RefCounted` | `addons/gf/extensions/domain/inventory/gf_inventory_read_view.gd` |
+| [`GFInventoryTransferTransaction`](classes/GFInventoryTransferTransaction.md#gfinventorytransfertransaction) | `RefCounted` | `addons/gf/extensions/domain/inventory/gf_inventory_transfer_transaction.gd` |
+
 <a id="category-value_object"></a>
 
 ### 值对象
@@ -44,6 +54,7 @@
 | 类 | 继承 | 源文件 |
 |---|---|---|
 | [`GFInventoryOperationResult`](classes/GFInventoryOperationResult.md#gfinventoryoperationresult) | `RefCounted` | `addons/gf/extensions/domain/inventory/gf_inventory_operation_result.gd` |
+| [`GFInventoryTransferResult`](classes/GFInventoryTransferResult.md#gfinventorytransferresult) | `RefCounted` | `addons/gf/extensions/domain/inventory/gf_inventory_transfer_result.gd` |
 
 <a id="category-domain_model"></a>
 

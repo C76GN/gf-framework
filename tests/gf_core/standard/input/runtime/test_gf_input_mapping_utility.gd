@@ -106,6 +106,26 @@ func test_bool_action_press_consume_and_release() -> void:
 	assert_almost_eq(_utility.get_last_completed_duration(&"jump"), 0.2, 0.001, "应记录本次按住时间。")
 
 
+## 验证布尔动作不受仅属于轴动作的迟滞阈值配置影响。
+func test_bool_action_ignores_axis_threshold_configuration() -> void:
+	var action: GFInputAction = _make_action(&"confirm")
+	action.activation_threshold = 0.1
+	action.release_threshold = 0.9
+	var context: GFInputContext = _make_context(&"menu", [
+		_make_mapping(action, [
+			_make_key_binding(KEY_ENTER),
+		]),
+	])
+
+	_utility.enable_context(context)
+	_utility.handle_input_event(_make_key_event(KEY_ENTER, true))
+
+	assert_true(
+		_utility.is_action_active(&"confirm"),
+		"布尔动作不得因无语义的轴阈值顺序而从有效映射中被排除。"
+	)
+
+
 ## 验证 just started 状态会保留到 Utility tick 清理窗口。
 func test_just_started_survives_process_frame_until_utility_tick() -> void:
 	var context: GFInputContext = _make_context(&"gameplay", [
@@ -302,6 +322,7 @@ func test_remap_override_replaces_default_binding() -> void:
 func test_axis_2d_action_combines_directional_bindings() -> void:
 	var action: GFInputAction = _make_action(&"move", GFInputAction.ValueType.AXIS_2D)
 	action.activation_threshold = 0.1
+	action.release_threshold = 0.1
 	var context: GFInputContext = _make_context(&"gameplay", [
 		_make_mapping(action, [
 			_make_key_binding(KEY_A, GFInputBinding.ValueTarget.AXIS_2D_X_NEGATIVE),
@@ -325,6 +346,7 @@ func test_axis_2d_action_combines_directional_bindings() -> void:
 func test_joy_axis_directional_binding_respects_axis_sign() -> void:
 	var action: GFInputAction = _make_action(&"look_x", GFInputAction.ValueType.AXIS_1D)
 	action.activation_threshold = 0.1
+	action.release_threshold = 0.1
 	var context: GFInputContext = _make_context(&"gameplay", [
 		_make_mapping(action, [
 			_make_joy_axis_binding(JOY_AXIS_LEFT_X, GFInputBinding.ValueTarget.AXIS_1D_POSITIVE),
@@ -343,10 +365,116 @@ func test_joy_axis_directional_binding_respects_axis_sign() -> void:
 	assert_true(_utility.is_action_active(&"look_x"), "符号匹配且超过阈值时动作应活跃。")
 
 
+## 验证轴动作激活后使用较低的释放阈值，避免边界抖动。
+func test_axis_action_uses_release_threshold_after_activation() -> void:
+	var action: GFInputAction = _make_action(&"throttle", GFInputAction.ValueType.AXIS_1D)
+	action.activation_threshold = 0.5
+	action.release_threshold = 0.2
+	var context: GFInputContext = _make_context(&"gameplay", [
+		_make_mapping(action, [
+			_make_joy_axis_binding(JOY_AXIS_TRIGGER_RIGHT, GFInputBinding.ValueTarget.AUTO),
+		]),
+	])
+
+	_utility.enable_context(context)
+	_utility.handle_input_event(_make_joy_motion_event(JOY_AXIS_TRIGGER_RIGHT, 0.6))
+	assert_true(_utility.is_action_active(&"throttle"), "跨过激活阈值后动作应活跃。")
+
+	_utility.handle_input_event(_make_joy_motion_event(JOY_AXIS_TRIGGER_RIGHT, 0.3))
+	assert_true(_utility.is_action_active(&"throttle"), "回落到两阈值之间时应保持活跃。")
+
+	_utility.handle_input_event(_make_joy_motion_event(JOY_AXIS_TRIGGER_RIGHT, 0.2))
+	assert_true(_utility.is_action_active(&"throttle"), "等于释放阈值时应保持活跃。")
+
+	_utility.handle_input_event(_make_joy_motion_event(JOY_AXIS_TRIGGER_RIGHT, 0.19))
+	assert_false(_utility.is_action_active(&"throttle"), "低于释放阈值后动作应结束。")
+
+
+## 验证零释放阈值仍会在轴回到精确中立值时结束动作。
+func test_axis_action_with_zero_release_threshold_releases_at_neutral() -> void:
+	var action: GFInputAction = _make_action(&"throttle", GFInputAction.ValueType.AXIS_1D)
+	action.activation_threshold = 0.5
+	action.release_threshold = 0.0
+	var no_bindings: Array[GFInputBinding] = []
+	_utility.enable_context(_make_context(&"gameplay", [
+		_make_mapping(action, no_bindings),
+	]))
+	var source: GFVirtualInputSource = _utility.create_virtual_source(&"axis", 2)
+
+	assert_true(source.set_axis_1d(&"throttle", 1.0))
+	assert_true(_utility.is_action_active(&"throttle"))
+	assert_true(_utility.is_action_active_for_player(2, &"throttle"))
+	assert_true(source.set_axis_1d(&"throttle", 0.0))
+
+	assert_false(
+		_utility.is_action_active(&"throttle"),
+		"轴回到精确中立值时必须释放全局动作。"
+	)
+	assert_false(
+		_utility.is_action_active_for_player(2, &"throttle"),
+		"轴回到精确中立值时必须释放玩家动作。"
+	)
+
+
+## 验证玩家作用域与全局作用域共享同一轴迟滞语义。
+func test_player_axis_action_uses_release_threshold_after_activation() -> void:
+	var action: GFInputAction = _make_action(&"steer", GFInputAction.ValueType.AXIS_1D)
+	action.activation_threshold = 0.6
+	action.release_threshold = 0.25
+	var no_bindings: Array[GFInputBinding] = []
+	_utility.enable_context(_make_context(&"gameplay", [
+		_make_mapping(action, no_bindings),
+	]))
+	var source: GFVirtualInputSource = _utility.create_virtual_source(&"player_axis", 2)
+
+	assert_true(source.set_axis_1d(&"steer", 0.7))
+	assert_true(_utility.is_action_active_for_player(2, &"steer"))
+	assert_true(source.set_axis_1d(&"steer", 0.4))
+	assert_true(
+		_utility.is_action_active_for_player(2, &"steer"),
+		"玩家轴回落到两阈值之间时应保持活跃。"
+	)
+	assert_true(source.set_axis_1d(&"steer", 0.2))
+	assert_false(
+		_utility.is_action_active_for_player(2, &"steer"),
+		"玩家轴低于释放阈值时应结束。"
+	)
+
+
+## 验证非有限、越界或反向迟滞阈值不会进入全局与玩家运行时。
+func test_invalid_axis_thresholds_are_skipped_fail_closed() -> void:
+	var reversed_action: GFInputAction = _make_action(
+		&"reversed_axis",
+		GFInputAction.ValueType.AXIS_1D
+	)
+	reversed_action.activation_threshold = 0.25
+	reversed_action.release_threshold = 0.5
+	var nonfinite_action: GFInputAction = _make_action(
+		&"nonfinite_axis",
+		GFInputAction.ValueType.AXIS_1D
+	)
+	nonfinite_action.activation_threshold = NAN
+	nonfinite_action.release_threshold = 0.1
+	var no_bindings: Array[GFInputBinding] = []
+	_utility.enable_context(_make_context(&"invalid_thresholds", [
+		_make_mapping(reversed_action, no_bindings),
+		_make_mapping(nonfinite_action, no_bindings),
+	]))
+	var source: GFVirtualInputSource = _utility.create_virtual_source(&"invalid_axis_source", 3)
+
+	assert_false(source.set_axis_1d(&"reversed_axis", 1.0))
+	assert_false(source.set_axis_1d(&"nonfinite_axis", 1.0))
+	assert_false(_utility.is_action_active(&"reversed_axis"))
+	assert_false(_utility.is_action_active_for_player(3, &"reversed_axis"))
+	assert_false(_utility.is_action_active(&"nonfinite_axis"))
+	assert_false(_utility.is_action_active_for_player(3, &"nonfinite_axis"))
+
+
 ## 验证映射级修饰器会作用于聚合后的动作值。
 func test_mapping_modifier_scales_aggregated_value() -> void:
 	var action: GFInputAction = _make_action(&"move_x", GFInputAction.ValueType.AXIS_1D)
 	action.activation_threshold = 0.1
+	action.release_threshold = 0.1
 	var scale: GFInputScaleModifier = GFInputScaleModifier.new()
 	scale.scale_x = 0.5
 	var mapping: GFInputMapping = _make_mapping(action, [
@@ -423,6 +551,7 @@ func test_runtime_modifier_duplicates_isolate_state_between_mappings() -> void:
 func test_duplicate_action_id_keeps_higher_priority_definition() -> void:
 	var high_action: GFInputAction = _make_action(&"move_x", GFInputAction.ValueType.AXIS_1D)
 	high_action.activation_threshold = 0.1
+	high_action.release_threshold = 0.1
 	var high_scale: GFInputScaleModifier = GFInputScaleModifier.new()
 	high_scale.scale_x = 0.5
 	var high_mapping: GFInputMapping = _make_mapping(high_action, [
@@ -432,6 +561,7 @@ func test_duplicate_action_id_keeps_higher_priority_definition() -> void:
 
 	var low_action: GFInputAction = _make_action(&"move_x", GFInputAction.ValueType.AXIS_1D)
 	low_action.activation_threshold = 0.1
+	low_action.release_threshold = 0.1
 	var low_scale: GFInputScaleModifier = GFInputScaleModifier.new()
 	low_scale.scale_x = 2.0
 	var low_mapping: GFInputMapping = _make_mapping(low_action, [
@@ -450,6 +580,7 @@ func test_duplicate_action_id_keeps_higher_priority_definition() -> void:
 func test_axis_3d_action_combines_directional_bindings() -> void:
 	var action: GFInputAction = _make_action(&"move_3d", GFInputAction.ValueType.AXIS_3D)
 	action.activation_threshold = 0.1
+	action.release_threshold = 0.1
 	var scale: GFInputScaleModifier = GFInputScaleModifier.new()
 	scale.scale_z = 0.5
 	var mapping: GFInputMapping = _make_mapping(action, [
@@ -1086,6 +1217,7 @@ func test_virtual_input_source_drives_global_and_player_action_state() -> void:
 func test_virtual_input_source_supports_axis_values_and_clear() -> void:
 	var action: GFInputAction = _make_action(&"move", GFInputAction.ValueType.AXIS_2D)
 	action.activation_threshold = 0.1
+	action.release_threshold = 0.1
 	var bindings: Array[GFInputBinding] = []
 	var context: GFInputContext = _make_context(&"gameplay", [
 		_make_mapping(action, bindings),
@@ -1233,6 +1365,7 @@ func test_virtual_input_source_snapshot_has_stable_player_scoped_schema() -> voi
 func test_clear_player_input_state_removes_player_global_contributions() -> void:
 	var action: GFInputAction = _make_action(&"move", GFInputAction.ValueType.AXIS_2D)
 	action.activation_threshold = 0.1
+	action.release_threshold = 0.1
 	var bindings: Array[GFInputBinding] = []
 	var context: GFInputContext = _make_context(&"gameplay", [
 		_make_mapping(action, bindings),

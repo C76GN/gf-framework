@@ -27,7 +27,7 @@ FIXTURE_PATH = Path(__file__).with_name("fixtures") / "evaluation_cases.json"
 sys.path.insert(0, str(ADDON_ROOT))
 sys.path.insert(0, str(TOOLS_ROOT))
 
-from gf_ai import adapters, catalog, cli, dependencies, feedback, mcp, migration, paths, snapshot  # noqa: E402
+from gf_ai import adapters, catalog, cli, context_bundle, dependencies, feedback, mcp, migration, paths, snapshot  # noqa: E402
 from gf_ai.constants import (  # noqa: E402
 	ARTIFACT_POLICY_PATH,
 	CONTRACT_SCHEMA_VERSION,
@@ -449,6 +449,198 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 		self.assertTrue(core_applied["ok"], core_applied)
 		self.assertEqual(json.loads(contract_path.read_text(encoding="utf-8"))["schema_version"], CONTRACT_SCHEMA_VERSION)
 
+	def test_context_bundle_plan_and_export_are_content_bound_and_schema_valid(self) -> None:
+		(self.project_root / "scripts").mkdir()
+		(self.project_root / "scripts/player.gd").write_bytes("extends Node\nvar icon := \"🧭\"\n".encode("utf-8"))
+		project_source = (self.project_root / "project.godot").read_text(encoding="utf-8")
+		(self.project_root / "project.godot").write_text(
+			project_source + '\n[rendering]\nrenderer/rendering_method="gl_compatibility"\n',
+			encoding="utf-8",
+		)
+
+		plan = context_bundle.plan_context_bundle(
+			self.project_root,
+			["scripts/player.gd"],
+			["rendering/renderer/rendering_method"],
+		)
+
+		self.assertTrue(plan["ok"], plan)
+		self.assertEqual(plan["generator_version"], TOOL_VERSION)
+		self.assertNotIn("content", plan["files"][0])
+		self.assertNotIn("serialized_value", plan["settings"][0])
+		self.assertEqual(plan, context_bundle.plan_context_bundle(
+			self.project_root,
+			["scripts/player.gd"],
+			["rendering/renderer/rendering_method"],
+		))
+		exported = context_bundle.export_context_bundle(
+			self.project_root,
+			["scripts/player.gd"],
+			["rendering/renderer/rendering_method"],
+			plan["plan_sha256"],
+			human_approved=True,
+		)
+		self.assertTrue(exported["ok"], exported)
+		bundle_path = self.project_root / exported["output"]
+		bundle = json.loads(bundle_path.read_text(encoding="utf-8"))
+		self.assertEqual(bundle["files"][0]["content"], "extends Node\nvar icon := \"🧭\"\n")
+		self.assertEqual(bundle["settings"][0]["serialized_value"], '"gl_compatibility"')
+		self.assertTrue(bundle["untrusted_content"])
+		self.assertEqual(
+			validate_schema_file(bundle, ADDON_ROOT / "schemas/editor_context_bundle.schema.json"),
+			[],
+		)
+
+	def test_context_bundle_captures_complete_multiline_project_setting(self) -> None:
+		project_source = (self.project_root / "project.godot").read_text(encoding="utf-8")
+		(self.project_root / "project.godot").write_text(
+			project_source
+			+ (
+				"\n[debug]\n"
+				"gdscript/warnings/directory_rules={\n"
+				'"res://addons/gf": 1,\n'
+				'"res://addons/gut": 0,\n'
+				'"marker": "};#"\n'
+				"}\n"
+			),
+			encoding="utf-8",
+		)
+		setting_name = "debug/gdscript/warnings/directory_rules"
+		plan = context_bundle.plan_context_bundle(self.project_root, [], [setting_name])
+
+		exported = context_bundle.export_context_bundle(
+			self.project_root,
+			[],
+			[setting_name],
+			plan["plan_sha256"],
+			human_approved=True,
+		)
+		bundle = json.loads((self.project_root / exported["output"]).read_text(encoding="utf-8"))
+
+		self.assertEqual(
+			bundle["settings"][0]["serialized_value"],
+			'{\n"res://addons/gf": 1,\n"res://addons/gut": 0,\n"marker": "};#"\n}',
+		)
+
+	def test_context_bundle_excludes_setting_comments_from_export_and_plan_hash(self) -> None:
+		project_source = (self.project_root / "project.godot").read_text(encoding="utf-8")
+		setting_source = (
+			"\n[debug]\n"
+			"commented={ ; opening comment\n"
+			'"literal": "#; keep", ; inline comment\n'
+			"# comment-only line\n"
+			'"value": 1 # hash comment\n'
+			"} ; closing comment\n"
+		)
+		(self.project_root / "project.godot").write_text(
+			project_source + setting_source,
+			encoding="utf-8",
+		)
+		setting_name = "debug/commented"
+		first_plan = context_bundle.plan_context_bundle(self.project_root, [], [setting_name])
+
+		(self.project_root / "project.godot").write_text(
+			project_source
+			+ setting_source.replace("opening comment", "changed opening comment")
+			.replace("inline comment", "changed inline comment")
+			.replace("comment-only line", "changed comment-only line")
+			.replace("hash comment", "changed hash comment")
+			.replace("closing comment", "changed closing comment"),
+			encoding="utf-8",
+		)
+		second_plan = context_bundle.plan_context_bundle(self.project_root, [], [setting_name])
+		self.assertEqual(first_plan["plan_sha256"], second_plan["plan_sha256"])
+		exported = context_bundle.export_context_bundle(
+			self.project_root,
+			[],
+			[setting_name],
+			first_plan["plan_sha256"],
+			human_approved=True,
+		)
+		self.assertTrue(exported["ok"], exported)
+		bundle = json.loads((self.project_root / exported["output"]).read_text(encoding="utf-8"))
+
+		self.assertEqual(
+			bundle["settings"][0]["serialized_value"],
+			'{\n"literal": "#; keep",\n"value": 1\n}',
+		)
+
+	def test_context_bundle_rejects_incomplete_project_setting(self) -> None:
+		project_source = (self.project_root / "project.godot").read_text(encoding="utf-8")
+		(self.project_root / "project.godot").write_text(
+			project_source + '\n[debug]\nbroken={\n"value": 1\n',
+			encoding="utf-8",
+		)
+
+		with self.assertRaisesRegex(ValueError, "setting value is incomplete"):
+			context_bundle.plan_context_bundle(self.project_root, [], ["debug/broken"])
+
+	def test_context_bundle_refuses_stale_unsafe_binary_and_self_inputs(self) -> None:
+		(self.project_root / "selected.txt").write_text("before", encoding="utf-8")
+		plan = context_bundle.plan_context_bundle(self.project_root, ["selected.txt"], [])
+		(self.project_root / "selected.txt").write_text("after", encoding="utf-8")
+
+		stale = context_bundle.export_context_bundle(
+			self.project_root,
+			["selected.txt"],
+			[],
+			plan["plan_sha256"],
+			human_approved=True,
+		)
+
+		self.assertFalse(stale["ok"])
+		self.assertEqual(stale["status"], "stale")
+		self.assertFalse((self.project_root / ".gf/ai/context" / f"{plan['plan_sha256']}.json").exists())
+		(self.project_root / "binary.dat").write_bytes(b"\xff\x00")
+		with self.assertRaisesRegex(ValueError, "valid UTF-8"):
+			context_bundle.plan_context_bundle(self.project_root, ["binary.dat"], [])
+		with self.assertRaisesRegex(ValueError, "unsafe or non-portable"):
+			context_bundle.plan_context_bundle(self.project_root, ["../outside.txt"], [])
+		with self.assertRaisesRegex(ValueError, "output files cannot be selected"):
+			context_bundle.plan_context_bundle(
+				self.project_root,
+				[".gf/ai/context/already.json"],
+				[],
+			)
+		with self.assertRaisesRegex(ValueError, "output files cannot be selected"):
+			context_bundle.plan_context_bundle(
+				self.project_root,
+				[".GF/AI/CONTEXT/already.json"],
+				[],
+			)
+
+	def test_context_bundle_rejects_case_collisions_missing_settings_and_links(self) -> None:
+		(self.project_root / "Case.txt").write_text("case", encoding="utf-8")
+		with self.assertRaisesRegex(ValueError, "case-colliding"):
+			context_bundle.plan_context_bundle(self.project_root, ["Case.txt", "case.txt"], [])
+		with self.assertRaisesRegex(ValueError, "were not found"):
+			context_bundle.plan_context_bundle(self.project_root, [], ["application/missing"])
+		real_root = self.project_root / "context-real"
+		real_root.mkdir()
+		(real_root / "linked.txt").write_text("linked", encoding="utf-8")
+		linked_root = self.project_root / "context-link"
+		create_directory_link_fixture(real_root, linked_root)
+		with self.assertRaisesRegex(ValueError, "filesystem link"):
+			context_bundle.plan_context_bundle(self.project_root, ["context-link/linked.txt"], [])
+
+	def test_context_bundle_cli_requires_the_exact_interactive_phrase(self) -> None:
+		plan_sha256 = "b" * 64
+		plan = {"plan_sha256": plan_sha256, "files": [], "settings": [], "total_bytes": 0}
+		with (
+			mock.patch("sys.stdin.isatty", return_value=True),
+			mock.patch("sys.stdout.isatty", return_value=True),
+			mock.patch("builtins.input", return_value=f"EXPORT {plan_sha256}"),
+			mock.patch("sys.stderr", io.StringIO()),
+		):
+			self.assertTrue(cli._confirm_context_export(plan, plan_sha256))
+		with (
+			mock.patch("sys.stdin.isatty", return_value=True),
+			mock.patch("sys.stdout.isatty", return_value=True),
+			mock.patch("builtins.input", return_value=plan_sha256),
+			mock.patch("sys.stderr", io.StringIO()),
+		):
+			self.assertFalse(cli._confirm_context_export(plan, plan_sha256))
+
 	def test_cli_contract_migrate_rejects_when_contract_is_current(self) -> None:
 		cli = ADDON_ROOT / "gf_ai_project.py"
 
@@ -833,6 +1025,94 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 				"satisfied": False,
 				"all_of": ["gf.extension.network"],
 				"missing_all_of": ["gf.extension.network"],
+				"any_of": [],
+				"unsatisfied_any_of": [],
+			},
+			{
+				"recipe_id": "physics-backend-adapter",
+				"available": ["gf.standard.base"],
+				"satisfied": False,
+				"all_of": ["gf.standard.diagnostics"],
+				"missing_all_of": ["gf.standard.diagnostics"],
+				"any_of": [],
+				"unsatisfied_any_of": [],
+			},
+			{
+				"recipe_id": "physics-backend-adapter",
+				"available": ["gf.standard.diagnostics"],
+				"satisfied": True,
+				"all_of": ["gf.standard.diagnostics"],
+				"missing_all_of": [],
+				"any_of": [],
+				"unsatisfied_any_of": [],
+			},
+			{
+				"recipe_id": "achievement-composition",
+				"available": [
+					"gf.extension.domain",
+					"gf.extension.save",
+					"gf.standard.assets",
+					"gf.standard.platform",
+				],
+				"satisfied": True,
+				"all_of": [
+					"gf.extension.domain",
+					"gf.extension.save",
+					"gf.standard.assets",
+					"gf.standard.platform",
+				],
+				"missing_all_of": [],
+				"any_of": [],
+				"unsatisfied_any_of": [],
+			},
+			{
+				"recipe_id": "achievement-composition",
+				"available": [
+					"gf.extension.domain",
+					"gf.extension.save",
+					"gf.standard.assets",
+				],
+				"satisfied": False,
+				"all_of": [
+					"gf.extension.domain",
+					"gf.extension.save",
+					"gf.standard.assets",
+					"gf.standard.platform",
+				],
+				"missing_all_of": ["gf.standard.platform"],
+				"any_of": [],
+				"unsatisfied_any_of": [],
+			},
+			{
+				"recipe_id": "environment-query-composition",
+				"available": [
+					"gf.extension.decision",
+					"gf.standard.diagnostics",
+					"gf.standard.spatial",
+				],
+				"satisfied": True,
+				"all_of": [
+					"gf.extension.decision",
+					"gf.standard.diagnostics",
+					"gf.standard.spatial",
+				],
+				"missing_all_of": [],
+				"any_of": [],
+				"unsatisfied_any_of": [],
+			},
+			{
+				"recipe_id": "environment-query-composition",
+				"available": [
+					"gf.extension.decision",
+					"gf.standard.spatial",
+				],
+				"satisfied": False,
+				"all_of": [
+					"gf.extension.decision",
+					"gf.standard.diagnostics",
+					"gf.standard.spatial",
+				],
+				"missing_all_of": ["gf.standard.diagnostics"],
 				"any_of": [],
 				"unsatisfied_any_of": [],
 			},

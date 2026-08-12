@@ -869,6 +869,185 @@ func test_debug_snapshot_distinguishes_shared_reference_from_cycle() -> void:
 	)
 
 
+func test_debug_snapshot_bounds_children_during_tree_traversal() -> void:
+	var sequence: GFBehaviorTree.Sequence = GFBehaviorTree.Sequence.new(_nodes([
+		GFBehaviorTree.Action.new(func(_bb: Dictionary) -> int: return GFBehaviorTree.Status.SUCCESS),
+		GFBehaviorTree.Action.new(func(_bb: Dictionary) -> int: return GFBehaviorTree.Status.SUCCESS),
+		GFBehaviorTree.Action.new(func(_bb: Dictionary) -> int: return GFBehaviorTree.Status.SUCCESS),
+		GFBehaviorTree.Action.new(func(_bb: Dictionary) -> int: return GFBehaviorTree.Status.SUCCESS),
+	]))
+
+	var snapshot: Dictionary = GFBehaviorTree.build_debug_snapshot(sequence, {
+		"max_nodes": 8,
+		"max_depth": 4,
+		"max_children": 1,
+	})
+	var children: Array = GFVariantData.get_option_array(snapshot, "children")
+	var debug_budget: Dictionary = GFVariantData.get_option_dictionary(snapshot, "debug_budget")
+
+	assert_eq(GFVariantData.get_option_int(snapshot, "child_count"), 4)
+	assert_eq(GFVariantData.get_option_int(snapshot, "captured_child_count"), 1)
+	assert_eq(GFVariantData.get_option_int(snapshot, "omitted_child_count"), 3)
+	assert_eq(children.size(), 1, "子节点预算必须在递归前生效。")
+	assert_true(GFVariantData.get_option_bool(snapshot, "truncated"))
+	assert_eq(GFVariantData.get_option_string_name(snapshot, "truncation_reason"), &"max_children")
+	assert_true(GFVariantData.get_option_bool(debug_budget, "truncated"))
+
+
+func test_debug_snapshot_reports_null_child_as_structural_truncation() -> void:
+	var sequence: GFBehaviorTree.Sequence = GFBehaviorTree.Sequence.new(_nodes([null]))
+
+	var snapshot: Dictionary = GFBehaviorTree.build_debug_snapshot(sequence)
+	var debug_budget: Dictionary = GFVariantData.get_option_dictionary(
+		snapshot,
+		"debug_budget"
+	)
+	var truncation_reasons: Array = GFVariantData.get_option_array(
+		debug_budget,
+		"truncation_reasons"
+	)
+
+	assert_eq(GFVariantData.get_option_int(snapshot, "child_count"), 1)
+	assert_eq(GFVariantData.get_option_int(snapshot, "captured_child_count"), 0)
+	assert_eq(GFVariantData.get_option_int(snapshot, "omitted_child_count"), 1)
+	assert_true(GFVariantData.get_option_bool(snapshot, "truncated"))
+	assert_eq(
+		GFVariantData.get_option_string_name(snapshot, "truncation_reason"),
+		&"null_child"
+	)
+	assert_true(GFVariantData.get_option_bool(debug_budget, "truncated"))
+	assert_has(truncation_reasons, "null_child")
+
+
+func test_debug_snapshot_stops_when_global_node_budget_is_exhausted() -> void:
+	var sequence: GFBehaviorTree.Sequence = GFBehaviorTree.Sequence.new(_nodes([
+		GFBehaviorTree.Action.new(func(_bb: Dictionary) -> int: return GFBehaviorTree.Status.SUCCESS),
+		GFBehaviorTree.Action.new(func(_bb: Dictionary) -> int: return GFBehaviorTree.Status.SUCCESS),
+		GFBehaviorTree.Action.new(func(_bb: Dictionary) -> int: return GFBehaviorTree.Status.SUCCESS),
+	]))
+
+	var snapshot: Dictionary = GFBehaviorTree.build_debug_snapshot(sequence, {
+		"max_nodes": 2,
+		"max_children": 8,
+	})
+	var children: Array = GFVariantData.get_option_array(snapshot, "children")
+	var debug_budget: Dictionary = GFVariantData.get_option_dictionary(snapshot, "debug_budget")
+
+	assert_eq(children.size(), 1, "根节点占用一个 node budget，只能再捕获一个子节点。")
+	assert_eq(GFVariantData.get_option_int(snapshot, "omitted_child_count"), 2)
+	assert_eq(GFVariantData.get_option_string_name(snapshot, "truncation_reason"), &"max_nodes")
+	assert_eq(GFVariantData.get_option_int(debug_budget, "node_count"), 2)
+	assert_true(GFVariantData.get_option_bool(debug_budget, "truncated"))
+
+
+func test_debug_snapshot_stops_before_descending_past_depth_budget() -> void:
+	var root: GFBehaviorTree.Inverter = GFBehaviorTree.Inverter.new(
+		GFBehaviorTree.Inverter.new(
+			GFBehaviorTree.Action.new(func(_bb: Dictionary) -> int: return GFBehaviorTree.Status.SUCCESS)
+		)
+	)
+
+	var snapshot: Dictionary = GFBehaviorTree.build_debug_snapshot(root, {
+		"max_nodes": 8,
+		"max_depth": 1,
+		"max_children": 8,
+	})
+	var children: Array = GFVariantData.get_option_array(snapshot, "children")
+	var child: Dictionary = GFVariantData.as_dictionary(children[0])
+	var debug_budget: Dictionary = GFVariantData.get_option_dictionary(snapshot, "debug_budget")
+
+	assert_true(GFVariantData.get_option_array(child, "children").is_empty())
+	assert_eq(GFVariantData.get_option_int(child, "omitted_child_count"), 1)
+	assert_eq(GFVariantData.get_option_string_name(child, "truncation_reason"), &"max_depth")
+	assert_eq(GFVariantData.get_option_int(debug_budget, "node_count"), 2)
+	assert_true(GFVariantData.get_option_bool(debug_budget, "truncated"))
+
+
+func test_runner_debug_snapshot_bounds_metadata_and_never_exports_blackboard_values() -> void:
+	var action: GFBehaviorTree.Action = GFBehaviorTree.Action.new(func(_bb: Dictionary) -> int:
+		return GFBehaviorTree.Status.SUCCESS
+	)
+	action.metadata = {
+		"resource": Resource.new(),
+		"callable": func() -> void: pass,
+		"long_text": "x".repeat(4096),
+	}
+	var runner: GFBehaviorTree.Runner = GFBehaviorTree.Runner.new(action, false)
+	runner.blackboard = {
+		"alpha": Resource.new(),
+		"beta": "sensitive_blackboard_value",
+		"gamma": Callable(),
+	}
+
+	var snapshot: Dictionary = GFBehaviorTree.build_debug_snapshot(runner, {
+		"max_total_bytes": 8192,
+		"max_text_length": 64,
+		"max_blackboard_keys": 1,
+	})
+	var root: Dictionary = GFVariantData.get_option_dictionary(snapshot, "root")
+	var metadata: Dictionary = GFVariantData.get_option_dictionary(root, "metadata")
+	var blackboard_keys: Array = GFVariantData.get_option_array(snapshot, "blackboard_keys")
+
+	assert_eq(blackboard_keys.size(), 1)
+	assert_eq(GFVariantData.get_option_int(snapshot, "blackboard_key_count"), 3)
+	assert_true(GFVariantData.get_option_bool(snapshot, "blackboard_keys_truncated"))
+	assert_true(
+		GFVariantData.get_option_string(metadata, "long_text").ends_with("..."),
+		"统一报告编码器必须按文本预算投影 metadata。"
+	)
+	assert_true(JSON.stringify(snapshot).to_utf8_buffer().size() <= 8192)
+	assert_false(_contains_live_debug_value(snapshot), "快照不得保留 Object 或 Callable live reference。")
+	assert_false(
+		JSON.stringify(snapshot).contains("sensitive_blackboard_value"),
+		"Runner 快照只能输出受限黑板键，不能输出黑板值。"
+	)
+
+
+func test_runner_debug_snapshot_bounds_wide_metadata_with_collection_marker() -> void:
+	var action: GFBehaviorTree.Action = GFBehaviorTree.Action.new(func(_bb: Dictionary) -> int:
+		return GFBehaviorTree.Status.SUCCESS
+	)
+	for index: int in range(2048):
+		action.metadata["key_%04d" % index] = index
+	var runner: GFBehaviorTree.Runner = GFBehaviorTree.Runner.new(action, false)
+
+	var snapshot: Dictionary = GFBehaviorTree.build_debug_snapshot(runner, {
+		"max_total_bytes": 65_536,
+	})
+	var root: Dictionary = GFVariantData.get_option_dictionary(snapshot, "root")
+	var metadata: Dictionary = GFVariantData.get_option_dictionary(root, "metadata")
+	var marker: Dictionary = GFVariantData.get_option_dictionary(
+		metadata,
+		"__gf_report_value__"
+	)
+
+	assert_eq(GFVariantData.get_option_string(marker, "type"), "CollectionBudget")
+	assert_eq(GFVariantData.get_option_int(marker, "count"), 2048)
+	assert_eq(GFVariantData.get_option_int(marker, "omitted_count"), 1024)
+	assert_false(_contains_live_debug_value(snapshot))
+
+
+func test_runner_debug_snapshot_bounds_blackboard_keys_before_materialization() -> void:
+	var action: GFBehaviorTree.Action = GFBehaviorTree.Action.new(func(_bb: Dictionary) -> int:
+		return GFBehaviorTree.Status.SUCCESS
+	)
+	var runner: GFBehaviorTree.Runner = GFBehaviorTree.Runner.new(action, false)
+	for index: int in range(2048):
+		runner.blackboard["key_%04d" % index] = "secret_%04d" % index
+
+	var snapshot: Dictionary = GFBehaviorTree.build_debug_snapshot(runner, {
+		"max_blackboard_keys": 3,
+		"max_total_bytes": 8192,
+	})
+	var blackboard_keys: Array = GFVariantData.get_option_array(snapshot, "blackboard_keys")
+
+	assert_eq(blackboard_keys.size(), 3, "黑板键必须在完整物化前按请求预算停止。")
+	assert_eq(GFVariantData.get_option_int(snapshot, "blackboard_key_count"), 2048)
+	assert_true(GFVariantData.get_option_bool(snapshot, "blackboard_keys_truncated"))
+	assert_true(JSON.stringify(snapshot).to_utf8_buffer().size() <= 8192)
+	assert_false(JSON.stringify(snapshot).contains("secret_"), "调试快照不得读取或导出黑板值。")
+
+
 func test_runtime_copy_and_blackboard_scope_handle_cyclic_dictionaries() -> void:
 	var circular: Dictionary = {}
 	circular["self"] = circular
@@ -908,6 +1087,48 @@ func test_build_debug_snapshot_sanitizes_arbitrary_snapshot_owner() -> void:
 	assert_eq(GFVariantData.get_option_string(resource_marker, "type"), "Object")
 	assert_eq(GFVariantData.get_option_string(loop_marker, "type"), "CircularReference")
 	assert_false(JSON.stringify(snapshot).contains(":null"), "NaN 不应在调试报告中退化为 null。")
+
+
+func test_build_debug_snapshot_finalizes_arbitrary_snapshot_owner_budget() -> void:
+	var snapshot_source: UnsafeDebugOwner = UnsafeDebugOwner.new()
+
+	var snapshot: Dictionary = GFBehaviorTree.build_debug_snapshot(snapshot_source, {
+		"max_nodes": 7,
+		"max_depth": 3,
+		"max_total_bytes": 8192,
+	})
+	var debug_budget: Dictionary = GFVariantData.get_option_dictionary(
+		snapshot,
+		"debug_budget"
+	)
+
+	assert_false(debug_budget.is_empty(), "通用 Object 快照也必须发布统一 debug_budget。")
+	assert_eq(GFVariantData.get_option_int(debug_budget, "max_nodes"), 7)
+	assert_eq(GFVariantData.get_option_int(debug_budget, "max_depth"), 3)
+	assert_eq(GFVariantData.get_option_int(debug_budget, "node_count"), 0)
+
+
+func test_build_debug_snapshot_isolates_read_only_arbitrary_owner_result() -> void:
+	var snapshot_source: ReadOnlyDebugOwner = ReadOnlyDebugOwner.new()
+	var source_json: String = JSON.stringify(snapshot_source.snapshot_payload)
+
+	var snapshot: Dictionary = GFBehaviorTree.build_debug_snapshot(snapshot_source, {
+		"max_total_bytes": 4096,
+		"max_text_length": 64,
+	})
+	var debug_budget: Dictionary = GFVariantData.get_option_dictionary(
+		snapshot,
+		"debug_budget"
+	)
+
+	assert_true(snapshot_source.snapshot_payload.is_read_only())
+	assert_false(snapshot_source.snapshot_payload.has("debug_budget"))
+	assert_eq(JSON.stringify(snapshot_source.snapshot_payload), source_json)
+	assert_false(debug_budget.is_empty(), "只读 owner 快照也必须发布统一 debug_budget。")
+	assert_true(
+		JSON.stringify(snapshot).to_utf8_buffer().size() <= 4096,
+		"隔离后追加 debug_budget 仍必须遵守最终总字节预算。"
+	)
 
 
 func _run_random_sequence_with_seed(seed_value: int) -> Array:
@@ -954,6 +1175,22 @@ func _count_unique(values: Array) -> int:
 
 func _nodes(nodes: Array[GFBehaviorTree.BTNode]) -> Array[GFBehaviorTree.BTNode]:
 	return nodes
+
+
+func _contains_live_debug_value(value: Variant) -> bool:
+	if value is Object or value is Callable:
+		return true
+	if value is Dictionary:
+		var dictionary_value: Dictionary = value
+		for key: Variant in dictionary_value.keys():
+			if _contains_live_debug_value(key) or _contains_live_debug_value(dictionary_value[key]):
+				return true
+	elif value is Array:
+		var array_value: Array = value
+		for item: Variant in array_value:
+			if _contains_live_debug_value(item):
+				return true
+	return false
 
 
 class CustomCountingNode extends GFBehaviorTree.BTNode:
@@ -1072,3 +1309,16 @@ class UnsafeDebugOwner extends RefCounted:
 			"resource": Resource.new(),
 			"loop": loop,
 		}
+
+
+class ReadOnlyDebugOwner extends RefCounted:
+	var snapshot_payload: Dictionary = {
+		"message": "x".repeat(16_384),
+		"stable": { "id": 7 },
+	}
+
+	func _init() -> void:
+		snapshot_payload.make_read_only()
+
+	func get_debug_snapshot() -> Dictionary:
+		return snapshot_payload

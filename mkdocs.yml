@@ -16,6 +16,8 @@ not_in_nav: |
   editor/tools/dialogue-text.md
   editor/tools/project-layout.md
   editor/tools/ai-developer.md
+  editor/tools/asset-browser.md
+  editor/tools/lsp-workspace-edit.md
 
 theme:
   name: material

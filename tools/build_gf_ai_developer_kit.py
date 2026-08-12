@@ -604,6 +604,7 @@ def check_source(rendered_payload: dict[str, Any] | None = None) -> dict[str, An
 	for relative_path in (
 		"schemas/project_contract.schema.json",
 		"schemas/feedback_candidate.schema.json",
+		"schemas/editor_context_bundle.schema.json",
 		"schemas/project_snapshot.schema.json",
 		"schemas/capability_catalog.schema.json",
 		"schemas/recipe_catalog.schema.json",
@@ -2886,6 +2887,7 @@ def audit_plugin_archive(
 				"skills/gf-project-development/SKILL.md",
 				"knowledge/api_index.json",
 				"schemas/project_contract.schema.json",
+				"schemas/editor_context_bundle.schema.json",
 				"templates/adapters/storage/README.md",
 				"templates/adapters/storage/storage_backend.gd.txt",
 				(

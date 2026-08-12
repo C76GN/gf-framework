@@ -73,6 +73,16 @@ if GFVariantData.get_option_bool(sample, "active"):
 
 默认表面经过节点局部 Y 轴和 `surface_offset`，因此旋转节点即可得到倾斜平面。海面、测试水槽或均匀液体层可以直接使用；河流可重写 `_get_fluid_velocity_at()`，高度图海浪可重写 `_get_signed_depth_at()` / `_get_surface_normal_at()`，有限水池则由项目的 `Area3D` 先筛选是否应该采样。所有几何变体继续复用同一浸没和力计算契约。
 
+## 第三方原生物理后端 Adapter 配方
+
+原生物理后端应留在项目或独立插件的 Adapter 中，GF 不直接依赖其类型、二进制或构建系统。集成前先建立唯一的制品身份矩阵，至少冻结实际 PhysicsServer、后端版本与构建风味、平台、架构、ABI、依赖闭包、许可证、文件大小和 SHA-256；文件名、运行时类名或“确定性”标签不能替代这些证据。缺失、歧义、过期、架构不符或只验证了部分字段时应失败关闭，不能静默切换到另一种物理模式。
+
+可复现性必须拆成三个独立结论：同一目标上的本地重放、不同导出目标之间的重放，以及包含项目全部权威状态的重放。后端能够保存/恢复内部状态、手动推进或生成状态哈希，并不自动证明项目时钟、输入、随机数、脚本状态和浮点路径也可复现。项目应为每个声明支持的平台与架构组合运行固定快照和输入的 golden replay，并把未验证维度报告为 unknown。
+
+需要接入网络同步时，由项目实现 `GFNetworkSimulationAdapter` 的状态捕获、Schema 校验、恢复、单 tick 模拟和相等性判断；它只是同步的翻译边界，不拥有 tick 调度、authority、输入含义、完整游戏状态或 fallback 政策。详细网络契约见 [Network 同步协调器](../network-turnbased/network-sync-coordinator.md)。
+
+身份、能力和 replay 结果可由 `GFDiagnosticSnapshotProvider` 暴露为有界、脱敏的只读快照。耗时探测应在初始化或显式支持流程中执行并缓存结果，诊断读取不能重新加载后端、推进物理或执行 golden replay。项目自己的探测与测试循环可以消费 `GFExecutionBudget`，但它不能中断一次已经进入的原生调用。
+
 ## 使用边界
 
 - Physics 只提供场采样、方向和点力计算；不会自动发现刚体或决定每帧施力顺序。

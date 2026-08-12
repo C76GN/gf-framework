@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://gf-framework.dev/schemas/editor-context-bundle-v1.json",
+  "title": "GF Explicit Editor Context Bundle",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "generator_version",
+    "project_root",
+    "plan_sha256",
+    "untrusted_content",
+    "files",
+    "settings"
+  ],
+  "properties": {
+    "schema_version": {"type": "integer", "const": 1},
+    "generator_version": {"type": "string", "minLength": 1, "maxLength": 40},
+    "project_root": {"type": "string", "const": "."},
+    "plan_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "untrusted_content": {"type": "boolean", "const": true},
+    "files": {
+      "type": "array",
+      "maxItems": 64,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["path", "size_bytes", "sha256", "content"],
+        "properties": {
+          "path": {"type": "string", "minLength": 1, "maxLength": 512},
+          "size_bytes": {"type": "integer", "minimum": 0, "maximum": 524288},
+          "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+          "content": {"type": "string", "maxLength": 524288}
+        }
+      }
+    },
+    "settings": {
+      "type": "array",
+      "maxItems": 64,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "size_bytes", "sha256", "serialized_value"],
+        "properties": {
+          "name": {"type": "string", "minLength": 1, "maxLength": 160},
+          "size_bytes": {"type": "integer", "minimum": 0, "maximum": 4194304},
+          "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+          "serialized_value": {"type": "string", "maxLength": 4194304}
+        }
+      }
+    }
+  }
+}

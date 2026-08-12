@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "catalog_version": "1.9.0",
+  "catalog_version": "1.10.0",
   "catalog_api_requirements": [
     {
       "catalog": "capability",
@@ -163,6 +163,67 @@
       "members": [
         "validate_policy",
         "duplicate_policy"
+      ]
+    },
+    {
+      "catalog": "recipe",
+      "record_id": "physics-backend-adapter",
+      "class_name": "GFDiagnosticSnapshotProvider",
+      "members": [
+        "collect_snapshot"
+      ]
+    },
+    {
+      "catalog": "recipe",
+      "record_id": "achievement-composition",
+      "class_name": "GFQuestUtility",
+      "members": [
+        "define_quest",
+        "emit_quest_event",
+        "get_quest_report"
+      ]
+    },
+    {
+      "catalog": "recipe",
+      "record_id": "achievement-composition",
+      "class_name": "GFSaveSectionProvider",
+      "members": [
+        "capture_section",
+        "apply_section",
+        "make_section"
+      ]
+    },
+    {
+      "catalog": "recipe",
+      "record_id": "achievement-composition",
+      "class_name": "GFRequestOutboxUtility",
+      "members": [
+        "enqueue_with_report"
+      ]
+    },
+    {
+      "catalog": "recipe",
+      "record_id": "environment-query-composition",
+      "class_name": "GFExecutionBudget",
+      "members": [
+        "consume_steps",
+        "check"
+      ]
+    },
+    {
+      "catalog": "recipe",
+      "record_id": "environment-query-composition",
+      "class_name": "GFSpatialQueryIndex2D",
+      "members": [
+        "query_records_radius"
+      ]
+    },
+    {
+      "catalog": "recipe",
+      "record_id": "environment-query-composition",
+      "class_name": "GFDecisionSet",
+      "members": [
+        "select_best_from_scores"
       ]
     }
   ],
@@ -470,6 +531,21 @@
       "recipe_id": "headless-health-probe",
       "expected_class": "GFDiagnosticSnapshotProvider",
       "expected_step_fragment": "Treat absent GFNetworkTransportMetrics values as unknown rather than zero or failure, and never call side-effecting capture methods from a probe."
+    },
+    {
+      "recipe_id": "physics-backend-adapter",
+      "expected_class": "GFDiagnosticSnapshotProvider",
+      "expected_step_fragment": "single native artifact identity matrix"
+    },
+    {
+      "recipe_id": "achievement-composition",
+      "expected_class": "GFSaveSectionProvider",
+      "expected_step_fragment": "before notification, reward, and platform-sync observers are connected"
+    },
+    {
+      "recipe_id": "environment-query-composition",
+      "expected_class": "GFDecisionSet",
+      "expected_step_fragment": "never claim GFExecutionBudget can interrupt an in-progress index query"
     }
   ],
   "api_queries": [

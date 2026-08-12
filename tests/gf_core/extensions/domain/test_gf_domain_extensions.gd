@@ -30,6 +30,42 @@ class DomainInstallerProbeArchitecture extends GFArchitecture:
 		return registered
 
 
+class InventoryRuleProbe extends RefCounted:
+	var inventory: GFSlotInventoryModel = null
+	var attempted_clear: bool = false
+
+	func accept_unbroken(
+		_item_id: StringName,
+		_definition: GFInventoryItemDefinition,
+		instance_data: Dictionary,
+		_slot_index: int,
+		_inventory: Object
+	) -> bool:
+		return not GFVariantData.get_option_bool(instance_data, "broken")
+
+	func match_variant(
+		left: Dictionary,
+		right: Dictionary,
+		_definition: GFInventoryItemDefinition
+	) -> bool:
+		return (
+			GFVariantData.get_option_string(left, "variant", "base")
+			== GFVariantData.get_option_string(right, "variant", "base")
+		)
+
+	func accept_and_clear(
+		_item_id: StringName,
+		_definition: GFInventoryItemDefinition,
+		_instance_data: Dictionary,
+		_slot_index: int,
+		_inventory: Object
+	) -> bool:
+		if not attempted_clear:
+			attempted_clear = true
+			inventory.clear()
+		return true
+
+
 # --- 测试方法 ---
 
 ## 验证特征集合按优先级合并数值。
@@ -451,10 +487,10 @@ func test_inventory_slot_definition_accepts_ids_categories_and_callback() -> voi
 	registry.set_definition(weapon)
 	registry.set_definition(potion)
 
+	var rule_probe: InventoryRuleProbe = InventoryRuleProbe.new()
 	var slot_definition: GFInventorySlotDefinition = GFInventorySlotDefinition.new()
 	slot_definition.accepted_categories = [&"weapon"]
-	slot_definition.acceptance_checker = func(_item_id: StringName, _definition: GFInventoryItemDefinition, instance_data: Dictionary, _slot_index: int, _inventory: Object) -> bool:
-		return not GFVariantData.get_option_bool(instance_data, "broken")
+	slot_definition.acceptance_checker = Callable(rule_probe, &"accept_unbroken")
 
 	var inventory: GFSlotInventoryModel = GFSlotInventoryModel.new()
 	inventory.registry = registry
@@ -464,6 +500,7 @@ func test_inventory_slot_definition_accepts_ids_categories_and_callback() -> voi
 	assert_false(inventory.can_accept_item_at_slot(0, &"potion"), "缺少必需分类的物品不应被槽位接收。")
 	assert_true(inventory.can_accept_item_at_slot(0, &"bow"), "满足分类规则的物品应被槽位接收。")
 	assert_false(inventory.can_accept_item_at_slot(0, &"bow", { "broken": true }), "自定义回调可拒绝指定实例。")
+	slot_definition.acceptance_checker = Callable()
 
 
 func test_slot_inventory_add_item_skips_restricted_empty_slots() -> void:
@@ -578,12 +615,12 @@ func test_inventory_slot_definition_dictionary_roundtrip() -> void:
 
 ## 验证槽位库存索引与约束报告。
 func test_slot_inventory_index_and_constraint_report() -> void:
+	var rule_probe: InventoryRuleProbe = InventoryRuleProbe.new()
 	var definition: GFInventoryItemDefinition = GFInventoryItemDefinition.new()
 	definition.item_id = &"item_a"
 	definition.max_stack_amount = 5
 	definition.max_stack_count = 1
-	definition.compatibility_checker = func(left: Dictionary, right: Dictionary, _definition: GFInventoryItemDefinition) -> bool:
-		return GFVariantData.get_option_string(left, "variant", "base") == GFVariantData.get_option_string(right, "variant", "base")
+	definition.compatibility_checker = Callable(rule_probe, &"match_variant")
 
 	var registry: GFInventoryItemRegistry = GFInventoryItemRegistry.new()
 	registry.set_definition(definition)
@@ -607,6 +644,26 @@ func test_slot_inventory_index_and_constraint_report() -> void:
 	assert_false(GFVariantData.get_option_bool(report, "ok"), "违反注册表约束时应返回失败报告。")
 	assert_true(_has_domain_issue_kind(GFVariantData.get_option_array(report, "issues"), "stack_amount_exceeds_limit"), "报告应包含单堆叠超限。")
 	assert_true(_has_domain_issue_kind(GFVariantData.get_option_array(report, "issues"), "stack_count_exceeds_limit"), "报告应包含堆叠数量超限。")
+	definition.compatibility_checker = Callable()
+
+
+func test_anonymous_compatibility_checker_fails_closed_without_engine_error() -> void:
+	var callback_called: Array[bool] = [false]
+	var definition: GFInventoryItemDefinition = GFInventoryItemDefinition.new()
+	definition.compatibility_checker = func(
+		_left: Dictionary,
+		_right: Dictionary,
+		_definition: GFInventoryItemDefinition
+	) -> bool:
+		callback_called[0] = true
+		return true
+
+	var compatible: bool = definition.are_instance_data_compatible({}, {})
+
+	assert_false(compatible, "无法反射签名的匿名兼容回调必须失败关闭。")
+	assert_false(callback_called[0], "无法反射签名的匿名兼容回调不得被调用。")
+	assert_engine_error_count(0, "匿名兼容回调必须在调用前静默失败关闭。")
+	definition.compatibility_checker = Callable()
 
 
 ## 验证槽位变化信号携带稳定快照，并能区分空槽和有内容的切换。
@@ -850,26 +907,17 @@ func test_slot_inventory_rejects_mutation_from_sort_resolver() -> void:
 func test_slot_inventory_rejects_mutation_from_acceptance_checker() -> void:
 	var inventory: GFSlotInventoryModel = GFSlotInventoryModel.new()
 	inventory.set_slot_count(1)
-	var attempted_clear: Array[bool] = [false]
+	var rule_probe: InventoryRuleProbe = InventoryRuleProbe.new()
+	rule_probe.inventory = inventory
 	var slot_definition: GFInventorySlotDefinition = GFInventorySlotDefinition.new()
-	slot_definition.acceptance_checker = func(
-		_item_id: StringName,
-		_definition: GFInventoryItemDefinition,
-		_instance_data: Dictionary,
-		_slot_index: int,
-		_inventory: Object
-	) -> bool:
-		if not attempted_clear[0]:
-			attempted_clear[0] = true
-			inventory.clear()
-		return true
+	slot_definition.acceptance_checker = Callable(rule_probe, &"accept_and_clear")
 	assert_true(inventory.set_slot_definition(0, slot_definition))
 
 	var result: GFInventoryOperationResult = inventory.add_item_to_slot(0, &"item_a", 1)
 	slot_definition.acceptance_checker = Callable()
 
 	assert_true(result.ok, "只读接收回调仍应能返回接收结果。")
-	assert_true(attempted_clear[0], "测试回调应尝试一次嵌套 clear。")
+	assert_true(rule_probe.attempted_clear, "测试回调应尝试一次嵌套 clear。")
 	assert_eq(inventory.get_item_total(&"item_a"), 1, "被拒绝的嵌套 clear 不应干扰外层加入事务。")
 	assert_push_error("[GFSlotInventoryModel] clear 失败：库存变更处理中不允许同步修改库存。请在当前操作结束后再修改。")
 

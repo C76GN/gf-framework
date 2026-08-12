@@ -23,6 +23,7 @@
 | 属性 | [`remappable`](#member-gfinputaction-properties-remappable) | `var remappable: bool = true` |
 | 属性 | [`block_lower_priority_actions`](#member-gfinputaction-properties-block_lower_priority_actions) | `var block_lower_priority_actions: bool = true` |
 | 属性 | [`activation_threshold`](#member-gfinputaction-properties-activation_threshold) | `var activation_threshold: float = 0.5` |
+| 属性 | [`release_threshold`](#member-gfinputaction-properties-release_threshold) | `var release_threshold: float = 0.5` |
 | 方法 | [`get_display_name`](#member-gfinputaction-methods-get_display_name) | `func get_display_name() -> String:` |
 | 方法 | [`get_action_id`](#member-gfinputaction-methods-get_action_id) | `func get_action_id() -> StringName:` |
 
@@ -134,6 +135,19 @@ var activation_threshold: float = 0.5
 ```
 
 判断轴动作是否活跃的阈值。
+
+<a id="member-gfinputaction-properties-release_threshold"></a>
+
+### `release_threshold`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+var release_threshold: float = 0.5
+```
+
+轴动作活跃后判断其是否释放的阈值。 仅用于轴动作，必须处于 0.0 到 1.0 且不高于 [member activation_threshold]。 精确中立值始终释放；两个正阈值相等时与旧式单阈值行为一致。
 
 ## 方法
 

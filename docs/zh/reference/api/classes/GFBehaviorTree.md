@@ -18,7 +18,7 @@
 | 枚举 | [`Status`](#member-gfbehaviortree-enums-status) | `enum Status` |
 | 枚举 | [`ParallelPolicy`](#member-gfbehaviortree-enums-parallelpolicy) | `enum ParallelPolicy` |
 | 方法 | [`status_to_string`](#member-gfbehaviortree-methods-status_to_string) | `static func status_to_string(status: int) -> StringName:` |
-| 方法 | [`build_debug_snapshot`](#member-gfbehaviortree-methods-build_debug_snapshot) | `static func build_debug_snapshot(node: Variant) -> Dictionary:` |
+| 方法 | [`build_debug_snapshot`](#member-gfbehaviortree-methods-build_debug_snapshot) | `static func build_debug_snapshot(node: Variant, options: Dictionary = {}) -> Dictionary:` |
 
 ## 枚举
 
@@ -89,25 +89,28 @@ static func status_to_string(status: int) -> StringName:
 ### `build_debug_snapshot`
 
 - API：`public`
+- 首次版本：`3.3.0`
 
 ```gdscript
-static func build_debug_snapshot(node: Variant) -> Dictionary:
+static func build_debug_snapshot(node: Variant, options: Dictionary = {}) -> Dictionary:
 ```
 
-获取节点调试快照。
+获取节点调试快照。 内建 BTNode 返回其已持有的子节点集合后，GF 会在递归前执行节点、深度和子项 预算；项目自定义的 _get_debug_children() 必须自行保证构造有界，GF 无法中断 override 内部工作。Runner 会在黑板键物化前限流。通用 Object 则必须先由对象 自身完成 get_debug_snapshot()，GF 只能对其返回值执行有界后投影。
 
 参数：
 
 | 名称 | 说明 |
 |---|---|
 | `node` | 行为树节点。 |
+| `options` | 有界快照选项。 |
 
 返回：调试快照字典。
 
 结构：
 
-- `node`: GFBehaviorTree.BTNode、null 或提供 get_debug_snapshot() 的对象。
-- `return`: 包含节点调试状态的 Dictionary；null 节点返回空字典。
+- `node`: GFBehaviorTree.BTNode、GFBehaviorTree.Runner、null 或提供 get_debug_snapshot() 的对象；内建 BTNode 在取得已有子节点集合后限制递归，Runner 在黑板键物化前限流；自定义 _get_debug_children() 与通用对象方法的内部工作不受 GF 抢占，仅其返回后的遍历或投影有界。
+- `options`: Dictionary with optional max_nodes, max_depth, max_children, max_total_bytes, max_text_length, and max_blackboard_keys; values are clamped to framework hard limits.
+- `return`: 包含节点调试状态和 debug_budget 的 Dictionary；null 节点返回空字典。
 
 ## 内部类概览
 
@@ -529,7 +532,7 @@ func record_status(status: int, reason: StringName = &"", elapsed_usec: int = 0)
 ##### `get_debug_snapshot`
 
 - API：`public`
-- 首次版本：`3.6.0`
+- 首次版本：`3.3.0`
 
 ```gdscript
 func get_debug_snapshot() -> Dictionary:
@@ -541,7 +544,7 @@ func get_debug_snapshot() -> Dictionary:
 
 结构：
 
-- `return`: 包含 node_id、name、status、status_text、reason、tick_count、last_tick_usec、child_count、children 和 metadata 字段的 Dictionary；children 为子节点快照数组；metadata 为 JSON-safe 投影；真实回边以 cycle=true 表示，非回边的重复 identity 以 shared_reference=true 表示。
+- `return`: 包含 node_id、name、status、status_text、reason、tick_count、last_tick_usec、child_count、captured_child_count、omitted_child_count、children 和 metadata 字段的 Dictionary；children 在 _get_debug_children() 返回后按递归预算限制，自定义 override 必须自行保证其内部构造有界；metadata 为有界 JSON-safe 投影；截断会通过节点字段和顶层 debug_budget 诊断；真实回边以 cycle=true 表示，非回边的重复 identity 以 shared_reference=true 表示。
 
 ### GFBehaviorTree.BlackboardScope
 
@@ -590,7 +593,7 @@ var values: Dictionary = {}
 ##### `parent`
 
 - API：`public`
-- 首次版本：`3.6.0`
+- 首次版本：`3.3.0`
 
 ```gdscript
 var parent: BlackboardScope:
@@ -1633,6 +1636,7 @@ func clear_debug_state() -> void:
 ##### `get_debug_snapshot`
 
 - API：`public`
+- 首次版本：`3.3.0`
 
 ```gdscript
 func get_debug_snapshot() -> Dictionary:
@@ -1644,7 +1648,7 @@ func get_debug_snapshot() -> Dictionary:
 
 结构：
 
-- `return`: 包含 root 和 blackboard_keys 字段的 Dictionary；root 为根节点调试快照，blackboard_keys 为排序后的黑板键列表。
+- `return`: 包含 root、blackboard_keys、blackboard_key_count、blackboard_keys_truncated 和 debug_budget 字段的 Dictionary；root 为遍历期受限的根节点调试快照；blackboard_keys 是按 max_blackboard_keys 在物化前限流后排序的键样本，不包含黑板值。
 
 ### GFBehaviorTree.Selector
 

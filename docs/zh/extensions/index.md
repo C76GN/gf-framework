@@ -41,6 +41,7 @@ GF 内置扩展默认关闭。新项目启用 GF 后会获得 kernel 与 standar
 - [BehaviorTree](behavior-tree/index.md)：纯代码行为树节点、Runner、黑板和调试快照。
 - [Decision](decision/index.md)：黑板、上下文、效用评分、候选集合和非 LLM 决策服务。
 - [Content Package](content-package/index.md)：内容包 manifest、依赖图诊断和资源键注册。
+- [Layered Sprite](layered-sprite/index.md)：默认关闭的 `gf.layered_sprite`，用单一共享时间轴组合稳定层与层内变体。
 - [Domain](domain/index.md)：关卡、任务、背包、装备和通用领域模型。
 - [Physics](physics/index.md)：Projectile、重力场、表面查询和运动策略。
 - [Save 场景存档图](save-graph/index.md)：Scope、Source、Pipeline、Slot 和存档图应用流程。

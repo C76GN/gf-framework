@@ -105,6 +105,64 @@ func test_report_codec_applies_optional_collection_and_node_budgets() -> void:
 	assert_false(JSON.stringify([encoded_array, encoded_dictionary, encoded_packed]).contains(":null"), "预算 marker 应保持 JSON-safe。")
 
 
+func test_dictionary_collection_limit_is_applied_before_key_materialization() -> void:
+	var source: String = FileAccess.get_file_as_string(
+		"res://addons/gf/kernel/core/gf_report_value_codec.gd"
+	)
+	var sanitizer_start: int = source.find("static func _sanitize_report_value(")
+	var dictionary_start: int = source.find("\t\tTYPE_DICTIONARY:\n", sanitizer_start)
+	var dictionary_end: int = source.find("\n\t\tTYPE_OBJECT:", dictionary_start)
+	assert_true(sanitizer_start >= 0 and dictionary_start >= 0 and dictionary_end > dictionary_start)
+	var dictionary_branch: String = source.substr(
+		dictionary_start,
+		dictionary_end - dictionary_start
+	)
+
+	assert_false(
+		dictionary_branch.contains("dictionary_value.keys()"),
+		"Dictionary 集合预算生效前不得通过 keys() 全量物化敌对输入。"
+	)
+	assert_false(
+		dictionary_branch.contains("_uses_reserved_report_marker_key"),
+		"保留 marker 检测必须合并进同一条有界迭代，不能先额外全表扫描。"
+	)
+	assert_false(
+		source.contains("dictionary_value.keys()"),
+		"Codec 内部 Dictionary 遍历不得额外物化完整 key Array。"
+	)
+
+
+func test_truncated_dictionary_samples_preserve_reserved_and_non_string_key_envelopes() -> void:
+	var reserved_source: Dictionary = {
+		"__gf_report_value__": { "type": "caller_data" },
+		"omitted": 1,
+	}
+	var non_string_source: Dictionary = {
+		7: "sampled",
+		"omitted": 1,
+	}
+	var options: Dictionary = {
+		"max_collection_items": 1,
+		"max_total_nodes": 32,
+		"max_total_bytes": 4096,
+	}
+	var reserved_encoded: Dictionary = _as_dictionary(
+		GFReportValueCodec.to_json_compatible(reserved_source, options)
+	)
+	var non_string_encoded: Dictionary = _as_dictionary(
+		GFReportValueCodec.to_json_compatible(non_string_source, options)
+	)
+	var reserved_marker: Dictionary = _as_dictionary(reserved_encoded["__gf_report_value__"])
+	var non_string_marker: Dictionary = _as_dictionary(non_string_encoded["__gf_report_value__"])
+
+	assert_eq(_as_string(reserved_marker["type"]), "CollectionBudget")
+	assert_true(reserved_marker["sample"] is Array, "采样到保留 key 时必须使用 entries envelope。")
+	assert_eq(_option_int(reserved_marker, "omitted_count"), 1)
+	assert_eq(_as_string(non_string_marker["type"]), "CollectionBudget")
+	assert_true(non_string_marker["sample"] is Array, "采样到非 String key 时必须使用 entries envelope。")
+	assert_eq(_option_int(non_string_marker, "omitted_count"), 1)
+
+
 func test_report_codec_stops_remaining_array_traversal_after_node_budget() -> void:
 	var values: Array[int] = []
 	for index: int in range(100):

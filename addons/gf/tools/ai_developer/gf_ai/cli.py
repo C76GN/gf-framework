@@ -8,7 +8,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from . import adapters, catalog, feedback, migration, snapshot
+from . import adapters, catalog, context_bundle, feedback, migration, snapshot
 from .constants import DEFAULT_CONTRACT_PATH, DEFAULT_SNAPSHOT_PATH
 from .contract import initialize_contract, load_contract
 from .paths import read_json_object, resolve_project_path, resolve_project_root, strict_json_loads
@@ -69,6 +69,13 @@ def _make_parser() -> argparse.ArgumentParser:
 	command("context", "Return compact declared intent, observed facts, GF capabilities, and workflow.")
 	snapshot_parser = command("snapshot", "Write the generated project snapshot under .gf/ai/.")
 	snapshot_parser.add_argument("--output", default=DEFAULT_SNAPSHOT_PATH, help="Controlled project-relative output path.")
+	context_plan = command("context-bundle-plan", "Plan an explicit, hash-bound offline context bundle without exporting content.")
+	context_plan.add_argument("--file", action="append", default=[], help="Explicit project-relative UTF-8 file; repeat as needed.")
+	context_plan.add_argument("--setting", action="append", default=[], help="Explicit project setting as section/key; repeat as needed.")
+	context_export = command("context-bundle-export", "Interactively export one unchanged, reviewed context plan.")
+	context_export.add_argument("--file", action="append", default=[], help="Exact file selection used by context-bundle-plan.")
+	context_export.add_argument("--setting", action="append", default=[], help="Exact setting selection used by context-bundle-plan.")
+	context_export.add_argument("--expected-plan-sha256", required=True, help="Exact reviewed plan hash.")
 
 	capability_search = command("capability-search", "Search provider-neutral GF capabilities.")
 	capability_search.add_argument("query")
@@ -154,6 +161,30 @@ def _dispatch(args: argparse.Namespace, project_root: Path) -> dict[str, Any]:
 		return snapshot.project_context(project_root, args.contract)
 	if args.command == "snapshot":
 		return snapshot.write_snapshot(project_root, args.contract, args.output)
+	if args.command == "context-bundle-plan":
+		return context_bundle.plan_context_bundle(project_root, args.file, args.setting)
+	if args.command == "context-bundle-export":
+		plan = context_bundle.plan_context_bundle(project_root, args.file, args.setting)
+		if plan["plan_sha256"] != args.expected_plan_sha256:
+			return context_bundle.export_context_bundle(
+				project_root,
+				args.file,
+				args.setting,
+				args.expected_plan_sha256,
+			)
+		if not _confirm_context_export(plan, args.expected_plan_sha256):
+			return {
+				"ok": False,
+				"status": "blocked",
+				"issues": [{"code": "human_approval_required", "message": "Interactive human approval was not completed."}],
+			}
+		return context_bundle.export_context_bundle(
+			project_root,
+			args.file,
+			args.setting,
+			args.expected_plan_sha256,
+			human_approved=True,
+		)
 	if args.command == "capability-search":
 		return catalog.capability_search(args.query, args.limit, project_root)
 	if args.command == "capability":
@@ -246,5 +277,17 @@ def _confirm_contract_migration(plan: dict[str, Any], plan_sha256: str) -> bool:
 	expected = f"MIGRATE {plan_sha256}"
 	print("\nThe following project contract migration will be applied:", file=sys.stderr)
 	print(json.dumps(plan.get("candidate", {}), ensure_ascii=False, indent=2, allow_nan=False), file=sys.stderr)
+	print(f"Type exactly '{expected}' to approve: ", end="", file=sys.stderr, flush=True)
+	return input().strip() == expected
+
+
+def _confirm_context_export(plan: dict[str, Any], plan_sha256: str) -> bool:
+	if plan_sha256 != plan.get("plan_sha256"):
+		return False
+	if not sys.stdin.isatty() or not sys.stdout.isatty():
+		raise CLIInteractionError("context-bundle-export must run in an interactive human terminal.")
+	expected = f"EXPORT {plan_sha256}"
+	print("\nThe following untrusted project context will be exported locally:", file=sys.stderr)
+	print(json.dumps(plan, ensure_ascii=False, indent=2, allow_nan=False), file=sys.stderr)
 	print(f"Type exactly '{expected}' to approve: ", end="", file=sys.stderr, flush=True)
 	return input().strip() == expected
