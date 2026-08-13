@@ -429,12 +429,16 @@ func record_capacity_skipped_for_framework(settlement_authority: RefCounted) -> 
 ## [br]
 ## @since unreleased
 ## [br]
+## @param settlement_authority: 配置时由所属 Utility 冻结的同一权限对象。
+## [br]
 ## @return 仍有未处理准入单位时首次记录成功返回 true。
-func record_created_for_framework() -> bool:
+func record_created_for_framework(settlement_authority: RefCounted) -> bool:
 	if (
 		not Thread.is_main_thread()
 		or not is_pending()
 		or _pending_terminal_result != null
+		or settlement_authority == null
+		or settlement_authority != _settlement_authority
 		or not _has_unresolved_admitted_count()
 	):
 		return false
@@ -500,6 +504,8 @@ func end_settlement_barrier_for_framework(settlement_authority: RefCounted) -> b
 ## [br]
 ## @since unreleased
 ## [br]
+## @param settlement_authority: 配置时由所属 Utility 冻结的同一权限对象。
+## [br]
 ## @param status: Result 唯一终态。
 ## [br]
 ## @param reason: 与 status 对应的原因。
@@ -508,6 +514,7 @@ func end_settlement_barrier_for_framework(settlement_authority: RefCounted) -> b
 ## [br]
 ## @return 首次合法完成返回 true。
 func finish_for_framework(
+	settlement_authority: RefCounted,
 	status: GFObjectPoolPrewarmResult.Status,
 	reason: StringName,
 	error_code: Error
@@ -516,6 +523,8 @@ func finish_for_framework(
 		not Thread.is_main_thread()
 		or not is_pending()
 		or _pending_terminal_result != null
+		or settlement_authority == null
+		or settlement_authority != _settlement_authority
 	):
 		return false
 	var unresolved_admitted: int = maxi(
