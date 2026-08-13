@@ -1049,5 +1049,191 @@ class AffectedAnalysisIntegrationTests(unittest.TestCase):
 		self.assertNotIn("--affected-base", shard.command)
 
 
+class ValidationEligibilityIntegrationTests(unittest.TestCase):
+	def _workspace_state(self) -> dict[str, object]:
+		return {
+			"schema_version": 1,
+			"head": "a" * 40,
+			"dirty": False,
+			"untracked_file_count": 0,
+			"fingerprint": "a" * 64,
+		}
+
+	def test_default_execution_does_not_run_eligibility_observer(self) -> None:
+		workspace_state = self._workspace_state()
+		with mock.patch.object(
+			gf_maintenance,
+			"workspace_fingerprint",
+			return_value=workspace_state,
+		), mock.patch.object(
+			gf_maintenance,
+			"maintenance_in_process_check_runners",
+			return_value={"docs": lambda: {"ok": True}},
+		), mock.patch.object(
+			gf_maintenance.gf_validation_eligibility,
+			"run_eligibility_shadow",
+		) as observe:
+			result = gf_maintenance.run_checks(checks=["docs"], jobs=1)
+		self.assertTrue(result["ok"])
+		self.assertNotIn("validation_eligibility", result)
+		observe.assert_not_called()
+
+	def test_observer_attaches_after_workspace_freeze_without_changing_result(self) -> None:
+		workspace_state = self._workspace_state()
+		events: list[str] = []
+		failure = gf_maintenance.gf_validation_eligibility.make_eligibility_failure(
+			["docs"],
+			"eligibility_internal_error",
+		)
+
+		def fingerprint(*_args: object, **_kwargs: object) -> dict[str, object]:
+			events.append("workspace_fingerprint")
+			return workspace_state
+
+		def observe(*_args: object, **kwargs: object) -> dict[str, object]:
+			events.append("validation_eligibility")
+			self.assertEqual(
+				kwargs["expected_workspace_fingerprint"],
+				workspace_state["fingerprint"],
+			)
+			self.assertGreater(
+				float(kwargs["deadline_seconds"]),
+				time.perf_counter(),
+			)
+			return failure
+
+		with mock.patch.object(
+			gf_maintenance,
+			"workspace_fingerprint",
+			side_effect=fingerprint,
+		), mock.patch.object(
+			gf_maintenance,
+			"maintenance_in_process_check_runners",
+			return_value={"docs": lambda: {"ok": True}},
+		), mock.patch.object(
+			gf_maintenance.gf_validation_eligibility,
+			"run_eligibility_shadow",
+			side_effect=observe,
+		):
+			result = gf_maintenance.run_checks(
+				checks=["docs"],
+				jobs=1,
+				validation_eligibility_shadow=True,
+			)
+		self.assertTrue(result["ok"])
+		self.assertEqual(
+			events,
+			["workspace_fingerprint", "workspace_fingerprint", "validation_eligibility"],
+		)
+		self.assertFalse(result["validation_eligibility"]["report_ok"])
+		self.assertEqual(result["validation_eligibility"]["skip_count"], 0)
+		self.assertEqual(result["validation_eligibility"]["reused_count"], 0)
+
+	def test_workspace_revalidation_failure_attaches_stub_without_observing(self) -> None:
+		workspace_state = self._workspace_state()
+		changed_workspace_state = {
+			**workspace_state,
+			"fingerprint": "b" * 64,
+		}
+		with mock.patch.object(
+			gf_maintenance,
+			"workspace_fingerprint",
+			side_effect=[workspace_state, changed_workspace_state],
+		), mock.patch.object(
+			gf_maintenance,
+			"maintenance_in_process_check_runners",
+			return_value={"docs": lambda: {"ok": True}},
+		), mock.patch.object(
+			gf_maintenance.gf_validation_eligibility,
+			"run_eligibility_shadow",
+		) as observe:
+			result = gf_maintenance.run_checks(
+				checks=["docs"],
+				jobs=1,
+				validation_eligibility_shadow=True,
+			)
+		self.assertFalse(result["ok"])
+		self.assertEqual(
+			result["validation_eligibility"]["errors"],
+			["eligibility_internal_error"],
+		)
+		self.assertEqual(result["validation_eligibility"]["executed_count"], 0)
+		observe.assert_not_called()
+
+	def test_observer_exception_is_bounded_and_does_not_change_success(self) -> None:
+		workspace_state = self._workspace_state()
+
+		class HostileError(RuntimeError):
+			def __str__(self) -> str:
+				raise RuntimeError("must not stringify")
+
+		with mock.patch.object(
+			gf_maintenance,
+			"workspace_fingerprint",
+			return_value=workspace_state,
+		), mock.patch.object(
+			gf_maintenance,
+			"maintenance_in_process_check_runners",
+			return_value={"docs": lambda: {"ok": True}},
+		), mock.patch.object(
+			gf_maintenance.gf_validation_eligibility,
+			"run_eligibility_shadow",
+			side_effect=HostileError(),
+		):
+			result = gf_maintenance.run_checks(
+				checks=["docs"],
+				jobs=1,
+				validation_eligibility_shadow=True,
+			)
+		self.assertTrue(result["ok"])
+		self.assertEqual(
+			result["validation_eligibility"]["errors"],
+			["eligibility_internal_error"],
+		)
+
+	def test_parallel_child_never_inherits_eligibility_flag(self) -> None:
+		plan = gf_maintenance.ParallelCheckShardPlan("framework-static", ("docs",))
+		with tempfile.TemporaryDirectory() as temporary_directory, mock.patch.object(
+			gf_maintenance,
+			"parallel_shard_environment",
+			return_value=({}, Path(temporary_directory) / "user"),
+		):
+			shard, _report_path = gf_maintenance.make_parallel_full_shard(
+				plan,
+				Path(temporary_directory),
+				private_environment_root=Path(temporary_directory) / "private",
+				timeout_seconds=None,
+				suite_deadline=None,
+				fail_fast=False,
+				package_artifact_manifest="",
+				package_artifact_manifest_sha256="",
+			)
+		self.assertNotIn("--validation-eligibility-shadow", shard.command)
+
+	def test_renderer_emits_only_compact_eligibility_counts(self) -> None:
+		data = {
+			"suite": "quick",
+			"ok": True,
+			"duration_seconds": 0.1,
+			"results": [],
+			"validation_eligibility": {
+				"report_ok": True,
+				"authoritative": False,
+				"candidate_count": 2,
+				"executed_count": 4,
+				"structurally_eligible_count": 2,
+				"ineligible_count": 0,
+				"skip_count": 0,
+				"reused_count": 0,
+				"collection_duration_seconds": 0.5,
+				"projections": [{"action_key": "secret"}],
+			},
+		}
+		rendered = gf_maintenance_rendering.render_checks_text(data)
+		self.assertIn("validation_eligibility: report_ok=True", rendered)
+		self.assertIn("candidates=2 executed=4 eligible=2", rendered)
+		self.assertNotIn("secret", rendered)
+
+
 if __name__ == "__main__":
 	unittest.main()

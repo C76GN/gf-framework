@@ -962,6 +962,9 @@ def render_checks_text(data: dict[str, Any]) -> str:
 	shadow_summary = render_validation_shadow_summary(data)
 	if shadow_summary:
 		lines.append(shadow_summary)
+	eligibility_summary = render_validation_eligibility_summary(data)
+	if eligibility_summary:
+		lines.append(eligibility_summary)
 	affected_summary = render_affected_analysis_summary(data)
 	if affected_summary:
 		lines.append(affected_summary)
@@ -996,6 +999,9 @@ def render_failed_checks_text(data: dict[str, Any]) -> str:
 	shadow_summary = render_validation_shadow_summary(data)
 	if shadow_summary:
 		lines.append(shadow_summary)
+	eligibility_summary = render_validation_eligibility_summary(data)
+	if eligibility_summary:
+		lines.append(eligibility_summary)
 	affected_summary = render_affected_analysis_summary(data)
 	if affected_summary:
 		lines.append(affected_summary)
@@ -1062,6 +1068,24 @@ def render_affected_analysis_summary(data: dict[str, Any]) -> str:
 		f"execute={affected.get('execute_count', 0)} "
 		f"skipped={affected.get('affected_skip_count', 0)} "
 		f"reused={affected.get('reused_count', 0)}"
+	)
+
+
+def render_validation_eligibility_summary(data: dict[str, Any]) -> str:
+	eligibility = data.get("validation_eligibility")
+	if not isinstance(eligibility, dict):
+		return ""
+	return (
+		"validation_eligibility: "
+		f"report_ok={eligibility.get('report_ok', False)} "
+		f"authoritative={eligibility.get('authoritative', False)} "
+		f"candidates={eligibility.get('candidate_count', 0)} "
+		f"executed={eligibility.get('executed_count', 0)} "
+		f"eligible={eligibility.get('structurally_eligible_count', 0)} "
+		f"ineligible={eligibility.get('ineligible_count', 0)} "
+		f"skipped={eligibility.get('skip_count', 0)} "
+		f"reused={eligibility.get('reused_count', 0)} "
+		f"collection={eligibility.get('collection_duration_seconds', 0.0):.2f}s"
 	)
 
 

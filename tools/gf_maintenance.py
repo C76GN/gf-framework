@@ -55,6 +55,7 @@ import gf_parallel_validation
 import gf_maintenance_check_graph
 import gf_validation_contracts
 import gf_validation_evidence
+import gf_validation_eligibility
 import gf_validation_inputs
 import gf_validation_test_inventory
 import gf_credential_gate
@@ -765,6 +766,7 @@ PUBLIC_DOC_BOUNDARY_TERM_ALLOWED_PATHS = {
 }
 PUBLIC_DOC_INTERNAL_VALIDATION_REUSE_RE = re.compile(
 	r"(?<![A-Za-z0-9_])(?:--validation-shadow|validation_shadow|"
+	r"--validation-eligibility-shadow|validation_eligibility|"
 	r"--affected(?:-base)?|affected_analysis|"
 	r"affected(?:[\t _-]*analysis|[\t _-]*\r?\n[\t _-]*analysis)|"
 	r"action(?:[\t _-]*key|[\t _-]*\r?\n[\t _-]*key)|"
@@ -1025,6 +1027,7 @@ CHECK_DEFINITIONS: dict[str, list[str]] = {
 		"tests/gf_core/tools/test_gf_maintenance_execution.py",
 		"tests/gf_core/tools/test_gf_validation_contracts.py",
 		"tests/gf_core/tools/test_gf_validation_evidence.py",
+		"tests/gf_core/tools/test_gf_validation_eligibility.py",
 		"tests/gf_core/tools/test_gf_validation_inputs.py",
 		"tests/gf_core/tools/test_gf_validation_test_inventory.py",
 	],
@@ -2130,6 +2133,15 @@ def main() -> int:
 		),
 	)
 	check_parser.add_argument(
+		"--validation-eligibility-shadow",
+		action="store_true",
+		help=(
+			"Execute allowlisted static checks against a sealed source snapshot and attach "
+			"non-authoritative structural-eligibility diagnostics. This never skips checks "
+			"or changes the suite result."
+		),
+	)
+	check_parser.add_argument(
 		"--affected",
 		action="store_true",
 		help=(
@@ -2374,6 +2386,7 @@ def main() -> int:
 			package_artifact_manifest=args.package_artifact_manifest,
 			package_artifact_manifest_sha256=args.package_artifact_manifest_sha256,
 			validation_shadow=args.validation_shadow,
+			validation_eligibility_shadow=args.validation_eligibility_shadow,
 			affected=args.affected,
 			affected_base=args.affected_base,
 			affected_explain=args.explain,
@@ -17826,6 +17839,8 @@ def maintenance_self_test() -> dict[str, Any]:
 	internal_validation_leaks = (
 		"Use --validation-shadow for this release.",
 		"Read validation_shadow from the report.",
+		"Use --validation-eligibility-shadow for this release.",
+		"Read validation_eligibility from the report.",
 		"Use --affected --explain with --affected-base HEAD.",
 		"Read affected_analysis from the report.",
 		"Read Affected Analysis from the report.",
@@ -26838,6 +26853,7 @@ def append_check_result_payload(
 VALIDATION_SHADOW_SCHEMA_VERSION = 1
 VALIDATION_SHADOW_REPORT_DOMAIN = b"gf-maintenance-validation-shadow-v1\0"
 VALIDATION_SHADOW_COLLECTION_TIMEOUT_SECONDS = 15.0
+VALIDATION_ELIGIBILITY_COLLECTION_TIMEOUT_SECONDS = 120.0
 AFFECTED_ANALYSIS_COLLECTION_TIMEOUT_SECONDS = 15.0
 VALIDATION_SHADOW_ERROR_CODES = frozenset({
 	"evidence_construction_failed",
@@ -27002,6 +27018,66 @@ def attach_validation_shadow_report(
 				time.perf_counter() - collection_started
 			),
 		)
+
+
+def attach_validation_eligibility_report(
+	data: dict[str, Any],
+	workspace_state: dict[str, Any],
+	*,
+	force_failure: bool = False,
+) -> None:
+	"""Attach isolated eligibility observations without changing suite semantics."""
+	check_names = tuple(str(name) for name in data.get("checks", []))
+	try:
+		if force_failure:
+			report = gf_validation_eligibility.make_eligibility_failure(
+				check_names,
+				"eligibility_internal_error",
+			)
+		else:
+			report = gf_validation_eligibility.run_eligibility_shadow(
+				ROOT,
+				check_names,
+				deadline_seconds=(
+					time.perf_counter()
+					+ VALIDATION_ELIGIBILITY_COLLECTION_TIMEOUT_SECONDS
+				),
+				expected_workspace_fingerprint=str(
+					workspace_state.get("fingerprint", "")
+				),
+			)
+		report = gf_validation_eligibility.validate_eligibility_report(report)
+		if not validation_eligibility_report_is_safe(report, check_names):
+			raise ValueError("Eligibility report violates runner invariants.")
+	except Exception:
+		report = gf_validation_eligibility.make_eligibility_failure(
+			check_names,
+			"eligibility_internal_error",
+		)
+	data["validation_eligibility"] = report
+
+
+def validation_eligibility_report_is_safe(
+	report: object,
+	requested_checks: Sequence[str],
+) -> bool:
+	"""Enforce the opt-in observer's immutable no-skip/no-reuse boundary."""
+	if not isinstance(report, dict):
+		return False
+	return (
+		frozenset(report) == gf_validation_eligibility.ELIGIBILITY_REPORT_FIELDS
+		and report.get("authoritative") is False
+		and report.get("scheduling_effect") is False
+		and report.get("reuse_permitted") is False
+		and report.get("decision") == "execute"
+		and report.get("requested_checks") == list(requested_checks)
+		and report.get("requested_check_count") == len(requested_checks)
+		and report.get("skip_count") == 0
+		and report.get("cache_read_count") == 0
+		and report.get("cache_write_count") == 0
+		and report.get("persist_count") == 0
+		and report.get("reused_count") == 0
+	)
 
 
 def validation_shadow_error_code(error: Exception) -> str:
@@ -27281,6 +27357,7 @@ def run_checks(
 	package_artifact_manifest: str = "",
 	package_artifact_manifest_sha256: str = "",
 	validation_shadow: bool = False,
+	validation_eligibility_shadow: bool = False,
 	affected: bool = False,
 	affected_base: str = "HEAD",
 	affected_explain: bool = False,
@@ -27334,6 +27411,12 @@ def run_checks(
 				data,
 				"workspace_fingerprint_deadline",
 			)
+		if validation_eligibility_shadow:
+			attach_validation_eligibility_report(
+				data,
+				workspace_state,
+				force_failure=True,
+			)
 		if affected:
 			attach_affected_analysis_report(
 				data,
@@ -27374,6 +27457,12 @@ def run_checks(
 				data,
 				"workspace_fingerprint_setup_failed",
 			)
+		if validation_eligibility_shadow:
+			attach_validation_eligibility_report(
+				data,
+				workspace_state,
+				force_failure=True,
+			)
 		if affected:
 			attach_affected_analysis_report(
 				data,
@@ -27386,6 +27475,7 @@ def run_checks(
 	resolved_jobs = 1
 	package_artifact_set: PackageArtifactSet | None = None
 	package_artifact_reused = False
+	ending_workspace_verified = False
 	validation_parallel_occurrences: dict[str, list[dict[str, Any]]] | None = (
 		{} if validation_shadow else None
 	)
@@ -27523,6 +27613,7 @@ def run_checks(
 						raise WorkspaceSnapshotError(
 							"Workspace source changed while read-only maintenance checks were running."
 						)
+					ending_workspace_verified = True
 			except (WorkspaceDeadlineError, PackageArtifactDeadlineError, TimeoutError) as error:
 				if data is None:
 					data = make_check_deadline_failure(
@@ -27606,6 +27697,18 @@ def run_checks(
 			data,
 			workspace_state,
 			parallel_occurrences=validation_parallel_occurrences,
+		)
+	if (
+		validation_eligibility_shadow
+		and "validation_eligibility" not in data
+	):
+		attach_validation_eligibility_report(
+			data,
+			workspace_state,
+			force_failure=(
+				not ending_workspace_verified
+				or bool(temporary_cleanup_errors)
+			),
 		)
 	if affected and "affected_analysis" not in data:
 		attach_affected_analysis_report(
