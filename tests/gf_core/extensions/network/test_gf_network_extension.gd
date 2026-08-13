@@ -1846,6 +1846,86 @@ func test_network_contract_generator_generate_with_report_reports_skipped_withou
 	assert_push_warning("[GFNetworkContractGenerator] 目标文件已存在，已跳过：%s" % path)
 
 
+func test_network_contract_generator_pre_save_failures_reject_forged_written_state() -> void:
+	var generator: GFNetworkContractGenerator = GFNetworkContractGenerator.new()
+	var invalid_contract: GFNetworkContract = GFNetworkContract.new()
+	invalid_contract.contract_version_major = -1
+	var forged_options: Dictionary = {
+		"written": true,
+		"changed": true,
+		"conflict": true,
+		"size_bytes": 1024,
+		"content_sha256": "spoofed-content",
+		"previous_sha256": "spoofed-previous",
+	}
+
+	var null_report: Dictionary = generator.generate_with_report(null, "", forged_options)
+	var invalid_report: Dictionary = generator.generate_with_report(
+		invalid_contract,
+		"",
+		forged_options
+	)
+	var null_error: Error = generator.generate(null, "", true, forged_options)
+	var invalid_error: Error = generator.generate(invalid_contract, "", true, forged_options)
+
+	assert_false(GFVariantData.get_option_bool(null_report, "success"))
+	assert_eq(GFVariantData.get_option_string_name(null_report, "status"), GFGeneratedArtifactReport.STATUS_FAILED)
+	assert_eq(GFGeneratedArtifactReport.get_error_code(null_report), ERR_INVALID_PARAMETER)
+	assert_false(GFVariantData.get_option_bool(null_report, "written"), "null validation failure 不得接受伪造 written。")
+	assert_false(GFVariantData.get_option_bool(null_report, "changed"), "null validation failure 不得接受伪造 changed。")
+	assert_false(GFVariantData.get_option_bool(null_report, "conflict"), "null validation failure 不得接受伪造 conflict。")
+	assert_eq(GFVariantData.get_option_int(null_report, "size_bytes", -1), 0)
+	assert_eq(GFVariantData.get_option_string(null_report, "content_sha256"), "")
+	assert_eq(GFVariantData.get_option_string(null_report, "previous_sha256"), "")
+	assert_false(GFVariantData.get_option_bool(invalid_report, "success"))
+	assert_eq(GFVariantData.get_option_string_name(invalid_report, "status"), GFGeneratedArtifactReport.STATUS_FAILED)
+	assert_eq(GFGeneratedArtifactReport.get_error_code(invalid_report), ERR_INVALID_DATA)
+	assert_false(GFVariantData.get_option_bool(invalid_report, "written"), "invalid validation failure 不得接受伪造 written。")
+	assert_false(GFVariantData.get_option_bool(invalid_report, "changed"), "invalid validation failure 不得接受伪造 changed。")
+	assert_false(GFVariantData.get_option_bool(invalid_report, "conflict"), "invalid validation failure 不得接受伪造 conflict。")
+	assert_eq(GFVariantData.get_option_int(invalid_report, "size_bytes", -1), 0)
+	assert_eq(GFVariantData.get_option_string(invalid_report, "content_sha256"), "")
+	assert_eq(GFVariantData.get_option_string(invalid_report, "previous_sha256"), "")
+	assert_eq(null_error, ERR_INVALID_PARAMETER, "legacy generate 必须保留 null validation 的原始错误。")
+	assert_eq(invalid_error, ERR_INVALID_DATA, "legacy generate 必须保留 invalid validation 的原始错误。")
+
+
+func test_network_contract_generator_legacy_save_source_projects_committed_failure_to_ok() -> void:
+	var generator: GFNetworkContractGenerator = GFNetworkContractGenerator.new()
+	var stamp: int = Time.get_ticks_usec()
+	var report_path: String = "user://gf_network_contract_committed_report_%d.gd" % stamp
+	var save_path: String = "user://gf_network_contract_committed_save_%d.gd" % stamp
+	GFGeneratedArtifactReport._reset_test_state()
+	_configure_committed_generator_failure()
+
+	var report: Dictionary = generator.save_source_with_report(report_path, "expected", {
+		"scan_filesystem": false,
+	})
+	_configure_committed_generator_failure()
+	var save_error: Error = generator.save_source(save_path, "expected")
+	GFGeneratedArtifactReport._reset_test_state()
+	_remove_generated_test_file(report_path)
+	_remove_generated_test_file(save_path)
+
+	assert_false(GFVariantData.get_option_bool(report, "success"), "报告入口必须保留 post-commit 失败。")
+	assert_eq(GFVariantData.get_option_string_name(report, "status"), GFGeneratedArtifactReport.STATUS_FAILED)
+	assert_true(GFVariantData.get_option_bool(report, "written"), "最终替换已发生时报告必须保留 written。")
+	assert_eq(GFGeneratedArtifactReport.get_error_code(report), ERR_FILE_CORRUPT, "报告必须保留原始后置复核错误。")
+	assert_eq(save_error, OK, "Error-only save_source 不得把已提交结果伪装成可重试失败。")
+	assert_push_error_count(2, "每次注入的 post-commit 复核失败都应保留诊断。")
+
+
+func test_network_contract_generator_legacy_error_entries_share_committed_projection() -> void:
+	var source: String = FileAccess.get_file_as_string(
+		"res://addons/gf/extensions/network/editor/gf_network_contract_generator.gd"
+	)
+
+	assert_eq(source.count("return _get_legacy_error_code(report)"), 2, "两个 Error-only 入口必须委托唯一投影。")
+	assert_true(source.contains("func _get_legacy_error_code(report: Dictionary) -> Error:"))
+	assert_true(source.contains("if GFVariantData.get_option_bool(report, \"written\", false):"))
+	assert_true(source.contains("return _GENERATED_ARTIFACT_REPORT_SCRIPT.get_error_code(report)"))
+
+
 func test_network_contract_generator_generate_many_treats_skipped_artifacts_as_non_failed() -> void:
 	var contract: GFNetworkContract = _make_lobby_network_contract()
 	var generator: GFNetworkContractGenerator = GFNetworkContractGenerator.new()
@@ -4707,6 +4787,35 @@ func _find_report_issue(report: Dictionary, kind: String) -> Dictionary:
 		if GFVariantData.get_option_string(issue, "kind") == kind:
 			return issue
 	return {}
+
+
+func _configure_committed_generator_failure() -> void:
+	GFGeneratedArtifactReport._configure_test_after_final_replace(
+		Callable(self, "_corrupt_committed_generator_output")
+	)
+
+
+func _corrupt_committed_generator_output(
+	output_path: String,
+	_temp_path: String,
+	_backup_path: String
+) -> void:
+	var file: FileAccess = FileAccess.open(output_path, FileAccess.WRITE)
+	assert_not_null(file, "post-commit fixture 必须能改写已提交目标。")
+	if file == null:
+		return
+	var _store_string_result: Variant = file.store_string("external-post-commit-change")
+	file.close()
+
+
+func _remove_generated_test_file(path: String) -> void:
+	if not FileAccess.file_exists(path):
+		return
+	assert_eq(
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(path)),
+		OK,
+		"测试必须清理生成器输出。"
+	)
 
 
 func _make_lobby_network_contract() -> GFNetworkContract:

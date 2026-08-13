@@ -216,11 +216,11 @@ static func save_text(output_path: String, text: String, options: Dictionary = {
 | `text` | 要写入的文本内容。 |
 | `options` | 保存选项，支持 overwrite_existing、expected_previous_sha256、dry_run、scan_filesystem、label、metadata、artifact_owner、generator_id、source_id 和 allowed_roots。 |
 
-返回：生成产物保存报告。最终替换已提交、随后复核或清理失败时，报告可同时为 failed 且 written=true；调用方重试前必须独立检查 written。
+返回：生成产物保存报告。最终替换已提交、随后复核、暂存身份检查或清理失败时，报告可同时为 failed 且 written=true；调用方重试前必须独立检查 written。
 
 结构：
 
-- `options`: Dictionary，可包含 overwrite_existing、expected_previous_sha256、dry_run、scan_filesystem、label、metadata、artifact_owner、generator_id、source_id 和 allowed_roots；expected_previous_sha256 存在时要求保存前目标内容仍匹配该 SHA-256，空字符串表示要求目标不存在；allowed_roots 缺省时保留旧 res:// / user:// 行为，显式提供时必须是非空且全部有效的 res:// / user:// 根目录集合，并在读取、目录创建、临时写入、替换、清理与回滚的可观察边界拒绝链接或重解析组件。该复核不持有目录句柄，也不承诺抵御恶意本地并发修改的原子性。
+- `options`: Dictionary，可包含 overwrite_existing、expected_previous_sha256、dry_run、scan_filesystem、label、metadata、artifact_owner、generator_id、source_id 和 allowed_roots；expected_previous_sha256 存在时要求保存前目标的解码文本仍匹配该 SHA-256，空字符串表示要求目标不存在；allowed_roots 缺省时保留旧 res:// / user:// 行为，显式提供时必须是非空且全部有效的 res:// / user:// 根目录集合，并在读取、目录创建、临时写入、替换、清理与回滚的可观察边界拒绝链接或重解析组件；scan_filesystem 为 true 时，任何已发生的可观察文件系统变化都会请求一次扫描，包括最终提交后的失败和不完整回滚。该复核不持有目录句柄，也不承诺抵御恶意本地并发修改的原子性。
 - `return`: JSON-safe Dictionary，包含 success、path、status、error_code、error、written、changed、dry_run、conflict、size_bytes、artifact_owner、generator_id、source_id、content_sha256、previous_sha256、expected_previous_sha256、encoding 和 metadata。
 
 <a id="member-gfgeneratedartifactreport-methods-get_error_code"></a>

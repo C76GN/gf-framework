@@ -92,7 +92,7 @@ func generate( schemas: Array, output_path: String = DEFAULT_OUTPUT_PATH, overwr
 | `provider_accessor` | 无显式 provider 参数时用于获取 provider 的表达式。 |
 | `options` | 可选生成选项，支持 method_name_style、constant_prefix、record_method_pattern、table_method_pattern、include_schema_comments、include_typed_records、typed_record_method_pattern、typed_record_class_suffix。 |
 
-返回：写入结果错误码。
+返回：未发生物理提交时返回原始错误码；物理提交已发生时返回 OK。需要区分后置失败时使用 generate_with_report() 并检查 written。
 
 结构：
 
@@ -210,7 +210,7 @@ func save_source(output_path: String, source: String, overwrite_existing: bool =
 | `source` | GDScript 源码。 |
 | `overwrite_existing` | 为 false 时目标已存在会返回 ERR_ALREADY_EXISTS。 |
 
-返回：写入结果错误码。
+返回：未发生物理提交时返回原始错误码；物理提交已发生时返回 OK。需要区分后置失败时使用 save_source_with_report() 并检查 written。
 
 <a id="member-gfconfigaccessgenerator-methods-save_source_with_report"></a>
 

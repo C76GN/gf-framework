@@ -133,6 +133,7 @@ const ACCESS_POLICIES_SETTING: String = "gf/codegen/access_policies"
 ### `generate`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func generate(output_path: String = DEFAULT_OUTPUT_PATH, overwrite_existing: bool = true) -> Error:
@@ -147,7 +148,7 @@ func generate(output_path: String = DEFAULT_OUTPUT_PATH, overwrite_existing: boo
 | `output_path` | 生成文件输出路径。 |
 | `overwrite_existing` | 为 false 时目标已存在会返回 ERR_ALREADY_EXISTS。 |
 
-返回：写入结果错误码。
+返回：未发生物理提交时返回原始错误码；物理提交已发生时返回 OK。需要区分后置失败时使用 generate_with_report() 并检查 written。
 
 <a id="member-gfaccessgenerator-methods-generate_with_report"></a>
 
@@ -181,6 +182,7 @@ func generate_with_report(output_path: String = DEFAULT_OUTPUT_PATH, options: Di
 ### `generate_project_access`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func generate_project_access(output_path: String = DEFAULT_PROJECT_OUTPUT_PATH, overwrite_existing: bool = true) -> Error:
@@ -195,7 +197,7 @@ func generate_project_access(output_path: String = DEFAULT_PROJECT_OUTPUT_PATH, 
 | `output_path` | 生成文件输出路径。 |
 | `overwrite_existing` | 为 false 时目标已存在会返回 ERR_ALREADY_EXISTS。 |
 
-返回：写入结果错误码。
+返回：未发生物理提交时返回原始错误码；物理提交已发生时返回 OK。需要区分后置失败时使用 generate_project_access_with_report() 并检查 written。
 
 <a id="member-gfaccessgenerator-methods-generate_project_access_with_report"></a>
 
@@ -331,7 +333,7 @@ func save_source(output_path: String, source: String, overwrite_existing: bool =
 | `source` | GDScript 源码。 |
 | `overwrite_existing` | 为 false 时目标已存在会返回 ERR_ALREADY_EXISTS。 |
 
-返回：写入结果错误码。
+返回：未发生物理提交时返回原始错误码；物理提交已发生时返回 OK。需要区分后置失败时使用 save_source_with_report() 并检查 written。
 
 <a id="member-gfaccessgenerator-methods-save_source_with_report"></a>
 

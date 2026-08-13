@@ -31,6 +31,10 @@ var _reentrant_output_path: String = ""
 var _reentrant_report: Dictionary = {}
 var _hook_observed_output_path: String = ""
 var _hook_call_count: int = 0
+var _scan_observer_count: int = 0
+var _reoccupied_temp_path: String = ""
+var _reoccupied_backup_path: String = ""
+var _post_cleanup_snapshot_count: int = 0
 
 
 # --- 测试生命周期 ---
@@ -907,6 +911,137 @@ func test_save_text_reports_written_when_post_commit_guard_fails() -> void:
 	assert_push_error_count(1, "post-commit physical failure 应报告一次错误。")
 
 
+func test_save_text_scans_committed_failure_and_preserves_reoccupied_temp() -> void:
+	var test_root: String = "user://gf_generated_artifact_report_scan_committed_%d_%d" % [
+		Time.get_ticks_usec(),
+		get_instance_id(),
+	]
+	var allowed_root: String = test_root.path_join("allowed")
+	_post_commit_output_path = allowed_root.path_join("output.txt")
+	_scan_observer_count = 0
+	_reoccupied_temp_path = ""
+	GFGeneratedArtifactReport._configure_test_scan_filesystem_observer(
+		Callable(self, "_record_scan_filesystem_request")
+	)
+	GFGeneratedArtifactReport._configure_test_after_final_replace(
+		Callable(self, "_occupy_consumed_temp_after_final_replace")
+	)
+
+	var report: Dictionary = GFGeneratedArtifactReport.save_text(
+		_post_commit_output_path,
+		"committed",
+		{
+			"allowed_roots": [allowed_root],
+			"scan_filesystem": true,
+		}
+	)
+	var output_content: String = _read_user_text(_post_commit_output_path)
+	var unknown_temp_content: String = _read_user_text(_reoccupied_temp_path)
+	var unknown_temp_preserved: bool = FileAccess.file_exists(_reoccupied_temp_path)
+	_remove_test_tree(test_root)
+	var cleanup_succeeded: bool = _test_tree_removed(test_root)
+
+	assert_false(GF_VARIANT_ACCESS.get_option_bool(report, "success"))
+	assert_eq(GFGeneratedArtifactReport.get_error_code(report), ERR_FILE_ALREADY_IN_USE)
+	assert_true(GF_VARIANT_ACCESS.get_option_bool(report, "written"))
+	assert_true(GF_VARIANT_ACCESS.get_option_bool(report, "conflict"))
+	assert_eq(output_content, "committed")
+	assert_true(unknown_temp_preserved, "post-commit guard 不得删除重新占用 temp identity 的未知文件。")
+	assert_eq(unknown_temp_content, "unknown-temp")
+	assert_eq(_scan_observer_count, 1, "已提交失败且 scan_filesystem=true 应精确请求一次扫描。")
+	assert_true(cleanup_succeeded)
+	assert_push_error_count(1)
+
+
+func test_save_text_does_not_scan_committed_failure_when_disabled() -> void:
+	var test_root: String = "user://gf_generated_artifact_report_no_scan_committed_%d_%d" % [
+		Time.get_ticks_usec(),
+		get_instance_id(),
+	]
+	var allowed_root: String = test_root.path_join("allowed")
+	_post_commit_output_path = allowed_root.path_join("output.txt")
+	_scan_observer_count = 0
+	_reoccupied_temp_path = ""
+	GFGeneratedArtifactReport._configure_test_scan_filesystem_observer(
+		Callable(self, "_record_scan_filesystem_request")
+	)
+	GFGeneratedArtifactReport._configure_test_after_final_replace(
+		Callable(self, "_occupy_consumed_temp_after_final_replace")
+	)
+
+	var report: Dictionary = GFGeneratedArtifactReport.save_text(
+		_post_commit_output_path,
+		"committed",
+		{
+			"allowed_roots": [allowed_root],
+			"scan_filesystem": false,
+		}
+	)
+	var unknown_temp_preserved: bool = FileAccess.file_exists(_reoccupied_temp_path)
+	_remove_test_tree(test_root)
+	var cleanup_succeeded: bool = _test_tree_removed(test_root)
+
+	assert_false(GF_VARIANT_ACCESS.get_option_bool(report, "success"))
+	assert_true(GF_VARIANT_ACCESS.get_option_bool(report, "written"))
+	assert_true(GF_VARIANT_ACCESS.get_option_bool(report, "conflict"))
+	assert_true(unknown_temp_preserved)
+	assert_eq(_scan_observer_count, 0, "scan_filesystem=false 不得触发测试 observer 或 EditorFileSystem 扫描。")
+	assert_true(cleanup_succeeded)
+	assert_push_error_count(1)
+
+
+func test_save_text_rejects_backup_reoccupation_after_cleanup() -> void:
+	var test_root: String = "user://gf_generated_artifact_report_backup_reoccupied_%d_%d" % [
+		Time.get_ticks_usec(),
+		get_instance_id(),
+	]
+	var allowed_root: String = test_root.path_join("allowed")
+	_post_commit_output_path = allowed_root.path_join("output.txt")
+	_reoccupied_backup_path = ""
+	_post_cleanup_snapshot_count = 0
+	_scan_observer_count = 0
+	var make_allowed_error: Error = DirAccess.make_dir_recursive_absolute(
+		ProjectSettings.globalize_path(allowed_root)
+	)
+	assert_eq(make_allowed_error, OK)
+	if make_allowed_error != OK:
+		_remove_test_tree(test_root)
+		return
+	_write_user_text(_post_commit_output_path, "original")
+	GFGeneratedArtifactReport._configure_test_scan_filesystem_observer(
+		Callable(self, "_record_scan_filesystem_request")
+	)
+	GFGeneratedArtifactReport._configure_test_after_final_replace(
+		Callable(self, "_arm_backup_reoccupation_after_final_replace")
+	)
+
+	var report: Dictionary = GFGeneratedArtifactReport.save_text(
+		_post_commit_output_path,
+		"replacement",
+		{
+			"allowed_roots": [allowed_root],
+			"scan_filesystem": true,
+		}
+	)
+	var output_content: String = _read_user_text(_post_commit_output_path)
+	var unknown_backup_content: String = _read_user_text(_reoccupied_backup_path)
+	var unknown_backup_preserved: bool = FileAccess.file_exists(_reoccupied_backup_path)
+	_remove_test_tree(test_root)
+	var cleanup_succeeded: bool = _test_tree_removed(test_root)
+
+	assert_false(GF_VARIANT_ACCESS.get_option_bool(report, "success"))
+	assert_eq(GFGeneratedArtifactReport.get_error_code(report), ERR_FILE_ALREADY_IN_USE)
+	assert_true(GF_VARIANT_ACCESS.get_option_bool(report, "written"))
+	assert_true(GF_VARIANT_ACCESS.get_option_bool(report, "conflict"))
+	assert_eq(output_content, "replacement")
+	assert_eq(_post_cleanup_snapshot_count, 3, "fixture 必须在 backup cleanup 后的 output snapshot 重占 backup。")
+	assert_true(unknown_backup_preserved, "final guard 不得删除 cleanup 后重占 backup identity 的未知文件。")
+	assert_eq(unknown_backup_content, "unknown-backup")
+	assert_eq(_scan_observer_count, 1)
+	assert_true(cleanup_succeeded)
+	assert_push_error_count(1)
+
+
 func test_capture_file_snapshot_rechecks_physical_guard_after_hash_read() -> void:
 	var test_root: String = "user://gf_generated_artifact_report_snapshot_race_%d_%d" % [
 		Time.get_ticks_usec(),
@@ -967,6 +1102,10 @@ func test_save_text_marks_conflict_when_rollback_target_becomes_directory() -> v
 		_remove_test_tree(test_root)
 		return
 	_write_user_text(_rollback_output_path, "original")
+	_scan_observer_count = 0
+	GFGeneratedArtifactReport._configure_test_scan_filesystem_observer(
+		Callable(self, "_record_scan_filesystem_request")
+	)
 	GFGeneratedArtifactReport._configure_test_after_file_snapshot_read(
 		Callable(self, "_take_over_output_after_backup_snapshot")
 	)
@@ -976,7 +1115,7 @@ func test_save_text_marks_conflict_when_rollback_target_becomes_directory() -> v
 		"replacement",
 		{
 			"allowed_roots": [_rollback_allowed_root],
-			"scan_filesystem": false,
+			"scan_filesystem": true,
 		}
 	)
 	var output_is_directory: bool = DirAccess.dir_exists_absolute(
@@ -1006,6 +1145,7 @@ func test_save_text_marks_conflict_when_rollback_target_becomes_directory() -> v
 	assert_eq(backup_count, 1, "rollback takeover 后应保留精确原始 backup。")
 	assert_eq(backup_content, "original", "保留的 rollback backup 必须仍匹配原始 target 内容。")
 	assert_eq(total_temp_count, 1, "rollback takeover 后只允许保留 backup，owned staged temp 必须清理。")
+	assert_eq(_scan_observer_count, 1, "rollback 未恢复可见输出时必须请求一次文件系统扫描。")
 	assert_true(cleanup_succeeded)
 	assert_push_error_count(1)
 
@@ -1120,6 +1260,117 @@ func test_save_text_preserves_ordinary_allowed_and_legacy_user_paths() -> void:
 	assert_true(res_cleanup_succeeded, "ordinary res:// fixture 必须清理。")
 
 
+func test_save_text_replaces_malformed_utf8_using_original_raw_backup_identity() -> void:
+	var test_root: String = "user://gf_generated_artifact_report_raw_backup_%d_%d" % [
+		Time.get_ticks_usec(),
+		get_instance_id(),
+	]
+	var allowed_root: String = test_root.path_join("allowed")
+	var output_path: String = allowed_root.path_join("malformed.txt")
+	var original_bytes: PackedByteArray = PackedByteArray([0x66, 0x80, 0x6f])
+	var make_allowed_error: Error = DirAccess.make_dir_recursive_absolute(
+		ProjectSettings.globalize_path(allowed_root)
+	)
+	assert_eq(make_allowed_error, OK)
+	if make_allowed_error != OK:
+		_remove_test_tree(test_root)
+		return
+	_write_user_bytes(output_path, original_bytes)
+	var decoded_text: String = _read_user_text(output_path)
+	var decoded_bytes: PackedByteArray = decoded_text.to_utf8_buffer()
+	assert_false(
+		decoded_bytes == original_bytes,
+		"fixture 必须证明 get_as_text() 后的 UTF-8 字节不再等于原始文件。"
+	)
+
+	var report: Dictionary = GFGeneratedArtifactReport.save_text(
+		output_path,
+		"replacement",
+		{
+			"allowed_roots": [allowed_root],
+			"scan_filesystem": false,
+		}
+	)
+	var final_bytes: PackedByteArray = _read_user_bytes(output_path)
+	var backup_count: int = _count_files_with_fragment(allowed_root, ".backup.tmp.")
+	var total_temp_count: int = _count_files_with_fragment(allowed_root, ".tmp.")
+	_remove_test_tree(test_root)
+	var cleanup_succeeded: bool = _test_tree_removed(test_root)
+
+	assert_true(GF_VARIANT_ACCESS.get_option_bool(report, "success"))
+	assert_true(GF_VARIANT_ACCESS.get_option_bool(report, "written"))
+	assert_eq(final_bytes, "replacement".to_utf8_buffer())
+	assert_eq(
+		GF_VARIANT_ACCESS.get_option_string(report, "previous_sha256"),
+		_sha256_bytes(decoded_bytes),
+		"public previous_sha256 必须继续表示 decoded-text baseline。"
+	)
+	assert_ne(
+		GF_VARIANT_ACCESS.get_option_string(report, "previous_sha256"),
+		_sha256_bytes(original_bytes),
+		"raw backup identity 不得泄漏或替换 public text baseline。"
+	)
+	assert_eq(backup_count, 0, "raw-byte replacement 成功后不得遗留 backup。")
+	assert_eq(total_temp_count, 0, "raw-byte replacement 成功后不得遗留 staging。")
+	assert_true(cleanup_succeeded)
+
+
+func test_save_text_preserves_legacy_direct_file_symlink_replacement() -> void:
+	var test_root: String = "user://gf_generated_artifact_report_legacy_symlink_%d_%d" % [
+		Time.get_ticks_usec(),
+		get_instance_id(),
+	]
+	var output_path: String = test_root.path_join("output.txt")
+	var referent_path: String = test_root.path_join("referent.txt")
+	var make_root_error: Error = DirAccess.make_dir_recursive_absolute(
+		ProjectSettings.globalize_path(test_root)
+	)
+	assert_eq(make_root_error, OK)
+	if make_root_error != OK:
+		_remove_test_tree(test_root)
+		return
+	_write_user_text(referent_path, "original")
+	var link_error: Error = _create_direct_file_link_for_test(
+		referent_path,
+		output_path
+	)
+	assert_eq(link_error, OK, "fixture 必须创建 direct file symlink。")
+	if link_error != OK:
+		_remove_test_tree(test_root)
+		return
+	assert_true(
+		_absolute_path_is_link(ProjectSettings.globalize_path(output_path)),
+		"fixture output 必须是 direct link。"
+	)
+	assert_true(FileAccess.file_exists(output_path), "legacy output link 必须可读取 referent。")
+
+	var report: Dictionary = GFGeneratedArtifactReport.save_text(
+		output_path,
+		"replacement",
+		{ "scan_filesystem": false }
+	)
+	var output_exists: bool = FileAccess.file_exists(output_path)
+	var output_is_link: bool = _absolute_path_is_link(
+		ProjectSettings.globalize_path(output_path)
+	)
+	var output_content: String = _read_user_text(output_path)
+	var referent_content: String = _read_user_text(referent_path)
+	var backup_count: int = _count_files_with_fragment(test_root, ".backup.tmp.")
+	var total_temp_count: int = _count_files_with_fragment(test_root, ".tmp.")
+	_remove_test_tree(test_root)
+	var cleanup_succeeded: bool = _test_tree_removed(test_root)
+
+	assert_true(GF_VARIANT_ACCESS.get_option_bool(report, "success"))
+	assert_true(GF_VARIANT_ACCESS.get_option_bool(report, "written"))
+	assert_true(output_exists, "legacy symlink replacement 后 output 必须存在。")
+	assert_false(output_is_link, "replacement 应用新 regular file 取代 symlink 目录项。")
+	assert_eq(output_content, "replacement")
+	assert_eq(referent_content, "original", "替换 symlink 不得改写原 referent。")
+	assert_eq(backup_count, 0, "legacy symlink replacement 成功后不得遗留 backup link。")
+	assert_eq(total_temp_count, 0)
+	assert_true(cleanup_succeeded)
+
+
 func test_summarize_reports_counts_statuses_and_owner_groups() -> void:
 	var reports: Array[Dictionary] = [
 		GFGeneratedArtifactReport.make_report("res://a.gd", GFGeneratedArtifactReport.STATUS_NEW, OK, "", {
@@ -1208,6 +1459,26 @@ func _read_user_text(path: String) -> String:
 	var text: String = file.get_as_text()
 	file.close()
 	return text
+
+
+func _read_user_bytes(path: String) -> PackedByteArray:
+	var file: FileAccess = FileAccess.open(path, FileAccess.READ)
+	if file == null:
+		return PackedByteArray()
+	var bytes: PackedByteArray = file.get_buffer(file.get_length())
+	file.close()
+	return bytes
+
+
+func _sha256_bytes(bytes: PackedByteArray) -> String:
+	var context: HashingContext = HashingContext.new()
+	var start_error: Error = context.start(HashingContext.HASH_SHA256)
+	if start_error != OK:
+		return ""
+	var update_error: Error = context.update(bytes)
+	if update_error != OK:
+		return ""
+	return context.finish().hex_encode()
 
 
 func _count_user_files_with_prefix(prefix: String) -> int:
@@ -1361,6 +1632,49 @@ func _link_consumed_temp_after_final_replace(
 	assert_eq(link_error, OK, "test-owned post-commit callback 必须在 consumed temp identity 建立 link。")
 
 
+func _record_scan_filesystem_request() -> void:
+	_scan_observer_count += 1
+
+
+func _occupy_consumed_temp_after_final_replace(
+	output_path: String,
+	temp_path: String,
+	_backup_path: String
+) -> void:
+	assert_eq(output_path, _post_commit_output_path)
+	_reoccupied_temp_path = temp_path
+	_write_user_text(temp_path, "unknown-temp")
+
+
+func _arm_backup_reoccupation_after_final_replace(
+	output_path: String,
+	_temp_path: String,
+	backup_path: String
+) -> void:
+	assert_eq(output_path, _post_commit_output_path)
+	_reoccupied_backup_path = backup_path
+	GFGeneratedArtifactReport._configure_test_after_file_snapshot_read(
+		Callable(self, "_reoccupy_backup_after_post_cleanup_snapshot")
+	)
+
+
+func _reoccupy_backup_after_post_cleanup_snapshot(snapshot_path: String) -> void:
+	_post_cleanup_snapshot_count += 1
+	if (
+		snapshot_path != _post_commit_output_path
+		or GFGeneratedArtifactReport._path_entry_exists(_reoccupied_backup_path)
+	):
+		GFGeneratedArtifactReport._configure_test_after_file_snapshot_read(
+			Callable(self, "_reoccupy_backup_after_post_cleanup_snapshot")
+		)
+		return
+	assert_false(
+		GFGeneratedArtifactReport._path_entry_exists(_reoccupied_backup_path),
+		"第二次 committed output snapshot 前 backup cleanup 必须已完成。"
+	)
+	_write_user_text(_reoccupied_backup_path, "unknown-backup")
+
+
 func _configure_outside_backup_override() -> void:
 	GFGeneratedArtifactReport._configure_test_temp_path_override(_outside_backup_path)
 
@@ -1426,6 +1740,25 @@ func _write_user_text(path: String, text: String) -> void:
 		return
 	var _stored: Variant = file.store_string(text)
 	file.close()
+
+
+func _write_user_bytes(path: String, bytes: PackedByteArray) -> void:
+	var file: FileAccess = FileAccess.open(path, FileAccess.WRITE)
+	assert_not_null(file, "测试应能写入 fixture 字节。")
+	if file == null:
+		return
+	var _store_result: Variant = file.store_buffer(bytes)
+	file.close()
+
+
+func _create_direct_file_link_for_test(target_path: String, link_path: String) -> Error:
+	var link_parent: DirAccess = DirAccess.open(link_path.get_base_dir())
+	if link_parent == null:
+		return ERR_CANT_OPEN
+	return link_parent.create_link(
+		ProjectSettings.globalize_path(target_path),
+		ProjectSettings.globalize_path(link_path)
+	)
 
 
 func _find_file_with_fragment(resource_root: String, fragment: String) -> String:

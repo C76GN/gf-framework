@@ -99,7 +99,7 @@ const _MAX_CONTRACT_PATH_LENGTH: int = 4096
 ## [br]
 ## @param options: 可选项，支持 class_name。
 ## [br]
-## @return Godot 错误码。
+## @return: 未发生物理提交时返回原始错误码；物理提交已发生时返回 OK。需要区分后置失败时使用 generate_with_report() 并检查 written。
 ## [br]
 ## @schema options: Dictionary，支持 class_name。
 func generate(
@@ -109,7 +109,7 @@ func generate(
 	options: Dictionary = {}
 ) -> Error:
 	var report: Dictionary = generate_with_report(contract, output_path, _merge_generation_save_options(options, overwrite_existing))
-	return _GENERATED_ARTIFACT_REPORT_SCRIPT.get_error_code(report)
+	return _get_legacy_error_code(report)
 
 
 ## 生成单个契约访问器脚本并返回生成产物报告。
@@ -140,7 +140,7 @@ func generate_with_report(
 			_GENERATED_ARTIFACT_REPORT_SCRIPT.STATUS_FAILED,
 			ERR_INVALID_PARAMETER,
 			"Network contract is null.",
-			_make_artifact_report_options(options)
+			_make_pre_save_failure_report_options(options)
 		)
 	var validation: Dictionary = contract.validate_contract()
 	if not GFVariantData.get_option_bool(validation, "ok", false):
@@ -149,7 +149,7 @@ func generate_with_report(
 			_GENERATED_ARTIFACT_REPORT_SCRIPT.STATUS_FAILED,
 			ERR_INVALID_DATA,
 			"Network contract validation failed.",
-			_make_artifact_report_options(options, contract)
+			_make_pre_save_failure_report_options(options, contract)
 		)
 
 	var resolved_output_path: String = output_path
@@ -298,12 +298,12 @@ func build_source(contract: GFNetworkContract, options: Dictionary = {}) -> Stri
 ## [br]
 ## @param overwrite_existing: 为 false 时目标已存在会返回 ERR_ALREADY_EXISTS。
 ## [br]
-## @return Godot 错误码。
+## @return: 未发生物理提交时返回原始错误码；物理提交已发生时返回 OK。需要区分后置失败时使用 save_source_with_report() 并检查 written。
 func save_source(output_path: String, source: String, overwrite_existing: bool = true) -> Error:
 	var report: Dictionary = save_source_with_report(output_path, source, {
 		"overwrite_existing": overwrite_existing,
 	})
-	return _GENERATED_ARTIFACT_REPORT_SCRIPT.get_error_code(report)
+	return _get_legacy_error_code(report)
 
 
 ## 保存生成源码到指定路径并返回生成产物报告。
@@ -330,6 +330,12 @@ func save_source_with_report(output_path: String, source: String, options: Dicti
 
 
 # --- 私有/辅助方法 ---
+
+func _get_legacy_error_code(report: Dictionary) -> Error:
+	if GFVariantData.get_option_bool(report, "written", false):
+		return OK
+	return _GENERATED_ARTIFACT_REPORT_SCRIPT.get_error_code(report)
+
 
 func _build_many_plan(
 	contract_paths: PackedStringArray,
@@ -648,6 +654,20 @@ func _make_artifact_report_options(options: Dictionary, contract: GFNetworkContr
 		if source_id.is_empty():
 			source_id = contract.resource_path
 		report_options["source_id"] = source_id
+	return report_options
+
+
+func _make_pre_save_failure_report_options(
+	options: Dictionary,
+	contract: GFNetworkContract = null
+) -> Dictionary:
+	var report_options: Dictionary = _make_artifact_report_options(options, contract)
+	report_options["written"] = false
+	report_options["changed"] = false
+	report_options["conflict"] = false
+	report_options["size_bytes"] = 0
+	report_options["content_sha256"] = ""
+	report_options["previous_sha256"] = ""
 	return report_options
 
 

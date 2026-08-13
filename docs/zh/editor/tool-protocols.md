@@ -152,9 +152,9 @@ var report := GFTemplateGenerationManifest.save_text_from_manifest(manifest, sou
 
 JSON 文本和 sidecar 在解析前都受 1 MiB UTF-8 字节上限与 64 层嵌套上限约束。编辑器贡献清单还限制 1024 条总记录、单个模板 1 MiB 和单份清单全部模板累计 4 MiB；空白模板会作为 `empty_template` 问题失败关闭，不会无痕消失。贡献清单报告用 `absent`、`valid`、`degraded`、`invalid` 区分可选包确实缺席、完整有效、局部目标缺失和清单本身无效；根插件只对后两类发布稳定的问题种类与计数，不把项目路径或原始字段值复制到诊断。标准库文件型贡献的 `owner_package_id` 必须与目标文件唯一的物理包所有者一致，`package-source-boundary` 会对此失败关闭。清单是数据，不是写权限：模板或批处理工具真正写入文件时，必须由明确授权的调用方另行传入 `allowed_roots` 与覆盖策略，不能仅凭 sidecar 中的 `output_path` 扩张权限。
 
-把输出目录作为生成物根传给 `GFGeneratedArtifactReport.save_text(..., { "allowed_roots": [...] })` 后，dry-run、unchanged 检查、编辑器按钮和 CI 校验会使用同一套逻辑与物理路径边界。显式 `allowed_roots` 必须是非空且全部有效的 `res://` / `user://` 根目录集合；空集合、错误类型或任一非法根都会以 `ERR_INVALID_PARAMETER` 在零 I/O 前失败关闭。省略该键只保留历史行为，不应被受控工具当作物理写入授权。启用边界后，符号链接、junction 和其他重解析组件会在每个可观察 I/O 阶段前后被拒绝；由于 Godot 文件 API 不提供跨阶段固定目录句柄，这种复核不承诺抵御恶意本地并发修改的原子性。
+把输出目录作为生成物根传给 `GFGeneratedArtifactReport.save_text(..., { "allowed_roots": [...] })` 后，dry-run、unchanged 检查、编辑器按钮和 CI 校验会使用同一套逻辑与物理路径边界。显式 `allowed_roots` 必须是非空且全部有效的 `res://` / `user://` 根目录集合；空集合、错误类型或任一非法根都会以 `ERR_INVALID_PARAMETER` 在零 I/O 前失败关闭。省略该键只保留历史行为，不应被受控工具当作物理写入授权；这一兼容路径仍可替换 direct file symlink，但只会移动并删除链接本身，不会修改其 referent。启用边界后，符号链接、junction 和其他重解析组件会在每个可观察 I/O 阶段前后被拒绝；由于 Godot 文件 API 不提供跨阶段固定目录句柄，这种复核不承诺抵御恶意本地并发修改的原子性。
 
-修改用户源码时还应传入读取快照的 `expected_previous_sha256`；当前内容不匹配时报告返回 `conflict = true` 和 `ERR_FILE_ALREADY_IN_USE`，保留现有内容。空字符串表示要求目标不存在，适合 create-only 写入。`written` 是独立的物理提交事实：最终替换已发生、但随后复核或 backup 清理失败时，报告会保持 `failed` 且 `written = true`。调用方重试前必须先检查该字段，避免把已经提交的结果再次覆盖。
+修改用户源码时还应传入读取快照的 `expected_previous_sha256`；它继续比较解码后的文本内容，当前内容不匹配时报告返回 `conflict = true` 和 `ERR_FILE_ALREADY_IN_USE`，保留现有内容。空字符串表示要求目标不存在，适合 create-only 写入。内部替换事务会另行冻结原件的原始字节长度、SHA-256 与实体种类，用于验证 backup、rollback 和 cleanup，不能用解码后再编码的摘要代替物理身份。`written` 是独立的物理提交事实：最终替换已发生、但随后复核、暂存路径重占或 backup 清理失败时，报告会保持 `failed` 且 `written = true`，并保留不属于本次操作的未知实体。调用方重试前必须先检查该字段，避免把已经提交的结果再次覆盖。请求 `scan_filesystem = true` 时，最终提交或不完整回滚等任何可观察文件系统变化都会触发一次扫描，即使报告最终失败。
 
 ## 多产物写入事务
 

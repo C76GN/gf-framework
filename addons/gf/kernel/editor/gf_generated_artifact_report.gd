@@ -77,6 +77,8 @@ const OWNER_EXTERNAL: StringName = &"external"
 const _GF_PATH_TOOLS = preload("res://addons/gf/kernel/core/gf_path_tools.gd")
 const _GF_REPORT_VALUE_CODEC_SCRIPT = preload("res://addons/gf/kernel/core/gf_report_value_codec.gd")
 const _GF_VARIANT_ACCESS_SCRIPT = preload("res://addons/gf/kernel/core/gf_variant_access.gd")
+const _FILE_ENTRY_REGULAR: StringName = &"regular"
+const _FILE_ENTRY_DIRECT_LINK: StringName = &"direct_link"
 
 
 # --- 私有变量 ---
@@ -84,6 +86,7 @@ const _GF_VARIANT_ACCESS_SCRIPT = preload("res://addons/gf/kernel/core/gf_varian
 static var _test_before_final_replace: Callable = Callable()
 static var _test_after_final_replace: Callable = Callable()
 static var _test_after_file_snapshot_read: Callable = Callable()
+static var _test_scan_filesystem_observer: Callable = Callable()
 static var _test_temp_write_error: Error = OK
 static var _test_temp_write_failures_remaining: int = 0
 static var _test_temp_path_override: String = ""
@@ -252,16 +255,18 @@ static func summarize_reports(
 ## [br]
 ## @param options: 保存选项，支持 overwrite_existing、expected_previous_sha256、dry_run、scan_filesystem、label、metadata、artifact_owner、generator_id、source_id 和 allowed_roots。
 ## [br]
-## @schema options: Dictionary，可包含 overwrite_existing、expected_previous_sha256、dry_run、scan_filesystem、label、metadata、artifact_owner、generator_id、source_id 和 allowed_roots；expected_previous_sha256 存在时要求保存前目标内容仍匹配该 SHA-256，空字符串表示要求目标不存在；allowed_roots 缺省时保留旧 res:// / user:// 行为，显式提供时必须是非空且全部有效的 res:// / user:// 根目录集合，并在读取、目录创建、临时写入、替换、清理与回滚的可观察边界拒绝链接或重解析组件。该复核不持有目录句柄，也不承诺抵御恶意本地并发修改的原子性。
+## @schema options: Dictionary，可包含 overwrite_existing、expected_previous_sha256、dry_run、scan_filesystem、label、metadata、artifact_owner、generator_id、source_id 和 allowed_roots；expected_previous_sha256 存在时要求保存前目标的解码文本仍匹配该 SHA-256，空字符串表示要求目标不存在；allowed_roots 缺省时保留旧 res:// / user:// 行为，显式提供时必须是非空且全部有效的 res:// / user:// 根目录集合，并在读取、目录创建、临时写入、替换、清理与回滚的可观察边界拒绝链接或重解析组件；scan_filesystem 为 true 时，任何已发生的可观察文件系统变化都会请求一次扫描，包括最终提交后的失败和不完整回滚。该复核不持有目录句柄，也不承诺抵御恶意本地并发修改的原子性。
 ## [br]
-## @return: 生成产物保存报告。最终替换已提交、随后复核或清理失败时，报告可同时为 failed 且 written=true；调用方重试前必须独立检查 written。
+## @return: 生成产物保存报告。最终替换已提交、随后复核、暂存身份检查或清理失败时，报告可同时为 failed 且 written=true；调用方重试前必须独立检查 written。
 ## [br]
 ## @schema return: JSON-safe Dictionary，包含 success、path、status、error_code、error、written、changed、dry_run、conflict、size_bytes、artifact_owner、generator_id、source_id、content_sha256、previous_sha256、expected_previous_sha256、encoding 和 metadata。
 static func save_text(output_path: String, text: String, options: Dictionary = {}) -> Dictionary:
 	var before_final_replace: Callable = _test_before_final_replace
 	var after_final_replace: Callable = _test_after_final_replace
+	var scan_filesystem_observer: Callable = _test_scan_filesystem_observer
 	_test_before_final_replace = Callable()
 	_test_after_final_replace = Callable()
+	_test_scan_filesystem_observer = Callable()
 	var label: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(options, "label", "GFGeneratedArtifactReport")
 	output_path = _GF_PATH_TOOLS.normalize_resource_path(output_path)
 	if output_path.is_empty():
@@ -425,7 +430,6 @@ static func save_text(output_path: String, text: String, options: Dictionary = {
 			}
 		)
 	var previous_sha256: String = _sha256_text(existing_text) if exists else ""
-	var previous_size_bytes: int = existing_text.to_utf8_buffer().size() if exists else 0
 	var has_expected_previous_sha256: bool = options.has("expected_previous_sha256")
 	var expected_previous_sha256: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
 		options,
@@ -753,7 +757,6 @@ static func save_text(output_path: String, text: String, options: Dictionary = {
 		output_path,
 		temp_path,
 		exists,
-		previous_size_bytes,
 		previous_sha256,
 		size_bytes,
 		_GF_VARIANT_ACCESS_SCRIPT.get_option_string(report_options, "content_sha256"),
@@ -775,11 +778,20 @@ static func save_text(output_path: String, text: String, options: Dictionary = {
 		"conflict",
 		false
 	)
+	var filesystem_changed: bool = _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
+		replace_result,
+		"filesystem_changed",
+		false
+	)
+	if filesystem_changed:
+		_scan_filesystem_if_needed(
+			_GF_VARIANT_ACCESS_SCRIPT.get_option_bool(options, "scan_filesystem", true),
+			scan_filesystem_observer
+		)
 	if replace_error != OK:
 		var replace_message: String = "无法替换文本产物：%s (%s)" % [output_path, error_string(replace_error)]
 		push_error("[%s] %s" % [label, replace_message])
 		return make_report(output_path, STATUS_FAILED, replace_error, replace_message, report_options)
-	_scan_filesystem_if_needed(_GF_VARIANT_ACCESS_SCRIPT.get_option_bool(options, "scan_filesystem", true))
 	return make_report(output_path, status, OK, "", report_options)
 
 
@@ -1196,7 +1208,6 @@ static func _replace_output_with_temp(
 	output_path: String,
 	temp_path: String,
 	output_exists: bool,
-	expected_output_size: int,
 	expected_output_sha256: String,
 	expected_temp_size: int,
 	expected_temp_sha256: String,
@@ -1229,7 +1240,9 @@ static func _replace_output_with_temp(
 			invalid_backup_cleanup_error
 			if invalid_backup_cleanup_error != OK
 			else invalid_backup_error,
-			false
+			false,
+			false,
+			invalid_backup_cleanup_error != OK
 		)
 	var backup_path: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
 		backup_path_report,
@@ -1262,7 +1275,8 @@ static func _replace_output_with_temp(
 				target_baseline,
 				"conflict",
 				true
-			) if baseline_cleanup_error == OK else false
+			) if baseline_cleanup_error == OK else false,
+			baseline_cleanup_error != OK
 		)
 	var staged_validation_error: Error = _validate_file_snapshot(
 		temp_path,
@@ -1279,8 +1293,42 @@ static func _replace_output_with_temp(
 		)
 		return _make_replace_result(
 			staged_cleanup_error if staged_cleanup_error != OK else staged_validation_error,
-			false
+			false,
+			false,
+			staged_cleanup_error != OK
 		)
+	var original_snapshot: Dictionary = {}
+	if output_exists:
+		original_snapshot = _capture_original_file_snapshot(
+			output_path,
+			enforce_physical_ownership
+		)
+		if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
+			original_snapshot,
+			"ok",
+			false
+		):
+			var original_cleanup_error: Error = _remove_file_if_exists(
+				temp_path,
+				enforce_physical_ownership,
+				expected_temp_size,
+				expected_temp_sha256
+			)
+			var original_snapshot_error: Error = (
+				_GF_VARIANT_ACCESS_SCRIPT.get_option_int(
+					original_snapshot,
+					"error_code",
+					ERR_FILE_CORRUPT
+				) as Error
+			)
+			return _make_replace_result(
+				original_cleanup_error
+				if original_cleanup_error != OK
+				else original_snapshot_error,
+				false,
+				false,
+				original_cleanup_error != OK
+			)
 
 	if output_exists:
 		if _path_entry_exists(backup_path):
@@ -1294,7 +1342,9 @@ static func _replace_output_with_temp(
 				backup_collision_cleanup_error
 				if backup_collision_cleanup_error != OK
 				else ERR_ALREADY_EXISTS,
-				false
+				false,
+				false,
+				backup_collision_cleanup_error != OK
 			)
 		var backup_guard_error: Error = _get_paths_physical_error(
 			PackedStringArray([output_path, temp_path, backup_path]),
@@ -1309,7 +1359,9 @@ static func _replace_output_with_temp(
 			)
 			return _make_replace_result(
 				backup_guard_cleanup_error if backup_guard_cleanup_error != OK else backup_guard_error,
-				false
+				false,
+				false,
+				backup_guard_cleanup_error != OK
 			)
 		var backup_error: Error = DirAccess.rename_absolute(output_absolute, backup_absolute)
 		if backup_error != OK:
@@ -1321,7 +1373,9 @@ static func _replace_output_with_temp(
 			)
 			return _make_replace_result(
 				backup_rename_cleanup_error if backup_rename_cleanup_error != OK else backup_error,
-				false
+				false,
+				false,
+				backup_rename_cleanup_error != OK
 			)
 		moved_existing = true
 		var moved_output_check: Dictionary = _check_target_baseline(
@@ -1330,10 +1384,9 @@ static func _replace_output_with_temp(
 			"",
 			enforce_physical_ownership
 		)
-		var backup_snapshot_error: Error = _validate_file_snapshot(
+		var backup_snapshot_error: Error = _validate_original_file_snapshot(
 			backup_path,
-			expected_output_size,
-			expected_output_sha256,
+			original_snapshot,
 			enforce_physical_ownership
 		)
 		var moved_temp_error: Error = _validate_file_snapshot(
@@ -1369,8 +1422,7 @@ static func _replace_output_with_temp(
 			var moved_rollback_result: Dictionary = _rollback_backup(
 				backup_path,
 				output_path,
-				expected_output_size,
-				expected_output_sha256,
+				original_snapshot,
 				enforce_physical_ownership
 			)
 			var moved_rollback_error: Error = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(
@@ -1390,7 +1442,8 @@ static func _replace_output_with_temp(
 						moved_rollback_result,
 						"conflict",
 						false
-					)
+					),
+					true
 				)
 			return _make_replace_result(
 				moved_cleanup_error if moved_cleanup_error != OK else moved_state_error,
@@ -1399,7 +1452,8 @@ static func _replace_output_with_temp(
 					moved_output_check,
 					"conflict",
 					false
-				) if moved_cleanup_error == OK else false
+				) if moved_cleanup_error == OK else false,
+				moved_cleanup_error != OK
 			)
 
 	var final_target_check: Dictionary = _check_target_baseline(
@@ -1416,10 +1470,9 @@ static func _replace_output_with_temp(
 	)
 	var final_backup_error: Error = OK
 	if moved_existing:
-		final_backup_error = _validate_file_snapshot(
+		final_backup_error = _validate_original_file_snapshot(
 			backup_path,
-			expected_output_size,
-			expected_output_sha256,
+			original_snapshot,
 			enforce_physical_ownership
 		)
 	if (
@@ -1446,8 +1499,7 @@ static func _replace_output_with_temp(
 			var final_rollback_result: Dictionary = _rollback_backup(
 				backup_path,
 				output_path,
-				expected_output_size,
-				expected_output_sha256,
+				original_snapshot,
 				enforce_physical_ownership
 			)
 			var final_rollback_error: Error = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(
@@ -1467,7 +1519,8 @@ static func _replace_output_with_temp(
 						final_rollback_result,
 						"conflict",
 						false
-					)
+					),
+					true
 				)
 		return _make_replace_result(
 			final_cleanup_error if final_cleanup_error != OK else final_state_error,
@@ -1476,7 +1529,8 @@ static func _replace_output_with_temp(
 				final_target_check,
 				"conflict",
 				false
-			) if final_cleanup_error == OK else false
+			) if final_cleanup_error == OK else false,
+			final_cleanup_error != OK
 		)
 
 	var replace_guard_error: Error = _get_paths_physical_error(
@@ -1494,8 +1548,7 @@ static func _replace_output_with_temp(
 			var rollback_result: Dictionary = _rollback_backup(
 				backup_path,
 				output_path,
-				expected_output_size,
-				expected_output_sha256,
+				original_snapshot,
 				enforce_physical_ownership
 			)
 			var rollback_error: Error = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(
@@ -1511,11 +1564,14 @@ static func _replace_output_with_temp(
 						rollback_result,
 						"conflict",
 						false
-					)
+					),
+					true
 				)
 		return _make_replace_result(
 			replace_guard_cleanup_error if replace_guard_cleanup_error != OK else replace_guard_error,
-			false
+			false,
+			false,
+			replace_guard_cleanup_error != OK
 		)
 	var replace_error: Error = DirAccess.rename_absolute(temp_absolute, output_absolute)
 	if replace_error == OK:
@@ -1531,6 +1587,55 @@ static func _replace_output_with_temp(
 		)
 		if post_commit_error != OK:
 			return _make_replace_result(post_commit_error, true)
+		var consumed_temp_check: Dictionary = _check_target_baseline(
+			temp_path,
+			false,
+			"",
+			enforce_physical_ownership
+		)
+		if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
+			consumed_temp_check,
+			"ok",
+			false
+		):
+			return _make_replace_result(
+				_GF_VARIANT_ACCESS_SCRIPT.get_option_int(
+					consumed_temp_check,
+					"error_code",
+					ERR_FILE_ALREADY_IN_USE
+				) as Error,
+				true,
+				_GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
+					consumed_temp_check,
+					"conflict",
+					false
+				)
+			)
+		if not moved_existing:
+			var unused_backup_check: Dictionary = _check_target_baseline(
+				backup_path,
+				false,
+				"",
+				enforce_physical_ownership
+			)
+			if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
+				unused_backup_check,
+				"ok",
+				false
+			):
+				return _make_replace_result(
+					_GF_VARIANT_ACCESS_SCRIPT.get_option_int(
+						unused_backup_check,
+						"error_code",
+						ERR_FILE_ALREADY_IN_USE
+					) as Error,
+					true,
+					_GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
+						unused_backup_check,
+						"conflict",
+						false
+					)
+				)
 		var committed_snapshot_error: Error = _validate_file_snapshot(
 			output_path,
 			expected_temp_size,
@@ -1540,11 +1645,10 @@ static func _replace_output_with_temp(
 		if committed_snapshot_error != OK:
 			return _make_replace_result(committed_snapshot_error, true)
 		if moved_existing:
-			var backup_cleanup_error: Error = _remove_file_if_exists(
+			var backup_cleanup_error: Error = _remove_original_file_if_exists(
 				backup_path,
-				enforce_physical_ownership,
-				expected_output_size,
-				expected_output_sha256
+				original_snapshot,
+				enforce_physical_ownership
 			)
 			if backup_cleanup_error != OK:
 				return _make_replace_result(backup_cleanup_error, true)
@@ -1556,6 +1660,37 @@ static func _replace_output_with_temp(
 		)
 		if post_cleanup_error != OK:
 			return _make_replace_result(post_cleanup_error, true)
+		var final_post_commit_guard_error: Error = _get_paths_physical_error(
+			PackedStringArray([output_path, temp_path, backup_path]),
+			enforce_physical_ownership
+		)
+		if final_post_commit_guard_error != OK:
+			return _make_replace_result(final_post_commit_guard_error, true)
+		for consumed_path: String in PackedStringArray([temp_path, backup_path]):
+			var consumed_path_check: Dictionary = _check_target_baseline(
+				consumed_path,
+				false,
+				"",
+				enforce_physical_ownership
+			)
+			if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
+				consumed_path_check,
+				"ok",
+				false
+			):
+				return _make_replace_result(
+					_GF_VARIANT_ACCESS_SCRIPT.get_option_int(
+						consumed_path_check,
+						"error_code",
+						ERR_FILE_ALREADY_IN_USE
+					) as Error,
+					true,
+					_GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
+						consumed_path_check,
+						"conflict",
+						false
+					)
+				)
 		return _make_replace_result(OK, true)
 
 	var cleanup_error: Error = _remove_file_if_exists(
@@ -1568,8 +1703,7 @@ static func _replace_output_with_temp(
 		var rollback_result: Dictionary = _rollback_backup(
 			backup_path,
 			output_path,
-			expected_output_size,
-			expected_output_sha256,
+			original_snapshot,
 			enforce_physical_ownership
 		)
 		var rollback_error: Error = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(
@@ -1585,23 +1719,28 @@ static func _replace_output_with_temp(
 					rollback_result,
 					"conflict",
 					false
-				)
+				),
+				true
 			)
 	return _make_replace_result(
 		cleanup_error if cleanup_error != OK else replace_error,
-		false
+		false,
+		false,
+		cleanup_error != OK
 	)
 
 
 static func _make_replace_result(
 	error_code: Error,
 	committed: bool,
-	conflict: bool = false
+	conflict: bool = false,
+	filesystem_changed: bool = false
 ) -> Dictionary:
 	return {
 		"error_code": error_code,
 		"committed": committed,
 		"conflict": conflict,
+		"filesystem_changed": filesystem_changed or committed,
 	}
 
 
@@ -1615,8 +1754,7 @@ static func _make_rollback_result(error_code: Error, conflict: bool = false) -> 
 static func _rollback_backup(
 	backup_path: String,
 	output_path: String,
-	expected_backup_size: int,
-	expected_backup_sha256: String,
+	original_snapshot: Dictionary,
 	enforce_physical_ownership: bool
 ) -> Dictionary:
 	var guard_error: Error = _get_paths_physical_error(
@@ -1644,10 +1782,9 @@ static func _rollback_backup(
 				false
 			)
 		)
-	var backup_validation_error: Error = _validate_file_snapshot(
+	var backup_validation_error: Error = _validate_original_file_snapshot(
 		backup_path,
-		expected_backup_size,
-		expected_backup_sha256,
+		original_snapshot,
 		enforce_physical_ownership
 	)
 	if backup_validation_error != OK:
@@ -1658,10 +1795,9 @@ static func _rollback_backup(
 	)
 	if rollback_error != OK:
 		return _make_rollback_result(rollback_error)
-	var restored_validation_error: Error = _validate_file_snapshot(
+	var restored_validation_error: Error = _validate_original_file_snapshot(
 		output_path,
-		expected_backup_size,
-		expected_backup_sha256,
+		original_snapshot,
 		enforce_physical_ownership
 	)
 	if restored_validation_error != OK:
@@ -1722,51 +1858,91 @@ static func _capture_file_snapshot(
 	path: String,
 	enforce_physical_ownership: bool
 ) -> Dictionary:
+	return _capture_file_entry_snapshot(
+		path,
+		enforce_physical_ownership,
+		false,
+		true
+	)
+
+
+static func _capture_original_file_snapshot(
+	path: String,
+	enforce_physical_ownership: bool
+) -> Dictionary:
+	return _capture_file_entry_snapshot(
+		path,
+		enforce_physical_ownership,
+		not enforce_physical_ownership,
+		false
+	)
+
+
+static func _capture_file_entry_snapshot(
+	path: String,
+	enforce_physical_ownership: bool,
+	allow_legacy_direct_link: bool,
+	notify_test_hook: bool
+) -> Dictionary:
 	var guard_error: Error = _get_paths_physical_error(
 		PackedStringArray([path]),
 		enforce_physical_ownership
 	)
-	if guard_error != OK or not FileAccess.file_exists(path):
-		return {
-			"ok": false,
-			"size_bytes": -1,
-			"sha256": "",
-			"error_code": guard_error if guard_error != OK else ERR_FILE_CORRUPT,
-		}
+	if guard_error != OK:
+		return _make_failed_file_entry_snapshot(guard_error)
 	var absolute_path: String = ProjectSettings.globalize_path(path)
-	if (
-		_path_component_is_link(absolute_path)
-		or DirAccess.dir_exists_absolute(absolute_path)
-	):
-		return {
-			"ok": false,
-			"size_bytes": -1,
-			"sha256": "",
-			"error_code": ERR_UNAUTHORIZED if enforce_physical_ownership else ERR_FILE_CORRUPT,
-		}
-	var size_bytes: int = _file_size(path)
-	var sha256: String = FileAccess.get_sha256(path).to_lower()
-	var after_file_snapshot_read: Callable = _test_after_file_snapshot_read
-	_test_after_file_snapshot_read = Callable()
-	if after_file_snapshot_read.is_valid():
-		var _test_callback_result: Variant = after_file_snapshot_read.call(path)
+	var is_direct_link: bool = _path_component_is_link(absolute_path)
+	if is_direct_link and not allow_legacy_direct_link:
+		return _make_failed_file_entry_snapshot(
+			ERR_UNAUTHORIZED if enforce_physical_ownership else ERR_FILE_CORRUPT
+		)
+	if DirAccess.dir_exists_absolute(absolute_path) or not FileAccess.file_exists(path):
+		return _make_failed_file_entry_snapshot(ERR_FILE_CORRUPT)
+	var file: FileAccess = FileAccess.open(path, FileAccess.READ)
+	if file == null:
+		return _make_failed_file_entry_snapshot(ERR_FILE_CORRUPT)
+	var size_bytes: int = file.get_length()
+	var raw_bytes: PackedByteArray = file.get_buffer(size_bytes)
+	file.close()
+	var sha256: String = _sha256_bytes(raw_bytes)
+	if notify_test_hook:
+		var after_file_snapshot_read: Callable = _test_after_file_snapshot_read
+		_test_after_file_snapshot_read = Callable()
+		if after_file_snapshot_read.is_valid():
+			var _test_callback_result: Variant = after_file_snapshot_read.call(path)
 	var post_read_guard_error: Error = _get_paths_physical_error(
 		PackedStringArray([path]),
 		enforce_physical_ownership
 	)
 	if post_read_guard_error != OK:
-		return {
-			"ok": false,
-			"size_bytes": -1,
-			"sha256": "",
-			"error_code": post_read_guard_error,
-		}
-	var snapshot_ok: bool = size_bytes >= 0 and not sha256.is_empty()
+		return _make_failed_file_entry_snapshot(post_read_guard_error)
+	if (
+		_path_component_is_link(absolute_path) != is_direct_link
+		or DirAccess.dir_exists_absolute(absolute_path)
+		or not FileAccess.file_exists(path)
+	):
+		return _make_failed_file_entry_snapshot(ERR_FILE_CORRUPT)
+	var snapshot_ok: bool = (
+		size_bytes >= 0
+		and raw_bytes.size() == size_bytes
+		and not sha256.is_empty()
+	)
 	return {
 		"ok": snapshot_ok,
 		"size_bytes": size_bytes,
 		"sha256": sha256,
+		"entry_kind": _FILE_ENTRY_DIRECT_LINK if is_direct_link else _FILE_ENTRY_REGULAR,
 		"error_code": OK if snapshot_ok else ERR_FILE_CORRUPT,
+	}
+
+
+static func _make_failed_file_entry_snapshot(error_code: Error) -> Dictionary:
+	return {
+		"ok": false,
+		"size_bytes": -1,
+		"sha256": "",
+		"entry_kind": &"",
+		"error_code": error_code,
 	}
 
 
@@ -1801,6 +1977,89 @@ static func _validate_file_snapshot(
 	):
 		return ERR_FILE_CORRUPT
 	return OK
+
+
+static func _validate_original_file_snapshot(
+	path: String,
+	expected_snapshot: Dictionary,
+	enforce_physical_ownership: bool
+) -> Error:
+	if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(expected_snapshot, "ok", false):
+		return ERR_FILE_CORRUPT
+	var expected_entry_kind: StringName = (
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(
+			expected_snapshot,
+			"entry_kind"
+		)
+	)
+	if (
+		expected_entry_kind != _FILE_ENTRY_REGULAR
+		and expected_entry_kind != _FILE_ENTRY_DIRECT_LINK
+	):
+		return ERR_FILE_CORRUPT
+	if enforce_physical_ownership and expected_entry_kind == _FILE_ENTRY_DIRECT_LINK:
+		return ERR_UNAUTHORIZED
+	var snapshot: Dictionary = _capture_file_entry_snapshot(
+		path,
+		enforce_physical_ownership,
+		expected_entry_kind == _FILE_ENTRY_DIRECT_LINK,
+		true
+	)
+	if not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(snapshot, "ok", false):
+		return _GF_VARIANT_ACCESS_SCRIPT.get_option_int(
+			snapshot,
+			"error_code",
+			ERR_FILE_CORRUPT
+		) as Error
+	if (
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(
+			snapshot,
+			"entry_kind"
+		) != expected_entry_kind
+		or _GF_VARIANT_ACCESS_SCRIPT.get_option_int(
+			snapshot,
+			"size_bytes",
+			-1
+		) != _GF_VARIANT_ACCESS_SCRIPT.get_option_int(
+			expected_snapshot,
+			"size_bytes",
+			-1
+		)
+		or _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
+			snapshot,
+			"sha256"
+		) != _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
+			expected_snapshot,
+			"sha256"
+		).to_lower()
+	):
+		return ERR_FILE_CORRUPT
+	return OK
+
+
+static func _remove_original_file_if_exists(
+	path: String,
+	expected_snapshot: Dictionary,
+	enforce_physical_ownership: bool
+) -> Error:
+	var validation_error: Error = _validate_original_file_snapshot(
+		path,
+		expected_snapshot,
+		enforce_physical_ownership
+	)
+	if validation_error != OK:
+		return validation_error
+	var absolute_path: String = ProjectSettings.globalize_path(path)
+	var remove_error: Error = DirAccess.remove_absolute(absolute_path)
+	if remove_error != OK:
+		return remove_error
+	var post_remove_error: Error = _get_paths_physical_error(
+		PackedStringArray([path]),
+		enforce_physical_ownership
+	)
+	if post_remove_error != OK:
+		return post_remove_error
+	return OK if not _path_entry_exists(path) else ERR_FILE_CANT_WRITE
 
 
 static func _path_entry_exists(path: String) -> bool:
@@ -1892,6 +2151,10 @@ static func _configure_test_after_file_snapshot_read(callback: Callable) -> void
 	_test_after_file_snapshot_read = callback
 
 
+static func _configure_test_scan_filesystem_observer(callback: Callable) -> void:
+	_test_scan_filesystem_observer = callback
+
+
 static func _configure_test_temp_write_failure(
 	error_code: Error = FAILED,
 	failure_count: int = 1
@@ -1908,13 +2171,21 @@ static func _reset_test_state() -> void:
 	_test_before_final_replace = Callable()
 	_test_after_final_replace = Callable()
 	_test_after_file_snapshot_read = Callable()
+	_test_scan_filesystem_observer = Callable()
 	_test_temp_write_error = OK
 	_test_temp_write_failures_remaining = 0
 	_test_temp_path_override = ""
 
 
-static func _scan_filesystem_if_needed(scan_filesystem: bool) -> void:
-	if not scan_filesystem or not Engine.is_editor_hint():
+static func _scan_filesystem_if_needed(
+	scan_filesystem: bool,
+	observer: Callable = Callable()
+) -> void:
+	if not scan_filesystem:
+		return
+	if observer.is_valid():
+		var _observer_result: Variant = observer.call()
+	if not Engine.is_editor_hint():
 		return
 	var filesystem: EditorFileSystem = EditorInterface.get_resource_filesystem()
 	if filesystem != null:
@@ -1929,11 +2200,15 @@ static func _read_artifact_owner(options: Dictionary) -> StringName:
 
 
 static func _sha256_text(text: String) -> String:
+	return _sha256_bytes(text.to_utf8_buffer())
+
+
+static func _sha256_bytes(bytes: PackedByteArray) -> String:
 	var context: HashingContext = HashingContext.new()
 	var start_error: Error = context.start(HashingContext.HASH_SHA256)
 	if start_error != OK:
 		return ""
-	var update_error: Error = context.update(text.to_utf8_buffer())
+	var update_error: Error = context.update(bytes)
 	if update_error != OK:
 		return ""
 	return context.finish().hex_encode()
