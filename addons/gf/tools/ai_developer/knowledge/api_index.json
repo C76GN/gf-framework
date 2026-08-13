@@ -2,7 +2,7 @@
   "schema_version": 1,
   "catalog_version": "1.0.0",
   "framework_version": "11.0.0-dev.0",
-  "source_digest": "2d1c7bbd688e0c93e50a560a0ab6e86e8d1b9ce7dbab7b9b685705bc2ea1ef46",
+  "source_digest": "ce63e7405f28a8c0b34ff13d89e06dc94a0ec946ffb0e76654933896cc3b6d35",
   "class_count": 818,
   "package_count": 56,
   "packages": [
@@ -55382,7 +55382,7 @@
       "module": "standard",
       "package_id": "gf.standard.base",
       "path": "addons/gf/standard/utilities/nodes/gf_object_pool_prewarm_operation.gd",
-      "summary": "GFObjectPoolPrewarmOperation: 单次异步对象池预热请求句柄。 Operation 冻结请求身份、容量准入和实时进度，并只接受一个类型化终态。同步校验、 零工作或同步退化请求可能在入口返回前完成；调用方应先查询 `is_completed()`。",
+      "summary": "GFObjectPoolPrewarmOperation: 单次异步对象池预热请求句柄。 Operation 冻结请求身份并跟踪最终有效的容量准入和实时进度，只接受一个类型化终态。同步校验、 零工作或同步退化请求可能在入口返回前完成；调用方应先查询 `is_completed()`。",
       "visibility": "public",
       "category": "runtime_handle",
       "since": "unreleased",
@@ -55454,7 +55454,7 @@
           "kind": "func",
           "name": "get_admitted_count",
           "signature": "func get_admitted_count() -> int",
-          "summary": "获取容量准入数量。",
+          "summary": "获取当前有效的容量准入数量。",
           "visibility": "public"
         },
         {
@@ -55468,7 +55468,7 @@
           "kind": "func",
           "name": "get_skipped_count",
           "signature": "func get_skipped_count() -> int",
-          "summary": "获取容量跳过数量。",
+          "summary": "获取未获准入或因运行期容量复核而跳过的数量。",
           "visibility": "public"
         },
         {
@@ -55527,7 +55527,7 @@
       "module": "standard",
       "package_id": "gf.standard.base",
       "path": "addons/gf/standard/utilities/nodes/gf_object_pool_prewarm_result.gd",
-      "summary": "GFObjectPoolPrewarmResult: 单次对象池预热请求的不可变终态。 结果冻结请求身份、容量准入和每个请求单位的唯一 disposition。调用方可以区分 完成、容量部分接纳、拒绝、取消、Utility 生命周期终结、输入无效与执行失败。",
+      "summary": "GFObjectPoolPrewarmResult: 单次对象池预热请求的不可变终态。 结果冻结请求身份、最终有效的容量准入和每个请求单位的唯一 disposition。调用方可以区分 完成、容量部分接纳、拒绝、取消、Utility 生命周期终结、输入无效与执行失败。",
       "visibility": "public",
       "category": "value_object",
       "since": "unreleased",
@@ -55646,6 +55646,13 @@
         },
         {
           "kind": "const",
+          "name": "REASON_MAIN_THREAD_REQUIRED",
+          "signature": "const REASON_MAIN_THREAD_REQUIRED: StringName = &\"main_thread_required\"",
+          "summary": "typed request 必须从主线程提交。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
           "name": "REASON_SCENE_INSTANTIATION_FAILED",
           "signature": "const REASON_SCENE_INSTANTIATION_FAILED: StringName = &\"scene_instantiation_failed\"",
           "summary": "PackedScene 无法实例化为有效 Node。",
@@ -55718,7 +55725,7 @@
           "kind": "func",
           "name": "get_admitted_count",
           "signature": "func get_admitted_count() -> int",
-          "summary": "获取容量准入数量。",
+          "summary": "获取终态有效的容量准入数量。",
           "visibility": "public"
         },
         {
@@ -55732,7 +55739,7 @@
           "kind": "func",
           "name": "get_skipped_count",
           "signature": "func get_skipped_count() -> int",
-          "summary": "获取未获容量准入的数量。",
+          "summary": "获取未获初始准入或因运行期容量复核而跳过的数量。",
           "visibility": "public"
         },
         {

@@ -1,6 +1,6 @@
 ## GFObjectPoolPrewarmOperation: 单次异步对象池预热请求句柄。
 ##
-## Operation 冻结请求身份、容量准入和实时进度，并只接受一个类型化终态。同步校验、
+## Operation 冻结请求身份并跟踪最终有效的容量准入和实时进度，只接受一个类型化终态。同步校验、
 ## 零工作或同步退化请求可能在入口返回前完成；调用方应先查询 `is_completed()`。
 ## [br]
 ## @api public
@@ -158,13 +158,13 @@ func get_requested_count() -> int:
 	return _requested_count
 
 
-## 获取容量准入数量。
+## 获取当前有效的容量准入数量。
 ## [br]
 ## @api public
 ## [br]
 ## @since unreleased
 ## [br]
-## @return 容量准入数量。
+## @return 非负且不大于 requested 的数量；运行期容量复核可在终态前减少该值。
 func get_admitted_count() -> int:
 	return _admitted_count
 
@@ -180,7 +180,7 @@ func get_created_count() -> int:
 	return _created_count
 
 
-## 获取容量跳过数量。
+## 获取未获准入或因运行期容量复核而跳过的数量。
 ## [br]
 ## @api public
 ## [br]
@@ -307,7 +307,7 @@ func get_debug_snapshot() -> Dictionary:
 ## [br]
 ## @param requested_count: 非负请求数量。
 ## [br]
-## @param admitted_count: 容量准入数量。
+## @param admitted_count: 初始容量准入数量；运行期容量复核可收窄该值。
 ## [br]
 ## @return 首次完整配置成功返回 true。
 func configure_for_framework(
@@ -339,6 +339,85 @@ func configure_for_framework(
 	_skipped_count = requested_count - admitted_count
 	_cancel_delegate = invocation
 	_settlement_authority = settlement_authority
+	return true
+
+
+## 在不触碰 Utility 运行时状态的线程上冻结同步拒绝终态。
+## [br]
+## @api framework_internal
+## [br]
+## @layer standard/utilities/nodes
+## [br]
+## @since unreleased
+## [br]
+## @param request_id: Utility 内线程安全分配的唯一请求 ID。
+## [br]
+## @param requested_count: 非负请求数量。
+## [br]
+## @param status: 仅允许不依赖 Utility 运行时状态的同步终态。
+## [br]
+## @param reason: 与 status 对应的原因。
+## [br]
+## @param error_code: 与 status/reason 对应的 Error。
+## [br]
+## @return 首次完整配置成功返回 true。
+func configure_terminal_for_framework(
+	request_id: int,
+	requested_count: int,
+	status: GFObjectPoolPrewarmResult.Status,
+	reason: StringName,
+	error_code: Error
+) -> bool:
+	if _request_id != 0 or request_id <= 0 or requested_count < 0:
+		return false
+	var result: GFObjectPoolPrewarmResult = GFObjectPoolPrewarmResult.new()
+	if not result.configure_for_framework(
+		status,
+		request_id,
+		"",
+		requested_count,
+		0,
+		0,
+		requested_count,
+		0,
+		0,
+		reason,
+		error_code
+	):
+		return false
+	_request_id = request_id
+	_requested_count = requested_count
+	_skipped_count = requested_count
+	_result = result
+	_completed_signal_emitted = true
+	return true
+
+
+## 将尚未提交的容量准入改归为 skipped。
+## [br]
+## @api framework_internal
+## [br]
+## @layer standard/utilities/nodes
+## [br]
+## @since unreleased
+## [br]
+## @param settlement_authority: 配置时由所属 Utility 冻结的同一权限对象。
+## [br]
+## @return 仍有未处理准入单位时更新成功返回 true。
+func record_capacity_skipped_for_framework(settlement_authority: RefCounted) -> bool:
+	if (
+		not Thread.is_main_thread()
+		or not is_pending()
+		or _pending_terminal_result != null
+		or settlement_authority == null
+		or settlement_authority != _settlement_authority
+		or not _has_unresolved_admitted_count()
+	):
+		return false
+	var skipped_delta: int = _admitted_count - _created_count - _cancelled_count - _failed_count
+	_admitted_count -= skipped_delta
+	_skipped_count += skipped_delta
+	_emit_progress_notification()
 	return true
 
 

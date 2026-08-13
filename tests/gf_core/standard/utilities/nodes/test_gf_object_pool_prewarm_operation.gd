@@ -27,6 +27,25 @@ class QueueFreePrepareOwner extends Node:
 		return OK
 
 
+class ThreadedPrewarmCaller extends RefCounted:
+	var _pool_utility: GFObjectPoolUtility
+	var _packed_scene: PackedScene
+
+	func _init(
+		pool_utility: GFObjectPoolUtility,
+		packed_scene: PackedScene
+	) -> void:
+		_pool_utility = pool_utility
+		_packed_scene = packed_scene
+
+	func call_public_requests() -> Array[GFObjectPoolPrewarmOperation]:
+		var operations: Array[GFObjectPoolPrewarmOperation] = [
+			_pool_utility.prewarm_request_async(_packed_scene, null, 1, 1),
+			_pool_utility.prewarm_budget_request_async(_packed_scene, null, 1, 0.001),
+		]
+		return operations
+
+
 # --- Godot 生命周期方法 ---
 
 func before_each() -> void:
@@ -308,6 +327,95 @@ func test_validation_and_capacity_return_closed_synchronous_results() -> void:
 		0,
 		0
 	)
+
+
+func test_worker_thread_typed_requests_return_closed_main_thread_errors() -> void:
+	_pool.max_available_per_scene = 1
+	_pool.prewarm(_scene, null, 0)
+	var before_snapshot: Dictionary = _pool.get_debug_snapshot()
+	var caller: ThreadedPrewarmCaller = ThreadedPrewarmCaller.new(_pool, _scene)
+	var worker: Thread = Thread.new()
+	var start_error: Error = worker.start(Callable(caller, &"call_public_requests"))
+	assert_eq(start_error, OK, "真实 worker 应能启动。")
+	if start_error != OK:
+		return
+
+	var worker_value: Variant = worker.wait_to_finish()
+	assert_true(worker_value is Array, "worker 应返回两个 typed Operation。")
+	if not worker_value is Array:
+		return
+	var raw_operations: Array = worker_value
+	assert_eq(raw_operations.size(), 2, "batch 与 budget 应分别返回 Operation。")
+	if raw_operations.size() != 2:
+		return
+	var batch_value: Variant = raw_operations[0]
+	var budget_value: Variant = raw_operations[1]
+	assert_true(batch_value is GFObjectPoolPrewarmOperation, "batch 应返回非空 Operation。")
+	assert_true(budget_value is GFObjectPoolPrewarmOperation, "budget 应返回非空 Operation。")
+	if (
+		not batch_value is GFObjectPoolPrewarmOperation
+		or not budget_value is GFObjectPoolPrewarmOperation
+	):
+		return
+	var batch_operation: GFObjectPoolPrewarmOperation = batch_value
+	var budget_operation: GFObjectPoolPrewarmOperation = budget_value
+
+	assert_gt(batch_operation.get_request_id(), 0, "batch request id 应为正数。")
+	assert_gt(budget_operation.get_request_id(), 0, "budget request id 应为正数。")
+	assert_ne(
+		batch_operation.get_request_id(),
+		budget_operation.get_request_id(),
+		"batch 与 budget request id 应互异。"
+	)
+	_assert_terminal(
+		batch_operation,
+		GFObjectPoolPrewarmResult.Status.INVALID,
+		GFObjectPoolPrewarmResult.REASON_MAIN_THREAD_REQUIRED,
+		ERR_INVALID_PARAMETER,
+		1,
+		0,
+		0,
+		1,
+		0,
+		0
+	)
+	_assert_terminal(
+		budget_operation,
+		GFObjectPoolPrewarmResult.Status.INVALID,
+		GFObjectPoolPrewarmResult.REASON_MAIN_THREAD_REQUIRED,
+		ERR_INVALID_PARAMETER,
+		1,
+		0,
+		0,
+		1,
+		0,
+		0
+	)
+	assert_eq(
+		_pool.get_debug_snapshot(),
+		before_snapshot,
+		"被拒绝的 worker 请求不得改变池状态。"
+	)
+
+	var main_operation: GFObjectPoolPrewarmOperation = _pool.prewarm_request_async(
+		_scene,
+		_parent,
+		1,
+		0
+	)
+	_assert_terminal(
+		main_operation,
+		GFObjectPoolPrewarmResult.Status.COMPLETED,
+		GFObjectPoolPrewarmResult.REASON_COMPLETED,
+		OK,
+		1,
+		1,
+		1,
+		0,
+		0,
+		0
+	)
+	assert_eq(_pool.get_available_count(_scene), 1, "主线程后续请求应继续可用。")
 
 
 func test_queued_parent_is_invalid_without_capacity_admission() -> void:
@@ -788,6 +896,82 @@ func test_partial_capacity_and_budget_progress_are_request_scoped() -> void:
 	assert_eq(operation.get_progress_ratio(), 1.0)
 	assert_eq(operation.get_remaining_count(), 0)
 	assert_eq(progress_counts, [3], "连接后应只观察第二个提交对应的最终进度。")
+	_disconnect_signal_if_connected(operation.progressed, progress_callback)
+
+
+func test_post_admission_capacity_pressure_is_partial_capacity_limited() -> void:
+	_pool.max_available_per_scene = 2
+	var first_borrowed: Node = _pool.acquire(_scene, _parent)
+	var second_borrowed: Node = _pool.acquire(_scene, _parent)
+	assert_not_null(first_borrowed, "应能借出第一个节点构造容量压力。")
+	assert_not_null(second_borrowed, "应能借出第二个节点构造容量压力。")
+	if first_borrowed == null or second_borrowed == null:
+		return
+
+	var operation: GFObjectPoolPrewarmOperation = _pool.prewarm_request_async(
+		_scene,
+		_parent,
+		2,
+		1
+	)
+	watch_signals(operation)
+	assert_true(operation.is_pending(), "batch=1 应在首个提交后保持 pending。")
+	assert_eq(operation.get_admitted_count(), 2, "请求起始时两个单位都应获 admission。")
+	assert_eq(operation.get_created_count(), 1, "返回前应只提交第一批节点。")
+
+	_pool.release(first_borrowed, _scene)
+	assert_eq(_pool.get_available_count(_scene), 2, "外部 release 应在下一批前占满容量。")
+	assert_true(await _wait_until_completed(operation), "容量压力应有界收敛为 typed 终态。")
+	_assert_terminal(
+		operation,
+		GFObjectPoolPrewarmResult.Status.PARTIAL,
+		GFObjectPoolPrewarmResult.REASON_CAPACITY_LIMITED,
+		OK,
+		2,
+		1,
+		1,
+		1,
+		0,
+		0
+	)
+	assert_eq(_pool.get_available_count(_scene), 2, "容量竞争不得驱逐已提交或已释放节点。")
+	assert_signal_emit_count(operation, "completed", 1, "容量竞争终态应 completed exact-once。")
+	_pool.release(second_borrowed, _scene)
+
+
+func test_capacity_skip_authority_rejects_progress_listener_forgery() -> void:
+	_pool.max_available_per_scene = 4
+	var operation: GFObjectPoolPrewarmOperation = _pool.prewarm_request_async(
+		_scene,
+		_parent,
+		3,
+		1
+	)
+	var rogue_results: Array[bool] = []
+	var progress_callback: Callable = func(
+		current: GFObjectPoolPrewarmOperation,
+	) -> void:
+		if current.get_created_count() == 2 and rogue_results.is_empty():
+			rogue_results.append(
+				current.record_capacity_skipped_for_framework(RefCounted.new())
+			)
+	var _connect_error: int = operation.progressed.connect(progress_callback) as Error
+
+	assert_true(await _wait_until_completed(operation), "伪造 capacity skip 不得卡住请求。")
+	assert_eq(rogue_results, [false], "非所属 Utility 不得改写准入计数。")
+	_assert_terminal(
+		operation,
+		GFObjectPoolPrewarmResult.Status.COMPLETED,
+		GFObjectPoolPrewarmResult.REASON_COMPLETED,
+		OK,
+		3,
+		3,
+		3,
+		0,
+		0,
+		0
+	)
+	assert_eq(_pool.get_available_count(_scene), 3, "拒绝伪造后请求应正常完成。")
 	_disconnect_signal_if_connected(operation.progressed, progress_callback)
 
 

@@ -9,7 +9,7 @@
 - 类别：运行时句柄 (`runtime_handle`)
 - 首次版本：`unreleased`
 
-单次异步对象池预热请求句柄。 Operation 冻结请求身份、容量准入和实时进度，并只接受一个类型化终态。同步校验、 零工作或同步退化请求可能在入口返回前完成；调用方应先查询 `is_completed()`。
+单次异步对象池预热请求句柄。 Operation 冻结请求身份并跟踪最终有效的容量准入和实时进度，只接受一个类型化终态。同步校验、 零工作或同步退化请求可能在入口返回前完成；调用方应先查询 `is_completed()`。
 
 ## 成员概览
 
@@ -193,9 +193,9 @@ func get_requested_count() -> int:
 func get_admitted_count() -> int:
 ```
 
-获取容量准入数量。
+获取当前有效的容量准入数量。
 
-返回：容量准入数量。
+返回：非负且不大于 requested 的数量；运行期容量复核可在终态前减少该值。
 
 <a id="member-gfobjectpoolprewarmoperation-methods-get_created_count"></a>
 
@@ -223,7 +223,7 @@ func get_created_count() -> int:
 func get_skipped_count() -> int:
 ```
 
-获取容量跳过数量。
+获取未获准入或因运行期容量复核而跳过的数量。
 
 返回：`requested - admitted`。
 

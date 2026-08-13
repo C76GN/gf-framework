@@ -9,7 +9,7 @@
 - 类别：值对象 (`value_object`)
 - 首次版本：`unreleased`
 
-单次对象池预热请求的不可变终态。 结果冻结请求身份、容量准入和每个请求单位的唯一 disposition。调用方可以区分 完成、容量部分接纳、拒绝、取消、Utility 生命周期终结、输入无效与执行失败。
+单次对象池预热请求的不可变终态。 结果冻结请求身份、最终有效的容量准入和每个请求单位的唯一 disposition。调用方可以区分 完成、容量部分接纳、拒绝、取消、Utility 生命周期终结、输入无效与执行失败。
 
 ## 成员概览
 
@@ -31,6 +31,7 @@
 | 常量 | [`REASON_INVALID_PARENT`](#member-gfobjectpoolprewarmresult-constants-reason_invalid_parent) | `const REASON_INVALID_PARENT: StringName = &"invalid_parent"` |
 | 常量 | [`REASON_INVALID_OWNER`](#member-gfobjectpoolprewarmresult-constants-reason_invalid_owner) | `const REASON_INVALID_OWNER: StringName = &"invalid_owner"` |
 | 常量 | [`REASON_INVALID_PREPARE_CALLBACK`](#member-gfobjectpoolprewarmresult-constants-reason_invalid_prepare_callback) | `const REASON_INVALID_PREPARE_CALLBACK: StringName = &"invalid_prepare_callback"` |
+| 常量 | [`REASON_MAIN_THREAD_REQUIRED`](#member-gfobjectpoolprewarmresult-constants-reason_main_thread_required) | `const REASON_MAIN_THREAD_REQUIRED: StringName = &"main_thread_required"` |
 | 常量 | [`REASON_SCENE_INSTANTIATION_FAILED`](#member-gfobjectpoolprewarmresult-constants-reason_scene_instantiation_failed) | `const REASON_SCENE_INSTANTIATION_FAILED: StringName = &"scene_instantiation_failed"` |
 | 常量 | [`REASON_PREPARE_CALLBACK_FAILED`](#member-gfobjectpoolprewarmresult-constants-reason_prepare_callback_failed) | `const REASON_PREPARE_CALLBACK_FAILED: StringName = &"prepare_callback_failed"` |
 | 常量 | [`REASON_INVALID_PREPARE_CALLBACK_RESULT`](#member-gfobjectpoolprewarmresult-constants-reason_invalid_prepare_callback_result) | `const REASON_INVALID_PREPARE_CALLBACK_RESULT: StringName = &"invalid_prepare_callback_result"` |
@@ -278,6 +279,19 @@ const REASON_INVALID_PREPARE_CALLBACK: StringName = &"invalid_prepare_callback"
 
 prepare_callback 不是空 Callable 或有效 Callable。
 
+<a id="member-gfobjectpoolprewarmresult-constants-reason_main_thread_required"></a>
+
+### `REASON_MAIN_THREAD_REQUIRED`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+const REASON_MAIN_THREAD_REQUIRED: StringName = &"main_thread_required"
+```
+
+typed request 必须从主线程提交。
+
 <a id="member-gfobjectpoolprewarmresult-constants-reason_scene_instantiation_failed"></a>
 
 ### `REASON_SCENE_INSTANTIATION_FAILED`
@@ -431,9 +445,9 @@ func get_requested_count() -> int:
 func get_admitted_count() -> int:
 ```
 
-获取容量准入数量。
+获取终态有效的容量准入数量。
 
-返回：非负且不大于 requested 的数量。
+返回：非负且不大于 requested 的数量；已包含运行期容量复核的收窄结果。
 
 <a id="member-gfobjectpoolprewarmresult-methods-get_created_count"></a>
 
@@ -461,7 +475,7 @@ func get_created_count() -> int:
 func get_skipped_count() -> int:
 ```
 
-获取未获容量准入的数量。
+获取未获初始准入或因运行期容量复核而跳过的数量。
 
 返回：`requested - admitted`。
 

@@ -246,7 +246,7 @@ func prewarm_async_budget( scene: PackedScene, parent: Node, count: int, msec_bu
 func prewarm_request_async( scene: PackedScene, parent: Node, count: int, batch_size: int = 32, owner: Object = null, cancellation_token: GFCancellationToken = null, prepare_callback: Callable = Callable() ) -> GFObjectPoolPrewarmOperation:
 ```
 
-创建一个按每帧批量驱动的 request-scoped 类型化预热请求。 请求只释放自身尚未消费的容量 reservation；取消不会回滚已经提交的节点。 `batch_size <= 0` 时保留旧 API 的同步退化语义。同步终态可能在方法返回前完成。
+创建一个按每帧批量驱动的 request-scoped 类型化预热请求。 请求只释放自身尚未消费的容量 reservation；取消不会回滚已经提交的节点。 `batch_size <= 0` 时保留旧 API 的同步退化语义。同步终态可能在方法返回前完成。 该入口只接受主线程调用；其他线程会同步返回 `INVALID/main_thread_required`，且不改变池状态。
 
 参数：
 
@@ -273,7 +273,7 @@ func prewarm_request_async( scene: PackedScene, parent: Node, count: int, batch_
 func prewarm_budget_request_async( scene: PackedScene, parent: Node, count: int, msec_budget_per_frame: float = 8.0, owner: Object = null, cancellation_token: GFCancellationToken = null, prepare_callback: Callable = Callable() ) -> GFObjectPoolPrewarmOperation:
 ```
 
-创建一个按每帧时间预算驱动的 request-scoped 类型化预热请求。 请求只释放自身尚未消费的容量 reservation；取消不会回滚已经提交的节点。 `msec_budget_per_frame <= 0` 时保留旧 API 的同步退化语义。
+创建一个按每帧时间预算驱动的 request-scoped 类型化预热请求。 请求只释放自身尚未消费的容量 reservation；取消不会回滚已经提交的节点。 `msec_budget_per_frame <= 0` 时保留旧 API 的同步退化语义。 该入口只接受主线程调用；其他线程会同步返回 `INVALID/main_thread_required`，且不改变池状态。
 
 参数：
 

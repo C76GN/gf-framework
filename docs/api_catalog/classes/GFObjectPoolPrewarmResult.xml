@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFObjectPoolPrewarmResult" path="addons/gf/standard/utilities/nodes/gf_object_pool_prewarm_result.gd" module="standard" extends="RefCounted" classDigest="183998f694782ed0ecd7696fdb1d3c26bd953f6bc4acec5be11f23ee28eb1c63">
+<class name="GFObjectPoolPrewarmResult" path="addons/gf/standard/utilities/nodes/gf_object_pool_prewarm_result.gd" module="standard" extends="RefCounted" classDigest="598daa25988c7daef71d69b51f4fa32a42abbee169b20d237d01c8e27cec636e">
 	<description>GFObjectPoolPrewarmResult: 单次对象池预热请求的不可变终态。
-结果冻结请求身份、容量准入和每个请求单位的唯一 disposition。调用方可以区分
+结果冻结请求身份、最终有效的容量准入和每个请求单位的唯一 disposition。调用方可以区分
 完成、容量部分接纳、拒绝、取消、Utility 生命周期终结、输入无效与执行失败。</description>
 	<tags>
 		<tag name="api">public</tag>
@@ -156,6 +156,14 @@
 				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
+		<member kind="const" name="REASON_MAIN_THREAD_REQUIRED">
+			<signature>const REASON_MAIN_THREAD_REQUIRED: StringName = &amp;"main_thread_required"</signature>
+			<description>typed request 必须从主线程提交。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
 		<member kind="const" name="REASON_SCENE_INSTANTIATION_FAILED">
 			<signature>const REASON_SCENE_INSTANTIATION_FAILED: StringName = &amp;"scene_instantiation_failed"</signature>
 			<description>PackedScene 无法实例化为有效 Node。</description>
@@ -246,10 +254,10 @@
 		</member>
 		<member kind="method" name="get_admitted_count">
 			<signature>func get_admitted_count() -&gt; int:</signature>
-			<description>获取容量准入数量。</description>
+			<description>获取终态有效的容量准入数量。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="return">非负且不大于 requested 的数量。</tag>
+				<tag name="return">非负且不大于 requested 的数量；已包含运行期容量复核的收窄结果。</tag>
 				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
@@ -264,7 +272,7 @@
 		</member>
 		<member kind="method" name="get_skipped_count">
 			<signature>func get_skipped_count() -&gt; int:</signature>
-			<description>获取未获容量准入的数量。</description>
+			<description>获取未获初始准入或因运行期容量复核而跳过的数量。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">`requested - admitted`。</tag>

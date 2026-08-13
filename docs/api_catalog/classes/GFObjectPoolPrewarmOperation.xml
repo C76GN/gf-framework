@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFObjectPoolPrewarmOperation" path="addons/gf/standard/utilities/nodes/gf_object_pool_prewarm_operation.gd" module="standard" extends="RefCounted" classDigest="ee1fe0696cbcac807ba403331b05843ce798d47e29443db1a3d4f7ca4140494e">
+<class name="GFObjectPoolPrewarmOperation" path="addons/gf/standard/utilities/nodes/gf_object_pool_prewarm_operation.gd" module="standard" extends="RefCounted" classDigest="6aff5c6cce9508521934d4d8ba923b3fa0615136d1bdd95c6ac1f5f666c15902">
 	<description>GFObjectPoolPrewarmOperation: 单次异步对象池预热请求句柄。
-Operation 冻结请求身份、容量准入和实时进度，并只接受一个类型化终态。同步校验、
+Operation 冻结请求身份并跟踪最终有效的容量准入和实时进度，只接受一个类型化终态。同步校验、
 零工作或同步退化请求可能在入口返回前完成；调用方应先查询 `is_completed()`。</description>
 	<tags>
 		<tag name="api">public</tag>
@@ -98,10 +98,10 @@ Operation 冻结请求身份、容量准入和实时进度，并只接受一个�
 		</member>
 		<member kind="method" name="get_admitted_count">
 			<signature>func get_admitted_count() -&gt; int:</signature>
-			<description>获取容量准入数量。</description>
+			<description>获取当前有效的容量准入数量。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="return">容量准入数量。</tag>
+				<tag name="return">非负且不大于 requested 的数量；运行期容量复核可在终态前减少该值。</tag>
 				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
@@ -116,7 +116,7 @@ Operation 冻结请求身份、容量准入和实时进度，并只接受一个�
 		</member>
 		<member kind="method" name="get_skipped_count">
 			<signature>func get_skipped_count() -&gt; int:</signature>
-			<description>获取容量跳过数量。</description>
+			<description>获取未获准入或因运行期容量复核而跳过的数量。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">`requested - admitted`。</tag>

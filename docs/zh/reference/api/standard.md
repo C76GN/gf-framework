@@ -10,7 +10,7 @@
 | [协议与扩展点](#category-protocol) | 26 | 345 | 273 |
 | [资源定义](#category-resource_definition) | 122 | 1573 | 797 |
 | [运行时句柄](#category-runtime_handle) | 53 | 930 | 595 |
-| [值对象](#category-value_object) | 55 | 963 | 613 |
+| [值对象](#category-value_object) | 55 | 964 | 613 |
 | [领域模型](#category-domain_model) | 4 | 61 | 42 |
 | [事件契约](#category-event_contract) | 6 | 61 | 23 |
 | [编辑器 API](#category-editor_api) | 11 | 70 | 48 |

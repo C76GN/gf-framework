@@ -1,6 +1,6 @@
 ## GFObjectPoolPrewarmResult: 单次对象池预热请求的不可变终态。
 ##
-## 结果冻结请求身份、容量准入和每个请求单位的唯一 disposition。调用方可以区分
+## 结果冻结请求身份、最终有效的容量准入和每个请求单位的唯一 disposition。调用方可以区分
 ## 完成、容量部分接纳、拒绝、取消、Utility 生命周期终结、输入无效与执行失败。
 ## [br]
 ## @api public
@@ -146,6 +146,13 @@ const REASON_INVALID_OWNER: StringName = &"invalid_owner"
 ## @since unreleased
 const REASON_INVALID_PREPARE_CALLBACK: StringName = &"invalid_prepare_callback"
 
+## typed request 必须从主线程提交。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+const REASON_MAIN_THREAD_REQUIRED: StringName = &"main_thread_required"
+
 ## PackedScene 无法实例化为有效 Node。
 ## [br]
 ## @api public
@@ -255,13 +262,13 @@ func get_requested_count() -> int:
 	return _requested_count
 
 
-## 获取容量准入数量。
+## 获取终态有效的容量准入数量。
 ## [br]
 ## @api public
 ## [br]
 ## @since unreleased
 ## [br]
-## @return 非负且不大于 requested 的数量。
+## @return 非负且不大于 requested 的数量；已包含运行期容量复核的收窄结果。
 func get_admitted_count() -> int:
 	return _admitted_count
 
@@ -277,7 +284,7 @@ func get_created_count() -> int:
 	return _created_count
 
 
-## 获取未获容量准入的数量。
+## 获取未获初始准入或因运行期容量复核而跳过的数量。
 ## [br]
 ## @api public
 ## [br]
@@ -402,11 +409,11 @@ func to_dict() -> Dictionary:
 ## [br]
 ## @param requested_count: 非负请求数量。
 ## [br]
-## @param admitted_count: 容量准入数量。
+## @param admitted_count: 终态有效的容量准入数量。
 ## [br]
 ## @param created_count: 成功提交数量。
 ## [br]
-## @param skipped_count: 未获容量准入数量。
+## @param skipped_count: 未获初始准入或因运行期容量复核而跳过的数量。
 ## [br]
 ## @param cancelled_count: 取消数量。
 ## [br]
@@ -577,6 +584,7 @@ static func _terminal_union_is_valid(
 					REASON_INVALID_PARENT,
 					REASON_INVALID_OWNER,
 					REASON_INVALID_PREPARE_CALLBACK,
+					REASON_MAIN_THREAD_REQUIRED,
 				]
 				and error_code == ERR_INVALID_PARAMETER
 				and admitted_count == 0

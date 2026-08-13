@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFObjectPoolUtility" path="addons/gf/standard/utilities/nodes/gf_object_pool_utility.gd" module="standard" extends="GFUtility" classDigest="8eee3f0886b396edead3c9ae3265b11ed8ff85c7401e5d80227f42a48f5b5479">
+<class name="GFObjectPoolUtility" path="addons/gf/standard/utilities/nodes/gf_object_pool_utility.gd" module="standard" extends="GFUtility" classDigest="d5f005f8853bf4dc1aac144e3da1ee8c03c8dece6c6eb99b7535e0046806e932">
 	<description>GFObjectPoolUtility: 节点对象池管理器。
 继承自 GFUtility，管理 Node 对象的实例化与回收，
 避免高频 instance/free 操作带来的内存碎片和性能抖动。
@@ -134,7 +134,8 @@
 			<signature>func prewarm_request_async( scene: PackedScene, parent: Node, count: int, batch_size: int = 32, owner: Object = null, cancellation_token: GFCancellationToken = null, prepare_callback: Callable = Callable() ) -&gt; GFObjectPoolPrewarmOperation:</signature>
 			<description>创建一个按每帧批量驱动的 request-scoped 类型化预热请求。
 请求只释放自身尚未消费的容量 reservation；取消不会回滚已经提交的节点。
-`batch_size &lt;= 0` 时保留旧 API 的同步退化语义。同步终态可能在方法返回前完成。</description>
+`batch_size &lt;= 0` 时保留旧 API 的同步退化语义。同步终态可能在方法返回前完成。
+该入口只接受主线程调用；其他线程会同步返回 `INVALID/main_thread_required`，且不改变池状态。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">scene: 要预热的 PackedScene 资源。</tag>
@@ -152,7 +153,8 @@
 			<signature>func prewarm_budget_request_async( scene: PackedScene, parent: Node, count: int, msec_budget_per_frame: float = 8.0, owner: Object = null, cancellation_token: GFCancellationToken = null, prepare_callback: Callable = Callable() ) -&gt; GFObjectPoolPrewarmOperation:</signature>
 			<description>创建一个按每帧时间预算驱动的 request-scoped 类型化预热请求。
 请求只释放自身尚未消费的容量 reservation；取消不会回滚已经提交的节点。
-`msec_budget_per_frame &lt;= 0` 时保留旧 API 的同步退化语义。</description>
+`msec_budget_per_frame &lt;= 0` 时保留旧 API 的同步退化语义。
+该入口只接受主线程调用；其他线程会同步返回 `INVALID/main_thread_required`，且不改变池状态。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">scene: 要预热的 PackedScene 资源。</tag>

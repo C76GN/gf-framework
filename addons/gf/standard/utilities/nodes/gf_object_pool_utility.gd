@@ -121,6 +121,7 @@ var _available_pools: Dictionary = {}
 var _prewarm_reserved_counts: Dictionary = {}
 var _active_prewarm_requests: Dictionary = {}
 var _next_prewarm_request_id: int = 1
+var _prewarm_request_id_mutex: Mutex = Mutex.new()
 var _pool_lifecycle_transition: int = _PoolLifecycleTransition.NONE
 var _queued_pool_lifecycle_transition: int = _PoolLifecycleTransition.NONE
 var _active_generations: Dictionary = {}
@@ -490,6 +491,7 @@ func prewarm_async_budget(
 ## [br]
 ## 请求只释放自身尚未消费的容量 reservation；取消不会回滚已经提交的节点。
 ## `batch_size <= 0` 时保留旧 API 的同步退化语义。同步终态可能在方法返回前完成。
+## 该入口只接受主线程调用；其他线程会同步返回 `INVALID/main_thread_required`，且不改变池状态。
 ## [br]
 ## @api public
 ## [br]
@@ -536,6 +538,7 @@ func prewarm_request_async(
 ## [br]
 ## 请求只释放自身尚未消费的容量 reservation；取消不会回滚已经提交的节点。
 ## `msec_budget_per_frame <= 0` 时保留旧 API 的同步退化语义。
+## 该入口只接受主线程调用；其他线程会同步返回 `INVALID/main_thread_required`，且不改变池状态。
 ## [br]
 ## @api public
 ## [br]
@@ -692,15 +695,16 @@ func _perform_pool_lifecycle_transition(transition: int) -> void:
 		ERR_UNAVAILABLE
 	)
 	_lifecycle_serial += 1
-	for scene_key: Variant in _all_nodes:
-		var scene: PackedScene = _variant_to_packed_scene(scene_key)
-		if scene == null:
-			continue
-		var pool: Array = _get_all_nodes_pool(scene)
-		for node_variant: Variant in pool:
-			var node: Node = _get_valid_pool_node(node_variant)
-			if node != null:
-				_queue_free_detached(node)
+	if transition == _PoolLifecycleTransition.DISPOSE:
+		for scene_key: Variant in _all_nodes:
+			var scene: PackedScene = _variant_to_packed_scene(scene_key)
+			if scene == null:
+				continue
+			var pool: Array = _get_all_nodes_pool(scene)
+			for node_variant: Variant in pool:
+				var node: Node = _get_valid_pool_node(node_variant)
+				if node != null:
+					_queue_free_detached(node)
 	if is_instance_valid(_pool_root):
 		_queue_free_detached(_pool_root)
 	_all_nodes.clear()
@@ -1129,6 +1133,15 @@ func _begin_prewarm_request(
 	var request_id: int = _take_prewarm_request_id()
 	var requested_count: int = maxi(count, 0)
 	var operation: GFObjectPoolPrewarmOperation = GFObjectPoolPrewarmOperation.new()
+	if not Thread.is_main_thread():
+		var _worker_configured: bool = operation.configure_terminal_for_framework(
+			request_id,
+			requested_count,
+			GFObjectPoolPrewarmResult.Status.INVALID,
+			GFObjectPoolPrewarmResult.REASON_MAIN_THREAD_REQUIRED,
+			ERR_INVALID_PARAMETER
+		)
+		return operation
 	var cancel_delegate: Callable = Callable(self, &"_cancel_prewarm_operation")
 	if _is_disposed or _pool_lifecycle_transition != _PoolLifecycleTransition.NONE:
 		var disposed_reason: StringName = GFObjectPoolPrewarmResult.REASON_UTILITY_DISPOSED
@@ -1436,6 +1449,30 @@ func _drive_prewarm_request(
 		)
 		if not _prewarm_request_is_active(request_id, operation):
 			return
+		if GFVariantData.get_option_bool(attempt, "capacity_limited"):
+			entry = _get_prewarm_request_entry(request_id, operation)
+			if entry.is_empty():
+				return
+			settlement_authority = _entry_settlement_authority(entry)
+			_release_request_prewarm_capacity(
+				entry,
+				GFVariantData.get_option_int(entry, "reserved_remaining")
+			)
+			if not operation.record_capacity_skipped_for_framework(settlement_authority):
+				var _capacity_record_failed: bool = _finish_prewarm_request(
+					request_id,
+					operation,
+					GFObjectPoolPrewarmResult.Status.FAILED,
+					GFObjectPoolPrewarmResult.REASON_INTERNAL_FAILURE,
+					FAILED
+				)
+				return
+			if _prewarm_request_is_active(request_id, operation):
+				var _capacity_completed: bool = _finish_completed_prewarm_request(
+					request_id,
+					operation
+				)
+			return
 		if not GFVariantData.get_option_bool(attempt, "ok"):
 			if not _poll_prewarm_request(request_id, operation):
 				return
@@ -1515,6 +1552,9 @@ func _prewarm_request_node_attempt(
 			GFObjectPoolPrewarmResult.REASON_SCENE_INSTANTIATION_FAILED,
 			ERR_CANT_CREATE
 		)
+	if _prewarm_request_capacity_is_saturated(scene):
+		_discard_pool_candidate(node)
+		return {"capacity_limited": true}
 	if not _prewarm_request_candidate_context_is_valid(
 		request_id, operation, scene, parent, node, current_serial
 	):
@@ -1549,6 +1589,9 @@ func _prewarm_request_node_attempt(
 	if not GFVariantData.get_option_bool(prepare_outcome, "ok"):
 		_discard_tracked_pool_candidate(node, scene)
 		return prepare_outcome
+	if _prewarm_request_capacity_is_saturated(scene):
+		_discard_tracked_pool_candidate(node, scene)
+		return {"capacity_limited": true}
 	if not _typed_prewarm_operation_matches(
 		request_id,
 		operation,
@@ -1566,6 +1609,9 @@ func _prewarm_request_node_attempt(
 		)
 	if parent != null:
 		parent.add_child(node)
+	if _prewarm_request_capacity_is_saturated(scene):
+		_discard_tracked_pool_candidate(node, scene)
+		return {"capacity_limited": true}
 	if not _typed_prewarm_operation_matches(
 		request_id,
 		operation,
@@ -1594,6 +1640,9 @@ func _prewarm_request_node_attempt(
 			GFObjectPoolPrewarmResult.REASON_CANDIDATE_INVALIDATED,
 			ERR_UNAVAILABLE
 		)
+	if _prewarm_request_capacity_is_saturated(scene):
+		_discard_tracked_pool_candidate(node, scene)
+		return {"capacity_limited": true}
 	if not _typed_prewarm_operation_matches(
 		request_id,
 		operation,
@@ -1693,9 +1742,11 @@ func _prewarm_request_candidate_context_is_valid(
 		return false
 	if parent != null and (not is_instance_valid(parent) or parent.is_queued_for_deletion()):
 		return false
-	if max_available_per_scene > 0 and get_available_count(scene) >= max_available_per_scene:
-		return false
 	return not node.is_queued_for_deletion()
+
+
+func _prewarm_request_capacity_is_saturated(scene: PackedScene) -> bool:
+	return max_available_per_scene > 0 and get_available_count(scene) >= max_available_per_scene
 
 
 func _poll_prewarm_request(
@@ -1859,10 +1910,15 @@ func _finish_completed_prewarm_request(
 ) -> bool:
 	var status: GFObjectPoolPrewarmResult.Status = GFObjectPoolPrewarmResult.Status.COMPLETED
 	var reason: StringName = GFObjectPoolPrewarmResult.REASON_COMPLETED
-	if operation.get_skipped_count() > 0:
+	var error_code: Error = OK
+	if operation.get_admitted_count() == 0 and operation.get_skipped_count() > 0:
+		status = GFObjectPoolPrewarmResult.Status.REJECTED
+		reason = GFObjectPoolPrewarmResult.REASON_CAPACITY_UNAVAILABLE
+		error_code = ERR_BUSY
+	elif operation.get_skipped_count() > 0:
 		status = GFObjectPoolPrewarmResult.Status.PARTIAL
 		reason = GFObjectPoolPrewarmResult.REASON_CAPACITY_LIMITED
-	return _finish_prewarm_request(request_id, operation, status, reason, OK)
+	return _finish_prewarm_request(request_id, operation, status, reason, error_code)
 
 
 func _finish_prewarm_request(
@@ -1979,10 +2035,12 @@ func _prewarm_request_is_active(
 
 
 func _take_prewarm_request_id() -> int:
+	_prewarm_request_id_mutex.lock()
 	var request_id: int = _next_prewarm_request_id
 	_next_prewarm_request_id += 1
 	if _next_prewarm_request_id <= 0:
 		_next_prewarm_request_id = 1
+	_prewarm_request_id_mutex.unlock()
 	return request_id
 
 
