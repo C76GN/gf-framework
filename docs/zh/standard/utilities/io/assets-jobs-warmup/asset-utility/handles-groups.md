@@ -55,6 +55,8 @@ assets.preload_group_async(
 
 未显式指定 `lane_id` 时，分组 ID 会作为通道名，因此同一组内部可以串行或限流加载，而不同组仍可独立调度。分组只表达资源集合和加载约束，不表达 UI 包、关卡包或主题包的业务含义。
 
+`unload_group(group_id, true)` 只释放指定分组的 membership 与该组建立的 pin。只有同一路径已经没有句柄引用、任何剩余 pin 和其他分组 membership 时，工具才会立即移除缓存；卸载一个分组不会擦除另一个分组的账本。`pin=false` 的 membership 仍然只表示分组归属，不提供缓存保留能力，因此资源在超过容量时仍可被正常 LRU 淘汰；需要稳定保留时应使用分组 pin、手动 pin 或 `GFAssetHandle`。
+
 ## 可保存的预热计划
 
 当预热清单需要放进 `.tres`、编辑器配置或项目级 manifest 时，用 `GFAssetPreloadPlan` 保存计划，再委托 `preload_plan_async()` 执行。计划会保留禁用条目并提供 `validate()` 报告；实际加载仍复用分组预热、缓存 pin 和 lane 限流机制。

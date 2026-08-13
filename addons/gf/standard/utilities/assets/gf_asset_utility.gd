@@ -781,22 +781,29 @@ func preload_group_async(
 ## [br]
 ## @api public
 ## [br]
+## @since 1.31.0
+## [br]
 ## @param group_id: 分组标识。
 ## [br]
-## @param remove_unreferenced_cache: 是否移除没有句柄引用的缓存项。
+## @param remove_unreferenced_cache: 是否在没有句柄引用、剩余 pin 或其他分组 membership 时移除缓存项。该选项不会删除其他分组的 membership；未 pin 的分组本身不阻止正常 LRU 淘汰。
 func unload_group(group_id: StringName, remove_unreferenced_cache: bool = false) -> void:
-	var cache_keys: Dictionary = _get_group_path_map(group_id)
-	var pin_counts: Dictionary = _get_group_pin_map(group_id)
-	for cache_key: String in cache_keys.keys():
-		var path: String = _get_public_path_for_cache_key(cache_key)
-		var pin_count: int = _get_count_value(pin_counts, cache_key)
-		for _i: int in range(pin_count):
-			unpin_cache(path)
-		if remove_unreferenced_cache and get_asset_reference_count(path) <= 0:
-			remove_cache(path)
-
+	var cache_keys: Dictionary = _get_group_path_map(group_id).duplicate()
+	var pin_counts: Dictionary = _get_group_pin_map(group_id).duplicate()
 	_erase_dictionary_key(_group_paths, group_id)
 	_erase_dictionary_key(_group_pin_counts, group_id)
+	for cache_key: String in cache_keys.keys():
+		var pin_count: int = _get_count_value(pin_counts, cache_key)
+		for _i: int in range(pin_count):
+			_unpin_cache_key(cache_key)
+		if not remove_unreferenced_cache:
+			continue
+		if _get_count_value(_reference_counts, cache_key) > 0:
+			continue
+		if _get_count_value(_pinned_cache_paths, cache_key) > 0:
+			continue
+		if _is_cache_key_registered_in_any_group(cache_key):
+			continue
+		_remove_cache_by_key(cache_key)
 
 
 ## 驱动异步加载轮询。
@@ -958,16 +965,7 @@ func remove_cache(path: String) -> void:
 	var cache_key: String = _get_cache_key_for_path(path)
 	if cache_key.is_empty():
 		return
-	if _cache.has(cache_key):
-		_cache_diagnostics.record_invalidation(&"manual_remove", cache_key)
-	_release_handles_for_path(path)
-	_erase_dictionary_key(_cache, cache_key)
-	_erase_dictionary_key(_cache_access_order, cache_key)
-	_erase_dictionary_key(_pinned_cache_paths, cache_key)
-	_erase_dictionary_key(_reference_counts, cache_key)
-	_erase_dictionary_key(_owner_reference_counts, cache_key)
-	_remove_path_from_groups(path)
-	_erase_dictionary_key(_resource_identities, cache_key)
+	_remove_cache_by_key(cache_key)
 
 
 ## 清空全部缓存。
@@ -1218,6 +1216,24 @@ func _put_cache_by_key(cache_key: String, path: String, resource: Resource) -> v
 	_evict_lru()
 
 
+func _remove_cache_by_key(
+	cache_key: String,
+	invalidation_reason: StringName = &"manual_remove"
+) -> void:
+	if cache_key.is_empty():
+		return
+	if _cache.has(cache_key):
+		_cache_diagnostics.record_invalidation(invalidation_reason, cache_key)
+	_release_handles_for_cache_key(cache_key)
+	_erase_dictionary_key(_cache, cache_key)
+	_erase_dictionary_key(_cache_access_order, cache_key)
+	_erase_dictionary_key(_pinned_cache_paths, cache_key)
+	_erase_dictionary_key(_reference_counts, cache_key)
+	_erase_dictionary_key(_owner_reference_counts, cache_key)
+	_remove_cache_key_from_groups(cache_key)
+	_erase_dictionary_key(_resource_identities, cache_key)
+
+
 func _get_pending_type_hint(pending_request: Dictionary) -> String:
 	return GFVariantData.get_option_string(pending_request, "type_hint", "")
 
@@ -1310,6 +1326,16 @@ func _get_group_path_map(group_id: StringName) -> Dictionary:
 
 func _get_group_pin_map(group_id: StringName) -> Dictionary:
 	return _get_dictionary_reference(_group_pin_counts, group_id)
+
+
+func _is_cache_key_registered_in_any_group(cache_key: String) -> bool:
+	if cache_key.is_empty():
+		return false
+	for group_paths_value: Variant in _group_paths.values():
+		var group_paths: Dictionary = GFVariantData.as_dictionary(group_paths_value)
+		if group_paths.has(cache_key):
+			return true
+	return false
 
 
 func _get_count_value(source: Dictionary, key: Variant) -> int:
@@ -1838,8 +1864,7 @@ func _release_all_handles() -> void:
 	_handle_refs.clear()
 
 
-func _release_handles_for_path(path: String) -> void:
-	var cache_key: String = _get_cache_key_for_path(path)
+func _release_handles_for_cache_key(cache_key: String) -> void:
 	for index: int in range(_handle_refs.size() - 1, -1, -1):
 		var handle: GFAssetHandle = _get_asset_handle_value(_handle_refs[index].get_ref())
 		if handle == null or handle.is_released():
@@ -1885,8 +1910,7 @@ func _release_owner_id(owner_id: int) -> int:
 	return released_count
 
 
-func _remove_path_from_groups(path: String) -> void:
-	var cache_key: String = _get_cache_key_for_path(path)
+func _remove_cache_key_from_groups(cache_key: String) -> void:
 	if cache_key.is_empty():
 		return
 	for group_id: Variant in _group_paths.keys():
