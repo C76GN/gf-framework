@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFNetworkContractGenerator" path="addons/gf/extensions/network/editor/gf_network_contract_generator.gd" module="extensions/network" extends="RefCounted" classDigest="715cd2f3f9a1aedd738f1decffcab60c4839c087f55b7d4e41e8baa9c4b7f120">
+<class name="GFNetworkContractGenerator" path="addons/gf/extensions/network/editor/gf_network_contract_generator.gd" module="extensions/network" extends="RefCounted" classDigest="6e10a88505db53ed72678fd328f141f7ea00c83e9792a590a33b0fa7d0109217">
 	<description>GFNetworkContractGenerator: 根据 GFNetworkContract 生成强类型消息辅助脚本。
 生成结果保持为 GDScript 轻量封装，围绕 GFNetworkMessage / GFNetworkUtility
 提供构造、发送、匹配和 payload 读取函数，不绑定任何具体业务协议。</description>
@@ -31,7 +31,7 @@
 				<tag name="param">output_path: 输出脚本路径；为空时按 contract_id 推导。</tag>
 				<tag name="param">overwrite_existing: 为 false 时目标已存在会返回 ERR_ALREADY_EXISTS。</tag>
 				<tag name="param">options: 可选项，支持 class_name。</tag>
-				<tag name="return">Godot 错误码。</tag>
+				<tag name="return">未发生物理提交时返回原始错误码；物理提交已发生时返回 OK。需要区分后置失败时使用 generate_with_report() 并检查 written。</tag>
 				<tag name="schema">options: Dictionary，支持 class_name。</tag>
 				<tag name="since">3.17.0</tag>
 			</tags>
@@ -85,7 +85,7 @@
 				<tag name="param">output_path: 输出脚本路径。</tag>
 				<tag name="param">source: 源码文本。</tag>
 				<tag name="param">overwrite_existing: 为 false 时目标已存在会返回 ERR_ALREADY_EXISTS。</tag>
-				<tag name="return">Godot 错误码。</tag>
+				<tag name="return">未发生物理提交时返回原始错误码；物理提交已发生时返回 OK。需要区分后置失败时使用 save_source_with_report() 并检查 written。</tag>
 				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>

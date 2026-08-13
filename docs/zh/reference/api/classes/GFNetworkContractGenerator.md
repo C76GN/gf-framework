@@ -62,7 +62,7 @@ func generate( contract: GFNetworkContract, output_path: String = "", overwrite_
 | `overwrite_existing` | 为 false 时目标已存在会返回 ERR_ALREADY_EXISTS。 |
 | `options` | 可选项，支持 class_name。 |
 
-返回：Godot 错误码。
+返回：未发生物理提交时返回原始错误码；物理提交已发生时返回 OK。需要区分后置失败时使用 generate_with_report() 并检查 written。
 
 结构：
 
@@ -172,7 +172,7 @@ func save_source(output_path: String, source: String, overwrite_existing: bool =
 | `source` | 源码文本。 |
 | `overwrite_existing` | 为 false 时目标已存在会返回 ERR_ALREADY_EXISTS。 |
 
-返回：Godot 错误码。
+返回：未发生物理提交时返回原始错误码；物理提交已发生时返回 OK。需要区分后置失败时使用 save_source_with_report() 并检查 written。
 
 <a id="member-gfnetworkcontractgenerator-methods-save_source_with_report"></a>
 

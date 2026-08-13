@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFConfigAccessGenerator" path="addons/gf/tools/config_pipeline/gf_config_access_generator.gd" module="tools" extends="RefCounted" classDigest="f718a55c9bd2876272fa20b239c5002bcca1a00825b1d2ad85adbbe89c162cbd">
+<class name="GFConfigAccessGenerator" path="addons/gf/tools/config_pipeline/gf_config_access_generator.gd" module="tools" extends="RefCounted" classDigest="e240f10718d914d73ceb0139bbfd2c9396027849dca12349233b0d5a2a5ec05b">
 	<description>GFConfigAccessGenerator: 生成静态导表访问器脚本。
 默认生成结果只封装 provider 的 `get_record()` / `get_table()` 调用，
 也可按 schema 字段声明生成可选记录包装类；生成器本身不规定项目表结构语义。</description>
@@ -49,7 +49,7 @@
 				<tag name="param">access_class_name: 生成脚本的 class_name。</tag>
 				<tag name="param">provider_accessor: 无显式 provider 参数时用于获取 provider 的表达式。</tag>
 				<tag name="param">options: 可选生成选项，支持 method_name_style、constant_prefix、record_method_pattern、table_method_pattern、include_schema_comments、include_typed_records、typed_record_method_pattern、typed_record_class_suffix。</tag>
-				<tag name="return">写入结果错误码。</tag>
+				<tag name="return">未发生物理提交时返回原始错误码；物理提交已发生时返回 OK。需要区分后置失败时使用 generate_with_report() 并检查 written。</tag>
 				<tag name="schema">schemas: Array of Dictionary or Object schemas with table_name/table_key and optional metadata.</tag>
 				<tag name="schema">options: Dictionary controlling method_name_style, constant_prefix, record_method_pattern, table_method_pattern, include_schema_comments, include_typed_records, typed_record_method_pattern, and typed_record_class_suffix.</tag>
 				<tag name="since">3.17.0</tag>
@@ -113,7 +113,7 @@ SHA-256 后缀；缺少 table_name/table_key 的输入不会出现在该便利�
 				<tag name="param">output_path: 生成文件输出路径。</tag>
 				<tag name="param">source: GDScript 源码。</tag>
 				<tag name="param">overwrite_existing: 为 false 时目标已存在会返回 ERR_ALREADY_EXISTS。</tag>
-				<tag name="return">写入结果错误码。</tag>
+				<tag name="return">未发生物理提交时返回原始错误码；物理提交已发生时返回 OK。需要区分后置失败时使用 save_source_with_report() 并检查 written。</tag>
 				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>

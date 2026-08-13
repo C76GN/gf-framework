@@ -157,9 +157,9 @@ static func make_report( output_path: String, status: StringName, error_code: Er
 | `status` | 产物状态。 |
 | `error_code` | Godot Error 错误码。 |
 | `message` | 错误或跳过说明。 |
-| `options` | 报告选项，支持 written、changed、dry_run、conflict、size_bytes、metadata、artifact_owner、generator_id、source_id、content_sha256、previous_sha256、expected_previous_sha256 和 encoding；metadata 会在返回报告中编码为 JSON-safe Dictionary。 |
+| `options` | 报告选项，支持 written、changed、dry_run、conflict、size_bytes、metadata、artifact_owner、generator_id、source_id、content_sha256、previous_sha256、expected_previous_sha256 和 encoding；written 是独立的物理提交事实，允许 failed 报告在最终替换已发生后仍为 true；metadata 会在返回报告中编码为 JSON-safe Dictionary。 |
 
-返回：生成产物报告。success 只表示产物状态不是 failed；skipped 可保留非 OK error_code 供调用方决定是否阻断。
+返回：生成产物报告。success 只表示产物状态不是 failed；written 独立表示物理提交是否已经发生；skipped 可保留非 OK error_code 供调用方决定是否阻断。
 
 结构：
 
@@ -216,11 +216,11 @@ static func save_text(output_path: String, text: String, options: Dictionary = {
 | `text` | 要写入的文本内容。 |
 | `options` | 保存选项，支持 overwrite_existing、expected_previous_sha256、dry_run、scan_filesystem、label、metadata、artifact_owner、generator_id、source_id 和 allowed_roots。 |
 
-返回：生成产物保存报告。
+返回：生成产物保存报告。最终替换已提交、随后复核、暂存身份检查或清理失败时，报告可同时为 failed 且 written=true；调用方重试前必须独立检查 written。
 
 结构：
 
-- `options`: Dictionary，可包含 overwrite_existing、expected_previous_sha256、dry_run、scan_filesystem、label、metadata、artifact_owner、generator_id、source_id 和 allowed_roots；expected_previous_sha256 存在时要求保存前目标内容仍匹配该 SHA-256，空字符串表示要求目标不存在；allowed_roots 为可选 res:// / user:// 根目录数组。
+- `options`: Dictionary，可包含 overwrite_existing、expected_previous_sha256、dry_run、scan_filesystem、label、metadata、artifact_owner、generator_id、source_id 和 allowed_roots；expected_previous_sha256 存在时要求保存前目标的解码文本仍匹配该 SHA-256，空字符串表示要求目标不存在；allowed_roots 缺省时保留旧 res:// / user:// 行为，显式提供时必须是非空且全部有效的 res:// / user:// 根目录集合，并在读取、目录创建、临时写入、替换、清理与回滚的可观察边界拒绝链接或重解析组件；scan_filesystem 为 true 时，任何已发生的可观察文件系统变化都会请求一次扫描，包括最终提交后的失败和不完整回滚。该复核不持有目录句柄，也不承诺抵御恶意本地并发修改的原子性。
 - `return`: JSON-safe Dictionary，包含 success、path、status、error_code、error、written、changed、dry_run、conflict、size_bytes、artifact_owner、generator_id、source_id、content_sha256、previous_sha256、expected_previous_sha256、encoding 和 metadata。
 
 <a id="member-gfgeneratedartifactreport-methods-get_error_code"></a>

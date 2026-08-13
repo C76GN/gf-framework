@@ -79,7 +79,7 @@ const _VALUE_TYPE_ARRAY: String = "array"
 ## [br]
 ## @schema options: Dictionary controlling method_name_style, constant_prefix, record_method_pattern, table_method_pattern, include_schema_comments, include_typed_records, typed_record_method_pattern, and typed_record_class_suffix.
 ## [br]
-## @return 写入结果错误码。
+## @return: 未发生物理提交时返回原始错误码；物理提交已发生时返回 OK。需要区分后置失败时使用 generate_with_report() 并检查 written。
 func generate(
 	schemas: Array,
 	output_path: String = DEFAULT_OUTPUT_PATH,
@@ -95,7 +95,7 @@ func generate(
 		provider_accessor,
 		_merge_generation_save_options(options, overwrite_existing)
 	)
-	return _GENERATED_ARTIFACT_REPORT_SCRIPT.get_error_code(report)
+	return _get_legacy_error_code(report)
 
 
 ## 根据 schema 列表生成访问器并返回生成产物报告。
@@ -324,12 +324,12 @@ func build_source(
 ## [br]
 ## @param overwrite_existing: 为 false 时目标已存在会返回 ERR_ALREADY_EXISTS。
 ## [br]
-## @return 写入结果错误码。
+## @return: 未发生物理提交时返回原始错误码；物理提交已发生时返回 OK。需要区分后置失败时使用 save_source_with_report() 并检查 written。
 func save_source(output_path: String, source: String, overwrite_existing: bool = true) -> Error:
 	var report: Dictionary = save_source_with_report(output_path, source, {
 		"overwrite_existing": overwrite_existing,
 	})
-	return _GENERATED_ARTIFACT_REPORT_SCRIPT.get_error_code(report)
+	return _get_legacy_error_code(report)
 
 
 ## 保存生成源码到指定路径并返回生成产物报告。
@@ -356,6 +356,12 @@ func save_source_with_report(output_path: String, source: String, options: Dicti
 
 
 # --- 私有/辅助方法 ---
+
+func _get_legacy_error_code(report: Dictionary) -> Error:
+	if GFVariantData.get_option_bool(report, "written", false):
+		return OK
+	return _GENERATED_ARTIFACT_REPORT_SCRIPT.get_error_code(report)
+
 
 func _merge_generation_save_options(options: Dictionary, overwrite_existing: bool) -> Dictionary:
 	var save_options: Dictionary = options.duplicate(true)

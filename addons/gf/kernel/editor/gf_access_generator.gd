@@ -113,16 +113,18 @@ const _KNOWN_GF_PROJECT_SETTINGS: Array[String] = [
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param output_path: 生成文件输出路径。
 ## [br]
 ## @param overwrite_existing: 为 false 时目标已存在会返回 ERR_ALREADY_EXISTS。
 ## [br]
-## @return 写入结果错误码。
+## @return: 未发生物理提交时返回原始错误码；物理提交已发生时返回 OK。需要区分后置失败时使用 generate_with_report() 并检查 written。
 func generate(output_path: String = DEFAULT_OUTPUT_PATH, overwrite_existing: bool = true) -> Error:
 	var report: Dictionary = generate_with_report(output_path, {
 		"overwrite_existing": overwrite_existing,
 	})
-	return _GENERATED_ARTIFACT_REPORT_SCRIPT.get_error_code(report)
+	return _get_legacy_error_code(report)
 
 
 ## 扫描项目 class_name 脚本并生成访问器报告。
@@ -167,16 +169,18 @@ func generate_with_report(output_path: String = DEFAULT_OUTPUT_PATH, options: Di
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param output_path: 生成文件输出路径。
 ## [br]
 ## @param overwrite_existing: 为 false 时目标已存在会返回 ERR_ALREADY_EXISTS。
 ## [br]
-## @return 写入结果错误码。
+## @return: 未发生物理提交时返回原始错误码；物理提交已发生时返回 OK。需要区分后置失败时使用 generate_project_access_with_report() 并检查 written。
 func generate_project_access(output_path: String = DEFAULT_PROJECT_OUTPUT_PATH, overwrite_existing: bool = true) -> Error:
 	var report: Dictionary = generate_project_access_with_report(output_path, {
 		"overwrite_existing": overwrite_existing,
 	})
-	return _GENERATED_ARTIFACT_REPORT_SCRIPT.get_error_code(report)
+	return _get_legacy_error_code(report)
 
 
 ## 生成项目常量访问器报告。
@@ -422,12 +426,12 @@ func build_project_source(records: Dictionary) -> String:
 ## [br]
 ## @param overwrite_existing: 为 false 时目标已存在会返回 ERR_ALREADY_EXISTS。
 ## [br]
-## @return 写入结果错误码。
+## @return: 未发生物理提交时返回原始错误码；物理提交已发生时返回 OK。需要区分后置失败时使用 save_source_with_report() 并检查 written。
 func save_source(output_path: String, source: String, overwrite_existing: bool = true) -> Error:
 	var report: Dictionary = save_source_with_report(output_path, source, {
 		"overwrite_existing": overwrite_existing,
 	})
-	return _GENERATED_ARTIFACT_REPORT_SCRIPT.get_error_code(report)
+	return _get_legacy_error_code(report)
 
 
 ## 保存生成源码到指定路径并返回生成产物报告。
@@ -454,6 +458,12 @@ func save_source_with_report(output_path: String, source: String, options: Dicti
 
 
 # --- 私有/辅助方法 ---
+
+func _get_legacy_error_code(report: Dictionary) -> Error:
+	if _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(report, "written", false):
+		return OK
+	return _GENERATED_ARTIFACT_REPORT_SCRIPT.get_error_code(report)
+
 
 func _collect_records_with_validation() -> Dictionary:
 	var configured_result: Dictionary = _get_configured_access_policies()

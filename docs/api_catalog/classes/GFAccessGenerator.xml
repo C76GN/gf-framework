@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFAccessGenerator" path="addons/gf/kernel/editor/gf_access_generator.gd" module="kernel" extends="RefCounted" classDigest="a35307fe93216b31b9c23048ed70f9856e31e2e168d74343140f5810c8c20eb4">
+<class name="GFAccessGenerator" path="addons/gf/kernel/editor/gf_access_generator.gd" module="kernel" extends="RefCounted" classDigest="9de8a85a81a94d1745fd04ff6592d1bd2619c2c17917dcd5d674b820856a8162">
 	<description>GFAccessGenerator: 生成强类型 GF 访问器脚本。
 生成结果用于减少 `Gf.get_model(Type) as Type` 这类重复样板，
 并为 Model / System / Utility / Command / Query 提供稳定的 IDE 补全入口。</description>
@@ -83,7 +83,8 @@
 				<tag name="api">public</tag>
 				<tag name="param">output_path: 生成文件输出路径。</tag>
 				<tag name="param">overwrite_existing: 为 false 时目标已存在会返回 ERR_ALREADY_EXISTS。</tag>
-				<tag name="return">写入结果错误码。</tag>
+				<tag name="return">未发生物理提交时返回原始错误码；物理提交已发生时返回 OK。需要区分后置失败时使用 generate_with_report() 并检查 written。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="generate_with_report">
@@ -106,7 +107,8 @@
 				<tag name="api">public</tag>
 				<tag name="param">output_path: 生成文件输出路径。</tag>
 				<tag name="param">overwrite_existing: 为 false 时目标已存在会返回 ERR_ALREADY_EXISTS。</tag>
-				<tag name="return">写入结果错误码。</tag>
+				<tag name="return">未发生物理提交时返回原始错误码；物理提交已发生时返回 OK。需要区分后置失败时使用 generate_project_access_with_report() 并检查 written。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="generate_project_access_with_report">
@@ -170,7 +172,7 @@
 				<tag name="param">output_path: 生成文件输出路径。</tag>
 				<tag name="param">source: GDScript 源码。</tag>
 				<tag name="param">overwrite_existing: 为 false 时目标已存在会返回 ERR_ALREADY_EXISTS。</tag>
-				<tag name="return">写入结果错误码。</tag>
+				<tag name="return">未发生物理提交时返回原始错误码；物理提交已发生时返回 OK。需要区分后置失败时使用 save_source_with_report() 并检查 written。</tag>
 				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
