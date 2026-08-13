@@ -154,9 +154,10 @@ func test_nested_progress_cancel_never_delivers_progress_after_completed() -> vo
 
 func test_pending_terminal_blocks_late_progress_and_early_completion_publish() -> void:
 	var operation: GFObjectPoolPrewarmOperation = GFObjectPoolPrewarmOperation.new()
+	var settlement_authority: RefCounted = RefCounted.new()
 	assert_true(operation.configure_for_framework(
 		Callable(self, &"_reject_direct_operation_cancel"),
-		RefCounted.new(),
+		settlement_authority,
 		9001,
 		_scene,
 		2,
@@ -171,11 +172,14 @@ func test_pending_terminal_blocks_late_progress_and_early_completion_publish() -
 		events.append("progress:%d" % current.get_processed_count())
 		if current.is_pending() and late_record_results.is_empty():
 			var _finished: bool = current.finish_for_framework(
+				settlement_authority,
 				GFObjectPoolPrewarmResult.Status.CANCELLED,
 				GFObjectPoolPrewarmResult.REASON_CALLER_CANCELLED,
 				ERR_SKIP
 			)
-			late_record_results.append(current.record_created_for_framework())
+			late_record_results.append(
+				current.record_created_for_framework(settlement_authority)
+			)
 		elif current.is_completed():
 			early_completion_results.append(current.emit_completed_for_framework())
 	var completed_callback: Callable = func(
@@ -185,7 +189,7 @@ func test_pending_terminal_blocks_late_progress_and_early_completion_publish() -
 	var _progress_error: int = operation.progressed.connect(progress_callback) as Error
 	var _completed_error: int = operation.completed.connect(completed_callback) as Error
 
-	assert_true(operation.record_created_for_framework())
+	assert_true(operation.record_created_for_framework(settlement_authority))
 
 	assert_eq(late_record_results, [false], "待定终态不得再接纳进度写入。")
 	assert_eq(early_completion_results, [false], "终态 progress 分发中不得提前发布 completed。")
@@ -972,6 +976,51 @@ func test_capacity_skip_authority_rejects_progress_listener_forgery() -> void:
 		0
 	)
 	assert_eq(_pool.get_available_count(_scene), 3, "拒绝伪造后请求应正常完成。")
+	_disconnect_signal_if_connected(operation.progressed, progress_callback)
+
+
+func test_settlement_authority_rejects_created_and_terminal_forgery() -> void:
+	_pool.max_available_per_scene = 4
+	var operation: GFObjectPoolPrewarmOperation = _pool.prewarm_request_async(
+		_scene,
+		_parent,
+		3,
+		1
+	)
+	var rogue_record_results: Array[bool] = []
+	var rogue_finish_results: Array[bool] = []
+	var progress_callback: Callable = func(
+		current: GFObjectPoolPrewarmOperation,
+	) -> void:
+		if current.get_created_count() == 2 and rogue_record_results.is_empty():
+			var rogue_authority: RefCounted = RefCounted.new()
+			rogue_finish_results.append(current.finish_for_framework(
+				rogue_authority,
+				GFObjectPoolPrewarmResult.Status.CANCELLED,
+				GFObjectPoolPrewarmResult.REASON_CALLER_CANCELLED,
+				ERR_SKIP
+			))
+			rogue_record_results.append(
+				current.record_created_for_framework(rogue_authority)
+			)
+	var _connect_error: int = operation.progressed.connect(progress_callback) as Error
+
+	assert_true(await _wait_until_completed(operation), "伪造内部结算不得卡住请求。")
+	assert_eq(rogue_record_results, [false], "非所属 Utility 不得伪造 created 进度。")
+	assert_eq(rogue_finish_results, [false], "非所属 Utility 不得伪造请求终态。")
+	_assert_terminal(
+		operation,
+		GFObjectPoolPrewarmResult.Status.COMPLETED,
+		GFObjectPoolPrewarmResult.REASON_COMPLETED,
+		OK,
+		3,
+		3,
+		3,
+		0,
+		0,
+		0
+	)
+	assert_eq(_pool.get_available_count(_scene), 3, "拒绝伪造后仍应提交三个真实节点。")
 	_disconnect_signal_if_connected(operation.progressed, progress_callback)
 
 

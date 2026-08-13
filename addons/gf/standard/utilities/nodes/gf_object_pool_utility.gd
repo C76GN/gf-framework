@@ -1238,6 +1238,7 @@ func _begin_prewarm_request(
 		return operation
 	if admitted_count == 0:
 		var _rejected: bool = operation.finish_for_framework(
+			settlement_authority,
 			GFObjectPoolPrewarmResult.Status.REJECTED,
 			GFObjectPoolPrewarmResult.REASON_CAPACITY_UNAVAILABLE,
 			ERR_BUSY
@@ -1307,16 +1308,22 @@ func _configure_and_finish_prewarm_operation(
 	reason: StringName,
 	error_code: Error
 ) -> void:
+	var settlement_authority: RefCounted = RefCounted.new()
 	if not operation.configure_for_framework(
 		cancel_delegate,
-		RefCounted.new(),
+		settlement_authority,
 		request_id,
 		scene,
 		requested_count,
 		admitted_count
 	):
 		return
-	var _finished: bool = operation.finish_for_framework(status, reason, error_code)
+	var _finished: bool = operation.finish_for_framework(
+		settlement_authority,
+		status,
+		reason,
+		error_code
+	)
 
 
 func _make_prewarm_request_entry(
@@ -1492,7 +1499,7 @@ func _drive_prewarm_request(
 		if entry.is_empty():
 			return
 		_release_request_prewarm_capacity(entry, 1)
-		if not operation.record_created_for_framework():
+		if not operation.record_created_for_framework(settlement_authority):
 			var _record_failed: bool = _finish_prewarm_request(
 				request_id,
 				operation,
@@ -1956,7 +1963,12 @@ func _finish_prewarm_request(
 		entry,
 		GFVariantData.get_option_int(entry, "reserved_remaining")
 	)
-	return operation.finish_for_framework(final_status, final_reason, final_error_code)
+	return operation.finish_for_framework(
+		_entry_settlement_authority(entry),
+		final_status,
+		final_reason,
+		final_error_code
+	)
 
 
 func _finish_all_prewarm_requests(
