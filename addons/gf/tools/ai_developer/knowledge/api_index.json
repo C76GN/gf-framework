@@ -2,7 +2,7 @@
   "schema_version": 1,
   "catalog_version": "1.0.0",
   "framework_version": "11.0.0-dev.0",
-  "source_digest": "ce63e7405f28a8c0b34ff13d89e06dc94a0ec946ffb0e76654933896cc3b6d35",
+  "source_digest": "40b469a4c56cd8243ac16fcc74deb1f997474775999496842f41cbb1b7ac749b",
   "class_count": 818,
   "package_count": 56,
   "packages": [
@@ -94797,7 +94797,7 @@
         {
           "kind": "enum",
           "name": "PulseReplacementPolicy",
-          "signature": "enum PulseReplacementPolicy {\n\t## 原子交接同一动作贡献，不产生中间释放。\n\tREPLACE,\n\t## 保留旧脉冲，并让新句柄立即进入 REJECTED 终态。\n\tREJECT_NEW,\n}",
+          "signature": "enum PulseReplacementPolicy {\n\t## 原子交接同一动作贡献，不产生中间释放。\n\tREPLACE,\n\t## 保留旧脉冲，并让新句柄立即进入 REJECTED 终态。\n\tREJECT_NEW,\n\t## 清除旧贡献后重新写入；仅当聚合状态实际转为 inactive 时产生新的 release-to-press 边沿。\n\tRETRIGGER,\n}",
           "summary": "同一 source_id、player_index 与 action_id 已存在脉冲时的处理策略。",
           "visibility": "public"
         },
