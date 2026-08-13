@@ -266,5 +266,492 @@ class WorkspaceExecutionBoundaryTests(unittest.TestCase):
 			containment.assert_called_once_with(addon_root, addon_root / "plugin.gd")
 
 
+class ValidationShadowIntegrationTests(unittest.TestCase):
+	def _workspace_state(self) -> dict[str, object]:
+		return {
+			"schema_version": 1,
+			"head": "a" * 40,
+			"dirty": False,
+			"untracked_file_count": 0,
+			"fingerprint": "a" * 64,
+		}
+
+	def _inventory(self) -> dict[str, object]:
+		return {
+			"schema_version": 1,
+			"discovery_contract_version": 1,
+			"root": "tests/gf_core",
+			"capture_complete": True,
+			"entry_count": 4,
+			"file_count": 2,
+			"method_count": 3,
+			"source_bytes": 128,
+			"source_manifest_sha256": "b" * 64,
+			"test_list_sha256": "c" * 64,
+			"inventory_sha256": "d" * 64,
+			"files": [],
+		}
+
+	def test_default_check_execution_does_not_collect_shadow_inventory(self) -> None:
+		workspace_state = self._workspace_state()
+		with mock.patch.object(
+			gf_maintenance,
+			"workspace_fingerprint",
+			return_value=workspace_state,
+		), mock.patch.object(
+			gf_maintenance,
+			"maintenance_in_process_check_runners",
+			return_value={"docs": lambda: {"ok": True}},
+		), mock.patch.object(
+			gf_maintenance.gf_validation_test_inventory,
+			"collect_test_inventory",
+		) as inventory:
+			result = gf_maintenance.run_checks(checks=["docs"], jobs=1)
+		self.assertTrue(result["ok"])
+		self.assertNotIn("validation_shadow", result)
+		inventory.assert_not_called()
+
+	def test_shadow_observes_one_real_execution_but_never_reuses_it(self) -> None:
+		workspace_state = self._workspace_state()
+		runner = mock.Mock(return_value={"ok": True})
+		with mock.patch.object(
+			gf_maintenance,
+			"workspace_fingerprint",
+			return_value=workspace_state,
+		), mock.patch.object(
+			gf_maintenance,
+			"maintenance_in_process_check_runners",
+			return_value={"docs": runner},
+		), mock.patch.object(
+			gf_maintenance.gf_validation_test_inventory,
+			"collect_test_inventory",
+			return_value=self._inventory(),
+		):
+			result = gf_maintenance.run_checks(
+				checks=["docs"],
+				jobs=1,
+				validation_shadow=True,
+			)
+		self.assertTrue(result["ok"])
+		runner.assert_called_once_with()
+		shadow = result["validation_shadow"]
+		self.assertTrue(shadow["report_ok"])
+		self.assertFalse(shadow["authoritative"])
+		self.assertFalse(shadow["scheduling_effect"])
+		self.assertFalse(shadow["reuse_permitted"])
+		self.assertEqual(shadow["executed_action_count"], 1)
+		self.assertEqual(shadow["execution_observation_count"], 1)
+		self.assertEqual(shadow["reused_count"], 0)
+		action = shadow["actions"][0]
+		self.assertFalse(action["policy"]["declared"])
+		material = action["shadow_evidence"]["action_key_material"]
+		self.assertFalse(material["input_complete"])
+		self.assertIn(
+			"inventory_not_bound_to_immutable_snapshot",
+			material["unknown_reasons"],
+		)
+		decision = action["shadow_evidence"]["acceptance_decision"]
+		self.assertEqual(decision["decision"], "execute")
+		self.assertEqual(decision["acceptance"], "shadow_only")
+		self.assertFalse(decision["structurally_reusable_candidate"])
+
+	def test_shadow_inventory_failure_does_not_change_suite_result(self) -> None:
+		workspace_state = self._workspace_state()
+		with mock.patch.object(
+			gf_maintenance,
+			"workspace_fingerprint",
+			return_value=workspace_state,
+		), mock.patch.object(
+			gf_maintenance,
+			"maintenance_in_process_check_runners",
+			return_value={"docs": lambda: {"ok": True}},
+		), mock.patch.object(
+			gf_maintenance.gf_validation_test_inventory,
+			"collect_test_inventory",
+			side_effect=RuntimeError("injected inventory failure"),
+		):
+			result = gf_maintenance.run_checks(
+				checks=["docs"],
+				jobs=1,
+				validation_shadow=True,
+			)
+		self.assertTrue(result["ok"])
+		self.assertEqual(len(result["results"]), 1)
+		shadow = result["validation_shadow"]
+		self.assertFalse(shadow["report_ok"])
+		self.assertEqual(
+			frozenset(shadow),
+			gf_maintenance.VALIDATION_SHADOW_REPORT_FIELDS,
+		)
+		self.assertEqual(shadow["fallback_decision"], "execute")
+		self.assertEqual(shadow["reused_count"], 0)
+		self.assertEqual(shadow["errors"], ["shadow_internal_error"])
+		self.assertIsNone(shadow["test_inventory"])
+		self.assertEqual(len(shadow["report_fingerprint"]), 64)
+
+	def test_shadow_success_and_failure_use_the_same_exact_envelope(self) -> None:
+		workspace_state = self._workspace_state()
+		data = {
+			"ok": True,
+			"suite": "quick",
+			"checks": ["docs"],
+			"results": [],
+		}
+		with mock.patch.object(
+			gf_maintenance.gf_validation_test_inventory,
+			"collect_test_inventory",
+			return_value=self._inventory(),
+		):
+			gf_maintenance.attach_validation_shadow_report(data, workspace_state)
+		success = data["validation_shadow"]
+		failure = gf_maintenance.make_validation_shadow_failure_report(
+			data,
+			"inventory_capture_failed",
+		)
+		self.assertEqual(frozenset(success), frozenset(failure))
+		self.assertEqual(
+			frozenset(success),
+			gf_maintenance.VALIDATION_SHADOW_REPORT_FIELDS,
+		)
+
+	def test_shadow_private_deadline_covers_post_inventory_report_work(self) -> None:
+		workspace_state = self._workspace_state()
+		data = {
+			"ok": True,
+			"suite": "quick",
+			"checks": ["docs"],
+			"results": [],
+		}
+		with mock.patch.object(
+			gf_maintenance.gf_validation_test_inventory,
+			"collect_test_inventory",
+			return_value=self._inventory(),
+		), mock.patch.object(
+			gf_maintenance.time,
+			"monotonic",
+			side_effect=[0.0, 2.0],
+		):
+			with self.assertRaisesRegex(
+				gf_maintenance.ValidationShadowDeadlineError,
+				"deadline",
+			):
+				gf_maintenance.make_validation_shadow_report(
+					data,
+					workspace_state,
+					shadow_deadline_seconds=1.0,
+				)
+
+	def test_ordinary_dependency_pass_does_not_change_shadow_action_key(self) -> None:
+		workspace_state = self._workspace_state()
+
+		def report(dependency_fingerprint: str) -> dict[str, object]:
+			data = {
+				"ok": True,
+				"suite": "quick",
+				"checks": ["docs"],
+				"results": [{
+					"name": "docs",
+					"command": ["python", "check.py"],
+					"execution": "in_process",
+					"exit_code": 0,
+					"timed_out": False,
+					"cancelled": False,
+					"duration_seconds": 0.1,
+					"dependency_fingerprints": {"api": dependency_fingerprint},
+					"result_fingerprint": "e" * 64,
+				}],
+			}
+			with mock.patch.object(
+				gf_maintenance.gf_validation_test_inventory,
+				"collect_test_inventory",
+				return_value=self._inventory(),
+			):
+				return gf_maintenance.make_validation_shadow_report(
+					data,
+					workspace_state,
+				)
+
+		first = report("1" * 64)
+		second = report("2" * 64)
+		first_evidence = first["actions"][0]["shadow_evidence"]
+		second_evidence = second["actions"][0]["shadow_evidence"]
+		self.assertEqual(first_evidence["action_key"], second_evidence["action_key"])
+		self.assertEqual(
+			first_evidence["action_key_material"]["dependency_artifacts"],
+			{},
+		)
+
+	def test_shadow_failure_never_stringifies_untrusted_exception(self) -> None:
+		class HostileError(RuntimeError):
+			def __str__(self) -> str:
+				raise AssertionError("exception text must not be observed")
+
+		workspace_state = self._workspace_state()
+		data = {"suite": "quick", "checks": ["docs"], "results": []}
+		with mock.patch.object(
+			gf_maintenance,
+			"make_validation_shadow_report",
+			side_effect=HostileError(),
+		):
+			gf_maintenance.attach_validation_shadow_report(data, workspace_state)
+		shadow = data["validation_shadow"]
+		self.assertEqual(shadow["errors"], ["shadow_internal_error"])
+		json.dumps(shadow, allow_nan=False)
+
+	def test_initial_workspace_failure_gets_exact_zero_io_shadow_envelope(self) -> None:
+		with mock.patch.object(
+			gf_maintenance,
+			"workspace_fingerprint",
+			side_effect=gf_maintenance.gf_maintenance_check_graph.WorkspaceFingerprintSetupError(
+				"fixture failure"
+			),
+		), mock.patch.object(
+			gf_maintenance.gf_validation_test_inventory,
+			"collect_test_inventory",
+		) as inventory:
+			result = gf_maintenance.run_checks(
+				checks=["docs"],
+				jobs=1,
+				validation_shadow=True,
+			)
+		self.assertFalse(result["ok"])
+		shadow = result["validation_shadow"]
+		self.assertEqual(shadow["errors"], ["workspace_fingerprint_setup_failed"])
+		self.assertEqual(shadow["execution_observation_count"], 0)
+		self.assertIsNone(shadow["test_inventory"])
+		inventory.assert_not_called()
+
+	def test_shadow_attaches_only_after_workspace_revalidation_and_result_freeze(self) -> None:
+		workspace_state = self._workspace_state()
+		events: list[str] = []
+
+		def fingerprint(*_args: object, **_kwargs: object) -> dict[str, object]:
+			events.append("workspace_fingerprint")
+			return workspace_state
+
+		def attach(
+			data: dict[str, object],
+			state: dict[str, object],
+			**_kwargs: object,
+		) -> None:
+			events.append("validation_shadow")
+			self.assertIs(state, workspace_state)
+			self.assertEqual(data["workspace"], workspace_state)
+			self.assertIn("workspace_snapshot", data)
+			self.assertIn("duration_seconds", data)
+			data["validation_shadow"] = {"report_ok": True}
+
+		with mock.patch.object(
+			gf_maintenance,
+			"workspace_fingerprint",
+			side_effect=fingerprint,
+		), mock.patch.object(
+			gf_maintenance,
+			"maintenance_in_process_check_runners",
+			return_value={"docs": lambda: {"ok": True}},
+		), mock.patch.object(
+			gf_maintenance,
+			"attach_validation_shadow_report",
+			side_effect=attach,
+		):
+			result = gf_maintenance.run_checks(
+				checks=["docs"],
+				jobs=1,
+				validation_shadow=True,
+			)
+
+		self.assertTrue(result["ok"])
+		self.assertEqual(
+			events,
+			[
+				"workspace_fingerprint",
+				"workspace_fingerprint",
+				"validation_shadow",
+			],
+		)
+
+	def test_shadow_does_not_invent_evidence_for_blocked_action(self) -> None:
+		workspace_state = self._workspace_state()
+		data = {
+			"ok": False,
+			"suite": "quick",
+			"checks": ["gut"],
+			"results": [{
+				"name": "gut",
+				"command": ["godot"],
+				"execution": "blocked",
+				"exit_code": 125,
+				"timed_out": False,
+				"cancelled": False,
+				"duration_seconds": 0.0,
+				"dependency_fingerprints": {},
+			}],
+		}
+		with mock.patch.object(
+			gf_maintenance.gf_validation_test_inventory,
+			"collect_test_inventory",
+			return_value=self._inventory(),
+		):
+			gf_maintenance.attach_validation_shadow_report(data, workspace_state)
+		shadow = data["validation_shadow"]
+		self.assertEqual(shadow["executed_action_count"], 0)
+		self.assertEqual(shadow["non_execution_action_count"], 1)
+		self.assertEqual(
+			shadow["actions"][0]["shadow_evidence"]["evidence"],
+			[],
+		)
+		decision = shadow["actions"][0]["shadow_evidence"]["acceptance_decision"]
+		self.assertEqual(decision["decision"], "execute")
+		self.assertEqual(decision["reason_code"], "no_evidence")
+
+	def test_parallel_occurrences_are_all_observed_and_unproved_equivalence_conflicts(self) -> None:
+		workspace_state = self._workspace_state()
+		data = {
+			"ok": True,
+			"suite": "full",
+			"checks": ["godot_import"],
+			"results": [{
+				"name": "godot_import",
+				"command": ["godot", "--editor", "--quit"],
+				"parallel_occurrences": [
+					{
+						"shard": "gut",
+						"execution": "subprocess",
+						"exit_code": 0,
+						"timed_out": False,
+						"cancelled": False,
+						"duration_seconds": 1.0,
+						"result_fingerprint": "e" * 64,
+					},
+					{
+						"shard": "lsp",
+						"execution": "subprocess",
+						"exit_code": 0,
+						"timed_out": False,
+						"cancelled": False,
+						"duration_seconds": 2.0,
+						"result_fingerprint": "f" * 64,
+					},
+				],
+			}],
+		}
+		with mock.patch.object(
+			gf_maintenance.gf_validation_test_inventory,
+			"collect_test_inventory",
+			return_value=self._inventory(),
+		):
+			gf_maintenance.attach_validation_shadow_report(data, workspace_state)
+		shadow = data["validation_shadow"]
+		self.assertEqual(shadow["executed_action_count"], 1)
+		self.assertEqual(shadow["execution_observation_count"], 2)
+		evidence_report = shadow["actions"][0]["shadow_evidence"]
+		self.assertEqual(evidence_report["execution_summary"]["executed"], 2)
+		self.assertTrue(evidence_report["conflict"]["detected"])
+		self.assertFalse(evidence_report["conflict"]["comparison_complete"])
+
+	def test_parallel_public_occurrences_do_not_leak_shadow_execution_field(self) -> None:
+		occurrences = [("gut", {
+			"execution": "subprocess",
+			"exit_code": 0,
+			"timed_out": False,
+			"cancelled": False,
+			"duration_seconds": 1.0,
+			"input_fingerprint": "e" * 64,
+			"result_fingerprint": "f" * 64,
+		})]
+		public = gf_maintenance.serialize_parallel_occurrences(
+			occurrences,
+			include_execution=False,
+		)
+		shadow = gf_maintenance.serialize_parallel_occurrences(
+			occurrences,
+			include_execution=True,
+		)
+		self.assertNotIn("execution", public[0])
+		self.assertEqual(shadow[0]["execution"], "subprocess")
+		self.assertEqual(set(shadow[0]) - {"execution"}, set(public[0]))
+
+	def test_shadow_timeout_is_failed_evidence_and_never_a_reusable_candidate(self) -> None:
+		workspace_state = self._workspace_state()
+		data = {
+			"ok": False,
+			"suite": "quick",
+			"checks": ["docs"],
+			"results": [{
+				"name": "docs",
+				"command": ["python", "check.py"],
+				"execution": "subprocess",
+				"exit_code": 124,
+				"timed_out": True,
+				"cancelled": False,
+				"duration_seconds": 1.0,
+				"dependency_fingerprints": {},
+				"result_fingerprint": "e" * 64,
+			}],
+		}
+		with mock.patch.object(
+			gf_maintenance.gf_validation_test_inventory,
+			"collect_test_inventory",
+			return_value=self._inventory(),
+		):
+			gf_maintenance.attach_validation_shadow_report(data, workspace_state)
+		action = data["validation_shadow"]["actions"][0]["shadow_evidence"]
+		evidence_record = action["evidence"][0]
+		self.assertEqual(evidence_record["outcome"], "failed")
+		self.assertTrue(evidence_record["timed_out"])
+		self.assertFalse(evidence_record["structurally_reusable_candidate"])
+		self.assertEqual(evidence_record["evidence_authority"], "self_asserted")
+		self.assertIsNone(evidence_record["warning_count"])
+		self.assertEqual(action["acceptance_decision"]["decision"], "execute")
+
+	def test_shadow_rendering_adds_only_a_compact_summary(self) -> None:
+		base = {
+			"suite": "quick",
+			"ok": True,
+			"duration_seconds": 0.1,
+			"results": [],
+		}
+		self.assertNotIn(
+			"validation_shadow:",
+			gf_maintenance_rendering.render_checks_text(base),
+		)
+		with_shadow = {
+			**base,
+			"validation_shadow": {
+				"report_ok": True,
+				"authoritative": False,
+				"expected_action_count": 1,
+				"executed_action_count": 1,
+				"execution_observation_count": 1,
+				"reused_count": 0,
+				"collection_duration_seconds": 0.01,
+				"test_inventory": {"file_count": 2, "method_count": 3},
+			},
+		}
+		rendered = gf_maintenance_rendering.render_checks_text(with_shadow)
+		self.assertIn("validation_shadow: report_ok=True", rendered)
+		self.assertIn("executed=1 observations=1 reused=0", rendered)
+		self.assertNotIn("action_key", rendered)
+
+	def test_parallel_child_command_never_inherits_validation_shadow(self) -> None:
+		plan = gf_maintenance.ParallelCheckShardPlan("framework-static", ("docs",))
+		with tempfile.TemporaryDirectory() as temporary_directory, mock.patch.object(
+			gf_maintenance,
+			"parallel_shard_environment",
+			return_value=({}, Path(temporary_directory) / "user"),
+		):
+			shard, _report_path = gf_maintenance.make_parallel_full_shard(
+				plan,
+				Path(temporary_directory),
+				private_environment_root=Path(temporary_directory) / "private",
+				timeout_seconds=None,
+				suite_deadline=None,
+				fail_fast=False,
+				package_artifact_manifest="",
+				package_artifact_manifest_sha256="",
+			)
+		self.assertNotIn("--validation-shadow", shard.command)
+
+
 if __name__ == "__main__":
 	unittest.main()
