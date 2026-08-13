@@ -55,6 +55,7 @@ import gf_parallel_validation
 import gf_maintenance_check_graph
 import gf_validation_contracts
 import gf_validation_evidence
+import gf_validation_inputs
 import gf_validation_test_inventory
 import gf_credential_gate
 import gf_codeql_suppression_policy
@@ -764,6 +765,8 @@ PUBLIC_DOC_BOUNDARY_TERM_ALLOWED_PATHS = {
 }
 PUBLIC_DOC_INTERNAL_VALIDATION_REUSE_RE = re.compile(
 	r"(?<![A-Za-z0-9_])(?:--validation-shadow|validation_shadow|"
+	r"--affected(?:-base)?|affected_analysis|"
+	r"affected(?:[\t _-]*analysis|[\t _-]*\r?\n[\t _-]*analysis)|"
 	r"action(?:[\t _-]*key|[\t _-]*\r?\n[\t _-]*key)|"
 	r"tools[\\/]+gf_validation_[a-z0-9_]+\.py)"
 	r"(?![A-Za-z0-9_])",
@@ -1022,6 +1025,7 @@ CHECK_DEFINITIONS: dict[str, list[str]] = {
 		"tests/gf_core/tools/test_gf_maintenance_execution.py",
 		"tests/gf_core/tools/test_gf_validation_contracts.py",
 		"tests/gf_core/tools/test_gf_validation_evidence.py",
+		"tests/gf_core/tools/test_gf_validation_inputs.py",
 		"tests/gf_core/tools/test_gf_validation_test_inventory.py",
 	],
 	"maintenance_generator_tests": [
@@ -2125,6 +2129,25 @@ def main() -> int:
 			"diagnostics. Shadow mode never skips checks or changes the suite result."
 		),
 	)
+	check_parser.add_argument(
+		"--affected",
+		action="store_true",
+		help=(
+			"Attach non-authoritative affected-check diagnostics after every selected "
+			"check has run. Affected analysis never skips checks or changes the result."
+		),
+	)
+	check_parser.add_argument(
+		"--explain",
+		action="store_true",
+		help="Include bounded affected-check reasons; requires --affected.",
+	)
+	check_parser.add_argument(
+		"--affected-base",
+		default="HEAD",
+		metavar="REV",
+		help="Git revision used as the advisory affected-analysis base (default: HEAD).",
+	)
 	add_package_artifact_consumer_arguments(check_parser)
 	check_parser.add_argument("--json", action="store_true", help="Print JSON instead of text.")
 
@@ -2164,6 +2187,8 @@ def main() -> int:
 	api_baseline_parser.add_argument("--json", action="store_true", help="Print JSON instead of text.")
 
 	args = parser.parse_args()
+	if args.command == "check" and args.explain and not args.affected:
+		parser.error("--explain requires --affected")
 	if args.json_output:
 		try:
 			json_output_path = maintenance_json_output_path(args.json_output)
@@ -2349,6 +2374,9 @@ def main() -> int:
 			package_artifact_manifest=args.package_artifact_manifest,
 			package_artifact_manifest_sha256=args.package_artifact_manifest_sha256,
 			validation_shadow=args.validation_shadow,
+			affected=args.affected,
+			affected_base=args.affected_base,
+			affected_explain=args.explain,
 			progress_callback=None if args.json else maintenance_rendering.print_check_progress,
 			output_callback=None if args.json else maintenance_rendering.print_check_output,
 		)
@@ -17798,6 +17826,9 @@ def maintenance_self_test() -> dict[str, Any]:
 	internal_validation_leaks = (
 		"Use --validation-shadow for this release.",
 		"Read validation_shadow from the report.",
+		"Use --affected --explain with --affected-base HEAD.",
+		"Read affected_analysis from the report.",
+		"Read Affected Analysis from the report.",
 		"Persist this Action Key for later reuse.",
 		"Persist this Action   Key for later reuse.",
 		"Persist this Action         Key for later reuse.",
@@ -26807,6 +26838,7 @@ def append_check_result_payload(
 VALIDATION_SHADOW_SCHEMA_VERSION = 1
 VALIDATION_SHADOW_REPORT_DOMAIN = b"gf-maintenance-validation-shadow-v1\0"
 VALIDATION_SHADOW_COLLECTION_TIMEOUT_SECONDS = 15.0
+AFFECTED_ANALYSIS_COLLECTION_TIMEOUT_SECONDS = 15.0
 VALIDATION_SHADOW_ERROR_CODES = frozenset({
 	"evidence_construction_failed",
 	"inventory_capture_failed",
@@ -26856,6 +26888,92 @@ VALIDATION_SHADOW_REPORT_FIELDS = frozenset({
 	*VALIDATION_SHADOW_REPORT_FIELDS_WITHOUT_FINGERPRINT,
 	"report_fingerprint",
 })
+
+
+def attach_affected_analysis_report(
+	data: dict[str, Any],
+	*,
+	base_revision: str,
+	explain: bool,
+	force_failure: bool = False,
+) -> None:
+	"""Attach fail-closed affected diagnostics without changing execution."""
+	check_names = tuple(str(name) for name in data.get("checks", []))
+	try:
+		if force_failure:
+			report = gf_validation_inputs.make_affected_analysis_failure(
+				check_names,
+				base_revision=base_revision,
+				error_code="affected_internal_error",
+				explain=explain,
+			)
+		else:
+			report = gf_validation_inputs.analyze_affected_checks(
+				ROOT,
+				check_names,
+				base_revision=base_revision,
+				explain=explain,
+				deadline_seconds=(
+					time.monotonic() + AFFECTED_ANALYSIS_COLLECTION_TIMEOUT_SECONDS
+				),
+				input_specs=gf_validation_inputs.DEFAULT_AFFECTED_INPUT_SPECS,
+			)
+		report = gf_validation_inputs.validate_affected_analysis_report(report)
+		if not affected_analysis_report_is_safe(
+			report,
+			len(check_names),
+			base_revision=base_revision,
+			explain=explain,
+		):
+			raise ValueError("Affected analysis report violates runner invariants.")
+	except Exception:
+		report = gf_validation_inputs.make_affected_analysis_failure(
+			check_names,
+			base_revision=base_revision,
+			error_code="affected_internal_error",
+			explain=explain,
+		)
+	data["affected_analysis"] = report
+
+
+def affected_analysis_report_is_safe(
+	report: object,
+	check_count: int,
+	*,
+	base_revision: str,
+	explain: bool,
+) -> bool:
+	"""Validate the exact advisory envelope and immutable no-reuse invariants."""
+	if not isinstance(report, dict):
+		return False
+	return (
+		frozenset(report) == gf_validation_inputs.AFFECTED_ANALYSIS_REPORT_FIELDS
+		and report.get("authoritative") is False
+		and report.get("scheduling_effect") is False
+		and report.get("fallback_decision") == "execute"
+		and report.get("base_revision") == base_revision
+		and report.get("explain") is explain
+		and report.get("check_count") == check_count
+		and report.get("execute_count") == check_count
+		and report.get("affected_skip_count") == 0
+		and report.get("cache_read_count") == 0
+		and report.get("cache_write_count") == 0
+		and report.get("reused_count") == 0
+		and isinstance(report.get("checks"), list)
+		and len(report["checks"]) == check_count
+		and all(
+			isinstance(report.get(field), int)
+			and not isinstance(report.get(field), bool)
+			and report[field] >= 0
+			for field in ("affected_count", "unaffected_count", "unknown_count")
+		)
+		and (
+			report["affected_count"]
+			+ report["unaffected_count"]
+			+ report["unknown_count"]
+			== check_count
+		)
+	)
 
 
 def attach_validation_shadow_report(
@@ -27163,6 +27281,9 @@ def run_checks(
 	package_artifact_manifest: str = "",
 	package_artifact_manifest_sha256: str = "",
 	validation_shadow: bool = False,
+	affected: bool = False,
+	affected_base: str = "HEAD",
+	affected_explain: bool = False,
 	progress_callback: Callable[[str, str, float | None], None] | None = None,
 	output_callback: Callable[[str, str, str], None] | None = None,
 ) -> dict[str, Any]:
@@ -27213,6 +27334,13 @@ def run_checks(
 				data,
 				"workspace_fingerprint_deadline",
 			)
+		if affected:
+			attach_affected_analysis_report(
+				data,
+				base_revision=affected_base,
+				explain=affected_explain,
+				force_failure=True,
+			)
 		return data
 	except gf_maintenance_check_graph.WorkspaceFingerprintError as error:
 		selected_names = expanded_check_names(suite, checks, sync_examples=sync_examples)
@@ -27245,6 +27373,13 @@ def run_checks(
 			data["validation_shadow"] = make_validation_shadow_failure_report(
 				data,
 				"workspace_fingerprint_setup_failed",
+			)
+		if affected:
+			attach_affected_analysis_report(
+				data,
+				base_revision=affected_base,
+				explain=affected_explain,
+				force_failure=True,
 			)
 		return data
 	data: dict[str, Any] | None = None
@@ -27471,6 +27606,12 @@ def run_checks(
 			data,
 			workspace_state,
 			parallel_occurrences=validation_parallel_occurrences,
+		)
+	if affected and "affected_analysis" not in data:
+		attach_affected_analysis_report(
+			data,
+			base_revision=affected_base,
+			explain=affected_explain,
 		)
 	return data
 

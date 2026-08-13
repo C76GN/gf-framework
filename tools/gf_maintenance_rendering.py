@@ -962,6 +962,9 @@ def render_checks_text(data: dict[str, Any]) -> str:
 	shadow_summary = render_validation_shadow_summary(data)
 	if shadow_summary:
 		lines.append(shadow_summary)
+	affected_summary = render_affected_analysis_summary(data)
+	if affected_summary:
+		lines.append(affected_summary)
 	for result in data["results"]:
 		lines.append(
 			f"- {result['name']}: exit={result['exit_code']} "
@@ -993,6 +996,9 @@ def render_failed_checks_text(data: dict[str, Any]) -> str:
 	shadow_summary = render_validation_shadow_summary(data)
 	if shadow_summary:
 		lines.append(shadow_summary)
+	affected_summary = render_affected_analysis_summary(data)
+	if affected_summary:
+		lines.append(affected_summary)
 	if not failed_results:
 		lines.append("all checks passed")
 		return "\n".join(lines)
@@ -1038,6 +1044,24 @@ def render_validation_shadow_summary(data: dict[str, Any]) -> str:
 		f"reused={shadow.get('reused_count', 0)} "
 		f"inventory_files={inventory_files} inventory_methods={inventory_methods} "
 		f"collection={shadow.get('collection_duration_seconds', 0.0):.2f}s"
+	)
+
+
+def render_affected_analysis_summary(data: dict[str, Any]) -> str:
+	affected = data.get("affected_analysis")
+	if not isinstance(affected, dict):
+		return ""
+	return (
+		"affected_analysis: "
+		f"report_ok={affected.get('report_ok', False)} "
+		f"authoritative={affected.get('authoritative', False)} "
+		f"checks={affected.get('check_count', 0)} "
+		f"affected={affected.get('affected_count', 0)} "
+		f"unaffected={affected.get('unaffected_count', 0)} "
+		f"unknown={affected.get('unknown_count', 0)} "
+		f"execute={affected.get('execute_count', 0)} "
+		f"skipped={affected.get('affected_skip_count', 0)} "
+		f"reused={affected.get('reused_count', 0)}"
 	)
 
 

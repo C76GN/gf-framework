@@ -1,0 +1,865 @@
+#!/usr/bin/env python3
+"""Focused tests for strict, advisory GF validation input analysis."""
+
+from __future__ import annotations
+
+import copy
+import hashlib
+import json
+import os
+import subprocess
+import sys
+import tempfile
+import unittest
+from dataclasses import replace
+from pathlib import Path
+from unittest import mock
+
+
+ROOT = Path(__file__).resolve().parents[3]
+TOOLS_ROOT = ROOT / "tools"
+if str(TOOLS_ROOT) not in sys.path:
+	sys.path.insert(0, str(TOOLS_ROOT))
+
+import gf_validation_inputs as inputs
+
+
+def _write(path: Path, content: str) -> None:
+	path.parent.mkdir(parents=True, exist_ok=True)
+	path.write_text(content, encoding="utf-8", newline="\n")
+
+
+def _make_input_root(parent: Path) -> Path:
+	root = parent / "repository"
+	root.mkdir()
+	_write(root / "README.md", "# Public\n")
+	_write(root / "docs/guide.md", "Guide\n")
+	_write(root / "docs/reference/api/internal.md", "Excluded\n")
+	_write(root / "docs/notes.txt", "Not selected\n")
+	_write(root / "tools/checker.py", "RULE_VERSION = 1\n")
+	return root
+
+
+def _input_spec(check_name: str = "public_docs_boundary") -> inputs.CheckInputSpec:
+	return inputs.CheckInputSpec(
+		check_name=check_name,
+		source_rules=(
+			inputs.PathRule(
+				"tree",
+				"docs",
+				suffixes=(".md",),
+				excluded_prefixes=("docs/reference/api",),
+			),
+			inputs.PathRule("exact", "README.md"),
+		),
+		implementation_files=("tools/checker.py",),
+	)
+
+
+def _run_git(root: Path, *arguments: str) -> str:
+	completed = subprocess.run(
+		["git", *arguments],
+		cwd=root,
+		capture_output=True,
+		text=True,
+		encoding="utf-8",
+		errors="replace",
+		check=False,
+	)
+	if completed.returncode != 0:
+		raise AssertionError(completed.stderr)
+	return completed.stdout.strip()
+
+
+def _make_git_repository(parent: Path) -> Path:
+	root = _make_input_root(parent)
+	_run_git(root, "init", "--quiet")
+	_run_git(root, "config", "user.email", "tests@example.invalid")
+	_run_git(root, "config", "user.name", "GF Tests")
+	_write(root / ".gitignore", "docs/ignored.md\n")
+	_write(root / "unrelated.txt", "unrelated\n")
+	_run_git(root, "add", "--all")
+	_run_git(root, "commit", "--quiet", "-m", "fixture")
+	return root
+
+
+def _make_default_catalog_git_repository(parent: Path) -> Path:
+	root = parent / "default-catalog-repository"
+	root.mkdir()
+	for path, content in (
+		("addons/gf/plugin.gd", "extends EditorPlugin\n"),
+		("addons/gf/kernel/package/manager.gd", "class_name GFPackageManager\n"),
+		("addons/gf/kernel/editor/package/installer.gd", "extends RefCounted\n"),
+		("addons/gf/README.md", "# GF\n"),
+		("addons/gf/extensions/README.md", "# Extensions\n"),
+		("ASSET_LIBRARY.md", "Asset Library\n"),
+		("ASSET_STORE.md", "Asset Store\n"),
+		("README.md", "# GF\n"),
+		("README.zh.md", "# GF\n"),
+		("docs/api_catalog/index.xml", "<api />\n"),
+		("docs/wiki/index.md", "Wiki\n"),
+		("docs/zh/guide.md", "Guide\n"),
+		("docs/zh/reference/api/GFNode.md", "Reference\n"),
+		("tools/gdscript_api_parser.py", "PARSER_VERSION = 1\n"),
+		("tools/gf_maintenance.py", "RULE_VERSION = 1\n"),
+		("tools/gf_validation_inputs.py", "INPUT_VERSION = 1\n"),
+		("tools/gf_workspace_snapshot.py", "SNAPSHOT_VERSION = 1\n"),
+	):
+		_write(root / path, content)
+	_run_git(root, "init", "--quiet")
+	_run_git(root, "config", "user.email", "tests@example.invalid")
+	_run_git(root, "config", "user.name", "GF Tests")
+	_run_git(root, "add", "--all")
+	_run_git(root, "commit", "--quiet", "-m", "default catalog fixture")
+	return root
+
+
+class InputSpecContractTests(unittest.TestCase):
+	def test_default_catalog_declares_only_three_phase_two_candidates(self) -> None:
+		self.assertEqual(
+			[spec.check_name for spec in inputs.DEFAULT_AFFECTED_INPUT_SPECS],
+			[
+				"package_user_dependency_boundary",
+				"public_api_boundary",
+				"public_docs_boundary",
+			],
+		)
+		self.assertEqual(
+			set(inputs.DEFAULT_AFFECTED_INPUT_SPEC_BY_NAME),
+			{
+				"package_user_dependency_boundary",
+				"public_api_boundary",
+				"public_docs_boundary",
+			},
+		)
+		expected_implementation_files = {
+			"package_user_dependency_boundary": (
+				"tools/gf_maintenance.py",
+				"tools/gf_validation_inputs.py",
+				"tools/gf_workspace_snapshot.py",
+			),
+			"public_api_boundary": (
+				"tools/gdscript_api_parser.py",
+				"tools/gf_maintenance.py",
+				"tools/gf_validation_inputs.py",
+				"tools/gf_workspace_snapshot.py",
+			),
+			"public_docs_boundary": (
+				"tools/gf_maintenance.py",
+				"tools/gf_validation_inputs.py",
+				"tools/gf_workspace_snapshot.py",
+			),
+		}
+		for spec in inputs.DEFAULT_AFFECTED_INPUT_SPECS:
+			with self.subTest(check_name=spec.check_name):
+				self.assertEqual(
+					spec.implementation_files,
+					expected_implementation_files[spec.check_name],
+				)
+				self.assertFalse(hasattr(spec, "reuse_scope"))
+				self.assertFalse(hasattr(spec, "input_closure"))
+
+		public_docs = inputs.DEFAULT_AFFECTED_INPUT_SPEC_BY_NAME[
+			"public_docs_boundary"
+		]
+		self.assertTrue(public_docs.matches_source_path("docs/zh/guide.md"))
+		self.assertFalse(
+			public_docs.matches_source_path("docs/zh/reference/api/GFNode.md")
+		)
+		self.assertTrue(public_docs.matches_source_path("ASSET_STORE.md"))
+		public_api = inputs.DEFAULT_AFFECTED_INPUT_SPEC_BY_NAME[
+			"public_api_boundary"
+		]
+		self.assertTrue(public_api.matches_source_path("addons/gf/kernel/node.gd"))
+		self.assertFalse(public_api.matches_source_path("addons/gf/README.md"))
+		package_user = inputs.DEFAULT_AFFECTED_INPUT_SPEC_BY_NAME[
+			"package_user_dependency_boundary"
+		]
+		self.assertTrue(package_user.matches_source_path("addons/gf/plugin.gd"))
+		self.assertTrue(package_user.matches_source_path(
+			"addons/gf/kernel/editor/package/installer.gd"
+		))
+		self.assertFalse(package_user.matches_source_path(
+			"addons/gf/standard/package/example.gd"
+		))
+
+	def test_path_rule_and_input_spec_have_exact_versioned_round_trip(self) -> None:
+		spec = _input_spec()
+		payload = spec.to_dict()
+		self.assertEqual(payload["schema_version"], inputs.INPUT_SPEC_SCHEMA_VERSION)
+		self.assertEqual(
+			set(payload),
+			{
+				"schema_version",
+				"check_name",
+				"source_rules",
+				"implementation_files",
+				"consumed_artifacts",
+			},
+		)
+		encoded = json.dumps(payload, allow_nan=False, ensure_ascii=False, sort_keys=True)
+		self.assertEqual(
+			inputs.CheckInputSpec.from_dict(json.loads(encoded)),
+			spec,
+		)
+		self.assertRegex(spec.digest, r"^[0-9a-f]{64}$")
+
+	def test_noncanonical_or_unsafe_paths_fail_closed(self) -> None:
+		for path in (
+			"",
+			"/absolute",
+			"docs\\guide.md",
+			"docs/../guide.md",
+			"./docs",
+			"docs/",
+			"docs//guide.md",
+			"docs/CON.txt",
+			"docs/trailing.",
+			"docs/control\tname.md",
+		):
+			with self.subTest(path=path):
+				with self.assertRaises(inputs.ValidationInputContractError):
+					inputs.PathRule("exact", path)
+
+	def test_exact_and_tree_options_are_strict_and_canonical(self) -> None:
+		invalid_arguments = (
+			("exact", "README.md", (".md",), ()),
+			("tree", "docs", ("md",), ()),
+			("tree", "docs", (".MD",), ()),
+			("tree", "docs", (".txt", ".md"), ()),
+			("tree", "docs", (".md", ".md"), ()),
+			("tree", "docs", (".md",), ("other",)),
+			(
+				"tree",
+				"docs",
+				(".md",),
+				("docs/private", "docs/private/nested"),
+			),
+		)
+		for kind, path, suffixes, exclusions in invalid_arguments:
+			with self.subTest(kind=kind, suffixes=suffixes, exclusions=exclusions):
+				with self.assertRaises(inputs.ValidationInputContractError):
+					inputs.PathRule(kind, path, suffixes, exclusions)
+
+	def test_input_spec_rejects_duplicates_bad_order_and_missing_implementation(self) -> None:
+		rule = inputs.PathRule("exact", "README.md")
+		for source_rules, implementation_files in (
+			((), ("tools/checker.py",)),
+			((rule,), ()),
+			((rule, rule), ("tools/checker.py",)),
+			((rule,), ("z.py", "a.py")),
+			((rule,), ("tools/checker.py", "tools/checker.py")),
+		):
+			with self.subTest(source_rules=source_rules, implementation_files=implementation_files):
+				with self.assertRaises(inputs.ValidationInputContractError):
+					inputs.CheckInputSpec(
+						"check_name",
+						source_rules,
+						implementation_files,
+					)
+
+	def test_decoder_rejects_missing_extra_and_wrong_scalar_shapes(self) -> None:
+		payload = _input_spec().to_dict()
+		mutations: list[dict[str, object]] = []
+		missing = dict(payload)
+		missing.pop("source_rules")
+		mutations.append(missing)
+		extra = dict(payload)
+		extra["glob"] = "**/*"
+		mutations.append(extra)
+		wrong_schema = dict(payload)
+		wrong_schema["schema_version"] = True
+		mutations.append(wrong_schema)
+		wrong_array = dict(payload)
+		wrong_array["source_rules"] = {}
+		mutations.append(wrong_array)
+		for mutated in mutations:
+			with self.subTest(mutated=mutated):
+				with self.assertRaises(inputs.ValidationInputContractError):
+					inputs.CheckInputSpec.from_dict(mutated)
+
+	def test_path_matching_is_prefix_safe_excluded_and_suffix_conservative(self) -> None:
+		rule = inputs.PathRule(
+			"tree",
+			"docs",
+			suffixes=(".md",),
+			excluded_prefixes=("docs/reference/api",),
+		)
+		self.assertTrue(rule.matches("docs/guide.md"))
+		self.assertTrue(rule.matches("docs/GUIDE.MD"))
+		self.assertFalse(rule.matches("docs2/guide.md"))
+		self.assertFalse(rule.matches("docs/guide.txt"))
+		self.assertFalse(rule.matches("docs/reference/api/page.md"))
+
+
+class FrozenActionInputTests(unittest.TestCase):
+	def test_capture_is_stable_bounded_and_does_not_leak_absolute_paths(self) -> None:
+		with tempfile.TemporaryDirectory() as temporary_directory:
+			root = _make_input_root(Path(temporary_directory))
+			first = inputs.freeze_action_inputs(root, _input_spec())
+			second = inputs.freeze_action_inputs(root, _input_spec())
+
+			self.assertEqual(first, second)
+			self.assertTrue(first.capture_complete)
+			self.assertEqual(first.source_entry_count, 2)
+			self.assertEqual(first.implementation_entry_count, 1)
+			self.assertEqual(first.artifact_count, 0)
+			self.assertEqual(first.unknown_reasons, ())
+			self.assertEqual(
+				set(first.action_key_input_digests()),
+				{
+					"input_spec",
+					"source_manifest",
+					"implementation_manifest",
+					"discovery",
+					"consumed_artifacts",
+				},
+			)
+			serialized = json.dumps(first.to_dict(), sort_keys=True)
+			self.assertNotIn(str(root), serialized)
+			self.assertEqual(
+				inputs.FrozenActionInputs.from_dict(first.to_dict()),
+				first,
+			)
+
+	def test_source_content_membership_and_implementation_have_separate_digests(self) -> None:
+		with tempfile.TemporaryDirectory() as temporary_directory:
+			root = _make_input_root(Path(temporary_directory))
+			spec = _input_spec()
+			baseline = inputs.freeze_action_inputs(root, spec)
+
+			_write(root / "docs/notes.txt", "Unselected changed\n")
+			unselected = inputs.freeze_action_inputs(root, spec)
+			self.assertEqual(unselected, baseline)
+
+			_write(root / "docs/guide.md", "Changed guide\n")
+			source_changed = inputs.freeze_action_inputs(root, spec)
+			self.assertNotEqual(
+				source_changed.source_manifest_digest,
+				baseline.source_manifest_digest,
+			)
+			self.assertEqual(
+				source_changed.implementation_manifest_digest,
+				baseline.implementation_manifest_digest,
+			)
+
+			_write(root / "docs/new.md", "New member\n")
+			membership_changed = inputs.freeze_action_inputs(root, spec)
+			self.assertNotEqual(
+				membership_changed.discovery_digest,
+				source_changed.discovery_digest,
+			)
+
+			_write(root / "tools/checker.py", "RULE_VERSION = 2\n")
+			implementation_changed = inputs.freeze_action_inputs(root, spec)
+			self.assertNotEqual(
+				implementation_changed.implementation_manifest_digest,
+				membership_changed.implementation_manifest_digest,
+			)
+
+	def test_input_spec_change_changes_candidate_action_identity(self) -> None:
+		with tempfile.TemporaryDirectory() as temporary_directory:
+			root = _make_input_root(Path(temporary_directory))
+			baseline = inputs.freeze_action_inputs(root, _input_spec())
+			changed_spec = replace(
+				_input_spec(),
+				source_rules=(
+					inputs.PathRule(
+						"tree",
+						"docs",
+						suffixes=(".md", ".txt"),
+						excluded_prefixes=("docs/reference/api",),
+					),
+					inputs.PathRule("exact", "README.md"),
+				),
+			)
+			changed = inputs.freeze_action_inputs(root, changed_spec)
+			self.assertNotEqual(changed.input_spec_digest, baseline.input_spec_digest)
+			self.assertNotEqual(changed.discovery_digest, baseline.discovery_digest)
+			self.assertNotEqual(changed.source_manifest_digest, baseline.source_manifest_digest)
+
+	def test_missing_exact_source_is_frozen_but_missing_implementation_fails(self) -> None:
+		with tempfile.TemporaryDirectory() as temporary_directory:
+			root = _make_input_root(Path(temporary_directory))
+			missing_source = inputs.CheckInputSpec(
+				"missing_source",
+				(inputs.PathRule("exact", "optional/missing.md"),),
+				("tools/checker.py",),
+			)
+			frozen = inputs.freeze_action_inputs(root, missing_source)
+			self.assertTrue(frozen.capture_complete)
+			self.assertEqual(frozen.source_entry_count, 1)
+
+			missing_implementation = inputs.CheckInputSpec(
+				"missing_implementation",
+				(inputs.PathRule("exact", "README.md"),),
+				("tools/missing.py",),
+			)
+			with self.assertRaises(inputs.ValidationInputCaptureError):
+				inputs.freeze_action_inputs(root, missing_implementation)
+
+	def test_consumed_artifacts_require_exact_named_digest_set(self) -> None:
+		with tempfile.TemporaryDirectory() as temporary_directory:
+			root = _make_input_root(Path(temporary_directory))
+			spec = replace(_input_spec(), consumed_artifacts=("package.archive",))
+			with self.assertRaises(inputs.ValidationInputCaptureError):
+				inputs.freeze_action_inputs(root, spec)
+			digest = hashlib.sha256(b"artifact").hexdigest()
+			frozen = inputs.freeze_action_inputs(
+				root,
+				spec,
+				artifact_digests={"package.archive": digest},
+			)
+			self.assertEqual(frozen.artifact_count, 1)
+			with self.assertRaises(inputs.ValidationInputCaptureError):
+				inputs.freeze_action_inputs(
+					root,
+					spec,
+					artifact_digests={"other": digest},
+				)
+
+	def test_limits_links_and_special_files_fail_closed(self) -> None:
+		with tempfile.TemporaryDirectory() as temporary_directory:
+			root = _make_input_root(Path(temporary_directory))
+			with self.assertRaises(inputs.ValidationInputLimitError):
+				inputs.freeze_action_inputs(
+					root,
+					_input_spec(),
+					limits=replace(
+						inputs.DEFAULT_INPUT_CAPTURE_LIMITS,
+						max_file_bytes=4,
+					),
+				)
+
+			link_path = root / "docs/link.md"
+			try:
+				os.symlink(root / "README.md", link_path)
+			except OSError:
+				pass
+			else:
+				with self.assertRaises(inputs.ValidationInputCaptureError):
+					inputs.freeze_action_inputs(root, _input_spec())
+
+	def test_file_identity_drift_during_read_fails_closed(self) -> None:
+		with tempfile.TemporaryDirectory() as temporary_directory:
+			root = _make_input_root(Path(temporary_directory))
+			original_read = inputs.os.read
+			mutated = False
+
+			def drifting_read(file_descriptor: int, size: int) -> bytes:
+				nonlocal mutated
+				data = original_read(file_descriptor, size)
+				if not mutated:
+					mutated = True
+					with (root / "README.md").open("ab") as stream:
+						stream.write(b"drift")
+				return data
+
+			with mock.patch.object(inputs.os, "read", side_effect=drifting_read):
+				with self.assertRaises(inputs.ValidationInputDriftError):
+					inputs.freeze_action_inputs(
+						root,
+						inputs.CheckInputSpec(
+							"drift_check",
+							(inputs.PathRule("exact", "README.md"),),
+							("tools/checker.py",),
+						),
+					)
+
+	def test_tree_enumeration_checks_deadline_before_accumulating_all_entries(self) -> None:
+		with tempfile.TemporaryDirectory() as temporary_directory:
+			root = _make_input_root(Path(temporary_directory))
+			observed_entries = 0
+			original_scandir = inputs.os.scandir
+
+			class TrackedIterator:
+				def __init__(self, iterator: object) -> None:
+					self.iterator = iterator
+
+				def __enter__(self) -> TrackedIterator:
+					self.iterator.__enter__()  # type: ignore[attr-defined]
+					return self
+
+				def __exit__(self, *args: object) -> object:
+					return self.iterator.__exit__(*args)  # type: ignore[attr-defined]
+
+				def __iter__(self) -> TrackedIterator:
+					return self
+
+				def __next__(self) -> object:
+					nonlocal observed_entries
+					entry = next(self.iterator)  # type: ignore[arg-type]
+					observed_entries += 1
+					return entry
+
+			def tracked_scandir(path: object) -> TrackedIterator:
+				return TrackedIterator(original_scandir(path))
+
+			def monotonic() -> float:
+				return 2.0 if observed_entries >= 1 else 0.0
+
+			with mock.patch.object(inputs.os, "scandir", side_effect=tracked_scandir):
+				with self.assertRaises(inputs.ValidationInputDeadlineError):
+					inputs.freeze_action_inputs(
+						root,
+						_input_spec(),
+						deadline_seconds=1.0,
+						monotonic=monotonic,
+					)
+			self.assertEqual(observed_entries, 1)
+
+	def test_frozen_schema_rejects_invalid_digest_and_completeness_relationship(self) -> None:
+		with tempfile.TemporaryDirectory() as temporary_directory:
+			root = _make_input_root(Path(temporary_directory))
+			payload = inputs.freeze_action_inputs(root, _input_spec()).to_dict()
+			invalid_digest = dict(payload)
+			invalid_digest["source_manifest_digest"] = "not-a-digest"
+			with self.assertRaises(inputs.ValidationInputContractError):
+				inputs.FrozenActionInputs.from_dict(invalid_digest)
+			invalid_complete = dict(payload)
+			invalid_complete["capture_complete"] = False
+			with self.assertRaises(inputs.ValidationInputContractError):
+				inputs.FrozenActionInputs.from_dict(invalid_complete)
+
+
+class AffectedAnalysisTests(unittest.TestCase):
+	def test_default_catalog_shared_snapshot_change_affects_all_three_candidates(self) -> None:
+		with tempfile.TemporaryDirectory() as temporary_directory:
+			root = _make_default_catalog_git_repository(Path(temporary_directory))
+			_write(root / "tools/gf_workspace_snapshot.py", "SNAPSHOT_VERSION = 2\n")
+			check_names = [
+				spec.check_name for spec in inputs.DEFAULT_AFFECTED_INPUT_SPECS
+			]
+
+			report = inputs.analyze_affected_checks(
+				root,
+				check_names,
+				"HEAD",
+				True,
+			)
+
+			self.assertTrue(report["report_ok"])
+			self.assertEqual(report["affected_count"], 3)
+			self.assertEqual(report["unknown_count"], 0)
+			for check in report["checks"]:
+				self.assertEqual(
+					check["reason_codes"],
+					["implementation_input_changed"],
+				)
+				self.assertEqual(
+					check["matched_paths"],
+					["tools/gf_workspace_snapshot.py"],
+				)
+
+	def test_default_catalog_parser_change_affects_only_public_api_candidate(self) -> None:
+		with tempfile.TemporaryDirectory() as temporary_directory:
+			root = _make_default_catalog_git_repository(Path(temporary_directory))
+			_write(root / "tools/gdscript_api_parser.py", "PARSER_VERSION = 2\n")
+			check_names = [
+				spec.check_name for spec in inputs.DEFAULT_AFFECTED_INPUT_SPECS
+			]
+
+			report = inputs.analyze_affected_checks(
+				root,
+				check_names,
+				"HEAD",
+				True,
+			)
+
+			self.assertTrue(report["report_ok"])
+			self.assertEqual(report["affected_count"], 1)
+			self.assertEqual(report["unaffected_count"], 2)
+			by_name = {check["check_name"]: check for check in report["checks"]}
+			self.assertEqual(
+				by_name["public_api_boundary"]["reason_codes"],
+				["implementation_input_changed"],
+			)
+			self.assertEqual(
+				by_name["public_api_boundary"]["matched_paths"],
+				["tools/gdscript_api_parser.py"],
+			)
+			for check_name in (
+				"package_user_dependency_boundary",
+				"public_docs_boundary",
+			):
+				self.assertEqual(
+					by_name[check_name]["reason_codes"],
+					["no_declared_input_changed"],
+				)
+
+	def test_changed_source_is_affected_but_every_counter_stays_execute_only(self) -> None:
+		with tempfile.TemporaryDirectory() as temporary_directory:
+			root = _make_git_repository(Path(temporary_directory))
+			_write(root / "docs/guide.md", "Changed\n")
+
+			report = inputs.analyze_affected_checks(
+				root,
+				["public_docs_boundary"],
+				"HEAD",
+				True,
+				input_specs=[_input_spec()],
+			)
+
+			self.assertTrue(report["report_ok"])
+			self.assertTrue(report["capture_complete"])
+			self.assertFalse(report["authoritative"])
+			self.assertFalse(report["scheduling_effect"])
+			self.assertEqual(report["affected_count"], 1)
+			self.assertEqual(report["execute_count"], 1)
+			for counter in (
+				"affected_skip_count",
+				"cache_read_count",
+				"cache_write_count",
+				"reused_count",
+			):
+				self.assertEqual(report[counter], 0)
+			check = report["checks"][0]
+			self.assertEqual(check["classification"], "affected")
+			self.assertEqual(check["decision"], "execute")
+			self.assertEqual(check["reason_codes"], ["source_input_changed"])
+			self.assertEqual(check["matched_paths"], ["docs/guide.md"])
+			self.assertIsNotNone(check["frozen_inputs"])
+
+	def test_explain_changes_visibility_not_classification_or_count(self) -> None:
+		with tempfile.TemporaryDirectory() as temporary_directory:
+			root = _make_git_repository(Path(temporary_directory))
+			_write(root / "README.md", "Changed\n")
+			report = inputs.analyze_affected_checks(
+				root,
+				["public_docs_boundary"],
+				input_specs=[_input_spec()],
+			)
+			check = report["checks"][0]
+			self.assertEqual(check["classification"], "affected")
+			self.assertEqual(check["matched_path_count"], 1)
+			self.assertEqual(check["matched_paths"], [])
+
+	def test_unrelated_change_is_unaffected_and_undeclared_is_unknown(self) -> None:
+		with tempfile.TemporaryDirectory() as temporary_directory:
+			root = _make_git_repository(Path(temporary_directory))
+			_write(root / "unrelated.txt", "Changed unrelated\n")
+			report = inputs.analyze_affected_checks(
+				root,
+				["public_docs_boundary", "gut"],
+				input_specs=[_input_spec()],
+			)
+			self.assertTrue(report["report_ok"])
+			self.assertEqual(report["unaffected_count"], 1)
+			self.assertEqual(report["unknown_count"], 1)
+			self.assertEqual(
+				report["checks"][0]["reason_codes"],
+				["no_declared_input_changed"],
+			)
+			self.assertEqual(
+				report["checks"][1]["reason_codes"],
+				["input_spec_undeclared"],
+			)
+			self.assertTrue(all(
+				check["decision"] == "execute" for check in report["checks"]
+			))
+
+	def test_implementation_change_has_explicit_reason(self) -> None:
+		with tempfile.TemporaryDirectory() as temporary_directory:
+			root = _make_git_repository(Path(temporary_directory))
+			_write(root / "tools/checker.py", "RULE_VERSION = 2\n")
+			report = inputs.analyze_affected_checks(
+				root,
+				["public_docs_boundary"],
+				input_specs=[_input_spec()],
+			)
+			self.assertEqual(
+				report["checks"][0]["reason_codes"],
+				["implementation_input_changed"],
+			)
+
+	def test_delete_rename_and_ignored_untracked_inputs_are_conservative(self) -> None:
+		with tempfile.TemporaryDirectory() as temporary_directory:
+			root = _make_git_repository(Path(temporary_directory))
+			(root / "README.md").unlink()
+			(root / "docs/guide.md").rename(root / "docs/renamed.md")
+			_write(root / "docs/ignored.md", "Ignored but scanned\n")
+
+			changed = inputs.changed_paths_since(
+				root,
+				pathspecs=("README.md", "docs"),
+			)
+			self.assertIn("README.md", changed.paths)
+			self.assertIn("docs/guide.md", changed.paths)
+			self.assertIn("docs/renamed.md", changed.paths)
+			self.assertIn("docs/ignored.md", changed.paths)
+			report = inputs.analyze_affected_checks(
+				root,
+				["public_docs_boundary"],
+				"HEAD",
+				True,
+				input_specs=[_input_spec()],
+			)
+			self.assertEqual(report["affected_count"], 1)
+			self.assertGreaterEqual(report["checks"][0]["matched_path_count"], 4)
+
+	def test_invalid_base_and_expired_deadline_return_exact_unknown_execute_fallback(self) -> None:
+		with tempfile.TemporaryDirectory() as temporary_directory:
+			root = _make_git_repository(Path(temporary_directory))
+			for kwargs, error_code in (
+				({"base_revision": "missing-revision"}, "affected_base_invalid"),
+				({"deadline_seconds": 0.0}, "affected_deadline_exceeded"),
+			):
+				with self.subTest(error_code=error_code):
+					report = inputs.analyze_affected_checks(
+						root,
+						["public_docs_boundary"],
+						input_specs=[_input_spec()],
+						**kwargs,
+					)
+					self.assertEqual(set(report), inputs.AFFECTED_ANALYSIS_REPORT_FIELDS)
+					self.assertFalse(report["report_ok"])
+					self.assertFalse(report["capture_complete"])
+					self.assertEqual(report["errors"], [error_code])
+					self.assertEqual(report["unknown_count"], 1)
+					self.assertEqual(report["execute_count"], 1)
+					self.assertEqual(report["checks"][0]["decision"], "execute")
+
+	def test_failure_builder_bounds_error_codes_and_report_validator_rejects_drift(self) -> None:
+		report = inputs.make_affected_analysis_failure(
+			["api", "gut"],
+			"HEAD",
+			"raw exception: secret absolute path",
+			explain=True,
+		)
+		self.assertEqual(report["errors"], ["affected_internal_error"])
+		self.assertNotIn("secret", json.dumps(report))
+		self.assertEqual(report["unknown_count"], 2)
+		self.assertEqual(report["execute_count"], 2)
+		self.assertTrue(all(
+			set(check) == inputs.AFFECTED_CHECK_FIELDS
+			for check in report["checks"]
+		))
+
+		for mutation in (
+			lambda value: value.update({"affected_skip_count": 1}),
+			lambda value: value.update({"scheduling_effect": True}),
+			lambda value: value.update({"unknown_count": 0}),
+			lambda value: value.update({"unexpected": True}),
+		):
+			with self.subTest(mutation=mutation):
+				mutated = dict(report)
+				mutation(mutated)
+				with self.assertRaises(inputs.ValidationInputContractError):
+					inputs.validate_affected_analysis_report(mutated)
+
+	def test_schema_v1_rejects_contradictory_check_and_report_relationships(self) -> None:
+		def assert_invalid(report: dict[str, object], label: str) -> None:
+			with self.subTest(label=label):
+				with self.assertRaises(inputs.ValidationInputContractError):
+					inputs.validate_affected_analysis_report(report)
+
+		with tempfile.TemporaryDirectory() as temporary_directory:
+			root = _make_git_repository(Path(temporary_directory))
+			baseline = inputs.analyze_affected_checks(
+				root,
+				["public_docs_boundary", "gut"],
+				"HEAD",
+				True,
+				input_specs=[_input_spec()],
+			)
+			self.assertTrue(baseline["report_ok"])
+			unaffected = baseline["checks"][0]
+			unknown = baseline["checks"][1]
+			self.assertEqual(unaffected["classification"], "unaffected")
+			self.assertEqual(unknown["classification"], "unknown")
+
+			mutated = copy.deepcopy(baseline)
+			mutated["checks"][0]["reason_codes"] = ["source_input_changed"]
+			assert_invalid(mutated, "unaffected reason must be exact")
+
+			mutated = copy.deepcopy(baseline)
+			mutated["checks"][0]["matched_path_count"] = 1
+			mutated["checks"][0]["matched_paths"] = ["README.md"]
+			assert_invalid(mutated, "unaffected cannot expose matches")
+
+			mutated = copy.deepcopy(baseline)
+			mutated["checks"][0]["input_spec_declared"] = False
+			mutated["checks"][0]["frozen_inputs"] = None
+			assert_invalid(mutated, "unaffected must be declared and frozen")
+
+			mutated = copy.deepcopy(baseline)
+			mutated["checks"][1]["reason_codes"] = ["analysis_failed"]
+			assert_invalid(mutated, "success unknown reason must be undeclared")
+
+			mutated = copy.deepcopy(baseline)
+			mutated["checks"][1]["input_spec_declared"] = True
+			mutated["checks"][1]["frozen_inputs"] = copy.deepcopy(
+				unaffected["frozen_inputs"]
+			)
+			mutated["checks"][1]["frozen_inputs"]["check_name"] = "gut"
+			assert_invalid(mutated, "unknown cannot be declared or frozen")
+
+			mutated = copy.deepcopy(baseline)
+			mutated["checks"][1]["matched_path_count"] = 1
+			mutated["checks"][1]["matched_paths"] = ["README.md"]
+			assert_invalid(mutated, "unknown cannot expose matches")
+
+			_write(root / "README.md", "Changed\n")
+			affected = inputs.analyze_affected_checks(
+				root,
+				["public_docs_boundary"],
+				"HEAD",
+				True,
+				input_specs=[_input_spec()],
+			)
+			self.assertEqual(affected["checks"][0]["classification"], "affected")
+
+			mutated = copy.deepcopy(affected)
+			mutated["explain"] = False
+			assert_invalid(mutated, "explain false hides every matched path")
+
+			mutated = copy.deepcopy(affected)
+			mutated["checks"][0]["matched_paths"] = []
+			assert_invalid(mutated, "explained affected requires a visible match")
+
+			mutated = copy.deepcopy(affected)
+			mutated["checks"][0]["matched_path_count"] = 0
+			mutated["checks"][0]["matched_paths"] = []
+			assert_invalid(mutated, "affected requires a positive match count")
+
+			mutated = copy.deepcopy(affected)
+			mutated["checks"][0]["reason_codes"] = [
+				"no_declared_input_changed"
+			]
+			assert_invalid(mutated, "affected reason must be source or implementation")
+
+			mutated = copy.deepcopy(affected)
+			mutated["checks"][0]["input_spec_declared"] = False
+			mutated["checks"][0]["frozen_inputs"] = None
+			assert_invalid(mutated, "affected must be declared and frozen")
+
+		failure = inputs.make_affected_analysis_failure(
+			["public_docs_boundary"],
+			"HEAD",
+			"affected_internal_error",
+			explain=True,
+		)
+		mutated = copy.deepcopy(failure)
+		mutated["checks"][0]["reason_codes"] = ["input_spec_undeclared"]
+		assert_invalid(mutated, "failure reason must be analysis failed")
+
+		mutated = copy.deepcopy(failure)
+		mutated["checks"][0]["matched_path_count"] = 1
+		mutated["checks"][0]["matched_paths"] = ["README.md"]
+		assert_invalid(mutated, "failure cannot expose matches")
+
+	def test_module_has_no_skip_cache_or_persistence_surface(self) -> None:
+		for name in (
+			"should_skip",
+			"skip_checks",
+			"load_evidence",
+			"save_evidence",
+			"read_cache",
+			"write_cache",
+			"persist",
+		):
+			self.assertFalse(hasattr(inputs, name))
+
+
+if __name__ == "__main__":
+	unittest.main()
