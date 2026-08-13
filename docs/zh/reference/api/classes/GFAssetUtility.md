@@ -628,6 +628,7 @@ func preload_group_async( group_id: StringName, entries: Array, on_completed: Ca
 ### `unload_group`
 
 - API：`public`
+- 首次版本：`1.31.0`
 
 ```gdscript
 func unload_group(group_id: StringName, remove_unreferenced_cache: bool = false) -> void:
@@ -640,7 +641,7 @@ func unload_group(group_id: StringName, remove_unreferenced_cache: bool = false)
 | 名称 | 说明 |
 |---|---|
 | `group_id` | 分组标识。 |
-| `remove_unreferenced_cache` | 是否移除没有句柄引用的缓存项。 |
+| `remove_unreferenced_cache` | 是否在没有句柄引用、剩余 pin 或其他分组 membership 时移除缓存项。该选项不会删除其他分组的 membership；未 pin 的分组本身不阻止正常 LRU 淘汰。 |
 
 <a id="member-gfassetutility-methods-tick"></a>
 
