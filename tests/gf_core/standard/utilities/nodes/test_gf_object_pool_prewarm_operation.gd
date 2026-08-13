@@ -102,23 +102,23 @@ func test_nested_progress_cancel_never_delivers_progress_after_completed() -> vo
 	var operation: GFObjectPoolPrewarmOperation = _pool.prewarm_request_async(
 		_scene, _parent, 3, 1
 	)
-	var _first_connect_error: int = operation.progressed.connect(func(
+	var first_progress_callback: Callable = func(
 		current: GFObjectPoolPrewarmOperation,
 	) -> void:
 		events.append("first:%d" % current.get_processed_count())
 		if current.is_pending() and current.get_created_count() == 2:
 			var _cancelled: bool = current.cancel()
-	) as Error
-	var _second_connect_error: int = operation.progressed.connect(func(
+	var second_progress_callback: Callable = func(
 		current: GFObjectPoolPrewarmOperation,
 	) -> void:
 		events.append("second:%d" % current.get_processed_count())
-	) as Error
-	var _completed_connect_error: int = operation.completed.connect(func(
+	var completed_callback: Callable = func(
 		_result: GFObjectPoolPrewarmResult,
 	) -> void:
 		events.append("completed")
-	) as Error
+	var _first_connect_error: int = operation.progressed.connect(first_progress_callback) as Error
+	var _second_connect_error: int = operation.progressed.connect(second_progress_callback) as Error
+	var _completed_connect_error: int = operation.completed.connect(completed_callback) as Error
 
 	assert_true(await _wait_until_completed(operation), "progress listener 取消应有界终结请求。")
 	await get_tree().process_frame
@@ -128,6 +128,9 @@ func test_nested_progress_cancel_never_delivers_progress_after_completed() -> vo
 		["first:2", "second:2", "first:3", "second:3", "completed"],
 		"普通 progress 分发应先完成，终态 progress 必须先于 completed，且 completed 后不得再分发。"
 	)
+	_disconnect_signal_if_connected(operation.progressed, first_progress_callback)
+	_disconnect_signal_if_connected(operation.progressed, second_progress_callback)
+	_disconnect_signal_if_connected(operation.completed, completed_callback)
 
 
 func test_pending_terminal_blocks_late_progress_and_early_completion_publish() -> void:
@@ -143,7 +146,7 @@ func test_pending_terminal_blocks_late_progress_and_early_completion_publish() -
 	var events: Array[String] = []
 	var late_record_results: Array[bool] = []
 	var early_completion_results: Array[bool] = []
-	var _progress_error: int = operation.progressed.connect(func(
+	var progress_callback: Callable = func(
 		current: GFObjectPoolPrewarmOperation,
 	) -> void:
 		events.append("progress:%d" % current.get_processed_count())
@@ -156,18 +159,20 @@ func test_pending_terminal_blocks_late_progress_and_early_completion_publish() -
 			late_record_results.append(current.record_created_for_framework())
 		elif current.is_completed():
 			early_completion_results.append(current.emit_completed_for_framework())
-	) as Error
-	var _completed_error: int = operation.completed.connect(func(
+	var completed_callback: Callable = func(
 		_result: GFObjectPoolPrewarmResult,
 	) -> void:
 		events.append("completed")
-	) as Error
+	var _progress_error: int = operation.progressed.connect(progress_callback) as Error
+	var _completed_error: int = operation.completed.connect(completed_callback) as Error
 
 	assert_true(operation.record_created_for_framework())
 
 	assert_eq(late_record_results, [false], "待定终态不得再接纳进度写入。")
 	assert_eq(early_completion_results, [false], "终态 progress 分发中不得提前发布 completed。")
 	assert_eq(events, ["progress:1", "progress:2", "completed"])
+	_disconnect_signal_if_connected(operation.progressed, progress_callback)
+	_disconnect_signal_if_connected(operation.completed, completed_callback)
 	var result: GFObjectPoolPrewarmResult = operation.get_result()
 	assert_not_null(result)
 	if result == null:
@@ -193,26 +198,26 @@ func test_concurrent_operations_keep_identity_progress_and_completion_correlated
 	var second_progress: Array[GFObjectPoolPrewarmOperation] = []
 	var first_completed: Array[GFObjectPoolPrewarmResult] = []
 	var second_completed: Array[GFObjectPoolPrewarmResult] = []
-	var _first_progress_error: int = first.progressed.connect(func(
+	var first_progress_callback: Callable = func(
 		current: GFObjectPoolPrewarmOperation,
 	) -> void:
 		first_progress.append(current)
-	) as Error
-	var _second_progress_error: int = second.progressed.connect(func(
+	var second_progress_callback: Callable = func(
 		current: GFObjectPoolPrewarmOperation,
 	) -> void:
 		second_progress.append(current)
-	) as Error
-	var _first_completed_error: int = first.completed.connect(func(
+	var first_completed_callback: Callable = func(
 		result: GFObjectPoolPrewarmResult,
 	) -> void:
 		first_completed.append(result)
-	) as Error
-	var _second_completed_error: int = second.completed.connect(func(
+	var second_completed_callback: Callable = func(
 		result: GFObjectPoolPrewarmResult,
 	) -> void:
 		second_completed.append(result)
-	) as Error
+	var _first_progress_error: int = first.progressed.connect(first_progress_callback) as Error
+	var _second_progress_error: int = second.progressed.connect(second_progress_callback) as Error
+	var _first_completed_error: int = first.completed.connect(first_completed_callback) as Error
+	var _second_completed_error: int = second.completed.connect(second_completed_callback) as Error
 
 	assert_ne(first.get_request_id(), second.get_request_id(), "并发请求 ID 必须唯一。")
 	assert_same(first.get_scene(), _scene, "A 应保持自身 scene 弱身份。")
@@ -234,6 +239,10 @@ func test_concurrent_operations_keep_identity_progress_and_completion_correlated
 	if second_completed.size() == 1:
 		assert_eq(second_completed[0].get_request_id(), second.get_request_id())
 		assert_eq(second_completed[0].get_scene_identity(), second.get_scene_identity())
+	_disconnect_signal_if_connected(first.progressed, first_progress_callback)
+	_disconnect_signal_if_connected(second.progressed, second_progress_callback)
+	_disconnect_signal_if_connected(first.completed, first_completed_callback)
+	_disconnect_signal_if_connected(second.completed, second_completed_callback)
 
 
 func test_legacy_batch_wrapper_awaits_typed_terminal() -> void:
@@ -684,11 +693,11 @@ func test_dispose_settlement_cannot_be_overridden_by_completed_reentry_cancel() 
 	watch_signals(first)
 	watch_signals(second)
 	var cancel_results: Array[bool] = []
-	var _connect_error: int = first.completed.connect(func(
+	var completed_callback: Callable = func(
 		_result: GFObjectPoolPrewarmResult,
 	) -> void:
 		cancel_results.append(second.cancel())
-	)
+	var _connect_error: int = first.completed.connect(completed_callback)
 
 	_pool.dispose()
 	await get_tree().process_frame
@@ -704,6 +713,7 @@ func test_dispose_settlement_cannot_be_overridden_by_completed_reentry_cancel() 
 	_pool.max_available_per_scene = 4
 	_pool.prewarm(_scene, _parent, 4)
 	assert_eq(_pool.get_available_count(_scene), 4, "dispose 后新代应能完整补满容量。")
+	_disconnect_signal_if_connected(first.completed, completed_callback)
 
 
 func test_reinitialize_settlement_cannot_be_overridden_by_completed_reentry_cancel() -> void:
@@ -717,11 +727,11 @@ func test_reinitialize_settlement_cannot_be_overridden_by_completed_reentry_canc
 	watch_signals(first)
 	watch_signals(second)
 	var cancel_results: Array[bool] = []
-	var _connect_error: int = first.completed.connect(func(
+	var completed_callback: Callable = func(
 		_result: GFObjectPoolPrewarmResult,
 	) -> void:
 		cancel_results.append(second.cancel())
-	)
+	var _connect_error: int = first.completed.connect(completed_callback)
 
 	_pool.init()
 	await get_tree().process_frame
@@ -736,6 +746,7 @@ func test_reinitialize_settlement_cannot_be_overridden_by_completed_reentry_canc
 	_pool.max_available_per_scene = 4
 	_pool.prewarm(_scene, _parent, 4)
 	assert_eq(_pool.get_available_count(_scene), 4, "init 新代应能完整补满容量。")
+	_disconnect_signal_if_connected(first.completed, completed_callback)
 
 
 func test_partial_capacity_and_budget_progress_are_request_scoped() -> void:
@@ -754,11 +765,11 @@ func test_partial_capacity_and_budget_progress_are_request_scoped() -> void:
 				pass
 			return OK
 	)
-	var _progress_connect_error: int = operation.progressed.connect(func(
+	var progress_callback: Callable = func(
 		current: GFObjectPoolPrewarmOperation,
 	) -> void:
 		progress_counts.append(current.get_processed_count())
-	)
+	var _progress_connect_error: int = operation.progressed.connect(progress_callback)
 	assert_true(await _wait_until_completed(operation), "budget request 应在有界帧内完成。")
 
 	_assert_terminal(
@@ -777,6 +788,7 @@ func test_partial_capacity_and_budget_progress_are_request_scoped() -> void:
 	assert_eq(operation.get_progress_ratio(), 1.0)
 	assert_eq(operation.get_remaining_count(), 0)
 	assert_eq(progress_counts, [3], "连接后应只观察第二个提交对应的最终进度。")
+	_disconnect_signal_if_connected(operation.progressed, progress_callback)
 
 
 func test_prepare_callback_invalid_result_is_typed_failure() -> void:
@@ -834,7 +846,7 @@ func test_prepare_callback_cancel_discards_current_candidate() -> void:
 			return OK
 	)
 	operation_ref.append(operation)
-	var _completed_connect_error: int = operation.completed.connect(func(
+	var completed_callback: Callable = func(
 		_result: GFObjectPoolPrewarmResult,
 	) -> void:
 		var scene_snapshot: Dictionary = GFVariantData.get_option_dictionary(
@@ -842,7 +854,7 @@ func test_prepare_callback_cancel_discards_current_candidate() -> void:
 			operation.get_scene_identity()
 		)
 		completed_total_counts.append(GFVariantData.get_option_int(scene_snapshot, "total"))
-	)
+	var _completed_connect_error: int = operation.completed.connect(completed_callback)
 
 	assert_true(await _wait_until_completed(operation), "第二候选 callback 应取消请求。")
 	_assert_cancelled_reason(operation, GFObjectPoolPrewarmResult.REASON_CALLER_CANCELLED)
@@ -851,6 +863,7 @@ func test_prepare_callback_cancel_discards_current_candidate() -> void:
 	assert_eq(completed_total_counts, [1], "completed observer 不得看到未丢弃的 provisional candidate。")
 	assert_eq(rogue_barrier_results, [false, false], "回调不得伪造或提前结束 Utility barrier。")
 	assert_eq(_pool.get_available_count(_scene), 1, "callback 内取消不得提交当前候选。")
+	_disconnect_signal_if_connected(operation.completed, completed_callback)
 
 
 func test_last_progress_cancellation_cannot_strand_operation() -> void:
@@ -863,12 +876,12 @@ func test_last_progress_cancellation_cannot_strand_operation() -> void:
 		null,
 		source.get_token()
 	)
-	var _progress_connect_error: int = operation.progressed.connect(func(
+	var progress_callback: Callable = func(
 		current: GFObjectPoolPrewarmOperation,
 	) -> void:
 		if current.get_created_count() == current.get_admitted_count():
 			var _cancelled: bool = source.cancel(&"after_last_progress")
-	)
+	var _progress_connect_error: int = operation.progressed.connect(progress_callback)
 
 	assert_true(await _wait_until_completed(operation), "最后一次 progress 重入不得悬挂 Operation。")
 	_assert_terminal(
@@ -884,6 +897,7 @@ func test_last_progress_cancellation_cannot_strand_operation() -> void:
 		0
 	)
 	assert_eq(_pool.get_available_count(_scene), 2, "最后候选已提交时取消不得回滚。")
+	_disconnect_signal_if_connected(operation.progressed, progress_callback)
 	source.dispose()
 
 
@@ -906,6 +920,11 @@ func _wait_until_completed(
 			return true
 		await get_tree().process_frame
 	return operation.is_completed()
+
+
+func _disconnect_signal_if_connected(signal_value: Signal, callback: Callable) -> void:
+	if signal_value.is_connected(callback):
+		signal_value.disconnect(callback)
 
 
 func _assert_terminal(
