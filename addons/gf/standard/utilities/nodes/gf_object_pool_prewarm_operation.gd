@@ -47,8 +47,8 @@ var _skipped_count: int = 0
 var _cancelled_count: int = 0
 var _failed_count: int = 0
 var _result: GFObjectPoolPrewarmResult = null
-var _cancel_delegate: GFWeakMethodInvocation = null
-var _settlement_authority: RefCounted = null
+var _cancel_delegate: Callable = Callable()
+var _settlement_validator: Callable = Callable()
 var _cancel_requested: bool = false
 var _completed_signal_emitted: bool = false
 var _progress_notification_depth: int = 0
@@ -72,15 +72,16 @@ func cancel() -> bool:
 		not Thread.is_main_thread()
 		or not is_pending()
 		or not _has_unresolved_admitted_count()
-		or _cancel_delegate == null
+		or not _cancel_delegate.is_valid()
 		or _cancel_requested
 	):
 		return false
 	_cancel_requested = true
-	var result: Dictionary = _cancel_delegate.invoke(
-		[self, GFObjectPoolPrewarmResult.REASON_CALLER_CANCELLED]
+	var raw_result: Variant = _cancel_delegate.call(
+		self,
+		GFObjectPoolPrewarmResult.REASON_CALLER_CANCELLED
 	)
-	var accepted: bool = _invocation_returned_true(result)
+	var accepted: bool = raw_result is bool and raw_result
 	if not accepted and is_pending():
 		_cancel_requested = false
 	return accepted
@@ -297,9 +298,9 @@ func get_debug_snapshot() -> Dictionary:
 ## [br]
 ## @since unreleased
 ## [br]
-## @param cancel_delegate: Utility 方法，签名为 `(operation, reason) -> bool`。
+## @param cancel_delegate: Utility 提供的 capture-only 闭包，签名为 `(operation, reason) -> bool`；不得使用绑定实例方法。
 ## [br]
-## @param settlement_authority: 仅由所属 Utility 持有的终态 barrier 权限。
+## @param settlement_validator: 仅捕获 Utility capability 的校验闭包，签名为 `(candidate) -> bool`。
 ## [br]
 ## @param request_id: Utility 内唯一请求 ID。
 ## [br]
@@ -312,7 +313,7 @@ func get_debug_snapshot() -> Dictionary:
 ## @return 首次完整配置成功返回 true。
 func configure_for_framework(
 	cancel_delegate: Callable,
-	settlement_authority: RefCounted,
+	settlement_validator: Callable,
 	request_id: int,
 	scene: PackedScene,
 	requested_count: int,
@@ -321,15 +322,16 @@ func configure_for_framework(
 	if (
 		not Thread.is_main_thread()
 		or _request_id != 0
-		or settlement_authority == null
 		or request_id <= 0
 		or requested_count < 0
 		or admitted_count < 0
 		or admitted_count > requested_count
 	):
 		return false
-	var invocation: GFWeakMethodInvocation = _make_weak_invocation(cancel_delegate)
-	if invocation == null:
+	if (
+		not _is_capture_only_callable(cancel_delegate)
+		or not _is_capture_only_callable(settlement_validator)
+	):
 		return false
 	_request_id = request_id
 	_scene_ref = weakref(scene) if scene != null else null
@@ -337,8 +339,8 @@ func configure_for_framework(
 	_requested_count = requested_count
 	_admitted_count = admitted_count
 	_skipped_count = requested_count - admitted_count
-	_cancel_delegate = invocation
-	_settlement_authority = settlement_authority
+	_cancel_delegate = cancel_delegate
+	_settlement_validator = settlement_validator
 	return true
 
 
@@ -401,16 +403,15 @@ func configure_terminal_for_framework(
 ## [br]
 ## @since unreleased
 ## [br]
-## @param settlement_authority: 配置时由所属 Utility 冻结的同一权限对象。
+## @param settlement_authority: 仅由所属 Utility 原生闭包持有的 capability 候选。
 ## [br]
 ## @return 仍有未处理准入单位时更新成功返回 true。
-func record_capacity_skipped_for_framework(settlement_authority: RefCounted) -> bool:
+func record_capacity_skipped_for_framework(settlement_authority: Callable) -> bool:
 	if (
 		not Thread.is_main_thread()
 		or not is_pending()
 		or _pending_terminal_result != null
-		or settlement_authority == null
-		or settlement_authority != _settlement_authority
+		or not _settlement_authority_is_valid(settlement_authority)
 		or not _has_unresolved_admitted_count()
 	):
 		return false
@@ -421,6 +422,27 @@ func record_capacity_skipped_for_framework(settlement_authority: RefCounted) -> 
 	return true
 
 
+## 验证候选 capability 是否属于本 Operation。
+## [br]
+## @api framework_internal
+## [br]
+## @layer standard/utilities/nodes
+## [br]
+## @since unreleased
+## [br]
+## @param settlement_authority: 仅由所属 Utility 原生闭包持有的 capability 候选。
+## [br]
+## @return 候选与配置时 capability 精确匹配返回 true。
+func accepts_settlement_authority_for_framework(
+	settlement_authority: Callable
+) -> bool:
+	return (
+		Thread.is_main_thread()
+		and is_pending()
+		and _settlement_authority_is_valid(settlement_authority)
+	)
+
+
 ## 记录一个已成功提交的候选并发出进度。
 ## [br]
 ## @api framework_internal
@@ -429,16 +451,15 @@ func record_capacity_skipped_for_framework(settlement_authority: RefCounted) -> 
 ## [br]
 ## @since unreleased
 ## [br]
-## @param settlement_authority: 配置时由所属 Utility 冻结的同一权限对象。
+## @param settlement_authority: 仅由所属 Utility 原生闭包持有的 capability 候选。
 ## [br]
 ## @return 仍有未处理准入单位时首次记录成功返回 true。
-func record_created_for_framework(settlement_authority: RefCounted) -> bool:
+func record_created_for_framework(settlement_authority: Callable) -> bool:
 	if (
 		not Thread.is_main_thread()
 		or not is_pending()
 		or _pending_terminal_result != null
-		or settlement_authority == null
-		or settlement_authority != _settlement_authority
+		or not _settlement_authority_is_valid(settlement_authority)
 		or not _has_unresolved_admitted_count()
 	):
 		return false
@@ -455,17 +476,16 @@ func record_created_for_framework(settlement_authority: RefCounted) -> bool:
 ## [br]
 ## @since unreleased
 ## [br]
-## @param settlement_authority: 配置时由所属 Utility 冻结的同一权限对象。
+## @param settlement_authority: 仅由所属 Utility 原生闭包持有的 capability 候选。
 ## [br]
 ## @return 所属 Utility 首次进入 barrier 时返回 true。
-func begin_settlement_barrier_for_framework(settlement_authority: RefCounted) -> bool:
+func begin_settlement_barrier_for_framework(settlement_authority: Callable) -> bool:
 	if (
 		not Thread.is_main_thread()
 		or not is_pending()
 		or _pending_terminal_result != null
 		or _settlement_barrier_active
-		or settlement_authority == null
-		or settlement_authority != _settlement_authority
+		or not _settlement_authority_is_valid(settlement_authority)
 	):
 		return false
 	_settlement_barrier_active = true
@@ -480,15 +500,14 @@ func begin_settlement_barrier_for_framework(settlement_authority: RefCounted) ->
 ## [br]
 ## @since unreleased
 ## [br]
-## @param settlement_authority: 与 begin 使用的同一 Utility 权限对象。
+## @param settlement_authority: 仅由所属 Utility 原生闭包持有的 capability 候选。
 ## [br]
 ## @return 所属 Utility 成功匹配活动 barrier 时返回 true。
-func end_settlement_barrier_for_framework(settlement_authority: RefCounted) -> bool:
+func end_settlement_barrier_for_framework(settlement_authority: Callable) -> bool:
 	if (
 		not Thread.is_main_thread()
 		or not _settlement_barrier_active
-		or settlement_authority == null
-		or settlement_authority != _settlement_authority
+		or not _settlement_authority_is_valid(settlement_authority)
 	):
 		return false
 	_settlement_barrier_active = false
@@ -504,7 +523,7 @@ func end_settlement_barrier_for_framework(settlement_authority: RefCounted) -> b
 ## [br]
 ## @since unreleased
 ## [br]
-## @param settlement_authority: 配置时由所属 Utility 冻结的同一权限对象。
+## @param settlement_authority: 仅由所属 Utility 原生闭包持有的 capability 候选。
 ## [br]
 ## @param status: Result 唯一终态。
 ## [br]
@@ -514,7 +533,7 @@ func end_settlement_barrier_for_framework(settlement_authority: RefCounted) -> b
 ## [br]
 ## @return 首次合法完成返回 true。
 func finish_for_framework(
-	settlement_authority: RefCounted,
+	settlement_authority: Callable,
 	status: GFObjectPoolPrewarmResult.Status,
 	reason: StringName,
 	error_code: Error
@@ -523,8 +542,7 @@ func finish_for_framework(
 		not Thread.is_main_thread()
 		or not is_pending()
 		or _pending_terminal_result != null
-		or settlement_authority == null
-		or settlement_authority != _settlement_authority
+		or not _settlement_authority_is_valid(settlement_authority)
 	):
 		return false
 	var unresolved_admitted: int = maxi(
@@ -557,7 +575,7 @@ func finish_for_framework(
 		error_code
 	):
 		return false
-	_cancel_delegate = null
+	_cancel_delegate = Callable()
 	if _progress_notification_depth > 0 or _settlement_barrier_active:
 		_pending_terminal_result = result
 		_pending_final_cancelled_count = final_cancelled_count
@@ -627,29 +645,23 @@ func _commit_terminal_result(
 	_cancelled_count = final_cancelled_count
 	_failed_count = final_failed_count
 	_result = result
-	_settlement_authority = null
+	_settlement_validator = Callable()
 	if get_processed_count() > previous_processed_count:
 		_emit_progress_notification()
 	var _completed_emitted: bool = emit_completed_for_framework()
 
-static func _make_weak_invocation(delegate: Callable) -> GFWeakMethodInvocation:
-	if not delegate.is_valid() or delegate.get_bound_arguments_count() != 0:
-		return null
-	var owner: Object = delegate.get_object()
-	var method_name: StringName = delegate.get_method()
-	if owner == null or not is_instance_valid(owner) or method_name.is_empty():
-		return null
-	return GFWeakMethodInvocation.new(owner, method_name)
+func _settlement_authority_is_valid(candidate: Callable) -> bool:
+	if not candidate.is_valid() or not _settlement_validator.is_valid():
+		return false
+	var raw_result: Variant = _settlement_validator.call(candidate)
+	return raw_result is bool and raw_result
 
 
-static func _invocation_returned_true(result: Dictionary) -> bool:
-	var invoked_value: Variant = result.get("invoked", false)
-	var return_value: Variant = result.get("value", false)
+static func _is_capture_only_callable(delegate: Callable) -> bool:
 	return (
-		invoked_value is bool
-		and invoked_value
-		and return_value is bool
-		and return_value
+		delegate.is_valid()
+		and delegate.get_object() is Script
+		and delegate.get_bound_arguments_count() == 0
 	)
 
 
