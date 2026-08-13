@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<apiCatalog schemaVersion="2" name="GF Framework" sourceRoot="addons/gf" sourceDigest="64aa1fda556a9c4395cf7e55b08fae4cbba34f0c644f2bd1bcd8bccbca8af81c" classCount="840" methodCount="7644">
+<apiCatalog schemaVersion="2" name="GF Framework" sourceRoot="addons/gf" sourceDigest="d4c4527db83bba6bde55558deb29af90d88437fc65a6adfe5ace481ab2acd368" classCount="842" methodCount="7677">
 	<module id="kernel" label="Kernel" classCount="74" methodCount="799">
 		<class name="GFAccessGenerator" path="classes/GFAccessGenerator.xml" sourcePath="addons/gf/kernel/editor/gf_access_generator.gd" extends="RefCounted" />
 		<class name="GFArchitecture" path="classes/GFArchitecture.xml" sourcePath="addons/gf/kernel/core/gf_architecture.gd" extends="Object" />
@@ -76,7 +76,7 @@
 		<class name="GFUtility" path="classes/GFUtility.xml" sourcePath="addons/gf/kernel/base/gf_utility.gd" extends="Object" />
 		<class name="GFWeakMethodInvocation" path="classes/GFWeakMethodInvocation.xml" sourcePath="addons/gf/kernel/core/gf_weak_method_invocation.gd" extends="RefCounted" />
 	</module>
-	<module id="standard" label="Standard" classCount="471" methodCount="4739">
+	<module id="standard" label="Standard" classCount="473" methodCount="4772">
 		<class name="GFActivationTransaction" path="classes/GFActivationTransaction.xml" sourcePath="addons/gf/standard/foundation/policy/gf_activation_transaction.gd" extends="RefCounted" />
 		<class name="GFAnalyticsConfig" path="classes/GFAnalyticsConfig.xml" sourcePath="addons/gf/standard/utilities/analytics/gf_analytics_config.gd" extends="Resource" />
 		<class name="GFAnalyticsEventSchema" path="classes/GFAnalyticsEventSchema.xml" sourcePath="addons/gf/standard/utilities/analytics/gf_analytics_event_schema.gd" extends="Resource" />
@@ -323,6 +323,8 @@
 		<class name="GFNumberFormatter" path="classes/GFNumberFormatter.xml" sourcePath="addons/gf/standard/foundation/formatting/gf_number_formatter.gd" extends="RefCounted" />
 		<class name="GFNumericModifierMath" path="classes/GFNumericModifierMath.xml" sourcePath="addons/gf/standard/foundation/math/gf_numeric_modifier_math.gd" extends="RefCounted" />
 		<class name="GFObjectCandidateRegistry" path="classes/GFObjectCandidateRegistry.xml" sourcePath="addons/gf/standard/common/gf_object_candidate_registry.gd" extends="RefCounted" />
+		<class name="GFObjectPoolPrewarmOperation" path="classes/GFObjectPoolPrewarmOperation.xml" sourcePath="addons/gf/standard/utilities/nodes/gf_object_pool_prewarm_operation.gd" extends="RefCounted" />
+		<class name="GFObjectPoolPrewarmResult" path="classes/GFObjectPoolPrewarmResult.xml" sourcePath="addons/gf/standard/utilities/nodes/gf_object_pool_prewarm_result.gd" extends="RefCounted" />
 		<class name="GFObjectPoolUtility" path="classes/GFObjectPoolUtility.xml" sourcePath="addons/gf/standard/utilities/nodes/gf_object_pool_utility.gd" extends="GFUtility" />
 		<class name="GFObservableArrayResource" path="classes/GFObservableArrayResource.xml" sourcePath="addons/gf/standard/foundation/collections/gf_observable_array_resource.gd" extends="Resource" />
 		<class name="GFObservableDictionaryResource" path="classes/GFObservableDictionaryResource.xml" sourcePath="addons/gf/standard/foundation/collections/gf_observable_dictionary_resource.gd" extends="Resource" />

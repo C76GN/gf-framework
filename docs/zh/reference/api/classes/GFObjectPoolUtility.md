@@ -27,6 +27,8 @@
 | 方法 | [`prewarm`](#member-gfobjectpoolutility-methods-prewarm) | `func prewarm(scene: PackedScene, parent: Node, count: int, before_add: Callable = Callable()) -> void:` |
 | 方法 | [`prewarm_async`](#member-gfobjectpoolutility-methods-prewarm_async) | `func prewarm_async( scene: PackedScene, parent: Node, count: int, batch_size: int = 32, before_add: Callable = Callable() ) -> void:` |
 | 方法 | [`prewarm_async_budget`](#member-gfobjectpoolutility-methods-prewarm_async_budget) | `func prewarm_async_budget( scene: PackedScene, parent: Node, count: int, msec_budget_per_frame: float = 8.0, before_add: Callable = Callable() ) -> void:` |
+| 方法 | [`prewarm_request_async`](#member-gfobjectpoolutility-methods-prewarm_request_async) | `func prewarm_request_async( scene: PackedScene, parent: Node, count: int, batch_size: int = 32, owner: Object = null, cancellation_token: GFCancellationToken = null, prepare_callback: Callable = Callable() ) -> GFObjectPoolPrewarmOperation:` |
+| 方法 | [`prewarm_budget_request_async`](#member-gfobjectpoolutility-methods-prewarm_budget_request_async) | `func prewarm_budget_request_async( scene: PackedScene, parent: Node, count: int, msec_budget_per_frame: float = 8.0, owner: Object = null, cancellation_token: GFCancellationToken = null, prepare_callback: Callable = Callable() ) -> GFObjectPoolPrewarmOperation:` |
 | 方法 | [`get_available_count`](#member-gfobjectpoolutility-methods-get_available_count) | `func get_available_count(scene: PackedScene) -> int:` |
 | 方法 | [`get_active_count`](#member-gfobjectpoolutility-methods-get_active_count) | `func get_active_count(scene: PackedScene) -> int:` |
 | 方法 | [`get_active_nodes`](#member-gfobjectpoolutility-methods-get_active_nodes) | `func get_active_nodes(scene: PackedScene) -> Array[Node]:` |
@@ -232,6 +234,60 @@ func prewarm_async_budget( scene: PackedScene, parent: Node, count: int, msec_bu
 | `count` | 预热的数量。 |
 | `msec_budget_per_frame` | 每帧实例化预算毫秒数；小于等于 0 时退化为同步预热。 |
 | `before_add` | 可选入树前回调，签名为 \`func(node: Node) -> void\`。 |
+
+<a id="member-gfobjectpoolutility-methods-prewarm_request_async"></a>
+
+### `prewarm_request_async`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func prewarm_request_async( scene: PackedScene, parent: Node, count: int, batch_size: int = 32, owner: Object = null, cancellation_token: GFCancellationToken = null, prepare_callback: Callable = Callable() ) -> GFObjectPoolPrewarmOperation:
+```
+
+创建一个按每帧批量驱动的 request-scoped 类型化预热请求。 请求只释放自身尚未消费的容量 reservation；取消不会回滚已经提交的节点。 `batch_size <= 0` 时保留旧 API 的同步退化语义。同步终态可能在方法返回前完成。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `scene` | 要预热的 PackedScene 资源。 |
+| `parent` | 可选挂载父节点；null 表示 detached prewarm。 |
+| `count` | 请求数量；0 立即完成，负数返回 INVALID。 |
+| `batch_size` | 每帧最多创建数量；小于等于 0 时同步执行。 |
+| `owner` | 可选请求生命周期 owner；Node 必须已在场景树中。 |
+| `cancellation_token` | 可选取消令牌或 GFAsyncScope。 |
+| `prepare_callback` | 可选 \`func(node: Node) -> Error\`；非 OK 终止请求。 |
+
+返回：请求专属 Operation；调用方应先检查同步终态再连接 completed。
+
+<a id="member-gfobjectpoolutility-methods-prewarm_budget_request_async"></a>
+
+### `prewarm_budget_request_async`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func prewarm_budget_request_async( scene: PackedScene, parent: Node, count: int, msec_budget_per_frame: float = 8.0, owner: Object = null, cancellation_token: GFCancellationToken = null, prepare_callback: Callable = Callable() ) -> GFObjectPoolPrewarmOperation:
+```
+
+创建一个按每帧时间预算驱动的 request-scoped 类型化预热请求。 请求只释放自身尚未消费的容量 reservation；取消不会回滚已经提交的节点。 `msec_budget_per_frame <= 0` 时保留旧 API 的同步退化语义。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `scene` | 要预热的 PackedScene 资源。 |
+| `parent` | 可选挂载父节点；null 表示 detached prewarm。 |
+| `count` | 请求数量；0 立即完成，负数返回 INVALID。 |
+| `msec_budget_per_frame` | 每帧预算；小于等于 0 时同步执行。 |
+| `owner` | 可选请求生命周期 owner；Node 必须已在场景树中。 |
+| `cancellation_token` | 可选取消令牌或 GFAsyncScope。 |
+| `prepare_callback` | 可选 \`func(node: Node) -> Error\`；非 OK 终止请求。 |
+
+返回：请求专属 Operation；调用方应先检查同步终态再连接 completed。
 
 <a id="member-gfobjectpoolutility-methods-get_available_count"></a>
 

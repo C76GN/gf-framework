@@ -1,0 +1,331 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFObjectPoolPrewarmResult" path="addons/gf/standard/utilities/nodes/gf_object_pool_prewarm_result.gd" module="standard" extends="RefCounted" classDigest="183998f694782ed0ecd7696fdb1d3c26bd953f6bc4acec5be11f23ee28eb1c63">
+	<description>GFObjectPoolPrewarmResult: 单次对象池预热请求的不可变终态。
+结果冻结请求身份、容量准入和每个请求单位的唯一 disposition。调用方可以区分
+完成、容量部分接纳、拒绝、取消、Utility 生命周期终结、输入无效与执行失败。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">value_object</tag>
+		<tag name="layer">standard/utilities/nodes</tag>
+		<tag name="since">unreleased</tag>
+	</tags>
+	<signals />
+	<enums>
+		<member kind="enum" name="Status">
+			<signature>enum Status {
+	## 全部请求单位已经成功创建。
+	COMPLETED,
+	## 容量只接纳了部分单位，已接纳单位全部成功创建。
+	PARTIAL,
+	## 有效请求没有可用容量。
+	REJECTED,
+	## 请求因 caller、token、scope、owner 或 parent 生命周期终结。
+	CANCELLED,
+	## Object Pool Utility 释放或重新初始化了请求代际。
+	DISPOSED,
+	## 请求输入不符合契约。
+	INVALID,
+	## 场景实例化、准备回调或候选提交失败。
+	FAILED,
+}</signature>
+			<description>预热请求的唯一终态。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</enums>
+	<constants>
+		<member kind="const" name="REASON_COMPLETED">
+			<signature>const REASON_COMPLETED: StringName = &amp;"completed"</signature>
+			<description>全部请求单位已经创建。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="REASON_CAPACITY_LIMITED">
+			<signature>const REASON_CAPACITY_LIMITED: StringName = &amp;"capacity_limited"</signature>
+			<description>容量只接纳部分请求单位。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="REASON_CAPACITY_UNAVAILABLE">
+			<signature>const REASON_CAPACITY_UNAVAILABLE: StringName = &amp;"capacity_unavailable"</signature>
+			<description>当前没有可接纳容量。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="REASON_CALLER_CANCELLED">
+			<signature>const REASON_CALLER_CANCELLED: StringName = &amp;"caller_cancelled"</signature>
+			<description>caller 显式取消请求。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="REASON_TOKEN_CANCELLED">
+			<signature>const REASON_TOKEN_CANCELLED: StringName = &amp;"token_cancelled"</signature>
+			<description>绑定的 cancellation token 请求取消。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="REASON_CANCELLATION_SCOPE_COMPLETED">
+			<signature>const REASON_CANCELLATION_SCOPE_COMPLETED: StringName = &amp;"cancellation_scope_completed"</signature>
+			<description>绑定的异步作用域已经正常完成。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="REASON_OWNER_RELEASED">
+			<signature>const REASON_OWNER_RELEASED: StringName = &amp;"owner_released"</signature>
+			<description>请求 owner 已释放或离开场景树。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="REASON_PARENT_RELEASED">
+			<signature>const REASON_PARENT_RELEASED: StringName = &amp;"parent_released"</signature>
+			<description>请求 parent 已释放、离树或排队删除。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="REASON_UTILITY_DISPOSED">
+			<signature>const REASON_UTILITY_DISPOSED: StringName = &amp;"utility_disposed"</signature>
+			<description>Object Pool Utility 已释放。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="REASON_UTILITY_REINITIALIZED">
+			<signature>const REASON_UTILITY_REINITIALIZED: StringName = &amp;"utility_reinitialized"</signature>
+			<description>Object Pool Utility 已重新初始化。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="REASON_INVALID_SCENE">
+			<signature>const REASON_INVALID_SCENE: StringName = &amp;"invalid_scene"</signature>
+			<description>PackedScene 无效。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="REASON_INVALID_COUNT">
+			<signature>const REASON_INVALID_COUNT: StringName = &amp;"invalid_count"</signature>
+			<description>请求数量小于零。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="REASON_INVALID_PARENT">
+			<signature>const REASON_INVALID_PARENT: StringName = &amp;"invalid_parent"</signature>
+			<description>parent 在接纳时无效或已排队删除。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="REASON_INVALID_OWNER">
+			<signature>const REASON_INVALID_OWNER: StringName = &amp;"invalid_owner"</signature>
+			<description>owner 在接纳时无效或 Node owner 不在场景树中。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="REASON_INVALID_PREPARE_CALLBACK">
+			<signature>const REASON_INVALID_PREPARE_CALLBACK: StringName = &amp;"invalid_prepare_callback"</signature>
+			<description>prepare_callback 不是空 Callable 或有效 Callable。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="REASON_SCENE_INSTANTIATION_FAILED">
+			<signature>const REASON_SCENE_INSTANTIATION_FAILED: StringName = &amp;"scene_instantiation_failed"</signature>
+			<description>PackedScene 无法实例化为有效 Node。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="REASON_PREPARE_CALLBACK_FAILED">
+			<signature>const REASON_PREPARE_CALLBACK_FAILED: StringName = &amp;"prepare_callback_failed"</signature>
+			<description>prepare_callback 显式返回非 OK Error。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="REASON_INVALID_PREPARE_CALLBACK_RESULT">
+			<signature>const REASON_INVALID_PREPARE_CALLBACK_RESULT: StringName = &amp;"invalid_prepare_callback_result"</signature>
+			<description>prepare_callback 返回值不是合法 Error 整数。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="REASON_CANDIDATE_INVALIDATED">
+			<signature>const REASON_CANDIDATE_INVALIDATED: StringName = &amp;"candidate_invalidated"</signature>
+			<description>候选在提交前被重入或生命周期变化失效。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="REASON_INTERNAL_FAILURE">
+			<signature>const REASON_INTERNAL_FAILURE: StringName = &amp;"internal_failure"</signature>
+			<description>框架无法安全归类的内部失败。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</constants>
+	<properties />
+	<methods>
+		<member kind="method" name="get_status">
+			<signature>func get_status() -&gt; Status:</signature>
+			<description>获取请求终态。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">`Status` 闭合枚举值。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_successful">
+			<signature>func is_successful() -&gt; bool:</signature>
+			<description>检查请求是否完成了全部或部分容量准入。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">`COMPLETED` 或 `PARTIAL` 返回 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_request_id">
+			<signature>func get_request_id() -&gt; int:</signature>
+			<description>获取 Utility 内唯一请求 ID。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">大于零的请求 ID；尚未配置时返回 0。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_scene_identity">
+			<signature>func get_scene_identity() -&gt; String:</signature>
+			<description>获取请求冻结的场景身份。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">资源路径或实例 ID 身份。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_requested_count">
+			<signature>func get_requested_count() -&gt; int:</signature>
+			<description>获取调用方请求数量。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">非负数量。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_admitted_count">
+			<signature>func get_admitted_count() -&gt; int:</signature>
+			<description>获取容量准入数量。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">非负且不大于 requested 的数量。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_created_count">
+			<signature>func get_created_count() -&gt; int:</signature>
+			<description>获取成功提交到池中的数量。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">成功创建数量。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_skipped_count">
+			<signature>func get_skipped_count() -&gt; int:</signature>
+			<description>获取未获容量准入的数量。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">`requested - admitted`。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_cancelled_count">
+			<signature>func get_cancelled_count() -&gt; int:</signature>
+			<description>获取因取消或生命周期终结而未创建的准入数量。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">取消数量。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_failed_count">
+			<signature>func get_failed_count() -&gt; int:</signature>
+			<description>获取因执行失败而未创建的准入数量。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">失败数量。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_reason">
+			<signature>func get_reason() -&gt; StringName:</signature>
+			<description>获取唯一终态原因。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">与 status/error 对应的 `REASON_*`。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_error_code">
+			<signature>func get_error_code() -&gt; Error:</signature>
+			<description>获取终态 Error。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">与 status/reason 对应的 Error。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="duplicate_result">
+			<signature>func duplicate_result() -&gt; GFObjectPoolPrewarmResult:</signature>
+			<description>创建隔离结果副本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">新结果对象。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="to_dict">
+			<signature>func to_dict() -&gt; Dictionary:</signature>
+			<description>转换为不含 Object 引用的闭合诊断字典。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">请求身份、计数与终态。</tag>
+				<tag name="schema">return: Exact Dictionary with status: int enum, request_id: int, scene_identity: String, requested_count: int, admitted_count: int, created_count: int, skipped_count: int, cancelled_count: int, failed_count: int, reason: StringName, error_code: int, and successful: bool fields.</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>
