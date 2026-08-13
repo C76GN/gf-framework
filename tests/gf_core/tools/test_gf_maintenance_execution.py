@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import io
 import json
+import os
 import socket
 import subprocess
 import sys
@@ -12,6 +13,7 @@ import tempfile
 import threading
 import time
 import unittest
+import xml.etree.ElementTree as ET
 from pathlib import Path
 from unittest import mock
 
@@ -26,6 +28,15 @@ import gf_maintenance
 import gf_maintenance_rendering
 import gf_mcp_server
 import gf_workspace_snapshot
+
+
+def _remove_directory_link_fixture(path: Path) -> None:
+	if not os.path.lexists(path):
+		return
+	if os.name == "nt":
+		os.rmdir(path)
+	else:
+		path.unlink()
 
 
 class StrictJsonBoundaryTests(unittest.TestCase):
@@ -208,6 +219,824 @@ class McpBoundaryTests(unittest.TestCase):
 		self.assertEqual(responses[1]["id"], 2)
 		self.assertEqual(responses[1]["error"]["code"], -32602)
 		self.assertEqual(completed.stderr, b"")
+
+
+class GutShardPlanIntegrationTests(unittest.TestCase):
+	INVENTORY = (
+		"res://tests/gf_core/maintenance/test_alpha.gd",
+		"res://tests/gf_core/kernel/test_beta.gd",
+	)
+	MANIFEST = {
+		"schema_version": 1,
+		"inventory_root": "res://tests/gf_core",
+		"balancing_basis": "bootstrap_unweighted",
+		"shards": [
+			{
+				"name": "gut-contracts",
+				"role": "contracts",
+				"scripts": [INVENTORY[0]],
+			},
+			{
+				"name": "gut-lane-a",
+				"role": "lane",
+				"scripts": [INVENTORY[1]],
+			},
+		],
+	}
+
+	def _manifest_patches(self) -> tuple[mock._patch, mock._patch, mock._patch]:
+		return (
+			mock.patch.object(
+				gf_maintenance.gf_gut_sharding,
+				"discover_gut_test_scripts",
+				return_value=self.INVENTORY,
+			),
+			mock.patch.object(
+				gf_maintenance.gf_gut_sharding,
+				"load_and_validate_manifest",
+				return_value=self.MANIFEST,
+			),
+			mock.patch.object(
+				gf_maintenance.gf_gut_sharding,
+				"canonical_digest",
+				return_value="a" * 64,
+			),
+		)
+
+	def _observation_report(self) -> dict[str, object]:
+		return {
+			"schema_version": 1,
+			"observation_only": True,
+			"execution_changed": False,
+			"skip_count": 0,
+			"reuse_count": 0,
+			"shards": [
+				{
+					"name": "gut-contracts",
+					"role": "contracts",
+					"script_count": 1,
+					"test_count": 2,
+					"duration_seconds": 1.0,
+				},
+				{
+					"name": "gut-lane-a",
+					"role": "lane",
+					"script_count": 1,
+					"test_count": 2,
+					"duration_seconds": 2.0,
+				},
+			],
+		}
+
+	def test_manifest_only_mode_never_runs_or_mutates_authoritative_gut(self) -> None:
+		canonical_gut = list(gf_maintenance.CHECK_DEFINITIONS["gut"])
+		discover_patch, manifest_patch, digest_patch = self._manifest_patches()
+		with discover_patch, manifest_patch, digest_patch, mock.patch.object(
+			gf_maintenance,
+			"run_command",
+		) as run_command:
+			report = gf_maintenance.gut_shard_plan()
+		self.assertTrue(report["ok"])
+		self.assertEqual(report["mode"], "manifest_only")
+		self.assertFalse(report["execution"]["performed"])
+		self.assertEqual(report["execution"]["gut_run_count"], 0)
+		self.assertEqual(
+			[
+				report["observation_policy"]["skip_count"],
+				report["observation_policy"]["cache_read_count"],
+				report["observation_policy"]["cache_write_count"],
+				report["observation_policy"]["reuse_count"],
+			],
+			[0, 0, 0, 0],
+		)
+		self.assertEqual(gf_maintenance.CHECK_DEFINITIONS["gut"], canonical_gut)
+		run_command.assert_not_called()
+
+	def test_existing_junit_is_parsed_without_running_gut(self) -> None:
+		discover_patch, manifest_patch, digest_patch = self._manifest_patches()
+		junit_report = {
+			"input_complete": True,
+			"script_count": 2,
+			"test_count": 4,
+			"scripts": [],
+		}
+		observation_report = self._observation_report()
+		observed_identity: tuple[int, int, int, int, int, int] | None = None
+		with tempfile.TemporaryDirectory() as temporary_directory:
+			fixture_root = Path(temporary_directory)
+			junit_path = fixture_root / "build/gut-sharding/existing.xml"
+			junit_path.parent.mkdir(parents=True)
+			junit_path.write_text("fixture", encoding="utf-8")
+			observed_identity = (
+				gf_maintenance.gf_gut_sharding.stable_file_identity(junit_path.lstat())
+			)
+			with discover_patch, manifest_patch, digest_patch, mock.patch.object(
+				gf_maintenance,
+				"ROOT",
+				fixture_root,
+			), mock.patch.object(
+				gf_maintenance,
+				"validate_gut_shard_junit_input_path",
+				return_value=junit_path,
+			), mock.patch.object(
+				gf_maintenance.gf_gut_sharding,
+				"parse_gut_junit_xml",
+				return_value=junit_report,
+			) as parse_junit, mock.patch.object(
+				gf_maintenance.gf_gut_sharding,
+				"build_observation_report",
+				return_value=observation_report,
+			) as build_observation, mock.patch.object(
+				gf_maintenance,
+				"run_command",
+			) as run_command:
+				report = gf_maintenance.gut_shard_plan(
+					junit_path="build/gut-sharding/existing.xml"
+				)
+		self.assertTrue(report["ok"])
+		self.assertEqual(report["junit"], junit_report)
+		self.assertEqual(report["observation"], observation_report)
+		self.assertEqual(report["shards"], observation_report["shards"])
+		self.assertEqual(parse_junit.call_args.args, (junit_path,))
+		self.assertEqual(parse_junit.call_args.kwargs["expected_scripts"], self.INVENTORY)
+		self.assertEqual(
+			parse_junit.call_args.kwargs["expected_file_identity"],
+			observed_identity,
+		)
+		build_observation.assert_called_once_with(self.MANIFEST, junit_report)
+		run_command.assert_not_called()
+
+	def test_explicit_run_executes_import_and_authoritative_gut_once(self) -> None:
+		discover_patch, manifest_patch, digest_patch = self._manifest_patches()
+		canonical_gut = list(gf_maintenance.CHECK_DEFINITIONS["gut"])
+		junit_output = ROOT / "build/gut-sharding/run-token/gut-authoritative.xml"
+		prepared_output = mock.Mock(
+			path=junit_output,
+			invocation_directory=junit_output.parent,
+		)
+		import_result = gf_maintenance.CommandResult(
+			name="godot_import",
+			command=list(gf_maintenance.CHECK_DEFINITIONS["godot_import"]),
+			exit_code=0,
+			stdout="",
+			stderr="",
+		)
+		gut_result = gf_maintenance.CommandResult(
+			name="gut",
+			command=canonical_gut,
+			exit_code=0,
+			stdout="",
+			stderr="",
+			gut_lifecycle_report={"ok": True},
+		)
+		with discover_patch, manifest_patch, digest_patch, mock.patch.object(
+			gf_maintenance,
+			"prepare_gut_shard_junit_output",
+			return_value=prepared_output,
+		), mock.patch.object(
+			gf_maintenance,
+			"run_command",
+			side_effect=[import_result, gut_result],
+		) as run_command, mock.patch.object(
+			gf_maintenance,
+			"parse_published_gut_shard_junit",
+			return_value={"input_complete": True, "script_count": 2, "scripts": []},
+		) as parse_junit, mock.patch.object(
+			gf_maintenance.gf_gut_sharding,
+			"build_observation_report",
+			return_value=self._observation_report(),
+		) as build_observation:
+			report = gf_maintenance.gut_shard_plan(run_gut=True)
+		self.assertTrue(report["ok"])
+		self.assertEqual(report["execution"]["gut_run_count"], 1)
+		self.assertTrue(report["execution"]["result_accepted"])
+		self.assertEqual(run_command.call_count, 2)
+		self.assertEqual(run_command.call_args_list[0].args[0], "godot_import")
+		gut_call = run_command.call_args_list[1]
+		self.assertEqual(gut_call.args[0], "gut")
+		self.assertEqual(
+			gut_call.args[1][:-1],
+			gf_maintenance.gut_shard_observation_command(
+				canonical_gut,
+				"run-token",
+				"gut",
+			),
+		)
+		self.assertEqual(
+			gut_call.args[1][-1:],
+			[
+				f"-gjunit_xml_file={junit_output.as_posix()}",
+			],
+		)
+		self.assertEqual(
+			run_command.call_args_list[1].args[2],
+			gf_maintenance.GUT_SHARD_OBSERVATION_TIMEOUT_SECONDS,
+		)
+		self.assertEqual(gf_maintenance.CHECK_DEFINITIONS["gut"], canonical_gut)
+		parse_junit.assert_called_once_with(
+			prepared_output,
+			self.INVENTORY,
+		)
+		build_observation.assert_called_once()
+		self.assertTrue(report["observation_policy"]["writes_ignored_state"])
+		self.assertEqual(
+			report["execution"]["junit_path"],
+			"build/gut-sharding/run-token/gut-authoritative.xml",
+		)
+
+	def test_import_failure_stops_before_gut_and_junit_parse(self) -> None:
+		discover_patch, manifest_patch, digest_patch = self._manifest_patches()
+		import_failure = gf_maintenance.CommandResult(
+			name="godot_import",
+			command=[],
+			exit_code=1,
+			stdout="",
+			stderr="import failed",
+		)
+		with discover_patch, manifest_patch, digest_patch, mock.patch.object(
+			gf_maintenance,
+			"prepare_gut_shard_junit_output",
+			return_value=mock.Mock(
+				path=ROOT / "build/gut-sharding/import-failure/gut-authoritative.xml",
+				invocation_directory=ROOT / "build/gut-sharding/import-failure",
+			),
+		), mock.patch.object(
+			gf_maintenance,
+			"run_command",
+			return_value=import_failure,
+		) as run_command, mock.patch.object(
+			gf_maintenance.gf_gut_sharding,
+			"parse_gut_junit_xml",
+		) as parse_junit:
+			report = gf_maintenance.gut_shard_plan(run_gut=True)
+		self.assertFalse(report["ok"])
+		self.assertEqual(run_command.call_count, 1)
+		self.assertEqual(report["execution"]["gut_run_count"], 0)
+		parse_junit.assert_not_called()
+
+	def test_gut_timeout_without_published_junit_remains_a_failed_observation(self) -> None:
+		discover_patch, manifest_patch, digest_patch = self._manifest_patches()
+		import_result = gf_maintenance.CommandResult(
+			name="godot_import",
+			command=[],
+			exit_code=0,
+			stdout="",
+			stderr="",
+		)
+		gut_timeout = gf_maintenance.CommandResult(
+			name="gut",
+			command=[],
+			exit_code=124,
+			stdout="",
+			stderr="timed out",
+			timed_out=True,
+			process_exit_code=1,
+			notes=["Command timed out after 600s; terminating its process tree."],
+			duration_seconds=600.0,
+		)
+		junit_output = ROOT / "build/gut-sharding/timeout/gut-authoritative.xml"
+		prepared_output = mock.Mock(
+			path=junit_output,
+			invocation_directory=junit_output.parent,
+		)
+		with discover_patch, manifest_patch, digest_patch, mock.patch.object(
+			gf_maintenance,
+			"prepare_gut_shard_junit_output",
+			return_value=prepared_output,
+		), mock.patch.object(
+			gf_maintenance,
+			"run_command",
+			side_effect=[import_result, gut_timeout],
+		), mock.patch.object(
+			gf_maintenance,
+			"parse_published_gut_shard_junit",
+			side_effect=gf_maintenance.gf_gut_sharding.GutShardingError(
+				"junit_file_unreadable",
+				"JUnit input cannot be inspected.",
+			),
+		), mock.patch.object(
+			gf_maintenance.gf_gut_sharding,
+			"build_observation_report",
+		) as build_observation:
+			report = gf_maintenance.gut_shard_plan(run_gut=True)
+
+		self.assertFalse(report["ok"])
+		self.assertEqual(report["execution"]["gut_run_count"], 1)
+		self.assertFalse(report["execution"]["result_accepted"])
+		self.assertTrue(report["execution"]["gut"]["timed_out"])
+		self.assertEqual(
+			[item["kind"] for item in report["issues"]],
+			["gut_shard_observation_gut_failed", "junit_file_unreadable"],
+		)
+		build_observation.assert_not_called()
+
+	def test_gut_success_with_rejected_junit_is_not_accepted(self) -> None:
+		discover_patch, manifest_patch, digest_patch = self._manifest_patches()
+		command_result = gf_maintenance.CommandResult(
+			name="command",
+			command=[],
+			exit_code=0,
+			stdout="",
+			stderr="",
+		)
+		junit_output = ROOT / "build/gut-sharding/rejected/gut-authoritative.xml"
+		prepared_output = mock.Mock(
+			path=junit_output,
+			invocation_directory=junit_output.parent,
+		)
+		with discover_patch, manifest_patch, digest_patch, mock.patch.object(
+			gf_maintenance,
+			"prepare_gut_shard_junit_output",
+			return_value=prepared_output,
+		), mock.patch.object(
+			gf_maintenance,
+			"run_command",
+			return_value=command_result,
+		), mock.patch.object(
+			gf_maintenance,
+			"parse_published_gut_shard_junit",
+			return_value={"input_complete": False},
+		), mock.patch.object(
+			gf_maintenance.gf_gut_sharding,
+			"build_observation_report",
+		) as build_observation:
+			report = gf_maintenance.gut_shard_plan(run_gut=True)
+
+		self.assertFalse(report["ok"])
+		self.assertEqual(report["execution"]["gut_run_count"], 1)
+		self.assertFalse(report["execution"]["result_accepted"])
+		self.assertEqual(
+			[item["kind"] for item in report["issues"]],
+			["gut_shard_observation_junit_rejected"],
+		)
+		build_observation.assert_not_called()
+
+	def test_invalid_manifest_and_rejected_junit_fail_closed(self) -> None:
+		with mock.patch.object(
+			gf_maintenance.gf_gut_sharding,
+			"discover_gut_test_scripts",
+			return_value=self.INVENTORY,
+		), mock.patch.object(
+			gf_maintenance.gf_gut_sharding,
+			"load_and_validate_manifest",
+			side_effect=gf_maintenance.gf_gut_sharding.GutShardingError(
+				"manifest_inventory_mismatch",
+				"manifest inventory mismatch",
+			),
+		), mock.patch.object(gf_maintenance, "run_command") as run_command:
+			manifest_report = gf_maintenance.gut_shard_plan()
+		self.assertFalse(manifest_report["ok"])
+		self.assertEqual(manifest_report["issues"][0]["kind"], "manifest_inventory_mismatch")
+		run_command.assert_not_called()
+
+		discover_patch, manifest_patch, digest_patch = self._manifest_patches()
+		with tempfile.TemporaryDirectory() as temporary_directory:
+			fixture_root = Path(temporary_directory)
+			junit_path = fixture_root / "build/gut-sharding/rejected.xml"
+			junit_path.parent.mkdir(parents=True)
+			junit_path.write_text("fixture", encoding="utf-8")
+			with discover_patch, manifest_patch, digest_patch, mock.patch.object(
+				gf_maintenance,
+				"ROOT",
+				fixture_root,
+			), mock.patch.object(
+				gf_maintenance,
+				"validate_gut_shard_junit_input_path",
+				return_value=junit_path,
+			), mock.patch.object(
+				gf_maintenance.gf_gut_sharding,
+				"parse_gut_junit_xml",
+				return_value={"input_complete": False},
+			), mock.patch.object(gf_maintenance, "run_command") as run_command:
+				junit_report = gf_maintenance.gut_shard_plan(
+					junit_path="build/gut-sharding/rejected.xml"
+				)
+		self.assertFalse(junit_report["ok"])
+		self.assertEqual(
+			junit_report["issues"][0]["kind"],
+			"gut_shard_observation_junit_rejected",
+		)
+		run_command.assert_not_called()
+
+	def test_junit_read_paths_are_confined_to_ignored_build_tree(self) -> None:
+		with self.assertRaises(ValueError):
+			gf_maintenance.validate_gut_shard_junit_input_path(
+				str(ROOT.parent / "outside.xml"),
+			)
+
+	def test_run_output_uses_fresh_invocation_owned_directory_without_unlink(self) -> None:
+		with tempfile.TemporaryDirectory() as temporary_directory:
+			observation_root = Path(temporary_directory) / "gut-sharding"
+			observation_root.mkdir()
+			sentinel = observation_root / "prior-observation.xml"
+			sentinel.write_text("must survive", encoding="utf-8")
+			with mock.patch.object(
+				gf_maintenance,
+				"GUT_SHARD_OBSERVATION_ROOT",
+				observation_root,
+			):
+				first = gf_maintenance.prepare_gut_shard_junit_output()
+				second = gf_maintenance.prepare_gut_shard_junit_output()
+
+			self.assertNotEqual(first.invocation_directory, second.invocation_directory)
+			self.assertEqual(first.path.name, "gut-authoritative.xml")
+			self.assertEqual(second.path.name, "gut-authoritative.xml")
+			self.assertTrue(first.invocation_directory.is_dir())
+			self.assertTrue(second.invocation_directory.is_dir())
+			self.assertFalse(first.path.exists())
+			self.assertFalse(second.path.exists())
+			self.assertEqual(first.invocation_directory.parent, observation_root)
+			self.assertEqual(second.invocation_directory.parent, observation_root)
+			self.assertEqual(sentinel.read_text(encoding="utf-8"), "must survive")
+			self.assertFalse(
+				hasattr(gf_maintenance, "remove_stale_gut_shard_junit_output")
+			)
+
+	def test_run_output_creation_refuses_existing_invocation_identity(self) -> None:
+		with tempfile.TemporaryDirectory() as temporary_directory:
+			observation_root = Path(temporary_directory) / "gut-sharding"
+			observation_root.mkdir()
+			(observation_root / "reused").mkdir()
+			with mock.patch.object(
+				gf_maintenance,
+				"GUT_SHARD_OBSERVATION_ROOT",
+				observation_root,
+			), mock.patch.object(
+				gf_maintenance.secrets,
+				"token_hex",
+				return_value="reused",
+			), self.assertRaises(FileExistsError):
+				gf_maintenance.prepare_gut_shard_junit_output()
+
+	def test_run_output_creation_rejects_observation_root_identity_change(self) -> None:
+		with tempfile.TemporaryDirectory() as temporary_directory:
+			observation_root = Path(temporary_directory) / "gut-sharding"
+			with mock.patch.object(
+				gf_maintenance,
+				"GUT_SHARD_OBSERVATION_ROOT",
+				observation_root,
+			), mock.patch.object(
+				gf_maintenance,
+				"same_owned_directory_identity",
+				return_value=False,
+			), self.assertRaisesRegex(ValueError, "changed while preparing"):
+				gf_maintenance.prepare_gut_shard_junit_output()
+
+	def test_published_junit_revalidates_file_identity_after_parse(self) -> None:
+		with tempfile.TemporaryDirectory() as temporary_directory:
+			observation_root = Path(temporary_directory) / "gut-sharding"
+			with mock.patch.object(
+				gf_maintenance,
+				"GUT_SHARD_OBSERVATION_ROOT",
+				observation_root,
+			):
+				output = gf_maintenance.prepare_gut_shard_junit_output()
+			output.path.write_text("before", encoding="utf-8")
+
+			def replace_during_parse(*_args: object, **_kwargs: object) -> dict[str, object]:
+				replacement = output.path.with_name("replacement.xml")
+				replacement.write_text("after payload", encoding="utf-8")
+				os.replace(replacement, output.path)
+				return {"input_complete": True}
+
+			with mock.patch.object(
+				gf_maintenance.gf_gut_sharding,
+				"parse_gut_junit_xml",
+				side_effect=replace_during_parse,
+			), self.assertRaisesRegex(ValueError, "changed while parsing"):
+				gf_maintenance.parse_published_gut_shard_junit(output, self.INVENTORY)
+
+	def test_published_junit_rejects_real_root_and_invocation_replacement(self) -> None:
+		for replacement_kind in ("root", "invocation"):
+			with self.subTest(replacement=replacement_kind), tempfile.TemporaryDirectory() as temporary_directory:
+				fixture_root = Path(temporary_directory)
+				observation_root = fixture_root / "gut-sharding"
+				with mock.patch.object(
+					gf_maintenance,
+					"GUT_SHARD_OBSERVATION_ROOT",
+					observation_root,
+				):
+					output = gf_maintenance.prepare_gut_shard_junit_output()
+				output.path.write_text("before", encoding="utf-8")
+				original = (
+					output.root.with_name("gut-sharding-original")
+					if replacement_kind == "root"
+					else output.invocation_directory.with_name(
+						f"{output.invocation_directory.name}-original"
+					)
+				)
+				link = output.root if replacement_kind == "root" else output.invocation_directory
+				target = fixture_root / f"replacement-{replacement_kind}"
+
+				def replace_directory_during_parse(
+					*_args: object,
+					**_kwargs: object,
+				) -> dict[str, object]:
+					link.rename(original)
+					if replacement_kind == "root":
+						replacement_invocation = target / output.invocation_directory.name
+						replacement_invocation.mkdir(parents=True)
+						(replacement_invocation / output.path.name).write_text(
+							"replacement",
+							encoding="utf-8",
+						)
+					else:
+						target.mkdir()
+						(target / output.path.name).write_text(
+							"replacement",
+							encoding="utf-8",
+						)
+					gf_maintenance.create_directory_link_fixture(target, link)
+					return {"input_complete": True}
+
+				try:
+					with mock.patch.object(
+						gf_maintenance.gf_gut_sharding,
+						"parse_gut_junit_xml",
+						side_effect=replace_directory_during_parse,
+					), self.assertRaises(ValueError):
+						gf_maintenance.parse_published_gut_shard_junit(
+							output,
+							self.INVENTORY,
+						)
+				finally:
+					_remove_directory_link_fixture(link)
+					original.rename(link)
+
+	def test_published_junit_rejects_ordinary_root_and_invocation_replacement(self) -> None:
+		for replacement_kind in ("root", "invocation"):
+			with self.subTest(replacement=replacement_kind), tempfile.TemporaryDirectory() as temporary_directory:
+				fixture_root = Path(temporary_directory)
+				observation_root = fixture_root / "gut-sharding"
+				with mock.patch.object(
+					gf_maintenance,
+					"GUT_SHARD_OBSERVATION_ROOT",
+					observation_root,
+				):
+					output = gf_maintenance.prepare_gut_shard_junit_output()
+				output.path.write_text("before", encoding="utf-8")
+				replaced_path = (
+					output.root
+					if replacement_kind == "root"
+					else output.invocation_directory
+				)
+				original = replaced_path.with_name(f"{replaced_path.name}-original")
+				replacement = fixture_root / f"replacement-{replacement_kind}"
+
+				def replace_directory_during_parse(
+					*_args: object,
+					**_kwargs: object,
+				) -> dict[str, object]:
+					replaced_path.rename(original)
+					if replacement_kind == "root":
+						replacement_output = (
+							replacement / output.invocation_directory.name / output.path.name
+						)
+					else:
+						replacement_output = replacement / output.path.name
+					replacement_output.parent.mkdir(parents=True)
+					replacement_output.write_text("replacement", encoding="utf-8")
+					replacement.rename(replaced_path)
+					return {"input_complete": True}
+
+				with mock.patch.object(
+					gf_maintenance.gf_gut_sharding,
+					"parse_gut_junit_xml",
+					side_effect=replace_directory_during_parse,
+				), self.assertRaises(ValueError):
+					gf_maintenance.parse_published_gut_shard_junit(
+						output,
+						self.INVENTORY,
+					)
+
+	def test_existing_junit_revalidates_file_identity_after_parse(self) -> None:
+		with tempfile.TemporaryDirectory() as temporary_directory:
+			fixture_root = Path(temporary_directory)
+			path = fixture_root / "build/gut-sharding/existing.xml"
+			path.parent.mkdir(parents=True)
+			path.write_text("before", encoding="utf-8")
+
+			def replace_during_parse(*_args: object, **_kwargs: object) -> dict[str, object]:
+				replacement = path.with_name("replacement.xml")
+				replacement.write_text("after payload", encoding="utf-8")
+				os.replace(replacement, path)
+				return {"input_complete": True}
+
+			with mock.patch.object(
+				gf_maintenance,
+				"ROOT",
+				fixture_root,
+			), mock.patch.object(
+				gf_maintenance.gf_gut_sharding,
+				"parse_gut_junit_xml",
+				side_effect=replace_during_parse,
+			), self.assertRaisesRegex(ValueError, "changed while parsing"):
+				gf_maintenance.parse_existing_gut_shard_junit(path, self.INVENTORY)
+
+	def test_existing_junit_rejects_real_parent_directory_replacement(self) -> None:
+		with tempfile.TemporaryDirectory() as temporary_directory:
+			fixture_root = Path(temporary_directory)
+			parent = fixture_root / "build/gut-sharding"
+			path = parent / "existing.xml"
+			parent.mkdir(parents=True)
+			path.write_text("before", encoding="utf-8")
+			original = parent.with_name("gut-sharding-original")
+			target = fixture_root / "replacement-parent"
+
+			def replace_parent_during_parse(
+				*_args: object,
+				**_kwargs: object,
+			) -> dict[str, object]:
+				parent.rename(original)
+				target.mkdir()
+				(target / path.name).write_text("replacement", encoding="utf-8")
+				gf_maintenance.create_directory_link_fixture(target, parent)
+				return {"input_complete": True}
+
+			try:
+				with mock.patch.object(
+					gf_maintenance,
+					"ROOT",
+					fixture_root,
+				), mock.patch.object(
+					gf_maintenance.gf_gut_sharding,
+					"parse_gut_junit_xml",
+					side_effect=replace_parent_during_parse,
+				), self.assertRaises(ValueError):
+					gf_maintenance.parse_existing_gut_shard_junit(path, self.INVENTORY)
+			finally:
+				_remove_directory_link_fixture(parent)
+				original.rename(parent)
+
+	def test_existing_junit_rejects_ordinary_build_and_parent_replacement(self) -> None:
+		for replacement_kind in ("build", "parent"):
+			with self.subTest(replacement=replacement_kind), tempfile.TemporaryDirectory() as temporary_directory:
+				fixture_root = Path(temporary_directory)
+				build = fixture_root / "build"
+				parent = build / "gut-sharding"
+				path = parent / "existing.xml"
+				parent.mkdir(parents=True)
+				path.write_text("before", encoding="utf-8")
+				replaced_path = build if replacement_kind == "build" else parent
+				original = replaced_path.with_name(f"{replaced_path.name}-original")
+				replacement = fixture_root / f"replacement-{replacement_kind}"
+
+				def replace_directory_during_parse(
+					*_args: object,
+					**_kwargs: object,
+				) -> dict[str, object]:
+					replaced_path.rename(original)
+					replacement_output = (
+						replacement / "gut-sharding" / path.name
+						if replacement_kind == "build"
+						else replacement / path.name
+					)
+					replacement_output.parent.mkdir(parents=True)
+					replacement_output.write_text("replacement", encoding="utf-8")
+					replacement.rename(replaced_path)
+					return {"input_complete": True}
+
+				with mock.patch.object(
+					gf_maintenance,
+					"ROOT",
+					fixture_root,
+				), mock.patch.object(
+					gf_maintenance.gf_gut_sharding,
+					"parse_gut_junit_xml",
+					side_effect=replace_directory_during_parse,
+				), self.assertRaises(ValueError):
+					gf_maintenance.parse_existing_gut_shard_junit(
+						path,
+						self.INVENTORY,
+					)
+
+	def test_observation_timeout_has_an_independent_twelve_minute_floor(self) -> None:
+		self.assertEqual(
+			gf_maintenance.resolve_gut_shard_observation_timeout_seconds(None),
+			1200,
+		)
+		self.assertEqual(
+			gf_maintenance.resolve_gut_shard_observation_timeout_seconds(30),
+			1200,
+		)
+		self.assertEqual(
+			gf_maintenance.resolve_gut_shard_observation_timeout_seconds(1500),
+			1500,
+		)
+		self.assertNotIn("gut", gf_maintenance.CHECK_TIMEOUT_SECONDS)
+
+	def test_renderer_uses_structured_status_counts(self) -> None:
+		text = gf_maintenance_rendering.render_gut_shard_plan_text({
+			"ok": True,
+			"mode": "existing_junit",
+			"inventory_count": 1,
+			"shard_count": 1,
+			"manifest_path": "tests/gf_core/gut_shard_manifest.json",
+			"manifest_digest": "a" * 64,
+			"shards": [],
+			"observation_policy": {
+				"skip_count": 0,
+				"cache_read_count": 0,
+				"cache_write_count": 0,
+				"reuse_count": 0,
+			},
+			"execution": {"performed": False, "result_accepted": False},
+			"junit": {
+				"input_complete": True,
+				"script_count": 1,
+				"test_count": 5,
+				"status_counts": {
+					"passed": 1,
+					"failed": 1,
+					"pending": 1,
+					"no_asserts": 1,
+					"skipped": 1,
+				},
+			},
+			"issues": [],
+		})
+
+		self.assertIn(
+			"statuses=passed=1, failed=1, pending=1, no_asserts=1, skipped=1",
+			text,
+		)
+		self.assertIn(
+			"policy: skips=0 cache_reads=0 cache_writes=0 reuse=0",
+			text,
+		)
+		self.assertIn(
+			"execution: performed=False result_accepted=False",
+			text,
+		)
+
+	def test_full_synthetic_junit_projects_all_live_scripts_into_nine_shards(self) -> None:
+		inventory = gf_maintenance.gf_gut_sharding.discover_gut_test_scripts(ROOT)
+		expected_count = len(inventory)
+		root_element = ET.Element(
+			"testsuites",
+			{"name": "GutTests", "failures": "0", "tests": str(len(inventory))},
+		)
+		for script in inventory:
+			junit_script = script.removeprefix("res://")
+			suite = ET.SubElement(
+				root_element,
+				"testsuite",
+				{
+					"name": junit_script,
+					"tests": "1",
+					"failures": "0",
+					"skipped": "0",
+					"time": "0.001",
+				},
+			)
+			ET.SubElement(
+				suite,
+				"testcase",
+				{
+					"name": "test_synthetic_observation",
+					"assertions": "1",
+					"status": "pass",
+					"classname": junit_script,
+					"time": "0.001",
+				},
+			)
+
+		with tempfile.TemporaryDirectory() as temporary_directory:
+			fixture_root = Path(temporary_directory)
+			junit_path = fixture_root / "build/gut-sharding/full.xml"
+			junit_path.parent.mkdir(parents=True)
+			junit_path.write_bytes(
+				b'<?xml version="1.0" encoding="UTF-8"?>\n'
+				+ ET.tostring(root_element, encoding="utf-8"),
+			)
+			with mock.patch.object(gf_maintenance, "ROOT", fixture_root), mock.patch.object(
+				gf_maintenance.gf_gut_sharding,
+				"discover_gut_test_scripts",
+				return_value=inventory,
+			), mock.patch.object(
+				gf_maintenance.gf_gut_sharding,
+				"load_and_validate_manifest",
+				return_value=gf_maintenance.gf_gut_sharding.load_and_validate_manifest(
+					ROOT / gf_maintenance.gf_gut_sharding.MANIFEST_RELATIVE_PATH,
+					root=ROOT,
+					expected_inventory=inventory,
+				),
+			):
+				report = gf_maintenance.gut_shard_plan(junit_path=str(junit_path))
+
+		self.assertTrue(report["ok"], report["issues"])
+		self.assertEqual(report["mode"], "existing_junit")
+		self.assertEqual(report["inventory_count"], expected_count)
+		self.assertEqual(report["observation"]["script_count"], expected_count)
+		self.assertEqual(report["observation"]["test_count"], expected_count)
+		self.assertEqual(len(report["observation"]["shards"]), 9)
+		self.assertEqual(
+			sum(shard["script_count"] for shard in report["observation"]["shards"]),
+			expected_count,
+		)
+		self.assertFalse(report["observation"]["execution_changed"])
+		self.assertEqual(report["observation"]["skip_count"], 0)
+		self.assertEqual(report["observation"]["reuse_count"], 0)
 
 
 class WorkspaceExecutionBoundaryTests(unittest.TestCase):
