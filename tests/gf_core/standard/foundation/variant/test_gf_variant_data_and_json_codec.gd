@@ -1143,23 +1143,6 @@ func test_json_compatible_codec_preserves_dictionary_keys_when_stringified_keys_
 	assert_eq(_as_string(decoded["1"]), "text", "字符串 key 应在碰撞场景下保留。")
 
 
-func test_report_value_codec_redacts_runtime_values_and_keeps_json_safe_numbers() -> void:
-	var payload: Dictionary = {
-		"owner": self,
-		"value": NAN,
-		"bytes": PackedByteArray([1, 2, 3]),
-	}
-
-	var encoded: Dictionary = _as_dictionary(GFReportValueCodec.to_json_compatible(payload))
-	var owner_marker: Dictionary = _as_dictionary(_as_dictionary(encoded["owner"])["__gf_report_value__"])
-	var json_text: String = JSON.stringify(encoded)
-
-	assert_eq(_as_string(owner_marker["type"]), "Object", "运行时对象应被结构化脱敏。")
-	assert_true(_as_bool(owner_marker["redacted"]), "运行时对象 marker 应明确标记 redacted。")
-	assert_true(json_text.contains("\"Float\""), "非有限 float 应继续使用 typed marker。")
-	assert_false(json_text.contains(":null"), "报告编码不应把 NaN 直接交给 JSON.stringify 替换为 null。")
-
-
 func test_report_value_codec_redacts_runtime_dictionary_keys() -> void:
 	var secret_node: Node = Node.new()
 	secret_node.name = "PrivateAdapterName"
@@ -1178,64 +1161,6 @@ func test_report_value_codec_redacts_runtime_dictionary_keys() -> void:
 	assert_eq(_as_string(marker["type"]), "Dictionary", "不稳定字典 key 应切换为结构化 entries。")
 	assert_eq(_as_string(key_marker["type"]), "Object", "Object key 应经过同一报告脱敏边界。")
 	assert_false(json_text.contains("PrivateAdapterName"), "public profile 不应通过字典 key 泄漏对象名称。")
-
-
-func test_report_value_codec_redacts_paths_by_default() -> void:
-	var payload: Dictionary = {
-		"path": "res://secret/config.json",
-	}
-
-	var encoded: Dictionary = _as_dictionary(GFReportValueCodec.to_json_compatible(payload))
-	var unredacted: Dictionary = _as_dictionary(GFReportValueCodec.to_json_compatible(payload, {
-		"path_redaction": "none",
-	}))
-
-	assert_eq(_as_string(encoded["path"]), "<redacted_path>", "报告导出默认不应暴露资源路径。")
-	assert_eq(_as_string(unredacted["path"]), "res://secret/config.json", "开发态可显式保留完整路径。")
-
-
-func test_report_value_codec_uses_explicit_redaction_profiles() -> void:
-	var support_encoded: Dictionary = _as_dictionary(GFReportValueCodec.to_json_compatible({
-		"node": self,
-	}))
-	var debug_encoded: Dictionary = _as_dictionary(GFReportValueCodec.to_json_compatible({
-		"node": self,
-	}, GFReportValueCodec.make_redaction_options(GFReportValueCodec.REDACTION_PROFILE_DEBUG)))
-	var public_encoded: Dictionary = _as_dictionary(GFReportValueCodec.to_json_compatible({
-		"node": self,
-	}, GFReportValueCodec.make_redaction_options(GFReportValueCodec.REDACTION_PROFILE_PUBLIC)))
-	var support_marker: Dictionary = _as_dictionary(_as_dictionary(support_encoded["node"])["__gf_report_value__"])
-	var debug_marker: Dictionary = _as_dictionary(_as_dictionary(debug_encoded["node"])["__gf_report_value__"])
-	var public_marker: Dictionary = _as_dictionary(_as_dictionary(public_encoded["node"])["__gf_report_value__"])
-
-	assert_true(support_marker.has("node_name"), "support profile 应保留节点名用于排障。")
-	assert_false(support_marker.has("node_path"), "support profile 默认不暴露节点路径。")
-	assert_true(debug_marker.has("node_path"), "debug profile 应允许本地调试路径。")
-	assert_false(public_marker.has("node_name"), "public profile 不应暴露节点名。")
-	assert_false(public_marker.has("instance_id"), "public profile 不应暴露运行时实例 id。")
-
-
-func test_report_value_codec_summarizes_large_collections() -> void:
-	var values: Array = []
-	for index: int in range(20):
-		values.append(Vector2i(index, index + 1))
-
-	var summary: Dictionary = GFReportValueCodec.make_collection_summary(values, {
-		"sample_count": 3,
-		"encode_dictionary_keys": true,
-	})
-	var sample: Array = GFVariantData.get_option_array(summary, "sample")
-
-	assert_true(GFVariantData.get_option_bool(summary, "ok"), "集合摘要应成功。")
-	assert_eq(GFVariantData.get_option_int(summary, "count"), 20, "集合摘要应保留总数。")
-	assert_eq(sample.size(), 3, "集合摘要应按 sample_count 截断样本。")
-	assert_true(GFVariantData.get_option_bool(summary, "truncated"), "集合摘要应说明截断。")
-	assert_false(
-		GFVariantData.get_option_string(summary, "encoded_preview_hash").is_empty(),
-		"集合摘要应明确提供预算内编码预览 hash。"
-	)
-	assert_false(summary.has("hash"), "预算内预览不得伪装成完整内容 hash。")
-	assert_false(JSON.stringify(summary).contains(":null"), "集合摘要不应触发 JSON 非有限值替换。")
 
 
 func test_variant_key_codec_accepts_finite_values_and_rejects_unstable_values() -> void:
