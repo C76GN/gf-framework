@@ -760,6 +760,18 @@ func test_release_over_capacity_detaches_rejected_node_immediately() -> void:
 	assert_false(is_instance_valid(node_b), "超过容量的归还节点下一帧应完成释放。")
 
 
+func test_init_preserves_active_borrowed_node_while_clearing_pool_tracking() -> void:
+	var active_node: Node = _pool.acquire(_scene, _parent)
+
+	_pool.init()
+
+	assert_eq(active_node.get_parent(), _parent, "init 不应移除业务父节点下已借出的节点。")
+	assert_false(active_node.is_queued_for_deletion(), "init 不应释放已借出的节点。")
+	assert_eq(_pool.get_active_count(_scene), 0, "init 应清空旧生命周期的 active 追踪。")
+	await get_tree().process_frame
+	assert_true(is_instance_valid(active_node), "init 后已借出的节点应继续由调用方持有。")
+
+
 func test_dispose_detaches_active_and_pooled_nodes_immediately() -> void:
 	var active_node: Node = _pool.acquire(_scene, _parent)
 	var pooled_node: Node = _pool.acquire(_scene, _parent)

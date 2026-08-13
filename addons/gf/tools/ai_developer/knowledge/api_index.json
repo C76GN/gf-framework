@@ -2,8 +2,8 @@
   "schema_version": 1,
   "catalog_version": "1.0.0",
   "framework_version": "11.0.0-dev.0",
-  "source_digest": "2d4875f8d2b46a07b73a8b2813680ff9d201deb0af2258cb3d399efd673400aa",
-  "class_count": 816,
+  "source_digest": "ce63e7405f28a8c0b34ff13d89e06dc94a0ec946ffb0e76654933896cc3b6d35",
+  "class_count": 818,
   "package_count": 56,
   "packages": [
     {
@@ -55377,6 +55377,415 @@
         }
       ]
     },
+    "GFObjectPoolPrewarmOperation": {
+      "extends": "RefCounted",
+      "module": "standard",
+      "package_id": "gf.standard.base",
+      "path": "addons/gf/standard/utilities/nodes/gf_object_pool_prewarm_operation.gd",
+      "summary": "GFObjectPoolPrewarmOperation: 单次异步对象池预热请求句柄。 Operation 冻结请求身份并跟踪最终有效的容量准入和实时进度，只接受一个类型化终态。同步校验、 零工作或同步退化请求可能在入口返回前完成；调用方应先查询 `is_completed()`。",
+      "visibility": "public",
+      "category": "runtime_handle",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "signal",
+          "name": "progressed",
+          "signature": "signal progressed(operation: GFObjectPoolPrewarmOperation)",
+          "summary": "已处理数量增加时发出。",
+          "visibility": "public"
+        },
+        {
+          "kind": "signal",
+          "name": "completed",
+          "signature": "signal completed(result: GFObjectPoolPrewarmResult)",
+          "summary": "请求进入唯一终态时发出一次。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "cancel",
+          "signature": "func cancel() -> bool",
+          "summary": "取消等待中的请求。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_request_id",
+          "signature": "func get_request_id() -> int",
+          "summary": "获取 Utility 内唯一请求 ID。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_scene",
+          "signature": "func get_scene() -> PackedScene",
+          "summary": "获取仍存活的 PackedScene。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_scene_identity",
+          "signature": "func get_scene_identity() -> String",
+          "summary": "获取冻结的场景身份。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "is_pending",
+          "signature": "func is_pending() -> bool",
+          "summary": "检查请求是否仍等待终态。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "is_completed",
+          "signature": "func is_completed() -> bool",
+          "summary": "检查请求是否已经进入终态。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_requested_count",
+          "signature": "func get_requested_count() -> int",
+          "summary": "获取请求数量。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_admitted_count",
+          "signature": "func get_admitted_count() -> int",
+          "summary": "获取当前有效的容量准入数量。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_created_count",
+          "signature": "func get_created_count() -> int",
+          "summary": "获取成功创建数量。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_skipped_count",
+          "signature": "func get_skipped_count() -> int",
+          "summary": "获取未获准入或因运行期容量复核而跳过的数量。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_cancelled_count",
+          "signature": "func get_cancelled_count() -> int",
+          "summary": "获取取消数量。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_failed_count",
+          "signature": "func get_failed_count() -> int",
+          "summary": "获取失败数量。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_processed_count",
+          "signature": "func get_processed_count() -> int",
+          "summary": "获取已处理数量。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_remaining_count",
+          "signature": "func get_remaining_count() -> int",
+          "summary": "获取尚未进入 disposition 的数量。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_progress_ratio",
+          "signature": "func get_progress_ratio() -> float",
+          "summary": "获取标准化进度。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_result",
+          "signature": "func get_result() -> GFObjectPoolPrewarmResult",
+          "summary": "获取终态结果副本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_debug_snapshot",
+          "signature": "func get_debug_snapshot() -> Dictionary",
+          "summary": "获取稳定调试快照。",
+          "visibility": "public"
+        }
+      ]
+    },
+    "GFObjectPoolPrewarmResult": {
+      "extends": "RefCounted",
+      "module": "standard",
+      "package_id": "gf.standard.base",
+      "path": "addons/gf/standard/utilities/nodes/gf_object_pool_prewarm_result.gd",
+      "summary": "GFObjectPoolPrewarmResult: 单次对象池预热请求的不可变终态。 结果冻结请求身份、最终有效的容量准入和每个请求单位的唯一 disposition。调用方可以区分 完成、容量部分接纳、拒绝、取消、Utility 生命周期终结、输入无效与执行失败。",
+      "visibility": "public",
+      "category": "value_object",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "enum",
+          "name": "Status",
+          "signature": "enum Status {\n\t## 全部请求单位已经成功创建。\n\tCOMPLETED,\n\t## 容量只接纳了部分单位，已接纳单位全部成功创建。\n\tPARTIAL,\n\t## 有效请求没有可用容量。\n\tREJECTED,\n\t## 请求因 caller、token、scope、owner 或 parent 生命周期终结。\n\tCANCELLED,\n\t## Object Pool Utility 释放或重新初始化了请求代际。\n\tDISPOSED,\n\t## 请求输入不符合契约。\n\tINVALID,\n\t## 场景实例化、准备回调或候选提交失败。\n\tFAILED,\n}",
+          "summary": "预热请求的唯一终态。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "REASON_COMPLETED",
+          "signature": "const REASON_COMPLETED: StringName = &\"completed\"",
+          "summary": "全部请求单位已经创建。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "REASON_CAPACITY_LIMITED",
+          "signature": "const REASON_CAPACITY_LIMITED: StringName = &\"capacity_limited\"",
+          "summary": "容量只接纳部分请求单位。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "REASON_CAPACITY_UNAVAILABLE",
+          "signature": "const REASON_CAPACITY_UNAVAILABLE: StringName = &\"capacity_unavailable\"",
+          "summary": "当前没有可接纳容量。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "REASON_CALLER_CANCELLED",
+          "signature": "const REASON_CALLER_CANCELLED: StringName = &\"caller_cancelled\"",
+          "summary": "caller 显式取消请求。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "REASON_TOKEN_CANCELLED",
+          "signature": "const REASON_TOKEN_CANCELLED: StringName = &\"token_cancelled\"",
+          "summary": "绑定的 cancellation token 请求取消。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "REASON_CANCELLATION_SCOPE_COMPLETED",
+          "signature": "const REASON_CANCELLATION_SCOPE_COMPLETED: StringName = &\"cancellation_scope_completed\"",
+          "summary": "绑定的异步作用域已经正常完成。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "REASON_OWNER_RELEASED",
+          "signature": "const REASON_OWNER_RELEASED: StringName = &\"owner_released\"",
+          "summary": "请求 owner 已释放或离开场景树。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "REASON_PARENT_RELEASED",
+          "signature": "const REASON_PARENT_RELEASED: StringName = &\"parent_released\"",
+          "summary": "请求 parent 已释放、离树或排队删除。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "REASON_UTILITY_DISPOSED",
+          "signature": "const REASON_UTILITY_DISPOSED: StringName = &\"utility_disposed\"",
+          "summary": "Object Pool Utility 已释放。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "REASON_UTILITY_REINITIALIZED",
+          "signature": "const REASON_UTILITY_REINITIALIZED: StringName = &\"utility_reinitialized\"",
+          "summary": "Object Pool Utility 已重新初始化。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "REASON_INVALID_SCENE",
+          "signature": "const REASON_INVALID_SCENE: StringName = &\"invalid_scene\"",
+          "summary": "PackedScene 无效。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "REASON_INVALID_COUNT",
+          "signature": "const REASON_INVALID_COUNT: StringName = &\"invalid_count\"",
+          "summary": "请求数量小于零。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "REASON_INVALID_PARENT",
+          "signature": "const REASON_INVALID_PARENT: StringName = &\"invalid_parent\"",
+          "summary": "parent 在接纳时无效或已排队删除。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "REASON_INVALID_OWNER",
+          "signature": "const REASON_INVALID_OWNER: StringName = &\"invalid_owner\"",
+          "summary": "owner 在接纳时无效或 Node owner 不在场景树中。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "REASON_INVALID_PREPARE_CALLBACK",
+          "signature": "const REASON_INVALID_PREPARE_CALLBACK: StringName = &\"invalid_prepare_callback\"",
+          "summary": "prepare_callback 不是空 Callable 或有效 Callable。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "REASON_MAIN_THREAD_REQUIRED",
+          "signature": "const REASON_MAIN_THREAD_REQUIRED: StringName = &\"main_thread_required\"",
+          "summary": "typed request 必须从主线程提交。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "REASON_SCENE_INSTANTIATION_FAILED",
+          "signature": "const REASON_SCENE_INSTANTIATION_FAILED: StringName = &\"scene_instantiation_failed\"",
+          "summary": "PackedScene 无法实例化为有效 Node。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "REASON_PREPARE_CALLBACK_FAILED",
+          "signature": "const REASON_PREPARE_CALLBACK_FAILED: StringName = &\"prepare_callback_failed\"",
+          "summary": "prepare_callback 显式返回非 OK Error。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "REASON_INVALID_PREPARE_CALLBACK_RESULT",
+          "signature": "const REASON_INVALID_PREPARE_CALLBACK_RESULT: StringName = &\"invalid_prepare_callback_result\"",
+          "summary": "prepare_callback 返回值不是合法 Error 整数。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "REASON_CANDIDATE_INVALIDATED",
+          "signature": "const REASON_CANDIDATE_INVALIDATED: StringName = &\"candidate_invalidated\"",
+          "summary": "候选在提交前被重入或生命周期变化失效。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "REASON_INTERNAL_FAILURE",
+          "signature": "const REASON_INTERNAL_FAILURE: StringName = &\"internal_failure\"",
+          "summary": "框架无法安全归类的内部失败。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_status",
+          "signature": "func get_status() -> Status",
+          "summary": "获取请求终态。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "is_successful",
+          "signature": "func is_successful() -> bool",
+          "summary": "检查请求是否完成了全部或部分容量准入。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_request_id",
+          "signature": "func get_request_id() -> int",
+          "summary": "获取 Utility 内唯一请求 ID。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_scene_identity",
+          "signature": "func get_scene_identity() -> String",
+          "summary": "获取请求冻结的场景身份。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_requested_count",
+          "signature": "func get_requested_count() -> int",
+          "summary": "获取调用方请求数量。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_admitted_count",
+          "signature": "func get_admitted_count() -> int",
+          "summary": "获取终态有效的容量准入数量。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_created_count",
+          "signature": "func get_created_count() -> int",
+          "summary": "获取成功提交到池中的数量。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_skipped_count",
+          "signature": "func get_skipped_count() -> int",
+          "summary": "获取未获初始准入或因运行期容量复核而跳过的数量。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_cancelled_count",
+          "signature": "func get_cancelled_count() -> int",
+          "summary": "获取因取消或生命周期终结而未创建的准入数量。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_failed_count",
+          "signature": "func get_failed_count() -> int",
+          "summary": "获取因执行失败而未创建的准入数量。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_reason",
+          "signature": "func get_reason() -> StringName",
+          "summary": "获取唯一终态原因。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_error_code",
+          "signature": "func get_error_code() -> Error",
+          "summary": "获取终态 Error。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "duplicate_result",
+          "signature": "func duplicate_result() -> GFObjectPoolPrewarmResult",
+          "summary": "创建隔离结果副本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "to_dict",
+          "signature": "func to_dict() -> Dictionary",
+          "summary": "转换为不含 Object 引用的闭合诊断字典。",
+          "visibility": "public"
+        }
+      ]
+    },
     "GFObjectPoolUtility": {
       "extends": "GFUtility",
       "module": "standard",
@@ -55469,6 +55878,20 @@
           "name": "prewarm_async_budget",
           "signature": "func prewarm_async_budget( scene: PackedScene, parent: Node, count: int, msec_budget_per_frame: float = 8.0, before_add: Callable = Callable() ) -> void",
           "summary": "按单帧时间预算预热对象池，适合复杂度差异较大的 PackedScene。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "prewarm_request_async",
+          "signature": "func prewarm_request_async( scene: PackedScene, parent: Node, count: int, batch_size: int = 32, owner: Object = null, cancellation_token: GFCancellationToken = null, prepare_callback: Callable = Callable() ) -> GFObjectPoolPrewarmOperation",
+          "summary": "创建一个按每帧批量驱动的 request-scoped 类型化预热请求。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "prewarm_budget_request_async",
+          "signature": "func prewarm_budget_request_async( scene: PackedScene, parent: Node, count: int, msec_budget_per_frame: float = 8.0, owner: Object = null, cancellation_token: GFCancellationToken = null, prepare_callback: Callable = Callable() ) -> GFObjectPoolPrewarmOperation",
+          "summary": "创建一个按每帧时间预算驱动的 request-scoped 类型化预热请求。",
           "visibility": "public"
         },
         {
