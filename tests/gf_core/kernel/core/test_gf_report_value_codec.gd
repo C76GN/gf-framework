@@ -348,6 +348,7 @@ func test_packed_array_honors_depth_budget_in_returned_items() -> void:
 # --- 私有/辅助方法 ---
 
 func _as_dictionary(value: Variant) -> Dictionary:
+	assert_true(value is Dictionary, "测试观察值应为 Dictionary。")
 	if value is Dictionary:
 		var dictionary: Dictionary = value
 		return dictionary
@@ -355,6 +356,7 @@ func _as_dictionary(value: Variant) -> Dictionary:
 
 
 func _as_array(value: Variant) -> Array:
+	assert_true(value is Array, "测试观察值应为 Array。")
 	if value is Array:
 		var array: Array = value
 		return array
@@ -362,6 +364,7 @@ func _as_array(value: Variant) -> Array:
 
 
 func _as_bool(value: Variant) -> bool:
+	assert_true(value is bool, "测试观察值应为 bool。")
 	if value is bool:
 		var bool_value: bool = value
 		return bool_value
@@ -369,7 +372,17 @@ func _as_bool(value: Variant) -> bool:
 
 
 func _as_string(value: Variant) -> String:
-	return str(value)
+	assert_true(value is String or value is StringName or value is NodePath, "测试观察值应为文本。")
+	if value is String:
+		var text: String = value
+		return text
+	if value is StringName:
+		var text_name: StringName = value
+		return String(text_name)
+	if value is NodePath:
+		var path: NodePath = value
+		return String(path)
+	return ""
 
 
 func _option_bool(options: Dictionary, key: String, default_value: bool = false) -> bool:
