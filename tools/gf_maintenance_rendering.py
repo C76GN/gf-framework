@@ -959,6 +959,9 @@ def render_checks_text(data: dict[str, Any]) -> str:
 	lines = [
 		f"suite: {data['suite']} ok={data['ok']} duration={data.get('duration_seconds', 0.0):.2f}s"
 	]
+	shadow_summary = render_validation_shadow_summary(data)
+	if shadow_summary:
+		lines.append(shadow_summary)
 	for result in data["results"]:
 		lines.append(
 			f"- {result['name']}: exit={result['exit_code']} "
@@ -987,6 +990,9 @@ def render_failed_checks_text(data: dict[str, Any]) -> str:
 			f"duration={data.get('duration_seconds', 0.0):.2f}s"
 		)
 	]
+	shadow_summary = render_validation_shadow_summary(data)
+	if shadow_summary:
+		lines.append(shadow_summary)
 	if not failed_results:
 		lines.append("all checks passed")
 		return "\n".join(lines)
@@ -1013,6 +1019,26 @@ def render_failed_checks_text(data: dict[str, Any]) -> str:
 		if stderr:
 			lines.append(indent_text(trim_text(stderr, 4000), "  stderr_tail: "))
 	return "\n".join(lines)
+
+
+def render_validation_shadow_summary(data: dict[str, Any]) -> str:
+	shadow = data.get("validation_shadow")
+	if not isinstance(shadow, dict):
+		return ""
+	inventory = shadow.get("test_inventory")
+	inventory_files = inventory.get("file_count", 0) if isinstance(inventory, dict) else 0
+	inventory_methods = inventory.get("method_count", 0) if isinstance(inventory, dict) else 0
+	return (
+		"validation_shadow: "
+		f"report_ok={shadow.get('report_ok', False)} "
+		f"authoritative={shadow.get('authoritative', False)} "
+		f"actions={shadow.get('expected_action_count', 0)} "
+		f"executed={shadow.get('executed_action_count', 0)} "
+		f"observations={shadow.get('execution_observation_count', 0)} "
+		f"reused={shadow.get('reused_count', 0)} "
+		f"inventory_files={inventory_files} inventory_methods={inventory_methods} "
+		f"collection={shadow.get('collection_duration_seconds', 0.0):.2f}s"
+	)
 
 
 def failed_check_results(data: dict[str, Any]) -> list[dict[str, Any]]:
