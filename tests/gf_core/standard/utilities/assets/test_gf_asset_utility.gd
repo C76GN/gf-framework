@@ -253,6 +253,232 @@ func test_preload_group_async_registers_and_unloads_group() -> void:
 	assert_false(_utility.is_cached("res://item_a.tres"), "remove_unreferenced_cache 开启时无引用缓存应移除。")
 
 
+func test_unload_group_preserves_other_pinned_group_in_both_orders() -> void:
+	var canonical_path: String = (
+		"res://addons/gf/standard/utilities/assets/gf_resource_identity.gd"
+	)
+	var uid_path: String = _uid_path_for(canonical_path)
+	assert_false(uid_path.is_empty(), "跨别名分组测试资源应存在 Godot UID。")
+	var scenarios: Array[Dictionary] = [
+		{
+			"cache_path": "res://shared_group_a_first.tres",
+			"group_a_path": "res://shared_group_a_first.tres",
+			"group_b_path": "res://shared_group_a_first.tres",
+			"public_path": "res://shared_group_a_first.tres",
+			"group_a": &"shared_a_first_a",
+			"group_b": &"shared_a_first_b",
+			"first_group": &"shared_a_first_a",
+			"remaining_group": &"shared_a_first_b",
+		},
+		{
+			"cache_path": uid_path,
+			"group_a_path": uid_path,
+			"group_b_path": canonical_path,
+			"public_path": canonical_path,
+			"group_a": &"shared_b_first_a",
+			"group_b": &"shared_b_first_b",
+			"first_group": &"shared_b_first_b",
+			"remaining_group": &"shared_b_first_a",
+		},
+	]
+
+	for scenario: Dictionary in scenarios:
+		var cache_path: String = GFVariantData.get_option_string(scenario, "cache_path")
+		var group_a_path: String = GFVariantData.get_option_string(
+			scenario,
+			"group_a_path"
+		)
+		var group_b_path: String = GFVariantData.get_option_string(
+			scenario,
+			"group_b_path"
+		)
+		var public_path: String = GFVariantData.get_option_string(scenario, "public_path")
+		var group_a: StringName = GFVariantData.get_option_string_name(scenario, "group_a")
+		var group_b: StringName = GFVariantData.get_option_string_name(scenario, "group_b")
+		var first_group: StringName = GFVariantData.get_option_string_name(
+			scenario,
+			"first_group"
+		)
+		var remaining_group: StringName = GFVariantData.get_option_string_name(
+			scenario,
+			"remaining_group"
+		)
+		_utility.put_cache(cache_path, Resource.new())
+		_utility.register_group_path(group_a, group_a_path, true)
+		_utility.register_group_path(group_b, group_b_path, true)
+
+		_utility.unload_group(first_group, true)
+
+		assert_true(
+			_utility.get_group_paths(remaining_group).has(public_path),
+			"卸载一个 pinned 分组不得移除另一分组的 canonical membership。"
+		)
+		assert_true(_utility.is_cached(cache_path), "其他 pinned 分组存活时缓存必须保留。")
+		assert_true(_utility.is_cache_pinned(public_path), "其他分组的 pin 必须保留。")
+
+		_utility.unload_group(remaining_group, true)
+
+		assert_false(_utility.is_cached(cache_path), "最后一个无引用 owner 卸载后应 eager remove。")
+
+
+func test_unload_group_preserves_unpinned_group_membership() -> void:
+	var path: String = "res://shared_pinned_unpinned.tres"
+	_utility.put_cache(path, Resource.new())
+	_utility.register_group_path(&"pinned_owner", path, true)
+	_utility.register_group_path(&"membership_owner", path, false)
+
+	_utility.unload_group(&"pinned_owner", true)
+
+	assert_true(
+		_utility.get_group_paths(&"membership_owner").has(path),
+		"未 pin 的其他分组仍然拥有 membership。"
+	)
+	assert_true(_utility.is_cached(path), "正常容量下其他分组 membership 应阻止 eager remove。")
+	assert_false(_utility.is_cache_pinned(path), "已卸载分组的 pin 应被释放。")
+
+	_utility.unload_group(&"membership_owner", true)
+
+	assert_false(_utility.is_cached(path), "最后一个未 pin owner 卸载后应 eager remove。")
+
+
+func test_unload_group_preserves_manual_pin() -> void:
+	var path: String = "res://group_with_manual_pin.tres"
+	_utility.put_cache(path, Resource.new())
+	_utility.pin_cache(path)
+	_utility.register_group_path(&"group_pin", path, true)
+
+	_utility.unload_group(&"group_pin", true)
+
+	assert_true(_utility.is_cached(path), "分组卸载不得移除仍被手动 pin 的缓存。")
+	assert_true(_utility.is_cache_pinned(path), "手动 pin 不得被分组卸载清除。")
+	assert_true(_utility.get_group_paths(&"group_pin").is_empty())
+
+	_utility.unpin_cache(path)
+
+	assert_false(_utility.is_cache_pinned(path))
+	assert_true(_utility.is_cached(path), "手动 unpin 本身不改变显式 remove_cache 语义。")
+
+
+func test_unload_group_preserves_active_handle() -> void:
+	var path: String = "res://group_with_handle.tres"
+	var handle: GFAssetHandle = _utility.acquire_handle(
+		path,
+		null,
+		&"",
+		"",
+		Resource.new()
+	)
+	_utility.register_group_path(&"handle_group", path, true)
+
+	_utility.unload_group(&"handle_group", true)
+
+	assert_not_null(handle)
+	assert_true(handle.is_valid(), "活跃 handle 必须阻止分组 eager remove。")
+	assert_eq(_utility.get_asset_reference_count(path), 1)
+	assert_true(_utility.is_cached(path))
+	assert_true(_utility.is_cache_pinned(path), "handle pin 必须在分组 pin 释放后保留。")
+	assert_true(handle.release())
+
+
+func test_unload_group_releases_repeated_group_pins_without_eager_removal() -> void:
+	var path: String = "res://repeated_group_pin.tres"
+	_utility.put_cache(path, Resource.new())
+	_utility.register_group_path(&"repeated", path, true)
+	_utility.register_group_path(&"repeated", path, true)
+
+	_utility.unload_group(&"repeated", false)
+
+	assert_true(_utility.get_group_paths(&"repeated").is_empty())
+	assert_false(_utility.is_cache_pinned(path), "同组重复 pin 必须按记录次数全部释放。")
+	assert_true(_utility.is_cached(path), "remove_unreferenced_cache=false 必须保留缓存。")
+
+
+func test_unload_group_without_eager_removal_keeps_last_cache() -> void:
+	var path: String = "res://last_group_without_eager_remove.tres"
+	_utility.put_cache(path, Resource.new())
+	_utility.register_group_path(&"last_without_remove", path, true)
+
+	_utility.unload_group(&"last_without_remove", false)
+
+	assert_true(_utility.get_group_paths(&"last_without_remove").is_empty())
+	assert_false(_utility.is_cache_pinned(path))
+	assert_true(_utility.is_cached(path), "关闭 eager remove 时最后一组卸载也应保留缓存。")
+
+
+func test_unload_last_unowned_group_eagerly_removes_cache() -> void:
+	var path: String = "res://last_unowned_group.tres"
+	_utility.put_cache(path, Resource.new())
+	_utility.register_group_path(&"last_owner", path, true)
+
+	_utility.unload_group(&"last_owner", true)
+
+	assert_true(_utility.get_group_paths(&"last_owner").is_empty())
+	assert_false(_utility.is_cache_pinned(path))
+	assert_false(_utility.is_cached(path), "无 handle、pin 或其他分组时应保留 eager remove 语义。")
+
+
+func test_unload_group_eager_remove_does_not_dispatch_public_remove_override() -> void:
+	var spy: RemoveCacheSpyAssetUtility = RemoveCacheSpyAssetUtility.new()
+	_replace_utility(spy)
+	var path: String = "res://group_private_eager_remove.tres"
+	spy.put_cache(path, Resource.new())
+	spy.register_group_path(&"private_remove", path, true)
+
+	spy.unload_group(&"private_remove", true)
+
+	assert_eq(
+		spy.public_remove_call_count,
+		0,
+		"分组内部 eager remove 不得动态派发可覆写的 public remove_cache。"
+	)
+	assert_false(spy.is_cached(path), "内部 cache-key 清理仍应移除最后的无 owner 缓存。")
+
+
+func test_unload_group_selectively_removes_exclusive_path_and_keeps_shared_path() -> void:
+	var shared_path: String = "res://group_selective_shared.tres"
+	var exclusive_path: String = "res://group_selective_exclusive.tres"
+	_utility.put_cache(shared_path, Resource.new())
+	_utility.put_cache(exclusive_path, Resource.new())
+	_utility.register_group_path(&"selective_a", shared_path, true)
+	_utility.register_group_path(&"selective_a", exclusive_path, true)
+	_utility.register_group_path(&"selective_b", shared_path, true)
+
+	_utility.unload_group(&"selective_a", true)
+
+	assert_true(_utility.get_group_paths(&"selective_a").is_empty())
+	assert_true(_utility.get_group_paths(&"selective_b").has(shared_path))
+	assert_true(_utility.is_cached(shared_path), "其他分组共享的路径应保留。")
+	assert_true(_utility.is_cache_pinned(shared_path), "共享路径的剩余分组 pin 应保留。")
+	assert_false(_utility.is_cached(exclusive_path), "同组中无其他 owner 的路径应选择性移除。")
+	assert_false(_utility.is_cache_pinned(exclusive_path))
+
+	_utility.unload_group(&"selective_b", true)
+
+	assert_false(_utility.is_cached(shared_path))
+
+
+func test_unload_group_lru_eviction_preserves_unpinned_group_membership() -> void:
+	var shared_path: String = "res://over_capacity_shared_group.tres"
+	var other_path: String = "res://over_capacity_manual_pin.tres"
+	_utility.max_cache_size = 1
+	_utility.put_cache(shared_path, Resource.new())
+	_utility.register_group_path(&"capacity_pin", shared_path, true)
+	_utility.register_group_path(&"capacity_membership", shared_path, false)
+	_utility.pin_cache(other_path)
+	_utility.put_cache(other_path, Resource.new())
+	assert_eq(_utility.get_cache_count(), 2, "所有超容量条目被 pin 时应暂时保留。")
+
+	_utility.unload_group(&"capacity_pin", true)
+
+	assert_true(
+		_utility.get_group_paths(&"capacity_membership").has(shared_path),
+		"LRU 可淘汰未 pin 缓存，但不得擦除其他分组 membership。"
+	)
+	assert_false(_utility.is_cached(shared_path), "释放最后 pin 后可执行正常 LRU 淘汰。")
+	assert_true(_utility.is_cached(other_path))
+	_utility.unpin_cache(other_path)
+
+
 func test_setting_cache_size_to_zero_clears_existing_cache() -> void:
 	_utility.put_cache("res://a.tres", Resource.new())
 	_utility.put_cache("res://b.tres", Resource.new())
@@ -688,6 +914,14 @@ func _uid_path_for(path: String) -> String:
 
 
 # --- 内部类 ---
+
+class RemoveCacheSpyAssetUtility extends GFAssetUtility:
+	var public_remove_call_count: int = 0
+
+	func remove_cache(path: String) -> void:
+		public_remove_call_count += 1
+		super.remove_cache(path)
+
 
 class FailingAssetUtility extends GFAssetUtility:
 	var _broker: FailingResourceBroker = FailingResourceBroker.new()

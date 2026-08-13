@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFAssetUtility" path="addons/gf/standard/utilities/assets/gf_asset_utility.gd" module="standard" extends="GFUtility" classDigest="1cfab593f1be50da2c5bbdde54fd534881f1c4eb6425a944e841205b2601f7ff">
+<class name="GFAssetUtility" path="addons/gf/standard/utilities/assets/gf_asset_utility.gd" module="standard" extends="GFUtility" classDigest="91b2331c8f3ae5e1625fd0bc4dc38d72322fb1b844c0b121a926835be663c9f8">
 	<description>GFAssetUtility: 异步资源加载管理器，带 LRU 缓存。
 封装 Godot 的 threaded `ResourceLoader` 请求，
 用于避免大资源同步加载阻塞主线程，并在完成后统一分发回调与维护缓存。</description>
@@ -311,7 +311,8 @@ set_resource_broker()；本入口只适合单个独立 Utility。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">group_id: 分组标识。</tag>
-				<tag name="param">remove_unreferenced_cache: 是否移除没有句柄引用的缓存项。</tag>
+				<tag name="param">remove_unreferenced_cache: 是否在没有句柄引用、剩余 pin 或其他分组 membership 时移除缓存项。该选项不会删除其他分组的 membership；未 pin 的分组本身不阻止正常 LRU 淘汰。</tag>
+				<tag name="since">1.31.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="tick">

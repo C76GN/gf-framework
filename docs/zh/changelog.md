@@ -179,6 +179,8 @@
 
 ### 🐛 Bug 修复 (Fixed)
 
+- 修复 `GFAssetUtility.unload_group(..., true)` 在句柄引用归零时直接执行全局缓存移除、从而清掉其他分组 membership 与 pin 的问题；分组卸载现在只释放本组账本，并仅在句柄、剩余 pin 和其他分组 membership 全部归零时 eager remove。未 pin membership 仍不改变正常 LRU 语义。
+
 - 修复 Architecture activation 静默恢复 Settings 后 Display 仍停留在 ready 阶段默认值，以及多 target quiesce 在首个同步 Store write 取消 scope 后仍启动后续 I/O；Display 只在加载结果实际替换状态且 `apply_on_ready=true` 时重应用完整状态，已开始的 write 如实结算而未尝试记录保留供显式重试。
 
 - 修复 Viewport 表面输入把合法 `UV=1.0` 投到右/下排他边界、端点特判造成接近 `1.0` 时非单调跳变、双击历史预算淘汰错误推进无关 capture dispatch epoch，以及 `cancel_source()` 遗留已释放指针状态或未使同步旧投递失效的问题；同时修复 Layered Sprite 的 `animation_started` 监听器只改变播放态时吞掉已提交通知，以及帧/配置身份 ABA 后外层重复发布陈旧 `frame_changed` 的问题。
