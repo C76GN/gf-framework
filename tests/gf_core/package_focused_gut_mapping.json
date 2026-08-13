@@ -167,6 +167,8 @@
       "res://tests/gf_core/standard/utilities/analytics/test_gf_analytics_utility.gd",
       "res://tests/gf_core/standard/utilities/logging/test_gf_log_utility.gd",
       "res://tests/gf_core/standard/utilities/nodes/test_gf_node_tree_ops.gd",
+      "res://tests/gf_core/standard/utilities/nodes/test_gf_object_pool_utility.gd",
+      "res://tests/gf_core/standard/utilities/nodes/test_gf_object_pool_prewarm_operation.gd",
       "res://tests/gf_core/standard/utilities/signals/test_gf_async_flow_tools.gd",
       "res://tests/gf_core/standard/utilities/signals/test_gf_async_primitives.gd",
       "res://tests/gf_core/standard/utilities/signals/test_gf_signal_utility.gd",

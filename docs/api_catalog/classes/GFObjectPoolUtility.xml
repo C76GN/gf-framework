@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFObjectPoolUtility" path="addons/gf/standard/utilities/nodes/gf_object_pool_utility.gd" module="standard" extends="GFUtility" classDigest="f1d7f541ad362b31ea8add4cac2f870a712f5d1cc24c9ccde91e179e359252e3">
+<class name="GFObjectPoolUtility" path="addons/gf/standard/utilities/nodes/gf_object_pool_utility.gd" module="standard" extends="GFUtility" classDigest="d5f005f8853bf4dc1aac144e3da1ee8c03c8dece6c6eb99b7535e0046806e932">
 	<description>GFObjectPoolUtility: 节点对象池管理器。
 继承自 GFUtility，管理 Node 对象的实例化与回收，
 避免高频 instance/free 操作带来的内存碎片和性能抖动。
@@ -128,6 +128,44 @@
 				<tag name="param">msec_budget_per_frame: 每帧实例化预算毫秒数；小于等于 0 时退化为同步预热。</tag>
 				<tag name="param">before_add: 可选入树前回调，签名为 `func(node: Node) -&gt; void`。</tag>
 				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="prewarm_request_async">
+			<signature>func prewarm_request_async( scene: PackedScene, parent: Node, count: int, batch_size: int = 32, owner: Object = null, cancellation_token: GFCancellationToken = null, prepare_callback: Callable = Callable() ) -&gt; GFObjectPoolPrewarmOperation:</signature>
+			<description>创建一个按每帧批量驱动的 request-scoped 类型化预热请求。
+请求只释放自身尚未消费的容量 reservation；取消不会回滚已经提交的节点。
+`batch_size &lt;= 0` 时保留旧 API 的同步退化语义。同步终态可能在方法返回前完成。
+该入口只接受主线程调用；其他线程会同步返回 `INVALID/main_thread_required`，且不改变池状态。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">scene: 要预热的 PackedScene 资源。</tag>
+				<tag name="param">parent: 可选挂载父节点；null 表示 detached prewarm。</tag>
+				<tag name="param">count: 请求数量；0 立即完成，负数返回 INVALID。</tag>
+				<tag name="param">batch_size: 每帧最多创建数量；小于等于 0 时同步执行。</tag>
+				<tag name="param">owner: 可选请求生命周期 owner；Node 必须已在场景树中。</tag>
+				<tag name="param">cancellation_token: 可选取消令牌或 GFAsyncScope。</tag>
+				<tag name="param">prepare_callback: 可选 `func(node: Node) -&gt; Error`；非 OK 终止请求。</tag>
+				<tag name="return">请求专属 Operation；调用方应先检查同步终态再连接 completed。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="prewarm_budget_request_async">
+			<signature>func prewarm_budget_request_async( scene: PackedScene, parent: Node, count: int, msec_budget_per_frame: float = 8.0, owner: Object = null, cancellation_token: GFCancellationToken = null, prepare_callback: Callable = Callable() ) -&gt; GFObjectPoolPrewarmOperation:</signature>
+			<description>创建一个按每帧时间预算驱动的 request-scoped 类型化预热请求。
+请求只释放自身尚未消费的容量 reservation；取消不会回滚已经提交的节点。
+`msec_budget_per_frame &lt;= 0` 时保留旧 API 的同步退化语义。
+该入口只接受主线程调用；其他线程会同步返回 `INVALID/main_thread_required`，且不改变池状态。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">scene: 要预热的 PackedScene 资源。</tag>
+				<tag name="param">parent: 可选挂载父节点；null 表示 detached prewarm。</tag>
+				<tag name="param">count: 请求数量；0 立即完成，负数返回 INVALID。</tag>
+				<tag name="param">msec_budget_per_frame: 每帧预算；小于等于 0 时同步执行。</tag>
+				<tag name="param">owner: 可选请求生命周期 owner；Node 必须已在场景树中。</tag>
+				<tag name="param">cancellation_token: 可选取消令牌或 GFAsyncScope。</tag>
+				<tag name="param">prepare_callback: 可选 `func(node: Node) -&gt; Error`；非 OK 终止请求。</tag>
+				<tag name="return">请求专属 Operation；调用方应先检查同步终态再连接 completed。</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_available_count">

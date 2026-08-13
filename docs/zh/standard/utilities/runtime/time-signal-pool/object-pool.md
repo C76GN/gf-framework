@@ -22,6 +22,33 @@ pool.prewarm(bullet_scene, get_tree().root, 64)
 await pool.prewarm_async_budget(explosion_scene, get_tree().root, 40, 4.0)
 ```
 
+需要区分单次请求、观察进度或精确取消时，使用类型化预热入口：
+
+```gdscript
+var operation := pool.prewarm_request_async(
+	bullet_scene,
+	get_tree().root,
+	64,
+	16,
+	self,
+	cancellation_token,
+	func(node: Node) -> Error:
+		node.set_meta(&"spawn_profile", &"player")
+		return OK
+)
+
+var result := operation.get_result()
+if operation.is_pending():
+	result = await operation.completed
+
+if not result.is_successful():
+	push_warning("对象池预热未完成：%s" % result.get_reason())
+```
+
+`prewarm_request_async()` 按每帧批量推进，`prewarm_budget_request_async()` 按毫秒预算推进；两者都立即返回请求专属的 `GFObjectPoolPrewarmOperation`。这两个类型化入口只接受主线程调用；其他线程会得到同步完成的 `INVALID/main_thread_required` 结果，且不会改变池状态。无效输入、零工作和小于等于零的批量/时间预算也可能在入口返回前同步结束，所以应先读取 `get_result()` 或检查 `is_pending()`，再决定是否等待 `completed`。`progressed` 信号以及 created、skipped、cancelled、failed 计数可用于进度展示；终态结果固定满足 `requested = created + skipped + cancelled + failed`。
+
+Operation 的 `cancel()`、`owner`、`GFCancellationToken` 与 parent 生命周期只终结当前请求尚未创建的准入单位，不回滚已经提交到池中的节点，也不会释放其他并发请求的容量预留。`prepare_callback` 在候选加入父节点前运行，必须返回 `Error`；非 `OK` 返回会让该请求进入类型化失败终态。`GFObjectPoolPrewarmResult.Status` 区分完整/部分成功、容量拒绝、取消、Utility 生命周期终结、输入无效和执行失败，`get_reason()` 与 `get_error_code()` 提供闭合原因。
+
 `acquire()` 与 `prewarm()` / `prewarm_async*()` 都支持可选 `before_add` 回调。这个回调会在节点加入业务父节点、触发 `_ready()` 之前运行，适合关闭 `auto_launch_on_ready`、写入必要 meta、设置一次性上下文或配置必须先于入树完成的节点属性：
 
 ```gdscript
@@ -33,7 +60,7 @@ var projectile = pool.acquire(projectile_scene, projectile_parent, func(node: No
 
 `prewarm_async_budget()` 会按帧预算让出执行权，因此调用方如果还要等待宿主节点的 `ready` 信号，应先等待 `ready`，或在等待前用 `is_node_ready()` 判断宿主是否已经就绪。
 
-同一 `PackedScene` 的 `prewarm()`、`prewarm_async()` 与 `prewarm_async_budget()` 共享在途容量准入。`max_available_per_scene` 为正数时，并发或回调重入的预热请求不会分别占用同一批空余名额；运行中缩小上限、归还节点填满容量或对象池进入新生命周期时，尚未提交的预留会被跳过。预留只约束容量，不提供请求身份、进度或取消句柄。
+同一 `PackedScene` 的同步、旧异步和类型化预热入口共享在途容量准入。`max_available_per_scene` 为正数时，并发或回调重入的预热请求不会分别占用同一批空余名额；运行中缩小上限或归还节点填满容量时，尚未提交的预留会转为 skipped，并相应收窄终态 `admitted_count`。对象池进入新生命周期则按生命周期终态收敛尚未创建的准入单位。旧 `prewarm_async()` / `prewarm_async_budget()` 签名与等待语义保持兼容；它们不返回句柄，需要请求身份、进度、取消或类型化失败时改用新的 request-scoped 入口。
 
 Godot 的 `ready` 是一次性信号；长时间预热跨过宿主就绪帧后再 `await host.ready`，后续初始化代码会停在调用方自己的等待语句上，这不是对象池预热卡死。
 

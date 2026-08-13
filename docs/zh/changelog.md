@@ -2,7 +2,7 @@
 
 ## [未发布]
 
-**版本概述**：本轮新增类型化音频播放区间与循环点和共享资源 admission Broker，把 Architecture 启动升级为依赖 DAG 驱动的四阶段激活并增加类型化异步关闭，把 Settings 持久化拆为 Store 端口与可选 Storage adapter，为 Save Profile 增加精确 provider domain、活动身份与显式恢复/对账事务，补充 Headless 服务探针和周期环境表现的项目组合配方，修复并加固 AI Developer 的项目 Adapter 依赖边界、Kernel 资源所有权与路径边界，以及触屏/拖放的重入生命周期和输出租约问题，同时把 Changelog、安全扫描抑制和内部 API section 约束转为可执行维护门禁，并收紧热模块事务、Save Profile 准备、可选依赖、后台回调所有权、按 key 并发、场景邻居稳定帧、渲染预热和音频释放契约；此外加入冻结模块访问策略、Route 请求生命周期、类型化虚拟输入 Pulse，以及有界虚拟列表 Binder、事务式表格谓词和可验证的 Spatial Canvas 输入策略，使生成访问、异步 UI、定时输入和大型交互界面都具备明确的身份、终态、传播与所有权边界；框架只提供可验证的通用机制，不内置项目启动、存档业务、部署协议、领域过滤器、行视觉、环境模型或轮询式音频模拟。
+**版本概述**：本轮新增类型化音频播放区间与循环点、共享资源 admission Broker 和 request-scoped 对象池预热 Operation，把 Architecture 启动升级为依赖 DAG 驱动的四阶段激活并增加类型化异步关闭，把 Settings 持久化拆为 Store 端口与可选 Storage adapter，为 Save Profile 增加精确 provider domain、活动身份与显式恢复/对账事务，补充 Headless 服务探针和周期环境表现的项目组合配方，修复并加固 AI Developer 的项目 Adapter 依赖边界、Kernel 资源所有权与路径边界，以及触屏/拖放的重入生命周期和输出租约问题，同时把 Changelog、安全扫描抑制和内部 API section 约束转为可执行维护门禁，并收紧热模块事务、Save Profile 准备、可选依赖、后台回调所有权、按 key 并发、场景邻居稳定帧、渲染预热和音频释放契约；此外加入冻结模块访问策略、Route 请求生命周期、类型化虚拟输入 Pulse，以及有界虚拟列表 Binder、事务式表格谓词和可验证的 Spatial Canvas 输入策略，使生成访问、异步 UI、定时输入和大型交互界面都具备明确的身份、终态、传播与所有权边界；框架只提供可验证的通用机制，不内置项目启动、存档业务、部署协议、领域过滤器、行视觉、环境模型或轮询式音频模拟。
 
 ### 🚀 新增特性 (Added)
 
@@ -36,6 +36,7 @@
 - `GFArchitecture` 新增 `find_model()`、`find_system()` 与 `find_utility()` 静默可选查询：非严格模式复用普通父链和 alias 规则，严格模式停止本地但不报告 required miss。
 - `GFAsyncKeyedGate` 新增 `try_request_lease()` 与 `STATUS_BUSY`：无法在当前主线程边界立即提交时，不创建 waiter、请求 ID 或 completion，不发请求生命周期信号，也不改变公平游标。
 - 新增 `GFResourceBroker` 与 `GFResourceLease`：为 Asset、Scene 与 BackgroundWork 提供显式共享、无单例的 threaded ResourceLoader admission；不同资源请求使用有界严格 FIFO，同资源身份复用底层请求并保留独立消费者取消，已发起且失去消费者的请求继续 drain 到 Godot 终态。
+- 新增 `GFObjectPoolPrewarmOperation` 与 `GFObjectPoolPrewarmResult`；对象池批量/预算预热现在可按请求观察进度、终态有效容量准入和闭合终态，并通过 caller、token、owner 或 parent 生命周期精确取消当前请求尚未创建的单位，不影响其他并发预热的 reservation。运行期容量压力会把未提交单位归为 skipped；非主线程调用同步返回 `INVALID/main_thread_required`，不触碰池状态。
 - `GFResourceBroker` 公开默认/绝对活动与等待预算常量，以及活动请求无法追溯满足 type hint / admission 时的稳定失败原因常量；活动请求配置限制为 1..64，等待请求配置限制为 1..4096，队首 exclusive / require-idle 请求和排队中同路径约束升级都不会被后续共享请求绕过。
 - Save Profile 新增一次性 opaque `GFSaveProfileRequest`：`take_ownership()` 分别接管 document metadata、Provider context 与 result metadata，不提供 payload getter；合法边界只做 O(1) claim，成功后调用方必须放弃三个输入图的全部嵌套 alias。
 - Save Profile 新增 `GFSaveSectionSnapshot` 与 `GFSaveSectionSnapshotOperation`：Provider 通过 `begin_save_snapshot()` / `_begin_save_snapshot()` 在主线程按 work unit 分片生成不可变 section Snapshot；固定且很小的载荷可用 `make_completed_snapshot()`，大型载荷必须实现有界 Operation。
@@ -343,6 +344,7 @@
 - `GFArchitecture.find_model()`、`find_system()` 和 `find_utility()` 是新的公开可选解析入口。
 - `GFAsyncKeyedGate.try_request_lease()`、`STATUS_BUSY` 与调试快照中的 `busy_count` 是新的公开 fail-fast 并发契约。
 - `GFResourceBroker.request()` / `poll_lease()` / `pump()` / `cancel_all()` 与 `GFResourceLease` 状态、取消和释放接口是新的公开资源 admission API；`GFAssetUtility`、`GFSceneUtility`、`GFBackgroundWorkUtility` 各自新增 `set_resource_broker()`、`setup_standalone_resource_broker()` 与 `get_resource_broker()`。
+- `GFObjectPoolUtility.prewarm_request_async()` 与 `prewarm_budget_request_async()` 返回新的 request-scoped `GFObjectPoolPrewarmOperation`；其 `progressed` / `completed`、精确计数和 `GFObjectPoolPrewarmResult` 公开容量部分接纳、拒绝、取消、Utility 生命周期终结、无效输入与执行失败。旧 `prewarm_async()` / `prewarm_async_budget()` 的签名、默认值和等待行为保持兼容。
 - Asset、Scene 与 BackgroundWork 调试快照以 `resource_broker` 替代旧 `threaded_resource_operations` 字段；这是有意的诊断 schema 迁移，不保留 alias。
 - `GFSaveProfileRequest.take_ownership(document_metadata, context, result_metadata)` 是新的公开 move-only 请求入口；`GFSaveProfileUtility.save_profile()` 现在接收 `GFSaveProfileRequest` 或 `null`，`GFSaveProfileResult.STATUS_INVALID_REQUEST` 明确表示未初始化、结构无效或重复 claim。
 - `GFSaveSectionProvider.begin_save_snapshot()` / `_begin_save_snapshot()`、`make_snapshot()` 与 `make_completed_snapshot()` 替代旧同步 gather 契约；这是有意的 Provider 破坏性升级，不提供旧 gather fallback。
@@ -490,3 +492,4 @@
 77. 检查所有 `GFArtifactWriteTransaction` entry builder 和直接 entry：`expected_sha256` / `preflight_existing_sha256` 只能传精确 `String`，不再用 `null` 表示关闭校验；无需对应约束时省略字段或传空字符串。覆盖已审阅既有文件时可把旧内容摘要传给 `preflight_existing_sha256`，把新内容摘要传给 `expected_sha256`。前者只拒绝预检与替换边界能够观察到的漂移；需要跨进程原子 compare-and-exchange 的调用方必须使用平台原生协调机制，不能依赖本事务字段。
 78. 检查依赖完整 Behavior Tree 调试快照的工具：`BTNode.get_debug_snapshot()` 与 `Runner.get_debug_snapshot()` 现在使用框架默认预算，调用方必须读取顶层 `debug_budget.truncated` / `truncation_reasons` 以及节点级截断字段，不能再假设返回整棵树。需要不同预算时改用 `GFBehaviorTree.build_debug_snapshot(node, options)`，并在框架硬上限内显式设置 `max_nodes`、`max_depth`、`max_children`、`max_total_bytes`、`max_text_length` 与 `max_blackboard_keys`。
 79. Architecture 中原先只注册 `GFSettingsUtility` 的项目应按旧后端分流：依赖隐式 `user://` fallback 时，把 `GFSettingsFileStoreUtility` 注册为精确 `GFSettingsStoreUtility` alias；原先已复用 `GFStorageUtility` 时，安装 `gf.standard.settings.storage` 并把 `GFStorageSettingsStoreUtility` 注册为精确 base alias；不需要持久化时，在初始化前设置 `persistence_enabled=false`。自定义后端应从覆写 Settings 物理读写迁移为独立 `GFSettingsStoreUtility` 派生实现。正常关闭必须等待 Architecture `shutdown_async()` 或先检查 Settings `begin_quiesce()`；取消 quiesce 会在下一个 target I/O 前停止并保留未尝试记录。物理写入失败只在实例仍存活时可用 `flush_pending_save()` 重试同一冻结 payload，捕获失败则必须修正值并提交同 target 新快照；两者都不会由 `tick()` 热重试，也不能再依赖 `dispose()` 做退出保存。
+80. 既有只需等待完成的对象池预热调用无需迁移；需要逐请求取消、进度或错误分类时，在主线程改用 `prewarm_request_async()` / `prewarm_budget_request_async()` 并保存返回 Operation。先检查同步终态，再等待 `completed`；prepare 回调改为返回 `Error`，并按 `GFObjectPoolPrewarmResult` 的 status、reason 和终态有效计数处理容量部分接纳或生命周期终结，不要把取消理解为回滚已经创建的节点。
