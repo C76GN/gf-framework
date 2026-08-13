@@ -4,6 +4,39 @@ extends GutTest
 # --- 常量 ---
 
 const GF_VARIANT_ACCESS = preload("res://addons/gf/kernel/core/gf_variant_access.gd")
+const GF_TEST_DIRECTORY_LINK_FIXTURE = preload(
+	"res://tests/gf_core/support/gf_test_directory_link_fixture.gd"
+)
+
+
+# --- 私有变量 ---
+
+var _race_allowed_root: String = ""
+var _race_outside_root: String = ""
+var _race_linked_child: String = ""
+var _failure_output_path: String = ""
+var _baseline_output_path: String = ""
+var _temp_tamper_root: String = ""
+var _temp_directory_path: String = ""
+var _post_commit_output_path: String = ""
+var _post_commit_outside_root: String = ""
+var _outside_backup_path: String = ""
+var _snapshot_allowed_root: String = ""
+var _snapshot_outside_root: String = ""
+var _snapshot_staged_root: String = ""
+var _rollback_allowed_root: String = ""
+var _rollback_output_path: String = ""
+var _reentrant_allowed_root: String = ""
+var _reentrant_output_path: String = ""
+var _reentrant_report: Dictionary = {}
+var _hook_observed_output_path: String = ""
+var _hook_call_count: int = 0
+
+
+# --- 测试生命周期 ---
+
+func after_each() -> void:
+	GFGeneratedArtifactReport._reset_test_state()
 
 
 # --- 测试用例 ---
@@ -182,6 +215,911 @@ func test_save_text_rejects_absolute_path_and_outside_allowed_roots() -> void:
 	assert_push_error_count(2, "绝对路径和越界路径应各报告一次错误。")
 
 
+func test_save_text_rejects_output_file_as_allowed_root_without_io() -> void:
+	var test_root: String = "user://gf_generated_artifact_report_file_root_%d_%d" % [
+		Time.get_ticks_usec(),
+		get_instance_id(),
+	]
+	var output_path: String = test_root.path_join("output.txt")
+	var report: Dictionary = GFGeneratedArtifactReport.save_text(output_path, "content", {
+		"allowed_roots": [output_path],
+		"scan_filesystem": false,
+	})
+	var parent_exists: bool = DirAccess.dir_exists_absolute(
+		ProjectSettings.globalize_path(test_root)
+	)
+	var output_exists: bool = FileAccess.file_exists(output_path)
+	var temp_count: int = _count_files_with_fragment(test_root, ".tmp.")
+	_remove_test_tree(test_root)
+
+	assert_false(GF_VARIANT_ACCESS.get_option_bool(report, "success"))
+	assert_eq(GFGeneratedArtifactReport.get_error_code(report), ERR_INVALID_PARAMETER)
+	assert_false(GF_VARIANT_ACCESS.get_option_bool(report, "written"))
+	assert_false(parent_exists, "文件路径不得作为 allowed_roots 目录根，且必须在 mkdir 前失败。")
+	assert_false(output_exists)
+	assert_eq(temp_count, 0, "非目录 allowed_roots 不得创建临时产物。")
+	assert_push_error_count(1)
+
+
+func test_save_text_rejects_explicit_invalid_allowed_roots_without_io() -> void:
+	var test_root: String = "user://gf_generated_artifact_report_invalid_roots_%d_%d" % [
+		Time.get_ticks_usec(),
+		get_instance_id(),
+	]
+	var empty_path: String = test_root.path_join("empty.txt")
+	var wrong_type_path: String = test_root.path_join("wrong-type.txt")
+	var invalid_item_path: String = test_root.path_join("invalid-item.txt")
+	var empty_report: Dictionary = GFGeneratedArtifactReport.save_text(empty_path, "empty", {
+		"allowed_roots": [],
+		"scan_filesystem": false,
+	})
+	var wrong_type_report: Dictionary = GFGeneratedArtifactReport.save_text(
+		wrong_type_path,
+		"wrong-type",
+		{
+			"allowed_roots": { "root": test_root },
+			"scan_filesystem": false,
+		}
+	)
+	var invalid_item_report: Dictionary = GFGeneratedArtifactReport.save_text(
+		invalid_item_path,
+		"invalid-item",
+		{
+			"allowed_roots": [test_root, "C:/outside"],
+			"scan_filesystem": false,
+		}
+	)
+	var root_exists: bool = DirAccess.dir_exists_absolute(
+		ProjectSettings.globalize_path(test_root)
+	)
+	_remove_test_tree(test_root)
+
+	for report: Dictionary in [empty_report, wrong_type_report, invalid_item_report]:
+		assert_false(GF_VARIANT_ACCESS.get_option_bool(report, "success"))
+		assert_eq(
+			GFGeneratedArtifactReport.get_error_code(report),
+			ERR_INVALID_PARAMETER
+		)
+		assert_false(GF_VARIANT_ACCESS.get_option_bool(report, "written"))
+	assert_false(root_exists, "显式无效 allowed_roots 必须在 mkdir/write 前失败关闭。")
+	assert_false(FileAccess.file_exists(empty_path))
+	assert_false(FileAccess.file_exists(wrong_type_path))
+	assert_false(FileAccess.file_exists(invalid_item_path))
+	assert_push_error_count(3, "三种显式无效 allowed_roots 应各报告一次参数错误。")
+
+
+func test_save_text_rejects_stringifying_allowed_root_elements_without_io() -> void:
+	var test_root: String = "user://gf_generated_artifact_report_typed_roots_%d_%d" % [
+		Time.get_ticks_usec(),
+		get_instance_id(),
+	]
+	var node_path_report: Dictionary = GFGeneratedArtifactReport.save_text(
+		test_root.path_join("node-path.txt"),
+		"node-path",
+		{
+			"allowed_roots": [NodePath(test_root)],
+			"scan_filesystem": false,
+		}
+	)
+	var stringifying_root: AllowedRootStringifier = AllowedRootStringifier.new(test_root)
+	var object_report: Dictionary = GFGeneratedArtifactReport.save_text(
+		test_root.path_join("object.txt"),
+		"object",
+		{
+			"allowed_roots": [stringifying_root],
+			"scan_filesystem": false,
+		}
+	)
+	var root_exists: bool = DirAccess.dir_exists_absolute(
+		ProjectSettings.globalize_path(test_root)
+	)
+	_remove_test_tree(test_root)
+
+	for report: Dictionary in [node_path_report, object_report]:
+		assert_false(GF_VARIANT_ACCESS.get_option_bool(report, "success"))
+		assert_eq(GFGeneratedArtifactReport.get_error_code(report), ERR_INVALID_PARAMETER)
+		assert_false(GF_VARIANT_ACCESS.get_option_bool(report, "written"))
+	assert_false(root_exists, "可字符串化的非字符串 root 元素必须在 mkdir/write 前失败关闭。")
+	assert_push_error_count(2, "NodePath 与自定义 _to_string Object 应各报告一次参数错误。")
+
+
+func test_save_text_rejects_linked_child_inside_allowed_root() -> void:
+	var test_root: String = "user://gf_generated_artifact_report_link_%d_%d" % [
+		Time.get_ticks_usec(),
+		get_instance_id(),
+	]
+	var allowed_root: String = test_root.path_join("allowed")
+	var outside_root: String = test_root.path_join("outside")
+	var linked_child: String = allowed_root.path_join("linked-child")
+	var output_path: String = linked_child.path_join("escaped.txt")
+	var outside_path: String = outside_root.path_join("escaped.txt")
+	var absolute_allowed_root: String = ProjectSettings.globalize_path(allowed_root)
+	var absolute_outside_root: String = ProjectSettings.globalize_path(outside_root)
+	var absolute_linked_child: String = ProjectSettings.globalize_path(linked_child)
+	var make_allowed_error: Error = DirAccess.make_dir_recursive_absolute(absolute_allowed_root)
+	var make_outside_error: Error = DirAccess.make_dir_recursive_absolute(absolute_outside_root)
+	assert_eq(make_allowed_error, OK, "测试应创建 allowed root。")
+	assert_eq(make_outside_error, OK, "测试应创建独立的外部 target。")
+	if make_allowed_error != OK or make_outside_error != OK:
+		_remove_test_tree(test_root)
+		return
+	var link_error: Error = GF_TEST_DIRECTORY_LINK_FIXTURE.create(
+		absolute_outside_root,
+		absolute_linked_child
+	)
+	assert_eq(link_error, OK, "受支持平台必须建立 symlink 或 Windows directory junction 夹具。")
+	if link_error != OK:
+		_remove_test_tree(test_root)
+		return
+
+	var report: Dictionary = GFGeneratedArtifactReport.save_text(output_path, "escaped", {
+		"allowed_roots": [allowed_root],
+		"scan_filesystem": false,
+	})
+	var outside_file_exists: bool = FileAccess.file_exists(outside_path)
+	var outside_content: String = _read_user_text(outside_path) if outside_file_exists else ""
+	_remove_test_tree(test_root)
+	var cleanup_succeeded: bool = _test_tree_removed(test_root)
+
+	assert_false(GF_VARIANT_ACCESS.get_option_bool(report, "success"), "linked child 输出必须失败关闭。")
+	assert_eq(GF_VARIANT_ACCESS.get_option_string_name(report, "status"), GFGeneratedArtifactReport.STATUS_FAILED)
+	assert_eq(GFGeneratedArtifactReport.get_error_code(report), ERR_UNAUTHORIZED, "物理所有权越界应返回稳定权限错误。")
+	assert_false(GF_VARIANT_ACCESS.get_option_bool(report, "written"), "失败报告不得宣称已写入。")
+	assert_false(outside_file_exists, "不得通过 linked child 在 allowed root 外创建文件。")
+	assert_eq(outside_content, "", "外部 target 不得接收产物内容。")
+	assert_true(cleanup_succeeded, "linked child fixture 必须清理。")
+	assert_push_error(
+		"[GFGeneratedArtifactReport] 输出路径包含链接或重解析组件，已拒绝：%s" % output_path
+	)
+
+
+func test_save_text_rejects_linked_output_root_and_preserves_existing_file() -> void:
+	var test_root: String = "user://gf_generated_artifact_report_link_root_%d_%d" % [
+		Time.get_ticks_usec(),
+		get_instance_id(),
+	]
+	var allowed_root: String = test_root.path_join("allowed-link")
+	var outside_root: String = test_root.path_join("outside")
+	var output_path: String = allowed_root.path_join("existing.txt")
+	var outside_path: String = outside_root.path_join("existing.txt")
+	var absolute_outside_root: String = ProjectSettings.globalize_path(outside_root)
+	var make_outside_error: Error = DirAccess.make_dir_recursive_absolute(
+		absolute_outside_root
+	)
+	assert_eq(make_outside_error, OK, "测试应创建 linked output root 的物理 target。")
+	if make_outside_error != OK:
+		_remove_test_tree(test_root)
+		return
+	var outside_file: FileAccess = FileAccess.open(outside_path, FileAccess.WRITE)
+	assert_not_null(outside_file, "测试应创建 existing replacement sentinel。")
+	if outside_file == null:
+		_remove_test_tree(test_root)
+		return
+	var _stored: Variant = outside_file.store_string("sentinel")
+	outside_file.close()
+	var link_error: Error = GF_TEST_DIRECTORY_LINK_FIXTURE.create(
+		absolute_outside_root,
+		ProjectSettings.globalize_path(allowed_root)
+	)
+	assert_eq(link_error, OK, "受支持平台必须建立 linked output root。")
+	if link_error != OK:
+		_remove_test_tree(test_root)
+		return
+
+	var report: Dictionary = GFGeneratedArtifactReport.save_text(output_path, "replacement", {
+		"allowed_roots": [allowed_root],
+		"scan_filesystem": false,
+	})
+	var outside_content: String = _read_user_text(outside_path)
+	_remove_test_tree(test_root)
+	var cleanup_succeeded: bool = _test_tree_removed(test_root)
+
+	assert_false(GF_VARIANT_ACCESS.get_option_bool(report, "success"))
+	assert_eq(GFGeneratedArtifactReport.get_error_code(report), ERR_UNAUTHORIZED)
+	assert_false(GF_VARIANT_ACCESS.get_option_bool(report, "written"))
+	assert_eq(outside_content, "sentinel", "linked output root 中的 existing file 不得被替换。")
+	assert_true(cleanup_succeeded, "linked output root fixture 必须清理。")
+	assert_push_error(
+		"[GFGeneratedArtifactReport] 输出路径包含链接或重解析组件，已拒绝：%s" % output_path
+	)
+
+
+func test_save_text_rechecks_physical_ownership_before_final_replace() -> void:
+	var test_root: String = "user://gf_generated_artifact_report_race_%d_%d" % [
+		Time.get_ticks_usec(),
+		get_instance_id(),
+	]
+	_race_allowed_root = test_root.path_join("allowed")
+	_race_outside_root = test_root.path_join("outside")
+	_race_linked_child = _race_allowed_root.path_join("linked-child")
+	var output_path: String = _race_linked_child.path_join("escaped.txt")
+	var outside_path: String = _race_outside_root.path_join("escaped.txt")
+	var make_allowed_error: Error = DirAccess.make_dir_recursive_absolute(
+		ProjectSettings.globalize_path(_race_linked_child)
+	)
+	var make_outside_error: Error = DirAccess.make_dir_recursive_absolute(
+		ProjectSettings.globalize_path(_race_outside_root)
+	)
+	assert_eq(make_allowed_error, OK, "测试应创建普通 linked-child 占位目录。")
+	assert_eq(make_outside_error, OK, "测试应创建 race 外部 target。")
+	if make_allowed_error != OK or make_outside_error != OK:
+		_remove_test_tree(test_root)
+		return
+	GFGeneratedArtifactReport._configure_test_before_final_replace(
+		Callable(self, "_replace_race_child_with_link")
+	)
+
+	var report: Dictionary = GFGeneratedArtifactReport.save_text(output_path, "escaped", {
+		"allowed_roots": [_race_allowed_root],
+		"scan_filesystem": false,
+	})
+	var race_link_created: bool = _absolute_path_is_link(
+		ProjectSettings.globalize_path(_race_linked_child)
+	)
+	var outside_file_exists: bool = FileAccess.file_exists(outside_path)
+	var committed: bool = GF_VARIANT_ACCESS.get_option_bool(report, "written")
+	_remove_test_tree(test_root)
+	var cleanup_succeeded: bool = _test_tree_removed(test_root)
+
+	assert_true(race_link_created, "test-owned callback 必须在 validation 后建立 junction/symlink。")
+	assert_false(GF_VARIANT_ACCESS.get_option_bool(report, "success"), "final replace 前物理所有权失效必须失败。")
+	assert_eq(GFGeneratedArtifactReport.get_error_code(report), ERR_UNAUTHORIZED)
+	assert_false(committed, "replace 前拒绝不得宣称已提交产物。")
+	assert_false(outside_file_exists, "final replace preflight 不得沿 race link 写入外部 target。")
+	assert_true(cleanup_succeeded, "final replace race fixture 必须清理。")
+	assert_push_error(
+		"[GFGeneratedArtifactReport] 无法替换文本产物：%s (%s)" % [
+			output_path,
+			error_string(ERR_UNAUTHORIZED),
+		]
+	)
+
+
+func test_save_text_rejects_initial_temp_override_outside_output_directory() -> void:
+	var test_root: String = "user://gf_generated_artifact_report_temp_escape_%d_%d" % [
+		Time.get_ticks_usec(),
+		get_instance_id(),
+	]
+	var allowed_root: String = test_root.path_join("allowed")
+	var outside_root: String = test_root.path_join("outside")
+	var output_path: String = allowed_root.path_join("output.txt")
+	var outside_temp_path: String = outside_root.path_join("escaped.tmp")
+	var make_outside_error: Error = DirAccess.make_dir_recursive_absolute(
+		ProjectSettings.globalize_path(outside_root)
+	)
+	assert_eq(make_outside_error, OK)
+	if make_outside_error != OK:
+		_remove_test_tree(test_root)
+		return
+	GFGeneratedArtifactReport._configure_test_temp_path_override(outside_temp_path)
+
+	var report: Dictionary = GFGeneratedArtifactReport.save_text(output_path, "expected", {
+		"allowed_roots": [allowed_root],
+		"scan_filesystem": false,
+	})
+	var outside_temp_exists: bool = _path_entry_exists_for_test(
+		ProjectSettings.globalize_path(outside_temp_path)
+	)
+	var output_exists: bool = _path_entry_exists_for_test(
+		ProjectSettings.globalize_path(output_path)
+	)
+	_remove_test_tree(test_root)
+	var cleanup_succeeded: bool = _test_tree_removed(test_root)
+
+	assert_false(GF_VARIANT_ACCESS.get_option_bool(report, "success"))
+	assert_eq(GFGeneratedArtifactReport.get_error_code(report), ERR_UNAUTHORIZED)
+	assert_false(GF_VARIANT_ACCESS.get_option_bool(report, "written"))
+	assert_false(outside_temp_exists, "越出 output base_dir 的 temp override 必须零 I/O。")
+	assert_false(output_exists)
+	assert_true(cleanup_succeeded)
+	assert_push_error_count(1)
+
+
+func test_save_text_rejects_backup_override_outside_output_directory() -> void:
+	var test_root: String = "user://gf_generated_artifact_report_backup_escape_%d_%d" % [
+		Time.get_ticks_usec(),
+		get_instance_id(),
+	]
+	var allowed_root: String = test_root.path_join("allowed")
+	var outside_root: String = test_root.path_join("outside")
+	var output_path: String = allowed_root.path_join("existing.txt")
+	_outside_backup_path = outside_root.path_join("escaped.backup")
+	var make_allowed_error: Error = DirAccess.make_dir_recursive_absolute(
+		ProjectSettings.globalize_path(allowed_root)
+	)
+	var make_outside_error: Error = DirAccess.make_dir_recursive_absolute(
+		ProjectSettings.globalize_path(outside_root)
+	)
+	assert_eq(make_allowed_error, OK)
+	assert_eq(make_outside_error, OK)
+	if make_allowed_error != OK or make_outside_error != OK:
+		_remove_test_tree(test_root)
+		return
+	_write_user_text(output_path, "original")
+	GFGeneratedArtifactReport._configure_test_before_final_replace(
+		Callable(self, "_configure_outside_backup_override")
+	)
+
+	var report: Dictionary = GFGeneratedArtifactReport.save_text(output_path, "replacement", {
+		"allowed_roots": [allowed_root],
+		"scan_filesystem": false,
+	})
+	var output_content: String = _read_user_text(output_path)
+	var outside_backup_exists: bool = _path_entry_exists_for_test(
+		ProjectSettings.globalize_path(_outside_backup_path)
+	)
+	var temp_count: int = _count_files_with_fragment(allowed_root, ".tmp.")
+	_remove_test_tree(test_root)
+	var cleanup_succeeded: bool = _test_tree_removed(test_root)
+
+	assert_false(GF_VARIANT_ACCESS.get_option_bool(report, "success"))
+	assert_eq(GFGeneratedArtifactReport.get_error_code(report), ERR_UNAUTHORIZED)
+	assert_false(GF_VARIANT_ACCESS.get_option_bool(report, "written"))
+	assert_eq(output_content, "original", "越界 backup override 不得移动或替换 existing target。")
+	assert_false(outside_backup_exists, "越界 backup override 必须零 I/O。")
+	assert_eq(temp_count, 0, "拒绝 backup override 后应安全清理 owned temp。")
+	assert_true(cleanup_succeeded)
+	assert_push_error_count(1)
+
+
+func test_save_text_rejects_non_file_output_before_dry_run_or_write() -> void:
+	var test_root: String = "user://gf_generated_artifact_report_non_file_%d_%d" % [
+		Time.get_ticks_usec(),
+		get_instance_id(),
+	]
+	var allowed_root: String = test_root.path_join("allowed")
+	var dry_output_path: String = allowed_root.path_join("dry-output")
+	var write_output_path: String = allowed_root.path_join("write-output")
+	var make_dry_error: Error = DirAccess.make_dir_recursive_absolute(
+		ProjectSettings.globalize_path(dry_output_path)
+	)
+	var make_write_error: Error = DirAccess.make_dir_recursive_absolute(
+		ProjectSettings.globalize_path(write_output_path)
+	)
+	assert_eq(make_dry_error, OK)
+	assert_eq(make_write_error, OK)
+	if make_dry_error != OK or make_write_error != OK:
+		_remove_test_tree(test_root)
+		return
+
+	var dry_report: Dictionary = GFGeneratedArtifactReport.save_text(
+		dry_output_path,
+		"dry",
+		{
+			"allowed_roots": [allowed_root],
+			"dry_run": true,
+			"scan_filesystem": false,
+		}
+	)
+	GFGeneratedArtifactReport._configure_test_temp_write_failure(FAILED, 1)
+	var write_report: Dictionary = GFGeneratedArtifactReport.save_text(
+		write_output_path,
+		"write",
+		{
+			"allowed_roots": [allowed_root],
+			"scan_filesystem": false,
+		}
+	)
+	var temp_count: int = _count_files_with_fragment(allowed_root, ".tmp.")
+	_remove_test_tree(test_root)
+	var cleanup_succeeded: bool = _test_tree_removed(test_root)
+
+	for report: Dictionary in [dry_report, write_report]:
+		assert_false(GF_VARIANT_ACCESS.get_option_bool(report, "success"))
+		assert_eq(GFGeneratedArtifactReport.get_error_code(report), ERR_FILE_ALREADY_IN_USE)
+		assert_true(GF_VARIANT_ACCESS.get_option_bool(report, "conflict"))
+		assert_false(GF_VARIANT_ACCESS.get_option_bool(report, "written"))
+	assert_eq(temp_count, 0, "non-file output 必须在 dry-run/write early return 前被拒绝。")
+	assert_true(cleanup_succeeded)
+	assert_push_error_count(2)
+
+
+func test_save_text_cleans_temp_when_target_appears_before_final_replace() -> void:
+	var test_root: String = "user://gf_generated_artifact_report_failure_%d_%d" % [
+		Time.get_ticks_usec(),
+		get_instance_id(),
+	]
+	var allowed_root: String = test_root.path_join("allowed")
+	_failure_output_path = allowed_root.path_join("blocked.txt")
+	var make_allowed_error: Error = DirAccess.make_dir_recursive_absolute(
+		ProjectSettings.globalize_path(allowed_root)
+	)
+	assert_eq(make_allowed_error, OK)
+	if make_allowed_error != OK:
+		_remove_test_tree(test_root)
+		return
+	GFGeneratedArtifactReport._configure_test_before_final_replace(
+		Callable(self, "_create_directory_at_failure_output")
+	)
+
+	var report: Dictionary = GFGeneratedArtifactReport.save_text(
+		_failure_output_path,
+		"blocked",
+		{
+			"allowed_roots": [allowed_root],
+			"scan_filesystem": false,
+		}
+	)
+	var temp_count: int = _count_files_with_fragment(allowed_root, ".tmp.")
+	var replace_error: Error = GFGeneratedArtifactReport.get_error_code(report)
+	_remove_test_tree(test_root)
+	var cleanup_succeeded: bool = _test_tree_removed(test_root)
+
+	assert_false(GF_VARIANT_ACCESS.get_option_bool(report, "success"), "final replace 前 target 漂移应返回 failed report。")
+	assert_eq(replace_error, ERR_FILE_ALREADY_IN_USE)
+	assert_true(GF_VARIANT_ACCESS.get_option_bool(report, "conflict"))
+	assert_false(GF_VARIANT_ACCESS.get_option_bool(report, "written"), "未提交 replace 不得报告 written。")
+	assert_eq(temp_count, 0, "final replace 前 target 漂移后应清理 staged temp。")
+	assert_true(cleanup_succeeded, "target drift fixture 必须清理。")
+	assert_push_error(
+		"[GFGeneratedArtifactReport] 目标文件在保存期间发生创建或删除：%s" % _failure_output_path
+	)
+
+
+func test_save_text_cleans_temp_after_injected_write_failure() -> void:
+	var test_root: String = "user://gf_generated_artifact_report_write_failure_%d_%d" % [
+		Time.get_ticks_usec(),
+		get_instance_id(),
+	]
+	var allowed_root: String = test_root.path_join("allowed")
+	var output_path: String = allowed_root.path_join("failed.txt")
+	GFGeneratedArtifactReport._configure_test_temp_write_failure(FAILED, 1)
+
+	var report: Dictionary = GFGeneratedArtifactReport.save_text(output_path, "failed", {
+		"allowed_roots": [allowed_root],
+		"scan_filesystem": false,
+	})
+	var temp_count: int = _count_files_with_fragment(allowed_root, ".tmp.")
+	var output_exists: bool = FileAccess.file_exists(output_path)
+	_remove_test_tree(test_root)
+	var cleanup_succeeded: bool = _test_tree_removed(test_root)
+
+	assert_false(GF_VARIANT_ACCESS.get_option_bool(report, "success"))
+	assert_eq(GFGeneratedArtifactReport.get_error_code(report), FAILED)
+	assert_false(GF_VARIANT_ACCESS.get_option_bool(report, "written"))
+	assert_eq(temp_count, 0, "temp store 失败后必须走真实 cleanup。")
+	assert_false(output_exists, "temp store 失败不得创建 final output。")
+	assert_true(cleanup_succeeded, "temp write failure fixture 必须清理。")
+	assert_push_error_count(1, "注入的 temp write failure 应报告一次错误。")
+
+
+func test_save_text_rejects_existing_temp_collision_without_overwrite() -> void:
+	var test_root: String = "user://gf_generated_artifact_report_temp_collision_%d_%d" % [
+		Time.get_ticks_usec(),
+		get_instance_id(),
+	]
+	var allowed_root: String = test_root.path_join("allowed")
+	var output_path: String = allowed_root.path_join("output.txt")
+	var collision_path: String = allowed_root.path_join("owned-temp.txt")
+	var make_allowed_error: Error = DirAccess.make_dir_recursive_absolute(
+		ProjectSettings.globalize_path(allowed_root)
+	)
+	assert_eq(make_allowed_error, OK)
+	if make_allowed_error != OK:
+		_remove_test_tree(test_root)
+		return
+	_write_user_text(collision_path, "sentinel")
+	GFGeneratedArtifactReport._configure_test_temp_path_override(collision_path)
+
+	var report: Dictionary = GFGeneratedArtifactReport.save_text(output_path, "expected", {
+		"allowed_roots": [allowed_root],
+		"scan_filesystem": false,
+	})
+	var collision_content: String = _read_user_text(collision_path)
+	var output_exists: bool = FileAccess.file_exists(output_path)
+	_remove_test_tree(test_root)
+	var cleanup_succeeded: bool = _test_tree_removed(test_root)
+
+	assert_false(GF_VARIANT_ACCESS.get_option_bool(report, "success"))
+	assert_eq(GFGeneratedArtifactReport.get_error_code(report), ERR_ALREADY_EXISTS)
+	assert_false(GF_VARIANT_ACCESS.get_option_bool(report, "written"))
+	assert_eq(collision_content, "sentinel", "既有 temp identity 不得被 WRITE 截断。")
+	assert_false(output_exists)
+	assert_true(cleanup_succeeded, "temp collision fixture 必须清理。")
+	assert_push_error_count(1, "temp name collision 应报告一次错误。")
+
+
+func test_save_text_rechecks_existing_baseline_after_test_hook() -> void:
+	var test_root: String = "user://gf_generated_artifact_report_baseline_race_%d_%d" % [
+		Time.get_ticks_usec(),
+		get_instance_id(),
+	]
+	var allowed_root: String = test_root.path_join("allowed")
+	_baseline_output_path = allowed_root.path_join("existing.txt")
+	var make_allowed_error: Error = DirAccess.make_dir_recursive_absolute(
+		ProjectSettings.globalize_path(allowed_root)
+	)
+	assert_eq(make_allowed_error, OK)
+	if make_allowed_error != OK:
+		_remove_test_tree(test_root)
+		return
+	_write_user_text(_baseline_output_path, "original")
+	GFGeneratedArtifactReport._configure_test_before_final_replace(
+		Callable(self, "_replace_existing_with_concurrent_content")
+	)
+
+	var report: Dictionary = GFGeneratedArtifactReport.save_text(
+		_baseline_output_path,
+		"replacement",
+		{
+			"allowed_roots": [allowed_root],
+			"scan_filesystem": false,
+		}
+	)
+	var final_content: String = _read_user_text(_baseline_output_path)
+	var temp_count: int = _count_files_with_fragment(allowed_root, ".tmp.")
+	_remove_test_tree(test_root)
+	var cleanup_succeeded: bool = _test_tree_removed(test_root)
+
+	assert_false(GF_VARIANT_ACCESS.get_option_bool(report, "success"))
+	assert_eq(
+		GFGeneratedArtifactReport.get_error_code(report),
+		ERR_FILE_ALREADY_IN_USE
+	)
+	assert_true(GF_VARIANT_ACCESS.get_option_bool(report, "conflict"))
+	assert_false(GF_VARIANT_ACCESS.get_option_bool(report, "written"))
+	assert_eq(final_content, "concurrent", "post-hook baseline 漂移不得被 staged 内容吞掉。")
+	assert_eq(temp_count, 0)
+	assert_true(cleanup_succeeded, "baseline race fixture 必须清理。")
+	assert_push_error_count(1, "post-hook baseline 漂移应报告一次冲突。")
+
+
+func test_save_text_marks_conflict_when_existing_file_becomes_directory() -> void:
+	var test_root: String = "user://gf_generated_artifact_report_existing_directory_%d_%d" % [
+		Time.get_ticks_usec(),
+		get_instance_id(),
+	]
+	var allowed_root: String = test_root.path_join("allowed")
+	_baseline_output_path = allowed_root.path_join("existing.txt")
+	var make_allowed_error: Error = DirAccess.make_dir_recursive_absolute(
+		ProjectSettings.globalize_path(allowed_root)
+	)
+	assert_eq(make_allowed_error, OK)
+	if make_allowed_error != OK:
+		_remove_test_tree(test_root)
+		return
+	_write_user_text(_baseline_output_path, "original")
+	GFGeneratedArtifactReport._configure_test_before_final_replace(
+		Callable(self, "_replace_existing_file_with_directory")
+	)
+
+	var report: Dictionary = GFGeneratedArtifactReport.save_text(
+		_baseline_output_path,
+		"replacement",
+		{
+			"allowed_roots": [allowed_root],
+			"scan_filesystem": false,
+		}
+	)
+	var output_is_directory: bool = DirAccess.dir_exists_absolute(
+		ProjectSettings.globalize_path(_baseline_output_path)
+	)
+	var temp_count: int = _count_files_with_fragment(allowed_root, ".tmp.")
+	_remove_test_tree(test_root)
+	var cleanup_succeeded: bool = _test_tree_removed(test_root)
+
+	assert_false(GF_VARIANT_ACCESS.get_option_bool(report, "success"))
+	assert_eq(GFGeneratedArtifactReport.get_error_code(report), ERR_FILE_ALREADY_IN_USE)
+	assert_true(GF_VARIANT_ACCESS.get_option_bool(report, "conflict"))
+	assert_false(GF_VARIANT_ACCESS.get_option_bool(report, "written"))
+	assert_true(output_is_directory, "baseline drift cleanup 不得删除接管 target 的未知目录。")
+	assert_eq(temp_count, 0, "existing→directory 漂移后应清理 owned temp。")
+	assert_true(cleanup_succeeded)
+	assert_push_error_count(1)
+
+
+func test_save_text_rejects_same_size_staged_temp_tamper() -> void:
+	var test_root: String = "user://gf_generated_artifact_report_temp_tamper_%d_%d" % [
+		Time.get_ticks_usec(),
+		get_instance_id(),
+	]
+	_temp_tamper_root = test_root.path_join("allowed")
+	var output_path: String = _temp_tamper_root.path_join("output.txt")
+	GFGeneratedArtifactReport._configure_test_before_final_replace(
+		Callable(self, "_replace_staged_temp_with_same_size_content")
+	)
+
+	var report: Dictionary = GFGeneratedArtifactReport.save_text(output_path, "expected", {
+		"allowed_roots": [_temp_tamper_root],
+		"scan_filesystem": false,
+	})
+	var output_exists: bool = FileAccess.file_exists(output_path)
+	var temp_count: int = _count_files_with_fragment(_temp_tamper_root, ".tmp.")
+	_remove_test_tree(test_root)
+	var cleanup_succeeded: bool = _test_tree_removed(test_root)
+
+	assert_false(GF_VARIANT_ACCESS.get_option_bool(report, "success"))
+	assert_eq(GFGeneratedArtifactReport.get_error_code(report), ERR_FILE_CORRUPT)
+	assert_false(GF_VARIANT_ACCESS.get_option_bool(report, "written"))
+	assert_false(output_exists, "同尺寸 staged temp 篡改不得提交 final output。")
+	assert_eq(temp_count, 1, "未知的同尺寸 staged temp 不得由 cleanup 盲删。")
+	assert_true(cleanup_succeeded, "staged temp tamper fixture 必须清理。")
+	assert_push_error_count(1, "staged temp identity 漂移应报告一次错误。")
+
+
+func test_save_text_preserves_unknown_directory_at_staged_temp_path() -> void:
+	var test_root: String = "user://gf_generated_artifact_report_temp_directory_%d_%d" % [
+		Time.get_ticks_usec(),
+		get_instance_id(),
+	]
+	_temp_tamper_root = test_root.path_join("allowed")
+	var output_path: String = _temp_tamper_root.path_join("output.txt")
+	GFGeneratedArtifactReport._configure_test_before_final_replace(
+		Callable(self, "_replace_staged_temp_with_directory")
+	)
+
+	var report: Dictionary = GFGeneratedArtifactReport.save_text(output_path, "expected", {
+		"allowed_roots": [_temp_tamper_root],
+		"scan_filesystem": false,
+	})
+	var output_exists: bool = FileAccess.file_exists(output_path)
+	var directory_preserved: bool = DirAccess.dir_exists_absolute(
+		ProjectSettings.globalize_path(_temp_directory_path)
+	)
+	_remove_test_tree(test_root)
+	var cleanup_succeeded: bool = _test_tree_removed(test_root)
+
+	assert_false(GF_VARIANT_ACCESS.get_option_bool(report, "success"))
+	assert_eq(GFGeneratedArtifactReport.get_error_code(report), ERR_FILE_CANT_WRITE)
+	assert_false(GF_VARIANT_ACCESS.get_option_bool(report, "written"))
+	assert_false(output_exists)
+	assert_true(directory_preserved, "cleanup 不得把未知目录当作不存在或 owned temp 删除。")
+	assert_true(cleanup_succeeded, "staged temp directory fixture 必须清理。")
+	assert_push_error_count(1, "unknown temp directory 应报告一次错误。")
+
+
+func test_save_text_reports_written_when_post_commit_guard_fails() -> void:
+	var test_root: String = "user://gf_generated_artifact_report_post_commit_%d_%d" % [
+		Time.get_ticks_usec(),
+		get_instance_id(),
+	]
+	var allowed_root: String = test_root.path_join("allowed")
+	_post_commit_output_path = allowed_root.path_join("output.txt")
+	_post_commit_outside_root = test_root.path_join("outside")
+	var make_outside_error: Error = DirAccess.make_dir_recursive_absolute(
+		ProjectSettings.globalize_path(_post_commit_outside_root)
+	)
+	assert_eq(make_outside_error, OK)
+	if make_outside_error != OK:
+		_remove_test_tree(test_root)
+		return
+	GFGeneratedArtifactReport._configure_test_after_final_replace(
+		Callable(self, "_link_consumed_temp_after_final_replace")
+	)
+
+	var report: Dictionary = GFGeneratedArtifactReport.save_text(
+		_post_commit_output_path,
+		"committed",
+		{
+			"allowed_roots": [allowed_root],
+			"scan_filesystem": false,
+		}
+	)
+	var output_content: String = _read_user_text(_post_commit_output_path)
+	_remove_test_tree(test_root)
+	var cleanup_succeeded: bool = _test_tree_removed(test_root)
+
+	assert_false(GF_VARIANT_ACCESS.get_option_bool(report, "success"))
+	assert_eq(GFGeneratedArtifactReport.get_error_code(report), ERR_UNAUTHORIZED)
+	assert_true(GF_VARIANT_ACCESS.get_option_bool(report, "written"), "rename 已提交后失败必须报告真实 written。")
+	assert_eq(output_content, "committed")
+	assert_true(cleanup_succeeded, "post-commit fixture 必须清理。")
+	assert_push_error_count(1, "post-commit physical failure 应报告一次错误。")
+
+
+func test_capture_file_snapshot_rechecks_physical_guard_after_hash_read() -> void:
+	var test_root: String = "user://gf_generated_artifact_report_snapshot_race_%d_%d" % [
+		Time.get_ticks_usec(),
+		get_instance_id(),
+	]
+	_snapshot_allowed_root = test_root.path_join("allowed")
+	_snapshot_outside_root = test_root.path_join("outside")
+	_snapshot_staged_root = test_root.path_join("staged")
+	var snapshot_path: String = _snapshot_allowed_root.path_join("snapshot.txt")
+	var make_allowed_error: Error = DirAccess.make_dir_recursive_absolute(
+		ProjectSettings.globalize_path(_snapshot_allowed_root)
+	)
+	var make_outside_error: Error = DirAccess.make_dir_recursive_absolute(
+		ProjectSettings.globalize_path(_snapshot_outside_root)
+	)
+	assert_eq(make_allowed_error, OK)
+	assert_eq(make_outside_error, OK)
+	if make_allowed_error != OK or make_outside_error != OK:
+		_remove_test_tree(test_root)
+		return
+	_write_user_text(snapshot_path, "snapshot")
+	GFGeneratedArtifactReport._configure_test_after_file_snapshot_read(
+		Callable(self, "_replace_snapshot_parent_with_link")
+	)
+
+	var snapshot: Dictionary = GFGeneratedArtifactReport._capture_file_snapshot(
+		snapshot_path,
+		true
+	)
+	var linked_parent: bool = _absolute_path_is_link(
+		ProjectSettings.globalize_path(_snapshot_allowed_root)
+	)
+	_remove_test_tree(test_root)
+	var cleanup_succeeded: bool = _test_tree_removed(test_root)
+
+	assert_true(linked_parent, "snapshot callback 必须在 SHA 读取后交换父目录为 link。")
+	assert_false(GF_VARIANT_ACCESS.get_option_bool(snapshot, "ok"))
+	assert_eq(
+		GF_VARIANT_ACCESS.get_option_int(snapshot, "error_code"),
+		ERR_UNAUTHORIZED,
+		"post-read physical guard 错误不得折叠为 ERR_FILE_CORRUPT。"
+	)
+	assert_true(cleanup_succeeded)
+
+
+func test_save_text_marks_conflict_when_rollback_target_becomes_directory() -> void:
+	var test_root: String = "user://gf_generated_artifact_report_rollback_takeover_%d_%d" % [
+		Time.get_ticks_usec(),
+		get_instance_id(),
+	]
+	_rollback_allowed_root = test_root.path_join("allowed")
+	_rollback_output_path = _rollback_allowed_root.path_join("existing.txt")
+	var make_allowed_error: Error = DirAccess.make_dir_recursive_absolute(
+		ProjectSettings.globalize_path(_rollback_allowed_root)
+	)
+	assert_eq(make_allowed_error, OK)
+	if make_allowed_error != OK:
+		_remove_test_tree(test_root)
+		return
+	_write_user_text(_rollback_output_path, "original")
+	GFGeneratedArtifactReport._configure_test_after_file_snapshot_read(
+		Callable(self, "_take_over_output_after_backup_snapshot")
+	)
+
+	var report: Dictionary = GFGeneratedArtifactReport.save_text(
+		_rollback_output_path,
+		"replacement",
+		{
+			"allowed_roots": [_rollback_allowed_root],
+			"scan_filesystem": false,
+		}
+	)
+	var output_is_directory: bool = DirAccess.dir_exists_absolute(
+		ProjectSettings.globalize_path(_rollback_output_path)
+	)
+	var backup_count: int = _count_files_with_fragment(
+		_rollback_allowed_root,
+		".backup.tmp."
+	)
+	var backup_path: String = _find_file_with_fragment(
+		_rollback_allowed_root,
+		".backup.tmp."
+	)
+	var backup_content: String = _read_user_text(backup_path)
+	var total_temp_count: int = _count_files_with_fragment(
+		_rollback_allowed_root,
+		".tmp."
+	)
+	_remove_test_tree(test_root)
+	var cleanup_succeeded: bool = _test_tree_removed(test_root)
+
+	assert_false(GF_VARIANT_ACCESS.get_option_bool(report, "success"))
+	assert_eq(GFGeneratedArtifactReport.get_error_code(report), ERR_FILE_ALREADY_IN_USE)
+	assert_true(GF_VARIANT_ACCESS.get_option_bool(report, "conflict"))
+	assert_false(GF_VARIANT_ACCESS.get_option_bool(report, "written"))
+	assert_true(output_is_directory, "rollback 不得删除接管 output identity 的未知目录。")
+	assert_eq(backup_count, 1, "rollback takeover 后应保留精确原始 backup。")
+	assert_eq(backup_content, "original", "保留的 rollback backup 必须仍匹配原始 target 内容。")
+	assert_eq(total_temp_count, 1, "rollback takeover 后只允许保留 backup，owned staged temp 必须清理。")
+	assert_true(cleanup_succeeded)
+	assert_push_error_count(1)
+
+
+func test_save_text_captures_both_replace_hooks_before_reentrant_save() -> void:
+	var test_root: String = "user://gf_generated_artifact_report_hook_reentry_%d_%d" % [
+		Time.get_ticks_usec(),
+		get_instance_id(),
+	]
+	_reentrant_allowed_root = test_root.path_join("allowed")
+	_reentrant_output_path = _reentrant_allowed_root.path_join("outer.txt")
+	_post_commit_outside_root = test_root.path_join("outside")
+	var make_outside_error: Error = DirAccess.make_dir_recursive_absolute(
+		ProjectSettings.globalize_path(_post_commit_outside_root)
+	)
+	assert_eq(make_outside_error, OK)
+	if make_outside_error != OK:
+		_remove_test_tree(test_root)
+		return
+	GFGeneratedArtifactReport._configure_test_before_final_replace(
+		Callable(self, "_run_reentrant_save_before_outer_replace")
+	)
+	GFGeneratedArtifactReport._configure_test_after_final_replace(
+		Callable(self, "_record_and_link_outer_consumed_temp")
+	)
+
+	var outer_report: Dictionary = GFGeneratedArtifactReport.save_text(
+		_reentrant_output_path,
+		"outer",
+		{
+			"allowed_roots": [_reentrant_allowed_root],
+			"scan_filesystem": false,
+		}
+	)
+	var outer_content: String = _read_user_text(_reentrant_output_path)
+	_remove_test_tree(test_root)
+	var cleanup_succeeded: bool = _test_tree_removed(test_root)
+
+	assert_true(GF_VARIANT_ACCESS.get_option_bool(_reentrant_report, "success"))
+	assert_eq(_hook_observed_output_path, _reentrant_output_path)
+	assert_eq(_hook_call_count, 1, "outer after hook 必须 exactly-once，nested save 不得观察它。")
+	assert_false(GF_VARIANT_ACCESS.get_option_bool(outer_report, "success"))
+	assert_eq(GFGeneratedArtifactReport.get_error_code(outer_report), ERR_UNAUTHORIZED)
+	assert_true(GF_VARIANT_ACCESS.get_option_bool(outer_report, "written"))
+	assert_eq(outer_content, "outer")
+	assert_true(cleanup_succeeded)
+	assert_push_error_count(1)
+
+
+func test_save_text_preserves_ordinary_allowed_and_legacy_user_paths() -> void:
+	var test_root: String = "user://gf_generated_artifact_report_ordinary_%d_%d" % [
+		Time.get_ticks_usec(),
+		get_instance_id(),
+	]
+	var allowed_root: String = test_root.path_join("allowed")
+	var allowed_path: String = allowed_root.path_join("item.txt")
+	var legacy_path: String = test_root.path_join("legacy/item.txt")
+	var res_root: String = "res://.gf_generated_artifact_report_%d_%d" % [
+		Time.get_ticks_usec(),
+		get_instance_id(),
+	]
+	var res_path: String = res_root.path_join("item.txt")
+	var legacy_res_path: String = res_root.path_join("legacy.txt")
+	var first_report: Dictionary = GFGeneratedArtifactReport.save_text(allowed_path, "first", {
+		"allowed_roots": [allowed_root],
+		"scan_filesystem": false,
+	})
+	var replacement_report: Dictionary = GFGeneratedArtifactReport.save_text(allowed_path, "second", {
+		"allowed_roots": [allowed_root],
+		"scan_filesystem": false,
+	})
+	var legacy_report: Dictionary = GFGeneratedArtifactReport.save_text(
+		legacy_path,
+		"legacy",
+		{ "scan_filesystem": false }
+	)
+	var res_report: Dictionary = GFGeneratedArtifactReport.save_text(res_path, "res", {
+		"allowed_roots": [res_root],
+		"scan_filesystem": false,
+	})
+	var legacy_res_report: Dictionary = GFGeneratedArtifactReport.save_text(
+		legacy_res_path,
+		"legacy-res",
+		{ "scan_filesystem": false }
+	)
+	var allowed_content: String = _read_user_text(allowed_path)
+	var legacy_content: String = _read_user_text(legacy_path)
+	var res_content: String = _read_user_text(res_path)
+	var legacy_res_content: String = _read_user_text(legacy_res_path)
+	var temp_count: int = _count_files_with_fragment(allowed_root, ".tmp.")
+	_remove_test_tree(test_root)
+	_remove_test_tree(res_root)
+	var user_cleanup_succeeded: bool = not DirAccess.dir_exists_absolute(
+		ProjectSettings.globalize_path(test_root)
+	)
+	var res_cleanup_succeeded: bool = not DirAccess.dir_exists_absolute(
+		ProjectSettings.globalize_path(res_root)
+	)
+
+	assert_true(GF_VARIANT_ACCESS.get_option_bool(first_report, "success"), "普通 allowed user:// 新写入应兼容。")
+	assert_true(GF_VARIANT_ACCESS.get_option_bool(replacement_report, "success"), "普通 existing replacement 应兼容。")
+	assert_true(GF_VARIANT_ACCESS.get_option_bool(replacement_report, "written"), "replacement 成功应报告已提交。")
+	assert_true(GF_VARIANT_ACCESS.get_option_bool(legacy_report, "success"), "缺省 allowed_roots 的旧 user:// 行为应兼容。")
+	assert_true(GF_VARIANT_ACCESS.get_option_bool(res_report, "success"), "普通 allowed res:// 写入应兼容。")
+	assert_true(GF_VARIANT_ACCESS.get_option_bool(legacy_res_report, "success"), "缺省 allowed_roots 的旧 res:// 行为应兼容。")
+	assert_eq(allowed_content, "second")
+	assert_eq(legacy_content, "legacy")
+	assert_eq(res_content, "res")
+	assert_eq(legacy_res_content, "legacy-res")
+	assert_eq(temp_count, 0, "successful replacement 不得残留 temp/backup。")
+	assert_true(user_cleanup_succeeded, "ordinary user:// fixture 必须清理。")
+	assert_true(res_cleanup_succeeded, "ordinary res:// fixture 必须清理。")
+
+
 func test_summarize_reports_counts_statuses_and_owner_groups() -> void:
 	var reports: Array[Dictionary] = [
 		GFGeneratedArtifactReport.make_report("res://a.gd", GFGeneratedArtifactReport.STATUS_NEW, OK, "", {
@@ -285,4 +1223,251 @@ func _count_user_files_with_prefix(prefix: String) -> int:
 		if not dir.current_is_dir() and file_name.begins_with(prefix):
 			count += 1
 	dir.list_dir_end()
+	return count
+
+
+func _remove_test_tree(resource_root: String) -> void:
+	var absolute_root: String = ProjectSettings.globalize_path(resource_root)
+	_remove_absolute_test_path(absolute_root)
+
+
+func _test_tree_removed(resource_root: String) -> bool:
+	var absolute_root: String = ProjectSettings.globalize_path(resource_root)
+	return not _path_entry_exists_for_test(absolute_root)
+
+
+func _path_entry_exists_for_test(path: String) -> bool:
+	return (
+		_absolute_path_is_link(path)
+		or FileAccess.file_exists(path)
+		or DirAccess.dir_exists_absolute(path)
+	)
+
+
+func _remove_absolute_test_path(path: String) -> void:
+	if _absolute_path_is_link(path):
+		var _remove_link_error: Error = DirAccess.remove_absolute(path)
+		return
+	if FileAccess.file_exists(path):
+		var _remove_file_error: Error = DirAccess.remove_absolute(path)
+		return
+	if not DirAccess.dir_exists_absolute(path):
+		return
+	var directory: DirAccess = DirAccess.open(path)
+	if directory == null:
+		return
+	directory.include_hidden = true
+	directory.include_navigational = false
+	var list_error: Error = directory.list_dir_begin()
+	if list_error != OK:
+		return
+	var entry_name: String = directory.get_next()
+	while not entry_name.is_empty():
+		_remove_absolute_test_path(path.path_join(entry_name))
+		entry_name = directory.get_next()
+	directory.list_dir_end()
+	var _remove_directory_error: Error = DirAccess.remove_absolute(path)
+
+
+func _absolute_path_is_link(path: String) -> bool:
+	var parent_path: String = path.get_base_dir()
+	var entry_name: String = path.get_file()
+	if parent_path.is_empty() or entry_name.is_empty():
+		return false
+	var parent_directory: DirAccess = DirAccess.open(parent_path)
+	if parent_directory == null:
+		return false
+	return parent_directory.is_link(entry_name)
+
+
+func _replace_race_child_with_link() -> void:
+	var absolute_child: String = ProjectSettings.globalize_path(_race_linked_child)
+	var absolute_staged_child: String = ProjectSettings.globalize_path(
+		_race_allowed_root.path_join("staged-child")
+	)
+	var move_child_error: Error = DirAccess.rename_absolute(
+		absolute_child,
+		absolute_staged_child
+	)
+	assert_eq(move_child_error, OK, "race callback 必须先移走含 staged temp 的普通目录。")
+	if move_child_error != OK:
+		return
+	var link_error: Error = GF_TEST_DIRECTORY_LINK_FIXTURE.create(
+		ProjectSettings.globalize_path(_race_outside_root),
+		absolute_child
+	)
+	assert_eq(link_error, OK, "race callback 必须建立 symlink 或 Windows directory junction。")
+
+
+func _create_directory_at_failure_output() -> void:
+	var make_directory_error: Error = DirAccess.make_dir_recursive_absolute(
+		ProjectSettings.globalize_path(_failure_output_path)
+	)
+	assert_eq(make_directory_error, OK, "test-owned callback 必须建立阻断 final rename 的目录。")
+
+
+func _replace_existing_with_concurrent_content() -> void:
+	_write_user_text(_baseline_output_path, "concurrent")
+
+
+func _replace_existing_file_with_directory() -> void:
+	var remove_error: Error = DirAccess.remove_absolute(
+		ProjectSettings.globalize_path(_baseline_output_path)
+	)
+	assert_eq(remove_error, OK)
+	if remove_error != OK:
+		return
+	var make_directory_error: Error = DirAccess.make_dir_recursive_absolute(
+		ProjectSettings.globalize_path(_baseline_output_path)
+	)
+	assert_eq(make_directory_error, OK)
+
+
+func _replace_staged_temp_with_same_size_content() -> void:
+	var temp_path: String = _find_file_with_fragment(_temp_tamper_root, ".tmp.")
+	assert_false(temp_path.is_empty(), "test-owned callback 必须定位 staged temp。")
+	if temp_path.is_empty():
+		return
+	_write_user_text(temp_path, "tampered")
+
+
+func _replace_staged_temp_with_directory() -> void:
+	_temp_directory_path = _find_file_with_fragment(_temp_tamper_root, ".tmp.")
+	assert_false(_temp_directory_path.is_empty(), "test-owned callback 必须定位 staged temp。")
+	if _temp_directory_path.is_empty():
+		return
+	var remove_error: Error = DirAccess.remove_absolute(
+		ProjectSettings.globalize_path(_temp_directory_path)
+	)
+	assert_eq(remove_error, OK, "test-owned callback 必须先移除 owned staged temp。")
+	if remove_error != OK:
+		return
+	var make_directory_error: Error = DirAccess.make_dir_recursive_absolute(
+		ProjectSettings.globalize_path(_temp_directory_path)
+	)
+	assert_eq(make_directory_error, OK, "test-owned callback 必须建立 unknown directory identity。")
+
+
+func _link_consumed_temp_after_final_replace(
+	output_path: String,
+	temp_path: String,
+	_backup_path: String
+) -> void:
+	assert_eq(output_path, _post_commit_output_path)
+	var link_error: Error = GF_TEST_DIRECTORY_LINK_FIXTURE.create(
+		ProjectSettings.globalize_path(_post_commit_outside_root),
+		ProjectSettings.globalize_path(temp_path)
+	)
+	assert_eq(link_error, OK, "test-owned post-commit callback 必须在 consumed temp identity 建立 link。")
+
+
+func _configure_outside_backup_override() -> void:
+	GFGeneratedArtifactReport._configure_test_temp_path_override(_outside_backup_path)
+
+
+func _replace_snapshot_parent_with_link(_snapshot_path: String) -> void:
+	var move_error: Error = DirAccess.rename_absolute(
+		ProjectSettings.globalize_path(_snapshot_allowed_root),
+		ProjectSettings.globalize_path(_snapshot_staged_root)
+	)
+	assert_eq(move_error, OK)
+	if move_error != OK:
+		return
+	var link_error: Error = GF_TEST_DIRECTORY_LINK_FIXTURE.create(
+		ProjectSettings.globalize_path(_snapshot_outside_root),
+		ProjectSettings.globalize_path(_snapshot_allowed_root)
+	)
+	assert_eq(link_error, OK)
+
+
+func _take_over_output_after_backup_snapshot(snapshot_path: String) -> void:
+	if not snapshot_path.contains(".backup.tmp."):
+		GFGeneratedArtifactReport._configure_test_after_file_snapshot_read(
+			Callable(self, "_take_over_output_after_backup_snapshot")
+		)
+		return
+	var make_directory_error: Error = DirAccess.make_dir_recursive_absolute(
+		ProjectSettings.globalize_path(_rollback_output_path)
+	)
+	assert_eq(make_directory_error, OK)
+
+
+func _run_reentrant_save_before_outer_replace() -> void:
+	_reentrant_report = GFGeneratedArtifactReport.save_text(
+		_reentrant_allowed_root.path_join("nested.txt"),
+		"nested",
+		{
+			"allowed_roots": [_reentrant_allowed_root],
+			"scan_filesystem": false,
+		}
+	)
+
+
+func _record_and_link_outer_consumed_temp(
+	output_path: String,
+	temp_path: String,
+	_backup_path: String
+) -> void:
+	_hook_call_count += 1
+	_hook_observed_output_path = output_path
+	if output_path != _reentrant_output_path:
+		return
+	var link_error: Error = GF_TEST_DIRECTORY_LINK_FIXTURE.create(
+		ProjectSettings.globalize_path(_post_commit_outside_root),
+		ProjectSettings.globalize_path(temp_path)
+	)
+	assert_eq(link_error, OK)
+
+
+func _write_user_text(path: String, text: String) -> void:
+	var file: FileAccess = FileAccess.open(path, FileAccess.WRITE)
+	assert_not_null(file, "测试应能写入 fixture 文本。")
+	if file == null:
+		return
+	var _stored: Variant = file.store_string(text)
+	file.close()
+
+
+func _find_file_with_fragment(resource_root: String, fragment: String) -> String:
+	var directory: DirAccess = DirAccess.open(resource_root)
+	if directory == null:
+		return ""
+	var list_error: Error = directory.list_dir_begin()
+	if list_error != OK:
+		return ""
+	var result: String = ""
+	var entry_name: String = directory.get_next()
+	while not entry_name.is_empty():
+		if not directory.current_is_dir() and entry_name.contains(fragment):
+			result = resource_root.path_join(entry_name)
+			break
+		entry_name = directory.get_next()
+	directory.list_dir_end()
+	return result
+
+
+class AllowedRootStringifier extends RefCounted:
+	var _value: String = ""
+
+	func _init(value: String) -> void:
+		_value = value
+
+	func _to_string() -> String:
+		return _value
+
+
+func _count_files_with_fragment(resource_root: String, fragment: String) -> int:
+	var directory: DirAccess = DirAccess.open(resource_root)
+	if directory == null:
+		return 0
+	var count: int = 0
+	var list_error: Error = directory.list_dir_begin()
+	if list_error != OK:
+		return 0
+	var entry_name: String = directory.get_next()
+	while not entry_name.is_empty():
+		if not directory.current_is_dir() and entry_name.contains(fragment):
+			count += 1
+		entry_name = directory.get_next()
+	directory.list_dir_end()
 	return count

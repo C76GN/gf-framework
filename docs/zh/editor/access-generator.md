@@ -6,9 +6,11 @@
 
 批量工具可以用 `GFGeneratedArtifactReport.summarize_reports()` 聚合多份报告，得到状态计数、写入数量、dry-run 数量、失败数量和 `generated` / `user` / `external` 所有权分布。生成器只应自动覆盖 `generated` 产物；`user` 或 `external` 产物需要调用方显式决定是否跳过、提示或交给外部流程处理。
 
-保存生成物时可以给 `GFGeneratedArtifactReport.save_text()` 传入 `allowed_roots`，把写入限制在 `res://` 或 `user://` 的指定生成目录内。绝对文件系统路径、非 Godot URI 和越过允许根目录的路径会被报告为失败；项目工具不应把生成脚本直接写进手写源码目录，除非调用方明确声明该目录属于生成物。
+保存生成物时可以给 `GFGeneratedArtifactReport.save_text()` 传入 `allowed_roots`，把写入限制在 `res://` 或 `user://` 的指定生成目录内。省略该键只保留历史路径校验，不代表调用方拥有对应物理目录；显式提供时必须给出非空且全部有效的资源根目录集合。启用后，读取、目录创建、临时写入、最终替换、清理与回滚会在各个可观察边界前后拒绝符号链接、Windows junction 或其他重解析组件。绝对文件系统路径、非 Godot URI、越过允许根目录的路径以及穿过上述物理链接的路径都会被报告为失败；项目工具不应把生成脚本直接写进手写源码目录，除非调用方明确声明该目录属于生成物。
 
-对已经读取并准备修改的用户文件，应把读取内容的 SHA-256 作为 `expected_previous_sha256` 一并提交。保存前目标内容发生变化时会返回结构化冲突并拒绝覆盖；`GFScriptPatchUtility` 已默认使用这一约束。该比较能阻断陈旧快照覆盖，但不替代需要显式恢复句柄和完整故障事务的多文件写入。
+这些复核用于在现有 Godot 文件 API 上失败关闭，但不会持有目录句柄，也不构成对恶意并发文件系统修改的原子 CAS。最终 rename 已经提交、随后物理复核或 backup 清理失败时，报告可以同时满足 `status = failed`、`success = false` 与 `written = true`；调用方必须先独立检查 `written`，再决定是否重试、恢复或提示人工检查，不能仅凭 `success` 重新写入。
+
+对已经读取并准备修改的用户文件，应把读取内容的 SHA-256 作为 `expected_previous_sha256` 一并提交。保存前目标内容发生变化时会返回结构化冲突并拒绝覆盖；`GFScriptPatchUtility` 已默认使用这一约束。该比较能阻断可观察到的陈旧快照覆盖，但不替代操作系统级原子比较交换，也不替代需要显式恢复句柄和完整故障事务的多文件写入。
 
 ## 冻结模块访问策略
 

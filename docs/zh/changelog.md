@@ -66,6 +66,8 @@
 
 ### 🔄 机制更改 (Changed)
 
+- **破坏性变更**：`GFGeneratedArtifactReport.save_text()` 的 `allowed_roots` 改为显式物理所有权边界。省略该键继续保留旧路径行为；一旦提供，值必须是非空且全部有效的 `res://` / `user://` 根目录集合，空集合、错误类型或非法根会在零 I/O 前以 `ERR_INVALID_PARAMETER` 失败。受控生成器应始终传入精确根目录；启用后读取、临时写入、替换、清理与回滚会逐边界拒绝符号链接、junction 和其他重解析组件。最终 rename 已提交而后验证或 backup 清理失败时，报告可以是 `failed` 且 `written = true`，迁移后的调用方必须先检查 `written` 再决定是否重试。该机制基于可观察复核，不宣称提供跨进程目录句柄固定或原子 CAS。
+
 - **破坏性变更**：`GFInputAction` 新增默认值为 `0.5` 的 `release_threshold`，模拟量动作改为分别在全局与玩家作用域保留聚合后的 raw-active 迟滞状态；轴阈值必须有限、位于 `0.0..1.0` 且 release 不高于 activation，否则对应轴 mapping 会失败关闭并从有效 entry 中排除。精确中立值始终释放，`BOOL` 动作不使用也不诊断轴阈值。既有自定义 `activation_threshold` 轴资源必须显式迁移 `release_threshold`，不能依赖新默认值保持旧单阈值行为。
 - **破坏性变更**：`GFSlotInventoryModel` 的 `registry`、`allow_growth` 与 `slot_definitions` 现在通过受保护属性入口推进单调 revision 并拒绝通知期重入；`slot_definitions` 必须与槽位数量精确等长，错长赋值原子拒绝，自动增长只追加 `null` 规则。`acceptance_checker` 的第五个参数及 `GFInventorySlotDefinition.can_accept()` 的 `inventory` 参数统一收紧为 `GFInventoryReadView`，旧的 `GFSlotInventoryModel` / 任意 `Object` 类型不再接受。两类库存规则 Callable 现在必须指向可反射参数元数据的具名 Object 方法；匿名 lambda、不透明 Callable 与不兼容签名会在调用前静默失败关闭，不保留兼容重载。规则 Resource 字段漂移不会冒充模型 revision，但跨库存 commit 会重新规划并按当前配置摘要拒绝陈旧计划。
 - **破坏性变更**：`GFArtifactWriteTransaction` 的 `expected_sha256` 现在要求精确 `String`，不再把 `null` 或其他错误类型静默解释为未设置；新增 `preflight_existing_sha256`，用审阅时旧内容 SHA-256 在预检与可观察替换边界拒绝已发生的磁盘漂移。Godot 文件 API 无法把内容比较与路径替换合并为跨进程原子操作，因此该字段不承诺 compare-and-exchange，也不能替代调用方对编辑器或外部写入者的协调。
