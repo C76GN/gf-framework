@@ -997,9 +997,11 @@ func begin_virtual_pulse_lease_for_framework(
 
 	var previous_record: Dictionary = _get_virtual_pulse_lease(binding_key)
 	var previous_operation: GFVirtualInputPulseOperation = _get_virtual_pulse_operation(previous_record)
+	var previous_was_pending: bool = (
+		previous_operation != null and previous_operation.is_pending()
+	)
 	if (
-		previous_operation != null
-		and previous_operation.is_pending()
+		previous_was_pending
 		and replacement_policy == GFVirtualInputSource.PulseReplacementPolicy.REJECT_NEW
 	):
 		var _rejected_existing: bool = operation.finish_without_lease_for_framework(
@@ -1037,32 +1039,79 @@ func begin_virtual_pulse_lease_for_framework(
 			)
 		_erase_dictionary_key(_virtual_pulse_mutation_keys, binding_key)
 		return false
+	var previous_released: bool = false
+	if (
+		replacement_policy == GFVirtualInputSource.PulseReplacementPolicy.RETRIGGER
+		and not previous_record.is_empty()
+	):
+		var release_epoch: int = _dispatch_epoch
+		previous_released = _clear_virtual_action_raw(action_id, source_id, player_index)
+		if (
+			release_epoch != _dispatch_epoch
+			or not operation.is_pending()
+			or not _virtual_pulse_lease_matches_operation(binding_key, operation)
+			or previous_was_pending and not previous_operation.is_pending()
+		):
+			var _aborted_retrigger: bool = _abort_virtual_pulse_lease_admission(
+				binding_key,
+				lease_record,
+				operation,
+				&"pulse_lease_conflict"
+			)
+			if previous_was_pending and previous_operation.is_pending():
+				var _finished_previous_after_interruption: bool = (
+					previous_operation.finish_from_mapping_for_framework(
+						GFVirtualInputPulseOperation.Status.REPLACED,
+						&"replaced",
+						previous_released
+					)
+				)
+			_erase_dictionary_key(_virtual_pulse_mutation_keys, binding_key)
+			return false
+	var write_epoch: int = _dispatch_epoch
 	var written: bool = _set_virtual_action_value_raw(action_id, value, source_id, player_index)
-	if not written:
-		var released_failed_lease: bool = _release_virtual_pulse_lease_record(
+	if (
+		not written
+		or write_epoch != _dispatch_epoch
+		or not operation.is_pending()
+		or not _virtual_pulse_lease_matches_operation(binding_key, operation)
+	):
+		var _aborted_write: bool = _abort_virtual_pulse_lease_admission(
 			binding_key,
-			lease_record
+			lease_record,
+			operation,
+			&"pulse_write_failed" if not written else &"pulse_lease_conflict"
 		)
-		var _failed_write: bool = operation.finish_from_mapping_for_framework(
-			GFVirtualInputPulseOperation.Status.FAILED,
-			&"pulse_write_failed",
-			released_failed_lease
-		)
-		if previous_operation != null and previous_operation.is_pending():
+		if previous_was_pending and previous_operation.is_pending():
 			var _finished_previous_after_failure: bool = previous_operation.finish_from_mapping_for_framework(
 				GFVirtualInputPulseOperation.Status.REPLACED,
 				&"replaced",
-				false
+				previous_released
 			)
 		_erase_dictionary_key(_virtual_pulse_mutation_keys, binding_key)
 		return false
 
-	if previous_operation != null and previous_operation.is_pending():
-		var _finished_previous: bool = previous_operation.finish_from_mapping_for_framework(
+	if previous_was_pending:
+		var previous_finish_epoch: int = _dispatch_epoch
+		var previous_finished: bool = previous_operation.finish_from_mapping_for_framework(
 			GFVirtualInputPulseOperation.Status.REPLACED,
 			&"replaced",
-			false
+			previous_released
 		)
+		if (
+			not previous_finished
+			or previous_finish_epoch != _dispatch_epoch
+			or not operation.is_pending()
+			or not _virtual_pulse_lease_matches_operation(binding_key, operation)
+		):
+			var _aborted_after_previous: bool = _abort_virtual_pulse_lease_admission(
+				binding_key,
+				lease_record,
+				operation,
+				&"pulse_lease_conflict"
+			)
+			_erase_dictionary_key(_virtual_pulse_mutation_keys, binding_key)
+			return false
 	var lease_is_current: bool = (
 		operation.is_pending()
 		and _virtual_pulse_lease_matches_operation(binding_key, operation)
@@ -1282,8 +1331,23 @@ func _release_virtual_pulse_lease_record(binding_key: String, lease_record: Dict
 	var action_id: StringName = GFVariantData.get_option_string_name(lease_record, "action_id")
 	var source_id: StringName = GFVariantData.get_option_string_name(lease_record, "source_id")
 	var player_index: int = GFVariantData.get_option_int(lease_record, "player_index", -1)
-	var _released_value: bool = _clear_virtual_action_raw(action_id, source_id, player_index)
-	return true
+	return _clear_virtual_action_raw(action_id, source_id, player_index)
+
+
+func _abort_virtual_pulse_lease_admission(
+	binding_key: String,
+	lease_record: Dictionary,
+	operation: GFVirtualInputPulseOperation,
+	reason: StringName
+) -> bool:
+	var released: bool = _release_virtual_pulse_lease_record(binding_key, lease_record)
+	if operation != null and operation.is_pending():
+		var _finished: bool = operation.finish_from_mapping_for_framework(
+			GFVirtualInputPulseOperation.Status.FAILED,
+			reason,
+			released
+		)
+	return released
 
 
 func _terminate_virtual_pulse_lease_by_key(
