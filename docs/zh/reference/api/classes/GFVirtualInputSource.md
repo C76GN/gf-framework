@@ -50,6 +50,8 @@ enum PulseReplacementPolicy {
 	REPLACE,
 	## 保留旧脉冲，并让新句柄立即进入 REJECTED 终态。
 	REJECT_NEW,
+	## 清除旧贡献后重新写入；仅当聚合状态实际转为 inactive 时产生新的 release-to-press 边沿。
+	RETRIGGER,
 }
 ```
 

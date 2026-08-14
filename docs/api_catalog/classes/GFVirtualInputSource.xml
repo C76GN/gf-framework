@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFVirtualInputSource" path="addons/gf/standard/input/sources/gf_virtual_input_source.gd" module="standard" extends="RefCounted" classDigest="9624dc4e9d896c6b3b449fa5687f2bb87ed236c1c30d9b3c3168bf8ac1087b20">
+<class name="GFVirtualInputSource" path="addons/gf/standard/input/sources/gf_virtual_input_source.gd" module="standard" extends="RefCounted" classDigest="89e9abbced24af6c05ccd6dcd8986023efa86516ac640e70df6bbafcdf50d596">
 	<description>GFVirtualInputSource: 可编程虚拟输入源。
 用于测试、回放、AI 控制或项目自定义输入桥接，向 GFInputMappingUtility
 注入抽象动作值；它不读取 InputMap，也不规定具体设备或玩法语义。</description>
@@ -16,6 +16,8 @@
 	REPLACE,
 	## 保留旧脉冲，并让新句柄立即进入 REJECTED 终态。
 	REJECT_NEW,
+	## 清除旧贡献后重新写入；仅当聚合状态实际转为 inactive 时产生新的 release-to-press 边沿。
+	RETRIGGER,
 }</signature>
 			<description>同一 source_id、player_index 与 action_id 已存在脉冲时的处理策略。</description>
 			<tags>

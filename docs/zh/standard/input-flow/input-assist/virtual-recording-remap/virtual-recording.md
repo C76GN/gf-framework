@@ -33,9 +33,13 @@ var pulse := touch_input.pulse_action(
 )
 ```
 
-`pulse_action()` 返回 `GFVirtualInputPulseOperation`。句柄冻结创建时的 Mapping、`source_id`、`player_index`、`action_id` 和 generation；之后修改 Source 配置不会让旧定时回调释放错误的输入键。`get_status()`、`get_terminal_reason()` 与 `get_release_count()` 可用于诊断完成、取消、替换、拒绝或启动失败。`release_count` 只证明当前 lease 是否实际清除过动作贡献：到时、取消、clear 或生命周期清理为 `1`；未取得 lease，以及由新脉冲或手动写入直接接管贡献的旧句柄为 `0`。
+`pulse_action()` 返回 `GFVirtualInputPulseOperation`。句柄冻结创建时的 Mapping、`source_id`、`player_index`、`action_id` 和 generation；之后修改 Source 配置不会让旧定时回调释放错误的输入键。`get_status()`、`get_terminal_reason()` 与 `get_release_count()` 可用于诊断完成、取消、替换、拒绝或启动失败。`release_count` 只证明当前句柄的匹配 lease 是否实际清除过自己的动作贡献，不证明聚合动作一定变为 inactive：到时、取消、clear、生命周期清理，以及 `RETRIGGER` 释放的旧 lease 为 `1`；未取得 lease、原子 `REPLACE`，以及手动写入直接接管的旧句柄为 `0`。
 
-权威并发键是 `source_id + player_index + action_id`，而不是 `GFVirtualInputSource` 对象身份。因此两个同 ID Source 也不会让旧定时器清除新脉冲。默认 `REPLACE` 通过比较并交换移除旧 lease、提交新 generation 并覆盖同一动作贡献，不会在交接期间发出一次虚假的 inactive 状态；旧句柄进入 `REPLACED`，但不计为实际释放。需要保留旧脉冲时传 `PulseReplacementPolicy.REJECT_NEW`，新句柄会直接进入 `REJECTED`，且不会改写动作值。
+权威并发键是 `source_id + player_index + action_id`，而不是 `GFVirtualInputSource` 对象身份。因此两个同 ID Source 也不会让旧定时器清除新脉冲。同键已有脉冲时显式选择以下策略；默认仍为 `REPLACE`，既有调用行为不变：
+
+- `REPLACE`：通过比较并交换移除旧 lease、提交新 generation 并覆盖同一动作贡献，不产生中间 inactive；适合连续 hold。旧句柄进入 `REPLACED`，`release_count` 为 `0`。
+- `RETRIGGER`：实际清除旧 lease 的匹配贡献，再由受事务保护的新 generation 重新写入；适合需要重复离散激活的 UI。旧句柄进入 `REPLACED`，`release_count` 为 `1`。只有清除匹配贡献后全局或玩家聚合状态确实变为 inactive，重新写入才会形成对应的 completed-to-started 边沿与新的 `just_started`；其他 source、设备或绑定仍保持同一动作活跃时，框架不会伪造聚合边沿。
+- `REJECT_NEW`：保留旧 lease，让新句柄立即进入 `REJECTED`，且不改写动作值。
 
 `owner` 与 `cancellation_token` 都是可选锚点，同时提供时采用 OR 语义。二者都不提供也可以：脉冲仍受有界 duration、Source 生命周期和 Mapping 弱 lease 清理约束。树外 Node、已经释放的 owner、已完成的 `GFAsyncScope` 或无法建立的 token 连接会在写入前 fail closed；已取消 token 则让句柄立即进入 `CANCELLED`。手动 `set_action_value()`、`press()` 等写入会原子接管匹配 lease，不制造 inactive 间隙；`release()`、`clear_action()`，以及 Source/Mapping 的 clear、重建或 dispose 会终止并实际释放匹配 lease。已经失效的旧定时器不能回头清除后写入的值；若注入的 `GFTimerUtility` 在脉冲期间 dispose/reinit，下一次 Mapping tick 会把丢失的排程收敛为 `FAILED / timer_schedule_lost` 并释放匹配贡献。`GFVirtualInputSource.dispose()` 是不可逆终态，释放后不能通过 `configure()` 复活。
 
