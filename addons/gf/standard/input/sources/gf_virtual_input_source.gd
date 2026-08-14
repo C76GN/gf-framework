@@ -24,6 +24,8 @@ enum PulseReplacementPolicy {
 	REPLACE,
 	## 保留旧脉冲，并让新句柄立即进入 REJECTED 终态。
 	REJECT_NEW,
+	## 清除旧贡献后重新写入；仅当聚合状态实际转为 inactive 时产生新的 release-to-press 边沿。
+	RETRIGGER,
 }
 
 
@@ -252,7 +254,11 @@ func pulse_action(
 			&"invalid_duration"
 		)
 		return operation
-	if replacement_policy not in [PulseReplacementPolicy.REPLACE, PulseReplacementPolicy.REJECT_NEW]:
+	if replacement_policy not in [
+		PulseReplacementPolicy.REPLACE,
+		PulseReplacementPolicy.REJECT_NEW,
+		PulseReplacementPolicy.RETRIGGER,
+	]:
 		var _failed_policy: bool = operation.finish_without_lease_for_framework(
 			GFVirtualInputPulseOperation.Status.FAILED,
 			&"invalid_replacement_policy"

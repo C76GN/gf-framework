@@ -686,14 +686,7 @@ func _request_pool_lifecycle_transition(transition: int) -> void:
 
 func _perform_pool_lifecycle_transition(transition: int) -> void:
 	_is_disposed = true
-	var terminal_reason: StringName = GFObjectPoolPrewarmResult.REASON_UTILITY_DISPOSED
-	if transition == _PoolLifecycleTransition.INITIALIZE:
-		terminal_reason = GFObjectPoolPrewarmResult.REASON_UTILITY_REINITIALIZED
-	_finish_all_prewarm_requests(
-		GFObjectPoolPrewarmResult.Status.DISPOSED,
-		terminal_reason,
-		ERR_UNAVAILABLE
-	)
+	_finish_all_prewarm_requests()
 	_lifecycle_serial += 1
 	if transition == _PoolLifecycleTransition.DISPOSE:
 		for scene_key: Variant in _all_nodes:
@@ -1142,7 +1135,7 @@ func _begin_prewarm_request(
 			ERR_INVALID_PARAMETER
 		)
 		return operation
-	var cancel_delegate: Callable = Callable(self, &"_cancel_prewarm_operation")
+	var cancel_delegate: Callable = _make_rejecting_prewarm_cancel_delegate()
 	if _is_disposed or _pool_lifecycle_transition != _PoolLifecycleTransition.NONE:
 		var disposed_reason: StringName = GFObjectPoolPrewarmResult.REASON_UTILITY_DISPOSED
 		if _pool_lifecycle_transition == _PoolLifecycleTransition.INITIALIZE:
@@ -1205,11 +1198,9 @@ func _begin_prewarm_request(
 		)
 		return operation
 	if _token_is_cancelled_or_completed(cancellation_token):
-		var token_reason: StringName = GFObjectPoolPrewarmResult.REASON_TOKEN_CANCELLED
-		if cancellation_token is GFAsyncScope:
-			var async_scope: GFAsyncScope = cancellation_token
-			if async_scope.is_completed():
-				token_reason = GFObjectPoolPrewarmResult.REASON_CANCELLATION_SCOPE_COMPLETED
+		var token_reason: StringName = _get_prewarm_token_terminal_reason(
+			cancellation_token
+		)
 		_configure_and_finish_prewarm_operation(
 			operation,
 			cancel_delegate,
@@ -1224,10 +1215,14 @@ func _begin_prewarm_request(
 		return operation
 	var _scene_pool_ready: bool = _ensure_scene_pool(scene)
 	var admitted_count: int = _reserve_prewarm_capacity(scene, requested_count)
-	var settlement_authority: RefCounted = RefCounted.new()
+	var settlement_authority: Callable = _make_prewarm_settlement_authority()
+	var settlement_validator: Callable = _make_prewarm_settlement_validator(
+		settlement_authority
+	)
+	cancel_delegate = _make_prewarm_cancel_delegate(settlement_authority)
 	var configured: bool = operation.configure_for_framework(
 		cancel_delegate,
-		settlement_authority,
+		settlement_validator,
 		request_id,
 		scene,
 		requested_count,
@@ -1238,6 +1233,7 @@ func _begin_prewarm_request(
 		return operation
 	if admitted_count == 0:
 		var _rejected: bool = operation.finish_for_framework(
+			settlement_authority,
 			GFObjectPoolPrewarmResult.Status.REJECTED,
 			GFObjectPoolPrewarmResult.REASON_CAPACITY_UNAVAILABLE,
 			ERR_BUSY
@@ -1254,23 +1250,29 @@ func _begin_prewarm_request(
 		mode,
 		batch_size,
 		budget_msec,
-		admitted_count,
+		admitted_count
+	)
+	entry["lifecycle_callback"] = _make_prewarm_lifecycle_callback(
+		request_id,
+		operation,
+		GFVariantData.get_option_int(entry, "lifecycle_serial"),
 		settlement_authority
 	)
 	_active_prewarm_requests[request_id] = entry
-	if not _bind_prewarm_request_anchors(entry):
+	if not _bind_prewarm_request_anchors(entry, settlement_authority):
 		var _binding_failed: bool = _finish_prewarm_request(
 			request_id,
 			operation,
 			GFObjectPoolPrewarmResult.Status.FAILED,
 			GFObjectPoolPrewarmResult.REASON_INTERNAL_FAILURE,
-			FAILED
+			FAILED,
+			settlement_authority
 		)
 		return operation
-	if not _poll_prewarm_request(request_id, operation):
+	if not _poll_prewarm_request(request_id, operation, settlement_authority):
 		return operation
 	@warning_ignore("missing_await")
-	_drive_prewarm_request(request_id, operation)
+	_drive_prewarm_request(request_id, operation, settlement_authority)
 	return operation
 
 
@@ -1307,16 +1309,88 @@ func _configure_and_finish_prewarm_operation(
 	reason: StringName,
 	error_code: Error
 ) -> void:
+	var settlement_authority: Callable = _make_prewarm_settlement_authority()
+	var settlement_validator: Callable = _make_prewarm_settlement_validator(
+		settlement_authority
+	)
 	if not operation.configure_for_framework(
 		cancel_delegate,
-		RefCounted.new(),
+		settlement_validator,
 		request_id,
 		scene,
 		requested_count,
 		admitted_count
 	):
 		return
-	var _finished: bool = operation.finish_for_framework(status, reason, error_code)
+	var _finished: bool = operation.finish_for_framework(
+		settlement_authority,
+		status,
+		reason,
+		error_code
+	)
+
+
+func _make_prewarm_cancel_delegate(settlement_authority: Callable) -> Callable:
+	var utility_instance_id: int = get_instance_id()
+	return func(
+		current: GFObjectPoolPrewarmOperation,
+		reason: StringName,
+	) -> bool:
+		var utility_value: Variant = instance_from_id(utility_instance_id)
+		if not (utility_value is Object):
+			return false
+		var utility: Object = utility_value
+		if not is_instance_valid(utility):
+			return false
+		var raw_result: Variant = utility.call(
+			&"_cancel_prewarm_operation",
+			current,
+			reason,
+			settlement_authority
+		)
+		return raw_result is bool and raw_result
+
+
+static func _make_rejecting_prewarm_cancel_delegate() -> Callable:
+	return func(
+		_current: GFObjectPoolPrewarmOperation,
+		_reason: StringName,
+	) -> bool:
+		return false
+
+
+func _make_prewarm_lifecycle_callback(
+	request_id: int,
+	operation: GFObjectPoolPrewarmOperation,
+	expected_lifecycle_serial: int,
+	settlement_authority: Callable
+) -> Callable:
+	var utility_instance_id: int = get_instance_id()
+	return func() -> bool:
+		var utility_value: Variant = instance_from_id(utility_instance_id)
+		if not (utility_value is Object):
+			return false
+		var utility: Object = utility_value
+		if not is_instance_valid(utility):
+			return false
+		var raw_result: Variant = utility.call(
+			&"_finish_prewarm_request_for_lifecycle",
+			request_id,
+			operation,
+			expected_lifecycle_serial,
+			settlement_authority
+		)
+		return raw_result is bool and raw_result
+
+
+static func _make_prewarm_settlement_authority() -> Callable:
+	return func() -> void:
+		pass
+
+
+static func _make_prewarm_settlement_validator(authority: Callable) -> Callable:
+	return func(candidate: Callable) -> bool:
+		return candidate == authority
 
 
 func _make_prewarm_request_entry(
@@ -1330,8 +1404,7 @@ func _make_prewarm_request_entry(
 	mode: int,
 	batch_size: int,
 	budget_msec: float,
-	admitted_count: int,
-	settlement_authority: RefCounted
+	admitted_count: int
 ) -> Dictionary:
 	return {
 		"request_id": request_id,
@@ -1340,9 +1413,12 @@ func _make_prewarm_request_entry(
 		"parent_ref": weakref(parent) if parent != null else null,
 		"parent_id": parent.get_instance_id() if parent != null else 0,
 		"parent_lifetime": null,
+		"parent_lifetime_check": Callable(),
+		"parent_tree_entered_callback": Callable(),
 		"owner_ref": weakref(owner) if owner != null else null,
 		"owner_id": owner.get_instance_id() if owner != null else 0,
 		"owner_lifetime": null,
+		"owner_lifetime_check": Callable(),
 		"cancellation_token": cancellation_token,
 		"token_callback": Callable(),
 		"prepare_callback": prepare_callback,
@@ -1351,11 +1427,13 @@ func _make_prewarm_request_entry(
 		"budget_msec": budget_msec,
 		"lifecycle_serial": _lifecycle_serial,
 		"reserved_remaining": admitted_count,
-		"settlement_authority": settlement_authority,
 	}
 
 
-func _bind_prewarm_request_anchors(entry: Dictionary) -> bool:
+func _bind_prewarm_request_anchors(
+	entry: Dictionary,
+	settlement_authority: Callable
+) -> bool:
 	var request_id: int = GFVariantData.get_option_int(entry, "request_id")
 	var operation: GFObjectPoolPrewarmOperation = _entry_prewarm_operation(entry)
 	if operation == null:
@@ -1364,32 +1442,52 @@ func _bind_prewarm_request_anchors(entry: Dictionary) -> bool:
 	if GFVariantData.get_option_int(entry, "owner_id") != 0:
 		if owner == null:
 			return false
+		var owner_callbacks: Dictionary = _make_prewarm_lifetime_callbacks(owner, true)
+		var owner_check: Callable = _entry_callable(owner_callbacks, "check")
+		entry["owner_lifetime_check"] = owner_check
 		entry["owner_lifetime"] = _make_prewarm_lifetime_subscription(
 			owner,
 			request_id,
 			operation,
 			GFObjectPoolPrewarmResult.REASON_OWNER_RELEASED,
-			"object_pool_prewarm_owner:%d" % request_id
+			"object_pool_prewarm_owner:%d" % request_id,
+			owner_check,
+			settlement_authority
 		)
 	var parent: Object = _entry_weak_object(entry, "parent_ref", "parent_id")
 	if GFVariantData.get_option_int(entry, "parent_id") != 0:
 		if parent == null:
 			return false
+		var parent_callbacks: Dictionary = _make_prewarm_lifetime_callbacks(parent, false)
+		var parent_check: Callable = _entry_callable(parent_callbacks, "check")
+		var parent_entered: Callable = _entry_callable(parent_callbacks, "entered")
+		entry["parent_lifetime_check"] = parent_check
+		if parent is Node:
+			var parent_node: Node = parent
+			entry["parent_tree_entered_callback"] = parent_entered
+			if not parent_node.tree_entered.is_connected(parent_entered):
+				var tree_entered_error: Error = parent_node.tree_entered.connect(
+					parent_entered
+				) as Error
+				if tree_entered_error != OK:
+					return false
 		entry["parent_lifetime"] = _make_prewarm_lifetime_subscription(
 			parent,
 			request_id,
 			operation,
 			GFObjectPoolPrewarmResult.REASON_PARENT_RELEASED,
-			"object_pool_prewarm_parent:%d" % request_id
+			"object_pool_prewarm_parent:%d" % request_id,
+			parent_check,
+			settlement_authority
 		)
 	var cancellation_token: GFCancellationToken = _entry_cancellation_token(entry)
 	if cancellation_token != null:
-		var token_invocation: GFWeakMethodInvocation = GFWeakMethodInvocation.new(
-			self,
-			&"_on_prewarm_token_cancelled"
+		var token_callback: Callable = _make_prewarm_token_callback(
+			request_id,
+			operation,
+			cancellation_token,
+			settlement_authority
 		)
-		var token_callback: Callable = func(_reason: StringName) -> void:
-			var _invoke_result: Dictionary = token_invocation.invoke([request_id, operation])
 		entry["token_callback"] = token_callback
 		var connect_error: Error = cancellation_token.cancel_requested.connect(
 			token_callback,
@@ -1405,45 +1503,138 @@ func _make_prewarm_lifetime_subscription(
 	request_id: int,
 	operation: GFObjectPoolPrewarmOperation,
 	reason: StringName,
-	debug_label: String
+	debug_label: String,
+	lifetime_check: Callable,
+	settlement_authority: Callable
 ) -> GFLifetimeSubscription:
-	var invocation: GFWeakMethodInvocation = GFWeakMethodInvocation.new(
-		self,
-		&"_on_prewarm_lifetime_released"
-	)
+	var utility_instance_id: int = get_instance_id()
+	var anchor_instance_id: int = owner.get_instance_id()
 	var callback: Callable = func() -> void:
-		var _invoke_result: Dictionary = invocation.invoke([request_id, operation, reason])
+		var utility_value: Variant = instance_from_id(utility_instance_id)
+		if not (utility_value is Object):
+			return
+		var utility: Object = utility_value
+		if not is_instance_valid(utility):
+			return
+		var _invoke_result: Variant = utility.call(
+			&"_on_prewarm_lifetime_released",
+			request_id,
+			operation,
+			reason,
+			anchor_instance_id,
+			lifetime_check,
+			settlement_authority
+		)
 	return GFLifetimeSubscription.new(owner, callback, debug_label)
+
+
+func _make_prewarm_token_callback(
+	request_id: int,
+	operation: GFObjectPoolPrewarmOperation,
+	cancellation_token: GFCancellationToken,
+	settlement_authority: Callable
+) -> Callable:
+	var utility_instance_id: int = get_instance_id()
+	var token_ref: WeakRef = weakref(cancellation_token)
+	var token_instance_id: int = cancellation_token.get_instance_id()
+	return func(_reason: StringName) -> void:
+		var utility_value: Variant = instance_from_id(utility_instance_id)
+		if not (utility_value is Object):
+			return
+		var utility: Object = utility_value
+		if not is_instance_valid(utility):
+			return
+		var _invoke_result: Variant = utility.call(
+			&"_on_prewarm_token_cancelled",
+			request_id,
+			operation,
+			token_ref,
+			token_instance_id,
+			settlement_authority
+		)
+
+
+static func _make_prewarm_lifetime_callbacks(
+	anchor: Object,
+	require_inside_tree: bool
+) -> Dictionary:
+	var anchor_ref: WeakRef = weakref(anchor)
+	var anchor_instance_id: int = anchor.get_instance_id()
+	var initially_inside_tree: bool = false
+	if anchor is Node:
+		var initial_node: Node = anchor
+		initially_inside_tree = initial_node.is_inside_tree()
+	var seen_inside_tree: Array[bool] = [initially_inside_tree]
+	var entered: Callable = func() -> void:
+		var raw_anchor: Variant = anchor_ref.get_ref()
+		if not (raw_anchor is Node):
+			return
+		var anchor_node: Node = raw_anchor
+		if (
+			is_instance_valid(anchor_node)
+			and anchor_node.get_instance_id() == anchor_instance_id
+			and anchor_node.is_inside_tree()
+		):
+			seen_inside_tree[0] = true
+	var check: Callable = func() -> bool:
+		var raw_anchor: Variant = anchor_ref.get_ref()
+		if not (raw_anchor is Object):
+			return true
+		var current_anchor: Object = raw_anchor
+		if (
+			not is_instance_valid(current_anchor)
+			or current_anchor.get_instance_id() != anchor_instance_id
+		):
+			return true
+		if not (current_anchor is Node):
+			return false
+		var anchor_node: Node = current_anchor
+		if anchor_node.is_queued_for_deletion():
+			return true
+		if anchor_node.is_inside_tree():
+			seen_inside_tree[0] = true
+			return false
+		return require_inside_tree or seen_inside_tree[0]
+	return {"check": check, "entered": entered}
 
 
 func _drive_prewarm_request(
 	request_id: int,
-	operation: GFObjectPoolPrewarmOperation
+	operation: GFObjectPoolPrewarmOperation,
+	settlement_authority: Callable
 ) -> void:
 	var scene_tree: SceneTree = _get_scene_tree()
 	var frame_attempt_count: int = 0
 	var frame_start_usec: int = Time.get_ticks_usec()
-	while _poll_prewarm_request(request_id, operation):
+	while _poll_prewarm_request(request_id, operation, settlement_authority):
 		var entry: Dictionary = _get_prewarm_request_entry(request_id, operation)
 		if entry.is_empty():
 			return
 		if GFVariantData.get_option_int(entry, "reserved_remaining") <= 0:
 			var _completed_without_attempt: bool = _finish_completed_prewarm_request(
 				request_id,
-				operation
+				operation,
+				settlement_authority
 			)
 			return
-		var settlement_authority: RefCounted = _entry_settlement_authority(entry)
-		if not operation.begin_settlement_barrier_for_framework(settlement_authority):
+		var barrier_began: bool = operation.begin_settlement_barrier_for_framework(
+			settlement_authority
+		)
+		if not barrier_began:
 			var _barrier_failed: bool = _finish_prewarm_request(
 				request_id,
 				operation,
 				GFObjectPoolPrewarmResult.Status.FAILED,
 				GFObjectPoolPrewarmResult.REASON_INTERNAL_FAILURE,
-				FAILED
+				FAILED,
+				settlement_authority
 			)
 			return
-		var attempt: Dictionary = _prewarm_request_node_attempt(request_id, operation)
+		var attempt: Dictionary = _prewarm_request_node_attempt(
+			request_id,
+			operation,
+			settlement_authority
+		)
 		var _barrier_ended: bool = operation.end_settlement_barrier_for_framework(
 			settlement_authority
 		)
@@ -1453,28 +1644,32 @@ func _drive_prewarm_request(
 			entry = _get_prewarm_request_entry(request_id, operation)
 			if entry.is_empty():
 				return
-			settlement_authority = _entry_settlement_authority(entry)
 			_release_request_prewarm_capacity(
 				entry,
 				GFVariantData.get_option_int(entry, "reserved_remaining")
 			)
-			if not operation.record_capacity_skipped_for_framework(settlement_authority):
+			var capacity_recorded: bool = operation.record_capacity_skipped_for_framework(
+				settlement_authority
+			)
+			if not capacity_recorded:
 				var _capacity_record_failed: bool = _finish_prewarm_request(
 					request_id,
 					operation,
 					GFObjectPoolPrewarmResult.Status.FAILED,
 					GFObjectPoolPrewarmResult.REASON_INTERNAL_FAILURE,
-					FAILED
+					FAILED,
+					settlement_authority
 				)
 				return
 			if _prewarm_request_is_active(request_id, operation):
 				var _capacity_completed: bool = _finish_completed_prewarm_request(
 					request_id,
-					operation
+					operation,
+					settlement_authority
 				)
 			return
 		if not GFVariantData.get_option_bool(attempt, "ok"):
-			if not _poll_prewarm_request(request_id, operation):
+			if not _poll_prewarm_request(request_id, operation, settlement_authority):
 				return
 			var _attempt_failed: bool = _finish_prewarm_request(
 				request_id,
@@ -1485,20 +1680,25 @@ func _drive_prewarm_request(
 					"reason",
 					GFObjectPoolPrewarmResult.REASON_INTERNAL_FAILURE
 				),
-				GFVariantData.get_option_int(attempt, "error_code", FAILED) as Error
+				GFVariantData.get_option_int(attempt, "error_code", FAILED) as Error,
+				settlement_authority
 			)
 			return
 		entry = _get_prewarm_request_entry(request_id, operation)
 		if entry.is_empty():
 			return
 		_release_request_prewarm_capacity(entry, 1)
-		if not operation.record_created_for_framework():
+		var created_recorded: bool = operation.record_created_for_framework(
+			settlement_authority
+		)
+		if not created_recorded:
 			var _record_failed: bool = _finish_prewarm_request(
 				request_id,
 				operation,
 				GFObjectPoolPrewarmResult.Status.FAILED,
 				GFObjectPoolPrewarmResult.REASON_INTERNAL_FAILURE,
-				FAILED
+				FAILED,
+				settlement_authority
 			)
 			return
 		if not _prewarm_request_is_active(request_id, operation):
@@ -1513,7 +1713,8 @@ func _drive_prewarm_request(
 		frame_start_usec = Time.get_ticks_usec()
 	var _completed_after_driver: bool = _finish_completed_prewarm_request(
 		request_id,
-		operation
+		operation,
+		settlement_authority
 	)
 
 
@@ -1535,7 +1736,8 @@ func _prewarm_request_should_await(
 
 func _prewarm_request_node_attempt(
 	request_id: int,
-	operation: GFObjectPoolPrewarmOperation
+	operation: GFObjectPoolPrewarmOperation,
+	settlement_authority: Callable
 ) -> Dictionary:
 	var entry: Dictionary = _get_prewarm_request_entry(request_id, operation)
 	var scene: PackedScene = _entry_prewarm_scene(entry)
@@ -1556,7 +1758,13 @@ func _prewarm_request_node_attempt(
 		_discard_pool_candidate(node)
 		return {"capacity_limited": true}
 	if not _prewarm_request_candidate_context_is_valid(
-		request_id, operation, scene, parent, node, current_serial
+		request_id,
+		operation,
+		settlement_authority,
+		scene,
+		parent,
+		node,
+		current_serial
 	):
 		_discard_pool_candidate(node)
 		return _make_prewarm_attempt_failure(
@@ -1595,6 +1803,7 @@ func _prewarm_request_node_attempt(
 	if not _typed_prewarm_operation_matches(
 		request_id,
 		operation,
+		settlement_authority,
 		scene,
 		parent,
 		node,
@@ -1615,6 +1824,7 @@ func _prewarm_request_node_attempt(
 	if not _typed_prewarm_operation_matches(
 		request_id,
 		operation,
+		settlement_authority,
 		scene,
 		parent,
 		node,
@@ -1646,6 +1856,7 @@ func _prewarm_request_node_attempt(
 	if not _typed_prewarm_operation_matches(
 		request_id,
 		operation,
+		settlement_authority,
 		scene,
 		parent,
 		node,
@@ -1700,6 +1911,7 @@ func _make_prewarm_attempt_failure(reason: StringName, error_code: Error) -> Dic
 func _typed_prewarm_operation_matches(
 	request_id: int,
 	operation: GFObjectPoolPrewarmOperation,
+	settlement_authority: Callable,
 	scene: PackedScene,
 	parent: Node,
 	node: Node,
@@ -1711,6 +1923,7 @@ func _typed_prewarm_operation_matches(
 		_prewarm_request_candidate_context_is_valid(
 			request_id,
 			operation,
+			settlement_authority,
 			scene,
 			parent,
 			node,
@@ -1729,12 +1942,13 @@ func _typed_prewarm_operation_matches(
 func _prewarm_request_candidate_context_is_valid(
 	request_id: int,
 	operation: GFObjectPoolPrewarmOperation,
+	settlement_authority: Callable,
 	scene: PackedScene,
 	parent: Node,
 	node: Node,
 	expected_lifecycle_serial: int
 ) -> bool:
-	if not _poll_prewarm_request(request_id, operation):
+	if not _poll_prewarm_request(request_id, operation, settlement_authority):
 		return false
 	if expected_lifecycle_serial != _lifecycle_serial or not is_instance_valid(node):
 		return false
@@ -1751,7 +1965,8 @@ func _prewarm_request_capacity_is_saturated(scene: PackedScene) -> bool:
 
 func _poll_prewarm_request(
 	request_id: int,
-	operation: GFObjectPoolPrewarmOperation
+	operation: GFObjectPoolPrewarmOperation,
+	settlement_authority: Callable
 ) -> bool:
 	var entry: Dictionary = _get_prewarm_request_entry(request_id, operation)
 	if entry.is_empty():
@@ -1762,59 +1977,49 @@ func _poll_prewarm_request(
 			operation,
 			GFObjectPoolPrewarmResult.Status.DISPOSED,
 			GFObjectPoolPrewarmResult.REASON_UTILITY_DISPOSED,
-			ERR_UNAVAILABLE
+			ERR_UNAVAILABLE,
+			settlement_authority
 		)
 		return false
 	var cancellation_token: GFCancellationToken = _entry_cancellation_token(entry)
 	if cancellation_token != null:
-		if cancellation_token.is_cancel_requested():
+		var token_reason: StringName = _get_prewarm_token_terminal_reason(
+			cancellation_token
+		)
+		if not token_reason.is_empty():
 			var _token_cancelled: bool = _finish_prewarm_request(
 				request_id,
 				operation,
 				GFObjectPoolPrewarmResult.Status.CANCELLED,
-				GFObjectPoolPrewarmResult.REASON_TOKEN_CANCELLED,
-				ERR_SKIP
+				token_reason,
+				ERR_SKIP,
+				settlement_authority
 			)
 			return false
-		if cancellation_token is GFAsyncScope:
-			var async_scope: GFAsyncScope = cancellation_token
-			if async_scope.is_completed():
-				var _scope_completed: bool = _finish_prewarm_request(
-					request_id,
-					operation,
-					GFObjectPoolPrewarmResult.Status.CANCELLED,
-					GFObjectPoolPrewarmResult.REASON_CANCELLATION_SCOPE_COMPLETED,
-					ERR_SKIP
-				)
-				return false
 	if _prewarm_lifetime_is_released(
 		entry,
-		"owner_lifetime",
-		"owner_ref",
-		"owner_id",
-		true
+		"owner_lifetime_check"
 	):
 		var _owner_released: bool = _finish_prewarm_request(
 			request_id,
 			operation,
 			GFObjectPoolPrewarmResult.Status.CANCELLED,
 			GFObjectPoolPrewarmResult.REASON_OWNER_RELEASED,
-			ERR_SKIP
+			ERR_SKIP,
+			settlement_authority
 		)
 		return false
 	if _prewarm_lifetime_is_released(
 		entry,
-		"parent_lifetime",
-		"parent_ref",
-		"parent_id",
-		false
+		"parent_lifetime_check"
 	):
 		var _parent_released: bool = _finish_prewarm_request(
 			request_id,
 			operation,
 			GFObjectPoolPrewarmResult.Status.CANCELLED,
 			GFObjectPoolPrewarmResult.REASON_PARENT_RELEASED,
-			ERR_SKIP
+			ERR_SKIP,
+			settlement_authority
 		)
 		return false
 	var parent: Node = _entry_prewarm_parent(entry)
@@ -1824,7 +2029,8 @@ func _poll_prewarm_request(
 			operation,
 			GFObjectPoolPrewarmResult.Status.CANCELLED,
 			GFObjectPoolPrewarmResult.REASON_PARENT_RELEASED,
-			ERR_SKIP
+			ERR_SKIP,
+			settlement_authority
 		)
 		return false
 	return true
@@ -1832,35 +2038,19 @@ func _poll_prewarm_request(
 
 func _prewarm_lifetime_is_released(
 	entry: Dictionary,
-	subscription_key: String,
-	ref_key: String,
-	id_key: String,
-	require_inside_tree: bool
+	probe_key: String
 ) -> bool:
-	var owner_id: int = GFVariantData.get_option_int(entry, id_key)
-	if owner_id == 0:
+	var lifetime_probe: Callable = _entry_callable(entry, probe_key)
+	if not lifetime_probe.is_valid():
 		return false
-	var subscription: GFLifetimeSubscription = _entry_lifetime_subscription(
-		entry,
-		subscription_key
-	)
-	if subscription != null and not subscription.is_active():
-		return true
-	var owner: Object = _entry_weak_object(entry, ref_key, id_key)
-	if owner == null:
-		return true
-	if owner is Node:
-		var owner_node: Node = owner
-		return (
-			owner_node.is_queued_for_deletion()
-			or (require_inside_tree and not owner_node.is_inside_tree())
-		)
-	return false
+	var raw_result: Variant = lifetime_probe.call()
+	return raw_result is bool and raw_result
 
 
 func _cancel_prewarm_operation(
 	operation: GFObjectPoolPrewarmOperation,
-	reason: StringName
+	reason: StringName,
+	settlement_authority: Callable
 ) -> bool:
 	if (
 		operation == null
@@ -1873,40 +2063,111 @@ func _cancel_prewarm_operation(
 		operation,
 		GFObjectPoolPrewarmResult.Status.CANCELLED,
 		GFObjectPoolPrewarmResult.REASON_CALLER_CANCELLED,
-		ERR_SKIP
+		ERR_SKIP,
+		settlement_authority
 	)
 
 
 func _on_prewarm_token_cancelled(
 	request_id: int,
-	operation: GFObjectPoolPrewarmOperation
+	operation: GFObjectPoolPrewarmOperation,
+	token_ref: WeakRef,
+	token_instance_id: int,
+	settlement_authority: Callable
 ) -> void:
+	var entry: Dictionary = _get_prewarm_request_entry(request_id, operation)
+	if entry.is_empty():
+		return
+	var cancellation_token: GFCancellationToken = _entry_cancellation_token(entry)
+	var raw_expected_token: Variant = token_ref.get_ref() if token_ref != null else null
+	if not (raw_expected_token is GFCancellationToken):
+		return
+	var expected_token: GFCancellationToken = raw_expected_token
+	if (
+		cancellation_token != expected_token
+		or expected_token.get_instance_id() != token_instance_id
+	):
+		return
+	var reason: StringName = _get_prewarm_token_terminal_reason(expected_token)
+	if reason.is_empty():
+		return
 	var _cancelled: bool = _finish_prewarm_request(
 		request_id,
 		operation,
 		GFObjectPoolPrewarmResult.Status.CANCELLED,
-		GFObjectPoolPrewarmResult.REASON_TOKEN_CANCELLED,
-		ERR_SKIP
+		reason,
+		ERR_SKIP,
+		settlement_authority
 	)
 
 
 func _on_prewarm_lifetime_released(
 	request_id: int,
 	operation: GFObjectPoolPrewarmOperation,
-	reason: StringName
+	reason: StringName,
+	anchor_instance_id: int,
+	lifetime_check: Callable,
+	settlement_authority: Callable
 ) -> void:
+	var entry: Dictionary = _get_prewarm_request_entry(request_id, operation)
+	if entry.is_empty():
+		return
+	var lifetime_released: bool = false
+	if reason == GFObjectPoolPrewarmResult.REASON_OWNER_RELEASED:
+		lifetime_released = _prewarm_lifetime_callback_matches(
+			entry,
+			"owner_ref",
+			"owner_id",
+			"owner_lifetime_check",
+			anchor_instance_id,
+			lifetime_check
+		)
+	elif reason == GFObjectPoolPrewarmResult.REASON_PARENT_RELEASED:
+		lifetime_released = _prewarm_lifetime_callback_matches(
+			entry,
+			"parent_ref",
+			"parent_id",
+			"parent_lifetime_check",
+			anchor_instance_id,
+			lifetime_check
+		)
+	if not lifetime_released:
+		return
 	var _cancelled: bool = _finish_prewarm_request(
 		request_id,
 		operation,
 		GFObjectPoolPrewarmResult.Status.CANCELLED,
 		reason,
-		ERR_SKIP
+		ERR_SKIP,
+		settlement_authority
 	)
+
+
+func _prewarm_lifetime_callback_matches(
+	entry: Dictionary,
+	ref_key: String,
+	id_key: String,
+	probe_key: String,
+	anchor_instance_id: int,
+	lifetime_check: Callable
+) -> bool:
+	if (
+		anchor_instance_id <= 0
+		or GFVariantData.get_option_int(entry, id_key) != anchor_instance_id
+		or _entry_callable(entry, probe_key) != lifetime_check
+	):
+		return false
+	var anchor: Object = _entry_weak_object(entry, ref_key, id_key)
+	if anchor != null and anchor.get_instance_id() != anchor_instance_id:
+		return false
+	var raw_result: Variant = lifetime_check.call()
+	return raw_result is bool and raw_result
 
 
 func _finish_completed_prewarm_request(
 	request_id: int,
-	operation: GFObjectPoolPrewarmOperation
+	operation: GFObjectPoolPrewarmOperation,
+	settlement_authority: Callable
 ) -> bool:
 	var status: GFObjectPoolPrewarmResult.Status = GFObjectPoolPrewarmResult.Status.COMPLETED
 	var reason: StringName = GFObjectPoolPrewarmResult.REASON_COMPLETED
@@ -1918,7 +2179,14 @@ func _finish_completed_prewarm_request(
 	elif operation.get_skipped_count() > 0:
 		status = GFObjectPoolPrewarmResult.Status.PARTIAL
 		reason = GFObjectPoolPrewarmResult.REASON_CAPACITY_LIMITED
-	return _finish_prewarm_request(request_id, operation, status, reason, error_code)
+	return _finish_prewarm_request(
+		request_id,
+		operation,
+		status,
+		reason,
+		error_code,
+		settlement_authority
+	)
 
 
 func _finish_prewarm_request(
@@ -1926,10 +2194,13 @@ func _finish_prewarm_request(
 	operation: GFObjectPoolPrewarmOperation,
 	status: GFObjectPoolPrewarmResult.Status,
 	reason: StringName,
-	error_code: Error
+	error_code: Error,
+	settlement_authority: Callable
 ) -> bool:
 	var entry: Dictionary = _get_prewarm_request_entry(request_id, operation)
 	if entry.is_empty():
+		return false
+	if not operation.accepts_settlement_authority_for_framework(settlement_authority):
 		return false
 	var final_status: GFObjectPoolPrewarmResult.Status = status
 	var final_reason: StringName = reason
@@ -1950,20 +2221,51 @@ func _finish_prewarm_request(
 			final_status = GFObjectPoolPrewarmResult.Status.PARTIAL
 			final_reason = GFObjectPoolPrewarmResult.REASON_CAPACITY_LIMITED
 		final_error_code = OK
-	var _erased: bool = _active_prewarm_requests.erase(request_id)
 	_disconnect_prewarm_request_anchors(entry)
 	_release_request_prewarm_capacity(
 		entry,
 		GFVariantData.get_option_int(entry, "reserved_remaining")
 	)
-	return operation.finish_for_framework(final_status, final_reason, final_error_code)
+	var _erased: bool = _active_prewarm_requests.erase(request_id)
+	var finished: bool = operation.finish_for_framework(
+		settlement_authority,
+		final_status,
+		final_reason,
+		final_error_code
+	)
+	return finished
 
 
-func _finish_all_prewarm_requests(
-	status: GFObjectPoolPrewarmResult.Status,
-	reason: StringName,
-	error_code: Error
-) -> void:
+func _finish_prewarm_request_for_lifecycle(
+	request_id: int,
+	operation: GFObjectPoolPrewarmOperation,
+	expected_lifecycle_serial: int,
+	settlement_authority: Callable
+) -> bool:
+	var entry: Dictionary = _get_prewarm_request_entry(request_id, operation)
+	if (
+		entry.is_empty()
+		or not _is_disposed
+		or _pool_lifecycle_transition == _PoolLifecycleTransition.NONE
+		or GFVariantData.get_option_int(entry, "lifecycle_serial")
+		!= expected_lifecycle_serial
+		or expected_lifecycle_serial != _lifecycle_serial
+	):
+		return false
+	var reason: StringName = GFObjectPoolPrewarmResult.REASON_UTILITY_DISPOSED
+	if _pool_lifecycle_transition == _PoolLifecycleTransition.INITIALIZE:
+		reason = GFObjectPoolPrewarmResult.REASON_UTILITY_REINITIALIZED
+	return _finish_prewarm_request(
+		request_id,
+		operation,
+		GFObjectPoolPrewarmResult.Status.DISPOSED,
+		reason,
+		ERR_UNAVAILABLE,
+		settlement_authority
+	)
+
+
+func _finish_all_prewarm_requests() -> void:
 	var request_ids: Array = _active_prewarm_requests.keys()
 	request_ids.sort()
 	for request_id_value: Variant in request_ids:
@@ -1973,13 +2275,12 @@ func _finish_all_prewarm_requests(
 		var entry: Dictionary = _get_prewarm_request_entry_unchecked(request_id)
 		var operation: GFObjectPoolPrewarmOperation = _entry_prewarm_operation(entry)
 		if operation != null:
-			var _finished: bool = _finish_prewarm_request(
-				request_id,
-				operation,
-				status,
-				reason,
-				error_code
+			var lifecycle_callback: Callable = _entry_callable(
+				entry,
+				"lifecycle_callback"
 			)
+			if lifecycle_callback.is_valid():
+				var _finished: Variant = lifecycle_callback.call()
 
 
 func _disconnect_prewarm_request_anchors(entry: Dictionary) -> void:
@@ -1991,6 +2292,17 @@ func _disconnect_prewarm_request_anchors(entry: Dictionary) -> void:
 		and cancellation_token.cancel_requested.is_connected(token_callback)
 	):
 		cancellation_token.cancel_requested.disconnect(token_callback)
+	var parent: Node = _entry_prewarm_parent(entry)
+	var parent_tree_entered_callback: Callable = _entry_callable(
+		entry,
+		"parent_tree_entered_callback"
+	)
+	if (
+		parent != null
+		and parent_tree_entered_callback.is_valid()
+		and parent.tree_entered.is_connected(parent_tree_entered_callback)
+	):
+		parent.tree_entered.disconnect(parent_tree_entered_callback)
 	for key: String in ["owner_lifetime", "parent_lifetime"]:
 		var subscription: GFLifetimeSubscription = _entry_lifetime_subscription(entry, key)
 		if subscription != null:
@@ -2045,14 +2357,21 @@ func _take_prewarm_request_id() -> int:
 
 
 func _token_is_cancelled_or_completed(cancellation_token: GFCancellationToken) -> bool:
+	return not _get_prewarm_token_terminal_reason(cancellation_token).is_empty()
+
+
+func _get_prewarm_token_terminal_reason(
+	cancellation_token: GFCancellationToken
+) -> StringName:
 	if cancellation_token == null:
-		return false
-	if cancellation_token.is_cancel_requested():
-		return true
+		return &""
 	if cancellation_token is GFAsyncScope:
 		var async_scope: GFAsyncScope = cancellation_token
-		return async_scope.is_completed()
-	return false
+		if async_scope.is_completed():
+			return GFObjectPoolPrewarmResult.REASON_CANCELLATION_SCOPE_COMPLETED
+	if cancellation_token.is_cancel_requested():
+		return GFObjectPoolPrewarmResult.REASON_TOKEN_CANCELLED
+	return &""
 
 
 func _entry_prewarm_operation(entry: Dictionary) -> GFObjectPoolPrewarmOperation:
@@ -2065,11 +2384,6 @@ func _entry_prewarm_operation(entry: Dictionary) -> GFObjectPoolPrewarmOperation
 
 func _entry_prewarm_scene(entry: Dictionary) -> PackedScene:
 	return _variant_to_packed_scene(GFVariantData.get_option_value(entry, "scene"))
-
-
-func _entry_settlement_authority(entry: Dictionary) -> RefCounted:
-	var value: Variant = GFVariantData.get_option_value(entry, "settlement_authority")
-	return value if value is RefCounted else null
 
 
 func _entry_prewarm_parent(entry: Dictionary) -> Node:

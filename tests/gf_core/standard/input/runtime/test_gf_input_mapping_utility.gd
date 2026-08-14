@@ -1481,6 +1481,356 @@ func test_virtual_input_pulse_replacement_is_safe_across_duplicate_source_object
 	timer_utility.dispose()
 
 
+func test_virtual_input_pulse_retrigger_emits_release_then_press_edges() -> void:
+	var bindings: Array[GFInputBinding] = []
+	_utility.enable_context(_make_context(&"gameplay", [
+		_make_mapping(_make_action(&"confirm"), bindings),
+	]))
+	var timer_utility: GFTimerUtility = GFTimerUtility.new()
+	timer_utility.init()
+	var source: GFVirtualInputSource = _utility.create_virtual_source(
+		&"touch",
+		0,
+		timer_utility
+	)
+	var first: GFVirtualInputPulseOperation = source.pulse_action(
+		&"confirm",
+		true,
+		0.2
+	)
+	assert_true(_utility.consume_action(&"confirm"), "首个全局 just_started 应先被消费。")
+	assert_true(
+		_utility.consume_action_for_player(0, &"confirm"),
+		"首个玩家级 just_started 应先被消费。"
+	)
+	var edge_events: Array[String] = []
+	var on_completed: Callable = func(action_id: StringName, _value: Variant) -> void:
+		if action_id == &"confirm":
+			edge_events.append("global_completed")
+	var on_started: Callable = func(action_id: StringName, _value: Variant) -> void:
+		if action_id == &"confirm":
+			edge_events.append("global_started")
+	var on_player_completed: Callable = func(
+		player_index: int,
+		action_id: StringName,
+		_value: Variant,
+	) -> void:
+		if player_index == 0 and action_id == &"confirm":
+			edge_events.append("player_completed")
+	var on_player_started: Callable = func(
+		player_index: int,
+		action_id: StringName,
+		_value: Variant,
+	) -> void:
+		if player_index == 0 and action_id == &"confirm":
+			edge_events.append("player_started")
+	var _global_completed_error: Error = _utility.action_completed.connect(
+		on_completed
+	) as Error
+	var _global_started_error: Error = _utility.action_started.connect(on_started) as Error
+	var _player_completed_error: Error = _utility.player_action_completed.connect(
+		on_player_completed
+	) as Error
+	var _player_started_error: Error = _utility.player_action_started.connect(
+		on_player_started
+	) as Error
+
+	var second: GFVirtualInputPulseOperation = source.pulse_action(
+		&"confirm",
+		true,
+		0.4,
+		null,
+		null,
+		GFVirtualInputSource.PulseReplacementPolicy.RETRIGGER
+	)
+
+	assert_eq(first.get_status(), GFVirtualInputPulseOperation.Status.REPLACED)
+	assert_eq(first.get_release_count(), 1, "RETRIGGER 必须真实释放旧 lease 一次。")
+	assert_true(second.is_pending(), "新脉冲应取得新的 generation lease。")
+	assert_eq(edge_events.size(), 4, "global/player 各应收到一次 release 与 press 边沿。")
+	assert_has(edge_events, "global_completed")
+	assert_has(edge_events, "global_started")
+	assert_has(edge_events, "player_completed")
+	assert_has(edge_events, "player_started")
+	assert_lt(
+		edge_events.find("global_completed"),
+		edge_events.find("global_started"),
+		"全局作用域必须先发布 release 再发布 press。"
+	)
+	assert_lt(
+		edge_events.find("player_completed"),
+		edge_events.find("player_started"),
+		"玩家作用域必须先发布 release 再发布 press。"
+	)
+	assert_true(_utility.was_action_just_completed(&"confirm"))
+	assert_true(_utility.consume_action(&"confirm"), "RETRIGGER 应产生新的可消费全局边沿。")
+	assert_true(_utility.was_action_just_completed_for_player(0, &"confirm"))
+	assert_true(
+		_utility.consume_action_for_player(0, &"confirm"),
+		"RETRIGGER 应产生新的可消费玩家级边沿。"
+	)
+	assert_true(_utility.is_action_active(&"confirm"))
+	assert_true(_utility.is_action_active_for_player(0, &"confirm"))
+
+	timer_utility.tick(0.2)
+	assert_true(second.is_pending(), "旧 generation 的 deadline 不得终结新脉冲。")
+	assert_true(_utility.is_action_active(&"confirm"), "旧 timer 不得清除新 generation 的贡献。")
+	timer_utility.tick(0.2)
+	assert_eq(second.get_status(), GFVirtualInputPulseOperation.Status.COMPLETED)
+	assert_eq(second.get_release_count(), 1)
+	assert_false(_utility.is_action_active(&"confirm"))
+	if _utility.action_completed.is_connected(on_completed):
+		_utility.action_completed.disconnect(on_completed)
+	if _utility.action_started.is_connected(on_started):
+		_utility.action_started.disconnect(on_started)
+	if _utility.player_action_completed.is_connected(on_player_completed):
+		_utility.player_action_completed.disconnect(on_player_completed)
+	if _utility.player_action_started.is_connected(on_player_started):
+		_utility.player_action_started.disconnect(on_player_started)
+	timer_utility.dispose()
+
+
+func test_virtual_input_pulse_retrigger_release_reentry_cannot_restore_state() -> void:
+	var bindings: Array[GFInputBinding] = []
+	_utility.enable_context(_make_context(&"gameplay", [
+		_make_mapping(_make_action(&"confirm"), bindings),
+	]))
+	var timer_utility: GFTimerUtility = GFTimerUtility.new()
+	timer_utility.init()
+	var source: GFVirtualInputSource = _utility.create_virtual_source(
+		&"touch",
+		0,
+		timer_utility
+	)
+	var first: GFVirtualInputPulseOperation = source.pulse_action(
+		&"confirm",
+		true,
+		0.2
+	)
+	var clear_counts: Array[int] = [0]
+	var on_completed: Callable = func(action_id: StringName, _value: Variant) -> void:
+		if action_id == &"confirm" and clear_counts[0] == 0:
+			clear_counts[0] += 1
+			_utility.clear_input_state()
+	var _connected: Error = _utility.action_completed.connect(on_completed) as Error
+
+	var second: GFVirtualInputPulseOperation = source.pulse_action(
+		&"confirm",
+		true,
+		0.2,
+		null,
+		null,
+		GFVirtualInputSource.PulseReplacementPolicy.RETRIGGER
+	)
+
+	assert_eq(clear_counts[0], 1, "RETRIGGER 的 release 回调必须真实执行。")
+	assert_eq(first.get_status(), GFVirtualInputPulseOperation.Status.REPLACED)
+	assert_eq(first.get_release_count(), 1)
+	assert_eq(
+		second.get_status(),
+		GFVirtualInputPulseOperation.Status.CANCELLED,
+		"release 回调清空状态后，新 generation 应在 press 前失效。"
+	)
+	assert_eq(second.get_terminal_reason(), &"input_state_cleared")
+	assert_eq(second.get_release_count(), 0, "尚未写入的新 lease 不得伪报释放。")
+	assert_false(_utility.is_action_active(&"confirm"), "终态新句柄不得恢复动作贡献。")
+	assert_false(_utility.is_action_active_for_player(0, &"confirm"))
+	timer_utility.tick(1.0)
+	assert_false(_utility.is_action_active(&"confirm"), "迟到 timer 不得恢复或清理其他 generation。")
+	if _utility.action_completed.is_connected(on_completed):
+		_utility.action_completed.disconnect(on_completed)
+	timer_utility.dispose()
+
+
+func test_virtual_input_pulse_retrigger_releases_stale_lease_without_handle() -> void:
+	var bindings: Array[GFInputBinding] = []
+	_utility.enable_context(_make_context(&"gameplay", [
+		_make_mapping(_make_action(&"confirm"), bindings),
+	]))
+	var timer_utility: GFTimerUtility = GFTimerUtility.new()
+	timer_utility.init()
+	var first_source: GFVirtualInputSource = _utility.create_virtual_source(
+		&"shared",
+		0,
+		timer_utility
+	)
+	var first: GFVirtualInputPulseOperation = first_source.pulse_action(
+		&"confirm",
+		true,
+		1.0
+	)
+	var first_ref: WeakRef = weakref(first)
+	first = null
+	first_source = null
+	assert_false(first_ref.get_ref() is Object, "Mapping lease 不得强持旧 pulse operation。")
+	assert_true(_utility.consume_action(&"confirm"), "首个边沿应先被消费。")
+	assert_true(_utility.consume_action_for_player(0, &"confirm"))
+
+	var second_source: GFVirtualInputSource = _utility.create_virtual_source(
+		&"shared",
+		0,
+		timer_utility
+	)
+	var second: GFVirtualInputPulseOperation = second_source.pulse_action(
+		&"confirm",
+		true,
+		0.2,
+		null,
+		null,
+		GFVirtualInputSource.PulseReplacementPolicy.RETRIGGER
+	)
+
+	assert_true(second.is_pending(), "无旧句柄的权威 lease 仍应先 release 再取得新 generation。")
+	assert_true(_utility.was_action_just_completed(&"confirm"))
+	assert_true(_utility.consume_action(&"confirm"), "stale lease 重触发应产生新的全局边沿。")
+	assert_true(_utility.was_action_just_completed_for_player(0, &"confirm"))
+	assert_true(_utility.consume_action_for_player(0, &"confirm"))
+	timer_utility.tick(0.2)
+	assert_eq(second.get_status(), GFVirtualInputPulseOperation.Status.COMPLETED)
+	assert_eq(second.get_release_count(), 1)
+	assert_false(_utility.is_action_active(&"confirm"))
+	timer_utility.dispose()
+
+
+func test_virtual_input_pulse_retrigger_release_epoch_drift_fails_closed() -> void:
+	var bindings: Array[GFInputBinding] = []
+	_utility.enable_context(_make_context(&"gameplay", [
+		_make_mapping(_make_action(&"confirm"), bindings),
+	]))
+	var timer_utility: GFTimerUtility = GFTimerUtility.new()
+	timer_utility.init()
+	var source: GFVirtualInputSource = _utility.create_virtual_source(&"touch", 0, timer_utility)
+	var first: GFVirtualInputPulseOperation = source.pulse_action(&"confirm", true, 0.2)
+	var drift_counts: Array[int] = [0]
+	var on_value_changed: Callable = func(action_id: StringName, value: Variant) -> void:
+		if action_id == &"confirm" and not GFVariantData.to_bool(value) and drift_counts[0] == 0:
+			drift_counts[0] += 1
+			_utility.clear_player_input_state(99)
+	var _connected: Error = _utility.action_value_changed.connect(on_value_changed) as Error
+
+	var second: GFVirtualInputPulseOperation = source.pulse_action(
+		&"confirm",
+		true,
+		0.2,
+		null,
+		null,
+		GFVirtualInputSource.PulseReplacementPolicy.RETRIGGER
+	)
+
+	assert_eq(drift_counts[0], 1, "release value 回调应制造一次 dispatch epoch 漂移。")
+	assert_eq(first.get_status(), GFVirtualInputPulseOperation.Status.REPLACED)
+	assert_eq(first.get_release_count(), 1)
+	assert_eq(second.get_status(), GFVirtualInputPulseOperation.Status.FAILED)
+	assert_eq(second.get_terminal_reason(), &"pulse_lease_conflict")
+	assert_eq(second.get_release_count(), 0, "press 前终止的新 lease 不得伪报释放。")
+	assert_false(_utility.is_action_active(&"confirm"))
+	assert_false(_utility.is_action_active_for_player(0, &"confirm"))
+	assert_eq(
+		GFVariantData.get_option_int(timer_utility.get_debug_snapshot(), "pending_count"),
+		0,
+		"失败关闭后旧、新 timer 都不得遗留。"
+	)
+	if _utility.action_value_changed.is_connected(on_value_changed):
+		_utility.action_value_changed.disconnect(on_value_changed)
+	timer_utility.dispose()
+
+
+func test_virtual_input_pulse_retrigger_old_terminal_reentry_fails_new_lease() -> void:
+	var bindings: Array[GFInputBinding] = []
+	_utility.enable_context(_make_context(&"gameplay", [
+		_make_mapping(_make_action(&"confirm"), bindings),
+	]))
+	var timer_utility: GFTimerUtility = GFTimerUtility.new()
+	timer_utility.init()
+	var source: GFVirtualInputSource = _utility.create_virtual_source(&"touch", 0, timer_utility)
+	var first: GFVirtualInputPulseOperation = source.pulse_action(&"confirm", true, 0.2)
+	var callback_counts: Array[int] = [0]
+	var on_completed: Callable = func(action_id: StringName, _value: Variant) -> void:
+		if action_id == &"confirm" and callback_counts[0] == 0:
+			callback_counts[0] += 1
+			var _finished_early: bool = first.finish_from_mapping_for_framework(
+				GFVirtualInputPulseOperation.Status.CANCELLED,
+				&"reentrant_test",
+				true
+			)
+	var _connected: Error = _utility.action_completed.connect(on_completed) as Error
+
+	var second: GFVirtualInputPulseOperation = source.pulse_action(
+		&"confirm",
+		true,
+		0.2,
+		null,
+		null,
+		GFVirtualInputSource.PulseReplacementPolicy.RETRIGGER
+	)
+
+	assert_eq(callback_counts[0], 1)
+	assert_eq(first.get_status(), GFVirtualInputPulseOperation.Status.CANCELLED)
+	assert_eq(first.get_terminal_reason(), &"reentrant_test")
+	assert_eq(second.get_status(), GFVirtualInputPulseOperation.Status.FAILED)
+	assert_eq(second.get_terminal_reason(), &"pulse_lease_conflict")
+	assert_eq(second.get_release_count(), 0)
+	assert_false(_utility.is_action_active(&"confirm"))
+	assert_false(_utility.is_action_active_for_player(0, &"confirm"))
+	assert_eq(
+		GFVariantData.get_option_int(timer_utility.get_debug_snapshot(), "pending_count"),
+		0
+	)
+	if _utility.action_completed.is_connected(on_completed):
+		_utility.action_completed.disconnect(on_completed)
+	timer_utility.dispose()
+
+
+func test_virtual_input_pulse_retrigger_press_epoch_drift_fails_closed() -> void:
+	var bindings: Array[GFInputBinding] = []
+	_utility.enable_context(_make_context(&"gameplay", [
+		_make_mapping(_make_action(&"confirm"), bindings),
+	]))
+	var timer_utility: GFTimerUtility = GFTimerUtility.new()
+	timer_utility.init()
+	var source: GFVirtualInputSource = _utility.create_virtual_source(&"touch", 0, timer_utility)
+	var first: GFVirtualInputPulseOperation = source.pulse_action(&"confirm", true, 0.2)
+	var drift_counts: Array[int] = [0]
+	var started_counts: Array[int] = [0]
+	var on_value_changed: Callable = func(action_id: StringName, value: Variant) -> void:
+		if action_id == &"confirm" and GFVariantData.to_bool(value) and drift_counts[0] == 0:
+			drift_counts[0] += 1
+			_utility.clear_player_input_state(99)
+	var on_started: Callable = func(action_id: StringName, _value: Variant) -> void:
+		if action_id == &"confirm":
+			started_counts[0] += 1
+	var _value_connected: Error = _utility.action_value_changed.connect(on_value_changed) as Error
+	var _started_connected: Error = _utility.action_started.connect(on_started) as Error
+
+	var second: GFVirtualInputPulseOperation = source.pulse_action(
+		&"confirm",
+		true,
+		0.2,
+		null,
+		null,
+		GFVirtualInputSource.PulseReplacementPolicy.RETRIGGER
+	)
+
+	assert_eq(drift_counts[0], 1, "press value 回调应制造一次 dispatch epoch 漂移。")
+	assert_eq(started_counts[0], 0, "不完整的 press 不得宣称发布新 started 边沿。")
+	assert_eq(first.get_status(), GFVirtualInputPulseOperation.Status.REPLACED)
+	assert_eq(first.get_release_count(), 1)
+	assert_eq(second.get_status(), GFVirtualInputPulseOperation.Status.FAILED)
+	assert_eq(second.get_terminal_reason(), &"pulse_lease_conflict")
+	assert_eq(second.get_release_count(), 1, "已写入的新贡献必须由失败补偿真实释放。")
+	assert_false(_utility.is_action_active(&"confirm"))
+	assert_false(_utility.is_action_active_for_player(0, &"confirm"))
+	assert_eq(
+		GFVariantData.get_option_int(timer_utility.get_debug_snapshot(), "pending_count"),
+		0
+	)
+	if _utility.action_value_changed.is_connected(on_value_changed):
+		_utility.action_value_changed.disconnect(on_value_changed)
+	if _utility.action_started.is_connected(on_started):
+		_utility.action_started.disconnect(on_started)
+	timer_utility.dispose()
+
+
 func test_virtual_input_pulse_reject_new_preserves_current_lease() -> void:
 	var bindings: Array[GFInputBinding] = []
 	_utility.enable_context(_make_context(&"gameplay", [

@@ -154,9 +154,20 @@ func test_nested_progress_cancel_never_delivers_progress_after_completed() -> vo
 
 func test_pending_terminal_blocks_late_progress_and_early_completion_publish() -> void:
 	var operation: GFObjectPoolPrewarmOperation = GFObjectPoolPrewarmOperation.new()
+	var settlement_authority: Callable = func() -> void:
+		pass
+	var cancel_delegate: Callable = func(
+		_current: GFObjectPoolPrewarmOperation,
+		_reason: StringName,
+	) -> bool:
+		return false
+	var settlement_validator: Callable = func(
+		candidate: Callable,
+	) -> bool:
+		return candidate == settlement_authority
 	assert_true(operation.configure_for_framework(
-		Callable(self, &"_reject_direct_operation_cancel"),
-		RefCounted.new(),
+		cancel_delegate,
+		settlement_validator,
 		9001,
 		_scene,
 		2,
@@ -171,11 +182,14 @@ func test_pending_terminal_blocks_late_progress_and_early_completion_publish() -
 		events.append("progress:%d" % current.get_processed_count())
 		if current.is_pending() and late_record_results.is_empty():
 			var _finished: bool = current.finish_for_framework(
+				settlement_authority,
 				GFObjectPoolPrewarmResult.Status.CANCELLED,
 				GFObjectPoolPrewarmResult.REASON_CALLER_CANCELLED,
 				ERR_SKIP
 			)
-			late_record_results.append(current.record_created_for_framework())
+			late_record_results.append(
+				current.record_created_for_framework(settlement_authority)
+			)
 		elif current.is_completed():
 			early_completion_results.append(current.emit_completed_for_framework())
 	var completed_callback: Callable = func(
@@ -185,7 +199,7 @@ func test_pending_terminal_blocks_late_progress_and_early_completion_publish() -
 	var _progress_error: int = operation.progressed.connect(progress_callback) as Error
 	var _completed_error: int = operation.completed.connect(completed_callback) as Error
 
-	assert_true(operation.record_created_for_framework())
+	assert_true(operation.record_created_for_framework(settlement_authority))
 
 	assert_eq(late_record_results, [false], "待定终态不得再接纳进度写入。")
 	assert_eq(early_completion_results, [false], "终态 progress 分发中不得提前发布 completed。")
@@ -952,8 +966,10 @@ func test_capacity_skip_authority_rejects_progress_listener_forgery() -> void:
 		current: GFObjectPoolPrewarmOperation,
 	) -> void:
 		if current.get_created_count() == 2 and rogue_results.is_empty():
+			var rogue_authority: Callable = func() -> void:
+				pass
 			rogue_results.append(
-				current.record_capacity_skipped_for_framework(RefCounted.new())
+				current.record_capacity_skipped_for_framework(rogue_authority)
 			)
 	var _connect_error: int = operation.progressed.connect(progress_callback) as Error
 
@@ -973,6 +989,226 @@ func test_capacity_skip_authority_rejects_progress_listener_forgery() -> void:
 	)
 	assert_eq(_pool.get_available_count(_scene), 3, "拒绝伪造后请求应正常完成。")
 	_disconnect_signal_if_connected(operation.progressed, progress_callback)
+
+
+func test_settlement_authority_rejects_created_and_terminal_forgery() -> void:
+	_pool.max_available_per_scene = 4
+	var operation: GFObjectPoolPrewarmOperation = _pool.prewarm_request_async(
+		_scene,
+		_parent,
+		3,
+		1
+	)
+	var rogue_record_results: Array[bool] = []
+	var rogue_finish_results: Array[bool] = []
+	var progress_callback: Callable = func(
+		current: GFObjectPoolPrewarmOperation,
+	) -> void:
+		if current.get_created_count() == 2 and rogue_record_results.is_empty():
+			var rogue_authority: Callable = func() -> void:
+				pass
+			rogue_finish_results.append(current.finish_for_framework(
+				rogue_authority,
+				GFObjectPoolPrewarmResult.Status.CANCELLED,
+				GFObjectPoolPrewarmResult.REASON_CALLER_CANCELLED,
+				ERR_SKIP
+			))
+			rogue_record_results.append(
+				current.record_created_for_framework(rogue_authority)
+			)
+	var _connect_error: int = operation.progressed.connect(progress_callback) as Error
+
+	assert_true(await _wait_until_completed(operation), "伪造内部结算不得卡住请求。")
+	assert_eq(rogue_record_results, [false], "非所属 Utility 不得伪造 created 进度。")
+	assert_eq(rogue_finish_results, [false], "非所属 Utility 不得伪造请求终态。")
+	_assert_terminal(
+		operation,
+		GFObjectPoolPrewarmResult.Status.COMPLETED,
+		GFObjectPoolPrewarmResult.REASON_COMPLETED,
+		OK,
+		3,
+		3,
+		3,
+		0,
+		0,
+		0
+	)
+	assert_eq(_pool.get_available_count(_scene), 3, "拒绝伪造后仍应提交三个真实节点。")
+	_disconnect_signal_if_connected(operation.progressed, progress_callback)
+
+
+func test_returned_operation_does_not_expose_settlement_capability() -> void:
+	_pool.max_available_per_scene = 4
+	var source: GFCancellationSource = GFCancellationSource.new()
+	var request_owner: Node = Node.new()
+	add_child(request_owner)
+	var operation: GFObjectPoolPrewarmOperation = _pool.prewarm_request_async(
+		_scene,
+		_parent,
+		3,
+		1,
+		request_owner,
+		source.get_token()
+	)
+	var exposed_capabilities: Array[Callable] = []
+	var forged_finish_results: Array[bool] = []
+	var forged_record_results: Array[bool] = []
+	var constrained_cancel_results: Array[bool] = []
+	var reflected_callback_keys: Array[String] = []
+	var reflected_subscription_keys: Array[String] = []
+	var progress_callback: Callable = func(
+		current: GFObjectPoolPrewarmOperation,
+	) -> void:
+		if current.get_created_count() != 2 or not forged_finish_results.is_empty():
+			return
+		var reflected_candidates: Array[Callable] = []
+		_collect_reflected_callable_candidates(current, reflected_candidates)
+		_collect_reflected_callable_candidates(_pool, reflected_candidates)
+		var candidate: Callable = func() -> void:
+			pass
+		reflected_candidates.append(candidate)
+		for reflected_candidate: Callable in reflected_candidates:
+			if not reflected_candidate.is_valid():
+				continue
+			if current.accepts_settlement_authority_for_framework(reflected_candidate):
+				exposed_capabilities.append(reflected_candidate)
+			forged_finish_results.append(current.finish_for_framework(
+				reflected_candidate,
+				GFObjectPoolPrewarmResult.Status.CANCELLED,
+				GFObjectPoolPrewarmResult.REASON_CALLER_CANCELLED,
+				ERR_SKIP
+			))
+			forged_record_results.append(
+				current.record_created_for_framework(reflected_candidate)
+			)
+		var request_entries_value: Variant = _read_property_if_present(
+			_pool,
+			&"_active_prewarm_requests"
+		)
+		if request_entries_value is Dictionary:
+			var request_entries: Dictionary = request_entries_value
+			var entry_value: Variant = request_entries.get(current.get_request_id())
+			if entry_value is Dictionary:
+				var entry: Dictionary = entry_value
+				for callback_key: String in [
+					"lifecycle_callback",
+					"token_callback",
+					"owner_lifetime_check",
+					"parent_lifetime_check",
+					"parent_tree_entered_callback",
+				]:
+					var callback_value: Variant = entry.get(callback_key)
+					if callback_value is Callable:
+						var reflected_callback: Callable = callback_value
+						if reflected_callback.is_valid():
+							reflected_callback_keys.append(callback_key)
+							var callback_result: Variant = null
+							if callback_key == "token_callback":
+								callback_result = reflected_callback.call(&"forged")
+							else:
+								callback_result = reflected_callback.call()
+							var _ignored_callback_result: Variant = callback_result
+				for lifetime_key: String in ["owner_lifetime", "parent_lifetime"]:
+					var lifetime_value: Variant = entry.get(lifetime_key)
+					if lifetime_value is GFLifetimeSubscription:
+						var lifetime: GFLifetimeSubscription = lifetime_value
+						reflected_subscription_keys.append(lifetime_key)
+						var raw_cancel_callback: Variant = _read_property_if_present(
+							lifetime,
+							&"_cancel_callback"
+						)
+						if raw_cancel_callback is Callable:
+							var cancel_callback: Callable = raw_cancel_callback
+							if current.accepts_settlement_authority_for_framework(
+								cancel_callback
+							):
+								exposed_capabilities.append(cancel_callback)
+							forged_finish_results.append(current.finish_for_framework(
+								cancel_callback,
+								GFObjectPoolPrewarmResult.Status.CANCELLED,
+								GFObjectPoolPrewarmResult.REASON_CALLER_CANCELLED,
+								ERR_SKIP
+							))
+							forged_record_results.append(
+								current.record_created_for_framework(cancel_callback)
+							)
+							var _ignored_cancel_callback_result: Variant = cancel_callback.call()
+						var _ignored_lifetime_cancel_result: bool = lifetime.cancel()
+		var cancel_delegate_value: Variant = _read_property_if_present(
+			current,
+			&"_cancel_delegate"
+		)
+		if cancel_delegate_value is Callable:
+			var cancel_delegate: Callable = cancel_delegate_value
+			var wrong_reason_result: Variant = cancel_delegate.call(current, &"forged")
+			constrained_cancel_results.append(
+				wrong_reason_result is bool and wrong_reason_result
+			)
+			var other_operation: GFObjectPoolPrewarmOperation = (
+				GFObjectPoolPrewarmOperation.new()
+			)
+			var wrong_operation_result: Variant = cancel_delegate.call(
+				other_operation,
+				GFObjectPoolPrewarmResult.REASON_CALLER_CANCELLED
+			)
+			constrained_cancel_results.append(
+				wrong_operation_result is bool and wrong_operation_result
+			)
+		assert_true(current.is_pending(), "伪造 callback 不得在真实状态未发生时终结请求。")
+		assert_eq(current.get_created_count(), 2, "伪造 callback 不得改写已创建计数。")
+	var _connect_error: int = operation.progressed.connect(progress_callback) as Error
+
+	assert_true(await _wait_until_completed(operation), "反射读取不得伪造请求终态。")
+	assert_true(exposed_capabilities.is_empty(), "返回给项目侧的句柄不得保存结算 capability。")
+	assert_false(forged_finish_results.is_empty(), "回归必须实际枚举到可反射 Callable 候选。")
+	assert_false(forged_finish_results.has(true), "反射候选不得通过终态 authority 校验。")
+	assert_false(forged_record_results.has(true), "反射候选不得通过计数 authority 校验。")
+	assert_false(operation.has_meta(&"_settlement_authority"))
+	assert_true(
+		_read_property_if_present(operation, &"_settlement_authority") == null,
+		"Operation 不得保留可直接读取的 authority 成员。"
+	)
+	assert_true(
+		_read_property_if_present(_pool, &"_prewarm_settlement_authorities") == null,
+		"Utility 不得保留可直接读取的 authority 表。"
+	)
+	assert_eq(
+		reflected_callback_keys,
+		[
+			"lifecycle_callback",
+			"token_callback",
+			"owner_lifetime_check",
+			"parent_lifetime_check",
+			"parent_tree_entered_callback",
+		],
+		"回归必须实际调用五类可反射内部 callback。"
+	)
+	assert_eq(
+		reflected_subscription_keys,
+		["owner_lifetime", "parent_lifetime"],
+		"回归必须实际调用并取消 owner/parent 两类可反射 subscription。"
+	)
+	assert_eq(
+		constrained_cancel_results,
+		[false, false],
+		"cancel delegate 必须拒绝错误 reason 与其他 Operation。"
+	)
+	_assert_terminal(
+		operation,
+		GFObjectPoolPrewarmResult.Status.COMPLETED,
+		GFObjectPoolPrewarmResult.REASON_COMPLETED,
+		OK,
+		3,
+		3,
+		3,
+		0,
+		0,
+		0
+	)
+	assert_eq(_pool.get_available_count(_scene), 3, "拒绝 capability 泄漏后请求应正常完成。")
+	_disconnect_signal_if_connected(operation.progressed, progress_callback)
+	request_owner.queue_free()
+	source.dispose()
 
 
 func test_prepare_callback_invalid_result_is_typed_failure() -> void:
@@ -1006,6 +1242,7 @@ func test_prepare_callback_cancel_discards_current_candidate() -> void:
 	var operation_ref: Array[GFObjectPoolPrewarmOperation] = []
 	var completed_total_counts: Array[int] = []
 	var rogue_barrier_results: Array[bool] = []
+	var cancel_results: Array[bool] = []
 	var operation: GFObjectPoolPrewarmOperation = _pool.prewarm_request_async(
 		_scene,
 		_parent,
@@ -1015,13 +1252,14 @@ func test_prepare_callback_cancel_discards_current_candidate() -> void:
 		null,
 		func(_node: Node) -> Error:
 			if not operation_ref.is_empty():
-				var rogue_authority: RefCounted = RefCounted.new()
+				var rogue_authority: Callable = func() -> void:
+					pass
 				rogue_barrier_results.append(
 					operation_ref[0].begin_settlement_barrier_for_framework(
 						rogue_authority
 					)
 				)
-				var _cancelled: bool = operation_ref[0].cancel()
+				cancel_results.append(operation_ref[0].cancel())
 				rogue_barrier_results.append(
 					operation_ref[0].end_settlement_barrier_for_framework(
 						rogue_authority
@@ -1046,6 +1284,7 @@ func test_prepare_callback_cancel_discards_current_candidate() -> void:
 	assert_eq(operation.get_cancelled_count(), 1, "当前未提交候选应归入 cancelled。")
 	assert_eq(completed_total_counts, [1], "completed observer 不得看到未丢弃的 provisional candidate。")
 	assert_eq(rogue_barrier_results, [false, false], "回调不得伪造或提前结束 Utility barrier。")
+	assert_eq(cancel_results, [true], "prepare callback 内的 caller cancel 应被同步接纳。")
 	assert_eq(_pool.get_available_count(_scene), 1, "callback 内取消不得提交当前候选。")
 	_disconnect_signal_if_connected(operation.completed, completed_callback)
 
@@ -1111,6 +1350,53 @@ func _disconnect_signal_if_connected(signal_value: Signal, callback: Callable) -
 		signal_value.disconnect(callback)
 
 
+func _read_property_if_present(target: Object, property_name: StringName) -> Variant:
+	for property_record: Dictionary in target.get_property_list():
+		var raw_name: Variant = property_record.get("name", &"")
+		var candidate_name: StringName = GFVariantData.to_string_name(raw_name)
+		if candidate_name == property_name:
+			return target.get(property_name)
+	return null
+
+
+func _collect_reflected_callable_candidates(
+	target: Object,
+	result: Array[Callable]
+) -> void:
+	for property_record: Dictionary in target.get_property_list():
+		var raw_name: Variant = property_record.get("name", &"")
+		var property_name: StringName = GFVariantData.to_string_name(raw_name)
+		if property_name.is_empty():
+			continue
+		var property_value: Variant = target.get(property_name)
+		_collect_callable_candidates_from_value(property_value, result, 0)
+
+
+func _collect_callable_candidates_from_value(
+	value: Variant,
+	result: Array[Callable],
+	depth: int
+) -> void:
+	if depth > 3:
+		return
+	if value is Callable:
+		var callable_value: Callable = value
+		if callable_value.is_valid() and not result.has(callable_value):
+			result.append(callable_value)
+		for bound_argument: Variant in callable_value.get_bound_arguments():
+			_collect_callable_candidates_from_value(bound_argument, result, depth + 1)
+		return
+	if value is Dictionary:
+		var dictionary_value: Dictionary = value
+		for nested_value: Variant in dictionary_value.values():
+			_collect_callable_candidates_from_value(nested_value, result, depth + 1)
+		return
+	if value is Array:
+		var array_value: Array = value
+		for nested_value: Variant in array_value:
+			_collect_callable_candidates_from_value(nested_value, result, depth + 1)
+
+
 func _assert_terminal(
 	operation: GFObjectPoolPrewarmOperation,
 	status: GFObjectPoolPrewarmResult.Status,
@@ -1142,13 +1428,6 @@ func _assert_terminal(
 		created + skipped + cancelled + failed,
 		"终态每个请求单位应有唯一 disposition。"
 	)
-
-
-func _reject_direct_operation_cancel(
-	_operation: GFObjectPoolPrewarmOperation,
-	_reason: StringName,
-) -> bool:
-	return false
 
 
 func _assert_cancelled_reason(
