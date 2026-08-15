@@ -53,6 +53,9 @@ import gf_package_cache
 import gf_package_artifact_set
 import gf_parallel_validation
 import gf_maintenance_check_graph
+import gf_validation_contracts
+import gf_validation_evidence
+import gf_validation_test_inventory
 import gf_credential_gate
 import gf_codeql_suppression_policy
 import gf_changelog
@@ -759,7 +762,20 @@ PUBLIC_DOC_BOUNDARY_TERM_ALLOWED_PATHS = {
 	"Codex": {"docs/zh/editor/tools/ai-developer.md"},
 	"MCP": {"docs/zh/editor/tools/ai-developer.md"},
 }
+PUBLIC_DOC_INTERNAL_VALIDATION_REUSE_RE = re.compile(
+	r"(?<![A-Za-z0-9_])(?:--validation-shadow|validation_shadow|"
+	r"action(?:[\t _-]*key|[\t _-]*\r?\n[\t _-]*key)|"
+	r"tools[\\/]+gf_validation_[a-z0-9_]+\.py)"
+	r"(?![A-Za-z0-9_])",
+	re.IGNORECASE,
+)
 PUBLIC_DOC_BOUNDARY_PATTERNS: list[tuple[str, re.Pattern[str], str]] = [
+	(
+		"internal_validation_reuse_contract",
+		PUBLIC_DOC_INTERNAL_VALIDATION_REUSE_RE,
+		"Internal validation reuse contracts and maintenance-only Shadow controls "
+		"must not appear in public docs.",
+	),
 	(
 		"optional_extension_workspace_page_as_core_page",
 		re.compile(
@@ -1001,7 +1017,12 @@ CHECK_DEFINITIONS: dict[str, list[str]] = {
 	"maintenance_self_test": [sys.executable, "tools/gf_maintenance.py", "maintenance-self-test"],
 	"maintenance_execution_tests": [
 		sys.executable,
+		"-m",
+		"unittest",
 		"tests/gf_core/tools/test_gf_maintenance_execution.py",
+		"tests/gf_core/tools/test_gf_validation_contracts.py",
+		"tests/gf_core/tools/test_gf_validation_evidence.py",
+		"tests/gf_core/tools/test_gf_validation_test_inventory.py",
 	],
 	"maintenance_generator_tests": [
 		sys.executable,
@@ -2096,6 +2117,14 @@ def main() -> int:
 		default="",
 		help="Prebuilt release artifact manifest required by the release_metadata check.",
 	)
+	check_parser.add_argument(
+		"--validation-shadow",
+		action="store_true",
+		help=(
+			"Attach non-authoritative validation policy, test inventory, and executed-evidence "
+			"diagnostics. Shadow mode never skips checks or changes the suite result."
+		),
+	)
 	add_package_artifact_consumer_arguments(check_parser)
 	check_parser.add_argument("--json", action="store_true", help="Print JSON instead of text.")
 
@@ -2319,6 +2348,7 @@ def main() -> int:
 			artifact_manifest=args.artifact_manifest,
 			package_artifact_manifest=args.package_artifact_manifest,
 			package_artifact_manifest_sha256=args.package_artifact_manifest_sha256,
+			validation_shadow=args.validation_shadow,
 			progress_callback=None if args.json else maintenance_rendering.print_check_progress,
 			output_callback=None if args.json else maintenance_rendering.print_check_output,
 		)
@@ -17765,6 +17795,31 @@ def maintenance_self_test() -> dict[str, Any]:
 		and issue_exists(public_doc_ai_leak_issues, "forbidden_public_doc_term", symbol="godot_logs"),
 		"AI maintenance-only files and infrastructure must stay out of public docs.",
 	)
+	internal_validation_leaks = (
+		"Use --validation-shadow for this release.",
+		"Read validation_shadow from the report.",
+		"Persist this Action Key for later reuse.",
+		"Persist this Action   Key for later reuse.",
+		"Persist this Action         Key for later reuse.",
+		"Persist this Action\nKey for later reuse.",
+		"Persist this Action\tKey for later reuse.",
+		"Load tools/gf_validation_evidence.py directly.",
+	)
+	internal_validation_leak_issues = [
+		audit_public_doc_boundary_text(source, "docs/zh/fixture.md")
+		for source in internal_validation_leaks
+	]
+	record_result(
+		"public_docs_boundary_rejects_internal_validation_contract_leaks",
+		all(
+			issue_exists(issues, "internal_validation_reuse_contract")
+			for issues in internal_validation_leak_issues
+		),
+		(
+			"internal validation contracts must stay out of public docs: "
+			f"{internal_validation_leak_issues}"
+		),
+	)
 	public_doc_ai_product_issues = audit_public_doc_boundary_text(
 		"The optional Codex plugin exposes read-oriented MCP project context tools.",
 		"docs/zh/editor/tools/ai-developer.md",
@@ -21774,6 +21829,20 @@ def audit_public_doc_boundary_text(source: str, path: str) -> list[dict[str, Any
 			path,
 			line_number,
 		))
+	if not any(
+		issue.get("kind") == "internal_validation_reuse_contract"
+		for issue in issues
+	):
+		match = PUBLIC_DOC_INTERNAL_VALIDATION_REUSE_RE.search(source)
+		if match is not None:
+			issues.append(make_boundary_issue(
+				"internal_validation_reuse_contract",
+				path,
+				"Internal validation reuse contracts and maintenance-only Shadow controls "
+				"must not appear in public docs.",
+				line=source.count("\n", 0, match.start()) + 1,
+				symbol=trim_text(" ".join(match.group(0).split()), 180),
+			))
 	return issues
 
 
@@ -26735,6 +26804,352 @@ def append_check_result_payload(
 	return payload
 
 
+VALIDATION_SHADOW_SCHEMA_VERSION = 1
+VALIDATION_SHADOW_REPORT_DOMAIN = b"gf-maintenance-validation-shadow-v1\0"
+VALIDATION_SHADOW_COLLECTION_TIMEOUT_SECONDS = 15.0
+VALIDATION_SHADOW_ERROR_CODES = frozenset({
+	"evidence_construction_failed",
+	"inventory_capture_failed",
+	"inventory_deadline_exceeded",
+	"policy_contract_failed",
+	"shadow_internal_error",
+	"shadow_deadline_exceeded",
+	"workspace_fingerprint_deadline",
+	"workspace_fingerprint_setup_failed",
+})
+VALIDATION_SHADOW_UNKNOWN_REASONS: tuple[str, ...] = (
+	"check_input_closure_incomplete",
+	"check_policy_undeclared",
+	"environment_identity_not_captured",
+	"inventory_not_bound_to_immutable_snapshot",
+	"quality_signals_not_uniformly_observed",
+	"toolchain_identity_not_captured",
+)
+
+
+class ValidationShadowDeadlineError(RuntimeError):
+	"""Raised when advisory report construction exhausts its private budget."""
+
+
+VALIDATION_SHADOW_REPORT_FIELDS_WITHOUT_FINGERPRINT = frozenset({
+	"schema_version",
+	"mode",
+	"authoritative",
+	"scheduling_effect",
+	"reuse_permitted",
+	"unknown_decision",
+	"report_ok",
+	"fallback_decision",
+	"invocation_id",
+	"expected_action_count",
+	"executed_action_count",
+	"execution_observation_count",
+	"non_execution_action_count",
+	"reused_count",
+	"collection_duration_seconds",
+	"policy_catalog",
+	"test_inventory",
+	"actions",
+	"errors",
+})
+VALIDATION_SHADOW_REPORT_FIELDS = frozenset({
+	*VALIDATION_SHADOW_REPORT_FIELDS_WITHOUT_FINGERPRINT,
+	"report_fingerprint",
+})
+
+
+def attach_validation_shadow_report(
+	data: dict[str, Any],
+	workspace_state: dict[str, Any],
+	*,
+	parallel_occurrences: dict[str, list[dict[str, Any]]] | None = None,
+) -> None:
+	"""Attach advisory execution evidence without changing validation semantics."""
+	collection_started = time.perf_counter()
+	try:
+		data["validation_shadow"] = make_validation_shadow_report(
+			data,
+			workspace_state,
+			collection_started=collection_started,
+			shadow_deadline_seconds=(
+				time.monotonic() + VALIDATION_SHADOW_COLLECTION_TIMEOUT_SECONDS
+			),
+			parallel_occurrences=parallel_occurrences,
+		)
+	except Exception as error:
+		data["validation_shadow"] = make_validation_shadow_failure_report(
+			data,
+			validation_shadow_error_code(error),
+			collection_duration_seconds=(
+				time.perf_counter() - collection_started
+			),
+		)
+
+
+def validation_shadow_error_code(error: Exception) -> str:
+	"""Map advisory failures to bounded constants without stringifying exceptions."""
+	if isinstance(error, gf_validation_test_inventory.TestInventoryDeadlineError):
+		return "inventory_deadline_exceeded"
+	if isinstance(error, gf_validation_test_inventory.TestInventoryError):
+		return "inventory_capture_failed"
+	if isinstance(error, gf_validation_contracts.ValidationContractError):
+		return "policy_contract_failed"
+	if isinstance(error, gf_validation_evidence.ValidationEvidenceError):
+		return "evidence_construction_failed"
+	if isinstance(error, ValidationShadowDeadlineError):
+		return "shadow_deadline_exceeded"
+	return "shadow_internal_error"
+
+
+def check_validation_shadow_deadline(deadline_seconds: float | None) -> None:
+	"""Fail closed when the advisory-only report budget is exhausted."""
+	if deadline_seconds is not None and time.monotonic() >= deadline_seconds:
+		raise ValidationShadowDeadlineError(
+			"Validation Shadow report deadline was exceeded."
+		)
+
+
+def finalize_validation_shadow_report(
+	report: dict[str, Any],
+	*,
+	deadline_seconds: float | None = None,
+) -> dict[str, Any]:
+	"""Validate and fingerprint the exact schema-v1 Shadow envelope."""
+	if frozenset(report) != VALIDATION_SHADOW_REPORT_FIELDS_WITHOUT_FINGERPRINT:
+		raise gf_validation_evidence.ValidationEvidenceError(
+			"Validation Shadow report fields do not match schema v1."
+		)
+	check_validation_shadow_deadline(deadline_seconds)
+	report["report_fingerprint"] = (
+		gf_validation_evidence.canonical_json_sha256(
+			report,
+			domain=VALIDATION_SHADOW_REPORT_DOMAIN,
+		)
+	)
+	if frozenset(report) != VALIDATION_SHADOW_REPORT_FIELDS:
+		raise gf_validation_evidence.ValidationEvidenceError(
+			"Validation Shadow report fingerprint field is invalid."
+		)
+	check_validation_shadow_deadline(deadline_seconds)
+	return report
+
+
+def make_validation_shadow_failure_report(
+	data: dict[str, Any],
+	error_code: str,
+	*,
+	collection_duration_seconds: float = 0.0,
+) -> dict[str, Any]:
+	"""Return the exact schema-v1 fail-closed Shadow envelope."""
+	if error_code not in VALIDATION_SHADOW_ERROR_CODES:
+		error_code = "shadow_internal_error"
+	check_names = [str(name) for name in data.get("checks", [])]
+	report: dict[str, Any] = {
+		"schema_version": VALIDATION_SHADOW_SCHEMA_VERSION,
+		"mode": "shadow_only",
+		"authoritative": False,
+		"scheduling_effect": False,
+		"reuse_permitted": False,
+		"unknown_decision": "execute",
+		"report_ok": False,
+		"fallback_decision": "execute",
+		"invocation_id": None,
+		"expected_action_count": len(check_names),
+		"executed_action_count": 0,
+		"execution_observation_count": 0,
+		"non_execution_action_count": len(check_names),
+		"reused_count": 0,
+		"collection_duration_seconds": round(
+			max(0.0, float(collection_duration_seconds)),
+			3,
+		),
+		"policy_catalog": None,
+		"test_inventory": None,
+		"actions": [],
+		"errors": [error_code],
+	}
+	return finalize_validation_shadow_report(report)
+
+
+def make_validation_shadow_report(
+	data: dict[str, Any],
+	workspace_state: dict[str, Any],
+	*,
+	collection_started: float | None = None,
+	shadow_deadline_seconds: float | None = None,
+	parallel_occurrences: dict[str, list[dict[str, Any]]] | None = None,
+) -> dict[str, Any]:
+	"""Describe executed checks as non-authoritative, incomplete evidence."""
+	if collection_started is None:
+		collection_started = time.perf_counter()
+	check_validation_shadow_deadline(shadow_deadline_seconds)
+	check_names = [str(name) for name in data.get("checks", [])]
+	policy_catalog = gf_validation_contracts.ValidationPolicyCatalog(check_names)
+	inventory = gf_validation_test_inventory.collect_test_inventory(
+		ROOT,
+		deadline_seconds=shadow_deadline_seconds,
+	)
+	check_validation_shadow_deadline(shadow_deadline_seconds)
+	inventory_summary = {
+		"schema_version": inventory["schema_version"],
+		"discovery_contract_version": inventory["discovery_contract_version"],
+		"root": inventory["root"],
+		"capture_complete": inventory["capture_complete"],
+		"entry_count": inventory["entry_count"],
+		"file_count": inventory["file_count"],
+		"method_count": inventory["method_count"],
+		"source_bytes": inventory["source_bytes"],
+		"source_manifest_sha256": inventory["source_manifest_sha256"],
+		"test_list_sha256": inventory["test_list_sha256"],
+		"inventory_sha256": inventory["inventory_sha256"],
+	}
+	suite_membership_digest = gf_validation_evidence.canonical_json_sha256(
+		{
+			"suite": str(data.get("suite", "")),
+			"checks": check_names,
+		},
+		domain=b"gf-maintenance-suite-membership-v1\0",
+	)
+	workspace_digest = str(workspace_state.get("fingerprint", ""))
+	if SHA256_HEX_RE.fullmatch(workspace_digest) is None:
+		raise ValueError("Validation Shadow requires a valid workspace fingerprint.")
+	invocation_id = f"shadow_{secrets.token_hex(16)}"
+	results_by_name = {
+		str(result.get("name", "")): result
+		for result in data.get("results", [])
+		if isinstance(result, dict)
+	}
+	actions: list[dict[str, Any]] = []
+	actual_execution_count = 0
+	for check_name in check_names:
+		check_validation_shadow_deadline(shadow_deadline_seconds)
+		policy = policy_catalog.policy_for(check_name)
+		policy_payload = policy.to_dict()
+		contract_digest = gf_validation_evidence.canonical_json_sha256(
+			policy_payload,
+			domain=b"gf-maintenance-validation-policy-v1\0",
+		)
+		result = results_by_name.get(check_name)
+		command = (
+			[str(part) for part in result.get("command", [])]
+			if result is not None
+			else list(CHECK_DEFINITIONS.get(check_name, ["<in-process>", check_name]))
+		)
+		if not command:
+			command = ["<in-process>", check_name]
+		material = gf_validation_evidence.make_action_key_material(
+			action_name=check_name,
+			implementation_epoch=policy.implementation_epoch,
+			command=command,
+			contract_digest=contract_digest,
+			input_digests={"workspace": workspace_digest},
+			# Ordinary DAG prerequisites do not contribute artifact inputs. A future
+			# explicit consumed-artifact contract will populate this mapping.
+			dependency_artifact_digests={},
+			toolchain_digests={},
+			environment_digests={},
+			discovery_digest=str(inventory["inventory_sha256"]),
+			suite_membership_digest=suite_membership_digest,
+			input_complete=False,
+			unknown_reasons=VALIDATION_SHADOW_UNKNOWN_REASONS,
+		)
+		evidence_records: list[gf_validation_evidence.ExecutionEvidence] = []
+		observations = []
+		if parallel_occurrences is not None and isinstance(
+			parallel_occurrences.get(check_name),
+			list,
+		):
+			observations = [
+				item
+				for item in parallel_occurrences[check_name]
+				if isinstance(item, dict)
+			]
+		elif result is not None and isinstance(result.get("parallel_occurrences"), list):
+			observations = [
+				item
+				for item in result["parallel_occurrences"]
+				if isinstance(item, dict)
+			]
+		elif result is not None:
+			observations = [result]
+		for observation in observations:
+			execution = str(observation.get("execution", ""))
+			if execution not in {"subprocess", "in_process"}:
+				continue
+			result_fingerprint = str(observation.get("result_fingerprint", ""))
+			if SHA256_HEX_RE.fullmatch(result_fingerprint) is None:
+				raise ValueError(
+					f"Validation Shadow result fingerprint is invalid for {check_name}."
+				)
+			timed_out = bool(observation.get("timed_out", False))
+			cancelled = bool(observation.get("cancelled", False))
+			exit_code = int(observation.get("exit_code", 1))
+			evidence_records.append(gf_validation_evidence.make_execution_evidence(
+				material,
+				execution="executed",
+				outcome=(
+					"passed"
+					if exit_code == 0 and not timed_out and not cancelled
+					else "failed"
+				),
+				exit_code=exit_code,
+				timed_out=timed_out,
+				cancelled=cancelled,
+				warning_count=None,
+				orphan_count=None,
+				leak_count=None,
+				quality_signals_complete=False,
+				structured_result_digest=None,
+				result_fingerprint=result_fingerprint,
+				invocation_id=invocation_id,
+				producer_identity="local_cli_shadow",
+				duration_seconds=float(observation.get("duration_seconds", 0.0)),
+			))
+		actual_execution_count += int(bool(evidence_records))
+		action_report = gf_validation_evidence.build_shadow_evidence_report(
+			material,
+			evidence_records,
+		)
+		actions.append({
+			"check_name": check_name,
+			"policy": policy_payload,
+			"execution_observed": bool(evidence_records),
+			"execution_observation_count": len(evidence_records),
+			"shadow_evidence": action_report,
+		})
+		check_validation_shadow_deadline(shadow_deadline_seconds)
+	report: dict[str, Any] = {
+		"schema_version": VALIDATION_SHADOW_SCHEMA_VERSION,
+		"mode": "shadow_only",
+		"authoritative": False,
+		"scheduling_effect": False,
+		"reuse_permitted": False,
+		"unknown_decision": "execute",
+		"report_ok": True,
+		"fallback_decision": "execute",
+		"invocation_id": invocation_id,
+		"expected_action_count": len(check_names),
+		"executed_action_count": actual_execution_count,
+		"execution_observation_count": sum(
+			action["execution_observation_count"] for action in actions
+		),
+		"non_execution_action_count": len(check_names) - actual_execution_count,
+		"reused_count": 0,
+		"collection_duration_seconds": round(
+			time.perf_counter() - collection_started,
+			3,
+		),
+		"policy_catalog": policy_catalog.to_dict(),
+		"test_inventory": inventory_summary,
+		"actions": actions,
+		"errors": [],
+	}
+	return finalize_validation_shadow_report(
+		report,
+		deadline_seconds=shadow_deadline_seconds,
+	)
+
+
 def run_checks(
 	suite: str = "quick",
 	checks: list[str] | None = None,
@@ -26747,6 +27162,7 @@ def run_checks(
 	artifact_manifest: str = "",
 	package_artifact_manifest: str = "",
 	package_artifact_manifest_sha256: str = "",
+	validation_shadow: bool = False,
 	progress_callback: Callable[[str, str, float | None], None] | None = None,
 	output_callback: Callable[[str, str, str], None] | None = None,
 ) -> dict[str, Any]:
@@ -26792,6 +27208,11 @@ def run_checks(
 		data["duration_seconds"] = round(time.perf_counter() - overall_started, 3)
 		data["execution"] = "parallel_shards" if resolved_jobs > 1 else "serial"
 		data["jobs"] = resolved_jobs
+		if validation_shadow:
+			data["validation_shadow"] = make_validation_shadow_failure_report(
+				data,
+				"workspace_fingerprint_deadline",
+			)
 		return data
 	except gf_maintenance_check_graph.WorkspaceFingerprintError as error:
 		selected_names = expanded_check_names(suite, checks, sync_examples=sync_examples)
@@ -26820,11 +27241,19 @@ def run_checks(
 		data["duration_seconds"] = round(time.perf_counter() - overall_started, 3)
 		data["execution"] = "parallel_shards" if resolved_jobs > 1 else "serial"
 		data["jobs"] = resolved_jobs
+		if validation_shadow:
+			data["validation_shadow"] = make_validation_shadow_failure_report(
+				data,
+				"workspace_fingerprint_setup_failed",
+			)
 		return data
 	data: dict[str, Any] | None = None
 	resolved_jobs = 1
 	package_artifact_set: PackageArtifactSet | None = None
 	package_artifact_reused = False
+	validation_parallel_occurrences: dict[str, list[dict[str, Any]]] | None = (
+		{} if validation_shadow else None
+	)
 	temporary_cleanup_errors: list[str] = []
 	_ACTIVE_WORKSPACE_SNAPSHOT = snapshot
 	_ACTIVE_SUITE_DEADLINE = suite_deadline
@@ -26917,6 +27346,7 @@ def run_checks(
 						output_callback=output_callback,
 						overall_started=overall_started,
 						suite_deadline=suite_deadline,
+						validation_occurrences_out=validation_parallel_occurrences,
 					)
 				else:
 					remaining_suite_timeout: int | None = None
@@ -27035,6 +27465,12 @@ def run_checks(
 		data["package_artifact_set"] = package_artifact_details(
 			package_artifact_set,
 			reused=package_artifact_reused,
+		)
+	if validation_shadow and "validation_shadow" not in data:
+		attach_validation_shadow_report(
+			data,
+			workspace_state,
+			parallel_occurrences=validation_parallel_occurrences,
 		)
 	return data
 
@@ -27353,6 +27789,44 @@ def run_parallel_godot_isolation_probe(
 	}
 
 
+def serialize_parallel_occurrences(
+	check_occurrences: list[tuple[str, dict[str, Any]]],
+	*,
+	include_execution: bool,
+) -> list[dict[str, Any]]:
+	"""Serialize public or Shadow-only views of repeated shard executions."""
+	reports: list[dict[str, Any]] = []
+	for shard_name, item in check_occurrences:
+		report: dict[str, Any] = {
+			"shard": shard_name,
+			"exit_code": int(item.get("exit_code", 1)),
+			"timed_out": bool(item.get("timed_out", False)),
+			"cancelled": bool(item.get("cancelled", False)),
+			"duration_seconds": float(item.get("duration_seconds", 0.0)),
+			"input_fingerprint": str(item.get("input_fingerprint", "")),
+			"result_fingerprint": str(item.get("result_fingerprint", "")),
+		}
+		if include_execution:
+			report["execution"] = str(item.get("execution", ""))
+		reports.append(report)
+	return reports
+
+
+def publish_parallel_validation_occurrences(
+	validation_occurrences_out: dict[str, list[dict[str, Any]]] | None,
+	occurrences: dict[str, list[tuple[str, dict[str, Any]]]],
+) -> None:
+	"""Publish every completed private execution observation seen so far."""
+	if validation_occurrences_out is None:
+		return
+	validation_occurrences_out.clear()
+	for check_name, check_occurrences in occurrences.items():
+		validation_occurrences_out[check_name] = serialize_parallel_occurrences(
+			check_occurrences,
+			include_execution=True,
+		)
+
+
 def run_parallel_full_checks(
 	captured_workspace: CapturedWorkspace,
 	parallel_root: Path,
@@ -27368,6 +27842,7 @@ def run_parallel_full_checks(
 	output_callback: Callable[[str, str, str], None] | None,
 	overall_started: float,
 	suite_deadline: float | None,
+	validation_occurrences_out: dict[str, list[dict[str, Any]]] | None = None,
 ) -> dict[str, Any]:
 	parallel_started = time.perf_counter()
 	plan = parallel_full_shard_plan()
@@ -27480,6 +27955,10 @@ def run_parallel_full_checks(
 							shard_result.name,
 							make_parallel_missing_check_result(check_name, shard_result, report_issue),
 						))
+						publish_parallel_validation_occurrences(
+							validation_occurrences_out,
+							occurrences,
+						)
 				else:
 					assert report is not None
 					result_by_name = {
@@ -27496,6 +27975,10 @@ def run_parallel_full_checks(
 								"Shard ended before this check produced a result.",
 							)
 						occurrences.setdefault(check_name, []).append((shard_result.name, result))
+						publish_parallel_validation_occurrences(
+							validation_occurrences_out,
+							occurrences,
+						)
 					if not shard_result.ok or not bool(report.get("ok")):
 						failed_shards.append(shard_result.name)
 				parallel_shard_reports.append({
@@ -27526,6 +28009,10 @@ def run_parallel_full_checks(
 					"fail-fast followed a failed parallel Full shard",
 					cancelled=True,
 				)
+				publish_parallel_validation_occurrences(
+					validation_occurrences_out,
+					occurrences,
+				)
 				stop_after_batch = True
 		if batch_cleanup_errors:
 			log_copy_errors.extend(batch_cleanup_errors)
@@ -27555,19 +28042,16 @@ def run_parallel_full_checks(
 			None,
 		)
 		selected = dict(failing or check_occurrences[0][1])
-		selected["parallel_occurrences"] = [
-			{
-				"shard": shard_name,
-				"exit_code": int(item.get("exit_code", 1)),
-				"timed_out": bool(item.get("timed_out", False)),
-				"cancelled": bool(item.get("cancelled", False)),
-				"duration_seconds": float(item.get("duration_seconds", 0.0)),
-				"input_fingerprint": str(item.get("input_fingerprint", "")),
-				"result_fingerprint": str(item.get("result_fingerprint", "")),
-			}
-			for shard_name, item in check_occurrences
-		]
+		public_occurrences = serialize_parallel_occurrences(
+			check_occurrences,
+			include_execution=False,
+		)
+		selected["parallel_occurrences"] = public_occurrences
 		aggregated_results.append(selected)
+	publish_parallel_validation_occurrences(
+		validation_occurrences_out,
+		occurrences,
+	)
 
 	failed_shard_set = set(failed_shards)
 	ok = (
