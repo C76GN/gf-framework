@@ -829,6 +829,16 @@ def render_gut_shard_plan_text(data: dict[str, Any]) -> str:
 			shard_line += f" tests={shard['test_count']}"
 		if "duration_seconds" in shard:
 			shard_line += f" duration={float(shard['duration_seconds']):.3f}s"
+		if "testcase_duration_seconds" in shard:
+			shard_line += (
+				f" testcase_duration={float(shard['testcase_duration_seconds']):.3f}s"
+			)
+		if "duration_scope" in shard:
+			shard_line += f" duration_scope={shard['duration_scope']}"
+		if "lifecycle_assertion_count" in shard:
+			shard_line += (
+				f" lifecycle_assertions={shard['lifecycle_assertion_count']}"
+			)
 		status_counts = shard.get("status_counts")
 		if isinstance(status_counts, dict):
 			shard_line += " statuses=" + ", ".join(
@@ -853,16 +863,30 @@ def render_gut_shard_plan_text(data: dict[str, Any]) -> str:
 	if isinstance(junit, dict):
 		junit_parts = [f"input_complete={junit.get('input_complete', False)}"]
 		for key in (
+			"completeness_basis",
+			"duration_scope",
+			"assertion_counts_complete",
+		):
+			if key in junit:
+				junit_parts.append(f"{key}={junit[key]}")
+		for key in (
 			"script_count",
 			"covered_script_count",
 			"test_count",
 			"assertion_count",
+			"lifecycle_assertion_count",
 			"failure_test_count",
 			"failure_assertion_count",
 			"pending_assertion_count",
 		):
 			if key in junit:
 				junit_parts.append(f"{key}={junit[key]}")
+		for key in ("duration_seconds", "testcase_duration_seconds"):
+			if key in junit:
+				junit_parts.append(f"{key}={float(junit[key]):.3f}")
+		unknown_reason = junit.get("assertion_count_unknown_reason")
+		if unknown_reason:
+			junit_parts.append(f"assertion_count_unknown_reason={unknown_reason}")
 		status_counts = junit.get("status_counts")
 		if isinstance(status_counts, dict):
 			junit_parts.append(

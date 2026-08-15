@@ -222,6 +222,7 @@ class McpBoundaryTests(unittest.TestCase):
 
 
 class GutShardPlanIntegrationTests(unittest.TestCase):
+	OBSERVATION_NONCE = "a" * 64
 	INVENTORY = (
 		"res://tests/gf_core/maintenance/test_alpha.gd",
 		"res://tests/gf_core/kernel/test_beta.gd",
@@ -243,6 +244,19 @@ class GutShardPlanIntegrationTests(unittest.TestCase):
 			},
 		],
 	}
+
+	def _prepared_output(self) -> mock.Mock:
+		invocation_directory = (
+			ROOT / "build/gut-sharding" / self.OBSERVATION_NONCE
+		)
+		return mock.Mock(
+			path=invocation_directory / "gut-authoritative.xml",
+			provenance_path=(
+				invocation_directory / "gut-authoritative-provenance.json"
+			),
+			nonce=self.OBSERVATION_NONCE,
+			invocation_directory=invocation_directory,
+		)
 
 	def _manifest_patches(self) -> tuple[mock._patch, mock._patch, mock._patch]:
 		return (
@@ -312,15 +326,14 @@ class GutShardPlanIntegrationTests(unittest.TestCase):
 		self.assertEqual(gf_maintenance.CHECK_DEFINITIONS["gut"], canonical_gut)
 		run_command.assert_not_called()
 
-	def test_existing_junit_is_parsed_without_running_gut(self) -> None:
+	def test_existing_junit_is_diagnostic_only_and_rejected_as_observation(self) -> None:
 		discover_patch, manifest_patch, digest_patch = self._manifest_patches()
 		junit_report = {
-			"input_complete": True,
+			"input_complete": False,
 			"script_count": 2,
 			"test_count": 4,
 			"scripts": [],
 		}
-		observation_report = self._observation_report()
 		observed_identity: tuple[int, int, int, int, int, int] | None = None
 		with tempfile.TemporaryDirectory() as temporary_directory:
 			fixture_root = Path(temporary_directory)
@@ -345,7 +358,6 @@ class GutShardPlanIntegrationTests(unittest.TestCase):
 			) as parse_junit, mock.patch.object(
 				gf_maintenance.gf_gut_sharding,
 				"build_observation_report",
-				return_value=observation_report,
 			) as build_observation, mock.patch.object(
 				gf_maintenance,
 				"run_command",
@@ -353,27 +365,29 @@ class GutShardPlanIntegrationTests(unittest.TestCase):
 				report = gf_maintenance.gut_shard_plan(
 					junit_path="build/gut-sharding/existing.xml"
 				)
-		self.assertTrue(report["ok"])
+		self.assertFalse(report["ok"])
 		self.assertEqual(report["junit"], junit_report)
-		self.assertEqual(report["observation"], observation_report)
-		self.assertEqual(report["shards"], observation_report["shards"])
+		self.assertNotIn("observation", report)
+		self.assertEqual(
+			[item["kind"] for item in report["issues"]],
+			["gut_shard_observation_junit_rejected"],
+		)
 		self.assertEqual(parse_junit.call_args.args, (junit_path,))
 		self.assertEqual(parse_junit.call_args.kwargs["expected_scripts"], self.INVENTORY)
 		self.assertEqual(
 			parse_junit.call_args.kwargs["expected_file_identity"],
 			observed_identity,
 		)
-		build_observation.assert_called_once_with(self.MANIFEST, junit_report)
+		self.assertNotIn("trusted_unfiltered_run", parse_junit.call_args.kwargs)
+		self.assertNotIn("provenance_path", parse_junit.call_args.kwargs)
+		build_observation.assert_not_called()
 		run_command.assert_not_called()
 
 	def test_explicit_run_executes_import_and_authoritative_gut_once(self) -> None:
 		discover_patch, manifest_patch, digest_patch = self._manifest_patches()
 		canonical_gut = list(gf_maintenance.CHECK_DEFINITIONS["gut"])
-		junit_output = ROOT / "build/gut-sharding/run-token/gut-authoritative.xml"
-		prepared_output = mock.Mock(
-			path=junit_output,
-			invocation_directory=junit_output.parent,
-		)
+		prepared_output = self._prepared_output()
+		junit_output = prepared_output.path
 		import_result = gf_maintenance.CommandResult(
 			name="godot_import",
 			command=list(gf_maintenance.CHECK_DEFINITIONS["godot_import"]),
@@ -412,13 +426,29 @@ class GutShardPlanIntegrationTests(unittest.TestCase):
 		self.assertTrue(report["execution"]["result_accepted"])
 		self.assertEqual(run_command.call_count, 2)
 		self.assertEqual(run_command.call_args_list[0].args[0], "godot_import")
+		self.assertNotIn("environment", run_command.call_args_list[0].kwargs)
 		gut_call = run_command.call_args_list[1]
 		self.assertEqual(gut_call.args[0], "gut")
+		self.assertEqual(
+			gut_call.kwargs["environment"][
+				gf_maintenance.GUT_SHARD_OBSERVATION_NONCE_ENVIRONMENT
+			],
+			self.OBSERVATION_NONCE,
+		)
+		self.assertEqual(
+			gut_call.kwargs["environment"][
+				gf_maintenance.GUT_SHARD_OBSERVATION_PATH_ENVIRONMENT
+			],
+			(
+				"res://build/gut-sharding/"
+				f"{self.OBSERVATION_NONCE}/gut-authoritative-provenance.json"
+			),
+		)
 		self.assertEqual(
 			gut_call.args[1][:-1],
 			gf_maintenance.gut_shard_observation_command(
 				canonical_gut,
-				"run-token",
+				self.OBSERVATION_NONCE,
 				"gut",
 			),
 		)
@@ -441,8 +471,171 @@ class GutShardPlanIntegrationTests(unittest.TestCase):
 		self.assertTrue(report["observation_policy"]["writes_ignored_state"])
 		self.assertEqual(
 			report["execution"]["junit_path"],
-			"build/gut-sharding/run-token/gut-authoritative.xml",
+			f"build/gut-sharding/{self.OBSERVATION_NONCE}/gut-authoritative.xml",
 		)
+		self.assertEqual(
+			report["execution"]["provenance_path"],
+			(
+				f"build/gut-sharding/{self.OBSERVATION_NONCE}/"
+				"gut-authoritative-provenance.json"
+			),
+		)
+
+	def test_authoritative_gut_command_rejects_filtered_missing_or_duplicate_flags(self) -> None:
+		canonical_gut = list(gf_maintenance.CHECK_DEFINITIONS["gut"])
+		invalid_commands = {
+			"filtered_script": [
+				*canonical_gut,
+				"-gtest=res://tests/gf_core/kernel/test_beta.gd",
+			],
+			"filtered_testcase": [*canonical_gut, "-gunit_test_name=test_selected"],
+			"filtered_inner_class": [*canonical_gut, "-ginner_class=TestSelected"],
+			"filtered_name": [*canonical_gut, "-gselect=selected"],
+			"filtered_config": [
+				(
+					"-gconfig=res://build/gut-sharding/filtered.json"
+					if argument == gf_maintenance.GUT_SHARD_CONFIG_DISABLED_ARGUMENT
+					else argument
+				)
+				for argument in canonical_gut
+			],
+			"missing_recursive_flag": [
+				argument
+				for argument in canonical_gut
+				if argument != "-ginclude_subdirs"
+			],
+			"missing_directory_flag": [
+				argument
+				for argument in canonical_gut
+				if argument != gf_maintenance.GUT_SHARD_FULL_DIRECTORY_ARGUMENT
+			],
+			"duplicate_recursive_flag": [*canonical_gut, "-ginclude_subdirs"],
+			"duplicate_directory_flag": [
+				*canonical_gut,
+				gf_maintenance.GUT_SHARD_FULL_DIRECTORY_ARGUMENT,
+			],
+			"duplicate_managed_log": [
+				*canonical_gut,
+				"--log-file",
+				gf_maintenance.godot_log_path("duplicate"),
+			],
+			"preexisting_junit_flag": [
+				*canonical_gut,
+				"-gjunit_xml_file=build/gut-sharding/unowned.xml",
+			],
+		}
+		for case_name, invalid_command in invalid_commands.items():
+			with self.subTest(case=case_name), mock.patch.dict(
+				gf_maintenance.CHECK_DEFINITIONS,
+				{"gut": invalid_command},
+			), self.assertRaises(ValueError):
+				gf_maintenance.authoritative_gut_shard_observation_command(
+					ROOT / "build/gut-sharding" / self.OBSERVATION_NONCE / "gut-authoritative.xml",
+					self.OBSERVATION_NONCE,
+				)
+
+	def test_run_command_forwards_explicit_observation_environment(self) -> None:
+		environment = {
+			gf_maintenance.GUT_SHARD_OBSERVATION_NONCE_ENVIRONMENT: (
+				self.OBSERVATION_NONCE
+			),
+			gf_maintenance.GUT_SHARD_OBSERVATION_PATH_ENVIRONMENT: (
+				"res://build/gut-sharding/owned/provenance.json"
+			),
+		}
+		process_result = mock.Mock(
+			timed_out=False,
+			return_code=0,
+			stdout="",
+			stderr="",
+			duration_seconds=0.1,
+			pid=123,
+			notes=(),
+		)
+		expected_result = gf_maintenance.CommandResult(
+			name="gut",
+			command=["resolved-godot"],
+			exit_code=0,
+			stdout="",
+			stderr="",
+		)
+		with mock.patch.object(
+			gf_maintenance,
+			"resolve_godot_command",
+			return_value=["resolved-godot"],
+		) as resolve_command, mock.patch.object(
+			gf_maintenance,
+			"prepare_command_log_paths",
+			return_value=[],
+		), mock.patch.object(
+			gf_maintenance,
+			"run_supervised_process",
+			return_value=process_result,
+		) as run_process, mock.patch.object(
+			gf_maintenance,
+			"completed_command_result",
+			return_value=expected_result,
+		):
+			result = gf_maintenance.run_command(
+				"gut",
+				["godot"],
+				1200.0,
+				environment=environment,
+			)
+
+		self.assertIs(result, expected_result)
+		resolve_command.assert_called_once_with(
+			["godot"],
+			environment=environment,
+		)
+		self.assertIs(run_process.call_args.kwargs["environment"], environment)
+
+	def test_run_command_scrubs_ambient_observation_environment_by_default(self) -> None:
+		process_result = mock.Mock(
+			timed_out=False,
+			return_code=0,
+			stdout="",
+			stderr="",
+			duration_seconds=0.1,
+			pid=123,
+			notes=(),
+		)
+		with mock.patch.dict(
+			os.environ,
+			{
+				gf_maintenance.GUT_SHARD_OBSERVATION_NONCE_ENVIRONMENT: (
+					self.OBSERVATION_NONCE
+				),
+				gf_maintenance.GUT_SHARD_OBSERVATION_PATH_ENVIRONMENT: (
+					"res://build/gut-sharding/stale/provenance.json"
+				),
+			},
+		), mock.patch.object(
+			gf_maintenance,
+			"resolve_godot_command",
+			return_value=["resolved-godot"],
+		) as resolve_command, mock.patch.object(
+			gf_maintenance,
+			"prepare_command_log_paths",
+			return_value=[],
+		), mock.patch.object(
+			gf_maintenance,
+			"run_supervised_process",
+			return_value=process_result,
+		) as run_process:
+			gf_maintenance.run_command("gut", ["godot"], 1200.0)
+
+		resolved_environment = resolve_command.call_args.kwargs["environment"]
+		process_environment = run_process.call_args.kwargs["environment"]
+		for environment in (resolved_environment, process_environment):
+			self.assertNotIn(
+				gf_maintenance.GUT_SHARD_OBSERVATION_NONCE_ENVIRONMENT,
+				environment,
+			)
+			self.assertNotIn(
+				gf_maintenance.GUT_SHARD_OBSERVATION_PATH_ENVIRONMENT,
+				environment,
+			)
 
 	def test_import_failure_stops_before_gut_and_junit_parse(self) -> None:
 		discover_patch, manifest_patch, digest_patch = self._manifest_patches()
@@ -456,10 +649,7 @@ class GutShardPlanIntegrationTests(unittest.TestCase):
 		with discover_patch, manifest_patch, digest_patch, mock.patch.object(
 			gf_maintenance,
 			"prepare_gut_shard_junit_output",
-			return_value=mock.Mock(
-				path=ROOT / "build/gut-sharding/import-failure/gut-authoritative.xml",
-				invocation_directory=ROOT / "build/gut-sharding/import-failure",
-			),
+			return_value=self._prepared_output(),
 		), mock.patch.object(
 			gf_maintenance,
 			"run_command",
@@ -494,11 +684,7 @@ class GutShardPlanIntegrationTests(unittest.TestCase):
 			notes=["Command timed out after 600s; terminating its process tree."],
 			duration_seconds=600.0,
 		)
-		junit_output = ROOT / "build/gut-sharding/timeout/gut-authoritative.xml"
-		prepared_output = mock.Mock(
-			path=junit_output,
-			invocation_directory=junit_output.parent,
-		)
+		prepared_output = self._prepared_output()
 		with discover_patch, manifest_patch, digest_patch, mock.patch.object(
 			gf_maintenance,
 			"prepare_gut_shard_junit_output",
@@ -539,11 +725,7 @@ class GutShardPlanIntegrationTests(unittest.TestCase):
 			stdout="",
 			stderr="",
 		)
-		junit_output = ROOT / "build/gut-sharding/rejected/gut-authoritative.xml"
-		prepared_output = mock.Mock(
-			path=junit_output,
-			invocation_directory=junit_output.parent,
-		)
+		prepared_output = self._prepared_output()
 		with discover_patch, manifest_patch, digest_patch, mock.patch.object(
 			gf_maintenance,
 			"prepare_gut_shard_junit_output",
@@ -639,12 +821,24 @@ class GutShardPlanIntegrationTests(unittest.TestCase):
 				second = gf_maintenance.prepare_gut_shard_junit_output()
 
 			self.assertNotEqual(first.invocation_directory, second.invocation_directory)
+			self.assertRegex(first.nonce, r"[0-9a-f]{64}\Z")
+			self.assertRegex(second.nonce, r"[0-9a-f]{64}\Z")
 			self.assertEqual(first.path.name, "gut-authoritative.xml")
 			self.assertEqual(second.path.name, "gut-authoritative.xml")
+			self.assertEqual(
+				first.provenance_path.name,
+				"gut-authoritative-provenance.json",
+			)
+			self.assertEqual(
+				second.provenance_path.name,
+				"gut-authoritative-provenance.json",
+			)
 			self.assertTrue(first.invocation_directory.is_dir())
 			self.assertTrue(second.invocation_directory.is_dir())
 			self.assertFalse(first.path.exists())
 			self.assertFalse(second.path.exists())
+			self.assertFalse(first.provenance_path.exists())
+			self.assertFalse(second.provenance_path.exists())
 			self.assertEqual(first.invocation_directory.parent, observation_root)
 			self.assertEqual(second.invocation_directory.parent, observation_root)
 			self.assertEqual(sentinel.read_text(encoding="utf-8"), "must survive")
@@ -656,7 +850,8 @@ class GutShardPlanIntegrationTests(unittest.TestCase):
 		with tempfile.TemporaryDirectory() as temporary_directory:
 			observation_root = Path(temporary_directory) / "gut-sharding"
 			observation_root.mkdir()
-			(observation_root / "reused").mkdir()
+			reused_nonce = "0" * 64
+			(observation_root / reused_nonce).mkdir()
 			with mock.patch.object(
 				gf_maintenance,
 				"GUT_SHARD_OBSERVATION_ROOT",
@@ -664,7 +859,7 @@ class GutShardPlanIntegrationTests(unittest.TestCase):
 			), mock.patch.object(
 				gf_maintenance.secrets,
 				"token_hex",
-				return_value="reused",
+				return_value=reused_nonce,
 			), self.assertRaises(FileExistsError):
 				gf_maintenance.prepare_gut_shard_junit_output()
 
@@ -692,11 +887,46 @@ class GutShardPlanIntegrationTests(unittest.TestCase):
 			):
 				output = gf_maintenance.prepare_gut_shard_junit_output()
 			output.path.write_text("before", encoding="utf-8")
+			output.provenance_path.write_text("provenance", encoding="utf-8")
 
 			def replace_during_parse(*_args: object, **_kwargs: object) -> dict[str, object]:
 				replacement = output.path.with_name("replacement.xml")
 				replacement.write_text("after payload", encoding="utf-8")
 				os.replace(replacement, output.path)
+				return {"input_complete": True}
+
+			with mock.patch.object(
+				gf_maintenance.gf_gut_sharding,
+				"parse_gut_junit_xml",
+				side_effect=replace_during_parse,
+			) as parse_junit, self.assertRaisesRegex(ValueError, "changed while parsing"):
+				gf_maintenance.parse_published_gut_shard_junit(output, self.INVENTORY)
+			self.assertTrue(parse_junit.call_args.kwargs["trusted_unfiltered_run"])
+			self.assertEqual(
+				parse_junit.call_args.kwargs["provenance_path"],
+				output.provenance_path,
+			)
+			self.assertEqual(
+				parse_junit.call_args.kwargs["expected_provenance_nonce"],
+				output.nonce,
+			)
+
+	def test_published_junit_revalidates_provenance_identity_after_parse(self) -> None:
+		with tempfile.TemporaryDirectory() as temporary_directory:
+			observation_root = Path(temporary_directory) / "gut-sharding"
+			with mock.patch.object(
+				gf_maintenance,
+				"GUT_SHARD_OBSERVATION_ROOT",
+				observation_root,
+			):
+				output = gf_maintenance.prepare_gut_shard_junit_output()
+			output.path.write_text("junit", encoding="utf-8")
+			output.provenance_path.write_text("before", encoding="utf-8")
+
+			def replace_during_parse(*_args: object, **_kwargs: object) -> dict[str, object]:
+				replacement = output.provenance_path.with_name("replacement.json")
+				replacement.write_text("after payload", encoding="utf-8")
+				os.replace(replacement, output.provenance_path)
 				return {"input_complete": True}
 
 			with mock.patch.object(
@@ -718,6 +948,7 @@ class GutShardPlanIntegrationTests(unittest.TestCase):
 				):
 					output = gf_maintenance.prepare_gut_shard_junit_output()
 				output.path.write_text("before", encoding="utf-8")
+				output.provenance_path.write_text("provenance", encoding="utf-8")
 				original = (
 					output.root.with_name("gut-sharding-original")
 					if replacement_kind == "root"
@@ -775,6 +1006,7 @@ class GutShardPlanIntegrationTests(unittest.TestCase):
 				):
 					output = gf_maintenance.prepare_gut_shard_junit_output()
 				output.path.write_text("before", encoding="utf-8")
+				output.provenance_path.write_text("provenance", encoding="utf-8")
 				replaced_path = (
 					output.root
 					if replacement_kind == "root"
@@ -925,7 +1157,7 @@ class GutShardPlanIntegrationTests(unittest.TestCase):
 		)
 		self.assertNotIn("gut", gf_maintenance.CHECK_TIMEOUT_SECONDS)
 
-	def test_renderer_uses_structured_status_counts(self) -> None:
+	def test_renderer_exposes_diagnostic_completeness_and_duration_scope(self) -> None:
 		text = gf_maintenance_rendering.render_gut_shard_plan_text({
 			"ok": True,
 			"mode": "existing_junit",
@@ -942,9 +1174,19 @@ class GutShardPlanIntegrationTests(unittest.TestCase):
 			},
 			"execution": {"performed": False, "result_accepted": False},
 			"junit": {
-				"input_complete": True,
+				"input_complete": False,
+				"completeness_basis": "script_names_only",
+				"duration_scope": "testcase_only_excludes_script_lifecycle",
+				"assertion_counts_complete": False,
+				"assertion_count_unknown_reason": (
+					"script_lifecycle_assertions_not_exported"
+				),
 				"script_count": 1,
 				"test_count": 5,
+				"assertion_count": 7,
+				"lifecycle_assertion_count": 0,
+				"duration_seconds": 0.5,
+				"testcase_duration_seconds": 0.5,
 				"status_counts": {
 					"passed": 1,
 					"failed": 1,
@@ -968,8 +1210,20 @@ class GutShardPlanIntegrationTests(unittest.TestCase):
 			"execution: performed=False result_accepted=False",
 			text,
 		)
+		self.assertIn("input_complete=False", text)
+		self.assertIn("completeness_basis=script_names_only", text)
+		self.assertIn(
+			"duration_scope=testcase_only_excludes_script_lifecycle",
+			text,
+		)
+		self.assertIn("assertion_counts_complete=False", text)
+		self.assertIn("lifecycle_assertion_count=0", text)
+		self.assertIn(
+			"assertion_count_unknown_reason=script_lifecycle_assertions_not_exported",
+			text,
+		)
 
-	def test_full_synthetic_junit_projects_all_live_scripts_into_nine_shards(self) -> None:
+	def test_full_synthetic_existing_junit_remains_diagnostic_only(self) -> None:
 		inventory = gf_maintenance.gf_gut_sharding.discover_gut_test_scripts(ROOT)
 		expected_count = len(inventory)
 		root_element = ET.Element(
@@ -1024,19 +1278,17 @@ class GutShardPlanIntegrationTests(unittest.TestCase):
 			):
 				report = gf_maintenance.gut_shard_plan(junit_path=str(junit_path))
 
-		self.assertTrue(report["ok"], report["issues"])
+		self.assertFalse(report["ok"])
 		self.assertEqual(report["mode"], "existing_junit")
 		self.assertEqual(report["inventory_count"], expected_count)
-		self.assertEqual(report["observation"]["script_count"], expected_count)
-		self.assertEqual(report["observation"]["test_count"], expected_count)
-		self.assertEqual(len(report["observation"]["shards"]), 9)
+		self.assertFalse(report["junit"]["input_complete"])
+		self.assertEqual(report["junit"]["script_count"], expected_count)
+		self.assertEqual(report["junit"]["test_count"], expected_count)
+		self.assertNotIn("observation", report)
 		self.assertEqual(
-			sum(shard["script_count"] for shard in report["observation"]["shards"]),
-			expected_count,
+			[item["kind"] for item in report["issues"]],
+			["gut_shard_observation_junit_rejected"],
 		)
-		self.assertFalse(report["observation"]["execution_changed"])
-		self.assertEqual(report["observation"]["skip_count"], 0)
-		self.assertEqual(report["observation"]["reuse_count"], 0)
 
 
 class WorkspaceExecutionBoundaryTests(unittest.TestCase):

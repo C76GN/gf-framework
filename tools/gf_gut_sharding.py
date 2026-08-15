@@ -42,8 +42,10 @@ MAX_INVENTORY_SCRIPTS = 4_096
 INVENTORY_DEADLINE_SECONDS = 30.0
 MAX_INVENTORY_SCRIPT_BYTES = 2 * 1024 * 1024
 MAX_INVENTORY_TOTAL_SCRIPT_BYTES = 64 * 1024 * 1024
+MAX_INVENTORY_INHERITANCE_DEPTH = 64
 MAX_MANIFEST_BYTES = 2 * 1024 * 1024
 MAX_JUNIT_BYTES = 32 * 1024 * 1024
+MAX_JUNIT_PROVENANCE_BYTES = 32 * 1024 * 1024
 MAX_JUNIT_ELEMENTS = 120_000
 MAX_JUNIT_SUITES = 4_096
 MAX_JUNIT_TEST_CASES = 100_000
@@ -52,6 +54,11 @@ MAX_XML_ATTRIBUTE_BYTES = 4_096
 MAX_XML_TEXT_BYTES = 8 * 1024 * 1024
 MAX_TEST_NAME_BYTES = 4_096
 JUNIT_DURATION_SERIALIZATION_TOLERANCE_SECONDS = 1e-6
+JUNIT_TESTCASE_DURATION_SCOPE = "testcase_only_excludes_script_lifecycle"
+JUNIT_LIFECYCLE_DURATION_SCOPE = "script_lifecycle_wall_time"
+JUNIT_ASSERTION_COUNT_UNKNOWN_REASON = "script_lifecycle_assertions_not_exported"
+JUNIT_COMPLETENESS_CONTROLLED_RUN = "controlled_unfiltered_run_provenance"
+JUNIT_COMPLETENESS_SCRIPT_NAMES_ONLY = "script_names_only"
 
 _MANIFEST_KEYS = frozenset({
 	"schema_version",
@@ -84,16 +91,22 @@ _JUNIT_REPORT_KEYS = frozenset({
 	"schema_version",
 	"ok",
 	"source_format",
+	"junit_sha256",
+	"provenance_sha256",
 	"input_complete",
+	"completeness_basis",
 	"script_count",
 	"covered_script_count",
 	"test_count",
 	"duration_seconds",
+	"testcase_duration_seconds",
+	"duration_scope",
 	"status_counts",
 	"failure_test_count",
 	"failure_assertion_count",
 	"pending_assertion_count",
 	"assertion_count",
+	"lifecycle_assertion_count",
 	"assertion_counts_complete",
 	"assertion_count_unknown_reason",
 	"scripts",
@@ -101,8 +114,10 @@ _JUNIT_REPORT_KEYS = frozenset({
 _JUNIT_SCRIPT_REPORT_KEYS = frozenset({
 	"script",
 	"duration_seconds",
-	"test_duration_sum_seconds",
-	"duration_serialization_tolerance_seconds",
+	"testcase_duration_seconds",
+	"testcase_duration_sum_seconds",
+	"testcase_duration_serialization_tolerance_seconds",
+	"duration_scope",
 	"test_count",
 	"status_counts",
 	"failure_assertion_count",
@@ -110,6 +125,7 @@ _JUNIT_SCRIPT_REPORT_KEYS = frozenset({
 	"failure_test_count_lower_bound",
 	"failure_test_count_upper_bound",
 	"assertion_count",
+	"lifecycle_assertion_count",
 	"assertion_counts_complete",
 	"assertion_count_unknown_reason",
 	"tests",
@@ -120,19 +136,43 @@ _JUNIT_TEST_REPORT_KEYS = frozenset({
 	"status",
 	"assertion_count",
 })
+_JUNIT_PROVENANCE_KEYS = frozenset({
+	"schema_version",
+	"nonce",
+	"junit_sha256",
+	"unfiltered",
+	"script_count",
+	"scripts",
+})
+_JUNIT_PROVENANCE_SCRIPT_KEYS = frozenset({
+	"script",
+	"inner_class",
+	"was_run",
+	"was_skipped",
+	"duration_seconds",
+	"assertion_count",
+	"lifecycle_assertion_count",
+	"tests",
+})
+_JUNIT_PROVENANCE_TEST_KEYS = frozenset({
+	"name",
+	"was_run",
+	"status",
+	"assertion_count",
+	"duration_seconds",
+})
 _STATUS_KEYS = ("passed", "failed", "pending", "no_asserts", "skipped")
 _INTEGER_RE = re.compile(r"(?:0|[1-9][0-9]*)\Z")
 _FLOAT_RE = re.compile(
 	r"(?:0|[1-9][0-9]*)(?:\.[0-9]+)?(?:[eE][+-]?[0-9]+)?\Z"
 )
 _EXPECTED_XML_DECLARATION = '<?xml version="1.0" encoding="UTF-8"?>\n'
-_GUT_TEST_EXTENDS_RE = re.compile(
-	r"^extends[ \t]+GutTest[ \t]*(?:#[^\r\n]*)?\r?$",
-	re.MULTILINE,
+_GDSCRIPT_CLASS_NAME_RE = re.compile(
+	r"^class_name[ \t]+(?P<name>[A-Za-z_][A-Za-z0-9_]*)[ \t]*\Z"
 )
-_GUT_INNER_TEST_CLASS_RE = re.compile(
-	r"^[ \t]*class[ \t]+Test[A-Za-z0-9_]*[ \t]+extends[ \t]+[A-Za-z_][A-Za-z0-9_.]*\b",
-	re.MULTILINE,
+_GDSCRIPT_INNER_CLASS_RE = re.compile(
+	r"^(?P<indent>[ \t]*)class[ \t]+(?P<name>[A-Za-z_][A-Za-z0-9_]*)"
+	r"(?:[ \t]+extends[ \t]+(?P<base>[^:]+))?[ \t]*:[ \t]*\Z"
 )
 
 
@@ -386,8 +426,28 @@ def parse_gut_junit_xml(
 	*,
 	expected_scripts: Iterable[str] | None = None,
 	expected_file_identity: tuple[int, int, int, int, int, int] | None = None,
+	trusted_unfiltered_run: bool = False,
+	provenance_path: Path | None = None,
+	expected_provenance_identity: tuple[int, int, int, int, int, int] | None = None,
+	expected_provenance_nonce: str | None = None,
 ) -> dict[str, Any]:
 	"""Parse one bounded, controlled GUT JUnit XML observation."""
+	if type(trusted_unfiltered_run) is not bool:
+		raise GutShardingError(
+			"junit_completeness_provenance_invalid",
+			"JUnit completeness provenance must be an exact boolean.",
+		)
+	provenance_requested = provenance_path is not None
+	if provenance_requested != (expected_provenance_nonce is not None):
+		raise GutShardingError(
+			"junit_provenance_contract_invalid",
+			"JUnit provenance path and expected nonce must be supplied together.",
+		)
+	if provenance_requested and not trusted_unfiltered_run:
+		raise GutShardingError(
+			"junit_provenance_untrusted",
+			"JUnit provenance may be accepted only for the controlled full-run path.",
+		)
 
 	data = _read_stable_regular_file(
 		Path(path),
@@ -395,6 +455,7 @@ def parse_gut_junit_xml(
 		"junit",
 		expected_file_identity=expected_file_identity,
 	)
+	junit_sha256 = hashlib.sha256(data).hexdigest()
 	if data.startswith(b"\xef\xbb\xbf"):
 		raise GutShardingError(
 			"junit_utf8_bom_forbidden",
@@ -479,8 +540,10 @@ def parse_gut_junit_xml(
 		scripts.append(script)
 
 	scripts.sort(key=lambda item: item["script"])
+	normalized_expected: tuple[str, ...] | None = None
 	if expected_scripts is not None:
-		expected = set(_normalize_expected_inventory(expected_scripts))
+		normalized_expected = _normalize_expected_inventory(expected_scripts)
+		expected = set(normalized_expected)
 		observed = {script["script"] for script in scripts}
 		if observed != expected:
 			if expected - observed:
@@ -500,11 +563,30 @@ def parse_gut_junit_xml(
 			"junit_root_test_count_mismatch",
 			"Root tests count does not match parsed test cases.",
 		)
+	provenance_sha256: str | None = None
+	input_complete = False
+	if provenance_path is not None:
+		provenance, provenance_sha256 = _parse_gut_junit_provenance(
+			Path(provenance_path),
+			expected_nonce=expected_provenance_nonce,
+			expected_junit_sha256=junit_sha256,
+			expected_scripts=normalized_expected,
+			expected_file_identity=expected_provenance_identity,
+		)
+		input_complete = _apply_gut_junit_provenance(scripts, provenance)
 	assertion_count = sum(int(script["assertion_count"]) for script in scripts)
+	lifecycle_assertion_count = sum(
+		int(script["lifecycle_assertion_count"]) for script in scripts
+	)
 	duration_seconds = _finite_sum(
 		(script["duration_seconds"] for script in scripts),
 		"junit_duration_total_invalid",
-		"The aggregate GUT JUnit duration must remain finite.",
+		"The aggregate GUT script duration must remain finite.",
+	)
+	testcase_duration_seconds = _finite_sum(
+		(script["testcase_duration_seconds"] for script in scripts),
+		"junit_duration_total_invalid",
+		"The aggregate GUT JUnit testcase duration must remain finite.",
 	)
 	failure_assertion_count = sum(
 		int(script["failure_assertion_count"]) for script in scripts
@@ -531,20 +613,340 @@ def parse_gut_junit_xml(
 		"schema_version": SCHEMA_VERSION,
 		"ok": True,
 		"source_format": "gut_junit_xml",
-		"input_complete": True,
+		"junit_sha256": junit_sha256,
+		"provenance_sha256": provenance_sha256,
+		"input_complete": input_complete,
+		"completeness_basis": (
+			JUNIT_COMPLETENESS_CONTROLLED_RUN
+			if provenance_path is not None
+			else JUNIT_COMPLETENESS_SCRIPT_NAMES_ONLY
+		),
 		"script_count": len(scripts),
 		"covered_script_count": len(scripts),
 		"test_count": test_count,
 		"duration_seconds": duration_seconds,
+		"testcase_duration_seconds": testcase_duration_seconds,
+		"duration_scope": (
+			JUNIT_LIFECYCLE_DURATION_SCOPE
+			if input_complete
+			else JUNIT_TESTCASE_DURATION_SCOPE
+		),
 		"status_counts": status_counts,
 		"failure_test_count": declared_root_failures,
 		"failure_assertion_count": failure_assertion_count,
 		"pending_assertion_count": pending_assertion_count,
 		"assertion_count": assertion_count,
-		"assertion_counts_complete": True,
-		"assertion_count_unknown_reason": None,
+		"lifecycle_assertion_count": lifecycle_assertion_count,
+		"assertion_counts_complete": input_complete,
+		"assertion_count_unknown_reason": (
+			None if input_complete else JUNIT_ASSERTION_COUNT_UNKNOWN_REASON
+		),
 		"scripts": scripts,
 	}
+
+
+def _parse_gut_junit_provenance(
+	path: Path,
+	*,
+	expected_nonce: str | None,
+	expected_junit_sha256: str,
+	expected_scripts: tuple[str, ...] | None,
+	expected_file_identity: tuple[int, int, int, int, int, int] | None,
+) -> tuple[dict[str, Any], str]:
+	if not _is_sha256_hex(expected_nonce):
+		raise GutShardingError(
+			"junit_provenance_nonce_invalid",
+			"Controlled GUT provenance requires the expected 64-hex nonce.",
+		)
+	data = _read_stable_regular_file(
+		path,
+		MAX_JUNIT_PROVENANCE_BYTES,
+		"junit_provenance",
+		expected_file_identity=expected_file_identity,
+	)
+	payload = _load_strict_json(data, "junit_provenance")
+	if type(payload) is not dict:
+		raise GutShardingError(
+			"junit_provenance_root_invalid",
+			"Controlled GUT provenance must be a JSON object.",
+		)
+	_require_exact_keys(
+		payload,
+		_JUNIT_PROVENANCE_KEYS,
+		"junit_provenance_schema_invalid",
+	)
+	if type(payload["schema_version"]) is not int or payload["schema_version"] != 1:
+		raise GutShardingError(
+			"junit_provenance_schema_invalid",
+			"Controlled GUT provenance schema_version must equal 1.",
+		)
+	if payload["nonce"] != expected_nonce:
+		raise GutShardingError(
+			"junit_provenance_nonce_mismatch",
+			"Controlled GUT provenance nonce does not match its invocation.",
+		)
+	if payload["junit_sha256"] != expected_junit_sha256:
+		raise GutShardingError(
+			"junit_provenance_junit_digest_mismatch",
+			"Controlled GUT provenance does not bind the parsed JUnit bytes.",
+		)
+	if type(payload["unfiltered"]) is not bool:
+		raise GutShardingError(
+			"junit_provenance_value_invalid",
+			"Controlled GUT provenance unfiltered must be a boolean.",
+		)
+	if type(payload["script_count"]) is not int or payload["script_count"] < 0:
+		raise GutShardingError(
+			"junit_provenance_value_invalid",
+			"Controlled GUT provenance script_count must be non-negative.",
+		)
+	raw_scripts = payload["scripts"]
+	if type(raw_scripts) is not list or len(raw_scripts) != payload["script_count"]:
+		raise GutShardingError(
+			"junit_provenance_count_mismatch",
+			"Controlled GUT provenance scripts must match script_count.",
+		)
+	if len(raw_scripts) > MAX_JUNIT_SUITES:
+		raise GutShardingError(
+			"junit_provenance_script_budget_exceeded",
+			"Controlled GUT provenance exceeds the script budget.",
+		)
+	scripts: list[dict[str, Any]] = []
+	seen_scripts: set[str] = set()
+	total_test_count = 0
+	for raw_script in raw_scripts:
+		script = _normalize_gut_junit_provenance_script(raw_script)
+		if script["script"] in seen_scripts:
+			raise GutShardingError(
+				"junit_provenance_script_duplicate",
+				"Controlled GUT provenance script identities must be unique.",
+			)
+		seen_scripts.add(script["script"])
+		total_test_count += len(script["tests"])
+		if total_test_count > MAX_JUNIT_TEST_CASES:
+			raise GutShardingError(
+				"junit_provenance_test_budget_exceeded",
+				"Controlled GUT provenance exceeds the testcase budget.",
+			)
+		scripts.append(script)
+	scripts.sort(key=lambda item: item["script"])
+	if expected_scripts is None or tuple(item["script"] for item in scripts) != expected_scripts:
+		raise GutShardingError(
+			"junit_provenance_inventory_mismatch",
+			"Controlled GUT provenance must cover the exact expected script inventory.",
+		)
+	return {
+		"schema_version": 1,
+		"nonce": expected_nonce,
+		"junit_sha256": expected_junit_sha256,
+		"unfiltered": payload["unfiltered"],
+		"script_count": len(scripts),
+		"scripts": scripts,
+	}, hashlib.sha256(data).hexdigest()
+
+
+def _normalize_gut_junit_provenance_script(value: Any) -> dict[str, Any]:
+	if type(value) is not dict:
+		raise GutShardingError(
+			"junit_provenance_script_invalid",
+			"Controlled GUT provenance script records must be objects.",
+		)
+	_require_exact_keys(
+		value,
+		_JUNIT_PROVENANCE_SCRIPT_KEYS,
+		"junit_provenance_script_schema_invalid",
+	)
+	script = _normalize_test_script_path(value["script"])
+	if type(value["inner_class"]) is not str:
+		raise GutShardingError(
+			"junit_provenance_script_invalid",
+			"Controlled GUT provenance inner_class must be a string.",
+		)
+	for field in ("was_run", "was_skipped"):
+		if type(value[field]) is not bool:
+			raise GutShardingError(
+				"junit_provenance_script_invalid",
+				"Controlled GUT provenance execution flags must be booleans.",
+			)
+	duration = _normalize_json_nonnegative_float(
+		value["duration_seconds"],
+		"junit_provenance_script_invalid",
+	)
+	for field in ("assertion_count", "lifecycle_assertion_count"):
+		if type(value[field]) is not int or value[field] < 0:
+			raise GutShardingError(
+				"junit_provenance_script_invalid",
+				"Controlled GUT provenance assertion counts must be non-negative.",
+			)
+	raw_tests = value["tests"]
+	if type(raw_tests) is not list:
+		raise GutShardingError(
+			"junit_provenance_script_invalid",
+			"Controlled GUT provenance tests must be an array.",
+		)
+	tests: list[dict[str, Any]] = []
+	seen_names: set[str] = set()
+	for raw_test in raw_tests:
+		test = _normalize_gut_junit_provenance_test(raw_test)
+		if test["name"] in seen_names:
+			raise GutShardingError(
+				"junit_provenance_test_duplicate",
+				"Controlled GUT provenance testcase names must be unique per script.",
+			)
+		seen_names.add(test["name"])
+		tests.append(test)
+	tests.sort(key=lambda item: item["name"])
+	test_assertion_count = sum(test["assertion_count"] for test in tests)
+	if (
+		value["lifecycle_assertion_count"] > value["assertion_count"]
+		or test_assertion_count + value["lifecycle_assertion_count"]
+		!= value["assertion_count"]
+	):
+		raise GutShardingError(
+			"junit_provenance_assertion_count_mismatch",
+			"Controlled GUT provenance lifecycle and testcase assertions must match the script total.",
+		)
+	return {
+		"script": script,
+		"inner_class": value["inner_class"],
+		"was_run": value["was_run"],
+		"was_skipped": value["was_skipped"],
+		"duration_seconds": duration,
+		"assertion_count": value["assertion_count"],
+		"lifecycle_assertion_count": value["lifecycle_assertion_count"],
+		"tests": tests,
+	}
+
+
+def _normalize_gut_junit_provenance_test(value: Any) -> dict[str, Any]:
+	if type(value) is not dict:
+		raise GutShardingError(
+			"junit_provenance_test_invalid",
+			"Controlled GUT provenance testcase records must be objects.",
+		)
+	_require_exact_keys(
+		value,
+		_JUNIT_PROVENANCE_TEST_KEYS,
+		"junit_provenance_test_schema_invalid",
+	)
+	name = value["name"]
+	if (
+		type(name) is not str
+		or not name.startswith("test_")
+		or len(name.encode("utf-8")) > MAX_TEST_NAME_BYTES
+		or any(ord(character) < 32 for character in name)
+	):
+		raise GutShardingError(
+			"junit_provenance_test_invalid",
+			"Controlled GUT provenance testcase name is invalid.",
+		)
+	if type(value["was_run"]) is not bool:
+		raise GutShardingError(
+			"junit_provenance_test_invalid",
+			"Controlled GUT provenance was_run must be a boolean.",
+		)
+	status_mapping = {
+		"pass": "passed",
+		"fail": "failed",
+		"pending": "pending",
+		"no asserts": "no_asserts",
+		"skipped": "skipped",
+		"not run": "not_run",
+	}
+	status = status_mapping.get(value["status"])
+	if status is None:
+		raise GutShardingError(
+			"junit_provenance_test_invalid",
+			"Controlled GUT provenance testcase status is invalid.",
+		)
+	if type(value["assertion_count"]) is not int or value["assertion_count"] < 0:
+		raise GutShardingError(
+			"junit_provenance_test_invalid",
+			"Controlled GUT provenance testcase assertions must be non-negative.",
+		)
+	return {
+		"name": name,
+		"was_run": value["was_run"],
+		"status": status,
+		"assertion_count": value["assertion_count"],
+		"duration_seconds": _normalize_json_nonnegative_float(
+			value["duration_seconds"],
+			"junit_provenance_test_invalid",
+		),
+	}
+
+
+def _normalize_json_nonnegative_float(value: Any, code: str) -> float:
+	if type(value) not in {int, float}:
+		raise GutShardingError(code, "Expected a finite non-negative JSON number.")
+	result = float(value)
+	if not math.isfinite(result) or result < 0.0:
+		raise GutShardingError(code, "Expected a finite non-negative JSON number.")
+	return result
+
+
+def _apply_gut_junit_provenance(
+	scripts: list[dict[str, Any]],
+	provenance: Mapping[str, Any],
+) -> bool:
+	provenance_by_script = {
+		record["script"]: record
+		for record in provenance["scripts"]
+	}
+	complete = provenance["unfiltered"] is True
+	for script in scripts:
+		record = provenance_by_script[script["script"]]
+		junit_tests = {test["name"]: test for test in script["tests"]}
+		provenance_tests = {test["name"]: test for test in record["tests"]}
+		if (
+			record["inner_class"] != ""
+			or record["was_run"] is not True
+			or record["was_skipped"] is not False
+			or set(junit_tests) != set(provenance_tests)
+		):
+			complete = False
+		for name in set(junit_tests) & set(provenance_tests):
+			junit_test = junit_tests[name]
+			provenance_test = provenance_tests[name]
+			if (
+				provenance_test["was_run"] is not True
+				or provenance_test["status"] in {"not_run", "skipped"}
+			):
+				complete = False
+			if (
+				provenance_test["status"] != junit_test["status"]
+				or provenance_test["assertion_count"] != junit_test["assertion_count"]
+				or not math.isclose(
+					provenance_test["duration_seconds"],
+					junit_test["duration_seconds"],
+					rel_tol=0.0,
+					abs_tol=JUNIT_DURATION_SERIALIZATION_TOLERANCE_SECONDS,
+				)
+			):
+				raise GutShardingError(
+					"junit_provenance_test_mismatch",
+					"Controlled GUT provenance does not match the JUnit testcase record.",
+				)
+	if not complete:
+		return False
+	for script in scripts:
+		record = provenance_by_script[script["script"]]
+		if (
+			record["duration_seconds"]
+			+ script["testcase_duration_serialization_tolerance_seconds"]
+			< script["testcase_duration_seconds"]
+		):
+			raise GutShardingError(
+				"junit_provenance_duration_mismatch",
+				"Lifecycle-inclusive script duration cannot be shorter than its testcase sum.",
+			)
+		script["duration_seconds"] = record["duration_seconds"]
+		script["duration_scope"] = JUNIT_LIFECYCLE_DURATION_SCOPE
+		script["assertion_count"] = record["assertion_count"]
+		script["lifecycle_assertion_count"] = record["lifecycle_assertion_count"]
+		script["assertion_counts_complete"] = True
+		script["assertion_count_unknown_reason"] = None
+	return True
 
 
 def build_observation_report(
@@ -588,7 +990,12 @@ def build_observation_report(
 		shard_duration = _finite_sum(
 			(report["duration_seconds"] for report in script_reports),
 			"observation_duration_total_invalid",
-			"A shard observation duration must remain finite.",
+			"A shard lifecycle-inclusive duration must remain finite.",
+		)
+		shard_testcase_duration = _finite_sum(
+			(report["testcase_duration_seconds"] for report in script_reports),
+			"observation_duration_total_invalid",
+			"A shard observation testcase duration must remain finite.",
 		)
 		shard_reports.append({
 			"name": shard["name"],
@@ -596,13 +1003,19 @@ def build_observation_report(
 			"script_count": len(script_reports),
 			"test_count": sum(report["test_count"] for report in script_reports),
 			"duration_seconds": shard_duration,
+			"testcase_duration_seconds": shard_testcase_duration,
+			"duration_scope": JUNIT_LIFECYCLE_DURATION_SCOPE,
 			"status_counts": _sum_status_counts(
 				report["status_counts"] for report in script_reports
 			),
 			"assertion_count": sum(
 				report["assertion_count"] for report in script_reports
 			),
+			"lifecycle_assertion_count": sum(
+				report["lifecycle_assertion_count"] for report in script_reports
+			),
 			"assertion_counts_complete": True,
+			"assertion_count_unknown_reason": None,
 			"failure_assertion_count": sum(
 				report["failure_assertion_count"] for report in script_reports
 			),
@@ -614,7 +1027,12 @@ def build_observation_report(
 	duration_seconds = _finite_sum(
 		(shard["duration_seconds"] for shard in shard_reports),
 		"observation_duration_total_invalid",
-		"The full observation duration must remain finite.",
+		"The full lifecycle-inclusive observation duration must remain finite.",
+	)
+	testcase_duration_seconds = _finite_sum(
+		(shard["testcase_duration_seconds"] for shard in shard_reports),
+		"observation_duration_total_invalid",
+		"The full observation testcase duration must remain finite.",
 	)
 	status_counts = _sum_status_counts(
 		shard["status_counts"] for shard in shard_reports
@@ -632,6 +1050,8 @@ def build_observation_report(
 		"script_count": normalized_manifest["script_count"],
 		"test_count": test_count,
 		"duration_seconds": duration_seconds,
+		"testcase_duration_seconds": testcase_duration_seconds,
+		"duration_scope": JUNIT_LIFECYCLE_DURATION_SCOPE,
 		"status_counts": status_counts,
 		"failure_test_count": junit_report["failure_test_count"],
 		"failure_assertion_count": sum(
@@ -643,7 +1063,11 @@ def build_observation_report(
 		"assertion_count": sum(
 			int(shard["assertion_count"]) for shard in shard_reports
 		),
+		"lifecycle_assertion_count": sum(
+			int(shard["lifecycle_assertion_count"]) for shard in shard_reports
+		),
 		"assertion_counts_complete": True,
+		"assertion_count_unknown_reason": None,
 		"shards": shard_reports,
 	}
 
@@ -660,6 +1084,7 @@ def _validate_observation_script_record(report: Mapping[str, Any]) -> None:
 		"failure_assertion_count",
 		"pending_assertion_count",
 		"assertion_count",
+		"lifecycle_assertion_count",
 		"failure_test_count_lower_bound",
 		"failure_test_count_upper_bound",
 	):
@@ -670,18 +1095,24 @@ def _validate_observation_script_record(report: Mapping[str, Any]) -> None:
 			)
 	for field in (
 		"duration_seconds",
-		"test_duration_sum_seconds",
-		"duration_serialization_tolerance_seconds",
+		"testcase_duration_seconds",
+		"testcase_duration_sum_seconds",
+		"testcase_duration_serialization_tolerance_seconds",
 	):
 		if type(report[field]) is not float or not math.isfinite(report[field]) or report[field] < 0.0:
 			raise GutShardingError(
 				"observation_script_value_invalid",
 				"Observation script durations must be finite non-negative floats.",
 			)
+	if report["duration_scope"] != JUNIT_LIFECYCLE_DURATION_SCOPE:
+		raise GutShardingError(
+			"observation_script_value_invalid",
+			"Controlled GUT timing must be lifecycle-inclusive.",
+		)
 	if report["assertion_counts_complete"] is not True:
 		raise GutShardingError(
 			"observation_script_value_invalid",
-			"Controlled GUT assertion counts must be complete.",
+			"Controlled GUT assertion counts must include lifecycle assertions.",
 		)
 	if report["assertion_count_unknown_reason"] is not None:
 		raise GutShardingError(
@@ -769,36 +1200,51 @@ def _validate_observation_script_record(report: Mapping[str, Any]) -> None:
 			"observation_script_count_mismatch",
 			"Observation testcase statuses do not match script status counts.",
 		)
-	if calculated_assertion_count != report["assertion_count"]:
+	if (
+		calculated_assertion_count + report["lifecycle_assertion_count"]
+		!= report["assertion_count"]
+	):
 		raise GutShardingError(
 			"observation_script_count_mismatch",
-			"Observation testcase assertions do not match the script total.",
+			"Observation testcase and lifecycle assertions do not match the script total.",
 		)
 	if not math.isclose(
 		calculated_duration,
-		report["test_duration_sum_seconds"],
+		report["testcase_duration_sum_seconds"],
 		rel_tol=0.0,
-		abs_tol=report["duration_serialization_tolerance_seconds"],
+		abs_tol=report["testcase_duration_serialization_tolerance_seconds"],
 	):
 		raise GutShardingError(
 			"observation_script_count_mismatch",
 			"Observation testcase durations do not match the script total.",
 		)
 	if not math.isclose(
-		report["duration_seconds"],
-		report["test_duration_sum_seconds"],
+		report["testcase_duration_seconds"],
+		report["testcase_duration_sum_seconds"],
 		rel_tol=0.0,
-		abs_tol=report["duration_serialization_tolerance_seconds"],
+		abs_tol=report["testcase_duration_serialization_tolerance_seconds"],
 	):
 		raise GutShardingError(
 			"observation_script_count_mismatch",
-			"Observation script duration does not match its testcase sum.",
+			"Observation exporter testcase duration does not match its testcase sum.",
+		)
+	if (
+		report["duration_seconds"]
+		+ report["testcase_duration_serialization_tolerance_seconds"]
+		< report["testcase_duration_seconds"]
+	):
+		raise GutShardingError(
+			"observation_script_count_mismatch",
+			"Observation lifecycle duration cannot be shorter than its testcase sum.",
 		)
 	expected_duration_tolerance = max(
 		1e-9,
 		(report["test_count"] + 1) * JUNIT_DURATION_SERIALIZATION_TOLERANCE_SECONDS,
 	)
-	if report["duration_serialization_tolerance_seconds"] != expected_duration_tolerance:
+	if (
+		report["testcase_duration_serialization_tolerance_seconds"]
+		!= expected_duration_tolerance
+	):
 		raise GutShardingError(
 			"observation_script_count_mismatch",
 			"Observation script duration tolerance does not match the parser contract.",
@@ -837,7 +1283,11 @@ def _validate_observation_junit_report(report: Mapping[str, Any]) -> None:
 		or report["ok"] is not True
 		or type(report["source_format"]) is not str
 		or report["source_format"] != "gut_junit_xml"
+		or not _is_sha256_hex(report["junit_sha256"])
+		or not _is_sha256_hex(report["provenance_sha256"])
 		or report["input_complete"] is not True
+		or report["completeness_basis"] != JUNIT_COMPLETENESS_CONTROLLED_RUN
+		or report["duration_scope"] != JUNIT_LIFECYCLE_DURATION_SCOPE
 		or report["assertion_counts_complete"] is not True
 		or report["assertion_count_unknown_reason"] is not None
 	):
@@ -853,6 +1303,7 @@ def _validate_observation_junit_report(report: Mapping[str, Any]) -> None:
 		"failure_assertion_count",
 		"pending_assertion_count",
 		"assertion_count",
+		"lifecycle_assertion_count",
 	):
 		if type(report[field]) is not int or report[field] < 0:
 			raise GutShardingError(
@@ -860,9 +1311,12 @@ def _validate_observation_junit_report(report: Mapping[str, Any]) -> None:
 				"JUnit observation counts must be non-negative integers.",
 			)
 	if (
-		type(report["duration_seconds"]) is not float
-		or not math.isfinite(report["duration_seconds"])
-		or report["duration_seconds"] < 0.0
+		any(
+			type(report[field]) is not float
+			or not math.isfinite(report[field])
+			or report[field] < 0.0
+			for field in ("duration_seconds", "testcase_duration_seconds")
+		)
 	):
 		raise GutShardingError(
 			"observation_junit_value_invalid",
@@ -903,10 +1357,18 @@ def _validate_observation_junit_report(report: Mapping[str, Any]) -> None:
 	calculated_pending_assertions = sum(
 		script["pending_assertion_count"] for script in scripts
 	)
+	calculated_lifecycle_assertions = sum(
+		script["lifecycle_assertion_count"] for script in scripts
+	)
 	calculated_duration = _finite_sum(
 		(script["duration_seconds"] for script in scripts),
 		"observation_junit_value_invalid",
 		"JUnit observation script durations must remain finite.",
+	)
+	calculated_testcase_duration = _finite_sum(
+		(script["testcase_duration_seconds"] for script in scripts),
+		"observation_junit_value_invalid",
+		"JUnit observation testcase durations must remain finite.",
 	)
 	failure_lower = sum(
 		script["failure_test_count_lower_bound"] for script in scripts
@@ -923,7 +1385,9 @@ def _validate_observation_junit_report(report: Mapping[str, Any]) -> None:
 		or calculated_assertion_count != report["assertion_count"]
 		or calculated_failure_assertions != report["failure_assertion_count"]
 		or calculated_pending_assertions != report["pending_assertion_count"]
+		or calculated_lifecycle_assertions != report["lifecycle_assertion_count"]
 		or calculated_duration != report["duration_seconds"]
+		or calculated_testcase_duration != report["testcase_duration_seconds"]
 		or not failure_lower <= report["failure_test_count"] <= failure_upper
 	):
 		raise GutShardingError(
@@ -994,7 +1458,8 @@ def _scan_test_inventory(
 	stack = [(tests_root, root_chain)]
 	entry_count = 0
 	directory_count = 0
-	candidates: dict[str, tuple[int, int, int, int, int, int, str]] = {}
+	sources: dict[str, dict[str, Any]] = {}
+	candidate_paths: list[str] = []
 	portable_identities: dict[str, str] = {}
 	total_script_bytes = 0
 	while stack:
@@ -1072,13 +1537,13 @@ def _scan_test_inventory(
 					"inventory_special_file_forbidden",
 					"GUT inventory must contain only regular files and directories.",
 				)
-			relative = Path(entry.path).relative_to(tests_root).as_posix()
-			resource_path = f"{INVENTORY_ROOT}/{relative}"
-			if not _looks_like_real_test_script(resource_path):
+			entry_path = Path(entry.path)
+			if entry_path.suffix != ".gd":
 				continue
-			normalized = _normalize_test_script_path(resource_path)
+			relative = entry_path.relative_to(tests_root).as_posix()
+			resource_path = f"{INVENTORY_ROOT}/{relative}"
 			expected_file_identity = _inventory_file_identity(entry_stat)
-			path_file_identity = _inventory_file_identity(Path(entry.path).lstat())
+			path_file_identity = _inventory_file_identity(entry_path.lstat())
 			if not _compatible_inventory_file_identity(
 				expected_file_identity,
 				path_file_identity,
@@ -1088,7 +1553,7 @@ def _scan_test_inventory(
 					"GUT test source identity changed after enumeration.",
 				)
 			script_bytes = _read_stable_regular_file(
-				Path(entry.path),
+				entry_path,
 				MAX_INVENTORY_SCRIPT_BYTES,
 				"inventory_script",
 				expected_file_identity=path_file_identity,
@@ -1113,16 +1578,15 @@ def _scan_test_inventory(
 					"inventory_script_utf8_invalid",
 					"GUT test scripts must use strict UTF-8.",
 				) from error
-			if not _script_extends_gut_test(script_text):
-				raise GutShardingError(
-					"inventory_test_contract_invalid",
-					"Every discovered test_*.gd script must extend GutTest.",
-				)
-			if _GUT_INNER_TEST_CLASS_RE.search(_mask_gdscript_noncode(script_text)):
-				raise GutShardingError(
-					"inventory_inner_test_class_unsupported",
-					"GUT shard observations do not yet support inner GutTest classes.",
-				)
+			sources[resource_path] = {
+				"path": entry_path,
+				"text": script_text,
+				"sha256": hashlib.sha256(script_bytes).hexdigest(),
+				"identity": path_file_identity,
+			}
+			if not _looks_like_real_test_script(resource_path):
+				continue
+			normalized = _normalize_test_script_path(resource_path)
 			identity_key = _portable_identity(normalized)
 			prior = portable_identities.get(identity_key)
 			if prior is not None and prior != normalized:
@@ -1131,11 +1595,8 @@ def _scan_test_inventory(
 					"GUT script paths have a portable identity collision.",
 				)
 			portable_identities[identity_key] = normalized
-			candidates[normalized] = (
-				*_inventory_file_identity(Path(entry.path).lstat()),
-				hashlib.sha256(script_bytes).hexdigest(),
-			)
-			if len(candidates) > MAX_INVENTORY_SCRIPTS:
+			candidate_paths.append(normalized)
+			if len(candidate_paths) > MAX_INVENTORY_SCRIPTS:
 				raise GutShardingError(
 					"inventory_script_budget_exceeded",
 					"GUT inventory exceeds the test-script budget.",
@@ -1144,19 +1605,346 @@ def _scan_test_inventory(
 		_validate_directory_chain(directory_chain, "inventory_directory_changed")
 	_validate_directory_chain(root_chain, "inventory_directory_changed")
 	_check_deadline(deadline)
+	class_name_index = _inventory_class_name_index(sources)
+	candidates: dict[str, tuple[int, int, int, int, int, int, str]] = {}
+	for resource_path in sorted(candidate_paths):
+		_check_deadline(deadline)
+		visited: set[str] = set()
+		if not _source_inherits_gut_test(
+			resource_path,
+			sources,
+			class_name_index,
+			visited,
+			(),
+		):
+			raise GutShardingError(
+				"inventory_test_contract_invalid",
+				"Every discovered test_*.gd script must inherit GutTest.",
+			)
+		if _source_has_inner_gut_test(
+			resource_path,
+			sources,
+			class_name_index,
+			visited,
+		):
+			raise GutShardingError(
+				"inventory_inner_test_class_unsupported",
+				"GUT shard observations do not yet support inner GutTest classes.",
+			)
+		source = sources[resource_path]
+		final_identity = _inventory_file_identity(source["path"].lstat())
+		if not _compatible_inventory_file_identity(source["identity"], final_identity):
+			raise GutShardingError(
+				"inventory_script_file_changed",
+				"GUT test source identity changed during inheritance resolution.",
+			)
+		dependency_material = [
+			[path, sources[path]["sha256"]]
+			for path in sorted(visited)
+		]
+		candidates[resource_path] = (
+			*final_identity,
+			hashlib.sha256(canonical_json_bytes(dependency_material)).hexdigest(),
+		)
+	for source in sources.values():
+		_check_deadline(deadline)
+		try:
+			final_identity = _inventory_file_identity(source["path"].lstat())
+		except OSError as error:
+			raise GutShardingError(
+				"inventory_script_file_changed",
+				"GUT source identity became unavailable during inheritance resolution.",
+			) from error
+		if not _compatible_inventory_file_identity(source["identity"], final_identity):
+			raise GutShardingError(
+				"inventory_script_file_changed",
+				"GUT source identity changed during inheritance resolution.",
+			)
+	_validate_directory_chain(root_chain, "inventory_directory_changed")
+	_check_deadline(deadline)
 	return candidates
 
 
 def _looks_like_real_test_script(script: str) -> bool:
 	path = PurePosixPath(script.removeprefix("res://"))
-	if not path.name.startswith("test_") or path.suffix != ".gd":
+	return path.name.startswith("test_") and path.suffix == ".gd"
+
+
+def _inventory_class_name_index(
+	sources: Mapping[str, Mapping[str, Any]],
+) -> dict[str, str]:
+	result: dict[str, str] = {}
+	for resource_path, source in sorted(sources.items()):
+		class_name = _top_level_class_name(source["text"])
+		if class_name is None:
+			continue
+		prior = result.get(class_name)
+		if prior is not None and prior != resource_path:
+			raise GutShardingError(
+				"inventory_class_name_duplicate",
+				"GUT inheritance resolution found a duplicate class_name.",
+			)
+		result[class_name] = resource_path
+	return result
+
+
+def _source_inherits_gut_test(
+	resource_path: str,
+	sources: Mapping[str, Mapping[str, Any]],
+	class_name_index: Mapping[str, str],
+	visited: set[str],
+	ancestry: tuple[str, ...],
+) -> bool:
+	if resource_path in ancestry:
+		raise GutShardingError(
+			"inventory_inheritance_cycle",
+			"GUT test inheritance must be acyclic.",
+		)
+	if len(ancestry) >= MAX_INVENTORY_INHERITANCE_DEPTH:
+		raise GutShardingError(
+			"inventory_inheritance_depth_exceeded",
+			"GUT test inheritance exceeds the bounded resolution depth.",
+		)
+	source = sources.get(resource_path)
+	if source is None:
 		return False
-	return not any(part in {"fixture", "fixtures"} for part in path.parts)
+	visited.add(resource_path)
+	reference = _top_level_extends_reference(source["text"])
+	return _reference_inherits_gut_test(
+		reference,
+		resource_path,
+		sources,
+		class_name_index,
+		visited,
+		(*ancestry, resource_path),
+		{},
+	)
 
 
-def _script_extends_gut_test(script_text: str) -> bool:
-	"""Recognize an actual extends line without trusting comments or string text."""
-	return _GUT_TEST_EXTENDS_RE.search(_mask_gdscript_noncode(script_text)) is not None
+def _reference_inherits_gut_test(
+	reference: tuple[str, str] | None,
+	owner_path: str,
+	sources: Mapping[str, Mapping[str, Any]],
+	class_name_index: Mapping[str, str],
+	visited: set[str],
+	ancestry: tuple[str, ...],
+	local_classes: Mapping[str, tuple[str, str] | None],
+	local_ancestry: tuple[str, ...] = (),
+) -> bool:
+	if reference is None:
+		return False
+	kind, value = reference
+	if kind == "symbol":
+		if value == "GutTest":
+			return True
+		if value in local_classes:
+			if value in local_ancestry:
+				raise GutShardingError(
+					"inventory_inner_inheritance_cycle",
+					"Inner GUT test inheritance must be acyclic.",
+				)
+			if len(local_ancestry) >= MAX_INVENTORY_INHERITANCE_DEPTH:
+				raise GutShardingError(
+					"inventory_inheritance_depth_exceeded",
+					"Inner GUT test inheritance exceeds the bounded resolution depth.",
+				)
+			return _reference_inherits_gut_test(
+				local_classes[value],
+				owner_path,
+				sources,
+				class_name_index,
+				visited,
+				ancestry,
+				local_classes,
+				(*local_ancestry, value),
+			)
+		base_path = class_name_index.get(value)
+		if base_path is None:
+			return False
+		return _source_inherits_gut_test(
+			base_path,
+			sources,
+			class_name_index,
+			visited,
+			ancestry,
+		)
+	if kind != "path":
+		return False
+	if value == "res://addons/gut/test.gd":
+		return True
+	base_path = _normalize_inventory_base_path(value)
+	if base_path is None:
+		return False
+	return _source_inherits_gut_test(
+		base_path,
+		sources,
+		class_name_index,
+		visited,
+		ancestry,
+	)
+
+
+def _source_has_inner_gut_test(
+	resource_path: str,
+	sources: Mapping[str, Mapping[str, Any]],
+	class_name_index: Mapping[str, str],
+	visited: set[str],
+) -> bool:
+	source = sources[resource_path]
+	local_classes = _inner_class_bases(source["text"])
+	for name, reference in sorted(local_classes.items()):
+		if not name.startswith("Test"):
+			continue
+		if _reference_inherits_gut_test(
+			reference,
+			resource_path,
+			sources,
+			class_name_index,
+			visited,
+			(resource_path,),
+			local_classes,
+			(name,),
+		):
+			return True
+	return False
+
+
+def _top_level_class_name(script_text: str) -> str | None:
+	masked_lines = _mask_gdscript_noncode(script_text).splitlines()
+	for line in masked_lines:
+		if line != line.lstrip(" \t"):
+			continue
+		match = _GDSCRIPT_CLASS_NAME_RE.fullmatch(line.strip())
+		if match is not None:
+			return match.group("name")
+	return None
+
+
+def _top_level_extends_reference(
+	script_text: str,
+) -> tuple[str, str] | None:
+	raw_lines = script_text.splitlines()
+	masked_lines = _mask_gdscript_noncode(script_text).splitlines()
+	for raw_line, masked_line in zip(raw_lines, masked_lines, strict=True):
+		if raw_line != raw_line.lstrip(" \t"):
+			continue
+		if not masked_line.strip().startswith("extends"):
+			continue
+		return _parse_extends_clause(
+			_strip_gdscript_comment_preserving_strings(raw_line).strip()
+		)
+	return None
+
+
+def _inner_class_bases(
+	script_text: str,
+) -> dict[str, tuple[str, str] | None]:
+	raw_lines = script_text.splitlines()
+	masked_lines = _mask_gdscript_noncode(script_text).splitlines()
+	result: dict[str, tuple[str, str] | None] = {}
+	for line_index, (raw_line, masked_line) in enumerate(
+		zip(raw_lines, masked_lines, strict=True)
+	):
+		if raw_line != raw_line.lstrip(" \t"):
+			continue
+		match = _GDSCRIPT_INNER_CLASS_RE.fullmatch(masked_line.rstrip())
+		if match is None:
+			continue
+		name = match.group("name")
+		code = _strip_gdscript_comment_preserving_strings(raw_line).strip()
+		raw_match = re.fullmatch(
+			r"class[ \t]+[A-Za-z_][A-Za-z0-9_]*"
+			r"(?:[ \t]+extends[ \t]+(?P<base>[^:]+))?[ \t]*:",
+			code,
+		)
+		base_clause = raw_match.group("base") if raw_match is not None else None
+		reference = (
+			_parse_extends_clause(f"extends {base_clause}")
+			if base_clause is not None
+			else _block_inner_extends_reference(raw_lines, masked_lines, line_index)
+		)
+		result[name] = reference
+	return result
+
+
+def _block_inner_extends_reference(
+	raw_lines: list[str],
+	masked_lines: list[str],
+	class_line_index: int,
+) -> tuple[str, str] | None:
+	for line_index in range(class_line_index + 1, len(raw_lines)):
+		raw_line = raw_lines[line_index]
+		masked_line = masked_lines[line_index]
+		if not masked_line.strip():
+			continue
+		if raw_line == raw_line.lstrip(" \t"):
+			return None
+		if masked_line.strip().startswith("extends"):
+			return _parse_extends_clause(
+				_strip_gdscript_comment_preserving_strings(raw_line).strip()
+			)
+		return None
+	return None
+
+
+def _parse_extends_clause(value: str) -> tuple[str, str] | None:
+	match = re.fullmatch(
+		r"extends[ \t]+(?P<base>[A-Za-z_][A-Za-z0-9_.]*)[ \t]*",
+		value,
+	)
+	if match is not None:
+		return "symbol", match.group("base")
+	match = re.fullmatch(
+		r"extends[ \t]+(?:(?:preload|load)\([ \t]*)?"
+		r"(?P<quote>['\"])(?P<path>res://[^'\"\\\r\n]+\.gd)(?P=quote)"
+		r"[ \t]*(?P<close>\))?[ \t]*",
+		value,
+	)
+	if match is None:
+		return None
+	has_loader = "(" in value[:value.find(match.group("quote"))]
+	if has_loader != (match.group("close") is not None):
+		return None
+	return "path", match.group("path")
+
+
+def _strip_gdscript_comment_preserving_strings(line: str) -> str:
+	quote = ""
+	escaped = False
+	for index, character in enumerate(line):
+		if escaped:
+			escaped = False
+			continue
+		if character == "\\" and quote:
+			escaped = True
+			continue
+		if character in {"'", '"'}:
+			if not quote:
+				quote = character
+			elif quote == character:
+				quote = ""
+			continue
+		if character == "#" and not quote:
+			return line[:index]
+	return line
+
+
+def _normalize_inventory_base_path(value: str) -> str | None:
+	prefix = f"{INVENTORY_ROOT}/"
+	if not value.startswith(prefix):
+		return None
+	relative = value[len(prefix):]
+	path = PurePosixPath(relative)
+	if (
+		not relative
+		or relative.startswith("/")
+		or "//" in relative
+		or any(part in {"", ".", ".."} for part in path.parts)
+		or path.as_posix() != relative
+		or path.suffix != ".gd"
+	):
+		return None
+	return value
 
 
 def _mask_gdscript_noncode(script_text: str) -> str:
@@ -1283,6 +2071,11 @@ def _normalize_test_script_path(value: Any) -> str:
 			"test_script_path_invalid",
 			"Test script paths must use portable forward-slash syntax.",
 		)
+	if not _is_unescaped_xml_attribute_safe(value.removeprefix("res://")):
+		raise GutShardingError(
+			"test_script_path_xml_unsafe",
+			"Test script path cannot be serialized by the controlled GUT XML exporter.",
+		)
 	prefix = f"{INVENTORY_ROOT}/"
 	if not value.startswith(prefix):
 		raise GutShardingError(
@@ -1313,6 +2106,21 @@ def _normalize_test_script_path(value: Any) -> str:
 			"Path is not a real GF GUT test script.",
 		)
 	return value
+
+
+def _is_unescaped_xml_attribute_safe(value: str) -> bool:
+	for character in value:
+		codepoint = ord(character)
+		if character in {'&', '<', '"'}:
+			return False
+		if not (
+			codepoint in {0x09, 0x0A, 0x0D}
+			or 0x20 <= codepoint <= 0xD7FF
+			or 0xE000 <= codepoint <= 0xFFFD
+			or 0x10000 <= codepoint <= 0x10FFFF
+		):
+			return False
+	return True
 
 
 def _portable_identity(path: str) -> str:
@@ -1428,8 +2236,10 @@ def _parse_junit_suite(
 	return {
 		"script": script,
 		"duration_seconds": declared_duration,
-		"test_duration_sum_seconds": calculated_duration,
-		"duration_serialization_tolerance_seconds": duration_tolerance,
+		"testcase_duration_seconds": declared_duration,
+		"testcase_duration_sum_seconds": calculated_duration,
+		"testcase_duration_serialization_tolerance_seconds": duration_tolerance,
+		"duration_scope": JUNIT_TESTCASE_DURATION_SCOPE,
 		"test_count": len(tests),
 		"status_counts": status_counts,
 		# GUT 9.7.1 exports per-suite failing and pending assertion counts
@@ -1445,8 +2255,9 @@ def _parse_junit_suite(
 			)
 		),
 		"assertion_count": sum(int(test["assertion_count"]) for test in tests),
-		"assertion_counts_complete": True,
-		"assertion_count_unknown_reason": None,
+		"lifecycle_assertion_count": 0,
+		"assertion_counts_complete": False,
+		"assertion_count_unknown_reason": JUNIT_ASSERTION_COUNT_UNKNOWN_REASON,
 		"tests": tests,
 	}
 

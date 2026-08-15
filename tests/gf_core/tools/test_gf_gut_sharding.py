@@ -42,16 +42,9 @@ class GutInventoryTests(unittest.TestCase):
 		]
 		self.assertEqual(len(assigned), len(set(assigned)))
 		self.assertEqual(set(assigned), set(inventory))
-		self.assertFalse(
-			any(
-				part in {"fixture", "fixtures"}
-				for script in inventory
-				for part in Path(script.removeprefix("res://")).parts
-			)
-		)
 		self.assertIn(gut_sharding.LIFECYCLE_CONTRACT_SCRIPT, inventory)
 
-	def test_inventory_excludes_fixtures_but_keeps_real_support_tests(self) -> None:
+	def test_inventory_includes_runnable_fixture_and_support_tests(self) -> None:
 		with tempfile.TemporaryDirectory() as temporary_directory:
 			root = Path(temporary_directory)
 			self._write_test(root, "kernel/test_real.gd")
@@ -68,6 +61,7 @@ class GutInventoryTests(unittest.TestCase):
 			self.assertEqual(
 				inventory,
 				(
+					"res://tests/gf_core/fixtures/test_fixture.gd",
 					"res://tests/gf_core/kernel/test_real.gd",
 					gut_sharding.LIFECYCLE_CONTRACT_SCRIPT,
 					"res://tests/gf_core/support/test_helper.gd",
@@ -122,6 +116,7 @@ class GutInventoryTests(unittest.TestCase):
 	def test_inventory_rejects_inner_gut_test_classes_until_observation_maps_them(self) -> None:
 		for source in (
 			"extends GutTest\n\nclass TestNested extends GutTest:\n\tfunc test_nested() -> void:\n\t\tpass\n",
+			"extends GutTest\n\nclass TestNested:\n\textends GutTest\n\tfunc test_nested() -> void:\n\t\tpass\n",
 			"extends GutTest\n\nclass Base extends GutTest:\n\tpass\nclass TestNested extends Base:\n\tpass\n",
 		):
 			with self.subTest(source=source), tempfile.TemporaryDirectory() as temporary_directory:
@@ -152,6 +147,67 @@ class GutInventoryTests(unittest.TestCase):
 				inventory,
 				("res://tests/gf_core/kernel/test_no_inner.gd",),
 			)
+
+	def test_inventory_ignores_helper_inner_classes_that_are_not_gut_tests(self) -> None:
+		with tempfile.TemporaryDirectory() as temporary_directory:
+			root = Path(temporary_directory)
+			path = root / "tests/gf_core/kernel/test_helpers.gd"
+			path.parent.mkdir(parents=True)
+			path.write_text(
+				"extends GutTest\n\nclass TestData extends RefCounted:\n\tvar value := 1\n",
+				encoding="utf-8",
+			)
+
+			self.assertEqual(
+				gut_sharding.discover_gut_test_scripts(root),
+				("res://tests/gf_core/kernel/test_helpers.gd",),
+			)
+
+	def test_inventory_resolves_shared_gut_test_bases_by_path_and_class_name(self) -> None:
+		with tempfile.TemporaryDirectory() as temporary_directory:
+			root = Path(temporary_directory)
+			base = root / "tests/gf_core/support/shared_gut_base.gd"
+			base.parent.mkdir(parents=True)
+			base.write_text(
+				'class_name SharedGutBase\nextends "res://addons/gut/test.gd"\n',
+				encoding="utf-8",
+			)
+			path_test = root / "tests/gf_core/kernel/test_path_base.gd"
+			path_test.parent.mkdir(parents=True)
+			path_test.write_text(
+				'extends "res://tests/gf_core/support/shared_gut_base.gd"\n',
+				encoding="utf-8",
+			)
+			class_test = root / "tests/gf_core/kernel/test_class_base.gd"
+			class_test.write_text("extends SharedGutBase\n", encoding="utf-8")
+
+			self.assertEqual(
+				gut_sharding.discover_gut_test_scripts(root),
+				(
+					"res://tests/gf_core/kernel/test_class_base.gd",
+					"res://tests/gf_core/kernel/test_path_base.gd",
+				),
+			)
+
+	def test_inventory_rejects_paths_the_controlled_xml_exporter_cannot_escape(self) -> None:
+		with tempfile.TemporaryDirectory() as temporary_directory:
+			root = Path(temporary_directory)
+			self._write_test(root, "kernel/test_xml&unsafe.gd")
+
+			with self.assertRaisesRegex(
+				gut_sharding.GutShardingError,
+				"test_script_path_xml_unsafe",
+			):
+				gut_sharding.discover_gut_test_scripts(root)
+
+		for unsafe in ('"', "<", "\ufffe"):
+			with self.subTest(character=repr(unsafe)), self.assertRaisesRegex(
+				gut_sharding.GutShardingError,
+				"test_script_path_xml_unsafe",
+			):
+				gut_sharding._normalize_test_script_path(  # noqa: SLF001
+					f"res://tests/gf_core/kernel/test_xml{unsafe}unsafe.gd"
+				)
 
 	def test_inventory_rejects_invalid_utf8_test_source(self) -> None:
 		with tempfile.TemporaryDirectory() as temporary_directory:
@@ -374,30 +430,98 @@ class GutInventoryTests(unittest.TestCase):
 				"extends GutTest\n",
 				encoding="utf-8",
 			)
-			real_identity = gut_sharding._inventory_file_identity  # noqa: SLF001
-			identity_call_count = 0
+			real_scan = gut_sharding._scan_test_inventory  # noqa: SLF001
+			real_validate = gut_sharding._validate_directory_chain  # noqa: SLF001
+			scan_number = 0
+			queued_validation_count = 0
+
+			def track_scan(scan_root: Path, deadline: float) -> object:
+				nonlocal scan_number
+				scan_number += 1
+				return real_scan(scan_root, deadline)
 
 			def replace_after_second_scan_tail(
-				metadata: os.stat_result,
-			) -> tuple[int, int, int, int, int, int]:
-				nonlocal identity_call_count
-				identity = real_identity(metadata)
-				identity_call_count += 1
-				if identity_call_count == 6:
-					queued.rename(root / "queued-original")
-					replacement.rename(queued)
-				return identity
+				chain: tuple[tuple[Path, tuple[int, int, int]], ...],
+				code: str,
+			) -> None:
+				nonlocal queued_validation_count
+				if scan_number == 2 and chain[-1][0] == queued:
+					queued_validation_count += 1
+					if queued_validation_count == 2:
+						queued.rename(root / "queued-original")
+						replacement.rename(queued)
+				real_validate(chain, code)
 
 			with mock.patch.object(
 				gut_sharding,
-				"_inventory_file_identity",
+				"_scan_test_inventory",
+				side_effect=track_scan,
+			), mock.patch.object(
+				gut_sharding,
+				"_validate_directory_chain",
 				side_effect=replace_after_second_scan_tail,
 			), self.assertRaisesRegex(
 				gut_sharding.GutShardingError,
 				"inventory_directory_changed",
 			):
 				gut_sharding.discover_gut_test_scripts(root)
-			self.assertEqual(identity_call_count, 6)
+			self.assertEqual(scan_number, 2)
+			self.assertEqual(queued_validation_count, 2)
+
+	def test_inventory_rejects_second_scan_tail_shared_base_replacement(self) -> None:
+		with tempfile.TemporaryDirectory() as temporary_directory:
+			root = Path(temporary_directory)
+			base = root / "tests/gf_core/support/shared_gut_base.gd"
+			base.parent.mkdir(parents=True)
+			base.write_text(
+				"class_name SharedGutBase\nextends GutTest\n",
+				encoding="utf-8",
+			)
+			test_path = root / "tests/gf_core/kernel/test_shared_base.gd"
+			test_path.parent.mkdir(parents=True)
+			test_path.write_text("extends SharedGutBase\n", encoding="utf-8")
+			real_scan = gut_sharding._scan_test_inventory  # noqa: SLF001
+			real_inner_check = gut_sharding._source_has_inner_gut_test  # noqa: SLF001
+			scan_number = 0
+			replaced = False
+
+			def track_scan(scan_root: Path, deadline: float) -> object:
+				nonlocal scan_number
+				scan_number += 1
+				return real_scan(scan_root, deadline)
+
+			def replace_base_after_second_inheritance(
+				resource_path: str,
+				*args: object,
+				**kwargs: object,
+			) -> bool:
+				nonlocal replaced
+				result = real_inner_check(resource_path, *args, **kwargs)
+				if scan_number == 2 and not replaced:
+					replacement = base.with_name("shared_gut_base_replacement.gd")
+					replacement.write_text(
+						"class_name SharedGutBase\nextends Node\n",
+						encoding="utf-8",
+					)
+					os.replace(replacement, base)
+					replaced = True
+				return result
+
+			with mock.patch.object(
+				gut_sharding,
+				"_scan_test_inventory",
+				side_effect=track_scan,
+			), mock.patch.object(
+				gut_sharding,
+				"_source_has_inner_gut_test",
+				side_effect=replace_base_after_second_inheritance,
+			), self.assertRaisesRegex(
+				gut_sharding.GutShardingError,
+				"inventory_script_file_changed",
+			):
+				gut_sharding.discover_gut_test_scripts(root)
+			self.assertEqual(scan_number, 2)
+			self.assertTrue(replaced)
 
 	@staticmethod
 	def _write_test(root: Path, relative_path: str) -> Path:
@@ -658,7 +782,12 @@ class GutJunitTests(unittest.TestCase):
 				"skipped": 0,
 			},
 		)
-		self.assertAlmostEqual(result["duration_seconds"], 0.875)
+		self.assertAlmostEqual(result["duration_seconds"], 0.895)
+		self.assertAlmostEqual(result["testcase_duration_seconds"], 0.875)
+		self.assertEqual(
+			result["duration_scope"],
+			gut_sharding.JUNIT_LIFECYCLE_DURATION_SCOPE,
+		)
 		self.assertEqual(result["assertion_count"], 4)
 		self.assertTrue(result["assertion_counts_complete"])
 		self.assertIsNone(result["assertion_count_unknown_reason"])
@@ -684,6 +813,172 @@ class GutJunitTests(unittest.TestCase):
 			],
 		)
 		self.assertEqual(result["scripts"][1]["tests"][0]["status"], "pending")
+
+	def test_plain_junit_marks_coverage_and_lifecycle_assertions_incomplete(self) -> None:
+		xml = self._junit_xml([
+			self._suite_xml(
+				self.SCRIPT_ALPHA,
+				[self._test_xml("test_alpha", "pass", "0.1", assertions="1")],
+			),
+		])
+
+		result = self._parse(
+			xml,
+			expected=(self.SCRIPT_ALPHA,),
+			with_provenance=False,
+		)
+
+		self.assertFalse(result["input_complete"])
+		self.assertEqual(
+			result["completeness_basis"],
+			gut_sharding.JUNIT_COMPLETENESS_SCRIPT_NAMES_ONLY,
+		)
+		self.assertFalse(result["assertion_counts_complete"])
+		self.assertEqual(
+			result["assertion_count_unknown_reason"],
+			gut_sharding.JUNIT_ASSERTION_COUNT_UNKNOWN_REASON,
+		)
+		self.assertEqual(
+			result["duration_scope"],
+			gut_sharding.JUNIT_TESTCASE_DURATION_SCOPE,
+		)
+
+	def test_bound_provenance_adds_lifecycle_assertions_and_wall_time(self) -> None:
+		xml = self._junit_xml([
+			self._suite_xml(
+				self.SCRIPT_ALPHA,
+				[self._test_xml("test_alpha", "pass", "0.1", assertions="2")],
+			),
+		])
+
+		result = self._parse(
+			xml,
+			expected=(self.SCRIPT_ALPHA,),
+			lifecycle_assertions=3,
+		)
+
+		self.assertTrue(result["input_complete"])
+		self.assertEqual(result["assertion_count"], 5)
+		self.assertEqual(result["lifecycle_assertion_count"], 3)
+		self.assertTrue(result["assertion_counts_complete"])
+		self.assertAlmostEqual(result["duration_seconds"], 0.11)
+		self.assertAlmostEqual(result["testcase_duration_seconds"], 0.1)
+
+	def test_filtered_provenance_cannot_claim_complete_testcase_coverage(self) -> None:
+		xml = self._junit_xml([
+			self._suite_xml(
+				self.SCRIPT_ALPHA,
+				[self._test_xml("test_alpha", "pass", "0.1", assertions="1")],
+			),
+		])
+
+		result = self._parse(
+			xml,
+			expected=(self.SCRIPT_ALPHA,),
+			unfiltered=False,
+		)
+
+		self.assertFalse(result["input_complete"])
+		self.assertFalse(result["assertion_counts_complete"])
+
+	def test_provenance_binds_the_invocation_nonce_and_exact_junit_bytes(self) -> None:
+		xml = self._junit_xml([
+			self._suite_xml(
+				self.SCRIPT_ALPHA,
+				[self._test_xml("test_alpha", "pass", "0.1", assertions="1")],
+			),
+		])
+		nonce = "a" * 64
+		for field, value, error_code in (
+			("nonce", "b" * 64, "junit_provenance_nonce_mismatch"),
+			("junit_sha256", "0" * 64, "junit_provenance_junit_digest_mismatch"),
+		):
+			payload = self._provenance_from_xml(xml, nonce)
+			payload[field] = value
+			with self.subTest(field=field), self.assertRaisesRegex(
+				gut_sharding.GutShardingError,
+				error_code,
+			):
+				self._parse_with_provenance_payload(
+					xml,
+					payload,
+					expected=(self.SCRIPT_ALPHA,),
+					expected_nonce=nonce,
+				)
+
+	def test_provenance_execution_gaps_cannot_claim_complete_coverage(self) -> None:
+		xml = self._junit_xml([
+			self._suite_xml(
+				self.SCRIPT_ALPHA,
+				[self._test_xml("test_alpha", "pass", "0.1", assertions="1")],
+			),
+		])
+		nonce = "a" * 64
+
+		def omit_test(payload: dict[str, object]) -> None:
+			script = payload["scripts"][0]
+			script["tests"] = []
+			script["assertion_count"] = 0
+
+		mutations = (
+			("script_not_run", lambda payload: payload["scripts"][0].__setitem__("was_run", False)),
+			("script_skipped", lambda payload: payload["scripts"][0].__setitem__("was_skipped", True)),
+			("test_not_run", lambda payload: payload["scripts"][0]["tests"][0].__setitem__("was_run", False)),
+			("inner_class", lambda payload: payload["scripts"][0].__setitem__("inner_class", "TestInner")),
+			("missing_test", omit_test),
+		)
+		for name, mutate in mutations:
+			payload = self._provenance_from_xml(xml, nonce)
+			mutate(payload)
+			with self.subTest(gap=name):
+				result = self._parse_with_provenance_payload(
+					xml,
+					payload,
+					expected=(self.SCRIPT_ALPHA,),
+					expected_nonce=nonce,
+				)
+				self.assertFalse(result["input_complete"])
+				self.assertFalse(result["assertion_counts_complete"])
+
+	def test_provenance_rejects_inconsistent_assertions_and_lifecycle_time(self) -> None:
+		xml = self._junit_xml([
+			self._suite_xml(
+				self.SCRIPT_ALPHA,
+				[self._test_xml("test_alpha", "pass", "0.1", assertions="1")],
+			),
+		])
+		nonce = "a" * 64
+
+		def mismatch_assertions(payload: dict[str, object]) -> None:
+			payload["scripts"][0]["assertion_count"] = 2
+
+		def shorten_lifecycle(payload: dict[str, object]) -> None:
+			payload["scripts"][0]["duration_seconds"] = 0.01
+
+		for name, mutate, error_code in (
+			(
+				"assertions",
+				mismatch_assertions,
+				"junit_provenance_assertion_count_mismatch",
+			),
+			(
+				"duration",
+				shorten_lifecycle,
+				"junit_provenance_duration_mismatch",
+			),
+		):
+			payload = self._provenance_from_xml(xml, nonce)
+			mutate(payload)
+			with self.subTest(field=name), self.assertRaisesRegex(
+				gut_sharding.GutShardingError,
+				error_code,
+			):
+				self._parse_with_provenance_payload(
+					xml,
+					payload,
+					expected=(self.SCRIPT_ALPHA,),
+					expected_nonce=nonce,
+				)
 
 	def test_parser_accepts_real_exporter_assertion_counters_and_all_statuses(self) -> None:
 		tests = [
@@ -1219,7 +1514,18 @@ class GutJunitTests(unittest.TestCase):
 		result = self._parse(self._junit_xml([suite]))
 
 		self.assertEqual(result["scripts"][0]["duration_seconds"], 0.000001)
-		self.assertEqual(result["scripts"][0]["test_duration_sum_seconds"], 0.000002)
+		self.assertEqual(
+			result["scripts"][0]["duration_scope"],
+			gut_sharding.JUNIT_TESTCASE_DURATION_SCOPE,
+		)
+		self.assertEqual(
+			result["scripts"][0]["testcase_duration_seconds"],
+			0.000001,
+		)
+		self.assertEqual(
+			result["scripts"][0]["testcase_duration_sum_seconds"],
+			0.000002,
+		)
 
 	def test_parser_rejects_nonfinite_aggregate_duration(self) -> None:
 		suites = []
@@ -1287,7 +1593,8 @@ class GutJunitTests(unittest.TestCase):
 		self.assertFalse(report["performance_balance_claimed"])
 		self.assertEqual(report["balancing_basis"], "bootstrap_unweighted")
 		self.assertEqual(report["test_count"], 3)
-		self.assertAlmostEqual(report["duration_seconds"], 0.35)
+		self.assertAlmostEqual(report["duration_seconds"], 0.38)
+		self.assertAlmostEqual(report["testcase_duration_seconds"], 0.35)
 		self.assertEqual(
 			report["status_counts"],
 			{
@@ -1305,7 +1612,7 @@ class GutJunitTests(unittest.TestCase):
 		self.assertEqual(sum(shard["script_count"] for shard in report["shards"]), 3)
 		self.assertAlmostEqual(
 			sum(shard["duration_seconds"] for shard in report["shards"]),
-			0.35,
+			0.38,
 		)
 
 	def test_observation_rejects_coerced_parser_record_types(self) -> None:
@@ -1364,7 +1671,7 @@ class GutJunitTests(unittest.TestCase):
 		def mutate_duration_contract(value: dict[str, object]) -> None:
 			script = value["scripts"][0]
 			script["duration_seconds"] = 9.0
-			script["duration_serialization_tolerance_seconds"] = 10.0
+			script["testcase_duration_serialization_tolerance_seconds"] = 10.0
 			value["duration_seconds"] = 9.0
 
 		def mutate_pending_contract(value: dict[str, object]) -> None:
@@ -1424,14 +1731,114 @@ class GutJunitTests(unittest.TestCase):
 		xml: str,
 		*,
 		expected: tuple[str, ...] | None = None,
+		with_provenance: bool = True,
+		lifecycle_assertions: int = 0,
+		unfiltered: bool = True,
 	) -> dict[str, object]:
 		with tempfile.TemporaryDirectory() as temporary_directory:
 			path = Path(temporary_directory) / "gut.xml"
 			path.write_text(xml, encoding="utf-8", newline="\n")
+			provenance_path: Path | None = None
+			nonce: str | None = None
+			if expected is not None and with_provenance:
+				nonce = "a" * 64
+				provenance_path = Path(temporary_directory) / "gut-provenance.json"
+				provenance_path.write_text(
+					json.dumps(
+						self._provenance_from_xml(
+							xml,
+							nonce,
+							lifecycle_assertions=lifecycle_assertions,
+							unfiltered=unfiltered,
+						),
+						ensure_ascii=False,
+						allow_nan=False,
+						separators=(",", ":"),
+						sort_keys=True,
+					),
+					encoding="utf-8",
+					newline="\n",
+				)
 			return gut_sharding.parse_gut_junit_xml(
 				path,
 				expected_scripts=expected,
+				trusted_unfiltered_run=provenance_path is not None,
+				provenance_path=provenance_path,
+				expected_provenance_nonce=nonce,
 			)
+
+	@staticmethod
+	def _parse_with_provenance_payload(
+		xml: str,
+		payload: dict[str, object],
+		*,
+		expected: tuple[str, ...],
+		expected_nonce: str,
+	) -> dict[str, object]:
+		with tempfile.TemporaryDirectory() as temporary_directory:
+			root = Path(temporary_directory)
+			junit_path = root / "gut.xml"
+			junit_path.write_text(xml, encoding="utf-8", newline="\n")
+			provenance_path = root / "gut-provenance.json"
+			provenance_path.write_text(
+				json.dumps(
+					payload,
+					ensure_ascii=False,
+					allow_nan=False,
+					separators=(",", ":"),
+					sort_keys=True,
+				),
+				encoding="utf-8",
+				newline="\n",
+			)
+			return gut_sharding.parse_gut_junit_xml(
+				junit_path,
+				expected_scripts=expected,
+				trusted_unfiltered_run=True,
+				provenance_path=provenance_path,
+				expected_provenance_nonce=expected_nonce,
+			)
+
+	@staticmethod
+	def _provenance_from_xml(
+		xml: str,
+		nonce: str,
+		*,
+		lifecycle_assertions: int = 0,
+		unfiltered: bool = True,
+	) -> dict[str, object]:
+		root = gut_sharding.ET.fromstring(xml)
+		scripts: list[dict[str, object]] = []
+		for suite in root.findall("testsuite"):
+			tests: list[dict[str, object]] = []
+			for test in suite.findall("testcase"):
+				tests.append({
+					"name": test.attrib["name"],
+					"was_run": True,
+					"status": test.attrib["status"],
+					"assertion_count": int(test.attrib["assertions"]),
+					"duration_seconds": float(test.attrib["time"]),
+				})
+			test_duration = sum(float(test["duration_seconds"]) for test in tests)
+			test_assertions = sum(int(test["assertion_count"]) for test in tests)
+			scripts.append({
+				"script": f"res://{suite.attrib['name']}",
+				"inner_class": "",
+				"was_run": True,
+				"was_skipped": False,
+				"duration_seconds": test_duration + 0.01,
+				"assertion_count": test_assertions + lifecycle_assertions,
+				"lifecycle_assertion_count": lifecycle_assertions,
+				"tests": tests,
+			})
+		return {
+			"schema_version": 1,
+			"nonce": nonce,
+			"junit_sha256": gut_sharding.hashlib.sha256(xml.encode("utf-8")).hexdigest(),
+			"unfiltered": unfiltered,
+			"script_count": len(scripts),
+			"scripts": scripts,
+		}
 
 	@staticmethod
 	def _junit_xml(suites: list[str]) -> str:

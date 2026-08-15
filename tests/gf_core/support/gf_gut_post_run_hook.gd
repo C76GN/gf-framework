@@ -25,6 +25,9 @@ func run() -> void:
 	for _frame_index: int in range(SETTLE_FRAME_COUNT):
 		await gut_main.get_tree().process_frame
 
+	var observation_captured: bool = (
+		GF_GUT_LIFECYCLE_STATE_SCRIPT.capture_gut_observation(gut_main)
+	)
 	# Switch the raw logger first so warnings racing the tracker snapshot fail closed.
 	GF_GUT_LIFECYCLE_STATE_SCRIPT.begin_terminal_capture()
 	var warning_snapshot: Dictionary = _collect_unhandled_warnings(gut_main)
@@ -43,7 +46,7 @@ func run() -> void:
 			orphan_snapshot
 		)
 	)
-	if not snapshot_clean:
+	if not observation_captured or not snapshot_clean:
 		set_exit_code(EXIT_FAILURE)
 
 
