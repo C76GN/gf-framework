@@ -1522,6 +1522,70 @@ class ValidationShadowIntegrationTests(unittest.TestCase):
 					shadow_deadline_seconds=1.0,
 				)
 
+	def test_advisory_deadline_translates_and_caps_the_suite_clock(self) -> None:
+		with mock.patch.object(
+			gf_maintenance.time,
+			"monotonic",
+			return_value=1_000.0,
+		), mock.patch.object(
+			gf_maintenance.time,
+			"perf_counter",
+			return_value=100.0,
+		):
+			self.assertEqual(
+				gf_maintenance.advisory_collection_deadline(15.0, 104.0),
+				1_004.0,
+			)
+			self.assertEqual(
+				gf_maintenance.advisory_collection_deadline(15.0, None),
+				1_015.0,
+			)
+
+	def test_shadow_attachment_uses_the_suite_capped_deadline(self) -> None:
+		data = {"checks": ["docs"]}
+		workspace_state = self._workspace_state()
+		with mock.patch.object(
+			gf_maintenance,
+			"advisory_collection_deadline",
+			return_value=123.0,
+		) as deadline, mock.patch.object(
+			gf_maintenance,
+			"make_validation_shadow_report",
+			return_value={"report_ok": True},
+		) as make_report:
+			gf_maintenance.attach_validation_shadow_report(
+				data,
+				workspace_state,
+				suite_deadline=50.0,
+			)
+		deadline.assert_called_once_with(
+			gf_maintenance.VALIDATION_SHADOW_COLLECTION_TIMEOUT_SECONDS,
+			50.0,
+		)
+		self.assertEqual(make_report.call_args.kwargs["shadow_deadline_seconds"], 123.0)
+
+	def test_exhausted_suite_budget_makes_shadow_fail_closed_immediately(self) -> None:
+		data = {"checks": ["docs"]}
+		with mock.patch.object(
+			gf_maintenance,
+			"advisory_collection_deadline",
+			return_value=10.0,
+		), mock.patch.object(
+			gf_maintenance.time,
+			"monotonic",
+			return_value=10.0,
+		), mock.patch.object(
+			gf_maintenance.gf_validation_test_inventory,
+			"collect_test_inventory",
+		) as inventory:
+			gf_maintenance.attach_validation_shadow_report(
+				data,
+				self._workspace_state(),
+				suite_deadline=1.0,
+			)
+		self.assertEqual(data["validation_shadow"]["errors"], ["shadow_deadline_exceeded"])
+		inventory.assert_not_called()
+
 	def test_ordinary_dependency_pass_does_not_change_shadow_action_key(self) -> None:
 		workspace_state = self._workspace_state()
 
@@ -1560,6 +1624,166 @@ class ValidationShadowIntegrationTests(unittest.TestCase):
 		self.assertEqual(
 			first_evidence["action_key_material"]["dependency_artifacts"],
 			{},
+		)
+
+	def test_package_artifact_action_key_uses_digest_not_ephemeral_path(self) -> None:
+		workspace_state = self._workspace_state()
+
+		def report(manifest_path: str, digest: str) -> dict[str, object]:
+			data = {
+				"ok": True,
+				"suite": "package-contract",
+				"checks": ["package_build_boundary"],
+				"package_artifact_set": {
+					"reused": False,
+					"manifest_sha256": digest,
+					"artifact_count": 1,
+					"workspace_fingerprint": "a" * 64,
+				},
+				"results": [{
+					"name": "package_build_boundary",
+					"command": [
+						"python",
+						"tools/gf_maintenance.py",
+						"package-build-boundary",
+						"--package-artifact-manifest",
+						manifest_path,
+						"--package-artifact-manifest-sha256",
+						digest,
+					],
+					"execution": "in_process",
+					"exit_code": 0,
+					"timed_out": False,
+					"cancelled": False,
+					"duration_seconds": 0.1,
+					"result_fingerprint": "e" * 64,
+				}],
+			}
+			with mock.patch.object(
+				gf_maintenance.gf_validation_test_inventory,
+				"collect_test_inventory",
+				return_value=self._inventory(),
+			):
+				return gf_maintenance.make_validation_shadow_report(data, workspace_state)
+
+		first = report("C:/temp/gfa-one/manifest.json", "1" * 64)
+		second = report("C:/temp/gfa-two/manifest.json", "1" * 64)
+		changed = report("C:/temp/gfa-two/manifest.json", "2" * 64)
+		first_evidence = first["actions"][0]["shadow_evidence"]
+		second_evidence = second["actions"][0]["shadow_evidence"]
+		changed_evidence = changed["actions"][0]["shadow_evidence"]
+		self.assertEqual(first_evidence["action_key"], second_evidence["action_key"])
+		self.assertNotEqual(first_evidence["action_key"], changed_evidence["action_key"])
+		material = first_evidence["action_key_material"]
+		self.assertIn(
+			gf_maintenance.PACKAGE_ARTIFACT_MANIFEST_ACTION_SENTINEL,
+			material["command"],
+		)
+		self.assertNotIn("C:/temp/gfa-one/manifest.json", material["command"])
+		self.assertEqual(
+			material["dependency_artifacts"],
+			{gf_maintenance.PACKAGE_ARTIFACT_MANIFEST_DEPENDENCY_LABEL: "1" * 64},
+		)
+		with self.assertRaisesRegex(ValueError, "differs from the parent"):
+			gf_maintenance.validation_shadow_action_inputs(
+				{"package_artifact_set": {
+					"reused": False,
+					"manifest_sha256": "1" * 64,
+					"artifact_count": 1,
+					"workspace_fingerprint": "a" * 64,
+				}},
+				"package_build_boundary",
+				[
+					"python",
+					"--package-artifact-manifest",
+					"C:/temp/gfa/manifest.json",
+					"--package-artifact-manifest-sha256",
+					"2" * 64,
+				],
+				workspace_digest="a" * 64,
+				allow_planned_command=False,
+			)
+		malformed_commands = (
+			[
+				"python",
+				"--package-artifact-manifest",
+				"--package-artifact-manifest-sha256",
+				"1" * 64,
+			],
+			[
+				"python",
+				"--package-artifact-manifest-sha256",
+				"1" * 64,
+				"--package-artifact-manifest",
+				"manifest.json",
+			],
+			[
+				"python",
+				"--package-artifact-manifest",
+				"one.json",
+				"--package-artifact-manifest",
+				"two.json",
+				"--package-artifact-manifest-sha256",
+				"1" * 64,
+			],
+		)
+		artifact_data = {
+			"package_artifact_set": {
+				"reused": False,
+				"manifest_sha256": "1" * 64,
+				"artifact_count": 1,
+				"workspace_fingerprint": "a" * 64,
+			},
+		}
+		for command in malformed_commands:
+			with self.subTest(command=command):
+				with self.assertRaises(ValueError):
+					gf_maintenance.validation_shadow_action_inputs(
+						artifact_data,
+						"package_build_boundary",
+						command,
+						workspace_digest="a" * 64,
+						allow_planned_command=False,
+					)
+
+	def test_unstarted_package_action_uses_a_stable_planned_command(self) -> None:
+		workspace_state = self._workspace_state()
+		data = {
+			"ok": False,
+			"suite": "full",
+			"checks": ["package_build_boundary"],
+			"package_artifact_set": {
+				"reused": False,
+				"manifest_sha256": "1" * 64,
+				"artifact_count": 1,
+				"workspace_fingerprint": "a" * 64,
+			},
+			"results": [{
+				"name": "package_build_boundary",
+				"command": ["python", "tools/gf_maintenance.py", "package-build-boundary"],
+				"execution": "not_started",
+				"exit_code": 124,
+				"timed_out": True,
+				"cancelled": False,
+				"duration_seconds": 0.0,
+			}],
+		}
+		with mock.patch.object(
+			gf_maintenance.gf_validation_test_inventory,
+			"collect_test_inventory",
+			return_value=self._inventory(),
+		):
+			report = gf_maintenance.make_validation_shadow_report(data, workspace_state)
+		action = report["actions"][0]
+		self.assertFalse(action["execution_observed"])
+		material = action["shadow_evidence"]["action_key_material"]
+		self.assertIn(
+			gf_maintenance.PACKAGE_ARTIFACT_MANIFEST_ACTION_SENTINEL,
+			material["command"],
+		)
+		self.assertEqual(
+			material["dependency_artifacts"],
+			{gf_maintenance.PACKAGE_ARTIFACT_MANIFEST_DEPENDENCY_LABEL: "1" * 64},
 		)
 
 	def test_shadow_failure_never_stringifies_untrusted_exception(self) -> None:
@@ -2093,6 +2317,99 @@ class AffectedAnalysisIntegrationTests(unittest.TestCase):
 		self.assertEqual(analysis["cache_read_count"], 0)
 		self.assertEqual(analysis["cache_write_count"], 0)
 		self.assertEqual(analysis["reused_count"], 0)
+
+	def test_affected_attachment_uses_the_suite_capped_deadline(self) -> None:
+		data = {"checks": ["docs"]}
+		with mock.patch.object(
+			gf_maintenance,
+			"advisory_collection_deadline",
+			return_value=321.0,
+		) as deadline, mock.patch.object(
+			gf_maintenance.gf_validation_inputs,
+			"analyze_affected_checks",
+			return_value=self._analysis(),
+		) as analyze:
+			gf_maintenance.attach_affected_analysis_report(
+				data,
+				base_revision="HEAD",
+				explain=True,
+				suite_deadline=75.0,
+			)
+		deadline.assert_called_once_with(
+			gf_maintenance.AFFECTED_ANALYSIS_COLLECTION_TIMEOUT_SECONDS,
+			75.0,
+		)
+		self.assertEqual(analyze.call_args.kwargs["deadline_seconds"], 321.0)
+
+	def test_exhausted_suite_budget_makes_affected_analysis_fail_closed(self) -> None:
+		data = {"checks": ["docs"]}
+		with mock.patch.object(
+			gf_maintenance,
+			"advisory_collection_deadline",
+			return_value=10.0,
+		), mock.patch.object(
+			gf_maintenance.time,
+			"monotonic",
+			return_value=10.0,
+		):
+			gf_maintenance.attach_affected_analysis_report(
+				data,
+				base_revision="HEAD",
+				explain=False,
+				suite_deadline=1.0,
+			)
+		self.assertEqual(
+			data["affected_analysis"]["errors"],
+			["affected_deadline_exceeded"],
+		)
+
+	def test_reported_duration_includes_both_advisory_attachments(self) -> None:
+		workspace_state = self._workspace_state()
+		clock = [10.0]
+		shadow_deadlines: list[object] = []
+		affected_deadlines: list[object] = []
+
+		def attach_shadow(data: dict[str, object], *_args: object, **kwargs: object) -> None:
+			shadow_deadlines.append(kwargs.get("suite_deadline"))
+			clock[0] = 12.0
+			data["validation_shadow"] = {"report_ok": True}
+
+		def attach_affected(data: dict[str, object], **kwargs: object) -> None:
+			affected_deadlines.append(kwargs.get("suite_deadline"))
+			clock[0] = 15.0
+			data["affected_analysis"] = self._analysis()
+
+		with mock.patch.object(
+			gf_maintenance.time,
+			"perf_counter",
+			side_effect=lambda: clock[0],
+		), mock.patch.object(
+			gf_maintenance,
+			"workspace_fingerprint",
+			return_value=workspace_state,
+		), mock.patch.object(
+			gf_maintenance,
+			"maintenance_in_process_check_runners",
+			return_value={"docs": lambda: {"ok": True}},
+		), mock.patch.object(
+			gf_maintenance,
+			"attach_validation_shadow_report",
+			side_effect=attach_shadow,
+		), mock.patch.object(
+			gf_maintenance,
+			"attach_affected_analysis_report",
+			side_effect=attach_affected,
+		):
+			result = gf_maintenance.run_checks(
+				checks=["docs"],
+				jobs=1,
+				validation_shadow=True,
+				affected=True,
+				suite_timeout_seconds=10,
+			)
+		self.assertEqual(result["duration_seconds"], 5.0)
+		self.assertEqual(shadow_deadlines, [20.0])
+		self.assertEqual(affected_deadlines, [20.0])
 
 	def test_first_affected_specs_cover_the_exact_maintenance_inputs(self) -> None:
 		specs = {

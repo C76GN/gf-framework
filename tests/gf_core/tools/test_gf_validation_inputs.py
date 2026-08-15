@@ -7,6 +7,7 @@ import copy
 import hashlib
 import json
 import os
+import stat
 import subprocess
 import sys
 import tempfile
@@ -38,6 +39,30 @@ def _make_input_root(parent: Path) -> Path:
 	_write(root / "docs/notes.txt", "Not selected\n")
 	_write(root / "tools/checker.py", "RULE_VERSION = 1\n")
 	return root
+
+
+def _remove_directory_link(path: Path) -> None:
+	if path.is_symlink():
+		path.unlink()
+	elif os.path.lexists(path):
+		path.rmdir()
+
+
+def _create_directory_link(target: Path, link: Path) -> None:
+	if os.name != "nt":
+		os.symlink(target, link, target_is_directory=True)
+		return
+	command_processor = os.environ.get("COMSPEC", "cmd.exe")
+	arguments = subprocess.list2cmdline([os.fspath(link), os.fspath(target)])
+	completed = subprocess.run(
+		[command_processor, "/d", "/s", "/c", f"mklink /J {arguments}"],
+		capture_output=True,
+		text=True,
+		encoding="utf-8",
+		errors="replace",
+	)
+	if completed.returncode != 0 or not os.path.lexists(link):
+		raise OSError("could not create directory-link test fixture")
 
 
 def _input_spec(check_name: str = "public_docs_boundary") -> inputs.CheckInputSpec:
@@ -465,6 +490,255 @@ class FrozenActionInputTests(unittest.TestCase):
 							("tools/checker.py",),
 						),
 					)
+
+	def test_declared_file_parent_replacement_during_open_fails_closed(self) -> None:
+		with tempfile.TemporaryDirectory() as temporary_directory:
+			root = _make_input_root(Path(temporary_directory))
+			docs = root / "docs"
+			moved_docs = root / "docs-before-replacement"
+			original_open = inputs.os.open
+			replaced = False
+
+			def replacing_open(path: object, flags: int, *args: object, **kwargs: object) -> int:
+				nonlocal replaced
+				if Path(path) == docs / "guide.md" and not replaced:
+					docs.rename(moved_docs)
+					try:
+						_create_directory_link(moved_docs, docs)
+					except OSError as error:
+						raise unittest.SkipTest(
+							"directory-link fixtures are unavailable"
+						) from error
+					replaced = True
+				return original_open(path, flags, *args, **kwargs)
+
+			try:
+				with mock.patch.object(inputs.os, "open", side_effect=replacing_open):
+					with self.assertRaises(inputs.ValidationInputDriftError):
+						inputs.freeze_action_inputs(root, _input_spec())
+			finally:
+				if moved_docs.exists() and os.path.lexists(docs):
+					_remove_directory_link(docs)
+				if moved_docs.exists():
+					moved_docs.rename(docs)
+
+	def test_repository_ancestor_replacement_during_open_fails_closed(self) -> None:
+		with tempfile.TemporaryDirectory() as temporary_directory:
+			temporary_root = Path(temporary_directory)
+			workspace = temporary_root / "workspace"
+			workspace.mkdir()
+			root = _make_input_root(workspace)
+			moved_workspace = temporary_root / "workspace-before-replacement"
+			original_open = inputs.os.open
+			replaced = False
+
+			def replacing_open(path: object, flags: int, *args: object, **kwargs: object) -> int:
+				nonlocal replaced
+				if Path(path) == root / "docs/guide.md" and not replaced:
+					workspace.rename(moved_workspace)
+					try:
+						_create_directory_link(moved_workspace, workspace)
+					except OSError as error:
+						raise unittest.SkipTest(
+							"directory-link fixtures are unavailable"
+						) from error
+					replaced = True
+				return original_open(path, flags, *args, **kwargs)
+
+			try:
+				with mock.patch.object(inputs.os, "open", side_effect=replacing_open):
+					with self.assertRaises(inputs.ValidationInputDriftError):
+						inputs.freeze_action_inputs(root, _input_spec())
+			finally:
+				if moved_workspace.exists() and os.path.lexists(workspace):
+					_remove_directory_link(workspace)
+				if moved_workspace.exists():
+					moved_workspace.rename(workspace)
+
+	def test_parent_replacement_after_location_before_file_snapshot_fails_closed(self) -> None:
+		with tempfile.TemporaryDirectory() as temporary_directory:
+			root = _make_input_root(Path(temporary_directory))
+			docs = root / "docs"
+			moved_docs = root / "docs-before-replacement"
+			original_locate = inputs._locate_declared_path
+			replaced = False
+
+			def replacing_locate(*args: object, **kwargs: object) -> object:
+				nonlocal replaced
+				located = original_locate(*args, **kwargs)
+				if args[1] == "docs/guide.md" and not replaced:
+					docs.rename(moved_docs)
+					try:
+						_create_directory_link(moved_docs, docs)
+					except OSError as error:
+						raise unittest.SkipTest(
+							"directory-link fixtures are unavailable"
+						) from error
+					replaced = True
+				return located
+
+			try:
+				with mock.patch.object(
+					inputs,
+					"_locate_declared_path",
+					side_effect=replacing_locate,
+				):
+					with self.assertRaises(inputs.ValidationInputDriftError):
+						inputs.freeze_action_inputs(
+							root,
+							inputs.CheckInputSpec(
+								"exact_source",
+								(inputs.PathRule("exact", "docs/guide.md"),),
+								("tools/checker.py",),
+							),
+						)
+			finally:
+				if moved_docs.exists() and os.path.lexists(docs):
+					_remove_directory_link(docs)
+				if moved_docs.exists():
+					moved_docs.rename(docs)
+
+	def test_missing_exact_source_retains_and_revalidates_existing_parent_chain(self) -> None:
+		with tempfile.TemporaryDirectory() as temporary_directory:
+			root = _make_input_root(Path(temporary_directory))
+			optional = root / "optional"
+			optional.mkdir()
+			moved_optional = root / "optional-before-replacement"
+			original_locate = inputs._locate_declared_path
+			replaced = False
+
+			def replacing_locate(*args: object, **kwargs: object) -> object:
+				nonlocal replaced
+				located = original_locate(*args, **kwargs)
+				if args[1] == "optional/missing.md" and not replaced:
+					optional.rename(moved_optional)
+					try:
+						_create_directory_link(moved_optional, optional)
+					except OSError as error:
+						raise unittest.SkipTest(
+							"directory-link fixtures are unavailable"
+						) from error
+					replaced = True
+				return located
+
+			spec = inputs.CheckInputSpec(
+				"missing_source",
+				(inputs.PathRule("exact", "optional/missing.md"),),
+				("tools/checker.py",),
+			)
+			try:
+				with mock.patch.object(
+					inputs,
+					"_locate_declared_path",
+					side_effect=replacing_locate,
+				):
+					with self.assertRaises(inputs.ValidationInputDriftError):
+						inputs.freeze_action_inputs(root, spec)
+			finally:
+				if moved_optional.exists() and os.path.lexists(optional):
+					_remove_directory_link(optional)
+				if moved_optional.exists():
+					moved_optional.rename(optional)
+
+	def test_missing_exact_source_appearance_after_location_fails_closed(self) -> None:
+		with tempfile.TemporaryDirectory() as temporary_directory:
+			root = _make_input_root(Path(temporary_directory))
+			optional = root / "optional"
+			optional.mkdir()
+			target = optional / "missing.md"
+			original_locate = inputs._locate_declared_path
+			created = False
+
+			def creating_locate(*args: object, **kwargs: object) -> object:
+				nonlocal created
+				located = original_locate(*args, **kwargs)
+				if args[1] == "optional/missing.md" and not created:
+					target.write_text("appeared\n", encoding="utf-8")
+					created = True
+				return located
+
+			with mock.patch.object(
+				inputs,
+				"_locate_declared_path",
+				side_effect=creating_locate,
+			):
+				with self.assertRaises(inputs.ValidationInputDriftError):
+					inputs.freeze_action_inputs(
+						root,
+						inputs.CheckInputSpec(
+							"missing_source",
+							(inputs.PathRule("exact", "optional/missing.md"),),
+							("tools/checker.py",),
+						),
+					)
+
+	def test_open_file_identity_requires_ctime_on_posix_only(self) -> None:
+		baseline = inputs._FileSnapshot(1, 2, stat.S_IFREG, 3, 4, 5)
+		changed_ctime = replace(baseline, ctime_ns=6)
+		with mock.patch.object(inputs.os, "name", "posix"):
+			self.assertFalse(inputs._same_open_file_identity(baseline, changed_ctime))
+		with mock.patch.object(inputs.os, "name", "nt"):
+			self.assertTrue(inputs._same_open_file_identity(baseline, changed_ctime))
+
+	@unittest.skipIf(os.name == "nt", "POSIX ctime is distinct from Windows creation time")
+	def test_same_size_rewrite_after_read_with_restored_mtime_fails_closed(self) -> None:
+		with tempfile.TemporaryDirectory() as temporary_directory:
+			root = _make_input_root(Path(temporary_directory))
+			target = root / "README.md"
+			original_close = inputs.os.close
+			rewritten = False
+
+			def rewriting_close(file_descriptor: int) -> None:
+				nonlocal rewritten
+				if not rewritten:
+					before = target.stat()
+					target.write_text("# Hidden\n", encoding="utf-8", newline="\n")
+					os.utime(target, ns=(before.st_atime_ns, before.st_mtime_ns))
+					rewritten = True
+				original_close(file_descriptor)
+
+			spec = inputs.CheckInputSpec(
+				"rewrite_source",
+				(inputs.PathRule("exact", "README.md"),),
+				("tools/checker.py",),
+			)
+			with mock.patch.object(inputs.os, "close", side_effect=rewriting_close):
+				with self.assertRaises(inputs.ValidationInputDriftError):
+					inputs.freeze_action_inputs(root, spec)
+
+	def test_git_capture_revalidates_repository_ancestor_chain(self) -> None:
+		with tempfile.TemporaryDirectory() as temporary_directory:
+			temporary_root = Path(temporary_directory)
+			workspace = temporary_root / "workspace"
+			workspace.mkdir()
+			root = _make_git_repository(workspace)
+			moved_workspace = temporary_root / "workspace-before-replacement"
+			original_run_git = inputs._run_git
+			replaced = False
+
+			def replacing_run_git(*args: object, **kwargs: object) -> bytes:
+				nonlocal replaced
+				output = original_run_git(*args, **kwargs)
+				if not replaced:
+					workspace.rename(moved_workspace)
+					try:
+						_create_directory_link(moved_workspace, workspace)
+					except OSError as error:
+						raise unittest.SkipTest(
+							"directory-link fixtures are unavailable"
+						) from error
+					replaced = True
+				return output
+
+			try:
+				with mock.patch.object(inputs, "_run_git", side_effect=replacing_run_git):
+					with self.assertRaises(inputs.ValidationInputDriftError):
+						inputs.changed_paths_since(root)
+			finally:
+				if moved_workspace.exists() and os.path.lexists(workspace):
+					_remove_directory_link(workspace)
+				if moved_workspace.exists():
+					moved_workspace.rename(workspace)
 
 	def test_tree_enumeration_checks_deadline_before_accumulating_all_entries(self) -> None:
 		with tempfile.TemporaryDirectory() as temporary_directory:

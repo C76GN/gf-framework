@@ -18,6 +18,7 @@ import subprocess
 import time
 import unicodedata
 from dataclasses import dataclass
+from dataclasses import field
 from pathlib import Path
 from pathlib import PurePosixPath
 from types import MappingProxyType
@@ -236,6 +237,13 @@ class _FileSnapshot:
 class _CaptureState:
 	entry_count: int = 0
 	total_bytes: int = 0
+	directory_chains: list[tuple[tuple[Path, _FileSnapshot], ...]] = field(
+		default_factory=list
+	)
+	strict_directories: list[tuple[Path, _FileSnapshot]] = field(default_factory=list)
+	missing_paths: list[
+		tuple[Path, str, tuple[tuple[Path, _FileSnapshot], ...]]
+	] = field(default_factory=list)
 
 
 @dataclass(frozen=True)
@@ -611,7 +619,7 @@ def freeze_action_inputs(
 	_validate_limits(limits)
 	deadline = _make_deadline(deadline_seconds, monotonic)
 	deadline.check()
-	root = _validate_repository_root(repository_root, deadline)
+	root, repository_chain = _validate_repository_root(repository_root, deadline)
 	state = _CaptureState()
 	source_records: dict[str, dict[str, Any]] = {}
 	discovery_records: list[dict[str, Any]] = []
@@ -622,6 +630,7 @@ def freeze_action_inputs(
 		matched_paths, selector_state = _capture_source_rule(
 			root,
 			rule,
+			repository_chain=repository_chain,
 			records=source_records,
 			portable_paths=portable_paths,
 			state=state,
@@ -637,7 +646,13 @@ def freeze_action_inputs(
 	implementation_records: list[dict[str, Any]] = []
 	for logical_path in input_spec.implementation_files:
 		deadline.check()
-		path, state_value = _locate_declared_path(root, logical_path, deadline)
+		path, state_value, parent_chain = _locate_declared_path(
+			root,
+			logical_path,
+			deadline,
+			repository_chain,
+		)
+		state.directory_chains.append(parent_chain)
 		if state_value != "present":
 			raise ValidationInputCaptureError(
 				"validation_inputs.implementation_file_missing"
@@ -648,6 +663,7 @@ def freeze_action_inputs(
 				path,
 				logical_path,
 				snapshot,
+				parent_chain=parent_chain,
 				state=state,
 				limits=limits,
 				deadline=deadline,
@@ -662,6 +678,23 @@ def freeze_action_inputs(
 		source_records[path]
 		for path in sorted(source_records, key=_portable_sort_key)
 	]
+	_validate_directory_chain(repository_chain, deadline)
+	for directory_chain in state.directory_chains:
+		_validate_directory_chain(directory_chain, deadline)
+	for directory, expected in state.strict_directories:
+		_validate_unchanged_path(
+			directory,
+			"selected directory",
+			expected,
+			expect_directory=True,
+		)
+	for missing_path, logical_path, parent_chain in state.missing_paths:
+		_validate_missing_path(
+			missing_path,
+			logical_path,
+			parent_chain,
+			deadline,
+		)
 	deadline.check()
 	return FrozenActionInputs(
 		check_name=input_spec.check_name,
@@ -706,7 +739,8 @@ def changed_paths_since(
 	validated_pathspecs = _validated_pathspecs(pathspecs)
 	deadline = _make_deadline(deadline_seconds, monotonic)
 	deadline.check()
-	root = _validate_repository_root(repository_root, deadline)
+	root, repository_chain = _validate_repository_root(repository_root, deadline)
+	_validate_directory_chain(repository_chain, deadline)
 	base_resolved = _git_text(
 		root,
 		["rev-parse", "--verify", "--quiet", f"{base_revision}^{{commit}}"],
@@ -730,12 +764,14 @@ def changed_paths_since(
 		limits=limits,
 		deadline=deadline,
 	)
+	_validate_directory_chain(repository_chain, deadline)
 	untracked_output = _run_git(
 		root,
 		["ls-files", "--others", "-z", *path_arguments],
 		limits=limits,
 		deadline=deadline,
 	)
+	_validate_directory_chain(repository_chain, deadline)
 	paths = {
 		*_parse_name_status_z(diff_output),
 		*_parse_path_list_z(untracked_output),
@@ -1255,14 +1291,22 @@ def _capture_source_rule(
 	root: Path,
 	rule: PathRule,
 	*,
+	repository_chain: tuple[tuple[Path, _FileSnapshot], ...],
 	records: dict[str, dict[str, Any]],
 	portable_paths: dict[str, str],
 	state: _CaptureState,
 	limits: InputCaptureLimits,
 	deadline: _Deadline,
 ) -> tuple[list[str], str]:
-	path, state_value = _locate_declared_path(root, rule.path, deadline)
+	path, state_value, parent_chain = _locate_declared_path(
+		root,
+		rule.path,
+		deadline,
+		repository_chain,
+	)
+	state.directory_chains.append(parent_chain)
 	if state_value != "present":
+		state.missing_paths.append((path, rule.path, parent_chain))
 		if rule.kind == "exact":
 			records.setdefault(rule.path, {"path": rule.path, "state": "missing"})
 			return [rule.path], "missing"
@@ -1273,15 +1317,20 @@ def _capture_source_rule(
 			path,
 			rule.path,
 			snapshot,
+			parent_chain=parent_chain,
 			state=state,
 			limits=limits,
 			deadline=deadline,
 		)
 		return [rule.path], "present"
-	_snapshot_path(path, rule.path, expect_directory=True)
+	directory_snapshot = _snapshot_path(path, rule.path, expect_directory=True)
+	directory_chain = (*parent_chain, (path, directory_snapshot))
+	state.directory_chains.append(directory_chain)
+	state.strict_directories.append((path, directory_snapshot))
 	matched_paths: list[str] = []
 	_walk_selected_tree(
 		path,
+		directory_chain=directory_chain,
 		logical_directory=rule.path,
 		rule=rule,
 		depth=0,
@@ -1298,6 +1347,7 @@ def _capture_source_rule(
 def _walk_selected_tree(
 	directory: Path,
 	*,
+	directory_chain: tuple[tuple[Path, _FileSnapshot], ...],
 	logical_directory: str,
 	rule: PathRule,
 	depth: int,
@@ -1313,11 +1363,8 @@ def _walk_selected_tree(
 		raise ValidationInputLimitError(
 			"validation_inputs.directory_depth_limit"
 		)
-	directory_before = _snapshot_path(
-		directory,
-		logical_directory,
-		expect_directory=True,
-	)
+	directory_before = directory_chain[-1][1]
+	_validate_directory_chain(directory_chain, deadline)
 	try:
 		with os.scandir(directory) as iterator:
 			entry_names: list[str] = []
@@ -1351,8 +1398,12 @@ def _walk_selected_tree(
 			continue
 		snapshot = _snapshot_path(path, logical_path)
 		if stat.S_ISDIR(snapshot.mode):
+			child_chain = (*directory_chain, (path, snapshot))
+			state.directory_chains.append(child_chain)
+			state.strict_directories.append((path, snapshot))
 			_walk_selected_tree(
 				path,
+				directory_chain=child_chain,
 				logical_directory=logical_path,
 				rule=rule,
 				depth=depth + 1,
@@ -1374,6 +1425,7 @@ def _walk_selected_tree(
 			path,
 			logical_path,
 			snapshot,
+			parent_chain=directory_chain,
 			state=state,
 			limits=limits,
 			deadline=deadline,
@@ -1390,6 +1442,7 @@ def _walk_selected_tree(
 		directory_before,
 		expect_directory=True,
 	)
+	_validate_directory_chain(directory_chain, deadline)
 	deadline.check()
 
 
@@ -1398,6 +1451,7 @@ def _capture_regular_file(
 	logical_path: str,
 	before: _FileSnapshot,
 	*,
+	parent_chain: tuple[tuple[Path, _FileSnapshot], ...],
 	state: _CaptureState,
 	limits: InputCaptureLimits,
 	deadline: _Deadline,
@@ -1411,6 +1465,7 @@ def _capture_regular_file(
 		raise ValidationInputLimitError(
 			"validation_inputs.total_byte_limit"
 		)
+	_validate_directory_chain(parent_chain, deadline)
 	flags = (
 		os.O_RDONLY
 		| getattr(os, "O_BINARY", 0)
@@ -1430,6 +1485,7 @@ def _capture_regular_file(
 			raise ValidationInputDriftError(
 				"validation_inputs.file_changed_while_opening"
 			)
+		_validate_directory_chain(parent_chain, deadline)
 		hasher = hashlib.sha256()
 		captured_size = 0
 		remaining_with_growth_probe = before.size + 1
@@ -1466,6 +1522,7 @@ def _capture_regular_file(
 		raise ValidationInputDriftError(
 			"validation_inputs.file_replaced_while_reading"
 		)
+	_validate_directory_chain(parent_chain, deadline)
 	state.total_bytes = projected_total
 	return {
 		"path": logical_path,
@@ -1479,15 +1536,21 @@ def _locate_declared_path(
 	root: Path,
 	logical_path: str,
 	deadline: _Deadline,
-) -> tuple[Path, str]:
+	repository_chain: tuple[tuple[Path, _FileSnapshot], ...],
+) -> tuple[Path, str, tuple[tuple[Path, _FileSnapshot], ...]]:
+	_validate_directory_chain(repository_chain, deadline)
+	parent_chain = list(repository_chain)
 	current = root
-	for segment in logical_path.split("/"):
+	segments = logical_path.split("/")
+	for index, segment in enumerate(segments):
 		deadline.check()
 		current /= segment
 		try:
 			value = current.lstat()
 		except FileNotFoundError:
-			return current, "missing"
+			chain = tuple(parent_chain)
+			_validate_directory_chain(chain, deadline)
+			return current, "missing", chain
 		except OSError as error:
 			raise ValidationInputCaptureError(
 				"validation_inputs.path_unavailable"
@@ -1496,10 +1559,21 @@ def _locate_declared_path(
 			raise ValidationInputCaptureError(
 				"validation_inputs.link_or_reparse_rejected"
 			)
-	return current, "present"
+		if index < len(segments) - 1:
+			if not stat.S_ISDIR(value.st_mode):
+				raise ValidationInputCaptureError(
+					"validation_inputs.directory_required"
+				)
+			parent_chain.append((current, _snapshot_from_stat(value)))
+	chain = tuple(parent_chain)
+	_validate_directory_chain(chain, deadline)
+	return current, "present", chain
 
 
-def _validate_repository_root(repository_root: Path, deadline: _Deadline) -> Path:
+def _validate_repository_root(
+	repository_root: Path,
+	deadline: _Deadline,
+) -> tuple[Path, tuple[tuple[Path, _FileSnapshot], ...]]:
 	try:
 		raw_root = os.fspath(repository_root)
 	except TypeError as error:
@@ -1522,11 +1596,71 @@ def _validate_repository_root(repository_root: Path, deadline: _Deadline) -> Pat
 				"validation_inputs.repository_root_unsupported"
 			)
 	current = Path(root.anchor)
+	chain: list[tuple[Path, _FileSnapshot]] = [(
+		current,
+		_snapshot_path(current, "repository root", expect_directory=True),
+	)]
 	for component in root.parts[1:]:
 		deadline.check()
 		current /= component
-		_snapshot_path(current, "repository root", expect_directory=True)
-	return root
+		chain.append((
+			current,
+			_snapshot_path(current, "repository root", expect_directory=True),
+		))
+	result = tuple(chain)
+	_validate_directory_chain(result, deadline)
+	return root, result
+
+
+def _validate_directory_chain(
+	chain: tuple[tuple[Path, _FileSnapshot], ...],
+	deadline: _Deadline,
+) -> None:
+	for path, expected in chain:
+		deadline.check()
+		try:
+			actual = _snapshot_path(path, "declared parent", expect_directory=True)
+		except ValidationInputCaptureError as error:
+			raise ValidationInputDriftError(
+				"validation_inputs.path_changed"
+			) from error
+		if not _same_directory_identity(actual, expected):
+			raise ValidationInputDriftError(
+				"validation_inputs.path_changed"
+			)
+
+
+def _validate_missing_path(
+	path: Path,
+	logical_path: str,
+	parent_chain: tuple[tuple[Path, _FileSnapshot], ...],
+	deadline: _Deadline,
+) -> None:
+	_validate_directory_chain(parent_chain, deadline)
+	deadline.check()
+	try:
+		path.lstat()
+	except FileNotFoundError:
+		pass
+	except OSError as error:
+		raise ValidationInputDriftError(
+			f"validation_inputs.path_changed:{logical_path}"
+		) from error
+	else:
+		raise ValidationInputDriftError(
+			f"validation_inputs.path_changed:{logical_path}"
+		)
+	_validate_directory_chain(parent_chain, deadline)
+
+
+def _same_directory_identity(left: _FileSnapshot, right: _FileSnapshot) -> bool:
+	return (
+		stat.S_ISDIR(left.mode)
+		and stat.S_ISDIR(right.mode)
+		and left.device == right.device
+		and left.inode == right.inode
+		and left.mode == right.mode
+	)
 
 
 def _snapshot_path(
@@ -1581,6 +1715,7 @@ def _same_open_file_identity(left: _FileSnapshot, right: _FileSnapshot) -> bool:
 		and left.mode == right.mode
 		and left.size == right.size
 		and left.mtime_ns == right.mtime_ns
+		and (os.name == "nt" or left.ctime_ns == right.ctime_ns)
 	)
 
 

@@ -27432,6 +27432,8 @@ VALIDATION_SHADOW_SCHEMA_VERSION = 1
 VALIDATION_SHADOW_REPORT_DOMAIN = b"gf-maintenance-validation-shadow-v1\0"
 VALIDATION_SHADOW_COLLECTION_TIMEOUT_SECONDS = 15.0
 AFFECTED_ANALYSIS_COLLECTION_TIMEOUT_SECONDS = 15.0
+PACKAGE_ARTIFACT_MANIFEST_ACTION_SENTINEL = "<package-artifact-manifest>"
+PACKAGE_ARTIFACT_MANIFEST_DEPENDENCY_LABEL = "package_artifact_set_manifest"
 VALIDATION_SHADOW_ERROR_CODES = frozenset({
 	"evidence_construction_failed",
 	"inventory_capture_failed",
@@ -27454,6 +27456,18 @@ VALIDATION_SHADOW_UNKNOWN_REASONS: tuple[str, ...] = (
 
 class ValidationShadowDeadlineError(RuntimeError):
 	"""Raised when advisory report construction exhausts its private budget."""
+
+
+def advisory_collection_deadline(
+	private_timeout_seconds: float,
+	suite_deadline: float | None,
+) -> float:
+	"""Translate the remaining perf-counter suite budget into monotonic time."""
+	advisory_now = time.monotonic()
+	if suite_deadline is None:
+		return advisory_now + private_timeout_seconds
+	suite_remaining = max(0.0, suite_deadline - time.perf_counter())
+	return advisory_now + min(private_timeout_seconds, suite_remaining)
 
 
 VALIDATION_SHADOW_REPORT_FIELDS_WITHOUT_FINGERPRINT = frozenset({
@@ -27489,6 +27503,7 @@ def attach_affected_analysis_report(
 	base_revision: str,
 	explain: bool,
 	force_failure: bool = False,
+	suite_deadline: float | None = None,
 ) -> None:
 	"""Attach fail-closed affected diagnostics without changing execution."""
 	check_names = tuple(str(name) for name in data.get("checks", []))
@@ -27501,15 +27516,18 @@ def attach_affected_analysis_report(
 				explain=explain,
 			)
 		else:
+			analysis_deadline = advisory_collection_deadline(
+				AFFECTED_ANALYSIS_COLLECTION_TIMEOUT_SECONDS,
+				suite_deadline,
+			)
 			report = gf_validation_inputs.analyze_affected_checks(
 				ROOT,
 				check_names,
 				base_revision=base_revision,
 				explain=explain,
-				deadline_seconds=(
-					time.monotonic() + AFFECTED_ANALYSIS_COLLECTION_TIMEOUT_SECONDS
-				),
+				deadline_seconds=analysis_deadline,
 				input_specs=gf_validation_inputs.DEFAULT_AFFECTED_INPUT_SPECS,
+				monotonic=time.monotonic,
 			)
 		report = gf_validation_inputs.validate_affected_analysis_report(report)
 		if not affected_analysis_report_is_safe(
@@ -27574,17 +27592,20 @@ def attach_validation_shadow_report(
 	workspace_state: dict[str, Any],
 	*,
 	parallel_occurrences: dict[str, list[dict[str, Any]]] | None = None,
+	suite_deadline: float | None = None,
 ) -> None:
 	"""Attach advisory execution evidence without changing validation semantics."""
 	collection_started = time.perf_counter()
 	try:
+		shadow_deadline = advisory_collection_deadline(
+			VALIDATION_SHADOW_COLLECTION_TIMEOUT_SECONDS,
+			suite_deadline,
+		)
 		data["validation_shadow"] = make_validation_shadow_report(
 			data,
 			workspace_state,
 			collection_started=collection_started,
-			shadow_deadline_seconds=(
-				time.monotonic() + VALIDATION_SHADOW_COLLECTION_TIMEOUT_SECONDS
-			),
+			shadow_deadline_seconds=shadow_deadline,
 			parallel_occurrences=parallel_occurrences,
 		)
 	except Exception as error:
@@ -27682,6 +27703,70 @@ def make_validation_shadow_failure_report(
 	return finalize_validation_shadow_report(report)
 
 
+def validation_shadow_action_inputs(
+	data: dict[str, Any],
+	check_name: str,
+	command: list[str],
+	*,
+	workspace_digest: str,
+	allow_planned_command: bool,
+) -> tuple[list[str], dict[str, str]]:
+	"""Canonicalize private artifact paths and bind their sealed manifest identity."""
+	if check_name not in PACKAGE_ARTIFACT_CONSUMER_CHECKS:
+		return command, {}
+	artifact_set = data.get("package_artifact_set")
+	if (
+		not isinstance(artifact_set, dict)
+		or set(artifact_set) != {
+			"reused",
+			"manifest_sha256",
+			"artifact_count",
+			"workspace_fingerprint",
+		}
+		or type(artifact_set.get("reused")) is not bool
+		or type(artifact_set.get("artifact_count")) is not int
+		or artifact_set["artifact_count"] <= 0
+		or artifact_set.get("workspace_fingerprint") != workspace_digest
+	):
+		raise ValueError("Package consumer Shadow evidence requires the parent artifact set.")
+	manifest_sha256 = artifact_set.get("manifest_sha256")
+	if (
+		not isinstance(manifest_sha256, str)
+		or SHA256_HEX_RE.fullmatch(manifest_sha256) is None
+	):
+		raise ValueError("Package consumer Shadow evidence has an invalid manifest digest.")
+	manifest_flag = "--package-artifact-manifest"
+	digest_flag = "--package-artifact-manifest-sha256"
+	manifest_count = command.count(manifest_flag)
+	digest_count = command.count(digest_flag)
+	if manifest_count == 0 and digest_count == 0 and allow_planned_command:
+		return check_command(
+			check_name,
+			PACKAGE_ARTIFACT_MANIFEST_ACTION_SENTINEL,
+			manifest_sha256,
+		), {
+			PACKAGE_ARTIFACT_MANIFEST_DEPENDENCY_LABEL: manifest_sha256,
+		}
+	if manifest_count != 1 or digest_count != 1:
+		raise ValueError("Package consumer command has an invalid artifact argument shape.")
+	manifest_index = command.index(manifest_flag)
+	digest_index = command.index(digest_flag)
+	if (
+		digest_index != manifest_index + 2
+		or digest_index + 2 != len(command)
+		or not command[manifest_index + 1]
+		or command[manifest_index + 1] in {manifest_flag, digest_flag}
+	):
+		raise ValueError("Package consumer command is missing an artifact argument value.")
+	if command[digest_index + 1] != manifest_sha256:
+		raise ValueError("Package consumer command digest differs from the parent artifact set.")
+	canonical_command = list(command)
+	canonical_command[manifest_index + 1] = PACKAGE_ARTIFACT_MANIFEST_ACTION_SENTINEL
+	return canonical_command, {
+		PACKAGE_ARTIFACT_MANIFEST_DEPENDENCY_LABEL: manifest_sha256,
+	}
+
+
 def make_validation_shadow_report(
 	data: dict[str, Any],
 	workspace_state: dict[str, Any],
@@ -27699,6 +27784,7 @@ def make_validation_shadow_report(
 	inventory = gf_validation_test_inventory.collect_test_inventory(
 		ROOT,
 		deadline_seconds=shadow_deadline_seconds,
+		monotonic=time.monotonic,
 	)
 	check_validation_shadow_deadline(shadow_deadline_seconds)
 	inventory_summary = {
@@ -27748,15 +27834,25 @@ def make_validation_shadow_report(
 		)
 		if not command:
 			command = ["<in-process>", check_name]
+		command, dependency_artifact_digests = validation_shadow_action_inputs(
+			data,
+			check_name,
+			command,
+			workspace_digest=workspace_digest,
+			allow_planned_command=(
+				result is None
+				or str(result.get("execution", "")) not in {"subprocess", "in_process"}
+			),
+		)
 		material = gf_validation_evidence.make_action_key_material(
 			action_name=check_name,
 			implementation_epoch=policy.implementation_epoch,
 			command=command,
 			contract_digest=contract_digest,
 			input_digests={"workspace": workspace_digest},
-			# Ordinary DAG prerequisites do not contribute artifact inputs. A future
-			# explicit consumed-artifact contract will populate this mapping.
-			dependency_artifact_digests={},
+			# Ordinary DAG prerequisites do not contribute artifact inputs. Only
+			# explicitly consumed, parent-validated artifact bytes are bound here.
+			dependency_artifact_digests=dependency_artifact_digests,
 			toolchain_digests={},
 			environment_digests={},
 			discovery_digest=str(inventory["inventory_sha256"]),
@@ -27933,7 +28029,9 @@ def run_checks(
 				base_revision=affected_base,
 				explain=affected_explain,
 				force_failure=True,
+				suite_deadline=suite_deadline,
 			)
+		data["duration_seconds"] = round(time.perf_counter() - overall_started, 3)
 		return data
 	except gf_maintenance_check_graph.WorkspaceFingerprintError as error:
 		selected_names = expanded_check_names(suite, checks, sync_examples=sync_examples)
@@ -27973,7 +28071,9 @@ def run_checks(
 				base_revision=affected_base,
 				explain=affected_explain,
 				force_failure=True,
+				suite_deadline=suite_deadline,
 			)
+		data["duration_seconds"] = round(time.perf_counter() - overall_started, 3)
 		return data
 	data: dict[str, Any] | None = None
 	resolved_jobs = 1
@@ -28199,13 +28299,16 @@ def run_checks(
 			data,
 			workspace_state,
 			parallel_occurrences=validation_parallel_occurrences,
+			suite_deadline=suite_deadline,
 		)
 	if affected and "affected_analysis" not in data:
 		attach_affected_analysis_report(
 			data,
 			base_revision=affected_base,
 			explain=affected_explain,
+			suite_deadline=suite_deadline,
 		)
+	data["duration_seconds"] = round(time.perf_counter() - overall_started, 3)
 	return data
 
 
