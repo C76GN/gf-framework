@@ -18,32 +18,38 @@ import stat
 import time
 import unicodedata
 from dataclasses import dataclass
+from dataclasses import replace
 from pathlib import Path
 from typing import Any
 from typing import Callable
 
+from gf_package_paths import portable_path_component_is_valid
+
 
 INVENTORY_SCHEMA_VERSION = 1
-DISCOVERY_CONTRACT_VERSION = 1
+DISCOVERY_CONTRACT_VERSION = 2
 TEST_ROOT_PARTS = ("tests", "gf_core")
 TEST_ROOT_LABEL = "tests/gf_core"
 FILE_ATTRIBUTE_REPARSE_POINT = 0x0400
 READ_CHUNK_BYTES = 1024 * 1024
-_WINDOWS_FORBIDDEN_CHARACTERS = frozenset('<>:"|?*')
-_WINDOWS_RESERVED_NAMES = frozenset(
-	{
-		"CON",
-		"PRN",
-		"AUX",
-		"NUL",
-		*(f"COM{index}" for index in range(1, 10)),
-		*(f"LPT{index}" for index in range(1, 10)),
-	}
-)
 _GDSCRIPT_TEST_PATTERN = re.compile(
-	r"(?m)^func[\t ]+(test_\w*)[\t ]*\(",
+	r"^(?P<indent>[\t ]*)func[\t ]+(?P<name>test_\w*)[\t ]*\(",
 	re.UNICODE,
 )
+_GDSCRIPT_CLASS_PATTERN = re.compile(
+	r"^(?P<indent>[\t ]*)class[\t ]+(?P<name>[A-Za-z_]\w*)"
+	r"(?:[\t ]+extends[\t ]+(?P<base>[A-Za-z_]\w*))?[\t ]*:",
+	re.UNICODE,
+)
+_GDSCRIPT_EXTENDS_PATTERN = re.compile(
+	r"^(?P<indent>[\t ]*)extends[\t ]+(?P<base>[A-Za-z_]\w*)",
+	re.UNICODE,
+)
+_GDSCRIPT_PATH_EXTENDS_PATTERN = re.compile(
+	r'''^(?P<indent>[\t ]*)extends[\t ]+["'](?P<base>res://[^"']+)["']''',
+	re.UNICODE,
+)
+_GUT_TEST_SCRIPT_PATH = "res://addons/gut/test.gd"
 _GDSCRIPT_SIMPLE_ESCAPES = frozenset({
 	"a",
 	"b",
@@ -113,6 +119,8 @@ class _FileSnapshot:
 	mode: int
 	size: int
 	mtime_ns: int
+	ctime_ns: int
+	change_time_ns: int | None
 
 
 @dataclass(frozen=True)
@@ -173,9 +181,19 @@ def collect_test_inventory(
 	_validate_limits(limits)
 	deadline = _make_advisory_deadline(deadline_seconds, monotonic)
 	deadline.check()
-	root = _validate_repository_root(repository_root, deadline=deadline)
+	fixed_root_snapshots: list[tuple[Path, str, _FileSnapshot]] = []
+	root = _validate_repository_root(
+		repository_root,
+		directory_snapshots=fixed_root_snapshots,
+		deadline=deadline,
+	)
 	test_root = root.joinpath(*TEST_ROOT_PARTS)
-	_validate_fixed_test_root(root, test_root, deadline=deadline)
+	_validate_fixed_test_root(
+		root,
+		test_root,
+		directory_snapshots=fixed_root_snapshots,
+		deadline=deadline,
+	)
 
 	state = _BudgetState()
 	portable_paths: dict[str, str] = {}
@@ -195,17 +213,39 @@ def collect_test_inventory(
 
 	# Recheck all discovered identities after enumeration so ordinary replacement,
 	# deletion, and in-place source mutation cannot yield mixed-time evidence.
+	for path, logical_path, expected in fixed_root_snapshots:
+		deadline.check()
+		_validate_unchanged_directory_identity(path, logical_path, expected)
 	for path, logical_path, expected in directory_snapshots:
 		deadline.check()
 		_validate_unchanged_path(path, logical_path, expected, expect_directory=True)
+	verification_state = _BudgetState()
 	for source in captured_sources:
 		deadline.check()
-		_validate_unchanged_path(
+		verified_data, verified_snapshot = _read_stable_source(
 			source.path,
 			source.logical_path,
 			source.snapshot,
-			expect_directory=False,
+			limits=limits,
+			state=verification_state,
+			deadline=deadline,
 		)
+		if (
+			verified_snapshot != source.snapshot
+			or hashlib.sha256(verified_data).hexdigest()
+			!= source.record["content_sha256"]
+		):
+			raise TestInventoryDriftError(
+				f"test_inventory.source_changed_after_capture:{source.logical_path}"
+			)
+	# Source verification may be long enough for a parent swap to race the first
+	# directory pass, so bind the full root-to-test chain once more before return.
+	for path, logical_path, expected in fixed_root_snapshots:
+		deadline.check()
+		_validate_unchanged_directory_identity(path, logical_path, expected)
+	for path, logical_path, expected in directory_snapshots:
+		deadline.check()
+		_validate_unchanged_path(path, logical_path, expected, expect_directory=True)
 
 	files = sorted(
 		(source.record for source in captured_sources),
@@ -287,6 +327,7 @@ def _validate_limits(limits: InventoryLimits) -> None:
 def _validate_repository_root(
 	repository_root: Path,
 	*,
+	directory_snapshots: list[tuple[Path, str, _FileSnapshot]],
 	deadline: _AdvisoryDeadline,
 ) -> Path:
 	try:
@@ -309,7 +350,12 @@ def _validate_repository_root(
 	for component in root.parts[1:]:
 		deadline.check()
 		current /= component
-		_snapshot_path(current, "repository root", expect_directory=True)
+		snapshot = _snapshot_path(
+			current,
+			"repository root",
+			expect_directory=True,
+		)
+		directory_snapshots.append((current, "repository root", snapshot))
 	deadline.check()
 	return root
 
@@ -318,6 +364,7 @@ def _validate_fixed_test_root(
 	root: Path,
 	test_root: Path,
 	*,
+	directory_snapshots: list[tuple[Path, str, _FileSnapshot]],
 	deadline: _AdvisoryDeadline,
 ) -> None:
 	current = root
@@ -325,11 +372,13 @@ def _validate_fixed_test_root(
 		deadline.check()
 		_validate_path_segment(part)
 		current /= part
-		_snapshot_path(
+		logical_path = current.relative_to(root).as_posix()
+		snapshot = _snapshot_path(
 			current,
-			current.relative_to(root).as_posix(),
+			logical_path,
 			expect_directory=True,
 		)
+		directory_snapshots.append((current, logical_path, snapshot))
 	if current != test_root:
 		raise AssertionError("fixed test root construction drifted")
 
@@ -525,8 +574,12 @@ def _read_stable_source(
 		) from exc
 	try:
 		deadline.check()
-		opened = _snapshot_from_stat(os.fstat(file_descriptor))
-		if not stat.S_ISREG(opened.mode) or opened != before:
+		opened = _snapshot_open_file(file_descriptor)
+		if not stat.S_ISREG(opened.mode) or not _same_file_snapshot(
+			opened,
+			before,
+			allow_windows_ctime_difference=True,
+		):
 			raise TestInventoryDriftError(
 				f"test_inventory.source_changed_while_opening:{logical_path}"
 			)
@@ -548,7 +601,7 @@ def _read_stable_source(
 			raise TestInventoryDriftError(
 				f"test_inventory.source_size_changed:{logical_path}"
 			)
-		opened_after = _snapshot_from_stat(os.fstat(file_descriptor))
+		opened_after = _snapshot_open_file(file_descriptor)
 		if opened_after != opened:
 			raise TestInventoryDriftError(
 				f"test_inventory.source_changed_while_reading:{logical_path}"
@@ -563,19 +616,80 @@ def _read_stable_source(
 
 	deadline.check()
 	path_after = _snapshot_path(path, logical_path, expect_directory=False)
-	if path_after != opened_after:
+	if not _same_file_snapshot(
+		path_after,
+		opened_after,
+		allow_windows_ctime_difference=True,
+	):
 		raise TestInventoryDriftError(
 			f"test_inventory.source_replaced_while_reading:{logical_path}"
 		)
 	state.total_source_bytes = projected_total
-	return data, path_after
+	return data, opened_after
 
 
 def _discover_gdscript_tests(text: str, logical_path: str) -> list[str]:
 	masked = _mask_gdscript_non_code(text, logical_path)
-	tests = [match.group(1) for match in _GDSCRIPT_TEST_PATTERN.finditer(masked)]
+	top_level_tests: list[str] = []
+	class_bases: dict[str, str] = {}
+	class_tests: dict[str, list[str]] = {}
+	class_stack: list[tuple[int, str]] = []
+	for source_line, masked_line in zip(text.splitlines(), masked.splitlines(), strict=True):
+		if not masked_line.strip():
+			continue
+		indent_text = masked_line[:len(masked_line) - len(masked_line.lstrip("\t "))]
+		indent = len(indent_text.expandtabs(8))
+		while class_stack and indent <= class_stack[-1][0]:
+			class_stack.pop()
+		class_match = _GDSCRIPT_CLASS_PATTERN.match(masked_line)
+		if class_match is not None:
+			class_name = class_match.group("name")
+			class_stack.append((indent, class_name))
+			if indent == 0:
+				class_bases[class_name] = class_match.group("base") or ""
+				class_tests.setdefault(class_name, [])
+			continue
+		extends_match = _GDSCRIPT_EXTENDS_PATTERN.match(masked_line)
+		path_extends_match = _GDSCRIPT_PATH_EXTENDS_PATTERN.match(source_line)
+		if (
+			len(class_stack) == 1
+			and class_stack[0][0] == 0
+			and indent > class_stack[0][0]
+			and (extends_match is not None or path_extends_match is not None)
+		):
+			base_name = (
+				extends_match.group("base")
+				if extends_match is not None
+				else path_extends_match.group("base")
+			)
+			class_bases[class_stack[0][1]] = base_name
+			continue
+		test_match = _GDSCRIPT_TEST_PATTERN.match(masked_line)
+		if test_match is None:
+			continue
+		test_name = test_match.group("name")
+		if indent == 0:
+			top_level_tests.append(test_name)
+		elif len(class_stack) == 1 and class_stack[0][0] == 0:
+			class_tests.setdefault(class_stack[0][1], []).append(test_name)
+
+	def inherits_gut_test(class_name: str, visiting: frozenset[str]) -> bool:
+		if class_name in visiting:
+			return False
+		base_name = class_bases.get(class_name, "")
+		if base_name in {"GutTest", _GUT_TEST_SCRIPT_PATH}:
+			return True
+		if base_name not in class_bases:
+			return False
+		return inherits_gut_test(base_name, visiting | {class_name})
+
+	tests = list(top_level_tests)
+	for class_name, method_names in class_tests.items():
+		if not class_name.startswith("Test") or not inherits_gut_test(class_name, frozenset()):
+			continue
+		tests.extend(f"{class_name}.{method_name}" for method_name in method_names)
 	for test_name in tests:
-		if not test_name.isidentifier():
+		if not all(part.isidentifier() for part in test_name.split(".")):
 			raise TestInventoryInputError(
 				f"test_inventory.invalid_gdscript_test_name:{logical_path}"
 			)
@@ -733,15 +847,21 @@ def _discover_python_tests(text: str, logical_path: str) -> list[str]:
 		) from exc
 	tests: list[str] = []
 
-	def visit_statements(statements: list[ast.stmt], owners: tuple[str, ...]) -> None:
-		for node in statements:
-			if isinstance(node, ast.ClassDef):
-				visit_statements(node.body, (*owners, node.name))
-			elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-				if node.name.startswith("test_"):
-					tests.append(".".join((*owners, node.name)))
+	def visit_node(node: ast.AST, owners: tuple[str, ...]) -> None:
+		if isinstance(node, ast.ClassDef):
+			for statement in node.body:
+				visit_node(statement, (*owners, node.name))
+			return
+		if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+			if node.name.startswith("test_"):
+				tests.append(".".join((*owners, node.name)))
+			return
+		if isinstance(node, ast.Lambda):
+			return
+		for child in ast.iter_child_nodes(node):
+			visit_node(child, owners)
 
-	visit_statements(tree.body, ())
+	visit_node(tree, ())
 	return tests
 
 
@@ -777,13 +897,75 @@ def _snapshot_from_stat(value: os.stat_result) -> _FileSnapshot:
 	device = int(getattr(value, "st_dev", 0))
 	if inode <= 0:
 		raise TestInventoryInputError("test_inventory.identity_unavailable")
+	ctime_ns = int(getattr(value, "st_ctime_ns", round(value.st_ctime * 1_000_000_000)))
 	return _FileSnapshot(
 		device=device,
 		inode=inode,
 		mode=int(value.st_mode),
 		size=int(value.st_size),
 		mtime_ns=int(getattr(value, "st_mtime_ns", round(value.st_mtime * 1_000_000_000))),
+		ctime_ns=ctime_ns,
+		change_time_ns=ctime_ns if os.name != "nt" else None,
 	)
+
+
+def _snapshot_open_file(file_descriptor: int) -> _FileSnapshot:
+	snapshot = _snapshot_from_stat(os.fstat(file_descriptor))
+	if os.name != "nt":
+		return snapshot
+	return replace(
+		snapshot,
+		change_time_ns=_windows_file_change_time_ns(file_descriptor),
+	)
+
+
+def _windows_file_change_time_ns(file_descriptor: int) -> int:
+	if os.name != "nt":
+		raise AssertionError("Windows file change time queried on another platform")
+	try:
+		import ctypes
+		import msvcrt
+		from ctypes import wintypes
+
+		class FileBasicInfo(ctypes.Structure):
+			_fields_ = [
+				("creation_time", ctypes.c_longlong),
+				("last_access_time", ctypes.c_longlong),
+				("last_write_time", ctypes.c_longlong),
+				("change_time", ctypes.c_longlong),
+				("file_attributes", wintypes.DWORD),
+			]
+
+		kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+		query = kernel32.GetFileInformationByHandleEx
+		query.argtypes = [
+			wintypes.HANDLE,
+			ctypes.c_int,
+			ctypes.c_void_p,
+			wintypes.DWORD,
+		]
+		query.restype = wintypes.BOOL
+		handle = msvcrt.get_osfhandle(file_descriptor)
+		information = FileBasicInfo()
+		ctypes.set_last_error(0)
+		if not query(
+			wintypes.HANDLE(handle),
+			0,  # FileBasicInfo
+			ctypes.byref(information),
+			ctypes.sizeof(information),
+		):
+			raise OSError(ctypes.get_last_error(), "GetFileInformationByHandleEx")
+		change_time = int(information.change_time)
+	except (ImportError, AttributeError, OSError, TypeError, ValueError):
+		raise TestInventoryInputError(
+			"test_inventory.windows_change_time_unavailable"
+		) from None
+	if change_time <= 0:
+		raise TestInventoryInputError(
+			"test_inventory.windows_change_time_unavailable"
+		)
+	# FILE_BASIC_INFO timestamps are signed 100 ns ticks since 1601-01-01.
+	return change_time * 100
 
 
 def _validate_unchanged_path(
@@ -809,6 +991,61 @@ def _validate_unchanged_path(
 		)
 
 
+def _validate_unchanged_directory_identity(
+	path: Path,
+	logical_path: str,
+	expected: _FileSnapshot,
+) -> None:
+	try:
+		actual = _snapshot_path(
+			path,
+			logical_path,
+			expect_directory=True,
+		)
+	except TestInventoryInputError as exc:
+		raise TestInventoryDriftError(
+			f"test_inventory.path_changed:{logical_path}"
+		) from exc
+	if (
+		actual.device != expected.device
+		or actual.inode != expected.inode
+		or actual.mode != expected.mode
+	):
+		raise TestInventoryDriftError(
+			f"test_inventory.path_changed:{logical_path}"
+		)
+
+
+def _same_file_snapshot(
+	left: _FileSnapshot,
+	right: _FileSnapshot,
+	*,
+	allow_windows_ctime_difference: bool,
+) -> bool:
+	return (
+		left.device == right.device
+		and left.inode == right.inode
+		and left.mode == right.mode
+		and left.size == right.size
+		and left.mtime_ns == right.mtime_ns
+		and (
+			left.ctime_ns == right.ctime_ns
+			or (allow_windows_ctime_difference and os.name == "nt")
+		)
+		and (
+			left.change_time_ns == right.change_time_ns
+			or (
+				allow_windows_ctime_difference
+				and os.name == "nt"
+				and (
+					left.change_time_ns is None
+					or right.change_time_ns is None
+				)
+			)
+		)
+	)
+
+
 def _has_reparse_attribute(value: os.stat_result) -> bool:
 	return bool(
 		int(getattr(value, "st_file_attributes", 0))
@@ -827,12 +1064,10 @@ def _validate_path_segment(segment: str) -> None:
 		raise TestInventoryLimitError("test_inventory.path_segment_limit")
 	if any(ord(character) < 32 or ord(character) == 127 for character in segment):
 		raise TestInventoryInputError("test_inventory.path_control_character")
-	if any(character in _WINDOWS_FORBIDDEN_CHARACTERS for character in segment):
-		raise TestInventoryInputError("test_inventory.path_not_portable")
-	if segment.endswith((" ", ".")):
-		raise TestInventoryInputError("test_inventory.path_not_portable")
-	device_stem = segment.split(".", 1)[0].upper()
-	if device_stem in _WINDOWS_RESERVED_NAMES:
+	if not portable_path_component_is_valid(
+		segment,
+		allow_manifest_glob_characters=False,
+	):
 		raise TestInventoryInputError("test_inventory.path_not_portable")
 
 

@@ -27812,6 +27812,21 @@ def serialize_parallel_occurrences(
 	return reports
 
 
+def publish_parallel_validation_occurrences(
+	validation_occurrences_out: dict[str, list[dict[str, Any]]] | None,
+	occurrences: dict[str, list[tuple[str, dict[str, Any]]]],
+) -> None:
+	"""Publish every completed private execution observation seen so far."""
+	if validation_occurrences_out is None:
+		return
+	validation_occurrences_out.clear()
+	for check_name, check_occurrences in occurrences.items():
+		validation_occurrences_out[check_name] = serialize_parallel_occurrences(
+			check_occurrences,
+			include_execution=True,
+		)
+
+
 def run_parallel_full_checks(
 	captured_workspace: CapturedWorkspace,
 	parallel_root: Path,
@@ -27940,6 +27955,10 @@ def run_parallel_full_checks(
 							shard_result.name,
 							make_parallel_missing_check_result(check_name, shard_result, report_issue),
 						))
+						publish_parallel_validation_occurrences(
+							validation_occurrences_out,
+							occurrences,
+						)
 				else:
 					assert report is not None
 					result_by_name = {
@@ -27956,6 +27975,10 @@ def run_parallel_full_checks(
 								"Shard ended before this check produced a result.",
 							)
 						occurrences.setdefault(check_name, []).append((shard_result.name, result))
+						publish_parallel_validation_occurrences(
+							validation_occurrences_out,
+							occurrences,
+						)
 					if not shard_result.ok or not bool(report.get("ok")):
 						failed_shards.append(shard_result.name)
 				parallel_shard_reports.append({
@@ -27985,6 +28008,10 @@ def run_parallel_full_checks(
 					batch_root,
 					"fail-fast followed a failed parallel Full shard",
 					cancelled=True,
+				)
+				publish_parallel_validation_occurrences(
+					validation_occurrences_out,
+					occurrences,
 				)
 				stop_after_batch = True
 		if batch_cleanup_errors:
@@ -28020,12 +28047,11 @@ def run_parallel_full_checks(
 			include_execution=False,
 		)
 		selected["parallel_occurrences"] = public_occurrences
-		if validation_occurrences_out is not None:
-			validation_occurrences_out[check_name] = serialize_parallel_occurrences(
-				check_occurrences,
-				include_execution=True,
-			)
 		aggregated_results.append(selected)
+	publish_parallel_validation_occurrences(
+		validation_occurrences_out,
+		occurrences,
+	)
 
 	failed_shard_set = set(failed_shards)
 	ok = (

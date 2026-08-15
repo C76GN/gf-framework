@@ -279,7 +279,7 @@ class ValidationShadowIntegrationTests(unittest.TestCase):
 	def _inventory(self) -> dict[str, object]:
 		return {
 			"schema_version": 1,
-			"discovery_contract_version": 1,
+			"discovery_contract_version": 2,
 			"root": "tests/gf_core",
 			"capture_complete": True,
 			"entry_count": 4,
@@ -670,6 +670,166 @@ class ValidationShadowIntegrationTests(unittest.TestCase):
 		self.assertNotIn("execution", public[0])
 		self.assertEqual(shadow[0]["execution"], "subprocess")
 		self.assertEqual(set(shadow[0]) - {"execution"}, set(public[0]))
+
+	def test_parallel_deadline_preserves_completed_shadow_occurrences(self) -> None:
+		workspace_state = self._workspace_state()
+		observations: dict[str, list[dict[str, object]]] = {}
+		plans = [
+			gf_maintenance.ParallelCheckShardPlan("first", ("docs",)),
+			gf_maintenance.ParallelCheckShardPlan("second", ("api_reference",)),
+		]
+
+		def expanded_names(
+			suite: str,
+			checks: list[str] | None,
+			**_kwargs: object,
+		) -> list[str]:
+			if suite == "full":
+				return ["docs", "api_reference"]
+			return list(checks or [])
+
+		with tempfile.TemporaryDirectory() as temporary_directory:
+			root = Path(temporary_directory)
+			(root / "parallel").mkdir()
+			captured = gf_maintenance.CapturedWorkspace(
+				source_root=root,
+				head="a" * 40,
+				binary_diff=b"",
+				untracked_files=(),
+				workspace_fingerprint=str(workspace_state["fingerprint"]),
+			)
+
+			def materialize(
+				_captured: object,
+				_batch_root: Path,
+				batch_plan: list[object],
+				**_kwargs: object,
+			) -> dict[str, Path]:
+				return {
+					str(plan.name): root / str(plan.name)
+					for plan in batch_plan
+				}
+
+			def make_shard(
+				plan: object,
+				workspace: Path,
+				**_kwargs: object,
+			) -> tuple[object, Path]:
+				shard = gf_maintenance.ParallelShard(
+					name=str(plan.name),
+					command=("python", "-V"),
+					workspace=workspace,
+					timeout_seconds=1.0,
+				)
+				return shard, root / f"{plan.name}.json"
+
+			def run_shards(shards: list[object], **_kwargs: object) -> list[object]:
+				shard = shards[0]
+				return [gf_maintenance.ParallelShardResult(
+					name=str(shard.name),
+					command=tuple(shard.command),
+					workspace=shard.workspace,
+					exit_code=0,
+					process_exit_code=0,
+					stdout="",
+					stderr="",
+					timed_out=False,
+					cancelled=False,
+					duration_seconds=1.0,
+					pid=1,
+					started=True,
+				)]
+
+			report = {
+				"ok": True,
+				"results": [{
+					"name": "docs",
+					"execution": "subprocess",
+					"exit_code": 0,
+					"timed_out": False,
+					"cancelled": False,
+					"duration_seconds": 1.0,
+					"input_fingerprint": "b" * 64,
+					"result_fingerprint": "c" * 64,
+				}],
+			}
+			with mock.patch.object(
+				gf_maintenance,
+				"parallel_full_shard_plan",
+				return_value=plans,
+			), mock.patch.object(
+				gf_maintenance,
+				"expanded_check_names",
+				side_effect=expanded_names,
+			), mock.patch.object(
+				gf_maintenance,
+				"run_parallel_godot_isolation_probe",
+				return_value={"ok": True},
+			), mock.patch.object(
+				gf_maintenance.gf_parallel_validation,
+				"assert_source_matches_snapshot",
+				side_effect=[
+					None,
+					gf_maintenance.WorkspaceDeadlineError("injected deadline"),
+				],
+			), mock.patch.object(
+				gf_maintenance,
+				"materialize_parallel_full_workspaces",
+				side_effect=materialize,
+			), mock.patch.object(
+				gf_maintenance,
+				"make_parallel_full_shard",
+				side_effect=make_shard,
+			), mock.patch.object(
+				gf_maintenance.gf_parallel_validation,
+				"run_parallel_shards",
+				side_effect=run_shards,
+			), mock.patch.object(
+				gf_maintenance,
+				"load_parallel_shard_report",
+				return_value=(report, ""),
+			), mock.patch.object(
+				gf_maintenance,
+				"workspace_fingerprint",
+				return_value=workspace_state,
+			):
+				with self.assertRaises(gf_maintenance.WorkspaceDeadlineError):
+					gf_maintenance.run_parallel_full_checks(
+						captured,
+						root / "parallel",
+						jobs=1,
+						timeout_seconds=None,
+						suite_timeout_seconds=None,
+						fail_fast=False,
+						package_artifact_manifest="manifest.json",
+						package_artifact_manifest_sha256="d" * 64,
+						package_artifact_count=1,
+						progress_callback=None,
+						output_callback=None,
+						overall_started=0.0,
+						suite_deadline=None,
+						validation_occurrences_out=observations,
+					)
+
+		self.assertEqual(len(observations["docs"]), 1)
+		self.assertEqual(observations["docs"][0]["execution"], "subprocess")
+		data = {
+			"ok": False,
+			"suite": "full",
+			"checks": ["docs", "api_reference"],
+			"results": [],
+		}
+		with mock.patch.object(
+			gf_maintenance.gf_validation_test_inventory,
+			"collect_test_inventory",
+			return_value=self._inventory(),
+		):
+			shadow = gf_maintenance.make_validation_shadow_report(
+				data,
+				workspace_state,
+				parallel_occurrences=observations,
+			)
+		self.assertEqual(shadow["execution_observation_count"], 1)
 
 	def test_shadow_timeout_is_failed_evidence_and_never_a_reusable_candidate(self) -> None:
 		workspace_state = self._workspace_state()

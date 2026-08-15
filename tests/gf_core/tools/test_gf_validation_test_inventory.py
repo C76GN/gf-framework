@@ -91,7 +91,7 @@ class TestInventoryTests(unittest.TestCase):
 			self.assertEqual(first, second)
 			self.assertTrue(first["capture_complete"])
 			self.assertNotIn("input_complete", first)
-			self.assertEqual(first["discovery_contract_version"], 1)
+			self.assertEqual(first["discovery_contract_version"], 2)
 			self.assertEqual(first["root"], "tests/gf_core")
 			self.assertEqual(first["entry_count"], 5)
 			self.assertEqual(first["file_count"], 3)
@@ -242,6 +242,259 @@ class TestInventoryTests(unittest.TestCase):
 						state=inventory._BudgetState(),
 						deadline=inventory._AdvisoryDeadline(None, lambda: 0.0),
 					)
+
+	def test_open_file_change_time_drift_fails_closed(self) -> None:
+		with tempfile.TemporaryDirectory() as temporary_directory:
+			repository = _make_repository(Path(temporary_directory))
+			source = repository / "tests/gf_core/test_ctime_drift.gd"
+			source.write_text(
+				"func test_drift() -> void:\n\tpass\n",
+				encoding="utf-8",
+			)
+			before = inventory._snapshot_path(
+				source,
+				"tests/gf_core/test_ctime_drift.gd",
+				expect_directory=False,
+			)
+			original_snapshot = inventory._snapshot_open_file
+			observation_count = 0
+
+			def drifting_snapshot(file_descriptor: int) -> object:
+				nonlocal observation_count
+				observed = original_snapshot(file_descriptor)
+				observation_count += 1
+				if observation_count == 2:
+					return replace(
+						observed,
+						change_time_ns=(observed.change_time_ns or 0) + 1,
+					)
+				return observed
+
+			with mock.patch.object(
+				inventory,
+				"_snapshot_open_file",
+				side_effect=drifting_snapshot,
+			):
+				with self.assertRaisesRegex(
+					inventory.TestInventoryDriftError,
+					"source_changed_while_reading",
+				):
+					inventory._read_stable_source(
+						source,
+						"tests/gf_core/test_ctime_drift.gd",
+						before,
+						limits=inventory.DEFAULT_LIMITS,
+						state=inventory._BudgetState(),
+						deadline=inventory._AdvisoryDeadline(None, lambda: 0.0),
+					)
+
+	def test_same_size_source_rewrite_with_restored_mtime_fails_closed(self) -> None:
+		with tempfile.TemporaryDirectory() as temporary_directory:
+			repository = _make_repository(Path(temporary_directory))
+			source = repository / "tests/gf_core/test_rewrite.gd"
+			source.write_text(
+				"func test_one() -> void:\n\tpass\n",
+				encoding="utf-8",
+			)
+			original_walk = inventory._walk_test_tree
+			rewritten = False
+
+			def rewrite_after_capture(*args: object, **kwargs: object) -> None:
+				nonlocal rewritten
+				original_walk(*args, **kwargs)
+				directory = args[0] if args else kwargs["directory"]
+				if directory == repository / "tests/gf_core" and not rewritten:
+					before = source.stat()
+					source.write_text(
+						"func test_two() -> void:\n\tpass\n",
+						encoding="utf-8",
+					)
+					os.utime(source, ns=(before.st_atime_ns, before.st_mtime_ns))
+					rewritten = True
+
+			with mock.patch.object(
+				inventory,
+				"_walk_test_tree",
+				side_effect=rewrite_after_capture,
+			):
+				with self.assertRaisesRegex(
+					inventory.TestInventoryDriftError,
+					"source_changed",
+				):
+					inventory.collect_test_inventory(repository)
+
+	def test_fixed_test_root_ancestor_replacement_fails_closed(self) -> None:
+		with tempfile.TemporaryDirectory() as temporary_directory:
+			repository = _make_repository(Path(temporary_directory))
+			(repository / "tests/gf_core/test_value.gd").write_text(
+				"func test_value() -> void:\n\tpass\n",
+				encoding="utf-8",
+			)
+			tests_root = repository / "tests"
+			moved_tests_root = repository / "tests-before-replacement"
+			original_walk = inventory._walk_test_tree
+			replaced = False
+
+			def replace_ancestor_after_walk(*args: object, **kwargs: object) -> None:
+				nonlocal replaced
+				original_walk(*args, **kwargs)
+				directory = args[0] if args else kwargs["directory"]
+				if directory == repository / "tests/gf_core" and not replaced:
+					tests_root.rename(moved_tests_root)
+					_create_directory_link(moved_tests_root, tests_root)
+					replaced = True
+
+			try:
+				with mock.patch.object(
+					inventory,
+					"_walk_test_tree",
+					side_effect=replace_ancestor_after_walk,
+				):
+					with self.assertRaisesRegex(
+						inventory.TestInventoryDriftError,
+						"path_changed",
+					):
+						inventory.collect_test_inventory(repository)
+			finally:
+				if replaced:
+					_remove_directory_link(tests_root)
+					moved_tests_root.rename(tests_root)
+
+	def test_repository_parent_replacement_fails_closed(self) -> None:
+		with tempfile.TemporaryDirectory() as temporary_directory:
+			container = Path(temporary_directory)
+			workspace = container / "workspace"
+			workspace.mkdir()
+			repository = _make_repository(workspace)
+			(repository / "tests/gf_core/test_value.gd").write_text(
+				"func test_value() -> void:\n\tpass\n",
+				encoding="utf-8",
+			)
+			moved_workspace = container / "workspace-before-replacement"
+			original_walk = inventory._walk_test_tree
+			replaced = False
+
+			def replace_parent_after_walk(*args: object, **kwargs: object) -> None:
+				nonlocal replaced
+				original_walk(*args, **kwargs)
+				directory = args[0] if args else kwargs["directory"]
+				if directory == repository / "tests/gf_core" and not replaced:
+					workspace.rename(moved_workspace)
+					_create_directory_link(moved_workspace, workspace)
+					replaced = True
+
+			try:
+				with mock.patch.object(
+					inventory,
+					"_walk_test_tree",
+					side_effect=replace_parent_after_walk,
+				):
+					with self.assertRaisesRegex(
+						inventory.TestInventoryDriftError,
+						"path_changed",
+					):
+						inventory.collect_test_inventory(repository)
+			finally:
+				if replaced:
+					_remove_directory_link(workspace)
+					moved_workspace.rename(workspace)
+
+	def test_gdscript_inner_gut_test_methods_are_discovered(self) -> None:
+		with tempfile.TemporaryDirectory() as temporary_directory:
+			repository = _make_repository(Path(temporary_directory))
+			(repository / "tests/gf_core/test_inner.gd").write_text(
+				"extends GutTest\n\n"
+				"class SharedInnerBase:\n"
+				"\textends GutTest\n"
+				"\tfunc helper() -> void:\n"
+				"\t\tpass\n\n"
+				"class TestInner:\n"
+				"\textends GutTest\n"
+				"\tfunc test_value() -> void:\n"
+				"\t\tpass_test(\"inner\")\n\n"
+				"class TestDerived:\n"
+				"\textends SharedInnerBase\n"
+				"\tfunc test_value() -> void:\n"
+				"\t\tpass_test(\"derived\")\n\n"
+				"class TestPathBase:\n"
+				"\textends \"res://addons/gut/test.gd\"\n"
+				"\tfunc test_path() -> void:\n"
+				"\t\tpass_test(\"path\")\n\n"
+				"class TestInline extends GutTest:\n"
+				"\tfunc test_inline() -> void:\n"
+				"\t\tpass_test(\"inline\")\n\n"
+				"class TestData:\n"
+				"\textends RefCounted\n"
+				"\tfunc test_not_collected() -> void:\n"
+				"\t\tpass\n\n"
+				"class HelperGutTest:\n"
+				"\textends GutTest\n"
+				"\tfunc test_not_collected() -> void:\n"
+				"\t\tpass\n\n"
+				"# class TestComment extends GutTest:\n"
+				"# \tfunc test_comment_decoy() -> void:\n"
+				"var decoy := \"class TestString extends GutTest: func test_string_decoy()\"\n",
+				encoding="utf-8",
+			)
+
+			result = inventory.collect_test_inventory(repository)
+
+			self.assertEqual(result["method_count"], 4)
+			self.assertEqual(
+				result["files"][0]["tests"],
+				[
+					"TestDerived.test_value",
+					"TestInline.test_inline",
+					"TestInner.test_value",
+					"TestPathBase.test_path",
+				],
+			)
+
+	def test_python_class_control_flow_methods_are_discovered(self) -> None:
+		with tempfile.TemporaryDirectory() as temporary_directory:
+			repository = _make_repository(Path(temporary_directory))
+			(repository / "tests/gf_core/test_conditional.py").write_text(
+				"import unittest\n\n"
+				"class ConditionalTests(unittest.TestCase):\n"
+				"\tif True:\n"
+				"\t\tdef test_if_branch(self) -> None:\n"
+				"\t\t\tpass\n"
+				"\ttry:\n"
+				"\t\tdef test_try_body(self) -> None:\n"
+				"\t\t\tpass\n"
+				"\texcept RuntimeError:\n"
+				"\t\tasync def test_except_body(self) -> None:\n"
+				"\t\t\tpass\n"
+				"\telse:\n"
+				"\t\tdef test_else_body(self) -> None:\n"
+				"\t\t\tpass\n"
+				"\tfinally:\n"
+				"\t\tdef test_finally_body(self) -> None:\n"
+				"\t\t\tpass\n",
+				encoding="utf-8",
+			)
+
+			result = inventory.collect_test_inventory(repository)
+
+			self.assertEqual(
+				result["files"][0]["tests"],
+				[
+					"ConditionalTests.test_else_body",
+					"ConditionalTests.test_except_body",
+					"ConditionalTests.test_finally_body",
+					"ConditionalTests.test_if_branch",
+					"ConditionalTests.test_try_body",
+				],
+			)
+
+	def test_superscript_windows_device_names_are_rejected(self) -> None:
+		for device_name in ("COM¹.gd", "com².py", "LPT³.gd", "lpt¹.txt"):
+			with self.subTest(device_name=device_name):
+				with self.assertRaisesRegex(
+					inventory.TestInventoryInputError,
+					"path_not_portable",
+				):
+					inventory._validate_path_segment(device_name)
 
 	def test_unexpired_advisory_deadline_does_not_change_inventory_identity(self) -> None:
 		with tempfile.TemporaryDirectory() as temporary_directory:
