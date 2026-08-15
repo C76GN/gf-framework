@@ -804,6 +804,103 @@ def render_package_focused_gut_mapping_text(data: dict[str, Any]) -> str:
 	return "\n".join(lines)
 
 
+def render_gut_shard_plan_text(data: dict[str, Any]) -> str:
+	lines = [
+		(
+			f"gut_shard_plan: ok={data['ok']} mode={data['mode']} "
+			f"scripts={data['inventory_count']} shards={data['shard_count']} "
+			f"issues={len(data['issues'])}"
+		),
+		f"manifest: {data['manifest_path']} digest={data.get('manifest_digest', '')}",
+	]
+	observation_policy = data.get("observation_policy", {})
+	lines.append(
+		"policy: "
+		f"skips={observation_policy.get('skip_count', 0)} "
+		f"cache_reads={observation_policy.get('cache_read_count', 0)} "
+		f"cache_writes={observation_policy.get('cache_write_count', 0)} "
+		f"reuse={observation_policy.get('reuse_count', 0)}"
+	)
+	for shard in data.get("shards", []):
+		shard_line = (
+			f"- {shard['name']}: role={shard['role']} scripts={shard['script_count']}"
+		)
+		if "test_count" in shard:
+			shard_line += f" tests={shard['test_count']}"
+		if "duration_seconds" in shard:
+			shard_line += f" duration={float(shard['duration_seconds']):.3f}s"
+		if "testcase_duration_seconds" in shard:
+			shard_line += (
+				f" testcase_duration={float(shard['testcase_duration_seconds']):.3f}s"
+			)
+		if "duration_scope" in shard:
+			shard_line += f" duration_scope={shard['duration_scope']}"
+		if "lifecycle_assertion_count" in shard:
+			shard_line += (
+				f" lifecycle_assertions={shard['lifecycle_assertion_count']}"
+			)
+		status_counts = shard.get("status_counts")
+		if isinstance(status_counts, dict):
+			shard_line += " statuses=" + ", ".join(
+				f"{status}={status_counts.get(status, 0)}"
+				for status in ("passed", "failed", "pending", "no_asserts", "skipped")
+			)
+		lines.append(shard_line)
+	execution = data.get("execution", {})
+	lines.append(
+		f"execution: performed={execution.get('performed', False)} "
+		f"result_accepted={execution.get('result_accepted', False)}"
+	)
+	if execution.get("performed"):
+		for phase in ("import", "gut"):
+			phase_report = execution.get(phase)
+			if isinstance(phase_report, dict):
+				lines.append(
+					f"{phase}: exit={phase_report.get('exit_code', 1)} "
+					f"duration={phase_report.get('duration_seconds', 0.0):.3f}s"
+				)
+	junit = data.get("junit")
+	if isinstance(junit, dict):
+		junit_parts = [f"input_complete={junit.get('input_complete', False)}"]
+		for key in (
+			"completeness_basis",
+			"duration_scope",
+			"assertion_counts_complete",
+		):
+			if key in junit:
+				junit_parts.append(f"{key}={junit[key]}")
+		for key in (
+			"script_count",
+			"covered_script_count",
+			"test_count",
+			"assertion_count",
+			"lifecycle_assertion_count",
+			"failure_test_count",
+			"failure_assertion_count",
+			"pending_assertion_count",
+		):
+			if key in junit:
+				junit_parts.append(f"{key}={junit[key]}")
+		for key in ("duration_seconds", "testcase_duration_seconds"):
+			if key in junit:
+				junit_parts.append(f"{key}={float(junit[key]):.3f}")
+		unknown_reason = junit.get("assertion_count_unknown_reason")
+		if unknown_reason:
+			junit_parts.append(f"assertion_count_unknown_reason={unknown_reason}")
+		status_counts = junit.get("status_counts")
+		if isinstance(status_counts, dict):
+			junit_parts.append(
+				"statuses=" + ", ".join(
+					f"{status}={status_counts.get(status, 0)}"
+					for status in ("passed", "failed", "pending", "no_asserts", "skipped")
+				)
+			)
+		lines.append("junit: " + " ".join(junit_parts))
+	for issue in data["issues"]:
+		lines.append(f"- {issue['kind']}: {issue.get('message', '')}".rstrip())
+	return "\n".join(lines)
+
+
 def render_package_godot_cli_smoke_text(data: dict[str, Any]) -> str:
 	lines = [
 		(

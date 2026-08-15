@@ -136,11 +136,18 @@ func _init() -> void:
 
 
 func _finalize() -> void:
+	var observation_published: bool = (
+		GF_GUT_LIFECYCLE_STATE_SCRIPT.publish_gut_observation()
+	)
 	var report: Dictionary = GF_GUT_LIFECYCLE_STATE_SCRIPT.finalize_report()
 	if _gut_error_tracker != null:
 		GutErrorTracker.deregister_logger(_gut_error_tracker)
 	var report_ok_value: Variant = report.get("ok")
-	if not report_ok_value is bool or not report_ok_value:
+	if (
+		not observation_published
+		or not report_ok_value is bool
+		or not report_ok_value
+	):
 		quit(EXIT_FAILURE)
 	if _raw_logger != null:
 		OS.remove_logger(_raw_logger)

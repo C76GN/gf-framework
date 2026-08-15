@@ -59,6 +59,7 @@ import gf_validation_test_inventory
 import gf_credential_gate
 import gf_codeql_suppression_policy
 import gf_changelog
+import gf_gut_sharding
 import gf_path_security
 import extract_release_notes as gf_release_notes
 import gf_process_supervisor
@@ -222,6 +223,26 @@ GUT_LIFECYCLE_HOOK_ARGUMENTS = (
 	f"-gpre_run_script={GUT_PRE_RUN_HOOK_RESOURCE_PATH}",
 	f"-gpost_run_script={GUT_POST_RUN_HOOK_RESOURCE_PATH}",
 )
+GUT_SHARD_MANIFEST_RELATIVE_PATH = "tests/gf_core/gut_shard_manifest.json"
+GUT_SHARD_OBSERVATION_ROOT = ROOT / "build/gut-sharding"
+GUT_SHARD_OBSERVATION_JUNIT_FILENAME = "gut-authoritative.xml"
+GUT_SHARD_OBSERVATION_PROVENANCE_FILENAME = "gut-authoritative-provenance.json"
+GUT_SHARD_OBSERVATION_TIMEOUT_SECONDS = 1200
+GUT_SHARD_OBSERVATION_NONCE_ENVIRONMENT = "GF_GUT_SHARD_OBSERVATION_NONCE"
+GUT_SHARD_OBSERVATION_PATH_ENVIRONMENT = "GF_GUT_SHARD_OBSERVATION_PATH"
+GUT_SHARD_OBSERVATION_NONCE_RE = re.compile(r"[0-9a-f]{64}\Z")
+GUT_SHARD_FULL_DIRECTORY_ARGUMENT = "-gdir=res://tests/gf_core"
+GUT_SHARD_RECURSIVE_ARGUMENT = "-ginclude_subdirs"
+GUT_SHARD_CONFIG_DISABLED_ARGUMENT = "-gconfig="
+GUT_SHARD_JUNIT_ARGUMENT_PREFIX = "-gjunit_xml_file="
+GUT_SHARD_FILTER_ARGUMENT_NAMES = frozenset({
+	"-ginner_class",
+	"-gprefix",
+	"-gselect",
+	"-gsuffix",
+	"-gtest",
+	"-gunit_test_name",
+})
 GUT_TEST_ORPHAN_RE = re.compile(r"^\s*(?P<count>[1-9]\d*)\s+[Oo]rphans?\s*$")
 GUT_RUN_SUMMARY_ORPHAN_RE = re.compile(r"^\s*Orphans\s+(?P<count>[1-9]\d*)\s*$")
 PACKAGE_GODOT_SMOKE_DEFAULT_ALL_PACKAGE_JOBS = 4
@@ -919,6 +940,7 @@ CHECK_DEFINITIONS: dict[str, list[str]] = {
 		".",
 		"-s",
 		GUT_LIFECYCLE_CLI_RESOURCE_PATH,
+		GUT_SHARD_CONFIG_DISABLED_ARGUMENT,
 		"-gdir=res://tests/gf_core",
 		"-ginclude_subdirs",
 		*GUT_LIFECYCLE_HOOK_ARGUMENTS,
@@ -1023,6 +1045,7 @@ CHECK_DEFINITIONS: dict[str, list[str]] = {
 		"tests/gf_core/tools/test_gf_validation_contracts.py",
 		"tests/gf_core/tools/test_gf_validation_evidence.py",
 		"tests/gf_core/tools/test_gf_validation_test_inventory.py",
+		"tests/gf_core/tools/test_gf_gut_sharding.py",
 	],
 	"maintenance_generator_tests": [
 		sys.executable,
@@ -1951,6 +1974,35 @@ def main() -> int:
 	)
 	package_focused_gut_mapping_parser.add_argument("--json", action="store_true", help="Print JSON instead of text.")
 
+	gut_shard_plan_parser = subparsers.add_parser(
+		"gut-shard-plan",
+		help=(
+			"Validate the observational GUT shard manifest and optionally analyze one "
+			"explicit JUnit result."
+		),
+	)
+	gut_shard_plan_input_group = gut_shard_plan_parser.add_mutually_exclusive_group()
+	gut_shard_plan_input_group.add_argument(
+		"--junit",
+		default="",
+		help="Analyze an existing GUT JUnit XML file below build/ without running GUT.",
+	)
+	gut_shard_plan_input_group.add_argument(
+		"--run-gut",
+		action="store_true",
+		help=(
+			"Explicitly run the authoritative GUT check once, including its import dependency, "
+			"and collect observational JUnit timing."
+		),
+	)
+	gut_shard_plan_parser.add_argument(
+		"--timeout",
+		type=int,
+		default=None,
+		help="Raise the minimum timeout for each explicitly requested Godot phase.",
+	)
+	gut_shard_plan_parser.add_argument("--json", action="store_true", help="Print JSON instead of text.")
+
 	package_godot_cli_smoke_parser = subparsers.add_parser(
 		"package-godot-cli-smoke",
 		help="Smoke-test the Godot-native package CLI without requiring Python on the user install path.",
@@ -2290,6 +2342,18 @@ def main() -> int:
 	if args.command == "package-focused-gut-mapping":
 		data = package_focused_gut_mapping()
 		maintenance_rendering.print_output(data, args.json, maintenance_rendering.render_package_focused_gut_mapping_text)
+		return 0 if data["ok"] else 1
+	if args.command == "gut-shard-plan":
+		data = gut_shard_plan(
+			junit_path=args.junit,
+			run_gut=args.run_gut,
+			timeout_seconds=args.timeout,
+		)
+		maintenance_rendering.print_output(
+			data,
+			args.json,
+			maintenance_rendering.render_gut_shard_plan_text,
+		)
 		return 0 if data["ok"] else 1
 	if args.command == "package-godot-cli-smoke":
 		data = package_godot_cli_smoke(
@@ -4351,6 +4415,481 @@ def package_focused_gut_mapping() -> dict[str, Any]:
 		if not mapping_payload["issues"]:
 			issues.extend(audit_package_focused_gut_mapping(records, mapping_packages))
 	return make_package_focused_gut_mapping_payload(records, mapping_packages, issues)
+
+
+def gut_shard_plan(
+	junit_path: str = "",
+	*,
+	run_gut: bool = False,
+	timeout_seconds: int | None = None,
+) -> dict[str, Any]:
+	"""Validate the G0 shard manifest and optionally observe one explicit GUT result."""
+	mode = "run_gut" if run_gut else ("existing_junit" if junit_path else "manifest_only")
+	report: dict[str, Any] = {
+		"schema_version": 1,
+		"ok": False,
+		"mode": mode,
+		"manifest_path": GUT_SHARD_MANIFEST_RELATIVE_PATH,
+		"manifest_digest": "",
+		"inventory_count": 0,
+		"shard_count": 0,
+		"shards": [],
+		"execution": {
+			"performed": False,
+			"authoritative_check": "gut",
+			"gut_run_count": 0,
+			"result_accepted": False,
+		},
+		"observation_policy": {
+			"affects_check_graph": False,
+			"affects_suite_membership": False,
+			"authoritative_result_replaced": False,
+			"skip_count": 0,
+			"cache_read_count": 0,
+			"cache_write_count": 0,
+			"reuse_count": 0,
+			"writes_ignored_state": run_gut,
+		},
+		"issues": [],
+	}
+	try:
+		inventory = gf_gut_sharding.discover_gut_test_scripts(ROOT)
+		manifest = gf_gut_sharding.load_and_validate_manifest(
+			ROOT / GUT_SHARD_MANIFEST_RELATIVE_PATH,
+			root=ROOT,
+			expected_inventory=inventory,
+		)
+		report["manifest_digest"] = gf_gut_sharding.canonical_digest(manifest)
+		report["inventory_count"] = len(inventory)
+		report["shard_count"] = len(manifest["shards"])
+		report["shards"] = [
+			{
+				"name": shard["name"],
+				"role": shard["role"],
+				"script_count": len(shard["scripts"]),
+			}
+			for shard in manifest["shards"]
+		]
+		if timeout_seconds is not None and not run_gut:
+			raise ValueError("--timeout is only valid with --run-gut.")
+
+		resolved_junit_path: Path | None = None
+		prepared_junit_output: GutShardJunitOutput | None = None
+		if run_gut:
+			prepared_junit_output = prepare_gut_shard_junit_output()
+			resolved_junit_path = prepared_junit_output.path
+			invocation_id = prepared_junit_output.invocation_directory.name
+			execution = report["execution"]
+			execution["performed"] = True
+			execution["writes_ignored_state"] = True
+			execution["junit_path"] = resolved_junit_path.relative_to(ROOT).as_posix()
+			execution["provenance_path"] = (
+				prepared_junit_output.provenance_path.relative_to(ROOT).as_posix()
+			)
+			gut_command = authoritative_gut_shard_observation_command(
+				resolved_junit_path,
+				invocation_id,
+			)
+			gut_environment = gut_shard_observation_environment(prepared_junit_output)
+			import_result = run_command(
+				"godot_import",
+				gut_shard_observation_command(
+					CHECK_DEFINITIONS["godot_import"],
+					invocation_id,
+					"import",
+				),
+				resolve_check_timeout_seconds("godot_import", timeout_seconds),
+			)
+			execution["import"] = gut_shard_observation_command_summary(import_result)
+			if import_result.exit_code != 0:
+				report["issues"].append({
+					"kind": "gut_shard_observation_import_failed",
+					"message": "The authoritative GUT import dependency failed; GUT was not started.",
+				})
+				return report
+
+			gut_result = run_command(
+				"gut",
+				gut_command,
+				resolve_gut_shard_observation_timeout_seconds(timeout_seconds),
+				environment=gut_environment,
+			)
+			execution["gut_run_count"] = 1
+			execution["gut"] = gut_shard_observation_command_summary(gut_result)
+			if gut_result.exit_code != 0:
+				report["issues"].append({
+					"kind": "gut_shard_observation_gut_failed",
+					"message": "The authoritative GUT check failed; its result was not replaced or downgraded.",
+				})
+		elif junit_path:
+			resolved_junit_path = validate_gut_shard_junit_input_path(junit_path)
+
+		if resolved_junit_path is not None:
+			if prepared_junit_output is not None:
+				junit_report = parse_published_gut_shard_junit(
+					prepared_junit_output,
+					inventory,
+				)
+			else:
+				junit_report = parse_existing_gut_shard_junit(
+					resolved_junit_path,
+					inventory,
+				)
+			report["junit"] = junit_report
+			if junit_report.get("input_complete") is not True:
+				report["issues"].append({
+					"kind": "gut_shard_observation_junit_rejected",
+					"message": (
+						"The JUnit observation did not prove a complete invocation-owned "
+						"unfiltered run."
+					),
+				})
+			else:
+				observation = gf_gut_sharding.build_observation_report(
+					manifest,
+					junit_report,
+				)
+				report["observation"] = observation
+				report["shards"] = observation["shards"]
+				if run_gut and not report["issues"]:
+					execution["result_accepted"] = True
+		report["ok"] = not report["issues"]
+		return report
+	except (gf_gut_sharding.GutShardingError, OSError, ValueError) as error:
+		report["issues"].append({
+			"kind": str(getattr(error, "code", "gut_shard_observation_failed")),
+			"message": str(error),
+		})
+		return report
+
+
+@dataclass(frozen=True)
+class GutShardJunitOutput:
+	"""Identity-pinned, invocation-owned outputs prepared without overwriting data."""
+
+	path: Path
+	provenance_path: Path
+	nonce: str
+	root: Path
+	root_identity: os.stat_result
+	invocation_directory: Path
+	invocation_identity: os.stat_result
+
+
+def validate_gut_shard_junit_input_path(value: str) -> Path:
+	"""Resolve one existing JUnit XML input inside the ignored build tree."""
+	requested_path = Path(value)
+	if not requested_path.is_absolute():
+		requested_path = ROOT / requested_path
+	if requested_path.suffix.lower() != ".xml":
+		raise ValueError("GUT shard JUnit paths must use the .xml extension below build/.")
+	try:
+		controlled_path = validate_controlled_path(requested_path, ROOT / "build")
+	except ValueError as error:
+		raise ValueError(f"Invalid GUT shard JUnit path: {error}") from error
+	if not controlled_path.is_file():
+		raise ValueError("The requested GUT shard JUnit input is not a regular file below build/.")
+	return controlled_path
+
+
+def prepare_gut_shard_junit_output() -> GutShardJunitOutput:
+	"""Create a random invocation-owned directory without deleting or overwriting."""
+	containment_root = GUT_SHARD_OBSERVATION_ROOT.parent
+	observation_root = validate_controlled_path(
+		GUT_SHARD_OBSERVATION_ROOT,
+		containment_root,
+	)
+	observation_root.mkdir(parents=True, exist_ok=True)
+	observation_root = validate_controlled_path(observation_root, containment_root)
+	root_identity = observation_root.lstat()
+	if (
+		not stat.S_ISDIR(root_identity.st_mode)
+		or stat.S_ISLNK(root_identity.st_mode)
+		or bool(int(getattr(root_identity, "st_file_attributes", 0)) & 0x0400)
+	):
+		raise ValueError("The GUT shard observation root must be a real directory.")
+	nonce = secrets.token_hex(32)
+	if GUT_SHARD_OBSERVATION_NONCE_RE.fullmatch(nonce) is None:
+		raise ValueError("The GUT shard observation nonce must be 64 lowercase hex characters.")
+	invocation_directory = validate_controlled_path(
+		observation_root / nonce,
+		observation_root,
+	)
+	invocation_directory.mkdir(exist_ok=False)
+	observation_root_after = validate_controlled_path(
+		GUT_SHARD_OBSERVATION_ROOT,
+		containment_root,
+	)
+	if (
+		observation_root_after != observation_root
+		or not same_owned_directory_identity(
+			root_identity,
+			observation_root_after.lstat(),
+		)
+	):
+		raise ValueError(
+			"The GUT shard observation root changed while preparing its output."
+		)
+	invocation_directory = validate_controlled_path(
+		invocation_directory,
+		observation_root,
+	)
+	invocation_identity = invocation_directory.lstat()
+	if (
+		not stat.S_ISDIR(invocation_identity.st_mode)
+		or stat.S_ISLNK(invocation_identity.st_mode)
+		or bool(int(getattr(invocation_identity, "st_file_attributes", 0)) & 0x0400)
+	):
+		raise ValueError("The GUT shard invocation root must be a real directory.")
+	output_path = validate_controlled_path(
+		invocation_directory / GUT_SHARD_OBSERVATION_JUNIT_FILENAME,
+		observation_root,
+	)
+	provenance_path = validate_controlled_path(
+		invocation_directory / GUT_SHARD_OBSERVATION_PROVENANCE_FILENAME,
+		observation_root,
+	)
+	if os.path.lexists(output_path) or os.path.lexists(provenance_path):
+		raise FileExistsError("Fresh GUT shard observation output unexpectedly already exists.")
+	return GutShardJunitOutput(
+		path=output_path,
+		provenance_path=provenance_path,
+		nonce=nonce,
+		root=observation_root,
+		root_identity=root_identity,
+		invocation_directory=invocation_directory,
+		invocation_identity=invocation_identity,
+	)
+
+
+def validate_published_gut_shard_junit_path(output: GutShardJunitOutput) -> Path:
+	"""Bind a published JUnit file to the invocation directory created for its run."""
+	controlled_path = validate_controlled_path(output.path, output.root)
+	root_after = output.root.lstat()
+	invocation_after = output.invocation_directory.lstat()
+	if (
+		controlled_path.parent != output.invocation_directory
+		or controlled_path.name != GUT_SHARD_OBSERVATION_JUNIT_FILENAME
+		or not same_owned_directory_identity(output.root_identity, root_after)
+		or not same_owned_directory_identity(output.invocation_identity, invocation_after)
+		or not controlled_path.is_file()
+	):
+		raise ValueError("The invocation-owned GUT shard JUnit output was not published safely.")
+	metadata = controlled_path.lstat()
+	if (
+		not stat.S_ISREG(metadata.st_mode)
+		or stat.S_ISLNK(metadata.st_mode)
+		or bool(int(getattr(metadata, "st_file_attributes", 0)) & 0x0400)
+	):
+		raise ValueError("The GUT shard JUnit output must be a regular non-link file.")
+	return controlled_path
+
+
+def validate_published_gut_shard_provenance_path(output: GutShardJunitOutput) -> Path:
+	"""Bind a published provenance sidecar to the same invocation-owned directory."""
+	controlled_path = validate_controlled_path(output.provenance_path, output.root)
+	root_after = output.root.lstat()
+	invocation_after = output.invocation_directory.lstat()
+	if (
+		GUT_SHARD_OBSERVATION_NONCE_RE.fullmatch(output.nonce) is None
+		or output.invocation_directory.name != output.nonce
+		or controlled_path.parent != output.invocation_directory
+		or controlled_path.name != GUT_SHARD_OBSERVATION_PROVENANCE_FILENAME
+		or not same_owned_directory_identity(output.root_identity, root_after)
+		or not same_owned_directory_identity(output.invocation_identity, invocation_after)
+		or not controlled_path.is_file()
+	):
+		raise ValueError(
+			"The invocation-owned GUT shard provenance output was not published safely."
+		)
+	metadata = controlled_path.lstat()
+	if (
+		not stat.S_ISREG(metadata.st_mode)
+		or stat.S_ISLNK(metadata.st_mode)
+		or bool(int(getattr(metadata, "st_file_attributes", 0)) & 0x0400)
+	):
+		raise ValueError("The GUT shard provenance output must be a regular non-link file.")
+	return controlled_path
+
+
+def parse_published_gut_shard_junit(
+	output: GutShardJunitOutput,
+	expected_scripts: tuple[str, ...],
+) -> dict[str, Any]:
+	"""Parse invocation-owned JUnit and provenance while preserving identities."""
+	path = validate_published_gut_shard_junit_path(output)
+	provenance_path = validate_published_gut_shard_provenance_path(output)
+	before = gf_gut_sharding.stable_file_identity(path.lstat())
+	provenance_before = gf_gut_sharding.stable_file_identity(provenance_path.lstat())
+	report = gf_gut_sharding.parse_gut_junit_xml(
+		path,
+		expected_scripts=expected_scripts,
+		expected_file_identity=before,
+		trusted_unfiltered_run=True,
+		provenance_path=provenance_path,
+		expected_provenance_identity=provenance_before,
+		expected_provenance_nonce=output.nonce,
+	)
+	after_path = validate_published_gut_shard_junit_path(output)
+	provenance_after_path = validate_published_gut_shard_provenance_path(output)
+	if (
+		after_path != path
+		or gf_gut_sharding.stable_file_identity(after_path.lstat()) != before
+		or provenance_after_path != provenance_path
+		or gf_gut_sharding.stable_file_identity(provenance_after_path.lstat())
+		!= provenance_before
+	):
+		raise ValueError("The invocation-owned GUT shard observation changed while parsing.")
+	return report
+
+
+def parse_existing_gut_shard_junit(
+	path: Path,
+	expected_scripts: tuple[str, ...],
+) -> dict[str, Any]:
+	"""Parse an existing build input and reject parent-chain replacement."""
+	build_root = ROOT / "build"
+	chain_before = snapshot_real_directory_chain(build_root, path.parent)
+	before = gf_gut_sharding.stable_file_identity(path.lstat())
+	report = gf_gut_sharding.parse_gut_junit_xml(
+		path,
+		expected_scripts=expected_scripts,
+		expected_file_identity=before,
+	)
+	chain_after = snapshot_real_directory_chain(build_root, path.parent)
+	if not same_directory_chain_identity(chain_before, chain_after):
+		raise ValueError("The GUT shard JUnit input directory chain changed while parsing.")
+	try:
+		after = path.lstat()
+	except OSError as error:
+		raise ValueError("The GUT shard JUnit input changed while parsing.") from error
+	if gf_gut_sharding.stable_file_identity(after) != before:
+		raise ValueError("The GUT shard JUnit input changed while parsing.")
+	return report
+
+
+def gut_shard_observation_command(
+	command: list[str],
+	invocation_id: str,
+	phase: str,
+) -> list[str]:
+	"""Give every explicit observation phase an invocation-unique managed log."""
+	result = list(command)
+	if result.count("--log-file") != 1:
+		raise ValueError("GUT shard observation commands require exactly one managed log path.")
+	log_index = result.index("--log-file") + 1
+	if log_index >= len(result):
+		raise ValueError("GUT shard observation command has no managed log destination.")
+	result[log_index] = godot_log_path(f"gut-shard-{invocation_id}-{phase}")
+	return result
+
+
+def authoritative_gut_shard_observation_command(
+	junit_path: Path,
+	invocation_id: str,
+) -> list[str]:
+	"""Build the exact unfiltered recursive GUT command for one owned observation."""
+	canonical_command = list(CHECK_DEFINITIONS["gut"])
+	if not canonical_command or any(type(argument) is not str for argument in canonical_command):
+		raise ValueError("The authoritative GUT command must be a non-empty string argv.")
+	gut_argument_names = [
+		argument.split("=", 1)[0]
+		for argument in canonical_command
+		if argument.startswith("-g")
+	]
+	if (
+		gut_argument_names.count("-gconfig") != 1
+		or canonical_command.count(GUT_SHARD_CONFIG_DISABLED_ARGUMENT) != 1
+	):
+		raise ValueError(
+			"The authoritative GUT observation must disable external GUT configuration."
+		)
+	if (
+		gut_argument_names.count("-gdir") != 1
+		or canonical_command.count(GUT_SHARD_FULL_DIRECTORY_ARGUMENT) != 1
+		or gut_argument_names.count(GUT_SHARD_RECURSIVE_ARGUMENT) != 1
+		or canonical_command.count(GUT_SHARD_RECURSIVE_ARGUMENT) != 1
+	):
+		raise ValueError(
+			"The authoritative GUT observation must use the complete recursive gf_core inventory."
+		)
+	if GUT_SHARD_FILTER_ARGUMENT_NAMES.intersection(gut_argument_names):
+		raise ValueError("The authoritative GUT observation must not contain test filters.")
+	if gut_argument_names.count(GUT_SHARD_JUNIT_ARGUMENT_PREFIX.removesuffix("=")) != 0:
+		raise ValueError("The canonical GUT command must not predeclare a JUnit output.")
+
+	managed_command = gut_shard_observation_command(
+		canonical_command,
+		invocation_id,
+		"gut",
+	)
+	junit_argument = f"{GUT_SHARD_JUNIT_ARGUMENT_PREFIX}{junit_path.as_posix()}"
+	command = [*managed_command, junit_argument]
+	if (
+		command[:-1] != managed_command
+		or command[-1] != junit_argument
+		or sum(
+			argument.startswith(GUT_SHARD_JUNIT_ARGUMENT_PREFIX)
+			for argument in command
+		) != 1
+	):
+		raise ValueError(
+			"The authoritative GUT observation must append exactly one owned JUnit output."
+		)
+	return command
+
+
+def gut_shard_observation_environment(output: GutShardJunitOutput) -> dict[str, str]:
+	"""Bind the current full GUT process to its invocation-owned provenance sidecar."""
+	if (
+		GUT_SHARD_OBSERVATION_NONCE_RE.fullmatch(output.nonce) is None
+		or output.invocation_directory.name != output.nonce
+		or output.path.parent != output.invocation_directory
+		or output.path.name != GUT_SHARD_OBSERVATION_JUNIT_FILENAME
+		or output.provenance_path.parent != output.invocation_directory
+		or output.provenance_path.name != GUT_SHARD_OBSERVATION_PROVENANCE_FILENAME
+	):
+		raise ValueError("The GUT shard provenance output is not bound to its invocation nonce.")
+	try:
+		provenance_resource_path = (
+			"res://"
+			+ output.provenance_path.relative_to(ROOT).as_posix()
+		)
+	except ValueError as error:
+		raise ValueError("The GUT shard provenance output must stay below the repository root.") from error
+	return {
+		**os.environ,
+		GUT_SHARD_OBSERVATION_NONCE_ENVIRONMENT: output.nonce,
+		GUT_SHARD_OBSERVATION_PATH_ENVIRONMENT: provenance_resource_path,
+	}
+
+
+def resolve_gut_shard_observation_timeout_seconds(
+	override_seconds: int | None,
+) -> int:
+	"""Keep the explicit full-suite observation above its measured ten-minute run."""
+	return max(
+		GUT_SHARD_OBSERVATION_TIMEOUT_SECONDS,
+		resolve_check_timeout_seconds("gut", override_seconds),
+	)
+
+
+def gut_shard_observation_command_summary(result: CommandResult) -> dict[str, Any]:
+	"""Keep machine-local output out of the durable observation report."""
+	summary: dict[str, Any] = {
+		"name": result.name,
+		"exit_code": result.exit_code,
+		"timed_out": result.timed_out,
+		"cancelled": result.cancelled,
+		"duration_seconds": round(result.duration_seconds, 3),
+	}
+	if result.process_exit_code is not None:
+		summary["process_exit_code"] = result.process_exit_code
+	if result.notes:
+		summary["notes"] = list(result.notes)
+	if result.gut_lifecycle_report is not None:
+		summary["lifecycle_ok"] = bool(result.gut_lifecycle_report.get("ok", False))
+	return summary
 
 
 def load_package_focused_gut_mapping_file() -> dict[str, Any]:
@@ -16191,10 +16730,64 @@ def maintenance_self_test() -> dict[str, Any]:
 		and expand_check_dependencies(["gut"]) == ["godot_import", "gut"]
 		and expand_check_dependencies(["godot_import", "gut"]) == ["godot_import", "gut"]
 		and GUT_LIFECYCLE_CLI_RESOURCE_PATH in CHECK_DEFINITIONS["gut"]
+		and GUT_SHARD_CONFIG_DISABLED_ARGUMENT in CHECK_DEFINITIONS["gut"]
 		and all(argument in CHECK_DEFINITIONS["gut"] for argument in GUT_LIFECYCLE_HOOK_ARGUMENTS),
 		(
 			"GUT validation must import a clean Godot project exactly once before loading "
 			"class_name scripts and must use the lifecycle-aware CLI with both hooks."
+		),
+	)
+	record_result(
+		"gut_shard_plan_remains_observational_and_outside_suites",
+		"gut_shard_plan" not in CHECK_DEFINITIONS
+		and all(
+			"gut_shard_plan" not in suite_checks
+			for suite_checks in CHECK_SUITES.values()
+		)
+		and all(
+			"gut_shard_plan" not in dependencies
+			for dependencies in CHECK_DEPENDENCIES.values()
+		)
+		and CHECK_DEPENDENCIES.get("gut") == ["godot_import"],
+		(
+			"The G0 shard plan must remain an explicit observational command and must "
+			"not change authoritative suite membership or GUT dependencies."
+		),
+	)
+	record_result(
+		"gut_sharding_tests_share_the_maintenance_execution_owner",
+		CHECK_DEFINITIONS.get("maintenance_execution_tests") == [
+			sys.executable,
+			"-m",
+			"unittest",
+			"tests/gf_core/tools/test_gf_maintenance_execution.py",
+			"tests/gf_core/tools/test_gf_validation_contracts.py",
+			"tests/gf_core/tools/test_gf_validation_evidence.py",
+			"tests/gf_core/tools/test_gf_validation_test_inventory.py",
+			"tests/gf_core/tools/test_gf_gut_sharding.py",
+		],
+		(
+			"GUT shard protocol tests must stay in the existing maintenance execution "
+			"owner instead of creating an unowned or suite-expanding test path."
+		),
+	)
+	record_result(
+		"gut_shard_observation_has_an_independent_owned_output_and_timeout",
+		GUT_SHARD_OBSERVATION_ROOT == ROOT / "build/gut-sharding"
+		and GUT_SHARD_OBSERVATION_JUNIT_FILENAME == "gut-authoritative.xml"
+		and GUT_SHARD_OBSERVATION_PROVENANCE_FILENAME
+		== "gut-authoritative-provenance.json"
+		and GUT_SHARD_OBSERVATION_NONCE_ENVIRONMENT
+		== "GF_GUT_SHARD_OBSERVATION_NONCE"
+		and GUT_SHARD_OBSERVATION_PATH_ENVIRONMENT
+		== "GF_GUT_SHARD_OBSERVATION_PATH"
+		and GUT_SHARD_OBSERVATION_TIMEOUT_SECONDS == 1200
+		and resolve_gut_shard_observation_timeout_seconds(None) == 1200
+		and resolve_gut_shard_observation_timeout_seconds(1500) == 1500
+		and "gut" not in CHECK_TIMEOUT_SECONDS,
+		(
+			"The explicit G0 observation must use its dedicated ignored output root and "
+			"measured timeout floor without changing the authoritative GUT check policy."
 		),
 	)
 	record_result(
@@ -29113,16 +29706,27 @@ def run_command(
 	command: list[str],
 	timeout_seconds: float,
 	output_callback: Callable[[str, str, str], None] | None = None,
+	*,
+	environment: dict[str, str] | None = None,
 ) -> CommandResult:
 	started = time.perf_counter()
 	log_paths: list[Path] = []
-	effective_command = resolve_godot_command(command)
+	process_environment = environment
+	if process_environment is None:
+		process_environment = dict(os.environ)
+		process_environment.pop(GUT_SHARD_OBSERVATION_NONCE_ENVIRONMENT, None)
+		process_environment.pop(GUT_SHARD_OBSERVATION_PATH_ENVIRONMENT, None)
+	effective_command = resolve_godot_command(
+		command,
+		environment=process_environment,
+	)
 	try:
 		log_paths = prepare_command_log_paths(effective_command)
 		process_result = run_supervised_process(
 			effective_command,
 			cwd=ROOT,
 			timeout_seconds=timeout_seconds,
+			environment=process_environment,
 			stdout_callback=(
 				(lambda line: output_callback(name, "stdout", line))
 				if output_callback is not None
