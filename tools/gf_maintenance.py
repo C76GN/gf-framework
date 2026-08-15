@@ -16791,6 +16791,7 @@ def maintenance_self_test() -> dict[str, Any]:
 			"tests/gf_core/tools/test_gf_maintenance_execution.py",
 			"tests/gf_core/tools/test_gf_validation_contracts.py",
 			"tests/gf_core/tools/test_gf_validation_evidence.py",
+			"tests/gf_core/tools/test_gf_validation_inputs.py",
 			"tests/gf_core/tools/test_gf_validation_test_inventory.py",
 			"tests/gf_core/tools/test_gf_gut_sharding.py",
 		],
