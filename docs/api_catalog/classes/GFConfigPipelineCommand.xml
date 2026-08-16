@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFConfigPipelineCommand" path="addons/gf/tools/config_pipeline/gf_config_pipeline_command.gd" module="tools" extends="RefCounted" classDigest="e0b23082b9f1e2ae19bc22a28e58cd3807c88b357c3b1fb5b41873ee88d737c9">
+<class name="GFConfigPipelineCommand" path="addons/gf/tools/config_pipeline/gf_config_pipeline_command.gd" module="tools" extends="RefCounted" classDigest="12a007a4e60cb7f2058516888d311dab11dd7ffc48fe21793d80abe1486c2111">
 	<description>GFConfigPipelineCommand: 配置导表工具的 Godot 命令参数适配器。
 解析 Godot `--` 之后的用户参数，调用 GFConfigPipelineRunner，并返回适合 CI、
 编辑器按钮或项目脚本消费的结构化报告。该类只封装 Godot 原生命令入口，不调用
@@ -22,7 +22,7 @@
 				<tag name="param">arguments: Godot `--` 之后的用户参数。</tag>
 				<tag name="param">base_options: 调用方直接注入的默认选项，命令行参数会覆盖同名字段。</tag>
 				<tag name="return">命令报告。</tag>
-				<tag name="schema">base_options: Dictionary，可包含 GFConfigPipelineRunner 选项，以及 output_path、access_output_path、access_class_name、access_provider_accessor、dry_run、changed_only、manifest_path、write_manifest、manifest_options、max_freshness_file_bytes、max_freshness_total_bytes 和 max_freshness_entries；各产物 options 可包含 allow_unowned_overwrite。</tag>
+				<tag name="schema">base_options: Dictionary，可包含 GFConfigPipelineRunner 选项，以及 output_path、access_output_path、access_class_name、access_provider_accessor、dry_run、changed_only、manifest_path、write_manifest、manifest_options、max_freshness_file_bytes、max_freshness_total_bytes 和 max_freshness_entries；三个非空产物路径都必须位于 res:// 或 user://，各产物 options 可包含 allow_parent_output_path、allow_gf_source_output 和 allow_unowned_overwrite。</tag>
 				<tag name="schema">return: Dictionary，包含 success、exit_code、operation、profile_path、options、runner_result、json_report、pretty_output、usage_requested、strict、dry_run、changed_only、manifest_path 和 error。</tag>
 				<tag name="since">8.0.0</tag>
 			</tags>

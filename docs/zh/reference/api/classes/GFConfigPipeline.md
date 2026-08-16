@@ -201,14 +201,14 @@ func export_profile(profile: GFConfigPipelineProfile, options: Dictionary = {}) 
 | 名称 | 说明 |
 |---|---|
 | `profile` | 导表 Profile 资源。 |
-| `options` | 本次导出覆盖选项，支持 output_path、build_options、save_options、access_output_path、access_options、access_class_name、access_provider_accessor、changed_only、manifest_path、write_manifest、manifest_options、manifest_metadata、scan_filesystem 以及 build_database() 的直接选项。 |
+| `options` | 本次导出覆盖选项，支持 output_path、build_options、save_options、access_output_path、access_options、access_class_name、access_provider_accessor、changed_only、manifest_path、write_manifest、manifest_options、manifest_metadata、scan_filesystem 以及 build_database() 的直接选项；三个非空产物路径都必须位于 res:// 或 user:// URI 域。 |
 
 返回：导出结果。
 
 结构：
 
 - `profile`: GFConfigPipelineProfile resource。
-- `options`: Dictionary，可包含 output_path、build_options、save_options、access_output_path、access_options、access_class_name、access_provider_accessor、database_id、version、metadata、validate_database、validate_schema、parse_options、rebuild_indexes、changed_only、manifest_path、write_manifest、manifest_options、manifest_metadata、scan_filesystem、max_freshness_file_bytes、max_freshness_total_bytes 和 max_freshness_entries；save_options、access_options 与 manifest_options 可分别包含 allow_unowned_overwrite。批量导出会强制所有 constituent 禁止 scan，并且仅在整批事务成功后按顶层 scan_filesystem 执行一次编辑器扫描。
+- `options`: Dictionary，可包含 output_path、build_options、save_options、access_output_path、access_options、access_class_name、access_provider_accessor、database_id、version、metadata、validate_database、validate_schema、parse_options、rebuild_indexes、changed_only、manifest_path、write_manifest、manifest_options、manifest_metadata、scan_filesystem、max_freshness_file_bytes、max_freshness_total_bytes 和 max_freshness_entries；save_options、access_options 与 manifest_options 可分别包含 allow_parent_output_path、allow_gf_source_output 和 allow_unowned_overwrite。allow_parent_output_path 只允许在既有 resource URI 域内规范化，不能越过 URI 根。批量导出会强制所有 constituent 禁止 scan，并且仅在整批事务成功后按顶层 scan_filesystem 执行一次编辑器扫描。
 - `return`: Dictionary，包含 success、database、report、table_results、build_result、save_result、access_result、manifest_path、manifest、manifest_result、source_validation_report、profile_id、output_path、error、transaction_result、recovery_required、recovery_action 和 recovery_transaction；写 manifest 时会在事务完成前复核 source_receipt，来源变化会回滚整批产物；recovery_required 为 true 时调用方必须按 recovery_action 使用 recovery_transaction 完成结果要求的终态动作。
 
 <a id="member-gfconfigpipeline-methods-make_database_export"></a>
@@ -256,14 +256,14 @@ func save_database( database: GFConfigDatabaseResource, output_path: String, opt
 | 名称 | 说明 |
 |---|---|
 | `database` | 要保存的配置数据库资源。 |
-| `output_path` | 输出路径，通常为 .tres、.res 或 .json。 |
-| `options` | 保存选项，支持 output_format、include_schema、include_indexes、indent、sort_keys、overwrite_existing、allow_unowned_overwrite、dry_run 和 artifact_metadata。 |
+| `output_path` | res:// 或 user:// 输出 URI，通常以 .tres、.res 或 .json 结尾；成功结果会返回规范化后的 URI。 |
+| `options` | 保存选项，支持 output_format、include_schema、include_indexes、indent、sort_keys、overwrite_existing、allow_parent_output_path、allow_gf_source_output、allow_unowned_overwrite、dry_run 和 artifact_metadata。 |
 
 返回：保存结果。
 
 结构：
 
-- `options`: Dictionary，可包含 output_format、include_schema、include_indexes、max_depth、max_nodes、max_output_bytes、indent、sort_keys、overwrite_existing、allow_unowned_overwrite、dry_run 和 artifact_metadata；三个 JSON 预算会被框架绝对上限约束，allow_unowned_overwrite 仅用于调用方已明确确认现有文件所有权的迁移场景。
+- `options`: Dictionary，可包含 output_format、include_schema、include_indexes、max_depth、max_nodes、max_output_bytes、indent、sort_keys、overwrite_existing、allow_parent_output_path、allow_gf_source_output、allow_unowned_overwrite、dry_run 和 artifact_metadata；allow_parent_output_path 只允许规范化 URI 根内的父级片段，allow_gf_source_output 只放行 res://addons/gf 源码目录保护，三个 JSON 预算会被框架绝对上限约束，allow_unowned_overwrite 仅用于调用方已明确确认现有文件所有权的迁移场景。
 - `return`: Dictionary，包含 success、path、format、error_code、error、artifact_report、status、written、changed 和 dry_run。
 
 <a id="member-gfconfigpipeline-methods-generate_access"></a>
@@ -284,14 +284,14 @@ func generate_access( database: GFConfigDatabaseResource, output_path: String, a
 | 名称 | 说明 |
 |---|---|
 | `database` | 要生成访问器的配置数据库资源。 |
-| `output_path` | 访问器脚本输出路径。 |
+| `output_path` | res:// 或 user:// 访问器脚本输出 URI；成功结果会返回规范化后的 URI。 |
 | `access_class_name` | 生成脚本的 class_name。 |
 | `provider_accessor` | 无显式 provider 参数时用于获取 provider 的表达式。 |
-| `options` | 访问器生成选项，支持 GFConfigAccessGenerator 选项、overwrite_existing、allow_unowned_overwrite、dry_run、scan_filesystem 和 metadata。 |
+| `options` | 访问器生成选项，支持 GFConfigAccessGenerator 选项、overwrite_existing、allow_parent_output_path、allow_gf_source_output、allow_unowned_overwrite、dry_run、scan_filesystem 和 metadata。 |
 
 返回：访问器生成结果。
 
 结构：
 
-- `options`: Dictionary，可包含 method_name_style、constant_prefix、record_method_pattern、table_method_pattern、include_schema_comments、include_typed_records、typed_record_method_pattern、typed_record_class_suffix、overwrite_existing、allow_unowned_overwrite、dry_run、scan_filesystem 和 metadata；allow_unowned_overwrite 仅用于调用方已明确确认现有文件所有权的迁移场景。
+- `options`: Dictionary，可包含 method_name_style、constant_prefix、record_method_pattern、table_method_pattern、include_schema_comments、include_typed_records、typed_record_method_pattern、typed_record_class_suffix、overwrite_existing、allow_parent_output_path、allow_gf_source_output、allow_unowned_overwrite、dry_run、scan_filesystem 和 metadata；allow_parent_output_path 只允许规范化 URI 根内的父级片段，allow_gf_source_output 只放行 res://addons/gf 源码目录保护，allow_unowned_overwrite 仅用于调用方已明确确认现有文件所有权的迁移场景。
 - `return`: Dictionary，包含 success、skipped、path、class_name、schema_count、input_schema_count、emitted_schema_count、skipped_schema_count、issues、error_code、error 和 artifact_report；schema_count 是 emitted_schema_count 的兼容字段。

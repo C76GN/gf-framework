@@ -17,6 +17,9 @@ extends RefCounted
 const _OPERATION_BUILD: StringName = &"build"
 const _OPERATION_EXPORT: StringName = &"export"
 const _OPERATION_LOAD: StringName = &"load"
+const _OUTPUT_PATH_POLICY_SCRIPT = preload(
+	"res://addons/gf/tools/config_pipeline/gf_config_pipeline_output_path_policy.gd"
+)
 
 
 # --- 公共方法 ---
@@ -120,9 +123,9 @@ func build_profile_path(profile_path: String, options: Dictionary = {}) -> Dicti
 ## [br]
 ## @param profile_path: Profile 资源路径，通常为 .tres 或 .res。
 ## [br]
-## @param options: 加载、构建、保存、访问器生成和增量导出覆盖选项。
+## @param options: 加载、构建、保存、访问器生成和增量导出覆盖选项；output_path、非空 access_output_path 与使用中的 manifest_path 必须位于 res:// 或 user:// URI 域，并在 freshness 判断前完成规范化与校验。
 ## [br]
-## @schema options: Dictionary，可包含 type_hint、cache_mode、output_path、build_options、save_options、access_output_path、access_options、access_class_name、access_provider_accessor、database_id、version、metadata、validate_database、validate_schema、parse_options、rebuild_indexes、changed_only、manifest_path、write_manifest、manifest_options、manifest_metadata、max_freshness_file_bytes、max_freshness_total_bytes 和 max_freshness_entries；各产物 options 可包含 allow_unowned_overwrite。
+## @schema options: Dictionary，可包含 type_hint、cache_mode、output_path、build_options、save_options、access_output_path、access_options、access_class_name、access_provider_accessor、database_id、version、metadata、validate_database、validate_schema、parse_options、rebuild_indexes、changed_only、manifest_path、write_manifest、manifest_options、manifest_metadata、max_freshness_file_bytes、max_freshness_total_bytes 和 max_freshness_entries；各产物 options 可包含 allow_parent_output_path、allow_gf_source_output 和 allow_unowned_overwrite，其中 parent opt-in 不能越过 resource URI 根。
 ## [br]
 ## @return: 运行结果。
 ## [br]
@@ -134,27 +137,52 @@ func export_profile_path(profile_path: String, options: Dictionary = {}) -> Dict
 
 	var profile: GFConfigPipelineProfile = _get_profile_from_load_result(load_result)
 	var manifest_helper: GFConfigPipelineArtifactManifest = GFConfigPipelineArtifactManifest.new()
-	var manifest_path: String = _resolve_manifest_path(profile, options, manifest_helper)
-	var changed_only: bool = GFVariantData.get_option_bool(options, "changed_only")
+	var path_plan: Dictionary = _make_export_output_path_plan(profile, options, manifest_helper)
+	if not GFVariantData.get_option_bool(path_plan, "success"):
+		return _make_output_path_failure_run_result(
+			profile_path,
+			load_result,
+			profile,
+			options,
+			path_plan
+		)
+	var effective_options: Dictionary = GFVariantData.get_option_dictionary(
+		path_plan,
+		"options"
+	).duplicate(true)
+	var manifest_path: String = GFVariantData.get_option_string(path_plan, "manifest_path")
+	var changed_only: bool = GFVariantData.get_option_bool(effective_options, "changed_only")
 	var freshness_report: Dictionary = {}
 	if changed_only:
-		freshness_report = manifest_helper.make_freshness_report(manifest_path, profile_path, profile, options)
+		freshness_report = manifest_helper.make_freshness_report(
+			manifest_path,
+			profile_path,
+			profile,
+			effective_options
+		)
 		var scan_report: Dictionary = GFVariantData.get_option_dictionary(freshness_report, "scan_report")
 		if not GFVariantData.get_option_bool(scan_report, "success", true):
 			return _make_freshness_scan_failure_run_result(
 				profile_path,
 				load_result,
 				profile,
-				options,
+				effective_options,
 				manifest_path,
 				freshness_report,
 				scan_report
 			)
 		if GFVariantData.get_option_bool(freshness_report, "fresh"):
-			return _make_skipped_export_run_result(profile_path, load_result, profile, options, manifest_path, freshness_report)
+			return _make_skipped_export_run_result(
+				profile_path,
+				load_result,
+				profile,
+				effective_options,
+				manifest_path,
+				freshness_report
+			)
 
 	var pipeline: GFConfigPipeline = GFConfigPipeline.new()
-	var export_result: Dictionary = pipeline.export_profile(profile, options)
+	var export_result: Dictionary = pipeline.export_profile(profile, effective_options)
 	var run_result: Dictionary = _make_export_run_result(profile_path, load_result, export_result)
 	run_result["changed_only"] = changed_only
 	run_result["skipped"] = false
@@ -357,6 +385,49 @@ func _make_freshness_scan_failure_run_result(
 	}
 
 
+func _make_output_path_failure_run_result(
+	profile_path: String,
+	load_result: Dictionary,
+	profile: GFConfigPipelineProfile,
+	options: Dictionary,
+	path_plan: Dictionary
+) -> Dictionary:
+	var profile_id: StringName = profile.profile_id if profile != null else &""
+	var output_path: String = GFVariantData.get_option_string(path_plan, "output_path")
+	if output_path.is_empty() and profile != null:
+		output_path = profile.resolve_output_path(options)
+	var message: String = GFVariantData.get_option_string(path_plan, "error")
+	var artifact: String = GFVariantData.get_option_string(path_plan, "artifact")
+	var invalid_path: String = GFVariantData.get_option_string(path_plan, "input_path")
+	var manifest_result: Dictionary = {}
+	if artifact == "manifest":
+		var manifest_options: Dictionary = _make_manifest_path_options(options)
+		manifest_options["dry_run"] = true
+		manifest_result = GFConfigPipelineArtifactManifest.new().save_manifest(
+			invalid_path,
+			{},
+			manifest_options
+		)
+	var result: Dictionary = _make_run_failure(_OPERATION_EXPORT, profile_path, load_result)
+	result["profile_id"] = profile_id
+	result["output_path"] = output_path
+	result["report"] = GFConfigValidationReport.new().make_error_report(
+		profile_id,
+		"invalid_output_path",
+		message,
+		{
+			"artifact": artifact,
+			"path": invalid_path,
+		}
+	)
+	result["manifest_path"] = GFVariantData.get_option_string(path_plan, "manifest_path")
+	result["manifest_result"] = manifest_result
+	result["changed_only"] = GFVariantData.get_option_bool(options, "changed_only")
+	result["error_code"] = ERR_INVALID_PARAMETER
+	result["error"] = message
+	return result
+
+
 func _resolve_manifest_path(
 	profile: GFConfigPipelineProfile,
 	options: Dictionary,
@@ -368,6 +439,133 @@ func _resolve_manifest_path(
 	if profile == null:
 		return ""
 	return manifest_helper.get_default_manifest_path(profile.resolve_output_path(options))
+
+
+func _make_export_output_path_plan(
+	profile: GFConfigPipelineProfile,
+	options: Dictionary,
+	manifest_helper: GFConfigPipelineArtifactManifest
+) -> Dictionary:
+	var effective_options: Dictionary = options.duplicate(true)
+	var output_path: String = profile.resolve_output_path(options) if profile != null else ""
+	var output_options: Dictionary = profile.make_save_options(options) if profile != null else {}
+	var output_result: Dictionary = _OUTPUT_PATH_POLICY_SCRIPT.resolve_output_path(
+		output_path,
+		output_options,
+		"配置数据库"
+	)
+	if not GFVariantData.get_option_bool(output_result, "success"):
+		return _make_output_path_plan_failure(
+			"database",
+			output_path,
+			"",
+			GFVariantData.get_option_string(output_result, "error"),
+			effective_options
+		)
+	output_path = GFVariantData.get_option_string(output_result, "path")
+	effective_options["output_path"] = output_path
+
+	var access_output_path: String = (
+		profile.resolve_access_output_path(options)
+		if profile != null
+		else ""
+	)
+	if not access_output_path.is_empty():
+		var access_options: Dictionary = profile.make_access_options(options)
+		var access_result: Dictionary = _OUTPUT_PATH_POLICY_SCRIPT.resolve_output_path(
+			access_output_path,
+			access_options,
+			"配置访问器"
+		)
+		if not GFVariantData.get_option_bool(access_result, "success"):
+			return _make_output_path_plan_failure(
+				"access",
+				access_output_path,
+				"",
+				GFVariantData.get_option_string(access_result, "error"),
+				effective_options,
+				output_path
+			)
+		access_output_path = GFVariantData.get_option_string(access_result, "path")
+		effective_options["access_output_path"] = access_output_path
+
+	var manifest_path: String = _resolve_manifest_path(
+		profile,
+		effective_options,
+		manifest_helper
+	)
+	var should_use_manifest: bool = (
+		GFVariantData.get_option_bool(options, "changed_only")
+		or GFVariantData.get_option_bool(options, "write_manifest")
+		or not GFVariantData.get_option_string(options, "manifest_path").is_empty()
+	)
+	if should_use_manifest:
+		var manifest_options: Dictionary = _make_manifest_path_options(options)
+		var manifest_result: Dictionary = _OUTPUT_PATH_POLICY_SCRIPT.resolve_output_path(
+			manifest_path,
+			manifest_options,
+			"manifest"
+		)
+		if not GFVariantData.get_option_bool(manifest_result, "success"):
+			return _make_output_path_plan_failure(
+				"manifest",
+				manifest_path,
+				manifest_path,
+				GFVariantData.get_option_string(manifest_result, "error"),
+				effective_options,
+				output_path,
+				access_output_path
+			)
+		manifest_path = GFVariantData.get_option_string(manifest_result, "path")
+		effective_options["manifest_path"] = manifest_path
+
+	return {
+		"success": true,
+		"options": effective_options,
+		"output_path": output_path,
+		"access_output_path": access_output_path,
+		"manifest_path": manifest_path,
+		"artifact": "",
+		"input_path": "",
+		"error_code": OK,
+		"error": "",
+	}
+
+
+func _make_manifest_path_options(options: Dictionary) -> Dictionary:
+	var result: Dictionary = GFVariantData.get_option_dictionary(
+		options,
+		"manifest_options"
+	).duplicate(true)
+	for key: String in PackedStringArray([
+		"allow_gf_source_output",
+		"allow_parent_output_path",
+	]):
+		if options.has(key) and not result.has(key):
+			result[key] = options[key]
+	return result
+
+
+func _make_output_path_plan_failure(
+	artifact: String,
+	input_path: String,
+	manifest_path: String,
+	message: String,
+	effective_options: Dictionary,
+	output_path: String = "",
+	access_output_path: String = ""
+) -> Dictionary:
+	return {
+		"success": false,
+		"options": effective_options.duplicate(true),
+		"output_path": output_path,
+		"access_output_path": access_output_path,
+		"manifest_path": manifest_path,
+		"artifact": artifact,
+		"input_path": input_path,
+		"error_code": ERR_INVALID_PARAMETER,
+		"error": message,
+	}
 
 
 func _get_profile_from_load_result(load_result: Dictionary) -> GFConfigPipelineProfile:

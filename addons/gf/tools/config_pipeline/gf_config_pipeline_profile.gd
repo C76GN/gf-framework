@@ -48,14 +48,14 @@ const _BUILD_OPTION_KEYS: PackedStringArray = [
 ## @since 5.2.0
 @export var version: String = ""
 
-## 导出目标路径。通常指向 .tres、.res 或 .json。
+## 导出目标 URI。导出时必须位于 res:// 或 user://，通常以 .tres、.res 或 .json 结尾。
 ## [br]
 ## @api public
 ## [br]
 ## @since 5.2.0
 @export var output_path: String = ""
 
-## 可选访问器脚本输出路径。为空时不生成访问器。
+## 可选访问器脚本输出 URI。非空时必须位于 res:// 或 user://；为空时不生成访问器。
 ## [br]
 ## @api public
 ## [br]
@@ -100,7 +100,7 @@ const _BUILD_OPTION_KEYS: PackedStringArray = [
 ## [br]
 ## @since 5.2.0
 ## [br]
-## @schema save_options: Dictionary，可包含 output_format、include_schema、include_indexes、indent、sort_keys、overwrite_existing、allow_unowned_overwrite 和 dry_run。
+## @schema save_options: Dictionary，可包含 output_format、include_schema、include_indexes、indent、sort_keys、overwrite_existing、allow_parent_output_path、allow_gf_source_output、allow_unowned_overwrite 和 dry_run；parent opt-in 不能越过 resource URI 根。
 @export var save_options: Dictionary = {}
 
 ## 传给 GFConfigAccessGenerator 的访问器生成选项。
@@ -109,7 +109,7 @@ const _BUILD_OPTION_KEYS: PackedStringArray = [
 ## [br]
 ## @since 5.2.0
 ## [br]
-## @schema access_options: Dictionary，可包含 method_name_style、constant_prefix、record_method_pattern、table_method_pattern、include_schema_comments、include_typed_records、typed_record_method_pattern、typed_record_class_suffix、overwrite_existing、allow_unowned_overwrite 和 dry_run。
+## @schema access_options: Dictionary，可包含 method_name_style、constant_prefix、record_method_pattern、table_method_pattern、include_schema_comments、include_typed_records、typed_record_method_pattern、typed_record_class_suffix、overwrite_existing、allow_parent_output_path、allow_gf_source_output、allow_unowned_overwrite 和 dry_run；parent opt-in 不能越过 resource URI 根。
 @export var access_options: Dictionary = {}
 
 ## 附加到生成数据库资源的元数据。
@@ -163,7 +163,7 @@ func make_build_options(overrides: Dictionary = {}) -> Dictionary:
 ## [br]
 ## @param overrides: 本次导出的覆盖选项。
 ## [br]
-## @schema overrides: Dictionary，可包含 save_options；save_options 可包含 output_format、include_schema、include_indexes、indent、sort_keys、overwrite_existing、allow_unowned_overwrite 和 dry_run。
+## @schema overrides: Dictionary，可包含 save_options；save_options 可包含 output_format、include_schema、include_indexes、indent、sort_keys、overwrite_existing、allow_parent_output_path、allow_gf_source_output、allow_unowned_overwrite 和 dry_run。
 ## [br]
 ## @return: 传给 GFConfigPipeline.save_database() 的选项。
 ## [br]
@@ -182,7 +182,7 @@ func make_save_options(overrides: Dictionary = {}) -> Dictionary:
 ## [br]
 ## @param overrides: 本次访问器生成的覆盖选项。
 ## [br]
-## @schema overrides: Dictionary，可包含 access_options；access_options 可包含生成器选项、overwrite_existing、allow_unowned_overwrite 和 dry_run。
+## @schema overrides: Dictionary，可包含 access_options；access_options 可包含生成器选项、overwrite_existing、allow_parent_output_path、allow_gf_source_output、allow_unowned_overwrite 和 dry_run。
 ## [br]
 ## @return: 传给 GFConfigAccessGenerator 的生成选项。
 ## [br]

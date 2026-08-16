@@ -41,6 +41,24 @@ func test_generate_with_report_supports_dry_run_without_writing() -> void:
 	assert_false(FileAccess.file_exists(output_path), "dry-run 不应创建访问器文件。")
 
 
+func test_public_writer_rejects_bare_relative_output_uri() -> void:
+	var schema: ConfigSchemaStub = ConfigSchemaStub.new(&"item_data")
+	var generator: GFConfigAccessGenerator = GFConfigAccessGenerator.new()
+
+	var report: Dictionary = generator.generate_with_report(
+		[schema],
+		"build/config_access.gd",
+		"RelativeConfigAccess",
+		"null",
+		{ "dry_run": true }
+	)
+
+	assert_push_error("[GFConfigAccessGenerator] 输出路径必须使用 res:// 或 user://")
+	assert_false(GFVariantData.get_option_bool(report, "success"), "直接 generator writer 也必须拒绝裸相对输出路径。")
+	assert_eq(GFVariantData.get_option_int(report, "error_code"), ERR_INVALID_PARAMETER, "URI 域错误应报告参数错误。")
+	assert_false(GFVariantData.get_option_bool(report, "written"), "非法 URI 不得写入产物。")
+
+
 func test_legacy_save_source_projects_committed_failure_to_ok() -> void:
 	var generator: GFConfigAccessGenerator = GFConfigAccessGenerator.new()
 	var stamp: int = Time.get_ticks_usec()

@@ -67,7 +67,7 @@ const _VALUE_TYPE_ARRAY: String = "array"
 ## [br]
 ## @schema schemas: Array of Dictionary or Object schemas with table_name/table_key and optional metadata.
 ## [br]
-## @param output_path: 生成文件输出路径。
+## @param output_path: res:// 或 user:// 生成文件输出 URI。
 ## [br]
 ## @param overwrite_existing: 为 false 时目标已存在会返回 ERR_ALREADY_EXISTS。
 ## [br]
@@ -108,7 +108,7 @@ func generate(
 ## [br]
 ## @schema schemas: Array of Dictionary or Object schemas with table_name/table_key and optional metadata.
 ## [br]
-## @param output_path: 生成文件输出路径。
+## @param output_path: res:// 或 user:// 生成文件输出 URI；成功报告会返回规范化后的 URI。
 ## [br]
 ## @param access_class_name: 生成脚本的 class_name。
 ## [br]
@@ -318,7 +318,7 @@ func build_source(
 ## [br]
 ## @since 3.17.0
 ## [br]
-## @param output_path: 生成文件输出路径。
+## @param output_path: res:// 或 user:// 生成文件输出 URI。
 ## [br]
 ## @param source: GDScript 源码。
 ## [br]
@@ -338,7 +338,7 @@ func save_source(output_path: String, source: String, overwrite_existing: bool =
 ## [br]
 ## @since 6.0.0
 ## [br]
-## @param output_path: 生成文件输出路径。
+## @param output_path: res:// 或 user:// 生成文件输出 URI；成功报告会返回规范化后的 URI。
 ## [br]
 ## @param source: GDScript 源码。
 ## [br]

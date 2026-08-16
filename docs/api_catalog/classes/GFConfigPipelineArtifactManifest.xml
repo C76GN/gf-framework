@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFConfigPipelineArtifactManifest" path="addons/gf/tools/config_pipeline/gf_config_pipeline_artifact_manifest.gd" module="tools" extends="RefCounted" classDigest="d0ff6d1914a30a83c5f49851ad2a7236a97ce07d2b775686676985652cd82a2a">
+<class name="GFConfigPipelineArtifactManifest" path="addons/gf/tools/config_pipeline/gf_config_pipeline_artifact_manifest.gd" module="tools" extends="RefCounted" classDigest="912c054ca1dca108bba3210be4494819928f3a4450711990e07ac30abad7a9d1">
 	<description>GFConfigPipelineArtifactManifest: 配置导表产物 manifest 辅助。
 为 GFConfigPipelineProfile 生成输入摘要、输出摘要和 freshness 报告，支持 CI、
 编辑器按钮或命令行在导表前判断是否可以跳过未变化的产物。
@@ -64,12 +64,12 @@
 			<description>保存 manifest JSON 文件。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="param">manifest_path: manifest JSON 输出路径。</tag>
+				<tag name="param">manifest_path: res:// 或 user:// manifest JSON 输出 URI；成功结果会返回规范化后的 URI。</tag>
 				<tag name="param">manifest: make_manifest() 返回的字典。</tag>
 				<tag name="param">options: 保存选项。</tag>
 				<tag name="return">保存报告。</tag>
 				<tag name="schema">manifest: Dictionary，包含 format、format_version、artifact_owner、profile_digest、input_digest、output_digest、options_digest、compiler_digest、compiler_fingerprint、profile_entries、source_entries、output_entries 和 scan_report。</tag>
-				<tag name="schema">options: Dictionary，可包含 dry_run、overwrite_existing、allow_unowned_overwrite、indent、sort_keys、allow_parent_output_path、allow_gf_source_output 和 allow_absolute_output_path；allow_unowned_overwrite 仅用于调用方已明确确认现有文件所有权的迁移场景。</tag>
+				<tag name="schema">options: Dictionary，可包含 dry_run、overwrite_existing、allow_unowned_overwrite、indent、sort_keys、allow_parent_output_path 和 allow_gf_source_output；allow_parent_output_path 只允许规范化 URI 根内的父级片段，allow_gf_source_output 只放行 res://addons/gf 源码目录保护，allow_unowned_overwrite 仅用于调用方已明确确认现有文件所有权的迁移场景。</tag>
 				<tag name="schema">return: Dictionary，包含 success、path、status、error_code、error、artifact_report、written、changed 和 dry_run。</tag>
 				<tag name="since">8.0.0</tag>
 			</tags>
