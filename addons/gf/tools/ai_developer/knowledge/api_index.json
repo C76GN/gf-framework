@@ -2,8 +2,8 @@
   "schema_version": 1,
   "catalog_version": "1.0.0",
   "framework_version": "11.0.0-dev.0",
-  "source_digest": "e09e787b1ae203142e11dc5429543e04dd7bfe28a4aea5f7fbd618067c6f38c0",
-  "class_count": 818,
+  "source_digest": "c614401d3c462be91cce3c22626109f54d050db7e5dbb06ef26d287fab96c706",
+  "class_count": 819,
   "package_count": 56,
   "packages": [
     {
@@ -12073,6 +12073,60 @@
           "name": "describe",
           "signature": "func describe() -> Dictionary",
           "summary": "导出 schema 摘要。",
+          "visibility": "public"
+        }
+      ]
+    },
+    "GFBoundedJsonObjectReader": {
+      "extends": "RefCounted",
+      "module": "kernel",
+      "package_id": "gf.kernel",
+      "path": "addons/gf/kernel/core/gf_bounded_json_object_reader.gd",
+      "summary": "GFBoundedJsonObjectReader: 有界 JSON object 读取器。 在调用 JSON.parse() 前限制 UTF-8 字节数与对象/数组词法嵌套深度， 适合项目运行时、编辑器工具和 headless 工具读取不可信 JSON object 输入。",
+      "visibility": "public",
+      "category": "runtime_service",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "const",
+          "name": "DEFAULT_MAX_BYTES",
+          "signature": "const DEFAULT_MAX_BYTES: int = 1024 * 1024",
+          "summary": "默认允许的 JSON UTF-8 字节数。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "ABSOLUTE_MAX_BYTES",
+          "signature": "const ABSOLUTE_MAX_BYTES: int = 1024 * 1024",
+          "summary": "框架允许的 JSON UTF-8 字节数绝对上限。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "DEFAULT_MAX_DEPTH",
+          "signature": "const DEFAULT_MAX_DEPTH: int = 64",
+          "summary": "默认允许的 JSON 对象/数组词法嵌套深度。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "ABSOLUTE_MAX_DEPTH",
+          "signature": "const ABSOLUTE_MAX_DEPTH: int = 64",
+          "summary": "框架允许的 JSON 对象/数组词法嵌套深度绝对上限。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "parse_object",
+          "signature": "static func parse_object( text: String, max_bytes: int = DEFAULT_MAX_BYTES, max_depth: int = DEFAULT_MAX_DEPTH ) -> Dictionary",
+          "summary": "解析有界 JSON object 文本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "read_object",
+          "signature": "static func read_object( path: String, max_bytes: int = DEFAULT_MAX_BYTES, max_depth: int = DEFAULT_MAX_DEPTH ) -> Dictionary",
+          "summary": "读取并解析有界 JSON object 文件。",
           "visibility": "public"
         }
       ]

@@ -6,7 +6,7 @@
 
 | 模块 | 类 | 成员 | 页面内索引 |
 |---|---:|---:|---|
-| Kernel | 74 | 1101 | [Kernel](#module-kernel) |
+| Kernel | 75 | 1107 | [Kernel](#module-kernel) |
 | Standard | 473 | 7527 | [Standard](#module-standard) |
 | Action Queue | 16 | 214 | [Action Queue](#module-extensions-action_queue) |
 | Asset Metadata | 4 | 33 | [Asset Metadata](#module-extensions-asset_metadata) |
@@ -37,6 +37,7 @@
 | 类 | 类别 | 继承 | 成员 | 源文件 |
 |---|---|---|---:|---|
 | [`GFArchitecture`](GFArchitecture.md#gfarchitecture) | 运行时服务 (`runtime_service`) | `Object` | 124 | `addons/gf/kernel/core/gf_architecture.gd` |
+| [`GFBoundedJsonObjectReader`](GFBoundedJsonObjectReader.md#gfboundedjsonobjectreader) | 运行时服务 (`runtime_service`) | `RefCounted` | 6 | `addons/gf/kernel/core/gf_bounded_json_object_reader.gd` |
 | [`GFDependencyGraphTools`](GFDependencyGraphTools.md#gfdependencygraphtools) | 运行时服务 (`runtime_service`) | `RefCounted` | 1 | `addons/gf/kernel/core/gf_dependency_graph_tools.gd` |
 | [`GFExtensionCatalog`](GFExtensionCatalog.md#gfextensioncatalog) | 运行时服务 (`runtime_service`) | `RefCounted` | 5 | `addons/gf/kernel/extension/gf_extension_catalog.gd` |
 | [`GFExtensionManifestDiscovery`](GFExtensionManifestDiscovery.md#gfextensionmanifestdiscovery) | 运行时服务 (`runtime_service`) | `RefCounted` | 2 | `addons/gf/kernel/extension/gf_extension_manifest_discovery.gd` |

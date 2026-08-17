@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFBoundedJsonObjectReader" path="addons/gf/kernel/core/gf_bounded_json_object_reader.gd" module="kernel" extends="RefCounted" classDigest="016ee210c07c2bacca099fb21c483fa6487fb5fd281f848ac5c4bf3c791e7fb1">
+	<description>GFBoundedJsonObjectReader: 有界 JSON object 读取器。
+在调用 JSON.parse() 前限制 UTF-8 字节数与对象/数组词法嵌套深度，
+适合项目运行时、编辑器工具和 headless 工具读取不可信 JSON object 输入。
+该类不负责恢复 Godot Variant marker；解析后的遍历预算由上层 codec 另行处理。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_service</tag>
+		<tag name="since">unreleased</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants>
+		<member kind="const" name="DEFAULT_MAX_BYTES">
+			<signature>const DEFAULT_MAX_BYTES: int = 1024 * 1024</signature>
+			<description>默认允许的 JSON UTF-8 字节数。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="ABSOLUTE_MAX_BYTES">
+			<signature>const ABSOLUTE_MAX_BYTES: int = 1024 * 1024</signature>
+			<description>框架允许的 JSON UTF-8 字节数绝对上限。
+调用方只能收紧预算，不能越过该上限或关闭字节限制。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="DEFAULT_MAX_DEPTH">
+			<signature>const DEFAULT_MAX_DEPTH: int = 64</signature>
+			<description>默认允许的 JSON 对象/数组词法嵌套深度。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="ABSOLUTE_MAX_DEPTH">
+			<signature>const ABSOLUTE_MAX_DEPTH: int = 64</signature>
+			<description>框架允许的 JSON 对象/数组词法嵌套深度绝对上限。
+调用方只能收紧预算，不能越过该上限或关闭深度限制。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</constants>
+	<properties />
+	<methods>
+		<member kind="method" name="parse_object">
+			<signature>static func parse_object( text: String, max_bytes: int = DEFAULT_MAX_BYTES, max_depth: int = DEFAULT_MAX_DEPTH ) -&gt; Dictionary:</signature>
+			<description>解析有界 JSON object 文本。
+max_bytes 与 max_depth 只能收紧框架绝对上限；非正值恢复默认预算，
+超过绝对上限的值会被钳制。字节与词法深度检查发生在 JSON.parse() 前。
+成功时 data 为解析后的 object，error_kind 与 error 为空；失败时 data 为空且
+error_kind 非空。原始 NUL、解码为 U+0000 的字符串转义、数值溢出或解析后
+出现非有限数字时以 parse_failed 拒绝。
+文本入口的 source_path 为空，size_bytes 是 UTF-8 输入字节数。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">text: 要解析的 JSON 文本。</tag>
+				<tag name="param">max_bytes: 调用方请求的最大 UTF-8 字节数。</tag>
+				<tag name="param">max_depth: 调用方请求的最大对象/数组词法嵌套深度。</tag>
+				<tag name="return">JSON-safe 读取报告；max_bytes 与 max_depth 为实际生效预算。</tag>
+				<tag name="schema">return: Dictionary containing ok: bool, data: Dictionary, source_path: String, size_bytes: int, error_kind: String, error: String, max_bytes: int, and max_depth: int. error_kind is one of "", "open_failed", "payload_too_large", "read_failed", "nesting_too_deep", "parse_failed", or "invalid_root_type".</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="read_object">
+			<signature>static func read_object( path: String, max_bytes: int = DEFAULT_MAX_BYTES, max_depth: int = DEFAULT_MAX_DEPTH ) -&gt; Dictionary:</signature>
+			<description>读取并解析有界 JSON object 文件。
+入口规范化资源路径，最多读取实际字节预算加一字节，并使用同一份原始 bytes
+完成大小、UTF-8、词法深度和 JSON object 校验。支持 Godot FileAccess 可读取的
+res:// 与 user:// 等路径。
+成功时 data 为解析后的 object，error_kind 与 error 为空；失败时 data 为空且
+error_kind 非空。source_path 为规范化路径；size_bytes 为已观测的原始文件字节数。
+read_failed 同时覆盖 I/O 错误、读取期长度漂移与无效 UTF-8；原始 NUL、
+解码为 U+0000 的字符串转义、数值溢出或解析后出现非有限数字时以
+parse_failed 拒绝。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">path: 要读取的 JSON 文件路径。</tag>
+				<tag name="param">max_bytes: 调用方请求的最大 UTF-8 字节数。</tag>
+				<tag name="param">max_depth: 调用方请求的最大对象/数组词法嵌套深度。</tag>
+				<tag name="return">JSON-safe 读取报告；max_bytes 与 max_depth 为实际生效预算。</tag>
+				<tag name="schema">return: Dictionary containing ok: bool, data: Dictionary, source_path: String, size_bytes: int, error_kind: String, error: String, max_bytes: int, and max_depth: int. error_kind is one of "", "open_failed", "payload_too_large", "read_failed", "nesting_too_deep", "parse_failed", or "invalid_root_type".</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>
