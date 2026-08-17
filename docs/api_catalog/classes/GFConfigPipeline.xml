@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFConfigPipeline" path="addons/gf/tools/config_pipeline/gf_config_pipeline.gd" module="tools" extends="RefCounted" classDigest="bd4d3c11799cf4d4a89c65c8a8c03aa40b7543500cd9556544653ab3fdf4e301">
+<class name="GFConfigPipeline" path="addons/gf/tools/config_pipeline/gf_config_pipeline.gd" module="tools" extends="RefCounted" classDigest="9b289a4019b4b7d653e59e3856a9ce980ff9fe0fe2bc3fd5956cb8420f8fd00f">
 	<description>GFConfigPipeline: 配置导表工具的资源构建入口。
 负责把 CSV / JSON / ConfigFile / XLSX 文件来源构建为 GFConfigTableResource 与 GFConfigDatabaseResource。
 该工具只处理通用导入、校验、索引重建和 Resource 保存，不绑定任何项目业务表或发布流程。</description>
@@ -126,7 +126,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">database: 要保存的配置数据库资源。</tag>
-				<tag name="param">output_path: res:// 或 user:// 输出 URI，通常以 .tres、.res 或 .json 结尾；成功结果会返回规范化后的 URI。</tag>
+				<tag name="param">output_path: res:// 或 user:// 输出 URI；resource 格式必须使用当前 ResourceSaver 为 database 声明的扩展名，JSON 格式不受该扩展名规则约束；成功结果会返回规范化后的 URI。</tag>
 				<tag name="param">options: 保存选项，支持 output_format、include_schema、include_indexes、indent、sort_keys、overwrite_existing、allow_parent_output_path、allow_gf_source_output、allow_unowned_overwrite、dry_run 和 artifact_metadata。</tag>
 				<tag name="return">保存结果。</tag>
 				<tag name="schema">options: Dictionary，可包含 output_format、include_schema、include_indexes、max_depth、max_nodes、max_output_bytes、indent、sort_keys、overwrite_existing、allow_parent_output_path、allow_gf_source_output、allow_unowned_overwrite、dry_run 和 artifact_metadata；allow_parent_output_path 只允许规范化 URI 根内的父级片段，allow_gf_source_output 只放行 res://addons/gf 源码目录保护，三个 JSON 预算会被框架绝对上限约束，allow_unowned_overwrite 仅用于调用方已明确确认现有文件所有权的迁移场景。</tag>

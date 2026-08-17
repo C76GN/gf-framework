@@ -725,7 +725,7 @@ func make_database_export(database: GFConfigDatabaseResource, options: Dictionar
 ## [br]
 ## @param database: 要保存的配置数据库资源。
 ## [br]
-## @param output_path: res:// 或 user:// 输出 URI，通常以 .tres、.res 或 .json 结尾；成功结果会返回规范化后的 URI。
+## @param output_path: res:// 或 user:// 输出 URI；resource 格式必须使用当前 ResourceSaver 为 database 声明的扩展名，JSON 格式不受该扩展名规则约束；成功结果会返回规范化后的 URI。
 ## [br]
 ## @param options: 保存选项，支持 output_format、include_schema、include_indexes、indent、sort_keys、overwrite_existing、allow_parent_output_path、allow_gf_source_output、allow_unowned_overwrite、dry_run 和 artifact_metadata。
 ## [br]
@@ -774,6 +774,29 @@ func save_database(
 			output_format,
 			ERR_UNAVAILABLE,
 			"不支持的配置数据库输出格式：%s。" % String(output_format)
+		)
+	var resource_extension_error: String = _validate_resource_output_extension(
+		database,
+		output_path
+	)
+	if not resource_extension_error.is_empty():
+		var extension_artifact_report: Dictionary = _make_resource_artifact_report(
+			output_path,
+			output_format,
+			_GENERATED_ARTIFACT_REPORT_SCRIPT.STATUS_FAILED,
+			ERR_FILE_UNRECOGNIZED,
+			resource_extension_error,
+			options,
+			false,
+			false
+		)
+		return _make_save_result(
+			false,
+			output_path,
+			output_format,
+			ERR_FILE_UNRECOGNIZED,
+			resource_extension_error,
+			extension_artifact_report
 		)
 	var ownership_error: String = _validate_existing_artifact_ownership(
 		output_path,
@@ -1553,6 +1576,17 @@ func _resolve_output_format(output_path: String, options: Dictionary) -> StringN
 	if extension == "json":
 		return _OUTPUT_FORMAT_JSON
 	return _OUTPUT_FORMAT_RESOURCE
+
+
+func _validate_resource_output_extension(
+	database: GFConfigDatabaseResource,
+	output_path: String
+) -> String:
+	var output_extension: String = output_path.get_extension()
+	for recognized_extension: String in ResourceSaver.get_recognized_extensions(database):
+		if output_extension.nocasecmp_to(recognized_extension) == 0:
+			return ""
+	return "配置数据库资源输出路径的扩展名未被当前 ResourceSaver 识别：%s。" % output_path
 
 
 func _save_database_json(
