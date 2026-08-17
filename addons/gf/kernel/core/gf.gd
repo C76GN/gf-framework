@@ -1,3 +1,16 @@
+## Gf: GF Framework 的全局运行时入口。
+##
+## 负责项目架构的安装、初始化、查询、替换与释放，并作为受控 AutoLoad 注册到场景树根节点。
+## [br]
+## @api public
+## [br]
+## @api_owner autoload Gf
+## [br]
+## @category runtime_service
+## [br]
+## @since 1.0.0
+## [br]
+## @layer kernel/core
 extends Node
 
 

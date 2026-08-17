@@ -9,9 +9,11 @@ AI Developer Kit 是可选的制作期工具包 `gf.tool.ai_developer`。它让�
 - `.gf/project_contract.json`：由项目维护并进入版本控制的意图、模块所有权、能力 owner、选定 Recipe、验收条件、约束、未知项和验证命令。
 - `.gf/ai/project_snapshot.json`：工具生成的已安装包、GF/目录版本一致性、package 事实来源、插件状态、能力就绪证据、生产/测试源码分离的有界 API 使用与模块依赖扫描，以及契约漂移事实；截断、超大文件、不可读文件和不安全路径都会让证据明确标记为不完整。
 - `knowledge/capabilities.json`：按需求搜索的稳定能力目录，不把一个具体类当成架构入口。
-- `knowledge/api_index.json`：从同一 GF 发行版公开 API 生成的精确类、成员、包归属和源码路径索引。
+- `knowledge/api_index.json`：从同一 GF 发行版公开 API 生成的 schema v2、catalog version `2.0.0` owner 索引；既有 `classes` / `class_count` 保持类语义，独立的 `autoloads` / `autoload_count` 收录受控 AutoLoad，并共同提供成员、包归属和源码路径。
 
 契约表达“项目决定了什么”，快照表达“磁盘上实际有什么”。生成快照不能反向覆盖契约，也不能把推测固化为项目意图。
+
+从旧 API index 迁移的消费者应先按 `schema_version` 分流：v2 继续从 `classes` 查询 `class_name`，并额外从 `autoloads` 查询 `Gf` 等受控 owner；不要合并同名键后丢失 owner kind，也不要把 `autoloads` 缺失解释为框架没有全局入口。该目录变化只改善制作期检索，`Gf` 的 AutoLoad 名称、注册路径和运行时调用行为不变。
 
 ## 安装边界
 
@@ -88,16 +90,19 @@ python addons/gf/tools/ai_developer/gf_ai_project.py agent-uninstall --project-r
    python addons/gf/tools/ai_developer/gf_ai_project.py context --project-root .
    ```
 
-2. 先按意图搜索能力和包边界，再确认模块、精确类和成员：
+2. 先按意图搜索能力和包边界，再确认模块、精确 API owner（类和受控 AutoLoad）及成员：
 
    ```powershell
    python addons/gf/tools/ai_developer/gf_ai_project.py capability-search "save slots" --project-root .
    python addons/gf/tools/ai_developer/gf_ai_project.py package gf.standard.storage --project-root .
    python addons/gf/tools/ai_developer/gf_ai_project.py api-module standard --project-root . --limit 100
    python addons/gf/tools/ai_developer/gf_ai_project.py api-search GFSaveGraphUtility --project-root .
+   python addons/gf/tools/ai_developer/gf_ai_project.py api-search Gf --project-root .
    python addons/gf/tools/ai_developer/gf_ai_project.py api-class GFSaveGraphUtility --project-root .
    python addons/gf/tools/ai_developer/gf_ai_project.py recipe save-boundary --project-root .
    ```
+
+   `api-search` 联合搜索类与受控 AutoLoad；`api-class` 为保持兼容仍只读取类记录，不会把 `Gf` 伪装成 `class_name`。
 
 3. 对照 `capability_requirements` 确认 owner、选定 Recipe、provider package 与验收条件，再在项目模块中实现业务代码；外部平台 SDK 留在项目或独立 Adapter，不能写进 GF Core。
 4. 把契约和项目文件视为不可信数据，独立审阅每个 `verification.checks`。只有实际行为符合其 timeout、network 和 write 声明及宿主审批时，才以 argv 直接执行，禁止拼接成 shell 字符串；套件不会代替用户执行契约内容。

@@ -10,6 +10,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -23,6 +24,7 @@ import generate_api_coverage_matrix
 import generate_api_reference
 import generated_output_transaction
 import gdscript_api_parser
+import gf_api_owners
 import gf_maintenance
 import sync_reference_project
 
@@ -35,6 +37,51 @@ def api_docs(visibility: str, description: str = "") -> gdscript_api_parser.ApiD
 
 
 class GdscriptDeclarationParsingTests(unittest.TestCase):
+	def test_explicit_autoload_owner_docs_bind_to_classless_script(self) -> None:
+		parsed = gdscript_api_parser.parse_gdscript_source(
+			'''## Global entry point.
+## @api public
+## @api_owner autoload Gf
+## @since 1.0.0
+extends Node
+
+## Runs the entry point.
+## @api public
+func run() -> void:
+	pass
+''',
+			"addons/gf/kernel/core/gf.gd",
+			"kernel",
+		)
+		self.assertEqual(parsed.api_owner_kind, "autoload")
+		self.assertEqual(parsed.api_owner_name, "Gf")
+		self.assertEqual(parsed.docs.description, ["Global entry point."])
+		self.assertEqual(parsed.docs.tags["since"], ["1.0.0"])
+		self.assertEqual([member.name for member in parsed.methods], ["run"])
+		self.assertIsNone(parsed.to_api_class())
+
+	def test_explicit_owner_rejects_invalid_shape_and_class_name_conflict(self) -> None:
+		with self.assertRaisesRegex(ValueError, "<kind> <name>"):
+			gdscript_api_parser.parse_gdscript_source(
+				"## @api_owner autoload\nextends Node\n",
+				"addons/gf/broken.gd",
+			)
+		with self.assertRaisesRegex(ValueError, "both class_name and @api_owner"):
+			gdscript_api_parser.parse_gdscript_source(
+				"## @api_owner autoload Gf\nextends Node\nclass_name Broken\n",
+				"addons/gf/broken.gd",
+			)
+		with self.assertRaisesRegex(ValueError, "both class_name and @api_owner"):
+			gdscript_api_parser.parse_gdscript_source(
+				"## @api_owner autoload Gf\nclass_name Broken\nextends Node\n",
+				"addons/gf/broken.gd",
+			)
+		with self.assertRaisesRegex(ValueError, "<kind> <name>"):
+			gdscript_api_parser.parse_gdscript_source(
+				"## @api_owner spaceship\nclass_name Broken\nextends Node\n",
+				"addons/gf/broken.gd",
+			)
+
 	def test_multiline_signals_are_collected_without_string_or_comment_parentheses(self) -> None:
 		source = '''
 ## Public surface.
@@ -637,6 +684,17 @@ class ReferenceProjectSyncTests(unittest.TestCase):
 
 
 class PublicAiApiTests(unittest.TestCase):
+	def test_cli_reports_owner_drift_without_a_traceback(self) -> None:
+		stderr = io.StringIO()
+		with mock.patch.object(
+			generate_ai_api,
+			"collect_api",
+			side_effect=ValueError("owner drift"),
+		), contextlib.redirect_stderr(stderr):
+			status = generate_ai_api.main(["--check"])
+		self.assertEqual(status, 2)
+		self.assertIn("AI API generation input is invalid: owner drift", stderr.getvalue())
+
 	def test_public_profile_excludes_internal_classes_and_members_without_mutating_input(self) -> None:
 		public_method = gdscript_api_parser.ApiMember(
 			kind="method",
@@ -696,25 +754,53 @@ class PublicAiApiTests(unittest.TestCase):
 		classless_public = gdscript_api_parser.ApiScript(
 			path="addons/gf/gf.gd",
 			module="kernel",
-			docs=api_docs("framework_internal"),
+			api_owner_kind="autoload",
+			api_owner_name="Gf",
+			docs=api_docs("public"),
 			methods=[public_method, internal_method],
 		)
 
-		filtered = generate_ai_api.filter_public_api(
-			[public_script, internal_script, classless_public]
+		class_owners = gf_api_owners.select_api_owners(
+			[public_script, internal_script],
+			(),
 		)
+		autoload_contract = gf_api_owners.ApiAutoloadContract(
+			name="Gf",
+			source_path="addons/gf/gf.gd",
+			resource_path="res://addons/gf/gf.gd",
+			package_id="gf.kernel",
+			registration_script_path="registration.gd",
+			runtime_resolver_script_path="resolver.gd",
+		)
+		classless_public.extends = "Node"
+		autoload_owners = gf_api_owners.select_api_owners(
+			[classless_public],
+			(autoload_contract,),
+		)
+		filtered = [*class_owners, *autoload_owners]
 
-		self.assertEqual([item.class_name for item in filtered], ["GFPublic", ""])
+		self.assertEqual([(owner.kind, owner.name) for owner in filtered], [
+			("class", "GFPublic"),
+			("autoload", "Gf"),
+		])
 		self.assertEqual(
-			[[method.name for method in item.methods] for item in filtered],
+			[[method.name for method in owner.script.methods] for owner in filtered],
 			[["run", "inspect"], ["run"]],
 		)
 		self.assertEqual(len(public_script.methods), 5)
 		self.assertEqual(len(classless_public.methods), 2)
+		with self.assertRaisesRegex(ValueError, "no controlled owner contract"):
+			gf_api_owners.select_api_owners([
+				gdscript_api_parser.ApiScript(
+					path="addons/gf/unknown.gd",
+					module="kernel",
+					methods=[public_method],
+				)
+			], ())
 
 	def test_semantic_digest_ignores_source_lines_but_location_digest_tracks_them(self) -> None:
-		def make_script(line: int, signature: str = "func run() -> void:") -> gdscript_api_parser.ApiScript:
-			return gdscript_api_parser.ApiScript(
+		def make_owner(line: int, signature: str = "func run() -> void:") -> gf_api_owners.ApiOwner:
+			script = gdscript_api_parser.ApiScript(
 				path="addons/gf/public.gd",
 				module="kernel",
 				class_name="GFPublic",
@@ -728,12 +814,35 @@ class PublicAiApiTests(unittest.TestCase):
 					docs=api_docs("public"),
 				)],
 			)
+			return gf_api_owners.ApiOwner("class", "GFPublic", script, "gf.kernel")
 
-		first = json.loads(generate_ai_api.render_outputs([make_script(3)], ROOT / "addons/gf")["api.json"])
-		second = json.loads(generate_ai_api.render_outputs([make_script(30)], ROOT / "addons/gf")["api.json"])
+		first = json.loads(generate_ai_api.render_outputs([make_owner(3)], ROOT / "addons/gf")["api.json"])
+		second = json.loads(generate_ai_api.render_outputs([make_owner(30)], ROOT / "addons/gf")["api.json"])
 		changed = json.loads(generate_ai_api.render_outputs([
-			make_script(30, "func run(value: int) -> void:")
+			make_owner(30, "func run(value: int) -> void:")
 		], ROOT / "addons/gf")["api.json"])
+		self.assertEqual(first["schema_version"], 3)
+		self.assertEqual(first["owner_count"], 1)
+		self.assertEqual(first["files"][0]["owner_kind"], "class")
+		self.assertEqual(first["files"][0]["owner_name"], "GFPublic")
+		self.assertEqual(first["files"][0]["package_id"], "gf.kernel")
+		with self.assertRaisesRegex(ValueError, "class owner identity"):
+			generate_ai_api.render_outputs([
+				gf_api_owners.ApiOwner("class", "Alias", make_owner(3).script, "gf.kernel")
+			], ROOT / "addons/gf")
+		mismatched_autoload_script = make_owner(3).script
+		mismatched_autoload_script.class_name = ""
+		mismatched_autoload_script.api_owner_kind = "autoload"
+		mismatched_autoload_script.api_owner_name = "Other"
+		with self.assertRaisesRegex(ValueError, "autoload owner identity"):
+			generate_ai_api.render_outputs([
+				gf_api_owners.ApiOwner(
+					"autoload",
+					"Gf",
+					mismatched_autoload_script,
+					"gf.kernel",
+				)
+			], ROOT / "addons/gf")
 		self.assertEqual(first["source_digest"], second["source_digest"])
 		self.assertNotEqual(first["location_digest"], second["location_digest"])
 		self.assertNotEqual(second["source_digest"], changed["source_digest"])
@@ -1012,7 +1121,51 @@ class CoverageEvidenceTests(unittest.TestCase):
 
 
 class MarkdownGenerationTests(unittest.TestCase):
-	def test_unknown_classless_public_api_owner_fails_closed(self) -> None:
+	def test_partial_source_collection_only_requires_contained_autoload_contracts(self) -> None:
+		extension_owners = gf_api_owners.collect_api_owners(
+			ROOT / "addons/gf/extensions",
+			ROOT,
+		)
+		self.assertTrue(extension_owners)
+		self.assertFalse(any(owner.kind == "autoload" for owner in extension_owners))
+		partial_payload = json.loads(generate_ai_api.render_outputs(
+			extension_owners,
+			ROOT / "addons/gf/extensions",
+		)["api.json"])
+		self.assertEqual(partial_payload["schema_version"], 3)
+		self.assertEqual(partial_payload["autoload_count"], 0)
+
+		full_owners = gf_api_owners.collect_api_owners(ROOT / "addons/gf", ROOT)
+		self.assertEqual(
+			[owner.name for owner in full_owners if owner.kind == "autoload"],
+			["Gf"],
+		)
+		self.assertEqual(
+			gf_api_owners._autoload_contracts_within_source_root(
+				ROOT / "addons/gf/kernel",
+				ROOT,
+				(gf_api_owners.GF_AUTOLOAD_CONTRACT,),
+			),
+			(gf_api_owners.GF_AUTOLOAD_CONTRACT,),
+		)
+		outside_contract = gf_api_owners.ApiAutoloadContract(
+			name="Outside",
+			source_path="addons/outside.gd",
+			resource_path="res://addons/outside.gd",
+			package_id="gf.outside",
+			registration_script_path="addons/outside_registration.gd",
+			runtime_resolver_script_path="addons/outside_runtime.gd",
+		)
+		self.assertEqual(
+			gf_api_owners._autoload_contracts_within_source_root(
+				ROOT / "addons/gf",
+				ROOT,
+				(outside_contract,),
+			),
+			(outside_contract,),
+		)
+
+	def test_classless_api_owner_selection_is_explicit_and_fails_closed(self) -> None:
 		public_method = gdscript_api_parser.ApiMember(
 			kind="method",
 			name="run",
@@ -1026,22 +1179,173 @@ class MarkdownGenerationTests(unittest.TestCase):
 			extends="Node",
 			methods=[public_method],
 		)
-		with self.assertRaisesRegex(ValueError, "no explicit Catalog owner decision"):
-			generate_api_reference.select_api_classes([unknown])
+		with self.assertRaisesRegex(ValueError, "no controlled owner contract"):
+			gf_api_owners.select_api_owners([unknown], ())
 
-		known = gdscript_api_parser.ApiScript(
-			path="addons/gf/kernel/core/gf.gd",
+		known = gdscript_api_parser.parse_gdscript_file(
+			ROOT / gf_api_owners.GF_AUTOLOAD_CONTRACT.source_path,
+			ROOT / "addons/gf",
+			ROOT,
+		)
+		owners = gf_api_owners.select_api_owners(
+			[known],
+			(gf_api_owners.GF_AUTOLOAD_CONTRACT,),
+		)
+		self.assertEqual([(owner.kind, owner.name) for owner in owners], [("autoload", "Gf")])
+		self.assertEqual([member.name for member in owners[0].script.methods][:2], [
+			"has_architecture",
+			"create_architecture",
+		])
+		self.assertEqual(len(owners[0].script.methods), 65)
+		self.assertEqual(len(owners[0].script.constants), 3)
+		self.assertEqual(len(owners[0].script.properties), 1)
+		with self.assertRaisesRegex(ValueError, "contract is stale"):
+			gf_api_owners.select_api_owners([], (gf_api_owners.GF_AUTOLOAD_CONTRACT,))
+
+	def test_controlled_autoload_registration_and_package_identity_fail_closed(self) -> None:
+		known = gdscript_api_parser.parse_gdscript_file(
+			ROOT / gf_api_owners.GF_AUTOLOAD_CONTRACT.source_path,
+			ROOT / "addons/gf",
+			ROOT,
+		)
+		owners = gf_api_owners.select_api_owners(
+			[known],
+			(gf_api_owners.GF_AUTOLOAD_CONTRACT,),
+		)
+		gf_api_owners.validate_controlled_autoloads(
+			owners,
+			ROOT,
+			(gf_api_owners.GF_AUTOLOAD_CONTRACT,),
+		)
+		self.assertTrue(gf_api_owners._uses_controlled_autoload_registration_call(
+			"plugin.add_autoload_singleton(\n\tAUTOLOAD_NAME,\n\tAUTOLOAD_PATH\n)\n"
+		))
+		self.assertFalse(gf_api_owners._uses_controlled_autoload_registration_call(
+			"# plugin.add_autoload_singleton(AUTOLOAD_NAME, AUTOLOAD_PATH)\n"
+		))
+		self.assertFalse(gf_api_owners._uses_controlled_autoload_registration_call(
+			'var text := "add_autoload_singleton(AUTOLOAD_NAME, AUTOLOAD_PATH)"\n'
+		))
+		self.assertFalse(gf_api_owners._uses_controlled_autoload_registration_call(
+			"func add_autoload_singleton(AUTOLOAD_NAME, AUTOLOAD_PATH):\n\tpass\n"
+		))
+		self.assertFalse(gf_api_owners._uses_controlled_autoload_registration_call(
+			"signal add_autoload_singleton(AUTOLOAD_NAME, AUTOLOAD_PATH)\n"
+		))
+		self.assertFalse(gf_api_owners._uses_controlled_autoload_registration_call(
+			"other.plugin.add_autoload_singleton(AUTOLOAD_NAME, AUTOLOAD_PATH)\n"
+		))
+		self.assertFalse(gf_api_owners._uses_controlled_autoload_registration_call(
+			"plugin.add_autoload_singleton(OTHER_NAME, AUTOLOAD_PATH)\n"
+		))
+
+		package_records = [
+			{"id": "gf.kernel", "kind": "kernel"},
+			{"id": "gf.duplicate", "kind": "extension"},
+		]
+		with mock.patch.object(
+			gf_api_owners.build_gf_package,
+			"collect_package_files",
+			return_value=[ROOT / gf_api_owners.GF_AUTOLOAD_CONTRACT.source_path],
+		):
+			with self.assertRaisesRegex(ValueError, "exactly one package"):
+				gf_api_owners.resolve_api_owner_packages(owners, package_records, ROOT)
+
+	def test_class_and_autoload_owner_names_cannot_collide(self) -> None:
+		autoload_script = gdscript_api_parser.parse_gdscript_file(
+			ROOT / gf_api_owners.GF_AUTOLOAD_CONTRACT.source_path,
+			ROOT / "addons/gf",
+			ROOT,
+		)
+		class_script = gdscript_api_parser.ApiScript(
+			path="addons/gf/kernel/core/gf_class.gd",
 			module="kernel",
-			extends="Node",
-			methods=[public_method],
+			class_name="Gf",
+			docs=api_docs("public"),
 		)
-		self.assertEqual(
-			generate_api_reference.select_api_classes(
-				[known],
-				generate_api_reference.KNOWN_CLASSLESS_PUBLIC_API_SCRIPTS,
-			),
+		with self.assertRaisesRegex(ValueError, "collision across owner kinds"):
+			gf_api_owners.select_api_owners(
+				[autoload_script, class_script],
+				(gf_api_owners.GF_AUTOLOAD_CONTRACT,),
+			)
+
+	def test_autoload_owner_has_distinct_catalog_and_reference_identity(self) -> None:
+		script = gdscript_api_parser.parse_gdscript_file(
+			ROOT / gf_api_owners.GF_AUTOLOAD_CONTRACT.source_path,
+			ROOT / "addons/gf",
+			ROOT,
+		)
+		selected_owner = gf_api_owners.select_api_owners(
+			[script],
+			(gf_api_owners.GF_AUTOLOAD_CONTRACT,),
+		)[0]
+		owner = gf_api_owners.ApiOwner(
+			selected_owner.kind,
+			selected_owner.name,
+			selected_owner.script,
+			"gf.kernel",
+		)
+		catalog = generate_api_reference.render_catalog_files(
 			[],
+			ROOT / "addons/gf",
+			[owner],
 		)
+		self.assertIn('schemaVersion="3"', catalog["index.xml"])
+		self.assertIn('autoloadCount="1"', catalog["index.xml"])
+		self.assertIn('<autoload name="Gf"', catalog["index.xml"])
+		self.assertIn('packageId="gf.kernel"', catalog["autoloads/Gf.xml"])
+		self.assertNotIn("classes/Gf.xml", catalog)
+
+		reference = generate_api_reference.render_reference_files(
+			[],
+			catalog["index.xml"],
+			[owner],
+		)
+		self.assertIn("autoloads/Gf.md", reference)
+		self.assertIn("Owner 类型：`autoload`", reference["autoloads/Gf.md"])
+		self.assertIn(
+			'<a id="member-gf-methods-has_architecture"></a>',
+			reference["autoloads/Gf.md"],
+		)
+		with contextlib.redirect_stdout(io.StringIO()):
+			self.assertEqual(
+				generate_api_reference.check_reference_coverage(
+					[],
+					reference,
+					report_success=False,
+					api_autoloads=[owner],
+				),
+				0,
+			)
+
+	def test_reference_without_autoloads_has_no_dangling_owner_index(self) -> None:
+		owner = gdscript_api_parser.ApiClass(
+			name="PartialOwner",
+			path="addons/gf/extensions/partial_owner.gd",
+			module="extensions",
+			extends="RefCounted",
+			line=1,
+			docs=api_docs("public"),
+		)
+		catalog = generate_api_reference.render_catalog_files(
+			[owner],
+			ROOT / "addons/gf/extensions",
+		)
+		reference = generate_api_reference.render_reference_files(
+			[owner],
+			catalog["index.xml"],
+		)
+		self.assertNotIn("autoloads/index.md", reference)
+		self.assertNotIn("autoloads/index.md", reference["index.md"])
+		with contextlib.redirect_stdout(io.StringIO()):
+			self.assertEqual(
+				generate_api_reference.check_reference_coverage(
+					[owner],
+					reference,
+					report_success=False,
+				),
+				0,
+			)
 
 	def test_parameter_table_cells_escape_markdown_structure(self) -> None:
 		lines: list[str] = []

@@ -8,7 +8,6 @@ import hashlib
 import json
 import re
 import sys
-from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
@@ -18,10 +17,10 @@ from generated_output_transaction import replace_generated_trees
 from generated_output_transaction import validate_controlled_path
 from gdscript_api_parser import ApiDocs
 from gdscript_api_parser import ApiMember
-from gdscript_api_parser import ApiScript
-from gdscript_api_parser import PUBLIC_API_VISIBILITIES
-from gdscript_api_parser import collect_api_scripts
-from gdscript_api_parser import visibility_of
+from gf_api_owners import ApiOwner
+from gf_api_owners import OWNER_KIND_AUTOLOAD
+from gf_api_owners import OWNER_KIND_CLASS
+from gf_api_owners import collect_api_owners
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -46,7 +45,7 @@ def main(argv: list[str] | None = None) -> int:
 	parser.add_argument(
 		"--check-wiki-coverage",
 		action="store_true",
-		help="Fail if public class_name entries are not mentioned in non-changelog documentation pages.",
+		help="Fail if public API owners are not mentioned in non-changelog documentation pages.",
 	)
 	parser.add_argument(
 		"--allow-unsafe-output-root",
@@ -70,11 +69,15 @@ def main(argv: list[str] | None = None) -> int:
 			print(error, file=sys.stderr)
 		return 2
 
-	api_files = collect_api(source_root)
-	desired = render_outputs(api_files, source_root)
+	try:
+		api_owners = collect_api(source_root)
+		desired = render_outputs(api_owners, source_root)
+	except ValueError as error:
+		print(f"AI API generation input is invalid: {error}", file=sys.stderr)
+		return 2
 	coverage_status = 0
 	if args.check_wiki_coverage:
-		coverage_status = check_wiki_coverage(api_files, (ROOT / args.wiki).resolve())
+		coverage_status = check_wiki_coverage(api_owners, (ROOT / args.wiki).resolve())
 	if args.check:
 		check_status = check_outputs(output_dir, desired)
 		return max(check_status, coverage_status)
@@ -82,50 +85,27 @@ def main(argv: list[str] | None = None) -> int:
 		check_status = check_outputs(output_dir, desired)
 		return max(check_status, coverage_status)
 	write_outputs(output_dir, desired)
-	class_count = sum(1 for item in api_files if item.class_name)
-	method_count = sum(len(item.methods) for item in api_files)
-	print(f"generated {len(api_files)} files, {class_count} classes, {method_count} public methods")
+	class_count = sum(1 for owner in api_owners if owner.kind == OWNER_KIND_CLASS)
+	autoload_count = sum(1 for owner in api_owners if owner.kind == OWNER_KIND_AUTOLOAD)
+	method_count = sum(len(owner.script.methods) for owner in api_owners)
+	print(
+		f"generated {len(api_owners)} files, {class_count} classes, "
+		f"{autoload_count} autoloads, {method_count} public methods"
+	)
 	print(f"output: {output_dir}")
 	if args.check_or_generate:
 		print("AI API docs were generated because the output directory was missing.")
 	return coverage_status
 
 
-def collect_api(source_root: Path) -> list[ApiScript]:
-	return filter_public_api(collect_api_scripts(source_root, ROOT))
+def collect_api(source_root: Path) -> list[ApiOwner]:
+	return collect_api_owners(source_root, ROOT)
 
 
-def filter_public_api(api_files: list[ApiScript]) -> list[ApiScript]:
-	"""Build a public/protected API profile without mutating parser results."""
-	result: list[ApiScript] = []
-	for api_file in api_files:
-		filtered = replace(
-			api_file,
-			signals=filter_public_members(api_file.signals),
-			enums=filter_public_members(api_file.enums),
-			constants=filter_public_members(api_file.constants),
-			properties=filter_public_members(api_file.properties),
-			methods=filter_public_members(api_file.methods),
-		)
-		if api_file.class_name:
-			if visibility_of(api_file.docs) in PUBLIC_API_VISIBILITIES:
-				result.append(filtered)
-		elif filtered.has_public_surface():
-			result.append(filtered)
-	return result
-
-
-def filter_public_members(members: list[ApiMember]) -> list[ApiMember]:
-	return [
-		member
-		for member in members
-		if visibility_of(member.docs) in PUBLIC_API_VISIBILITIES
-	]
-
-
-def render_outputs(api_files: list[ApiScript], source_root: Path) -> dict[str, str]:
-	files_payload = [api_file_to_dict(item) for item in api_files]
-	semantic_payload = [semantic_api_file_to_dict(item) for item in api_files]
+def render_outputs(api_owners: list[ApiOwner], source_root: Path) -> dict[str, str]:
+	validate_api_owners(api_owners)
+	files_payload = [api_owner_to_dict(owner) for owner in api_owners]
+	semantic_payload = [semantic_api_owner_to_dict(owner) for owner in api_owners]
 	source_digest = hashlib.sha256(
 		json.dumps(semantic_payload, ensure_ascii=False, sort_keys=True).encode("utf-8")
 	).hexdigest()
@@ -133,30 +113,36 @@ def render_outputs(api_files: list[ApiScript], source_root: Path) -> dict[str, s
 		json.dumps(files_payload, ensure_ascii=False, sort_keys=True).encode("utf-8")
 	).hexdigest()
 	payload = {
-		"schema_version": 2,
+		"schema_version": 3,
 		"source_digest": source_digest,
 		"location_digest": location_digest,
 		"source_root": source_root.relative_to(ROOT).as_posix(),
-		"file_count": len(api_files),
-		"class_count": sum(1 for item in api_files if item.class_name),
-		"public_method_count": sum(len(item.methods) for item in api_files),
+		"file_count": len(api_owners),
+		"owner_count": len(api_owners),
+		"class_count": sum(1 for owner in api_owners if owner.kind == OWNER_KIND_CLASS),
+		"autoload_count": sum(1 for owner in api_owners if owner.kind == OWNER_KIND_AUTOLOAD),
+		"public_method_count": sum(len(owner.script.methods) for owner in api_owners),
 		"files": files_payload,
 	}
 	outputs = {
 		"api.json": json.dumps(payload, ensure_ascii=False, indent=2) + "\n",
-		"index.md": render_index(api_files, payload),
+		"index.md": render_index(api_owners, payload),
 	}
-	for module in sorted({item.module for item in api_files}):
-		module_files = [item for item in api_files if item.module == module]
-		outputs[f"modules/{safe_file_name(module)}.md"] = render_module(module, module_files)
+	for module in sorted({owner.script.module for owner in api_owners}):
+		module_owners = [owner for owner in api_owners if owner.script.module == module]
+		outputs[f"modules/{safe_file_name(module)}.md"] = render_module(module, module_owners)
 	return outputs
 
 
-def api_file_to_dict(api_file: ApiScript) -> dict[str, Any]:
+def api_owner_to_dict(owner: ApiOwner) -> dict[str, Any]:
+	api_file = owner.script
 	return {
 		"path": api_file.path,
 		"module": api_file.module,
 		"class_name": api_file.class_name,
+		"owner_kind": owner.kind,
+		"owner_name": owner.name,
+		"package_id": owner.package_id,
 		"extends": api_file.extends,
 		"summary": docs_to_ai_lines(api_file.docs),
 		"signals": [api_item_to_dict(item) for item in api_file.signals],
@@ -167,11 +153,15 @@ def api_file_to_dict(api_file: ApiScript) -> dict[str, Any]:
 	}
 
 
-def semantic_api_file_to_dict(api_file: ApiScript) -> dict[str, Any]:
+def semantic_api_owner_to_dict(owner: ApiOwner) -> dict[str, Any]:
+	api_file = owner.script
 	return {
 		"path": api_file.path,
 		"module": api_file.module,
 		"class_name": api_file.class_name,
+		"owner_kind": owner.kind,
+		"owner_name": owner.name,
+		"package_id": owner.package_id,
 		"extends": api_file.extends,
 		"summary": docs_to_ai_lines(api_file.docs),
 		"signals": [semantic_api_item_to_dict(item) for item in api_file.signals],
@@ -211,6 +201,35 @@ def ai_member_kind(item: ApiMember) -> str:
 	return item.kind
 
 
+def validate_api_owners(api_owners: list[ApiOwner]) -> None:
+	identities: dict[str, str] = {}
+	for owner in api_owners:
+		if owner.kind not in (OWNER_KIND_CLASS, OWNER_KIND_AUTOLOAD) or not owner.name:
+			raise ValueError(f"AI API file has no explicit owner identity: {owner.script.path}")
+		if owner.kind == OWNER_KIND_CLASS:
+			if (
+				owner.script.class_name != owner.name
+				or owner.script.api_owner_kind
+				or owner.script.api_owner_name
+			):
+				raise ValueError(f"AI class owner identity does not match its script: {owner.name}")
+		elif (
+			owner.script.class_name
+			or owner.script.api_owner_kind != OWNER_KIND_AUTOLOAD
+			or owner.script.api_owner_name != owner.name
+		):
+			raise ValueError(f"AI autoload owner identity does not match its script: {owner.name}")
+		if not owner.package_id:
+			raise ValueError(f"AI API owner has no package identity: {owner.kind}:{owner.name}")
+		identity = owner.name.casefold()
+		previous = identities.get(identity)
+		if previous is not None:
+			raise ValueError(
+				f"AI API owner identity collision: {previous} and {owner.kind}:{owner.name}"
+			)
+		identities[identity] = f"{owner.kind}:{owner.name}"
+
+
 def docs_to_ai_lines(docs: ApiDocs) -> list[str]:
 	lines = docs.description[:]
 	for tag_name in sorted(docs.tags):
@@ -219,7 +238,7 @@ def docs_to_ai_lines(docs: ApiDocs) -> list[str]:
 	return lines
 
 
-def render_index(api_files: list[ApiScript], payload: dict[str, Any]) -> str:
+def render_index(api_owners: list[ApiOwner], payload: dict[str, Any]) -> str:
 	lines = [
 		"# GF AI API Index",
 		"",
@@ -227,28 +246,37 @@ def render_index(api_files: list[ApiScript], payload: dict[str, Any]) -> str:
 		f"location_digest: {payload['location_digest']}",
 		f"source_root: {payload['source_root']}",
 		f"file_count: {payload['file_count']}",
+		f"owner_count: {payload['owner_count']}",
 		f"class_count: {payload['class_count']}",
+		f"autoload_count: {payload['autoload_count']}",
 		f"public_method_count: {payload['public_method_count']}",
 		"",
 		"## Modules",
 		"",
 	]
-	for module in sorted({item.module for item in api_files}):
-		module_files = [item for item in api_files if item.module == module]
-		lines.append(f"- {module}: {len(module_files)} files -> modules/{safe_file_name(module)}.md")
-	lines.extend(["", "## Classes", ""])
-	for item in api_files:
-		display_name = item.class_name or Path(item.path).name
-		lines.append(f"- {display_name} | {item.extends} | {item.module} | {item.path}")
+	for module in sorted({owner.script.module for owner in api_owners}):
+		module_owners = [owner for owner in api_owners if owner.script.module == module]
+		lines.append(
+			f"- {module}: {len(module_owners)} files -> modules/{safe_file_name(module)}.md"
+		)
+	lines.extend(["", "## API Owners", ""])
+	for owner in api_owners:
+		item = owner.script
+		lines.append(
+			f"- {owner.kind}:{owner.name} | {owner.package_id} "
+			f"| {item.extends} | {item.module} | {item.path}"
+		)
 	return "\n".join(lines) + "\n"
 
 
-def render_module(module: str, api_files: list[ApiScript]) -> str:
+def render_module(module: str, api_owners: list[ApiOwner]) -> str:
 	lines = [f"# Module {module}", ""]
-	for api_file in api_files:
-		title = api_file.class_name or Path(api_file.path).name
+	for owner in api_owners:
+		api_file = owner.script
 		lines.extend([
-			f"## {title}",
+			f"## {owner.name}",
+			f"owner_kind: {owner.kind}",
+			f"package_id: {owner.package_id}",
 			f"path: {api_file.path}",
 			f"extends: {api_file.extends}",
 			f"summary: {' '.join(docs_to_ai_lines(api_file.docs))}",
@@ -296,7 +324,7 @@ def check_outputs(output_dir: Path, desired: dict[str, str]) -> int:
 	return 0
 
 
-def check_wiki_coverage(api_files: list[ApiScript], wiki_root: Path) -> int:
+def check_wiki_coverage(api_owners: list[ApiOwner], wiki_root: Path) -> int:
 	if not wiki_root.exists():
 		print(f"documentation root not found: {wiki_root}", file=sys.stderr)
 		return 2
@@ -308,22 +336,25 @@ def check_wiki_coverage(api_files: list[ApiScript], wiki_root: Path) -> int:
 		doc_text_parts.append(visible_markdown_text(path.read_text(encoding="utf-8")))
 	doc_text = "\n".join(doc_text_parts)
 
-	missing: list[ApiScript] = []
+	missing: list[ApiOwner] = []
 	checked_count = 0
-	for api_file in api_files:
-		if not api_file.class_name:
-			continue
+	for owner in api_owners:
+		api_file = owner.script
 		checked_count += 1
-		if not markdown_mentions_identifier(doc_text, api_file.class_name):
-			missing.append(api_file)
+		if not markdown_mentions_identifier(doc_text, owner.name):
+			missing.append(owner)
 
 	if missing:
-		print("Documentation coverage is missing public class entries:")
-		for api_file in missing:
-			print(f"- {api_file.module} | {api_file.class_name} | {api_file.path}")
+		print("Documentation coverage is missing public API owner entries:")
+		for owner in missing:
+			api_file = owner.script
+			print(
+				f"- {api_file.module} | {owner.kind}:{owner.name} "
+				f"| {api_file.path}"
+			)
 		return 1
 
-	print(f"Documentation coverage is complete: {checked_count} public classes mentioned outside changelog.")
+	print(f"Documentation coverage is complete: {checked_count} public API owners mentioned outside changelog.")
 	return 0
 
 

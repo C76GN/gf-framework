@@ -27,6 +27,7 @@ const DOCS_TOP_LEVEL_DIRECTORIES: Array[String] = [
 ]
 const REQUIRED_MKDOCS_NOT_IN_NAV_PATTERNS: Array[String] = [
 	"reference/api/classes/*.md",
+	"reference/api/autoloads/*.md",
 	"overview/**/*.md",
 	"kernel/**/*.md",
 	"standard/**/*.md",
@@ -100,7 +101,7 @@ func test_mkdocs_nav_stays_at_entry_level() -> void:
 	assert_eq(issues, [], "Read the Docs 左侧导航只应保留主入口、专题总览和参考索引：\n%s" % _join_lines(issues))
 
 
-func test_generated_api_reference_uses_split_class_pages() -> void:
+func test_generated_api_reference_uses_split_owner_pages() -> void:
 	var api_root: String = DOCS_ROOT.path_join("reference/api")
 	var api_paths: Array[String] = _collect_markdown_files(api_root)
 
@@ -119,6 +120,16 @@ func test_generated_api_reference_uses_split_class_pages() -> void:
 			issues.append("reference/api/classes/index.md must expose category and member count columns")
 		if not class_index_text.contains("运行时服务 (`runtime_service`)"):
 			issues.append("reference/api/classes/index.md must keep readable category labels")
+
+	var autoload_index_page: String = api_root.path_join("autoloads/index.md")
+	if not FileAccess.file_exists(autoload_index_page):
+		issues.append("reference/api/autoloads/index.md is missing")
+	else:
+		var autoload_index_text: String = _read_text(autoload_index_page)
+		if not autoload_index_text.contains("| AutoLoad | 模块 | 包 | 继承 | 成员 | 源文件 |"):
+			issues.append("reference/api/autoloads/index.md must expose owner identity and package columns")
+		if not autoload_index_text.contains("[`Gf`](Gf.md)"):
+			issues.append("reference/api/autoloads/index.md must link the controlled Gf owner page")
 
 	var behavior_tree_page: String = api_root.path_join("classes/GFBehaviorTree.md")
 	if FileAccess.file_exists(behavior_tree_page):
@@ -140,9 +151,9 @@ func test_generated_api_reference_uses_split_class_pages() -> void:
 		if line_count > MAX_API_MODULE_REFERENCE_LINES:
 			issues.append("%s has %d lines; module API pages should stay as indexes" % [relative_path, line_count])
 		if text.contains("\n### `") or text.contains("\n#### `"):
-			issues.append("%s appears to contain member detail headings; details belong under reference/api/classes/" % relative_path)
+			issues.append("%s appears to contain member detail headings; details belong under an API owner detail directory" % relative_path)
 
-	assert_eq(issues, [], "API Reference 应保持模块索引 + 单类详情页结构：\n%s" % _join_lines(issues))
+	assert_eq(issues, [], "API Reference 应保持模块索引 + owner 详情页结构：\n%s" % _join_lines(issues))
 
 
 func test_docs_use_semantic_directories_matching_navigation() -> void:
@@ -562,7 +573,12 @@ func _is_numbered_slug(value: String) -> bool:
 
 
 func _is_generated_api_reference_detail_page(relative_path: String) -> bool:
-	return relative_path.begins_with("reference/api/classes/")
+	if relative_path.begins_with("reference/api/classes/"):
+		return true
+	return (
+		relative_path.begins_with("reference/api/autoloads/")
+		and not relative_path.ends_with("/index.md")
+	)
 
 
 func _read_text(path: String) -> String:

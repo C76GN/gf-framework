@@ -28,7 +28,8 @@ from typing import BinaryIO
 from typing import Iterator
 
 import build_gf_package
-from gdscript_api_parser import ApiDocs, ApiMember, collect_api_scripts, visibility_of
+from gdscript_api_parser import ApiDocs, ApiMember, visibility_of
+from gf_api_owners import OWNER_KIND_CLASS, ApiOwner, collect_api_owners
 from gf_godot_process import GODOT_EXECUTABLE_ENV_VAR, resolve_godot_executable
 from gf_process_supervisor import SupervisedProcessResult, run_supervised_process
 from gf_semver import SemVer, parse_semver
@@ -502,7 +503,6 @@ def render_api_index() -> dict[str, Any]:
 	if manifest_load.get("issues"):
 		raise ValueError("Package manifests are invalid: " + "; ".join(manifest_load["issues"][:10]))
 	records = [record for record in manifest_load["records"] if record.get("kind") != "preset"]
-	owners: dict[str, str] = {}
 	package_payload: list[dict[str, Any]] = []
 	for record in records:
 		file_issues: list[str] = []
@@ -510,8 +510,6 @@ def render_api_index() -> dict[str, Any]:
 		if file_issues:
 			raise ValueError(f"Package {record['id']} is invalid: " + "; ".join(file_issues[:10]))
 		relative_files = [path.relative_to(ROOT).as_posix() for path in files]
-		for relative_path in relative_files:
-			owners[relative_path] = str(record["id"])
 		# The generated API index belongs to this package but must not influence its
 		# own deterministic package summary when bootstrapping from a clean tree.
 		representative_candidates = [
@@ -528,50 +526,53 @@ def render_api_index() -> dict[str, Any]:
 		})
 
 	classes: dict[str, Any] = {}
-	for script in collect_api_scripts(ROOT / "addons/gf", ROOT):
-		if not script.class_name:
-			continue
-		visibility = visibility_of(script.docs)
-		if visibility not in ("public", "protected"):
-			continue
-		members: list[dict[str, str]] = []
-		for member in [*script.signals, *script.enums, *script.constants, *script.properties, *script.methods]:
-			member_visibility = visibility_of(member.docs)
-			if member_visibility not in ("public", "protected"):
-				continue
-			members.append({
-				"kind": _member_kind(member),
-				"name": member.name,
-				"signature": member.signature.rstrip(":"),
-				"summary": _summary(member.docs, 1),
-				"visibility": member_visibility,
-			})
-		classes[script.class_name] = {
-			"extends": script.extends,
-			"module": script.module,
-			"package_id": owners.get(script.path, ""),
-			"path": script.path,
-			"summary": _summary(script.docs, 3),
-			"visibility": visibility,
-			"category": _first_tag(script.docs, "category"),
-			"since": _first_tag(script.docs, "since"),
-			"members": members,
-		}
+	autoloads: dict[str, Any] = {}
+	for owner in collect_api_owners(ROOT / "addons/gf", ROOT, records):
+		target = classes if owner.kind == OWNER_KIND_CLASS else autoloads
+		target[owner.name] = _api_owner_record(owner)
 	payload = {
-		"schema_version": 1,
-		"catalog_version": "1.0.0",
+		"schema_version": 2,
+		"catalog_version": "2.0.0",
 		"framework_version": read_plugin_version(),
 		"source_digest": "",
 		"class_count": len(classes),
+		"autoload_count": len(autoloads),
 		"package_count": len(package_payload),
 		"packages": sorted(package_payload, key=lambda item: str(item["id"])),
 		"classes": dict(sorted(classes.items())),
+		"autoloads": dict(sorted(autoloads.items())),
 	}
 	digest_payload = {key: value for key, value in payload.items() if key != "source_digest"}
 	payload["source_digest"] = hashlib.sha256(
 		json.dumps(digest_payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"), allow_nan=False).encode("utf-8")
 	).hexdigest()
 	return payload
+
+
+def _api_owner_record(owner: ApiOwner) -> dict[str, Any]:
+	script = owner.script
+	members: list[dict[str, str]] = []
+	for member in [*script.signals, *script.enums, *script.constants, *script.properties, *script.methods]:
+		member_visibility = visibility_of(member.docs)
+		members.append({
+			"kind": _member_kind(member),
+			"name": member.name,
+			"signature": member.signature.rstrip(":"),
+			"summary": _summary(member.docs, 1),
+			"visibility": member_visibility,
+		})
+	return {
+		"owner_kind": owner.kind,
+		"extends": script.extends,
+		"module": script.module,
+		"package_id": owner.package_id,
+		"path": script.path,
+		"summary": _summary(script.docs, 3),
+		"visibility": visibility_of(script.docs),
+		"category": _first_tag(script.docs, "category"),
+		"since": _first_tag(script.docs, "since"),
+		"members": members,
+	}
 
 
 def render_api_index_text(payload: dict[str, Any] | None = None) -> str:
@@ -640,6 +641,7 @@ def check_source(rendered_payload: dict[str, Any] | None = None) -> dict[str, An
 		"ok": not issues,
 		"api_index": API_INDEX_PATH.relative_to(ROOT).as_posix(),
 		"class_count": len(payload.get("classes", {})),
+		"autoload_count": len(payload.get("autoloads", {})),
 		"issues": issues,
 	}
 
@@ -685,7 +687,11 @@ def validate_protocol_versions() -> list[str]:
 
 def validate_catalogs() -> list[str]:
 	issues: list[str] = []
-	api = read_strict_json_object(API_INDEX_PATH) if API_INDEX_PATH.is_file() else {"classes": {}, "packages": []}
+	api = (
+		read_strict_json_object(API_INDEX_PATH)
+		if API_INDEX_PATH.is_file()
+		else {"classes": {}, "autoloads": {}, "packages": []}
+	)
 	capabilities = read_strict_json_object(ADDON_ROOT / "knowledge/capabilities.json")
 	recipes = read_strict_json_object(ADDON_ROOT / "knowledge/recipes.json")
 	sys.path.insert(0, str(ADDON_ROOT))

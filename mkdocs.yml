@@ -7,6 +7,7 @@ docs_dir: docs/zh
 site_dir: ai_analysis/mkdocs_site
 not_in_nav: |
   reference/api/classes/*.md
+  reference/api/autoloads/*.md
   overview/**/*.md
   kernel/**/*.md
   standard/**/*.md

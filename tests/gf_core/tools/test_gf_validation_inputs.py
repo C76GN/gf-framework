@@ -126,6 +126,7 @@ def _make_default_catalog_git_repository(parent: Path) -> Path:
 		("docs/zh/guide.md", "Guide\n"),
 		("docs/zh/reference/api/GFNode.md", "Reference\n"),
 		("tools/gdscript_api_parser.py", "PARSER_VERSION = 1\n"),
+		("tools/gf_api_owners.py", "OWNER_VERSION = 1\n"),
 		("tools/gf_maintenance.py", "RULE_VERSION = 1\n"),
 		("tools/gf_validation_inputs.py", "INPUT_VERSION = 1\n"),
 		("tools/gf_workspace_snapshot.py", "SNAPSHOT_VERSION = 1\n"),
@@ -165,6 +166,7 @@ class InputSpecContractTests(unittest.TestCase):
 			),
 			"public_api_boundary": (
 				"tools/gdscript_api_parser.py",
+				"tools/gf_api_owners.py",
 				"tools/gf_maintenance.py",
 				"tools/gf_validation_inputs.py",
 				"tools/gf_workspace_snapshot.py",
@@ -851,6 +853,42 @@ class AffectedAnalysisTests(unittest.TestCase):
 			self.assertEqual(
 				by_name["public_api_boundary"]["matched_paths"],
 				["tools/gdscript_api_parser.py"],
+			)
+			for check_name in (
+				"package_user_dependency_boundary",
+				"public_docs_boundary",
+			):
+				self.assertEqual(
+					by_name[check_name]["reason_codes"],
+					["no_declared_input_changed"],
+				)
+
+	def test_default_catalog_owner_model_change_affects_only_public_api_candidate(self) -> None:
+		with tempfile.TemporaryDirectory() as temporary_directory:
+			root = _make_default_catalog_git_repository(Path(temporary_directory))
+			_write(root / "tools/gf_api_owners.py", "OWNER_VERSION = 2\n")
+			check_names = [
+				spec.check_name for spec in inputs.DEFAULT_AFFECTED_INPUT_SPECS
+			]
+
+			report = inputs.analyze_affected_checks(
+				root,
+				check_names,
+				"HEAD",
+				True,
+			)
+
+			self.assertTrue(report["report_ok"])
+			self.assertEqual(report["affected_count"], 1)
+			self.assertEqual(report["unaffected_count"], 2)
+			by_name = {check["check_name"]: check for check in report["checks"]}
+			self.assertEqual(
+				by_name["public_api_boundary"]["reason_codes"],
+				["implementation_input_changed"],
+			)
+			self.assertEqual(
+				by_name["public_api_boundary"]["matched_paths"],
+				["tools/gf_api_owners.py"],
 			)
 			for check_name in (
 				"package_user_dependency_boundary",
