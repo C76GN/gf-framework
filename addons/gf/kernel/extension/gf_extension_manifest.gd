@@ -1,6 +1,6 @@
 ## GFExtensionManifest: GF 扩展元数据描述。
 ##
-## 用于描述 GF 扩展的稳定 ID、版本、依赖、安装入口和编辑器扩展。
+## 用于描述 GF 扩展的稳定 ID、版本、依赖、运行时安装入口和编辑器展示元数据。
 ## [br]
 ## @api public
 ## [br]
@@ -35,25 +35,27 @@ const _GF_PATH_TOOLS = preload("res://addons/gf/kernel/core/gf_path_tools.gd")
 const _GF_EXTENSION_ID_VALIDATOR_SCRIPT = preload("res://addons/gf/kernel/extension/gf_extension_id_validator.gd")
 const _GF_EXTENSION_JSON_FILE_READER_SCRIPT = preload("res://addons/gf/kernel/extension/gf_extension_json_file_reader.gd")
 const _SUPPORTED_FIELDS: Array[String] = [
-	"access_generator_extension_paths",
 	"dependencies",
 	"description",
 	"display_name",
-	"editor_action_paths",
 	"editor_dock_order",
-	"editor_dock_paths",
 	"editor_dock_short_label",
-	"editor_inspector_paths",
 	"enabled_by_default",
-	"export_plugin_paths",
 	"extension_version",
-	"gltf_document_extension_paths",
 	"id",
-	"import_plugin_paths",
 	"installer_paths",
 	"kind",
 	"tags",
 	"version",
+]
+const _MOVED_TO_TOOL_CONTRIBUTION_FIELDS: Array[String] = [
+	"access_generator_extension_paths",
+	"editor_action_paths",
+	"editor_dock_paths",
+	"editor_inspector_paths",
+	"export_plugin_paths",
+	"gltf_document_extension_paths",
+	"import_plugin_paths",
 ]
 const _FORBIDDEN_RELATION_FIELDS: Array[String] = [
 	"after",
@@ -85,14 +87,7 @@ const _STRING_FIELDS: Array[String] = [
 	"version",
 ]
 const _STRING_ARRAY_FIELDS: Array[String] = [
-	"access_generator_extension_paths",
 	"dependencies",
-	"editor_action_paths",
-	"editor_dock_paths",
-	"editor_inspector_paths",
-	"export_plugin_paths",
-	"gltf_document_extension_paths",
-	"import_plugin_paths",
 	"installer_paths",
 	"tags",
 ]
@@ -145,16 +140,6 @@ var dependencies: Array[String] = []
 ## @api public
 var installer_paths: Array[String] = []
 
-## 可选编辑器菜单动作脚本路径列表。
-## [br]
-## @api public
-var editor_action_paths: Array[String] = []
-
-## 可选编辑器工作区页面脚本路径列表。
-## [br]
-## @api public
-var editor_dock_paths: Array[String] = []
-
 ## 编辑器工作区页面排序。数值越小越靠前。
 ## [br]
 ## @api public
@@ -164,31 +149,6 @@ var editor_dock_order: int = 1000
 ## [br]
 ## @api public
 var editor_dock_short_label: String = ""
-
-## 可选 EditorInspectorPlugin 路径列表。需要为扩展内类型提供 Inspector 增强时使用。
-## [br]
-## @api public
-var editor_inspector_paths: Array[String] = []
-
-## 可选 EditorImportPlugin 路径列表。需要为自定义资源格式提供导入器时使用。
-## [br]
-## @api public
-var import_plugin_paths: Array[String] = []
-
-## 可选 EditorExportPlugin 路径列表。
-## [br]
-## @api public
-var export_plugin_paths: Array[String] = []
-
-## 可选 GLTFDocumentExtension 路径列表。用于导入期资产元数据桥接等编辑器能力。
-## [br]
-## @api public
-var gltf_document_extension_paths: Array[String] = []
-
-## 可选 GFAccessGenerator 扩展脚本路径列表。
-## [br]
-## @api public
-var access_generator_extension_paths: Array[String] = []
 
 ## 便于工具筛选的标签。
 ## [br]
@@ -258,15 +218,8 @@ static func from_dictionary(
 	))
 	manifest.dependencies = _normalize_identifier_list(_GF_VARIANT_ACCESS_SCRIPT.get_option_string_array(data, "dependencies"))
 	manifest.installer_paths = _normalize_resource_path_list(_GF_VARIANT_ACCESS_SCRIPT.get_option_string_array(data, "installer_paths"))
-	manifest.editor_action_paths = _normalize_resource_path_list(_GF_VARIANT_ACCESS_SCRIPT.get_option_string_array(data, "editor_action_paths"))
-	manifest.editor_dock_paths = _normalize_resource_path_list(_GF_VARIANT_ACCESS_SCRIPT.get_option_string_array(data, "editor_dock_paths"))
 	manifest.editor_dock_order = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(data, "editor_dock_order", manifest.editor_dock_order)
 	manifest.editor_dock_short_label = _normalize_manifest_text(_GF_VARIANT_ACCESS_SCRIPT.get_option_string(data, "editor_dock_short_label"))
-	manifest.editor_inspector_paths = _normalize_resource_path_list(_GF_VARIANT_ACCESS_SCRIPT.get_option_string_array(data, "editor_inspector_paths"))
-	manifest.import_plugin_paths = _normalize_resource_path_list(_GF_VARIANT_ACCESS_SCRIPT.get_option_string_array(data, "import_plugin_paths"))
-	manifest.export_plugin_paths = _normalize_resource_path_list(_GF_VARIANT_ACCESS_SCRIPT.get_option_string_array(data, "export_plugin_paths"))
-	manifest.gltf_document_extension_paths = _normalize_resource_path_list(_GF_VARIANT_ACCESS_SCRIPT.get_option_string_array(data, "gltf_document_extension_paths"))
-	manifest.access_generator_extension_paths = _normalize_resource_path_list(_GF_VARIANT_ACCESS_SCRIPT.get_option_string_array(data, "access_generator_extension_paths"))
 	manifest.tags = _normalize_identifier_list(_GF_VARIANT_ACCESS_SCRIPT.get_option_string_array(data, "tags"))
 	manifest.enabled_by_default = _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
 		data,
@@ -369,15 +322,8 @@ func to_dictionary() -> Dictionary:
 		"description": description,
 		"dependencies": dependencies.duplicate(),
 		"installer_paths": installer_paths.duplicate(),
-		"editor_action_paths": editor_action_paths.duplicate(),
-		"editor_dock_paths": editor_dock_paths.duplicate(),
 		"editor_dock_order": editor_dock_order,
 		"editor_dock_short_label": editor_dock_short_label,
-		"editor_inspector_paths": editor_inspector_paths.duplicate(),
-		"import_plugin_paths": import_plugin_paths.duplicate(),
-		"export_plugin_paths": export_plugin_paths.duplicate(),
-		"gltf_document_extension_paths": gltf_document_extension_paths.duplicate(),
-		"access_generator_extension_paths": access_generator_extension_paths.duplicate(),
 		"tags": tags.duplicate(),
 		"enabled_by_default": enabled_by_default,
 	}
@@ -401,15 +347,8 @@ func duplicate_manifest() -> GFExtensionManifest:
 	manifest.description = description
 	manifest.dependencies = dependencies.duplicate()
 	manifest.installer_paths = installer_paths.duplicate()
-	manifest.editor_action_paths = editor_action_paths.duplicate()
-	manifest.editor_dock_paths = editor_dock_paths.duplicate()
 	manifest.editor_dock_order = editor_dock_order
 	manifest.editor_dock_short_label = editor_dock_short_label
-	manifest.editor_inspector_paths = editor_inspector_paths.duplicate()
-	manifest.import_plugin_paths = import_plugin_paths.duplicate()
-	manifest.export_plugin_paths = export_plugin_paths.duplicate()
-	manifest.gltf_document_extension_paths = gltf_document_extension_paths.duplicate()
-	manifest.access_generator_extension_paths = access_generator_extension_paths.duplicate()
 	manifest.tags = tags.duplicate()
 	manifest.enabled_by_default = enabled_by_default
 	manifest.source_path = source_path
@@ -448,13 +387,6 @@ func get_validation_errors() -> Array[String]:
 		errors.append("root_path is required")
 	_append_identifier_errors(errors, "dependencies", dependencies)
 	_append_script_resource_path_errors(errors, "installer_paths", installer_paths)
-	_append_script_resource_path_errors(errors, "editor_action_paths", editor_action_paths)
-	_append_script_resource_path_errors(errors, "editor_dock_paths", editor_dock_paths)
-	_append_script_resource_path_errors(errors, "editor_inspector_paths", editor_inspector_paths)
-	_append_script_resource_path_errors(errors, "import_plugin_paths", import_plugin_paths)
-	_append_script_resource_path_errors(errors, "export_plugin_paths", export_plugin_paths)
-	_append_script_resource_path_errors(errors, "gltf_document_extension_paths", gltf_document_extension_paths)
-	_append_script_resource_path_errors(errors, "access_generator_extension_paths", access_generator_extension_paths)
 	return errors
 
 
@@ -557,7 +489,11 @@ static func _normalize_resource_path_list(values: Array[String]) -> Array[String
 
 func _append_unsupported_field_errors(errors: Array[String]) -> void:
 	for field_name: String in _source_field_names:
-		if _FORBIDDEN_RELATION_FIELDS.has(field_name):
+		if _MOVED_TO_TOOL_CONTRIBUTION_FIELDS.has(field_name):
+			errors.append(
+				"manifest field moved to editor/gf_tool_contribution.json: %s" % field_name
+			)
+		elif _FORBIDDEN_RELATION_FIELDS.has(field_name):
 			errors.append("unsupported manifest relation field: %s" % field_name)
 		elif not _SUPPORTED_FIELDS.has(field_name):
 			errors.append("unsupported manifest field: %s" % field_name)

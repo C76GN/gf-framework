@@ -41,7 +41,7 @@
 
 ## 扩展生成结果
 
-扩展可以通过 manifest 的 `access_generator_extension_paths` 扩展生成结果。扩展脚本可实现以下约定方法：
+扩展可以通过 `editor/gf_tool_contribution.json` 的 `access_generator_extension_paths` 扩展生成结果；该字段不属于运行时 `gf_extension.json`。扩展脚本可实现以下约定方法：
 
 - `append_access_records(records)`：向记录列表追加扩展内类型。
 - `append_access_source(builder, records)`：直接使用 `GFSourceBuilder` 追加源码。

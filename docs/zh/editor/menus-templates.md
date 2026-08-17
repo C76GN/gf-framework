@@ -5,7 +5,7 @@
 ## 内置入口
 
 - `System`、`Model`、`Utility`、`Command` 模板用于创建基础架构层脚本。
-- Capability 相关模板由 Capability 扩展通过 `editor_action_paths` 注入，只在该扩展启用时可用。
+- Capability 相关模板由 Capability 扩展通过 `editor/gf_tool_contribution.json` 的 `editor_action_paths` 注入，只在该扩展启用时可用。
 - Node State 与 Node State Machine 模板由标准库编辑器贡献清单索引，用于标准库节点状态机；模板文本位于 `gf.standard.state_machine.editor` 所拥有的 `addons/gf/standard/state_machine/node/editor/templates/`，中央清单不接管其物理所有权。
 - `生成强类型访问器` 会生成 `GFAccess`。
 - `生成项目常量访问器` 会生成 `GFProjectAccess`。

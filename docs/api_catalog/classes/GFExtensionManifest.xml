@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFExtensionManifest" path="addons/gf/kernel/extension/gf_extension_manifest.gd" module="kernel" extends="RefCounted" classDigest="2c71dc90b562bedbdd1ffd2ee3cdb239e3c652784aeb332a921587d7a8f284af">
+<class name="GFExtensionManifest" path="addons/gf/kernel/extension/gf_extension_manifest.gd" module="kernel" extends="RefCounted" classDigest="ae166a4a94c5f745689d669f3d9ec58b4f02bbd2b2606f83da6414e5e3718730">
 	<description>GFExtensionManifest: GF 扩展元数据描述。
-用于描述 GF 扩展的稳定 ID、版本、依赖、安装入口和编辑器扩展。</description>
+用于描述 GF 扩展的稳定 ID、版本、依赖、运行时安装入口和编辑器展示元数据。</description>
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">resource_definition</tag>
@@ -97,20 +97,6 @@
 				<tag name="api">public</tag>
 			</tags>
 		</member>
-		<member kind="property" name="editor_action_paths">
-			<signature>var editor_action_paths: Array[String] = []</signature>
-			<description>可选编辑器菜单动作脚本路径列表。</description>
-			<tags>
-				<tag name="api">public</tag>
-			</tags>
-		</member>
-		<member kind="property" name="editor_dock_paths">
-			<signature>var editor_dock_paths: Array[String] = []</signature>
-			<description>可选编辑器工作区页面脚本路径列表。</description>
-			<tags>
-				<tag name="api">public</tag>
-			</tags>
-		</member>
 		<member kind="property" name="editor_dock_order">
 			<signature>var editor_dock_order: int = 1000</signature>
 			<description>编辑器工作区页面排序。数值越小越靠前。</description>
@@ -121,41 +107,6 @@
 		<member kind="property" name="editor_dock_short_label">
 			<signature>var editor_dock_short_label: String = ""</signature>
 			<description>编辑器工作区页面短标签。为空时使用扩展显示名。</description>
-			<tags>
-				<tag name="api">public</tag>
-			</tags>
-		</member>
-		<member kind="property" name="editor_inspector_paths">
-			<signature>var editor_inspector_paths: Array[String] = []</signature>
-			<description>可选 EditorInspectorPlugin 路径列表。需要为扩展内类型提供 Inspector 增强时使用。</description>
-			<tags>
-				<tag name="api">public</tag>
-			</tags>
-		</member>
-		<member kind="property" name="import_plugin_paths">
-			<signature>var import_plugin_paths: Array[String] = []</signature>
-			<description>可选 EditorImportPlugin 路径列表。需要为自定义资源格式提供导入器时使用。</description>
-			<tags>
-				<tag name="api">public</tag>
-			</tags>
-		</member>
-		<member kind="property" name="export_plugin_paths">
-			<signature>var export_plugin_paths: Array[String] = []</signature>
-			<description>可选 EditorExportPlugin 路径列表。</description>
-			<tags>
-				<tag name="api">public</tag>
-			</tags>
-		</member>
-		<member kind="property" name="gltf_document_extension_paths">
-			<signature>var gltf_document_extension_paths: Array[String] = []</signature>
-			<description>可选 GLTFDocumentExtension 路径列表。用于导入期资产元数据桥接等编辑器能力。</description>
-			<tags>
-				<tag name="api">public</tag>
-			</tags>
-		</member>
-		<member kind="property" name="access_generator_extension_paths">
-			<signature>var access_generator_extension_paths: Array[String] = []</signature>
-			<description>可选 GFAccessGenerator 扩展脚本路径列表。</description>
 			<tags>
 				<tag name="api">public</tag>
 			</tags>

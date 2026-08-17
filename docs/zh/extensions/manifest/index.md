@@ -1,12 +1,12 @@
 # Manifest 规范
 
-每个扩展应提供 `gf_extension.json`。它声明扩展 ID、版本、依赖、装配入口、编辑器贡献和默认启用状态。
+每个扩展应提供 `gf_extension.json`。它声明扩展 ID、版本、依赖、运行时 Installer、工作区页面展示元数据和默认启用状态；编辑器工具路径由独立的 `editor/gf_tool_contribution.json` 声明。
 
 ## 阅读入口
 
 - [基础格式](format.md)：`gf_extension.json` 的标准字段示例。
 - [版本字段](version-fields.md)：`version` 与 `extension_version` 的职责和递增规则。
-- [路径贡献](path-contributions.md)：Installer、编辑器、导入导出、glTF 和访问器生成贡献路径。
+- [路径贡献](path-contributions.md)：运行时 Installer 与独立编辑器 tool contribution 的所有权边界。
 - [读取与校验](loading-validation.md)：`GFExtensionManifest`、`GFExtensionCatalog`、`GFExtensionSettings` 与图报告。
 
 ## 使用边界
@@ -21,4 +21,4 @@ GF 内置扩展 manifest 采用字段白名单。`optional_dependencies`、`peer
 
 `dependencies` 是硬依赖。启用当前扩展时，`GFExtensionSettings` 会自动补齐这些依赖，并让依赖扩展排在依赖方之前。GF 内置扩展只允许声明 `gf.kernel` 与 `gf.standard`，并且源码只能引用自身、`kernel` 和稳定的 `standard`。
 
-跨扩展协作应通过项目侧组合或独立插件完成。需要贡献调试项、编辑器页、导入器、导出器、Installer 或访问器生成入口时，由扩展向 manifest 或 `standard` 的通用注册点主动贡献，不让 `kernel`、`standard` 或其他内置扩展反向探测它。
+跨扩展协作应通过项目侧组合或独立插件完成。需要贡献 Installer 时写入运行时 manifest；需要贡献调试项、编辑器页、导入器、导出器或访问器生成入口时写入 `editor/gf_tool_contribution.json`，或使用 `standard` 的通用注册点主动贡献，不让 `kernel`、`standard` 或其他内置扩展反向探测它。

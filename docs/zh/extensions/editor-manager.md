@@ -1,6 +1,6 @@
 # 编辑器扩展管理器
 
-启用 GF 编辑器插件后，会默认打开独立的 `GF Workspace`。其中 `GF Extensions` 页面用于查看所有 GF 内置扩展的 manifest 信息、启用/禁用扩展、查看发行版本与扩展版本、依赖、标签、Installer 路径、编辑器扩展路径和校验状态。
+启用 GF 编辑器插件后，会默认打开独立的 `GF Workspace`。其中 `GF Extensions` 页面用于查看所有 GF 内置扩展的运行时 manifest 信息与经过校验的 tool contribution、启用/禁用扩展，并查看发行版本与扩展版本、依赖、标签、Installer 路径、编辑器工具路径和校验状态。
 
 ## 扩展面板
 
@@ -10,7 +10,7 @@
 
 发现快照中的 `manifest_load_errors` 只表示文件无法读取或 JSON 无法解析；`manifest_validation_errors` 表示 manifest 已读取但字段不满足 GF 扩展契约；`invalid_manifests` 会聚合这两类问题，便于面板、导出检查和项目工具统一展示。
 
-启用状态、依赖补齐、启用/禁用 manifest 分组和 contribution 路径由 `GFExtensionSelectionDiscovery` 生成选择快照。快照会把 manifest 声明路径、`editor/gf_tool_contribution.json` schema v2 贡献路径和读取错误分层保存；manifest、启用 ID 或 contribution 文件内容变化时会自动刷新。
+启用状态、依赖补齐、启用/禁用 manifest 分组和 contribution 路径由 `GFExtensionSelectionDiscovery` 生成选择快照。快照会把 manifest 声明的 `installer_paths`、`editor/gf_tool_contribution.json` schema v2 贡献的八类工具路径和读取错误分层保存；manifest、启用 ID 或 contribution 文件内容变化时会自动刷新。无效 tool contribution 只会形成 `partial` 并隔离对应工具路径，不会使运行时 manifest 图失效或阻断其有效 Installer。
 
 “扩展组合”下拉框读取 `GFExtensionSettings.get_extension_presets()`，底层由 `GFExtensionPresetDiscovery` 生成 preset 快照。GF 内置只提供动态基础组合，例如默认选择、全部关闭和全部可发现扩展；项目或外部插件可以通过 `gf/extensions/preset_paths` 提供业务组合 JSON，也可以在面板中通过“添加组合文件”选择项目内的 JSON 文件。点击“应用组合”只会更新当前勾选状态，仍需要点击“保存设置”持久化；“移除组合文件”只会移除项目 preset 路径，不能删除内置动态组合。
 
@@ -22,7 +22,7 @@
 
 ## 编辑器贡献
 
-GF 自带的扩展相关编辑器增强会读取同一套启用状态。扩展可以用 `editor_action_paths` 声明 GF 工具菜单动作和脚本模板记录，用 `editor_dock_paths` 声明 `GF` 工作区页面，并通过 `editor_dock_order` 与 `editor_dock_short_label` 给页面提供排序和短标签，用 `editor_inspector_paths` 声明 `EditorInspectorPlugin`，用 `import_plugin_paths` 声明 `EditorImportPlugin`，用 `export_plugin_paths` 声明导出插件入口，用 `gltf_document_extension_paths` 声明 `GLTFDocumentExtension` 导入桥接，用 `access_generator_extension_paths` 声明访问器生成扩展。
+GF 自带的扩展相关编辑器增强会读取同一套启用状态。扩展在 `editor/gf_tool_contribution.json` 中用 `editor_action_paths` 声明 GF 工具菜单动作和脚本模板记录，用 `editor_dock_paths` 声明 `GF` 工作区页面，用 `editor_inspector_paths` 声明 `EditorInspectorPlugin`，用 `import_plugin_paths` 声明 `EditorImportPlugin`，用 `export_plugin_paths` 声明导出插件入口，用 `gltf_document_extension_paths` 声明 `GLTFDocumentExtension` 导入桥接，用 `access_generator_extension_paths` 声明访问器生成扩展。这七个字段只属于 tool contribution；页面排序与短标签仍由运行时 manifest 的 `editor_dock_order` 与 `editor_dock_short_label` 提供。
 
 核心插件只负责按当前选择快照装载启用扩展的贡献，不在 `kernel` 中硬编码可选扩展脚本、扩展 ID 或扩展内模板类型。
 

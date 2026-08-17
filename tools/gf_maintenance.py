@@ -297,21 +297,14 @@ GF_EXTENSIONS_RES_ROOT = "res://addons/gf/extensions"
 GF_STANDARD_RES_ROOT = "res://addons/gf/standard"
 GF_ALLOWED_EXTENSION_DEPENDENCIES = ("gf.kernel", "gf.standard")
 GF_MANIFEST_ALLOWED_FIELDS = {
-	"access_generator_extension_paths",
 	"dependencies",
 	"description",
 	"display_name",
-	"editor_action_paths",
 	"editor_dock_order",
-	"editor_dock_paths",
 	"editor_dock_short_label",
-	"editor_inspector_paths",
 	"enabled_by_default",
-	"export_plugin_paths",
 	"extension_version",
-	"gltf_document_extension_paths",
 	"id",
-	"import_plugin_paths",
 	"installer_paths",
 	"kind",
 	"tags",
@@ -17936,6 +17929,11 @@ def maintenance_self_test() -> dict[str, Any]:
 			"tools/gf_maintenance.py GF_EXTENSION_INFRASTRUCTURE_PATHS",
 			GF_EXTENSION_INFRASTRUCTURE_PATHS,
 		),
+	)
+	record_result(
+		"manifest_and_tool_contribution_path_authorities_are_disjoint",
+		GF_MANIFEST_ALLOWED_FIELDS.isdisjoint(GF_TOOL_CONTRIBUTION_PATH_FIELDS),
+		"Editor/tool path fields must be owned only by GF_TOOL_CONTRIBUTION_PATH_FIELDS.",
 	)
 	tool_contribution_constants = read_extension_tool_contribution_constants()
 	record_result(

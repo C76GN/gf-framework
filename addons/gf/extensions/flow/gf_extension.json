@@ -7,12 +7,6 @@
   "description": "Resourceized flow graph primitives with ports, runners, diagnostics, and editor view models.",
   "dependencies": ["gf.kernel", "gf.standard"],
   "installer_paths": [],
-  "editor_inspector_paths": [
-    "res://addons/gf/extensions/flow/editor/gf_flow_graph_inspector_plugin.gd"
-  ],
-  "editor_dock_paths": [
-    "res://addons/gf/extensions/flow/editor/gf_flow_graph_dock.gd"
-  ],
   "editor_dock_order": 40,
   "editor_dock_short_label": "流程",
   "enabled_by_default": false,

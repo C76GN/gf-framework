@@ -2,7 +2,7 @@
   "schema_version": 1,
   "catalog_version": "1.0.0",
   "framework_version": "11.0.0-dev.0",
-  "source_digest": "cd02c071f684b74724e1da9a3c2e1ddbe4082a2609f1cdac68a7ccb13229765f",
+  "source_digest": "e09e787b1ae203142e11dc5429543e04dd7bfe28a4aea5f7fbd618067c6f38c0",
   "class_count": 818,
   "package_count": 56,
   "packages": [
@@ -31285,7 +31285,7 @@
       "module": "kernel",
       "package_id": "gf.kernel",
       "path": "addons/gf/kernel/extension/gf_extension_manifest.gd",
-      "summary": "GFExtensionManifest: GF 扩展元数据描述。 用于描述 GF 扩展的稳定 ID、版本、依赖、安装入口和编辑器扩展。",
+      "summary": "GFExtensionManifest: GF 扩展元数据描述。 用于描述 GF 扩展的稳定 ID、版本、依赖、运行时安装入口和编辑器展示元数据。",
       "visibility": "public",
       "category": "resource_definition",
       "since": "3.17.0",
@@ -31376,20 +31376,6 @@
         },
         {
           "kind": "var",
-          "name": "editor_action_paths",
-          "signature": "var editor_action_paths: Array[String] = []",
-          "summary": "可选编辑器菜单动作脚本路径列表。",
-          "visibility": "public"
-        },
-        {
-          "kind": "var",
-          "name": "editor_dock_paths",
-          "signature": "var editor_dock_paths: Array[String] = []",
-          "summary": "可选编辑器工作区页面脚本路径列表。",
-          "visibility": "public"
-        },
-        {
-          "kind": "var",
           "name": "editor_dock_order",
           "signature": "var editor_dock_order: int = 1000",
           "summary": "编辑器工作区页面排序。数值越小越靠前。",
@@ -31400,41 +31386,6 @@
           "name": "editor_dock_short_label",
           "signature": "var editor_dock_short_label: String = \"\"",
           "summary": "编辑器工作区页面短标签。为空时使用扩展显示名。",
-          "visibility": "public"
-        },
-        {
-          "kind": "var",
-          "name": "editor_inspector_paths",
-          "signature": "var editor_inspector_paths: Array[String] = []",
-          "summary": "可选 EditorInspectorPlugin 路径列表。需要为扩展内类型提供 Inspector 增强时使用。",
-          "visibility": "public"
-        },
-        {
-          "kind": "var",
-          "name": "import_plugin_paths",
-          "signature": "var import_plugin_paths: Array[String] = []",
-          "summary": "可选 EditorImportPlugin 路径列表。需要为自定义资源格式提供导入器时使用。",
-          "visibility": "public"
-        },
-        {
-          "kind": "var",
-          "name": "export_plugin_paths",
-          "signature": "var export_plugin_paths: Array[String] = []",
-          "summary": "可选 EditorExportPlugin 路径列表。",
-          "visibility": "public"
-        },
-        {
-          "kind": "var",
-          "name": "gltf_document_extension_paths",
-          "signature": "var gltf_document_extension_paths: Array[String] = []",
-          "summary": "可选 GLTFDocumentExtension 路径列表。用于导入期资产元数据桥接等编辑器能力。",
-          "visibility": "public"
-        },
-        {
-          "kind": "var",
-          "name": "access_generator_extension_paths",
-          "signature": "var access_generator_extension_paths: Array[String] = []",
-          "summary": "可选 GFAccessGenerator 扩展脚本路径列表。",
           "visibility": "public"
         },
         {
@@ -32096,49 +32047,49 @@
           "kind": "func",
           "name": "get_enabled_editor_action_paths",
           "signature": "static func get_enabled_editor_action_paths() -> Array[String]",
-          "summary": "获取启用扩展声明的编辑器菜单动作路径。",
+          "summary": "获取启用扩展 Tool Contribution 声明的编辑器菜单动作路径。",
           "visibility": "public"
         },
         {
           "kind": "func",
           "name": "get_enabled_editor_dock_paths",
           "signature": "static func get_enabled_editor_dock_paths() -> Array[String]",
-          "summary": "获取启用扩展声明的编辑器工作区页面路径。",
+          "summary": "获取启用扩展 Tool Contribution 声明的编辑器工作区页面路径。",
           "visibility": "public"
         },
         {
           "kind": "func",
           "name": "get_enabled_editor_inspector_paths",
           "signature": "static func get_enabled_editor_inspector_paths() -> Array[String]",
-          "summary": "获取启用扩展声明的 Inspector 扩展路径。",
+          "summary": "获取启用扩展 Tool Contribution 声明的 Inspector 扩展路径。",
           "visibility": "public"
         },
         {
           "kind": "func",
           "name": "get_enabled_import_plugin_paths",
           "signature": "static func get_enabled_import_plugin_paths() -> Array[String]",
-          "summary": "获取启用扩展声明的导入插件路径。",
+          "summary": "获取启用扩展 Tool Contribution 声明的导入插件路径。",
           "visibility": "public"
         },
         {
           "kind": "func",
           "name": "get_enabled_export_plugin_paths",
           "signature": "static func get_enabled_export_plugin_paths() -> Array[String]",
-          "summary": "获取启用扩展声明的导出插件路径。",
+          "summary": "获取启用扩展 Tool Contribution 声明的导出插件路径。",
           "visibility": "public"
         },
         {
           "kind": "func",
           "name": "get_enabled_gltf_document_extension_paths",
           "signature": "static func get_enabled_gltf_document_extension_paths() -> Array[String]",
-          "summary": "获取启用扩展声明的 glTF 文档扩展路径。",
+          "summary": "获取启用扩展 Tool Contribution 声明的 glTF 文档扩展路径。",
           "visibility": "public"
         },
         {
           "kind": "func",
           "name": "get_enabled_access_generator_extension_paths",
           "signature": "static func get_enabled_access_generator_extension_paths() -> Array[String]",
-          "summary": "获取启用扩展声明的访问器生成扩展路径。",
+          "summary": "获取启用扩展 Tool Contribution 声明的访问器生成扩展路径。",
           "visibility": "public"
         },
         {

@@ -5,9 +5,9 @@
 ## 入口归属
 
 - 新增编辑器入口时，先判断它属于 `kernel`、`standard` 还是某个扩展。
-- 只服务某个可选扩展的 Inspector、菜单动作、工作区页面或访问器扩展，应放进该扩展的 `editor` 目录，并按 package 边界写入 manifest 或 `editor/gf_tool_contribution.json`。
+- 只服务某个可选扩展的 Inspector、菜单动作、工作区页面或访问器扩展，应放进该扩展的 `editor` 目录，并按 package 边界写入 `editor/gf_tool_contribution.json`；运行时 manifest 只保留 `installer_paths`，页面排序和短标签仍由 manifest 的展示元数据提供。
 - 标准库通用编辑器增强和标准库模板应登记到 data-only 的 `addons/gf/standard/editor/gf_editor_contributions.json`，由 `GFEditorContributionRegistry` 收集后交给内核辅助脚本；不要在 `addons/gf/kernel/**` 里直接 preload 标准库增强或硬编码标准库类型名。
-- 可选扩展模板应由扩展自己的 `editor_action_paths` 贡献 `get_template_records()`，不要把扩展 ID、扩展类型名或模板基类写进 `kernel/editor`。
+- 可选扩展模板应由扩展自己的 tool contribution 通过 `editor_action_paths` 贡献 `get_template_records()`，不要把扩展 ID、扩展类型名或模板基类写进 `kernel/editor`。
 - 扩展级 `EditorDebuggerPlugin` 只能写入 schema v2 tool contribution 的 `debugger_plugin_paths`，不能扩展运行时 manifest schema；标准记录先于扩展路径装载，路径去重和 add/remove 必须由同一辅助对象维护对称生命周期。
 
 ## 工作区页面

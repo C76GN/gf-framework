@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFExtensionSettings" path="addons/gf/kernel/extension/gf_extension_settings.gd" module="kernel" extends="RefCounted" classDigest="a2533141da6458ba8ba65e2ae279864f28f10388a1331eb2d55face88282b6bb">
+<class name="GFExtensionSettings" path="addons/gf/kernel/extension/gf_extension_settings.gd" module="kernel" extends="RefCounted" classDigest="dfd94b2d41c7732e3c14d29cb860fd6dfd83940419fffe0331786af726b8d1a8">
 	<description>GFExtensionSettings: GF 扩展启用状态与 ProjectSettings 桥接。
 负责读取启用扩展 ID、解析扩展依赖、收集启用扩展 Installer，以及提供导出排除开关。</description>
 	<tags>
@@ -465,58 +465,65 @@
 		</member>
 		<member kind="method" name="get_enabled_editor_action_paths">
 			<signature>static func get_enabled_editor_action_paths() -&gt; Array[String]:</signature>
-			<description>获取启用扩展声明的编辑器菜单动作路径。</description>
+			<description>获取启用扩展 Tool Contribution 声明的编辑器菜单动作路径。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">编辑器菜单动作脚本路径列表。</tag>
+				<tag name="since">3.2.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_enabled_editor_dock_paths">
 			<signature>static func get_enabled_editor_dock_paths() -&gt; Array[String]:</signature>
-			<description>获取启用扩展声明的编辑器工作区页面路径。</description>
+			<description>获取启用扩展 Tool Contribution 声明的编辑器工作区页面路径。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">编辑器工作区页面脚本路径列表。</tag>
+				<tag name="since">3.2.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_enabled_editor_inspector_paths">
 			<signature>static func get_enabled_editor_inspector_paths() -&gt; Array[String]:</signature>
-			<description>获取启用扩展声明的 Inspector 扩展路径。</description>
+			<description>获取启用扩展 Tool Contribution 声明的 Inspector 扩展路径。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">EditorInspectorPlugin 脚本路径列表。</tag>
+				<tag name="since">3.2.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_enabled_import_plugin_paths">
 			<signature>static func get_enabled_import_plugin_paths() -&gt; Array[String]:</signature>
-			<description>获取启用扩展声明的导入插件路径。</description>
+			<description>获取启用扩展 Tool Contribution 声明的导入插件路径。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">EditorImportPlugin 脚本路径列表。</tag>
+				<tag name="since">3.16.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_enabled_export_plugin_paths">
 			<signature>static func get_enabled_export_plugin_paths() -&gt; Array[String]:</signature>
-			<description>获取启用扩展声明的导出插件路径。</description>
+			<description>获取启用扩展 Tool Contribution 声明的导出插件路径。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">EditorExportPlugin 脚本路径列表。</tag>
+				<tag name="since">3.2.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_enabled_gltf_document_extension_paths">
 			<signature>static func get_enabled_gltf_document_extension_paths() -&gt; Array[String]:</signature>
-			<description>获取启用扩展声明的 glTF 文档扩展路径。</description>
+			<description>获取启用扩展 Tool Contribution 声明的 glTF 文档扩展路径。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">GLTFDocumentExtension 脚本路径列表。</tag>
+				<tag name="since">3.16.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_enabled_access_generator_extension_paths">
 			<signature>static func get_enabled_access_generator_extension_paths() -&gt; Array[String]:</signature>
-			<description>获取启用扩展声明的访问器生成扩展路径。</description>
+			<description>获取启用扩展 Tool Contribution 声明的访问器生成扩展路径。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">GFAccessGenerator 扩展脚本路径列表。</tag>
+				<tag name="since">3.2.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="resolve_extension_dependencies">

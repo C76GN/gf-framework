@@ -7,7 +7,7 @@ GF 内置扩展是随框架分发的可选原子能力。它们提供可以独�
 ## 阅读入口
 
 - [扩展目录结构](extension-layout.md)：扩展根目录、扩展内部槽位和目录命名原则。
-- [Manifest 规范](manifest/index.md)：`gf_extension.json` 字段、版本、依赖、路径贡献和 manifest 校验。
+- [Manifest 规范](manifest/index.md)：`gf_extension.json` 的运行时字段、独立 tool contribution、版本、依赖和校验。
 - [安装与装配](installation.md)：扩展启用状态、Installer、项目设置和运行时装配顺序。
 - [编辑器扩展管理器](editor-manager.md)：GF Workspace 扩展面板、编辑器贡献、引用审计和导出排除。
 - [放置规则](placement-rules.md)：新增能力进入 `kernel`、`standard`、内置扩展、项目代码或独立插件的判断方式。

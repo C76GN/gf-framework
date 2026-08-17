@@ -897,12 +897,13 @@ static func get_enabled_debugger_plugin_paths() -> Array[String]:
 ### `get_enabled_editor_action_paths`
 
 - API：`public`
+- 首次版本：`3.2.0`
 
 ```gdscript
 static func get_enabled_editor_action_paths() -> Array[String]:
 ```
 
-获取启用扩展声明的编辑器菜单动作路径。
+获取启用扩展 Tool Contribution 声明的编辑器菜单动作路径。
 
 返回：编辑器菜单动作脚本路径列表。
 
@@ -911,12 +912,13 @@ static func get_enabled_editor_action_paths() -> Array[String]:
 ### `get_enabled_editor_dock_paths`
 
 - API：`public`
+- 首次版本：`3.2.0`
 
 ```gdscript
 static func get_enabled_editor_dock_paths() -> Array[String]:
 ```
 
-获取启用扩展声明的编辑器工作区页面路径。
+获取启用扩展 Tool Contribution 声明的编辑器工作区页面路径。
 
 返回：编辑器工作区页面脚本路径列表。
 
@@ -925,12 +927,13 @@ static func get_enabled_editor_dock_paths() -> Array[String]:
 ### `get_enabled_editor_inspector_paths`
 
 - API：`public`
+- 首次版本：`3.2.0`
 
 ```gdscript
 static func get_enabled_editor_inspector_paths() -> Array[String]:
 ```
 
-获取启用扩展声明的 Inspector 扩展路径。
+获取启用扩展 Tool Contribution 声明的 Inspector 扩展路径。
 
 返回：EditorInspectorPlugin 脚本路径列表。
 
@@ -939,12 +942,13 @@ static func get_enabled_editor_inspector_paths() -> Array[String]:
 ### `get_enabled_import_plugin_paths`
 
 - API：`public`
+- 首次版本：`3.16.0`
 
 ```gdscript
 static func get_enabled_import_plugin_paths() -> Array[String]:
 ```
 
-获取启用扩展声明的导入插件路径。
+获取启用扩展 Tool Contribution 声明的导入插件路径。
 
 返回：EditorImportPlugin 脚本路径列表。
 
@@ -953,12 +957,13 @@ static func get_enabled_import_plugin_paths() -> Array[String]:
 ### `get_enabled_export_plugin_paths`
 
 - API：`public`
+- 首次版本：`3.2.0`
 
 ```gdscript
 static func get_enabled_export_plugin_paths() -> Array[String]:
 ```
 
-获取启用扩展声明的导出插件路径。
+获取启用扩展 Tool Contribution 声明的导出插件路径。
 
 返回：EditorExportPlugin 脚本路径列表。
 
@@ -967,12 +972,13 @@ static func get_enabled_export_plugin_paths() -> Array[String]:
 ### `get_enabled_gltf_document_extension_paths`
 
 - API：`public`
+- 首次版本：`3.16.0`
 
 ```gdscript
 static func get_enabled_gltf_document_extension_paths() -> Array[String]:
 ```
 
-获取启用扩展声明的 glTF 文档扩展路径。
+获取启用扩展 Tool Contribution 声明的 glTF 文档扩展路径。
 
 返回：GLTFDocumentExtension 脚本路径列表。
 
@@ -981,12 +987,13 @@ static func get_enabled_gltf_document_extension_paths() -> Array[String]:
 ### `get_enabled_access_generator_extension_paths`
 
 - API：`public`
+- 首次版本：`3.2.0`
 
 ```gdscript
 static func get_enabled_access_generator_extension_paths() -> Array[String]:
 ```
 
-获取启用扩展声明的访问器生成扩展路径。
+获取启用扩展 Tool Contribution 声明的访问器生成扩展路径。
 
 返回：GFAccessGenerator 扩展脚本路径列表。
 

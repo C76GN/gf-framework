@@ -172,19 +172,49 @@ func _deduplicate_dock_records(source: Array[Dictionary]) -> Array[Dictionary]:
 func _collect_enabled_extension_dock_records() -> Array[Dictionary]:
 	var records: Array[Dictionary] = []
 	var used_paths: Dictionary = {}
-	for manifest: GFExtensionManifest in GFExtensionSettingsBase.get_enabled_manifests():
-		for dock_path: String in manifest.editor_dock_paths:
-			var normalized_path: String = dock_path.strip_edges()
-			if normalized_path.is_empty() or used_paths.has(normalized_path):
-				continue
-
-			used_paths[normalized_path] = true
-			records.append({
-				"path": normalized_path,
-				"label": _get_extension_dock_label(manifest, normalized_path),
-				"short_label": _get_extension_short_label(manifest),
-				"order": manifest.editor_dock_order,
-			})
+	var contribution_records: Array[Dictionary] = (
+		GFExtensionSettingsBase.get_enabled_editor_contribution_records("editor_dock_paths")
+	)
+	var dock_counts_by_extension: Dictionary = {}
+	for contribution_record: Dictionary in contribution_records:
+		var extension_id: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
+			contribution_record,
+			"extension_id"
+		)
+		if extension_id.is_empty():
+			continue
+		dock_counts_by_extension[extension_id] = (
+			_GF_VARIANT_ACCESS_SCRIPT.get_option_int(dock_counts_by_extension, extension_id) + 1
+		)
+	for contribution_record: Dictionary in contribution_records:
+		var normalized_path: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
+			contribution_record,
+			"path"
+		).strip_edges()
+		if normalized_path.is_empty() or used_paths.has(normalized_path):
+			continue
+		var extension_id: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
+			contribution_record,
+			"extension_id"
+		)
+		used_paths[normalized_path] = true
+		records.append({
+			"path": normalized_path,
+			"label": _get_extension_dock_label(
+				contribution_record,
+				normalized_path,
+				_GF_VARIANT_ACCESS_SCRIPT.get_option_int(
+					dock_counts_by_extension,
+					extension_id
+				)
+			),
+			"short_label": _get_extension_short_label(contribution_record),
+			"order": _GF_VARIANT_ACCESS_SCRIPT.get_option_int(
+				contribution_record,
+				"editor_dock_order",
+				1000
+			),
+		})
 	return records
 
 
@@ -206,11 +236,21 @@ func _add_workspace_window(records: Array[Dictionary]) -> bool:
 	return true
 
 
-func _get_extension_dock_label(manifest: GFExtensionManifest, dock_path: String) -> String:
-	var extension_name: String = manifest.display_name
+func _get_extension_dock_label(
+	contribution_record: Dictionary,
+	dock_path: String,
+	dock_count: int
+) -> String:
+	var extension_name: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
+		contribution_record,
+		"display_name"
+	)
 	if extension_name.is_empty():
-		extension_name = manifest.id
-	if manifest.editor_dock_paths.size() <= 1:
+		extension_name = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
+			contribution_record,
+			"extension_id"
+		)
+	if dock_count <= 1:
 		return extension_name
 
 	var script_label: String = dock_path.get_file().get_basename()
@@ -226,13 +266,23 @@ func _get_extension_dock_label(manifest: GFExtensionManifest, dock_path: String)
 	return "%s %s" % [extension_name, script_label]
 
 
-func _get_extension_short_label(manifest: GFExtensionManifest) -> String:
-	if not manifest.editor_dock_short_label.is_empty():
-		return manifest.editor_dock_short_label
+func _get_extension_short_label(contribution_record: Dictionary) -> String:
+	var short_label: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
+		contribution_record,
+		"editor_dock_short_label"
+	)
+	if not short_label.is_empty():
+		return short_label
 
-	var extension_name: String = manifest.display_name
+	var extension_name: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
+		contribution_record,
+		"display_name"
+	)
 	if extension_name.is_empty():
-		extension_name = manifest.id
+		extension_name = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
+			contribution_record,
+			"extension_id"
+		)
 	if extension_name.begins_with("GF "):
 		extension_name = extension_name.substr(3)
 	return extension_name
