@@ -777,63 +777,77 @@ static func get_enabled_debugger_plugin_paths() -> Array[String]:
 	return _collect_enabled_editor_contribution_paths("debugger_plugin_paths")
 
 
-## 获取启用扩展声明的编辑器菜单动作路径。
+## 获取启用扩展 Tool Contribution 声明的编辑器菜单动作路径。
 ## [br]
 ## @api public
+## [br]
+## @since 3.2.0
 ## [br]
 ## @return 编辑器菜单动作脚本路径列表。
 static func get_enabled_editor_action_paths() -> Array[String]:
 	return _collect_enabled_editor_contribution_paths("editor_action_paths")
 
 
-## 获取启用扩展声明的编辑器工作区页面路径。
+## 获取启用扩展 Tool Contribution 声明的编辑器工作区页面路径。
 ## [br]
 ## @api public
+## [br]
+## @since 3.2.0
 ## [br]
 ## @return 编辑器工作区页面脚本路径列表。
 static func get_enabled_editor_dock_paths() -> Array[String]:
 	return _collect_enabled_editor_contribution_paths("editor_dock_paths")
 
 
-## 获取启用扩展声明的 Inspector 扩展路径。
+## 获取启用扩展 Tool Contribution 声明的 Inspector 扩展路径。
 ## [br]
 ## @api public
+## [br]
+## @since 3.2.0
 ## [br]
 ## @return EditorInspectorPlugin 脚本路径列表。
 static func get_enabled_editor_inspector_paths() -> Array[String]:
 	return _collect_enabled_editor_contribution_paths("editor_inspector_paths")
 
 
-## 获取启用扩展声明的导入插件路径。
+## 获取启用扩展 Tool Contribution 声明的导入插件路径。
 ## [br]
 ## @api public
+## [br]
+## @since 3.16.0
 ## [br]
 ## @return EditorImportPlugin 脚本路径列表。
 static func get_enabled_import_plugin_paths() -> Array[String]:
 	return _collect_enabled_editor_contribution_paths("import_plugin_paths")
 
 
-## 获取启用扩展声明的导出插件路径。
+## 获取启用扩展 Tool Contribution 声明的导出插件路径。
 ## [br]
 ## @api public
+## [br]
+## @since 3.2.0
 ## [br]
 ## @return EditorExportPlugin 脚本路径列表。
 static func get_enabled_export_plugin_paths() -> Array[String]:
 	return _collect_enabled_editor_contribution_paths("export_plugin_paths")
 
 
-## 获取启用扩展声明的 glTF 文档扩展路径。
+## 获取启用扩展 Tool Contribution 声明的 glTF 文档扩展路径。
 ## [br]
 ## @api public
+## [br]
+## @since 3.16.0
 ## [br]
 ## @return GLTFDocumentExtension 脚本路径列表。
 static func get_enabled_gltf_document_extension_paths() -> Array[String]:
 	return _collect_enabled_editor_contribution_paths("gltf_document_extension_paths")
 
 
-## 获取启用扩展声明的访问器生成扩展路径。
+## 获取启用扩展 Tool Contribution 声明的访问器生成扩展路径。
 ## [br]
 ## @api public
+## [br]
+## @since 3.2.0
 ## [br]
 ## @return GFAccessGenerator 扩展脚本路径列表。
 static func get_enabled_access_generator_extension_paths() -> Array[String]:
@@ -956,6 +970,56 @@ static func set_cached_manifests(manifests: Array[GFExtensionManifest]) -> void:
 	})
 	GFExtensionPresetDiscoveryBase.clear_cache()
 	GFExtensionSelectionDiscoveryBase.clear_cache()
+
+
+## 获取启用扩展中经校验的 Tool Contribution 路径与拥有者展示元数据。
+## [br]
+## @api framework_internal
+## [br]
+## @layer kernel/extension
+## [br]
+## @param property_name: Tool Contribution 路径字段名。
+## [br]
+## @return 经校验的路径归属记录。
+## [br]
+## @schema return: Array[Dictionary] containing path, extension_id, display_name, editor_dock_order, and editor_dock_short_label.
+static func get_enabled_editor_contribution_records(property_name: String) -> Array[Dictionary]:
+	var manifests: Array[GFExtensionManifest] = get_all_manifests()
+	var selection_snapshot: Dictionary = _get_selection_snapshot(manifests)
+	if not _selection_snapshot_allows_runtime_paths(
+		selection_snapshot,
+		"get_enabled_editor_contribution_records"
+	):
+		return []
+	var manifest_by_id: Dictionary = _build_manifest_map(manifests)
+	var source_records: Array[Dictionary] = (
+		GFExtensionSelectionDiscoveryBase.get_tool_contribution_records(
+			property_name,
+			manifests,
+			_get_effective_enabled_extension_ids(manifests),
+			_make_selection_options()
+		)
+	)
+	var result: Array[Dictionary] = []
+	for source_record: Dictionary in source_records:
+		var extension_id: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
+			source_record,
+			"extension_id"
+		)
+		var manifest: GFExtensionManifest = _get_manifest_from_map_or_null(
+			manifest_by_id,
+			extension_id
+		)
+		if manifest == null:
+			continue
+		result.append({
+			"path": _GF_VARIANT_ACCESS_SCRIPT.get_option_string(source_record, "path"),
+			"extension_id": extension_id,
+			"display_name": manifest.display_name,
+			"editor_dock_order": manifest.editor_dock_order,
+			"editor_dock_short_label": manifest.editor_dock_short_label,
+		})
+	return result
 
 
 # --- 私有/辅助方法 ---
@@ -1159,17 +1223,25 @@ static func _collect_enabled_manifest_paths(property_name: String) -> Array[Stri
 
 
 static func _collect_enabled_editor_contribution_paths(property_name: String) -> Array[String]:
-	return _get_selection_paths(property_name)
+	return _get_selection_contribution_paths(property_name)
 
 
 static func _get_selection_snapshot(manifests: Array[GFExtensionManifest] = []) -> Dictionary:
 	var source_manifests: Array[GFExtensionManifest] = manifests
 	if source_manifests.is_empty():
 		source_manifests = get_all_manifests()
-	return GFExtensionSelectionDiscoveryBase.get_snapshot(source_manifests, _get_effective_enabled_extension_ids(source_manifests), {
+	return GFExtensionSelectionDiscoveryBase.get_snapshot(
+		source_manifests,
+		_get_effective_enabled_extension_ids(source_manifests),
+		_make_selection_options()
+	)
+
+
+static func _make_selection_options() -> Dictionary:
+	return {
 		"builtin_extension_ids": BUILT_IN_EXTENSION_IDS,
 		"manifest_load_errors": GFExtensionManifestDiscoveryBase.get_cached_manifest_load_errors(),
-	})
+	}
 
 
 static func _selection_snapshot_allows_runtime_paths(snapshot: Dictionary, context: String) -> bool:
@@ -1189,11 +1261,14 @@ static func _get_selection_manifest_paths(property_name: String) -> Array[String
 	return _GF_VARIANT_ACCESS_SCRIPT.get_option_string_array(manifest_paths, property_name)
 
 
-static func _get_selection_paths(property_name: String) -> Array[String]:
+static func _get_selection_contribution_paths(property_name: String) -> Array[String]:
 	var snapshot: Dictionary = _get_selection_snapshot()
 	if not _selection_snapshot_allows_runtime_paths(snapshot, "get_enabled_manifests"):
 		return []
-	var paths: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(snapshot, "paths")
+	var paths: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(
+		snapshot,
+		"contribution_paths"
+	)
 	return _GF_VARIANT_ACCESS_SCRIPT.get_option_string_array(paths, property_name)
 
 

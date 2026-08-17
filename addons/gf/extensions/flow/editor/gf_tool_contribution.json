@@ -1,0 +1,10 @@
+{
+  "schema_version": 2,
+  "extension_id": "gf.flow",
+  "editor_dock_paths": [
+    "res://addons/gf/extensions/flow/editor/gf_flow_graph_dock.gd"
+  ],
+  "editor_inspector_paths": [
+    "res://addons/gf/extensions/flow/editor/gf_flow_graph_inspector_plugin.gd"
+  ]
+}

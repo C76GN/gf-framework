@@ -495,8 +495,11 @@ func test_gltf_document_helper_registers_once_and_cleans_up_symmetrically() -> v
 	_restore_project_setting(GF_EXTENSION_SETTINGS_BASE.ENABLED_EXTENSIONS_SETTING, enabled_restore)
 	GF_EXTENSION_SETTINGS_BASE.clear_manifest_cache()
 
-	assert_eq(registered.size(), 1, "Asset Metadata 启用后只应注册一个 glTF 文档扩展实例。")
-	assert_true(registered[0] is GFAssetMetadataGltfDocumentExtension)
+	assert_eq(registered.size(), 1, "Asset Metadata 的 Tool Contribution 路径只应注册一个 glTF 文档扩展实例。")
+	assert_true(
+		registered[0] is GFAssetMetadataGltfDocumentExtension,
+		"glTF 文档扩展类型应由 Asset Metadata 的 Tool Contribution 路径解析。"
+	)
 	assert_true(after_cleanup.is_empty(), "cleanup 后不应保留已注册 glTF 文档扩展实例。")
 
 
@@ -1096,15 +1099,15 @@ func test_plugin_inspector_tools_discovers_enabled_extension_inspectors() -> voi
 
 	assert_true(
 		paths.has("res://addons/gf/extensions/capability/editor/gf_capability_inspector_plugin.gd"),
-		"Capability Inspector 应由扩展 manifest 声明。"
+		"Capability Inspector 路径应由扩展 Tool Contribution 声明。"
 	)
 	assert_true(
 		paths.has("res://addons/gf/extensions/flow/editor/gf_flow_graph_inspector_plugin.gd"),
-		"Flow Graph Inspector 应由扩展 manifest 声明。"
+		"Flow Graph Inspector 路径应由扩展 Tool Contribution 声明。"
 	)
 	assert_true(
 		paths.has("res://addons/gf/extensions/save/editor/gf_persist_properties_inspector_plugin.gd"),
-		"Save 属性白名单 Inspector 应由扩展 manifest 声明。"
+		"Save 属性白名单 Inspector 路径应由扩展 Tool Contribution 声明。"
 	)
 
 
@@ -1448,8 +1451,8 @@ func test_plugin_actions_discovers_enabled_extension_menu_entries() -> void:
 	for entry: Dictionary in entries:
 		labels.append(GF_VARIANT_ACCESS.get_option_string(entry, "label"))
 
-	assert_true(labels.has("校验当前场景 SaveGraph"), "SaveGraph 诊断应由 Save 扩展 manifest 注册。")
-	assert_true(labels.has("生成 Network Contract 访问器"), "Network Contract 生成器应由 Network 扩展 manifest 注册。")
+	assert_true(labels.has("校验当前场景 SaveGraph"), "SaveGraph 诊断应由 Save 扩展 Tool Contribution 注册。")
+	assert_true(labels.has("生成 Network Contract 访问器"), "Network Contract 生成器应由 Network 扩展 Tool Contribution 注册。")
 	assert_true(
 		_record_array_has_identity(setting_records, "name", "gf/network/contract_paths"),
 		"Network tool 应通过扩展编辑器动作贡献自己的项目设置。"
@@ -1473,7 +1476,7 @@ func test_plugin_actions_discovers_enabled_extension_templates() -> void:
 	for entry: Dictionary in entries:
 		labels.append(GF_VARIANT_ACCESS.get_option_string(entry, "label"))
 
-	assert_true(labels.has("生成 NodeCapability"), "Capability 模板应由 Capability 扩展 manifest 注册。")
+	assert_true(labels.has("生成 NodeCapability"), "Capability 模板应由 Capability 扩展 Tool Contribution 注册。")
 	assert_true(source.contains("func get_dependency_removal_policy()"), "Capability 模板源码应由包动作贡献。")
 	assert_false(source.contains("@since 3.17.0"), "项目能力模板不得冒用 GF Framework 3.17.0 的版本来源。")
 
@@ -1518,43 +1521,48 @@ func test_plugin_dock_tools_keeps_core_docks_available_without_extensions() -> v
 
 
 func test_plugin_dock_tools_discovers_enabled_extension_docks() -> void:
-	var restore: Dictionary = _set_enabled_extensions(["gf.flow"])
+	var restore: Dictionary = _set_enabled_extensions(["gf.flow", "gf.save"])
 	var tools: Object = _new_object(GF_PLUGIN_DOCK_TOOLS)
 	var extension_records: Array = _call_array(tools, &"_collect_enabled_extension_dock_records")
+	var contributed_paths: Array[String] = GF_EXTENSION_SETTINGS_BASE.get_enabled_editor_dock_paths()
 	_restore_enabled_extensions(restore)
 
-	var paths: Array[String] = []
-	for record: Dictionary in extension_records:
-		paths.append(GF_VARIANT_ACCESS.get_option_string(record, "path"))
-
+	var flow_path: String = "res://addons/gf/extensions/flow/editor/gf_flow_graph_dock.gd"
+	var flow_record: Dictionary = _find_record_by_path(extension_records, flow_path)
 	assert_true(
-		paths.has("res://addons/gf/extensions/flow/editor/gf_flow_graph_dock.gd"),
-		"Flow 工具面板应由 Flow 扩展 manifest 注册。"
+		contributed_paths.has(flow_path),
+		"Flow 工具面板路径应由 Flow 扩展 Tool Contribution 提供。"
 	)
-	var flow_record: Dictionary = _dictionary_at(extension_records, 0)
-	assert_eq(GF_VARIANT_ACCESS.get_option_string(flow_record, "label"), "GF Flow", "扩展页面记录应使用简洁扩展名作为 fallback。")
-	assert_eq(GF_VARIANT_ACCESS.get_option_string(flow_record, "short_label"), "流程", "扩展页面应提供短标签。")
-	assert_eq(GF_VARIANT_ACCESS.get_option_int(flow_record, "order"), 40, "扩展页面应读取 manifest 中的工作区排序。")
+	assert_false(flow_record.is_empty(), "Flow Tool Contribution 路径应生成对应 Dock 记录。")
+	assert_eq(GF_VARIANT_ACCESS.get_option_string(flow_record, "label"), "GF Flow", "Flow Dock 应保留所属 manifest 的 display_name。")
+	assert_eq(GF_VARIANT_ACCESS.get_option_string(flow_record, "short_label"), "流程", "Flow Dock 应保留所属 manifest 的 editor_dock_short_label。")
+	assert_eq(GF_VARIANT_ACCESS.get_option_int(flow_record, "order"), 40, "Flow Dock 应保留所属 manifest 的 editor_dock_order。")
+	var save_path: String = "res://addons/gf/extensions/save/editor/gf_save_graph_dock.gd"
+	var save_record: Dictionary = _find_record_by_path(extension_records, save_path)
+	assert_true(contributed_paths.has(save_path), "Save Dock 路径应与 Flow 一起由 Tool Contribution 提供。")
+	assert_false(save_record.is_empty(), "Save Tool Contribution 路径应生成独立 Dock 记录。")
+	assert_eq(GF_VARIANT_ACCESS.get_option_string(save_record, "label"), "GF Save", "Save Dock 不应误用 Flow owner 元数据。")
+	assert_eq(GF_VARIANT_ACCESS.get_option_string(save_record, "short_label"), "保存", "Save Dock 应保留自己的短标签。")
+	assert_eq(GF_VARIANT_ACCESS.get_option_int(save_record, "order"), 30, "Save Dock 应保留自己的排序。")
 
 
 func test_plugin_dock_tools_discovers_save_extension_workspace_page() -> void:
 	var restore: Dictionary = _set_enabled_extensions(["gf.save"])
 	var tools: Object = _new_object(GF_PLUGIN_DOCK_TOOLS)
 	var extension_records: Array = _call_array(tools, &"_collect_enabled_extension_dock_records")
+	var contributed_paths: Array[String] = GF_EXTENSION_SETTINGS_BASE.get_enabled_editor_dock_paths()
 	_restore_enabled_extensions(restore)
 
-	var paths: Array[String] = []
-	for record: Dictionary in extension_records:
-		paths.append(GF_VARIANT_ACCESS.get_option_string(record, "path"))
-
+	var save_path: String = "res://addons/gf/extensions/save/editor/gf_save_graph_dock.gd"
+	var save_record: Dictionary = _find_record_by_path(extension_records, save_path)
 	assert_true(
-		paths.has("res://addons/gf/extensions/save/editor/gf_save_graph_dock.gd"),
-		"SaveGraph 工作区页面应由 Save 扩展 manifest 注册。"
+		contributed_paths.has(save_path),
+		"SaveGraph 工作区页面路径应由 Save 扩展 Tool Contribution 提供。"
 	)
-	var save_record: Dictionary = _dictionary_at(extension_records, 0)
-	assert_eq(GF_VARIANT_ACCESS.get_option_string(save_record, "label"), "GF Save", "Save 扩展页面应使用扩展名作为页面标题。")
-	assert_eq(GF_VARIANT_ACCESS.get_option_string(save_record, "short_label"), "保存", "Save 扩展页面应提供短标签。")
-	assert_eq(GF_VARIANT_ACCESS.get_option_int(save_record, "order"), 30, "Save 扩展页面应读取 manifest 中的工作区排序。")
+	assert_false(save_record.is_empty(), "Save Tool Contribution 路径应生成对应 Dock 记录。")
+	assert_eq(GF_VARIANT_ACCESS.get_option_string(save_record, "label"), "GF Save", "Save Dock 应保留所属 manifest 的 display_name。")
+	assert_eq(GF_VARIANT_ACCESS.get_option_string(save_record, "short_label"), "保存", "Save Dock 应保留所属 manifest 的 editor_dock_short_label。")
+	assert_eq(GF_VARIANT_ACCESS.get_option_int(save_record, "order"), 30, "Save Dock 应保留所属 manifest 的 editor_dock_order。")
 
 
 func test_plugin_dock_tools_sorts_workspace_records_by_order() -> void:
@@ -2304,6 +2312,16 @@ func _dictionary_at(values: Array, index: int) -> Dictionary:
 	var value: Variant = values[index] if index >= 0 and index < values.size() else {}
 	assert_true(value is Dictionary, "测试记录应为 Dictionary。")
 	return GF_VARIANT_ACCESS.as_dictionary(value)
+
+
+func _find_record_by_path(records: Array, path: String) -> Dictionary:
+	for record_value: Variant in records:
+		if not record_value is Dictionary:
+			continue
+		var record: Dictionary = record_value
+		if GF_VARIANT_ACCESS.get_option_string(record, "path") == path:
+			return record
+	return {}
 
 
 func _record_array_has_identity(records: Array, identity_key: String, identity: String) -> bool:

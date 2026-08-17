@@ -9,15 +9,6 @@
   "installer_paths": [
     "res://addons/gf/extensions/capability/extension.gd"
   ],
-  "editor_inspector_paths": [
-    "res://addons/gf/extensions/capability/editor/gf_capability_inspector_plugin.gd"
-  ],
-  "editor_action_paths": [
-    "res://addons/gf/extensions/capability/editor/gf_capability_editor_actions.gd"
-  ],
-  "access_generator_extension_paths": [
-    "res://addons/gf/extensions/capability/editor/gf_capability_access_generator_extension.gd"
-  ],
   "enabled_by_default": false,
   "tags": ["composition", "nodes", "editor"]
 }

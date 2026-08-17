@@ -531,15 +531,12 @@ func _show_manifest_details(manifest: GFExtensionManifest) -> void:
 	_append_packed_string(lines, "")
 	_append_packed_string(lines, "依赖：%s" % _format_dependencies(manifest.dependencies))
 	_append_packed_string(lines, "Installer：%s" % _format_string_array(manifest.installer_paths))
-	_append_packed_string(lines, "菜单动作：%s" % _format_string_array(manifest.editor_action_paths))
-	_append_packed_string(lines, "工作区页面：%s" % _format_string_array(manifest.editor_dock_paths))
 	_append_packed_string(lines, "工作区短标签：%s" % (manifest.editor_dock_short_label if not manifest.editor_dock_short_label.is_empty() else "-"))
 	_append_packed_string(lines, "工作区排序：%d" % manifest.editor_dock_order)
-	_append_packed_string(lines, "Inspector：%s" % _format_string_array(manifest.editor_inspector_paths))
-	_append_packed_string(lines, "导入插件：%s" % _format_string_array(manifest.import_plugin_paths))
-	_append_packed_string(lines, "导出插件：%s" % _format_string_array(manifest.export_plugin_paths))
-	_append_packed_string(lines, "glTF 文档扩展：%s" % _format_string_array(manifest.gltf_document_extension_paths))
-	_append_packed_string(lines, "访问器扩展：%s" % _format_string_array(manifest.access_generator_extension_paths))
+	_append_packed_string(
+		lines,
+		"编辑器工具贡献：editor/gf_tool_contribution.json（如存在则独立校验）"
+	)
 	_append_packed_string(lines, "标签：%s" % _format_string_array(manifest.tags))
 	_append_usage_warning_lines(lines, manifest)
 

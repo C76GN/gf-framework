@@ -1,0 +1,13 @@
+{
+  "schema_version": 2,
+  "extension_id": "gf.save",
+  "editor_action_paths": [
+    "res://addons/gf/extensions/save/editor/gf_save_editor_actions.gd"
+  ],
+  "editor_dock_paths": [
+    "res://addons/gf/extensions/save/editor/gf_save_graph_dock.gd"
+  ],
+  "editor_inspector_paths": [
+    "res://addons/gf/extensions/save/editor/gf_persist_properties_inspector_plugin.gd"
+  ]
+}

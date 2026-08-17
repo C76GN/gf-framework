@@ -1,0 +1,7 @@
+{
+  "schema_version": 2,
+  "extension_id": "gf.asset_metadata",
+  "gltf_document_extension_paths": [
+    "res://addons/gf/extensions/asset_metadata/editor/gf_asset_metadata_gltf_document_extension.gd"
+  ]
+}

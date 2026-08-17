@@ -55,7 +55,9 @@ Save 是最小映射示例：扩展 manifest ID 是 `gf.save`，承载其文件�
 
 Manifest、preset 和 tool contribution 的 JSON object 文件读取由 `GFExtensionJsonFileReader` 统一，扩展 ID 语法由 `GFExtensionIdValidator` 统一。三类输入都会在规范化前区分“字段缺失”和“字段类型错误”，并受单文件、累计字节与嵌套深度硬预算约束；签名与解析共享同一次发现预算。`GFExtensionToolContribution` 负责 `editor/gf_tool_contribution.json` 的严格 schema v2：只接受版本、所属扩展 ID 和已声明的路径字段，schema v1、未来版本与未知字段都会被拒绝。项目工具通常应通过 `GFExtensionManifest`、`GFExtensionPreset`、`GFExtensionPresetDiscovery`、`GFExtensionSelectionDiscovery` 和 `GFExtensionSettings` 这些更高层入口读取，不需要重复实现底层解析、ID 正则或贡献字段兼容分支。
 
-扩展级 `EditorDebuggerPlugin` 必须在 tool contribution 中显式声明，不能写入运行时 manifest：
+运行时 `gf_extension.json` 继续持有 `installer_paths`。`editor_action_paths`、`editor_dock_paths`、`editor_inspector_paths`、`import_plugin_paths`、`export_plugin_paths`、`gltf_document_extension_paths` 与 `access_generator_extension_paths` 只能写入 `editor/gf_tool_contribution.json`；`debugger_plugin_paths` 同样只属于 tool contribution。工作区页面的 `editor_dock_order` 和 `editor_dock_short_label` 仍是 manifest 展示元数据。把上述八类工具路径写入运行时 manifest 会被拒绝，其中七个迁移字段会给出指向 tool contribution 的诊断。
+
+扩展级 `EditorDebuggerPlugin` 必须在 tool contribution 中显式声明：
 
 ```json
 {
@@ -67,7 +69,7 @@ Manifest、preset 和 tool contribution 的 JSON object 文件读取由 `GFExten
 }
 ```
 
-路径必须位于所属扩展根目录内，目标脚本应继承 `EditorDebuggerPlugin`。`GFExtensionSettings.get_enabled_debugger_plugin_paths()` 只返回当前启用扩展的有效工具贡献；没有安装 tool package 时不会从运行时包猜测或合成 Debugger 入口。
+工具贡献路径必须位于所属扩展根目录内；`debugger_plugin_paths` 的目标脚本应继承 `EditorDebuggerPlugin`。`GFExtensionSettings.get_enabled_debugger_plugin_paths()` 只返回当前启用扩展的有效工具贡献；没有安装 tool package 时不会从运行时包猜测或合成 Debugger 入口。无效 tool contribution 会使选择报告进入 `partial` 并隔离该文件的无效路径，但不会使运行时 manifest 图失效，也不会阻断 manifest 中有效的 `installer_paths`。
 
 扩展 manifest 的 `dependencies` 只描述启用当前扩展必须同时启用的基础能力。GF 内置扩展保持原子化，只声明 `gf.kernel` 与 `gf.standard`；跨扩展项目流程应放在项目 Installer 或 `addons/gf` 外的独立插件中。
 

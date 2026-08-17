@@ -9,7 +9,7 @@
 - 类别：资源定义 (`resource_definition`)
 - 首次版本：`3.17.0`
 
-GF 扩展元数据描述。 用于描述 GF 扩展的稳定 ID、版本、依赖、安装入口和编辑器扩展。
+GF 扩展元数据描述。 用于描述 GF 扩展的稳定 ID、版本、依赖、运行时安装入口和编辑器展示元数据。
 
 ## 成员概览
 
@@ -27,15 +27,8 @@ GF 扩展元数据描述。 用于描述 GF 扩展的稳定 ID、版本、依赖
 | 属性 | [`description`](#member-gfextensionmanifest-properties-description) | `var description: String = ""` |
 | 属性 | [`dependencies`](#member-gfextensionmanifest-properties-dependencies) | `var dependencies: Array[String] = []` |
 | 属性 | [`installer_paths`](#member-gfextensionmanifest-properties-installer_paths) | `var installer_paths: Array[String] = []` |
-| 属性 | [`editor_action_paths`](#member-gfextensionmanifest-properties-editor_action_paths) | `var editor_action_paths: Array[String] = []` |
-| 属性 | [`editor_dock_paths`](#member-gfextensionmanifest-properties-editor_dock_paths) | `var editor_dock_paths: Array[String] = []` |
 | 属性 | [`editor_dock_order`](#member-gfextensionmanifest-properties-editor_dock_order) | `var editor_dock_order: int = 1000` |
 | 属性 | [`editor_dock_short_label`](#member-gfextensionmanifest-properties-editor_dock_short_label) | `var editor_dock_short_label: String = ""` |
-| 属性 | [`editor_inspector_paths`](#member-gfextensionmanifest-properties-editor_inspector_paths) | `var editor_inspector_paths: Array[String] = []` |
-| 属性 | [`import_plugin_paths`](#member-gfextensionmanifest-properties-import_plugin_paths) | `var import_plugin_paths: Array[String] = []` |
-| 属性 | [`export_plugin_paths`](#member-gfextensionmanifest-properties-export_plugin_paths) | `var export_plugin_paths: Array[String] = []` |
-| 属性 | [`gltf_document_extension_paths`](#member-gfextensionmanifest-properties-gltf_document_extension_paths) | `var gltf_document_extension_paths: Array[String] = []` |
-| 属性 | [`access_generator_extension_paths`](#member-gfextensionmanifest-properties-access_generator_extension_paths) | `var access_generator_extension_paths: Array[String] = []` |
 | 属性 | [`tags`](#member-gfextensionmanifest-properties-tags) | `var tags: Array[String] = []` |
 | 属性 | [`enabled_by_default`](#member-gfextensionmanifest-properties-enabled_by_default) | `var enabled_by_default: bool = false` |
 | 属性 | [`source_path`](#member-gfextensionmanifest-properties-source_path) | `var source_path: String = ""` |
@@ -197,30 +190,6 @@ var installer_paths: Array[String] = []
 
 可选 GFInstaller 路径列表。需要自动装配运行时模块时使用。
 
-<a id="member-gfextensionmanifest-properties-editor_action_paths"></a>
-
-### `editor_action_paths`
-
-- API：`public`
-
-```gdscript
-var editor_action_paths: Array[String] = []
-```
-
-可选编辑器菜单动作脚本路径列表。
-
-<a id="member-gfextensionmanifest-properties-editor_dock_paths"></a>
-
-### `editor_dock_paths`
-
-- API：`public`
-
-```gdscript
-var editor_dock_paths: Array[String] = []
-```
-
-可选编辑器工作区页面脚本路径列表。
-
 <a id="member-gfextensionmanifest-properties-editor_dock_order"></a>
 
 ### `editor_dock_order`
@@ -244,66 +213,6 @@ var editor_dock_short_label: String = ""
 ```
 
 编辑器工作区页面短标签。为空时使用扩展显示名。
-
-<a id="member-gfextensionmanifest-properties-editor_inspector_paths"></a>
-
-### `editor_inspector_paths`
-
-- API：`public`
-
-```gdscript
-var editor_inspector_paths: Array[String] = []
-```
-
-可选 EditorInspectorPlugin 路径列表。需要为扩展内类型提供 Inspector 增强时使用。
-
-<a id="member-gfextensionmanifest-properties-import_plugin_paths"></a>
-
-### `import_plugin_paths`
-
-- API：`public`
-
-```gdscript
-var import_plugin_paths: Array[String] = []
-```
-
-可选 EditorImportPlugin 路径列表。需要为自定义资源格式提供导入器时使用。
-
-<a id="member-gfextensionmanifest-properties-export_plugin_paths"></a>
-
-### `export_plugin_paths`
-
-- API：`public`
-
-```gdscript
-var export_plugin_paths: Array[String] = []
-```
-
-可选 EditorExportPlugin 路径列表。
-
-<a id="member-gfextensionmanifest-properties-gltf_document_extension_paths"></a>
-
-### `gltf_document_extension_paths`
-
-- API：`public`
-
-```gdscript
-var gltf_document_extension_paths: Array[String] = []
-```
-
-可选 GLTFDocumentExtension 路径列表。用于导入期资产元数据桥接等编辑器能力。
-
-<a id="member-gfextensionmanifest-properties-access_generator_extension_paths"></a>
-
-### `access_generator_extension_paths`
-
-- API：`public`
-
-```gdscript
-var access_generator_extension_paths: Array[String] = []
-```
-
-可选 GFAccessGenerator 扩展脚本路径列表。
 
 <a id="member-gfextensionmanifest-properties-tags"></a>
 

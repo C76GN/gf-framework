@@ -1,6 +1,6 @@
 # GF Workspace
 
-`GF Workspace` 是核心插件固定提供的独立编辑器窗口。它把 GF 自带的扩展管理、输入映射、信号诊断和诊断快照等基础面板收束到一个响应式工作区，避免多个 GF 面板挤占 Godot 底部栏。存档图、Flow 等业务型工具页面只在对应可选扩展显式启用后，通过 manifest 贡献到同一个工作区。
+`GF Workspace` 是核心插件固定提供的独立编辑器窗口。它把 GF 自带的扩展管理、输入映射、信号诊断和诊断快照等基础面板收束到一个响应式工作区，避免多个 GF 面板挤占 Godot 底部栏。存档图、Flow 等业务型工具页面只在对应可选扩展显式启用后，通过 `editor/gf_tool_contribution.json` 贡献到同一个工作区。
 
 窗口右上角的“置顶”开关可让独立工作区保持在其他窗口上方，便于一边操作编辑器或运行窗口一边观察调试页面。
 
@@ -14,9 +14,9 @@
 
 内置页面共享 `GFEditorWorkspaceUI` 提供的页面根、工具栏、摘要、空状态和详情输出构建方式。新增页面应优先复用这些通用控件，再把真正的业务无关编辑逻辑放在页面自身脚本中，这样工作区的密度、状态颜色、空态文案和只读详情区会保持一致。
 
-可选扩展的编辑器工具可以放在独立 tool package 中，通过扩展目录下的 `editor/gf_tool_contribution.json` 贡献 action、dock、importer、inspector 或 Debugger 插件路径。贡献文件必须声明 `schema_version: 2` 和与所属 manifest 一致的 `extension_id`，路径字段必须是非空字符串数组；schema v1、未来 schema、未知字段、错误扩展 ID 或越过扩展根的路径都会被拒绝并进入选择快照的 `tool_contribution_errors`。
+可选扩展的编辑器工具可以放在独立 tool package 中。`editor_action_paths`、`editor_dock_paths`、`editor_inspector_paths`、`import_plugin_paths`、`export_plugin_paths`、`gltf_document_extension_paths`、`access_generator_extension_paths` 和 `debugger_plugin_paths` 都只通过扩展目录下的 `editor/gf_tool_contribution.json` 贡献，不能写入运行时 `gf_extension.json`。贡献文件必须声明 `schema_version: 2` 和与所属 manifest 一致的 `extension_id`，路径字段必须是非空字符串数组；schema v1、未来 schema、未知字段、错误扩展 ID 或越过扩展根的路径都会被拒绝并进入选择快照的 `tool_contribution_errors`。
 
-`debugger_plugin_paths` 只属于 tool contribution，不是运行时 `gf_extension.json` 字段。项目安装对应 tool package 且扩展启用后，根编辑器插件才会在标准库 Debugger 记录之后装载这些 `EditorDebuggerPlugin` 脚本；重复路径只装载一次，并在插件刷新或卸载时由同一生命周期统一移除。
+无效 tool contribution 只会使选择报告进入 `partial` 并隔离该文件的无效路径，不会使运行时 manifest 图失效，也不会阻断 manifest 中有效的 `installer_paths`。工作区页面的 `editor_dock_order` 与 `editor_dock_short_label` 仍保留在 manifest 中；项目安装对应 tool package 且扩展启用后，根编辑器插件才会在标准库 Debugger 记录之后装载 `debugger_plugin_paths` 指向的 `EditorDebuggerPlugin` 脚本，重复路径只装载一次，并在插件刷新或卸载时由同一生命周期统一移除。
 
 ## Extensions 页面
 

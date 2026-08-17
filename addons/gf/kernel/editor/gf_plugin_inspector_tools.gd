@@ -255,24 +255,39 @@ func _add_inspector_plugin(plugin: EditorPlugin, script_path: String, label: Str
 func _collect_enabled_extension_inspector_records() -> Array[Dictionary]:
 	var records: Array[Dictionary] = []
 	var used_paths: Dictionary = {}
-	for manifest: GFExtensionManifest in GFExtensionSettingsBase.get_enabled_manifests():
-		for inspector_path: String in manifest.editor_inspector_paths:
-			var normalized_path: String = inspector_path.strip_edges()
-			if normalized_path.is_empty() or used_paths.has(normalized_path):
-				continue
+	for contribution_record: Dictionary in (
+		GFExtensionSettingsBase.get_enabled_editor_contribution_records(
+			"editor_inspector_paths"
+		)
+	):
+		var normalized_path: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
+			contribution_record,
+			"path"
+		).strip_edges()
+		if normalized_path.is_empty() or used_paths.has(normalized_path):
+			continue
 
-			used_paths[normalized_path] = true
-			records.append({
-				"path": normalized_path,
-				"label": _get_extension_inspector_label(manifest, normalized_path),
-			})
+		used_paths[normalized_path] = true
+		records.append({
+			"path": normalized_path,
+			"label": _get_extension_inspector_label(contribution_record, normalized_path),
+		})
 	return records
 
 
-func _get_extension_inspector_label(manifest: GFExtensionManifest, inspector_path: String) -> String:
-	var extension_name: String = manifest.display_name
+func _get_extension_inspector_label(
+	contribution_record: Dictionary,
+	inspector_path: String
+) -> String:
+	var extension_name: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
+		contribution_record,
+		"display_name"
+	)
 	if extension_name.is_empty():
-		extension_name = manifest.id
+		extension_name = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(
+			contribution_record,
+			"extension_id"
+		)
 	var script_name: String = inspector_path.get_file().get_basename().to_pascal_case()
 	return "%s %s" % [extension_name, script_name]
 

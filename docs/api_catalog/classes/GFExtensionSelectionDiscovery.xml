@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFExtensionSelectionDiscovery" path="addons/gf/kernel/extension/gf_extension_selection_discovery.gd" module="kernel" extends="RefCounted" classDigest="19f85550bb8962e492e302692deb71fb7d32b6b70dfc27bcc7f0c4d9ada70341">
+<class name="GFExtensionSelectionDiscovery" path="addons/gf/kernel/extension/gf_extension_selection_discovery.gd" module="kernel" extends="RefCounted" classDigest="056976751ccd5fbe5bdb60d9e9f887ca231f96efbbb1e28f6a6f66b21921a283">
 	<description>GFExtensionSelectionDiscovery: GF 扩展启用选择与贡献路径快照缓存。
 基于 manifest 集合、当前启用 ID 和扩展工具贡献文件，生成启用选择、依赖图、
 enabled/disabled manifest 与各类贡献路径的稳定 snapshot。</description>
@@ -43,7 +43,7 @@ enabled/disabled manifest 与各类贡献路径的稳定 snapshot。</descriptio
 			<signature>static func get_snapshot( manifests: Array[GFExtensionManifest] = [], configured_ids: Array[String] = [], options: Dictionary = {} ) -&gt; Dictionary:</signature>
 			<description>获取当前扩展启用选择快照。
 默认会复用仍然有效的快照；当 manifest、启用 ID、manifest load errors
-或扩展工具贡献文件变化时，自动重新派生并替换缓存。</description>
+或当前解析出的启用扩展工具贡献文件变化时，自动重新派生并替换缓存。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">manifests: 当前可发现的扩展 manifest 列表。</tag>
@@ -51,7 +51,7 @@ enabled/disabled manifest 与各类贡献路径的稳定 snapshot。</descriptio
 				<tag name="param">options: 发现选项。</tag>
 				<tag name="return">扩展启用选择快照。</tag>
 				<tag name="schema">options: Dictionary，支持 force_refresh、builtin_extension_ids、manifest_load_errors、max_json_file_bytes、max_json_total_bytes 和 max_json_depth；JSON 预算只能收紧框架硬上限。</tag>
-				<tag name="schema">return: Dictionary，包含 ok、status、partial、paths_allowed、configured_ids、resolved_ids、unknown_enabled_ids、enabled_manifests、disabled_manifests、graph_report、manifest_paths、contribution_paths、paths、tool_contribution_errors、signature、signature_hash 和 revision。</tag>
+				<tag name="schema">return: Dictionary，包含 ok、status、partial、paths_allowed、configured_ids、resolved_ids、unknown_enabled_ids、enabled_manifests、disabled_manifests、graph_report、manifest_paths、contribution_paths、paths、tool_contribution_errors、signature、signature_hash 和 revision；manifest_paths 只包含 installer_paths，contribution_paths 包含 access_generator_extension_paths、debugger_plugin_paths、editor_action_paths、editor_dock_paths、editor_inspector_paths、export_plugin_paths、gltf_document_extension_paths 和 import_plugin_paths，paths 为前两者的同字段稳定合并视图。</tag>
 				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>

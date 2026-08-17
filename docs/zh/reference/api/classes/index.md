@@ -6,7 +6,7 @@
 
 | 模块 | 类 | 成员 | 页面内索引 |
 |---|---:|---:|---|
-| Kernel | 74 | 1108 | [Kernel](#module-kernel) |
+| Kernel | 74 | 1101 | [Kernel](#module-kernel) |
 | Standard | 473 | 7527 | [Standard](#module-standard) |
 | Action Queue | 16 | 214 | [Action Queue](#module-extensions-action_queue) |
 | Asset Metadata | 4 | 33 | [Asset Metadata](#module-extensions-asset_metadata) |
@@ -69,7 +69,7 @@
 | [`GFSystem`](GFSystem.md#gfsystem) | 协议与扩展点 (`protocol`) | `Object` | 33 | `addons/gf/kernel/base/gf_system.gd` |
 | [`GFTimeProvider`](GFTimeProvider.md#gftimeprovider) | 协议与扩展点 (`protocol`) | `GFUtility` | 10 | `addons/gf/kernel/base/gf_time_provider.gd` |
 | [`GFUtility`](GFUtility.md#gfutility) | 协议与扩展点 (`protocol`) | `Object` | 31 | `addons/gf/kernel/base/gf_utility.gd` |
-| [`GFExtensionManifest`](GFExtensionManifest.md#gfextensionmanifest) | 资源定义 (`resource_definition`) | `RefCounted` | 33 | `addons/gf/kernel/extension/gf_extension_manifest.gd` |
+| [`GFExtensionManifest`](GFExtensionManifest.md#gfextensionmanifest) | 资源定义 (`resource_definition`) | `RefCounted` | 26 | `addons/gf/kernel/extension/gf_extension_manifest.gd` |
 | [`GFExtensionPreset`](GFExtensionPreset.md#gfextensionpreset) | 资源定义 (`resource_definition`) | `RefCounted` | 12 | `addons/gf/kernel/extension/gf_extension_preset.gd` |
 | [`GFAsyncCompletion`](GFAsyncCompletion.md#gfasynccompletion) | 运行时句柄 (`runtime_handle`) | `RefCounted` | 20 | `addons/gf/kernel/core/gf_async_completion.gd` |
 | [`GFAsyncScope`](GFAsyncScope.md#gfasyncscope) | 运行时句柄 (`runtime_handle`) | `GFCancellationToken` | 7 | `addons/gf/kernel/core/gf_async_scope.gd` |

@@ -25,6 +25,15 @@ const EXTENSION_ALLOWED_DEPENDENCIES: Array[String] = [
 	"gf.kernel",
 	"gf.standard",
 ]
+const MOVED_TOOL_CONTRIBUTION_MANIFEST_FIELDS: Array[String] = [
+	"access_generator_extension_paths",
+	"editor_action_paths",
+	"editor_dock_paths",
+	"editor_inspector_paths",
+	"export_plugin_paths",
+	"gltf_document_extension_paths",
+	"import_plugin_paths",
+]
 const KERNEL_EXTENSION_REFERENCE_ALLOWED_FILES: Dictionary = {
 	"res://addons/gf/kernel/extension/gf_extension_catalog.gd": true,
 	"res://addons/gf/kernel/extension/gf_extension_usage_audit.gd": true,
@@ -44,22 +53,15 @@ class BinaryReferenceResource:
 
 func test_manifest_from_dictionary_normalizes_fields() -> void:
 	var fixture_root: String = "res://tests/gf_core/tmp_manifest_normalization/terrain_tools"
-	var fixture_editor_root: String = fixture_root.path_join("editor")
 	var fixture_paths: Array[String] = [
 		fixture_root.path_join("extension.gd"),
-		fixture_editor_root.path_join("terrain_actions.gd"),
-		fixture_editor_root.path_join("terrain_dock.gd"),
-		fixture_editor_root.path_join("terrain_inspector.gd"),
-		fixture_editor_root.path_join("terrain_import_plugin.gd"),
-		fixture_editor_root.path_join("terrain_export_plugin.gd"),
-		fixture_editor_root.path_join("terrain_gltf_extension.gd"),
-		fixture_editor_root.path_join("terrain_access_generator.gd"),
 	]
 	for fixture_path: String in fixture_paths:
 		_remove_path_if_exists(fixture_path)
-	_remove_path_if_exists(fixture_editor_root)
 	_remove_path_if_exists(fixture_root)
-	var _make_fixture_dir_result: Variant = DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(fixture_editor_root))
+	var _make_fixture_dir_result: Variant = DirAccess.make_dir_recursive_absolute(
+		ProjectSettings.globalize_path(fixture_root)
+	)
 	for fixture_path: String in fixture_paths:
 		_write_text_file(fixture_path, "extends RefCounted\n")
 
@@ -72,15 +74,8 @@ func test_manifest_from_dictionary_normalizes_fields() -> void:
 		"description": " Example extension. ",
 		"dependencies": [" gf.kernel ", &"gf.standard", "gf.standard", ""],
 		"installer_paths": PackedStringArray([" %s " % fixture_root.path_join("extension.gd").replace("/", "\\")]),
-		"editor_action_paths": [fixture_editor_root.path_join("terrain_actions.gd")],
-		"editor_dock_paths": [fixture_editor_root.path_join("terrain_dock.gd")],
 		"editor_dock_order": 42,
 		"editor_dock_short_label": " Terrain ",
-		"editor_inspector_paths": [fixture_editor_root.path_join("terrain_inspector.gd")],
-		"import_plugin_paths": [fixture_editor_root.path_join("terrain_import_plugin.gd")],
-		"export_plugin_paths": [fixture_editor_root.path_join("terrain_export_plugin.gd")],
-		"gltf_document_extension_paths": [fixture_editor_root.path_join("terrain_gltf_extension.gd")],
-		"access_generator_extension_paths": [fixture_editor_root.path_join("terrain_access_generator.gd")],
 		"tags": [" terrain ", "editor", "terrain", ""],
 		"enabled_by_default": false,
 	}, " %s " % fixture_root.replace("/", "\\"), " %s " % fixture_root.path_join("gf_extension.json").replace("/", "\\"))
@@ -95,15 +90,8 @@ func test_manifest_from_dictionary_normalizes_fields() -> void:
 	assert_eq(manifest.root_path, fixture_root, "扩展根目录应规范化。")
 	assert_eq(manifest.description, "Example extension.", "说明文本应裁剪空白。")
 	assert_eq(manifest.installer_paths, [fixture_root.path_join("extension.gd")], "installer_paths 应支持 PackedStringArray 并规范化路径。")
-	assert_eq(manifest.editor_action_paths.size(), 1, "editor_action_paths 应读取为字符串数组。")
-	assert_eq(manifest.editor_dock_paths.size(), 1, "editor_dock_paths 应读取为字符串数组。")
 	assert_eq(manifest.editor_dock_order, 42, "editor_dock_order 应读取为工作区排序值。")
 	assert_eq(manifest.editor_dock_short_label, "Terrain", "editor_dock_short_label 应读取为工作区短标签。")
-	assert_eq(manifest.editor_inspector_paths.size(), 1, "editor_inspector_paths 应读取为字符串数组。")
-	assert_eq(manifest.import_plugin_paths.size(), 1, "import_plugin_paths 应读取为字符串数组。")
-	assert_eq(manifest.export_plugin_paths.size(), 1, "export_plugin_paths 应读取为字符串数组。")
-	assert_eq(manifest.gltf_document_extension_paths.size(), 1, "gltf_document_extension_paths 应读取为字符串数组。")
-	assert_eq(manifest.access_generator_extension_paths.size(), 1, "access_generator_extension_paths 应读取为字符串数组。")
 	assert_eq(manifest.tags, ["terrain", "editor"], "标签应裁剪、去空并按首次出现顺序去重。")
 	assert_false(manifest.enabled_by_default, "显式关闭默认启用时应保留配置。")
 	assert_eq(manifest.source_path, fixture_root.path_join("gf_extension.json"), "manifest 来源路径应规范化。")
@@ -111,13 +99,12 @@ func test_manifest_from_dictionary_normalizes_fields() -> void:
 	var dictionary: Dictionary = manifest.to_dictionary()
 	assert_eq(GF_VARIANT_ACCESS.get_option_int(dictionary, "editor_dock_order"), 42, "manifest 字典应保留工作区排序。")
 	assert_eq(GF_VARIANT_ACCESS.get_option_string(dictionary, "editor_dock_short_label"), "Terrain", "manifest 字典应保留工作区短标签。")
-	assert_eq(GF_VARIANT_ACCESS.get_option_array(dictionary, "import_plugin_paths").size(), 1, "manifest 字典应保留导入插件路径。")
-	assert_eq(GF_VARIANT_ACCESS.get_option_array(dictionary, "gltf_document_extension_paths").size(), 1, "manifest 字典应保留 glTF 文档扩展路径。")
+	for field_name: String in MOVED_TOOL_CONTRIBUTION_MANIFEST_FIELDS:
+		assert_false(dictionary.has(field_name), "runtime manifest 字典不应包含 Tool Contribution 路径。")
 	assert_false(dictionary.has("root_path"), "manifest JSON 字典不应混入运行时 root_path。")
 	assert_false(dictionary.has("source_path"), "manifest JSON 字典不应混入运行时 source_path。")
 	for index: int in range(fixture_paths.size() - 1, -1, -1):
 		_remove_path_if_exists(fixture_paths[index])
-	_remove_path_if_exists(fixture_editor_root)
 	_remove_path_if_exists(fixture_root)
 
 
@@ -306,18 +293,46 @@ func test_manifest_rejects_legacy_name_and_summary_aliases() -> void:
 	assert_true(errors.has("unsupported manifest field: summary"), "summary 旧字段应被拒绝。")
 
 
+func test_manifest_rejects_moved_tool_contribution_path_fields_with_migration_diagnostics() -> void:
+	for field_name: String in MOVED_TOOL_CONTRIBUTION_MANIFEST_FIELDS:
+		var data: Dictionary = {
+			"id": "author.moved_paths",
+			"display_name": "Moved Paths",
+			"version": "1.0.0",
+			"kind": "extension",
+		}
+		data[field_name] = ["editor/tool.gd"]
+		var manifest: GFExtensionManifest = GFExtensionManifest.from_dictionary(
+			data,
+			"res://addons/author_moved_paths",
+			""
+		)
+		var errors: Array[String] = manifest.get_validation_errors()
+
+		assert_true(
+			errors.has(
+				"manifest field moved to editor/gf_tool_contribution.json: %s" % field_name
+			),
+			"已迁移的 manifest 字段应给出精确 Tool Contribution 迁移诊断：%s" % field_name
+		)
+		assert_false(
+			manifest.to_dictionary().has(field_name),
+			"runtime manifest 序列化不应继续暴露已迁移字段：%s" % field_name
+		)
+
+
 func test_manifest_validation_keeps_empty_paths_after_path_normalization() -> void:
 	var manifest: GFExtensionManifest = GFExtensionManifest.from_dictionary({
 		"id": "author.terrain",
 		"display_name": "Terrain Tools",
 		"version": "1.0.0",
 		"kind": "extension",
-		"editor_action_paths": [" ", " res://addons\\terrain_tools/editor/actions.gd "],
+		"installer_paths": [" ", " res://addons\\terrain_tools/extension.gd "],
 	}, "res://addons/terrain_tools", "")
 	var errors: Array[String] = manifest.get_validation_errors()
 
-	assert_eq(manifest.editor_action_paths[1], "res://addons/terrain_tools/editor/actions.gd", "路径列表应裁剪空白并统一斜杠。")
-	assert_true(errors.has("editor_action_paths contains empty path"), "读取阶段不应吞掉空路径校验错误。")
+	assert_eq(manifest.installer_paths[1], "res://addons/terrain_tools/extension.gd", "路径列表应裁剪空白并统一斜杠。")
+	assert_true(errors.has("installer_paths contains empty path"), "读取阶段不应吞掉空路径校验错误。")
 
 
 func test_manifest_validation_keeps_extension_paths_inside_root() -> void:
@@ -326,28 +341,20 @@ func test_manifest_validation_keeps_extension_paths_inside_root() -> void:
 		"display_name": "Terrain Tools",
 		"version": "1.0.0",
 		"kind": "extension",
-		"editor_action_paths": ["res://addons/terrain_other/editor/actions.gd"],
-		"import_plugin_paths": ["res://addons/terrain_other/editor/terrain_import_plugin.gd"],
-		"export_plugin_paths": ["user://terrain_export_plugin.gd"],
-		"gltf_document_extension_paths": ["res://addons/terrain_other/editor/gltf_extension.gd"],
+		"installer_paths": [
+			"res://addons/terrain_other/extension.gd",
+			"user://terrain_installer.gd",
+		],
 	}, "res://addons/terrain_tools", "")
 	var errors: Array[String] = manifest.get_validation_errors()
 
 	assert_true(
-		errors.has("editor_action_paths path must stay under root_path: res://addons/terrain_other/editor/actions.gd"),
-		"扩展编辑器扩展路径不应越过扩展根目录。"
+		errors.has("installer_paths path must stay under root_path: res://addons/terrain_other/extension.gd"),
+		"扩展 Installer 路径不应越过扩展根目录。"
 	)
 	assert_true(
-		errors.has("export_plugin_paths path must be res://: user://terrain_export_plugin.gd"),
-		"扩展导出扩展应声明 res:// 脚本路径。"
-	)
-	assert_true(
-		errors.has("import_plugin_paths path must stay under root_path: res://addons/terrain_other/editor/terrain_import_plugin.gd"),
-		"扩展导入插件路径不应越过扩展根目录。"
-	)
-	assert_true(
-		errors.has("gltf_document_extension_paths path must stay under root_path: res://addons/terrain_other/editor/gltf_extension.gd"),
-		"扩展 glTF 文档扩展路径不应越过扩展根目录。"
+		errors.has("installer_paths path must be res://: user://terrain_installer.gd"),
+		"扩展 Installer 应声明 res:// 脚本路径。"
 	)
 
 
@@ -357,12 +364,12 @@ func test_manifest_validation_rejects_parent_directory_escape_paths() -> void:
 		"display_name": "Terrain Tools",
 		"version": "1.0.0",
 		"kind": "extension",
-		"editor_action_paths": ["res://addons/terrain_tools/../terrain_other/editor/actions.gd"],
+		"installer_paths": ["res://addons/terrain_tools/../terrain_other/extension.gd"],
 	}, "res://addons/terrain_tools", "")
 	var errors: Array[String] = manifest.get_validation_errors()
 
 	assert_true(
-		errors.has("editor_action_paths path must stay under root_path: res://addons/terrain_other/editor/actions.gd"),
+		errors.has("installer_paths path must stay under root_path: res://addons/terrain_other/extension.gd"),
 		"包含 .. 的扩展路径规范化后不应越过扩展根目录。"
 	)
 
@@ -1640,23 +1647,49 @@ func test_extension_settings_resolves_dependencies_before_dependents_when_manife
 
 
 func test_enabled_manifest_and_extension_paths_follow_dependency_order() -> void:
+	var root_path: String = "res://tests/gf_core/tmp_enabled_path_dependency_order"
+	var base_root: String = root_path.path_join("base")
+	var feature_root: String = root_path.path_join("feature")
+	var base_editor_root: String = base_root.path_join("editor")
+	var feature_editor_root: String = feature_root.path_join("editor")
+	var base_import_path: String = base_editor_root.path_join("base_import_plugin.gd")
+	var feature_import_path: String = feature_editor_root.path_join("feature_import_plugin.gd")
+	var base_contribution_path: String = base_editor_root.path_join("gf_tool_contribution.json")
+	var feature_contribution_path: String = feature_editor_root.path_join("gf_tool_contribution.json")
+	_remove_path_if_exists(root_path)
+	var _make_dir_result: Error = DirAccess.make_dir_recursive_absolute(
+		ProjectSettings.globalize_path(feature_editor_root)
+	)
+	var _make_base_dir_result: Error = DirAccess.make_dir_recursive_absolute(
+		ProjectSettings.globalize_path(base_editor_root)
+	)
+	_write_text_file(base_import_path, "@tool\nextends EditorImportPlugin\n")
+	_write_text_file(feature_import_path, "@tool\nextends EditorImportPlugin\n")
+	_write_text_file(base_contribution_path, JSON.stringify({
+		"schema_version": GF_EXTENSION_TOOL_CONTRIBUTION_SCRIPT.SCHEMA_VERSION,
+		"extension_id": "author.base",
+		"import_plugin_paths": [base_import_path],
+	}))
+	_write_text_file(feature_contribution_path, JSON.stringify({
+		"schema_version": GF_EXTENSION_TOOL_CONTRIBUTION_SCRIPT.SCHEMA_VERSION,
+		"extension_id": "author.feature",
+		"import_plugin_paths": [feature_import_path],
+	}))
 	var base_manifest: GFExtensionManifest = GFExtensionManifest.from_dictionary({
 		"id": "author.base",
 		"display_name": "Base",
 		"version": "1.0.0",
 		"kind": "extension",
-		"installer_paths": ["res://addons/author_base/base_installer.gd"],
-		"import_plugin_paths": ["res://addons/author_base/base_import_plugin.gd"],
-	}, "res://addons/author_base", "")
+		"installer_paths": [base_root.path_join("base_installer.gd")],
+	}, base_root, "")
 	var feature_manifest: GFExtensionManifest = GFExtensionManifest.from_dictionary({
 		"id": "author.feature",
 		"display_name": "Feature",
 		"version": "1.0.0",
 		"kind": "extension",
 		"dependencies": ["author.base"],
-		"installer_paths": ["res://addons/author_feature/feature_installer.gd"],
-		"import_plugin_paths": ["res://addons/author_feature/feature_import_plugin.gd"],
-	}, "res://addons/author_feature", "")
+		"installer_paths": [feature_root.path_join("feature_installer.gd")],
+	}, feature_root, "")
 	var enabled_restore: Dictionary = _set_project_setting(
 		GFExtensionSettings.ENABLED_EXTENSIONS_SETTING,
 		["author.feature"]
@@ -1678,21 +1711,32 @@ func test_enabled_manifest_and_extension_paths_follow_dependency_order() -> void
 	GFExtensionSettings.clear_manifest_cache()
 	_restore_project_setting(GFExtensionSettings.AUTO_INSTALL_ENABLED_INSTALLERS_SETTING, auto_install_restore)
 	_restore_project_setting(GFExtensionSettings.ENABLED_EXTENSIONS_SETTING, enabled_restore)
+	_remove_path_if_exists(base_contribution_path)
+	_remove_path_if_exists(feature_contribution_path)
+	_remove_path_if_exists(base_import_path)
+	_remove_path_if_exists(base_import_path + ".uid")
+	_remove_path_if_exists(feature_import_path)
+	_remove_path_if_exists(feature_import_path + ".uid")
+	_remove_path_if_exists(base_editor_root)
+	_remove_path_if_exists(feature_editor_root)
+	_remove_path_if_exists(base_root)
+	_remove_path_if_exists(feature_root)
+	_remove_path_if_exists(root_path)
 
 	assert_eq(enabled_ids, ["author.base", "author.feature"], "启用 manifest 列表应保持依赖优先顺序。")
 	assert_eq(
 		installer_paths,
 		[
-			"res://addons/author_base/base_installer.gd",
-			"res://addons/author_feature/feature_installer.gd",
+			base_root.path_join("base_installer.gd"),
+			feature_root.path_join("feature_installer.gd"),
 		],
 		"启用扩展 installer 应先执行依赖扩展，再执行依赖方。"
 	)
 	assert_eq(
 		import_paths,
 		[
-			"res://addons/author_base/base_import_plugin.gd",
-			"res://addons/author_feature/feature_import_plugin.gd",
+			base_import_path,
+			feature_import_path,
 		],
 		"启用扩展导入插件应保持依赖优先顺序。"
 	)
@@ -1885,34 +1929,54 @@ func test_manifest_json_report_rejects_missing_declared_resource_paths() -> void
 	assert_null(manifest, "from_json_file 不应返回包含缺失脚本路径的 manifest。")
 
 
-func test_manifest_json_report_rejects_non_script_declared_resources() -> void:
+func test_tool_contribution_discovery_rejects_non_script_declared_resources() -> void:
 	var root_path: String = "res://tests/gf_core/tmp_non_script_declared_resource"
-	var manifest_path: String = root_path.path_join(GFExtensionManifest.FILE_NAME)
+	var editor_root: String = root_path.path_join("editor")
+	var contribution_path: String = editor_root.path_join("gf_tool_contribution.json")
 	var resource_path: String = root_path.path_join("metadata.tres")
-	_remove_path_if_exists(manifest_path)
+	_remove_path_if_exists(contribution_path)
 	_remove_path_if_exists(resource_path)
+	_remove_path_if_exists(editor_root)
 	_remove_path_if_exists(root_path)
-	var _make_dir_result: Variant = DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(root_path))
+	var _make_dir_result: Variant = DirAccess.make_dir_recursive_absolute(
+		ProjectSettings.globalize_path(editor_root)
+	)
 	_write_text_file(resource_path, "[gd_resource type=\"Resource\" format=3]\n")
-	_write_text_file(manifest_path, JSON.stringify({
+	_write_text_file(contribution_path, JSON.stringify({
+		"schema_version": GF_EXTENSION_TOOL_CONTRIBUTION_SCRIPT.SCHEMA_VERSION,
+		"extension_id": "author.non_script_resource",
+		"editor_action_paths": [resource_path],
+	}))
+	var manifest: GFExtensionManifest = GFExtensionManifest.from_dictionary({
 		"id": "author.non_script_resource",
 		"display_name": "Non Script Resource",
 		"version": "1.0.0",
 		"kind": "extension",
-		"editor_action_paths": [resource_path],
-	}))
+	}, root_path, root_path.path_join(GFExtensionManifest.FILE_NAME))
+	var snapshot: Dictionary = GF_EXTENSION_SELECTION_DISCOVERY_SCRIPT.get_snapshot(
+		[manifest],
+		["author.non_script_resource"],
+		{ "force_refresh": true }
+	)
+	var contribution_errors: Array = GF_VARIANT_ACCESS.get_option_array(
+		snapshot,
+		"tool_contribution_errors"
+	)
 
-	var report: Dictionary = GFExtensionManifest.from_json_file_report(manifest_path)
-	var manifest: GFExtensionManifest = GFExtensionManifest.from_json_file(manifest_path)
-	var errors: Array[String] = GF_VARIANT_ACCESS.get_option_string_array(report, "errors")
-
-	_remove_path_if_exists(manifest_path)
+	_remove_path_if_exists(contribution_path)
 	_remove_path_if_exists(resource_path)
+	_remove_path_if_exists(editor_root)
 	_remove_path_if_exists(root_path)
 
-	assert_false(GF_VARIANT_ACCESS.get_option_bool(report, "ok"), "manifest 声明非脚本资源作为贡献入口时应失败。")
-	assert_true(_string_array_contains(errors, "must point to a GDScript resource"), "错误应说明贡献入口必须是 GDScript。")
-	assert_null(manifest, "from_json_file 不应返回包含非脚本贡献入口的 manifest。")
+	assert_eq(contribution_errors.size(), 1, "非脚本 Tool Contribution 路径应产生可定位错误。")
+	var first_error: Dictionary = GF_VARIANT_ACCESS.as_dictionary(contribution_errors[0])
+	assert_true(
+		_string_array_contains(
+			GF_VARIANT_ACCESS.get_option_string_array(first_error, "errors"),
+			"must point to a GDScript resource"
+		),
+		"错误应说明 Tool Contribution 入口必须是 GDScript。"
+	)
 
 
 func test_enabled_installer_paths_follow_extension_selection() -> void:
@@ -2070,7 +2134,10 @@ func test_extension_settings_collects_editor_tool_contribution_paths() -> void:
 	GFExtensionSettings.clear_manifest_cache()
 
 	assert_not_null(network_manifest, "Network 扩展 manifest 应可发现。")
-	assert_true(network_manifest.editor_action_paths.is_empty(), "Network runtime manifest 不应携带可选 editor tool 路径。")
+	assert_false(
+		network_manifest.to_dictionary().has("editor_action_paths"),
+		"Network runtime manifest 不应携带可选 editor tool 路径。"
+	)
 	assert_true(
 		action_paths.has("res://addons/gf/extensions/network/editor/gf_network_editor_actions.gd"),
 		"启用扩展对应的 tool contribution 应贡献编辑器动作路径。"
@@ -2078,12 +2145,17 @@ func test_extension_settings_collects_editor_tool_contribution_paths() -> void:
 
 
 func test_extension_tool_contribution_schema_normalizes_valid_paths() -> void:
-	var report: Dictionary = GF_EXTENSION_TOOL_CONTRIBUTION_SCRIPT.parse_dictionary({
+	var source_data: Dictionary = {
 		"schema_version": float(GF_EXTENSION_TOOL_CONTRIBUTION_SCRIPT.SCHEMA_VERSION),
 		"extension_id": "author.feature",
-		"debugger_plugin_paths": [" editor/debugger_plugin.gd ", "editor/debugger_plugin.gd"],
-		"editor_action_paths": [" editor/action.gd ", "editor/action.gd"],
-	}, "author.feature")
+	}
+	for field_name: String in GF_EXTENSION_TOOL_CONTRIBUTION_SCRIPT.PATH_FIELDS:
+		var fixture_path: String = "editor/%s.gd" % field_name
+		source_data[field_name] = [" %s " % fixture_path, fixture_path]
+	var report: Dictionary = GF_EXTENSION_TOOL_CONTRIBUTION_SCRIPT.parse_dictionary(
+		source_data,
+		"author.feature"
+	)
 	var data: Dictionary = GF_VARIANT_ACCESS.get_option_dictionary(report, "data")
 
 	assert_true(GF_VARIANT_ACCESS.get_option_bool(report, "ok", false), "合法 tool contribution 应通过 schema 校验。")
@@ -2093,16 +2165,12 @@ func test_extension_tool_contribution_schema_normalizes_valid_paths() -> void:
 		"规范化结果应保留明确 schema 版本。"
 	)
 	assert_eq(GF_VARIANT_ACCESS.get_option_string(data, "extension_id"), "author.feature", "规范化结果应保留扩展 ID。")
-	assert_eq(
-		GF_VARIANT_ACCESS.get_option_array(data, "debugger_plugin_paths"),
-		["editor/debugger_plugin.gd"],
-		"Debugger 插件路径应去空白并去重。"
-	)
-	assert_eq(
-		GF_VARIANT_ACCESS.get_option_array(data, "editor_action_paths"),
-		["editor/action.gd"],
-		"路径应去空白并去重。"
-	)
+	for field_name: String in GF_EXTENSION_TOOL_CONTRIBUTION_SCRIPT.PATH_FIELDS:
+		assert_eq(
+			GF_VARIANT_ACCESS.get_option_array(data, field_name),
+			["editor/%s.gd" % field_name],
+			"Tool Contribution 路径应去空白并去重：%s" % field_name
+		)
 
 
 func test_extension_tool_contribution_schema_rejects_legacy_version() -> void:
@@ -2227,6 +2295,29 @@ func test_extension_selection_discovery_refreshes_when_tool_contribution_file_ch
 			"force_refresh": true,
 		}
 	)
+	var owner_record_options: Dictionary = {
+		"builtin_extension_ids": GFExtensionSettings.BUILT_IN_EXTENSION_IDS,
+	}
+	var first_owner_records: Array[Dictionary] = (
+		GF_EXTENSION_SELECTION_DISCOVERY_SCRIPT.get_tool_contribution_records(
+			"editor_action_paths",
+			selection_manifests,
+			selection_ids,
+			owner_record_options
+		)
+	)
+	var first_owner_record_count: int = first_owner_records.size()
+	if not first_owner_records.is_empty():
+		first_owner_records[0]["path"] = "res://tampered_action.gd"
+		first_owner_records[0]["extension_id"] = "author.tampered"
+	var defensive_owner_records: Array[Dictionary] = (
+		GF_EXTENSION_SELECTION_DISCOVERY_SCRIPT.get_tool_contribution_records(
+			"editor_action_paths",
+			selection_manifests,
+			selection_ids,
+			owner_record_options
+		)
+	)
 	var manifest_paths: Dictionary = GF_VARIANT_ACCESS.get_option_dictionary(
 		first_snapshot,
 		"manifest_paths"
@@ -2242,6 +2333,14 @@ func test_extension_selection_discovery_refreshes_when_tool_contribution_file_ch
 		"debugger_plugin_paths": [second_debugger_path],
 		"editor_action_paths": [second_action_path],
 	}))
+	var second_owner_records: Array[Dictionary] = (
+		GF_EXTENSION_SELECTION_DISCOVERY_SCRIPT.get_tool_contribution_records(
+			"editor_action_paths",
+			selection_manifests,
+			selection_ids,
+			owner_record_options
+		)
+	)
 	var second_action_paths: Array[String] = GFExtensionSettings.get_enabled_editor_action_paths()
 	var second_debugger_paths: Array[String] = GFExtensionSettings.get_enabled_debugger_plugin_paths()
 
@@ -2264,9 +2363,40 @@ func test_extension_selection_discovery_refreshes_when_tool_contribution_file_ch
 	assert_eq(second_action_paths, [second_action_path], "同一路径 tool contribution 文件变化后应刷新 selection snapshot。")
 	assert_eq(first_debugger_paths, [first_debugger_path], "第一次读取应返回扩展贡献的 Debugger 插件路径。")
 	assert_eq(second_debugger_paths, [second_debugger_path], "Debugger 插件贡献文件变化后应刷新 selection snapshot。")
+	assert_eq(first_owner_record_count, 1, "首次 owner record 查询应返回一条路径归属记录。")
+	assert_eq(defensive_owner_records.size(), 1, "调用方修改返回记录不应污染内部 owner cache。")
+	assert_eq(
+		GF_VARIANT_ACCESS.get_option_string(defensive_owner_records[0], "path"),
+		first_action_path,
+		"owner record 应以防御性副本保留首次路径。"
+	)
+	assert_eq(
+		GF_VARIANT_ACCESS.get_option_string(defensive_owner_records[0], "extension_id"),
+		"author.selection",
+		"owner record 应以防御性副本保留首次扩展身份。"
+	)
+	assert_eq(second_owner_records.size(), 1, "贡献文件变化后 owner cache 应刷新一条记录。")
+	assert_eq(
+		GF_VARIANT_ACCESS.get_option_string(second_owner_records[0], "path"),
+		second_action_path,
+		"owner cache 应在 Tool Contribution 内容变化后返回新路径。"
+	)
+	assert_eq(
+		GF_VARIANT_ACCESS.get_option_string(second_owner_records[0], "extension_id"),
+		"author.selection",
+		"owner cache 刷新后仍应绑定原扩展身份。"
+	)
 	assert_false(
 		manifest_paths.has("debugger_plugin_paths"),
 		"Debugger 插件路径不应进入 runtime manifest 路径集合。"
+	)
+	assert_eq(manifest_paths.size(), 1, "runtime manifest 路径集合只应保留 installer_paths。")
+	assert_true(manifest_paths.has("installer_paths"), "installer_paths 应继续由 runtime manifest 拥有。")
+	for field_name: String in MOVED_TOOL_CONTRIBUTION_MANIFEST_FIELDS:
+		assert_false(manifest_paths.has(field_name), "已迁移字段不应留在 manifest_paths。")
+	assert_false(
+		first_snapshot.has("_tool_contribution_records"),
+		"路径归属缓存不应泄露到公开 selection snapshot。"
 	)
 	assert_eq(
 		GF_VARIANT_ACCESS.get_option_string_array(contribution_paths, "debugger_plugin_paths"),
@@ -2285,25 +2415,54 @@ func test_invalid_tool_contribution_is_public_partial_status() -> void:
 	var extension_dir: String = root_path.path_join("feature")
 	var editor_dir: String = extension_dir.path_join("editor")
 	var contribution_path: String = editor_dir.path_join("gf_tool_contribution.json")
+	var installer_path: String = extension_dir.path_join("installer.gd")
+	var valid_extension_dir: String = root_path.path_join("valid")
+	var valid_editor_dir: String = valid_extension_dir.path_join("editor")
+	var valid_contribution_path: String = valid_editor_dir.path_join("gf_tool_contribution.json")
+	var valid_action_path: String = valid_editor_dir.path_join("valid_action.gd")
 	_remove_path_if_exists(contribution_path)
+	_remove_path_if_exists(installer_path)
+	_remove_path_if_exists(installer_path + ".uid")
+	_remove_path_if_exists(valid_contribution_path)
+	_remove_path_if_exists(valid_action_path)
+	_remove_path_if_exists(valid_action_path + ".uid")
 	_remove_path_if_exists(editor_dir)
+	_remove_path_if_exists(valid_editor_dir)
 	_remove_path_if_exists(extension_dir)
+	_remove_path_if_exists(valid_extension_dir)
 	_remove_path_if_exists(root_path)
 	var _make_dir_result: Error = DirAccess.make_dir_recursive_absolute(
 		ProjectSettings.globalize_path(editor_dir)
 	)
+	var _make_valid_dir_result: Error = DirAccess.make_dir_recursive_absolute(
+		ProjectSettings.globalize_path(valid_editor_dir)
+	)
 	_write_text_file(contribution_path, JSON.stringify({
 		"schema_version": GF_EXTENSION_TOOL_CONTRIBUTION_SCRIPT.SCHEMA_VERSION + 1,
 		"extension_id": "author.partial",
+	}))
+	_write_text_file(installer_path, "extends RefCounted\n")
+	_write_text_file(valid_action_path, "extends RefCounted\n")
+	_write_text_file(valid_contribution_path, JSON.stringify({
+		"schema_version": GF_EXTENSION_TOOL_CONTRIBUTION_SCRIPT.SCHEMA_VERSION,
+		"extension_id": "author.valid",
+		"editor_action_paths": [valid_action_path],
 	}))
 	var manifest: GFExtensionManifest = GFExtensionManifest.from_dictionary({
 		"id": "author.partial",
 		"display_name": "Partial",
 		"version": "1.0.0",
 		"kind": "extension",
+		"installer_paths": [installer_path],
 	}, extension_dir, extension_dir.path_join(GFExtensionManifest.FILE_NAME))
-	var manifests: Array[GFExtensionManifest] = [manifest]
-	var enabled_ids: Array[String] = ["author.partial"]
+	var valid_manifest: GFExtensionManifest = GFExtensionManifest.from_dictionary({
+		"id": "author.valid",
+		"display_name": "Valid",
+		"version": "1.0.0",
+		"kind": "extension",
+	}, valid_extension_dir, valid_extension_dir.path_join(GFExtensionManifest.FILE_NAME))
+	var manifests: Array[GFExtensionManifest] = [manifest, valid_manifest]
+	var enabled_ids: Array[String] = ["author.partial", "author.valid"]
 	GF_EXTENSION_SELECTION_DISCOVERY_SCRIPT.clear_cache()
 
 	var snapshot: Dictionary = GF_EXTENSION_SELECTION_DISCOVERY_SCRIPT.get_snapshot(
@@ -2315,14 +2474,34 @@ func test_invalid_tool_contribution_is_public_partial_status() -> void:
 		GFExtensionSettings.ENABLED_EXTENSIONS_SETTING,
 		enabled_ids
 	)
+	var auto_install_restore: Dictionary = _set_project_setting(
+		GFExtensionSettings.AUTO_INSTALL_ENABLED_INSTALLERS_SETTING,
+		true
+	)
 	GFExtensionSettings.set_cached_manifests(manifests)
 	var public_report: Dictionary = GFExtensionSettings.get_extension_selection_report()
+	var enabled_installer_paths: Array[String] = GFExtensionSettings.get_enabled_installer_paths()
+	var enabled_action_paths: Array[String] = GFExtensionSettings.get_enabled_editor_action_paths()
+	var enabled_action_records: Array[Dictionary] = (
+		GFExtensionSettings.get_enabled_editor_contribution_records("editor_action_paths")
+	)
 
 	GFExtensionSettings.clear_manifest_cache()
+	_restore_project_setting(
+		GFExtensionSettings.AUTO_INSTALL_ENABLED_INSTALLERS_SETTING,
+		auto_install_restore
+	)
 	_restore_project_setting(GFExtensionSettings.ENABLED_EXTENSIONS_SETTING, setting_restore)
 	_remove_path_if_exists(contribution_path)
+	_remove_path_if_exists(installer_path)
+	_remove_path_if_exists(installer_path + ".uid")
+	_remove_path_if_exists(valid_contribution_path)
+	_remove_path_if_exists(valid_action_path)
+	_remove_path_if_exists(valid_action_path + ".uid")
 	_remove_path_if_exists(editor_dir)
+	_remove_path_if_exists(valid_editor_dir)
 	_remove_path_if_exists(extension_dir)
+	_remove_path_if_exists(valid_extension_dir)
 	_remove_path_if_exists(root_path)
 
 	assert_false(GF_VARIANT_ACCESS.get_option_bool(snapshot, "ok", true), "已存在但无效的贡献不能报告完整成功。")
@@ -2341,6 +2520,31 @@ func test_invalid_tool_contribution_is_public_partial_status() -> void:
 		1,
 		"raw snapshot 应保留 contribution 错误。"
 	)
+	var manifest_paths: Dictionary = GF_VARIANT_ACCESS.get_option_dictionary(
+		snapshot,
+		"manifest_paths"
+	)
+	assert_eq(
+		GF_VARIANT_ACCESS.get_option_string_array(manifest_paths, "installer_paths"),
+		[installer_path],
+		"Tool Contribution 错误不应移除已验证的 runtime installer。"
+	)
+	assert_eq(
+		enabled_installer_paths,
+		[installer_path],
+		"partial 状态下公共设置查询仍应返回有效 installer。"
+	)
+	assert_eq(
+		enabled_action_paths,
+		[valid_action_path],
+		"一个无效 contribution 不应清空另一个启用扩展的有效工具路径。"
+	)
+	assert_eq(enabled_action_records.size(), 1, "partial 状态应保留有效工具路径的 owner record。")
+	assert_eq(
+		GF_VARIANT_ACCESS.get_option_string(enabled_action_records[0], "extension_id"),
+		"author.valid",
+		"partial 状态下有效工具路径仍应绑定正确扩展身份。"
+	)
 	assert_false(GF_VARIANT_ACCESS.get_option_bool(public_report, "ok", true), "公共诊断不得隐藏 contribution 错误。")
 	assert_eq(
 		GF_VARIANT_ACCESS.get_option_string_name(public_report, "status"),
@@ -2351,6 +2555,118 @@ func test_invalid_tool_contribution_is_public_partial_status() -> void:
 		GF_VARIANT_ACCESS.get_option_array(public_report, "tool_contribution_errors").size(),
 		1,
 		"公共诊断应暴露可定位的 contribution 错误。"
+	)
+
+
+func test_disabled_invalid_tool_contribution_does_not_affect_enabled_selection_or_budget() -> void:
+	var root_path: String = "res://tests/gf_core/tmp_disabled_invalid_tool_contribution"
+	var enabled_dir: String = root_path.path_join("enabled")
+	var enabled_editor_dir: String = enabled_dir.path_join("editor")
+	var enabled_contribution_path: String = enabled_editor_dir.path_join(
+		"gf_tool_contribution.json"
+	)
+	var enabled_action_path: String = enabled_editor_dir.path_join("enabled_action.gd")
+	var disabled_dir: String = root_path.path_join("disabled")
+	var disabled_editor_dir: String = disabled_dir.path_join("editor")
+	var disabled_contribution_path: String = disabled_editor_dir.path_join(
+		"gf_tool_contribution.json"
+	)
+	_remove_path_if_exists(enabled_contribution_path)
+	_remove_path_if_exists(enabled_action_path)
+	_remove_path_if_exists(enabled_action_path + ".uid")
+	_remove_path_if_exists(disabled_contribution_path)
+	_remove_path_if_exists(enabled_editor_dir)
+	_remove_path_if_exists(disabled_editor_dir)
+	_remove_path_if_exists(enabled_dir)
+	_remove_path_if_exists(disabled_dir)
+	_remove_path_if_exists(root_path)
+	var _make_enabled_dir_result: Error = DirAccess.make_dir_recursive_absolute(
+		ProjectSettings.globalize_path(enabled_editor_dir)
+	)
+	var _make_disabled_dir_result: Error = DirAccess.make_dir_recursive_absolute(
+		ProjectSettings.globalize_path(disabled_editor_dir)
+	)
+	_write_text_file(enabled_action_path, "extends RefCounted\n")
+	var enabled_contribution_text: String = JSON.stringify({
+		"schema_version": GF_EXTENSION_TOOL_CONTRIBUTION_SCRIPT.SCHEMA_VERSION,
+		"extension_id": "author.enabled",
+		"editor_action_paths": [enabled_action_path],
+	})
+	_write_text_file(enabled_contribution_path, enabled_contribution_text)
+	_write_text_file(disabled_contribution_path, "{}")
+	var enabled_manifest: GFExtensionManifest = GFExtensionManifest.from_dictionary({
+		"id": "author.enabled",
+		"display_name": "Enabled",
+		"version": "1.0.0",
+		"kind": "extension",
+	}, enabled_dir, enabled_dir.path_join(GFExtensionManifest.FILE_NAME))
+	var disabled_manifest: GFExtensionManifest = GFExtensionManifest.from_dictionary({
+		"id": "author.disabled",
+		"display_name": "Disabled",
+		"version": "1.0.0",
+		"kind": "extension",
+	}, disabled_dir, disabled_dir.path_join(GFExtensionManifest.FILE_NAME))
+	var manifests: Array[GFExtensionManifest] = [enabled_manifest, disabled_manifest]
+	var enabled_ids: Array[String] = ["author.enabled"]
+	GF_EXTENSION_SELECTION_DISCOVERY_SCRIPT.clear_cache()
+	var snapshot: Dictionary = GF_EXTENSION_SELECTION_DISCOVERY_SCRIPT.get_snapshot(
+		manifests,
+		enabled_ids,
+		{
+			"force_refresh": true,
+			"max_json_total_bytes": enabled_contribution_text.to_utf8_buffer().size() * 2,
+		}
+	)
+	var setting_restore: Dictionary = _set_project_setting(
+		GFExtensionSettings.ENABLED_EXTENSIONS_SETTING,
+		enabled_ids
+	)
+	GFExtensionSettings.set_cached_manifests(manifests)
+	var enabled_action_paths: Array[String] = GFExtensionSettings.get_enabled_editor_action_paths()
+	var enabled_action_records: Array[Dictionary] = (
+		GFExtensionSettings.get_enabled_editor_contribution_records("editor_action_paths")
+	)
+
+	GFExtensionSettings.clear_manifest_cache()
+	_restore_project_setting(GFExtensionSettings.ENABLED_EXTENSIONS_SETTING, setting_restore)
+	_remove_path_if_exists(enabled_contribution_path)
+	_remove_path_if_exists(enabled_action_path)
+	_remove_path_if_exists(enabled_action_path + ".uid")
+	_remove_path_if_exists(disabled_contribution_path)
+	_remove_path_if_exists(enabled_editor_dir)
+	_remove_path_if_exists(disabled_editor_dir)
+	_remove_path_if_exists(enabled_dir)
+	_remove_path_if_exists(disabled_dir)
+	_remove_path_if_exists(root_path)
+
+	assert_true(GF_VARIANT_ACCESS.get_option_bool(snapshot, "ok"), "禁用扩展的无效 contribution 不应使选择失败。")
+	assert_eq(
+		GF_VARIANT_ACCESS.get_option_string_name(snapshot, "status"),
+		GF_EXTENSION_SELECTION_DISCOVERY_SCRIPT.STATUS_VALID,
+		"禁用扩展的无效 contribution 不应形成 partial 状态。"
+	)
+	assert_true(
+		GF_VARIANT_ACCESS.get_option_array(snapshot, "tool_contribution_errors").is_empty(),
+		"禁用扩展的 contribution 不应进入错误诊断。"
+	)
+	var contribution_paths: Dictionary = GF_VARIANT_ACCESS.get_option_dictionary(
+		snapshot,
+		"contribution_paths"
+	)
+	assert_eq(
+		GF_VARIANT_ACCESS.get_option_string_array(
+			contribution_paths,
+			"editor_action_paths"
+		),
+		[enabled_action_path],
+		"禁用扩展不得消耗启用 contribution 的签名与解析总预算。"
+	)
+	assert_eq(enabled_action_paths, [enabled_action_path], "只应返回启用扩展的有效工具路径。")
+	assert_eq(enabled_action_records.size(), 1, "只应返回启用扩展的 owner record。")
+	assert_eq(
+		GF_VARIANT_ACCESS.get_option_string(enabled_action_records[0], "extension_id"),
+		"author.enabled",
+		"禁用扩展不得产生 owner record。"
 	)
 
 

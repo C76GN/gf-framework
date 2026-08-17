@@ -9,9 +9,6 @@
   "installer_paths": [
     "res://addons/gf/extensions/asset_metadata/extension.gd"
   ],
-  "gltf_document_extension_paths": [
-    "res://addons/gf/extensions/asset_metadata/editor/gf_asset_metadata_gltf_document_extension.gd"
-  ],
   "enabled_by_default": false,
   "tags": ["asset", "metadata", "import", "attribution"]
 }

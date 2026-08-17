@@ -1,0 +1,13 @@
+{
+  "schema_version": 2,
+  "extension_id": "gf.capability",
+  "access_generator_extension_paths": [
+    "res://addons/gf/extensions/capability/editor/gf_capability_access_generator_extension.gd"
+  ],
+  "editor_action_paths": [
+    "res://addons/gf/extensions/capability/editor/gf_capability_editor_actions.gd"
+  ],
+  "editor_inspector_paths": [
+    "res://addons/gf/extensions/capability/editor/gf_capability_inspector_plugin.gd"
+  ]
+}
