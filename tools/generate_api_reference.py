@@ -495,12 +495,14 @@ def render_reference_index(
 			f"| {module_label(module)} | {class_count} | {len(module_autoloads)} "
 			f"| {member_count} | {method_count} | [{page}]({page}) |"
 		)
-	lines.extend([
-		"",
-		"## Owner 索引",
-		"",
-		"完整类索引位于 [classes/index.md](classes/index.md)；受控 AutoLoad 索引位于 [autoloads/index.md](autoloads/index.md)。",
-	])
+	lines.extend(["", "## Owner 索引", ""])
+	if api_autoloads:
+		lines.append(
+			"完整类索引位于 [classes/index.md](classes/index.md)；"
+			"受控 AutoLoad 索引位于 [autoloads/index.md](autoloads/index.md)。"
+		)
+	else:
+		lines.append("完整类索引位于 [classes/index.md](classes/index.md)。")
 	return "\n".join(lines) + "\n"
 
 

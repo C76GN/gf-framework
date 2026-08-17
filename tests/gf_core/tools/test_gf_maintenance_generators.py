@@ -1121,6 +1121,50 @@ class CoverageEvidenceTests(unittest.TestCase):
 
 
 class MarkdownGenerationTests(unittest.TestCase):
+	def test_partial_source_collection_only_requires_contained_autoload_contracts(self) -> None:
+		extension_owners = gf_api_owners.collect_api_owners(
+			ROOT / "addons/gf/extensions",
+			ROOT,
+		)
+		self.assertTrue(extension_owners)
+		self.assertFalse(any(owner.kind == "autoload" for owner in extension_owners))
+		partial_payload = json.loads(generate_ai_api.render_outputs(
+			extension_owners,
+			ROOT / "addons/gf/extensions",
+		)["api.json"])
+		self.assertEqual(partial_payload["schema_version"], 3)
+		self.assertEqual(partial_payload["autoload_count"], 0)
+
+		full_owners = gf_api_owners.collect_api_owners(ROOT / "addons/gf", ROOT)
+		self.assertEqual(
+			[owner.name for owner in full_owners if owner.kind == "autoload"],
+			["Gf"],
+		)
+		self.assertEqual(
+			gf_api_owners._autoload_contracts_within_source_root(
+				ROOT / "addons/gf/kernel",
+				ROOT,
+				(gf_api_owners.GF_AUTOLOAD_CONTRACT,),
+			),
+			(gf_api_owners.GF_AUTOLOAD_CONTRACT,),
+		)
+		outside_contract = gf_api_owners.ApiAutoloadContract(
+			name="Outside",
+			source_path="addons/outside.gd",
+			resource_path="res://addons/outside.gd",
+			package_id="gf.outside",
+			registration_script_path="addons/outside_registration.gd",
+			runtime_resolver_script_path="addons/outside_runtime.gd",
+		)
+		self.assertEqual(
+			gf_api_owners._autoload_contracts_within_source_root(
+				ROOT / "addons/gf",
+				ROOT,
+				(outside_contract,),
+			),
+			(outside_contract,),
+		)
+
 	def test_classless_api_owner_selection_is_explicit_and_fails_closed(self) -> None:
 		public_method = gdscript_api_parser.ApiMember(
 			kind="method",
@@ -1270,6 +1314,35 @@ class MarkdownGenerationTests(unittest.TestCase):
 					reference,
 					report_success=False,
 					api_autoloads=[owner],
+				),
+				0,
+			)
+
+	def test_reference_without_autoloads_has_no_dangling_owner_index(self) -> None:
+		owner = gdscript_api_parser.ApiClass(
+			name="PartialOwner",
+			path="addons/gf/extensions/partial_owner.gd",
+			module="extensions",
+			extends="RefCounted",
+			line=1,
+			docs=api_docs("public"),
+		)
+		catalog = generate_api_reference.render_catalog_files(
+			[owner],
+			ROOT / "addons/gf/extensions",
+		)
+		reference = generate_api_reference.render_reference_files(
+			[owner],
+			catalog["index.xml"],
+		)
+		self.assertNotIn("autoloads/index.md", reference)
+		self.assertNotIn("autoloads/index.md", reference["index.md"])
+		with contextlib.redirect_stdout(io.StringIO()):
+			self.assertEqual(
+				generate_api_reference.check_reference_coverage(
+					[owner],
+					reference,
+					report_success=False,
 				),
 				0,
 			)

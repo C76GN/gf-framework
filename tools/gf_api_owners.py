@@ -62,10 +62,34 @@ def collect_api_owners(
 	root: Path = ROOT,
 	package_records: list[dict[str, Any]] | None = None,
 ) -> list[ApiOwner]:
+	autoload_contracts = _autoload_contracts_within_source_root(
+		source_root,
+		root,
+		CONTROLLED_AUTOLOAD_CONTRACTS,
+	)
 	scripts = collect_api_scripts(source_root, root)
-	owners = select_api_owners(scripts, CONTROLLED_AUTOLOAD_CONTRACTS)
-	validate_controlled_autoloads(owners, root, CONTROLLED_AUTOLOAD_CONTRACTS)
+	owners = select_api_owners(scripts, autoload_contracts)
+	validate_controlled_autoloads(owners, root, autoload_contracts)
 	return resolve_api_owner_packages(owners, package_records, root)
+
+
+def _autoload_contracts_within_source_root(
+	source_root: Path,
+	root: Path,
+	autoload_contracts: tuple[ApiAutoloadContract, ...],
+) -> tuple[ApiAutoloadContract, ...]:
+	resolved_source_root = source_root.resolve()
+	if resolved_source_root == (root / "addons/gf").resolve():
+		return autoload_contracts
+	result: list[ApiAutoloadContract] = []
+	for contract in autoload_contracts:
+		contract_source = (root / contract.source_path).resolve()
+		try:
+			contract_source.relative_to(resolved_source_root)
+		except ValueError:
+			continue
+		result.append(contract)
+	return tuple(result)
 
 
 def select_api_owners(

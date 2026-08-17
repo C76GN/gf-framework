@@ -349,6 +349,8 @@ API Reference 必须保持“总览 -> 模块索引 -> owner 索引 -> owner 详
 
 `tools/generate_api_reference.py` 与 `tools/generate_ai_api.py` 必须复用 `tools/gdscript_api_parser.py` 的 GDScript 声明扫描和 API 注释解析规则；不要在生成器里新增第二套 `class_name`、内部类、装饰导出变量或文档标签解析逻辑。GUT 中的 API Surface Contract 仍保留为独立的 Godot 运行时校验，因为它验证的是公开契约规则，不是生成器输出格式。
 
+两个生成器的 `--source` 可以选择 GF 源码子树；只要求并验证源码路径位于该子树内的受控 AutoLoad owner。默认完整根 `addons/gf` 必须无条件验证全部受控 owner contract，不能因 contract 路径漂移而静默降级；不含 AutoLoad 的子树不得生成悬空的 AutoLoad 索引链接。
+
 旧 GitHub Wiki 维护约定：
 
 - `docs/wiki/Home.md`、`_Sidebar.md` 和 `_Footer.md` 只作为 Read the Docs 入口与旧链接导航。
