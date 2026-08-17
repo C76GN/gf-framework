@@ -44,6 +44,17 @@ func test_ai_developer_api_index_matches_installed_framework_version() -> void:
 	)
 	assert_gt(GFVariantData.get_option_int(index, "class_count"), 500, "AI API index must cover the public GF surface.")
 	assert_false(GFVariantData.get_option_dictionary(index, "classes").is_empty())
+	assert_eq(GFVariantData.get_option_int(index, "schema_version"), 2)
+	assert_eq(GFVariantData.get_option_int(index, "autoload_count"), 1)
+	var autoloads: Dictionary = GFVariantData.get_option_dictionary(index, "autoloads")
+	var gf_owner: Dictionary = GFVariantData.get_option_dictionary(autoloads, "Gf")
+	assert_eq(GFVariantData.get_option_string(gf_owner, "owner_kind"), "autoload")
+	assert_eq(GFVariantData.get_option_string(gf_owner, "package_id"), "gf.kernel")
+	assert_eq(
+		GFVariantData.get_option_string(gf_owner, "path"),
+		"addons/gf/kernel/core/gf.gd"
+	)
+	assert_false(GFVariantData.get_option_dictionary(index, "classes").has("Gf"))
 
 
 func test_ai_developer_skill_feedback_and_migration_policy_are_shipped() -> void:

@@ -82,7 +82,10 @@ def _make_parser() -> argparse.ArgumentParser:
 	capability_search.add_argument("--limit", type=int, default=10)
 	capability = command("capability", "Read one GF capability by stable id.")
 	capability.add_argument("capability_id")
-	api_search = command("api-search", "Search exact installed GF classes and members.")
+	api_search = command(
+		"api-search",
+		"Search exact installed GF API owners (classes and controlled AutoLoads) and members.",
+	)
 	api_search.add_argument("query")
 	api_search.add_argument("--limit", type=int, default=20)
 	api_class = command("api-class", "Read one exact GF API class record.")

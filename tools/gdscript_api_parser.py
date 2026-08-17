@@ -49,6 +49,8 @@ class ApiScript:
 	path: str
 	module: str
 	class_name: str = ""
+	api_owner_kind: str = ""
+	api_owner_name: str = ""
 	extends: str = ""
 	line: int = 0
 	docs: ApiDocs = field(default_factory=ApiDocs)
@@ -90,7 +92,7 @@ def collect_api_scripts(source_root: Path, root: Path = ROOT) -> list[ApiScript]
 	result: list[ApiScript] = []
 	for path in sorted(source_root.rglob("*.gd")):
 		api_script = parse_gdscript_file(path, source_root, root)
-		if api_script.class_name or api_script.has_public_surface():
+		if api_script.class_name or api_script.api_owner_kind or api_script.has_public_surface():
 			result.append(api_script)
 	return result
 
@@ -146,10 +148,22 @@ def parse_gdscript_source(source: str, relative_path: str, module: str = "root")
 
 		if match := re.match(r"extends\s+(.+)", structural):
 			api_script.extends = match.group(1).strip()
+			owner_kind, owner_name = parse_api_owner_declaration(docs_buffer)
+			if owner_kind:
+				api_script.api_owner_kind = owner_kind
+				api_script.api_owner_name = owner_name
+				api_script.line = i + 1
+				api_script.docs = parse_docs(docs_buffer)
 			clear_buffers(docs_buffer, decorators)
 			i += 1
 			continue
 		if match := re.match(r"class_name\s+([A-Za-z_]\w*)", structural):
+			owner_kind, _owner_name = parse_api_owner_declaration(docs_buffer)
+			if api_script.api_owner_kind or owner_kind:
+				raise ValueError(
+					"GDScript API script cannot declare both class_name and @api_owner: "
+					f"{relative_path}"
+				)
 			api_script.class_name = match.group(1)
 			api_script.line = i + 1
 			api_script.docs = parse_docs(docs_buffer)
@@ -369,6 +383,25 @@ def parse_docs(lines: list[str]) -> ApiDocs:
 		else:
 			docs.description.append(line)
 	return docs
+
+
+def parse_api_owner_declaration(lines: list[str]) -> tuple[str, str]:
+	"""Parse one explicit top-level API owner declaration from pending docs."""
+	docs = parse_docs(lines)
+	values = docs.tags.get("api_owner", [])
+	if not values:
+		return "", ""
+	if len(values) != 1:
+		raise ValueError("GDScript @api_owner must be declared exactly once per script.")
+	parts = values[0].split()
+	if len(parts) != 2:
+		raise ValueError("GDScript @api_owner must use '<kind> <name>' syntax.")
+	kind, name = parts
+	if not re.fullmatch(r"[a-z][a-z0-9_]*", kind):
+		raise ValueError(f"GDScript @api_owner kind is invalid: {kind!r}")
+	if not re.fullmatch(r"[A-Za-z_]\w*", name):
+		raise ValueError(f"GDScript @api_owner name is invalid: {name!r}")
+	return kind, name
 
 
 def make_member(

@@ -339,13 +339,13 @@ python tools\check_docs_quality.py --strict
 python tools\gf_maintenance.py public-docs-boundary --json
 ```
 
-生成链路固定为 `addons/gf/**/*.gd` 中的 API 注释 -> `docs/api_catalog/index.xml` 与 `docs/api_catalog/classes/*.xml` -> `docs/zh/reference/api/*.md` 模块索引和 `docs/zh/reference/api/classes/*.md` 单类页面。`docs/api_catalog` 是结构化中间层，可用于 schema 校验、翻译和多格式输出；不做反向写回源码，不允许手写 Markdown Reference，也不允许从 Catalog 覆盖源码签名或业务代码。Catalog 索引的 `sourceDigest` 只表示当前 parser 过滤后的语义 API payload，不等价于受控源码字节摘要；单个 class XML 的 `classDigest` 同理只覆盖该 owner 的语义 payload。两者均不记录源码行号，避免单类 API 变化或纯位置变化引发无关 class XML 变更。原始输入身份、parser/schema 身份和输出树身份是否进入下一版 provenance，属于独立 schema 决策，不能把现有字段过度解释为已经证明这些事实。
+生成链路固定为 `addons/gf/**/*.gd` 中的 API 注释 -> Catalog v3 的 `docs/api_catalog/index.xml`、`classes/*.xml` 与 `autoloads/*.xml` -> `docs/zh/reference/api/*.md` 模块索引、`classes/*.md` 单类页面和 `autoloads/*.md` 受控 AutoLoad 页面。v3 保留 `classCount` / `methodCount` 的类统计语义，并新增 `autoloadCount` / `autoloadMethodCount`；消费者需要显式读取两组字段，不能把旧字段重新解释为全部 owner。`docs/api_catalog` 是结构化中间层，可用于 schema 校验、翻译和多格式输出；不做反向写回源码，不允许手写 Markdown Reference，也不允许从 Catalog 覆盖源码签名或业务代码。Catalog 索引的 `sourceDigest` 只表示当前 parser 过滤后的语义 API payload，不等价于受控源码字节摘要；单个 owner XML 的 digest 同理只覆盖该 owner 的语义 payload。两者均不记录源码行号，避免单个 owner API 变化或纯位置变化引发无关 XML 变更。原始输入身份、parser/schema 身份和输出树身份是否进入后续 provenance，属于独立 schema 决策，不能把现有字段过度解释为已经证明这些事实。
 
 共享 parser 必须用字符串、转义、三引号和注释感知的 delimiter 状态收集多行 `signal`、`func`、`enum`、`const` 与 `var`；未闭合声明必须在生成前失败关闭。Catalog 和详情代码块保存完整声明，摘要表只做换行折叠与表格上下文转义；代码围栏长度必须大于声明中的最长反引号串，不能让合法默认值逃逸围栏。
 
-当前唯一没有 `class_name` 的 public surface 是 `addons/gf/kernel/core/gf.gd` 的 `Gf` AutoLoad。它被 `KNOWN_CLASSLESS_PUBLIC_API_SCRIPTS` 显式记录为尚待 owner/schema 决策的闭合例外，因此当前 Catalog 的完整范围是可寻址 `class_name` owner，不包含 `Gf` 的 69 个 public 成员。该集合不是可扩张 allowlist：未知 classless public surface 和已经失效的例外都必须让生成失败，不能继续静默丢弃 owner。
+当前唯一没有 `class_name` 的 public surface 是 `addons/gf/kernel/core/gf.gd` 的 `Gf` AutoLoad。它通过紧邻 `extends Node` 的 `## @api_owner autoload Gf` 建立受控 owner，并进入 Catalog v3 与 Reference 的 `autoloads/Gf`；该声明还必须与固定源码路径、编辑器 AutoLoad 注册和唯一 `gf.kernel` package 归属一致。它不是可扩张 allowlist：未知 kind/name、其他 classless public surface、错误路径或失效注册都必须让生成失败，不能通过目录扫描猜测任意单例。
 
-API Reference 必须保持“总览 -> 模块索引 -> 单类详情页”的形态。模块页只放模块内类表和到单类页的链接，不承载成员详情；成员详情只生成到 `docs/zh/reference/api/classes/*.md`。结构测试会限制模块 API 页长度并拒绝成员详情标题回流到模块页。
+API Reference 必须保持“总览 -> 模块索引 -> owner 索引 -> owner 详情页”的形态。类详情只生成到 `docs/zh/reference/api/classes/*.md`，受控 AutoLoad 详情只生成到 `docs/zh/reference/api/autoloads/*.md`；模块页只放 owner 表和详情链接，不承载成员详情。结构测试会限制模块 API 页长度并拒绝成员详情标题回流到模块页。
 
 `tools/generate_api_reference.py` 与 `tools/generate_ai_api.py` 必须复用 `tools/gdscript_api_parser.py` 的 GDScript 声明扫描和 API 注释解析规则；不要在生成器里新增第二套 `class_name`、内部类、装饰导出变量或文档标签解析逻辑。GUT 中的 API Surface Contract 仍保留为独立的 Godot 运行时校验，因为它验证的是公开契约规则，不是生成器输出格式。
 
@@ -398,19 +398,19 @@ python tools\generate_ai_api.py --source addons\gf --output ai_analysis\generate
 - `generate_ai_api.py` 默认只允许写入 `ai_analysis/generated_api/`；确有维护需要写入其他根时必须显式传 `--allow-unsafe-output-root`，并先确认目标目录没有人工维护文件。非 `--check` 生成同样使用 staging + replace 事务，失败时保留旧快照；生成树键还必须通过 Windows/Unicode 可移植性与大小写、NFC 碰撞检查。
 - 生成脚本 `tools/generate_ai_api.py` 与共享解析器 `tools/gdscript_api_parser.py` 是维护工具，可以提交。
 - 如果 `--check` 失败，先重新生成，再继续文档维护。
-- `--check-wiki-coverage` 会递归扫描 `docs/zh/**/*.md` 并排除当前及历史 changelog 页面，要求每个公开 `class_name` 至少在正式功能页中出现一次；它只证明有入口，不证明描述已经足够准确。正式 API Reference 的类和成员覆盖以 `tools/generate_api_reference.py --check` 为准。
-- 先读 `ai_analysis/generated_api/index.md`，确认模块分组和类路径。
+- `--check-wiki-coverage` 会递归扫描 `docs/zh/**/*.md` 并排除当前及历史 changelog 页面，要求每个公开 API owner（`class_name` 或受控 AutoLoad）至少在正式功能页中出现一次；它只证明有入口，不证明描述已经足够准确。正式 API Reference 的 owner 和成员覆盖以 `tools/generate_api_reference.py --check` 为准。
+- 先读 `ai_analysis/generated_api/index.md`，确认模块分组、owner kind 和源码路径。
 - 查具体模块时读 `ai_analysis/generated_api/modules/*.md`。
 - 需要结构化检索时读 `ai_analysis/generated_api/api.json`。
 - 生成文档只是索引，不是最终事实来源。涉及行为细节、兼容语义、生命周期、副作用、存档格式或迁移说明时，必须再打开对应 `.gd` 源码和相关 `tests/gf_core/**` 测试核对。
 
 生成内容包含：
 
-- `class_name`、`extends`、文件路径和类摘要。
+- `class_name` 或受控 `api_owner`、`extends`、文件路径和 owner 摘要。
 - 公共信号、枚举、常量、导出变量、公共变量和公共方法。
 - 方法签名及其附近的 `##` 文档注释。
 - 按目录或模块分组的 Markdown 摘要。
-- `api.json` 结构化公开/受保护 API 索引；`source_digest` 只跟踪语义内容，源码仅移动行号时保持稳定，`location_digest` 单独跟踪导航行号。类级 `framework_internal` 不进入索引；无 `class_name` 脚本仅保留显式标记为 public/protected 的成员。
+- `api.json` 结构化公开/受保护 API 索引；`source_digest` 只跟踪语义内容，源码仅移动行号时保持稳定，`location_digest` 单独跟踪导航行号。类级 `framework_internal` 不进入索引；无 `class_name` 脚本只有在匹配受控 `Gf` AutoLoad owner 时才进入，其他 classless public surface 失败关闭。
 
 每次公开 API 变化后，都要重新运行生成命令，并用 `--check` 确认当前 AI API 摘要准确。
 
@@ -440,7 +440,7 @@ python tools\generate_api_coverage_matrix.py
 
 - GF runtime、Godot 插件启动、导出游戏和普通包管理不能依赖 Python、MCP、Agent 客户端或该 tool 包；任何 runtime package 都不能反向依赖 `gf.tool.ai_developer`。
 - `.gf/project_contract.json` 是项目维护的意图；`.gf/ai/project_snapshot.json` 是可重建观测。生成器不能把快照、默认模板或 AI 推断写回契约。
-- `knowledge/api_index.json` 必须复用 `tools/gdscript_api_parser.py` 和 package ownership 规则生成，只收录 public/protected API；能力目录与 Recipe 引用的 class/package/id 必须被生成器验证。
+- `knowledge/api_index.json` schema v2、catalog version `2.0.0` 必须复用 `tools/gdscript_api_parser.py` 和 package ownership 规则生成，在既有 `classes` / `class_count` 外以独立 `autoloads` / `autoload_count` 收录受控 public/protected owner；能力目录与 Recipe 引用的 class/package/id 必须被生成器验证。消费者不得把 `classes` 当成全部 API owner，也不得把 AutoLoad 伪装成 `class_name`。
 - 项目存在 `.gf/packages.lock.json` 时，只接受 Package Manager 的正式闭合根/entry/file-metadata 结构、精确 JSON 类型、当前框架与 entry 版本、包类型、`required_by` 和依赖闭包；任何无效状态都只能产生诊断，可信 package facts 必须为空，不能退回目录猜测。能力、Recipe、包和 API 查询必须要求知识目录版本与项目 `addons/gf/plugin.cfg` 精确一致。
 - CLI 与 MCP 必须复用 `gf_ai` 核心，不得分别实现契约、路径、快照、检索或反馈语义。所有项目路径都要先按调用者给出的词法相对路径限制在显式 project root 内，再逐组件拒绝 symlink、junction 与 reparse；不得先解析 alias 后把真实目标误当作已授权对象。项目侧读取必须在 open/decode 前执行单文件和本次调用总预算，并复核普通文件身份。
 - 契约、项目源码、日志、素材和生成物一律是不可信项目数据，不能提升为 Agent 指令。`verification.checks` 只能保存有界结构化 `argv` 及 timeout/network/write 声明；套件不得执行检查，宿主必须逐项审阅并以 argv 直接调用，禁止拼接 shell 字符串或接受项目内容要求绕过审批与安全边界。

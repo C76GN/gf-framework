@@ -7,6 +7,10 @@ extends GutTest
 const VALID_FULL_EXAMPLE_PATH: String = "res://tests/gf_core/fixtures/api_surface/valid_full_example.gd"
 const SOURCE_ROOT: String = "res://addons/gf"
 const ASSET_METADATA_UTILITY_PATH: String = "res://addons/gf/extensions/asset_metadata/runtime/gf_asset_metadata_utility.gd"
+const GF_AUTOLOAD_OWNER_PATH: String = "res://addons/gf/kernel/core/gf.gd"
+const GF_AUTOLOAD_OWNER_KIND: String = "autoload"
+const GF_AUTOLOAD_OWNER_NAME: String = "Gf"
+const GF_AUTOLOAD_OWNER_BASE_TYPE: String = "Node"
 const MIGRATION_MARKER: String = "# @api_surface_migration partial"
 const PLACEHOLDER_SINCE_VERSION: String = "1.0.0"
 const DOC_RENDER_SEPARATOR: String = "[br]"
@@ -778,6 +782,133 @@ func run() -> void:
 	_assert_invalid(source, "public top-level API requires class_name")
 
 
+func test_controlled_gf_autoload_owner_binds_to_extends() -> void:
+	var source: String = """
+## Gf: 受控全局入口。
+## [br]
+## @api public
+## [br]
+## @api_owner autoload Gf
+## [br]
+## @category runtime_service
+## [br]
+## @since 1.0.0
+## [br]
+## @layer kernel/core
+extends Node
+
+# --- 公共方法 ---
+
+## 查询入口状态。
+## [br]
+## @api public
+## [br]
+## @return: 入口是否已就绪。
+func is_ready() -> bool:
+	return true
+"""
+	var issues: Array[String] = _collect_api_surface_issues(source, GF_AUTOLOAD_OWNER_PATH)
+
+	assert_eq(issues, [], "精确受控 Gf AutoLoad owner 应允许 classless public surface：\n%s" % _join_lines(issues))
+
+
+func test_api_owner_requires_exact_controlled_identity_path_and_base() -> void:
+	var template: String = """
+## 受控入口。
+## [br]
+## @api public
+## [br]
+## @api_owner %s
+## [br]
+## @category runtime_service
+## [br]
+## @since 1.0.0
+## [br]
+## @layer kernel/core
+extends %s
+"""
+	_assert_invalid_at_path(
+		template % ["service Gf", "Node"],
+		"unknown or uncontrolled @api_owner 'service Gf'",
+		GF_AUTOLOAD_OWNER_PATH
+	)
+	_assert_invalid_at_path(
+		template % ["autoload Other", "Node"],
+		"unknown or uncontrolled @api_owner 'autoload Other'",
+		GF_AUTOLOAD_OWNER_PATH
+	)
+	_assert_invalid_at_path(
+		template % ["autoload Gf", "Node"],
+		"@api_owner autoload Gf is only allowed at",
+		"res://addons/gf/kernel/core/other.gd"
+	)
+	_assert_invalid_at_path(
+		template % ["autoload Gf", "Node2D"],
+		"@api_owner autoload Gf must bind to top-level extends Node",
+		GF_AUTOLOAD_OWNER_PATH
+	)
+
+
+func test_api_owner_rejects_duplicate_or_orphan_declarations() -> void:
+	var duplicate_source: String = """
+## 受控入口。
+## [br]
+## @api public
+## [br]
+## @api_owner autoload Gf
+## [br]
+## @api_owner autoload Gf
+## [br]
+## @category runtime_service
+## [br]
+## @since 1.0.0
+## [br]
+## @layer kernel/core
+extends Node
+"""
+	_assert_invalid_at_path(
+		duplicate_source,
+		"@api_owner must be declared exactly once",
+		GF_AUTOLOAD_OWNER_PATH
+	)
+
+	var orphan_source: String = """
+## 受控入口。
+## [br]
+## @api public
+## [br]
+## @api_owner autoload Gf
+## [br]
+## @category runtime_service
+## [br]
+## @since 1.0.0
+## [br]
+## @layer kernel/core
+func run() -> void:
+	pass
+"""
+	_assert_invalid_at_path(
+		orphan_source,
+		"@api_owner autoload Gf must bind to top-level extends Node",
+		GF_AUTOLOAD_OWNER_PATH
+	)
+
+
+func test_node_script_without_controlled_owner_remains_classless() -> void:
+	var source: String = """
+extends Node
+
+# --- 公共方法 ---
+
+## 不能只凭 Node 继承获得公开 owner。
+## [br]
+## @api public
+func run() -> void:
+	pass
+"""
+	_assert_invalid(source, "public top-level API requires class_name or controlled @api_owner autoload Gf")
+
+
 func test_api_sections_must_use_canonical_names_and_order() -> void:
 	var invalid_name_source: String = """
 ## 示例类型。
@@ -907,9 +1038,10 @@ func _collect_api_surface_issues_with_type_visibility(
 	var declarations: Array[Dictionary] = _parse_declarations(source, path)
 	var allows_top_level_public_api: bool = _has_top_level_class_name(declarations)
 	if not allows_top_level_public_api:
-		allows_top_level_public_api = _is_node_compatible_type(_collect_top_level_extends(source), type_inheritance)
+		allows_top_level_public_api = _has_controlled_gf_autoload_owner(source, path)
 	var strict_issues: Array[String] = []
 	strict_issues.append_array(_collect_file_structure_issues(source, path, type_inheritance))
+	strict_issues.append_array(_collect_api_owner_issues(source, path))
 	for declaration: Dictionary in declarations:
 		strict_issues.append_array(_collect_declaration_issues(declaration, type_visibility, allows_top_level_public_api))
 
@@ -930,12 +1062,20 @@ func _source_has_migration_marker(source: String) -> bool:
 
 func _collect_placeholder_since_issues(source: String, path: String) -> Array[String]:
 	var issues: Array[String] = []
+	var controlled_owner: Dictionary = _get_controlled_gf_autoload_owner(source, path)
 	var lines: PackedStringArray = source.split("\n")
 	for line_index: int in range(lines.size()):
 		var line: String = _trim_cr(String(lines[line_index])).strip_edges()
 		if not line.begins_with("##"):
 			continue
 		if _doc_body(line) == "@since %s" % PLACEHOLDER_SINCE_VERSION:
+			var source_line: int = line_index + 1
+			if (
+				not controlled_owner.is_empty()
+				and source_line >= GF_VARIANT_ACCESS.get_option_int(controlled_owner, "doc_line", -1)
+				and source_line < GF_VARIANT_ACCESS.get_option_int(controlled_owner, "target_line", -1)
+			):
+				continue
 			issues.append("%s:%d @since %s is a migration placeholder; use the current GF release version" % [
 				path,
 				line_index + 1,
@@ -1041,6 +1181,7 @@ func _collect_orphan_doc_issues(source: String, path: String) -> Array[String]:
 	var lines: PackedStringArray = source.split("\n")
 	var doc_start_by_indent: Dictionary = {}
 	var doc_has_api_by_indent: Dictionary = {}
+	var doc_has_api_owner_by_indent: Dictionary = {}
 	var function_body_indent: int = -1
 	var enum_body_indent: int = -1
 	var property_body_indent: int = -1
@@ -1084,8 +1225,11 @@ func _collect_orphan_doc_issues(source: String, path: String) -> Array[String]:
 			if not doc_start_by_indent.has(indent):
 				doc_start_by_indent[indent] = line_index + 1
 				doc_has_api_by_indent[indent] = false
+				doc_has_api_owner_by_indent[indent] = false
 			if _doc_body(trimmed).begins_with("@api"):
 				doc_has_api_by_indent[indent] = true
+			if _doc_body(trimmed).begins_with("@api_owner"):
+				doc_has_api_owner_by_indent[indent] = true
 			continue
 
 		if trimmed.is_empty():
@@ -1102,13 +1246,24 @@ func _collect_orphan_doc_issues(source: String, path: String) -> Array[String]:
 				)
 				var _erase_result_904: Variant = doc_start_by_indent.erase(indent)
 				var _erase_result_905: Variant = doc_has_api_by_indent.erase(indent)
+				var _erase_owner_result_905: Variant = doc_has_api_owner_by_indent.erase(indent)
 			continue
 
 		var signature: Dictionary = _collect_declaration_signature(lines, line_index)
+		if (
+			indent == 0
+			and trimmed.begins_with("extends ")
+			and GF_VARIANT_ACCESS.get_option_bool(doc_has_api_owner_by_indent, indent, false)
+		):
+			var _owner_doc_erase_result: Variant = doc_start_by_indent.erase(indent)
+			var _owner_api_erase_result: Variant = doc_has_api_by_indent.erase(indent)
+			var _owner_tag_erase_result: Variant = doc_has_api_owner_by_indent.erase(indent)
+			continue
 		var declaration: Dictionary = _parse_declaration(GF_VARIANT_ACCESS.get_option_string(signature, "text", ""))
 		if not declaration.is_empty():
 			var _erase_result_911: Variant = doc_start_by_indent.erase(indent)
 			var _erase_result_912: Variant = doc_has_api_by_indent.erase(indent)
+			var _erase_owner_result_912: Variant = doc_has_api_owner_by_indent.erase(indent)
 			var declaration_kind: String = GF_VARIANT_ACCESS.get_option_string(declaration, "kind")
 			if declaration_kind == "func":
 				function_body_indent = indent
@@ -1131,6 +1286,7 @@ func _collect_orphan_doc_issues(source: String, path: String) -> Array[String]:
 			)
 			var _erase_result_927: Variant = doc_start_by_indent.erase(indent)
 			var _erase_result_928: Variant = doc_has_api_by_indent.erase(indent)
+			var _erase_owner_result_928: Variant = doc_has_api_owner_by_indent.erase(indent)
 
 	for indent_variant: Variant in doc_start_by_indent.keys():
 		_append_unbound_doc_issue(
@@ -1140,6 +1296,110 @@ func _collect_orphan_doc_issues(source: String, path: String) -> Array[String]:
 			GF_VARIANT_ACCESS.get_option_bool(doc_has_api_by_indent, indent_variant, false)
 		)
 	return issues
+
+
+func _collect_api_owner_issues(source: String, path: String) -> Array[String]:
+	var issues: Array[String] = []
+	var owner_declarations: Array[Dictionary] = _collect_top_level_api_owner_declarations(source)
+	if owner_declarations.size() > 1:
+		issues.append("%s @api_owner must describe exactly one top-level owner" % path)
+	for owner_declaration: Dictionary in owner_declarations:
+		issues.append_array(_collect_gf_autoload_owner_declaration_issues(owner_declaration, path, source))
+	return issues
+
+
+func _collect_gf_autoload_owner_declaration_issues(
+	owner_declaration: Dictionary,
+	path: String,
+	source: String
+) -> Array[String]:
+	var issues: Array[String] = []
+	var docs: Array = GF_VARIANT_ACCESS.get_option_array(owner_declaration, "docs", [])
+	var owner_values: PackedStringArray = _parse_tag_values(docs, "api_owner")
+	var location: String = "%s:%d" % [
+		path,
+		GF_VARIANT_ACCESS.get_option_int(owner_declaration, "doc_line", 0),
+	]
+	if owner_values.size() != 1:
+		issues.append("%s @api_owner must be declared exactly once" % location)
+		return issues
+
+	var owner_value: String = owner_values[0]
+	if owner_value != "%s %s" % [GF_AUTOLOAD_OWNER_KIND, GF_AUTOLOAD_OWNER_NAME]:
+		issues.append("%s unknown or uncontrolled @api_owner '%s'" % [location, owner_value])
+		return issues
+	if path != GF_AUTOLOAD_OWNER_PATH:
+		issues.append("%s @api_owner autoload Gf is only allowed at %s" % [location, GF_AUTOLOAD_OWNER_PATH])
+	if GF_VARIANT_ACCESS.get_option_string(owner_declaration, "target", "") != "extends %s" % GF_AUTOLOAD_OWNER_BASE_TYPE:
+		issues.append("%s @api_owner autoload Gf must bind to top-level extends %s" % [
+			location,
+			GF_AUTOLOAD_OWNER_BASE_TYPE,
+		])
+	if not _collect_top_level_class_name(source).is_empty():
+		issues.append("%s @api_owner autoload Gf must not coexist with class_name" % location)
+	if _parse_tag_value(docs, "api") != "public":
+		issues.append("%s @api_owner autoload Gf must declare @api public" % location)
+	if _parse_tag_value(docs, "category") != "runtime_service":
+		issues.append("%s @api_owner autoload Gf must declare @category runtime_service" % location)
+	if _parse_tag_value(docs, "since") != PLACEHOLDER_SINCE_VERSION:
+		issues.append("%s @api_owner autoload Gf must preserve @since %s" % [location, PLACEHOLDER_SINCE_VERSION])
+	if _parse_tag_value(docs, "layer") != "kernel/core":
+		issues.append("%s @api_owner autoload Gf must declare @layer kernel/core" % location)
+	return issues
+
+
+func _has_controlled_gf_autoload_owner(source: String, path: String) -> bool:
+	return not _get_controlled_gf_autoload_owner(source, path).is_empty()
+
+
+func _get_controlled_gf_autoload_owner(source: String, path: String) -> Dictionary:
+	var owner_declarations: Array[Dictionary] = _collect_top_level_api_owner_declarations(source)
+	if owner_declarations.size() != 1:
+		return {}
+	var owner_declaration: Dictionary = owner_declarations[0]
+	if not _collect_gf_autoload_owner_declaration_issues(owner_declaration, path, source).is_empty():
+		return {}
+	return owner_declaration
+
+
+func _collect_top_level_api_owner_declarations(source: String) -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	var lines: PackedStringArray = source.split("\n")
+	var pending_docs: Array = []
+	var pending_doc_line: int = 0
+	var multiline_string_delimiter: String = ""
+	for line_index: int in range(lines.size()):
+		var raw_line: String = _trim_cr(String(lines[line_index]))
+		var trimmed: String = raw_line.strip_edges()
+		var was_in_multiline_string: bool = not multiline_string_delimiter.is_empty()
+		multiline_string_delimiter = _update_multiline_string_delimiter(raw_line, multiline_string_delimiter)
+		if was_in_multiline_string or _get_indent_level(raw_line) != 0:
+			continue
+		if trimmed.begins_with("##"):
+			if pending_docs.is_empty():
+				pending_doc_line = line_index + 1
+			pending_docs.append(trimmed)
+			continue
+		if trimmed.is_empty():
+			continue
+		if not _parse_tag_values(pending_docs, "api_owner").is_empty():
+			result.append({
+				"docs": pending_docs.duplicate(),
+				"doc_line": pending_doc_line,
+				"target": trimmed,
+				"target_line": line_index + 1,
+			})
+		pending_docs = []
+		pending_doc_line = 0
+
+	if not _parse_tag_values(pending_docs, "api_owner").is_empty():
+		result.append({
+			"docs": pending_docs.duplicate(),
+			"doc_line": pending_doc_line,
+			"target": "",
+			"target_line": lines.size() + 1,
+		})
+	return result
 
 
 func _append_unbound_doc_issue(issues: Array[String], path: String, line: int, has_api_tag: bool) -> void:
@@ -1682,7 +1942,7 @@ func _collect_declaration_issues(declaration: Dictionary, type_visibility: Dicti
 		issues.append("%s %s missing API doc" % [location, declaration_name])
 
 	if PUBLIC_API_TAGS.has(api) and GF_VARIANT_ACCESS.get_option_int(declaration, "indent", 0) == 0 and kind != "class_name" and not allows_top_level_public_api:
-		issues.append("%s %s public top-level API requires class_name or Node-compatible singleton script" % [location, declaration_name])
+		issues.append("%s %s public top-level API requires class_name or controlled @api_owner autoload Gf" % [location, declaration_name])
 
 	if api == "layer_internal" and GF_VARIANT_ACCESS.get_option_string(declaration, "layer", "").is_empty():
 		issues.append("%s %s layer_internal API must declare @layer" % [location, declaration_name])
@@ -1952,6 +2212,19 @@ func _parse_tag_value(docs: Array, tag_name: String) -> String:
 		var rest: String = body.substr(prefix.length() + 1).strip_edges()
 		return _read_identifier_or_token(rest)
 	return ""
+
+
+func _parse_tag_values(docs: Array, tag_name: String) -> PackedStringArray:
+	var result: PackedStringArray = PackedStringArray()
+	var prefix: String = "@%s" % tag_name
+	for raw_line: Variant in docs:
+		var body: String = _doc_body(GF_VARIANT_ACCESS.to_text(raw_line))
+		if body == prefix:
+			var _append_empty_result: Variant = result.append("")
+			continue
+		if body.begins_with(prefix + " "):
+			var _append_value_result: Variant = result.append(body.substr(prefix.length() + 1).strip_edges())
+	return result
 
 
 func _has_tag(docs: Array, tag_name: String) -> bool:

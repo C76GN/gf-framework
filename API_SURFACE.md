@@ -54,6 +54,7 @@ API Surface Contract 用来明确 GF 源码中哪些符号属于公开承诺、�
 常用标签：
 
 - `@api public|protected|framework_internal|layer_internal`：声明可见性。
+- `@api_owner autoload Gf`：只为 `addons/gf/kernel/core/gf.gd` 声明受控的 classless AutoLoad owner；必须位于文件级文档块中并紧邻绑定到 `extends Node`，不能用于发现或声明其他单例。
 - `@category ...`：声明公开类型分类，主要用于类和公开内部类。
 - `@since x.y.z`：声明公开类型或公开入口首次出现的版本。
 - `@since unreleased`：仅用于当前 `[未发布]` 中已经进入源码但尚未确定发行版本的新增公开入口。发布前必须替换为最终 SemVer；release 检查会拒绝任何非 SemVer 的 `@since`。
@@ -65,13 +66,13 @@ API Surface Contract 用来明确 GF 源码中哪些符号属于公开承诺、�
 
 为兼顾 Godot 编辑器悬停文档和机器可读标签，正文说明与机器标签之间、以及连续机器标签之间都应插入一行 `## [br]`。Godot 会把文档注释按 BBCode 渲染；没有显式分隔时，多行说明和 `@api` / `@param` / `@return` / `@schema` 等标签容易在悬停提示中合并为一段。`[br]` 只用于渲染换行，不改变标签语义。
 
-历史迁移期间补齐的 `@since` 不再使用占位版本 `1.0.0`。完成 API Surface 迁移后，既有公开 API 的起算版本统一使用当次 GF 发布版本；新增 API 在版本已确定时使用它首次公开发布的 GF 版本，在版本未确定时临时使用 `@since unreleased`。不要使用 `x.x.x`、`未发布`、空值或其他占位写法，因为这些写法难以被机器稳定识别和发布前替换。
+历史迁移期间补齐的 `@since` 不再使用占位版本 `1.0.0`。完成 API Surface 迁移后，既有公开 API 的起算版本统一使用当次 GF 发布版本；新增 API 在版本已确定时使用它首次公开发布的 GF 版本，在版本未确定时临时使用 `@since unreleased`。唯一的 `1.0.0` 历史 owner 基线是已经由版本历史证明的 `Gf` AutoLoad 文件级契约；它不能作为其他类型或成员使用 `1.0.0` 的先例。不要使用 `x.x.x`、`未发布`、空值或其他占位写法，因为这些写法难以被机器稳定识别和发布前替换。
 
 ## 文件结构与 section
 
-`##` 文档块必须绑定到一个明确声明：`class_name`、内部 `class`、`signal`、`enum`、`const`、`var` 或 `func`。没有绑定声明的脚本说明、维护说明、模板说明必须使用普通 `#`。这条规则避免半自动文档生成器把 classless helper 的顶部说明误判成公开 API。
+`##` 文档块必须绑定到一个明确声明：`class_name`、内部 `class`、`signal`、`enum`、`const`、`var` 或 `func`。唯一额外绑定形态是 `addons/gf/kernel/core/gf.gd` 的文件级 `## @api_owner autoload Gf` 文档块，它必须紧邻下一条顶层 `extends Node`。没有绑定声明的脚本说明、维护说明、模板说明必须使用普通 `#`。这条规则避免半自动文档生成器把 classless helper 的顶部说明误判成公开 API。
 
-对外公开或可重写的顶层 API 必须位于带 `class_name` 的脚本中。唯一例外是继承 `Node` 或已知 Node 派生类型的 Autoload / 插件单例脚本：这类脚本可以把顶层成员声明为 `public` / `protected`，因为它们的公开入口由场景树或编辑器插件生命周期持有。没有 `class_name` 的普通 helper、模板脚本和数据脚本只能暴露 `framework_internal` / `layer_internal` 协作入口，不能承诺 `public` / `protected` API。
+对外公开或可重写的顶层 API 必须位于带 `class_name` 的脚本中。唯一例外是上述受控 `Gf` AutoLoad owner；仅仅继承 `Node`、由项目设置注册为单例或参与编辑器插件生命周期，都不会自动获得公开 owner。没有 `class_name` 的其他 helper、模板、数据、插件和单例脚本只能暴露 `framework_internal` / `layer_internal` 协作入口，不能承诺 `public` / `protected` API。未知 owner kind/name、错误路径、非 `Node` 基类、悬空或重复 `@api_owner` 必须失败关闭。
 
 section 注释必须使用以下格式：
 
@@ -120,8 +121,9 @@ GF 不对未知语法、未知声明形态或新的 GDScript 结构做猜测式�
 - `public` / `protected` / `framework_internal` / `layer_internal` 成员必须使用 `##` 并写明 `@api`。
 - 私有变量、私有方法和私有内部类不使用 `##`；确实需要解释实现原因时使用普通 `#`。
 - `##` 文档块必须绑定到紧随其后的声明；悬空 `##` 视为违规。
+- `@api_owner` 只接受精确的 `autoload Gf`，只允许出现在 `addons/gf/kernel/core/gf.gd`，并必须紧邻绑定到顶层 `extends Node`；它必须同时声明 `@api public`、`@category runtime_service`、`@since 1.0.0` 和 `@layer kernel/core`。
 - 带 `## @api` 的未知声明形态视为违规，必须先扩展 API Surface Contract 和校验器。
-- 顶层 `public` / `protected` API 必须位于 `class_name` 脚本中；继承 `Node` 或已知 Node 派生类型的 Autoload / 插件单例脚本是唯一例外。
+- 顶层 `public` / `protected` API 必须位于 `class_name` 脚本或精确受控的 `Gf` AutoLoad owner 中；普通 classless `Node` / 插件单例不是例外。
 - `public` / `protected` 函数必须完整声明 `@param`；非 `void` 返回值必须声明 `@return`。
 - `public` / `protected` 枚举的每个枚举值必须使用 `##` 说明。
 - `protected` 方法必须以 `_` 开头，并位于明确的可重写钩子或虚方法 section。

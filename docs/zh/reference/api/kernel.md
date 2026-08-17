@@ -2,6 +2,12 @@
 
 模块：`kernel`
 
+## AutoLoad
+
+| AutoLoad | 继承 | 包 | 成员 | 源文件 |
+|---|---|---|---:|---|
+| [`Gf`](autoloads/Gf.md) | `Node` | `gf.kernel` | 69 | `addons/gf/kernel/core/gf.gd` |
+
 ## 类别概览
 
 | 类别 | 类 | 成员 | 方法 |

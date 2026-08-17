@@ -101,10 +101,15 @@ def api_search(query: str, limit: int = 20, project_root: Path | None = None) ->
 	needle = _normalize_search_text(query)
 	index = load_api_index()
 	results: list[dict[str, Any]] = []
-	for class_name, record in _class_records(index).items():
+	for owner_name, record in _api_owner_records(index).items():
 		if not isinstance(record, dict):
 			continue
-		class_score = _text_score(needle, class_name, str(record.get("summary", "")), str(record.get("module", "")))
+		owner_score = _text_score(
+			needle,
+			owner_name,
+			str(record.get("summary", "")),
+			str(record.get("module", "")),
+		)
 		member_matches: list[dict[str, Any]] = []
 		for member in record.get("members", []):
 			if not isinstance(member, dict):
@@ -118,12 +123,15 @@ def api_search(query: str, limit: int = 20, project_root: Path | None = None) ->
 			if member_score > 0:
 				member_matches.append({**member, "score": member_score})
 		member_matches.sort(key=lambda item: (-int(item["score"]), str(item.get("name", ""))))
-		score = max(class_score, int(member_matches[0]["score"]) if member_matches else 0)
+		score = max(owner_score, int(member_matches[0]["score"]) if member_matches else 0)
 		if score <= 0:
 			continue
+		owner_kind = str(record.get("owner_kind", ""))
 		results.append({
 			"score": score,
-			"class_name": class_name,
+			"owner_kind": owner_kind,
+			"owner_name": owner_name,
+			"class_name": owner_name if owner_kind == "class" else "",
 			"extends": record.get("extends", ""),
 			"module": record.get("module", ""),
 			"package_id": record.get("package_id", ""),
@@ -131,7 +139,7 @@ def api_search(query: str, limit: int = 20, project_root: Path | None = None) ->
 			"summary": record.get("summary", ""),
 			"member_matches": member_matches[:8],
 		})
-	results.sort(key=lambda item: (-int(item["score"]), str(item["class_name"])))
+	results.sort(key=lambda item: (-int(item["score"]), str(item["owner_name"])))
 	return {
 		"ok": True,
 		"query": query,
@@ -843,6 +851,17 @@ def _class_records(index: dict[str, Any]) -> dict[str, Any]:
 	return classes if isinstance(classes, dict) else {}
 
 
+def _autoload_records(index: dict[str, Any]) -> dict[str, Any]:
+	autoloads = index.get("autoloads", {})
+	return autoloads if isinstance(autoloads, dict) else {}
+
+
+def _api_owner_records(index: dict[str, Any]) -> dict[str, Any]:
+	owners = dict(_class_records(index))
+	owners.update(_autoload_records(index))
+	return owners
+
+
 def _load_knowledge(
 	path: Path,
 	schema_path: Path | None = None,
@@ -908,27 +927,33 @@ def _api_index_issues(data: dict[str, Any]) -> list[str]:
 	issues: list[str] = []
 	expected_fields = {
 		"schema_version", "catalog_version", "framework_version", "source_digest",
-		"class_count", "package_count", "packages", "classes",
+		"class_count", "autoload_count", "package_count", "packages", "classes", "autoloads",
 	}
 	if set(data) != expected_fields:
-		issues.append("API index fields do not match the version 1 contract.")
-	if data.get("schema_version") != 1:
-		issues.append("API index schema_version must equal 1.")
+		issues.append("API index fields do not match the version 2 contract.")
+	if data.get("schema_version") != 2:
+		issues.append("API index schema_version must equal 2.")
 	for field in ("catalog_version", "framework_version"):
 		if not isinstance(data.get(field), str) or not data.get(field):
 			issues.append(f"API index {field} must be a non-empty string.")
 	packages = data.get("packages")
 	classes = data.get("classes")
+	autoloads = data.get("autoloads")
 	if not isinstance(packages, list):
 		issues.append("API index packages must be an array.")
 		packages = []
 	if not isinstance(classes, dict):
 		issues.append("API index classes must be an object.")
 		classes = {}
+	if not isinstance(autoloads, dict):
+		issues.append("API index autoloads must be an object.")
+		autoloads = {}
 	if data.get("package_count") != len(packages):
 		issues.append("API index package_count does not match packages.")
 	if data.get("class_count") != len(classes):
 		issues.append("API index class_count does not match classes.")
+	if data.get("autoload_count") != len(autoloads):
+		issues.append("API index autoload_count does not match autoloads.")
 	package_ids: set[str] = set()
 	for package in packages:
 		if not isinstance(package, dict):
@@ -950,15 +975,34 @@ def _api_index_issues(data: dict[str, Any]) -> list[str]:
 		for dependency_id in dependencies:
 			if not isinstance(dependency_id, str) or dependency_id not in package_ids:
 				issues.append(f"API index package has an unknown dependency: {package_id} -> {dependency_id!r}.")
-	for class_name, record in classes.items():
-		if not isinstance(class_name, str) or not class_name or not isinstance(record, dict):
-			issues.append(f"API index class record is invalid: {class_name!r}.")
-			continue
-		if record.get("package_id") not in package_ids:
-			issues.append(f"API index class has no known owner package: {class_name}.")
-		members = record.get("members")
-		if not isinstance(members, list) or any(not isinstance(member, dict) for member in members):
-			issues.append(f"API index class members must be object records: {class_name}.")
+	owner_identities: dict[str, str] = {}
+	for owner_kind, records in (("class", classes), ("autoload", autoloads)):
+		for owner_name, record in records.items():
+			if not isinstance(owner_name, str) or not owner_name or not isinstance(record, dict):
+				issues.append(f"API index {owner_kind} record is invalid: {owner_name!r}.")
+				continue
+			identity = owner_name.casefold()
+			previous_owner = owner_identities.get(identity)
+			if previous_owner is not None:
+				issues.append(
+					"API index owner identity is duplicated across owner kinds: "
+					f"{previous_owner} and {owner_kind}:{owner_name}."
+				)
+			else:
+				owner_identities[identity] = f"{owner_kind}:{owner_name}"
+			if record.get("owner_kind") != owner_kind:
+				issues.append(
+					f"API index {owner_kind} record owner_kind is invalid: {owner_name}."
+				)
+			if record.get("package_id") not in package_ids:
+				issues.append(
+					f"API index {owner_kind} has no known owner package: {owner_name}."
+				)
+			members = record.get("members")
+			if not isinstance(members, list) or any(not isinstance(member, dict) for member in members):
+				issues.append(
+					f"API index {owner_kind} members must be object records: {owner_name}."
+				)
 	digest = data.get("source_digest")
 	payload = {key: value for key, value in data.items() if key != "source_digest"}
 	expected_digest = sha256_bytes(canonical_json_bytes(payload))

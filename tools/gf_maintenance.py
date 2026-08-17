@@ -2534,12 +2534,16 @@ def read_api_catalog_stats() -> dict[str, Any]:
 		"source_digest": root.get("sourceDigest", ""),
 		"class_count": int(root.get("classCount", "0")),
 		"method_count": int(root.get("methodCount", "0")),
+		"autoload_count": int(root.get("autoloadCount", "0")),
+		"autoload_method_count": int(root.get("autoloadMethodCount", "0")),
 		"modules": [
 			{
 				"id": module.get("id", ""),
 				"label": module.get("label", ""),
 				"class_count": int(module.get("classCount", "0")),
 				"method_count": int(module.get("methodCount", "0")),
+				"autoload_count": int(module.get("autoloadCount", "0")),
+				"autoload_method_count": int(module.get("autoloadMethodCount", "0")),
 			}
 			for module in root.findall("module")
 		],
@@ -2607,23 +2611,44 @@ def api_baseline_diff(
 	)
 	diff["breaking_signature_changes"] = classified_signature_changes["breaking"]
 	diff["compatible_signature_changes"] = classified_signature_changes["compatible"]
+	classified_autoload_signature_changes = classify_api_signature_changes(
+		diff.get("autoload_signature_changes", []),
+		base_snapshot,
+	)
+	diff["breaking_autoload_signature_changes"] = classified_autoload_signature_changes["breaking"]
+	diff["compatible_autoload_signature_changes"] = classified_autoload_signature_changes["compatible"]
 	classified_schema_changes = classify_api_schema_changes(
 		diff.get("schema_changes", []),
 	)
 	diff["breaking_schema_changes"] = classified_schema_changes["breaking"]
 	diff["compatible_schema_changes"] = classified_schema_changes["compatible"]
+	classified_autoload_schema_changes = classify_api_schema_changes(
+		diff.get("autoload_schema_changes", []),
+	)
+	diff["breaking_autoload_schema_changes"] = classified_autoload_schema_changes["breaking"]
+	diff["compatible_autoload_schema_changes"] = classified_autoload_schema_changes["compatible"]
 	breaking_change_count = (
 		len(diff["removed_classes"])
 		+ len(diff["removed_members"])
 		+ len(diff["breaking_signature_changes"])
 		+ len(diff["breaking_schema_changes"])
 		+ len(diff["extends_changes"])
+		+ len(diff["removed_autoloads"])
+		+ len(diff["autoload_removed_members"])
+		+ len(diff["breaking_autoload_signature_changes"])
+		+ len(diff["breaking_autoload_schema_changes"])
+		+ len(diff["autoload_extends_changes"])
+		+ len(diff["autoload_identity_changes"])
 	)
 	compatible_change_count = (
 		len(diff["added_classes"])
 		+ len(diff["added_members"])
 		+ len(diff["compatible_signature_changes"])
 		+ len(diff["compatible_schema_changes"])
+		+ len(diff["added_autoloads"])
+		+ len(diff["autoload_added_members"])
+		+ len(diff["compatible_autoload_signature_changes"])
+		+ len(diff["compatible_autoload_schema_changes"])
 	)
 	breaking_allowed = api_diff_breaking_allowed(resolved_base_tag, release_version)
 	compatible_allowed = api_diff_compatible_feature_allowed(resolved_base_tag, release_version)
@@ -2664,15 +2689,27 @@ def make_api_baseline_diff_result(
 	summary = {
 		"added_classes": len(diff.get("added_classes", [])),
 		"removed_classes": len(diff.get("removed_classes", [])),
+		"added_autoloads": len(diff.get("added_autoloads", [])),
+		"removed_autoloads": len(diff.get("removed_autoloads", [])),
 		"added_members": len(diff.get("added_members", [])),
 		"removed_members": len(diff.get("removed_members", [])),
+		"autoload_added_members": len(diff.get("autoload_added_members", [])),
+		"autoload_removed_members": len(diff.get("autoload_removed_members", [])),
 		"signature_changes": len(diff.get("signature_changes", [])),
 		"breaking_signature_changes": len(diff.get("breaking_signature_changes", [])),
 		"compatible_signature_changes": len(diff.get("compatible_signature_changes", [])),
+		"autoload_signature_changes": len(diff.get("autoload_signature_changes", [])),
+		"breaking_autoload_signature_changes": len(diff.get("breaking_autoload_signature_changes", [])),
+		"compatible_autoload_signature_changes": len(diff.get("compatible_autoload_signature_changes", [])),
 		"schema_changes": len(diff.get("schema_changes", [])),
 		"breaking_schema_changes": len(diff.get("breaking_schema_changes", [])),
 		"compatible_schema_changes": len(diff.get("compatible_schema_changes", [])),
+		"autoload_schema_changes": len(diff.get("autoload_schema_changes", [])),
+		"breaking_autoload_schema_changes": len(diff.get("breaking_autoload_schema_changes", [])),
+		"compatible_autoload_schema_changes": len(diff.get("compatible_autoload_schema_changes", [])),
 		"extends_changes": len(diff.get("extends_changes", [])),
+		"autoload_extends_changes": len(diff.get("autoload_extends_changes", [])),
+		"autoload_identity_changes": len(diff.get("autoload_identity_changes", [])),
 		"breaking_change_count": int(extra.get("breaking_change_count", 0)),
 		"compatible_change_count": int(extra.get("compatible_change_count", 0)),
 		"breaking_allowed": bool(extra.get("breaking_allowed", False)),
@@ -2749,10 +2786,24 @@ def api_signature_compatible_change_reason(
 	if kind == "enum" and api_enum_signature_is_compatible(old_signature, new_signature):
 		return "enum_values_added_without_removing_existing_values"
 	if kind == "method":
-		enum_names = api_class_enum_names(base_snapshot or {}, str(change.get("class", "")))
+		owner_kind = str(change.get("owner_kind", "class"))
+		owner_name = str(change.get("owner", change.get("class", "")))
+		enum_names = api_owner_enum_names(base_snapshot or {}, owner_kind, owner_name)
 		if api_method_signature_is_compatible(old_signature, new_signature, enum_names):
 			return "method_accepts_all_previous_calls"
 	return ""
+
+
+def api_owner_enum_names(snapshot: dict[str, Any], owner_kind: str, owner_name: str) -> set[str]:
+	if owner_kind == "autoload":
+		api_owner = snapshot.get("autoloads", {}).get(owner_name, {})
+		members = api_owner.get("members", {}) if isinstance(api_owner, dict) else {}
+		return {
+			str(member.get("name", ""))
+			for member in members.values()
+			if isinstance(member, dict) and member.get("kind") == "enum" and member.get("name")
+		}
+	return api_class_enum_names(snapshot, owner_name)
 
 
 def api_class_enum_names(snapshot: dict[str, Any], class_name: str) -> set[str]:
@@ -2916,14 +2967,22 @@ def parse_api_enum_values(signature: str) -> list[str]:
 
 def read_api_catalog_snapshot_from_workspace() -> dict[str, Any]:
 	try:
-		from generate_api_reference import collect_api_classes
+		from generate_api_reference import api_classes_from_owners
+		from generate_api_reference import collect_api_owner_model
 		from generate_api_reference import render_catalog_files
+		from gf_api_owners import autoload_owners
 
 		source_root = ROOT / "addons/gf"
-		catalog_files = render_catalog_files(collect_api_classes(source_root), source_root)
+		api_owners = collect_api_owner_model(source_root)
+		catalog_files = render_catalog_files(
+			api_classes_from_owners(api_owners),
+			source_root,
+			autoload_owners(api_owners),
+		)
 	except Exception as exc:
 		return {
 			"classes": {},
+			"autoloads": {},
 			"errors": [f"workspace source API snapshot generation failed: {exc}"],
 		}
 	return parse_api_catalog_snapshot(
@@ -2936,7 +2995,11 @@ def read_api_catalog_snapshot_from_workspace() -> dict[str, Any]:
 def read_api_catalog_snapshot_from_git(tag: str) -> dict[str, Any]:
 	index_text = git_show_text(f"{tag}:docs/api_catalog/index.xml")
 	if not index_text:
-		return {"classes": {}, "errors": [f"{tag}:docs/api_catalog/index.xml is missing or unreadable."]}
+		return {
+			"classes": {},
+			"autoloads": {},
+			"errors": [f"{tag}:docs/api_catalog/index.xml is missing or unreadable."],
+		}
 	return parse_api_catalog_snapshot(
 		index_text,
 		lambda class_path: git_show_text(f"{tag}:docs/api_catalog/{class_path}"),
@@ -2951,10 +3014,16 @@ def parse_api_catalog_snapshot(
 ) -> dict[str, Any]:
 	errors: list[str] = []
 	classes: dict[str, Any] = {}
+	autoloads: dict[str, Any] = {}
 	try:
 		index_root = ET.fromstring(index_text)
 	except ET.ParseError as exc:
-		return {"classes": {}, "errors": [f"{label} API catalog index XML parse failed: {exc}"]}
+		return {
+			"classes": {},
+			"autoloads": {},
+			"errors": [f"{label} API catalog index XML parse failed: {exc}"],
+		}
+	schema_version = index_root.get("schemaVersion", "")
 	for module in index_root.findall("module"):
 		module_id = module.get("id", "")
 		for class_ref in module.findall("class"):
@@ -2982,13 +3051,105 @@ def parse_api_catalog_snapshot(
 				snapshot_root,
 				module_id,
 			)
+		for autoload_ref in module.findall("autoload"):
+			autoload_path = autoload_ref.get("path", "")
+			autoload_name = autoload_ref.get("name", "")
+			if not autoload_name or not autoload_path:
+				errors.append(f"{label} API Catalog autoload reference is missing name or path.")
+				continue
+			if autoload_name in autoloads:
+				errors.append(f"{label} API Catalog autoload owner is duplicated: {autoload_name}.")
+				continue
+			autoload_text = class_loader(autoload_path)
+			if not autoload_text:
+				errors.append(f"{label}:{autoload_path} is missing or unreadable.")
+				continue
+			try:
+				autoload_root = ET.fromstring(autoload_text)
+			except ET.ParseError as exc:
+				errors.append(f"{label}:{autoload_path} XML parse failed: {exc}")
+				continue
+			if autoload_root.tag != "autoload" or autoload_root.get("name", "") != autoload_name:
+				errors.append(
+					f"{label}:{autoload_path} autoload {autoload_name} is missing or mismatched."
+				)
+				continue
+			for field_name, index_value, owner_value in (
+				("source path", autoload_ref.get("sourcePath", ""), autoload_root.get("path", "")),
+				("package", autoload_ref.get("packageId", ""), autoload_root.get("packageId", "")),
+				("extends", autoload_ref.get("extends", ""), autoload_root.get("extends", "")),
+				("module", module_id, autoload_root.get("module", "")),
+			):
+				if schema_version == "3" and (not index_value or not owner_value):
+					errors.append(
+						f"{label}:{autoload_path} autoload {autoload_name} {field_name} "
+						"must be explicit in Catalog v3."
+					)
+					continue
+				if index_value != owner_value:
+					errors.append(
+						f"{label}:{autoload_path} autoload {autoload_name} {field_name} "
+						"does not match its index reference."
+					)
+			autoloads[autoload_name] = parse_api_autoload_snapshot(
+				autoload_ref,
+				autoload_root,
+				module_id,
+			)
+	owner_name_collisions = sorted(set(classes).intersection(autoloads))
+	if owner_name_collisions:
+		errors.append(
+			f"{label} API Catalog owner names collide across class and autoload kinds: "
+			+ ", ".join(owner_name_collisions)
+		)
+	if schema_version == "3":
+		validate_api_catalog_count(
+			errors,
+			label,
+			"autoloadCount",
+			index_root.get("autoloadCount", ""),
+			len(autoloads),
+		)
+		validate_api_catalog_count(
+			errors,
+			label,
+			"autoloadMethodCount",
+			index_root.get("autoloadMethodCount", ""),
+			sum(
+				1
+				for autoload in autoloads.values()
+				for member in autoload.get("members", {}).values()
+				if member.get("kind") == "method"
+			),
+		)
 	return {
-		"schema_version": index_root.get("schemaVersion", ""),
+		"schema_version": schema_version,
 		"source_digest": index_root.get("sourceDigest", ""),
 		"class_count": len(classes),
+		"autoload_count": len(autoloads),
 		"classes": classes,
+		"autoloads": autoloads,
 		"errors": errors,
 	}
+
+
+def validate_api_catalog_count(
+	errors: list[str],
+	label: str,
+	field_name: str,
+	raw_value: str,
+	actual_value: int,
+) -> None:
+	try:
+		declared_value = int(raw_value)
+	except ValueError:
+		errors.append(f"{label} API Catalog {field_name} must be an integer.")
+		return
+	if declared_value != actual_value:
+		errors.append(
+			f"{label} API Catalog {field_name} does not match parsed owners: "
+			f"{declared_value} != {actual_value}."
+		)
 
 
 def resolve_api_catalog_class_root(
@@ -3010,9 +3171,35 @@ def resolve_api_catalog_class_root(
 
 
 def parse_api_class_snapshot(class_ref: ET.Element, class_root: ET.Element, module_id: str) -> dict[str, Any]:
+	return {
+		"name": class_ref.get("name", class_root.get("name", "")),
+		"module": class_root.get("module", module_id),
+		"source_path": class_ref.get("sourcePath", class_root.get("path", "")),
+		"extends": class_ref.get("extends", class_root.get("extends", "")),
+		"members": parse_api_owner_members(class_root),
+	}
+
+
+def parse_api_autoload_snapshot(
+	autoload_ref: ET.Element,
+	autoload_root: ET.Element,
+	module_id: str,
+) -> dict[str, Any]:
+	return {
+		"kind": "autoload",
+		"name": autoload_ref.get("name", autoload_root.get("name", "")),
+		"module": autoload_root.get("module", module_id),
+		"source_path": autoload_ref.get("sourcePath", autoload_root.get("path", "")),
+		"extends": autoload_ref.get("extends", autoload_root.get("extends", "")),
+		"package_id": autoload_ref.get("packageId", autoload_root.get("packageId", "")),
+		"members": parse_api_owner_members(autoload_root),
+	}
+
+
+def parse_api_owner_members(owner_root: ET.Element) -> dict[str, Any]:
 	members: dict[str, Any] = {}
 	for group in ("signals", "enums", "constants", "properties", "methods", "innerClasses"):
-		group_node = class_root.find(group)
+		group_node = owner_root.find(group)
 		if group_node is None:
 			continue
 		for member in group_node.findall("member"):
@@ -3028,13 +3215,7 @@ def parse_api_class_snapshot(class_ref: ET.Element, class_root: ET.Element, modu
 				"signature": normalize_api_signature(member.findtext("signature", "")),
 				"schema": read_api_member_schema_contracts(member),
 			}
-	return {
-		"name": class_ref.get("name", class_root.get("name", "")),
-		"module": class_root.get("module", module_id),
-		"source_path": class_ref.get("sourcePath", class_root.get("path", "")),
-		"extends": class_ref.get("extends", class_root.get("extends", "")),
-		"members": members,
-	}
+	return members
 
 
 def normalize_api_signature(signature: str) -> str:
@@ -3055,15 +3236,27 @@ def read_api_member_schema_contracts(member: ET.Element) -> list[str]:
 def compare_api_catalog_snapshots(base: dict[str, Any], current: dict[str, Any]) -> dict[str, Any]:
 	base_classes: dict[str, Any] = base.get("classes", {})
 	current_classes: dict[str, Any] = current.get("classes", {})
+	base_autoloads: dict[str, Any] = base.get("autoloads", {})
+	current_autoloads: dict[str, Any] = current.get("autoloads", {})
 	added_class_names = sorted(set(current_classes) - set(base_classes))
 	removed_class_names = sorted(set(base_classes) - set(current_classes))
 	added_classes = [compact_api_class(current_classes[name]) for name in added_class_names]
 	removed_classes = [compact_api_class(base_classes[name]) for name in removed_class_names]
+	added_autoload_names = sorted(set(current_autoloads) - set(base_autoloads))
+	removed_autoload_names = sorted(set(base_autoloads) - set(current_autoloads))
+	added_autoloads = [compact_api_autoload(current_autoloads[name]) for name in added_autoload_names]
+	removed_autoloads = [compact_api_autoload(base_autoloads[name]) for name in removed_autoload_names]
 	added_members: list[dict[str, Any]] = []
 	removed_members: list[dict[str, Any]] = []
 	signature_changes: list[dict[str, Any]] = []
 	schema_changes: list[dict[str, Any]] = []
 	extends_changes: list[dict[str, Any]] = []
+	autoload_added_members: list[dict[str, Any]] = []
+	autoload_removed_members: list[dict[str, Any]] = []
+	autoload_signature_changes: list[dict[str, Any]] = []
+	autoload_schema_changes: list[dict[str, Any]] = []
+	autoload_extends_changes: list[dict[str, Any]] = []
+	autoload_identity_changes: list[dict[str, Any]] = []
 
 	for class_name in sorted(set(base_classes) & set(current_classes)):
 		base_class = base_classes[class_name]
@@ -3101,14 +3294,81 @@ def compare_api_catalog_snapshots(base: dict[str, Any], current: dict[str, Any])
 					"old_schema": old_schema,
 					"new_schema": new_schema,
 				})
+
+	for autoload_name in sorted(set(base_autoloads) & set(current_autoloads)):
+		base_autoload = base_autoloads[autoload_name]
+		current_autoload = current_autoloads[autoload_name]
+		changed_identity_fields = [
+			field_name
+			for field_name in ("kind", "source_path", "package_id")
+			if base_autoload.get(field_name, "") != current_autoload.get(field_name, "")
+		]
+		if changed_identity_fields:
+			autoload_identity_changes.append({
+				"autoload": autoload_name,
+				"changed_fields": changed_identity_fields,
+				"old_kind": base_autoload.get("kind", ""),
+				"new_kind": current_autoload.get("kind", ""),
+				"old_source_path": base_autoload.get("source_path", ""),
+				"new_source_path": current_autoload.get("source_path", ""),
+				"old_package_id": base_autoload.get("package_id", ""),
+				"new_package_id": current_autoload.get("package_id", ""),
+			})
+		if base_autoload.get("extends", "") != current_autoload.get("extends", ""):
+			autoload_extends_changes.append({
+				"autoload": autoload_name,
+				"old_extends": base_autoload.get("extends", ""),
+				"new_extends": current_autoload.get("extends", ""),
+			})
+		base_members: dict[str, Any] = base_autoload.get("members", {})
+		current_members: dict[str, Any] = current_autoload.get("members", {})
+		for member_key in sorted(set(current_members) - set(base_members)):
+			autoload_added_members.append(
+				compact_api_autoload_member(autoload_name, current_members[member_key])
+			)
+		for member_key in sorted(set(base_members) - set(current_members)):
+			autoload_removed_members.append(
+				compact_api_autoload_member(autoload_name, base_members[member_key])
+			)
+		for member_key in sorted(set(base_members) & set(current_members)):
+			base_member = base_members[member_key]
+			current_member = current_members[member_key]
+			if base_member.get("signature", "") != current_member.get("signature", ""):
+				autoload_signature_changes.append({
+					"owner_kind": "autoload",
+					"owner": autoload_name,
+					"kind": current_member.get("kind", ""),
+					"name": current_member.get("name", ""),
+					"old_signature": base_member.get("signature", ""),
+					"new_signature": current_member.get("signature", ""),
+				})
+			old_schema = list(base_member.get("schema", []))
+			new_schema = list(current_member.get("schema", []))
+			if old_schema != new_schema:
+				autoload_schema_changes.append({
+					"owner_kind": "autoload",
+					"owner": autoload_name,
+					"kind": current_member.get("kind", ""),
+					"name": current_member.get("name", ""),
+					"old_schema": old_schema,
+					"new_schema": new_schema,
+				})
 	return {
 		"added_classes": added_classes,
 		"removed_classes": removed_classes,
+		"added_autoloads": added_autoloads,
+		"removed_autoloads": removed_autoloads,
 		"added_members": added_members,
 		"removed_members": removed_members,
 		"signature_changes": signature_changes,
 		"schema_changes": schema_changes,
 		"extends_changes": extends_changes,
+		"autoload_added_members": autoload_added_members,
+		"autoload_removed_members": autoload_removed_members,
+		"autoload_signature_changes": autoload_signature_changes,
+		"autoload_schema_changes": autoload_schema_changes,
+		"autoload_extends_changes": autoload_extends_changes,
+		"autoload_identity_changes": autoload_identity_changes,
 	}
 
 
@@ -3121,9 +3381,30 @@ def compact_api_class(api_class: dict[str, Any]) -> dict[str, Any]:
 	}
 
 
+def compact_api_autoload(api_autoload: dict[str, Any]) -> dict[str, Any]:
+	return {
+		"kind": api_autoload.get("kind", "autoload"),
+		"name": api_autoload.get("name", ""),
+		"module": api_autoload.get("module", ""),
+		"source_path": api_autoload.get("source_path", ""),
+		"extends": api_autoload.get("extends", ""),
+		"package_id": api_autoload.get("package_id", ""),
+	}
+
+
 def compact_api_member(class_name: str, member: dict[str, Any]) -> dict[str, Any]:
 	return {
 		"class": class_name,
+		"kind": member.get("kind", ""),
+		"name": member.get("name", ""),
+		"signature": member.get("signature", ""),
+	}
+
+
+def compact_api_autoload_member(autoload_name: str, member: dict[str, Any]) -> dict[str, Any]:
+	return {
+		"owner_kind": "autoload",
+		"owner": autoload_name,
 		"kind": member.get("kind", ""),
 		"name": member.get("name", ""),
 		"signature": member.get("signature", ""),
@@ -20540,6 +20821,59 @@ def maintenance_self_test() -> dict[str, Any]:
 			f"their matching nested XML node: {api_inner_catalog_snapshot}"
 		),
 	)
+	api_v2_catalog_snapshot = parse_api_catalog_snapshot(
+		'<apiCatalog schemaVersion="2" classCount="0" methodCount="0" />',
+		lambda _owner_path: "",
+		"v2 fixture",
+	)
+	api_v3_catalog_snapshot = parse_api_catalog_snapshot(
+		(
+			'<apiCatalog schemaVersion="3" classCount="0" methodCount="0" '
+			'autoloadCount="1" autoloadMethodCount="1"><module id="kernel" '
+			'label="Kernel" classCount="0" methodCount="0" autoloadCount="1" '
+			'autoloadMethodCount="1"><autoload name="Gf" path="autoloads/Gf.xml" '
+			'sourcePath="addons/gf/kernel/core/gf.gd" extends="Node" '
+			'packageId="gf.kernel" /></module></apiCatalog>'
+		),
+		lambda _owner_path: (
+			'<autoload name="Gf" path="addons/gf/kernel/core/gf.gd" module="kernel" '
+			'extends="Node" packageId="gf.kernel"><methods><member kind="method" '
+			'name="get_architecture"><signature>func get_architecture() -&gt; GFArchitecture:'
+			'</signature></member></methods></autoload>'
+		),
+		"v3 fixture",
+	)
+	api_invalid_v3_catalog_snapshot = parse_api_catalog_snapshot(
+		(
+			'<apiCatalog schemaVersion="3" autoloadCount="2" autoloadMethodCount="0">'
+			'<module id="kernel"><autoload name="Gf" path="autoloads/Gf.xml" '
+			'sourcePath="addons/gf/kernel/core/gf.gd" extends="Node" /></module>'
+			'</apiCatalog>'
+		),
+		lambda _owner_path: (
+			'<autoload name="Gf" path="addons/gf/kernel/core/gf.gd" module="kernel" '
+			'extends="Node" />'
+		),
+		"invalid v3 fixture",
+	)
+	api_v2_to_v3_diff = compare_api_catalog_snapshots(
+		api_v2_catalog_snapshot,
+		api_v3_catalog_snapshot,
+	)
+	record_result(
+		"api_baseline_snapshot_reads_v2_and_v3_autoload_owners",
+		not api_v2_catalog_snapshot["errors"]
+		and api_v2_catalog_snapshot["autoloads"] == {}
+		and not api_v3_catalog_snapshot["errors"]
+		and api_v3_catalog_snapshot["class_count"] == 0
+		and api_v3_catalog_snapshot["autoload_count"] == 1
+		and api_v3_catalog_snapshot["autoloads"]["Gf"]["kind"] == "autoload"
+		and api_v3_catalog_snapshot["autoloads"]["Gf"]["package_id"] == "gf.kernel"
+		and api_invalid_v3_catalog_snapshot["errors"]
+		and len(api_v2_to_v3_diff["added_autoloads"]) == 1
+		and not api_v2_to_v3_diff["added_classes"],
+		f"v2/v3 autoload baseline migration must stay distinct from classes: {api_v3_catalog_snapshot}, {api_v2_to_v3_diff}",
+	)
 
 	api_base_snapshot = {
 		"classes": {
@@ -20583,6 +20917,60 @@ def maintenance_self_test() -> dict[str, Any]:
 		and len(classified_api_catalog_diff["breaking"]) == 1
 		and len(api_catalog_diff["extends_changes"]) == 1,
 		f"unexpected api catalog diff fixture result: {api_catalog_diff}",
+	)
+	api_autoload_base_snapshot = {
+		"autoloads": {
+			"Gf": make_api_snapshot_autoload(
+				"Gf",
+				"Node",
+				"gf.kernel",
+				{
+					"method:kept": make_api_snapshot_member("method", "kept", "func kept() -> int:"),
+					"method:removed": make_api_snapshot_member("method", "removed", "func removed() -> void:"),
+					"method:changed": make_api_snapshot_member("method", "changed", "func changed() -> int:"),
+				},
+			),
+		},
+	}
+	api_autoload_current_snapshot = {
+		"classes": {},
+		"autoloads": {
+			"Gf": make_api_snapshot_autoload(
+				"Gf",
+				"Control",
+				"gf.runtime",
+				{
+					"method:kept": make_api_snapshot_member("method", "kept", "func kept() -> int:"),
+					"method:changed": make_api_snapshot_member("method", "changed", "func changed() -> String:"),
+					"method:added": make_api_snapshot_member("method", "added", "func added() -> void:"),
+				},
+				source_path="addons/gf/kernel/core/gf_runtime.gd",
+			),
+		},
+	}
+	api_autoload_diff = compare_api_catalog_snapshots(
+		api_autoload_base_snapshot,
+		api_autoload_current_snapshot,
+	)
+	classified_api_autoload_diff = classify_api_signature_changes(
+		api_autoload_diff["autoload_signature_changes"],
+		api_autoload_base_snapshot,
+	)
+	record_result(
+		"api_baseline_diff_protects_autoload_identity_and_members",
+		not api_autoload_diff["added_classes"]
+		and not api_autoload_diff["removed_classes"]
+		and not api_autoload_diff["added_autoloads"]
+		and not api_autoload_diff["removed_autoloads"]
+		and len(api_autoload_diff["autoload_identity_changes"]) == 1
+		and set(api_autoload_diff["autoload_identity_changes"][0]["changed_fields"])
+		== {"source_path", "package_id"}
+		and len(api_autoload_diff["autoload_extends_changes"]) == 1
+		and len(api_autoload_diff["autoload_added_members"]) == 1
+		and len(api_autoload_diff["autoload_removed_members"]) == 1
+		and len(api_autoload_diff["autoload_signature_changes"]) == 1
+		and len(classified_api_autoload_diff["breaking"]) == 1,
+		f"autoload identity and member changes must remain SemVer-visible without class coercion: {api_autoload_diff}",
 	)
 	api_compatible_base_snapshot = {
 		"classes": {
@@ -21647,6 +22035,24 @@ def make_api_snapshot_class(class_name: str, extends: str, members: dict[str, An
 		"module": "fixture",
 		"source_path": f"addons/gf/fixture/{class_name}.gd",
 		"extends": extends,
+		"members": members,
+	}
+
+
+def make_api_snapshot_autoload(
+	autoload_name: str,
+	extends: str,
+	package_id: str,
+	members: dict[str, Any],
+	source_path: str = "addons/gf/kernel/core/gf.gd",
+) -> dict[str, Any]:
+	return {
+		"kind": "autoload",
+		"name": autoload_name,
+		"module": "kernel",
+		"source_path": source_path,
+		"extends": extends,
+		"package_id": package_id,
 		"members": members,
 	}
 
@@ -31687,15 +32093,27 @@ def release_status(
 			"diff": {
 				"added_classes": api_diff.get("diff", {}).get("added_classes", [])[:80],
 				"removed_classes": api_diff.get("diff", {}).get("removed_classes", [])[:80],
+				"added_autoloads": api_diff.get("diff", {}).get("added_autoloads", [])[:80],
+				"removed_autoloads": api_diff.get("diff", {}).get("removed_autoloads", [])[:80],
 				"added_members": api_diff.get("diff", {}).get("added_members", [])[:80],
 				"removed_members": api_diff.get("diff", {}).get("removed_members", [])[:80],
+				"autoload_added_members": api_diff.get("diff", {}).get("autoload_added_members", [])[:80],
+				"autoload_removed_members": api_diff.get("diff", {}).get("autoload_removed_members", [])[:80],
 				"signature_changes": api_diff.get("diff", {}).get("signature_changes", [])[:80],
 				"breaking_signature_changes": api_diff.get("diff", {}).get("breaking_signature_changes", [])[:80],
 				"compatible_signature_changes": api_diff.get("diff", {}).get("compatible_signature_changes", [])[:80],
+				"autoload_signature_changes": api_diff.get("diff", {}).get("autoload_signature_changes", [])[:80],
+				"breaking_autoload_signature_changes": api_diff.get("diff", {}).get("breaking_autoload_signature_changes", [])[:80],
+				"compatible_autoload_signature_changes": api_diff.get("diff", {}).get("compatible_autoload_signature_changes", [])[:80],
 				"schema_changes": api_diff.get("diff", {}).get("schema_changes", [])[:80],
 				"breaking_schema_changes": api_diff.get("diff", {}).get("breaking_schema_changes", [])[:80],
 				"compatible_schema_changes": api_diff.get("diff", {}).get("compatible_schema_changes", [])[:80],
+				"autoload_schema_changes": api_diff.get("diff", {}).get("autoload_schema_changes", [])[:80],
+				"breaking_autoload_schema_changes": api_diff.get("diff", {}).get("breaking_autoload_schema_changes", [])[:80],
+				"compatible_autoload_schema_changes": api_diff.get("diff", {}).get("compatible_autoload_schema_changes", [])[:80],
 				"extends_changes": api_diff.get("diff", {}).get("extends_changes", [])[:80],
+				"autoload_extends_changes": api_diff.get("diff", {}).get("autoload_extends_changes", [])[:80],
+				"autoload_identity_changes": api_diff.get("diff", {}).get("autoload_identity_changes", [])[:80],
 			},
 		},
 		"plugin_version": plugin_version,

@@ -2275,7 +2275,10 @@ DEFAULT_AFFECTED_INPUT_SPECS: tuple[CheckInputSpec, ...] = (
 	),
 	_declared_input_spec(
 		"public_api_boundary",
-		additional_implementation_files=("tools/gdscript_api_parser.py",),
+		additional_implementation_files=(
+			"tools/gdscript_api_parser.py",
+			"tools/gf_api_owners.py",
+		),
 		source_rules=(
 			PathRule("tree", "addons/gf", suffixes=(".gd",)),
 			PathRule("tree", "docs/api_catalog", suffixes=(".xml",)),

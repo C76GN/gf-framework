@@ -161,11 +161,11 @@ python tools\generate_api_reference.py
 python tools\generate_api_reference.py --check
 ```
 
-`--check` 会同时校验四件事：XML Catalog 与源码一致、Markdown Reference 与生成器一致、Catalog 中的公开类和成员位于精确 owner section、候选 Reference 的本地链接与 fragment 全部可解析。重复/大小写冲突 owner、输出路径或 anchor 会在写 staging 前失败关闭。
+`--check` 会同时校验四件事：XML Catalog 与源码一致、Markdown Reference 与生成器一致、Catalog 中的公开 owner 和成员位于精确 owner section、候选 Reference 的本地链接与 fragment 全部可解析。重复/大小写冲突 owner、输出路径或 anchor 会在写 staging 前失败关闭。
 
 `tools/generate_api_reference.py` 与 `tools/generate_ai_api.py` 共用 `tools/gdscript_api_parser.py` 的 GDScript 声明扫描和 API 注释解析规则。维护生成器时应优先扩展共享解析器，避免正式 Reference 和 AI 摘要对 `class_name`、内部类、装饰导出变量、多行声明或文档标签产生不同理解。共享 parser 对字符串、三引号、转义和注释中的 delimiter 不计结构深度；多行 `signal` / `func` / `enum` / `const` / `var` 必须完整闭合，否则失败关闭。
 
-Catalog v2 的 `sourceDigest` / `classDigest` 是过滤后语义 payload 摘要，不是源码字节、parser 版本或输出树摘要。当前 `Gf` AutoLoad 是唯一显式记录但尚未进入 Catalog owner model 的 classless public surface；未知 classless public script 会直接让生成失败。不要把这一闭合债务解释为通用排除规则，也不要在 owner/schema 决策完成前伪装成普通 `class_name`。
+Catalog v3 保留类 owner 以及 `classCount` / `methodCount` 的原统计语义，并以独立 `autoloads/Gf.xml`、`autoloadCount` / `autoloadMethodCount` 收录唯一受控 classless public surface。`Gf` 必须在固定源码路径用紧邻 `extends Node` 的 `## @api_owner autoload Gf` 声明，并与编辑器注册和唯一 `gf.kernel` package 归属一致；未知 owner 或普通 classless public script 会直接让生成失败，不能通过扫描项目单例猜测 owner，也不能伪装成普通 `class_name`。`sourceDigest` 和 owner digest 仍只是过滤后的语义 payload 摘要，不是源码字节、parser 版本或输出树摘要。
 
 手写文档页面还应通过质量检查，避免页面重新变成长文堆积、缺少 H1 或代码块没有语言标注：
 

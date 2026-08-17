@@ -1,9 +1,10 @@
 {
-  "schema_version": 1,
-  "catalog_version": "1.0.0",
+  "schema_version": 2,
+  "catalog_version": "2.0.0",
   "framework_version": "11.0.0-dev.0",
-  "source_digest": "c614401d3c462be91cce3c22626109f54d050db7e5dbb06ef26d287fab96c706",
+  "source_digest": "4086ab2c54acaa4a3c47d2472e5cb68d76dc4f8e52ed4bfec41e06e1da6ad026",
   "class_count": 819,
+  "autoload_count": 1,
   "package_count": 56,
   "packages": [
     {
@@ -613,6 +614,7 @@
   ],
   "classes": {
     "GFAccessGenerator": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "kernel",
       "package_id": "gf.kernel",
@@ -737,6 +739,7 @@
       ]
     },
     "GFAction": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "extensions/action_queue",
       "package_id": "gf.extension.action_queue",
@@ -917,6 +920,7 @@
       ]
     },
     "GFActionInterceptionResult": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "extensions/action_queue",
       "package_id": "gf.extension.action_queue",
@@ -1013,6 +1017,7 @@
       ]
     },
     "GFActionInterceptor": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "extensions/action_queue",
       "package_id": "gf.extension.action_queue",
@@ -1053,6 +1058,7 @@
       ]
     },
     "GFActionQueueSystem": {
+      "owner_kind": "class",
       "extends": "GFSystem",
       "module": "extensions/action_queue",
       "package_id": "gf.extension.action_queue",
@@ -1310,6 +1316,7 @@
       ]
     },
     "GFActivationTransaction": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.base",
@@ -1448,6 +1455,7 @@
       ]
     },
     "GFAnalyticsConfig": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "standard",
       "package_id": "gf.standard.base",
@@ -1593,6 +1601,7 @@
       ]
     },
     "GFAnalyticsEventSchema": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "standard",
       "package_id": "gf.standard.base",
@@ -1661,6 +1670,7 @@
       ]
     },
     "GFAnalyticsOutboxAdapter": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.assets",
@@ -1785,6 +1795,7 @@
       ]
     },
     "GFAnalyticsSchemaRegistry": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "standard",
       "package_id": "gf.standard.base",
@@ -1839,6 +1850,7 @@
       ]
     },
     "GFAnalyticsUtility": {
+      "owner_kind": "class",
       "extends": "GFUtility",
       "module": "standard",
       "package_id": "gf.standard.base",
@@ -2019,6 +2031,7 @@
       ]
     },
     "GFArchitecture": {
+      "owner_kind": "class",
       "extends": "",
       "module": "kernel",
       "package_id": "gf.kernel",
@@ -2899,6 +2912,7 @@
       ]
     },
     "GFArchitectureShutdownResult": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "kernel",
       "package_id": "gf.kernel",
@@ -3065,6 +3079,7 @@
       ]
     },
     "GFArtifactFreshnessReport": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.base",
@@ -3140,6 +3155,7 @@
       ]
     },
     "GFArtifactWriteTransaction": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "kernel",
       "package_id": "gf.kernel",
@@ -3306,6 +3322,7 @@
       ]
     },
     "GFAssetAttributionTools": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "extensions/asset_metadata",
       "package_id": "gf.extension.asset_metadata",
@@ -3346,6 +3363,7 @@
       ]
     },
     "GFAssetBrowserModel": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "tools",
       "package_id": "gf.tool.asset_browser",
@@ -3498,6 +3516,7 @@
       ]
     },
     "GFAssetCatalog": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "standard",
       "package_id": "gf.standard.assets",
@@ -3727,6 +3746,7 @@
       ]
     },
     "GFAssetCatalogEntry": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "standard",
       "package_id": "gf.standard.assets",
@@ -3879,6 +3899,7 @@
       ]
     },
     "GFAssetCatalogMount": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.assets",
@@ -4017,6 +4038,7 @@
       ]
     },
     "GFAssetCatalogRuntime": {
+      "owner_kind": "class",
       "extends": "GFUtility",
       "module": "standard",
       "package_id": "gf.standard.assets",
@@ -4120,6 +4142,7 @@
       ]
     },
     "GFAssetCatalogSourceProvider": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.assets",
@@ -4181,6 +4204,7 @@
       ]
     },
     "GFAssetCatalogSourceRegistry": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.assets",
@@ -4242,6 +4266,7 @@
       ]
     },
     "GFAssetCollection": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "standard",
       "package_id": "gf.standard.assets",
@@ -4366,6 +4391,7 @@
       ]
     },
     "GFAssetHandle": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.assets",
@@ -4441,6 +4467,7 @@
       ]
     },
     "GFAssetLoadSession": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.assets",
@@ -4537,6 +4564,7 @@
       ]
     },
     "GFAssetLoadSessionResult": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.assets",
@@ -4661,6 +4689,7 @@
       ]
     },
     "GFAssetMetadataGltfDocumentExtension": {
+      "owner_kind": "class",
       "extends": "GLTFDocumentExtension",
       "module": "extensions/asset_metadata",
       "package_id": "gf.extension.asset_metadata",
@@ -4680,6 +4709,7 @@
       ]
     },
     "GFAssetMetadataRecord": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "extensions/asset_metadata",
       "package_id": "gf.extension.asset_metadata",
@@ -4776,6 +4806,7 @@
       ]
     },
     "GFAssetMetadataUtility": {
+      "owner_kind": "class",
       "extends": "GFUtility",
       "module": "extensions/asset_metadata",
       "package_id": "gf.extension.asset_metadata",
@@ -4900,6 +4931,7 @@
       ]
     },
     "GFAssetPreloadPlan": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "standard",
       "package_id": "gf.standard.assets",
@@ -5066,6 +5098,7 @@
       ]
     },
     "GFAssetSlot": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.assets",
@@ -5169,6 +5202,7 @@
       ]
     },
     "GFAssetUtility": {
+      "owner_kind": "class",
       "extends": "GFUtility",
       "module": "standard",
       "package_id": "gf.standard.assets",
@@ -5489,6 +5523,7 @@
       ]
     },
     "GFAsyncBatch": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.assets",
@@ -5718,6 +5753,7 @@
       ]
     },
     "GFAsyncChannel": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.base",
@@ -5961,6 +5997,7 @@
       ]
     },
     "GFAsyncCompletion": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "kernel",
       "package_id": "gf.kernel",
@@ -6113,6 +6150,7 @@
       ]
     },
     "GFAsyncFlowTools": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.base",
@@ -6195,6 +6233,7 @@
       ]
     },
     "GFAsyncGateLease": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.base",
@@ -6277,6 +6316,7 @@
       ]
     },
     "GFAsyncKeyedGate": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.base",
@@ -6667,6 +6707,7 @@
       ]
     },
     "GFAsyncProgress": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.base",
@@ -6770,6 +6811,7 @@
       ]
     },
     "GFAsyncProgressAggregator": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.base",
@@ -6929,6 +6971,7 @@
       ]
     },
     "GFAsyncScope": {
+      "owner_kind": "class",
       "extends": "GFCancellationToken",
       "module": "kernel",
       "package_id": "gf.kernel",
@@ -6990,6 +7033,7 @@
       ]
     },
     "GFAsyncTrackerUtility": {
+      "owner_kind": "class",
       "extends": "GFUtility",
       "module": "standard",
       "package_id": "gf.standard.diagnostics",
@@ -7142,6 +7186,7 @@
       ]
     },
     "GFAsyncWaitUtility": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.base",
@@ -7245,6 +7290,7 @@
       ]
     },
     "GFAttributeSet": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "extensions/domain",
       "package_id": "gf.extension.domain",
@@ -7446,6 +7492,7 @@
       ]
     },
     "GFAudioAction": {
+      "owner_kind": "class",
       "extends": "GFVisualAction",
       "module": "extensions/action_queue",
       "package_id": "gf.extension.action_queue",
@@ -7493,6 +7540,7 @@
       ]
     },
     "GFAudioBackend": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.audio",
@@ -7778,6 +7826,7 @@
       ]
     },
     "GFAudioBackendCapability": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "standard",
       "package_id": "gf.standard.audio",
@@ -7895,6 +7944,7 @@
       ]
     },
     "GFAudioBank": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "standard",
       "package_id": "gf.standard.audio",
@@ -8033,6 +8083,7 @@
       ]
     },
     "GFAudioBankMounter": {
+      "owner_kind": "class",
       "extends": "Node",
       "module": "standard",
       "package_id": "gf.standard.audio",
@@ -8129,6 +8180,7 @@
       ]
     },
     "GFAudioBankTools": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.audio.editor",
@@ -8260,6 +8312,7 @@
       ]
     },
     "GFAudioBeatClock": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.audio",
@@ -8503,6 +8556,7 @@
       ]
     },
     "GFAudioCatalogProvider": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.audio",
@@ -8578,6 +8632,7 @@
       ]
     },
     "GFAudioClip": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "standard",
       "package_id": "gf.standard.audio",
@@ -8716,6 +8771,7 @@
       ]
     },
     "GFAudioEmitterHandle": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.audio",
@@ -8868,6 +8924,7 @@
       ]
     },
     "GFAudioEvent": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "standard",
       "package_id": "gf.standard.audio",
@@ -8943,6 +9000,7 @@
       ]
     },
     "GFAudioLibraryTools": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.audio.editor",
@@ -9018,6 +9076,7 @@
       ]
     },
     "GFAudioMetadataTools": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.audio",
@@ -9107,6 +9166,7 @@
       ]
     },
     "GFAudioParameter": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "standard",
       "package_id": "gf.standard.audio",
@@ -9154,6 +9214,7 @@
       ]
     },
     "GFAudioPitchAnalysisTools": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.audio",
@@ -9250,6 +9311,7 @@
       ]
     },
     "GFAudioPlaybackRegion": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "standard",
       "package_id": "gf.standard.audio",
@@ -9325,6 +9387,7 @@
       ]
     },
     "GFAudioPlaybackRegionResult": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.audio",
@@ -9435,6 +9498,7 @@
       ]
     },
     "GFAudioSpatialSettings": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "standard",
       "package_id": "gf.standard.audio",
@@ -9580,6 +9644,7 @@
       ]
     },
     "GFAudioState": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "standard",
       "package_id": "gf.standard.audio",
@@ -9620,6 +9685,7 @@
       ]
     },
     "GFAudioSwitch": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "standard",
       "package_id": "gf.standard.audio",
@@ -9667,6 +9733,7 @@
       ]
     },
     "GFAudioUtility": {
+      "owner_kind": "class",
       "extends": "GFUtility",
       "module": "standard",
       "package_id": "gf.standard.audio",
@@ -10239,6 +10306,7 @@
       ]
     },
     "GFBackgroundWorkTask": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.assets",
@@ -10405,6 +10473,7 @@
       ]
     },
     "GFBackgroundWorkUtility": {
+      "owner_kind": "class",
       "extends": "GFUtility",
       "module": "standard",
       "package_id": "gf.standard.assets",
@@ -10662,6 +10731,7 @@
       ]
     },
     "GFBakeDependencyReport": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "kernel",
       "package_id": "gf.kernel",
@@ -10821,6 +10891,7 @@
       ]
     },
     "GFBatchedLogSink": {
+      "owner_kind": "class",
       "extends": "GFLogSink",
       "module": "standard",
       "package_id": "gf.standard.base",
@@ -10945,6 +11016,7 @@
       ]
     },
     "GFBehaviorTree": {
+      "owner_kind": "class",
       "extends": "",
       "module": "extensions/behavior_tree",
       "package_id": "gf.extension.behavior_tree",
@@ -10985,6 +11057,7 @@
       ]
     },
     "GFBgmSessionHandle": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.audio",
@@ -11074,6 +11147,7 @@
       ]
     },
     "GFBgmStartOperation": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.audio",
@@ -11128,6 +11202,7 @@
       ]
     },
     "GFBgmStartResult": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.audio",
@@ -11399,6 +11474,7 @@
       ]
     },
     "GFBigNumber": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.deterministic",
@@ -11572,6 +11648,7 @@
       ]
     },
     "GFBindBuilder": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "kernel",
       "package_id": "gf.kernel",
@@ -11619,6 +11696,7 @@
       ]
     },
     "GFBindableProperty": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "kernel",
       "package_id": "gf.kernel",
@@ -11785,6 +11863,7 @@
       ]
     },
     "GFBinder": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "kernel",
       "package_id": "gf.kernel",
@@ -11825,6 +11904,7 @@
       ]
     },
     "GFBindingLifetimes": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "kernel",
       "package_id": "gf.kernel",
@@ -11844,6 +11924,7 @@
       ]
     },
     "GFBlackboardEntry": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "standard",
       "package_id": "gf.standard.base",
@@ -11954,6 +12035,7 @@
       ]
     },
     "GFBlackboardSchema": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "standard",
       "package_id": "gf.standard.base",
@@ -12078,6 +12160,7 @@
       ]
     },
     "GFBoundedJsonObjectReader": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "kernel",
       "package_id": "gf.kernel",
@@ -12132,6 +12215,7 @@
       ]
     },
     "GFBridgeContractReport": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.base",
@@ -12326,6 +12410,7 @@
       ]
     },
     "GFBudgetLedger": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.base",
@@ -12436,6 +12521,7 @@
       ]
     },
     "GFBuff": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "extensions/combat",
       "package_id": "gf.extension.combat",
@@ -12693,6 +12779,7 @@
       ]
     },
     "GFBuffCheck": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "extensions/combat",
       "package_id": "gf.extension.combat",
@@ -12733,6 +12820,7 @@
       ]
     },
     "GFBuffEffect": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "extensions/combat",
       "package_id": "gf.extension.combat",
@@ -12843,6 +12931,7 @@
       ]
     },
     "GFBuffRecipe": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "extensions/combat",
       "package_id": "gf.extension.combat",
@@ -12981,6 +13070,7 @@
       ]
     },
     "GFBuildInfo": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "standard",
       "package_id": "gf.standard.diagnostics",
@@ -13238,6 +13328,7 @@
       ]
     },
     "GFBuildInfoExportPlugin": {
+      "owner_kind": "class",
       "extends": "EditorExportPlugin",
       "module": "standard",
       "package_id": "gf.standard.debug.editor",
@@ -13285,6 +13376,7 @@
       ]
     },
     "GFBuildInfoUtility": {
+      "owner_kind": "class",
       "extends": "GFUtility",
       "module": "standard",
       "package_id": "gf.standard.diagnostics",
@@ -13353,6 +13445,7 @@
       ]
     },
     "GFBuoyancyField3D": {
+      "owner_kind": "class",
       "extends": "Node3D",
       "module": "extensions/physics",
       "package_id": "gf.extension.physics",
@@ -13484,6 +13577,7 @@
       ]
     },
     "GFBuoyancyMath3D": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "extensions/physics",
       "package_id": "gf.extension.physics",
@@ -13524,6 +13618,7 @@
       ]
     },
     "GFByteCursor": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.base",
@@ -13865,6 +13960,7 @@
       ]
     },
     "GFCacheDiagnostics": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.base",
@@ -13940,6 +14036,7 @@
       ]
     },
     "GFCalendarGrid": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.base",
@@ -14064,6 +14161,7 @@
       ]
     },
     "GFCalendarGridTools": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.base",
@@ -14083,6 +14181,7 @@
       ]
     },
     "GFCallableAction": {
+      "owner_kind": "class",
       "extends": "GFVisualAction",
       "module": "extensions/action_queue",
       "package_id": "gf.extension.action_queue",
@@ -14116,6 +14215,7 @@
       ]
     },
     "GFCallableRuntimeTask": {
+      "owner_kind": "class",
       "extends": "GFRuntimeTask",
       "module": "standard",
       "package_id": "gf.standard.base",
@@ -14219,6 +14319,7 @@
       ]
     },
     "GFCallableTargetRef": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "standard",
       "package_id": "gf.standard.base",
@@ -14294,6 +14395,7 @@
       ]
     },
     "GFCameraBlend": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "extensions/camera",
       "package_id": "gf.extension.camera",
@@ -14348,6 +14450,7 @@
       ]
     },
     "GFCameraDirector2D": {
+      "owner_kind": "class",
       "extends": "Node",
       "module": "extensions/camera",
       "package_id": "gf.extension.camera",
@@ -14500,6 +14603,7 @@
       ]
     },
     "GFCameraDirector3D": {
+      "owner_kind": "class",
       "extends": "Node",
       "module": "extensions/camera",
       "package_id": "gf.extension.camera",
@@ -14652,6 +14756,7 @@
       ]
     },
     "GFCameraOrbitInput3D": {
+      "owner_kind": "class",
       "extends": "Node",
       "module": "extensions/camera",
       "package_id": "gf.extension.camera",
@@ -14832,6 +14937,7 @@
       ]
     },
     "GFCameraOrbitRig3D": {
+      "owner_kind": "class",
       "extends": "GFCameraRig3D",
       "module": "extensions/camera",
       "package_id": "gf.extension.camera",
@@ -14970,6 +15076,7 @@
       ]
     },
     "GFCameraRig2D": {
+      "owner_kind": "class",
       "extends": "Node2D",
       "module": "extensions/camera",
       "package_id": "gf.extension.camera",
@@ -15122,6 +15229,7 @@
       ]
     },
     "GFCameraRig3D": {
+      "owner_kind": "class",
       "extends": "Node3D",
       "module": "extensions/camera",
       "package_id": "gf.extension.camera",
@@ -15288,6 +15396,7 @@
       ]
     },
     "GFCancellationSource": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "kernel",
       "package_id": "gf.kernel",
@@ -15370,6 +15479,7 @@
       ]
     },
     "GFCancellationToken": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "kernel",
       "package_id": "gf.kernel",
@@ -15424,6 +15534,7 @@
       ]
     },
     "GFCapability": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "extensions/capability",
       "package_id": "gf.extension.capability",
@@ -15520,6 +15631,7 @@
       ]
     },
     "GFCapabilityContainer": {
+      "owner_kind": "class",
       "extends": "Node",
       "module": "extensions/capability",
       "package_id": "gf.extension.capability",
@@ -15560,6 +15672,7 @@
       ]
     },
     "GFCapabilityQuery": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "extensions/capability",
       "package_id": "gf.extension.capability",
@@ -15642,6 +15755,7 @@
       ]
     },
     "GFCapabilityRecipe": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "extensions/capability",
       "package_id": "gf.extension.capability",
@@ -15724,6 +15838,7 @@
       ]
     },
     "GFCapabilityRecipeEntry": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "extensions/capability",
       "package_id": "gf.extension.capability",
@@ -15785,6 +15900,7 @@
       ]
     },
     "GFCapabilityUtility": {
+      "owner_kind": "class",
       "extends": "GFUtility",
       "module": "extensions/capability",
       "package_id": "gf.extension.capability",
@@ -16098,6 +16214,7 @@
       ]
     },
     "GFCivilDate": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.base",
@@ -16285,6 +16402,7 @@
       ]
     },
     "GFCivilDateDifferenceResult": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.base",
@@ -16346,6 +16464,7 @@
       ]
     },
     "GFCivilDateResult": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.base",
@@ -16414,6 +16533,7 @@
       ]
     },
     "GFClock": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "kernel",
       "package_id": "gf.kernel",
@@ -16454,6 +16574,7 @@
       ]
     },
     "GFCollisionBroadphase2D": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.spatial",
@@ -16557,6 +16678,7 @@
       ]
     },
     "GFCollisionBroadphase3D": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.spatial",
@@ -16646,6 +16768,7 @@
       ]
     },
     "GFCollisionNarrowphase2D": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.spatial",
@@ -16742,6 +16865,7 @@
       ]
     },
     "GFCombatAction": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "extensions/combat",
       "package_id": "gf.extension.combat",
@@ -16887,6 +17011,7 @@
       ]
     },
     "GFCombatActionModifier": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "extensions/combat",
       "package_id": "gf.extension.combat",
@@ -17004,6 +17129,7 @@
       ]
     },
     "GFCombatActionResult": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "extensions/combat",
       "package_id": "gf.extension.combat",
@@ -17093,6 +17219,7 @@
       ]
     },
     "GFCombatGauge": {
+      "owner_kind": "class",
       "extends": "Node",
       "module": "extensions/combat",
       "package_id": "gf.extension.combat",
@@ -17266,6 +17393,7 @@
       ]
     },
     "GFCombatHitContext": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "extensions/combat",
       "package_id": "gf.extension.combat",
@@ -17418,6 +17546,7 @@
       ]
     },
     "GFCombatPayloads": {
+      "owner_kind": "class",
       "extends": "Node",
       "module": "extensions/combat",
       "package_id": "gf.extension.combat",
@@ -17429,6 +17558,7 @@
       "members": []
     },
     "GFCombatSystem": {
+      "owner_kind": "class",
       "extends": "GFSystem",
       "module": "extensions/combat",
       "package_id": "gf.extension.combat",
@@ -17553,6 +17683,7 @@
       ]
     },
     "GFCommand": {
+      "owner_kind": "class",
       "extends": "",
       "module": "kernel",
       "package_id": "gf.kernel",
@@ -17621,6 +17752,7 @@
       ]
     },
     "GFCommandHistoryUtility": {
+      "owner_kind": "class",
       "extends": "GFUtility",
       "module": "standard",
       "package_id": "gf.standard.storage",
@@ -17787,6 +17919,7 @@
       ]
     },
     "GFCommandSequence": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.base",
@@ -17981,6 +18114,7 @@
       ]
     },
     "GFCompatibilityPreflight": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.base",
@@ -18140,6 +18274,7 @@
       ]
     },
     "GFCompatibilityProfile": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "standard",
       "package_id": "gf.standard.base",
@@ -18320,6 +18455,7 @@
       ]
     },
     "GFComputedProperty": {
+      "owner_kind": "class",
       "extends": "GFBindableProperty",
       "module": "kernel",
       "package_id": "gf.kernel",
@@ -18430,6 +18566,7 @@
       ]
     },
     "GFConfig": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "kernel",
       "package_id": "gf.kernel",
@@ -18456,6 +18593,7 @@
       ]
     },
     "GFConfigAccessGenerator": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "tools",
       "package_id": "gf.tool.config_pipeline",
@@ -18531,6 +18669,7 @@
       ]
     },
     "GFConfigBuildProfile": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "standard",
       "package_id": "gf.standard.config",
@@ -18648,6 +18787,7 @@
       ]
     },
     "GFConfigDatabaseResource": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "standard",
       "package_id": "gf.standard.config",
@@ -18786,6 +18926,7 @@
       ]
     },
     "GFConfigLocalizationKeyValidationRule": {
+      "owner_kind": "class",
       "extends": "GFConfigValidationRule",
       "module": "standard",
       "package_id": "gf.standard.config",
@@ -18854,6 +18995,7 @@
       ]
     },
     "GFConfigNotDefaultValidationRule": {
+      "owner_kind": "class",
       "extends": "GFConfigValidationRule",
       "module": "standard",
       "package_id": "gf.standard.config",
@@ -18901,6 +19043,7 @@
       ]
     },
     "GFConfigPipeline": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "tools",
       "package_id": "gf.tool.config_pipeline",
@@ -18983,6 +19126,7 @@
       ]
     },
     "GFConfigPipelineArtifactManifest": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "tools",
       "package_id": "gf.tool.config_pipeline",
@@ -19051,6 +19195,7 @@
       ]
     },
     "GFConfigPipelineCommand": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "tools",
       "package_id": "gf.tool.config_pipeline",
@@ -19084,6 +19229,7 @@
       ]
     },
     "GFConfigPipelineCommitStage": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "tools",
       "package_id": "gf.tool.config_pipeline",
@@ -19138,6 +19284,7 @@
       ]
     },
     "GFConfigPipelineIR": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "tools",
       "package_id": "gf.tool.config_pipeline",
@@ -19248,6 +19395,7 @@
       ]
     },
     "GFConfigPipelineLayoutStage": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "tools",
       "package_id": "gf.tool.config_pipeline",
@@ -19288,6 +19436,7 @@
       ]
     },
     "GFConfigPipelineProfile": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "tools",
       "package_id": "gf.tool.config_pipeline",
@@ -19447,6 +19596,7 @@
       ]
     },
     "GFConfigPipelineReaderStage": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "tools",
       "package_id": "gf.tool.config_pipeline",
@@ -19487,6 +19637,7 @@
       ]
     },
     "GFConfigPipelineRunner": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "tools",
       "package_id": "gf.tool.config_pipeline",
@@ -19520,6 +19671,7 @@
       ]
     },
     "GFConfigPipelineTableIR": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "tools",
       "package_id": "gf.tool.config_pipeline",
@@ -19623,6 +19775,7 @@
       ]
     },
     "GFConfigPipelineTableSource": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "tools",
       "package_id": "gf.tool.config_pipeline",
@@ -19761,6 +19914,7 @@
       ]
     },
     "GFConfigPipelineTargetStage": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "tools",
       "package_id": "gf.tool.config_pipeline",
@@ -19822,6 +19976,7 @@
       ]
     },
     "GFConfigPipelineValidationStage": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "tools",
       "package_id": "gf.tool.config_pipeline",
@@ -19862,6 +20017,7 @@
       ]
     },
     "GFConfigProvider": {
+      "owner_kind": "class",
       "extends": "GFUtility",
       "module": "standard",
       "package_id": "gf.standard.config",
@@ -19944,6 +20100,7 @@
       ]
     },
     "GFConfigProviderAdapter": {
+      "owner_kind": "class",
       "extends": "GFConfigProvider",
       "module": "standard",
       "package_id": "gf.standard.config",
@@ -20068,6 +20225,7 @@
       ]
     },
     "GFConfigRangeValidationRule": {
+      "owner_kind": "class",
       "extends": "GFConfigValidationRule",
       "module": "standard",
       "package_id": "gf.standard.config",
@@ -20143,6 +20301,7 @@
       ]
     },
     "GFConfigReferenceResolver": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.config",
@@ -20176,6 +20335,7 @@
       ]
     },
     "GFConfigRegexValidationRule": {
+      "owner_kind": "class",
       "extends": "GFConfigValidationRule",
       "module": "standard",
       "package_id": "gf.standard.config",
@@ -20230,6 +20390,7 @@
       ]
     },
     "GFConfigResourcePathValidationRule": {
+      "owner_kind": "class",
       "extends": "GFConfigValidationRule",
       "module": "standard",
       "package_id": "gf.standard.config",
@@ -20305,6 +20466,7 @@
       ]
     },
     "GFConfigSetValidationRule": {
+      "owner_kind": "class",
       "extends": "GFConfigValidationRule",
       "module": "standard",
       "package_id": "gf.standard.config",
@@ -20352,6 +20514,7 @@
       ]
     },
     "GFConfigSizeValidationRule": {
+      "owner_kind": "class",
       "extends": "GFConfigValidationRule",
       "module": "standard",
       "package_id": "gf.standard.config",
@@ -20420,6 +20583,7 @@
       ]
     },
     "GFConfigTableColumn": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "standard",
       "package_id": "gf.standard.config",
@@ -20530,6 +20694,7 @@
       ]
     },
     "GFConfigTableEditorTools": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.config.editor",
@@ -20654,6 +20819,7 @@
       ]
     },
     "GFConfigTableImporter": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.config",
@@ -20729,6 +20895,7 @@
       ]
     },
     "GFConfigTableIndexDefinition": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "standard",
       "package_id": "gf.standard.config",
@@ -20811,6 +20978,7 @@
       ]
     },
     "GFConfigTableMergePolicy": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "standard",
       "package_id": "gf.standard.config",
@@ -20928,6 +21096,7 @@
       ]
     },
     "GFConfigTableMergeTools": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.config",
@@ -20947,6 +21116,7 @@
       ]
     },
     "GFConfigTableQuery": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.config",
@@ -21148,6 +21318,7 @@
       ]
     },
     "GFConfigTableReference": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "standard",
       "package_id": "gf.standard.config",
@@ -21258,6 +21429,7 @@
       ]
     },
     "GFConfigTableResource": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "standard",
       "package_id": "gf.standard.config",
@@ -21417,6 +21589,7 @@
       ]
     },
     "GFConfigTableSchema": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "standard",
       "package_id": "gf.standard.config",
@@ -21632,6 +21805,7 @@
       ]
     },
     "GFConfigValidationReport": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.config",
@@ -21686,6 +21860,7 @@
       ]
     },
     "GFConfigValidationRule": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "standard",
       "package_id": "gf.standard.config",
@@ -21824,6 +21999,7 @@
       ]
     },
     "GFConfiguredTweenAction": {
+      "owner_kind": "class",
       "extends": "GFVisualAction",
       "module": "extensions/action_queue",
       "package_id": "gf.extension.action_queue",
@@ -21906,6 +22082,7 @@
       ]
     },
     "GFConsoleCommandDefinition": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "standard",
       "package_id": "gf.standard.diagnostics",
@@ -21960,6 +22137,7 @@
       ]
     },
     "GFConsoleUtility": {
+      "owner_kind": "class",
       "extends": "GFUtility",
       "module": "standard",
       "package_id": "gf.standard.diagnostics",
@@ -22182,6 +22360,7 @@
       ]
     },
     "GFContentPackageAssetCatalogProvider": {
+      "owner_kind": "class",
       "extends": "GFAssetCatalogSourceProvider",
       "module": "extensions/content_package",
       "package_id": "gf.extension.content_package",
@@ -22215,6 +22394,7 @@
       ]
     },
     "GFContentPackageCatalog": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "extensions/content_package",
       "package_id": "gf.extension.content_package",
@@ -22318,6 +22498,7 @@
       ]
     },
     "GFContentPackageExportPlan": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "extensions/content_package",
       "package_id": "gf.extension.content_package",
@@ -22449,6 +22630,7 @@
       ]
     },
     "GFContentPackageManifest": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "extensions/content_package",
       "package_id": "gf.extension.content_package",
@@ -22657,6 +22839,7 @@
       ]
     },
     "GFContentPackageQuery": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "extensions/content_package",
       "package_id": "gf.extension.content_package",
@@ -22788,6 +22971,7 @@
       ]
     },
     "GFContentPackageQueryResult": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "extensions/content_package",
       "package_id": "gf.extension.content_package",
@@ -22884,6 +23068,7 @@
       ]
     },
     "GFContentPackageUtility": {
+      "owner_kind": "class",
       "extends": "GFUtility",
       "module": "extensions/content_package",
       "package_id": "gf.extension.content_package",
@@ -23029,6 +23214,7 @@
       ]
     },
     "GFControlCapability": {
+      "owner_kind": "class",
       "extends": "Control",
       "module": "extensions/capability",
       "package_id": "gf.extension.capability",
@@ -23125,6 +23311,7 @@
       ]
     },
     "GFControlFocusUtility": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.ui",
@@ -23200,6 +23387,7 @@
       ]
     },
     "GFControlValueAdapter": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.ui",
@@ -23247,6 +23435,7 @@
       ]
     },
     "GFController": {
+      "owner_kind": "class",
       "extends": "Node",
       "module": "kernel",
       "package_id": "gf.kernel",
@@ -23427,6 +23616,7 @@
       ]
     },
     "GFCurve2DMath": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.spatial",
@@ -23558,6 +23748,7 @@
       ]
     },
     "GFCurve3DMath": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.spatial",
@@ -23612,6 +23803,7 @@
       ]
     },
     "GFDataProjection": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.base",
@@ -23652,6 +23844,7 @@
       ]
     },
     "GFDebugDrawUtility": {
+      "owner_kind": "class",
       "extends": "GFUtility",
       "module": "standard",
       "package_id": "gf.standard.debug",
@@ -23832,6 +24025,7 @@
       ]
     },
     "GFDebugOverlayUtility": {
+      "owner_kind": "class",
       "extends": "GFUtility",
       "module": "standard",
       "package_id": "gf.standard.debug",
@@ -24124,6 +24318,7 @@
       ]
     },
     "GFDecisionBlackboard": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "extensions/decision",
       "package_id": "gf.extension.decision",
@@ -24220,6 +24415,7 @@
       ]
     },
     "GFDecisionConsideration": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "extensions/decision",
       "package_id": "gf.extension.decision",
@@ -24351,6 +24547,7 @@
       ]
     },
     "GFDecisionContext": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "extensions/decision",
       "package_id": "gf.extension.decision",
@@ -24503,6 +24700,7 @@
       ]
     },
     "GFDecisionEvaluation": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "extensions/decision",
       "package_id": "gf.extension.decision",
@@ -24571,6 +24769,7 @@
       ]
     },
     "GFDecisionOption": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "extensions/decision",
       "package_id": "gf.extension.decision",
@@ -24695,6 +24894,7 @@
       ]
     },
     "GFDecisionScore": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "extensions/decision",
       "package_id": "gf.extension.decision",
@@ -24770,6 +24970,7 @@
       ]
     },
     "GFDecisionSet": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "extensions/decision",
       "package_id": "gf.extension.decision",
@@ -24894,6 +25095,7 @@
       ]
     },
     "GFDecisionUtility": {
+      "owner_kind": "class",
       "extends": "GFUtility",
       "module": "extensions/decision",
       "package_id": "gf.extension.decision",
@@ -24997,6 +25199,7 @@
       ]
     },
     "GFDeferredMutationQueue": {
+      "owner_kind": "class",
       "extends": "GFUtility",
       "module": "standard",
       "package_id": "gf.standard.base",
@@ -25170,6 +25373,7 @@
       ]
     },
     "GFDelimitedTextTools": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.base",
@@ -25231,6 +25435,7 @@
       ]
     },
     "GFDependencyGraphTools": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "kernel",
       "package_id": "gf.kernel",
@@ -25250,6 +25455,7 @@
       ]
     },
     "GFDeque": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.base",
@@ -25402,6 +25608,7 @@
       ]
     },
     "GFDerivedAttributeRule": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "extensions/domain",
       "package_id": "gf.extension.domain",
@@ -25519,6 +25726,7 @@
       ]
     },
     "GFDeterministicRandom": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.deterministic",
@@ -25636,6 +25844,7 @@
       ]
     },
     "GFDeterministicVariantSerializer": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.deterministic",
@@ -25676,6 +25885,7 @@
       ]
     },
     "GFDiagnosticProviderResult": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.diagnostics",
@@ -25737,6 +25947,7 @@
       ]
     },
     "GFDiagnosticSnapshotProvider": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.diagnostics",
@@ -25805,6 +26016,7 @@
       ]
     },
     "GFDiagnosticsDock": {
+      "owner_kind": "class",
       "extends": "Control",
       "module": "standard",
       "package_id": "gf.standard.debug.editor",
@@ -25838,6 +26050,7 @@
       ]
     },
     "GFDiagnosticsUtility": {
+      "owner_kind": "class",
       "extends": "GFUtility",
       "module": "standard",
       "package_id": "gf.standard.diagnostics",
@@ -26354,6 +26567,7 @@
       ]
     },
     "GFDialogueContext": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "extensions/dialogue",
       "package_id": "gf.extension.dialogue",
@@ -26457,6 +26671,7 @@
       ]
     },
     "GFDialogueLine": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "extensions/dialogue",
       "package_id": "gf.extension.dialogue",
@@ -26623,6 +26838,7 @@
       ]
     },
     "GFDialogueResource": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "extensions/dialogue",
       "package_id": "gf.extension.dialogue",
@@ -26705,6 +26921,7 @@
       ]
     },
     "GFDialogueResponse": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "extensions/dialogue",
       "package_id": "gf.extension.dialogue",
@@ -26801,6 +27018,7 @@
       ]
     },
     "GFDialogueRunner": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "extensions/dialogue",
       "package_id": "gf.extension.dialogue",
@@ -26939,6 +27157,7 @@
       ]
     },
     "GFDialogueTextCompiler": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "tools",
       "package_id": "gf.tool.dialogue_text",
@@ -26979,6 +27198,7 @@
       ]
     },
     "GFDictionarySchema": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "standard",
       "package_id": "gf.standard.base",
@@ -27124,6 +27344,7 @@
       ]
     },
     "GFDirectoryChangeSet": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.assets",
@@ -27227,6 +27448,7 @@
       ]
     },
     "GFDirectoryWatchUtility": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.assets",
@@ -27372,6 +27594,7 @@
       ]
     },
     "GFDisplaySettingsUtility": {
+      "owner_kind": "class",
       "extends": "GFUtility",
       "module": "standard",
       "package_id": "gf.standard.display.settings",
@@ -27629,6 +27852,7 @@
       ]
     },
     "GFDownloadTask": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.assets",
@@ -27802,6 +28026,7 @@
       ]
     },
     "GFDownloadUtility": {
+      "owner_kind": "class",
       "extends": "GFUtility",
       "module": "standard",
       "package_id": "gf.standard.assets",
@@ -28031,6 +28256,7 @@
       ]
     },
     "GFDragDropController": {
+      "owner_kind": "class",
       "extends": "Node",
       "module": "standard",
       "package_id": "gf.standard.input",
@@ -28225,6 +28451,7 @@
       ]
     },
     "GFDragDropUtility": {
+      "owner_kind": "class",
       "extends": "GFUtility",
       "module": "standard",
       "package_id": "gf.standard.input",
@@ -28412,6 +28639,7 @@
       ]
     },
     "GFDragSession": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.input",
@@ -28508,6 +28736,7 @@
       ]
     },
     "GFDriftReport": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.base",
@@ -28555,6 +28784,7 @@
       ]
     },
     "GFDropZone": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.input",
@@ -28672,6 +28902,7 @@
       ]
     },
     "GFDualMeshTopology2D": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.spatial",
@@ -28726,6 +28957,7 @@
       ]
     },
     "GFENetNetworkBackend": {
+      "owner_kind": "class",
       "extends": "GFNetworkBackend",
       "module": "extensions/network",
       "package_id": "gf.extension.network",
@@ -28794,6 +29026,7 @@
       ]
     },
     "GFEditorActionDefinition": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "kernel",
       "package_id": "gf.kernel",
@@ -28967,6 +29200,7 @@
       ]
     },
     "GFEditorCommand": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "kernel",
       "package_id": "gf.kernel",
@@ -29105,6 +29339,7 @@
       ]
     },
     "GFEditorCommandRegistry": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "kernel",
       "package_id": "gf.kernel",
@@ -29257,6 +29492,7 @@
       ]
     },
     "GFEditorCommandSession": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "kernel",
       "package_id": "gf.kernel",
@@ -29339,6 +29575,7 @@
       ]
     },
     "GFEditorOperationPlan": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "kernel",
       "package_id": "gf.kernel",
@@ -29470,6 +29707,7 @@
       ]
     },
     "GFEditorPickOperation": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "kernel",
       "package_id": "gf.kernel",
@@ -29608,6 +29846,7 @@
       ]
     },
     "GFEditorPropertyBatchCommand": {
+      "owner_kind": "class",
       "extends": "GFEditorCommand",
       "module": "kernel",
       "package_id": "gf.kernel",
@@ -29753,6 +29992,7 @@
       ]
     },
     "GFEditorSceneMetadataPatch": {
+      "owner_kind": "class",
       "extends": "GFEditorCommand",
       "module": "kernel",
       "package_id": "gf.kernel",
@@ -29835,6 +30075,7 @@
       ]
     },
     "GFEditorTool": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "kernel",
       "package_id": "gf.kernel",
@@ -30043,6 +30284,7 @@
       ]
     },
     "GFEditorToolContext": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "kernel",
       "package_id": "gf.kernel",
@@ -30118,6 +30360,7 @@
       ]
     },
     "GFEditorToolOption": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "kernel",
       "package_id": "gf.kernel",
@@ -30249,6 +30492,7 @@
       ]
     },
     "GFEditorToolOptionSchema": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "kernel",
       "package_id": "gf.kernel",
@@ -30352,6 +30596,7 @@
       ]
     },
     "GFEditorTypeIndex": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "kernel",
       "package_id": "gf.kernel",
@@ -30434,6 +30679,7 @@
       ]
     },
     "GFEditorValueField": {
+      "owner_kind": "class",
       "extends": "HBoxContainer",
       "module": "kernel",
       "package_id": "gf.kernel",
@@ -30565,6 +30811,7 @@
       ]
     },
     "GFEquipmentSet": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "extensions/domain",
       "package_id": "gf.extension.domain",
@@ -30619,6 +30866,7 @@
       ]
     },
     "GFEquipmentSlot": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "extensions/domain",
       "package_id": "gf.extension.domain",
@@ -30687,6 +30935,7 @@
       ]
     },
     "GFEventListener": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "kernel",
       "package_id": "gf.kernel",
@@ -30769,6 +31018,7 @@
       ]
     },
     "GFExecutionBudget": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.base",
@@ -30956,6 +31206,7 @@
       ]
     },
     "GFExecutionLaneDiagnostics": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.base",
@@ -31150,6 +31401,7 @@
       ]
     },
     "GFExecutionRequirement": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.base",
@@ -31288,6 +31540,7 @@
       ]
     },
     "GFExtensionCatalog": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "kernel",
       "package_id": "gf.kernel",
@@ -31335,6 +31588,7 @@
       ]
     },
     "GFExtensionManifest": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "kernel",
       "package_id": "gf.kernel",
@@ -31529,6 +31783,7 @@
       ]
     },
     "GFExtensionManifestDiscovery": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "kernel",
       "package_id": "gf.kernel",
@@ -31555,6 +31810,7 @@
       ]
     },
     "GFExtensionPreset": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "kernel",
       "package_id": "gf.kernel",
@@ -31651,6 +31907,7 @@
       ]
     },
     "GFExtensionPresetDiscovery": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "kernel",
       "package_id": "gf.kernel",
@@ -31677,6 +31934,7 @@
       ]
     },
     "GFExtensionSelectionDiscovery": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "kernel",
       "package_id": "gf.kernel",
@@ -31724,6 +31982,7 @@
       ]
     },
     "GFExtensionSettings": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "kernel",
       "package_id": "gf.kernel",
@@ -32170,6 +32429,7 @@
       ]
     },
     "GFExtensionToolContribution": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "kernel",
       "package_id": "gf.kernel",
@@ -32210,6 +32470,7 @@
       ]
     },
     "GFExtensionUsageAudit": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "kernel",
       "package_id": "gf.kernel",
@@ -32348,6 +32609,7 @@
       ]
     },
     "GFFixedDecimal": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.deterministic",
@@ -32542,6 +32804,7 @@
       ]
     },
     "GFFixedTickClock": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "extensions/network",
       "package_id": "gf.extension.network",
@@ -32708,6 +32971,7 @@
       ]
     },
     "GFFixedVector2": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.deterministic",
@@ -32895,6 +33159,7 @@
       ]
     },
     "GFFixedVector3": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.deterministic",
@@ -33096,6 +33361,7 @@
       ]
     },
     "GFFlashAction": {
+      "owner_kind": "class",
       "extends": "GFVisualAction",
       "module": "extensions/action_queue",
       "package_id": "gf.extension.action_queue",
@@ -33178,6 +33444,7 @@
       ]
     },
     "GFFlowContext": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "extensions/flow",
       "package_id": "gf.extension.flow",
@@ -33344,6 +33611,7 @@
       ]
     },
     "GFFlowGraph": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "extensions/flow",
       "package_id": "gf.extension.flow",
@@ -33601,6 +33869,7 @@
       ]
     },
     "GFFlowGraphDock": {
+      "owner_kind": "class",
       "extends": "Control",
       "module": "extensions/flow",
       "package_id": "gf.extension.flow",
@@ -33641,6 +33910,7 @@
       ]
     },
     "GFFlowGraphEditorModel": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "extensions/flow",
       "package_id": "gf.extension.flow",
@@ -33744,6 +34014,7 @@
       ]
     },
     "GFFlowNode": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "extensions/flow",
       "package_id": "gf.extension.flow",
@@ -33945,6 +34216,7 @@
       ]
     },
     "GFFlowPort": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "extensions/flow",
       "package_id": "gf.extension.flow",
@@ -34083,6 +34355,7 @@
       ]
     },
     "GFFlowRunner": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "extensions/flow",
       "package_id": "gf.extension.flow",
@@ -34228,6 +34501,7 @@
       ]
     },
     "GFFormBinder": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.ui",
@@ -34303,6 +34577,7 @@
       ]
     },
     "GFFormula": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "standard",
       "package_id": "gf.standard.base",
@@ -34350,6 +34625,7 @@
       ]
     },
     "GFFormulaParameter": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.base",
@@ -34418,6 +34694,7 @@
       ]
     },
     "GFFormulaSet": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "standard",
       "package_id": "gf.standard.base",
@@ -34465,6 +34742,7 @@
       ]
     },
     "GFGeneratedArtifactReport": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "kernel",
       "package_id": "gf.kernel",
@@ -34561,6 +34839,7 @@
       ]
     },
     "GFGraphLayoutUtility": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.spatial",
@@ -34587,6 +34866,7 @@
       ]
     },
     "GFGraphMath": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.spatial",
@@ -34690,6 +34970,7 @@
       ]
     },
     "GFGraphPathSearchState": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.spatial",
@@ -34800,6 +35081,7 @@
       ]
     },
     "GFGravityField3D": {
+      "owner_kind": "class",
       "extends": "Node3D",
       "module": "extensions/physics",
       "package_id": "gf.extension.physics",
@@ -34924,6 +35206,7 @@
       ]
     },
     "GFGravityProbe3D": {
+      "owner_kind": "class",
       "extends": "Node3D",
       "module": "extensions/physics",
       "package_id": "gf.extension.physics",
@@ -35027,6 +35310,7 @@
       ]
     },
     "GFGrid3DMath": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.spatial",
@@ -35081,6 +35365,7 @@
       ]
     },
     "GFGridConnectionMath2D": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.spatial",
@@ -35100,6 +35385,7 @@
       ]
     },
     "GFGridCoordinateMath2D": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.spatial",
@@ -35224,6 +35510,7 @@
       ]
     },
     "GFGridGenerationMath2D": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.spatial",
@@ -35285,6 +35572,7 @@
       ]
     },
     "GFGridGenerationPipeline2D": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "standard",
       "package_id": "gf.standard.spatial",
@@ -35381,6 +35669,7 @@
       ]
     },
     "GFGridGenerationStep2D": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "standard",
       "package_id": "gf.standard.spatial",
@@ -35449,6 +35738,7 @@
       ]
     },
     "GFGridKey3D": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.spatial",
@@ -35580,6 +35870,7 @@
       ]
     },
     "GFGridMath": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.spatial",
@@ -35795,6 +36086,7 @@
       ]
     },
     "GFGridOccupancy": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.spatial",
@@ -35982,6 +36274,7 @@
       ]
     },
     "GFGridPathMath2D": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.spatial",
@@ -36029,6 +36322,7 @@
       ]
     },
     "GFGridPlaneMapper3D": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.spatial",
@@ -36104,6 +36398,7 @@
       ]
     },
     "GFGridSelection2D": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "standard",
       "package_id": "gf.standard.spatial",
@@ -36186,6 +36481,7 @@
       ]
     },
     "GFGridTransform2D": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.spatial",
@@ -36282,6 +36578,7 @@
       ]
     },
     "GFHapticBackend": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "extensions/feedback",
       "package_id": "gf.extension.feedback",
@@ -36322,6 +36619,7 @@
       ]
     },
     "GFHapticPreset": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "extensions/feedback",
       "package_id": "gf.extension.feedback",
@@ -36411,6 +36709,7 @@
       ]
     },
     "GFHapticUtility": {
+      "owner_kind": "class",
       "extends": "GFUtility",
       "module": "extensions/feedback",
       "package_id": "gf.extension.feedback",
@@ -36703,6 +37002,7 @@
       ]
     },
     "GFHeightfield3D": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.spatial",
@@ -36925,6 +37225,7 @@
       ]
     },
     "GFHexGridMath": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.spatial",
@@ -37112,6 +37413,7 @@
       ]
     },
     "GFHitBox2D": {
+      "owner_kind": "class",
       "extends": "Area2D",
       "module": "extensions/combat",
       "package_id": "gf.extension.combat",
@@ -37292,6 +37594,7 @@
       ]
     },
     "GFHitBox3D": {
+      "owner_kind": "class",
       "extends": "Area3D",
       "module": "extensions/combat",
       "package_id": "gf.extension.combat",
@@ -37472,6 +37775,7 @@
       ]
     },
     "GFHitBoxState2D": {
+      "owner_kind": "class",
       "extends": "Node2D",
       "module": "extensions/combat",
       "package_id": "gf.extension.combat",
@@ -37568,6 +37872,7 @@
       ]
     },
     "GFHitBoxState3D": {
+      "owner_kind": "class",
       "extends": "Node3D",
       "module": "extensions/combat",
       "package_id": "gf.extension.combat",
@@ -37664,6 +37969,7 @@
       ]
     },
     "GFHitCollisionShapeConfig2D": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "extensions/combat",
       "package_id": "gf.extension.combat",
@@ -37732,6 +38038,7 @@
       ]
     },
     "GFHitCollisionShapeConfig3D": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "extensions/combat",
       "package_id": "gf.extension.combat",
@@ -37800,6 +38107,7 @@
       ]
     },
     "GFHitScan2D": {
+      "owner_kind": "class",
       "extends": "RayCast2D",
       "module": "extensions/combat",
       "package_id": "gf.extension.combat",
@@ -37910,6 +38218,7 @@
       ]
     },
     "GFHitScan3D": {
+      "owner_kind": "class",
       "extends": "RayCast3D",
       "module": "extensions/combat",
       "package_id": "gf.extension.combat",
@@ -38020,6 +38329,7 @@
       ]
     },
     "GFHomingProjectileMotion": {
+      "owner_kind": "class",
       "extends": "GFProjectileMotion",
       "module": "extensions/combat",
       "package_id": "gf.extension.combat",
@@ -38095,6 +38405,7 @@
       ]
     },
     "GFHttpClientUtility": {
+      "owner_kind": "class",
       "extends": "GFUtility",
       "module": "standard",
       "package_id": "gf.standard.assets",
@@ -38184,6 +38495,7 @@
       ]
     },
     "GFHttpRequestBuilder": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.assets",
@@ -38378,6 +38690,7 @@
       ]
     },
     "GFHttpResponse": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.assets",
@@ -38551,6 +38864,7 @@
       ]
     },
     "GFHurtBox2D": {
+      "owner_kind": "class",
       "extends": "Area2D",
       "module": "extensions/combat",
       "package_id": "gf.extension.combat",
@@ -38710,6 +39024,7 @@
       ]
     },
     "GFHurtBox3D": {
+      "owner_kind": "class",
       "extends": "Area3D",
       "module": "extensions/combat",
       "package_id": "gf.extension.combat",
@@ -38869,6 +39184,7 @@
       ]
     },
     "GFImportPlan": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "standard",
       "package_id": "gf.standard.assets",
@@ -38986,6 +39302,7 @@
       ]
     },
     "GFInputAction": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "standard",
       "package_id": "gf.standard.input",
@@ -39075,6 +39392,7 @@
       ]
     },
     "GFInputAssistUtility": {
+      "owner_kind": "class",
       "extends": "GFUtility",
       "module": "standard",
       "package_id": "gf.standard.input",
@@ -39185,6 +39503,7 @@
       ]
     },
     "GFInputBinding": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "standard",
       "package_id": "gf.standard.input",
@@ -39295,6 +39614,7 @@
       ]
     },
     "GFInputChordTrigger": {
+      "owner_kind": "class",
       "extends": "GFInputTrigger",
       "module": "standard",
       "package_id": "gf.standard.input",
@@ -39335,6 +39655,7 @@
       ]
     },
     "GFInputConflictAnalyzer": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.input",
@@ -39389,6 +39710,7 @@
       ]
     },
     "GFInputContext": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "standard",
       "package_id": "gf.standard.input",
@@ -39436,6 +39758,7 @@
       ]
     },
     "GFInputContextDiagnostics": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.input",
@@ -39476,6 +39799,7 @@
       ]
     },
     "GFInputCurveModifier": {
+      "owner_kind": "class",
       "extends": "GFInputModifier",
       "module": "standard",
       "package_id": "gf.standard.input",
@@ -39537,6 +39861,7 @@
       ]
     },
     "GFInputDeadzoneModifier": {
+      "owner_kind": "class",
       "extends": "GFInputModifier",
       "module": "standard",
       "package_id": "gf.standard.input",
@@ -39584,6 +39909,7 @@
       ]
     },
     "GFInputDetectionResult": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.input",
@@ -39673,6 +39999,7 @@
       ]
     },
     "GFInputDetector": {
+      "owner_kind": "class",
       "extends": "Node",
       "module": "standard",
       "package_id": "gf.standard.input",
@@ -39860,6 +40187,7 @@
       ]
     },
     "GFInputDeviceAssignment": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "standard",
       "package_id": "gf.standard.input",
@@ -39914,6 +40242,7 @@
       ]
     },
     "GFInputDeviceTextProvider": {
+      "owner_kind": "class",
       "extends": "GFInputTextProvider",
       "module": "standard",
       "package_id": "gf.standard.input",
@@ -39989,6 +40318,7 @@
       ]
     },
     "GFInputDeviceUtility": {
+      "owner_kind": "class",
       "extends": "GFUtility",
       "module": "standard",
       "package_id": "gf.standard.input",
@@ -40302,6 +40632,7 @@
       ]
     },
     "GFInputDirectionHistory": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.input",
@@ -40377,6 +40708,7 @@
       ]
     },
     "GFInputDirectionTools": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.input",
@@ -40466,6 +40798,7 @@
       ]
     },
     "GFInputEventIdentity": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.input",
@@ -40639,6 +40972,7 @@
       ]
     },
     "GFInputFormatter": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.input",
@@ -40805,6 +41139,7 @@
       ]
     },
     "GFInputFormatterRegistry": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.input",
@@ -40901,6 +41236,7 @@
       ]
     },
     "GFInputHoldTrigger": {
+      "owner_kind": "class",
       "extends": "GFInputTrigger",
       "module": "standard",
       "package_id": "gf.standard.input",
@@ -40934,6 +41270,7 @@
       ]
     },
     "GFInputIconAtlasProvider": {
+      "owner_kind": "class",
       "extends": "GFInputIconProvider",
       "module": "standard",
       "package_id": "gf.standard.input",
@@ -41093,6 +41430,7 @@
       ]
     },
     "GFInputIconProvider": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "standard",
       "package_id": "gf.standard.input",
@@ -41147,6 +41485,7 @@
       ]
     },
     "GFInputMagnitudeModifier": {
+      "owner_kind": "class",
       "extends": "GFInputModifier",
       "module": "standard",
       "package_id": "gf.standard.input",
@@ -41208,6 +41547,7 @@
       ]
     },
     "GFInputMapPresetTools": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.input",
@@ -41248,6 +41588,7 @@
       ]
     },
     "GFInputMapRangeModifier": {
+      "owner_kind": "class",
       "extends": "GFInputModifier",
       "module": "standard",
       "package_id": "gf.standard.input",
@@ -41309,6 +41650,7 @@
       ]
     },
     "GFInputMapping": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "standard",
       "package_id": "gf.standard.input",
@@ -41384,6 +41726,7 @@
       ]
     },
     "GFInputMappingDock": {
+      "owner_kind": "class",
       "extends": "Control",
       "module": "standard",
       "package_id": "gf.standard.input.editor",
@@ -41438,6 +41781,7 @@
       ]
     },
     "GFInputMappingUtility": {
+      "owner_kind": "class",
       "extends": "GFUtility",
       "module": "standard",
       "package_id": "gf.standard.input",
@@ -41807,6 +42151,7 @@
       ]
     },
     "GFInputModifier": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "standard",
       "package_id": "gf.standard.input",
@@ -41882,6 +42227,7 @@
       ]
     },
     "GFInputNormalizeModifier": {
+      "owner_kind": "class",
       "extends": "GFInputModifier",
       "module": "standard",
       "package_id": "gf.standard.input",
@@ -41915,6 +42261,7 @@
       ]
     },
     "GFInputPlayback": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.input",
@@ -42081,6 +42428,7 @@
       ]
     },
     "GFInputPressedTrigger": {
+      "owner_kind": "class",
       "extends": "GFInputTrigger",
       "module": "standard",
       "package_id": "gf.standard.input",
@@ -42107,6 +42455,7 @@
       ]
     },
     "GFInputProfileBank": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "standard",
       "package_id": "gf.standard.input",
@@ -42231,6 +42580,7 @@
       ]
     },
     "GFInputProviderRegistration": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.input",
@@ -42271,6 +42621,7 @@
       ]
     },
     "GFInputPulseTrigger": {
+      "owner_kind": "class",
       "extends": "GFInputTrigger",
       "module": "standard",
       "package_id": "gf.standard.input",
@@ -42311,6 +42662,7 @@
       ]
     },
     "GFInputRecording": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.input",
@@ -42421,6 +42773,7 @@
       ]
     },
     "GFInputReleasedTrigger": {
+      "owner_kind": "class",
       "extends": "GFInputTrigger",
       "module": "standard",
       "package_id": "gf.standard.input",
@@ -42447,6 +42800,7 @@
       ]
     },
     "GFInputRemapConfig": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "standard",
       "package_id": "gf.standard.input",
@@ -42550,6 +42904,7 @@
       ]
     },
     "GFInputScaleModifier": {
+      "owner_kind": "class",
       "extends": "GFInputModifier",
       "module": "standard",
       "package_id": "gf.standard.input",
@@ -42597,6 +42952,7 @@
       ]
     },
     "GFInputSequenceBranch": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "standard",
       "package_id": "gf.standard.input",
@@ -42644,6 +43000,7 @@
       ]
     },
     "GFInputSequenceStep": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "standard",
       "package_id": "gf.standard.input",
@@ -42698,6 +43055,7 @@
       ]
     },
     "GFInputSequenceTrigger": {
+      "owner_kind": "class",
       "extends": "GFInputTrigger",
       "module": "standard",
       "package_id": "gf.standard.input",
@@ -42759,6 +43117,7 @@
       ]
     },
     "GFInputSignClampModifier": {
+      "owner_kind": "class",
       "extends": "GFInputModifier",
       "module": "standard",
       "package_id": "gf.standard.input",
@@ -42827,6 +43186,7 @@
       ]
     },
     "GFInputSwizzleModifier": {
+      "owner_kind": "class",
       "extends": "GFInputModifier",
       "module": "standard",
       "package_id": "gf.standard.input",
@@ -42867,6 +43227,7 @@
       ]
     },
     "GFInputTapTrigger": {
+      "owner_kind": "class",
       "extends": "GFInputTrigger",
       "module": "standard",
       "package_id": "gf.standard.input",
@@ -42907,6 +43268,7 @@
       ]
     },
     "GFInputTextProvider": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "standard",
       "package_id": "gf.standard.input",
@@ -42947,6 +43309,7 @@
       ]
     },
     "GFInputTrigger": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "standard",
       "package_id": "gf.standard.input",
@@ -42994,6 +43357,7 @@
       ]
     },
     "GFInputVirtualCursorModifier": {
+      "owner_kind": "class",
       "extends": "GFInputModifier",
       "module": "standard",
       "package_id": "gf.standard.input",
@@ -43167,6 +43531,7 @@
       ]
     },
     "GFInstaller": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "kernel",
       "package_id": "gf.kernel",
@@ -43193,6 +43558,7 @@
       ]
     },
     "GFInteractionContext": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "extensions/interaction",
       "package_id": "gf.extension.interaction",
@@ -43317,6 +43683,7 @@
       ]
     },
     "GFInteractionFlow": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "extensions/interaction",
       "package_id": "gf.extension.interaction",
@@ -43371,6 +43738,7 @@
       ]
     },
     "GFInteractionReceiver": {
+      "owner_kind": "class",
       "extends": "Node",
       "module": "extensions/interaction",
       "package_id": "gf.extension.interaction",
@@ -43460,6 +43828,7 @@
       ]
     },
     "GFInteractionSensor": {
+      "owner_kind": "class",
       "extends": "Node",
       "module": "extensions/interaction",
       "package_id": "gf.extension.interaction",
@@ -43605,6 +43974,7 @@
       ]
     },
     "GFInteractions": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "extensions/interaction",
       "package_id": "gf.extension.interaction",
@@ -43631,6 +44001,7 @@
       ]
     },
     "GFInventoryItemDefinition": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "extensions/domain",
       "package_id": "gf.extension.domain",
@@ -43783,6 +44154,7 @@
       ]
     },
     "GFInventoryItemRegistry": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "extensions/domain",
       "package_id": "gf.extension.domain",
@@ -43914,6 +44286,7 @@
       ]
     },
     "GFInventoryModel": {
+      "owner_kind": "class",
       "extends": "GFModel",
       "module": "extensions/domain",
       "package_id": "gf.extension.domain",
@@ -43996,6 +44369,7 @@
       ]
     },
     "GFInventoryOperationResult": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "extensions/domain",
       "package_id": "gf.extension.domain",
@@ -44099,6 +44473,7 @@
       ]
     },
     "GFInventoryReadView": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "extensions/domain",
       "package_id": "gf.extension.domain",
@@ -44188,6 +44563,7 @@
       ]
     },
     "GFInventorySlotDefinition": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "extensions/domain",
       "package_id": "gf.extension.domain",
@@ -44277,6 +44653,7 @@
       ]
     },
     "GFInventoryStack": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "extensions/domain",
       "package_id": "gf.extension.domain",
@@ -44387,6 +44764,7 @@
       ]
     },
     "GFInventoryTransferResult": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "extensions/domain",
       "package_id": "gf.extension.domain",
@@ -44546,6 +44924,7 @@
       ]
     },
     "GFInventoryTransferTransaction": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "extensions/domain",
       "package_id": "gf.extension.domain",
@@ -44607,6 +44986,7 @@
       ]
     },
     "GFItemListBinder": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.ui.state",
@@ -44689,6 +45069,7 @@
       ]
     },
     "GFJob": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.assets",
@@ -44806,6 +45187,7 @@
       ]
     },
     "GFJobQueueUtility": {
+      "owner_kind": "class",
       "extends": "GFUtility",
       "module": "standard",
       "package_id": "gf.standard.assets",
@@ -45000,6 +45382,7 @@
       ]
     },
     "GFJobWorker": {
+      "owner_kind": "class",
       "extends": "Node",
       "module": "standard",
       "package_id": "gf.standard.assets",
@@ -45159,6 +45542,7 @@
       ]
     },
     "GFJsonLineLogSink": {
+      "owner_kind": "class",
       "extends": "GFLogSink",
       "module": "standard",
       "package_id": "gf.standard.base",
@@ -45276,6 +45660,7 @@
       ]
     },
     "GFLayerMaskUtility": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.spatial",
@@ -45351,6 +45736,7 @@
       ]
     },
     "GFLayeredSprite2D": {
+      "owner_kind": "class",
       "extends": "Node2D",
       "module": "extensions/layered_sprite",
       "package_id": "gf.extension.layered_sprite",
@@ -45601,6 +45987,7 @@
       ]
     },
     "GFLayeredSpriteDefinition": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "extensions/layered_sprite",
       "package_id": "gf.extension.layered_sprite",
@@ -45634,6 +46021,7 @@
       ]
     },
     "GFLayeredSpriteLayerDefinition": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "extensions/layered_sprite",
       "package_id": "gf.extension.layered_sprite",
@@ -45695,6 +46083,7 @@
       ]
     },
     "GFLayeredSpriteVariant": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "extensions/layered_sprite",
       "package_id": "gf.extension.layered_sprite",
@@ -45721,6 +46110,7 @@
       ]
     },
     "GFLevelCatalog": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "extensions/domain",
       "package_id": "gf.extension.domain",
@@ -45789,6 +46179,7 @@
       ]
     },
     "GFLevelEntry": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "extensions/domain",
       "package_id": "gf.extension.domain",
@@ -45857,6 +46248,7 @@
       ]
     },
     "GFLevelProgressModel": {
+      "owner_kind": "class",
       "extends": "GFModel",
       "module": "extensions/domain",
       "package_id": "gf.extension.domain",
@@ -45967,6 +46359,7 @@
       ]
     },
     "GFLevelUtility": {
+      "owner_kind": "class",
       "extends": "GFUtility",
       "module": "extensions/domain",
       "package_id": "gf.extension.domain",
@@ -46182,6 +46575,7 @@
       ]
     },
     "GFLifetimeSubscription": {
+      "owner_kind": "class",
       "extends": "GFSubscriptionToken",
       "module": "kernel",
       "package_id": "gf.kernel",
@@ -46236,6 +46630,7 @@
       ]
     },
     "GFLinearProjectileMotion": {
+      "owner_kind": "class",
       "extends": "GFProjectileMotion",
       "module": "extensions/combat",
       "package_id": "gf.extension.combat",
@@ -46290,6 +46685,7 @@
       ]
     },
     "GFLogSink": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.base",
@@ -46344,6 +46740,7 @@
       ]
     },
     "GFLogUtility": {
+      "owner_kind": "class",
       "extends": "GFUtility",
       "module": "standard",
       "package_id": "gf.standard.base",
@@ -46699,6 +47096,7 @@
       ]
     },
     "GFLspWorkspaceEditAdapter": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "tools",
       "package_id": "gf.tool.lsp_workspace_edit",
@@ -46739,6 +47137,7 @@
       ]
     },
     "GFLspWorkspaceEditPlan": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "tools",
       "package_id": "gf.tool.lsp_workspace_edit",
@@ -46779,6 +47178,7 @@
       ]
     },
     "GFMainThreadDispatchQueue": {
+      "owner_kind": "class",
       "extends": "GFUtility",
       "module": "standard",
       "package_id": "gf.standard.base",
@@ -46959,6 +47359,7 @@
       ]
     },
     "GFManualClock": {
+      "owner_kind": "class",
       "extends": "GFClock",
       "module": "standard",
       "package_id": "gf.standard.base",
@@ -47027,6 +47428,7 @@
       ]
     },
     "GFManualTimerQueue": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.base",
@@ -47123,6 +47525,7 @@
       ]
     },
     "GFMetricSeries": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.debug",
@@ -47275,6 +47678,7 @@
       ]
     },
     "GFModalAction": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "standard",
       "package_id": "gf.standard.ui",
@@ -47350,6 +47754,7 @@
       ]
     },
     "GFModalConfig": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "standard",
       "package_id": "gf.standard.ui",
@@ -47439,6 +47844,7 @@
       ]
     },
     "GFModalResult": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.ui",
@@ -47521,6 +47927,7 @@
       ]
     },
     "GFModel": {
+      "owner_kind": "class",
       "extends": "",
       "module": "kernel",
       "package_id": "gf.kernel",
@@ -47673,6 +48080,7 @@
       ]
     },
     "GFModifiedAttribute": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "extensions/combat",
       "package_id": "gf.extension.combat",
@@ -47734,6 +48142,7 @@
       ]
     },
     "GFModifiedAttributeSet": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "extensions/combat",
       "package_id": "gf.extension.combat",
@@ -47900,6 +48309,7 @@
       ]
     },
     "GFModifier": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "extensions/combat",
       "package_id": "gf.extension.combat",
@@ -48003,6 +48413,7 @@
       ]
     },
     "GFMoveTweenAction": {
+      "owner_kind": "class",
       "extends": "GFVisualAction",
       "module": "extensions/action_queue",
       "package_id": "gf.extension.action_queue",
@@ -48099,6 +48510,7 @@
       ]
     },
     "GFMultiplayerPeerNetworkBackend": {
+      "owner_kind": "class",
       "extends": "GFNetworkBackend",
       "module": "extensions/network",
       "package_id": "gf.extension.network",
@@ -48202,6 +48614,7 @@
       ]
     },
     "GFMutationBatch": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.base",
@@ -48312,6 +48725,7 @@
       ]
     },
     "GFNetworkBackend": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "extensions/network",
       "package_id": "gf.extension.network",
@@ -48450,6 +48864,7 @@
       ]
     },
     "GFNetworkChannel": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "extensions/network",
       "package_id": "gf.extension.network",
@@ -48525,6 +48940,7 @@
       ]
     },
     "GFNetworkContract": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "extensions/network",
       "package_id": "gf.extension.network",
@@ -48663,6 +49079,7 @@
       ]
     },
     "GFNetworkContractAudit": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "extensions/network",
       "package_id": "gf.tool.network.editor",
@@ -48689,6 +49106,7 @@
       ]
     },
     "GFNetworkContractField": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "extensions/network",
       "package_id": "gf.extension.network",
@@ -48813,6 +49231,7 @@
       ]
     },
     "GFNetworkContractGenerator": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "extensions/network",
       "package_id": "gf.tool.network.editor",
@@ -48874,6 +49293,7 @@
       ]
     },
     "GFNetworkContractMessage": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "extensions/network",
       "package_id": "gf.extension.network",
@@ -48984,6 +49404,7 @@
       ]
     },
     "GFNetworkDirtyStateTracker": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "extensions/network",
       "package_id": "gf.extension.network",
@@ -49073,6 +49494,7 @@
       ]
     },
     "GFNetworkFieldSerializer": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "extensions/network",
       "package_id": "gf.extension.network",
@@ -49148,6 +49570,7 @@
       ]
     },
     "GFNetworkHistoryBuffer": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "extensions/network",
       "package_id": "gf.extension.network",
@@ -49265,6 +49688,7 @@
       ]
     },
     "GFNetworkInputFrame": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "extensions/network",
       "package_id": "gf.extension.network",
@@ -49333,6 +49757,7 @@
       ]
     },
     "GFNetworkLobbyBackend": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "extensions/network",
       "package_id": "gf.extension.network",
@@ -49499,6 +49924,7 @@
       ]
     },
     "GFNetworkLobbyDescriptor": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "extensions/network",
       "package_id": "gf.extension.network",
@@ -49679,6 +50105,7 @@
       ]
     },
     "GFNetworkLobbyInvite": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "extensions/network",
       "package_id": "gf.extension.network",
@@ -49768,6 +50195,7 @@
       ]
     },
     "GFNetworkLobbyMember": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "extensions/network",
       "package_id": "gf.extension.network",
@@ -49857,6 +50285,7 @@
       ]
     },
     "GFNetworkLobbyOperationHandle": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "extensions/network",
       "package_id": "gf.extension.network",
@@ -49939,6 +50368,7 @@
       ]
     },
     "GFNetworkLobbyOperationRequest": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "extensions/network",
       "package_id": "gf.extension.network",
@@ -50105,6 +50535,7 @@
       ]
     },
     "GFNetworkLobbyOperationResult": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "extensions/network",
       "package_id": "gf.extension.network",
@@ -50264,6 +50695,7 @@
       ]
     },
     "GFNetworkLobbyQuery": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "extensions/network",
       "package_id": "gf.extension.network",
@@ -50367,6 +50799,7 @@
       ]
     },
     "GFNetworkLobbyService": {
+      "owner_kind": "class",
       "extends": "GFUtility",
       "module": "extensions/network",
       "package_id": "gf.extension.network",
@@ -50610,6 +51043,7 @@
       ]
     },
     "GFNetworkMessage": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "extensions/network",
       "package_id": "gf.extension.network",
@@ -50678,6 +51112,7 @@
       ]
     },
     "GFNetworkMessageValidator": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "extensions/network",
       "package_id": "gf.extension.network",
@@ -50851,6 +51286,7 @@
       ]
     },
     "GFNetworkPeerIdentity": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "extensions/network",
       "package_id": "gf.extension.network",
@@ -50975,6 +51411,7 @@
       ]
     },
     "GFNetworkRateLimiter": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "extensions/network",
       "package_id": "gf.extension.network",
@@ -51029,6 +51466,7 @@
       ]
     },
     "GFNetworkReconnectPolicy": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "extensions/network",
       "package_id": "gf.extension.network",
@@ -51104,6 +51542,7 @@
       ]
     },
     "GFNetworkSerializer": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "extensions/network",
       "package_id": "gf.extension.network",
@@ -51179,6 +51618,7 @@
       ]
     },
     "GFNetworkServiceDiscovery": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "extensions/network",
       "package_id": "gf.extension.network",
@@ -51331,6 +51771,7 @@
       ]
     },
     "GFNetworkSession": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "extensions/network",
       "package_id": "gf.extension.network",
@@ -51462,6 +51903,7 @@
       ]
     },
     "GFNetworkSimulationAdapter": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "extensions/network",
       "package_id": "gf.extension.network",
@@ -51516,6 +51958,7 @@
       ]
     },
     "GFNetworkSnapshot": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "extensions/network",
       "package_id": "gf.extension.network",
@@ -51640,6 +52083,7 @@
       ]
     },
     "GFNetworkSnapshotSchema": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "extensions/network",
       "package_id": "gf.extension.network",
@@ -51750,6 +52194,7 @@
       ]
     },
     "GFNetworkSyncCoordinator": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "extensions/network",
       "package_id": "gf.extension.network",
@@ -51965,6 +52410,7 @@
       ]
     },
     "GFNetworkTransportMetrics": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "extensions/network",
       "package_id": "gf.extension.network",
@@ -52152,6 +52598,7 @@
       ]
     },
     "GFNetworkUtility": {
+      "owner_kind": "class",
       "extends": "GFUtility",
       "module": "extensions/network",
       "package_id": "gf.extension.network",
@@ -52388,6 +52835,7 @@
       ]
     },
     "GFNode2DCapability": {
+      "owner_kind": "class",
       "extends": "Node2D",
       "module": "extensions/capability",
       "package_id": "gf.extension.capability",
@@ -52484,6 +52932,7 @@
       ]
     },
     "GFNode3DCapability": {
+      "owner_kind": "class",
       "extends": "Node3D",
       "module": "extensions/capability",
       "package_id": "gf.extension.capability",
@@ -52580,6 +53029,7 @@
       ]
     },
     "GFNodeAnimationPlayerSerializer": {
+      "owner_kind": "class",
       "extends": "GFNodeSerializer",
       "module": "extensions/save",
       "package_id": "gf.extension.save",
@@ -52613,6 +53063,7 @@
       ]
     },
     "GFNodeAudioStreamPlayerSerializer": {
+      "owner_kind": "class",
       "extends": "GFNodeSerializer",
       "module": "extensions/save",
       "package_id": "gf.extension.save",
@@ -52646,6 +53097,7 @@
       ]
     },
     "GFNodeCanvasItemSerializer": {
+      "owner_kind": "class",
       "extends": "GFNodeSerializer",
       "module": "extensions/save",
       "package_id": "gf.extension.save",
@@ -52679,6 +53131,7 @@
       ]
     },
     "GFNodeCapability": {
+      "owner_kind": "class",
       "extends": "Node",
       "module": "extensions/capability",
       "package_id": "gf.extension.capability",
@@ -52775,6 +53228,7 @@
       ]
     },
     "GFNodeContext": {
+      "owner_kind": "class",
       "extends": "Node",
       "module": "kernel",
       "package_id": "gf.kernel",
@@ -52969,6 +53423,7 @@
       ]
     },
     "GFNodeControlSerializer": {
+      "owner_kind": "class",
       "extends": "GFNodeSerializer",
       "module": "extensions/save",
       "package_id": "gf.extension.save",
@@ -53002,6 +53457,7 @@
       ]
     },
     "GFNodeGroupCache": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.base",
@@ -53119,6 +53575,7 @@
       ]
     },
     "GFNodePropertySerializer": {
+      "owner_kind": "class",
       "extends": "GFNodeSerializer",
       "module": "extensions/save",
       "package_id": "gf.extension.save",
@@ -53173,6 +53630,7 @@
       ]
     },
     "GFNodeRangeSerializer": {
+      "owner_kind": "class",
       "extends": "GFNodeSerializer",
       "module": "extensions/save",
       "package_id": "gf.extension.save",
@@ -53206,6 +53664,7 @@
       ]
     },
     "GFNodeSerializer": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "extensions/save",
       "package_id": "gf.extension.save",
@@ -53323,6 +53782,7 @@
       ]
     },
     "GFNodeSerializerRegistry": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "extensions/save",
       "package_id": "gf.extension.save",
@@ -53384,6 +53844,7 @@
       ]
     },
     "GFNodeState": {
+      "owner_kind": "class",
       "extends": "Node",
       "module": "standard",
       "package_id": "gf.standard.state_machine",
@@ -53718,6 +54179,7 @@
       ]
     },
     "GFNodeStateActiveCondition": {
+      "owner_kind": "class",
       "extends": "GFNodeStateCondition",
       "module": "standard",
       "package_id": "gf.standard.state_machine",
@@ -53765,6 +54227,7 @@
       ]
     },
     "GFNodeStateBehavior": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "standard",
       "package_id": "gf.standard.state_machine",
@@ -53882,6 +54345,7 @@
       ]
     },
     "GFNodeStateCondition": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "standard",
       "package_id": "gf.standard.state_machine",
@@ -53929,6 +54393,7 @@
       ]
     },
     "GFNodeStateConditionGroup": {
+      "owner_kind": "class",
       "extends": "GFNodeStateCondition",
       "module": "standard",
       "package_id": "gf.standard.state_machine",
@@ -53983,6 +54448,7 @@
       ]
     },
     "GFNodeStateGroup": {
+      "owner_kind": "class",
       "extends": "Node",
       "module": "standard",
       "package_id": "gf.standard.state_machine",
@@ -54254,6 +54720,7 @@
       ]
     },
     "GFNodeStateMachine": {
+      "owner_kind": "class",
       "extends": "Node",
       "module": "standard",
       "package_id": "gf.standard.state_machine",
@@ -54644,6 +55111,7 @@
       ]
     },
     "GFNodeStateMachineConfig": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "standard",
       "package_id": "gf.standard.state_machine",
@@ -54684,6 +55152,7 @@
       ]
     },
     "GFNodeStateMachineDock": {
+      "owner_kind": "class",
       "extends": "Control",
       "module": "standard",
       "package_id": "gf.standard.state_machine.editor",
@@ -54724,6 +55193,7 @@
       ]
     },
     "GFNodeStateMachineValidator": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.state_machine",
@@ -54757,6 +55227,7 @@
       ]
     },
     "GFNodeTimerSerializer": {
+      "owner_kind": "class",
       "extends": "GFNodeSerializer",
       "module": "extensions/save",
       "package_id": "gf.extension.save",
@@ -54790,6 +55261,7 @@
       ]
     },
     "GFNodeTransform2DSerializer": {
+      "owner_kind": "class",
       "extends": "GFNodeSerializer",
       "module": "extensions/save",
       "package_id": "gf.extension.save",
@@ -54823,6 +55295,7 @@
       ]
     },
     "GFNodeTransform3DSerializer": {
+      "owner_kind": "class",
       "extends": "GFNodeSerializer",
       "module": "extensions/save",
       "package_id": "gf.extension.save",
@@ -54856,6 +55329,7 @@
       ]
     },
     "GFNodeTreeOps": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.base",
@@ -54959,6 +55433,7 @@
       ]
     },
     "GFNoiseFieldTools": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.spatial",
@@ -55006,6 +55481,7 @@
       ]
     },
     "GFNotificationUtility": {
+      "owner_kind": "class",
       "extends": "GFUtility",
       "module": "standard",
       "package_id": "gf.standard.ui",
@@ -55165,6 +55641,7 @@
       ]
     },
     "GFNumberFormatter": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.deterministic",
@@ -55233,6 +55710,7 @@
       ]
     },
     "GFNumericModifierMath": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.spatial",
@@ -55280,6 +55758,7 @@
       ]
     },
     "GFObjectCandidateRegistry": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.base",
@@ -55383,6 +55862,7 @@
       ]
     },
     "GFObjectPoolPrewarmOperation": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.base",
@@ -55528,6 +56008,7 @@
       ]
     },
     "GFObjectPoolPrewarmResult": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.base",
@@ -55792,6 +56273,7 @@
       ]
     },
     "GFObjectPoolUtility": {
+      "owner_kind": "class",
       "extends": "GFUtility",
       "module": "standard",
       "package_id": "gf.standard.base",
@@ -55937,6 +56419,7 @@
       ]
     },
     "GFObjectPropertyTools": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "kernel",
       "package_id": "gf.kernel",
@@ -56061,6 +56544,7 @@
       ]
     },
     "GFObservableArrayResource": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "standard",
       "package_id": "gf.standard.base",
@@ -56213,6 +56697,7 @@
       ]
     },
     "GFObservableDictionaryResource": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "standard",
       "package_id": "gf.standard.base",
@@ -56365,6 +56850,7 @@
       ]
     },
     "GFOperationDiagnosticsUtility": {
+      "owner_kind": "class",
       "extends": "GFUtility",
       "module": "standard",
       "package_id": "gf.standard.diagnostics",
@@ -56755,6 +57241,7 @@
       ]
     },
     "GFPathEnumerationTools": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.assets",
@@ -56802,6 +57289,7 @@
       ]
     },
     "GFPathTools": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "kernel",
       "package_id": "gf.kernel",
@@ -56863,6 +57351,7 @@
       ]
     },
     "GFPattern2D": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "standard",
       "package_id": "gf.standard.spatial",
@@ -56952,6 +57441,7 @@
       ]
     },
     "GFPayload": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "kernel",
       "package_id": "gf.kernel",
@@ -56992,6 +57482,7 @@
       ]
     },
     "GFPersistPropertiesSource": {
+      "owner_kind": "class",
       "extends": "GFSaveSource",
       "module": "extensions/save",
       "package_id": "gf.extension.save",
@@ -57046,6 +57537,7 @@
       ]
     },
     "GFPhysicsQueryUtility": {
+      "owner_kind": "class",
       "extends": "GFUtility",
       "module": "standard",
       "package_id": "gf.standard.spatial",
@@ -57079,6 +57571,7 @@
       ]
     },
     "GFPlacementSequenceMath": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.spatial",
@@ -57140,6 +57633,7 @@
       ]
     },
     "GFPlatformActivationIntent": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "standard",
       "package_id": "gf.standard.base",
@@ -57250,6 +57744,7 @@
       ]
     },
     "GFPlatformAdapter": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.platform",
@@ -57493,6 +57988,7 @@
       ]
     },
     "GFPlatformAdapterConformance": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.platform",
@@ -57582,6 +58078,7 @@
       ]
     },
     "GFPlatformBridgeRequest": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "standard",
       "package_id": "gf.standard.base",
@@ -57678,6 +58175,7 @@
       ]
     },
     "GFPlatformBridgeResult": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "standard",
       "package_id": "gf.standard.base",
@@ -57809,6 +58307,7 @@
       ]
     },
     "GFPlatformCapabilitySet": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "standard",
       "package_id": "gf.standard.base",
@@ -57961,6 +58460,7 @@
       ]
     },
     "GFPlatformContractDescriptor": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "standard",
       "package_id": "gf.standard.base",
@@ -58036,6 +58536,7 @@
       ]
     },
     "GFPlatformContractMethodDescriptor": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "standard",
       "package_id": "gf.standard.base",
@@ -58160,6 +58661,7 @@
       ]
     },
     "GFPlatformLifecycleEvent": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "standard",
       "package_id": "gf.standard.base",
@@ -58312,6 +58814,7 @@
       ]
     },
     "GFPlatformLocaleMap": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "standard",
       "package_id": "gf.standard.base",
@@ -58408,6 +58911,7 @@
       ]
     },
     "GFPlatformRequestHandle": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.platform",
@@ -58490,6 +58994,7 @@
       ]
     },
     "GFPlatformRuntime": {
+      "owner_kind": "class",
       "extends": "GFUtility",
       "module": "standard",
       "package_id": "gf.standard.platform",
@@ -58726,6 +59231,7 @@
       ]
     },
     "GFPlatformRuntimeContext": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "standard",
       "package_id": "gf.standard.base",
@@ -58920,6 +59426,7 @@
       ]
     },
     "GFPointerActivityUtility": {
+      "owner_kind": "class",
       "extends": "GFUtility",
       "module": "standard",
       "package_id": "gf.standard.input",
@@ -59107,6 +59614,7 @@
       ]
     },
     "GFPointerCapture": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.input",
@@ -59175,6 +59683,7 @@
       ]
     },
     "GFPointerGestureUtility": {
+      "owner_kind": "class",
       "extends": "GFUtility",
       "module": "standard",
       "package_id": "gf.standard.input",
@@ -59285,6 +59794,7 @@
       ]
     },
     "GFPointerInteraction3D": {
+      "owner_kind": "class",
       "extends": "Node",
       "module": "extensions/interaction",
       "package_id": "gf.extension.interaction",
@@ -59493,6 +60003,7 @@
       ]
     },
     "GFPoissonDisc2D": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.spatial",
@@ -59540,6 +60051,7 @@
       ]
     },
     "GFPolicyProvider": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "standard",
       "package_id": "gf.standard.base",
@@ -59650,6 +60162,7 @@
       ]
     },
     "GFPolicyRegistry": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "standard",
       "package_id": "gf.standard.base",
@@ -59718,6 +60231,7 @@
       ]
     },
     "GFPolynomialMath": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.spatial",
@@ -59793,6 +60307,7 @@
       ]
     },
     "GFPriorityQueue": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.base",
@@ -59938,6 +60453,7 @@
       ]
     },
     "GFPriorityWorkQueue": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.base",
@@ -60069,6 +60585,7 @@
       ]
     },
     "GFProgressionMath": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.spatial",
@@ -60116,6 +60633,7 @@
       ]
     },
     "GFProjectLayoutScaffolder": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "tools",
       "package_id": "gf.tool.project_layout",
@@ -60163,6 +60681,7 @@
       ]
     },
     "GFProjectLayoutValidator": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "tools",
       "package_id": "gf.tool.project_layout",
@@ -60203,6 +60722,7 @@
       ]
     },
     "GFProjectReferenceScanner": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "kernel",
       "package_id": "gf.kernel",
@@ -60334,6 +60854,7 @@
       ]
     },
     "GFProjectSettingsTools": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "kernel",
       "package_id": "gf.kernel",
@@ -60360,6 +60881,7 @@
       ]
     },
     "GFProjectile2D": {
+      "owner_kind": "class",
       "extends": "GFHitBox2D",
       "module": "extensions/combat",
       "package_id": "gf.extension.combat",
@@ -60463,6 +60985,7 @@
       ]
     },
     "GFProjectile3D": {
+      "owner_kind": "class",
       "extends": "GFHitBox3D",
       "module": "extensions/combat",
       "package_id": "gf.extension.combat",
@@ -60566,6 +61089,7 @@
       ]
     },
     "GFProjectileBurstPattern2D": {
+      "owner_kind": "class",
       "extends": "GFProjectileSpawnPattern2D",
       "module": "extensions/combat",
       "package_id": "gf.extension.combat",
@@ -60627,6 +61151,7 @@
       ]
     },
     "GFProjectileCatalog": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "extensions/combat",
       "package_id": "gf.extension.combat",
@@ -60688,6 +61213,7 @@
       ]
     },
     "GFProjectileCatalogEntry": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "extensions/combat",
       "package_id": "gf.extension.combat",
@@ -60721,6 +61247,7 @@
       ]
     },
     "GFProjectileConePattern3D": {
+      "owner_kind": "class",
       "extends": "GFProjectileSpawnPattern3D",
       "module": "extensions/combat",
       "package_id": "gf.extension.combat",
@@ -60768,6 +61295,7 @@
       ]
     },
     "GFProjectileEmissionPolicy": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "extensions/combat",
       "package_id": "gf.extension.combat",
@@ -60913,6 +61441,7 @@
       ]
     },
     "GFProjectileEmissionTask": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "extensions/combat",
       "package_id": "gf.extension.combat",
@@ -61009,6 +61538,7 @@
       ]
     },
     "GFProjectileEmitter2D": {
+      "owner_kind": "class",
       "extends": "Node2D",
       "module": "extensions/combat",
       "package_id": "gf.extension.combat",
@@ -61161,6 +61691,7 @@
       ]
     },
     "GFProjectileEmitter3D": {
+      "owner_kind": "class",
       "extends": "Node3D",
       "module": "extensions/combat",
       "package_id": "gf.extension.combat",
@@ -61313,6 +61844,7 @@
       ]
     },
     "GFProjectileLifetimePolicy": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "extensions/combat",
       "package_id": "gf.extension.combat",
@@ -61374,6 +61906,7 @@
       ]
     },
     "GFProjectileLineSpawnPattern2D": {
+      "owner_kind": "class",
       "extends": "GFProjectileSpawnPattern2D",
       "module": "extensions/combat",
       "package_id": "gf.extension.combat",
@@ -61421,6 +61954,7 @@
       ]
     },
     "GFProjectileLineSpawnPattern3D": {
+      "owner_kind": "class",
       "extends": "GFProjectileSpawnPattern3D",
       "module": "extensions/combat",
       "package_id": "gf.extension.combat",
@@ -61468,6 +62002,7 @@
       ]
     },
     "GFProjectileMotion": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "extensions/combat",
       "package_id": "gf.extension.combat",
@@ -61508,6 +62043,7 @@
       ]
     },
     "GFProjectileSpawnPattern2D": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "extensions/combat",
       "package_id": "gf.extension.combat",
@@ -61548,6 +62084,7 @@
       ]
     },
     "GFProjectileSpawnPattern3D": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "extensions/combat",
       "package_id": "gf.extension.combat",
@@ -61588,6 +62125,7 @@
       ]
     },
     "GFPropertyBagCapability": {
+      "owner_kind": "class",
       "extends": "GFCapability",
       "module": "extensions/capability",
       "package_id": "gf.extension.capability",
@@ -61698,6 +62236,7 @@
       ]
     },
     "GFProtocolAckLedger": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.assets",
@@ -61913,6 +62452,7 @@
       ]
     },
     "GFQuadTreeUtility": {
+      "owner_kind": "class",
       "extends": "GFUtility",
       "module": "standard",
       "package_id": "gf.standard.spatial",
@@ -62100,6 +62640,7 @@
       ]
     },
     "GFQuery": {
+      "owner_kind": "class",
       "extends": "",
       "module": "kernel",
       "package_id": "gf.kernel",
@@ -62147,6 +62688,7 @@
       ]
     },
     "GFQuerySignature": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.base",
@@ -62229,6 +62771,7 @@
       ]
     },
     "GFQuestUtility": {
+      "owner_kind": "class",
       "extends": "GFUtility",
       "module": "extensions/domain",
       "package_id": "gf.extension.domain",
@@ -62486,6 +63029,7 @@
       ]
     },
     "GFQuietWindowCoalescer": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.base",
@@ -62645,6 +63189,7 @@
       ]
     },
     "GFRawResourceArtifact": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "standard",
       "package_id": "gf.standard.assets",
@@ -62734,6 +63279,7 @@
       ]
     },
     "GFReactiveEffect": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "kernel",
       "package_id": "gf.kernel",
@@ -62809,6 +63355,7 @@
       ]
     },
     "GFReactiveStateControlBinder": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.ui.state",
@@ -62863,6 +63410,7 @@
       ]
     },
     "GFReactiveStateStore": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.state",
@@ -63050,6 +63598,7 @@
       ]
     },
     "GFReadOnlyBindableProperty": {
+      "owner_kind": "class",
       "extends": "GFBindableProperty",
       "module": "kernel",
       "package_id": "gf.kernel",
@@ -63132,6 +63681,7 @@
       ]
     },
     "GFRectPacking2D": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.spatial",
@@ -63172,6 +63722,7 @@
       ]
     },
     "GFRefCountedPool": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.base",
@@ -63303,6 +63854,7 @@
       ]
     },
     "GFRegionMap2D": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.spatial",
@@ -63413,6 +63965,7 @@
       ]
     },
     "GFRegionMap3D": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.spatial",
@@ -63530,6 +64083,7 @@
       ]
     },
     "GFRemoteCacheUtility": {
+      "owner_kind": "class",
       "extends": "GFUtility",
       "module": "standard",
       "package_id": "gf.standard.assets",
@@ -63696,6 +64250,7 @@
       ]
     },
     "GFRenderWarmupManifest": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "standard",
       "package_id": "gf.standard.display",
@@ -63792,6 +64347,7 @@
       ]
     },
     "GFRenderWarmupUtility": {
+      "owner_kind": "class",
       "extends": "GFUtility",
       "module": "standard",
       "package_id": "gf.standard.display",
@@ -63979,6 +64535,7 @@
       ]
     },
     "GFRepeatAction": {
+      "owner_kind": "class",
       "extends": "GFVisualAction",
       "module": "extensions/action_queue",
       "package_id": "gf.extension.action_queue",
@@ -64061,6 +64618,7 @@
       ]
     },
     "GFRepeaterBinder": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.ui.state",
@@ -64164,6 +64722,7 @@
       ]
     },
     "GFReplayTimeline": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.base",
@@ -64337,6 +64896,7 @@
       ]
     },
     "GFReportValueCodec": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "kernel",
       "package_id": "gf.kernel",
@@ -64412,6 +64972,7 @@
       ]
     },
     "GFRequestEnvelope": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.assets",
@@ -64592,6 +65153,7 @@
       ]
     },
     "GFRequestHandlerRegistry": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.base",
@@ -64793,6 +65355,7 @@
       ]
     },
     "GFRequestOutboxUtility": {
+      "owner_kind": "class",
       "extends": "GFUtility",
       "module": "standard",
       "package_id": "gf.standard.assets",
@@ -65036,6 +65599,7 @@
       ]
     },
     "GFResourceBroker": {
+      "owner_kind": "class",
       "extends": "GFUtility",
       "module": "standard",
       "package_id": "gf.standard.assets",
@@ -65181,6 +65745,7 @@
       ]
     },
     "GFResourceConfigProvider": {
+      "owner_kind": "class",
       "extends": "GFConfigProvider",
       "module": "standard",
       "package_id": "gf.standard.config",
@@ -65312,6 +65877,7 @@
       ]
     },
     "GFResourceFeatureRemapTools": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.assets",
@@ -65345,6 +65911,7 @@
       ]
     },
     "GFResourceGraphScanner": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.assets",
@@ -65385,6 +65952,7 @@
       ]
     },
     "GFResourceIdentity": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.assets",
@@ -65537,6 +66105,7 @@
       ]
     },
     "GFResourceLease": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.assets",
@@ -65675,6 +66244,7 @@
       ]
     },
     "GFResourceLoadState": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.assets",
@@ -65925,6 +66495,7 @@
       ]
     },
     "GFResourceOverlay": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "standard",
       "package_id": "gf.standard.assets",
@@ -66042,6 +66613,7 @@
       ]
     },
     "GFResourcePathHint": {
+      "owner_kind": "class",
       "extends": "Object",
       "module": "kernel",
       "package_id": "gf.kernel",
@@ -66068,6 +66640,7 @@
       ]
     },
     "GFResourcePropertyPatch": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "standard",
       "package_id": "gf.standard.assets",
@@ -66290,6 +66863,7 @@
       ]
     },
     "GFResourceRegistry": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "standard",
       "package_id": "gf.standard.assets",
@@ -66561,6 +67135,7 @@
       ]
     },
     "GFResourceRegistryAssetSourceProvider": {
+      "owner_kind": "class",
       "extends": "GFAssetCatalogSourceProvider",
       "module": "standard",
       "package_id": "gf.standard.assets",
@@ -66608,6 +67183,7 @@
       ]
     },
     "GFResourceRegistryEntry": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "standard",
       "package_id": "gf.standard.assets",
@@ -66697,6 +67273,7 @@
       ]
     },
     "GFResourceRegistryTools": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.assets",
@@ -66870,6 +67447,7 @@
       ]
     },
     "GFResourceResolverUtility": {
+      "owner_kind": "class",
       "extends": "GFUtility",
       "module": "standard",
       "package_id": "gf.standard.assets",
@@ -67029,6 +67607,7 @@
       ]
     },
     "GFResourceTableEditor": {
+      "owner_kind": "class",
       "extends": "VBoxContainer",
       "module": "kernel",
       "package_id": "gf.kernel",
@@ -67272,6 +67851,7 @@
       ]
     },
     "GFResourceVariantProvider": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.assets",
@@ -67354,6 +67934,7 @@
       ]
     },
     "GFResultDictionary": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.base",
@@ -67513,6 +68094,7 @@
       ]
     },
     "GFRichTextFormatter": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.ui",
@@ -67588,6 +68170,7 @@
       ]
     },
     "GFRule": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "kernel",
       "package_id": "gf.kernel",
@@ -67614,6 +68197,7 @@
       ]
     },
     "GFRuntimeAgentEnvironment": {
+      "owner_kind": "class",
       "extends": "GFUtility",
       "module": "standard",
       "package_id": "gf.standard.agent_environment",
@@ -67759,6 +68343,7 @@
       ]
     },
     "GFRuntimeCleanupScope": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.base",
@@ -67827,6 +68412,7 @@
       ]
     },
     "GFRuntimeDebuggerPlugin": {
+      "owner_kind": "class",
       "extends": "EditorDebuggerPlugin",
       "module": "standard",
       "package_id": "gf.standard.debug.editor",
@@ -67846,6 +68432,7 @@
       ]
     },
     "GFRuntimeDebuggerTab": {
+      "owner_kind": "class",
       "extends": "Control",
       "module": "standard",
       "package_id": "gf.standard.debug.editor",
@@ -67914,6 +68501,7 @@
       ]
     },
     "GFRuntimeInspectorUtility": {
+      "owner_kind": "class",
       "extends": "GFUtility",
       "module": "standard",
       "package_id": "gf.standard.debug",
@@ -68066,6 +68654,7 @@
       ]
     },
     "GFRuntimeTask": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.base",
@@ -68211,6 +68800,7 @@
       ]
     },
     "GFRuntimeTaskGroup": {
+      "owner_kind": "class",
       "extends": "GFRuntimeTask",
       "module": "standard",
       "package_id": "gf.standard.base",
@@ -68391,6 +68981,7 @@
       ]
     },
     "GFRuntimeTaskScheduler": {
+      "owner_kind": "class",
       "extends": "GFUtility",
       "module": "standard",
       "package_id": "gf.standard.base",
@@ -68550,6 +69141,7 @@
       ]
     },
     "GFRuntimeTunableProperty": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "standard",
       "package_id": "gf.standard.debug",
@@ -68737,6 +69329,7 @@
       ]
     },
     "GFSafeResourceCodec": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.storage",
@@ -68840,6 +69433,7 @@
       ]
     },
     "GFSafeResourceCodecPolicy": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "standard",
       "package_id": "gf.standard.storage",
@@ -68957,6 +69551,7 @@
       ]
     },
     "GFSaveDataSource": {
+      "owner_kind": "class",
       "extends": "GFSaveSource",
       "module": "extensions/save",
       "package_id": "gf.extension.save",
@@ -69039,6 +69634,7 @@
       ]
     },
     "GFSaveDocument": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "extensions/save",
       "package_id": "gf.extension.save",
@@ -69170,6 +69766,7 @@
       ]
     },
     "GFSaveDocumentReadResult": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "extensions/save",
       "package_id": "gf.extension.save",
@@ -69280,6 +69877,7 @@
       ]
     },
     "GFSaveDocumentSchema": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "extensions/save",
       "package_id": "gf.extension.save",
@@ -69390,6 +69988,7 @@
       ]
     },
     "GFSaveEntityFactory": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "extensions/save",
       "package_id": "gf.extension.save",
@@ -69437,6 +70036,7 @@
       ]
     },
     "GFSaveGraphUtility": {
+      "owner_kind": "class",
       "extends": "GFUtility",
       "module": "extensions/save",
       "package_id": "gf.extension.save",
@@ -69659,6 +70259,7 @@
       ]
     },
     "GFSaveIdentity": {
+      "owner_kind": "class",
       "extends": "Node",
       "module": "extensions/save",
       "package_id": "gf.extension.save",
@@ -69713,6 +70314,7 @@
       ]
     },
     "GFSaveMigrationRegistry": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "extensions/save",
       "package_id": "gf.extension.save",
@@ -69774,6 +70376,7 @@
       ]
     },
     "GFSaveMigrationResult": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "extensions/save",
       "package_id": "gf.extension.save",
@@ -69849,6 +70452,7 @@
       ]
     },
     "GFSaveMigrationStep": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "extensions/save",
       "package_id": "gf.extension.save",
@@ -69931,6 +70535,7 @@
       ]
     },
     "GFSavePipelineContext": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "extensions/save",
       "package_id": "gf.extension.save",
@@ -70090,6 +70695,7 @@
       ]
     },
     "GFSavePipelineEvent": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "extensions/save",
       "package_id": "gf.extension.save",
@@ -70179,6 +70785,7 @@
       ]
     },
     "GFSavePipelineStep": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "extensions/save",
       "package_id": "gf.extension.save",
@@ -70233,6 +70840,7 @@
       ]
     },
     "GFSaveProfile": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "extensions/save",
       "package_id": "gf.extension.save",
@@ -70364,6 +70972,7 @@
       ]
     },
     "GFSaveProfileMutationRequest": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "extensions/save",
       "package_id": "gf.extension.save",
@@ -70411,6 +71020,7 @@
       ]
     },
     "GFSaveProfileOperation": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "extensions/save",
       "package_id": "gf.extension.save",
@@ -70500,6 +71110,7 @@
       ]
     },
     "GFSaveProfileReconcileLease": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "extensions/save",
       "package_id": "gf.extension.save",
@@ -70666,6 +71277,7 @@
       ]
     },
     "GFSaveProfileReconcileRequest": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "extensions/save",
       "package_id": "gf.extension.save",
@@ -70699,6 +71311,7 @@
       ]
     },
     "GFSaveProfileRecoveryLease": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "extensions/save",
       "package_id": "gf.extension.save",
@@ -70823,6 +71436,7 @@
       ]
     },
     "GFSaveProfileRequest": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "extensions/save",
       "package_id": "gf.extension.save",
@@ -70849,6 +71463,7 @@
       ]
     },
     "GFSaveProfileResult": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "extensions/save",
       "package_id": "gf.extension.save",
@@ -71190,6 +71805,7 @@
       ]
     },
     "GFSaveProfileTransactionCoordinator": {
+      "owner_kind": "class",
       "extends": "GFUtility",
       "module": "extensions/save",
       "package_id": "gf.extension.save",
@@ -71377,6 +71993,7 @@
       ]
     },
     "GFSaveProfileTransactionOperation": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "extensions/save",
       "package_id": "gf.extension.save",
@@ -71494,6 +72111,7 @@
       ]
     },
     "GFSaveProfileTransactionResult": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "extensions/save",
       "package_id": "gf.extension.save",
@@ -71828,6 +72446,7 @@
       ]
     },
     "GFSaveProfileUtility": {
+      "owner_kind": "class",
       "extends": "GFUtility",
       "module": "extensions/save",
       "package_id": "gf.extension.save",
@@ -72022,6 +72641,7 @@
       ]
     },
     "GFSaveRecoveryPolicy": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "extensions/save",
       "package_id": "gf.extension.save",
@@ -72104,6 +72724,7 @@
       ]
     },
     "GFSaveRollbackFailure": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "extensions/save",
       "package_id": "gf.extension.save",
@@ -72144,6 +72765,7 @@
       ]
     },
     "GFSaveScope": {
+      "owner_kind": "class",
       "extends": "Node",
       "module": "extensions/save",
       "package_id": "gf.extension.save",
@@ -72282,6 +72904,7 @@
       ]
     },
     "GFSaveSection": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "extensions/save",
       "package_id": "gf.extension.save",
@@ -72357,6 +72980,7 @@
       ]
     },
     "GFSaveSectionMutation": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "extensions/save",
       "package_id": "gf.extension.save",
@@ -72425,6 +73049,7 @@
       ]
     },
     "GFSaveSectionProvider": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "extensions/save",
       "package_id": "gf.extension.save",
@@ -72556,6 +73181,7 @@
       ]
     },
     "GFSaveSectionSnapshot": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "extensions/save",
       "package_id": "gf.extension.save",
@@ -72624,6 +73250,7 @@
       ]
     },
     "GFSaveSectionSnapshotOperation": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "extensions/save",
       "package_id": "gf.extension.save",
@@ -72776,6 +73403,7 @@
       ]
     },
     "GFSaveSlotCard": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "extensions/save",
       "package_id": "gf.extension.save",
@@ -72886,6 +73514,7 @@
       ]
     },
     "GFSaveSlotMetadata": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "extensions/save",
       "package_id": "gf.extension.save",
@@ -73031,6 +73660,7 @@
       ]
     },
     "GFSaveSlotStorageAdapter": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "extensions/save",
       "package_id": "gf.extension.save",
@@ -73162,6 +73792,7 @@
       ]
     },
     "GFSaveSlotSyncBridge": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "extensions/save",
       "package_id": "gf.extension.save",
@@ -73216,6 +73847,7 @@
       ]
     },
     "GFSaveSlotWorkflow": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "extensions/save",
       "package_id": "gf.extension.save",
@@ -73375,6 +74007,7 @@
       ]
     },
     "GFSaveSource": {
+      "owner_kind": "class",
       "extends": "Node",
       "module": "extensions/save",
       "package_id": "gf.extension.save",
@@ -73520,6 +74153,7 @@
       ]
     },
     "GFSaveTransactionParticipant": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "extensions/save",
       "package_id": "gf.extension.save",
@@ -73588,6 +74222,7 @@
       ]
     },
     "GFSceneContractTools": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.assets",
@@ -73719,6 +74354,7 @@
       ]
     },
     "GFScenePreloadEntry": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "standard",
       "package_id": "gf.standard.assets",
@@ -73794,6 +74430,7 @@
       ]
     },
     "GFScenePreloadMap": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "standard",
       "package_id": "gf.standard.assets",
@@ -73876,6 +74513,7 @@
       ]
     },
     "GFSceneSignalAudit": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "kernel",
       "package_id": "gf.kernel",
@@ -73965,6 +74603,7 @@
       ]
     },
     "GFSceneTransitionConfig": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "standard",
       "package_id": "gf.standard.assets",
@@ -74054,6 +74693,7 @@
       ]
     },
     "GFSceneUtility": {
+      "owner_kind": "class",
       "extends": "GFUtility",
       "module": "standard",
       "package_id": "gf.standard.assets",
@@ -74598,6 +75238,7 @@
       ]
     },
     "GFSchemaField": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "standard",
       "package_id": "gf.standard.base",
@@ -74757,6 +75398,7 @@
       ]
     },
     "GFScreenTransitionEffect": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "standard",
       "package_id": "gf.standard.assets",
@@ -74881,6 +75523,7 @@
       ]
     },
     "GFScreenTransitionUtility": {
+      "owner_kind": "class",
       "extends": "GFUtility",
       "module": "standard",
       "package_id": "gf.standard.assets",
@@ -75012,6 +75655,7 @@
       ]
     },
     "GFScreenshotUtility": {
+      "owner_kind": "class",
       "extends": "GFUtility",
       "module": "standard",
       "package_id": "gf.standard.debug",
@@ -75178,6 +75822,7 @@
       ]
     },
     "GFScriptPatchUtility": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "kernel",
       "package_id": "gf.kernel",
@@ -75211,6 +75856,7 @@
       ]
     },
     "GFScriptStructureTools": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.assets",
@@ -75272,6 +75918,7 @@
       ]
     },
     "GFSeedUtility": {
+      "owner_kind": "class",
       "extends": "GFUtility",
       "module": "standard",
       "package_id": "gf.standard.deterministic",
@@ -75410,6 +76057,7 @@
       ]
     },
     "GFSequenceContext": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.base",
@@ -75464,6 +76112,7 @@
       ]
     },
     "GFSequenceStep": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "standard",
       "package_id": "gf.standard.base",
@@ -75504,6 +76153,7 @@
       ]
     },
     "GFSessionTraceChannelDefinition": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "standard",
       "package_id": "gf.standard.diagnostics",
@@ -75572,6 +76222,7 @@
       ]
     },
     "GFSessionTraceCheckpoint": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "standard",
       "package_id": "gf.standard.diagnostics",
@@ -75626,6 +76277,7 @@
       ]
     },
     "GFSessionTraceRecipe": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "standard",
       "package_id": "gf.standard.diagnostics",
@@ -75750,6 +76402,7 @@
       ]
     },
     "GFSessionTraceUtility": {
+      "owner_kind": "class",
       "extends": "GFUtility",
       "module": "standard",
       "package_id": "gf.standard.diagnostics",
@@ -76091,6 +76744,7 @@
       ]
     },
     "GFSettingDefinition": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "standard",
       "package_id": "gf.standard.settings",
@@ -76173,6 +76827,7 @@
       ]
     },
     "GFSettingsFileStoreUtility": {
+      "owner_kind": "class",
       "extends": "GFSettingsStoreUtility",
       "module": "standard",
       "package_id": "gf.standard.settings",
@@ -76206,6 +76861,7 @@
       ]
     },
     "GFSettingsLoadResult": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.settings",
@@ -76351,6 +77007,7 @@
       ]
     },
     "GFSettingsNullStoreUtility": {
+      "owner_kind": "class",
       "extends": "GFSettingsStoreUtility",
       "module": "standard",
       "package_id": "gf.standard.settings",
@@ -76362,6 +77019,7 @@
       "members": []
     },
     "GFSettingsRecoveryPolicy": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "standard",
       "package_id": "gf.standard.settings",
@@ -76416,6 +77074,7 @@
       ]
     },
     "GFSettingsStoreUtility": {
+      "owner_kind": "class",
       "extends": "GFUtility",
       "module": "standard",
       "package_id": "gf.standard.settings",
@@ -76449,6 +77108,7 @@
       ]
     },
     "GFSettingsUtility": {
+      "owner_kind": "class",
       "extends": "GFUtility",
       "module": "standard",
       "package_id": "gf.standard.settings",
@@ -76825,6 +77485,7 @@
       ]
     },
     "GFShaderInterfaceSnapshot": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "standard",
       "package_id": "gf.standard.display",
@@ -76949,6 +77610,7 @@
       ]
     },
     "GFShaderParameterAction": {
+      "owner_kind": "class",
       "extends": "GFVisualAction",
       "module": "extensions/action_queue",
       "package_id": "gf.extension.action_queue",
@@ -77080,6 +77742,7 @@
       ]
     },
     "GFShaderParameterBinder": {
+      "owner_kind": "class",
       "extends": "Node",
       "module": "standard",
       "package_id": "gf.standard.display",
@@ -77190,6 +77853,7 @@
       ]
     },
     "GFShaderParameterProfile": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "standard",
       "package_id": "gf.standard.display",
@@ -77307,6 +77971,7 @@
       ]
     },
     "GFShaderParameterUtility": {
+      "owner_kind": "class",
       "extends": "GFUtility",
       "module": "standard",
       "package_id": "gf.standard.display",
@@ -77445,6 +78110,7 @@
       ]
     },
     "GFShakePreset": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "extensions/feedback",
       "package_id": "gf.extension.feedback",
@@ -77597,6 +78263,7 @@
       ]
     },
     "GFShakeReceiver2D": {
+      "owner_kind": "class",
       "extends": "Node",
       "module": "extensions/feedback",
       "package_id": "gf.extension.feedback",
@@ -77700,6 +78367,7 @@
       ]
     },
     "GFShakeReceiver3D": {
+      "owner_kind": "class",
       "extends": "Node",
       "module": "extensions/feedback",
       "package_id": "gf.extension.feedback",
@@ -77803,6 +78471,7 @@
       ]
     },
     "GFShakeTrack": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "extensions/feedback",
       "package_id": "gf.extension.feedback",
@@ -77948,6 +78617,7 @@
       ]
     },
     "GFShakeUtility": {
+      "owner_kind": "class",
       "extends": "GFUtility",
       "module": "extensions/feedback",
       "package_id": "gf.extension.feedback",
@@ -78107,6 +78777,7 @@
       ]
     },
     "GFSignalBridge": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "standard",
       "package_id": "gf.standard.base",
@@ -78224,6 +78895,7 @@
       ]
     },
     "GFSignalBridgeBinding": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.base",
@@ -78271,6 +78943,7 @@
       ]
     },
     "GFSignalConnection": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.base",
@@ -78409,6 +79082,7 @@
       ]
     },
     "GFSignalGraphDock": {
+      "owner_kind": "class",
       "extends": "Control",
       "module": "standard",
       "package_id": "gf.standard.debug.editor",
@@ -78463,6 +79137,7 @@
       ]
     },
     "GFSignalRuntimeProbe": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.debug",
@@ -78671,6 +79346,7 @@
       ]
     },
     "GFSignalSourceRef": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "standard",
       "package_id": "gf.standard.base",
@@ -78739,6 +79415,7 @@
       ]
     },
     "GFSignalSubscriptionToken": {
+      "owner_kind": "class",
       "extends": "GFSubscriptionToken",
       "module": "kernel",
       "package_id": "gf.kernel",
@@ -78779,6 +79456,7 @@
       ]
     },
     "GFSignalUtility": {
+      "owner_kind": "class",
       "extends": "GFUtility",
       "module": "standard",
       "package_id": "gf.standard.base",
@@ -78861,6 +79539,7 @@
       ]
     },
     "GFSkill": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "extensions/combat",
       "package_id": "gf.extension.combat",
@@ -79027,6 +79706,7 @@
       ]
     },
     "GFSkillActivationContext": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "extensions/combat",
       "package_id": "gf.extension.combat",
@@ -79123,6 +79803,7 @@
       ]
     },
     "GFSkillActivationStep": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "extensions/combat",
       "package_id": "gf.extension.combat",
@@ -79177,6 +79858,7 @@
       ]
     },
     "GFSkillTargetingRule2D": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "extensions/combat",
       "package_id": "gf.extension.combat",
@@ -79287,6 +79969,7 @@
       ]
     },
     "GFSkillTargetingUtility2D": {
+      "owner_kind": "class",
       "extends": "GFUtility",
       "module": "extensions/combat",
       "package_id": "gf.extension.combat",
@@ -79306,6 +79989,7 @@
       ]
     },
     "GFSlotInventoryModel": {
+      "owner_kind": "class",
       "extends": "GFModel",
       "module": "extensions/domain",
       "package_id": "gf.extension.domain",
@@ -79647,6 +80331,7 @@
       ]
     },
     "GFSnapshotHistoryUtility": {
+      "owner_kind": "class",
       "extends": "GFUtility",
       "module": "standard",
       "package_id": "gf.standard.storage",
@@ -79806,6 +80491,7 @@
       ]
     },
     "GFSourceBuilder": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "kernel",
       "package_id": "gf.kernel",
@@ -79874,6 +80560,7 @@
       ]
     },
     "GFSourceSpan": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.base",
@@ -80047,6 +80734,7 @@
       ]
     },
     "GFSourceTextLoader": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.assets",
@@ -80199,6 +80887,7 @@
       ]
     },
     "GFSourceTextPatchTools": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.base",
@@ -80267,6 +80956,7 @@
       ]
     },
     "GFSpatialCanvas2D": {
+      "owner_kind": "class",
       "extends": "Control",
       "module": "standard",
       "package_id": "gf.standard.spatial.canvas",
@@ -80699,6 +81389,7 @@
       ]
     },
     "GFSpatialCanvasInputPolicy": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "standard",
       "package_id": "gf.standard.spatial.canvas",
@@ -80914,6 +81605,7 @@
       ]
     },
     "GFSpatialCanvasSelectionModeBinding": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "standard",
       "package_id": "gf.standard.spatial.canvas",
@@ -80947,6 +81639,7 @@
       ]
     },
     "GFSpatialHash3D": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.spatial",
@@ -81078,6 +81771,7 @@
       ]
     },
     "GFSpatialQueryIdentity": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.spatial",
@@ -81223,6 +81917,7 @@
       ]
     },
     "GFSpatialQueryIndex2D": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.spatial",
@@ -81438,6 +82133,7 @@
       ]
     },
     "GFSpatialQueryIndex3D": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.spatial",
@@ -81618,6 +82314,7 @@
       ]
     },
     "GFSpringMath": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.spatial",
@@ -81658,6 +82355,7 @@
       ]
     },
     "GFState": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.state_machine",
@@ -81852,6 +82550,7 @@
       ]
     },
     "GFStateMachine": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.state_machine",
@@ -82130,6 +82829,7 @@
       ]
     },
     "GFSteeringAcceleration": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.spatial",
@@ -82198,6 +82898,7 @@
       ]
     },
     "GFSteeringAgent": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.spatial",
@@ -82294,6 +82995,7 @@
       ]
     },
     "GFSteeringBehaviorResource": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "standard",
       "package_id": "gf.standard.spatial",
@@ -82446,6 +83148,7 @@
       ]
     },
     "GFSteeringBehaviorStack": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "standard",
       "package_id": "gf.standard.spatial",
@@ -82528,6 +83231,7 @@
       ]
     },
     "GFSteeringMath": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.spatial",
@@ -82652,6 +83356,7 @@
       ]
     },
     "GFStorageAsyncCallerResult": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.storage",
@@ -82776,6 +83481,7 @@
       ]
     },
     "GFStorageAsyncOperation": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.storage",
@@ -82914,6 +83620,7 @@
       ]
     },
     "GFStorageAsyncRequestOptions": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.storage",
@@ -82940,6 +83647,7 @@
       ]
     },
     "GFStorageAsyncResult": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.storage",
@@ -83057,6 +83765,7 @@
       ]
     },
     "GFStorageBackend": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.storage",
@@ -83188,6 +83897,7 @@
       ]
     },
     "GFStorageCodec": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "standard",
       "package_id": "gf.standard.storage",
@@ -83396,6 +84106,7 @@
       ]
     },
     "GFStorageConflictReport": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "standard",
       "package_id": "gf.standard.storage",
@@ -83506,6 +84217,7 @@
       ]
     },
     "GFStorageDeleteResult": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.storage",
@@ -83595,6 +84307,7 @@
       ]
     },
     "GFStorageFailoverBackend": {
+      "owner_kind": "class",
       "extends": "GFStorageBackend",
       "module": "standard",
       "package_id": "gf.standard.storage",
@@ -83719,6 +84432,7 @@
       ]
     },
     "GFStoragePayloadTransfer": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.storage",
@@ -83780,6 +84494,7 @@
       ]
     },
     "GFStorageReadResult": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.storage",
@@ -83932,6 +84647,7 @@
       ]
     },
     "GFStorageSectionCache": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.storage",
@@ -84042,6 +84758,7 @@
       ]
     },
     "GFStorageSettingsStoreUtility": {
+      "owner_kind": "class",
       "extends": "GFSettingsStoreUtility",
       "module": "standard",
       "package_id": "gf.standard.settings.storage",
@@ -84096,6 +84813,7 @@
       ]
     },
     "GFStorageSyncUtility": {
+      "owner_kind": "class",
       "extends": "GFUtility",
       "module": "standard",
       "package_id": "gf.standard.storage",
@@ -84185,6 +84903,7 @@
       ]
     },
     "GFStorageUtility": {
+      "owner_kind": "class",
       "extends": "GFUtility",
       "module": "standard",
       "package_id": "gf.standard.storage",
@@ -84561,6 +85280,7 @@
       ]
     },
     "GFStorageViewerDock": {
+      "owner_kind": "class",
       "extends": "VBoxContainer",
       "module": "standard",
       "package_id": "gf.standard.storage.editor",
@@ -84572,6 +85292,7 @@
       "members": []
     },
     "GFSubscriptionToken": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "kernel",
       "package_id": "gf.kernel",
@@ -84612,6 +85333,7 @@
       ]
     },
     "GFSupportReportUtility": {
+      "owner_kind": "class",
       "extends": "GFUtility",
       "module": "standard",
       "package_id": "gf.standard.debug",
@@ -84848,6 +85570,7 @@
       ]
     },
     "GFSupportReportWorkflow": {
+      "owner_kind": "class",
       "extends": "GFUtility",
       "module": "standard",
       "package_id": "gf.standard.debug",
@@ -85021,6 +85744,7 @@
       ]
     },
     "GFSurfaceScatterSampler3D": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.spatial",
@@ -85082,6 +85806,7 @@
       ]
     },
     "GFSurfaceUtility": {
+      "owner_kind": "class",
       "extends": "GFUtility",
       "module": "standard",
       "package_id": "gf.standard.display",
@@ -85206,6 +85931,7 @@
       ]
     },
     "GFSystem": {
+      "owner_kind": "class",
       "extends": "",
       "module": "kernel",
       "package_id": "gf.kernel",
@@ -85449,6 +86175,7 @@
       ]
     },
     "GFTableColumnDefinition": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "standard",
       "package_id": "gf.standard.ui",
@@ -85636,6 +86363,7 @@
       ]
     },
     "GFTableDataView": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.ui",
@@ -86054,6 +86782,7 @@
       ]
     },
     "GFTableRowPredicate": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.ui",
@@ -86080,6 +86809,7 @@
       ]
     },
     "GFTableRowPredicateRegistration": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.ui",
@@ -86134,6 +86864,7 @@
       ]
     },
     "GFTableRowPredicateResult": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.ui",
@@ -86195,6 +86926,7 @@
       ]
     },
     "GFTableRowView": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.ui",
@@ -86242,6 +86974,7 @@
       ]
     },
     "GFTableSelectionModel": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.ui",
@@ -86373,6 +87106,7 @@
       ]
     },
     "GFTableViewRebuildResult": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.ui",
@@ -86469,6 +87203,7 @@
       ]
     },
     "GFTagCatalog": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "standard",
       "package_id": "gf.standard.base",
@@ -86607,6 +87342,7 @@
       ]
     },
     "GFTagComponent": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "extensions/combat",
       "package_id": "gf.extension.combat",
@@ -86675,6 +87411,7 @@
       ]
     },
     "GFTagExpression": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "standard",
       "package_id": "gf.standard.base",
@@ -86792,6 +87529,7 @@
       ]
     },
     "GFTagQuery": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "standard",
       "package_id": "gf.standard.base",
@@ -86881,6 +87619,7 @@
       ]
     },
     "GFTagSet": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "standard",
       "package_id": "gf.standard.base",
@@ -86977,6 +87716,7 @@
       ]
     },
     "GFTagSourceAdapter": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.base",
@@ -87052,6 +87792,7 @@
       ]
     },
     "GFTemplateGenerationManifest": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "kernel",
       "package_id": "gf.kernel",
@@ -87162,6 +87903,7 @@
       ]
     },
     "GFTextAutoFit": {
+      "owner_kind": "class",
       "extends": "Node",
       "module": "standard",
       "package_id": "gf.standard.ui",
@@ -87272,6 +88014,7 @@
       ]
     },
     "GFTextFitter": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.ui",
@@ -87340,6 +88083,7 @@
       ]
     },
     "GFTextGenerationContext": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.base",
@@ -87520,6 +88264,7 @@
       ]
     },
     "GFTextSearchScorer": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.base",
@@ -87567,6 +88312,7 @@
       ]
     },
     "GFTextureSetClassifier": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.assets",
@@ -87656,6 +88402,7 @@
       ]
     },
     "GFThemeOverridePropertyList": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.ui",
@@ -87766,6 +88513,7 @@
       ]
     },
     "GFThumbnailRenderRequest": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "kernel",
       "package_id": "gf.kernel",
@@ -87918,6 +88666,7 @@
       ]
     },
     "GFThumbnailRenderTask": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "kernel",
       "package_id": "gf.kernel",
@@ -88091,6 +88840,7 @@
       ]
     },
     "GFThumbnailRenderer": {
+      "owner_kind": "class",
       "extends": "Node",
       "module": "kernel",
       "package_id": "gf.kernel",
@@ -88215,6 +88965,7 @@
       ]
     },
     "GFTileMapCache": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "standard",
       "package_id": "gf.standard.spatial",
@@ -88353,6 +89104,7 @@
       ]
     },
     "GFTileMetadataLayer": {
+      "owner_kind": "class",
       "extends": "GFTileMapCache",
       "module": "standard",
       "package_id": "gf.standard.spatial",
@@ -88470,6 +89222,7 @@
       ]
     },
     "GFTileMetadataPaintTool": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.spatial.editor",
@@ -88531,6 +89284,7 @@
       ]
     },
     "GFTileRuleSet": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "standard",
       "package_id": "gf.standard.spatial",
@@ -88599,6 +89353,7 @@
       ]
     },
     "GFTimeProvider": {
+      "owner_kind": "class",
       "extends": "GFUtility",
       "module": "kernel",
       "package_id": "gf.kernel",
@@ -88681,6 +89436,7 @@
       ]
     },
     "GFTimeUtility": {
+      "owner_kind": "class",
       "extends": "GFTimeProvider",
       "module": "standard",
       "package_id": "gf.standard.base",
@@ -88798,6 +89554,7 @@
       ]
     },
     "GFTimedTextEntry": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "standard",
       "package_id": "gf.standard.base",
@@ -88873,6 +89630,7 @@
       ]
     },
     "GFTimedTextImporter": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.base",
@@ -88906,6 +89664,7 @@
       ]
     },
     "GFTimedTextTrack": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "standard",
       "package_id": "gf.standard.base",
@@ -89009,6 +89768,7 @@
       ]
     },
     "GFTimeoutController": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.base",
@@ -89154,6 +89914,7 @@
       ]
     },
     "GFTimerUtility": {
+      "owner_kind": "class",
       "extends": "GFUtility",
       "module": "standard",
       "package_id": "gf.standard.base",
@@ -89236,6 +89997,7 @@
       ]
     },
     "GFTouchButton": {
+      "owner_kind": "class",
       "extends": "GFTouchControl2D",
       "module": "standard",
       "package_id": "gf.standard.input",
@@ -89332,6 +90094,7 @@
       ]
     },
     "GFTouchControl2D": {
+      "owner_kind": "class",
       "extends": "Node2D",
       "module": "standard",
       "package_id": "gf.standard.input",
@@ -89365,6 +90128,7 @@
       ]
     },
     "GFTouchJoystick": {
+      "owner_kind": "class",
       "extends": "GFTouchControl2D",
       "module": "standard",
       "package_id": "gf.standard.input",
@@ -89559,6 +90323,7 @@
       ]
     },
     "GFTrait": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "extensions/domain",
       "package_id": "gf.extension.domain",
@@ -89634,6 +90399,7 @@
       ]
     },
     "GFTraitSet": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "extensions/domain",
       "package_id": "gf.extension.domain",
@@ -89688,6 +90454,7 @@
       ]
     },
     "GFTrajectoryMath": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.spatial",
@@ -89812,6 +90579,7 @@
       ]
     },
     "GFTransform3DMath": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.spatial",
@@ -89901,6 +90669,7 @@
       ]
     },
     "GFTurnAction": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "extensions/turn_based",
       "package_id": "gf.extension.turn_based",
@@ -89990,6 +90759,7 @@
       ]
     },
     "GFTurnContext": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "extensions/turn_based",
       "package_id": "gf.extension.turn_based",
@@ -90058,6 +90828,7 @@
       ]
     },
     "GFTurnFlowSystem": {
+      "owner_kind": "class",
       "extends": "GFSystem",
       "module": "extensions/turn_based",
       "package_id": "gf.extension.turn_based",
@@ -90224,6 +90995,7 @@
       ]
     },
     "GFTurnPhase": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "extensions/turn_based",
       "package_id": "gf.extension.turn_based",
@@ -90292,6 +91064,7 @@
       ]
     },
     "GFTweenActionConfig": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "extensions/action_queue",
       "package_id": "gf.extension.action_queue",
@@ -90423,6 +91196,7 @@
       ]
     },
     "GFTweenActionStep": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "extensions/action_queue",
       "package_id": "gf.extension.action_queue",
@@ -90540,6 +91314,7 @@
       ]
     },
     "GFTypeEventSystem": {
+      "owner_kind": "class",
       "extends": "",
       "module": "kernel",
       "package_id": "gf.kernel",
@@ -90748,6 +91523,7 @@
       ]
     },
     "GFUILayerDefinition": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "standard",
       "package_id": "gf.standard.ui.navigation",
@@ -90809,6 +91585,7 @@
       ]
     },
     "GFUIPanelAsyncOperation": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.ui.navigation",
@@ -90912,6 +91689,7 @@
       ]
     },
     "GFUIRoute": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "standard",
       "package_id": "gf.standard.ui.navigation",
@@ -90994,6 +91772,7 @@
       ]
     },
     "GFUIRouteOperation": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.ui.navigation",
@@ -91097,6 +91876,7 @@
       ]
     },
     "GFUIRoutePreloadUtility": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.ui.navigation",
@@ -91151,6 +91931,7 @@
       ]
     },
     "GFUIRouteResult": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.ui.navigation",
@@ -91401,6 +92182,7 @@
       ]
     },
     "GFUIRouterUtility": {
+      "owner_kind": "class",
       "extends": "GFUtility",
       "module": "standard",
       "package_id": "gf.standard.ui.navigation",
@@ -91637,6 +92419,7 @@
       ]
     },
     "GFUIUtility": {
+      "owner_kind": "class",
       "extends": "GFUtility",
       "module": "standard",
       "package_id": "gf.standard.ui.navigation",
@@ -91992,6 +92775,7 @@
       ]
     },
     "GFUndoableCommand": {
+      "owner_kind": "class",
       "extends": "GFCommand",
       "module": "standard",
       "package_id": "gf.standard.base",
@@ -92067,6 +92851,7 @@
       ]
     },
     "GFUtility": {
+      "owner_kind": "class",
       "extends": "",
       "module": "kernel",
       "package_id": "gf.kernel",
@@ -92296,6 +93081,7 @@
       ]
     },
     "GFUuid": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.base",
@@ -92343,6 +93129,7 @@
       ]
     },
     "GFValidationConstraintRule": {
+      "owner_kind": "class",
       "extends": "GFValidationRule",
       "module": "standard",
       "package_id": "gf.standard.base",
@@ -92530,6 +93317,7 @@
       ]
     },
     "GFValidationDiagnosticAdapter": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.base",
@@ -92584,6 +93372,7 @@
       ]
     },
     "GFValidationIssue": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.base",
@@ -92820,6 +93609,7 @@
       ]
     },
     "GFValidationJUnitExporter": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.base",
@@ -92846,6 +93636,7 @@
       ]
     },
     "GFValidationReport": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.base",
@@ -93061,6 +93852,7 @@
       ]
     },
     "GFValidationReportDictionary": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.base",
@@ -93157,6 +93949,7 @@
       ]
     },
     "GFValidationRule": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "standard",
       "package_id": "gf.standard.base",
@@ -93267,6 +94060,7 @@
       ]
     },
     "GFValidationRunner": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.base",
@@ -93349,6 +94143,7 @@
       ]
     },
     "GFValidationSuite": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "standard",
       "package_id": "gf.standard.base",
@@ -93522,6 +94317,7 @@
       ]
     },
     "GFValueIndex": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.base",
@@ -93639,6 +94435,7 @@
       ]
     },
     "GFVariantData": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.base",
@@ -93917,6 +94714,7 @@
       ]
     },
     "GFVariantJsonCodec": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.base",
@@ -94020,6 +94818,7 @@
       ]
     },
     "GFVariantKeyCodec": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.base",
@@ -94053,6 +94852,7 @@
       ]
     },
     "GFVariantReferenceCodec": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.base",
@@ -94212,6 +95012,7 @@
       ]
     },
     "GFViewportSurfaceInputBridge": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.input",
@@ -94357,6 +95158,7 @@
       ]
     },
     "GFViewportSurfaceInputCapture": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.input",
@@ -94418,6 +95220,7 @@
       ]
     },
     "GFViewportUtility": {
+      "owner_kind": "class",
       "extends": "GFUtility",
       "module": "standard",
       "package_id": "gf.standard.display",
@@ -94619,6 +95422,7 @@
       ]
     },
     "GFVirtualInputBridge": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.input",
@@ -94680,6 +95484,7 @@
       ]
     },
     "GFVirtualInputPulseOperation": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.input",
@@ -94790,6 +95595,7 @@
       ]
     },
     "GFVirtualInputSource": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.input",
@@ -94935,6 +95741,7 @@
       ]
     },
     "GFVirtualListBinder": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.ui",
@@ -95143,6 +95950,7 @@
       ]
     },
     "GFVirtualListFocusModel": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.ui",
@@ -95295,6 +96103,7 @@
       ]
     },
     "GFVirtualListModel": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.ui",
@@ -95468,6 +96277,7 @@
       ]
     },
     "GFVirtualListSyncResult": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.ui",
@@ -95683,6 +96493,7 @@
       ]
     },
     "GFVisualAction": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "extensions/action_queue",
       "package_id": "gf.extension.action_queue",
@@ -95814,6 +96625,7 @@
       ]
     },
     "GFVisualActionGroup": {
+      "owner_kind": "class",
       "extends": "GFVisualAction",
       "module": "extensions/action_queue",
       "package_id": "gf.extension.action_queue",
@@ -95903,6 +96715,7 @@
       ]
     },
     "GFVoronoi2D": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.spatial",
@@ -95943,6 +96756,7 @@
       ]
     },
     "GFWaitAction": {
+      "owner_kind": "class",
       "extends": "GFVisualAction",
       "module": "extensions/action_queue",
       "package_id": "gf.extension.action_queue",
@@ -96039,6 +96853,7 @@
       ]
     },
     "GFWaitSequenceStep": {
+      "owner_kind": "class",
       "extends": "GFSequenceStep",
       "module": "standard",
       "package_id": "gf.standard.base",
@@ -96079,6 +96894,7 @@
       ]
     },
     "GFWaveFunctionCollapse2D": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "standard",
       "package_id": "gf.standard.spatial",
@@ -96161,6 +96977,7 @@
       ]
     },
     "GFWeakMethodInvocation": {
+      "owner_kind": "class",
       "extends": "RefCounted",
       "module": "kernel",
       "package_id": "gf.kernel",
@@ -96215,6 +97032,7 @@
       ]
     },
     "GFWebSocketNetworkBackend": {
+      "owner_kind": "class",
       "extends": "GFNetworkBackend",
       "module": "extensions/network",
       "package_id": "gf.extension.network",
@@ -96472,6 +97290,7 @@
       ]
     },
     "GFWeightedEntry": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "standard",
       "package_id": "gf.standard.spatial",
@@ -96540,6 +97359,7 @@
       ]
     },
     "GFWeightedTable": {
+      "owner_kind": "class",
       "extends": "Resource",
       "module": "standard",
       "package_id": "gf.standard.spatial",
@@ -96666,6 +97486,504 @@
           "name": "from_dict",
           "signature": "static func from_dict(data: Dictionary) -> GFWeightedTable",
           "summary": "从通用字典创建权重表。",
+          "visibility": "public"
+        }
+      ]
+    }
+  },
+  "autoloads": {
+    "Gf": {
+      "owner_kind": "autoload",
+      "extends": "Node",
+      "module": "kernel",
+      "package_id": "gf.kernel",
+      "path": "addons/gf/kernel/core/gf.gd",
+      "summary": "Gf: GF Framework 的全局运行时入口。 负责项目架构的安装、初始化、查询、替换与释放，并作为受控 AutoLoad 注册到场景树根节点。",
+      "visibility": "public",
+      "category": "runtime_service",
+      "since": "1.0.0",
+      "members": [
+        {
+          "kind": "const",
+          "name": "INSTALLERS_SETTING",
+          "signature": "const INSTALLERS_SETTING: String = \"gf/project/installers\"",
+          "summary": "项目级启动安装器配置。值为 GDScript 资源路径数组，脚本需继承 GFInstaller。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "FAIL_ON_INSTALLER_ERROR_SETTING",
+          "signature": "const FAIL_ON_INSTALLER_ERROR_SETTING: String = \"gf/project/fail_on_installer_error\"",
+          "summary": "项目级 Installer 创建失败时是否中断架构初始化。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "INSTALLER_TIMEOUT_SETTING",
+          "signature": "const INSTALLER_TIMEOUT_SETTING: String = \"gf/project/installer_timeout_seconds\"",
+          "summary": "项目级 Installer 单个 install()/install_bindings() 的最长等待时间。小于等于 0 时不启用超时。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "architecture",
+          "signature": "var architecture: GFArchitecture",
+          "summary": "当前架构实例的只读访问器。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "has_architecture",
+          "signature": "func has_architecture() -> bool",
+          "summary": "检查当前架构 identity 是否仍可供 facade 使用。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "create_architecture",
+          "signature": "func create_architecture() -> GFArchitecture",
+          "summary": "获取当前架构；若尚未创建，则自动创建一个默认 GFArchitecture。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "create_binder",
+          "signature": "func create_binder() -> Variant",
+          "summary": "为当前架构创建声明式装配器。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_architecture",
+          "signature": "func get_architecture() -> GFArchitecture",
+          "summary": "获取当前注册的架构实例。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "set_architecture",
+          "signature": "func set_architecture(architecture_instance: GFArchitecture) -> bool",
+          "summary": "设置并初始化架构实例。该方法内部使用 await，调用方应加 await。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "init",
+          "signature": "func init() -> bool",
+          "summary": "初始化当前架构。若尚未创建架构，则自动创建默认 GFArchitecture。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "register_system",
+          "signature": "func register_system(instance: Object) -> bool",
+          "summary": "便捷注册 System 实例。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "register_model",
+          "signature": "func register_model(instance: Object) -> bool",
+          "summary": "便捷注册 Model 实例。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "register_utility",
+          "signature": "func register_utility(instance: Object) -> bool",
+          "summary": "便捷注册 Utility 实例。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "replace_system",
+          "signature": "func replace_system(instance: Object) -> bool",
+          "summary": "便捷替换 System 实例。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "replace_model",
+          "signature": "func replace_model(instance: Object) -> bool",
+          "summary": "便捷替换 Model 实例。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "replace_utility",
+          "signature": "func replace_utility(instance: Object) -> bool",
+          "summary": "便捷替换 Utility 实例。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "register_factory",
+          "signature": "func register_factory( script_cls: Script, factory: Callable, lifetime: int = GFBindingLifetimesBase.Lifetime.TRANSIENT ) -> bool",
+          "summary": "注册短生命周期对象工厂。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "register_factory_instance",
+          "signature": "func register_factory_instance(script_cls: Script, instance: Object) -> bool",
+          "summary": "注册已有实例作为短生命周期工厂入口。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "replace_factory",
+          "signature": "func replace_factory( script_cls: Script, factory: Callable, lifetime: int = GFBindingLifetimesBase.Lifetime.TRANSIENT ) -> bool",
+          "summary": "替换短生命周期对象工厂。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "replace_factory_instance",
+          "signature": "func replace_factory_instance(script_cls: Script, instance: Object) -> bool",
+          "summary": "替换已有实例工厂入口。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "unregister_factory",
+          "signature": "func unregister_factory(script_cls: Script) -> bool",
+          "summary": "注销短生命周期对象工厂。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "has_factory",
+          "signature": "func has_factory(script_cls: Script) -> bool",
+          "summary": "检查当前架构或父级架构是否注册了指定工厂。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "create_instance",
+          "signature": "func create_instance(script_cls: Script) -> Object",
+          "summary": "创建短生命周期对象实例。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "inject_object",
+          "signature": "func inject_object(instance: Object) -> void",
+          "summary": "向任意对象注入当前架构依赖。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "inject_node_tree",
+          "signature": "func inject_node_tree(node: Node) -> void",
+          "summary": "递归向节点树中实现注入 Hook 的节点注入当前架构。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "register_system_as",
+          "signature": "func register_system_as(instance: Object, alias_cls: Script) -> bool",
+          "summary": "便捷注册 System 实例，并额外登记一个查询别名。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "register_model_as",
+          "signature": "func register_model_as(instance: Object, alias_cls: Script) -> bool",
+          "summary": "便捷注册 Model 实例，并额外登记一个查询别名。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "register_utility_as",
+          "signature": "func register_utility_as(instance: Object, alias_cls: Script) -> bool",
+          "summary": "便捷注册 Utility 实例，并额外登记一个查询别名。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "register_system_alias",
+          "signature": "func register_system_alias(alias_cls: Script, target_cls: Script) -> void",
+          "summary": "为已注册 System 添加查询别名。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "register_model_alias",
+          "signature": "func register_model_alias(alias_cls: Script, target_cls: Script) -> void",
+          "summary": "为已注册 Model 添加查询别名。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "register_utility_alias",
+          "signature": "func register_utility_alias(alias_cls: Script, target_cls: Script) -> void",
+          "summary": "为已注册 Utility 添加查询别名。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "unregister_system_alias",
+          "signature": "func unregister_system_alias(alias_cls: Script) -> void",
+          "summary": "注销 System 查询别名，不影响目标实例。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "unregister_model_alias",
+          "signature": "func unregister_model_alias(alias_cls: Script) -> void",
+          "summary": "注销 Model 查询别名，不影响目标实例。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "unregister_utility_alias",
+          "signature": "func unregister_utility_alias(alias_cls: Script) -> void",
+          "summary": "注销 Utility 查询别名，不影响目标实例。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_system",
+          "signature": "func get_system(script_cls: Script, require_ready: bool = false) -> Object",
+          "summary": "获取 System 实例。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_model",
+          "signature": "func get_model(script_cls: Script, require_ready: bool = false) -> Object",
+          "summary": "获取 Model 实例。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_utility",
+          "signature": "func get_utility(script_cls: Script, require_ready: bool = false) -> Object",
+          "summary": "获取 Utility 实例。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_local_system",
+          "signature": "func get_local_system(script_cls: Script, require_ready: bool = false) -> Object",
+          "summary": "仅从当前全局架构获取 System，不回退父级架构。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_local_model",
+          "signature": "func get_local_model(script_cls: Script, require_ready: bool = false) -> Object",
+          "summary": "仅从当前全局架构获取 Model，不回退父级架构。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_local_utility",
+          "signature": "func get_local_utility(script_cls: Script, require_ready: bool = false) -> Object",
+          "summary": "仅从当前全局架构获取 Utility，不回退父级架构。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "send_command",
+          "signature": "func send_command(command: Object) -> Variant",
+          "summary": "便捷发送全局命令。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "send_query",
+          "signature": "func send_query(query: Object) -> Variant",
+          "summary": "便捷发送查询。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "send_event",
+          "signature": "func send_event(event_instance: Object) -> void",
+          "summary": "便捷发送带载体的强类型事件。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "send_simple_event",
+          "signature": "func send_simple_event(event_id: StringName, payload: Variant = null) -> void",
+          "summary": "便捷发送无参数的轻量级事件。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "configure_event_debugging",
+          "signature": "func configure_event_debugging( max_dispatch_depth: int = GFTypeEventSystem.DEFAULT_MAX_DISPATCH_DEPTH, trace_enabled: bool = false, max_trace_entries: int = 64 ) -> void",
+          "summary": "配置事件系统调试与保护选项。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_event_debug_stats",
+          "signature": "func get_event_debug_stats() -> Dictionary",
+          "summary": "获取事件系统诊断统计。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_event_listener_diagnostics",
+          "signature": "func get_event_listener_diagnostics(options: Dictionary = {}) -> Dictionary",
+          "summary": "获取事件监听器诊断明细。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "compact_event_listeners",
+          "signature": "func compact_event_listeners() -> int",
+          "summary": "清理 owner 已释放的事件监听器。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_event_dispatch_trace",
+          "signature": "func get_event_dispatch_trace() -> Array[Dictionary]",
+          "summary": "获取最近事件派发追踪条目。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "clear_event_dispatch_trace",
+          "signature": "func clear_event_dispatch_trace() -> void",
+          "summary": "清空事件派发追踪。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "listen",
+          "signature": "func listen(event_type: Script, listener: GFEventListener, priority: int = 0) -> void",
+          "summary": "快捷注册类型事件监听（别名：listen）。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "listen_owned",
+          "signature": "func listen_owned(listener_owner: Object, event_type: Script, listener: GFEventListener, priority: int = 0) -> void",
+          "summary": "快捷注册带拥有者的类型事件监听。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "subscribe",
+          "signature": "func subscribe( event_type: Script, listener: GFEventListener, priority: int = 0, once: bool = false ) -> GFSubscriptionToken",
+          "summary": "快捷订阅类型事件并返回可取消句柄。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "listen_assignable",
+          "signature": "func listen_assignable(base_event_type: Script, listener: GFEventListener, priority: int = 0) -> void",
+          "summary": "快捷注册可赋值类型事件监听。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "listen_assignable_owned",
+          "signature": "func listen_assignable_owned( listener_owner: Object, base_event_type: Script, listener: GFEventListener, priority: int = 0 ) -> void",
+          "summary": "快捷注册带拥有者的可赋值类型事件监听。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "subscribe_assignable",
+          "signature": "func subscribe_assignable( base_event_type: Script, listener: GFEventListener, priority: int = 0, once: bool = false ) -> GFSubscriptionToken",
+          "summary": "快捷订阅可赋值类型事件并返回可取消句柄。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "unlisten",
+          "signature": "func unlisten(event_type: Script, listener: GFEventListener) -> void",
+          "summary": "快捷注销类型事件监听（别名：unlisten）。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "unlisten_owned",
+          "signature": "func unlisten_owned(listener_owner: Object, event_type: Script, listener: GFEventListener) -> void",
+          "summary": "快捷注销带拥有者的类型事件监听。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "unlisten_assignable",
+          "signature": "func unlisten_assignable(base_event_type: Script, listener: GFEventListener) -> void",
+          "summary": "快捷注销可赋值类型事件监听。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "unlisten_assignable_owned",
+          "signature": "func unlisten_assignable_owned(listener_owner: Object, base_event_type: Script, listener: GFEventListener) -> void",
+          "summary": "快捷注销带拥有者的可赋值类型事件监听。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "listen_simple",
+          "signature": "func listen_simple(event_id: StringName, listener: GFEventListener) -> void",
+          "summary": "快捷注册轻量事件监听（别名：listen_simple）。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "listen_simple_owned",
+          "signature": "func listen_simple_owned(listener_owner: Object, event_id: StringName, listener: GFEventListener) -> void",
+          "summary": "快捷注册带拥有者的轻量事件监听。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "subscribe_simple",
+          "signature": "func subscribe_simple( event_id: StringName, listener: GFEventListener, once: bool = false ) -> GFSubscriptionToken",
+          "summary": "快捷订阅轻量事件并返回可取消句柄。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "unlisten_simple",
+          "signature": "func unlisten_simple(event_id: StringName, listener: GFEventListener) -> void",
+          "summary": "快捷注销轻量事件监听（别名：unlisten_simple）。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "unlisten_simple_owned",
+          "signature": "func unlisten_simple_owned(listener_owner: Object, event_id: StringName, listener: GFEventListener) -> void",
+          "summary": "快捷注销带拥有者的轻量事件监听。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "unlisten_owner",
+          "signature": "func unlisten_owner(listener_owner: Object) -> void",
+          "summary": "快捷注销某个拥有者注册过的所有事件监听。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "unregister_system",
+          "signature": "func unregister_system(script_cls: Script) -> bool",
+          "summary": "注销 System 实例。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "unregister_model",
+          "signature": "func unregister_model(script_cls: Script) -> bool",
+          "summary": "注销 Model 实例。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "unregister_utility",
+          "signature": "func unregister_utility(script_cls: Script) -> bool",
+          "summary": "注销 Utility 实例。",
           "visibility": "public"
         }
       ]

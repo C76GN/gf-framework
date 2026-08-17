@@ -31,12 +31,17 @@ from gdscript_api_parser import full_api_class_name
 from gdscript_api_parser import split_named_value
 from gdscript_api_parser import top_level_class_name
 from gdscript_api_parser import visibility_of
+from gf_api_owners import ApiOwner
+from gf_api_owners import OWNER_KIND_AUTOLOAD
+from gf_api_owners import autoload_owners
+from gf_api_owners import class_owners
+from gf_api_owners import collect_api_owners as collect_resolved_api_owners
 
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_CATALOG_ROOT = lexical_absolute_path(ROOT / "docs/api_catalog")
 DEFAULT_REFERENCE_ROOT = lexical_absolute_path(ROOT / "docs/zh/reference/api")
-CATALOG_VERSION = "2"
+CATALOG_VERSION = "3"
 MODULE_LABELS = {
 	"kernel": "Kernel",
 	"standard": "Standard",
@@ -92,14 +97,6 @@ CATEGORY_ORDER = {
 MARKDOWN_LINK_PATTERN = re.compile(r"!?\[[^\]\n]*\]\(([^)\n]+)\)")
 MARKDOWN_FENCE_PATTERN = re.compile(r"^ {0,3}(`{3,}|~{3,})")
 EXPLICIT_ANCHOR_PATTERN = re.compile(r'<a\s+id="([^"]+)"\s*></a>')
-KNOWN_CLASSLESS_PUBLIC_API_SCRIPTS = frozenset({
-	# Gf is the one contract-approved Autoload surface. It stays explicit here until
-	# the Catalog owner/schema decision is made; every additional classless public
-	# script fails closed instead of silently disappearing from the generated model.
-	"addons/gf/kernel/core/gf.gd",
-})
-
-
 def main(argv: list[str] | None = None) -> int:
 	parser = argparse.ArgumentParser(description="Generate GF API Catalog XML and API Reference pages.")
 	parser.add_argument("--source", default="addons/gf", help="GDScript source root.")
@@ -127,14 +124,25 @@ def main(argv: list[str] | None = None) -> int:
 		return 2
 
 	try:
-		api_classes = collect_api_classes(source_root)
+		api_owners = collect_api_owner_model(source_root)
+		api_classes = api_classes_from_owners(api_owners)
+		api_autoloads = autoload_owners(api_owners)
 		validate_api_model(api_classes)
-		catalog_files = render_catalog_files(api_classes, source_root)
-		reference_files = render_reference_files(api_classes, catalog_files["index.xml"])
+		catalog_files = render_catalog_files(api_classes, source_root, api_autoloads)
+		reference_files = render_reference_files(
+			api_classes,
+			catalog_files["index.xml"],
+			api_autoloads,
+		)
 	except ValueError as error:
 		print(f"API generation input is invalid: {error}", file=sys.stderr)
 		return 2
-	coverage_status = check_reference_coverage(api_classes, reference_files, report_success=args.check)
+	coverage_status = check_reference_coverage(
+		api_classes,
+		reference_files,
+		report_success=args.check,
+		api_autoloads=api_autoloads,
+	)
 	if args.check:
 		return max(
 			check_files(catalog_root, catalog_files, "API Catalog"),
@@ -157,48 +165,31 @@ def main(argv: list[str] | None = None) -> int:
 	all_classes = flatten_api_classes(api_classes)
 	class_count = len(all_classes)
 	method_count = sum(len(api_class.methods) for api_class in all_classes)
-	print(f"generated API Catalog: {class_count} classes in {len(api_classes)} files, {method_count} methods")
+	print(
+		"generated API Catalog: "
+		f"{class_count} classes, {len(api_autoloads)} autoloads, "
+		f"{method_count + sum(len(owner.script.methods) for owner in api_autoloads)} methods"
+	)
 	print(f"catalog: {catalog_root}")
 	print(f"reference: {output_root}")
 	return 0
 
 
 def collect_api_classes(source_root: Path) -> list[ApiClass]:
-	return select_api_classes(
-		parse_api_scripts(source_root, ROOT),
-		KNOWN_CLASSLESS_PUBLIC_API_SCRIPTS,
-	)
+	return api_classes_from_owners(collect_api_owner_model(source_root))
 
 
-def select_api_classes(
-	api_scripts: list[ApiScript],
-	known_classless_public_scripts: frozenset[str] = frozenset(),
-) -> list[ApiClass]:
+def collect_api_owner_model(source_root: Path) -> list[ApiOwner]:
+	return collect_resolved_api_owners(source_root, ROOT)
+
+
+def api_classes_from_owners(api_owners: list[ApiOwner]) -> list[ApiClass]:
 	result: list[ApiClass] = []
-	observed_classless_public_scripts: set[str] = set()
-	for api_script in api_scripts:
-		api_class = api_script.to_api_class()
+	for owner in class_owners(api_owners):
+		api_class = owner.to_api_class()
 		if api_class is None:
-			if any(
-				visibility_of(member.docs) in PUBLIC_API_VISIBILITIES
-				for member in api_script_members(api_script)
-			):
-				if api_script.path not in known_classless_public_scripts:
-					raise ValueError(
-						"classless public API script has no explicit Catalog owner decision: "
-						f"{api_script.path}"
-					)
-				observed_classless_public_scripts.add(api_script.path)
-			continue
-		if visibility_of(api_class.docs) not in PUBLIC_API_VISIBILITIES:
-			continue
-		result.append(strip_internal_members(api_class))
-	stale_exclusions = known_classless_public_scripts - observed_classless_public_scripts
-	if stale_exclusions:
-		raise ValueError(
-			"classless public API exclusion is stale: "
-			+ ", ".join(sorted(stale_exclusions))
-		)
+			raise ValueError(f"class API owner has no class_name surface: {owner.name}")
+		result.append(api_class)
 	return result
 
 
@@ -234,19 +225,42 @@ def filter_public_members(members: list[ApiMember]) -> list[ApiMember]:
 	]
 
 
-def render_catalog_files(api_classes: list[ApiClass], source_root: Path) -> dict[str, str]:
+def render_catalog_files(
+	api_classes: list[ApiClass],
+	source_root: Path,
+	api_autoloads: list[ApiOwner] | None = None,
+) -> dict[str, str]:
+	api_autoloads = api_autoloads or []
 	validate_api_model(api_classes)
-	classes_payload = [api_class_to_digest_payload(api_class) for api_class in api_classes]
-	source_digest = hash_api_payload(classes_payload)
+	validate_api_autoloads(api_classes, api_autoloads)
+	owners_payload = [
+		{"kind": "class", "api": api_class_to_digest_payload(api_class)}
+		for api_class in api_classes
+	]
+	owners_payload.extend(autoload_to_digest_payload(owner) for owner in api_autoloads)
+	source_digest = hash_api_payload(owners_payload)
 	files: dict[str, str] = {
-		"index.xml": render_catalog_index(api_classes, source_root, source_digest),
+		"index.xml": render_catalog_index(
+			api_classes,
+			source_root,
+			source_digest,
+			api_autoloads,
+		),
 	}
 	for api_class in api_classes:
 		files[f"classes/{api_class.name}.xml"] = render_class_xml(api_class)
+	for owner in api_autoloads:
+		files[f"autoloads/{owner.name}.xml"] = render_autoload_xml(owner)
 	return files
 
 
-def render_catalog_index(api_classes: list[ApiClass], source_root: Path, source_digest: str) -> str:
+def render_catalog_index(
+	api_classes: list[ApiClass],
+	source_root: Path,
+	source_digest: str,
+	api_autoloads: list[ApiOwner] | None = None,
+) -> str:
+	api_autoloads = api_autoloads or []
 	all_classes = flatten_api_classes(api_classes)
 	root = ET.Element(
 		"apiCatalog",
@@ -257,10 +271,18 @@ def render_catalog_index(api_classes: list[ApiClass], source_root: Path, source_
 			"sourceDigest": source_digest,
 			"classCount": str(len(all_classes)),
 			"methodCount": str(sum(len(api_class.methods) for api_class in all_classes)),
+			"autoloadCount": str(len(api_autoloads)),
+			"autoloadMethodCount": str(sum(len(owner.script.methods) for owner in api_autoloads)),
 		},
 	)
-	for module in sorted({api_class.module for api_class in all_classes}, key=module_sort_key):
+	modules = {
+		api_class.module for api_class in all_classes
+	} | {
+		owner.script.module for owner in api_autoloads
+	}
+	for module in sorted(modules, key=module_sort_key):
 		module_classes = [api_class for api_class in all_classes if api_class.module == module]
+		module_autoloads = [owner for owner in api_autoloads if owner.script.module == module]
 		module_element = ET.SubElement(
 			root,
 			"module",
@@ -269,6 +291,8 @@ def render_catalog_index(api_classes: list[ApiClass], source_root: Path, source_
 				"label": module_label(module),
 				"classCount": str(len(module_classes)),
 				"methodCount": str(sum(len(api_class.methods) for api_class in module_classes)),
+				"autoloadCount": str(len(module_autoloads)),
+				"autoloadMethodCount": str(sum(len(owner.script.methods) for owner in module_autoloads)),
 			},
 		)
 		for api_class in sorted(module_classes, key=lambda item: full_api_class_name(item)):
@@ -281,6 +305,18 @@ def render_catalog_index(api_classes: list[ApiClass], source_root: Path, source_
 					"path": owner_path,
 					"sourcePath": api_class.path,
 					"extends": api_class.extends or "Object",
+				},
+			)
+		for owner in sorted(module_autoloads, key=lambda item: item.name):
+			ET.SubElement(
+				module_element,
+				"autoload",
+				{
+					"name": owner.name,
+					"path": f"autoloads/{owner.name}.xml",
+					"sourcePath": owner.script.path,
+					"extends": owner.script.extends or "Node",
+					"packageId": owner.package_id,
 				},
 			)
 	return xml_to_text(root)
@@ -305,6 +341,30 @@ def render_class_xml(api_class: ApiClass) -> str:
 	append_members(root, "properties", api_class.properties)
 	append_members(root, "methods", api_class.methods)
 	append_inner_classes(root, api_class.inner_classes)
+	return xml_to_text(root)
+
+
+def render_autoload_xml(owner: ApiOwner) -> str:
+	if owner.kind != OWNER_KIND_AUTOLOAD:
+		raise ValueError(f"autoload XML requires an autoload owner: {owner.kind}:{owner.name}")
+	digest = hash_api_payload(autoload_to_digest_payload(owner))
+	root = ET.Element(
+		"autoload",
+		{
+			"name": owner.name,
+			"path": owner.script.path,
+			"module": owner.script.module,
+			"extends": owner.script.extends or "Node",
+			"packageId": owner.package_id,
+			"autoloadDigest": digest,
+		},
+	)
+	append_docs(root, owner.script.docs)
+	append_members(root, "signals", owner.script.signals)
+	append_members(root, "enums", owner.script.enums)
+	append_members(root, "constants", owner.script.constants)
+	append_members(root, "properties", owner.script.properties)
+	append_members(root, "methods", owner.script.methods)
 	return xml_to_text(root)
 
 
@@ -354,70 +414,129 @@ def append_inner_classes(parent: ET.Element, inner_classes: list[ApiClass]) -> N
 		append_members(inner_element, "methods", inner_class.methods)
 
 
-def render_reference_files(api_classes: list[ApiClass], catalog_index_xml: str) -> dict[str, str]:
+def render_reference_files(
+	api_classes: list[ApiClass],
+	catalog_index_xml: str,
+	api_autoloads: list[ApiOwner] | None = None,
+) -> dict[str, str]:
+	api_autoloads = api_autoloads or []
 	validate_api_model(api_classes)
+	validate_api_autoloads(api_classes, api_autoloads)
 	catalog_root = ET.fromstring(catalog_index_xml)
 	files: dict[str, str] = {
-		"index.md": render_reference_index(api_classes, catalog_root),
+		"index.md": render_reference_index(api_classes, catalog_root, api_autoloads),
 		"classes/index.md": render_reference_class_index(api_classes),
 	}
-	for module in sorted({api_class.module for api_class in api_classes}, key=module_sort_key):
+	if api_autoloads:
+		files["autoloads/index.md"] = render_reference_autoload_index(api_autoloads)
+	modules = {
+		api_class.module for api_class in api_classes
+	} | {
+		owner.script.module for owner in api_autoloads
+	}
+	for module in sorted(modules, key=module_sort_key):
 		module_classes = [api_class for api_class in api_classes if api_class.module == module]
-		files[f"{module_slug(module)}.md"] = render_reference_module(module, module_classes)
+		module_autoloads = [owner for owner in api_autoloads if owner.script.module == module]
+		files[f"{module_slug(module)}.md"] = render_reference_module(
+			module,
+			module_classes,
+			module_autoloads,
+		)
 	for api_class in sorted(api_classes, key=lambda item: item.name):
 		files[f"classes/{api_class.name}.md"] = render_reference_class_page(api_class)
+	for owner in sorted(api_autoloads, key=lambda item: item.name):
+		files[f"autoloads/{owner.name}.md"] = render_reference_autoload_page(owner)
 	return files
 
 
-def render_reference_index(api_classes: list[ApiClass], catalog_root: ET.Element) -> str:
+def render_reference_index(
+	api_classes: list[ApiClass],
+	catalog_root: ET.Element,
+	api_autoloads: list[ApiOwner] | None = None,
+) -> str:
+	api_autoloads = api_autoloads or []
 	all_classes = flatten_api_classes(api_classes)
 	lines = [
 		"# API Reference",
 		"",
-		"本区由源码 API 注释生成，作为当前可寻址 `class_name` owner、成员签名和机器标签的完整参考。正文指南负责解释概念、边界和工作流；这里负责精确检索。",
-		"",
-		"已知边界：classless `Gf` AutoLoad 是公开入口，但当前 Catalog schema 尚未决定如何表达 singleton owner，因此暂不计入下列统计；生成器会显式锁定这一项，并拒绝任何新增 classless public surface 静默进入同一缺口。",
+		"本区由源码 API 注释生成，覆盖可寻址的 `class_name` 与受控 AutoLoad owner、成员签名和机器标签。正文指南负责解释概念、边界和工作流；这里负责精确检索。",
 		"",
 		"## 范围",
 		"",
 		f"- 源码根目录：`{catalog_root.get('sourceRoot', '')}`",
 		f"- 公开类：`{catalog_root.get('classCount', '0')}`",
-		f"- 公开成员：`{count_public_members(all_classes)}`",
+		f"- 公开 AutoLoad：`{catalog_root.get('autoloadCount', '0')}`",
+		f"- 公开成员：`{count_public_members(all_classes) + sum(public_autoload_member_count(owner) for owner in api_autoloads)}`",
 		f"- 公开方法：`{catalog_root.get('methodCount', '0')}`",
+		f"- AutoLoad 公开方法：`{catalog_root.get('autoloadMethodCount', '0')}`",
 		"",
 		"## 模块",
 		"",
-		"| 模块 | 类 | 成员 | 方法 | 页面 |",
-		"|---|---:|---:|---:|---|",
+		"| 模块 | 类 | AutoLoad | 成员 | 方法 | 页面 |",
+		"|---|---:|---:|---:|---:|---|",
 	]
-	for module in sorted({api_class.module for api_class in all_classes}, key=module_sort_key):
+	modules = {
+		api_class.module for api_class in all_classes
+	} | {
+		owner.script.module for owner in api_autoloads
+	}
+	for module in sorted(modules, key=module_sort_key):
 		module_classes = [api_class for api_class in all_classes if api_class.module == module]
+		module_autoloads = [owner for owner in api_autoloads if owner.script.module == module]
 		class_count = len(module_classes)
-		member_count = count_public_members(module_classes)
-		method_count = sum(len(api_class.methods) for api_class in module_classes)
+		member_count = count_public_members(module_classes) + sum(
+			public_autoload_member_count(owner) for owner in module_autoloads
+		)
+		method_count = sum(len(api_class.methods) for api_class in module_classes) + sum(
+			len(owner.script.methods) for owner in module_autoloads
+		)
 		page = f"{module_slug(module)}.md"
-		lines.append(f"| {module_label(module)} | {class_count} | {member_count} | {method_count} | [{page}]({page}) |")
+		lines.append(
+			f"| {module_label(module)} | {class_count} | {len(module_autoloads)} "
+			f"| {member_count} | {method_count} | [{page}]({page}) |"
+		)
 	lines.extend([
 		"",
-		"## 类索引",
+		"## Owner 索引",
 		"",
-		"完整类索引独立生成在 [classes/index.md](classes/index.md)，单类页面可从模块索引或类索引进入。",
+		"完整类索引位于 [classes/index.md](classes/index.md)；受控 AutoLoad 索引位于 [autoloads/index.md](autoloads/index.md)。",
 	])
 	return "\n".join(lines) + "\n"
 
 
-def render_reference_module(module: str, api_classes: list[ApiClass]) -> str:
+def render_reference_module(
+	module: str,
+	api_classes: list[ApiClass],
+	api_autoloads: list[ApiOwner] | None = None,
+) -> str:
+	api_autoloads = api_autoloads or []
 	module_all_classes = flatten_api_classes(api_classes)
 	lines = [
 		f"# {module_label(module)} API",
 		"",
 		f"模块：`{module}`",
 		"",
+	]
+	if api_autoloads:
+		lines.extend([
+			"## AutoLoad",
+			"",
+			"| AutoLoad | 继承 | 包 | 成员 | 源文件 |",
+			"|---|---|---|---:|---|",
+		])
+		for owner in sorted(api_autoloads, key=lambda item: item.name):
+			lines.append(
+				f"| [`{owner.name}`](autoloads/{owner.name}.md) "
+				f"| `{owner.script.extends or 'Node'}` | `{owner.package_id}` "
+				f"| {public_autoload_member_count(owner)} | `{owner.script.path}` |"
+			)
+		lines.append("")
+	lines.extend([
 		"## 类别概览",
 		"",
 		"| 类别 | 类 | 成员 | 方法 |",
 		"|---|---:|---:|---:|",
-	]
+	])
 	for category in sorted_categories(module_all_classes):
 		category_classes = classes_in_category(module_all_classes, category)
 		member_count = count_public_members(category_classes)
@@ -447,6 +566,55 @@ def render_reference_module(module: str, api_classes: list[ApiClass]) -> str:
 	return "\n".join(lines).rstrip() + "\n"
 
 
+def render_reference_autoload_index(api_autoloads: list[ApiOwner]) -> str:
+	lines = [
+		"# API AutoLoad 索引",
+		"",
+		"由 GF 注册并具有显式生成身份的公开 AutoLoad owner。项目自定义 AutoLoad 不属于本索引。",
+		"",
+		"| AutoLoad | 模块 | 包 | 继承 | 成员 | 源文件 |",
+		"|---|---|---|---|---:|---|",
+	]
+	for owner in sorted(api_autoloads, key=lambda item: (item.script.module, item.name)):
+		lines.append(
+			f"| [`{owner.name}`]({owner.name}.md) | {module_label(owner.script.module)} "
+			f"| `{owner.package_id}` | `{owner.script.extends or 'Node'}` "
+			f"| {public_autoload_member_count(owner)} | `{owner.script.path}` |"
+		)
+	return "\n".join(lines) + "\n"
+
+
+def render_reference_autoload_page(owner: ApiOwner) -> str:
+	lines = [
+		f"# {owner.name}",
+		"",
+		f"[API Reference](../index.md) / [{module_label(owner.script.module)}](../{module_slug(owner.script.module)}.md) / [AutoLoad 索引](index.md)",
+		"",
+		"- Owner 类型：`autoload`",
+		f"- 路径：`{owner.script.path}`",
+		f"- 模块：`{module_label(owner.script.module)}`",
+		f"- 包：`{owner.package_id}`",
+		f"- 继承：`{owner.script.extends or 'Node'}`",
+	]
+	append_tag_line(lines, "API", visibility_of(owner.script.docs))
+	append_tag_line(lines, "类别", category_display(first_tag(owner.script.docs, "category")), code=False)
+	append_tag_line(lines, "首次版本", first_tag(owner.script.docs, "since"))
+	append_tag_line(lines, "弃用", "; ".join(owner.script.docs.tags.get("deprecated", [])))
+	lines.append("")
+	append_description(lines, autoload_description(owner))
+	append_autoload_member_summary_markdown(lines, owner, 2)
+	for group_name, members in autoload_member_groups(owner):
+		append_member_group_markdown(
+			lines,
+			group_name,
+			members,
+			group_level=2,
+			member_level=3,
+			anchor_owner_name=owner.name,
+		)
+	return "\n".join(lines).rstrip() + "\n"
+
+
 def sorted_categories(api_classes: list[ApiClass]) -> list[str]:
 	categories = {category_of(api_class) for api_class in api_classes}
 	return sorted(categories, key=category_sort_key)
@@ -466,6 +634,10 @@ def count_public_members(api_classes: list[ApiClass]) -> int:
 
 def public_member_count(api_class: ApiClass) -> int:
 	return sum(len(members) for _, members in api_class_member_groups(api_class))
+
+
+def public_autoload_member_count(owner: ApiOwner) -> int:
+	return sum(len(members) for _, members in autoload_member_groups(owner))
 
 
 def category_of(api_class: ApiClass) -> str:
@@ -640,6 +812,38 @@ def append_member_summary_markdown(lines: list[str], api_class: ApiClass, summar
 	lines.append("")
 
 
+def append_autoload_member_summary_markdown(
+	lines: list[str],
+	owner: ApiOwner,
+	summary_level: int,
+) -> None:
+	members_by_group = autoload_member_groups(owner)
+	if not any(members for _, members in members_by_group):
+		lines.extend([
+			f"{'#' * summary_level} 成员概览",
+			"",
+			"此 AutoLoad 不声明额外公开成员。",
+			"",
+		])
+		return
+
+	lines.extend([
+		f"{'#' * summary_level} 成员概览",
+		"",
+		"| 类型 | 名称 | 签名 |",
+		"|---|---|---|",
+	])
+	for group_name, members in members_by_group:
+		for member in members:
+			lines.append(
+				f"| {MEMBER_GROUPS[group_name]} "
+				f"| [{markdown_inline_code(member.name)}]"
+				f"(#{member_anchor_id_from_name(owner.name, group_name, member)}) "
+				f"| {markdown_inline_code(member_summary_signature(member))} |"
+			)
+	lines.append("")
+
+
 def append_inner_classes_markdown(lines: list[str], api_class: ApiClass, heading_level: int = 3) -> None:
 	if not api_class.inner_classes:
 		return
@@ -724,6 +928,7 @@ def append_member_group_markdown(
 	group_level: int = 3,
 	member_level: int = 4,
 	anchor_owner: ApiClass | None = None,
+	anchor_owner_name: str = "",
 ) -> None:
 	if not members:
 		return
@@ -731,6 +936,11 @@ def append_member_group_markdown(
 	for member in members:
 		if anchor_owner != None:
 			lines.extend([f'<a id="{member_anchor_id(anchor_owner, group_name, member)}"></a>', ""])
+		elif anchor_owner_name:
+			lines.extend([
+				f'<a id="{member_anchor_id_from_name(anchor_owner_name, group_name, member)}"></a>',
+				"",
+			])
 		lines.extend([f"{'#' * member_level} `{member.name}`", ""])
 		append_tag_line(lines, "API", visibility_of(member.docs))
 		append_tag_line(lines, "首次版本", first_tag(member.docs, "since"))
@@ -762,6 +972,17 @@ def class_description(api_class: ApiClass) -> list[str]:
 			if description[0] == "":
 				description = description[1:]
 			break
+	return description
+
+
+def autoload_description(owner: ApiOwner) -> list[str]:
+	description = owner.script.docs.description[:]
+	if description:
+		prefix = f"{owner.name}:"
+		if description[0].startswith(prefix):
+			description[0] = description[0][len(prefix):].strip()
+			if not description[0]:
+				description = description[1:]
 	return description
 
 
@@ -829,6 +1050,16 @@ def api_class_member_groups(api_class: ApiClass) -> list[tuple[str, list[ApiMemb
 	]
 
 
+def autoload_member_groups(owner: ApiOwner) -> list[tuple[str, list[ApiMember]]]:
+	return [
+		("signals", owner.script.signals),
+		("enums", owner.script.enums),
+		("constants", owner.script.constants),
+		("properties", owner.script.properties),
+		("methods", owner.script.methods),
+	]
+
+
 def member_summary_signature(member: ApiMember) -> str:
 	if member.kind == "enum":
 		return f"enum {member.name}"
@@ -836,9 +1067,13 @@ def member_summary_signature(member: ApiMember) -> str:
 
 
 def member_anchor_id(api_class: ApiClass, group_name: str, member: ApiMember) -> str:
+	return member_anchor_id_from_name(full_api_class_name(api_class), group_name, member)
+
+
+def member_anchor_id_from_name(owner_name: str, group_name: str, member: ApiMember) -> str:
 	return (
 		"member-"
-		+ stable_anchor_part(full_api_class_name(api_class))
+		+ stable_anchor_part(owner_name)
 		+ "-"
 		+ stable_anchor_part(group_name)
 		+ "-"
@@ -929,6 +1164,59 @@ def validate_api_model(api_classes: list[ApiClass]) -> None:
 				)
 
 
+def validate_api_autoloads(
+	api_classes: list[ApiClass],
+	api_autoloads: list[ApiOwner],
+) -> None:
+	"""Reject AutoLoad identities that cannot coexist with class API owners."""
+	owner_identities = {
+		portable_identity(full_api_class_name(api_class)): f"class:{full_api_class_name(api_class)}"
+		for api_class in flatten_api_classes(api_classes)
+	}
+	page_identities: dict[str, str] = {}
+	anchors_by_page: dict[tuple[str, str], str] = {}
+	for owner in api_autoloads:
+		if owner.kind != OWNER_KIND_AUTOLOAD:
+			raise ValueError(
+				f"autoload collection contains a non-autoload owner: {owner.kind}:{owner.name}"
+			)
+		if not owner.name or not re.fullmatch(r"[A-Za-z_]\w*", owner.name):
+			raise ValueError(f"autoload API owner name is invalid: {owner.name!r}")
+		if owner.script.class_name:
+			raise ValueError(f"autoload API owner cannot declare class_name: {owner.name}")
+		if owner.script.api_owner_kind != OWNER_KIND_AUTOLOAD or owner.script.api_owner_name != owner.name:
+			raise ValueError(f"autoload API owner declaration drifted: {owner.name}")
+		if not owner.package_id:
+			raise ValueError(f"autoload API owner has no package identity: {owner.name}")
+		identity = portable_identity(owner.name)
+		previous = owner_identities.get(identity)
+		if previous is not None:
+			raise ValueError(
+				"API owner portable identity collision across owner kinds: "
+				f"{previous} and autoload:{owner.name}"
+			)
+		owner_identities[identity] = f"autoload:{owner.name}"
+
+		page = f"autoloads/{owner.name}.md"
+		page_identity = portable_identity(page)
+		previous_page = page_identities.get(page_identity)
+		if previous_page is not None:
+			raise ValueError(
+				"autoload API owner output page portable identity collision: "
+				f"{previous_page} and {page}"
+			)
+		page_identities[page_identity] = page
+		_register_render_anchor(anchors_by_page, page, anchor_for(owner.name), f"autoload {owner.name}")
+		for group_name, members in autoload_member_groups(owner):
+			for member in members:
+				_register_render_anchor(
+					anchors_by_page,
+					page,
+					member_anchor_id_from_name(owner.name, group_name, member),
+					f"member {owner.name}.{member.name}",
+				)
+
+
 def _register_render_anchor(
 	anchors_by_page: dict[tuple[str, str], str],
 	page: str,
@@ -962,6 +1250,23 @@ def api_class_to_digest_payload(api_class: ApiClass) -> dict[str, Any]:
 		"properties": [member_to_payload(member) for member in api_class.properties],
 		"methods": [member_to_payload(member) for member in api_class.methods],
 		"inner_classes": [api_class_to_digest_payload(inner_class) for inner_class in api_class.inner_classes],
+	}
+
+
+def autoload_to_digest_payload(owner: ApiOwner) -> dict[str, Any]:
+	return {
+		"kind": OWNER_KIND_AUTOLOAD,
+		"name": owner.name,
+		"path": owner.script.path,
+		"module": owner.script.module,
+		"extends": owner.script.extends,
+		"package_id": owner.package_id,
+		"docs": docs_to_payload(owner.script.docs),
+		"signals": [member_to_payload(member) for member in owner.script.signals],
+		"enums": [member_to_payload(member) for member in owner.script.enums],
+		"constants": [member_to_payload(member) for member in owner.script.constants],
+		"properties": [member_to_payload(member) for member in owner.script.properties],
+		"methods": [member_to_payload(member) for member in owner.script.methods],
 	}
 
 
@@ -1030,9 +1335,12 @@ def check_reference_coverage(
 	api_classes: list[ApiClass],
 	reference_files: dict[str, str],
 	report_success: bool = True,
+	api_autoloads: list[ApiOwner] | None = None,
 ) -> int:
+	api_autoloads = api_autoloads or []
 	errors = validate_generated_reference_links(reference_files)
 	class_count = 0
+	autoload_count = 0
 	member_count = 0
 	for api_class in sorted(api_classes, key=lambda item: full_api_class_name(item)):
 		class_errors, class_members = check_class_reference_coverage(api_class, reference_files, 1)
@@ -1044,6 +1352,14 @@ def check_reference_coverage(
 			errors.extend(inner_errors)
 			class_count += 1
 			member_count += inner_members
+	for owner in sorted(api_autoloads, key=lambda item: item.name):
+		autoload_errors, autoload_members = check_autoload_reference_coverage(
+			owner,
+			reference_files,
+		)
+		errors.extend(autoload_errors)
+		autoload_count += 1
+		member_count += autoload_members
 
 	if errors:
 		print("API Reference coverage is incomplete:")
@@ -1052,7 +1368,10 @@ def check_reference_coverage(
 		return 1
 
 	if report_success:
-		print(f"API Reference coverage is complete: {class_count} classes, {member_count} members.")
+		print(
+			"API Reference coverage is complete: "
+			f"{class_count} classes, {autoload_count} autoloads, {member_count} members."
+		)
 	return 0
 
 
@@ -1090,6 +1409,46 @@ def check_class_reference_coverage(
 		if member.signature not in member_section:
 			errors.append(f"{full_name}.{member.name}: missing signature in {file_name}")
 
+	return errors, len(members)
+
+
+def check_autoload_reference_coverage(
+	owner: ApiOwner,
+	reference_files: dict[str, str],
+) -> tuple[list[str], int]:
+	errors: list[str] = []
+	file_name = f"autoloads/{owner.name}.md"
+	text = reference_files.get(file_name)
+	if text is None:
+		return [f"{owner.name}: missing autoload reference page {file_name}"], 0
+
+	section = find_heading_section(text, 1, owner.name)
+	if section is None:
+		return [f"{owner.name}: missing autoload heading in {file_name}"], 0
+
+	members = api_script_members(owner.script)
+	for member in members:
+		anchor_line = (
+			f'<a id="{member_anchor_id_from_name(owner.name, member_group_name(member), member)}"></a>'
+		)
+		anchor_count = sum(line == anchor_line for line in section.splitlines())
+		if anchor_count == 0:
+			errors.append(
+				f"{owner.name}.{member.name}: missing owner-qualified member anchor in {file_name}"
+			)
+			continue
+		if anchor_count > 1:
+			errors.append(
+				f"{owner.name}.{member.name}: duplicate owner-qualified member anchor in {file_name}"
+			)
+			continue
+		member_section = find_explicit_anchor_section(section, anchor_line)
+		member_heading = f"### `{member.name}`"
+		if not has_markdown_line(member_section, member_heading):
+			errors.append(f"{owner.name}.{member.name}: missing member heading in {file_name}")
+			continue
+		if member.signature not in member_section:
+			errors.append(f"{owner.name}.{member.name}: missing signature in {file_name}")
 	return errors, len(members)
 
 

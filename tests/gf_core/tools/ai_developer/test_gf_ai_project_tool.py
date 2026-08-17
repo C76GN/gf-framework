@@ -2273,6 +2273,73 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 		self.assertFalse(result["ok"])
 		self.assertIn("does not match", result["issues"][0])
 
+	def test_generated_api_index_exposes_gf_as_an_autoload_owner(self) -> None:
+		api_index = build_gf_ai_developer_kit.render_api_index()
+
+		self.assertEqual(api_index["schema_version"], 2)
+		self.assertEqual(api_index["catalog_version"], "2.0.0")
+		self.assertEqual(api_index["autoload_count"], 1)
+		self.assertNotIn("Gf", api_index["classes"])
+		self.assertIn("Gf", api_index["autoloads"])
+		gf_owner = api_index["autoloads"]["Gf"]
+		self.assertEqual(gf_owner["owner_kind"], "autoload")
+		self.assertEqual(gf_owner["package_id"], "gf.kernel")
+		self.assertEqual(gf_owner["path"], "addons/gf/kernel/core/gf.gd")
+		gf_api_owner = next(
+			owner
+			for owner in build_gf_ai_developer_kit.collect_api_owners(
+				ROOT / "addons/gf",
+				ROOT,
+			)
+			if owner.name == "Gf"
+		)
+		self.assertEqual(
+			{(member["kind"], member["name"]) for member in gf_owner["members"]},
+			{
+				(build_gf_ai_developer_kit._member_kind(member), member.name)
+				for member in [
+					*gf_api_owner.script.signals,
+					*gf_api_owner.script.enums,
+					*gf_api_owner.script.constants,
+					*gf_api_owner.script.properties,
+					*gf_api_owner.script.methods,
+				]
+			},
+		)
+		self.assertEqual(catalog._api_index_issues(api_index), [])
+
+		wrong_kind = copy.deepcopy(api_index)
+		wrong_kind["autoloads"]["Gf"]["owner_kind"] = "class"
+		wrong_payload = {key: value for key, value in wrong_kind.items() if key != "source_digest"}
+		wrong_kind["source_digest"] = paths.sha256_bytes(paths.canonical_json_bytes(wrong_payload))
+		self.assertTrue(any(
+			"autoload record owner_kind is invalid: Gf" in issue
+			for issue in catalog._api_index_issues(wrong_kind)
+		))
+
+	def test_api_search_finds_autoload_without_widening_api_class(self) -> None:
+		api_index = build_gf_ai_developer_kit.render_api_index()
+		knowledge_root = self.project_root / "knowledge"
+		knowledge_root.mkdir()
+		(knowledge_root / "api_index.json").write_text(
+			json.dumps(api_index),
+			encoding="utf-8",
+		)
+
+		with mock.patch.object(catalog, "KNOWLEDGE_ROOT", knowledge_root):
+			search = catalog.api_search("Gf", 10, self.project_root)
+			class_lookup = catalog.api_class("Gf", True, self.project_root)
+
+		self.assertTrue(search["ok"], search)
+		gf_result = next(item for item in search["results"] if item["owner_name"] == "Gf")
+		self.assertEqual(gf_result["owner_kind"], "autoload")
+		self.assertEqual(gf_result["class_name"], "")
+		self.assertFalse(class_lookup["ok"], class_lookup)
+		cli_help = " ".join(cli._make_parser().format_help().split())
+		self.assertIn("API owners (classes and controlled AutoLoads)", cli_help)
+		api_search_tool = next(item for item in mcp.list_tools() if item["name"] == "gf_api_search")
+		self.assertIn("API owners (classes and controlled AutoLoads)", api_search_tool["description"])
+
 	def test_catalog_runtime_rejects_structural_and_digest_corruption(self) -> None:
 		knowledge_root = self.project_root / "knowledge"
 		knowledge_root.mkdir()
@@ -2313,6 +2380,12 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 		self.assertTrue(any(
 			"unknown class: GFMissingCatalogClass" in issue
 			for issue in catalog.catalog_reference_issues(api_index, unknown_class, recipes)
+		))
+		autoload_as_class = copy.deepcopy(capabilities)
+		autoload_as_class["capabilities"][0]["primary_classes"].append("Gf")
+		self.assertTrue(any(
+			"unknown class: Gf" in issue
+			for issue in catalog.catalog_reference_issues(api_index, autoload_as_class, recipes)
 		))
 
 		unknown_package = copy.deepcopy(capabilities)
