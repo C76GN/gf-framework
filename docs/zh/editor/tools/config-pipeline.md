@@ -72,7 +72,7 @@ JSON 导出包含稳定格式标识、数据库 ID、版本、元数据、表名
 
 `save_database()` 和访问器生成结果会返回 `artifact_report`，记录本次产物是 `new`、`changed`、`unchanged`、`skipped` 还是 `failed`，以及 `written`、`changed`、`dry_run` 和错误码。需要在 CI、编辑器预览或提交前审查中只看差异而不落盘时，可以传入 `dry_run: true`；需要防止覆盖已有产物时，可以传入 `overwrite_existing: false`。
 
-批量 `export_profile()` 的 database、access script 与 manifest 输出必须使用 `res://` 或 `user://`，这样共享事务才能从固定授权根建立规范路径计划。独立 save/generate 入口目前仍保留项目相对路径的既有接受行为，但该路径形状不能通过批量事务；在统一路径授权契约确定前，项目应一律使用 `res://` / `user://`。导表工具会拒绝绝对文件系统路径、未知 URI scheme，以及默认情况下写入 `res://addons/gf` 框架源码目录的输出；包含 `..` 的父级路径也需要显式 opt-in，避免 Profile 把生成物写到项目边界之外。Profile 里的普通构建选项只会保留导表自身识别的键；Runner 的 `dry_run`、`changed_only`、`manifest_path` 等执行期选项不会混入数据库构建配置。
+所有公开 Config Pipeline 写入口、Profile/Runner preflight、`dry_run` 与真实写入统一只接受 `res://` 或 `user://` 输出 URI。裸相对路径、主机绝对路径、未知或大小写错误的 URI scheme 会失败；成功结果和 artifact report 使用规范化后的 URI。`GFConfigPipeline` 的 database/access/manifest writer 以及 Profile/Runner 路由还会在任何产物 I/O 前闭合整批路径，并默认拒绝 `..` 父级片段；受信调用方可以对单个产物显式设置 `allow_parent_output_path: true`，但它只允许在既有 resource URI 域内折叠父级片段，不能越过 `res://` / `user://` 根，也不能授权主机文件系统路径。`allow_gf_source_output` 只放行默认受保护的 `res://addons/gf` 源码目录，`allow_unowned_overwrite` 只跳过既有产物的所有权确认；两者都不会扩大 URI 域。直接 `GFConfigAccessGenerator` 保留通用文本 writer 合同，不识别这些 Config Pipeline 路由授权选项。`dry_run` 证明确定性的路径、所有权与格式策略已通过，不承诺权限、磁盘状态或并发写入不会在真实提交时变化。Profile 里的普通构建选项只会保留导表自身识别的键；Runner 的 `dry_run`、`changed_only`、`manifest_path` 等执行期选项不会混入数据库构建配置。
 
 需要做增量导表时，可以让 Runner 为导出结果写入 artifact manifest。manifest 会记录 Profile 语义摘要及其 Resource 依赖、编译时来源收据、输出文件、影响产物内容的导表选项、编译器指纹和本次运行摘要。Profile 依赖会递归覆盖外置 schema、列、索引、引用和自定义校验器脚本；编译器指纹则包含编译契约版本、GF/Godot 版本，以及每个实际阶段的稳定 ID、`implementation_version`、实现路径、实现文件摘要和声明的辅助实现摘要。这样 manifest 的来源摘要与生成数据库使用同一字节事实，且只修改 schema、列、Importer、校验器或 GF 导表实现时也不会错误命中旧产物。
 
@@ -134,11 +134,11 @@ godot --headless --path . -s res://addons/gf/tools/config_pipeline/gf_config_pip
 常用参数包括：
 
 - `--operation export|build|load`：默认 `export`，分别对应导出保存、仅构建数据库、仅加载 Profile。
-- `--output <path>`：覆盖 Profile 的 `output_path`。
-- `--access-output <path>`、`--class-name <name>`、`--provider-accessor <expr>`：覆盖访问器生成配置。
+- `--output <URI>`：以 `res://` 或 `user://` URI 覆盖 Profile 的 `output_path`。
+- `--access-output <URI>`、`--class-name <name>`、`--provider-accessor <expr>`：以 resource URI 覆盖访问器输出，并覆盖生成配置。
 - `--dry-run`：执行构建和产物预检，但不写入数据库或访问器文件。
 - `--changed-only`：manifest fresh 时跳过导出；manifest 不存在或输入变化时正常导出。
-- `--manifest <path>`：覆盖 artifact manifest 输出和读取路径。
+- `--manifest <URI>`：以 `res://` 或 `user://` URI 覆盖 artifact manifest 输出和读取路径。
 - `--write-manifest`：即使没有启用 `--changed-only`，成功导出后也写入 manifest。
 - `--strict`：把校验 warning 也视为命令失败，适合 CI。
 - `--json` / `--compact`：输出结构化 JSON 报告，便于外部流水线解析。

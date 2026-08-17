@@ -24,6 +24,9 @@ const _RESOURCE_ARTIFACT_OWNER_META: StringName = &"_gf_config_pipeline_artifact
 const _ACCESS_ARTIFACT_MARKER: String = "# @generated_by gf.tool.config_pipeline"
 const _MAX_PROVIDER_ACCESSOR_LENGTH: int = 512
 const _GENERATED_ARTIFACT_REPORT_SCRIPT = preload("res://addons/gf/kernel/editor/gf_generated_artifact_report.gd")
+const _OUTPUT_PATH_POLICY_SCRIPT = preload(
+	"res://addons/gf/tools/config_pipeline/gf_config_pipeline_output_path_policy.gd"
+)
 
 
 # --- 私有变量 ---
@@ -345,15 +348,16 @@ func build_profile(profile: GFConfigPipelineProfile, options: Dictionary = {}) -
 ## [br]
 ## @schema profile: GFConfigPipelineProfile resource。
 ## [br]
-## @param options: 本次导出覆盖选项，支持 output_path、build_options、save_options、access_output_path、access_options、access_class_name、access_provider_accessor、changed_only、manifest_path、write_manifest、manifest_options、manifest_metadata、scan_filesystem 以及 build_database() 的直接选项。
+## @param options: 本次导出覆盖选项，支持 output_path、build_options、save_options、access_output_path、access_options、access_class_name、access_provider_accessor、changed_only、manifest_path、write_manifest、manifest_options、manifest_metadata、scan_filesystem 以及 build_database() 的直接选项；三个非空产物路径都必须位于 res:// 或 user:// URI 域。
 ## [br]
-## @schema options: Dictionary，可包含 output_path、build_options、save_options、access_output_path、access_options、access_class_name、access_provider_accessor、database_id、version、metadata、validate_database、validate_schema、parse_options、rebuild_indexes、changed_only、manifest_path、write_manifest、manifest_options、manifest_metadata、scan_filesystem、max_freshness_file_bytes、max_freshness_total_bytes 和 max_freshness_entries；save_options、access_options 与 manifest_options 可分别包含 allow_unowned_overwrite。批量导出会强制所有 constituent 禁止 scan，并且仅在整批事务成功后按顶层 scan_filesystem 执行一次编辑器扫描。
+## @schema options: Dictionary，可包含 output_path、build_options、save_options、access_output_path、access_options、access_class_name、access_provider_accessor、database_id、version、metadata、validate_database、validate_schema、parse_options、rebuild_indexes、changed_only、manifest_path、write_manifest、manifest_options、manifest_metadata、scan_filesystem、max_freshness_file_bytes、max_freshness_total_bytes 和 max_freshness_entries；save_options、access_options 与 manifest_options 可分别包含 allow_parent_output_path、allow_gf_source_output 和 allow_unowned_overwrite。allow_parent_output_path 只允许在既有 resource URI 域内规范化，不能越过 URI 根。批量导出会强制所有 constituent 禁止 scan，并且仅在整批事务成功后按顶层 scan_filesystem 执行一次编辑器扫描。
 ## [br]
 ## @return: 导出结果。
 ## [br]
 ## @schema return: Dictionary，包含 success、database、report、table_results、build_result、save_result、access_result、manifest_path、manifest、manifest_result、source_validation_report、profile_id、output_path、error、transaction_result、recovery_required、recovery_action 和 recovery_transaction；写 manifest 时会在事务完成前复核 source_receipt，来源变化会回滚整批产物；recovery_required 为 true 时调用方必须按 recovery_action 使用 recovery_transaction 完成结果要求的终态动作。
 func export_profile(profile: GFConfigPipelineProfile, options: Dictionary = {}) -> Dictionary:
-	var build_result: Dictionary = build_profile(profile, options)
+	var effective_options: Dictionary = options.duplicate(true)
+	var build_result: Dictionary = build_profile(profile, effective_options)
 	var profile_id: StringName = GFVariantData.get_option_string_name(build_result, "profile_id")
 	var output_path: String = GFVariantData.get_option_string(build_result, "output_path")
 	if not GFVariantData.get_option_bool(build_result, "success"):
@@ -368,26 +372,113 @@ func export_profile(profile: GFConfigPipelineProfile, options: Dictionary = {}) 
 		)
 
 	var database: GFConfigDatabaseResource = _get_database_from_result(build_result)
-	var save_options: Dictionary = profile.make_save_options(options) if profile != null else {}
-	var access_output_path: String = profile.resolve_access_output_path(options) if profile != null else ""
-	var access_options: Dictionary = profile.make_access_options(options) if profile != null else {}
+	var save_options: Dictionary = profile.make_save_options(effective_options) if profile != null else {}
+	var access_output_path: String = profile.resolve_access_output_path(effective_options) if profile != null else ""
+	var access_options: Dictionary = profile.make_access_options(effective_options) if profile != null else {}
 	var manifest_helper: GFConfigPipelineArtifactManifest = GFConfigPipelineArtifactManifest.new()
 	manifest_helper.configure_compiler_stages(get_stage_descriptors())
-	var manifest_path: String = _resolve_manifest_path(profile, options, manifest_helper)
-	var should_write_manifest: bool = _should_write_manifest(options, manifest_path)
-	var manifest_options: Dictionary = _make_manifest_options(options)
+	var manifest_options: Dictionary = _make_manifest_options(effective_options)
 	var scan_filesystem: bool = GFVariantData.get_option_bool(
-		options,
+		effective_options,
 		"scan_filesystem",
 		true
 	)
 	save_options["scan_filesystem"] = false
 	access_options["scan_filesystem"] = false
 	manifest_options["scan_filesystem"] = false
-	if GFVariantData.get_option_bool(options, "dry_run"):
+	if GFVariantData.get_option_bool(effective_options, "dry_run"):
 		save_options["dry_run"] = true
 		access_options["dry_run"] = true
 		manifest_options["dry_run"] = true
+
+	# 在任何产物探测前先闭合整批 URI 身份，避免后续非法路径晚于已有产物读取才失败。
+	var output_path_result: Dictionary = _OUTPUT_PATH_POLICY_SCRIPT.resolve_output_path(
+		output_path,
+		save_options,
+		"配置数据库"
+	)
+	if not GFVariantData.get_option_bool(output_path_result, "success"):
+		var save_path_failure: Dictionary = save_database(
+			database,
+			output_path,
+			_make_dry_run_options(save_options)
+		)
+		return _make_profile_export_result(
+			false,
+			build_result,
+			save_path_failure,
+			{},
+			profile_id,
+			output_path,
+			GFVariantData.get_option_string(output_path_result, "error")
+		)
+	output_path = GFVariantData.get_option_string(output_path_result, "path")
+	build_result["output_path"] = output_path
+	effective_options["output_path"] = output_path
+
+	if not access_output_path.is_empty() and profile != null:
+		var access_path_result: Dictionary = _OUTPUT_PATH_POLICY_SCRIPT.resolve_output_path(
+			access_output_path,
+			access_options,
+			"配置访问器"
+		)
+		if not GFVariantData.get_option_bool(access_path_result, "success"):
+			var access_path_failure: Dictionary = generate_access(
+				database,
+				access_output_path,
+				profile.resolve_access_class_name(effective_options),
+				profile.resolve_access_provider_accessor(effective_options),
+				_make_dry_run_options(access_options)
+			)
+			return _make_profile_export_result(
+				false,
+				build_result,
+				{},
+				access_path_failure,
+				profile_id,
+				output_path,
+				GFVariantData.get_option_string(access_path_result, "error")
+			)
+		access_output_path = GFVariantData.get_option_string(access_path_result, "path")
+		effective_options["access_output_path"] = access_output_path
+
+	# 默认 manifest 必须从 canonical database target 派生，而不是从原始文本追加后缀。
+	var manifest_path: String = _resolve_manifest_path(
+		profile,
+		effective_options,
+		manifest_helper
+	)
+	var should_write_manifest: bool = _should_write_manifest(
+		effective_options,
+		manifest_path
+	)
+	var manifest_result: Dictionary = {}
+	if should_write_manifest:
+		var manifest_path_result: Dictionary = _OUTPUT_PATH_POLICY_SCRIPT.resolve_output_path(
+			manifest_path,
+			manifest_options,
+			"manifest"
+		)
+		if not GFVariantData.get_option_bool(manifest_path_result, "success"):
+			manifest_result = manifest_helper.save_manifest(
+				manifest_path,
+				{},
+				_make_dry_run_options(manifest_options)
+			)
+			return _make_profile_export_result(
+				false,
+				build_result,
+				{},
+				{},
+				profile_id,
+				output_path,
+				GFVariantData.get_option_string(manifest_path_result, "error"),
+				manifest_path,
+				manifest_result
+			)
+		manifest_path = GFVariantData.get_option_string(manifest_path_result, "path")
+		effective_options["manifest_path"] = manifest_path
+
 	var save_preflight_result: Dictionary = save_database(database, output_path, _make_dry_run_options(save_options))
 	if not GFVariantData.get_option_bool(save_preflight_result, "success"):
 		return _make_profile_export_result(
@@ -399,14 +490,13 @@ func export_profile(profile: GFConfigPipelineProfile, options: Dictionary = {}) 
 			output_path,
 			GFVariantData.get_option_string(save_preflight_result, "error")
 		)
-
 	var access_result: Dictionary = _make_access_result(true, "", "", OK, "", true, 0)
 	if not access_output_path.is_empty() and profile != null:
 		var access_preflight_result: Dictionary = generate_access(
 			database,
 			access_output_path,
-			profile.resolve_access_class_name(options),
-			profile.resolve_access_provider_accessor(options),
+			profile.resolve_access_class_name(effective_options),
+			profile.resolve_access_provider_accessor(effective_options),
 			_make_dry_run_options(access_options)
 		)
 		if not GFVariantData.get_option_bool(access_preflight_result, "success", true):
@@ -422,7 +512,6 @@ func export_profile(profile: GFConfigPipelineProfile, options: Dictionary = {}) 
 		access_result = access_preflight_result
 
 	var manifest: Dictionary = {}
-	var manifest_result: Dictionary = {}
 	if should_write_manifest:
 		var preflight_run_result: Dictionary = _make_profile_export_result(
 			true,
@@ -437,7 +526,7 @@ func export_profile(profile: GFConfigPipelineProfile, options: Dictionary = {}) 
 		manifest = manifest_helper.make_manifest(
 			profile.resource_path if profile != null else "",
 			profile,
-			options,
+			effective_options,
 			preflight_run_result
 		)
 		manifest_result = manifest_helper.save_manifest(
@@ -509,8 +598,8 @@ func export_profile(profile: GFConfigPipelineProfile, options: Dictionary = {}) 
 		access_result = generate_access(
 			database,
 			access_output_path,
-			profile.resolve_access_class_name(options),
-			profile.resolve_access_provider_accessor(options),
+			profile.resolve_access_class_name(effective_options),
+			profile.resolve_access_provider_accessor(effective_options),
 			access_options
 		)
 
@@ -532,7 +621,7 @@ func export_profile(profile: GFConfigPipelineProfile, options: Dictionary = {}) 
 		manifest = manifest_helper.make_manifest(
 			profile.resource_path if profile != null else "",
 			profile,
-			options,
+			effective_options,
 			committed_run_result
 		)
 		manifest_result = manifest_helper.save_manifest(manifest_path, manifest, manifest_options)
@@ -564,7 +653,7 @@ func export_profile(profile: GFConfigPipelineProfile, options: Dictionary = {}) 
 			.make_source_receipt_validation_report(
 				profile,
 				validation_run_result,
-				options
+				effective_options
 			)
 		)
 		if (
@@ -636,11 +725,11 @@ func make_database_export(database: GFConfigDatabaseResource, options: Dictionar
 ## [br]
 ## @param database: 要保存的配置数据库资源。
 ## [br]
-## @param output_path: 输出路径，通常为 .tres、.res 或 .json。
+## @param output_path: res:// 或 user:// 输出 URI，通常以 .tres、.res 或 .json 结尾；成功结果会返回规范化后的 URI。
 ## [br]
-## @param options: 保存选项，支持 output_format、include_schema、include_indexes、indent、sort_keys、overwrite_existing、allow_unowned_overwrite、dry_run 和 artifact_metadata。
+## @param options: 保存选项，支持 output_format、include_schema、include_indexes、indent、sort_keys、overwrite_existing、allow_parent_output_path、allow_gf_source_output、allow_unowned_overwrite、dry_run 和 artifact_metadata。
 ## [br]
-## @schema options: Dictionary，可包含 output_format、include_schema、include_indexes、max_depth、max_nodes、max_output_bytes、indent、sort_keys、overwrite_existing、allow_unowned_overwrite、dry_run 和 artifact_metadata；三个 JSON 预算会被框架绝对上限约束，allow_unowned_overwrite 仅用于调用方已明确确认现有文件所有权的迁移场景。
+## @schema options: Dictionary，可包含 output_format、include_schema、include_indexes、max_depth、max_nodes、max_output_bytes、indent、sort_keys、overwrite_existing、allow_parent_output_path、allow_gf_source_output、allow_unowned_overwrite、dry_run 和 artifact_metadata；allow_parent_output_path 只允许规范化 URI 根内的父级片段，allow_gf_source_output 只放行 res://addons/gf 源码目录保护，三个 JSON 预算会被框架绝对上限约束，allow_unowned_overwrite 仅用于调用方已明确确认现有文件所有权的迁移场景。
 ## [br]
 ## @return: 保存结果。
 ## [br]
@@ -656,8 +745,13 @@ func save_database(
 		return _make_save_result(false, output_path, _OUTPUT_FORMAT_AUTO, ERR_INVALID_PARAMETER, "输出路径为空。")
 
 	var output_format: StringName = _resolve_output_format(output_path, options)
-	var output_path_error: String = _validate_output_path_policy(output_path, options, "配置数据库")
-	if not output_path_error.is_empty():
+	var output_path_result: Dictionary = _OUTPUT_PATH_POLICY_SCRIPT.resolve_output_path(
+		output_path,
+		options,
+		"配置数据库"
+	)
+	if not GFVariantData.get_option_bool(output_path_result, "success"):
+		var output_path_error: String = GFVariantData.get_option_string(output_path_result, "error")
 		var output_path_artifact_report: Dictionary = _make_resource_artifact_report(
 			output_path,
 			output_format,
@@ -669,6 +763,8 @@ func save_database(
 			false
 		)
 		return _make_save_result(false, output_path, output_format, ERR_INVALID_PARAMETER, output_path_error, output_path_artifact_report)
+	output_path = GFVariantData.get_option_string(output_path_result, "path")
+	output_format = _resolve_output_format(output_path, options)
 	if output_format == _OUTPUT_FORMAT_JSON:
 		return _save_database_json(database, output_path, options)
 	if output_format != _OUTPUT_FORMAT_RESOURCE:
@@ -750,15 +846,15 @@ func save_database(
 ## [br]
 ## @param database: 要生成访问器的配置数据库资源。
 ## [br]
-## @param output_path: 访问器脚本输出路径。
+## @param output_path: res:// 或 user:// 访问器脚本输出 URI；成功结果会返回规范化后的 URI。
 ## [br]
 ## @param access_class_name: 生成脚本的 class_name。
 ## [br]
 ## @param provider_accessor: 无显式 provider 参数时用于获取 provider 的表达式。
 ## [br]
-## @param options: 访问器生成选项，支持 GFConfigAccessGenerator 选项、overwrite_existing、allow_unowned_overwrite、dry_run、scan_filesystem 和 metadata。
+## @param options: 访问器生成选项，支持 GFConfigAccessGenerator 选项、overwrite_existing、allow_parent_output_path、allow_gf_source_output、allow_unowned_overwrite、dry_run、scan_filesystem 和 metadata。
 ## [br]
-## @schema options: Dictionary，可包含 method_name_style、constant_prefix、record_method_pattern、table_method_pattern、include_schema_comments、include_typed_records、typed_record_method_pattern、typed_record_class_suffix、overwrite_existing、allow_unowned_overwrite、dry_run、scan_filesystem 和 metadata；allow_unowned_overwrite 仅用于调用方已明确确认现有文件所有权的迁移场景。
+## @schema options: Dictionary，可包含 method_name_style、constant_prefix、record_method_pattern、table_method_pattern、include_schema_comments、include_typed_records、typed_record_method_pattern、typed_record_class_suffix、overwrite_existing、allow_parent_output_path、allow_gf_source_output、allow_unowned_overwrite、dry_run、scan_filesystem 和 metadata；allow_parent_output_path 只允许规范化 URI 根内的父级片段，allow_gf_source_output 只放行 res://addons/gf 源码目录保护，allow_unowned_overwrite 仅用于调用方已明确确认现有文件所有权的迁移场景。
 ## [br]
 ## @return: 访问器生成结果。
 ## [br]
@@ -775,8 +871,13 @@ func generate_access(
 		return _make_access_result(false, output_path, class_name_value, ERR_INVALID_PARAMETER, "配置数据库资源为空。", false, 0)
 	if output_path.is_empty():
 		return _make_access_result(false, output_path, class_name_value, ERR_INVALID_PARAMETER, "访问器输出路径为空。", false, 0)
-	var output_path_error: String = _validate_output_path_policy(output_path, options, "配置访问器")
-	if not output_path_error.is_empty():
+	var output_path_result: Dictionary = _OUTPUT_PATH_POLICY_SCRIPT.resolve_output_path(
+		output_path,
+		options,
+		"配置访问器"
+	)
+	if not GFVariantData.get_option_bool(output_path_result, "success"):
+		var output_path_error: String = GFVariantData.get_option_string(output_path_result, "error")
 		var failure_artifact_report: Dictionary = _make_resource_artifact_report(
 			output_path,
 			&"gdscript",
@@ -788,6 +889,7 @@ func generate_access(
 			false
 		)
 		return _make_access_result(false, output_path, class_name_value, ERR_INVALID_PARAMETER, output_path_error, false, 0, failure_artifact_report)
+	output_path = GFVariantData.get_option_string(output_path_result, "path")
 
 	var schemas: Array = _collect_access_schemas(database)
 	if schemas.is_empty():
@@ -1200,7 +1302,6 @@ func _should_write_manifest(options: Dictionary, manifest_path: String) -> bool:
 func _make_manifest_options(options: Dictionary) -> Dictionary:
 	var result: Dictionary = GFVariantData.get_option_dictionary(options, "manifest_options").duplicate(true)
 	for key: String in PackedStringArray([
-		"allow_absolute_output_path",
 		"allow_gf_source_output",
 		"allow_parent_output_path",
 		"allow_unowned_overwrite",
@@ -1435,22 +1536,6 @@ func _make_dry_run_options(options: Dictionary) -> Dictionary:
 	return result
 
 
-func _validate_output_path_policy(output_path: String, options: Dictionary, artifact_label: String) -> String:
-	var raw_path: String = output_path.replace("\\", "/").strip_edges()
-	if raw_path.is_empty():
-		return "%s输出路径为空。" % artifact_label
-	if _has_unsupported_output_scheme(raw_path):
-		return "%s输出路径使用了不支持的 URI scheme：%s。" % [artifact_label, output_path]
-	if _path_has_parent_segment(raw_path) and not GFVariantData.get_option_bool(options, "allow_parent_output_path", false):
-		return "%s输出路径不能包含父级越界片段：%s。" % [artifact_label, output_path]
-	if _is_filesystem_absolute_path(raw_path):
-		return "%s输出路径不能是绝对文件系统路径：%s。" % [artifact_label, output_path]
-	var normalized_path: String = _normalize_output_path(raw_path)
-	if _is_gf_source_output_path(normalized_path) and not GFVariantData.get_option_bool(options, "allow_gf_source_output", false):
-		return "%s输出路径不能写入 GF 框架源码目录：%s。" % [artifact_label, output_path]
-	return ""
-
-
 func _normalize_output_path(path: String) -> String:
 	var normalized: String = path.replace("\\", "/").strip_edges()
 	if normalized.contains("://"):
@@ -1458,40 +1543,6 @@ func _normalize_output_path(path: String) -> String:
 		var body: String = normalized.get_slice("://", 1).simplify_path()
 		return "%s://%s" % [scheme, body]
 	return normalized.simplify_path()
-
-
-func _path_has_parent_segment(path: String) -> bool:
-	var body: String = path
-	if path.contains("://"):
-		body = path.get_slice("://", 1)
-	var parts: PackedStringArray = body.split("/", false)
-	for part: String in parts:
-		if part == "..":
-			return true
-	return false
-
-
-func _is_filesystem_absolute_path(path: String) -> bool:
-	var lower_path: String = path.to_lower()
-	if lower_path.begins_with("res://") or lower_path.begins_with("user://"):
-		return false
-	if path.is_absolute_path():
-		return true
-	return path.length() >= 3 and path.substr(1, 2) == ":/"
-
-
-func _has_unsupported_output_scheme(path: String) -> bool:
-	var lower_path: String = path.to_lower()
-	if not lower_path.contains("://"):
-		return false
-	return not (lower_path.begins_with("res://") or lower_path.begins_with("user://"))
-
-
-func _is_gf_source_output_path(path: String) -> bool:
-	var lower_path: String = path.to_lower()
-	var gf_source_root: String = "res://addons".path_join("gf")
-	return lower_path == gf_source_root or lower_path.begins_with(gf_source_root.path_join(""))
-
 
 func _resolve_output_format(output_path: String, options: Dictionary) -> StringName:
 	var configured_format: StringName = GFVariantData.get_option_string_name(options, "output_format", _OUTPUT_FORMAT_AUTO)

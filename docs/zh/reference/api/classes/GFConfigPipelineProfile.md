@@ -89,7 +89,7 @@ var version: String = ""
 var output_path: String = ""
 ```
 
-导出目标路径。通常指向 .tres、.res 或 .json。
+导出目标 URI。导出时必须位于 res:// 或 user://，通常以 .tres、.res 或 .json 结尾。
 
 <a id="member-gfconfigpipelineprofile-properties-access_output_path"></a>
 
@@ -102,7 +102,7 @@ var output_path: String = ""
 var access_output_path: String = ""
 ```
 
-可选访问器脚本输出路径。为空时不生成访问器。
+可选访问器脚本输出 URI。非空时必须位于 res:// 或 user://；为空时不生成访问器。
 
 <a id="member-gfconfigpipelineprofile-properties-access_class_name"></a>
 
@@ -179,7 +179,7 @@ var save_options: Dictionary = {}
 
 结构：
 
-- `save_options`: Dictionary，可包含 output_format、include_schema、include_indexes、indent、sort_keys、overwrite_existing、allow_unowned_overwrite 和 dry_run。
+- `save_options`: Dictionary，可包含 output_format、include_schema、include_indexes、indent、sort_keys、overwrite_existing、allow_parent_output_path、allow_gf_source_output、allow_unowned_overwrite 和 dry_run；parent opt-in 不能越过 resource URI 根。
 
 <a id="member-gfconfigpipelineprofile-properties-access_options"></a>
 
@@ -196,7 +196,7 @@ var access_options: Dictionary = {}
 
 结构：
 
-- `access_options`: Dictionary，可包含 method_name_style、constant_prefix、record_method_pattern、table_method_pattern、include_schema_comments、include_typed_records、typed_record_method_pattern、typed_record_class_suffix、overwrite_existing、allow_unowned_overwrite 和 dry_run。
+- `access_options`: Dictionary，可包含 method_name_style、constant_prefix、record_method_pattern、table_method_pattern、include_schema_comments、include_typed_records、typed_record_method_pattern、typed_record_class_suffix、overwrite_existing、allow_parent_output_path、allow_gf_source_output、allow_unowned_overwrite 和 dry_run；parent opt-in 不能越过 resource URI 根。
 
 <a id="member-gfconfigpipelineprofile-properties-metadata"></a>
 
@@ -266,7 +266,7 @@ func make_save_options(overrides: Dictionary = {}) -> Dictionary:
 
 结构：
 
-- `overrides`: Dictionary，可包含 save_options；save_options 可包含 output_format、include_schema、include_indexes、indent、sort_keys、overwrite_existing、allow_unowned_overwrite 和 dry_run。
+- `overrides`: Dictionary，可包含 save_options；save_options 可包含 output_format、include_schema、include_indexes、indent、sort_keys、overwrite_existing、allow_parent_output_path、allow_gf_source_output、allow_unowned_overwrite 和 dry_run。
 - `return`: Dictionary，包含合成后的保存选项。
 
 <a id="member-gfconfigpipelineprofile-methods-make_access_options"></a>
@@ -292,7 +292,7 @@ func make_access_options(overrides: Dictionary = {}) -> Dictionary:
 
 结构：
 
-- `overrides`: Dictionary，可包含 access_options；access_options 可包含生成器选项、overwrite_existing、allow_unowned_overwrite 和 dry_run。
+- `overrides`: Dictionary，可包含 access_options；access_options 可包含生成器选项、overwrite_existing、allow_parent_output_path、allow_gf_source_output、allow_unowned_overwrite 和 dry_run。
 - `return`: Dictionary，包含合成后的访问器生成选项。
 
 <a id="member-gfconfigpipelineprofile-methods-resolve_output_path"></a>

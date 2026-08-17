@@ -13,6 +13,9 @@ const GF_BOUNDED_ZIP_SUPPORT_SCRIPT = preload(
 
 
 const GF_CONFIG_PIPELINE_COMMAND_SCRIPT = preload("res://addons/gf/tools/config_pipeline/gf_config_pipeline_command.gd")
+const GF_CONFIG_OUTPUT_PATH_POLICY_SCRIPT = preload(
+	"res://addons/gf/tools/config_pipeline/gf_config_pipeline_output_path_policy.gd"
+)
 
 
 # --- 私有变量 ---
@@ -633,6 +636,106 @@ func test_pipeline_profile_exports_database_json() -> void:
 	assert_true(first_table.has("records_by_id"), "include_indexes 时 JSON 导出应包含 ID 索引。")
 
 
+func test_pipeline_profile_manifest_uses_canonical_output_identities() -> void:
+	var suffix: int = Time.get_ticks_usec()
+	var csv_path: String = _write_text(
+		"user://gf_config_pipeline_canonical_manifest_items_%d.csv" % suffix,
+		"id,name,power\n1,Potion,2.5\n"
+	)
+	var canonical_output_path: String = "user://gf_config_pipeline_canonical_manifest_%d/config.json" % suffix
+	var canonical_access_path: String = "user://gf_config_pipeline_canonical_manifest_%d/access.gd" % suffix
+	var canonical_manifest_path: String = "%s.manifest.json" % canonical_output_path
+	var source: GFConfigPipelineTableSource = GFConfigPipelineTableSource.new()
+	source.table_name = &"items"
+	source.source_path = csv_path
+	source.schema = _make_item_schema()
+	var profile: GFConfigPipelineProfile = GFConfigPipelineProfile.new()
+	profile.profile_id = &"canonical_manifest"
+	profile.database_id = &"main"
+	profile.output_path = "  user:\\\\gf_config_pipeline_canonical_manifest_%d/./config.json  " % suffix
+	profile.access_output_path = "user:\\\\gf_config_pipeline_canonical_manifest_%d/./access.gd" % suffix
+	profile.sources = [source]
+
+	var export_result: Dictionary = _call_pipeline(&"export_profile", [profile, {
+		"dry_run": true,
+		"write_manifest": true,
+	}])
+	var access_result: Dictionary = GFVariantData.get_option_dictionary(export_result, "access_result")
+	var manifest_result: Dictionary = GFVariantData.get_option_dictionary(export_result, "manifest_result")
+	var manifest: Dictionary = GFVariantData.get_option_dictionary(export_result, "manifest")
+	var output_entries: Array = GFVariantData.get_option_array(manifest, "output_entries")
+	var database_entry: Dictionary = GFVariantData.as_dictionary(output_entries[0]) if output_entries.size() > 0 else {}
+	var access_entry: Dictionary = GFVariantData.as_dictionary(output_entries[1]) if output_entries.size() > 1 else {}
+
+	assert_true(GFVariantData.get_option_bool(export_result, "success"), "可规范化路径的 dry-run Profile 导出应成功。")
+	assert_eq(GFVariantData.get_option_string(export_result, "output_path"), canonical_output_path, "导出结果应使用 canonical database identity。")
+	assert_eq(GFVariantData.get_option_string(access_result, "path"), canonical_access_path, "访问器结果应使用 canonical identity。")
+	assert_eq(GFVariantData.get_option_string(export_result, "manifest_path"), canonical_manifest_path, "manifest 路径应使用 canonical identity。")
+	assert_eq(GFVariantData.get_option_string(manifest_result, "path"), canonical_manifest_path, "manifest writer report 应使用 canonical identity。")
+	assert_eq(GFVariantData.get_option_string(database_entry, "path"), canonical_output_path, "manifest database entry 必须绑定实际 target。")
+	assert_eq(GFVariantData.get_option_string(access_entry, "path"), canonical_access_path, "manifest access entry 必须绑定实际 target。")
+
+
+func test_pipeline_profile_validates_all_output_uris_before_database_preflight() -> void:
+	var suffix: int = Time.get_ticks_usec()
+	var csv_path: String = _write_text(
+		"user://gf_config_pipeline_path_plan_items_%d.csv" % suffix,
+		"id,name,power\n1,Potion,2.5\n"
+	)
+	var output_path: String = _write_text(
+		"user://gf_config_pipeline_path_plan_config_%d.json" % suffix,
+		"unowned\n"
+	)
+	var source: GFConfigPipelineTableSource = GFConfigPipelineTableSource.new()
+	source.table_name = &"items"
+	source.source_path = csv_path
+	source.schema = _make_item_schema()
+	var access_profile: GFConfigPipelineProfile = GFConfigPipelineProfile.new()
+	access_profile.profile_id = &"path_plan_access"
+	access_profile.database_id = &"main"
+	access_profile.output_path = output_path
+	access_profile.access_output_path = "C:/outside/config_access.gd"
+	access_profile.sources = [source]
+	var manifest_profile: GFConfigPipelineProfile = GFConfigPipelineProfile.new()
+	manifest_profile.profile_id = &"path_plan_manifest"
+	manifest_profile.database_id = &"main"
+	manifest_profile.output_path = output_path
+	manifest_profile.access_output_path = "user://gf_config_pipeline_path_plan_access_%d.gd" % suffix
+	manifest_profile.sources = [source]
+
+	var access_failure: Dictionary = _call_pipeline(&"export_profile", [access_profile, {
+		"dry_run": true,
+	}])
+	var manifest_failure: Dictionary = _call_pipeline(&"export_profile", [manifest_profile, {
+		"dry_run": true,
+		"manifest_path": "C:/outside/config.manifest.json",
+		"write_manifest": true,
+	}])
+	var manifest_result: Dictionary = GFVariantData.get_option_dictionary(
+		manifest_failure,
+		"manifest_result"
+	)
+	var access_result: Dictionary = GFVariantData.get_option_dictionary(
+		access_failure,
+		"access_result"
+	)
+	var manifest_access_result: Dictionary = GFVariantData.get_option_dictionary(
+		manifest_failure,
+		"access_result"
+	)
+
+	assert_false(GFVariantData.get_option_bool(access_failure, "success"), "非法 access URI 必须在 database writer preflight 前失败。")
+	assert_true(GFVariantData.get_option_dictionary(access_failure, "save_result").is_empty(), "access 路径计划失败前不得进入 database writer preflight。")
+	assert_eq(GFVariantData.get_option_int(access_result, "error_code"), ERR_INVALID_PARAMETER, "access 路径计划失败应保留结构化参数错误。")
+	assert_true(GFVariantData.get_option_string(access_failure, "error").contains("res:// 或 user://"), "access 失败应保留 URI 迁移提示。")
+	assert_false(GFVariantData.get_option_bool(manifest_failure, "success"), "非法 manifest URI 必须在 database writer preflight 前失败。")
+	assert_true(GFVariantData.get_option_dictionary(manifest_failure, "save_result").is_empty(), "manifest 路径计划失败前不得进入 database writer preflight。")
+	assert_true(manifest_access_result.is_empty(), "manifest 路径计划失败前不得进入 access writer preflight。")
+	assert_eq(GFVariantData.get_option_string(manifest_failure, "manifest_path"), "C:/outside/config.manifest.json", "manifest 路径失败应保留调用方原始身份用于诊断。")
+	assert_eq(GFVariantData.get_option_int(manifest_result, "error_code"), ERR_INVALID_PARAMETER, "manifest 路径计划失败应报告参数错误。")
+	assert_eq(_read_text(output_path), "unowned\n", "整批路径计划失败不得改写已有产物。")
+
+
 func test_pipeline_profile_exports_access_script() -> void:
 	var csv_path: String = _write_text("user://gf_config_pipeline_profile_access_items_%d.csv" % Time.get_ticks_usec(), "id,name,power\n1,Potion,2.5\n")
 	var output_path: String = _track_path("user://gf_config_pipeline_profile_access_database_%d.tres" % Time.get_ticks_usec())
@@ -842,6 +945,189 @@ func test_pipeline_save_database_rejects_canonicalized_gf_source_output_path() -
 	assert_false(FileAccess.file_exists("res://addons/gf/tools/config_pipeline/should_not_write_config_pipeline_test.tres"), "被路径策略拒绝的产物不应落盘。")
 
 
+func test_pipeline_public_writers_reject_bare_relative_output_uris() -> void:
+	var database: GFConfigDatabaseResource = _build_items_database_from_csv("relative_output_uri")
+	var save_resource_result: Dictionary = _call_pipeline(&"save_database", [
+		database,
+		"build/config.tres",
+		{ "dry_run": true },
+	])
+	var save_json_result: Dictionary = _call_pipeline(&"save_database", [
+		database,
+		"build/config.json",
+		{ "dry_run": true },
+	])
+	var access_result: Dictionary = _call_pipeline(&"generate_access", [
+		database,
+		"build/config_access.gd",
+		"RelativeConfigAccess",
+		"null",
+		{ "dry_run": true },
+	])
+	var manifest_result: Dictionary = GFConfigPipelineArtifactManifest.new().save_manifest(
+		"build/config.manifest.json",
+		{},
+		{ "dry_run": true }
+	)
+
+	for result: Dictionary in [
+		save_resource_result,
+		save_json_result,
+		access_result,
+		manifest_result,
+	]:
+		assert_false(GFVariantData.get_option_bool(result, "success"), "所有公开 writer 都应拒绝裸相对输出路径。")
+		assert_eq(GFVariantData.get_option_int(result, "error_code"), ERR_INVALID_PARAMETER, "URI 域失败应统一报告参数错误。")
+		assert_false(GFVariantData.get_option_bool(result, "written"), "URI 域失败不得产生物理写入。")
+		assert_true(GFVariantData.get_option_string(result, "error").contains("res:// 或 user://"), "URI 域错误应给出可执行迁移提示。")
+
+
+func test_pipeline_output_results_use_the_canonical_target_identity() -> void:
+	var suffix: int = Time.get_ticks_usec()
+	var database: GFConfigDatabaseResource = _build_items_database_from_csv("canonical_output_identity")
+	var raw_path: String = "  user:\\\\gf_config_pipeline_identity_%d/./config.json  " % suffix
+	var expected_path: String = _track_path(
+		"user://gf_config_pipeline_identity_%d/config.json" % suffix
+	)
+
+	var save_result: Dictionary = _call_pipeline(&"save_database", [
+		database,
+		raw_path,
+		{ "dry_run": true },
+	])
+	var artifact_report: Dictionary = GFVariantData.get_option_dictionary(save_result, "artifact_report")
+
+	assert_true(GFVariantData.get_option_bool(save_result, "success"), "可规范化的 user URI 应继续支持。")
+	assert_eq(GFVariantData.get_option_string(save_result, "path"), expected_path, "外层结果必须报告实际使用的 canonical target。")
+	assert_eq(GFVariantData.get_option_string(artifact_report, "path"), expected_path, "artifact report 必须与外层结果共享同一 target identity。")
+
+
+func test_pipeline_parent_output_path_opt_in_stays_inside_resource_uri_domain() -> void:
+	var suffix: int = Time.get_ticks_usec()
+	var database: GFConfigDatabaseResource = _build_items_database_from_csv("parent_output_uri")
+	var raw_path: String = "user://gf_config_pipeline_parent_%d/nested/../config.json" % suffix
+	var expected_path: String = _track_path(
+		"user://gf_config_pipeline_parent_%d/config.json" % suffix
+	)
+
+	var rejected_result: Dictionary = _call_pipeline(&"save_database", [
+		database,
+		raw_path,
+		{ "dry_run": true },
+	])
+	var accepted_result: Dictionary = _call_pipeline(&"save_database", [
+		database,
+		raw_path,
+		{
+			"allow_parent_output_path": true,
+			"dry_run": true,
+		},
+	])
+	var artifact_report: Dictionary = GFVariantData.get_option_dictionary(accepted_result, "artifact_report")
+	var root_target_result: Dictionary = _call_pipeline(&"save_database", [
+		database,
+		"user://folder/..",
+		{
+			"allow_parent_output_path": true,
+			"dry_run": true,
+			"output_format": &"resource",
+		},
+	])
+	var root_uri_result: Dictionary = _call_pipeline(&"save_database", [
+		database,
+		"user://",
+		{
+			"dry_run": true,
+			"output_format": &"resource",
+		},
+	])
+
+	assert_false(GFVariantData.get_option_bool(rejected_result, "success"), "parent segment 默认仍应拒绝。")
+	assert_true(GFVariantData.get_option_bool(accepted_result, "success"), "显式 opt-in 应只允许 resource URI 内的规范化。")
+	assert_eq(GFVariantData.get_option_string(accepted_result, "path"), expected_path, "opt-in 结果必须返回规范化后的 resource URI。")
+	assert_eq(GFVariantData.get_option_string(artifact_report, "path"), expected_path, "下层 writer 必须使用同一规范化 target。")
+	assert_false(GFVariantData.get_option_bool(root_target_result, "success"), "parent opt-in 不能把文件 target 规范化为 URI 根。")
+	assert_false(GFVariantData.get_option_bool(root_uri_result, "success"), "resource URI 根本身不能作为文件 target。")
+
+
+func test_pipeline_manifest_absolute_output_bypass_no_longer_changes_uri_domain() -> void:
+	var manifest_result: Dictionary = GFConfigPipelineArtifactManifest.new().save_manifest(
+		"C:/outside/config.manifest.json",
+		{},
+		{
+			"allow_absolute_output_path": true,
+			"dry_run": true,
+		}
+	)
+
+	assert_false(GFVariantData.get_option_bool(manifest_result, "success"), "旧 absolute bypass 不得授权 host filesystem 输出。")
+	assert_eq(GFVariantData.get_option_int(manifest_result, "error_code"), ERR_INVALID_PARAMETER, "absolute URI 域失败应报告参数错误。")
+	assert_true(GFVariantData.get_option_string(manifest_result, "error").contains("res:// 或 user://"), "错误应指向受支持的 URI 域。")
+	assert_false(GFVariantData.get_option_bool(manifest_result, "written"), "被拒绝的绝对路径不得写入。")
+
+
+func test_pipeline_output_uri_policy_rejects_malformed_and_host_paths() -> void:
+	var invalid_paths: PackedStringArray = PackedStringArray([
+		"C:/outside/config.json",
+		"C:\\outside\\config.json",
+		"//server/share/config.json",
+		"/tmp/config.json",
+		"file://config.json",
+		"uid://abc",
+		"http://example.com/config.json",
+		"res:/config.json",
+		"RES://config.json",
+		"res://folder://config.json",
+		"res:////config.json",
+	])
+
+	for invalid_path: String in invalid_paths:
+		var result: Dictionary = GF_CONFIG_OUTPUT_PATH_POLICY_SCRIPT.resolve_output_path(
+			invalid_path,
+			{},
+			"测试产物"
+		)
+		assert_false(GFVariantData.get_option_bool(result, "success"), "非法输出 URI 必须拒绝：%s" % invalid_path)
+		assert_eq(GFVariantData.get_option_int(result, "error_code"), ERR_INVALID_PARAMETER, "非法输出 URI 应报告参数错误：%s" % invalid_path)
+
+	var root_escape_result: Dictionary = GF_CONFIG_OUTPUT_PATH_POLICY_SCRIPT.resolve_output_path(
+		"user://../config.json",
+		{ "allow_parent_output_path": true },
+		"测试产物"
+	)
+	assert_false(GFVariantData.get_option_bool(root_escape_result, "success"), "parent opt-in 也不得越过 resource URI 根。")
+
+
+func test_pipeline_gf_source_protection_uses_an_exact_path_boundary() -> void:
+	var protected_result: Dictionary = GF_CONFIG_OUTPUT_PATH_POLICY_SCRIPT.resolve_output_path(
+		"res://addons/gf/generated/config.json",
+		{},
+		"测试产物"
+	)
+	var sibling_results: Array[Dictionary] = [
+		GF_CONFIG_OUTPUT_PATH_POLICY_SCRIPT.resolve_output_path(
+			"res://addons/gf2/generated/config.json",
+			{},
+			"测试产物"
+		),
+		GF_CONFIG_OUTPUT_PATH_POLICY_SCRIPT.resolve_output_path(
+			"res://addons/gf_tools/generated/config.json",
+			{},
+			"测试产物"
+		),
+	]
+	var absolute_with_source_bypass: Dictionary = GF_CONFIG_OUTPUT_PATH_POLICY_SCRIPT.resolve_output_path(
+		"C:/outside/config.json",
+		{ "allow_gf_source_output": true },
+		"测试产物"
+	)
+
+	assert_false(GFVariantData.get_option_bool(protected_result, "success"), "默认应保护精确 GF 源码根。")
+	for sibling_result: Dictionary in sibling_results:
+		assert_true(GFVariantData.get_option_bool(sibling_result, "success"), "相邻目录名不得被误判为 GF 源码根。")
+	assert_false(GFVariantData.get_option_bool(absolute_with_source_bypass, "success"), "GF 源码 bypass 不得扩大 URI 域。")
+
+
 func test_pipeline_export_profile_preflights_access_before_writing_database() -> void:
 	var csv_path: String = _write_text("user://gf_config_pipeline_atomic_items_%d.csv" % Time.get_ticks_usec(), "id,name,power\n1,Potion,2.5\n")
 	var output_path: String = _track_path("user://gf_config_pipeline_atomic_database_%d.tres" % Time.get_ticks_usec())
@@ -1041,12 +1327,15 @@ func test_pipeline_runner_fails_freshness_before_hashing_over_budget_source() ->
 func test_pipeline_runner_skips_changed_only_when_manifest_is_fresh() -> void:
 	var csv_path: String = _write_text("user://gf_config_pipeline_manifest_fresh_items_%d.csv" % Time.get_ticks_usec(), "id,name,power\n1,Potion,2.5\n")
 	var profile_path: String = _track_path("user://gf_config_pipeline_manifest_fresh_profile_%d.tres" % Time.get_ticks_usec())
-	var output_path: String = _track_path("user://gf_config_pipeline_manifest_fresh_database_%d.json" % Time.get_ticks_usec())
-	var manifest_path: String = _track_path("user://gf_config_pipeline_manifest_fresh_database_%d.manifest.json" % Time.get_ticks_usec())
-	_save_runner_profile(&"manifest_fresh", csv_path, profile_path, output_path)
+	var suffix: int = Time.get_ticks_usec()
+	var output_path: String = _track_path("user://gf_config_pipeline_manifest_fresh_database_%d.json" % suffix)
+	var manifest_path: String = _track_path("user://gf_config_pipeline_manifest_fresh_database_%d.manifest.json" % suffix)
+	var raw_output_path: String = "  user:\\\\gf_config_pipeline_manifest_fresh_database_%d.json  " % suffix
+	var raw_manifest_path: String = "user:\\\\gf_config_pipeline_manifest_fresh_database_%d.manifest.json" % suffix
+	_save_runner_profile(&"manifest_fresh", csv_path, profile_path, raw_output_path)
 	var options: Dictionary = {
 		"changed_only": true,
-		"manifest_path": manifest_path,
+		"manifest_path": raw_manifest_path,
 	}
 	var first_result: Dictionary = _call_runner(&"export_profile_path", [profile_path, options])
 
@@ -1057,7 +1346,63 @@ func test_pipeline_runner_skips_changed_only_when_manifest_is_fresh() -> void:
 	assert_true(GFVariantData.get_option_bool(second_result, "success"), "fresh manifest 命中时应返回成功。")
 	assert_true(GFVariantData.get_option_bool(second_result, "skipped"), "fresh manifest 命中时应跳过导出。")
 	assert_true(GFVariantData.get_option_bool(freshness_report, "fresh"), "freshness_report 应明确 fresh。")
+	assert_eq(GFVariantData.get_option_string(second_result, "output_path"), output_path, "跳过结果应使用 canonical database identity。")
 	assert_eq(GFVariantData.get_option_string(second_result, "manifest_path"), manifest_path, "跳过结果应保留 manifest 路径。")
+
+
+func test_pipeline_runner_validates_output_uri_before_changed_only_skip() -> void:
+	var suffix: int = Time.get_ticks_usec()
+	var csv_path: String = _write_text(
+		"user://gf_config_pipeline_relative_skip_items_%d.csv" % suffix,
+		"id,name,power\n1,Potion,2.5\n"
+	)
+	var profile_path: String = _track_path(
+		"user://gf_config_pipeline_relative_skip_profile_%d.tres" % suffix
+	)
+	var manifest_path: String = _track_path(
+		"user://gf_config_pipeline_relative_skip_%d.manifest.json" % suffix
+	)
+	var relative_output_path: String = "gf_config_pipeline_relative_skip_%d.json" % suffix
+	var _legacy_output_path: String = _write_text("res://%s" % relative_output_path, "{}\n")
+
+	_save_runner_profile(
+		&"relative_skip",
+		csv_path,
+		profile_path,
+		relative_output_path
+	)
+	var loaded_resource: Resource = ResourceLoader.load(
+		profile_path,
+		"Resource",
+		ResourceLoader.CACHE_MODE_IGNORE
+	)
+	assert_true(loaded_resource is GFConfigPipelineProfile, "测试应能加载相对输出路径 Profile。")
+	if not (loaded_resource is GFConfigPipelineProfile):
+		return
+	var profile: GFConfigPipelineProfile = loaded_resource
+	var options: Dictionary = {
+		"changed_only": true,
+		"manifest_path": manifest_path,
+	}
+	var manifest_helper: GFConfigPipelineArtifactManifest = GFConfigPipelineArtifactManifest.new()
+	var legacy_manifest: Dictionary = manifest_helper.make_manifest(
+		profile_path,
+		profile,
+		options
+	)
+	var legacy_manifest_result: Dictionary = manifest_helper.save_manifest(
+		manifest_path,
+		legacy_manifest
+	)
+	assert_true(GFVariantData.get_option_bool(legacy_manifest_result, "success"), "测试应能建立旧合同下的 fresh manifest。")
+
+	var run_result: Dictionary = _call_runner(&"export_profile_path", [profile_path, options])
+
+	assert_false(GFVariantData.get_option_bool(run_result, "success"), "Runner 必须在 freshness skip 前拒绝非法输出 URI。")
+	assert_false(GFVariantData.get_option_bool(run_result, "skipped"), "非法输出 URI 不得伪装成 changed-only 命中。")
+	assert_eq(GFVariantData.get_option_int(run_result, "error_code"), ERR_INVALID_PARAMETER, "Runner URI 失败应报告参数错误。")
+	assert_true(GFVariantData.get_option_string(run_result, "error").contains("res:// 或 user://"), "Runner 应返回 URI 迁移提示。")
+	assert_true(GFVariantData.get_option_dictionary(run_result, "freshness_report").is_empty(), "非法路径应在 freshness 扫描前失败。")
 
 
 func test_pipeline_runner_rebuilds_changed_only_when_source_changes() -> void:

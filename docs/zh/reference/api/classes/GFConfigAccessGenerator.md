@@ -86,7 +86,7 @@ func generate( schemas: Array, output_path: String = DEFAULT_OUTPUT_PATH, overwr
 | 名称 | 说明 |
 |---|---|
 | `schemas` | 带有 \`table_name\` 或 \`table_key\` 属性的 schema 列表。 |
-| `output_path` | 生成文件输出路径。 |
+| `output_path` | res:// 或 user:// 生成文件输出 URI。 |
 | `overwrite_existing` | 为 false 时目标已存在会返回 ERR_ALREADY_EXISTS。 |
 | `access_class_name` | 生成脚本的 class_name。 |
 | `provider_accessor` | 无显式 provider 参数时用于获取 provider 的表达式。 |
@@ -117,7 +117,7 @@ func generate_with_report( schemas: Array, output_path: String = DEFAULT_OUTPUT_
 | 名称 | 说明 |
 |---|---|
 | `schemas` | 带有 \`table_name\` 或 \`table_key\` 属性的 schema 列表。 |
-| `output_path` | 生成文件输出路径。 |
+| `output_path` | res:// 或 user:// 生成文件输出 URI；成功报告会返回规范化后的 URI。 |
 | `access_class_name` | 生成脚本的 class_name。 |
 | `provider_accessor` | 无显式 provider 参数时用于获取 provider 的表达式。 |
 | `options` | 可选生成与保存选项，支持 build_source 选项、overwrite_existing、dry_run、scan_filesystem 和 metadata。 |
@@ -206,7 +206,7 @@ func save_source(output_path: String, source: String, overwrite_existing: bool =
 
 | 名称 | 说明 |
 |---|---|
-| `output_path` | 生成文件输出路径。 |
+| `output_path` | res:// 或 user:// 生成文件输出 URI。 |
 | `source` | GDScript 源码。 |
 | `overwrite_existing` | 为 false 时目标已存在会返回 ERR_ALREADY_EXISTS。 |
 
@@ -229,7 +229,7 @@ func save_source_with_report(output_path: String, source: String, options: Dicti
 
 | 名称 | 说明 |
 |---|---|
-| `output_path` | 生成文件输出路径。 |
+| `output_path` | res:// 或 user:// 生成文件输出 URI；成功报告会返回规范化后的 URI。 |
 | `source` | GDScript 源码。 |
 | `options` | 保存选项，支持 overwrite_existing、dry_run、scan_filesystem 和 metadata。 |
 

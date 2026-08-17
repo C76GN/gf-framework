@@ -33,7 +33,7 @@ const _DEFAULT_OPERATION: StringName = _OPERATION_EXPORT
 ## [br]
 ## @param base_options: 调用方直接注入的默认选项，命令行参数会覆盖同名字段。
 ## [br]
-## @schema base_options: Dictionary，可包含 GFConfigPipelineRunner 选项，以及 output_path、access_output_path、access_class_name、access_provider_accessor、dry_run、changed_only、manifest_path、write_manifest、manifest_options、max_freshness_file_bytes、max_freshness_total_bytes 和 max_freshness_entries；各产物 options 可包含 allow_unowned_overwrite。
+## @schema base_options: Dictionary，可包含 GFConfigPipelineRunner 选项，以及 output_path、access_output_path、access_class_name、access_provider_accessor、dry_run、changed_only、manifest_path、write_manifest、manifest_options、max_freshness_file_bytes、max_freshness_total_bytes 和 max_freshness_entries；三个非空产物路径都必须位于 res:// 或 user://，各产物 options 可包含 allow_parent_output_path、allow_gf_source_output 和 allow_unowned_overwrite。
 ## [br]
 ## @return: 命令报告。
 ## [br]
@@ -140,13 +140,13 @@ func get_usage() -> String:
 	_append_line(lines, "Options:")
 	_append_line(lines, "  --profile <path>             GFConfigPipelineProfile resource path.")
 	_append_line(lines, "  --operation <export|build|load>")
-	_append_line(lines, "  --output <path>              Override profile output_path.")
-	_append_line(lines, "  --access-output <path>       Override profile access_output_path.")
+	_append_line(lines, "  --output <res://|user://>    Override profile output URI.")
+	_append_line(lines, "  --access-output <URI>        Override profile access output URI.")
 	_append_line(lines, "  --class-name <name>          Override generated access class_name.")
 	_append_line(lines, "  --provider-accessor <expr>   Override generated access provider expression.")
 	_append_line(lines, "  --dry-run                    Preflight without writing generated artifacts.")
 	_append_line(lines, "  --changed-only               Skip export when the artifact manifest is fresh.")
-	_append_line(lines, "  --manifest <path>            Override artifact manifest path.")
+	_append_line(lines, "  --manifest <URI>             Override res:// or user:// manifest URI.")
 	_append_line(lines, "  --write-manifest             Write a manifest after export even without --changed-only.")
 	_append_line(lines, "  --strict                     Treat validation warnings as command failure.")
 	_append_line(lines, "  --json                       Print JSON report.")

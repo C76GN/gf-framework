@@ -42,6 +42,9 @@ const _COMPILER_CONTRACT_VERSION: int = 3
 const _SOURCE_RECEIPT_FORMAT: String = "gf.config_pipeline.source_receipt"
 const _SOURCE_RECEIPT_FORMAT_VERSION: int = 1
 const _PLUGIN_CONFIG_PATH: String = "res://addons/gf/plugin.cfg"
+const _OUTPUT_PATH_POLICY_SCRIPT = preload(
+	"res://addons/gf/tools/config_pipeline/gf_config_pipeline_output_path_policy.gd"
+)
 const _COMPILER_STAGE_DEFINITIONS: Array[Dictionary] = [
 	{
 		"id": "framework_metadata",
@@ -52,6 +55,9 @@ const _COMPILER_STAGE_DEFINITIONS: Array[Dictionary] = [
 		"id": "config_pipeline",
 		"implementation_version": 1,
 		"path": "res://addons/gf/tools/config_pipeline/gf_config_pipeline.gd",
+		"implementation_dependencies": [
+			"res://addons/gf/tools/config_pipeline/gf_config_pipeline_output_path_policy.gd",
+		],
 	},
 	{
 		"id": GFConfigPipelineIR.FORMAT,
@@ -121,11 +127,17 @@ const _COMPILER_STAGE_DEFINITIONS: Array[Dictionary] = [
 		"id": "artifact_manifest",
 		"implementation_version": 1,
 		"path": "res://addons/gf/tools/config_pipeline/gf_config_pipeline_artifact_manifest.gd",
+		"implementation_dependencies": [
+			"res://addons/gf/tools/config_pipeline/gf_config_pipeline_output_path_policy.gd",
+		],
 	},
 	{
 		"id": "pipeline_runner",
 		"implementation_version": 1,
 		"path": "res://addons/gf/tools/config_pipeline/gf_config_pipeline_runner.gd",
+		"implementation_dependencies": [
+			"res://addons/gf/tools/config_pipeline/gf_config_pipeline_output_path_policy.gd",
+		],
 	},
 	{
 		"id": "table_importer",
@@ -370,7 +382,7 @@ func load_manifest(manifest_path: String) -> Dictionary:
 ## [br]
 ## @since 8.0.0
 ## [br]
-## @param manifest_path: manifest JSON 输出路径。
+## @param manifest_path: res:// 或 user:// manifest JSON 输出 URI；成功结果会返回规范化后的 URI。
 ## [br]
 ## @param manifest: make_manifest() 返回的字典。
 ## [br]
@@ -378,17 +390,19 @@ func load_manifest(manifest_path: String) -> Dictionary:
 ## [br]
 ## @param options: 保存选项。
 ## [br]
-## @schema options: Dictionary，可包含 dry_run、overwrite_existing、allow_unowned_overwrite、indent、sort_keys、allow_parent_output_path、allow_gf_source_output 和 allow_absolute_output_path；allow_unowned_overwrite 仅用于调用方已明确确认现有文件所有权的迁移场景。
+## @schema options: Dictionary，可包含 dry_run、overwrite_existing、allow_unowned_overwrite、indent、sort_keys、allow_parent_output_path 和 allow_gf_source_output；allow_parent_output_path 只允许规范化 URI 根内的父级片段，allow_gf_source_output 只放行 res://addons/gf 源码目录保护，allow_unowned_overwrite 仅用于调用方已明确确认现有文件所有权的迁移场景。
 ## [br]
 ## @return: 保存报告。
 ## [br]
 ## @schema return: Dictionary，包含 success、path、status、error_code、error、artifact_report、written、changed 和 dry_run。
 func save_manifest(manifest_path: String, manifest: Dictionary, options: Dictionary = {}) -> Dictionary:
-	if manifest_path.strip_edges().is_empty():
-		return _make_save_result(false, manifest_path, ERR_INVALID_PARAMETER, "manifest 路径为空。", {})
-
-	var path_error: String = _validate_manifest_path_policy(manifest_path, options)
-	if not path_error.is_empty():
+	var path_result: Dictionary = _OUTPUT_PATH_POLICY_SCRIPT.resolve_output_path(
+		manifest_path,
+		options,
+		"manifest"
+	)
+	if not GFVariantData.get_option_bool(path_result, "success"):
+		var path_error: String = GFVariantData.get_option_string(path_result, "error")
 		var failure_report: Dictionary = _GENERATED_ARTIFACT_REPORT_SCRIPT.make_report(
 			manifest_path,
 			_GENERATED_ARTIFACT_REPORT_SCRIPT.STATUS_FAILED,
@@ -401,6 +415,7 @@ func save_manifest(manifest_path: String, manifest: Dictionary, options: Diction
 			}
 		)
 		return _make_save_result(false, manifest_path, ERR_INVALID_PARAMETER, path_error, failure_report)
+	manifest_path = GFVariantData.get_option_string(path_result, "path")
 
 	var scan_report: Dictionary = GFVariantData.get_option_dictionary(manifest, "scan_report")
 	if not GFVariantData.get_option_bool(scan_report, "success", false):
@@ -1689,22 +1704,6 @@ func _make_failure_artifact_report(
 	)
 
 
-func _validate_manifest_path_policy(manifest_path: String, options: Dictionary) -> String:
-	var raw_path: String = manifest_path.replace("\\", "/").strip_edges()
-	if raw_path.is_empty():
-		return "manifest 路径为空。"
-	if _has_unsupported_output_scheme(raw_path):
-		return "manifest 路径使用了不支持的 URI scheme：%s。" % manifest_path
-	if _path_has_parent_segment(raw_path) and not GFVariantData.get_option_bool(options, "allow_parent_output_path", false):
-		return "manifest 路径不能包含父级越界片段：%s。" % manifest_path
-	if _is_filesystem_absolute_path(raw_path) and not GFVariantData.get_option_bool(options, "allow_absolute_output_path", false):
-		return "manifest 路径不能是绝对文件系统路径：%s。" % manifest_path
-	var normalized_path: String = _normalize_output_path(raw_path)
-	if _is_gf_source_output_path(normalized_path) and not GFVariantData.get_option_bool(options, "allow_gf_source_output", false):
-		return "manifest 路径不能写入 GF 框架源码目录：%s。" % manifest_path
-	return ""
-
-
 func _normalize_output_path(path: String) -> String:
 	var normalized: String = path.replace("\\", "/").strip_edges()
 	if normalized.contains("://"):
@@ -1713,38 +1712,6 @@ func _normalize_output_path(path: String) -> String:
 		return "%s://%s" % [scheme, body]
 	return normalized.simplify_path()
 
-
-func _path_has_parent_segment(path: String) -> bool:
-	var body: String = path
-	if path.contains("://"):
-		body = path.get_slice("://", 1)
-	var parts: PackedStringArray = body.split("/", false)
-	for part: String in parts:
-		if part == "..":
-			return true
-	return false
-
-
-func _is_filesystem_absolute_path(path: String) -> bool:
-	var lower_path: String = path.to_lower()
-	if lower_path.begins_with("res://") or lower_path.begins_with("user://"):
-		return false
-	if path.is_absolute_path():
-		return true
-	return path.length() >= 3 and path.substr(1, 2) == ":/"
-
-
-func _has_unsupported_output_scheme(path: String) -> bool:
-	var lower_path: String = path.to_lower()
-	if not lower_path.contains("://"):
-		return false
-	return not (lower_path.begins_with("res://") or lower_path.begins_with("user://"))
-
-
-func _is_gf_source_output_path(path: String) -> bool:
-	var lower_path: String = path.to_lower()
-	var gf_source_root: String = "res://addons".path_join("gf")
-	return lower_path == gf_source_root or lower_path.begins_with(gf_source_root.path_join(""))
 
 
 func _packed_to_array(values: PackedStringArray) -> Array:

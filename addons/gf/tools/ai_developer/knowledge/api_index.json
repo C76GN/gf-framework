@@ -2,7 +2,7 @@
   "schema_version": 1,
   "catalog_version": "1.0.0",
   "framework_version": "11.0.0-dev.0",
-  "source_digest": "40b469a4c56cd8243ac16fcc74deb1f997474775999496842f41cbb1b7ac749b",
+  "source_digest": "cd02c071f684b74724e1da9a3c2e1ddbe4082a2609f1cdac68a7ccb13229765f",
   "class_count": 818,
   "package_count": 56,
   "packages": [
@@ -19268,14 +19268,14 @@
           "kind": "var",
           "name": "output_path",
           "signature": "var output_path: String = \"\"",
-          "summary": "导出目标路径。通常指向 .tres、.res 或 .json。",
+          "summary": "导出目标 URI。导出时必须位于 res:// 或 user://，通常以 .tres、.res 或 .json 结尾。",
           "visibility": "public"
         },
         {
           "kind": "var",
           "name": "access_output_path",
           "signature": "var access_output_path: String = \"\"",
-          "summary": "可选访问器脚本输出路径。为空时不生成访问器。",
+          "summary": "可选访问器脚本输出 URI。非空时必须位于 res:// 或 user://；为空时不生成访问器。",
           "visibility": "public"
         },
         {

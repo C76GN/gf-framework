@@ -126,7 +126,7 @@ func save_manifest(manifest_path: String, manifest: Dictionary, options: Diction
 
 | 名称 | 说明 |
 |---|---|
-| `manifest_path` | manifest JSON 输出路径。 |
+| `manifest_path` | res:// 或 user:// manifest JSON 输出 URI；成功结果会返回规范化后的 URI。 |
 | `manifest` | make_manifest() 返回的字典。 |
 | `options` | 保存选项。 |
 
@@ -135,7 +135,7 @@ func save_manifest(manifest_path: String, manifest: Dictionary, options: Diction
 结构：
 
 - `manifest`: Dictionary，包含 format、format_version、artifact_owner、profile_digest、input_digest、output_digest、options_digest、compiler_digest、compiler_fingerprint、profile_entries、source_entries、output_entries 和 scan_report。
-- `options`: Dictionary，可包含 dry_run、overwrite_existing、allow_unowned_overwrite、indent、sort_keys、allow_parent_output_path、allow_gf_source_output 和 allow_absolute_output_path；allow_unowned_overwrite 仅用于调用方已明确确认现有文件所有权的迁移场景。
+- `options`: Dictionary，可包含 dry_run、overwrite_existing、allow_unowned_overwrite、indent、sort_keys、allow_parent_output_path 和 allow_gf_source_output；allow_parent_output_path 只允许规范化 URI 根内的父级片段，allow_gf_source_output 只放行 res://addons/gf 源码目录保护，allow_unowned_overwrite 仅用于调用方已明确确认现有文件所有权的迁移场景。
 - `return`: Dictionary，包含 success、path、status、error_code、error、artifact_report、written、changed 和 dry_run。
 
 <a id="member-gfconfigpipelineartifactmanifest-methods-make_freshness_report"></a>
