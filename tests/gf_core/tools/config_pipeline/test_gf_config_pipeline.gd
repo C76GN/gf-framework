@@ -117,6 +117,139 @@ func test_pipeline_save_database_json_dry_run_reports_artifact_without_writing()
 	assert_false(FileAccess.file_exists(output_path), "JSON dry-run 不应创建输出文件。")
 
 
+func test_pipeline_resource_routes_reject_unrecognized_target_extension() -> void:
+	var database: GFConfigDatabaseResource = _build_items_database_from_csv("resource_extension")
+	var output_path: String = _track_path(
+		"user://gf_config_pipeline_resource_extension_%d.unknown" % Time.get_ticks_usec()
+	)
+	var recognized_extensions: PackedStringArray = ResourceSaver.get_recognized_extensions(database)
+
+	var dry_run_result: Dictionary = _call_pipeline(&"save_database", [
+		database,
+		output_path,
+		{
+			"dry_run": true,
+		},
+	])
+	var real_run_result: Dictionary = _call_pipeline(&"save_database", [database, output_path])
+	var dry_run_artifact_report: Dictionary = GFVariantData.get_option_dictionary(
+		dry_run_result,
+		"artifact_report"
+	)
+	var real_run_artifact_report: Dictionary = GFVariantData.get_option_dictionary(
+		real_run_result,
+		"artifact_report"
+	)
+
+	assert_false(recognized_extensions.has("unknown"), "测试扩展名不得被当前 ResourceSaver 接受。")
+	for result: Dictionary in [dry_run_result, real_run_result]:
+		assert_false(GFVariantData.get_option_bool(result, "success"), "resource dry/real 路由都必须拒绝未识别扩展名。")
+		assert_eq(
+			GFVariantData.get_option_int(result, "error_code"),
+			ERR_FILE_UNRECOGNIZED,
+			"resource dry/real 路由应共享 ResourceSaver 未识别文件错误。"
+		)
+		assert_eq(GFVariantData.get_option_string_name(result, "format"), &"resource", "失败结果应保留 resource 格式。")
+		assert_false(GFVariantData.get_option_bool(result, "written"), "扩展名预检失败不得写入。")
+		assert_false(GFVariantData.get_option_bool(result, "changed"), "扩展名预检失败不得宣称产物变化。")
+	assert_eq(
+		GFVariantData.get_option_string(dry_run_result, "error"),
+		GFVariantData.get_option_string(real_run_result, "error"),
+		"dry-run 与真实路由必须返回同一确定性诊断。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(dry_run_artifact_report, "error_code"),
+		ERR_FILE_UNRECOGNIZED,
+		"dry-run artifact report 应保留未识别文件错误。"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(real_run_artifact_report, "error_code"),
+		ERR_FILE_UNRECOGNIZED,
+		"真实路由 artifact report 应保留未识别文件错误。"
+	)
+	for artifact_report: Dictionary in [dry_run_artifact_report, real_run_artifact_report]:
+		assert_eq(
+			GFVariantData.get_option_string_name(artifact_report, "status"),
+			GFGeneratedArtifactReport.STATUS_FAILED,
+			"未识别扩展名应形成 failed artifact report。"
+		)
+	assert_true(GFVariantData.get_option_bool(dry_run_artifact_report, "dry_run"), "dry-run 失败报告应保留标记。")
+	assert_false(GFVariantData.get_option_bool(real_run_artifact_report, "dry_run"), "真实保存失败报告不得冒充 dry-run。")
+	assert_false(FileAccess.file_exists(output_path), "扩展名预检失败不得创建文件。")
+
+
+func test_pipeline_resource_extension_matching_is_case_insensitive() -> void:
+	var database: GFConfigDatabaseResource = _build_items_database_from_csv("resource_extension_case")
+	var output_path: String = _track_path(
+		"user://gf_config_pipeline_resource_extension_%d.TRES" % Time.get_ticks_usec()
+	)
+
+	var dry_run_result: Dictionary = _call_pipeline(&"save_database", [
+		database,
+		output_path,
+		{
+			"output_format": &"resource",
+			"dry_run": true,
+		},
+	])
+	var real_run_result: Dictionary = _call_pipeline(&"save_database", [
+		database,
+		output_path,
+		{
+			"output_format": &"resource",
+		},
+	])
+
+	assert_true(GFVariantData.get_option_bool(dry_run_result, "success"), "ResourceSaver dry-run 扩展名匹配应忽略大小写。")
+	assert_eq(GFVariantData.get_option_int(dry_run_result, "error_code"), OK, "合法大写扩展名 dry-run 应通过。")
+	assert_true(GFVariantData.get_option_bool(real_run_result, "success"), "ResourceSaver 真实保存扩展名匹配应忽略大小写。")
+	assert_eq(GFVariantData.get_option_int(real_run_result, "error_code"), OK, "合法大写扩展名真实保存应通过。")
+	assert_true(FileAccess.file_exists(output_path), "合法大写扩展名真实保存应创建资源文件。")
+
+
+func test_pipeline_resource_target_rejects_trailing_directory_uri() -> void:
+	var database: GFConfigDatabaseResource = _build_items_database_from_csv("resource_directory_uri")
+	var output_path: String = "user://gf_config_pipeline_resource_directory_%d/" % Time.get_ticks_usec()
+
+	var save_result: Dictionary = _call_pipeline(&"save_database", [
+		database,
+		output_path,
+		{
+			"output_format": &"resource",
+			"dry_run": true,
+		},
+	])
+
+	assert_false(GFVariantData.get_option_bool(save_result, "success"), "resource 输出必须指向文件 URI。")
+	assert_eq(
+		GFVariantData.get_option_int(save_result, "error_code"),
+		ERR_INVALID_PARAMETER,
+		"尾随目录 URI 应由公开保存入口报告参数错误。"
+	)
+	assert_eq(GFVariantData.get_option_string_name(save_result, "format"), &"resource", "失败结果应保留 resource 格式。")
+	assert_false(GFVariantData.get_option_bool(save_result, "written"), "目录 URI 失败不得产生写入。")
+
+
+func test_pipeline_explicit_json_format_keeps_non_json_extension_policy() -> void:
+	var database: GFConfigDatabaseResource = _build_items_database_from_csv("explicit_json_extension")
+	var output_path: String = _track_path(
+		"user://gf_config_pipeline_explicit_json_%d.unknown" % Time.get_ticks_usec()
+	)
+
+	var save_result: Dictionary = _call_pipeline(&"save_database", [
+		database,
+		output_path,
+		{
+			"output_format": &"json",
+			"dry_run": true,
+		},
+	])
+
+	assert_true(GFVariantData.get_option_bool(save_result, "success"), "显式 JSON 格式不应套用 ResourceSaver 扩展名策略。")
+	assert_eq(GFVariantData.get_option_string_name(save_result, "format"), &"json", "显式 JSON 格式应保持不变。")
+	assert_false(FileAccess.file_exists(output_path), "显式 JSON dry-run 不得创建文件。")
+
+
 func test_pipeline_generate_access_dry_run_reports_artifact_without_writing() -> void:
 	var database: GFConfigDatabaseResource = _build_items_database_from_csv("access_dry_run")
 	var output_path: String = _track_path("user://gf_config_pipeline_access_dry_run_%d.gd" % Time.get_ticks_usec())
@@ -1079,6 +1212,7 @@ func test_pipeline_output_uri_policy_rejects_malformed_and_host_paths() -> void:
 		"RES://config.json",
 		"res://folder://config.json",
 		"res:////config.json",
+		"user://folder/",
 	])
 
 	for invalid_path: String in invalid_paths:

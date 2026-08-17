@@ -256,7 +256,7 @@ func save_database( database: GFConfigDatabaseResource, output_path: String, opt
 | 名称 | 说明 |
 |---|---|
 | `database` | 要保存的配置数据库资源。 |
-| `output_path` | res:// 或 user:// 输出 URI，通常以 .tres、.res 或 .json 结尾；成功结果会返回规范化后的 URI。 |
+| `output_path` | res:// 或 user:// 输出 URI；resource 格式必须使用当前 ResourceSaver 为 database 声明的扩展名，JSON 格式不受该扩展名规则约束；成功结果会返回规范化后的 URI。 |
 | `options` | 保存选项，支持 output_format、include_schema、include_indexes、indent、sort_keys、overwrite_existing、allow_parent_output_path、allow_gf_source_output、allow_unowned_overwrite、dry_run 和 artifact_metadata。 |
 
 返回：保存结果。
