@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<apiCatalog schemaVersion="2" name="GF Framework" sourceRoot="addons/gf" sourceDigest="f9b18ed34e6f74cbe1340b519626437bff2fcd312c8cb133a45cbc1298450f91" classCount="842" methodCount="7677">
-	<module id="kernel" label="Kernel" classCount="74" methodCount="799">
+<apiCatalog schemaVersion="2" name="GF Framework" sourceRoot="addons/gf" sourceDigest="2709d9e20789228d5387736231cbe234755cf32cc446f12e2e0448fbc9d68865" classCount="843" methodCount="7679">
+	<module id="kernel" label="Kernel" classCount="75" methodCount="801">
 		<class name="GFAccessGenerator" path="classes/GFAccessGenerator.xml" sourcePath="addons/gf/kernel/editor/gf_access_generator.gd" extends="RefCounted" />
 		<class name="GFArchitecture" path="classes/GFArchitecture.xml" sourcePath="addons/gf/kernel/core/gf_architecture.gd" extends="Object" />
 		<class name="GFArchitectureShutdownResult" path="classes/GFArchitectureShutdownResult.xml" sourcePath="addons/gf/kernel/core/gf_architecture_shutdown_result.gd" extends="RefCounted" />
@@ -12,6 +12,7 @@
 		<class name="GFBindableProperty" path="classes/GFBindableProperty.xml" sourcePath="addons/gf/kernel/core/gf_bindable_property.gd" extends="RefCounted" />
 		<class name="GFBinder" path="classes/GFBinder.xml" sourcePath="addons/gf/kernel/core/gf_binder.gd" extends="RefCounted" />
 		<class name="GFBindingLifetimes" path="classes/GFBindingLifetimes.xml" sourcePath="addons/gf/kernel/core/gf_binding_lifetimes.gd" extends="RefCounted" />
+		<class name="GFBoundedJsonObjectReader" path="classes/GFBoundedJsonObjectReader.xml" sourcePath="addons/gf/kernel/core/gf_bounded_json_object_reader.gd" extends="RefCounted" />
 		<class name="GFCancellationSource" path="classes/GFCancellationSource.xml" sourcePath="addons/gf/kernel/core/gf_cancellation_source.gd" extends="RefCounted" />
 		<class name="GFCancellationToken" path="classes/GFCancellationToken.xml" sourcePath="addons/gf/kernel/core/gf_cancellation_token.gd" extends="RefCounted" />
 		<class name="GFClock" path="classes/GFClock.xml" sourcePath="addons/gf/kernel/base/gf_clock.gd" extends="RefCounted" />

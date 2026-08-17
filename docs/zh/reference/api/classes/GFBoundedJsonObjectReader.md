@@ -1,0 +1,133 @@
+# GFBoundedJsonObjectReader
+
+[API Reference](../index.md) / [Kernel](../kernel.md) / [类索引](index.md)
+
+- 路径：`addons/gf/kernel/core/gf_bounded_json_object_reader.gd`
+- 模块：`Kernel`
+- 继承：`RefCounted`
+- API：`public`
+- 类别：运行时服务 (`runtime_service`)
+- 首次版本：`unreleased`
+
+有界 JSON object 读取器。 在调用 JSON.parse() 前限制 UTF-8 字节数与对象/数组词法嵌套深度， 适合项目运行时、编辑器工具和 headless 工具读取不可信 JSON object 输入。 该类不负责恢复 Godot Variant marker；解析后的遍历预算由上层 codec 另行处理。
+
+## 成员概览
+
+| 类型 | 名称 | 签名 |
+|---|---|---|
+| 常量 | [`DEFAULT_MAX_BYTES`](#member-gfboundedjsonobjectreader-constants-default_max_bytes) | `const DEFAULT_MAX_BYTES: int = 1024 * 1024` |
+| 常量 | [`ABSOLUTE_MAX_BYTES`](#member-gfboundedjsonobjectreader-constants-absolute_max_bytes) | `const ABSOLUTE_MAX_BYTES: int = 1024 * 1024` |
+| 常量 | [`DEFAULT_MAX_DEPTH`](#member-gfboundedjsonobjectreader-constants-default_max_depth) | `const DEFAULT_MAX_DEPTH: int = 64` |
+| 常量 | [`ABSOLUTE_MAX_DEPTH`](#member-gfboundedjsonobjectreader-constants-absolute_max_depth) | `const ABSOLUTE_MAX_DEPTH: int = 64` |
+| 方法 | [`parse_object`](#member-gfboundedjsonobjectreader-methods-parse_object) | `static func parse_object( text: String, max_bytes: int = DEFAULT_MAX_BYTES, max_depth: int = DEFAULT_MAX_DEPTH ) -> Dictionary:` |
+| 方法 | [`read_object`](#member-gfboundedjsonobjectreader-methods-read_object) | `static func read_object( path: String, max_bytes: int = DEFAULT_MAX_BYTES, max_depth: int = DEFAULT_MAX_DEPTH ) -> Dictionary:` |
+
+## 常量
+
+<a id="member-gfboundedjsonobjectreader-constants-default_max_bytes"></a>
+
+### `DEFAULT_MAX_BYTES`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+const DEFAULT_MAX_BYTES: int = 1024 * 1024
+```
+
+默认允许的 JSON UTF-8 字节数。
+
+<a id="member-gfboundedjsonobjectreader-constants-absolute_max_bytes"></a>
+
+### `ABSOLUTE_MAX_BYTES`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+const ABSOLUTE_MAX_BYTES: int = 1024 * 1024
+```
+
+框架允许的 JSON UTF-8 字节数绝对上限。 调用方只能收紧预算，不能越过该上限或关闭字节限制。
+
+<a id="member-gfboundedjsonobjectreader-constants-default_max_depth"></a>
+
+### `DEFAULT_MAX_DEPTH`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+const DEFAULT_MAX_DEPTH: int = 64
+```
+
+默认允许的 JSON 对象/数组词法嵌套深度。
+
+<a id="member-gfboundedjsonobjectreader-constants-absolute_max_depth"></a>
+
+### `ABSOLUTE_MAX_DEPTH`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+const ABSOLUTE_MAX_DEPTH: int = 64
+```
+
+框架允许的 JSON 对象/数组词法嵌套深度绝对上限。 调用方只能收紧预算，不能越过该上限或关闭深度限制。
+
+## 方法
+
+<a id="member-gfboundedjsonobjectreader-methods-parse_object"></a>
+
+### `parse_object`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+static func parse_object( text: String, max_bytes: int = DEFAULT_MAX_BYTES, max_depth: int = DEFAULT_MAX_DEPTH ) -> Dictionary:
+```
+
+解析有界 JSON object 文本。 max_bytes 与 max_depth 只能收紧框架绝对上限；非正值恢复默认预算， 超过绝对上限的值会被钳制。字节与词法深度检查发生在 JSON.parse() 前。 成功时 data 为解析后的 object，error_kind 与 error 为空；失败时 data 为空且 error_kind 非空。原始 NUL、解码为 U+0000 的字符串转义、数值溢出或解析后 出现非有限数字时以 parse_failed 拒绝。 文本入口的 source_path 为空，size_bytes 是 UTF-8 输入字节数。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `text` | 要解析的 JSON 文本。 |
+| `max_bytes` | 调用方请求的最大 UTF-8 字节数。 |
+| `max_depth` | 调用方请求的最大对象/数组词法嵌套深度。 |
+
+返回：JSON-safe 读取报告；max_bytes 与 max_depth 为实际生效预算。
+
+结构：
+
+- `return`: Dictionary containing ok: bool, data: Dictionary, source_path: String, size_bytes: int, error_kind: String, error: String, max_bytes: int, and max_depth: int. error_kind is one of "", "open_failed", "payload_too_large", "read_failed", "nesting_too_deep", "parse_failed", or "invalid_root_type".
+
+<a id="member-gfboundedjsonobjectreader-methods-read_object"></a>
+
+### `read_object`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+static func read_object( path: String, max_bytes: int = DEFAULT_MAX_BYTES, max_depth: int = DEFAULT_MAX_DEPTH ) -> Dictionary:
+```
+
+读取并解析有界 JSON object 文件。 入口规范化资源路径，最多读取实际字节预算加一字节，并使用同一份原始 bytes 完成大小、UTF-8、词法深度和 JSON object 校验。支持 Godot FileAccess 可读取的 res:// 与 user:// 等路径。 成功时 data 为解析后的 object，error_kind 与 error 为空；失败时 data 为空且 error_kind 非空。source_path 为规范化路径；size_bytes 为已观测的原始文件字节数。 read_failed 同时覆盖 I/O 错误、读取期长度漂移与无效 UTF-8；原始 NUL、 解码为 U+0000 的字符串转义、数值溢出或解析后出现非有限数字时以 parse_failed 拒绝。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `path` | 要读取的 JSON 文件路径。 |
+| `max_bytes` | 调用方请求的最大 UTF-8 字节数。 |
+| `max_depth` | 调用方请求的最大对象/数组词法嵌套深度。 |
+
+返回：JSON-safe 读取报告；max_bytes 与 max_depth 为实际生效预算。
+
+结构：
+
+- `return`: Dictionary containing ok: bool, data: Dictionary, source_path: String, size_bytes: int, error_kind: String, error: String, max_bytes: int, and max_depth: int. error_kind is one of "", "open_failed", "payload_too_large", "read_failed", "nesting_too_deep", "parse_failed", or "invalid_root_type".

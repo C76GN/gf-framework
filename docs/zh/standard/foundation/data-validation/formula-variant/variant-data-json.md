@@ -127,6 +127,8 @@ var compact_json := GFVariantJsonCodec.compact_json_text(pretty_json)
 
 编码与解码共享 `max_depth`、`max_nodes` 和 `max_collection_items` 遍历预算，默认值依次为 64、16384 和 65536，小于等于 0 表示不限制。编码超限时不会返回部分业务树，而是返回顶层 `TraversalLimit` typed marker，其中包含 `reason` 与已消费预算；解码超限时返回 `traversal_limit` 选项的副本，默认是 `"<traversal_limit>"`。因此，任何把“解码结果等于业务值”作为成功条件的调用方，都应为 `traversal_limit` 提供业务域外的专用 sentinel。
 
+这些预算约束的是 `JSON.parse()` 已经物化后的 Variant 图遍历，不是 JSON 文本的解析前准入，也不限制输入字节数或解析器看到的词法嵌套深度。`parse_json_compatible_text()`、`parse_json_text()`、`format_json_text()` 和 `compact_json_text()` 都会先调用 Godot JSON 解析器，因此不能用它们的后续遍历预算替代不可信输入的字节/深度门禁。项目运行时或工具读取外部 JSON object 时，应先用 [`GFBoundedJsonObjectReader`](../../../../kernel/index.md) 完成有硬上限的文本或文件准入，确认报告 `ok` 后再把 `data` 交给 `json_compatible_to_variant()`；两层预算应同时保留。
+
 如果调用方最终就是要得到 JSON 文本，优先使用 `stringify_json_compatible()`，它会先执行 `variant_to_json_compatible()` 再调用 Godot `JSON.stringify()`，避免把 `NaN`、`Infinity`、`Vector3`、`Color`、PackedArray 等值直接送进 JSON 边界。读取这类文本时用 `parse_json_compatible_text()`，它会在解析成功后自动恢复 GF typed marker；解析失败时返回调用方提供的 fallback。
 
 `parse_json_text()`、`format_json_text()` 和 `compact_json_text()` 面向已经是 JSON 文本的输入：它们先通过 Godot JSON 解析器确认文本有效，再返回解析值、格式化文本或去除非必要空白后的文本。解析失败时返回调用方提供的 fallback，不会把无效输入静默改写成空集合。

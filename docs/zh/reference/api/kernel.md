@@ -6,7 +6,7 @@
 
 | 类别 | 类 | 成员 | 方法 |
 |---|---:|---:|---:|
-| [运行时服务](#category-runtime_service) | 14 | 306 | 239 |
+| [运行时服务](#category-runtime_service) | 15 | 312 | 241 |
 | [协议与扩展点](#category-protocol) | 19 | 213 | 188 |
 | [资源定义](#category-resource_definition) | 2 | 38 | 15 |
 | [运行时句柄](#category-runtime_handle) | 9 | 86 | 70 |
@@ -24,6 +24,7 @@
 | 类 | 继承 | 源文件 |
 |---|---|---|
 | [`GFArchitecture`](classes/GFArchitecture.md#gfarchitecture) | `Object` | `addons/gf/kernel/core/gf_architecture.gd` |
+| [`GFBoundedJsonObjectReader`](classes/GFBoundedJsonObjectReader.md#gfboundedjsonobjectreader) | `RefCounted` | `addons/gf/kernel/core/gf_bounded_json_object_reader.gd` |
 | [`GFDependencyGraphTools`](classes/GFDependencyGraphTools.md#gfdependencygraphtools) | `RefCounted` | `addons/gf/kernel/core/gf_dependency_graph_tools.gd` |
 | [`GFExtensionCatalog`](classes/GFExtensionCatalog.md#gfextensioncatalog) | `RefCounted` | `addons/gf/kernel/extension/gf_extension_catalog.gd` |
 | [`GFExtensionManifestDiscovery`](classes/GFExtensionManifestDiscovery.md#gfextensionmanifestdiscovery) | `RefCounted` | `addons/gf/kernel/extension/gf_extension_manifest_discovery.gd` |
