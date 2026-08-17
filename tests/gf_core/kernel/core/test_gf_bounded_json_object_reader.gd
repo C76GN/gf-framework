@@ -138,6 +138,22 @@ func test_parse_object_reports_parse_and_root_type_failures() -> void:
 	var cancelling_long_mantissa: Dictionary = GFBoundedJsonObjectReader.parse_object(
 		'{"value":' + "1" + "0".repeat(999) + 'e-700}'
 	)
+	var compensated_number_text: String = "0." + "0".repeat(600) + "1e601"
+	var compensated_leading_fraction: Dictionary = GFBoundedJsonObjectReader.parse_object(
+		'{"value":' + compensated_number_text + "}"
+	)
+	var negative_compensated_fraction: Dictionary = GFBoundedJsonObjectReader.parse_object(
+		'{"value":-0.' + "0".repeat(600) + '1E+601}'
+	)
+	var compensated_number_string: Dictionary = GFBoundedJsonObjectReader.parse_object(
+		'{"value":"' + compensated_number_text + '"}'
+	)
+	var silently_truncated_fraction: Dictionary = GFBoundedJsonObjectReader.parse_object(
+		'{"value":0.' + "0".repeat(100) + '1e101}'
+	)
+	var silently_underflowed_fraction: Dictionary = GFBoundedJsonObjectReader.parse_object(
+		'{"value":0.' + "0".repeat(600) + '1}'
+	)
 	var extreme_exponent_after_long_mantissa: Dictionary = (
 		GFBoundedJsonObjectReader.parse_object(
 			'{"value":' + "1" + "0".repeat(10_017) + 'e-99999}'
@@ -174,6 +190,48 @@ func test_parse_object_reports_parse_and_root_type_failures() -> void:
 		_option_bool(cancelling_long_mantissa, "ok"),
 		"长尾数与负指数相抵消时不得按显式指数误拒绝。"
 	)
+	assert_true(
+		_option_bool(compensated_leading_fraction, "ok"),
+		"小数前导零与正指数相抵消时必须按首个有效数字计算数量级。"
+	)
+	assert_almost_eq(
+		_option_float(
+			_option_dictionary(compensated_leading_fraction, "data"),
+			"value"
+		),
+		1.0,
+		0.000_001,
+		"补偿指数后的有限值必须无损解析为 1。"
+	)
+	assert_eq(
+		_option_int(compensated_leading_fraction, "size_bytes"),
+		('{"value":' + compensated_number_text + "}").to_utf8_buffer().size(),
+		"内部规范化不得改变公开报告中的原始输入字节数。"
+	)
+	assert_true(_option_bool(negative_compensated_fraction, "ok"))
+	assert_almost_eq(
+		_option_float(_option_dictionary(negative_compensated_fraction, "data"), "value"),
+		-1.0,
+		0.000_001,
+		"负号、大写 E 和显式正指数必须保留。"
+	)
+	assert_eq(
+		_option_string(_option_dictionary(compensated_number_string, "data"), "value"),
+		compensated_number_text,
+		"字符串内的数字样文本不得被规范化。"
+	)
+	assert_true(_option_bool(silently_truncated_fraction, "ok"))
+	assert_almost_eq(
+		_option_float(_option_dictionary(silently_truncated_fraction, "data"), "value"),
+		1.0,
+		0.000_001,
+		"首个有效数字落在引擎 18 位窗口外时不得静默解析为零。"
+	)
+	assert_eq(
+		_option_string(silently_underflowed_fraction, "error_kind"),
+		"parse_failed",
+		"规范化后超出安全指数范围的极小值不得回退为静默零。"
+	)
 	assert_eq(
 		_option_string(extreme_exponent_after_long_mantissa, "error_kind"),
 		"parse_failed",
@@ -202,6 +260,7 @@ func test_parse_object_reports_parse_and_root_type_failures() -> void:
 		malformed,
 		non_finite_number,
 		underflowing_number,
+		silently_underflowed_fraction,
 		zero_with_excessive_exponent,
 		parser_non_finite_number,
 		extreme_exponent_after_long_mantissa,
@@ -459,6 +518,16 @@ func _option_int(options: Dictionary, key: String, default_value: int = 0) -> in
 	if options.has(key) and options[key] is int:
 		var value: int = options[key]
 		return value
+	return default_value
+
+
+func _option_float(options: Dictionary, key: String, default_value: float = 0.0) -> float:
+	if options.has(key) and options[key] is float:
+		var value: float = options[key]
+		return value
+	if options.has(key) and options[key] is int:
+		var integer_value: int = options[key]
+		return float(integer_value)
 	return default_value
 
 

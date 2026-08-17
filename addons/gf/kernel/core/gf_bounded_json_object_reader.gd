@@ -274,7 +274,10 @@ static func _parse_object_bytes(
 			max_bytes,
 			max_depth
 		)
-	if _contains_non_finite_json_number(text):
+	var normalized_number_fragments: PackedStringArray = (
+		_normalize_json_numbers_for_parser(text)
+	)
+	if normalized_number_fragments.is_empty():
 		return _make_report(
 			false,
 			{},
@@ -285,6 +288,7 @@ static func _parse_object_bytes(
 			max_bytes,
 			max_depth
 		)
+	var parser_text: String = "".join(normalized_number_fragments)
 	if _contains_json_nul_escape(text):
 		return _make_report(
 			false,
@@ -298,7 +302,7 @@ static func _parse_object_bytes(
 		)
 
 	var parser: JSON = JSON.new()
-	var parse_error: Error = parser.parse(text)
+	var parse_error: Error = parser.parse(parser_text)
 	if parse_error != OK:
 		return _make_report(
 			false,
@@ -380,7 +384,9 @@ static func _exceeds_json_depth(text: String, max_depth: int) -> bool:
 	return false
 
 
-static func _contains_non_finite_json_number(text: String) -> bool:
+static func _normalize_json_numbers_for_parser(text: String) -> PackedStringArray:
+	var fragments: PackedStringArray = PackedStringArray()
+	var unchanged_start: int = 0
 	var index: int = 0
 	var in_string: bool = false
 	var escaped: bool = false
@@ -403,13 +409,21 @@ static func _contains_non_finite_json_number(text: String) -> bool:
 			var end_index: int = _scan_json_number_candidate_end(text, index)
 			var token: String = text.substr(index, end_index - index)
 			if not _json_number_token_is_structurally_valid(token):
-				return true
-			if _json_number_token_overflows_float(token):
-				return true
+				return PackedStringArray()
+			var normalized_token: String = _normalize_json_number_token(token)
+			if normalized_token.is_empty():
+				return PackedStringArray()
+			if normalized_token != token:
+				var _append_unchanged: bool = fragments.append(
+					text.substr(unchanged_start, index - unchanged_start)
+				)
+				var _append_normalized: bool = fragments.append(normalized_token)
+				unchanged_start = end_index
 			index = end_index
 			continue
 		index += 1
-	return false
+	var _append_tail: bool = fragments.append(text.substr(unchanged_start))
+	return fragments
 
 
 static func _contains_json_nul_escape(text: String) -> bool:
@@ -502,7 +516,64 @@ static func _json_number_token_is_structurally_valid(token: String) -> bool:
 	return index == token.length()
 
 
-static func _json_number_token_overflows_float(token: String) -> bool:
+static func _normalize_json_number_token(token: String) -> String:
+	var parser_would_warn: bool = (
+		_json_number_token_triggers_parser_exponent_warning(token)
+	)
+	var is_negative: bool = token.begins_with("-")
+	var unsigned_token: String = token.trim_prefix("-")
+	var exponent_index: int = unsigned_token.find("e")
+	if exponent_index < 0:
+		exponent_index = unsigned_token.find("E")
+	var mantissa: String = unsigned_token
+	var exponent: int = 0
+	if exponent_index >= 0:
+		mantissa = unsigned_token.substr(0, exponent_index)
+		exponent = _parse_bounded_decimal_exponent(
+			unsigned_token.substr(exponent_index + 1)
+		)
+	var decimal_index: int = mantissa.find(".")
+	var integer_digits: String = mantissa
+	var fraction_digits: String = ""
+	if decimal_index >= 0:
+		integer_digits = mantissa.substr(0, decimal_index)
+		fraction_digits = mantissa.substr(decimal_index + 1)
+	var combined_digits: String = integer_digits + fraction_digits
+	var first_significant_index: int = -1
+	for digit_index: int in combined_digits.length():
+		if combined_digits.unicode_at(digit_index) != 48:
+			first_significant_index = digit_index
+			break
+	if first_significant_index < 0:
+		return "" if parser_would_warn else token
+	if not parser_would_warn and first_significant_index < 18:
+		return token
+
+	var significant_count: int = mini(
+		18,
+		combined_digits.length() - first_significant_index
+	)
+	var significant_digits: String = combined_digits.substr(
+		first_significant_index,
+		significant_count
+	)
+	var scientific_exponent: int = (
+		exponent
+		+ integer_digits.length()
+		- first_significant_index
+		- 1
+	)
+	var normalized: String = "-" if is_negative else ""
+	normalized += significant_digits.substr(0, 1)
+	if significant_digits.length() > 1:
+		normalized += "." + significant_digits.substr(1)
+	normalized += "e" + str(scientific_exponent)
+	if _json_number_token_triggers_parser_exponent_warning(normalized):
+		return ""
+	return normalized
+
+
+static func _json_number_token_triggers_parser_exponent_warning(token: String) -> bool:
 	var unsigned_token: String = token.trim_prefix("-")
 	var exponent_index: int = unsigned_token.find("e")
 	if exponent_index < 0:
