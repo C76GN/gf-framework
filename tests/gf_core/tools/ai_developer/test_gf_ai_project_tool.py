@@ -1318,6 +1318,379 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 		self.assertNotIn("undeclared_module_dependency", {item["code"] for item in report["drift"]["issues"]})
 		self.assertEqual(validate_schema_file(report, SCHEMA_ROOT / "project_snapshot.schema.json"), [])
 
+	def test_module_dependency_analysis_accepts_absent_generated_output_targets(self) -> None:
+		generated_root = "res://generated/reports"
+		self._set_modules([
+			self._module("tools", allowed=["generated_reports"]),
+			self._module(
+				"generated_reports",
+				ownership="generated",
+				root=generated_root,
+			),
+		])
+		(self.project_root / "generated/reports").rmdir()
+		(self.project_root / "features/tools/write_reports.gd").write_text(
+			"extends Node\n"
+			'const REPORT := "res://generated/reports/daily/report.json"\n'
+			'const SCREENSHOT := "res://generated/reports/screenshots/frame.png"\n'
+			'const ADJACENT := "res://generated/reports-other/report.json"\n',
+			encoding="utf-8",
+		)
+
+		contract_result = load_contract(self.project_root)
+		report = snapshot.build_snapshot(self.project_root)
+		analysis = report["project"]["module_dependency_analysis"]
+		edge = analysis["edges"][0]
+		drift_codes = {item["code"] for item in report["drift"]["issues"]}
+		module_counts = {
+			item["module_id"]: item
+			for item in analysis["module_file_counts"]
+		}
+
+		self.assertTrue(contract_result["ok"], contract_result)
+		self.assertEqual(analysis["status"], "complete")
+		self.assertTrue(analysis["complete"])
+		self.assertEqual(analysis["missing_root_count"], 0)
+		self.assertEqual(analysis["scanned_file_count"], 1)
+		self.assertEqual(module_counts["generated_reports"]["file_count"], 0)
+		self.assertEqual(module_counts["generated_reports"]["class_name_count"], 0)
+		self.assertEqual(edge["source_module"], "tools")
+		self.assertEqual(edge["target_module"], "generated_reports")
+		self.assertEqual(edge["reference_count"], 2)
+		self.assertEqual(edge["kinds"], ["generated_output"])
+		self.assertFalse(edge["evidence_truncated"])
+		self.assertEqual(
+			[item["target_path"] for item in edge["evidence"]],
+			[
+				"res://generated/reports/daily/report.json",
+				"res://generated/reports/screenshots/frame.png",
+			],
+		)
+		self.assertTrue(all(item["kind"] == "generated_output" for item in edge["evidence"]))
+		self.assertEqual(analysis["unowned_reference_count"], 1)
+		self.assertEqual(
+			analysis["unowned_references"][0]["target_path"],
+			"res://generated/reports-other/report.json",
+		)
+		self.assertNotIn(
+			"module_dependency_analysis_incomplete",
+			drift_codes,
+		)
+		self.assertNotIn("declared_module_root_missing", drift_codes)
+		self.assertTrue(report["drift"]["ok"], report["drift"])
+		self.assertEqual(validate_schema_file(report, SCHEMA_ROOT / "project_snapshot.schema.json"), [])
+
+		with mock.patch.object(dependencies, "MAX_EDGE_EVIDENCE", 1):
+			bounded_report = snapshot.build_snapshot(self.project_root)
+		bounded_edge = bounded_report["project"]["module_dependency_analysis"]["edges"][0]
+
+		self.assertEqual(bounded_edge["reference_count"], 2)
+		self.assertEqual(len(bounded_edge["evidence"]), 1)
+		self.assertTrue(bounded_edge["evidence_truncated"])
+		self.assertEqual(
+			validate_schema_file(bounded_report, SCHEMA_ROOT / "project_snapshot.schema.json"),
+			[],
+		)
+
+	def test_generated_output_edges_keep_dependency_policy_precedence(self) -> None:
+		generated_module = self._module(
+			"generated_reports",
+			ownership="generated",
+			root="res://generated/reports",
+		)
+		self._set_modules([self._module("tools"), generated_module])
+		(self.project_root / "features/tools/write_reports.gd").write_text(
+			"extends Node\n"
+			'const REPORT := "res://generated/reports/daily/report.json"\n',
+			encoding="utf-8",
+		)
+		fixtures = (
+			("undeclared", self._module("tools"), "undeclared_module_dependency"),
+			(
+				"forbidden",
+				self._module("tools", forbidden=["generated_reports"]),
+				"forbidden_module_dependency",
+			),
+			(
+				"allowed",
+				self._module("tools", allowed=["generated_reports"]),
+				"",
+			),
+		)
+		for name, source_module, expected_code in fixtures:
+			with self.subTest(name=name):
+				self._set_modules([source_module, generated_module])
+
+				report = snapshot.build_snapshot(self.project_root)
+				analysis = report["project"]["module_dependency_analysis"]
+				drift_codes = {item["code"] for item in report["drift"]["issues"]}
+
+				self.assertEqual(len(analysis["edges"]), 1)
+				self.assertEqual(analysis["edges"][0]["kinds"], ["generated_output"])
+				self.assertEqual(
+					analysis["edges"][0]["target_module"],
+					"generated_reports",
+				)
+				if expected_code:
+					self.assertIn(expected_code, drift_codes)
+				else:
+					self.assertNotIn("forbidden_module_dependency", drift_codes)
+					self.assertNotIn("undeclared_module_dependency", drift_codes)
+				if name == "forbidden":
+					self.assertNotIn("undeclared_module_dependency", drift_codes)
+
+	def test_absent_generated_output_root_rejects_a_linked_existing_prefix(self) -> None:
+		generated_root = "res://generated/reports"
+		modules = [
+			self._module("tools", allowed=["generated_reports"]),
+			self._module(
+				"generated_reports",
+				ownership="generated",
+				root=generated_root,
+			),
+		]
+		self._set_modules(modules)
+		generated_parent = self.project_root / "generated"
+		(generated_parent / "reports").rmdir()
+		generated_parent.rmdir()
+		linked_target = self.project_root / "generated-link-target"
+		linked_target.mkdir()
+		create_directory_link_fixture(linked_target, generated_parent)
+		contract = {
+			"architecture": {"modules": modules, "owned_resources": []},
+			"framework": {"adapter_boundaries": []},
+		}
+
+		try:
+			analysis = dependencies.analyze_module_dependencies(
+				self.project_root,
+				contract,
+				contract_valid=True,
+			)
+		finally:
+			if os.path.lexists(generated_parent):
+				if os.name == "nt":
+					generated_parent.rmdir()
+				else:
+					generated_parent.unlink()
+
+		self.assertEqual(analysis["status"], "incomplete")
+		self.assertFalse(analysis["complete"])
+		self.assertEqual(analysis["unsafe_path_count"], 1)
+		self.assertEqual(analysis["missing_root_count"], 0)
+		self.assertEqual(analysis["edges"], [])
+
+	def test_module_dependency_analysis_does_not_scan_present_generated_output_roots(self) -> None:
+		generated_root = "res://generated/reports"
+		self._set_modules([
+			self._module("tools", allowed=["generated_reports"]),
+			self._module(
+				"generated_reports",
+				ownership="generated",
+				root=generated_root,
+			),
+		])
+		(self.project_root / "features/tools/write_reports.gd").write_text(
+			"class_name ToolReportWriter\n"
+			"extends Node\n"
+			'const REPORT := "res://generated/reports/ignored/nested/report.json"\n',
+			encoding="utf-8",
+		)
+		generated_path = self.project_root / "generated/reports"
+		(generated_path / "generated_type.gd").write_text(
+			"class_name ToolReportWriter\n"
+			"extends RefCounted\n"
+			"var architecture := GFArchitecture.new()\n",
+			encoding="utf-8",
+		)
+		(generated_path / "data.tres").write_text("[gd_resource format=3]\n", encoding="utf-8")
+		ignored_path = generated_path / "ignored"
+		ignored_path.mkdir()
+		(ignored_path / ".gdignore").write_text("", encoding="utf-8")
+		(ignored_path / "hidden.gd").write_text(
+			"class_name HiddenGeneratedType\n"
+			"extends RefCounted\n"
+			"var writer: ToolReportWriter\n"
+			'const SOURCE := "res://features/tools/write_reports.gd"\n',
+			encoding="utf-8",
+		)
+		ignored_nested_path = ignored_path / "nested"
+		ignored_nested_path.mkdir()
+		(ignored_nested_path / "report.json").write_text("{}\n", encoding="utf-8")
+
+		report = snapshot.build_snapshot(self.project_root)
+		analysis = report["project"]["module_dependency_analysis"]
+		module_counts = {
+			item["module_id"]: item
+			for item in analysis["module_file_counts"]
+		}
+
+		self.assertEqual(analysis["status"], "complete")
+		self.assertEqual(analysis["scanned_file_count"], 1)
+		self.assertEqual(report["project"]["script_count"], 1)
+		self.assertEqual(report["project"]["scanned_script_count"], 1)
+		self.assertEqual(report["project"]["gf_api_usage"], [])
+		self.assertEqual(analysis["ambiguous_class_name_count"], 0)
+		self.assertEqual(module_counts["tools"]["file_count"], 1)
+		self.assertEqual(module_counts["tools"]["class_name_count"], 1)
+		self.assertEqual(module_counts["generated_reports"]["file_count"], 0)
+		self.assertEqual(module_counts["generated_reports"]["class_name_count"], 0)
+		self.assertEqual(len(analysis["edges"]), 1)
+		self.assertEqual(analysis["edges"][0]["source_module"], "tools")
+		self.assertEqual(analysis["edges"][0]["target_module"], "generated_reports")
+		self.assertEqual(analysis["edges"][0]["kinds"], ["generated_output"])
+		self.assertEqual(
+			analysis["edges"][0]["evidence"][0]["target_path"],
+			"res://generated/reports/ignored/nested/report.json",
+		)
+		self.assertEqual(analysis["cycles"], [])
+		self.assertEqual(validate_schema_file(report, SCHEMA_ROOT / "project_snapshot.schema.json"), [])
+
+	def test_generated_output_file_root_never_consumes_source_scan_budget(self) -> None:
+		generated_root = "res://generated/output.gd"
+		self._set_modules([
+			self._module("tools"),
+			self._module(
+				"generated_output",
+				ownership="generated",
+				root=generated_root,
+			),
+		])
+		(self.project_root / "features/tools/main.gd").write_text(
+			"extends Node\n",
+			encoding="utf-8",
+		)
+		generated_path = self.project_root / "generated/output.gd"
+		generated_path.rmdir()
+		generated_path.write_text(
+			"extends Node\nvar architecture := GFArchitecture.new()\n",
+			encoding="utf-8",
+		)
+
+		contract_result = load_contract(self.project_root)
+		with mock.patch.object(snapshot, "_MAX_PROJECT_SCRIPTS", 1):
+			report = snapshot.build_snapshot(self.project_root)
+		analysis = report["project"]["module_dependency_analysis"]
+
+		self.assertTrue(contract_result["ok"], contract_result)
+		self.assertEqual(analysis["status"], "incomplete")
+		self.assertEqual(analysis["unsafe_path_count"], 1)
+		self.assertEqual(report["project"]["script_count"], 1)
+		self.assertEqual(report["project"]["scanned_script_count"], 1)
+		self.assertFalse(report["project"]["source_scan_truncated"])
+		self.assertEqual(report["project"]["gf_api_usage"], [])
+
+	def test_invalid_contract_cannot_hide_generated_source_scan_evidence(self) -> None:
+		generated_module = self._module(
+			"generated_reports",
+			ownership="generated",
+			root="res://generated/reports",
+		)
+		self._set_modules([
+			self._module("tools", allowed=["missing_module"]),
+			generated_module,
+		])
+		(self.project_root / "features/tools/main.gd").write_text(
+			"extends Node\n",
+			encoding="utf-8",
+		)
+		(self.project_root / "generated/reports/poison.gd").write_text(
+			"extends Node\nvar architecture := GFArchitecture.new()\n",
+			encoding="utf-8",
+		)
+
+		report = snapshot.build_snapshot(self.project_root)
+
+		self.assertFalse(report["contract"]["valid"])
+		self.assertEqual(
+			report["project"]["module_dependency_analysis"]["status"],
+			"contract_invalid",
+		)
+		self.assertEqual(report["project"]["script_count"], 2)
+		self.assertEqual(report["project"]["scanned_script_count"], 2)
+		self.assertIn("GFArchitecture", report["project"]["gf_api_usage"])
+
+	def test_architecture_external_adapter_modules_remain_source_scanned(self) -> None:
+		self._set_modules([
+			self._module("bridge", allowed=["shared"], ownership="external_adapter"),
+			self._module("shared"),
+		])
+		(self.project_root / "features/shared/shared_type.gd").write_text(
+			"class_name SharedAdapterInput\nextends RefCounted\n",
+			encoding="utf-8",
+		)
+		(self.project_root / "features/bridge/client.gd").write_text(
+			"class_name ProjectExternalAdapter\n"
+			"extends RefCounted\n"
+			"var input: SharedAdapterInput\n"
+			"var architecture := GFArchitecture.new()\n",
+			encoding="utf-8",
+		)
+
+		report = snapshot.build_snapshot(self.project_root)
+		analysis = report["project"]["module_dependency_analysis"]
+		module_counts = {
+			item["module_id"]: item
+			for item in analysis["module_file_counts"]
+		}
+
+		self.assertEqual(analysis["status"], "complete")
+		self.assertEqual(analysis["scanned_file_count"], 2)
+		self.assertEqual(report["project"]["script_count"], 2)
+		self.assertEqual(report["project"]["scanned_script_count"], 2)
+		self.assertIn("GFArchitecture", report["project"]["gf_api_usage"])
+		self.assertEqual(module_counts["bridge"]["file_count"], 1)
+		self.assertEqual(module_counts["bridge"]["class_name_count"], 1)
+		self.assertEqual(analysis["edges"][0]["source_module"], "bridge")
+		self.assertEqual(analysis["edges"][0]["target_module"], "shared")
+		self.assertEqual(analysis["edges"][0]["kinds"], ["class_name"])
+		self.assertEqual(validate_schema_file(report, SCHEMA_ROOT / "project_snapshot.schema.json"), [])
+
+	def test_generated_module_roots_keep_ownership_safety_limits(self) -> None:
+		contract_path = self.project_root / ".gf/project_contract.json"
+		base_contract = json.loads(contract_path.read_text(encoding="utf-8"))
+		fixtures = {
+			"non_canonical": (
+				[
+					self._module("generated_traversal", ownership="generated", root="res://generated/../reports"),
+				],
+				"non_canonical_ownership_root",
+			),
+			"overlap": (
+				[
+					self._module("generated_parent", ownership="generated", root="res://generated/reports"),
+					self._module("generated_child", ownership="generated", root="res://generated/reports/daily"),
+				],
+				"ownership_root_overlap",
+			),
+			"reserved": (
+				[
+					self._module("generated_framework", ownership="generated", root="res://Addons/GF/generated"),
+				],
+				"framework_ownership_root",
+			),
+			"root_count": (
+				[{
+					**self._module("generated_many", ownership="generated"),
+					"roots": [f"res://generated/output_{index:02d}" for index in range(21)],
+				}],
+				"max_items",
+			),
+		}
+		for name, (modules, expected_code) in fixtures.items():
+			with self.subTest(name=name):
+				contract = copy.deepcopy(base_contract)
+				contract["architecture"]["modules"] = modules
+				contract_path.write_text(
+					json.dumps(contract, ensure_ascii=False),
+					encoding="utf-8",
+				)
+
+				result = load_contract(self.project_root)
+
+				self.assertFalse(result["ok"])
+				self.assertIn(expected_code, {item["code"] for item in result["issues"]})
+
 	def test_module_dependency_analysis_accepts_adapter_targets_without_emitting_adapter_source_edges(
 		self,
 	) -> None:
@@ -5231,14 +5604,16 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 		*,
 		allowed: list[str] | None = None,
 		forbidden: list[str] | None = None,
+		ownership: str = "project",
+		root: str = "",
 	) -> dict[str, object]:
 		return {
 			"id": module_id,
 			"responsibility": f"{module_id} test module",
-			"roots": [f"res://features/{module_id}"],
+			"roots": [root or f"res://features/{module_id}"],
 			"allowed_dependencies": list(allowed or []),
 			"forbidden_dependencies": list(forbidden or []),
-			"ownership": "project",
+			"ownership": ownership,
 		}
 
 	@staticmethod

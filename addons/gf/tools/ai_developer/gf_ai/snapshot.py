@@ -12,7 +12,7 @@ from typing import Any
 from . import catalog, dependencies
 from .constants import DEFAULT_CONTRACT_PATH, DEFAULT_SNAPSHOT_PATH, SCHEMA_ROOT, SNAPSHOT_SCHEMA_VERSION, TOOL_VERSION
 from .contract import load_contract
-from .paths import atomic_write_json, resolve_project_path
+from .paths import atomic_write_json, portable_ownership_path_identity, resolve_project_path
 from .schema import validate_schema_file
 
 
@@ -48,7 +48,15 @@ def build_snapshot(
 	package_ids = list(package_report["packages"])
 	catalog_report = catalog.catalog_compatibility(project_root)
 	api_classes = catalog.known_api_classes()
-	source_scan = _scan_project_sources(project_root, api_classes)
+	generated_source_scan_roots = _generated_source_scan_root_identities(
+		contract_result,
+		contract_data,
+	)
+	source_scan = _scan_project_sources(
+		project_root,
+		api_classes,
+		generated_source_scan_roots,
+	)
 	capability_readiness = _build_capability_readiness(
 		contract_result,
 		contract_data,
@@ -255,8 +263,10 @@ def _build_drift(
 				issues.append(_issue("error", "required_package_missing", package_id, f"Required package is not installed: {package_id}."))
 			for package_id in sorted(forbidden.intersection(installed_packages)):
 				issues.append(_issue("error", "forbidden_package_installed", package_id, f"Forbidden package is installed: {package_id}."))
+		module_contracts = _module_contract_map(contract_data)
 		for root in declared_roots:
-			if not root["exists"]:
+			module = module_contracts.get(str(root["module_id"]), {})
+			if not root["exists"] and module.get("ownership") != "generated":
 				issues.append(_issue("error", "declared_module_root_missing", str(root["path"]), f"Declared module root is missing: {root['path']}."))
 		architecture = contract_data.get("architecture", {})
 		if isinstance(architecture, dict):
@@ -493,6 +503,28 @@ def _module_contract_map(contract_data: dict[str, Any]) -> dict[str, dict[str, A
 	}
 
 
+def _generated_source_scan_root_identities(
+	contract_result: dict[str, Any],
+	contract_data: dict[str, Any],
+) -> frozenset[str]:
+	if not bool(contract_result.get("ok")):
+		return frozenset()
+	identities: set[str] = set()
+	for module in _module_contract_map(contract_data).values():
+		if module.get("ownership") != "generated":
+			continue
+		roots = module.get("roots", [])
+		if not isinstance(roots, list):
+			continue
+		for raw_root in roots:
+			if not isinstance(raw_root, str):
+				continue
+			identity = portable_ownership_path_identity(raw_root)
+			if identity:
+				identities.add(identity)
+	return frozenset(identities)
+
+
 def _dependency_edge_evidence(edge: dict[str, Any]) -> tuple[str, str]:
 	evidence = edge.get("evidence", [])
 	if not isinstance(evidence, list) or not evidence or not isinstance(evidence[0], dict):
@@ -505,7 +537,11 @@ def _dependency_edge_evidence(edge: dict[str, Any]) -> tuple[str, str]:
 	return source_path, f" Evidence: {source_path}:{line} {kind} {symbol!r}."
 
 
-def _scan_project_sources(project_root: Path, known_classes: set[str]) -> dict[str, Any]:
+def _scan_project_sources(
+	project_root: Path,
+	known_classes: set[str],
+	excluded_root_identities: frozenset[str] = frozenset(),
+) -> dict[str, Any]:
 	script_count = 0
 	scanned_script_count = 0
 	scanned_script_bytes = 0
@@ -528,13 +564,19 @@ def _scan_project_sources(project_root: Path, known_classes: set[str]) -> dict[s
 		for name in sorted(directory_names):
 			if name in _SKIPPED_DIRECTORIES:
 				continue
-			if _safe_scan_directory(project_root, current_path / name):
+			candidate_directory = current_path / name
+			if _source_scan_path_identity(project_root, candidate_directory) in excluded_root_identities:
+				continue
+			if _safe_scan_directory(project_root, candidate_directory):
 				safe_directories.append(name)
 			else:
 				unsafe_directory_count += 1
 		directory_names[:] = safe_directories
 		for file_name in sorted(file_names):
 			if not file_name.endswith(".gd"):
+				continue
+			path = current_path / file_name
+			if _source_scan_path_identity(project_root, path) in excluded_root_identities:
 				continue
 			if script_count >= _MAX_PROJECT_SCRIPTS:
 				return _source_scan_result(
@@ -551,7 +593,6 @@ def _scan_project_sources(project_root: Path, known_classes: set[str]) -> dict[s
 					unsafe_script_path_count,
 					unsafe_directory_count + len(walk_errors),
 				)
-			path = current_path / file_name
 			script_count += 1
 			try:
 				relative = path.relative_to(project_root)
@@ -620,6 +661,16 @@ def _scan_project_sources(project_root: Path, known_classes: set[str]) -> dict[s
 		unreadable_script_count,
 		unsafe_script_path_count,
 		unsafe_directory_count + len(walk_errors),
+	)
+
+
+def _source_scan_path_identity(project_root: Path, path: Path) -> str:
+	try:
+		relative = path.relative_to(project_root)
+	except ValueError:
+		return ""
+	return portable_ownership_path_identity(
+		"res://" + "/".join(relative.parts)
 	)
 
 

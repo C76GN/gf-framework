@@ -41,6 +41,9 @@ class TargetOwnershipRoot:
 	owner_id: str
 	resource_root: str
 	source_module: bool
+	scan_files: bool
+	require_existing_root: bool
+	reference_kind: str
 
 
 class TargetOwnershipPlan:
@@ -71,6 +74,7 @@ class TargetOwnershipPlan:
 			if not isinstance(raw_roots, list) or not raw_roots:
 				missing_root_count += 1
 				continue
+			generated_output = module.get("ownership") == "generated"
 			for raw_root in raw_roots:
 				if not isinstance(raw_root, str):
 					missing_root_count += 1
@@ -79,7 +83,14 @@ class TargetOwnershipPlan:
 				if not root or is_reserved_framework_resource_path(root):
 					unsafe_path_count += 1
 					continue
-				roots.append(TargetOwnershipRoot(module_id, root, True))
+				roots.append(TargetOwnershipRoot(
+					owner_id=module_id,
+					resource_root=root,
+					source_module=not generated_output,
+					scan_files=not generated_output,
+					require_existing_root=not generated_output,
+					reference_kind="generated_output" if generated_output else "resource_path",
+				))
 		for adapter in adapters or []:
 			adapter_id = str(adapter.get("id", ""))
 			if (
@@ -98,7 +109,14 @@ class TargetOwnershipPlan:
 			if not root or is_reserved_framework_resource_path(root):
 				unsafe_path_count += 1
 				continue
-			roots.append(TargetOwnershipRoot(adapter_id, root, False))
+			roots.append(TargetOwnershipRoot(
+				owner_id=adapter_id,
+				resource_root=root,
+				source_module=False,
+				scan_files=True,
+				require_existing_root=True,
+				reference_kind="resource_path",
+			))
 
 		for left_index, left in enumerate(roots):
 			left_parts = _portable_root_parts(left.resource_root)
@@ -459,8 +477,24 @@ def _collect_target_files(project_root: Path, plan: TargetOwnershipPlan) -> dict
 	for record in sorted(plan.roots, key=lambda item: (item.resource_root, item.owner_id)):
 		relative_root = record.resource_root.removeprefix("res://")
 		root = project_root / Path(*relative_root.split("/"))
+		if project_path_has_link_component(project_root, relative_root):
+			unsafe_path_count += 1
+			continue
+		if not record.require_existing_root:
+			try:
+				root.lstat()
+			except FileNotFoundError:
+				continue
+			except OSError:
+				unsafe_path_count += 1
+				continue
+			if not _safe_path(project_root, root, directory=True):
+				unsafe_path_count += 1
+			continue
 		if not root.is_dir() or not _safe_path(project_root, root, directory=True):
 			missing_root_count += 1
+			continue
+		if not record.scan_files:
 			continue
 		for current_root, directory_names, file_names in os.walk(
 			root,
@@ -570,8 +604,8 @@ def _record_path_reference(
 	target_path = normalize_resource_path(raw_target_path)
 	if not target_path:
 		return 0, 0
-	target_module = matcher.owner_of(target_path)
-	if not target_module:
+	target_ownership = matcher.ownership_of(target_path)
+	if target_ownership is None:
 		if is_reserved_framework_resource_path(target_path):
 			return 0, 0
 		candidate = {
@@ -589,7 +623,16 @@ def _record_path_reference(
 		if len(unowned_references) < MAX_UNOWNED_REFERENCE_EVIDENCE and candidate not in unowned_references:
 			unowned_references.append(candidate)
 		return 1, 0
-	_add_reference(edges, source_module, target_module, source_path, target_path, "resource_path", raw_target_path, line)
+	_add_reference(
+		edges,
+		source_module,
+		target_ownership.owner_id,
+		source_path,
+		target_path,
+		target_ownership.reference_kind,
+		raw_target_path,
+		line,
+	)
 	return 0, 0
 
 

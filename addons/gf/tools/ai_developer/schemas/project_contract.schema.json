@@ -241,7 +241,8 @@
               },
               "ownership": {
                 "type": "string",
-                "enum": ["project", "generated", "external_adapter"]
+                "enum": ["project", "generated", "external_adapter"],
+                "description": "Controls dependency-analysis ownership for this module. project and external_adapter module roots must exist and are source-scanned. generated roots are bounded target-only ownership: they may be absent, are never source-scanned or dependency sources, and path references to them use generated_output evidence. All roots retain canonical-path, reserved-root, overlap, declaration-limit, and dependency-policy validation."
               }
             }
           }
