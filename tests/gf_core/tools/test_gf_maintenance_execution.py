@@ -2698,6 +2698,188 @@ class GutShardRunIntegrationTests(unittest.TestCase):
 			["gut_shard_worker_wave_deadline_exhausted"],
 		)
 
+	def test_direct_worker_boundary_can_precede_peer_wave_deadline(self) -> None:
+		temporary_owner = tempfile.TemporaryDirectory()
+		self.addCleanup(temporary_owner.cleanup)
+		root = Path(temporary_owner.name)
+		workspaces: dict[str, Path] = {}
+		requests: list[dict[str, object]] = []
+		for index, name in enumerate(("gut-lane-a", "gut-lane-b")):
+			workspace = root / f"s{index}"
+			workspace.mkdir()
+			workspaces[name] = workspace
+			requests.append(gf_maintenance.make_gut_shard_worker_request(
+				{
+					"name": name,
+					"role": "lane",
+					"scripts": [f"res://tests/gf_core/{name}/test_fixture.gd"],
+				},
+				workspace,
+				workspace_fingerprint_value="1" * 64,
+				manifest_digest="2" * 64,
+				inventory_digest="3" * 64,
+				remaining_seconds=120.0,
+				import_timeout_seconds=60,
+				gut_timeout_seconds=60,
+			))
+		barrier = threading.Barrier(2)
+		cancellation_event = threading.Event()
+		cleanup_state = {"permitted": True}
+		worker_deadline = time.perf_counter() + 1.0
+
+		def run_worker(
+			request: dict[str, object],
+			*,
+			cancellation_event: threading.Event,
+		) -> dict[str, object]:
+			barrier.wait(timeout=2.0)
+			if request["shard_name"] == "gut-lane-b":
+				self.assertTrue(cancellation_event.wait(timeout=2.0))
+				while time.perf_counter() <= worker_deadline + 0.03:
+					time.sleep(0.005)
+			return self._successful_worker_report(
+				request,
+				self._junit(request["scripts"]),
+			)
+
+		def fingerprint(
+			workspace: Path,
+			*,
+			deadline: float | None = None,
+		) -> dict[str, str]:
+			if workspace == workspaces["gut-lane-a"]:
+				boundary_error = (
+					gf_maintenance.gf_maintenance_check_graph
+					.WorkspaceFingerprintProcessBoundaryError
+				)
+				raise boundary_error("synthetic early fingerprint boundary debt")
+			raise TimeoutError("synthetic peer report validation deadline")
+
+		with mock.patch.object(
+			gf_maintenance.gf_gut_shard_worker,
+			"run_worker",
+			side_effect=run_worker,
+		), mock.patch.object(
+			gf_maintenance,
+			"workspace_fingerprint",
+			side_effect=fingerprint,
+		):
+			reports, executed, issues = gf_maintenance.execute_gut_shard_worker_wave(
+				requests,
+				workspaces,
+				expected_workspace_fingerprint="1" * 64,
+				deadline=worker_deadline,
+				cancellation_event=cancellation_event,
+				cleanup_state=cleanup_state,
+			)
+		self.assertEqual(reports, [])
+		self.assertEqual(executed, 2)
+		self.assertTrue(cancellation_event.is_set())
+		self.assertFalse(cleanup_state["permitted"])
+		self.assertEqual(
+			[issue["kind"] for issue in issues],
+			[
+				"gut_shard_workspace_fingerprint_boundary_unproven",
+				"gut_shard_worker_wave_deadline_exhausted",
+			],
+		)
+
+	def test_direct_worker_boundary_can_precede_retained_peer_deadline_debt(self) -> None:
+		temporary_owner = tempfile.TemporaryDirectory()
+		self.addCleanup(temporary_owner.cleanup)
+		root = Path(temporary_owner.name)
+		workspaces: dict[str, Path] = {}
+		requests: list[dict[str, object]] = []
+		for index, name in enumerate(("gut-lane-a", "gut-lane-b")):
+			workspace = root / f"s{index}"
+			workspace.mkdir()
+			workspaces[name] = workspace
+			requests.append(gf_maintenance.make_gut_shard_worker_request(
+				{
+					"name": name,
+					"role": "lane",
+					"scripts": [f"res://tests/gf_core/{name}/test_fixture.gd"],
+				},
+				workspace,
+				workspace_fingerprint_value="1" * 64,
+				manifest_digest="2" * 64,
+				inventory_digest="3" * 64,
+				remaining_seconds=120.0,
+				import_timeout_seconds=60,
+				gut_timeout_seconds=60,
+			))
+		barrier = threading.Barrier(2)
+		cancellation_event = threading.Event()
+		cleanup_state = {"permitted": True}
+		worker_deadline = time.perf_counter() + 1.0
+
+		def run_worker(
+			request: dict[str, object],
+			*,
+			cancellation_event: threading.Event,
+		) -> dict[str, object]:
+			barrier.wait(timeout=2.0)
+			if request["shard_name"] == "gut-lane-a":
+				return self._successful_worker_report(
+					request,
+					self._junit(request["scripts"]),
+				)
+			self.assertTrue(cancellation_event.wait(timeout=2.0))
+			while time.perf_counter() <= worker_deadline + 0.03:
+				time.sleep(0.005)
+			retained = self._failed_worker_report(
+				request,
+				kind="worker_cancelled",
+			)
+			retained["workspace_cleanup_permitted"] = False
+			retained["continuation_safe"] = False
+			return retained
+
+		def fingerprint(
+			workspace: Path,
+			*,
+			deadline: float | None = None,
+		) -> dict[str, str]:
+			self.assertEqual(workspace, workspaces["gut-lane-a"])
+			boundary_error = (
+				gf_maintenance.gf_maintenance_check_graph
+				.WorkspaceFingerprintProcessBoundaryError
+			)
+			raise boundary_error("synthetic early fingerprint boundary debt")
+
+		with mock.patch.object(
+			gf_maintenance.gf_gut_shard_worker,
+			"run_worker",
+			side_effect=run_worker,
+		), mock.patch.object(
+			gf_maintenance,
+			"workspace_fingerprint",
+			side_effect=fingerprint,
+		):
+			reports, executed, issues = gf_maintenance.execute_gut_shard_worker_wave(
+				requests,
+				workspaces,
+				expected_workspace_fingerprint="1" * 64,
+				deadline=worker_deadline,
+				cancellation_event=cancellation_event,
+				cleanup_state=cleanup_state,
+			)
+		self.assertEqual(executed, 2)
+		self.assertEqual(
+			[report["request"]["shard_name"] for report in reports],
+			["gut-lane-b"],
+		)
+		self.assertFalse(cleanup_state["permitted"])
+		self.assertEqual(
+			[issue["kind"] for issue in issues],
+			[
+				"gut_shard_workspace_fingerprint_boundary_unproven",
+				"gut_shard_worker_wave_deadline_exhausted",
+				"gut_shard_worker_infrastructure_failed",
+				"gut_shard_workspace_ownership_unproven",
+			],
+		)
+
 	def test_direct_worker_exception_cancels_and_drains_its_peer(self) -> None:
 		temporary_owner = tempfile.TemporaryDirectory()
 		self.addCleanup(temporary_owner.cleanup)
@@ -4489,7 +4671,11 @@ class GutShardRunIntegrationTests(unittest.TestCase):
 				})
 				with self.subTest(wave_kind=wave_kind), self.assertRaisesRegex(
 					ValueError,
-					"complete.*result set",
+					(
+						"deadline lacks pending result"
+						if wave_kind == "gut_shard_worker_wave_deadline_exhausted"
+						else "complete.*result set"
+					),
 				):
 					gf_maintenance.validate_gut_shard_run_report(
 						complete_wave_failure,
@@ -5064,6 +5250,15 @@ class GutShardRunIntegrationTests(unittest.TestCase):
 					top_issues = (
 						[extra_issue] if extra_issue is not None else []
 					) + copy.deepcopy(aggregate["issues"])
+					if case == "final_drift_cannot_explain_an_incomplete_candidate_schedule":
+						top_issues = [
+							*copy.deepcopy(aggregate["issues"]),
+							extra_issue,
+							{
+								"kind": "gut_shard_validation_cleanup_failed",
+								"message": "synthetic retained validation root",
+							},
+						]
 					report = gf_maintenance.make_gut_shard_run_report(
 						jobs=2,
 						qualify=False,
@@ -5163,34 +5358,48 @@ class GutShardRunIntegrationTests(unittest.TestCase):
 					expected_validation_root=workspace,
 				)
 
-			wave_deadline_with_fingerprint_boundary = copy.deepcopy(
+			reachable_boundary_then_deadline = copy.deepcopy(
 				too_many_worker_exceptions
 			)
-			wave_deadline_with_fingerprint_boundary["issues"] = [
-				{
-					"kind": "gut_shard_worker_wave_deadline_exhausted",
-					"message": "synthetic parent deadline",
-				},
+			reachable_boundary_then_deadline["issues"] = [
 				{
 					"kind": "gut_shard_workspace_fingerprint_boundary_unproven",
 					"message": (
 						f"{self.MANIFEST['shards'][0]['name']}: "
-						"synthetic impossible post-deadline boundary failure"
+						"synthetic early boundary failure"
 					),
 				},
-				*copy.deepcopy(empty_aggregate["issues"]),
+				{
+					"kind": "gut_shard_worker_wave_deadline_exhausted",
+					"message": "synthetic peer deadline",
+				},
 				{
 					"kind": "gut_shard_workspace_cleanup_failed",
 					"message": "synthetic retained candidate batch",
 				},
+				*copy.deepcopy(empty_aggregate["issues"]),
 				{
 					"kind": "gut_shard_validation_cleanup_failed",
 					"message": "synthetic retained validation root",
 				},
 			]
+			gf_maintenance.validate_gut_shard_run_report(
+				reachable_boundary_then_deadline,
+				manifest=self.MANIFEST,
+				inventory=self.INVENTORY,
+				expected_workspace_fingerprint="1" * 64,
+				expected_validation_root=workspace,
+			)
+
+			wave_deadline_with_fingerprint_boundary = copy.deepcopy(
+				reachable_boundary_then_deadline
+			)
+			wave_deadline_with_fingerprint_boundary["issues"][:2] = list(reversed(
+				wave_deadline_with_fingerprint_boundary["issues"][:2]
+			))
 			with self.assertRaisesRegex(
 				ValueError,
-				"deadline cannot retain workspace-fingerprint boundary evidence",
+				"boundary and worker-wave deadline ordering is unreachable",
 			):
 				gf_maintenance.validate_gut_shard_run_report(
 					wave_deadline_with_fingerprint_boundary,
@@ -5199,6 +5408,853 @@ class GutShardRunIntegrationTests(unittest.TestCase):
 					expected_workspace_fingerprint="1" * 64,
 					expected_validation_root=workspace,
 				)
+
+			boundary_deadline_then_wave_failure = copy.deepcopy(
+				reachable_boundary_then_deadline
+			)
+			boundary_deadline_then_wave_failure["issues"].insert(2, {
+				"kind": "gut_shard_worker_wave_failed",
+				"message": "synthetic failure while the peer remained unresolved",
+			})
+			gf_maintenance.validate_gut_shard_run_report(
+				boundary_deadline_then_wave_failure,
+				manifest=self.MANIFEST,
+				inventory=self.INVENTORY,
+				expected_workspace_fingerprint="1" * 64,
+				expected_validation_root=workspace,
+			)
+
+			for label, executed, cause_issues in (
+				(
+					"deadline-before-schedule",
+					1,
+					[
+						{
+							"kind": "gut_shard_worker_wave_deadline_exhausted",
+							"message": "synthetic impossible early deadline",
+						},
+						{
+							"kind": "gut_shard_worker_schedule_failed",
+							"message": (
+								f"{self.MANIFEST['shards'][1]['name']}: "
+								"synthetic late submit failure"
+							),
+						},
+					],
+				),
+				(
+					"wave-failed-before-deadline",
+					2,
+					[
+						{
+							"kind": "gut_shard_worker_wave_failed",
+							"message": "synthetic impossible early outer failure",
+						},
+						{
+							"kind": "gut_shard_worker_wave_deadline_exhausted",
+							"message": "synthetic late deadline",
+						},
+					],
+				),
+				(
+					"fingerprint-before-schedule",
+					1,
+					[
+						{
+							"kind": "gut_shard_workspace_fingerprint_boundary_unproven",
+							"message": (
+								f"{self.MANIFEST['shards'][0]['name']}: "
+								"synthetic impossible pre-schedule result"
+							),
+						},
+						{
+							"kind": "gut_shard_worker_schedule_failed",
+							"message": (
+								f"{self.MANIFEST['shards'][1]['name']}: "
+								"synthetic late submit failure"
+							),
+						},
+					],
+				),
+				(
+					"exception-before-schedule",
+					1,
+					[
+						{
+							"kind": "gut_shard_worker_exception",
+							"message": (
+								f"{self.MANIFEST['shards'][0]['name']}: "
+								"synthetic impossible pre-schedule result"
+							),
+						},
+						{
+							"kind": "gut_shard_worker_schedule_failed",
+							"message": (
+								f"{self.MANIFEST['shards'][1]['name']}: "
+								"synthetic late submit failure"
+							),
+						},
+					],
+				),
+			):
+				unreachable_wave_order = copy.deepcopy(too_many_worker_exceptions)
+				unreachable_wave_order.update({
+					"executed_shard_count": executed,
+					"unreported_shard_count": executed,
+					"not_scheduled_shard_count": len(self.MANIFEST["shards"]) - executed,
+					"issues": [
+						*copy.deepcopy(cause_issues),
+						{
+							"kind": "gut_shard_workspace_cleanup_failed",
+							"message": "synthetic retained candidate batch",
+						},
+						*copy.deepcopy(empty_aggregate["issues"]),
+						{
+							"kind": "gut_shard_validation_cleanup_failed",
+							"message": "synthetic retained validation root",
+						},
+					],
+				})
+				with self.subTest(label=label), self.assertRaisesRegex(
+					ValueError,
+					"did not precede|did not follow",
+				):
+					gf_maintenance.validate_gut_shard_run_report(
+						unreachable_wave_order,
+						manifest=self.MANIFEST,
+						inventory=self.INVENTORY,
+						expected_workspace_fingerprint="1" * 64,
+						expected_validation_root=workspace,
+					)
+
+			candidate_deadline_issue = {
+				"kind": "gut_shard_worker_wave_deadline_exhausted",
+				"message": "synthetic single-worker parent deadline",
+			}
+			candidate_exception_issue = {
+				"kind": "gut_shard_worker_exception",
+				"message": (
+					f"{self.MANIFEST['shards'][0]['name']}: "
+					"synthetic late worker exception"
+				),
+			}
+			candidate_cleanup_issue = {
+				"kind": "gut_shard_workspace_cleanup_failed",
+				"message": "synthetic retained candidate batch",
+			}
+			outer_cleanup_issue = {
+				"kind": "gut_shard_validation_cleanup_failed",
+				"message": "synthetic retained validation root",
+			}
+			single_worker_deadline = gf_maintenance.make_gut_shard_run_report(
+				jobs=1,
+				qualify=False,
+			)
+			single_worker_deadline.update({
+				"workspace_fingerprint": "1" * 64,
+				"manifest_digest": manifest_digest,
+				"inventory_digest": inventory_digest,
+				"inventory_count": len(self.INVENTORY),
+				"shard_count": len(self.MANIFEST["shards"]),
+				"executed_shard_count": 1,
+				"unreported_shard_count": 1,
+				"not_scheduled_shard_count": len(self.MANIFEST["shards"]) - 1,
+				"duration_seconds": 1.0,
+				"isolation_probe": copy.deepcopy(
+					too_many_worker_exceptions["isolation_probe"]
+				),
+				"aggregate": copy.deepcopy(empty_aggregate),
+				"issues": [
+					candidate_deadline_issue,
+					candidate_exception_issue,
+					candidate_cleanup_issue,
+					*copy.deepcopy(empty_aggregate["issues"]),
+					outer_cleanup_issue,
+				],
+			})
+			gf_maintenance.validate_gut_shard_run_report(
+				single_worker_deadline,
+				manifest=self.MANIFEST,
+				inventory=self.INVENTORY,
+				expected_workspace_fingerprint="1" * 64,
+				expected_validation_root=workspace,
+			)
+			single_worker_reverse = copy.deepcopy(single_worker_deadline)
+			single_worker_reverse["issues"][:2] = list(reversed(
+				single_worker_reverse["issues"][:2]
+			))
+			with self.assertRaisesRegex(ValueError, "single-worker result failure preceded"):
+				gf_maintenance.validate_gut_shard_run_report(
+					single_worker_reverse,
+					manifest=self.MANIFEST,
+					inventory=self.INVENTORY,
+					expected_workspace_fingerprint="1" * 64,
+					expected_validation_root=workspace,
+				)
+
+			partial_schedule_deadline = copy.deepcopy(too_many_worker_exceptions)
+			partial_schedule_deadline.update({
+				"executed_shard_count": 1,
+				"unreported_shard_count": 1,
+				"not_scheduled_shard_count": len(self.MANIFEST["shards"]) - 1,
+				"issues": [
+					{
+						"kind": "gut_shard_worker_schedule_failed",
+						"message": (
+							f"{self.MANIFEST['shards'][1]['name']}: "
+							"synthetic second submit failure"
+						),
+					},
+					candidate_deadline_issue,
+					candidate_exception_issue,
+					candidate_cleanup_issue,
+					*copy.deepcopy(empty_aggregate["issues"]),
+					outer_cleanup_issue,
+				],
+			})
+			gf_maintenance.validate_gut_shard_run_report(
+				partial_schedule_deadline,
+				manifest=self.MANIFEST,
+				inventory=self.INVENTORY,
+				expected_workspace_fingerprint="1" * 64,
+				expected_validation_root=workspace,
+			)
+			partial_schedule_reverse = copy.deepcopy(partial_schedule_deadline)
+			partial_schedule_reverse["issues"][1:3] = list(reversed(
+				partial_schedule_reverse["issues"][1:3]
+			))
+			with self.assertRaisesRegex(ValueError, "single-worker result failure preceded"):
+				gf_maintenance.validate_gut_shard_run_report(
+					partial_schedule_reverse,
+					manifest=self.MANIFEST,
+					inventory=self.INVENTORY,
+					expected_workspace_fingerprint="1" * 64,
+					expected_validation_root=workspace,
+				)
+
+			candidate_cleanup_before_causes = copy.deepcopy(partial_schedule_deadline)
+			candidate_cleanup_before_causes["issues"] = [
+				candidate_cleanup_before_causes["issues"][3],
+				*candidate_cleanup_before_causes["issues"][:3],
+				*candidate_cleanup_before_causes["issues"][4:],
+			]
+			with self.assertRaisesRegex(ValueError, "workspace cleanup preceded"):
+				gf_maintenance.validate_gut_shard_run_report(
+					candidate_cleanup_before_causes,
+					manifest=self.MANIFEST,
+					inventory=self.INVENTORY,
+					expected_workspace_fingerprint="1" * 64,
+					expected_validation_root=workspace,
+				)
+
+			aggregate_before_candidate_cleanup = copy.deepcopy(partial_schedule_deadline)
+			aggregate_before_candidate_cleanup["issues"] = [
+				*aggregate_before_candidate_cleanup["issues"][:3],
+				*copy.deepcopy(empty_aggregate["issues"]),
+				candidate_cleanup_issue,
+				outer_cleanup_issue,
+			]
+			with self.assertRaisesRegex(ValueError, "followed its derived"):
+				gf_maintenance.validate_gut_shard_run_report(
+					aggregate_before_candidate_cleanup,
+					manifest=self.MANIFEST,
+					inventory=self.INVENTORY,
+					expected_workspace_fingerprint="1" * 64,
+					expected_validation_root=workspace,
+				)
+
+			outer_cleanup_before_candidate = copy.deepcopy(partial_schedule_deadline)
+			outer_cleanup_before_candidate["issues"] = [
+				outer_cleanup_before_candidate["issues"][-1],
+				*outer_cleanup_before_candidate["issues"][:-1],
+			]
+			with self.assertRaisesRegex(ValueError, "validation cleanup evidence did not follow"):
+				gf_maintenance.validate_gut_shard_run_report(
+					outer_cleanup_before_candidate,
+					manifest=self.MANIFEST,
+					inventory=self.INVENTORY,
+					expected_workspace_fingerprint="1" * 64,
+					expected_validation_root=workspace,
+				)
+
+			outer_cleanup_before_aggregate = copy.deepcopy(partial_schedule_deadline)
+			outer_cleanup_before_aggregate["issues"] = [
+				*outer_cleanup_before_aggregate["issues"][:4],
+				outer_cleanup_issue,
+				*copy.deepcopy(empty_aggregate["issues"]),
+			]
+			with self.assertRaisesRegex(ValueError, "validation cleanup evidence did not follow"):
+				gf_maintenance.validate_gut_shard_run_report(
+					outer_cleanup_before_aggregate,
+					manifest=self.MANIFEST,
+					inventory=self.INVENTORY,
+					expected_workspace_fingerprint="1" * 64,
+					expected_validation_root=workspace,
+				)
+
+			deadline_worker = self._failed_worker_report(
+				all_reports[0]["request"],
+				kind="worker_deadline_exhausted",
+			)
+			deadline_aggregate = gf_maintenance.aggregate_gut_shard_candidate_reports(
+				self.MANIFEST,
+				self.INVENTORY,
+				[deadline_worker],
+			)
+			deadline_nested_issue = {
+				"kind": deadline_worker["issues"][0]["kind"],
+				"message": (
+					f"{deadline_worker['request']['shard_name']}: "
+					f"{deadline_worker['issues'][0]['message']}"
+				),
+			}
+			derived_deadline_issue = {
+				"kind": "gut_shard_worker_deadline_exhausted",
+				"message": (
+					f"{deadline_worker['request']['shard_name']}: worker-local deadline "
+					"or phase timeout stopped the remaining shard schedule."
+				),
+			}
+			wave_failure_issue = {
+				"kind": "gut_shard_worker_wave_failed",
+				"message": "synthetic failure while draining the worker wave",
+			}
+			schedule_failure_issue = {
+				"kind": "gut_shard_worker_schedule_failed",
+				"message": (
+					f"{self.MANIFEST['shards'][1]['name']}: "
+					"synthetic second submit failure"
+				),
+			}
+
+			def derived_worker_failure_report(
+				*,
+				jobs: int,
+				executed: int,
+				worker: dict[str, object],
+				aggregate: dict[str, object],
+				causes: list[dict[str, str]],
+				nested_issue: dict[str, str],
+			) -> dict[str, object]:
+				result = gf_maintenance.make_gut_shard_run_report(
+					jobs=jobs,
+					qualify=False,
+				)
+				result.update({
+					"workspace_fingerprint": "1" * 64,
+					"manifest_digest": manifest_digest,
+					"inventory_digest": inventory_digest,
+					"inventory_count": len(self.INVENTORY),
+					"shard_count": len(self.MANIFEST["shards"]),
+					"executed_shard_count": executed,
+					"completed_shard_count": 1,
+					"failed_shard_count": 1,
+					"unreported_shard_count": executed - 1,
+					"not_scheduled_shard_count": len(self.MANIFEST["shards"]) - executed,
+					"duration_seconds": 1.0,
+					"isolation_probe": copy.deepcopy(
+						too_many_worker_exceptions["isolation_probe"]
+					),
+					"shards": [worker],
+					"aggregate": aggregate,
+					"issues": [
+						*copy.deepcopy(causes),
+						candidate_cleanup_issue,
+						copy.deepcopy(nested_issue),
+						*copy.deepcopy(aggregate["issues"]),
+						outer_cleanup_issue,
+					],
+				})
+				return result
+
+			for label, executed, causes in (
+				(
+					"schedule-before-derived-result",
+					1,
+					[schedule_failure_issue, derived_deadline_issue],
+				),
+				(
+					"derived-result-before-wave-failure",
+					2,
+					[derived_deadline_issue, wave_failure_issue],
+				),
+			):
+				derived_order = derived_worker_failure_report(
+					jobs=2,
+					executed=executed,
+					worker=deadline_worker,
+					aggregate=deadline_aggregate,
+					causes=causes,
+					nested_issue=deadline_nested_issue,
+				)
+				with self.subTest(label=label):
+					gf_maintenance.validate_gut_shard_run_report(
+						derived_order,
+						manifest=self.MANIFEST,
+						inventory=self.INVENTORY,
+						expected_workspace_fingerprint="1" * 64,
+						expected_validation_root=workspace,
+					)
+					reversed_derived_order = copy.deepcopy(derived_order)
+					reversed_derived_order["issues"][:2] = list(reversed(
+						reversed_derived_order["issues"][:2]
+					))
+					with self.assertRaisesRegex(ValueError, "did not precede|did not follow"):
+						gf_maintenance.validate_gut_shard_run_report(
+							reversed_derived_order,
+							manifest=self.MANIFEST,
+							inventory=self.INVENTORY,
+							expected_workspace_fingerprint="1" * 64,
+							expected_validation_root=workspace,
+						)
+
+			unowned_deadline_worker = copy.deepcopy(deadline_worker)
+			unowned_deadline_worker.update({
+				"process_boundary_quiescent": False,
+				"workspace_cleanup_permitted": False,
+				"continuation_safe": False,
+			})
+			unowned_deadline_aggregate = (
+				gf_maintenance.aggregate_gut_shard_candidate_reports(
+					self.MANIFEST,
+					self.INVENTORY,
+					[unowned_deadline_worker],
+				)
+			)
+			ownership_issue = {
+				"kind": "gut_shard_workspace_ownership_unproven",
+				"message": (
+					f"{unowned_deadline_worker['request']['shard_name']}: "
+					"process-boundary, workspace ownership, or worker-owned cleanup "
+					"was not proven; the validation workspace must be retained."
+				),
+			}
+			parent_deadline_issue = {
+				"kind": "gut_shard_worker_wave_deadline_exhausted",
+				"message": "synthetic parent deadline before retained worker evidence",
+			}
+			single_worker_owned_debt = derived_worker_failure_report(
+				jobs=1,
+				executed=1,
+				worker=unowned_deadline_worker,
+				aggregate=unowned_deadline_aggregate,
+				causes=[
+					parent_deadline_issue,
+					derived_deadline_issue,
+					ownership_issue,
+				],
+				nested_issue=deadline_nested_issue,
+			)
+			gf_maintenance.validate_gut_shard_run_report(
+				single_worker_owned_debt,
+				manifest=self.MANIFEST,
+				inventory=self.INVENTORY,
+				expected_workspace_fingerprint="1" * 64,
+				expected_validation_root=workspace,
+			)
+			for label, order in (
+				("result-before-parent-deadline", [1, 0, 2]),
+				("ownership-before-result", [0, 2, 1]),
+			):
+				forged_order = copy.deepcopy(single_worker_owned_debt)
+				forged_order["issues"][:3] = [
+					forged_order["issues"][index] for index in order
+				]
+				with self.subTest(label=label), self.assertRaisesRegex(
+					ValueError,
+					(
+						"single-worker result failure preceded|ownership debt preceded|"
+						"are not adjacent"
+					),
+				):
+					gf_maintenance.validate_gut_shard_run_report(
+						forged_order,
+						manifest=self.MANIFEST,
+						inventory=self.INVENTORY,
+						expected_workspace_fingerprint="1" * 64,
+							expected_validation_root=workspace,
+						)
+
+			fingerprint_issue = {
+				"kind": "gut_shard_workspace_fingerprint_boundary_unproven",
+				"message": (
+					f"{self.MANIFEST['shards'][1]['name']}: "
+					"synthetic early fingerprint boundary debt"
+				),
+			}
+			fingerprint_then_retained_peer = derived_worker_failure_report(
+				jobs=2,
+				executed=2,
+				worker=unowned_deadline_worker,
+				aggregate=unowned_deadline_aggregate,
+				causes=[
+					fingerprint_issue,
+					parent_deadline_issue,
+					derived_deadline_issue,
+					ownership_issue,
+				],
+				nested_issue=deadline_nested_issue,
+			)
+			gf_maintenance.validate_gut_shard_run_report(
+				fingerprint_then_retained_peer,
+				manifest=self.MANIFEST,
+				inventory=self.INVENTORY,
+				expected_workspace_fingerprint="1" * 64,
+				expected_validation_root=workspace,
+			)
+			surplus_wave_failure = copy.deepcopy(fingerprint_then_retained_peer)
+			surplus_wave_failure["issues"].insert(4, wave_failure_issue)
+			with self.assertRaisesRegex(ValueError, "does not explain unresolved"):
+				gf_maintenance.validate_gut_shard_run_report(
+					surplus_wave_failure,
+					manifest=self.MANIFEST,
+					inventory=self.INVENTORY,
+					expected_workspace_fingerprint="1" * 64,
+					expected_validation_root=workspace,
+				)
+			fingerprint_without_peer_debt = derived_worker_failure_report(
+				jobs=2,
+				executed=2,
+				worker=deadline_worker,
+				aggregate=deadline_aggregate,
+				causes=[
+					fingerprint_issue,
+					parent_deadline_issue,
+					derived_deadline_issue,
+				],
+				nested_issue=deadline_nested_issue,
+			)
+			with self.assertRaisesRegex(ValueError, "lacks retained ownership debt"):
+				gf_maintenance.validate_gut_shard_run_report(
+					fingerprint_without_peer_debt,
+					manifest=self.MANIFEST,
+					inventory=self.INVENTORY,
+					expected_workspace_fingerprint="1" * 64,
+					expected_validation_root=workspace,
+				)
+
+			early_exception_issue = {
+				"kind": "gut_shard_worker_exception",
+				"message": (
+					f"{self.MANIFEST['shards'][1]['name']}: "
+					"synthetic early worker exception"
+				),
+			}
+			for label, causes in (
+				(
+					"owned-result-before-peer-exception",
+					[derived_deadline_issue, ownership_issue, early_exception_issue],
+				),
+				(
+					"peer-exception-before-owned-result",
+					[early_exception_issue, derived_deadline_issue, ownership_issue],
+				),
+			):
+				adjacent_owned_result = derived_worker_failure_report(
+					jobs=2,
+					executed=2,
+					worker=unowned_deadline_worker,
+					aggregate=unowned_deadline_aggregate,
+					causes=causes,
+					nested_issue=deadline_nested_issue,
+				)
+				with self.subTest(label=label):
+					gf_maintenance.validate_gut_shard_run_report(
+						adjacent_owned_result,
+						manifest=self.MANIFEST,
+						inventory=self.INVENTORY,
+						expected_workspace_fingerprint="1" * 64,
+						expected_validation_root=workspace,
+					)
+			interleaved_owned_result = derived_worker_failure_report(
+				jobs=2,
+				executed=2,
+				worker=unowned_deadline_worker,
+				aggregate=unowned_deadline_aggregate,
+				causes=[
+					derived_deadline_issue,
+					early_exception_issue,
+					ownership_issue,
+				],
+				nested_issue=deadline_nested_issue,
+			)
+			with self.assertRaisesRegex(ValueError, "are not adjacent"):
+				gf_maintenance.validate_gut_shard_run_report(
+					interleaved_owned_result,
+					manifest=self.MANIFEST,
+					inventory=self.INVENTORY,
+					expected_workspace_fingerprint="1" * 64,
+					expected_validation_root=workspace,
+				)
+			safe_partial_aggregate = gf_maintenance.aggregate_gut_shard_candidate_reports(
+				self.MANIFEST,
+				self.INVENTORY,
+				[all_reports[0]],
+			)
+			early_exception_with_safe_peer = gf_maintenance.make_gut_shard_run_report(
+				jobs=2,
+				qualify=False,
+			)
+			early_exception_with_safe_peer.update({
+				"workspace_fingerprint": "1" * 64,
+				"manifest_digest": manifest_digest,
+				"inventory_digest": inventory_digest,
+				"inventory_count": len(self.INVENTORY),
+				"shard_count": len(self.MANIFEST["shards"]),
+				"executed_shard_count": 2,
+				"completed_shard_count": 1,
+				"successful_shard_count": 1,
+				"unreported_shard_count": 1,
+				"not_scheduled_shard_count": len(self.MANIFEST["shards"]) - 2,
+				"duration_seconds": 1.0,
+				"isolation_probe": copy.deepcopy(
+					too_many_worker_exceptions["isolation_probe"]
+				),
+				"shards": [all_reports[0]],
+				"aggregate": safe_partial_aggregate,
+				"issues": [
+					early_exception_issue,
+					parent_deadline_issue,
+					candidate_cleanup_issue,
+					*copy.deepcopy(safe_partial_aggregate["issues"]),
+					outer_cleanup_issue,
+				],
+			})
+			with self.assertRaisesRegex(ValueError, "retained an unowned peer report"):
+				gf_maintenance.validate_gut_shard_run_report(
+					early_exception_with_safe_peer,
+					manifest=self.MANIFEST,
+					inventory=self.INVENTORY,
+					expected_workspace_fingerprint="1" * 64,
+					expected_validation_root=workspace,
+				)
+			deadline_then_late_exception = copy.deepcopy(early_exception_with_safe_peer)
+			deadline_then_late_exception["issues"][:2] = list(reversed(
+				deadline_then_late_exception["issues"][:2]
+			))
+			gf_maintenance.validate_gut_shard_run_report(
+				deadline_then_late_exception,
+				manifest=self.MANIFEST,
+				inventory=self.INVENTORY,
+				expected_workspace_fingerprint="1" * 64,
+				expected_validation_root=workspace,
+			)
+
+			early_exception_with_missing_peer = copy.deepcopy(
+				reachable_boundary_then_deadline
+			)
+			early_exception_with_missing_peer["issues"][0] = early_exception_issue
+			gf_maintenance.validate_gut_shard_run_report(
+				early_exception_with_missing_peer,
+				manifest=self.MANIFEST,
+				inventory=self.INVENTORY,
+				expected_workspace_fingerprint="1" * 64,
+				expected_validation_root=workspace,
+			)
+
+			early_exception_with_owned_peer = derived_worker_failure_report(
+				jobs=2,
+				executed=2,
+				worker=unowned_deadline_worker,
+				aggregate=unowned_deadline_aggregate,
+				causes=[
+					early_exception_issue,
+					parent_deadline_issue,
+					derived_deadline_issue,
+					ownership_issue,
+				],
+				nested_issue=deadline_nested_issue,
+			)
+			gf_maintenance.validate_gut_shard_run_report(
+				early_exception_with_owned_peer,
+				manifest=self.MANIFEST,
+				inventory=self.INVENTORY,
+				expected_workspace_fingerprint="1" * 64,
+				expected_validation_root=workspace,
+			)
+
+			first_exception_issue = {
+				"kind": "gut_shard_worker_exception",
+				"message": (
+					f"{self.MANIFEST['shards'][0]['name']}: "
+					"synthetic first worker exception"
+				),
+			}
+			all_scoped_before_deadline = copy.deepcopy(
+				early_exception_with_missing_peer
+			)
+			all_scoped_before_deadline["issues"] = [
+				first_exception_issue,
+				early_exception_issue,
+				parent_deadline_issue,
+				candidate_cleanup_issue,
+				*copy.deepcopy(empty_aggregate["issues"]),
+				outer_cleanup_issue,
+			]
+			with self.assertRaisesRegex(ValueError, "deadline lacks pending result"):
+				gf_maintenance.validate_gut_shard_run_report(
+					all_scoped_before_deadline,
+					manifest=self.MANIFEST,
+					inventory=self.INVENTORY,
+					expected_workspace_fingerprint="1" * 64,
+					expected_validation_root=workspace,
+				)
+			for label, prefix in (
+				(
+					"deadline-before-both-scoped-results",
+					[parent_deadline_issue, first_exception_issue, early_exception_issue],
+				),
+				(
+					"deadline-between-scoped-results",
+					[first_exception_issue, parent_deadline_issue, early_exception_issue],
+				),
+			):
+				reachable_scoped_deadline = copy.deepcopy(
+					all_scoped_before_deadline
+				)
+				reachable_scoped_deadline["issues"][:3] = prefix
+				with self.subTest(label=label):
+					gf_maintenance.validate_gut_shard_run_report(
+						reachable_scoped_deadline,
+						manifest=self.MANIFEST,
+						inventory=self.INVENTORY,
+						expected_workspace_fingerprint="1" * 64,
+						expected_validation_root=workspace,
+					)
+
+			post_deadline_result_without_debt = derived_worker_failure_report(
+				jobs=2,
+				executed=2,
+				worker=deadline_worker,
+				aggregate=deadline_aggregate,
+				causes=[parent_deadline_issue, derived_deadline_issue],
+				nested_issue=deadline_nested_issue,
+			)
+			with self.assertRaisesRegex(ValueError, "result lacks ownership debt"):
+				gf_maintenance.validate_gut_shard_run_report(
+					post_deadline_result_without_debt,
+					manifest=self.MANIFEST,
+					inventory=self.INVENTORY,
+					expected_workspace_fingerprint="1" * 64,
+					expected_validation_root=workspace,
+				)
+			pre_deadline_result_without_debt = copy.deepcopy(
+				post_deadline_result_without_debt
+			)
+			pre_deadline_result_without_debt["issues"][:2] = list(reversed(
+				pre_deadline_result_without_debt["issues"][:2]
+			))
+			gf_maintenance.validate_gut_shard_run_report(
+				pre_deadline_result_without_debt,
+				manifest=self.MANIFEST,
+				inventory=self.INVENTORY,
+				expected_workspace_fingerprint="1" * 64,
+				expected_validation_root=workspace,
+			)
+
+			straddled_result_ownership = derived_worker_failure_report(
+				jobs=2,
+				executed=2,
+				worker=unowned_deadline_worker,
+				aggregate=unowned_deadline_aggregate,
+				causes=[
+					derived_deadline_issue,
+					parent_deadline_issue,
+					ownership_issue,
+				],
+				nested_issue=deadline_nested_issue,
+			)
+			with self.assertRaisesRegex(
+				ValueError,
+				"straddle its wave deadline|are not adjacent",
+			):
+				gf_maintenance.validate_gut_shard_run_report(
+					straddled_result_ownership,
+					manifest=self.MANIFEST,
+					inventory=self.INVENTORY,
+					expected_workspace_fingerprint="1" * 64,
+					expected_validation_root=workspace,
+				)
+			for label, prefix in (
+				(
+					"result-and-ownership-before-deadline",
+					[derived_deadline_issue, ownership_issue, parent_deadline_issue],
+				),
+				(
+					"result-and-ownership-after-deadline",
+					[parent_deadline_issue, derived_deadline_issue, ownership_issue],
+				),
+			):
+				reachable_owned_deadline = copy.deepcopy(straddled_result_ownership)
+				reachable_owned_deadline["issues"][:3] = prefix
+				with self.subTest(label=label):
+					gf_maintenance.validate_gut_shard_run_report(
+						reachable_owned_deadline,
+						manifest=self.MANIFEST,
+						inventory=self.INVENTORY,
+						expected_workspace_fingerprint="1" * 64,
+							expected_validation_root=workspace,
+					)
+
+			two_report_owned_aggregate = (
+				gf_maintenance.aggregate_gut_shard_candidate_reports(
+					self.MANIFEST,
+					self.INVENTORY,
+					[unowned_deadline_worker, all_reports[1]],
+				)
+			)
+			completed_owned_wave = gf_maintenance.make_gut_shard_run_report(
+				jobs=2,
+				qualify=False,
+			)
+			completed_owned_wave.update({
+				"workspace_fingerprint": "1" * 64,
+				"manifest_digest": manifest_digest,
+				"inventory_digest": inventory_digest,
+				"inventory_count": len(self.INVENTORY),
+				"shard_count": len(self.MANIFEST["shards"]),
+				"executed_shard_count": 2,
+				"completed_shard_count": 2,
+				"successful_shard_count": 1,
+				"failed_shard_count": 1,
+				"not_scheduled_shard_count": len(self.MANIFEST["shards"]) - 2,
+				"duration_seconds": 1.0,
+				"isolation_probe": copy.deepcopy(
+					too_many_worker_exceptions["isolation_probe"]
+				),
+				"shards": [unowned_deadline_worker, all_reports[1]],
+				"aggregate": two_report_owned_aggregate,
+				"issues": [
+					derived_deadline_issue,
+					ownership_issue,
+					parent_deadline_issue,
+					candidate_cleanup_issue,
+					deadline_nested_issue,
+					*copy.deepcopy(two_report_owned_aggregate["issues"]),
+					outer_cleanup_issue,
+				],
+			})
+			with self.assertRaisesRegex(ValueError, "deadline lacks pending result"):
+				gf_maintenance.validate_gut_shard_run_report(
+					completed_owned_wave,
+					manifest=self.MANIFEST,
+					inventory=self.INVENTORY,
+					expected_workspace_fingerprint="1" * 64,
+					expected_validation_root=workspace,
+				)
+			deadline_then_completed_owned_wave = copy.deepcopy(completed_owned_wave)
+			deadline_then_completed_owned_wave["issues"][:3] = [
+				parent_deadline_issue,
+				derived_deadline_issue,
+				ownership_issue,
+			]
+			gf_maintenance.validate_gut_shard_run_report(
+				deadline_then_completed_owned_wave,
+				manifest=self.MANIFEST,
+				inventory=self.INVENTORY,
+				expected_workspace_fingerprint="1" * 64,
+				expected_validation_root=workspace,
+			)
 
 	def test_top_report_validator_binds_control_and_equivalence_to_completed_candidates(self) -> None:
 		with tempfile.TemporaryDirectory() as temporary_directory:
@@ -5316,6 +6372,163 @@ class GutShardRunIntegrationTests(unittest.TestCase):
 						expected_workspace_fingerprint="1" * 64,
 						expected_validation_root=workspace,
 					)
+
+			deadline_control = self._failed_worker_report(
+				control["request"],
+				kind="worker_deadline_exhausted",
+			)
+			derived_control_deadline_issue = {
+				"kind": "gut_shard_control_worker_failed",
+				"message": (
+					"gut_shard_worker_deadline_exhausted: "
+					f"{gf_maintenance.gf_gut_shard_worker.CONTROL_SHARD_NAME}: "
+					"worker-local deadline or phase timeout stopped the remaining "
+					"shard schedule."
+				),
+			}
+			nested_control_deadline_issue = {
+				"kind": deadline_control["issues"][0]["kind"],
+				"message": deadline_control["issues"][0]["message"],
+			}
+			retained_deadline_control = copy.deepcopy(qualified)
+			retained_deadline_control.update({
+				"ok": False,
+				"candidate_eligible": True,
+				"qualified": False,
+				"qualification_status": "control_ineligible",
+				"control": deadline_control,
+				"equivalence": None,
+				"issues": [
+					derived_control_deadline_issue,
+					nested_control_deadline_issue,
+				],
+			})
+			gf_maintenance.validate_gut_shard_run_report(
+				retained_deadline_control,
+				manifest=self.MANIFEST,
+				inventory=self.INVENTORY,
+				expected_workspace_fingerprint="1" * 64,
+				expected_validation_root=workspace,
+			)
+			reversed_deadline_control = copy.deepcopy(retained_deadline_control)
+			reversed_deadline_control["issues"].reverse()
+			with self.assertRaisesRegex(ValueError, "followed its nested control evidence"):
+				gf_maintenance.validate_gut_shard_run_report(
+					reversed_deadline_control,
+					manifest=self.MANIFEST,
+					inventory=self.INVENTORY,
+					expected_workspace_fingerprint="1" * 64,
+					expected_validation_root=workspace,
+				)
+
+			ineligible_candidate_reports = copy.deepcopy(all_reports)
+			ineligible_candidate_reports[0] = self._failed_worker_report(
+				all_reports[0]["request"]
+			)
+			ineligible_aggregate = gf_maintenance.aggregate_gut_shard_candidate_reports(
+				self.MANIFEST,
+				self.INVENTORY,
+				ineligible_candidate_reports,
+			)
+			candidate_worker_issue = ineligible_candidate_reports[0]["issues"][0]
+			candidate_nested_issue = {
+				"kind": candidate_worker_issue["kind"],
+				"message": (
+					f"{self.MANIFEST['shards'][0]['name']}: "
+					f"{candidate_worker_issue['message']}"
+				),
+			}
+			control_missing_issue = {
+				"kind": "gut_shard_control_report_missing",
+				"message": "synthetic missing control report",
+			}
+			candidate_ineligible_control_missing = copy.deepcopy(qualified)
+			candidate_ineligible_control_missing.update({
+				"ok": False,
+				"candidate_eligible": False,
+				"qualified": False,
+				"qualification_status": "control_ineligible",
+				"successful_shard_count": len(all_reports) - 1,
+				"failed_shard_count": 1,
+				"shards": ineligible_candidate_reports,
+				"aggregate": ineligible_aggregate,
+				"control": None,
+				"equivalence": None,
+				"issues": [
+					candidate_nested_issue,
+					*copy.deepcopy(ineligible_aggregate["issues"]),
+					control_missing_issue,
+				],
+			})
+			gf_maintenance.validate_gut_shard_run_report(
+				candidate_ineligible_control_missing,
+				manifest=self.MANIFEST,
+				inventory=self.INVENTORY,
+				expected_workspace_fingerprint="1" * 64,
+				expected_validation_root=workspace,
+			)
+			control_before_candidate_nested = copy.deepcopy(
+				candidate_ineligible_control_missing
+			)
+			control_before_candidate_nested["issues"] = [
+				control_missing_issue,
+				candidate_nested_issue,
+				*copy.deepcopy(ineligible_aggregate["issues"]),
+			]
+			with self.assertRaisesRegex(ValueError, "preceded candidate nested evidence"):
+				gf_maintenance.validate_gut_shard_run_report(
+					control_before_candidate_nested,
+					manifest=self.MANIFEST,
+					inventory=self.INVENTORY,
+					expected_workspace_fingerprint="1" * 64,
+					expected_validation_root=workspace,
+				)
+
+			failed_control_nested_issue = {
+				"kind": failed_control["issues"][0]["kind"],
+				"message": failed_control["issues"][0]["message"],
+			}
+			final_drift_issue = {
+				"kind": "gut_shard_final_source_drift",
+				"message": "synthetic final source drift",
+			}
+			final_cleanup_issue = {
+				"kind": "gut_shard_validation_cleanup_failed",
+				"message": "synthetic retained validation root",
+			}
+			control_failure_then_final_drift = copy.deepcopy(qualified)
+			control_failure_then_final_drift.update({
+				"ok": False,
+				"candidate_eligible": False,
+				"qualified": False,
+				"qualification_status": "cleanup_failed",
+				"control": failed_control,
+				"equivalence": None,
+				"issues": [
+					failed_control_nested_issue,
+					final_drift_issue,
+					final_cleanup_issue,
+				],
+			})
+			gf_maintenance.validate_gut_shard_run_report(
+				control_failure_then_final_drift,
+				manifest=self.MANIFEST,
+				inventory=self.INVENTORY,
+				expected_workspace_fingerprint="1" * 64,
+				expected_validation_root=workspace,
+			)
+			final_before_control_nested = copy.deepcopy(control_failure_then_final_drift)
+			final_before_control_nested["issues"][:2] = list(reversed(
+				final_before_control_nested["issues"][:2]
+			))
+			with self.assertRaisesRegex(ValueError, "final-proof evidence preceded"):
+				gf_maintenance.validate_gut_shard_run_report(
+					final_before_control_nested,
+					manifest=self.MANIFEST,
+					inventory=self.INVENTORY,
+					expected_workspace_fingerprint="1" * 64,
+					expected_validation_root=workspace,
+				)
 
 			legacy_control_budget = copy.deepcopy(qualified)
 			legacy_control_budget["control_gut_timeout_seconds"] = 600
@@ -5611,6 +6824,179 @@ class GutShardRunIntegrationTests(unittest.TestCase):
 				"cleanup_failed",
 			)
 
+			def control_failure_report(
+				issues: list[dict[str, str]],
+			) -> dict[str, object]:
+				result = copy.deepcopy(qualified)
+				result.update({
+					"ok": False,
+					"candidate_eligible": False,
+					"qualified": False,
+					"qualification_status": "cleanup_failed",
+					"control": None,
+					"equivalence": None,
+					"issues": copy.deepcopy(issues),
+				})
+				return result
+
+			control_cleanup_issues = [
+				{
+					"kind": "gut_shard_control_cleanup_failed",
+					"message": "synthetic retained control root",
+				},
+				{
+					"kind": "gut_shard_validation_cleanup_failed",
+					"message": "synthetic retained validation root",
+				},
+			]
+			control_deadline_issue = {
+				"kind": "gut_shard_control_worker_failed",
+				"message": (
+					"gut_shard_worker_wave_deadline_exhausted: "
+					"synthetic parent deadline"
+				),
+			}
+			control_wave_failure_issue = {
+				"kind": "gut_shard_control_worker_failed",
+				"message": "gut_shard_worker_wave_failed: synthetic outer wave failure",
+			}
+			reachable_deadline_then_wave_failure = control_failure_report([
+				control_deadline_issue,
+				control_wave_failure_issue,
+				*control_cleanup_issues,
+			])
+			gf_maintenance.validate_gut_shard_run_report(
+				reachable_deadline_then_wave_failure,
+				manifest=self.MANIFEST,
+				inventory=self.INVENTORY,
+				expected_workspace_fingerprint="1" * 64,
+				expected_validation_root=workspace,
+			)
+
+			control_exception_issue = {
+				"kind": "gut_shard_control_worker_failed",
+				"message": (
+					"gut_shard_worker_exception: "
+					f"{gf_maintenance.gf_gut_shard_worker.CONTROL_SHARD_NAME}: "
+					"synthetic worker exception"
+				),
+			}
+			control_rejected_issue = {
+				"kind": "gut_shard_control_worker_failed",
+				"message": (
+					"gut_shard_worker_report_rejected: "
+					f"{gf_maintenance.gf_gut_shard_worker.CONTROL_SHARD_NAME}: "
+					"synthetic rejected report"
+				),
+			}
+			control_infrastructure_issue = {
+				"kind": "gut_shard_control_worker_failed",
+				"message": (
+					"gut_shard_worker_infrastructure_failed: "
+					f"{gf_maintenance.gf_gut_shard_worker.CONTROL_SHARD_NAME}: "
+					"synthetic unsafe report"
+				),
+			}
+			control_ownership_issue = {
+				"kind": "gut_shard_control_worker_failed",
+				"message": (
+					"gut_shard_workspace_ownership_unproven: "
+					f"{gf_maintenance.gf_gut_shard_worker.CONTROL_SHARD_NAME}: "
+					"synthetic retained workspace"
+				),
+			}
+			for label, issues, expected_message in (
+				(
+					"wave-failure-before-deadline",
+					[
+						control_wave_failure_issue,
+						control_deadline_issue,
+						*control_cleanup_issues,
+					],
+					"deadline did not precede|failure did not follow",
+				),
+				(
+					"exception-before-deadline",
+					[
+						control_exception_issue,
+						control_deadline_issue,
+						*control_cleanup_issues,
+					],
+					"deadline did not precede",
+				),
+				(
+					"rejection-before-deadline",
+					[
+						control_rejected_issue,
+						control_deadline_issue,
+						*control_cleanup_issues,
+					],
+					"deadline did not precede",
+				),
+				(
+					"ownership-before-result",
+					[
+						control_ownership_issue,
+						control_infrastructure_issue,
+						*control_cleanup_issues,
+					],
+					"ownership debt preceded",
+				),
+				(
+					"control-cleanup-before-worker",
+					[
+						control_cleanup_issues[0],
+						control_exception_issue,
+						control_cleanup_issues[1],
+					],
+					"control cleanup evidence preceded",
+				),
+				(
+					"outer-cleanup-before-worker",
+					[
+						control_cleanup_issues[1],
+						control_exception_issue,
+						control_cleanup_issues[0],
+					],
+					"validation cleanup evidence did not follow",
+				),
+				(
+					"primary-after-control-cleanup",
+					[
+						control_cleanup_issues[0],
+						{
+							"kind": "gut_shard_control_report_rejected",
+							"message": "synthetic rejected control",
+						},
+						control_cleanup_issues[1],
+					],
+					"control cleanup evidence preceded",
+				),
+				(
+					"outer-cleanup-before-primary-cleanup",
+					[
+						{
+							"kind": "gut_shard_control_report_rejected",
+							"message": "synthetic rejected control",
+						},
+						control_cleanup_issues[1],
+						control_cleanup_issues[0],
+					],
+					"validation cleanup evidence did not follow",
+				),
+			):
+				with self.subTest(label=label), self.assertRaisesRegex(
+					ValueError,
+					expected_message,
+				):
+					gf_maintenance.validate_gut_shard_run_report(
+						control_failure_report(issues),
+						manifest=self.MANIFEST,
+						inventory=self.INVENTORY,
+						expected_workspace_fingerprint="1" * 64,
+						expected_validation_root=workspace,
+					)
+
 			final_infrastructure_failure = copy.deepcopy(qualified)
 			final_infrastructure_failure.update({
 				"ok": False,
@@ -5708,14 +7094,14 @@ class GutShardRunIntegrationTests(unittest.TestCase):
 				"control": failed_control,
 				"equivalence": None,
 				"issues": [
-					*[{
-						"kind": issue["kind"],
-						"message": issue["message"],
-					} for issue in failed_control["issues"]],
 					{
 						"kind": "gut_shard_control_cleanup_failed",
 						"message": "synthetic retained control root",
 					},
+					*[{
+						"kind": issue["kind"],
+						"message": issue["message"],
+					} for issue in failed_control["issues"]],
 					{
 						"kind": "gut_shard_validation_cleanup_failed",
 						"message": "synthetic retained validation root",
@@ -5807,12 +7193,12 @@ class GutShardRunIntegrationTests(unittest.TestCase):
 							"synthetic peer worker failure"
 						),
 					},
-					derived_issue,
-					*copy.deepcopy(aggregate["issues"]),
 					{
 						"kind": "gut_shard_workspace_cleanup_failed",
 						"message": "synthetic retained candidate batch",
 					},
+					derived_issue,
+					*copy.deepcopy(aggregate["issues"]),
 					{
 						"kind": "gut_shard_validation_cleanup_failed",
 						"message": "synthetic retained validation root",
@@ -5826,6 +7212,18 @@ class GutShardRunIntegrationTests(unittest.TestCase):
 				expected_workspace_fingerprint="1" * 64,
 				expected_validation_root=workspace,
 			)
+			early_nested_issue = copy.deepcopy(report)
+			early_nested_issue["issues"][1:3] = list(reversed(
+				early_nested_issue["issues"][1:3]
+			))
+			with self.assertRaisesRegex(ValueError, "followed its derived candidate"):
+				gf_maintenance.validate_gut_shard_run_report(
+					early_nested_issue,
+					manifest=self.MANIFEST,
+					inventory=self.INVENTORY,
+					expected_workspace_fingerprint="1" * 64,
+					expected_validation_root=workspace,
+				)
 			forged = copy.deepcopy(report)
 			forged["issues"] = [{
 				"kind": "gut_shard_unrelated_failure",

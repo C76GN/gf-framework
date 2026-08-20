@@ -5690,6 +5690,18 @@ def execute_gut_shard_worker_wave(
 					timeout=wait_seconds,
 					return_when=concurrent.futures.FIRST_COMPLETED,
 				)
+				if not deadline_reported and time.perf_counter() >= deadline:
+					cancellation_event.set()
+					if cleanup_state is not None:
+						cleanup_state["permitted"] = False
+					issues.append({
+						"kind": "gut_shard_worker_wave_deadline_exhausted",
+						"message": (
+							"GUT shard parent deadline expired before completed "
+							"worker evidence could be validated."
+						),
+					})
+					deadline_reported = True
 				for future in done:
 					index = future_to_index[future]
 					request = requests[index]
@@ -7272,23 +7284,30 @@ def validate_gut_shard_run_report(
 		} for issue in shard["issues"])
 	if aggregate is not None:
 		required_nested_issues.extend(aggregate["issues"])
+	aggregate_nested_end = len(required_nested_issues)
+	control_nested_start = len(required_nested_issues)
 	if control is not None:
 		required_nested_issues.extend({
 			"kind": issue["kind"],
 			"message": issue["message"],
 		} for issue in control["issues"])
+	control_nested_end = len(required_nested_issues)
 	if equivalence is not None:
 		required_nested_issues.extend(equivalence["issues"])
 	required_issue_index = 0
+	nested_issue_positions: list[int] = []
 	top_only_issues: list[dict[str, str]] = []
-	for issue in issues:
+	top_only_issue_positions: list[int] = []
+	for issue_index, issue in enumerate(issues):
 		if (
 			required_issue_index < len(required_nested_issues)
 			and issue == required_nested_issues[required_issue_index]
 		):
+			nested_issue_positions.append(issue_index)
 			required_issue_index += 1
 		else:
 			top_only_issues.append(issue)
+			top_only_issue_positions.append(issue_index)
 	if required_issue_index != len(required_nested_issues):
 		raise ValueError("GUT shard top-level issues omit derived nested evidence.")
 	if any(
@@ -7407,6 +7426,9 @@ def validate_gut_shard_run_report(
 				"GUT shard control evidence retained unproven process or workspace ownership."
 			)
 	remaining_top_only = list(top_only_issues)
+	remaining_top_only_positions = list(top_only_issue_positions)
+	candidate_derived_cause_positions: list[tuple[int, str]] = []
+	candidate_derived_events: list[tuple[int, dict[str, str]]] = []
 	for expected_issue in required_worker_orchestration_issues:
 		try:
 			matched_index = remaining_top_only.index(expected_issue)
@@ -7414,7 +7436,17 @@ def validate_gut_shard_run_report(
 			raise ValueError(
 				"GUT shard top-level issues omit derived worker orchestration debt."
 			) from error
+		if expected_issue["kind"] != "gut_shard_control_worker_failed":
+			candidate_derived_cause_positions.append((
+				remaining_top_only_positions[matched_index],
+				expected_issue["kind"],
+			))
+			candidate_derived_events.append((
+				remaining_top_only_positions[matched_index],
+				expected_issue,
+			))
 		remaining_top_only.pop(matched_index)
+		remaining_top_only_positions.pop(matched_index)
 	validation_cleanup_present = any(
 		issue["kind"] == "gut_shard_validation_cleanup_failed"
 		for issue in top_only_issues
@@ -7545,12 +7577,58 @@ def validate_gut_shard_run_report(
 					"gut_shard_worker_infrastructure_failed",
 				}
 				and control_result_outcomes
-				and not control_ownership_outcomes
+			and not control_ownership_outcomes
 			)
 		):
 			raise ValueError(
 				"GUT shard control retained mutually exclusive single-worker causes."
 			)
+	control_wave_deadline_indices = [
+		index for index, prefix in enumerate(control_wave_prefixes)
+		if prefix == wave_deadline_prefix
+	]
+	if control_wave_deadline_indices and any(
+		index < control_wave_deadline_indices[0]
+		for index, prefix in enumerate(control_wave_prefixes)
+		if prefix != wave_deadline_prefix
+	):
+		raise ValueError(
+			"GUT shard control worker-wave deadline did not precede every later cause."
+		)
+	control_wave_failure_indices = [
+		index for index, prefix in enumerate(control_wave_prefixes)
+		if prefix == "gut_shard_worker_wave_failed"
+	]
+	if control_wave_failure_indices and any(
+		index > control_wave_failure_indices[0]
+		for index, prefix in enumerate(control_wave_prefixes)
+		if prefix != "gut_shard_worker_wave_failed"
+	):
+		raise ValueError(
+			"GUT shard control worker-wave failure did not follow every earlier cause."
+		)
+	control_result_positions = [
+		index for index, prefix in enumerate(control_wave_prefixes)
+		if prefix in {
+			"gut_shard_worker_deadline_exhausted",
+			"gut_shard_worker_infrastructure_failed",
+		}
+	]
+	control_ownership_positions = [
+		index for index, prefix in enumerate(control_wave_prefixes)
+		if prefix in {
+			"gut_shard_worker_cleanup_debt",
+			"gut_shard_workspace_ownership_unproven",
+			"gut_shard_process_boundary_unproven",
+		}
+	]
+	if control_ownership_positions and (
+		not control_result_positions
+		or control_result_positions[0] >= control_ownership_positions[0]
+	):
+		raise ValueError(
+			"GUT shard control ownership debt preceded its worker-result cause."
+		)
 	for issue in remaining_control_worker_issues:
 		prefix, _separator, detail = issue["message"].partition(":")
 		if (
@@ -7631,6 +7709,15 @@ def validate_gut_shard_run_report(
 			raise ValueError(
 				"GUT shard missing scheduled evidence lacks its exact worker-result cause."
 			)
+		if any(
+			issue["kind"] == "gut_shard_worker_wave_failed"
+			for issue in remaining_top_only
+		) and missing_executed_names and not (
+			missing_executed_names - set(scoped_result_failure_names)
+		):
+			raise ValueError(
+				"GUT shard worker-wave failure does not explain unresolved scheduled evidence."
+			)
 	if len(worker_result_failures) > report["unreported_shard_count"]:
 		raise ValueError(
 			"GUT shard worker exception or rejected report exceeds unreported execution evidence."
@@ -7668,6 +7755,34 @@ def validate_gut_shard_run_report(
 		}
 		for issue in remaining_top_only
 	)
+	control_cause_indices = [
+		index for index, issue in enumerate(top_only_issues)
+		if issue["kind"] == "gut_shard_control_worker_failed"
+		or issue["kind"] in {
+			"gut_shard_control_workspace_acquisition_failed",
+			"gut_shard_control_deadline_exhausted",
+			"gut_shard_control_report_rejected",
+			"gut_shard_control_report_missing",
+		}
+	]
+	control_cleanup_indices = [
+		index for index, issue in enumerate(top_only_issues)
+		if issue["kind"] == "gut_shard_control_cleanup_failed"
+	]
+	if control_cleanup_indices and any(
+		index > control_cleanup_indices[0] for index in control_cause_indices
+	):
+		raise ValueError(
+			"GUT shard control cleanup evidence preceded its control failure cause."
+		)
+	validation_cleanup_indices = [
+		index for index, issue in enumerate(issues)
+		if issue["kind"] == "gut_shard_validation_cleanup_failed"
+	]
+	if validation_cleanup_indices and validation_cleanup_indices[0] != len(issues) - 1:
+		raise ValueError(
+			"GUT shard validation cleanup evidence did not follow every earlier issue."
+		)
 	if inner_control_cleanup_required and not any(
 		issue["kind"] == "gut_shard_control_cleanup_failed"
 		for issue in top_only_issues
@@ -7693,14 +7808,219 @@ def validate_gut_shard_run_report(
 		issue["kind"] == "gut_shard_worker_wave_deadline_exhausted"
 		for issue in remaining_top_only
 	)
-	if worker_wave_deadline_present and any(
-		issue["kind"] == "gut_shard_workspace_fingerprint_boundary_unproven"
-		for issue in worker_result_failures
+	candidate_wave_cause_kinds = {
+		"gut_shard_worker_schedule_failed",
+		"gut_shard_worker_wave_deadline_exhausted",
+		"gut_shard_worker_exception",
+		"gut_shard_worker_wave_failed",
+		"gut_shard_worker_report_rejected",
+		"gut_shard_workspace_fingerprint_boundary_unproven",
+	}
+	candidate_wave_causes = [
+		(index, issue["kind"])
+		for index, issue in zip(remaining_top_only_positions, remaining_top_only)
+		if issue["kind"] in candidate_wave_cause_kinds
+	]
+	candidate_wave_causes.extend(candidate_derived_cause_positions)
+	candidate_wave_causes.sort(key=lambda item: item[0])
+	schedule_cause_indices = [
+		index for index, kind in candidate_wave_causes
+		if kind == "gut_shard_worker_schedule_failed"
+	]
+	if schedule_cause_indices and any(
+		index < schedule_cause_indices[0]
+		for index, kind in candidate_wave_causes
+		if kind != "gut_shard_worker_schedule_failed"
 	):
 		raise ValueError(
-			"GUT shard worker-wave deadline cannot retain workspace-fingerprint "
-			"boundary evidence."
+			"GUT shard worker scheduling failure did not precede every launched-wave cause."
 		)
+	wave_failure_indices = [
+		index for index, kind in candidate_wave_causes
+		if kind == "gut_shard_worker_wave_failed"
+	]
+	if wave_failure_indices and any(
+		index > wave_failure_indices[0]
+		for index, kind in candidate_wave_causes
+		if kind != "gut_shard_worker_wave_failed"
+	):
+		raise ValueError(
+			"GUT shard worker-wave failure did not follow every earlier wave cause."
+		)
+	candidate_result_kinds = {
+		"gut_shard_worker_deadline_exhausted",
+		"gut_shard_worker_infrastructure_failed",
+	}
+	candidate_ownership_kinds = {
+		"gut_shard_worker_cleanup_debt",
+		"gut_shard_workspace_ownership_unproven",
+		"gut_shard_process_boundary_unproven",
+	}
+	for ownership_position, ownership_issue in candidate_derived_events:
+		if ownership_issue["kind"] not in candidate_ownership_kinds:
+			continue
+		ownership_name = ownership_issue["message"].partition(":")[0]
+		matching_result_positions = [
+			position for position, issue in candidate_derived_events
+			if issue["kind"] in candidate_result_kinds
+			and issue["message"].partition(":")[0] == ownership_name
+		]
+		if (
+			len(matching_result_positions) != 1
+			or matching_result_positions[0] >= ownership_position
+		):
+			raise ValueError(
+				"GUT shard candidate ownership debt preceded its worker-result cause."
+			)
+		if matching_result_positions[0] + 1 != ownership_position:
+			raise ValueError(
+				"GUT shard candidate worker result and ownership debt are not adjacent."
+			)
+	fingerprint_boundary_indices = [
+		index for index, kind in candidate_wave_causes
+		if kind == "gut_shard_workspace_fingerprint_boundary_unproven"
+	]
+	wave_deadline_indices = [
+		index for index, kind in candidate_wave_causes
+		if kind == "gut_shard_worker_wave_deadline_exhausted"
+	]
+	executed_shard_count = report["executed_shard_count"]
+	fault_wave_start = (
+		((executed_shard_count - 1) // report["jobs"]) * report["jobs"]
+		if executed_shard_count > 0
+		else 0
+	)
+	fault_wave_size = executed_shard_count - fault_wave_start
+	if wave_deadline_indices and fault_wave_size == 1 and any(
+		index < wave_deadline_indices[0]
+		for index, kind in candidate_wave_causes
+		if kind in {
+			"gut_shard_worker_exception",
+			"gut_shard_worker_report_rejected",
+			"gut_shard_worker_deadline_exhausted",
+			"gut_shard_worker_infrastructure_failed",
+			"gut_shard_worker_cleanup_debt",
+			"gut_shard_workspace_ownership_unproven",
+			"gut_shard_process_boundary_unproven",
+		}
+	):
+		raise ValueError(
+			"GUT shard single-worker result failure preceded its worker-wave deadline."
+		)
+	if fingerprint_boundary_indices and wave_deadline_indices:
+		if (
+			report["jobs"] != 2
+			or fault_wave_size != 2
+			or report["unreported_shard_count"] not in {1, 2}
+			or len(fingerprint_boundary_indices) != 1
+			or len(wave_deadline_indices) != 1
+			or fingerprint_boundary_indices[0] >= wave_deadline_indices[0]
+		):
+			raise ValueError(
+				"GUT shard workspace-fingerprint boundary and worker-wave deadline "
+				"ordering is unreachable."
+			)
+		if report["unreported_shard_count"] == 1:
+			retained_result_positions = [
+				position for position, issue in candidate_derived_events
+				if issue["kind"] in candidate_result_kinds
+			]
+			retained_ownership_positions = [
+				position for position, issue in candidate_derived_events
+				if issue["kind"] in candidate_ownership_kinds
+			]
+			if (
+				len(retained_result_positions) != 1
+				or len(retained_ownership_positions) != 1
+				or retained_result_positions[0] <= wave_deadline_indices[0]
+				or retained_ownership_positions[0] <= retained_result_positions[0]
+			):
+				raise ValueError(
+					"GUT shard post-deadline fingerprint peer lacks retained ownership debt."
+				)
+	if wave_deadline_indices and (
+		report["jobs"] == 2
+		and fault_wave_size == 2
+		and report["unreported_shard_count"] == 1
+	):
+		early_scoped_result_positions = [
+			index for index, kind in candidate_wave_causes
+			if kind in {
+				"gut_shard_worker_exception",
+				"gut_shard_worker_report_rejected",
+				"gut_shard_workspace_fingerprint_boundary_unproven",
+			}
+			and index < wave_deadline_indices[0]
+		]
+		if early_scoped_result_positions:
+			retained_result_positions = [
+				position for position, issue in candidate_derived_events
+				if issue["kind"] in candidate_result_kinds
+			]
+			retained_ownership_positions = [
+				position for position, issue in candidate_derived_events
+				if issue["kind"] in candidate_ownership_kinds
+			]
+			if (
+				len(retained_result_positions) != 1
+				or len(retained_ownership_positions) != 1
+				or retained_result_positions[0] <= wave_deadline_indices[0]
+				or retained_ownership_positions[0] <= retained_result_positions[0]
+			):
+				raise ValueError(
+					"GUT shard pre-deadline result failure retained an unowned peer report."
+				)
+	if wave_deadline_indices:
+		wave_deadline_position = wave_deadline_indices[0]
+		for result_position, result_issue in candidate_derived_events:
+			if result_issue["kind"] not in candidate_result_kinds:
+				continue
+			result_name = result_issue["message"].partition(":")[0]
+			matching_ownership_positions = [
+				position for position, issue in candidate_derived_events
+				if issue["kind"] in candidate_ownership_kinds
+				and issue["message"].partition(":")[0] == result_name
+			]
+			if result_position > wave_deadline_position and (
+				len(matching_ownership_positions) != 1
+				or matching_ownership_positions[0] <= result_position
+			):
+				raise ValueError(
+					"GUT shard post-deadline retained result lacks ownership debt."
+				)
+			if matching_ownership_positions and (
+				(result_position < wave_deadline_position)
+				!= (matching_ownership_positions[0] < wave_deadline_position)
+			):
+				raise ValueError(
+					"GUT shard worker result and ownership debt straddle its wave deadline."
+				)
+		if manifest is not None:
+			post_deadline_scoped_result = any(
+				index > wave_deadline_position
+				for index, kind in candidate_wave_causes
+				if kind in {
+					"gut_shard_worker_exception",
+					"gut_shard_worker_report_rejected",
+					"gut_shard_workspace_fingerprint_boundary_unproven",
+				}
+			)
+			post_deadline_retained_result = any(
+				position > wave_deadline_position
+				for position, issue in candidate_derived_events
+				if issue["kind"] in candidate_result_kinds
+			)
+			unscoped_missing_result = bool(
+				missing_executed_names - set(scoped_result_failure_names)
+			)
+			if not (
+				post_deadline_scoped_result
+				or post_deadline_retained_result
+				or unscoped_missing_result
+			):
+				raise ValueError(
+					"GUT shard worker-wave deadline lacks pending result evidence."
+				)
 	if worker_wave_deadline_present and (
 		report["unreported_shard_count"] == 0 and not worker_ownership_debt
 	):
@@ -7733,6 +8053,90 @@ def validate_gut_shard_run_report(
 	):
 		raise ValueError(
 			"GUT shard in-batch worker failure lacks retained batch-cleanup evidence."
+		)
+	candidate_cause_indices = [
+		index for index, issue in enumerate(top_only_issues)
+		if issue["kind"] in GUT_SHARD_RUN_CANDIDATE_STOP_KINDS
+		and issue["kind"] != "gut_shard_workspace_cleanup_failed"
+	]
+	candidate_cleanup_indices = [
+		index for index, issue in enumerate(top_only_issues)
+		if issue["kind"] == "gut_shard_workspace_cleanup_failed"
+	]
+	if candidate_cleanup_indices and any(
+		index > candidate_cleanup_indices[0] for index in candidate_cause_indices
+	):
+		raise ValueError(
+			"GUT shard candidate workspace cleanup preceded its candidate failure cause."
+		)
+	candidate_nested_positions = nested_issue_positions[:aggregate_nested_end]
+	candidate_stage_issue_positions = [
+		index for index, issue in enumerate(issues)
+		if issue["kind"] in GUT_SHARD_RUN_CANDIDATE_STOP_KINDS
+	]
+	if candidate_nested_positions and any(
+		index > candidate_nested_positions[0]
+		for index in candidate_stage_issue_positions
+	):
+		raise ValueError(
+			"GUT shard candidate failure evidence followed its derived candidate evidence."
+		)
+	control_nested_positions = nested_issue_positions[
+		control_nested_start:control_nested_end
+	]
+	control_stage_issue_positions = [
+		index for index, issue in enumerate(issues)
+		if issue["kind"].startswith("gut_shard_control_")
+	]
+	if candidate_nested_positions and any(
+		index < candidate_nested_positions[-1]
+		for index in control_stage_issue_positions
+	):
+		raise ValueError(
+			"GUT shard control-stage evidence preceded candidate nested evidence."
+		)
+	if control_nested_positions and any(
+		index > control_nested_positions[0]
+		for index in control_stage_issue_positions
+	):
+		raise ValueError(
+			"GUT shard control-stage evidence followed its nested control evidence."
+		)
+	comparison_failure_positions = [
+		index for index, issue in enumerate(issues)
+		if issue["kind"] == "gut_shard_comparison_failed"
+	]
+	pre_comparison_nested_positions = nested_issue_positions[:control_nested_end]
+	if comparison_failure_positions and pre_comparison_nested_positions and (
+		comparison_failure_positions[0] < pre_comparison_nested_positions[-1]
+	):
+		raise ValueError(
+			"GUT shard comparison failure preceded candidate or control evidence."
+		)
+	final_stage_issue_kinds = {
+		"gut_shard_final_infrastructure_failed",
+		"gut_shard_final_source_verification_failed",
+		"gut_shard_final_source_drift",
+	}
+	if aggregate is not None:
+		final_stage_issue_kinds.add("gut_shard_runtime_source_mismatch")
+	final_stage_issue_positions = [
+		index for index, issue in enumerate(issues)
+		if issue["kind"] in final_stage_issue_kinds
+	]
+	if final_stage_issue_positions and nested_issue_positions and (
+		final_stage_issue_positions[0] < nested_issue_positions[-1]
+	):
+		raise ValueError(
+			"GUT shard final-proof evidence preceded published nested evidence."
+		)
+	if (
+		final_stage_issue_positions
+		and comparison_failure_positions
+		and final_stage_issue_positions[0] < comparison_failure_positions[0]
+	):
+		raise ValueError(
+			"GUT shard final-proof evidence preceded comparison failure evidence."
 		)
 	schedule_failures = [
 		issue for issue in top_only_issues
