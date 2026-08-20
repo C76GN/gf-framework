@@ -10,7 +10,6 @@ import os
 import re
 import shutil
 import stat
-import subprocess
 import threading
 import time
 from dataclasses import dataclass
@@ -50,6 +49,25 @@ class WorkspaceDriftError(WorkspaceSnapshotError):
 
 class WorkspaceDeadlineError(WorkspaceSnapshotError):
 	"""Raised when snapshot setup exhausts its owning suite deadline."""
+
+
+class WorkspaceProcessBoundaryError(WorkspaceSnapshotError):
+	"""Raised when a materializer Git process boundary cannot be proven quiet."""
+
+	def __init__(
+		self,
+		message: str,
+		*,
+		preserved_paths: tuple[Path, ...] = (),
+	) -> None:
+		super().__init__(message)
+		self.cleanup_debt = True
+		self.process_boundary_quiescent = False
+		self.preserved_paths = preserved_paths
+
+	def preserve_owned_paths(self, paths: Iterable[Path]) -> None:
+		"""Attach exact materializer roots retained for external diagnosis."""
+		self.preserved_paths = tuple(_absolute_lexical_path(Path(path)) for path in paths)
 
 
 @dataclass(frozen=True)
@@ -151,6 +169,9 @@ class ParallelShardResult:
 	pid: int
 	started: bool
 	notes: tuple[str, ...] = ()
+	# Kept in-memory so callers that own disposable roots can gate cleanup without
+	# changing the long-standing serialized parallel-report schema.
+	process_boundary_quiescent: bool = False
 
 	@property
 	def ok(self) -> bool:
@@ -225,6 +246,7 @@ def materialize_workspace(
 	*,
 	deadline: float | None = None,
 	verify_source: bool = True,
+	identity_callback: Callable[[tuple[int, int, int]], None] | None = None,
 ) -> Path:
 	"""Materialize a verified local shared clone of ``snapshot`` at ``target``."""
 	_check_deadline(deadline, "workspace materialization")
@@ -254,6 +276,7 @@ def materialize_workspace(
 	staging_workspace = staging_root / "w"
 	published_workspace_identity: os.stat_result | None = None
 	published = False
+	cleanup_allowed = True
 	try:
 		_run_git(
 			target_parent,
@@ -322,14 +345,25 @@ def materialize_workspace(
 		published_snapshot = _capture_workspace_once(target_path, deadline=deadline)
 		if not _snapshots_have_identical_payload(snapshot, published_snapshot):
 			raise WorkspaceSnapshotError("Published workspace drifted during materialization.")
+		if identity_callback is not None:
+			identity_callback(_owned_directory_identity(published_workspace_identity))
 		_check_deadline(deadline, "workspace materialization")
 		return target_path
+	except WorkspaceProcessBoundaryError as error:
+		cleanup_allowed = False
+		preserved_paths: list[Path] = []
+		if published and os.path.lexists(target_path):
+			preserved_paths.append(target_path)
+		if os.path.lexists(staging_root):
+			preserved_paths.append(staging_root)
+		error.preserve_owned_paths(preserved_paths)
+		raise
 	except BaseException:
 		if published and os.path.lexists(target_path):
 			_remove_owned_tree(target_path, expected_identity=published_workspace_identity)
 		raise
 	finally:
-		if os.path.lexists(staging_root):
+		if cleanup_allowed and os.path.lexists(staging_root):
 			_remove_owned_tree(staging_root, expected_identity=staging_root_identity)
 
 
@@ -1157,30 +1191,42 @@ def _run_git(
 	environment = os.environ.copy()
 	environment["GIT_OPTIONAL_LOCKS"] = "0"
 	try:
-		completed = subprocess.run(
+		completed = run_supervised_process(
 			["git", *arguments],
 			cwd=root,
-			input=input_bytes,
-			stdout=subprocess.PIPE,
-			stderr=subprocess.PIPE,
-			check=False,
-			timeout=min(GIT_TIMEOUT_SECONDS, timeout_seconds),
-			env=environment,
+			timeout_seconds=min(GIT_TIMEOUT_SECONDS, timeout_seconds),
+			environment=environment,
+			stdin_bytes=input_bytes,
+			text_errors="surrogateescape",
+			binary_output=True,
 		)
-	except subprocess.TimeoutExpired as exc:
+	except BaseException as exc:
+		raise WorkspaceProcessBoundaryError(
+			f"Git process supervision did not return a quiet-boundary proof for "
+			f"{' '.join(arguments)}."
+		) from exc
+	if not completed.process_boundary_quiescent:
+		raise WorkspaceProcessBoundaryError(
+			f"Git process supervision did not prove a quiet process boundary for "
+			f"{' '.join(arguments)}."
+		)
+	if completed.timed_out:
 		if deadline is not None and time.perf_counter() >= deadline:
 			raise WorkspaceDeadlineError(
 				f"Suite deadline exhausted while running git {' '.join(arguments)}."
-			) from exc
-		raise WorkspaceSnapshotError(f"Could not run git {' '.join(arguments)}: {exc}") from exc
-	except OSError as exc:
-		raise WorkspaceSnapshotError(f"Could not run git {' '.join(arguments)}: {exc}") from exc
-	if completed.returncode != 0:
-		message = completed.stderr.decode("utf-8", errors="replace").strip()
+			)
 		raise WorkspaceSnapshotError(
-			f"git {' '.join(arguments)} failed with exit code {completed.returncode}: {message}"
+			f"Could not run git {' '.join(arguments)} before its bounded timeout."
 		)
-	return completed.stdout
+	if completed.return_code != 0:
+		message = completed.stderr.encode(
+			"utf-8",
+			errors="surrogateescape",
+		).decode("utf-8", errors="replace").strip()
+		raise WorkspaceSnapshotError(
+			f"git {' '.join(arguments)} failed with exit code {completed.return_code}: {message}"
+		)
+	return completed.stdout.encode("utf-8", errors="surrogateescape")
 
 
 def _remaining_timeout(deadline: float | None, operation: str) -> float:
@@ -1241,6 +1287,20 @@ def _same_owned_directory_identity(left: os.stat_result, right: os.stat_result) 
 		and left_device == int(getattr(right, "st_dev", 0))
 		and left_inode == int(getattr(right, "st_ino", 0))
 	)
+
+
+def _owned_directory_identity(metadata: os.stat_result) -> tuple[int, int, int]:
+	"""Return the portable identity token used by materialization ownership checks."""
+	device = int(getattr(metadata, "st_dev", 0))
+	inode = int(getattr(metadata, "st_ino", 0))
+	if (
+		not stat.S_ISDIR(metadata.st_mode)
+		or stat.S_ISLNK(metadata.st_mode)
+		or bool(int(getattr(metadata, "st_file_attributes", 0)) & FILE_ATTRIBUTE_REPARSE_POINT)
+		or (device == 0 and inode == 0)
+	):
+		raise WorkspaceSnapshotError("Published workspace has no stable real-directory identity.")
+	return device, inode, int(metadata.st_mode)
 
 
 def _make_remove_writable(function: Callable[[str], object], path: str, error: BaseException) -> None:
@@ -1325,6 +1385,7 @@ def _run_parallel_shard(
 			pid=0,
 			started=False,
 			notes=(f"Could not start shard command: {exc}",),
+			process_boundary_quiescent=False,
 		)
 
 	reason = cancellation.reason()
@@ -1349,6 +1410,7 @@ def _run_parallel_shard(
 		pid=process_result.pid,
 		started=process_result.pid > 0,
 		notes=tuple(notes),
+		process_boundary_quiescent=process_result.process_boundary_quiescent,
 	)
 
 
@@ -1370,4 +1432,5 @@ def _not_started_result(shard: ParallelShard, reason: str) -> ParallelShardResul
 		pid=0,
 		started=False,
 		notes=(f"Shard did not start because {effective_reason}.",),
+		process_boundary_quiescent=True,
 	)

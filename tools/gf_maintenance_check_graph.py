@@ -16,6 +16,8 @@ from typing import Any
 from typing import Iterable
 from typing import Mapping
 
+from gf_process_supervisor import run_supervised_process
+
 
 FILE_ATTRIBUTE_REPARSE_POINT = 0x0400
 WORKSPACE_FINGERPRINT_CHUNK_BYTES = 1024 * 1024
@@ -33,6 +35,15 @@ class WorkspaceFingerprintSetupError(WorkspaceFingerprintError):
 
 class WorkspaceFingerprintDriftError(WorkspaceFingerprintError):
 	"""Raised when a workspace entry changes during fingerprinting."""
+
+
+class WorkspaceFingerprintProcessBoundaryError(WorkspaceFingerprintError):
+	"""Raised when a fingerprint Git process is not proven fully quiescent."""
+
+	def __init__(self, message: str) -> None:
+		super().__init__(message)
+		self.cleanup_debt = True
+		self.process_boundary_quiescent = False
 
 
 def stable_fingerprint(value: Any) -> str:
@@ -311,19 +322,47 @@ def _same_regular_file_cross_view(left: os.stat_result, right: os.stat_result) -
 	)
 
 
-def run_git_bytes(root: Path, args: list[str], *, deadline: float | None = None) -> bytes:
+def run_git_bytes(
+	root: Path,
+	args: list[str],
+	*,
+	input_bytes: bytes | None = None,
+	deadline: float | None = None,
+) -> bytes:
+	"""Run Git under the shared tree owner while preserving exact binary I/O."""
 	timeout_seconds = _remaining_timeout(deadline, "workspace fingerprint git operation")
-	completed = subprocess.run(
-		["git", *args],
-		cwd=root,
-		capture_output=True,
-		check=False,
-		timeout=min(30.0, timeout_seconds),
-	)
-	if completed.returncode != 0:
-		message = completed.stderr.decode("utf-8", errors="replace").strip()
+	effective_timeout = min(30.0, timeout_seconds)
+	command = ["git", *args]
+	try:
+		completed = run_supervised_process(
+			command,
+			cwd=root,
+			timeout_seconds=effective_timeout,
+			stdin_bytes=input_bytes,
+			text_errors="surrogateescape",
+			binary_output=True,
+		)
+	except BaseException as error:
+		raise WorkspaceFingerprintProcessBoundaryError(
+			"Git workspace fingerprint supervision did not return a quiet-boundary proof."
+		) from error
+	if completed.process_boundary_quiescent is not True:
+		raise WorkspaceFingerprintProcessBoundaryError(
+			"Git workspace fingerprint supervision did not prove a quiet process boundary."
+		)
+	stdout = completed.stdout.encode("utf-8", errors="surrogateescape")
+	stderr = completed.stderr.encode("utf-8", errors="surrogateescape")
+	if completed.timed_out:
+		raise subprocess.TimeoutExpired(
+			command,
+			effective_timeout,
+			output=stdout,
+			stderr=stderr,
+		)
+	if completed.return_code != 0:
+		message = stderr.decode("utf-8", errors="replace").strip()
 		raise RuntimeError(f"git {' '.join(args)} failed: {message}")
-	return completed.stdout
+	return stdout
 
 
 def _remaining_timeout(deadline: float | None, operation: str) -> float:

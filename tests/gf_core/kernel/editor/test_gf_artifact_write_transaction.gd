@@ -2502,18 +2502,25 @@ func _remove_absolute_path(
 		)
 		return
 	if FileAccess.file_exists(path):
-		var _remove_file_result: Error = DirAccess.remove_absolute(path)
+		var remove_file_result: Error = DirAccess.remove_absolute(path)
+		assert_eq(
+			remove_file_result,
+			OK,
+			"测试清理必须成功删除临时目录内的文件。"
+		)
 		return
 	if not DirAccess.dir_exists_absolute(path):
 		return
 	var directory: DirAccess = DirAccess.open(path)
 	if directory == null:
+		fail_test("无法打开测试清理目录：%s" % path)
 		return
 	directory.include_hidden = true
 	directory.include_navigational = false
 	var child_paths: PackedStringArray = PackedStringArray()
 	var list_error: Error = directory.list_dir_begin()
 	if list_error != OK:
+		directory = null
 		fail_test("无法枚举测试清理目录：%s" % path)
 		return
 	var entry_name: String = directory.get_next()
@@ -2524,9 +2531,15 @@ func _remove_absolute_path(
 			)
 		entry_name = directory.get_next()
 	directory.list_dir_end()
+	directory = null
 	for child_path: String in child_paths:
 		_remove_absolute_path(child_path)
-	var _remove_directory_result: Error = DirAccess.remove_absolute(path)
+	var remove_directory_result: Error = DirAccess.remove_absolute(path)
+	assert_eq(
+		remove_directory_result,
+		OK,
+		"测试清理必须成功删除临时目录。"
+	)
 
 
 func _is_path_inside_temp_root(

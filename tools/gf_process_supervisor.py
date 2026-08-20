@@ -7,11 +7,13 @@ import os
 import signal
 import subprocess
 import sys
+import tempfile
 import threading
 import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
+from typing import BinaryIO
 from typing import Callable
 
 
@@ -117,6 +119,9 @@ class _ProcessTreeOwner:
 		self._closed = False
 		self._termination_succeeded = False
 		self._cleanup_confirmation_succeeded = False
+		self._stdin_stream: BinaryIO | None = None
+		self._text_errors = "replace"
+		self._binary_output = False
 
 	def start(
 		self,
@@ -158,7 +163,6 @@ class _ProcessTreeOwner:
 	def close_terminates_tree(self) -> bool:
 		return False
 
-
 class _PosixProcessGroupOwner(_ProcessTreeOwner):
 	"""Keep the group leader unreaped until its independently owned group is empty."""
 
@@ -178,16 +182,20 @@ class _PosixProcessGroupOwner(_ProcessTreeOwner):
 	) -> subprocess.Popen[str]:
 		process: subprocess.Popen[str] | None = None
 		try:
+			text_options: dict[str, object] = {"text": False} if self._binary_output else {
+				"text": True,
+				"encoding": "utf-8",
+				"errors": self._text_errors,
+			}
 			process = subprocess.Popen(
 				command,
 				cwd=cwd,
+				stdin=self._stdin_stream,
 				stdout=subprocess.PIPE,
 				stderr=subprocess.PIPE,
-				text=True,
-				encoding="utf-8",
-				errors="replace",
 				env=environment,
 				start_new_session=True,
+				**text_options,
 			)
 			self._started_process = process
 			self.process_group_id = process.pid
@@ -502,9 +510,15 @@ if os.name == "nt":
 					else:
 						# An exception after entering CloseHandle makes the kernel
 						# result unknowable. Consume the numeric value rather than
-						# risking a close against a reused handle.
+						# risking a close against a reused handle. Keep an unreaped
+						# direct child published even after the Job is gone so an
+						# already-installed outer cleanup guard can retry it.
 						owner.handle = 0
-						owner._started_process = None
+						if (
+							owner._started_process is not None
+							and owner._started_process.returncode is not None
+						):
+							owner._started_process = None
 						owner._closed = True
 					owner._close_operation = None
 			operation.finished.set()
@@ -651,16 +665,20 @@ if os.name == "nt":
 			process: subprocess.Popen[str] | None = None
 			assigned_to_job = False
 			try:
+				text_options: dict[str, object] = {"text": False} if self._binary_output else {
+					"text": True,
+					"encoding": "utf-8",
+					"errors": self._text_errors,
+				}
 				process = subprocess.Popen(
 					command,
 					cwd=cwd,
+					stdin=self._stdin_stream,
 					stdout=subprocess.PIPE,
 					stderr=subprocess.PIPE,
-					text=True,
-					encoding="utf-8",
-					errors="replace",
 					env=environment,
 					creationflags=subprocess.CREATE_NEW_PROCESS_GROUP | _CREATE_SUSPENDED,
+					**text_options,
 				)
 				self._started_process = process
 				setattr(process, "_gf_process_tree_owner", self)
@@ -703,7 +721,16 @@ if os.name == "nt":
 						# Startup must preserve its first exception after exhausting cleanup.
 						pass
 				finally:
-					self._started_process = None
+					# Closing an empty/unassigned Job cannot stop this suspended
+					# child. Publish it until wait() has positively observed direct
+					# exit so the outer cleanup chain can retry local kill/reap
+					# failures instead of losing the only process handle.
+					with self._handle_state_lock:
+						if process.returncode is None:
+							self._started_process = process
+							self.cleanup_failed = True
+						elif self._started_process is process:
+							self._started_process = None
 				raise
 
 		def wait_for_direct_exit(
@@ -782,9 +809,14 @@ if os.name == "nt":
 		def close(self) -> list[str]:
 			with self._handle_state_lock:
 				already_closed = self.handle == 0 and self._close_operation is None
+				if already_closed:
+					if (
+						self._started_process is not None
+						and self._started_process.returncode is not None
+					):
+						self._started_process = None
+					self._closed = True
 			if already_closed:
-				self._started_process = None
-				self._closed = True
 				return []
 			outcome = _close_windows_handle_in_worker(self)
 			if outcome.called and outcome.result is False:
@@ -798,7 +830,6 @@ if os.name == "nt":
 		def close_terminates_tree(self) -> bool:
 			return True
 
-
 def _new_process_tree_owner() -> _ProcessTreeOwner:
 	if os.name == "nt":
 		return _WindowsJobOwner()
@@ -807,6 +838,17 @@ def _new_process_tree_owner() -> _ProcessTreeOwner:
 
 @dataclass(frozen=True)
 class SupervisedProcessResult:
+	"""One command result with an explicit platform-boundary cleanup proof.
+
+	``process_boundary_quiescent`` is true only when the Windows Job Object was
+	observed empty, or the POSIX process group was absent/contained no executable
+	members, before its owner was released (or no process was ever started). On
+	POSIX this does not claim
+	containment against a descendant that deliberately leaves the owned group.
+	The field is independent of command success, timeout/cancellation, and output
+	completeness.
+	"""
+
 	return_code: int
 	stdout: str
 	stderr: str
@@ -817,6 +859,7 @@ class SupervisedProcessResult:
 	cancelled: bool = False
 	stdout_truncated: bool = False
 	stderr_truncated: bool = False
+	process_boundary_quiescent: bool = False
 
 
 def run_supervised_process(
@@ -832,8 +875,17 @@ def run_supervised_process(
 	cancellation_event: threading.Event | None = None,
 	max_stdout_characters: int | None = None,
 	max_stderr_characters: int | None = None,
+	stdin_bytes: bytes | None = None,
+	text_errors: str = "replace",
+	binary_output: bool = False,
 ) -> SupervisedProcessResult:
 	started = time.perf_counter()
+	if stdin_bytes is not None and not isinstance(stdin_bytes, bytes):
+		raise TypeError("stdin_bytes must be bytes or None.")
+	if text_errors not in {"replace", "surrogateescape"}:
+		raise ValueError("text_errors must be 'replace' or 'surrogateescape'.")
+	if not isinstance(binary_output, bool):
+		raise TypeError("binary_output must be a bool.")
 	for stream_name, capture_limit in (
 		("stdout", max_stdout_characters),
 		("stderr", max_stderr_characters),
@@ -852,6 +904,7 @@ def run_supervised_process(
 			pid=0,
 			notes=("Command was cancelled before its process started.",),
 			cancelled=True,
+			process_boundary_quiescent=True,
 		)
 	owner: _ProcessTreeOwner | None = None
 	process: subprocess.Popen[str] | None = None
@@ -1032,7 +1085,25 @@ def run_supervised_process(
 						try:
 							try:
 								owner = _new_process_tree_owner()
-								process = owner.start(command, cwd=cwd, environment=environment)
+								stdin_stream: BinaryIO | None = None
+								try:
+									if stdin_bytes is not None:
+										stdin_stream = tempfile.TemporaryFile(mode="w+b")
+										stdin_stream.write(stdin_bytes)
+										stdin_stream.seek(0)
+									owner._stdin_stream = stdin_stream
+									owner._text_errors = text_errors
+									owner._binary_output = binary_output
+									process = owner.start(
+										command,
+										cwd=cwd,
+										environment=environment,
+									)
+								finally:
+									if stdin_stream is not None:
+										stdin_stream.close()
+									if owner is not None:
+										owner._stdin_stream = None
 								_process_supervision_checkpoint("process_owner_started")
 								setattr(process, "_gf_process_tree_owner", owner)
 								output_threads.append(start_output_pump(
@@ -1046,6 +1117,7 @@ def run_supervised_process(
 									activity_lock,
 									max_stdout_characters,
 									stdout_truncated,
+									text_errors,
 								))
 								output_threads.append(start_output_pump(
 									process.stderr,
@@ -1058,6 +1130,7 @@ def run_supervised_process(
 									activity_lock,
 									max_stderr_characters,
 									stderr_truncated,
+									text_errors,
 								))
 								while not owner.wait_for_direct_exit(process, 0.0):
 									now = time.perf_counter()
@@ -1167,6 +1240,12 @@ def run_supervised_process(
 		cancelled=cancelled,
 		stdout_truncated=stdout_truncated[0],
 		stderr_truncated=stderr_truncated[0],
+		process_boundary_quiescent=(
+			owner.is_closed()
+			and tree_termination_completed
+			and direct_reap_completed
+			and cleanup_confirmation_completed
+		),
 	)
 
 
@@ -1181,6 +1260,7 @@ def start_output_pump(
 	activity_lock: threading.Lock,
 	max_capture_characters: int | None = None,
 	capture_truncated: list[bool] | None = None,
+	decode_errors: str = "replace",
 ) -> threading.Thread:
 	def pump() -> None:
 		if pipe is None:
@@ -1192,7 +1272,12 @@ def start_output_pump(
 				else (lambda: pipe.read(4096))
 			)
 			captured_characters = 0
-			for output_chunk in iter(read_next, ""):
+			while True:
+				output_chunk = read_next()
+				if not output_chunk:
+					break
+				if isinstance(output_chunk, bytes):
+					output_chunk = output_chunk.decode("utf-8", errors=decode_errors)
 				if max_capture_characters is None:
 					parts.append(output_chunk)
 				else:

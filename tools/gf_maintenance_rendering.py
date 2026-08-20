@@ -901,6 +901,67 @@ def render_gut_shard_plan_text(data: dict[str, Any]) -> str:
 	return "\n".join(lines)
 
 
+def render_gut_shard_run_text(data: dict[str, Any]) -> str:
+	lines = [
+		(
+			f"gut_shard_run: ok={data['ok']} candidate_eligible={data['candidate_eligible']} "
+			f"qualified={data['qualified']} qualification={data['qualification_status']} "
+			f"jobs={data['jobs']} executed={data['executed_shard_count']}/{data['shard_count']} "
+			f"completed={data['completed_shard_count']} successful={data['successful_shard_count']} "
+			f"failed={data['failed_shard_count']} unreported={data['unreported_shard_count']} "
+			f"not_scheduled={data['not_scheduled_shard_count']} issues={len(data['issues'])}"
+		),
+		(
+			f"manifest: {data['manifest_path']} digest={data.get('manifest_digest', '')} "
+			f"inventory={data.get('inventory_count', 0)}:{data.get('inventory_digest', '')} "
+			f"runtime_source={data.get('runtime_source_digest', '')}"
+		),
+		(
+			f"evidence: authoritative={data['authoritative']} "
+			f"merge_evidence={data['merge_evidence']} "
+			f"workspace={data.get('workspace_fingerprint', '')}"
+		),
+	]
+	policy = data.get("observation_policy", {})
+	lines.append(
+		"policy: "
+		f"skips={policy.get('skip_count', 0)} "
+		f"cache_reads={policy.get('cache_read_count', 0)} "
+		f"cache_writes={policy.get('cache_write_count', 0)} "
+		f"reuse={policy.get('reuse_count', 0)}"
+	)
+	isolation_probe = data.get("isolation_probe", {})
+	lines.append(
+		f"isolation_probe: ok={isolation_probe.get('ok', False)} "
+		f"probes={isolation_probe.get('probe_count', 0)} "
+		f"fields={','.join(isolation_probe.get('fields', []))}"
+	)
+	for shard in data.get("shards", []):
+		request = shard.get("request", {}) if isinstance(shard, dict) else {}
+		name = request.get("shard_name", shard.get("name", ""))
+		lines.append(
+			f"- {name}: ok={shard.get('ok', False)} "
+			f"scripts={shard.get('selection_count', 0)} "
+			f"import_runs={shard.get('import_run_count', 0)} "
+			f"gut_runs={shard.get('gut_run_count', 0)} "
+			f"duration={float(shard.get('duration_seconds', 0.0)):.3f}s"
+		)
+	if isinstance(data.get("control"), dict):
+		control = data["control"]
+		lines.append(
+			f"control: ok={control.get('ok', False)} "
+			f"scripts={control.get('selection_count', 0)} "
+			f"duration={float(control.get('duration_seconds', 0.0)):.3f}s"
+		)
+	if isinstance(data.get("equivalence"), dict):
+		lines.append(
+			f"equivalence: equivalent={data['equivalence'].get('equivalent', False)}"
+		)
+	for issue in data["issues"]:
+		lines.append(f"- {issue['kind']}: {issue.get('message', '')}".rstrip())
+	return "\n".join(lines)
+
+
 def render_package_godot_cli_smoke_text(data: dict[str, Any]) -> str:
 	lines = [
 		(
