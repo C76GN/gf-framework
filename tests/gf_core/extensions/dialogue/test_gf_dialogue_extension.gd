@@ -75,6 +75,471 @@ func test_dialogue_runner_emits_mutation_requested_for_response_mutation() -> vo
 	)
 
 
+func test_dialogue_runner_snapshot_requires_a_restorable_session_state() -> void:
+	var idle_runner: GFDialogueRunner = GFDialogueRunner.new()
+	var idle_snapshot: Dictionary = idle_runner.create_runtime_snapshot()
+
+	var resource: GFDialogueResource = GFDialogueResource.new()
+	resource.start_line_id = &"start"
+	resource.set_line(_make_text_line(&"start", "Start", &""))
+	var runner: GFDialogueRunner = GFDialogueRunner.new()
+	var started_snapshots: Array[Dictionary] = []
+	var started_callback: Callable = func(_resource: GFDialogueResource) -> void:
+		started_snapshots.append(runner.create_runtime_snapshot())
+	var _started_connection_error: Error = runner.dialogue_started.connect(started_callback) as Error
+
+	var reached: GFDialogueLine = runner.start(resource)
+	if runner.dialogue_started.is_connected(started_callback):
+		runner.dialogue_started.disconnect(started_callback)
+	var stable_snapshot: Dictionary = runner.create_runtime_snapshot()
+	var restored_runner: GFDialogueRunner = GFDialogueRunner.new()
+	var restored: GFDialogueLine = restored_runner.restore_runtime_snapshot(
+		resource,
+		stable_snapshot
+	)
+
+	assert_true(idle_snapshot.is_empty(), "未开始过会话时没有可恢复资源身份，不得返回成功快照。")
+	assert_eq(started_snapshots.size(), 1, "dialogue_started 应同步观察一次快照创建结果。")
+	assert_true(_single_snapshot_is_empty(started_snapshots), "dialogue_started 仍在推进起点，不得返回成功快照。")
+	assert_not_null(reached, "测试资源应到达稳定 TEXT checkpoint。")
+	assert_false(stable_snapshot.is_empty(), "稳定 TEXT checkpoint 应继续返回兼容快照。")
+	var expected_snapshot_keys: Array[String] = [
+		"schema_version",
+		"is_running",
+		"current_line_id",
+		"resource_fingerprint",
+		"context_values",
+	]
+	assert_eq(stable_snapshot.size(), expected_snapshot_keys.size(), "成功快照必须保持既有精确五字段 schema。")
+	for key: String in expected_snapshot_keys:
+		assert_true(stable_snapshot.has(key), "成功快照缺少必需字段 %s。" % key)
+	assert_not_null(restored, "每个成功创建的运行中快照都必须可恢复。")
+	if restored != null:
+		assert_eq(restored.line_id, &"start", "恢复后应回到成功快照的稳定 TEXT 行。")
+
+
+func test_dialogue_runner_rejects_snapshot_during_line_mutation() -> void:
+	var resource: GFDialogueResource = GFDialogueResource.new()
+	resource.start_line_id = &"mutate"
+	var mutation_line: GFDialogueLine = GFDialogueLine.new()
+	mutation_line.line_id = &"mutate"
+	mutation_line.kind = GFDialogueLine.LineKind.MUTATION
+	mutation_line.mutation_id = &"mark"
+	mutation_line.next_line_id = &"done"
+	resource.set_line(mutation_line)
+	resource.set_line(_make_text_line(&"done", "Done", &""))
+	var runner: GFDialogueRunner = GFDialogueRunner.new()
+	var signal_snapshots: Array[Dictionary] = []
+	var handler_snapshots: Array[Dictionary] = []
+	var context: GFDialogueContext = GFDialogueContext.new()
+	context.mutation_handler = func(
+		_mutation_id: StringName,
+		_payload: Variant,
+		_subject: Variant,
+		mutation_context: GFDialogueContext
+	) -> bool:
+		var _updated_context: GFDialogueContext = mutation_context.set_value(&"mutated", true)
+		handler_snapshots.append(runner.create_runtime_snapshot())
+		return true
+	var mutation_callback: Callable = func(
+		_mutation_id: StringName,
+		_payload: Variant,
+		_line: GFDialogueLine
+	) -> void:
+		signal_snapshots.append(runner.create_runtime_snapshot())
+	var _mutation_connection_error: Error = runner.mutation_requested.connect(mutation_callback) as Error
+
+	var reached: GFDialogueLine = runner.start(resource, &"", context)
+	if runner.mutation_requested.is_connected(mutation_callback):
+		runner.mutation_requested.disconnect(mutation_callback)
+	context.mutation_handler = Callable()
+	var stable_snapshot: Dictionary = runner.create_runtime_snapshot()
+	var restored: GFDialogueLine = GFDialogueRunner.new().restore_runtime_snapshot(
+		resource,
+		stable_snapshot
+	)
+
+	assert_not_null(reached, "mutation 成功后应到达稳定 TEXT checkpoint。")
+	assert_eq(signal_snapshots.size(), 1, "行 mutation signal 应同步观察一次快照创建结果。")
+	assert_eq(handler_snapshots.size(), 1, "行 mutation handler 应同步观察一次快照创建结果。")
+	assert_true(_single_snapshot_is_empty(signal_snapshots), "行 mutation signal 仍在推进中，不得返回成功快照。")
+	assert_true(_single_snapshot_is_empty(handler_snapshots), "行 mutation handler 已有副作用但未提交 TEXT，不得返回成功快照。")
+	assert_false(stable_snapshot.is_empty(), "mutation 后的稳定 TEXT checkpoint 应可创建快照。")
+	assert_not_null(restored, "mutation 后成功创建的快照必须可恢复。")
+	if restored != null:
+		assert_eq(restored.line_id, &"done", "恢复不得回到已执行的 mutation 行。")
+
+
+func test_dialogue_runner_rejects_snapshot_during_response_mutation() -> void:
+	var resource: GFDialogueResource = GFDialogueResource.new()
+	resource.start_line_id = &"start"
+	var start: GFDialogueLine = _make_text_line(&"start", "Start", &"")
+	var response: GFDialogueResponse = GFDialogueResponse.new()
+	response.response_id = &"pick"
+	response.next_line_id = &"done"
+	response.mutation_id = &"grant"
+	start.responses.append(response)
+	resource.set_line(start)
+	resource.set_line(_make_text_line(&"done", "Done", &""))
+	var runner: GFDialogueRunner = GFDialogueRunner.new()
+	var signal_snapshots: Array[Dictionary] = []
+	var handler_snapshots: Array[Dictionary] = []
+	var context: GFDialogueContext = GFDialogueContext.new()
+	context.mutation_handler = func(
+		_mutation_id: StringName,
+		_payload: Variant,
+		_subject: Variant,
+		mutation_context: GFDialogueContext
+	) -> bool:
+		var _updated_context: GFDialogueContext = mutation_context.set_value(&"granted", true)
+		handler_snapshots.append(runner.create_runtime_snapshot())
+		return true
+	var _start_line: GFDialogueLine = runner.start(resource, &"", context)
+	var mutation_callback: Callable = func(
+		_mutation_id: StringName,
+		_payload: Variant,
+		_line: GFDialogueLine
+	) -> void:
+		signal_snapshots.append(runner.create_runtime_snapshot())
+		var _nested_missing_response: GFDialogueLine = runner.advance(&"missing")
+		signal_snapshots.append(runner.create_runtime_snapshot())
+	var _mutation_connection_error: Error = runner.mutation_requested.connect(mutation_callback) as Error
+
+	var reached: GFDialogueLine = runner.choose_response(&"pick")
+	if runner.mutation_requested.is_connected(mutation_callback):
+		runner.mutation_requested.disconnect(mutation_callback)
+	context.mutation_handler = Callable()
+	var stable_snapshot: Dictionary = runner.create_runtime_snapshot()
+	var restored: GFDialogueLine = GFDialogueRunner.new().restore_runtime_snapshot(
+		resource,
+		stable_snapshot
+	)
+
+	assert_not_null(reached, "响应 mutation 成功后应到达稳定 TEXT checkpoint。")
+	assert_eq(signal_snapshots.size(), 2, "响应 mutation signal 应在嵌套推进前后各观察一次快照创建结果。")
+	assert_eq(handler_snapshots.size(), 1, "响应 mutation handler 应同步观察一次快照创建结果。")
+	if signal_snapshots.size() == 2:
+		assert_true(
+			signal_snapshots[0].is_empty() and signal_snapshots[1].is_empty(),
+			"响应 mutation signal 的嵌套推进返回后仍不得把旧 TEXT 误报为稳定 checkpoint。"
+		)
+	assert_true(_single_snapshot_is_empty(handler_snapshots), "响应 mutation handler 不能把已部分修改的旧 TEXT 持久化。")
+	assert_false(stable_snapshot.is_empty(), "响应推进完成后的 TEXT checkpoint 应可创建快照。")
+	assert_not_null(restored, "响应推进后成功创建的快照必须可恢复。")
+	if restored != null:
+		assert_eq(restored.line_id, &"done", "恢复不得回到 mutation 前的响应行。")
+
+
+func test_dialogue_runner_rejects_snapshot_during_response_condition_evaluation() -> void:
+	var resource: GFDialogueResource = GFDialogueResource.new()
+	resource.start_line_id = &"start"
+	var start: GFDialogueLine = _make_text_line(&"start", "Start", &"")
+	var response: GFDialogueResponse = GFDialogueResponse.new()
+	response.response_id = &"pick"
+	response.condition_id = &"can_pick"
+	start.responses.append(response)
+	resource.set_line(start)
+	var runner: GFDialogueRunner = GFDialogueRunner.new()
+	var condition_snapshots: Array[Dictionary] = []
+	var context: GFDialogueContext = GFDialogueContext.new()
+	context.condition_handler = func(
+		_condition_id: StringName,
+		_payload: Variant,
+		_subject: Variant,
+		_context: GFDialogueContext
+	) -> bool:
+		condition_snapshots.append(runner.create_runtime_snapshot())
+		return true
+	var _start_line: GFDialogueLine = runner.start(resource, &"", context)
+	condition_snapshots.clear()
+
+	var blocked_line: GFDialogueLine = runner.advance()
+	var query_snapshots: Array[Dictionary] = []
+	context.condition_handler = func(
+		_condition_id: StringName,
+		_payload: Variant,
+		_subject: Variant,
+		_context: GFDialogueContext
+	) -> bool:
+		query_snapshots.append(runner.create_runtime_snapshot())
+		return true
+	var available_responses: Array[GFDialogueResponse] = runner.get_available_responses()
+	context.condition_handler = Callable()
+	var stable_snapshot: Dictionary = runner.create_runtime_snapshot()
+	var query_restored: GFDialogueLine = null
+	if query_snapshots.size() == 1:
+		query_restored = GFDialogueRunner.new().restore_runtime_snapshot(
+			resource,
+			query_snapshots[0]
+		)
+	var restored: GFDialogueLine = GFDialogueRunner.new().restore_runtime_snapshot(
+		resource,
+		stable_snapshot
+	)
+
+	assert_not_null(blocked_line, "缺少 response_id 时应继续停在当前 TEXT。")
+	assert_eq(condition_snapshots.size(), 1, "response condition 应在 advance 内同步评估一次。")
+	assert_true(_single_snapshot_is_empty(condition_snapshots), "response condition 评估仍属于 advance 窗口，不得返回成功快照。")
+	assert_eq(available_responses.size(), 1, "独立响应查询应继续返回稳定 checkpoint 的可用响应。")
+	assert_true(_single_snapshot_is_non_empty(query_snapshots), "独立响应查询不推进会话，应允许 condition handler 保存当前 checkpoint。")
+	assert_not_null(query_restored, "独立响应查询回调内创建的成功快照必须可恢复。")
+	if query_restored != null:
+		assert_eq(query_restored.line_id, &"start", "独立响应查询快照应保持当前稳定 TEXT。")
+	assert_false(stable_snapshot.is_empty(), "advance 返回后的原 TEXT 应恢复为稳定 checkpoint。")
+	assert_not_null(restored, "稳定 response checkpoint 快照必须可恢复。")
+	if restored != null:
+		assert_eq(restored.line_id, &"start", "恢复应回到等待响应的 TEXT 行。")
+
+
+func test_dialogue_runner_line_reached_snapshot_is_immediately_restorable() -> void:
+	var resource: GFDialogueResource = GFDialogueResource.new()
+	resource.start_line_id = &"start"
+	resource.set_line(_make_text_line(&"start", "Start", &""))
+	var runner: GFDialogueRunner = GFDialogueRunner.new()
+	var reached_snapshots: Array[Dictionary] = []
+	var reached_callback: Callable = func(_line: GFDialogueLine) -> void:
+		reached_snapshots.append(runner.create_runtime_snapshot())
+	var _reached_connection_error: Error = runner.line_reached.connect(reached_callback) as Error
+
+	var reached: GFDialogueLine = runner.start(resource)
+	if runner.line_reached.is_connected(reached_callback):
+		runner.line_reached.disconnect(reached_callback)
+	var restored: GFDialogueLine = null
+	if reached_snapshots.size() == 1:
+		restored = GFDialogueRunner.new().restore_runtime_snapshot(
+			resource,
+			reached_snapshots[0]
+		)
+
+	assert_not_null(reached, "测试资源应发出稳定 line_reached。")
+	assert_eq(reached_snapshots.size(), 1, "line_reached 应同步创建一次快照。")
+	assert_true(_single_snapshot_is_non_empty(reached_snapshots), "line_reached 已发布稳定 TEXT，应允许立即存档。")
+	assert_not_null(restored, "line_reached 内成功创建的快照必须立即可恢复。")
+	if restored != null:
+		assert_eq(restored.line_id, &"start", "line_reached 快照应恢复到刚发布的 TEXT 行。")
+
+
+func test_dialogue_runner_nested_transition_cannot_reuse_outer_checkpoint_publication() -> void:
+	var resource: GFDialogueResource = GFDialogueResource.new()
+	resource.start_line_id = &"start"
+	var start: GFDialogueLine = _make_text_line(&"start", "Start", &"")
+	var response: GFDialogueResponse = GFDialogueResponse.new()
+	response.response_id = &"pick"
+	response.next_line_id = &"done"
+	response.mutation_id = &"grant"
+	start.responses.append(response)
+	resource.set_line(start)
+	resource.set_line(_make_text_line(&"done", "Done", &""))
+	var context: GFDialogueContext = GFDialogueContext.new()
+	context.mutation_handler = func(
+		_mutation_id: StringName,
+		_payload: Variant,
+		_subject: Variant,
+		_context: GFDialogueContext
+	) -> bool:
+		return true
+	var runner: GFDialogueRunner = GFDialogueRunner.new()
+	var reached_snapshots: Array[Dictionary] = []
+	var mutation_snapshots: Array[Dictionary] = []
+	var post_nested_snapshots: Array[Dictionary] = []
+	var reached_callback: Callable = func(line: GFDialogueLine) -> void:
+		reached_snapshots.append(runner.create_runtime_snapshot())
+		if line.line_id == &"start":
+			var _nested_line: GFDialogueLine = runner.choose_response(&"pick")
+			post_nested_snapshots.append(runner.create_runtime_snapshot())
+	var mutation_callback: Callable = func(
+		_mutation_id: StringName,
+		_payload: Variant,
+		_line: GFDialogueLine
+	) -> void:
+		mutation_snapshots.append(runner.create_runtime_snapshot())
+	var _reached_connection_error: Error = runner.line_reached.connect(reached_callback) as Error
+	var _mutation_connection_error: Error = runner.mutation_requested.connect(mutation_callback) as Error
+
+	var outer_result: GFDialogueLine = runner.start(resource, &"", context)
+	if runner.line_reached.is_connected(reached_callback):
+		runner.line_reached.disconnect(reached_callback)
+	if runner.mutation_requested.is_connected(mutation_callback):
+		runner.mutation_requested.disconnect(mutation_callback)
+	context.mutation_handler = Callable()
+	var first_restored: GFDialogueLine = null
+	var second_restored: GFDialogueLine = null
+	var post_nested_restored: GFDialogueLine = null
+	if reached_snapshots.size() == 2:
+		first_restored = GFDialogueRunner.new().restore_runtime_snapshot(
+			resource,
+			reached_snapshots[0]
+		)
+		second_restored = GFDialogueRunner.new().restore_runtime_snapshot(
+			resource,
+			reached_snapshots[1]
+		)
+	if post_nested_snapshots.size() == 1:
+		post_nested_restored = GFDialogueRunner.new().restore_runtime_snapshot(
+			resource,
+			post_nested_snapshots[0]
+		)
+
+	assert_null(outer_result, "line_reached 内替换当前行后，外层 start 应返回 stale null。")
+	assert_eq(reached_snapshots.size(), 2, "外层与嵌套 line_reached 都应发布一次稳定 checkpoint。")
+	assert_true(
+		reached_snapshots.size() == 2
+		and not reached_snapshots[0].is_empty()
+		and not reached_snapshots[1].is_empty(),
+		"每层 line_reached publication 都应允许自己的稳定 TEXT 快照。"
+	)
+	assert_true(_single_snapshot_is_empty(mutation_snapshots), "嵌套 response mutation 不得借用外层 publication 绕过推进守卫。")
+	assert_true(_single_snapshot_is_non_empty(post_nested_snapshots), "嵌套推进返回后应恢复外层 publication 的稳定快照权限。")
+	assert_not_null(first_restored, "外层已发布的 start checkpoint 应独立可恢复。")
+	assert_not_null(second_restored, "嵌套已发布的 done checkpoint 应独立可恢复。")
+	assert_not_null(post_nested_restored, "嵌套推进返回后的 done checkpoint 必须可恢复。")
+	if first_restored != null:
+		assert_eq(first_restored.line_id, &"start")
+	if second_restored != null:
+		assert_eq(second_restored.line_id, &"done")
+	if post_nested_restored != null:
+		assert_eq(post_nested_restored.line_id, &"done")
+	var current_line: GFDialogueLine = runner.get_current_line()
+	assert_not_null(current_line, "嵌套推进后的 live Runner 应保留新 TEXT。")
+	if current_line != null:
+		assert_eq(current_line.line_id, &"done", "嵌套推进后的 live Runner 应停在新 TEXT。")
+
+
+func test_dialogue_runner_dialogue_ended_snapshot_is_immediately_restorable() -> void:
+	var resource: GFDialogueResource = GFDialogueResource.new()
+	resource.start_line_id = &"start"
+	resource.set_line(_make_text_line(&"start", "Start", &"end"))
+	resource.set_line(_make_end_line(&"end"))
+	var context: GFDialogueContext = GFDialogueContext.new()
+	var _context_with_score: GFDialogueContext = context.set_value(&"score", 9)
+	var runner: GFDialogueRunner = GFDialogueRunner.new()
+	var _start_line: GFDialogueLine = runner.start(resource, &"", context)
+	var ended_snapshots: Array[Dictionary] = []
+	var ended_callback: Callable = func(_resource: GFDialogueResource) -> void:
+		ended_snapshots.append(runner.create_runtime_snapshot())
+	var _ended_connection_error: Error = runner.dialogue_ended.connect(ended_callback) as Error
+
+	var ended_line: GFDialogueLine = runner.advance()
+	if runner.dialogue_ended.is_connected(ended_callback):
+		runner.dialogue_ended.disconnect(ended_callback)
+	var restored_context: GFDialogueContext = GFDialogueContext.new()
+	var restored_runner: GFDialogueRunner = GFDialogueRunner.new()
+	var restored: GFDialogueLine = null
+	if ended_snapshots.size() == 1:
+		restored = restored_runner.restore_runtime_snapshot(
+			resource,
+			ended_snapshots[0],
+			restored_context
+		)
+
+	assert_null(ended_line, "END 行应正常结束当前会话。")
+	assert_true(_single_snapshot_is_non_empty(ended_snapshots), "dialogue_ended 已发布 stopped checkpoint，应允许立即存档。")
+	assert_null(restored, "ended snapshot 恢复后不应产生当前行。")
+	assert_false(restored_runner.is_running(), "ended snapshot 恢复后 Runner 应保持停止。")
+	assert_eq(GFVariantData.to_int(restored_context.get_value(&"score")), 9, "ended snapshot 应保留结束时上下文。")
+
+
+func test_dialogue_runner_rejects_inconsistent_text_checkpoint_snapshots() -> void:
+	var resource: GFDialogueResource = GFDialogueResource.new()
+	resource.start_line_id = &"start"
+	var original_line: GFDialogueLine = _make_text_line(&"start", "Start", &"")
+	resource.set_line(original_line)
+	var runner: GFDialogueRunner = GFDialogueRunner.new()
+	var _reached: GFDialogueLine = runner.start(resource)
+
+	original_line.kind = GFDialogueLine.LineKind.JUMP
+	var wrong_kind_snapshot: Dictionary = runner.create_runtime_snapshot()
+	original_line.kind = GFDialogueLine.LineKind.TEXT
+	original_line.line_id = &"other"
+	var wrong_id_snapshot: Dictionary = runner.create_runtime_snapshot()
+	original_line.line_id = &"start"
+	resource.set_line(_make_text_line(&"start", "Start", &""))
+	var replaced_line_snapshot: Dictionary = runner.create_runtime_snapshot()
+
+	assert_true(wrong_kind_snapshot.is_empty(), "非 TEXT 当前行不得形成运行中快照。")
+	assert_true(wrong_id_snapshot.is_empty(), "当前行 ID 与游标不一致时不得形成运行中快照。")
+	assert_true(replaced_line_snapshot.is_empty(), "资源同 ID 行实例已被替换时不得持久化旧 checkpoint。")
+
+
+func test_dialogue_runner_rejects_snapshot_after_resource_identity_changes() -> void:
+	var resource: GFDialogueResource = GFDialogueResource.new()
+	resource.start_line_id = &"start"
+	var start_line: GFDialogueLine = _make_text_line(&"start", "Start", &"end")
+	resource.set_line(start_line)
+	resource.set_line(_make_end_line(&"end"))
+	var runner: GFDialogueRunner = GFDialogueRunner.new()
+	var _reached: GFDialogueLine = runner.start(resource)
+
+	start_line.text = "Changed while running"
+	var running_drift_snapshot: Dictionary = runner.create_runtime_snapshot()
+	start_line.text = "Start"
+	var _ended: GFDialogueLine = runner.advance()
+	var stable_ended_snapshot: Dictionary = runner.create_runtime_snapshot()
+	start_line.text = "Changed after end"
+	var ended_drift_snapshot: Dictionary = runner.create_runtime_snapshot()
+	start_line.text = "Start"
+	var restored_ended_runner: GFDialogueRunner = GFDialogueRunner.new()
+	var _restored_ended: GFDialogueLine = restored_ended_runner.restore_runtime_snapshot(
+		resource,
+		stable_ended_snapshot
+	)
+	var restored_ended_stable_snapshot: Dictionary = restored_ended_runner.create_runtime_snapshot()
+	start_line.text = "Changed after ended restore"
+	var restored_ended_drift_snapshot: Dictionary = restored_ended_runner.create_runtime_snapshot()
+
+	assert_true(running_drift_snapshot.is_empty(), "运行中资源内容身份漂移后不得返回旧 fingerprint 快照。")
+	assert_false(stable_ended_snapshot.is_empty(), "资源内容未漂移的停止状态应继续可存档。")
+	assert_true(ended_drift_snapshot.is_empty(), "停止后资源内容身份漂移也不得返回旧 fingerprint 快照。")
+	assert_false(restored_ended_stable_snapshot.is_empty(), "恢复停止快照后必须保留可复核的资源身份。")
+	assert_true(restored_ended_drift_snapshot.is_empty(), "恢复停止快照后仍必须复核当前资源内容身份。")
+
+
+func test_dialogue_runner_retains_stopped_snapshot_resource_without_external_owner() -> void:
+	var ended_runner: GFDialogueRunner = _make_ended_runner_without_external_resource_owner()
+	var ended_snapshot: Dictionary = ended_runner.create_runtime_snapshot()
+	var restored_ended_runner: GFDialogueRunner = (
+		_make_restored_ended_runner_without_external_resource_owner()
+	)
+	var restored_ended_snapshot: Dictionary = restored_ended_runner.create_runtime_snapshot()
+
+	assert_false(ended_snapshot.is_empty(), "停止态 Runner 应自行保留创建快照所需的资源身份。")
+	assert_false(restored_ended_snapshot.is_empty(), "恢复出的停止态 Runner 也应自行保留快照资源身份。")
+
+
+func test_dialogue_replacement_start_revalidates_resource_after_ended_callbacks() -> void:
+	var original: GFDialogueResource = GFDialogueResource.new()
+	original.start_line_id = &"original"
+	original.set_line(_make_text_line(&"original", "Original", &""))
+	var replacement: GFDialogueResource = GFDialogueResource.new()
+	replacement.start_line_id = &"replacement"
+	var replacement_line: GFDialogueLine = _make_text_line(
+		&"replacement",
+		"Replacement",
+		&""
+	)
+	replacement.set_line(replacement_line)
+	var runner: GFDialogueRunner = GFDialogueRunner.new()
+	var _original_line: GFDialogueLine = runner.start(original)
+	var ended_callback: Callable = func(_resource: GFDialogueResource) -> void:
+		replacement_line.text = "Changed by old dialogue_ended"
+	var _ended_connection_error: Error = runner.dialogue_ended.connect(ended_callback) as Error
+
+	var reached: GFDialogueLine = runner.start(replacement)
+	if runner.dialogue_ended.is_connected(ended_callback):
+		runner.dialogue_ended.disconnect(ended_callback)
+	var snapshot: Dictionary = runner.create_runtime_snapshot()
+	var restored: GFDialogueLine = GFDialogueRunner.new().restore_runtime_snapshot(
+		replacement,
+		snapshot
+	)
+
+	assert_not_null(reached, "替换 start 应采用旧会话 ended 回调后的资源内容。")
+	assert_false(snapshot.is_empty(), "替换 start 不得缓存 ended 回调前的陈旧资源 fingerprint。")
+	assert_not_null(restored, "替换 start 返回后的成功快照必须可恢复。")
+	if restored != null:
+		assert_eq(restored.line_id, &"replacement")
+
+
 ## 验证对话运行快照可恢复当前行且不会重放 mutation。
 func test_dialogue_runner_restores_runtime_snapshot_without_replaying_mutation() -> void:
 	var resource: GFDialogueResource = GFDialogueResource.new()
@@ -131,6 +596,9 @@ func test_dialogue_runner_restores_runtime_snapshot_without_replaying_mutation()
 	assert_eq(GFVariantData.to_bool(restored_context.get_value(&"visited")), true, "恢复应带回上下文运行值。")
 	assert_eq(GFVariantData.to_int(restored_context.get_value(&"mutation_count")), 1, "恢复应带回 mutation 已写入的上下文值。")
 	assert_true(restored_mutations.is_empty(), "恢复快照不应重新执行 mutation。")
+	var _restored_end_result: GFDialogueLine = restored_runner.advance()
+	var restored_ended_snapshot: Dictionary = restored_runner.create_runtime_snapshot()
+	assert_false(restored_ended_snapshot.is_empty(), "恢复运行快照后正常结束仍应保留可存档资源身份。")
 
 
 ## 验证结束状态快照恢复后不会重新启动对话。
@@ -728,25 +1196,59 @@ func test_dialogue_response_mutation_reentry_preserves_replacement_session() -> 
 		return true
 	var runner: GFDialogueRunner = GFDialogueRunner.new()
 	var replaced: Array[bool] = [false]
+	var replacement_snapshots: Array[Dictionary] = []
+	var post_start_snapshots: Array[Dictionary] = []
+	var line_reached_callback: Callable = func(line: GFDialogueLine) -> void:
+		if line.line_id == &"replacement":
+			replacement_snapshots.append(runner.create_runtime_snapshot())
 	var mutation_requested_callback: Callable = (
 		func(_mutation_id: StringName, _payload: Variant, _line: GFDialogueLine) -> void:
 			if replaced[0]:
 				return
 			replaced[0] = true
 			var _replacement_line: GFDialogueLine = runner.start(replacement)
+			post_start_snapshots.append(runner.create_runtime_snapshot())
 	)
 	var _connected: Error = runner.mutation_requested.connect(
 		mutation_requested_callback
+	) as Error
+	var _line_reached_connected: Error = runner.line_reached.connect(
+		line_reached_callback
 	) as Error
 	var _original_line: GFDialogueLine = runner.start(original, &"", context)
 
 	var stale_result: GFDialogueLine = runner.choose_response(&"pick")
 	runner.mutation_requested.disconnect(mutation_requested_callback)
+	runner.line_reached.disconnect(line_reached_callback)
+	context.mutation_handler = Callable()
+	var restored_replacement: GFDialogueLine = null
+	var restored_post_start: GFDialogueLine = null
+	if replacement_snapshots.size() == 1:
+		restored_replacement = GFDialogueRunner.new().restore_runtime_snapshot(
+			replacement,
+			replacement_snapshots[0]
+		)
+	if post_start_snapshots.size() == 1:
+		restored_post_start = GFDialogueRunner.new().restore_runtime_snapshot(
+			replacement,
+			post_start_snapshots[0]
+		)
 
 	assert_null(stale_result, "旧响应调用链在会话被替换后必须返回 null。")
 	assert_true(runner.is_running(), "旧 mutation 调用链不得结束重入创建的新会话。")
-	assert_eq(runner.get_current_line().line_id, &"replacement", "替换会话必须保持在自己的当前行。")
+	var current_line: GFDialogueLine = runner.get_current_line()
+	assert_not_null(current_line, "替换会话必须保持自己的当前行。")
+	if current_line != null:
+		assert_eq(current_line.line_id, &"replacement", "替换会话必须保持在自己的当前行。")
 	assert_eq(mutation_call_count[0], 0, "mutation_requested 改变会话后不得再调用旧上下文 handler。")
+	assert_true(_single_snapshot_is_non_empty(replacement_snapshots), "新会话 line_reached 不得继承旧会话的推进 barrier。")
+	assert_true(_single_snapshot_is_non_empty(post_start_snapshots), "新会话 start 返回后不得残留旧会话的推进 barrier。")
+	assert_not_null(restored_replacement, "替换会话发布的稳定 checkpoint 必须可独立恢复。")
+	assert_not_null(restored_post_start, "替换会话 start 返回后的 checkpoint 必须可独立恢复。")
+	if restored_replacement != null:
+		assert_eq(restored_replacement.line_id, &"replacement")
+	if restored_post_start != null:
+		assert_eq(restored_post_start.line_id, &"replacement")
 
 
 func test_dialogue_line_mutation_reentry_cannot_end_replacement_session() -> void:
@@ -1184,6 +1686,34 @@ func _make_end_line(line_id: StringName) -> GFDialogueLine:
 	return line
 
 
+func _make_ended_runner_without_external_resource_owner() -> GFDialogueRunner:
+	var resource: GFDialogueResource = GFDialogueResource.new()
+	resource.start_line_id = &"start"
+	resource.set_line(_make_text_line(&"start", "Start", &"end"))
+	resource.set_line(_make_end_line(&"end"))
+	var runner: GFDialogueRunner = GFDialogueRunner.new()
+	var _start_line: GFDialogueLine = runner.start(resource)
+	var _ended_line: GFDialogueLine = runner.advance()
+	return runner
+
+
+func _make_restored_ended_runner_without_external_resource_owner() -> GFDialogueRunner:
+	var resource: GFDialogueResource = GFDialogueResource.new()
+	resource.start_line_id = &"start"
+	resource.set_line(_make_text_line(&"start", "Start", &"end"))
+	resource.set_line(_make_end_line(&"end"))
+	var source_runner: GFDialogueRunner = GFDialogueRunner.new()
+	var _start_line: GFDialogueLine = source_runner.start(resource)
+	var _ended_line: GFDialogueLine = source_runner.advance()
+	var snapshot: Dictionary = source_runner.create_runtime_snapshot()
+	var restored_runner: GFDialogueRunner = GFDialogueRunner.new()
+	var _restored_line: GFDialogueLine = restored_runner.restore_runtime_snapshot(
+		resource,
+		snapshot
+	)
+	return restored_runner
+
+
 func _has_issue_kind(issues: Array, kind: String) -> bool:
 	for issue: Variant in issues:
 		var issue_dictionary: Dictionary = GFVariantData.as_dictionary(issue)
@@ -1199,6 +1729,14 @@ func _count_issue_kind(issues: Array, kind: String) -> int:
 		if GFVariantData.get_option_string(issue_dictionary, "kind") == kind:
 			count += 1
 	return count
+
+
+func _single_snapshot_is_empty(snapshots: Array[Dictionary]) -> bool:
+	return snapshots.size() == 1 and snapshots[0].is_empty()
+
+
+func _single_snapshot_is_non_empty(snapshots: Array[Dictionary]) -> bool:
+	return snapshots.size() == 1 and not snapshots[0].is_empty()
 
 
 func _dictionary_contains_value(root: Dictionary, expected: Variant) -> bool:

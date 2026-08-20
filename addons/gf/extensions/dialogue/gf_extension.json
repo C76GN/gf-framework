@@ -2,7 +2,7 @@
   "id": "gf.dialogue",
   "display_name": "GF Dialogue",
   "version": "11.0.0-dev.0",
-  "extension_version": "3.0.0",
+  "extension_version": "4.0.0",
   "kind": "extension",
   "description": "Generic dialogue resources, contexts, responses, and runners.",
   "dependencies": ["gf.kernel", "gf.standard"],

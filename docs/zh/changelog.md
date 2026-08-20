@@ -185,6 +185,8 @@
 
 ### 🐛 Bug 修复 (Fixed)
 
+- 修复 `GFDialogueRunner.create_runtime_snapshot()` 在 `dialogue_started`、推进中的 condition、mutation 与自动转换等窗口仍返回表面合法但无法恢复的五字段字典，以及会话开始后资源内容漂移仍写入旧 fingerprint 的问题；方法现在会在创建前重新核对完整资源身份，并只为资源身份一致的稳定 `TEXT` checkpoint 或已提交停止状态返回原 schema v4 快照，其余状态失败关闭为空 `Dictionary`。`line_reached` 与 `dialogue_ended` 保持为可立即存档的稳定发布点。
+
 - 修复通用 Resource 预览生成器把多输出 CSV 翻译源当作单个 `Translation` 资源加载、从而在编辑器缩略图队列中产生源加载错误的问题；`Translation` 及 `OptimizedTranslation` 现在会在宽泛 Resource fallback 前被明确跳过，未知资源类型的既有兼容策略保持不变。
 
 - 修复 Config Pipeline 的 resource 数据库 `dry_run` 在 `ResourceSaver` 明确不识别目标扩展名时仍报告成功、直到真实保存才失败的问题；规范化后的 resource 目标现在会在 ownership 与任何产物 I/O 前按当前 saver 声明做大小写不敏感预检，dry-run 与真实路由统一返回 `ERR_FILE_UNRECOGNIZED`，显式 JSON 格式的扩展名策略保持不变。
@@ -326,6 +328,7 @@
 
 ### 🔧 API 变动说明 (API Changes)
 
+- `GFDialogueRunner.create_runtime_snapshot()` 的成功五字段 schema 与 `SNAPSHOT_SCHEMA_VERSION = 4` 保持不变；新增失败约定为返回空 `Dictionary`。这会收紧 10.x 中推进中或资源身份已漂移时仍返回成功形状的行为，Dialogue 扩展版本因此升级为 `4.0.0`。
 - 新增公开 `GFBoundedJsonObjectReader`，提供 `parse_object(text, max_bytes, max_depth)`、`read_object(path, max_bytes, max_depth)`，以及 1 MiB/64 层的默认与绝对上限常量。两个入口的预算只能收紧；报告固定包含 `ok`、`data`、`source_path`、`size_bytes`、`error_kind`、`error`、`max_bytes` 和 `max_depth`。框架内部 `GFBoundedJsonReader` 与 `GFExtensionJsonFileReader` 现委托该 primitive，同时分别保留既有四字段报告和六字段累计预算报告。
 - `GFStorageUtility.allow_absolute_paths`、`get_storage_directory_path()`、`ensure_directory()` 与 `create_directories_for_nested_paths` 已移除；新增 `has_file()`。`list_files()` 只接受 portable logical directory 与不带点号的 lowercase extension token，并只返回 catalog 中存在 committed payload 的规范相对 logical identity；`canonicalize_data_file_name()` 只接受已经 canonical 的输入，不再改写分隔符、大小写或路径别名；`GFStorageAsyncOperation.get_file_name()` 与 `GFStorageAsyncResult.get_file_name()` 同样只暴露 logical identity，不再产生绝对路径身份。`save_dir_name` 必须在 activation、`init()` 或首次 I/O 前配置，Storage root 一经加载即冻结；切换 root 必须创建新的 Utility。
 - `GFStorageAsyncOperation` 的操作类型新增 `OPERATION_DELETE`；`GFStorageUtility.delete_file_request_async(logical_path)` 返回 `GFStorageAsyncOperation`，终态由 `GFStorageAsyncResult.get_delete_result()` 读取。新 `GFStorageDeleteResult` 公开 `FailureKind`、`FamilyMember`、`is_successful()`、`get_error_code()`、`get_failure_kind()`、三个成员计数 getter、`get_failed_member()`、`duplicate_result()` 与 `to_dict()`；非 delete 结果的 delete 字段为空，delete 结果不会同时携带 read/write 终态。
@@ -507,3 +510,4 @@
 82. 将扩展 `gf_extension.json` 中的七个编辑器路径字段移入同扩展的 `editor/gf_tool_contribution.json`；文件必须声明 `schema_version: 2` 和与 manifest 一致的 `extension_id`。保留 `installer_paths`、`editor_dock_order` 与 `editor_dock_short_label` 在 manifest，删除旧七字段而不做双写；否则 11.0 会返回指向 Tool Contribution 的迁移错误。直接消费 `GFExtensionSelectionDiscovery.get_snapshot()` 的工具应从 `contribution_paths` 读取这七个字段，或改用对应的 `GFExtensionSettings.get_enabled_*_paths()`；`manifest_paths` 现在只包含 `installer_paths`。项目工具应以 selection report 的 `status` / `tool_contribution_errors` 展示局部问题，不得因 `partial` 状态禁用已验证的 runtime Installer。
 83. 新的项目运行时或工具读取不可信 JSON object 时，先调用 `GFBoundedJsonObjectReader.parse_object()` / `read_object()`，检查 `ok`、`error_kind` 与报告中的实际预算，再消费 `data`；需要恢复 GF typed marker 时，随后调用 `GFVariantJsonCodec.json_compatible_to_variant()` 并保留其遍历预算。不要把 Codec 在 `JSON.parse()` 之后执行的 `max_depth` / `max_nodes` / `max_collection_items` 当作字节或词法深度准入。既有编辑器贡献和扩展发现调用不需要改签名，其兼容 adapter 会保留原报告 schema。
 84. 直接消费生成目录的工具应把 XML Catalog 从 schema v2 迁移到 v3，并接受独立的 class / autoload owner；既有 `classCount` / `methodCount` 仍只统计类，新增的 `autoloadCount` / `autoloadMethodCount` 统计 AutoLoad。直接消费 AI Developer `knowledge/api_index.json` 的工具应把 schema v1 迁移到 v2、catalog version `2.0.0`，保留 `classes` / `class_count` 的原语义并额外读取 `autoloads` / `autoload_count`。不要把两个集合按裸名称无条件覆盖合并，也不要把 `Gf` 伪装成 `class_name`。只调用运行时 `Gf.*` 的项目代码无需迁移。
+85. 所有 Dialogue 存档调用都要先检查 `create_runtime_snapshot().is_empty()`；只持久化非空快照。需要在同步信号中存档时使用 `line_reached` 或 `dialogue_ended`，不要在 `dialogue_started`、由推进调用触发的 condition、mutation 或自动推进回调中缓存中间状态，也不要把空字典送入恢复入口。

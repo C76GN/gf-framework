@@ -303,9 +303,9 @@ func is_running() -> bool:
 func create_runtime_snapshot() -> Dictionary:
 ```
 
-创建可存档的运行快照。 快照只保存 Runner 的当前位置和上下文值，不保存对话资源本体。 恢复时由调用方重新提供 GFDialogueResource，避免框架绑定项目存档结构。
+创建可存档的运行快照。 快照只保存 Runner 的当前位置和上下文值，不保存对话资源本体。 恢复时由调用方重新提供 GFDialogueResource，避免框架绑定项目存档结构。 只有已发布且资源身份一致的 TEXT checkpoint 或已提交的停止状态可创建快照； dialogue_started、推进中的条件与 mutation 回调、自动转换等窗口会返回空 Dictionary。 创建前会重新核对当前资源完整身份；会话开始或恢复后资源内容发生变化也会返回空 Dictionary。
 
-返回：运行快照。
+返回：成功时返回运行快照；当前状态尚不可恢复时返回空 Dictionary。
 
 结构：
 
