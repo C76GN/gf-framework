@@ -1441,7 +1441,7 @@ class GutShardPlanIntegrationTests(unittest.TestCase):
 						self.INVENTORY,
 					)
 
-	def test_observation_timeout_has_an_independent_twelve_minute_floor(self) -> None:
+	def test_authoritative_gut_timeouts_have_a_twenty_minute_floor(self) -> None:
 		self.assertEqual(
 			gf_maintenance.resolve_gut_shard_observation_timeout_seconds(None),
 			1200,
@@ -1454,10 +1454,18 @@ class GutShardPlanIntegrationTests(unittest.TestCase):
 			gf_maintenance.resolve_gut_shard_observation_timeout_seconds(1500),
 			1500,
 		)
-		self.assertNotIn("gut", gf_maintenance.CHECK_TIMEOUT_SECONDS)
+		self.assertEqual(gf_maintenance.CHECK_TIMEOUT_SECONDS["gut"], 1200)
 		self.assertEqual(
 			gf_maintenance.resolve_check_timeout_seconds("gut", None),
-			600,
+			1200,
+		)
+		self.assertEqual(
+			gf_maintenance.resolve_check_timeout_seconds("gut", 600),
+			1200,
+		)
+		self.assertEqual(
+			gf_maintenance.resolve_check_timeout_seconds("gut", 1500),
+			1500,
 		)
 		framework_gut = next(
 			shard
@@ -1466,7 +1474,7 @@ class GutShardPlanIntegrationTests(unittest.TestCase):
 		)
 		self.assertEqual(
 			gf_maintenance.parallel_shard_timeout_seconds(framework_gut, None),
-			2220,
+			2820,
 		)
 
 	def test_renderer_exposes_diagnostic_completeness_and_duration_scope(self) -> None:

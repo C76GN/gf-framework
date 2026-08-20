@@ -1699,6 +1699,11 @@ def check_command(
 
 DEFAULT_CHECK_TIMEOUT_SECONDS: int = 600
 CHECK_TIMEOUT_SECONDS: dict[str, int] = {
+	# The unfiltered authoritative suite now exceeds the generic ten-minute
+	# budget on clean Windows runs. Keep the same measured floor as the explicit
+	# full-suite observation and qualification control instead of relying on a
+	# caller-specific override.
+	"gut": 1200,
 	# Runs six focused process-level lifecycle scenarios after a shared import.
 	"gut_lifecycle_smoke": 360,
 	# The executable Adapter contract performs one isolated import and one GUT
@@ -2066,7 +2071,7 @@ def main() -> int:
 		"--timeout",
 		type=int,
 		default=None,
-		help="Raise the 600-second minimum timeout for each shard GUT phase.",
+		help="Raise the 600-second minimum timeout for each candidate shard GUT phase.",
 	)
 	gut_shard_run_parser.add_argument(
 		"--qualify",
@@ -9331,7 +9336,7 @@ def gut_shard_observation_environment(output: GutShardJunitOutput) -> dict[str, 
 def resolve_gut_shard_observation_timeout_seconds(
 	override_seconds: int | None,
 ) -> int:
-	"""Keep the explicit full-suite observation above its measured ten-minute run."""
+	"""Keep the explicit observation at the authoritative full-inventory floor."""
 	return max(
 		GUT_SHARD_OBSERVATION_TIMEOUT_SECONDS,
 		resolve_check_timeout_seconds("gut", override_seconds),
@@ -21953,11 +21958,13 @@ def maintenance_self_test() -> dict[str, Any]:
 		and GUT_SHARD_OBSERVATION_TIMEOUT_SECONDS == 1200
 		and resolve_gut_shard_observation_timeout_seconds(None) == 1200
 		and resolve_gut_shard_observation_timeout_seconds(1500) == 1500
-		and "gut" not in CHECK_TIMEOUT_SECONDS
-		and resolve_check_timeout_seconds("gut", None) == 600,
+		and CHECK_TIMEOUT_SECONDS.get("gut") == 1200
+		and resolve_check_timeout_seconds("gut", None) == 1200
+		and resolve_check_timeout_seconds("gut", 600) == 1200
+		and resolve_check_timeout_seconds("gut", 1500) == 1500,
 		(
 			"The explicit G0 observation must use its dedicated ignored output root and "
-			"measured timeout floor without changing the authoritative GUT check policy."
+			"share the measured authoritative GUT timeout floor."
 		),
 	)
 	record_result(
@@ -22706,6 +22713,9 @@ def maintenance_self_test() -> dict[str, Any]:
 	)
 	parallel_plan = parallel_full_shard_plan()
 	parallel_plan_names = tuple(shard.name for shard in parallel_plan)
+	framework_gut_shard = next(
+		shard for shard in parallel_plan if shard.name == "framework-gut"
+	)
 	parallel_batch_names_by_jobs = {
 		jobs: tuple(
 			tuple(shard.name for shard in batch)
@@ -22834,6 +22844,7 @@ def maintenance_self_test() -> dict[str, Any]:
 			>= len(expanded_check_names("quick", list(shard.checks))) * 3600
 			for shard in parallel_plan
 		)
+		and parallel_shard_timeout_seconds(framework_gut_shard, None) == 2820
 		and "--package-artifact-manifest" in fixture_package_command
 		and "--package-artifact-manifest-sha256" in fixture_package_command
 		and "--package-artifact-manifest" not in check_command("api"),
