@@ -185,6 +185,8 @@
 
 ### 🐛 Bug 修复 (Fixed)
 
+- 修复 AI Developer 只能把生成报告、审计、截图或导出物声明为必须存在的精确文件或普通来源模块、导致尚未生成的输出根使依赖快照不完整的问题；`architecture.modules[].ownership: generated` 现在表示有界、只作为依赖目标的所有权：根可缺失且不参与来源扫描，源码路径引用以 `generated_output` 形成有界依赖证据，既有规范路径、框架保留根、所有权重叠与允许/禁止依赖门禁保持不变。
+
 - 修复 `GFDialogueRunner.create_runtime_snapshot()` 在 `dialogue_started`、推进中的 condition、mutation 与自动转换等窗口仍返回表面合法但无法恢复的五字段字典，以及会话开始后资源内容漂移仍写入旧 fingerprint 的问题；方法现在会在创建前重新核对完整资源身份，并只为资源身份一致的稳定 `TEXT` checkpoint 或已提交停止状态返回原 schema v4 快照，其余状态失败关闭为空 `Dictionary`。`line_reached` 与 `dialogue_ended` 保持为可立即存档的稳定发布点。
 
 - 修复通用 Resource 预览生成器把多输出 CSV 翻译源当作单个 `Translation` 资源加载、从而在编辑器缩略图队列中产生源加载错误的问题；`Translation` 及 `OptimizedTranslation` 现在会在宽泛 Resource fallback 前被明确跳过，未知资源类型的既有兼容策略保持不变。
@@ -327,6 +329,8 @@
 - 移除 `GFSpatialCanvas2D.handle_input_event()` / `handle_screen_input_event()` 的 `bool` 返回契约，以及内置 raw Escape、中键、左键和固定 modifier 判断；调用方改用 `InputDisposition` 与显式 `GFSpatialCanvasInputPolicy`，不保留双轨解释路径。
 
 ### 🔧 API 变动说明 (API Changes)
+
+- AI Developer 工具协议升级到 `5.0.0`，项目 Snapshot schema 升级到 v5；`module_dependency_analysis.edges[].kinds` 与 `evidence[].kind` 的闭合集合新增 `generated_output`。项目 Contract 仍为 schema v2，既有 `project`、模块型 `external_adapter`、framework Adapter 与精确 `owned_resources` 形状不变。
 
 - `GFDialogueRunner.create_runtime_snapshot()` 的成功五字段 schema 与 `SNAPSHOT_SCHEMA_VERSION = 4` 保持不变；新增失败约定为返回空 `Dictionary`。这会收紧 10.x 中推进中或资源身份已漂移时仍返回成功形状的行为，Dialogue 扩展版本因此升级为 `4.0.0`。
 - 新增公开 `GFBoundedJsonObjectReader`，提供 `parse_object(text, max_bytes, max_depth)`、`read_object(path, max_bytes, max_depth)`，以及 1 MiB/64 层的默认与绝对上限常量。两个入口的预算只能收紧；报告固定包含 `ok`、`data`、`source_path`、`size_bytes`、`error_kind`、`error`、`max_bytes` 和 `max_depth`。框架内部 `GFBoundedJsonReader` 与 `GFExtensionJsonFileReader` 现委托该 primitive，同时分别保留既有四字段报告和六字段累计预算报告。
@@ -511,3 +515,4 @@
 83. 新的项目运行时或工具读取不可信 JSON object 时，先调用 `GFBoundedJsonObjectReader.parse_object()` / `read_object()`，检查 `ok`、`error_kind` 与报告中的实际预算，再消费 `data`；需要恢复 GF typed marker 时，随后调用 `GFVariantJsonCodec.json_compatible_to_variant()` 并保留其遍历预算。不要把 Codec 在 `JSON.parse()` 之后执行的 `max_depth` / `max_nodes` / `max_collection_items` 当作字节或词法深度准入。既有编辑器贡献和扩展发现调用不需要改签名，其兼容 adapter 会保留原报告 schema。
 84. 直接消费生成目录的工具应把 XML Catalog 从 schema v2 迁移到 v3，并接受独立的 class / autoload owner；既有 `classCount` / `methodCount` 仍只统计类，新增的 `autoloadCount` / `autoloadMethodCount` 统计 AutoLoad。直接消费 AI Developer `knowledge/api_index.json` 的工具应把 schema v1 迁移到 v2、catalog version `2.0.0`，保留 `classes` / `class_count` 的原语义并额外读取 `autoloads` / `autoload_count`。不要把两个集合按裸名称无条件覆盖合并，也不要把 `Gf` 伪装成 `class_name`。只调用运行时 `Gf.*` 的项目代码无需迁移。
 85. 所有 Dialogue 存档调用都要先检查 `create_runtime_snapshot().is_empty()`；只持久化非空快照。需要在同步信号中存档时使用 `line_reached` 或 `dialogue_ended`，不要在 `dialogue_started`、由推进调用触发的 condition、mutation 或自动推进回调中缓存中间状态，也不要把空字典送入恢复入口。
+86. 项目若曾为生成报告、审计、截图或导出物逐文件维护 `architecture.owned_resources`，或把其目录声明成普通 `project` 模块，可改为独立的 `architecture.modules` 条目并设置 `ownership: generated`；让实际来源模块在 `allowed_dependencies` 中声明该生成模块。生成根可以尚不存在，工具不会扫描其中内容；不要用裸 `res://`、`res://addons/gf`、重叠根或相似前缀代替精确有界根，也不要把生成物反向视为人类意图来源。直接消费 `.gf/ai/project_snapshot.json` 的工具必须按 `schema_version` 从 v4 切换到 v5、接受 `generated_output` edge kind，并重新生成 Snapshot；不要原地迁移旧文件。

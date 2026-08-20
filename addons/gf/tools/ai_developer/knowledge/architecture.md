@@ -27,6 +27,10 @@ An adapter translates a provider API into a provider-neutral project or GF proto
 
 The adapter owns initialization, availability checks, callback-to-async conversion, error normalization, identity translation, and provider cleanup. The project owns UI, rewards, matchmaking policy, product catalog, social rules, and fallback decisions.
 
+## Generated output ownership
+
+Declare a rebuildable output directory as an `architecture.modules` entry with `ownership: generated` when source modules need a bounded dependency target for reports, audits, screenshots, exports, or similar artifacts. Its roots must remain canonical non-root project paths outside `res://addons/gf`, within declaration limits, and non-overlapping with modules, framework adapters, and exact `owned_resources`. A generated root may be absent and is target-only: never scan its contents, discover classes from it, or treat it as a dependency source. Source path references into the exact root produce bounded `generated_output` edge evidence, while allowed, undeclared, and forbidden dependency policy still applies. Keep `project` and module `external_adapter` roots source-scanned, and keep `framework.adapter_boundaries` on their existing GDScript-target semantics.
+
 ## Hard boundaries
 
 - Never edit vendored `addons/gf` to implement a game feature.

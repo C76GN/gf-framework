@@ -4,7 +4,7 @@
 2. **Orient**: validate `.gf/project_contract.json` and inspect the generated project context.
 3. **Resolve uncertainty**: ask about blocking unknowns; preserve non-blocking unknowns explicitly.
 4. **Select capability**: query the capability catalog, then inspect the contract's decision state, owner, selected Recipes, explicit Recipe package expression, installed packages, readiness evidence, and exact API signatures.
-5. **Assign ownership**: choose the project module, GF mechanism, adapter, generated output, and lifecycle owner.
+5. **Assign ownership**: choose the project module, GF mechanism, adapter, generated output, and lifecycle owner. Use `ownership: generated` only for bounded target-only roots that may be absent and must never be scanned as source.
 6. **Design failure behavior**: define cancellation, timeout, rollback, migration, authority, trust, and degraded modes that apply.
 7. **Implement narrowly**: keep project rules outside `addons/gf`; avoid ceremonial wrappers with no ownership value.
 8. **Verify**: independently review each structured contract check, then run approved `argv` directly under its declared timeout, network, and write boundary.

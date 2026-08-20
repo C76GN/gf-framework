@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://gf-framework.dev/schemas/project-snapshot-v4.json",
+  "$id": "https://gf-framework.dev/schemas/project-snapshot-v5.json",
   "title": "GF Observed Project Snapshot",
   "type": "object",
   "additionalProperties": false,
@@ -16,7 +16,7 @@
     "drift"
   ],
   "properties": {
-    "schema_version": {"type": "integer", "const": 4},
+    "schema_version": {"type": "integer", "const": 5},
     "generator_version": {"type": "string", "minLength": 1},
     "generated_at_utc": {"type": "string", "minLength": 1},
     "project_root": {"type": "string", "const": "."},
@@ -291,7 +291,8 @@
                     "type": "array",
                     "minItems": 1,
                     "uniqueItems": true,
-                    "items": {"type": "string", "enum": ["class_name", "resource_path"]}
+                    "description": "Observed reference mechanisms. generated_output identifies a resource-path literal owned by a target-only generated module.",
+                    "items": {"type": "string", "enum": ["class_name", "resource_path", "generated_output"]}
                   },
                   "evidence_truncated": {"type": "boolean"},
                   "evidence": {
@@ -305,7 +306,11 @@
                       "properties": {
                         "source_path": {"type": "string", "pattern": "^res://.+$"},
                         "target_path": {"type": "string", "pattern": "^res://.+$"},
-                        "kind": {"type": "string", "enum": ["class_name", "resource_path"]},
+                        "kind": {
+                          "type": "string",
+                          "description": "Reference mechanism for this bounded evidence item.",
+                          "enum": ["class_name", "resource_path", "generated_output"]
+                        },
                         "symbol": {"type": "string", "minLength": 1},
                         "line": {"type": "integer", "minimum": 1}
                       }
