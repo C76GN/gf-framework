@@ -31,6 +31,7 @@
 | 方法 | [`set_phases`](#member-gfturnflowsystem-methods-set_phases) | `func set_phases(p_phases: Array[GFTurnPhase]) -> void:` |
 | 方法 | [`start`](#member-gfturnflowsystem-methods-start) | `func start(reset_indices: bool = true) -> void:` |
 | 方法 | [`stop`](#member-gfturnflowsystem-methods-stop) | `func stop(should_clear_actions: bool = true) -> void:` |
+| 方法 | [`dispose`](#member-gfturnflowsystem-methods-dispose) | `func dispose() -> void:` |
 | 方法 | [`advance_phase`](#member-gfturnflowsystem-methods-advance_phase) | `func advance_phase() -> void:` |
 | 方法 | [`get_actions`](#member-gfturnflowsystem-methods-get_actions) | `func get_actions() -> Array[GFTurnAction]:` |
 | 方法 | [`get_action_count`](#member-gfturnflowsystem-methods-get_action_count) | `func get_action_count() -> int:` |
@@ -228,12 +229,13 @@ Signal 超时计时是否跟随 GFTimeUtility 的暂停与 time_scale。
 ### `set_context`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func set_context(p_context: GFTurnContext) -> void:
 ```
 
-设置上下文。
+设置上下文。 存在活动 Context operation claim 时会拒绝修改；operation 安全收尾并释放最后一张 claim 后可顺序重试。
 
 参数：
 
@@ -264,12 +266,13 @@ func set_phases(p_phases: Array[GFTurnPhase]) -> void:
 ### `start`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func start(reset_indices: bool = true) -> void:
 ```
 
-开始流程。
+开始流程。 若同一 Context 正由其他 Flow generation 持有，本次调用会在重置索引、轮次或发出信号前失败关闭；最后一张 operation claim 释放后可顺序重试。
 
 参数：
 
@@ -296,17 +299,31 @@ func stop(should_clear_actions: bool = true) -> void:
 |---|---|
 | `should_clear_actions` | 是否清空待处理行动。即使流程已经 stopped，true 仍会幂等清理并封存队列；此前的保留策略也会升级为清理。 |
 
+<a id="member-gfturnflowsystem-methods-dispose"></a>
+
+### `dispose`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func dispose() -> void:
+```
+
+销毁系统，撤销所有在途 operation，并拒绝后续启动、阶段推进、行动入队与行动解析。 在途 continuation 会先完成精确清理，再释放 Context claim。
+
 <a id="member-gfturnflowsystem-methods-advance_phase"></a>
 
 ### `advance_phase`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func advance_phase() -> void:
 ```
 
-推进到下一个阶段。
+推进到下一个阶段。 若同一 Context 正由其他 Flow generation 持有，本次调用会在清理 actor、修改阶段/轮次或发出阶段信号前失败关闭；最后一张 operation claim 释放后可顺序重试。
 
 <a id="member-gfturnflowsystem-methods-get_actions"></a>
 
@@ -380,7 +397,7 @@ func enqueue_action(action: GFTurnAction) -> void:
 func resolve_actions(order_resolver: Callable = Callable()) -> void:
 ```
 
-解析当前上下文中的所有行动。
+解析当前上下文中的所有行动。 若同一 Context 正由其他 Flow generation 持有，本次调用会在清理 actor、取走队列、写入 current_actor 或调用 action 前失败关闭；最后一张 operation claim 释放后可顺序重试。
 
 参数：
 

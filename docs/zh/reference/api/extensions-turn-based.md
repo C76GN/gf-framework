@@ -6,8 +6,9 @@
 
 | 类别 | 类 | 成员 | 方法 |
 |---|---:|---:|---:|
-| [运行时服务](#category-runtime_service) | 1 | 22 | 10 |
-| [协议与扩展点](#category-protocol) | 2 | 19 | 9 |
+| [运行时服务](#category-runtime_service) | 1 | 23 | 11 |
+| [协议与扩展点](#category-protocol) | 2 | 18 | 8 |
+| [运行时句柄](#category-runtime_handle) | 1 | 1 | 1 |
 | [领域模型](#category-domain_model) | 1 | 8 | 5 |
 
 ## 类
@@ -28,6 +29,14 @@
 |---|---|---|
 | [`GFTurnAction`](classes/GFTurnAction.md#gfturnaction) | `RefCounted` | `addons/gf/extensions/turn_based/runtime/gf_turn_action.gd` |
 | [`GFTurnPhase`](classes/GFTurnPhase.md#gfturnphase) | `Resource` | `addons/gf/extensions/turn_based/resources/gf_turn_phase.gd` |
+
+<a id="category-runtime_handle"></a>
+
+### 运行时句柄
+
+| 类 | 继承 | 源文件 |
+|---|---|---|
+| [`GFTurnPhaseCompletionHandle`](classes/GFTurnPhaseCompletionHandle.md#gfturnphasecompletionhandle) | `RefCounted` | `addons/gf/extensions/turn_based/runtime/gf_turn_phase_completion_handle.gd` |
 
 <a id="category-domain_model"></a>
 

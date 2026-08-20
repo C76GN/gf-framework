@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<apiCatalog schemaVersion="3" name="GF Framework" sourceRoot="addons/gf" sourceDigest="c1eda8cb9498081c6d2d3a716a3473962b07e770a5b5c74e31f780f0c0e7c733" classCount="843" methodCount="7679" autoloadCount="1" autoloadMethodCount="65">
+<apiCatalog schemaVersion="3" name="GF Framework" sourceRoot="addons/gf" sourceDigest="eac36b75783638ad9fb5a4e94f820062a702cf055c767e2695b040e207291a1e" classCount="844" methodCount="7680" autoloadCount="1" autoloadMethodCount="65">
 	<module id="kernel" label="Kernel" classCount="75" methodCount="801" autoloadCount="1" autoloadMethodCount="65">
 		<class name="GFAccessGenerator" path="classes/GFAccessGenerator.xml" sourcePath="addons/gf/kernel/editor/gf_access_generator.gd" extends="RefCounted" />
 		<class name="GFArchitecture" path="classes/GFArchitecture.xml" sourcePath="addons/gf/kernel/core/gf_architecture.gd" extends="Object" />
@@ -858,11 +858,12 @@
 		<class name="GFSaveSource" path="classes/GFSaveSource.xml" sourcePath="addons/gf/extensions/save/core/gf_save_source.gd" extends="Node" />
 		<class name="GFSaveTransactionParticipant" path="classes/GFSaveTransactionParticipant.xml" sourcePath="addons/gf/extensions/save/pipeline/gf_save_transaction_participant.gd" extends="Resource" />
 	</module>
-	<module id="extensions/turn_based" label="Turn Based" classCount="4" methodCount="24" autoloadCount="0" autoloadMethodCount="0">
+	<module id="extensions/turn_based" label="Turn Based" classCount="5" methodCount="25" autoloadCount="0" autoloadMethodCount="0">
 		<class name="GFTurnAction" path="classes/GFTurnAction.xml" sourcePath="addons/gf/extensions/turn_based/runtime/gf_turn_action.gd" extends="RefCounted" />
 		<class name="GFTurnContext" path="classes/GFTurnContext.xml" sourcePath="addons/gf/extensions/turn_based/runtime/gf_turn_context.gd" extends="RefCounted" />
 		<class name="GFTurnFlowSystem" path="classes/GFTurnFlowSystem.xml" sourcePath="addons/gf/extensions/turn_based/runtime/gf_turn_flow_system.gd" extends="GFSystem" />
 		<class name="GFTurnPhase" path="classes/GFTurnPhase.xml" sourcePath="addons/gf/extensions/turn_based/resources/gf_turn_phase.gd" extends="Resource" />
+		<class name="GFTurnPhaseCompletionHandle" path="classes/GFTurnPhaseCompletionHandle.xml" sourcePath="addons/gf/extensions/turn_based/runtime/gf_turn_phase_completion_handle.gd" extends="RefCounted" />
 	</module>
 	<module id="tools" label="Tool Packages" classCount="20" methodCount="106" autoloadCount="0" autoloadMethodCount="0">
 		<class name="GFAssetBrowserModel" path="classes/GFAssetBrowserModel.xml" sourcePath="addons/gf/tools/asset_browser/gf_asset_browser_model.gd" extends="RefCounted" />

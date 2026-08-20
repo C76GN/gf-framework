@@ -25,7 +25,7 @@
 | Network | 38 | 602 | [Network](#module-extensions-network) |
 | Physics | 4 | 50 | [Physics](#module-extensions-physics) |
 | Save | 52 | 651 | [Save](#module-extensions-save) |
-| Turn Based | 4 | 49 | [Turn Based](#module-extensions-turn_based) |
+| Turn Based | 5 | 50 | [Turn Based](#module-extensions-turn_based) |
 | Tool Packages | 20 | 165 | [Tool Packages](#module-tools) |
 
 ## 模块索引
@@ -988,9 +988,10 @@
 
 | 类 | 类别 | 继承 | 成员 | 源文件 |
 |---|---|---|---:|---|
-| [`GFTurnFlowSystem`](GFTurnFlowSystem.md#gfturnflowsystem) | 运行时服务 (`runtime_service`) | `GFSystem` | 22 | `addons/gf/extensions/turn_based/runtime/gf_turn_flow_system.gd` |
+| [`GFTurnFlowSystem`](GFTurnFlowSystem.md#gfturnflowsystem) | 运行时服务 (`runtime_service`) | `GFSystem` | 23 | `addons/gf/extensions/turn_based/runtime/gf_turn_flow_system.gd` |
 | [`GFTurnAction`](GFTurnAction.md#gfturnaction) | 协议与扩展点 (`protocol`) | `RefCounted` | 11 | `addons/gf/extensions/turn_based/runtime/gf_turn_action.gd` |
-| [`GFTurnPhase`](GFTurnPhase.md#gfturnphase) | 协议与扩展点 (`protocol`) | `Resource` | 8 | `addons/gf/extensions/turn_based/resources/gf_turn_phase.gd` |
+| [`GFTurnPhase`](GFTurnPhase.md#gfturnphase) | 协议与扩展点 (`protocol`) | `Resource` | 7 | `addons/gf/extensions/turn_based/resources/gf_turn_phase.gd` |
+| [`GFTurnPhaseCompletionHandle`](GFTurnPhaseCompletionHandle.md#gfturnphasecompletionhandle) | 运行时句柄 (`runtime_handle`) | `RefCounted` | 1 | `addons/gf/extensions/turn_based/runtime/gf_turn_phase_completion_handle.gd` |
 | [`GFTurnContext`](GFTurnContext.md#gfturncontext) | 领域模型 (`domain_model`) | `RefCounted` | 8 | `addons/gf/extensions/turn_based/runtime/gf_turn_context.gd` |
 
 <a id="module-tools"></a>

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFTurnFlowSystem" path="addons/gf/extensions/turn_based/runtime/gf_turn_flow_system.gd" module="extensions/turn_based" extends="GFSystem" classDigest="1f907f96cc6ef444d29047e89e0e25ab9b4e65939d2585932cfd56ecea7e6a0b">
+<class name="GFTurnFlowSystem" path="addons/gf/extensions/turn_based/runtime/gf_turn_flow_system.gd" module="extensions/turn_based" extends="GFSystem" classDigest="2fa7c13a7b21fc883de7a74400342035b754e063192e319fbe970542d71f258f">
 	<description>GFTurnFlowSystem: 通用回合流程系统。
 提供阶段推进、行动排队和按优先级解析能力。
 它不关心战斗、卡牌、棋盘等具体业务，只调度抽象行动。</description>
@@ -111,10 +111,12 @@
 	<methods>
 		<member kind="method" name="set_context">
 			<signature>func set_context(p_context: GFTurnContext) -&gt; void:</signature>
-			<description>设置上下文。</description>
+			<description>设置上下文。
+存在活动 Context operation claim 时会拒绝修改；operation 安全收尾并释放最后一张 claim 后可顺序重试。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">p_context: 新上下文。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="set_phases">
@@ -127,10 +129,12 @@
 		</member>
 		<member kind="method" name="start">
 			<signature>func start(reset_indices: bool = true) -&gt; void:</signature>
-			<description>开始流程。</description>
+			<description>开始流程。
+若同一 Context 正由其他 Flow generation 持有，本次调用会在重置索引、轮次或发出信号前失败关闭；最后一张 operation claim 释放后可顺序重试。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">reset_indices: 是否重置阶段索引和轮次数据。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="stop">
@@ -142,11 +146,22 @@
 				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
-		<member kind="method" name="advance_phase">
-			<signature>func advance_phase() -&gt; void:</signature>
-			<description>推进到下一个阶段。</description>
+		<member kind="method" name="dispose">
+			<signature>func dispose() -&gt; void:</signature>
+			<description>销毁系统，撤销所有在途 operation，并拒绝后续启动、阶段推进、行动入队与行动解析。
+在途 continuation 会先完成精确清理，再释放 Context claim。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="advance_phase">
+			<signature>func advance_phase() -&gt; void:</signature>
+			<description>推进到下一个阶段。
+若同一 Context 正由其他 Flow generation 持有，本次调用会在清理 actor、修改阶段/轮次或发出阶段信号前失败关闭；最后一张 operation claim 释放后可顺序重试。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_actions">
@@ -185,7 +200,8 @@
 		</member>
 		<member kind="method" name="resolve_actions">
 			<signature>func resolve_actions(order_resolver: Callable = Callable()) -&gt; void:</signature>
-			<description>解析当前上下文中的所有行动。</description>
+			<description>解析当前上下文中的所有行动。
+若同一 Context 正由其他 Flow generation 持有，本次调用会在清理 actor、取走队列、写入 current_actor 或调用 action 前失败关闭；最后一张 operation claim 释放后可顺序重试。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">order_resolver: 可选排序回调，签名为 func(a, b) -&gt; bool；调用方必须提供无副作用、确定且满足严格弱序的比较器。自定义比较器不继承默认 non-finite 与入队顺序规则。</tag>

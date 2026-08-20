@@ -5,10 +5,10 @@
 ## 范围
 
 - 源码根目录：`addons/gf`
-- 公开类：`843`
+- 公开类：`844`
 - 公开 AutoLoad：`1`
-- 公开成员：`12481`
-- 公开方法：`7679`
+- 公开成员：`12482`
+- 公开方法：`7680`
 - AutoLoad 公开方法：`65`
 
 ## 模块
@@ -34,7 +34,7 @@
 | Network | 38 | 0 | 602 | 323 | [extensions-network.md](extensions-network.md) |
 | Physics | 4 | 0 | 50 | 23 | [extensions-physics.md](extensions-physics.md) |
 | Save | 52 | 0 | 651 | 414 | [extensions-save.md](extensions-save.md) |
-| Turn Based | 4 | 0 | 49 | 24 | [extensions-turn-based.md](extensions-turn-based.md) |
+| Turn Based | 5 | 0 | 50 | 25 | [extensions-turn-based.md](extensions-turn-based.md) |
 | Tool Packages | 20 | 0 | 165 | 106 | [tools.md](tools.md) |
 
 ## Owner 索引
