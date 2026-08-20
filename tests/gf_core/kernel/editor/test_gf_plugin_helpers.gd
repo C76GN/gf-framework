@@ -1121,6 +1121,55 @@ func test_plugin_import_tools_ignores_null_plugin() -> void:
 	assert_true(import_plugins.is_empty(), "无 EditorPlugin 实例时导入插件辅助脚本不应注册任何对象。")
 
 
+func test_resource_preview_generator_declines_translation_types_before_resource_fallback() -> void:
+	var preview_script: Script = GF_RESOURCE_PREVIEW_GENERATOR
+	var has_type_policy: bool = false
+	for method: Dictionary in preview_script.get_script_method_list():
+		if GF_VARIANT_ACCESS.get_option_string(method, "name") == "_handles_resource_type":
+			has_type_policy = true
+			break
+	assert_true(has_type_policy, "Resource 预览器应暴露可独立验证的私有类型策略。")
+	if not has_type_policy:
+		return
+
+	assert_false(
+		GF_VARIANT_ACCESS.to_bool(
+			preview_script.call(&"_handles_resource_type", "Translation")
+		),
+		"Translation 不应进入通用 Resource 预览路径。"
+	)
+	assert_false(
+		GF_VARIANT_ACCESS.to_bool(
+			preview_script.call(&"_handles_resource_type", "OptimizedTranslation")
+		),
+		"Translation 子类不应进入通用 Resource 预览路径。"
+	)
+	assert_true(
+		GF_VARIANT_ACCESS.to_bool(
+			preview_script.call(&"_handles_resource_type", "Resource")
+		),
+		"通用 Resource fallback 应保持兼容。"
+	)
+	assert_true(
+		GF_VARIANT_ACCESS.to_bool(
+			preview_script.call(&"_handles_resource_type", "PackedScene")
+		),
+		"非 Translation 的 Resource 子类应继续由通用预览器处理。"
+	)
+	assert_false(
+		GF_VARIANT_ACCESS.to_bool(
+			preview_script.call(&"_handles_resource_type", "Object")
+		),
+		"已知的非 Resource 类型不应进入通用预览路径。"
+	)
+	assert_true(
+		GF_VARIANT_ACCESS.to_bool(
+			preview_script.call(&"_handles_resource_type", "GFUnknownPreviewResource")
+		),
+		"未知资源类型应保持既有 fallback 行为。"
+	)
+
+
 func test_resource_preview_generator_uses_resource_icon_property() -> void:
 	var source_image: Image = Image.create(4, 2, false, Image.FORMAT_RGBA8)
 	source_image.fill(Color(1.0, 0.0, 0.0, 1.0))

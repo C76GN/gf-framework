@@ -43,6 +43,9 @@ const ICON_TEXTURE_PROPERTY: StringName = &"icon"
 ## @layer kernel/editor
 const DEFAULT_BASE_TYPE: String = "Resource"
 
+# 不应进入通用预览回退的翻译资源基类名。
+const _TRANSLATION_BASE_TYPE: String = "Translation"
+
 
 # --- 私有变量 ---
 
@@ -52,11 +55,7 @@ var _registry: _GF_RESOURCE_PREVIEW_SOURCE_REGISTRY_SCRIPT = _GF_RESOURCE_PREVIE
 # --- 可重写钩子 / 虚方法 ---
 
 func _handles(type: String) -> bool:
-	if type == DEFAULT_BASE_TYPE:
-		return true
-	if ClassDB.class_exists(type):
-		return ClassDB.is_parent_class(type, DEFAULT_BASE_TYPE)
-	return true
+	return _handles_resource_type(type)
 
 
 func _generate(resource: Resource, size: Vector2i, _metadata: Dictionary) -> Texture2D:
@@ -164,6 +163,18 @@ static func make_preview_texture(texture: Texture2D, size: Vector2i) -> Texture2
 
 
 # --- 私有/辅助方法 ---
+
+static func _handles_resource_type(type: String) -> bool:
+	if type == _TRANSLATION_BASE_TYPE:
+		return false
+	if ClassDB.class_exists(type) and ClassDB.is_parent_class(type, _TRANSLATION_BASE_TYPE):
+		return false
+	if type == DEFAULT_BASE_TYPE:
+		return true
+	if ClassDB.class_exists(type):
+		return ClassDB.is_parent_class(type, DEFAULT_BASE_TYPE)
+	return true
+
 
 static func _get_result_texture(result: Dictionary) -> Texture2D:
 	var value: Variant = result.get("texture")

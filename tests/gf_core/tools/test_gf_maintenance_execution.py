@@ -69,6 +69,229 @@ class StrictJsonBoundaryTests(unittest.TestCase):
 			self.assertEqual(json.loads(target.read_text(encoding="utf-8")), {"ok": True})
 
 
+class CorePluginBootstrapSmokeTests(unittest.TestCase):
+	def test_translation_preview_smoke_uses_a_real_display_on_linux(self) -> None:
+		with mock.patch.object(
+			gf_maintenance.sys,
+			"platform",
+			"linux",
+		), mock.patch.object(
+			gf_maintenance,
+			"resolve_godot_executable",
+			return_value="/opt/godot",
+		), mock.patch.object(
+			gf_maintenance.shutil,
+			"which",
+			return_value="/usr/bin/xvfb-run",
+		):
+			command = gf_maintenance.make_core_plugin_bootstrap_smoke_command(
+				Path("/tmp/project"),
+				Path("/tmp/godot.log"),
+				"resource_preview_translation",
+			)
+
+		self.assertEqual(command[0], "/usr/bin/xvfb-run")
+		self.assertIn("/opt/godot", command)
+		self.assertIn("--display-driver", command)
+		self.assertIn("x11", command)
+		self.assertNotIn("--headless", command)
+
+	def test_translation_preview_smoke_uses_resolved_godot_on_desktop_platforms(self) -> None:
+		for platform_name in ("darwin", "win32"):
+			with self.subTest(platform=platform_name), mock.patch.object(
+				gf_maintenance.sys,
+				"platform",
+				platform_name,
+			), mock.patch.object(
+				gf_maintenance,
+				"resolve_godot_executable",
+				return_value="/opt/godot",
+			), mock.patch.object(
+				gf_maintenance.shutil,
+				"which",
+			) as which_mock:
+				command = gf_maintenance.make_core_plugin_bootstrap_smoke_command(
+					Path("/tmp/project"),
+					Path("/tmp/godot.log"),
+					"resource_preview_translation",
+				)
+
+			self.assertEqual(command[0], "/opt/godot")
+			self.assertIn("--editor", command)
+			self.assertNotIn("--headless", command)
+			which_mock.assert_not_called()
+
+	def test_translation_preview_smoke_fails_closed_without_xvfb(self) -> None:
+		with mock.patch.object(
+			gf_maintenance.sys,
+			"platform",
+			"linux",
+		), mock.patch.object(
+			gf_maintenance,
+			"resolve_godot_executable",
+			return_value="/opt/godot",
+		), mock.patch.object(
+			gf_maintenance.shutil,
+			"which",
+			return_value=None,
+		):
+			with self.assertRaises(
+				gf_maintenance.CorePluginBootstrapDisplayDependencyError
+			):
+				gf_maintenance.make_core_plugin_bootstrap_smoke_command(
+					Path("/tmp/project"),
+					Path("/tmp/godot.log"),
+					"resource_preview_translation",
+				)
+
+	def test_translation_preview_smoke_reports_missing_display_dependency(self) -> None:
+		with tempfile.TemporaryDirectory() as temporary_directory, mock.patch.object(
+			gf_maintenance,
+			"prepare_core_plugin_bootstrap_smoke_project",
+		), mock.patch.object(
+			gf_maintenance,
+			"make_core_plugin_bootstrap_smoke_command",
+			side_effect=gf_maintenance.CorePluginBootstrapDisplayDependencyError(
+				"xvfb-run missing"
+			),
+		):
+			issues: list[dict[str, object]] = []
+			result = gf_maintenance.run_core_plugin_bootstrap_smoke_scenario(
+				Path(temporary_directory),
+				"resource_preview_translation",
+				issues,
+			)
+
+		self.assertFalse(result["ok"])
+		self.assertEqual(
+			[item["kind"] for item in issues],
+			["core_plugin_bootstrap_smoke_display_dependency_missing"],
+		)
+		self.assertIn("display dependency", str(issues[0]["message"]))
+
+	def test_translation_preview_smoke_isolates_platform_user_directories(self) -> None:
+		platform_cases = [
+			("nt", "win32", ("APPDATA", "LOCALAPPDATA", "TMPDIR", "TEMP", "TMP")),
+			("posix", "darwin", ("HOME", "TMPDIR", "TEMP", "TMP")),
+			(
+				"posix",
+				"linux",
+				(
+					"HOME",
+					"XDG_DATA_HOME",
+					"XDG_CONFIG_HOME",
+					"XDG_CACHE_HOME",
+					"TMPDIR",
+					"TEMP",
+					"TMP",
+				),
+			),
+		]
+		with tempfile.TemporaryDirectory() as temporary_directory:
+			temp_root = Path(temporary_directory)
+			for os_name, platform_name, isolated_fields in platform_cases:
+				original_environment = dict(gf_maintenance.os.environ)
+				with self.subTest(platform=platform_name), mock.patch.object(
+					gf_maintenance.os,
+					"name",
+					os_name,
+				), mock.patch.object(
+					gf_maintenance.sys,
+					"platform",
+					platform_name,
+				), mock.patch.dict(
+					gf_maintenance.os.environ,
+					{"GODOT_USER_HOME": "unsafe", "HOME": "host-home"},
+				):
+					host_environment = dict(gf_maintenance.os.environ)
+					environment = gf_maintenance.make_core_plugin_bootstrap_smoke_environment(
+						temp_root,
+						"resource_preview_translation",
+					)
+					self.assertEqual(dict(gf_maintenance.os.environ), host_environment)
+
+				self.assertIsNotNone(environment)
+				assert environment is not None
+				self.assertNotIn("GODOT_USER_HOME", environment)
+				self.assertEqual(dict(gf_maintenance.os.environ), original_environment)
+				isolation_root = temp_root / "resource_preview_translation" / "user"
+				prefix = f"{isolation_root}{os.sep}"
+				for field_name in isolated_fields:
+					self.assertTrue(
+						environment[field_name].startswith(prefix),
+						f"{platform_name} {field_name} should stay inside the smoke root",
+					)
+
+	def test_translation_preview_smoke_rejects_source_load_errors(self) -> None:
+		clean_issues: list[dict[str, object]] = []
+		gf_maintenance.validate_resource_preview_translation_smoke_output(
+			"GF_RESOURCE_PREVIEW_TRANSLATION_EDITOR_SMOKE_OK",
+			"GF_RESOURCE_PREVIEW_TRANSLATION_EDITOR_SMOKE_OK",
+			"resource_preview_translation",
+			clean_issues,
+		)
+		self.assertEqual(clean_issues, [])
+
+		failed_issues: list[dict[str, object]] = []
+		gf_maintenance.validate_resource_preview_translation_smoke_output(
+			(
+				"GF_RESOURCE_PREVIEW_TRANSLATION_EDITOR_SMOKE_OK\n"
+				"ERROR: Failed loading resource: res://preview_translation.csv"
+			),
+			"GF_RESOURCE_PREVIEW_TRANSLATION_EDITOR_SMOKE_OK",
+			"resource_preview_translation",
+			failed_issues,
+		)
+		self.assertEqual(
+			[item["kind"] for item in failed_issues],
+			["core_plugin_bootstrap_smoke_resource_preview_source_loaded"],
+		)
+
+		callback_cases = [
+			("", "", "missing success marker"),
+			(
+				"GF_RESOURCE_PREVIEW_TRANSLATION_EDITOR_SMOKE_OK\n"
+				"GF_RESOURCE_PREVIEW_TRANSLATION_EDITOR_SMOKE_OK",
+				"GF_RESOURCE_PREVIEW_TRANSLATION_EDITOR_SMOKE_OK\n"
+				"GF_RESOURCE_PREVIEW_TRANSLATION_EDITOR_SMOKE_OK",
+				"duplicate success marker",
+			),
+			(
+				"GF_RESOURCE_PREVIEW_TRANSLATION_EDITOR_SMOKE_FAILED: injected",
+				"GF_RESOURCE_PREVIEW_TRANSLATION_EDITOR_SMOKE_OK",
+				"failure marker",
+			),
+		]
+		for combined_output, log_text, case_name in callback_cases:
+			with self.subTest(case=case_name):
+				callback_issues: list[dict[str, object]] = []
+				gf_maintenance.validate_resource_preview_translation_smoke_output(
+					combined_output,
+					log_text,
+					"resource_preview_translation",
+					callback_issues,
+				)
+				self.assertIn(
+					"core_plugin_bootstrap_smoke_resource_preview_callback_failed",
+					[item["kind"] for item in callback_issues],
+				)
+
+		null_translation_issues: list[dict[str, object]] = []
+		gf_maintenance.validate_resource_preview_translation_smoke_output(
+			(
+				"GF_RESOURCE_PREVIEW_TRANSLATION_EDITOR_SMOKE_OK\n"
+				'ERROR: Parameter "p_translation" is null.'
+			),
+			"GF_RESOURCE_PREVIEW_TRANSLATION_EDITOR_SMOKE_OK",
+			"resource_preview_translation",
+			null_translation_issues,
+		)
+		self.assertEqual(
+			[item["kind"] for item in null_translation_issues],
+			["core_plugin_bootstrap_smoke_resource_preview_source_loaded"],
+		)
+
+
 class LspFramingBoundaryTests(unittest.TestCase):
 	def _make_client(self, connection: socket.socket) -> gdscript_lsp_diagnostics.LspClient:
 		client = gdscript_lsp_diagnostics.LspClient.__new__(
