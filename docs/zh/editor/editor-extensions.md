@@ -18,7 +18,7 @@ Inspector、Debugger 与导出插件仍按对应类型装载，例如 Node State
 
 GF 会注册一个通用 Resource 预览生成器。底层预览来源由 `GFResourcePreviewSourceRegistry` 管理，默认 provider 会先尝试 `get_gf_preview_texture()` / `get_gf_icon_texture()`，再尝试 `preview_texture` / `icon` 字段。项目或扩展后续需要接入自定义素材预览时，应提供只负责“从 Resource 解析源 Texture2D”的 provider，再交给统一预算管线生成编辑器缩略图。
 
-预览生成器只把已有纹理等比适配到编辑器请求尺寸，不解释资源业务含义，也不要求项目资源继承某个 GF 基类。未知资源没有可用 provider 时会被视为正常的 `no_source`，不会报错；源纹理或目标预览尺寸超过预算时会 fail-closed，不继续解码或缩放超大图片。
+预览生成器只把已有纹理等比适配到编辑器请求尺寸，不解释资源业务含义，也不要求项目资源继承某个 GF 基类。未知资源没有可用 provider 时会被视为正常的 `no_source`，不会报错；源纹理或目标预览尺寸超过预算时会 fail-closed，不继续解码或缩放超大图片。`Translation` 与 `OptimizedTranslation` 会被该通用生成器显式跳过：CSV 翻译源属于多输出导入，不应作为单个 `Translation` 资源加载；其生成的 locale 翻译资源与项目本地化流程不受影响。
 
 GF 也会为 `String` 类型且带有可识别 `@export_file()` 资源 hint 的字段提供 ResourcePicker。例如 `@export_file("*.tscn") var scene_path: String` 会显示场景资源选择器，保存时优先写入 `uid://`，资源没有 UID 时回退到 `res://`。当字段当前值是 `uid://` 时，Inspector 会显示解析后的 `res://` 路径；路径缺失、UID 无效或类型不匹配时会在字段下方显示状态提示。普通文本文件路径、未识别扩展名和非 String 字段不会被接管。
 

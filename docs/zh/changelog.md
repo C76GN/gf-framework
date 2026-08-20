@@ -185,6 +185,8 @@
 
 ### 🐛 Bug 修复 (Fixed)
 
+- 修复通用 Resource 预览生成器把多输出 CSV 翻译源当作单个 `Translation` 资源加载、从而在编辑器缩略图队列中产生源加载错误的问题；`Translation` 及 `OptimizedTranslation` 现在会在宽泛 Resource fallback 前被明确跳过，未知资源类型的既有兼容策略保持不变。
+
 - 修复 Config Pipeline 的 resource 数据库 `dry_run` 在 `ResourceSaver` 明确不识别目标扩展名时仍报告成功、直到真实保存才失败的问题；规范化后的 resource 目标现在会在 ownership 与任何产物 I/O 前按当前 saver 声明做大小写不敏感预检，dry-run 与真实路由统一返回 `ERR_FILE_UNRECOGNIZED`，显式 JSON 格式的扩展名策略保持不变。
 
 - 修复 `GFAssetUtility.unload_group(..., true)` 在句柄引用归零时直接执行全局缓存移除、从而清掉其他分组 membership 与 pin 的问题；分组卸载现在只释放本组账本，并仅在句柄、剩余 pin 和其他分组 membership 全部归零时 eager remove。未 pin membership 仍不改变正常 LRU 语义。
