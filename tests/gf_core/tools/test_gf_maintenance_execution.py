@@ -2096,7 +2096,7 @@ class GutShardRunIntegrationTests(unittest.TestCase):
 				gf_maintenance.gf_gut_sharding,
 				"discover_gut_test_scripts",
 				return_value=self.INVENTORY,
-			), mock.patch.object(
+			) as discover_inventory, mock.patch.object(
 				gf_maintenance.gf_gut_sharding,
 				"load_and_validate_manifest",
 				return_value=self.MANIFEST,
@@ -2161,6 +2161,10 @@ class GutShardRunIntegrationTests(unittest.TestCase):
 			},
 		)
 		capture.assert_called_once()
+		discover_inventory.assert_called_once_with(
+			gf_maintenance.ROOT,
+			deadline=capture.call_args.kwargs["deadline"],
+		)
 		self.assertEqual(runtime_binding.call_count, 2)
 		isolation_probe.assert_called_once()
 		self.assertEqual(

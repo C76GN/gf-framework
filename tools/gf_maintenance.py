@@ -8720,7 +8720,10 @@ def gut_shard_run(
 			GUT_SHARD_LOADED_RUNTIME_SOURCE_BINDING,
 			deadline=deadline,
 		)
-		inventory = gf_gut_sharding.discover_gut_test_scripts(ROOT)
+		inventory = gf_gut_sharding.discover_gut_test_scripts(
+			ROOT,
+			deadline=deadline,
+		)
 		manifest = gf_gut_sharding.load_and_validate_manifest(
 			ROOT / GUT_SHARD_MANIFEST_RELATIVE_PATH,
 			root=ROOT,
