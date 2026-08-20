@@ -181,7 +181,7 @@
 - Network Contract 批量生成现在先构建确定性全批计划：资源加载、定义校验、大小写不敏感目标唯一性、标识符与源码预算全部在写入前完成，dry-run 与真实保存共享 `plan_fingerprint`。审计路径按规范文本去重并保留 `resource_path`、原始 phase 与聚合 phase，known channel 去重改为线性集合并加入同步入口硬上限。
 - Network Resource 与生成访问器的版本预检改为委托同一个内部纯值校验器；collection 审计改名为诚实的人工边界复核，不再暗示框架会解释项目自有 metadata。当前批次仍只保证完整预检，逐文件保存遇到不可预期 I/O 故障时不承诺整批自动回滚。
 - Physics Probe 现在把一次采样作为入口快照事务：位置、分组、组合模式与 fallback 在 field/provider 回调前冻结，同实例同步递归采样失败关闭为零；同帧缓存加入精确实例身份，不再把同路径替换对象视为旧实例。`STRONGEST` 使用共同尺度比较幅值，SUM 与最高优先级聚合在中间结果失去有限性时失败关闭。
-- TurnBased 的 stop 通知幂等性与 action cleanup policy 现在分离：`stop(true)` 在 already-stopped 或 `stop(false)` 恢复后仍会清理并封存队列；phase/action 双通道只有在最后一个 operation 收尾后才释放共享 stop 证据。行动 target 由 `GFTurnAction` 在唯一边界按实例 ID 线性清洗，默认排序和自定义比较器的输入合同也已明确。
+- TurnBased phase completion 改为 `_execute(context, completion)` 收到的一次性精确句柄；同一 Context 的 flow operation 由 owner claim 保护，不同 system 在首个状态或信号副作用前失败关闭，相同 system 的 phase/action 仍可组合运行。stop 通知幂等性与 action cleanup policy 保持分离：`stop(true)` 在 already-stopped 或 `stop(false)` 恢复后仍会清理并封存队列；phase/action 双通道只有在最后一个 operation 收尾后才释放 Context 与共享 stop 证据。行动 target 由 `GFTurnAction` 在唯一边界按实例 ID 线性清洗，默认排序和自定义比较器的输入合同也已明确。
 
 ### 🐛 Bug 修复 (Fixed)
 
@@ -313,7 +313,7 @@
 - 修复 Interaction 的 Pointer 与 Receiver-to-Receiver 转发对已编码报告再次编码、Area2D/3D 自定义 sender 的空或非 Dictionary 结果产生残缺报告或被静默丢弃、候选回调释放后续 receiver 后访问 previously freed Object、失效 `validation_callback` 静默恢复默认允许，以及同名不兼容项目方法触发脚本错误的问题；每次实际 Area 分发现在都返回并发布完整 JSON-safe 报告。
 - 修复 Network snapshot 生成 `ok=true` 但同版本 applicator 因深度、操作数或非法内容静默拒绝，service discovery 的自定义 `now_seconds` 与内部 elapsed clock 混用而延长 TTL，以及 fixed-tick signal 回调递归推进导致 stack overflow 的问题。
 - 修复 Physics 同路径 field 替换命中陈旧缓存、最高优先级的 32 位哨兵丢弃合法 int64、Vector3 聚合与平方范数溢出、浮力总力携带 Infinity、平方反比与超大浸没半径发生可避免中间溢出，以及 field 回调改写 Probe 后形成混合时点或错误缓存的问题。
-- 修复 TurnBased 在 lifecycle 已 stopped 时让 `stop(true)` 静默跳过清理、`stop(false)` 的在途 restore policy 无法升级、phase/action 双通道先结束者过早清除 stop 证据，以及 `get_actor_value()` 对同名错误 arity/type 方法直接产生脚本错误的问题；action target 的重复 O(n²) 清洗收敛为单次 O(n)。
+- 修复 TurnBased 旧异步回调只凭 Context 完成后来 phase runtime，以及不同 Flow System 在发现共享 Context 冲突前已修改 round、phase、actor 或行动队列的问题。精确 completion handle 在 stop、timeout、dispose、正常收尾或 restart 后立即失效；Context claim 只在最后一个同 owner operation 安全收尾后释放。另修复 lifecycle 已 stopped 时让 `stop(true)` 静默跳过清理、`stop(false)` 的在途 restore policy 无法升级、phase/action 双通道先结束者过早清除 stop 证据，以及 `get_actor_value()` 对同名错误 arity/type 方法直接产生脚本错误的问题；action target 的重复 O(n²) 清洗收敛为单次 O(n)。
 
 ### ⚠️ 废弃与移除 (Deprecated/Removed)
 
@@ -415,7 +415,7 @@
 - `GFInteractions.is_method_call_compatible_for_framework()` 是新的框架内部动态协议预检入口。Interaction 的公开方法和信号签名不变，但失效 validator、非法 sender/provider/receiver 协议、Area 非法返回和 Pointer 多按钮的运行时语义均已收紧；`gf.interaction` 的 `extension_version` 因此提升到 `3.0.0`。
 - `GFNetworkSnapshot.make_patch_to()` 会把 `max_depth` 限制到 8，并以 `patch_operation_budget_exceeded` / `generated_patch_not_applicable` 显式拒绝 applicator 无法接受的成功候选。`GFNetworkServiceDiscovery.now_seconds` 只影响记录时间；`GFFixedTickClock.advance()` / `step_once()` 在同实例 signal 重入时无副作用返回。公开签名不变，`gf.network` 的 `extension_version` 提升到 `7.0.0`。
 - Physics 公开签名不变；`GFGravityProbe3D.sample()` / `sample_fields()` / `sample_field_provider()` 现在冻结入口查询状态并在同实例同步重入时返回零，全部重力/浮力公开向量保持有限。该运行语义收紧使 `gf.physics` 的 `extension_version` 提升到 `2.0.0`。
-- TurnBased 公开签名不变；`GFTurnFlowSystem.stop(true)` 现在对 stopped/恢复中队列执行幂等且可升级的清理，`GFTurnContext.get_actor_value()` 只调用接受两个兼容实参的 duck method。默认 non-finite 排序与自定义 comparator 的合同已写明，`gf.turn_based` 的 `extension_version` 从 `2.0.0` 提升到 `2.0.1`。
+- TurnBased 移除基于 Context 查找当前运行态的 `GFTurnPhase.finish()` / `finish(context)`，protected 扩展点从 `_execute(context)` 改为 `_execute(context, completion)`，并新增 `GFTurnPhaseCompletionHandle.try_complete()`。`GFTurnFlowSystem.dispose()` 现在显式终止接纳新 operation；`stop(true)` 继续对 stopped/恢复中队列执行幂等且可升级的清理，`GFTurnContext.get_actor_value()` 只调用接受两个兼容实参的 duck method。默认 non-finite 排序与自定义 comparator 的合同已写明，`gf.turn_based` 的 `extension_version` 从 `2.0.1` 提升到 `3.0.0`。
 
 ### 📘 升级指南 (Migration Guide)
 
@@ -491,7 +491,7 @@
 59. 检查所有 SaveGraph apply/load 调用：失败时除 `ok` / `errors` 外读取 `atomicity_restored`；为 `false` 时停止使用可能部分提交的场景状态，并按项目恢复策略消费 `rollback_failures`。不要依赖 `include_pipeline_trace` 才发现回滚失败，也不要在 Source callback 内同步重入同一个 Utility。
 60. 修正自定义 SaveGraph payload 的 `format_version` 为精确当前整数，并保证同一 `GFPersistPropertiesSource` 的 property、local 与 registry Serializer ID 唯一；已记录 pipeline error 的采集现在整体失败，调用方不得把空 payload 当作成功快照。
 61. 自定义槽位模板在保存或同步前调用 `build_slot_file_plan()` 并处理失败；两个模板都必须含 `{index}`、原样满足 portable logical identity 规则，且 data/metadata target 不能相同。自定义 Storage 若返回 `ok=true` 与 `IntegrityStatus.INVALID`，Graph/Slot 读取入口现在仍会拒绝该结果。
-62. TurnBased teardown 可重复调用 `stop(true)` 清理并封存队列，不必在 stopped 状态另调 `clear_actions()`；自定义 action comparator 改为无副作用的确定严格弱序，并显式处理 non-finite/平局。为 phase 的 timer/动画/网络 completion 在 stop/timeout 时断开旧回调，不要让 context-only `finish(context)` 跨同 Context restart；同一可变 Context 也不要同时交给两个 Flow System。
+62. 将自定义 `GFTurnPhase._execute(context)` 改为 `_execute(context, completion)`。`auto_finish=false` 的 timer、动画、网络或自定义 Signal 回调应捕获本次传入的 `GFTurnPhaseCompletionHandle`，并以 `completion.try_complete()` 的 `true` 结果确认首次提交；删除所有无参 `finish()` 与 `finish(context)` 调用。旧句柄在 stop、timeout、dispose、正常收尾或同 Context restart 后会稳定返回 `false`，不会完成新运行态。多个 Flow System 若同时操作同一 Context，后来者现在会在副作用前失败关闭；最后一张 operation claim 释放后仍可顺序复用该 Context，相同 system 的 phase→action 组合不需要拆分 Context。teardown 可重复调用 `stop(true)` 清理并封存队列；自定义 action comparator 改为无副作用的确定严格弱序，并显式处理 non-finite/平局。
 63. 自定义 Config Pipeline Stage 在 descriptor 中列出所有会影响输出的 `implementation_dependencies`，并把 Reader/Layout 输入输出契约迁移到 `reader_result@2` / `layout_result@2`。消费访问器报告时改用 `emitted_schema_count` 判断实际发射数并处理 `issues`；消费导出报告时检查 `source_validation_report`。JSON 导出的项目上限改用 `max_depth`、`max_nodes`、`max_output_bytes` 收紧框架默认值，不要再用零或负数表达无界。批量产物路径统一改为显式 `res://` 或 `user://`。
 64. 自定义 `GFLogSink` 若有依赖时间的缓冲行为，覆写 `tick(delta)`；脱离 Architecture 单独使用 `GFLogUtility` 时，由项目每帧显式调用 `tick(delta)`。不要再依赖“下一条日志”触发非零 interval。
 65. 若项目从主 `.log` 路径自行推导默认 JSONL 文件名，改为调用 `GFJsonLineLogSink.get_file_path()`；需要跨实例稳定路径时显式设置 `file_path`，并保证目标只有一个活动写入者。

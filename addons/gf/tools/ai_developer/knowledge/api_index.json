@@ -2,8 +2,8 @@
   "schema_version": 2,
   "catalog_version": "2.0.0",
   "framework_version": "11.0.0-dev.0",
-  "source_digest": "4086ab2c54acaa4a3c47d2472e5cb68d76dc4f8e52ed4bfec41e06e1da6ad026",
-  "class_count": 819,
+  "source_digest": "2606faac835cff13026ce8f2194b74e45899f82e9425b47f66ae85f4b8732b50",
+  "class_count": 820,
   "autoload_count": 1,
   "package_count": 56,
   "packages": [
@@ -90952,6 +90952,13 @@
         },
         {
           "kind": "func",
+          "name": "dispose",
+          "signature": "func dispose() -> void",
+          "summary": "销毁系统，撤销所有在途 operation，并拒绝后续启动、阶段推进、行动入队与行动解析。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
           "name": "advance_phase",
           "signature": "func advance_phase() -> void",
           "summary": "推进到下一个阶段。",
@@ -91028,13 +91035,6 @@
         },
         {
           "kind": "func",
-          "name": "finish",
-          "signature": "func finish(context: GFTurnContext = null) -> void",
-          "summary": "标记指定上下文的阶段运行完成。",
-          "visibility": "public"
-        },
-        {
-          "kind": "func",
           "name": "is_finished_for",
           "signature": "func is_finished_for(context: GFTurnContext) -> bool",
           "summary": "查询指定上下文的阶段是否完成。",
@@ -91050,7 +91050,7 @@
         {
           "kind": "func",
           "name": "_execute",
-          "signature": "func _execute(_context: GFTurnContext) -> Variant",
+          "signature": "func _execute( _context: GFTurnContext, _completion: GFTurnPhaseCompletionHandle ) -> Variant",
           "summary": "执行阶段逻辑时由 GFTurnFlowSystem 调用。",
           "visibility": "protected"
         },
@@ -91060,6 +91060,26 @@
           "signature": "func _exit(_context: GFTurnContext) -> void",
           "summary": "退出阶段时由 GFTurnFlowSystem 调用。",
           "visibility": "protected"
+        }
+      ]
+    },
+    "GFTurnPhaseCompletionHandle": {
+      "owner_kind": "class",
+      "extends": "RefCounted",
+      "module": "extensions/turn_based",
+      "package_id": "gf.extension.turn_based",
+      "path": "addons/gf/extensions/turn_based/runtime/gf_turn_phase_completion_handle.gd",
+      "summary": "GFTurnPhaseCompletionHandle: 单次阶段运行的完成能力句柄。 有效句柄只会由 GFTurnFlowSystem 传给当前 GFTurnPhase._execute() 调用；项目手工 new() 的实例没有完成权限。 首次对有效运行调用 try_complete() 会完成该阶段；停止、超时、释放、dispose、重启后的旧句柄及重复调用都返回 false，不影响其他代际。",
+      "visibility": "public",
+      "category": "runtime_handle",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "func",
+          "name": "try_complete",
+          "signature": "func try_complete() -> bool",
+          "summary": "尝试完成创建此句柄的精确阶段运行。",
+          "visibility": "public"
         }
       ]
     },

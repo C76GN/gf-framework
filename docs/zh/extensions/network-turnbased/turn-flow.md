@@ -13,7 +13,10 @@ class_name ResolvePhase
 extends GFTurnPhase
 
 
-func _execute(context: GFTurnContext) -> Variant:
+func _execute(
+	context: GFTurnContext,
+	_completion: GFTurnPhaseCompletionHandle
+) -> Variant:
 	var flow := Gf.get_system(GFTurnFlowSystem) as GFTurnFlowSystem
 	flow.resolve_actions()
 	return null
@@ -34,7 +37,43 @@ flow.advance_phase()
 
 阶段和行动如果返回 Signal，系统会通过 `signal_timeout_seconds` 和当前流程 serial 做安全等待；`stop()` 或超时后不会继续调用旧阶段的 `_exit()`，也不会把旧行动标记为 resolved。`resolve_actions()` 在上一批行动仍等待时会拒绝同类重入，避免同一批行动被重复解析。`stop(true)` 的清理策略与停止通知分离：流程已经 stopped 时仍会幂等清空并封存队列，`stop(false)` 保留的在途行动也可由后续 `stop(true)` 升级为丢弃；重复调用不会重复发送 `flow_stopped`。
 
-当前 `finish(context)` 只按 Context 身份解析活动 phase runtime，不携带运行代际。因此项目在 timer、动画、网络或自定义 Signal 回调中调用它时，必须在 stop/timeout 时对称断开旧回调，并且不能让旧回调跨同一 Context 的 restart 存活；否则旧回调可能完成新 runtime。当前版本也没有跨 `GFTurnFlowSystem` 的 Context owner lease：一个可变 `GFTurnContext` 不得被两个 system 同时推进或解析。generation-scoped completion 与共享/嵌套 Context 所有权仍是待定的后续架构选择。
+`auto_finish=false` 的手工阶段必须保存本次 `_execute()` 收到的精确 completion handle；timer、动画、网络或自定义 Signal 回调只调用这个句柄：
+
+```gdscript
+class_name AnimationPhase
+extends GFTurnPhase
+
+
+@export var animation_player: AnimationPlayer
+
+
+func _init() -> void:
+	auto_finish = false
+
+
+func _execute(
+	_context: GFTurnContext,
+	completion: GFTurnPhaseCompletionHandle
+) -> Variant:
+	var connection_error: Error = animation_player.animation_finished.connect(
+		func(_animation_name: StringName) -> void:
+			if completion.try_complete():
+				print("本次阶段已提交完成")
+		,
+		CONNECT_ONE_SHOT
+	)
+	if connection_error != OK:
+		var _completed_after_connection_failure: bool = completion.try_complete()
+		return null
+	animation_player.play(&"resolve")
+	return null
+```
+
+`GFTurnPhaseCompletionHandle.try_complete()` 只有在句柄仍对应当前精确 phase operation、且是首次提交时才返回 `true`。`stop()`、timeout、`dispose()`、正常收尾或同一 Context 上的后续 restart 都会让旧句柄返回 `false`，旧回调不会完成新代次。项目仍应断开不再需要的回调以释放自身资源，但正确性不再依赖按 Context 查找当前 runtime。
+
+可变 `GFTurnContext` 由 operation-scoped claim 保护。不同 `GFTurnFlowSystem` 对同一 Context 的 `start()`、阶段推进或行动解析会在 round、phase、actor、队列和信号变化前失败关闭；最后一张 claim 释放后，另一个 system 可以顺序接管。相同 system 与相同 flow serial 可以同时持有精确 phase/action claim，因此阶段 `_execute()` 内调用同一 system 的 `resolve_actions()` 仍是受支持路径，且必须等两条 operation 都收尾后才释放 Context。不同 Context 可并行使用。这个合同只约束 GF Flow operation，不是线程锁，也不会拦截项目直接调用 Context 的公开 mutation API。
+
+如果本 system 的 `flow_started` 同步观察者调用 `stop()`，随后的 `flow_stopped` 观察者又调用 `start(reset_indices)`，系统会保留首个重启请求，等外层 `flow_started` 通知展开完成且旧 claim 释放后同步重放；请求中的 `reset_indices` 会原样保留。重放前再次调用 `stop()` 或 `dispose()` 会取消它。这个特例只服务于同一 system 的该次通知链；foreign system 和普通在途 operation 不会被自动排队。
 
 参与者对象可能在流程中被释放。`GFTurnContext.cleanup_invalid_actors()` 可显式移除失效参与者并清空失效的 `current_actor`，`GFTurnFlowSystem` 在推进和解析边界也会同步清理当前上下文。Context 对 RefCounted participant 采用强所有权，项目必须调用 `remove_actor()` 或释放 Context 才会释放该引用；Node 被 `free()` 后仍可由 cleanup 移除。`get_actor_value()` 只调用参数数量与类型兼容的 `get_turn_value(key, fallback)`，不兼容的同名方法会回退到属性读取；GDScript 无法捕获项目方法内部错误，项目实现仍须保证该回调安全返回。项目也应在行动效果层处理目标失效、死亡、离场或替换这类业务语义；TurnBased 只负责不让无效 Object 引用继续驱动通用流程。
 

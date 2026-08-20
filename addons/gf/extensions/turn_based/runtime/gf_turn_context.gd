@@ -44,6 +44,10 @@ var metadata: Dictionary = {}
 var _actors: Array[Object] = []
 var _current_actor: Object = null
 var _round_index: int = 0
+var _flow_operation_owner_ref: WeakRef = null
+var _flow_operation_owner_serial: int = -1
+var _flow_operation_leases: Dictionary = {}
+var _next_flow_operation_lease_id: int = 1
 
 
 # --- 公共方法 ---
@@ -140,6 +144,137 @@ func get_actor_value(actor: Object, key: StringName, fallback: Variant = null) -
 
 # --- 框架内部方法 ---
 
+## 尝试为一个 Flow generation 取得精确操作租约。
+## 同一 owner 与 serial 可以同时持有多个 phase/action claim；其他 generation 在最后一张租约释放前会被拒绝。
+## [br]
+## @api framework_internal
+## [br]
+## @since unreleased
+## [br]
+## @param owner: 请求 claim 的 Flow System。
+## [br]
+## @param flow_serial: 请求 claim 的 Flow generation。
+## [br]
+## @return: 成功时返回精确租约；Context 正被其他 owner/generation 持有时返回 null。
+func try_acquire_flow_operation_lease(
+	owner: GFTurnFlowSystem,
+	flow_serial: int
+) -> FlowOperationLease:
+	if owner == null or not is_instance_valid(owner):
+		return null
+	if not _flow_operation_leases.is_empty():
+		var current_owner: Object = (
+			_flow_operation_owner_ref.get_ref()
+			if _flow_operation_owner_ref != null
+			else null
+		)
+		if current_owner != owner or _flow_operation_owner_serial != flow_serial:
+			return null
+	else:
+		_flow_operation_owner_ref = weakref(owner)
+		_flow_operation_owner_serial = flow_serial
+
+	var lease_id: int = _next_flow_operation_lease_id
+	_next_flow_operation_lease_id += 1
+	var lease: FlowOperationLease = FlowOperationLease.new()
+	lease._configure(self, owner, flow_serial, lease_id)
+	_flow_operation_leases[lease_id] = lease
+	return lease
+
+
+## 查询精确租约是否仍可执行正常 Flow 写入。
+## [br]
+## @api framework_internal
+## [br]
+## @since unreleased
+## [br]
+## @param lease: 要验证的精确租约。
+## [br]
+## @param owner: 预期 Flow System owner。
+## [br]
+## @param flow_serial: 预期 Flow generation。
+## [br]
+## @return: 租约仍由该 owner/generation 活动持有时返回 true。
+func is_flow_operation_lease_active(
+	lease: FlowOperationLease,
+	owner: GFTurnFlowSystem,
+	flow_serial: int
+) -> bool:
+	return (
+		_is_flow_operation_lease_reserved(lease)
+		and lease._is_active_for(owner, flow_serial)
+	)
+
+
+## 撤销精确租约的后续正常写入，但保留 claim，直到旧 continuation 完成清理。
+## [br]
+## @api framework_internal
+## [br]
+## @since unreleased
+## [br]
+## @param lease: 要撤销的精确租约。
+## [br]
+## @param owner: 预期 Flow System owner。
+## [br]
+## @return: 首次成功撤销时返回 true。
+func cancel_flow_operation_lease(
+	lease: FlowOperationLease,
+	owner: GFTurnFlowSystem
+) -> bool:
+	if not _is_flow_operation_lease_reserved(lease) or not lease._is_owned_by(owner):
+		return false
+	return lease._cancel()
+
+
+## 精确释放一张 Flow 操作租约。只有最后一张租约释放后才清除 Context owner。
+## [br]
+## @api framework_internal
+## [br]
+## @since unreleased
+## [br]
+## @param lease: 要释放的精确租约。
+## [br]
+## @param owner: 预期 Flow System owner。
+## [br]
+## @return: 首次成功释放时返回 true。
+func release_flow_operation_lease(
+	lease: FlowOperationLease,
+	owner: GFTurnFlowSystem
+) -> bool:
+	if not _is_flow_operation_lease_reserved(lease) or not lease._is_owned_by(owner):
+		return false
+	var lease_id: int = lease._get_lease_id()
+	var _erased: bool = _flow_operation_leases.erase(lease_id)
+	var released: bool = lease._release()
+	if _flow_operation_leases.is_empty():
+		_flow_operation_owner_ref = null
+		_flow_operation_owner_serial = -1
+	return released
+
+
+## 使用有效租约清理失效参与者。
+## [br]
+## @api framework_internal
+## [br]
+## @since unreleased
+## [br]
+## @param lease: 本次 Flow operation 的精确租约。
+## [br]
+## @param owner: 租约的 Flow System owner。
+## [br]
+## @param flow_serial: 租约所属 Flow generation。
+## [br]
+## @return: 被移除的失效 actor 数量；租约无效时返回 0。
+func cleanup_invalid_actors_from_flow(
+	lease: FlowOperationLease,
+	owner: GFTurnFlowSystem,
+	flow_serial: int
+) -> int:
+	if not is_flow_operation_lease_active(lease, owner, flow_serial):
+		return 0
+	return cleanup_invalid_actors()
+
+
 ## 设置当前行动主体。
 ## [br]
 ## @api framework_internal
@@ -147,8 +282,39 @@ func get_actor_value(actor: Object, key: StringName, fallback: Variant = null) -
 ## @since 8.0.0
 ## [br]
 ## @param actor: 当前行动主体；传入失效对象时归一为空。
-func set_current_actor_from_flow(actor: Object) -> void:
+## [br]
+## @param lease: 本次 action operation 的精确租约。
+## [br]
+## @param owner: 租约的 Flow System owner。
+## [br]
+## @param flow_serial: 租约所属 Flow generation。
+func set_current_actor_from_flow(
+	actor: Object,
+	lease: FlowOperationLease,
+	owner: GFTurnFlowSystem,
+	flow_serial: int
+) -> void:
+	if not is_flow_operation_lease_active(lease, owner, flow_serial):
+		return
 	_current_actor = actor if actor == null or is_instance_valid(actor) else null
+
+
+## 在旧 operation 仍保留精确 claim 时清理 current_actor；取消后的正常写入仍被拒绝。
+## [br]
+## @api framework_internal
+## [br]
+## @since unreleased
+## [br]
+## @param lease: 仍被本次旧 operation 保留的精确租约。
+## [br]
+## @param owner: 租约的 Flow System owner。
+func clear_current_actor_from_flow(
+	lease: FlowOperationLease,
+	owner: GFTurnFlowSystem
+) -> void:
+	if not _is_flow_operation_lease_reserved(lease) or not lease._is_owned_by(owner):
+		return
+	_current_actor = null
 
 
 ## 重置轮次索引。
@@ -156,7 +322,19 @@ func set_current_actor_from_flow(actor: Object) -> void:
 ## @api framework_internal
 ## [br]
 ## @since 8.0.0
-func reset_round_from_flow() -> void:
+## [br]
+## @param lease: 本次 start operation 的精确租约。
+## [br]
+## @param owner: 租约的 Flow System owner。
+## [br]
+## @param flow_serial: 租约所属 Flow generation。
+func reset_round_from_flow(
+	lease: FlowOperationLease,
+	owner: GFTurnFlowSystem,
+	flow_serial: int
+) -> void:
+	if not is_flow_operation_lease_active(lease, owner, flow_serial):
+		return
 	_round_index = 0
 
 
@@ -165,11 +343,33 @@ func reset_round_from_flow() -> void:
 ## @api framework_internal
 ## [br]
 ## @since 8.0.0
-func advance_round_from_flow() -> void:
+## [br]
+## @param lease: 本次 phase operation 的精确租约。
+## [br]
+## @param owner: 租约的 Flow System owner。
+## [br]
+## @param flow_serial: 租约所属 Flow generation。
+func advance_round_from_flow(
+	lease: FlowOperationLease,
+	owner: GFTurnFlowSystem,
+	flow_serial: int
+) -> void:
+	if not is_flow_operation_lease_active(lease, owner, flow_serial):
+		return
 	_round_index += 1
 
 
 # --- 私有/辅助方法 ---
+
+func _is_flow_operation_lease_reserved(lease: FlowOperationLease) -> bool:
+	if lease == null:
+		return false
+	var lease_id: int = lease._get_lease_id()
+	var stored_value: Variant = GFVariantData.get_option_value(
+		_flow_operation_leases,
+		lease_id
+	)
+	return stored_value == lease and lease._is_reserved_for(self)
 
 func _can_invoke_actor_method(
 	actor: Object,
@@ -253,3 +453,69 @@ func _object_matches_class_name(value: Object, expected_class_name: StringName) 
 			return true
 		script_value = script.get_base_script()
 	return false
+
+
+# --- 内部类 ---
+
+## GFTurnContext 内部的一次 Flow 操作租约。
+## [br]
+## @api framework_internal
+## [br]
+## @category runtime_handle
+## [br]
+## @since unreleased
+class FlowOperationLease extends RefCounted:
+	var _context_ref: WeakRef = null
+	var _owner_ref: WeakRef = null
+	var _flow_serial: int = -1
+	var _lease_id: int = 0
+	var _active: bool = false
+	var _reserved: bool = false
+
+	func _configure(
+		context: GFTurnContext,
+		owner: GFTurnFlowSystem,
+		flow_serial: int,
+		lease_id: int
+	) -> void:
+		_context_ref = weakref(context)
+		_owner_ref = weakref(owner)
+		_flow_serial = flow_serial
+		_lease_id = lease_id
+		_active = true
+		_reserved = true
+
+	func _get_lease_id() -> int:
+		return _lease_id
+
+	func _is_owned_by(owner: GFTurnFlowSystem) -> bool:
+		return (
+			_reserved
+			and _owner_ref != null
+			and _owner_ref.get_ref() == owner
+		)
+
+	func _is_reserved_for(context: GFTurnContext) -> bool:
+		return (
+			_reserved
+			and _context_ref != null
+			and _context_ref.get_ref() == context
+		)
+
+	func _is_active_for(owner: GFTurnFlowSystem, flow_serial: int) -> bool:
+		return _active and _is_owned_by(owner) and _flow_serial == flow_serial
+
+	func _cancel() -> bool:
+		if not _reserved or not _active:
+			return false
+		_active = false
+		return true
+
+	func _release() -> bool:
+		if not _reserved:
+			return false
+		_active = false
+		_reserved = false
+		_context_ref = null
+		_owner_ref = null
+		return true
