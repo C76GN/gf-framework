@@ -46,9 +46,11 @@ runner.advance()
 
 恢复快照只重建当前位置和上下文值，不会重新发出开始、到达行或 mutation 信号，也不会再次执行已经经过的 mutation。调用方可使用 `restore_runtime_snapshot()` 返回的当前行刷新 UI。
 
-当前可恢复 checkpoint 必须位于可展示的 `TEXT` 行。项目应只在 `get_current_line() != null` 时持久化运行快照；`dialogue_started`、`mutation_requested` 或自动跳转等同步回调仍处于推进中的位置，这些位置生成的字典不应作为长期存档。如何正式表达推进中 checkpoint 尚属于后续快照协议决策，Runner 不会猜测或重放 mutation。
+`create_runtime_snapshot()` 只在资源身份一致的稳定 `TEXT` checkpoint，或已经提交的停止状态返回上述五字段快照。`line_reached` 与 `dialogue_ended` 都在稳定状态发布后发出，因此可在对应回调中立即创建快照；`start()`、`advance()` 或 `choose_response()` 返回稳定行后也可以创建。
 
-Runner 在 `start()` 前同步计算完整资源指纹，恢复时要求指纹精确一致。字典插入顺序不会改变指纹，但文本、metadata、payload、行或响应内容的变化都会改变指纹。身份输入必须无循环、不含运行时 Object/Callable/Signal/RID，并受完整复制预算约束；身份不完整或超限时 `start()` 会返回 `null`。因此，当前实现适合对内容完全一致的资源做严格恢复，不应把它当作跨内容修订的存档迁移协议。
+`dialogue_started`、由 `start()` / `advance()` / `choose_response()` 推进触发的 response condition、`mutation_requested`、mutation handler、自动跳转等窗口尚未形成可恢复 checkpoint，此时方法返回空 `Dictionary`，并且不会序列化半完成上下文。独立调用 `get_available_responses()` 只评估当前稳定 checkpoint，不属于推进窗口。调用方必须先检查 `snapshot.is_empty()`，只持久化非空结果；Runner 不会猜测、重放或序列化 continuation。
+
+Runner 在 `start()` 前同步计算完整资源指纹，恢复时要求指纹精确一致；每次创建快照前还会重新计算并核对当前资源身份，因此会话运行中、停止后或恢复停止快照后发生内容漂移都会失败关闭为空字典。字典插入顺序不会改变指纹，但文本、metadata、payload、行或响应内容的变化都会改变指纹。身份输入必须无循环、不含运行时 Object/Callable/Signal/RID，并受完整复制预算约束；身份不完整或超限时 `start()` 会返回 `null`。因此，当前实现适合对内容完全一致的资源做严格恢复，不应把它当作跨内容修订的存档迁移协议。
 
 ## 资源校验与推进边界
 

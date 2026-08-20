@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFDialogueRunner" path="addons/gf/extensions/dialogue/runtime/gf_dialogue_runner.gd" module="extensions/dialogue" extends="RefCounted" classDigest="c362fce775b158279d6110566f862e5af292b5aa073821b52455c72610e9720f">
+<class name="GFDialogueRunner" path="addons/gf/extensions/dialogue/runtime/gf_dialogue_runner.gd" module="extensions/dialogue" extends="RefCounted" classDigest="d0eb61b59258e14314fb12ff077f8169524c1a12764fea916fc081c282c5994e">
 	<description>GFDialogueRunner: 通用对话资源执行器。
 Runner 只沿 GFDialogueResource 的行、响应、跳转、条件和 mutation 推进，
 并发出结构化事件。显示、输入、存档和业务状态由项目层决定。</description>
@@ -146,10 +146,13 @@ Runner 只沿 GFDialogueResource 的行、响应、跳转、条件和 mutation �
 			<signature>func create_runtime_snapshot() -&gt; Dictionary:</signature>
 			<description>创建可存档的运行快照。
 快照只保存 Runner 的当前位置和上下文值，不保存对话资源本体。
-恢复时由调用方重新提供 GFDialogueResource，避免框架绑定项目存档结构。</description>
+恢复时由调用方重新提供 GFDialogueResource，避免框架绑定项目存档结构。
+只有已发布且资源身份一致的 TEXT checkpoint 或已提交的停止状态可创建快照；
+dialogue_started、推进中的条件与 mutation 回调、自动转换等窗口会返回空 Dictionary。
+创建前会重新核对当前资源完整身份；会话开始或恢复后资源内容发生变化也会返回空 Dictionary。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="return">运行快照。</tag>
+				<tag name="return">成功时返回运行快照；当前状态尚不可恢复时返回空 Dictionary。</tag>
 				<tag name="schema">return: 包含 schema_version、is_running、current_line_id、resource_fingerprint 和 context_values 字段的 Dictionary。</tag>
 				<tag name="since">5.0.0</tag>
 			</tags>

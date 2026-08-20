@@ -90,7 +90,12 @@ var _current_line: GFDialogueLine = null
 var _is_running: bool = false
 var _architecture_ref: WeakRef = null
 var _resource_fingerprint: String = ""
+var _snapshot_resource_ref: WeakRef = null
 var _session_serial: int = 0
+var _snapshot_transition_serial: int = -1
+var _snapshot_transition_depth: int = 0
+var _snapshot_publication_serial: int = -1
+var _snapshot_publication_transition_depths: Array[int] = []
 
 
 # --- 公共方法 ---
@@ -122,9 +127,13 @@ func start(
 		_end_dialogue()
 		if _is_running or _session_serial != previous_session_serial + 1:
 			return null
+		resource_fingerprint = _get_resource_fingerprint(resource)
+		if resource_fingerprint.is_empty():
+			return null
 	_session_serial += 1
 	_resource = resource
 	_resource_fingerprint = resource_fingerprint
+	_snapshot_resource_ref = weakref(resource)
 	_context = _prepare_context(context)
 
 	var start_line: GFDialogueLine = resource.get_start_line(start_line_id)
@@ -148,34 +157,10 @@ func start(
 func advance(response_id: StringName = &"") -> GFDialogueLine:
 	if not _is_running or _resource == null:
 		return null
-	if response_id != &"":
-		var session_lease: _DialogueSessionLease = _capture_session_lease()
-		if not _apply_response(response_id):
-			if not _is_session_lease_current(session_lease):
-				return null
-			return _current_line
-	elif _current_line != null:
-		if _current_line.has_responses():
-			var session_lease: _DialogueSessionLease = _capture_session_lease()
-			var available_responses: Array[GFDialogueResponse] = (
-				session_lease._line.get_available_responses(session_lease._context)
-			)
-			if not _is_session_lease_current(session_lease):
-				return null
-			var reason: StringName = &"response_required" if not available_responses.is_empty() else &"no_available_response"
-			if not _emit_line_blocked_for_lease(
-				session_lease,
-				session_lease._line.line_id,
-				reason
-			):
-				return null
-			return session_lease._line
-		_current_line_id = _current_line.get_default_next_line_id()
-		_current_line = null
-		if _current_line_id == &"":
-			_end_dialogue()
-			return null
-	return _advance_to_next_text()
+	var transition_serial: int = _begin_snapshot_transition()
+	var reached_line: GFDialogueLine = _advance_for_current_session(response_id)
+	_end_snapshot_transition(transition_serial)
+	return reached_line
 
 
 ## 选择当前行响应并推进。
@@ -231,15 +216,20 @@ func is_running() -> bool:
 ##
 ## 快照只保存 Runner 的当前位置和上下文值，不保存对话资源本体。
 ## 恢复时由调用方重新提供 GFDialogueResource，避免框架绑定项目存档结构。
+## 只有已发布且资源身份一致的 TEXT checkpoint 或已提交的停止状态可创建快照；
+## dialogue_started、推进中的条件与 mutation 回调、自动转换等窗口会返回空 Dictionary。
+## 创建前会重新核对当前资源完整身份；会话开始或恢复后资源内容发生变化也会返回空 Dictionary。
 ## [br]
 ## @api public
 ## [br]
 ## @since 5.0.0
 ## [br]
-## @return: 运行快照。
+## @return: 成功时返回运行快照；当前状态尚不可恢复时返回空 Dictionary。
 ## [br]
 ## @schema return: 包含 schema_version、is_running、current_line_id、resource_fingerprint 和 context_values 字段的 Dictionary。
 func create_runtime_snapshot() -> Dictionary:
+	if not _can_create_runtime_snapshot():
+		return {}
 	return {
 		"schema_version": SNAPSHOT_SCHEMA_VERSION,
 		"is_running": _is_running,
@@ -288,6 +278,7 @@ func restore_runtime_snapshot(
 	if not GFVariantData.get_option_bool(snapshot, "is_running", false):
 		_reset_runtime_state()
 		_resource_fingerprint = snapshot_fingerprint
+		_snapshot_resource_ref = weakref(resource)
 		_context = _prepare_context(context)
 		_context.deserialize_values(context_values)
 		return null
@@ -303,6 +294,7 @@ func restore_runtime_snapshot(
 	_reset_runtime_state()
 	_resource = resource
 	_resource_fingerprint = snapshot_fingerprint
+	_snapshot_resource_ref = weakref(resource)
 	_context = _prepare_context(context)
 	_context.deserialize_values(context_values)
 	_current_line_id = line_id
@@ -350,9 +342,41 @@ func _prepare_context(context: GFDialogueContext = null) -> GFDialogueContext:
 func _reset_runtime_state() -> void:
 	_session_serial += 1
 	_resource = null
+	_snapshot_resource_ref = null
 	_current_line = null
 	_current_line_id = &""
 	_is_running = false
+
+
+func _advance_for_current_session(response_id: StringName) -> GFDialogueLine:
+	if response_id != &"":
+		var session_lease: _DialogueSessionLease = _capture_session_lease()
+		if not _apply_response(response_id):
+			if not _is_session_lease_current(session_lease):
+				return null
+			return _current_line
+	elif _current_line != null:
+		if _current_line.has_responses():
+			var session_lease: _DialogueSessionLease = _capture_session_lease()
+			var available_responses: Array[GFDialogueResponse] = (
+				session_lease._line.get_available_responses(session_lease._context)
+			)
+			if not _is_session_lease_current(session_lease):
+				return null
+			var reason: StringName = &"response_required" if not available_responses.is_empty() else &"no_available_response"
+			if not _emit_line_blocked_for_lease(
+				session_lease,
+				session_lease._line.line_id,
+				reason
+			):
+				return null
+			return session_lease._line
+		_current_line_id = _current_line.get_default_next_line_id()
+		_current_line = null
+		if _current_line_id == &"":
+			_end_dialogue()
+			return null
+	return _advance_to_next_text()
 
 
 func _advance_to_next_text() -> GFDialogueLine:
@@ -392,7 +416,13 @@ func _advance_to_next_text() -> GFDialogueLine:
 			GFDialogueLine.LineKind.TEXT:
 				_current_line = line
 				var reached_lease: _DialogueSessionLease = _capture_session_lease()
+				var publication_serial: int = _session_serial
+				var publication_transition_depth: int = _begin_snapshot_publication()
 				line_reached.emit(line)
+				_end_snapshot_publication(
+					publication_serial,
+					publication_transition_depth
+				)
 				if not _is_session_lease_current(reached_lease):
 					return null
 				return line
@@ -591,6 +621,111 @@ func _is_session_lease_current(session_lease: _DialogueSessionLease) -> bool:
 	)
 
 
+func _can_create_runtime_snapshot() -> bool:
+	if (
+		_resource_fingerprint.is_empty()
+		or _context == null
+	):
+		return false
+	var state_is_restorable: bool = (
+		_resource == null
+		and _current_line == null
+		and _current_line_id == &""
+		and not _is_running
+	) if not _is_running else _is_current_text_checkpoint_consistent()
+	if not state_is_restorable:
+		return false
+	if _is_snapshot_transition_active() and not _is_snapshot_publication_active():
+		return false
+	return _snapshot_resource_identity_is_current()
+
+
+func _is_current_text_checkpoint_consistent() -> bool:
+	if (
+		not _is_running
+		or _resource == null
+		or _current_line == null
+		or _current_line_id == &""
+		or _current_line.kind != GFDialogueLine.LineKind.TEXT
+		or _current_line.line_id != _current_line_id
+	):
+		return false
+	return _resource.get_line(_current_line_id) == _current_line
+
+
+func _snapshot_resource_identity_is_current() -> bool:
+	var snapshot_resource: GFDialogueResource = _get_snapshot_resource_or_null()
+	if snapshot_resource == null:
+		return false
+	var current_fingerprint: String = _get_resource_fingerprint(snapshot_resource, false)
+	return not current_fingerprint.is_empty() and current_fingerprint == _resource_fingerprint
+
+
+func _get_snapshot_resource_or_null() -> GFDialogueResource:
+	if _resource != null:
+		return _resource
+	if _snapshot_resource_ref == null:
+		return null
+	var resource_value: Variant = _snapshot_resource_ref.get_ref()
+	if resource_value is GFDialogueResource:
+		var resource: GFDialogueResource = resource_value
+		return resource
+	return null
+
+
+func _begin_snapshot_transition() -> int:
+	if _snapshot_transition_serial != _session_serial:
+		_snapshot_transition_serial = _session_serial
+		_snapshot_transition_depth = 0
+	_snapshot_transition_depth += 1
+	return _session_serial
+
+
+func _end_snapshot_transition(transition_serial: int) -> void:
+	if (
+		_snapshot_transition_serial != transition_serial
+		or _snapshot_transition_depth <= 0
+	):
+		return
+	_snapshot_transition_depth -= 1
+
+
+func _begin_snapshot_publication() -> int:
+	if _snapshot_publication_serial != _session_serial:
+		_snapshot_publication_serial = _session_serial
+		_snapshot_publication_transition_depths.clear()
+	_snapshot_publication_transition_depths.append(_snapshot_transition_depth)
+	return _snapshot_transition_depth
+
+
+func _end_snapshot_publication(
+	publication_serial: int,
+	publication_transition_depth: int
+) -> void:
+	if (
+		_snapshot_publication_serial != publication_serial
+		or _snapshot_publication_transition_depths.is_empty()
+		or _snapshot_publication_transition_depths.back() != publication_transition_depth
+	):
+		return
+	_snapshot_publication_transition_depths.pop_back()
+
+
+func _is_snapshot_transition_active() -> bool:
+	return (
+		_snapshot_transition_serial == _session_serial
+		and _snapshot_transition_depth > 0
+	)
+
+
+func _is_snapshot_publication_active() -> bool:
+	return (
+		_snapshot_publication_serial == _session_serial
+		and not _snapshot_publication_transition_depths.is_empty()
+		and _snapshot_publication_transition_depths.back() == _snapshot_transition_depth
+	)
+
+
 func _get_architecture_or_null() -> GFArchitecture:
 	if _architecture_ref != null:
 		var architecture: GFArchitecture = _get_architecture_value(_architecture_ref.get_ref())
@@ -606,17 +741,21 @@ func _get_architecture_value(value: Variant) -> GFArchitecture:
 	return null
 
 
-func _get_resource_fingerprint(resource: GFDialogueResource) -> String:
+func _get_resource_fingerprint(
+	resource: GFDialogueResource,
+	report_errors: bool = true
+) -> String:
 	if resource == null:
 		return ""
 	var identity_report: Dictionary = resource.build_identity_report()
 	if not GFVariantData.get_option_bool(identity_report, "ok", false):
-		push_error(
-			"GFDialogueRunner refused an incomplete resource identity (%s at %s)." % [
-				GFVariantData.get_option_string(identity_report, "error", "unknown_error"),
-				GFVariantData.get_option_string(identity_report, "path", "$"),
-			]
-		)
+		if report_errors:
+			push_error(
+				"GFDialogueRunner refused an incomplete resource identity (%s at %s)." % [
+					GFVariantData.get_option_string(identity_report, "error", "unknown_error"),
+					GFVariantData.get_option_string(identity_report, "path", "$"),
+				]
+			)
 		return ""
 	var identity_value: Variant = identity_report.get("value")
 	var encoded_identity_value: Variant = GFVariantJsonCodec.variant_to_json_compatible(
@@ -632,7 +771,8 @@ func _get_resource_fingerprint(resource: GFDialogueResource) -> String:
 	var canonical_identity: Variant = _canonicalize_identity_json(encoded_identity_value)
 	var encoded_identity: String = JSON.stringify(canonical_identity, "", true)
 	if encoded_identity.is_empty():
-		push_error("GFDialogueRunner could not encode the complete resource identity.")
+		if report_errors:
+			push_error("GFDialogueRunner could not encode the complete resource identity.")
 		return ""
 	return encoded_identity.sha256_text()
 
