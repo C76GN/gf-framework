@@ -1457,6 +1457,7 @@ PARALLEL_FULL_SHARD_SUITES: tuple[str, ...] = (
 	"framework-gut",
 	"framework-lsp",
 )
+PARALLEL_FULL_SINGLETON_SHARDS = frozenset({"framework-gut"})
 DEFAULT_PARALLEL_FULL_JOBS: int = 3
 MAX_PARALLEL_FULL_JOBS: int = 6
 PARALLEL_FULL_SHARD_TIMEOUT_SECONDS: dict[str, int] = {
@@ -1568,6 +1569,31 @@ def parallel_full_shard_plan() -> list[ParallelCheckShardPlan]:
 			f"missing={missing_checks}, extra={extra_checks}"
 		)
 	return plan
+
+
+def parallel_full_shard_batches(
+	plan: list[ParallelCheckShardPlan],
+	jobs: int,
+) -> list[list[ParallelCheckShardPlan]]:
+	"""Build stable resource-aware Full batches without changing shard ownership."""
+	if jobs < 1:
+		raise ValueError(f"Parallel Full batch size must be positive; got {jobs}.")
+	batches: list[list[ParallelCheckShardPlan]] = []
+	pending: list[ParallelCheckShardPlan] = []
+	for shard in plan:
+		if shard.name in PARALLEL_FULL_SINGLETON_SHARDS:
+			if pending:
+				batches.append(pending)
+				pending = []
+			batches.append([shard])
+			continue
+		pending.append(shard)
+		if len(pending) == jobs:
+			batches.append(pending)
+			pending = []
+	if pending:
+		batches.append(pending)
+	return batches
 
 
 def parallel_shard_timeout_seconds(
@@ -18016,6 +18042,86 @@ def maintenance_self_test() -> dict[str, Any]:
 				"process_exit_code": 1,
 			}
 		)
+		timed_out_gut_report = json.loads(json.dumps(gut_report))
+		timed_out_gut_report["ok"] = False
+		timed_out_gut_result = timed_out_gut_report["results"][0]
+		timed_out_gut_result["exit_code"] = 124
+		timed_out_gut_result["timed_out"] = True
+		timed_out_gut_result["process_exit_code"] = -1
+		timed_out_gut_result["gut_lifecycle_report"] = (
+			parse_gut_lifecycle_gate_output("partial output", "")
+		)
+		timed_out_gut_loaded, timed_out_gut_issue = load_parallel_shard_report(
+			failing_report_runner,
+			write_report_fixture(
+				"gut-timeout-with-lifecycle",
+				timed_out_gut_report,
+			),
+			gut_report_checks,
+			expected_report_workspace,
+		)
+		cancelled_gut_report = json.loads(json.dumps(timed_out_gut_report))
+		cancelled_gut_result = cancelled_gut_report["results"][0]
+		cancelled_gut_result["exit_code"] = 130
+		cancelled_gut_result["timed_out"] = False
+		cancelled_gut_result["cancelled"] = True
+		cancelled_gut_loaded, cancelled_gut_issue = load_parallel_shard_report(
+			failing_report_runner,
+			write_report_fixture(
+				"gut-cancelled-with-lifecycle",
+				cancelled_gut_report,
+			),
+			gut_report_checks,
+			expected_report_workspace,
+		)
+		plain_124_gut_report = json.loads(json.dumps(timed_out_gut_report))
+		plain_124_gut_report["results"][0]["timed_out"] = False
+		plain_124_gut_loaded, plain_124_gut_issue = load_parallel_shard_report(
+			failing_report_runner,
+			write_report_fixture(
+				"gut-plain-124-with-lifecycle",
+				plain_124_gut_report,
+			),
+			gut_report_checks,
+			expected_report_workspace,
+		)
+		forged_timeout_exit_report = json.loads(json.dumps(timed_out_gut_report))
+		forged_timeout_exit_report["results"][0]["exit_code"] = 1
+		_, forged_timeout_exit_issue = load_parallel_shard_report(
+			failing_report_runner,
+			write_report_fixture(
+				"gut-timeout-wrong-exit",
+				forged_timeout_exit_report,
+			),
+			gut_report_checks,
+			expected_report_workspace,
+		)
+		forged_cancel_exit_report = json.loads(json.dumps(timed_out_gut_report))
+		forged_cancel_result = forged_cancel_exit_report["results"][0]
+		forged_cancel_result["timed_out"] = False
+		forged_cancel_result["cancelled"] = True
+		_, forged_cancel_exit_issue = load_parallel_shard_report(
+			failing_report_runner,
+			write_report_fixture(
+				"gut-cancel-wrong-exit",
+				forged_cancel_exit_report,
+			),
+			gut_report_checks,
+			expected_report_workspace,
+		)
+		forged_conflicting_terminal_report = json.loads(json.dumps(
+			timed_out_gut_report
+		))
+		forged_conflicting_terminal_report["results"][0]["cancelled"] = True
+		_, forged_conflicting_terminal_issue = load_parallel_shard_report(
+			failing_report_runner,
+			write_report_fixture(
+				"gut-conflicting-terminal-state",
+				forged_conflicting_terminal_report,
+			),
+			gut_report_checks,
+			expected_report_workspace,
+		)
 		_, mismatch_issue = load_parallel_shard_report(
 			failing_report_runner,
 			valid_report_path,
@@ -18039,9 +18145,18 @@ def maintenance_self_test() -> dict[str, Any]:
 			and bool(non_gut_lifecycle_issue)
 			and bool(missing_gut_lifecycle_issue)
 			and bool(failed_gut_lifecycle_issue)
+			and timed_out_gut_loaded is not None
+			and not timed_out_gut_issue
+			and cancelled_gut_loaded is not None
+			and not cancelled_gut_issue
+			and plain_124_gut_loaded is not None
+			and not plain_124_gut_issue
+			and bool(forged_timeout_exit_issue)
+			and bool(forged_cancel_exit_issue)
+			and bool(forged_conflicting_terminal_issue)
 			and bool(impossible_gut_lifecycle_issue)
 			and bool(mismatch_issue),
-			"Parallel reports must reject missing or oversized results, invalid scalars, duplicate/non-finite JSON, schema drift, missing/failed/impossible GUT lifecycle evidence, workspace escapes, and process/report disagreement.",
+			"Parallel reports must retain closed failed GUT lifecycle evidence for timeouts while rejecting missing or oversized results, invalid scalars, duplicate/non-finite JSON, schema drift, inconsistent timeout/cancellation states, successful checks with failed lifecycle evidence, impossible lifecycle evidence, workspace escapes, and process/report disagreement.",
 		)
 		package_report_checks = ["package_build_boundary"]
 		package_report = json.loads(json.dumps(valid_report))
@@ -21835,7 +21950,8 @@ def maintenance_self_test() -> dict[str, Any]:
 		and GUT_SHARD_OBSERVATION_TIMEOUT_SECONDS == 1200
 		and resolve_gut_shard_observation_timeout_seconds(None) == 1200
 		and resolve_gut_shard_observation_timeout_seconds(1500) == 1500
-		and "gut" not in CHECK_TIMEOUT_SECONDS,
+		and "gut" not in CHECK_TIMEOUT_SECONDS
+		and resolve_check_timeout_seconds("gut", None) == 600,
 		(
 			"The explicit G0 observation must use its dedicated ignored output root and "
 			"measured timeout floor without changing the authoritative GUT check policy."
@@ -22587,6 +22703,13 @@ def maintenance_self_test() -> dict[str, Any]:
 	)
 	parallel_plan = parallel_full_shard_plan()
 	parallel_plan_names = tuple(shard.name for shard in parallel_plan)
+	parallel_batch_names_by_jobs = {
+		jobs: tuple(
+			tuple(shard.name for shard in batch)
+			for batch in parallel_full_shard_batches(parallel_plan, jobs)
+		)
+		for jobs in range(1, MAX_PARALLEL_FULL_JOBS + 1)
+	}
 	parallel_owned_checks = [
 		check_name
 		for shard in parallel_plan
@@ -22616,35 +22739,30 @@ def maintenance_self_test() -> dict[str, Any]:
 			"framework-gut",
 			"framework-lsp",
 		)
-		and tuple(
-			parallel_plan_names[index:index + 2]
-			for index in range(0, len(parallel_plan_names), 2)
-		) == (
+		and parallel_batch_names_by_jobs[2] == (
 			("package-editor", "framework-static"),
 			("package-godot-ci", "package-cli-local"),
 			("package-cli-network", "package-contract"),
-			("framework-gut", "framework-lsp"),
+			("framework-gut",),
+			("framework-lsp",),
 		)
-		and tuple(
-			parallel_plan_names[index:index + 3]
-			for index in range(0, len(parallel_plan_names), 3)
-		) == (
+		and parallel_batch_names_by_jobs[3] == (
 			("package-editor", "framework-static", "package-godot-ci"),
 			("package-cli-local", "package-cli-network", "package-contract"),
-			("framework-gut", "framework-lsp"),
+			("framework-gut",),
+			("framework-lsp",),
 		)
 		and all(
-			not any(
-				{"framework-gut", "package-editor"}.issubset(
-					parallel_plan_names[index:index + jobs]
-				)
-				for index in range(0, len(parallel_plan_names), jobs)
-			)
-			for jobs in range(2, MAX_PARALLEL_FULL_JOBS + 1)
+			tuple(name for batch in batches for name in batch) == parallel_plan_names
+			and all(1 <= len(batch) <= jobs for batch in batches)
+			and tuple(
+				batch for batch in batches if "framework-gut" in batch
+			) == (("framework-gut",),)
+			for jobs, batches in parallel_batch_names_by_jobs.items()
 		),
 		(
-			"Local parallel Full must keep its two measured heavy shards in different "
-			"batches for every supported parallel job count."
+			"Local parallel Full must preserve stable shard ownership and run the "
+			"resource-intensive framework GUT shard in its own batch."
 		),
 	)
 	deadline_fixture_snapshot = CapturedWorkspace(
@@ -33946,6 +34064,7 @@ def run_parallel_full_checks(
 		cleanup_state = {"permitted": True}
 	parallel_started = time.perf_counter()
 	plan = parallel_full_shard_plan()
+	batches = parallel_full_shard_batches(plan, jobs)
 	if (
 		suite_timeout_seconds is not None
 		and time.perf_counter() - overall_started >= suite_timeout_seconds
@@ -33978,13 +34097,12 @@ def run_parallel_full_checks(
 	)
 	cleanup_state["permitted"] = True
 	stop_after_batch = False
-	for batch_start in range(0, len(plan), jobs):
+	for batch_index, batch_plan in enumerate(batches):
 		remaining_deadline_seconds(suite_deadline, "parallel Full scheduling")
-		batch_plan = plan[batch_start:batch_start + jobs]
 		batch_cleanup_errors: list[str] = []
 		batch_log_copy_errors: list[str] = []
 		with managed_owned_directory(
-			parallel_root / f"b{batch_start // jobs}",
+			parallel_root / f"b{batch_index}",
 			cleanup_errors=batch_cleanup_errors,
 			cleanup_permitted=lambda: cleanup_state.get("permitted") is True,
 			cleanup_started=lambda: cleanup_state.__setitem__("permitted", False),
@@ -34135,8 +34253,13 @@ def run_parallel_full_checks(
 				else:
 					cleanup_state["permitted"] = True
 			if fail_fast and batch_failed:
+				remaining_plan = [
+					shard
+					for remaining_batch in batches[batch_index + 1:]
+					for shard in remaining_batch
+				]
 				append_unstarted_parallel_shards(
-					plan[batch_start + len(batch_plan):],
+					remaining_plan,
 					expected_checks_by_shard,
 					occurrences,
 					parallel_shard_reports,
@@ -34546,6 +34669,20 @@ def load_parallel_shard_report(
 		for field_name in ("timed_out", "cancelled"):
 			if type(result.get(field_name)) is not bool:
 				return None, f"Shard result {name!r} {field_name} must be boolean."
+		timed_out = bool(result["timed_out"])
+		cancelled = bool(result["cancelled"])
+		if timed_out and cancelled:
+			return None, (
+				f"Shard result {name!r} cannot be both timed out and cancelled."
+			)
+		if timed_out and exit_code != 124:
+			return None, (
+				f"Shard result {name!r} timed_out requires exit_code 124."
+			)
+		if cancelled and exit_code != 130:
+			return None, (
+				f"Shard result {name!r} cancelled requires exit_code 130."
+			)
 		duration_seconds = result.get("duration_seconds")
 		if not is_finite_non_negative_number(duration_seconds):
 			return None, f"Shard result {name!r} duration_seconds must be finite and non-negative."
@@ -35346,6 +35483,11 @@ def run_command(
 		if process_result.timed_out:
 			log_output, log_errors = read_command_log_outputs(log_paths)
 			stdout = append_command_log_output(process_result.stdout, log_output)
+			gut_lifecycle_report = (
+				parse_gut_lifecycle_gate_output(stdout, process_result.stderr)
+				if name == "gut"
+				else None
+			)
 			return CommandResult(
 				name=name,
 				command=effective_command,
@@ -35355,6 +35497,7 @@ def run_command(
 				timed_out=True,
 				process_exit_code=process_result.return_code,
 				notes=[*process_result.notes, *log_errors],
+				gut_lifecycle_report=gut_lifecycle_report,
 				duration_seconds=process_result.duration_seconds,
 				timeout_seconds=timeout_seconds,
 				pid=process_result.pid,

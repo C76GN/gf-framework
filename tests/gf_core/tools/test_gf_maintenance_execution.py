@@ -867,6 +867,54 @@ class GutShardPlanIntegrationTests(unittest.TestCase):
 				environment,
 			)
 
+	def test_run_command_gut_timeout_publishes_failed_lifecycle_evidence(self) -> None:
+		process_result = mock.Mock(
+			timed_out=True,
+			process_boundary_quiescent=True,
+			return_code=-1,
+			stdout="partial GUT output without a lifecycle marker",
+			stderr="",
+			duration_seconds=600.0,
+			pid=123,
+			notes=("terminated supervised process tree",),
+		)
+		with mock.patch.object(
+			gf_maintenance,
+			"resolve_godot_command",
+			return_value=["resolved-godot"],
+		), mock.patch.object(
+			gf_maintenance,
+			"prepare_command_log_paths",
+			return_value=[],
+		), mock.patch.object(
+			gf_maintenance,
+			"run_supervised_process",
+			return_value=process_result,
+		):
+			result = gf_maintenance.run_command("gut", ["godot"], 600.0)
+
+		self.assertEqual(result.exit_code, 124)
+		self.assertTrue(result.timed_out)
+		self.assertEqual(result.process_exit_code, -1)
+		self.assertIsNotNone(result.gut_lifecycle_report)
+		assert result.gut_lifecycle_report is not None
+		self.assertFalse(result.gut_lifecycle_report["ok"])
+		self.assertEqual(result.gut_lifecycle_report["marker_count"], 0)
+		self.assertEqual(
+			gf_maintenance.validate_gut_lifecycle_report(
+				result.gut_lifecycle_report
+			),
+			"",
+		)
+		payload = result.to_dict()
+		self.assertEqual(payload["exit_code"], 124)
+		self.assertTrue(payload["timed_out"])
+		self.assertEqual(payload["process_exit_code"], -1)
+		self.assertEqual(
+			payload["gut_lifecycle_report"],
+			result.gut_lifecycle_report,
+		)
+
 	def test_import_failure_stops_before_gut_and_junit_parse(self) -> None:
 		discover_patch, manifest_patch, digest_patch = self._manifest_patches()
 		import_failure = gf_maintenance.CommandResult(
@@ -1407,6 +1455,19 @@ class GutShardPlanIntegrationTests(unittest.TestCase):
 			1500,
 		)
 		self.assertNotIn("gut", gf_maintenance.CHECK_TIMEOUT_SECONDS)
+		self.assertEqual(
+			gf_maintenance.resolve_check_timeout_seconds("gut", None),
+			600,
+		)
+		framework_gut = next(
+			shard
+			for shard in gf_maintenance.parallel_full_shard_plan()
+			if shard.name == "framework-gut"
+		)
+		self.assertEqual(
+			gf_maintenance.parallel_shard_timeout_seconds(framework_gut, None),
+			2220,
+		)
 
 	def test_renderer_exposes_diagnostic_completeness_and_duration_scope(self) -> None:
 		text = gf_maintenance_rendering.render_gut_shard_plan_text({
@@ -7305,9 +7366,8 @@ class GutShardRunIntegrationTests(unittest.TestCase):
 
 class WorkspaceExecutionBoundaryTests(unittest.TestCase):
 	def test_parallel_full_schedule_separates_heavy_shards(self) -> None:
-		plan_names = tuple(
-			shard.name for shard in gf_maintenance.parallel_full_shard_plan()
-		)
+		plan = gf_maintenance.parallel_full_shard_plan()
+		plan_names = tuple(shard.name for shard in plan)
 		self.assertEqual(
 			plan_names,
 			(
@@ -7322,32 +7382,208 @@ class WorkspaceExecutionBoundaryTests(unittest.TestCase):
 			),
 		)
 		self.assertEqual(
-			tuple(plan_names[index:index + 2] for index in range(0, len(plan_names), 2)),
+			tuple(
+				tuple(shard.name for shard in batch)
+				for batch in gf_maintenance.parallel_full_shard_batches(plan, 2)
+			),
 			(
 				("package-editor", "framework-static"),
 				("package-godot-ci", "package-cli-local"),
 				("package-cli-network", "package-contract"),
-				("framework-gut", "framework-lsp"),
+				("framework-gut",),
+				("framework-lsp",),
 			),
 		)
 		self.assertEqual(
-			tuple(plan_names[index:index + 3] for index in range(0, len(plan_names), 3)),
+			tuple(
+				tuple(shard.name for shard in batch)
+				for batch in gf_maintenance.parallel_full_shard_batches(plan, 3)
+			),
 			(
 				("package-editor", "framework-static", "package-godot-ci"),
 				("package-cli-local", "package-cli-network", "package-contract"),
-				("framework-gut", "framework-lsp"),
+				("framework-gut",),
+				("framework-lsp",),
 			),
 		)
-		for jobs in range(2, gf_maintenance.MAX_PARALLEL_FULL_JOBS + 1):
-			batches = (
-				plan_names[index:index + jobs]
-				for index in range(0, len(plan_names), jobs)
+		for jobs in range(1, gf_maintenance.MAX_PARALLEL_FULL_JOBS + 1):
+			batches = gf_maintenance.parallel_full_shard_batches(plan, jobs)
+			batch_names = tuple(
+				tuple(shard.name for shard in batch)
+				for batch in batches
+			)
+			flattened_names = tuple(
+				name for batch in batch_names for name in batch
 			)
 			with self.subTest(jobs=jobs):
-				self.assertFalse(any(
-					{"framework-gut", "package-editor"}.issubset(batch)
-					for batch in batches
-				))
+				self.assertEqual(flattened_names, plan_names)
+				self.assertTrue(all(1 <= len(batch) <= jobs for batch in batches))
+				self.assertEqual(
+					[batch for batch in batch_names if "framework-gut" in batch],
+					[("framework-gut",)],
+				)
+		with self.assertRaisesRegex(ValueError, "must be positive"):
+			gf_maintenance.parallel_full_shard_batches(plan, 0)
+
+	def test_parallel_full_fail_fast_marks_only_future_resource_batches(self) -> None:
+		plan = [
+			gf_maintenance.ParallelCheckShardPlan("first", ("docs",)),
+			gf_maintenance.ParallelCheckShardPlan(
+				"framework-gut",
+				("api_reference",),
+			),
+			gf_maintenance.ParallelCheckShardPlan("last", ("ai_api",)),
+		]
+
+		class ExpectedStop(RuntimeError):
+			pass
+
+		with tempfile.TemporaryDirectory() as temporary_directory:
+			root = Path(temporary_directory)
+			parallel_root = root / "parallel"
+			parallel_root.mkdir()
+			captured = gf_maintenance.CapturedWorkspace(
+				source_root=root,
+				head="a" * 40,
+				binary_diff=b"",
+				untracked_files=(),
+				workspace_fingerprint="b" * 64,
+			)
+
+			def materialize(
+				_captured: object,
+				batch_root: Path,
+				batch_plan: list[object],
+				**_kwargs: object,
+			) -> dict[str, Path]:
+				workspaces: dict[str, Path] = {}
+				for shard_plan in batch_plan:
+					workspace = batch_root / str(shard_plan.name)
+					workspace.mkdir()
+					workspaces[str(shard_plan.name)] = workspace
+				return workspaces
+
+			def make_shard(
+				shard_plan: object,
+				workspace: Path,
+				**_kwargs: object,
+			) -> tuple[object, Path]:
+				return (
+					gf_maintenance.ParallelShard(
+						name=str(shard_plan.name),
+						command=("python", "-V"),
+						workspace=workspace,
+						timeout_seconds=1.0,
+					),
+					workspace / "report.json",
+				)
+
+			def run_shards(
+				shards: list[object],
+				**_kwargs: object,
+			) -> list[object]:
+				shard = shards[0]
+				exit_code = 1 if shard.name == "framework-gut" else 0
+				return [gf_maintenance.ParallelShardResult(
+					name=str(shard.name),
+					command=tuple(shard.command),
+					workspace=shard.workspace,
+					exit_code=exit_code,
+					process_exit_code=exit_code,
+					stdout="",
+					stderr="",
+					timed_out=False,
+					cancelled=False,
+					duration_seconds=0.1,
+					pid=1,
+					started=True,
+					process_boundary_quiescent=True,
+				)]
+
+			def load_report(
+				shard_result: object,
+				_report_path: Path,
+				expected_checks: list[str],
+				*_args: object,
+				**_kwargs: object,
+			) -> tuple[dict[str, object], str]:
+				return ({
+					"ok": shard_result.exit_code == 0,
+					"results": [{
+						"name": expected_checks[0],
+						"exit_code": shard_result.exit_code,
+						"timed_out": False,
+						"cancelled": False,
+						"duration_seconds": 0.1,
+					}],
+				}, "")
+
+			with mock.patch.object(
+				gf_maintenance,
+				"parallel_full_shard_plan",
+				return_value=plan,
+			), mock.patch.object(
+				gf_maintenance,
+				"expanded_check_names",
+				side_effect=lambda _suite, checks, **_kwargs: list(checks or []),
+			), mock.patch.object(
+				gf_maintenance,
+				"run_parallel_godot_isolation_probe",
+				return_value={"ok": True},
+			), mock.patch.object(
+				gf_maintenance.gf_parallel_validation,
+				"assert_source_matches_snapshot",
+			), mock.patch.object(
+				gf_maintenance,
+				"materialize_parallel_full_workspaces",
+				side_effect=materialize,
+			), mock.patch.object(
+				gf_maintenance,
+				"make_parallel_full_shard",
+				side_effect=make_shard,
+			), mock.patch.object(
+				gf_maintenance.gf_parallel_validation,
+				"run_parallel_shards",
+				side_effect=run_shards,
+			) as run_parallel, mock.patch.object(
+				gf_maintenance,
+				"load_parallel_shard_report",
+				side_effect=load_report,
+			), mock.patch.object(
+				gf_maintenance,
+				"workspace_fingerprint",
+				return_value={"fingerprint": "b" * 64},
+			), mock.patch.object(
+				gf_maintenance,
+				"collect_parallel_failure_logs",
+				return_value=[],
+			), mock.patch.object(
+				gf_maintenance,
+				"append_unstarted_parallel_shards",
+				side_effect=ExpectedStop("captured future batches"),
+			) as append_unstarted:
+				with self.assertRaises(ExpectedStop):
+					gf_maintenance.run_parallel_full_checks(
+						captured,
+						parallel_root,
+						jobs=2,
+						timeout_seconds=None,
+						suite_timeout_seconds=None,
+						fail_fast=True,
+						package_artifact_manifest="manifest.json",
+						package_artifact_manifest_sha256="d" * 64,
+						package_artifact_count=1,
+						progress_callback=None,
+						output_callback=None,
+						overall_started=time.perf_counter(),
+						suite_deadline=time.perf_counter() + 10.0,
+					)
+
+		self.assertEqual(run_parallel.call_count, 2)
+		self.assertEqual(
+			[shard.name for shard in append_unstarted.call_args.args[0]],
+			["last"],
+		)
 
 	def test_parallel_full_plan_owns_full_check_set_exactly_once(self) -> None:
 		plan = gf_maintenance.parallel_full_shard_plan()
