@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFTurnFlowSystem" path="addons/gf/extensions/turn_based/runtime/gf_turn_flow_system.gd" module="extensions/turn_based" extends="GFSystem" classDigest="2fa7c13a7b21fc883de7a74400342035b754e063192e319fbe970542d71f258f">
+<class name="GFTurnFlowSystem" path="addons/gf/extensions/turn_based/runtime/gf_turn_flow_system.gd" module="extensions/turn_based" extends="GFSystem" classDigest="1dd11fd080bcc829b36d079e2ff915f644db84ff6e7be07912200f44021ccf7e">
 	<description>GFTurnFlowSystem: 通用回合流程系统。
 提供阶段推进、行动排队和按优先级解析能力。
 它不关心战斗、卡牌、棋盘等具体业务，只调度抽象行动。</description>
@@ -130,7 +130,8 @@
 		<member kind="method" name="start">
 			<signature>func start(reset_indices: bool = true) -&gt; void:</signature>
 			<description>开始流程。
-若同一 Context 正由其他 Flow generation 持有，本次调用会在重置索引、轮次或发出信号前失败关闭；最后一张 operation claim 释放后可顺序重试。</description>
+若同一 Context 正由其他 Flow generation 持有，本次调用会在重置索引、轮次或发出信号前失败关闭；最后一张 operation claim 释放后可顺序重试。
+若本 system 在自身 [signal flow_started] 通知中完成 [method stop]，并在由此发出的 [signal flow_stopped] 回调中再次调用本方法，首个重启请求会等旧 claim 释放后同步重放；重放前的后续 [method stop] 或 [method dispose] 会取消该请求。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">reset_indices: 是否重置阶段索引和轮次数据。</tag>

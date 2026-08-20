@@ -272,7 +272,7 @@ func set_phases(p_phases: Array[GFTurnPhase]) -> void:
 func start(reset_indices: bool = true) -> void:
 ```
 
-开始流程。 若同一 Context 正由其他 Flow generation 持有，本次调用会在重置索引、轮次或发出信号前失败关闭；最后一张 operation claim 释放后可顺序重试。
+开始流程。 若同一 Context 正由其他 Flow generation 持有，本次调用会在重置索引、轮次或发出信号前失败关闭；最后一张 operation claim 释放后可顺序重试。 若本 system 在自身 [signal flow_started] 通知中完成 [method stop]，并在由此发出的 [signal flow_stopped] 回调中再次调用本方法，首个重启请求会等旧 claim 释放后同步重放；重放前的后续 [method stop] 或 [method dispose] 会取消该请求。
 
 参数：
 

@@ -73,6 +73,8 @@ func _execute(
 
 可变 `GFTurnContext` 由 operation-scoped claim 保护。不同 `GFTurnFlowSystem` 对同一 Context 的 `start()`、阶段推进或行动解析会在 round、phase、actor、队列和信号变化前失败关闭；最后一张 claim 释放后，另一个 system 可以顺序接管。相同 system 与相同 flow serial 可以同时持有精确 phase/action claim，因此阶段 `_execute()` 内调用同一 system 的 `resolve_actions()` 仍是受支持路径，且必须等两条 operation 都收尾后才释放 Context。不同 Context 可并行使用。这个合同只约束 GF Flow operation，不是线程锁，也不会拦截项目直接调用 Context 的公开 mutation API。
 
+如果本 system 的 `flow_started` 同步观察者调用 `stop()`，随后的 `flow_stopped` 观察者又调用 `start(reset_indices)`，系统会保留首个重启请求，等外层 `flow_started` 通知展开完成且旧 claim 释放后同步重放；请求中的 `reset_indices` 会原样保留。重放前再次调用 `stop()` 或 `dispose()` 会取消它。这个特例只服务于同一 system 的该次通知链；foreign system 和普通在途 operation 不会被自动排队。
+
 参与者对象可能在流程中被释放。`GFTurnContext.cleanup_invalid_actors()` 可显式移除失效参与者并清空失效的 `current_actor`，`GFTurnFlowSystem` 在推进和解析边界也会同步清理当前上下文。Context 对 RefCounted participant 采用强所有权，项目必须调用 `remove_actor()` 或释放 Context 才会释放该引用；Node 被 `free()` 后仍可由 cleanup 移除。`get_actor_value()` 只调用参数数量与类型兼容的 `get_turn_value(key, fallback)`，不兼容的同名方法会回退到属性读取；GDScript 无法捕获项目方法内部错误，项目实现仍须保证该回调安全返回。项目也应在行动效果层处理目标失效、死亡、离场或替换这类业务语义；TurnBased 只负责不让无效 Object 引用继续驱动通用流程。
 
 ## 与权威状态和表现队列的组合边界

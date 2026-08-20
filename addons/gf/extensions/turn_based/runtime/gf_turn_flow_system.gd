@@ -138,6 +138,9 @@ var _restore_pending_actions_on_cancel: bool = false
 var _lifecycle_state: int = _LifecycleState.STOPPED
 var _active_operation_stop_requested: bool = false
 var _active_context_operation_leases: Array[GFTurnContext.FlowOperationLease] = []
+var _is_notifying_flow_started: bool = false
+var _has_pending_start_request: bool = false
+var _pending_start_reset_indices: bool = true
 var _is_disposed: bool = false
 
 
@@ -188,6 +191,7 @@ func set_phases(p_phases: Array[GFTurnPhase]) -> void:
 
 ## 开始流程。
 ## 若同一 Context 正由其他 Flow generation 持有，本次调用会在重置索引、轮次或发出信号前失败关闭；最后一张 operation claim 释放后可顺序重试。
+## 若本 system 在自身 [signal flow_started] 通知中完成 [method stop]，并在由此发出的 [signal flow_stopped] 回调中再次调用本方法，首个重启请求会等旧 claim 释放后同步重放；重放前的后续 [method stop] 或 [method dispose] 会取消该请求。
 ## [br]
 ## @api public
 ## [br]
@@ -203,6 +207,15 @@ func start(reset_indices: bool = true) -> void:
 		return
 	if _is_advancing_phase or _is_resolving_actions:
 		push_warning("[GFTurnFlowSystem] start 失败：流程正在推进或解析中。")
+		return
+	if (
+		_lifecycle_state == _LifecycleState.STOPPED
+		and _is_notifying_flow_started
+		and not _active_context_operation_leases.is_empty()
+	):
+		if not _has_pending_start_request:
+			_has_pending_start_request = true
+			_pending_start_reset_indices = reset_indices
 		return
 	var active_context: GFTurnContext = _context
 	var next_flow_serial: int = _flow_serial + 1
@@ -222,7 +235,9 @@ func start(reset_indices: bool = true) -> void:
 	_active_operation_stop_requested = false
 	_is_running = true
 	_lifecycle_state = _LifecycleState.RUNNING
+	_is_notifying_flow_started = true
 	flow_started.emit(active_context)
+	_is_notifying_flow_started = false
 	_release_context_operation_lease(active_context, start_lease)
 
 
@@ -234,6 +249,7 @@ func start(reset_indices: bool = true) -> void:
 ## [br]
 ## @param should_clear_actions: 是否清空待处理行动。即使流程已经 stopped，true 仍会幂等清理并封存队列；此前的保留策略也会升级为清理。
 func stop(should_clear_actions: bool = true) -> void:
+	_clear_pending_start_request()
 	_cancel_active_context_operation_leases()
 	if should_clear_actions:
 		_restore_pending_actions_on_cancel = false
@@ -747,6 +763,28 @@ func _release_context_operation_lease(
 	if active_context != null:
 		var _released: bool = active_context.release_flow_operation_lease(lease, self)
 	_active_context_operation_leases.erase(lease)
+	_try_replay_pending_start_request()
+
+
+func _clear_pending_start_request() -> void:
+	_has_pending_start_request = false
+	_pending_start_reset_indices = true
+
+
+func _try_replay_pending_start_request() -> void:
+	if (
+		not _has_pending_start_request
+		or _is_disposed
+		or _is_notifying_flow_started
+		or _lifecycle_state != _LifecycleState.STOPPED
+		or _is_advancing_phase
+		or _is_resolving_actions
+		or not _active_context_operation_leases.is_empty()
+	):
+		return
+	var reset_indices: bool = _pending_start_reset_indices
+	_clear_pending_start_request()
+	start(reset_indices)
 
 
 func _is_context_operation_lease_current(

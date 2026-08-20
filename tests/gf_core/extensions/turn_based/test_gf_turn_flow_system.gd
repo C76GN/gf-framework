@@ -402,6 +402,101 @@ func test_turn_flow_can_restart_from_completed_stop_notification() -> void:
 	assert_true(system.is_running, "旧 stop 调用链不得在通知返回后覆盖重入启动的新周期。")
 
 
+func test_turn_flow_honors_restart_requested_from_nested_start_stop_notifications() -> void:
+	var context: GFTurnContext = GFTurnContext.new()
+	var owner_system: GFTurnFlowSystem = GFTurnFlowSystem.new()
+	var foreign_system: GFTurnFlowSystem = GFTurnFlowSystem.new()
+	owner_system.set_context(context)
+	foreign_system.set_context(context)
+	var seed_order: Array[String] = []
+	owner_system.set_phases([RecordingPhase.new(&"seed", seed_order)])
+	owner_system.start()
+	await owner_system.advance_phase()
+	owner_system.stop()
+	var preserved_phase_index: int = owner_system.current_phase_index
+	var preserved_round_index: int = context.round_index
+	assert_eq(preserved_phase_index, 0, "回归夹具必须先建立可观察的非默认 phase index。")
+	assert_eq(preserved_round_index, 1, "回归夹具必须先建立可观察的非默认轮次。")
+	var events: Array[String] = []
+	var started_count: Array[int] = [0]
+	var stopped_count: Array[int] = [0]
+	var started_callback: Callable = func(_context: GFTurnContext) -> void:
+		started_count[0] += 1
+		events.append("owner_started:%d" % started_count[0])
+		if started_count[0] == 1:
+			owner_system.stop()
+	var stopped_callback: Callable = func(_context: GFTurnContext) -> void:
+		stopped_count[0] += 1
+		events.append("owner_stopped:%d" % stopped_count[0])
+		if stopped_count[0] == 1:
+			events.append("restart_requested")
+			owner_system.start(false)
+			events.append("foreign_attempted")
+			foreign_system.start(false)
+	var _started_connection: Error = owner_system.flow_started.connect(started_callback) as Error
+	var _stopped_connection: Error = owner_system.flow_stopped.connect(stopped_callback) as Error
+
+	owner_system.start(false)
+	owner_system.flow_started.disconnect(started_callback)
+	owner_system.flow_stopped.disconnect(stopped_callback)
+
+	assert_push_warning("[GFTurnFlowSystem] start 失败：context 正由另一个 flow generation 持有。")
+	assert_eq(
+		events,
+		[
+			"owner_started:1",
+			"owner_stopped:1",
+			"restart_requested",
+			"foreign_attempted",
+			"owner_started:2",
+		],
+		"新 generation 必须等外层 start 通知展开完成后再同步启动。"
+	)
+	assert_eq(started_count[0], 2, "完成嵌套 stop 通知后应启动一次新 generation。")
+	assert_eq(stopped_count[0], 1, "嵌套重启不得重复发出 stop 通知。")
+	assert_true(owner_system.is_running, "flow_stopped 中请求的重启应在外层 start 事务释放后生效。")
+	assert_false(foreign_system.is_running, "外层 start 通知仍在展开时不得穿插 foreign Context mutation。")
+	assert_eq(
+		owner_system.current_phase_index,
+		preserved_phase_index,
+		"start(false) 的嵌套重启不得丢失 reset_indices 载荷。"
+	)
+	assert_eq(
+		context.round_index,
+		preserved_round_index,
+		"start(false) 的嵌套重启不得重置 Context 轮次。"
+	)
+
+	owner_system.stop()
+	foreign_system.start(false)
+	assert_true(foreign_system.is_running, "重启事务收敛后不得泄漏 Context claim。")
+	foreign_system.stop()
+
+
+func test_later_stop_cancels_restart_queued_during_start_notification() -> void:
+	var system: GFTurnFlowSystem = GFTurnFlowSystem.new()
+	var started_count: Array[int] = [0]
+	var started_callback: Callable = func(_context: GFTurnContext) -> void:
+		started_count[0] += 1
+		if started_count[0] == 1:
+			system.stop()
+	var restart_callback: Callable = func(_context: GFTurnContext) -> void:
+		system.start(false)
+	var final_stop_callback: Callable = func(_context: GFTurnContext) -> void:
+		system.stop()
+	var _started_connection: Error = system.flow_started.connect(started_callback) as Error
+	var _restart_connection: Error = system.flow_stopped.connect(restart_callback) as Error
+	var _final_stop_connection: Error = system.flow_stopped.connect(final_stop_callback) as Error
+
+	system.start()
+	system.flow_started.disconnect(started_callback)
+	system.flow_stopped.disconnect(restart_callback)
+	system.flow_stopped.disconnect(final_stop_callback)
+
+	assert_eq(started_count[0], 1, "后续 stop 应取消尚未执行的嵌套重启请求。")
+	assert_false(system.is_running, "延迟重启不得反转后续 stop 的最终状态。")
+
+
 func test_stop_true_clears_actions_even_when_already_stopped() -> void:
 	var system: GFTurnFlowSystem = GFTurnFlowSystem.new()
 	var action: GFTurnAction = GFTurnAction.new()
