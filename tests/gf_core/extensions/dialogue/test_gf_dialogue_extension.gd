@@ -494,6 +494,18 @@ func test_dialogue_runner_rejects_snapshot_after_resource_identity_changes() -> 
 	assert_true(restored_ended_drift_snapshot.is_empty(), "恢复停止快照后仍必须复核当前资源内容身份。")
 
 
+func test_dialogue_runner_retains_stopped_snapshot_resource_without_external_owner() -> void:
+	var ended_runner: GFDialogueRunner = _make_ended_runner_without_external_resource_owner()
+	var ended_snapshot: Dictionary = ended_runner.create_runtime_snapshot()
+	var restored_ended_runner: GFDialogueRunner = (
+		_make_restored_ended_runner_without_external_resource_owner()
+	)
+	var restored_ended_snapshot: Dictionary = restored_ended_runner.create_runtime_snapshot()
+
+	assert_false(ended_snapshot.is_empty(), "停止态 Runner 应自行保留创建快照所需的资源身份。")
+	assert_false(restored_ended_snapshot.is_empty(), "恢复出的停止态 Runner 也应自行保留快照资源身份。")
+
+
 func test_dialogue_replacement_start_revalidates_resource_after_ended_callbacks() -> void:
 	var original: GFDialogueResource = GFDialogueResource.new()
 	original.start_line_id = &"original"
@@ -1672,6 +1684,34 @@ func _make_end_line(line_id: StringName) -> GFDialogueLine:
 	line.line_id = line_id
 	line.kind = GFDialogueLine.LineKind.END
 	return line
+
+
+func _make_ended_runner_without_external_resource_owner() -> GFDialogueRunner:
+	var resource: GFDialogueResource = GFDialogueResource.new()
+	resource.start_line_id = &"start"
+	resource.set_line(_make_text_line(&"start", "Start", &"end"))
+	resource.set_line(_make_end_line(&"end"))
+	var runner: GFDialogueRunner = GFDialogueRunner.new()
+	var _start_line: GFDialogueLine = runner.start(resource)
+	var _ended_line: GFDialogueLine = runner.advance()
+	return runner
+
+
+func _make_restored_ended_runner_without_external_resource_owner() -> GFDialogueRunner:
+	var resource: GFDialogueResource = GFDialogueResource.new()
+	resource.start_line_id = &"start"
+	resource.set_line(_make_text_line(&"start", "Start", &"end"))
+	resource.set_line(_make_end_line(&"end"))
+	var source_runner: GFDialogueRunner = GFDialogueRunner.new()
+	var _start_line: GFDialogueLine = source_runner.start(resource)
+	var _ended_line: GFDialogueLine = source_runner.advance()
+	var snapshot: Dictionary = source_runner.create_runtime_snapshot()
+	var restored_runner: GFDialogueRunner = GFDialogueRunner.new()
+	var _restored_line: GFDialogueLine = restored_runner.restore_runtime_snapshot(
+		resource,
+		snapshot
+	)
+	return restored_runner
 
 
 func _has_issue_kind(issues: Array, kind: String) -> bool:

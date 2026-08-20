@@ -90,7 +90,7 @@ var _current_line: GFDialogueLine = null
 var _is_running: bool = false
 var _architecture_ref: WeakRef = null
 var _resource_fingerprint: String = ""
-var _snapshot_resource_ref: WeakRef = null
+var _snapshot_resource: GFDialogueResource = null
 var _session_serial: int = 0
 var _snapshot_transition_serial: int = -1
 var _snapshot_transition_depth: int = 0
@@ -133,7 +133,7 @@ func start(
 	_session_serial += 1
 	_resource = resource
 	_resource_fingerprint = resource_fingerprint
-	_snapshot_resource_ref = weakref(resource)
+	_snapshot_resource = resource
 	_context = _prepare_context(context)
 
 	var start_line: GFDialogueLine = resource.get_start_line(start_line_id)
@@ -278,7 +278,7 @@ func restore_runtime_snapshot(
 	if not GFVariantData.get_option_bool(snapshot, "is_running", false):
 		_reset_runtime_state()
 		_resource_fingerprint = snapshot_fingerprint
-		_snapshot_resource_ref = weakref(resource)
+		_snapshot_resource = resource
 		_context = _prepare_context(context)
 		_context.deserialize_values(context_values)
 		return null
@@ -294,7 +294,7 @@ func restore_runtime_snapshot(
 	_reset_runtime_state()
 	_resource = resource
 	_resource_fingerprint = snapshot_fingerprint
-	_snapshot_resource_ref = weakref(resource)
+	_snapshot_resource = resource
 	_context = _prepare_context(context)
 	_context.deserialize_values(context_values)
 	_current_line_id = line_id
@@ -342,7 +342,7 @@ func _prepare_context(context: GFDialogueContext = null) -> GFDialogueContext:
 func _reset_runtime_state() -> void:
 	_session_serial += 1
 	_resource = null
-	_snapshot_resource_ref = null
+	_snapshot_resource = null
 	_current_line = null
 	_current_line_id = &""
 	_is_running = false
@@ -601,6 +601,7 @@ func _try_begin_non_display_step(
 func _end_dialogue() -> void:
 	var ended_resource: GFDialogueResource = _resource
 	_session_serial += 1
+	_snapshot_resource = ended_resource
 	_current_line = null
 	_current_line_id = &""
 	_resource = null
@@ -664,13 +665,7 @@ func _snapshot_resource_identity_is_current() -> bool:
 func _get_snapshot_resource_or_null() -> GFDialogueResource:
 	if _resource != null:
 		return _resource
-	if _snapshot_resource_ref == null:
-		return null
-	var resource_value: Variant = _snapshot_resource_ref.get_ref()
-	if resource_value is GFDialogueResource:
-		var resource: GFDialogueResource = resource_value
-		return resource
-	return null
+	return _snapshot_resource
 
 
 func _begin_snapshot_transition() -> int:
