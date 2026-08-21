@@ -246,6 +246,19 @@ class StopDuringInjectionAction extends GFTurnAction:
 		return null
 
 
+class CancelDuringInjectionAction extends GFTurnAction:
+	var injection_called: bool = false
+	var resolved: bool = false
+
+	func _inject_dependencies(_architecture: GFArchitecture) -> void:
+		injection_called = true
+		cancel()
+
+	func _resolve(_context: GFTurnContext) -> Variant:
+		resolved = true
+		return null
+
+
 class CompatibleTurnValueActor extends Object:
 	func get_turn_value(key: StringName, fallback: Variant) -> Variant:
 		return 9 if key == &"initiative" else fallback
@@ -846,23 +859,101 @@ func test_equal_priority_actions_resolve_in_enqueue_order() -> void:
 	assert_eq(order, ["first", "second", "third"], "priority 与 sort_value 相同时应按入队顺序解析。")
 
 
-func test_comparator_stop_restores_snapshot_without_resolving() -> void:
+func test_custom_comparator_applies_requested_order_while_operation_is_current() -> void:
 	var order: Array[String] = []
 	var system: GFTurnFlowSystem = GFTurnFlowSystem.new()
-	var stopped: Array[bool] = [false]
-	system.enqueue_action(RecordingAction.new("first", 0, 0.0, order))
-	system.enqueue_action(RecordingAction.new("second", 0, 0.0, order))
-	var comparator: Callable = func(_a: GFTurnAction, _b: GFTurnAction) -> bool:
-		if not stopped[0]:
-			stopped[0] = true
+	var comparator_calls: Array[int] = [0]
+	system.enqueue_action(RecordingAction.new("first", 1, 0.0, order))
+	system.enqueue_action(RecordingAction.new("second", 3, 0.0, order))
+	system.enqueue_action(RecordingAction.new("third", 2, 0.0, order))
+	var comparator: Callable = func(a: GFTurnAction, b: GFTurnAction) -> bool:
+		comparator_calls[0] += 1
+		return a.priority < b.priority
+
+	await system.resolve_actions(comparator)
+
+	assert_gt(comparator_calls[0], 0, "有效 operation 应调用项目 comparator。")
+	assert_eq(order, ["first", "third", "second"], "有效 comparator 应决定 action 解析顺序。")
+	assert_eq(system.get_action_count(), 0, "自定义排序完成后不应遗留 action。")
+
+
+func test_comparator_stop_restores_original_enqueue_order() -> void:
+	var order: Array[String] = []
+	var system: GFTurnFlowSystem = GFTurnFlowSystem.new()
+	var comparator_calls: Array[int] = [0]
+	var first_action: RecordingAction = RecordingAction.new("first", 1, 0.0, order)
+	var second_action: RecordingAction = RecordingAction.new("second", 3, 0.0, order)
+	var third_action: RecordingAction = RecordingAction.new("third", 2, 0.0, order)
+	system.enqueue_action(first_action)
+	system.enqueue_action(second_action)
+	system.enqueue_action(third_action)
+	var comparator: Callable = func(a: GFTurnAction, b: GFTurnAction) -> bool:
+		comparator_calls[0] += 1
+		if comparator_calls[0] == 1:
 			system.stop(false)
-		return false
+		return a.priority > b.priority
 
 	await system.resolve_actions(comparator)
 
 	assert_eq(order, [], "比较器使 transaction 失效后不得开始解析行动。")
-	assert_eq(_get_queued_actions(system).size(), 2, "比较器 stop(false) 后应完整恢复排序快照。")
-	system.stop(true)
+	assert_eq(comparator_calls[0], 1, "比较器使 operation 失效后不得继续调用项目回调。")
+	var queued_actions: Array = _get_queued_actions(system)
+	assert_eq(queued_actions.size(), 3, "比较器 stop(false) 后应完整恢复排序前快照。")
+	if queued_actions.size() == 3:
+		var restored_first_value: Variant = queued_actions[0]
+		var restored_second_value: Variant = queued_actions[1]
+		var restored_third_value: Variant = queued_actions[2]
+		assert_true(restored_first_value is GFTurnAction, "恢复队列的第一项应保持 action 类型。")
+		assert_true(restored_second_value is GFTurnAction, "恢复队列的第二项应保持 action 类型。")
+		assert_true(restored_third_value is GFTurnAction, "恢复队列的第三项应保持 action 类型。")
+		if (
+			restored_first_value is GFTurnAction
+			and restored_second_value is GFTurnAction
+			and restored_third_value is GFTurnAction
+		):
+			var restored_first: GFTurnAction = restored_first_value
+			var restored_second: GFTurnAction = restored_second_value
+			var restored_third: GFTurnAction = restored_third_value
+			assert_same(restored_first, first_action, "恢复队列应保留第一个 action 的入队位置。")
+			assert_same(restored_second, second_action, "恢复队列应保留第二个 action 的入队位置。")
+			assert_same(restored_third, third_action, "恢复队列应保留第三个 action 的入队位置。")
+	assert_false(first_action.is_sealed(), "stop(false) 恢复的第一个 action 应仍可再次解析。")
+	assert_false(second_action.is_sealed(), "stop(false) 恢复的第二个 action 应仍可再次解析。")
+	assert_false(third_action.is_sealed(), "stop(false) 恢复的第三个 action 应仍可再次解析。")
+
+	await system.resolve_actions()
+
+	assert_eq(order, ["second", "third", "first"], "恢复后的 action 应能在下一次调用中正常解析。")
+	assert_true(first_action.is_sealed(), "再次解析后第一个 action 应被封存。")
+	assert_true(second_action.is_sealed(), "再次解析后第二个 action 应被封存。")
+	assert_true(third_action.is_sealed(), "再次解析后第三个 action 应被封存。")
+	assert_eq(system.get_action_count(), 0, "再次解析后不应遗留恢复 action。")
+
+
+func test_comparator_clear_stop_seals_original_snapshot() -> void:
+	var order: Array[String] = []
+	var system: GFTurnFlowSystem = GFTurnFlowSystem.new()
+	var comparator_calls: Array[int] = [0]
+	var first_action: RecordingAction = RecordingAction.new("first", 1, 0.0, order)
+	var second_action: RecordingAction = RecordingAction.new("second", 3, 0.0, order)
+	var third_action: RecordingAction = RecordingAction.new("third", 2, 0.0, order)
+	system.enqueue_action(first_action)
+	system.enqueue_action(second_action)
+	system.enqueue_action(third_action)
+	var comparator: Callable = func(a: GFTurnAction, b: GFTurnAction) -> bool:
+		comparator_calls[0] += 1
+		if comparator_calls[0] == 1:
+			system.stop(true)
+		return a.priority > b.priority
+
+	await system.resolve_actions(comparator)
+
+	assert_eq(order, [], "比较器 stop(true) 后不得解析 action。")
+	assert_eq(comparator_calls[0], 1, "clear stop 失效后不得继续调用项目 comparator。")
+	assert_eq(system.get_action_count(), 0, "stop(true) 应清空排序前 action 快照。")
+	assert_true(first_action.is_sealed(), "stop(true) 应封存第一个 action。")
+	assert_true(second_action.is_sealed(), "stop(true) 应封存第二个 action。")
+	assert_true(third_action.is_sealed(), "stop(true) 应封存第三个 action。")
 
 
 func test_non_finite_sort_values_are_stable_and_last() -> void:
@@ -1207,6 +1298,28 @@ func test_action_injection_stop_is_rechecked_before_context_write_or_resolve() -
 	assert_null(system.context.current_actor, "injection stop 后不得写入 current_actor。")
 	system.stop(true)
 	stopping_action.system = null
+	system.release_dependencies()
+	architecture.dispose()
+
+
+func test_action_injection_cancel_skips_resolve_and_continues_queue() -> void:
+	var architecture: GFArchitecture = GFArchitecture.new()
+	var system: GFTurnFlowSystem = GFTurnFlowSystem.new()
+	var order: Array[String] = []
+	var cancelling_action: CancelDuringInjectionAction = CancelDuringInjectionAction.new()
+	var next_action: RecordingAction = RecordingAction.new("next", 0, 0.0, order)
+	system.inject_dependencies(architecture)
+	system.enqueue_action(cancelling_action)
+	system.enqueue_action(next_action)
+
+	await system.resolve_actions()
+
+	assert_true(cancelling_action.injection_called, "action 应先经过显式依赖注入 hook。")
+	assert_true(cancelling_action.is_cancelled, "注入 hook 的取消请求应保留。")
+	assert_false(cancelling_action.resolved, "注入期间取消的 action 不得继续执行 resolve hook。")
+	assert_true(cancelling_action.is_sealed(), "注入期间取消的 action 应离开队列并封存。")
+	assert_eq(order, ["next"], "取消当前 action 后应继续解析后续有效 action。")
+	assert_eq(system.get_action_count(), 0, "完成解析后不应遗留已消费 action。")
 	system.release_dependencies()
 	architecture.dispose()
 

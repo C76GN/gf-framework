@@ -403,4 +403,4 @@ func resolve_actions(order_resolver: Callable = Callable()) -> void:
 
 | 名称 | 说明 |
 |---|---|
-| `order_resolver` | 可选排序回调，签名为 func(a, b) -> bool；调用方必须提供无副作用、确定且满足严格弱序的比较器。自定义比较器不继承默认 non-finite 与入队顺序规则。 |
+| `order_resolver` | 可选排序回调，签名为 func(a, b) -> bool；调用方必须提供无副作用、确定且满足严格弱序的比较器。自定义比较器不继承默认 non-finite 与入队顺序规则；若回调使当前 operation 失效，框架会停止后续调用，并按排序前快照恢复或封存队列。 |

@@ -33,7 +33,7 @@ flow.enqueue_action(GFTurnAction.new(actor_a, [target_b], { "value": 10 }, 1, 20
 flow.advance_phase()
 ```
 
-默认排序规则是 `priority` 降序，然后按有限 `sort_value` 降序；NaN 与正负 Infinity 统一排在有限值之后，并按入队顺序保持稳定。自定义 `order_resolver` 必须是无副作用、确定且满足严格弱序的 `func(a, b) -> bool`，并自行定义 non-finite 与平局规则。框架会在比较器使当前 lease 失效时恢复或封存快照，但不会把非传递比较器改造成可重放顺序。
+默认排序规则是 `priority` 降序，然后按有限 `sort_value` 降序；NaN 与正负 Infinity 统一排在有限值之后，并按入队顺序保持稳定。自定义 `order_resolver` 必须是无副作用、确定且满足严格弱序的 `func(a, b) -> bool`，并自行定义 non-finite 与平局规则。若比较器使当前 lease 失效，框架会停止后续比较器调用，并按排序前快照恢复或封存原始入队顺序；框架不会把非传递比较器改造成可重放顺序。
 
 阶段和行动如果返回 Signal，系统会通过 `signal_timeout_seconds` 和当前流程 serial 做安全等待；`stop()` 或超时后不会继续调用旧阶段的 `_exit()`，也不会把旧行动标记为 resolved。`resolve_actions()` 在上一批行动仍等待时会拒绝同类重入，避免同一批行动被重复解析。`stop(true)` 的清理策略与停止通知分离：流程已经 stopped 时仍会幂等清空并封存队列，`stop(false)` 保留的在途行动也可由后续 `stop(true)` 升级为丢弃；重复调用不会重复发送 `flow_stopped`。
 
