@@ -313,7 +313,7 @@
 - 修复 Interaction 的 Pointer 与 Receiver-to-Receiver 转发对已编码报告再次编码、Area2D/3D 自定义 sender 的空或非 Dictionary 结果产生残缺报告或被静默丢弃、候选回调释放后续 receiver 后访问 previously freed Object、失效 `validation_callback` 静默恢复默认允许，以及同名不兼容项目方法触发脚本错误的问题；每次实际 Area 分发现在都返回并发布完整 JSON-safe 报告。
 - 修复 Network snapshot 生成 `ok=true` 但同版本 applicator 因深度、操作数或非法内容静默拒绝，service discovery 的自定义 `now_seconds` 与内部 elapsed clock 混用而延长 TTL，以及 fixed-tick signal 回调递归推进导致 stack overflow 的问题。
 - 修复 Physics 同路径 field 替换命中陈旧缓存、最高优先级的 32 位哨兵丢弃合法 int64、Vector3 聚合与平方范数溢出、浮力总力携带 Infinity、平方反比与超大浸没半径发生可避免中间溢出，以及 field 回调改写 Probe 后形成混合时点或错误缓存的问题。
-- 修复 TurnBased 旧异步回调只凭 Context 完成后来 phase runtime，以及不同 Flow System 在发现共享 Context 冲突前已修改 round、phase、actor 或行动队列的问题。精确 completion handle 在 stop、timeout、dispose、正常收尾或 restart 后立即失效；Context claim 只在最后一个同 owner operation 安全收尾后释放。另修复 lifecycle 已 stopped 时让 `stop(true)` 静默跳过清理、`stop(false)` 的在途 restore policy 无法升级、phase/action 双通道先结束者过早清除 stop 证据，以及 `get_actor_value()` 对同名错误 arity/type 方法直接产生脚本错误的问题；action target 的重复 O(n²) 清洗收敛为单次 O(n)。
+- 修复 TurnBased 旧异步回调只凭 Context 完成后来 phase runtime，以及不同 Flow System 在发现共享 Context 冲突前已修改 round、phase、actor 或行动队列的问题。精确 completion handle 在 stop、timeout、dispose、正常收尾或 restart 后立即失效；Context claim 只在最后一个同 owner operation 安全收尾后释放。另修复 lifecycle 已 stopped 时让 `stop(true)` 静默跳过清理、`stop(false)` 的在途 restore policy 无法升级、phase/action 双通道先结束者过早清除 stop 证据，以及 `get_actor_value()` 对同名错误 arity/type 方法直接产生脚本错误的问题；action target 的重复 O(n²) 清洗收敛为单次 O(n)。自定义 action comparator 使 operation 失效后不再继续调用项目回调，并按排序前快照恢复原始入队顺序；依赖注入 hook 取消当前 action 后也会在 `_resolve()` 前消费它并继续解析队列。
 
 ### ⚠️ 废弃与移除 (Deprecated/Removed)
 
@@ -415,7 +415,7 @@
 - `GFInteractions.is_method_call_compatible_for_framework()` 是新的框架内部动态协议预检入口。Interaction 的公开方法和信号签名不变，但失效 validator、非法 sender/provider/receiver 协议、Area 非法返回和 Pointer 多按钮的运行时语义均已收紧；`gf.interaction` 的 `extension_version` 因此提升到 `3.0.0`。
 - `GFNetworkSnapshot.make_patch_to()` 会把 `max_depth` 限制到 8，并以 `patch_operation_budget_exceeded` / `generated_patch_not_applicable` 显式拒绝 applicator 无法接受的成功候选。`GFNetworkServiceDiscovery.now_seconds` 只影响记录时间；`GFFixedTickClock.advance()` / `step_once()` 在同实例 signal 重入时无副作用返回。公开签名不变，`gf.network` 的 `extension_version` 提升到 `7.0.0`。
 - Physics 公开签名不变；`GFGravityProbe3D.sample()` / `sample_fields()` / `sample_field_provider()` 现在冻结入口查询状态并在同实例同步重入时返回零，全部重力/浮力公开向量保持有限。该运行语义收紧使 `gf.physics` 的 `extension_version` 提升到 `2.0.0`。
-- TurnBased 移除基于 Context 查找当前运行态的 `GFTurnPhase.finish()` / `finish(context)`，protected 扩展点从 `_execute(context)` 改为 `_execute(context, completion)`，并新增 `GFTurnPhaseCompletionHandle.try_complete()`。`GFTurnFlowSystem.dispose()` 现在显式终止接纳新 operation；`stop(true)` 继续对 stopped/恢复中队列执行幂等且可升级的清理，`GFTurnContext.get_actor_value()` 只调用接受两个兼容实参的 duck method。默认 non-finite 排序与自定义 comparator 的合同已写明，`gf.turn_based` 的 `extension_version` 从 `2.0.1` 提升到 `3.0.0`。
+- TurnBased 移除基于 Context 查找当前运行态的 `GFTurnPhase.finish()` / `finish(context)`，protected 扩展点从 `_execute(context)` 改为 `_execute(context, completion)`，并新增 `GFTurnPhaseCompletionHandle.try_complete()`。`GFTurnFlowSystem.dispose()` 现在显式终止接纳新 operation；`stop(true)` 继续对 stopped/恢复中队列执行幂等且可升级的清理，`GFTurnContext.get_actor_value()` 只调用接受两个兼容实参的 duck method。默认 non-finite 排序与自定义 comparator 的合同已写明，`gf.turn_based` 的 `extension_version` 从 `2.0.1` 提升到 `3.0.1`。
 
 ### 📘 升级指南 (Migration Guide)
 
