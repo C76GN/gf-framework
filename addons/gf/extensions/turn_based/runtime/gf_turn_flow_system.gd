@@ -467,7 +467,7 @@ func enqueue_action(action: GFTurnAction) -> void:
 ## [br]
 ## @since 3.17.0
 ## [br]
-## @param order_resolver: 可选排序回调，签名为 func(a, b) -> bool；调用方必须提供无副作用、确定且满足严格弱序的比较器。自定义比较器不继承默认 non-finite 与入队顺序规则。
+## @param order_resolver: 可选排序回调，签名为 func(a, b) -> bool；调用方必须提供无副作用、确定且满足严格弱序的比较器。自定义比较器不继承默认 non-finite 与入队顺序规则；若回调使当前 operation 失效，框架会停止后续调用，并按排序前快照恢复或封存队列。
 func resolve_actions(order_resolver: Callable = Callable()) -> void:
 	if _is_disposed:
 		return
@@ -485,6 +485,7 @@ func resolve_actions(order_resolver: Callable = Callable()) -> void:
 		push_warning("[GFTurnFlowSystem] resolve_actions 失败：context 正由另一个 flow generation 持有。")
 		return
 	var pending_actions: Array[GFTurnAction] = _actions.duplicate()
+	var original_pending_actions: Array[GFTurnAction] = pending_actions.duplicate()
 	_actions.clear()
 	_is_resolving_actions = true
 	_active_operation_stop_requested = false
@@ -498,11 +499,20 @@ func resolve_actions(order_resolver: Callable = Callable()) -> void:
 
 	if sort_actions_before_resolve:
 		if order_resolver.is_valid():
-			pending_actions.sort_custom(order_resolver)
+			var comparator_state: Dictionary = {"is_active": true}
+			pending_actions.sort_custom(
+				Callable(self, "_sort_action_with_operation_guard").bind(
+					order_resolver,
+					comparator_state,
+					action_lease,
+					flow_serial,
+					active_context
+				)
+			)
 		else:
 			pending_actions.sort_custom(_sort_action_desc)
 	if not _is_context_operation_lease_current(action_lease, flow_serial, active_context):
-		_restore_unresolved_actions(pending_actions, 0)
+		_restore_unresolved_actions(original_pending_actions, 0)
 		_finish_action_resolution(active_context, action_lease)
 		return
 
@@ -520,6 +530,10 @@ func resolve_actions(order_resolver: Callable = Callable()) -> void:
 		if not _is_context_operation_lease_current(action_lease, flow_serial, active_context):
 			_restore_unresolved_actions(pending_actions, action_index)
 			break
+		if action == null or action.is_cancelled or _action_has_invalid_actor(action):
+			_consume_action(action)
+			action_index += 1
+			continue
 		action.replace_runtime_targets(action.targets)
 		if not _is_context_operation_lease_current(action_lease, flow_serial, active_context):
 			_restore_unresolved_actions(pending_actions, action_index)
@@ -577,6 +591,28 @@ func _sort_action_desc(a: GFTurnAction, b: GFTurnAction) -> bool:
 	if a_sort_value != b_sort_value:
 		return a_sort_value > b_sort_value
 	return _get_action_order(a) < _get_action_order(b)
+
+
+func _sort_action_with_operation_guard(
+	a: GFTurnAction,
+	b: GFTurnAction,
+	order_resolver: Callable,
+	comparator_state: Dictionary,
+	lease: GFTurnContext.FlowOperationLease,
+	flow_serial: int,
+	active_context: GFTurnContext
+) -> bool:
+	if (
+		not GFVariantData.get_option_bool(comparator_state, "is_active")
+		or not _is_context_operation_lease_current(lease, flow_serial, active_context)
+	):
+		comparator_state["is_active"] = false
+		return false
+	var result: Variant = order_resolver.call(a, b)
+	if not _is_context_operation_lease_current(lease, flow_serial, active_context):
+		comparator_state["is_active"] = false
+		return false
+	return result is bool and result
 
 
 func _next_valid_phase() -> Dictionary:
