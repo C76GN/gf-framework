@@ -10,6 +10,7 @@
     "addons/gf/plugin.cfg",
     "addons/gf/plugin.gd",
     "addons/gf/plugin.gd.uid",
+    "addons/gf/gf_builtin_tool_contributions.json",
     "addons/gf/icon.png",
     "addons/gf/LICENSE.md",
     "addons/gf/README.md",

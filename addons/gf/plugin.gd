@@ -98,7 +98,13 @@ const GF_EDITOR_CONTRIBUTION_REGISTRY_SCRIPT = preload("res://addons/gf/kernel/e
 ## @layer plugin
 const STANDARD_EDITOR_CONTRIBUTIONS_MANIFEST_PATH: String = "res://addons/gf/standard/editor/gf_editor_contributions.json"
 const _GF_VARIANT_ACCESS_SCRIPT = preload("res://addons/gf/kernel/core/gf_variant_access.gd")
+const _GF_EDITOR_CONTRIBUTION_CATALOG_SCRIPT = preload(
+	"res://addons/gf/kernel/editor/gf_editor_contribution_catalog.gd"
+)
 const _GF_PLUGIN_REFRESH_STATE_SCRIPT = preload("res://addons/gf/kernel/editor/gf_plugin_refresh_state.gd")
+const _BUILTIN_TOOL_CONTRIBUTIONS_CATALOG_PATH: String = (
+	"res://addons/gf/gf_builtin_tool_contributions.json"
+)
 const _EDITOR_CONTRIBUTION_REFRESH_TIMEOUT_MSEC: int = 120_000
 const _EDITOR_CONTRIBUTION_DIAGNOSTIC_KIND_LIMIT: int = 16
 
@@ -114,8 +120,9 @@ var _import_tools: GFPluginImportTools
 var _preview_tools: GFPluginPreviewTools
 var _gltf_document_tools: GFPluginGltfDocumentTools
 var _plugin_active: bool = false
-var _standard_editor_extension_records: Dictionary = {}
+var _editor_contribution_records: Dictionary = {}
 var _standard_editor_contribution_report: Dictionary = {}
+var _builtin_tool_editor_contribution_report: Dictionary = {}
 var _refresh_state: _GF_PLUGIN_REFRESH_STATE_SCRIPT = _GF_PLUGIN_REFRESH_STATE_SCRIPT.new()
 
 
@@ -124,8 +131,8 @@ var _refresh_state: _GF_PLUGIN_REFRESH_STATE_SCRIPT = _GF_PLUGIN_REFRESH_STATE_S
 func _enter_tree() -> void:
 	_plugin_active = true
 	GFPluginAutoload.ensure(self)
-	_reload_standard_editor_contribution_report()
-	GFPluginProjectSettings.ensure_all(_get_record_array(_standard_editor_extension_records, "project_setting_records"))
+	_reload_editor_contribution_reports()
+	GFPluginProjectSettings.ensure_all(_get_record_array(_editor_contribution_records, "project_setting_records"))
 	_setup_actions_and_menu()
 	var active_editor_records: Dictionary = _make_active_editor_records()
 	GFPluginProjectSettings.ensure_all(_get_record_array(active_editor_records, "project_setting_records"))
@@ -137,7 +144,7 @@ func _enter_tree() -> void:
 	_debugger_tools = GFPluginDebuggerTools.new()
 	_debugger_tools.setup(
 		self,
-		_standard_editor_extension_records,
+		_editor_contribution_records,
 		GFExtensionSettingsBase.get_enabled_debugger_plugin_paths()
 	)
 
@@ -180,8 +187,9 @@ func _exit_tree() -> void:
 	if _inspector_tools != null:
 		_inspector_tools.cleanup(self)
 		_inspector_tools = null
-	_standard_editor_extension_records = {}
+	_editor_contribution_records = {}
 	_standard_editor_contribution_report = {}
+	_builtin_tool_editor_contribution_report = {}
 
 
 # --- 私有/辅助方法 ---
@@ -191,14 +199,14 @@ func _setup_dock_tools() -> void:
 		return
 
 	var dock_records: Array[Dictionary] = []
-	dock_records.assign(_get_record_array(_standard_editor_extension_records, "dock_records"))
+	dock_records.assign(_get_record_array(_editor_contribution_records, "dock_records"))
 	_dock_tools.setup(self, dock_records)
 
 
 func _setup_actions_and_menu() -> void:
 	if _actions == null:
 		_actions = GFPluginActions.new()
-	_actions.setup(_get_record_array(_standard_editor_extension_records, "template_records"))
+	_actions.setup(_get_record_array(_editor_contribution_records, "template_records"))
 	_connect_action_signals()
 
 	if _menu == null:
@@ -302,8 +310,8 @@ func _apply_editor_contributions_refresh(generation: int) -> void:
 	if not _plugin_active:
 		return
 	GFExtensionSettingsBase.clear_manifest_cache()
-	_reload_standard_editor_contribution_report()
-	GFPluginProjectSettings.ensure_all(_get_record_array(_standard_editor_extension_records, "project_setting_records"))
+	_reload_editor_contribution_reports()
+	GFPluginProjectSettings.ensure_all(_get_record_array(_editor_contribution_records, "project_setting_records"))
 
 	if _inspector_tools != null:
 		_inspector_tools.cleanup(self)
@@ -318,7 +326,7 @@ func _apply_editor_contributions_refresh(generation: int) -> void:
 		_debugger_tools.cleanup(self)
 		_debugger_tools.setup(
 			self,
-			_standard_editor_extension_records,
+			_editor_contribution_records,
 			GFExtensionSettingsBase.get_enabled_debugger_plugin_paths()
 		)
 
@@ -332,7 +340,7 @@ func _apply_editor_contributions_refresh(generation: int) -> void:
 
 	if _dock_tools != null:
 		var dock_records: Array[Dictionary] = []
-		dock_records.assign(_get_record_array(_standard_editor_extension_records, "dock_records"))
+		dock_records.assign(_get_record_array(_editor_contribution_records, "dock_records"))
 		_dock_tools.setup(self, dock_records)
 
 	print("[GF Framework] 已刷新 GF 编辑器贡献记录（generation=%d）。" % generation)
@@ -382,20 +390,41 @@ func _cancel_editor_contribution_refresh() -> void:
 	_refresh_state.cancel()
 
 
-func _reload_standard_editor_contribution_report() -> void:
+func _reload_editor_contribution_reports() -> void:
 	_standard_editor_contribution_report = _collect_standard_editor_contribution_report()
-	_standard_editor_extension_records = _GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(
+	var standard_records: Dictionary = _GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(
 		_standard_editor_contribution_report,
 		"records",
 		GF_EDITOR_CONTRIBUTION_REGISTRY_SCRIPT.empty_records()
 	)
+	_builtin_tool_editor_contribution_report = _collect_builtin_tool_editor_contribution_report(
+		standard_records
+	)
+	_editor_contribution_records = _GF_VARIANT_ACCESS_SCRIPT.get_option_dictionary(
+		_builtin_tool_editor_contribution_report,
+		"records",
+		standard_records
+	)
 	_publish_standard_editor_contribution_diagnostic(_standard_editor_contribution_report)
+	_publish_builtin_tool_editor_contribution_diagnostic(
+		_builtin_tool_editor_contribution_report
+	)
 
 
 func _collect_standard_editor_contribution_report(
 	manifest_path: String = STANDARD_EDITOR_CONTRIBUTIONS_MANIFEST_PATH
 ) -> Dictionary:
 	return GF_EDITOR_CONTRIBUTION_REGISTRY_SCRIPT.load_manifest_report(manifest_path)
+
+
+func _collect_builtin_tool_editor_contribution_report(
+	base_records: Dictionary,
+	catalog_path: String = _BUILTIN_TOOL_CONTRIBUTIONS_CATALOG_PATH
+) -> Dictionary:
+	return _GF_EDITOR_CONTRIBUTION_CATALOG_SCRIPT.load_catalog_report(
+		catalog_path,
+		base_records
+	)
 
 
 func _publish_standard_editor_contribution_diagnostic(report: Dictionary) -> void:
@@ -436,6 +465,60 @@ func _publish_standard_editor_contribution_diagnostic(report: Dictionary) -> voi
 	)
 
 
+func _publish_builtin_tool_editor_contribution_diagnostic(report: Dictionary) -> void:
+	var state: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(report, "state")
+	if state == "valid":
+		return
+	var issue_kinds: Array[String] = []
+	_append_report_issue_kinds(
+		issue_kinds,
+		_GF_VARIANT_ACCESS_SCRIPT.get_option_array(report, "issues")
+	)
+	for manifest_report_value: Variant in _GF_VARIANT_ACCESS_SCRIPT.get_option_array(
+		report,
+		"manifest_reports"
+	):
+		if not manifest_report_value is Dictionary:
+			continue
+		var manifest_report: Dictionary = manifest_report_value
+		_append_report_issue_kinds(
+			issue_kinds,
+			_GF_VARIANT_ACCESS_SCRIPT.get_option_array(manifest_report, "issues")
+		)
+		_append_report_issue_kinds(
+			issue_kinds,
+			_GF_VARIANT_ACCESS_SCRIPT.get_option_array(manifest_report, "skipped_records")
+		)
+	if state == "absent" and not issue_kinds.has("catalog_absent"):
+		issue_kinds.append("catalog_absent")
+	issue_kinds.sort()
+	var kinds_truncated: bool = issue_kinds.size() > _EDITOR_CONTRIBUTION_DIAGNOSTIC_KIND_LIMIT
+	if kinds_truncated:
+		var _resize_error: Error = issue_kinds.resize(
+			_EDITOR_CONTRIBUTION_DIAGNOSTIC_KIND_LIMIT
+		) as Error
+	var kinds_text: String = ",".join(PackedStringArray(issue_kinds))
+	if kinds_text.is_empty():
+		kinds_text = "unknown"
+	if kinds_truncated:
+		kinds_text += ",..."
+	push_warning(
+		(
+			"[GF Framework][PLUGIN-BOOT-003] built-in tool contribution catalog "
+			+ "state=%s issue_count=%d loaded_manifest_count=%d "
+			+ "absent_manifest_count=%d skipped_manifest_count=%d issue_kinds=%s。"
+		)
+		% [
+			state if not state.is_empty() else "invalid",
+			_GF_VARIANT_ACCESS_SCRIPT.get_option_int(report, "issue_count", 0),
+			_GF_VARIANT_ACCESS_SCRIPT.get_option_int(report, "loaded_manifest_count", 0),
+			_GF_VARIANT_ACCESS_SCRIPT.get_option_int(report, "absent_manifest_count", 0),
+			_GF_VARIANT_ACCESS_SCRIPT.get_option_int(report, "skipped_manifest_count", 0),
+			kinds_text,
+		]
+	)
+
+
 func _append_report_issue_kinds(target: Array[String], values: Array) -> void:
 	for value: Variant in values:
 		if not value is Dictionary:
@@ -447,7 +530,7 @@ func _append_report_issue_kinds(target: Array[String], values: Array) -> void:
 
 
 func _make_active_editor_records() -> Dictionary:
-	var records: Dictionary = _standard_editor_extension_records.duplicate(true)
+	var records: Dictionary = _editor_contribution_records.duplicate(true)
 	if _actions == null:
 		return records
 	_append_unique_records(

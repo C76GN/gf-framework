@@ -243,12 +243,12 @@
     {
       "id": "project-tooling",
       "title": "Project layout and authoring tools",
-      "summary": "Optional profile-driven project structure, data compilers, generators, editor contributions, and CI validation.",
-      "keywords": ["project layout", "scaffold", "editor", "tool", "generator", "validation", "ci", "authoring"],
+      "summary": "Optional read-only project layout analysis, explanation, impact simulation, planning, bounded portable-safe profile evaluation, data compilers, editor contributions, and CI validation.",
+      "keywords": ["project layout", "analyzer", "planner", "impact", "read-only", "editor", "tool", "validation", "ci", "authoring"],
       "packages": ["gf.tool.project_layout", "gf.tool.config_pipeline", "gf.tool.dialogue_text"],
-      "primary_classes": ["GFProjectLayoutValidator", "GFProjectLayoutScaffolder", "GFConfigPipeline", "GFDialogueTextCompiler"],
+      "primary_classes": ["GFProjectLayoutAnalyzer", "GFProjectLayoutPlanner", "GFProjectLayoutDock", "GFConfigPipeline", "GFDialogueTextCompiler"],
       "recipes": ["project-feature", "config-pipeline"],
-      "boundary": "Tools are optional and profile-driven; they must not turn one game's directory or schema into a GF runtime requirement."
+      "boundary": "Tools are optional and profile-driven; Project Layout only scans, explains, simulates impact, and produces reviewable plans, never applies project changes or turns one game's directory into a GF runtime requirement. Project profile inventories, audit work, diagnostics, and portable_safe_v1 regexes have non-configurable fail-closed limits shared by their canonical contract."
     }
   ]
 }

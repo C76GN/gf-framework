@@ -4,12 +4,12 @@
   "kind": "tool",
   "version": "unreleased",
   "display_name": "GF Project Layout Tool",
-  "description": "Optional project structure profile templates and validation support for GF projects.",
+  "description": "Read-only project layout analysis, explanation, impact simulation, planning, and Editor workspace tooling.",
   "dependencies": ["gf.kernel"],
   "paths": [
     "addons/gf/tools/project_layout/**"
   ],
   "metadata": {
-    "stage": "tool-split-v1"
+    "stage": "project-layout-read-only-v1"
   }
 }

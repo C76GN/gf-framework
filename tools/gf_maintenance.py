@@ -70,6 +70,7 @@ import gf_gut_sharding
 import gf_gut_shard_worker
 import gf_path_security
 import gf_repository_policy
+import gf_project_layout_profile
 import extract_release_notes as gf_release_notes
 import gf_process_supervisor
 import gf_maintenance_rendering as maintenance_rendering
@@ -502,71 +503,18 @@ ASSET_HANDLE_METHOD_ARGUMENTS = {
 		"path_index": 1,
 	},
 }
-PROJECT_PROFILE_DEFAULT_FILES = (
-	"gf_project_profile.json",
-	".gf/project_profile.json",
-	"project_profile.json",
+PROJECT_PROFILE_DEFAULT_FILES = gf_project_layout_profile.PROJECT_PROFILE_DEFAULT_FILES
+PROJECT_PROFILE_ALLOWED_FIELDS = gf_project_layout_profile.PROJECT_PROFILE_ALLOWED_FIELDS
+PROJECT_PROFILE_ZONE_ALLOWED_FIELDS = (
+	gf_project_layout_profile.PROJECT_PROFILE_ZONE_ALLOWED_FIELDS
 )
-PROJECT_PROFILE_ALLOWED_FIELDS = {
-	"schema_version",
-	"id",
-	"display_name",
-	"description",
-	"zones",
-	"rules",
-	"metadata",
-}
-PROJECT_PROFILE_ZONE_ALLOWED_FIELDS = {
-	"id",
-	"description",
-	"roots",
-	"required",
-	"allow_extensions",
-	"deny_extensions",
-	"exclude",
-	"severity",
-	"metadata",
-}
-PROJECT_PROFILE_RULE_ALLOWED_FIELDS = {
-	"id",
-	"description",
-	"kind",
-	"paths",
-	"any",
-	"roots",
-	"include",
-	"exclude",
-	"extensions",
-	"pattern",
-	"target",
-	"allowed_files",
-	"feature_id_pattern",
-	"required_subdirs",
-	"allowed_subdirs",
-	"allow_root_files",
-	"max_files",
-	"severity",
-	"metadata",
-}
-PROJECT_PROFILE_RULE_KINDS = {
-	"path_exists",
-	"files_under_roots",
-	"extension_allowlist",
-	"extension_denylist",
-	"naming_convention",
-	"forbid_root_files",
-	"feature_module_contract",
-	"generated_boundary",
-	"bucket_size",
-}
-PROJECT_PROFILE_SEVERITIES = {"error", "warning", "info"}
+PROJECT_PROFILE_RULE_ALLOWED_FIELDS = (
+	gf_project_layout_profile.PROJECT_PROFILE_RULE_ALLOWED_FIELDS
+)
+PROJECT_PROFILE_RULE_KINDS = gf_project_layout_profile.PROJECT_PROFILE_RULE_KINDS
+PROJECT_PROFILE_SEVERITIES = gf_project_layout_profile.PROJECT_PROFILE_SEVERITIES
 PROJECT_PROFILE_SCAN_EXCLUDED_PREFIXES = (
-	".git/",
-	".godot/",
-	".import/",
-	"addons/gut/",
-	"ai_analysis/",
-	"build/",
+	gf_project_layout_profile.PROJECT_PROFILE_SCAN_EXCLUDED_PREFIXES
 )
 PACKAGE_MANIFEST_ROOT = ROOT / "packages"
 PACKAGE_FOCUSED_GUT_MAPPING_RELATIVE_PATH = "tests/gf_core/package_focused_gut_mapping.json"
@@ -741,6 +689,11 @@ PACKAGE_SOURCE_OPTIONAL_REFERENCES = {
 		"gf.kernel",
 		"addons/gf/plugin.gd",
 		"addons/gf/standard/editor/gf_editor_contributions.json",
+	),
+	(
+		"gf.kernel",
+		"addons/gf/gf_builtin_tool_contributions.json",
+		"addons/gf/tools/project_layout/editor/gf_editor_contributions.json",
 	),
 }
 PACKAGE_SOURCE_GENERATED_CATALOG_REFERENCES = {
@@ -1529,6 +1482,14 @@ PARALLEL_SHARD_RESULT_OPTIONAL_FIELDS = frozenset({
 	"streamed_output",
 	"process_exit_code",
 	"notes",
+	"stdout_char_count",
+	"stdout_utf8_byte_count",
+	"stdout_sha256",
+	"stdout_truncated",
+	"stderr_char_count",
+	"stderr_utf8_byte_count",
+	"stderr_sha256",
+	"stderr_truncated",
 	"godot_exit_leak_warning_count",
 	"godot_exit_leak_warnings",
 	"godot_exit_leak_report",
@@ -1754,6 +1715,20 @@ class CommandResult:
 	cancelled: bool = False
 
 	def to_dict(self, max_output_chars: int = 12000) -> dict[str, Any]:
+		if type(max_output_chars) is not int or max_output_chars < 0:
+			raise ValueError("max_output_chars must be a non-negative integer")
+		stdout_bytes = self.stdout.encode("utf-8")
+		stderr_bytes = self.stderr.encode("utf-8")
+		stdout_char_count = len(self.stdout)
+		stderr_char_count = len(self.stderr)
+		stdout_truncated = stdout_char_count > max_output_chars
+		stderr_truncated = stderr_char_count > max_output_chars
+		stdout_tail = self.stdout
+		stderr_tail = self.stderr
+		if stdout_truncated:
+			stdout_tail = self.stdout[-max_output_chars:] if max_output_chars > 0 else ""
+		if stderr_truncated:
+			stderr_tail = self.stderr[-max_output_chars:] if max_output_chars > 0 else ""
 		payload = {
 			"name": self.name,
 			"command": self.command,
@@ -1763,8 +1738,18 @@ class CommandResult:
 			"cancelled": self.cancelled,
 			"duration_seconds": round(self.duration_seconds, 3),
 			"execution": self.execution,
-			"stdout": trim_text(self.stdout, max_output_chars),
-			"stderr": trim_text(self.stderr, max_output_chars),
+			# Keep stdout/stderr as the existing compatible tail fields while
+			# binding each tail to evidence computed from the same captured text.
+			"stdout": stdout_tail,
+			"stderr": stderr_tail,
+			"stdout_char_count": stdout_char_count,
+			"stdout_utf8_byte_count": len(stdout_bytes),
+			"stdout_sha256": hashlib.sha256(stdout_bytes).hexdigest(),
+			"stdout_truncated": stdout_truncated,
+			"stderr_char_count": stderr_char_count,
+			"stderr_utf8_byte_count": len(stderr_bytes),
+			"stderr_sha256": hashlib.sha256(stderr_bytes).hexdigest(),
+			"stderr_truncated": stderr_truncated,
 		}
 		if self.timeout_seconds is not None:
 			payload["timeout_seconds"] = self.timeout_seconds
@@ -1971,6 +1956,15 @@ def main() -> int:
 		"--fail-on-warnings",
 		action="store_true",
 		help="Return a failing exit code when warning-level profile issues are found.",
+	)
+	project_profile_boundary_parser.add_argument(
+		"--profile-mode",
+		choices=gf_project_layout_profile.PROFILE_MODES,
+		default="strict",
+		help=(
+			"Profile contract mode. strict is authoritative and is the default; "
+			"legacy and shadow are deprecated migration modes removed in 12.0.0."
+		),
 	)
 	project_profile_boundary_parser.add_argument("--json", action="store_true", help="Print JSON instead of text.")
 
@@ -2416,6 +2410,7 @@ def main() -> int:
 		data = project_profile_boundary(
 			profile_path=args.profile,
 			fail_on_warnings=args.fail_on_warnings,
+			profile_mode=args.profile_mode,
 		)
 		maintenance_rendering.print_output(data, args.json, maintenance_rendering.render_project_profile_boundary_text)
 		return 0 if data["ok"] else 1
@@ -4315,39 +4310,15 @@ def asset_lifecycle_boundary(fail_on_warnings: bool = False) -> dict[str, Any]:
 	}
 
 
-def project_profile_boundary(profile_path: str = "", fail_on_warnings: bool = False) -> dict[str, Any]:
-	profile_payload = load_project_profile(profile_path)
-	issues: list[dict[str, Any]] = list(profile_payload["issues"])
-	if not profile_payload["found"]:
-		return make_project_profile_boundary_payload(
-			profile_payload,
-			[],
-			issues,
-			fail_on_warnings,
-		)
-
-	paths_payload = collect_project_profile_paths()
-	if paths_payload["errors"]:
-		issues.extend(paths_payload["errors"])
-		return make_project_profile_boundary_payload(
-			profile_payload,
-			[],
-			issues,
-			fail_on_warnings,
-		)
-
-	repo_paths: list[str] = paths_payload["paths"]
-	profile_data: dict[str, Any] = profile_payload["data"]
-	issues.extend(audit_project_profile_data(
-		profile_data,
-		profile_payload["path"],
-		repo_paths,
-	))
-	return make_project_profile_boundary_payload(
-		profile_payload,
-		repo_paths,
-		issues,
-		fail_on_warnings,
+def project_profile_boundary(
+	profile_path: str = "",
+	fail_on_warnings: bool = False,
+	profile_mode: str = "strict",
+) -> dict[str, Any]:
+	return gf_project_layout_profile.project_profile_boundary(
+		profile_path=profile_path,
+		fail_on_warnings=fail_on_warnings,
+		profile_mode=profile_mode,
 	)
 
 
@@ -16981,6 +16952,92 @@ def maintenance_self_test() -> dict[str, Any]:
 		and maintenance_cli_command(normalized_json_output_argv) == "check",
 		"--json-output must be accepted after a subcommand without hiding the command name.",
 	)
+	command_output_exact_text = "A\u754c\U0001f642"
+	command_output_over_text = command_output_exact_text + "Z"
+	command_output_exact = CommandResult(
+		name="output-exact-fixture",
+		command=["fixture"],
+		exit_code=0,
+		stdout=command_output_exact_text,
+		stderr=command_output_exact_text,
+	).to_dict(max_output_chars=3)
+	command_output_over = CommandResult(
+		name="output-over-fixture",
+		command=["fixture"],
+		exit_code=1,
+		stdout=command_output_over_text,
+		stderr=command_output_over_text,
+	).to_dict(max_output_chars=3)
+	command_output_over_rendered = maintenance_rendering.render_failed_check_annotation(
+		command_output_over
+	)
+	command_output_zero = CommandResult(
+		name="output-zero-fixture",
+		command=["fixture"],
+		exit_code=1,
+		stdout="x",
+		stderr="",
+	).to_dict(max_output_chars=0)
+	command_output_negative_rejected = False
+	try:
+		CommandResult(
+			name="output-negative-fixture",
+			command=["fixture"],
+			exit_code=1,
+			stdout="x",
+			stderr="y",
+		).to_dict(max_output_chars=-1)
+	except ValueError:
+		command_output_negative_rejected = True
+	record_result(
+		"command_results_bind_bounded_tails_to_complete_output_evidence",
+		command_output_exact.get("stdout") == command_output_exact_text
+		and command_output_exact.get("stderr") == command_output_exact_text
+		and command_output_exact.get("stdout_char_count") == 3
+		and command_output_exact.get("stderr_char_count") == 3
+		and command_output_exact.get("stdout_utf8_byte_count") == 8
+		and command_output_exact.get("stderr_utf8_byte_count") == 8
+		and command_output_exact.get("stdout_sha256")
+		== hashlib.sha256(command_output_exact_text.encode("utf-8")).hexdigest()
+		and command_output_exact.get("stderr_sha256")
+		== hashlib.sha256(command_output_exact_text.encode("utf-8")).hexdigest()
+		and command_output_exact.get("stdout_truncated") is False
+		and command_output_exact.get("stderr_truncated") is False
+		and command_output_over.get("stdout") == "\u754c\U0001f642Z"
+		and command_output_over.get("stderr") == "\u754c\U0001f642Z"
+		and command_output_over.get("stdout_char_count") == 4
+		and command_output_over.get("stderr_char_count") == 4
+		and command_output_over.get("stdout_utf8_byte_count") == 9
+		and command_output_over.get("stderr_utf8_byte_count") == 9
+		and command_output_over.get("stdout_sha256")
+		== hashlib.sha256(command_output_over_text.encode("utf-8")).hexdigest()
+		and command_output_over.get("stderr_sha256")
+		== hashlib.sha256(command_output_over_text.encode("utf-8")).hexdigest()
+		and command_output_over.get("stdout_truncated") is True
+		and command_output_over.get("stderr_truncated") is True
+		and (
+			"stdout_truncated: true original_chars=4 original_utf8_bytes=9"
+			in command_output_over_rendered
+		)
+		and (
+			"stderr_truncated: true original_chars=4 original_utf8_bytes=9"
+			in command_output_over_rendered
+		)
+		and command_output_zero.get("stdout") == ""
+		and command_output_zero.get("stderr") == ""
+		and command_output_zero.get("stdout_char_count") == 1
+		and command_output_zero.get("stderr_char_count") == 0
+		and command_output_zero.get("stdout_utf8_byte_count") == 1
+		and command_output_zero.get("stderr_utf8_byte_count") == 0
+		and command_output_zero.get("stdout_sha256")
+		== hashlib.sha256(b"x").hexdigest()
+		and command_output_zero.get("stderr_sha256")
+		== hashlib.sha256(b"").hexdigest()
+		and command_output_zero.get("stdout_truncated") is True
+		and command_output_zero.get("stderr_truncated") is False
+		and command_output_negative_rejected,
+		"CommandResult tails must preserve existing fields while reporting exact full-output character/UTF-8 counts, SHA-256, and truncation at 0/N/N+1 boundaries.",
+	)
 	mcp_server_source = read_text_file(ROOT / "tools/gf_mcp_server.py")
 	record_result(
 		"mcp_checks_use_managed_log_hygiene_boundary",
@@ -17904,6 +17961,14 @@ def maintenance_self_test() -> dict[str, Any]:
 				"execution": "subprocess",
 				"stdout": "",
 				"stderr": "",
+				"stdout_char_count": 0,
+				"stdout_utf8_byte_count": 0,
+				"stdout_sha256": hashlib.sha256(b"").hexdigest(),
+				"stdout_truncated": False,
+				"stderr_char_count": 0,
+				"stderr_utf8_byte_count": 0,
+				"stderr_sha256": hashlib.sha256(b"").hexdigest(),
+				"stderr_truncated": False,
 				"timeout_seconds": 600.0,
 				"dependencies": [],
 				"dependency_fingerprints": {},
@@ -18020,6 +18085,28 @@ def maintenance_self_test() -> dict[str, Any]:
 		_, invalid_output_issue = load_parallel_shard_report(
 			passing_report_runner,
 			write_report_fixture("invalid-output", invalid_output_report),
+			expected_report_checks,
+			expected_report_workspace,
+		)
+		partial_output_evidence_report = json.loads(json.dumps(valid_report))
+		del partial_output_evidence_report["results"][0]["stderr_sha256"]
+		_, partial_output_evidence_issue = load_parallel_shard_report(
+			passing_report_runner,
+			write_report_fixture(
+				"partial-output-evidence",
+				partial_output_evidence_report,
+			),
+			expected_report_checks,
+			expected_report_workspace,
+		)
+		inconsistent_output_evidence_report = json.loads(json.dumps(valid_report))
+		inconsistent_output_evidence_report["results"][0]["stdout_char_count"] = 1
+		_, inconsistent_output_evidence_issue = load_parallel_shard_report(
+			passing_report_runner,
+			write_report_fixture(
+				"inconsistent-output-evidence",
+				inconsistent_output_evidence_report,
+			),
 			expected_report_checks,
 			expected_report_workspace,
 		)
@@ -18221,6 +18308,8 @@ def maintenance_self_test() -> dict[str, Any]:
 			and bool(extra_field_issue)
 			and bool(external_cwd_issue)
 			and bool(invalid_output_issue)
+			and bool(partial_output_evidence_issue)
+			and bool(inconsistent_output_evidence_issue)
 			and gut_loaded is not None
 			and not gut_issue
 			and bool(non_gut_lifecycle_issue)
@@ -18237,7 +18326,7 @@ def maintenance_self_test() -> dict[str, Any]:
 			and bool(forged_conflicting_terminal_issue)
 			and bool(impossible_gut_lifecycle_issue)
 			and bool(mismatch_issue),
-			"Parallel reports must retain closed failed GUT lifecycle evidence for timeouts while rejecting missing or oversized results, invalid scalars, duplicate/non-finite JSON, schema drift, inconsistent timeout/cancellation states, successful checks with failed lifecycle evidence, impossible lifecycle evidence, workspace escapes, and process/report disagreement.",
+			"Parallel reports must retain closed failed GUT lifecycle evidence for timeouts while rejecting missing or oversized results, invalid scalars, opaque or inconsistent output evidence, duplicate/non-finite JSON, schema drift, inconsistent timeout/cancellation states, successful checks with failed lifecycle evidence, impossible lifecycle evidence, workspace escapes, and process/report disagreement.",
 		)
 		package_report_checks = ["package_build_boundary"]
 		package_report = json.loads(json.dumps(valid_report))
@@ -25400,6 +25489,7 @@ def maintenance_self_test() -> dict[str, Any]:
 			"dependencies": [],
 			"paths": [
 				"addons/gf/plugin.gd",
+				"addons/gf/gf_builtin_tool_contributions.json",
 				"addons/gf/kernel/**",
 			],
 			"issues": [],
@@ -25538,6 +25628,7 @@ def maintenance_self_test() -> dict[str, Any]:
 			"dependencies": [],
 			"paths": [
 				"addons/gf/plugin.gd",
+				"addons/gf/gf_builtin_tool_contributions.json",
 				"addons/gf/kernel/**",
 			],
 			"issues": [],
@@ -25550,11 +25641,20 @@ def maintenance_self_test() -> dict[str, Any]:
 			"paths": ["addons/gf/standard/**"],
 			"issues": [],
 		},
+		{
+			"path": "packages/tools/gf.tool.project_layout.json",
+			"id": "gf.tool.project_layout",
+			"kind": "tool",
+			"dependencies": ["gf.kernel"],
+			"paths": ["addons/gf/tools/project_layout/**"],
+			"issues": [],
+		},
 	]
 	package_source_optional_issues = audit_package_source_references(
 		package_source_optional_records,
 		[
 			"addons/gf/plugin.gd",
+			"addons/gf/gf_builtin_tool_contributions.json",
 			"addons/gf/kernel/extension/gf_extension_catalog.gd",
 		],
 		package_source_class_roots,
@@ -25563,13 +25663,17 @@ def maintenance_self_test() -> dict[str, Any]:
 				"const STANDARD_EDITOR_CONTRIBUTIONS_MANIFEST_PATH: String = "
 				"\"res://addons/gf/standard/editor/gf_editor_contributions.json\""
 			),
+			"addons/gf/gf_builtin_tool_contributions.json": (
+				'"manifest_path": '
+				'"res://addons/gf/tools/project_layout/editor/gf_editor_contributions.json"'
+			),
 			"addons/gf/kernel/extension/gf_extension_catalog.gd": (
 				"const EXTENSIONS_PATH: String = \"res://addons/gf/extensions\""
 			),
 		},
 	)
 	record_result(
-		"package_source_boundary_allows_narrow_kernel_optional_discovery",
+		"package_source_boundary_allows_root_composed_optional_tool_catalog",
 		len(package_source_optional_issues) == 0,
 		f"narrow optional discovery references should pass: {package_source_optional_issues}",
 	)
@@ -30876,959 +30980,46 @@ def iter_gdscript_code_characters(line: str) -> list[str]:
 	return characters
 
 
-def load_project_profile(profile_path: str = "") -> dict[str, Any]:
-	resolved_path = resolve_project_profile_path(profile_path)
-	issues: list[dict[str, Any]] = []
-	payload: dict[str, Any] = {
-		"found": resolved_path != "",
-		"path": resolved_path,
-		"id": "",
-		"data": {},
-		"issues": issues,
-	}
-	if not resolved_path:
-		return payload
-
-	profile_file = ROOT / resolved_path
-	try:
-		data = json.loads(profile_file.read_text(encoding="utf-8"))
-	except (OSError, UnicodeDecodeError, json.JSONDecodeError) as error:
-		issues.append(make_project_profile_issue(
-			"invalid_project_profile_json",
-			resolved_path,
-			"Project profile must be a readable UTF-8 JSON object.",
-			error=trim_text(str(error), 300),
-		))
-		return payload
-	if not isinstance(data, dict):
-		issues.append(make_project_profile_issue(
-			"invalid_project_profile",
-			resolved_path,
-			"Project profile root must be a JSON object.",
-			expected_value="object",
-			actual_value=type(data).__name__,
-		))
-		return payload
-
-	payload["data"] = data
-	payload["id"] = project_profile_string(data, "id")
-	return payload
-
-
-def resolve_project_profile_path(profile_path: str = "") -> str:
-	if profile_path.strip():
-		return normalize_project_profile_path(profile_path)
-	for candidate in PROJECT_PROFILE_DEFAULT_FILES:
-		path = ROOT / candidate
-		if path.is_file():
-			return candidate
-	return ""
-
-
-def normalize_project_profile_path(path: str) -> str:
-	normalized_path = path.strip().replace("\\", "/")
-	if normalized_path.startswith("res://"):
-		normalized_path = normalized_path.removeprefix("res://")
-	if os.path.isabs(normalized_path):
-		try:
-			return Path(normalized_path).resolve().relative_to(ROOT).as_posix()
-		except ValueError:
-			return normalized_path
-	normalized_path = normalized_path.removeprefix("./")
-	return normalized_path
-
-
-def collect_project_profile_paths() -> dict[str, Any]:
-	tracked_paths_result = read_git_paths(["ls-files", "-z", "--cached"])
-	untracked_paths_result = read_git_paths(["ls-files", "-z", "--others", "--exclude-standard"])
-	errors: list[dict[str, Any]] = []
-	if tracked_paths_result["error"]:
-		errors.append(make_project_profile_issue(
-			"project_profile_tracked_scan_failed",
-			"",
-			trim_text(tracked_paths_result["error"], 1000),
-		))
-	if untracked_paths_result["error"]:
-		errors.append(make_project_profile_issue(
-			"project_profile_untracked_scan_failed",
-			"",
-			trim_text(untracked_paths_result["error"], 1000),
-		))
-	if errors:
-		return {"paths": [], "errors": errors}
-
-	paths = sorted({
-		path
-		for path in tracked_paths_result["paths"] + untracked_paths_result["paths"]
-		if should_scan_project_profile_path(path)
-	})
-	return {"paths": paths, "errors": []}
-
-
-def should_scan_project_profile_path(path: str) -> bool:
-	normalized_path = path.replace("\\", "/")
-	if any(normalized_path.startswith(prefix) for prefix in PROJECT_PROFILE_SCAN_EXCLUDED_PREFIXES):
-		return False
-	return True
-
-
-def audit_project_profile_data(
-	data: dict[str, Any],
-	profile_path: str,
-	repo_paths: list[str],
-) -> list[dict[str, Any]]:
-	issues: list[dict[str, Any]] = []
-	issues.extend(audit_project_profile_schema(data, profile_path))
-	if issues:
-		return issues
-	for zone_index, zone in enumerate(project_profile_dict_list(data, "zones")):
-		issues.extend(audit_project_profile_zone(zone, zone_index, profile_path, repo_paths))
-	for rule_index, rule in enumerate(project_profile_dict_list(data, "rules")):
-		issues.extend(audit_project_profile_rule(rule, rule_index, profile_path, repo_paths))
-	return issues
-
-
-def audit_project_profile_schema(data: dict[str, Any], profile_path: str) -> list[dict[str, Any]]:
-	issues: list[dict[str, Any]] = []
-	for field_name in sorted(data.keys()):
-		if field_name not in PROJECT_PROFILE_ALLOWED_FIELDS:
-			issues.append(make_project_profile_issue(
-				"unsupported_project_profile_field",
-				profile_path,
-				"Project profile fields are whitelisted; project-specific data belongs in metadata.",
-				field=field_name,
-			))
-	if "schema_version" in data and not isinstance(data["schema_version"], int):
-		issues.append(make_project_profile_issue(
-			"invalid_project_profile_schema_version",
-			profile_path,
-			"schema_version must be an integer when present.",
-			field="schema_version",
-			expected_value="integer",
-		))
-	if "metadata" in data and not isinstance(data["metadata"], dict):
-		issues.append(make_project_profile_issue(
-			"invalid_project_profile_metadata",
-			profile_path,
-			"metadata must be an object when present.",
-			field="metadata",
-			expected_value="object",
-		))
-	for field_name in ("zones", "rules"):
-		if field_name in data and not isinstance(data[field_name], list):
-			issues.append(make_project_profile_issue(
-				f"invalid_project_profile_{field_name}",
-				profile_path,
-				f"{field_name} must be an array when present.",
-				field=field_name,
-				expected_value="array",
-			))
-	for index, zone in enumerate(project_profile_raw_list(data, "zones")):
-		if not isinstance(zone, dict):
-			issues.append(make_project_profile_issue(
-				"invalid_project_profile_zone",
-				profile_path,
-				"zones entries must be objects.",
-				field="zones",
-				row_index=index,
-				expected_value="object",
-			))
-			continue
-		for field_name in sorted(zone.keys()):
-			if field_name not in PROJECT_PROFILE_ZONE_ALLOWED_FIELDS:
-				issues.append(make_project_profile_issue(
-					"unsupported_project_profile_zone_field",
-					profile_path,
-					"Zone fields are whitelisted; project-specific data belongs in metadata.",
-					field=field_name,
-					row_index=index,
-				))
-		issues.extend(validate_project_profile_severity(zone, profile_path, "zones", index))
-	for index, rule in enumerate(project_profile_raw_list(data, "rules")):
-		if not isinstance(rule, dict):
-			issues.append(make_project_profile_issue(
-				"invalid_project_profile_rule",
-				profile_path,
-				"rules entries must be objects.",
-				field="rules",
-				row_index=index,
-				expected_value="object",
-			))
-			continue
-		for field_name in sorted(rule.keys()):
-			if field_name not in PROJECT_PROFILE_RULE_ALLOWED_FIELDS:
-				issues.append(make_project_profile_issue(
-					"unsupported_project_profile_rule_field",
-					profile_path,
-					"Rule fields are whitelisted; project-specific data belongs in metadata.",
-					field=field_name,
-					row_index=index,
-				))
-		rule_kind = project_profile_string(rule, "kind")
-		if rule_kind not in PROJECT_PROFILE_RULE_KINDS:
-			issues.append(make_project_profile_issue(
-				"unsupported_project_profile_rule_kind",
-				profile_path,
-				"Project profile rule kind is not supported.",
-				field="kind",
-				row_index=index,
-				actual_value=rule_kind,
-			))
-		issues.extend(validate_project_profile_severity(rule, profile_path, "rules", index))
-	return issues
-
-
-def validate_project_profile_severity(
-	data: dict[str, Any],
-	profile_path: str,
-	field_name: str,
-	row_index: int,
-) -> list[dict[str, Any]]:
-	severity = project_profile_string(data, "severity", "error")
-	if severity in PROJECT_PROFILE_SEVERITIES:
-		return []
-	return [make_project_profile_issue(
-		"invalid_project_profile_severity",
-		profile_path,
-		"severity must be one of error, warning, or info.",
-		field=field_name,
-		row_index=row_index,
-		actual_value=severity,
-	)]
-
-
-def audit_project_profile_zone(
-	zone: dict[str, Any],
-	zone_index: int,
-	profile_path: str,
-	repo_paths: list[str],
-) -> list[dict[str, Any]]:
-	issues: list[dict[str, Any]] = []
-	zone_id = project_profile_string(zone, "id", f"zone_{zone_index}")
-	severity = project_profile_severity(zone)
-	roots = normalize_project_profile_paths(project_profile_string_array(zone, "roots"))
-	exclude = normalize_project_profile_patterns(project_profile_string_array(zone, "exclude"))
-	allow_extensions = normalize_project_profile_extensions(project_profile_string_array(zone, "allow_extensions"))
-	deny_extensions = normalize_project_profile_extensions(project_profile_string_array(zone, "deny_extensions"))
-	if not roots:
-		issues.append(make_project_profile_issue(
-			"project_profile_zone_missing_roots",
-			profile_path,
-			"Project profile zone must declare at least one root.",
-			severity=severity,
-			field="roots",
-			zone_id=zone_id,
-			row_index=zone_index,
-		))
-		return issues
-	if project_profile_bool(zone, "required", False):
-		for root_path in roots:
-			if project_profile_root_exists(root_path, repo_paths):
-				continue
-			issues.append(make_project_profile_issue(
-				"project_profile_required_root_missing",
-				profile_path,
-				"Required project profile root is missing.",
-				severity=severity,
-				field="roots",
-				zone_id=zone_id,
-				row_index=zone_index,
-				actual_value=root_path,
-			))
-	for file_path in repo_paths_under_roots(repo_paths, roots):
-		if project_profile_path_matches_any(file_path, exclude):
-			continue
-		extension = Path(file_path).suffix.lower()
-		if allow_extensions and extension not in allow_extensions:
-			issues.append(make_project_profile_issue(
-				"project_profile_zone_extension_not_allowed",
-				file_path,
-				"File extension is not allowed in this project profile zone.",
-				severity=severity,
-				profile_path=profile_path,
-				zone_id=zone_id,
-				field="allow_extensions",
-				actual_value=extension or "<none>",
-				expected_value=", ".join(sorted(allow_extensions)),
-			))
-		if deny_extensions and extension in deny_extensions:
-			issues.append(make_project_profile_issue(
-				"project_profile_zone_extension_denied",
-				file_path,
-				"File extension is denied in this project profile zone.",
-				severity=severity,
-				profile_path=profile_path,
-				zone_id=zone_id,
-				field="deny_extensions",
-				actual_value=extension or "<none>",
-			))
-	return issues
-
-
-def audit_project_profile_rule(
-	rule: dict[str, Any],
-	rule_index: int,
-	profile_path: str,
-	repo_paths: list[str],
-) -> list[dict[str, Any]]:
-	rule_kind = project_profile_string(rule, "kind")
-	if rule_kind == "path_exists":
-		return audit_project_profile_path_exists_rule(rule, rule_index, profile_path, repo_paths)
-	if rule_kind == "files_under_roots":
-		return audit_project_profile_files_under_roots_rule(rule, rule_index, profile_path, repo_paths)
-	if rule_kind == "extension_allowlist":
-		return audit_project_profile_extension_rule(rule, rule_index, profile_path, repo_paths, True)
-	if rule_kind == "extension_denylist":
-		return audit_project_profile_extension_rule(rule, rule_index, profile_path, repo_paths, False)
-	if rule_kind == "naming_convention":
-		return audit_project_profile_naming_convention_rule(rule, rule_index, profile_path, repo_paths)
-	if rule_kind == "forbid_root_files":
-		return audit_project_profile_forbid_root_files_rule(rule, rule_index, profile_path, repo_paths)
-	if rule_kind == "feature_module_contract":
-		return audit_project_profile_feature_module_contract_rule(rule, rule_index, profile_path, repo_paths)
-	if rule_kind == "generated_boundary":
-		return audit_project_profile_generated_boundary_rule(rule, rule_index, profile_path, repo_paths)
-	if rule_kind == "bucket_size":
-		return audit_project_profile_bucket_size_rule(rule, rule_index, profile_path, repo_paths)
-	return []
-
-
-def audit_project_profile_path_exists_rule(
-	rule: dict[str, Any],
-	rule_index: int,
-	profile_path: str,
-	repo_paths: list[str],
-) -> list[dict[str, Any]]:
-	issues: list[dict[str, Any]] = []
-	rule_id = project_profile_string(rule, "id", f"rule_{rule_index}")
-	severity = project_profile_severity(rule)
-	paths = normalize_project_profile_paths(project_profile_string_array(rule, "paths"))
-	if not paths:
-		return [make_project_profile_issue(
-			"project_profile_rule_missing_paths",
-			profile_path,
-			"path_exists rule must declare paths.",
-			severity=severity,
-			field="paths",
-			rule_id=rule_id,
-			row_index=rule_index,
-		)]
-	if project_profile_bool(rule, "any", False):
-		if any(project_profile_path_exists(path, repo_paths) for path in paths):
-			return []
-		issues.append(make_project_profile_issue(
-			"project_profile_any_path_missing",
-			profile_path,
-			"At least one declared project profile path must exist.",
-			severity=severity,
-			field="paths",
-			rule_id=rule_id,
-			row_index=rule_index,
-			expected_value=", ".join(paths),
-		))
-		return issues
-	for path in paths:
-		if project_profile_path_exists(path, repo_paths):
-			continue
-		issues.append(make_project_profile_issue(
-			"project_profile_path_missing",
-			profile_path,
-			"Declared project profile path is missing.",
-			severity=severity,
-			field="paths",
-			rule_id=rule_id,
-			row_index=rule_index,
-			actual_value=path,
-		))
-	return issues
-
-
-def audit_project_profile_files_under_roots_rule(
-	rule: dict[str, Any],
-	rule_index: int,
-	profile_path: str,
-	repo_paths: list[str],
-) -> list[dict[str, Any]]:
-	issues: list[dict[str, Any]] = []
-	rule_id = project_profile_string(rule, "id", f"rule_{rule_index}")
-	severity = project_profile_severity(rule)
-	roots = normalize_project_profile_paths(project_profile_string_array(rule, "roots"))
-	include = normalize_project_profile_patterns(project_profile_string_array(rule, "include"))
-	exclude = normalize_project_profile_patterns(project_profile_string_array(rule, "exclude"))
-	extensions = normalize_project_profile_extensions(project_profile_string_array(rule, "extensions"))
-	for file_path in repo_paths:
-		if not project_profile_file_selected(file_path, include, exclude, extensions):
-			continue
-		if project_profile_path_under_any_root(file_path, roots):
-			continue
-		issues.append(make_project_profile_issue(
-			"project_profile_file_outside_roots",
-			file_path,
-			"Selected file must live under one of the declared roots.",
-			severity=severity,
-			profile_path=profile_path,
-			rule_id=rule_id,
-			field="roots",
-			expected_value=", ".join(roots),
-		))
-	return issues
-
-
-def audit_project_profile_extension_rule(
-	rule: dict[str, Any],
-	rule_index: int,
-	profile_path: str,
-	repo_paths: list[str],
-	allowlist: bool,
-) -> list[dict[str, Any]]:
-	issues: list[dict[str, Any]] = []
-	rule_id = project_profile_string(rule, "id", f"rule_{rule_index}")
-	severity = project_profile_severity(rule)
-	roots = normalize_project_profile_paths(project_profile_string_array(rule, "roots"))
-	include = normalize_project_profile_patterns(project_profile_string_array(rule, "include"))
-	exclude = normalize_project_profile_patterns(project_profile_string_array(rule, "exclude"))
-	extensions = normalize_project_profile_extensions(project_profile_string_array(rule, "extensions"))
-	for file_path in repo_paths_under_roots(repo_paths, roots):
-		if not project_profile_file_selected(file_path, include, exclude, set()):
-			continue
-		extension = Path(file_path).suffix.lower()
-		if allowlist and extension in extensions:
-			continue
-		if not allowlist and extension not in extensions:
-			continue
-		issues.append(make_project_profile_issue(
-			"project_profile_extension_not_allowed" if allowlist else "project_profile_extension_denied",
-			file_path,
-			"File extension violates the project profile rule.",
-			severity=severity,
-			profile_path=profile_path,
-			rule_id=rule_id,
-			field="extensions",
-			actual_value=extension or "<none>",
-			expected_value=", ".join(sorted(extensions)),
-		))
-	return issues
-
-
-def audit_project_profile_naming_convention_rule(
-	rule: dict[str, Any],
-	rule_index: int,
-	profile_path: str,
-	repo_paths: list[str],
-) -> list[dict[str, Any]]:
-	issues: list[dict[str, Any]] = []
-	rule_id = project_profile_string(rule, "id", f"rule_{rule_index}")
-	severity = project_profile_severity(rule)
-	pattern_text = project_profile_string(rule, "pattern")
-	pattern, pattern_issues = compile_project_profile_regex(
-		pattern_text,
-		profile_path,
-		rule_id,
-		rule_index,
-		"pattern",
-		severity,
-	)
-	if pattern_issues:
-		return pattern_issues
-	target = project_profile_string(rule, "target", "path") or "path"
-	if target not in {"path", "name", "stem"}:
-		return [make_project_profile_issue(
-			"project_profile_naming_target_invalid",
-			profile_path,
-			"naming_convention target must be one of path, name, or stem.",
-			severity=severity,
-			field="target",
-			rule_id=rule_id,
-			row_index=rule_index,
-			actual_value=target,
-		)]
-	for file_path in project_profile_select_paths(rule, repo_paths):
-		target_value = project_profile_path_target(file_path, target)
-		if pattern is not None and pattern.fullmatch(target_value):
-			continue
-		issues.append(make_project_profile_issue(
-			"project_profile_naming_convention_violation",
-			file_path,
-			"Selected path does not match the project profile naming convention.",
-			severity=severity,
-			profile_path=profile_path,
-			rule_id=rule_id,
-			field="pattern",
-			target=target,
-			actual_value=target_value,
-			expected_value=pattern_text,
-		))
-	return issues
-
-
-def audit_project_profile_forbid_root_files_rule(
-	rule: dict[str, Any],
-	rule_index: int,
-	profile_path: str,
-	repo_paths: list[str],
-) -> list[dict[str, Any]]:
-	issues: list[dict[str, Any]] = []
-	rule_id = project_profile_string(rule, "id", f"rule_{rule_index}")
-	severity = project_profile_severity(rule)
-	allowed_files = set(normalize_project_profile_paths(project_profile_string_array(rule, "allowed_files")))
-	for file_path in project_profile_select_paths(rule, repo_paths, use_roots=False):
-		if "/" in file_path:
-			continue
-		if file_path in allowed_files:
-			continue
-		issues.append(make_project_profile_issue(
-			"project_profile_forbidden_root_file",
-			file_path,
-			"Root-level files must be explicitly listed in the project profile.",
-			severity=severity,
-			profile_path=profile_path,
-			rule_id=rule_id,
-			field="allowed_files",
-			actual_value=file_path,
-			expected_value=", ".join(sorted(allowed_files)),
-		))
-	return issues
-
-
-def audit_project_profile_feature_module_contract_rule(
-	rule: dict[str, Any],
-	rule_index: int,
-	profile_path: str,
-	repo_paths: list[str],
-) -> list[dict[str, Any]]:
-	issues: list[dict[str, Any]] = []
-	rule_id = project_profile_string(rule, "id", f"rule_{rule_index}")
-	severity = project_profile_severity(rule)
-	roots = normalize_project_profile_paths(project_profile_string_array(rule, "roots"))
-	if not roots:
-		return [make_project_profile_issue(
-			"project_profile_rule_missing_roots",
-			profile_path,
-			"feature_module_contract rule must declare roots.",
-			severity=severity,
-			field="roots",
-			rule_id=rule_id,
-			row_index=rule_index,
-		)]
-	feature_pattern_text = project_profile_string(rule, "feature_id_pattern", r"^[a-z][a-z0-9_]*$")
-	feature_pattern, pattern_issues = compile_project_profile_regex(
-		feature_pattern_text,
-		profile_path,
-		rule_id,
-		rule_index,
-		"feature_id_pattern",
-		severity,
-	)
-	if pattern_issues:
-		return pattern_issues
-	required_subdirs = normalize_project_profile_paths(project_profile_string_array(rule, "required_subdirs"))
-	allowed_subdirs = set(normalize_project_profile_paths(project_profile_string_array(rule, "allowed_subdirs")))
-	allow_root_files = project_profile_bool(rule, "allow_root_files", False)
-	features_by_root: dict[str, dict[str, set[str]]] = {root: {} for root in roots}
-	invalid_feature_ids: set[tuple[str, str]] = set()
-	invalid_subdirs: set[tuple[str, str, str]] = set()
-	for root in roots:
-		root_prefix = root.rstrip("/") + "/"
-		for file_path in project_profile_select_paths(rule, repo_paths, use_roots=False):
-			if not file_path.startswith(root_prefix):
-				continue
-			relative_path = file_path.removeprefix(root_prefix)
-			parts = [part for part in relative_path.split("/") if part]
-			if not parts:
-				continue
-			feature_id = parts[0]
-			feature_subdirs = features_by_root[root].setdefault(feature_id, set())
-			if feature_pattern is not None and not feature_pattern.fullmatch(feature_id):
-				invalid_feature_ids.add((root, feature_id))
-			if len(parts) <= 2:
-				if not allow_root_files:
-					issues.append(make_project_profile_issue(
-						"project_profile_feature_root_file",
-						file_path,
-						"Feature modules should place files in declared cohesive subdirectories.",
-						severity=severity,
-						profile_path=profile_path,
-						rule_id=rule_id,
-						field="allow_root_files",
-						actual_value=file_path,
-					))
-				continue
-			subdir = parts[1]
-			feature_subdirs.add(subdir)
-			if allowed_subdirs and subdir not in allowed_subdirs:
-				invalid_subdirs.add((root, feature_id, subdir))
-	for root, feature_id in sorted(invalid_feature_ids):
-		issues.append(make_project_profile_issue(
-			"project_profile_feature_id_invalid",
-			f"{root}/{feature_id}",
-			"Feature module id does not match the project profile convention.",
-			severity=severity,
-			profile_path=profile_path,
-			rule_id=rule_id,
-			field="feature_id_pattern",
-			actual_value=feature_id,
-			expected_value=feature_pattern_text,
-		))
-	for root, feature_id, subdir in sorted(invalid_subdirs):
-		issues.append(make_project_profile_issue(
-			"project_profile_feature_subdir_not_allowed",
-			f"{root}/{feature_id}/{subdir}",
-			"Feature module subdirectory is not allowed by the project profile.",
-			severity=severity,
-			profile_path=profile_path,
-			rule_id=rule_id,
-			field="allowed_subdirs",
-			actual_value=subdir,
-			expected_value=", ".join(sorted(allowed_subdirs)),
-		))
-	for root, features in sorted(features_by_root.items()):
-		for feature_id, present_subdirs in sorted(features.items()):
-			for required_subdir in required_subdirs:
-				if required_subdir in present_subdirs:
-					continue
-				issues.append(make_project_profile_issue(
-					"project_profile_feature_required_subdir_missing",
-					f"{root}/{feature_id}/{required_subdir}",
-					"Feature module is missing a required cohesive subdirectory.",
-					severity=severity,
-					profile_path=profile_path,
-					rule_id=rule_id,
-					field="required_subdirs",
-					actual_value=required_subdir,
-				))
-	return issues
-
-
-def audit_project_profile_generated_boundary_rule(
-	rule: dict[str, Any],
-	rule_index: int,
-	profile_path: str,
-	repo_paths: list[str],
-) -> list[dict[str, Any]]:
-	issues: list[dict[str, Any]] = []
-	rule_id = project_profile_string(rule, "id", f"rule_{rule_index}")
-	severity = project_profile_severity(rule)
-	roots = normalize_project_profile_paths(project_profile_string_array(rule, "roots"))
-	include = normalize_project_profile_patterns(project_profile_string_array(rule, "include"))
-	extensions = normalize_project_profile_extensions(project_profile_string_array(rule, "extensions"))
-	if not roots:
-		return [make_project_profile_issue(
-			"project_profile_rule_missing_roots",
-			profile_path,
-			"generated_boundary rule must declare generated roots.",
-			severity=severity,
-			field="roots",
-			rule_id=rule_id,
-			row_index=rule_index,
-		)]
-	if not include and not extensions:
-		return [make_project_profile_issue(
-			"project_profile_generated_boundary_missing_selector",
-			profile_path,
-			"generated_boundary rule must declare include patterns or extensions.",
-			severity=severity,
-			field="include",
-			rule_id=rule_id,
-			row_index=rule_index,
-		)]
-	for file_path in project_profile_select_paths(rule, repo_paths, use_roots=False):
-		if project_profile_path_under_any_root(file_path, roots):
-			continue
-		issues.append(make_project_profile_issue(
-			"project_profile_generated_file_outside_roots",
-			file_path,
-			"Generated files must stay under declared generated roots.",
-			severity=severity,
-			profile_path=profile_path,
-			rule_id=rule_id,
-			field="roots",
-			expected_value=", ".join(roots),
-		))
-	return issues
-
-
-def audit_project_profile_bucket_size_rule(
-	rule: dict[str, Any],
-	rule_index: int,
-	profile_path: str,
-	repo_paths: list[str],
-) -> list[dict[str, Any]]:
-	issues: list[dict[str, Any]] = []
-	rule_id = project_profile_string(rule, "id", f"rule_{rule_index}")
-	severity = project_profile_severity(rule)
-	roots = normalize_project_profile_paths(project_profile_string_array(rule, "roots"))
-	max_files = project_profile_int(rule, "max_files", 0)
-	if not roots:
-		return [make_project_profile_issue(
-			"project_profile_rule_missing_roots",
-			profile_path,
-			"bucket_size rule must declare roots.",
-			severity=severity,
-			field="roots",
-			rule_id=rule_id,
-			row_index=rule_index,
-		)]
-	if max_files <= 0:
-		return [make_project_profile_issue(
-			"project_profile_bucket_size_invalid",
-			profile_path,
-			"bucket_size rule must declare a positive max_files value.",
-			severity=severity,
-			field="max_files",
-			rule_id=rule_id,
-			row_index=rule_index,
-			actual_value=str(max_files),
-		)]
-	for root in roots:
-		selected_paths = [
-			file_path
-			for file_path in project_profile_select_paths(rule, repo_paths, use_roots=False)
-			if project_profile_path_under_root(file_path, root)
-		]
-		if len(selected_paths) <= max_files:
-			continue
-		issues.append(make_project_profile_issue(
-			"project_profile_bucket_too_large",
-			root,
-			"Project profile bucket contains more files than allowed.",
-			severity=severity,
-			profile_path=profile_path,
-			rule_id=rule_id,
-			field="max_files",
-			actual_value=str(len(selected_paths)),
-			expected_value=str(max_files),
-		))
-	return issues
-
-
-def compile_project_profile_regex(
-	pattern_text: str,
-	profile_path: str,
-	rule_id: str,
-	rule_index: int,
-	field: str,
-	severity: str,
-) -> tuple[re.Pattern[str] | None, list[dict[str, Any]]]:
-	if not pattern_text:
-		return None, [make_project_profile_issue(
-			"project_profile_regex_missing",
-			profile_path,
-			"Project profile regex rule must declare a pattern.",
-			severity=severity,
-			field=field,
-			rule_id=rule_id,
-			row_index=rule_index,
-		)]
-	try:
-		return re.compile(pattern_text), []
-	except re.error as error:
-		return None, [make_project_profile_issue(
-			"project_profile_regex_invalid",
-			profile_path,
-			"Project profile regex pattern is invalid.",
-			severity=severity,
-			field=field,
-			rule_id=rule_id,
-			row_index=rule_index,
-			actual_value=pattern_text,
-			error=str(error),
-		)]
-
-
-def project_profile_select_paths(
-	rule: dict[str, Any],
-	repo_paths: list[str],
-	use_roots: bool = True,
-) -> list[str]:
-	roots = normalize_project_profile_paths(project_profile_string_array(rule, "roots"))
-	include = normalize_project_profile_patterns(project_profile_string_array(rule, "include"))
-	exclude = normalize_project_profile_patterns(project_profile_string_array(rule, "exclude"))
-	extensions = normalize_project_profile_extensions(project_profile_string_array(rule, "extensions"))
-	candidate_paths = repo_paths_under_roots(repo_paths, roots) if use_roots else repo_paths
-	return [
-		file_path
-		for file_path in candidate_paths
-		if project_profile_file_selected(file_path, include, exclude, extensions)
-	]
-
-
-def project_profile_path_target(file_path: str, target: str) -> str:
-	name = file_path.rsplit("/", 1)[-1]
-	if target == "name":
-		return name
-	if target == "stem":
-		return Path(name).stem
-	return file_path
-
-
-def project_profile_file_selected(
-	file_path: str,
-	include: list[str],
-	exclude: list[str],
-	extensions: set[str],
-) -> bool:
-	if include and not project_profile_path_matches_any(file_path, include):
-		return False
-	if exclude and project_profile_path_matches_any(file_path, exclude):
-		return False
-	if extensions and Path(file_path).suffix.lower() not in extensions:
-		return False
-	return True
-
-
-def project_profile_path_matches_any(path: str, patterns: list[str]) -> bool:
-	return any(fnmatch.fnmatch(path, pattern) for pattern in patterns)
-
-
-def repo_paths_under_roots(repo_paths: list[str], roots: list[str]) -> list[str]:
-	if not roots:
-		return list(repo_paths)
-	return [
-		path
-		for path in repo_paths
-		if project_profile_path_under_any_root(path, roots)
-	]
-
-
-def project_profile_path_under_any_root(path: str, roots: list[str]) -> bool:
-	return any(project_profile_path_under_root(path, root) for root in roots)
-
-
-def project_profile_path_under_root(path: str, root: str) -> bool:
-	normalized_path = path.strip().replace("\\", "/")
-	normalized_root = root.strip().replace("\\", "/").rstrip("/")
-	if not normalized_root:
-		return True
-	return normalized_path == normalized_root or normalized_path.startswith(normalized_root + "/")
-
-
-def project_profile_root_exists(root_path: str, repo_paths: list[str]) -> bool:
-	return project_profile_path_exists(root_path, repo_paths) or any(
-		project_profile_path_under_root(path, root_path)
-		for path in repo_paths
-	)
-
-
-def project_profile_path_exists(path: str, repo_paths: list[str]) -> bool:
-	normalized_path = path.strip().replace("\\", "/").rstrip("/")
-	if not normalized_path:
-		return True
-	if normalized_path in repo_paths:
-		return True
-	return (ROOT / normalized_path).exists()
-
-
-def project_profile_raw_list(data: dict[str, Any], key: str) -> list[Any]:
-	value = data.get(key, [])
-	return value if isinstance(value, list) else []
-
-
-def project_profile_dict_list(data: dict[str, Any], key: str) -> list[dict[str, Any]]:
-	result: list[dict[str, Any]] = []
-	for item in project_profile_raw_list(data, key):
-		if isinstance(item, dict):
-			result.append(item)
-	return result
-
-
-def project_profile_string(data: dict[str, Any], key: str, fallback: str = "") -> str:
-	value = data.get(key, fallback)
-	if isinstance(value, str):
-		return value.strip()
-	return fallback
-
-
-def project_profile_bool(data: dict[str, Any], key: str, fallback: bool = False) -> bool:
-	value = data.get(key, fallback)
-	if isinstance(value, bool):
-		return value
-	return fallback
-
-
-def project_profile_int(data: dict[str, Any], key: str, fallback: int = 0) -> int:
-	value = data.get(key, fallback)
-	if isinstance(value, bool):
-		return fallback
-	if isinstance(value, int):
-		return value
-	return fallback
-
-
-def project_profile_string_array(data: dict[str, Any], key: str) -> list[str]:
-	value = data.get(key, [])
-	if isinstance(value, str):
-		return [value]
-	if not isinstance(value, list):
-		return []
-	result: list[str] = []
-	for item in value:
-		if isinstance(item, str) and item.strip():
-			result.append(item.strip())
-	return result
-
-
-def normalize_project_profile_paths(paths: list[str]) -> list[str]:
-	result: list[str] = []
-	for path in paths:
-		normalized_path = normalize_project_profile_relative_path(path)
-		if normalized_path and normalized_path not in result:
-			result.append(normalized_path)
-	return result
-
-
-def normalize_project_profile_patterns(patterns: list[str]) -> list[str]:
-	result: list[str] = []
-	for pattern in patterns:
-		normalized_pattern = normalize_project_profile_relative_path(pattern, allow_glob=True)
-		if normalized_pattern and normalized_pattern not in result:
-			result.append(normalized_pattern)
-	return result
-
-
-def normalize_project_profile_relative_path(path: str, allow_glob: bool = False) -> str:
-	normalized_path = path.strip().replace("\\", "/")
-	if normalized_path.startswith("res://"):
-		normalized_path = normalized_path.removeprefix("res://")
-	if normalized_path.startswith("./"):
-		normalized_path = normalized_path[2:]
-	normalized_path = normalized_path.strip("/")
-	if not normalized_path:
-		return ""
-	if normalized_path.startswith("/") or "://" in normalized_path or ":" in normalized_path:
-		return ""
-	parts = [part for part in normalized_path.split("/") if part not in ("", ".")]
-	if any(part == ".." for part in parts):
-		return ""
-	if not allow_glob and any(any(character in part for character in "*?[") for part in parts):
-		return ""
-	return "/".join(parts)
-
-
-def normalize_project_profile_extensions(extensions: list[str]) -> set[str]:
-	result: set[str] = set()
-	for extension in extensions:
-		normalized_extension = extension.strip().lower()
-		if not normalized_extension:
-			continue
-		if not normalized_extension.startswith("."):
-			normalized_extension = "." + normalized_extension
-		result.add(normalized_extension)
-	return result
-
-
-def project_profile_severity(data: dict[str, Any]) -> str:
-	severity = project_profile_string(data, "severity", "error")
-	return severity if severity in PROJECT_PROFILE_SEVERITIES else "error"
-
-
-def make_project_profile_issue(
-	kind: str,
-	path: str,
-	message: str,
-	severity: str = "error",
-	**extra: Any,
-) -> dict[str, Any]:
-	return make_boundary_issue(kind, path, message, severity=severity, **extra)
+load_project_profile = gf_project_layout_profile.load_project_profile
+resolve_project_profile_path = gf_project_layout_profile.resolve_project_profile_path
+normalize_project_profile_path = gf_project_layout_profile.normalize_project_profile_path
+collect_project_profile_paths = gf_project_layout_profile.collect_project_profile_paths
+should_scan_project_profile_path = gf_project_layout_profile.should_scan_project_profile_path
+audit_project_profile_data = gf_project_layout_profile.audit_project_profile_data
+audit_project_profile_schema = gf_project_layout_profile.audit_project_profile_schema
+validate_project_profile_severity = gf_project_layout_profile.validate_project_profile_severity
+audit_project_profile_zone = gf_project_layout_profile.audit_project_profile_zone
+audit_project_profile_rule = gf_project_layout_profile.audit_project_profile_rule
+audit_project_profile_path_exists_rule = gf_project_layout_profile.audit_project_profile_path_exists_rule
+audit_project_profile_files_under_roots_rule = gf_project_layout_profile.audit_project_profile_files_under_roots_rule
+audit_project_profile_extension_rule = gf_project_layout_profile.audit_project_profile_extension_rule
+audit_project_profile_naming_convention_rule = gf_project_layout_profile.audit_project_profile_naming_convention_rule
+audit_project_profile_forbid_root_files_rule = gf_project_layout_profile.audit_project_profile_forbid_root_files_rule
+audit_project_profile_feature_module_contract_rule = gf_project_layout_profile.audit_project_profile_feature_module_contract_rule
+audit_project_profile_generated_boundary_rule = gf_project_layout_profile.audit_project_profile_generated_boundary_rule
+audit_project_profile_bucket_size_rule = gf_project_layout_profile.audit_project_profile_bucket_size_rule
+compile_project_profile_regex = gf_project_layout_profile.compile_project_profile_regex
+project_profile_select_paths = gf_project_layout_profile.project_profile_select_paths
+project_profile_path_target = gf_project_layout_profile.project_profile_path_target
+project_profile_file_selected = gf_project_layout_profile.project_profile_file_selected
+project_profile_path_matches_any = gf_project_layout_profile.project_profile_path_matches_any
+repo_paths_under_roots = gf_project_layout_profile.repo_paths_under_roots
+project_profile_path_under_any_root = gf_project_layout_profile.project_profile_path_under_any_root
+project_profile_path_under_root = gf_project_layout_profile.project_profile_path_under_root
+project_profile_root_exists = gf_project_layout_profile.project_profile_root_exists
+project_profile_path_exists = gf_project_layout_profile.project_profile_path_exists
+project_profile_raw_list = gf_project_layout_profile.project_profile_raw_list
+project_profile_dict_list = gf_project_layout_profile.project_profile_dict_list
+project_profile_string = gf_project_layout_profile.project_profile_string
+project_profile_bool = gf_project_layout_profile.project_profile_bool
+project_profile_int = gf_project_layout_profile.project_profile_int
+project_profile_string_array = gf_project_layout_profile.project_profile_string_array
+normalize_project_profile_paths = gf_project_layout_profile.normalize_project_profile_paths
+normalize_project_profile_patterns = gf_project_layout_profile.normalize_project_profile_patterns
+normalize_project_profile_relative_path = gf_project_layout_profile.normalize_project_profile_relative_path
+normalize_project_profile_extensions = gf_project_layout_profile.normalize_project_profile_extensions
+project_profile_severity = gf_project_layout_profile.project_profile_severity
+make_project_profile_issue = gf_project_layout_profile.make_project_profile_issue
 
 
 def audit_resource_boundary_text(source: str, path: str) -> list[dict[str, Any]]:
@@ -32624,6 +31815,7 @@ def recommend_checks(categories: dict[str, list[dict[str, str]]]) -> list[str]:
 		recommendations.extend([
 			(
 				"python -m py_compile tools/gf_maintenance.py tools/gf_mcp_server.py "
+				"tools/gf_project_layout_profile.py "
 				"tools/gf_godot_process.py tools/gf_package_artifact_set.py tools/gf_package_paths.py "
 				"tools/gf_parallel_validation.py tools/gf_process_supervisor.py "
 				"tools/gf_repository_policy.py tools/gf_semver.py tools/gf_workspace_snapshot.py"
@@ -34850,6 +34042,56 @@ def load_parallel_shard_report(
 			return None, f"Shard result {name!r} execution is unsupported."
 		if not isinstance(result.get("stdout"), str) or not isinstance(result.get("stderr"), str):
 			return None, f"Shard result {name!r} stdout and stderr must be strings."
+		all_output_evidence_fields = {
+			f"{stream_name}_{suffix}"
+			for stream_name in ("stdout", "stderr")
+			for suffix in ("char_count", "utf8_byte_count", "sha256", "truncated")
+		}
+		present_output_evidence_fields = all_output_evidence_fields.intersection(result_fields)
+		if present_output_evidence_fields and present_output_evidence_fields != all_output_evidence_fields:
+			return None, f"Shard result {name!r} output evidence must cover both streams."
+		for stream_name in ("stdout", "stderr"):
+			evidence_fields = {
+				f"{stream_name}_char_count",
+				f"{stream_name}_utf8_byte_count",
+				f"{stream_name}_sha256",
+				f"{stream_name}_truncated",
+			}
+			present_evidence_fields = evidence_fields.intersection(result_fields)
+			if not present_evidence_fields:
+				continue
+			stream_tail = result[stream_name]
+			try:
+				stream_tail_bytes = stream_tail.encode("utf-8")
+			except UnicodeEncodeError:
+				return None, f"Shard result {name!r} {stream_name} tail is not valid UTF-8 text."
+			char_count = result[f"{stream_name}_char_count"]
+			utf8_byte_count = result[f"{stream_name}_utf8_byte_count"]
+			sha256 = result[f"{stream_name}_sha256"]
+			truncated = result[f"{stream_name}_truncated"]
+			if (
+				type(char_count) is not int
+				or char_count < 0
+				or type(utf8_byte_count) is not int
+				or utf8_byte_count < char_count
+				or not isinstance(sha256, str)
+				or SHA256_HEX_RE.fullmatch(sha256) is None
+				or type(truncated) is not bool
+			):
+				return None, f"Shard result {name!r} {stream_name} output evidence is invalid."
+			if truncated:
+				if char_count <= len(stream_tail) or utf8_byte_count <= len(stream_tail_bytes):
+					return None, (
+						f"Shard result {name!r} {stream_name} truncated tail is inconsistent."
+					)
+			elif (
+				char_count != len(stream_tail)
+				or utf8_byte_count != len(stream_tail_bytes)
+				or sha256 != hashlib.sha256(stream_tail_bytes).hexdigest()
+			):
+				return None, (
+					f"Shard result {name!r} {stream_name} complete output evidence is inconsistent."
+				)
 		if not is_finite_positive_number(result.get("timeout_seconds")):
 			return None, f"Shard result {name!r} timeout_seconds must be finite and positive."
 		dependencies = result.get("dependencies")

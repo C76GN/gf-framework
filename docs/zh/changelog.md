@@ -7,6 +7,7 @@
 ### 🚀 新增特性 (Added)
 
 - 新增 provider-neutral 的 `GFBoundedJsonObjectReader`：文本与路径入口会在 `JSON.parse()` 前执行不可关闭的 1 MiB/64 层硬上限，只接受 object 根节点并返回固定 8 字段 JSON-safe 报告；既有编辑器四字段 reader 与扩展六字段/累计预算 reader 改为兼容 adapter，保留原报告形状和调用入口。编辑器 adapter 的非正预算会恢复公共默认值；扩展 adapter 在累计预算耗尽时于打开文件前失败，并把字节或词法深度超限持久标记为 `budget_exceeded`。
+- Project Layout 新增 `GFProjectLayoutAnalyzer`、`GFProjectLayoutPlanner` 与 `GFProjectLayoutDock`：页面按用户请求在主线程分帧冻结项目库存，再由同一后台请求连续完成只读分析与候选计划；finding 解释和 move/rename/delete 影响模拟使用绑定同一 generation 与 input digest 的独立后台 query，新请求会取消旧 query 并丢弃陈旧结果。所有后台求值支持协作式取消，并以工作量与 finding 硬上限、稳定 incomplete reason 防止大项目卡死或静默截断。页面不自动扫描，不提供 Apply，也不会创建、移动、重命名、删除或改写项目文件。
 - 新增可选制作期包 `gf.tool.asset_browser`：`GFAssetBrowserModel` 以原子隔离的 `GFAssetCatalog` 快照、稳定选择、有界分页和缩略图任务代际提供 model-first 素材浏览状态；当前不注册 Dock，也不接管目录扫描、Provider、下载、导入或缓存。
 - 新增默认关闭的 `gf.layered_sprite`（包 ID `gf.extension.layered_sprite`）：用单一共享时间轴、稳定层和层内变体组合 2D 外观，配置经过有界完整校验后原子替换；扩展不内建角色、装备或素材导入语义。
 - 新增第三方原生物理后端 Adapter 组合 Recipe：冻结后端、平台、架构、ABI、依赖、许可证与制品摘要，并分别验证本地、跨目标和完整项目状态的可复现性；本项只增加文档与 AI Developer Recipe，不新增 Runtime 或 package。
@@ -86,7 +87,7 @@
 - 维护契约现在区分普通发布、真实冻结与 tag-origin hotfix，并在 tag 前以同一不可变产物 manifest 运行完整 `release` suite；参考工程同步默认只读，明确区分 `--plan` 与 `--apply`，统一遵守路径优先级，并以有界、带 SHA-256 的二进制精确 payload manifest 拒绝源/目标重叠、link/reparse、特殊文件、捕获期漂移和跨平台路径碰撞。Copy 同步改为异常可回滚的完整树替换，Link 同步不再删除未知既有目标，机器输出只暴露逻辑路径及稳定规则 ID。维护 CLI 只自动清理本次命令拥有的成功日志，历史/legacy 清理由显式预览后的 `log-hygiene` 负责；`path-hygiene` 同时强制 GF 自有 GDScript 使用无 BOM 严格 UTF-8、LF、末尾换行与 Tab 缩进。
 - 正式 API Catalog 升级到 schema v3，并用独立 AutoLoad owner 收录 `Gf` 及其公开成员；Reference 同步生成 AutoLoad 索引和详情页。生成链仍完整收集多行声明，并在未闭合声明、owner 身份/注册/package 漂移、跨 kind 冲突、错误 section/anchor 或候选坏链接时事务前失败关闭。此次只修复文档和工具的可发现性，`Gf` 的 AutoLoad 名称、注册路径与运行时行为不变。
 - 公开 changelog 现在只保留消费者可见的当前版本说明；作者模板与发布维护规则迁入维护者文档，`Affected Files` 与纯内部仓库路径清单由 changelog policy 拒绝。公开文档门禁同时覆盖根 README、商店文案、扩展/package 标识、扩展默认值、FAQ 任务入口与完整卸载旅程。
-- Project Layout 的 Validator/Scaffolder 现在在任何扫描或写入前严格拒绝未知选项、错误类型、非字符串执行字段、非规范相对路径和错误 rule 字段；维护器对齐用的既有保留字段仍维持 schema v1 接受行为，但文档明确它们不在 Godot 侧执行。`naming_convention.target` 正确区分 `path`、`name` 与 `stem`，目录扫描改为预算耗尽即全局中止的流式枚举，dry-run/apply 共用阻塞路径预检，诊断 context 不再持有调用方 Object。
+- Project Layout 统一通过 canonical schema v1 contract 和执行器 capability 编译 profile；Compiler 把同次有界读取的 contract 原始字节 SHA-256 与唯一派生 pin 精确绑定，Analyzer、Planner 和后台 Worker 会拒绝格式合法但不匹配 canonical contract 的摘要。Godot Analyzer 会拒绝无法评估的规则类型，Planner 只从 zone 与 Feature contract 生成步骤，不会把仅经 schema 检查的规则误报为已执行。维护命令的 `--profile-mode` 默认使用权威 `strict`，在 profile 准入失败时先于项目库存读取结束；显式 `shadow` 仍以 legacy 结果为权威，只附加非权威 strict 迁移诊断。Python Git `-z` 库存改由共享 raw-binary process-tree supervisor 以单一绝对 deadline 捕获，启动、读取、完整后代树清理与管道排空任一不完整都会清空 partial 库存并失败关闭；路径/字节/排序、审计 work 与诊断仍有不可关闭硬上限。Python 与 Godot 同时执行 contract 定义的 `portable_safe_v1` 正则子集，拒绝方言漂移和灾难性回溯形状。Feature Cohesive profile 保留为显式示例，不成为所有 GF 项目的默认目录。
 - Logging 的内置文件、JSONL sink 与 batched sink 现在统一由 Architecture tick 推进真实空闲 flush；batched shutdown 会在同步交付持续取得进展时逐批排空，默认 JSONL 路径加入 sink 实例身份以保证活动写入者独占。Analytics Header 在请求前执行 HTTP token、控制字符、重复名、数量与 UTF-8 字节预算校验，非 2xx 公共结果不再携带远端响应正文。
 - 维护检查的 canonical fingerprint JSON 现在拒绝 `NaN` / `Infinity`，三层 timeout budget 只接受有限非负数；凭据扫描用类型化路径事实隔离分类用 policy path 与输出用脱敏 label，包路径 validator、matcher、compiled index 和维护 owner collector 则统一拒绝非 canonical raw pattern，不再静默 trim、去前缀或改写分隔符。
 - 模块化包闭包审计现在同时输出每个 package/preset 的源码文件数、GDScript 数与未压缩字节数，使 package ID 闭包不变时的 payload 增长仍可观察，并为后续建立经审阅的载荷基线提供确定性证据。
@@ -320,6 +321,7 @@
 
 ### ⚠️ 废弃与移除 (Deprecated/Removed)
 
+- 移除 `GFProjectLayoutScaffolder` 及其目录写入入口；Project Layout 核心永久保持 scan、explain、impact、plan 只读边界。`GFProjectLayoutValidator` 在 11.0 弃用并仅委托 `GFProjectLayoutAnalyzer`。维护命令的 `legacy` / `shadow` profile 模式同样弃用，并将在 12.0.0 删除。
 - 移除 `GFStorageUtility.allow_absolute_paths`；运行时 Storage 不再提供重新启用任意绝对路径的开关，也不保留 deprecated alias。
 - 移除 `GFStorageUtility.get_storage_directory_path()`、`ensure_directory()` 与 `create_directories_for_nested_paths`；runtime Storage 不再暴露或让调用方管理物理目录，目录只保留为 logical catalog selector。
 - 移除 `play_bgm_with_options()` 的 `loop` / `playback_region` 通用选项，并保留事件 metadata/options 中的同名键；继续传入会在资源加载和后端派发前失败关闭，类型化区间只能来自 `GFAudioClip.playback_region`。
@@ -335,6 +337,7 @@
 
 - AI Developer 工具协议升级到 `5.0.0`，项目 Snapshot schema 升级到 v5；`module_dependency_analysis.edges[].kinds` 与 `evidence[].kind` 的闭合集合新增 `generated_output`。项目 Contract 仍为 schema v2，既有 `project`、模块型 `external_adapter`、framework Adapter 与精确 `owned_resources` 形状不变。
 
+- `GFProjectLayoutAnalyzer` 新增无 profile 观察、严格 profile 分析、冻结 snapshot 分析、finding 解释和变更影响模拟入口；`GFProjectLayoutPlanner` 从同一分析摘要生成 `writes_project=false` 的闭合计划；`GFProjectLayoutDock` 提供按需扫描、取消、复制报告和四个只读结果页面。`GFProjectLayoutValidator.validate_*()` 保留为弃用兼容 adapter，`GFProjectLayoutScaffolder` 已移除。
 - `GFDialogueRunner.create_runtime_snapshot()` 的成功五字段 schema 与 `SNAPSHOT_SCHEMA_VERSION = 4` 保持不变；新增失败约定为返回空 `Dictionary`。这会收紧 10.x 中推进中或资源身份已漂移时仍返回成功形状的行为，Dialogue 扩展版本因此升级为 `4.0.0`。
 - 新增公开 `GFBoundedJsonObjectReader`，提供 `parse_object(text, max_bytes, max_depth)`、`read_object(path, max_bytes, max_depth)`，以及 1 MiB/64 层的默认与绝对上限常量。两个入口的预算只能收紧；报告固定包含 `ok`、`data`、`source_path`、`size_bytes`、`error_kind`、`error`、`max_bytes` 和 `max_depth`。框架内部 `GFBoundedJsonReader` 与 `GFExtensionJsonFileReader` 现委托该 primitive，同时分别保留既有四字段报告和六字段累计预算报告。
 - `GFStorageUtility.allow_absolute_paths`、`get_storage_directory_path()`、`ensure_directory()` 与 `create_directories_for_nested_paths` 已移除；新增 `has_file()`。`list_files()` 只接受 portable logical directory 与不带点号的 lowercase extension token，并只返回 catalog 中存在 committed payload 的规范相对 logical identity；`canonicalize_data_file_name()` 只接受已经 canonical 的输入，不再改写分隔符、大小写或路径别名；`GFStorageAsyncOperation.get_file_name()` 与 `GFStorageAsyncResult.get_file_name()` 同样只暴露 logical identity，不再产生绝对路径身份。`save_dir_name` 必须在 activation、`init()` 或首次 I/O 前配置，Storage root 一经加载即冻结；切换 root 必须创建新的 Utility。
@@ -502,7 +505,7 @@
 66. 清理自定义 Analytics Header 中的非法 token 名、控制字符、首尾空白、大小写重复名和超预算字段；不要依赖不同 HTTP 后端替框架做不一致的兜底校验。
 67. 非 2xx 处理改为读取结构化 `response_code`，不要从 `error` 解析或展示服务端正文；用 `get_dropped_event_count()` 监控队列裁剪，并注意 `max_queue_size` 只限制事件条数。
 68. 需要在编辑器中核对玩家/profile 覆盖时，把对应 `GFInputRemapConfig` 传给 `GFInputMappingDock.set_remap_config()`；直接修改其嵌套 Dictionary 后应显式调用 `emit_changed()`，优先使用公开 mutation 方法。context/remap 的自动刷新延迟到同帧末尾合并；需要立即结果时显式调用 `refresh()`。失败路径加载后的复制 schema 现在是带 `current_attempt` 与 `last_successful_report` 的 envelope。
-69. 检查 Project Layout 调用：修正拼错或类型错误的 options，把所有由 Godot 执行的 `roots`、`include`、`exclude`、`allowed_files` 和 Feature 子目录字段改为字符串数组。相对路径统一为无前导 `/`、反斜杠、协议、盘符或 `..` 的规范形式；zone 扩展名字段及 rule `paths` / `any` / `extensions` 当前只在维护侧有语义，不要把 Godot 接受它们误判为约束已执行。
+69. 迁移 Project Layout：把 `GFProjectLayoutValidator.validate_default_profile()` / `validate_profile_path()` / `validate_profile()` 分别改为 Analyzer 的 `analyze_example_profile()` / `analyze_profile_path()` / `analyze_profile()`；删除旧 Validator 的 `allow_absolute_root`，新的 `root_path` 只接受规范 `res://` 或其规范子目录，不再接受 `user://` 与主机绝对路径。Validator report schema 已替换为 Analyzer report schema，机器消费者必须按 `schema_version` / `kind` 改读求值完整性、findings、graph、rule results、capabilities 和 effects，不能依赖旧字段兼容。把 Scaffolder 的 dry-run/apply 调用改为 Analyzer + Planner，并由项目在独立、显式、受审查的流程中手工实施变更。旧 profile 可短期用 `--profile-mode shadow` 查看非权威 strict 诊断，修正后必须回到默认 strict；legacy 和 shadow 都不能作为 12.0.0 之后的兼容方案。
 70. 检查团队维护的自定义 registry v2：删除未知字段，为每个具体 package 补齐非空 `archive`、完整 SHA-256 和正整数 `size_bytes`；preset 只保留闭合的 preset 字段并让 `dependencies` / `paths` 为空。批量卸载如果要同时移除 depender 与手动 pin 的 dependency，应在同一条 `uninstall` 命令中列出；任何未包含在请求集合中的 depender 仍会阻止 dependency 移除。
 71. 检查 Network Contract 工具链：把 `warn_unbounded_collections` 改为 `warn_collection_bounds_review`，并在项目 schema、serializer 或入站 validator 中真正执行集合限制；修正所有与 `value_type` 不精确匹配或非 transport-safe 的非空默认值。批量生成先比较 dry-run/commit 的 `plan_fingerprint`，处理 `duplicate_output_path`、`generation_budget_exceeded` 与 `invalid_contract_definition`；要求不可预期 I/O 失败也整批回滚的流水线暂时应在外层提供事务边界，不要把当前逐文件提交误当作 batch atomic。
 72. 迁移参考工程同步命令：删除固定 source 参数，把 `--project` 改为 `--project-root`、`--dry-run` 改为 `--plan`，并移除 `--no-clean`；无操作参数现在等价于只读 `--check`，任何写入都必须显式使用 `--apply`。机器消费者同时迁移到 JSON schema v2：用 `operation` 取代 `dry_run`，用 `planned_actions` / `applied_actions` 取代 `cleaned` / `linked`，用 `file_count` / `directory_count` / `total_bytes` 取代旧复数计数字段，用 `skipped_count` 取代 `skipped`，并以 `payload_sha256` 绑定本次同步输入；检查结果另用 `target_mode`、`mismatch_count` 与 `mismatches` 判断目标状态。

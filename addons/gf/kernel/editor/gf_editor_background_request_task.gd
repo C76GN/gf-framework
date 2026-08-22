@@ -87,7 +87,7 @@ func start() -> Error:
 		return _start_error
 	if _thread == null:
 		_thread = Thread.new()
-	if not _thread.has_method("start"):
+	if not _thread_contract_is_valid():
 		_start_error = ERR_INVALID_PARAMETER
 		_finished = true
 		return _start_error
@@ -245,6 +245,19 @@ func _read_thread(options: Dictionary) -> Object:
 		var object_value: Object = value
 		return object_value
 	return null
+
+
+func _thread_contract_is_valid() -> bool:
+	if _thread == null:
+		return false
+	for method_name: StringName in [
+		&"start",
+		&"is_alive",
+		&"wait_to_finish",
+	]:
+		if not _thread.has_method(method_name):
+			return false
+	return true
 
 
 func _to_error(value: Variant, fallback: Error) -> Error:

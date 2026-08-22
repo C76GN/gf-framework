@@ -2,8 +2,8 @@
   "schema_version": 2,
   "catalog_version": "2.0.0",
   "framework_version": "11.0.0-dev.0",
-  "source_digest": "53da915a76d062e489435a010daa6804a67d32733caf62ca2dff70b63e15b6d6",
-  "class_count": 820,
+  "source_digest": "954f19e48ea73d5c91ea9f51290552111fb284bcea1d87fa6b3acb7373cd56e8",
+  "class_count": 822,
   "autoload_count": 1,
   "package_count": 56,
   "packages": [
@@ -608,8 +608,8 @@
       "dependencies": [
         "gf.kernel"
       ],
-      "description": "Optional project structure profile templates and validation support for GF projects.",
-      "representative_path": "addons/gf/tools/project_layout/gf_project_layout_scaffolder.gd"
+      "description": "Read-only project layout analysis, explanation, impact simulation, planning, and Editor workspace tooling.",
+      "representative_path": "addons/gf/tools/project_layout/editor/gf_project_layout_dock.gd"
     }
   ],
   "classes": {
@@ -60632,50 +60632,216 @@
         }
       ]
     },
-    "GFProjectLayoutScaffolder": {
+    "GFProjectLayoutAnalyzer": {
       "owner_kind": "class",
       "extends": "RefCounted",
       "module": "tools",
       "package_id": "gf.tool.project_layout",
-      "path": "addons/gf/tools/project_layout/gf_project_layout_scaffolder.gd",
-      "summary": "GFProjectLayoutScaffolder: Profile 驱动的项目目录脚手架工具。 按项目结构 profile 创建必需目录和可选 Feature 模块目录，并返回可审查报告。 该工具只实现目录创建机制，不要求所有项目采用同一业务结构，也不把参考项目约定",
+      "path": "addons/gf/tools/project_layout/gf_project_layout_analyzer.gd",
+      "summary": "GFProjectLayoutAnalyzer: 只读的项目结构分析器。 捕获项目目录库存，并按可选 profile 分析目录分区、Feature 模块契约、命名、生成物边界和大桶目录增长。 所有公开操作都只读取项目；该类型不会创建、移动、删除或改写任何项目文件。",
       "visibility": "public",
       "category": "tool_api",
-      "since": "8.0.0",
+      "since": "unreleased",
       "members": [
         {
           "kind": "const",
-          "name": "DEFAULT_FEATURE_COHESIVE_PROFILE_PATH",
-          "signature": "const DEFAULT_FEATURE_COHESIVE_PROFILE_PATH: String = \"res://addons/gf/tools/project_layout/profiles/feature_cohesive_v1.json\"",
-          "summary": "内置 Feature 内聚式项目结构 profile 路径。",
+          "name": "EXAMPLE_FEATURE_COHESIVE_PROFILE_PATH",
+          "signature": "const EXAMPLE_FEATURE_COHESIVE_PROFILE_PATH: String = \"res://addons/gf/tools/project_layout/profiles/feature_cohesive_v1.json\"",
+          "summary": "Feature 内聚式示例 profile 路径。",
           "visibility": "public"
         },
         {
           "kind": "func",
-          "name": "scaffold_default_profile",
-          "signature": "func scaffold_default_profile(options: Dictionary = {}) -> Dictionary",
-          "summary": "按内置 Feature 内聚式模板创建目录。",
+          "name": "analyze",
+          "signature": "func analyze(options: Dictionary = {}) -> Dictionary",
+          "summary": "不加载 profile，只捕获并归一化当前项目结构。",
           "visibility": "public"
         },
         {
           "kind": "func",
-          "name": "scaffold_profile_path",
-          "signature": "func scaffold_profile_path(profile_path: String, options: Dictionary = {}) -> Dictionary",
-          "summary": "从项目结构 profile 文件创建目录。",
+          "name": "analyze_example_profile",
+          "signature": "func analyze_example_profile(options: Dictionary = {}) -> Dictionary",
+          "summary": "按 Feature 内聚式示例 profile 分析项目结构。",
           "visibility": "public"
         },
         {
           "kind": "func",
-          "name": "scaffold_profile",
-          "signature": "func scaffold_profile(profile: Dictionary, options: Dictionary = {}) -> Dictionary",
-          "summary": "按已解析的项目结构 profile 创建目录。",
+          "name": "analyze_profile_path",
+          "signature": "func analyze_profile_path(profile_path: String, options: Dictionary = {}) -> Dictionary",
+          "summary": "从项目结构 profile 文件分析项目结构。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "analyze_profile",
+          "signature": "func analyze_profile(profile: Dictionary, options: Dictionary = {}) -> Dictionary",
+          "summary": "按已解析的项目结构 profile 分析项目结构。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "analyze_snapshot",
+          "signature": "func analyze_snapshot(snapshot: Dictionary) -> Dictionary",
+          "summary": "分析已经冻结的 data-only 项目库存，不再访问文件系统。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "analyze_profile_snapshot",
+          "signature": "func analyze_profile_snapshot( profile: Dictionary, snapshot: Dictionary ) -> Dictionary",
+          "summary": "按 profile 分析已经冻结的 data-only 项目库存，不再扫描项目目录。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "explain_finding",
+          "signature": "func explain_finding(analysis: Dictionary, finding_id: String) -> Dictionary",
+          "summary": "解释分析报告中的一条 finding。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "analyze_change_impact",
+          "signature": "func analyze_change_impact(analysis: Dictionary, change: Dictionary) -> Dictionary",
+          "summary": "在冻结分析图上模拟 move、rename 或 delete 的影响。",
+          "visibility": "public"
+        }
+      ]
+    },
+    "GFProjectLayoutDock": {
+      "owner_kind": "class",
+      "extends": "VBoxContainer",
+      "module": "tools",
+      "package_id": "gf.tool.project_layout",
+      "path": "addons/gf/tools/project_layout/editor/gf_project_layout_dock.gd",
+      "summary": "GFProjectLayoutDock: GF Project Layout 只读工作区页面。 页面按用户操作捕获项目库存，在后台生成分析结果，并展示 finding、解释、影响和计划。 它不提供 Apply、自动修复、创建、移动、重命名或删除入口。",
+      "visibility": "public",
+      "category": "editor_api",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "const",
+          "name": "STATE_IDLE",
+          "signature": "const STATE_IDLE: String = \"idle\"",
+          "summary": "页面尚未开始捕获。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "STATE_CAPTURING",
+          "signature": "const STATE_CAPTURING: String = \"capturing\"",
+          "summary": "页面正在主线程分批捕获库存。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "STATE_ANALYZING",
+          "signature": "const STATE_ANALYZING: String = \"analyzing\"",
+          "summary": "页面正在后台分析冻结库存。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "STATE_COMPLETE",
+          "signature": "const STATE_COMPLETE: String = \"complete\"",
+          "summary": "分析完整结束。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "STATE_PARTIAL",
+          "signature": "const STATE_PARTIAL: String = \"partial\"",
+          "summary": "输入或分析不完整。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "STATE_CANCELLED",
+          "signature": "const STATE_CANCELLED: String = \"cancelled\"",
+          "summary": "用户取消了请求。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "STATE_FAILED",
+          "signature": "const STATE_FAILED: String = \"failed\"",
+          "summary": "请求因输入或执行错误失败。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "scan_project",
+          "signature": "func scan_project() -> void",
+          "summary": "请求一次新的只读项目扫描。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "cancel_scan",
+          "signature": "func cancel_scan() -> void",
+          "summary": "取消当前捕获或后台分析。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_state",
+          "signature": "func get_state() -> String",
+          "summary": "返回页面当前状态。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_last_result",
+          "signature": "func get_last_result() -> Dictionary",
+          "summary": "返回最近一次 data-only 页面结果；输入不完整时仍保留 partial 结果供解释。",
+          "visibility": "public"
+        }
+      ]
+    },
+    "GFProjectLayoutPlanner": {
+      "owner_kind": "class",
+      "extends": "RefCounted",
+      "module": "tools",
+      "package_id": "gf.tool.project_layout",
+      "path": "addons/gf/tools/project_layout/gf_project_layout_planner.gd",
+      "summary": "GFProjectLayoutPlanner: 基于项目结构分析快照生成只读改进计划。 Planner 的规划核心只消费已经编译的 profile 与完整冻结分析图，不访问当前文件系统， 也不创建、移动、删除或改写项目内容。它输出可审查的相对路径步骤，并用 blocker",
+      "visibility": "public",
+      "category": "tool_api",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "const",
+          "name": "EXAMPLE_FEATURE_COHESIVE_PROFILE_PATH",
+          "signature": "const EXAMPLE_FEATURE_COHESIVE_PROFILE_PATH: String = \"res://addons/gf/tools/project_layout/profiles/feature_cohesive_v1.json\"",
+          "summary": "Feature 内聚式项目结构示例 profile 路径。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "plan_example_profile",
+          "signature": "func plan_example_profile(source_analysis: Dictionary, options: Dictionary = {}) -> Dictionary",
+          "summary": "按 Feature 内聚式示例 profile 生成只读改进计划。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "plan_profile_path",
+          "signature": "func plan_profile_path( profile_path: String, source_analysis: Dictionary, options: Dictionary = {} ) -> Dictionary",
+          "summary": "从项目结构 profile 文件生成只读改进计划。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "plan_profile",
+          "signature": "func plan_profile( profile: Dictionary, source_analysis: Dictionary, options: Dictionary = {} ) -> Dictionary",
+          "summary": "按已解析的项目结构 profile 生成只读改进计划。",
           "visibility": "public"
         },
         {
           "kind": "func",
           "name": "make_feature_module_paths",
-          "signature": "func make_feature_module_paths(profile: Dictionary, feature_id: String, options: Dictionary = {}) -> PackedStringArray",
-          "summary": "根据 Feature 模块契约计算某个 Feature 应创建的相对目录。",
+          "signature": "func make_feature_module_paths( profile: Dictionary, feature_id: String, options: Dictionary = {} ) -> PackedStringArray",
+          "summary": "根据 Feature 模块契约计算某个 Feature 的相对目录并集。",
           "visibility": "public"
         }
       ]
@@ -60686,7 +60852,7 @@
       "module": "tools",
       "package_id": "gf.tool.project_layout",
       "path": "addons/gf/tools/project_layout/gf_project_layout_validator.gd",
-      "summary": "GFProjectLayoutValidator: Profile 驱动的项目结构校验工具。 按项目结构 profile 检查目录分区、Feature 模块契约、命名、生成物边界和大桶目录增长。 该工具只实现可选制作期校验，不把任意业务项目结构写入 GF 运行时包。",
+      "summary": "GFProjectLayoutValidator: 项目结构分析的兼容校验入口。 该类型不再维护独立扫描器或规则表；所有调用都委托给 [GFProjectLayoutAnalyzer]。 新代码应直接使用 Analyzer，以便同时取得解释、影响和只读规划所需的统一分析结果。",
       "visibility": "public",
       "category": "tool_api",
       "since": "8.0.0",
@@ -60694,21 +60860,21 @@
         {
           "kind": "const",
           "name": "DEFAULT_FEATURE_COHESIVE_PROFILE_PATH",
-          "signature": "const DEFAULT_FEATURE_COHESIVE_PROFILE_PATH: String = \"res://addons/gf/tools/project_layout/profiles/feature_cohesive_v1.json\"",
-          "summary": "内置 Feature 内聚式项目结构 profile 路径。",
+          "signature": "const DEFAULT_FEATURE_COHESIVE_PROFILE_PATH: String = \\\n\t\"res://addons/gf/tools/project_layout/profiles/feature_cohesive_v1.json\"",
+          "summary": "Feature 内聚式示例 profile 路径。",
           "visibility": "public"
         },
         {
           "kind": "func",
           "name": "validate_default_profile",
           "signature": "func validate_default_profile(options: Dictionary = {}) -> Dictionary",
-          "summary": "按内置 Feature 内聚式模板校验项目结构。",
+          "summary": "按 Feature 内聚式示例 profile 校验项目结构。",
           "visibility": "public"
         },
         {
           "kind": "func",
           "name": "validate_profile_path",
-          "signature": "func validate_profile_path(profile_path: String, options: Dictionary = {}) -> Dictionary",
+          "signature": "func validate_profile_path( profile_path: String, options: Dictionary = {} ) -> Dictionary",
           "summary": "从项目结构 profile 文件校验项目结构。",
           "visibility": "public"
         },

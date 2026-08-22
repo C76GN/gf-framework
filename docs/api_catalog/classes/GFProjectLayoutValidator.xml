@@ -1,22 +1,24 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFProjectLayoutValidator" path="addons/gf/tools/project_layout/gf_project_layout_validator.gd" module="tools" extends="RefCounted" classDigest="5539c436c1336bf0f748e8384245d193bec93d0c3beea04cc76d0bb4c5d2c24d">
-	<description>GFProjectLayoutValidator: Profile 驱动的项目结构校验工具。
-按项目结构 profile 检查目录分区、Feature 模块契约、命名、生成物边界和大桶目录增长。
-该工具只实现可选制作期校验，不把任意业务项目结构写入 GF 运行时包。
-未知选项、字段、错误类型和非规范相对路径都会失败关闭；扫描预算在流式枚举期间全局生效。</description>
+<class name="GFProjectLayoutValidator" path="addons/gf/tools/project_layout/gf_project_layout_validator.gd" module="tools" extends="RefCounted" classDigest="73b6ba7841976f44a16b71ddbe436cc02ae835bb1ec348e85f73adf2e6031124">
+	<description>GFProjectLayoutValidator: 项目结构分析的兼容校验入口。
+该类型不再维护独立扫描器或规则表；所有调用都委托给 [GFProjectLayoutAnalyzer]。
+新代码应直接使用 Analyzer，以便同时取得解释、影响和只读规划所需的统一分析结果。</description>
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">tool_api</tag>
+		<tag name="deprecated">11.0.0 Use GFProjectLayoutAnalyzer for new integrations.</tag>
 		<tag name="since">8.0.0</tag>
 	</tags>
 	<signals />
 	<enums />
 	<constants>
 		<member kind="const" name="DEFAULT_FEATURE_COHESIVE_PROFILE_PATH">
-			<signature>const DEFAULT_FEATURE_COHESIVE_PROFILE_PATH: String = "res://addons/gf/tools/project_layout/profiles/feature_cohesive_v1.json"</signature>
-			<description>内置 Feature 内聚式项目结构 profile 路径。</description>
+			<signature>const DEFAULT_FEATURE_COHESIVE_PROFILE_PATH: String = \
+	"res://addons/gf/tools/project_layout/profiles/feature_cohesive_v1.json"</signature>
+			<description>Feature 内聚式示例 profile 路径。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="deprecated">11.0.0 Use GFProjectLayoutAnalyzer.EXAMPLE_FEATURE_COHESIVE_PROFILE_PATH.</tag>
 				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
@@ -25,26 +27,28 @@
 	<methods>
 		<member kind="method" name="validate_default_profile">
 			<signature>func validate_default_profile(options: Dictionary = {}) -&gt; Dictionary:</signature>
-			<description>按内置 Feature 内聚式模板校验项目结构。</description>
+			<description>按 Feature 内聚式示例 profile 校验项目结构。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="param">options: 校验选项。</tag>
-				<tag name="return">校验报告。</tag>
-				<tag name="schema">options: Dictionary，可包含 root_path、include_hidden、max_scanned_files、max_scanned_directories、max_scan_depth、allow_missing_root 和 allow_absolute_root。</tag>
-				<tag name="schema">return: Dictionary，包含 success、profile_id、root_path、file_count、directory_count、issues、error_count、warning_count、info_count 和 rule_results。</tag>
+				<tag name="deprecated">11.0.0 Use GFProjectLayoutAnalyzer.analyze_example_profile().</tag>
+				<tag name="param">options: 分析选项。</tag>
+				<tag name="return">Analyzer 生成的只读分析报告。</tag>
+				<tag name="schema">options: Dictionary，可包含 root_path、include_hidden、max_scanned_files、max_scanned_directories、max_scan_depth 和 allow_missing_root；root_path 必须是规范 res:// 路径。</tag>
+				<tag name="schema">return: Dictionary，精确包含 schema_version、kind、evaluation_status、evaluation_complete、input_complete、success、profile_id、root_path、input_digest、file_count、directory_count、graph、issues、findings、error_count、warning_count、info_count、rule_results、capabilities 和 effects。</tag>
 				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="validate_profile_path">
-			<signature>func validate_profile_path(profile_path: String, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<signature>func validate_profile_path( profile_path: String, options: Dictionary = {} ) -&gt; Dictionary:</signature>
 			<description>从项目结构 profile 文件校验项目结构。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="deprecated">11.0.0 Use GFProjectLayoutAnalyzer.analyze_profile_path().</tag>
 				<tag name="param">profile_path: JSON profile 路径。</tag>
-				<tag name="param">options: 校验选项。</tag>
-				<tag name="return">校验报告。</tag>
-				<tag name="schema">options: Dictionary，可包含 root_path、include_hidden、max_scanned_files、max_scanned_directories、max_scan_depth、allow_missing_root 和 allow_absolute_root。</tag>
-				<tag name="schema">return: Dictionary，包含 success、profile_id、root_path、file_count、directory_count、issues、error_count、warning_count、info_count 和 rule_results。</tag>
+				<tag name="param">options: 分析选项。</tag>
+				<tag name="return">Analyzer 生成的只读分析报告。</tag>
+				<tag name="schema">options: Dictionary，可包含 root_path、include_hidden、max_scanned_files、max_scanned_directories、max_scan_depth 和 allow_missing_root；root_path 必须是规范 res:// 路径。</tag>
+				<tag name="schema">return: Dictionary，精确包含 schema_version、kind、evaluation_status、evaluation_complete、input_complete、success、profile_id、root_path、input_digest、file_count、directory_count、graph、issues、findings、error_count、warning_count、info_count、rule_results、capabilities 和 effects。</tag>
 				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
@@ -53,12 +57,13 @@
 			<description>按已解析的项目结构 profile 校验项目结构。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="deprecated">11.0.0 Use GFProjectLayoutAnalyzer.analyze_profile().</tag>
 				<tag name="param">profile: 项目结构 profile 字典。</tag>
-				<tag name="param">options: 校验选项。</tag>
-				<tag name="return">校验报告。</tag>
+				<tag name="param">options: 分析选项。</tag>
+				<tag name="return">Analyzer 生成的只读分析报告。</tag>
 				<tag name="schema">profile: Dictionary，包含 schema_version、id、zones 和 rules。</tag>
-				<tag name="schema">options: Dictionary，可包含 root_path、include_hidden、max_scanned_files、max_scanned_directories、max_scan_depth、allow_missing_root 和 allow_absolute_root。</tag>
-				<tag name="schema">return: Dictionary，包含 success、profile_id、root_path、file_count、directory_count、issues、error_count、warning_count、info_count 和 rule_results。</tag>
+				<tag name="schema">options: Dictionary，可包含 root_path、include_hidden、max_scanned_files、max_scanned_directories、max_scan_depth 和 allow_missing_root；root_path 必须是规范 res:// 路径。</tag>
+				<tag name="schema">return: Dictionary，精确包含 schema_version、kind、evaluation_status、evaluation_complete、input_complete、success、profile_id、root_path、input_digest、file_count、directory_count、graph、issues、findings、error_count、warning_count、info_count、rule_results、capabilities 和 effects。</tag>
 				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>

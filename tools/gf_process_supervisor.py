@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import math
 import os
 import signal
 import subprocess
@@ -22,6 +23,10 @@ from typing import Callable
 OUTPUT_DRAIN_GRACE_SECONDS = 1.0
 OUTPUT_CLEANUP_GRACE_SECONDS = 2.0
 STDIN_STAGE_CHUNK_BYTES = 1024 * 1024
+BINARY_PROCESS_CLEANUP_RESERVE_SECONDS = 4.0
+BINARY_PROCESS_POLL_SECONDS = 0.01
+BINARY_PROCESS_POST_TERMINATION_DRAIN_SECONDS = 1.0
+BINARY_PROCESS_DEFERRED_CLEANUP_SECONDS = 10.0
 LINUX_PROC_STAT_MAX_BYTES = 4096
 LINUX_PROC_SCAN_MAX_ENTRIES = 131072
 LINUX_PROC_SCAN_TIMEOUT_SECONDS = 0.25
@@ -181,6 +186,15 @@ class _ProcessTreeOwner:
 	) -> subprocess.Popen[str]:
 		raise NotImplementedError
 
+	def start_bytes(
+		self,
+		command: list[str],
+		*,
+		cwd: Path,
+		environment: dict[str, str] | None,
+	) -> subprocess.Popen[bytes]:
+		raise NotImplementedError
+
 	def wait_for_direct_exit(
 		self,
 		process: subprocess.Popen[str],
@@ -191,14 +205,40 @@ class _ProcessTreeOwner:
 	def terminate(self, process: subprocess.Popen[str]) -> list[str]:
 		raise NotImplementedError
 
+	def terminate_before_deadline(
+		self,
+		process: subprocess.Popen[Any],
+		deadline: float,
+	) -> list[str]:
+		_ = deadline
+		return self.terminate(process)
+
 	def confirm_cleanup_after_reap(self) -> list[str]:
 		self._cleanup_confirmation_succeeded = True
 		return []
+
+	def confirm_cleanup_after_reap_before_deadline(
+		self,
+		deadline: float,
+	) -> list[str]:
+		_ = deadline
+		return self.confirm_cleanup_after_reap()
 
 	def close(self) -> list[str]:
 		self._started_process = None
 		self._closed = True
 		return []
+
+	def close_before_deadline(self, deadline: float) -> list[str]:
+		notes = self.close()
+		if time.perf_counter() > deadline:
+			self.cleanup_failed = True
+			notes.append("Process-tree owner close exceeded its absolute deadline.")
+		return notes
+
+	def wait_for_close_completion(self, timeout_seconds: float | None) -> bool:
+		_ = timeout_seconds
+		return self.is_closed()
 
 	def is_closed(self) -> bool:
 		return self._closed
@@ -229,23 +269,56 @@ class _PosixProcessGroupOwner(_ProcessTreeOwner):
 		cwd: Path,
 		environment: dict[str, str] | None,
 	) -> subprocess.Popen[str]:
-		process: subprocess.Popen[str] | None = None
+		return self._start_process(
+			command,
+			cwd=cwd,
+			environment=environment,
+			binary=False,
+		)
+
+	def start_bytes(
+		self,
+		command: list[str],
+		*,
+		cwd: Path,
+		environment: dict[str, str] | None,
+	) -> subprocess.Popen[bytes]:
+		return self._start_process(
+			command,
+			cwd=cwd,
+			environment=environment,
+			binary=True,
+		)
+
+	def _start_process(
+		self,
+		command: list[str],
+		*,
+		cwd: Path,
+		environment: dict[str, str] | None,
+		binary: bool,
+	) -> Any:
+		process: subprocess.Popen[Any] | None = None
 		try:
-			text_options: dict[str, object] = {"text": False} if self._binary_output else {
-				"text": True,
-				"encoding": "utf-8",
-				"errors": self._text_errors,
+			popen_options: dict[str, Any] = {
+				"cwd": cwd,
+				"stdin": subprocess.DEVNULL if binary else self._stdin_stream,
+				"stdout": subprocess.PIPE,
+				"stderr": subprocess.PIPE,
+				"env": environment,
+				"start_new_session": True,
 			}
-			process = subprocess.Popen(
-				command,
-				cwd=cwd,
-				stdin=self._stdin_stream,
-				stdout=subprocess.PIPE,
-				stderr=subprocess.PIPE,
-				env=environment,
-				start_new_session=True,
-				**text_options,
-			)
+			if binary:
+				popen_options["bufsize"] = 0
+			if binary or self._binary_output:
+				popen_options["text"] = False
+			else:
+				popen_options.update({
+					"text": True,
+					"encoding": "utf-8",
+					"errors": self._text_errors,
+				})
+			process = subprocess.Popen(command, **popen_options)
 			self._started_process = process
 			self._process_was_created = True
 			self.process_group_id = process.pid
@@ -328,6 +401,38 @@ class _PosixProcessGroupOwner(_ProcessTreeOwner):
 			self._termination_succeeded = True
 		return notes
 
+	def terminate_before_deadline(
+		self,
+		process: subprocess.Popen[Any],
+		deadline: float,
+	) -> list[str]:
+		self._termination_succeeded = False
+		if self._cleanup_probe_group_id > 0:
+			self.cleanup_failed = True
+			return [
+				"POSIX process-group termination was requested after the leader was reaped; "
+				"refusing to signal a potentially reused PGID."
+			]
+		if self.process_group_id <= 0:
+			if self._started_process is process:
+				self.process_group_id = process.pid
+			else:
+				self.cleanup_failed = True
+				return ["Owned POSIX process group identity was unavailable during cleanup."]
+		try:
+			os.killpg(self.process_group_id, signal.SIGKILL)
+		except ProcessLookupError:
+			self._termination_succeeded = True
+			return []
+		except OSError as error:
+			self.cleanup_failed = True
+			return [f"Could not kill owned POSIX process group before its deadline: {error}"]
+		self._termination_succeeded = time.perf_counter() <= deadline
+		if not self._termination_succeeded:
+			self.cleanup_failed = True
+			return ["Owned POSIX process-group termination exceeded its absolute deadline."]
+		return []
+
 	def confirm_cleanup_after_reap(self) -> list[str]:
 		self._cleanup_confirmation_succeeded = False
 		if self._cleanup_probe_group_id <= 0 and self.process_group_id > 0:
@@ -386,6 +491,57 @@ class _PosixProcessGroupOwner(_ProcessTreeOwner):
 					f"Owned POSIX process group {process_group_id} still existed after forced cleanup."
 				]
 			time.sleep(0.01)
+
+	def confirm_cleanup_after_reap_before_deadline(
+		self,
+		deadline: float,
+	) -> list[str]:
+		self._cleanup_confirmation_succeeded = False
+		if self._cleanup_probe_group_id <= 0 and self.process_group_id > 0:
+			self._cleanup_probe_group_id = self.process_group_id
+		self.process_group_id = 0
+		if self._cleanup_probe_group_id <= 0:
+			self._cleanup_confirmation_succeeded = True
+			return []
+		process_group_id = self._cleanup_probe_group_id
+		while True:
+			try:
+				os.killpg(process_group_id, 0)
+			except ProcessLookupError:
+				self._cleanup_probe_group_id = 0
+				self._cleanup_confirmation_succeeded = True
+				return []
+			except PermissionError:
+				pass
+			except OSError as error:
+				self.cleanup_failed = True
+				return [
+					f"Could not confirm POSIX process group {process_group_id} cleanup: {error}"
+				]
+			now = time.perf_counter()
+			linux_cleanup_state = _linux_process_group_cleanup_state(
+				process_group_id,
+				scan_deadline=deadline,
+			)
+			if linux_cleanup_state in (
+				_LINUX_PROCESS_GROUP_ABSENT,
+				_LINUX_PROCESS_GROUP_TERMINATED,
+			):
+				self._cleanup_probe_group_id = 0
+				self._cleanup_confirmation_succeeded = True
+				if linux_cleanup_state == _LINUX_PROCESS_GROUP_TERMINATED:
+					return [
+						f"Owned POSIX process group {process_group_id} retained only "
+						"terminated (zombie/dead) members after forced cleanup."
+					]
+				return []
+			if now >= deadline:
+				self.cleanup_failed = True
+				return [
+					f"Owned POSIX process group {process_group_id} cleanup "
+					"could not be confirmed before its absolute deadline."
+				]
+			time.sleep(min(0.01, max(0.0, deadline - now)))
 
 
 if os.name == "nt":
@@ -501,6 +657,7 @@ if os.name == "nt":
 			self.handle = handle
 			self.claim_lock = threading.Lock()
 			self.claimed = False
+			self.aborted_before_claim = False
 			self.finished = threading.Event()
 			self.state_lock = threading.Lock()
 			self.called = False
@@ -529,7 +686,7 @@ if os.name == "nt":
 		# Retrying a close whose Thread.start() was interrupted may create another
 		# contender. Exactly one worker can claim the numeric handle.
 		with operation.claim_lock:
-			if operation.claimed:
+			if operation.claimed or operation.aborted_before_claim:
 				return
 			operation.claimed = True
 		close_result: bool | None = None
@@ -671,6 +828,49 @@ if os.name == "nt":
 		)
 
 
+	def _launch_windows_handle_close_before_deadline(
+		owner: Any,
+		operation: _WindowsHandleCloseOperation,
+	) -> tuple[list[str], bool]:
+		"""Launch one persistent non-daemon close worker without losing the handle."""
+		notes: list[str] = []
+		worker_launched = False
+		for _attempt in range(2):
+			worker = threading.Thread(
+				target=_close_windows_handle_worker,
+				args=(owner, operation),
+				name="gf-windows-handle-close-deadline",
+				daemon=False,
+			)
+			try:
+				worker.start()
+				worker_launched = True
+				break
+			except BaseException as error:
+				notes.append(
+					"Windows Job Object close worker launch failed: "
+					f"{type(error).__name__}."
+				)
+
+		with operation.claim_lock:
+			worker_claimed = operation.claimed
+			abort_launch = not worker_launched and not worker_claimed
+			if abort_launch:
+				# A Thread.start() exception can be ambiguous. Claim cancellation while
+				# holding the same lock used by every target so a late native thread
+				# cannot consume a handle that has been restored to the owner.
+				operation.aborted_before_claim = True
+		if abort_launch:
+			with owner._handle_state_lock:
+				if owner._close_operation is operation:
+					owner.handle = operation.handle
+					owner._close_operation = None
+					owner._closed = False
+			operation.finished.set()
+			return notes, False
+		return notes, True
+
+
 	class _WindowsJobOwner(_ProcessTreeOwner):
 		"""Assign a suspended child to a kill-on-close Job before any code runs."""
 
@@ -712,24 +912,59 @@ if os.name == "nt":
 			cwd: Path,
 			environment: dict[str, str] | None,
 		) -> subprocess.Popen[str]:
-			process: subprocess.Popen[str] | None = None
+			return self._start_process(
+				command,
+				cwd=cwd,
+				environment=environment,
+				binary=False,
+			)
+
+		def start_bytes(
+			self,
+			command: list[str],
+			*,
+			cwd: Path,
+			environment: dict[str, str] | None,
+		) -> subprocess.Popen[bytes]:
+			return self._start_process(
+				command,
+				cwd=cwd,
+				environment=environment,
+				binary=True,
+			)
+
+		def _start_process(
+			self,
+			command: list[str],
+			*,
+			cwd: Path,
+			environment: dict[str, str] | None,
+			binary: bool,
+		) -> Any:
+			process: subprocess.Popen[Any] | None = None
 			assigned_to_job = False
 			try:
-				text_options: dict[str, object] = {"text": False} if self._binary_output else {
-					"text": True,
-					"encoding": "utf-8",
-					"errors": self._text_errors,
+				popen_options: dict[str, Any] = {
+					"cwd": cwd,
+					"stdin": subprocess.DEVNULL if binary else self._stdin_stream,
+					"stdout": subprocess.PIPE,
+					"stderr": subprocess.PIPE,
+					"env": environment,
+					"creationflags": (
+						subprocess.CREATE_NEW_PROCESS_GROUP | _CREATE_SUSPENDED
+					),
 				}
-				process = subprocess.Popen(
-					command,
-					cwd=cwd,
-					stdin=self._stdin_stream,
-					stdout=subprocess.PIPE,
-					stderr=subprocess.PIPE,
-					env=environment,
-					creationflags=subprocess.CREATE_NEW_PROCESS_GROUP | _CREATE_SUSPENDED,
-					**text_options,
-				)
+				if binary:
+					popen_options["bufsize"] = 0
+				if binary or self._binary_output:
+					popen_options["text"] = False
+				else:
+					popen_options.update({
+						"text": True,
+						"encoding": "utf-8",
+						"errors": self._text_errors,
+					})
+				process = subprocess.Popen(command, **popen_options)
 				self._started_process = process
 				self._process_was_created = True
 				setattr(process, "_gf_process_tree_owner", self)
@@ -857,6 +1092,85 @@ if os.name == "nt":
 			self.cleanup_failed = True
 			return notes
 
+		def terminate_before_deadline(
+			self,
+			_process: subprocess.Popen[Any],
+			deadline: float,
+		) -> list[str]:
+			self._termination_succeeded = False
+			with self._handle_state_lock:
+				close_in_progress = self._close_operation is not None
+				handle = self.handle
+			if close_in_progress:
+				self.cleanup_failed = True
+				return [
+					"Owned Windows Job Object close was already in progress; "
+					"deferring tree termination to kill-on-close."
+				]
+			if handle == 0:
+				self._termination_succeeded = self._closed
+				return []
+			try:
+				active_before = self._active_process_count(handle)
+			except OSError as error:
+				self.cleanup_failed = True
+				return [f"Could not query the owned Windows Job Object: {error}"]
+			if active_before == 0:
+				self._termination_succeeded = True
+				return []
+			if not _TERMINATE_JOB(wintypes.HANDLE(handle), 1):
+				self.cleanup_failed = True
+				return [
+					f"Could not terminate the owned Windows Job Object: "
+					f"{ctypes.WinError(ctypes.get_last_error())}"
+				]
+			while True:
+				try:
+					if self._active_process_count(handle) == 0:
+						self._termination_succeeded = True
+						return [
+							f"Terminated {active_before} process(es) from the "
+							"owned Windows Job Object."
+						]
+				except OSError as error:
+					self.cleanup_failed = True
+					return [f"Could not confirm Windows Job Object cleanup: {error}"]
+				now = time.perf_counter()
+				if now >= deadline:
+					self.cleanup_failed = True
+					return [
+						"Owned Windows Job Object cleanup could not be confirmed "
+						"before its absolute deadline."
+					]
+				time.sleep(min(0.01, max(0.0, deadline - now)))
+
+		def confirm_cleanup_after_reap_before_deadline(
+			self,
+			deadline: float,
+		) -> list[str]:
+			self._cleanup_confirmation_succeeded = False
+			with self._handle_state_lock:
+				handle = self.handle
+			if handle == 0:
+				self._cleanup_confirmation_succeeded = self._closed
+				return []
+			while True:
+				try:
+					if self._active_process_count(handle) == 0:
+						self._cleanup_confirmation_succeeded = True
+						return []
+				except OSError as error:
+					self.cleanup_failed = True
+					return [f"Could not confirm Windows Job Object cleanup: {error}"]
+				now = time.perf_counter()
+				if now >= deadline:
+					self.cleanup_failed = True
+					return [
+						"Windows Job Object cleanup could not be confirmed before "
+						"its absolute deadline."
+					]
+				time.sleep(min(0.01, max(0.0, deadline - now)))
+
 		def close(self) -> list[str]:
 			with self._handle_state_lock:
 				already_closed = self.handle == 0 and self._close_operation is None
@@ -880,6 +1194,64 @@ if os.name == "nt":
 			if outcome.result is False:
 				return [f"Could not close the owned Windows Job Object: {ctypes.WinError(outcome.last_error)}"]
 			return []
+
+		def close_before_deadline(self, deadline: float) -> list[str]:
+			with self._handle_state_lock:
+				operation = self._close_operation
+				if operation is None:
+					if self.handle == 0:
+						self._started_process = None
+						self._closed = True
+						return []
+					operation = _WindowsHandleCloseOperation(self.handle)
+					self._close_operation = operation
+					self.handle = 0
+					self._closed = False
+
+			notes, worker_active = _launch_windows_handle_close_before_deadline(
+				self,
+				operation,
+			)
+			if not worker_active:
+				self.cleanup_failed = True
+				notes.append("Windows Job Object close worker could not be retained.")
+				return notes
+			while not operation.finished.is_set():
+				remaining = deadline - time.perf_counter()
+				if remaining <= 0.0:
+					self.cleanup_failed = True
+					notes.append(
+						"Windows Job Object close could not be confirmed before "
+						"its absolute deadline."
+					)
+					return notes
+				operation.finished.wait(min(0.01, remaining))
+			outcome = _windows_handle_close_outcome(operation, None, None)
+			if outcome.called and outcome.result is False:
+				self.cleanup_failed = True
+			if outcome.error is not None:
+				raise outcome.error.with_traceback(outcome.error_traceback)
+			if outcome.result is False:
+				notes.append(
+					f"Could not close the owned Windows Job Object: "
+					f"{ctypes.WinError(outcome.last_error)}"
+				)
+				return notes
+			if time.perf_counter() > deadline:
+				self.cleanup_failed = True
+				notes.append("Windows Job Object close exceeded its absolute deadline.")
+			return notes
+
+		def wait_for_close_completion(self, timeout_seconds: float | None) -> bool:
+			with self._handle_state_lock:
+				operation = self._close_operation
+			if operation is None:
+				return self.is_closed()
+			if timeout_seconds is None:
+				operation.finished.wait()
+			else:
+				operation.finished.wait(max(0.0, timeout_seconds))
+			return operation.finished.is_set() and self.is_closed()
 
 		def close_terminates_tree(self) -> bool:
 			return True
@@ -914,6 +1286,786 @@ class SupervisedProcessResult:
 	stdout_truncated: bool = False
 	stderr_truncated: bool = False
 	process_boundary_quiescent: bool = False
+
+
+@dataclass(frozen=True)
+class SupervisedBinaryCleanupStatus:
+	complete: bool
+	cleanup_complete: bool
+	owner_closed: bool
+	process_tree_empty: bool
+	pid: int
+	notes: tuple[str, ...] = ()
+	error_type: str = ""
+
+
+@dataclass(frozen=True)
+class SupervisedBinaryProcessResult:
+	return_code: int
+	stdout: bytes
+	stderr: bytes
+	timed_out: bool
+	duration_seconds: float
+	pid: int
+	notes: tuple[str, ...] = ()
+	stdout_truncated: bool = False
+	stderr_truncated: bool = False
+	output_drain_failed: bool = False
+	cleanup_complete: bool = False
+	deferred_cleanup: SupervisedBinaryCleanupHandle | None = None
+
+
+@dataclass
+class _BoundedBinaryPipeState:
+	pipe: Any
+	max_bytes: int
+	chunks: list[bytes]
+	byte_count: int = 0
+	eof: bool = False
+	truncated: bool = False
+	read_failed: bool = False
+
+
+def _drain_binary_pipe_nonblocking(
+	state: _BoundedBinaryPipeState,
+	stream_name: str,
+	notes: list[str],
+) -> None:
+	while not state.eof and not state.truncated and not state.read_failed:
+		remaining = state.max_bytes - state.byte_count
+		try:
+			chunk = os.read(
+				state.pipe.fileno(),
+				min(64 * 1024, remaining + 1),
+			)
+		except BlockingIOError:
+			return
+		except OSError as error:
+			state.read_failed = True
+			notes.append(
+				f"Could not read supervised binary {stream_name}: "
+				f"{type(error).__name__}."
+			)
+			return
+		if not chunk:
+			state.eof = True
+			return
+		if len(chunk) > remaining:
+			if remaining > 0:
+				state.chunks.append(chunk[:remaining])
+				state.byte_count += remaining
+			state.truncated = True
+			return
+		state.chunks.append(chunk)
+		state.byte_count += len(chunk)
+
+
+def _reap_direct_process_before_deadline(
+	process: subprocess.Popen[Any],
+	deadline: float,
+	notes: list[str],
+) -> bool:
+	remaining = max(0.0, deadline - time.perf_counter())
+	try:
+		process.wait(timeout=remaining)
+		return process.returncode is not None
+	except subprocess.TimeoutExpired:
+		try:
+			process.kill()
+		except OSError as error:
+			notes.append(
+				f"Direct child could not be killed before its absolute deadline: {error}"
+			)
+		remaining = max(0.0, deadline - time.perf_counter())
+		if remaining <= 0.0:
+			notes.append("Direct child could not be reaped before its absolute deadline.")
+			return False
+		try:
+			process.wait(timeout=remaining)
+		except (OSError, subprocess.TimeoutExpired) as error:
+			notes.append(
+				f"Direct child could not be reaped before its absolute deadline: {error}"
+			)
+		return process.returncode is not None
+
+
+@dataclass(frozen=True)
+class _BinarySpawnHandoff:
+	owner: _ProcessTreeOwner
+	process: subprocess.Popen[bytes]
+
+
+class _BinarySpawnOperation:
+	"""Persistent owner for a spawn that may finish after the caller deadline."""
+
+	def __init__(
+		self,
+		command: list[str],
+		*,
+		cwd: Path,
+		environment: dict[str, str] | None,
+		max_stdout_bytes: int,
+		max_stderr_bytes: int,
+	) -> None:
+		self._command = list(command)
+		self._cwd = cwd
+		self._environment = environment
+		self._max_stdout_bytes = max_stdout_bytes
+		self._max_stderr_bytes = max_stderr_bytes
+		self._worker_claim_lock = threading.Lock()
+		self._worker_claimed = False
+		self._launch_aborted = False
+		self._state_lock = threading.Lock()
+		self._spawn_ready = threading.Event()
+		self._caller_decision = threading.Event()
+		self._finished = threading.Event()
+		self._caller_claimed = False
+		self._caller_abandoned = False
+		self._owner: _ProcessTreeOwner | None = None
+		self._process: subprocess.Popen[bytes] | None = None
+		self._error: BaseException | None = None
+		self._error_traceback: Any = None
+		self._cleanup_complete = False
+		self._owner_closed = False
+		self._process_tree_empty = False
+		self._notes: tuple[str, ...] = ()
+		self._error_type = ""
+
+	def launch(self) -> None:
+		first_error: BaseException | None = None
+		first_traceback: Any = None
+		for _attempt in range(2):
+			worker = threading.Thread(
+				target=self._worker_main,
+				name="gf-binary-process-spawn",
+				daemon=False,
+			)
+			try:
+				worker.start()
+				if first_error is not None and not isinstance(first_error, Exception):
+					self.abandon()
+					raise first_error.with_traceback(first_traceback)
+				return
+			except BaseException as error:
+				if first_error is None:
+					first_error = error
+					first_traceback = error.__traceback__
+
+		with self._worker_claim_lock:
+			worker_claimed = self._worker_claimed
+			if not worker_claimed:
+				self._launch_aborted = True
+		if worker_claimed:
+			self.abandon()
+		else:
+			with self._state_lock:
+				self._error = first_error
+				self._error_traceback = first_traceback
+				self._error_type = type(first_error).__name__ if first_error is not None else ""
+				self._notes = ("Binary spawn worker could not be retained.",)
+			self._spawn_ready.set()
+			self._finished.set()
+		if first_error is not None:
+			raise first_error.with_traceback(first_traceback)
+		raise RuntimeError("Binary spawn worker could not be retained.")
+
+	def claim_before_deadline(self, deadline: float) -> _BinarySpawnHandoff | None:
+		remaining = deadline - time.perf_counter()
+		if remaining <= 0.0 or not self._spawn_ready.wait(remaining):
+			self.abandon()
+			return None
+		with self._state_lock:
+			if time.perf_counter() > deadline:
+				self._caller_abandoned = True
+				self._caller_decision.set()
+				return None
+			error = self._error
+			error_traceback = self._error_traceback
+			owner = self._owner
+			process = self._process
+			if error is None and owner is not None and process is not None:
+				self._caller_claimed = True
+				self._caller_decision.set()
+				handoff = _BinarySpawnHandoff(owner=owner, process=process)
+			else:
+				handoff = None
+		if error is not None:
+			raise error.with_traceback(error_traceback)
+		if handoff is None:
+			raise RuntimeError("Binary spawn completed without an owned process.")
+		remaining = max(0.0, deadline - time.perf_counter())
+		self._finished.wait(remaining)
+		return handoff
+
+	def abandon(self) -> None:
+		with self._state_lock:
+			if self._caller_claimed:
+				return
+			self._caller_abandoned = True
+			self._caller_decision.set()
+
+	def wait(self, timeout_seconds: float | None) -> bool:
+		return self._finished.wait(timeout_seconds)
+
+	def snapshot(self) -> SupervisedBinaryCleanupStatus:
+		with self._state_lock:
+			pid = self._process.pid if self._process is not None else 0
+			return SupervisedBinaryCleanupStatus(
+				complete=self._finished.is_set(),
+				cleanup_complete=self._cleanup_complete,
+				owner_closed=self._owner_closed,
+				process_tree_empty=self._process_tree_empty,
+				pid=pid,
+				notes=self._notes,
+				error_type=self._error_type,
+			)
+
+	def current_pid(self) -> int:
+		with self._state_lock:
+			return self._process.pid if self._process is not None else 0
+
+	def _worker_main(self) -> None:
+		with self._worker_claim_lock:
+			if self._worker_claimed or self._launch_aborted:
+				return
+			self._worker_claimed = True
+
+		owner: _ProcessTreeOwner | None = None
+		process: subprocess.Popen[bytes] | None = None
+		try:
+			owner = _new_process_tree_owner()
+			process = owner.start_bytes(
+				self._command,
+				cwd=self._cwd,
+				environment=self._environment,
+			)
+			if getattr(process, "_gf_process_tree_owner", None) is not owner:
+				raise RuntimeError(
+					"Started binary process lost its process-tree owner binding."
+				)
+			if process.stdout is None or process.stderr is None:
+				raise OSError("Supervised binary process did not expose both output pipes.")
+		except BaseException as error:
+			if process is None and owner is not None:
+				started_process = owner._started_process
+				if started_process is not None:
+					process = started_process
+			with self._state_lock:
+				self._owner = owner
+				self._process = process
+				self._error = error
+				self._error_traceback = error.__traceback__
+				self._error_type = type(error).__name__
+			cleanup_status = self._cleanup_owned_spawn(
+				owner,
+				process,
+				initial_notes=(f"Binary spawn failed: {type(error).__name__}.",),
+			)
+			self._publish_cleanup_status(cleanup_status)
+			self._finished.set()
+			self._spawn_ready.set()
+			return
+
+		with self._state_lock:
+			self._owner = owner
+			self._process = process
+		self._spawn_ready.set()
+		self._caller_decision.wait()
+		with self._state_lock:
+			caller_claimed = self._caller_claimed
+		if caller_claimed:
+			with self._state_lock:
+				self._notes = ("Binary spawn ownership transferred to the caller.",)
+			self._finished.set()
+			return
+		cleanup_status = self._cleanup_owned_spawn(owner, process)
+		self._publish_cleanup_status(cleanup_status)
+		self._finished.set()
+
+	def _cleanup_owned_spawn(
+		self,
+		owner: _ProcessTreeOwner | None,
+		process: subprocess.Popen[bytes] | None,
+		*,
+		initial_notes: tuple[str, ...] = (),
+	) -> SupervisedBinaryCleanupStatus:
+		notes = list(initial_notes)
+		if owner is None:
+			return SupervisedBinaryCleanupStatus(
+				complete=True,
+				cleanup_complete=process is None,
+				owner_closed=process is None,
+				process_tree_empty=process is None,
+				pid=process.pid if process is not None else 0,
+				notes=tuple(notes),
+				error_type=self._error_type,
+			)
+
+		cleanup_deadline = (
+			time.perf_counter() + BINARY_PROCESS_DEFERRED_CLEANUP_SECONDS
+		)
+		direct_reaped = process is None
+		if process is not None:
+			try:
+				notes.extend(owner.terminate_before_deadline(process, cleanup_deadline))
+			except BaseException as error:
+				owner.cleanup_failed = True
+				notes.append(
+					"Deferred binary process-tree termination failed: "
+					f"{type(error).__name__}."
+				)
+			stdout_state: _BoundedBinaryPipeState | None = None
+			stderr_state: _BoundedBinaryPipeState | None = None
+			if process.stdout is not None and process.stderr is not None:
+				try:
+					for pipe in (process.stdout, process.stderr):
+						os.set_blocking(pipe.fileno(), False)
+					stdout_state = _BoundedBinaryPipeState(
+						pipe=process.stdout,
+						max_bytes=self._max_stdout_bytes,
+						chunks=[],
+					)
+					stderr_state = _BoundedBinaryPipeState(
+						pipe=process.stderr,
+						max_bytes=self._max_stderr_bytes,
+						chunks=[],
+					)
+				except OSError as error:
+					notes.append(
+						"Deferred binary pipe setup failed: "
+						f"{type(error).__name__}."
+					)
+			if stdout_state is not None and stderr_state is not None:
+				drain_deadline = min(
+					cleanup_deadline,
+					time.perf_counter()
+					+ BINARY_PROCESS_POST_TERMINATION_DRAIN_SECONDS,
+				)
+				while True:
+					_drain_binary_pipe_nonblocking(stdout_state, "stdout", notes)
+					_drain_binary_pipe_nonblocking(stderr_state, "stderr", notes)
+					if (
+						(stdout_state.eof or stdout_state.truncated or stdout_state.read_failed)
+						and (
+							stderr_state.eof
+							or stderr_state.truncated
+							or stderr_state.read_failed
+						)
+					):
+						break
+					now = time.perf_counter()
+					if now >= drain_deadline:
+						notes.append(
+							"Deferred binary output drain reached its cleanup deadline."
+						)
+						break
+					time.sleep(min(BINARY_PROCESS_POLL_SECONDS, drain_deadline - now))
+			try:
+				direct_reaped = _reap_direct_process_before_deadline(
+					process,
+					cleanup_deadline,
+					notes,
+				)
+			except BaseException as error:
+				notes.append(
+					f"Deferred binary direct-child reap failed: {type(error).__name__}."
+				)
+			try:
+				notes.extend(
+					owner.confirm_cleanup_after_reap_before_deadline(cleanup_deadline)
+				)
+			except BaseException as error:
+				owner.cleanup_failed = True
+				notes.append(
+					"Deferred binary process-tree confirmation failed: "
+					f"{type(error).__name__}."
+				)
+
+		try:
+			notes.extend(owner.close_before_deadline(cleanup_deadline))
+		except BaseException as error:
+			owner.cleanup_failed = True
+			notes.append(
+				f"Deferred binary process-tree owner close failed: {type(error).__name__}."
+			)
+		while not owner.is_closed():
+			# The caller deadline has already been honored. Keep this non-daemon
+			# operation alive until an already-started kernel-handle close reports
+			# its final state, rather than losing ownership in a daemon-only thread.
+			if owner.wait_for_close_completion(None):
+				break
+			retry_deadline = (
+				time.perf_counter() + BINARY_PROCESS_DEFERRED_CLEANUP_SECONDS
+			)
+			try:
+				notes.extend(owner.close_before_deadline(retry_deadline))
+			except BaseException as error:
+				owner.cleanup_failed = True
+				notes.append(
+					"Deferred binary process-tree owner close retry failed: "
+					f"{type(error).__name__}."
+				)
+			if not owner.is_closed():
+				time.sleep(BINARY_PROCESS_POLL_SECONDS)
+		if process is not None:
+			for pipe in (process.stdout, process.stderr):
+				if pipe is None:
+					continue
+				try:
+					pipe.close()
+				except OSError:
+					pass
+		process_tree_empty = (
+			process is None
+			or (
+				owner.termination_succeeded()
+				and owner.cleanup_confirmation_succeeded()
+			)
+		)
+		owner_closed = owner.is_closed()
+		cleanup_complete = (
+			process_tree_empty
+			and direct_reaped
+			and owner_closed
+			and not owner.cleanup_failed
+		)
+		return SupervisedBinaryCleanupStatus(
+			complete=True,
+			cleanup_complete=cleanup_complete,
+			owner_closed=owner_closed,
+			process_tree_empty=process_tree_empty,
+			pid=process.pid if process is not None else 0,
+			notes=tuple(notes),
+			error_type=self._error_type,
+		)
+
+	def _publish_cleanup_status(
+		self,
+		status: SupervisedBinaryCleanupStatus,
+	) -> None:
+		with self._state_lock:
+			self._cleanup_complete = status.cleanup_complete
+			self._owner_closed = status.owner_closed
+			self._process_tree_empty = status.process_tree_empty
+			self._notes = status.notes
+			self._error_type = status.error_type
+
+
+class _BinaryOwnerCloseObservation:
+	"""Observe a retained close worker after the caller's deadline elapsed."""
+
+	def __init__(
+		self,
+		owner: _ProcessTreeOwner,
+		*,
+		pid: int,
+		process_tree_empty: bool,
+		direct_reaped: bool,
+		notes: tuple[str, ...],
+	) -> None:
+		self._owner = owner
+		self._pid = pid
+		self._process_tree_empty = process_tree_empty
+		self._direct_reaped = direct_reaped
+		self._notes = notes
+
+	def wait(self, timeout_seconds: float | None) -> bool:
+		return self._owner.wait_for_close_completion(timeout_seconds)
+
+	def snapshot(self) -> SupervisedBinaryCleanupStatus:
+		owner_closed = self._owner.is_closed()
+		return SupervisedBinaryCleanupStatus(
+			complete=owner_closed,
+			cleanup_complete=(
+				owner_closed
+				and self._process_tree_empty
+				and self._direct_reaped
+				and not self._owner.cleanup_failed
+			),
+			owner_closed=owner_closed,
+			process_tree_empty=self._process_tree_empty,
+			pid=self._pid,
+			notes=self._notes,
+		)
+
+
+class SupervisedBinaryCleanupHandle:
+	"""Observable final state for a spawn cleaned after the caller deadline."""
+
+	def __init__(self, operation: Any) -> None:
+		self._operation = operation
+
+	def wait(self, timeout_seconds: float | None = None) -> bool:
+		if timeout_seconds is not None and (
+			isinstance(timeout_seconds, bool)
+			or not isinstance(timeout_seconds, (int, float))
+			or not math.isfinite(float(timeout_seconds))
+			or float(timeout_seconds) < 0.0
+		):
+			raise ValueError("Deferred cleanup timeout must be finite and non-negative.")
+		return self._operation.wait(
+			None if timeout_seconds is None else float(timeout_seconds)
+		)
+
+	def snapshot(self) -> SupervisedBinaryCleanupStatus:
+		return self._operation.snapshot()
+
+
+def run_supervised_process_bytes(
+	command: list[str],
+	*,
+	cwd: Path,
+	timeout_seconds: float,
+	max_stdout_bytes: int,
+	max_stderr_bytes: int,
+	environment: dict[str, str] | None = None,
+) -> SupervisedBinaryProcessResult:
+	"""Run one owned process tree with raw, byte-bounded output capture."""
+	started = time.perf_counter()
+	if (
+		isinstance(timeout_seconds, bool)
+		or not isinstance(timeout_seconds, (int, float))
+		or not math.isfinite(float(timeout_seconds))
+		or float(timeout_seconds) <= 0.0
+	):
+		raise ValueError("Binary process timeout must be a finite positive number.")
+	for stream_name, capture_limit in (
+		("stdout", max_stdout_bytes),
+		("stderr", max_stderr_bytes),
+	):
+		if (
+			isinstance(capture_limit, bool)
+			or not isinstance(capture_limit, int)
+			or capture_limit < 1
+		):
+			raise ValueError(
+				f"{stream_name} byte capture limit must be a positive integer."
+			)
+
+	deadline = started + float(timeout_seconds)
+	cleanup_reserve = min(
+		BINARY_PROCESS_CLEANUP_RESERVE_SECONDS,
+		float(timeout_seconds) * 0.5,
+	)
+	execution_deadline = deadline - cleanup_reserve
+	spawn_operation = _BinarySpawnOperation(
+		command,
+		cwd=cwd,
+		environment=environment,
+		max_stdout_bytes=max_stdout_bytes,
+		max_stderr_bytes=max_stderr_bytes,
+	)
+	try:
+		spawn_operation.launch()
+		handoff = spawn_operation.claim_before_deadline(deadline)
+	except BaseException:
+		spawn_operation.abandon()
+		raise
+	if handoff is None:
+		duration_seconds = time.perf_counter() - started
+		return SupervisedBinaryProcessResult(
+			return_code=124,
+			stdout=b"",
+			stderr=b"",
+			timed_out=True,
+			duration_seconds=duration_seconds,
+			pid=spawn_operation.current_pid(),
+			notes=(
+				"Binary process spawn did not complete before its absolute deadline; "
+				"deferred cleanup retained ownership.",
+			),
+			cleanup_complete=False,
+			deferred_cleanup=SupervisedBinaryCleanupHandle(spawn_operation),
+		)
+
+	owner: _ProcessTreeOwner = handoff.owner
+	process: subprocess.Popen[bytes] = handoff.process
+	stdout_state: _BoundedBinaryPipeState | None = None
+	stderr_state: _BoundedBinaryPipeState | None = None
+	notes: list[str] = []
+	timed_out = False
+	output_drain_failed = False
+	direct_reaped = False
+	pending_error: BaseException | None = None
+	pending_traceback: Any = None
+
+	try:
+		# Spawn admission validated owner binding and both pipes before handoff.
+		stdout_pipe = process.stdout
+		stderr_pipe = process.stderr
+		if stdout_pipe is None or stderr_pipe is None:
+			raise RuntimeError("Binary spawn handoff lost its captured output pipes.")
+		for pipe in (stdout_pipe, stderr_pipe):
+			os.set_blocking(pipe.fileno(), False)
+		stdout_state = _BoundedBinaryPipeState(
+			pipe=stdout_pipe,
+			max_bytes=max_stdout_bytes,
+			chunks=[],
+		)
+		stderr_state = _BoundedBinaryPipeState(
+			pipe=stderr_pipe,
+			max_bytes=max_stderr_bytes,
+			chunks=[],
+		)
+		direct_exit_at: float | None = None
+		while True:
+			_drain_binary_pipe_nonblocking(stdout_state, "stdout", notes)
+			_drain_binary_pipe_nonblocking(stderr_state, "stderr", notes)
+			if stdout_state.truncated or stderr_state.truncated:
+				break
+			if stdout_state.read_failed or stderr_state.read_failed:
+				output_drain_failed = True
+				break
+			direct_exited = owner.wait_for_direct_exit(process, 0.0)
+			now = time.perf_counter()
+			if direct_exited and stdout_state.eof and stderr_state.eof:
+				break
+			if direct_exited:
+				if direct_exit_at is None:
+					direct_exit_at = now
+				if now >= min(
+					execution_deadline,
+					direct_exit_at + OUTPUT_DRAIN_GRACE_SECONDS,
+				):
+					output_drain_failed = True
+					notes.append(
+						"Output pipes remained open after the direct child exited; "
+						"terminating the owned process tree."
+					)
+					break
+			if now >= execution_deadline:
+				timed_out = True
+				notes.append(
+					"Binary command reached its execution deadline; terminating "
+					"the owned process tree."
+				)
+				break
+			time.sleep(min(BINARY_PROCESS_POLL_SECONDS, execution_deadline - now))
+	except BaseException as error:
+		pending_error = error
+		pending_traceback = error.__traceback__
+	finally:
+		if owner is not None and process is not None:
+			try:
+				notes.extend(owner.terminate_before_deadline(process, deadline))
+			except BaseException as error:
+				owner.cleanup_failed = True
+				notes.append(
+					f"Binary process-tree termination failed: {type(error).__name__}."
+				)
+				if pending_error is None:
+					pending_error = error
+					pending_traceback = error.__traceback__
+
+			pipe_drain_deadline = min(
+				deadline,
+				time.perf_counter() + BINARY_PROCESS_POST_TERMINATION_DRAIN_SECONDS,
+			)
+			while stdout_state is not None and stderr_state is not None:
+				_drain_binary_pipe_nonblocking(stdout_state, "stdout", notes)
+				_drain_binary_pipe_nonblocking(stderr_state, "stderr", notes)
+				if (
+					(stdout_state.eof or stdout_state.truncated or stdout_state.read_failed)
+					and (
+						stderr_state.eof
+						or stderr_state.truncated
+						or stderr_state.read_failed
+					)
+				):
+					break
+				now = time.perf_counter()
+				if now >= pipe_drain_deadline:
+					output_drain_failed = True
+					break
+				time.sleep(min(BINARY_PROCESS_POLL_SECONDS, pipe_drain_deadline - now))
+
+			try:
+				direct_reaped = _reap_direct_process_before_deadline(
+					process,
+					deadline,
+					notes,
+				)
+			except BaseException as error:
+				notes.append(f"Binary direct-child reap failed: {type(error).__name__}.")
+				if pending_error is None:
+					pending_error = error
+					pending_traceback = error.__traceback__
+
+			try:
+				notes.extend(owner.confirm_cleanup_after_reap_before_deadline(deadline))
+			except BaseException as error:
+				owner.cleanup_failed = True
+				notes.append(
+					f"Binary process-tree confirmation failed: {type(error).__name__}."
+				)
+				if pending_error is None:
+					pending_error = error
+					pending_traceback = error.__traceback__
+
+		if owner is not None:
+			try:
+				notes.extend(owner.close_before_deadline(deadline))
+			except BaseException as error:
+				owner.cleanup_failed = True
+				notes.append(f"Binary process-tree owner close failed: {type(error).__name__}.")
+				if pending_error is None:
+					pending_error = error
+					pending_traceback = error.__traceback__
+
+		if process is not None:
+			for pipe in (process.stdout, process.stderr):
+				if pipe is None:
+					continue
+				try:
+					pipe.close()
+				except OSError:
+					pass
+
+	if pending_error is not None:
+		raise pending_error.with_traceback(pending_traceback)
+	if owner is None or process is None or stdout_state is None or stderr_state is None:
+		raise RuntimeError("Binary process supervision completed without a process result.")
+	duration_seconds = time.perf_counter() - started
+	deadline_respected = duration_seconds <= float(timeout_seconds)
+	if not deadline_respected:
+		timed_out = True
+		notes.append("Binary process supervision exceeded its absolute deadline.")
+	process_tree_empty = (
+		owner.termination_succeeded()
+		and owner.cleanup_confirmation_succeeded()
+	)
+	cleanup_complete = (
+		process_tree_empty
+		and direct_reaped
+		and owner.is_closed()
+		and not owner.cleanup_failed
+		and deadline_respected
+	)
+	deferred_cleanup: SupervisedBinaryCleanupHandle | None = None
+	if not owner.is_closed():
+		deferred_cleanup = SupervisedBinaryCleanupHandle(
+			_BinaryOwnerCloseObservation(
+				owner,
+				pid=process.pid,
+				process_tree_empty=process_tree_empty,
+				direct_reaped=direct_reaped,
+				notes=tuple(notes),
+			)
+		)
+	return SupervisedBinaryProcessResult(
+		return_code=process.returncode if process.returncode is not None else 124,
+		stdout=b"".join(stdout_state.chunks),
+		stderr=b"".join(stderr_state.chunks),
+		timed_out=timed_out,
+		duration_seconds=duration_seconds,
+		pid=process.pid,
+		notes=tuple(notes),
+		stdout_truncated=stdout_state.truncated,
+		stderr_truncated=stderr_state.truncated,
+		output_drain_failed=output_drain_failed,
+		cleanup_complete=cleanup_complete,
+		deferred_cleanup=deferred_cleanup,
+	)
 
 
 def run_supervised_process(

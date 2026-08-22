@@ -21,6 +21,17 @@ const REPORT_KEYS: Array[String] = [
 	"size_bytes",
 	"source_path",
 ]
+const INTERNAL_DIGEST_REPORT_KEYS: Array[String] = [
+	"content_sha256",
+	"data",
+	"error",
+	"error_kind",
+	"max_bytes",
+	"max_depth",
+	"ok",
+	"size_bytes",
+	"source_path",
+]
 
 
 # --- GUT 生命周期方法 ---
@@ -369,6 +380,31 @@ func test_read_object_supports_res_and_user_paths_with_exact_size() -> void:
 	assert_eq(_option_string(user_report, "source_path"), USER_FIXTURE_PATH)
 	assert_eq(_option_int(user_report, "size_bytes"), text.to_utf8_buffer().size())
 	assert_eq(_option_string(over_report, "error_kind"), "payload_too_large")
+
+
+func test_internal_read_object_digest_is_bound_to_the_parsed_byte_buffer() -> void:
+	var text: String = '{"source":"same-buffer","value":"汉字"}'
+	_write_text_fixture(RES_FIXTURE_PATH, text)
+	var internal_report: Dictionary = (
+		GFBoundedJsonObjectReader.read_object_with_content_sha256(
+			RES_FIXTURE_PATH,
+			text.to_utf8_buffer().size()
+		)
+	)
+	var public_report: Dictionary = GFBoundedJsonObjectReader.read_object(
+		RES_FIXTURE_PATH,
+		text.to_utf8_buffer().size()
+	)
+
+	assert_true(_option_bool(internal_report, "ok"))
+	assert_eq(_sorted_string_keys(internal_report), INTERNAL_DIGEST_REPORT_KEYS)
+	assert_eq(
+		_option_string(internal_report, "content_sha256"),
+		text.sha256_text(),
+		"内部摘要必须来自完成解析的同一份原始 UTF-8 bytes。"
+	)
+	assert_eq(_option_dictionary(internal_report, "data"), _option_dictionary(public_report, "data"))
+	assert_eq(_sorted_string_keys(public_report), REPORT_KEYS, "新增内部入口不得扩大公开报告 schema。")
 
 
 func test_read_object_reports_missing_and_invalid_utf8_inputs() -> void:

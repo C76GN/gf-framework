@@ -1,0 +1,873 @@
+{
+  "fixture_schema_version": 1,
+  "cases": [
+    {
+      "id": "valid_common_profile",
+      "profile": {
+        "schema_version": 1,
+        "id": "neutral.valid_common",
+        "zones": [],
+        "rules": [
+          {
+            "id": "bounded_sources",
+            "kind": "bucket_size",
+            "roots": ["src"],
+            "max_files": 2
+          }
+        ]
+      },
+      "inventory": ["src/first.gd", "src/second.gd"],
+      "expected": {
+        "strict_contract_valid": true,
+        "python_issue_count": 0,
+        "python_runtime_issue_kinds": [],
+        "godot_validator_success": true,
+        "godot_planner_complete": true,
+        "godot_validator_issue_kinds": [],
+        "godot_planner_issue_kinds": [],
+        "godot_validator_rule_issue_count": 0,
+        "godot_validator_rule_severity": "warning"
+      }
+    },
+    {
+      "id": "unsupported_schema_version",
+      "profile": {
+        "schema_version": 2,
+        "id": "neutral.unsupported_schema",
+        "zones": [],
+        "rules": []
+      },
+      "inventory": [],
+      "expected": {
+        "strict_contract_valid": false,
+        "godot_validator_success": false,
+        "godot_planner_complete": false,
+        "godot_validator_issue_kinds": ["unsupported_schema_version"],
+        "godot_planner_issue_kinds": ["unsupported_schema_version"],
+        "reason_code": "PROJECT_LAYOUT_PROFILE_SCHEMA_VERSION_UNSUPPORTED"
+      }
+    },
+    {
+      "id": "whitespace_profile_id",
+      "profile": {
+        "schema_version": 1,
+        "id": " ",
+        "zones": [],
+        "rules": []
+      },
+      "inventory": [],
+      "expected": {
+        "strict_contract_valid": false,
+        "godot_validator_success": false,
+        "godot_planner_complete": false,
+        "godot_validator_issue_kinds": ["invalid_string_field"],
+        "godot_planner_issue_kinds": ["invalid_string_field"],
+        "reason_code": "PROJECT_LAYOUT_PROFILE_FIELD_VALUE_INVALID"
+      }
+    },
+    {
+      "id": "whitespace_regex",
+      "profile": {
+        "schema_version": 1,
+        "id": "neutral.whitespace_regex",
+        "zones": [],
+        "rules": [
+          {
+            "id": "names",
+            "kind": "naming_convention",
+            "roots": [],
+            "pattern": " "
+          }
+        ]
+      },
+      "inventory": [],
+      "expected": {
+        "strict_contract_valid": false,
+        "godot_validator_success": false,
+        "godot_planner_complete": false,
+        "godot_validator_issue_kinds": ["invalid_string_field"],
+        "godot_planner_issue_kinds": ["invalid_string_field"],
+        "reason_code": "PROJECT_LAYOUT_PROFILE_FIELD_VALUE_INVALID"
+      }
+    },
+    {
+      "id": "whitespace_string_list_item",
+      "profile": {
+        "schema_version": 1,
+        "id": "neutral.whitespace_list_item",
+        "zones": [
+          {
+            "id": "source",
+            "roots": [" "]
+          }
+        ],
+        "rules": []
+      },
+      "inventory": [],
+      "expected": {
+        "strict_contract_valid": false,
+        "godot_validator_success": false,
+        "godot_planner_complete": false,
+        "godot_validator_issue_kinds": ["invalid_string_list_field"],
+        "godot_planner_issue_kinds": ["invalid_string_list_field"],
+        "reason_code": "PROJECT_LAYOUT_PROFILE_FIELD_VALUE_INVALID"
+      }
+    },
+    {
+      "id": "invalid_enum_value",
+      "profile": {
+        "schema_version": 1,
+        "id": "neutral.invalid_enum",
+        "zones": [],
+        "rules": [
+          {
+            "id": "bounded",
+            "kind": "bucket_size",
+            "roots": ["src"],
+            "max_files": 1,
+            "severity": "fatal"
+          }
+        ]
+      },
+      "inventory": [],
+      "expected": {
+        "strict_contract_valid": false,
+        "godot_validator_success": false,
+        "godot_planner_complete": false,
+        "godot_validator_issue_kinds": ["invalid_severity"],
+        "godot_planner_issue_kinds": ["invalid_severity"],
+        "reason_code": "PROJECT_LAYOUT_PROFILE_FIELD_VALUE_INVALID"
+      }
+    },
+    {
+      "id": "positive_integer_wrong_type",
+      "profile": {
+        "schema_version": 1,
+        "id": "neutral.positive_integer_type",
+        "zones": [],
+        "rules": [
+          {
+            "id": "bounded",
+            "kind": "bucket_size",
+            "roots": ["src"],
+            "max_files": 1.5
+          }
+        ]
+      },
+      "inventory": [],
+      "expected": {
+        "strict_contract_valid": false,
+        "godot_validator_success": false,
+        "godot_planner_complete": false,
+        "godot_validator_issue_kinds": ["invalid_integer_field"],
+        "godot_planner_issue_kinds": ["invalid_integer_field"],
+        "reason_code": "PROJECT_LAYOUT_PROFILE_FIELD_TYPE_INVALID"
+      }
+    },
+    {
+      "id": "mixed_zone_roots",
+      "profile": {
+        "schema_version": 1,
+        "id": "neutral.mixed_roots",
+        "zones": [
+          {
+            "id": "source",
+            "roots": ["src", 7],
+            "required": true
+          }
+        ],
+        "rules": []
+      },
+      "inventory": ["src/main.gd"],
+      "expected": {
+        "strict_contract_valid": false,
+        "godot_validator_success": false,
+        "godot_planner_complete": false,
+        "godot_validator_issue_kinds": ["invalid_string_list_field"],
+        "godot_planner_issue_kinds": ["invalid_string_list_field"],
+        "reason_code": "PROJECT_LAYOUT_PROFILE_FIELD_TYPE_INVALID"
+      }
+    },
+    {
+      "id": "accepted_compatibility_operand",
+      "profile": {
+        "schema_version": 1,
+        "id": "neutral.unsupported_operand",
+        "zones": [],
+        "rules": [
+          {
+            "id": "bounded_sources",
+            "kind": "bucket_size",
+            "roots": ["src"],
+            "max_files": 2,
+            "extensions": [".gd"]
+          }
+        ]
+      },
+      "inventory": ["src/main.gd", "src/notes.md", "src/third.txt"],
+      "expected": {
+        "strict_contract_valid": true,
+        "python_issue_count": 1,
+        "python_runtime_issue_kinds": ["project_profile_bucket_too_large"],
+        "godot_validator_success": true,
+        "godot_planner_complete": true,
+        "godot_validator_reason_codes": ["PROJECT_LAYOUT_PROFILE_FIELD_NOT_EXECUTED"],
+        "godot_planner_reason_codes": [],
+        "godot_validator_issue_kinds": ["profile_field_not_executed", "bucket_size_exceeded"],
+        "godot_planner_issue_kinds": [],
+        "godot_validator_rule_checked_count": 1,
+        "godot_validator_rule_issue_count": 1,
+        "godot_validator_rule_severity": "warning"
+      }
+    },
+    {
+      "id": "zone_extension_scope",
+      "profile": {
+        "schema_version": 1,
+        "id": "neutral.zone_extensions",
+        "zones": [
+          {
+            "id": "source",
+            "roots": ["src"],
+            "required": true,
+            "allow_extensions": [".gd"],
+            "exclude": ["src/generated/**"],
+            "severity": "error"
+          }
+        ],
+        "rules": []
+      },
+      "inventory": [
+        "src/main.gd",
+        "src/notes.md",
+        "src/generated/cache.json"
+      ],
+      "expected": {
+        "strict_contract_valid": true,
+        "python_issue_count": 1,
+        "python_runtime_issue_kinds": ["project_profile_zone_extension_not_allowed"],
+        "godot_validator_success": true,
+        "godot_planner_complete": true,
+        "godot_validator_issue_kinds": ["profile_field_not_executed", "profile_field_not_executed"],
+        "godot_planner_issue_kinds": ["profile_field_not_executed", "profile_field_not_executed"],
+        "godot_reason_code": "PROJECT_LAYOUT_PROFILE_FIELD_NOT_EXECUTED",
+        "python_runtime_reason_code": "PROJECT_LAYOUT_PROFILE_ZONE_EXTENSION_NOT_ALLOWED",
+        "python_runtime_issue_path": "src/notes.md",
+        "excluded_path": "src/generated/cache.json"
+      }
+    },
+    {
+      "id": "python_only_rule",
+      "profile": {
+        "schema_version": 1,
+        "id": "neutral.python_only",
+        "zones": [],
+        "rules": [
+          {
+            "id": "required_entry",
+            "kind": "path_exists",
+            "paths": ["src/main.gd"]
+          }
+        ]
+      },
+      "inventory": ["src/main.gd"],
+      "expected": {
+        "strict_contract_valid": true,
+        "python_issue_count": 0,
+        "python_runtime_issue_kinds": [],
+        "godot_validator_success": false,
+        "godot_planner_complete": true,
+        "godot_validator_reason_codes": ["PROJECT_LAYOUT_PROFILE_RULE_UNSUPPORTED_BY_EXECUTOR"],
+        "godot_planner_reason_codes": [],
+        "godot_validator_issue_kinds": ["unsupported_rule_kind"],
+        "godot_planner_issue_kinds": []
+      }
+    },
+    {
+      "id": "invalid_naming_regex",
+      "profile": {
+        "schema_version": 1,
+        "id": "neutral.invalid_regex",
+        "zones": [],
+        "rules": [
+          {
+            "id": "names",
+            "kind": "naming_convention",
+            "roots": [],
+            "pattern": "["
+          }
+        ]
+      },
+      "inventory": [],
+      "expected": {
+        "strict_contract_valid": false,
+        "godot_validator_success": false,
+        "godot_planner_complete": false,
+        "godot_validator_issue_kinds": ["invalid_naming_pattern"],
+        "godot_planner_issue_kinds": ["invalid_naming_pattern"],
+        "reason_code": "PROJECT_LAYOUT_PROFILE_REGEX_INVALID"
+      }
+    },
+    {
+      "id": "unsafe_nested_quantifier_regex",
+      "profile": {
+        "schema_version": 1,
+        "id": "neutral.unsafe_nested_quantifier_regex",
+        "zones": [],
+        "rules": [
+          {
+            "id": "names",
+            "kind": "naming_convention",
+            "roots": [],
+            "pattern": "(a+)+$"
+          }
+        ]
+      },
+      "inventory": [],
+      "expected": {
+        "strict_contract_valid": false,
+        "godot_validator_success": false,
+        "godot_planner_complete": false,
+        "godot_validator_issue_kinds": ["invalid_naming_pattern"],
+        "godot_planner_issue_kinds": ["invalid_naming_pattern"],
+        "reason_code": "PROJECT_LAYOUT_PROFILE_REGEX_UNSAFE"
+      }
+    },
+    {
+      "id": "unsafe_dialect_escape_regex",
+      "profile": {
+        "schema_version": 1,
+        "id": "neutral.unsafe_dialect_escape_regex",
+        "zones": [],
+        "rules": [
+          {
+            "id": "names",
+            "kind": "naming_convention",
+            "roots": [],
+            "pattern": "\\R"
+          }
+        ]
+      },
+      "inventory": [],
+      "expected": {
+        "strict_contract_valid": false,
+        "godot_validator_success": false,
+        "godot_planner_complete": false,
+        "godot_validator_issue_kinds": ["invalid_naming_pattern"],
+        "godot_planner_issue_kinds": ["invalid_naming_pattern"],
+        "reason_code": "PROJECT_LAYOUT_PROFILE_REGEX_UNSAFE"
+      }
+    },
+    {
+      "id": "unsafe_non_ascii_class_regex",
+      "profile": {
+        "schema_version": 1,
+        "id": "neutral.unsafe_non_ascii_class_regex",
+        "zones": [],
+        "rules": [
+          {
+            "id": "names",
+            "kind": "naming_convention",
+            "roots": [],
+            "pattern": "[é]"
+          }
+        ]
+      },
+      "inventory": [],
+      "expected": {
+        "strict_contract_valid": false,
+        "godot_validator_success": false,
+        "godot_planner_complete": false,
+        "godot_validator_issue_kinds": ["invalid_naming_pattern"],
+        "godot_planner_issue_kinds": ["invalid_naming_pattern"],
+        "reason_code": "PROJECT_LAYOUT_PROFILE_REGEX_UNSAFE"
+      }
+    },
+    {
+      "id": "unsafe_unanchored_quantifier_regex",
+      "profile": {
+        "schema_version": 1,
+        "id": "neutral.unsafe_unanchored_quantifier_regex",
+        "zones": [],
+        "rules": [
+          {
+            "id": "names",
+            "kind": "naming_convention",
+            "roots": [],
+            "pattern": "a*a$"
+          }
+        ]
+      },
+      "inventory": [],
+      "expected": {
+        "strict_contract_valid": false,
+        "godot_validator_success": false,
+        "godot_planner_complete": false,
+        "godot_validator_issue_kinds": ["invalid_naming_pattern"],
+        "godot_planner_issue_kinds": ["invalid_naming_pattern"],
+        "reason_code": "PROJECT_LAYOUT_PROFILE_REGEX_UNSAFE"
+      }
+    },
+    {
+      "id": "exact_integer_float",
+      "profile": {
+        "schema_version": 1.0,
+        "id": "neutral.exact_integer_float",
+        "zones": [],
+        "rules": []
+      },
+      "inventory": [],
+      "expected": {
+        "strict_contract_valid": true,
+        "python_issue_count": 0,
+        "python_runtime_issue_kinds": [],
+        "godot_validator_success": true,
+        "godot_planner_complete": true,
+        "godot_validator_issue_kinds": [],
+        "godot_planner_issue_kinds": []
+      }
+    },
+    {
+      "id": "exact_integer_bool",
+      "profile": {
+        "schema_version": true,
+        "id": "neutral.exact_integer_bool",
+        "zones": [],
+        "rules": []
+      },
+      "inventory": [],
+      "expected": {
+        "strict_contract_valid": false,
+        "godot_validator_success": false,
+        "godot_planner_complete": false,
+        "godot_validator_issue_kinds": ["invalid_integer_field"],
+        "godot_planner_issue_kinds": ["invalid_integer_field"],
+        "reason_code": "PROJECT_LAYOUT_PROFILE_FIELD_TYPE_INVALID"
+      }
+    },
+    {
+      "id": "exact_integer_fractional",
+      "profile": {
+        "schema_version": 1.5,
+        "id": "neutral.exact_integer_fractional",
+        "zones": [],
+        "rules": []
+      },
+      "inventory": [],
+      "expected": {
+        "strict_contract_valid": false,
+        "godot_validator_success": false,
+        "godot_planner_complete": false,
+        "godot_validator_issue_kinds": ["invalid_integer_field"],
+        "godot_planner_issue_kinds": ["invalid_integer_field"],
+        "reason_code": "PROJECT_LAYOUT_PROFILE_FIELD_TYPE_INVALID"
+      }
+    },
+    {
+      "id": "duplicate_collection_values",
+      "profile": {
+        "schema_version": 1,
+        "id": "neutral.duplicate_collection",
+        "zones": [],
+        "rules": [
+          {
+            "id": "bounded_sources",
+            "kind": "bucket_size",
+            "roots": ["src", "src"],
+            "max_files": 1
+          }
+        ]
+      },
+      "inventory": ["src/first.gd", "src/second.gd"],
+      "expected": {
+        "strict_contract_valid": true,
+        "python_issue_count": 1,
+        "python_runtime_issue_kinds": ["project_profile_bucket_too_large"],
+        "godot_validator_success": true,
+        "godot_planner_complete": true,
+        "godot_validator_reason_codes": ["PROJECT_LAYOUT_PROFILE_COLLECTION_VALUE_DUPLICATE"],
+        "godot_planner_reason_codes": ["PROJECT_LAYOUT_PROFILE_COLLECTION_VALUE_DUPLICATE"],
+        "godot_validator_issue_kinds": ["duplicate_profile_value", "bucket_size_exceeded"],
+        "godot_planner_issue_kinds": ["duplicate_profile_value"],
+        "godot_validator_rule_checked_count": 1,
+        "godot_validator_rule_issue_count": 1,
+        "godot_validator_rule_severity": "warning"
+      }
+    },
+    {
+      "id": "naming_regex_search",
+      "profile": {
+        "schema_version": 1,
+        "id": "neutral.naming_search",
+        "zones": [],
+        "rules": [
+          {
+            "id": "names",
+            "kind": "naming_convention",
+            "roots": ["src"],
+            "pattern": "good|^src$",
+            "target": "name"
+          }
+        ]
+      },
+      "inventory": ["src/notgoodbutcontains.gd"],
+      "expected": {
+        "strict_contract_valid": true,
+        "python_issue_count": 0,
+        "python_runtime_issue_kinds": [],
+        "godot_validator_success": true,
+        "godot_planner_complete": true,
+        "godot_validator_issue_kinds": [],
+        "godot_planner_issue_kinds": [],
+        "godot_validator_rule_issue_count": 0,
+        "godot_validator_rule_severity": "warning"
+      }
+    },
+    {
+      "id": "feature_empty_allowed_subdirs",
+      "profile": {
+        "schema_version": 1,
+        "id": "neutral.feature_deny_all",
+        "zones": [],
+        "rules": [
+          {
+            "id": "features",
+            "kind": "feature_module_contract",
+            "roots": ["features"],
+            "required_subdirs": [],
+            "allow_root_files": true
+          }
+        ]
+      },
+      "inventory": ["features/inventory/scripts/main.gd"],
+      "expected": {
+        "strict_contract_valid": true,
+        "python_issue_count": 1,
+        "python_runtime_issue_kinds": ["project_profile_feature_subdir_not_allowed"],
+        "godot_validator_success": false,
+        "godot_planner_complete": true,
+        "godot_validator_issue_kinds": ["unsupported_feature_subdir"],
+        "godot_planner_issue_kinds": [],
+        "godot_validator_rule_severity": "error"
+      }
+    },
+    {
+      "id": "glob_single_star_segment",
+      "profile": {
+        "schema_version": 1,
+        "id": "neutral.glob_single_star",
+        "zones": [],
+        "rules": [
+          {
+            "id": "generated",
+            "kind": "generated_boundary",
+            "include": ["*.generated.*"],
+            "roots": ["generated"]
+          }
+        ]
+      },
+      "inventory": ["src/nested/foo.generated.gd"],
+      "expected": {
+        "strict_contract_valid": true,
+        "python_issue_count": 0,
+        "python_runtime_issue_kinds": [],
+        "godot_validator_success": true,
+        "godot_planner_complete": true,
+        "godot_validator_issue_kinds": [],
+        "godot_planner_issue_kinds": [],
+        "godot_validator_rule_issue_count": 0,
+        "godot_validator_rule_severity": "error"
+      }
+    },
+    {
+      "id": "glob_leading_double_star_zero_segments",
+      "profile": {
+        "schema_version": 1,
+        "id": "neutral.glob_double_star_zero",
+        "zones": [],
+        "rules": [
+          {
+            "id": "generated",
+            "kind": "generated_boundary",
+            "include": ["**/*.generated.*"],
+            "roots": ["generated"]
+          }
+        ]
+      },
+      "inventory": ["foo.generated.gd"],
+      "expected": {
+        "strict_contract_valid": true,
+        "python_issue_count": 1,
+        "python_runtime_issue_kinds": ["project_profile_generated_file_outside_roots"],
+        "godot_validator_success": false,
+        "godot_planner_complete": true,
+        "godot_validator_issue_kinds": ["generated_path_outside_roots"],
+        "godot_planner_issue_kinds": [],
+        "godot_validator_rule_issue_count": 1,
+        "godot_validator_rule_severity": "error"
+      }
+    },
+    {
+      "id": "missing_zones",
+      "profile": {
+        "schema_version": 1,
+        "id": "neutral.missing_zones",
+        "rules": []
+      },
+      "inventory": [],
+      "expected": {
+        "strict_contract_valid": false,
+        "godot_validator_success": false,
+        "godot_planner_complete": false,
+        "godot_validator_issue_kinds": ["invalid_profile_field_type"],
+        "godot_planner_issue_kinds": ["invalid_profile_field_type"],
+        "reason_code": "PROJECT_LAYOUT_PROFILE_REQUIRED_FIELD_MISSING"
+      }
+    },
+    {
+      "id": "invalid_relative_dot_prefix",
+      "profile": {
+        "schema_version": 1,
+        "id": "neutral.invalid_relative_dot_prefix",
+        "zones": [
+          {
+            "id": "source",
+            "roots": ["./src"],
+            "required": true
+          }
+        ],
+        "rules": []
+      },
+      "inventory": [],
+      "expected": {
+        "strict_contract_valid": false,
+        "godot_validator_success": false,
+        "godot_planner_complete": false,
+        "godot_validator_issue_kinds": ["invalid_relative_path"],
+        "godot_planner_issue_kinds": ["invalid_relative_path"],
+        "reason_code": "PROJECT_LAYOUT_PROFILE_RELATIVE_PATH_INVALID"
+      }
+    },
+    {
+      "id": "invalid_glob_question_mark",
+      "profile": {
+        "schema_version": 1,
+        "id": "neutral.invalid_glob_question",
+        "zones": [],
+        "rules": [
+          {
+            "id": "generated",
+            "kind": "generated_boundary",
+            "include": ["a?b"],
+            "roots": ["generated"]
+          }
+        ]
+      },
+      "inventory": [],
+      "expected": {
+        "strict_contract_valid": false,
+        "godot_validator_success": false,
+        "godot_planner_complete": false,
+        "godot_validator_issue_kinds": ["invalid_relative_path"],
+        "godot_planner_issue_kinds": ["invalid_relative_path"],
+        "reason_code": "PROJECT_LAYOUT_PROFILE_RELATIVE_PATH_INVALID"
+      }
+    },
+    {
+      "id": "glob_leading_double_star_segment_boundary",
+      "profile": {
+        "schema_version": 1,
+        "id": "neutral.glob_segment_boundary",
+        "zones": [],
+        "rules": [
+          {
+            "id": "generated",
+            "kind": "generated_boundary",
+            "include": ["**/foo"],
+            "roots": ["generated"]
+          }
+        ]
+      },
+      "inventory": ["notfoo", "nested/notfoo", "nested/foo"],
+      "expected": {
+        "strict_contract_valid": true,
+        "python_issue_count": 1,
+        "python_runtime_issue_kinds": ["project_profile_generated_file_outside_roots"],
+        "godot_validator_success": false,
+        "godot_planner_complete": true,
+        "godot_validator_issue_kinds": ["generated_path_outside_roots"],
+        "godot_planner_issue_kinds": [],
+        "godot_validator_rule_issue_count": 1,
+        "godot_validator_rule_severity": "error"
+      }
+    },
+    {
+      "id": "feature_id_regex_search",
+      "profile": {
+        "schema_version": 1,
+        "id": "neutral.feature_regex_search",
+        "zones": [],
+        "rules": [
+          {
+            "id": "features",
+            "kind": "feature_module_contract",
+            "roots": ["features"],
+            "feature_id_pattern": "good",
+            "required_subdirs": [],
+            "allow_root_files": true
+          }
+        ]
+      },
+      "inventory": ["features/notgoodbutcontains/main.gd"],
+      "expected": {
+        "strict_contract_valid": true,
+        "python_issue_count": 0,
+        "python_runtime_issue_kinds": [],
+        "godot_validator_success": true,
+        "godot_planner_complete": true,
+        "godot_validator_issue_kinds": [],
+        "godot_planner_issue_kinds": [],
+        "godot_validator_rule_issue_count": 0,
+        "godot_validator_rule_severity": "error"
+      }
+    },
+    {
+      "id": "multiple_feature_contracts",
+      "profile": {
+        "schema_version": 1,
+        "id": "neutral.multiple_feature_contracts",
+        "zones": [],
+        "rules": [
+          {
+            "id": "features_primary",
+            "kind": "feature_module_contract",
+            "roots": ["features"],
+            "required_subdirs": ["scripts"],
+            "allowed_subdirs": ["scripts"]
+          },
+          {
+            "id": "features_secondary",
+            "kind": "feature_module_contract",
+            "roots": ["features"],
+            "required_subdirs": ["assets"],
+            "allowed_subdirs": ["assets"]
+          }
+        ]
+      },
+      "inventory": [
+        "features/inventory/scripts/item.gd",
+        "features/inventory/assets/item.tres"
+      ],
+      "expected": {
+        "strict_contract_valid": true,
+        "python_issue_count": 0,
+        "python_runtime_issue_kinds": [],
+        "godot_validator_success": true,
+        "godot_planner_complete": true,
+        "godot_validator_issue_kinds": [],
+        "godot_planner_issue_kinds": []
+      }
+    },
+    {
+      "id": "glob_middle_double_star_zero_and_multi_segments",
+      "profile": {
+        "schema_version": 1,
+        "id": "neutral.glob_middle_double_star",
+        "zones": [],
+        "rules": [
+          {
+            "id": "generated",
+            "kind": "generated_boundary",
+            "include": ["features/**/generated/**"],
+            "roots": ["generated"]
+          }
+        ]
+      },
+      "inventory": [
+        "features/generated/direct.gd",
+        "features/a/b/generated/deep.gd",
+        "features/not_generated/ignored.gd"
+      ],
+      "expected": {
+        "strict_contract_valid": true,
+        "python_issue_count": 2,
+        "python_runtime_issue_kinds": [
+          "project_profile_generated_file_outside_roots",
+          "project_profile_generated_file_outside_roots"
+        ],
+        "godot_validator_success": false,
+        "godot_planner_complete": true,
+        "godot_validator_issue_kinds": ["generated_path_outside_roots", "generated_path_outside_roots"],
+        "godot_planner_issue_kinds": [],
+        "godot_validator_rule_issue_count": 2,
+        "godot_validator_rule_severity": "error"
+      }
+    },
+    {
+      "id": "glob_extension_case_sensitive",
+      "profile": {
+        "schema_version": 1,
+        "id": "neutral.glob_case_sensitive",
+        "zones": [],
+        "rules": [
+          {
+            "id": "generated",
+            "kind": "generated_boundary",
+            "include": ["**/*.GD"],
+            "roots": ["generated"]
+          }
+        ]
+      },
+      "inventory": ["lower.gd", "upper.GD"],
+      "expected": {
+        "strict_contract_valid": true,
+        "python_issue_count": 1,
+        "python_runtime_issue_kinds": ["project_profile_generated_file_outside_roots"],
+        "godot_validator_success": false,
+        "godot_planner_complete": true,
+        "godot_validator_issue_kinds": ["generated_path_outside_roots"],
+        "godot_planner_issue_kinds": [],
+        "godot_validator_rule_issue_count": 1,
+        "godot_validator_rule_severity": "error"
+      }
+    },
+    {
+      "id": "extension_canonical_duplicate",
+      "profile": {
+        "schema_version": 1,
+        "id": "neutral.extension_canonical_duplicate",
+        "zones": [],
+        "rules": [
+          {
+            "id": "bounded_sources",
+            "kind": "bucket_size",
+            "roots": ["src"],
+            "max_files": 2,
+            "extensions": ["gd", ".GD"]
+          }
+        ]
+      },
+      "inventory": ["src/main.gd"],
+      "expected": {
+        "strict_contract_valid": true,
+        "reason_code": "PROJECT_LAYOUT_PROFILE_COLLECTION_VALUE_DUPLICATE",
+        "python_issue_count": 0,
+        "python_runtime_issue_kinds": [],
+        "godot_validator_success": true,
+        "godot_planner_complete": true,
+        "godot_validator_reason_codes": [
+          "PROJECT_LAYOUT_PROFILE_COLLECTION_VALUE_DUPLICATE",
+          "PROJECT_LAYOUT_PROFILE_FIELD_NOT_EXECUTED"
+        ],
+        "godot_planner_reason_codes": [
+          "PROJECT_LAYOUT_PROFILE_COLLECTION_VALUE_DUPLICATE"
+        ],
+        "godot_validator_issue_kinds": ["duplicate_profile_value", "profile_field_not_executed"],
+        "godot_planner_issue_kinds": ["duplicate_profile_value"],
+        "godot_validator_rule_checked_count": 1,
+        "godot_validator_rule_issue_count": 0,
+        "godot_validator_rule_severity": "warning"
+      }
+    }
+  ]
+}

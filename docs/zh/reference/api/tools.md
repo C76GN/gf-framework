@@ -7,7 +7,8 @@
 | 类别 | 类 | 成员 | 方法 |
 |---|---:|---:|---:|
 | [值对象](#category-value_object) | 1 | 4 | 4 |
-| [工具 API](#category-tool_api) | 19 | 161 | 102 |
+| [编辑器 API](#category-editor_api) | 1 | 11 | 4 |
+| [工具 API](#category-tool_api) | 20 | 170 | 110 |
 
 ## 类
 
@@ -18,6 +19,14 @@
 | 类 | 继承 | 源文件 |
 |---|---|---|
 | [`GFLspWorkspaceEditPlan`](classes/GFLspWorkspaceEditPlan.md#gflspworkspaceeditplan) | `RefCounted` | `addons/gf/tools/lsp_workspace_edit/gf_lsp_workspace_edit_plan.gd` |
+
+<a id="category-editor_api"></a>
+
+### 编辑器 API
+
+| 类 | 继承 | 源文件 |
+|---|---|---|
+| [`GFProjectLayoutDock`](classes/GFProjectLayoutDock.md#gfprojectlayoutdock) | `VBoxContainer` | `addons/gf/tools/project_layout/editor/gf_project_layout_dock.gd` |
 
 <a id="category-tool_api"></a>
 
@@ -42,5 +51,6 @@
 | [`GFConfigPipelineValidationStage`](classes/GFConfigPipelineValidationStage.md#gfconfigpipelinevalidationstage) | `RefCounted` | `addons/gf/tools/config_pipeline/gf_config_pipeline_validation_stage.gd` |
 | [`GFDialogueTextCompiler`](classes/GFDialogueTextCompiler.md#gfdialoguetextcompiler) | `RefCounted` | `addons/gf/tools/dialogue_text/gf_dialogue_text_compiler.gd` |
 | [`GFLspWorkspaceEditAdapter`](classes/GFLspWorkspaceEditAdapter.md#gflspworkspaceeditadapter) | `RefCounted` | `addons/gf/tools/lsp_workspace_edit/gf_lsp_workspace_edit_adapter.gd` |
-| [`GFProjectLayoutScaffolder`](classes/GFProjectLayoutScaffolder.md#gfprojectlayoutscaffolder) | `RefCounted` | `addons/gf/tools/project_layout/gf_project_layout_scaffolder.gd` |
+| [`GFProjectLayoutAnalyzer`](classes/GFProjectLayoutAnalyzer.md#gfprojectlayoutanalyzer) | `RefCounted` | `addons/gf/tools/project_layout/gf_project_layout_analyzer.gd` |
+| [`GFProjectLayoutPlanner`](classes/GFProjectLayoutPlanner.md#gfprojectlayoutplanner) | `RefCounted` | `addons/gf/tools/project_layout/gf_project_layout_planner.gd` |
 | [`GFProjectLayoutValidator`](classes/GFProjectLayoutValidator.md#gfprojectlayoutvalidator) | `RefCounted` | `addons/gf/tools/project_layout/gf_project_layout_validator.gd` |

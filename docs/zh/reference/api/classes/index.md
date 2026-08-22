@@ -26,7 +26,7 @@
 | Physics | 4 | 50 | [Physics](#module-extensions-physics) |
 | Save | 52 | 651 | [Save](#module-extensions-save) |
 | Turn Based | 5 | 50 | [Turn Based](#module-extensions-turn_based) |
-| Tool Packages | 20 | 165 | [Tool Packages](#module-tools) |
+| Tool Packages | 22 | 185 | [Tool Packages](#module-tools) |
 
 ## 模块索引
 
@@ -1001,6 +1001,7 @@
 | 类 | 类别 | 继承 | 成员 | 源文件 |
 |---|---|---|---:|---|
 | [`GFLspWorkspaceEditPlan`](GFLspWorkspaceEditPlan.md#gflspworkspaceeditplan) | 值对象 (`value_object`) | `RefCounted` | 4 | `addons/gf/tools/lsp_workspace_edit/gf_lsp_workspace_edit_plan.gd` |
+| [`GFProjectLayoutDock`](GFProjectLayoutDock.md#gfprojectlayoutdock) | 编辑器 API (`editor_api`) | `VBoxContainer` | 11 | `addons/gf/tools/project_layout/editor/gf_project_layout_dock.gd` |
 | [`GFAssetBrowserModel`](GFAssetBrowserModel.md#gfassetbrowsermodel) | 工具 API (`tool_api`) | `RefCounted` | 20 | `addons/gf/tools/asset_browser/gf_asset_browser_model.gd` |
 | [`GFConfigAccessGenerator`](GFConfigAccessGenerator.md#gfconfigaccessgenerator) | 工具 API (`tool_api`) | `RefCounted` | 9 | `addons/gf/tools/config_pipeline/gf_config_access_generator.gd` |
 | [`GFConfigPipeline`](GFConfigPipeline.md#gfconfigpipeline) | 工具 API (`tool_api`) | `RefCounted` | 10 | `addons/gf/tools/config_pipeline/gf_config_pipeline.gd` |
@@ -1018,5 +1019,6 @@
 | [`GFConfigPipelineValidationStage`](GFConfigPipelineValidationStage.md#gfconfigpipelinevalidationstage) | 工具 API (`tool_api`) | `RefCounted` | 4 | `addons/gf/tools/config_pipeline/gf_config_pipeline_validation_stage.gd` |
 | [`GFDialogueTextCompiler`](GFDialogueTextCompiler.md#gfdialoguetextcompiler) | 工具 API (`tool_api`) | `RefCounted` | 4 | `addons/gf/tools/dialogue_text/gf_dialogue_text_compiler.gd` |
 | [`GFLspWorkspaceEditAdapter`](GFLspWorkspaceEditAdapter.md#gflspworkspaceeditadapter) | 工具 API (`tool_api`) | `RefCounted` | 4 | `addons/gf/tools/lsp_workspace_edit/gf_lsp_workspace_edit_adapter.gd` |
-| [`GFProjectLayoutScaffolder`](GFProjectLayoutScaffolder.md#gfprojectlayoutscaffolder) | 工具 API (`tool_api`) | `RefCounted` | 5 | `addons/gf/tools/project_layout/gf_project_layout_scaffolder.gd` |
+| [`GFProjectLayoutAnalyzer`](GFProjectLayoutAnalyzer.md#gfprojectlayoutanalyzer) | 工具 API (`tool_api`) | `RefCounted` | 9 | `addons/gf/tools/project_layout/gf_project_layout_analyzer.gd` |
+| [`GFProjectLayoutPlanner`](GFProjectLayoutPlanner.md#gfprojectlayoutplanner) | 工具 API (`tool_api`) | `RefCounted` | 5 | `addons/gf/tools/project_layout/gf_project_layout_planner.gd` |
 | [`GFProjectLayoutValidator`](GFProjectLayoutValidator.md#gfprojectlayoutvalidator) | 工具 API (`tool_api`) | `RefCounted` | 4 | `addons/gf/tools/project_layout/gf_project_layout_validator.gd` |

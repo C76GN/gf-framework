@@ -1,0 +1,138 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFProjectLayoutAnalyzer" path="addons/gf/tools/project_layout/gf_project_layout_analyzer.gd" module="tools" extends="RefCounted" classDigest="51f887d88d94a3419fe607641a81bad0bb80377fb3d1188cf2fe5921ee7ab55c">
+	<description>GFProjectLayoutAnalyzer: 只读的项目结构分析器。
+捕获项目目录库存，并按可选 profile 分析目录分区、Feature 模块契约、命名、生成物边界和大桶目录增长。
+所有公开操作都只读取项目；该类型不会创建、移动、删除或改写任何项目文件。
+未知选项、字段、错误类型和非规范相对路径都会失败关闭；扫描预算在流式枚举期间全局生效。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">tool_api</tag>
+		<tag name="since">unreleased</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants>
+		<member kind="const" name="EXAMPLE_FEATURE_COHESIVE_PROFILE_PATH">
+			<signature>const EXAMPLE_FEATURE_COHESIVE_PROFILE_PATH: String = "res://addons/gf/tools/project_layout/profiles/feature_cohesive_v1.json"</signature>
+			<description>Feature 内聚式示例 profile 路径。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</constants>
+	<properties />
+	<methods>
+		<member kind="method" name="analyze">
+			<signature>func analyze(options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>不加载 profile，只捕获并归一化当前项目结构。
+该入口适合第一次使用 Project Layout 的项目：它只建立观察图，不假定任何推荐目录。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">options: 分析选项。</tag>
+				<tag name="return">只读分析报告。</tag>
+				<tag name="schema">options: Dictionary，可包含 root_path、include_hidden、max_scanned_files、max_scanned_directories、max_scan_depth 和 allow_missing_root；root_path 只能是规范 res:// 根或子根。</tag>
+				<tag name="schema">return: Dictionary，精确包含 schema_version、kind、evaluation_status、evaluation_complete、input_complete、success、profile_id、root_path、input_digest、file_count、directory_count、graph、issues、findings、error_count、warning_count、info_count、rule_results、capabilities 和 effects；graph 精确包含 schema_version、kind、complete、capture_status、scope、dependency_coverage、nodes、edges 和 evidence；effects 精确包含 writes_project=false。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="analyze_example_profile">
+			<signature>func analyze_example_profile(options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>按 Feature 内聚式示例 profile 分析项目结构。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">options: 校验选项。</tag>
+				<tag name="return">校验报告。</tag>
+				<tag name="schema">options: Dictionary，可包含 root_path、include_hidden、max_scanned_files、max_scanned_directories、max_scan_depth 和 allow_missing_root；root_path 只能是规范 res:// 根或子根。</tag>
+				<tag name="schema">return: Dictionary，精确包含 schema_version、kind、evaluation_status、evaluation_complete、input_complete、success、profile_id、root_path、input_digest、file_count、directory_count、graph、issues、findings、error_count、warning_count、info_count、rule_results、capabilities 和 effects；capabilities 在编译前或 contract/registry 失败时为 {}，否则精确包含 executor_id、operation、rule_kinds、rule_fields 和 zone_fields；effects 精确包含 writes_project=false。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="analyze_profile_path">
+			<signature>func analyze_profile_path(profile_path: String, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>从项目结构 profile 文件分析项目结构。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">profile_path: JSON profile 路径。</tag>
+				<tag name="param">options: 校验选项。</tag>
+				<tag name="return">校验报告。</tag>
+				<tag name="schema">options: Dictionary，可包含 root_path、include_hidden、max_scanned_files、max_scanned_directories、max_scan_depth 和 allow_missing_root；root_path 只能是规范 res:// 根或子根。</tag>
+				<tag name="schema">return: Dictionary，精确包含 schema_version、kind、evaluation_status、evaluation_complete、input_complete、success、profile_id、root_path、input_digest、file_count、directory_count、graph、issues、findings、error_count、warning_count、info_count、rule_results、capabilities 和 effects；capabilities 在编译前或 contract/registry 失败时为 {}，否则精确包含 executor_id、operation、rule_kinds、rule_fields 和 zone_fields；effects 精确包含 writes_project=false。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="analyze_profile">
+			<signature>func analyze_profile(profile: Dictionary, options: Dictionary = {}) -&gt; Dictionary:</signature>
+			<description>按已解析的项目结构 profile 分析项目结构。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">profile: 项目结构 profile 字典。</tag>
+				<tag name="param">options: 校验选项。</tag>
+				<tag name="return">校验报告。</tag>
+				<tag name="schema">profile: Dictionary，包含 schema_version、id、zones 和 rules。</tag>
+				<tag name="schema">options: Dictionary，可包含 root_path、include_hidden、max_scanned_files、max_scanned_directories、max_scan_depth 和 allow_missing_root；root_path 只能是规范 res:// 根或子根。</tag>
+				<tag name="schema">return: Dictionary，精确包含 schema_version、kind、evaluation_status、evaluation_complete、input_complete、success、profile_id、root_path、input_digest、file_count、directory_count、graph、issues、findings、error_count、warning_count、info_count、rule_results、capabilities 和 effects；capabilities 在编译前或 contract/registry 失败时为 {}，否则精确包含 executor_id、operation、rule_kinds、rule_fields 和 zone_fields；effects 精确包含 writes_project=false。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="analyze_snapshot">
+			<signature>func analyze_snapshot(snapshot: Dictionary) -&gt; Dictionary:</signature>
+			<description>分析已经冻结的 data-only 项目库存，不再访问文件系统。
+Editor Dock 用主线程分批捕获 snapshot，再把该值交给后台 worker。snapshot 必须包含
+schema_version、kind、root_path、scope、complete、capture_status、files 和 directories。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">snapshot: data-only 项目库存。</tag>
+				<tag name="return">observation-only 只读分析报告。</tag>
+				<tag name="schema">snapshot: Dictionary，字段闭集为 schema_version、kind、root_path、scope、complete、capture_status、files、directories 和可选 issues；root_path 必须是规范 res:// 根或子根，scope 精确包含 kind、root_path、include_hidden、excluded_prefixes 与三项捕获预算，files/directories 必须形成完整父目录闭包。</tag>
+				<tag name="schema">return: Dictionary，精确包含 schema_version、kind、evaluation_status、evaluation_complete、input_complete、success、profile_id、root_path、input_digest、file_count、directory_count、graph、issues、findings、error_count、warning_count、info_count、rule_results、capabilities 和 effects。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="analyze_profile_snapshot">
+			<signature>func analyze_profile_snapshot( profile: Dictionary, snapshot: Dictionary ) -&gt; Dictionary:</signature>
+			<description>按 profile 分析已经冻结的 data-only 项目库存，不再扫描项目目录。
+该便捷入口会只读加载 canonical contract、编译 profile，并在传入的冻结库存上完成分析。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">profile: 已解析的严格 profile。</tag>
+				<tag name="param">snapshot: data-only 项目库存。</tag>
+				<tag name="return">带 policy findings 的只读分析报告。</tag>
+				<tag name="schema">profile: Dictionary，包含 schema_version、id、zones 和 rules。</tag>
+				<tag name="schema">snapshot: Dictionary，字段闭集为 schema_version、kind、root_path、scope、complete、capture_status、files、directories 和可选 issues；scope 必须描述 project_source 捕获范围，files/directories 必须形成完整父目录闭包。</tag>
+				<tag name="schema">return: Dictionary，精确包含 schema_version、kind、evaluation_status、evaluation_complete、input_complete、success、profile_id、root_path、input_digest、file_count、directory_count、graph、issues、findings、error_count、warning_count、info_count、rule_results、capabilities 和 effects。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="explain_finding">
+			<signature>func explain_finding(analysis: Dictionary, finding_id: String) -&gt; Dictionary:</signature>
+			<description>解释分析报告中的一条 finding。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">analysis: 本类型生成的项目结构分析报告。</tag>
+				<tag name="param">finding_id: finding 的稳定 ID。</tag>
+				<tag name="return">只读解释，包含 observation、implication、next_steps、certainty 和 evidence。</tag>
+				<tag name="schema">analysis: Dictionary，必须是本类型生成并通过闭合 analysis/graph contract 的完整 project_layout_analysis 报告，不能手工拼装字段子集。</tag>
+				<tag name="schema">return: Dictionary，精确包含 schema_version、kind、complete、finding_id、headline、observation、implication、next_steps、certainty、evidence、issues 和 effects；effects 精确包含 writes_project=false。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="analyze_change_impact">
+			<signature>func analyze_change_impact(analysis: Dictionary, change: Dictionary) -&gt; Dictionary:</signature>
+			<description>在冻结分析图上模拟 move、rename 或 delete 的影响。
+该方法只返回影响状态和 blocker，不执行变更。依赖覆盖不完整时必须返回 unknown，
+不能把“没有观察到引用”解释成安全。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">analysis: 本类型生成的项目结构分析报告。</tag>
+				<tag name="param">change: Dictionary，包含 kind、source_path，move/rename 还需 target_path。</tag>
+				<tag name="return">只读影响报告，status 为 safe、unsafe 或 unknown。</tag>
+				<tag name="schema">analysis: Dictionary，必须是本类型生成并通过闭合 analysis/graph contract 的完整 project_layout_analysis 报告，不能手工拼装字段子集。</tag>
+				<tag name="schema">change: Dictionary，字段闭集为 kind、source_path 和 target_path；kind 只能是 delete、move 或 rename。</tag>
+				<tag name="schema">return: Dictionary，精确包含 schema_version、kind、complete、status、source_analysis_digest、change、affected_node_ids、blockers、evidence_ids、issues 和 effects；effects 精确包含 writes_project=false。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<apiCatalog schemaVersion="3" name="GF Framework" sourceRoot="addons/gf" sourceDigest="a46e9cba86ee2074e57434c59384f63005f288ad989c83082e284c773740d94a" classCount="844" methodCount="7680" autoloadCount="1" autoloadMethodCount="65">
+<apiCatalog schemaVersion="3" name="GF Framework" sourceRoot="addons/gf" sourceDigest="49661fe41b06d7be9ade2b783dd8b35faced2ce70f0a2b08d8722eda1b4d7141" classCount="846" methodCount="7692" autoloadCount="1" autoloadMethodCount="65">
 	<module id="kernel" label="Kernel" classCount="75" methodCount="801" autoloadCount="1" autoloadMethodCount="65">
 		<class name="GFAccessGenerator" path="classes/GFAccessGenerator.xml" sourcePath="addons/gf/kernel/editor/gf_access_generator.gd" extends="RefCounted" />
 		<class name="GFArchitecture" path="classes/GFArchitecture.xml" sourcePath="addons/gf/kernel/core/gf_architecture.gd" extends="Object" />
@@ -865,7 +865,7 @@
 		<class name="GFTurnPhase" path="classes/GFTurnPhase.xml" sourcePath="addons/gf/extensions/turn_based/resources/gf_turn_phase.gd" extends="Resource" />
 		<class name="GFTurnPhaseCompletionHandle" path="classes/GFTurnPhaseCompletionHandle.xml" sourcePath="addons/gf/extensions/turn_based/runtime/gf_turn_phase_completion_handle.gd" extends="RefCounted" />
 	</module>
-	<module id="tools" label="Tool Packages" classCount="20" methodCount="106" autoloadCount="0" autoloadMethodCount="0">
+	<module id="tools" label="Tool Packages" classCount="22" methodCount="118" autoloadCount="0" autoloadMethodCount="0">
 		<class name="GFAssetBrowserModel" path="classes/GFAssetBrowserModel.xml" sourcePath="addons/gf/tools/asset_browser/gf_asset_browser_model.gd" extends="RefCounted" />
 		<class name="GFConfigAccessGenerator" path="classes/GFConfigAccessGenerator.xml" sourcePath="addons/gf/tools/config_pipeline/gf_config_access_generator.gd" extends="RefCounted" />
 		<class name="GFConfigPipeline" path="classes/GFConfigPipeline.xml" sourcePath="addons/gf/tools/config_pipeline/gf_config_pipeline.gd" extends="RefCounted" />
@@ -884,7 +884,9 @@
 		<class name="GFDialogueTextCompiler" path="classes/GFDialogueTextCompiler.xml" sourcePath="addons/gf/tools/dialogue_text/gf_dialogue_text_compiler.gd" extends="RefCounted" />
 		<class name="GFLspWorkspaceEditAdapter" path="classes/GFLspWorkspaceEditAdapter.xml" sourcePath="addons/gf/tools/lsp_workspace_edit/gf_lsp_workspace_edit_adapter.gd" extends="RefCounted" />
 		<class name="GFLspWorkspaceEditPlan" path="classes/GFLspWorkspaceEditPlan.xml" sourcePath="addons/gf/tools/lsp_workspace_edit/gf_lsp_workspace_edit_plan.gd" extends="RefCounted" />
-		<class name="GFProjectLayoutScaffolder" path="classes/GFProjectLayoutScaffolder.xml" sourcePath="addons/gf/tools/project_layout/gf_project_layout_scaffolder.gd" extends="RefCounted" />
+		<class name="GFProjectLayoutAnalyzer" path="classes/GFProjectLayoutAnalyzer.xml" sourcePath="addons/gf/tools/project_layout/gf_project_layout_analyzer.gd" extends="RefCounted" />
+		<class name="GFProjectLayoutDock" path="classes/GFProjectLayoutDock.xml" sourcePath="addons/gf/tools/project_layout/editor/gf_project_layout_dock.gd" extends="VBoxContainer" />
+		<class name="GFProjectLayoutPlanner" path="classes/GFProjectLayoutPlanner.xml" sourcePath="addons/gf/tools/project_layout/gf_project_layout_planner.gd" extends="RefCounted" />
 		<class name="GFProjectLayoutValidator" path="classes/GFProjectLayoutValidator.xml" sourcePath="addons/gf/tools/project_layout/gf_project_layout_validator.gd" extends="RefCounted" />
 	</module>
 </apiCatalog>
