@@ -19,19 +19,24 @@ import sys
 import tempfile
 import unicodedata
 import zipfile
-from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 from pathlib import PurePosixPath
 from typing import Any
 from typing import BinaryIO
-from typing import Iterator
 
 import build_gf_package
 from gdscript_api_parser import ApiDocs, ApiMember, visibility_of
 from gf_api_owners import OWNER_KIND_CLASS, ApiOwner, collect_api_owners
 from gf_godot_process import GODOT_EXECUTABLE_ENV_VAR, resolve_godot_executable
-from gf_process_supervisor import SupervisedProcessResult, run_supervised_process
+from gf_parallel_validation import WorkspaceProcessBoundaryError
+from gf_process_supervisor import (
+	SupervisedProcessResult,
+	SupervisedProcessStartError,
+	safe_exception_detail,
+	safe_exception_traceback,
+	run_supervised_process,
+)
 from gf_semver import SemVer, parse_semver
 
 
@@ -1169,6 +1174,303 @@ def resolve_storage_backend_acceptance_engine(godot_executable: str = "") -> str
 	return ""
 
 
+class _StorageAcceptanceTemporaryRoot:
+	"""Identity-pinned context manager for a supervised acceptance session."""
+
+	def __init__(self, *, prefix: str) -> None:
+		self.prefix = prefix
+		self.owner: tempfile.TemporaryDirectory[str] | None = None
+		self.root: Path | None = None
+		self.owned_root_chain: tuple[tuple[Path, os.stat_result], ...] | None = None
+		self.cleanup_state = {"permitted": True}
+
+	def _require_root(self) -> Path:
+		if self.root is None:
+			raise RuntimeError("Storage acceptance root is not initialized.")
+		return self.root
+
+	def _mark_retained(
+		self,
+		error: BaseException,
+		reason: str,
+	) -> BaseException:
+		root = self._require_root()
+		preserved_paths = (root,)
+		try:
+			BaseException.add_note(error, f"{reason}: {root}")
+		except BaseException:
+			# Diagnostics must not replace the primary or revoke retention.
+			pass
+		try:
+			attributes = BaseException.__getattribute__(error, "__dict__")
+			attributes["cleanup_debt"] = True
+			attributes["process_boundary_quiescent"] = False
+			attributes["preserved_paths"] = preserved_paths
+			verified = BaseException.__getattribute__(error, "__dict__")
+			if (
+				verified is not attributes
+				or verified.get("cleanup_debt") is not True
+				or verified.get("process_boundary_quiescent") is not False
+				or verified.get("preserved_paths") is not preserved_paths
+			):
+				raise RuntimeError(
+					"Storage acceptance error could not retain cleanup-debt markers."
+				)
+		except BaseException:
+			fallback = WorkspaceProcessBoundaryError(
+				reason,
+				preserved_paths=preserved_paths,
+			)
+			attributes = BaseException.__getattribute__(fallback, "__dict__")
+			attributes["primary_error"] = error
+			return fallback
+		return error
+
+	def _cleanup_owned_root(self) -> None:
+		root = self._require_root()
+		owner = self.owner
+		if owner is None or self.owned_root_chain is None:
+			raise RuntimeError("Storage acceptance owner is not initialized.")
+		if not os.path.lexists(root):
+			raise WorkspaceProcessBoundaryError(
+				"Storage acceptance root disappeared before identity-pinned cleanup.",
+				preserved_paths=(root,),
+			)
+		try:
+			current_root_chain = _snapshot_absolute_directory_chain(root)
+		except Exception as error:
+			raise WorkspaceProcessBoundaryError(
+				"Storage acceptance root is no longer a safe real-directory chain.",
+				preserved_paths=(root,),
+			) from error
+		if not _same_directory_chain_identity(
+			self.owned_root_chain,
+			current_root_chain,
+		):
+			raise WorkspaceProcessBoundaryError(
+				"Storage acceptance root identity changed before cleanup.",
+				preserved_paths=(root,),
+			)
+		owner.cleanup()
+
+	def __enter__(self) -> tuple[Path, dict[str, bool]]:
+		owner = tempfile.TemporaryDirectory(prefix=self.prefix)
+		root = Path(owner.name)
+		self.owner = owner
+		self.root = root
+		self.owned_root_chain = _snapshot_absolute_directory_chain(root)
+
+		# Disarm automatic recursive deletion before any child can start. The guard
+		# covers interruption both before and after the finalizer actually detaches.
+		try:
+			owner._finalizer.detach()  # type: ignore[attr-defined]
+		except BaseException as detach_error:
+			detach_traceback = safe_exception_traceback(detach_error)
+			try:
+				self._cleanup_owned_root()
+			except BaseException as cleanup_error:
+				detach_error = self._mark_retained(
+					detach_error,
+					"Retained storage acceptance root after finalizer detach failure",
+				)
+				try:
+					BaseException.add_note(
+						detach_error,
+						"Storage acceptance root cleanup also failed after finalizer "
+						f"detach interruption: {type(cleanup_error).__name__}: "
+						f"{safe_exception_detail(cleanup_error)}",
+					)
+				except BaseException:
+					pass
+			raise BaseException.with_traceback(detach_error, detach_traceback)
+		return root, self.cleanup_state
+
+	def __exit__(
+		self,
+		error_type: type[BaseException] | None,
+		error: BaseException | None,
+		traceback: Any,
+	) -> bool:
+		del error_type, traceback
+		primary_error = error
+		if error is not None:
+			# An exception may have escaped the supervisor after a partial start. Clean
+			# only when it carries an explicit positive no-child proof; every
+			# unclassified exception (including controls) retains the owned root.
+			debt_state = _storage_acceptance_cleanup_debt_state(error)
+			if debt_state is False:
+				try:
+					error_attributes = BaseException.__getattribute__(error, "__dict__")
+					error_proves_quiescence = (
+						isinstance(error_attributes, dict)
+						and error_attributes.get("process_boundary_quiescent") is True
+					)
+				except BaseException:
+					error_proves_quiescence = False
+				cleanup_permitted = (
+					self.cleanup_state.get("permitted") is True
+					or error_proves_quiescence
+				)
+			else:
+				# Explicit, chained, or uninspectable debt always overrides an older
+				# pre-process cleanup authorization.
+				cleanup_permitted = False
+			self.cleanup_state["permitted"] = cleanup_permitted
+			if not cleanup_permitted:
+				primary_error = self._mark_retained(
+					error,
+					"Retained storage acceptance root",
+				)
+				if primary_error is not error:
+					raise primary_error from error
+
+		if self.cleanup_state.get("permitted") is True:
+			try:
+				self._cleanup_owned_root()
+			except BaseException as cleanup_error:
+				self.cleanup_state["permitted"] = False
+				if primary_error is None:
+					retained_error = self._mark_retained(
+						cleanup_error,
+						"Retained storage acceptance root after cleanup failure",
+					)
+					if retained_error is cleanup_error:
+						raise
+					raise retained_error from cleanup_error
+				retained_error = self._mark_retained(
+					primary_error,
+					"Retained storage acceptance root after cleanup failure",
+				)
+				try:
+					BaseException.add_note(
+						retained_error,
+						"Storage acceptance root cleanup also failed: "
+						f"{type(cleanup_error).__name__}: "
+						f"{safe_exception_detail(cleanup_error)}",
+					)
+				except BaseException:
+					pass
+				if retained_error is not primary_error:
+					raise retained_error from primary_error
+
+		# Returning false lets the interpreter re-raise the exact body exception;
+		# unlike contextlib's generator wrapper, this never dispatches through a
+		# hostile exception object's ``__traceback__`` descriptor.
+		return False
+
+
+def _storage_acceptance_temporary_root(
+	*,
+	prefix: str,
+) -> _StorageAcceptanceTemporaryRoot:
+	return _StorageAcceptanceTemporaryRoot(prefix=prefix)
+
+
+def _storage_acceptance_cleanup_debt_state(
+	error: BaseException,
+) -> bool | None:
+	"""Return cleanup debt only when exception marker access is trustworthy."""
+	seen: set[int] = set()
+	pending: list[BaseException] = [error]
+	while pending:
+		current = pending.pop()
+		if id(current) in seen:
+			continue
+		seen.add(id(current))
+		try:
+			error_type = type(current)
+			if error_type.__getattribute__ is not BaseException.__getattribute__:
+				return None
+			for owner_type in error_type.__mro__:
+				if owner_type is BaseException:
+					break
+				owner_attributes = vars(owner_type)
+				if "__dict__" in owner_attributes or any(
+					name in owner_attributes
+					for name in (
+						"cleanup_debt",
+						"process_boundary_quiescent",
+						"__cause__",
+						"__context__",
+						"__suppress_context__",
+					)
+				):
+					return None
+			attributes = BaseException.__getattribute__(current, "__dict__")
+			verified = BaseException.__getattribute__(current, "__dict__")
+			if not isinstance(attributes, dict) or verified is not attributes:
+				return None
+			if (
+				attributes.get("cleanup_debt") is True
+				or attributes.get("process_boundary_quiescent") is False
+			):
+				return True
+			for chain_name in ("__cause__", "__context__"):
+				chained = BaseException.__getattribute__(current, chain_name)
+				if chained is not None and not isinstance(chained, BaseException):
+					return None
+				if chained is not None:
+					pending.append(chained)
+		except BaseException:
+			return None
+	return False
+
+
+def _run_storage_acceptance_process(
+	command: list[str],
+	*,
+	cwd: Path,
+	environment: dict[str, str],
+	cleanup_state: dict[str, bool],
+) -> SupervisedProcessResult:
+	if cleanup_state.get("permitted") is not True:
+		raise WorkspaceProcessBoundaryError(
+			"Storage acceptance subprocess cannot start after cleanup ownership was lost."
+		)
+	cleanup_state["permitted"] = False
+	try:
+		result = run_supervised_process(
+			command,
+			cwd=cwd,
+			environment=environment,
+			timeout_seconds=STORAGE_ACCEPTANCE_TIMEOUT_SECONDS,
+			max_stdout_characters=STORAGE_ACCEPTANCE_OUTPUT_CHARACTER_LIMIT,
+			max_stderr_characters=STORAGE_ACCEPTANCE_OUTPUT_CHARACTER_LIMIT,
+		)
+		if result.process_boundary_quiescent is not True:
+			raise WorkspaceProcessBoundaryError(
+				"Storage acceptance subprocess process-boundary cleanup was not proven."
+			)
+		cleanup_state["permitted"] = True
+		return result
+	except SupervisedProcessStartError as error:
+		# The supervisor proved no child was created and every owner boundary was
+		# closed, so legacy environment classification and ordinary cleanup are safe.
+		original_error = error.original_error
+		cleanup_state["permitted"] = True
+		try:
+			attributes = BaseException.__getattribute__(original_error, "__dict__")
+			attributes["process_boundary_quiescent"] = True
+			verified = BaseException.__getattribute__(original_error, "__dict__")
+			if (
+				verified is not attributes
+				or verified.get("process_boundary_quiescent") is not True
+			):
+				raise RuntimeError(
+					"No-child start error could not retain its positive boundary proof."
+				)
+		except BaseException:
+			# The wrapper itself is the authoritative proof. Marker diagnostics on a
+			# hostile original error must not replace that exact original exception.
+			pass
+		raise original_error from error
+	except Exception as error:
+		raise WorkspaceProcessBoundaryError(
+			"Storage acceptance subprocess raised an unclassified error without "
+			"a quiet-boundary proof."
+		) from error
+
+
 def run_storage_backend_template_acceptance(
 	godot_executable: str = "",
 ) -> dict[str, Any]:
@@ -1190,10 +1492,9 @@ def run_storage_backend_template_acceptance(
 		}
 
 	try:
-		with tempfile.TemporaryDirectory(
+		with _storage_acceptance_temporary_root(
 			prefix="gf-storage-template-acceptance-"
-		) as temporary:
-			session_root = Path(temporary)
+		) as (session_root, cleanup_state):
 			project_root = session_root / "project"
 			with _private_owned_root(session_root):
 				prepare_storage_backend_template_acceptance_project(project_root)
@@ -1220,17 +1521,11 @@ def run_storage_backend_template_acceptance(
 				str(project_root),
 				"--import",
 			]
-			import_result = run_supervised_process(
+			import_result = _run_storage_acceptance_process(
 				import_command,
 				cwd=project_root,
 				environment=private_environment,
-				timeout_seconds=STORAGE_ACCEPTANCE_TIMEOUT_SECONDS,
-				max_stdout_characters=(
-					STORAGE_ACCEPTANCE_OUTPUT_CHARACTER_LIMIT
-				),
-				max_stderr_characters=(
-					STORAGE_ACCEPTANCE_OUTPUT_CHARACTER_LIMIT
-				),
+				cleanup_state=cleanup_state,
 			)
 			import_output = _combined_storage_acceptance_output(
 				import_result,
@@ -1285,17 +1580,11 @@ def run_storage_backend_template_acceptance(
 				),
 				"-gexit",
 			]
-			gut_result = run_supervised_process(
+			gut_result = _run_storage_acceptance_process(
 				gut_command,
 				cwd=project_root,
 				environment=private_environment,
-				timeout_seconds=STORAGE_ACCEPTANCE_TIMEOUT_SECONDS,
-				max_stdout_characters=(
-					STORAGE_ACCEPTANCE_OUTPUT_CHARACTER_LIMIT
-				),
-				max_stderr_characters=(
-					STORAGE_ACCEPTANCE_OUTPUT_CHARACTER_LIMIT
-				),
+				cleanup_state=cleanup_state,
 			)
 			gut_output = _combined_storage_acceptance_output(
 				gut_result,
@@ -1348,7 +1637,14 @@ def run_storage_backend_template_acceptance(
 				"passing_tests": passing_tests,
 				"lifecycle_ok": lifecycle_ok,
 			}
+	except WorkspaceProcessBoundaryError:
+		# A retained acceptance root and its ownership debt are part of the
+		# fail-closed boundary. Do not collapse them into an ordinary environment
+		# diagnostic that permits callers to continue without the preserved path.
+		raise
 	except (OSError, RuntimeError, UnicodeError, ValueError) as exc:
+		if _storage_acceptance_cleanup_debt_state(exc) is not False:
+			raise
 		return {
 			"ok": False,
 			"phase": "environment",
@@ -3358,6 +3654,7 @@ class _OwnedRootBinding:
 	def __init__(self, root: Path) -> None:
 		self.root = Path(os.path.abspath(root))
 		self._closed = False
+		self._close_error: BaseException | None = None
 		self._root_chain = _snapshot_absolute_directory_chain(self.root)
 		self._posix_directories: dict[tuple[str, ...], int] = {}
 		self._windows_directories: dict[str, int] = {}
@@ -3376,32 +3673,109 @@ class _OwnedRootBinding:
 	def __exit__(
 		self,
 		_exc_type: type[BaseException] | None,
-		_exc: BaseException | None,
+		error: BaseException | None,
 		_traceback: Any,
-	) -> None:
-		self.close()
+	) -> bool:
+		try:
+			self.close()
+		except BaseException as cleanup_error:
+			debt_error = _mark_storage_owned_cleanup_debt(
+				error,
+				cleanup_error,
+				preserved_paths=(self.root,),
+				reason="Owned-root binding cleanup was not proven",
+			)
+			if error is None:
+				raise debt_error from cleanup_error
+			if debt_error is not error:
+				raise debt_error from error
+		return False
 
 	def close(self) -> None:
+		if self._close_error is not None:
+			raise self._close_error
 		if self._closed:
 			return
+		cleanup_errors: list[BaseException] = []
+		active_sentinel: BaseException | None = None
+		try:
+			for key, descriptor in sorted(
+				self._posix_directories.items(),
+				key=lambda item: len(item[0]),
+				reverse=True,
+			):
+				active_sentinel = None
+				if self._close_error is None:
+					active_sentinel = OSError(
+						"Owned-root descriptor close outcome is unproven."
+					)
+					self._close_error = active_sentinel
+				try:
+					os.close(descriptor)
+				except BaseException as cleanup_error:
+					if self._close_error is active_sentinel:
+						self._close_error = cleanup_error
+					cleanup_errors.append(cleanup_error)
+				else:
+					self._posix_directories.pop(key, None)
+					if self._close_error is active_sentinel:
+						self._close_error = None
+				active_sentinel = None
+			for path, handle in reversed(
+				tuple(self._windows_directories.items())
+			):
+				active_sentinel = None
+				if self._close_error is None:
+					active_sentinel = OSError(
+						"Owned-root handle close outcome is unproven."
+					)
+					self._close_error = active_sentinel
+				try:
+					_windows_close_handle_checked(handle)
+				except BaseException as cleanup_error:
+					if self._close_error is active_sentinel:
+						self._close_error = cleanup_error
+					cleanup_errors.append(cleanup_error)
+				else:
+					self._windows_directories.pop(path, None)
+					if self._close_error is active_sentinel:
+						self._close_error = None
+				active_sentinel = None
+		except BaseException as interruption:
+			sticky_error = self._close_error
+			if sticky_error is None or sticky_error is active_sentinel:
+				sticky_error = interruption
+				self._close_error = sticky_error
+			elif sticky_error is not interruption:
+				try:
+					BaseException.add_note(
+						sticky_error,
+						"Additional owned-root binding cleanup interruption: "
+						f"{safe_exception_detail(interruption)}",
+					)
+				except BaseException:
+					pass
+			raise sticky_error
+		if cleanup_errors:
+			primary_cleanup_error = self._close_error or cleanup_errors[0]
+			self._close_error = primary_cleanup_error
+			for cleanup_error in cleanup_errors:
+				if cleanup_error is primary_cleanup_error:
+					continue
+				try:
+					BaseException.add_note(
+						primary_cleanup_error,
+						"Additional owned-root binding cleanup failed: "
+						f"{safe_exception_detail(cleanup_error)}",
+					)
+				except BaseException:
+					pass
+			raise primary_cleanup_error
 		self._closed = True
-		for _key, descriptor in sorted(
-			self._posix_directories.items(),
-			key=lambda item: len(item[0]),
-			reverse=True,
-		):
-			try:
-				os.close(descriptor)
-			except OSError:
-				pass
-		self._posix_directories.clear()
-		for _path, handle in reversed(
-			tuple(self._windows_directories.items())
-		):
-			_windows_close_handle(handle)
-		self._windows_directories.clear()
 
 	def verify(self) -> None:
+		if self._close_error is not None:
+			raise ValueError("Owned-root binding cleanup failed.") from self._close_error
 		if self._closed:
 			raise ValueError("Owned-root binding is closed.")
 		if not _same_directory_chain_identity(
@@ -3415,6 +3789,7 @@ class _OwnedRootBinding:
 		self._verify_posix_directories()
 
 	def ensure_directory(self, directory: Path) -> Path:
+		self.verify()
 		absolute_directory, _absolute_root = _absolute_owned_path(
 			directory,
 			self.root,
@@ -3431,8 +3806,7 @@ class _OwnedRootBinding:
 		return absolute_directory
 
 	def create_target(self, path: Path) -> _OwnedTargetBinding:
-		if self._closed:
-			raise ValueError("Owned-root binding is closed.")
+		self.verify()
 		absolute_path, _absolute_root = _absolute_owned_path(
 			path,
 			self.root,
@@ -3448,6 +3822,7 @@ class _OwnedRootBinding:
 		target: _OwnedTargetBinding,
 		opened_after: os.stat_result,
 	) -> None:
+		self.verify()
 		if not _same_regular_object_identity(
 			target.opened_metadata,
 			opened_after,
@@ -3794,8 +4169,18 @@ class _OwnedRootBinding:
 					handle
 				):
 					raise ValueError("Owned-root identity changed.")
-		except Exception:
-			self.close()
+		except Exception as error:
+			try:
+				self.close()
+			except BaseException as cleanup_error:
+				debt_error = _mark_storage_owned_cleanup_debt(
+					error,
+					cleanup_error,
+					preserved_paths=(self.root,),
+					reason="Owned-root initialization cleanup was not proven",
+				)
+				if debt_error is not error:
+					raise debt_error from error
 			raise
 
 	def _ensure_windows_directory(self, directory: Path) -> int:
@@ -3847,7 +4232,7 @@ class _OwnedRootBinding:
 			opened = os.fstat(descriptor)
 		except (OSError, ValueError):
 			if handle >= 0:
-				_windows_close_handle(handle)
+				_windows_close_handle_best_effort(handle)
 			raise ValueError("Owned target could not be created.") from None
 		if (
 			not stat.S_ISREG(opened.st_mode)
@@ -3915,7 +4300,7 @@ def _windows_open_pinned_directory(
 	try:
 		after = os.lstat(path)
 	except OSError:
-		_windows_close_handle(handle)
+		_windows_close_handle_best_effort(handle)
 		raise ValueError("Owned target directory is unavailable.") from None
 	if (
 		not _same_directory_identity(before, after)
@@ -3926,7 +4311,7 @@ def _windows_open_pinned_directory(
 		)
 		or int(after.st_ino) != _windows_handle_file_index(handle)
 	):
-		_windows_close_handle(handle)
+		_windows_close_handle_best_effort(handle)
 		raise ValueError("Owned target directory identity changed.")
 	return handle, after
 
@@ -4027,7 +4412,7 @@ def _windows_create_pinned_file(
 	handle = int(file_handle.value or -1)
 	if status_code < 0 or handle < 0:
 		if handle >= 0:
-			_windows_close_handle(handle)
+			_windows_close_handle_best_effort(handle)
 		if os.path.lexists(expected_path):
 			raise FileExistsError(
 				"Owned target file must not already exist."
@@ -4038,7 +4423,7 @@ def _windows_create_pinned_file(
 		expected_path,
 		expect_directory=False,
 	):
-		_windows_close_handle(handle)
+		_windows_close_handle_best_effort(handle)
 		raise ValueError("Owned target boundary is invalid.")
 	return handle
 
@@ -4256,7 +4641,7 @@ def _windows_handle_matches_path(
 	return _windows_path_key(Path(final_path)) == _windows_path_key(path)
 
 
-def _windows_close_handle(handle: int) -> None:
+def _windows_close_handle_checked(handle: int) -> None:
 	if os.name != "nt" or handle < 0:
 		return
 	import ctypes
@@ -4265,26 +4650,141 @@ def _windows_close_handle(handle: int) -> None:
 	kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
 	kernel32.CloseHandle.argtypes = [wintypes.HANDLE]
 	kernel32.CloseHandle.restype = wintypes.BOOL
-	kernel32.CloseHandle(wintypes.HANDLE(handle))
+	if not kernel32.CloseHandle(wintypes.HANDLE(handle)):
+		raise ctypes.WinError(ctypes.get_last_error())
 
 
-@contextmanager
-def _private_owned_root(root: Path) -> Iterator[Path]:
-	"""Pin and register one process-created private target root."""
-	absolute_root, _root_stat = _assert_owned_path(
-		root,
-		root,
-		require_directory=True,
-	)
-	if absolute_root in _PRIVATE_OWNED_ROOTS:
-		raise ValueError("Private owned root is already registered.")
-	binding = _OwnedRootBinding(absolute_root)
-	_PRIVATE_OWNED_ROOTS[absolute_root] = binding
+def _windows_close_handle_best_effort(handle: int) -> None:
 	try:
-		yield absolute_root
-	finally:
-		_PRIVATE_OWNED_ROOTS.pop(absolute_root, None)
-		binding.close()
+		_windows_close_handle_checked(handle)
+	except OSError:
+		pass
+
+
+def _mark_storage_owned_cleanup_debt(
+	primary_error: BaseException | None,
+	cleanup_error: BaseException,
+	*,
+	preserved_paths: tuple[Path, ...],
+	reason: str,
+) -> BaseException:
+	debt_error: BaseException = (
+		primary_error
+		if primary_error is not None
+		else WorkspaceProcessBoundaryError(
+			reason,
+			preserved_paths=preserved_paths,
+		)
+	)
+	try:
+		BaseException.add_note(
+			debt_error,
+			f"{reason}: {safe_exception_detail(cleanup_error)}",
+		)
+	except BaseException:
+		pass
+	try:
+		attributes = BaseException.__getattribute__(debt_error, "__dict__")
+		attributes["cleanup_debt"] = True
+		attributes["process_boundary_quiescent"] = False
+		attributes["preserved_paths"] = preserved_paths
+		attributes["cleanup_error"] = cleanup_error
+		verified = BaseException.__getattribute__(debt_error, "__dict__")
+		if (
+			verified is not attributes
+			or verified.get("cleanup_debt") is not True
+			or verified.get("process_boundary_quiescent") is not False
+			or verified.get("preserved_paths") is not preserved_paths
+			or verified.get("cleanup_error") is not cleanup_error
+		):
+			raise RuntimeError("Owned cleanup debt markers could not be verified.")
+	except BaseException:
+		fallback = WorkspaceProcessBoundaryError(
+			reason,
+			preserved_paths=preserved_paths,
+		)
+		attributes = BaseException.__getattribute__(fallback, "__dict__")
+		attributes["primary_error"] = debt_error
+		attributes["cleanup_error"] = cleanup_error
+		return fallback
+	return debt_error
+
+
+class _PrivateOwnedRoot:
+	"""Pin and register one process-created private target root."""
+
+	def __init__(self, root: Path) -> None:
+		self.requested_root = root
+		self.absolute_root: Path | None = None
+		self.binding: _OwnedRootBinding | None = None
+
+	def __enter__(self) -> Path:
+		absolute_root, _root_stat = _assert_owned_path(
+			self.requested_root,
+			self.requested_root,
+			require_directory=True,
+		)
+		if absolute_root in _PRIVATE_OWNED_ROOTS:
+			raise ValueError("Private owned root is already registered.")
+		binding = _OwnedRootBinding(absolute_root)
+		self.absolute_root = absolute_root
+		self.binding = binding
+		try:
+			_PRIVATE_OWNED_ROOTS[absolute_root] = binding
+			return absolute_root
+		except BaseException as error:
+			try:
+				binding.close()
+			except BaseException as cleanup_error:
+				debt_error = _mark_storage_owned_cleanup_debt(
+					error,
+					cleanup_error,
+					preserved_paths=(absolute_root,),
+					reason="Private owned-root registration cleanup was not proven",
+				)
+				if debt_error is not error:
+					raise debt_error from error
+			else:
+				if _PRIVATE_OWNED_ROOTS.get(absolute_root) is binding:
+					_PRIVATE_OWNED_ROOTS.pop(absolute_root, None)
+			raise
+
+	def __exit__(
+		self,
+		_error_type: type[BaseException] | None,
+		error: BaseException | None,
+		_traceback: Any,
+	) -> bool:
+		absolute_root = self.absolute_root
+		binding = self.binding
+		if binding is not None:
+			try:
+				binding.close()
+			except BaseException as cleanup_error:
+				debt_error = _mark_storage_owned_cleanup_debt(
+					error,
+					cleanup_error,
+					preserved_paths=(
+						absolute_root
+						if absolute_root is not None
+						else self.requested_root,
+					),
+					reason="Private owned-root binding cleanup was not proven",
+				)
+				if error is None:
+					raise debt_error from cleanup_error
+				if debt_error is not error:
+					raise debt_error from error
+			else:
+				if absolute_root is not None:
+					_PRIVATE_OWNED_ROOTS.pop(absolute_root, None)
+		elif absolute_root is not None:
+			_PRIVATE_OWNED_ROOTS.pop(absolute_root, None)
+		return False
+
+
+def _private_owned_root(root: Path) -> _PrivateOwnedRoot:
+	return _PrivateOwnedRoot(root)
 
 
 def _registered_owned_binding_for(
@@ -4328,72 +4828,138 @@ def _owned_directory_open_flags() -> int:
 	)
 
 
-@contextmanager
+class _OpenOwnedDirectoryDescriptor:
+	def __init__(
+		self,
+		owner_root: Path,
+		directory: Path,
+		*,
+		create: bool,
+	) -> None:
+		self.owner_root = owner_root
+		self.directory = directory
+		self.create = create
+		self.root_descriptor = -1
+		self.current_descriptor = -1
+
+	def _close_descriptors(
+		self,
+		primary_error: BaseException | None,
+	) -> BaseException | None:
+		cleanup_errors: list[BaseException] = []
+		for attribute_name in ("current_descriptor", "root_descriptor"):
+			descriptor = int(getattr(self, attribute_name))
+			if descriptor < 0:
+				continue
+			try:
+				os.close(descriptor)
+			except BaseException as cleanup_error:
+				cleanup_errors.append(cleanup_error)
+			else:
+				setattr(self, attribute_name, -1)
+		if not cleanup_errors:
+			return primary_error
+		debt_error = _mark_storage_owned_cleanup_debt(
+			primary_error,
+			cleanup_errors[0],
+			preserved_paths=(Path(os.path.abspath(self.owner_root)),),
+			reason="Owned directory descriptor cleanup was not proven",
+		)
+		for cleanup_error in cleanup_errors[1:]:
+			try:
+				BaseException.add_note(
+					debt_error,
+					"Additional owned directory descriptor cleanup failed: "
+					f"{safe_exception_detail(cleanup_error)}",
+				)
+			except BaseException:
+				pass
+		return debt_error
+
+	def __enter__(self) -> int:
+		if not _supports_secure_directory_descriptors():
+			raise ValueError("Secure directory-relative creation is unavailable.")
+		absolute_directory, absolute_root = _absolute_owned_path(
+			self.directory,
+			self.owner_root,
+		)
+		absolute_root, root_before = _assert_owned_path(
+			absolute_root,
+			absolute_root,
+			require_directory=True,
+		)
+		try:
+			self.root_descriptor = os.open(
+				absolute_root,
+				_owned_directory_open_flags(),
+			)
+			root_opened = os.fstat(self.root_descriptor)
+			if not _same_directory_identity(root_before, root_opened):
+				raise ValueError("Owned target root identity changed before creation.")
+			self.current_descriptor = os.dup(self.root_descriptor)
+			for component in absolute_directory.relative_to(absolute_root).parts:
+				next_descriptor = -1
+				try:
+					next_descriptor = os.open(
+						component,
+						_owned_directory_open_flags(),
+						dir_fd=self.current_descriptor,
+					)
+				except FileNotFoundError:
+					if not self.create:
+						raise
+					os.mkdir(component, 0o700, dir_fd=self.current_descriptor)
+					next_descriptor = os.open(
+						component,
+						_owned_directory_open_flags(),
+						dir_fd=self.current_descriptor,
+					)
+				try:
+					next_metadata = os.fstat(next_descriptor)
+					if (
+						not stat.S_ISDIR(next_metadata.st_mode)
+						or _metadata_is_link_or_reparse(next_metadata)
+					):
+						raise ValueError(
+							"Owned target directory crosses a link or reparse point."
+						)
+				except BaseException:
+					os.close(next_descriptor)
+					raise
+				os.close(self.current_descriptor)
+				self.current_descriptor = next_descriptor
+			return self.current_descriptor
+		except BaseException as error:
+			debt_error = self._close_descriptors(error)
+			if debt_error is not error:
+				raise debt_error from error
+			raise
+
+	def __exit__(
+		self,
+		_error_type: type[BaseException] | None,
+		error: BaseException | None,
+		_traceback: Any,
+	) -> bool:
+		debt_error = self._close_descriptors(error)
+		if debt_error is not error:
+			if error is None:
+				raise debt_error
+			raise debt_error from error
+		return False
+
+
 def _open_owned_directory_descriptor(
 	owner_root: Path,
 	directory: Path,
 	*,
 	create: bool,
-) -> Iterator[int]:
-	if not _supports_secure_directory_descriptors():
-		raise ValueError("Secure directory-relative creation is unavailable.")
-	absolute_directory, absolute_root = _absolute_owned_path(
-		directory,
+) -> _OpenOwnedDirectoryDescriptor:
+	return _OpenOwnedDirectoryDescriptor(
 		owner_root,
+		directory,
+		create=create,
 	)
-	absolute_root, root_before = _assert_owned_path(
-		absolute_root,
-		absolute_root,
-		require_directory=True,
-	)
-	root_descriptor = -1
-	current_descriptor = -1
-	try:
-		root_descriptor = os.open(
-			absolute_root,
-			_owned_directory_open_flags(),
-		)
-		root_opened = os.fstat(root_descriptor)
-		if not _same_directory_identity(root_before, root_opened):
-			raise ValueError("Owned target root identity changed before creation.")
-		current_descriptor = os.dup(root_descriptor)
-		for component in absolute_directory.relative_to(absolute_root).parts:
-			next_descriptor = -1
-			try:
-				next_descriptor = os.open(
-					component,
-					_owned_directory_open_flags(),
-					dir_fd=current_descriptor,
-				)
-			except FileNotFoundError:
-				if not create:
-					raise
-				os.mkdir(component, 0o700, dir_fd=current_descriptor)
-				next_descriptor = os.open(
-					component,
-					_owned_directory_open_flags(),
-					dir_fd=current_descriptor,
-				)
-			try:
-				next_metadata = os.fstat(next_descriptor)
-				if (
-					not stat.S_ISDIR(next_metadata.st_mode)
-					or _metadata_is_link_or_reparse(next_metadata)
-				):
-					raise ValueError(
-						"Owned target directory crosses a link or reparse point."
-					)
-			except BaseException:
-				os.close(next_descriptor)
-				raise
-			os.close(current_descriptor)
-			current_descriptor = next_descriptor
-		yield current_descriptor
-	finally:
-		if current_descriptor >= 0:
-			os.close(current_descriptor)
-		if root_descriptor >= 0:
-			os.close(root_descriptor)
 
 
 def _ensure_owned_directory_tree(
@@ -4419,42 +4985,68 @@ def _ensure_owned_directory_tree(
 	return absolute_directory
 
 
-@contextmanager
-def _open_owned_target_descriptor(
-	target_path: Path,
-	target_owner_root: Path,
-) -> Iterator[tuple[int, Path]]:
-	absolute_target, absolute_target_root = _absolute_owned_path(
-		target_path,
-		target_owner_root,
-	)
-	if absolute_target == absolute_target_root:
-		raise ValueError("Owned target must be below its owner root.")
-	binding = _registered_owned_binding_for(absolute_target_root)
-	if binding is not None:
-		target = binding.create_target(absolute_target)
+class _OpenOwnedTargetDescriptor:
+	def __init__(self, target_path: Path, target_owner_root: Path) -> None:
+		self.target_path = target_path
+		self.target_owner_root = target_owner_root
+		self.absolute_target: Path | None = None
+		self.file_descriptor = -1
+		self.binding: _OwnedRootBinding | None = None
+		self.target_binding: _OwnedTargetBinding | None = None
+		self.parent_context: _OpenOwnedDirectoryDescriptor | None = None
+
+	def _close_file_descriptor(
+		self,
+		primary_error: BaseException | None,
+	) -> BaseException | None:
+		if self.file_descriptor < 0:
+			return primary_error
 		try:
-			yield target.file_descriptor, absolute_target
-			opened_after = os.fstat(target.file_descriptor)
-			binding.verify_target(target, opened_after)
-		finally:
-			os.close(target.file_descriptor)
-		return
-	if _supports_secure_directory_descriptors():
-		with _open_owned_directory_descriptor(
-			absolute_target_root,
-			absolute_target.parent,
-			create=True,
-		) as parent_descriptor:
-			file_descriptor = -1
+			os.close(self.file_descriptor)
+		except BaseException as cleanup_error:
+			return _mark_storage_owned_cleanup_debt(
+				primary_error,
+				cleanup_error,
+				preserved_paths=(
+					Path(os.path.abspath(self.target_owner_root)),
+				),
+				reason="Owned target descriptor cleanup was not proven",
+			)
+		else:
+			self.file_descriptor = -1
+		return primary_error
+
+	def __enter__(self) -> tuple[int, Path]:
+		absolute_target, absolute_target_root = _absolute_owned_path(
+			self.target_path,
+			self.target_owner_root,
+		)
+		self.absolute_target = absolute_target
+		if absolute_target == absolute_target_root:
+			raise ValueError("Owned target must be below its owner root.")
+		binding = _registered_owned_binding_for(absolute_target_root)
+		if binding is not None:
+			target = binding.create_target(absolute_target)
+			self.binding = binding
+			self.target_binding = target
+			self.file_descriptor = target.file_descriptor
+			return self.file_descriptor, absolute_target
+		if _supports_secure_directory_descriptors():
+			parent_context = _open_owned_directory_descriptor(
+				absolute_target_root,
+				absolute_target.parent,
+				create=True,
+			)
+			self.parent_context = parent_context
+			parent_descriptor = parent_context.__enter__()
 			try:
-				file_descriptor = os.open(
+				self.file_descriptor = os.open(
 					absolute_target.name,
 					_owned_write_flags(),
 					0o600,
 					dir_fd=parent_descriptor,
 				)
-				opened = os.fstat(file_descriptor)
+				opened = os.fstat(self.file_descriptor)
 				if (
 					not stat.S_ISREG(opened.st_mode)
 					or _metadata_is_link_or_reparse(opened)
@@ -4469,14 +5061,58 @@ def _open_owned_target_descriptor(
 					raise ValueError(
 						"Owned target identity changed before it was written."
 					)
-				yield file_descriptor, absolute_target
-			finally:
-				if file_descriptor >= 0:
-					os.close(file_descriptor)
-		return
+			except BaseException as error:
+				debt_error = self._close_file_descriptor(error)
+				parent_context.__exit__(
+					type(debt_error),
+					debt_error,
+					safe_exception_traceback(debt_error),
+				)
+				if debt_error is not error:
+					raise debt_error from error
+				raise
+			return self.file_descriptor, absolute_target
 
-	_validated_private_root_for(absolute_target_root)
-	raise ValueError("Secure owned-target creation is unavailable.")
+		_validated_private_root_for(absolute_target_root)
+		raise ValueError("Secure owned-target creation is unavailable.")
+
+	def __exit__(
+		self,
+		error_type: type[BaseException] | None,
+		error: BaseException | None,
+		traceback: Any,
+	) -> bool:
+		primary_error = error
+		if error is None and self.binding is not None:
+			target_binding = self.target_binding
+			if target_binding is None:
+				raise RuntimeError("Owned target binding is unavailable.")
+			try:
+				opened_after = os.fstat(self.file_descriptor)
+				self.binding.verify_target(target_binding, opened_after)
+			except BaseException as verification_error:
+				primary_error = verification_error
+		primary_error = self._close_file_descriptor(primary_error)
+		if self.parent_context is not None:
+			self.parent_context.__exit__(
+				type(primary_error) if primary_error is not None else error_type,
+				primary_error,
+				safe_exception_traceback(primary_error)
+				if primary_error is not None
+				else traceback,
+			)
+		if primary_error is not error:
+			if error is None:
+				raise primary_error
+			raise primary_error from error
+		return False
+
+
+def _open_owned_target_descriptor(
+	target_path: Path,
+	target_owner_root: Path,
+) -> _OpenOwnedTargetDescriptor:
+	return _OpenOwnedTargetDescriptor(target_path, target_owner_root)
 
 
 def _write_owned_target_bytes(

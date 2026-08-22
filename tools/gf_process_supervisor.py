@@ -7,16 +7,21 @@ import os
 import signal
 import subprocess
 import sys
+import tempfile
 import threading
 import time
 from dataclasses import dataclass
+from dataclasses import replace
 from pathlib import Path
+from types import TracebackType
 from typing import Any
+from typing import BinaryIO
 from typing import Callable
 
 
 OUTPUT_DRAIN_GRACE_SECONDS = 1.0
 OUTPUT_CLEANUP_GRACE_SECONDS = 2.0
+STDIN_STAGE_CHUNK_BYTES = 1024 * 1024
 LINUX_PROC_STAT_MAX_BYTES = 4096
 LINUX_PROC_SCAN_MAX_ENTRIES = 131072
 LINUX_PROC_SCAN_TIMEOUT_SECONDS = 0.25
@@ -24,6 +29,51 @@ _LINUX_PROCESS_GROUP_ABSENT = "absent"
 _LINUX_PROCESS_GROUP_TERMINATED = "terminated"
 _LINUX_PROCESS_GROUP_LIVE = "live"
 _LINUX_TERMINATED_PROCESS_STATES = frozenset(("Z", "X", "x"))
+
+
+class SupervisedProcessStartError(OSError):
+	"""A command-start failure with a positive no-child boundary proof."""
+
+	def __init__(self, error: OSError) -> None:
+		try:
+			arguments = BaseException.__getattribute__(error, "args")
+		except BaseException:
+			arguments = ("Subprocess start failed before child creation.",)
+		if not isinstance(arguments, tuple):
+			arguments = ("Subprocess start failed before child creation.",)
+		super().__init__(*arguments)
+		self.original_error = error
+		self.return_code = 127 if isinstance(error, FileNotFoundError) else 126
+		self.started = False
+		self.pid = 0
+		self.process_boundary_quiescent = True
+
+
+class SupervisedProcessCleanupError(OSError):
+	"""A supervision failure whose owner/resource cleanup was not proven complete."""
+
+	def __init__(self, message: str, *, notes: tuple[str, ...] = ()) -> None:
+		super().__init__(message)
+		self.cleanup_debt = True
+		self.process_boundary_quiescent = False
+		self.notes = notes
+
+
+def safe_exception_detail(error: BaseException) -> str:
+	"""Format diagnostics without letting hostile exception text replace control flow."""
+	try:
+		return str(error)
+	except BaseException:
+		return "exception detail unavailable"
+
+
+def safe_exception_traceback(error: BaseException) -> TracebackType | None:
+	"""Capture only a real traceback without dispatching through hostile accessors."""
+	try:
+		traceback = BaseException.__getattribute__(error, "__traceback__")
+	except BaseException:
+		return None
+	return traceback if traceback is None or isinstance(traceback, TracebackType) else None
 
 
 def _process_supervision_checkpoint(_name: str) -> None:
@@ -114,9 +164,13 @@ class _ProcessTreeOwner:
 	def __init__(self) -> None:
 		self.cleanup_failed = False
 		self._started_process: subprocess.Popen[str] | None = None
+		self._process_was_created = False
 		self._closed = False
 		self._termination_succeeded = False
 		self._cleanup_confirmation_succeeded = False
+		self._stdin_stream: BinaryIO | None = None
+		self._text_errors = "replace"
+		self._binary_output = False
 
 	def start(
 		self,
@@ -158,7 +212,6 @@ class _ProcessTreeOwner:
 	def close_terminates_tree(self) -> bool:
 		return False
 
-
 class _PosixProcessGroupOwner(_ProcessTreeOwner):
 	"""Keep the group leader unreaped until its independently owned group is empty."""
 
@@ -178,18 +231,23 @@ class _PosixProcessGroupOwner(_ProcessTreeOwner):
 	) -> subprocess.Popen[str]:
 		process: subprocess.Popen[str] | None = None
 		try:
+			text_options: dict[str, object] = {"text": False} if self._binary_output else {
+				"text": True,
+				"encoding": "utf-8",
+				"errors": self._text_errors,
+			}
 			process = subprocess.Popen(
 				command,
 				cwd=cwd,
+				stdin=self._stdin_stream,
 				stdout=subprocess.PIPE,
 				stderr=subprocess.PIPE,
-				text=True,
-				encoding="utf-8",
-				errors="replace",
 				env=environment,
 				start_new_session=True,
+				**text_options,
 			)
 			self._started_process = process
+			self._process_was_created = True
 			self.process_group_id = process.pid
 			setattr(process, "_gf_process_tree_owner", self)
 			_process_supervision_checkpoint("posix_process_started")
@@ -464,7 +522,7 @@ if os.name == "nt":
 			except BaseException as error:
 				if pending_error is None:
 					pending_error = error
-					pending_traceback = error.__traceback__
+					pending_traceback = safe_exception_traceback(error)
 
 
 	def _close_windows_handle_worker(owner: Any, operation: _WindowsHandleCloseOperation) -> None:
@@ -484,7 +542,7 @@ if os.name == "nt":
 				last_error = ctypes.get_last_error()
 		except BaseException as error:
 			close_error = error
-			close_traceback = error.__traceback__
+			close_traceback = safe_exception_traceback(error)
 		finally:
 			with operation.state_lock:
 				operation.called = True
@@ -502,9 +560,15 @@ if os.name == "nt":
 					else:
 						# An exception after entering CloseHandle makes the kernel
 						# result unknowable. Consume the numeric value rather than
-						# risking a close against a reused handle.
+						# risking a close against a reused handle. Keep an unreaped
+						# direct child published even after the Job is gone so an
+						# already-installed outer cleanup guard can retry it.
 						owner.handle = 0
-						owner._started_process = None
+						if (
+							owner._started_process is not None
+							and owner._started_process.returncode is not None
+						):
+							owner._started_process = None
 						owner._closed = True
 					owner._close_operation = None
 			operation.finished.set()
@@ -571,7 +635,7 @@ if os.name == "nt":
 				except BaseException as error:
 					if pending_error is None:
 						pending_error = error
-						pending_traceback = error.__traceback__
+						pending_traceback = safe_exception_traceback(error)
 			if not worker_launched:
 				try:
 					_thread.start_new_thread(
@@ -582,7 +646,7 @@ if os.name == "nt":
 				except BaseException as error:
 					if pending_error is None:
 						pending_error = error
-						pending_traceback = error.__traceback__
+						pending_traceback = safe_exception_traceback(error)
 		if not worker_launched:
 			# An earlier ambiguous Thread.start() may still have created a contender.
 			# Wait only after it claims; otherwise retain the operation for a later
@@ -651,18 +715,23 @@ if os.name == "nt":
 			process: subprocess.Popen[str] | None = None
 			assigned_to_job = False
 			try:
+				text_options: dict[str, object] = {"text": False} if self._binary_output else {
+					"text": True,
+					"encoding": "utf-8",
+					"errors": self._text_errors,
+				}
 				process = subprocess.Popen(
 					command,
 					cwd=cwd,
+					stdin=self._stdin_stream,
 					stdout=subprocess.PIPE,
 					stderr=subprocess.PIPE,
-					text=True,
-					encoding="utf-8",
-					errors="replace",
 					env=environment,
 					creationflags=subprocess.CREATE_NEW_PROCESS_GROUP | _CREATE_SUSPENDED,
+					**text_options,
 				)
 				self._started_process = process
+				self._process_was_created = True
 				setattr(process, "_gf_process_tree_owner", self)
 				_process_supervision_checkpoint("windows_process_started")
 				process_handle = wintypes.HANDLE(int(process._handle))
@@ -703,7 +772,16 @@ if os.name == "nt":
 						# Startup must preserve its first exception after exhausting cleanup.
 						pass
 				finally:
-					self._started_process = None
+					# Closing an empty/unassigned Job cannot stop this suspended
+					# child. Publish it until wait() has positively observed direct
+					# exit so the outer cleanup chain can retry local kill/reap
+					# failures instead of losing the only process handle.
+					with self._handle_state_lock:
+						if process.returncode is None:
+							self._started_process = process
+							self.cleanup_failed = True
+						elif self._started_process is process:
+							self._started_process = None
 				raise
 
 		def wait_for_direct_exit(
@@ -782,22 +860,29 @@ if os.name == "nt":
 		def close(self) -> list[str]:
 			with self._handle_state_lock:
 				already_closed = self.handle == 0 and self._close_operation is None
+				if already_closed:
+					if (
+						self._started_process is not None
+						and self._started_process.returncode is not None
+					):
+						self._started_process = None
+					self._closed = True
 			if already_closed:
-				self._started_process = None
-				self._closed = True
 				return []
 			outcome = _close_windows_handle_in_worker(self)
 			if outcome.called and outcome.result is False:
 				self.cleanup_failed = True
 			if outcome.error is not None:
-				raise outcome.error.with_traceback(outcome.error_traceback)
+				raise BaseException.with_traceback(
+					outcome.error,
+					outcome.error_traceback,
+				)
 			if outcome.result is False:
 				return [f"Could not close the owned Windows Job Object: {ctypes.WinError(outcome.last_error)}"]
 			return []
 
 		def close_terminates_tree(self) -> bool:
 			return True
-
 
 def _new_process_tree_owner() -> _ProcessTreeOwner:
 	if os.name == "nt":
@@ -807,6 +892,17 @@ def _new_process_tree_owner() -> _ProcessTreeOwner:
 
 @dataclass(frozen=True)
 class SupervisedProcessResult:
+	"""One command result with an explicit platform-boundary cleanup proof.
+
+	``process_boundary_quiescent`` is true only when the Windows Job Object was
+	observed empty, or the POSIX process group was absent/contained no executable
+	members, before its owner was released (or no process was ever started). On
+	POSIX this does not claim
+	containment against a descendant that deliberately leaves the owned group.
+	The field is independent of command success, timeout/cancellation, and output
+	completeness.
+	"""
+
 	return_code: int
 	stdout: str
 	stderr: str
@@ -817,6 +913,7 @@ class SupervisedProcessResult:
 	cancelled: bool = False
 	stdout_truncated: bool = False
 	stderr_truncated: bool = False
+	process_boundary_quiescent: bool = False
 
 
 def run_supervised_process(
@@ -832,8 +929,17 @@ def run_supervised_process(
 	cancellation_event: threading.Event | None = None,
 	max_stdout_characters: int | None = None,
 	max_stderr_characters: int | None = None,
+	stdin_bytes: bytes | None = None,
+	text_errors: str = "replace",
+	binary_output: bool = False,
 ) -> SupervisedProcessResult:
 	started = time.perf_counter()
+	if stdin_bytes is not None and not isinstance(stdin_bytes, bytes):
+		raise TypeError("stdin_bytes must be bytes or None.")
+	if text_errors not in {"replace", "surrogateescape"}:
+		raise ValueError("text_errors must be 'replace' or 'surrogateescape'.")
+	if not isinstance(binary_output, bool):
+		raise TypeError("binary_output must be a bool.")
 	for stream_name, capture_limit in (
 		("stdout", max_stdout_characters),
 		("stderr", max_stderr_characters),
@@ -852,6 +958,7 @@ def run_supervised_process(
 			pid=0,
 			notes=("Command was cancelled before its process started.",),
 			cancelled=True,
+			process_boundary_quiescent=True,
 		)
 	owner: _ProcessTreeOwner | None = None
 	process: subprocess.Popen[str] | None = None
@@ -875,6 +982,140 @@ def run_supervised_process(
 	tree_termination_completed = False
 	direct_reap_completed = False
 	cleanup_confirmation_completed = False
+	stdin_stream: BinaryIO | None = None
+	prelaunch_result: SupervisedProcessResult | None = None
+
+	class PrelaunchStopped(Exception):
+		def __init__(self, result: SupervisedProcessResult) -> None:
+			super().__init__("Process launch stopped before a child was created.")
+			self.result = result
+
+	def close_staged_stdin() -> None:
+		nonlocal stdin_stream
+		stream = stdin_stream
+		if stream is not None:
+			stream.close()
+			_process_supervision_checkpoint("stdin_stream_closed")
+			# Clear the shared reference only after close returns. If an asynchronous
+			# exception lands inside close, the preserving cleanup path can retry the
+			# still-owned stream instead of losing its only handle.
+			if stdin_stream is stream:
+				stdin_stream = None
+
+	def close_staged_stdin_preserving(primary_error: BaseException) -> None:
+		"""Close staged input without replacing an in-flight control exception."""
+		try:
+			close_staged_stdin()
+		except BaseException as cleanup_error:
+			# Startup/staging still owns no live process here. Preserve the first
+			# exception exactly, while retaining the close failure as diagnostics.
+			try:
+				BaseException.add_note(
+					primary_error,
+					"Staged subprocess stdin cleanup also failed: "
+					f"{type(cleanup_error).__name__}: "
+					f"{safe_exception_detail(cleanup_error)}"
+				)
+			except BaseException:
+				pass
+
+	def close_staged_stdin_for_stop(
+		result: SupervisedProcessResult,
+	) -> SupervisedProcessResult:
+		"""Retry one ordinary close failure before publishing a prelaunch stop."""
+		first_cleanup_error: Exception | None = None
+		for _attempt in range(2):
+			try:
+				close_staged_stdin()
+			except Exception as cleanup_error:
+				if first_cleanup_error is None:
+					first_cleanup_error = cleanup_error
+					continue
+				raise SupervisedProcessCleanupError(
+					"Staged subprocess stdin cleanup was not proven complete before launch.",
+					notes=(
+						*result.notes,
+						"Staged subprocess stdin cleanup failed twice before launch: "
+						f"{type(cleanup_error).__name__}: "
+						f"{safe_exception_detail(cleanup_error)}",
+					),
+				) from first_cleanup_error
+			if first_cleanup_error is None:
+				return result
+			return replace(
+				result,
+				notes=(
+					*result.notes,
+					"Staged subprocess stdin cleanup succeeded on retry after: "
+					f"{type(first_cleanup_error).__name__}: "
+					f"{safe_exception_detail(first_cleanup_error)}",
+				),
+			)
+		raise AssertionError("unreachable staged stdin cleanup retry state")
+
+	def prelaunch_stop_result() -> SupervisedProcessResult | None:
+		now = time.perf_counter()
+		if now >= deadline:
+			return SupervisedProcessResult(
+				return_code=124,
+				stdout="",
+				stderr="",
+				timed_out=True,
+				duration_seconds=now - started,
+				pid=0,
+				notes=("Command timed out while staging stdin before its process started.",),
+				process_boundary_quiescent=True,
+			)
+		if cancellation_event is not None and cancellation_event.is_set():
+			return SupervisedProcessResult(
+				return_code=130,
+				stdout="",
+				stderr="",
+				timed_out=False,
+				duration_seconds=now - started,
+				pid=0,
+				notes=("Command was cancelled while staging stdin before its process started.",),
+				cancelled=True,
+				process_boundary_quiescent=True,
+			)
+		return None
+
+	def stage_stdin_before_launch() -> SupervisedProcessResult | None:
+		nonlocal stdin_stream
+		if stdin_bytes is None:
+			return None
+		try:
+			stdin_stream = tempfile.TemporaryFile(mode="w+b", buffering=0)
+			stopped = prelaunch_stop_result()
+			if stopped is not None:
+				return close_staged_stdin_for_stop(stopped)
+			payload = memoryview(stdin_bytes)
+			offset = 0
+			while offset < len(payload):
+				stopped = prelaunch_stop_result()
+				if stopped is not None:
+					return close_staged_stdin_for_stop(stopped)
+				chunk = payload[offset:offset + STDIN_STAGE_CHUNK_BYTES]
+				written = stdin_stream.write(chunk)
+				if (
+					isinstance(written, bool)
+					or not isinstance(written, int)
+					or written <= 0
+					or written > len(chunk)
+				):
+					raise OSError("Could not make progress while staging subprocess stdin.")
+				offset += written
+				stopped = prelaunch_stop_result()
+				if stopped is not None:
+					return close_staged_stdin_for_stop(stopped)
+			stdin_stream.seek(0)
+			stopped = prelaunch_stop_result()
+			if stopped is not None:
+				return close_staged_stdin_for_stop(stopped)
+		except BaseException as error:
+			close_staged_stdin_preserving(error)
+			raise
+		return None
 
 	def owned_process() -> subprocess.Popen[str] | None:
 		# owner.start() retains the child before it returns. This fallback closes the
@@ -886,12 +1127,29 @@ def run_supervised_process(
 
 	def record_cleanup_error(action: str, error: BaseException) -> None:
 		nonlocal pending_error, pending_traceback
-		if owner is not None:
-			owner.cleanup_failed = True
-		notes.append(f"{action} failed during process cleanup: {type(error).__name__}: {error}")
 		if pending_error is None:
 			pending_error = error
-			pending_traceback = error.__traceback__
+			try:
+				pending_traceback = safe_exception_traceback(error)
+			except BaseException:
+				pending_traceback = None
+		try:
+			if owner is not None:
+				owner.cleanup_failed = True
+		except BaseException:
+			pass
+		try:
+			notes.append(
+				f"{action} failed during process cleanup: {type(error).__name__}: {error}"
+			)
+		except BaseException:
+			try:
+				notes.append(
+					f"{action} failed during process cleanup: "
+					f"{type(error).__name__}: detail unavailable"
+				)
+			except BaseException:
+				pass
 
 	def run_cleanup_action(
 		checkpoint_name: str,
@@ -1031,8 +1289,38 @@ def run_supervised_process(
 					try:
 						try:
 							try:
-								owner = _new_process_tree_owner()
-								process = owner.start(command, cwd=cwd, environment=environment)
+								try:
+									stopped = stage_stdin_before_launch()
+									if stopped is not None:
+										raise PrelaunchStopped(stopped)
+									if stdin_stream is not None:
+										_process_supervision_checkpoint("stdin_staged")
+									owner = _new_process_tree_owner()
+									stopped = prelaunch_stop_result()
+									if stopped is not None:
+										raise PrelaunchStopped(close_staged_stdin_for_stop(stopped))
+									owner._stdin_stream = stdin_stream
+									owner._text_errors = text_errors
+									owner._binary_output = binary_output
+									process = owner.start(
+										command,
+										cwd=cwd,
+										environment=environment,
+									)
+								except PrelaunchStopped:
+									raise
+								except BaseException as error:
+									close_staged_stdin_preserving(error)
+									raise
+								else:
+									try:
+										close_staged_stdin()
+									except BaseException as error:
+										close_staged_stdin_preserving(error)
+										raise
+								finally:
+									if owner is not None:
+										owner._stdin_stream = None
 								_process_supervision_checkpoint("process_owner_started")
 								setattr(process, "_gf_process_tree_owner", owner)
 								output_threads.append(start_output_pump(
@@ -1046,6 +1334,7 @@ def run_supervised_process(
 									activity_lock,
 									max_stdout_characters,
 									stdout_truncated,
+									text_errors,
 								))
 								output_threads.append(start_output_pump(
 									process.stderr,
@@ -1058,6 +1347,7 @@ def run_supervised_process(
 									activity_lock,
 									max_stderr_characters,
 									stderr_truncated,
+									text_errors,
 								))
 								while not owner.wait_for_direct_exit(process, 0.0):
 									now = time.perf_counter()
@@ -1090,10 +1380,12 @@ def run_supervised_process(
 										else:
 											next_heartbeat = last_activity + max(0.1, heartbeat_interval_seconds)
 									owner.wait_for_direct_exit(process, min(0.25, remaining))
+							except PrelaunchStopped:
+								raise
 							except BaseException as error:
 								command_failed = True
 								pending_error = error
-								pending_traceback = error.__traceback__
+								pending_traceback = safe_exception_traceback(error)
 							finally:
 								if command_failed:
 									run_cleanup_action(
@@ -1133,6 +1425,8 @@ def run_supervised_process(
 				"Process-tree owner close",
 				owner_close,
 			)
+	except PrelaunchStopped as stopped:
+		prelaunch_result = stopped.result
 	except BaseException as error:
 		# A boundary exception not raised by a cleanup action still arrives only
 		# after all lexically outer cleanup stages have run.
@@ -1145,8 +1439,36 @@ def run_supervised_process(
 				owner_close()
 			except BaseException as error:
 				record_cleanup_error("Emergency process-tree owner close", error)
+	if (
+		pending_error is not None
+		and isinstance(pending_error, (FileNotFoundError, PermissionError))
+		and process is None
+		and owner is not None
+		and not owner._process_was_created
+		and not owner.cleanup_failed
+		and owner.is_closed()
+		and tree_termination_completed
+		and direct_reap_completed
+		and cleanup_confirmation_completed
+	):
+		raise SupervisedProcessStartError(pending_error) from pending_error
 	if pending_error is not None:
-		raise pending_error.with_traceback(pending_traceback)
+		raise BaseException.with_traceback(pending_error, pending_traceback)
+	if prelaunch_result is not None:
+		prelaunch_notes = (*prelaunch_result.notes, *notes)
+		if owner is not None and (
+			owner.cleanup_failed
+			or not owner.is_closed()
+			or not tree_termination_completed
+			or not direct_reap_completed
+			or not cleanup_confirmation_completed
+		):
+			raise SupervisedProcessCleanupError(
+				"Process launch stopped before child creation, but process-tree owner "
+				"cleanup was not proven complete.",
+				notes=prelaunch_notes,
+			)
+		return replace(prelaunch_result, notes=prelaunch_notes)
 	if owner is None or process is None:
 		raise RuntimeError("Process supervision completed without a started process.")
 	if owner.cleanup_failed and not cancelled:
@@ -1167,6 +1489,12 @@ def run_supervised_process(
 		cancelled=cancelled,
 		stdout_truncated=stdout_truncated[0],
 		stderr_truncated=stderr_truncated[0],
+		process_boundary_quiescent=(
+			owner.is_closed()
+			and tree_termination_completed
+			and direct_reap_completed
+			and cleanup_confirmation_completed
+		),
 	)
 
 
@@ -1181,6 +1509,7 @@ def start_output_pump(
 	activity_lock: threading.Lock,
 	max_capture_characters: int | None = None,
 	capture_truncated: list[bool] | None = None,
+	decode_errors: str = "replace",
 ) -> threading.Thread:
 	def pump() -> None:
 		if pipe is None:
@@ -1192,7 +1521,12 @@ def start_output_pump(
 				else (lambda: pipe.read(4096))
 			)
 			captured_characters = 0
-			for output_chunk in iter(read_next, ""):
+			while True:
+				output_chunk = read_next()
+				if not output_chunk:
+					break
+				if isinstance(output_chunk, bytes):
+					output_chunk = output_chunk.decode("utf-8", errors=decode_errors)
 				if max_capture_characters is None:
 					parts.append(output_chunk)
 				else:
@@ -1290,12 +1624,20 @@ def run_supervised_completed_process(
 	environment: dict[str, str] | None = None,
 ) -> subprocess.CompletedProcess[str]:
 	"""Compatibility wrapper for call sites that consume CompletedProcess."""
-	result = run_supervised_process(
-		command,
-		cwd=cwd,
-		timeout_seconds=timeout_seconds,
-		environment=environment,
-	)
+	try:
+		result = run_supervised_process(
+			command,
+			cwd=cwd,
+			timeout_seconds=timeout_seconds,
+			environment=environment,
+		)
+	except SupervisedProcessStartError as error:
+		raise error.original_error from error
+	if result.process_boundary_quiescent is not True:
+		raise SupervisedProcessCleanupError(
+			"CompletedProcess compatibility result lacked a quiet process-boundary proof.",
+			notes=result.notes,
+		)
 	if result.timed_out:
 		raise subprocess.TimeoutExpired(
 			command,

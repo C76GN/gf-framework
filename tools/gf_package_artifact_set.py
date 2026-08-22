@@ -86,6 +86,73 @@ class PackageArtifactDeadlineError(PackageArtifactSetError):
 	"""Raised when artifact work exceeds its caller-owned absolute deadline."""
 
 
+def _mark_private_artifact_cleanup_debt(
+	primary_error: BaseException | None,
+	cleanup_error: BaseException | None,
+	preserved_path: Path | tuple[Path, ...],
+) -> BaseException:
+	"""Keep exact private roots owned by a cleanup operation that could not finish."""
+	if primary_error is None and cleanup_error is None:
+		raise RuntimeError("cleanup debt requires a primary or cleanup error")
+	preserved_paths = (
+		preserved_path
+		if isinstance(preserved_path, tuple)
+		else (preserved_path,)
+	)
+	preserved_display = ", ".join(str(path) for path in preserved_paths)
+	debt_error = cleanup_error if primary_error is None else primary_error
+	try:
+		if cleanup_error is None:
+			BaseException.add_note(
+				debt_error,
+				"Retained private package artifact roots after process-control interruption: "
+				f"{preserved_display}",
+			)
+		else:
+			BaseException.add_note(
+				debt_error,
+				"Retained private package artifact roots after cleanup failure: "
+				f"{preserved_display}: {cleanup_error}",
+			)
+	except BaseException:
+		# Diagnostic formatting must never replace the primary failure or cleanup debt.
+		pass
+	try:
+		attributes = BaseException.__getattribute__(debt_error, "__dict__")
+		attributes["cleanup_debt"] = True
+		attributes["process_boundary_quiescent"] = False
+		attributes["preserved_paths"] = preserved_paths
+		if cleanup_error is not None:
+			attributes["cleanup_error"] = cleanup_error
+		verified = BaseException.__getattribute__(debt_error, "__dict__")
+		if (
+			verified is not attributes
+			or verified.get("cleanup_debt") is not True
+			or verified.get("process_boundary_quiescent") is not False
+			or verified.get("preserved_paths") is not preserved_paths
+			or (
+				cleanup_error is not None
+				and verified.get("cleanup_error") is not cleanup_error
+			)
+		):
+			raise PackageArtifactSetError(
+				"Primary package artifact error could not retain trusted cleanup-debt markers."
+			)
+	except BaseException:
+		fallback = PackageArtifactSetError(
+			"Private package artifact cleanup could not be proven complete."
+		)
+		attributes = BaseException.__getattribute__(fallback, "__dict__")
+		attributes["cleanup_debt"] = True
+		attributes["process_boundary_quiescent"] = False
+		attributes["preserved_paths"] = preserved_paths
+		attributes["primary_error"] = debt_error
+		if cleanup_error is not None:
+			attributes["cleanup_error"] = cleanup_error
+		debt_error = fallback
+	return debt_error
+
+
 @dataclass(frozen=True)
 class PackageArtifactInput:
 	"""One caller-provided file that will be sealed into an artifact set."""
@@ -451,6 +518,18 @@ def materialize_package_artifact_set(
 	staging.mkdir()
 	staging_identity = staging.lstat()
 	published = False
+	publication_attempted = False
+	staging_consumed_by_publication = False
+	primary_error: BaseException | None = None
+
+	def preserved_publication_paths() -> tuple[Path, ...]:
+		candidates = (target, staging)
+		try:
+			existing = tuple(path for path in candidates if os.path.lexists(path))
+		except BaseException:
+			return candidates
+		return existing or candidates
+
 	try:
 		copy_relative_paths = [
 			*(artifact.relative_path for artifact in source.artifacts),
@@ -489,20 +568,102 @@ def materialize_package_artifact_set(
 			target.rmdir()
 		if os.path.lexists(target):
 			raise PackageArtifactSetError("Consumer artifact root was concurrently created.")
+		publication_attempted = True
 		os.replace(staging, target)
-		_sync_directory(target.parent)
 		published = True
+		publication_attempted = False
+		staging_consumed_by_publication = True
+		_sync_directory(target.parent)
 		return load_package_artifact_set(
 			target / MANIFEST_FILENAME,
 			source.manifest_sha256,
 			source.workspace_state,
 			deadline=deadline,
 		)
-	finally:
-		if not published and os.path.lexists(staging):
-			cleanup_issue = _safe_remove_private_tree(staging, expected_identity=staging_identity)
+	except Exception as error:
+		primary_error = error
+		if published:
+			try:
+				cleanup_issue = _safe_remove_private_tree(
+					target,
+					expected_identity=staging_identity,
+				)
+			except BaseException as cleanup_error:
+				debt_error = _mark_private_artifact_cleanup_debt(
+					error,
+					cleanup_error,
+					target,
+				)
+				raise debt_error from cleanup_error
 			if cleanup_issue:
-				raise PackageArtifactSetError(cleanup_issue)
+				cleanup_error = PackageArtifactSetError(cleanup_issue)
+				debt_error = _mark_private_artifact_cleanup_debt(
+					error,
+					cleanup_error,
+					target,
+				)
+				raise debt_error from cleanup_error
+			published = False
+		elif publication_attempted:
+			cleanup_error = PackageArtifactSetError(
+				"Package artifact publication was interrupted after its atomic move began."
+			)
+			debt_error = _mark_private_artifact_cleanup_debt(
+				error,
+				cleanup_error,
+				preserved_publication_paths(),
+			)
+			if debt_error is error:
+				raise
+			raise debt_error from error
+		raise
+	except BaseException as error:
+		primary_error = error
+		if published:
+			debt_error = _mark_private_artifact_cleanup_debt(error, None, target)
+			if debt_error is error:
+				raise
+			raise debt_error from error
+		if publication_attempted:
+			debt_error = _mark_private_artifact_cleanup_debt(
+				error,
+				None,
+				preserved_publication_paths(),
+			)
+			if debt_error is error:
+				raise
+			raise debt_error from error
+		raise
+	finally:
+		if (
+			not published
+			and not publication_attempted
+			and not staging_consumed_by_publication
+		):
+			try:
+				cleanup_issue = _safe_remove_private_tree(
+					staging,
+					expected_identity=staging_identity,
+				)
+			except BaseException as cleanup_error:
+				debt_error = _mark_private_artifact_cleanup_debt(
+					primary_error,
+					cleanup_error,
+					staging,
+				)
+				if debt_error is cleanup_error:
+					raise
+				raise debt_error from cleanup_error
+			if cleanup_issue:
+				cleanup_error = PackageArtifactSetError(cleanup_issue)
+				debt_error = _mark_private_artifact_cleanup_debt(
+					primary_error,
+					cleanup_error,
+					staging,
+				)
+				if debt_error is primary_error:
+					raise debt_error from cleanup_error
+				raise debt_error
 
 
 def rebase_package_builder_data(

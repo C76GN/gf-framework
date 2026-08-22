@@ -35,6 +35,12 @@ from pathlib import PureWindowsPath
 from typing import Any
 from typing import Callable
 
+# Workers import ``gf_maintenance`` lazily.  When this file is the CLI entry
+# point, keep those imports bound to this already-loaded module instead of
+# loading a second copy from source that may have changed after capture.
+if __name__ == "__main__":
+	sys.modules.setdefault("gf_maintenance", sys.modules[__name__])
+
 from gdscript_api_parser import ApiDocs
 from gdscript_api_parser import ApiMember
 from gdscript_api_parser import ApiScript
@@ -61,7 +67,9 @@ import gf_credential_gate
 import gf_codeql_suppression_policy
 import gf_changelog
 import gf_gut_sharding
+import gf_gut_shard_worker
 import gf_path_security
+import gf_repository_policy
 import extract_release_notes as gf_release_notes
 import gf_process_supervisor
 import gf_maintenance_rendering as maintenance_rendering
@@ -87,7 +95,6 @@ from gf_parallel_validation import ParallelShard
 from gf_parallel_validation import ParallelShardResult
 from gf_parallel_validation import WorkspaceSnapshotError
 from gf_parallel_validation import WorkspaceDeadlineError
-from gf_process_supervisor import run_supervised_completed_process
 from gf_process_supervisor import run_supervised_process
 from gf_workspace_snapshot import WorkspaceSnapshot
 
@@ -244,6 +251,19 @@ GUT_SHARD_FILTER_ARGUMENT_NAMES = frozenset({
 	"-gtest",
 	"-gunit_test_name",
 })
+GUT_SHARD_RUN_DEFAULT_JOBS = 2
+GUT_SHARD_RUN_ALLOWED_JOBS = (1, 2)
+GUT_SHARD_RUN_GUT_TIMEOUT_SECONDS = 600
+GUT_SHARD_RUN_SETUP_CLEANUP_ALLOWANCE_SECONDS = 300
+GUT_SHARD_RUN_WORKER_NON_INVENTORY_PREFLIGHT_ALLOWANCE_SECONDS = (
+	gf_gut_shard_worker.WORKER_NON_INVENTORY_PREFLIGHT_ALLOWANCE_SECONDS
+)
+GUT_SHARD_RUN_WORKER_PREFLIGHT_ALLOWANCE_SECONDS = int(
+	gf_gut_shard_worker.WORKER_PREFLIGHT_ALLOWANCE_SECONDS
+)
+GUT_SHARD_RUN_WORKER_FINALIZE_ALLOWANCE_SECONDS = int(
+	gf_gut_shard_worker.WORKER_FINALIZE_ALLOWANCE_SECONDS
+)
 GUT_TEST_ORPHAN_RE = re.compile(r"^\s*(?P<count>[1-9]\d*)\s+[Oo]rphans?\s*$")
 GUT_RUN_SUMMARY_ORPHAN_RE = re.compile(r"^\s*Orphans\s+(?P<count>[1-9]\d*)\s*$")
 PACKAGE_GODOT_SMOKE_DEFAULT_ALL_PACKAGE_JOBS = 4
@@ -1038,11 +1058,14 @@ CHECK_DEFINITIONS: dict[str, list[str]] = {
 		"-m",
 		"unittest",
 		"tests/gf_core/tools/test_gf_maintenance_execution.py",
+		"tests/gf_core/tools/test_gf_maintenance_check_graph.py",
+		"tests/gf_core/tools/test_gf_parallel_validation.py",
 		"tests/gf_core/tools/test_gf_validation_contracts.py",
 		"tests/gf_core/tools/test_gf_validation_evidence.py",
 		"tests/gf_core/tools/test_gf_validation_inputs.py",
 		"tests/gf_core/tools/test_gf_validation_test_inventory.py",
 		"tests/gf_core/tools/test_gf_gut_sharding.py",
+		"tests/gf_core/tools/test_gf_gut_shard_worker.py",
 	],
 	"maintenance_generator_tests": [
 		sys.executable,
@@ -1426,15 +1449,16 @@ CHECK_SUITES: dict[str, list[str]] = {
 }
 
 PARALLEL_FULL_SHARD_SUITES: tuple[str, ...] = (
-	"framework-gut",
 	"package-editor",
+	"framework-static",
+	"package-godot-ci",
 	"package-cli-local",
 	"package-cli-network",
-	"package-godot-ci",
-	"framework-lsp",
-	"framework-static",
 	"package-contract",
+	"framework-gut",
+	"framework-lsp",
 )
+PARALLEL_FULL_SINGLETON_SHARDS = frozenset({"framework-gut"})
 DEFAULT_PARALLEL_FULL_JOBS: int = 3
 MAX_PARALLEL_FULL_JOBS: int = 6
 PARALLEL_FULL_SHARD_TIMEOUT_SECONDS: dict[str, int] = {
@@ -1548,6 +1572,31 @@ def parallel_full_shard_plan() -> list[ParallelCheckShardPlan]:
 	return plan
 
 
+def parallel_full_shard_batches(
+	plan: list[ParallelCheckShardPlan],
+	jobs: int,
+) -> list[list[ParallelCheckShardPlan]]:
+	"""Build stable resource-aware Full batches without changing shard ownership."""
+	if jobs < 1:
+		raise ValueError(f"Parallel Full batch size must be positive; got {jobs}.")
+	batches: list[list[ParallelCheckShardPlan]] = []
+	pending: list[ParallelCheckShardPlan] = []
+	for shard in plan:
+		if shard.name in PARALLEL_FULL_SINGLETON_SHARDS:
+			if pending:
+				batches.append(pending)
+				pending = []
+			batches.append([shard])
+			continue
+		pending.append(shard)
+		if len(pending) == jobs:
+			batches.append(pending)
+			pending = []
+	if pending:
+		batches.append(pending)
+	return batches
+
+
 def parallel_shard_timeout_seconds(
 	shard_plan: ParallelCheckShardPlan,
 	requested_timeout_seconds: int | None,
@@ -1651,6 +1700,11 @@ def check_command(
 
 DEFAULT_CHECK_TIMEOUT_SECONDS: int = 600
 CHECK_TIMEOUT_SECONDS: dict[str, int] = {
+	# The unfiltered authoritative suite now exceeds the generic ten-minute
+	# budget on clean Windows runs. Keep the same measured floor as the explicit
+	# full-suite observation and qualification control instead of relying on a
+	# caller-specific override.
+	"gut": 1200,
 	# Runs six focused process-level lifecycle scenarios after a shared import.
 	"gut_lifecycle_smoke": 360,
 	# The executable Adapter contract performs one isolated import and one GUT
@@ -1744,6 +1798,22 @@ def add_package_artifact_consumer_arguments(parser: argparse.ArgumentParser) -> 
 		default="",
 		help=argparse.SUPPRESS,
 	)
+
+
+def parse_gut_shard_run_timeout_seconds(text: str) -> int:
+	"""Parse one CLI-only candidate timeout inside the worker phase ceiling."""
+	maximum = gf_gut_shard_worker.MAX_PHASE_TIMEOUT_SECONDS
+	try:
+		value = int(text)
+	except (TypeError, ValueError) as error:
+		raise argparse.ArgumentTypeError(
+			f"must be an integer between 1 and {maximum} seconds"
+		) from error
+	if not 1 <= value <= maximum:
+		raise argparse.ArgumentTypeError(
+			f"must be an integer between 1 and {maximum} seconds"
+		)
+	return value
 
 
 def main() -> int:
@@ -1999,6 +2069,40 @@ def main() -> int:
 		help="Raise the minimum timeout for each explicitly requested Godot phase.",
 	)
 	gut_shard_plan_parser.add_argument("--json", action="store_true", help="Print JSON instead of text.")
+
+	gut_shard_run_parser = subparsers.add_parser(
+		"gut-shard-run",
+		help=(
+			"Run every manifest GUT shard in sealed private workspaces as a non-authoritative "
+			"observation."
+		),
+	)
+	gut_shard_run_parser.add_argument(
+		"--jobs",
+		type=int,
+		choices=GUT_SHARD_RUN_ALLOWED_JOBS,
+		default=GUT_SHARD_RUN_DEFAULT_JOBS,
+		help="Run one or two isolated shard workers concurrently (default: 2).",
+	)
+	gut_shard_run_parser.add_argument(
+		"--timeout",
+		type=parse_gut_shard_run_timeout_seconds,
+		default=None,
+		help=(
+			f"Request 1..{gf_gut_shard_worker.MAX_PHASE_TIMEOUT_SECONDS} seconds for "
+			"each candidate shard GUT phase; values below 600 preserve the 600-second "
+			"minimum."
+		),
+	)
+	gut_shard_run_parser.add_argument(
+		"--qualify",
+		action="store_true",
+		help=(
+			"After all candidates, run exactly one same-snapshot authoritative control and "
+			"compare semantics. The result remains observation-only."
+		),
+	)
+	gut_shard_run_parser.add_argument("--json", action="store_true", help="Print JSON instead of text.")
 
 	package_godot_cli_smoke_parser = subparsers.add_parser(
 		"package-godot-cli-smoke",
@@ -2371,6 +2475,18 @@ def main() -> int:
 			data,
 			args.json,
 			maintenance_rendering.render_gut_shard_plan_text,
+		)
+		return 0 if data["ok"] else 1
+	if args.command == "gut-shard-run":
+		data = gut_shard_run(
+			jobs=args.jobs,
+			timeout_seconds=args.timeout,
+			qualify=args.qualify,
+		)
+		maintenance_rendering.print_output(
+			data,
+			args.json,
+			maintenance_rendering.render_gut_shard_run_text,
 		)
 		return 0 if data["ok"] else 1
 	if args.command == "package-godot-cli-smoke":
@@ -4857,12 +4973,4086 @@ def gut_shard_plan(
 					execution["result_accepted"] = True
 		report["ok"] = not report["issues"]
 		return report
-	except (gf_gut_sharding.GutShardingError, OSError, ValueError) as error:
+	except (
+		gf_gut_sharding.GutShardingError,
+		OSError,
+		ValueError,
+		WorkspaceSnapshotError,
+	) as error:
+		if exception_has_cleanup_debt(error):
+			raise
 		report["issues"].append({
 			"kind": str(getattr(error, "code", "gut_shard_observation_failed")),
 			"message": str(error),
 		})
 		return report
+
+
+GUT_SHARD_RUNTIME_SOURCE_MODULES = (
+	("tools/gf_maintenance.py", "gf_maintenance"),
+	("tools/gf_gut_shard_worker.py", "gf_gut_shard_worker"),
+	("tools/gf_gut_sharding.py", "gf_gut_sharding"),
+	("tools/gf_parallel_validation.py", "gf_parallel_validation"),
+	("tools/gf_process_supervisor.py", "gf_process_supervisor"),
+	("tools/gf_maintenance_check_graph.py", "gf_maintenance_check_graph"),
+	("tools/gf_godot_process.py", "gf_godot_process"),
+	("tools/gf_package_paths.py", "gf_package_paths"),
+	("tools/gf_maintenance_rendering.py", "gf_maintenance_rendering"),
+)
+GUT_SHARD_RUNTIME_SOURCE_MAX_FILE_BYTES = 8 * 1024 * 1024
+GUT_SHARD_RUNTIME_SOURCE_MAX_TOTAL_BYTES = 16 * 1024 * 1024
+GUT_SHARD_RUNTIME_SOURCE_CHUNK_BYTES = 1024 * 1024
+GUT_SHARD_RUN_TOP_LEVEL_FIELDS = frozenset({
+	"schema_version", "ok", "mode", "authoritative", "merge_evidence",
+	"workspace_fingerprint", "runtime_source_digest", "manifest_path",
+	"manifest_digest", "inventory_digest", "inventory_count", "jobs",
+	"import_timeout_seconds", "candidate_gut_timeout_seconds",
+	"control_gut_timeout_seconds", "total_timeout_seconds",
+	"qualify_requested", "candidate_eligible", "qualified",
+	"qualification_status", "shard_count", "executed_shard_count",
+	"completed_shard_count", "successful_shard_count", "failed_shard_count",
+	"unreported_shard_count", "not_scheduled_shard_count", "duration_seconds",
+	"isolation_probe", "shards", "aggregate", "control", "equivalence",
+	"observation_policy", "issues",
+})
+GUT_SHARD_RUN_FINAL_QUALIFICATION_STATUSES = frozenset({
+	"not_requested", "qualified", "not_equivalent", "candidate_ineligible",
+	"control_ineligible", "infrastructure_failed", "cleanup_failed",
+})
+GUT_SHARD_RUN_INFRASTRUCTURE_FAILURE_KINDS = frozenset({
+	"gut_shard_run_setup_failed",
+	"gut_shard_final_infrastructure_failed",
+	"gut_shard_final_source_verification_failed",
+	"gut_shard_final_source_drift",
+	"gut_shard_runtime_source_mismatch",
+	"gut_shard_candidate_scheduling_deadline_exhausted",
+	"gut_shard_candidate_batch_deadline_exhausted",
+	"gut_shard_worker_wave_deadline_exhausted",
+	"gut_shard_candidate_source_deadline_exhausted",
+	"gut_shard_candidate_source_verification_failed",
+	"gut_shard_worker_exception",
+	"gut_shard_worker_wave_failed",
+	"gut_shard_worker_schedule_failed",
+	"gut_shard_candidate_workspace_acquisition_failed",
+	"gut_shard_candidate_batch_failed",
+	"gut_shard_worker_deadline_exhausted",
+	"gut_shard_worker_infrastructure_failed",
+	"gut_shard_worker_report_rejected",
+	"gut_shard_workspace_fingerprint_boundary_unproven",
+	"gut_shard_comparison_failed",
+	"gut_shard_run_cancelled",
+	"gut_shard_workspace_cleanup_failed",
+	"gut_shard_worker_cleanup_debt",
+	"gut_shard_workspace_ownership_unproven",
+	"gut_shard_process_boundary_unproven",
+})
+GUT_SHARD_RUN_TOP_ONLY_ISSUE_KINDS = frozenset({
+	*GUT_SHARD_RUN_INFRASTRUCTURE_FAILURE_KINDS,
+	"gut_shard_run_cancelled",
+	"gut_shard_workspace_cleanup_failed",
+	"gut_shard_worker_cleanup_debt",
+	"gut_shard_workspace_ownership_unproven",
+	"gut_shard_process_boundary_unproven",
+	"gut_shard_control_cancelled",
+	"gut_shard_control_workspace_acquisition_failed",
+	"gut_shard_control_worker_failed",
+	"gut_shard_control_deadline_exhausted",
+	"gut_shard_control_report_rejected",
+	"gut_shard_control_cleanup_failed",
+	"gut_shard_control_report_missing",
+	"gut_shard_validation_cleanup_failed",
+})
+GUT_SHARD_RUN_SINGLETON_TOP_ONLY_ISSUE_KINDS = frozenset({
+	"gut_shard_run_setup_failed",
+	"gut_shard_final_infrastructure_failed",
+	"gut_shard_final_source_verification_failed",
+	"gut_shard_final_source_drift",
+	"gut_shard_runtime_source_mismatch",
+	"gut_shard_candidate_scheduling_deadline_exhausted",
+	"gut_shard_candidate_batch_deadline_exhausted",
+	"gut_shard_worker_wave_deadline_exhausted",
+	"gut_shard_candidate_source_deadline_exhausted",
+	"gut_shard_candidate_source_verification_failed",
+	"gut_shard_worker_wave_failed",
+	"gut_shard_worker_schedule_failed",
+	"gut_shard_candidate_workspace_acquisition_failed",
+	"gut_shard_candidate_batch_failed",
+	"gut_shard_comparison_failed",
+	"gut_shard_run_cancelled",
+	"gut_shard_workspace_cleanup_failed",
+	"gut_shard_control_cancelled",
+	"gut_shard_control_workspace_acquisition_failed",
+	"gut_shard_control_deadline_exhausted",
+	"gut_shard_control_report_rejected",
+	"gut_shard_control_cleanup_failed",
+	"gut_shard_control_report_missing",
+	"gut_shard_validation_cleanup_failed",
+})
+GUT_SHARD_RUN_CANDIDATE_REVOCATION_KINDS = frozenset({
+	*GUT_SHARD_RUN_INFRASTRUCTURE_FAILURE_KINDS,
+	"gut_shard_validation_cleanup_failed",
+})
+GUT_SHARD_RUN_CANDIDATE_STOP_KINDS = frozenset({
+	"gut_shard_candidate_scheduling_deadline_exhausted",
+	"gut_shard_candidate_batch_deadline_exhausted",
+	"gut_shard_worker_wave_deadline_exhausted",
+	"gut_shard_candidate_source_deadline_exhausted",
+	"gut_shard_candidate_source_verification_failed",
+	"gut_shard_worker_exception",
+	"gut_shard_worker_wave_failed",
+	"gut_shard_worker_schedule_failed",
+	"gut_shard_candidate_workspace_acquisition_failed",
+	"gut_shard_candidate_batch_failed",
+	"gut_shard_worker_deadline_exhausted",
+	"gut_shard_worker_infrastructure_failed",
+	"gut_shard_worker_report_rejected",
+	"gut_shard_workspace_fingerprint_boundary_unproven",
+	"gut_shard_run_cancelled",
+	"gut_shard_workspace_cleanup_failed",
+	"gut_shard_worker_cleanup_debt",
+	"gut_shard_workspace_ownership_unproven",
+	"gut_shard_process_boundary_unproven",
+})
+GUT_SHARD_RUN_MAX_TOP_ISSUES = 256
+GUT_SHARD_RUN_MAX_TOP_ISSUE_BYTES = 4096
+GUT_SHARD_RUN_MAX_REPORT_BYTES = 64 * 1024 * 1024
+
+
+class GutShardRuntimeSourceError(WorkspaceSnapshotError):
+	"""Raised when same-process GUT code is not the captured source revision."""
+
+	code = "gut_shard_runtime_source_mismatch"
+
+
+def _gut_shard_runtime_source_file_identity(
+	metadata: os.stat_result,
+) -> tuple[int, int, int, int, int]:
+	return (
+		int(metadata.st_mode),
+		int(getattr(metadata, "st_dev", 0)),
+		int(getattr(metadata, "st_ino", 0)),
+		int(metadata.st_size),
+		int(metadata.st_mtime_ns),
+	)
+
+
+def _gut_shard_runtime_source_parent_issue(path: Path) -> str:
+	"""Validate a real directory chain without relying on later module helpers."""
+	absolute = Path(os.path.abspath(path))
+	if not absolute.is_absolute() or not absolute.anchor:
+		return "path is not absolute"
+	current = Path(absolute.anchor)
+	for part in absolute.parts[1:]:
+		current /= part
+		try:
+			metadata = current.lstat()
+		except OSError:
+			return "directory chain is unavailable"
+		if (
+			not stat.S_ISDIR(metadata.st_mode)
+			or stat.S_ISLNK(metadata.st_mode)
+			or bool(int(getattr(metadata, "st_file_attributes", 0)) & 0x0400)
+		):
+			return "directory chain contains a non-real directory"
+	return ""
+
+
+def _read_gut_shard_runtime_source(
+	path: Path,
+	*,
+	deadline: float | None = None,
+) -> bytes:
+	"""Read one real runtime source file through a stable bounded handle."""
+	if deadline is not None and time.perf_counter() >= deadline:
+		raise WorkspaceDeadlineError("GUT shard runtime source binding deadline expired.")
+	path = Path(os.path.abspath(path))
+	parent_issue = _gut_shard_runtime_source_parent_issue(path.parent)
+	if parent_issue:
+		raise GutShardRuntimeSourceError(
+			f"GUT shard runtime source parent is unsafe: {path.name}: {parent_issue}"
+		)
+	try:
+		before_path = path.lstat()
+	except OSError as error:
+		raise GutShardRuntimeSourceError(
+			f"GUT shard runtime source is unavailable: {path.name}"
+		) from error
+	if (
+		not stat.S_ISREG(before_path.st_mode)
+		or stat.S_ISLNK(before_path.st_mode)
+		or bool(int(getattr(before_path, "st_file_attributes", 0)) & 0x0400)
+		or before_path.st_size > GUT_SHARD_RUNTIME_SOURCE_MAX_FILE_BYTES
+	):
+		raise GutShardRuntimeSourceError(
+			f"GUT shard runtime source is not a bounded real file: {path.name}"
+		)
+	try:
+		with path.open("rb") as source_file:
+			before_handle = os.fstat(source_file.fileno())
+			if (
+				_gut_shard_runtime_source_file_identity(before_handle)
+				!= _gut_shard_runtime_source_file_identity(before_path)
+			):
+				raise GutShardRuntimeSourceError(
+					f"GUT shard runtime source changed before reading: {path.name}"
+				)
+			payload = bytearray()
+			while True:
+				if deadline is not None and time.perf_counter() >= deadline:
+					raise WorkspaceDeadlineError(
+						"GUT shard runtime source binding deadline expired."
+					)
+				chunk = source_file.read(GUT_SHARD_RUNTIME_SOURCE_CHUNK_BYTES)
+				if not chunk:
+					break
+				payload.extend(chunk)
+				if len(payload) > GUT_SHARD_RUNTIME_SOURCE_MAX_FILE_BYTES:
+					raise GutShardRuntimeSourceError(
+						f"GUT shard runtime source exceeded its byte limit: {path.name}"
+					)
+			after_handle = os.fstat(source_file.fileno())
+	except OSError as error:
+		raise GutShardRuntimeSourceError(
+			f"GUT shard runtime source could not be read: {path.name}"
+		) from error
+	try:
+		after_path = path.lstat()
+	except OSError as error:
+		raise GutShardRuntimeSourceError(
+			f"GUT shard runtime source disappeared after reading: {path.name}"
+		) from error
+	expected_identity = _gut_shard_runtime_source_file_identity(before_path)
+	if (
+		_gut_shard_runtime_source_file_identity(after_handle) != expected_identity
+		or _gut_shard_runtime_source_file_identity(after_path) != expected_identity
+		or len(payload) != before_path.st_size
+	):
+		raise GutShardRuntimeSourceError(
+			f"GUT shard runtime source changed while reading: {path.name}"
+		)
+	return bytes(payload)
+
+
+def _gut_shard_runtime_source_digest(
+	binding: tuple[tuple[str, str], ...],
+) -> str:
+	payload = json.dumps(
+		[{"path": path, "sha256": digest} for path, digest in binding],
+		ensure_ascii=False,
+		allow_nan=False,
+		separators=(",", ":"),
+		sort_keys=True,
+	).encode("utf-8")
+	return hashlib.sha256(payload).hexdigest()
+
+
+def capture_loaded_gut_shard_runtime_source_binding() -> tuple[tuple[str, str], ...]:
+	"""Freeze source bytes corresponding to the modules loaded by this process."""
+	binding: list[tuple[str, str]] = []
+	total_bytes = 0
+	for relative_path, module_name in GUT_SHARD_RUNTIME_SOURCE_MODULES:
+		module = sys.modules.get(__name__) if module_name == "gf_maintenance" else sys.modules.get(module_name)
+		module_path_value = getattr(module, "__file__", None)
+		expected_path = ROOT / relative_path
+		if module is None or type(module_path_value) is not str:
+			raise GutShardRuntimeSourceError(
+				f"GUT shard runtime module is not loaded: {module_name}"
+			)
+		try:
+			origin_matches = os.path.samefile(module_path_value, expected_path)
+		except OSError as error:
+			raise GutShardRuntimeSourceError(
+				f"GUT shard runtime module origin is unavailable: {module_name}"
+			) from error
+		if not origin_matches:
+			raise GutShardRuntimeSourceError(
+				f"GUT shard runtime module origin is outside its declared source: {module_name}"
+			)
+		payload = _read_gut_shard_runtime_source(expected_path)
+		total_bytes += len(payload)
+		if total_bytes > GUT_SHARD_RUNTIME_SOURCE_MAX_TOTAL_BYTES:
+			raise GutShardRuntimeSourceError(
+				"GUT shard runtime source closure exceeded its total byte limit."
+			)
+		binding.append((relative_path, hashlib.sha256(payload).hexdigest()))
+	return tuple(binding)
+
+
+def validate_gut_shard_runtime_source_binding(
+	root: Path,
+	loaded_binding: tuple[tuple[str, str], ...],
+	*,
+	deadline: float | None = None,
+) -> str:
+	"""Require captured/live source to match the process's import-time source."""
+	if (
+		type(loaded_binding) is not tuple
+		or tuple(path for path, _digest in loaded_binding)
+		!= tuple(path for path, _module in GUT_SHARD_RUNTIME_SOURCE_MODULES)
+	):
+		raise GutShardRuntimeSourceError(
+			"GUT shard loaded runtime source binding has an invalid closed path set."
+		)
+	current_binding: list[tuple[str, str]] = []
+	total_bytes = 0
+	for relative_path, expected_digest in loaded_binding:
+		if (
+			type(expected_digest) is not str
+			or len(expected_digest) != 64
+			or any(character not in "0123456789abcdef" for character in expected_digest)
+		):
+			raise GutShardRuntimeSourceError(
+				"GUT shard loaded runtime source digest is invalid."
+			)
+		payload = _read_gut_shard_runtime_source(
+			Path(root) / relative_path,
+			deadline=deadline,
+		)
+		total_bytes += len(payload)
+		if total_bytes > GUT_SHARD_RUNTIME_SOURCE_MAX_TOTAL_BYTES:
+			raise GutShardRuntimeSourceError(
+				"GUT shard runtime source closure exceeded its total byte limit."
+			)
+		current_binding.append((relative_path, hashlib.sha256(payload).hexdigest()))
+	if tuple(current_binding) != loaded_binding:
+		raise GutShardRuntimeSourceError(
+			"Captured GUT shard runtime source differs from the code loaded by this process."
+		)
+	return _gut_shard_runtime_source_digest(loaded_binding)
+
+
+GUT_SHARD_LOADED_RUNTIME_SOURCE_BINDING = (
+	capture_loaded_gut_shard_runtime_source_binding()
+)
+GUT_SHARD_LOADED_RUNTIME_SOURCE_DIGEST = _gut_shard_runtime_source_digest(
+	GUT_SHARD_LOADED_RUNTIME_SOURCE_BINDING
+)
+
+
+def make_gut_shard_run_report(
+	*,
+	jobs: int,
+	qualify: bool,
+	gut_timeout_seconds: int | None = None,
+) -> dict[str, Any]:
+	"""Create the closed top-level envelope for one G0.2A observation."""
+	resolved_gut_timeout = resolve_gut_shard_run_gut_timeout_seconds(
+		gut_timeout_seconds
+	)
+	import_timeout = resolve_check_timeout_seconds("godot_import", None)
+	control_gut_timeout = resolve_gut_shard_observation_timeout_seconds(None)
+	return {
+		"schema_version": 1,
+		"ok": False,
+		"mode": "sharded_observation",
+		"authoritative": False,
+		"merge_evidence": False,
+		"workspace_fingerprint": "",
+		"runtime_source_digest": GUT_SHARD_LOADED_RUNTIME_SOURCE_DIGEST,
+		"manifest_path": GUT_SHARD_MANIFEST_RELATIVE_PATH,
+		"manifest_digest": "",
+		"inventory_digest": "",
+		"inventory_count": 0,
+		"jobs": jobs,
+		"import_timeout_seconds": import_timeout,
+		"candidate_gut_timeout_seconds": resolved_gut_timeout,
+		"control_gut_timeout_seconds": control_gut_timeout,
+		"total_timeout_seconds": gut_shard_run_total_timeout_seconds(
+			len(gf_gut_sharding.SHARD_NAMES),
+			jobs,
+			gut_timeout_seconds=resolved_gut_timeout,
+			qualify=qualify,
+		),
+		"qualify_requested": qualify,
+		"candidate_eligible": False,
+		"qualified": False,
+		"qualification_status": "pending" if qualify else "not_requested",
+		"shard_count": 0,
+		"executed_shard_count": 0,
+		"completed_shard_count": 0,
+		"successful_shard_count": 0,
+		"failed_shard_count": 0,
+		"unreported_shard_count": 0,
+		"not_scheduled_shard_count": 0,
+		"duration_seconds": 0.0,
+		"isolation_probe": {
+			"ok": False,
+			"probe_count": 0,
+			"fields": [
+				"marker_path",
+				"user_dir",
+				"data_dir",
+				"config_dir",
+				"cache_dir",
+			],
+		},
+		"shards": [],
+		"aggregate": None,
+		"control": None,
+		"equivalence": None,
+		"observation_policy": {
+			"affects_check_graph": False,
+			"affects_suite_membership": False,
+			"authoritative_result_replaced": False,
+			"skip_count": 0,
+			"cache_read_count": 0,
+			"cache_write_count": 0,
+			"reuse_count": 0,
+		},
+		"issues": [],
+	}
+
+
+def resolve_gut_shard_run_gut_timeout_seconds(override_seconds: int | None) -> int:
+	"""Keep each candidate GUT phase at or above its G0.2A policy floor."""
+	if override_seconds is not None and (
+		type(override_seconds) is not int
+	):
+		raise TypeError("GUT shard timeout overrides must be integers.")
+	if override_seconds is not None and override_seconds <= 0:
+		raise ValueError("GUT shard timeout overrides must be positive seconds.")
+	resolved = max(GUT_SHARD_RUN_GUT_TIMEOUT_SECONDS, override_seconds or 0)
+	if resolved > gf_gut_shard_worker.MAX_PHASE_TIMEOUT_SECONDS:
+		raise ValueError(
+			"GUT shard timeout exceeds the worker phase timeout ceiling."
+		)
+	return resolved
+
+
+def gut_shard_run_total_timeout_seconds(
+	shard_count: int,
+	jobs: int,
+	*,
+	gut_timeout_seconds: int,
+	qualify: bool,
+) -> int:
+	"""Derive one bounded parent deadline from candidate waves and optional control."""
+	if type(shard_count) is not int or shard_count <= 0:
+		raise ValueError("GUT shard execution requires at least one shard.")
+	if type(jobs) is not int or jobs not in GUT_SHARD_RUN_ALLOWED_JOBS:
+		raise ValueError("GUT shard execution jobs must be 1 or 2.")
+	if type(gut_timeout_seconds) is not int or gut_timeout_seconds <= 0:
+		raise ValueError("GUT shard execution requires a positive GUT timeout.")
+	import_timeout_seconds = resolve_check_timeout_seconds("godot_import", None)
+	waves = math.ceil(shard_count / jobs)
+	total = (
+		waves * gut_shard_worker_total_timeout_seconds(
+			import_timeout_seconds,
+			gut_timeout_seconds,
+		)
+		+ GUT_SHARD_RUN_SETUP_CLEANUP_ALLOWANCE_SECONDS
+	)
+	if qualify:
+		total += gut_shard_worker_total_timeout_seconds(
+			import_timeout_seconds,
+			resolve_gut_shard_observation_timeout_seconds(None),
+		)
+	return total
+
+
+def gut_shard_worker_total_timeout_seconds(
+	import_timeout_seconds: int,
+	gut_timeout_seconds: int,
+) -> int:
+	"""Reserve preflight, both process phases, and final proof publication."""
+
+	if type(import_timeout_seconds) is not int or import_timeout_seconds <= 0:
+		raise ValueError("GUT shard worker import timeout must be positive.")
+	if type(gut_timeout_seconds) is not int or gut_timeout_seconds <= 0:
+		raise ValueError("GUT shard worker GUT timeout must be positive.")
+	total = (
+		GUT_SHARD_RUN_WORKER_PREFLIGHT_ALLOWANCE_SECONDS
+		+ import_timeout_seconds
+		+ gut_timeout_seconds
+		+ GUT_SHARD_RUN_WORKER_FINALIZE_ALLOWANCE_SECONDS
+	)
+	if total > gf_gut_shard_worker.MAX_REMAINING_SECONDS:
+		raise ValueError("GUT shard worker total timeout exceeds its ceiling.")
+	return total
+
+
+def make_gut_shard_worker_request(
+	shard: dict[str, Any],
+	workspace: Path,
+	*,
+	workspace_fingerprint_value: str,
+	manifest_digest: str,
+	inventory_digest: str,
+	remaining_seconds: float,
+	import_timeout_seconds: int,
+	gut_timeout_seconds: int,
+	mode: str = gf_gut_shard_worker.CANDIDATE_MODE,
+	runtime_source_digest: str | None = None,
+) -> dict[str, Any]:
+	"""Bind one worker request to an exact materialization and manifest selection."""
+	request = {
+		"schema_version": 1,
+		"nonce": secrets.token_hex(32),
+		"mode": mode,
+		"shard_name": shard["name"],
+		"role": shard["role"],
+		"scripts": list(shard["scripts"]),
+		"workspace_path": str(Path(workspace).resolve(strict=True)),
+		"workspace_fingerprint": workspace_fingerprint_value,
+		"runtime_source_digest": (
+			GUT_SHARD_LOADED_RUNTIME_SOURCE_DIGEST
+			if runtime_source_digest is None
+			else runtime_source_digest
+		),
+		"manifest_digest": manifest_digest,
+		"inventory_digest": inventory_digest,
+		"remaining_seconds": remaining_seconds,
+		"import_timeout_seconds": import_timeout_seconds,
+		"gut_timeout_seconds": gut_timeout_seconds,
+	}
+	return gf_gut_shard_worker.validate_request(request)
+
+
+def validate_direct_gut_shard_worker_report(
+	report: dict[str, Any],
+	expected_request: dict[str, Any],
+	workspace: Path,
+	*,
+	expected_workspace_fingerprint: str,
+	expected_workspace_identity: tuple[int, int, int] | None = None,
+	deadline: float,
+) -> dict[str, Any]:
+	"""Bind one same-process worker result to its request and sealed source."""
+	data = gf_gut_shard_worker.validate_report(report)
+	validate_gut_shard_worker_report_values(data)
+	if data["request"] != expected_request:
+		raise ValueError("GUT shard worker report is not bound to its parent request.")
+	if (
+		data["process_boundary_quiescent"] is not True
+		or data["worker_cleanup_complete"] is not True
+		or data["workspace_cleanup_permitted"] is not True
+	):
+		# A closed negative proof is still valuable evidence, but it cannot
+		# authorize any further filesystem reads or Git processes in a workspace
+		# that may still be owned by a live descendant.
+		return data
+	if expected_workspace_identity is not None:
+		if gf_parallel_validation._owned_directory_identity(  # noqa: SLF001
+			workspace.lstat()
+		) != expected_workspace_identity:
+			raise ValueError("GUT shard worker workspace identity changed before post-validation.")
+	workspace_state = workspace_fingerprint(workspace, deadline=deadline)
+	if workspace_state.get("fingerprint") != expected_workspace_fingerprint:
+		raise ValueError("GUT shard worker changed its materialized source inputs.")
+	if expected_workspace_identity is not None and gf_parallel_validation._owned_directory_identity(  # noqa: SLF001
+		workspace.lstat()
+	) != expected_workspace_identity:
+		raise ValueError("GUT shard worker workspace identity changed during post-validation.")
+	return data
+
+
+def validate_gut_shard_worker_report_values(report: dict[str, Any]) -> None:
+	"""Validate exact worker value types beyond the shared closed field sets."""
+	request = report["request"]
+	if (
+		type(report["selection_count"]) is not int
+		or report["selection_count"] != len(request["scripts"])
+		or report["selection_digest"]
+		!= gf_gut_shard_worker.canonical_digest(request["scripts"])
+	):
+		raise ValueError("GUT shard worker selection identity is inconsistent.")
+	for count_field in ("import_run_count", "gut_run_count"):
+		if type(report[count_field]) is not int or report[count_field] not in (0, 1):
+			raise ValueError(f"GUT shard worker {count_field} must be exactly 0 or 1.")
+	for phase_name in ("import_result", "gut_result"):
+		phase = report[phase_name]
+		if (
+			type(phase["ok"]) is not bool
+			or type(phase["exit_code"]) is not int
+			or type(phase["timed_out"]) is not bool
+			or type(phase["cancelled"]) is not bool
+			or not is_finite_non_negative_number(phase["duration_seconds"])
+		):
+			raise ValueError(f"GUT shard worker {phase_name} values are invalid.")
+	if (
+		type(report["lifecycle_ok"]) is not bool
+		or type(report["process_boundary_quiescent"]) is not bool
+		or type(report["worker_cleanup_complete"]) is not bool
+		or type(report["workspace_cleanup_permitted"]) is not bool
+		or type(report["continuation_safe"]) is not bool
+	):
+		raise ValueError("GUT shard worker lifecycle, process-boundary, or cleanup evidence is invalid.")
+	if not is_finite_non_negative_number(report["duration_seconds"]):
+		raise ValueError("GUT shard worker duration must be finite and non-negative.")
+	junit = report["junit"]
+	if junit is None:
+		if report["junit_digest"] is not None:
+			raise ValueError("GUT shard worker has a digest without JUnit evidence.")
+	elif type(junit) is dict:
+		gf_gut_sharding._validate_observation_junit_report(junit)  # noqa: SLF001
+		if report["junit_digest"] != gf_gut_shard_worker.canonical_digest(junit):
+			raise ValueError("GUT shard worker JUnit digest is inconsistent.")
+	else:
+		raise ValueError("GUT shard worker JUnit evidence must be an object or null.")
+	policy = report["observation_policy"]
+	if (
+		policy["observation_only"] is not True
+		or policy["execution_policy"] != gf_gut_shard_worker.EXECUTION_POLICY
+		or any(
+			type(policy[key]) is not int or policy[key] != 0
+			for key in (
+				"skip_count",
+				"cache_read_count",
+				"cache_write_count",
+				"reuse_count",
+				"persistence_count",
+			)
+		)
+	):
+		raise ValueError("GUT shard worker observation policy is invalid.")
+
+
+def materialize_gut_shard_workspaces(
+	captured_workspace: CapturedWorkspace,
+	batch_root: Path,
+	shards: list[dict[str, Any]],
+	*,
+	deadline: float,
+) -> tuple[dict[str, Path], dict[str, tuple[int, int, int]]]:
+	"""Materialize one candidate wave without sharing writable project state."""
+	remaining_deadline_seconds(deadline, "GUT shard workspace materialization")
+	with concurrent.futures.ThreadPoolExecutor(
+		max_workers=len(shards),
+		thread_name_prefix="gf-gut-shard-materialize",
+	) as executor:
+		identity_by_name: dict[str, tuple[int, int, int]] = {}
+		identity_lock = threading.Lock()
+
+		def capture_identity(name: str, identity: tuple[int, int, int]) -> None:
+			with identity_lock:
+				if name in identity_by_name:
+					raise WorkspaceSnapshotError("Materializer published duplicate workspace identity.")
+				identity_by_name[name] = identity
+
+		future_by_name = {}
+		for index, shard in enumerate(shards):
+			name = shard["name"]
+			future_by_name[name] = executor.submit(
+				gf_parallel_validation.materialize_workspace,
+				captured_workspace,
+				batch_root / f"s{index}",
+				deadline=deadline,
+				verify_source=False,
+				identity_callback=lambda identity, name=name: capture_identity(name, identity),
+			)
+		workspace_by_name = {
+			shard["name"]: future_by_name[shard["name"]].result()
+			for shard in shards
+		}
+		if set(identity_by_name) != set(workspace_by_name):
+			raise WorkspaceSnapshotError("Materializer did not publish every workspace identity.")
+		return workspace_by_name, identity_by_name
+
+
+def execute_gut_shard_worker_wave(
+	requests: list[dict[str, Any]],
+	workspace_by_name: dict[str, Path],
+	*,
+	workspace_identity_by_name: dict[str, tuple[int, int, int]] | None = None,
+	expected_workspace_fingerprint: str,
+	deadline: float,
+	cancellation_event: threading.Event,
+	cleanup_state: dict[str, bool] | None = None,
+) -> tuple[list[dict[str, Any]], int, list[dict[str, str]]]:
+	"""Run one bounded wave in-process and retain manifest request order."""
+	if not requests:
+		raise ValueError("GUT shard worker waves may not be empty.")
+	if len(requests) > max(GUT_SHARD_RUN_ALLOWED_JOBS):
+		raise ValueError("GUT shard worker waves may contain at most two requests.")
+	if cancellation_event.is_set():
+		return [], 0, [{
+			"kind": "gut_shard_run_cancelled",
+			"message": "GUT shard worker scheduling was already cancelled.",
+		}]
+	normalized_requests = [
+		gf_gut_shard_worker.validate_request(request)
+		for request in requests
+	]
+	for request, normalized in zip(requests, normalized_requests, strict=True):
+		if normalized != request:
+			raise ValueError("GUT shard worker request changed during validation.")
+		if request["shard_name"] not in workspace_by_name:
+			raise ValueError("GUT shard worker request has no materialized workspace.")
+	request_names = [request["shard_name"] for request in requests]
+	if (
+		len(set(request_names)) != len(request_names)
+		or set(request_names) != set(workspace_by_name)
+	):
+		raise ValueError("GUT shard worker wave identities are not exact and unique.")
+	if workspace_identity_by_name is not None and set(workspace_identity_by_name) != set(request_names):
+		raise ValueError("GUT shard worker publication identities are not exact and complete.")
+
+	reports_by_index: dict[int, dict[str, Any]] = {}
+	issues: list[dict[str, str]] = []
+	deadline_reported = False
+	future_to_index: dict[concurrent.futures.Future[Any], int] = {}
+	executor = concurrent.futures.ThreadPoolExecutor(
+		max_workers=len(requests),
+		thread_name_prefix="gf-gut-shard-worker",
+	)
+	try:
+		try:
+			for index, request in enumerate(requests):
+				worker_kwargs: dict[str, Any] = {
+					"cancellation_event": cancellation_event,
+				}
+				if workspace_identity_by_name is not None:
+					worker_kwargs["expected_workspace_identity"] = (
+						workspace_identity_by_name[request["shard_name"]]
+					)
+				try:
+					future = executor.submit(
+						gf_gut_shard_worker.run_worker,
+						request,
+						**worker_kwargs,
+					)
+				except Exception as error:  # noqa: BLE001 - scheduling boundary.
+					cancellation_event.set()
+					if cleanup_state is not None:
+						cleanup_state["permitted"] = False
+					issues.append({
+						"kind": "gut_shard_worker_schedule_failed",
+						"message": (
+							f"{request['shard_name']}: {type(error).__name__}: {error}"
+						),
+					})
+					break
+				future_to_index[future] = index
+			pending = set(future_to_index)
+			while pending:
+				remaining = deadline - time.perf_counter()
+				if remaining <= 0.0:
+					cancellation_event.set()
+					if cleanup_state is not None:
+						cleanup_state["permitted"] = False
+					if not deadline_reported:
+						issues.append({
+							"kind": "gut_shard_worker_wave_deadline_exhausted",
+							"message": "GUT shard parent deadline expired during worker execution.",
+						})
+						deadline_reported = True
+					wait_seconds = 0.1
+				else:
+					wait_seconds = min(0.1, remaining)
+				done, pending = concurrent.futures.wait(
+					pending,
+					timeout=wait_seconds,
+					return_when=concurrent.futures.FIRST_COMPLETED,
+				)
+				if not deadline_reported and time.perf_counter() >= deadline:
+					cancellation_event.set()
+					if cleanup_state is not None:
+						cleanup_state["permitted"] = False
+					issues.append({
+						"kind": "gut_shard_worker_wave_deadline_exhausted",
+						"message": (
+							"GUT shard parent deadline expired before completed "
+							"worker evidence could be validated."
+						),
+					})
+					deadline_reported = True
+				for future in done:
+					index = future_to_index[future]
+					request = requests[index]
+					name = request["shard_name"]
+					try:
+						report = future.result()
+					except Exception as error:  # noqa: BLE001 - worker boundary must fail closed.
+						cancellation_event.set()
+						if cleanup_state is not None:
+							cleanup_state["permitted"] = False
+						issues.append({
+							"kind": "gut_shard_worker_exception",
+							"message": f"{name}: {type(error).__name__}: {error}",
+						})
+						continue
+					try:
+						validated_report = validate_direct_gut_shard_worker_report(
+							report,
+							request,
+							workspace_by_name[name],
+							expected_workspace_fingerprint=expected_workspace_fingerprint,
+							expected_workspace_identity=(
+								workspace_identity_by_name[name]
+								if workspace_identity_by_name is not None
+								else None
+							),
+							deadline=deadline,
+						)
+						reports_by_index[index] = validated_report
+						worker_deadline_failed = any(
+							issue.get("kind") == "worker_deadline_exhausted"
+							for issue in validated_report["issues"]
+						) or any(
+							validated_report[phase_name]["timed_out"] is True
+							for phase_name in ("import_result", "gut_result")
+						)
+						if worker_deadline_failed:
+							cancellation_event.set()
+							issues.append({
+								"kind": "gut_shard_worker_deadline_exhausted",
+								"message": (
+									f"{name}: worker-local deadline or phase timeout stopped "
+									"the remaining shard schedule."
+								),
+							})
+						elif validated_report["continuation_safe"] is not True:
+							cancellation_event.set()
+							issues.append({
+								"kind": "gut_shard_worker_infrastructure_failed",
+								"message": (
+									f"{name}: worker evidence did not authorize continuing "
+									"the remaining shard schedule."
+								),
+							})
+						if (
+							validated_report["process_boundary_quiescent"] is not True
+							or validated_report["worker_cleanup_complete"] is not True
+							or validated_report["workspace_cleanup_permitted"] is not True
+						):
+							cancellation_event.set()
+							if cleanup_state is not None:
+								cleanup_state["permitted"] = False
+							issues.append({
+								"kind": (
+									"gut_shard_worker_cleanup_debt"
+									if validated_report["worker_cleanup_complete"] is not True
+									else (
+										"gut_shard_workspace_ownership_unproven"
+										if validated_report["workspace_cleanup_permitted"] is not True
+										else "gut_shard_process_boundary_unproven"
+									)
+								),
+								"message": (
+									f"{name}: process-boundary, workspace ownership, or worker-owned cleanup was not proven; "
+									"the validation workspace must be retained."
+								),
+							})
+					except (WorkspaceDeadlineError, TimeoutError):
+						cancellation_event.set()
+						if cleanup_state is not None:
+							cleanup_state["permitted"] = False
+						if not deadline_reported:
+							issues.append({
+								"kind": "gut_shard_worker_wave_deadline_exhausted",
+								"message": "GUT shard parent deadline expired during report validation.",
+							})
+							deadline_reported = True
+					except gf_maintenance_check_graph.WorkspaceFingerprintProcessBoundaryError as error:
+						cancellation_event.set()
+						if cleanup_state is not None:
+							cleanup_state["permitted"] = False
+						issues.append({
+							"kind": "gut_shard_workspace_fingerprint_boundary_unproven",
+							"message": f"{name}: {error}",
+						})
+					except Exception as error:  # noqa: BLE001 - protocol boundary must fail closed.
+						cancellation_event.set()
+						if cleanup_state is not None:
+							cleanup_state["permitted"] = False
+						issues.append({
+							"kind": "gut_shard_worker_report_rejected",
+							"message": f"{name}: {type(error).__name__}: {error}",
+						})
+		except Exception as error:  # noqa: BLE001 - retain exact partial progress.
+			cancellation_event.set()
+			if cleanup_state is not None:
+				cleanup_state["permitted"] = False
+			issues.append({
+				"kind": "gut_shard_worker_wave_failed",
+				"message": f"{type(error).__name__}: {error}",
+			})
+		except BaseException:
+			cancellation_event.set()
+			if cleanup_state is not None:
+				cleanup_state["permitted"] = False
+			raise
+	finally:
+		executor.shutdown(wait=True)
+	return (
+		[reports_by_index[index] for index in sorted(reports_by_index)],
+		len(future_to_index),
+		issues,
+	)
+
+
+def execute_gut_shard_candidate_reports(
+	captured_workspace: CapturedWorkspace,
+	manifest: dict[str, Any],
+	parallel_root: Path,
+	*,
+	jobs: int,
+	manifest_digest: str,
+	inventory_digest: str,
+	import_timeout_seconds: int,
+	gut_timeout_seconds: int,
+	deadline: float,
+	cancellation_event: threading.Event,
+	cleanup_state: dict[str, bool] | None = None,
+	runtime_source_digest: str = GUT_SHARD_LOADED_RUNTIME_SOURCE_DIGEST,
+) -> tuple[list[dict[str, Any]], int, list[dict[str, str]]]:
+	"""Execute every manifest shard exactly once in bounded disposable waves."""
+	worker_reports: list[dict[str, Any]] = []
+	executed_count = 0
+	issues: list[dict[str, str]] = []
+	manifest_shards = list(manifest["shards"])
+	for batch_start in range(0, len(manifest_shards), jobs):
+		if cancellation_event.is_set():
+			break
+		batch_shards = manifest_shards[batch_start:batch_start + jobs]
+		batch_cleanup_errors: list[str] = []
+		batch_workspace_ownership: dict[Path, tuple[int, int, int]] = {}
+		batch_acquired = False
+		try:
+			remaining_deadline_seconds(deadline, "GUT shard candidate scheduling")
+			with managed_gut_shard_workspace_batch(
+				parallel_root / str(batch_start // jobs),
+				cleanup_errors=batch_cleanup_errors,
+				workspace_ownership=batch_workspace_ownership,
+				cancellation_event=cancellation_event,
+				cleanup_state=cleanup_state,
+			) as batch_root:
+				batch_acquired = True
+				if cleanup_state is not None:
+					cleanup_state["permitted"] = False
+				materialized = materialize_gut_shard_workspaces(
+					captured_workspace,
+					batch_root,
+					batch_shards,
+					deadline=deadline,
+				)
+				if cleanup_state is not None:
+					cleanup_state["permitted"] = True
+				if not (
+					type(materialized) is tuple
+					and len(materialized) == 2
+					and type(materialized[0]) is dict
+					and type(materialized[1]) is dict
+				):
+					raise WorkspaceSnapshotError(
+						"GUT shard materializer returned an invalid workspace ownership set."
+					)
+				workspace_by_name, workspace_identity_by_name = materialized
+				batch_workspace_ownership.update({
+					Path(workspace_by_name[name]): workspace_identity_by_name[name]
+					for name in workspace_by_name
+				})
+				requests: list[dict[str, Any]] = []
+				for shard in batch_shards:
+					parent_remaining = remaining_deadline_seconds(
+						deadline,
+						f"GUT shard {shard['name']} worker request",
+					)
+					assert parent_remaining is not None
+					required_worker_budget = float(
+						gut_shard_worker_total_timeout_seconds(
+							import_timeout_seconds,
+							gut_timeout_seconds,
+						)
+					)
+					if parent_remaining < required_worker_budget:
+						raise WorkspaceDeadlineError(
+							f"GUT shard {shard['name']} cannot start with its full phase timeout floor."
+						)
+					worker_budget = required_worker_budget
+					workspace = workspace_by_name[shard["name"]]
+					request = make_gut_shard_worker_request(
+						shard,
+						workspace,
+						workspace_fingerprint_value=captured_workspace.workspace_fingerprint,
+						manifest_digest=manifest_digest,
+						inventory_digest=inventory_digest,
+						runtime_source_digest=runtime_source_digest,
+						remaining_seconds=worker_budget,
+						import_timeout_seconds=import_timeout_seconds,
+						gut_timeout_seconds=gut_timeout_seconds,
+					)
+					requests.append(request)
+				batch_reports, batch_executed, batch_issues = (
+					execute_gut_shard_worker_wave(
+						requests,
+						workspace_by_name,
+						workspace_identity_by_name=workspace_identity_by_name,
+						expected_workspace_fingerprint=(
+							captured_workspace.workspace_fingerprint
+						),
+						deadline=deadline,
+						cancellation_event=cancellation_event,
+						cleanup_state=cleanup_state,
+					)
+				)
+				worker_reports.extend(batch_reports)
+				executed_count += batch_executed
+				issues.extend(batch_issues)
+		except WorkspaceDeadlineError as error:
+			cancellation_event.set()
+			if cleanup_state is not None:
+				cleanup_state["permitted"] = False
+			issues.append({
+				"kind": (
+					"gut_shard_candidate_batch_deadline_exhausted"
+					if batch_acquired
+					else "gut_shard_candidate_scheduling_deadline_exhausted"
+				),
+				"message": str(error),
+			})
+		except (OSError, RuntimeError, TypeError, ValueError) as error:
+			# Preserve reports from earlier waves and retain the validation root.
+			# Materialization/protocol failures are infrastructure failures, not
+			# ordinary test failures safe to continue past.
+			cancellation_event.set()
+			if cleanup_state is not None:
+				cleanup_state["permitted"] = False
+			issues.append({
+				"kind": (
+					"gut_shard_candidate_batch_failed"
+					if batch_acquired
+					else "gut_shard_candidate_workspace_acquisition_failed"
+				),
+				"message": f"{type(error).__name__}: {error}",
+			})
+		if batch_cleanup_errors:
+			if cleanup_state is not None:
+				cleanup_state["permitted"] = False
+			issues.append({
+				"kind": "gut_shard_workspace_cleanup_failed",
+				"message": "\n".join(batch_cleanup_errors),
+			})
+			cancellation_event.set()
+		if cancellation_event.is_set():
+			break
+		try:
+			if cleanup_state is not None:
+				cleanup_state["permitted"] = False
+			gf_parallel_validation.assert_source_matches_snapshot(
+				captured_workspace,
+				deadline=deadline,
+			)
+			if cleanup_state is not None:
+				cleanup_state["permitted"] = True
+		except WorkspaceDeadlineError as error:
+			cancellation_event.set()
+			if cleanup_state is not None:
+				cleanup_state["permitted"] = False
+			issues.append({
+				"kind": "gut_shard_candidate_source_deadline_exhausted",
+				"message": str(error),
+			})
+			break
+		except WorkspaceSnapshotError as error:
+			cancellation_event.set()
+			if cleanup_state is not None:
+				cleanup_state["permitted"] = False
+			issues.append({
+				"kind": "gut_shard_candidate_source_verification_failed",
+				"message": f"{type(error).__name__}: {error}",
+			})
+			break
+	return worker_reports, executed_count, issues
+
+
+def execute_gut_shard_control_report(
+	captured_workspace: CapturedWorkspace,
+	parallel_root: Path,
+	*,
+	inventory: tuple[str, ...],
+	manifest_digest: str,
+	inventory_digest: str,
+	import_timeout_seconds: int,
+	gut_timeout_seconds: int,
+	deadline: float,
+	cancellation_event: threading.Event,
+	cleanup_state: dict[str, bool] | None = None,
+	runtime_source_digest: str = GUT_SHARD_LOADED_RUNTIME_SOURCE_DIGEST,
+) -> tuple[dict[str, Any] | None, int, list[dict[str, str]]]:
+	"""Run exactly one original-selection control in a fresh same-snapshot workspace."""
+	issues: list[dict[str, str]] = []
+	executed_count = 0
+	cleanup_errors: list[str] = []
+	control_report: dict[str, Any] | None = None
+	control_workspace_ownership: dict[Path, tuple[int, int, int]] = {}
+	control_root_acquired = False
+	if cancellation_event.is_set():
+		return None, 0, [{
+			"kind": "gut_shard_control_cancelled",
+			"message": "GUT shard qualification control was cancelled before scheduling.",
+		}]
+	try:
+		with managed_gut_shard_workspace_batch(
+			parallel_root / "c",
+			cleanup_errors=cleanup_errors,
+			workspace_ownership=control_workspace_ownership,
+			cancellation_event=cancellation_event,
+			cleanup_state=cleanup_state,
+		) as control_root:
+			control_root_acquired = True
+			published_identity: tuple[int, int, int] | None = None
+
+			def capture_control_identity(identity: tuple[int, int, int]) -> None:
+				nonlocal published_identity
+				if published_identity is not None:
+					raise WorkspaceSnapshotError(
+						"Control materializer published duplicate workspace identity."
+					)
+				published_identity = identity
+
+			if cleanup_state is not None:
+				cleanup_state["permitted"] = False
+			workspace = gf_parallel_validation.materialize_workspace(
+				captured_workspace,
+				control_root / "s0",
+				deadline=deadline,
+				verify_source=False,
+				identity_callback=capture_control_identity,
+			)
+			if cleanup_state is not None:
+				cleanup_state["permitted"] = True
+			if published_identity is None:
+				raise WorkspaceSnapshotError(
+					"Control materializer did not publish its workspace identity."
+				)
+			control_workspace_ownership[workspace] = published_identity
+			parent_remaining = remaining_deadline_seconds(
+				deadline,
+				"GUT shard qualification control",
+			)
+			assert parent_remaining is not None
+			required_worker_budget = float(
+				gut_shard_worker_total_timeout_seconds(
+					import_timeout_seconds,
+					gut_timeout_seconds,
+				)
+			)
+			if parent_remaining < required_worker_budget:
+				raise WorkspaceDeadlineError(
+				"GUT shard qualification control cannot start with its full phase timeout floor."
+			)
+			worker_budget = required_worker_budget
+			request = make_gut_shard_worker_request(
+				{
+					"name": gf_gut_shard_worker.CONTROL_SHARD_NAME,
+					"role": gf_gut_shard_worker.CONTROL_ROLE,
+					"scripts": list(inventory),
+				},
+				workspace,
+				workspace_fingerprint_value=captured_workspace.workspace_fingerprint,
+				manifest_digest=manifest_digest,
+				inventory_digest=inventory_digest,
+				runtime_source_digest=runtime_source_digest,
+				remaining_seconds=worker_budget,
+				import_timeout_seconds=import_timeout_seconds,
+				gut_timeout_seconds=gut_timeout_seconds,
+				mode=gf_gut_shard_worker.CONTROL_MODE,
+			)
+			reports, executed_count, worker_issues = execute_gut_shard_worker_wave(
+				[request],
+				{gf_gut_shard_worker.CONTROL_SHARD_NAME: workspace},
+				workspace_identity_by_name={
+					gf_gut_shard_worker.CONTROL_SHARD_NAME: published_identity,
+				},
+				expected_workspace_fingerprint=captured_workspace.workspace_fingerprint,
+				deadline=deadline,
+				cancellation_event=cancellation_event,
+				cleanup_state=cleanup_state,
+			)
+			issues.extend({
+				"kind": "gut_shard_control_worker_failed",
+				"message": f"{issue['kind']}: {issue['message']}",
+			} for issue in worker_issues)
+			if reports:
+				control_report = reports[0]
+			if not cancellation_event.is_set():
+				if cleanup_state is not None:
+					cleanup_state["permitted"] = False
+				gf_parallel_validation.assert_source_matches_snapshot(
+					captured_workspace,
+					deadline=deadline,
+				)
+				if cleanup_state is not None:
+					cleanup_state["permitted"] = True
+	except WorkspaceDeadlineError as error:
+		cancellation_event.set()
+		if cleanup_state is not None:
+			cleanup_state["permitted"] = False
+		issues.append({
+			"kind": "gut_shard_control_deadline_exhausted",
+			"message": str(error),
+		})
+	except (OSError, RuntimeError, TypeError, ValueError) as error:
+		cancellation_event.set()
+		if cleanup_state is not None:
+			cleanup_state["permitted"] = False
+		issues.append({
+			"kind": (
+				"gut_shard_control_report_rejected"
+				if control_root_acquired
+				else "gut_shard_control_workspace_acquisition_failed"
+			),
+			"message": str(error),
+		})
+	if cleanup_errors:
+		if cleanup_state is not None:
+			cleanup_state["permitted"] = False
+		issues.append({
+			"kind": "gut_shard_control_cleanup_failed",
+			"message": "\n".join(cleanup_errors),
+		})
+		control_report = None
+		cancellation_event.set()
+	if control_report is None and not any(
+		issue["kind"].startswith("gut_shard_control_") for issue in issues
+	):
+		issues.append({
+			"kind": "gut_shard_control_report_missing",
+			"message": "GUT shard qualification control produced no closed worker report.",
+		})
+	return control_report, executed_count, issues
+
+
+def aggregate_gut_shard_candidate_reports(
+	manifest: dict[str, Any],
+	inventory: tuple[str, ...],
+	worker_reports: list[dict[str, Any]],
+) -> dict[str, Any]:
+	"""Aggregate exactly one valid report for every manifest shard."""
+	result: dict[str, Any] = {
+		"schema_version": 1,
+		"eligible": False,
+		"workspace_fingerprint": "",
+		"manifest_digest": "",
+		"inventory_digest": "",
+		"shard_count": 0,
+		"member_count": 0,
+		"members": [],
+		"member_evidence_digest": "",
+		"script_count": 0,
+		"covered_script_count": 0,
+		"test_count": 0,
+		"duration_seconds": 0.0,
+		"testcase_duration_seconds": 0.0,
+		"duration_scope": "",
+		"status_counts": {
+			"passed": 0,
+			"failed": 0,
+			"pending": 0,
+			"no_asserts": 0,
+			"skipped": 0,
+		},
+		"failure_test_count": 0,
+		"failure_assertion_count": 0,
+		"pending_assertion_count": 0,
+		"assertion_count": 0,
+		"lifecycle_assertion_count": 0,
+		"assertion_counts_complete": False,
+		"assertion_count_unknown_reason": "aggregate_ineligible",
+		"scripts": [],
+		"observation": None,
+		"semantic_result": None,
+		"issues": [],
+	}
+	try:
+		normalized_manifest = gf_gut_sharding.validate_manifest(manifest, inventory)
+		expected_manifest_digest = gf_gut_sharding.canonical_digest(normalized_manifest)
+		expected_inventory_digest = gf_gut_sharding.canonical_digest(list(inventory))
+		expected_shards = normalized_manifest["shards"]
+		if type(worker_reports) is not list:
+			raise ValueError("GUT shard worker reports must be an array.")
+		if len(worker_reports) != len(expected_shards):
+			raise ValueError(
+				"GUT shard execution did not produce exactly one report per manifest shard."
+			)
+		normalized_reports = [
+			gf_gut_shard_worker.validate_report(worker_report)
+			for worker_report in worker_reports
+		]
+		actual_names = [
+			worker_report["request"]["shard_name"]
+			for worker_report in normalized_reports
+		]
+		expected_names = [shard["name"] for shard in expected_shards]
+		if actual_names != expected_names:
+			raise ValueError(
+				"GUT shard worker reports are not the exact ordered manifest selection."
+			)
+		workspace_fingerprints = {
+			worker_report["request"]["workspace_fingerprint"]
+			for worker_report in normalized_reports
+		}
+		if len(workspace_fingerprints) != 1:
+			raise ValueError("GUT shard reports do not share one captured workspace identity.")
+		for expected_shard, worker_report in zip(expected_shards, normalized_reports):
+			request = worker_report["request"]
+			if (
+				request["mode"] != gf_gut_shard_worker.CANDIDATE_MODE
+				or request["role"] != expected_shard["role"]
+				or request["scripts"] != expected_shard["scripts"]
+				or request["manifest_digest"] != expected_manifest_digest
+				or request["inventory_digest"] != expected_inventory_digest
+				or worker_report["selection_count"] != len(expected_shard["scripts"])
+				or worker_report["selection_digest"]
+				!= gf_gut_shard_worker.canonical_digest(expected_shard["scripts"])
+			):
+				raise ValueError(
+					f"GUT shard report {expected_shard['name']!r} is not bound to its manifest selection."
+				)
+			if not gut_shard_worker_report_eligible(worker_report):
+				raise ValueError(
+					f"GUT shard report {expected_shard['name']!r} is not eligible."
+				)
+		combined_evidence = combine_gut_shard_junit_reports(normalized_reports)
+		observation = gf_gut_sharding.build_observation_report_from_script_records(
+			normalized_manifest,
+			combined_evidence["scripts"],
+			failure_test_count=combined_evidence["failure_test_count"],
+		)
+		semantic_result = gut_shard_semantic_result_from_evidence(combined_evidence)
+		result.update({
+			"eligible": True,
+			"workspace_fingerprint": next(iter(workspace_fingerprints)),
+			"manifest_digest": expected_manifest_digest,
+			"inventory_digest": expected_inventory_digest,
+			"shard_count": len(normalized_reports),
+			**combined_evidence,
+			"observation": observation,
+			"semantic_result": semantic_result,
+		})
+	except (gf_gut_sharding.GutShardingError, gf_gut_shard_worker.GutShardWorkerError, TypeError, ValueError) as error:
+		result["issues"].append({
+			"kind": "gut_shard_candidate_ineligible",
+			"message": str(error),
+		})
+	return result
+
+
+GUT_SHARD_AGGREGATE_FIELDS = frozenset({
+	"schema_version",
+	"eligible",
+	"workspace_fingerprint",
+	"manifest_digest",
+	"inventory_digest",
+	"shard_count",
+	"member_count",
+	"members",
+	"member_evidence_digest",
+	"script_count",
+	"covered_script_count",
+	"test_count",
+	"duration_seconds",
+	"testcase_duration_seconds",
+	"duration_scope",
+	"status_counts",
+	"failure_test_count",
+	"failure_assertion_count",
+	"pending_assertion_count",
+	"assertion_count",
+	"lifecycle_assertion_count",
+	"assertion_counts_complete",
+	"assertion_count_unknown_reason",
+	"scripts",
+	"observation",
+	"semantic_result",
+	"issues",
+})
+GUT_SHARD_AGGREGATE_MEMBER_FIELDS = frozenset({
+	"shard_name",
+	"selection_digest",
+	"junit_report_digest",
+})
+GUT_SHARD_EQUIVALENCE_FIELDS = frozenset({
+	"schema_version",
+	"equivalent",
+	"candidate_eligible",
+	"control_eligible",
+	"same_workspace",
+	"same_manifest",
+	"same_inventory",
+	"semantic_match",
+	"issues",
+})
+GUT_SHARD_STATUS_FIELDS = frozenset({
+	"passed",
+	"failed",
+	"pending",
+	"no_asserts",
+	"skipped",
+})
+
+
+def validate_gut_shard_candidate_aggregate(
+	aggregate: dict[str, Any],
+	manifest: dict[str, Any],
+	inventory: tuple[str, ...],
+	*,
+	worker_reports: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
+	"""Validate a derived multi-JUnit aggregate without impersonating one XML input."""
+	if type(aggregate) is not dict or set(aggregate) != GUT_SHARD_AGGREGATE_FIELDS:
+		raise ValueError("GUT shard candidate aggregate fields do not match the closed schema.")
+	if type(inventory) is not tuple or any(type(path) is not str for path in inventory):
+		raise TypeError("GUT shard candidate inventory must be a string tuple.")
+	if type(aggregate["schema_version"]) is not int or aggregate["schema_version"] != 1:
+		raise ValueError("GUT shard candidate aggregate schema version is invalid.")
+	if type(aggregate["eligible"]) is not bool:
+		raise ValueError("GUT shard candidate aggregate eligibility must be boolean.")
+	for count_field in (
+		"shard_count",
+		"member_count",
+		"script_count",
+		"covered_script_count",
+		"test_count",
+		"failure_test_count",
+		"failure_assertion_count",
+		"pending_assertion_count",
+		"assertion_count",
+		"lifecycle_assertion_count",
+	):
+		if type(aggregate[count_field]) is not int or aggregate[count_field] < 0:
+			raise ValueError(f"GUT shard candidate aggregate {count_field} is invalid.")
+	status_counts = aggregate["status_counts"]
+	if (
+		type(status_counts) is not dict
+		or set(status_counts) != GUT_SHARD_STATUS_FIELDS
+		or any(type(value) is not int or value < 0 for value in status_counts.values())
+	):
+		raise ValueError("GUT shard candidate aggregate status counts are invalid.")
+	if any(
+		type(aggregate[field]) is not float
+		or not math.isfinite(aggregate[field])
+		or aggregate[field] < 0.0
+		for field in ("duration_seconds", "testcase_duration_seconds")
+	):
+		raise ValueError("GUT shard candidate aggregate durations are invalid.")
+	if type(aggregate["members"]) is not list or type(aggregate["scripts"]) is not list:
+		raise ValueError("GUT shard candidate aggregate evidence arrays are invalid.")
+	if type(aggregate["member_evidence_digest"]) is not str:
+		raise ValueError("GUT shard candidate member evidence digest is invalid.")
+	if type(aggregate["assertion_counts_complete"]) is not bool:
+		raise ValueError("GUT shard candidate assertion completeness must be boolean.")
+	if aggregate["assertion_count_unknown_reason"] is not None and type(
+		aggregate["assertion_count_unknown_reason"]
+	) is not str:
+		raise ValueError("GUT shard candidate assertion unknown reason is invalid.")
+	issues = aggregate["issues"]
+	if type(issues) is not list or len(issues) > 128:
+		raise ValueError("GUT shard candidate aggregate issues are invalid.")
+	for issue in issues:
+		if (
+			type(issue) is not dict
+			or set(issue) != {"kind", "message"}
+			or type(issue["kind"]) is not str
+			or type(issue["message"]) is not str
+			or not issue["kind"]
+			or not issue["message"]
+			or len(issue["kind"].encode("utf-8")) > 128
+			or len(issue["message"].encode("utf-8")) > 4096
+		):
+			raise ValueError("GUT shard candidate aggregate issue fields are invalid.")
+	if aggregate["eligible"] is not True:
+		if not issues:
+			raise ValueError("An ineligible GUT shard aggregate must explain its failure.")
+		expected_defaults = {
+			"workspace_fingerprint": "",
+			"manifest_digest": "",
+			"inventory_digest": "",
+			"shard_count": 0,
+			"member_count": 0,
+			"members": [],
+			"member_evidence_digest": "",
+			"script_count": 0,
+			"covered_script_count": 0,
+			"test_count": 0,
+			"duration_seconds": 0.0,
+			"testcase_duration_seconds": 0.0,
+			"duration_scope": "",
+			"failure_test_count": 0,
+			"failure_assertion_count": 0,
+			"pending_assertion_count": 0,
+			"assertion_count": 0,
+			"lifecycle_assertion_count": 0,
+			"assertion_counts_complete": False,
+			"assertion_count_unknown_reason": "aggregate_ineligible",
+			"scripts": [],
+			"observation": None,
+			"semantic_result": None,
+		}
+		if any(aggregate[key] != value for key, value in expected_defaults.items()):
+			raise ValueError("An ineligible GUT shard aggregate must use exact safe defaults.")
+		if any(status_counts.values()):
+			raise ValueError("An ineligible GUT shard aggregate may not retain status counts.")
+		return json.loads(gf_gut_shard_worker.canonical_json_bytes(aggregate).decode("utf-8"))
+
+	if issues:
+		raise ValueError("An eligible GUT shard aggregate may not contain issues.")
+	if worker_reports is None:
+		raise ValueError(
+			"An eligible GUT shard aggregate requires its strict worker report evidence."
+		)
+	normalized_manifest = gf_gut_sharding.validate_manifest(manifest, inventory)
+	expected_manifest_digest = gf_gut_sharding.canonical_digest(normalized_manifest)
+	expected_inventory_digest = gf_gut_sharding.canonical_digest(list(inventory))
+	for digest_field, expected_digest in (
+		("manifest_digest", expected_manifest_digest),
+		("inventory_digest", expected_inventory_digest),
+	):
+		if aggregate[digest_field] != expected_digest:
+			raise ValueError(f"GUT shard candidate {digest_field} is inconsistent.")
+	if (
+		type(aggregate["workspace_fingerprint"]) is not str
+		or SHA256_HEX_RE.fullmatch(aggregate["workspace_fingerprint"]) is None
+	):
+		raise ValueError("GUT shard candidate workspace fingerprint is invalid.")
+	members = aggregate["members"]
+	if aggregate["member_count"] != len(members) or len(members) != len(
+		normalized_manifest["shards"]
+	):
+		raise ValueError("GUT shard aggregate member count is inconsistent.")
+	for member, shard in zip(members, normalized_manifest["shards"]):
+		if (
+			type(member) is not dict
+			or set(member) != GUT_SHARD_AGGREGATE_MEMBER_FIELDS
+			or type(member["shard_name"]) is not str
+			or member["shard_name"] != shard["name"]
+			or type(member["selection_digest"]) is not str
+			or member["selection_digest"]
+			!= gf_gut_shard_worker.canonical_digest(shard["scripts"])
+			or type(member["junit_report_digest"]) is not str
+			or SHA256_HEX_RE.fullmatch(member["junit_report_digest"]) is None
+		):
+			raise ValueError("GUT shard aggregate member evidence is invalid.")
+	if (
+		SHA256_HEX_RE.fullmatch(aggregate["member_evidence_digest"]) is None
+		or aggregate["member_evidence_digest"]
+		!= gf_gut_shard_worker.canonical_digest(members)
+	):
+		raise ValueError("GUT shard aggregate member evidence digest is inconsistent.")
+	scripts = aggregate["scripts"]
+	if [script.get("script") if type(script) is dict else None for script in scripts] != list(
+		inventory
+	):
+		raise ValueError("GUT shard aggregate scripts do not cover the exact inventory.")
+	expected_observation = gf_gut_sharding.build_observation_report_from_script_records(
+		normalized_manifest,
+		scripts,
+		failure_test_count=aggregate["failure_test_count"],
+	)
+	calculated_duration = 0.0
+	calculated_testcase_duration = 0.0
+	for script in scripts:
+		calculated_duration += script["duration_seconds"]
+		calculated_testcase_duration += script["testcase_duration_seconds"]
+		if not math.isfinite(calculated_duration) or not math.isfinite(
+			calculated_testcase_duration
+		):
+			raise ValueError("GUT shard aggregate duration total is not finite.")
+	calculated_status_counts = {
+		status: sum(script["status_counts"][status] for script in scripts)
+		for status in GUT_SHARD_STATUS_FIELDS
+	}
+	expected_counts = {
+		"shard_count": len(normalized_manifest["shards"]),
+		"member_count": len(normalized_manifest["shards"]),
+		"script_count": len(inventory),
+		"covered_script_count": len(inventory),
+		"test_count": sum(script["test_count"] for script in scripts),
+		"failure_assertion_count": sum(
+			script["failure_assertion_count"] for script in scripts
+		),
+		"pending_assertion_count": sum(
+			script["pending_assertion_count"] for script in scripts
+		),
+		"assertion_count": sum(script["assertion_count"] for script in scripts),
+		"lifecycle_assertion_count": sum(
+			script["lifecycle_assertion_count"] for script in scripts
+		),
+	}
+	if any(aggregate[key] != value for key, value in expected_counts.items()):
+		raise ValueError("GUT shard aggregate counts are inconsistent with member evidence.")
+	if (
+		status_counts != calculated_status_counts
+		or sum(status_counts.values()) != aggregate["test_count"]
+		or aggregate["duration_seconds"] != calculated_duration
+		or aggregate["testcase_duration_seconds"] != calculated_testcase_duration
+		or aggregate["duration_scope"]
+		!= gf_gut_sharding.JUNIT_LIFECYCLE_DURATION_SCOPE
+		or aggregate["assertion_counts_complete"] is not True
+		or aggregate["assertion_count_unknown_reason"] is not None
+	):
+		raise ValueError("GUT shard aggregate totals are inconsistent with member evidence.")
+	if (
+		status_counts != {
+			"passed": aggregate["test_count"],
+			"failed": 0,
+			"pending": 0,
+			"no_asserts": 0,
+			"skipped": 0,
+		}
+		or aggregate["failure_test_count"] != 0
+		or aggregate["failure_assertion_count"] != 0
+		or aggregate["pending_assertion_count"] != 0
+		or any(
+			test["status"] != "passed"
+			for script in scripts
+			for test in script["tests"]
+		)
+	):
+		raise ValueError(
+			"An eligible GUT shard aggregate must contain only passing test evidence."
+		)
+	if aggregate["observation"] != expected_observation:
+		raise ValueError("GUT shard aggregate observation is not derivable from its evidence.")
+	expected_semantic = gut_shard_semantic_result_from_evidence(aggregate)
+	if aggregate["semantic_result"] != expected_semantic:
+		raise ValueError("GUT shard aggregate semantic result is not derivable from its evidence.")
+	expected_aggregate = aggregate_gut_shard_candidate_reports(
+		manifest,
+		inventory,
+		worker_reports,
+	)
+	if aggregate != expected_aggregate:
+		raise ValueError(
+			"GUT shard aggregate is not exactly derived from its strict worker reports."
+		)
+	return json.loads(gf_gut_shard_worker.canonical_json_bytes(aggregate).decode("utf-8"))
+
+
+def compare_gut_shard_qualification(
+	aggregate: dict[str, Any],
+	control_report: dict[str, Any],
+	*,
+	manifest: dict[str, Any],
+	inventory: tuple[str, ...],
+	candidate_reports: list[dict[str, Any]],
+) -> dict[str, Any]:
+	"""Compare candidate and control test semantics while excluding durations."""
+	result: dict[str, Any] = {
+		"schema_version": 1,
+		"equivalent": False,
+		"candidate_eligible": False,
+		"control_eligible": False,
+		"same_workspace": False,
+		"same_manifest": False,
+		"same_inventory": False,
+		"semantic_match": False,
+		"issues": [],
+	}
+	try:
+		normalized_aggregate = validate_gut_shard_candidate_aggregate(
+			aggregate,
+			manifest,
+			inventory,
+			worker_reports=candidate_reports,
+		)
+		if normalized_aggregate["eligible"] is not True:
+			raise ValueError("GUT shard candidate aggregate is not eligible.")
+		result["candidate_eligible"] = True
+		normalized_control = gf_gut_shard_worker.validate_report(control_report)
+		request = normalized_control["request"]
+		if (
+			request["mode"] != gf_gut_shard_worker.CONTROL_MODE
+			or request["shard_name"] != gf_gut_shard_worker.CONTROL_SHARD_NAME
+			or request["role"] != gf_gut_shard_worker.CONTROL_ROLE
+			or request["scripts"]
+			!= list(inventory)
+			or normalized_control["selection_count"] != normalized_aggregate["script_count"]
+			or normalized_control["selection_digest"]
+			!= gf_gut_shard_worker.canonical_digest(request["scripts"])
+		):
+			raise ValueError("GUT qualification control does not bind the complete inventory.")
+		if not gut_shard_worker_report_eligible(normalized_control):
+			raise ValueError("GUT qualification control is not eligible.")
+		result["control_eligible"] = True
+		result["same_workspace"] = (
+			request["workspace_fingerprint"] == normalized_aggregate["workspace_fingerprint"]
+		)
+		result["same_manifest"] = (
+			request["manifest_digest"] == normalized_aggregate["manifest_digest"]
+		)
+		result["same_inventory"] = (
+			request["inventory_digest"] == normalized_aggregate["inventory_digest"]
+		)
+		control_semantic = gut_shard_junit_semantic_result(normalized_control["junit"])
+		result["semantic_match"] = control_semantic == normalized_aggregate[
+			"semantic_result"
+		]
+		if not result["same_workspace"]:
+			raise ValueError("GUT qualification control used a different workspace fingerprint.")
+		if not result["same_manifest"]:
+			raise ValueError("GUT qualification control used a different manifest digest.")
+		if not result["same_inventory"]:
+			raise ValueError("GUT qualification control used a different inventory digest.")
+		if not result["semantic_match"]:
+			raise ValueError(
+				"GUT shard candidates differ from the authoritative control test semantics."
+			)
+		result["equivalent"] = True
+	except (gf_gut_sharding.GutShardingError, gf_gut_shard_worker.GutShardWorkerError, KeyError, TypeError, ValueError) as error:
+		result["issues"].append({
+			"kind": "gut_shard_qualification_not_equivalent",
+			"message": str(error),
+		})
+	validate_gut_shard_equivalence_report(result)
+	return result
+
+
+def validate_gut_shard_equivalence_report(report: dict[str, Any]) -> None:
+	"""Validate the closed qualification decision and all derived booleans."""
+	if type(report) is not dict or set(report) != GUT_SHARD_EQUIVALENCE_FIELDS:
+		raise ValueError("GUT shard equivalence fields do not match the closed schema.")
+	if type(report["schema_version"]) is not int or report["schema_version"] != 1:
+		raise ValueError("GUT shard equivalence schema version is invalid.")
+	for field in GUT_SHARD_EQUIVALENCE_FIELDS - {"schema_version", "issues"}:
+		if type(report[field]) is not bool:
+			raise ValueError(f"GUT shard equivalence {field} must be boolean.")
+	issues = report["issues"]
+	if type(issues) is not list or any(
+		type(issue) is not dict
+		or set(issue) != {"kind", "message"}
+		or type(issue["kind"]) is not str
+		or type(issue["message"]) is not str
+		or not issue["kind"]
+		or not issue["message"]
+		for issue in issues
+	):
+		raise ValueError("GUT shard equivalence issues are invalid.")
+	all_evidence_matches = (
+		report["candidate_eligible"]
+		and report["control_eligible"]
+		and report["same_workspace"]
+		and report["same_manifest"]
+		and report["same_inventory"]
+		and report["semantic_match"]
+	)
+	if bool(issues) == all_evidence_matches:
+		raise ValueError("GUT shard equivalence issues are inconsistent with its evidence booleans.")
+	if report["equivalent"] != all_evidence_matches:
+		raise ValueError("GUT shard equivalence decision is inconsistent.")
+
+
+def gut_shard_worker_report_eligible(report: dict[str, Any]) -> bool:
+	"""Require one complete, clean, no-reuse import + GUT worker result."""
+	policy = report.get("observation_policy")
+	return (
+		report.get("ok") is True
+		and report.get("import_run_count") == 1
+		and report.get("gut_run_count") == 1
+		and isinstance(report.get("import_result"), dict)
+		and report["import_result"].get("ok") is True
+		and report["import_result"].get("timed_out") is False
+		and report["import_result"].get("cancelled") is False
+		and isinstance(report.get("gut_result"), dict)
+		and report["gut_result"].get("ok") is True
+		and report["gut_result"].get("timed_out") is False
+		and report["gut_result"].get("cancelled") is False
+		and report.get("lifecycle_ok") is True
+		and report.get("process_boundary_quiescent") is True
+		and report.get("worker_cleanup_complete") is True
+		and report.get("workspace_cleanup_permitted") is True
+		and report.get("continuation_safe") is True
+		and isinstance(report.get("junit"), dict)
+		and isinstance(policy, dict)
+		and policy.get("observation_only") is True
+		and all(
+			policy.get(key) == 0
+			for key in (
+				"skip_count",
+				"cache_read_count",
+				"cache_write_count",
+				"reuse_count",
+				"persistence_count",
+			)
+		)
+		and not report.get("issues")
+	)
+
+
+def combine_gut_shard_junit_reports(
+	worker_reports: list[dict[str, Any]],
+) -> dict[str, Any]:
+	"""Derive multi-file evidence without impersonating one G0.1 parser result."""
+	if type(worker_reports) is not list or not worker_reports:
+		raise ValueError("GUT shard aggregation requires non-empty worker reports.")
+	scripts: list[dict[str, Any]] = []
+	failure_test_count = 0
+	members: list[dict[str, str]] = []
+	for raw_report in worker_reports:
+		report = gf_gut_shard_worker.validate_report(raw_report)
+		junit = report["junit"]
+		if type(junit) is not dict or type(report["junit_digest"]) is not str:
+			raise ValueError("GUT shard worker report lacks strict JUnit evidence.")
+		gf_gut_sharding._validate_observation_junit_report(junit)  # noqa: SLF001
+		scripts.extend(junit["scripts"])
+		failure_test_count += junit["failure_test_count"]
+		members.append({
+			"shard_name": report["request"]["shard_name"],
+			"selection_digest": report["selection_digest"],
+			"junit_report_digest": report["junit_digest"],
+		})
+	scripts.sort(key=lambda script: script["script"])
+	if len({script["script"] for script in scripts}) != len(scripts):
+		raise ValueError("GUT shard JUnit reports contain duplicate script identities.")
+	status_counts = {
+		status: sum(script["status_counts"][status] for script in scripts)
+		for status in ("passed", "failed", "pending", "no_asserts", "skipped")
+	}
+	duration_seconds = 0.0
+	testcase_duration_seconds = 0.0
+	for script in scripts:
+		duration_seconds += float(script["duration_seconds"])
+		testcase_duration_seconds += float(script["testcase_duration_seconds"])
+		if (
+			not math.isfinite(duration_seconds)
+			or duration_seconds < 0.0
+			or not math.isfinite(testcase_duration_seconds)
+			or testcase_duration_seconds < 0.0
+		):
+			raise ValueError("Combined GUT shard JUnit duration is invalid.")
+	combined = {
+		"member_count": len(members),
+		"members": members,
+		"member_evidence_digest": gf_gut_shard_worker.canonical_digest(members),
+		"script_count": len(scripts),
+		"covered_script_count": len(scripts),
+		"test_count": sum(script["test_count"] for script in scripts),
+		"duration_seconds": duration_seconds,
+		"testcase_duration_seconds": testcase_duration_seconds,
+		"duration_scope": gf_gut_sharding.JUNIT_LIFECYCLE_DURATION_SCOPE,
+		"status_counts": status_counts,
+		"failure_test_count": failure_test_count,
+		"failure_assertion_count": sum(
+			script["failure_assertion_count"] for script in scripts
+		),
+		"pending_assertion_count": sum(
+			script["pending_assertion_count"] for script in scripts
+		),
+		"assertion_count": sum(script["assertion_count"] for script in scripts),
+		"lifecycle_assertion_count": sum(
+			script["lifecycle_assertion_count"] for script in scripts
+		),
+		"assertion_counts_complete": True,
+		"assertion_count_unknown_reason": None,
+		"scripts": scripts,
+	}
+	return combined
+
+
+def gut_shard_semantic_result_from_evidence(evidence: dict[str, Any]) -> dict[str, Any]:
+	"""Project validated script semantics while intentionally omitting durations."""
+	return {
+		"script_count": evidence["script_count"],
+		"test_count": evidence["test_count"],
+		"status_counts": dict(evidence["status_counts"]),
+		"failure_test_count": evidence["failure_test_count"],
+		"failure_assertion_count": evidence["failure_assertion_count"],
+		"pending_assertion_count": evidence["pending_assertion_count"],
+		"assertion_count": evidence["assertion_count"],
+		"lifecycle_assertion_count": evidence["lifecycle_assertion_count"],
+		"scripts": [
+			{
+				"script": script["script"],
+				"status_counts": dict(script["status_counts"]),
+				"failure_assertion_count": script["failure_assertion_count"],
+				"pending_assertion_count": script["pending_assertion_count"],
+				"assertion_count": script["assertion_count"],
+				"lifecycle_assertion_count": script["lifecycle_assertion_count"],
+				"tests": [
+					{
+						"name": test["name"],
+						"status": test["status"],
+						"assertion_count": test["assertion_count"],
+					}
+					for test in script["tests"]
+				],
+			}
+			for script in evidence["scripts"]
+		],
+	}
+
+
+def gut_shard_junit_semantic_result(junit: dict[str, Any]) -> dict[str, Any]:
+	"""Project the exact qualification semantics and intentionally omit durations."""
+	gf_gut_sharding._validate_observation_junit_report(junit)  # noqa: SLF001
+	return gut_shard_semantic_result_from_evidence(junit)
+
+
+def validate_gut_shard_run_report(
+	report: dict[str, Any],
+	*,
+	manifest: dict[str, Any] | None = None,
+	inventory: tuple[str, ...] | None = None,
+	expected_workspace_fingerprint: str | None = None,
+	expected_validation_root: Path | None = None,
+	final: bool = True,
+) -> dict[str, Any]:
+	"""Validate the closed G0.2A envelope and its derived state machine."""
+	if type(report) is not dict or set(report) != GUT_SHARD_RUN_TOP_LEVEL_FIELDS:
+		raise ValueError("GUT shard run report fields do not match the closed schema.")
+	if type(report["schema_version"]) is not int or report["schema_version"] != 1:
+		raise ValueError("GUT shard run report schema version is invalid.")
+	if (
+		type(report["ok"]) is not bool
+		or report["mode"] != "sharded_observation"
+		or report["authoritative"] is not False
+		or report["merge_evidence"] is not False
+		or type(report["qualify_requested"]) is not bool
+		or type(report["candidate_eligible"]) is not bool
+		or type(report["qualified"]) is not bool
+		or type(report["jobs"]) is not int
+		or report["jobs"] not in GUT_SHARD_RUN_ALLOWED_JOBS
+		or report["manifest_path"] != GUT_SHARD_MANIFEST_RELATIVE_PATH
+	):
+		raise ValueError("GUT shard run report fixed policy fields are invalid.")
+	for digest_field in (
+		"workspace_fingerprint", "runtime_source_digest", "manifest_digest",
+		"inventory_digest",
+	):
+		value = report[digest_field]
+		if type(value) is not str or (value and SHA256_HEX_RE.fullmatch(value) is None):
+			raise ValueError(f"GUT shard run {digest_field} is invalid.")
+	if not report["runtime_source_digest"]:
+		raise ValueError("GUT shard run must bind the loaded runtime source digest.")
+	if report["runtime_source_digest"] != GUT_SHARD_LOADED_RUNTIME_SOURCE_DIGEST:
+		raise ValueError("GUT shard run runtime source digest differs from loaded code.")
+	for timeout_field in (
+		"import_timeout_seconds",
+		"candidate_gut_timeout_seconds",
+		"control_gut_timeout_seconds",
+		"total_timeout_seconds",
+	):
+		if type(report[timeout_field]) is not int or report[timeout_field] <= 0:
+			raise ValueError(
+				f"GUT shard run {timeout_field} must be an exact positive integer."
+			)
+	if (
+		report["import_timeout_seconds"]
+		!= resolve_check_timeout_seconds("godot_import", None)
+		or report["control_gut_timeout_seconds"]
+		!= resolve_gut_shard_observation_timeout_seconds(None)
+		or report["candidate_gut_timeout_seconds"]
+		!= resolve_gut_shard_run_gut_timeout_seconds(
+			report["candidate_gut_timeout_seconds"]
+		)
+		or report["total_timeout_seconds"]
+		!= gut_shard_run_total_timeout_seconds(
+			len(gf_gut_sharding.SHARD_NAMES),
+			report["jobs"],
+			gut_timeout_seconds=report["candidate_gut_timeout_seconds"],
+			qualify=report["qualify_requested"],
+		)
+	):
+		raise ValueError("GUT shard run timeout policy is inconsistent.")
+	count_fields = (
+		"inventory_count", "shard_count", "executed_shard_count",
+		"completed_shard_count", "successful_shard_count", "failed_shard_count",
+		"unreported_shard_count", "not_scheduled_shard_count",
+	)
+	if any(type(report[field]) is not int or report[field] < 0 for field in count_fields):
+		raise ValueError("GUT shard run counts must be exact non-negative integers.")
+	if type(report["duration_seconds"]) is not float or not math.isfinite(report["duration_seconds"]) or report["duration_seconds"] < 0.0:
+		raise ValueError("GUT shard run duration must be a finite non-negative float.")
+	probe = report["isolation_probe"]
+	expected_probe_fields = ["marker_path", "user_dir", "data_dir", "config_dir", "cache_dir"]
+	if (
+		type(probe) is not dict
+		or set(probe) != {"ok", "probe_count", "fields"}
+		or type(probe["ok"]) is not bool
+		or type(probe["probe_count"]) is not int
+		or probe["fields"] != expected_probe_fields
+		or (probe["ok"], probe["probe_count"]) not in ((False, 0), (True, 2))
+	):
+		raise ValueError("GUT shard isolation probe report is invalid.")
+	policy = report["observation_policy"]
+	if type(policy) is not dict or set(policy) != {
+		"affects_check_graph", "affects_suite_membership",
+		"authoritative_result_replaced", "skip_count", "cache_read_count",
+		"cache_write_count", "reuse_count",
+	}:
+		raise ValueError("GUT shard top-level observation policy fields are invalid.")
+	if (
+		policy["affects_check_graph"] is not False
+		or policy["affects_suite_membership"] is not False
+		or policy["authoritative_result_replaced"] is not False
+		or any(type(policy[field]) is not int or policy[field] != 0 for field in (
+			"skip_count", "cache_read_count", "cache_write_count", "reuse_count",
+		))
+	):
+		raise ValueError("GUT shard observation policy may not alter or reuse checks.")
+	issues = report["issues"]
+	if type(issues) is not list or len(issues) > GUT_SHARD_RUN_MAX_TOP_ISSUES:
+		raise ValueError("GUT shard run issues are invalid.")
+	for issue in issues:
+		if (
+			type(issue) is not dict
+			or set(issue) != {"kind", "message"}
+			or type(issue["kind"]) is not str
+			or type(issue["message"]) is not str
+			or not issue["kind"]
+			or not issue["message"]
+			or len(issue["kind"].encode("utf-8")) > 128
+			or len(issue["message"].encode("utf-8")) > GUT_SHARD_RUN_MAX_TOP_ISSUE_BYTES
+		):
+			raise ValueError("GUT shard run issue fields are invalid.")
+	shards = report["shards"]
+	if type(shards) is not list:
+		raise ValueError("GUT shard run shards must be an array.")
+	normalized_shards = [gf_gut_shard_worker.validate_report(shard) for shard in shards]
+	if normalized_shards != shards:
+		raise ValueError("GUT shard run shard evidence is not normalized.")
+	candidate_nonces = [shard["request"]["nonce"] for shard in normalized_shards]
+	candidate_workspace_paths = [
+		shard["request"]["workspace_path"] for shard in normalized_shards
+	]
+	if len(candidate_nonces) != len(set(candidate_nonces)):
+		raise ValueError("GUT shard candidate nonces must be exact and unique.")
+
+	def workspaces_overlap(first: str, second: str) -> bool:
+		first_key = os.path.normcase(os.path.normpath(first))
+		second_key = os.path.normcase(os.path.normpath(second))
+		try:
+			common = os.path.normcase(os.path.commonpath((first_key, second_key)))
+		except ValueError:
+			return False
+		return common in {first_key, second_key}
+
+	validation_root_text: str | None = None
+	if expected_validation_root is not None:
+		validation_root_text = str(
+			Path(os.path.abspath(os.path.normpath(expected_validation_root)))
+		)
+		if not Path(validation_root_text).is_absolute() or workspaces_overlap(
+			validation_root_text,
+			str(ROOT),
+		):
+			raise ValueError(
+				"Expected GUT shard validation root must be absolute and separate from source."
+			)
+
+	for index, workspace_path in enumerate(candidate_workspace_paths):
+		if any(
+			workspaces_overlap(workspace_path, other_path)
+			for other_path in candidate_workspace_paths[index + 1:]
+		):
+			raise ValueError(
+				"GUT shard candidates must use distinct non-overlapping workspaces."
+			)
+	actual_manifest_indices: list[int] = []
+	if manifest is not None:
+		expected_names = [shard["name"] for shard in manifest["shards"]]
+		expected_index_by_name = {
+			name: index for index, name in enumerate(expected_names)
+		}
+		expected_by_name = {shard["name"]: shard for shard in manifest["shards"]}
+		actual_names = [
+			shard["request"]["shard_name"] for shard in normalized_shards
+		]
+		if (
+			len(actual_names) != len(set(actual_names))
+			or actual_names != [
+				name for name in expected_names if name in set(actual_names)
+			]
+		):
+			raise ValueError(
+				"GUT shard reports are not a unique ordered manifest subsequence."
+			)
+		actual_manifest_indices = [
+			expected_index_by_name[name] for name in actual_names
+		]
+		for shard in normalized_shards:
+			request = shard["request"]
+			expected_shard = expected_by_name[request["shard_name"]]
+			if (
+				request["role"] != expected_shard["role"]
+				or request["scripts"] != expected_shard["scripts"]
+			):
+				raise ValueError(
+					"GUT shard partial evidence is not bound to its manifest selection."
+				)
+	if report["completed_shard_count"] != len(shards):
+		raise ValueError("GUT shard completed count differs from its reports.")
+	successful = sum(shard["ok"] is True for shard in shards)
+	candidate_continuation_safe = all(
+		shard["continuation_safe"] is True for shard in normalized_shards
+	)
+	if (
+		report["successful_shard_count"] != successful
+		or report["failed_shard_count"] != len(shards) - successful
+		or not 0 <= report["completed_shard_count"] <= report["executed_shard_count"] <= report["shard_count"]
+		or report["unreported_shard_count"] != report["executed_shard_count"] - len(shards)
+		or report["not_scheduled_shard_count"] != report["shard_count"] - report["executed_shard_count"]
+		or sum(report[field] for field in (
+			"successful_shard_count", "failed_shard_count",
+			"unreported_shard_count", "not_scheduled_shard_count",
+		)) != report["shard_count"]
+	):
+		raise ValueError("GUT shard run count partition is inconsistent.")
+	if manifest is not None:
+		if report["unreported_shard_count"] == 0:
+			if actual_manifest_indices != list(range(report["executed_shard_count"])):
+				raise ValueError(
+					"GUT shard completed evidence is not the exact scheduled prefix."
+				)
+		else:
+			if (
+				report["unreported_shard_count"] > report["jobs"]
+				or report["executed_shard_count"] <= 0
+			):
+				raise ValueError(
+					"GUT shard unreported count exceeds one scheduled wave."
+				)
+			fault_wave_start = (
+				(report["executed_shard_count"] - 1) // report["jobs"]
+			) * report["jobs"]
+			if (
+				actual_manifest_indices[:fault_wave_start]
+				!= list(range(fault_wave_start))
+				or any(
+					index < fault_wave_start
+					or index >= report["executed_shard_count"]
+					for index in actual_manifest_indices[fault_wave_start:]
+				)
+			):
+				raise ValueError(
+					"GUT shard partial evidence is not a complete prefix plus one fault wave."
+				)
+	if (shards or report["executed_shard_count"] or report["aggregate"] is not None or report["control"] is not None) and probe["ok"] is not True:
+		raise ValueError("GUT shard execution evidence requires a successful isolation probe.")
+	identity_values = (
+		report["workspace_fingerprint"], report["manifest_digest"],
+		report["inventory_digest"],
+	)
+	if expected_workspace_fingerprint is not None and (
+		type(expected_workspace_fingerprint) is not str
+		or SHA256_HEX_RE.fullmatch(expected_workspace_fingerprint) is None
+	):
+		raise ValueError("Expected GUT shard workspace fingerprint is invalid.")
+	if any(identity_values) and not all(identity_values):
+		raise ValueError("GUT shard run identity digests must be all present or all absent.")
+	if all(identity_values) and (
+		expected_workspace_fingerprint is None
+		or report["workspace_fingerprint"] != expected_workspace_fingerprint
+	):
+		raise ValueError(
+			"GUT shard run workspace fingerprint is not bound to captured workspace context."
+		)
+	if all(identity_values) and (manifest is None or inventory is None):
+		raise ValueError(
+			"Bound GUT shard evidence requires manifest and inventory context."
+		)
+	if probe["ok"] is True and (
+		not all(identity_values)
+		or manifest is None
+		or inventory is None
+		or validation_root_text is None
+	):
+		raise ValueError(
+			"Successful GUT shard isolation evidence lacks bound private context."
+		)
+	if manifest is not None or inventory is not None:
+		if manifest is None or inventory is None:
+			raise ValueError("GUT shard report context must provide manifest and inventory together.")
+		normalized_manifest = gf_gut_sharding.validate_manifest(manifest, inventory)
+		expected_manifest_digest = gf_gut_sharding.canonical_digest(normalized_manifest)
+		expected_inventory_digest = gf_gut_sharding.canonical_digest(list(inventory))
+		if (
+			report["manifest_digest"] != expected_manifest_digest
+			or report["inventory_digest"] != expected_inventory_digest
+			or report["inventory_count"] != len(inventory)
+			or report["shard_count"] != len(normalized_manifest["shards"])
+		):
+			raise ValueError(
+				"GUT shard top-level manifest, inventory, or count identity is inconsistent."
+			)
+	if all(identity_values):
+		for shard in shards:
+			request = shard["request"]
+			if (
+				request["mode"] != gf_gut_shard_worker.CANDIDATE_MODE
+				or request["workspace_fingerprint"] != report["workspace_fingerprint"]
+				or request["runtime_source_digest"] != report["runtime_source_digest"]
+				or request["manifest_digest"] != report["manifest_digest"]
+				or request["inventory_digest"] != report["inventory_digest"]
+				or request["import_timeout_seconds"]
+				!= float(report["import_timeout_seconds"])
+				or request["gut_timeout_seconds"]
+				!= float(report["candidate_gut_timeout_seconds"])
+				or request["remaining_seconds"]
+				!= float(
+					gut_shard_worker_total_timeout_seconds(
+						report["import_timeout_seconds"],
+						report["candidate_gut_timeout_seconds"],
+					)
+				)
+			):
+				raise ValueError("GUT shard report is not bound to top-level identities.")
+	else:
+		if any(report[field] for field in count_fields) or shards or report["aggregate"] is not None or report["control"] is not None or report["equivalence"] is not None:
+			raise ValueError("Unbound GUT shard failure envelope retained execution evidence.")
+	aggregate = report["aggregate"]
+	if probe["ok"] is True and aggregate is None:
+		raise ValueError(
+			"Successful GUT shard isolation must publish its derived candidate aggregate."
+		)
+	if (normalized_shards or report["executed_shard_count"] > 0) and aggregate is None:
+		raise ValueError(
+			"GUT shard executed evidence requires its derived candidate aggregate."
+		)
+	if aggregate is not None:
+		if manifest is None or inventory is None:
+			raise ValueError("GUT shard aggregate validation requires manifest and inventory context.")
+		validated_aggregate = validate_gut_shard_candidate_aggregate(
+			aggregate,
+			manifest,
+			inventory,
+			worker_reports=normalized_shards,
+		)
+		if validated_aggregate != aggregate:
+			raise ValueError("GUT shard aggregate is not normalized.")
+		expected_aggregate = aggregate_gut_shard_candidate_reports(
+			manifest,
+			inventory,
+			normalized_shards,
+		)
+		if aggregate != expected_aggregate:
+			raise ValueError(
+				"GUT shard aggregate is not derivable from the top-level shard evidence."
+			)
+		if aggregate["eligible"] and (
+			aggregate["workspace_fingerprint"] != report["workspace_fingerprint"]
+			or aggregate["manifest_digest"] != report["manifest_digest"]
+			or aggregate["inventory_digest"] != report["inventory_digest"]
+			or aggregate["shard_count"] != report["shard_count"]
+			or aggregate["script_count"] != report["inventory_count"]
+		):
+			raise ValueError("GUT shard aggregate identities differ from the top-level report.")
+	candidate_evidence_eligible = bool(
+		aggregate is not None
+		and aggregate["eligible"] is True
+		and report["executed_shard_count"] == report["shard_count"]
+		and report["successful_shard_count"] == report["shard_count"]
+		and report["failed_shard_count"] == 0
+		and report["unreported_shard_count"] == 0
+		and report["not_scheduled_shard_count"] == 0
+	)
+	control = report["control"]
+	control_eligible = False
+	if control is not None:
+		control = gf_gut_shard_worker.validate_report(control)
+		request = control["request"]
+		control_eligible = gut_shard_worker_report_eligible(control)
+		if (
+			not report["qualify_requested"]
+			or request["mode"] != gf_gut_shard_worker.CONTROL_MODE
+			or request["shard_name"] != gf_gut_shard_worker.CONTROL_SHARD_NAME
+			or request["role"] != gf_gut_shard_worker.CONTROL_ROLE
+			or request["workspace_fingerprint"] != report["workspace_fingerprint"]
+			or request["runtime_source_digest"] != report["runtime_source_digest"]
+			or request["manifest_digest"] != report["manifest_digest"]
+			or request["inventory_digest"] != report["inventory_digest"]
+			or request["import_timeout_seconds"]
+			!= float(report["import_timeout_seconds"])
+			or request["gut_timeout_seconds"]
+			!= float(report["control_gut_timeout_seconds"])
+			or request["remaining_seconds"]
+			!= float(
+				gut_shard_worker_total_timeout_seconds(
+					report["import_timeout_seconds"],
+					report["control_gut_timeout_seconds"],
+				)
+			)
+		):
+			raise ValueError("GUT shard control is not bound to the top-level report.")
+		if request["nonce"] in set(candidate_nonces) or any(
+			workspaces_overlap(request["workspace_path"], workspace_path)
+			for workspace_path in candidate_workspace_paths
+		):
+			raise ValueError(
+				"GUT shard control must use a fresh nonce and non-overlapping workspace."
+			)
+		if inventory is not None and request["scripts"] != list(inventory):
+			raise ValueError("GUT shard control does not cover the exact inventory.")
+	evidence_workspace_paths = [*candidate_workspace_paths]
+	if control is not None:
+		evidence_workspace_paths.append(control["request"]["workspace_path"])
+	if evidence_workspace_paths:
+		if validation_root_text is None:
+			raise ValueError(
+				"GUT shard execution evidence requires its private validation root context."
+			)
+		validation_root_key = os.path.normcase(os.path.normpath(validation_root_text))
+		for workspace_path in evidence_workspace_paths:
+			workspace_key = os.path.normcase(os.path.normpath(workspace_path))
+			try:
+				common = os.path.normcase(os.path.commonpath((
+					validation_root_key,
+					workspace_key,
+				)))
+			except ValueError as error:
+				raise ValueError(
+					"GUT shard workspace is outside its private validation root."
+				) from error
+			if common != validation_root_key or workspace_key == validation_root_key:
+				raise ValueError(
+					"GUT shard workspace is not a strict child of its private validation root."
+				)
+	nested_duration_floor = sum(
+		max(
+			float(shard["duration_seconds"])
+			for shard in normalized_shards[index:index + report["jobs"]]
+		)
+		for index in range(0, len(normalized_shards), report["jobs"])
+	)
+	if control is not None:
+		nested_duration_floor += float(control["duration_seconds"])
+	if report["duration_seconds"] + 0.001 < nested_duration_floor:
+		raise ValueError(
+			"GUT shard run duration cannot be shorter than nested worker evidence."
+		)
+	equivalence = report["equivalence"]
+	if equivalence is not None:
+		validate_gut_shard_equivalence_report(equivalence)
+		if aggregate is None or control is None or not report["qualify_requested"]:
+			raise ValueError("GUT shard equivalence lacks candidate or control evidence.")
+		if manifest is None or inventory is None:
+			raise ValueError("GUT shard equivalence validation requires manifest and inventory context.")
+		expected_equivalence = compare_gut_shard_qualification(
+			aggregate,
+			control,
+			manifest=manifest,
+			inventory=inventory,
+			candidate_reports=normalized_shards,
+		)
+		if equivalence != expected_equivalence:
+			raise ValueError("GUT shard equivalence is not derivable from its evidence.")
+	required_nested_issues: list[dict[str, str]] = []
+	for shard in normalized_shards:
+		if shard["ok"] is True:
+			continue
+		shard_name = shard["request"]["shard_name"]
+		required_nested_issues.extend({
+			"kind": issue["kind"],
+			"message": f"{shard_name}: {issue['message']}".rstrip(),
+		} for issue in shard["issues"])
+	if aggregate is not None:
+		required_nested_issues.extend(aggregate["issues"])
+	aggregate_nested_end = len(required_nested_issues)
+	control_nested_start = len(required_nested_issues)
+	if control is not None:
+		required_nested_issues.extend({
+			"kind": issue["kind"],
+			"message": issue["message"],
+		} for issue in control["issues"])
+	control_nested_end = len(required_nested_issues)
+	if equivalence is not None:
+		required_nested_issues.extend(equivalence["issues"])
+	required_issue_index = 0
+	nested_issue_positions: list[int] = []
+	top_only_issues: list[dict[str, str]] = []
+	top_only_issue_positions: list[int] = []
+	for issue_index, issue in enumerate(issues):
+		if (
+			required_issue_index < len(required_nested_issues)
+			and issue == required_nested_issues[required_issue_index]
+		):
+			nested_issue_positions.append(issue_index)
+			required_issue_index += 1
+		else:
+			top_only_issues.append(issue)
+			top_only_issue_positions.append(issue_index)
+	if required_issue_index != len(required_nested_issues):
+		raise ValueError("GUT shard top-level issues omit derived nested evidence.")
+	if any(
+		issue["kind"] not in GUT_SHARD_RUN_TOP_ONLY_ISSUE_KINDS
+		for issue in top_only_issues
+	):
+		raise ValueError("GUT shard top-level issues contain an unknown producer kind.")
+	for singleton_kind in GUT_SHARD_RUN_SINGLETON_TOP_ONLY_ISSUE_KINDS:
+		if sum(issue["kind"] == singleton_kind for issue in top_only_issues) > 1:
+			raise ValueError(
+				"GUT shard top-level report duplicates singleton producer evidence: "
+				f"{singleton_kind}."
+			)
+	if aggregate is not None and any(
+		issue["kind"] == "gut_shard_run_setup_failed"
+		for issue in top_only_issues
+	):
+		raise ValueError(
+			"GUT shard setup failure cannot follow published candidate aggregate evidence."
+		)
+	if aggregate is None and any(
+		issue["kind"] in {
+			"gut_shard_final_infrastructure_failed",
+			"gut_shard_final_source_verification_failed",
+			"gut_shard_final_source_drift",
+		}
+		for issue in top_only_issues
+	):
+		raise ValueError(
+			"GUT shard final failure lacks prior candidate aggregate evidence."
+		)
+	required_worker_orchestration_issues: list[dict[str, str]] = []
+	worker_ownership_debt = False
+	for shard in normalized_shards:
+		name = shard["request"]["shard_name"]
+		worker_deadline_failed = any(
+			issue["kind"] == "worker_deadline_exhausted"
+			for issue in shard["issues"]
+		) or any(
+			shard[phase_name]["timed_out"] is True
+			for phase_name in ("import_result", "gut_result")
+		)
+		if worker_deadline_failed:
+			required_worker_orchestration_issues.append({
+				"kind": "gut_shard_worker_deadline_exhausted",
+				"message": (
+					f"{name}: worker-local deadline or phase timeout stopped "
+					"the remaining shard schedule."
+				),
+			})
+		elif shard["continuation_safe"] is not True:
+			required_worker_orchestration_issues.append({
+				"kind": "gut_shard_worker_infrastructure_failed",
+				"message": (
+					f"{name}: worker evidence did not authorize continuing "
+					"the remaining shard schedule."
+				),
+			})
+		if (
+			shard["process_boundary_quiescent"] is not True
+			or shard["worker_cleanup_complete"] is not True
+			or shard["workspace_cleanup_permitted"] is not True
+		):
+			worker_ownership_debt = True
+			required_worker_orchestration_issues.append({
+				"kind": (
+					"gut_shard_worker_cleanup_debt"
+					if shard["worker_cleanup_complete"] is not True
+					else (
+						"gut_shard_workspace_ownership_unproven"
+						if shard["workspace_cleanup_permitted"] is not True
+						else "gut_shard_process_boundary_unproven"
+					)
+				),
+				"message": (
+					f"{name}: process-boundary, workspace ownership, or worker-owned cleanup was not proven; "
+					"the validation workspace must be retained."
+				),
+			})
+	if control is not None:
+		control_name = control["request"]["shard_name"]
+		control_deadline_failed = any(
+			issue["kind"] == "worker_deadline_exhausted"
+			for issue in control["issues"]
+		) or any(
+			control[phase_name]["timed_out"] is True
+			for phase_name in ("import_result", "gut_result")
+		)
+		if control_deadline_failed:
+			required_worker_orchestration_issues.append({
+				"kind": "gut_shard_control_worker_failed",
+				"message": (
+					"gut_shard_worker_deadline_exhausted: "
+					f"{control_name}: worker-local deadline or phase timeout stopped "
+					"the remaining shard schedule."
+				),
+			})
+		elif control["continuation_safe"] is not True:
+			required_worker_orchestration_issues.append({
+				"kind": "gut_shard_control_worker_failed",
+				"message": (
+					"gut_shard_worker_infrastructure_failed: "
+					f"{control_name}: worker evidence did not authorize continuing "
+					"the remaining shard schedule."
+				),
+			})
+		if (
+			control["process_boundary_quiescent"] is not True
+			or control["worker_cleanup_complete"] is not True
+			or control["workspace_cleanup_permitted"] is not True
+		):
+			# execute_gut_shard_control_report retains the control root and clears
+			# control_report when this proof is missing.  A top-level report can
+			# therefore never retain this child payload as accepted control evidence.
+			raise ValueError(
+				"GUT shard control evidence retained unproven process or workspace ownership."
+			)
+	remaining_top_only = list(top_only_issues)
+	remaining_top_only_positions = list(top_only_issue_positions)
+	candidate_derived_cause_positions: list[tuple[int, str]] = []
+	candidate_derived_events: list[tuple[int, dict[str, str]]] = []
+	for expected_issue in required_worker_orchestration_issues:
+		try:
+			matched_index = remaining_top_only.index(expected_issue)
+		except ValueError as error:
+			raise ValueError(
+				"GUT shard top-level issues omit derived worker orchestration debt."
+			) from error
+		if expected_issue["kind"] != "gut_shard_control_worker_failed":
+			candidate_derived_cause_positions.append((
+				remaining_top_only_positions[matched_index],
+				expected_issue["kind"],
+			))
+			candidate_derived_events.append((
+				remaining_top_only_positions[matched_index],
+				expected_issue,
+			))
+		remaining_top_only.pop(matched_index)
+		remaining_top_only_positions.pop(matched_index)
+	validation_cleanup_present = any(
+		issue["kind"] == "gut_shard_validation_cleanup_failed"
+		for issue in top_only_issues
+	)
+	remaining_control_worker_issues = [
+		issue for issue in remaining_top_only
+		if issue["kind"] == "gut_shard_control_worker_failed"
+	]
+	control_primary_failures = [
+		issue for issue in remaining_top_only
+		if issue["kind"] in {
+			"gut_shard_control_workspace_acquisition_failed",
+			"gut_shard_control_deadline_exhausted",
+			"gut_shard_control_report_rejected",
+			"gut_shard_control_report_missing",
+		}
+	]
+	if control_primary_failures and control is not None:
+		raise ValueError(
+			"GUT shard control primary failure retained a control report."
+		)
+	if len(control_primary_failures) > 1:
+		raise ValueError(
+			"GUT shard control retained multiple mutually exclusive primary failures."
+		)
+	if control_primary_failures and remaining_control_worker_issues:
+		raise ValueError(
+			"GUT shard control primary failure cannot follow worker-wave failure evidence."
+		)
+	if any(
+		issue["kind"] == "gut_shard_control_report_missing"
+		for issue in control_primary_failures
+	) and (
+		remaining_control_worker_issues
+		or any(
+			issue["kind"] == "gut_shard_control_cleanup_failed"
+			for issue in remaining_top_only
+		)
+	):
+		raise ValueError(
+			"GUT shard defensive missing-control evidence retained another control failure."
+		)
+	allowed_control_wave_prefixes = {
+		"gut_shard_worker_wave_deadline_exhausted",
+		"gut_shard_worker_schedule_failed",
+		"gut_shard_worker_exception",
+		"gut_shard_worker_wave_failed",
+		"gut_shard_worker_deadline_exhausted",
+		"gut_shard_worker_infrastructure_failed",
+		"gut_shard_worker_report_rejected",
+		"gut_shard_workspace_fingerprint_boundary_unproven",
+		"gut_shard_worker_cleanup_debt",
+		"gut_shard_workspace_ownership_unproven",
+		"gut_shard_process_boundary_unproven",
+	}
+	if remaining_control_worker_issues and (
+		control is not None
+		or any(
+			issue["message"].split(":", 1)[0] not in allowed_control_wave_prefixes
+			for issue in remaining_control_worker_issues
+		)
+	):
+		raise ValueError(
+			"GUT shard top-level issues contain surplus or unrecognized control-worker debt."
+		)
+	control_wave_prefixes = [
+		issue["message"].split(":", 1)[0]
+		for issue in remaining_control_worker_issues
+	]
+	if any(
+		control_wave_prefixes.count(prefix) > 1
+		for prefix in set(control_wave_prefixes)
+	):
+		raise ValueError(
+			"GUT shard control-worker evidence duplicates one single-worker cause."
+		)
+	control_wave_prefix_set = set(control_wave_prefixes)
+	wave_deadline_prefix = "gut_shard_worker_wave_deadline_exhausted"
+	control_wave_outcomes = control_wave_prefix_set - {wave_deadline_prefix}
+	if "gut_shard_worker_schedule_failed" in control_wave_outcomes:
+		if (
+			control_wave_outcomes != {"gut_shard_worker_schedule_failed"}
+			or wave_deadline_prefix in control_wave_prefix_set
+		):
+			raise ValueError(
+				"GUT shard control retained mutually exclusive single-worker causes."
+			)
+	elif "gut_shard_worker_wave_failed" in control_wave_outcomes:
+		if control_wave_outcomes != {"gut_shard_worker_wave_failed"}:
+			raise ValueError(
+				"GUT shard control retained mutually exclusive single-worker causes."
+			)
+	else:
+		control_result_outcomes = control_wave_outcomes & {
+			"gut_shard_worker_exception",
+			"gut_shard_worker_report_rejected",
+			"gut_shard_workspace_fingerprint_boundary_unproven",
+			"gut_shard_worker_deadline_exhausted",
+			"gut_shard_worker_infrastructure_failed",
+		}
+		control_ownership_outcomes = control_wave_outcomes & {
+			"gut_shard_worker_cleanup_debt",
+			"gut_shard_workspace_ownership_unproven",
+			"gut_shard_process_boundary_unproven",
+		}
+		if (
+			len(control_result_outcomes) > 1
+			or len(control_ownership_outcomes) > 1
+			or (
+				control_ownership_outcomes
+				and (
+					len(control_result_outcomes) != 1
+					or not control_result_outcomes <= {
+						"gut_shard_worker_deadline_exhausted",
+						"gut_shard_worker_infrastructure_failed",
+					}
+				)
+			)
+			or (
+				wave_deadline_prefix in control_wave_prefix_set
+				and "gut_shard_workspace_fingerprint_boundary_unproven"
+				in control_result_outcomes
+			)
+			or (
+				wave_deadline_prefix in control_wave_prefix_set
+				and control_result_outcomes <= {
+					"gut_shard_worker_deadline_exhausted",
+					"gut_shard_worker_infrastructure_failed",
+				}
+				and control_result_outcomes
+			and not control_ownership_outcomes
+			)
+		):
+			raise ValueError(
+				"GUT shard control retained mutually exclusive single-worker causes."
+			)
+	control_wave_deadline_indices = [
+		index for index, prefix in enumerate(control_wave_prefixes)
+		if prefix == wave_deadline_prefix
+	]
+	if control_wave_deadline_indices and any(
+		index < control_wave_deadline_indices[0]
+		for index, prefix in enumerate(control_wave_prefixes)
+		if prefix != wave_deadline_prefix
+	):
+		raise ValueError(
+			"GUT shard control worker-wave deadline did not precede every later cause."
+		)
+	control_wave_failure_indices = [
+		index for index, prefix in enumerate(control_wave_prefixes)
+		if prefix == "gut_shard_worker_wave_failed"
+	]
+	if control_wave_failure_indices and any(
+		index > control_wave_failure_indices[0]
+		for index, prefix in enumerate(control_wave_prefixes)
+		if prefix != "gut_shard_worker_wave_failed"
+	):
+		raise ValueError(
+			"GUT shard control worker-wave failure did not follow every earlier cause."
+		)
+	control_result_positions = [
+		index for index, prefix in enumerate(control_wave_prefixes)
+		if prefix in {
+			"gut_shard_worker_deadline_exhausted",
+			"gut_shard_worker_infrastructure_failed",
+		}
+	]
+	control_ownership_positions = [
+		index for index, prefix in enumerate(control_wave_prefixes)
+		if prefix in {
+			"gut_shard_worker_cleanup_debt",
+			"gut_shard_workspace_ownership_unproven",
+			"gut_shard_process_boundary_unproven",
+		}
+	]
+	if control_ownership_positions and (
+		not control_result_positions
+		or control_result_positions[0] >= control_ownership_positions[0]
+	):
+		raise ValueError(
+			"GUT shard control ownership debt preceded its worker-result cause."
+		)
+	for issue in remaining_control_worker_issues:
+		prefix, _separator, detail = issue["message"].partition(":")
+		if (
+			prefix not in {
+				"gut_shard_worker_wave_deadline_exhausted",
+				"gut_shard_worker_wave_failed",
+			}
+			and not detail.lstrip().startswith(
+				f"{gf_gut_shard_worker.CONTROL_SHARD_NAME}:"
+			)
+		):
+			raise ValueError(
+				"GUT shard scoped control-worker failure is not bound to the control identity."
+			)
+	if remaining_control_worker_issues and not validation_cleanup_present:
+		raise ValueError(
+			"GUT shard control-worker failure without a retained report lacks cleanup debt."
+		)
+	unexplained_candidate_stop = [
+		issue for issue in remaining_top_only
+		if issue["kind"] in GUT_SHARD_RUN_CANDIDATE_STOP_KINDS
+	]
+	if any(
+		issue["kind"] in {
+			"gut_shard_worker_deadline_exhausted",
+			"gut_shard_worker_infrastructure_failed",
+			"gut_shard_worker_cleanup_debt",
+			"gut_shard_workspace_ownership_unproven",
+			"gut_shard_process_boundary_unproven",
+		}
+		for issue in remaining_top_only
+	):
+		raise ValueError(
+			"GUT shard top-level issues contain surplus child-derived worker debt."
+		)
+	if unexplained_candidate_stop and not validation_cleanup_present:
+		raise ValueError(
+			"GUT shard candidate infrastructure stop lacks retained validation-root evidence."
+		)
+	worker_result_failures = [
+		issue for issue in remaining_top_only
+		if issue["kind"] in {
+			"gut_shard_worker_exception",
+			"gut_shard_worker_report_rejected",
+			"gut_shard_workspace_fingerprint_boundary_unproven",
+		}
+	]
+	if manifest is not None:
+		executed_names = [
+			shard["name"]
+			for shard in normalized_manifest["shards"][:report["executed_shard_count"]]
+		]
+		reported_names = {
+			shard["request"]["shard_name"] for shard in normalized_shards
+		}
+		missing_executed_names = set(executed_names) - reported_names
+		scoped_result_failure_names = [
+			issue["message"].split(":", 1)[0]
+			for issue in worker_result_failures
+		]
+		if (
+			len(scoped_result_failure_names) != len(set(scoped_result_failure_names))
+			or any(
+				name not in missing_executed_names
+				for name in scoped_result_failure_names
+			)
+		):
+			raise ValueError(
+				"GUT shard worker-result failure is not bound to distinct missing scheduled evidence."
+			)
+		if not any(
+			issue["kind"] in {
+				"gut_shard_worker_wave_deadline_exhausted",
+				"gut_shard_worker_wave_failed",
+			}
+			for issue in remaining_top_only
+		) and set(scoped_result_failure_names) != missing_executed_names:
+			raise ValueError(
+				"GUT shard missing scheduled evidence lacks its exact worker-result cause."
+			)
+		if any(
+			issue["kind"] == "gut_shard_worker_wave_failed"
+			for issue in remaining_top_only
+		) and missing_executed_names and not (
+			missing_executed_names - set(scoped_result_failure_names)
+		):
+			raise ValueError(
+				"GUT shard worker-wave failure does not explain unresolved scheduled evidence."
+			)
+	if len(worker_result_failures) > report["unreported_shard_count"]:
+		raise ValueError(
+			"GUT shard worker exception or rejected report exceeds unreported execution evidence."
+		)
+	if any(
+		issue["kind"] in {
+			"gut_shard_control_workspace_acquisition_failed",
+			"gut_shard_control_deadline_exhausted",
+			"gut_shard_control_report_rejected",
+			"gut_shard_control_cleanup_failed",
+		}
+		or (
+			issue["kind"] == "gut_shard_control_worker_failed"
+			and issue["message"].split(":", 1)[0] in {
+				"gut_shard_worker_wave_deadline_exhausted",
+				"gut_shard_worker_exception",
+				"gut_shard_worker_wave_failed",
+				"gut_shard_worker_schedule_failed",
+				"gut_shard_worker_report_rejected",
+				"gut_shard_workspace_fingerprint_boundary_unproven",
+				"gut_shard_worker_cleanup_debt",
+				"gut_shard_workspace_ownership_unproven",
+				"gut_shard_process_boundary_unproven",
+			}
+		)
+		for issue in remaining_top_only
+	) and not validation_cleanup_present:
+		raise ValueError(
+			"GUT shard control infrastructure debt lacks retained validation-root evidence."
+		)
+	inner_control_cleanup_required = bool(remaining_control_worker_issues) or any(
+		issue["kind"] in {
+			"gut_shard_control_deadline_exhausted",
+			"gut_shard_control_report_rejected",
+		}
+		for issue in remaining_top_only
+	)
+	control_cause_indices = [
+		index for index, issue in enumerate(top_only_issues)
+		if issue["kind"] == "gut_shard_control_worker_failed"
+		or issue["kind"] in {
+			"gut_shard_control_workspace_acquisition_failed",
+			"gut_shard_control_deadline_exhausted",
+			"gut_shard_control_report_rejected",
+			"gut_shard_control_report_missing",
+		}
+	]
+	control_cleanup_indices = [
+		index for index, issue in enumerate(top_only_issues)
+		if issue["kind"] == "gut_shard_control_cleanup_failed"
+	]
+	if control_cleanup_indices and any(
+		index > control_cleanup_indices[0] for index in control_cause_indices
+	):
+		raise ValueError(
+			"GUT shard control cleanup evidence preceded its control failure cause."
+		)
+	validation_cleanup_indices = [
+		index for index, issue in enumerate(issues)
+		if issue["kind"] == "gut_shard_validation_cleanup_failed"
+	]
+	if validation_cleanup_indices and validation_cleanup_indices[0] != len(issues) - 1:
+		raise ValueError(
+			"GUT shard validation cleanup evidence did not follow every earlier issue."
+		)
+	if inner_control_cleanup_required and not any(
+		issue["kind"] == "gut_shard_control_cleanup_failed"
+		for issue in top_only_issues
+	):
+		raise ValueError(
+			"GUT shard control infrastructure failure lacks retained control-root evidence."
+		)
+	if any(
+		issue["kind"] in {"gut_shard_run_cancelled", "gut_shard_control_cancelled"}
+		for issue in remaining_top_only
+	):
+		raise ValueError(
+			"GUT shard top-level report retained an unreachable defensive cancellation issue."
+		)
+	if worker_ownership_debt and not any(
+		issue["kind"] == "gut_shard_validation_cleanup_failed"
+		for issue in top_only_issues
+	):
+		raise ValueError(
+			"GUT shard worker ownership debt lacks retained validation-root evidence."
+		)
+	worker_wave_deadline_present = any(
+		issue["kind"] == "gut_shard_worker_wave_deadline_exhausted"
+		for issue in remaining_top_only
+	)
+	candidate_wave_cause_kinds = {
+		"gut_shard_worker_schedule_failed",
+		"gut_shard_worker_wave_deadline_exhausted",
+		"gut_shard_worker_exception",
+		"gut_shard_worker_wave_failed",
+		"gut_shard_worker_report_rejected",
+		"gut_shard_workspace_fingerprint_boundary_unproven",
+	}
+	candidate_wave_causes = [
+		(index, issue["kind"])
+		for index, issue in zip(remaining_top_only_positions, remaining_top_only)
+		if issue["kind"] in candidate_wave_cause_kinds
+	]
+	candidate_wave_causes.extend(candidate_derived_cause_positions)
+	candidate_wave_causes.sort(key=lambda item: item[0])
+	schedule_cause_indices = [
+		index for index, kind in candidate_wave_causes
+		if kind == "gut_shard_worker_schedule_failed"
+	]
+	if schedule_cause_indices and any(
+		index < schedule_cause_indices[0]
+		for index, kind in candidate_wave_causes
+		if kind != "gut_shard_worker_schedule_failed"
+	):
+		raise ValueError(
+			"GUT shard worker scheduling failure did not precede every launched-wave cause."
+		)
+	wave_failure_indices = [
+		index for index, kind in candidate_wave_causes
+		if kind == "gut_shard_worker_wave_failed"
+	]
+	if wave_failure_indices and any(
+		index > wave_failure_indices[0]
+		for index, kind in candidate_wave_causes
+		if kind != "gut_shard_worker_wave_failed"
+	):
+		raise ValueError(
+			"GUT shard worker-wave failure did not follow every earlier wave cause."
+		)
+	candidate_result_kinds = {
+		"gut_shard_worker_deadline_exhausted",
+		"gut_shard_worker_infrastructure_failed",
+	}
+	candidate_ownership_kinds = {
+		"gut_shard_worker_cleanup_debt",
+		"gut_shard_workspace_ownership_unproven",
+		"gut_shard_process_boundary_unproven",
+	}
+	for ownership_position, ownership_issue in candidate_derived_events:
+		if ownership_issue["kind"] not in candidate_ownership_kinds:
+			continue
+		ownership_name = ownership_issue["message"].partition(":")[0]
+		matching_result_positions = [
+			position for position, issue in candidate_derived_events
+			if issue["kind"] in candidate_result_kinds
+			and issue["message"].partition(":")[0] == ownership_name
+		]
+		if (
+			len(matching_result_positions) != 1
+			or matching_result_positions[0] >= ownership_position
+		):
+			raise ValueError(
+				"GUT shard candidate ownership debt preceded its worker-result cause."
+			)
+		if matching_result_positions[0] + 1 != ownership_position:
+			raise ValueError(
+				"GUT shard candidate worker result and ownership debt are not adjacent."
+			)
+	fingerprint_boundary_indices = [
+		index for index, kind in candidate_wave_causes
+		if kind == "gut_shard_workspace_fingerprint_boundary_unproven"
+	]
+	wave_deadline_indices = [
+		index for index, kind in candidate_wave_causes
+		if kind == "gut_shard_worker_wave_deadline_exhausted"
+	]
+	executed_shard_count = report["executed_shard_count"]
+	fault_wave_start = (
+		((executed_shard_count - 1) // report["jobs"]) * report["jobs"]
+		if executed_shard_count > 0
+		else 0
+	)
+	fault_wave_size = executed_shard_count - fault_wave_start
+	if wave_deadline_indices and fault_wave_size == 1 and any(
+		index < wave_deadline_indices[0]
+		for index, kind in candidate_wave_causes
+		if kind in {
+			"gut_shard_worker_exception",
+			"gut_shard_worker_report_rejected",
+			"gut_shard_worker_deadline_exhausted",
+			"gut_shard_worker_infrastructure_failed",
+			"gut_shard_worker_cleanup_debt",
+			"gut_shard_workspace_ownership_unproven",
+			"gut_shard_process_boundary_unproven",
+		}
+	):
+		raise ValueError(
+			"GUT shard single-worker result failure preceded its worker-wave deadline."
+		)
+	if fingerprint_boundary_indices and wave_deadline_indices:
+		if (
+			report["jobs"] != 2
+			or fault_wave_size != 2
+			or report["unreported_shard_count"] not in {1, 2}
+			or len(fingerprint_boundary_indices) != 1
+			or len(wave_deadline_indices) != 1
+			or fingerprint_boundary_indices[0] >= wave_deadline_indices[0]
+		):
+			raise ValueError(
+				"GUT shard workspace-fingerprint boundary and worker-wave deadline "
+				"ordering is unreachable."
+			)
+		if report["unreported_shard_count"] == 1:
+			retained_result_positions = [
+				position for position, issue in candidate_derived_events
+				if issue["kind"] in candidate_result_kinds
+			]
+			retained_ownership_positions = [
+				position for position, issue in candidate_derived_events
+				if issue["kind"] in candidate_ownership_kinds
+			]
+			if (
+				len(retained_result_positions) != 1
+				or len(retained_ownership_positions) != 1
+				or retained_result_positions[0] <= wave_deadline_indices[0]
+				or retained_ownership_positions[0] <= retained_result_positions[0]
+			):
+				raise ValueError(
+					"GUT shard post-deadline fingerprint peer lacks retained ownership debt."
+				)
+	if wave_deadline_indices and (
+		report["jobs"] == 2
+		and fault_wave_size == 2
+		and report["unreported_shard_count"] == 1
+	):
+		early_scoped_result_positions = [
+			index for index, kind in candidate_wave_causes
+			if kind in {
+				"gut_shard_worker_exception",
+				"gut_shard_worker_report_rejected",
+				"gut_shard_workspace_fingerprint_boundary_unproven",
+			}
+			and index < wave_deadline_indices[0]
+		]
+		if early_scoped_result_positions:
+			retained_result_positions = [
+				position for position, issue in candidate_derived_events
+				if issue["kind"] in candidate_result_kinds
+			]
+			retained_ownership_positions = [
+				position for position, issue in candidate_derived_events
+				if issue["kind"] in candidate_ownership_kinds
+			]
+			if (
+				len(retained_result_positions) != 1
+				or len(retained_ownership_positions) != 1
+				or retained_result_positions[0] <= wave_deadline_indices[0]
+				or retained_ownership_positions[0] <= retained_result_positions[0]
+			):
+				raise ValueError(
+					"GUT shard pre-deadline result failure retained an unowned peer report."
+				)
+	if wave_deadline_indices:
+		wave_deadline_position = wave_deadline_indices[0]
+		for result_position, result_issue in candidate_derived_events:
+			if result_issue["kind"] not in candidate_result_kinds:
+				continue
+			result_name = result_issue["message"].partition(":")[0]
+			matching_ownership_positions = [
+				position for position, issue in candidate_derived_events
+				if issue["kind"] in candidate_ownership_kinds
+				and issue["message"].partition(":")[0] == result_name
+			]
+			if result_position > wave_deadline_position and (
+				len(matching_ownership_positions) != 1
+				or matching_ownership_positions[0] <= result_position
+			):
+				raise ValueError(
+					"GUT shard post-deadline retained result lacks ownership debt."
+				)
+			if matching_ownership_positions and (
+				(result_position < wave_deadline_position)
+				!= (matching_ownership_positions[0] < wave_deadline_position)
+			):
+				raise ValueError(
+					"GUT shard worker result and ownership debt straddle its wave deadline."
+				)
+		if manifest is not None:
+			post_deadline_scoped_result = any(
+				index > wave_deadline_position
+				for index, kind in candidate_wave_causes
+				if kind in {
+					"gut_shard_worker_exception",
+					"gut_shard_worker_report_rejected",
+					"gut_shard_workspace_fingerprint_boundary_unproven",
+				}
+			)
+			post_deadline_retained_result = any(
+				position > wave_deadline_position
+				for position, issue in candidate_derived_events
+				if issue["kind"] in candidate_result_kinds
+			)
+			unscoped_missing_result = bool(
+				missing_executed_names - set(scoped_result_failure_names)
+			)
+			if not (
+				post_deadline_scoped_result
+				or post_deadline_retained_result
+				or unscoped_missing_result
+			):
+				raise ValueError(
+					"GUT shard worker-wave deadline lacks pending result evidence."
+				)
+	if worker_wave_deadline_present and (
+		report["unreported_shard_count"] == 0 and not worker_ownership_debt
+	):
+		raise ValueError(
+			"GUT shard worker-wave deadline retained a complete safe result set."
+		)
+	if any(
+		issue["kind"] == "gut_shard_worker_wave_failed"
+		for issue in remaining_top_only
+	) and report["unreported_shard_count"] == 0:
+		raise ValueError(
+			"GUT shard worker-wave failure retained a complete result set."
+		)
+	inner_candidate_cleanup_required = worker_ownership_debt or any(
+		issue["kind"] in {
+			"gut_shard_candidate_batch_deadline_exhausted",
+			"gut_shard_worker_wave_deadline_exhausted",
+			"gut_shard_worker_schedule_failed",
+			"gut_shard_candidate_batch_failed",
+			"gut_shard_worker_exception",
+			"gut_shard_worker_wave_failed",
+			"gut_shard_worker_report_rejected",
+			"gut_shard_workspace_fingerprint_boundary_unproven",
+		}
+		for issue in remaining_top_only
+	)
+	if inner_candidate_cleanup_required and not any(
+		issue["kind"] == "gut_shard_workspace_cleanup_failed"
+		for issue in top_only_issues
+	):
+		raise ValueError(
+			"GUT shard in-batch worker failure lacks retained batch-cleanup evidence."
+		)
+	candidate_cause_indices = [
+		index for index, issue in enumerate(top_only_issues)
+		if issue["kind"] in GUT_SHARD_RUN_CANDIDATE_STOP_KINDS
+		and issue["kind"] != "gut_shard_workspace_cleanup_failed"
+	]
+	candidate_cleanup_indices = [
+		index for index, issue in enumerate(top_only_issues)
+		if issue["kind"] == "gut_shard_workspace_cleanup_failed"
+	]
+	if candidate_cleanup_indices and any(
+		index > candidate_cleanup_indices[0] for index in candidate_cause_indices
+	):
+		raise ValueError(
+			"GUT shard candidate workspace cleanup preceded its candidate failure cause."
+		)
+	candidate_nested_positions = nested_issue_positions[:aggregate_nested_end]
+	candidate_stage_issue_positions = [
+		index for index, issue in enumerate(issues)
+		if issue["kind"] in GUT_SHARD_RUN_CANDIDATE_STOP_KINDS
+	]
+	if candidate_nested_positions and any(
+		index > candidate_nested_positions[0]
+		for index in candidate_stage_issue_positions
+	):
+		raise ValueError(
+			"GUT shard candidate failure evidence followed its derived candidate evidence."
+		)
+	control_nested_positions = nested_issue_positions[
+		control_nested_start:control_nested_end
+	]
+	control_stage_issue_positions = [
+		index for index, issue in enumerate(issues)
+		if issue["kind"].startswith("gut_shard_control_")
+	]
+	if candidate_nested_positions and any(
+		index < candidate_nested_positions[-1]
+		for index in control_stage_issue_positions
+	):
+		raise ValueError(
+			"GUT shard control-stage evidence preceded candidate nested evidence."
+		)
+	if control_nested_positions and any(
+		index > control_nested_positions[0]
+		for index in control_stage_issue_positions
+	):
+		raise ValueError(
+			"GUT shard control-stage evidence followed its nested control evidence."
+		)
+	comparison_failure_positions = [
+		index for index, issue in enumerate(issues)
+		if issue["kind"] == "gut_shard_comparison_failed"
+	]
+	pre_comparison_nested_positions = nested_issue_positions[:control_nested_end]
+	if comparison_failure_positions and pre_comparison_nested_positions and (
+		comparison_failure_positions[0] < pre_comparison_nested_positions[-1]
+	):
+		raise ValueError(
+			"GUT shard comparison failure preceded candidate or control evidence."
+		)
+	final_stage_issue_kinds = {
+		"gut_shard_final_infrastructure_failed",
+		"gut_shard_final_source_verification_failed",
+		"gut_shard_final_source_drift",
+	}
+	if aggregate is not None:
+		final_stage_issue_kinds.add("gut_shard_runtime_source_mismatch")
+	final_stage_issue_positions = [
+		index for index, issue in enumerate(issues)
+		if issue["kind"] in final_stage_issue_kinds
+	]
+	if final_stage_issue_positions and nested_issue_positions and (
+		final_stage_issue_positions[0] < nested_issue_positions[-1]
+	):
+		raise ValueError(
+			"GUT shard final-proof evidence preceded published nested evidence."
+		)
+	if (
+		final_stage_issue_positions
+		and comparison_failure_positions
+		and final_stage_issue_positions[0] < comparison_failure_positions[0]
+	):
+		raise ValueError(
+			"GUT shard final-proof evidence preceded comparison failure evidence."
+		)
+	schedule_failures = [
+		issue for issue in top_only_issues
+		if issue["kind"] == "gut_shard_worker_schedule_failed"
+	]
+	executed_at_wave_boundary = (
+		report["executed_shard_count"] in (0, report["shard_count"])
+		or report["executed_shard_count"] % report["jobs"] == 0
+	)
+	if not executed_at_wave_boundary and len(schedule_failures) != 1:
+		raise ValueError(
+			"GUT shard executed count is not the end of a planned worker wave."
+		)
+	if schedule_failures and (
+		len(schedule_failures) != 1
+		or report["executed_shard_count"] >= report["shard_count"]
+	):
+		raise ValueError(
+			"GUT shard partial scheduling failure is inconsistent with executed evidence."
+		)
+	if manifest is not None and schedule_failures:
+		expected_failed_schedule_name = normalized_manifest["shards"][
+			report["executed_shard_count"]
+		]["name"]
+		if schedule_failures[0]["message"].split(":", 1)[0] != expected_failed_schedule_name:
+			raise ValueError(
+				"GUT shard scheduling failure is not bound to the rejected manifest shard."
+		)
+	candidate_preexecution_failures = [
+		issue for issue in top_only_issues
+		if issue["kind"] in {
+			"gut_shard_candidate_scheduling_deadline_exhausted",
+			"gut_shard_candidate_batch_deadline_exhausted",
+			"gut_shard_candidate_workspace_acquisition_failed",
+			"gut_shard_candidate_batch_failed",
+		}
+	]
+	if candidate_preexecution_failures and report["not_scheduled_shard_count"] == 0:
+		raise ValueError(
+			"GUT shard candidate pre-execution failure retained a complete schedule."
+		)
+	if candidate_preexecution_failures and (
+		len(candidate_preexecution_failures) != 1
+		or report["unreported_shard_count"] != 0
+		or report["executed_shard_count"] != report["completed_shard_count"]
+	):
+		raise ValueError(
+			"GUT shard candidate pre-execution failure retained worker-result debt."
+		)
+	if any(
+		issue["kind"] in {
+			"gut_shard_candidate_batch_deadline_exhausted",
+			"gut_shard_candidate_batch_failed",
+		}
+		for issue in candidate_preexecution_failures
+	) and any(
+		issue["kind"] in GUT_SHARD_RUN_CANDIDATE_STOP_KINDS
+		and issue["kind"] not in {
+			"gut_shard_candidate_batch_deadline_exhausted",
+			"gut_shard_candidate_batch_failed",
+			"gut_shard_workspace_cleanup_failed",
+		}
+		for issue in top_only_issues
+	):
+		raise ValueError(
+			"GUT shard candidate batch failure is not its exact stop cause."
+		)
+	candidate_acquisition_failed = any(
+		issue["kind"] == "gut_shard_candidate_workspace_acquisition_failed"
+		for issue in top_only_issues
+	)
+	if candidate_acquisition_failed and any(
+		issue["kind"] == "gut_shard_workspace_cleanup_failed"
+		for issue in top_only_issues
+	):
+		raise ValueError(
+			"GUT shard candidate workspace acquisition failure cannot claim inner cleanup."
+		)
+	if candidate_acquisition_failed and (
+		report["executed_shard_count"] != report["completed_shard_count"]
+		or any(
+			issue["kind"] in GUT_SHARD_RUN_CANDIDATE_STOP_KINDS
+			and issue["kind"] != "gut_shard_candidate_workspace_acquisition_failed"
+			for issue in top_only_issues
+		)
+	):
+		raise ValueError(
+			"GUT shard candidate workspace acquisition is not its exact stop cause."
+		)
+	candidate_scheduling_deadline = any(
+		issue["kind"] == "gut_shard_candidate_scheduling_deadline_exhausted"
+		for issue in top_only_issues
+	)
+	if candidate_scheduling_deadline and (
+		any(
+			issue["kind"] == "gut_shard_workspace_cleanup_failed"
+			for issue in top_only_issues
+		)
+		or any(
+			issue["kind"] in GUT_SHARD_RUN_CANDIDATE_STOP_KINDS
+			and issue["kind"] != "gut_shard_candidate_scheduling_deadline_exhausted"
+			for issue in top_only_issues
+		)
+	):
+		raise ValueError(
+			"GUT shard candidate scheduling deadline is not its exact pre-owner stop cause."
+		)
+	candidate_source_failures = [
+		issue for issue in top_only_issues
+		if issue["kind"] in {
+			"gut_shard_candidate_source_deadline_exhausted",
+			"gut_shard_candidate_source_verification_failed",
+		}
+	]
+	if candidate_source_failures and (
+		len(candidate_source_failures) != 1
+		or report["executed_shard_count"] == 0
+		or report["executed_shard_count"] != report["completed_shard_count"]
+		or report["unreported_shard_count"] != 0
+		or any(
+			issue["kind"] == "gut_shard_workspace_cleanup_failed"
+			for issue in top_only_issues
+		)
+		or any(
+			issue["kind"] in GUT_SHARD_RUN_CANDIDATE_STOP_KINDS
+			and issue["kind"] not in {
+				"gut_shard_candidate_source_deadline_exhausted",
+				"gut_shard_candidate_source_verification_failed",
+			}
+			for issue in top_only_issues
+		)
+	):
+		raise ValueError(
+			"GUT shard candidate source proof is not its exact post-wave stop cause."
+		)
+	control_acquisition_failed = any(
+		issue["kind"] == "gut_shard_control_workspace_acquisition_failed"
+		for issue in top_only_issues
+	)
+	if control_acquisition_failed and any(
+		issue["kind"] == "gut_shard_control_cleanup_failed"
+		for issue in top_only_issues
+	):
+		raise ValueError(
+			"GUT shard control workspace acquisition failure cannot claim inner cleanup."
+		)
+	if control is not None and any(
+		issue["kind"] == "gut_shard_control_cleanup_failed"
+		for issue in top_only_issues
+	):
+		raise ValueError(
+			"GUT shard retained a control report after control-root cleanup failure."
+		)
+	if control_acquisition_failed and any(
+		issue["kind"].startswith("gut_shard_control_")
+		and issue["kind"] != "gut_shard_control_workspace_acquisition_failed"
+		for issue in top_only_issues
+	):
+		raise ValueError(
+			"GUT shard control workspace acquisition is not its exact stop cause."
+		)
+	if manifest is not None:
+		unsafe_manifest_indices = [
+			actual_manifest_indices[index]
+			for index, shard in enumerate(normalized_shards)
+			if shard["continuation_safe"] is not True
+		]
+		if unsafe_manifest_indices:
+			first_unsafe_wave_end = min(
+				report["shard_count"],
+				(
+					(min(unsafe_manifest_indices) // report["jobs"] + 1)
+					* report["jobs"]
+				),
+			)
+			if (
+				report["executed_shard_count"] > first_unsafe_wave_end
+				or (
+					not schedule_failures
+					and report["executed_shard_count"] != first_unsafe_wave_end
+				)
+			):
+				raise ValueError(
+					"GUT shard schedule continued beyond continuation-safe evidence."
+				)
+		if (
+			(
+				report["unreported_shard_count"] > 0
+				or report["not_scheduled_shard_count"] > 0
+			)
+			and aggregate is not None
+			and not any(
+				issue["kind"] in GUT_SHARD_RUN_CANDIDATE_STOP_KINDS
+				for issue in top_only_issues
+			)
+		):
+				raise ValueError(
+					"GUT shard incomplete candidate partition lacks candidate-phase stop evidence."
+				)
+	has_candidate_stop = any(
+		issue["kind"] in GUT_SHARD_RUN_CANDIDATE_STOP_KINDS
+		for issue in top_only_issues
+	)
+	if has_candidate_stop and (probe["ok"] is not True or aggregate is None):
+		raise ValueError(
+			"GUT shard candidate-phase stop lacks successful isolation and aggregate evidence."
+		)
+	has_control_stage_issue = any(
+		issue["kind"].startswith("gut_shard_control_")
+		for issue in top_only_issues
+	)
+	if has_control_stage_issue and not report["qualify_requested"]:
+		raise ValueError(
+			"Unrequested GUT shard observation retained control-stage failure evidence."
+		)
+	candidate_stage_completed = (
+		aggregate is not None
+		and report["executed_shard_count"] == report["shard_count"]
+		and report["completed_shard_count"] == report["shard_count"]
+		and report["unreported_shard_count"] == 0
+		and report["not_scheduled_shard_count"] == 0
+		and candidate_continuation_safe
+		and not has_candidate_stop
+	)
+	if has_control_stage_issue and not candidate_stage_completed:
+		raise ValueError(
+			"GUT shard control-stage evidence lacks a completed candidate stage."
+		)
+	if (
+		report["qualify_requested"]
+		and candidate_stage_completed
+		and control is None
+		and not has_control_stage_issue
+	):
+		raise ValueError(
+			"Requested GUT shard qualification omitted its reached control stage."
+		)
+	candidate_partition_incomplete = (
+		report["unreported_shard_count"] > 0
+		or report["not_scheduled_shard_count"] > 0
+	)
+	if (
+		has_candidate_stop
+		or candidate_partition_incomplete
+		or not candidate_continuation_safe
+	) and (
+		control is not None
+		or equivalence is not None
+		or has_control_stage_issue
+	):
+		raise ValueError(
+			"GUT shard candidate-phase stop retained control or equivalence evidence."
+		)
+	comparison_stage_reached = (
+		report["qualify_requested"]
+		and aggregate is not None
+		and aggregate["eligible"] is True
+		and control_eligible is True
+		and not has_candidate_stop
+		and not has_control_stage_issue
+		and not candidate_partition_incomplete
+		and candidate_continuation_safe
+		and not any(
+			issue["kind"] == "gut_shard_comparison_failed"
+			for issue in top_only_issues
+		)
+	)
+	if (equivalence is not None) is not comparison_stage_reached:
+		raise ValueError(
+			"GUT shard equivalence presence is not derived from completed candidate and control evidence."
+		)
+	if has_control_stage_issue and control_eligible:
+		raise ValueError(
+			"GUT shard control-stage failure retained eligible control evidence."
+		)
+	comparison_failures = [
+		issue for issue in top_only_issues
+		if issue["kind"] == "gut_shard_comparison_failed"
+	]
+	if comparison_failures and (
+		len(comparison_failures) != 1
+		or not report["qualify_requested"]
+		or aggregate is None
+		or aggregate["eligible"] is not True
+		or control_eligible is not True
+		or equivalence is not None
+		or has_candidate_stop
+		or candidate_partition_incomplete
+		or not candidate_continuation_safe
+	):
+		raise ValueError(
+			"GUT shard comparison failure is inconsistent with reached comparison evidence."
+		)
+	candidate_revoked = any(
+		issue["kind"] in GUT_SHARD_RUN_CANDIDATE_REVOCATION_KINDS
+		for issue in top_only_issues
+	)
+	if report["candidate_eligible"] is not (
+		candidate_evidence_eligible and not candidate_revoked
+	):
+		raise ValueError(
+			"GUT shard candidate eligibility is not derived from aggregate and revocation evidence."
+		)
+	status = report["qualification_status"]
+	allowed_statuses = GUT_SHARD_RUN_FINAL_QUALIFICATION_STATUSES if final else (
+		GUT_SHARD_RUN_FINAL_QUALIFICATION_STATUSES | {"pending"}
+	)
+	if type(status) is not str or status not in allowed_statuses:
+		raise ValueError("GUT shard qualification status is invalid.")
+	has_validation_cleanup = validation_cleanup_present
+	has_infrastructure_failure = any(
+		issue["kind"] in GUT_SHARD_RUN_INFRASTRUCTURE_FAILURE_KINDS
+		for issue in top_only_issues
+	)
+	if has_validation_cleanup and (
+		not all(identity_values)
+		or manifest is None
+		or inventory is None
+		or validation_root_text is None
+	):
+		raise ValueError(
+			"GUT shard validation cleanup evidence lacks bound validation-root context."
+		)
+	final_source_proof_issues = [
+		issue for issue in top_only_issues
+		if (
+		issue["kind"] in {
+			"gut_shard_final_infrastructure_failed",
+			"gut_shard_final_source_drift",
+			"gut_shard_final_source_verification_failed",
+		}
+		or (
+			aggregate is not None
+			and issue["kind"] == "gut_shard_runtime_source_mismatch"
+		)
+		)
+	]
+	if len(final_source_proof_issues) > 1:
+		raise ValueError(
+			"GUT shard final source proof retained multiple mutually exclusive root causes."
+		)
+	final_source_proof_failed = bool(final_source_proof_issues)
+	if final_source_proof_failed and not has_validation_cleanup:
+		raise ValueError(
+			"GUT shard final source-proof failure lacks retained validation-root evidence."
+		)
+	control_prevented_final_proof = any(
+		issue["kind"] in {
+			"gut_shard_control_workspace_acquisition_failed",
+			"gut_shard_control_deadline_exhausted",
+			"gut_shard_control_report_rejected",
+			"gut_shard_control_cleanup_failed",
+		}
+		for issue in top_only_issues
+	) or any(
+		prefix in {
+			"gut_shard_worker_wave_deadline_exhausted",
+			"gut_shard_worker_schedule_failed",
+			"gut_shard_worker_exception",
+			"gut_shard_worker_wave_failed",
+			"gut_shard_worker_report_rejected",
+			"gut_shard_workspace_fingerprint_boundary_unproven",
+			"gut_shard_worker_cleanup_debt",
+			"gut_shard_workspace_ownership_unproven",
+			"gut_shard_process_boundary_unproven",
+		}
+		for prefix in control_wave_prefixes
+	)
+	if final_source_proof_failed and (
+		unexplained_candidate_stop or control_prevented_final_proof
+	):
+		raise ValueError(
+			"GUT shard final source proof followed an earlier cleanup-retaining stop."
+		)
+	if report["qualify_requested"] and final:
+		if has_validation_cleanup is not (status == "cleanup_failed"):
+			raise ValueError(
+				"GUT shard validation cleanup evidence has the wrong terminal priority."
+			)
+		if (
+			not has_validation_cleanup
+			and has_infrastructure_failure is not (status == "infrastructure_failed")
+		):
+			raise ValueError(
+				"GUT shard infrastructure evidence has the wrong terminal priority."
+			)
+	if not report["qualify_requested"] and (
+		status != "not_requested" or report["qualified"] or control is not None or equivalence is not None
+	):
+		raise ValueError("Unrequested qualification retained control evidence or status.")
+	if status == "not_requested" and report["candidate_eligible"] is not (not issues):
+		raise ValueError(
+			"Unrequested GUT shard observation retained candidate eligibility with "
+			"failure evidence."
+		)
+	if report["qualify_requested"] and final and status in {"pending", "not_requested"}:
+		raise ValueError("Requested qualification did not reach a terminal status.")
+	if status == "candidate_ineligible" and (
+		report["candidate_eligible"] is not False
+		or aggregate is None
+		or aggregate["eligible"] is not False
+		or control_eligible is not True
+		or equivalence is not None
+		or report["executed_shard_count"] != report["shard_count"]
+		or report["completed_shard_count"] != report["shard_count"]
+		or report["unreported_shard_count"] != 0
+		or report["not_scheduled_shard_count"] != 0
+		or not candidate_continuation_safe
+	):
+		raise ValueError("GUT shard candidate-ineligible status lacks failed aggregate evidence.")
+	if status == "control_ineligible" and (
+		probe["ok"] is not True
+		or aggregate is None
+		or report["candidate_eligible"] is not aggregate["eligible"]
+		or control_eligible is True
+		or equivalence is not None
+		or report["executed_shard_count"] != report["shard_count"]
+		or report["completed_shard_count"] != report["shard_count"]
+		or report["unreported_shard_count"] != 0
+		or report["not_scheduled_shard_count"] != 0
+		or not candidate_continuation_safe
+		or (
+			control is None
+			and not any(issue["kind"].startswith("gut_shard_control_") for issue in issues)
+		)
+	):
+		raise ValueError("GUT shard control-ineligible status lacks failed control evidence.")
+	if status == "not_equivalent" and (
+		report["candidate_eligible"] is not True
+		or control_eligible is not True
+		or equivalence is None
+		or equivalence["equivalent"] is not False
+	):
+		raise ValueError("GUT shard not-equivalent status lacks complete mismatch evidence.")
+	if status == "cleanup_failed" and not any(
+		issue["kind"] == "gut_shard_validation_cleanup_failed" for issue in issues
+	):
+		raise ValueError("GUT shard cleanup-failed status lacks structured cleanup debt.")
+	if status == "infrastructure_failed" and not any(
+		issue["kind"] in GUT_SHARD_RUN_INFRASTRUCTURE_FAILURE_KINDS
+		for issue in issues
+	):
+		raise ValueError(
+			"GUT shard infrastructure-failed status lacks orchestration failure evidence."
+		)
+	if status in {"infrastructure_failed", "cleanup_failed"} and report[
+		"candidate_eligible"
+	] is not False:
+		raise ValueError("GUT shard infrastructure failure retained candidate eligibility.")
+	if (status == "qualified") is not report["qualified"]:
+		raise ValueError("GUT shard qualified status differs from its boolean claim.")
+	if report["qualified"] is not (
+		report["qualify_requested"]
+		and status == "qualified"
+		and report["candidate_eligible"]
+		and control_eligible
+		and equivalence is not None
+		and equivalence["equivalent"] is True
+		and not issues
+	):
+		raise ValueError("GUT shard qualified claim is inconsistent with its evidence.")
+	expected_ok = (
+		report["candidate_eligible"]
+		and not issues
+		and (not report["qualify_requested"] or report["qualified"])
+	)
+	if report["ok"] is not expected_ok or (not report["ok"] and not issues):
+		raise ValueError("GUT shard top-level ok is inconsistent with its final evidence.")
+	if final and aggregate is None:
+		pre_aggregate_failure_kinds = {
+			"gut_shard_run_setup_failed",
+			"gut_shard_runtime_source_mismatch",
+		}
+		pre_aggregate_failures = [
+			issue for issue in top_only_issues
+			if issue["kind"] in pre_aggregate_failure_kinds
+		]
+		if len(pre_aggregate_failures) != 1 or any(
+			issue["kind"] not in (
+				pre_aggregate_failure_kinds | {"gut_shard_validation_cleanup_failed"}
+			)
+			for issue in top_only_issues
+		):
+			raise ValueError(
+				"Pre-aggregate GUT shard failure lacks its exact setup-stage cause."
+			)
+		if (
+			pre_aggregate_failures[0]["kind"]
+			== "gut_shard_runtime_source_mismatch"
+			and (
+				any(identity_values)
+				or manifest is not None
+				or inventory is not None
+				or validation_root_text is not None
+				or validation_cleanup_present
+			)
+		):
+			raise ValueError(
+				"Pre-aggregate runtime-source mismatch retained bound execution context."
+			)
+	payload = gf_gut_shard_worker.canonical_json_bytes(report)
+	if len(payload) > GUT_SHARD_RUN_MAX_REPORT_BYTES:
+		raise ValueError("GUT shard run report exceeds its byte limit.")
+	return json.loads(payload.decode("utf-8"))
+
+
+def gut_shard_run(
+	*,
+	jobs: int = GUT_SHARD_RUN_DEFAULT_JOBS,
+	timeout_seconds: int | None = None,
+	qualify: bool = False,
+) -> dict[str, Any]:
+	"""Run every GUT shard as one bounded, non-authoritative G0.2A observation."""
+	# Direct Python callers share the same closed argument contract as the CLI.
+	# Reject before constructing an envelope so an invalid bool-as-int/jobs value
+	# can never appear inside a schema-versioned report.
+	if type(jobs) is not int or jobs not in GUT_SHARD_RUN_ALLOWED_JOBS:
+		raise ValueError("gut-shard-run --jobs must be 1 or 2.")
+	if type(qualify) is not bool:
+		raise TypeError("gut-shard-run qualify must be boolean.")
+	if timeout_seconds is not None and type(timeout_seconds) is not int:
+		raise TypeError("GUT shard timeout overrides must be integers.")
+	if timeout_seconds is not None and timeout_seconds <= 0:
+		raise ValueError("GUT shard timeout overrides must be positive seconds.")
+	gut_timeout_seconds = resolve_gut_shard_run_gut_timeout_seconds(timeout_seconds)
+	started = time.perf_counter()
+	report = make_gut_shard_run_report(
+		jobs=jobs,
+		qualify=qualify,
+		gut_timeout_seconds=gut_timeout_seconds,
+	)
+	validation_cleanup_errors: list[str] = []
+	worker_cancellation_event: threading.Event | None = None
+	cleanup_state = {"permitted": True}
+	captured_workspace: CapturedWorkspace | None = None
+	validation_manifest: dict[str, Any] | None = None
+	validation_inventory: tuple[str, ...] | None = None
+	validation_root_for_report: Path | None = None
+	try:
+		import_timeout_seconds = resolve_check_timeout_seconds("godot_import", None)
+		control_gut_timeout_seconds = resolve_gut_shard_observation_timeout_seconds(None)
+		total_timeout_seconds = gut_shard_run_total_timeout_seconds(
+			len(gf_gut_sharding.SHARD_NAMES),
+			jobs,
+			gut_timeout_seconds=gut_timeout_seconds,
+			qualify=qualify,
+		)
+		deadline = started + total_timeout_seconds
+		captured_workspace = gf_parallel_validation.capture_workspace(
+			ROOT,
+			deadline=deadline,
+		)
+		runtime_source_digest = validate_gut_shard_runtime_source_binding(
+			ROOT,
+			GUT_SHARD_LOADED_RUNTIME_SOURCE_BINDING,
+			deadline=deadline,
+		)
+		inventory = gf_gut_sharding.discover_gut_test_scripts(
+			ROOT,
+			deadline=deadline,
+		)
+		manifest = gf_gut_sharding.load_and_validate_manifest(
+			ROOT / GUT_SHARD_MANIFEST_RELATIVE_PATH,
+			root=ROOT,
+			expected_inventory=inventory,
+		)
+		gf_parallel_validation.assert_source_matches_snapshot(
+			captured_workspace,
+			deadline=deadline,
+		)
+		manifest_digest = gf_gut_sharding.canonical_digest(manifest)
+		inventory_digest = gf_gut_sharding.canonical_digest(list(inventory))
+		if manifest.get("inventory_digest") != inventory_digest:
+			raise ValueError("GUT shard manifest does not bind the captured live inventory.")
+		report.update({
+			"workspace_fingerprint": captured_workspace.workspace_fingerprint,
+			"runtime_source_digest": runtime_source_digest,
+			"manifest_digest": manifest_digest,
+			"inventory_digest": inventory_digest,
+			"inventory_count": len(inventory),
+			"shard_count": len(manifest["shards"]),
+		})
+		validation_manifest = manifest
+		validation_inventory = inventory
+
+		with managed_validation_directory(
+			prefix="gfs-",
+			cleanup_errors=validation_cleanup_errors,
+			windows_max_characters=WINDOWS_PARALLEL_VALIDATION_ROOT_MAX_CHARACTERS,
+			cleanup_permitted=lambda: cleanup_state["permitted"],
+		) as parallel_root:
+			validation_root_for_report = parallel_root
+			isolation_probe = run_parallel_godot_isolation_probe(
+				parallel_root,
+				deadline=deadline,
+				output_callback=None,
+				cleanup_state=cleanup_state,
+			)
+			expected_probe_fields = [
+				"marker_path",
+				"user_dir",
+				"data_dir",
+				"config_dir",
+				"cache_dir",
+			]
+			if (
+				isolation_probe.get("ok") is not True
+				or isolation_probe.get("probe_count") != 2
+				or isolation_probe.get("fields") != expected_probe_fields
+			):
+				raise WorkspaceSnapshotError(
+					"Godot isolation probe returned an invalid or incomplete result."
+				)
+			report["isolation_probe"] = {
+				"ok": True,
+				"probe_count": 2,
+				"fields": expected_probe_fields,
+			}
+			worker_cancellation_event = threading.Event()
+			worker_reports, executed_count, candidate_issues = (
+				execute_gut_shard_candidate_reports(
+					captured_workspace,
+					manifest,
+					parallel_root,
+					jobs=jobs,
+					manifest_digest=manifest_digest,
+					inventory_digest=inventory_digest,
+					runtime_source_digest=runtime_source_digest,
+					import_timeout_seconds=import_timeout_seconds,
+					gut_timeout_seconds=gut_timeout_seconds,
+					deadline=deadline,
+					cancellation_event=worker_cancellation_event,
+					cleanup_state=cleanup_state,
+				)
+			)
+			report["shards"] = worker_reports
+			report["executed_shard_count"] = executed_count
+			report["completed_shard_count"] = len(worker_reports)
+			report["successful_shard_count"] = sum(
+				1 for worker_report in worker_reports if worker_report.get("ok") is True
+			)
+			report["failed_shard_count"] = (
+				len(worker_reports) - report["successful_shard_count"]
+			)
+			report["unreported_shard_count"] = max(
+				0,
+				executed_count - len(worker_reports),
+			)
+			report["not_scheduled_shard_count"] = max(
+				0,
+				len(manifest["shards"]) - executed_count,
+			)
+			report["issues"].extend(candidate_issues)
+			for worker_report in worker_reports:
+				if worker_report.get("ok") is True:
+					continue
+				shard_name = worker_report.get("request", {}).get("shard_name", "unknown")
+				for issue in worker_report.get("issues", []):
+					report["issues"].append({
+						"kind": str(issue.get("kind", "gut_shard_worker_failed")),
+						"message": f"{shard_name}: {issue.get('message', '')}".rstrip(),
+					})
+
+			aggregate = aggregate_gut_shard_candidate_reports(
+				manifest,
+				inventory,
+				worker_reports,
+			)
+			report["aggregate"] = aggregate
+			report["candidate_eligible"] = bool(aggregate.get("eligible", False))
+			for issue in aggregate.get("issues", []):
+				if isinstance(issue, dict):
+					report["issues"].append({
+						"kind": str(issue.get("kind", "gut_shard_aggregate_failed")),
+						"message": str(issue.get("message", "")),
+					})
+			if any(
+				issue.get("kind") in GUT_SHARD_RUN_CANDIDATE_REVOCATION_KINDS
+				for issue in report["issues"]
+			):
+				report["candidate_eligible"] = False
+
+			if qualify and worker_cancellation_event.is_set():
+				report["candidate_eligible"] = False
+				report["qualified"] = False
+				report["qualification_status"] = "infrastructure_failed"
+			elif qualify:
+				control, _control_executed, control_issues = execute_gut_shard_control_report(
+					captured_workspace,
+					parallel_root,
+					inventory=inventory,
+					manifest_digest=manifest_digest,
+					inventory_digest=inventory_digest,
+					runtime_source_digest=runtime_source_digest,
+					import_timeout_seconds=import_timeout_seconds,
+					gut_timeout_seconds=control_gut_timeout_seconds,
+					deadline=deadline,
+					cancellation_event=worker_cancellation_event,
+					cleanup_state=cleanup_state,
+				)
+				report["control"] = control
+				report["issues"].extend(control_issues)
+				if control is not None:
+					for issue in control.get("issues", []):
+						report["issues"].append({
+							"kind": str(issue.get("kind", "gut_shard_control_failed")),
+							"message": str(issue.get("message", "")),
+						})
+				if control is None or control.get("ok") is not True:
+					report["qualification_status"] = "control_ineligible"
+				elif not report["candidate_eligible"]:
+					report["qualification_status"] = "candidate_ineligible"
+				else:
+					try:
+						equivalence = compare_gut_shard_qualification(
+							aggregate,
+							control,
+							manifest=manifest,
+							inventory=inventory,
+							candidate_reports=worker_reports,
+						)
+					except Exception as error:  # noqa: BLE001 - closed comparison boundary.
+						report["candidate_eligible"] = False
+						report["qualified"] = False
+						report["qualification_status"] = "infrastructure_failed"
+						report["issues"].append({
+							"kind": "gut_shard_comparison_failed",
+							"message": f"{type(error).__name__}: {error}",
+						})
+					else:
+						report["equivalence"] = equivalence
+						for issue in equivalence.get("issues", []):
+							if isinstance(issue, dict):
+								report["issues"].append({
+									"kind": str(issue.get("kind", "gut_shard_not_equivalent")),
+									"message": str(issue.get("message", "")),
+								})
+						report["qualified"] = bool(equivalence.get("equivalent", False))
+						report["qualification_status"] = (
+							"qualified" if report["qualified"] else "not_equivalent"
+						)
+
+			# Keep the validation root owned while the final supervised Git and
+			# loaded-source checks publish their quiet, same-snapshot proof.
+			if cleanup_state["permitted"] is True:
+				cleanup_state["permitted"] = False
+				gf_parallel_validation.assert_source_matches_snapshot(
+					captured_workspace,
+					deadline=deadline,
+				)
+				if validate_gut_shard_runtime_source_binding(
+					ROOT,
+					GUT_SHARD_LOADED_RUNTIME_SOURCE_BINDING,
+					deadline=deadline,
+				) != runtime_source_digest:
+					raise GutShardRuntimeSourceError(
+						"GUT shard runtime source digest changed before final acceptance."
+					)
+				cleanup_state["permitted"] = True
+		if validation_cleanup_errors:
+			report["issues"].append({
+				"kind": "gut_shard_validation_cleanup_failed",
+				"message": "\n".join(validation_cleanup_errors),
+			})
+			report["candidate_eligible"] = False
+			report["qualified"] = False
+			if qualify:
+				report["qualification_status"] = "cleanup_failed"
+		report["ok"] = (
+			report["candidate_eligible"]
+			and not report["issues"]
+			and (not qualify or report["qualified"])
+		)
+	except (
+		gf_gut_sharding.GutShardingError,
+		gf_gut_shard_worker.GutShardWorkerError,
+		OSError,
+		RuntimeError,
+		TypeError,
+		ValueError,
+		WorkspaceSnapshotError,
+	) as error:
+		if worker_cancellation_event is not None:
+			worker_cancellation_event.set()
+		report["ok"] = False
+		report["candidate_eligible"] = False
+		report["qualified"] = False
+		report["issues"].append({
+			"kind": (
+				error.code
+				if isinstance(error, GutShardRuntimeSourceError)
+				else (
+					"gut_shard_final_source_drift"
+					if (
+						isinstance(
+							error,
+							gf_parallel_validation.WorkspaceDriftError,
+						)
+						and report["aggregate"] is not None
+					)
+					else (
+						"gut_shard_final_source_verification_failed"
+						if (
+							isinstance(error, WorkspaceSnapshotError)
+							and report["aggregate"] is not None
+						)
+						else (
+							"gut_shard_final_infrastructure_failed"
+							if report["aggregate"] is not None
+							else "gut_shard_run_setup_failed"
+						)
+					)
+				)
+			),
+			"message": str(error),
+		})
+		if qualify:
+			report["qualification_status"] = "infrastructure_failed"
+	finally:
+		if validation_cleanup_errors and not any(
+			issue.get("kind") == "gut_shard_validation_cleanup_failed"
+			for issue in report["issues"]
+		):
+			report["issues"].append({
+				"kind": "gut_shard_validation_cleanup_failed",
+				"message": "\n".join(validation_cleanup_errors),
+			})
+			report["ok"] = False
+			report["candidate_eligible"] = False
+			report["qualified"] = False
+			if qualify:
+				report["qualification_status"] = "cleanup_failed"
+		# Derive the final execution partition in one place, including setup
+		# failures that happen after the manifest is known but before any worker
+		# can be scheduled.
+		report["completed_shard_count"] = len(report["shards"])
+		report["successful_shard_count"] = sum(
+			worker_report.get("ok") is True for worker_report in report["shards"]
+		)
+		report["failed_shard_count"] = (
+			report["completed_shard_count"] - report["successful_shard_count"]
+		)
+		report["unreported_shard_count"] = max(
+			0,
+			report["executed_shard_count"] - report["completed_shard_count"],
+		)
+		report["not_scheduled_shard_count"] = max(
+			0,
+			report["shard_count"] - report["executed_shard_count"],
+		)
+		report["duration_seconds"] = round(time.perf_counter() - started, 3)
+	return validate_gut_shard_run_report(
+		report,
+		manifest=validation_manifest,
+		inventory=validation_inventory,
+		expected_workspace_fingerprint=(
+			captured_workspace.workspace_fingerprint
+			if captured_workspace is not None and validation_manifest is not None
+			else None
+		),
+		expected_validation_root=validation_root_for_report,
+	)
 
 
 @dataclass(frozen=True)
@@ -5169,7 +9359,7 @@ def gut_shard_observation_environment(output: GutShardJunitOutput) -> dict[str, 
 def resolve_gut_shard_observation_timeout_seconds(
 	override_seconds: int | None,
 ) -> int:
-	"""Keep the explicit full-suite observation above its measured ten-minute run."""
+	"""Keep the explicit observation at the authoritative full-inventory floor."""
 	return max(
 		GUT_SHARD_OBSERVATION_TIMEOUT_SECONDS,
 		resolve_check_timeout_seconds("gut", override_seconds),
@@ -5511,7 +9701,9 @@ class CorePluginBootstrapDisplayDependencyError(FileNotFoundError):
 
 
 def core_plugin_bootstrap_smoke() -> dict[str, Any]:
-	with strict_managed_temporary_directory(prefix="gf-core-plugin-bootstrap-smoke-") as temp_dir:
+	with strict_process_boundary_temporary_directory(
+		prefix="gf-core-plugin-bootstrap-smoke-",
+	) as temp_dir:
 		temp_root = Path(temp_dir)
 		issues: list[dict[str, Any]] = []
 		scenarios: list[dict[str, Any]] = []
@@ -6529,6 +10721,7 @@ def managed_temporary_directory(
 	prefix: str,
 	cleanup_errors: list[str],
 	directory: Path | None = None,
+	cleanup_permitted: Callable[[], bool] | None = None,
 ) -> Any:
 	"""Own one temp tree and report bounded Windows cleanup failures structurally."""
 	path = Path(tempfile.mkdtemp(prefix=prefix, dir=directory))
@@ -6536,9 +10729,15 @@ def managed_temporary_directory(
 	try:
 		yield path
 	finally:
-		cleanup_error = remove_managed_temporary_tree(path, expected_identity=identity)
-		if cleanup_error:
-			cleanup_errors.append(cleanup_error)
+		if cleanup_permitted is not None and not cleanup_permitted():
+			cleanup_errors.append(
+				"Retained temporary root because process-boundary cleanup ownership "
+				f"was not proven: {path}"
+			)
+		else:
+			cleanup_error = remove_managed_temporary_tree(path, expected_identity=identity)
+			if cleanup_error:
+				cleanup_errors.append(cleanup_error)
 
 
 @contextlib.contextmanager
@@ -6546,19 +10745,123 @@ def strict_managed_temporary_directory(
 	*,
 	prefix: str,
 	directory: Path | None = None,
+	cleanup_permitted: Callable[[], bool] | None = None,
 ) -> Any:
 	"""Own a temp tree and turn any bounded cleanup failure into a hard error."""
 	cleanup_errors: list[str] = []
+	body_error: BaseException | None = None
 	try:
 		with managed_temporary_directory(
 			prefix=prefix,
 			cleanup_errors=cleanup_errors,
 			directory=directory,
+			cleanup_permitted=cleanup_permitted,
 		) as path:
-			yield path
+			try:
+				yield path
+			except BaseException as error:
+				body_error = error
+				raise
 	finally:
 		if cleanup_errors:
-			raise WorkspaceSnapshotError("\n".join(cleanup_errors))
+			message = "\n".join(cleanup_errors)
+			if body_error is not None:
+				try:
+					BaseException.add_note(body_error, message)
+				except BaseException:
+					# Retention diagnostics must never replace the primary body failure.
+					pass
+			else:
+				raise WorkspaceSnapshotError(message)
+
+
+@contextlib.contextmanager
+def strict_process_boundary_temporary_directory(
+	*,
+	prefix: str,
+	directory: Path | None = None,
+) -> Any:
+	"""Retain an owned temp root unless every body process boundary is quiet."""
+	cleanup_state = {"permitted": False}
+	with strict_managed_temporary_directory(
+		prefix=prefix,
+		directory=directory,
+		cleanup_permitted=lambda: cleanup_state["permitted"],
+	) as path:
+		yield path
+		cleanup_state["permitted"] = True
+
+
+def exception_has_cleanup_debt(error: BaseException) -> bool:
+	"""Return whether an exception chain carries an unproven cleanup boundary."""
+	uninspectable = object()
+
+	def raw_attribute(current: BaseException, name: str, default: object) -> object:
+		try:
+			attributes = BaseException.__getattribute__(current, "__dict__")
+			if isinstance(attributes, dict) and name in attributes:
+				return attributes[name]
+			return BaseException.__getattribute__(current, name)
+		except AttributeError:
+			return default
+		except BaseException:
+			return uninspectable
+
+	pending: list[BaseException] = [error]
+	seen: set[int] = set()
+	while pending:
+		current = pending.pop()
+		current_id = id(current)
+		if current_id in seen:
+			continue
+		seen.add(current_id)
+		try:
+			error_type = type(current)
+			if error_type.__getattribute__ is not BaseException.__getattribute__:
+				return True
+			for owner_type in error_type.__mro__:
+				if owner_type is BaseException:
+					break
+				owner_attributes = vars(owner_type)
+				if "__dict__" in owner_attributes or any(
+					name in owner_attributes
+					for name in (
+						"cleanup_debt",
+						"process_boundary_quiescent",
+						"__cause__",
+						"__context__",
+						"__suppress_context__",
+					)
+				):
+					return True
+		except BaseException:
+			return True
+		cleanup_debt = raw_attribute(current, "cleanup_debt", False)
+		process_boundary_quiescent = raw_attribute(
+			current,
+			"process_boundary_quiescent",
+			None,
+		)
+		cause = raw_attribute(current, "__cause__", None)
+		context = raw_attribute(current, "__context__", None)
+		if any(
+			value is uninspectable
+			for value in (cleanup_debt, process_boundary_quiescent, cause, context)
+		):
+			# An uninspectable exception chain cannot grant recursive cleanup authority.
+			return True
+		if cleanup_debt is True or process_boundary_quiescent is False:
+			return True
+		for nested in (cause, context):
+			if isinstance(nested, BaseException):
+				pending.append(nested)
+	return False
+
+
+def windows_utf16_path_code_units(path: Path | str) -> int:
+	"""Count the UTF-16 code units consumed by one Win32 path string."""
+
+	return len(os.fspath(path).encode("utf-16-le", errors="surrogatepass")) // 2
 
 
 @contextlib.contextmanager
@@ -6567,6 +10870,7 @@ def managed_validation_directory(
 	prefix: str,
 	cleanup_errors: list[str],
 	windows_max_characters: int,
+	cleanup_permitted: Callable[[], bool] | None = None,
 ) -> Any:
 	"""Own a short temp root so Windows path limits cannot corrupt validation results."""
 	override = os.environ.get(MAINTENANCE_VALIDATION_TEMP_ROOT_ENV_VAR, "").strip()
@@ -6613,13 +10917,14 @@ def managed_validation_directory(
 				created_error = "created validation root overlaps the source workspace"
 			else:
 				created_error = validation_temp_candidate_issue(created)
+			created_code_units = windows_utf16_path_code_units(created)
 			if (
 				not created_error
 				and os.name == "nt"
-				and len(str(created)) > windows_max_characters
+				and created_code_units > windows_max_characters
 			):
 				created_error = (
-					f"created validation root uses {len(str(created))} characters; "
+					f"created validation root uses {created_code_units} UTF-16 code units; "
 					f"the safe limit is {windows_max_characters}"
 				)
 		except OSError as error:
@@ -6651,13 +10956,28 @@ def managed_validation_directory(
 	try:
 		yield path
 	finally:
-		cleanup_error = remove_managed_temporary_tree(path, expected_identity=identity)
-		if cleanup_error:
-			cleanup_errors.append(cleanup_error)
+		if cleanup_permitted is not None and not cleanup_permitted():
+			cleanup_errors.append(
+				"Retained validation root because cleanup ownership was not proven: "
+				f"{path}"
+			)
+		else:
+			cleanup_error = remove_managed_temporary_tree(path, expected_identity=identity)
+			if cleanup_error:
+				cleanup_errors.append(cleanup_error)
 
 
 @contextlib.contextmanager
-def managed_owned_directory(path: Path, *, cleanup_errors: list[str]) -> Any:
+def managed_owned_directory(
+	path: Path,
+	*,
+	cleanup_errors: list[str],
+	cleanup_permitted: Callable[[], bool] | None = None,
+	cleanup_started: Callable[[], None] | None = None,
+	cleanup_succeeded: Callable[[], None] | None = None,
+	cleanup_failed: Callable[[], None] | None = None,
+	body_failed: Callable[[], None] | None = None,
+) -> Any:
 	"""Own one exact child directory under an already-owned real parent."""
 	owned_path = Path(os.path.abspath(path))
 	if not owned_path.is_absolute() or os.path.lexists(owned_path):
@@ -6670,14 +10990,166 @@ def managed_owned_directory(path: Path, *, cleanup_errors: list[str]) -> Any:
 	owned_path.mkdir(exist_ok=False)
 	identity = owned_path.lstat()
 	try:
-		yield owned_path
+		try:
+			yield owned_path
+		except BaseException:
+			# A nested owner may have refused its own cleanup because its identity
+			# changed. Publish the wider owner's refusal before this context decides
+			# whether it may recursively remove the containing directory.
+			if body_failed is not None:
+				body_failed()
+			raise
 	finally:
-		cleanup_error = remove_managed_temporary_tree(
-			owned_path,
-			expected_identity=identity,
+		if cleanup_permitted is not None and not cleanup_permitted():
+			cleanup_errors.append(
+				"Retained managed directory because cleanup ownership was not proven: "
+				f"{owned_path}"
+			)
+		else:
+			if cleanup_started is not None:
+				cleanup_started()
+			try:
+				cleanup_error = remove_managed_temporary_tree(
+					owned_path,
+					expected_identity=identity,
+				)
+			except BaseException:
+				if cleanup_failed is not None:
+					cleanup_failed()
+				raise
+			if cleanup_error:
+				cleanup_errors.append(cleanup_error)
+				if cleanup_failed is not None:
+					cleanup_failed()
+			elif cleanup_succeeded is not None:
+				cleanup_succeeded()
+
+
+def remove_owned_gut_shard_workspace_batch(
+	batch_path: Path,
+	batch_identity: os.stat_result,
+	workspace_ownership: dict[Path, tuple[int, int, int]],
+) -> str:
+	"""Remove an exact workspace batch without widening past child ownership."""
+	batch = Path(os.path.abspath(batch_path))
+	try:
+		if real_directory_chain_issue(batch.parent):
+			return "GUT shard batch parent is no longer a real directory chain."
+		current_batch = batch.lstat()
+		if not same_owned_directory_identity(batch_identity, current_batch):
+			return f"Refusing to clean replaced GUT shard batch: {batch}"
+		if not workspace_ownership:
+			entries = tuple(batch.iterdir())
+			if entries:
+				return "GUT shard batch has entries but no published child ownership records."
+			batch.rmdir()
+			return ""
+		expected_by_name: dict[str, tuple[int, int, int]] = {}
+		metadata_by_path: dict[Path, os.stat_result] = {}
+		for raw_path, token in workspace_ownership.items():
+			path = Path(os.path.abspath(raw_path))
+			if path.parent != batch or path.name in expected_by_name:
+				return "GUT shard workspace ownership is not an exact direct-child set."
+			if (
+				type(token) is not tuple
+				or len(token) != 3
+				or any(type(value) is not int for value in token)
+			):
+				return "GUT shard workspace ownership token is invalid."
+			expected_by_name[path.name] = token
+		entries = tuple(batch.iterdir())
+		if len(entries) != len(expected_by_name) or {entry.name for entry in entries} != set(expected_by_name):
+			return "GUT shard batch membership differs from its published child ownership set."
+		# Complete the full preflight before deleting any child.  A replaced later
+		# child therefore cannot cause an earlier valid child to be removed first.
+		for entry in entries:
+			metadata = entry.lstat()
+			try:
+				actual = gf_parallel_validation._owned_directory_identity(metadata)  # noqa: SLF001
+			except WorkspaceSnapshotError:
+				return f"GUT shard workspace is not a stable real directory: {entry}"
+			if actual != expected_by_name[entry.name]:
+				return f"GUT shard workspace identity changed before cleanup: {entry}"
+			metadata_by_path[entry] = metadata
+		for entry in sorted(entries, key=lambda item: item.name):
+			gf_parallel_validation._remove_owned_tree(  # noqa: SLF001
+				entry,
+				expected_identity=metadata_by_path[entry],
+			)
+		if tuple(batch.iterdir()):
+			return "GUT shard batch did not become empty after exact child cleanup."
+		if not same_owned_directory_identity(batch_identity, batch.lstat()):
+			return f"GUT shard batch identity changed during child cleanup: {batch}"
+		batch.rmdir()
+		return ""
+	except (OSError, WorkspaceSnapshotError) as error:
+		return f"Could not clean exact GUT shard workspace batch {batch}: {error}"
+
+
+@contextlib.contextmanager
+def managed_gut_shard_workspace_batch(
+	path: Path,
+	*,
+	cleanup_errors: list[str],
+	workspace_ownership: dict[Path, tuple[int, int, int]],
+	cancellation_event: threading.Event,
+	cleanup_state: dict[str, bool] | None,
+) -> Any:
+	"""Own one batch whose children must be removed by publication token."""
+	effective_cleanup_state = (
+		cleanup_state if cleanup_state is not None else {"permitted": True}
+	)
+	owned_path = Path(os.path.abspath(path))
+	if os.path.lexists(owned_path) or real_directory_chain_issue(owned_path.parent):
+		raise WorkspaceSnapshotError(
+			f"GUT shard batch must be a fresh child of a real owned parent: {owned_path}"
 		)
-		if cleanup_error:
-			cleanup_errors.append(cleanup_error)
+	owned_path.mkdir(exist_ok=False)
+	identity = owned_path.lstat()
+	body_completed = False
+	try:
+		yield owned_path
+		body_completed = True
+	finally:
+		if not body_completed:
+			forbid_gut_shard_owned_cleanup(cancellation_event, effective_cleanup_state)
+		if effective_cleanup_state.get("permitted") is not True:
+			cleanup_errors.append(
+				"Retained exact GUT shard workspace batch because cleanup ownership "
+				f"was not proven: {owned_path}"
+			)
+		else:
+			# Revoke every wider recursive owner before the narrow child cleanup
+			# begins.  Only a completed, exact-token cleanup republishes permission;
+			# BaseException therefore cannot create a wider-delete window.
+			effective_cleanup_state["permitted"] = False
+			try:
+				cleanup_error = remove_owned_gut_shard_workspace_batch(
+					owned_path,
+					identity,
+					workspace_ownership,
+				)
+			except BaseException:
+				cancellation_event.set()
+				raise
+			if cleanup_error:
+				cleanup_errors.append(cleanup_error)
+				forbid_gut_shard_owned_cleanup(
+					cancellation_event,
+					effective_cleanup_state,
+				)
+			else:
+				effective_cleanup_state["permitted"] = True
+
+
+def forbid_gut_shard_owned_cleanup(
+	cancellation_event: threading.Event,
+	cleanup_state: dict[str, bool] | None,
+) -> None:
+	"""Stop scheduling and retain every wider root after ownership uncertainty."""
+	cancellation_event.set()
+	if cleanup_state is not None:
+		cleanup_state["permitted"] = False
 
 
 def paths_overlap(left: Path, right: Path) -> bool:
@@ -6929,7 +11401,7 @@ def load_or_build_private_package_artifact_set(
 			)
 		except WorkspaceSnapshotError as error:
 			raise PackageArtifactSetError(
-				f"Could not capture an immutable package artifact source workspace: {error}"
+				"Could not capture an immutable package artifact source workspace."
 			) from error
 		if captured_workspace.workspace_fingerprint != effective_workspace["fingerprint"]:
 			raise PackageArtifactSetError(
@@ -6943,7 +11415,7 @@ def load_or_build_private_package_artifact_set(
 			)
 		except WorkspaceSnapshotError as error:
 			raise PackageArtifactSetError(
-				f"Could not materialize the package artifact source workspace: {error}"
+				"Could not materialize the package artifact source workspace."
 			) from error
 		source_set = build_package_smoke_artifact_set(
 			temp_root / "artifact-producer",
@@ -6976,7 +11448,9 @@ def package_build_boundary(
 	package_artifact_manifest: str = "",
 	package_artifact_manifest_sha256: str = "",
 ) -> dict[str, Any]:
-	with strict_managed_temporary_directory(prefix="gf-package-build-boundary-") as temp_dir:
+	with strict_process_boundary_temporary_directory(
+		prefix="gf-package-build-boundary-",
+	) as temp_dir:
 		temp_root = Path(temp_dir)
 		issues: list[dict[str, Any]] = []
 		builder_data: dict[str, Any] = {}
@@ -6992,11 +11466,16 @@ def package_build_boundary(
 			builder_data = private_set.rebased_builder_data()
 			source_set.revalidate(deadline=_ACTIVE_SUITE_DEADLINE)
 		except PackageArtifactSetError as error:
+			if exception_has_cleanup_debt(error):
+				raise
 			issues.append(make_package_issue(
 				"package_artifact_set_invalid",
 				"tools/gf_package_artifact_set.py",
 				"Package build boundary could not obtain a trusted private artifact set.",
-				error=trim_text(str(error), 1000),
+				error=trim_text(
+					gf_process_supervisor.safe_exception_detail(error),
+					1000,
+				),
 			))
 		registry_path = private_set.registry_path if private_set is not None else temp_root / "artifact-consumer/registry/index.json"
 		registry_source_path = private_set.registry_source_path if private_set is not None else temp_root / "artifact-consumer/registry/gf-registry-source.json"
@@ -7404,7 +11883,9 @@ def package_editor_wizard_smoke(
 			"godot_exit_leak_report": exit_leak_report,
 		},
 	)
-	with strict_managed_temporary_directory(prefix="gf-package-editor-wizard-smoke-") as temp_dir:
+	with strict_process_boundary_temporary_directory(
+		prefix="gf-package-editor-wizard-smoke-",
+	) as temp_dir:
 		temp_root = Path(temp_dir)
 		server_root = temp_root / "server"
 		private_set: PackageArtifactSet | None = None
@@ -7418,6 +11899,8 @@ def package_editor_wizard_smoke(
 			)
 			source_set.revalidate(deadline=_ACTIVE_SUITE_DEADLINE)
 		except PackageArtifactSetError as error:
+			if exception_has_cleanup_debt(error):
+				raise
 			issues.append(make_package_issue(
 				"package_editor_wizard_artifact_set_invalid",
 				"tools/gf_package_artifact_set.py",
@@ -8898,7 +13381,9 @@ def package_godot_cli_smoke(
 				f"Unknown Godot CLI smoke profile: {profile}",
 			)],
 		}
-	with strict_managed_temporary_directory(prefix="gf-package-godot-cli-smoke-") as temp_dir:
+	with strict_process_boundary_temporary_directory(
+		prefix="gf-package-godot-cli-smoke-",
+	) as temp_dir:
 		temp_root = Path(temp_dir)
 		server_root = temp_root / "server"
 		project_root = temp_root / "local_cli_project"
@@ -8916,6 +13401,8 @@ def package_godot_cli_smoke(
 			)
 			source_set.revalidate(deadline=_ACTIVE_SUITE_DEADLINE)
 		except PackageArtifactSetError as error:
+			if exception_has_cleanup_debt(error):
+				raise
 			issues.append(make_package_issue(
 				"package_godot_cli_smoke_artifact_set_invalid",
 				"tools/gf_package_artifact_set.py",
@@ -11488,7 +15975,9 @@ def package_godot_smoke(
 	package_artifact_manifest: str = "",
 	package_artifact_manifest_sha256: str = "",
 ) -> dict[str, Any]:
-	with strict_managed_temporary_directory(prefix="gf-package-godot-smoke-") as temp_dir:
+	with strict_process_boundary_temporary_directory(
+		prefix="gf-package-godot-smoke-",
+	) as temp_dir:
 		temp_root = Path(temp_dir)
 		issues: list[dict[str, Any]] = []
 		scenarios: list[dict[str, Any]] = []
@@ -11507,6 +15996,8 @@ def package_godot_smoke(
 			)
 			source_set.revalidate(deadline=_ACTIVE_SUITE_DEADLINE)
 		except PackageArtifactSetError as error:
+			if exception_has_cleanup_debt(error):
+				raise
 			issues.append(make_package_issue(
 				"package_godot_smoke_artifact_set_invalid",
 				"tools/gf_package_artifact_set.py",
@@ -11592,6 +16083,8 @@ def run_package_godot_smoke_specs(
 			try:
 				results.append(future.result())
 			except Exception as error:
+				if exception_has_cleanup_debt(error):
+					raise
 				spec = scenario_specs[index]
 				scenario_name = str(spec.get("name", ""))
 				results.append({
@@ -13630,6 +18123,86 @@ def maintenance_self_test() -> dict[str, Any]:
 				"process_exit_code": 1,
 			}
 		)
+		timed_out_gut_report = json.loads(json.dumps(gut_report))
+		timed_out_gut_report["ok"] = False
+		timed_out_gut_result = timed_out_gut_report["results"][0]
+		timed_out_gut_result["exit_code"] = 124
+		timed_out_gut_result["timed_out"] = True
+		timed_out_gut_result["process_exit_code"] = -1
+		timed_out_gut_result["gut_lifecycle_report"] = (
+			parse_gut_lifecycle_gate_output("partial output", "")
+		)
+		timed_out_gut_loaded, timed_out_gut_issue = load_parallel_shard_report(
+			failing_report_runner,
+			write_report_fixture(
+				"gut-timeout-with-lifecycle",
+				timed_out_gut_report,
+			),
+			gut_report_checks,
+			expected_report_workspace,
+		)
+		cancelled_gut_report = json.loads(json.dumps(timed_out_gut_report))
+		cancelled_gut_result = cancelled_gut_report["results"][0]
+		cancelled_gut_result["exit_code"] = 130
+		cancelled_gut_result["timed_out"] = False
+		cancelled_gut_result["cancelled"] = True
+		cancelled_gut_loaded, cancelled_gut_issue = load_parallel_shard_report(
+			failing_report_runner,
+			write_report_fixture(
+				"gut-cancelled-with-lifecycle",
+				cancelled_gut_report,
+			),
+			gut_report_checks,
+			expected_report_workspace,
+		)
+		plain_124_gut_report = json.loads(json.dumps(timed_out_gut_report))
+		plain_124_gut_report["results"][0]["timed_out"] = False
+		plain_124_gut_loaded, plain_124_gut_issue = load_parallel_shard_report(
+			failing_report_runner,
+			write_report_fixture(
+				"gut-plain-124-with-lifecycle",
+				plain_124_gut_report,
+			),
+			gut_report_checks,
+			expected_report_workspace,
+		)
+		forged_timeout_exit_report = json.loads(json.dumps(timed_out_gut_report))
+		forged_timeout_exit_report["results"][0]["exit_code"] = 1
+		_, forged_timeout_exit_issue = load_parallel_shard_report(
+			failing_report_runner,
+			write_report_fixture(
+				"gut-timeout-wrong-exit",
+				forged_timeout_exit_report,
+			),
+			gut_report_checks,
+			expected_report_workspace,
+		)
+		forged_cancel_exit_report = json.loads(json.dumps(timed_out_gut_report))
+		forged_cancel_result = forged_cancel_exit_report["results"][0]
+		forged_cancel_result["timed_out"] = False
+		forged_cancel_result["cancelled"] = True
+		_, forged_cancel_exit_issue = load_parallel_shard_report(
+			failing_report_runner,
+			write_report_fixture(
+				"gut-cancel-wrong-exit",
+				forged_cancel_exit_report,
+			),
+			gut_report_checks,
+			expected_report_workspace,
+		)
+		forged_conflicting_terminal_report = json.loads(json.dumps(
+			timed_out_gut_report
+		))
+		forged_conflicting_terminal_report["results"][0]["cancelled"] = True
+		_, forged_conflicting_terminal_issue = load_parallel_shard_report(
+			failing_report_runner,
+			write_report_fixture(
+				"gut-conflicting-terminal-state",
+				forged_conflicting_terminal_report,
+			),
+			gut_report_checks,
+			expected_report_workspace,
+		)
 		_, mismatch_issue = load_parallel_shard_report(
 			failing_report_runner,
 			valid_report_path,
@@ -13653,9 +18226,18 @@ def maintenance_self_test() -> dict[str, Any]:
 			and bool(non_gut_lifecycle_issue)
 			and bool(missing_gut_lifecycle_issue)
 			and bool(failed_gut_lifecycle_issue)
+			and timed_out_gut_loaded is not None
+			and not timed_out_gut_issue
+			and cancelled_gut_loaded is not None
+			and not cancelled_gut_issue
+			and plain_124_gut_loaded is not None
+			and not plain_124_gut_issue
+			and bool(forged_timeout_exit_issue)
+			and bool(forged_cancel_exit_issue)
+			and bool(forged_conflicting_terminal_issue)
 			and bool(impossible_gut_lifecycle_issue)
 			and bool(mismatch_issue),
-			"Parallel reports must reject missing or oversized results, invalid scalars, duplicate/non-finite JSON, schema drift, missing/failed/impossible GUT lifecycle evidence, workspace escapes, and process/report disagreement.",
+			"Parallel reports must retain closed failed GUT lifecycle evidence for timeouts while rejecting missing or oversized results, invalid scalars, duplicate/non-finite JSON, schema drift, inconsistent timeout/cancellation states, successful checks with failed lifecycle evidence, impossible lifecycle evidence, workspace escapes, and process/report disagreement.",
 		)
 		package_report_checks = ["package_build_boundary"]
 		package_report = json.loads(json.dumps(valid_report))
@@ -14369,10 +18951,11 @@ def maintenance_self_test() -> dict[str, Any]:
 				and (
 					os.name != "nt"
 					or (
-						len(str(managed_root)) <= WINDOWS_PARALLEL_VALIDATION_ROOT_MAX_CHARACTERS
-						and len(str(projected_workspace)) <= 30
-						and len(str(projected_staging_workspace)) <= 30
-						and len(str(projected_private_temp)) <= 30
+						windows_utf16_path_code_units(managed_root)
+						<= WINDOWS_PARALLEL_VALIDATION_ROOT_MAX_CHARACTERS
+						and windows_utf16_path_code_units(projected_workspace) <= 30
+						and windows_utf16_path_code_units(projected_staging_workspace) <= 30
+						and windows_utf16_path_code_units(projected_private_temp) <= 30
 					)
 				)
 			)
@@ -15363,9 +19946,11 @@ def maintenance_self_test() -> dict[str, Any]:
 			pre_cancelled_result.cancelled
 			and not pre_cancelled_result.timed_out
 			and pre_cancelled_result.pid == 0
+			and pre_cancelled_result.process_boundary_quiescent
 			and running_cancel_result.cancelled
 			and not running_cancel_result.timed_out
 			and running_cancel_result.pid > 0
+			and running_cancel_result.process_boundary_quiescent
 			and cancel_ready_path.exists()
 			and not cancel_marker_path.exists(),
 			"Pre-start and ready-synchronized running cancellation must remain distinct from timeout "
@@ -15452,6 +20037,7 @@ def maintenance_self_test() -> dict[str, Any]:
 		record_result(
 			"run_command_rejects_background_descendants_holding_output_pipes",
 			orphan_result.timed_out
+			and orphan_result.process_boundary_quiescent
 			and not orphan_marker_path.exists()
 			and any("Output pipes remained open" in note for note in orphan_result.notes),
 			f"checks must fail and clean descendants that outlive the direct child: {orphan_result}",
@@ -15872,6 +20458,156 @@ def maintenance_self_test() -> dict[str, Any]:
 			),
 			"A BaseException at every startup ownership boundary must reap the actual process without escape: "
 			f"{startup_fixture_results}.",
+		)
+
+		def run_windows_unassigned_startup_retry_fixture() -> dict[str, Any]:
+			state: dict[str, Any] = {
+				"interrupt_raised": False,
+				"interrupted": False,
+				"same_exception": False,
+				"kill_calls": 0,
+				"injected_kill_failures": 0,
+				"outer_terminate_calls": 0,
+				"retained_on_outer_terminate": [],
+				"process_reaped_before_fixture_cleanup": False,
+				"pipes_closed_before_fixture_cleanup": False,
+				"owner_closed": False,
+				"owner_cleanup_failed": False,
+				"owner_released_reaped_process": False,
+				"marker_exists": False,
+				"fixture_cleanup_error": "",
+				"error": "",
+			}
+			if os.name != "nt":
+				return state
+
+			marker_path = Path(temp_dir) / "windows-unassigned-startup-retry-survived.txt"
+			process_code = (
+				"import time; from pathlib import Path; "
+				f"Path({str(marker_path)!r}).write_text('survived', encoding='utf-8'); "
+				"time.sleep(10.0)"
+			)
+			original_owner_factory = gf_process_supervisor._new_process_tree_owner
+			process: subprocess.Popen[str] | None = None
+			owner: Any | None = None
+			original_process_kill: Any = None
+			injected_interrupt = KeyboardInterrupt(
+				"Windows unassigned startup retry fixture"
+			)
+
+			def capture_owner() -> Any:
+				nonlocal owner
+				owner = original_owner_factory()
+				original_terminate = owner.terminate
+
+				def track_outer_termination(
+					target_process: subprocess.Popen[str],
+				) -> list[str]:
+					state["outer_terminate_calls"] += 1
+					state["retained_on_outer_terminate"].append(
+						owner._started_process is target_process
+					)
+					return original_terminate(target_process)
+
+				owner.terminate = track_outer_termination
+				return owner
+
+			def capture_process(*args: Any, **kwargs: Any) -> subprocess.Popen[str]:
+				nonlocal process
+				nonlocal original_process_kill
+				process = original_supervisor_popen(*args, **kwargs)
+				original_process_kill = process.kill
+
+				def fail_two_local_kills() -> None:
+					state["kill_calls"] += 1
+					if state["kill_calls"] <= 2:
+						state["injected_kill_failures"] += 1
+						raise OSError("fixture rejected local suspended-child kill")
+					original_process_kill()
+
+				process.kill = fail_two_local_kills
+				return process
+
+			def interrupt_before_job_assignment(checkpoint_name: str) -> None:
+				if checkpoint_name == "windows_process_started" and not state["interrupt_raised"]:
+					state["interrupt_raised"] = True
+					raise injected_interrupt
+				original_supervision_checkpoint(checkpoint_name)
+
+			try:
+				gf_process_supervisor._new_process_tree_owner = capture_owner
+				gf_process_supervisor.subprocess.Popen = capture_process
+				gf_process_supervisor._process_supervision_checkpoint = (
+					interrupt_before_job_assignment
+				)
+				try:
+					run_supervised_process(
+						[sys.executable, "-c", process_code],
+						cwd=ROOT,
+						timeout_seconds=10,
+					)
+				except KeyboardInterrupt as error:
+					state["interrupted"] = True
+					state["same_exception"] = error is injected_interrupt
+				except BaseException as error:
+					state["error"] = f"{type(error).__name__}: {error}"
+			finally:
+				gf_process_supervisor._process_supervision_checkpoint = (
+					original_supervision_checkpoint
+				)
+				gf_process_supervisor.subprocess.Popen = original_supervisor_popen
+				gf_process_supervisor._new_process_tree_owner = original_owner_factory
+				if process is not None and original_process_kill is not None:
+					process.kill = original_process_kill
+
+			if process is not None:
+				state["process_reaped_before_fixture_cleanup"] = process.returncode is not None
+				state["pipes_closed_before_fixture_cleanup"] = (
+					(process.stdout is None or process.stdout.closed)
+					and (process.stderr is None or process.stderr.closed)
+				)
+			if owner is not None:
+				state["owner_closed"] = owner.is_closed()
+				state["owner_cleanup_failed"] = owner.cleanup_failed
+				state["owner_released_reaped_process"] = owner._started_process is None
+			state["marker_exists"] = marker_path.exists()
+
+			if process is not None and process.returncode is None:
+				try:
+					original_process_kill()
+					process.wait(timeout=2.0)
+				except (OSError, subprocess.TimeoutExpired) as error:
+					state["fixture_cleanup_error"] = f"{type(error).__name__}: {error}"
+			if process is not None:
+				gf_process_supervisor._close_process_pipes(process)
+			return state
+
+		windows_unassigned_startup_retry_state = (
+			run_windows_unassigned_startup_retry_fixture()
+		)
+		record_result(
+			"windows_unassigned_startup_failure_retains_process_for_outer_retry",
+			os.name != "nt"
+			or (
+				not windows_unassigned_startup_retry_state["error"]
+				and not windows_unassigned_startup_retry_state["fixture_cleanup_error"]
+				and windows_unassigned_startup_retry_state["interrupt_raised"]
+				and windows_unassigned_startup_retry_state["interrupted"]
+				and windows_unassigned_startup_retry_state["same_exception"]
+				and windows_unassigned_startup_retry_state["kill_calls"] == 3
+				and windows_unassigned_startup_retry_state["injected_kill_failures"] == 2
+				and windows_unassigned_startup_retry_state["outer_terminate_calls"] >= 2
+				and all(windows_unassigned_startup_retry_state["retained_on_outer_terminate"])
+				and windows_unassigned_startup_retry_state["process_reaped_before_fixture_cleanup"]
+				and windows_unassigned_startup_retry_state["pipes_closed_before_fixture_cleanup"]
+				and windows_unassigned_startup_retry_state["owner_closed"]
+				and windows_unassigned_startup_retry_state["owner_cleanup_failed"]
+				and windows_unassigned_startup_retry_state["owner_released_reaped_process"]
+				and not windows_unassigned_startup_retry_state["marker_exists"]
+			),
+			"A suspended Windows child whose two local startup kill/reap attempts fail must remain published "
+			"to the outer cleanup chain until its third real kill is reaped; "
+			f"state={windows_unassigned_startup_retry_state}.",
 		)
 
 		cleanup_ready_path = Path(temp_dir) / "cleanup-interrupt-descendant-ready.txt"
@@ -17238,17 +21974,44 @@ def maintenance_self_test() -> dict[str, Any]:
 		),
 	)
 	record_result(
+		"gut_shard_run_remains_non_authoritative_and_outside_all_gates",
+		"gut_shard_run" not in CHECK_DEFINITIONS
+		and all(
+			"gut_shard_run" not in suite_checks
+			for suite_checks in CHECK_SUITES.values()
+		)
+		and all(
+			"gut_shard_run" not in dependencies
+			for dependencies in CHECK_DEPENDENCIES.values()
+		)
+		and all(
+			"gut-shard-run" not in read_text_file(ROOT / workflow_path)
+			for workflow_path in (
+				".github/workflows/ci.yml",
+				".github/workflows/ci-manual.yml",
+				".github/workflows/release.yml",
+			)
+		),
+		(
+			"The G0.2A runner must remain an explicit non-authoritative command and must "
+			"not enter checks, suites, dependencies, CI, or release workflows."
+		),
+	)
+	record_result(
 		"gut_sharding_tests_share_the_maintenance_execution_owner",
 		CHECK_DEFINITIONS.get("maintenance_execution_tests") == [
 			sys.executable,
 			"-m",
 			"unittest",
 			"tests/gf_core/tools/test_gf_maintenance_execution.py",
+			"tests/gf_core/tools/test_gf_maintenance_check_graph.py",
+			"tests/gf_core/tools/test_gf_parallel_validation.py",
 			"tests/gf_core/tools/test_gf_validation_contracts.py",
 			"tests/gf_core/tools/test_gf_validation_evidence.py",
 			"tests/gf_core/tools/test_gf_validation_inputs.py",
 			"tests/gf_core/tools/test_gf_validation_test_inventory.py",
 			"tests/gf_core/tools/test_gf_gut_sharding.py",
+			"tests/gf_core/tools/test_gf_gut_shard_worker.py",
 		],
 		(
 			"GUT shard protocol tests must stay in the existing maintenance execution "
@@ -17268,10 +22031,37 @@ def maintenance_self_test() -> dict[str, Any]:
 		and GUT_SHARD_OBSERVATION_TIMEOUT_SECONDS == 1200
 		and resolve_gut_shard_observation_timeout_seconds(None) == 1200
 		and resolve_gut_shard_observation_timeout_seconds(1500) == 1500
-		and "gut" not in CHECK_TIMEOUT_SECONDS,
+		and CHECK_TIMEOUT_SECONDS.get("gut") == 1200
+		and resolve_check_timeout_seconds("gut", None) == 1200
+		and resolve_check_timeout_seconds("gut", 600) == 1200
+		and resolve_check_timeout_seconds("gut", 1500) == 1500,
 		(
 			"The explicit G0 observation must use its dedicated ignored output root and "
-			"measured timeout floor without changing the authoritative GUT check policy."
+			"share the measured authoritative GUT timeout floor."
+		),
+	)
+	record_result(
+		"gut_shard_run_has_bounded_two_worker_observation_policy",
+		GUT_SHARD_RUN_DEFAULT_JOBS == 2
+		and GUT_SHARD_RUN_ALLOWED_JOBS == (1, 2)
+		and resolve_gut_shard_run_gut_timeout_seconds(None) == 600
+		and resolve_gut_shard_run_gut_timeout_seconds(30) == 600
+		and resolve_gut_shard_run_gut_timeout_seconds(900) == 900
+		and gut_shard_run_total_timeout_seconds(
+			9,
+			2,
+			gut_timeout_seconds=600,
+			qualify=False,
+		) == 6900
+		and gut_shard_run_total_timeout_seconds(
+			9,
+			2,
+			gut_timeout_seconds=600,
+			qualify=True,
+		) == 8820,
+		(
+			"G0.2A must default to two bounded workers, accept only jobs 1 or 2, preserve "
+			"the candidate GUT floor, and derive a finite wave-based parent budget."
 		),
 	)
 	record_result(
@@ -17504,9 +22294,11 @@ def maintenance_self_test() -> dict[str, Any]:
 		bool(windows_process_job_source)
 		and "runs-on: windows-latest" in windows_process_job_source
 		and "python tools/gf_maintenance.py maintenance-self-test --json" in windows_process_job_source
+		and "tests.gf_core.tools.test_gf_parallel_validation" in windows_process_job_source
+		and "tests.gf_core.tools.test_gf_maintenance_check_graph" in windows_process_job_source
 		and "github.event.pull_request.draft == false" in windows_process_job_source
 		and "github.event.changes.base.ref.from" in windows_process_job_source,
-		"Ready/main CI must exercise kernel-owned process-tree cleanup on a Windows runner.",
+		"Ready/main CI must exercise kernel-owned cleanup plus staging/startup boundaries on Windows.",
 	)
 	record_result(
 		"ci_draft_quick_job_avoids_heavy_environment_bootstrap",
@@ -17521,6 +22313,10 @@ def maintenance_self_test() -> dict[str, Any]:
 		"release-framework-checks:" in release_workflow_source
 		and "release-package-checks:" in release_workflow_source
 		and "--suite framework" in release_workflow_source
+		and (
+			f"--suite-timeout {gf_repository_policy.RELEASE_FRAMEWORK_SUITE_TIMEOUT_SECONDS}"
+			in release_workflow_source
+		)
 		and "--suite ${{ matrix.suite }}" in release_workflow_source
 		and all(
 			f"suite: {suite_name}" in release_workflow_source
@@ -17995,6 +22791,49 @@ def maintenance_self_test() -> dict[str, Any]:
 		"parallel framework partitions and package matrix shards must be disjoint within framework and set-equivalent to full/package-ci.",
 	)
 	parallel_plan = parallel_full_shard_plan()
+	parallel_plan_names = tuple(shard.name for shard in parallel_plan)
+	framework_gut_shard = next(
+		shard for shard in parallel_plan if shard.name == "framework-gut"
+	)
+	ci_jobs, ci_duplicate_jobs = gf_repository_policy.extract_ci_job_blocks(ci_workflow_source)
+	release_jobs, release_duplicate_jobs = gf_repository_policy.extract_ci_job_blocks(
+		release_workflow_source
+	)
+	manual_jobs, manual_duplicate_jobs = gf_repository_policy.extract_ci_job_blocks(
+		manual_ci_workflow_source
+	)
+	ci_framework_gut_timeout_value = gf_repository_policy.extract_matrix_suite_scalar(
+		ci_jobs.get("framework-checks", ""),
+		"framework-gut",
+		"timeout_minutes",
+	)
+	release_framework_job = release_jobs.get("release-framework-checks", "")
+	release_framework_step = gf_repository_policy.extract_ci_step_block(
+		release_framework_job,
+		"Run release framework shard",
+	)
+	release_framework_command = gf_repository_policy.extract_yaml_scalar(
+		release_framework_step,
+		"run",
+		8,
+	)
+	release_framework_timeout_value = gf_repository_policy.extract_yaml_scalar(
+		release_framework_job,
+		"timeout-minutes",
+		4,
+	)
+	manual_full_timeout_value = gf_repository_policy.extract_yaml_scalar(
+		manual_jobs.get("manual-full-validation", ""),
+		"timeout-minutes",
+		4,
+	)
+	parallel_batch_names_by_jobs = {
+		jobs: tuple(
+			tuple(shard.name for shard in batch)
+			for batch in parallel_full_shard_batches(parallel_plan, jobs)
+		)
+		for jobs in range(1, MAX_PARALLEL_FULL_JOBS + 1)
+	}
 	parallel_owned_checks = [
 		check_name
 		for shard in parallel_plan
@@ -18004,13 +22843,51 @@ def maintenance_self_test() -> dict[str, Any]:
 		"local_parallel_full_plan_has_unique_set_equivalent_ownership",
 		set(parallel_owned_checks) == set(FULL_CHECKS)
 		and len(parallel_owned_checks) == len(set(parallel_owned_checks))
-		and [shard.name for shard in parallel_plan] == list(PARALLEL_FULL_SHARD_SUITES)
+		and parallel_plan_names == PARALLEL_FULL_SHARD_SUITES
 		and next(
 			shard.name
 			for shard in parallel_plan
 			if "gdscript_lsp_diagnostics" in shard.checks
 		) == "framework-lsp",
 		"Local parallel Full must assign every target check exactly once and keep LSP owned by its hard-gate shard.",
+	)
+	record_result(
+		"local_parallel_full_schedule_separates_heavy_shards",
+		parallel_plan_names == (
+			"package-editor",
+			"framework-static",
+			"package-godot-ci",
+			"package-cli-local",
+			"package-cli-network",
+			"package-contract",
+			"framework-gut",
+			"framework-lsp",
+		)
+		and parallel_batch_names_by_jobs[2] == (
+			("package-editor", "framework-static"),
+			("package-godot-ci", "package-cli-local"),
+			("package-cli-network", "package-contract"),
+			("framework-gut",),
+			("framework-lsp",),
+		)
+		and parallel_batch_names_by_jobs[3] == (
+			("package-editor", "framework-static", "package-godot-ci"),
+			("package-cli-local", "package-cli-network", "package-contract"),
+			("framework-gut",),
+			("framework-lsp",),
+		)
+		and all(
+			tuple(name for batch in batches for name in batch) == parallel_plan_names
+			and all(1 <= len(batch) <= jobs for batch in batches)
+			and tuple(
+				batch for batch in batches if "framework-gut" in batch
+			) == (("framework-gut",),)
+			for jobs, batches in parallel_batch_names_by_jobs.items()
+		),
+		(
+			"Local parallel Full must preserve stable shard ownership and run the "
+			"resource-intensive framework GUT shard in its own batch."
+		),
 	)
 	deadline_fixture_snapshot = CapturedWorkspace(
 		source_root=ROOT,
@@ -18078,10 +22955,33 @@ def maintenance_self_test() -> dict[str, Any]:
 			>= len(expanded_check_names("quick", list(shard.checks))) * 3600
 			for shard in parallel_plan
 		)
+		and parallel_shard_timeout_seconds(framework_gut_shard, None) == 2820
 		and "--package-artifact-manifest" in fixture_package_command
 		and "--package-artifact-manifest-sha256" in fixture_package_command
 		and "--package-artifact-manifest" not in check_command("api"),
 		"Each shard budget must preserve every child check's requested minimum, while immutable package inputs reach only consumers.",
+	)
+	record_result(
+		"workflow_deadlines_preserve_the_closed_framework_gut_envelope",
+		not ci_duplicate_jobs
+		and not release_duplicate_jobs
+		and not manual_duplicate_jobs
+		and ci_framework_gut_timeout_value
+		== str(gf_repository_policy.FRAMEWORK_GUT_CI_TIMEOUT_MINUTES)
+		and release_framework_timeout_value
+		== str(gf_repository_policy.RELEASE_FRAMEWORK_TIMEOUT_MINUTES)
+		and manual_full_timeout_value == str(gf_repository_policy.MANUAL_FULL_TIMEOUT_MINUTES)
+		and release_framework_command == gf_repository_policy.RELEASE_FRAMEWORK_COMMAND
+		and gf_repository_policy.FRAMEWORK_GUT_CI_TIMEOUT_MINUTES * 60
+		> parallel_shard_timeout_seconds(framework_gut_shard, None)
+		and gf_repository_policy.RELEASE_FRAMEWORK_TIMEOUT_MINUTES * 60
+		> gf_repository_policy.RELEASE_FRAMEWORK_SUITE_TIMEOUT_SECONDS,
+		(
+			"Ready/main framework GUT must retain its exact 60-minute outer deadline above "
+			"the 2,820-second child envelope; release framework must retain a 4,800-second "
+			"maintenance deadline within its exact 90-minute outer deadline; manual Full "
+			"must remain 90 minutes."
+		),
 	)
 	record_result(
 		"release_shards_preserve_release_suite_coverage",
@@ -28690,6 +33590,7 @@ def run_checks(
 				)
 				captured_workspace: CapturedWorkspace | None = None
 				artifact_source_workspace: Path | None = None
+				artifact_cleanup_state: dict[str, bool] | None = None
 				if resolved_jobs > 1 or package_artifact_is_required(selected_names):
 					captured_workspace = gf_parallel_validation.capture_workspace(
 						ROOT,
@@ -28714,19 +33615,27 @@ def run_checks(
 						remaining_deadline_seconds(suite_deadline, "package artifact loading")
 						package_artifact_reused = True
 					else:
+						artifact_cleanup_state = {"permitted": True}
 						artifact_temp = stack.enter_context(managed_validation_directory(
 							prefix="gfa-",
 							cleanup_errors=temporary_cleanup_errors,
 							windows_max_characters=WINDOWS_ARTIFACT_VALIDATION_ROOT_MAX_CHARACTERS,
+							cleanup_permitted=lambda: artifact_cleanup_state["permitted"],
 						))
 						if captured_workspace is None:
 							raise WorkspaceSnapshotError(
 								"Package artifact creation requires a captured source workspace."
 							)
-						artifact_source_workspace = gf_parallel_validation.materialize_workspace(
-							captured_workspace,
-							artifact_temp / "s",
-							deadline=suite_deadline,
+						# Git materialization owns subprocess trees.  Revoke the wider
+						# artifact-root cleanup before launch and only republish it after
+						# the materializer returns with a proven quiet boundary.
+						artifact_cleanup_state["permitted"] = False
+						artifact_source_workspace = (
+							gf_parallel_validation.materialize_workspace(
+								captured_workspace,
+								artifact_temp / "s",
+								deadline=suite_deadline,
+							)
 						)
 						package_artifact_set = build_package_smoke_artifact_set(
 							artifact_temp / "a",
@@ -28741,10 +33650,12 @@ def run_checks(
 						raise PackageArtifactSetError(
 							"Parallel Full requires one sealed package artifact set."
 						)
+					parallel_cleanup_state = {"permitted": True}
 					parallel_temp = stack.enter_context(managed_validation_directory(
 						prefix="gfv-",
 						cleanup_errors=temporary_cleanup_errors,
 						windows_max_characters=WINDOWS_PARALLEL_VALIDATION_ROOT_MAX_CHARACTERS,
+						cleanup_permitted=lambda: parallel_cleanup_state["permitted"],
 					))
 					data = run_parallel_full_checks(
 						captured_workspace,
@@ -28761,6 +33672,7 @@ def run_checks(
 						overall_started=overall_started,
 						suite_deadline=suite_deadline,
 						validation_occurrences_out=validation_parallel_occurrences,
+						cleanup_state=parallel_cleanup_state,
 					)
 				else:
 					remaining_suite_timeout: int | None = None
@@ -28802,6 +33714,12 @@ def run_checks(
 						raise WorkspaceSnapshotError(
 							"Workspace source changed while read-only maintenance checks were running."
 						)
+				if artifact_cleanup_state is not None:
+					# The artifact root is shared by its builder and every downstream
+					# serial/parallel consumer.  Publish wider cleanup permission only
+					# after every supervised process and final revalidation returned with
+					# a proven quiet boundary.
+					artifact_cleanup_state["permitted"] = True
 			except (WorkspaceDeadlineError, PackageArtifactDeadlineError, TimeoutError) as error:
 				if data is None:
 					data = make_check_deadline_failure(
@@ -29152,6 +34070,7 @@ def run_parallel_godot_isolation_probe(
 	*,
 	deadline: float | None,
 	output_callback: Callable[[str, str, str], None] | None,
+	cleanup_state: dict[str, bool] | None = None,
 ) -> dict[str, Any]:
 	"""Prove that the current Godot executable honors two independent OS user roots."""
 	probe_root = parallel_root / "p"
@@ -29184,13 +34103,33 @@ def run_parallel_godot_isolation_probe(
 			environment=environment,
 		))
 	remaining = remaining_deadline_seconds(deadline, "Godot isolation probe")
-	results = gf_parallel_validation.run_parallel_shards(
-		shards,
-		max_workers=2,
-		deadline_seconds=remaining,
-		fail_fast=True,
-		output_callback=output_callback,
-	)
+	if cleanup_state is not None:
+		if cleanup_state.get("permitted") is not True:
+			raise WorkspaceSnapshotError(
+				"Godot isolation probe cannot start after cleanup ownership was lost."
+			)
+		# Process creation opens a proof-publication window.  Keep the owning root
+		# fail-closed until every supervisor result has positively proved its owned
+		# process boundary quiescent.
+		cleanup_state["permitted"] = False
+	try:
+		results = gf_parallel_validation.run_parallel_shards(
+			shards,
+			max_workers=2,
+			deadline_seconds=remaining,
+			fail_fast=True,
+			output_callback=output_callback,
+		)
+		if any(result.process_boundary_quiescent is not True for result in results):
+			raise WorkspaceSnapshotError(
+				"Godot isolation probe process-boundary cleanup was not proven."
+			)
+		if cleanup_state is not None:
+			cleanup_state["permitted"] = True
+	except BaseException:
+		if cleanup_state is not None:
+			cleanup_state["permitted"] = False
+		raise
 	payloads = {
 		result.name: parse_parallel_godot_probe_output(
 			result,
@@ -29266,9 +34205,13 @@ def run_parallel_full_checks(
 	overall_started: float,
 	suite_deadline: float | None,
 	validation_occurrences_out: dict[str, list[dict[str, Any]]] | None = None,
+	cleanup_state: dict[str, bool] | None = None,
 ) -> dict[str, Any]:
+	if cleanup_state is None:
+		cleanup_state = {"permitted": True}
 	parallel_started = time.perf_counter()
 	plan = parallel_full_shard_plan()
+	batches = parallel_full_shard_batches(plan, jobs)
 	if (
 		suite_timeout_seconds is not None
 		and time.perf_counter() - overall_started >= suite_timeout_seconds
@@ -29283,6 +34226,7 @@ def run_parallel_full_checks(
 		parallel_root,
 		deadline=suite_deadline,
 		output_callback=output_callback,
+		cleanup_state=cleanup_state,
 	)
 	occurrences: dict[str, list[tuple[str, dict[str, Any]]]] = {}
 	parallel_shard_reports: list[dict[str, Any]] = []
@@ -29293,26 +34237,35 @@ def run_parallel_full_checks(
 		shard_plan.name: expanded_check_names("quick", list(shard_plan.checks))
 		for shard_plan in plan
 	}
+	cleanup_state["permitted"] = False
 	gf_parallel_validation.assert_source_matches_snapshot(
 		captured_workspace,
 		deadline=suite_deadline,
 	)
+	cleanup_state["permitted"] = True
 	stop_after_batch = False
-	for batch_start in range(0, len(plan), jobs):
+	for batch_index, batch_plan in enumerate(batches):
 		remaining_deadline_seconds(suite_deadline, "parallel Full scheduling")
-		batch_plan = plan[batch_start:batch_start + jobs]
 		batch_cleanup_errors: list[str] = []
+		batch_log_copy_errors: list[str] = []
 		with managed_owned_directory(
-			parallel_root / f"b{batch_start // jobs}",
+			parallel_root / f"b{batch_index}",
 			cleanup_errors=batch_cleanup_errors,
+			cleanup_permitted=lambda: cleanup_state.get("permitted") is True,
+			cleanup_started=lambda: cleanup_state.__setitem__("permitted", False),
+			cleanup_succeeded=lambda: cleanup_state.__setitem__("permitted", True),
+			cleanup_failed=lambda: cleanup_state.__setitem__("permitted", False),
+			body_failed=lambda: cleanup_state.__setitem__("permitted", False),
 		) as batch_dir:
 			batch_root = batch_dir
+			cleanup_state["permitted"] = False
 			workspace_by_shard = materialize_parallel_full_workspaces(
 				captured_workspace,
 				batch_root,
 				batch_plan,
 				deadline=suite_deadline,
 			)
+			cleanup_state["permitted"] = True
 			batch_shards: list[ParallelShard] = []
 			report_paths: dict[str, Path] = {}
 			for batch_offset, shard_plan in enumerate(batch_plan):
@@ -29334,6 +34287,14 @@ def run_parallel_full_checks(
 				if progress_callback is not None:
 					progress_callback("started", f"shard:{shard.name}", None)
 			run_remaining = remaining_deadline_seconds(suite_deadline, "parallel Full execution")
+			if cleanup_state.get("permitted") is not True:
+				raise WorkspaceSnapshotError(
+					"Parallel Full execution cannot start after cleanup ownership was lost."
+				)
+			# A supervisor may return a result whose process boundary is not proven.
+			# Keep the owning batch fail-closed across the return-to-inspection window;
+			# publish cleanup permission only after every result proves quiescence.
+			cleanup_state["permitted"] = False
 			batch_results = gf_parallel_validation.run_parallel_shards(
 				batch_shards,
 				max_workers=min(jobs, len(batch_shards)),
@@ -29342,6 +34303,15 @@ def run_parallel_full_checks(
 				output_callback=output_callback,
 			)
 			shard_results.extend(batch_results)
+			if any(
+				result.process_boundary_quiescent is not True
+				for result in batch_results
+			):
+				cleanup_state["permitted"] = False
+				raise WorkspaceSnapshotError(
+					"Parallel Full shard process-boundary cleanup was not proven."
+				)
+			cleanup_state["permitted"] = True
 			for shard_result in batch_results:
 				if progress_callback is not None:
 					progress_callback(
@@ -29416,14 +34386,27 @@ def run_parallel_full_checks(
 				name for name in failed_shards if name in {item.name for item in batch_plan}
 			)
 			if batch_failed:
-				log_copy_errors.extend(collect_parallel_failure_logs(
+				# Failure logs are the only durable evidence after a normal failed
+				# shard is released.  Keep the owning batch fail-closed until every
+				# source file has been copied from a stable handle and accepted.
+				cleanup_state["permitted"] = False
+				batch_log_copy_errors = collect_parallel_failure_logs(
 					batch_results,
 					batch_failed,
 					captured_workspace.workspace_fingerprint,
-				))
+				)
+				if batch_log_copy_errors:
+					log_copy_errors.extend(batch_log_copy_errors)
+				else:
+					cleanup_state["permitted"] = True
 			if fail_fast and batch_failed:
+				remaining_plan = [
+					shard
+					for remaining_batch in batches[batch_index + 1:]
+					for shard in remaining_batch
+				]
 				append_unstarted_parallel_shards(
-					plan[batch_start + len(batch_plan):],
+					remaining_plan,
 					expected_checks_by_shard,
 					occurrences,
 					parallel_shard_reports,
@@ -29439,10 +34422,20 @@ def run_parallel_full_checks(
 				stop_after_batch = True
 		if batch_cleanup_errors:
 			log_copy_errors.extend(batch_cleanup_errors)
+			batch_failure_details = [
+				*(f"failure-log copy: {error}" for error in batch_log_copy_errors),
+				*(f"cleanup: {error}" for error in batch_cleanup_errors),
+			]
+			raise WorkspaceSnapshotError(
+				"Parallel Full batch cleanup failed; retained the owning validation "
+				f"root for diagnosis: {'; '.join(batch_failure_details)}"
+			)
+		cleanup_state["permitted"] = False
 		gf_parallel_validation.assert_source_matches_snapshot(
 			captured_workspace,
 			deadline=suite_deadline,
 		)
+		cleanup_state["permitted"] = True
 		if stop_after_batch:
 			break
 
@@ -29823,6 +34816,20 @@ def load_parallel_shard_report(
 		for field_name in ("timed_out", "cancelled"):
 			if type(result.get(field_name)) is not bool:
 				return None, f"Shard result {name!r} {field_name} must be boolean."
+		timed_out = bool(result["timed_out"])
+		cancelled = bool(result["cancelled"])
+		if timed_out and cancelled:
+			return None, (
+				f"Shard result {name!r} cannot be both timed out and cancelled."
+			)
+		if timed_out and exit_code != 124:
+			return None, (
+				f"Shard result {name!r} timed_out requires exit_code 124."
+			)
+		if cancelled and exit_code != 130:
+			return None, (
+				f"Shard result {name!r} cancelled requires exit_code 130."
+			)
 		duration_seconds = result.get("duration_seconds")
 		if not is_finite_non_negative_number(duration_seconds):
 			return None, f"Shard result {name!r} duration_seconds must be finite and non-negative."
@@ -30068,6 +35075,16 @@ def same_directory_chain_identity(
 	)
 
 
+def extended_length_syscall_path(path: Path) -> Path | str:
+	"""Use an extended Windows spelling only after lexical authorization."""
+	absolute_path = str(Path(os.path.abspath(path)))
+	if os.name != "nt" or absolute_path.startswith("\\\\?\\"):
+		return Path(absolute_path)
+	if absolute_path.startswith("\\\\"):
+		return "\\\\?\\UNC\\" + absolute_path[2:]
+	return "\\\\?\\" + absolute_path
+
+
 def read_bounded_regular_file_under_root(
 	containment_root: Path,
 	path: Path,
@@ -30083,7 +35100,8 @@ def read_bounded_regular_file_under_root(
 	if not path_is_within_or_equal(source_path, root) or source_path == root:
 		raise ValueError(f"{label} escapes its managed containment root.")
 	chain_before = snapshot_real_directory_chain(root, source_path.parent)
-	before = source_path.lstat()
+	source_syscall_path = extended_length_syscall_path(source_path)
+	before = os.stat(source_syscall_path, follow_symlinks=False)
 	if (
 		not stat.S_ISREG(before.st_mode)
 		or stat.S_ISLNK(before.st_mode)
@@ -30094,7 +35112,7 @@ def read_bounded_regular_file_under_root(
 		raise ValueError(f"{label} exceeds the managed size limit.")
 	flags = os.O_RDONLY | getattr(os, "O_BINARY", 0) | getattr(os, "O_CLOEXEC", 0)
 	flags |= getattr(os, "O_NOFOLLOW", 0)
-	file_descriptor = os.open(source_path, flags)
+	file_descriptor = os.open(source_syscall_path, flags)
 	try:
 		opened_before = os.fstat(file_descriptor)
 		if (
@@ -30114,7 +35132,7 @@ def read_bounded_regular_file_under_root(
 		os.close(file_descriptor)
 	if len(payload) > max_bytes:
 		raise ValueError(f"{label} exceeds the managed size limit.")
-	after = source_path.lstat()
+	after = os.stat(source_syscall_path, follow_symlinks=False)
 	chain_after = snapshot_real_directory_chain(root, source_path.parent)
 	if (
 		not same_directory_chain_snapshot(chain_before, chain_after)
@@ -30247,10 +35265,16 @@ def copy_parallel_log_tree(
 		write_flags = os.O_CREAT | os.O_EXCL | os.O_WRONLY | getattr(os, "O_BINARY", 0)
 		if hasattr(os, "O_NOFOLLOW"):
 			write_flags |= os.O_NOFOLLOW
-		destination_descriptor = os.open(destination_path, write_flags, 0o600)
+		destination_open_path = extended_length_syscall_path(destination_path)
+		destination_descriptor = os.open(destination_open_path, write_flags, 0o600)
 		with os.fdopen(destination_descriptor, "wb") as destination_file:
 			destination_file.write(payload)
-		destination_file_metadata = destination_path.lstat()
+			destination_file.flush()
+			destination_open_metadata = os.fstat(destination_file.fileno())
+		destination_file_metadata = os.stat(
+			destination_open_path,
+			follow_symlinks=False,
+		)
 		destination_chain_after_write = snapshot_real_directory_chain(
 			destination_managed_root,
 			destination_root,
@@ -30260,6 +35284,10 @@ def copy_parallel_log_tree(
 			or stat.S_ISLNK(destination_file_metadata.st_mode)
 			or bool(int(getattr(destination_file_metadata, "st_file_attributes", 0)) & 0x0400)
 			or destination_file_metadata.st_size != len(payload)
+			or not same_open_file_identity(
+				destination_open_metadata,
+				destination_file_metadata,
+			)
 			or not same_directory_chain_identity(destination_chain_before, destination_chain_after_write)
 		):
 			raise ValueError(f"Parallel log destination changed while writing: {entry_name}")
@@ -30287,11 +35315,16 @@ def same_file_identity(left: os.stat_result, right: os.stat_result) -> bool:
 
 def same_open_file_identity(left: os.stat_result, right: os.stat_result) -> bool:
 	"""Match a path stat to its opened handle; post-read metadata checks detect writes."""
+	left_device = int(getattr(left, "st_dev", 0))
+	left_inode = int(getattr(left, "st_ino", 0))
 	return (
-		left.st_mode == right.st_mode
+		stat.S_ISREG(left.st_mode)
+		and stat.S_ISREG(right.st_mode)
+		and left.st_mode == right.st_mode
 		and left.st_size == right.st_size
-		and getattr(left, "st_dev", 0) == getattr(right, "st_dev", 0)
-		and getattr(left, "st_ino", 0) == getattr(right, "st_ino", 0)
+		and (left_device != 0 or left_inode != 0)
+		and left_device == int(getattr(right, "st_dev", 0))
+		and left_inode == int(getattr(right, "st_ino", 0))
 	)
 
 
@@ -30523,11 +35556,46 @@ def run_maintenance_subprocess(
 	environment: dict[str, str] | None = None,
 ) -> subprocess.CompletedProcess[str]:
 	effective_command = resolve_godot_command(command, environment=environment)
-	return run_supervised_completed_process(
+	try:
+		result = run_supervised_process(
+			effective_command,
+			cwd=cwd,
+			timeout_seconds=timeout_seconds,
+			environment=environment,
+		)
+	except gf_process_supervisor.SupervisedProcessStartError as error:
+		# This legacy CompletedProcess-style helper has callers that deliberately
+		# classify FileNotFoundError and PermissionError. The structured exception
+		# proves that no child was created, so restoring the exact original error is
+		# both boundary-safe and backward compatible for those callers.
+		raise error.original_error from error
+	except gf_parallel_validation.WorkspaceProcessBoundaryError:
+		raise
+	except Exception as error:
+		# A raw OS error from the supervisor is deliberately not a proven no-child
+		# startup failure. It may represent a partially created process or cleanup
+		# debt, so legacy FileNotFoundError handlers must not convert it into an
+		# ordinary missing-tool result and delete the owned temporary root.
+		raise gf_parallel_validation.WorkspaceProcessBoundaryError(
+			"Maintenance subprocess supervision raised an unclassified error "
+			"without a quiet-boundary proof."
+		) from error
+	if result.process_boundary_quiescent is not True:
+		raise gf_parallel_validation.WorkspaceProcessBoundaryError(
+			"Maintenance subprocess process-boundary cleanup was not proven."
+		)
+	if result.timed_out:
+		raise subprocess.TimeoutExpired(
+			effective_command,
+			timeout_seconds,
+			output=result.stdout,
+			stderr=result.stderr,
+		)
+	return subprocess.CompletedProcess(
 		effective_command,
-		cwd=cwd,
-		timeout_seconds=timeout_seconds,
-		environment=environment,
+		result.return_code,
+		stdout=result.stdout,
+		stderr=result.stderr,
 	)
 
 
@@ -30541,6 +35609,7 @@ def run_command(
 ) -> CommandResult:
 	started = time.perf_counter()
 	log_paths: list[Path] = []
+	supervisor_invoked = False
 	process_environment = environment
 	if process_environment is None:
 		process_environment = dict(os.environ)
@@ -30552,6 +35621,7 @@ def run_command(
 	)
 	try:
 		log_paths = prepare_command_log_paths(effective_command)
+		supervisor_invoked = True
 		process_result = run_supervised_process(
 			effective_command,
 			cwd=ROOT,
@@ -30573,9 +35643,18 @@ def run_command(
 				else None
 			),
 		)
+		if process_result.process_boundary_quiescent is not True:
+			raise gf_parallel_validation.WorkspaceProcessBoundaryError(
+				f"Check {name!r} process-boundary cleanup was not proven."
+			)
 		if process_result.timed_out:
 			log_output, log_errors = read_command_log_outputs(log_paths)
 			stdout = append_command_log_output(process_result.stdout, log_output)
+			gut_lifecycle_report = (
+				parse_gut_lifecycle_gate_output(stdout, process_result.stderr)
+				if name == "gut"
+				else None
+			)
 			return CommandResult(
 				name=name,
 				command=effective_command,
@@ -30585,6 +35664,7 @@ def run_command(
 				timed_out=True,
 				process_exit_code=process_result.return_code,
 				notes=[*process_result.notes, *log_errors],
+				gut_lifecycle_report=gut_lifecycle_report,
 				duration_seconds=process_result.duration_seconds,
 				timeout_seconds=timeout_seconds,
 				pid=process_result.pid,
@@ -30603,21 +35683,57 @@ def run_command(
 			output_callback is not None,
 			process_result.notes,
 		)
-	except FileNotFoundError as exc:
+	except gf_process_supervisor.SupervisedProcessStartError as exc:
+		original_error = exc.original_error
+		start_error_detail = gf_process_supervisor.safe_exception_detail(original_error)
+		if isinstance(original_error, FileNotFoundError):
+			return CommandResult(
+				name=name,
+				command=effective_command,
+				exit_code=127,
+				stdout="",
+				stderr=f"command not found: {effective_command[0]}\n{start_error_detail}",
+				notes=[
+					"Check that the executable is installed and available on PATH.",
+					f"cwd: {ROOT}",
+				],
+				duration_seconds=time.perf_counter() - started,
+				timeout_seconds=timeout_seconds,
+			)
 		return CommandResult(
 			name=name,
 			command=effective_command,
-			exit_code=127,
+			exit_code=126,
 			stdout="",
-			stderr=f"command not found: {effective_command[0]}\n{exc}",
-			notes=[
-				"Check that the executable is installed and available on PATH.",
-				f"cwd: {ROOT}",
-			],
+			stderr=f"failed to run command: {start_error_detail}",
+			notes=[f"cwd: {ROOT}"],
 			duration_seconds=time.perf_counter() - started,
 			timeout_seconds=timeout_seconds,
 		)
-	except OSError as exc:
+	except gf_parallel_validation.WorkspaceProcessBoundaryError:
+		raise
+	except Exception as exc:
+		if supervisor_invoked:
+			raise gf_parallel_validation.WorkspaceProcessBoundaryError(
+				f"Check {name!r} process supervision raised an unclassified error "
+				"without a quiet-boundary proof."
+			) from exc
+		if not isinstance(exc, OSError):
+			raise
+		if isinstance(exc, FileNotFoundError):
+			return CommandResult(
+				name=name,
+				command=effective_command,
+				exit_code=127,
+				stdout="",
+				stderr=f"command not found: {effective_command[0]}\n{exc}",
+				notes=[
+					"Check that the executable is installed and available on PATH.",
+					f"cwd: {ROOT}",
+				],
+				duration_seconds=time.perf_counter() - started,
+				timeout_seconds=timeout_seconds,
+			)
 		return CommandResult(
 			name=name,
 			command=effective_command,

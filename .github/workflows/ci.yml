@@ -99,7 +99,7 @@ jobs:
             suite: framework-gut
             install_docs: false
             setup_godot: true
-            timeout_minutes: 30
+            timeout_minutes: 60
           - name: LSP diagnostics
             suite: framework-lsp
             install_docs: false
@@ -219,6 +219,12 @@ jobs:
 
       - name: Verify owned process-tree cleanup
         run: python tools/gf_maintenance.py maintenance-self-test --json
+
+      - name: Verify Windows staging and startup boundaries
+        run: >
+          python -B -m unittest
+          tests.gf_core.tools.test_gf_parallel_validation
+          tests.gf_core.tools.test_gf_maintenance_check_graph
 
   draft-gate:
     name: ${{ github.event_name == 'pull_request' && github.event.pull_request.draft == true && (github.event.action != 'edited' || github.event.changes.base.ref.from != '') && 'GF draft gate' || 'GF draft gate (not applicable)' }}

@@ -26,6 +26,51 @@ class GutInventoryTests(unittest.TestCase):
 	def test_inventory_deadline_preserves_windows_io_headroom(self) -> None:
 		self.assertEqual(gut_sharding.INVENTORY_DEADLINE_SECONDS, 30.0)
 
+	def test_inventory_stability_scans_receive_independent_bounded_deadlines(self) -> None:
+		clock = [100.0]
+		deadlines: list[float] = []
+		inventory = {"res://tests/gf_core/kernel/test_example.gd"}
+		def scan(_root: Path, deadline: float) -> set[str]:
+			deadlines.append(deadline)
+			clock[0] += 25.0
+			return inventory
+
+		with (
+			mock.patch.object(
+				gut_sharding.time,
+				"monotonic",
+				side_effect=lambda: clock[0],
+			),
+			mock.patch.object(
+				gut_sharding,
+				"_scan_test_inventory",
+				side_effect=scan,
+			),
+		):
+			actual = gut_sharding.discover_gut_test_scripts(Path("repository"))
+		self.assertEqual(actual, tuple(inventory))
+		self.assertEqual(deadlines, [130.0, 155.0])
+
+		clock[0] = 100.0
+		deadlines.clear()
+		with (
+			mock.patch.object(
+				gut_sharding.time,
+				"monotonic",
+				side_effect=lambda: clock[0],
+			),
+			mock.patch.object(
+				gut_sharding,
+				"_scan_test_inventory",
+				side_effect=scan,
+			),
+		):
+			gut_sharding.discover_gut_test_scripts(
+				Path("repository"),
+				deadline=140.0,
+			)
+		self.assertEqual(deadlines, [130.0, 140.0])
+
 	def test_repository_inventory_and_manifest_cover_live_scripts_once(self) -> None:
 		inventory = gut_sharding.discover_gut_test_scripts(ROOT)
 		manifest = gut_sharding.load_and_validate_manifest(
@@ -1615,6 +1660,132 @@ class GutJunitTests(unittest.TestCase):
 			0.38,
 		)
 
+	def test_observation_script_record_helper_matches_strict_junit_entrypoint(self) -> None:
+		manifest, junit = self._observation_fixture(status="fail")
+
+		actual = gut_sharding.build_observation_report_from_script_records(
+			manifest,
+			copy.deepcopy(junit["scripts"]),
+			failure_test_count=junit["failure_test_count"],
+		)
+
+		self.assertEqual(
+			actual,
+			gut_sharding.build_observation_report(manifest, junit),
+		)
+
+	def test_observation_script_record_helper_rejects_non_closed_records(self) -> None:
+		manifest, junit = self._observation_fixture()
+		scripts = junit["scripts"]
+
+		mutations: tuple[tuple[str, object, str], ...] = (
+			(
+				"non_list",
+				tuple(copy.deepcopy(scripts)),
+				"observation_junit_invalid",
+			),
+			(
+				"schema_drift",
+				self._mutated_observation_scripts(scripts, remove_field="tests"),
+				"observation_script_schema_invalid",
+			),
+			(
+				"noncanonical_path",
+				self._mutated_observation_scripts(
+					scripts,
+					script="res://tests/gf_core//kernel/test_alpha.gd",
+				),
+				"test_script_path_invalid",
+			),
+			(
+				"duplicate_path",
+				copy.deepcopy(scripts) + [copy.deepcopy(scripts[0])],
+				"observation_script_duplicate",
+			),
+			(
+				"portable_identity_collision",
+				copy.deepcopy(scripts)
+				+ [
+					{
+						**copy.deepcopy(scripts[0]),
+						"script": "res://tests/gf_core/kernel/test_Alpha.gd",
+					},
+				],
+				"inventory_expected_identity_collision",
+			),
+			(
+				"manifest_not_closed",
+				[
+					copy.deepcopy(script)
+					for script in scripts
+					if script["script"] != self.SCRIPT_ALPHA
+				],
+				"manifest_script_extra",
+			),
+		)
+		for name, mutated_scripts, error_code in mutations:
+			with self.subTest(mutation=name), self.assertRaisesRegex(
+				gut_sharding.GutShardingError,
+				error_code,
+			):
+				gut_sharding.build_observation_report_from_script_records(
+					manifest,
+					mutated_scripts,
+					failure_test_count=junit["failure_test_count"],
+				)
+
+	def test_observation_script_record_helper_rejects_failure_count_and_duration_drift(self) -> None:
+		manifest, junit = self._observation_fixture(status="fail")
+		for failure_test_count in (True, -1, 1.0, "1"):
+			with self.subTest(
+				failure_test_count=failure_test_count,
+			), self.assertRaisesRegex(
+				gut_sharding.GutShardingError,
+				"observation_failure_test_count_invalid",
+			):
+				gut_sharding.build_observation_report_from_script_records(
+					manifest,
+					copy.deepcopy(junit["scripts"]),
+					failure_test_count=failure_test_count,
+				)
+		for failure_test_count in (0, 2):
+			with self.subTest(
+				failure_bound=failure_test_count,
+			), self.assertRaisesRegex(
+				gut_sharding.GutShardingError,
+				"observation_failure_test_count_mismatch",
+			):
+				gut_sharding.build_observation_report_from_script_records(
+					manifest,
+					copy.deepcopy(junit["scripts"]),
+					failure_test_count=failure_test_count,
+				)
+
+		nonfinite_scripts = copy.deepcopy(junit["scripts"])
+		nonfinite_scripts[0]["duration_seconds"] = float("inf")
+		with self.assertRaisesRegex(
+			gut_sharding.GutShardingError,
+			"observation_script_value_invalid",
+		):
+			gut_sharding.build_observation_report_from_script_records(
+				manifest,
+				nonfinite_scripts,
+				failure_test_count=junit["failure_test_count"],
+			)
+
+		overflow_scripts = copy.deepcopy(junit["scripts"])
+		for script in overflow_scripts:
+			script["duration_seconds"] = 1e308
+		with self.assertRaisesRegex(
+			gut_sharding.GutShardingError,
+			"observation_duration_total_invalid",
+		):
+			gut_sharding.build_observation_report_from_script_records(
+				manifest,
+				overflow_scripts,
+				failure_test_count=junit["failure_test_count"],
+			)
+
 	def test_observation_rejects_coerced_parser_record_types(self) -> None:
 		inventory = (gut_sharding.LIFECYCLE_CONTRACT_SCRIPT,)
 		manifest = gut_sharding._bootstrap_manifest_for_inventory(inventory)  # noqa: SLF001
@@ -1725,6 +1896,58 @@ class GutJunitTests(unittest.TestCase):
 				gut_sharding.GutShardingError,
 			):
 				gut_sharding.build_observation_report(manifest, mutated)
+
+	def _observation_fixture(
+		self,
+		*,
+		status: str = "pass",
+	) -> tuple[dict[str, object], dict[str, object]]:
+		inventory = (
+			self.SCRIPT_ALPHA,
+			gut_sharding.LIFECYCLE_CONTRACT_SCRIPT,
+		)
+		manifest = gut_sharding._bootstrap_manifest_for_inventory(inventory)  # noqa: SLF001
+		xml = self._junit_xml([
+			self._suite_xml(
+				self.SCRIPT_ALPHA,
+				[
+					self._test_xml(
+						"test_alpha",
+						status,
+						"0.1",
+						assertions="1",
+						script=self.SCRIPT_ALPHA,
+					),
+				],
+			),
+			self._suite_xml(
+				gut_sharding.LIFECYCLE_CONTRACT_SCRIPT,
+				[
+					self._test_xml(
+						"test_lifecycle",
+						"pass",
+						"0.1",
+						assertions="1",
+						script=gut_sharding.LIFECYCLE_CONTRACT_SCRIPT,
+					),
+				],
+			),
+		])
+		return manifest, self._parse(xml, expected=inventory)
+
+	@staticmethod
+	def _mutated_observation_scripts(
+		scripts: object,
+		*,
+		remove_field: str | None = None,
+		script: str | None = None,
+	) -> list[dict[str, object]]:
+		mutated = copy.deepcopy(scripts)
+		if remove_field is not None:
+			mutated[0].pop(remove_field)
+		if script is not None:
+			mutated[0]["script"] = script
+		return mutated
 
 	def _parse(
 		self,

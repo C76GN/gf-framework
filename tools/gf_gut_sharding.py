@@ -210,20 +210,43 @@ def canonical_digest(value: Any) -> str:
 	return hashlib.sha256(canonical_json_bytes(value)).hexdigest()
 
 
-def discover_gut_test_scripts(root: Path) -> tuple[str, ...]:
-	"""Discover the stable, complete set of real GF GUT test scripts."""
+def discover_gut_test_scripts(
+	root: Path,
+	*,
+	deadline: float | None = None,
+) -> tuple[str, ...]:
+	"""Discover the stable, complete set of real GF GUT test scripts.
+
+	Each of the two independent stability scans receives the configured scan
+	budget.  An optional caller deadline remains the hard upper bound for both
+	scans, so a worker cannot extend its own total execution budget.
+	"""
 
 	root = Path(root)
 	tests_root = root / "tests" / "gf_core"
-	deadline = time.monotonic() + INVENTORY_DEADLINE_SECONDS
-	first = _scan_test_inventory(tests_root, deadline)
-	second = _scan_test_inventory(tests_root, deadline)
+	first = _scan_test_inventory(
+		tests_root,
+		_inventory_scan_deadline(deadline),
+	)
+	second = _scan_test_inventory(
+		tests_root,
+		_inventory_scan_deadline(deadline),
+	)
 	if first != second:
 		raise GutShardingError(
 			"inventory_changed_during_scan",
 			"GUT test inventory changed while it was being captured.",
 		)
 	return tuple(sorted(first))
+
+
+def _inventory_scan_deadline(overall_deadline: float | None) -> float:
+	"""Return one scan deadline without exceeding a caller-owned deadline."""
+
+	scan_deadline = time.monotonic() + INVENTORY_DEADLINE_SECONDS
+	if overall_deadline is None:
+		return scan_deadline
+	return min(overall_deadline, scan_deadline)
 
 
 def generate_bootstrap_manifest(root: Path) -> dict[str, Any]:
@@ -961,14 +984,28 @@ def build_observation_report(
 			"JUnit observation must be the parser's JSON object.",
 		)
 	_validate_observation_junit_report(junit_report)
-	raw_scripts = junit_report.get("scripts")
-	if type(raw_scripts) is not list:
+	return build_observation_report_from_script_records(
+		manifest,
+		junit_report["scripts"],
+		failure_test_count=junit_report["failure_test_count"],
+	)
+
+
+def build_observation_report_from_script_records(
+	manifest: Any,
+	scripts: Any,
+	*,
+	failure_test_count: Any,
+) -> dict[str, Any]:
+	"""Aggregate exact normalized script records by the bootstrap shards."""
+
+	if type(scripts) is not list:
 		raise GutShardingError(
 			"observation_junit_invalid",
 			"JUnit observation scripts must be an array.",
 		)
 	observed_by_path: dict[str, dict[str, Any]] = {}
-	for raw_script in raw_scripts:
+	for raw_script in scripts:
 		if type(raw_script) is not dict or type(raw_script.get("script")) is not str:
 			raise GutShardingError(
 				"observation_junit_invalid",
@@ -983,6 +1020,28 @@ def build_observation_report(
 			)
 		observed_by_path[script_path] = raw_script
 	normalized_manifest = validate_manifest(manifest, observed_by_path)
+	if type(failure_test_count) is not int or failure_test_count < 0:
+		raise GutShardingError(
+			"observation_failure_test_count_invalid",
+			"Observation failure-test count must be a non-negative integer.",
+		)
+	failure_test_count_lower_bound = sum(
+		report["failure_test_count_lower_bound"]
+		for report in observed_by_path.values()
+	)
+	failure_test_count_upper_bound = sum(
+		report["failure_test_count_upper_bound"]
+		for report in observed_by_path.values()
+	)
+	if not (
+		failure_test_count_lower_bound
+		<= failure_test_count
+		<= failure_test_count_upper_bound
+	):
+		raise GutShardingError(
+			"observation_failure_test_count_mismatch",
+			"Observation failure-test count is outside the script-record bounds.",
+		)
 
 	shard_reports: list[dict[str, Any]] = []
 	for shard in normalized_manifest["shards"]:
@@ -1053,7 +1112,7 @@ def build_observation_report(
 		"testcase_duration_seconds": testcase_duration_seconds,
 		"duration_scope": JUNIT_LIFECYCLE_DURATION_SCOPE,
 		"status_counts": status_counts,
-		"failure_test_count": junit_report["failure_test_count"],
+		"failure_test_count": failure_test_count,
 		"failure_assertion_count": sum(
 			int(shard["failure_assertion_count"]) for shard in shard_reports
 		),

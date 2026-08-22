@@ -27,7 +27,12 @@ from gf_maintenance import (
 	has_godot_script_error,
 	parse_gut_lifecycle_gate_output,
 )
-from gf_process_supervisor import run_supervised_process
+from gf_parallel_validation import WorkspaceProcessBoundaryError
+from gf_process_supervisor import (
+	SupervisedProcessStartError,
+	run_supervised_process,
+	safe_exception_detail,
+)
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -216,12 +221,25 @@ def run_scenario(godot: str, scenario: Scenario) -> ScenarioResult:
 			environment=environment,
 			timeout_seconds=SCENARIO_TIMEOUT_SECONDS,
 		)
-	except (OSError, RuntimeError) as error:
+	except SupervisedProcessStartError as error:
+		original_error = error.original_error
+		start_error_detail = safe_exception_detail(original_error)
 		return ScenarioResult(
 			name=scenario.name,
 			ok=False,
-			issues=[f"supervised scenario failed: {type(error).__name__}: {error}"],
+			issues=[
+				"supervised scenario failed before a child was created: "
+				f"{type(original_error).__name__}: {start_error_detail}"
+			],
 			log_path=log_path.as_posix(),
+		)
+	except Exception as error:
+		raise WorkspaceProcessBoundaryError(
+			"GUT lifecycle scenario supervision failed without a quiet-boundary proof."
+		) from error
+	if process_result.process_boundary_quiescent is not True:
+		raise WorkspaceProcessBoundaryError(
+			"GUT lifecycle scenario returned without a quiet process-boundary proof."
 		)
 
 	log_text = read_log(log_path)

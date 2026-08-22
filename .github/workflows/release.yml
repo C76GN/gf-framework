@@ -53,7 +53,7 @@ jobs:
   release-framework-checks:
     name: GF release framework checks
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 90
 
     steps:
       - name: Checkout tag
@@ -79,6 +79,7 @@ jobs:
         run: >
           python tools/gf_maintenance.py check
           --suite framework
+          --suite-timeout 4800
           --failed-only
           --github-annotations
 
