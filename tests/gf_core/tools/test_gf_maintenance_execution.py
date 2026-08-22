@@ -8477,6 +8477,7 @@ class WorkspaceExecutionBoundaryTests(unittest.TestCase):
 			owned_root = root / "owned"
 			owned_root.mkdir()
 			target = owned_root / "artifact-consumer"
+			published_original = owned_root / "published-original"
 			replacement_marker = target / "replacement.txt"
 			primary = artifact_module.PackageArtifactSetError(
 				"published private artifact validation failed"
@@ -8488,8 +8489,7 @@ class WorkspaceExecutionBoundaryTests(unittest.TestCase):
 				load_count += 1
 				if load_count == 1:
 					return source
-				(target / artifact_module.MANIFEST_FILENAME).unlink()
-				target.rmdir()
+				target.rename(published_original)
 				target.mkdir()
 				replacement_marker.write_text("retained", encoding="utf-8")
 				raise primary
@@ -8532,6 +8532,9 @@ class WorkspaceExecutionBoundaryTests(unittest.TestCase):
 			self.assertTrue(gf_maintenance.exception_has_cleanup_debt(raised.exception))
 			self.assertEqual(raised.exception.preserved_paths, (target,))
 			self.assertTrue(owned_root.is_dir())
+			self.assertTrue(
+				(published_original / artifact_module.MANIFEST_FILENAME).is_file()
+			)
 			self.assertEqual(replacement_marker.read_text(encoding="utf-8"), "retained")
 
 	def test_process_boundary_temp_cleans_handled_non_debt_failure(self) -> None:
