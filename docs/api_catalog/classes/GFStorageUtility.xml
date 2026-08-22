@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFStorageUtility" path="addons/gf/standard/utilities/storage/gf_storage_utility.gd" module="standard" extends="GFUtility" classDigest="bbd7196109beae157d89d2c3179051a12079c403a3ff3ca0bd767c2100bbe206">
+<class name="GFStorageUtility" path="addons/gf/standard/utilities/storage/gf_storage_utility.gd" module="standard" extends="GFUtility" classDigest="a869ae64e792e69df7f95440be7ca880533120bf2ec912b9270fb5a1c92f6e6c">
 	<description>GFStorageUtility: 基于 `user://` 的轻量存档系统。
 支持槽位存档、元数据分离读取、`Resource` 存取，
 以及可配置 codec、完整性校验、版本迁移和简单混淆，适合通用本地持久化场景。
@@ -53,7 +53,23 @@
 			</tags>
 		</member>
 	</signals>
-	<enums />
+	<enums>
+		<member kind="enum" name="AsyncExecutionMode">
+			<signature>enum AsyncExecutionMode {
+	## 自动选择；无线程能力的构建使用 cooperative，否则使用线程。
+	AUTOMATIC = 0,
+	## 强制使用线程；无线程能力时 activation 确定性失败。
+	THREADED = 1,
+	## 由 lifecycle tick 在主线程逐项推进，不创建 Thread。
+	COOPERATIVE = 2,
+}</signature>
+			<description>异步 Storage 请求的执行模式。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</enums>
 	<constants>
 		<member kind="const" name="DEFAULT_MAX_LIST_DEPTH">
 			<signature>const DEFAULT_MAX_LIST_DEPTH: int = 32</signature>
@@ -177,11 +193,21 @@
 				<tag name="since">6.0.0</tag>
 			</tags>
 		</member>
-		<member kind="property" name="max_async_thread_count">
-			<signature>var max_async_thread_count: int = 4:</signature>
-			<description>同时运行的异步存取线程数量。小于 1 时会被钳制为 1。</description>
+		<member kind="property" name="async_execution_mode">
+			<signature>var async_execution_mode: AsyncExecutionMode = AsyncExecutionMode.AUTOMATIC:</signature>
+			<description>异步 Storage 请求的执行模式。首个合法异步请求入队后冻结。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="max_async_thread_count">
+			<signature>var max_async_thread_count: int = 4:</signature>
+			<description>线程模式同时运行的异步存取线程数量，小于 1 时会被钳制为 1。
+cooperative 模式固定每个 lifecycle tick 最多执行一个任务。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="save_version">
@@ -233,25 +259,27 @@
 		</member>
 		<member kind="method" name="tick">
 			<signature>func tick(_delta: float = 0.0) -&gt; void:</signature>
-			<description>驱动异步存档任务完成检查。</description>
+			<description>驱动异步存档任务完成检查；cooperative 模式还会在主线程执行至多一个完整 I/O。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">_delta: 本帧时间增量（秒），默认实现不直接使用。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="begin_activation">
 			<signature>func begin_activation(_scope: GFAsyncScope) -&gt; GFAsyncCompletion:</signature>
-			<description>激活 Storage 的同步与异步 I/O 准入。</description>
+			<description>激活 Storage 的同步与异步 I/O 准入。
+强制线程模式缺少 `threads` 能力时，失败 metadata.error_code 为 ERR_CANT_CREATE。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">_scope: 当前 Storage 激活阶段的取消作用域。</tag>
-				<tag name="return">成功打开 I/O 准入；正在 dispose 或已经进入过 quiesce 时返回失败终态。</tag>
+				<tag name="return">成功打开 I/O 准入；否则返回失败终态。</tag>
 				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
 		<member kind="method" name="begin_quiesce">
 			<signature>func begin_quiesce(scope: GFAsyncScope) -&gt; GFAsyncCompletion:</signature>
-			<description>关闭新 I/O 准入，并等待此前接纳的队列、线程和文件锁全部收敛。
+			<description>关闭新 I/O 准入，并等待此前接纳的队列、执行任务和文件锁全部收敛。
 已接纳任务继续由 lifecycle tick 推进；强制 dispose 仍会使用同步 join fallback。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -319,7 +347,7 @@
 		</member>
 		<member kind="method" name="delete_file_request_async">
 			<signature>func delete_file_request_async( file_name: String, options: GFStorageAsyncRequestOptions = null ) -&gt; GFStorageAsyncOperation:</signature>
-			<description>在线程中删除一个精确 logical family，并返回请求专属句柄。
+			<description>通过当前 Storage executor 删除一个精确 logical family，并返回请求专属句柄。
 请求只删除冻结 family 的八个可变物理成员；catalog 与 owner identity 保留。
 删除不会隐式恢复事务，也不会扫描或收养 sibling family。</description>
 			<tags>
@@ -375,18 +403,19 @@
 		</member>
 		<member kind="method" name="save_data_async">
 			<signature>func save_data_async(file_name: String, data: Dictionary) -&gt; Error:</signature>
-			<description>在线程中异步保存纯字典数据。完成后从主线程发出 save_completed。</description>
+			<description>通过当前 Storage executor 异步保存纯字典数据。完成后从主线程发出 save_completed。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">file_name: 目标文件名。</tag>
 				<tag name="param">data: 要保存的字典。</tag>
-				<tag name="return">启动线程的 Error 结果码。</tag>
+				<tag name="return">请求接纳结果码；成功入队时返回 OK。</tag>
 				<tag name="schema">data: Dictionary，要序列化并保存的数据载荷。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="save_data_request_async">
 			<signature>func save_data_request_async( file_name: String, data: Dictionary, options: GFStorageAsyncRequestOptions = null ) -&gt; GFStorageAsyncOperation:</signature>
-			<description>在线程中异步保存纯字典数据，并返回请求专属句柄。
+			<description>通过当前 Storage executor 异步保存纯字典数据，并返回请求专属句柄。
 句柄终态不会与共享 Storage 上同文件的其他请求混淆。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -400,7 +429,7 @@
 		</member>
 		<member kind="method" name="save_payload_request_async">
 			<signature>func save_payload_request_async( file_name: String, transfer: GFStoragePayloadTransfer, options: GFStorageAsyncRequestOptions = null ) -&gt; GFStorageAsyncOperation:</signature>
-			<description>在线程中保存由单所有者 transfer 移交的纯 Variant payload。
+			<description>通过当前 Storage executor 保存由单所有者 transfer 移交的纯 Variant payload。
 路径校验在 claim 前完成；非法路径不会消费 transfer。首次合法请求会冻结当前
 Storage 实例、规范文件名与 codec options。同一 transfer 可在旧 attempt 尚未
 完成时提交给相同绑定，用于 timeout retry；所有 attempt 只读同一逻辑快照。
@@ -416,16 +445,17 @@ Storage 实例、规范文件名与 codec options。同一 transfer 可在旧 at
 		</member>
 		<member kind="method" name="load_data_async">
 			<signature>func load_data_async(file_name: String) -&gt; Error:</signature>
-			<description>在线程中异步读取纯字典数据。完成后从主线程发出 load_completed。</description>
+			<description>通过当前 Storage executor 异步读取纯字典数据。完成后从主线程发出 load_completed。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">file_name: 目标文件名。</tag>
-				<tag name="return">启动线程的 Error 结果码。</tag>
+				<tag name="return">请求接纳结果码；成功入队时返回 OK。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="load_data_request_async">
 			<signature>func load_data_request_async( file_name: String, options: GFStorageAsyncRequestOptions = null ) -&gt; GFStorageAsyncOperation:</signature>
-			<description>在线程中异步读取纯字典数据，并返回请求专属句柄。
+			<description>通过当前 Storage executor 异步读取纯字典数据，并返回请求专属句柄。
 读取终态通过句柄携带 `GFStorageReadResult`，调用方无需监听全局文件名信号。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -450,9 +480,11 @@ family 私有身份。返回值为深复制，调用方修改不会影响 Utilit
 		<member kind="method" name="wait_for_async_tasks">
 			<signature>func wait_for_async_tasks() -&gt; void:</signature>
 			<description>等待已经入队和正在执行的异步纯数据任务全部完成。
-需要在同一路径上混合同步与异步读写时，可先调用该方法收敛顺序。</description>
+需要在同一路径上混合同步与异步读写时，可先调用该方法收敛顺序。
+Storage executor 的同步执行栈内会拒绝重入等待，避免等待当前调用栈自身完成。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="migrate_data">

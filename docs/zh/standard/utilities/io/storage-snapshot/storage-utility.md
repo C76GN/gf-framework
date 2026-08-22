@@ -31,11 +31,7 @@ var decoded := GFSafeResourceCodec.decode(encoded.data, policy)
 
 这种聚合结构应由项目定义，例如 schema 版本、玩家资料、世界状态、设置、统计和自定义预览字段。GF 侧只承诺通用机制：路径安全、事务恢复、codec、checksum、压缩、多文件事务、Resource 存取和 `register_migration()` 版本迁移。模块优先级、业务字段含义、奖励发放、云同步账号隔离、平台加密和冲突策略都应留在项目层或独立插件。
 
-大型载荷推荐拆成两段：先用项目自己的分帧流程生成纯 `Dictionary`，或调用
-`GFArchitecture.get_global_snapshot_async()` 并在 `ok == true` 后取出 `snapshot`，
-再交给 Storage 后台预检、物化、编码和落盘。不要把 Architecture 的 Result 外壳或
-失败结果当作存档载荷。`GFStorageUtility` 的 worker 只处理已经生成的纯 Variant 图，
-不会遍历场景树、读取 `Resource` 或调用业务对象。
+大型载荷推荐拆成两段：先用项目自己的分帧流程生成纯 `Dictionary`，或调用 `GFArchitecture.get_global_snapshot_async()` 并在 `ok == true` 后取出 `snapshot`，再交给 Storage 执行器预检、物化、编码和落盘。不要把 Architecture 的 Result 外壳或失败结果当作存档载荷。`GFStorageUtility` 的执行器只处理已经生成的纯 Variant 图，不会遍历场景树、读取 `Resource` 或调用业务对象；这一约束在线程和协作式模式下相同。
 
 `save_data_async()` 与 `save_data_request_async()` 是安全的普通入口：它们会在请求入队
 时深复制 `Dictionary`，调用方可以继续使用原值。已经通过分帧流程独占大型载荷，并且
@@ -67,7 +63,7 @@ else:
 
 这条入口采用逻辑 move，不做深复制，也没有公开 payload getter。调用成功后，生产者必须
 永久放弃源 `Dictionary` 及全部嵌套 `Array` / `Dictionary` alias；GDScript 不会替框架
-执行语言级 move，继续访问这些 alias 会破坏跨线程只读不变量。
+执行语言级 move，继续访问这些 alias 会破坏跨异步执行边界的只读不变量。
 
 首次合法请求会冻结 Storage 实例、原样合法的 portable logical path、canonical target file-family identity
 和 codec options；Utility 的存储目录或 codec 配置发生变化后，旧 transfer 不会漂移到
@@ -78,14 +74,14 @@ detached attempt 与有界重试分别取得只读 lease；重试复用同一个
 结束后，所有者必须调用 `release()`。如果仍有 attempt 活动，载荷会延迟到最后一个
 lease 收敛后再清空。
 
-worker 会在本次新写入的编码以及 temp、marker、final 事务提交副作用前检查图深度、
+Storage 执行器会在本次新写入的编码以及 temp、marker、final 事务提交副作用前检查图深度、
 值数量、估算原始字节数、支持的 Variant 类型、typed container 约束、集合循环和非有限
 数值，再物化隔离副本。当前硬上限为 128 层、1,000,000 个值与 64 MiB；Dictionary
 使用逐条迭代，不会先物化完整 key snapshot。Packed Array 的每个元素都会计入值预算，
 其固定宽度或字符串内容同时计入字节预算；需逐项检查有限性的 Packed
 Float/Vector/Color 也必须先通过预算才能开始扫描。携带 Object、Resource 或 Script
 类型元数据的空 typed Array/Dictionary 同样会被拒绝，不能借空容器把对象约束带入
-worker。
+执行器。
 
 启动前的既有事务 recovery 与 layout 初始化属于独立前置生命周期，不受这条“新写入尚未
 提交”的保证覆盖。同步与异步写入都先原子发布不可变 prepare record，再创建 candidate；
@@ -129,6 +125,17 @@ storage.allowed_resource_load_extensions = PackedStringArray(["tres"])
 storage.allowed_resource_load_type_hints = PackedStringArray(["Resource"])
 var loaded_res := storage.load_resource("my_custom_resource.tres", "Resource")
 ```
+
+## 异步执行模式 {#async-execution-mode}
+
+`async_execution_mode` 通过 `GFStorageUtility.AsyncExecutionMode` 显式选择异步请求的执行器，不会把同一个请求静默改成调用栈内的同步 I/O：
+
+- `AUTOMATIC` 默认按 Godot feature tag 解析能力：带 `threads` 的构建使用线程执行器，`nothreads` Web 导出以及其他不具备 `threads` 能力的运行时使用 cooperative 执行器。
+- `THREADED` 强制创建线程；在无线程运行时，`begin_activation()` 以 `ERR_CANT_CREATE` 确定性失败。只要尚未入队合法异步请求，失败后仍可改为 `COOPERATIVE` 并重新激活。
+- `COOPERATIVE` 不创建 `Thread`，由生命周期 `tick()` 在主线程推进；请求 API 只入队，`tick N` 接纳并取得精确 family 锁，`tick N+1` 执行此前已接纳任务并写入物理终态。
+- 应在首个合法异步请求前设置模式；请求入队时模式冻结，之后的赋值被拒绝。`max_async_thread_count` 只限制线程模式的并行线程数，cooperative 模式固定只有一个活动任务并忽略该配置。
+- cooperative 每个 tick 最多执行一个完整任务，不会把 codec 或文件 I/O 自动切成可抢占片段，单个大型 I/O 仍可能占用一帧。`wait_for_async_tasks()` 会同步执行并 drain 全部队列；`dispose()` 会真实取消尚未接纳项，并同步执行已接纳任务到物理终态。
+- 两种执行器共用请求身份、同 family FIFO、caller/物理双终态、取消/deadline、事务恢复、settling ownership、quiesce 和迟到诊断。`worker_accepted` 兼容字段表示所选执行器已接纳请求，不保证创建过 Godot `Thread`；已接纳请求继续持有 family 锁到物理终态。
 
 ## 异步请求身份
 
@@ -201,24 +208,25 @@ caller 轴，但 caller 终态会跟随物理终态，不增加额外生命周�
 弱 owner 释放时 caller 终态仍可由 Operation 查询，但框架可能抑制发给已失效 consumer 的
 `caller_completed` 信号；不要把信号缺席解释成物理请求没有结算。
 
-caller 生命周期触发时，框架先区分请求是否已被 worker 接纳：
+caller 生命周期触发时，框架先区分请求是否已被所选执行器接纳：
 
-- 排队请求若能在线程接纳前移除，会得到真实物理取消。`GFStorageAsyncResult` 的
+- 排队请求若能在执行器接纳前移除，会得到真实物理取消。`GFStorageAsyncResult` 的
   `SettlementKind` 为 `CANCELLED`、Error 为 `ERR_SKIP`，并且不会伪造 read、write 或 delete
   领域结果；caller 同时得到包含该物理取消结果的
   `GFStorageAsyncCallerResult.Status.PHYSICAL_SETTLED`。
 - 已接纳的 load 没有持久化副作用，caller 终态为
   `GFStorageAsyncCallerResult.Status.CANCELLED`；已接纳的 save/delete 可能已经产生持久化
   副作用，caller 终态为 `GFStorageAsyncCallerResult.Status.OUTCOME_UNKNOWN`。
-  这两种情况都只停止当前 consumer 的等待：线程槽至少保留到真实线程退出，family 文件锁
-  与 settling ownership 则保留到物理终态写入，不能让同文件 follower 越过结算边界。
+  这两种情况都只停止当前 consumer 的等待：执行器活动记录、family 文件锁与 settling
+  ownership 会保留到物理终态写入，不能让同文件 follower 越过结算边界。线程模式还会
+  保留线程槽到真实线程退出；cooperative 模式会在后续 lifecycle tick 完成已接纳任务。
 
-同一调度轮先收割已经完成的 worker，再仲裁显式取消、token、owner 与 deadline，因此已经
+同一调度轮先收割已经可观察的物理终态，再仲裁显式取消、token、owner 与 deadline，因此已经
 可观察的物理终态优先；否则首个 caller 结束原因获胜。物理先完成时，Operation 先写入两条
 终态，依次发出 `completed`、`caller_completed`。caller 先完成时只发出
 `caller_completed`，晚到物理终态随后仍恰好发出一次 `completed`，不会改写或重发 caller
-终态。`dispose()` 会把尚未接纳的排队请求按真实取消结算，并同步 join 已接纳 worker 后返回
-真实物理结果；不会在 worker 退出前释放线程槽或 family 锁。
+终态。`dispose()` 会把尚未接纳的排队请求按真实取消结算，并同步 drain 已接纳执行器工作后
+返回真实物理结果；不会在物理执行收敛前释放活动配额或 family 锁。
 
 `GFStorageUtility.get_late_settlement_diagnostics()` 按物理结算顺序保留最近 64 条 caller-first
 记录，返回顺序为最旧到最新，ring 在 `dispose()` 后仍可读取。每条记录使用精确 22 字段
@@ -257,10 +265,10 @@ existing = removed + remaining，且每项最多为 8；`get_failed_member()` �
 
 ## 文件管理
 
-运行时文件管理只公开 logical API：`has_file()` 判断 committed payload，`list_files()` 从 catalog 投影 logical identity，`delete_file()` 同步删除一个精确 family，`delete_file_request_async()` 返回逐请求 typed handle 并让物理删除在 worker 线程执行。框架不再公开 Storage 物理根、目录创建或嵌套目录开关；logical 目录只是 selector，不对应调用方可管理的物理目录。项目 slot adapter 应使用受控模板与 logical API，不能扫描或拼接内部事务、备份和 family 路径。
+运行时文件管理只公开 logical API：`has_file()` 判断 committed payload，`list_files()` 从 catalog 投影 logical identity，`delete_file()` 同步删除一个精确 family，`delete_file_request_async()` 返回逐请求 typed handle 并让物理删除由所选 Storage 执行器完成。框架不再公开 Storage 物理根、目录创建或嵌套目录开关；logical 目录只是 selector，不对应调用方可管理的物理目录。项目 slot adapter 应使用受控模板与 logical API，不能扫描或拼接内部事务、备份和 family 路径。
 
 同步与异步删除共享同一套 fail-closed family executor。删除不会在开始前自动执行事务
-recovery 或 repair，也不会把冲突证据改写成可删除状态；worker 会重新验证冻结的 logical
+recovery 或 repair，也不会把冲突证据改写成可删除状态；执行器会重新验证冻结的 logical
 identity、catalog 与 owner 互证，以及四个事务证据位置。有效的、只引用该目标的精确单成员
 prepare/commit evidence 可以随 family 删除；没有 marker 但可由该 opaque family 独占证明的
 candidate、backup 或 Resource stage 也可以删除。引用多个成员的 group evidence、损坏 record、
@@ -274,7 +282,8 @@ final 始终最后删除，因此失败结果可以通过 removed/remaining 计�
 到另一个 family。
 
 同一个 `GFStorageUtility` 内，同一 canonical family 的保存、读取和删除请求按 FIFO 串行；不同
-family 在 worker 配额允许时可以并行。这个顺序只覆盖同一 Utility，仍以“同一 Storage root 只有
+family 在线程执行器配额允许时可以并行；cooperative 执行器则每个 tick 最多完成一个任务。
+这个顺序只覆盖同一 Utility，仍以“同一 Storage root 只有
 一个活动 writer Utility/进程”为前提，不提供跨 Utility 或跨进程线性化。
 
 `portable-ascii-v1` 不做 `replace()`、`simplify_path()`、大小写折叠或 Unicode 规范化。文件路径由 1 到 16 个 `/` 分隔的 segment 组成，总长最多 255 个 ASCII 字节；每段 1 到 64 字节，首尾必须是小写字母或数字，中间只允许 `[a-z0-9._-]`，并拒绝 Windows 设备名 stem。空字符串只可作为根目录 selector；反斜杠、空段、`.`、`..`、大写、Unicode、控制字符、尾点/空格和非 canonical 输入都在副作用前失败关闭。`.tmp`、`.bak`、`.txn` 只是普通 logical leaf 后缀，各自拥有独立 family，不再与事务 sidecar 冲突。

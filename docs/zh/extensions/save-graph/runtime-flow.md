@@ -22,7 +22,7 @@ if document == null:
 storage.save_data_async("hero_save.sav", document.to_dict())
 ```
 
-`gather_scope()` 会在主线程遍历当前场景节点。任一 Pipeline Step、Scope 或 Source 在本轮新增 error 时，整次采集都会失败关闭；`save_scope()` 返回 `ERR_INVALID_DATA`，不会用部分或空 Source 载荷覆盖现有文件。大型项目应把项目级 Model 聚合改用 `GFArchitecture.get_global_snapshot_async()`，检查捕获 Result 后只把其中的 `snapshot` 交给存储；也可以在项目自己的保存 System 中把多个 Scope/区域分帧采集，再交给 `GFStorageUtility.save_data_async()` 后台编码和落盘。不要在线程里直接访问 Node、Resource 或 `GFSaveSource` 实例。
+`gather_scope()` 会在主线程遍历当前场景节点。任一 Pipeline Step、Scope 或 Source 在本轮新增 error 时，整次采集都会失败关闭；`save_scope()` 返回 `ERR_INVALID_DATA`，不会用部分或空 Source 载荷覆盖现有文件。大型项目应把项目级 Model 聚合改用 `GFArchitecture.get_global_snapshot_async()`，检查捕获 Result 后只把其中的 `snapshot` 交给存储；也可以在项目自己的保存 System 中把多个 Scope/区域分帧采集，再交给 `GFStorageUtility.save_data_async()` 由所选 Storage 执行器编码和落盘。无论执行器是 threaded 还是 cooperative，移交给 Storage 的载荷都必须是纯 Variant 图；不要把 Node、Resource 或 `GFSaveSource` 实例带入执行边界，也不要依赖 cooperative 当前位于主线程来放宽这一契约。模式选择与无线程 Web 调度见 [本地存档管理器：异步执行模式](../../standard/utilities/io/storage-snapshot/storage-utility.md#async-execution-mode)。
 
 ```gdscript
 var read_result := storage.load_data("hero_save.sav")

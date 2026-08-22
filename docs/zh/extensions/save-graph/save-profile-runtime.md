@@ -2,7 +2,7 @@
 
 `GFSaveProfileUtility` 用于协调一个项目存档中的多个独立模块。每个模块只实现
 自己的 `GFSaveSectionProvider`，Profile 从 provider 清单派生当前文档 schema，
-Provider 在主线程协作式生成一次性 Snapshot，Storage worker 继续负责载荷预检、
+Provider 在主线程协作式生成一次性 Snapshot，Storage 执行器继续负责载荷预检、
 物化、编码和物理 IO。
 
 适合使用 Save Profile 的场景包括自动保存、账号进度、背包、任务和设置等多个
@@ -61,8 +61,8 @@ Operation，不能同步遍历大型对象图。大型 Provider 应继承
 `make_snapshot()`、`make_completed_snapshot()` 与
 `GFSaveSectionSnapshot.take_ownership()` 都采用逻辑 move，不会深复制。成功调用后，
 Provider 必须立即放弃源 payload、metadata 及所有嵌套 `Dictionary` / `Array` alias，
-不能再读取、修改或提交给其他线程。GDScript 没有语言级 move，违反该协议会破坏
-Snapshot 的只读跨线程不变量。`make_completed_snapshot()` 只适合已经独占且固定成本
+不能再读取、修改或提交给其他执行边界。GDScript 没有语言级 move，违反该协议会破坏
+Snapshot 跨异步执行边界的只读不变量。`make_completed_snapshot()` 只适合已经独占且固定成本
 可移交的小型载荷，不是大型 Provider 的兼容捷径。
 
 默认 `_rollback_section()` 会复用 `_apply_section()`。如果应用过程涉及额外缓存或
@@ -84,6 +84,16 @@ Storage，再注册 `GFSaveGraphUtility` 与 `GFSaveProfileUtility`。Profile Ut
 该 Utility 的项目 System 在第三阶段 `ready()` 注册；如果 Profile 不参与启动
 bootstrap，也可以在架构 READY 后显式注册。同一个 Utility 内的 profile ID 和
 文件名都必须唯一。
+
+共享 Storage 默认使用 `GFStorageUtility.AsyncExecutionMode.AUTOMATIC`。带 `threads`
+能力的运行时会选择线程执行器；默认无线程 Web 导出会选择 cooperative 执行器，因此
+Save Profile 可以沿用同一套 Installer、activation、Operation 和事务语义，不需要新增
+Save 配置或 API。cooperative 请求不会在 `save_profile()` / `load_profile()` 调用栈内
+偷跑同步 I/O，而是由 Storage 生命周期 tick 先接纳、再在后续 tick 执行；单个文件 I/O
+不可抢占，可能占用一帧。需要强制线程的项目可以在首个合法 Storage 异步请求前设置
+`THREADED`，但无线程运行时会让 Storage activation 确定性失败，Profile 也不会越过失败的
+依赖激活。完整模式、冻结和同步 drain 契约见
+[本地存档管理器：异步执行模式](../../standard/utilities/io/storage-snapshot/storage-utility.md#async-execution-mode)。
 
 ```gdscript
 var profile := GFSaveProfile.new()
@@ -182,7 +192,7 @@ canonical target file-family identity 与 codec options；写入超时后，同�
 
 `GFSaveProfileResult` 分开报告 preparation 与活跃 Storage attempt 的累计耗时；重试
 等待不计入 Storage 耗时；detached attempt 与重试同时活跃时，各自的活跃区间都会
-计入，因此重叠区间会按两个物理 attempt 分别累计。worker 载荷失败由隔离 Adapter
+计入，因此重叠区间会按两个物理 attempt 分别累计。Storage 执行器载荷失败由隔离 Adapter
 转换为标准校验报告，并只用文档构造时记录的 Dictionary entry index 推断 section，
 不复制 key/value 或任何 key 派生摘要。Save 结果不再携带完整 `GFSaveDocument`，
 因此 Save 的 `get_document()` 返回 `null`；只有 load 结果会返回迁移、校验后的文档。

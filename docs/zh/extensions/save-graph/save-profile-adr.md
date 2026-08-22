@@ -34,8 +34,10 @@ GF 已经具备版本化 `GFSaveDocument`、独立 section、迁移注册表、�
   `GFSaveSectionSnapshotOperation`，读取事务回滚则单独使用 `_capture_section()`。
 - `GFSaveProfileUtility` 串行协调每个 profile 的保存、读取、迁移和应用，并以全局
   work-unit 预算、单 profile slice 预算和软时间预算轮转推进保存准备。
-- `GFStoragePayloadTransfer` 接收准备完成的文档所有权；Storage worker 只执行纯
-  Variant 图预检、物化、编码和 IO，不访问 Provider、场景树或业务对象。
+- `GFStoragePayloadTransfer` 接收准备完成的文档所有权；Storage 执行器只执行纯
+  Variant 图预检、物化、编码和 IO，不访问 Provider、场景树或业务对象。Profile 不选择
+  或推断执行器；共享 Storage 的 `AUTOMATIC` 模式可按运行时能力选择 threaded 或
+  cooperative，并保持相同的 Operation 与事务终态。
 - `GFSaveProfileOperation` 是异步调用句柄；`GFSaveProfileResult` 是不可变终态快照，
   分开记录准备与 Storage 耗时，完整文档只存在于 load 结果。
 - `GFSaveRecoveryPolicy` 只允许显式、可审计的恢复和有界重试。
@@ -76,9 +78,9 @@ Profile 层不引入第二套文件格式，不解释业务字段，不绑定槽
 21. 保存 Snapshot 只在主线程按全局 work-unit、单 profile slice 和软时间预算推进；软时间预算只能阻止开始下一个 slice，不能抢占已经开始的 Provider 回调。
 22. Snapshot、section payload、metadata 和 Storage transfer 采用逻辑 move；交出所有权后，生产者必须放弃源值及全部嵌套集合 alias。
 23. Storage 首次 claim transfer 时冻结 Storage 实例、规范文件名、canonical target file-family identity 与 codec options；超时 detached attempt 与重试可同时持有同一 Snapshot 的只读 lease，最后一个 lease 结束且所有者释放后才可销毁载荷。
-24. Worker 只能处理已移交的纯 Variant 图；图预算或可持久化性预检失败必须在本次新写入的编码以及 temp、marker、final 事务提交副作用前结束。既有事务 recovery 与目录初始化是独立前置生命周期。
+24. Storage 执行器只能处理已移交的纯 Variant 图；图预算或可持久化性预检失败必须在本次新写入的编码以及 temp、marker、final 事务提交副作用前结束。既有事务 recovery 与目录初始化是独立前置生命周期；该约束不因执行器位于 worker thread 或主线程 lifecycle tick 而改变。
 25. 保存终态不得为了诊断保留完整文档副本；只有读取终态可通过 `get_document()` 返回文档，准备耗时与 Storage attempt 累计耗时必须分开报告；同时活跃的 attempt 分别累计，重叠区间不折叠。
-26. worker 失败报告只允许携带有界结构索引、Variant 类型和预算计数；Save 只能用文档构造时记录的 entry index 映射 section，不得复制 key/value 或可离线关联的 key 摘要。
+26. Storage 执行器失败报告只允许携带有界结构索引、Variant 类型和预算计数；Save 只能用文档构造时记录的 entry index 映射 section，不得复制 key/value 或可离线关联的 key 摘要。
 27. Save Operation 只持有对应请求的 result metadata；document metadata 与 Provider context 由最新 generation 状态直接接管，开始准备时通过 assignment 移入当前状态，不得深复制。
 28. Provider domain 只由完全相同的有序 Provider 对象身份构成；任何部分重叠或顺序不同的拓扑都不得共享活动身份或锁域。
 29. 每个 domain 最多有一个活动 Profile；只有严格加载或显式恢复写入获得确定成功后才可原子发布或切换活动身份。
@@ -135,7 +137,7 @@ Quiesce 是 Coordinator 的全局准入阶段，不伪装成额外 domain 状态
 | Request 未初始化、结构无效或已被 claim | `invalid_request` | 创建新的 Request；已 claim 句柄不可复用 | 操作类型、profile id |
 | 当前 Profile 禁止该操作 | `unsupported_operation` | 修改声明后重新注册 | 操作类型、profile id |
 | load/apply/provider 或状态回调期间请求保存或重入 | `busy` | 回调结束后由上层重新请求 | 操作类型、稳定状态快照 |
-| Snapshot 创建、分片推进或 worker 载荷预检失败 | `preparation_failed` | 后续新 generation 可重试 | section id、错误码、校验报告 |
+| Snapshot 创建、分片推进或 Storage 执行器载荷预检失败 | `preparation_failed` | 后续新 generation 可重试 | section id、错误码、校验报告 |
 | 应用前回滚快照采集失败 | `snapshot_failed` | 修复 provider 后重试 | section id、错误码 |
 | 异步 IO 启动失败 | `storage_failed` | 仅临时错误按有界计划重试 | 尝试次数、错误码 |
 | 写入临时失败 | `storage_failed` | 按策略延迟重试 | generation、尝试次数 |
@@ -196,7 +198,7 @@ Quiesce 是 Coordinator 的全局准入阶段，不伪装成额外 domain 状态
 - Provider 的 Snapshot Operation 能跨 tick 完成，错误和取消都只进入一次终态；
 - Snapshot 与 transfer 的源 alias 在移交后不再使用；首次 claim 后 Storage、规范文件名
   和 codec options 冻结，detached attempt 与重试 lease 都能安全复用同一载荷；
-- worker 对循环、超限或不可持久化 Variant 图在本次新写入的编码与 temp、marker、final
+- Storage 执行器对循环、超限或不可持久化 Variant 图在本次新写入的编码与 temp、marker、final
   事务提交前失败关闭；既有 recovery 与目录初始化不伪装成该保证的一部分；
 - flush 等待调用时可见的最新 generation；
 - 临时失败按单调时钟和有限延迟重试，永久失败不重试；
@@ -214,7 +216,8 @@ Quiesce 是 Coordinator 的全局准入阶段，不伪装成额外 domain 状态
 - Storage 的未来格式、迁移失败和非严格完整性失败保持类型化分类；
 - Save 结果的 `get_document()` 返回 `null`，load 结果仍返回文档；准备耗时、准备 work
   units 与 Storage attempt 累计耗时分别可观察；
-- 真实 `GFStorageUtility` 往返测试覆盖异步句柄集成，不只依赖测试替身。
+- 真实 `GFStorageUtility` 往返测试覆盖 threaded 与 cooperative 异步句柄集成，包括无线程
+  activation，不只依赖测试替身；Save Profile 不为执行模式增加第二套公开 API。
 - 精确相同的有序 Provider 身份共享 domain，重排和部分重叠注册失败关闭；不相交 domain
   可独立推进；
 - activate/switch 只在严格成功后发布活动身份；首次 activate 的 missing/corrupt 分别
