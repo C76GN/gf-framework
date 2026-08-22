@@ -69,6 +69,7 @@ import gf_changelog
 import gf_gut_sharding
 import gf_gut_shard_worker
 import gf_path_security
+import gf_repository_policy
 import extract_release_notes as gf_release_notes
 import gf_process_supervisor
 import gf_maintenance_rendering as maintenance_rendering
@@ -1799,6 +1800,22 @@ def add_package_artifact_consumer_arguments(parser: argparse.ArgumentParser) -> 
 	)
 
 
+def parse_gut_shard_run_timeout_seconds(text: str) -> int:
+	"""Parse one CLI-only candidate timeout inside the worker phase ceiling."""
+	maximum = gf_gut_shard_worker.MAX_PHASE_TIMEOUT_SECONDS
+	try:
+		value = int(text)
+	except (TypeError, ValueError) as error:
+		raise argparse.ArgumentTypeError(
+			f"must be an integer between 1 and {maximum} seconds"
+		) from error
+	if not 1 <= value <= maximum:
+		raise argparse.ArgumentTypeError(
+			f"must be an integer between 1 and {maximum} seconds"
+		)
+	return value
+
+
 def main() -> int:
 	configure_stdio()
 	maintenance_rendering.set_json_output_path(None)
@@ -2069,9 +2086,13 @@ def main() -> int:
 	)
 	gut_shard_run_parser.add_argument(
 		"--timeout",
-		type=int,
+		type=parse_gut_shard_run_timeout_seconds,
 		default=None,
-		help="Raise the 600-second minimum timeout for each candidate shard GUT phase.",
+		help=(
+			f"Request 1..{gf_gut_shard_worker.MAX_PHASE_TIMEOUT_SECONDS} seconds for "
+			"each candidate shard GUT phase; values below 600 preserve the 600-second "
+			"minimum."
+		),
 	)
 	gut_shard_run_parser.add_argument(
 		"--qualify",
@@ -4958,6 +4979,8 @@ def gut_shard_plan(
 		ValueError,
 		WorkspaceSnapshotError,
 	) as error:
+		if exception_has_cleanup_debt(error):
+			raise
 		report["issues"].append({
 			"kind": str(getattr(error, "code", "gut_shard_observation_failed")),
 			"message": str(error),
@@ -10743,9 +10766,11 @@ def strict_managed_temporary_directory(
 		if cleanup_errors:
 			message = "\n".join(cleanup_errors)
 			if body_error is not None:
-				add_note = getattr(body_error, "add_note", None)
-				if callable(add_note):
-					add_note(message)
+				try:
+					BaseException.add_note(body_error, message)
+				except BaseException:
+					# Retention diagnostics must never replace the primary body failure.
+					pass
 			else:
 				raise WorkspaceSnapshotError(message)
 
@@ -10769,6 +10794,19 @@ def strict_process_boundary_temporary_directory(
 
 def exception_has_cleanup_debt(error: BaseException) -> bool:
 	"""Return whether an exception chain carries an unproven cleanup boundary."""
+	uninspectable = object()
+
+	def raw_attribute(current: BaseException, name: str, default: object) -> object:
+		try:
+			attributes = BaseException.__getattribute__(current, "__dict__")
+			if isinstance(attributes, dict) and name in attributes:
+				return attributes[name]
+			return BaseException.__getattribute__(current, name)
+		except AttributeError:
+			return default
+		except BaseException:
+			return uninspectable
+
 	pending: list[BaseException] = [error]
 	seen: set[int] = set()
 	while pending:
@@ -10777,12 +10815,44 @@ def exception_has_cleanup_debt(error: BaseException) -> bool:
 		if current_id in seen:
 			continue
 		seen.add(current_id)
-		if (
-			getattr(current, "cleanup_debt", False) is True
-			or getattr(current, "process_boundary_quiescent", None) is False
-		):
+		try:
+			error_type = type(current)
+			if error_type.__getattribute__ is not BaseException.__getattribute__:
+				return True
+			for owner_type in error_type.__mro__:
+				if owner_type is BaseException:
+					break
+				owner_attributes = vars(owner_type)
+				if "__dict__" in owner_attributes or any(
+					name in owner_attributes
+					for name in (
+						"cleanup_debt",
+						"process_boundary_quiescent",
+						"__cause__",
+						"__context__",
+						"__suppress_context__",
+					)
+				):
+					return True
+		except BaseException:
 			return True
-		for nested in (current.__cause__, current.__context__):
+		cleanup_debt = raw_attribute(current, "cleanup_debt", False)
+		process_boundary_quiescent = raw_attribute(
+			current,
+			"process_boundary_quiescent",
+			None,
+		)
+		cause = raw_attribute(current, "__cause__", None)
+		context = raw_attribute(current, "__context__", None)
+		if any(
+			value is uninspectable
+			for value in (cleanup_debt, process_boundary_quiescent, cause, context)
+		):
+			# An uninspectable exception chain cannot grant recursive cleanup authority.
+			return True
+		if cleanup_debt is True or process_boundary_quiescent is False:
+			return True
+		for nested in (cause, context):
 			if isinstance(nested, BaseException):
 				pending.append(nested)
 	return False
@@ -11331,7 +11401,7 @@ def load_or_build_private_package_artifact_set(
 			)
 		except WorkspaceSnapshotError as error:
 			raise PackageArtifactSetError(
-				f"Could not capture an immutable package artifact source workspace: {error}"
+				"Could not capture an immutable package artifact source workspace."
 			) from error
 		if captured_workspace.workspace_fingerprint != effective_workspace["fingerprint"]:
 			raise PackageArtifactSetError(
@@ -11345,7 +11415,7 @@ def load_or_build_private_package_artifact_set(
 			)
 		except WorkspaceSnapshotError as error:
 			raise PackageArtifactSetError(
-				f"Could not materialize the package artifact source workspace: {error}"
+				"Could not materialize the package artifact source workspace."
 			) from error
 		source_set = build_package_smoke_artifact_set(
 			temp_root / "artifact-producer",
@@ -11402,7 +11472,10 @@ def package_build_boundary(
 				"package_artifact_set_invalid",
 				"tools/gf_package_artifact_set.py",
 				"Package build boundary could not obtain a trusted private artifact set.",
-				error=trim_text(str(error), 1000),
+				error=trim_text(
+					gf_process_supervisor.safe_exception_detail(error),
+					1000,
+				),
 			))
 		registry_path = private_set.registry_path if private_set is not None else temp_root / "artifact-consumer/registry/index.json"
 		registry_source_path = private_set.registry_source_path if private_set is not None else temp_root / "artifact-consumer/registry/gf-registry-source.json"
@@ -22221,9 +22294,11 @@ def maintenance_self_test() -> dict[str, Any]:
 		bool(windows_process_job_source)
 		and "runs-on: windows-latest" in windows_process_job_source
 		and "python tools/gf_maintenance.py maintenance-self-test --json" in windows_process_job_source
+		and "tests.gf_core.tools.test_gf_parallel_validation" in windows_process_job_source
+		and "tests.gf_core.tools.test_gf_maintenance_check_graph" in windows_process_job_source
 		and "github.event.pull_request.draft == false" in windows_process_job_source
 		and "github.event.changes.base.ref.from" in windows_process_job_source,
-		"Ready/main CI must exercise kernel-owned process-tree cleanup on a Windows runner.",
+		"Ready/main CI must exercise kernel-owned cleanup plus staging/startup boundaries on Windows.",
 	)
 	record_result(
 		"ci_draft_quick_job_avoids_heavy_environment_bootstrap",
@@ -22238,6 +22313,10 @@ def maintenance_self_test() -> dict[str, Any]:
 		"release-framework-checks:" in release_workflow_source
 		and "release-package-checks:" in release_workflow_source
 		and "--suite framework" in release_workflow_source
+		and (
+			f"--suite-timeout {gf_repository_policy.RELEASE_FRAMEWORK_SUITE_TIMEOUT_SECONDS}"
+			in release_workflow_source
+		)
 		and "--suite ${{ matrix.suite }}" in release_workflow_source
 		and all(
 			f"suite: {suite_name}" in release_workflow_source
@@ -22716,6 +22795,38 @@ def maintenance_self_test() -> dict[str, Any]:
 	framework_gut_shard = next(
 		shard for shard in parallel_plan if shard.name == "framework-gut"
 	)
+	ci_jobs, ci_duplicate_jobs = gf_repository_policy.extract_ci_job_blocks(ci_workflow_source)
+	release_jobs, release_duplicate_jobs = gf_repository_policy.extract_ci_job_blocks(
+		release_workflow_source
+	)
+	manual_jobs, manual_duplicate_jobs = gf_repository_policy.extract_ci_job_blocks(
+		manual_ci_workflow_source
+	)
+	ci_framework_gut_timeout_value = gf_repository_policy.extract_matrix_suite_scalar(
+		ci_jobs.get("framework-checks", ""),
+		"framework-gut",
+		"timeout_minutes",
+	)
+	release_framework_job = release_jobs.get("release-framework-checks", "")
+	release_framework_step = gf_repository_policy.extract_ci_step_block(
+		release_framework_job,
+		"Run release framework shard",
+	)
+	release_framework_command = gf_repository_policy.extract_yaml_scalar(
+		release_framework_step,
+		"run",
+		8,
+	)
+	release_framework_timeout_value = gf_repository_policy.extract_yaml_scalar(
+		release_framework_job,
+		"timeout-minutes",
+		4,
+	)
+	manual_full_timeout_value = gf_repository_policy.extract_yaml_scalar(
+		manual_jobs.get("manual-full-validation", ""),
+		"timeout-minutes",
+		4,
+	)
 	parallel_batch_names_by_jobs = {
 		jobs: tuple(
 			tuple(shard.name for shard in batch)
@@ -22849,6 +22960,28 @@ def maintenance_self_test() -> dict[str, Any]:
 		and "--package-artifact-manifest-sha256" in fixture_package_command
 		and "--package-artifact-manifest" not in check_command("api"),
 		"Each shard budget must preserve every child check's requested minimum, while immutable package inputs reach only consumers.",
+	)
+	record_result(
+		"workflow_deadlines_preserve_the_closed_framework_gut_envelope",
+		not ci_duplicate_jobs
+		and not release_duplicate_jobs
+		and not manual_duplicate_jobs
+		and ci_framework_gut_timeout_value
+		== str(gf_repository_policy.FRAMEWORK_GUT_CI_TIMEOUT_MINUTES)
+		and release_framework_timeout_value
+		== str(gf_repository_policy.RELEASE_FRAMEWORK_TIMEOUT_MINUTES)
+		and manual_full_timeout_value == str(gf_repository_policy.MANUAL_FULL_TIMEOUT_MINUTES)
+		and release_framework_command == gf_repository_policy.RELEASE_FRAMEWORK_COMMAND
+		and gf_repository_policy.FRAMEWORK_GUT_CI_TIMEOUT_MINUTES * 60
+		> parallel_shard_timeout_seconds(framework_gut_shard, None)
+		and gf_repository_policy.RELEASE_FRAMEWORK_TIMEOUT_MINUTES * 60
+		> gf_repository_policy.RELEASE_FRAMEWORK_SUITE_TIMEOUT_SECONDS,
+		(
+			"Ready/main framework GUT must retain its exact 60-minute outer deadline above "
+			"the 2,820-second child envelope; release framework must retain a 4,800-second "
+			"maintenance deadline within its exact 90-minute outer deadline; manual Full "
+			"must remain 90 minutes."
+		),
 	)
 	record_result(
 		"release_shards_preserve_release_suite_coverage",
@@ -35423,12 +35556,30 @@ def run_maintenance_subprocess(
 	environment: dict[str, str] | None = None,
 ) -> subprocess.CompletedProcess[str]:
 	effective_command = resolve_godot_command(command, environment=environment)
-	result = run_supervised_process(
-		effective_command,
-		cwd=cwd,
-		timeout_seconds=timeout_seconds,
-		environment=environment,
-	)
+	try:
+		result = run_supervised_process(
+			effective_command,
+			cwd=cwd,
+			timeout_seconds=timeout_seconds,
+			environment=environment,
+		)
+	except gf_process_supervisor.SupervisedProcessStartError as error:
+		# This legacy CompletedProcess-style helper has callers that deliberately
+		# classify FileNotFoundError and PermissionError. The structured exception
+		# proves that no child was created, so restoring the exact original error is
+		# both boundary-safe and backward compatible for those callers.
+		raise error.original_error from error
+	except gf_parallel_validation.WorkspaceProcessBoundaryError:
+		raise
+	except Exception as error:
+		# A raw OS error from the supervisor is deliberately not a proven no-child
+		# startup failure. It may represent a partially created process or cleanup
+		# debt, so legacy FileNotFoundError handlers must not convert it into an
+		# ordinary missing-tool result and delete the owned temporary root.
+		raise gf_parallel_validation.WorkspaceProcessBoundaryError(
+			"Maintenance subprocess supervision raised an unclassified error "
+			"without a quiet-boundary proof."
+		) from error
 	if result.process_boundary_quiescent is not True:
 		raise gf_parallel_validation.WorkspaceProcessBoundaryError(
 			"Maintenance subprocess process-boundary cleanup was not proven."
@@ -35458,6 +35609,7 @@ def run_command(
 ) -> CommandResult:
 	started = time.perf_counter()
 	log_paths: list[Path] = []
+	supervisor_invoked = False
 	process_environment = environment
 	if process_environment is None:
 		process_environment = dict(os.environ)
@@ -35469,6 +35621,7 @@ def run_command(
 	)
 	try:
 		log_paths = prepare_command_log_paths(effective_command)
+		supervisor_invoked = True
 		process_result = run_supervised_process(
 			effective_command,
 			cwd=ROOT,
@@ -35491,7 +35644,7 @@ def run_command(
 			),
 		)
 		if process_result.process_boundary_quiescent is not True:
-			raise WorkspaceSnapshotError(
+			raise gf_parallel_validation.WorkspaceProcessBoundaryError(
 				f"Check {name!r} process-boundary cleanup was not proven."
 			)
 		if process_result.timed_out:
@@ -35530,21 +35683,57 @@ def run_command(
 			output_callback is not None,
 			process_result.notes,
 		)
-	except FileNotFoundError as exc:
+	except gf_process_supervisor.SupervisedProcessStartError as exc:
+		original_error = exc.original_error
+		start_error_detail = gf_process_supervisor.safe_exception_detail(original_error)
+		if isinstance(original_error, FileNotFoundError):
+			return CommandResult(
+				name=name,
+				command=effective_command,
+				exit_code=127,
+				stdout="",
+				stderr=f"command not found: {effective_command[0]}\n{start_error_detail}",
+				notes=[
+					"Check that the executable is installed and available on PATH.",
+					f"cwd: {ROOT}",
+				],
+				duration_seconds=time.perf_counter() - started,
+				timeout_seconds=timeout_seconds,
+			)
 		return CommandResult(
 			name=name,
 			command=effective_command,
-			exit_code=127,
+			exit_code=126,
 			stdout="",
-			stderr=f"command not found: {effective_command[0]}\n{exc}",
-			notes=[
-				"Check that the executable is installed and available on PATH.",
-				f"cwd: {ROOT}",
-			],
+			stderr=f"failed to run command: {start_error_detail}",
+			notes=[f"cwd: {ROOT}"],
 			duration_seconds=time.perf_counter() - started,
 			timeout_seconds=timeout_seconds,
 		)
-	except OSError as exc:
+	except gf_parallel_validation.WorkspaceProcessBoundaryError:
+		raise
+	except Exception as exc:
+		if supervisor_invoked:
+			raise gf_parallel_validation.WorkspaceProcessBoundaryError(
+				f"Check {name!r} process supervision raised an unclassified error "
+				"without a quiet-boundary proof."
+			) from exc
+		if not isinstance(exc, OSError):
+			raise
+		if isinstance(exc, FileNotFoundError):
+			return CommandResult(
+				name=name,
+				command=effective_command,
+				exit_code=127,
+				stdout="",
+				stderr=f"command not found: {effective_command[0]}\n{exc}",
+				notes=[
+					"Check that the executable is installed and available on PATH.",
+					f"cwd: {ROOT}",
+				],
+				duration_seconds=time.perf_counter() - started,
+				timeout_seconds=timeout_seconds,
+			)
 		return CommandResult(
 			name=name,
 			command=effective_command,

@@ -16,6 +16,7 @@ from typing import Any
 from typing import Iterable
 from typing import Mapping
 
+from gf_process_supervisor import SupervisedProcessStartError
 from gf_process_supervisor import run_supervised_process
 
 
@@ -342,7 +343,11 @@ def run_git_bytes(
 			text_errors="surrogateescape",
 			binary_output=True,
 		)
-	except BaseException as error:
+	except SupervisedProcessStartError as error:
+		raise WorkspaceFingerprintSetupError(
+			"Git workspace fingerprint command could not start."
+		) from error
+	except Exception as error:
 		raise WorkspaceFingerprintProcessBoundaryError(
 			"Git workspace fingerprint supervision did not return a quiet-boundary proof."
 		) from error

@@ -81,6 +81,46 @@ class WorkspaceFingerprintGitTests(unittest.TestCase):
 		self.assertEqual(call.kwargs["text_errors"], "surrogateescape")
 		self.assertTrue(call.kwargs["binary_output"])
 
+	def test_run_git_bytes_preserves_process_control_exceptions(self) -> None:
+		for error in (
+			KeyboardInterrupt("fixture interrupt"),
+			SystemExit(7),
+			GeneratorExit("fixture generator exit"),
+		):
+			with self.subTest(error=type(error).__name__), mock.patch.object(
+				check_graph,
+				"run_supervised_process",
+				side_effect=error,
+			):
+				with self.assertRaises(type(error)) as raised:
+					check_graph.run_git_bytes(ROOT, ["status", "--porcelain=v1"])
+			self.assertIs(raised.exception, error)
+
+	def test_run_git_bytes_wraps_ordinary_supervision_failure(self) -> None:
+		with mock.patch.object(
+			check_graph,
+			"run_supervised_process",
+			side_effect=RuntimeError("fixture supervision failure"),
+		):
+			with self.assertRaises(
+				check_graph.WorkspaceFingerprintProcessBoundaryError,
+			) as raised:
+				check_graph.run_git_bytes(ROOT, ["status", "--porcelain=v1"])
+		self.assertIsInstance(raised.exception.__cause__, RuntimeError)
+
+	def test_run_git_bytes_classifies_proven_no_child_start_failure_as_setup(self) -> None:
+		original = FileNotFoundError("fixture git missing")
+		with mock.patch.object(
+			check_graph,
+			"run_supervised_process",
+			side_effect=process_supervisor.SupervisedProcessStartError(original),
+		):
+			with self.assertRaises(
+				check_graph.WorkspaceFingerprintSetupError,
+			) as raised:
+				check_graph.run_git_bytes(ROOT, ["status", "--porcelain=v1"])
+		self.assertIs(raised.exception.__cause__.original_error, original)
+
 	@staticmethod
 	def _git(root: Path, *arguments: str) -> None:
 		completed = subprocess.run(

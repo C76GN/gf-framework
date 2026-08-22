@@ -63,12 +63,72 @@ FRAMEWORK_CI_SUITES = (
 	"framework-lsp",
 	"framework-static",
 )
+FRAMEWORK_GUT_CI_TIMEOUT_MINUTES = 60
+REPOSITORY_POLICY_COMMAND = "python tools/gf_repository_policy.py validate --json"
+PULL_REQUEST_POLICY_COMMAND = "python tools/gf_repository_policy.py validate-pr --json"
+QUICK_CI_COMMAND = (
+	"python tools/gf_maintenance.py check --suite quick "
+	"--failed-only --github-annotations"
+)
+FRAMEWORK_CI_COMMAND = (
+	"python tools/gf_maintenance.py check --suite ${{ matrix.suite }} "
+	"--failed-only --github-annotations"
+)
+PACKAGE_CI_COMMAND = FRAMEWORK_CI_COMMAND
+RELEASE_FRAMEWORK_TIMEOUT_MINUTES = 90
+RELEASE_FRAMEWORK_SUITE_TIMEOUT_SECONDS = 4800
+RELEASE_FRAMEWORK_COMMAND = (
+	"python tools/gf_maintenance.py check --suite framework "
+	f"--suite-timeout {RELEASE_FRAMEWORK_SUITE_TIMEOUT_SECONDS} "
+	"--failed-only --github-annotations"
+)
+RELEASE_VERIFY_ARTIFACT_COMMAND = (
+	'python tools/build_gf_release_artifacts.py --version "${GITHUB_REF_NAME}" '
+	'--manifest "build/release/gf-release-artifacts-${GITHUB_REF_NAME}.json" '
+	"--validate-only"
+)
+RELEASE_EXTRACT_NOTES_COMMAND = (
+	'python tools/extract_release_notes.py --tag "${GITHUB_REF_NAME}" '
+	'--output "${RUNNER_TEMP}/release-notes.md"'
+)
+RELEASE_CREATE_COMMAND = (
+	'gh release create "${GITHUB_REF_NAME}" \\ '
+	'"build/release/gf-framework-${GITHUB_REF_NAME}.zip" \\ '
+	'"build/release/gf-ai-developer-kit-${GITHUB_REF_NAME}.zip" \\ '
+	'"build/release/gf-registry-${GITHUB_REF_NAME}.json" \\ '
+	'"build/release/gf-registry-source.json" \\ '
+	'"build/release/gf-package-offline-bundle-${GITHUB_REF_NAME}.zip" \\ '
+	'"build/release/gf-release-artifacts-${GITHUB_REF_NAME}.json" \\ '
+	'build/release/packages/*.zip \\ --verify-tag \\ '
+	'--title "${GITHUB_REF_NAME}" \\ '
+	'--notes-file "${RUNNER_TEMP}/release-notes.md"'
+)
+MANUAL_FULL_TIMEOUT_MINUTES = 90
+MANUAL_FULL_COMMAND = (
+	"python tools/gf_maintenance.py check --suite full "
+	"--failed-only --github-annotations"
+)
+WINDOWS_PROCESS_SELF_TEST_COMMAND = (
+	"python tools/gf_maintenance.py maintenance-self-test --json"
+)
+WINDOWS_STAGING_TEST_COMMAND = (
+	"python -B -m unittest "
+	"tests.gf_core.tools.test_gf_parallel_validation "
+	"tests.gf_core.tools.test_gf_maintenance_check_graph"
+)
 PACKAGE_CI_SUITES = (
 	"package-contract",
 	"package-editor",
 	"package-cli-local",
 	"package-cli-network",
 	"package-godot-ci",
+)
+RELEASE_PACKAGE_SUITES = (
+	"package-contract",
+	"package-editor",
+	"package-cli-local",
+	"package-cli-network",
+	"package-godot-release",
 )
 REQUIRED_CI_SUITES = (*FRAMEWORK_CI_SUITES, *PACKAGE_CI_SUITES)
 DRAFT_GATE_NAME = "${{ github.event_name == 'pull_request' && github.event.pull_request.draft == true && (github.event.action != 'edited' || github.event.changes.base.ref.from != '') && 'GF draft gate' || 'GF draft gate (not applicable)' }}"
@@ -77,6 +137,15 @@ FULL_VALIDATION_EVENT = "github.event_name == 'push' || (github.event_name == 'p
 REQUIRED_GATE_EVENT = "github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.draft == false)"
 METADATA_READY_EVENT = "github.event_name == 'pull_request' && github.event.pull_request.draft == false && github.event.action == 'edited' && github.event.changes.base.ref.from == ''"
 METADATA_RELAY_STEP_IF = "success() && " + METADATA_READY_EVENT
+CURRENT_FULL_STEP_IF = (
+	"success() && (github.event_name == 'push' || "
+	"(github.event_name == 'pull_request' && "
+	"(github.event.action != 'edited' || github.event.changes.base.ref.from != '')))"
+)
+METADATA_RELAY_COMMAND = (
+	"python tools/gf_repository_policy.py validate-pr-gate "
+	"--wait-seconds 1800 --poll-seconds 10 --json"
+)
 CI_RUN_NAME = "GF CI|mode=${{ github.event_name == 'pull_request' && github.event.action == 'edited' && github.event.changes.base.ref.from == '' && 'metadata' || (github.event_name == 'pull_request' && github.event.pull_request.draft == true && 'draft' || 'full') }}|pr=${{ github.event.pull_request.number || 0 }}|head=${{ github.event.pull_request.head.sha || github.sha }}|base=${{ github.event.pull_request.base.sha || github.sha }}"
 FULL_VALIDATION_GATE_NAME = "GF full validation (${{ github.event.pull_request.base.sha || github.sha }})"
 MERGE_GATE_NAME = "${{ (" + REQUIRED_GATE_EVENT + ") && 'GF merge gate' || 'GF merge gate (not applicable)' }}"
@@ -418,12 +487,47 @@ def audit_maintenance_skill_contracts(sources: dict[str, str]) -> list[str]:
 		"Historical retention and legacy top-level `.gf/*.log` cleanup occur only through an explicit",
 		"explicit historical log cleanup",
 	)
+	require(
+		framework_checks,
+		"Ready/main `framework-gut` uses exactly 60 minutes",
+		"Ready/main workflow deadline contract",
+	)
+	require(
+		framework_checks,
+		"tag-release `release-framework-checks` uses exactly 90 minutes around a 4,800-second",
+		"release workflow deadline contract",
+	)
+	require(
+		framework_checks,
+		"manual `main` Full remains exactly 90 minutes",
+		"manual workflow deadline contract",
+	)
 	return issues
 
 
 def audit_manual_ci_workflow(source: str) -> list[str]:
 	issues: list[str] = []
+	actual_top_level_fields = extract_yaml_direct_mapping_keys(source, 0)
+	expected_top_level_fields = ["name", "run-name", "on", "permissions", "concurrency", "jobs"]
+	if actual_top_level_fields != expected_top_level_fields:
+		issues.append(
+			"Manual CI top-level fields are "
+			f"{actual_top_level_fields!r}, expected {expected_top_level_fields!r}."
+		)
+	if extract_yaml_top_level_block(source, "on").rstrip("\r\n") != "on:\n  workflow_dispatch:":
+		issues.append("Manual CI triggers must contain only workflow_dispatch.")
+	manual_permission_keys = extract_yaml_mapping_keys(source, "permissions", 0)
+	if manual_permission_keys != ["contents"]:
+		issues.append("Manual CI top-level permissions must contain only contents: read.")
+	expected_manual_concurrency = (
+		"concurrency:\n"
+		"  group: ci-manual-${{ github.ref }}\n"
+		"  cancel-in-progress: true"
+	)
+	if extract_yaml_top_level_block(source, "concurrency").rstrip("\r\n") != expected_manual_concurrency:
+		issues.append("Manual CI concurrency must remain ref-scoped and cancelling.")
 	jobs, duplicate_jobs = extract_ci_job_blocks(source)
+	reject_failure_tolerant_jobs_and_steps(jobs, "Manual CI", issues)
 	if duplicate_jobs:
 		issues.append(f"Manual CI workflow has duplicate job ids: {', '.join(sorted(duplicate_jobs))}.")
 	required_job_ids = {
@@ -438,6 +542,31 @@ def audit_manual_ci_workflow(source: str) -> list[str]:
 	extra_job_ids = sorted(set(jobs) - required_job_ids)
 	if extra_job_ids:
 		issues.append(f"Manual CI workflow has unsupported jobs: {', '.join(extra_job_ids)}.")
+	expected_job_fields = {
+		"manual-repository-policy": ("name", "runs-on", "timeout-minutes", "steps"),
+		"manual-full-validation": ("name", "if", "needs", "runs-on", "timeout-minutes", "steps"),
+		"manual-windows-process-supervision": (
+			"name", "if", "needs", "runs-on", "timeout-minutes", "steps",
+		),
+		"manual-diagnostics-gate": ("name", "if", "needs", "runs-on", "timeout-minutes", "steps"),
+	}
+	for job_id, expected_fields in expected_job_fields.items():
+		if job_id in jobs:
+			require_exact_job_fields(jobs[job_id], job_id, expected_fields, issues)
+	manual_step_names = {
+		"manual-repository-policy": ("Checkout", "Set up Python", "Validate repository policy"),
+		"manual-full-validation": (
+			"Checkout", "Set up Python", "Install documentation dependencies",
+			"Set up Godot", "Run full maintenance diagnostics",
+		),
+		"manual-windows-process-supervision": (
+			"Checkout", "Set up Python", "Verify owned process-tree cleanup",
+		),
+		"manual-diagnostics-gate": ("Evaluate manual diagnostics",),
+	}
+	for job_id, expected_names in manual_step_names.items():
+		if job_id in jobs:
+			require_exact_step_names(jobs[job_id], job_id, expected_names, issues)
 	if not extract_yaml_mapping_block(source, "on", 0, "workflow_dispatch", 2):
 		issues.append("Manual CI workflow_dispatch trigger is missing.")
 	for forbidden_event in ("pull_request", "push"):
@@ -463,15 +592,29 @@ def audit_manual_ci_workflow(source: str) -> list[str]:
 			"GF manual repository policy",
 			issues,
 		)
-		require_job_code(
+		require_exact_run_step(
 			repository_job,
 			"manual-repository-policy",
-			"python tools/gf_repository_policy.py validate --json",
+			"Validate repository policy",
+			REPOSITORY_POLICY_COMMAND,
 			issues,
 		)
 	full_job = jobs.get("manual-full-validation", "")
 	if full_job:
+		require_exact_job_fields(
+			full_job,
+			"manual-full-validation",
+			("name", "if", "needs", "runs-on", "timeout-minutes", "steps"),
+			issues,
+		)
 		require_exact_job_scalar(full_job, "manual-full-validation", "name", "GF manual Full validation", issues)
+		require_exact_job_scalar(
+			full_job,
+			"manual-full-validation",
+			"timeout-minutes",
+			str(MANUAL_FULL_TIMEOUT_MINUTES),
+			issues,
+		)
 		require_exact_job_scalar(full_job, "manual-full-validation", "if", MANUAL_MAIN_EVENT, issues)
 		require_exact_job_needs(
 			full_job,
@@ -479,9 +622,21 @@ def audit_manual_ci_workflow(source: str) -> list[str]:
 			("manual-repository-policy",),
 			issues,
 		)
-		require_job_code(full_job, "manual-full-validation", "--suite full", issues)
+		require_exact_run_step(
+			full_job,
+			"manual-full-validation",
+			"Run full maintenance diagnostics",
+			MANUAL_FULL_COMMAND,
+			issues,
+		)
 	windows_job = jobs.get("manual-windows-process-supervision", "")
 	if windows_job:
+		require_exact_job_fields(
+			windows_job,
+			"manual-windows-process-supervision",
+			("name", "if", "needs", "runs-on", "timeout-minutes", "steps"),
+			issues,
+		)
 		require_exact_job_scalar(
 			windows_job,
 			"manual-windows-process-supervision",
@@ -509,10 +664,11 @@ def audit_manual_ci_workflow(source: str) -> list[str]:
 			"windows-latest",
 			issues,
 		)
-		require_job_code(
+		require_exact_run_step(
 			windows_job,
 			"manual-windows-process-supervision",
-			"python tools/gf_maintenance.py maintenance-self-test --json",
+			"Verify owned process-tree cleanup",
+			WINDOWS_PROCESS_SELF_TEST_COMMAND,
 			issues,
 		)
 	gate_job = jobs.get("manual-diagnostics-gate", "")
@@ -546,6 +702,28 @@ def audit_manual_ci_workflow(source: str) -> list[str]:
 
 def audit_release_workflow(source: str) -> list[str]:
 	issues: list[str] = []
+	actual_top_level_fields = extract_yaml_direct_mapping_keys(source, 0)
+	expected_top_level_fields = ["name", "on", "permissions", "concurrency", "jobs"]
+	if actual_top_level_fields != expected_top_level_fields:
+		issues.append(
+			"Release top-level fields are "
+			f"{actual_top_level_fields!r}, expected {expected_top_level_fields!r}."
+		)
+	expected_release_trigger = (
+		"on:\n"
+		"  push:\n"
+		"    tags:\n"
+		'      - "[0-9]*.[0-9]*.[0-9]*"'
+	)
+	if extract_yaml_top_level_block(source, "on").rstrip("\r\n") != expected_release_trigger:
+		issues.append("Release trigger must remain the exact governed stable-tag push filter.")
+	expected_release_concurrency = (
+		"concurrency:\n"
+		"  group: release-${{ github.ref_name }}\n"
+		"  cancel-in-progress: false"
+	)
+	if extract_yaml_top_level_block(source, "concurrency").rstrip("\r\n") != expected_release_concurrency:
+		issues.append("Release concurrency must remain tag-scoped and non-cancelling.")
 	permissions_source = extract_yaml_top_level_block(source, "permissions")
 	top_level_permission_keys = extract_yaml_mapping_keys(source, "permissions", 0)
 	if top_level_permission_keys != ["contents"]:
@@ -553,8 +731,51 @@ def audit_release_workflow(source: str) -> list[str]:
 	if extract_yaml_scalar(permissions_source, "contents", 2) != "read":
 		issues.append("Release top-level permission contents must be read.")
 	jobs, duplicate_jobs = extract_ci_job_blocks(source)
+	reject_failure_tolerant_jobs_and_steps(jobs, "Release", issues)
 	if duplicate_jobs:
 		issues.append(f"Release workflow has duplicate job ids: {', '.join(sorted(duplicate_jobs))}.")
+	required_job_ids = {
+		"build-release-artifacts",
+		"release-framework-checks",
+		"release-package-checks",
+		"create-release",
+	}
+	missing_job_ids = sorted(required_job_ids - set(jobs))
+	if missing_job_ids:
+		issues.append(f"Release workflow is missing governed jobs: {', '.join(missing_job_ids)}.")
+	extra_job_ids = sorted(set(jobs) - required_job_ids)
+	if extra_job_ids:
+		issues.append(f"Release workflow has unsupported jobs: {', '.join(extra_job_ids)}.")
+	expected_job_fields = {
+		"build-release-artifacts": ("name", "runs-on", "timeout-minutes", "steps"),
+		"release-framework-checks": ("name", "runs-on", "timeout-minutes", "steps"),
+		"release-package-checks": ("name", "runs-on", "timeout-minutes", "strategy", "steps"),
+		"create-release": ("name", "permissions", "needs", "runs-on", "timeout-minutes", "steps"),
+	}
+	for job_id, expected_fields in expected_job_fields.items():
+		if job_id in jobs:
+			require_exact_job_fields(jobs[job_id], job_id, expected_fields, issues)
+	release_step_names = {
+		"build-release-artifacts": (
+			"Checkout tag", "Set up Python", "Build release artifact set",
+			"Verify release metadata against built artifacts",
+			"Upload immutable release artifact set",
+		),
+		"release-framework-checks": (
+			"Checkout tag", "Set up Python", "Install documentation dependencies",
+			"Set up Godot", "Run release framework shard",
+		),
+		"release-package-checks": (
+			"Checkout tag", "Set up Python", "Set up Godot", "Run release package shard",
+		),
+		"create-release": (
+			"Checkout tag", "Set up Python", "Download verified release artifact set",
+			"Verify downloaded release artifact set", "Extract release notes", "Create release",
+		),
+	}
+	for job_id, expected_names in release_step_names.items():
+		if job_id in jobs:
+			require_exact_step_names(jobs[job_id], job_id, expected_names, issues)
 	for job_id, job_source in jobs.items():
 		permission_keys = extract_yaml_mapping_keys(job_source, "permissions", 4)
 		contents_permission = extract_yaml_scalar(job_source, "contents", 6)
@@ -568,12 +789,110 @@ def audit_release_workflow(source: str) -> list[str]:
 			issues.append(f"Release job {job_id} may only narrow its permissions to contents: read.")
 	if "create-release" not in jobs:
 		issues.append("Release workflow is missing create-release job.")
+	framework_job = jobs.get("release-framework-checks", "")
+	if not framework_job:
+		issues.append("Release workflow is missing release-framework-checks job.")
+	else:
+		actual_framework_job_fields = extract_ci_job_field_keys(framework_job)
+		expected_framework_job_fields = ["name", "runs-on", "timeout-minutes", "steps"]
+		if actual_framework_job_fields != expected_framework_job_fields:
+			issues.append(
+				"Release job release-framework-checks fields are "
+				f"{actual_framework_job_fields!r}, expected {expected_framework_job_fields!r}."
+			)
+		require_exact_job_scalar(
+			framework_job,
+			"release-framework-checks",
+			"timeout-minutes",
+			str(RELEASE_FRAMEWORK_TIMEOUT_MINUTES),
+			issues,
+		)
+		release_framework_step = extract_ci_step_block(
+			framework_job,
+			"Run release framework shard",
+		)
+		actual_release_step_fields = extract_ci_step_field_keys(release_framework_step)
+		if actual_release_step_fields != ["run"]:
+			issues.append(
+				"Release job release-framework-checks Run release framework shard fields "
+				f"are {actual_release_step_fields!r}, expected ['run']."
+			)
+		actual_release_command = extract_yaml_scalar(release_framework_step, "run", 8)
+		if actual_release_command != RELEASE_FRAMEWORK_COMMAND:
+			issues.append(
+				"Release job release-framework-checks Run release framework shard command "
+				f"is {actual_release_command!r}, expected {RELEASE_FRAMEWORK_COMMAND!r}."
+			)
+	package_job = jobs.get("release-package-checks", "")
+	if package_job:
+		require_exact_matrix_suites(
+			package_job,
+			"release-package-checks",
+			RELEASE_PACKAGE_SUITES,
+			issues,
+		)
+		require_exact_run_step(
+			package_job,
+			"release-package-checks",
+			"Run release package shard",
+			PACKAGE_CI_COMMAND,
+			issues,
+		)
+	create_release_job = jobs.get("create-release", "")
+	if create_release_job:
+		require_exact_job_needs(
+			create_release_job,
+			"create-release",
+			("build-release-artifacts", "release-framework-checks", "release-package-checks"),
+			issues,
+		)
+		require_exact_run_step(
+			create_release_job,
+			"create-release",
+			"Verify downloaded release artifact set",
+			RELEASE_VERIFY_ARTIFACT_COMMAND,
+			issues,
+		)
+		require_exact_run_step(
+			create_release_job,
+			"create-release",
+			"Extract release notes",
+			RELEASE_EXTRACT_NOTES_COMMAND,
+			issues,
+		)
+		create_step = extract_ci_step_block(create_release_job, "Create release")
+		create_step_fields = extract_ci_step_field_keys(create_step)
+		if create_step_fields != ["env", "run"]:
+			issues.append(
+				"CI job create-release Create release fields are "
+				f"{create_step_fields!r}, expected ['env', 'run']."
+			)
+		create_env_keys = extract_yaml_mapping_keys(create_step, "env", 8)
+		create_token = extract_yaml_scalar(create_step, "GITHUB_TOKEN", 10)
+		if create_env_keys != ["GITHUB_TOKEN"] or create_token != "${{ secrets.GITHUB_TOKEN }}":
+			issues.append(
+				"CI job create-release Create release environment must contain only the governed GITHUB_TOKEN."
+			)
+		create_command = extract_yaml_scalar(create_step, "run", 8)
+		if create_command != RELEASE_CREATE_COMMAND:
+			issues.append(
+				"CI job create-release Create release command is "
+				f"{create_command!r}, expected {RELEASE_CREATE_COMMAND!r}."
+			)
 	return issues
 
 
 def audit_ci_workflow(policy: dict[str, Any], source: str) -> list[str]:
 	issues: list[str] = []
+	actual_top_level_fields = extract_yaml_direct_mapping_keys(source, 0)
+	expected_top_level_fields = ["name", "run-name", "on", "permissions", "concurrency", "jobs"]
+	if actual_top_level_fields != expected_top_level_fields:
+		issues.append(
+			"CI top-level fields are "
+			f"{actual_top_level_fields!r}, expected {expected_top_level_fields!r}."
+		)
 	jobs, duplicate_jobs = extract_ci_job_blocks(source)
+	reject_failure_tolerant_jobs_and_steps(jobs, "CI", issues)
 	if duplicate_jobs:
 		issues.append(f"CI workflow has duplicate job ids: {', '.join(sorted(duplicate_jobs))}.")
 	required_job_ids = {
@@ -589,13 +908,79 @@ def audit_ci_workflow(policy: dict[str, Any], source: str) -> list[str]:
 	missing_job_ids = sorted(required_job_ids - set(jobs))
 	if missing_job_ids:
 		issues.append(f"CI workflow is missing governed jobs: {', '.join(missing_job_ids)}.")
+	extra_job_ids = sorted(set(jobs) - required_job_ids)
+	if extra_job_ids:
+		issues.append(f"CI workflow has unsupported jobs: {', '.join(extra_job_ids)}.")
+	expected_job_fields = {
+		"repository-policy": ("name", "runs-on", "timeout-minutes", "steps"),
+		"quick-checks": ("name", "if", "needs", "runs-on", "timeout-minutes", "steps"),
+		"framework-checks": (
+			"name", "if", "needs", "runs-on", "timeout-minutes", "strategy", "steps",
+		),
+		"package-checks": (
+			"name", "if", "needs", "runs-on", "timeout-minutes", "strategy", "steps",
+		),
+		"windows-process-supervision": (
+			"name", "if", "needs", "runs-on", "timeout-minutes", "steps",
+		),
+		"draft-gate": ("name", "if", "needs", "runs-on", "timeout-minutes", "steps"),
+		"full-validation-gate": (
+			"name", "if", "needs", "runs-on", "timeout-minutes", "steps",
+		),
+		"merge-gate": (
+			"name", "if", "permissions", "needs", "runs-on", "timeout-minutes", "steps",
+		),
+	}
+	for job_id, expected_fields in expected_job_fields.items():
+		if job_id in jobs:
+			require_exact_job_fields(jobs[job_id], job_id, expected_fields, issues)
+	ci_step_names = {
+		"repository-policy": (
+			"Checkout", "Set up Python", "Validate repository policy",
+			"Validate pull request contract",
+		),
+		"quick-checks": ("Checkout", "Set up Python", "Run quick maintenance suite"),
+		"framework-checks": (
+			"Checkout", "Set up Python", "Install documentation dependencies",
+			"Set up Godot", "Run framework maintenance shard",
+		),
+		"package-checks": ("Checkout", "Set up Python", "Set up Godot", "Run package maintenance shard"),
+		"windows-process-supervision": (
+			"Checkout", "Set up Python", "Verify owned process-tree cleanup",
+			"Verify Windows staging and startup boundaries",
+		),
+		"draft-gate": ("Evaluate Draft checks",),
+		"full-validation-gate": ("Evaluate Full validation",),
+		"merge-gate": (
+			"Evaluate repository policy", "Evaluate current Full validation",
+			"Checkout relay policy", "Set up Python for relay",
+			"Reuse the latest matching Full validation epoch",
+		),
+	}
+	for job_id, expected_names in ci_step_names.items():
+		if job_id in jobs:
+			require_exact_step_names(jobs[job_id], job_id, expected_names, issues)
 
 	pull_request_source = extract_yaml_mapping_block(source, "on", 0, "pull_request", 2)
+	if extract_yaml_mapping_keys(pull_request_source, "pull_request", 2) != ["types"]:
+		issues.append("CI pull_request trigger must contain only types.")
 	pull_request_types = extract_yaml_list(pull_request_source, "types", 4)
-	for event_name in ("opened", "synchronize", "reopened", "edited", "ready_for_review", "converted_to_draft"):
-		if event_name not in pull_request_types:
-			issues.append(f"CI pull_request.types is missing governed event: {event_name}.")
+	expected_pull_request_types = [
+		"opened",
+		"synchronize",
+		"reopened",
+		"edited",
+		"ready_for_review",
+		"converted_to_draft",
+	]
+	if pull_request_types != expected_pull_request_types:
+		issues.append(
+			"CI pull_request.types is "
+			f"{pull_request_types!r}, expected {expected_pull_request_types!r}."
+		)
 	push_source = extract_yaml_mapping_block(source, "on", 0, "push", 2)
+	if extract_yaml_mapping_keys(push_source, "push", 2) != ["branches"]:
+		issues.append("CI push trigger must contain only branches.")
 	push_branches = extract_yaml_list(push_source, "branches", 4)
 	expected_push_branches = [str(policy["default_branch"])]
 	if push_branches != expected_push_branches:
@@ -605,9 +990,13 @@ def audit_ci_workflow(policy: dict[str, Any], source: str) -> list[str]:
 	workflow_dispatch_source = extract_yaml_mapping_block(source, "on", 0, "workflow_dispatch", 2)
 	if workflow_dispatch_source:
 		issues.append("Required CI must not expose workflow_dispatch; manual diagnostics belong to ci-manual.yml.")
+	if extract_yaml_mapping_keys(source, "on", 0) != ["pull_request", "push"]:
+		issues.append("Required CI triggers must contain only pull_request and push.")
 	if extract_yaml_scalar(source, "run-name", 0) != CI_RUN_NAME:
 		issues.append("CI run-name must freeze the governed mode, pull request, head SHA, and base SHA epoch.")
 	permissions_source = extract_yaml_top_level_block(source, "permissions")
+	if extract_yaml_mapping_keys(source, "permissions", 0) != ["contents"]:
+		issues.append("CI top-level permissions must contain only contents: read.")
 	if extract_yaml_scalar(permissions_source, "contents", 2) != "read":
 		issues.append("CI top-level permission contents must be read.")
 	for permission_name in ("actions", "checks", "pull-requests"):
@@ -617,6 +1006,8 @@ def audit_ci_workflow(policy: dict[str, Any], source: str) -> list[str]:
 				"metadata relay access belongs only to merge-gate."
 			)
 	concurrency_source = extract_yaml_top_level_block(source, "concurrency")
+	if extract_yaml_mapping_keys(source, "concurrency", 0) != ["group", "cancel-in-progress"]:
+		issues.append("CI concurrency must contain only group and cancel-in-progress.")
 	concurrency_group = extract_yaml_scalar(concurrency_source, "group", 2)
 	if concurrency_group != METADATA_CONCURRENCY_GROUP:
 		issues.append("CI concurrency.group must isolate metadata-only policy runs from source validation runs.")
@@ -626,8 +1017,37 @@ def audit_ci_workflow(policy: dict[str, Any], source: str) -> list[str]:
 	repository_job = jobs.get("repository-policy", "")
 	if repository_job:
 		require_exact_job_scalar(repository_job, "repository-policy", "name", REPOSITORY_POLICY_NAME, issues)
-		require_job_code(repository_job, "repository-policy", "python tools/gf_repository_policy.py validate --json", issues)
-		require_job_code(repository_job, "repository-policy", "python tools/gf_repository_policy.py validate-pr --json", issues)
+		require_exact_run_step(
+			repository_job,
+			"repository-policy",
+			"Validate repository policy",
+			REPOSITORY_POLICY_COMMAND,
+			issues,
+		)
+		pull_request_step = extract_ci_step_block(repository_job, "Validate pull request contract")
+		pull_request_fields = extract_ci_step_field_keys(pull_request_step)
+		if pull_request_fields != ["if", "env", "run"]:
+			issues.append(
+				"CI job repository-policy Validate pull request contract fields are "
+				f"{pull_request_fields!r}, expected ['if', 'env', 'run']."
+			)
+		if extract_yaml_scalar(pull_request_step, "if", 8) != "github.event_name == 'pull_request'":
+			issues.append("CI job repository-policy Validate pull request contract condition is not governed.")
+		pull_request_env_keys = extract_yaml_mapping_keys(pull_request_step, "env", 8)
+		pull_request_head_repository = extract_yaml_scalar(
+			pull_request_step,
+			"GF_HEAD_REPOSITORY",
+			10,
+		)
+		if (
+			pull_request_env_keys != ["GF_HEAD_REPOSITORY"]
+			or pull_request_head_repository != "${{ github.event.pull_request.head.repo.full_name }}"
+		):
+			issues.append(
+				"CI job repository-policy Validate pull request contract environment is not governed."
+			)
+		if extract_yaml_scalar(pull_request_step, "run", 8) != PULL_REQUEST_POLICY_COMMAND:
+			issues.append("CI job repository-policy Validate pull request contract command is not governed.")
 
 	quick_job = jobs.get("quick-checks", "")
 	if quick_job:
@@ -641,25 +1061,70 @@ def audit_ci_workflow(policy: dict[str, Any], source: str) -> list[str]:
 			issues,
 		)
 		require_exact_job_needs(quick_job, "quick-checks", ("repository-policy",), issues)
-		require_job_code(quick_job, "quick-checks", "--suite quick", issues)
+		require_exact_run_step(
+			quick_job,
+			"quick-checks",
+			"Run quick maintenance suite",
+			QUICK_CI_COMMAND,
+			issues,
+		)
 
 	ready_job_if = FULL_VALIDATION_EVENT
 	framework_job = jobs.get("framework-checks", "")
 	if framework_job:
+		require_exact_job_fields(
+			framework_job,
+			"framework-checks",
+			("name", "if", "needs", "runs-on", "timeout-minutes", "strategy", "steps"),
+			issues,
+		)
 		require_exact_job_scalar(framework_job, "framework-checks", "if", ready_job_if, issues)
 		require_exact_job_needs(framework_job, "framework-checks", ("repository-policy",), issues)
+		require_exact_job_scalar(
+			framework_job,
+			"framework-checks",
+			"timeout-minutes",
+			"${{ matrix.timeout_minutes }}",
+			issues,
+		)
 		require_exact_matrix_suites(framework_job, "framework-checks", FRAMEWORK_CI_SUITES, issues)
-		require_job_code(framework_job, "framework-checks", "--suite ${{ matrix.suite }}", issues)
+		require_exact_matrix_suite_scalar(
+			framework_job,
+			"framework-checks",
+			"framework-gut",
+			"timeout_minutes",
+			str(FRAMEWORK_GUT_CI_TIMEOUT_MINUTES),
+			issues,
+		)
+		require_exact_run_step(
+			framework_job,
+			"framework-checks",
+			"Run framework maintenance shard",
+			FRAMEWORK_CI_COMMAND,
+			issues,
+		)
 
 	package_job = jobs.get("package-checks", "")
 	if package_job:
 		require_exact_job_scalar(package_job, "package-checks", "if", ready_job_if, issues)
 		require_exact_job_needs(package_job, "package-checks", ("repository-policy",), issues)
 		require_exact_matrix_suites(package_job, "package-checks", PACKAGE_CI_SUITES, issues)
-		require_job_code(package_job, "package-checks", "--suite ${{ matrix.suite }}", issues)
+		require_exact_run_step(
+			package_job,
+			"package-checks",
+			"Run package maintenance shard",
+			PACKAGE_CI_COMMAND,
+			issues,
+		)
 
 	windows_process_job = jobs.get("windows-process-supervision", "")
 	if windows_process_job:
+		require_exact_job_fields(
+			windows_process_job,
+			"windows-process-supervision",
+			("name", "if", "needs", "runs-on", "timeout-minutes", "steps"),
+			issues,
+		)
 		require_exact_job_scalar(
 			windows_process_job,
 			"windows-process-supervision",
@@ -687,10 +1152,41 @@ def audit_ci_workflow(policy: dict[str, Any], source: str) -> list[str]:
 			"windows-latest",
 			issues,
 		)
+		require_exact_run_step(
+			windows_process_job,
+			"windows-process-supervision",
+			"Verify owned process-tree cleanup",
+			WINDOWS_PROCESS_SELF_TEST_COMMAND,
+			issues,
+		)
+		windows_staging_step = extract_ci_step_block(
+			windows_process_job,
+			"Verify Windows staging and startup boundaries",
+		)
+		actual_windows_staging_fields = extract_ci_step_field_keys(windows_staging_step)
+		if actual_windows_staging_fields != ["run"]:
+			issues.append(
+				"CI job windows-process-supervision Windows staging/startup step fields "
+				f"are {actual_windows_staging_fields!r}, expected ['run']."
+			)
+		expected_windows_staging_command = WINDOWS_STAGING_TEST_COMMAND
+		actual_windows_staging_command = extract_yaml_scalar(windows_staging_step, "run", 8)
+		if actual_windows_staging_command != expected_windows_staging_command:
+			issues.append(
+				"CI job windows-process-supervision Windows staging/startup command "
+				f"is {actual_windows_staging_command!r}, expected "
+				f"{expected_windows_staging_command!r}."
+			)
 		require_job_code(
 			windows_process_job,
 			"windows-process-supervision",
-			"python tools/gf_maintenance.py maintenance-self-test --json",
+			"tests.gf_core.tools.test_gf_parallel_validation",
+			issues,
+		)
+		require_job_code(
+			windows_process_job,
+			"windows-process-supervision",
+			"tests.gf_core.tools.test_gf_maintenance_check_graph",
 			issues,
 		)
 
@@ -781,35 +1277,96 @@ def audit_ci_workflow(policy: dict[str, Any], source: str) -> list[str]:
 			),
 			issues,
 		)
+		if extract_yaml_mapping_keys(merge_gate, "permissions", 4) != [
+			"actions",
+			"checks",
+			"contents",
+			"pull-requests",
+		]:
+			issues.append("CI job merge-gate permissions must contain only the governed read scopes.")
 		for permission_name in ("actions", "checks", "contents", "pull-requests"):
 			if extract_yaml_scalar(merge_gate, permission_name, 6) != "read":
 				issues.append(f"CI job merge-gate permission {permission_name} must be read.")
-		for step_name in (
-			"Checkout relay policy",
-			"Set up Python for relay",
-			"Reuse the latest matching Full validation epoch",
-		):
-			step_source = extract_ci_step_block(merge_gate, step_name)
-			if not step_source:
-				issues.append(f"CI job merge-gate is missing governed step {step_name!r}.")
-				continue
-			if extract_yaml_scalar(step_source, "if", 8) != METADATA_RELAY_STEP_IF:
-				issues.append(f"CI job merge-gate step {step_name!r} has the wrong metadata-only condition.")
+		require_exact_gate_evaluator(
+			merge_gate,
+			"merge-gate",
+			"Evaluate repository policy",
+			(("POLICY_RESULT", "${{ needs.repository-policy.result }}", "Repository policy failed"),),
+			issues,
+		)
+		current_full_step = extract_ci_step_block(merge_gate, "Evaluate current Full validation")
+		if extract_ci_step_field_keys(current_full_step) != ["if", "env", "run"]:
+			issues.append("CI job merge-gate current Full evaluator fields are not governed.")
+		if extract_yaml_scalar(current_full_step, "if", 8) != CURRENT_FULL_STEP_IF:
+			issues.append("CI job merge-gate current Full evaluator condition is not governed.")
+		if extract_yaml_mapping_keys(current_full_step, "env", 8) != ["FULL_VALIDATION_RESULT"]:
+			issues.append("CI job merge-gate current Full evaluator environment is not governed.")
+		if extract_yaml_scalar(current_full_step, "FULL_VALIDATION_RESULT", 10) != "${{ needs.full-validation-gate.result }}":
+			issues.append("CI job merge-gate current Full evaluator result binding is not governed.")
+		expected_full_evaluator = (
+			'if [ "${FULL_VALIDATION_RESULT}" != "success" ]; then '
+			'echo "Full validation failed: ${FULL_VALIDATION_RESULT}" exit 1 fi'
+		)
+		if extract_yaml_scalar(current_full_step, "run", 8) != expected_full_evaluator:
+			issues.append("CI job merge-gate current Full evaluator command is not governed.")
+		expected_current_full_lines = [
+			"      - name: Evaluate current Full validation",
+			"        if: >-",
+			"          success() &&",
+			"          (github.event_name == 'push' ||",
+			"          (github.event_name == 'pull_request' &&",
+			"          (github.event.action != 'edited' || github.event.changes.base.ref.from != '')))",
+			"        env:",
+			"          FULL_VALIDATION_RESULT: ${{ needs.full-validation-gate.result }}",
+			"        run: |",
+			'          if [ "${FULL_VALIDATION_RESULT}" != "success" ]; then',
+			'            echo "Full validation failed: ${FULL_VALIDATION_RESULT}"',
+			"            exit 1",
+			"          fi",
+		]
+		if current_full_step.rstrip("\r\n").splitlines() != expected_current_full_lines:
+			issues.append(
+				"CI job merge-gate current Full evaluator must match the canonical literal script."
+			)
+		checkout_step = extract_ci_step_block(merge_gate, "Checkout relay policy")
+		if extract_ci_step_field_keys(checkout_step) != ["if", "uses"]:
+			issues.append("CI job merge-gate relay checkout fields are not governed.")
+		if extract_yaml_scalar(checkout_step, "if", 8) != METADATA_RELAY_STEP_IF:
+			issues.append("CI job merge-gate relay checkout condition is not governed.")
+		if extract_yaml_scalar(checkout_step, "uses", 8) != "actions/checkout@v7":
+			issues.append("CI job merge-gate relay checkout action is not governed.")
+		setup_step = extract_ci_step_block(merge_gate, "Set up Python for relay")
+		if extract_ci_step_field_keys(setup_step) != ["if", "uses", "with"]:
+			issues.append("CI job merge-gate relay Python setup fields are not governed.")
+		if extract_yaml_scalar(setup_step, "if", 8) != METADATA_RELAY_STEP_IF:
+			issues.append("CI job merge-gate relay Python setup condition is not governed.")
+		if extract_yaml_scalar(setup_step, "uses", 8) != "actions/setup-python@v7":
+			issues.append("CI job merge-gate relay Python setup action is not governed.")
+		if extract_yaml_mapping_keys(setup_step, "with", 8) != ["python-version"]:
+			issues.append("CI job merge-gate relay Python setup inputs are not governed.")
+		if extract_yaml_scalar(setup_step, "python-version", 10) != '"3.12"':
+			issues.append("CI job merge-gate relay Python version is not governed.")
 		relay_step = extract_ci_step_block(
 			merge_gate,
 			"Reuse the latest matching Full validation epoch",
 		)
-		if relay_step and extract_yaml_scalar(relay_step, "GH_TOKEN", 10) != "${{ github.token }}":
-			issues.append("CI job merge-gate relay step must map GH_TOKEN from github.token.")
-		for fragment in (
-			"python tools/gf_repository_policy.py validate-pr-gate",
-			"--wait-seconds 1800",
-			"--poll-seconds 10",
-			"GF_PR_NUMBER: ${{ github.event.pull_request.number }}",
-			"GF_PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}",
-			"GF_PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}",
+		if extract_ci_step_field_keys(relay_step) != ["if", "env", "run"]:
+			issues.append("CI job merge-gate relay fields are not governed.")
+		if extract_yaml_scalar(relay_step, "if", 8) != METADATA_RELAY_STEP_IF:
+			issues.append("CI job merge-gate relay condition is not governed.")
+		expected_relay_env = ["GH_TOKEN", "GF_PR_NUMBER", "GF_PR_HEAD_SHA", "GF_PR_BASE_SHA"]
+		if extract_yaml_mapping_keys(relay_step, "env", 8) != expected_relay_env:
+			issues.append("CI job merge-gate relay environment fields are not governed.")
+		for field_name, expected_value in (
+			("GH_TOKEN", "${{ github.token }}"),
+			("GF_PR_NUMBER", "${{ github.event.pull_request.number }}"),
+			("GF_PR_HEAD_SHA", "${{ github.event.pull_request.head.sha }}"),
+			("GF_PR_BASE_SHA", "${{ github.event.pull_request.base.sha }}"),
 		):
-			require_job_code(merge_gate, "merge-gate", fragment, issues)
+			if extract_yaml_scalar(relay_step, field_name, 10) != expected_value:
+				issues.append(f"CI job merge-gate relay {field_name} binding is not governed.")
+		if extract_yaml_scalar(relay_step, "run", 8) != METADATA_RELAY_COMMAND:
+			issues.append("CI job merge-gate relay command is not governed.")
 
 	configured_checks = policy.get("required_status_checks")
 	if isinstance(configured_checks, list):
@@ -831,14 +1388,23 @@ def extract_ci_job_blocks(source: str) -> tuple[dict[str, str], set[str]]:
 	blocks: dict[str, list[str]] = {}
 	duplicates: set[str] = set()
 	current_job = ""
-	for line in lines[1:]:
-		match = re.fullmatch(r"  ([A-Za-z0-9_-]+):\s*", strip_yaml_comment(line))
+	for index, line in enumerate(lines[1:], start=1):
+		code = strip_yaml_comment(line)
+		indent = len(code) - len(code.lstrip(" ")) if code else -1
+		match = re.fullmatch(r"  ([A-Za-z0-9_-]+):\s*", code)
 		if match is not None:
 			current_job = match.group(1)
 			if current_job in blocks:
 				duplicates.add(current_job)
 			else:
 				blocks[current_job] = [line]
+			continue
+		if code and indent == 2:
+			# Governed workflow job ids intentionally use one canonical unquoted
+			# spelling. Treat quoted, explicit-key, flow, and otherwise unsupported
+			# direct mappings as real extra jobs instead of dropping their blocks.
+			current_job = f"<unparsed-job-{index}>"
+			blocks[current_job] = [line]
 			continue
 		if current_job:
 			blocks[current_job].append(line)
@@ -847,21 +1413,101 @@ def extract_ci_job_blocks(source: str) -> tuple[dict[str, str], set[str]]:
 
 def extract_ci_step_block(job_source: str, step_name: str) -> str:
 	lines = job_source.splitlines()
+	steps_indices = [
+		index for index, line in enumerate(lines)
+		if re.fullmatch(r"    steps:\s*", strip_yaml_comment(line)) is not None
+	]
+	if len(steps_indices) != 1:
+		return ""
+	steps_start = steps_indices[0]
+	steps_end = len(lines)
+	for index in range(steps_start + 1, len(lines)):
+		code = strip_yaml_comment(lines[index])
+		if code and len(code) - len(code.lstrip(" ")) <= 4:
+			steps_end = index
+			break
 	start = -1
 	prefix = "      - name: "
-	for index, line in enumerate(lines):
+	for index in range(steps_start + 1, steps_end):
+		line = lines[index]
 		if strip_yaml_comment(line) == prefix + step_name:
 			if start >= 0:
 				return ""
 			start = index
 	if start < 0:
 		return ""
-	end = len(lines)
-	for index in range(start + 1, len(lines)):
-		if strip_yaml_comment(lines[index]).startswith(prefix):
+	end = steps_end
+	for index in range(start + 1, steps_end):
+		if re.match(r"^      -\s+", strip_yaml_comment(lines[index])) is not None:
 			end = index
 			break
 	return "\n".join(lines[start:end])
+
+
+def extract_ci_step_names(job_source: str) -> list[str]:
+	"""Return the canonical ordered direct step names for one governed job."""
+	lines = job_source.splitlines()
+	steps_indices = [
+		index for index, line in enumerate(lines)
+		if re.fullmatch(r"    steps:\s*", strip_yaml_comment(line)) is not None
+	]
+	if len(steps_indices) != 1:
+		return []
+	result: list[str] = []
+	for line in lines[steps_indices[0] + 1:]:
+		code = strip_yaml_comment(line)
+		indent = len(code) - len(code.lstrip(" ")) if code else -1
+		if code and indent <= 4:
+			break
+		if code and indent == 6:
+			match = re.fullmatch(r"      - name:\s+(\S(?:.*\S)?)", code)
+			if match is None:
+				return ["<unparsed>"]
+			result.append(match.group(1))
+	return result
+
+
+def require_exact_step_names(
+	job_source: str,
+	job_id: str,
+	expected: tuple[str, ...],
+	issues: list[str],
+) -> None:
+	actual = extract_ci_step_names(job_source)
+	if actual != list(expected):
+		issues.append(
+			f"CI job {job_id} step names are {actual!r}, expected {list(expected)!r}."
+		)
+
+
+def extract_yaml_direct_mapping_keys(source: str, indent: int) -> list[str]:
+	"""Return direct YAML mapping keys, failing closed on unsupported spellings."""
+	keys: list[str] = []
+	prefix = " " * indent
+	for line in source.splitlines():
+		code = strip_yaml_comment(line)
+		if not code or len(code) - len(code.lstrip(" ")) != indent:
+			continue
+		match = re.fullmatch(
+			rf'''{re.escape(prefix)}(?:([A-Za-z0-9_-]+)|'([A-Za-z0-9_-]+)'|"([A-Za-z0-9_-]+)"):(?:\s*.*?)?''',
+			code,
+		)
+		keys.append(
+			next((group for group in match.groups() if group is not None), "<unparsed>")
+			if match is not None
+			else "<unparsed>"
+		)
+	return keys
+
+
+def extract_ci_step_field_keys(step_source: str) -> list[str]:
+	"""Return exact top-level fields on one named CI step, excluding its name."""
+	return extract_yaml_direct_mapping_keys("\n".join(step_source.splitlines()[1:]), 8)
+
+
+def extract_ci_job_field_keys(job_source: str) -> list[str]:
+	"""Return direct mapping fields on one CI job, excluding its job id."""
+	return extract_yaml_direct_mapping_keys("\n".join(job_source.splitlines()[1:]), 4)
 
 
 def extract_yaml_top_level_block(source: str, key: str) -> str:
@@ -929,11 +1575,14 @@ def extract_yaml_mapping_keys(source: str, key: str, indent: int) -> list[str]:
 	child_prefix = " " * (indent + 2)
 	for line in lines[start + 1:]:
 		code = strip_yaml_comment(line)
-		if code and len(code) - len(code.lstrip(" ")) <= indent:
+		code_indent = len(code) - len(code.lstrip(" ")) if code else -1
+		if code and code_indent <= indent:
 			break
 		match = re.fullmatch(rf"{re.escape(child_prefix)}([A-Za-z0-9_-]+):(?:\s*.*?)?", code)
 		if match is not None:
 			keys.append(match.group(1))
+		elif code and code_indent == indent + 2:
+			keys.append("<unparsed>")
 	return keys
 
 
@@ -950,7 +1599,10 @@ def extract_yaml_scalar(source: str, key: str, indent: int) -> str:
 		if value in {">", ">-", "|", "|-"}:
 			parts: list[str] = []
 			for continuation in lines[index + 1:]:
-				continuation_code = strip_yaml_comment(continuation)
+				# A '#' inside a YAML block scalar is shell/script data, not a YAML
+				# comment. Preserve it so an exact command audit cannot be spoofed by
+				# commenting out the governed continuation lines at runtime.
+				continuation_code = continuation.rstrip()
 				if continuation_code and len(continuation_code) - len(continuation_code.lstrip(" ")) <= indent:
 					break
 				if continuation_code.strip():
@@ -969,33 +1621,99 @@ def extract_yaml_list(source: str, key: str, indent: int) -> list[str]:
 		values: list[str] = []
 		for continuation in lines[index + 1:]:
 			code = strip_yaml_comment(continuation)
-			if code and len(code) - len(code.lstrip(" ")) <= indent:
+			code_indent = len(code) - len(code.lstrip(" ")) if code else -1
+			if code and code_indent <= indent:
 				break
 			match = re.fullmatch(rf"\s{{{indent + 2}}}-\s+([A-Za-z0-9_-]+)\s*", code)
 			if match is not None:
 				values.append(match.group(1))
+			elif code and code_indent == indent + 2:
+				values.append("<unparsed>")
 		return values
 	return []
 
 
 def extract_matrix_suites(job_source: str) -> list[str]:
-	lines = job_source.splitlines()
-	matrix_start = -1
-	for index, line in enumerate(lines):
-		if re.fullmatch(r"      matrix:\s*", strip_yaml_comment(line)) is not None:
-			matrix_start = index
-			break
-	if matrix_start < 0:
+	items = extract_matrix_include_items(job_source)
+	if not items:
 		return []
-	suites: list[str] = []
-	for line in lines[matrix_start + 1:]:
-		code = strip_yaml_comment(line)
-		if code and len(code) - len(code.lstrip(" ")) <= 6:
-			break
-		match = re.fullmatch(r"            suite:\s*([a-z0-9][a-z0-9-]*)\s*", code)
-		if match is not None:
-			suites.append(match.group(1))
+	suites = [extract_yaml_scalar(item, "suite", 12) for item in items]
+	if any(re.fullmatch(r"[a-z0-9][a-z0-9-]*", suite) is None for suite in suites):
+		return []
 	return suites
+
+
+def extract_matrix_include_items(job_source: str) -> list[str]:
+	"""Extract one strategy.matrix.include sequence without trusting block scalars."""
+	lines = job_source.splitlines()
+	strategy_indices = [
+		index for index, line in enumerate(lines)
+		if re.fullmatch(r"    strategy:\s*", strip_yaml_comment(line)) is not None
+	]
+	if len(strategy_indices) != 1:
+		return []
+	strategy_start = strategy_indices[0]
+	strategy_end = len(lines)
+	for index in range(strategy_start + 1, len(lines)):
+		code = strip_yaml_comment(lines[index])
+		if code and len(code) - len(code.lstrip(" ")) <= 4:
+			strategy_end = index
+			break
+	matrix_indices = [
+		index for index in range(strategy_start + 1, strategy_end)
+		if re.fullmatch(r"      matrix:\s*", strip_yaml_comment(lines[index])) is not None
+	]
+	if len(matrix_indices) != 1:
+		return []
+	matrix_start = matrix_indices[0]
+	matrix_end = strategy_end
+	for index in range(matrix_start + 1, strategy_end):
+		code = strip_yaml_comment(lines[index])
+		if code and len(code) - len(code.lstrip(" ")) <= 6:
+			matrix_end = index
+			break
+	include_indices = [
+		index for index in range(matrix_start + 1, matrix_end)
+		if re.fullmatch(r"        include:\s*", strip_yaml_comment(lines[index])) is not None
+	]
+	if len(include_indices) != 1:
+		return []
+	include_start = include_indices[0]
+	include_end = matrix_end
+	for index in range(include_start + 1, matrix_end):
+		code = strip_yaml_comment(lines[index])
+		if code and len(code) - len(code.lstrip(" ")) <= 8:
+			include_end = index
+			break
+	items: list[str] = []
+	current_item: list[str] = []
+	for line in lines[include_start + 1:include_end]:
+		code = strip_yaml_comment(line)
+		item_match = re.fullmatch(r"          -(?:\s+(.*))?", code)
+		if item_match is not None:
+			if current_item:
+				items.append("\n".join(current_item))
+			first_field = item_match.group(1) or ""
+			current_item = ["            " + first_field]
+		elif current_item:
+			current_item.append(line)
+	if current_item:
+		items.append("\n".join(current_item))
+	return items
+
+
+def extract_matrix_suite_scalar(
+	job_source: str,
+	suite_name: str,
+	field_name: str,
+) -> str:
+	items = extract_matrix_include_items(job_source)
+	values = [
+		extract_yaml_scalar(item, field_name, 12)
+		for item in items
+		if extract_yaml_scalar(item, "suite", 12) == suite_name
+	]
+	return values[0] if len(values) == 1 else ""
 
 
 def strip_yaml_comment(line: str) -> str:
@@ -1010,10 +1728,18 @@ def strip_yaml_comment(line: str) -> str:
 			in_single_quote = not in_single_quote
 		elif character == '"' and not in_single_quote and not escaped:
 			in_double_quote = not in_double_quote
-		elif character == "#" and not in_single_quote and not in_double_quote:
-			return line[:index].rstrip()
+		elif (
+			character == "#"
+			and not in_single_quote
+			and not in_double_quote
+			and (index == 0 or line[index - 1] in {" ", "\t"})
+		):
+			# YAML begins a plain-scalar comment only after separation whitespace.
+			# A token such as ``--json#`` remains command text and must reach the
+			# exact-command audit instead of being normalized into a governed value.
+			return line[:index].rstrip(" \t")
 		escaped = False
-	return line.rstrip()
+	return line.rstrip(" \t")
 
 
 def require_exact_job_scalar(
@@ -1028,6 +1754,83 @@ def require_exact_job_scalar(
 		issues.append(f"CI job {job_id} {field_name} is {actual!r}, expected {expected!r}.")
 
 
+def require_exact_job_fields(
+	job_source: str,
+	job_id: str,
+	expected: tuple[str, ...],
+	issues: list[str],
+) -> None:
+	actual = extract_ci_job_field_keys(job_source)
+	if actual != list(expected):
+		issues.append(f"CI job {job_id} fields are {actual!r}, expected {list(expected)!r}.")
+
+
+def reject_failure_tolerant_jobs_and_steps(
+	jobs: dict[str, str],
+	workflow_label: str,
+	issues: list[str],
+) -> None:
+	"""Reject GitHub's success-masking switch at every governed job/step."""
+	for job_id, job_source in jobs.items():
+		job_fields = extract_ci_job_field_keys(job_source)
+		step_fields = extract_yaml_direct_mapping_keys(job_source, 8)
+		lines = job_source.splitlines()
+		steps_indices = [
+			index for index, line in enumerate(lines)
+			if re.fullmatch(r"    steps:\s*", strip_yaml_comment(line)) is not None
+		]
+		unsupported_step_item = len(steps_indices) != 1
+		if len(steps_indices) == 1:
+			for line in lines[steps_indices[0] + 1:]:
+				code = strip_yaml_comment(line)
+				if code and len(code) - len(code.lstrip(" ")) <= 4:
+					break
+				if code and len(code) - len(code.lstrip(" ")) == 6:
+					if re.fullmatch(r"      - name:\s+\S(?:.*\S)?", code) is None:
+						unsupported_step_item = True
+		if "<unparsed>" in job_fields:
+			issues.append(
+				f"{workflow_label} job {job_id} has an unsupported direct field spelling."
+			)
+		if "<unparsed>" in step_fields:
+			issues.append(
+				f"{workflow_label} job {job_id} steps have an unsupported direct field spelling."
+			)
+		if unsupported_step_item:
+			issues.append(
+				f"{workflow_label} job {job_id} has an unsupported step item spelling."
+			)
+		if "continue-on-error" in job_fields:
+			issues.append(
+				f"{workflow_label} job {job_id} must not set continue-on-error."
+			)
+		if "continue-on-error" in step_fields:
+			issues.append(
+				f"{workflow_label} job {job_id} steps must not set continue-on-error."
+			)
+
+
+def require_exact_run_step(
+	job_source: str,
+	job_id: str,
+	step_name: str,
+	expected_command: str,
+	issues: list[str],
+) -> None:
+	step_source = extract_ci_step_block(job_source, step_name)
+	actual_fields = extract_ci_step_field_keys(step_source)
+	if actual_fields != ["run"]:
+		issues.append(
+			f"CI job {job_id} {step_name} fields are {actual_fields!r}, expected ['run']."
+		)
+	actual_command = extract_yaml_scalar(step_source, "run", 8)
+	if actual_command != expected_command:
+		issues.append(
+			f"CI job {job_id} {step_name} command is {actual_command!r}, "
+			f"expected {expected_command!r}."
+		)
+
+
 def require_exact_job_needs(
 	job_source: str,
 	job_id: str,
@@ -1037,6 +1840,21 @@ def require_exact_job_needs(
 	actual = extract_yaml_list(job_source, "needs", 4)
 	if actual != list(expected):
 		issues.append(f"CI job {job_id} needs is {actual!r}, expected {list(expected)!r}.")
+
+
+def require_exact_matrix_suite_scalar(
+	job_source: str,
+	job_id: str,
+	suite_name: str,
+	field_name: str,
+	expected: str,
+	issues: list[str],
+) -> None:
+	actual = extract_matrix_suite_scalar(job_source, suite_name, field_name)
+	if actual != expected:
+		issues.append(
+			f"CI job {job_id} matrix suite {suite_name} {field_name} is {actual!r}, expected {expected!r}."
+		)
 
 
 def require_exact_matrix_suites(
@@ -1074,11 +1892,7 @@ def require_exact_gate_evaluator(
 			"            exit 1",
 			"          fi",
 		))
-	actual_lines = [
-		code
-		for line in step_source.splitlines()
-		if (code := strip_yaml_comment(line)).strip()
-	]
+	actual_lines = step_source.rstrip("\r\n").splitlines()
 	if actual_lines != expected_lines:
 		issues.append(f"CI job {job_id} evaluator must match the canonical fail-closed result mapping.")
 
@@ -1298,6 +2112,24 @@ def run_maintenance_skill_contract_mutation_self_tests() -> list[str]:
 			"remove all managed logs after every invocation",
 			"session-owned automatic log cleanup",
 		),
+		(
+			".codex/skills/gf-framework-maintenance/references/checks.md",
+			"Ready/main `framework-gut` uses exactly 60 minutes",
+			"Ready/main `framework-gut` uses exactly 59 minutes",
+			"Ready/main workflow deadline contract",
+		),
+		(
+			".codex/skills/gf-framework-maintenance/references/checks.md",
+			"tag-release `release-framework-checks` uses exactly 90 minutes around a 4,800-second",
+			"tag-release `release-framework-checks` uses exactly 80 minutes around a 4,700-second",
+			"release workflow deadline contract",
+		),
+		(
+			".codex/skills/gf-framework-maintenance/references/checks.md",
+			"manual `main` Full remains exactly 90 minutes",
+			"manual `main` Full remains exactly 80 minutes",
+			"manual workflow deadline contract",
+		),
 	)
 	issues: list[str] = []
 	for path, marker, replacement, expected_fragment in mutations:
@@ -1324,11 +2156,227 @@ def run_ci_workflow_mutation_self_tests(policy: dict[str, Any]) -> list[str]:
 		return [f"Repository policy self-test could not read CI workflow: {error}"]
 	if audit_ci_workflow(policy, source):
 		return []
+	jobs, duplicate_jobs = extract_ci_job_blocks(source)
+	repository_job = jobs.get("repository-policy", "")
+	framework_job = jobs.get("framework-checks", "")
+	package_job = jobs.get("package-checks", "")
+	windows_job = jobs.get("windows-process-supervision", "")
+	if (
+		duplicate_jobs
+		or not repository_job
+		or not framework_job
+		or not package_job
+		or not windows_job
+	):
+		return ["Repository policy self-test could not isolate governed Ready CI jobs."]
+
+	def mutate_ci_job(job_source: str, marker: str, replacement: str) -> str:
+		if job_source.count(marker) != 1 or source.count(job_source) != 1:
+			return source
+		return source.replace(job_source, job_source.replace(marker, replacement, 1), 1)
+
+	def make_windows_step_block_scalar_decoy() -> str:
+		step = extract_ci_step_block(
+			windows_job,
+			"Verify Windows staging and startup boundaries",
+		)
+		if (
+			not step
+			or windows_job.count(step) != 1
+			or windows_job.count("    steps:\n") != 1
+			or source.count(windows_job) != 1
+		):
+			return source
+		weakened_step = step.replace(
+			"      - name: Verify Windows staging and startup boundaries",
+			"      - name: Weakened Windows staging boundary",
+			1,
+		).replace(
+			"          tests.gf_core.tools.test_gf_parallel_validation",
+			"          tests.gf_core.tools.test_gf_gut_sharding",
+			1,
+		)
+		mutated_job = windows_job.replace(step, weakened_step, 1).replace(
+			"    steps:\n",
+			"    concurrency: |2\n"
+			"      - name: Verify Windows staging and startup boundaries\n"
+			"        run: >\n"
+			"          python -B -m unittest\n"
+			"          tests.gf_core.tools.test_gf_parallel_validation\n"
+			"          tests.gf_core.tools.test_gf_maintenance_check_graph\n"
+			"    steps:\n",
+			1,
+		)
+		return source.replace(windows_job, mutated_job, 1)
 	mutations = (
+		(
+			"global_shell_override",
+			source.replace(
+				"\njobs:\n",
+				"\ndefaults:\n  run:\n    shell: 'echo {0}'\n\njobs:\n",
+				1,
+			),
+			"CI top-level fields",
+		),
+		(
+			"quoted_extra_job",
+			source.replace(
+				"\njobs:\n",
+				"\njobs:\n"
+				'  "evil":\n'
+				"    name: GF merge gate\n"
+				"    runs-on: ubuntu-latest\n"
+				"    steps:\n"
+				"      - name: Fake success\n"
+				"        run: echo pass\n\n",
+				1,
+			),
+			"unsupported jobs",
+		),
+		(
+			"extra_top_level_oidc_permission",
+			source.replace(
+				"permissions:\n  contents: read",
+				"permissions:\n  id-token: write\n  contents: read",
+				1,
+			),
+			"top-level permissions",
+		),
+		(
+			"quoted_extra_pull_request_type",
+			source.replace(
+				"      - converted_to_draft",
+				'      - converted_to_draft\n      - "labeled"',
+				1,
+			),
+			"pull_request.types",
+		),
+		(
+			"pull_request_paths_ignore",
+			source.replace(
+				"    types:\n",
+				"    paths-ignore: ['**']\n    types:\n",
+				1,
+			),
+			"pull_request trigger must contain only types",
+		),
+		(
+			"push_paths_ignore",
+			source.replace(
+				"    branches:\n      - main",
+				"    branches:\n      - main\n    paths-ignore: ['**']",
+				1,
+			),
+			"push trigger must contain only branches",
+		),
 		(
 			"wrong_push_branch",
 			source.replace("      - main", "      - release", 1),
 			"CI push.branches",
+		),
+		(
+			"failure_tolerant_repository_policy_job",
+			mutate_ci_job(
+				repository_job,
+				"    timeout-minutes: 5",
+				"    continue-on-error: true\n    timeout-minutes: 5",
+			),
+			"must not set continue-on-error",
+		),
+		(
+			"skipped_repository_policy_step",
+			mutate_ci_job(
+				repository_job,
+				"      - name: Validate repository policy\n",
+				"      - name: Validate repository policy\n        if: false\n",
+			),
+			"Validate repository policy fields",
+		),
+		(
+			"extra_repository_policy_step",
+			mutate_ci_job(
+				repository_job,
+				"      - name: Validate repository policy\n",
+				"      - name: Unexpected preparation\n"
+				"        run: echo unexpected\n\n"
+				"      - name: Validate repository policy\n",
+			),
+			"repository-policy step names",
+		),
+		(
+			"inline_hash_spoofed_repository_policy_command",
+			mutate_ci_job(
+				repository_job,
+				f"        run: {REPOSITORY_POLICY_COMMAND}",
+				f"        run: {REPOSITORY_POLICY_COMMAND}# || true",
+			),
+			"Validate repository policy command",
+		),
+		(
+			"inline_hash_spoofed_pull_request_policy_command",
+			mutate_ci_job(
+				repository_job,
+				f"        run: {PULL_REQUEST_POLICY_COMMAND}",
+				f"        run: {PULL_REQUEST_POLICY_COMMAND}# || true",
+			),
+			"Validate pull request contract command",
+		),
+		(
+			"failure_tolerant_package_step",
+			mutate_ci_job(
+				package_job,
+				"      - name: Run package maintenance shard\n",
+				"      - name: Run package maintenance shard\n"
+				"        continue-on-error: true\n",
+			),
+			"must not set continue-on-error",
+		),
+		(
+			"skipped_package_step",
+			mutate_ci_job(
+				package_job,
+				"      - name: Run package maintenance shard\n",
+				"      - name: Run package maintenance shard\n        if: false\n",
+			),
+			"Run package maintenance shard fields",
+		),
+		(
+			"first_field_failure_tolerant_package_step",
+			mutate_ci_job(
+				package_job,
+				"      - name: Run package maintenance shard\n",
+				"      - continue-on-error: true\n        name: Run package maintenance shard\n",
+			),
+			"unsupported step item spelling",
+		),
+		(
+			"flow_failure_tolerant_package_step",
+			mutate_ci_job(
+				package_job,
+				"      - name: Set up Godot\n        uses: ./.github/actions/setup-godot",
+				'      - {name: Set up Godot, continue-on-error: true, uses: "./.github/actions/setup-godot"}',
+			),
+			"unsupported step item spelling",
+		),
+		(
+			"escaped_failure_tolerant_package_job",
+			mutate_ci_job(
+				package_job,
+				"    timeout-minutes: ${{ matrix.timeout_minutes }}",
+				'    "continue\\u002don\\u002derror": true\n'
+				"    timeout-minutes: ${{ matrix.timeout_minutes }}",
+			),
+			"unsupported direct field spelling",
+		),
+		(
+			"escaped_failure_tolerant_package_step",
+			mutate_ci_job(
+				package_job,
+				"      - name: Run package maintenance shard\n",
+				"      - name: Run package maintenance shard\n"
+				'        "continue\\u002don\\u002derror": true\n',
+			),
+			"unsupported direct field spelling",
 		),
 		(
 			"unguarded_full_validation",
@@ -1374,6 +2422,62 @@ def run_ci_workflow_mutation_self_tests(policy: dict[str, Any]) -> list[str]:
 			"framework-checks matrix suites",
 		),
 		(
+			"short_framework_gut_timeout",
+			source.replace(
+				f"            timeout_minutes: {FRAMEWORK_GUT_CI_TIMEOUT_MINUTES}",
+				f"            timeout_minutes: {FRAMEWORK_GUT_CI_TIMEOUT_MINUTES - 1}",
+				1,
+			),
+			"framework-checks matrix suite framework-gut timeout_minutes",
+		),
+		(
+			"block_scalar_spoofed_framework_gut_timeout",
+			source.replace(
+				f"            timeout_minutes: {FRAMEWORK_GUT_CI_TIMEOUT_MINUTES}",
+				f"            timeout_minutes: {FRAMEWORK_GUT_CI_TIMEOUT_MINUTES - 1}",
+				1,
+			).replace(
+				"    strategy:\n",
+				"    env:\n"
+				"      GF_MATRIX_POLICY_FIXTURE: |\n"
+				"        include:\n"
+				"          - suite: framework-gut\n"
+				f"            timeout_minutes: {FRAMEWORK_GUT_CI_TIMEOUT_MINUTES}\n"
+				"    strategy:\n",
+				1,
+			),
+			"framework-checks matrix suite framework-gut timeout_minutes",
+		),
+		(
+			"unbound_framework_timeout",
+			source.replace(
+				"    timeout-minutes: ${{ matrix.timeout_minutes }}",
+				f"    timeout-minutes: {FRAMEWORK_GUT_CI_TIMEOUT_MINUTES}",
+				1,
+			),
+			"framework-checks timeout-minutes",
+		),
+		(
+			"failure_tolerant_framework_step",
+			mutate_ci_job(
+				framework_job,
+				"      - name: Run framework maintenance shard\n",
+				"      - name: Run framework maintenance shard\n"
+				"        continue-on-error: true\n",
+			),
+			"Run framework maintenance shard fields",
+		),
+		(
+			"failure_tolerant_framework_job",
+			mutate_ci_job(
+				framework_job,
+				"    timeout-minutes: ${{ matrix.timeout_minutes }}",
+				"    continue-on-error: true\n"
+				"    timeout-minutes: ${{ matrix.timeout_minutes }}",
+			),
+			"framework-checks fields",
+		),
+		(
 			"comment_spoofed_merge_dependency",
 			source.replace("      - package-checks", "      # - package-checks", 1),
 			"full-validation-gate needs",
@@ -1390,7 +2494,58 @@ def run_ci_workflow_mutation_self_tests(policy: dict[str, Any]) -> list[str]:
 				"python tools/gf_maintenance.py summary --json",
 				1,
 			),
+			"Verify owned process-tree cleanup command",
+		),
+		(
+			"failure_tolerant_windows_process_job",
+			mutate_ci_job(
+				windows_job,
+				"    timeout-minutes: 5",
+				"    continue-on-error: true\n    timeout-minutes: 5",
+			),
+			"windows-process-supervision fields",
+		),
+		(
+			"failure_tolerant_windows_process_self_test",
+			mutate_ci_job(
+				windows_job,
+				"      - name: Verify owned process-tree cleanup\n",
+				"      - name: Verify owned process-tree cleanup\n"
+				"        continue-on-error: true\n",
+			),
+			"Verify owned process-tree cleanup fields",
+		),
+		(
+			"inline_hash_spoofed_windows_process_self_test",
+			mutate_ci_job(
+				windows_job,
+				f"        run: {WINDOWS_PROCESS_SELF_TEST_COMMAND}",
+				f"        run: {WINDOWS_PROCESS_SELF_TEST_COMMAND}#; exit 0",
+			),
+			"Verify owned process-tree cleanup command",
+		),
+		(
+			"missing_windows_staging_tests",
+			source.replace(
+				"tests.gf_core.tools.test_gf_parallel_validation",
+				"tests.gf_core.tools.test_gf_gut_sharding",
+				1,
+			),
 			"windows-process-supervision is missing governed command",
+		),
+		(
+			"shell_commented_windows_staging_tests",
+			source.replace(
+				"          python -B -m unittest",
+				"          python -B -m unittest # governed modules are shell-commented",
+				1,
+			),
+			"Windows staging/startup command",
+		),
+		(
+			"block_scalar_spoofed_windows_staging_step",
+			make_windows_step_block_scalar_decoy(),
+			"Windows staging/startup step fields",
 		),
 		(
 			"missing_windows_process_merge_dependency",
@@ -1421,6 +2576,15 @@ def run_ci_workflow_mutation_self_tests(policy: dict[str, Any]) -> list[str]:
 			"merge-gate needs",
 		),
 		(
+			"extra_merge_gate_oidc_permission",
+			mutate_ci_job(
+				jobs.get("merge-gate", ""),
+				"      actions: read",
+				'      "id-token": write\n      actions: read',
+			),
+			"merge-gate permissions",
+		),
+		(
 			"skippable_required_merge_gate",
 			source.replace("      always() &&", "      !cancelled() &&", 1),
 			"merge-gate if",
@@ -1432,7 +2596,52 @@ def run_ci_workflow_mutation_self_tests(policy: dict[str, Any]) -> list[str]:
 				"python tools/gf_repository_policy.py validate-pr",
 				1,
 			),
-			"merge-gate is missing governed command",
+			"merge-gate relay command is not governed",
+		),
+		(
+			"decoy_metadata_relay",
+			source.replace(
+				"python tools/gf_repository_policy.py validate-pr-gate",
+				"python tools/gf_repository_policy.py validate-pr",
+				1,
+			).replace(
+				"          GH_TOKEN: ${{ github.token }}",
+				"          GH_TOKEN: ${{ github.token }}\n"
+				"          GF_RELAY_COMMAND_DECOY: python tools/gf_repository_policy.py validate-pr-gate --wait-seconds 1800 --poll-seconds 10",
+				1,
+			),
+			"merge-gate relay environment fields",
+		),
+		(
+			"bypassed_current_full_evaluator",
+			source.replace(
+				'          if [ "${FULL_VALIDATION_RESULT}" != "success" ]; then\n'
+				'            echo "Full validation failed: ${FULL_VALIDATION_RESULT}"\n'
+				"            exit 1\n"
+				"          fi",
+				"          echo bypass-current-full-result",
+				1,
+			),
+			"current Full evaluator command",
+		),
+		(
+			"folded_current_full_evaluator_changes_shell_lines",
+			source.replace(
+				'        run: |\n'
+				'          if [ "${FULL_VALIDATION_RESULT}" != "success" ]; then\n'
+				'            echo "Full validation failed: ${FULL_VALIDATION_RESULT}"\n'
+				"            exit 1\n"
+				"          fi",
+				'        run: >\n'
+				'          if [ "${FULL_VALIDATION_RESULT}" != "success" ]; then\n'
+				"\n"
+				'          echo "Full validation failed: ${FULL_VALIDATION_RESULT}"\n'
+				"          exit 1\n"
+				"\n"
+				"          fi",
+				1,
+			),
+			"current Full evaluator must match the canonical literal script",
 		),
 		(
 			"wrong_metadata_relay_step_condition",
@@ -1441,12 +2650,12 @@ def run_ci_workflow_mutation_self_tests(policy: dict[str, Any]) -> list[str]:
 				"      - name: Checkout relay policy\n        if: >-\n          always() &&",
 				1,
 			),
-			"wrong metadata-only condition",
+			"relay checkout condition is not governed",
 		),
 		(
 			"missing_metadata_relay_token",
 			source.replace("          GH_TOKEN: ${{ github.token }}", "          GF_TOKEN: ${{ github.token }}", 1),
-			"must map GH_TOKEN",
+			"relay environment fields are not governed",
 		),
 		(
 			"wrong_job_quick_command",
@@ -1455,7 +2664,7 @@ def run_ci_workflow_mutation_self_tests(policy: dict[str, Any]) -> list[str]:
 				"python tools/gf_repository_policy.py validate --json\n          # --suite quick",
 				1,
 			),
-			"quick-checks is missing governed command",
+			"Run quick maintenance suite command",
 		),
 		(
 			"draft_gate_non_failing_branch",
@@ -1499,11 +2708,102 @@ def run_manual_ci_workflow_mutation_self_tests() -> list[str]:
 		return [f"Repository policy self-test could not read manual CI workflow: {error}"]
 	if audit_manual_ci_workflow(source):
 		return []
+	jobs, duplicate_jobs = extract_ci_job_blocks(source)
+	repository_job = jobs.get("manual-repository-policy", "")
+	full_job = jobs.get("manual-full-validation", "")
+	windows_job = jobs.get("manual-windows-process-supervision", "")
+	if duplicate_jobs or not repository_job or not full_job or not windows_job:
+		return ["Repository policy self-test could not isolate governed manual CI jobs."]
+
+	def mutate_manual_job(job_source: str, marker: str, replacement: str) -> str:
+		if job_source.count(marker) != 1 or source.count(job_source) != 1:
+			return source
+		return source.replace(job_source, job_source.replace(marker, replacement, 1), 1)
 	mutations = (
+		(
+			"manual_global_shell_override",
+			source.replace(
+				"\njobs:\n",
+				"\ndefaults:\n  run:\n    shell: 'echo {0}'\n\njobs:\n",
+				1,
+			),
+			"Manual CI top-level fields",
+		),
+		(
+			"manual_quoted_extra_job",
+			source.replace(
+				"\njobs:\n",
+				"\njobs:\n"
+				'  "evil":\n'
+				"    name: GF manual diagnostics gate\n"
+				"    runs-on: ubuntu-latest\n"
+				"    steps:\n"
+				"      - name: Fake success\n"
+				"        run: echo pass\n\n",
+				1,
+			),
+			"unsupported jobs",
+		),
+		(
+			"manual_scheduled_trigger",
+			source.replace(
+				"  workflow_dispatch:\n",
+				'  workflow_dispatch:\n  schedule:\n    - cron: "0 * * * *"\n',
+				1,
+			),
+			"triggers must contain only workflow_dispatch",
+		),
+		(
+			"manual_extra_oidc_permission",
+			source.replace(
+				"permissions:\n  contents: read",
+				"permissions:\n  id-token: write\n  contents: read",
+				1,
+			),
+			"top-level permissions",
+		),
 		(
 			"automatic_manual_ci",
 			source.replace("  workflow_dispatch:\n", "  workflow_dispatch:\n  pull_request:\n", 1),
 			"must not run automatically on pull_request",
+		),
+		(
+			"manual_failure_tolerant_repository_policy_job",
+			mutate_manual_job(
+				repository_job,
+				"    timeout-minutes: 5",
+				"    continue-on-error: true\n    timeout-minutes: 5",
+			),
+			"must not set continue-on-error",
+		),
+		(
+			"manual_skipped_repository_policy_step",
+			mutate_manual_job(
+				repository_job,
+				"      - name: Validate repository policy\n",
+				"      - name: Validate repository policy\n        if: false\n",
+			),
+			"Validate repository policy fields",
+		),
+		(
+			"manual_extra_repository_policy_step",
+			mutate_manual_job(
+				repository_job,
+				"      - name: Validate repository policy\n",
+				"      - name: Unexpected preparation\n"
+				"        run: echo unexpected\n\n"
+				"      - name: Validate repository policy\n",
+			),
+			"manual-repository-policy step names",
+		),
+		(
+			"manual_inline_hash_spoofed_repository_policy_command",
+			mutate_manual_job(
+				repository_job,
+				f"        run: {REPOSITORY_POLICY_COMMAND}",
+				f"        run: {REPOSITORY_POLICY_COMMAND}# || true",
+			),
+			"Validate repository policy command",
 		),
 		(
 			"manual_protected_context",
@@ -1536,7 +2836,64 @@ def run_manual_ci_workflow_mutation_self_tests() -> list[str]:
 		(
 			"manual_missing_full_suite",
 			source.replace("          --suite full", "          --suite quick", 1),
-			"manual-full-validation is missing governed command",
+			"Run full maintenance diagnostics command",
+		),
+		(
+			"manual_failure_tolerant_full_step",
+			mutate_manual_job(
+				full_job,
+				"      - name: Run full maintenance diagnostics\n",
+				"      - name: Run full maintenance diagnostics\n"
+				"        continue-on-error: true\n",
+			),
+			"Run full maintenance diagnostics fields",
+		),
+		(
+			"manual_failure_tolerant_full_job",
+			mutate_manual_job(
+				full_job,
+				f"    timeout-minutes: {MANUAL_FULL_TIMEOUT_MINUTES}",
+				"    continue-on-error: true\n"
+				f"    timeout-minutes: {MANUAL_FULL_TIMEOUT_MINUTES}",
+			),
+			"manual-full-validation fields",
+		),
+		(
+			"short_manual_full_timeout",
+			source.replace(
+				f"    timeout-minutes: {MANUAL_FULL_TIMEOUT_MINUTES}",
+				f"    timeout-minutes: {MANUAL_FULL_TIMEOUT_MINUTES - 1}",
+				1,
+			),
+			"manual-full-validation timeout-minutes",
+		),
+		(
+			"manual_failure_tolerant_windows_job",
+			mutate_manual_job(
+				windows_job,
+				"    timeout-minutes: 5",
+				"    continue-on-error: true\n    timeout-minutes: 5",
+			),
+			"manual-windows-process-supervision fields",
+		),
+		(
+			"manual_failure_tolerant_windows_self_test",
+			mutate_manual_job(
+				windows_job,
+				"      - name: Verify owned process-tree cleanup\n",
+				"      - name: Verify owned process-tree cleanup\n"
+				"        continue-on-error: true\n",
+			),
+			"Verify owned process-tree cleanup fields",
+		),
+		(
+			"manual_inline_hash_spoofed_windows_self_test",
+			mutate_manual_job(
+				windows_job,
+				f"        run: {WINDOWS_PROCESS_SELF_TEST_COMMAND}",
+				f"        run: {WINDOWS_PROCESS_SELF_TEST_COMMAND}#; exit 0",
+			),
+			"Verify owned process-tree cleanup command",
 		),
 		(
 			"manual_missing_windows_gate_dependency",
@@ -1566,11 +2923,226 @@ def run_release_workflow_mutation_self_tests() -> list[str]:
 		return [f"Repository policy self-test could not read release workflow: {error}"]
 	if audit_release_workflow(source):
 		return []
+	jobs, duplicate_jobs = extract_ci_job_blocks(source)
+	framework_job = jobs.get("release-framework-checks", "")
+	package_job = jobs.get("release-package-checks", "")
+	create_release_job = jobs.get("create-release", "")
+	if duplicate_jobs or not framework_job or not package_job or not create_release_job:
+		return ["Repository policy self-test could not isolate release-framework-checks."]
+
+	def mutate_release_job(job_source: str, marker: str, replacement: str) -> str:
+		if job_source.count(marker) != 1 or source.count(job_source) != 1:
+			return source
+		return source.replace(job_source, job_source.replace(marker, replacement, 1), 1)
+
+	def mutate_framework_job(marker: str, replacement: str) -> str:
+		return mutate_release_job(framework_job, marker, replacement)
+
+	def make_release_timeout_decoy() -> str:
+		timeout_marker = f"          --suite-timeout {RELEASE_FRAMEWORK_SUITE_TIMEOUT_SECONDS}"
+		if (
+			framework_job.count(timeout_marker) != 1
+			or framework_job.count("    steps:\n") != 1
+			or source.count(framework_job) != 1
+		):
+			return source
+		mutated_job = framework_job.replace(
+			timeout_marker,
+			f"          --suite-timeout {RELEASE_FRAMEWORK_SUITE_TIMEOUT_SECONDS - 100}",
+			1,
+		).replace(
+			"    steps:\n",
+			"    env:\n"
+			f"      GF_TIMEOUT_DECOY: \"--suite-timeout {RELEASE_FRAMEWORK_SUITE_TIMEOUT_SECONDS}\"\n"
+			"    steps:\n",
+			1,
+		)
+		return source.replace(framework_job, mutated_job, 1)
+
+	def make_release_step_block_scalar_decoy() -> str:
+		step = extract_ci_step_block(framework_job, "Run release framework shard")
+		if (
+			not step
+			or framework_job.count(step) != 1
+			or framework_job.count("    steps:\n") != 1
+			or source.count(framework_job) != 1
+		):
+			return source
+		weakened_step = step.replace(
+			"      - name: Run release framework shard",
+			"      - name: Run weakened release framework shard",
+			1,
+		).replace(
+			f"          --suite-timeout {RELEASE_FRAMEWORK_SUITE_TIMEOUT_SECONDS}",
+			f"          --suite-timeout {RELEASE_FRAMEWORK_SUITE_TIMEOUT_SECONDS - 100}",
+			1,
+		)
+		mutated_job = framework_job.replace(step, weakened_step, 1).replace(
+			"    steps:\n",
+			"    concurrency: |2\n"
+			"      - name: Run release framework shard\n"
+			"        run: >\n"
+			"          python tools/gf_maintenance.py check\n"
+			"          --suite framework\n"
+			f"          --suite-timeout {RELEASE_FRAMEWORK_SUITE_TIMEOUT_SECONDS}\n"
+			"          --failed-only\n"
+			"          --github-annotations\n"
+			"    steps:\n",
+			1,
+		)
+		return source.replace(framework_job, mutated_job, 1)
+
 	mutations = (
+		(
+			"release_global_shell_override",
+			source.replace(
+				"\njobs:\n",
+				"\ndefaults:\n  run:\n    shell: 'echo {0}'\n\njobs:\n",
+				1,
+			),
+			"Release top-level fields",
+		),
+		(
+			"release_quoted_extra_job",
+			source.replace(
+				"\njobs:\n",
+				"\njobs:\n"
+				'  "evil":\n'
+				"    name: Fake release success\n"
+				"    runs-on: ubuntu-latest\n"
+				"    steps:\n"
+				"      - name: Fake success\n"
+				"        run: echo pass\n\n",
+				1,
+			),
+			"unsupported jobs",
+		),
+		(
+			"release_broad_tag_trigger",
+			source.replace(
+				'      - "[0-9]*.[0-9]*.[0-9]*"',
+				'      - "*"',
+				1,
+			),
+			"exact governed stable-tag push filter",
+		),
+		(
+			"release_manual_trigger",
+			source.replace(
+				"permissions:\n",
+				"  workflow_dispatch:\n\npermissions:\n",
+				1,
+			),
+			"exact governed stable-tag push filter",
+		),
+		(
+			"release_global_concurrency_group",
+			source.replace(
+				"  group: release-${{ github.ref_name }}",
+				"  group: release-global",
+				1,
+			),
+			"tag-scoped and non-cancelling",
+		),
+		(
+			"release_cancelling_concurrency",
+			source.replace(
+				"  cancel-in-progress: false",
+				"  cancel-in-progress: true",
+				1,
+			),
+			"tag-scoped and non-cancelling",
+		),
+		(
+			"release_extra_oidc_permission",
+			source.replace(
+				"permissions:\n  contents: read",
+				'permissions:\n  "id-token": write\n  contents: read',
+				1,
+			),
+			"top-level permissions",
+		),
 		(
 			"broad_release_top_level_permission",
 			source.replace("permissions:\n  contents: read", "permissions:\n  contents: write", 1),
 			"top-level permission contents",
+		),
+		(
+			"missing_release_package_job",
+			source.replace(
+				package_job,
+				"  # release-package-checks removed by hostile mutation\n",
+				1,
+			).replace(
+				"      - release-package-checks",
+				"      # - release-package-checks",
+				1,
+			),
+			"missing governed jobs: release-package-checks",
+		),
+		(
+			"missing_release_package_dependency",
+			mutate_release_job(
+				create_release_job,
+				"      - release-package-checks",
+				"      # - release-package-checks",
+			),
+			"create-release needs",
+		),
+		(
+			"comment_spoofed_release_package_suite",
+			mutate_release_job(
+				package_job,
+				"            suite: package-godot-release",
+				"            suite: package-contract\n"
+				"            # suite: package-godot-release",
+			),
+			"release-package-checks matrix suites",
+		),
+		(
+			"failure_tolerant_create_release_job",
+			mutate_release_job(
+				create_release_job,
+				"    timeout-minutes: 20",
+				"    continue-on-error: true\n    timeout-minutes: 20",
+			),
+			"must not set continue-on-error",
+		),
+		(
+			"skipped_create_release_job",
+			mutate_release_job(
+				create_release_job,
+				"    name: Create GitHub Release\n",
+				"    name: Create GitHub Release\n    if: false\n",
+			),
+			"create-release fields",
+		),
+		(
+			"skipped_release_package_step",
+			mutate_release_job(
+				package_job,
+				"      - name: Run release package shard\n",
+				"      - name: Run release package shard\n        if: false\n",
+			),
+			"Run release package shard fields",
+		),
+		(
+			"flow_failure_tolerant_release_package_step",
+			mutate_release_job(
+				package_job,
+				"      - name: Set up Godot\n        uses: ./.github/actions/setup-godot",
+				'      - {name: Set up Godot, continue-on-error: true, uses: "./.github/actions/setup-godot"}',
+			),
+			"unsupported step item spelling",
+		),
+		(
+			"skipped_create_release_step",
+			mutate_release_job(
+				create_release_job,
+				"      - name: Create release\n",
+				"      - name: Create release\n        if: false\n",
+			),
+			"Create release fields",
 		),
 		(
 			"missing_release_publish_permission",
@@ -1589,6 +3161,92 @@ def run_release_workflow_mutation_self_tests() -> list[str]:
 				1,
 			),
 			"build-release-artifacts permission contents must not be write",
+		),
+		(
+			"short_release_framework_timeout",
+			mutate_framework_job(
+				f"    timeout-minutes: {RELEASE_FRAMEWORK_TIMEOUT_MINUTES}",
+				f"    timeout-minutes: {RELEASE_FRAMEWORK_TIMEOUT_MINUTES - 1}",
+			),
+			"release-framework-checks timeout-minutes",
+		),
+		(
+			"missing_release_framework_suite_timeout",
+			mutate_framework_job(
+				f"          --suite-timeout {RELEASE_FRAMEWORK_SUITE_TIMEOUT_SECONDS}",
+				"          # governed suite timeout removed",
+			),
+			"Run release framework shard command",
+		),
+		(
+			"decoy_release_framework_suite_timeout",
+			make_release_timeout_decoy(),
+			"Run release framework shard command",
+		),
+		(
+			"shell_commented_release_framework_arguments",
+			mutate_framework_job(
+				"          python tools/gf_maintenance.py check",
+				"          python tools/gf_maintenance.py check # governed arguments are shell-commented",
+			),
+			"Run release framework shard command",
+		),
+		(
+			"skipped_release_framework_step",
+			mutate_framework_job(
+				"      - name: Run release framework shard\n",
+				"      - name: Run release framework shard\n        if: ${{ false }}\n",
+			),
+			"Run release framework shard fields",
+		),
+		(
+			"failure_tolerant_release_framework_step",
+			mutate_framework_job(
+				"      - name: Run release framework shard\n",
+				"      - name: Run release framework shard\n        continue-on-error: true\n",
+			),
+			"Run release framework shard fields",
+		),
+		(
+			"quoted_failure_tolerant_release_framework_step",
+			mutate_framework_job(
+				"      - name: Run release framework shard\n",
+				"      - name: Run release framework shard\n"
+				'        "continue-on-error": true\n',
+			),
+			"Run release framework shard fields",
+		),
+		(
+			"quoted_skipped_release_framework_step",
+			mutate_framework_job(
+				"      - name: Run release framework shard\n",
+				"      - name: Run release framework shard\n"
+				'        "if": false\n',
+			),
+			"Run release framework shard fields",
+		),
+		(
+			"failure_tolerant_release_framework_job",
+			mutate_framework_job(
+				f"    timeout-minutes: {RELEASE_FRAMEWORK_TIMEOUT_MINUTES}",
+				"    continue-on-error: true\n"
+				f"    timeout-minutes: {RELEASE_FRAMEWORK_TIMEOUT_MINUTES}",
+			),
+			"release-framework-checks fields",
+		),
+		(
+			"quoted_failure_tolerant_release_framework_job",
+			mutate_framework_job(
+				f"    timeout-minutes: {RELEASE_FRAMEWORK_TIMEOUT_MINUTES}",
+				'    "continue-on-error": true\n'
+				f"    timeout-minutes: {RELEASE_FRAMEWORK_TIMEOUT_MINUTES}",
+			),
+			"release-framework-checks fields",
+		),
+		(
+			"block_scalar_spoofed_release_framework_step",
+			make_release_step_block_scalar_decoy(),
+			"Run release framework shard fields",
 		),
 	)
 	issues: list[str] = []

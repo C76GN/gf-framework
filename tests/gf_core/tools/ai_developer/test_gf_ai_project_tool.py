@@ -3544,6 +3544,543 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 		self.assertFalse(acceptance["ok"], acceptance)
 		self.assertEqual(acceptance["phase"], "engine_resolution")
 
+	def test_storage_acceptance_boundary_debt_propagates_with_retained_root(self) -> None:
+		raw_error = RuntimeError("fixture boundary debt")
+		expected_root = self.project_root / "retained-boundary-session"
+		expected_root.mkdir()
+
+		class FixtureFinalizer:
+			def detach(self) -> None:
+				pass
+
+		class FixtureTemporaryDirectory:
+			name = str(expected_root)
+			_finalizer = FixtureFinalizer()
+
+			def cleanup(self) -> None:
+				shutil.rmtree(expected_root)
+
+		with mock.patch.object(
+				build_gf_ai_developer_kit.tempfile,
+				"TemporaryDirectory",
+				return_value=FixtureTemporaryDirectory(),
+			), mock.patch.object(
+				build_gf_ai_developer_kit,
+				"validate_storage_backend_templates",
+				return_value=[],
+			), mock.patch.object(
+				build_gf_ai_developer_kit,
+				"resolve_storage_backend_acceptance_engine",
+				return_value="fixture-godot",
+			), mock.patch.object(
+				build_gf_ai_developer_kit,
+				"prepare_storage_backend_template_acceptance_project",
+			), mock.patch.object(
+				build_gf_ai_developer_kit,
+				"run_supervised_process",
+				side_effect=raw_error,
+			):
+			with self.assertRaises(
+				build_gf_ai_developer_kit.WorkspaceProcessBoundaryError
+			) as raised:
+				build_gf_ai_developer_kit.run_storage_backend_template_acceptance()
+		self.assertIs(raised.exception.__cause__, raw_error)
+		self.assertTrue(raised.exception.cleanup_debt)
+		self.assertEqual(raised.exception.preserved_paths, (expected_root,))
+		self.assertTrue(expected_root.is_dir())
+
+	def test_storage_acceptance_preprocess_debt_overrides_cleanup_authorization(self) -> None:
+		for wrapped in (False, True):
+			with self.subTest(wrapped=wrapped):
+				root = self.project_root / f"retained-preprocess-debt-{wrapped}"
+				root.mkdir()
+				marker = root / "retained-marker.txt"
+				marker.write_text("retained", encoding="utf-8")
+
+				class FixtureFinalizer:
+					def detach(self) -> None:
+						pass
+
+				class FixtureTemporaryDirectory:
+					name = str(root)
+					_finalizer = FixtureFinalizer()
+
+					def cleanup(self) -> None:
+						shutil.rmtree(root)
+
+				debt = build_gf_ai_developer_kit.WorkspaceProcessBoundaryError(
+					"fixture preprocess debt",
+					preserved_paths=(root,),
+				)
+				primary: BaseException = debt
+				if wrapped:
+					try:
+						raise debt
+					except build_gf_ai_developer_kit.WorkspaceProcessBoundaryError as cause:
+						try:
+							raise ValueError("fixture wrapped preprocess debt") from cause
+						except ValueError as wrapper:
+							primary = wrapper
+
+				with mock.patch.object(
+					build_gf_ai_developer_kit.tempfile,
+					"TemporaryDirectory",
+					return_value=FixtureTemporaryDirectory(),
+				), mock.patch.object(
+					build_gf_ai_developer_kit,
+					"validate_storage_backend_templates",
+					return_value=[],
+				), mock.patch.object(
+					build_gf_ai_developer_kit,
+					"resolve_storage_backend_acceptance_engine",
+					return_value="fixture-godot",
+				), mock.patch.object(
+					build_gf_ai_developer_kit,
+					"prepare_storage_backend_template_acceptance_project",
+					side_effect=primary,
+				):
+					observed: BaseException | None = None
+					try:
+						build_gf_ai_developer_kit.run_storage_backend_template_acceptance()
+					except BaseException as error:
+						observed = error
+				self.assertIs(observed, primary)
+				self.assertEqual(marker.read_text(encoding="utf-8"), "retained")
+
+	def test_storage_acceptance_process_classifies_start_and_boundary_results(self) -> None:
+		original = FileNotFoundError("fixture missing Godot")
+		state = {"permitted": True}
+		with mock.patch.object(
+			build_gf_ai_developer_kit,
+			"run_supervised_process",
+			side_effect=(
+				build_gf_ai_developer_kit.SupervisedProcessStartError(original)
+			),
+		):
+			with self.assertRaises(FileNotFoundError) as raised:
+				build_gf_ai_developer_kit._run_storage_acceptance_process(
+					["fixture"],
+					cwd=self.project_root,
+					environment={},
+					cleanup_state=state,
+				)
+		self.assertIs(raised.exception, original)
+		self.assertTrue(state["permitted"])
+		self.assertTrue(original.process_boundary_quiescent)
+
+		unproved = build_gf_ai_developer_kit.SupervisedProcessResult(
+			return_code=0,
+			stdout="",
+			stderr="",
+			timed_out=False,
+			duration_seconds=0.1,
+			pid=123,
+			process_boundary_quiescent=False,
+		)
+		state = {"permitted": True}
+		with mock.patch.object(
+			build_gf_ai_developer_kit,
+			"run_supervised_process",
+			return_value=unproved,
+		):
+			with self.assertRaises(
+				build_gf_ai_developer_kit.WorkspaceProcessBoundaryError
+			):
+				build_gf_ai_developer_kit._run_storage_acceptance_process(
+					["fixture"],
+					cwd=self.project_root,
+					environment={},
+					cleanup_state=state,
+				)
+		self.assertFalse(state["permitted"])
+
+	def test_storage_acceptance_start_proof_ignores_hostile_marker_setter(self) -> None:
+		class HostileMissing(FileNotFoundError):
+			def __setattr__(self, name: str, value: object) -> None:
+				if name == "process_boundary_quiescent":
+					raise SystemExit("fixture hostile quiescence setter")
+				super().__setattr__(name, value)
+
+		original = HostileMissing("fixture missing Godot")
+		state = {"permitted": True}
+		with mock.patch.object(
+			build_gf_ai_developer_kit,
+			"run_supervised_process",
+			side_effect=(
+				build_gf_ai_developer_kit.SupervisedProcessStartError(original)
+			),
+		):
+			observed: BaseException | None = None
+			try:
+				build_gf_ai_developer_kit._run_storage_acceptance_process(
+					["fixture"],
+					cwd=self.project_root,
+					environment={},
+					cleanup_state=state,
+				)
+			except BaseException as error:
+				observed = error
+		self.assertIs(observed, original)
+		self.assertTrue(state["permitted"])
+
+	def test_storage_acceptance_root_preserves_primary_when_cleanup_fails(self) -> None:
+		class FixtureFinalizer:
+			def detach(self) -> None:
+				pass
+
+		class FailingTemporaryDirectory:
+			def __init__(self, root: Path) -> None:
+				self.name = str(root)
+				self._finalizer = FixtureFinalizer()
+
+			def cleanup(self) -> None:
+				raise OSError("fixture cleanup failure")
+
+		root = self.project_root / "retained-acceptance"
+		root.mkdir()
+		owner = FailingTemporaryDirectory(root)
+		injected = KeyboardInterrupt("fixture interrupt")
+		with mock.patch.object(
+			build_gf_ai_developer_kit.tempfile,
+			"TemporaryDirectory",
+			return_value=owner,
+		):
+			with self.assertRaises(KeyboardInterrupt) as raised:
+				with build_gf_ai_developer_kit._storage_acceptance_temporary_root(
+					prefix="fixture-"
+				):
+					raise injected
+		self.assertIs(raised.exception, injected)
+		self.assertTrue(injected.cleanup_debt)
+		self.assertEqual(injected.preserved_paths, (root,))
+		self.assertTrue(root.is_dir())
+
+	def test_storage_acceptance_root_refuses_replaced_cleanup_target(self) -> None:
+		with tempfile.TemporaryDirectory(dir=self.project_root) as holder:
+			owner = tempfile.TemporaryDirectory(dir=holder)
+			root = Path(owner.name)
+			original_root = Path(holder) / "original-owned-root"
+			replacement_marker = root / "replacement-marker.txt"
+			with mock.patch.object(
+				build_gf_ai_developer_kit.tempfile,
+				"TemporaryDirectory",
+				return_value=owner,
+			):
+				with self.assertRaises(
+					build_gf_ai_developer_kit.WorkspaceProcessBoundaryError
+				) as raised:
+					with build_gf_ai_developer_kit._storage_acceptance_temporary_root(
+						prefix="fixture-"
+					) as (session_root, cleanup_state):
+						self.assertEqual(session_root, root)
+						root.rename(original_root)
+						root.mkdir()
+						replacement_marker.write_text("replacement", encoding="utf-8")
+						cleanup_state["permitted"] = True
+			self.assertTrue(raised.exception.cleanup_debt)
+			self.assertFalse(raised.exception.process_boundary_quiescent)
+			self.assertEqual(raised.exception.preserved_paths, (root,))
+			self.assertTrue(original_root.is_dir())
+			self.assertEqual(
+				replacement_marker.read_text(encoding="utf-8"),
+				"replacement",
+			)
+
+	def test_storage_acceptance_root_treats_missing_owner_as_cleanup_debt(self) -> None:
+		with tempfile.TemporaryDirectory(dir=self.project_root) as holder:
+			owner = tempfile.TemporaryDirectory(dir=holder)
+			root = Path(owner.name)
+			moved_root = Path(holder) / "moved-owned-root"
+			marker = root / "owned-marker.txt"
+			marker.write_text("owned", encoding="utf-8")
+			with mock.patch.object(
+				build_gf_ai_developer_kit.tempfile,
+				"TemporaryDirectory",
+				return_value=owner,
+			):
+				with self.assertRaises(
+					build_gf_ai_developer_kit.WorkspaceProcessBoundaryError
+				) as raised:
+					with build_gf_ai_developer_kit._storage_acceptance_temporary_root(
+						prefix="fixture-"
+					) as (_session_root, cleanup_state):
+						root.rename(moved_root)
+						cleanup_state["permitted"] = True
+			self.assertTrue(raised.exception.cleanup_debt)
+			self.assertFalse(raised.exception.process_boundary_quiescent)
+			self.assertFalse(root.exists())
+			self.assertEqual(
+				(moved_root / marker.name).read_text(encoding="utf-8"),
+				"owned",
+			)
+
+	def test_storage_acceptance_quiescence_probe_cannot_replace_control(self) -> None:
+		class HostileInterrupt(KeyboardInterrupt):
+			def __getattribute__(self, name: str) -> object:
+				if name == "process_boundary_quiescent":
+					raise SystemExit("fixture hostile quiescence getter")
+				return super().__getattribute__(name)
+
+		with tempfile.TemporaryDirectory(dir=self.project_root) as holder:
+			owner = tempfile.TemporaryDirectory(dir=holder)
+			root = Path(owner.name)
+			primary = HostileInterrupt("fixture interrupt")
+			with mock.patch.object(
+				build_gf_ai_developer_kit.tempfile,
+				"TemporaryDirectory",
+				return_value=owner,
+			):
+				observed: BaseException | None = None
+				try:
+					with build_gf_ai_developer_kit._storage_acceptance_temporary_root(
+						prefix="fixture-"
+					) as (_session_root, cleanup_state):
+						cleanup_state["permitted"] = False
+						raise primary
+				except BaseException as error:
+					observed = error
+			self.assertIs(observed, primary)
+			self.assertTrue(root.is_dir())
+			self.assertTrue(primary.cleanup_debt)
+
+	def test_storage_acceptance_context_does_not_dispatch_hostile_traceback(self) -> None:
+		class HostileInterrupt(KeyboardInterrupt):
+			@property
+			def __traceback__(self) -> object:
+				return object()
+
+		with tempfile.TemporaryDirectory(dir=self.project_root) as holder:
+			owner = tempfile.TemporaryDirectory(dir=holder)
+			root = Path(owner.name)
+			primary = HostileInterrupt("fixture hostile traceback")
+			with mock.patch.object(
+				build_gf_ai_developer_kit.tempfile,
+				"TemporaryDirectory",
+				return_value=owner,
+			):
+				observed: BaseException | None = None
+				try:
+					with build_gf_ai_developer_kit._storage_acceptance_temporary_root(
+						prefix="fixture-"
+					) as (_session_root, cleanup_state):
+						cleanup_state["permitted"] = False
+						raise primary
+				except BaseException as error:
+					observed = error
+			self.assertIs(observed, primary)
+			self.assertTrue(root.is_dir())
+			self.assertTrue(primary.cleanup_debt)
+
+	def test_storage_acceptance_detach_interruption_cleans_owned_root(self) -> None:
+		with tempfile.TemporaryDirectory(dir=self.project_root) as holder:
+			owner = tempfile.TemporaryDirectory(dir=holder)
+			root = Path(owner.name)
+			actual_finalizer = owner._finalizer
+			primary = KeyboardInterrupt("fixture detach interruption")
+
+			class InterruptingFinalizer:
+				def __init__(self) -> None:
+					self.calls = 0
+
+				def detach(self) -> object:
+					self.calls += 1
+					result = actual_finalizer.detach()
+					if self.calls == 1:
+						raise primary
+					return result
+
+			owner._finalizer = InterruptingFinalizer()
+			with mock.patch.object(
+				build_gf_ai_developer_kit.tempfile,
+				"TemporaryDirectory",
+				return_value=owner,
+			):
+				observed: BaseException | None = None
+				try:
+					with build_gf_ai_developer_kit._storage_acceptance_temporary_root(
+						prefix="fixture-"
+					):
+						self.fail("Detach interruption must prevent context entry.")
+				except BaseException as error:
+					observed = error
+			self.assertIs(observed, primary)
+			self.assertFalse(root.exists())
+			self.assertFalse(hasattr(primary, "cleanup_debt"))
+
+	def test_storage_acceptance_suppressed_context_debt_retains_root(self) -> None:
+		root = self.project_root / "retained-suppressed-context-debt"
+		root.mkdir()
+		marker = root / "retained-marker.txt"
+		marker.write_text("retained", encoding="utf-8")
+
+		class FixtureFinalizer:
+			def detach(self) -> None:
+				pass
+
+		class FixtureTemporaryDirectory:
+			name = str(root)
+			_finalizer = FixtureFinalizer()
+
+			def cleanup(self) -> None:
+				shutil.rmtree(root)
+
+		debt = build_gf_ai_developer_kit.WorkspaceProcessBoundaryError(
+			"fixture suppressed context debt",
+			preserved_paths=(root,),
+		)
+		try:
+			raise debt
+		except build_gf_ai_developer_kit.WorkspaceProcessBoundaryError:
+			try:
+				raise ValueError("fixture wrapper") from None
+			except ValueError as wrapper:
+				primary = wrapper
+
+		with mock.patch.object(
+			build_gf_ai_developer_kit.tempfile,
+			"TemporaryDirectory",
+			return_value=FixtureTemporaryDirectory(),
+		), mock.patch.object(
+			build_gf_ai_developer_kit,
+			"validate_storage_backend_templates",
+			return_value=[],
+		), mock.patch.object(
+			build_gf_ai_developer_kit,
+			"resolve_storage_backend_acceptance_engine",
+			return_value="fixture-godot",
+		), mock.patch.object(
+			build_gf_ai_developer_kit,
+			"prepare_storage_backend_template_acceptance_project",
+			side_effect=primary,
+		):
+			observed: BaseException | None = None
+			try:
+				build_gf_ai_developer_kit.run_storage_backend_template_acceptance()
+			except BaseException as error:
+				observed = error
+		self.assertIs(observed, primary)
+		self.assertEqual(marker.read_text(encoding="utf-8"), "retained")
+
+	def test_storage_debt_probe_rejects_hidden_context_descriptor(self) -> None:
+		class HostileWrapper(ValueError):
+			@property
+			def __context__(self) -> None:
+				return None
+
+		debt = build_gf_ai_developer_kit.WorkspaceProcessBoundaryError(
+			"fixture hidden cleanup debt"
+		)
+		try:
+			raise debt
+		except build_gf_ai_developer_kit.WorkspaceProcessBoundaryError:
+			try:
+				raise HostileWrapper("fixture wrapper") from None
+			except HostileWrapper as wrapper:
+				primary = wrapper
+
+		self.assertIsNone(
+			build_gf_ai_developer_kit._storage_acceptance_cleanup_debt_state(
+				primary
+			)
+		)
+
+	def test_storage_acceptance_cleanup_control_preserves_exact_identity(self) -> None:
+		with tempfile.TemporaryDirectory(dir=self.project_root) as holder:
+			owner = tempfile.TemporaryDirectory(dir=holder)
+			root = Path(owner.name)
+			initial_chain = (
+				build_gf_ai_developer_kit._snapshot_absolute_directory_chain(root)
+			)
+			primary = KeyboardInterrupt("fixture cleanup interrupt")
+			with mock.patch.object(
+				build_gf_ai_developer_kit.tempfile,
+				"TemporaryDirectory",
+				return_value=owner,
+			), mock.patch.object(
+				build_gf_ai_developer_kit,
+				"_snapshot_absolute_directory_chain",
+				side_effect=(initial_chain, primary),
+			):
+				observed: BaseException | None = None
+				try:
+					with build_gf_ai_developer_kit._storage_acceptance_temporary_root(
+						prefix="fixture-"
+					):
+						pass
+				except BaseException as error:
+					observed = error
+			self.assertIs(observed, primary)
+			self.assertTrue(root.is_dir())
+			self.assertTrue(primary.cleanup_debt)
+
+	def test_storage_acceptance_public_boundary_preserves_cleanup_failure_debt(self) -> None:
+		class FixtureFinalizer:
+			def detach(self) -> None:
+				pass
+
+		class FailingTemporaryDirectory:
+			def __init__(self, root: Path) -> None:
+				self.name = str(root)
+				self._finalizer = FixtureFinalizer()
+
+			def cleanup(self) -> None:
+				raise OSError("fixture cleanup failure")
+
+		root = self.project_root / "retained-public-acceptance"
+		root.mkdir()
+		primary = ValueError("fixture preparation failure")
+		with mock.patch.object(
+			build_gf_ai_developer_kit.tempfile,
+			"TemporaryDirectory",
+			return_value=FailingTemporaryDirectory(root),
+		), mock.patch.object(
+			build_gf_ai_developer_kit,
+			"validate_storage_backend_templates",
+			return_value=[],
+		), mock.patch.object(
+			build_gf_ai_developer_kit,
+			"resolve_storage_backend_acceptance_engine",
+			return_value="fixture-godot",
+		), mock.patch.object(
+			build_gf_ai_developer_kit,
+			"prepare_storage_backend_template_acceptance_project",
+			side_effect=primary,
+		):
+			with self.assertRaises(ValueError) as raised:
+				build_gf_ai_developer_kit.run_storage_backend_template_acceptance()
+		self.assertIs(raised.exception, primary)
+		self.assertTrue(primary.cleanup_debt)
+		self.assertEqual(primary.preserved_paths, (root,))
+		self.assertTrue(root.is_dir())
+
+	def test_storage_acceptance_public_debt_probe_does_not_replace_primary(self) -> None:
+		class HostileValueError(ValueError):
+			def __getattribute__(self, name: str) -> object:
+				if name == "cleanup_debt":
+					raise SystemExit("fixture hostile cleanup-debt getter")
+				return super().__getattribute__(name)
+
+		primary = HostileValueError("fixture preparation failure")
+		with mock.patch.object(
+			build_gf_ai_developer_kit,
+			"validate_storage_backend_templates",
+			return_value=[],
+		), mock.patch.object(
+			build_gf_ai_developer_kit,
+			"resolve_storage_backend_acceptance_engine",
+			return_value="fixture-godot",
+		), mock.patch.object(
+			build_gf_ai_developer_kit,
+			"prepare_storage_backend_template_acceptance_project",
+			side_effect=primary,
+		):
+			observed: BaseException | None = None
+			try:
+				build_gf_ai_developer_kit.run_storage_backend_template_acceptance()
+			except BaseException as error:
+				observed = error
+		self.assertIs(observed, primary)
+
 	def test_storage_backend_acceptance_uses_shared_godot_resolver(self) -> None:
 		configured = "D:/fixture/godot.exe"
 		resolved = "D:/fixture/godot.windows.opt.tools.64.exe"
@@ -3893,6 +4430,306 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 						target_root,
 					)
 			self.assertEqual(target.read_bytes(), b"occupied")
+
+	def test_private_owned_root_does_not_dispatch_hostile_traceback(self) -> None:
+		class HostileInterrupt(KeyboardInterrupt):
+			@property
+			def __traceback__(self) -> object:
+				return object()
+
+		with tempfile.TemporaryDirectory(
+			prefix="gf-ai-storage-private-root-control-"
+		) as temporary:
+			private_root = Path(temporary)
+			primary = HostileInterrupt("fixture hostile traceback")
+			observed: BaseException | None = None
+			try:
+				with build_gf_ai_developer_kit._private_owned_root(private_root):
+					raise primary
+			except BaseException as error:
+				observed = error
+			self.assertIs(observed, primary)
+			self.assertNotIn(
+				Path(os.path.abspath(private_root)),
+				build_gf_ai_developer_kit._PRIVATE_OWNED_ROOTS,
+			)
+
+	def test_private_owned_root_registration_close_failure_retains_binding(
+		self,
+	) -> None:
+		primary = KeyboardInterrupt("fixture post-registration interruption")
+		cleanup_error = OSError("fixture binding close failure")
+
+		class StoreThenRaise(dict[Path, object]):
+			def __setitem__(self, key: Path, value: object) -> None:
+				super().__setitem__(key, value)
+				raise primary
+
+		with tempfile.TemporaryDirectory(
+			prefix="gf-ai-storage-private-registration-"
+		) as temporary:
+			private_root = Path(temporary)
+			absolute_root = Path(os.path.abspath(private_root))
+			registry = StoreThenRaise()
+			real_close = build_gf_ai_developer_kit._OwnedRootBinding.close
+
+			def close_then_fail(binding: object) -> None:
+				real_close(binding)  # type: ignore[arg-type]
+				raise cleanup_error
+
+			with mock.patch.object(
+				build_gf_ai_developer_kit,
+				"_PRIVATE_OWNED_ROOTS",
+				registry,
+			), mock.patch.object(
+				build_gf_ai_developer_kit._OwnedRootBinding,
+				"close",
+				autospec=True,
+				side_effect=close_then_fail,
+			):
+				with self.assertRaises(KeyboardInterrupt) as raised:
+					with build_gf_ai_developer_kit._private_owned_root(private_root):
+						self.fail("Registration interruption must prevent entry.")
+
+			self.assertIs(raised.exception, primary)
+			self.assertIn(absolute_root, registry)
+			self.assertTrue(primary.cleanup_debt)
+			self.assertFalse(primary.process_boundary_quiescent)
+			self.assertEqual(primary.preserved_paths, (absolute_root,))
+			self.assertIs(primary.cleanup_error, cleanup_error)
+
+	def test_owned_root_binding_close_failure_is_sticky(self) -> None:
+		binding = object.__new__(build_gf_ai_developer_kit._OwnedRootBinding)
+		binding.root = Path("fixture-owned-root")
+		binding._closed = False
+		binding._close_error = None
+		binding._root_chain = ()
+		binding._posix_directories = {(): 987654}
+		binding._windows_directories = {}
+		cleanup_error = OSError("fixture descriptor close failure")
+
+		with mock.patch.object(
+			build_gf_ai_developer_kit.os,
+			"close",
+			side_effect=cleanup_error,
+		) as close_descriptor:
+			with self.assertRaises(OSError) as first:
+				binding.close()
+			with self.assertRaises(OSError) as second:
+				binding.close()
+
+		self.assertIs(first.exception, cleanup_error)
+		self.assertIs(second.exception, cleanup_error)
+		self.assertEqual(close_descriptor.call_count, 1)
+		self.assertFalse(binding._closed)
+		self.assertIs(binding._close_error, cleanup_error)
+		self.assertEqual(binding._posix_directories, {(): 987654})
+
+	def test_owned_root_binding_does_not_retry_ambiguous_closed_descriptor(
+		self,
+	) -> None:
+		interruption = KeyboardInterrupt("fixture post-close interruption")
+
+		class InterruptingMapping(dict[tuple[str, ...], int]):
+			def pop(
+				self,
+				key: tuple[str, ...],
+				default: object = None,
+			) -> int:
+				raise interruption
+
+		binding = object.__new__(build_gf_ai_developer_kit._OwnedRootBinding)
+		binding.root = Path("fixture-owned-root")
+		binding._closed = False
+		binding._close_error = None
+		binding._root_chain = ()
+		binding._posix_directories = InterruptingMapping({(): 987654})
+		binding._windows_directories = {}
+
+		with mock.patch.object(
+			build_gf_ai_developer_kit.os,
+			"close",
+		) as close_descriptor:
+			with self.assertRaises(KeyboardInterrupt) as first:
+				binding.close()
+			with self.assertRaises(KeyboardInterrupt) as second:
+				binding.close()
+
+		self.assertIs(first.exception, interruption)
+		self.assertIs(second.exception, interruption)
+		self.assertIs(binding._close_error, interruption)
+		self.assertEqual(close_descriptor.call_count, 1)
+		self.assertEqual(binding._posix_directories, {(): 987654})
+
+	def test_owned_root_binding_exit_preserves_control_and_debt(self) -> None:
+		binding = object.__new__(build_gf_ai_developer_kit._OwnedRootBinding)
+		binding.root = Path("fixture-owned-root")
+		binding._closed = False
+		binding._close_error = None
+		binding._root_chain = ()
+		binding._posix_directories = {(): 987654}
+		binding._windows_directories = {}
+		primary = KeyboardInterrupt("fixture body interruption")
+		cleanup_error = OSError("fixture descriptor close failure")
+
+		observed: BaseException | None = None
+		with mock.patch.object(
+			build_gf_ai_developer_kit.os,
+			"close",
+			side_effect=cleanup_error,
+		):
+			try:
+				with binding:
+					raise primary
+			except BaseException as error:
+				observed = error
+
+		self.assertIs(observed, primary)
+		self.assertTrue(primary.cleanup_debt)
+		self.assertFalse(primary.process_boundary_quiescent)
+		self.assertEqual(primary.preserved_paths, (binding.root,))
+		self.assertIs(primary.cleanup_error, cleanup_error)
+
+	@unittest.skipUnless(os.name == "nt", "Windows CloseHandle is unavailable.")
+	def test_owned_root_binding_windows_close_failure_is_sticky(self) -> None:
+		class CloseHandle:
+			argtypes: object = None
+			restype: object = None
+
+			def __init__(self) -> None:
+				self.call_count = 0
+
+			def __call__(self, _handle: object) -> int:
+				self.call_count += 1
+				return 0
+
+		close_handle = CloseHandle()
+		kernel32 = mock.Mock(CloseHandle=close_handle)
+		binding = object.__new__(build_gf_ai_developer_kit._OwnedRootBinding)
+		binding.root = Path("fixture-owned-root")
+		binding._closed = False
+		binding._close_error = None
+		binding._root_chain = ()
+		binding._posix_directories = {}
+		binding._windows_directories = {"fixture-owned-root": 987654}
+
+		with mock.patch("ctypes.WinDLL", return_value=kernel32), mock.patch(
+			"ctypes.get_last_error",
+			return_value=6,
+		):
+			with self.assertRaises(OSError) as first:
+				binding.close()
+			with self.assertRaises(OSError) as second:
+				binding.close()
+
+		self.assertIs(second.exception, first.exception)
+		self.assertEqual(close_handle.call_count, 1)
+		self.assertFalse(binding._closed)
+		self.assertIs(binding._close_error, first.exception)
+		self.assertEqual(
+			binding._windows_directories,
+			{"fixture-owned-root": 987654},
+		)
+
+	def test_private_owned_root_close_failure_preserves_control_and_debt(self) -> None:
+		with tempfile.TemporaryDirectory(
+			prefix="gf-ai-storage-private-root-cleanup-"
+		) as temporary:
+			private_root = Path(temporary)
+			primary = KeyboardInterrupt("fixture body interruption")
+			cleanup_error = OSError("fixture binding close failure")
+			real_close = build_gf_ai_developer_kit._OwnedRootBinding.close
+
+			def close_then_fail(binding: object) -> None:
+				real_close(binding)  # type: ignore[arg-type]
+				raise cleanup_error
+
+			absolute_root = Path(os.path.abspath(private_root))
+			try:
+				with mock.patch.object(
+					build_gf_ai_developer_kit._OwnedRootBinding,
+					"close",
+					autospec=True,
+					side_effect=close_then_fail,
+				):
+					observed: BaseException | None = None
+					try:
+						with build_gf_ai_developer_kit._private_owned_root(private_root):
+							raise primary
+					except BaseException as error:
+						observed = error
+				self.assertIn(
+					absolute_root,
+					build_gf_ai_developer_kit._PRIVATE_OWNED_ROOTS,
+				)
+			finally:
+				build_gf_ai_developer_kit._PRIVATE_OWNED_ROOTS.pop(
+					absolute_root,
+					None,
+				)
+			self.assertIs(observed, primary)
+			self.assertTrue(primary.cleanup_debt)
+			self.assertFalse(primary.process_boundary_quiescent)
+			self.assertEqual(primary.preserved_paths, (private_root,))
+			self.assertIs(primary.cleanup_error, cleanup_error)
+
+	def test_owned_target_descriptor_does_not_dispatch_hostile_traceback(self) -> None:
+		class HostileInterrupt(KeyboardInterrupt):
+			@property
+			def __traceback__(self) -> object:
+				return object()
+
+		with tempfile.TemporaryDirectory(
+			prefix="gf-ai-storage-target-control-"
+		) as temporary:
+			private_root = Path(temporary)
+			target = private_root / "payload.bin"
+			primary = HostileInterrupt("fixture hostile traceback")
+			observed: BaseException | None = None
+			with build_gf_ai_developer_kit._private_owned_root(private_root):
+				with mock.patch.object(
+					build_gf_ai_developer_kit,
+					"_write_all_file_descriptor",
+					side_effect=primary,
+				):
+					try:
+						build_gf_ai_developer_kit._write_owned_target_bytes(
+							target,
+							b"fixture",
+							private_root,
+						)
+					except BaseException as error:
+						observed = error
+			self.assertIs(observed, primary)
+
+	@unittest.skipUnless(
+		build_gf_ai_developer_kit._supports_secure_directory_descriptors(),
+		"Secure directory-relative descriptors are unavailable.",
+	)
+	def test_owned_directory_descriptor_does_not_dispatch_hostile_traceback(
+		self,
+	) -> None:
+		class HostileInterrupt(KeyboardInterrupt):
+			@property
+			def __traceback__(self) -> object:
+				return object()
+
+		with tempfile.TemporaryDirectory(
+			prefix="gf-ai-storage-directory-control-"
+		) as temporary:
+			private_root = Path(temporary)
+			primary = HostileInterrupt("fixture hostile traceback")
+			observed: BaseException | None = None
+			try:
+				with build_gf_ai_developer_kit._open_owned_directory_descriptor(
+					private_root,
+					private_root,
+					create=False,
+				):
+					raise primary
+			except BaseException as error:
+				observed = error
+			self.assertIs(observed, primary)
 
 	@unittest.skipUnless(
 		os.name == "nt",

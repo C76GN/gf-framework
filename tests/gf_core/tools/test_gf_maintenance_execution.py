@@ -29,6 +29,7 @@ if str(TOOLS_ROOT) not in sys.path:
 	sys.path.insert(0, str(TOOLS_ROOT))
 
 import gdscript_lsp_diagnostics
+import gf_gut_lifecycle_smoke
 import gf_maintenance
 import gf_maintenance_rendering
 import gf_mcp_server
@@ -72,6 +73,101 @@ class StrictJsonBoundaryTests(unittest.TestCase):
 			self.assertEqual(target.read_text(encoding="utf-8"), '{"old":true}\n')
 			gdscript_lsp_diagnostics._write_connection_audit_log(target, {"ok": True})
 			self.assertEqual(json.loads(target.read_text(encoding="utf-8")), {"ok": True})
+
+
+class GutLifecycleSmokeBoundaryTests(unittest.TestCase):
+	def test_structured_no_child_start_remains_an_ordinary_scenario_failure(self) -> None:
+		original = FileNotFoundError("fixture missing Godot")
+		start_error = gf_maintenance.gf_process_supervisor.SupervisedProcessStartError(
+			original
+		)
+		with tempfile.TemporaryDirectory() as temporary_directory, mock.patch.object(
+			gf_gut_lifecycle_smoke,
+			"LOG_ROOT",
+			Path(temporary_directory),
+		), mock.patch.object(
+			gf_gut_lifecycle_smoke,
+			"run_supervised_process",
+			side_effect=start_error,
+		):
+			result = gf_gut_lifecycle_smoke.run_scenario(
+				"fixture-godot",
+				gf_gut_lifecycle_smoke.SCENARIOS[0],
+			)
+		self.assertFalse(result.ok)
+		self.assertIn("before a child was created", result.issues[0])
+
+	def test_structured_start_diagnostics_ignore_hostile_string(self) -> None:
+		class HostileMissing(FileNotFoundError):
+			def __str__(self) -> str:
+				raise SystemExit("fixture hostile start-error text")
+
+		original = HostileMissing("fixture missing Godot")
+		start_error = gf_maintenance.gf_process_supervisor.SupervisedProcessStartError(
+			original
+		)
+		with tempfile.TemporaryDirectory() as temporary_directory, mock.patch.object(
+			gf_gut_lifecycle_smoke,
+			"LOG_ROOT",
+			Path(temporary_directory),
+		), mock.patch.object(
+			gf_gut_lifecycle_smoke,
+			"run_supervised_process",
+			side_effect=start_error,
+		):
+			result = gf_gut_lifecycle_smoke.run_scenario(
+				"fixture-godot",
+				gf_gut_lifecycle_smoke.SCENARIOS[0],
+			)
+		self.assertFalse(result.ok)
+		self.assertIn("detail unavailable", result.issues[0])
+
+	def test_unclassified_supervisor_failure_escapes_with_boundary_debt(self) -> None:
+		original = RuntimeError("fixture supervisor failure")
+		with tempfile.TemporaryDirectory() as temporary_directory, mock.patch.object(
+			gf_gut_lifecycle_smoke,
+			"LOG_ROOT",
+			Path(temporary_directory),
+		), mock.patch.object(
+			gf_gut_lifecycle_smoke,
+			"run_supervised_process",
+			side_effect=original,
+		):
+			with self.assertRaises(
+				gf_maintenance.gf_parallel_validation.WorkspaceProcessBoundaryError
+			) as raised:
+				gf_gut_lifecycle_smoke.run_scenario(
+					"fixture-godot",
+					gf_gut_lifecycle_smoke.SCENARIOS[0],
+				)
+		self.assertIs(raised.exception.__cause__, original)
+
+	def test_returned_unproved_scenario_boundary_is_rejected(self) -> None:
+		unproved = gf_maintenance.gf_process_supervisor.SupervisedProcessResult(
+			return_code=0,
+			stdout="",
+			stderr="",
+			timed_out=False,
+			duration_seconds=0.1,
+			pid=123,
+			process_boundary_quiescent=False,
+		)
+		with tempfile.TemporaryDirectory() as temporary_directory, mock.patch.object(
+			gf_gut_lifecycle_smoke,
+			"LOG_ROOT",
+			Path(temporary_directory),
+		), mock.patch.object(
+			gf_gut_lifecycle_smoke,
+			"run_supervised_process",
+			return_value=unproved,
+		):
+			with self.assertRaises(
+				gf_maintenance.gf_parallel_validation.WorkspaceProcessBoundaryError
+			):
+				gf_gut_lifecycle_smoke.run_scenario(
+					"fixture-godot",
+					gf_gut_lifecycle_smoke.SCENARIOS[0],
+				)
 
 
 class CorePluginBootstrapSmokeTests(unittest.TestCase):
@@ -867,6 +963,132 @@ class GutShardPlanIntegrationTests(unittest.TestCase):
 				environment,
 			)
 
+	def test_run_command_maps_proven_start_failures_without_tracebacks(self) -> None:
+		cases = (
+			(FileNotFoundError("fixture missing"), 127, "command not found"),
+			(PermissionError("fixture denied"), 126, "failed to run command"),
+		)
+		for original, expected_exit, expected_message in cases:
+			with self.subTest(error=type(original).__name__), mock.patch.object(
+				gf_maintenance,
+				"resolve_godot_command",
+				return_value=["fixture-command"],
+			), mock.patch.object(
+				gf_maintenance,
+				"prepare_command_log_paths",
+				return_value=[],
+			), mock.patch.object(
+				gf_maintenance,
+				"run_supervised_process",
+				side_effect=(
+					gf_maintenance.gf_process_supervisor.SupervisedProcessStartError(
+						original
+					)
+				),
+			):
+				result = gf_maintenance.run_command(
+					"fixture",
+					["fixture-command"],
+					10.0,
+				)
+
+			self.assertEqual(result.exit_code, expected_exit)
+			self.assertFalse(result.timed_out)
+			self.assertFalse(result.cancelled)
+			self.assertIn(expected_message, result.stderr)
+			self.assertNotIn("Traceback", result.stderr)
+
+	def test_run_command_start_diagnostics_ignore_hostile_string(self) -> None:
+		class HostileMissing(FileNotFoundError):
+			def __str__(self) -> str:
+				raise SystemExit("fixture hostile start-error text")
+
+		original = HostileMissing("fixture missing")
+		with mock.patch.object(
+			gf_maintenance,
+			"resolve_godot_command",
+			return_value=["fixture-command"],
+		), mock.patch.object(
+			gf_maintenance,
+			"prepare_command_log_paths",
+			return_value=[],
+		), mock.patch.object(
+			gf_maintenance,
+			"run_supervised_process",
+			side_effect=(
+				gf_maintenance.gf_process_supervisor.SupervisedProcessStartError(
+					original
+				)
+			),
+		):
+			result = gf_maintenance.run_command(
+				"fixture",
+				["fixture-command"],
+				10.0,
+			)
+
+		self.assertEqual(result.exit_code, 127)
+		self.assertIn("detail unavailable", result.stderr)
+
+	def test_run_command_rejects_raw_supervisor_os_errors_without_boundary_proof(self) -> None:
+		for original_error in (
+			FileNotFoundError("fixture unclassified missing executable"),
+			PermissionError("fixture unclassified process failure"),
+			RuntimeError("fixture unclassified runtime failure"),
+		):
+			with self.subTest(error=type(original_error).__name__), mock.patch.object(
+				gf_maintenance,
+				"resolve_godot_command",
+				return_value=["fixture-command"],
+			), mock.patch.object(
+				gf_maintenance,
+				"prepare_command_log_paths",
+				return_value=[],
+			), mock.patch.object(
+				gf_maintenance,
+				"run_supervised_process",
+				side_effect=original_error,
+			):
+				with self.assertRaises(
+					gf_maintenance.gf_parallel_validation.WorkspaceProcessBoundaryError
+				) as raised:
+					gf_maintenance.run_command(
+						"fixture",
+						["fixture-command"],
+						10.0,
+					)
+			self.assertIs(raised.exception.__cause__, original_error)
+			self.assertTrue(raised.exception.cleanup_debt)
+
+	def test_run_command_rejects_returned_unproved_process_boundary(self) -> None:
+		process_result = gf_maintenance.gf_process_supervisor.SupervisedProcessResult(
+			return_code=0,
+			stdout="",
+			stderr="",
+			timed_out=False,
+			duration_seconds=0.1,
+			pid=123,
+			process_boundary_quiescent=False,
+		)
+		with mock.patch.object(
+			gf_maintenance,
+			"resolve_godot_command",
+			return_value=["fixture-command"],
+		), mock.patch.object(
+			gf_maintenance,
+			"prepare_command_log_paths",
+			return_value=[],
+		), mock.patch.object(
+			gf_maintenance,
+			"run_supervised_process",
+			return_value=process_result,
+		):
+			with self.assertRaises(
+				gf_maintenance.gf_parallel_validation.WorkspaceProcessBoundaryError
+			) as raised:
+				gf_maintenance.run_command("fixture", ["fixture-command"], 10.0)
+		self.assertTrue(raised.exception.cleanup_debt)
+
 	def test_run_command_gut_timeout_publishes_failed_lifecycle_evidence(self) -> None:
 		process_result = mock.Mock(
 			timed_out=True,
@@ -962,6 +1184,28 @@ class GutShardPlanIntegrationTests(unittest.TestCase):
 			["gut_shard_observation_failed"],
 		)
 		self.assertIn("process-boundary", report["issues"][0]["message"])
+
+	def test_process_boundary_debt_escapes_observation_report(self) -> None:
+		discover_patch, manifest_patch, digest_patch = self._manifest_patches()
+		boundary_error = (
+			gf_maintenance.gf_parallel_validation.WorkspaceProcessBoundaryError(
+				"fixture unproved process boundary"
+			)
+		)
+		with discover_patch, manifest_patch, digest_patch, mock.patch.object(
+			gf_maintenance,
+			"prepare_gut_shard_junit_output",
+			return_value=self._prepared_output(),
+		), mock.patch.object(
+			gf_maintenance,
+			"run_command",
+			side_effect=boundary_error,
+		):
+			with self.assertRaises(
+				gf_maintenance.gf_parallel_validation.WorkspaceProcessBoundaryError
+			) as raised:
+				gf_maintenance.gut_shard_plan(run_gut=True)
+		self.assertIs(raised.exception, boundary_error)
 
 	def test_gut_timeout_without_published_junit_remains_a_failed_observation(self) -> None:
 		discover_patch, manifest_patch, digest_patch = self._manifest_patches()
@@ -2062,6 +2306,14 @@ class GutShardRunIntegrationTests(unittest.TestCase):
 				gf_maintenance.resolve_gut_shard_run_gut_timeout_seconds(invalid)
 			with self.assertRaisesRegex(ValueError, "positive seconds"):
 				gf_maintenance.gut_shard_run(timeout_seconds=invalid)
+		for invalid in (True, 1.5):
+			with self.subTest(invalid=invalid), self.assertRaisesRegex(
+				TypeError,
+				"must be integers",
+			):
+				gf_maintenance.resolve_gut_shard_run_gut_timeout_seconds(invalid)
+			with self.assertRaisesRegex(TypeError, "must be integers"):
+				gf_maintenance.gut_shard_run(timeout_seconds=invalid)
 
 	def test_cli_defaults_to_two_workers_and_forwards_qualification(self) -> None:
 		report = gf_maintenance.make_gut_shard_run_report(jobs=2, qualify=True)
@@ -2081,6 +2333,42 @@ class GutShardRunIntegrationTests(unittest.TestCase):
 		self.assertEqual(exit_code, 1)
 		runner.assert_called_once_with(jobs=2, timeout_seconds=None, qualify=True)
 		print_output.assert_called_once()
+
+	def test_cli_rejects_out_of_range_shard_timeouts_before_execution(self) -> None:
+		for invalid in ("0", "7201", "not-an-integer"):
+			stdout = io.StringIO()
+			stderr = io.StringIO()
+			with self.subTest(invalid=invalid), mock.patch.object(
+				sys,
+				"argv",
+				["gf_maintenance.py", "gut-shard-run", "--timeout", invalid, "--json"],
+			), mock.patch.object(
+				gf_maintenance,
+				"gut_shard_run",
+			) as runner, contextlib.redirect_stdout(stdout), contextlib.redirect_stderr(
+				stderr,
+			), self.assertRaises(
+				SystemExit,
+			) as raised:
+				gf_maintenance.main()
+			self.assertEqual(raised.exception.code, 2)
+			runner.assert_not_called()
+			self.assertEqual(stdout.getvalue(), "")
+			self.assertIn("between 1 and 7200 seconds", stderr.getvalue())
+			self.assertNotIn("Traceback", stderr.getvalue())
+
+	def test_cli_shard_timeout_parser_accepts_worker_phase_bounds(self) -> None:
+		for valid in ("1", "600", "7200"):
+			with self.subTest(valid=valid):
+				self.assertEqual(
+					gf_maintenance.parse_gut_shard_run_timeout_seconds(valid),
+					int(valid),
+				)
+		for invalid in ("0", "7201", "1.5"):
+			with self.subTest(invalid=invalid), self.assertRaises(
+				gf_maintenance.argparse.ArgumentTypeError,
+			):
+				gf_maintenance.parse_gut_shard_run_timeout_seconds(invalid)
 
 	def test_top_level_run_captures_once_and_accepts_all_candidate_reports(self) -> None:
 		captured = mock.Mock(
@@ -2281,6 +2569,27 @@ class GutShardRunIntegrationTests(unittest.TestCase):
 						cleanup_state=cleanup_state,
 					)
 			self.assertFalse(cleanup_state["permitted"])
+
+	def test_isolation_probe_no_child_start_failure_permits_root_cleanup(self) -> None:
+		with tempfile.TemporaryDirectory() as temporary_directory:
+			cleanup_state = {"permitted": True}
+			missing_executable = Path(temporary_directory) / "missing-godot"
+			with mock.patch.object(
+				gf_maintenance,
+				"resolve_godot_executable",
+				return_value=str(missing_executable),
+			):
+				with self.assertRaisesRegex(
+					gf_maintenance.WorkspaceSnapshotError,
+					"failed",
+				):
+					gf_maintenance.run_parallel_godot_isolation_probe(
+						Path(temporary_directory),
+						deadline=time.perf_counter() + 10.0,
+						output_callback=None,
+						cleanup_state=cleanup_state,
+					)
+			self.assertTrue(cleanup_state["permitted"])
 
 	def test_isolation_probe_base_exception_keeps_cleanup_fail_closed(self) -> None:
 		with tempfile.TemporaryDirectory() as temporary_directory:
@@ -7766,6 +8075,153 @@ class WorkspaceExecutionBoundaryTests(unittest.TestCase):
 				"retained",
 			)
 
+	def test_retention_diagnostics_do_not_replace_hostile_primary_error(self) -> None:
+		class HostileBoundaryError(
+			gf_maintenance.gf_parallel_validation.WorkspaceProcessBoundaryError
+		):
+			def add_note(self, _note: str) -> None:
+				raise SystemExit("fixture hostile add_note")
+
+		with tempfile.TemporaryDirectory() as temporary_directory:
+			owned_root = Path(temporary_directory) / "owned"
+			owned_root.mkdir()
+			primary = HostileBoundaryError(
+				"synthetic unproved process boundary",
+				preserved_paths=(owned_root,),
+			)
+			with mock.patch.object(
+				gf_maintenance.tempfile,
+				"mkdtemp",
+				return_value=str(owned_root),
+			):
+				with self.assertRaises(HostileBoundaryError) as raised:
+					with gf_maintenance.strict_process_boundary_temporary_directory(
+						prefix="gf-process-boundary-fixture-",
+					) as retained:
+						(retained / "must-retain.txt").write_text(
+							"retained",
+							encoding="utf-8",
+						)
+						raise primary
+
+			self.assertIs(raised.exception, primary)
+			self.assertEqual(
+				(owned_root / "must-retain.txt").read_text(encoding="utf-8"),
+				"retained",
+			)
+
+	def test_cleanup_debt_classifier_bypasses_lying_exception_getters(self) -> None:
+		class HostileDebtError(gf_maintenance.PackageArtifactSetError):
+			def __init__(self, message: str) -> None:
+				super().__init__(message)
+				attributes = BaseException.__getattribute__(self, "__dict__")
+				attributes["cleanup_debt"] = True
+				attributes["process_boundary_quiescent"] = False
+
+			def __getattribute__(self, name: str) -> object:
+				if name == "cleanup_debt":
+					return False
+				if name == "process_boundary_quiescent":
+					return True
+				return super().__getattribute__(name)
+
+		with tempfile.TemporaryDirectory() as temporary_directory:
+			owned_root = Path(temporary_directory) / "owned"
+			owned_root.mkdir()
+			marker = owned_root / "must-retain.txt"
+			marker.write_text("retained", encoding="utf-8")
+			primary = HostileDebtError("synthetic uninspectable cleanup boundary")
+
+			with mock.patch.object(
+				gf_maintenance.tempfile,
+				"mkdtemp",
+				return_value=str(owned_root),
+			), mock.patch.object(
+				gf_maintenance,
+				"load_or_build_private_package_artifact_set",
+				side_effect=primary,
+			):
+				with self.assertRaises(HostileDebtError) as raised:
+					gf_maintenance.package_build_boundary()
+
+			self.assertIs(raised.exception, primary)
+			self.assertEqual(marker.read_text(encoding="utf-8"), "retained")
+
+	def test_cleanup_debt_classifier_rejects_hidden_context_descriptor(self) -> None:
+		class HostileWrapper(gf_maintenance.PackageArtifactSetError):
+			@property
+			def __context__(self) -> None:
+				return None
+
+		debt = gf_maintenance.gf_parallel_validation.WorkspaceProcessBoundaryError(
+			"fixture hidden cleanup debt"
+		)
+		try:
+			raise debt
+		except gf_maintenance.WorkspaceSnapshotError:
+			try:
+				raise HostileWrapper("fixture wrapper") from None
+			except HostileWrapper as wrapper:
+				primary = wrapper
+
+		self.assertTrue(gf_maintenance.exception_has_cleanup_debt(primary))
+
+	def test_package_capture_wrapper_does_not_format_hostile_cleanup_debt(self) -> None:
+		class HostileSnapshotError(gf_maintenance.WorkspaceSnapshotError):
+			cleanup_debt = True
+			process_boundary_quiescent = False
+
+			def __str__(self) -> str:
+				raise SystemExit("fixture hostile snapshot __str__")
+
+		with tempfile.TemporaryDirectory() as temporary_directory:
+			owned_root = Path(temporary_directory) / "owned"
+			owned_root.mkdir()
+			marker = owned_root / "must-retain.txt"
+			marker.write_text("retained", encoding="utf-8")
+			primary = HostileSnapshotError("synthetic capture cleanup debt")
+			workspace_state = {"fingerprint": "a" * 64}
+
+			with (
+				mock.patch.object(
+					gf_maintenance.tempfile,
+					"mkdtemp",
+					return_value=str(owned_root),
+				),
+				mock.patch.object(
+					gf_maintenance,
+					"workspace_fingerprint",
+					return_value=workspace_state,
+				),
+				mock.patch.object(
+					gf_maintenance.gf_parallel_validation,
+					"capture_workspace",
+					side_effect=primary,
+				),
+			):
+				with self.assertRaises(gf_maintenance.PackageArtifactSetError) as raised:
+					gf_maintenance.package_build_boundary()
+
+			self.assertIs(raised.exception.__cause__, primary)
+			self.assertTrue(gf_maintenance.exception_has_cleanup_debt(raised.exception))
+			self.assertEqual(marker.read_text(encoding="utf-8"), "retained")
+
+	def test_package_build_diagnostic_does_not_format_hostile_ordinary_error(self) -> None:
+		class HostilePackageError(gf_maintenance.PackageArtifactSetError):
+			def __str__(self) -> str:
+				raise SystemExit("fixture hostile package error text")
+
+		with mock.patch.object(
+			gf_maintenance,
+			"load_or_build_private_package_artifact_set",
+			side_effect=HostilePackageError("fixture invalid artifact set"),
+		):
+			report = gf_maintenance.package_build_boundary()
+
+		self.assertFalse(report["ok"])
+		self.assertEqual(report["issues"][0]["kind"], "package_artifact_set_invalid")
+		self.assertIn("detail unavailable", report["issues"][0]["error"])
+
 	def test_package_build_boundary_preserves_wrapped_materializer_debt(self) -> None:
 		with tempfile.TemporaryDirectory() as temporary_directory:
 			owned_root = Path(temporary_directory) / "owned"
@@ -7814,6 +8270,270 @@ class WorkspaceExecutionBoundaryTests(unittest.TestCase):
 			)
 			self.assertTrue((owned_root / "artifact-source" / "must-retain.txt").is_file())
 
+	def test_private_artifact_cleanup_failure_carries_debt_and_retained_path(self) -> None:
+		artifact_module = gf_maintenance.gf_package_artifact_set
+		with tempfile.TemporaryDirectory() as temporary_directory:
+			root = Path(temporary_directory)
+			source_root = root / "source"
+			source_root.mkdir()
+			manifest_path = source_root / artifact_module.MANIFEST_FILENAME
+			manifest_path.write_text("{}\n", encoding="utf-8")
+			source = artifact_module.PackageArtifactSet(
+				root=source_root,
+				manifest_path=manifest_path,
+				manifest_sha256="a" * 64,
+				workspace_state={},
+				artifacts=(),
+				builder_result={},
+			)
+			target = root / "consumer"
+			staging = root / ".consumer.a-deadbeef"
+			primary = artifact_module.PackageArtifactSetError("private copy validation failed")
+
+			with (
+				mock.patch.object(
+					artifact_module,
+					"revalidate_package_artifact_set",
+					return_value=source,
+				),
+				mock.patch.object(
+					artifact_module,
+					"load_package_artifact_set",
+					side_effect=primary,
+				),
+				mock.patch.object(artifact_module.secrets, "token_hex", return_value="deadbeef"),
+				mock.patch.object(
+					artifact_module,
+					"_safe_remove_private_tree",
+					return_value="exact private staging cleanup was refused",
+				),
+			):
+				with self.assertRaises(artifact_module.PackageArtifactSetError) as raised:
+					artifact_module.materialize_package_artifact_set(source, target)
+
+			self.assertIs(raised.exception, primary)
+			self.assertTrue(raised.exception.cleanup_debt)
+			self.assertFalse(raised.exception.process_boundary_quiescent)
+			self.assertEqual(raised.exception.preserved_paths, (staging,))
+			self.assertIsInstance(
+				raised.exception.cleanup_error,
+				artifact_module.PackageArtifactSetError,
+			)
+			self.assertIn(
+				"exact private staging cleanup was refused",
+				str(raised.exception.cleanup_error),
+			)
+			self.assertTrue(staging.is_dir())
+
+	def test_missing_private_artifact_staging_is_cleanup_debt(self) -> None:
+		artifact_module = gf_maintenance.gf_package_artifact_set
+		with tempfile.TemporaryDirectory() as temporary_directory:
+			root = Path(temporary_directory)
+			source_root = root / "source"
+			source_root.mkdir()
+			manifest_path = source_root / artifact_module.MANIFEST_FILENAME
+			manifest_path.write_text("{}\n", encoding="utf-8")
+			source = artifact_module.PackageArtifactSet(
+				root=source_root,
+				manifest_path=manifest_path,
+				manifest_sha256="a" * 64,
+				workspace_state={},
+				artifacts=(),
+				builder_result={},
+			)
+			target = root / "consumer"
+			staging = root / ".consumer.a-deadbeef"
+			moved_staging = root / "moved-private-staging"
+			primary = artifact_module.PackageArtifactSetError(
+				"private copy validation failed"
+			)
+
+			def move_staging_then_fail(*_args: object, **_kwargs: object) -> object:
+				staging.rename(moved_staging)
+				raise primary
+
+			with (
+				mock.patch.object(
+					artifact_module,
+					"revalidate_package_artifact_set",
+					return_value=source,
+				),
+				mock.patch.object(
+					artifact_module,
+					"load_package_artifact_set",
+					side_effect=move_staging_then_fail,
+				),
+				mock.patch.object(artifact_module.secrets, "token_hex", return_value="deadbeef"),
+			):
+				with self.assertRaises(artifact_module.PackageArtifactSetError) as raised:
+					artifact_module.materialize_package_artifact_set(source, target)
+
+			self.assertIs(raised.exception, primary)
+			self.assertTrue(raised.exception.cleanup_debt)
+			self.assertFalse(raised.exception.process_boundary_quiescent)
+			self.assertEqual(raised.exception.preserved_paths, (staging,))
+			self.assertTrue(moved_staging.is_dir())
+
+	def test_private_artifact_publication_move_then_control_retains_target(self) -> None:
+		artifact_module = gf_maintenance.gf_package_artifact_set
+		with tempfile.TemporaryDirectory() as temporary_directory:
+			root = Path(temporary_directory)
+			source_root = root / "source"
+			source_root.mkdir()
+			manifest_path = source_root / artifact_module.MANIFEST_FILENAME
+			manifest_path.write_text("{}\n", encoding="utf-8")
+			source = artifact_module.PackageArtifactSet(
+				root=source_root,
+				manifest_path=manifest_path,
+				manifest_sha256="a" * 64,
+				workspace_state={},
+				artifacts=(),
+				builder_result={},
+			)
+			target = root / "consumer"
+			staging = root / ".consumer.a-deadbeef"
+			primary = KeyboardInterrupt("fixture publication interruption")
+			real_replace = os.replace
+
+			def move_then_interrupt(source_path: object, target_path: object) -> None:
+				real_replace(source_path, target_path)
+				raise primary
+
+			with (
+				mock.patch.object(
+					artifact_module,
+					"revalidate_package_artifact_set",
+					return_value=source,
+				),
+				mock.patch.object(
+					artifact_module,
+					"load_package_artifact_set",
+					return_value=source,
+				),
+				mock.patch.object(artifact_module.secrets, "token_hex", return_value="deadbeef"),
+				mock.patch.object(
+					artifact_module.os,
+					"replace",
+					side_effect=move_then_interrupt,
+				),
+			):
+				observed: BaseException | None = None
+				try:
+					artifact_module.materialize_package_artifact_set(source, target)
+				except BaseException as error:
+					observed = error
+
+			self.assertIs(observed, primary)
+			self.assertTrue(primary.cleanup_debt)
+			self.assertFalse(primary.process_boundary_quiescent)
+			self.assertEqual(primary.preserved_paths, (target,))
+			self.assertTrue(target.is_dir())
+			self.assertFalse(staging.exists())
+
+	def test_package_build_boundary_preserves_private_artifact_cleanup_debt(self) -> None:
+		with tempfile.TemporaryDirectory() as temporary_directory:
+			owned_root = Path(temporary_directory) / "owned"
+			staging = owned_root / ".artifact-consumer.a-deadbeef"
+			staging.mkdir(parents=True)
+			debt = gf_maintenance.PackageArtifactSetError(
+				"private artifact cleanup could not be proven"
+			)
+			debt.cleanup_debt = True
+			debt.process_boundary_quiescent = False
+			debt.preserved_paths = (staging,)
+
+			with mock.patch.object(
+				gf_maintenance.tempfile,
+				"mkdtemp",
+				return_value=str(owned_root),
+			), mock.patch.object(
+				gf_maintenance,
+				"load_or_build_private_package_artifact_set",
+				side_effect=debt,
+			):
+				with self.assertRaises(gf_maintenance.PackageArtifactSetError) as raised:
+					gf_maintenance.package_build_boundary()
+
+			self.assertIs(raised.exception, debt)
+			self.assertTrue(gf_maintenance.exception_has_cleanup_debt(raised.exception))
+			self.assertTrue(staging.is_dir())
+
+	def test_package_build_boundary_retains_replaced_published_artifact_root(self) -> None:
+		artifact_module = gf_maintenance.gf_package_artifact_set
+		with tempfile.TemporaryDirectory() as temporary_directory:
+			root = Path(temporary_directory)
+			source_root = root / "source"
+			source_root.mkdir()
+			manifest_path = source_root / artifact_module.MANIFEST_FILENAME
+			manifest_path.write_text("{}\n", encoding="utf-8")
+			source = artifact_module.PackageArtifactSet(
+				root=source_root,
+				manifest_path=manifest_path,
+				manifest_sha256="a" * 64,
+				workspace_state={},
+				artifacts=(),
+				builder_result={},
+			)
+			owned_root = root / "owned"
+			owned_root.mkdir()
+			target = owned_root / "artifact-consumer"
+			replacement_marker = target / "replacement.txt"
+			primary = artifact_module.PackageArtifactSetError(
+				"published private artifact validation failed"
+			)
+			load_count = 0
+
+			def replace_before_final_validation(*_args: object, **_kwargs: object) -> object:
+				nonlocal load_count
+				load_count += 1
+				if load_count == 1:
+					return source
+				(target / artifact_module.MANIFEST_FILENAME).unlink()
+				target.rmdir()
+				target.mkdir()
+				replacement_marker.write_text("retained", encoding="utf-8")
+				raise primary
+
+			def materialize_private_set(
+				_temp_root: Path,
+				consumer_root: Path,
+				*_args: object,
+				**_kwargs: object,
+			) -> object:
+				return artifact_module.materialize_package_artifact_set(source, consumer_root)
+
+			with (
+				mock.patch.object(
+					artifact_module,
+					"revalidate_package_artifact_set",
+					return_value=source,
+				),
+				mock.patch.object(
+					artifact_module,
+					"load_package_artifact_set",
+					side_effect=replace_before_final_validation,
+				),
+				mock.patch.object(artifact_module.secrets, "token_hex", return_value="deadbeef"),
+				mock.patch.object(
+					gf_maintenance.tempfile,
+					"mkdtemp",
+					return_value=str(owned_root),
+				),
+				mock.patch.object(
+					gf_maintenance,
+					"load_or_build_private_package_artifact_set",
+					side_effect=materialize_private_set,
+				),
+			):
+				with self.assertRaises(artifact_module.PackageArtifactSetError) as raised:
+					gf_maintenance.package_build_boundary()
+
+			self.assertIs(raised.exception, primary)
+			self.assertTrue(gf_maintenance.exception_has_cleanup_debt(raised.exception))
+			self.assertEqual(raised.exception.preserved_paths, (target,))
+			self.assertTrue(owned_root.is_dir())
+			self.assertEqual(replacement_marker.read_text(encoding="utf-8"), "retained")
+
 	def test_process_boundary_temp_cleans_handled_non_debt_failure(self) -> None:
 		with tempfile.TemporaryDirectory() as temporary_directory:
 			owned_root = Path(temporary_directory) / "owned"
@@ -7856,6 +8576,48 @@ class WorkspaceExecutionBoundaryTests(unittest.TestCase):
 					[sys.executable, "-c", "pass"],
 					timeout_seconds=1.0,
 				)
+
+	def test_maintenance_subprocess_restores_proven_no_child_start_errors(self) -> None:
+		for original_error in (
+			FileNotFoundError("fixture missing executable"),
+			PermissionError("fixture executable denied"),
+		):
+			with self.subTest(error=type(original_error).__name__), mock.patch.object(
+				gf_maintenance,
+				"run_supervised_process",
+				side_effect=(
+					gf_maintenance.gf_process_supervisor.SupervisedProcessStartError(
+						original_error
+					)
+				),
+			):
+				with self.assertRaises(type(original_error)) as raised:
+					gf_maintenance.run_maintenance_subprocess(
+						[sys.executable, "-c", "pass"],
+						timeout_seconds=1.0,
+					)
+			self.assertIs(raised.exception, original_error)
+
+	def test_maintenance_subprocess_rejects_unproved_raw_os_errors(self) -> None:
+		for original_error in (
+			FileNotFoundError("fixture unproved missing executable"),
+			PermissionError("fixture unproved executable denial"),
+			OSError("fixture partial-start cleanup debt"),
+			RuntimeError("fixture runtime cleanup debt"),
+		):
+			with self.subTest(error=type(original_error).__name__), mock.patch.object(
+				gf_maintenance,
+				"run_supervised_process",
+				side_effect=original_error,
+			):
+				with self.assertRaises(
+					gf_maintenance.gf_parallel_validation.WorkspaceProcessBoundaryError,
+				) as raised:
+					gf_maintenance.run_maintenance_subprocess(
+						[sys.executable, "-c", "pass"],
+						timeout_seconds=1.0,
+					)
+			self.assertIs(raised.exception.__cause__, original_error)
 
 	def test_parallel_full_boundary_debt_retains_artifact_and_validation_roots(self) -> None:
 		workspace_state = {
@@ -8492,6 +9254,25 @@ class ValidationShadowIntegrationTests(unittest.TestCase):
 		self.assertEqual(shadow["execution_observation_count"], 0)
 		self.assertIsNone(shadow["test_inventory"])
 		inventory.assert_not_called()
+
+	def test_initial_workspace_process_control_exception_propagates(self) -> None:
+		for error in (
+			KeyboardInterrupt("fixture interrupt"),
+			SystemExit(7),
+			GeneratorExit("fixture generator exit"),
+		):
+			with self.subTest(error=type(error).__name__), mock.patch.object(
+				gf_maintenance,
+				"workspace_fingerprint",
+				side_effect=error,
+			):
+				with self.assertRaises(type(error)) as raised:
+					gf_maintenance.run_checks(
+						checks=["docs"],
+						jobs=1,
+						validation_shadow=True,
+					)
+			self.assertIs(raised.exception, error)
 
 	def test_shadow_attaches_only_after_workspace_revalidation_and_result_freeze(self) -> None:
 		workspace_state = self._workspace_state()

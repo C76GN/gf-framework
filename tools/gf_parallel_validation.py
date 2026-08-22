@@ -21,7 +21,9 @@ from typing import Callable
 from typing import Iterable
 from typing import Mapping
 
+from gf_process_supervisor import SupervisedProcessStartError
 from gf_process_supervisor import run_supervised_process
+from gf_process_supervisor import safe_exception_detail
 
 
 FILE_ATTRIBUTE_REPARSE_POINT = 0x0400
@@ -61,13 +63,86 @@ class WorkspaceProcessBoundaryError(WorkspaceSnapshotError):
 		preserved_paths: tuple[Path, ...] = (),
 	) -> None:
 		super().__init__(message)
-		self.cleanup_debt = True
-		self.process_boundary_quiescent = False
-		self.preserved_paths = preserved_paths
+		attributes = BaseException.__getattribute__(self, "__dict__")
+		attributes["cleanup_debt"] = True
+		attributes["process_boundary_quiescent"] = False
+		attributes["preserved_paths"] = preserved_paths
+		verified = BaseException.__getattribute__(self, "__dict__")
+		if (
+			verified is not attributes
+			or verified.get("cleanup_debt") is not True
+			or verified.get("process_boundary_quiescent") is not False
+			or verified.get("preserved_paths") is not preserved_paths
+		):
+			raise WorkspaceSnapshotError(
+				"Workspace boundary error could not establish trusted cleanup-debt markers."
+			)
 
 	def preserve_owned_paths(self, paths: Iterable[Path]) -> None:
 		"""Attach exact materializer roots retained for external diagnosis."""
-		self.preserved_paths = tuple(_absolute_lexical_path(Path(path)) for path in paths)
+		preserved_paths = tuple(_absolute_lexical_path(Path(path)) for path in paths)
+		attributes = BaseException.__getattribute__(self, "__dict__")
+		attributes["cleanup_debt"] = True
+		attributes["process_boundary_quiescent"] = False
+		attributes["preserved_paths"] = preserved_paths
+		verified = BaseException.__getattribute__(self, "__dict__")
+		if (
+			verified is not attributes
+			or verified.get("cleanup_debt") is not True
+			or verified.get("process_boundary_quiescent") is not False
+			or verified.get("preserved_paths") is not preserved_paths
+		):
+			raise WorkspaceSnapshotError(
+				"Workspace boundary error could not retain trusted cleanup-debt markers."
+			)
+
+
+def _mark_workspace_cleanup_debt(
+	primary_error: BaseException | None,
+	cleanup_error: BaseException,
+	preserved_paths: tuple[Path, ...],
+) -> BaseException:
+	"""Retain exact owned roots when bounded materializer cleanup cannot finish."""
+	message = "Owned workspace materialization cleanup could not be proven complete."
+	if primary_error is None and isinstance(cleanup_error, Exception):
+		debt_error: BaseException = WorkspaceProcessBoundaryError(
+			message,
+			preserved_paths=preserved_paths,
+		)
+	else:
+		debt_error = cleanup_error if primary_error is None else primary_error
+	try:
+		BaseException.add_note(debt_error, f"{message} Cleanup failure: {cleanup_error}")
+	except BaseException:
+		# Diagnostics must never replace the primary failure or revoke retained roots.
+		pass
+	try:
+		attributes = BaseException.__getattribute__(debt_error, "__dict__")
+		attributes["cleanup_debt"] = True
+		attributes["process_boundary_quiescent"] = False
+		attributes["preserved_paths"] = preserved_paths
+		attributes["cleanup_error"] = cleanup_error
+		verified = BaseException.__getattribute__(debt_error, "__dict__")
+		if (
+			verified is not attributes
+			or verified.get("cleanup_debt") is not True
+			or verified.get("process_boundary_quiescent") is not False
+			or verified.get("preserved_paths") is not preserved_paths
+			or verified.get("cleanup_error") is not cleanup_error
+		):
+			raise WorkspaceSnapshotError(
+				"Primary workspace error could not retain trusted cleanup-debt markers."
+			)
+	except BaseException:
+		fallback = WorkspaceProcessBoundaryError(
+			message,
+			preserved_paths=preserved_paths,
+		)
+		attributes = BaseException.__getattribute__(fallback, "__dict__")
+		attributes["primary_error"] = debt_error
+		attributes["cleanup_error"] = cleanup_error
+		debt_error = fallback
+	return debt_error
 
 
 @dataclass(frozen=True)
@@ -276,7 +351,22 @@ def materialize_workspace(
 	staging_workspace = staging_root / "w"
 	published_workspace_identity: os.stat_result | None = None
 	published = False
+	publication_attempted = False
 	cleanup_allowed = True
+	primary_error: BaseException | None = None
+
+	def preserved_materialization_paths() -> tuple[Path, ...]:
+		candidates = (
+			(target_path, staging_root)
+			if published or publication_attempted
+			else (staging_root,)
+		)
+		try:
+			existing = tuple(path for path in candidates if os.path.lexists(path))
+		except BaseException:
+			return candidates
+		return existing or candidates
+
 	try:
 		_run_git(
 			target_parent,
@@ -332,8 +422,10 @@ def materialize_workspace(
 			staging_workspace.lstat(),
 		):
 			raise WorkspaceSnapshotError("Materialized workspace identity changed before publication.")
+		publication_attempted = True
 		os.replace(staging_workspace, target_path)
 		published = True
+		publication_attempted = False
 		_assert_path_has_no_link_components(target_path)
 		if not _same_owned_directory_identity(
 			published_workspace_identity,
@@ -351,20 +443,103 @@ def materialize_workspace(
 		return target_path
 	except WorkspaceProcessBoundaryError as error:
 		cleanup_allowed = False
-		preserved_paths: list[Path] = []
-		if published and os.path.lexists(target_path):
-			preserved_paths.append(target_path)
-		if os.path.lexists(staging_root):
-			preserved_paths.append(staging_root)
-		error.preserve_owned_paths(preserved_paths)
+		try:
+			preserved_paths = list(preserved_materialization_paths())
+		except BaseException:
+			preserved_paths = list(
+				(target_path, staging_root)
+				if published or publication_attempted
+				else (staging_root,)
+			)
+		try:
+			WorkspaceProcessBoundaryError.preserve_owned_paths(error, preserved_paths)
+		except BaseException:
+			fallback = WorkspaceProcessBoundaryError(
+				"Workspace process boundary failed with untrusted retention diagnostics.",
+				preserved_paths=tuple(preserved_paths),
+			)
+			attributes = BaseException.__getattribute__(fallback, "__dict__")
+			attributes["primary_error"] = error
+			raise fallback from error
 		raise
-	except BaseException:
-		if published and os.path.lexists(target_path):
-			_remove_owned_tree(target_path, expected_identity=published_workspace_identity)
+	except Exception as error:
+		primary_error = error
+		if published:
+			cleanup_allowed = False
+			try:
+				_remove_owned_tree(
+					target_path,
+					expected_identity=published_workspace_identity,
+				)
+			except BaseException as cleanup_error:
+				debt_error = _mark_workspace_cleanup_debt(
+					error,
+					cleanup_error,
+					preserved_materialization_paths(),
+				)
+				raise debt_error from cleanup_error
+			published = False
+			cleanup_allowed = True
+		elif publication_attempted:
+			cleanup_allowed = False
+			cleanup_error = WorkspaceSnapshotError(
+				"Workspace publication was interrupted after its atomic move began."
+			)
+			debt_error = _mark_workspace_cleanup_debt(
+				error,
+				cleanup_error,
+				preserved_materialization_paths(),
+			)
+			if debt_error is error:
+				raise
+			raise debt_error from error
+		raise
+	except BaseException as error:
+		# A process-control exception is intentionally preserved by _run_git, but it
+		# carries no positive proof that a concurrently failing supervisor reaped its
+		# child tree. Retain every owned materialization root rather than racing a
+		# still-running Git process during recursive cleanup.
+		cleanup_allowed = False
+		if publication_attempted and not published:
+			cleanup_error = WorkspaceSnapshotError(
+				"Workspace publication was interrupted after its atomic move began."
+			)
+			debt_error = _mark_workspace_cleanup_debt(
+				error,
+				cleanup_error,
+				preserved_materialization_paths(),
+			)
+			if debt_error is error:
+				raise
+			raise debt_error from error
+		try:
+			preserved_paths = list(preserved_materialization_paths())
+			add_note = getattr(error, "add_note", None)
+			if callable(add_note):
+				add_note(
+					"Retained workspace materialization paths after process-control "
+					"interruption because a quiet process boundary was not proven: "
+					+ ", ".join(str(path) for path in preserved_paths)
+				)
+		except BaseException:
+			# Diagnostic collection must never replace the exact process-control
+			# exception after cleanup ownership has already been revoked.
+			pass
 		raise
 	finally:
-		if cleanup_allowed and os.path.lexists(staging_root):
-			_remove_owned_tree(staging_root, expected_identity=staging_root_identity)
+		if cleanup_allowed:
+			try:
+				_remove_owned_tree(staging_root, expected_identity=staging_root_identity)
+			except BaseException as cleanup_error:
+				cleanup_allowed = False
+				debt_error = _mark_workspace_cleanup_debt(
+					primary_error,
+					cleanup_error,
+					preserved_materialization_paths(),
+				)
+				if debt_error is cleanup_error:
+					raise
+				raise debt_error from cleanup_error
 
 
 def assert_source_matches_snapshot(
@@ -1200,7 +1375,12 @@ def _run_git(
 			text_errors="surrogateescape",
 			binary_output=True,
 		)
-	except BaseException as exc:
+	except SupervisedProcessStartError as exc:
+		raise WorkspaceSnapshotError(
+			f"Could not start git {' '.join(arguments)}: "
+			f"{safe_exception_detail(exc.original_error)}"
+		) from exc
+	except Exception as exc:
 		raise WorkspaceProcessBoundaryError(
 			f"Git process supervision did not return a quiet-boundary proof for "
 			f"{' '.join(arguments)}."
@@ -1370,7 +1550,25 @@ def _run_parallel_shard(
 			),
 			cancellation_event=cancellation.event,
 		)
-	except OSError as exc:
+	except SupervisedProcessStartError as exc:
+		start_error_detail = safe_exception_detail(exc.original_error)
+		return ParallelShardResult(
+			name=shard.name,
+			command=shard.command,
+			workspace=shard.workspace,
+			exit_code=exc.return_code,
+			process_exit_code=None,
+			stdout="",
+			stderr=start_error_detail,
+			timed_out=False,
+			cancelled=False,
+			duration_seconds=time.perf_counter() - started,
+			pid=0,
+			started=False,
+			notes=(f"Could not start shard command: {start_error_detail}",),
+			process_boundary_quiescent=True,
+		)
+	except Exception as exc:
 		return ParallelShardResult(
 			name=shard.name,
 			command=shard.command,
