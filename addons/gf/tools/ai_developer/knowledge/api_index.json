@@ -2,7 +2,7 @@
   "schema_version": 2,
   "catalog_version": "2.0.0",
   "framework_version": "11.0.0-dev.0",
-  "source_digest": "2606faac835cff13026ce8f2194b74e45899f82e9425b47f66ae85f4b8732b50",
+  "source_digest": "53da915a76d062e489435a010daa6804a67d32733caf62ca2dff70b63e15b6d6",
   "class_count": 820,
   "autoload_count": 1,
   "package_count": 56,
@@ -84942,6 +84942,13 @@
           "visibility": "public"
         },
         {
+          "kind": "enum",
+          "name": "AsyncExecutionMode",
+          "signature": "enum AsyncExecutionMode {\n\t## 自动选择；无线程能力的构建使用 cooperative，否则使用线程。\n\tAUTOMATIC = 0,\n\t## 强制使用线程；无线程能力时 activation 确定性失败。\n\tTHREADED = 1,\n\t## 由 lifecycle tick 在主线程逐项推进，不创建 Thread。\n\tCOOPERATIVE = 2,\n}",
+          "summary": "异步 Storage 请求的执行模式。",
+          "visibility": "public"
+        },
+        {
           "kind": "const",
           "name": "DEFAULT_MAX_LIST_DEPTH",
           "signature": "const DEFAULT_MAX_LIST_DEPTH: int = 32",
@@ -85055,9 +85062,16 @@
         },
         {
           "kind": "var",
+          "name": "async_execution_mode",
+          "signature": "var async_execution_mode: AsyncExecutionMode = AsyncExecutionMode.AUTOMATIC",
+          "summary": "异步 Storage 请求的执行模式。首个合法异步请求入队后冻结。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
           "name": "max_async_thread_count",
           "signature": "var max_async_thread_count: int = 4",
-          "summary": "同时运行的异步存取线程数量。小于 1 时会被钳制为 1。",
+          "summary": "线程模式同时运行的异步存取线程数量，小于 1 时会被钳制为 1。",
           "visibility": "public"
         },
         {
@@ -85106,7 +85120,7 @@
           "kind": "func",
           "name": "tick",
           "signature": "func tick(_delta: float = 0.0) -> void",
-          "summary": "驱动异步存档任务完成检查。",
+          "summary": "驱动异步存档任务完成检查；cooperative 模式还会在主线程执行至多一个完整 I/O。",
           "visibility": "public"
         },
         {
@@ -85120,7 +85134,7 @@
           "kind": "func",
           "name": "begin_quiesce",
           "signature": "func begin_quiesce(scope: GFAsyncScope) -> GFAsyncCompletion",
-          "summary": "关闭新 I/O 准入，并等待此前接纳的队列、线程和文件锁全部收敛。",
+          "summary": "关闭新 I/O 准入，并等待此前接纳的队列、执行任务和文件锁全部收敛。",
           "visibility": "public"
         },
         {
@@ -85162,7 +85176,7 @@
           "kind": "func",
           "name": "delete_file_request_async",
           "signature": "func delete_file_request_async( file_name: String, options: GFStorageAsyncRequestOptions = null ) -> GFStorageAsyncOperation",
-          "summary": "在线程中删除一个精确 logical family，并返回请求专属句柄。",
+          "summary": "通过当前 Storage executor 删除一个精确 logical family，并返回请求专属句柄。",
           "visibility": "public"
         },
         {
@@ -85197,35 +85211,35 @@
           "kind": "func",
           "name": "save_data_async",
           "signature": "func save_data_async(file_name: String, data: Dictionary) -> Error",
-          "summary": "在线程中异步保存纯字典数据。完成后从主线程发出 save_completed。",
+          "summary": "通过当前 Storage executor 异步保存纯字典数据。完成后从主线程发出 save_completed。",
           "visibility": "public"
         },
         {
           "kind": "func",
           "name": "save_data_request_async",
           "signature": "func save_data_request_async( file_name: String, data: Dictionary, options: GFStorageAsyncRequestOptions = null ) -> GFStorageAsyncOperation",
-          "summary": "在线程中异步保存纯字典数据，并返回请求专属句柄。",
+          "summary": "通过当前 Storage executor 异步保存纯字典数据，并返回请求专属句柄。",
           "visibility": "public"
         },
         {
           "kind": "func",
           "name": "save_payload_request_async",
           "signature": "func save_payload_request_async( file_name: String, transfer: GFStoragePayloadTransfer, options: GFStorageAsyncRequestOptions = null ) -> GFStorageAsyncOperation",
-          "summary": "在线程中保存由单所有者 transfer 移交的纯 Variant payload。",
+          "summary": "通过当前 Storage executor 保存由单所有者 transfer 移交的纯 Variant payload。",
           "visibility": "public"
         },
         {
           "kind": "func",
           "name": "load_data_async",
           "signature": "func load_data_async(file_name: String) -> Error",
-          "summary": "在线程中异步读取纯字典数据。完成后从主线程发出 load_completed。",
+          "summary": "通过当前 Storage executor 异步读取纯字典数据。完成后从主线程发出 load_completed。",
           "visibility": "public"
         },
         {
           "kind": "func",
           "name": "load_data_request_async",
           "signature": "func load_data_request_async( file_name: String, options: GFStorageAsyncRequestOptions = null ) -> GFStorageAsyncOperation",
-          "summary": "在线程中异步读取纯字典数据，并返回请求专属句柄。",
+          "summary": "通过当前 Storage executor 异步读取纯字典数据，并返回请求专属句柄。",
           "visibility": "public"
         },
         {

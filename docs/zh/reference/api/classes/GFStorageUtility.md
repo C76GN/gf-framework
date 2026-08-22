@@ -19,6 +19,7 @@
 | 信号 | [`data_migrated`](#member-gfstorageutility-signals-data_migrated) | `signal data_migrated(file_name: String, from_version: int, to_version: int)` |
 | 信号 | [`save_completed`](#member-gfstorageutility-signals-save_completed) | `signal save_completed(file_name: String, error: Error)` |
 | 信号 | [`load_completed`](#member-gfstorageutility-signals-load_completed) | `signal load_completed(file_name: String, result: GFStorageReadResult)` |
+| 枚举 | [`AsyncExecutionMode`](#member-gfstorageutility-enums-asyncexecutionmode) | `enum AsyncExecutionMode` |
 | 常量 | [`DEFAULT_MAX_LIST_DEPTH`](#member-gfstorageutility-constants-default_max_list_depth) | `const DEFAULT_MAX_LIST_DEPTH: int = 32` |
 | 常量 | [`DEFAULT_MAX_LISTED_FILES`](#member-gfstorageutility-constants-default_max_listed_files) | `const DEFAULT_MAX_LISTED_FILES: int = 10000` |
 | 属性 | [`encrypt_key`](#member-gfstorageutility-properties-encrypt_key) | `var encrypt_key: int = 42` |
@@ -35,6 +36,7 @@
 | 属性 | [`allowed_resource_load_extensions`](#member-gfstorageutility-properties-allowed_resource_load_extensions) | `var allowed_resource_load_extensions: PackedStringArray = PackedStringArray(["tres", "res"])` |
 | 属性 | [`allowed_resource_load_type_hints`](#member-gfstorageutility-properties-allowed_resource_load_type_hints) | `var allowed_resource_load_type_hints: PackedStringArray = PackedStringArray()` |
 | 属性 | [`require_resource_load_type_hint`](#member-gfstorageutility-properties-require_resource_load_type_hint) | `var require_resource_load_type_hint: bool = true` |
+| 属性 | [`async_execution_mode`](#member-gfstorageutility-properties-async_execution_mode) | `var async_execution_mode: AsyncExecutionMode = AsyncExecutionMode.AUTOMATIC:` |
 | 属性 | [`max_async_thread_count`](#member-gfstorageutility-properties-max_async_thread_count) | `var max_async_thread_count: int = 4:` |
 | 属性 | [`save_version`](#member-gfstorageutility-properties-save_version) | `var save_version: int = 1:` |
 | 属性 | [`strict_schema_migrations`](#member-gfstorageutility-properties-strict_schema_migrations) | `var strict_schema_migrations: bool = false` |
@@ -147,6 +149,28 @@ signal load_completed(file_name: String, result: GFStorageReadResult)
 |---|---|
 | `file_name` | 文件名。 |
 | `result` | 强类型读取结果。 |
+
+## 枚举
+
+<a id="member-gfstorageutility-enums-asyncexecutionmode"></a>
+
+### `AsyncExecutionMode`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+enum AsyncExecutionMode {
+	## 自动选择；无线程能力的构建使用 cooperative，否则使用线程。
+	AUTOMATIC = 0,
+	## 强制使用线程；无线程能力时 activation 确定性失败。
+	THREADED = 1,
+	## 由 lifecycle tick 在主线程逐项推进，不创建 Thread。
+	COOPERATIVE = 2,
+}
+```
+
+异步 Storage 请求的执行模式。
 
 ## 常量
 
@@ -350,17 +374,31 @@ var require_resource_load_type_hint: bool = true
 
 `load_resource()` 是否要求调用方传入非空 `type_hint`。
 
+<a id="member-gfstorageutility-properties-async_execution_mode"></a>
+
+### `async_execution_mode`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+var async_execution_mode: AsyncExecutionMode = AsyncExecutionMode.AUTOMATIC:
+```
+
+异步 Storage 请求的执行模式。首个合法异步请求入队后冻结。
+
 <a id="member-gfstorageutility-properties-max_async_thread_count"></a>
 
 ### `max_async_thread_count`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var max_async_thread_count: int = 4:
 ```
 
-同时运行的异步存取线程数量。小于 1 时会被钳制为 1。
+线程模式同时运行的异步存取线程数量，小于 1 时会被钳制为 1。 cooperative 模式固定每个 lifecycle tick 最多执行一个任务。
 
 <a id="member-gfstorageutility-properties-save_version"></a>
 
@@ -447,12 +485,13 @@ func dispose() -> void:
 ### `tick`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func tick(_delta: float = 0.0) -> void:
 ```
 
-驱动异步存档任务完成检查。
+驱动异步存档任务完成检查；cooperative 模式还会在主线程执行至多一个完整 I/O。
 
 参数：
 
@@ -471,7 +510,7 @@ func tick(_delta: float = 0.0) -> void:
 func begin_activation(_scope: GFAsyncScope) -> GFAsyncCompletion:
 ```
 
-激活 Storage 的同步与异步 I/O 准入。
+激活 Storage 的同步与异步 I/O 准入。 强制线程模式缺少 `threads` 能力时，失败 metadata.error_code 为 ERR_CANT_CREATE。
 
 参数：
 
@@ -479,7 +518,7 @@ func begin_activation(_scope: GFAsyncScope) -> GFAsyncCompletion:
 |---|---|
 | `_scope` | 当前 Storage 激活阶段的取消作用域。 |
 
-返回：成功打开 I/O 准入；正在 dispose 或已经进入过 quiesce 时返回失败终态。
+返回：成功打开 I/O 准入；否则返回失败终态。
 
 <a id="member-gfstorageutility-methods-begin_quiesce"></a>
 
@@ -492,7 +531,7 @@ func begin_activation(_scope: GFAsyncScope) -> GFAsyncCompletion:
 func begin_quiesce(scope: GFAsyncScope) -> GFAsyncCompletion:
 ```
 
-关闭新 I/O 准入，并等待此前接纳的队列、线程和文件锁全部收敛。 已接纳任务继续由 lifecycle tick 推进；强制 dispose 仍会使用同步 join fallback。
+关闭新 I/O 准入，并等待此前接纳的队列、执行任务和文件锁全部收敛。 已接纳任务继续由 lifecycle tick 推进；强制 dispose 仍会使用同步 join fallback。
 
 参数：
 
@@ -626,7 +665,7 @@ func delete_file(file_name: String) -> Error:
 func delete_file_request_async( file_name: String, options: GFStorageAsyncRequestOptions = null ) -> GFStorageAsyncOperation:
 ```
 
-在线程中删除一个精确 logical family，并返回请求专属句柄。 请求只删除冻结 family 的八个可变物理成员；catalog 与 owner identity 保留。 删除不会隐式恢复事务，也不会扫描或收养 sibling family。
+通过当前 Storage executor 删除一个精确 logical family，并返回请求专属句柄。 请求只删除冻结 family 的八个可变物理成员；catalog 与 owner identity 保留。 删除不会隐式恢复事务，也不会扫描或收养 sibling family。
 
 参数：
 
@@ -734,12 +773,13 @@ func canonicalize_data_file_name(file_name: String) -> String:
 ### `save_data_async`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func save_data_async(file_name: String, data: Dictionary) -> Error:
 ```
 
-在线程中异步保存纯字典数据。完成后从主线程发出 save_completed。
+通过当前 Storage executor 异步保存纯字典数据。完成后从主线程发出 save_completed。
 
 参数：
 
@@ -748,7 +788,7 @@ func save_data_async(file_name: String, data: Dictionary) -> Error:
 | `file_name` | 目标文件名。 |
 | `data` | 要保存的字典。 |
 
-返回：启动线程的 Error 结果码。
+返回：请求接纳结果码；成功入队时返回 OK。
 
 结构：
 
@@ -765,7 +805,7 @@ func save_data_async(file_name: String, data: Dictionary) -> Error:
 func save_data_request_async( file_name: String, data: Dictionary, options: GFStorageAsyncRequestOptions = null ) -> GFStorageAsyncOperation:
 ```
 
-在线程中异步保存纯字典数据，并返回请求专属句柄。 句柄终态不会与共享 Storage 上同文件的其他请求混淆。
+通过当前 Storage executor 异步保存纯字典数据，并返回请求专属句柄。 句柄终态不会与共享 Storage 上同文件的其他请求混淆。
 
 参数：
 
@@ -792,7 +832,7 @@ func save_data_request_async( file_name: String, data: Dictionary, options: GFSt
 func save_payload_request_async( file_name: String, transfer: GFStoragePayloadTransfer, options: GFStorageAsyncRequestOptions = null ) -> GFStorageAsyncOperation:
 ```
 
-在线程中保存由单所有者 transfer 移交的纯 Variant payload。 路径校验在 claim 前完成；非法路径不会消费 transfer。首次合法请求会冻结当前 Storage 实例、规范文件名与 codec options。同一 transfer 可在旧 attempt 尚未 完成时提交给相同绑定，用于 timeout retry；所有 attempt 只读同一逻辑快照。 调用方完成整个重试 generation 后必须显式调用 transfer.release()。
+通过当前 Storage executor 保存由单所有者 transfer 移交的纯 Variant payload。 路径校验在 claim 前完成；非法路径不会消费 transfer。首次合法请求会冻结当前 Storage 实例、规范文件名与 codec options。同一 transfer 可在旧 attempt 尚未 完成时提交给相同绑定，用于 timeout retry；所有 attempt 只读同一逻辑快照。 调用方完成整个重试 generation 后必须显式调用 transfer.release()。
 
 参数：
 
@@ -809,12 +849,13 @@ func save_payload_request_async( file_name: String, transfer: GFStoragePayloadTr
 ### `load_data_async`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func load_data_async(file_name: String) -> Error:
 ```
 
-在线程中异步读取纯字典数据。完成后从主线程发出 load_completed。
+通过当前 Storage executor 异步读取纯字典数据。完成后从主线程发出 load_completed。
 
 参数：
 
@@ -822,7 +863,7 @@ func load_data_async(file_name: String) -> Error:
 |---|---|
 | `file_name` | 目标文件名。 |
 
-返回：启动线程的 Error 结果码。
+返回：请求接纳结果码；成功入队时返回 OK。
 
 <a id="member-gfstorageutility-methods-load_data_request_async"></a>
 
@@ -835,7 +876,7 @@ func load_data_async(file_name: String) -> Error:
 func load_data_request_async( file_name: String, options: GFStorageAsyncRequestOptions = null ) -> GFStorageAsyncOperation:
 ```
 
-在线程中异步读取纯字典数据，并返回请求专属句柄。 读取终态通过句柄携带 `GFStorageReadResult`，调用方无需监听全局文件名信号。
+通过当前 Storage executor 异步读取纯字典数据，并返回请求专属句柄。 读取终态通过句柄携带 `GFStorageReadResult`，调用方无需监听全局文件名信号。
 
 参数：
 
@@ -870,12 +911,13 @@ func get_late_settlement_diagnostics() -> Array[Dictionary]:
 ### `wait_for_async_tasks`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func wait_for_async_tasks() -> void:
 ```
 
-等待已经入队和正在执行的异步纯数据任务全部完成。 需要在同一路径上混合同步与异步读写时，可先调用该方法收敛顺序。
+等待已经入队和正在执行的异步纯数据任务全部完成。 需要在同一路径上混合同步与异步读写时，可先调用该方法收敛顺序。 Storage executor 的同步执行栈内会拒绝重入等待，避免等待当前调用栈自身完成。
 
 <a id="member-gfstorageutility-methods-migrate_data"></a>
 

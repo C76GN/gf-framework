@@ -60,6 +60,30 @@ signal save_completed(file_name: String, error: Error)
 signal load_completed(file_name: String, result: GFStorageReadResult)
 
 
+# --- 枚举 ---
+
+## 异步 Storage 请求的执行模式。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+enum AsyncExecutionMode {
+	## 自动选择；无线程能力的构建使用 cooperative，否则使用线程。
+	AUTOMATIC = 0,
+	## 强制使用线程；无线程能力时 activation 确定性失败。
+	THREADED = 1,
+	## 由 lifecycle tick 在主线程逐项推进，不创建 Thread。
+	COOPERATIVE = 2,
+}
+
+enum _AsyncTaskState {
+	QUEUED,
+	ACCEPTED,
+	RUNNING,
+	SETTLING,
+}
+
+
 # --- 常量 ---
 
 const _GF_STORAGE_FAMILY_STORE_SCRIPT = preload(
@@ -81,13 +105,6 @@ const _DELETE_MEMBER_TRANSACTION_COMMIT: StringName = &"transaction_commit"
 const _DELETE_MEMBER_CANDIDATE: StringName = &"candidate"
 const _DELETE_MEMBER_RESOURCE_STAGE: StringName = &"resource_stage"
 const _DELETE_MEMBER_FINAL: StringName = &"final"
-
-enum _AsyncTaskState {
-	QUEUED,
-	ACCEPTED,
-	RUNNING,
-	SETTLING,
-}
 
 ## 递归枚举文件时默认允许进入的最大目录深度。
 ## [br]
@@ -200,9 +217,29 @@ var allowed_resource_load_type_hints: PackedStringArray = PackedStringArray()
 ## @since 6.0.0
 var require_resource_load_type_hint: bool = true
 
-## 同时运行的异步存取线程数量。小于 1 时会被钳制为 1。
+## 异步 Storage 请求的执行模式。首个合法异步请求入队后冻结。
 ## [br]
 ## @api public
+## [br]
+## @since unreleased
+var async_execution_mode: AsyncExecutionMode = AsyncExecutionMode.AUTOMATIC:
+	set(value):
+		if value == async_execution_mode:
+			return
+		if not AsyncExecutionMode.values().has(value):
+			push_error("[GFStorageUtility] async_execution_mode 不属于闭合枚举。")
+			return
+		if _async_execution_mode_frozen:
+			push_error("[GFStorageUtility] async_execution_mode 已在首个异步请求后冻结。")
+			return
+		async_execution_mode = value
+
+## 线程模式同时运行的异步存取线程数量，小于 1 时会被钳制为 1。
+## cooperative 模式固定每个 lifecycle tick 最多执行一个任务。
+## [br]
+## @api public
+## [br]
+## @since 3.17.0
 var max_async_thread_count: int = 4:
 	set(value):
 		max_async_thread_count = maxi(value, 1)
@@ -254,8 +291,10 @@ var _async_scheduler_requested: bool = false
 var _async_start_only_running: bool = false
 var _async_start_only_requested: bool = false
 var _async_completion_depth: int = 0
-var _async_worker_start_depth: int = 0
+var _async_execution_depth: int = 0
 var _async_deferred_dispose_requested: bool = false
+var _async_execution_mode_frozen: bool = false
+var _effective_async_execution_mode: AsyncExecutionMode = AsyncExecutionMode.AUTOMATIC
 var _is_disposing: bool = false
 var _io_admission_open: bool = true
 var _quiesce_completion: GFAsyncCompletion = null
@@ -295,7 +334,7 @@ func dispose() -> void:
 	if _is_disposing:
 		return
 	_io_admission_open = false
-	if _async_completion_depth > 0 or _async_worker_start_depth > 0:
+	if _async_completion_depth > 0 or _async_execution_depth > 0:
 		_async_deferred_dispose_requested = true
 		return
 	_async_deferred_dispose_requested = false
@@ -317,9 +356,11 @@ func dispose() -> void:
 	_try_complete_quiesce()
 
 
-## 驱动异步存档任务完成检查。
+## 驱动异步存档任务完成检查；cooperative 模式还会在主线程执行至多一个完整 I/O。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 ## [br]
 ## @param _delta: 本帧时间增量（秒），默认实现不直接使用。
 func tick(_delta: float = 0.0) -> void:
@@ -335,7 +376,9 @@ func tick(_delta: float = 0.0) -> void:
 ## [br]
 ## @param _scope: 当前 Storage 激活阶段的取消作用域。
 ## [br]
-## @return 成功打开 I/O 准入；正在 dispose 或已经进入过 quiesce 时返回失败终态。
+## 强制线程模式缺少 `threads` 能力时，失败 metadata.error_code 为 ERR_CANT_CREATE。
+## [br]
+## @return 成功打开 I/O 准入；否则返回失败终态。
 func begin_activation(_scope: GFAsyncScope) -> GFAsyncCompletion:
 	var completion: GFAsyncCompletion = GFAsyncCompletion.new()
 	if _is_disposing or _async_deferred_dispose_requested:
@@ -344,6 +387,16 @@ func begin_activation(_scope: GFAsyncScope) -> GFAsyncCompletion:
 	if _quiesce_completion != null:
 		var _failed_quiesced: bool = completion.fail(
 			"Storage utility cannot reactivate after quiesce."
+		)
+		return completion
+	if (
+		_get_effective_async_execution_mode() == AsyncExecutionMode.THREADED
+		and not has_async_thread_capability_for_framework()
+	):
+		_io_admission_open = false
+		var _failed_capability: bool = completion.fail(
+			"Storage threaded execution is unavailable on this runtime.",
+			{"error_code": ERR_CANT_CREATE}
 		)
 		return completion
 	_quiesce_completion = null
@@ -362,7 +415,7 @@ func begin_activation(_scope: GFAsyncScope) -> GFAsyncCompletion:
 	return completion
 
 
-## 关闭新 I/O 准入，并等待此前接纳的队列、线程和文件锁全部收敛。
+## 关闭新 I/O 准入，并等待此前接纳的队列、执行任务和文件锁全部收敛。
 ##
 ## 已接纳任务继续由 lifecycle tick 推进；强制 dispose 仍会使用同步 join fallback。
 ## [br]
@@ -624,7 +677,7 @@ func delete_file(file_name: String) -> Error:
 	return _make_delete_result_from_worker(worker_result).get_error_code()
 
 
-## 在线程中删除一个精确 logical family，并返回请求专属句柄。
+## 通过当前 Storage executor 删除一个精确 logical family，并返回请求专属句柄。
 ##
 ## 请求只删除冻结 family 的八个可变物理成员；catalog 与 owner identity 保留。
 ## 删除不会隐式恢复事务，也不会扫描或收养 sibling family。
@@ -836,9 +889,11 @@ func canonicalize_data_file_name(file_name: String) -> String:
 	return _canonicalize_storage_file_name(file_name)
 
 
-## 在线程中异步保存纯字典数据。完成后从主线程发出 save_completed。
+## 通过当前 Storage executor 异步保存纯字典数据。完成后从主线程发出 save_completed。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 ## [br]
 ## @param file_name: 目标文件名。
 ## [br]
@@ -846,12 +901,12 @@ func canonicalize_data_file_name(file_name: String) -> String:
 ## [br]
 ## @schema data: Dictionary，要序列化并保存的数据载荷。
 ## [br]
-## @return 启动线程的 Error 结果码。
+## @return 请求接纳结果码；成功入队时返回 OK。
 func save_data_async(file_name: String, data: Dictionary) -> Error:
 	return _enqueue_async_save(file_name, data, null, "save_data_async")
 
 
-## 在线程中异步保存纯字典数据，并返回请求专属句柄。
+## 通过当前 Storage executor 异步保存纯字典数据，并返回请求专属句柄。
 ##
 ## 句柄终态不会与共享 Storage 上同文件的其他请求混淆。
 ## [br]
@@ -883,7 +938,7 @@ func save_data_request_async(
 	return operation
 
 
-## 在线程中保存由单所有者 transfer 移交的纯 Variant payload。
+## 通过当前 Storage executor 保存由单所有者 transfer 移交的纯 Variant payload。
 ##
 ## 路径校验在 claim 前完成；非法路径不会消费 transfer。首次合法请求会冻结当前
 ## Storage 实例、规范文件名与 codec options。同一 transfer 可在旧 attempt 尚未
@@ -921,18 +976,20 @@ func save_payload_request_async(
 	return operation
 
 
-## 在线程中异步读取纯字典数据。完成后从主线程发出 load_completed。
+## 通过当前 Storage executor 异步读取纯字典数据。完成后从主线程发出 load_completed。
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param file_name: 目标文件名。
 ## [br]
-## @return 启动线程的 Error 结果码。
+## @return 请求接纳结果码；成功入队时返回 OK。
 func load_data_async(file_name: String) -> Error:
 	return _enqueue_async_load(file_name, null, "load_data_async")
 
 
-## 在线程中异步读取纯字典数据，并返回请求专属句柄。
+## 通过当前 Storage executor 异步读取纯字典数据，并返回请求专属句柄。
 ##
 ## 读取终态通过句柄携带 `GFStorageReadResult`，调用方无需监听全局文件名信号。
 ## [br]
@@ -977,16 +1034,34 @@ func get_late_settlement_diagnostics() -> Array[Dictionary]:
 
 ## 等待已经入队和正在执行的异步纯数据任务全部完成。
 ## 需要在同一路径上混合同步与异步读写时，可先调用该方法收敛顺序。
+## Storage executor 的同步执行栈内会拒绝重入等待，避免等待当前调用栈自身完成。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 func wait_for_async_tasks() -> void:
+	if _async_execution_depth > 0:
+		push_error(
+			"[GFStorageUtility] wait_for_async_tasks 不能在 Storage executor 同步执行栈内重入。"
+		)
+		return
 	while not _async_tasks.is_empty() or not _async_queue.is_empty():
+		var scheduler_was_running: bool = _async_scheduler_running
 		_request_async_scheduler_run()
+		if (
+			scheduler_was_running
+			and not _is_disposing
+			and not _async_deferred_dispose_requested
+		):
+			_harvest_finished_async_tasks()
+			_poll_async_operation_lifecycles()
+			if not _is_disposing and not _async_deferred_dispose_requested:
+				_start_queued_async_tasks()
 		if _async_tasks.is_empty():
 			break
 
 		var task: Dictionary = GFVariantData.as_dictionary(_async_tasks.front())
-		if task.is_empty() or _get_task_thread(task) == null:
+		if task.is_empty():
 			break
 		_join_async_task(task)
 	_try_complete_quiesce()
@@ -1121,6 +1196,19 @@ func set_async_clock_for_framework(clock: GFClock) -> bool:
 	return true
 
 
+## 查询当前运行时是否具备创建 Storage 异步线程的能力。
+## [br]
+## @api framework_internal
+## [br]
+## @layer standard/utilities/storage
+## [br]
+## @since unreleased
+## [br]
+## @return Godot feature tags 声明 `threads` 时返回 true。
+func has_async_thread_capability_for_framework() -> bool:
+	return OS.has_feature("threads")
+
+
 ## 启动一个已经完成主线程冻结与校验的 Storage worker。
 ## [br]
 ## @api framework_internal
@@ -1153,7 +1241,7 @@ func start_async_worker_for_framework(
 ## 由请求句柄在线性化点提交 caller 取消、deadline 或 owner 释放。
 ##
 ## 尚未接纳的记录会被精确移出队列并形成真实的接纳前取消物理终态；已接纳记录
-## 只结束 caller 观察，线程、slot 与同文件锁继续保留到 worker 退出。
+## 只结束 caller 观察，执行任务、slot 与同文件锁继续保留到 executor work 退出。
 ## [br]
 ## @api framework_internal
 ## [br]
@@ -1342,6 +1430,7 @@ func _complete_invalid_async_consumer(operation: GFStorageAsyncOperation) -> voi
 
 
 func _queue_async_task(task: Dictionary) -> void:
+	_freeze_async_execution_mode()
 	var record_id: int = _next_async_record_id
 	_next_async_record_id += 1
 	if _next_async_record_id <= 0:
@@ -1355,6 +1444,33 @@ func _queue_async_task(task: Dictionary) -> void:
 			observer["record_id"] = record_id
 			observer["file_key"] = _get_task_file_key(task)
 	_async_queue.append(task)
+
+
+func _freeze_async_execution_mode() -> void:
+	if _async_execution_mode_frozen:
+		return
+	_effective_async_execution_mode = _resolve_async_execution_mode()
+	_async_execution_mode_frozen = true
+
+
+func _get_effective_async_execution_mode() -> AsyncExecutionMode:
+	if _async_execution_mode_frozen:
+		return _effective_async_execution_mode
+	return _resolve_async_execution_mode()
+
+
+func _resolve_async_execution_mode() -> AsyncExecutionMode:
+	match async_execution_mode:
+		AsyncExecutionMode.THREADED:
+			return AsyncExecutionMode.THREADED
+		AsyncExecutionMode.COOPERATIVE:
+			return AsyncExecutionMode.COOPERATIVE
+		_:
+			return (
+				AsyncExecutionMode.THREADED
+				if has_async_thread_capability_for_framework()
+				else AsyncExecutionMode.COOPERATIVE
+			)
 
 
 func _cancel_async_operation_before_queue_if_needed(
@@ -2106,6 +2222,24 @@ func _get_task_thread(task: Dictionary) -> Thread:
 	return _get_thread_value(GFVariantData.get_option_value(task, "thread"))
 
 
+func _get_task_execution_mode(task: Dictionary) -> AsyncExecutionMode:
+	var raw_mode: int = GFVariantData.get_option_int(
+		task,
+		"execution_mode",
+		AsyncExecutionMode.THREADED
+	)
+	if AsyncExecutionMode.values().has(raw_mode):
+		return raw_mode as AsyncExecutionMode
+	return AsyncExecutionMode.THREADED
+
+
+func _get_task_state(task: Dictionary) -> _AsyncTaskState:
+	var raw_state: int = GFVariantData.get_option_int(task, "state", _AsyncTaskState.QUEUED)
+	if _AsyncTaskState.values().has(raw_state):
+		return raw_state as _AsyncTaskState
+	return _AsyncTaskState.QUEUED
+
+
 func _get_task_file_name(task: Dictionary) -> String:
 	return GFVariantData.get_option_string(task, "file_name")
 
@@ -2199,16 +2333,31 @@ func _request_async_scheduler_run() -> void:
 	if _async_scheduler_running:
 		return
 	_async_scheduler_running = true
+	var cooperative_eligible_record_ids: Array[int] = []
+	for task: Dictionary in _async_tasks:
+		if (
+			_get_task_execution_mode(task) == AsyncExecutionMode.COOPERATIVE
+			and _get_task_state(task) == _AsyncTaskState.ACCEPTED
+		):
+			cooperative_eligible_record_ids.append(_get_task_record_id(task))
+	var cooperative_execution_budget: int = 1
 	while _async_scheduler_requested:
 		_async_scheduler_requested = false
 		_harvest_finished_async_tasks()
 		_poll_async_operation_lifecycles()
+		if (
+			cooperative_execution_budget > 0
+			and _run_next_cooperative_async_task(cooperative_eligible_record_ids)
+		):
+			cooperative_execution_budget -= 1
 		if not _is_disposing:
 			_start_queued_async_tasks()
 	_async_scheduler_running = false
 
 
 func _request_async_start_only() -> void:
+	if _get_effective_async_execution_mode() == AsyncExecutionMode.COOPERATIVE:
+		return
 	_async_start_only_requested = true
 	if _async_start_only_running or _is_disposing:
 		return
@@ -2226,6 +2375,20 @@ func _harvest_finished_async_tasks() -> void:
 		if thread == null or thread.is_alive():
 			continue
 		_join_async_task(task)
+
+
+func _run_next_cooperative_async_task(eligible_record_ids: Array[int]) -> bool:
+	var active_tasks: Array[Dictionary] = _async_tasks.duplicate()
+	for task: Dictionary in active_tasks:
+		if (
+			_get_task_execution_mode(task) != AsyncExecutionMode.COOPERATIVE
+			or _get_task_state(task) != _AsyncTaskState.ACCEPTED
+			or _get_task_record_id(task) not in eligible_record_ids
+		):
+			continue
+		_start_async_task(task)
+		return true
+	return false
 
 
 func _poll_async_operation_lifecycles() -> void:
@@ -2259,17 +2422,29 @@ func _wait_for_async_tasks() -> void:
 		if _async_tasks.is_empty():
 			break
 		var task: Dictionary = GFVariantData.as_dictionary(_async_tasks.front())
-		if task.is_empty() or _get_task_thread(task) == null:
+		if task.is_empty():
 			break
 		_join_async_task(task)
 
 
 func _start_queued_async_tasks(allow_during_dispose: bool = false) -> void:
-	if _is_disposing and not allow_during_dispose:
+	if (
+		(_is_disposing or _async_deferred_dispose_requested)
+		and not allow_during_dispose
+	):
 		return
+	var execution_mode: AsyncExecutionMode = _get_effective_async_execution_mode()
+	var active_task_limit: int = (
+		1
+		if execution_mode == AsyncExecutionMode.COOPERATIVE
+		else maxi(max_async_thread_count, 1)
+	)
 	while (
-		(not _is_disposing or allow_during_dispose)
-		and _async_tasks.size() < maxi(max_async_thread_count, 1)
+		(
+			allow_during_dispose
+			or (not _is_disposing and not _async_deferred_dispose_requested)
+		)
+		and _async_tasks.size() < active_task_limit
 	):
 		var task_index: int = _find_startable_async_task_index()
 		if task_index < 0:
@@ -2279,6 +2454,11 @@ func _start_queued_async_tasks(allow_during_dispose: bool = false) -> void:
 		var operation: GFStorageAsyncOperation = _get_task_operation(task)
 		if operation != null:
 			var _terminal_linearized: bool = operation.poll_caller_lifecycle_for_framework()
+			if (
+				(_is_disposing or _async_deferred_dispose_requested)
+				and not allow_during_dispose
+			):
+				return
 			task_index = _find_queued_async_task_index(_get_task_record_id(task))
 			if task_index < 0:
 				continue
@@ -2293,11 +2473,13 @@ func _start_queued_async_tasks(allow_during_dispose: bool = false) -> void:
 
 		_async_queue.remove_at(task_index)
 		task["state"] = _AsyncTaskState.ACCEPTED
+		task["execution_mode"] = execution_mode
 		_async_tasks.append(task)
 		var file_key: String = _get_task_file_key(task)
 		if not file_key.is_empty():
 			_async_file_locks[file_key] = _get_task_record_id(task)
-		_start_async_task(task)
+		if execution_mode == AsyncExecutionMode.THREADED:
+			_start_async_task(task)
 
 
 func _find_startable_async_task_index() -> int:
@@ -2323,6 +2505,16 @@ func _start_async_task(task: Dictionary) -> void:
 				GFStorageDeleteResult.FailureKind.INVALID_REQUEST
 			)
 			_end_async_task_settlement(task)
+		return
+	if (
+		_get_task_execution_mode(task) == AsyncExecutionMode.THREADED
+		and not has_async_thread_capability_for_framework()
+	):
+		_settle_async_task_start_failure(
+			task,
+			ERR_CANT_CREATE,
+			_has_exact_active_task_ownership(task)
+		)
 		return
 
 	if task_type != &"delete":
@@ -2364,11 +2556,21 @@ func _start_async_task(task: Dictionary) -> void:
 			_get_task_storage_root_path(task),
 			storage_file_name
 		)
+	if not callback.is_valid():
+		_settle_async_task_start_failure(
+			task,
+			ERR_INVALID_PARAMETER,
+			_has_exact_active_task_ownership(task)
+		)
+		return
+	if _get_task_execution_mode(task) == AsyncExecutionMode.COOPERATIVE:
+		_run_cooperative_async_task(task, callback)
+		return
 
 	var thread: Thread = Thread.new()
-	_async_worker_start_depth += 1
+	_async_execution_depth += 1
 	var error: Error = start_async_worker_for_framework(task_type, thread, callback)
-	_async_worker_start_depth = maxi(_async_worker_start_depth - 1, 0)
+	_async_execution_depth = maxi(_async_execution_depth - 1, 0)
 	var worker_started: bool = thread.is_started()
 	var ownership_valid: bool = _has_exact_active_task_ownership(task)
 	if worker_started:
@@ -2384,22 +2586,51 @@ func _start_async_task(task: Dictionary) -> void:
 		_run_deferred_async_dispose_if_ready()
 		return
 
-	var start_error: Error = error
-	if start_error == OK:
-		start_error = ERR_CANT_CREATE
+	var start_error: Error = error if error != OK else ERR_CANT_CREATE
+	_settle_async_task_start_failure(task, start_error, ownership_valid)
+
+
+func _run_cooperative_async_task(task: Dictionary, callback: Callable) -> void:
+	task["state"] = _AsyncTaskState.RUNNING
+	_async_execution_depth += 1
+	var result_variant: Variant = callback.call()
+	_async_execution_depth = maxi(_async_execution_depth - 1, 0)
+	var ownership_valid: bool = _has_exact_active_task_ownership(task)
+	if not ownership_valid and not _restore_exact_active_task_ownership(task):
+		push_error("[GFStorageUtility] cooperative worker 丢失 exact active/file-lock ownership。")
+		_begin_unowned_async_task_settlement(task)
+		_complete_finished_async_task(task, result_variant)
+		_end_async_task_settlement(task)
+		return
+	if not _begin_async_task_settlement(task):
+		push_error("[GFStorageUtility] cooperative worker 无法取得 settling ownership。")
+		return
+	_complete_finished_async_task(task, result_variant)
+	_end_async_task_settlement(task)
+
+
+func _settle_async_task_start_failure(
+	task: Dictionary,
+	error: Error,
+	ownership_valid: bool
+) -> void:
 	if ownership_valid and _begin_async_task_settlement(task):
-		_emit_async_start_failed(task, start_error)
+		_emit_async_start_failed(task, error)
 		_end_async_task_settlement(task)
 		return
 	push_error("[GFStorageUtility] worker 未启动且丢失 exact active/file-lock ownership。")
 	_begin_unowned_async_task_settlement(task)
-	_emit_async_start_failed(task, start_error)
+	_emit_async_start_failed(task, error)
 	_end_async_task_settlement(task)
 
 
 func _join_async_task(task: Dictionary) -> void:
 	var active_index: int = _find_active_async_task_index(_get_task_record_id(task))
 	if active_index < 0:
+		return
+	if _get_task_execution_mode(task) == AsyncExecutionMode.COOPERATIVE:
+		if _get_task_state(task) == _AsyncTaskState.ACCEPTED:
+			_start_async_task(task)
 		return
 	var thread: Thread = _get_task_thread(task)
 	if thread == null:
@@ -2512,7 +2743,7 @@ func _run_deferred_async_dispose_if_ready() -> void:
 		not _async_deferred_dispose_requested
 		or _is_disposing
 		or _async_completion_depth > 0
-		or _async_worker_start_depth > 0
+		or _async_execution_depth > 0
 	):
 		return
 	_async_deferred_dispose_requested = false

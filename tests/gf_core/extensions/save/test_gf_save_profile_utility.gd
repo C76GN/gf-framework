@@ -214,6 +214,21 @@ class FaultStorage extends GFStorageUtility:
 		return GFStorageAsyncResult.WriteFailureKind.IO_FAILED
 
 
+class AutomaticCooperativeRealStorage extends GFStorageUtility:
+	var thread_start_call_count: int = 0
+
+	func has_async_thread_capability_for_framework() -> bool:
+		return false
+
+	func start_async_worker_for_framework(
+		_task_type: StringName,
+		_thread: Thread,
+		_callback: Callable
+	) -> Error:
+		thread_start_call_count += 1
+		return ERR_CANT_CREATE
+
+
 class MemorySectionProvider extends GFSaveSectionProvider:
 	var value: int = 0
 	var fail_preparation: bool = false
@@ -1468,6 +1483,51 @@ func test_extension_installer_ready_injects_storage_for_real_round_trip() -> voi
 	architecture.dispose()
 
 
+func test_extension_activation_round_trips_with_automatic_cooperative_storage() -> void:
+	var architecture: GFArchitecture = GFArchitecture.new()
+	var real_storage: AutomaticCooperativeRealStorage = AutomaticCooperativeRealStorage.new()
+	real_storage.save_dir_name = "tspc-" + GFUuid.generate_v4()
+	real_storage.encrypt_key = 0
+	real_storage.init()
+	assert_true(await architecture.register_utility_instance(real_storage))
+	var installer: GFInstaller = GF_SAVE_EXTENSION.new()
+	installer.install(architecture, GFAsyncScope.new())
+	assert_true(await architecture.init(), "AUTOMATIC + 无线程能力不得阻断 Save extension activation。")
+	var installed_utility: GFSaveProfileUtility = architecture.get_local_utility(
+		GFSaveProfileUtility
+	)
+	assert_not_null(installed_utility)
+	if installed_utility == null:
+		architecture.dispose()
+		return
+
+	var provider: MemorySectionProvider = _make_provider(&"state", 91)
+	var profile: GFSaveProfile = _make_profile(&"test.cooperative_activation", provider)
+	assert_true(GFVariantData.get_option_bool(
+		installed_utility.register_profile(profile),
+		"registered"
+	))
+	var save_operation: GFSaveProfileOperation = installed_utility.save_profile(profile.profile_id)
+	assert_true(
+		_pump_cooperative_profile_storage(architecture, save_operation),
+		"显式 lifecycle ticks 必须完成真实 cooperative save。"
+	)
+	provider.value = 0
+	var load_operation: GFSaveProfileOperation = installed_utility.load_profile(profile.profile_id)
+	assert_true(
+		_pump_cooperative_profile_storage(architecture, load_operation),
+		"显式 lifecycle ticks 必须完成真实 cooperative load。"
+	)
+
+	assert_true(save_operation.get_result().is_successful())
+	assert_true(load_operation.get_result().is_successful())
+	assert_eq(provider.value, 91)
+	assert_eq(real_storage.thread_start_call_count, 0)
+	real_storage.wait_for_async_tasks()
+	var _delete_error: Error = real_storage.delete_file(profile.file_name)
+	architecture.dispose()
+
+
 func _make_provider(section_id: StringName, value: int) -> MemorySectionProvider:
 	var provider: MemorySectionProvider = MemorySectionProvider.new()
 	provider.section_id = section_id
@@ -1555,6 +1615,17 @@ func _get_saved_value(save_call: Dictionary) -> int:
 	if section == null:
 		return -1
 	return GFVariantData.get_option_int(GFVariantData.as_dictionary(section.get_payload()), "value")
+
+
+func _pump_cooperative_profile_storage(
+	architecture: GFArchitecture,
+	operation: GFSaveProfileOperation
+) -> bool:
+	for _tick_index: int in range(12):
+		architecture.tick(0.0)
+		if operation.is_completed():
+			return true
+	return operation.is_completed()
 
 
 func _pump_real_storage(
