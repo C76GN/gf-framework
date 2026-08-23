@@ -31,4 +31,6 @@ Threat handling is layered:
 
 ## Migration sequence
 
-This decision is implemented incrementally. The first slice centralizes action identifiers, statically available command arguments, dependency declarations, existing check groups and suites, and ordered Full lanes without changing execution behavior. A missing static command means only that the runner materializes it later from live inputs; it does not select an executor. Executor selection, timeouts, inputs, artifacts, partitioning, and reuse remain runner-owned until a real consumer is migrated with focused tests. This temporary representation is not the final Action specification.
+This decision is implemented incrementally. The first slice centralizes action identifiers, statically available command arguments, dependency declarations, existing check groups and suites, and ordered Full lanes without changing execution behavior. A missing static command means only that the runner materializes it later from live inputs; it does not select an executor. Executor selection, inputs, artifacts, partitioning, and reuse remain runner-owned until a real consumer is migrated with focused tests. This temporary representation is not the final Action specification.
+
+The next consumer slice moved the default and per-action timeout floors into the Catalog. The runner still owns caller-requested timeout increases, suite-deadline clipping, and aggregate parallel-lane envelopes; those are distinct policies and are not folded into the action floor.

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Canonical action, dependency, group, and suite catalog for GF validation."""
+"""Canonical action, timeout, dependency, group, and suite catalog for GF validation."""
 
 from __future__ import annotations
 
@@ -73,10 +73,20 @@ class ValidationCatalog:
 		check_groups: Iterable[tuple[str, Sequence[str]]],
 		suites: Iterable[tuple[str, Sequence[str]]],
 		parallel_full_shard_suites: Sequence[str],
+		default_timeout_seconds: int,
+		timeout_overrides: Iterable[tuple[str, int]],
 	) -> None:
 		validated_actions = _validate_actions(actions)
 		action_names = tuple(validated_actions)
 		known_actions = frozenset(action_names)
+		validated_default_timeout_seconds = _validated_positive_timeout_seconds(
+			"Default validation action timeout",
+			default_timeout_seconds,
+		)
+		validated_timeout_overrides = _validate_timeout_overrides(
+			timeout_overrides,
+			known_actions,
+		)
 		validated_dependencies = _validate_dependencies(
 			dependencies,
 		)
@@ -102,6 +112,10 @@ class ValidationCatalog:
 			validated_actions
 		)
 		self._action_names = action_names
+		self._default_timeout_seconds = validated_default_timeout_seconds
+		self._timeout_overrides: Mapping[str, int] = MappingProxyType(
+			validated_timeout_overrides
+		)
 		self._dependencies: Mapping[str, tuple[str, ...]] = MappingProxyType(
 			validated_dependencies
 		)
@@ -126,6 +140,27 @@ class ValidationCatalog:
 			for name, command in self._actions.items()
 			if command is not None
 		}
+
+	@property
+	def default_timeout_seconds(self) -> int:
+		"""Return the default action timeout floor in seconds."""
+		return self._default_timeout_seconds
+
+	def timeout_overrides(self) -> dict[str, int]:
+		"""Return explicit per-action timeout floors as a detached mapping."""
+		return dict(self._timeout_overrides)
+
+	def timeout_floor_seconds(self, action_name: str) -> int:
+		"""Return the declared timeout floor for one known validation action."""
+		_validate_action_name(action_name)
+		if action_name not in self._actions:
+			raise ValidationCatalogError(
+				f"Unknown validation action timeout: {action_name}"
+			)
+		return self._timeout_overrides.get(
+			action_name,
+			self._default_timeout_seconds,
+		)
 
 	def dependencies(self) -> dict[str, list[str]]:
 		"""Return direct action dependencies in canonical declaration order."""
@@ -567,6 +602,33 @@ def build_validation_catalog(context: ValidationCatalogContext) -> ValidationCat
 		),
 		("release_metadata", None),
 	)
+	default_timeout_seconds = 600
+	timeout_overrides = (
+		# The unfiltered authoritative suite exceeds the generic ten-minute
+		# budget on clean Windows runs. Keep the same measured floor as the explicit
+		# full-suite observation and qualification control.
+		("gut", 1200),
+		# Runs six focused process-level lifecycle scenarios after a shared import.
+		("gut_lifecycle_smoke", 360),
+		# The executable Adapter contract performs one isolated import and one GUT
+		# run. A measured Windows run takes about 5.5 minutes, so retain a bounded
+		# 15-minute outer budget while each supervised Godot phase stays capped.
+		("ai_developer_adapter_acceptance", 900),
+		# The editor wizard smoke launches and tears down isolated editor projects;
+		# a clean Windows run is routinely longer than the generic ten-minute budget.
+		("package_editor_wizard_smoke", 1200),
+		# This check runs 24 isolated Godot CLI scenarios. A measured Windows release
+		# run reaches its late failure-path scenarios after 20 minutes, so keep a
+		# dedicated 40-minute outer budget while each Godot command remains capped.
+		("package_godot_cli_smoke", 2400),
+		# The split profiles measure around ten minutes on Windows. Keep a 2x
+		# scenario-level margin while failing materially earlier than the aggregate.
+		("package_godot_cli_local_smoke", 1200),
+		("package_godot_cli_network_smoke", 1200),
+		# The release matrix installs and parses every registry package in an isolated
+		# project. At 52 packages it exceeds the generic ten-minute budget on Windows.
+		("package_godot_matrix_smoke", 2400),
+	)
 
 	dependencies: tuple[tuple[str, tuple[str, ...]], ...] = (
 		("gut_lifecycle_smoke", ("godot_import",)),
@@ -855,6 +917,8 @@ def build_validation_catalog(context: ValidationCatalogContext) -> ValidationCat
 		check_groups=check_groups,
 		suites=suites,
 		parallel_full_shard_suites=parallel_full_shard_suites,
+		default_timeout_seconds=default_timeout_seconds,
+		timeout_overrides=timeout_overrides,
 	)
 
 
@@ -883,6 +947,39 @@ def _validate_actions(
 
 def _replace_sync_examples_action(name: str) -> str:
 	return "examples_sync_write" if name == "examples_sync" else name
+
+
+def _validate_timeout_overrides(
+	declarations: Iterable[tuple[str, int]],
+	known_actions: frozenset[str],
+) -> dict[str, int]:
+	validated: dict[str, int] = {}
+	for declaration in declarations:
+		if type(declaration) is not tuple or len(declaration) != 2:
+			raise ValidationCatalogError(
+				"Validation timeout override declarations must be pairs."
+			)
+		action_name, timeout_seconds = declaration
+		_validate_action_name(action_name)
+		if action_name not in known_actions:
+			raise ValidationCatalogError(
+				f"Validation timeout override references an unknown action: {action_name}"
+			)
+		if action_name in validated:
+			raise ValidationCatalogError(
+				f"Duplicate validation timeout override: {action_name}"
+			)
+		validated[action_name] = _validated_positive_timeout_seconds(
+			f"Validation timeout override for {action_name}",
+			timeout_seconds,
+		)
+	return validated
+
+
+def _validated_positive_timeout_seconds(label: str, value: Any) -> int:
+	if type(value) is not int or value <= 0:
+		raise ValidationCatalogError(f"{label} must be a positive integer.")
+	return value
 
 
 def _validate_dependencies(

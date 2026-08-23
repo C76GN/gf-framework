@@ -1183,35 +1183,6 @@ def check_command(
 		package_artifact_manifest_sha256,
 	]
 
-DEFAULT_CHECK_TIMEOUT_SECONDS: int = 600
-CHECK_TIMEOUT_SECONDS: dict[str, int] = {
-	# The unfiltered authoritative suite now exceeds the generic ten-minute
-	# budget on clean Windows runs. Keep the same measured floor as the explicit
-	# full-suite observation and qualification control instead of relying on a
-	# caller-specific override.
-	"gut": 1200,
-	# Runs six focused process-level lifecycle scenarios after a shared import.
-	"gut_lifecycle_smoke": 360,
-	# The executable Adapter contract performs one isolated import and one GUT
-	# run. A measured Windows run takes about 5.5 minutes, so retain a bounded
-	# 15-minute outer budget while each supervised Godot phase stays capped.
-	"ai_developer_adapter_acceptance": 900,
-	# The editor wizard smoke launches and tears down isolated editor projects;
-	# a clean Windows run is routinely longer than the generic ten-minute budget.
-	"package_editor_wizard_smoke": 1200,
-	# This check runs 24 isolated Godot CLI scenarios. A measured Windows release
-	# run reaches its late failure-path scenarios after 20 minutes, so keep a
-	# dedicated 40-minute outer budget while each Godot command remains capped.
-	"package_godot_cli_smoke": 2400,
-	# The split profiles measure around ten minutes on Windows. Keep a 2x
-	# scenario-level margin while failing materially earlier than the aggregate.
-	"package_godot_cli_local_smoke": 1200,
-	"package_godot_cli_network_smoke": 1200,
-	# The release matrix installs and parses every registry package in an isolated
-	# project. At 52 packages it exceeds the generic ten-minute budget on Windows.
-	"package_godot_matrix_smoke": 2400,
-}
-
 _API_CACHE: list[ApiScript] | None = None
 _ACTIVE_WORKSPACE_SNAPSHOT: WorkspaceSnapshot | None = None
 _ACTIVE_SUITE_DEADLINE: float | None = None
@@ -23883,7 +23854,7 @@ def run_checks_with_active_snapshot(
 			if suite_deadline is not None
 			else None
 		)
-		policy_timeout_seconds = float(CHECK_TIMEOUT_SECONDS.get(name, DEFAULT_CHECK_TIMEOUT_SECONDS))
+		policy_timeout_seconds = float(resolve_check_timeout_seconds(name, None))
 		timeout_budget = resolve_timeout_budget(
 			policy_timeout_seconds,
 			float(timeout_seconds) if timeout_seconds is not None else None,
@@ -24042,7 +24013,7 @@ def run_checks_with_log_hygiene(
 
 
 def resolve_check_timeout_seconds(name: str, override_seconds: int | None) -> int:
-	policy_seconds = CHECK_TIMEOUT_SECONDS.get(name, DEFAULT_CHECK_TIMEOUT_SECONDS)
+	policy_seconds = _VALIDATION_CATALOG.timeout_floor_seconds(name)
 	if override_seconds is None:
 		return policy_seconds
 	return max(policy_seconds, override_seconds)
