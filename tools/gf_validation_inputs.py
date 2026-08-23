@@ -2245,6 +2245,7 @@ def _declared_input_spec(
 		source_rules=tuple(sorted(source_rules, key=_path_rule_sort_key)),
 		implementation_files=tuple(sorted({
 			"tools/gf_maintenance.py",
+			"tools/gf_validation_catalog.py",
 			"tools/gf_validation_inputs.py",
 			"tools/gf_workspace_snapshot.py",
 			*additional_implementation_files,

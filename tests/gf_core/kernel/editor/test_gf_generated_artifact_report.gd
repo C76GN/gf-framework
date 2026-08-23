@@ -1315,7 +1315,7 @@ func test_save_text_replaces_malformed_utf8_using_original_raw_backup_identity()
 	assert_true(cleanup_succeeded)
 
 
-func test_save_text_preserves_legacy_direct_file_symlink_replacement() -> void:
+func test_save_text_preserves_legacy_direct_file_symlink_replacement_when_supported() -> void:
 	var test_root: String = "user://gf_generated_artifact_report_legacy_symlink_%d_%d" % [
 		Time.get_ticks_usec(),
 		get_instance_id(),
@@ -1330,12 +1330,31 @@ func test_save_text_preserves_legacy_direct_file_symlink_replacement() -> void:
 		_remove_test_tree(test_root)
 		return
 	_write_user_text(referent_path, "original")
+	var referent_exists: bool = FileAccess.file_exists(referent_path)
+	var output_exists_before_link: bool = _path_entry_exists_for_test(
+		ProjectSettings.globalize_path(output_path)
+	)
+	assert_true(referent_exists, "direct link fixture 的 referent 必须先稳定存在。")
+	assert_false(output_exists_before_link, "direct link fixture 的 output 必须尚不存在。")
+	if not referent_exists or output_exists_before_link:
+		_remove_test_tree(test_root)
+		return
 	var link_error: Error = _create_direct_file_link_for_test(
 		referent_path,
 		output_path
 	)
-	assert_eq(link_error, OK, "fixture 必须创建 direct file symlink。")
 	if link_error != OK:
+		assert_true(
+			OS.has_feature("windows"),
+			"POSIX 平台必须支持 direct file symlink fixture：%s" % error_string(
+				link_error
+			)
+		)
+		assert_eq(
+			link_error,
+			FAILED,
+			"Windows DirAccess 只允许平台建链失败；fixture 打开/路径错误不得被跳过。"
+		)
 		_remove_test_tree(test_root)
 		return
 	assert_true(

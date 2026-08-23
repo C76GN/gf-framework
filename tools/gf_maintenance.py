@@ -60,6 +60,7 @@ import gf_package_artifact_set
 import gf_parallel_validation
 import gf_maintenance_check_graph
 import gf_validation_contracts
+import gf_validation_catalog
 import gf_validation_evidence
 import gf_validation_inputs
 import gf_validation_test_inventory
@@ -885,281 +886,27 @@ def godot_log_path(check_name: str) -> str:
 	return (GODOT_LOG_DIR / f"{check_name}.log").as_posix()
 
 
-CHECK_DEFINITIONS: dict[str, list[str]] = {
-	"godot_import": [
-		"godot",
-		"--headless",
-		"--log-file",
-		godot_log_path("godot_import"),
-		"--path",
-		".",
-		"--import",
-	],
-	"gut_lifecycle_smoke": [
-		sys.executable,
-		"tools/gf_gut_lifecycle_smoke.py",
-		"--json",
-	],
-	"gut": [
-		"godot",
-		"--headless",
-		"--log-file",
-		godot_log_path("gut"),
-		"--path",
-		".",
-		"-s",
-		GUT_LIFECYCLE_CLI_RESOURCE_PATH,
-		GUT_SHARD_CONFIG_DISABLED_ARGUMENT,
-		"-gdir=res://tests/gf_core",
-		"-ginclude_subdirs",
-		*GUT_LIFECYCLE_HOOK_ARGUMENTS,
-		"-gexit",
-	],
-	"api": [sys.executable, "tools/generate_api_reference.py", "--check"],
-	"ai_api": [
-		sys.executable,
-		"tools/generate_ai_api.py",
-		"--source",
-		"addons/gf",
-		"--output",
-		"ai_analysis/generated_api",
-		"--check-or-generate",
-		"--check-wiki-coverage",
-	],
-	"ai_developer_kit": [
-		sys.executable,
-		"tests/gf_core/tools/ai_developer/test_gf_ai_project_tool.py",
-	],
-	"ai_developer_adapter_acceptance": [
-		sys.executable,
-		"tools/build_gf_ai_developer_kit.py",
-		"--storage-backend-acceptance",
-		"--json",
-	],
-	"ai_developer_kit_source": [
-		sys.executable,
-		"tools/build_gf_ai_developer_kit.py",
-		"--check-source",
-		"--json",
-	],
-	"docs": [sys.executable, "tools/check_docs_quality.py", "--strict"],
-	"changelog_policy": [sys.executable, "tools/gf_maintenance.py", "changelog-policy", "--json"],
-	"repository_policy": [sys.executable, "tools/gf_repository_policy.py", "validate", "--json"],
-	"credential_gate": [sys.executable, "tools/gf_credential_gate.py", "--json"],
-	"credential_gate_tests": [
-		sys.executable,
-		"tests/gf_core/tools/test_gf_credential_gate.py",
-	],
-	"codeql_suppression_policy": [
-		sys.executable,
-		"tools/gf_maintenance.py",
-		"codeql-suppression-policy",
-		"--json",
-	],
-	"codeql_suppression_policy_tests": [
-		sys.executable,
-		"tests/gf_core/tools/test_gf_codeql_suppression_policy.py",
-	],
-	"public_docs_boundary": [sys.executable, "tools/gf_maintenance.py", "public-docs-boundary"],
-	"public_api_boundary": [sys.executable, "tools/gf_maintenance.py", "public-api-boundary"],
-	"resource_boundary": [sys.executable, "tools/gf_maintenance.py", "resource-boundary", "--fail-on-issues"],
-	"content_package_boundary": [sys.executable, "tools/gf_maintenance.py", "content-package-boundary"],
-	"asset_lifecycle_boundary": [sys.executable, "tools/gf_maintenance.py", "asset-lifecycle-boundary"],
-	"project_profile_boundary": [sys.executable, "tools/gf_maintenance.py", "project-profile-boundary"],
-	"package_boundary": [sys.executable, "tools/gf_maintenance.py", "package-boundary"],
-	"package_closure_audit": [sys.executable, "tools/gf_maintenance.py", "package-closure-audit"],
-	"package_source_boundary": [sys.executable, "tools/gf_maintenance.py", "package-source-boundary"],
-	"package_build_boundary": [sys.executable, "tools/gf_maintenance.py", "package-build-boundary"],
-	"package_user_dependency_boundary": [sys.executable, "tools/gf_maintenance.py", "package-user-dependency-boundary"],
-	"package_external_command_audit": [sys.executable, "tools/gf_maintenance.py", "package-external-command-audit", "--fail-on-warnings"],
-	"core_only_smoke": [sys.executable, "tools/gf_maintenance.py", "core-only-smoke"],
-	"core_plugin_bootstrap_smoke": [sys.executable, "tools/gf_maintenance.py", "core-plugin-bootstrap-smoke"],
-	"package_editor_wizard_smoke": [sys.executable, "tools/gf_maintenance.py", "package-editor-wizard-smoke"],
-	"package_focused_gut_mapping": [sys.executable, "tools/gf_maintenance.py", "package-focused-gut-mapping"],
-	"package_godot_cli_smoke": [sys.executable, "tools/gf_maintenance.py", "package-godot-cli-smoke"],
-	"package_godot_cli_local_smoke": [
-		sys.executable,
-		"tools/gf_maintenance.py",
-		"package-godot-cli-smoke",
-		"--profile",
-		"local",
-	],
-	"package_godot_cli_network_smoke": [
-		sys.executable,
-		"tools/gf_maintenance.py",
-		"package-godot-cli-smoke",
-		"--profile",
-		"network",
-	],
-	"package_godot_smoke": [sys.executable, "tools/gf_maintenance.py", "package-godot-smoke"],
-	"package_godot_matrix_smoke": [sys.executable, "tools/gf_maintenance.py", "package-godot-smoke", "--all-packages"],
-	"mkdocs": [
-		sys.executable,
-		"-m",
-		"mkdocs",
-		"build",
-		"--strict",
-		"--site-dir",
-		(ROOT / "ai_analysis/mkdocs_site").as_posix(),
-	],
-	"api_since_touched": [sys.executable, "tools/gf_maintenance.py", "api-since-touched"],
-	"path_hygiene": [sys.executable, "tools/gf_maintenance.py", "path-hygiene"],
-	"dependency_boundary": [sys.executable, "tools/gf_maintenance.py", "dependency-boundary"],
-	"maintenance_self_test": [sys.executable, "tools/gf_maintenance.py", "maintenance-self-test"],
-	"maintenance_execution_tests": [
-		sys.executable,
-		"-m",
-		"unittest",
-		"tests/gf_core/tools/test_gf_maintenance_execution.py",
-		"tests/gf_core/tools/test_gf_maintenance_check_graph.py",
-		"tests/gf_core/tools/test_gf_parallel_validation.py",
-		"tests/gf_core/tools/test_gf_validation_contracts.py",
-		"tests/gf_core/tools/test_gf_validation_evidence.py",
-		"tests/gf_core/tools/test_gf_validation_inputs.py",
-		"tests/gf_core/tools/test_gf_validation_test_inventory.py",
-		"tests/gf_core/tools/test_gf_gut_sharding.py",
-		"tests/gf_core/tools/test_gf_gut_shard_worker.py",
-	],
-	"maintenance_generator_tests": [
-		sys.executable,
-		"tests/gf_core/tools/test_gf_maintenance_generators.py",
-	],
-	"maintenance_test_evidence_tests": [
-		sys.executable,
-		"tests/gf_core/tools/test_gf_maintenance_test_evidence.py",
-	],
-	"package_distribution_tests": [
-		sys.executable,
-		"tests/gf_core/kernel/package/test_gf_package_distribution.py",
-	],
-	"package_schema_contract_tests": [
-		sys.executable,
-		"tests/gf_core/kernel/package/test_gf_package_schema_contracts.py",
-	],
-	"gdscript_warnings": [
-		"godot",
-		"--headless",
-		"--log-file",
-		godot_log_path("gdscript_warnings"),
-		"--path",
-		".",
-		"--editor",
-		"--quit",
-	],
-	"gdscript_lsp_diagnostics": [
-		sys.executable,
-		"tools/gdscript_lsp_diagnostics.py",
-		"--connect-or-spawn",
-		"--port",
-		"6005",
-		"--startup-timeout",
-		"120",
-		"--request-timeout",
-		"60",
-		"--per-file-timeout",
-		"3",
-		"--max-file-timeout",
-		"12",
-		"--timeout-retries",
-		"2",
-		"--include",
-		"addons/gf",
-		"--include",
-		"tests/gf_core",
-		"--exclude-prefix",
-		"addons/gut",
-		"--fail-severity",
-		"error,warning",
-		"--log-file",
-		godot_log_path("gdscript_lsp_diagnostics"),
-		"--keep-log",
-		"--format",
-		"json",
-	],
-	"project_settings_drift": [sys.executable, "tools/gf_maintenance.py", "project-settings-drift"],
-	"diff": ["git", "diff", "--check"],
-	"examples_sync": [
-		sys.executable,
-		"tools/sync_reference_project.py",
-		"--project-root",
-		DEFAULT_REFERENCE_PROJECT,
-		"--check",
-	],
-	"examples_sync_write": [
-		sys.executable,
-		"tools/sync_reference_project.py",
-		"--project-root",
-		DEFAULT_REFERENCE_PROJECT,
-		"--apply",
-	],
-	"examples_scan": [
-		"godot",
-		"--headless",
-		"--log-file",
-		godot_log_path("examples_scan"),
-		"--path",
-		DEFAULT_REFERENCE_PROJECT,
-		"--editor",
-		"--quit-after",
-		"2",
-	],
-	"examples_boot": [
-		"godot",
-		"--headless",
-		"--log-file",
-		godot_log_path("examples_boot"),
-		"--quit-after",
-		"10",
-		"--path",
-		DEFAULT_REFERENCE_PROJECT,
-		"--scene",
-		REFERENCE_BOOT_SCENE,
-	],
-	"examples_smoke": [
-		"godot",
-		"--headless",
-		"--log-file",
-		godot_log_path("examples_smoke"),
-		"--quit-after",
-		"10",
-		"--path",
-		DEFAULT_REFERENCE_PROJECT,
-		"--scene",
-		REFERENCE_SMOKE_SCENE,
-	],
-	"examples_coverage": [
-		sys.executable,
-		"tools/generate_api_coverage_matrix.py",
-		"--examples",
-		DEFAULT_REFERENCE_PROJECT,
-		"--output",
-		"ai_analysis/api_coverage_reference_project",
-		"--allow-unsafe-output-root",
-		"--check",
-	],
-}
+_VALIDATION_CATALOG = gf_validation_catalog.build_validation_catalog(
+	gf_validation_catalog.ValidationCatalogContext(
+		python_executable=sys.executable,
+		root=ROOT,
+		godot_log_directory=GODOT_LOG_DIR,
+		gut_lifecycle_cli_resource_path=GUT_LIFECYCLE_CLI_RESOURCE_PATH,
+		gut_shard_config_disabled_argument=GUT_SHARD_CONFIG_DISABLED_ARGUMENT,
+		gut_lifecycle_hook_arguments=GUT_LIFECYCLE_HOOK_ARGUMENTS,
+		default_reference_project=DEFAULT_REFERENCE_PROJECT,
+		reference_boot_scene=REFERENCE_BOOT_SCENE,
+		reference_smoke_scene=REFERENCE_SMOKE_SCENE,
+	)
+)
+VALIDATION_ACTION_NAMES: tuple[str, ...] = _VALIDATION_CATALOG.action_names
 
-CHECK_DEPENDENCIES: dict[str, list[str]] = {
-	"gut_lifecycle_smoke": ["godot_import"],
-	"gut": ["godot_import"],
-	"gdscript_warnings": ["godot_import"],
-	"gdscript_lsp_diagnostics": ["godot_import"],
-	"mkdocs": ["docs", "public_docs_boundary"],
-	"examples_scan": ["examples_sync"],
-	"examples_boot": ["examples_scan"],
-	"examples_smoke": ["examples_scan"],
-	"examples_coverage": ["examples_sync"],
-}
+CHECK_DEFINITIONS = _VALIDATION_CATALOG.command_definitions()
 
-PACKAGE_ARTIFACT_CONSUMER_CHECKS: frozenset[str] = frozenset({
-	"package_build_boundary",
-	"package_editor_wizard_smoke",
-	"package_godot_cli_smoke",
-	"package_godot_cli_local_smoke",
-	"package_godot_cli_network_smoke",
-	"package_godot_smoke",
-	"package_godot_matrix_smoke",
-})
+CHECK_DEPENDENCIES = _VALIDATION_CATALOG.dependencies()
+PACKAGE_ARTIFACT_CONSUMER_CHECKS: frozenset[str] = frozenset(
+	_VALIDATION_CATALOG.check_group("package_artifact_consumers")
+)
 
 
 def expand_check_dependencies(check_names: list[str]) -> list[str]:
@@ -1167,249 +914,46 @@ def expand_check_dependencies(check_names: list[str]) -> list[str]:
 
 
 def maintenance_check_graph() -> CheckGraph:
-	return CheckGraph([*CHECK_DEFINITIONS.keys(), "release_metadata"], CHECK_DEPENDENCIES)
+	return _VALIDATION_CATALOG.check_graph
 
-API_CHECKS: list[str] = ["api", "ai_api", "ai_developer_kit", "public_api_boundary"]
-DOCS_CHECKS: list[str] = ["docs", "changelog_policy", "public_docs_boundary", "mkdocs"]
-EXAMPLES_CHECKS: list[str] = [
-	"examples_sync",
-	"examples_scan",
-	"examples_boot",
-	"examples_smoke",
-	"examples_coverage",
-]
-LIGHT_BOUNDARY_CHECKS: list[str] = [
-	"resource_boundary",
-	"content_package_boundary",
-	"asset_lifecycle_boundary",
-	"project_profile_boundary",
-	"package_boundary",
-	"package_closure_audit",
-	"package_source_boundary",
-	"package_user_dependency_boundary",
-	"package_external_command_audit",
-	"core_only_smoke",
-	"package_focused_gut_mapping",
-	"api_since_touched",
-	"repository_policy",
-	"credential_gate",
-	"credential_gate_tests",
-	"codeql_suppression_policy",
-	"codeql_suppression_policy_tests",
-	"maintenance_execution_tests",
-	"maintenance_generator_tests",
-	"maintenance_test_evidence_tests",
-	"path_hygiene",
-	"dependency_boundary",
-	"diff",
-]
-PACKAGE_CONTRACT_SMOKE_CHECKS: list[str] = [
-	"package_build_boundary",
-]
-PACKAGE_EDITOR_CHECKS: list[str] = ["package_editor_wizard_smoke"]
-PACKAGE_CLI_LOCAL_CHECKS: list[str] = ["package_godot_cli_local_smoke"]
-PACKAGE_CLI_NETWORK_CHECKS: list[str] = ["package_godot_cli_network_smoke"]
-PACKAGE_CLI_CHECKS: list[str] = [*PACKAGE_CLI_LOCAL_CHECKS, *PACKAGE_CLI_NETWORK_CHECKS]
-PACKAGE_SMOKE_CHECKS: list[str] = [
-	*PACKAGE_CONTRACT_SMOKE_CHECKS,
-	*PACKAGE_EDITOR_CHECKS,
-	*PACKAGE_CLI_CHECKS,
-]
-PACKAGE_CONTRACT_CHECKS: list[str] = [
-	"ai_developer_adapter_acceptance",
-	"package_boundary",
-	"package_closure_audit",
-	"package_source_boundary",
-	"package_user_dependency_boundary",
-	"package_external_command_audit",
-	"core_only_smoke",
-	"core_plugin_bootstrap_smoke",
-	"package_focused_gut_mapping",
-	"package_distribution_tests",
-	"package_schema_contract_tests",
-	*PACKAGE_CONTRACT_SMOKE_CHECKS,
-]
-PACKAGE_CHECKS: list[str] = [
-	*PACKAGE_CONTRACT_CHECKS,
-	*PACKAGE_EDITOR_CHECKS,
-	*PACKAGE_CLI_CHECKS,
-]
-QUICK_CHECKS: list[str] = [
-	"api",
-	"ai_api",
-	"ai_developer_kit_source",
-	"docs",
-	"changelog_policy",
-	"public_docs_boundary",
-	"public_api_boundary",
-	*LIGHT_BOUNDARY_CHECKS,
-]
-FULL_CHECKS: list[str] = [
-	"gut_lifecycle_smoke",
-	"gut",
-	"api",
-	"ai_api",
-	"ai_developer_kit",
-	"docs",
-	"changelog_policy",
-	"public_docs_boundary",
-	"public_api_boundary",
-	"resource_boundary",
-	"content_package_boundary",
-	"asset_lifecycle_boundary",
-	"project_profile_boundary",
-	*PACKAGE_CHECKS,
-	"package_godot_smoke",
-	"mkdocs",
-	"api_since_touched",
-	"repository_policy",
-	"credential_gate",
-	"credential_gate_tests",
-	"codeql_suppression_policy",
-	"codeql_suppression_policy_tests",
-	"path_hygiene",
-	"maintenance_self_test",
-	"maintenance_execution_tests",
-	"maintenance_generator_tests",
-	"maintenance_test_evidence_tests",
-	"dependency_boundary",
-	"gdscript_warnings",
-	"gdscript_lsp_diagnostics",
-	"diff",
-]
-RELEASE_CHECKS: list[str] = [
-	"gut_lifecycle_smoke",
-	"gut",
-	"api",
-	"ai_api",
-	"ai_developer_kit",
-	"docs",
-	"changelog_policy",
-	"public_docs_boundary",
-	"public_api_boundary",
-	"resource_boundary",
-	"content_package_boundary",
-	"asset_lifecycle_boundary",
-	"project_profile_boundary",
-	*PACKAGE_CHECKS,
-	"package_godot_matrix_smoke",
-	"mkdocs",
-	"api_since_touched",
-	"repository_policy",
-	"credential_gate",
-	"credential_gate_tests",
-	"codeql_suppression_policy",
-	"codeql_suppression_policy_tests",
-	"path_hygiene",
-	"maintenance_self_test",
-	"maintenance_execution_tests",
-	"maintenance_generator_tests",
-	"maintenance_test_evidence_tests",
-	"dependency_boundary",
-	"gdscript_warnings",
-	"gdscript_lsp_diagnostics",
-	"diff",
-	"release_metadata",
-]
-FRAMEWORK_GUT_CHECKS: list[str] = [
-	"gut_lifecycle_smoke",
-	"gut",
-	"gdscript_warnings",
-]
-FRAMEWORK_LSP_CHECKS: list[str] = ["gdscript_lsp_diagnostics"]
-FRAMEWORK_STATIC_CHECKS: list[str] = [
-	"api",
-	"ai_api",
-	"ai_developer_kit",
-	"docs",
-	"changelog_policy",
-	"public_docs_boundary",
-	"public_api_boundary",
-	"resource_boundary",
-	"content_package_boundary",
-	"asset_lifecycle_boundary",
-	"project_profile_boundary",
-	"mkdocs",
-	"api_since_touched",
-	"repository_policy",
-	"credential_gate",
-	"credential_gate_tests",
-	"codeql_suppression_policy",
-	"codeql_suppression_policy_tests",
-	"path_hygiene",
-	"maintenance_self_test",
-	"maintenance_execution_tests",
-	"maintenance_generator_tests",
-	"maintenance_test_evidence_tests",
-	"dependency_boundary",
-	"diff",
-]
-FRAMEWORK_CHECKS: list[str] = [
-	"gut_lifecycle_smoke",
-	"gut",
-	"api",
-	"ai_api",
-	"ai_developer_kit",
-	"docs",
-	"changelog_policy",
-	"public_docs_boundary",
-	"public_api_boundary",
-	"resource_boundary",
-	"content_package_boundary",
-	"asset_lifecycle_boundary",
-	"project_profile_boundary",
-	"mkdocs",
-	"api_since_touched",
-	"repository_policy",
-	"credential_gate",
-	"credential_gate_tests",
-	"codeql_suppression_policy",
-	"codeql_suppression_policy_tests",
-	"path_hygiene",
-	"maintenance_self_test",
-	"maintenance_execution_tests",
-	"maintenance_generator_tests",
-	"maintenance_test_evidence_tests",
-	"dependency_boundary",
-	"gdscript_warnings",
-	"gdscript_lsp_diagnostics",
-	"diff",
-]
-PACKAGE_CI_CHECKS: list[str] = [*PACKAGE_CHECKS, "package_godot_smoke"]
-PACKAGE_RELEASE_CHECKS: list[str] = [*PACKAGE_CHECKS, "package_godot_matrix_smoke"]
 
-CHECK_SUITES: dict[str, list[str]] = {
-	"api": API_CHECKS,
-	"docs": DOCS_CHECKS,
-	"examples": EXAMPLES_CHECKS,
-	"framework": FRAMEWORK_CHECKS,
-	"framework-gut": FRAMEWORK_GUT_CHECKS,
-	"framework-lsp": FRAMEWORK_LSP_CHECKS,
-	"framework-static": FRAMEWORK_STATIC_CHECKS,
-	"quick": QUICK_CHECKS,
-	"package": PACKAGE_CHECKS,
-	"package-contract": PACKAGE_CONTRACT_CHECKS,
-	"package-editor": PACKAGE_EDITOR_CHECKS,
-	"package-cli": PACKAGE_CLI_CHECKS,
-	"package-cli-local": PACKAGE_CLI_LOCAL_CHECKS,
-	"package-cli-network": PACKAGE_CLI_NETWORK_CHECKS,
-	"package-godot-ci": ["package_godot_smoke"],
-	"package-godot-release": ["package_godot_matrix_smoke"],
-	"package-ci": PACKAGE_CI_CHECKS,
-	"package-release": PACKAGE_RELEASE_CHECKS,
-	"full": FULL_CHECKS,
-	"release": RELEASE_CHECKS,
-}
+API_CHECKS: list[str] = _VALIDATION_CATALOG.check_group("api")
+DOCS_CHECKS: list[str] = _VALIDATION_CATALOG.check_group("docs")
+EXAMPLES_CHECKS: list[str] = _VALIDATION_CATALOG.check_group("examples")
+LIGHT_BOUNDARY_CHECKS: list[str] = _VALIDATION_CATALOG.check_group("light_boundary")
+PACKAGE_CONTRACT_SMOKE_CHECKS: list[str] = _VALIDATION_CATALOG.check_group(
+	"package_contract_smoke"
+)
+PACKAGE_EDITOR_CHECKS: list[str] = _VALIDATION_CATALOG.check_group("package_editor")
+PACKAGE_CLI_LOCAL_CHECKS: list[str] = _VALIDATION_CATALOG.check_group(
+	"package_cli_local"
+)
+PACKAGE_CLI_NETWORK_CHECKS: list[str] = _VALIDATION_CATALOG.check_group(
+	"package_cli_network"
+)
+PACKAGE_CLI_CHECKS: list[str] = _VALIDATION_CATALOG.check_group("package_cli")
+PACKAGE_SMOKE_CHECKS: list[str] = _VALIDATION_CATALOG.check_group("package_smoke")
+PACKAGE_CONTRACT_CHECKS: list[str] = _VALIDATION_CATALOG.check_group(
+	"package_contract"
+)
+PACKAGE_CHECKS: list[str] = _VALIDATION_CATALOG.check_group("package")
+QUICK_CHECKS: list[str] = _VALIDATION_CATALOG.check_group("quick")
+FULL_CHECKS: list[str] = _VALIDATION_CATALOG.check_group("full")
+RELEASE_CHECKS: list[str] = _VALIDATION_CATALOG.check_group("release")
+FRAMEWORK_GUT_CHECKS: list[str] = _VALIDATION_CATALOG.check_group("framework_gut")
+FRAMEWORK_LSP_CHECKS: list[str] = _VALIDATION_CATALOG.check_group("framework_lsp")
+FRAMEWORK_STATIC_CHECKS: list[str] = _VALIDATION_CATALOG.check_group(
+	"framework_static"
+)
+FRAMEWORK_CHECKS: list[str] = _VALIDATION_CATALOG.check_group("framework")
+PACKAGE_CI_CHECKS: list[str] = _VALIDATION_CATALOG.check_group("package_ci")
+PACKAGE_RELEASE_CHECKS: list[str] = _VALIDATION_CATALOG.check_group(
+	"package_release"
+)
 
+CHECK_SUITES: dict[str, list[str]] = _VALIDATION_CATALOG.suites()
 PARALLEL_FULL_SHARD_SUITES: tuple[str, ...] = (
-	"package-editor",
-	"framework-static",
-	"package-godot-ci",
-	"package-cli-local",
-	"package-cli-network",
-	"package-contract",
-	"framework-gut",
-	"framework-lsp",
+	_VALIDATION_CATALOG.parallel_full_shard_suites
 )
 PARALLEL_FULL_SINGLETON_SHARDS = frozenset({"framework-gut"})
 DEFAULT_PARALLEL_FULL_JOBS: int = 3
@@ -1501,6 +1045,7 @@ PARALLEL_SHARD_RESULT_OPTIONAL_FIELDS = frozenset({
 class ParallelCheckShardPlan:
 	name: str
 	checks: tuple[str, ...]
+	execution_checks: tuple[str, ...]
 
 	def to_dict(self) -> dict[str, Any]:
 		return {
@@ -1509,28 +1054,19 @@ class ParallelCheckShardPlan:
 		}
 
 
-def parallel_full_shard_plan() -> list[ParallelCheckShardPlan]:
-	full_check_set = set(FULL_CHECKS)
-	claimed_checks: set[str] = set()
-	plan: list[ParallelCheckShardPlan] = []
-	for suite_name in PARALLEL_FULL_SHARD_SUITES:
-		owned_checks = tuple(
-			check_name
-			for check_name in CHECK_SUITES[suite_name]
-			if check_name in full_check_set and check_name not in claimed_checks
+def parallel_full_shard_plan(
+	validation_plan: gf_validation_catalog.ValidationPlan,
+) -> list[ParallelCheckShardPlan]:
+	if validation_plan.suite != "full" or not validation_plan.lanes:
+		raise ValueError("Parallel Full requires the canonical Full validation plan.")
+	return [
+		ParallelCheckShardPlan(
+			name=lane.name,
+			checks=lane.owned_actions,
+			execution_checks=lane.execution_actions,
 		)
-		if not owned_checks:
-			raise ValueError(f"Parallel Full shard owns no checks: {suite_name}")
-		claimed_checks.update(owned_checks)
-		plan.append(ParallelCheckShardPlan(suite_name, owned_checks))
-	missing_checks = [check_name for check_name in FULL_CHECKS if check_name not in claimed_checks]
-	extra_checks = sorted(claimed_checks.difference(full_check_set))
-	if missing_checks or extra_checks:
-		raise ValueError(
-			"Parallel Full shard plan is not set-equivalent to Full: "
-			f"missing={missing_checks}, extra={extra_checks}"
-		)
-	return plan
+		for lane in validation_plan.lanes
+	]
 
 
 def parallel_full_shard_batches(
@@ -1563,10 +1099,9 @@ def parallel_shard_timeout_seconds(
 	requested_timeout_seconds: int | None,
 ) -> int:
 	"""Budget the whole sequential child closure without weakening per-check minima."""
-	expected_checks = expanded_check_names("quick", list(shard_plan.checks))
 	closure_budget = sum(
 		resolve_check_timeout_seconds(check_name, requested_timeout_seconds)
-		for check_name in expected_checks
+		for check_name in shard_plan.execution_checks
 	)
 	return max(
 		PARALLEL_FULL_SHARD_TIMEOUT_SECONDS[shard_plan.name],
@@ -1605,24 +1140,13 @@ def expanded_check_names(
 	*,
 	sync_examples: bool = False,
 ) -> list[str]:
-	check_names = list(checks if checks else CHECK_SUITES[suite])
-	if sync_examples:
-		check_names = [
-			"examples_sync_write" if name == "examples_sync" else name
-			for name in check_names
-		]
-		effective_dependencies = {
-			name: [
-				"examples_sync_write" if dependency == "examples_sync" else dependency
-				for dependency in dependencies
-			]
-			for name, dependencies in CHECK_DEPENDENCIES.items()
-		}
-		return CheckGraph(
-			[*CHECK_DEFINITIONS.keys(), "release_metadata"],
-			effective_dependencies,
-		).expand(check_names)
-	return maintenance_check_graph().expand(check_names)
+	return list(
+		_VALIDATION_CATALOG.plan(
+			suite,
+			checks,
+			sync_examples=sync_examples,
+		).actions
+	)
 
 
 def package_artifact_is_required(check_names: list[str]) -> bool:
@@ -2220,7 +1744,7 @@ def main() -> int:
 	check_parser.add_argument(
 		"--check",
 		action="append",
-		choices=sorted([*CHECK_DEFINITIONS.keys(), "release_metadata"]),
+		choices=sorted(VALIDATION_ACTION_NAMES),
 		help="Run a specific check. Can be passed multiple times and overrides --suite.",
 	)
 	check_parser.add_argument(
@@ -4961,6 +4485,7 @@ def gut_shard_plan(
 
 GUT_SHARD_RUNTIME_SOURCE_MODULES = (
 	("tools/gf_maintenance.py", "gf_maintenance"),
+	("tools/gf_validation_catalog.py", "gf_validation_catalog"),
 	("tools/gf_gut_shard_worker.py", "gf_gut_shard_worker"),
 	("tools/gf_gut_sharding.py", "gf_gut_sharding"),
 	("tools/gf_parallel_validation.py", "gf_parallel_validation"),
@@ -18002,8 +17527,26 @@ def maintenance_self_test() -> dict[str, Any]:
 			path.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8", newline="\n")
 			return path
 
+		def load_report_fixture(
+			shard_result: ParallelShardResult,
+			report_path: Path,
+			expected_checks: list[str],
+			expected_workspace_state: dict[str, object],
+			**kwargs: Any,
+		) -> tuple[dict[str, Any] | None, str]:
+			return load_parallel_shard_report(
+				shard_result,
+				report_path,
+				expected_checks,
+				expected_workspace_state,
+				expected_check_graph=maintenance_check_graph().describe(
+					expected_checks
+				),
+				**kwargs,
+			)
+
 		valid_report_path = write_report_fixture("valid", valid_report)
-		valid_loaded, valid_issue = load_parallel_shard_report(
+		valid_loaded, valid_issue = load_report_fixture(
 			passing_report_runner,
 			valid_report_path,
 			expected_report_checks,
@@ -18011,10 +17554,19 @@ def maintenance_self_test() -> dict[str, Any]:
 			expected_package_artifact_manifest_sha256=expected_package_manifest_sha256,
 			expected_package_artifact_count=expected_package_artifact_count,
 		)
+		assigned_graph = dict(valid_report["check_graph"])
+		assigned_graph["fingerprint"] = "9" * 64
+		_, assigned_graph_issue = load_parallel_shard_report(
+			passing_report_runner,
+			valid_report_path,
+			expected_report_checks,
+			expected_report_workspace,
+			expected_check_graph=assigned_graph,
+		)
 		missing_report = json.loads(json.dumps(valid_report))
 		missing_report["results"] = []
 		missing_report["completed_check_count"] = 0
-		_, missing_issue = load_parallel_shard_report(
+		_, missing_issue = load_report_fixture(
 			passing_report_runner,
 			write_report_fixture("missing", missing_report),
 			expected_report_checks,
@@ -18022,7 +17574,7 @@ def maintenance_self_test() -> dict[str, Any]:
 		)
 		invalid_exit_report = json.loads(json.dumps(valid_report))
 		invalid_exit_report["results"][0]["exit_code"] = None
-		_, invalid_exit_issue = load_parallel_shard_report(
+		_, invalid_exit_issue = load_report_fixture(
 			passing_report_runner,
 			write_report_fixture("invalid-exit", invalid_exit_report),
 			expected_report_checks,
@@ -18034,7 +17586,7 @@ def maintenance_self_test() -> dict[str, Any]:
 			encoding="utf-8",
 			newline="\n",
 		)
-		_, non_finite_issue = load_parallel_shard_report(
+		_, non_finite_issue = load_report_fixture(
 			passing_report_runner,
 			non_finite_report_path,
 			expected_report_checks,
@@ -18050,7 +17602,7 @@ def maintenance_self_test() -> dict[str, Any]:
 			encoding="utf-8",
 			newline="\n",
 		)
-		_, duplicate_key_issue = load_parallel_shard_report(
+		_, duplicate_key_issue = load_report_fixture(
 			passing_report_runner,
 			duplicate_key_report_path,
 			expected_report_checks,
@@ -18058,7 +17610,7 @@ def maintenance_self_test() -> dict[str, Any]:
 		)
 		oversized_report_path = report_root / "oversized.json"
 		oversized_report_path.write_bytes(b"{}" + b" " * MAX_PARALLEL_SHARD_REPORT_BYTES)
-		_, oversized_issue = load_parallel_shard_report(
+		_, oversized_issue = load_report_fixture(
 			passing_report_runner,
 			oversized_report_path,
 			expected_report_checks,
@@ -18066,7 +17618,7 @@ def maintenance_self_test() -> dict[str, Any]:
 		)
 		extra_field_report = json.loads(json.dumps(valid_report))
 		extra_field_report["unexpected"] = True
-		_, extra_field_issue = load_parallel_shard_report(
+		_, extra_field_issue = load_report_fixture(
 			passing_report_runner,
 			write_report_fixture("extra-field", extra_field_report),
 			expected_report_checks,
@@ -18074,7 +17626,7 @@ def maintenance_self_test() -> dict[str, Any]:
 		)
 		external_cwd_report = json.loads(json.dumps(valid_report))
 		external_cwd_report["results"][0]["cwd"] = str(fixture_root)
-		_, external_cwd_issue = load_parallel_shard_report(
+		_, external_cwd_issue = load_report_fixture(
 			passing_report_runner,
 			write_report_fixture("external-cwd", external_cwd_report),
 			expected_report_checks,
@@ -18082,7 +17634,7 @@ def maintenance_self_test() -> dict[str, Any]:
 		)
 		invalid_output_report = json.loads(json.dumps(valid_report))
 		invalid_output_report["results"][0]["stdout"] = []
-		_, invalid_output_issue = load_parallel_shard_report(
+		_, invalid_output_issue = load_report_fixture(
 			passing_report_runner,
 			write_report_fixture("invalid-output", invalid_output_report),
 			expected_report_checks,
@@ -18090,7 +17642,7 @@ def maintenance_self_test() -> dict[str, Any]:
 		)
 		partial_output_evidence_report = json.loads(json.dumps(valid_report))
 		del partial_output_evidence_report["results"][0]["stderr_sha256"]
-		_, partial_output_evidence_issue = load_parallel_shard_report(
+		_, partial_output_evidence_issue = load_report_fixture(
 			passing_report_runner,
 			write_report_fixture(
 				"partial-output-evidence",
@@ -18101,7 +17653,7 @@ def maintenance_self_test() -> dict[str, Any]:
 		)
 		inconsistent_output_evidence_report = json.loads(json.dumps(valid_report))
 		inconsistent_output_evidence_report["results"][0]["stdout_char_count"] = 1
-		_, inconsistent_output_evidence_issue = load_parallel_shard_report(
+		_, inconsistent_output_evidence_issue = load_report_fixture(
 			passing_report_runner,
 			write_report_fixture(
 				"inconsistent-output-evidence",
@@ -18147,7 +17699,7 @@ def maintenance_self_test() -> dict[str, Any]:
 		gut_report["results"][0]["gut_lifecycle_report"] = (
 			clean_lifecycle_report
 		)
-		gut_loaded, gut_issue = load_parallel_shard_report(
+		gut_loaded, gut_issue = load_report_fixture(
 			passing_report_runner,
 			write_report_fixture("gut-valid", gut_report),
 			gut_report_checks,
@@ -18157,7 +17709,7 @@ def maintenance_self_test() -> dict[str, Any]:
 		non_gut_lifecycle_report["results"][0]["gut_lifecycle_report"] = (
 			clean_lifecycle_report
 		)
-		_, non_gut_lifecycle_issue = load_parallel_shard_report(
+		_, non_gut_lifecycle_issue = load_report_fixture(
 			passing_report_runner,
 			write_report_fixture(
 				"non-gut-lifecycle",
@@ -18168,7 +17720,7 @@ def maintenance_self_test() -> dict[str, Any]:
 		)
 		missing_gut_lifecycle_report = json.loads(json.dumps(gut_report))
 		del missing_gut_lifecycle_report["results"][0]["gut_lifecycle_report"]
-		_, missing_gut_lifecycle_issue = load_parallel_shard_report(
+		_, missing_gut_lifecycle_issue = load_report_fixture(
 			passing_report_runner,
 			write_report_fixture(
 				"gut-missing-lifecycle",
@@ -18181,7 +17733,7 @@ def maintenance_self_test() -> dict[str, Any]:
 		failed_gut_lifecycle_report["results"][0]["gut_lifecycle_report"] = (
 			parse_gut_lifecycle_gate_output("", "")
 		)
-		_, failed_gut_lifecycle_issue = load_parallel_shard_report(
+		_, failed_gut_lifecycle_issue = load_report_fixture(
 			passing_report_runner,
 			write_report_fixture(
 				"gut-failed-lifecycle",
@@ -18194,7 +17746,7 @@ def maintenance_self_test() -> dict[str, Any]:
 		impossible_gut_lifecycle_report["results"][0][
 			"gut_lifecycle_report"
 		]["marker_count"] = GUT_LIFECYCLE_GATE_MAX_MIRRORED_MARKERS + 1
-		_, impossible_gut_lifecycle_issue = load_parallel_shard_report(
+		_, impossible_gut_lifecycle_issue = load_report_fixture(
 			passing_report_runner,
 			write_report_fixture(
 				"gut-impossible-lifecycle",
@@ -18219,7 +17771,7 @@ def maintenance_self_test() -> dict[str, Any]:
 		timed_out_gut_result["gut_lifecycle_report"] = (
 			parse_gut_lifecycle_gate_output("partial output", "")
 		)
-		timed_out_gut_loaded, timed_out_gut_issue = load_parallel_shard_report(
+		timed_out_gut_loaded, timed_out_gut_issue = load_report_fixture(
 			failing_report_runner,
 			write_report_fixture(
 				"gut-timeout-with-lifecycle",
@@ -18233,7 +17785,7 @@ def maintenance_self_test() -> dict[str, Any]:
 		cancelled_gut_result["exit_code"] = 130
 		cancelled_gut_result["timed_out"] = False
 		cancelled_gut_result["cancelled"] = True
-		cancelled_gut_loaded, cancelled_gut_issue = load_parallel_shard_report(
+		cancelled_gut_loaded, cancelled_gut_issue = load_report_fixture(
 			failing_report_runner,
 			write_report_fixture(
 				"gut-cancelled-with-lifecycle",
@@ -18244,7 +17796,7 @@ def maintenance_self_test() -> dict[str, Any]:
 		)
 		plain_124_gut_report = json.loads(json.dumps(timed_out_gut_report))
 		plain_124_gut_report["results"][0]["timed_out"] = False
-		plain_124_gut_loaded, plain_124_gut_issue = load_parallel_shard_report(
+		plain_124_gut_loaded, plain_124_gut_issue = load_report_fixture(
 			failing_report_runner,
 			write_report_fixture(
 				"gut-plain-124-with-lifecycle",
@@ -18255,7 +17807,7 @@ def maintenance_self_test() -> dict[str, Any]:
 		)
 		forged_timeout_exit_report = json.loads(json.dumps(timed_out_gut_report))
 		forged_timeout_exit_report["results"][0]["exit_code"] = 1
-		_, forged_timeout_exit_issue = load_parallel_shard_report(
+		_, forged_timeout_exit_issue = load_report_fixture(
 			failing_report_runner,
 			write_report_fixture(
 				"gut-timeout-wrong-exit",
@@ -18268,7 +17820,7 @@ def maintenance_self_test() -> dict[str, Any]:
 		forged_cancel_result = forged_cancel_exit_report["results"][0]
 		forged_cancel_result["timed_out"] = False
 		forged_cancel_result["cancelled"] = True
-		_, forged_cancel_exit_issue = load_parallel_shard_report(
+		_, forged_cancel_exit_issue = load_report_fixture(
 			failing_report_runner,
 			write_report_fixture(
 				"gut-cancel-wrong-exit",
@@ -18281,7 +17833,7 @@ def maintenance_self_test() -> dict[str, Any]:
 			timed_out_gut_report
 		))
 		forged_conflicting_terminal_report["results"][0]["cancelled"] = True
-		_, forged_conflicting_terminal_issue = load_parallel_shard_report(
+		_, forged_conflicting_terminal_issue = load_report_fixture(
 			failing_report_runner,
 			write_report_fixture(
 				"gut-conflicting-terminal-state",
@@ -18290,7 +17842,7 @@ def maintenance_self_test() -> dict[str, Any]:
 			gut_report_checks,
 			expected_report_workspace,
 		)
-		_, mismatch_issue = load_parallel_shard_report(
+		_, mismatch_issue = load_report_fixture(
 			failing_report_runner,
 			valid_report_path,
 			expected_report_checks,
@@ -18300,6 +17852,7 @@ def maintenance_self_test() -> dict[str, Any]:
 			"parallel_shard_reports_are_strict_and_fail_closed",
 			valid_loaded is not None
 			and not valid_issue
+			and bool(assigned_graph_issue)
 			and bool(missing_issue)
 			and bool(invalid_exit_issue)
 			and bool(non_finite_issue)
@@ -18344,7 +17897,7 @@ def maintenance_self_test() -> dict[str, Any]:
 			"artifact_count": expected_package_artifact_count,
 			"workspace_fingerprint": captured_fixture.workspace_fingerprint,
 		}
-		package_loaded, package_issue = load_parallel_shard_report(
+		package_loaded, package_issue = load_report_fixture(
 			passing_report_runner,
 			write_report_fixture("package-valid", package_report),
 			package_report_checks,
@@ -18354,7 +17907,7 @@ def maintenance_self_test() -> dict[str, Any]:
 		)
 		mutated_package_sha_report = json.loads(json.dumps(package_report))
 		mutated_package_sha_report["package_artifact_set"]["manifest_sha256"] = "6" * 64
-		_, mutated_package_sha_issue = load_parallel_shard_report(
+		_, mutated_package_sha_issue = load_report_fixture(
 			passing_report_runner,
 			write_report_fixture("package-mutated-sha", mutated_package_sha_report),
 			package_report_checks,
@@ -18364,7 +17917,7 @@ def maintenance_self_test() -> dict[str, Any]:
 		)
 		mutated_package_count_report = json.loads(json.dumps(package_report))
 		mutated_package_count_report["package_artifact_set"]["artifact_count"] += 1
-		_, mutated_package_count_issue = load_parallel_shard_report(
+		_, mutated_package_count_issue = load_report_fixture(
 			passing_report_runner,
 			write_report_fixture("package-mutated-count", mutated_package_count_report),
 			package_report_checks,
@@ -18374,7 +17927,7 @@ def maintenance_self_test() -> dict[str, Any]:
 		)
 		non_package_artifact_report = json.loads(json.dumps(valid_report))
 		non_package_artifact_report["package_artifact_set"] = package_report["package_artifact_set"]
-		_, non_package_artifact_issue = load_parallel_shard_report(
+		_, non_package_artifact_issue = load_report_fixture(
 			passing_report_runner,
 			write_report_fixture("non-package-artifact", non_package_artifact_report),
 			expected_report_checks,
@@ -22879,7 +22432,8 @@ def maintenance_self_test() -> dict[str, Any]:
 		),
 		"parallel framework partitions and package matrix shards must be disjoint within framework and set-equivalent to full/package-ci.",
 	)
-	parallel_plan = parallel_full_shard_plan()
+	parallel_validation_plan = _VALIDATION_CATALOG.plan("full")
+	parallel_plan = parallel_full_shard_plan(parallel_validation_plan)
 	parallel_plan_names = tuple(shard.name for shard in parallel_plan)
 	framework_gut_shard = next(
 		shard for shard in parallel_plan if shard.name == "framework-gut"
@@ -22990,8 +22544,9 @@ def maintenance_self_test() -> dict[str, Any]:
 		parallel_plan,
 		DEFAULT_PARALLEL_FULL_JOBS,
 		1,
+		validation_plan=parallel_validation_plan,
 	)
-	deadline_fixture_canonical_checks = expanded_check_names("full", None)
+	deadline_fixture_canonical_checks = list(parallel_validation_plan.actions)
 	record_result(
 		"parallel_deadline_reports_canonical_but_unstarted_results",
 		deadline_fixture_result.get("completed_check_count") == 0
@@ -31815,6 +31370,7 @@ def recommend_checks(categories: dict[str, list[dict[str, str]]]) -> list[str]:
 		recommendations.extend([
 			(
 				"python -m py_compile tools/gf_maintenance.py tools/gf_mcp_server.py "
+				"tools/gf_validation_catalog.py "
 				"tools/gf_project_layout_profile.py "
 				"tools/gf_godot_process.py tools/gf_package_artifact_set.py tools/gf_package_paths.py "
 				"tools/gf_parallel_validation.py tools/gf_process_supervisor.py "
@@ -32658,6 +32214,12 @@ def run_checks(
 	global _ACTIVE_SUITE_DEADLINE
 	global _API_CACHE
 	overall_started = time.perf_counter()
+	validation_plan = _VALIDATION_CATALOG.plan(
+		suite,
+		checks,
+		sync_examples=sync_examples,
+	)
+	selected_names = list(validation_plan.actions)
 	suite_deadline = (
 		overall_started + suite_timeout_seconds
 		if suite_timeout_seconds is not None
@@ -32668,15 +32230,49 @@ def run_checks(
 	previous_api_cache = _API_CACHE
 	snapshot = WorkspaceSnapshot(ROOT)
 	try:
-		workspace_state = workspace_fingerprint(ROOT, deadline=suite_deadline)
-	except (TimeoutError, subprocess.TimeoutExpired) as error:
-		selected_names = expanded_check_names(suite, checks, sync_examples=sync_examples)
 		resolved_jobs = resolve_check_jobs(
 			suite,
 			checks,
 			jobs,
 			sync_examples=sync_examples,
 		)
+	except ValueError as error:
+		workspace_state = {
+			"schema_version": 1,
+			"head": "",
+			"dirty": True,
+			"untracked_file_count": 0,
+			"fingerprint": "0" * 64,
+		}
+		data = make_check_setup_failure(
+			validation_plan,
+			workspace_state,
+			"parallel_validation_setup",
+			str(error),
+		)
+		data["workspace_snapshot"] = snapshot.stats()
+		data["workspace"] = workspace_state
+		data["duration_seconds"] = round(time.perf_counter() - overall_started, 3)
+		data["execution"] = "serial"
+		data["jobs"] = 1
+		if validation_shadow:
+			data["validation_shadow"] = make_validation_shadow_failure_report(
+				data,
+				"parallel_validation_setup_failed",
+			)
+		if affected:
+			attach_affected_analysis_report(
+				data,
+				base_revision=affected_base,
+				explain=affected_explain,
+				force_failure=True,
+				suite_deadline=suite_deadline,
+			)
+		data["duration_seconds"] = round(time.perf_counter() - overall_started, 3)
+		return data
+	try:
+		workspace_state = workspace_fingerprint(ROOT, deadline=suite_deadline)
+	except (TimeoutError, subprocess.TimeoutExpired) as error:
 		workspace_state = {
 			"schema_version": 1,
 			"head": "",
@@ -32685,8 +32281,7 @@ def run_checks(
 			"fingerprint": "0" * 64,
 		}
 		data = make_check_deadline_failure(
-			suite,
-			selected_names,
+			validation_plan,
 			workspace_state,
 			suite_timeout_seconds or 0,
 		)
@@ -32712,13 +32307,6 @@ def run_checks(
 		data["duration_seconds"] = round(time.perf_counter() - overall_started, 3)
 		return data
 	except gf_maintenance_check_graph.WorkspaceFingerprintError as error:
-		selected_names = expanded_check_names(suite, checks, sync_examples=sync_examples)
-		resolved_jobs = resolve_check_jobs(
-			suite,
-			checks,
-			jobs,
-			sync_examples=sync_examples,
-		)
 		workspace_state = {
 			"schema_version": 1,
 			"head": "",
@@ -32727,8 +32315,7 @@ def run_checks(
 			"fingerprint": "0" * 64,
 		}
 		data = make_check_setup_failure(
-			suite,
-			selected_names,
+			validation_plan,
 			workspace_state,
 			"workspace_fingerprint_setup",
 			str(error),
@@ -32754,7 +32341,6 @@ def run_checks(
 		data["duration_seconds"] = round(time.perf_counter() - overall_started, 3)
 		return data
 	data: dict[str, Any] | None = None
-	resolved_jobs = 1
 	package_artifact_set: PackageArtifactSet | None = None
 	package_artifact_reused = False
 	validation_parallel_occurrences: dict[str, list[dict[str, Any]]] | None = (
@@ -32768,18 +32354,7 @@ def run_checks(
 		with contextlib.ExitStack() as stack:
 			effective_package_manifest = package_artifact_manifest
 			effective_package_manifest_sha256 = package_artifact_manifest_sha256
-			selected_names = expanded_check_names(
-				suite,
-				checks,
-				sync_examples=sync_examples,
-			)
 			try:
-				resolved_jobs = resolve_check_jobs(
-					suite,
-					checks,
-					jobs,
-					sync_examples=sync_examples,
-				)
 				captured_workspace: CapturedWorkspace | None = None
 				artifact_source_workspace: Path | None = None
 				artifact_cleanup_state: dict[str, bool] | None = None
@@ -32852,6 +32427,7 @@ def run_checks(
 					data = run_parallel_full_checks(
 						captured_workspace,
 						parallel_temp,
+						validation_plan=validation_plan,
 						jobs=resolved_jobs,
 						timeout_seconds=timeout_seconds,
 						suite_timeout_seconds=suite_timeout_seconds,
@@ -32872,8 +32448,7 @@ def run_checks(
 						remaining = suite_timeout_seconds - (time.perf_counter() - overall_started)
 						if remaining <= 0.0:
 							data = make_check_deadline_failure(
-								suite,
-								selected_names,
+								validation_plan,
 								workspace_state,
 								suite_timeout_seconds,
 							)
@@ -32881,12 +32456,10 @@ def run_checks(
 							remaining_suite_timeout = math.ceil(remaining)
 					if data is None:
 						data = run_checks_with_active_snapshot(
-							suite=suite,
-							checks=checks,
+							validation_plan=validation_plan,
 							timeout_seconds=timeout_seconds,
 							suite_timeout_seconds=remaining_suite_timeout,
 							fail_fast=fail_fast,
-							sync_examples=sync_examples,
 							allow_breaking_api=allow_breaking_api,
 							artifact_manifest=artifact_manifest,
 							package_artifact_manifest=effective_package_manifest,
@@ -32915,8 +32488,7 @@ def run_checks(
 			except (WorkspaceDeadlineError, PackageArtifactDeadlineError, TimeoutError) as error:
 				if data is None:
 					data = make_check_deadline_failure(
-						suite,
-						selected_names,
+						validation_plan,
 						workspace_state,
 						suite_timeout_seconds or 0,
 					)
@@ -32941,8 +32513,7 @@ def run_checks(
 					else:
 						failure_name = "parallel_validation_setup"
 					data = make_check_setup_failure(
-						suite,
-						selected_names,
+						validation_plan,
 						workspace_state,
 						failure_name,
 						str(error),
@@ -32961,8 +32532,7 @@ def run_checks(
 		if temporary_cleanup_errors:
 			if data is None:
 				data = make_check_setup_failure(
-					suite,
-					expanded_check_names(suite, checks, sync_examples=sync_examples),
+					validation_plan,
 					workspace_state,
 					"temporary_workspace_cleanup",
 					"\n".join(temporary_cleanup_errors),
@@ -33009,21 +32579,20 @@ def run_checks(
 
 
 def make_check_setup_failure(
-	suite: str,
-	check_names: list[str],
+	validation_plan: gf_validation_catalog.ValidationPlan,
 	workspace_state: dict[str, Any],
 	name: str,
 	message: str,
 ) -> dict[str, Any]:
-	graph = maintenance_check_graph()
+	check_names = list(validation_plan.actions)
 	return {
 		"ok": False,
-		"suite": suite,
+		"suite": validation_plan.suite,
 		"checks": check_names,
 		"completed_check_count": 0,
 		"duration_seconds": 0.0,
 		"suite_timeout_seconds": None,
-		"check_graph": graph.describe(check_names),
+		"check_graph": validation_plan.describe_graph(),
 		"workspace_fingerprint": workspace_state["fingerprint"],
 		"results": [{
 			"name": name,
@@ -33040,14 +32609,12 @@ def make_check_setup_failure(
 
 
 def make_check_deadline_failure(
-	suite: str,
-	check_names: list[str],
+	validation_plan: gf_validation_catalog.ValidationPlan,
 	workspace_state: dict[str, Any],
 	suite_timeout_seconds: int,
 ) -> dict[str, Any]:
 	data = make_check_setup_failure(
-		suite,
-		check_names,
+		validation_plan,
 		workspace_state,
 		"suite_deadline",
 		"Suite deadline exhausted before checks started.",
@@ -33385,6 +32952,7 @@ def run_parallel_full_checks(
 	captured_workspace: CapturedWorkspace,
 	parallel_root: Path,
 	*,
+	validation_plan: gf_validation_catalog.ValidationPlan,
 	jobs: int,
 	timeout_seconds: int | None,
 	suite_timeout_seconds: int | None,
@@ -33402,7 +32970,7 @@ def run_parallel_full_checks(
 	if cleanup_state is None:
 		cleanup_state = {"permitted": True}
 	parallel_started = time.perf_counter()
-	plan = parallel_full_shard_plan()
+	plan = parallel_full_shard_plan(validation_plan)
 	batches = parallel_full_shard_batches(plan, jobs)
 	if (
 		suite_timeout_seconds is not None
@@ -33413,6 +32981,7 @@ def run_parallel_full_checks(
 			plan,
 			jobs,
 			suite_timeout_seconds,
+			validation_plan=validation_plan,
 		)
 	godot_isolation = run_parallel_godot_isolation_probe(
 		parallel_root,
@@ -33426,8 +32995,12 @@ def run_parallel_full_checks(
 	log_copy_errors: list[str] = []
 	shard_results: list[ParallelShardResult] = []
 	expected_checks_by_shard = {
-		shard_plan.name: expanded_check_names("quick", list(shard_plan.checks))
+		shard_plan.name: list(shard_plan.execution_checks)
 		for shard_plan in plan
+	}
+	expected_check_graphs_by_shard = {
+		shard_name: validation_plan.check_graph.describe(expected_checks)
+		for shard_name, expected_checks in expected_checks_by_shard.items()
 	}
 	cleanup_state["permitted"] = False
 	gf_parallel_validation.assert_source_matches_snapshot(
@@ -33517,6 +33090,9 @@ def run_parallel_full_checks(
 					report_paths[shard_result.name],
 					expected_checks,
 					captured_workspace.workspace_state(),
+					expected_check_graph=expected_check_graphs_by_shard[
+						shard_result.name
+					],
 					expected_package_artifact_manifest_sha256=package_artifact_manifest_sha256,
 					expected_package_artifact_count=package_artifact_count,
 				)
@@ -33631,7 +33207,7 @@ def run_parallel_full_checks(
 		if stop_after_batch:
 			break
 
-	canonical_checks = expanded_check_names("full", None)
+	canonical_checks = list(validation_plan.actions)
 	aggregated_results: list[dict[str, Any]] = []
 	for check_name in canonical_checks:
 		check_occurrences = occurrences.get(check_name, [])
@@ -33684,7 +33260,7 @@ def run_parallel_full_checks(
 		),
 		"duration_seconds": round(time.perf_counter() - parallel_started, 3),
 		"suite_timeout_seconds": suite_timeout_seconds,
-		"check_graph": maintenance_check_graph().describe(canonical_checks),
+		"check_graph": validation_plan.describe_graph(),
 		"workspace_fingerprint": captured_workspace.workspace_fingerprint,
 		"execution": "parallel_shards",
 		"jobs": jobs,
@@ -33836,8 +33412,10 @@ def make_parallel_full_deadline_result(
 	plan: list[ParallelCheckShardPlan],
 	jobs: int,
 	suite_timeout_seconds: int,
+	*,
+	validation_plan: gf_validation_catalog.ValidationPlan,
 ) -> dict[str, Any]:
-	canonical_checks = expanded_check_names("full", None)
+	canonical_checks = list(validation_plan.actions)
 	results = [
 		{
 			"name": check_name,
@@ -33862,7 +33440,7 @@ def make_parallel_full_deadline_result(
 		"not_started_check_count": len(results),
 		"duration_seconds": 0.0,
 		"suite_timeout_seconds": suite_timeout_seconds,
-		"check_graph": maintenance_check_graph().describe(canonical_checks),
+		"check_graph": validation_plan.describe_graph(),
 		"workspace_fingerprint": captured_workspace.workspace_fingerprint,
 		"execution": "parallel_shards",
 		"jobs": jobs,
@@ -33878,6 +33456,7 @@ def load_parallel_shard_report(
 	expected_checks: list[str],
 	expected_workspace_state: dict[str, object],
 	*,
+	expected_check_graph: dict[str, Any],
 	expected_package_artifact_manifest_sha256: str = "",
 	expected_package_artifact_count: int | None = None,
 ) -> tuple[dict[str, Any] | None, str]:
@@ -33930,7 +33509,6 @@ def load_parallel_shard_report(
 	for field_name in ("schema_version", "head", "dirty", "untracked_file_count", "fingerprint"):
 		if workspace.get(field_name) != expected_workspace_state.get(field_name):
 			return None, f"Shard report workspace {field_name} differs from the captured source."
-	expected_check_graph = maintenance_check_graph().describe(expected_checks)
 	if report.get("check_graph") != expected_check_graph:
 		return None, "Shard report check graph differs from its assigned closure."
 	workspace_snapshot = report.get("workspace_snapshot")
@@ -34571,12 +34149,10 @@ def same_open_file_identity(left: os.stat_result, right: os.stat_result) -> bool
 
 
 def run_checks_with_active_snapshot(
-	suite: str = "quick",
-	checks: list[str] | None = None,
+	validation_plan: gf_validation_catalog.ValidationPlan,
 	timeout_seconds: int | None = None,
 	suite_timeout_seconds: int | None = None,
 	fail_fast: bool = False,
-	sync_examples: bool = False,
 	allow_breaking_api: bool = False,
 	artifact_manifest: str = "",
 	package_artifact_manifest: str = "",
@@ -34591,19 +34167,8 @@ def run_checks_with_active_snapshot(
 		if suite_timeout_seconds is not None
 		else None
 	)
-	check_names = list(checks if checks else CHECK_SUITES[suite])
-	effective_dependencies = {name: list(dependencies) for name, dependencies in CHECK_DEPENDENCIES.items()}
-	if sync_examples:
-		check_names = [
-			"examples_sync_write" if name == "examples_sync" else name
-			for name in check_names
-		]
-		effective_dependencies = {
-			name: ["examples_sync_write" if dependency == "examples_sync" else dependency for dependency in dependencies]
-			for name, dependencies in effective_dependencies.items()
-		}
-	graph = CheckGraph([*CHECK_DEFINITIONS.keys(), "release_metadata"], effective_dependencies)
-	check_names = graph.expand(check_names)
+	check_names = list(validation_plan.actions)
+	graph = validation_plan.check_graph
 	effective_workspace_state = workspace_state or workspace_fingerprint(ROOT)
 	workspace_state_fingerprint = str(effective_workspace_state["fingerprint"])
 	results: list[dict[str, Any]] = []
@@ -34719,12 +34284,12 @@ def run_checks_with_active_snapshot(
 	ok = all(item.get("exit_code", 1) == 0 for item in results)
 	return {
 		"ok": ok,
-		"suite": suite,
+		"suite": validation_plan.suite,
 		"checks": check_names,
 		"completed_check_count": len(results),
 		"duration_seconds": round(time.perf_counter() - suite_started, 3),
 		"suite_timeout_seconds": suite_timeout_seconds,
-		"check_graph": graph.describe(check_names),
+		"check_graph": validation_plan.describe_graph(),
 		"workspace_fingerprint": workspace_state_fingerprint,
 		"results": results,
 	}
