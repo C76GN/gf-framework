@@ -33,6 +33,8 @@ import gf_gut_lifecycle_smoke
 import gf_maintenance
 import gf_maintenance_rendering
 import gf_mcp_server
+import gf_process_supervisor
+import gf_project_layout_profile
 import gf_workspace_snapshot
 
 
@@ -168,6 +170,1154 @@ class GutLifecycleSmokeBoundaryTests(unittest.TestCase):
 					"fixture-godot",
 					gf_gut_lifecycle_smoke.SCENARIOS[0],
 				)
+
+
+class ProjectLayoutProfileTests(unittest.TestCase):
+	AUTHORITATIVE_RESULT_FIELDS = (
+		"root",
+		"profile_found",
+		"profile_path",
+		"profile_id",
+		"profile_source_digest",
+		"file_count",
+		"issue_count",
+		"error_count",
+		"warning_count",
+		"info_count",
+		"issue_kind_counts",
+		"reason_code_counts",
+		"severity_counts",
+		"issues",
+		"ok",
+	)
+	FIXTURE_PATH = (
+		ROOT
+		/ "tests/gf_core/tools/project_layout/fixtures/profile_conformance_v1.json"
+	)
+
+	@classmethod
+	def _fixture(cls) -> dict[str, object]:
+		return json.loads(cls.FIXTURE_PATH.read_text(encoding="utf-8"))
+
+	def assert_shadow_preserves_legacy_authority(
+		self,
+		legacy: dict[str, object],
+		shadow: dict[str, object],
+	) -> None:
+		for field_name in self.AUTHORITATIVE_RESULT_FIELDS:
+			with self.subTest(authoritative_field=field_name):
+				self.assertEqual(shadow[field_name], legacy[field_name])
+		self.assertEqual(
+			0 if shadow["ok"] else 1,
+			0 if legacy["ok"] else 1,
+			"CLI exit semantics must remain bound to the legacy authoritative result.",
+		)
+
+	@staticmethod
+	def git_inventory_capture_factory(
+		tracked_stdout: bytes,
+		untracked_stdout: bytes = b"",
+	) -> object:
+		def capture(
+			command: list[str],
+			**_kwargs: object,
+		) -> gf_process_supervisor.SupervisedBinaryProcessResult:
+			stdout = tracked_stdout if command[-1] == "--cached" else untracked_stdout
+			return gf_process_supervisor.SupervisedBinaryProcessResult(
+				return_code=0,
+				stdout=stdout,
+				stderr=b"",
+				timed_out=False,
+				duration_seconds=0.01,
+				pid=123,
+				cleanup_complete=True,
+			)
+
+		return capture
+
+	def assert_single_git_inventory_capture(self, run_mock: mock.Mock) -> None:
+		self.assertEqual(
+			[call.args[0] for call in run_mock.call_args_list],
+			[
+				["git", "ls-files", "-z", "--cached"],
+				["git", "ls-files", "-z", "--others", "--exclude-standard"],
+			],
+		)
+
+	def test_canonical_fixture_matches_strict_python_contract_and_runtime(self) -> None:
+		fixture = self._fixture()
+		self.assertEqual(fixture["fixture_schema_version"], 1)
+		cases = fixture["cases"]
+		case_ids = [case["id"] for case in cases]
+		self.assertEqual(len(case_ids), 33)
+		self.assertEqual(len(case_ids), len(set(case_ids)))
+		for case in cases:
+			with self.subTest(case=case["id"]):
+				expected = case["expected"]
+				compilation = gf_project_layout_profile.compile_project_profile_v1(
+					case["profile"],
+					"fixture.json",
+				)
+				self.assertEqual(
+					compilation["ok"],
+					expected["strict_contract_valid"],
+					compilation["issues"],
+				)
+				if "reason_code" in expected:
+					self.assertTrue(any(
+						issue.get("reason_code") == expected["reason_code"]
+						for issue in compilation["issues"]
+					), compilation["issues"])
+				if not compilation["ok"]:
+					continue
+				runtime_issues = (
+					gf_project_layout_profile.audit_compiled_project_profile_runtime(
+						compilation,
+						"fixture.json",
+						case["inventory"],
+					)
+				)
+				self.assertEqual(
+					len(runtime_issues),
+					expected["python_issue_count"],
+					runtime_issues,
+				)
+				self.assertEqual(
+					sorted(issue.get("kind", "") for issue in runtime_issues),
+					sorted(expected["python_runtime_issue_kinds"]),
+					runtime_issues,
+				)
+				if "python_runtime_reason_code" in expected:
+					self.assertTrue(any(
+						issue.get("reason_code")
+						== expected["python_runtime_reason_code"]
+						and issue.get("path") == expected["python_runtime_issue_path"]
+						for issue in runtime_issues
+					), runtime_issues)
+				if "excluded_path" in expected:
+					self.assertFalse(any(
+						issue.get("path") == expected["excluded_path"]
+						for issue in runtime_issues
+					), runtime_issues)
+
+	def test_default_adapter_is_strict_and_migration_modes_are_explicit(self) -> None:
+		profile = {
+			"schema_version": 1,
+			"id": "neutral.mode_contract",
+			"zones": [],
+			"rules": [{
+				"id": "bounded",
+				"kind": "bucket_size",
+				"roots": ["src"],
+				"max_files": 1,
+				"extensions": [".gd"],
+			}],
+		}
+		inventory = ["src/main.gd", "src/readme.md"]
+		with tempfile.TemporaryDirectory() as temporary_directory, mock.patch.object(
+			gf_project_layout_profile,
+			"ROOT",
+			Path(temporary_directory),
+		), mock.patch.object(
+			gf_project_layout_profile,
+			"collect_project_profile_paths",
+			return_value={"paths": inventory, "errors": []},
+		), mock.patch.object(
+			gf_project_layout_profile,
+			"collect_project_profile_path_views",
+			return_value={
+				"legacy": {"paths": inventory, "errors": []},
+				"strict": {"paths": inventory, "errors": []},
+			},
+		):
+			(Path(temporary_directory) / "profile.json").write_text(
+				json.dumps(profile),
+				encoding="utf-8",
+			)
+			strict = gf_maintenance.project_profile_boundary(
+				profile_path="profile.json",
+				fail_on_warnings=True,
+			)
+			legacy = gf_maintenance.project_profile_boundary(
+				profile_path="profile.json",
+				fail_on_warnings=True,
+				profile_mode="legacy",
+			)
+			shadow = gf_maintenance.project_profile_boundary(
+				profile_path="profile.json",
+				fail_on_warnings=True,
+				profile_mode="shadow",
+			)
+
+		self.assertEqual(strict["profile_mode"], "strict")
+		self.assertFalse(strict["deprecated"])
+		self.assertIsNone(strict["removal_version"])
+		self.assertFalse(strict["ok"])
+		self.assertEqual(strict["authoritative_profile_mode"], "strict")
+		self.assertRegex(strict["contract_digest"], r"^[0-9a-f]{64}$")
+		self.assertEqual(legacy["profile_mode"], "legacy")
+		self.assertTrue(legacy["deprecated"])
+		self.assertEqual(legacy["removal_version"], "12.0.0")
+		self.assertTrue(legacy["ok"])
+		self.assertEqual(shadow["profile_mode"], "shadow")
+		self.assertTrue(shadow["deprecated"])
+		self.assertEqual(shadow["removal_version"], "12.0.0")
+		self.assertEqual(shadow["authoritative_profile_mode"], "legacy")
+		self.assertTrue(shadow["ok"])
+		self.assertIsInstance(shadow["shadow"], dict)
+		self.assertFalse(shadow["shadow"]["authoritative"])
+		self.assertTrue(shadow["shadow"]["migration_only"])
+		self.assertEqual(shadow["shadow"]["runtime_issue_count"], 1)
+
+	def test_strict_admission_failure_precedes_inventory(self) -> None:
+		invalid_profile = {
+			"schema_version": 2,
+			"id": "neutral.future",
+			"zones": [],
+			"rules": [],
+		}
+		with tempfile.TemporaryDirectory() as temporary_directory, mock.patch.object(
+			gf_project_layout_profile,
+			"ROOT",
+			Path(temporary_directory),
+		), mock.patch.object(
+			gf_project_layout_profile,
+			"collect_project_profile_paths",
+			return_value={"paths": [], "errors": []},
+		) as collect_paths, mock.patch.object(
+			gf_project_layout_profile,
+			"collect_project_profile_path_views",
+			return_value={
+				"legacy": {"paths": [], "errors": []},
+				"strict": {"paths": [], "errors": []},
+			},
+		):
+			(Path(temporary_directory) / "profile.json").write_text(
+				json.dumps(invalid_profile),
+				encoding="utf-8",
+			)
+			result = gf_maintenance.project_profile_boundary(
+				profile_path="profile.json",
+			)
+		collect_paths.assert_not_called()
+		self.assertFalse(result["ok"])
+		self.assertFalse(result["evaluation_complete"])
+		self.assertEqual(result["skip_reason"], "profile_contract_invalid")
+		self.assertEqual(result["file_count"], 0)
+
+	def test_shadow_strict_admission_failure_does_not_rescan_inventory(self) -> None:
+		profile = {
+			"schema_version": 2,
+			"id": "neutral.shadow_admission_failure",
+			"zones": [{
+				"id": "required_root",
+				"roots": ["required"],
+				"required": True,
+			}],
+			"rules": [],
+		}
+		with tempfile.TemporaryDirectory() as temporary_directory:
+			(Path(temporary_directory) / "profile.json").write_text(
+				json.dumps(profile),
+				encoding="utf-8",
+			)
+			with mock.patch.object(
+				gf_project_layout_profile,
+				"ROOT",
+				Path(temporary_directory),
+			), mock.patch.object(
+				gf_project_layout_profile.gf_process_supervisor,
+				"run_supervised_process_bytes",
+				side_effect=self.git_inventory_capture_factory(b"src/main.gd\0"),
+			) as legacy_git_run:
+				legacy = gf_maintenance.project_profile_boundary(
+					profile_path="profile.json",
+					profile_mode="legacy",
+				)
+			self.assert_single_git_inventory_capture(legacy_git_run)
+
+			with mock.patch.object(
+				gf_project_layout_profile,
+				"ROOT",
+				Path(temporary_directory),
+			), mock.patch.object(
+				gf_project_layout_profile.gf_process_supervisor,
+				"run_supervised_process_bytes",
+				side_effect=self.git_inventory_capture_factory(b"src/main.gd\0"),
+			) as shadow_git_run:
+				shadow = gf_maintenance.project_profile_boundary(
+					profile_path="profile.json",
+					profile_mode="shadow",
+				)
+			self.assert_single_git_inventory_capture(shadow_git_run)
+
+		self.assert_shadow_preserves_legacy_authority(legacy, shadow)
+		self.assertFalse(shadow["shadow"]["inventory_available"])
+		self.assertFalse(shadow["shadow"]["evaluation_complete"])
+		self.assertEqual(
+			shadow["shadow"]["skip_reason"],
+			"profile_contract_invalid",
+		)
+
+	def test_shadow_uses_legacy_authority_when_strict_inventory_is_rejected(self) -> None:
+		profile = {
+			"schema_version": 1,
+			"id": "neutral.shadow_authority",
+			"zones": [{
+				"id": "canonical_legacy_root",
+				"roots": ["src/main.gd"],
+				"required": True,
+			}],
+			"rules": [],
+		}
+		raw_inventory = b"src\\main.gd\0src/\xff.gd\0"
+		with tempfile.TemporaryDirectory() as temporary_directory:
+			(Path(temporary_directory) / "profile.json").write_text(
+				json.dumps(profile),
+				encoding="utf-8",
+			)
+			with mock.patch.object(
+				gf_project_layout_profile,
+				"ROOT",
+				Path(temporary_directory),
+			), mock.patch.object(
+				gf_project_layout_profile.gf_process_supervisor,
+				"run_supervised_process_bytes",
+				side_effect=self.git_inventory_capture_factory(raw_inventory),
+			) as legacy_git_run:
+				legacy = gf_maintenance.project_profile_boundary(
+					profile_path="profile.json",
+					profile_mode="legacy",
+				)
+			self.assert_single_git_inventory_capture(legacy_git_run)
+
+			with mock.patch.object(
+				gf_project_layout_profile,
+				"ROOT",
+				Path(temporary_directory),
+			), mock.patch.object(
+				gf_project_layout_profile.gf_process_supervisor,
+				"run_supervised_process_bytes",
+				side_effect=self.git_inventory_capture_factory(raw_inventory),
+			) as shadow_git_run:
+				shadow = gf_maintenance.project_profile_boundary(
+					profile_path="profile.json",
+					profile_mode="shadow",
+				)
+			self.assert_single_git_inventory_capture(shadow_git_run)
+
+		self.assert_shadow_preserves_legacy_authority(legacy, shadow)
+		self.assertEqual(shadow["file_count"], 2)
+		self.assertEqual(shadow["issues"], [])
+		self.assertFalse(shadow["shadow"]["inventory_available"])
+		self.assertEqual(shadow["shadow"]["skip_reason"], "inventory_unavailable")
+		self.assertEqual(
+			[issue["kind"] for issue in shadow["shadow"]["issues"]],
+			["project_profile_tracked_scan_failed"],
+		)
+
+	def test_shadow_fails_closed_when_legacy_inventory_is_unavailable(self) -> None:
+		profile = {
+			"schema_version": 1,
+			"id": "neutral.shadow_legacy_inventory_failure",
+			"zones": [],
+			"rules": [],
+		}
+		legacy_inventory = {
+			"paths": [],
+			"errors": [gf_project_layout_profile.make_project_profile_issue(
+				"project_profile_tracked_scan_failed",
+				"",
+				"legacy inventory is unavailable.",
+			)],
+		}
+		strict_inventory = {
+			"paths": [],
+			"errors": [gf_project_layout_profile.make_project_profile_issue(
+				"project_profile_tracked_scan_failed",
+				"",
+				"strict inventory is unavailable.",
+			)],
+		}
+
+		with tempfile.TemporaryDirectory() as temporary_directory:
+			(Path(temporary_directory) / "profile.json").write_text(
+				json.dumps(profile),
+				encoding="utf-8",
+			)
+			with mock.patch.object(
+				gf_project_layout_profile,
+				"ROOT",
+				Path(temporary_directory),
+			), mock.patch.object(
+				gf_project_layout_profile,
+				"collect_project_profile_paths",
+				return_value=legacy_inventory,
+			) as legacy_collect_paths:
+				legacy = gf_maintenance.project_profile_boundary(
+					profile_path="profile.json",
+					profile_mode="legacy",
+				)
+			legacy_collect_paths.assert_called_once_with()
+
+			with mock.patch.object(
+				gf_project_layout_profile,
+				"ROOT",
+				Path(temporary_directory),
+			), mock.patch.object(
+				gf_project_layout_profile,
+				"collect_project_profile_path_views",
+				return_value={
+					"legacy": legacy_inventory,
+					"strict": strict_inventory,
+				},
+			) as shadow_collect_views:
+				shadow = gf_maintenance.project_profile_boundary(
+					profile_path="profile.json",
+					profile_mode="shadow",
+				)
+			shadow_collect_views.assert_called_once_with()
+
+		self.assert_shadow_preserves_legacy_authority(legacy, shadow)
+		self.assertFalse(shadow["ok"])
+		self.assertEqual(shadow["file_count"], 0)
+		self.assertEqual(
+			[issue["kind"] for issue in shadow["issues"]],
+			["project_profile_tracked_scan_failed"],
+		)
+		self.assertEqual(0 if shadow["ok"] else 1, 1)
+
+	def test_git_capture_oserror_is_stable_and_fail_closed(self) -> None:
+		profile = {
+			"schema_version": 1,
+			"id": "neutral.git_capture_oserror",
+			"zones": [],
+			"rules": [],
+		}
+
+		def git_capture(command: list[str], **_kwargs: object) -> object:
+			if command[-1] == "--cached":
+				raise OSError("machine-specific detail must not leak")
+			factory = self.git_inventory_capture_factory(b"", b"")
+			return factory(command)
+
+		with tempfile.TemporaryDirectory() as temporary_directory:
+			(Path(temporary_directory) / "profile.json").write_text(
+				json.dumps(profile),
+				encoding="utf-8",
+			)
+			with mock.patch.object(
+				gf_project_layout_profile,
+				"ROOT",
+				Path(temporary_directory),
+			), mock.patch.object(
+				gf_project_layout_profile.gf_process_supervisor,
+				"run_supervised_process_bytes",
+				side_effect=git_capture,
+			) as legacy_git_run:
+				legacy = gf_maintenance.project_profile_boundary(
+					profile_path="profile.json",
+					profile_mode="legacy",
+				)
+			self.assert_single_git_inventory_capture(legacy_git_run)
+
+			with mock.patch.object(
+				gf_project_layout_profile,
+				"ROOT",
+				Path(temporary_directory),
+			), mock.patch.object(
+				gf_project_layout_profile.gf_process_supervisor,
+				"run_supervised_process_bytes",
+				side_effect=git_capture,
+			) as shadow_git_run:
+				shadow = gf_maintenance.project_profile_boundary(
+					profile_path="profile.json",
+					profile_mode="shadow",
+				)
+			self.assert_single_git_inventory_capture(shadow_git_run)
+
+		self.assert_shadow_preserves_legacy_authority(legacy, shadow)
+		self.assertFalse(legacy["ok"])
+		self.assertEqual(0 if legacy["ok"] else 1, 1)
+		self.assertEqual(
+			[issue["kind"] for issue in legacy["issues"]],
+			["project_profile_tracked_scan_failed"],
+		)
+		self.assertEqual(legacy["issues"][0]["message"], "git path scan failed.")
+		self.assertFalse(shadow["shadow"]["inventory_available"])
+		self.assertEqual(
+			[issue["kind"] for issue in shadow["shadow"]["issues"]],
+			["project_profile_tracked_scan_failed"],
+		)
+
+	def test_git_capture_does_not_swallow_unexpected_or_control_flow_errors(self) -> None:
+		for raised_error in (
+			RuntimeError("unexpected failure"),
+			KeyboardInterrupt(),
+			SystemExit(2),
+		):
+			with self.subTest(error_type=type(raised_error).__name__), mock.patch.object(
+				gf_project_layout_profile.gf_process_supervisor,
+				"run_supervised_process_bytes",
+				side_effect=raised_error,
+			):
+				with self.assertRaises(type(raised_error)):
+					gf_project_layout_profile.capture_git_paths(
+						["ls-files", "-z", "--cached"]
+					)
+
+	def test_git_inventory_subprocess_capture_has_a_hard_byte_ceiling(self) -> None:
+		process_result = gf_process_supervisor.SupervisedBinaryProcessResult(
+			return_code=-9,
+			stdout=b"x" * 64,
+			stderr=b"",
+			timed_out=False,
+			duration_seconds=0.01,
+			pid=123,
+			stdout_truncated=True,
+			cleanup_complete=True,
+		)
+		with mock.patch.object(
+			gf_project_layout_profile,
+			"PROJECT_PROFILE_GIT_STDOUT_MAX_BYTES",
+			64,
+		), mock.patch.object(
+			gf_project_layout_profile.gf_process_supervisor,
+			"run_supervised_process_bytes",
+			return_value=process_result,
+		):
+			capture = gf_project_layout_profile.capture_git_paths(
+				["ls-files", "-z", "--cached"]
+			)
+
+		self.assertEqual(capture["error_kind"], "resource_limit")
+		self.assertEqual(capture["stdout"], b"")
+
+	def test_git_inventory_descendant_pipe_failure_is_stable_and_fail_closed(self) -> None:
+		process_result = gf_process_supervisor.SupervisedBinaryProcessResult(
+			return_code=0,
+			stdout=b"partial\0",
+			stderr=b"",
+			timed_out=False,
+			duration_seconds=0.5,
+			pid=123,
+			output_drain_failed=True,
+			cleanup_complete=True,
+		)
+		with mock.patch.object(
+			gf_project_layout_profile.gf_process_supervisor,
+			"run_supervised_process_bytes",
+			return_value=process_result,
+		):
+			capture = gf_project_layout_profile.capture_git_paths(
+				["ls-files", "-z", "--cached"]
+			)
+
+		self.assertEqual(capture["error_kind"], "process_tree")
+		self.assertEqual(capture["stdout"], b"")
+		self.assertEqual(capture["error"], "git path scan failed.")
+
+	def test_inventory_count_bytes_and_sort_work_limits_are_terminal(self) -> None:
+		def path_result(paths: list[str]) -> dict[str, object]:
+			return {
+				"paths": paths,
+				"path_count": len(paths),
+				"utf8_bytes": sum(len(path.encode("utf-8")) for path in paths),
+				"error": "",
+				"error_kind": "",
+			}
+
+		cases = (
+			("PROJECT_PROFILE_INVENTORY_MAX_PATHS", 1, ["a.gd", "b.gd"]),
+			("PROJECT_PROFILE_INVENTORY_MAX_UTF8_BYTES", 4, ["alpha.gd"]),
+			("PROJECT_PROFILE_INVENTORY_MAX_SORT_WORK_UNITS", 1, ["a.gd", "b.gd"]),
+		)
+		for constant_name, limit, paths in cases:
+			with self.subTest(limit=constant_name), mock.patch.object(
+				gf_project_layout_profile,
+				constant_name,
+				limit,
+			):
+				payload = gf_project_layout_profile.make_project_profile_paths_payload(
+					path_result(paths),
+					path_result([]),
+				)
+			self.assertEqual(payload["paths"], [])
+			self.assertEqual(len(payload["errors"]), 1)
+			self.assertEqual(
+				payload["errors"][0]["reason_code"],
+				"PROJECT_LAYOUT_PROFILE_RESOURCE_LIMIT_EXCEEDED",
+			)
+
+	def test_inventory_resource_limit_preserves_all_mode_authority_contracts(self) -> None:
+		profile = {
+			"schema_version": 1,
+			"id": "neutral.inventory_resource",
+			"zones": [],
+			"rules": [],
+		}
+		with tempfile.TemporaryDirectory() as temporary_directory:
+			(Path(temporary_directory) / "profile.json").write_text(
+				json.dumps(profile),
+				encoding="utf-8",
+			)
+			results: dict[str, dict[str, object]] = {}
+			for profile_mode in gf_project_layout_profile.PROFILE_MODES:
+				with self.subTest(profile_mode=profile_mode), mock.patch.object(
+					gf_project_layout_profile,
+					"ROOT",
+					Path(temporary_directory),
+				), mock.patch.object(
+					gf_project_layout_profile,
+					"PROJECT_PROFILE_GIT_STDOUT_MAX_BYTES",
+					64,
+				), mock.patch.object(
+					gf_project_layout_profile.gf_process_supervisor,
+					"run_supervised_process_bytes",
+					side_effect=self.git_inventory_capture_factory(b"x" * 1024),
+				) as popen_mock:
+					results[profile_mode] = gf_maintenance.project_profile_boundary(
+						profile_path="profile.json",
+						profile_mode=profile_mode,
+					)
+				self.assert_single_git_inventory_capture(popen_mock)
+
+		self.assert_shadow_preserves_legacy_authority(
+			results["legacy"],
+			results["shadow"],
+		)
+		for profile_mode in ("strict", "legacy"):
+			self.assertFalse(results[profile_mode]["ok"])
+			self.assertEqual(results[profile_mode]["file_count"], 0)
+			self.assertEqual(
+				results[profile_mode]["issues"][0]["reason_code"],
+				"PROJECT_LAYOUT_PROFILE_RESOURCE_LIMIT_EXCEEDED",
+			)
+		self.assertEqual(
+			results["shadow"]["shadow"]["issues"][0]["reason_code"],
+			"PROJECT_LAYOUT_PROFILE_RESOURCE_LIMIT_EXCEEDED",
+		)
+
+	def test_audit_work_and_diagnostic_floods_discard_partial_results(self) -> None:
+		profile = {
+			"schema_version": 1,
+			"id": "neutral.budget",
+			"zones": [],
+			"rules": [{
+				"id": "names",
+				"kind": "naming_convention",
+				"roots": [],
+				"pattern": "^[a-z]+$",
+			}],
+		}
+		compilation = gf_project_layout_profile.compile_project_profile_v1(
+			profile,
+			"fixture.json",
+		)
+		self.assertTrue(compilation["ok"], compilation["issues"])
+
+		with mock.patch.object(
+			gf_project_layout_profile,
+			"PROJECT_PROFILE_AUDIT_MAX_WORK_UNITS",
+			1,
+		):
+			work_issues = (
+				gf_project_layout_profile.audit_compiled_project_profile_runtime(
+					compilation,
+					"fixture.json",
+					["bad.gd"],
+				)
+			)
+		self.assertEqual(len(work_issues), 1)
+		self.assertEqual(
+			work_issues[0]["reason_code"],
+			"PROJECT_LAYOUT_PROFILE_RESOURCE_LIMIT_EXCEEDED",
+		)
+
+		with mock.patch.object(
+			gf_project_layout_profile,
+			"PROJECT_PROFILE_MAX_DIAGNOSTICS",
+			8,
+		):
+			diagnostic_issues = (
+				gf_project_layout_profile.audit_compiled_project_profile_runtime(
+					compilation,
+					"fixture.json",
+					["BAD_%03d.gd" % index for index in range(32)],
+				)
+			)
+		self.assertEqual(len(diagnostic_issues), 1)
+		self.assertEqual(
+			diagnostic_issues[0]["reason_code"],
+			"PROJECT_LAYOUT_PROFILE_RESOURCE_LIMIT_EXCEEDED",
+		)
+
+	def test_regex_portable_subset_rejects_dialect_and_backtracking_hazards(self) -> None:
+		for pattern in (r"(a+)+$", r"\R", "[é]", "a*a$"):
+			with self.subTest(pattern=pattern):
+				profile = {
+					"schema_version": 1,
+					"id": "neutral.regex_budget",
+					"zones": [],
+					"rules": [{
+						"id": "names",
+						"kind": "naming_convention",
+						"roots": [],
+						"pattern": pattern,
+					}],
+				}
+				compilation = gf_project_layout_profile.compile_project_profile_v1(
+					profile,
+					"fixture.json",
+				)
+			self.assertFalse(compilation["ok"])
+			self.assertEqual(
+				[
+					issue.get("reason_code")
+					for issue in compilation["issues"]
+					if issue.get("reason_code")
+				],
+				["PROJECT_LAYOUT_PROFILE_REGEX_UNSAFE"],
+			)
+
+	def test_all_modes_use_bounded_regular_file_reading(self) -> None:
+		with tempfile.TemporaryDirectory() as temporary_directory, mock.patch.object(
+			gf_project_layout_profile,
+			"ROOT",
+			Path(temporary_directory),
+		), mock.patch.object(
+			gf_project_layout_profile,
+			"PROJECT_PROFILE_STRICT_MAX_BYTES",
+			64,
+		), mock.patch.object(
+			gf_project_layout_profile,
+			"collect_project_profile_paths",
+			return_value={"paths": [], "errors": []},
+		) as collect_paths:
+			(Path(temporary_directory) / "profile.json").write_bytes(b"{" + b"x" * 80)
+			for profile_mode in gf_project_layout_profile.PROFILE_MODES:
+				with self.subTest(profile_mode=profile_mode):
+					collect_paths.reset_mock()
+					result = gf_maintenance.project_profile_boundary(
+						profile_path="profile.json",
+						profile_mode=profile_mode,
+					)
+					self.assertTrue(any(
+						issue.get("kind") == "invalid_project_profile_json"
+						for issue in (
+							result["shadow"]["issues"]
+							if profile_mode == "shadow"
+							else result["issues"]
+						)
+					))
+					if profile_mode == "strict":
+						collect_paths.assert_not_called()
+
+	def test_capabilities_are_mode_scoped_and_shadow_is_not_authoritative(self) -> None:
+		strict = gf_project_layout_profile.project_profile_capabilities(
+			profile_mode="strict",
+		)
+		legacy = gf_project_layout_profile.project_profile_capabilities(
+			profile_mode="legacy",
+		)
+		shadow = gf_project_layout_profile.project_profile_capabilities(
+			profile_mode="shadow",
+		)
+		self.assertTrue(strict["contract_enforced"])
+		self.assertTrue(strict["authoritative"])
+		self.assertFalse(strict["deprecated"])
+		self.assertFalse(legacy["contract_enforced"])
+		self.assertTrue(legacy["deprecated"])
+		self.assertEqual(legacy["removal_version"], "12.0.0")
+		self.assertTrue(shadow["contract_enforced"])
+		self.assertFalse(shadow["authoritative"])
+		self.assertTrue(shadow["deprecated"])
+		self.assertEqual(
+			set(strict["rule_kinds"]),
+			set(gf_project_layout_profile.project_profile_rule_handler_registry()),
+		)
+		self.assertNotIn("extensions", strict["rule_fields"]["bucket_size"])
+		self.assertIn("extensions", legacy["rule_fields"]["bucket_size"])
+		self.assertEqual(strict["regex_dialect"], "portable_safe_v1")
+		self.assertEqual(strict["limits"]["inventory_paths"], 20_000)
+		self.assertEqual(strict["limits"]["diagnostics"], 256)
+		self.assertNotIn(
+			"regex_engine_portability_not_guaranteed",
+			strict["limitation_codes"],
+		)
+
+	def test_cli_accepts_only_the_three_product_modes_and_defaults_to_strict(self) -> None:
+		command = [
+			sys.executable,
+			str(ROOT / "tools/gf_maintenance.py"),
+			"project-profile-boundary",
+			"--json",
+		]
+		result = subprocess.run(command, cwd=ROOT, capture_output=True, text=True)
+		self.assertEqual(result.returncode, 0, result.stderr)
+		self.assertEqual(json.loads(result.stdout)["profile_mode"], "strict")
+		invalid = subprocess.run(
+			[*command[:-1], "--profile-mode", "strict-v1", "--json"],
+			cwd=ROOT,
+			capture_output=True,
+			text=True,
+		)
+		self.assertEqual(invalid.returncode, 2)
+		self.assertIn("invalid choice", invalid.stderr)
+
+	def test_renderer_marks_deprecated_migration_mode(self) -> None:
+		data = gf_project_layout_profile.project_profile_boundary(
+			profile_mode="legacy",
+		)
+		rendered = gf_maintenance_rendering.render_project_profile_boundary_text(data)
+		self.assertIn("mode=legacy", rendered)
+		self.assertIn("deprecated: mode=legacy removal_version=12.0.0", rendered)
+
+
+class ProcessSupervisorBinaryCaptureTests(unittest.TestCase):
+	def test_binary_capture_rejects_invalid_deadlines_and_byte_limits(self) -> None:
+		base_arguments = {
+			"cwd": ROOT,
+			"timeout_seconds": 1.0,
+			"max_stdout_bytes": 1,
+			"max_stderr_bytes": 1,
+		}
+		for timeout_seconds in (True, 0.0, -1.0, float("nan"), float("inf")):
+			with self.subTest(timeout=timeout_seconds), self.assertRaises(ValueError):
+				gf_process_supervisor.run_supervised_process_bytes(
+					[sys.executable, "-c", "pass"],
+					**{**base_arguments, "timeout_seconds": timeout_seconds},
+				)
+		for field_name in ("max_stdout_bytes", "max_stderr_bytes"):
+			for capture_limit in (True, 0, -1):
+				with self.subTest(
+					field=field_name,
+					limit=capture_limit,
+				), self.assertRaises(ValueError):
+					gf_process_supervisor.run_supervised_process_bytes(
+						[sys.executable, "-c", "pass"],
+						**{**base_arguments, field_name: capture_limit},
+					)
+
+	def test_binary_capture_spawn_wait_is_bounded_by_the_absolute_deadline(self) -> None:
+		spawn_entered = threading.Event()
+		release_spawn = threading.Event()
+
+		class BlockingSpawnOwner(gf_process_supervisor._ProcessTreeOwner):
+			def start_bytes(
+				self,
+				_command: list[str],
+				*,
+				cwd: Path,
+				environment: dict[str, str] | None,
+			) -> subprocess.Popen[bytes]:
+				_ = (cwd, environment)
+				spawn_entered.set()
+				release_spawn.wait(2.0)
+				raise OSError("synthetic blocked spawn")
+
+		owner = BlockingSpawnOwner()
+		safety_release = threading.Timer(0.25, release_spawn.set)
+		safety_release.start()
+		started = time.monotonic()
+		try:
+			with mock.patch.object(
+				gf_process_supervisor,
+				"_new_process_tree_owner",
+				return_value=owner,
+			):
+				result = gf_process_supervisor.run_supervised_process_bytes(
+					[sys.executable, "-c", "pass"],
+					cwd=ROOT,
+					timeout_seconds=0.05,
+					max_stdout_bytes=1024,
+					max_stderr_bytes=1024,
+				)
+			elapsed = time.monotonic() - started
+		finally:
+			release_spawn.set()
+			safety_release.join()
+
+		self.assertTrue(spawn_entered.is_set())
+		self.assertLess(elapsed, 0.15)
+		self.assertTrue(result.timed_out, result.notes)
+		self.assertFalse(result.cleanup_complete)
+		self.assertIsNotNone(result.deferred_cleanup)
+		assert result.deferred_cleanup is not None
+		self.assertTrue(result.deferred_cleanup.wait(2.0))
+		cleanup_status = result.deferred_cleanup.snapshot()
+		self.assertTrue(cleanup_status.complete)
+		self.assertTrue(cleanup_status.owner_closed)
+
+	def test_binary_capture_cleans_a_child_tree_that_starts_after_the_deadline(self) -> None:
+		with tempfile.TemporaryDirectory() as temporary_directory:
+			temporary_root = Path(temporary_directory)
+			ready_path = temporary_root / "ready"
+			trigger_path = temporary_root / "trigger"
+			survived_path = temporary_root / "survived"
+			release_spawn = threading.Event()
+			spawn_entered = threading.Event()
+			grandchild_code = "\n".join([
+				"import time",
+				"from pathlib import Path",
+				f"ready = Path({str(ready_path)!r})",
+				f"trigger = Path({str(trigger_path)!r})",
+				f"survived = Path({str(survived_path)!r})",
+				"ready.write_text('ready', encoding='utf-8')",
+				"deadline = time.monotonic() + 10.0",
+				"while not trigger.exists() and time.monotonic() < deadline:",
+				"\ttime.sleep(0.01)",
+				"if trigger.exists():",
+				"\tsurvived.write_text('survived', encoding='utf-8')",
+			])
+			parent_code = "\n".join([
+				"import subprocess, sys, time",
+				(
+					f"subprocess.Popen([sys.executable, '-c', {grandchild_code!r}], "
+					"stdout=sys.stdout, stderr=sys.stderr)"
+				),
+				"time.sleep(10.0)",
+			])
+			original_owner_factory = gf_process_supervisor._new_process_tree_owner
+
+			def delayed_owner_factory() -> gf_process_supervisor._ProcessTreeOwner:
+				owner = original_owner_factory()
+				original_start_bytes = owner.start_bytes
+
+				def delayed_start_bytes(
+					command: list[str],
+					*,
+					cwd: Path,
+					environment: dict[str, str] | None,
+				) -> subprocess.Popen[bytes]:
+					spawn_entered.set()
+					release_spawn.wait(2.0)
+					process = original_start_bytes(
+						command,
+						cwd=cwd,
+						environment=environment,
+					)
+					ready_deadline = time.monotonic() + 2.0
+					while not ready_path.exists() and time.monotonic() < ready_deadline:
+						time.sleep(0.01)
+					return process
+
+				owner.start_bytes = delayed_start_bytes  # type: ignore[method-assign]
+				return owner
+
+			safety_release = threading.Timer(0.5, release_spawn.set)
+			safety_release.start()
+			started = time.monotonic()
+			try:
+				with mock.patch.object(
+					gf_process_supervisor,
+					"_new_process_tree_owner",
+					side_effect=delayed_owner_factory,
+				):
+					result = gf_process_supervisor.run_supervised_process_bytes(
+						[sys.executable, "-c", parent_code],
+						cwd=ROOT,
+						timeout_seconds=0.1,
+						max_stdout_bytes=1024,
+						max_stderr_bytes=1024,
+					)
+				elapsed = time.monotonic() - started
+				release_spawn.set()
+				self.assertIsNotNone(result.deferred_cleanup)
+				assert result.deferred_cleanup is not None
+				self.assertTrue(result.deferred_cleanup.wait(5.0))
+				cleanup_status = result.deferred_cleanup.snapshot()
+				trigger_path.write_text("finish", encoding="utf-8")
+				observation_deadline = time.monotonic() + 0.5
+				while (
+					not survived_path.exists()
+					and time.monotonic() < observation_deadline
+				):
+					time.sleep(0.01)
+			finally:
+				release_spawn.set()
+				safety_release.join()
+
+			self.assertTrue(spawn_entered.is_set())
+			self.assertLess(elapsed, 0.25)
+			self.assertTrue(result.timed_out, result.notes)
+			self.assertTrue(ready_path.exists(), (cleanup_status, result.notes))
+			self.assertTrue(cleanup_status.complete)
+			self.assertTrue(cleanup_status.owner_closed)
+			self.assertTrue(cleanup_status.process_tree_empty)
+			self.assertTrue(cleanup_status.cleanup_complete, cleanup_status.notes)
+			self.assertFalse(survived_path.exists())
+
+	@unittest.skipUnless(os.name == "nt", "Windows Job Object close boundary")
+	def test_windows_binary_close_wait_is_bounded_and_eventually_safe(self) -> None:
+		owner = gf_process_supervisor._WindowsJobOwner()
+		original_close_handle = gf_process_supervisor._CLOSE_HANDLE
+		close_entered = threading.Event()
+		release_close = threading.Event()
+
+		def blocked_close_handle(handle: object) -> object:
+			close_entered.set()
+			release_close.wait(2.0)
+			return original_close_handle(handle)
+
+		safety_release = threading.Timer(0.25, release_close.set)
+		safety_release.start()
+		started = time.monotonic()
+		try:
+			with mock.patch.object(
+				gf_process_supervisor,
+				"_CLOSE_HANDLE",
+				side_effect=blocked_close_handle,
+			):
+				notes = owner.close_before_deadline(time.perf_counter() + 0.05)
+			elapsed = time.monotonic() - started
+			self.assertTrue(close_entered.is_set())
+			self.assertLess(elapsed, 0.15)
+			self.assertFalse(owner.is_closed())
+			self.assertTrue(any("deadline" in note for note in notes), notes)
+			release_close.set()
+			self.assertTrue(owner.wait_for_close_completion(2.0))
+			self.assertTrue(owner.is_closed())
+		finally:
+			release_close.set()
+			safety_release.join()
+
+	def test_binary_capture_preserves_raw_bytes_and_enforces_byte_limits(self) -> None:
+		result = gf_process_supervisor.run_supervised_process_bytes(
+			[
+				sys.executable,
+				"-c",
+				"import os; os.write(1, b'\\xffabcde'); os.write(2, b'\\xfeerr')",
+			],
+			cwd=ROOT,
+			timeout_seconds=5.0,
+			max_stdout_bytes=4,
+			max_stderr_bytes=16,
+		)
+
+		self.assertFalse(result.timed_out, result.notes)
+		self.assertTrue(result.stdout_truncated)
+		self.assertFalse(result.stderr_truncated)
+		self.assertEqual(result.stdout, b"\xffabc")
+		self.assertEqual(result.stderr, b"\xfeerr")
+		self.assertTrue(result.cleanup_complete, result.notes)
+
+	def test_binary_capture_clears_descendant_that_holds_output_pipes(self) -> None:
+		with tempfile.TemporaryDirectory() as temporary_directory:
+			temporary_root = Path(temporary_directory)
+			ready_path = temporary_root / "ready"
+			trigger_path = temporary_root / "trigger"
+			survived_path = temporary_root / "survived"
+			grandchild_code = "\n".join([
+				"import time",
+				"from pathlib import Path",
+				f"ready = Path({str(ready_path)!r})",
+				f"trigger = Path({str(trigger_path)!r})",
+				f"survived = Path({str(survived_path)!r})",
+				"ready.write_text('ready', encoding='utf-8')",
+				"deadline = time.monotonic() + 10.0",
+				"while not trigger.exists() and time.monotonic() < deadline:",
+				"\ttime.sleep(0.01)",
+				"if trigger.exists():",
+				"\tsurvived.write_text('survived', encoding='utf-8')",
+			])
+			parent_code = "\n".join([
+				"import subprocess, sys, time",
+				"from pathlib import Path",
+				f"ready = Path({str(ready_path)!r})",
+				(
+					f"subprocess.Popen([sys.executable, '-c', {grandchild_code!r}], "
+					"stdout=sys.stdout, stderr=sys.stderr)"
+				),
+				"deadline = time.monotonic() + 5.0",
+				"while not ready.exists() and time.monotonic() < deadline:",
+				"\ttime.sleep(0.01)",
+				"raise SystemExit(0 if ready.exists() else 2)",
+			])
+
+			started = time.monotonic()
+			result = gf_process_supervisor.run_supervised_process_bytes(
+				[sys.executable, "-c", parent_code],
+				cwd=ROOT,
+				timeout_seconds=5.0,
+				max_stdout_bytes=1024,
+				max_stderr_bytes=1024,
+			)
+			elapsed = time.monotonic() - started
+			trigger_path.write_text("finish", encoding="utf-8")
+			observation_deadline = time.monotonic() + 0.5
+			while not survived_path.exists() and time.monotonic() < observation_deadline:
+				time.sleep(0.01)
+			ready_observed = ready_path.exists()
+			survived_observed = survived_path.exists()
+
+		self.assertLess(elapsed, 4.0)
+		self.assertTrue(
+			ready_observed,
+			(result.stderr, result.notes),
+		)
+		self.assertTrue(result.output_drain_failed, result.notes)
+		self.assertTrue(result.cleanup_complete, result.notes)
+		self.assertFalse(survived_observed)
+
+	def test_binary_capture_deadline_includes_direct_and_descendant_cleanup(self) -> None:
+		with tempfile.TemporaryDirectory() as temporary_directory:
+			temporary_root = Path(temporary_directory)
+			ready_path = temporary_root / "ready"
+			trigger_path = temporary_root / "trigger"
+			survived_path = temporary_root / "survived"
+			grandchild_code = "\n".join([
+				"import time",
+				"from pathlib import Path",
+				f"ready = Path({str(ready_path)!r})",
+				f"trigger = Path({str(trigger_path)!r})",
+				f"survived = Path({str(survived_path)!r})",
+				"ready.write_text('ready', encoding='utf-8')",
+				"deadline = time.monotonic() + 10.0",
+				"while not trigger.exists() and time.monotonic() < deadline:",
+				"\ttime.sleep(0.01)",
+				"if trigger.exists():",
+				"\tsurvived.write_text('survived', encoding='utf-8')",
+			])
+			parent_code = "\n".join([
+				"import subprocess, sys, time",
+				"from pathlib import Path",
+				f"ready = Path({str(ready_path)!r})",
+				(
+					f"subprocess.Popen([sys.executable, '-c', {grandchild_code!r}], "
+					"stdout=sys.stdout, stderr=sys.stderr)"
+				),
+				"deadline = time.monotonic() + 5.0",
+				"while not ready.exists() and time.monotonic() < deadline:",
+				"\ttime.sleep(0.01)",
+				"time.sleep(10.0)",
+			])
+
+			started = time.monotonic()
+			result = gf_process_supervisor.run_supervised_process_bytes(
+				[sys.executable, "-c", parent_code],
+				cwd=ROOT,
+				timeout_seconds=2.0,
+				max_stdout_bytes=1024,
+				max_stderr_bytes=1024,
+			)
+			elapsed = time.monotonic() - started
+			trigger_path.write_text("finish", encoding="utf-8")
+			observation_deadline = time.monotonic() + 0.5
+			while not survived_path.exists() and time.monotonic() < observation_deadline:
+				time.sleep(0.01)
+			ready_observed = ready_path.exists()
+			survived_observed = survived_path.exists()
+
+		self.assertTrue(result.timed_out, result.notes)
+		self.assertLessEqual(result.duration_seconds, 2.0)
+		self.assertLess(elapsed, 2.25)
+		self.assertTrue(
+			ready_observed,
+			(result.stderr, result.notes),
+		)
+		self.assertTrue(result.cleanup_complete, result.notes)
+		self.assertFalse(survived_observed)
 
 
 class CorePluginBootstrapSmokeTests(unittest.TestCase):

@@ -146,7 +146,7 @@ static func load_manifest_records(manifest_path: String) -> Dictionary:
 ## [br]
 ## @return manifest 读取报告。
 ## [br]
-## @schema return: Dictionary，包含 ok、state、source_path、records、issues、skipped_records、issue_count 和 skipped_record_count；state 为 absent、valid、degraded 或 invalid。
+## @schema return: Dictionary，包含 ok、state、source_path、package_id、records、issues、skipped_records、issue_count 和 skipped_record_count；state 为 absent、valid、degraded 或 invalid。
 static func load_manifest_report(manifest_path: String) -> Dictionary:
 	var normalized_path: String = _GF_PATH_TOOLS.normalize_resource_path(manifest_path)
 	var records: Dictionary = empty_records()
@@ -251,7 +251,15 @@ static func load_manifest_report(manifest_path: String) -> Dictionary:
 		issues
 	)
 	_validate_record_identities(records, issues)
-	return _make_report(issues.is_empty(), normalized_path, records, issues, skipped_records)
+	return _make_report(
+		issues.is_empty(),
+		normalized_path,
+		records,
+		issues,
+		skipped_records,
+		"",
+		package_id
+	)
 
 
 # --- 私有/辅助方法 ---
@@ -1046,7 +1054,8 @@ static func _make_report(
 	records: Dictionary,
 	issues: Array[Dictionary],
 	skipped_records: Array[Dictionary],
-	explicit_state: String = ""
+	explicit_state: String = "",
+	package_id: String = ""
 ) -> Dictionary:
 	var state: String = explicit_state
 	if state.is_empty():
@@ -1060,6 +1069,7 @@ static func _make_report(
 		"ok": ok,
 		"state": state,
 		"source_path": source_path,
+		"package_id": package_id,
 		"records": records.duplicate(true),
 		"issues": issues.duplicate(true),
 		"skipped_records": skipped_records.duplicate(true),

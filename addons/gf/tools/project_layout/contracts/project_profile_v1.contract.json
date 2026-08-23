@@ -1,0 +1,341 @@
+{
+  "contract_schema_version": 1,
+  "contract_id": "gf.project_layout.profile.v1",
+  "profile_schema_versions": [1],
+  "domains": {
+    "severity": ["error", "warning", "info"],
+    "naming_target": ["path", "name", "stem"]
+  },
+  "semantics": {
+    "regex_match_mode": "search",
+    "regex_dialect": "portable_safe_v1",
+    "regex_max_utf8_bytes": 1024,
+    "regex_max_alternatives": 32,
+    "regex_max_quantifiers_per_branch": 1,
+    "regex_ascii_only": true,
+    "regex_allow_groups": false,
+    "regex_allowed_escaped_literals": "\\.^$*+?()[]{}|/-",
+    "collection_duplicate_policy": "preserve_first_warn",
+    "feature_contract_combination": "all_match_union_paths",
+    "relative_path": {
+      "allow_dot_segments": false,
+      "allow_empty_segments": false,
+      "allow_wildcards": false
+    },
+    "extension": {
+      "trim_whitespace": true,
+      "lowercase": true,
+      "add_missing_leading_dot": true
+    },
+    "glob": {
+      "match_entire_path": true,
+      "single_star_crosses_separator": false,
+      "double_star_crosses_separator": true,
+      "double_star_slash_matches_zero_segments": true,
+      "allow_dot_segments": false,
+      "allow_empty_segments": false,
+      "allow_trailing_separator": false,
+      "allow_question_mark": false,
+      "allow_character_classes": false,
+      "allow_triple_star": false
+    }
+  },
+  "profile_fields": {
+    "schema_version": {
+      "type": "exact_integer",
+      "required": true
+    },
+    "id": {
+      "type": "non_empty_string",
+      "required": true
+    },
+    "display_name": {
+      "type": "string"
+    },
+    "description": {
+      "type": "string"
+    },
+    "zones": {
+      "type": "object_array",
+      "required": true
+    },
+    "rules": {
+      "type": "object_array",
+      "required": true
+    },
+    "metadata": {
+      "type": "object"
+    }
+  },
+  "zone_fields": {
+    "id": {
+      "type": "non_empty_string",
+      "required": true
+    },
+    "description": {
+      "type": "string"
+    },
+    "roots": {
+      "type": "relative_path_list",
+      "required": true,
+      "allow_empty": false
+    },
+    "required": {
+      "type": "bool",
+      "default": false
+    },
+    "allow_extensions": {
+      "type": "extension_list",
+      "allow_empty": true,
+      "requires_capability": true
+    },
+    "deny_extensions": {
+      "type": "extension_list",
+      "allow_empty": true,
+      "requires_capability": true
+    },
+    "exclude": {
+      "type": "glob_list",
+      "allow_empty": true,
+      "requires_capability": true
+    },
+    "severity": {
+      "type": "enum",
+      "domain": "severity",
+      "default": "error"
+    },
+    "metadata": {
+      "type": "object"
+    }
+  },
+  "rule_common_fields": {
+    "id": {
+      "type": "non_empty_string",
+      "required": true
+    },
+    "description": {
+      "type": "string"
+    },
+    "kind": {
+      "type": "non_empty_string",
+      "required": true
+    },
+    "severity": {
+      "type": "enum",
+      "domain": "severity"
+    },
+    "metadata": {
+      "type": "object"
+    }
+  },
+  "rule_compatibility_fields": {
+    "paths": {
+      "type": "relative_path_list",
+      "allow_empty": true,
+      "requires_capability": true
+    },
+    "any": {
+      "type": "bool",
+      "requires_capability": true
+    },
+    "extensions": {
+      "type": "extension_list",
+      "allow_empty": true,
+      "requires_capability": true
+    }
+  },
+  "rule_kinds": {
+    "path_exists": {
+      "default_severity": "error",
+      "fields": {
+        "paths": {
+          "type": "relative_path_list",
+          "required": true,
+          "allow_empty": false,
+          "requires_capability": true
+        },
+        "any": {
+          "type": "bool",
+          "default": false,
+          "requires_capability": true
+        }
+      }
+    },
+    "files_under_roots": {
+      "default_severity": "error",
+      "fields": {
+        "roots": {
+          "type": "relative_path_list",
+          "required": true,
+          "allow_empty": false
+        },
+        "include": {
+          "type": "glob_list",
+          "allow_empty": true
+        },
+        "exclude": {
+          "type": "glob_list",
+          "allow_empty": true
+        },
+        "extensions": {
+          "type": "extension_list",
+          "allow_empty": true,
+          "requires_capability": true
+        }
+      }
+    },
+    "extension_allowlist": {
+      "default_severity": "error",
+      "fields": {
+        "roots": {
+          "type": "relative_path_list",
+          "allow_empty": true
+        },
+        "include": {
+          "type": "glob_list",
+          "allow_empty": true
+        },
+        "exclude": {
+          "type": "glob_list",
+          "allow_empty": true
+        },
+        "extensions": {
+          "type": "extension_list",
+          "required": true,
+          "allow_empty": false,
+          "requires_capability": true
+        }
+      }
+    },
+    "extension_denylist": {
+      "default_severity": "error",
+      "fields": {
+        "roots": {
+          "type": "relative_path_list",
+          "allow_empty": true
+        },
+        "include": {
+          "type": "glob_list",
+          "allow_empty": true
+        },
+        "exclude": {
+          "type": "glob_list",
+          "allow_empty": true
+        },
+        "extensions": {
+          "type": "extension_list",
+          "required": true,
+          "allow_empty": false,
+          "requires_capability": true
+        }
+      }
+    },
+    "forbid_root_files": {
+      "default_severity": "warning",
+      "fields": {
+        "allowed_files": {
+          "type": "relative_path_list",
+          "allow_empty": true
+        }
+      }
+    },
+    "naming_convention": {
+      "default_severity": "warning",
+      "fields": {
+        "roots": {
+          "type": "relative_path_list",
+          "allow_empty": true
+        },
+        "exclude": {
+          "type": "glob_list",
+          "allow_empty": true
+        },
+        "pattern": {
+          "type": "regex",
+          "default": "^[a-z0-9_./-]+$"
+        },
+        "target": {
+          "type": "enum",
+          "domain": "naming_target",
+          "default": "path"
+        }
+      }
+    },
+    "feature_module_contract": {
+      "default_severity": "error",
+      "fields": {
+        "roots": {
+          "type": "relative_path_list",
+          "required": true,
+          "allow_empty": false
+        },
+        "feature_id_pattern": {
+          "type": "regex",
+          "default": "^[a-z][a-z0-9_]*$"
+        },
+        "required_subdirs": {
+          "type": "relative_path_list",
+          "allow_empty": true
+        },
+        "allowed_subdirs": {
+          "type": "relative_path_list",
+          "allow_empty": true,
+          "empty_semantics": "deny_all"
+        },
+        "allow_root_files": {
+          "type": "bool",
+          "default": false
+        }
+      }
+    },
+    "generated_boundary": {
+      "default_severity": "error",
+      "fields": {
+        "include": {
+          "type": "glob_list",
+          "required": true,
+          "allow_empty": false
+        },
+        "roots": {
+          "type": "relative_path_list",
+          "required": true,
+          "allow_empty": false
+        }
+      }
+    },
+    "bucket_size": {
+      "default_severity": "warning",
+      "fields": {
+        "roots": {
+          "type": "relative_path_list",
+          "required": true,
+          "allow_empty": false
+        },
+        "max_files": {
+          "type": "positive_integer",
+          "default": 40
+        }
+      }
+    }
+  },
+  "reason_codes": {
+    "contract_unavailable": "PROJECT_LAYOUT_PROFILE_CONTRACT_UNAVAILABLE",
+    "contract_invalid": "PROJECT_LAYOUT_PROFILE_CONTRACT_INVALID",
+    "schema_version_unsupported": "PROJECT_LAYOUT_PROFILE_SCHEMA_VERSION_UNSUPPORTED",
+    "required_field_missing": "PROJECT_LAYOUT_PROFILE_REQUIRED_FIELD_MISSING",
+    "field_unsupported": "PROJECT_LAYOUT_PROFILE_FIELD_UNSUPPORTED",
+    "field_type_invalid": "PROJECT_LAYOUT_PROFILE_FIELD_TYPE_INVALID",
+    "field_value_invalid": "PROJECT_LAYOUT_PROFILE_FIELD_VALUE_INVALID",
+    "duplicate_id": "PROJECT_LAYOUT_PROFILE_ID_DUPLICATE",
+    "relative_path_invalid": "PROJECT_LAYOUT_PROFILE_RELATIVE_PATH_INVALID",
+    "regex_invalid": "PROJECT_LAYOUT_PROFILE_REGEX_INVALID",
+    "regex_unsafe": "PROJECT_LAYOUT_PROFILE_REGEX_UNSAFE",
+    "resource_limit": "PROJECT_LAYOUT_PROFILE_RESOURCE_LIMIT_EXCEEDED",
+    "field_not_executed": "PROJECT_LAYOUT_PROFILE_FIELD_NOT_EXECUTED",
+    "rule_unsupported_by_executor": "PROJECT_LAYOUT_PROFILE_RULE_UNSUPPORTED_BY_EXECUTOR",
+    "registry_invalid": "PROJECT_LAYOUT_PROFILE_REGISTRY_INVALID",
+    "collection_value_duplicate": "PROJECT_LAYOUT_PROFILE_COLLECTION_VALUE_DUPLICATE",
+    "zone_extension_not_allowed": "PROJECT_LAYOUT_PROFILE_ZONE_EXTENSION_NOT_ALLOWED",
+    "zone_extension_denied": "PROJECT_LAYOUT_PROFILE_ZONE_EXTENSION_DENIED"
+  }
+}

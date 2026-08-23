@@ -86,7 +86,7 @@ static func parse_object(
 		DEFAULT_MAX_DEPTH,
 		ABSOLUTE_MAX_DEPTH
 	)
-	return _parse_object_bytes(
+	return _parse_object_bytes_without_digest(
 		text.to_utf8_buffer(),
 		"",
 		effective_max_bytes,
@@ -123,6 +123,53 @@ static func read_object(
 	path: String,
 	max_bytes: int = DEFAULT_MAX_BYTES,
 	max_depth: int = DEFAULT_MAX_DEPTH
+) -> Dictionary:
+	var report: Dictionary = read_object_with_content_sha256(
+		path,
+		max_bytes,
+		max_depth
+	)
+	var _digest_removed: bool = report.erase("content_sha256")
+	return report
+
+
+# --- 框架内部方法 ---
+
+## 读取有界 JSON object，并返回与完成解析的同一份原始 bytes 的 SHA-256。
+##
+## 该入口供框架内部把已验证对象与其内容身份绑定；不会为摘要再次打开或读取文件。
+## 公开 read_object() 继续保留原有八字段报告。
+## [br]
+## @api framework_internal
+## [br]
+## @since unreleased
+## [br]
+## @param path: 要读取的 JSON 文件路径。
+## [br]
+## @param max_bytes: 调用方请求的最大 UTF-8 字节数。
+## [br]
+## @param max_depth: 调用方请求的最大对象/数组词法嵌套深度。
+## [br]
+## @return: 有界读取报告；content_sha256 仅在取得完整原始 bytes 后非空。
+## [br]
+## @schema return: Dictionary containing the public read_object fields plus content_sha256: String.
+static func read_object_with_content_sha256(
+	path: String,
+	max_bytes: int = DEFAULT_MAX_BYTES,
+	max_depth: int = DEFAULT_MAX_DEPTH
+) -> Dictionary:
+	var report: Dictionary = _read_object_report(path, max_bytes, max_depth)
+	if not report.has("content_sha256"):
+		report["content_sha256"] = ""
+	return report
+
+
+# --- 私有/辅助方法 ---
+
+static func _read_object_report(
+	path: String,
+	max_bytes: int,
+	max_depth: int
 ) -> Dictionary:
 	var effective_max_bytes: int = _effective_limit(
 		max_bytes,
@@ -219,9 +266,23 @@ static func read_object(
 	)
 
 
-# --- 私有/辅助方法 ---
-
 static func _parse_object_bytes(
+	bytes: PackedByteArray,
+	source_path: String,
+	max_bytes: int,
+	max_depth: int
+) -> Dictionary:
+	var report: Dictionary = _parse_object_bytes_without_digest(
+		bytes,
+		source_path,
+		max_bytes,
+		max_depth
+	)
+	report["content_sha256"] = _content_sha256(bytes)
+	return report
+
+
+static func _parse_object_bytes_without_digest(
 	bytes: PackedByteArray,
 	source_path: String,
 	max_bytes: int,
@@ -351,6 +412,18 @@ static func _parse_object_bytes(
 		max_bytes,
 		max_depth
 	)
+
+
+static func _content_sha256(bytes: PackedByteArray) -> String:
+	var hashing_context: HashingContext = HashingContext.new()
+	if hashing_context.start(HashingContext.HASH_SHA256) != OK:
+		return ""
+	if hashing_context.update(bytes) != OK:
+		return ""
+	var digest_bytes: PackedByteArray = hashing_context.finish()
+	if digest_bytes.size() != 32:
+		return ""
+	return digest_bytes.hex_encode()
 
 
 static func _effective_limit(requested: int, fallback: int, absolute_maximum: int) -> int:

@@ -485,6 +485,7 @@ def render_project_profile_boundary_text(data: dict[str, Any]) -> str:
 	lines = [
 		(
 			f"project_profile_boundary: ok={data['ok']} "
+			f"mode={data.get('profile_mode', 'strict')} "
 			f"profile_found={data.get('profile_found', False)} "
 			f"profile={data.get('profile_path', '')} "
 			f"files={data.get('file_count', 0)} "
@@ -494,6 +495,21 @@ def render_project_profile_boundary_text(data: dict[str, Any]) -> str:
 			f"info={data.get('info_count', 0)}"
 		),
 	]
+	if data.get("deprecated"):
+		lines.append(
+			"deprecated: "
+			f"mode={data.get('profile_mode', '')} "
+			f"removal_version={data.get('removal_version', '')}"
+		)
+	shadow = data.get("shadow")
+	if isinstance(shadow, dict):
+		lines.append(
+			"shadow: "
+			f"ok={shadow.get('ok', False)} "
+			f"authoritative={shadow.get('authoritative', False)} "
+			f"complete={shadow.get('evaluation_complete', False)} "
+			f"skip_reason={shadow.get('skip_reason', '')}"
+		)
 	kind_summary = format_counter_summary(data.get("issue_kind_counts", []))
 	if kind_summary:
 		lines.append(f"kinds: {kind_summary}")
@@ -1136,6 +1152,10 @@ def render_checks_text(data: dict[str, Any]) -> str:
 			lines.append(indent_text(trim_text(stdout, 1200), "  stdout: "))
 		if stderr and (not result.get("streamed_output") or result.get("exit_code", 1) != 0):
 			lines.append(indent_text(trim_text(stderr, 1200), "  stderr: "))
+		for stream_name in ("stdout", "stderr"):
+			truncation_notice = render_command_output_truncation_notice(result, stream_name)
+			if truncation_notice:
+				lines.append(f"  {truncation_notice}")
 		release = result.get("release_status")
 		if release and release["issues"]:
 			lines.extend(f"  issue: {issue}" for issue in release["issues"])
@@ -1182,6 +1202,10 @@ def render_failed_checks_text(data: dict[str, Any]) -> str:
 			lines.append(indent_text(trim_text(stdout, 4000), "  stdout_tail: "))
 		if stderr:
 			lines.append(indent_text(trim_text(stderr, 4000), "  stderr_tail: "))
+		for stream_name in ("stdout", "stderr"):
+			truncation_notice = render_command_output_truncation_notice(result, stream_name)
+			if truncation_notice:
+				lines.append(f"  {truncation_notice}")
 	return "\n".join(lines)
 
 
@@ -1262,7 +1286,28 @@ def render_failed_check_annotation(result: dict[str, Any]) -> str:
 	if stderr:
 		lines.append("stderr_tail:")
 		lines.append(trim_text(stderr, 3000))
+	for stream_name in ("stdout", "stderr"):
+		truncation_notice = render_command_output_truncation_notice(result, stream_name)
+		if truncation_notice:
+			lines.append(truncation_notice)
 	return "\n".join(lines)
+
+
+def render_command_output_truncation_notice(
+	result: dict[str, Any],
+	stream_name: str,
+) -> str:
+	if result.get(f"{stream_name}_truncated") is not True:
+		return ""
+	stream_tail = result.get(stream_name, "")
+	retained_char_count = len(stream_tail) if isinstance(stream_tail, str) else 0
+	return (
+		f"{stream_name}_truncated: true "
+		f"original_chars={result.get(f'{stream_name}_char_count', '?')} "
+		f"original_utf8_bytes={result.get(f'{stream_name}_utf8_byte_count', '?')} "
+		f"machine_tail_chars={retained_char_count} "
+		f"sha256={result.get(f'{stream_name}_sha256', '?')}"
+	)
 
 
 def github_workflow_command_escape_data(value: str) -> str:

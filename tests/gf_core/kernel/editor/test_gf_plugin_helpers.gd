@@ -16,6 +16,7 @@ const GF_PLUGIN_PREVIEW_TOOLS = preload("res://addons/gf/kernel/editor/gf_plugin
 const GF_PLUGIN_PROJECT_SETTINGS = preload("res://addons/gf/kernel/editor/gf_plugin_project_settings.gd")
 const GF_PLUGIN_ACTION_DEPENDENCIES_SCRIPT = preload("res://addons/gf/kernel/editor/gf_plugin_action_dependencies.gd")
 const GF_EDITOR_CONTRIBUTION_REGISTRY = preload("res://addons/gf/kernel/editor/gf_editor_contribution_registry.gd")
+const GF_EDITOR_CONTRIBUTION_CATALOG_SCRIPT = preload("res://addons/gf/kernel/editor/gf_editor_contribution_catalog.gd")
 const GF_PLUGIN_REFRESH_STATE = preload("res://addons/gf/kernel/editor/gf_plugin_refresh_state.gd")
 const GF_RESOURCE_PATH_EDITOR_PROPERTY = preload("res://addons/gf/kernel/editor/gf_resource_path_editor_property.gd")
 const GF_RESOURCE_PATH_ARRAY_EDITOR_PROPERTY = preload("res://addons/gf/kernel/editor/gf_resource_path_array_editor_property.gd")
@@ -32,6 +33,8 @@ const GF_PACKAGE_MANAGER_DOCK = preload("res://addons/gf/kernel/editor/package/g
 const GF_EXTENSION_SETTINGS_BASE = preload("res://addons/gf/kernel/extension/gf_extension_settings.gd")
 const GF_VARIANT_ACCESS = preload("res://addons/gf/kernel/core/gf_variant_access.gd")
 const GF_STANDARD_EDITOR_CONTRIBUTIONS_PATH: String = "res://addons/gf/standard/editor/gf_editor_contributions.json"
+const GF_BUILTIN_TOOL_CONTRIBUTIONS_PATH: String = "res://addons/gf/gf_builtin_tool_contributions.json"
+const GF_PROJECT_LAYOUT_EDITOR_CONTRIBUTIONS_PATH: String = "res://addons/gf/tools/project_layout/editor/gf_editor_contributions.json"
 const _TEST_PROJECT_SETTING_PREFIX: String = "gf/test/"
 
 
@@ -57,6 +60,7 @@ func test_plugin_split_helpers_load() -> void:
 	assert_not_null(GF_PLUGIN_PROJECT_SETTINGS, "ProjectSettings 辅助脚本应可加载。")
 	assert_not_null(GF_PLUGIN_ACTION_DEPENDENCIES_SCRIPT, "菜单动作依赖 provider 脚本应可加载。")
 	assert_not_null(GF_EDITOR_CONTRIBUTION_REGISTRY, "编辑器贡献清单读取器脚本应可加载。")
+	assert_not_null(GF_EDITOR_CONTRIBUTION_CATALOG_SCRIPT, "内置可选工具贡献 catalog 读取器脚本应可加载。")
 	assert_not_null(GF_RESOURCE_PATH_EDITOR_PROPERTY, "资源路径属性编辑器脚本应可加载。")
 	assert_not_null(GF_RESOURCE_PATH_ARRAY_EDITOR_PROPERTY, "资源路径数组属性编辑器脚本应可加载。")
 	assert_not_null(GF_RESOURCE_PATH_PICKER_CONTROL, "窗口安全的资源路径选择控件脚本应可加载。")
@@ -607,6 +611,216 @@ func test_standard_editor_contributions_use_data_manifest_boundary() -> void:
 	assert_false(plugin_source.contains("_load_optional_script"), "根插件不应通过动态脚本加载读取 standard 记录。")
 	assert_false(manifest_source.contains("GFBuildInfo"), "标准编辑器 manifest 不应引用标准库运行时类型。")
 	assert_false(ResourceLoader.exists("res://addons/gf/standard/editor/gf_standard_editor_extensions.gd", "Script"), "旧标准编辑器聚合脚本应移除。")
+
+
+func test_builtin_tool_contribution_catalog_keeps_tool_identity_in_root_composition_data() -> void:
+	var catalog_source: String = _read_text_file(GF_BUILTIN_TOOL_CONTRIBUTIONS_PATH)
+	var catalog_value: Variant = JSON.parse_string(catalog_source)
+	assert_true(catalog_value is Dictionary, "内置可选工具 catalog 应是 data-only JSON object。")
+	if not catalog_value is Dictionary:
+		return
+	var catalog_data: Dictionary = catalog_value
+	var manifest_records: Array = GF_VARIANT_ACCESS.get_option_array(
+		catalog_data,
+		"manifest_records"
+	)
+	assert_eq(manifest_records.size(), 1, "首版 catalog 应列出一个内置可选工具 manifest。")
+	if manifest_records.is_empty():
+		return
+	var manifest_record: Dictionary = _dictionary_at(manifest_records, 0)
+	var loader_source: String = _read_text_file(
+		"res://addons/gf/kernel/editor/gf_editor_contribution_catalog.gd"
+	)
+	var plugin_source: String = _read_text_file("res://addons/gf/plugin.gd")
+	var report: Dictionary = GF_EDITOR_CONTRIBUTION_CATALOG_SCRIPT.load_catalog_report(
+		GF_BUILTIN_TOOL_CONTRIBUTIONS_PATH
+	)
+
+	assert_eq(
+		GF_VARIANT_ACCESS.get_option_string(manifest_record, "package_id"),
+		"gf.tool.project_layout",
+		"Project Layout 的 package identity 只应由 catalog 数据声明。"
+	)
+	assert_eq(
+		GF_VARIANT_ACCESS.get_option_string(manifest_record, "manifest_path"),
+		GF_PROJECT_LAYOUT_EDITOR_CONTRIBUTIONS_PATH,
+		"Project Layout 的贡献路径只应由 catalog 数据声明。"
+	)
+	assert_false(loader_source.contains("gf.tool.project_layout"), "kernel catalog loader 不应硬编码具体工具 package_id。")
+	assert_false(loader_source.contains("tools/project_layout"), "kernel catalog loader 不应硬编码具体工具路径。")
+	assert_false(plugin_source.contains("gf.tool.project_layout"), "根插件 GDScript 不应硬编码具体工具 package_id。")
+	assert_false(plugin_source.contains("tools/project_layout"), "根插件 GDScript 不应硬编码具体工具路径。")
+	assert_false(
+		GF_BUILTIN_TOOL_CONTRIBUTIONS_PATH.contains("/kernel/"),
+		"具体工具 catalog 应归根插件组合层所有，不能放入 kernel。"
+	)
+	assert_true(plugin_source.contains(GF_BUILTIN_TOOL_CONTRIBUTIONS_PATH), "根插件应只引用通用内置工具 catalog。")
+	assert_true(GF_VARIANT_ACCESS.get_option_bool(report, "ok"), "内置工具 catalog 应可被通用 loader 读取。")
+	assert_eq(GF_VARIANT_ACCESS.get_option_int(report, "issue_count"), 0, "缺席或有效的可选工具 manifest 都不应制造 catalog 错误。")
+
+
+func test_builtin_tool_contribution_catalog_keeps_absent_manifest_silent() -> void:
+	var catalog_path: String = "res://ai_analysis/gf_builtin_tool_absent_catalog.json"
+	var missing_manifest_path: String = "res://ai_analysis/gf_builtin_tool_absent_manifest.json"
+	_remove_path_if_exists(catalog_path)
+	_remove_path_if_exists(missing_manifest_path)
+	_write_text_file(catalog_path, JSON.stringify({
+		"schema_version": GF_EDITOR_CONTRIBUTION_CATALOG_SCRIPT.SCHEMA_VERSION,
+		"manifest_records": [{
+			"package_id": "gf.tool.absent_fixture",
+			"manifest_path": missing_manifest_path,
+		}],
+	}))
+
+	var report: Dictionary = GF_EDITOR_CONTRIBUTION_CATALOG_SCRIPT.load_catalog_report(
+		catalog_path
+	)
+	var manifest_reports: Array = GF_VARIANT_ACCESS.get_option_array(
+		report,
+		"manifest_reports"
+	)
+	_remove_path_if_exists(catalog_path)
+
+	assert_true(GF_VARIANT_ACCESS.get_option_bool(report, "ok"), "缺席可选 manifest 不应使 catalog 失败。")
+	assert_eq(GF_VARIANT_ACCESS.get_option_string(report, "state"), "valid", "缺席可选 manifest 不应让 catalog 降级。")
+	assert_eq(GF_VARIANT_ACCESS.get_option_int(report, "issue_count"), 0, "缺席可选 manifest 应保持静默。")
+	assert_eq(GF_VARIANT_ACCESS.get_option_int(report, "absent_manifest_count"), 1, "报告仍应保留缺席 manifest 计数。")
+	assert_eq(manifest_reports.size(), 1, "报告应保留逐 manifest 状态供结构化观察。")
+	if manifest_reports.is_empty():
+		return
+	assert_eq(
+		GF_VARIANT_ACCESS.get_option_string(_dictionary_at(manifest_reports, 0), "catalog_state"),
+		"absent",
+		"缺席 manifest 应有结构化 absent 状态。"
+	)
+
+
+func test_builtin_tool_contribution_catalog_merges_valid_manifest_after_base_records() -> void:
+	var catalog_path: String = "res://ai_analysis/gf_builtin_tool_merge_catalog.json"
+	var manifest_path: String = "res://ai_analysis/gf_builtin_tool_merge_manifest.json"
+	_remove_path_if_exists(catalog_path)
+	_remove_path_if_exists(manifest_path)
+	_write_text_file(manifest_path, JSON.stringify({
+		"schema_version": GF_EDITOR_CONTRIBUTION_REGISTRY.SCHEMA_VERSION,
+		"package_id": "gf.tool.catalog_fixture",
+		"dock_records": [{
+			"owner_package_id": "gf.tool.catalog_fixture",
+			"source_id": "dock.optional_fixture",
+			"path": "res://addons/gf/kernel/editor/gf_editor_workspace_dock.gd",
+			"label": "Optional Fixture",
+			"short_label": "可选",
+			"order": 90,
+		}],
+	}))
+	_write_text_file(catalog_path, JSON.stringify({
+		"schema_version": GF_EDITOR_CONTRIBUTION_CATALOG_SCRIPT.SCHEMA_VERSION,
+		"manifest_records": [{
+			"package_id": "gf.tool.catalog_fixture",
+			"manifest_path": manifest_path,
+		}],
+	}))
+	var base_records: Dictionary = GF_EDITOR_CONTRIBUTION_REGISTRY.empty_records()
+	base_records["dock_records"] = [{
+		"source_id": "gf.standard.test:base.dock",
+		"path": "res://addons/gf/kernel/editor/package/gf_package_manager_dock.gd",
+		"label": "Base Fixture",
+		"short_label": "基础",
+		"order": 70,
+	}]
+
+	var report: Dictionary = GF_EDITOR_CONTRIBUTION_CATALOG_SCRIPT.load_catalog_report(
+		catalog_path,
+		base_records
+	)
+	var merged_records: Dictionary = GF_VARIANT_ACCESS.get_option_dictionary(
+		report,
+		"records"
+	)
+	var dock_records: Array = GF_VARIANT_ACCESS.get_option_array(
+		merged_records,
+		"dock_records"
+	)
+	_remove_path_if_exists(catalog_path)
+	_remove_path_if_exists(manifest_path)
+
+	assert_true(GF_VARIANT_ACCESS.get_option_bool(report, "ok"), "有效可选 manifest 应完成合并。")
+	assert_eq(GF_VARIANT_ACCESS.get_option_string(report, "state"), "valid", "无诊断合并应保持 valid。")
+	assert_eq(GF_VARIANT_ACCESS.get_option_int(report, "loaded_manifest_count"), 1, "有效 manifest 应被加载一次。")
+	assert_eq(dock_records.size(), 2, "可选工具 Dock 应追加到已有标准贡献之后。")
+	assert_true(_record_array_has_identity(dock_records, "source_id", "gf.standard.test:base.dock"), "基础贡献记录必须保留。")
+	assert_true(_record_array_has_identity(dock_records, "source_id", "gf.tool.catalog_fixture:dock.optional_fixture"), "可选工具贡献应使用 package-scoped source_id 合并。")
+
+
+func test_builtin_tool_contribution_catalog_rejects_present_manifest_package_mismatch() -> void:
+	var catalog_path: String = "res://ai_analysis/gf_builtin_tool_mismatch_catalog.json"
+	var manifest_path: String = "res://ai_analysis/gf_builtin_tool_mismatch_manifest.json"
+	_remove_path_if_exists(catalog_path)
+	_remove_path_if_exists(manifest_path)
+	_write_text_file(manifest_path, JSON.stringify({
+		"schema_version": GF_EDITOR_CONTRIBUTION_REGISTRY.SCHEMA_VERSION,
+		"package_id": "gf.tool.actual_fixture",
+	}))
+	_write_text_file(catalog_path, JSON.stringify({
+		"schema_version": GF_EDITOR_CONTRIBUTION_CATALOG_SCRIPT.SCHEMA_VERSION,
+		"manifest_records": [{
+			"package_id": "gf.tool.expected_fixture",
+			"manifest_path": manifest_path,
+		}],
+	}))
+
+	var report: Dictionary = GF_EDITOR_CONTRIBUTION_CATALOG_SCRIPT.load_catalog_report(
+		catalog_path
+	)
+	var records: Dictionary = GF_VARIANT_ACCESS.get_option_dictionary(report, "records")
+	_remove_path_if_exists(catalog_path)
+	_remove_path_if_exists(manifest_path)
+
+	assert_true(GF_VARIANT_ACCESS.get_option_bool(report, "ok"), "单个无效可选工具不应阻断 catalog 的其他记录。")
+	assert_eq(GF_VARIANT_ACCESS.get_option_string(report, "state"), "degraded", "存在的身份错配 manifest 必须显式降级。")
+	assert_eq(GF_VARIANT_ACCESS.get_option_int(report, "skipped_manifest_count"), 1, "身份错配 manifest 必须整体隔离。")
+	assert_eq(_count_report_issue_kind(report, "manifest_package_id_mismatch"), 1, "报告应指出 catalog 与 manifest package_id 错配。")
+	assert_true(GF_VARIANT_ACCESS.get_option_array(records, "dock_records").is_empty(), "被隔离的 manifest 不能贡献 Workspace 页面。")
+
+
+func test_builtin_tool_contribution_catalog_rejects_present_invalid_manifest_strictly() -> void:
+	var catalog_path: String = "res://ai_analysis/gf_builtin_tool_invalid_catalog.json"
+	var manifest_path: String = "res://ai_analysis/gf_builtin_tool_invalid_manifest.json"
+	_remove_path_if_exists(catalog_path)
+	_remove_path_if_exists(manifest_path)
+	_write_text_file(manifest_path, JSON.stringify({
+		"schema_version": GF_EDITOR_CONTRIBUTION_REGISTRY.SCHEMA_VERSION,
+		"package_id": "gf.tool.invalid_fixture",
+		"unexpected": true,
+	}))
+	_write_text_file(catalog_path, JSON.stringify({
+		"schema_version": GF_EDITOR_CONTRIBUTION_CATALOG_SCRIPT.SCHEMA_VERSION,
+		"manifest_records": [{
+			"package_id": "gf.tool.invalid_fixture",
+			"manifest_path": manifest_path,
+		}],
+	}))
+
+	var report: Dictionary = GF_EDITOR_CONTRIBUTION_CATALOG_SCRIPT.load_catalog_report(
+		catalog_path
+	)
+	var manifest_reports: Array = GF_VARIANT_ACCESS.get_option_array(
+		report,
+		"manifest_reports"
+	)
+	_remove_path_if_exists(catalog_path)
+	_remove_path_if_exists(manifest_path)
+
+	assert_true(GF_VARIANT_ACCESS.get_option_bool(report, "ok"), "坏掉的单个工具应被隔离而不是阻断其他工具。")
+	assert_eq(GF_VARIANT_ACCESS.get_option_string(report, "state"), "degraded", "存在但 schema 无效的 manifest 必须显式降级。")
+	assert_eq(_count_report_issue_kind(report, "invalid_contribution_manifest"), 1, "catalog 报告应保留无效 manifest 摘要。")
+	assert_eq(manifest_reports.size(), 1, "无效 manifest 应保留逐项诊断。")
+	if manifest_reports.is_empty():
+		return
+	assert_eq(
+		_count_report_issue_kind(_dictionary_at(manifest_reports, 0), "unknown_manifest_field"),
+		1,
+		"存在的 manifest 必须使用既有严格字段白名单。"
+	)
 
 
 func test_editor_contribution_registry_skips_missing_script_targets() -> void:

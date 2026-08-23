@@ -6,6 +6,8 @@ extends GutTest
 
 const VALID_FULL_EXAMPLE_PATH: String = "res://tests/gf_core/fixtures/api_surface/valid_full_example.gd"
 const SOURCE_ROOT: String = "res://addons/gf"
+const PROJECT_LAYOUT_STRICT_ROOT: String = "res://addons/gf/tools/project_layout/"
+const PROJECT_LAYOUT_ANALYZER_PATH: String = "res://addons/gf/tools/project_layout/gf_project_layout_analyzer.gd"
 const ASSET_METADATA_UTILITY_PATH: String = "res://addons/gf/extensions/asset_metadata/runtime/gf_asset_metadata_utility.gd"
 const GF_AUTOLOAD_OWNER_PATH: String = "res://addons/gf/kernel/core/gf.gd"
 const GF_AUTOLOAD_OWNER_KIND: String = "autoload"
@@ -35,6 +37,7 @@ const INTERNAL_SECTION_ENFORCED_ROOTS: Array[String] = [
 	"res://addons/gf/kernel/base/",
 	"res://addons/gf/kernel/core/",
 	"res://addons/gf/extensions/dialogue/",
+	PROJECT_LAYOUT_STRICT_ROOT,
 ]
 const CLASS_KINDS: Array[String] = [
 	"class_name",
@@ -169,6 +172,10 @@ func test_full_valid_example_satisfies_api_surface_contract() -> void:
 func test_gf_source_files_satisfy_or_mark_api_surface_migration() -> void:
 	var script_paths: Array[String] = _collect_gdscript_files(SOURCE_ROOT)
 	assert_gt(script_paths.size(), 0, "API Surface 源码扫描必须能发现 addons/gf 下的脚本。")
+	assert_true(
+		script_paths.has(PROJECT_LAYOUT_ANALYZER_PATH),
+		"API Surface 全源扫描必须直接读取 live addons/gf 树，并覆盖尚未进入 Git index 的新增 GF 源码。"
+	)
 	var type_visibility: Dictionary = _collect_all_type_visibility(script_paths)
 	var type_inheritance: Dictionary = _collect_all_type_inheritance(script_paths)
 	var issues: Array[String] = []
@@ -355,12 +362,70 @@ func synchronize() -> void:
 	_assert_invalid_at_path(
 		framework_internal_source,
 		"framework_internal API must be placed in a framework internal section",
-		"res://addons/gf/kernel/core/gf_invalid_framework_internal_section.gd"
+		"res://addons/gf/tools/project_layout/gf_invalid_framework_internal_section.gd"
 	)
 	_assert_invalid_at_path(
 		layer_internal_source,
 		"layer_internal API must be placed in a layer internal section",
 		"res://addons/gf/kernel/core/gf_invalid_layer_internal_section.gd"
+	)
+
+
+func test_project_layout_internal_functions_require_exact_internal_sections() -> void:
+	var source: String = """
+## 示例类型。
+##
+## @api framework_internal
+class_name GFInvalidProjectLayoutInternalSection
+extends RefCounted
+
+# --- 私有/辅助方法 ---
+
+## 仅供框架协作。
+##
+## @api framework_internal
+func synchronize() -> void:
+	pass
+"""
+
+	_assert_invalid_at_path(
+		source,
+		"framework_internal API must be placed in a framework internal section",
+		"res://addons/gf/tools/project_layout/gf_invalid_exact_internal_section.gd"
+	)
+
+
+func test_public_api_docs_cannot_reference_internal_function_calls() -> void:
+	var source: String = """
+## 示例类型。
+##
+## @api public
+## @category tool_api
+## @since 1.0.0
+class_name GFInvalidPublicInternalCallDocs
+extends RefCounted
+
+# --- 公共方法 ---
+
+## 分析项目；后台线程应先调用 compile_for_worker()。
+##
+## @api public
+func analyze() -> void:
+	pass
+
+# --- 框架内部方法 ---
+
+## 编译后台输入。
+##
+## @api framework_internal
+func compile_for_worker() -> void:
+	pass
+"""
+
+	_assert_invalid_at_path(
+		source,
+		"public API docs reference internal function 'compile_for_worker'",
+		"res://addons/gf/tools/project_layout/gf_invalid_public_internal_call_docs.gd"
 	)
 
 
@@ -1044,6 +1109,7 @@ func _collect_api_surface_issues_with_type_visibility(
 	strict_issues.append_array(_collect_api_owner_issues(source, path))
 	for declaration: Dictionary in declarations:
 		strict_issues.append_array(_collect_declaration_issues(declaration, type_visibility, allows_top_level_public_api))
+	strict_issues.append_array(_collect_public_api_doc_internal_reference_issues(declarations, path))
 
 	if _source_has_migration_marker(source):
 		if strict_issues.is_empty():
@@ -1957,15 +2023,35 @@ func _collect_declaration_issues(declaration: Dictionary, type_visibility: Dicti
 			GF_VARIANT_ACCESS.get_option_string(declaration, "path", "")
 		)
 	):
+		var declaration_path: String = GF_VARIANT_ACCESS.get_option_string(
+			declaration,
+			"path",
+			""
+		)
+		var exact_section_is_enforced: bool = _exact_internal_section_rule_is_enforced(
+			declaration_path
+		)
 		var section_name: String = _canonical_section_name(
 			GF_VARIANT_ACCESS.get_option_string(declaration, "section", "")
 		)
-		if section_name == "公共方法" and api == "framework_internal":
+		if (
+			api == "framework_internal"
+			and (
+				(exact_section_is_enforced and section_name != "框架内部方法")
+				or (not exact_section_is_enforced and section_name == "公共方法")
+			)
+		):
 			issues.append(
 				"%s %s framework_internal API must be placed in a framework internal section"
 				% [location, declaration_name]
 			)
-		if section_name == "公共方法" and api == "layer_internal":
+		if (
+			api == "layer_internal"
+			and (
+				(exact_section_is_enforced and section_name != "层内方法")
+				or (not exact_section_is_enforced and section_name == "公共方法")
+			)
+		):
 			issues.append(
 				"%s %s layer_internal API must be placed in a layer internal section"
 				% [location, declaration_name]
@@ -2008,6 +2094,76 @@ func _internal_section_rule_is_enforced(path: String) -> bool:
 	for root: String in INTERNAL_SECTION_ENFORCED_ROOTS:
 		if path.begins_with(root):
 			return true
+	return false
+
+
+func _exact_internal_section_rule_is_enforced(path: String) -> bool:
+	return path.begins_with(PROJECT_LAYOUT_STRICT_ROOT)
+
+
+func _collect_public_api_doc_internal_reference_issues(
+	declarations: Array[Dictionary],
+	path: String
+) -> Array[String]:
+	if not _public_doc_internal_reference_rule_is_enforced(path):
+		return []
+
+	var internal_function_names: PackedStringArray = PackedStringArray()
+	for declaration: Dictionary in declarations:
+		if GF_VARIANT_ACCESS.get_option_string(declaration, "kind", "") != "func":
+			continue
+		var internal_api: String = GF_VARIANT_ACCESS.get_option_string(declaration, "api", "")
+		if internal_api != "framework_internal" and internal_api != "layer_internal":
+			continue
+		var _append_internal_name_result: Variant = internal_function_names.append(
+			GF_VARIANT_ACCESS.get_option_string(declaration, "name", "")
+		)
+
+	var issues: Array[String] = []
+	for declaration: Dictionary in declarations:
+		var public_api: String = GF_VARIANT_ACCESS.get_option_string(declaration, "api", "")
+		if not PUBLIC_API_TAGS.has(public_api):
+			continue
+		var docs: Array = GF_VARIANT_ACCESS.get_option_array(declaration, "docs", [])
+		for raw_doc_line: Variant in docs:
+			var body: String = _doc_body(GF_VARIANT_ACCESS.to_text(raw_doc_line))
+			for internal_function_name: String in internal_function_names:
+				if not _text_references_identifier(body, internal_function_name):
+					continue
+				issues.append(
+					"%s %s public API docs reference internal function '%s'" % [
+						_format_location(declaration),
+						GF_VARIANT_ACCESS.get_option_string(declaration, "name", ""),
+						internal_function_name,
+					]
+				)
+	return issues
+
+
+func _public_doc_internal_reference_rule_is_enforced(path: String) -> bool:
+	return path.begins_with(PROJECT_LAYOUT_STRICT_ROOT)
+
+
+func _text_references_identifier(text: String, identifier: String) -> bool:
+	if identifier.is_empty():
+		return false
+	var search_offset: int = 0
+	while search_offset < text.length():
+		var match_index: int = text.find(identifier, search_offset)
+		if match_index == -1:
+			return false
+		var before_is_identifier: bool = (
+			match_index > 0
+			and _is_identifier_character(text[match_index - 1])
+		)
+		var after_index: int = match_index + identifier.length()
+		var after_is_identifier: bool = (
+			after_index < text.length()
+			and _is_identifier_character(text[after_index])
+		)
+		if not before_is_identifier and not after_is_identifier:
+			return true
+		search_offset = after_index
 	return false
 
 

@@ -1,0 +1,14 @@
+{
+  "schema_version": 4,
+  "package_id": "gf.tool.project_layout",
+  "dock_records": [
+    {
+      "owner_package_id": "gf.tool.project_layout",
+      "source_id": "project_layout.dock.project_layout",
+      "path": "res://addons/gf/tools/project_layout/editor/gf_project_layout_dock.gd",
+      "label": "GF Project Layout",
+      "short_label": "结构",
+      "order": 90
+    }
+  ]
+}

@@ -69,6 +69,18 @@ func test_background_request_task_cancel_delegates_to_worker() -> void:
 	assert_eq(worker.cancel_count, 1, "任务取消应委托给 worker。")
 
 
+func test_background_request_task_rejects_incomplete_thread_contract() -> void:
+	var worker: FakePackageWorker = FakePackageWorker.new()
+	var thread: IncompleteBackgroundThread = IncompleteBackgroundThread.new()
+	var task: GFEditorBackgroundRequestTask = _make_background_task(worker, thread, {
+		"operation": "status",
+	})
+
+	assert_eq(task.start(), ERR_INVALID_PARAMETER)
+	assert_false(thread.start_called, "缺少 lifecycle 方法的替代线程不得被启动。")
+	assert_true(task.is_finished())
+
+
 func test_package_manager_dock_waits_for_active_background_task_handle() -> void:
 	var dock: VBoxContainer = _new_vbox_container(GF_PACKAGE_MANAGER_DOCK)
 	var worker: FakePackageWorker = FakePackageWorker.new()
@@ -638,3 +650,12 @@ class FakeBackgroundThread extends RefCounted:
 		if call_worker_on_wait and received_callable.is_valid():
 			result_value = received_callable.call()
 		return result_value
+
+
+class IncompleteBackgroundThread extends RefCounted:
+	var start_called: bool = false
+
+
+	func start(_work_callable: Callable) -> Error:
+		start_called = true
+		return OK
