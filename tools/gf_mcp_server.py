@@ -342,7 +342,7 @@ def list_tools() -> list[dict[str, Any]]:
 						"uniqueItems": True,
 						"items": {
 							"type": "string",
-							"enum": sorted([*gf_maintenance.CHECK_DEFINITIONS.keys(), "release_metadata"]),
+							"enum": sorted(gf_maintenance.VALIDATION_ACTION_NAMES),
 						},
 					},
 					"jobs": {

@@ -128,6 +128,7 @@ def _make_default_catalog_git_repository(parent: Path) -> Path:
 		("tools/gdscript_api_parser.py", "PARSER_VERSION = 1\n"),
 		("tools/gf_api_owners.py", "OWNER_VERSION = 1\n"),
 		("tools/gf_maintenance.py", "RULE_VERSION = 1\n"),
+		("tools/gf_validation_catalog.py", "CATALOG_VERSION = 1\n"),
 		("tools/gf_validation_inputs.py", "INPUT_VERSION = 1\n"),
 		("tools/gf_workspace_snapshot.py", "SNAPSHOT_VERSION = 1\n"),
 	):
@@ -161,6 +162,7 @@ class InputSpecContractTests(unittest.TestCase):
 		expected_implementation_files = {
 			"package_user_dependency_boundary": (
 				"tools/gf_maintenance.py",
+				"tools/gf_validation_catalog.py",
 				"tools/gf_validation_inputs.py",
 				"tools/gf_workspace_snapshot.py",
 			),
@@ -168,11 +170,13 @@ class InputSpecContractTests(unittest.TestCase):
 				"tools/gdscript_api_parser.py",
 				"tools/gf_api_owners.py",
 				"tools/gf_maintenance.py",
+				"tools/gf_validation_catalog.py",
 				"tools/gf_validation_inputs.py",
 				"tools/gf_workspace_snapshot.py",
 			),
 			"public_docs_boundary": (
 				"tools/gf_maintenance.py",
+				"tools/gf_validation_catalog.py",
 				"tools/gf_validation_inputs.py",
 				"tools/gf_workspace_snapshot.py",
 			),
@@ -799,6 +803,34 @@ class FrozenActionInputTests(unittest.TestCase):
 
 
 class AffectedAnalysisTests(unittest.TestCase):
+	def test_default_catalog_change_affects_all_declared_candidates(self) -> None:
+		with tempfile.TemporaryDirectory() as temporary_directory:
+			root = _make_default_catalog_git_repository(Path(temporary_directory))
+			_write(root / "tools/gf_validation_catalog.py", "CATALOG_VERSION = 2\n")
+			check_names = [
+				spec.check_name for spec in inputs.DEFAULT_AFFECTED_INPUT_SPECS
+			]
+
+			report = inputs.analyze_affected_checks(
+				root,
+				check_names,
+				"HEAD",
+				True,
+			)
+
+		self.assertTrue(report["report_ok"])
+		self.assertEqual(report["affected_count"], 3)
+		self.assertEqual(report["unknown_count"], 0)
+		for check in report["checks"]:
+			self.assertEqual(
+				check["reason_codes"],
+				["implementation_input_changed"],
+			)
+			self.assertEqual(
+				check["matched_paths"],
+				["tools/gf_validation_catalog.py"],
+			)
+
 	def test_default_catalog_shared_snapshot_change_affects_all_three_candidates(self) -> None:
 		with tempfile.TemporaryDirectory() as temporary_directory:
 			root = _make_default_catalog_git_repository(Path(temporary_directory))

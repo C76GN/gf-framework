@@ -6,6 +6,7 @@ from __future__ import annotations
 import contextlib
 import concurrent.futures
 import copy
+import hashlib
 import inspect
 import io
 import json
@@ -19,6 +20,7 @@ import threading
 import time
 import unittest
 import xml.etree.ElementTree as ET
+from dataclasses import FrozenInstanceError
 from pathlib import Path
 from unittest import mock
 
@@ -35,6 +37,7 @@ import gf_maintenance_rendering
 import gf_mcp_server
 import gf_process_supervisor
 import gf_project_layout_profile
+import gf_validation_catalog
 import gf_workspace_snapshot
 
 
@@ -45,6 +48,547 @@ def _remove_directory_link_fixture(path: Path) -> None:
 		os.rmdir(path)
 	else:
 		path.unlink()
+
+
+def _full_validation_plan() -> gf_validation_catalog.ValidationPlan:
+	return gf_maintenance._VALIDATION_CATALOG.plan("full")
+
+
+def _synthetic_parallel_shard_plan(
+	name: str,
+	checks: tuple[str, ...],
+	execution_checks: tuple[str, ...] | None = None,
+) -> gf_maintenance.ParallelCheckShardPlan:
+	return gf_maintenance.ParallelCheckShardPlan(
+		name,
+		checks,
+		execution_checks if execution_checks is not None else checks,
+	)
+
+
+def _synthetic_full_validation_plan(
+	plans: list[gf_maintenance.ParallelCheckShardPlan],
+	*,
+	dependencies: dict[str, tuple[str, ...]] | None = None,
+) -> gf_validation_catalog.ValidationPlan:
+	actions = tuple(dict.fromkeys(
+		action
+		for plan in plans
+		for action in plan.execution_checks
+	))
+	return gf_validation_catalog.ValidationPlan(
+		suite="full",
+		requested_actions=actions,
+		actions=actions,
+		check_graph=gf_validation_catalog.CheckGraph(actions, dependencies or {}),
+		lanes=(),
+	)
+
+
+class ValidationCatalogContractTests(unittest.TestCase):
+	_PRE_MIGRATION_SNAPSHOT_SHA256 = (
+		"58f11a39f9f71c9687642bf82320059b9b16b4a56731020563bf589a8ff42eac"
+	)
+
+	def test_default_catalog_matches_pre_migration_snapshot_exactly(self) -> None:
+		catalog = gf_validation_catalog.build_validation_catalog(
+			self._snapshot_context()
+		)
+		commands = catalog.command_definitions()
+		snapshot = {
+			"actions": [
+				[name, self._normalize_snapshot_value(commands.get(name))]
+				for name in catalog.action_names
+			],
+			"dependencies": [
+				[name, dependencies]
+				for name, dependencies in catalog.dependencies().items()
+			],
+			"groups": [
+				[name, actions]
+				for name, actions in catalog.check_groups().items()
+			],
+			"suites": [
+				[name, actions]
+				for name, actions in catalog.suites().items()
+			],
+			"lanes": list(catalog.parallel_full_shard_suites),
+		}
+		encoded = json.dumps(
+			snapshot,
+			sort_keys=False,
+			separators=(",", ":"),
+			ensure_ascii=True,
+		).encode("ascii")
+
+		self.assertEqual(
+			hashlib.sha256(encoded).hexdigest(),
+			self._PRE_MIGRATION_SNAPSHOT_SHA256,
+			"Catalog declarations changed from the c3ce437c pre-extraction baseline.",
+		)
+		self.assertEqual(
+			(
+				len(snapshot["actions"]),
+				len(snapshot["dependencies"]),
+				len(snapshot["groups"]),
+				len(snapshot["suites"]),
+				len(snapshot["lanes"]),
+			),
+			(57, 9, 22, 20, 8),
+		)
+		self.assertEqual(
+			[name for name in catalog.action_names if name not in commands],
+			["release_metadata"],
+		)
+
+	def test_context_materialization_is_isolated(self) -> None:
+		first = gf_validation_catalog.build_validation_catalog(
+			self._context("first")
+		)
+		first_before = first.command_definitions()
+		second = gf_validation_catalog.build_validation_catalog(
+			self._context("second")
+		)
+		first_after = first.command_definitions()
+		second_commands = second.command_definitions()
+
+		self.assertEqual(first_after, first_before)
+		self.assertEqual(
+			first_before["godot_import"][3],
+			"<log-first>/godot_import.log",
+		)
+		self.assertEqual(
+			second_commands["godot_import"][3],
+			"<log-second>/godot_import.log",
+		)
+		self.assertEqual(first_before["gut_lifecycle_smoke"][0], "<python-first>")
+		self.assertEqual(second_commands["gut_lifecycle_smoke"][0], "<python-second>")
+		self.assertIn("-ghook=first", first_before["gut"])
+		self.assertIn("-ghook=second", second_commands["gut"])
+		self.assertEqual(
+			first_before["mkdocs"][-1],
+			(ROOT / "first" / "ai_analysis/mkdocs_site").as_posix(),
+		)
+		self.assertIn("<reference-first>", first_before["examples_sync"])
+		self.assertEqual(first_before["examples_boot"][-1], "<boot-first>")
+		self.assertEqual(first_before["examples_smoke"][-1], "<smoke-first>")
+
+	def test_runner_legacy_projections_come_from_catalog(self) -> None:
+		catalog = gf_maintenance._VALIDATION_CATALOG
+		legacy_groups = {
+			"api": gf_maintenance.API_CHECKS,
+			"docs": gf_maintenance.DOCS_CHECKS,
+			"examples": gf_maintenance.EXAMPLES_CHECKS,
+			"light_boundary": gf_maintenance.LIGHT_BOUNDARY_CHECKS,
+			"package_contract_smoke": gf_maintenance.PACKAGE_CONTRACT_SMOKE_CHECKS,
+			"package_editor": gf_maintenance.PACKAGE_EDITOR_CHECKS,
+			"package_cli_local": gf_maintenance.PACKAGE_CLI_LOCAL_CHECKS,
+			"package_cli_network": gf_maintenance.PACKAGE_CLI_NETWORK_CHECKS,
+			"package_cli": gf_maintenance.PACKAGE_CLI_CHECKS,
+			"package_smoke": gf_maintenance.PACKAGE_SMOKE_CHECKS,
+			"package_contract": gf_maintenance.PACKAGE_CONTRACT_CHECKS,
+			"package": gf_maintenance.PACKAGE_CHECKS,
+			"quick": gf_maintenance.QUICK_CHECKS,
+			"full": gf_maintenance.FULL_CHECKS,
+			"release": gf_maintenance.RELEASE_CHECKS,
+			"framework_gut": gf_maintenance.FRAMEWORK_GUT_CHECKS,
+			"framework_lsp": gf_maintenance.FRAMEWORK_LSP_CHECKS,
+			"framework_static": gf_maintenance.FRAMEWORK_STATIC_CHECKS,
+			"framework": gf_maintenance.FRAMEWORK_CHECKS,
+			"package_ci": gf_maintenance.PACKAGE_CI_CHECKS,
+			"package_release": gf_maintenance.PACKAGE_RELEASE_CHECKS,
+		}
+
+		self.assertEqual(gf_maintenance.CHECK_DEFINITIONS, catalog.command_definitions())
+		self.assertEqual(gf_maintenance.VALIDATION_ACTION_NAMES, catalog.action_names)
+		self.assertEqual(gf_maintenance.CHECK_DEPENDENCIES, catalog.dependencies())
+		for name, actions in legacy_groups.items():
+			with self.subTest(group=name):
+				self.assertEqual(actions, catalog.check_group(name))
+		self.assertEqual(
+			gf_maintenance.PACKAGE_ARTIFACT_CONSUMER_CHECKS,
+			frozenset(catalog.check_group("package_artifact_consumers")),
+		)
+		self.assertEqual(gf_maintenance.CHECK_SUITES, catalog.suites())
+		self.assertEqual(
+			gf_maintenance.PARALLEL_FULL_SHARD_SUITES,
+			catalog.parallel_full_shard_suites,
+		)
+		self.assertIs(gf_maintenance.maintenance_check_graph(), catalog.check_graph)
+		self.assertEqual(catalog.check_graph.expand(["release_metadata"]), ["release_metadata"])
+		self.assertNotIn("release_metadata", gf_maintenance.CHECK_DEFINITIONS)
+		self.assertIsNot(gf_maintenance.CHECK_SUITES["api"], gf_maintenance.API_CHECKS)
+
+	def test_plan_preserves_full_closure_and_isolated_lane_occurrences(self) -> None:
+		catalog = gf_maintenance._VALIDATION_CATALOG
+		plan = catalog.plan("full")
+		owned_actions = [
+			action
+			for lane in plan.lanes
+			for action in lane.owned_actions
+		]
+
+		self.assertEqual(len(plan.actions), 46)
+		self.assertEqual(tuple(lane.name for lane in plan.lanes), catalog.parallel_full_shard_suites)
+		self.assertEqual(set(owned_actions), set(catalog.check_group("full")))
+		self.assertEqual(len(owned_actions), len(set(owned_actions)))
+		self.assertEqual(
+			sum(len(lane.execution_actions) for lane in plan.lanes),
+			47,
+			"隔离 lane 必须分别执行各自的依赖 occurrence，不能按全局 action 去重。",
+		)
+		self.assertEqual(
+			[
+				lane.name
+				for lane in plan.lanes
+				if "godot_import" in lane.execution_actions
+			],
+			["framework-gut", "framework-lsp"],
+		)
+
+	def test_validation_plan_and_lanes_reject_field_rebinding(self) -> None:
+		plan = gf_maintenance._VALIDATION_CATALOG.plan("full")
+
+		with self.assertRaises(FrozenInstanceError):
+			setattr(plan, "suite", "quick")
+		with self.assertRaises(FrozenInstanceError):
+			setattr(plan.lanes[0], "execution_actions", ())
+		self.assertIsInstance(plan.requested_actions, tuple)
+		self.assertIsInstance(plan.actions, tuple)
+		self.assertIsInstance(plan.lanes, tuple)
+		self.assertTrue(all(
+			isinstance(lane.owned_actions, tuple)
+			and isinstance(lane.execution_actions, tuple)
+			for lane in plan.lanes
+		))
+
+	def test_plan_uses_one_effective_graph_for_sync_examples(self) -> None:
+		plan = gf_maintenance._VALIDATION_CATALOG.plan(
+			"examples",
+			sync_examples=True,
+		)
+		description = plan.check_graph.describe(plan.actions)
+
+		self.assertEqual(
+			plan.actions,
+			(
+				"examples_sync_write",
+				"examples_scan",
+				"examples_boot",
+				"examples_smoke",
+				"examples_coverage",
+			),
+		)
+		self.assertEqual(description["edge_count"], 4)
+		self.assertEqual(
+			description["edges"],
+			[
+				{"check": "examples_scan", "depends_on": "examples_sync_write"},
+				{"check": "examples_boot", "depends_on": "examples_scan"},
+				{"check": "examples_smoke", "depends_on": "examples_scan"},
+				{"check": "examples_coverage", "depends_on": "examples_sync_write"},
+			],
+		)
+
+	def test_sync_examples_setup_failure_reports_the_effective_plan_graph(self) -> None:
+		with mock.patch.object(
+			gf_maintenance,
+			"workspace_fingerprint",
+			side_effect=gf_maintenance.gf_maintenance_check_graph.WorkspaceFingerprintSetupError(
+				"synthetic setup failure"
+			),
+		):
+			report = gf_maintenance.run_checks(
+				suite="examples",
+				sync_examples=True,
+			)
+
+		self.assertFalse(report["ok"])
+		self.assertEqual(report["check_graph"]["edge_count"], 4)
+		self.assertEqual(
+			report["check_graph"]["edges"],
+			[
+				{"check": "examples_scan", "depends_on": "examples_sync_write"},
+				{"check": "examples_boot", "depends_on": "examples_scan"},
+				{"check": "examples_smoke", "depends_on": "examples_scan"},
+				{"check": "examples_coverage", "depends_on": "examples_sync_write"},
+			],
+		)
+
+	def test_sync_examples_deadline_failure_reports_the_effective_plan_graph(self) -> None:
+		plan = gf_maintenance._VALIDATION_CATALOG.plan(
+			"examples",
+			sync_examples=True,
+		)
+		with mock.patch.object(
+			gf_maintenance,
+			"workspace_fingerprint",
+			side_effect=TimeoutError("synthetic workspace deadline"),
+		):
+			report = gf_maintenance.run_checks(
+				suite="examples",
+				sync_examples=True,
+				suite_timeout_seconds=1,
+			)
+
+		self.assertFalse(report["ok"])
+		self.assertEqual(report["checks"], list(plan.actions))
+		self.assertEqual(report["check_graph"], plan.describe_graph())
+		self.assertEqual(report["results"][0]["name"], "suite_deadline")
+
+	def test_serial_runner_consumes_the_effective_plan_dependencies(self) -> None:
+		plan = gf_maintenance._VALIDATION_CATALOG.plan(
+			"examples",
+			sync_examples=True,
+		)
+		workspace_state = {
+			"schema_version": 1,
+			"head": "a" * 40,
+			"dirty": False,
+			"untracked_file_count": 0,
+			"fingerprint": "b" * 64,
+		}
+
+		def succeed(
+			name: str,
+			command: list[str],
+			timeout_seconds: float,
+			_output_callback: object,
+		) -> gf_maintenance.CommandResult:
+			return gf_maintenance.CommandResult(
+				name=name,
+				command=command,
+				exit_code=0,
+				stdout="",
+				stderr="",
+				timeout_seconds=timeout_seconds,
+			)
+
+		with mock.patch.object(
+			gf_maintenance,
+			"maintenance_in_process_check_runners",
+			return_value={},
+		), mock.patch.object(
+			gf_maintenance,
+			"run_command",
+			side_effect=succeed,
+		):
+			report = gf_maintenance.run_checks_with_active_snapshot(
+				plan,
+				workspace_state=workspace_state,
+			)
+
+		self.assertTrue(report["ok"])
+		results = {result["name"]: result for result in report["results"]}
+		for consumer in ("examples_scan", "examples_coverage"):
+			with self.subTest(consumer=consumer):
+				self.assertEqual(
+					results[consumer]["dependencies"],
+					["examples_sync_write"],
+				)
+				self.assertEqual(
+					set(results[consumer]["dependency_fingerprints"]),
+					{"examples_sync_write"},
+				)
+
+	def test_invalid_parallel_jobs_return_a_structured_plan_setup_failure(self) -> None:
+		plan = gf_maintenance._VALIDATION_CATALOG.plan("quick")
+		for suite_timeout_seconds in (None, 0):
+			with self.subTest(
+				suite_timeout_seconds=suite_timeout_seconds
+			), mock.patch.object(
+				gf_maintenance,
+				"workspace_fingerprint",
+				side_effect=AssertionError("invalid jobs must fail before workspace I/O"),
+			) as fingerprint:
+				report = gf_maintenance.run_checks(
+					suite="quick",
+					jobs=2,
+					suite_timeout_seconds=suite_timeout_seconds,
+				)
+
+			self.assertFalse(report["ok"])
+			self.assertEqual(report["suite"], "quick")
+			self.assertEqual(report["checks"], list(plan.actions))
+			self.assertEqual(report["check_graph"], plan.describe_graph())
+			self.assertEqual(report["workspace_fingerprint"], "0" * 64)
+			self.assertEqual(report["execution"], "serial")
+			self.assertEqual(report["jobs"], 1)
+			self.assertEqual(
+				report["results"][0]["name"],
+				"parallel_validation_setup",
+			)
+			self.assertIn(
+				"Parallel check jobs are supported only",
+				report["results"][0]["stderr"],
+			)
+			fingerprint.assert_not_called()
+
+	def test_rejects_duplicate_declarations_and_members(self) -> None:
+		invalid_overrides = {
+			"action": {
+				"actions": (("alpha", ("python",)), ("alpha", ("other",))),
+			},
+			"dependency owner": {
+				"dependencies": (("beta", ("alpha",)), ("beta", ("alpha",))),
+			},
+			"dependency member": {
+				"dependencies": (("beta", ("alpha", "alpha")),),
+			},
+			"group": {
+				"check_groups": (("group", ("alpha",)), ("group", ("beta",))),
+			},
+			"group member": {
+				"check_groups": (("group", ("alpha", "alpha")),),
+			},
+			"suite": {
+				"suites": (("suite", ("alpha",)), ("suite", ("beta",))),
+			},
+			"suite member": {
+				"suites": (("suite", ("alpha", "alpha")),),
+			},
+			"lane": {
+				"parallel_full_shard_suites": ("suite", "suite"),
+			},
+		}
+		for label, overrides in invalid_overrides.items():
+			with self.subTest(label=label), self.assertRaises(
+				gf_validation_catalog.ValidationCatalogError
+			):
+				self._minimal_catalog(**overrides)
+
+	def test_rejects_unknown_references(self) -> None:
+		invalid_overrides = {
+			"dependency owner": {"dependencies": (("unknown", ("alpha",)),)},
+			"dependency target": {"dependencies": (("beta", ("unknown",)),)},
+			"group action": {"check_groups": (("group", ("unknown",)),)},
+			"suite action": {"suites": (("suite", ("unknown",)),)},
+			"lane suite": {"parallel_full_shard_suites": ("unknown",)},
+		}
+		for label, overrides in invalid_overrides.items():
+			with self.subTest(label=label), self.assertRaises(
+				gf_validation_catalog.ValidationCatalogError
+			):
+				self._minimal_catalog(**overrides)
+		with self.assertRaises(gf_validation_catalog.ValidationCatalogError):
+			self._minimal_catalog().check_group("unknown")
+
+	def test_dependency_topology_is_validated_during_catalog_construction(self) -> None:
+		invalid_dependencies = {
+			"self cycle": (("alpha", ("alpha",)),),
+			"multi action cycle": (
+				("alpha", ("beta",)),
+				("beta", ("alpha",)),
+			),
+		}
+		for label, dependencies in invalid_dependencies.items():
+			with self.subTest(label=label), self.assertRaises(
+				gf_validation_catalog.ValidationCatalogError
+			) as raised:
+				self._minimal_catalog(dependencies=dependencies)
+			self.assertIsInstance(raised.exception.__cause__, ValueError)
+
+	def test_distinguishes_deferred_commands_from_invalid_static_commands(self) -> None:
+		catalog = self._minimal_catalog()
+		self.assertEqual(catalog.action_names, ("alpha", "beta"))
+		self.assertEqual(catalog.command_definitions(), {"alpha": ["python"]})
+
+		for command in ([], (), ("",), (1,), "python"):
+			with self.subTest(command=command), self.assertRaises(
+				gf_validation_catalog.ValidationCatalogError
+			):
+				self._minimal_catalog(actions=(("alpha", command), ("beta", None)))
+
+	def test_constructor_inputs_and_accessors_are_detached(self) -> None:
+		command = ["python"]
+		dependencies = ["alpha"]
+		group = ["alpha", "beta"]
+		suite = ["alpha", "beta"]
+		lanes = ["suite"]
+		catalog = self._minimal_catalog(
+			actions=(("alpha", command), ("beta", None)),
+			dependencies=(("beta", dependencies),),
+			check_groups=(("group", group),),
+			suites=(("suite", suite),),
+			parallel_full_shard_suites=lanes,
+		)
+		command.append("mutated")
+		dependencies.append("beta")
+		group.append("alpha")
+		suite.append("alpha")
+		lanes.append("suite")
+
+		command_copy = catalog.command_definitions()
+		dependency_copy = catalog.dependencies()
+		group_copy = catalog.check_groups()
+		suite_copy = catalog.suites()
+		command_copy["alpha"].append("mutated")
+		dependency_copy["beta"].append("beta")
+		group_copy["group"].append("alpha")
+		suite_copy["suite"].append("alpha")
+
+		self.assertEqual(catalog.action_names, ("alpha", "beta"))
+		self.assertEqual(catalog.command_definitions(), {"alpha": ["python"]})
+		self.assertEqual(catalog.dependencies(), {"beta": ["alpha"]})
+		self.assertEqual(catalog.check_groups(), {"group": ["alpha", "beta"]})
+		self.assertEqual(catalog.suites(), {"suite": ["alpha", "beta"]})
+		self.assertEqual(catalog.parallel_full_shard_suites, ("suite",))
+
+	@staticmethod
+	def _snapshot_context() -> gf_validation_catalog.ValidationCatalogContext:
+		return gf_validation_catalog.ValidationCatalogContext(
+			python_executable="<python>",
+			root=ROOT,
+			godot_log_directory=Path("<log>"),
+			gut_lifecycle_cli_resource_path=(
+				"res://tests/gf_core/support/gf_gut_cli.gd"
+			),
+			gut_shard_config_disabled_argument="-gconfig=",
+			gut_lifecycle_hook_arguments=(
+				"-gpre_run_script=res://tests/gf_core/support/gf_gut_pre_run_hook.gd",
+				"-gpost_run_script=res://tests/gf_core/support/gf_gut_post_run_hook.gd",
+			),
+			default_reference_project="../gf-reference-project",
+			reference_boot_scene="res://scenes/app/driftbound_boot.tscn",
+			reference_smoke_scene="res://tests/smoke/driftbound_smoke.tscn",
+		)
+
+	@staticmethod
+	def _context(label: str) -> gf_validation_catalog.ValidationCatalogContext:
+		return gf_validation_catalog.ValidationCatalogContext(
+			python_executable=f"<python-{label}>",
+			root=ROOT / label,
+			godot_log_directory=Path(f"<log-{label}>"),
+			gut_lifecycle_cli_resource_path=f"<gut-cli-{label}>",
+			gut_shard_config_disabled_argument=f"<gut-config-{label}>",
+			gut_lifecycle_hook_arguments=(f"-ghook={label}",),
+			default_reference_project=f"<reference-{label}>",
+			reference_boot_scene=f"<boot-{label}>",
+			reference_smoke_scene=f"<smoke-{label}>",
+		)
+
+	@staticmethod
+	def _minimal_catalog(**overrides: object) -> gf_validation_catalog.ValidationCatalog:
+		arguments: dict[str, object] = {
+			"actions": (("alpha", ("python",)), ("beta", None)),
+			"dependencies": (("beta", ("alpha",)),),
+			"check_groups": (("group", ("alpha", "beta")),),
+			"suites": (("suite", ("alpha", "beta")),),
+			"parallel_full_shard_suites": ("suite",),
+		}
+		arguments.update(overrides)
+		return gf_validation_catalog.ValidationCatalog(**arguments)
+
+	@staticmethod
+	def _normalize_snapshot_value(value: object) -> object:
+		if isinstance(value, str):
+			return value.replace(ROOT.as_posix(), "<root>")
+		if isinstance(value, list):
+			return [
+				ValidationCatalogContractTests._normalize_snapshot_value(item)
+				for item in value
+			]
+		return value
 
 
 class StrictJsonBoundaryTests(unittest.TestCase):
@@ -1634,6 +2178,19 @@ class McpBoundaryTests(unittest.TestCase):
 		)
 		self.assertEqual(empty_checks["error"]["code"], -32602)
 
+	def test_run_checks_schema_uses_catalog_action_names(self) -> None:
+		run_checks = next(
+			tool for tool in gf_mcp_server.list_tools()
+			if tool["name"] == "gf_run_checks"
+		)
+		check_enum = run_checks["inputSchema"]["properties"]["checks"]["items"][
+			"enum"
+		]
+		self.assertEqual(
+			check_enum,
+			sorted(gf_maintenance.VALIDATION_ACTION_NAMES),
+		)
+
 	def test_request_decoder_is_bounded_strict_and_object_only(self) -> None:
 		with self.assertRaises(gf_mcp_server.McpRequestError):
 			gf_mcp_server.decode_request_bytes(b"[]\n")
@@ -2863,7 +3420,9 @@ class GutShardPlanIntegrationTests(unittest.TestCase):
 		)
 		framework_gut = next(
 			shard
-			for shard in gf_maintenance.parallel_full_shard_plan()
+			for shard in gf_maintenance.parallel_full_shard_plan(
+				_full_validation_plan()
+			)
 			if shard.name == "framework-gut"
 		)
 		self.assertEqual(
@@ -3019,6 +3578,12 @@ class GutShardRuntimeSourceBindingTests(unittest.TestCase):
 		self.assertEqual(
 			tuple(path for path, _digest in gf_maintenance.GUT_SHARD_LOADED_RUNTIME_SOURCE_BINDING),
 			tuple(path for path, _module in gf_maintenance.GUT_SHARD_RUNTIME_SOURCE_MODULES),
+		)
+		self.assertIn(
+			("tools/gf_validation_catalog.py", "gf_validation_catalog"),
+			gf_maintenance.GUT_SHARD_RUNTIME_SOURCE_MODULES,
+			"Validation Catalog participates in GUT shard command planning and must be "
+			"bound into the runtime source closure.",
 		)
 
 	def test_top_report_and_worker_request_bind_runtime_digest(self) -> None:
@@ -8837,7 +9402,7 @@ class GutShardRunIntegrationTests(unittest.TestCase):
 
 class WorkspaceExecutionBoundaryTests(unittest.TestCase):
 	def test_parallel_full_schedule_separates_heavy_shards(self) -> None:
-		plan = gf_maintenance.parallel_full_shard_plan()
+		plan = gf_maintenance.parallel_full_shard_plan(_full_validation_plan())
 		plan_names = tuple(shard.name for shard in plan)
 		self.assertEqual(
 			plan_names,
@@ -8898,13 +9463,19 @@ class WorkspaceExecutionBoundaryTests(unittest.TestCase):
 
 	def test_parallel_full_fail_fast_marks_only_future_resource_batches(self) -> None:
 		plan = [
-			gf_maintenance.ParallelCheckShardPlan("first", ("docs",)),
-			gf_maintenance.ParallelCheckShardPlan(
+			_synthetic_parallel_shard_plan("first", ("docs",)),
+			_synthetic_parallel_shard_plan(
 				"framework-gut",
 				("api_reference",),
+				("docs", "api_reference"),
 			),
-			gf_maintenance.ParallelCheckShardPlan("last", ("ai_api",)),
+			_synthetic_parallel_shard_plan("last", ("ai_api",)),
 		]
+		validation_plan = _synthetic_full_validation_plan(
+			plan,
+			dependencies={"api_reference": ("docs",)},
+		)
+		expected_graphs: dict[str, dict[str, object]] = {}
 
 		class ExpectedStop(RuntimeError):
 			pass
@@ -8976,8 +9547,11 @@ class WorkspaceExecutionBoundaryTests(unittest.TestCase):
 				_report_path: Path,
 				expected_checks: list[str],
 				*_args: object,
-				**_kwargs: object,
+				**kwargs: object,
 			) -> tuple[dict[str, object], str]:
+				expected_graphs[str(shard_result.name)] = dict(
+					kwargs["expected_check_graph"]
+				)
 				return ({
 					"ok": shard_result.exit_code == 0,
 					"results": [{
@@ -8994,9 +9568,13 @@ class WorkspaceExecutionBoundaryTests(unittest.TestCase):
 				"parallel_full_shard_plan",
 				return_value=plan,
 			), mock.patch.object(
+				gf_maintenance._VALIDATION_CATALOG,
+				"plan",
+				side_effect=AssertionError("parallel execution must not re-plan"),
+			), mock.patch.object(
 				gf_maintenance,
 				"expanded_check_names",
-				side_effect=lambda _suite, checks, **_kwargs: list(checks or []),
+				side_effect=AssertionError("parallel execution must consume its plan"),
 			), mock.patch.object(
 				gf_maintenance,
 				"run_parallel_godot_isolation_probe",
@@ -9037,6 +9615,7 @@ class WorkspaceExecutionBoundaryTests(unittest.TestCase):
 					gf_maintenance.run_parallel_full_checks(
 						captured,
 						parallel_root,
+						validation_plan=validation_plan,
 						jobs=2,
 						timeout_seconds=None,
 						suite_timeout_seconds=None,
@@ -9055,9 +9634,74 @@ class WorkspaceExecutionBoundaryTests(unittest.TestCase):
 			[shard.name for shard in append_unstarted.call_args.args[0]],
 			["last"],
 		)
+		self.assertEqual(
+			expected_graphs["framework-gut"],
+			validation_plan.check_graph.describe(["docs", "api_reference"]),
+		)
 
 	def test_parallel_full_plan_owns_full_check_set_exactly_once(self) -> None:
-		plan = gf_maintenance.parallel_full_shard_plan()
+		plan = gf_maintenance.parallel_full_shard_plan(_full_validation_plan())
+		self.assertEqual(
+			tuple((shard.name, shard.checks) for shard in plan),
+			(
+				("package-editor", ("package_editor_wizard_smoke",)),
+				(
+					"framework-static",
+					(
+						"api",
+						"ai_api",
+						"ai_developer_kit",
+						"docs",
+						"changelog_policy",
+						"public_docs_boundary",
+						"public_api_boundary",
+						"resource_boundary",
+						"content_package_boundary",
+						"asset_lifecycle_boundary",
+						"project_profile_boundary",
+						"mkdocs",
+						"api_since_touched",
+						"repository_policy",
+						"credential_gate",
+						"credential_gate_tests",
+						"codeql_suppression_policy",
+						"codeql_suppression_policy_tests",
+						"path_hygiene",
+						"maintenance_self_test",
+						"maintenance_execution_tests",
+						"maintenance_generator_tests",
+						"maintenance_test_evidence_tests",
+						"dependency_boundary",
+						"diff",
+					),
+				),
+				("package-godot-ci", ("package_godot_smoke",)),
+				("package-cli-local", ("package_godot_cli_local_smoke",)),
+				("package-cli-network", ("package_godot_cli_network_smoke",)),
+				(
+					"package-contract",
+					(
+						"ai_developer_adapter_acceptance",
+						"package_boundary",
+						"package_closure_audit",
+						"package_source_boundary",
+						"package_user_dependency_boundary",
+						"package_external_command_audit",
+						"core_only_smoke",
+						"core_plugin_bootstrap_smoke",
+						"package_focused_gut_mapping",
+						"package_distribution_tests",
+						"package_schema_contract_tests",
+						"package_build_boundary",
+					),
+				),
+				(
+					"framework-gut",
+					("gut_lifecycle_smoke", "gut", "gdscript_warnings"),
+				),
+				("framework-lsp", ("gdscript_lsp_diagnostics",)),
+			),
+		)
 		owned_checks = [check for shard in plan for check in shard.checks]
 		self.assertEqual(set(owned_checks), set(gf_maintenance.FULL_CHECKS))
 		self.assertEqual(len(owned_checks), len(set(owned_checks)))
@@ -10581,18 +11225,9 @@ class ValidationShadowIntegrationTests(unittest.TestCase):
 		workspace_state = self._workspace_state()
 		observations: dict[str, list[dict[str, object]]] = {}
 		plans = [
-			gf_maintenance.ParallelCheckShardPlan("first", ("docs",)),
-			gf_maintenance.ParallelCheckShardPlan("second", ("api_reference",)),
+			_synthetic_parallel_shard_plan("first", ("docs",)),
+			_synthetic_parallel_shard_plan("second", ("api_reference",)),
 		]
-
-		def expanded_names(
-			suite: str,
-			checks: list[str] | None,
-			**_kwargs: object,
-		) -> list[str]:
-			if suite == "full":
-				return ["docs", "api_reference"]
-			return list(checks or [])
 
 		with tempfile.TemporaryDirectory() as temporary_directory:
 			root = Path(temporary_directory)
@@ -10667,7 +11302,7 @@ class ValidationShadowIntegrationTests(unittest.TestCase):
 			), mock.patch.object(
 				gf_maintenance,
 				"expanded_check_names",
-				side_effect=expanded_names,
+				side_effect=AssertionError("parallel execution must consume its plan"),
 			), mock.patch.object(
 				gf_maintenance,
 				"run_parallel_godot_isolation_probe",
@@ -10704,6 +11339,7 @@ class ValidationShadowIntegrationTests(unittest.TestCase):
 					gf_maintenance.run_parallel_full_checks(
 						captured,
 						root / "parallel",
+						validation_plan=_synthetic_full_validation_plan(plans),
 						jobs=1,
 						timeout_seconds=None,
 						suite_timeout_seconds=None,
@@ -10739,7 +11375,7 @@ class ValidationShadowIntegrationTests(unittest.TestCase):
 		self.assertEqual(shadow["execution_observation_count"], 1)
 
 	def test_parallel_full_unproven_boundary_keeps_cleanup_fail_closed(self) -> None:
-		plan = [gf_maintenance.ParallelCheckShardPlan("first", ("docs",))]
+		plan = [_synthetic_parallel_shard_plan("first", ("docs",))]
 		cleanup_state = {"permitted": True}
 		with tempfile.TemporaryDirectory() as temporary_directory:
 			root = Path(temporary_directory)
@@ -10803,7 +11439,7 @@ class ValidationShadowIntegrationTests(unittest.TestCase):
 			), mock.patch.object(
 				gf_maintenance,
 				"expanded_check_names",
-				return_value=["docs"],
+				side_effect=AssertionError("parallel execution must consume its plan"),
 			), mock.patch.object(
 				gf_maintenance,
 				"run_parallel_godot_isolation_probe",
@@ -10834,6 +11470,7 @@ class ValidationShadowIntegrationTests(unittest.TestCase):
 					gf_maintenance.run_parallel_full_checks(
 						captured,
 						parallel_root,
+						validation_plan=_synthetic_full_validation_plan(plan),
 						jobs=1,
 						timeout_seconds=None,
 						suite_timeout_seconds=None,
@@ -10851,7 +11488,7 @@ class ValidationShadowIntegrationTests(unittest.TestCase):
 			report_loader.assert_not_called()
 
 	def test_parallel_full_log_copy_failure_retains_source_batch(self) -> None:
-		plan = [gf_maintenance.ParallelCheckShardPlan("first", ("docs",))]
+		plan = [_synthetic_parallel_shard_plan("first", ("docs",))]
 		cleanup_state = {"permitted": True}
 		with tempfile.TemporaryDirectory() as temporary_directory:
 			root = Path(temporary_directory)
@@ -10929,7 +11566,7 @@ class ValidationShadowIntegrationTests(unittest.TestCase):
 			), mock.patch.object(
 				gf_maintenance,
 				"expanded_check_names",
-				return_value=["docs"],
+				side_effect=AssertionError("parallel execution must consume its plan"),
 			), mock.patch.object(
 				gf_maintenance,
 				"run_parallel_godot_isolation_probe",
@@ -10968,6 +11605,7 @@ class ValidationShadowIntegrationTests(unittest.TestCase):
 					gf_maintenance.run_parallel_full_checks(
 						captured,
 						parallel_root,
+						validation_plan=_synthetic_full_validation_plan(plan),
 						jobs=1,
 						timeout_seconds=None,
 						suite_timeout_seconds=None,
@@ -10992,7 +11630,7 @@ class ValidationShadowIntegrationTests(unittest.TestCase):
 			)
 
 	def test_parallel_full_passing_batch_cleanup_failure_keeps_its_reason(self) -> None:
-		plan = [gf_maintenance.ParallelCheckShardPlan("first", ("docs",))]
+		plan = [_synthetic_parallel_shard_plan("first", ("docs",))]
 		cleanup_state = {"permitted": True}
 		with tempfile.TemporaryDirectory() as temporary_directory:
 			root = Path(temporary_directory)
@@ -11083,7 +11721,7 @@ class ValidationShadowIntegrationTests(unittest.TestCase):
 			), mock.patch.object(
 				gf_maintenance,
 				"expanded_check_names",
-				return_value=["docs"],
+				side_effect=AssertionError("parallel execution must consume its plan"),
 			), mock.patch.object(
 				gf_maintenance,
 				"run_parallel_godot_isolation_probe",
@@ -11125,6 +11763,7 @@ class ValidationShadowIntegrationTests(unittest.TestCase):
 					gf_maintenance.run_parallel_full_checks(
 						captured,
 						parallel_root,
+						validation_plan=_synthetic_full_validation_plan(plan),
 						jobs=1,
 						timeout_seconds=None,
 						suite_timeout_seconds=None,
@@ -11211,7 +11850,7 @@ class ValidationShadowIntegrationTests(unittest.TestCase):
 		self.assertNotIn("action_key", rendered)
 
 	def test_parallel_child_command_never_inherits_validation_shadow(self) -> None:
-		plan = gf_maintenance.ParallelCheckShardPlan("framework-static", ("docs",))
+		plan = _synthetic_parallel_shard_plan("framework-static", ("docs",))
 		with tempfile.TemporaryDirectory() as temporary_directory, mock.patch.object(
 			gf_maintenance,
 			"parallel_shard_environment",
@@ -11598,7 +12237,7 @@ class AffectedAnalysisIntegrationTests(unittest.TestCase):
 		self.assertNotIn("secret detail", rendered)
 
 	def test_parallel_child_command_never_inherits_affected_flags(self) -> None:
-		plan = gf_maintenance.ParallelCheckShardPlan("framework-static", ("docs",))
+		plan = _synthetic_parallel_shard_plan("framework-static", ("docs",))
 		with tempfile.TemporaryDirectory() as temporary_directory, mock.patch.object(
 			gf_maintenance,
 			"parallel_shard_environment",
