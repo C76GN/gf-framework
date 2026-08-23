@@ -22,6 +22,7 @@ import unittest
 import xml.etree.ElementTree as ET
 from dataclasses import FrozenInstanceError
 from pathlib import Path
+from types import ModuleType
 from unittest import mock
 
 
@@ -83,6 +84,115 @@ def _synthetic_full_validation_plan(
 		check_graph=gf_validation_catalog.CheckGraph(actions, dependencies or {}),
 		lanes=(),
 	)
+
+
+def _self_test_namespace_fixture() -> dict[str, object]:
+	global fixture_marker
+	original_hook = globals()["fixture_hook"]
+	original_marker = fixture_marker
+	try:
+		globals()["fixture_hook"] = lambda: "patched"
+		fixture_marker = "mutated"
+		return {
+			"hook": fixture_hook(),
+			"marker": fixture_marker,
+			"module_name": __name__,
+		}
+	finally:
+		globals()["fixture_hook"] = original_hook
+		fixture_marker = original_marker
+
+
+class MaintenanceSelfTestModuleTests(unittest.TestCase):
+	def test_maintenance_import_keeps_large_self_test_module_lazy(self) -> None:
+		completed = subprocess.run(
+			[
+				sys.executable,
+				"-c",
+				(
+					"import sys; "
+					f"sys.path.insert(0, {str(TOOLS_ROOT)!r}); "
+					"import gf_maintenance; "
+					"raise SystemExit(int('gf_maintenance_self_test' in sys.modules))"
+				),
+			],
+			cwd=ROOT,
+			capture_output=True,
+			check=False,
+			timeout=10.0,
+		)
+		self.assertEqual(
+			completed.returncode,
+			0,
+			completed.stderr.decode("utf-8", "replace"),
+		)
+
+	def test_maintenance_self_test_delegates_the_live_runtime_module(self) -> None:
+		import gf_maintenance_self_test
+
+		expected = {"ok": True, "tests": []}
+		with mock.patch.object(
+			gf_maintenance_self_test,
+			"run_maintenance_self_test",
+			return_value=expected,
+		) as runner:
+			self.assertIs(gf_maintenance.maintenance_self_test(), expected)
+		runner.assert_called_once_with(gf_maintenance)
+
+	def test_white_box_runner_preserves_live_global_fixture_semantics(self) -> None:
+		import gf_maintenance_self_test
+
+		runtime = ModuleType("fixture_runtime")
+		original_hook = lambda: "original"
+		runtime.fixture_hook = original_hook
+		runtime.fixture_marker = "original"
+		result = gf_maintenance_self_test._run_in_module_namespace(
+			runtime,
+			_self_test_namespace_fixture,
+		)
+
+		self.assertEqual(
+			result,
+			{
+				"hook": "patched",
+				"marker": "mutated",
+				"module_name": "fixture_runtime",
+			},
+		)
+		self.assertIs(runtime.fixture_hook, original_hook)
+		self.assertEqual(runtime.fixture_marker, "original")
+
+	def test_maintenance_self_test_cli_preserves_json_and_exit_contract(self) -> None:
+		for ok, expected_exit_code in ((True, 0), (False, 1)):
+			payload = {
+				"ok": ok,
+				"root": str(ROOT),
+				"test_count": 1,
+				"failure_count": 0 if ok else 1,
+				"tests": [{"name": "fixture", "passed": ok}],
+				"failures": [] if ok else [{"name": "fixture", "passed": False}],
+			}
+			stdout = io.StringIO()
+			with self.subTest(ok=ok), mock.patch.object(
+				gf_maintenance,
+				"maintenance_self_test",
+				return_value=payload,
+			), mock.patch.object(
+				sys,
+				"argv",
+				["gf_maintenance.py", "maintenance-self-test", "--json"],
+			), contextlib.redirect_stdout(stdout):
+				exit_code = gf_maintenance.main()
+
+			self.assertEqual(exit_code, expected_exit_code)
+			self.assertEqual(
+				stdout.getvalue(),
+				gf_maintenance_rendering.encode_strict_json(
+					payload,
+					indent=2,
+					trailing_newline=True,
+				),
+			)
 
 
 class ValidationCatalogContractTests(unittest.TestCase):
