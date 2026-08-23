@@ -5295,7 +5295,7 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 		and GUT_SHARD_OBSERVATION_TIMEOUT_SECONDS == 1200
 		and resolve_gut_shard_observation_timeout_seconds(None) == 1200
 		and resolve_gut_shard_observation_timeout_seconds(1500) == 1500
-		and CHECK_TIMEOUT_SECONDS.get("gut") == 1200
+		and _VALIDATION_CATALOG.timeout_floor_seconds("gut") == 1200
 		and resolve_check_timeout_seconds("gut", None) == 1200
 		and resolve_check_timeout_seconds("gut", 600) == 1200
 		and resolve_check_timeout_seconds("gut", 1500) == 1500,
@@ -6276,7 +6276,8 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 		and resolve_check_timeout_seconds("package_godot_cli_network_smoke", None) == 1200
 		and resolve_check_timeout_seconds("package_godot_matrix_smoke", None) == 2400
 		and resolve_check_timeout_seconds("package_godot_matrix_smoke", 45) == 2400
-		and resolve_check_timeout_seconds("api", None) == DEFAULT_CHECK_TIMEOUT_SECONDS
+		and resolve_check_timeout_seconds("api", None)
+		== _VALIDATION_CATALOG.default_timeout_seconds
 		and resolve_check_timeout_seconds("api", 900) == 900,
 		"generic timeout settings may raise budgets but must not erase measured longer check policies.",
 	)

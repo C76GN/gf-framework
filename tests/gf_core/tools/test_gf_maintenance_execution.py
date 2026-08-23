@@ -283,6 +283,31 @@ class ValidationCatalogContractTests(unittest.TestCase):
 		self.assertEqual(first_before["examples_boot"][-1], "<boot-first>")
 		self.assertEqual(first_before["examples_smoke"][-1], "<smoke-first>")
 
+	def test_catalog_timeout_policy_matches_pre_migration_runner_values(self) -> None:
+		catalog = gf_validation_catalog.build_validation_catalog(
+			self._snapshot_context()
+		)
+		expected_overrides = {
+			"gut": 1200,
+			"gut_lifecycle_smoke": 360,
+			"ai_developer_adapter_acceptance": 900,
+			"package_editor_wizard_smoke": 1200,
+			"package_godot_cli_smoke": 2400,
+			"package_godot_cli_local_smoke": 1200,
+			"package_godot_cli_network_smoke": 1200,
+			"package_godot_matrix_smoke": 2400,
+		}
+
+		self.assertEqual(catalog.default_timeout_seconds, 600)
+		self.assertEqual(catalog.timeout_overrides(), expected_overrides)
+		self.assertEqual(catalog.timeout_floor_seconds("api"), 600)
+		for action_name, timeout_seconds in expected_overrides.items():
+			with self.subTest(action=action_name):
+				self.assertEqual(
+					catalog.timeout_floor_seconds(action_name),
+					timeout_seconds,
+				)
+
 	def test_runner_legacy_projections_come_from_catalog(self) -> None:
 		catalog = gf_maintenance._VALIDATION_CATALOG
 		legacy_groups = {
@@ -501,6 +526,62 @@ class ValidationCatalogContractTests(unittest.TestCase):
 					{"examples_sync_write"},
 				)
 
+	def test_serial_runner_consumes_the_catalog_timeout_floor(self) -> None:
+		plan = gf_maintenance._VALIDATION_CATALOG.plan("api", ["api"])
+		workspace_state = {
+			"schema_version": 1,
+			"head": "a" * 40,
+			"dirty": False,
+			"untracked_file_count": 0,
+			"fingerprint": "b" * 64,
+		}
+		timeout_catalog = mock.Mock()
+		timeout_catalog.timeout_floor_seconds.return_value = 321
+
+		def succeed(
+			name: str,
+			command: list[str],
+			timeout_seconds: float,
+			_output_callback: object,
+		) -> gf_maintenance.CommandResult:
+			return gf_maintenance.CommandResult(
+				name=name,
+				command=command,
+				exit_code=0,
+				stdout="",
+				stderr="",
+				timeout_seconds=timeout_seconds,
+			)
+
+		with mock.patch.object(
+			gf_maintenance,
+			"_VALIDATION_CATALOG",
+			timeout_catalog,
+		), mock.patch.object(
+			gf_maintenance,
+			"maintenance_in_process_check_runners",
+			return_value={},
+		), mock.patch.object(
+			gf_maintenance,
+			"run_command",
+			side_effect=succeed,
+		):
+			report = gf_maintenance.run_checks_with_active_snapshot(
+				plan,
+				workspace_state=workspace_state,
+			)
+
+		timeout_catalog.timeout_floor_seconds.assert_called_once_with("api")
+		self.assertEqual(
+			report["results"][0]["timeout_budget"],
+			{
+				"policy_seconds": 321.0,
+				"requested_minimum_seconds": None,
+				"suite_remaining_seconds": None,
+				"effective_seconds": 321.0,
+			},
+		)
+
 	def test_invalid_parallel_jobs_return_a_structured_plan_setup_failure(self) -> None:
 		plan = gf_maintenance._VALIDATION_CATALOG.plan("quick")
 		for suite_timeout_seconds in (None, 0):
@@ -560,6 +641,9 @@ class ValidationCatalogContractTests(unittest.TestCase):
 			"lane": {
 				"parallel_full_shard_suites": ("suite", "suite"),
 			},
+			"timeout override": {
+				"timeout_overrides": (("alpha", 1), ("alpha", 2)),
+			},
 		}
 		for label, overrides in invalid_overrides.items():
 			with self.subTest(label=label), self.assertRaises(
@@ -574,6 +658,7 @@ class ValidationCatalogContractTests(unittest.TestCase):
 			"group action": {"check_groups": (("group", ("unknown",)),)},
 			"suite action": {"suites": (("suite", ("unknown",)),)},
 			"lane suite": {"parallel_full_shard_suites": ("unknown",)},
+			"timeout action": {"timeout_overrides": (("unknown", 1),)},
 		}
 		for label, overrides in invalid_overrides.items():
 			with self.subTest(label=label), self.assertRaises(
@@ -582,6 +667,30 @@ class ValidationCatalogContractTests(unittest.TestCase):
 				self._minimal_catalog(**overrides)
 		with self.assertRaises(gf_validation_catalog.ValidationCatalogError):
 			self._minimal_catalog().check_group("unknown")
+		with self.assertRaises(gf_validation_catalog.ValidationCatalogError):
+			self._minimal_catalog().timeout_floor_seconds("unknown")
+
+	def test_timeout_policy_rejects_non_positive_or_non_integer_seconds(self) -> None:
+		for value in (True, 0, -1, 1.0, "1"):
+			with self.subTest(default=value), self.assertRaises(
+				gf_validation_catalog.ValidationCatalogError
+			):
+				self._minimal_catalog(default_timeout_seconds=value)
+			with self.subTest(override=value), self.assertRaises(
+				gf_validation_catalog.ValidationCatalogError
+			):
+				self._minimal_catalog(timeout_overrides=(("alpha", value),))
+
+	def test_timeout_policy_rejects_malformed_override_declarations(self) -> None:
+		for declarations in (
+			(["alpha", 15],),
+			(("alpha",),),
+			(("alpha", 15, "extra"),),
+		):
+			with self.subTest(declarations=declarations), self.assertRaises(
+				gf_validation_catalog.ValidationCatalogError
+			):
+				self._minimal_catalog(timeout_overrides=declarations)
 
 	def test_dependency_topology_is_validated_during_catalog_construction(self) -> None:
 		invalid_dependencies = {
@@ -615,27 +724,32 @@ class ValidationCatalogContractTests(unittest.TestCase):
 		group = ["alpha", "beta"]
 		suite = ["alpha", "beta"]
 		lanes = ["suite"]
+		timeout_overrides = [("alpha", 15)]
 		catalog = self._minimal_catalog(
 			actions=(("alpha", command), ("beta", None)),
 			dependencies=(("beta", dependencies),),
 			check_groups=(("group", group),),
 			suites=(("suite", suite),),
 			parallel_full_shard_suites=lanes,
+			timeout_overrides=timeout_overrides,
 		)
 		command.append("mutated")
 		dependencies.append("beta")
 		group.append("alpha")
 		suite.append("alpha")
 		lanes.append("suite")
+		timeout_overrides.append(("beta", 30))
 
 		command_copy = catalog.command_definitions()
 		dependency_copy = catalog.dependencies()
 		group_copy = catalog.check_groups()
 		suite_copy = catalog.suites()
+		timeout_copy = catalog.timeout_overrides()
 		command_copy["alpha"].append("mutated")
 		dependency_copy["beta"].append("beta")
 		group_copy["group"].append("alpha")
 		suite_copy["suite"].append("alpha")
+		timeout_copy["alpha"] = 99
 
 		self.assertEqual(catalog.action_names, ("alpha", "beta"))
 		self.assertEqual(catalog.command_definitions(), {"alpha": ["python"]})
@@ -643,6 +757,10 @@ class ValidationCatalogContractTests(unittest.TestCase):
 		self.assertEqual(catalog.check_groups(), {"group": ["alpha", "beta"]})
 		self.assertEqual(catalog.suites(), {"suite": ["alpha", "beta"]})
 		self.assertEqual(catalog.parallel_full_shard_suites, ("suite",))
+		self.assertEqual(catalog.default_timeout_seconds, 10)
+		self.assertEqual(catalog.timeout_overrides(), {"alpha": 15})
+		self.assertEqual(catalog.timeout_floor_seconds("alpha"), 15)
+		self.assertEqual(catalog.timeout_floor_seconds("beta"), 10)
 
 	@staticmethod
 	def _snapshot_context() -> gf_validation_catalog.ValidationCatalogContext:
@@ -685,6 +803,8 @@ class ValidationCatalogContractTests(unittest.TestCase):
 			"check_groups": (("group", ("alpha", "beta")),),
 			"suites": (("suite", ("alpha", "beta")),),
 			"parallel_full_shard_suites": ("suite",),
+			"default_timeout_seconds": 10,
+			"timeout_overrides": (("alpha", 15),),
 		}
 		arguments.update(overrides)
 		return gf_validation_catalog.ValidationCatalog(**arguments)
@@ -3515,7 +3635,10 @@ class GutShardPlanIntegrationTests(unittest.TestCase):
 			gf_maintenance.resolve_gut_shard_observation_timeout_seconds(1500),
 			1500,
 		)
-		self.assertEqual(gf_maintenance.CHECK_TIMEOUT_SECONDS["gut"], 1200)
+		self.assertEqual(
+			gf_maintenance._VALIDATION_CATALOG.timeout_floor_seconds("gut"),
+			1200,
+		)
 		self.assertEqual(
 			gf_maintenance.resolve_check_timeout_seconds("gut", None),
 			1200,
@@ -3539,6 +3662,61 @@ class GutShardPlanIntegrationTests(unittest.TestCase):
 			gf_maintenance.parallel_shard_timeout_seconds(framework_gut, None),
 			2820,
 		)
+
+	def test_gut_observation_timeout_consumes_the_catalog_floor(self) -> None:
+		timeout_catalog = mock.Mock()
+		timeout_catalog.timeout_floor_seconds.return_value = 1301
+
+		with mock.patch.object(
+			gf_maintenance,
+			"_VALIDATION_CATALOG",
+			timeout_catalog,
+		):
+			self.assertEqual(
+				gf_maintenance.resolve_gut_shard_observation_timeout_seconds(None),
+				1301,
+			)
+			self.assertEqual(
+				gf_maintenance.resolve_gut_shard_observation_timeout_seconds(1500),
+				1500,
+			)
+
+		timeout_catalog.timeout_floor_seconds.assert_has_calls([
+			mock.call("gut"),
+			mock.call("gut"),
+		])
+
+	def test_parallel_shard_timeout_consumes_each_catalog_floor(self) -> None:
+		floor_by_action = {
+			"godot_import": 501,
+			"gut_lifecycle_smoke": 502,
+			"gut": 503,
+			"gdscript_warnings": 504,
+		}
+		timeout_catalog = mock.Mock()
+		timeout_catalog.timeout_floor_seconds.side_effect = floor_by_action.__getitem__
+		shard = gf_maintenance.ParallelCheckShardPlan(
+			name="framework-gut",
+			checks=("gut", "gut_lifecycle_smoke", "gdscript_warnings"),
+			execution_checks=tuple(floor_by_action),
+		)
+
+		with mock.patch.object(
+			gf_maintenance,
+			"_VALIDATION_CATALOG",
+			timeout_catalog,
+		):
+			resolved = gf_maintenance.parallel_shard_timeout_seconds(shard, None)
+
+		self.assertEqual(
+			resolved,
+			sum(floor_by_action.values())
+			+ gf_maintenance.PARALLEL_SHARD_STARTUP_ALLOWANCE_SECONDS,
+		)
+		timeout_catalog.timeout_floor_seconds.assert_has_calls([
+			mock.call(action_name)
+			for action_name in floor_by_action
+		])
 
 	def test_renderer_exposes_diagnostic_completeness_and_duration_scope(self) -> None:
 		text = gf_maintenance_rendering.render_gut_shard_plan_text({
