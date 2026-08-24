@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://gf-framework.dev/schemas/project-snapshot-v6.json",
+  "$id": "https://gf-framework.dev/schemas/project-snapshot-v7.json",
   "title": "GF Observed Project Snapshot",
   "type": "object",
   "additionalProperties": false,
@@ -16,7 +16,7 @@
     "drift"
   ],
   "properties": {
-    "schema_version": {"type": "integer", "const": 6},
+    "schema_version": {"type": "integer", "const": 7},
     "generator_version": {"type": "string", "minLength": 1},
     "generated_at_utc": {"type": "string", "minLength": 1},
     "project_root": {"type": "string", "const": "."},
@@ -30,7 +30,7 @@
         "sha256": {"type": "string", "pattern": "^$|^[0-9a-f]{64}$"},
         "issue_count": {"type": "integer", "minimum": 0},
         "schema_version": {"type": "integer", "minimum": 0},
-        "current_schema_version": {"type": "integer", "const": 3},
+        "current_schema_version": {"type": "integer", "const": 4},
         "migration_required": {"type": "boolean"},
         "migration_available": {"type": "boolean"}
       }
@@ -52,7 +52,7 @@
       "properties": {
         "installed": {"type": "boolean"},
         "version": {"type": "string"},
-        "catalog_framework_version": {"type": "string", "minLength": 1},
+        "catalog_framework_version": {"type": "string"},
         "catalog_matches_framework": {"type": "boolean"},
         "plugin_enabled": {"type": "boolean"},
         "packages": {"type": "array", "uniqueItems": true, "items": {"type": "string"}},
@@ -116,7 +116,7 @@
     "project": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["godot_features", "script_count", "scanned_script_count", "scanned_script_bytes", "test_script_count", "source_scan_truncated", "source_scan_truncation_reason", "source_scan_complete", "skipped_large_script_count", "unreadable_script_count", "unsafe_script_path_count", "unsafe_directory_count", "gf_api_usage", "test_gf_api_usage", "declared_roots", "module_dependency_analysis"],
+      "required": ["godot_features", "script_count", "scanned_script_count", "scanned_script_bytes", "test_script_count", "source_scan_truncated", "source_scan_truncation_reason", "source_scan_complete", "skipped_large_script_count", "unreadable_script_count", "unsafe_script_path_count", "unsafe_directory_count", "gf_api_usage", "test_gf_api_usage", "declared_roots", "module_dependency_analysis", "api_package_policy_analysis"],
       "properties": {
         "godot_features": {"type": "array", "uniqueItems": true, "items": {"type": "string"}},
         "script_count": {"type": "integer", "minimum": 0},
@@ -143,6 +143,150 @@
               "path": {"type": "string"},
               "exists": {"type": "boolean"}
             }
+          }
+        },
+        "api_package_policy_analysis": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "status", "complete", "catalog", "catalog_issue_count", "catalog_issues_truncated", "catalog_issues",
+            "contract_issue_count", "required_packages", "optional_packages", "allowed_packages", "forbidden_packages",
+            "source_domains", "domains", "observation_count", "observations_truncated", "observations",
+            "actionable_count", "actionable_observations_truncated", "actionable_observations",
+            "advisory_count", "advisories_truncated", "advisories", "script_count", "scanned_script_count",
+            "scanned_script_bytes", "test_script_count", "source_scan_truncated", "source_scan_truncation_reason",
+            "source_scan_complete", "skipped_large_script_count", "unreadable_script_count",
+            "unsafe_script_path_count", "unsafe_directory_count", "invalid_gdignore_count",
+            "ignored_directory_count", "directory_identity_drift_count", "gf_api_usage", "test_gf_api_usage"
+          ],
+          "properties": {
+            "status": {"type": "string", "enum": ["contract_invalid", "catalog_invalid", "complete", "partial"]},
+            "complete": {"type": "boolean"},
+            "catalog": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["schema_version", "catalog_version", "source_digest"],
+              "properties": {
+                "schema_version": {"type": "integer", "minimum": 0},
+                "catalog_version": {"type": "string"},
+                "source_digest": {"type": "string"}
+              }
+            },
+            "catalog_issue_count": {"type": "integer", "minimum": 0},
+            "catalog_issues_truncated": {"type": "boolean"},
+            "catalog_issues": {"type": "array", "maxItems": 20, "items": {"type": "string", "minLength": 1}},
+            "contract_issue_count": {"type": "integer", "minimum": 0},
+            "required_packages": {"type": "array", "maxItems": 100, "uniqueItems": true, "items": {"type": "string", "pattern": "^gf\\.[a-z0-9_.-]+$"}},
+            "optional_packages": {"type": "array", "maxItems": 100, "uniqueItems": true, "items": {"type": "string", "pattern": "^gf\\.[a-z0-9_.-]+$"}},
+            "allowed_packages": {"type": "array", "uniqueItems": true, "items": {"type": "string", "pattern": "^gf\\.[a-z0-9_.-]+$"}},
+            "forbidden_packages": {"type": "array", "maxItems": 100, "uniqueItems": true, "items": {"type": "string", "pattern": "^gf\\.[a-z0-9_.-]+$"}},
+            "source_domains": {
+              "type": "array",
+              "maxItems": 100,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["root", "domain", "status"],
+                "properties": {
+                  "root": {"type": "string", "pattern": "^res://.+$"},
+                  "domain": {"type": "string", "enum": ["runtime", "test", "tool", "editor"]},
+                  "status": {"type": "string", "enum": ["ready", "missing", "not_directory", "unsafe", "ignored", "excluded", "generated", "drifted"]}
+                }
+              }
+            },
+            "domains": {
+              "type": "array",
+              "minItems": 4,
+              "maxItems": 4,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["domain", "observation_count", "allowed_count", "outside_policy_count", "forbidden_count", "actionable_count", "advisory_count"],
+                "properties": {
+                  "domain": {"type": "string", "enum": ["runtime", "test", "tool", "editor"]},
+                  "observation_count": {"type": "integer", "minimum": 0},
+                  "allowed_count": {"type": "integer", "minimum": 0},
+                  "outside_policy_count": {"type": "integer", "minimum": 0},
+                  "forbidden_count": {"type": "integer", "minimum": 0},
+                  "actionable_count": {"type": "integer", "minimum": 0},
+                  "advisory_count": {"type": "integer", "minimum": 0}
+                }
+              }
+            },
+            "observation_count": {"type": "integer", "minimum": 0},
+            "observations_truncated": {"type": "boolean"},
+            "observations": {
+              "type": "array",
+              "maxItems": 200,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["source_path", "line", "source_domain", "owner_kind", "owner_name", "package_id", "policy"],
+                "properties": {
+                  "source_path": {"type": "string", "pattern": "^res://.+$"},
+                  "line": {"type": "integer", "minimum": 1},
+                  "source_domain": {"type": "string", "enum": ["runtime", "test", "tool", "editor"]},
+                  "owner_kind": {"type": "string", "enum": ["class", "autoload"]},
+                  "owner_name": {"type": "string", "minLength": 1},
+                  "package_id": {"type": "string", "pattern": "^gf\\.[a-z0-9_.-]+$"},
+                  "policy": {"type": "string", "enum": ["allowed", "outside_policy", "forbidden"]}
+                }
+              }
+            },
+            "actionable_count": {"type": "integer", "minimum": 0},
+            "actionable_observations_truncated": {"type": "boolean"},
+            "actionable_observations": {
+              "type": "array",
+              "maxItems": 200,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["source_path", "line", "source_domain", "owner_kind", "owner_name", "package_id", "policy"],
+                "properties": {
+                  "source_path": {"type": "string", "pattern": "^res://.+$"},
+                  "line": {"type": "integer", "minimum": 1},
+                  "source_domain": {"type": "string", "enum": ["runtime", "test", "tool", "editor"]},
+                  "owner_kind": {"type": "string", "enum": ["class", "autoload"]},
+                  "owner_name": {"type": "string", "minLength": 1},
+                  "package_id": {"type": "string", "pattern": "^gf\\.[a-z0-9_.-]+$"},
+                  "policy": {"type": "string", "enum": ["outside_policy", "forbidden"]}
+                }
+              }
+            },
+            "advisory_count": {"type": "integer", "minimum": 0},
+            "advisories_truncated": {"type": "boolean"},
+            "advisories": {
+              "type": "array",
+              "maxItems": 100,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["source_path", "line", "source_domain", "symbol", "reason"],
+                "properties": {
+                  "source_path": {"type": "string", "pattern": "^res://.+$"},
+                  "line": {"type": "integer", "minimum": 1},
+                  "source_domain": {"type": "string", "enum": ["runtime", "test", "tool", "editor"]},
+                  "symbol": {"type": "string", "minLength": 1},
+                  "reason": {"type": "string", "enum": ["dynamic_api_reference", "unknown_dynamic_gf_symbol"]}
+                }
+              }
+            },
+            "script_count": {"type": "integer", "minimum": 0},
+            "scanned_script_count": {"type": "integer", "minimum": 0},
+            "scanned_script_bytes": {"type": "integer", "minimum": 0},
+            "test_script_count": {"type": "integer", "minimum": 0},
+            "source_scan_truncated": {"type": "boolean"},
+            "source_scan_truncation_reason": {"type": "string", "enum": ["", "script_count", "byte_budget"]},
+            "source_scan_complete": {"type": "boolean"},
+            "skipped_large_script_count": {"type": "integer", "minimum": 0},
+            "unreadable_script_count": {"type": "integer", "minimum": 0},
+            "unsafe_script_path_count": {"type": "integer", "minimum": 0},
+            "unsafe_directory_count": {"type": "integer", "minimum": 0},
+            "invalid_gdignore_count": {"type": "integer", "minimum": 0},
+            "ignored_directory_count": {"type": "integer", "minimum": 0},
+            "directory_identity_drift_count": {"type": "integer", "minimum": 0},
+            "gf_api_usage": {"type": "array", "uniqueItems": true, "items": {"type": "string"}},
+            "test_gf_api_usage": {"type": "array", "uniqueItems": true, "items": {"type": "string"}}
           }
         },
         "module_dependency_analysis": {

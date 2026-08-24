@@ -27,10 +27,13 @@ FIXTURE_PATH = Path(__file__).with_name("fixtures") / "evaluation_cases.json"
 ISSUE_96_FIXTURE_ROOT = Path(__file__).with_name("fixtures") / "issue_96"
 ISSUE_96_CONTRACT_FIXTURE_PATH = ISSUE_96_FIXTURE_ROOT / "project_contract_v3.json"
 ISSUE_96_ANALYSIS_FIXTURE_PATH = ISSUE_96_FIXTURE_ROOT / "module_dependency_analysis_v6.json"
+ISSUE_121_FIXTURE_ROOT = Path(__file__).with_name("fixtures") / "issue_121"
+ISSUE_121_CONTRACT_FIXTURE_PATH = ISSUE_121_FIXTURE_ROOT / "project_contract_v4.json"
+ISSUE_121_ANALYSIS_FIXTURE_PATH = ISSUE_121_FIXTURE_ROOT / "api_package_policy_analysis_v7.json"
 sys.path.insert(0, str(ADDON_ROOT))
 sys.path.insert(0, str(TOOLS_ROOT))
 
-from gf_ai import adapters, catalog, cli, context_bundle, dependencies, feedback, mcp, migration, paths, snapshot  # noqa: E402
+from gf_ai import adapters, api_policy, catalog, cli, context_bundle, dependencies, feedback, mcp, migration, paths, snapshot  # noqa: E402
 from gf_ai.constants import (  # noqa: E402
 	ARTIFACT_POLICY_PATH,
 	CONTRACT_SCHEMA_VERSION,
@@ -220,6 +223,7 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 		legacy["schema_version"] = 1
 		legacy["architecture"] = dict(current["architecture"])
 		legacy["architecture"].pop("path_roles")
+		legacy["architecture"].pop("source_domains")
 		legacy["framework"] = dict(current["framework"])
 		legacy["framework"]["required_capabilities"] = [
 			item["id"] for item in current["framework"]["capability_requirements"]
@@ -297,6 +301,7 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 		legacy = json.loads(contract_path.read_text(encoding="utf-8"))
 		legacy["schema_version"] = 2
 		legacy["architecture"].pop("path_roles")
+		legacy["architecture"].pop("source_domains")
 		contract_path.write_text(json.dumps(legacy, ensure_ascii=False), encoding="utf-8")
 		original_bytes = contract_path.read_bytes()
 
@@ -309,13 +314,13 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 		self.assertEqual(loaded["schema_version"], 2)
 		self.assertTrue(plan["ok"], plan)
 		self.assertEqual(plan["status"], "ready")
-		self.assertEqual(plan["migration_id"], "project-contract-v2-to-v3")
-		self.assertEqual(plan["changes"], [{
-			"code": "path_roles_initialized",
-			"path": "$.architecture.path_roles",
-			"message": "Initialized the closed project path-role declaration list.",
-		}])
+		self.assertEqual(plan["migration_id"], "project-contract-v2-to-v4")
+		self.assertEqual(
+			[item["code"] for item in plan["changes"]],
+			["path_roles_initialized", "source_domains_initialized", "declare_source_domain_roots"],
+		)
 		self.assertEqual(plan["candidate"]["architecture"]["path_roles"], [])
+		self.assertEqual(plan["candidate"]["architecture"]["source_domains"], [])
 		self.assertEqual(contract_path.read_bytes(), original_bytes)
 
 		applied = migration.apply_contract_migration(
@@ -326,8 +331,9 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 
 		self.assertTrue(applied["ok"], applied)
 		migrated_contract = json.loads(contract_path.read_text(encoding="utf-8"))
-		self.assertEqual(migrated_contract["schema_version"], 3)
+		self.assertEqual(migrated_contract["schema_version"], 4)
 		self.assertEqual(migrated_contract["architecture"]["path_roles"], [])
+		self.assertEqual(migrated_contract["architecture"]["source_domains"], [])
 		self.assertTrue(load_contract(self.project_root)["ok"])
 
 	def test_issue_96_contract_migration_rejects_legacy_path_roles_without_writing(self) -> None:
@@ -366,6 +372,7 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 		legacy = json.loads(contract_path.read_text(encoding="utf-8"))
 		legacy["schema_version"] = 1
 		legacy["architecture"].pop("path_roles")
+		legacy["architecture"].pop("source_domains")
 		legacy["framework"]["required_capabilities"] = ["architecture", "architecture"]
 		del legacy["framework"]["capability_requirements"]
 		contract_path.write_text(json.dumps(legacy), encoding="utf-8")
@@ -393,6 +400,7 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 		legacy = json.loads(contract_path.read_text(encoding="utf-8"))
 		legacy["schema_version"] = 1
 		legacy["architecture"].pop("path_roles")
+		legacy["architecture"].pop("source_domains")
 		legacy["framework"]["required_capabilities"] = [
 			item["id"] for item in legacy["framework"].pop("capability_requirements")
 		]
@@ -417,6 +425,7 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 		current = json.loads((self.project_root / ".gf/project_contract.json").read_text(encoding="utf-8"))
 		current["schema_version"] = 1
 		current["architecture"].pop("path_roles")
+		current["architecture"].pop("source_domains")
 		current["framework"]["required_capabilities"] = [
 			item["id"] for item in current["framework"].pop("capability_requirements")
 		]
@@ -480,6 +489,7 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 		legacy = json.loads(contract_path.read_text(encoding="utf-8"))
 		legacy["schema_version"] = 1
 		legacy["architecture"].pop("path_roles")
+		legacy["architecture"].pop("source_domains")
 		legacy["framework"]["required_capabilities"] = [
 			item["id"] for item in legacy["framework"].pop("capability_requirements")
 		]
@@ -1355,6 +1365,10 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 			"extends Node\nvar architecture := GFArchitecture.new()\n",
 			encoding="utf-8",
 		)
+		contract_path = self.project_root / ".gf/project_contract.json"
+		contract = json.loads(contract_path.read_text(encoding="utf-8"))
+		contract["architecture"]["source_domains"] = [{"root": "res://Tests", "domain": "test"}]
+		contract_path.write_text(json.dumps(contract, ensure_ascii=False), encoding="utf-8")
 
 		with mock.patch.object(snapshot, "_MAX_SCRIPT_BYTES", 80):
 			report = snapshot.build_snapshot(self.project_root)
@@ -1368,6 +1382,474 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 		self.assertEqual(report["project"]["gf_api_usage"], [])
 		self.assertEqual(report["project"]["test_gf_api_usage"], ["GFArchitecture"])
 		self.assertEqual(readiness["architecture"]["status"], "evidence_incomplete")
+
+	def test_issue_121_contract_v3_migration_initializes_closed_source_domains(self) -> None:
+		contract_path = self.project_root / ".gf/project_contract.json"
+		legacy = json.loads(contract_path.read_text(encoding="utf-8"))
+		legacy["schema_version"] = 3
+		legacy["architecture"].pop("source_domains", None)
+		contract_path.write_text(json.dumps(legacy, ensure_ascii=False), encoding="utf-8")
+
+		plan = migration.plan_contract_migration(self.project_root)
+
+		self.assertTrue(plan["ok"], plan)
+		self.assertEqual(plan["migration_id"], "project-contract-v3-to-v4")
+		self.assertEqual(plan["candidate"]["architecture"]["source_domains"], [])
+		self.assertIn("source_domains_initialized", {item["code"] for item in plan["changes"]})
+		self.assertIn("declare_source_domain_roots", {item["code"] for item in plan["changes"]})
+		self.assertIn("unmatched", " ".join(item["message"] for item in plan["changes"]).casefold())
+		applied = migration.apply_contract_migration(
+			self.project_root,
+			plan["plan_sha256"],
+			human_approved=True,
+		)
+		self.assertTrue(applied["ok"], applied)
+		self.assertEqual(applied["status"], "applied")
+		self.assertEqual(
+			json.loads(contract_path.read_text(encoding="utf-8")),
+			plan["candidate"],
+		)
+
+		legacy["architecture"]["source_domains"] = []
+		contract_path.write_text(json.dumps(legacy, ensure_ascii=False), encoding="utf-8")
+		blocked = migration.plan_contract_migration(self.project_root)
+		self.assertFalse(blocked["ok"])
+		self.assertEqual(blocked["issues"][0]["code"], "invalid_legacy_source_domains")
+
+	def test_issue_121_source_domains_are_closed_portable_and_deepest_match_wins(self) -> None:
+		contract_path = self.project_root / ".gf/project_contract.json"
+		contract = json.loads(contract_path.read_text(encoding="utf-8"))
+		contract["architecture"]["source_domains"] = [
+			{"root": "res://src", "domain": "runtime"},
+			{"root": "res://src/tests", "domain": "test"},
+			{"root": "res://src/tools", "domain": "tool"},
+			{"root": "res://src/tools/editor", "domain": "editor"},
+			{"root": "res://src/tools/editor/runtime", "domain": "runtime"},
+		]
+		for root in ("src", "src/tests", "src/tools", "src/tools/editor", "src/tools/editor/runtime"):
+			(self.project_root / root).mkdir(parents=True, exist_ok=True)
+		self.assertFalse(any(
+			item["severity"] == "error"
+			for item in validate_contract_data(contract, self.project_root)
+		))
+
+		for source_path, expected_domain in (
+			("src/main.gd", "runtime"),
+			("src/tests/case.gd", "test"),
+			("src/tools/build.gd", "tool"),
+			("src/tools/editor/dock.gd", "editor"),
+			("src/tools/editor/runtime/preview.gd", "runtime"),
+			("unmatched.gd", "runtime"),
+		):
+			path = self.project_root / source_path
+			path.parent.mkdir(parents=True, exist_ok=True)
+			path.write_text("extends Node\nvar value := GFArchitecture.new()\n", encoding="utf-8")
+		contract_path.write_text(json.dumps(contract, ensure_ascii=False), encoding="utf-8")
+		analysis = api_policy.analyze_api_package_policy(self.project_root, load_contract(self.project_root))
+		observed = {(item["source_path"], item["source_domain"]) for item in analysis["observations"]}
+		for source_path, expected_domain in (
+			("res://src/main.gd", "runtime"),
+			("res://src/tests/case.gd", "test"),
+			("res://src/tools/build.gd", "tool"),
+			("res://src/tools/editor/dock.gd", "editor"),
+			("res://src/tools/editor/runtime/preview.gd", "runtime"),
+			("res://unmatched.gd", "runtime"),
+		):
+			self.assertIn((source_path, expected_domain), observed)
+
+		contract["architecture"]["source_domains"].append({"root": "res://SRC", "domain": "test"})
+		issues = validate_contract_data(contract, self.project_root)
+		self.assertIn("duplicate_source_domain_root", {item["code"] for item in issues})
+		contract["architecture"]["source_domains"][-1] = {"root": "res://addons/GF", "domain": "test"}
+		issues = validate_contract_data(contract, self.project_root)
+		self.assertIn("reserved_source_domain_root", {item["code"] for item in issues})
+		contract["architecture"]["source_domains"][-1] = {"root": "res://src/build/generated", "domain": "test"}
+		issues = validate_contract_data(contract, self.project_root)
+		self.assertIn("excluded_source_domain_root", {item["code"] for item in issues})
+		prevalidated = {"ok": True, "contract": contract, "error_count": 0}
+		excluded = api_policy.analyze_api_package_policy(self.project_root, prevalidated)
+		self.assertEqual(
+			next(item for item in excluded["source_domains"] if item["root"] == "res://src/build/generated")["status"],
+			"excluded",
+		)
+		self.assertEqual(excluded["status"], "partial")
+
+		contract["architecture"]["modules"] = [self._module(
+			"generated_reports",
+			ownership="generated",
+			root="res://generated/reports",
+		)]
+		contract["architecture"]["source_domains"][-1] = {
+			"root": "res://generated/reports/preview",
+			"domain": "editor",
+		}
+		issues = validate_contract_data(contract, self.project_root)
+		self.assertIn("generated_source_domain_root", {item["code"] for item in issues})
+		generated = api_policy.analyze_api_package_policy(
+			self.project_root,
+			{"ok": True, "contract": contract, "error_count": 0},
+		)
+		self.assertEqual(
+			next(item for item in generated["source_domains"] if item["root"] == "res://generated/reports/preview")["status"],
+			"generated",
+		)
+		self.assertEqual(generated["status"], "partial")
+
+	def test_issue_121_package_policy_maps_exact_classes_and_autoloads_without_install_state(self) -> None:
+		contract_path = self.project_root / ".gf/project_contract.json"
+		contract = json.loads(contract_path.read_text(encoding="utf-8"))
+		contract["framework"]["required_packages"] = ["gf.kernel", "gf.standard.settings"]
+		contract["framework"]["optional_packages"] = ["gf.standard.settings.storage"]
+		contract["framework"]["forbidden_packages"] = ["gf.tool.project_layout"]
+		contract["architecture"]["source_domains"] = [
+			{"root": "res://tests", "domain": "test"},
+			{"root": "res://tools", "domain": "tool"},
+			{"root": "res://tools/editor", "domain": "editor"},
+		]
+		for root in ("runtime", "tests", "tools", "tools/editor"):
+			(self.project_root / root).mkdir(parents=True, exist_ok=True)
+		(self.project_root / "runtime/main.gd").write_text(
+			"extends Node\nvar a := GFSettingsUtility.new()\nvar b := GFActivationTransaction.new()\nvar c := Gf\n",
+			encoding="utf-8",
+		)
+		(self.project_root / "tests/case.gd").write_text(
+			"extends Node\nvar optional := GFStorageSettingsStoreUtility.new()\n",
+			encoding="utf-8",
+		)
+		(self.project_root / "tools/build.gd").write_text(
+			"extends Node\nvar outside := GFAssetCatalog.new()\n",
+			encoding="utf-8",
+		)
+		(self.project_root / "tools/editor/dock.gd").write_text(
+			"extends Node\nvar forbidden := GFProjectLayoutAnalyzer.new()\n",
+			encoding="utf-8",
+		)
+		contract_path.write_text(json.dumps(contract, ensure_ascii=False), encoding="utf-8")
+
+		without_lock = api_policy.analyze_api_package_policy(self.project_root, load_contract(self.project_root))
+		(self.project_root / ".gf/packages.lock.json").unlink()
+		(self.project_root / "addons/gf/vendor_complete.gd").write_text(
+			"class_name GFProjectLayoutAnalyzer\n",
+			encoding="utf-8",
+		)
+		with_vendoring = api_policy.analyze_api_package_policy(self.project_root, load_contract(self.project_root))
+
+		self.assertEqual(without_lock, with_vendoring)
+		self.assertEqual(without_lock["status"], "complete")
+		self.assertTrue(without_lock["complete"])
+		by_name = {item["owner_name"]: item for item in without_lock["observations"]}
+		self.assertEqual(by_name["GFSettingsUtility"]["policy"], "allowed")
+		self.assertEqual(by_name["GFActivationTransaction"]["policy"], "allowed")
+		self.assertEqual(by_name["GFStorageSettingsStoreUtility"]["policy"], "allowed")
+		self.assertEqual(by_name["Gf"]["owner_kind"], "autoload")
+		self.assertEqual(by_name["GFAssetCatalog"]["policy"], "outside_policy")
+		self.assertEqual(by_name["GFProjectLayoutAnalyzer"]["policy"], "forbidden")
+		self.assertEqual(without_lock["actionable_count"], 2)
+		self.assertEqual(
+			[item["domain"] for item in without_lock["domains"]],
+			["runtime", "test", "tool", "editor"],
+		)
+
+	def test_issue_121_dynamic_references_are_advisory_and_violations_survive_observation_budget(self) -> None:
+		contract_path = self.project_root / ".gf/project_contract.json"
+		contract = json.loads(contract_path.read_text(encoding="utf-8"))
+		contract["framework"]["required_packages"] = ["gf.kernel"]
+		contract["framework"]["optional_packages"] = []
+		contract["framework"]["forbidden_packages"] = ["gf.tool.project_layout"]
+		contract_path.write_text(json.dumps(contract, ensure_ascii=False), encoding="utf-8")
+		(self.project_root / "policy.gd").write_text(
+			"extends Node\n"
+			"# GFProjectLayoutAnalyzer is only a comment.\n"
+			"var a := GFArchitecture.new()\n"
+			"var b := GFArchitecture.new()\n"
+			"var dynamic_name := \"GFProjectLayoutAnalyzer\"\n"
+			"var unknown_dynamic := \"GFNotInCatalog\"\n"
+			"var forbidden := GFProjectLayoutAnalyzer.new()\n",
+			encoding="utf-8",
+		)
+
+		with mock.patch.object(api_policy, "MAX_OBSERVATION_EVIDENCE", 1):
+			analysis = api_policy.analyze_api_package_policy(self.project_root, load_contract(self.project_root))
+
+		self.assertEqual(analysis["observation_count"], 3)
+		self.assertTrue(analysis["observations_truncated"])
+		self.assertEqual(analysis["actionable_count"], 1)
+		self.assertEqual(analysis["actionable_observations"][0]["owner_name"], "GFProjectLayoutAnalyzer")
+		self.assertEqual(analysis["advisory_count"], 2)
+		self.assertEqual(analysis["advisories"][0]["reason"], "dynamic_api_reference")
+		self.assertEqual(analysis["advisories"][1]["reason"], "unknown_dynamic_gf_symbol")
+
+	def test_issue_121_gdignore_other_addons_and_fail_closed_inputs(self) -> None:
+		contract_result = load_contract(self.project_root)
+		(self.project_root / "addons/custom").mkdir(parents=True)
+		(self.project_root / "addons/custom/plugin.gd").write_text(
+			"extends Node\nvar value := GFArchitecture.new()\n",
+			encoding="utf-8",
+		)
+		(self.project_root / "ignored").mkdir()
+		(self.project_root / "ignored/.gdignore").write_text("", encoding="utf-8")
+		(self.project_root / "ignored/not_project.gd").write_text(
+			"var value := GFProjectLayoutAnalyzer.new()\n",
+			encoding="utf-8",
+		)
+		(self.project_root / "broken.gd").write_bytes(b"\xff")
+
+		analysis = api_policy.analyze_api_package_policy(self.project_root, contract_result)
+
+		self.assertEqual(analysis["status"], "partial")
+		self.assertFalse(analysis["complete"])
+		self.assertEqual(analysis["ignored_directory_count"], 1)
+		self.assertGreaterEqual(analysis["unreadable_script_count"], 1)
+		self.assertIn("res://addons/custom/plugin.gd", {item["source_path"] for item in analysis["observations"]})
+		self.assertNotIn("GFProjectLayoutAnalyzer", {item["owner_name"] for item in analysis["observations"]})
+
+	def test_issue_121_catalog_cycle_and_digest_failure_are_catalog_invalid(self) -> None:
+		api_index = copy.deepcopy(catalog.load_api_index())
+		packages = {item["id"]: item for item in api_index["packages"]}
+		packages["gf.kernel"]["dependencies"] = ["gf.standard.base"]
+		payload = {key: value for key, value in api_index.items() if key != "source_digest"}
+		api_index["source_digest"] = paths.sha256_bytes(paths.canonical_json_bytes(payload))
+
+		cycle = api_policy.analyze_api_package_policy(
+			self.project_root,
+			load_contract(self.project_root),
+			api_index=api_index,
+		)
+		self.assertEqual(cycle["status"], "catalog_invalid")
+		self.assertGreater(cycle["catalog_issue_count"], 0)
+
+		api_index = copy.deepcopy(catalog.load_api_index())
+		api_index["source_digest"] = "0" * 64
+		digest = api_policy.analyze_api_package_policy(
+			self.project_root,
+			load_contract(self.project_root),
+			api_index=api_index,
+		)
+		self.assertEqual(digest["status"], "catalog_invalid")
+
+		api_index = copy.deepcopy(catalog.load_api_index())
+		api_index["catalog_version"] = "2.0.1"
+		api_index["source_digest"] = api_policy.canonical_api_index_digest(api_index)
+		version = api_policy.analyze_api_package_policy(
+			self.project_root,
+			load_contract(self.project_root),
+			api_index=api_index,
+		)
+		self.assertEqual(version["status"], "catalog_invalid")
+
+		api_index = copy.deepcopy(catalog.load_api_index())
+		api_index["autoloads"]["Gf"]["package_id"] = ""
+		api_index["source_digest"] = api_policy.canonical_api_index_digest(api_index)
+		owner = api_policy.analyze_api_package_policy(
+			self.project_root,
+			load_contract(self.project_root),
+			api_index=api_index,
+		)
+		self.assertEqual(owner["status"], "catalog_invalid")
+
+		with mock.patch.object(catalog, "load_api_index", side_effect=ValueError("broken catalog")):
+			report = snapshot.build_snapshot(self.project_root)
+		self.assertEqual(
+			report["project"]["api_package_policy_analysis"]["status"],
+			"catalog_invalid",
+		)
+		self.assertFalse(report["project"]["api_package_policy_analysis"]["complete"])
+		self.assertFalse(report["drift"]["ok"])
+		self.assertEqual(
+			validate_schema_file(report, SCHEMA_ROOT / "project_snapshot.schema.json"),
+			[],
+		)
+
+	def test_issue_121_forbidden_precedes_the_allowed_transitive_closure(self) -> None:
+		contract_path = self.project_root / ".gf/project_contract.json"
+		contract = json.loads(contract_path.read_text(encoding="utf-8"))
+		contract["framework"]["required_packages"] = ["gf.kernel", "gf.standard.settings"]
+		contract["framework"]["optional_packages"] = []
+		contract["framework"]["forbidden_packages"] = ["gf.standard.storage"]
+		contract_path.write_text(json.dumps(contract, ensure_ascii=False), encoding="utf-8")
+		(self.project_root / "forbidden.gd").write_text(
+			"extends Node\nvar history := GFCommandHistoryUtility.new()\n",
+			encoding="utf-8",
+		)
+
+		analysis = api_policy.analyze_api_package_policy(self.project_root, load_contract(self.project_root))
+
+		self.assertIn("gf.standard.storage", analysis["allowed_packages"])
+		self.assertEqual(analysis["actionable_count"], 1)
+		self.assertEqual(analysis["actionable_observations"][0]["policy"], "forbidden")
+
+	def test_issue_121_source_domain_root_states_fail_closed_without_invalidating_intent(self) -> None:
+		contract_path = self.project_root / ".gf/project_contract.json"
+		contract = json.loads(contract_path.read_text(encoding="utf-8"))
+		(self.project_root / "not-a-directory").write_text("file\n", encoding="utf-8")
+		outside = self.project_root.parent / f"{self.project_root.name}-linked-domain"
+		outside.mkdir(exist_ok=True)
+		linked = self.project_root / "linked-domain"
+		create_directory_link_fixture(outside, linked)
+		try:
+			contract["architecture"]["source_domains"] = [
+				{"root": "res://missing-domain", "domain": "test"},
+				{"root": "res://not-a-directory", "domain": "tool"},
+				{"root": "res://linked-domain", "domain": "editor"},
+			]
+			contract_path.write_text(json.dumps(contract, ensure_ascii=False), encoding="utf-8")
+			contract_result = load_contract(self.project_root)
+			analysis = api_policy.analyze_api_package_policy(self.project_root, contract_result)
+		finally:
+			if linked.exists() or linked.is_symlink():
+				linked.unlink() if linked.is_symlink() else os.rmdir(linked)
+			outside.rmdir()
+
+		self.assertTrue(contract_result["ok"], contract_result)
+		self.assertEqual(analysis["status"], "partial")
+		self.assertEqual(
+			{item["root"]: item["status"] for item in analysis["source_domains"]},
+			{
+				"res://linked-domain": "unsafe",
+				"res://missing-domain": "missing",
+				"res://not-a-directory": "not_directory",
+			},
+		)
+
+	def test_issue_121_each_source_budget_and_read_identity_failure_is_partial(self) -> None:
+		(self.project_root / "a.gd").write_text(
+			"extends Node\nvar a := GFArchitecture.new()\n",
+			encoding="utf-8",
+		)
+		(self.project_root / "b.gd").write_text(
+			"extends Node\nvar b := GFArchitecture.new()\n",
+			encoding="utf-8",
+		)
+		contract_result = load_contract(self.project_root)
+		first_size = (self.project_root / "a.gd").stat().st_size
+
+		count_limited = api_policy.analyze_api_package_policy(
+			self.project_root, contract_result, max_scripts=1,
+		)
+		single_limited = api_policy.analyze_api_package_policy(
+			self.project_root, contract_result, max_script_bytes=first_size - 1,
+		)
+		total_limited = api_policy.analyze_api_package_policy(
+			self.project_root, contract_result, max_source_bytes=first_size,
+		)
+		with mock.patch.object(
+			api_policy,
+			"read_bounded_bytes",
+			side_effect=ValueError("File identity changed while it was read."),
+		):
+			identity_drift = api_policy.analyze_api_package_policy(self.project_root, contract_result)
+
+		self.assertEqual(count_limited["status"], "partial")
+		self.assertEqual(count_limited["source_scan_truncation_reason"], "script_count")
+		self.assertEqual(single_limited["status"], "partial")
+		self.assertEqual(single_limited["skipped_large_script_count"], 2)
+		self.assertEqual(total_limited["status"], "partial")
+		self.assertEqual(total_limited["source_scan_truncation_reason"], "byte_budget")
+		self.assertEqual(identity_drift["status"], "partial")
+		self.assertEqual(identity_drift["unreadable_script_count"], 2)
+
+	def test_issue_121_source_domain_identity_drift_is_partial(self) -> None:
+		contract_path = self.project_root / ".gf/project_contract.json"
+		contract = json.loads(contract_path.read_text(encoding="utf-8"))
+		(self.project_root / "tests").mkdir()
+		contract["architecture"]["source_domains"] = [{"root": "res://tests", "domain": "test"}]
+		contract_path.write_text(json.dumps(contract, ensure_ascii=False), encoding="utf-8")
+		contract_result = load_contract(self.project_root)
+		roots, states, pins = api_policy._source_domain_roots(self.project_root, contract["architecture"])
+		drifted_pins = dict(pins)
+		drifted_pins["res://tests"] = (0, 0, 0, 0, 0)
+
+		with mock.patch.object(
+			api_policy,
+			"_source_domain_roots",
+			side_effect=[(roots, copy.deepcopy(states), pins), (roots, copy.deepcopy(states), drifted_pins)],
+		):
+			analysis = api_policy.analyze_api_package_policy(self.project_root, contract_result)
+
+		self.assertEqual(analysis["status"], "partial")
+		self.assertEqual(analysis["source_domains"][0]["status"], "drifted")
+
+	def test_issue_121_domain_observations_remain_independent_and_deterministic(self) -> None:
+		contract_path = self.project_root / ".gf/project_contract.json"
+		contract = json.loads(contract_path.read_text(encoding="utf-8"))
+		contract["architecture"]["source_domains"] = [
+			{"root": "res://domains/test", "domain": "test"},
+			{"root": "res://domains/tool", "domain": "tool"},
+			{"root": "res://domains/editor", "domain": "editor"},
+		]
+		for domain in ("runtime", "test", "tool", "editor"):
+			path = self.project_root / f"domains/{domain}/same.gd"
+			path.parent.mkdir(parents=True, exist_ok=True)
+			path.write_text("extends Node\nvar value := GFArchitecture.new()\n", encoding="utf-8")
+		contract_path.write_text(json.dumps(contract, ensure_ascii=False), encoding="utf-8")
+
+		first = api_policy.analyze_api_package_policy(self.project_root, load_contract(self.project_root))
+		second = api_policy.analyze_api_package_policy(self.project_root, load_contract(self.project_root))
+
+		self.assertEqual(first, second)
+		self.assertEqual(first["observation_count"], 4)
+		self.assertEqual(
+			{item["source_domain"] for item in first["observations"]},
+			{"runtime", "test", "tool", "editor"},
+		)
+		self.assertEqual([item["observation_count"] for item in first["domains"]], [1, 1, 1, 1])
+
+	def test_issue_121_snapshot_v7_schema_and_drift_are_closed(self) -> None:
+		(self.project_root / "violation.gd").write_text(
+			"extends Node\nvar value := GFProjectLayoutAnalyzer.new()\n",
+			encoding="utf-8",
+		)
+
+		report = snapshot.build_snapshot(self.project_root)
+
+		self.assertEqual(TOOL_VERSION, "7.0.0")
+		self.assertEqual(CONTRACT_SCHEMA_VERSION, 4)
+		self.assertEqual(SNAPSHOT_SCHEMA_VERSION, 7)
+		self.assertEqual(report["schema_version"], 7)
+		self.assertEqual(validate_schema_file(report, SCHEMA_ROOT / "project_snapshot.schema.json"), [])
+		codes = {item["code"] for item in report["drift"]["issues"]}
+		self.assertIn("undeclared_gf_api_package_reference", codes)
+		self.assertFalse(report["drift"]["ok"])
+
+		contract_path = self.project_root / ".gf/project_contract.json"
+		invalid_contract = json.loads(contract_path.read_text(encoding="utf-8"))
+		invalid_contract["framework"]["required_packages"] = ["not-a-gf-package"]
+		invalid_contract["architecture"]["source_domains"] = [
+			{"root": "not-a-resource-path", "domain": "unknown"},
+		]
+		contract_path.write_text(json.dumps(invalid_contract, ensure_ascii=False), encoding="utf-8")
+		invalid_report = snapshot.build_snapshot(self.project_root)
+		invalid_analysis = invalid_report["project"]["api_package_policy_analysis"]
+		self.assertEqual(invalid_analysis["status"], "contract_invalid")
+		self.assertEqual(invalid_analysis["required_packages"], [])
+		self.assertEqual(invalid_analysis["source_domains"], [])
+		self.assertEqual(
+			validate_schema_file(invalid_report, SCHEMA_ROOT / "project_snapshot.schema.json"),
+			[],
+		)
+
+	def test_issue_121_v4_contract_and_v7_analysis_fixtures_are_hash_frozen(self) -> None:
+		contract = json.loads(ISSUE_121_CONTRACT_FIXTURE_PATH.read_text(encoding="utf-8"))
+		analysis = json.loads(ISSUE_121_ANALYSIS_FIXTURE_PATH.read_text(encoding="utf-8"))
+		report = snapshot.build_snapshot(self.project_root)
+		report["project"]["api_package_policy_analysis"] = analysis
+
+		self.assertEqual(
+			validate_schema_file(contract, SCHEMA_ROOT / "project_contract.schema.json"),
+			[],
+		)
+		self.assertEqual(
+			validate_schema_file(report, SCHEMA_ROOT / "project_snapshot.schema.json"),
+			[],
+		)
+		self.assertEqual(
+			paths.sha256_json(contract),
+			"b595d39e90cca3d868e583c422aea37c527c015881273eb67ec663ab77504c10",
+		)
+		self.assertEqual(
+			paths.sha256_json(analysis),
+			"72dedffcb5d3522a63c90111d22117bfa531d27949a33b1db7e27b8c4c7a05e8",
+		)
 
 	def test_module_dependency_analysis_accepts_declared_class_and_resource_edges(self) -> None:
 		self._set_modules([
@@ -2764,40 +3246,63 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 			"res://generated/report.json.bak",
 		)
 
-	def test_issue_96_protocol_versions_are_frozen(self) -> None:
+	def test_issue_121_protocol_versions_are_frozen(self) -> None:
 		self.assertEqual(
 			(TOOL_VERSION, SNAPSHOT_SCHEMA_VERSION, CONTRACT_SCHEMA_VERSION),
-			("6.0.0", 6, 3),
+			("7.0.0", 7, 4),
 		)
 
-	def test_issue_96_schema_identifiers_and_closed_protocol_enums_are_frozen(self) -> None:
+	def test_issue_121_schema_identifiers_and_closed_protocol_enums_are_frozen(self) -> None:
 		contract_schema = read_json_object(SCHEMA_ROOT / "project_contract.schema.json")
 		snapshot_schema = read_json_object(SCHEMA_ROOT / "project_snapshot.schema.json")
 
 		self.assertEqual(
 			(contract_schema["$id"], contract_schema["properties"]["schema_version"]["const"]),
-			("https://gf-framework.dev/schemas/project-contract-v3.json", 3),
+			("https://gf-framework.dev/schemas/project-contract-v4.json", 4),
 		)
 		self.assertEqual(
 			(snapshot_schema["$id"], snapshot_schema["properties"]["schema_version"]["const"]),
-			("https://gf-framework.dev/schemas/project-snapshot-v6.json", 6),
+			("https://gf-framework.dev/schemas/project-snapshot-v7.json", 7),
 		)
 		self.assertEqual(
 			snapshot_schema["properties"]["contract"]["properties"]
 			["current_schema_version"]["const"],
-			3,
+			4,
 		)
 		path_role_schema = (
 			contract_schema["properties"]["architecture"]["properties"]["path_roles"]
+			["items"]
+		)
+		source_domain_schema = (
+			contract_schema["properties"]["architecture"]["properties"]["source_domains"]
 			["items"]
 		)
 		analysis_schema = (
 			snapshot_schema["properties"]["project"]["properties"]
 			["module_dependency_analysis"]
 		)
+		api_policy_schema = (
+			snapshot_schema["properties"]["project"]["properties"]
+			["api_package_policy_analysis"]
+		)
 		self.assertEqual(
 			set(path_role_schema["properties"]["role"]["enum"]),
 			{"scan_root", "test_fixture", "optional_input"},
+		)
+		self.assertEqual(
+			set(source_domain_schema["properties"]["domain"]["enum"]),
+			{"runtime", "test", "tool", "editor"},
+		)
+		self.assertEqual(
+			set(api_policy_schema["properties"]["status"]["enum"]),
+			{"contract_invalid", "catalog_invalid", "complete", "partial"},
+		)
+		self.assertEqual(
+			set(
+				api_policy_schema["properties"]["actionable_observations"]["items"]
+				["properties"]["policy"]["enum"]
+			),
+			{"outside_policy", "forbidden"},
 		)
 		self.assertEqual(
 			set(analysis_schema["properties"]["status"]["enum"]),
@@ -2951,28 +3456,16 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 			"995801eb1ced29b037407768db7e60e2adb9a88f2e79184b91d75d3514d0725d",
 		)
 
-	def test_issue_96_v3_contract_and_v6_analysis_fixtures_match_strict_schemas(self) -> None:
+	def test_issue_96_v3_contract_requires_migration_while_v6_analysis_remains_embeddable(self) -> None:
 		contract = json.loads(ISSUE_96_CONTRACT_FIXTURE_PATH.read_text(encoding="utf-8"))
 		analysis = json.loads(ISSUE_96_ANALYSIS_FIXTURE_PATH.read_text(encoding="utf-8"))
 		report = snapshot.build_snapshot(self.project_root)
-		report["schema_version"] = 6
-		report["generator_version"] = "6.0.0"
-		report["contract"].update({
-			"valid": True,
-			"sha256": paths.sha256_json(contract),
-			"issue_count": 0,
-			"schema_version": 3,
-			"current_schema_version": 3,
-			"migration_required": False,
-			"migration_available": False,
-		})
 		report["project"]["module_dependency_analysis"] = analysis
 
 		with self.subTest(fixture="contract_v3"):
-			self.assertEqual(
-				validate_schema_file(contract, SCHEMA_ROOT / "project_contract.schema.json"),
-				[],
-			)
+			issues = validate_schema_file(contract, SCHEMA_ROOT / "project_contract.schema.json")
+			self.assertIn("const_mismatch", {item["code"] for item in issues})
+			self.assertIn("missing_required", {item["code"] for item in issues})
 		with self.subTest(fixture="snapshot_v6"):
 			self.assertEqual(
 				validate_schema_file(report, SCHEMA_ROOT / "project_snapshot.schema.json"),
@@ -3026,6 +3519,8 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 
 	def test_issue_96_contract_rejects_noncanonical_reserved_or_overlapping_path_roles(self) -> None:
 		base = json.loads(ISSUE_96_CONTRACT_FIXTURE_PATH.read_text(encoding="utf-8"))
+		base["schema_version"] = CONTRACT_SCHEMA_VERSION
+		base["architecture"]["source_domains"] = []
 		for relative in (
 			"features/core",
 			"features/platform_adapter",
@@ -3824,6 +4319,10 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 
 	def test_issue_96_partial_path_role_analysis_never_reports_clean_snapshot(self) -> None:
 		contract = json.loads(ISSUE_96_CONTRACT_FIXTURE_PATH.read_text(encoding="utf-8"))
+		contract["schema_version"] = CONTRACT_SCHEMA_VERSION
+		contract["architecture"]["source_domains"] = [
+			{"root": "res://tests", "domain": "test"},
+		]
 		for relative in (
 			"features/core",
 			"features/shared",
@@ -4351,6 +4850,7 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 		legacy = json.loads(contract_path.read_text(encoding="utf-8"))
 		legacy["schema_version"] = 1
 		legacy["architecture"].pop("path_roles")
+		legacy["architecture"].pop("source_domains")
 		legacy["framework"]["required_capabilities"] = [
 			item["id"] for item in legacy["framework"].pop("capability_requirements")
 		]

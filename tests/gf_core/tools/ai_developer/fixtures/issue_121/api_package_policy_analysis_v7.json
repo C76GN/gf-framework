@@ -1,0 +1,71 @@
+{
+  "status": "complete",
+  "complete": true,
+  "catalog": {
+    "schema_version": 2,
+    "catalog_version": "2.0.0",
+    "source_digest": "5f234329e83b14a1d1f9318c020b6948d34257ff5ba02529fe648af86c5b68cb"
+  },
+  "catalog_issue_count": 0,
+  "catalog_issues_truncated": false,
+  "catalog_issues": [],
+  "contract_issue_count": 0,
+  "required_packages": ["gf.kernel", "gf.standard.settings"],
+  "optional_packages": ["gf.standard.settings.storage"],
+  "allowed_packages": [
+    "gf.kernel",
+    "gf.standard.base",
+    "gf.standard.settings",
+    "gf.standard.settings.storage",
+    "gf.standard.storage"
+  ],
+  "forbidden_packages": ["gf.tool.project_layout"],
+  "source_domains": [
+    {"root": "res://tests", "domain": "test", "status": "ready"},
+    {"root": "res://tools", "domain": "tool", "status": "ready"},
+    {"root": "res://tools/editor", "domain": "editor", "status": "ready"}
+  ],
+  "domains": [
+    {"domain": "runtime", "observation_count": 3, "allowed_count": 3, "outside_policy_count": 0, "forbidden_count": 0, "actionable_count": 0, "advisory_count": 1},
+    {"domain": "test", "observation_count": 1, "allowed_count": 1, "outside_policy_count": 0, "forbidden_count": 0, "actionable_count": 0, "advisory_count": 0},
+    {"domain": "tool", "observation_count": 1, "allowed_count": 0, "outside_policy_count": 1, "forbidden_count": 0, "actionable_count": 1, "advisory_count": 0},
+    {"domain": "editor", "observation_count": 1, "allowed_count": 0, "outside_policy_count": 0, "forbidden_count": 1, "actionable_count": 1, "advisory_count": 0}
+  ],
+  "observation_count": 6,
+  "observations_truncated": false,
+  "observations": [
+    {"source_path": "res://runtime/main.gd", "line": 2, "source_domain": "runtime", "owner_kind": "class", "owner_name": "GFSettingsUtility", "package_id": "gf.standard.settings", "policy": "allowed"},
+    {"source_path": "res://runtime/main.gd", "line": 3, "source_domain": "runtime", "owner_kind": "class", "owner_name": "GFActivationTransaction", "package_id": "gf.standard.base", "policy": "allowed"},
+    {"source_path": "res://runtime/main.gd", "line": 4, "source_domain": "runtime", "owner_kind": "autoload", "owner_name": "Gf", "package_id": "gf.kernel", "policy": "allowed"},
+    {"source_path": "res://tests/case.gd", "line": 2, "source_domain": "test", "owner_kind": "class", "owner_name": "GFStorageSettingsStoreUtility", "package_id": "gf.standard.settings.storage", "policy": "allowed"},
+    {"source_path": "res://tools/build.gd", "line": 2, "source_domain": "tool", "owner_kind": "class", "owner_name": "GFAssetCatalog", "package_id": "gf.standard.assets", "policy": "outside_policy"},
+    {"source_path": "res://tools/editor/dock.gd", "line": 2, "source_domain": "editor", "owner_kind": "class", "owner_name": "GFProjectLayoutAnalyzer", "package_id": "gf.tool.project_layout", "policy": "forbidden"}
+  ],
+  "actionable_count": 2,
+  "actionable_observations_truncated": false,
+  "actionable_observations": [
+    {"source_path": "res://tools/build.gd", "line": 2, "source_domain": "tool", "owner_kind": "class", "owner_name": "GFAssetCatalog", "package_id": "gf.standard.assets", "policy": "outside_policy"},
+    {"source_path": "res://tools/editor/dock.gd", "line": 2, "source_domain": "editor", "owner_kind": "class", "owner_name": "GFProjectLayoutAnalyzer", "package_id": "gf.tool.project_layout", "policy": "forbidden"}
+  ],
+  "advisory_count": 1,
+  "advisories_truncated": false,
+  "advisories": [
+    {"source_path": "res://runtime/main.gd", "line": 5, "source_domain": "runtime", "symbol": "GFNotInCatalog", "reason": "unknown_dynamic_gf_symbol"}
+  ],
+  "script_count": 4,
+  "scanned_script_count": 4,
+  "scanned_script_bytes": 256,
+  "test_script_count": 1,
+  "source_scan_truncated": false,
+  "source_scan_truncation_reason": "",
+  "source_scan_complete": true,
+  "skipped_large_script_count": 0,
+  "unreadable_script_count": 0,
+  "unsafe_script_path_count": 0,
+  "unsafe_directory_count": 0,
+  "invalid_gdignore_count": 0,
+  "ignored_directory_count": 0,
+  "directory_identity_drift_count": 0,
+  "gf_api_usage": ["GFActivationTransaction", "GFSettingsUtility"],
+  "test_gf_api_usage": ["GFStorageSettingsStoreUtility"]
+}

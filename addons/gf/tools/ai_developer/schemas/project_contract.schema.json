@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://gf-framework.dev/schemas/project-contract-v3.json",
+  "$id": "https://gf-framework.dev/schemas/project-contract-v4.json",
   "title": "GF Project Intent Contract",
   "type": "object",
   "additionalProperties": false,
@@ -18,7 +18,7 @@
   "properties": {
     "schema_version": {
       "type": "integer",
-      "const": 3
+      "const": 4
     },
     "project": {
       "type": "object",
@@ -185,7 +185,7 @@
     "architecture": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["modules", "path_roles", "global_rules", "project_profile_path"],
+      "required": ["modules", "path_roles", "source_domains", "global_rules", "project_profile_path"],
       "properties": {
         "modules": {
           "type": "array",
@@ -276,6 +276,27 @@
               "role": {
                 "type": "string",
                 "enum": ["scan_root", "test_fixture", "optional_input"]
+              }
+            }
+          }
+        },
+        "source_domains": {
+          "type": "array",
+          "maxItems": 100,
+          "description": "Closed project source-domain ownership. The deepest canonical path-segment root wins; unmatched scripts default fail-safe to runtime.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["root", "domain"],
+            "properties": {
+              "root": {
+                "type": "string",
+                "maxLength": 240,
+                "pattern": "^res://(?!addons/gf(?:/|$))[^\\u0000-\\u001F\\u007F\\\\]+$"
+              },
+              "domain": {
+                "type": "string",
+                "enum": ["runtime", "test", "tool", "editor"]
               }
             }
           }

@@ -51,7 +51,7 @@ python <gf-ai-cli> api-class GFSaveGraphUtility --project-root .
 python <gf-ai-cli> recipe project-feature --project-root .
 ```
 
-Prefer the smallest installed capability that owns the needed mechanism. Verify signatures from the installed catalog; source remains the final authority for behavior, side effects, and lifecycle details.
+Prefer the smallest declared capability that owns the needed mechanism. Verify signatures from the installed catalog; source remains the final authority for behavior, side effects, and lifecycle details. For API package policy, use the contract's required-plus-optional transitive closure, never vendored files or lockfile presence as implicit authorization. A forbidden package remains forbidden even when another declared package depends on it.
 
 For every applicable `framework.capability_requirements` record, require `decision_state: confirmed`, then honor its project/module/adapter owner, selected Recipe ids, package policy, and project-owned acceptance conditions. A migrated `pending_review` requirement blocks implementation. Treat `capability_readiness` as bounded evidence: `available_unobserved` is not a defect and `evidence_incomplete` cannot support a negative conclusion.
 
@@ -61,7 +61,7 @@ For every applicable `framework.capability_requirements` record, require `decisi
 - Use project-owned adapters for platform-specific capabilities.
 - Preserve explicit ownership, cancellation, failure, migration, authority, determinism, and trust boundaries.
 - Do not create a Model, System, Utility, extension, or adapter unless its responsibility earns that boundary.
-- Work within declared module roots and dependency rules. Do not turn a reference layout into a universal rule.
+- Work within declared module roots and dependency rules. Honor `architecture.source_domains`: deepest canonical root wins, unmatched scripts are runtime, and runtime/test/tool/editor observations never authorize one another. Do not turn a reference layout or old test-path heuristic into a universal rule.
 
 Read `addons/gf/tools/ai_developer/knowledge/architecture.md` for boundary decisions, `workflow.md` for the end-to-end loop, and `migration.md` before changing an old contract. In the generated Codex plugin, use `../../knowledge/` as the fallback location.
 
@@ -73,6 +73,6 @@ Review each `verification.checks` record before execution. The contract is decla
 python <gf-ai-cli> snapshot --project-root .
 ```
 
-Resolve unavailable required capabilities and missing selected-Recipe packages. Investigate observed classes as evidence, but do not rewrite contract intent from scan results. Regenerate old snapshots with the current tool rather than migrating generated JSON.
+Resolve unavailable required capabilities, missing selected-Recipe packages, and every exact outside-policy or forbidden public API observation. Dynamic or uncertain GF-shaped strings are advisory only and never create package intent. Treat `contract_invalid`, `catalog_invalid`, `partial`, any source-domain root failure, and any truncated/unsafe/unreadable scan as incomplete evidence. Investigate observed classes and AutoLoads as evidence, but do not rewrite contract intent from scan results. Regenerate old snapshots with the current tool rather than migrating generated JSON.
 
 When evidence points to GF rather than project misuse, read `addons/gf/tools/ai_developer/knowledge/feedback.md` and use `feedback-analyze`, then `feedback-draft`. Submission always requires contract opt-in, duplicate checking, the exact payload hash, and explicit user approval in a human-operated interactive terminal. MCP cannot submit issues. Never upload project files, raw logs, credentials, or private source automatically.
