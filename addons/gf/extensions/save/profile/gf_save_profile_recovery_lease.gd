@@ -1,8 +1,8 @@
 ## GFSaveProfileRecoveryLease: 缺失或损坏 Profile 的一次性恢复授权。
 ##
-## Lease 由失败的 activate 操作创建，并绑定创建时的事务、Profile、Provider
-## domain generation 与 lifecycle epoch。bootstrap/adopt 必须原样提交同一 Lease；
-## domain 或 epoch 前进后，旧 Lease 会失效，不能把陈旧恢复决定应用到新状态。
+## Lease 由失败的 activate 或 switch 操作创建，并绑定创建时的事务、来源与目标
+## Profile、Provider domain generation 与 lifecycle epoch。恢复入口必须原样提交同一
+## Lease；domain 或 epoch 前进后，旧 Lease 会失效，不能把陈旧恢复决定应用到新状态。
 ## [br]
 ## @api public
 ## [br]
@@ -15,14 +15,14 @@ extends RefCounted
 
 # --- 常量 ---
 
-## 激活目标没有持久化文档。
+## activate 或 switch 目标没有持久化文档。
 ## [br]
 ## @api public
 ## [br]
 ## @since unreleased
 const REASON_MISSING: StringName = &"missing"
 
-## 激活目标文档损坏或完整性无效。
+## activate 或 switch 目标文档损坏、完整性无效或 Storage family 结构损坏。
 ## [br]
 ## @api public
 ## [br]
@@ -56,6 +56,7 @@ const STATE_STALE: StringName = &"stale"
 var _configured: bool = false
 var _lease_id: int = 0
 var _transaction_id: int = 0
+var _source_profile_id: StringName = &""
 var _profile_id: StringName = &""
 var _reason: StringName = &""
 var _domain_id: int = 0
@@ -86,6 +87,19 @@ func get_lease_id() -> int:
 ## @return 正整数事务 ID；未配置时为 0。
 func get_transaction_id() -> int:
 	return _transaction_id
+
+
+## 获取恢复事务绑定的来源 Profile ID。
+##
+## 首次 activate 恢复没有来源；switch 恢复始终绑定创建 Lease 时仍然活动的来源。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @return switch 恢复的来源 Profile ID；首次 activate 恢复时为空。
+func get_source_profile_id() -> StringName:
+	return _source_profile_id
 
 
 ## 获取待恢复 Profile ID。
@@ -199,6 +213,8 @@ func is_stale() -> bool:
 ## [br]
 ## @param transaction_id: 产生该 Lease 的正整数事务 ID。
 ## [br]
+## @param source_profile_id: switch 恢复的来源 Profile ID；首次 activate 恢复时为空。
+## [br]
 ## @param profile_id: 待恢复 Profile ID。
 ## [br]
 ## @param reason: `REASON_MISSING` 或 `REASON_CORRUPT`。
@@ -213,6 +229,7 @@ func is_stale() -> bool:
 func configure_for_framework(
 	lease_id: int,
 	transaction_id: int,
+	source_profile_id: StringName,
 	profile_id: StringName,
 	reason: StringName,
 	domain_id: int,
@@ -225,6 +242,7 @@ func configure_for_framework(
 		lease_id <= 0
 		or transaction_id <= 0
 		or profile_id == &""
+		or (source_profile_id != &"" and source_profile_id == profile_id)
 		or reason not in [REASON_MISSING, REASON_CORRUPT]
 		or domain_id <= 0
 		or domain_generation <= 0
@@ -234,6 +252,7 @@ func configure_for_framework(
 	_configured = true
 	_lease_id = lease_id
 	_transaction_id = transaction_id
+	_source_profile_id = source_profile_id
 	_profile_id = profile_id
 	_reason = reason
 	_domain_id = domain_id
@@ -251,11 +270,12 @@ func configure_for_framework(
 ## [br]
 ## @return Lease 身份、绑定 generation/epoch 与当前状态。
 ## [br]
-## @schema return: Payload-free Dictionary with lease_id, transaction_id, profile_id, reason, domain_id, domain_generation, epoch, state, and available.
+## @schema return: Payload-free Dictionary with lease_id, transaction_id, source_profile_id, profile_id, reason, domain_id, domain_generation, epoch, state, and available.
 func inspect_for_framework() -> Dictionary:
 	return {
 		"lease_id": _lease_id,
 		"transaction_id": _transaction_id,
+		"source_profile_id": _source_profile_id,
 		"profile_id": _profile_id,
 		"reason": _reason,
 		"domain_id": _domain_id,
@@ -275,6 +295,8 @@ func inspect_for_framework() -> Dictionary:
 ## [br]
 ## @since unreleased
 ## [br]
+## @param expected_source_profile_id: 当前恢复操作的来源 Profile ID。
+## [br]
 ## @param expected_profile_id: 当前恢复操作的目标 Profile ID。
 ## [br]
 ## @param expected_domain_id: 当前 Provider domain ID。
@@ -285,8 +307,9 @@ func inspect_for_framework() -> Dictionary:
 ## [br]
 ## @return 匹配时返回 Lease 身份记录并转为 claimed；否则返回空字典。
 ## [br]
-## @schema return: Payload-free Dictionary with lease_id, transaction_id, profile_id, reason, domain_id, domain_generation, and epoch.
+## @schema return: Payload-free Dictionary with lease_id, transaction_id, source_profile_id, profile_id, reason, domain_id, domain_generation, and epoch.
 func claim_for_framework(
+	expected_source_profile_id: StringName,
 	expected_profile_id: StringName,
 	expected_domain_id: int,
 	expected_domain_generation: int,
@@ -295,7 +318,8 @@ func claim_for_framework(
 	if not is_available():
 		return {}
 	if (
-		expected_profile_id != _profile_id
+		expected_source_profile_id != _source_profile_id
+		or expected_profile_id != _profile_id
 		or expected_domain_id != _domain_id
 		or expected_domain_generation != _domain_generation
 		or expected_epoch != _epoch
@@ -306,6 +330,7 @@ func claim_for_framework(
 	return {
 		"lease_id": _lease_id,
 		"transaction_id": _transaction_id,
+		"source_profile_id": _source_profile_id,
 		"profile_id": _profile_id,
 		"reason": _reason,
 		"domain_id": _domain_id,

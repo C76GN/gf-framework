@@ -9,7 +9,7 @@
 - 类别：运行时句柄 (`runtime_handle`)
 - 首次版本：`unreleased`
 
-缺失或损坏 Profile 的一次性恢复授权。 Lease 由失败的 activate 操作创建，并绑定创建时的事务、Profile、Provider domain generation 与 lifecycle epoch。bootstrap/adopt 必须原样提交同一 Lease； domain 或 epoch 前进后，旧 Lease 会失效，不能把陈旧恢复决定应用到新状态。
+缺失或损坏 Profile 的一次性恢复授权。 Lease 由失败的 activate 或 switch 操作创建，并绑定创建时的事务、来源与目标 Profile、Provider domain generation 与 lifecycle epoch。恢复入口必须原样提交同一 Lease；domain 或 epoch 前进后，旧 Lease 会失效，不能把陈旧恢复决定应用到新状态。
 
 ## 成员概览
 
@@ -22,6 +22,7 @@
 | 常量 | [`STATE_STALE`](#member-gfsaveprofilerecoverylease-constants-state_stale) | `const STATE_STALE: StringName = &"stale"` |
 | 方法 | [`get_lease_id`](#member-gfsaveprofilerecoverylease-methods-get_lease_id) | `func get_lease_id() -> int:` |
 | 方法 | [`get_transaction_id`](#member-gfsaveprofilerecoverylease-methods-get_transaction_id) | `func get_transaction_id() -> int:` |
+| 方法 | [`get_source_profile_id`](#member-gfsaveprofilerecoverylease-methods-get_source_profile_id) | `func get_source_profile_id() -> StringName:` |
 | 方法 | [`get_profile_id`](#member-gfsaveprofilerecoverylease-methods-get_profile_id) | `func get_profile_id() -> StringName:` |
 | 方法 | [`get_reason`](#member-gfsaveprofilerecoverylease-methods-get_reason) | `func get_reason() -> StringName:` |
 | 方法 | [`get_domain_id`](#member-gfsaveprofilerecoverylease-methods-get_domain_id) | `func get_domain_id() -> int:` |
@@ -45,7 +46,7 @@
 const REASON_MISSING: StringName = &"missing"
 ```
 
-激活目标没有持久化文档。
+activate 或 switch 目标没有持久化文档。
 
 <a id="member-gfsaveprofilerecoverylease-constants-reason_corrupt"></a>
 
@@ -58,7 +59,7 @@ const REASON_MISSING: StringName = &"missing"
 const REASON_CORRUPT: StringName = &"corrupt"
 ```
 
-激活目标文档损坏或完整性无效。
+activate 或 switch 目标文档损坏、完整性无效或 Storage family 结构损坏。
 
 <a id="member-gfsaveprofilerecoverylease-constants-state_available"></a>
 
@@ -130,6 +131,21 @@ func get_transaction_id() -> int:
 获取产生当前 Lease 的事务 ID。
 
 返回：正整数事务 ID；未配置时为 0。
+
+<a id="member-gfsaveprofilerecoverylease-methods-get_source_profile_id"></a>
+
+### `get_source_profile_id`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func get_source_profile_id() -> StringName:
+```
+
+获取恢复事务绑定的来源 Profile ID。 首次 activate 恢复没有来源；switch 恢复始终绑定创建 Lease 时仍然活动的来源。
+
+返回：switch 恢复的来源 Profile ID；首次 activate 恢复时为空。
 
 <a id="member-gfsaveprofilerecoverylease-methods-get_profile_id"></a>
 

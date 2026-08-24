@@ -58,13 +58,18 @@ reconcile fence 仍拒绝注销，成功注销会使该 domain 的 recovery leas
 
 严格 activate 遇到缺失文件时返回 `recovery_required` 与一次性的
 `GFSaveProfileRecoveryLease`；遇到已知损坏文件时也返回 recovery lease，但两种原因
-不能互换。Switch 的目标缺失或损坏属于已知 target load failure，会恢复 Provider 并
-保留源活动身份，不会把源内存状态隐式写成目标存档：
+不能互换。Switch 的目标缺失或可恢复损坏也会返回绑定当前活动来源的 Lease，并在整个
+恢复流程中保留源活动身份：
 
 - `bootstrap_profile()` 只消费由 `missing` 产生且仍属于当前 domain generation 的 lease。
 - `adopt_profile()` 只消费由 `corrupt` 产生且仍属于当前 domain generation 的 lease。
+- `bootstrap_and_switch_profile()` 消费 source-bound `missing` lease，重新 flush 调用时来源
+  generation，再保存目标并在确认成功后切换身份。
+- `adopt_and_switch_profile()` 消费 source-bound `corrupt` lease；Storage family 结构损坏
+  必须先使用同一 Utility、同一目标读取签发的 opaque 授权完成 family reset，无法授权时
+  失败关闭。Save 文档或完整性损坏不需要破坏性 reset。
 
-两者都把当前内存状态作为候选，只有 Storage 写入获得确定成功后才激活目标 Profile。
+四个入口都把当前内存状态作为候选，只有 Storage 写入获得确定成功后才激活或切换目标。
 无效、过期、重复消费或原因不匹配的 lease 会失败关闭。框架不会因为 Profile 的普通
 读取恢复政策而替项目自动创建、覆盖或接管一个活动身份；是否向用户展示“新建”或
 “接管损坏存档”，以及是否先备份损坏文件，均由项目决定。
@@ -90,8 +95,8 @@ Mutation Request 是 move-only 边界。成功提交后，调用方必须放弃�
 写入超时、释放中仍有物理写入等无法证明是否提交的情况返回 `outcome_unknown`，并交付
 一次性的 `GFSaveProfileReconcileLease`。Coordinator 此时冻结整个 provider domain：
 不发布新的活动身份，不执行反向回滚、自动重试或补偿写，也拒绝新的 activate、switch、
-bootstrap、adopt、mutation 和直接原语。否则磁盘可能已经保存候选状态，而内存又被静默
-改回旧状态。
+bootstrap、adopt、bootstrap/adopt-and-switch、mutation 和直接原语。否则磁盘可能已经
+保存候选状态，而内存又被静默改回旧状态。
 
 `GFSaveProfileReconcileLease` 初始为 waiting。此时调用 `reconcile_profile()` 只返回
 `reconcile_pending`，不会 claim `GFSaveProfileReconcileRequest`。底层 Utility 的
@@ -110,7 +115,7 @@ reconcile Profile 固定为源 Profile，原目标不会在迟到成功后自动
 
 需要在首个运行场景开放前恢复存档的项目 System，应声明
 `GFSaveProfileTransactionCoordinator` 为必需 Utility，并在 `begin_activation(scope)`
-中把 activate/switch/bootstrap/adopt Operation 的唯一终态桥接到
+中把 activate/switch/bootstrap/adopt 及 bootstrap/adopt-and-switch Operation 的唯一终态桥接到
 `GFAsyncCompletion`。不要手动轮询 `architecture.tick()`；依赖 DAG 会继续推进
 Coordinator、Save Profile 与 Storage 的本地依赖闭包。
 

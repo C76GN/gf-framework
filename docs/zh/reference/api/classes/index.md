@@ -24,7 +24,7 @@
 | Extensions / Layered Sprite | 4 | 46 | [Extensions / Layered Sprite](#module-extensions-layered_sprite) |
 | Network | 38 | 602 | [Network](#module-extensions-network) |
 | Physics | 4 | 50 | [Physics](#module-extensions-physics) |
-| Save | 52 | 651 | [Save](#module-extensions-save) |
+| Save | 52 | 658 | [Save](#module-extensions-save) |
 | Turn Based | 5 | 50 | [Turn Based](#module-extensions-turn_based) |
 | Tool Packages | 22 | 185 | [Tool Packages](#module-tools) |
 
@@ -934,7 +934,7 @@
 | [`GFNodeSerializerRegistry`](GFNodeSerializerRegistry.md#gfnodeserializerregistry) | 运行时服务 (`runtime_service`) | `RefCounted` | 7 | `addons/gf/extensions/save/serializers/gf_node_serializer_registry.gd` |
 | [`GFSaveGraphUtility`](GFSaveGraphUtility.md#gfsavegraphutility) | 运行时服务 (`runtime_service`) | `GFUtility` | 30 | `addons/gf/extensions/save/graph/gf_save_graph_utility.gd` |
 | [`GFSaveMigrationRegistry`](GFSaveMigrationRegistry.md#gfsavemigrationregistry) | 运行时服务 (`runtime_service`) | `RefCounted` | 7 | `addons/gf/extensions/save/document/gf_save_migration_registry.gd` |
-| [`GFSaveProfileTransactionCoordinator`](GFSaveProfileTransactionCoordinator.md#gfsaveprofiletransactioncoordinator) | 运行时服务 (`runtime_service`) | `GFUtility` | 25 | `addons/gf/extensions/save/profile/gf_save_profile_transaction_coordinator.gd` |
+| [`GFSaveProfileTransactionCoordinator`](GFSaveProfileTransactionCoordinator.md#gfsaveprofiletransactioncoordinator) | 运行时服务 (`runtime_service`) | `GFUtility` | 27 | `addons/gf/extensions/save/profile/gf_save_profile_transaction_coordinator.gd` |
 | [`GFSaveProfileUtility`](GFSaveProfileUtility.md#gfsaveprofileutility) | 运行时服务 (`runtime_service`) | `GFUtility` | 26 | `addons/gf/extensions/save/profile/gf_save_profile_utility.gd` |
 | [`GFSaveSlotStorageAdapter`](GFSaveSlotStorageAdapter.md#gfsaveslotstorageadapter) | 运行时服务 (`runtime_service`) | `Resource` | 17 | `addons/gf/extensions/save/slots/gf_save_slot_storage_adapter.gd` |
 | [`GFSaveSlotSyncBridge`](GFSaveSlotSyncBridge.md#gfsaveslotsyncbridge) | 运行时服务 (`runtime_service`) | `RefCounted` | 6 | `addons/gf/extensions/save/slots/gf_save_slot_sync_bridge.gd` |
@@ -965,9 +965,9 @@
 | [`GFSaveProfileOperation`](GFSaveProfileOperation.md#gfsaveprofileoperation) | 运行时句柄 (`runtime_handle`) | `RefCounted` | 11 | `addons/gf/extensions/save/profile/gf_save_profile_operation.gd` |
 | [`GFSaveProfileReconcileLease`](GFSaveProfileReconcileLease.md#gfsaveprofilereconcilelease) | 运行时句柄 (`runtime_handle`) | `RefCounted` | 22 | `addons/gf/extensions/save/profile/gf_save_profile_reconcile_lease.gd` |
 | [`GFSaveProfileReconcileRequest`](GFSaveProfileReconcileRequest.md#gfsaveprofilereconcilerequest) | 运行时句柄 (`runtime_handle`) | `RefCounted` | 3 | `addons/gf/extensions/save/profile/gf_save_profile_reconcile_request.gd` |
-| [`GFSaveProfileRecoveryLease`](GFSaveProfileRecoveryLease.md#gfsaveprofilerecoverylease) | 运行时句柄 (`runtime_handle`) | `RefCounted` | 16 | `addons/gf/extensions/save/profile/gf_save_profile_recovery_lease.gd` |
+| [`GFSaveProfileRecoveryLease`](GFSaveProfileRecoveryLease.md#gfsaveprofilerecoverylease) | 运行时句柄 (`runtime_handle`) | `RefCounted` | 17 | `addons/gf/extensions/save/profile/gf_save_profile_recovery_lease.gd` |
 | [`GFSaveProfileRequest`](GFSaveProfileRequest.md#gfsaveprofilerequest) | 运行时句柄 (`runtime_handle`) | `RefCounted` | 2 | `addons/gf/extensions/save/profile/gf_save_profile_request.gd` |
-| [`GFSaveProfileTransactionOperation`](GFSaveProfileTransactionOperation.md#gfsaveprofiletransactionoperation) | 运行时句柄 (`runtime_handle`) | `RefCounted` | 15 | `addons/gf/extensions/save/profile/gf_save_profile_transaction_operation.gd` |
+| [`GFSaveProfileTransactionOperation`](GFSaveProfileTransactionOperation.md#gfsaveprofiletransactionoperation) | 运行时句柄 (`runtime_handle`) | `RefCounted` | 17 | `addons/gf/extensions/save/profile/gf_save_profile_transaction_operation.gd` |
 | [`GFSaveSectionMutation`](GFSaveSectionMutation.md#gfsavesectionmutation) | 运行时句柄 (`runtime_handle`) | `RefCounted` | 8 | `addons/gf/extensions/save/profile/gf_save_section_mutation.gd` |
 | [`GFSaveSectionSnapshot`](GFSaveSectionSnapshot.md#gfsavesectionsnapshot) | 运行时句柄 (`runtime_handle`) | `RefCounted` | 8 | `addons/gf/extensions/save/profile/gf_save_section_snapshot.gd` |
 | [`GFSaveSectionSnapshotOperation`](GFSaveSectionSnapshotOperation.md#gfsavesectionsnapshotoperation) | 运行时句柄 (`runtime_handle`) | `RefCounted` | 20 | `addons/gf/extensions/save/profile/gf_save_section_snapshot_operation.gd` |
@@ -976,7 +976,7 @@
 | [`GFSaveMigrationResult`](GFSaveMigrationResult.md#gfsavemigrationresult) | 值对象 (`value_object`) | `RefCounted` | 9 | `addons/gf/extensions/save/document/gf_save_migration_result.gd` |
 | [`GFSavePipelineContext`](GFSavePipelineContext.md#gfsavepipelinecontext) | 值对象 (`value_object`) | `RefCounted` | 21 | `addons/gf/extensions/save/pipeline/gf_save_pipeline_context.gd` |
 | [`GFSaveProfileResult`](GFSaveProfileResult.md#gfsaveprofileresult) | 值对象 (`value_object`) | `RefCounted` | 47 | `addons/gf/extensions/save/profile/gf_save_profile_result.gd` |
-| [`GFSaveProfileTransactionResult`](GFSaveProfileTransactionResult.md#gfsaveprofiletransactionresult) | 值对象 (`value_object`) | `RefCounted` | 46 | `addons/gf/extensions/save/profile/gf_save_profile_transaction_result.gd` |
+| [`GFSaveProfileTransactionResult`](GFSaveProfileTransactionResult.md#gfsaveprofiletransactionresult) | 值对象 (`value_object`) | `RefCounted` | 48 | `addons/gf/extensions/save/profile/gf_save_profile_transaction_result.gd` |
 | [`GFSaveRollbackFailure`](GFSaveRollbackFailure.md#gfsaverollbackfailure) | 值对象 (`value_object`) | `RefCounted` | 4 | `addons/gf/extensions/save/profile/gf_save_rollback_failure.gd` |
 | [`GFSaveSection`](GFSaveSection.md#gfsavesection) | 值对象 (`value_object`) | `RefCounted` | 9 | `addons/gf/extensions/save/document/gf_save_section.gd` |
 | [`GFSaveSlotCard`](GFSaveSlotCard.md#gfsaveslotcard) | 值对象 (`value_object`) | `Resource` | 14 | `addons/gf/extensions/save/slots/gf_save_slot_card.gd` |

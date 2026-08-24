@@ -20,6 +20,8 @@ Profile 身份与持久化事务的异步句柄。 句柄由 Save Profile 事务
 | 常量 | [`OPERATION_SWITCH`](#member-gfsaveprofiletransactionoperation-constants-operation_switch) | `const OPERATION_SWITCH: StringName = &"switch"` |
 | 常量 | [`OPERATION_BOOTSTRAP`](#member-gfsaveprofiletransactionoperation-constants-operation_bootstrap) | `const OPERATION_BOOTSTRAP: StringName = &"bootstrap"` |
 | 常量 | [`OPERATION_ADOPT`](#member-gfsaveprofiletransactionoperation-constants-operation_adopt) | `const OPERATION_ADOPT: StringName = &"adopt"` |
+| 常量 | [`OPERATION_BOOTSTRAP_AND_SWITCH`](#member-gfsaveprofiletransactionoperation-constants-operation_bootstrap_and_switch) | `const OPERATION_BOOTSTRAP_AND_SWITCH: StringName = &"bootstrap_and_switch"` |
+| 常量 | [`OPERATION_ADOPT_AND_SWITCH`](#member-gfsaveprofiletransactionoperation-constants-operation_adopt_and_switch) | `const OPERATION_ADOPT_AND_SWITCH: StringName = &"adopt_and_switch"` |
 | 常量 | [`OPERATION_MUTATE_AND_PERSIST`](#member-gfsaveprofiletransactionoperation-constants-operation_mutate_and_persist) | `const OPERATION_MUTATE_AND_PERSIST: StringName = &"mutate_and_persist"` |
 | 常量 | [`OPERATION_RECONCILE`](#member-gfsaveprofiletransactionoperation-constants-operation_reconcile) | `const OPERATION_RECONCILE: StringName = &"reconcile"` |
 | 方法 | [`get_operation`](#member-gfsaveprofiletransactionoperation-methods-get_operation) | `func get_operation() -> StringName:` |
@@ -106,6 +108,32 @@ const OPERATION_ADOPT: StringName = &"adopt"
 
 显式采用当前 Provider 状态作为恢复后的活跃 Profile。
 
+<a id="member-gfsaveprofiletransactionoperation-constants-operation_bootstrap_and_switch"></a>
+
+### `OPERATION_BOOTSTRAP_AND_SWITCH`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+const OPERATION_BOOTSTRAP_AND_SWITCH: StringName = &"bootstrap_and_switch"
+```
+
+从活动来源重新 flush 后，以当前 Provider 状态创建缺失目标并原子切换。
+
+<a id="member-gfsaveprofiletransactionoperation-constants-operation_adopt_and_switch"></a>
+
+### `OPERATION_ADOPT_AND_SWITCH`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+const OPERATION_ADOPT_AND_SWITCH: StringName = &"adopt_and_switch"
+```
+
+从活动来源重新 flush 后，以当前 Provider 状态覆盖损坏目标并原子切换。
+
 <a id="member-gfsaveprofiletransactionoperation-constants-operation_mutate_and_persist"></a>
 
 ### `OPERATION_MUTATE_AND_PERSIST`
@@ -175,7 +203,7 @@ func get_transaction_id() -> int:
 func get_source_profile_id() -> StringName:
 ```
 
-获取事务来源 Profile ID。 activate、bootstrap 与 adopt 没有来源身份；mutate-and-persist 和 reconcile 使用当前受管 Profile 作为来源。
+获取事务来源 Profile ID。 activate、bootstrap 与 adopt 没有来源身份；switch、bootstrap/adopt-and-switch、 mutate-and-persist 和 reconcile 使用当前受管 Profile 作为来源。
 
 返回：来源 Profile ID；不适用时为空。
 

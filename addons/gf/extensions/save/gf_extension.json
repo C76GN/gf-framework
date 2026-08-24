@@ -2,7 +2,7 @@
   "id": "gf.save",
   "display_name": "GF Save",
   "version": "11.0.0-dev.0",
-  "extension_version": "6.2.1",
+  "extension_version": "6.3.0",
   "kind": "extension",
   "description": "Save profiles, versioned section orchestration, save graph composition, serializers, pipelines, scopes, sources, and slot workflows.",
   "dependencies": ["gf.kernel", "gf.standard"],

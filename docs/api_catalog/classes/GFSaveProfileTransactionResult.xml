@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFSaveProfileTransactionResult" path="addons/gf/extensions/save/profile/gf_save_profile_transaction_result.gd" module="extensions/save" extends="RefCounted" classDigest="a649282a39a46c716c7a76a66b4613d301d42cc3416c29e677b4eaae0277c64c">
+<class name="GFSaveProfileTransactionResult" path="addons/gf/extensions/save/profile/gf_save_profile_transaction_result.gd" module="extensions/save" extends="RefCounted" classDigest="dde1684aa2f01600e0f893a62626e5f87496821e29644c7efd62080ff2c99d0c">
 	<description>GFSaveProfileTransactionResult: Profile 事务的不可变终态快照。
 结果不保留文档、section、Provider snapshot 或候选 payload，只保留有界阶段
 证据、类型化回滚失败、调用方元数据和必要的 Lease。`duplicate_result()` 会
@@ -39,6 +39,22 @@
 		<member kind="const" name="STATUS_ADOPTED">
 			<signature>const STATUS_ADOPTED: StringName = &amp;"adopted"</signature>
 			<description>当前状态已被显式采用为恢复后的活跃 Profile。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_BOOTSTRAPPED_AND_SWITCHED">
+			<signature>const STATUS_BOOTSTRAPPED_AND_SWITCHED: StringName = &amp;"bootstrapped_and_switched"</signature>
+			<description>缺失目标已持久化，活动身份随后从来源原子切换到目标。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_ADOPTED_AND_SWITCHED">
+			<signature>const STATUS_ADOPTED_AND_SWITCHED: StringName = &amp;"adopted_and_switched"</signature>
+			<description>损坏目标已显式恢复并持久化，活动身份随后从来源原子切换到目标。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="since">unreleased</tag>
@@ -118,7 +134,7 @@
 		</member>
 		<member kind="const" name="STATUS_RECOVERY_REQUIRED">
 			<signature>const STATUS_RECOVERY_REQUIRED: StringName = &amp;"recovery_required"</signature>
-			<description>activate 检测到缺失或损坏文档，必须显式选择 bootstrap 或 adopt。</description>
+			<description>activate 或 switch 检测到可恢复的缺失/损坏目标，必须显式选择对应恢复入口。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="since">unreleased</tag>
@@ -336,7 +352,7 @@
 		</member>
 		<member kind="method" name="get_recovery_lease">
 			<signature>func get_recovery_lease() -&gt; GFSaveProfileRecoveryLease:</signature>
-			<description>获取显式 bootstrap/adopt 所需的同一身份 Recovery Lease。</description>
+			<description>获取显式 bootstrap/adopt 或 bootstrap/adopt-and-switch 所需的同一身份 Recovery Lease。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">recovery_required 结果中的 Lease；其他结果通常为 null。</tag>

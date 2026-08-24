@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFSaveProfileTransactionCoordinator" path="addons/gf/extensions/save/profile/gf_save_profile_transaction_coordinator.gd" module="extensions/save" extends="GFUtility" classDigest="6bb17be159ff057aeb195290bf07aa9912c7a8d4d5a4d22e63eb1de5139f93bc">
+<class name="GFSaveProfileTransactionCoordinator" path="addons/gf/extensions/save/profile/gf_save_profile_transaction_coordinator.gd" module="extensions/save" extends="GFUtility" classDigest="7867186e8010c4d76060f8b1302e42b8eed40eeb64fa2498dadd13d20f13207c">
 	<description>GFSaveProfileTransactionCoordinator: 活动 Profile 身份与跨 Profile 事务协调器。
 Coordinator 在完全相同且同序的 Provider 实例拓扑上建立独立 domain，委托
 `GFSaveProfileUtility` 完成 generation、Storage IO、重试与 detached settlement。
@@ -216,7 +216,7 @@ missing/corrupt 不会应用低层 `ACTION_USE_CURRENT_STATE`；结果分别返�
 				<tag name="param">target_profile_id: 同一 domain 内的目标 Profile ID。</tag>
 				<tag name="param">context: 目标读取的迁移与 Provider 临时上下文。</tag>
 				<tag name="param">metadata: 仅写入外层事务结果的调用方元数据。</tag>
-				<tag name="return">类型化 switch 操作。</tag>
+				<tag name="return">类型化 switch 操作；目标缺失或可恢复损坏时返回绑定活动来源的 Recovery Lease。</tag>
 				<tag name="schema">context: Dictionary with caller-defined ephemeral operation data.</tag>
 				<tag name="schema">metadata: Dictionary with caller-defined result metadata.</tag>
 				<tag name="since">unreleased</tag>
@@ -241,6 +241,34 @@ missing/corrupt 不会应用低层 `ACTION_USE_CURRENT_STATE`；结果分别返�
 				<tag name="param">lease: 尚未过期的 corrupt Recovery Lease。</tag>
 				<tag name="param">request: 当前 Provider 状态的保存请求；null 表示空元数据。</tag>
 				<tag name="return">类型化 adopt 操作；拒绝不会 claim lease 或 request。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="bootstrap_and_switch_profile">
+			<signature>func bootstrap_and_switch_profile( lease: GFSaveProfileRecoveryLease, request: GFSaveProfileRequest = null ) -&gt; GFSaveProfileTransactionOperation:</signature>
+			<description>使用 switch 返回的 missing lease 创建目标并原子切换活动身份。
+接纳后会重新 flush Lease 绑定的当前来源，再把最新 Provider 状态保存到目标；
+目标持久化确认前来源始终保持权威。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">lease: 尚未过期且绑定活动来源的 missing Recovery Lease。</tag>
+				<tag name="param">request: 目标保存的一次性请求；null 表示空元数据。</tag>
+				<tag name="return">类型化 bootstrap-and-switch 操作；边界拒绝不会 claim lease 或 request。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="adopt_and_switch_profile">
+			<signature>func adopt_and_switch_profile( lease: GFSaveProfileRecoveryLease, request: GFSaveProfileRequest = null ) -&gt; GFSaveProfileTransactionOperation:</signature>
+			<description>使用 switch 返回的 corrupt lease 恢复目标并原子切换活动身份。
+接纳后会重新 flush Lease 绑定的当前来源。Storage family 结构损坏必须先凭
+同一读取来源的授权完成 reset；高层 Save 文档损坏则直接保存最新 Provider 状态。
+reset 或目标保存确定失败时来源身份保持不变，无法签发结构 reset 授权时 switch
+会 fail closed 且不会返回可执行的 Recovery Lease。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">lease: 尚未过期且绑定活动来源的 corrupt Recovery Lease。</tag>
+				<tag name="param">request: 目标保存的一次性请求；null 表示空元数据。</tag>
+				<tag name="return">类型化 adopt-and-switch 操作；边界拒绝不会 claim lease 或 request。</tag>
 				<tag name="since">unreleased</tag>
 			</tags>
 		</member>

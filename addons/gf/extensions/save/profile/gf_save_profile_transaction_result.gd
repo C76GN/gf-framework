@@ -43,6 +43,20 @@ const STATUS_BOOTSTRAPPED: StringName = &"bootstrapped"
 ## @since unreleased
 const STATUS_ADOPTED: StringName = &"adopted"
 
+## 缺失目标已持久化，活动身份随后从来源原子切换到目标。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+const STATUS_BOOTSTRAPPED_AND_SWITCHED: StringName = &"bootstrapped_and_switched"
+
+## 损坏目标已显式恢复并持久化，活动身份随后从来源原子切换到目标。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+const STATUS_ADOPTED_AND_SWITCHED: StringName = &"adopted_and_switched"
+
 ## 候选 sections 已应用并持久化。
 ## [br]
 ## @api public
@@ -106,7 +120,7 @@ const STATUS_BUSY: StringName = &"busy"
 ## @since unreleased
 const STATUS_UNSUPPORTED_OPERATION: StringName = &"unsupported_operation"
 
-## activate 检测到缺失或损坏文档，必须显式选择 bootstrap 或 adopt。
+## activate 或 switch 检测到可恢复的缺失/损坏目标，必须显式选择对应恢复入口。
 ## [br]
 ## @api public
 ## [br]
@@ -370,7 +384,7 @@ func get_stage_evidence() -> Dictionary:
 	return _stage_evidence.duplicate(true)
 
 
-## 获取显式 bootstrap/adopt 所需的同一身份 Recovery Lease。
+## 获取显式 bootstrap/adopt 或 bootstrap/adopt-and-switch 所需的同一身份 Recovery Lease。
 ## [br]
 ## @api public
 ## [br]
@@ -556,6 +570,7 @@ func configure_for_framework(options: Dictionary) -> bool:
 		status,
 		operation,
 		transaction_id,
+		GFVariantData.get_option_string_name(options, "source_profile_id"),
 		GFVariantData.get_option_string_name(options, "target_profile_id"),
 		recovery_lease,
 		reconcile_lease
@@ -611,6 +626,8 @@ static func _get_success_statuses() -> Array[StringName]:
 		STATUS_SWITCHED,
 		STATUS_BOOTSTRAPPED,
 		STATUS_ADOPTED,
+		STATUS_BOOTSTRAPPED_AND_SWITCHED,
+		STATUS_ADOPTED_AND_SWITCHED,
 		STATUS_MUTATED,
 		STATUS_RECONCILED,
 	]
@@ -645,6 +662,8 @@ static func _get_valid_operations() -> Array[StringName]:
 		GFSaveProfileTransactionOperation.OPERATION_SWITCH,
 		GFSaveProfileTransactionOperation.OPERATION_BOOTSTRAP,
 		GFSaveProfileTransactionOperation.OPERATION_ADOPT,
+		GFSaveProfileTransactionOperation.OPERATION_BOOTSTRAP_AND_SWITCH,
+		GFSaveProfileTransactionOperation.OPERATION_ADOPT_AND_SWITCH,
 		GFSaveProfileTransactionOperation.OPERATION_MUTATE_AND_PERSIST,
 		GFSaveProfileTransactionOperation.OPERATION_RECONCILE,
 	]
@@ -685,6 +704,7 @@ static func _leases_match_status(
 	status: StringName,
 	operation: StringName,
 	transaction_id: int,
+	source_profile_id: StringName,
 	target_profile_id: StringName,
 	recovery_lease: GFSaveProfileRecoveryLease,
 	reconcile_lease: GFSaveProfileReconcileLease
@@ -692,11 +712,15 @@ static func _leases_match_status(
 	if status == STATUS_RECOVERY_REQUIRED:
 		if (
 			recovery_lease == null
-			or operation != GFSaveProfileTransactionOperation.OPERATION_ACTIVATE
+			or operation not in [
+				GFSaveProfileTransactionOperation.OPERATION_ACTIVATE,
+				GFSaveProfileTransactionOperation.OPERATION_SWITCH,
+			]
 		):
 			return false
 		if (
 			recovery_lease.get_transaction_id() != transaction_id
+			or recovery_lease.get_source_profile_id() != source_profile_id
 			or recovery_lease.get_profile_id() != target_profile_id
 			or recovery_lease.get_reason() not in [
 				GFSaveProfileRecoveryLease.REASON_MISSING,
@@ -753,6 +777,7 @@ func _get_recovery_lease_summary() -> Dictionary:
 	return {
 		"lease_id": _recovery_lease.get_lease_id(),
 		"transaction_id": _recovery_lease.get_transaction_id(),
+		"source_profile_id": _recovery_lease.get_source_profile_id(),
 		"profile_id": _recovery_lease.get_profile_id(),
 		"reason": _recovery_lease.get_reason(),
 		"state": _recovery_lease.get_state(),

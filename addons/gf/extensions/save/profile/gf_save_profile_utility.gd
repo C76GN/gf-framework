@@ -298,6 +298,11 @@ func tick(_delta: float) -> void:
 		var state: ProfileState = _get_state_value(state_value)
 		if state == null:
 			continue
+		if (
+			state.manager_reset_operation != null
+			and state.manager_reset_operation.is_completed()
+		):
+			_clear_manager_reset_operation(state)
 		_reap_expired_managed_permit_if_safe(state)
 		if state.mode == STATE_RETRY_WAIT and now_msec >= state.retry_due_msec:
 			_retry_current_io(state)
@@ -325,7 +330,7 @@ func dispose() -> void:
 		return
 	_admission_open = false
 	_block_all_managed_access_for_shutdown()
-	if _processing_depth > 0:
+	if _processing_depth > 0 or _has_active_manager_reset_work():
 		_dispose_requested = true
 		return
 	_dispose_now()
@@ -602,6 +607,7 @@ func claim_profile_management_for_framework(
 		or state.managed_permit != null
 		or state.mode != STATE_IDLE
 		or _has_pending_operations(state)
+		or state.manager_reset_operation != null
 		or not state.detached_write_operations.is_empty()
 	):
 		return null
@@ -649,6 +655,7 @@ func set_profile_managed_access_for_framework(
 		or _dispose_requested
 		or _unsafe_callback_depth > 0
 		or state.memory_transaction_active
+		or state.manager_reset_operation != null
 	):
 		return false
 	state.managed_access = access
@@ -682,6 +689,7 @@ func release_profile_management_for_framework(
 		or not _is_valid_managed_permit(state, permit)
 		or state.mode != STATE_IDLE
 		or _has_pending_operations(state)
+		or state.manager_reset_operation != null
 		or not state.detached_write_operations.is_empty()
 	):
 		return false
@@ -774,6 +782,104 @@ func load_profile_strict_for_manager_for_framework(
 	permit: RefCounted
 ) -> GFSaveProfileOperation:
 	return _request_load_profile(profile_id, context, metadata, permit, true)
+
+
+## 为受管 Profile 的精确 Storage 读取结果创建一次性 family reset 授权。
+##
+## 仅在 observed_result 仍携带同一 Storage Utility、同一冻结 file_name 的 opaque
+## CORRUPT 来源绑定时返回可用授权；高层文档损坏或来源不匹配返回 null。
+## [br]
+## @api framework_internal
+## [br]
+## @since unreleased
+## [br]
+## @param profile_id: 受管 Profile ID。
+## [br]
+## @param observed_result: 严格读取保留的底层 Storage 结果。
+## [br]
+## @param permit: claim 时返回的 opaque capability。
+## [br]
+## @return 可用于同一 Profile logical family 的一次性授权；不可授权时为 null。
+func create_profile_family_reset_authorization_for_manager_for_framework(
+	profile_id: StringName,
+	observed_result: GFStorageReadResult,
+	permit: RefCounted
+) -> GFStorageFamilyResetAuthorization:
+	var state: ProfileState = _get_state(profile_id)
+	_reap_expired_managed_permit_if_safe(state)
+	if (
+		not _admission_open
+		or _disposed
+		or _dispose_requested
+		or _unsafe_callback_depth > 0
+		or state == null
+		or _storage == null
+		or observed_result == null
+		or not _is_valid_managed_permit(state, permit)
+		or state.memory_transaction_active
+		or state.mode != STATE_IDLE
+		or _has_pending_operations(state)
+		or state.current_storage_operation != null
+		or state.manager_reset_operation != null
+		or not state.detached_write_operations.is_empty()
+		or state.pending_schedule_enqueued
+		or state.active_preparation_enqueued
+	):
+		return null
+	var authorization: GFStorageFamilyResetAuthorization = (
+		_storage.create_family_reset_authorization(state.file_name, observed_result)
+	)
+	return authorization if authorization != null and authorization.is_available() else null
+
+
+## 以 manager capability 对受管 Profile 的 frozen Storage family 发起 reset/recreate。
+## [br]
+## @api framework_internal
+## [br]
+## @since unreleased
+## [br]
+## @param profile_id: 受管 Profile ID。
+## [br]
+## @param authorization: 同一 Utility 为该 Profile 创建的可用一次性授权。
+## [br]
+## @param permit: claim 时返回的 opaque capability。
+## [br]
+## @return 低层 reset 物理操作；身份、准入或授权无效时返回 null 且不 claim 授权。
+func reset_profile_family_for_manager_for_framework(
+	profile_id: StringName,
+	authorization: GFStorageFamilyResetAuthorization,
+	permit: RefCounted
+) -> GFStorageAsyncOperation:
+	var state: ProfileState = _get_state(profile_id)
+	_reap_expired_managed_permit_if_safe(state)
+	if (
+		not _admission_open
+		or _disposed
+		or _dispose_requested
+		or _unsafe_callback_depth > 0
+		or state == null
+		or _storage == null
+		or authorization == null
+		or not authorization.is_available()
+		or not _is_valid_managed_permit(state, permit)
+		or state.memory_transaction_active
+		or state.mode != STATE_IDLE
+		or _has_pending_operations(state)
+		or state.current_storage_operation != null
+		or state.manager_reset_operation != null
+		or not state.detached_write_operations.is_empty()
+		or state.pending_schedule_enqueued
+		or state.active_preparation_enqueued
+	):
+		return null
+	_begin_processing()
+	var operation: GFStorageAsyncOperation = _storage.reset_file_family_request_async(
+		state.file_name,
+		authorization
+	)
+	_observe_manager_reset_operation(state, operation)
+	_end_processing()
+	return operation
 
 
 ## 以 manager capability 请求 flush。
@@ -2676,7 +2782,7 @@ func _end_processing() -> void:
 	_processing_depth = maxi(_processing_depth - 1, 0)
 	if _processing_depth > 0:
 		return
-	if _dispose_requested:
+	if _dispose_requested and not _has_active_manager_reset_work():
 		_dispose_now()
 	_drain_completion_events()
 	_try_complete_quiesce()
@@ -2693,6 +2799,9 @@ func _exit_unsafe_callback() -> void:
 func _dispose_now() -> void:
 	if _disposed:
 		return
+	if _has_active_manager_reset_work():
+		_dispose_requested = true
+		return
 	_disposed = true
 	_dispose_requested = false
 	for state_value: Variant in _states.values():
@@ -2704,6 +2813,7 @@ func _dispose_now() -> void:
 		if state.managed_permit != null:
 			state.managed_permit.invalidate_for_framework()
 			state.managed_permit = null
+		_clear_manager_reset_operation(state)
 	_states.clear()
 	_pending_schedule_head = null
 	_pending_schedule_tail = null
@@ -2772,6 +2882,7 @@ func _reap_expired_managed_permit_if_safe(state: ProfileState) -> void:
 		or state.mode != STATE_IDLE
 		or _has_pending_operations(state)
 		or state.current_storage_operation != null
+		or state.manager_reset_operation != null
 		or not state.detached_write_operations.is_empty()
 		or state.pending_schedule_enqueued
 		or state.active_preparation_enqueued
@@ -2795,6 +2906,14 @@ func _is_valid_managed_permit(
 	if state == null or state.managed_permit == null or permit_value == null:
 		return false
 	return state.managed_permit == permit_value and state.managed_permit.is_active_for_framework()
+
+
+func _has_active_manager_reset_work() -> bool:
+	for state_value: Variant in _states.values():
+		var state: ProfileState = _get_state_value(state_value)
+		if state != null and state.manager_reset_operation != null:
+			return true
+	return false
 
 
 func _is_direct_managed_operation_allowed(
@@ -2858,6 +2977,49 @@ func _observe_storage_operation(
 			callback,
 			CONNECT_ONE_SHOT as Object.ConnectFlags
 		) as Error
+
+
+func _observe_manager_reset_operation(
+	state: ProfileState,
+	operation: GFStorageAsyncOperation
+) -> void:
+	if state == null or operation == null:
+		return
+	state.manager_reset_operation = operation
+	if operation.is_completed():
+		_clear_manager_reset_operation(state)
+		return
+	var callback: Callable = Callable(
+		self,
+		"_on_manager_reset_operation_completed"
+	).bind(
+		state.profile_id,
+		operation.get_request_id()
+	)
+	state.manager_reset_callback = callback
+	var connected: Error = operation.completed.connect(
+		callback,
+		CONNECT_ONE_SHOT as Object.ConnectFlags
+	) as Error
+	if connected != OK:
+		state.manager_reset_callback = Callable()
+
+
+func _clear_manager_reset_operation(state: ProfileState) -> void:
+	if state == null:
+		return
+	if (
+		state.manager_reset_operation != null
+		and state.manager_reset_callback.is_valid()
+		and state.manager_reset_operation.completed.is_connected(
+			state.manager_reset_callback
+		)
+	):
+		state.manager_reset_operation.completed.disconnect(
+			state.manager_reset_callback
+		)
+	state.manager_reset_operation = null
+	state.manager_reset_callback = Callable()
 
 
 func _clear_current_storage_operation(state: ProfileState) -> void:
@@ -3494,6 +3656,7 @@ func _try_complete_quiesce() -> void:
 				or state.mode != STATE_IDLE
 				or _has_pending_operations(state)
 				or state.current_storage_operation != null
+				or state.manager_reset_operation != null
 				or not state.detached_write_operations.is_empty()
 				or state.pending_schedule_enqueued
 				or state.active_preparation_enqueued
@@ -3674,6 +3837,29 @@ func _on_storage_operation_completed(
 			_handle_load_failure(state, read_result)
 		else:
 			_process_loaded_document(state, read_result)
+	_end_processing()
+
+
+func _on_manager_reset_operation_completed(
+	result: GFStorageAsyncResult,
+	profile_id: StringName,
+	request_id: int
+) -> void:
+	if _disposed:
+		return
+	_begin_processing()
+	var state: ProfileState = _get_state(profile_id)
+	if (
+		state == null
+		or state.manager_reset_operation == null
+		or state.manager_reset_operation.get_request_id() != request_id
+		or result == null
+		or result.get_request_id() != request_id
+	):
+		_end_processing()
+		return
+	_clear_manager_reset_operation(state)
+	_reap_expired_managed_permit_if_safe(state)
 	_end_processing()
 
 
@@ -4048,6 +4234,16 @@ class ProfileState extends RefCounted:
 	## [br]
 	## @api framework_internal
 	var current_storage_callback: Callable = Callable()
+
+	## manager 接纳并等待物理终态的 Storage family reset。
+	## [br]
+	## @api framework_internal
+	var manager_reset_operation: GFStorageAsyncOperation = null
+
+	## manager reset 的内部生命周期回调。
+	## [br]
+	## @api framework_internal
+	var manager_reset_callback: Callable = Callable()
 
 	## 当前底层 IO 单调超时截止时间。
 	## [br]

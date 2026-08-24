@@ -7,8 +7,8 @@
 - 源码根目录：`addons/gf`
 - 公开类：`848`
 - 公开 AutoLoad：`1`
-- 公开成员：`12535`
-- 公开方法：`7714`
+- 公开成员：`12542`
+- 公开方法：`7717`
 - AutoLoad 公开方法：`65`
 
 ## 模块
@@ -33,7 +33,7 @@
 | Extensions / Layered Sprite | 4 | 0 | 46 | 21 | [extensions-layered-sprite.md](extensions-layered-sprite.md) |
 | Network | 38 | 0 | 602 | 323 | [extensions-network.md](extensions-network.md) |
 | Physics | 4 | 0 | 50 | 23 | [extensions-physics.md](extensions-physics.md) |
-| Save | 52 | 0 | 651 | 414 | [extensions-save.md](extensions-save.md) |
+| Save | 52 | 0 | 658 | 417 | [extensions-save.md](extensions-save.md) |
 | Turn Based | 5 | 0 | 50 | 25 | [extensions-turn-based.md](extensions-turn-based.md) |
 | Tool Packages | 22 | 0 | 185 | 118 | [tools.md](tools.md) |
 

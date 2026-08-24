@@ -38,6 +38,8 @@
 | 方法 | [`switch_profile`](#member-gfsaveprofiletransactioncoordinator-methods-switch_profile) | `func switch_profile( target_profile_id: StringName, context: Dictionary = {}, metadata: Dictionary = {} ) -> GFSaveProfileTransactionOperation:` |
 | 方法 | [`bootstrap_profile`](#member-gfsaveprofiletransactioncoordinator-methods-bootstrap_profile) | `func bootstrap_profile( lease: GFSaveProfileRecoveryLease, request: GFSaveProfileRequest = null ) -> GFSaveProfileTransactionOperation:` |
 | 方法 | [`adopt_profile`](#member-gfsaveprofiletransactioncoordinator-methods-adopt_profile) | `func adopt_profile( lease: GFSaveProfileRecoveryLease, request: GFSaveProfileRequest = null ) -> GFSaveProfileTransactionOperation:` |
+| 方法 | [`bootstrap_and_switch_profile`](#member-gfsaveprofiletransactioncoordinator-methods-bootstrap_and_switch_profile) | `func bootstrap_and_switch_profile( lease: GFSaveProfileRecoveryLease, request: GFSaveProfileRequest = null ) -> GFSaveProfileTransactionOperation:` |
+| 方法 | [`adopt_and_switch_profile`](#member-gfsaveprofiletransactioncoordinator-methods-adopt_and_switch_profile) | `func adopt_and_switch_profile( lease: GFSaveProfileRecoveryLease, request: GFSaveProfileRequest = null ) -> GFSaveProfileTransactionOperation:` |
 | 方法 | [`mutate_and_persist`](#member-gfsaveprofiletransactioncoordinator-methods-mutate_and_persist) | `func mutate_and_persist( profile_id: StringName, request: GFSaveProfileMutationRequest ) -> GFSaveProfileTransactionOperation:` |
 | 方法 | [`reconcile_profile`](#member-gfsaveprofiletransactioncoordinator-methods-reconcile_profile) | `func reconcile_profile( lease: GFSaveProfileReconcileLease, request: GFSaveProfileReconcileRequest = null ) -> GFSaveProfileTransactionOperation:` |
 
@@ -429,7 +431,7 @@ func switch_profile( target_profile_id: StringName, context: Dictionary = {}, me
 | `context` | 目标读取的迁移与 Provider 临时上下文。 |
 | `metadata` | 仅写入外层事务结果的调用方元数据。 |
 
-返回：类型化 switch 操作。
+返回：类型化 switch 操作；目标缺失或可恢复损坏时返回绑定活动来源的 Recovery Lease。
 
 结构：
 
@@ -479,6 +481,50 @@ func adopt_profile( lease: GFSaveProfileRecoveryLease, request: GFSaveProfileReq
 | `request` | 当前 Provider 状态的保存请求；null 表示空元数据。 |
 
 返回：类型化 adopt 操作；拒绝不会 claim lease 或 request。
+
+<a id="member-gfsaveprofiletransactioncoordinator-methods-bootstrap_and_switch_profile"></a>
+
+### `bootstrap_and_switch_profile`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func bootstrap_and_switch_profile( lease: GFSaveProfileRecoveryLease, request: GFSaveProfileRequest = null ) -> GFSaveProfileTransactionOperation:
+```
+
+使用 switch 返回的 missing lease 创建目标并原子切换活动身份。 接纳后会重新 flush Lease 绑定的当前来源，再把最新 Provider 状态保存到目标； 目标持久化确认前来源始终保持权威。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `lease` | 尚未过期且绑定活动来源的 missing Recovery Lease。 |
+| `request` | 目标保存的一次性请求；null 表示空元数据。 |
+
+返回：类型化 bootstrap-and-switch 操作；边界拒绝不会 claim lease 或 request。
+
+<a id="member-gfsaveprofiletransactioncoordinator-methods-adopt_and_switch_profile"></a>
+
+### `adopt_and_switch_profile`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func adopt_and_switch_profile( lease: GFSaveProfileRecoveryLease, request: GFSaveProfileRequest = null ) -> GFSaveProfileTransactionOperation:
+```
+
+使用 switch 返回的 corrupt lease 恢复目标并原子切换活动身份。 接纳后会重新 flush Lease 绑定的当前来源。Storage family 结构损坏必须先凭 同一读取来源的授权完成 reset；高层 Save 文档损坏则直接保存最新 Provider 状态。 reset 或目标保存确定失败时来源身份保持不变，无法签发结构 reset 授权时 switch 会 fail closed 且不会返回可执行的 Recovery Lease。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `lease` | 尚未过期且绑定活动来源的 corrupt Recovery Lease。 |
+| `request` | 目标保存的一次性请求；null 表示空元数据。 |
+
+返回：类型化 adopt-and-switch 操作；边界拒绝不会 claim lease 或 request。
 
 <a id="member-gfsaveprofiletransactioncoordinator-methods-mutate_and_persist"></a>
 
