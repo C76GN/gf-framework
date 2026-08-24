@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFStorageAsyncResult" path="addons/gf/standard/utilities/storage/gf_storage_async_result.gd" module="standard" extends="RefCounted" classDigest="e6434e6573b2dff9f729f3b62a872941d6c18af12faf6056e1025cc9ceb70266">
+<class name="GFStorageAsyncResult" path="addons/gf/standard/utilities/storage/gf_storage_async_result.gd" module="standard" extends="RefCounted" classDigest="1a1f9502e409d2ab36c14bde55fc4a88efcfad2b05b92500feee9e4a31b35c10">
 	<description>GFStorageAsyncResult: 单次异步存储请求的不可变终态。
 结果通过请求 ID 与具体句柄绑定；读取结果保留 `GFStorageReadResult` 的类型化
 失败分类；写入结果额外暴露稳定写入失败分类与隔离的 payload 预检报告；
-删除结果携带有界、路径无关的 family 成员终态。
+删除与 reset 结果携带有界、路径无关的 family 成员终态。
 未被 worker 接纳即取消的请求使用独立 `SettlementKind.CANCELLED` 分支，不会伪造
-save/load/delete 的领域失败结果。</description>
+save/load/delete/reset 的领域失败结果。</description>
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">value_object</tag>
@@ -15,7 +15,7 @@ save/load/delete 的领域失败结果。</description>
 	<enums>
 		<member kind="enum" name="SettlementKind">
 			<signature>enum SettlementKind {
-	## 存在对应 save/load/delete 类型化领域结果；也包含接纳前校验或启动失败。
+	## 存在对应 save/load/delete/reset 类型化领域结果；也包含接纳前校验或启动失败。
 	DOMAIN_RESULT,
 	## 请求在 worker 接纳前被取消，没有执行领域物理工作。
 	CANCELLED,
@@ -36,7 +36,7 @@ save/load/delete 的领域失败结果。</description>
 	PAYLOAD_INVALID,
 	## worker 编码未能生成有效 bytes。
 	ENCODE_FAILED,
-	## worker 线程未能启动。
+	## threaded executor worker 未能启动。
 	THREAD_START_FAILED,
 	## Utility dispose 等生命周期边界使任务不可执行。
 	UNAVAILABLE,
@@ -121,7 +121,7 @@ save/load/delete 的领域失败结果。</description>
 			<description>获取读取结果副本。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="return">`DOMAIN_RESULT` load 请求的结果；save/delete 或 `CANCELLED` 返回 null。</tag>
+				<tag name="return">`DOMAIN_RESULT` load 请求的结果；save/delete/reset 或 `CANCELLED` 返回 null。</tag>
 				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
@@ -130,7 +130,16 @@ save/load/delete 的领域失败结果。</description>
 			<description>获取删除结果副本。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="return">`DOMAIN_RESULT` delete 请求的结果；save/load 或 `CANCELLED` 返回 null。</tag>
+				<tag name="return">`DOMAIN_RESULT` delete 请求的结果；save/load/reset 或 `CANCELLED` 返回 null。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_reset_result">
+			<signature>func get_reset_result() -&gt; GFStorageFamilyResetResult:</signature>
+			<description>获取 family reset/recreate 结果副本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">DOMAIN_RESULT reset 请求的结果；save/load/delete 或 CANCELLED 返回 null。</tag>
 				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
@@ -139,7 +148,7 @@ save/load/delete 的领域失败结果。</description>
 			<description>获取异步写入失败的稳定分类。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="return">`WriteFailureKind` 枚举值；成功、load/delete 或 `CANCELLED` 为 NONE。</tag>
+				<tag name="return">`WriteFailureKind` 枚举值；成功、load/delete/reset 或 `CANCELLED` 为 NONE。</tag>
 				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
@@ -168,7 +177,7 @@ save/load/delete 的领域失败结果。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">包含请求身份、终态、领域结果和写入诊断的字典。</tag>
-				<tag name="schema">return: Exact Dictionary with request_id: int, operation: StringName, file_name: String, settlement_kind: int enum, ok: bool, error_code: int, read_result: Dictionary, write_failure_kind: int enum, write_validation_report: Dictionary, and delete_result: Dictionary fields.</tag>
+				<tag name="schema">return: Exact Dictionary with request_id: int, operation: StringName, file_name: String, settlement_kind: int enum, ok: bool, error_code: int, read_result: Dictionary, write_failure_kind: int enum, write_validation_report: Dictionary, delete_result: Dictionary, and reset_result: Dictionary fields.</tag>
 				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>

@@ -9,7 +9,7 @@
 - 类别：值对象 (`value_object`)
 - 首次版本：`unreleased`
 
-单个 Storage consumer 的不可变 caller 终态。 caller 终态与 `GFStorageAsyncOperation.completed` 表示的物理终态彼此独立。已接纳 save/delete 在 caller 提前离开时返回 `OUTCOME_UNKNOWN`，不会把“停止观察”伪装成 磁盘工作已取消；晚到物理结果仍由原 Operation 恰好结算一次。
+单个 Storage consumer 的不可变 caller 终态。 caller 终态与 `GFStorageAsyncOperation.completed` 表示的物理终态彼此独立。已接纳 save/delete/reset 在 caller 提前离开时返回 `OUTCOME_UNKNOWN`，不会把“停止观察”伪装成 磁盘工作已取消；晚到物理结果仍由原 Operation 恰好结算一次。
 
 ## 成员概览
 
@@ -47,7 +47,7 @@ enum Status {
 	PHYSICAL_SETTLED,
 	## caller 已安全停止观察，且不会声称存在持久化副作用的不确定性。
 	CANCELLED,
-	## caller 已停止观察，但 save/delete 的持久化结果仍未知。
+	## caller 已停止观察，但 save/delete/reset 的持久化结果仍未知。
 	OUTCOME_UNKNOWN,
 }
 ```
@@ -125,7 +125,7 @@ func get_operation() -> StringName:
 
 获取请求类型。
 
-返回：`save`、`load` 或 `delete`；尚未配置时返回空值。
+返回：`save`、`load`、`delete` 或 `reset`；尚未配置时返回空值。
 
 <a id="member-gfstorageasynccallerresult-methods-get_file_name"></a>
 
@@ -245,7 +245,7 @@ func is_outcome_unknown() -> bool:
 
 返回 caller 是否因潜在持久化副作用进入未知结果。
 
-返回：caller 已离开但 save/delete 物理结果未知时返回 true。
+返回：caller 已离开但 save/delete/reset 物理结果未知时返回 true。
 
 <a id="member-gfstorageasynccallerresult-methods-get_physical_result"></a>
 

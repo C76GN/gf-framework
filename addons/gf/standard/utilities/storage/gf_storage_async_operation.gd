@@ -60,6 +60,13 @@ const OPERATION_LOAD: StringName = &"load"
 ## @since unreleased
 const OPERATION_DELETE: StringName = &"delete"
 
+## 异步破坏性 family reset/recreate 请求。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+const OPERATION_RESET: StringName = &"reset"
+
 const _MAX_REASON_CHARACTERS: int = 128
 const _MAX_INT64: int = 9_223_372_036_854_775_807
 
@@ -120,7 +127,7 @@ func get_consumer_id() -> int:
 ## [br]
 ## @since 10.0.0
 ## [br]
-## @return `OPERATION_SAVE`、`OPERATION_LOAD` 或 `OPERATION_DELETE`。
+## @return `OPERATION_SAVE`、`OPERATION_LOAD`、`OPERATION_DELETE` 或 `OPERATION_RESET`。
 func get_operation() -> StringName:
 	return _operation
 
@@ -205,7 +212,7 @@ func get_caller_result() -> GFStorageAsyncCallerResult:
 ## 显式结束当前 consumer 对物理请求的观察。
 ##
 ## 返回 true 只表示 caller 终态已被 Utility 线性化，不保证物理 worker 已取消。
-## save/delete 已接纳时可能进入 `OUTCOME_UNKNOWN`，物理终态仍通过 `completed` 到达。
+## save/delete/reset 已接纳时可能进入 `OUTCOME_UNKNOWN`，物理终态仍通过 `completed` 到达。
 ## [br]
 ## @api public
 ## [br]
@@ -232,7 +239,7 @@ func cancel_observation(reason: StringName = &"cancelled") -> bool:
 ## [br]
 ## @since unreleased
 ## [br]
-## @return 等待中的 transfer-backed save 请求返回句柄；终态及普通 save/load/delete 请求返回 null。
+## @return 等待中的 transfer-backed save 请求返回句柄；终态及普通 save/load/delete/reset 请求返回 null。
 func get_payload_transfer() -> GFStoragePayloadTransfer:
 	if not is_pending():
 		return null
@@ -282,7 +289,7 @@ func reclaim_failed_payload() -> GFStoragePayloadTransfer:
 func configure_for_framework(request_id: int, operation: StringName, file_name: String) -> bool:
 	if _request_id != 0 or request_id <= 0:
 		return false
-	if operation not in [OPERATION_SAVE, OPERATION_LOAD, OPERATION_DELETE]:
+	if operation not in [OPERATION_SAVE, OPERATION_LOAD, OPERATION_DELETE, OPERATION_RESET]:
 		return false
 	_request_id = request_id
 	_consumer_id = request_id
@@ -680,7 +687,7 @@ func complete_for_framework(
 ## [br]
 ## @return 尚无 late settlement 或已经取走时返回空字典。
 ## [br]
-## @schema return: Exact Dictionary with consumer_id, request_id, operation, file_name, caller_status, caller_end_kind, caller_reason, caller_completed_msec, worker_accepted, physical_cancel_requested, settlement_kind, physical_ok, physical_error_code, physical_completed_msec, late_duration_msec, read_failure_kind, write_failure_kind, delete_failure_kind, delete_existing_member_count, delete_removed_member_count, delete_remaining_member_count, and delete_failed_member fields.
+## @schema return: Exact Dictionary with consumer_id, request_id, operation, file_name, caller_status, caller_end_kind, caller_reason, caller_completed_msec, worker_accepted, physical_cancel_requested, settlement_kind, physical_ok, physical_error_code, physical_completed_msec, late_duration_msec, read_failure_kind, write_failure_kind, delete_failure_kind, delete_existing_member_count, delete_removed_member_count, delete_remaining_member_count, delete_failed_member, reset_failure_kind, reset_source_kind, reset_failed_phase, reset_retired_member_count, reset_recreated_member_count, reset_remaining_evidence_count, and reset_failed_member fields.
 func take_late_settlement_diagnostic_for_framework() -> Dictionary:
 	if _late_settlement_diagnostic.is_empty() or _late_settlement_diagnostic_taken:
 		return {}
@@ -743,6 +750,13 @@ func _make_late_settlement_diagnostic() -> Dictionary:
 	var delete_removed_member_count: int = -1
 	var delete_remaining_member_count: int = -1
 	var delete_failed_member: int = -1
+	var reset_failure_kind: int = -1
+	var reset_source_kind: int = -1
+	var reset_failed_phase: int = -1
+	var reset_retired_member_count: int = -1
+	var reset_recreated_member_count: int = -1
+	var reset_remaining_evidence_count: int = -1
+	var reset_failed_member: int = -1
 	if _result.get_settlement_kind() == GFStorageAsyncResult.SettlementKind.DOMAIN_RESULT:
 		match _operation:
 			OPERATION_SAVE:
@@ -759,6 +773,16 @@ func _make_late_settlement_diagnostic() -> Dictionary:
 					delete_removed_member_count = delete_result.get_removed_member_count()
 					delete_remaining_member_count = delete_result.get_remaining_member_count()
 					delete_failed_member = int(delete_result.get_failed_member())
+			OPERATION_RESET:
+				var reset_result: GFStorageFamilyResetResult = _result.get_reset_result()
+				if reset_result != null:
+					reset_failure_kind = int(reset_result.get_failure_kind())
+					reset_source_kind = int(reset_result.get_source_kind())
+					reset_failed_phase = int(reset_result.get_failed_phase())
+					reset_retired_member_count = reset_result.get_retired_member_count()
+					reset_recreated_member_count = reset_result.get_recreated_member_count()
+					reset_remaining_evidence_count = reset_result.get_remaining_evidence_count()
+					reset_failed_member = int(reset_result.get_failed_member())
 
 	return {
 		"consumer_id": _caller_result.get_consumer_id(),
@@ -786,6 +810,13 @@ func _make_late_settlement_diagnostic() -> Dictionary:
 		"delete_removed_member_count": delete_removed_member_count,
 		"delete_remaining_member_count": delete_remaining_member_count,
 		"delete_failed_member": delete_failed_member,
+		"reset_failure_kind": reset_failure_kind,
+		"reset_source_kind": reset_source_kind,
+		"reset_failed_phase": reset_failed_phase,
+		"reset_retired_member_count": reset_retired_member_count,
+		"reset_recreated_member_count": reset_recreated_member_count,
+		"reset_remaining_evidence_count": reset_remaining_evidence_count,
+		"reset_failed_member": reset_failed_member,
 	}
 
 

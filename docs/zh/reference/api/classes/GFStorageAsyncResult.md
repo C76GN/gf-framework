@@ -9,7 +9,7 @@
 - 类别：值对象 (`value_object`)
 - 首次版本：`10.0.0`
 
-单次异步存储请求的不可变终态。 结果通过请求 ID 与具体句柄绑定；读取结果保留 `GFStorageReadResult` 的类型化 失败分类；写入结果额外暴露稳定写入失败分类与隔离的 payload 预检报告； 删除结果携带有界、路径无关的 family 成员终态。 未被 worker 接纳即取消的请求使用独立 `SettlementKind.CANCELLED` 分支，不会伪造 save/load/delete 的领域失败结果。
+单次异步存储请求的不可变终态。 结果通过请求 ID 与具体句柄绑定；读取结果保留 `GFStorageReadResult` 的类型化 失败分类；写入结果额外暴露稳定写入失败分类与隔离的 payload 预检报告； 删除与 reset 结果携带有界、路径无关的 family 成员终态。 未被 worker 接纳即取消的请求使用独立 `SettlementKind.CANCELLED` 分支，不会伪造 save/load/delete/reset 的领域失败结果。
 
 ## 成员概览
 
@@ -26,6 +26,7 @@
 | 方法 | [`get_error_code`](#member-gfstorageasyncresult-methods-get_error_code) | `func get_error_code() -> Error:` |
 | 方法 | [`get_read_result`](#member-gfstorageasyncresult-methods-get_read_result) | `func get_read_result() -> GFStorageReadResult:` |
 | 方法 | [`get_delete_result`](#member-gfstorageasyncresult-methods-get_delete_result) | `func get_delete_result() -> GFStorageDeleteResult:` |
+| 方法 | [`get_reset_result`](#member-gfstorageasyncresult-methods-get_reset_result) | `func get_reset_result() -> GFStorageFamilyResetResult:` |
 | 方法 | [`get_write_failure_kind`](#member-gfstorageasyncresult-methods-get_write_failure_kind) | `func get_write_failure_kind() -> WriteFailureKind:` |
 | 方法 | [`get_write_validation_report`](#member-gfstorageasyncresult-methods-get_write_validation_report) | `func get_write_validation_report() -> Dictionary:` |
 | 方法 | [`duplicate_result`](#member-gfstorageasyncresult-methods-duplicate_result) | `func duplicate_result() -> GFStorageAsyncResult:` |
@@ -42,7 +43,7 @@
 
 ```gdscript
 enum SettlementKind {
-	## 存在对应 save/load/delete 类型化领域结果；也包含接纳前校验或启动失败。
+	## 存在对应 save/load/delete/reset 类型化领域结果；也包含接纳前校验或启动失败。
 	DOMAIN_RESULT,
 	## 请求在 worker 接纳前被取消，没有执行领域物理工作。
 	CANCELLED,
@@ -68,7 +69,7 @@ enum WriteFailureKind {
 	PAYLOAD_INVALID,
 	## worker 编码未能生成有效 bytes。
 	ENCODE_FAILED,
-	## worker 线程未能启动。
+	## threaded executor worker 未能启动。
 	THREAD_START_FAILED,
 	## Utility dispose 等生命周期边界使任务不可执行。
 	UNAVAILABLE,
@@ -199,7 +200,7 @@ func get_read_result() -> GFStorageReadResult:
 
 获取读取结果副本。
 
-返回：`DOMAIN_RESULT` load 请求的结果；save/delete 或 `CANCELLED` 返回 null。
+返回：`DOMAIN_RESULT` load 请求的结果；save/delete/reset 或 `CANCELLED` 返回 null。
 
 <a id="member-gfstorageasyncresult-methods-get_delete_result"></a>
 
@@ -214,7 +215,22 @@ func get_delete_result() -> GFStorageDeleteResult:
 
 获取删除结果副本。
 
-返回：`DOMAIN_RESULT` delete 请求的结果；save/load 或 `CANCELLED` 返回 null。
+返回：`DOMAIN_RESULT` delete 请求的结果；save/load/reset 或 `CANCELLED` 返回 null。
+
+<a id="member-gfstorageasyncresult-methods-get_reset_result"></a>
+
+### `get_reset_result`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func get_reset_result() -> GFStorageFamilyResetResult:
+```
+
+获取 family reset/recreate 结果副本。
+
+返回：DOMAIN_RESULT reset 请求的结果；save/load/delete 或 CANCELLED 返回 null。
 
 <a id="member-gfstorageasyncresult-methods-get_write_failure_kind"></a>
 
@@ -229,7 +245,7 @@ func get_write_failure_kind() -> WriteFailureKind:
 
 获取异步写入失败的稳定分类。
 
-返回：`WriteFailureKind` 枚举值；成功、load/delete 或 `CANCELLED` 为 NONE。
+返回：`WriteFailureKind` 枚举值；成功、load/delete/reset 或 `CANCELLED` 为 NONE。
 
 <a id="member-gfstorageasyncresult-methods-get_write_validation_report"></a>
 
@@ -282,4 +298,4 @@ func to_dict() -> Dictionary:
 
 结构：
 
-- `return`: Exact Dictionary with request_id: int, operation: StringName, file_name: String, settlement_kind: int enum, ok: bool, error_code: int, read_result: Dictionary, write_failure_kind: int enum, write_validation_report: Dictionary, and delete_result: Dictionary fields.
+- `return`: Exact Dictionary with request_id: int, operation: StringName, file_name: String, settlement_kind: int enum, ok: bool, error_code: int, read_result: Dictionary, write_failure_kind: int enum, write_validation_report: Dictionary, delete_result: Dictionary, and reset_result: Dictionary fields.

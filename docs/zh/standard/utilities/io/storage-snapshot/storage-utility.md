@@ -140,8 +140,9 @@ var loaded_res := storage.load_resource("my_custom_resource.tres", "Resource")
 ## 异步请求身份
 
 简单调用方可以继续使用 `save_data_async()` / `load_data_async()` 和全局完成信号。需要把
-终态精确关联到一次请求的协调器、自动保存服务或并发调用方，应使用请求句柄。删除没有
-全局完成信号，异步删除必须使用 `delete_file_request_async()` 返回的请求句柄：
+终态精确关联到一次请求的协调器、自动保存服务或并发调用方，应使用请求句柄。删除与
+family reset 没有全局完成信号，必须分别使用 `delete_file_request_async()` 与
+`reset_file_family_request_async()` 返回的请求句柄：
 
 ```gdscript
 var operation: GFStorageAsyncOperation = storage.load_data_request_async("profile.json")
@@ -185,7 +186,7 @@ if not delete_result.is_successful():
 ```
 
 每个 `GFStorageAsyncOperation` 都持有唯一 request ID、规范文件名、操作类型和 exactly-once
-终态，`GFStorageAsyncResult` 是该请求身份与读写结果的不可变终态快照。不得用文件名或
+终态，`GFStorageAsyncResult` 是该请求身份与读、写、删除或 reset 结果的不可变终态快照。不得用文件名或
 `last_load_result` 猜测某个句柄是否完成；同一文件可以存在来自不同调用方的多个排队
 请求。同步拒绝的非法请求也会返回已失败句柄，不会留下永不完成的等待。
 
@@ -215,7 +216,7 @@ caller 生命周期触发时，框架先区分请求是否已被所选执行器�
   领域结果；caller 同时得到包含该物理取消结果的
   `GFStorageAsyncCallerResult.Status.PHYSICAL_SETTLED`。
 - 已接纳的 load 没有持久化副作用，caller 终态为
-  `GFStorageAsyncCallerResult.Status.CANCELLED`；已接纳的 save/delete 可能已经产生持久化
+  `GFStorageAsyncCallerResult.Status.CANCELLED`；已接纳的 save/delete/reset 可能已经产生持久化
   副作用，caller 终态为 `GFStorageAsyncCallerResult.Status.OUTCOME_UNKNOWN`。
   这两种情况都只停止当前 consumer 的等待：执行器活动记录、family 文件锁与 settling
   ownership 会保留到物理终态写入，不能让同文件 follower 越过结算边界。线程模式还会
@@ -229,7 +230,7 @@ caller 生命周期触发时，框架先区分请求是否已被所选执行器�
 返回真实物理结果；不会在物理执行收敛前释放活动配额或 family 锁。
 
 `GFStorageUtility.get_late_settlement_diagnostics()` 按物理结算顺序保留最近 64 条 caller-first
-记录，返回顺序为最旧到最新，ring 在 `dispose()` 后仍可读取。每条记录使用精确 22 字段
+记录，返回顺序为最旧到最新，ring 在 `dispose()` 后仍可读取。每条记录使用精确 29 字段
 schema：
 
 ```text
@@ -239,7 +240,7 @@ worker_accepted, physical_cancel_requested,
 settlement_kind, physical_ok, physical_error_code, physical_completed_msec,
 late_duration_msec, read_failure_kind, write_failure_kind, delete_failure_kind,
 delete_existing_member_count, delete_removed_member_count,
-delete_remaining_member_count, delete_failed_member
+delete_remaining_member_count, delete_failed_member, reset_failure_kind, reset_source_kind, reset_failed_phase, reset_retired_member_count, reset_recreated_member_count, reset_remaining_evidence_count, reset_failed_member
 ```
 
 诊断不包含读 payload、待写 payload、write report、Storage root、opaque family ID 或私有物理
@@ -265,7 +266,7 @@ existing = removed + remaining，且每项最多为 8；`get_failed_member()` �
 
 ## 文件管理
 
-运行时文件管理只公开 logical API：`has_file()` 判断 committed payload，`list_files()` 从 catalog 投影 logical identity，`delete_file()` 同步删除一个精确 family，`delete_file_request_async()` 返回逐请求 typed handle 并让物理删除由所选 Storage 执行器完成。框架不再公开 Storage 物理根、目录创建或嵌套目录开关；logical 目录只是 selector，不对应调用方可管理的物理目录。项目 slot adapter 应使用受控模板与 logical API，不能扫描或拼接内部事务、备份和 family 路径。
+运行时文件管理只公开 logical API：`has_file()` 判断 committed payload，`list_files()` 从 catalog 投影 logical identity，`delete_file()` 同步删除一个精确 family，`delete_file_request_async()` 返回逐请求 typed handle 并让物理删除由所选 Storage 执行器完成；受控的破坏性恢复使用 `create_family_reset_authorization()` 与同步/异步 family reset。框架不再公开 Storage 物理根、目录创建或嵌套目录开关；logical 目录只是 selector，不对应调用方可管理的物理目录。项目 slot adapter 应使用受控模板与 logical API，不能扫描或拼接内部事务、备份和 family 路径。
 
 同步与异步删除共享同一套 fail-closed family executor。删除不会在开始前自动执行事务
 recovery 或 repair，也不会把冲突证据改写成可删除状态；执行器会重新验证冻结的 logical
@@ -279,9 +280,9 @@ pending/final 不一致、prepare/commit 身份不一致或任何无法证明精
 resource stage → final` 的固定顺序删除。执行在首个 IO 失败处停止，不回滚已经删除的 sidecar；
 final 始终最后删除，因此失败结果可以通过 removed/remaining 计数与粗粒度 failed member 精确表示
 部分进度。成功删除仍保留 immutable catalog/owner tombstone，同一 logical identity 不会在以后映射
-到另一个 family。
+到另一个 family。损坏 family 的破坏性恢复、来源绑定授权、崩溃重试与异步终态见[显式重置损坏 Storage family](family-reset.md)。
 
-同一个 `GFStorageUtility` 内，同一 canonical family 的保存、读取和删除请求按 FIFO 串行；不同
+同一个 `GFStorageUtility` 内，同一 canonical family 的保存、读取、删除和 reset 请求按 FIFO 串行；不同
 family 在线程执行器配额允许时可以并行；cooperative 执行器则每个 tick 最多完成一个任务。
 这个顺序只覆盖同一 Utility，仍以“同一 Storage root 只有
 一个活动 writer Utility/进程”为前提，不提供跨 Utility 或跨进程线性化。
@@ -294,6 +295,6 @@ family 在线程执行器配额允许时可以并行；cooperative 执行器则�
 
 首次 activation、显式 `init()` 或首次合法 I/O 尝试会冻结当前 `save_dir_name`，加载 layout 并全量收敛 catalog 中的事务；损坏 layout 会让 activation 失败并关闭 I/O admission。`begin_quiesce()` 关闭新准入并等待已接纳异步工作排空。`list_files()` 还会先等待当前 Utility 的异步任务，再重新执行 root recovery，因而只投影该实例可证明的 committed view。同一 Storage root 只允许一个活动 writer Utility/进程；当前没有跨 Utility 或跨进程 lease，违反 single-writer 约束时不承诺线性化。
 
-这是一条 GF API 的词法身份、catalog ownership 与单 writer 边界，不是宿主文件系统安全沙箱：同进程代码仍可直接调用 `FileAccess` / `DirAccess`，宿主预先建立的 symlink、junction、挂载点或等价重定向也不在该保证内。涉及不可信宿主环境时，应由平台沙箱和文件系统权限提供实际隔离。需要任意本机路径的可信编辑器或离线工具，应在自己的能力边界内直接使用 Godot 文件 API，不能重新扩大 runtime Storage。
+这是一条 GF API 的词法身份、catalog ownership 与单 writer 边界，不是宿主文件系统安全沙箱：同进程代码仍可直接调用 `FileAccess` / `DirAccess`。family reset 会对自己将要修改的 private ancestry 执行 no-follow 预检，并在遇到 symlink、junction、wrong-type leaf 或等价重定向时失败关闭，但这不替代平台级隔离，也不阻止其他同进程代码绕过 GF API。涉及不可信宿主环境时，应由平台沙箱和文件系统权限提供实际隔离。需要任意本机路径的可信编辑器或离线工具，应在自己的能力边界内直接使用 Godot 文件 API，不能重新扩大 runtime Storage。
 
 递归枚举默认限制 logical 深度和返回数量，可通过 `list_files(..., { "max_scan_depth": 64, "max_file_count": 20000 })` 调整。扩展名过滤器使用不带点号的 canonical lowercase token，例如 `"json"`；`.json` 会被拒绝。枚举结果可直接交给 `load_data()`、显式启用后的 `load_resource()` 或项目自己的 logical 读取流程。

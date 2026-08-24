@@ -40,6 +40,13 @@ const _LATE_DIAGNOSTIC_KEYS: Array[String] = [
 	"delete_removed_member_count",
 	"delete_remaining_member_count",
 	"delete_failed_member",
+	"reset_failure_kind",
+	"reset_source_kind",
+	"reset_failed_phase",
+	"reset_retired_member_count",
+	"reset_recreated_member_count",
+	"reset_remaining_evidence_count",
+	"reset_failed_member",
 ]
 
 
@@ -184,7 +191,7 @@ class AutomaticCooperativeStorageUtility extends GatedWorkerStorageUtility:
 		thread_start_call_count += 1
 		return ERR_CANT_CREATE
 
-	func _recover_frozen_async_transaction(task: Dictionary) -> Error:
+	func _recover_frozen_async_transaction(task: Dictionary) -> Dictionary:
 		recovery_call_count += 1
 		return super._recover_frozen_async_transaction(task)
 
@@ -2600,7 +2607,7 @@ func _assert_late_diagnostic_schema(
 	var expected_keys: Array[String] = _LATE_DIAGNOSTIC_KEYS.duplicate()
 	actual_keys.sort()
 	expected_keys.sort()
-	assert_eq(actual_keys, expected_keys, "Late diagnostic 必须使用 exact 22-key schema。")
+	assert_eq(actual_keys, expected_keys, "Late diagnostic 必须使用 exact 29-key schema。")
 	for value: Variant in diagnostic.values():
 		assert_true(
 			value is bool or value is int or value is String or value is StringName,
@@ -2649,6 +2656,16 @@ func _assert_late_diagnostic_schema(
 		GFVariantData.get_option_int(diagnostic, "write_failure_kind"),
 		GFStorageAsyncResult.WriteFailureKind.NONE
 	)
+	for reset_key: String in [
+		"reset_failure_kind",
+		"reset_source_kind",
+		"reset_failed_phase",
+		"reset_retired_member_count",
+		"reset_recreated_member_count",
+		"reset_remaining_evidence_count",
+		"reset_failed_member",
+	]:
+		assert_eq(GFVariantData.get_option_int(diagnostic, reset_key), -1)
 	assert_eq(GFVariantData.get_option_int(diagnostic, "delete_failure_kind"), -1)
 	assert_eq(GFVariantData.get_option_int(diagnostic, "delete_existing_member_count"), -1)
 	assert_eq(GFVariantData.get_option_int(diagnostic, "delete_removed_member_count"), -1)

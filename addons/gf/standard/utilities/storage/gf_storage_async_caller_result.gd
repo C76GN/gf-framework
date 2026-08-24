@@ -1,7 +1,7 @@
 ## GFStorageAsyncCallerResult: 单个 Storage consumer 的不可变 caller 终态。
 ##
 ## caller 终态与 `GFStorageAsyncOperation.completed` 表示的物理终态彼此独立。已接纳
-## save/delete 在 caller 提前离开时返回 `OUTCOME_UNKNOWN`，不会把“停止观察”伪装成
+## save/delete/reset 在 caller 提前离开时返回 `OUTCOME_UNKNOWN`，不会把“停止观察”伪装成
 ## 磁盘工作已取消；晚到物理结果仍由原 Operation 恰好结算一次。
 ## [br]
 ## @api public
@@ -25,7 +25,7 @@ enum Status {
 	PHYSICAL_SETTLED,
 	## caller 已安全停止观察，且不会声称存在持久化副作用的不确定性。
 	CANCELLED,
-	## caller 已停止观察，但 save/delete 的持久化结果仍未知。
+	## caller 已停止观察，但 save/delete/reset 的持久化结果仍未知。
 	OUTCOME_UNKNOWN,
 }
 
@@ -56,6 +56,7 @@ const _MAX_REASON_CHARACTERS: int = 128
 const _OPERATION_SAVE: StringName = &"save"
 const _OPERATION_LOAD: StringName = &"load"
 const _OPERATION_DELETE: StringName = &"delete"
+const _OPERATION_RESET: StringName = &"reset"
 
 
 # --- 私有变量 ---
@@ -102,7 +103,7 @@ func get_request_id() -> int:
 ## [br]
 ## @since unreleased
 ## [br]
-## @return `save`、`load` 或 `delete`；尚未配置时返回空值。
+## @return `save`、`load`、`delete` 或 `reset`；尚未配置时返回空值。
 func get_operation() -> StringName:
 	return _operation
 
@@ -194,7 +195,7 @@ func is_successful() -> bool:
 ## [br]
 ## @since unreleased
 ## [br]
-## @return caller 已离开但 save/delete 物理结果未知时返回 true。
+## @return caller 已离开但 save/delete/reset 物理结果未知时返回 true。
 func is_outcome_unknown() -> bool:
 	return _status == Status.OUTCOME_UNKNOWN
 
@@ -274,7 +275,7 @@ func to_dict() -> Dictionary:
 ## [br]
 ## @param request_id: 对应物理请求的大于零 ID。
 ## [br]
-## @param operation: `save`、`load` 或 `delete`。
+## @param operation: `save`、`load`、`delete` 或 `reset`。
 ## [br]
 ## @param file_name: 已验证的 portable logical identity；校验前失败时允许为空。
 ## [br]
@@ -309,6 +310,7 @@ func configure_for_framework(
 		_OPERATION_SAVE,
 		_OPERATION_LOAD,
 		_OPERATION_DELETE,
+		_OPERATION_RESET,
 	]:
 		return false
 	if not Status.values().has(int(status)) or not EndKind.values().has(int(end_kind)):
@@ -340,7 +342,10 @@ func configure_for_framework(
 		if operation != _OPERATION_LOAD or error_code != ERR_SKIP:
 			return false
 	elif status == Status.OUTCOME_UNKNOWN:
-		if operation not in [_OPERATION_SAVE, _OPERATION_DELETE] or error_code != ERR_BUSY:
+		if (
+			operation not in [_OPERATION_SAVE, _OPERATION_DELETE, _OPERATION_RESET]
+			or error_code != ERR_BUSY
+		):
 			return false
 
 	_consumer_id = consumer_id

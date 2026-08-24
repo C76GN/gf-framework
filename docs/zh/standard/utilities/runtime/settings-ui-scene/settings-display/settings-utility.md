@@ -119,6 +119,28 @@ if result.was_recovered():
 
 加载与恢复本身都不会保存。确认恢复结果符合项目决策后，如需持久化默认值，调用方应在独立步骤中显式调用 `save_settings()`。这样损坏证据不会在读取阶段被静默覆盖。
 
+使用 `GFStorageSettingsStoreUtility` 时，`ACTION_RESET_TO_DEFAULTS` 只恢复内存；若底层 Storage family 的 catalog、owner 或事务 identity 已损坏，直接保存仍会失败。调用方必须从本次 `GFSettingsLoadResult` 取回来源绑定的原始 Storage 证据，显式 reset 同一 logical family，并且只在 reset 完整成功后保存默认值：
+
+```gdscript
+var target_file_name: String = settings.storage_file_name
+var result: GFSettingsLoadResult = settings.load_settings("", policy)
+if result.was_recovered():
+	var observed: GFStorageReadResult = result.get_storage_result()
+	if observed != null and \
+		observed.failure_kind == GFStorageReadResult.FailureKind.CORRUPT:
+		# 复用前文注册到同一 architecture、并产生 observed 的 storage 实例。
+		var authorization: GFStorageFamilyResetAuthorization = \
+			storage.create_family_reset_authorization(target_file_name, observed)
+		var reset_result: GFStorageFamilyResetResult = \
+			storage.reset_file_family(target_file_name, authorization)
+		if reset_result.is_successful():
+			var save_error: Error = settings.save_settings(target_file_name)
+			if save_error != OK:
+				push_error("无法持久化恢复后的默认设置：%s" % error_string(save_error))
+```
+
+授权按 attempt 一次性消费并绑定同一 Utility、root 与 canonical logical identity。reset 物理失败后，只有来源绑定结果的授权资格字段 `ok`、`error_code` 与 `failure_kind` 仍匹配签发快照，才能重新签发新授权；不能序列化、合成或跨文件复用证据。`MISSING` 可按项目政策直接创建新设置，未来 schema、迁移失败和普通 IO 失败不能走 reset。File Store 或其他自定义 Store 继续由各自适配器定义破坏性恢复，Settings 核心不会解析 `.gf-storage` 私有布局。
+
 非空策略会在存储读取前完整校验；未知动作返回 `STATUS_INVALID_REQUEST`，不会访问存储或取消既有保存队列。合法加载请求一旦开始，则会作为全局顺序屏障取消此前尚未执行的延迟保存和批处理保存请求，而不只取消同名文件，避免加载 B 后把新内存状态写回旧来源 A。
 
 `auto_load_on_init` 使用严格 null 策略。启动阶段需要自定义恢复时，应把它设为 `false`，先完成设置定义注册，再显式调用带策略的 `load_settings()`；不要依赖初始化时自动猜测恢复动作。每次终态都会通过 `settings_load_completed` 发出隔离结果，也可用 `get_last_load_result()` 获取最近结果的副本。

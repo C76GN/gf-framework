@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFStorageUtility" path="addons/gf/standard/utilities/storage/gf_storage_utility.gd" module="standard" extends="GFUtility" classDigest="a869ae64e792e69df7f95440be7ca880533120bf2ec912b9270fb5a1c92f6e6c">
+<class name="GFStorageUtility" path="addons/gf/standard/utilities/storage/gf_storage_utility.gd" module="standard" extends="GFUtility" classDigest="5e1d516e6867a60c783d0f41b20abc2363b108b0e438e5f26c66e904775f16ee">
 	<description>GFStorageUtility: 基于 `user://` 的轻量存档系统。
 支持槽位存档、元数据分离读取、`Resource` 存取，
 以及可配置 codec、完整性校验、版本迁移和简单混淆，适合通用本地持久化场景。
@@ -358,6 +358,45 @@ cooperative 模式固定每个 lifecycle tick 最多执行一个任务。</descr
 				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
+		<member kind="method" name="create_family_reset_authorization">
+			<signature>func create_family_reset_authorization( file_name: String, observed_result: GFStorageReadResult ) -&gt; GFStorageFamilyResetAuthorization:</signature>
+			<description>为一次显式的破坏性 family reset 创建绑定授权。
+只有当前 GFStorageUtility 对同一 logical identity 返回的 CORRUPT 读取结果才可
+创建授权。授权冻结 Utility、Storage root 与 canonical logical identity，且只能消费一次。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">file_name: portable logical file identity。</tag>
+				<tag name="param">observed_result: 调用方已经检查并决定破坏性恢复的 CORRUPT 读取结果。</tag>
+				<tag name="return">可用的一次性授权；输入或读取分类不匹配时返回 stale 授权。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="reset_file_family">
+			<signature>func reset_file_family( file_name: String, authorization: GFStorageFamilyResetAuthorization ) -&gt; GFStorageFamilyResetResult:</signature>
+			<description>同步 retire 并重新 claim 一个显式授权的 logical family。
+该入口与同 family 的异步 save/load/delete/reset 串行。missing target 与 future layout
+都在零写入前失败；同执行栈仍有该 family 工作时以 ERR_BUSY / UNAVAILABLE 拒绝。
+结果不暴露任何 private path 或 retirement staging 名称。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">file_name: 必须与 authorization 绑定完全一致的 portable logical identity。</tag>
+				<tag name="param">authorization: 由 create_family_reset_authorization() 创建的一次性授权。</tag>
+				<tag name="return">reset/recreate 的不可变 typed 终态。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="reset_file_family_request_async">
+			<signature>func reset_file_family_request_async( file_name: String, authorization: GFStorageFamilyResetAuthorization, options: GFStorageAsyncRequestOptions = null ) -&gt; GFStorageAsyncOperation:</signature>
+			<description>通过当前 Storage executor 异步 retire 并重新 claim 一个显式授权的 logical family。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">file_name: 必须与 authorization 绑定完全一致的 portable logical identity。</tag>
+				<tag name="param">authorization: 由 create_family_reset_authorization() 创建的一次性授权。</tag>
+				<tag name="param">options: 可选 caller owner、取消 token 与单调 deadline。</tag>
+				<tag name="return">请求专属句柄；终态通过 GFStorageAsyncResult.get_reset_result() 读取。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
 		<member kind="method" name="save_data">
 			<signature>func save_data(file_name: String, data: Dictionary) -&gt; Error:</signature>
 			<description>保存纯字典数据。</description>
@@ -473,14 +512,14 @@ family 私有身份。返回值为深复制，调用方修改不会影响 Utilit
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">最旧到最新排列的有界 late settlement 诊断副本。</tag>
-				<tag name="schema">return: Array of exact Dictionary entries with consumer_id, request_id, operation, file_name, caller_status, caller_end_kind, caller_reason, caller_completed_msec, worker_accepted, physical_cancel_requested, settlement_kind, physical_ok, physical_error_code, physical_completed_msec, late_duration_msec, read_failure_kind, write_failure_kind, delete_failure_kind, delete_existing_member_count, delete_removed_member_count, delete_remaining_member_count, and delete_failed_member fields.</tag>
+				<tag name="schema">return: Array of exact Dictionary entries with consumer_id, request_id, operation, file_name, caller_status, caller_end_kind, caller_reason, caller_completed_msec, worker_accepted, physical_cancel_requested, settlement_kind, physical_ok, physical_error_code, physical_completed_msec, late_duration_msec, read_failure_kind, write_failure_kind, delete_failure_kind, delete_existing_member_count, delete_removed_member_count, delete_remaining_member_count, delete_failed_member, reset_failure_kind, reset_source_kind, reset_failed_phase, reset_retired_member_count, reset_recreated_member_count, reset_remaining_evidence_count, and reset_failed_member fields.</tag>
 				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
 		<member kind="method" name="wait_for_async_tasks">
 			<signature>func wait_for_async_tasks() -&gt; void:</signature>
-			<description>等待已经入队和正在执行的异步纯数据任务全部完成。
-需要在同一路径上混合同步与异步读写时，可先调用该方法收敛顺序。
+			<description>等待已经入队和正在执行的异步 save/load/delete/reset 任务全部完成。
+需要在同一路径上混合同步与异步操作时，可先调用该方法收敛顺序。
 Storage executor 的同步执行栈内会拒绝重入等待，避免等待当前调用栈自身完成。</description>
 			<tags>
 				<tag name="api">public</tag>

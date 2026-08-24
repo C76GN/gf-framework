@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFStorageReadResult" path="addons/gf/standard/utilities/storage/gf_storage_read_result.gd" module="standard" extends="RefCounted" classDigest="eab0e651a1c6ce95c7505f3e573fb9236f077a43d036e9706cb62815ca80651a">
+<class name="GFStorageReadResult" path="addons/gf/standard/utilities/storage/gf_storage_read_result.gd" module="standard" extends="RefCounted" classDigest="dc7c893c14a625b016a8d283c8c87daeef12072811c08e9a633d0997aaedbdb3">
 	<description>GFStorageReadResult: 严格存储读取结果。
 将业务载荷、框架存储元数据、完整性状态和失败原因分离，避免调用方
 把空字典误判为成功，也避免存储层保留字段渗入业务数据。</description>
@@ -150,7 +150,7 @@
 	<methods>
 		<member kind="method" name="configure_success">
 			<signature>func configure_success( p_payload: Dictionary, p_metadata: Dictionary = {}, p_integrity_status: IntegrityStatus = IntegrityStatus.NOT_CHECKED, p_document_schema_version: int = 0 ) -&gt; GFStorageReadResult:</signature>
-			<description>配置成功结果。</description>
+			<description>配置成功结果，并清除任何不透明 Storage 来源绑定。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">p_payload: 业务载荷。</tag>
@@ -165,7 +165,7 @@
 		</member>
 		<member kind="method" name="configure_failure">
 			<signature>func configure_failure( p_error: String, p_error_code: Error = ERR_INVALID_DATA, p_metadata: Dictionary = {}, p_integrity_status: IntegrityStatus = IntegrityStatus.NOT_CHECKED, p_document_schema_version: int = 0, p_failure_kind: FailureKind = FailureKind.IO_FAILED ) -&gt; GFStorageReadResult:</signature>
-			<description>配置失败结果。</description>
+			<description>配置失败结果，并清除任何不透明 Storage 来源绑定。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">p_error: 错误描述。</tag>
@@ -190,7 +190,9 @@
 		</member>
 		<member kind="method" name="duplicate_result">
 			<signature>func duplicate_result() -&gt; GFStorageReadResult:</signature>
-			<description>创建读取结果深拷贝。</description>
+			<description>创建读取结果深拷贝。
+原对象的授权资格字段仍精确匹配 Storage 签发快照时，副本保留不透明来源绑定；
+`ok`、`error_code` 或 `failure_kind` 被改写后，副本不会保留该绑定。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">新读取结果。</tag>
@@ -199,7 +201,8 @@
 		</member>
 		<member kind="method" name="to_dict">
 			<signature>func to_dict() -&gt; Dictionary:</signature>
-			<description>转换为线程、报告和工具可传递的字典。</description>
+			<description>转换为执行器、报告和工具可传递的字典。
+不透明 Storage 来源绑定不会序列化；Dictionary 往返结果不能作为破坏性 family reset 授权证据。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">读取结果字典。</tag>
@@ -209,7 +212,7 @@
 		</member>
 		<member kind="method" name="apply_dict">
 			<signature>func apply_dict(data: Dictionary) -&gt; void:</signature>
-			<description>从字典应用读取结果字段。</description>
+			<description>从字典应用读取结果字段，并清除任何不透明 Storage 来源绑定。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">data: 读取结果字典。</tag>
@@ -219,7 +222,7 @@
 		</member>
 		<member kind="method" name="from_dict">
 			<signature>static func from_dict(data: Dictionary) -&gt; GFStorageReadResult:</signature>
-			<description>从字典创建读取结果。</description>
+			<description>从字典创建不带 Storage 来源绑定的读取结果。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">data: 读取结果字典。</tag>
