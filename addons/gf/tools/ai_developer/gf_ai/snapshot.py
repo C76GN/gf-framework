@@ -2,31 +2,18 @@
 
 from __future__ import annotations
 
-import os
 import re
-import stat
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from . import catalog, dependencies
+from . import api_policy, catalog, dependencies
 from .constants import DEFAULT_CONTRACT_PATH, DEFAULT_SNAPSHOT_PATH, SCHEMA_ROOT, SNAPSHOT_SCHEMA_VERSION, TOOL_VERSION
 from .contract import load_contract
-from .paths import atomic_write_json, portable_ownership_path_identity, resolve_project_path
+from .paths import atomic_write_json, resolve_project_path
 from .schema import validate_schema_file
 
 
-_SKIPPED_DIRECTORIES = {
-	".git",
-	".gf",
-	".godot",
-	".import",
-	"addons",
-	"ai_analysis",
-	"build",
-	"node_modules",
-	"site",
-}
 _MAX_PROJECT_SCRIPTS = 20000
 _MAX_SCRIPT_BYTES = 2 * 1024 * 1024
 _MAX_SOURCE_SCAN_BYTES = 128 * 1024 * 1024
@@ -44,19 +31,33 @@ def build_snapshot(
 	if not isinstance(contract_data, dict):
 		contract_data = {}
 	project_source = _read_project_source(project_root)
-	package_report = catalog.installed_package_report(project_root)
+	try:
+		package_report = catalog.installed_package_report(project_root)
+	except (OSError, UnicodeDecodeError, ValueError) as exc:
+		package_report = {
+			"packages": [],
+			"source": "filesystem",
+			"lockfile_present": (project_root / ".gf/packages.lock.json").exists(),
+			"valid": False,
+			"issues": [f"GF API/package catalog is invalid: {exc}"],
+		}
 	package_ids = list(package_report["packages"])
-	catalog_report = catalog.catalog_compatibility(project_root)
-	api_classes = catalog.known_api_classes()
-	generated_source_scan_roots = _generated_source_scan_root_identities(
-		contract_result,
-		contract_data,
-	)
-	source_scan = _scan_project_sources(
+	try:
+		catalog_report = catalog.catalog_compatibility(project_root)
+	except (OSError, UnicodeDecodeError, ValueError) as exc:
+		catalog_report = {"ok": False, "issues": [f"GF API/package catalog is invalid: {exc}"]}
+	try:
+		catalog_framework_version = catalog.catalog_framework_version()
+	except (OSError, UnicodeDecodeError, ValueError):
+		catalog_framework_version = ""
+	api_package_policy_analysis = api_policy.analyze_api_package_policy(
 		project_root,
-		api_classes,
-		generated_source_scan_roots,
+		contract_result,
+		max_scripts=_MAX_PROJECT_SCRIPTS,
+		max_script_bytes=_MAX_SCRIPT_BYTES,
+		max_source_bytes=_MAX_SOURCE_SCAN_BYTES,
 	)
+	source_scan = api_package_policy_analysis
 	capability_readiness = _build_capability_readiness(
 		contract_result,
 		contract_data,
@@ -85,6 +86,7 @@ def build_snapshot(
 		capability_readiness,
 		declared_roots,
 		module_dependency_analysis,
+		api_package_policy_analysis,
 	)
 	return {
 		"schema_version": SNAPSHOT_SCHEMA_VERSION,
@@ -104,7 +106,7 @@ def build_snapshot(
 		"framework": {
 			"installed": _framework_plugin_exists(project_root),
 			"version": catalog.project_framework_version(project_root),
-			"catalog_framework_version": catalog.catalog_framework_version(),
+			"catalog_framework_version": catalog_framework_version,
 			"catalog_matches_framework": bool(catalog_report["ok"]),
 			"plugin_enabled": _editor_plugin_enabled(project_source, "res://addons/gf/plugin.cfg"),
 			"packages": package_ids,
@@ -132,6 +134,7 @@ def build_snapshot(
 			"unsafe_directory_count": source_scan["unsafe_directory_count"],
 			"gf_api_usage": source_scan["gf_api_usage"],
 			"test_gf_api_usage": source_scan["test_gf_api_usage"],
+			"api_package_policy_analysis": api_package_policy_analysis,
 			"declared_roots": declared_roots,
 			"module_dependency_analysis": module_dependency_analysis,
 		},
@@ -168,7 +171,7 @@ def project_context(
 	snapshot = build_snapshot(project_root, contract_relative_path)
 	contract_data = contract_result.get("contract", {})
 	capability_requirements: list[dict[str, Any]] = []
-	if isinstance(contract_data, dict):
+	if contract_result.get("ok") and isinstance(contract_data, dict):
 		framework = contract_data.get("framework", {})
 		if isinstance(framework, dict):
 			readiness = {
@@ -212,6 +215,7 @@ def _build_drift(
 	capability_readiness: list[dict[str, Any]],
 	declared_roots: list[dict[str, Any]],
 	module_dependency_analysis: dict[str, Any],
+	api_package_policy_analysis: dict[str, Any],
 ) -> dict[str, Any]:
 	issues: list[dict[str, str]] = []
 	for item in contract_result.get("issues", []):
@@ -283,6 +287,7 @@ def _build_drift(
 				unknown_id = str(unknown.get("id", "unknown"))
 				issues.append(_issue("error", "blocking_unknown", unknown_id, f"Project contract still has a blocking unknown: {unknown_id}."))
 		issues.extend(_module_dependency_drift_issues(contract_data, module_dependency_analysis))
+	issues.extend(_api_package_policy_drift_issues(api_package_policy_analysis))
 	error_count = sum(1 for issue in issues if issue["severity"] == "error")
 	warning_count = sum(1 for issue in issues if issue["severity"] == "warning")
 	return {
@@ -291,6 +296,62 @@ def _build_drift(
 		"warning_count": warning_count,
 		"issues": issues,
 	}
+
+
+def _api_package_policy_drift_issues(analysis: dict[str, Any]) -> list[dict[str, str]]:
+	issues: list[dict[str, str]] = []
+	status = str(analysis.get("status", "partial"))
+	if status != "complete":
+		issues.append(_issue(
+			"error",
+			"api_package_policy_analysis_incomplete",
+			"$.architecture.source_domains",
+			(
+				"GF public API package-policy analysis is not complete "
+				f"(status={status}, catalog_issues={int(analysis.get('catalog_issue_count', 0))}, "
+				f"unreadable_scripts={int(analysis.get('unreadable_script_count', 0))}, "
+				f"unsafe_paths={int(analysis.get('unsafe_script_path_count', 0))}, "
+				f"unsafe_directories={int(analysis.get('unsafe_directory_count', 0))}, "
+				f"invalid_gdignore={int(analysis.get('invalid_gdignore_count', 0))}, "
+				f"directory_identity_drift={int(analysis.get('directory_identity_drift_count', 0))}, "
+				f"truncated={bool(analysis.get('source_scan_truncated'))})."
+			),
+		))
+	actionable_count = int(analysis.get("actionable_count", 0))
+	actionable = [
+		item for item in analysis.get("actionable_observations", [])
+		if isinstance(item, dict)
+	]
+	for item in actionable:
+		policy = str(item.get("policy", "outside_policy"))
+		code = "forbidden_gf_api_package_reference" if policy == "forbidden" else "undeclared_gf_api_package_reference"
+		source_path = str(item.get("source_path", "$.architecture.source_domains"))
+		line = int(item.get("line", 0))
+		owner_kind = str(item.get("owner_kind", "owner"))
+		owner_name = str(item.get("owner_name", ""))
+		package_id = str(item.get("package_id", ""))
+		domain = str(item.get("source_domain", "runtime"))
+		issues.append(_issue(
+			"error",
+			code,
+			source_path,
+			f"{domain} {owner_kind} {owner_name!r} at {source_path}:{line} maps to {policy} package {package_id!r}.",
+		))
+	if actionable_count > len(actionable):
+		issues.append(_issue(
+			"error",
+			"gf_api_package_reference_evidence_truncated",
+			"$.architecture.source_domains",
+			f"GF API package policy has {actionable_count - len(actionable)} additional bounded actionable observation(s).",
+		))
+	if int(analysis.get("advisory_count", 0)) > 0:
+		issues.append(_issue(
+			"warning",
+			"dynamic_gf_api_reference_advisory",
+			"$.architecture.source_domains",
+			f"Observed {int(analysis.get('advisory_count', 0))} dynamic or uncertain GF API reference(s); no package intent was inferred.",
+		))
+	return issues
 
 
 def _build_capability_readiness(
@@ -533,28 +594,6 @@ def _module_contract_map(contract_data: dict[str, Any]) -> dict[str, dict[str, A
 	}
 
 
-def _generated_source_scan_root_identities(
-	contract_result: dict[str, Any],
-	contract_data: dict[str, Any],
-) -> frozenset[str]:
-	if not bool(contract_result.get("ok")):
-		return frozenset()
-	identities: set[str] = set()
-	for module in _module_contract_map(contract_data).values():
-		if module.get("ownership") != "generated":
-			continue
-		roots = module.get("roots", [])
-		if not isinstance(roots, list):
-			continue
-		for raw_root in roots:
-			if not isinstance(raw_root, str):
-				continue
-			identity = portable_ownership_path_identity(raw_root)
-			if identity:
-				identities.add(identity)
-	return frozenset(identities)
-
-
 def _dependency_edge_evidence(edge: dict[str, Any]) -> tuple[str, str]:
 	evidence = edge.get("evidence", [])
 	if not isinstance(evidence, list) or not evidence or not isinstance(evidence[0], dict):
@@ -565,208 +604,6 @@ def _dependency_edge_evidence(edge: dict[str, Any]) -> tuple[str, str]:
 	kind = str(first.get("kind", "reference"))
 	symbol = str(first.get("symbol", ""))
 	return source_path, f" Evidence: {source_path}:{line} {kind} {symbol!r}."
-
-
-def _scan_project_sources(
-	project_root: Path,
-	known_classes: set[str],
-	excluded_root_identities: frozenset[str] = frozenset(),
-) -> dict[str, Any]:
-	script_count = 0
-	scanned_script_count = 0
-	scanned_script_bytes = 0
-	test_script_count = 0
-	skipped_large_script_count = 0
-	unreadable_script_count = 0
-	unsafe_script_path_count = 0
-	unsafe_directory_count = 0
-	production_usage: set[str] = set()
-	test_usage: set[str] = set()
-	walk_errors: list[OSError] = []
-	for current_root, directory_names, file_names in os.walk(
-		project_root,
-		topdown=True,
-		followlinks=False,
-		onerror=walk_errors.append,
-	):
-		current_path = Path(current_root)
-		safe_directories: list[str] = []
-		for name in sorted(directory_names):
-			if name in _SKIPPED_DIRECTORIES:
-				continue
-			candidate_directory = current_path / name
-			if _source_scan_path_identity(project_root, candidate_directory) in excluded_root_identities:
-				continue
-			if _safe_scan_directory(project_root, candidate_directory):
-				safe_directories.append(name)
-			else:
-				unsafe_directory_count += 1
-		directory_names[:] = safe_directories
-		for file_name in sorted(file_names):
-			if not file_name.endswith(".gd"):
-				continue
-			path = current_path / file_name
-			if _source_scan_path_identity(project_root, path) in excluded_root_identities:
-				continue
-			if script_count >= _MAX_PROJECT_SCRIPTS:
-				return _source_scan_result(
-					script_count,
-					scanned_script_count,
-					scanned_script_bytes,
-					test_script_count,
-					production_usage,
-					test_usage,
-					True,
-					"script_count",
-					skipped_large_script_count,
-					unreadable_script_count,
-					unsafe_script_path_count,
-					unsafe_directory_count + len(walk_errors),
-				)
-			script_count += 1
-			try:
-				relative = path.relative_to(project_root)
-			except ValueError:
-				unsafe_script_path_count += 1
-				continue
-			is_test_script = (
-				any(part.casefold() in ("test", "tests") for part in relative.parts)
-				or path.name.casefold().startswith("test_")
-			)
-			if is_test_script:
-				test_script_count += 1
-			if not _safe_scan_file(project_root, path):
-				unsafe_script_path_count += 1
-				continue
-			try:
-				size = path.stat().st_size
-			except OSError:
-				unreadable_script_count += 1
-				continue
-			if size > _MAX_SCRIPT_BYTES:
-				skipped_large_script_count += 1
-				continue
-			if scanned_script_bytes + size > _MAX_SOURCE_SCAN_BYTES:
-				return _source_scan_result(
-					script_count,
-					scanned_script_count,
-					scanned_script_bytes,
-					test_script_count,
-					production_usage,
-					test_usage,
-					True,
-					"byte_budget",
-					skipped_large_script_count,
-					unreadable_script_count,
-					unsafe_script_path_count,
-					unsafe_directory_count + len(walk_errors),
-				)
-			try:
-				text = path.read_text(encoding="utf-8")
-			except (OSError, UnicodeDecodeError):
-				unreadable_script_count += 1
-				continue
-			scanned_script_count += 1
-			scanned_script_bytes += size
-			identifiers = {
-				token.value
-				for token in dependencies.lex_gdscript(text)
-				if token.kind == "identifier"
-			}
-			matched = identifiers.intersection(known_classes)
-			if is_test_script:
-				test_usage.update(matched)
-			else:
-				production_usage.update(matched)
-	return _source_scan_result(
-		script_count,
-		scanned_script_count,
-		scanned_script_bytes,
-		test_script_count,
-		production_usage,
-		test_usage,
-		False,
-		"",
-		skipped_large_script_count,
-		unreadable_script_count,
-		unsafe_script_path_count,
-		unsafe_directory_count + len(walk_errors),
-	)
-
-
-def _source_scan_path_identity(project_root: Path, path: Path) -> str:
-	try:
-		relative = path.relative_to(project_root)
-	except ValueError:
-		return ""
-	return portable_ownership_path_identity(
-		"res://" + "/".join(relative.parts)
-	)
-
-
-def _safe_scan_directory(project_root: Path, path: Path) -> bool:
-	try:
-		metadata = path.lstat()
-		if path.is_symlink():
-			return False
-		reparse_flag = getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0)
-		if reparse_flag and getattr(metadata, "st_file_attributes", 0) & reparse_flag:
-			return False
-		path.resolve(strict=True).relative_to(project_root)
-	except (OSError, ValueError):
-		return False
-	return True
-
-
-def _safe_scan_file(project_root: Path, path: Path) -> bool:
-	try:
-		metadata = path.lstat()
-		if path.is_symlink():
-			return False
-		reparse_flag = getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0)
-		if reparse_flag and getattr(metadata, "st_file_attributes", 0) & reparse_flag:
-			return False
-		path.resolve(strict=True).relative_to(project_root)
-	except (OSError, ValueError):
-		return False
-	return True
-
-
-def _source_scan_result(
-	script_count: int,
-	scanned_script_count: int,
-	scanned_script_bytes: int,
-	test_script_count: int,
-	production_usage: set[str],
-	test_usage: set[str],
-	truncated: bool,
-	truncation_reason: str,
-	skipped_large_script_count: int,
-	unreadable_script_count: int,
-	unsafe_script_path_count: int,
-	unsafe_directory_count: int,
-) -> dict[str, Any]:
-	complete = not truncated and not any((
-		skipped_large_script_count,
-		unreadable_script_count,
-		unsafe_script_path_count,
-		unsafe_directory_count,
-	))
-	return {
-		"script_count": script_count,
-		"scanned_script_count": scanned_script_count,
-		"scanned_script_bytes": scanned_script_bytes,
-		"test_script_count": test_script_count,
-		"source_scan_truncated": truncated,
-		"source_scan_truncation_reason": truncation_reason,
-		"source_scan_complete": complete,
-		"skipped_large_script_count": skipped_large_script_count,
-		"unreadable_script_count": unreadable_script_count,
-		"unsafe_script_path_count": unsafe_script_path_count,
-		"unsafe_directory_count": unsafe_directory_count,
-		"gf_api_usage": sorted(production_usage),
-		"test_gf_api_usage": sorted(test_usage),
-	}
 
 
 def _read_project_source(project_root: Path) -> str:

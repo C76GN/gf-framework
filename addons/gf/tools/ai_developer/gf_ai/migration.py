@@ -50,7 +50,7 @@ def plan_contract_migration(
 		if any(issue.get("severity") == "error" for issue in validation_issues):
 			return {"ok": False, "status": "blocked", **base, "issues": validation_issues}
 		return {"ok": True, "status": "up_to_date", **base, "issues": validation_issues}
-	if source_version not in (1, 2) or CONTRACT_SCHEMA_VERSION != 3:
+	if source_version not in (1, 2, 3) or CONTRACT_SCHEMA_VERSION != 4:
 		return {
 			"ok": False,
 			"status": "blocked",
@@ -71,13 +71,30 @@ def plan_contract_migration(
 			"path": "$.framework.capability_requirements",
 			"message": "Converted required capability ids into owner-bound capability requirement records.",
 		})
-	if not conversion_issues:
+	if source_version <= 2 and not conversion_issues:
 		candidate, conversion_issues = _migrate_v2_to_v3(candidate)
 		changes.append({
 			"code": "path_roles_initialized",
 			"path": "$.architecture.path_roles",
 			"message": "Initialized the closed project path-role declaration list.",
 		})
+	if not conversion_issues:
+		candidate, conversion_issues = _migrate_v3_to_v4(candidate)
+		changes.extend((
+			{
+				"code": "source_domains_initialized",
+				"path": "$.architecture.source_domains",
+				"message": "Initialized the closed project source-domain declaration list.",
+			},
+			{
+				"code": "declare_source_domain_roots",
+				"path": "$.architecture.source_domains",
+				"message": (
+					"Review and declare test, tool, and editor roots: unmatched scripts now "
+					"default fail-safe to runtime, and the legacy test-path heuristic is not authoritative."
+				),
+			},
+		))
 	if conversion_issues:
 		return {"ok": False, "status": "blocked", **base, "candidate": candidate, "issues": conversion_issues}
 	validation_issues = validate_contract_data(candidate, project_root)
@@ -226,6 +243,22 @@ def _migrate_v2_to_v3(source: dict[str, Any]) -> tuple[dict[str, Any], list[dict
 			"Legacy contract schemas must not predeclare schema v3 path_roles.",
 		)]
 	architecture["path_roles"] = []
+	candidate["schema_version"] = 3
+	return candidate, []
+
+
+def _migrate_v3_to_v4(source: dict[str, Any]) -> tuple[dict[str, Any], list[dict[str, str]]]:
+	candidate = copy.deepcopy(source)
+	architecture = candidate.get("architecture")
+	if not isinstance(architecture, dict):
+		return candidate, [_issue("invalid_legacy_architecture", "$.architecture", "Legacy architecture field must be an object.")]
+	if "source_domains" in architecture:
+		return candidate, [_issue(
+			"invalid_legacy_source_domains",
+			"$.architecture.source_domains",
+			"Legacy contract schemas must not predeclare schema v4 source_domains.",
+		)]
+	architecture["source_domains"] = []
 	candidate["schema_version"] = CONTRACT_SCHEMA_VERSION
 	return candidate, []
 
