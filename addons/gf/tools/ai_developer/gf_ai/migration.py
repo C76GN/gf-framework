@@ -50,7 +50,7 @@ def plan_contract_migration(
 		if any(issue.get("severity") == "error" for issue in validation_issues):
 			return {"ok": False, "status": "blocked", **base, "issues": validation_issues}
 		return {"ok": True, "status": "up_to_date", **base, "issues": validation_issues}
-	if source_version not in (1, 2, 3) or CONTRACT_SCHEMA_VERSION != 4:
+	if source_version not in (1, 2, 3, 4) or CONTRACT_SCHEMA_VERSION != 5:
 		return {
 			"ok": False,
 			"status": "blocked",
@@ -78,7 +78,7 @@ def plan_contract_migration(
 			"path": "$.architecture.path_roles",
 			"message": "Initialized the closed project path-role declaration list.",
 		})
-	if not conversion_issues:
+	if source_version <= 3 and not conversion_issues:
 		candidate, conversion_issues = _migrate_v3_to_v4(candidate)
 		changes.extend((
 			{
@@ -92,6 +92,23 @@ def plan_contract_migration(
 				"message": (
 					"Review and declare test, tool, and editor roots: unmatched scripts now "
 					"default fail-safe to runtime, and the legacy test-path heuristic is not authoritative."
+				),
+			},
+		))
+	if not conversion_issues:
+		candidate, conversion_issues = _migrate_v4_to_v5(candidate)
+		changes.extend((
+			{
+				"code": "documentation_roots_initialized",
+				"path": "$.architecture.documentation_roots",
+				"message": "Initialized the closed project documentation-root declaration list.",
+			},
+			{
+				"code": "declare_documentation_roots",
+				"path": "$.architecture.documentation_roots",
+				"message": (
+					"Declare only the project documentation roots that should be checked against "
+					"the exact installed GF API catalog; an empty list keeps the opt-in check disabled."
 				),
 			},
 		))
@@ -259,6 +276,22 @@ def _migrate_v3_to_v4(source: dict[str, Any]) -> tuple[dict[str, Any], list[dict
 			"Legacy contract schemas must not predeclare schema v4 source_domains.",
 		)]
 	architecture["source_domains"] = []
+	candidate["schema_version"] = 4
+	return candidate, []
+
+
+def _migrate_v4_to_v5(source: dict[str, Any]) -> tuple[dict[str, Any], list[dict[str, str]]]:
+	candidate = copy.deepcopy(source)
+	architecture = candidate.get("architecture")
+	if not isinstance(architecture, dict):
+		return candidate, [_issue("invalid_legacy_architecture", "$.architecture", "Legacy architecture field must be an object.")]
+	if "documentation_roots" in architecture:
+		return candidate, [_issue(
+			"invalid_legacy_documentation_roots",
+			"$.architecture.documentation_roots",
+			"Legacy contract schemas must not predeclare schema v5 documentation_roots.",
+		)]
+	architecture["documentation_roots"] = []
 	candidate["schema_version"] = CONTRACT_SCHEMA_VERSION
 	return candidate, []
 

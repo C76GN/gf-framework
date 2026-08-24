@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://gf-framework.dev/schemas/project-contract-v4.json",
+  "$id": "https://gf-framework.dev/schemas/project-contract-v5.json",
   "title": "GF Project Intent Contract",
   "type": "object",
   "additionalProperties": false,
@@ -18,7 +18,7 @@
   "properties": {
     "schema_version": {
       "type": "integer",
-      "const": 4
+      "const": 5
     },
     "project": {
       "type": "object",
@@ -185,7 +185,7 @@
     "architecture": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["modules", "path_roles", "source_domains", "global_rules", "project_profile_path"],
+      "required": ["modules", "path_roles", "source_domains", "documentation_roots", "global_rules", "project_profile_path"],
       "properties": {
         "modules": {
           "type": "array",
@@ -299,6 +299,17 @@
                 "enum": ["runtime", "test", "tool", "editor"]
               }
             }
+          }
+        },
+        "documentation_roots": {
+          "type": "array",
+          "maxItems": 100,
+          "uniqueItems": true,
+          "description": "Closed opt-in Markdown roots checked against the exact installed GF API catalog. Empty keeps documentation analysis disabled; Godot .gdignore markers do not narrow an explicitly declared documentation root.",
+          "items": {
+            "type": "string",
+            "maxLength": 240,
+            "pattern": "^res://(?!addons/gf(?:/|$))[^\\u0000-\\u001F\\u007F\\\\]+$"
           }
         },
         "global_rules": {

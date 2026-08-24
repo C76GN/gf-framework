@@ -31,6 +31,10 @@ The adapter owns initialization, availability checks, callback-to-async conversi
 
 Declare a rebuildable output directory as an `architecture.modules` entry with `ownership: generated` when source modules need a bounded dependency target for reports, audits, screenshots, exports, or similar artifacts. Its roots must remain canonical non-root project paths outside `res://addons/gf`, within declaration limits, and non-overlapping with modules, framework adapters, and exact `owned_resources`. A generated root may be absent and is target-only: never scan its contents, discover classes from it, or treat it as a dependency source. Source path references into the exact root produce bounded `generated_output` edge evidence, while allowed, undeclared, and forbidden dependency policy still applies. Keep `project` and module `external_adapter` roots source-scanned, and keep `framework.adapter_boundaries` on their existing GDScript-target semantics.
 
+## Documentation evidence
+
+Only explicitly declared `architecture.documentation_roots` participate in GF API freshness analysis. Fenced Markdown code and unescaped inline code spans closed on the same physical line can produce exact owner/member evidence; prose and cross-line or unclosed spans remain advisory. Never rewrite project documentation from the report, copy surrounding prose into evidence, or treat missing, linked, unreadable, over-budget, version-mismatched, or otherwise partial input as clean. Generated output roots cannot become authoritative documentation roots.
+
 ## Hard boundaries
 
 - Never edit vendored `addons/gf` to implement a game feature.
