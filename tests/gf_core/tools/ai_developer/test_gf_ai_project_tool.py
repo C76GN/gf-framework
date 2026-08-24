@@ -24,6 +24,9 @@ ROOT = Path(__file__).resolve().parents[4]
 ADDON_ROOT = ROOT / "addons/gf/tools/ai_developer"
 TOOLS_ROOT = ROOT / "tools"
 FIXTURE_PATH = Path(__file__).with_name("fixtures") / "evaluation_cases.json"
+ISSUE_96_FIXTURE_ROOT = Path(__file__).with_name("fixtures") / "issue_96"
+ISSUE_96_CONTRACT_FIXTURE_PATH = ISSUE_96_FIXTURE_ROOT / "project_contract_v3.json"
+ISSUE_96_ANALYSIS_FIXTURE_PATH = ISSUE_96_FIXTURE_ROOT / "module_dependency_analysis_v6.json"
 sys.path.insert(0, str(ADDON_ROOT))
 sys.path.insert(0, str(TOOLS_ROOT))
 
@@ -37,7 +40,7 @@ from gf_ai.constants import (  # noqa: E402
 	SNAPSHOT_SCHEMA_VERSION,
 	TOOL_VERSION,
 )
-from gf_ai.contract import initialize_contract, load_contract  # noqa: E402
+from gf_ai.contract import initialize_contract, load_contract, validate_contract_data  # noqa: E402
 from gf_ai.paths import read_json_object, resolve_project_path  # noqa: E402
 from gf_ai.schema import validate_schema_definition, validate_schema_file  # noqa: E402
 import build_gf_ai_developer_kit  # noqa: E402
@@ -215,6 +218,8 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 		current = json.loads(contract_path.read_text(encoding="utf-8"))
 		legacy = dict(current)
 		legacy["schema_version"] = 1
+		legacy["architecture"] = dict(current["architecture"])
+		legacy["architecture"].pop("path_roles")
 		legacy["framework"] = dict(current["framework"])
 		legacy["framework"]["required_capabilities"] = [
 			item["id"] for item in current["framework"]["capability_requirements"]
@@ -287,10 +292,80 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 		self.assertFalse(plan["ok"])
 		self.assertEqual(plan["issues"][0]["code"], "unsafe_contract_path")
 
+	def test_issue_96_contract_v2_migration_initializes_closed_path_roles(self) -> None:
+		contract_path = self.project_root / ".gf/project_contract.json"
+		legacy = json.loads(contract_path.read_text(encoding="utf-8"))
+		legacy["schema_version"] = 2
+		legacy["architecture"].pop("path_roles")
+		contract_path.write_text(json.dumps(legacy, ensure_ascii=False), encoding="utf-8")
+		original_bytes = contract_path.read_bytes()
+
+		loaded = load_contract(self.project_root)
+		plan = migration.plan_contract_migration(self.project_root)
+
+		self.assertFalse(loaded["ok"])
+		self.assertTrue(loaded["migration_required"])
+		self.assertTrue(loaded["migration_available"])
+		self.assertEqual(loaded["schema_version"], 2)
+		self.assertTrue(plan["ok"], plan)
+		self.assertEqual(plan["status"], "ready")
+		self.assertEqual(plan["migration_id"], "project-contract-v2-to-v3")
+		self.assertEqual(plan["changes"], [{
+			"code": "path_roles_initialized",
+			"path": "$.architecture.path_roles",
+			"message": "Initialized the closed project path-role declaration list.",
+		}])
+		self.assertEqual(plan["candidate"]["architecture"]["path_roles"], [])
+		self.assertEqual(contract_path.read_bytes(), original_bytes)
+
+		applied = migration.apply_contract_migration(
+			self.project_root,
+			plan["plan_sha256"],
+			human_approved=True,
+		)
+
+		self.assertTrue(applied["ok"], applied)
+		migrated_contract = json.loads(contract_path.read_text(encoding="utf-8"))
+		self.assertEqual(migrated_contract["schema_version"], 3)
+		self.assertEqual(migrated_contract["architecture"]["path_roles"], [])
+		self.assertTrue(load_contract(self.project_root)["ok"])
+
+	def test_issue_96_contract_migration_rejects_legacy_path_roles_without_writing(self) -> None:
+		contract_path = self.project_root / ".gf/project_contract.json"
+		legacy = json.loads(contract_path.read_text(encoding="utf-8"))
+		legacy["schema_version"] = 2
+		legacy["architecture"]["path_roles"] = [{
+			"path": "res://config/local.override.json",
+			"role": "optional_input",
+		}]
+		contract_path.write_text(json.dumps(legacy, ensure_ascii=False), encoding="utf-8")
+		original_bytes = contract_path.read_bytes()
+
+		plan = migration.plan_contract_migration(self.project_root)
+		blocked_apply = migration.apply_contract_migration(
+			self.project_root,
+			"0" * 64,
+			human_approved=True,
+		)
+
+		expected_issue = {
+			"severity": "error",
+			"code": "invalid_legacy_path_roles",
+			"path": "$.architecture.path_roles",
+			"message": "Legacy contract schemas must not predeclare schema v3 path_roles.",
+		}
+		self.assertFalse(plan["ok"])
+		self.assertEqual(plan["status"], "blocked")
+		self.assertEqual(plan["issues"], [expected_issue])
+		self.assertFalse(blocked_apply["ok"])
+		self.assertEqual(blocked_apply["issues"], [expected_issue])
+		self.assertEqual(contract_path.read_bytes(), original_bytes)
+
 	def test_contract_migration_rejects_invalid_or_unsupported_sources_without_writing(self) -> None:
 		contract_path = self.project_root / ".gf/project_contract.json"
 		legacy = json.loads(contract_path.read_text(encoding="utf-8"))
 		legacy["schema_version"] = 1
+		legacy["architecture"].pop("path_roles")
 		legacy["framework"]["required_capabilities"] = ["architecture", "architecture"]
 		del legacy["framework"]["capability_requirements"]
 		contract_path.write_text(json.dumps(legacy), encoding="utf-8")
@@ -317,6 +392,7 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 		contract_path = self.project_root / ".gf/project_contract.json"
 		legacy = json.loads(contract_path.read_text(encoding="utf-8"))
 		legacy["schema_version"] = 1
+		legacy["architecture"].pop("path_roles")
 		legacy["framework"]["required_capabilities"] = [
 			item["id"] for item in legacy["framework"].pop("capability_requirements")
 		]
@@ -340,6 +416,7 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 	def test_contract_migration_plan_binds_the_contract_path(self) -> None:
 		current = json.loads((self.project_root / ".gf/project_contract.json").read_text(encoding="utf-8"))
 		current["schema_version"] = 1
+		current["architecture"].pop("path_roles")
 		current["framework"]["required_capabilities"] = [
 			item["id"] for item in current["framework"].pop("capability_requirements")
 		]
@@ -402,6 +479,7 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 		contract_path = self.project_root / ".gf/project_contract.json"
 		legacy = json.loads(contract_path.read_text(encoding="utf-8"))
 		legacy["schema_version"] = 1
+		legacy["architecture"].pop("path_roles")
 		legacy["framework"]["required_capabilities"] = [
 			item["id"] for item in legacy["framework"].pop("capability_requirements")
 		]
@@ -1314,7 +1392,7 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 		self.assertEqual(len(analysis["edges"]), 1)
 		self.assertEqual(analysis["edges"][0]["source_module"], "core")
 		self.assertEqual(analysis["edges"][0]["target_module"], "shared")
-		self.assertEqual(analysis["edges"][0]["kinds"], ["class_name", "resource_path"])
+		self.assertEqual(analysis["edges"][0]["kinds"], ["class_name", "resource_load"])
 		self.assertNotIn("undeclared_module_dependency", {item["code"] for item in report["drift"]["issues"]})
 		self.assertEqual(validate_schema_file(report, SCHEMA_ROOT / "project_snapshot.schema.json"), [])
 
@@ -1367,9 +1445,13 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 			],
 		)
 		self.assertTrue(all(item["kind"] == "generated_output" for item in edge["evidence"]))
-		self.assertEqual(analysis["unowned_reference_count"], 1)
+		self.assertEqual(analysis["unowned_reference_count"], 0)
 		self.assertEqual(
-			analysis["unowned_references"][0]["target_path"],
+			analysis["advisory_reference_count"],
+			1,
+		)
+		self.assertEqual(
+			analysis["advisory_references"][0]["target_path"],
 			"res://generated/reports-other/report.json",
 		)
 		self.assertNotIn(
@@ -1474,7 +1556,7 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 				else:
 					generated_parent.unlink()
 
-		self.assertEqual(analysis["status"], "incomplete")
+		self.assertEqual(analysis["status"], "partial")
 		self.assertFalse(analysis["complete"])
 		self.assertEqual(analysis["unsafe_path_count"], 1)
 		self.assertEqual(analysis["missing_root_count"], 0)
@@ -1573,7 +1655,7 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 		analysis = report["project"]["module_dependency_analysis"]
 
 		self.assertTrue(contract_result["ok"], contract_result)
-		self.assertEqual(analysis["status"], "incomplete")
+		self.assertEqual(analysis["status"], "partial")
 		self.assertEqual(analysis["unsafe_path_count"], 1)
 		self.assertEqual(report["project"]["script_count"], 1)
 		self.assertEqual(report["project"]["scanned_script_count"], 1)
@@ -1727,7 +1809,7 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 				"source_module": "core",
 				"target_module": "platform_adapter",
 				"reference_count": 2,
-				"kinds": ["class_name", "resource_path"],
+				"kinds": ["class_name", "resource_load"],
 				"evidence_truncated": False,
 				"evidence": [
 					{
@@ -1740,7 +1822,7 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 					{
 						"source_path": "res://features/core/use_adapter.gd",
 						"target_path": "res://adapters/platform_adapter/settings.tres",
-						"kind": "resource_path",
+						"kind": "resource_load",
 						"symbol": "res://adapters/platform_adapter/settings.tres",
 						"line": 4,
 					},
@@ -1859,7 +1941,7 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 		missing_report = snapshot.build_snapshot(self.project_root)
 		missing_analysis = missing_report["project"]["module_dependency_analysis"]
 
-		self.assertEqual(missing_analysis["status"], "incomplete")
+		self.assertEqual(missing_analysis["status"], "partial")
 		self.assertFalse(missing_analysis["complete"])
 		self.assertEqual(missing_analysis["missing_root_count"], 1)
 		self.assertIn(
@@ -1885,7 +1967,7 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 			contract_valid=True,
 		)
 
-		self.assertEqual(unsafe_analysis["status"], "incomplete")
+		self.assertEqual(unsafe_analysis["status"], "partial")
 		self.assertFalse(unsafe_analysis["complete"])
 		self.assertEqual(unsafe_analysis["unsafe_path_count"], 1)
 
@@ -1907,7 +1989,7 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 			contract_valid=True,
 		)
 
-		self.assertEqual(overlap_analysis["status"], "incomplete")
+		self.assertEqual(overlap_analysis["status"], "partial")
 		self.assertFalse(overlap_analysis["complete"])
 		self.assertEqual(overlap_analysis["unsafe_path_count"], 1)
 		self.assertEqual(overlap_analysis["scanned_file_count"], 0)
@@ -1945,7 +2027,7 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 			oversized_report = snapshot.build_snapshot(self.project_root)
 			oversized_analysis = oversized_report["project"]["module_dependency_analysis"]
 
-		self.assertEqual(oversized_analysis["status"], "truncated")
+		self.assertEqual(oversized_analysis["status"], "partial")
 		self.assertFalse(oversized_analysis["complete"])
 		self.assertTrue(oversized_analysis["truncated"])
 		self.assertEqual(oversized_analysis["oversized_file_count"], 1)
@@ -1988,7 +2070,7 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 				contract_valid=True,
 			)
 
-		self.assertEqual(analysis["status"], "incomplete")
+		self.assertEqual(analysis["status"], "partial")
 		self.assertFalse(analysis["complete"])
 		self.assertEqual(analysis["unsafe_path_count"], 1)
 		self.assertEqual(analysis["scanned_file_count"], 1)
@@ -2072,7 +2154,7 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 				else:
 					marker_path.unlink()
 
-		self.assertEqual(analysis["status"], "incomplete")
+		self.assertEqual(analysis["status"], "partial")
 		self.assertFalse(analysis["complete"])
 		self.assertEqual(analysis["unsafe_path_count"], 1)
 		self.assertEqual(analysis["scanned_file_count"], 1)
@@ -2228,7 +2310,7 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 		self.assertEqual(len(analysis["edges"]), 1)
 		self.assertEqual(analysis["edges"][0]["source_module"], "core")
 		self.assertEqual(analysis["edges"][0]["target_module"], "shared")
-		self.assertEqual(analysis["edges"][0]["kinds"], ["resource_path"])
+		self.assertEqual(analysis["edges"][0]["kinds"], ["resource_load"])
 		self.assertEqual(validate_schema_file(report, SCHEMA_ROOT / "project_snapshot.schema.json"), [])
 
 	def test_module_dependency_analysis_ignores_bare_resource_root(self) -> None:
@@ -2339,7 +2421,7 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 		report = snapshot.build_snapshot(self.project_root)
 		analysis = report["project"]["module_dependency_analysis"]
 
-		self.assertEqual(analysis["status"], "incomplete")
+		self.assertEqual(analysis["status"], "partial")
 		self.assertFalse(analysis["complete"])
 		self.assertEqual(analysis["missing_owned_resource_count"], 1)
 		self.assertEqual(analysis["unsafe_owned_resource_count"], 1)
@@ -2351,7 +2433,12 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 			],
 		)
 		self.assertEqual(analysis["owned_resource_reference_count"], 0)
-		self.assertEqual(analysis["unowned_reference_count"], 1)
+		self.assertEqual(analysis["unowned_reference_count"], 0)
+		self.assertEqual(analysis["advisory_reference_count"], 1)
+		self.assertEqual(
+			analysis["advisory_references"][0]["target_path"],
+			"res://missing.cfg",
+		)
 		self.assertIn("module_dependency_analysis_incomplete", {item["code"] for item in report["drift"]["issues"]})
 		self.assertEqual(validate_schema_file(report, SCHEMA_ROOT / "project_snapshot.schema.json"), [])
 
@@ -2530,7 +2617,7 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 			contract_valid=True,
 		)
 
-		self.assertEqual(analysis["status"], "incomplete")
+		self.assertEqual(analysis["status"], "partial")
 		self.assertFalse(analysis["complete"])
 		self.assertEqual(analysis["scanned_file_count"], 0)
 		self.assertEqual(analysis["unsafe_path_count"], 1)
@@ -2547,7 +2634,7 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 
 		analysis = snapshot.build_snapshot(self.project_root)["project"]["module_dependency_analysis"]
 
-		self.assertEqual(analysis["status"], "incomplete")
+		self.assertEqual(analysis["status"], "partial")
 		self.assertEqual(analysis["missing_root_count"], 1)
 
 	def test_module_dependency_analysis_enforces_forbidden_before_undeclared_edges(self) -> None:
@@ -2618,11 +2705,11 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 		)
 		ambiguous_report = snapshot.build_snapshot(self.project_root)
 		analysis = ambiguous_report["project"]["module_dependency_analysis"]
-		self.assertEqual(analysis["status"], "incomplete")
+		self.assertEqual(analysis["status"], "partial")
 		self.assertEqual(analysis["ambiguous_class_name_count"], 1)
 		self.assertIn("ambiguous_project_class_name", {item["code"] for item in ambiguous_report["drift"]["issues"]})
 
-	def test_module_dependency_analysis_fails_closed_when_budget_is_exhausted(self) -> None:
+	def test_issue_96_dependency_budget_truncation_is_partial(self) -> None:
 		self._set_modules([self._module("core"), self._module("shared")])
 		(self.project_root / "features/core/a.gd").write_text("extends Node\n", encoding="utf-8")
 		(self.project_root / "features/shared/b.gd").write_text("extends Node\n", encoding="utf-8")
@@ -2631,9 +2718,1156 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 			report = snapshot.build_snapshot(self.project_root)
 
 		analysis = report["project"]["module_dependency_analysis"]
-		self.assertEqual(analysis["status"], "truncated")
+		self.assertEqual(analysis["status"], "partial")
 		self.assertFalse(analysis["complete"])
+		self.assertTrue(analysis["truncated"])
 		self.assertIn("module_dependency_analysis_incomplete", {item["code"] for item in report["drift"]["issues"]})
+		self.assertEqual(
+			validate_schema_file(report, SCHEMA_ROOT / "project_snapshot.schema.json"),
+			[],
+		)
+
+	def test_issue_96_declared_generated_output_file_literal_remains_high_confidence(self) -> None:
+		modules = [
+			self._module("tools", allowed=["generated_report"]),
+			self._module(
+				"generated_report",
+				ownership="generated",
+				root="res://generated/report.json",
+			),
+		]
+		tools_root = self.project_root / "features/tools"
+		tools_root.mkdir(parents=True)
+		(tools_root / "writer.gd").write_text(
+			"extends Node\n"
+			'const OUTPUT := "res://generated/report.json"\n'
+			'const ADJACENT := "res://generated/report.json.bak"\n',
+			encoding="utf-8",
+		)
+
+		analysis = dependencies.analyze_module_dependencies(
+			self.project_root,
+			self._issue_96_dependency_contract(modules, []),
+			contract_valid=True,
+		)
+
+		self.assertEqual(analysis["status"], "complete")
+		self.assertEqual(len(analysis["edges"]), 1)
+		self.assertEqual(analysis["edges"][0]["source_module"], "tools")
+		self.assertEqual(analysis["edges"][0]["target_module"], "generated_report")
+		self.assertEqual(analysis["edges"][0]["kinds"], ["generated_output"])
+		self.assertEqual(analysis["edges"][0]["reference_count"], 1)
+		self.assertEqual(analysis["unowned_reference_count"], 0)
+		self.assertEqual(analysis["advisory_reference_count"], 1)
+		self.assertEqual(
+			analysis["advisory_references"][0]["target_path"],
+			"res://generated/report.json.bak",
+		)
+
+	def test_issue_96_protocol_versions_are_frozen(self) -> None:
+		self.assertEqual(
+			(TOOL_VERSION, SNAPSHOT_SCHEMA_VERSION, CONTRACT_SCHEMA_VERSION),
+			("6.0.0", 6, 3),
+		)
+
+	def test_issue_96_schema_identifiers_and_closed_protocol_enums_are_frozen(self) -> None:
+		contract_schema = read_json_object(SCHEMA_ROOT / "project_contract.schema.json")
+		snapshot_schema = read_json_object(SCHEMA_ROOT / "project_snapshot.schema.json")
+
+		self.assertEqual(
+			(contract_schema["$id"], contract_schema["properties"]["schema_version"]["const"]),
+			("https://gf-framework.dev/schemas/project-contract-v3.json", 3),
+		)
+		self.assertEqual(
+			(snapshot_schema["$id"], snapshot_schema["properties"]["schema_version"]["const"]),
+			("https://gf-framework.dev/schemas/project-snapshot-v6.json", 6),
+		)
+		self.assertEqual(
+			snapshot_schema["properties"]["contract"]["properties"]
+			["current_schema_version"]["const"],
+			3,
+		)
+		path_role_schema = (
+			contract_schema["properties"]["architecture"]["properties"]["path_roles"]
+			["items"]
+		)
+		analysis_schema = (
+			snapshot_schema["properties"]["project"]["properties"]
+			["module_dependency_analysis"]
+		)
+		self.assertEqual(
+			set(path_role_schema["properties"]["role"]["enum"]),
+			{"scan_root", "test_fixture", "optional_input"},
+		)
+		self.assertEqual(
+			set(analysis_schema["properties"]["status"]["enum"]),
+			{"not_configured", "contract_invalid", "complete", "partial"},
+		)
+		self.assertEqual(
+			set(
+				analysis_schema["properties"]["advisory_references"]["items"]
+				["properties"]["source_domain"]["enum"]
+			),
+			{"project", "test"},
+		)
+		self.assertEqual(
+			set(
+				analysis_schema["properties"]["path_role_references"]["items"]
+				["properties"]["source_domain"]["enum"]
+			),
+			{"project", "test"},
+		)
+		self.assertEqual(
+			analysis_schema["properties"]["path_roles"]["items"]["properties"]
+			["covered_modules"]["maxItems"],
+			160,
+		)
+		self.assertEqual(
+			set(
+				analysis_schema["properties"]["edges"]["items"]["properties"]
+				["kinds"]["items"]["enum"]
+			),
+			{
+				"class_name",
+				"resource_load",
+				"resource_field",
+				"shader_include",
+				"generated_output",
+			},
+		)
+
+	def test_issue_96_fixture_shapes_and_canonical_hashes_are_stable(self) -> None:
+		contract = json.loads(ISSUE_96_CONTRACT_FIXTURE_PATH.read_text(encoding="utf-8"))
+		analysis = json.loads(ISSUE_96_ANALYSIS_FIXTURE_PATH.read_text(encoding="utf-8"))
+		path_roles = contract["architecture"]["path_roles"]
+		expected_analysis_fields = {
+			"status",
+			"complete",
+			"truncated",
+			"supported_extensions",
+			"scanned_file_count",
+			"scanned_byte_count",
+			"oversized_file_count",
+			"unreadable_file_count",
+			"missing_root_count",
+			"unsafe_path_count",
+			"declared_owned_resource_count",
+			"missing_owned_resource_count",
+			"unsafe_owned_resource_count",
+			"owned_resources",
+			"owned_resource_reference_count",
+			"owned_resource_references_truncated",
+			"owned_resource_references",
+			"declared_path_role_count",
+			"partial_path_role_count",
+			"path_roles",
+			"path_role_reference_count",
+			"path_role_references_truncated",
+			"path_role_references",
+			"path_role_dependency_violation_count",
+			"path_role_dependency_violations_truncated",
+			"path_role_dependency_violations",
+			"advisory_reference_count",
+			"advisory_references_truncated",
+			"advisory_references",
+			"unowned_reference_count",
+			"unowned_references_truncated",
+			"unowned_references",
+			"module_file_counts",
+			"ambiguous_class_name_count",
+			"ambiguous_class_names_truncated",
+			"ambiguous_class_names",
+			"edges",
+			"cycles",
+		}
+
+		self.assertEqual(contract["schema_version"], 3)
+		self.assertEqual(
+			contract["framework"]["adapter_boundaries"],
+			[{
+				"id": "platform_adapter",
+				"provider": "fixture",
+				"project_root": "res://features/platform_adapter",
+				"responsibility": "Issue #96 Adapter coverage fixture.",
+			}],
+		)
+		self.assertEqual(
+			path_roles,
+			[
+				{"path": "res://features", "role": "scan_root"},
+				{"path": "res://tests/fixtures", "role": "test_fixture"},
+				{"path": "res://config/local.override.json", "role": "optional_input"},
+			],
+		)
+		self.assertTrue(all(set(item) == {"path", "role"} for item in path_roles))
+		self.assertEqual(set(analysis), expected_analysis_fields)
+		self.assertEqual(
+			{item["role"] for item in analysis["path_roles"]},
+			{"scan_root", "test_fixture", "optional_input"},
+		)
+		scan_root_record = next(
+			item for item in analysis["path_roles"] if item["role"] == "scan_root"
+		)
+		self.assertEqual(
+			scan_root_record["covered_modules"],
+			["core", "platform_adapter", "shared"],
+		)
+		self.assertTrue(
+			all(
+				set(item) == {"path", "role", "status", "exists", "covered_modules"}
+				for item in analysis["path_roles"]
+			),
+		)
+		self.assertTrue(
+			all(
+				set(item) == {"source_path", "target_path", "source_domain", "role", "line"}
+				for item in analysis["path_role_references"]
+			),
+		)
+		self.assertTrue(
+			all(
+				set(item) == {"source_path", "target_path", "source_domain", "line"}
+				for item in analysis["advisory_references"]
+			),
+		)
+		self.assertTrue(
+			all(
+				set(item) == {
+					"source_path",
+					"source_module",
+					"target_path",
+					"target_module",
+					"line",
+				}
+				for item in analysis["path_role_dependency_violations"]
+			),
+		)
+		self.assertEqual(
+			paths.sha256_json(contract),
+			"88fc9b137f8f16781d2f1686ade03e19e92830fd66a14c5718c320c3c39fcce0",
+		)
+		self.assertEqual(
+			paths.sha256_json(analysis),
+			"995801eb1ced29b037407768db7e60e2adb9a88f2e79184b91d75d3514d0725d",
+		)
+
+	def test_issue_96_v3_contract_and_v6_analysis_fixtures_match_strict_schemas(self) -> None:
+		contract = json.loads(ISSUE_96_CONTRACT_FIXTURE_PATH.read_text(encoding="utf-8"))
+		analysis = json.loads(ISSUE_96_ANALYSIS_FIXTURE_PATH.read_text(encoding="utf-8"))
+		report = snapshot.build_snapshot(self.project_root)
+		report["schema_version"] = 6
+		report["generator_version"] = "6.0.0"
+		report["contract"].update({
+			"valid": True,
+			"sha256": paths.sha256_json(contract),
+			"issue_count": 0,
+			"schema_version": 3,
+			"current_schema_version": 3,
+			"migration_required": False,
+			"migration_available": False,
+		})
+		report["project"]["module_dependency_analysis"] = analysis
+
+		with self.subTest(fixture="contract_v3"):
+			self.assertEqual(
+				validate_schema_file(contract, SCHEMA_ROOT / "project_contract.schema.json"),
+				[],
+			)
+		with self.subTest(fixture="snapshot_v6"):
+			self.assertEqual(
+				validate_schema_file(report, SCHEMA_ROOT / "project_snapshot.schema.json"),
+				[],
+			)
+
+	def test_issue_96_schemas_keep_roles_and_source_domains_closed(self) -> None:
+		contract = json.loads(ISSUE_96_CONTRACT_FIXTURE_PATH.read_text(encoding="utf-8"))
+		unknown_role = copy.deepcopy(contract)
+		unknown_role["architecture"]["path_roles"][0]["role"] = "ignore"
+		role_metadata = copy.deepcopy(contract)
+		role_metadata["architecture"]["path_roles"][0]["glob"] = "**/*.gd"
+
+		unknown_role_issues = validate_schema_file(
+			unknown_role,
+			SCHEMA_ROOT / "project_contract.schema.json",
+		)
+		metadata_issues = validate_schema_file(
+			role_metadata,
+			SCHEMA_ROOT / "project_contract.schema.json",
+		)
+
+		self.assertIn(
+			("enum_mismatch", "$.architecture.path_roles[0].role"),
+			{(item["code"], item["path"]) for item in unknown_role_issues},
+		)
+		self.assertIn(
+			("unknown_field", "$.architecture.path_roles[0].glob"),
+			{(item["code"], item["path"]) for item in metadata_issues},
+		)
+
+		analysis = json.loads(ISSUE_96_ANALYSIS_FIXTURE_PATH.read_text(encoding="utf-8"))
+		analysis["advisory_references"][0]["source_domain"] = "runtime"
+		report = snapshot.build_snapshot(self.project_root)
+		report["schema_version"] = 6
+		report["generator_version"] = "6.0.0"
+		report["contract"]["current_schema_version"] = 3
+		report["project"]["module_dependency_analysis"] = analysis
+		domain_issues = validate_schema_file(
+			report,
+			SCHEMA_ROOT / "project_snapshot.schema.json",
+		)
+
+		self.assertIn(
+			(
+				"enum_mismatch",
+				"$.project.module_dependency_analysis.advisory_references[0].source_domain",
+			),
+			{(item["code"], item["path"]) for item in domain_issues},
+		)
+
+	def test_issue_96_contract_rejects_noncanonical_reserved_or_overlapping_path_roles(self) -> None:
+		base = json.loads(ISSUE_96_CONTRACT_FIXTURE_PATH.read_text(encoding="utf-8"))
+		for relative in (
+			"features/core",
+			"features/platform_adapter",
+			"features/shared",
+			"tests/verification",
+			"tests/fixtures",
+		):
+			(self.project_root / relative).mkdir(parents=True, exist_ok=True)
+
+		base_issues = validate_contract_data(base, self.project_root)
+		self.assertEqual(
+			[item for item in base_issues if item["severity"] == "error"],
+			[],
+			base_issues,
+		)
+
+		fixtures: list[tuple[str, dict[str, Any], str, str]] = []
+		duplicate = copy.deepcopy(base)
+		duplicate["architecture"]["path_roles"].append(
+			copy.deepcopy(duplicate["architecture"]["path_roles"][0])
+		)
+		fixtures.append(("exact_duplicate", duplicate, "duplicate_item", "$.architecture.path_roles"))
+		same_path = copy.deepcopy(base)
+		same_path["architecture"]["path_roles"].append({
+			"path": "res://features",
+			"role": "test_fixture",
+		})
+		fixtures.append(("same_path", same_path, "path_role_overlap", "$.architecture.path_roles"))
+		portable_alias = copy.deepcopy(base)
+		portable_alias["architecture"]["path_roles"].append({
+			"path": "res://FEATURES",
+			"role": "scan_root",
+		})
+		fixtures.append(("portable_alias", portable_alias, "path_role_overlap", "$.architecture.path_roles"))
+		unicode_alias = copy.deepcopy(base)
+		unicode_alias["architecture"]["path_roles"][1]["path"] = "res://tests/Café"
+		unicode_alias["architecture"]["path_roles"].append({
+			"path": "res://tests/cafe\u0301",
+			"role": "scan_root",
+		})
+		fixtures.append(("unicode_alias", unicode_alias, "path_role_overlap", "$.architecture.path_roles"))
+		ancestor = copy.deepcopy(base)
+		ancestor["architecture"]["path_roles"].append({
+			"path": "res://tests",
+			"role": "scan_root",
+		})
+		fixtures.append(("ancestor", ancestor, "path_role_overlap", "$.architecture.path_roles"))
+		traversal = copy.deepcopy(base)
+		traversal["architecture"]["path_roles"][0]["path"] = "res://features/../features"
+		fixtures.append((
+			"traversal",
+			traversal,
+			"non_canonical_path_role_path",
+			"$.architecture.path_roles[0].path",
+		))
+		reserved = copy.deepcopy(base)
+		reserved["architecture"]["path_roles"][0]["path"] = "res://Addons/GF"
+		fixtures.append((
+			"reserved",
+			reserved,
+			"framework_path_role",
+			"$.architecture.path_roles[0].path",
+		))
+		wildcard = copy.deepcopy(base)
+		wildcard["architecture"]["path_roles"][0]["path"] = "res://features/*.gd"
+		fixtures.append((
+			"wildcard",
+			wildcard,
+			"non_canonical_path_role_path",
+			"$.architecture.path_roles[0].path",
+		))
+
+		for name, candidate, expected_code, expected_path in fixtures:
+			with self.subTest(name=name):
+				issues = validate_contract_data(candidate, self.project_root)
+				self.assertIn(
+					(expected_code, expected_path),
+					{(item["code"], item["path"]) for item in issues},
+					issues,
+				)
+
+	def test_issue_96_known_resource_apis_and_resource_fields_are_high_confidence(self) -> None:
+		modules = [
+			self._module("core", allowed=["shared"]),
+			self._module("shared"),
+		]
+		self._set_modules(modules)
+		(self.project_root / "features/shared/data.tres").write_text(
+			"[gd_resource format=3]\n",
+			encoding="utf-8",
+		)
+		(self.project_root / "features/core/main.gd").write_text(
+			"extends Node\n"
+			'const PRELOADED = preload("res://features/shared/data.tres")\n'
+			'var loaded = load("res://features/shared/data.tres")\n'
+			'var direct = ResourceLoader.load("res://features/shared/data.tres")\n'
+			'var request = ResourceLoader.load_threaded_request("res://features/shared/data.tres")\n'
+			'var threaded = ResourceLoader.load_threaded_get("res://features/shared/data.tres")\n'
+			'var custom = custom_loader.load("res://features/shared/data.tres")\n'
+			'const LABEL := "res://features/shared/advisory.tres"\n'
+			'const HELP := "res://docs/help.txt"\n',
+			encoding="utf-8",
+		)
+		(self.project_root / "features/core/scene.tscn").write_text(
+			"[gd_scene load_steps=2 format=3]\n"
+			'[ext_resource type="Resource" path="res://features/shared/data.tres" id="1"]\n'
+			'[node name="Core" type="Node"]\n'
+			'metadata/advisory = "res://docs/scene-note.txt"\n',
+			encoding="utf-8",
+		)
+		contract = self._issue_96_dependency_contract(modules, [])
+
+		analysis = dependencies.analyze_module_dependencies(
+			self.project_root,
+			contract,
+			contract_valid=True,
+		)
+		edge = analysis["edges"][0]
+
+		self.assertEqual(analysis["status"], "complete")
+		self.assertTrue(analysis["complete"])
+		self.assertEqual(len(analysis["edges"]), 1)
+		self.assertEqual((edge["source_module"], edge["target_module"]), ("core", "shared"))
+		self.assertEqual(edge["reference_count"], 6)
+		self.assertEqual(edge["kinds"], ["resource_field", "resource_load"])
+		self.assertEqual(
+			[item["kind"] for item in edge["evidence"]].count("resource_load"),
+			5,
+		)
+		self.assertEqual(
+			[item["kind"] for item in edge["evidence"]].count("resource_field"),
+			1,
+		)
+		self.assertEqual(analysis["unowned_reference_count"], 0)
+		self.assertEqual(analysis["advisory_reference_count"], 4)
+		self.assertEqual(
+			[item["target_path"] for item in analysis["advisory_references"]],
+			[
+				"res://features/shared/data.tres",
+				"res://features/shared/advisory.tres",
+				"res://docs/help.txt",
+				"res://docs/scene-note.txt",
+			],
+		)
+		self.assertTrue(
+			all(item["source_domain"] == "project" for item in analysis["advisory_references"])
+		)
+
+	def test_issue_96_shader_includes_are_high_confidence_only_for_exact_directives(self) -> None:
+		self._set_modules([
+			self._module("core", allowed=["shared"]),
+			self._module("shared"),
+		])
+		shared_root = self.project_root / "features/shared"
+		for name in ("common.gdshaderinc", "nested.gdshaderinc"):
+			(shared_root / name).write_text("#define GF_SHARED 1\n", encoding="utf-8")
+		(self.project_root / "features/core/effect.gdshader").write_text(
+			"shader_type canvas_item;\n"
+			'  #include  "res://features/shared/common.gdshaderinc"\n'
+			'// #include "res://features/shared/commented.gdshaderinc"\n'
+			'/* #include "res://features/shared/block-commented.gdshaderinc" */\n'
+			'#define GF_PATH "res://features/shared/macro-value.gdshaderinc"\n'
+			'#include_suffix "res://features/shared/not-an-include.gdshaderinc"\n'
+			"#include 'res://features/shared/single-quoted.gdshaderinc'\n",
+			encoding="utf-8",
+		)
+		(self.project_root / "features/core/bridge.gdshaderinc").write_text(
+			'#include "res://features/shared/nested.gdshaderinc"\n',
+			encoding="utf-8",
+		)
+
+		report = snapshot.build_snapshot(self.project_root)
+		analysis = report["project"]["module_dependency_analysis"]
+		edge = analysis["edges"][0]
+
+		self.assertEqual(analysis["status"], "complete")
+		self.assertTrue(analysis["complete"])
+		self.assertEqual(len(analysis["edges"]), 1)
+		self.assertEqual((edge["source_module"], edge["target_module"]), ("core", "shared"))
+		self.assertEqual(edge["reference_count"], 2)
+		self.assertEqual(edge["kinds"], ["shader_include"])
+		self.assertEqual(
+			[
+				(item["source_path"], item["target_path"], item["kind"])
+				for item in edge["evidence"]
+			],
+			[
+				(
+					"res://features/core/bridge.gdshaderinc",
+					"res://features/shared/nested.gdshaderinc",
+					"shader_include",
+				),
+				(
+					"res://features/core/effect.gdshader",
+					"res://features/shared/common.gdshaderinc",
+					"shader_include",
+				),
+			],
+		)
+		self.assertEqual(analysis["unowned_reference_count"], 0)
+		self.assertEqual(
+			[item["target_path"] for item in analysis["advisory_references"]],
+			[
+				"res://features/shared/macro-value.gdshaderinc",
+				"res://features/shared/not-an-include.gdshaderinc",
+				"res://features/shared/single-quoted.gdshaderinc",
+			],
+		)
+		self.assertTrue(report["drift"]["ok"], report["drift"])
+		self.assertEqual(
+			validate_schema_file(report, SCHEMA_ROOT / "project_snapshot.schema.json"),
+			[],
+		)
+
+	def test_issue_96_shader_include_edges_enforce_module_dependency_policy(self) -> None:
+		self._set_modules([self._module("core"), self._module("shared")])
+		(self.project_root / "features/shared/policy.gdshaderinc").write_text(
+			"#define GF_POLICY 1\n",
+			encoding="utf-8",
+		)
+		(self.project_root / "features/core/policy.gdshader").write_text(
+			"shader_type canvas_item;\n"
+			'#include "res://features/shared/policy.gdshaderinc"\n',
+			encoding="utf-8",
+		)
+		cases = (
+			("allowed", self._module("core", allowed=["shared"]), ""),
+			("undeclared", self._module("core"), "undeclared_module_dependency"),
+			(
+				"forbidden",
+				self._module("core", forbidden=["shared"]),
+				"forbidden_module_dependency",
+			),
+		)
+
+		for name, core_module, expected_code in cases:
+			with self.subTest(name=name):
+				self._set_modules([core_module, self._module("shared")])
+				report = snapshot.build_snapshot(self.project_root)
+				analysis = report["project"]["module_dependency_analysis"]
+				drift_codes = {item["code"] for item in report["drift"]["issues"]}
+
+				self.assertEqual(analysis["edges"][0]["kinds"], ["shader_include"])
+				self.assertEqual(analysis["edges"][0]["reference_count"], 1)
+				if expected_code:
+					self.assertIn(expected_code, drift_codes)
+				else:
+					self.assertNotIn("undeclared_module_dependency", drift_codes)
+					self.assertNotIn("forbidden_module_dependency", drift_codes)
+				if name == "forbidden":
+					self.assertNotIn("undeclared_module_dependency", drift_codes)
+
+	def test_issue_96_advisory_strings_do_not_enter_dependency_closure_or_fail_clean(self) -> None:
+		self._set_modules([self._module("core"), self._module("shared")])
+		(self.project_root / "features/shared/data.tres").write_text(
+			"[gd_resource format=3]\n",
+			encoding="utf-8",
+		)
+		(self.project_root / "features/core/labels.gd").write_text(
+			"extends Node\n"
+			'const SHARED_LABEL := "res://features/shared/data.tres"\n'
+			'const HELP_LABEL := "res://docs/help.txt"\n',
+			encoding="utf-8",
+		)
+
+		report = snapshot.build_snapshot(self.project_root)
+		analysis = report["project"]["module_dependency_analysis"]
+		drift_codes = {item["code"] for item in report["drift"]["issues"]}
+
+		self.assertEqual(analysis["status"], "complete")
+		self.assertTrue(analysis["complete"])
+		self.assertEqual(analysis["edges"], [])
+		self.assertEqual(analysis["unowned_reference_count"], 0)
+		self.assertEqual(analysis["advisory_reference_count"], 2)
+		self.assertNotIn("undeclared_module_dependency", drift_codes)
+		self.assertNotIn("unowned_project_resource_reference", drift_codes)
+		self.assertTrue(report["drift"]["ok"], report["drift"])
+		self.assertEqual(
+			validate_schema_file(report, SCHEMA_ROOT / "project_snapshot.schema.json"),
+			[],
+		)
+
+	def test_issue_96_reserved_framework_references_stay_out_of_all_project_observations(self) -> None:
+		modules = [self._module("core")]
+		self._set_modules(modules)
+		(self.project_root / "features/core/framework_paths.gd").write_text(
+			"extends Node\n"
+			'const ROOT = preload("res://addons/gf")\n'
+			'var plugin = load("res://ADDONS/GF/plugin.cfg")\n'
+			'var catalog = ResourceLoader.load("res://AdDoNs/Gf/knowledge/api_index.json")\n'
+			'const ORDINARY := "res://addons/gf/plugin.cfg"\n',
+			encoding="utf-8",
+		)
+
+		analysis = dependencies.analyze_module_dependencies(
+			self.project_root,
+			self._issue_96_dependency_contract(modules, []),
+			contract_valid=True,
+		)
+
+		self.assertEqual(analysis["status"], "complete")
+		self.assertEqual(analysis["edges"], [])
+		self.assertEqual(analysis["unowned_reference_count"], 0)
+		self.assertIn("advisory_reference_count", analysis)
+		self.assertIn("path_role_reference_count", analysis)
+		self.assertEqual(analysis["advisory_reference_count"], 0)
+		self.assertEqual(analysis["path_role_reference_count"], 0)
+
+	def test_issue_96_scan_root_requires_an_existing_directory_with_closed_ownership(self) -> None:
+		modules = [
+			self._module("core"),
+			self._module("shared"),
+			self._module("verification", allowed=["core", "shared"], root="res://tests/verification"),
+		]
+		self._set_modules(modules)
+		(self.project_root / "features/core/main.gd").write_text("extends Node\n", encoding="utf-8")
+		(self.project_root / "features/shared/data.tres").write_text(
+			"[gd_resource format=3]\n",
+			encoding="utf-8",
+		)
+		(self.project_root / "tests/verification/test_scan.gd").write_text(
+			'extends Node\nconst ROOT := "res://features"\n',
+			encoding="utf-8",
+		)
+		contract = self._issue_96_dependency_contract(
+			modules,
+			[{"path": "res://features", "role": "scan_root"}],
+		)
+
+		analysis = dependencies.analyze_module_dependencies(
+			self.project_root,
+			contract,
+			contract_valid=True,
+		)
+
+		self.assertEqual(analysis["status"], "complete")
+		self.assertTrue(analysis["complete"])
+		self.assertIn("path_roles", analysis)
+		self.assertIn("path_role_references", analysis)
+		self.assertEqual(
+			analysis["path_roles"],
+			[{
+				"path": "res://features",
+				"role": "scan_root",
+				"status": "complete",
+				"exists": True,
+				"covered_modules": ["core", "shared"],
+			}],
+		)
+		self.assertEqual(
+			analysis["path_role_references"],
+			[{
+				"source_path": "res://tests/verification/test_scan.gd",
+				"target_path": "res://features",
+				"source_domain": "test",
+				"role": "scan_root",
+				"line": 2,
+			}],
+		)
+		self.assertEqual(analysis["advisory_reference_count"], 0)
+		self.assertEqual(analysis["edges"], [])
+		self.assertEqual(analysis["path_role_dependency_violation_count"], 0)
+		self.assertEqual(analysis["path_role_dependency_violations"], [])
+
+		missing = dependencies.analyze_module_dependencies(
+			self.project_root,
+			self._issue_96_dependency_contract(
+				modules,
+				[{"path": "res://missing-scan-root", "role": "scan_root"}],
+			),
+			contract_valid=True,
+		)
+		self.assertEqual(missing["status"], "partial")
+		self.assertFalse(missing["complete"])
+		self.assertFalse(missing["path_roles"][0]["exists"])
+		self.assertEqual(missing["path_roles"][0]["status"], "partial")
+
+		(self.project_root / "scan-root.txt").write_text("not a directory\n", encoding="utf-8")
+		wrong_kind = dependencies.analyze_module_dependencies(
+			self.project_root,
+			self._issue_96_dependency_contract(
+				modules,
+				[{"path": "res://scan-root.txt", "role": "scan_root"}],
+			),
+			contract_valid=True,
+		)
+		self.assertEqual(wrong_kind["status"], "partial")
+		self.assertFalse(wrong_kind["complete"])
+
+		orphan_root = self.project_root / "features/orphan"
+		orphan_root.mkdir()
+		(orphan_root / "unowned.json").write_text("{}\n", encoding="utf-8")
+		orphan = dependencies.analyze_module_dependencies(
+			self.project_root,
+			contract,
+			contract_valid=True,
+		)
+		self.assertEqual(orphan["status"], "partial")
+		self.assertFalse(orphan["complete"])
+		self.assertEqual(orphan["partial_path_role_count"], 1)
+		self.assertEqual(orphan["path_roles"][0]["status"], "partial")
+
+	def test_issue_96_scan_root_requires_allowed_covered_modules_with_bounded_evidence(self) -> None:
+		modules = [
+			self._module("core"),
+			self._module("shared"),
+			self._module("verification", root="res://tests/verification"),
+		]
+		self._set_modules(modules)
+		adapter = self._adapter("platform_adapter")
+		adapter["project_root"] = "res://features/platform_adapter"
+		self._set_adapter_boundaries([adapter])
+		(self.project_root / "features/core/main.gd").write_text("extends Node\n", encoding="utf-8")
+		(self.project_root / "features/shared/data.tres").write_text(
+			"[gd_resource format=3]\n",
+			encoding="utf-8",
+		)
+		adapter_root = self.project_root / "features/platform_adapter"
+		adapter_root.mkdir(parents=True)
+		(adapter_root / "client.gd").write_text("extends RefCounted\n", encoding="utf-8")
+		(self.project_root / "tests/verification/test_scan.gd").write_text(
+			'extends Node\nconst ROOT := "res://features"\n',
+			encoding="utf-8",
+		)
+		path_roles = [{"path": "res://features", "role": "scan_root"}]
+		contract = self._issue_96_dependency_contract(modules, path_roles)
+		contract["framework"]["adapter_boundaries"] = [adapter]
+		allowed_modules = [
+			self._module("core"),
+			self._module("shared"),
+			self._module(
+				"verification",
+				allowed=["core", "platform_adapter", "shared"],
+				root="res://tests/verification",
+			),
+		]
+		allowed_contract = self._issue_96_dependency_contract(allowed_modules, path_roles)
+		allowed_contract["framework"]["adapter_boundaries"] = [adapter]
+		allowed_analysis = dependencies.analyze_module_dependencies(
+			self.project_root,
+			allowed_contract,
+			contract_valid=True,
+		)
+
+		analysis = dependencies.analyze_module_dependencies(
+			self.project_root,
+			contract,
+			contract_valid=True,
+		)
+
+		self.assertEqual(allowed_analysis["status"], "complete")
+		self.assertEqual(
+			allowed_analysis["path_roles"][0]["covered_modules"],
+			["core", "platform_adapter", "shared"],
+		)
+		self.assertEqual(allowed_analysis["path_role_dependency_violation_count"], 0)
+		self.assertEqual(analysis["status"], "complete")
+		self.assertTrue(analysis["complete"])
+		self.assertEqual(analysis["edges"], [])
+		self.assertEqual(analysis["path_role_reference_count"], 1)
+		self.assertEqual(
+			analysis["path_roles"][0]["covered_modules"],
+			["core", "platform_adapter", "shared"],
+		)
+		self.assertEqual(analysis["path_role_dependency_violation_count"], 3)
+		self.assertFalse(analysis["path_role_dependency_violations_truncated"])
+		self.assertEqual(
+			analysis["path_role_dependency_violations"],
+			[
+				{
+					"source_path": "res://tests/verification/test_scan.gd",
+					"source_module": "verification",
+					"target_path": "res://features",
+					"target_module": "core",
+					"line": 2,
+				},
+				{
+					"source_path": "res://tests/verification/test_scan.gd",
+					"source_module": "verification",
+					"target_path": "res://features",
+					"target_module": "platform_adapter",
+					"line": 2,
+				},
+				{
+					"source_path": "res://tests/verification/test_scan.gd",
+					"source_module": "verification",
+					"target_path": "res://features",
+					"target_module": "shared",
+					"line": 2,
+				},
+			],
+		)
+		contract_path = self.project_root / ".gf/project_contract.json"
+		project_contract = json.loads(contract_path.read_text(encoding="utf-8"))
+		project_contract["architecture"]["path_roles"] = path_roles
+		contract_path.write_text(
+			json.dumps(project_contract, ensure_ascii=False),
+			encoding="utf-8",
+		)
+
+		with mock.patch.object(
+			dependencies,
+			"MAX_PATH_ROLE_DEPENDENCY_VIOLATION_EVIDENCE",
+			1,
+		):
+			bounded = dependencies.analyze_module_dependencies(
+				self.project_root,
+				contract,
+				contract_valid=True,
+			)
+			bounded_report = snapshot.build_snapshot(self.project_root)
+		self.assertEqual(bounded["path_role_dependency_violation_count"], 3)
+		self.assertTrue(bounded["path_role_dependency_violations_truncated"])
+		self.assertEqual(len(bounded["path_role_dependency_violations"]), 1)
+		self.assertEqual(
+			bounded["path_role_dependency_violations"][0]["target_module"],
+			"core",
+		)
+		bounded_drift_issues = [
+			item
+			for item in bounded_report["drift"]["issues"]
+			if item["code"] == "undeclared_scan_root_dependency"
+		]
+		self.assertFalse(bounded_report["drift"]["ok"])
+		self.assertEqual(len(bounded_drift_issues), 2)
+		self.assertEqual(
+			validate_schema_file(bounded_report, SCHEMA_ROOT / "project_snapshot.schema.json"),
+			[],
+		)
+
+		report = snapshot.build_snapshot(self.project_root)
+		drift_issues = [
+			item
+			for item in report["drift"]["issues"]
+			if item["code"] == "undeclared_scan_root_dependency"
+		]
+
+		self.assertEqual(report["project"]["module_dependency_analysis"]["status"], "complete")
+		self.assertFalse(report["drift"]["ok"])
+		self.assertEqual(len(drift_issues), 3)
+		self.assertTrue(all(item["severity"] == "error" for item in drift_issues))
+		self.assertEqual(
+			validate_schema_file(report, SCHEMA_ROOT / "project_snapshot.schema.json"),
+			[],
+		)
+
+	def test_issue_96_scan_root_descendant_link_is_partial(self) -> None:
+		modules = [self._module("core"), self._module("shared")]
+		self._set_modules(modules)
+		(self.project_root / "features/core/main.gd").write_text("extends Node\n", encoding="utf-8")
+		(self.project_root / "features/shared/data.tres").write_text(
+			"[gd_resource format=3]\n",
+			encoding="utf-8",
+		)
+		real_root = self.project_root / "scan-link-target"
+		real_root.mkdir()
+		(real_root / "unowned.json").write_text("{}\n", encoding="utf-8")
+		linked_root = self.project_root / "features/linked"
+		create_directory_link_fixture(real_root, linked_root)
+		try:
+			analysis = dependencies.analyze_module_dependencies(
+				self.project_root,
+				self._issue_96_dependency_contract(
+					modules,
+					[{"path": "res://features", "role": "scan_root"}],
+				),
+				contract_valid=True,
+			)
+		finally:
+			if os.path.lexists(linked_root):
+				if os.name == "nt":
+					linked_root.rmdir()
+				else:
+					linked_root.unlink()
+
+		self.assertEqual(analysis["status"], "partial")
+		self.assertFalse(analysis["complete"])
+		self.assertEqual(analysis["path_roles"][0]["status"], "partial")
+
+	def test_issue_96_test_fixture_only_suppresses_advisory_test_domain_references(self) -> None:
+		modules = [
+			self._module("core"),
+			self._module("verification", root="res://tests/verification"),
+		]
+		self._set_modules(modules)
+		fixture_root = self.project_root / "tests/fixtures"
+		fixture_root.mkdir(parents=True)
+		(fixture_root / "sample.json").write_text("{}\n", encoding="utf-8")
+		(self.project_root / "features/core/main.gd").write_text(
+			'extends Node\nconst FIXTURE := "res://tests/fixtures/sample.json"\n',
+			encoding="utf-8",
+		)
+		(self.project_root / "tests/verification/test_fixture.gd").write_text(
+			"extends Node\n"
+			'const FIXTURE := "res://tests/fixtures/sample.json"\n'
+			'var loaded = load("res://tests/fixtures/sample.json")\n',
+			encoding="utf-8",
+		)
+		contract = self._issue_96_dependency_contract(
+			modules,
+			[{"path": "res://tests/fixtures", "role": "test_fixture"}],
+		)
+
+		analysis = dependencies.analyze_module_dependencies(
+			self.project_root,
+			contract,
+			contract_valid=True,
+		)
+
+		self.assertEqual(analysis["status"], "complete")
+		self.assertIn("path_role_reference_count", analysis)
+		self.assertIn("advisory_reference_count", analysis)
+		self.assertEqual(analysis["path_role_reference_count"], 1)
+		self.assertEqual(
+			analysis["path_role_references"][0],
+			{
+				"source_path": "res://tests/verification/test_fixture.gd",
+				"target_path": "res://tests/fixtures/sample.json",
+				"source_domain": "test",
+				"role": "test_fixture",
+				"line": 2,
+			},
+		)
+		self.assertEqual(analysis["advisory_reference_count"], 1)
+		self.assertEqual(analysis["advisory_references"][0]["source_domain"], "project")
+		self.assertEqual(analysis["unowned_reference_count"], 1)
+		self.assertEqual(
+			analysis["unowned_references"][0]["source_path"],
+			"res://tests/verification/test_fixture.gd",
+		)
+		self.assertEqual(analysis["unowned_references"][0]["line"], 3)
+
+		(fixture_root / "sample.json").unlink()
+		fixture_root.rmdir()
+		missing = dependencies.analyze_module_dependencies(
+			self.project_root,
+			contract,
+			contract_valid=True,
+		)
+		self.assertEqual(missing["status"], "partial")
+		self.assertFalse(missing["complete"])
+		self.assertEqual(missing["path_roles"][0]["status"], "partial")
+
+	def test_issue_96_optional_input_is_exact_and_may_be_missing(self) -> None:
+		modules = [self._module("core")]
+		self._set_modules(modules)
+		(self.project_root / "features/core/settings.gd").write_text(
+			"extends Node\n"
+			'const OPTIONAL := "res://config/local.override.json"\n'
+			'const SIBLING := "res://config/local.override.json.bak"\n'
+			'const DESCENDANT := "res://config/local.override.json/child"\n'
+			'var loaded = load("res://config/local.override.json")\n',
+			encoding="utf-8",
+		)
+		contract = self._issue_96_dependency_contract(
+			modules,
+			[{"path": "res://config/local.override.json", "role": "optional_input"}],
+		)
+
+		analysis = dependencies.analyze_module_dependencies(
+			self.project_root,
+			contract,
+			contract_valid=True,
+		)
+
+		self.assertEqual(analysis["status"], "complete")
+		self.assertTrue(analysis["complete"])
+		self.assertIn("path_roles", analysis)
+		self.assertIn("path_role_references", analysis)
+		self.assertIn("advisory_references", analysis)
+		self.assertEqual(
+			analysis["path_roles"],
+			[{
+				"path": "res://config/local.override.json",
+				"role": "optional_input",
+				"status": "complete",
+				"exists": False,
+				"covered_modules": [],
+			}],
+		)
+		self.assertEqual(analysis["path_role_reference_count"], 1)
+		self.assertEqual(analysis["path_role_references"][0]["line"], 2)
+		self.assertEqual(
+			[item["target_path"] for item in analysis["advisory_references"]],
+			[
+				"res://config/local.override.json.bak",
+				"res://config/local.override.json/child",
+			],
+		)
+		self.assertEqual(analysis["unowned_reference_count"], 1)
+		self.assertEqual(analysis["unowned_references"][0]["line"], 5)
+
+		optional_path = self.project_root / "config/local.override.json"
+		optional_path.mkdir(parents=True)
+		wrong_kind = dependencies.analyze_module_dependencies(
+			self.project_root,
+			contract,
+			contract_valid=True,
+		)
+		self.assertEqual(wrong_kind["status"], "partial")
+		self.assertFalse(wrong_kind["complete"])
+		self.assertEqual(wrong_kind["path_roles"][0]["status"], "partial")
+
+	def test_issue_96_reserved_path_role_is_partial_even_when_prevalidated(self) -> None:
+		modules = [self._module("core")]
+		self._set_modules(modules)
+		(self.project_root / "features/core/main.gd").write_text("extends Node\n", encoding="utf-8")
+		reserved = dependencies.analyze_module_dependencies(
+			self.project_root,
+			self._issue_96_dependency_contract(
+				modules,
+				[{"path": "res://Addons/GF", "role": "scan_root"}],
+			),
+			contract_valid=True,
+		)
+
+		self.assertEqual(reserved["status"], "partial")
+		self.assertFalse(reserved["complete"])
+		self.assertEqual(reserved["path_roles"][0]["status"], "partial")
+
+	def test_issue_96_linked_path_role_is_partial_even_when_prevalidated(self) -> None:
+		modules = [self._module("core")]
+		self._set_modules(modules)
+		(self.project_root / "features/core/main.gd").write_text("extends Node\n", encoding="utf-8")
+
+		real_root = self.project_root / "fixture-real"
+		real_root.mkdir()
+		(real_root / "sample.json").write_text("{}\n", encoding="utf-8")
+		linked_parent = self.project_root / "tests"
+		linked_parent.mkdir()
+		linked_root = linked_parent / "fixtures"
+		create_directory_link_fixture(real_root, linked_root)
+		try:
+			linked = dependencies.analyze_module_dependencies(
+				self.project_root,
+				self._issue_96_dependency_contract(
+					modules,
+					[{"path": "res://tests/fixtures", "role": "test_fixture"}],
+				),
+				contract_valid=True,
+			)
+		finally:
+			if os.path.lexists(linked_root):
+				if os.name == "nt":
+					linked_root.rmdir()
+				else:
+					linked_root.unlink()
+
+		self.assertEqual(linked["status"], "partial")
+		self.assertFalse(linked["complete"])
+		self.assertEqual(linked["path_roles"][0]["status"], "partial")
+
+	def test_issue_96_strict_utf8_failure_is_partial(self) -> None:
+		modules = [self._module("core")]
+		self._set_modules(modules)
+		(self.project_root / "features/core/invalid.gd").write_bytes(b"extends Node\n# \xff\n")
+
+		analysis = dependencies.analyze_module_dependencies(
+			self.project_root,
+			self._issue_96_dependency_contract(modules, []),
+			contract_valid=True,
+		)
+
+		self.assertEqual(analysis["status"], "partial")
+		self.assertFalse(analysis["complete"])
+		self.assertEqual(analysis["unreadable_file_count"], 1)
+
+	def test_issue_96_input_identity_race_is_partial(self) -> None:
+		modules = [self._module("core")]
+		self._set_modules(modules)
+		race_path = self.project_root / "features/core/race.gd"
+		race_path.write_text("extends Node\n# issue-96-race-marker\n", encoding="utf-8")
+		real_lex = dependencies.lex_gdscript
+		mutated = False
+
+		def mutate_during_analysis(source: str) -> list[dependencies.SourceToken]:
+			nonlocal mutated
+			if not mutated and "issue-96-race-marker" in source:
+				mutated = True
+				race_path.write_text(
+					'extends Node\nconst LATE = load("res://unowned/late.tres")\n',
+					encoding="utf-8",
+				)
+			return real_lex(source)
+
+		with mock.patch.object(dependencies, "lex_gdscript", side_effect=mutate_during_analysis):
+			analysis = dependencies.analyze_module_dependencies(
+				self.project_root,
+				self._issue_96_dependency_contract(modules, []),
+				contract_valid=True,
+			)
+
+		self.assertTrue(mutated)
+		self.assertEqual(analysis["status"], "partial")
+		self.assertFalse(analysis["complete"])
+
+	def test_issue_96_partial_path_role_analysis_never_reports_clean_snapshot(self) -> None:
+		contract = json.loads(ISSUE_96_CONTRACT_FIXTURE_PATH.read_text(encoding="utf-8"))
+		for relative in (
+			"features/core",
+			"features/shared",
+			"features/orphan",
+			"tests/verification",
+			"tests/fixtures",
+		):
+			(self.project_root / relative).mkdir(parents=True, exist_ok=True)
+		(self.project_root / "features/core/main.gd").write_text(
+			'extends Node\nconst ROOT := "res://features"\n',
+			encoding="utf-8",
+		)
+		(self.project_root / "features/shared/data.tres").write_text(
+			"[gd_resource format=3]\n",
+			encoding="utf-8",
+		)
+		(self.project_root / "features/orphan/unowned.json").write_text("{}\n", encoding="utf-8")
+		(self.project_root / "tests/verification/test_scan.gd").write_text(
+			'extends Node\nconst FIXTURE := "res://tests/fixtures/sample.json"\n',
+			encoding="utf-8",
+		)
+		(self.project_root / "tests/fixtures/sample.json").write_text("{}\n", encoding="utf-8")
+		contract_path = self.project_root / ".gf/project_contract.json"
+		contract_path.write_text(
+			json.dumps(contract, ensure_ascii=False, indent=2) + "\n",
+			encoding="utf-8",
+		)
+
+		report = snapshot.build_snapshot(self.project_root)
+		analysis = report["project"]["module_dependency_analysis"]
+
+		self.assertTrue(report["contract"]["valid"], report["contract"])
+		self.assertEqual(analysis["status"], "partial")
+		self.assertFalse(analysis["complete"])
+		self.assertEqual(analysis["partial_path_role_count"], 1)
+		self.assertFalse(report["drift"]["ok"])
+		self.assertIn(
+			"module_dependency_analysis_incomplete",
+			{item["code"] for item in report["drift"]["issues"]},
+		)
+		self.assertEqual(
+			validate_schema_file(report, SCHEMA_ROOT / "project_snapshot.schema.json"),
+			[],
+		)
 
 	def test_catalog_queries_fail_closed_when_kit_version_differs_from_project(self) -> None:
 		(self.project_root / "addons/gf/plugin.cfg").write_text(
@@ -3116,6 +4350,7 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 		contract_path = self.project_root / ".gf/project_contract.json"
 		legacy = json.loads(contract_path.read_text(encoding="utf-8"))
 		legacy["schema_version"] = 1
+		legacy["architecture"].pop("path_roles")
 		legacy["framework"]["required_capabilities"] = [
 			item["id"] for item in legacy["framework"].pop("capability_requirements")
 		]
@@ -6441,6 +7676,20 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 		contract = json.loads(contract_path.read_text(encoding="utf-8"))
 		contract["architecture"]["owned_resources"] = paths
 		contract_path.write_text(json.dumps(contract, ensure_ascii=False), encoding="utf-8")
+
+	@staticmethod
+	def _issue_96_dependency_contract(
+		modules: list[dict[str, object]],
+		path_roles: list[dict[str, str]],
+	) -> dict[str, object]:
+		return {
+			"architecture": {
+				"modules": modules,
+				"owned_resources": [],
+				"path_roles": path_roles,
+			},
+			"framework": {"adapter_boundaries": []},
+		}
 
 	@staticmethod
 	def _module(

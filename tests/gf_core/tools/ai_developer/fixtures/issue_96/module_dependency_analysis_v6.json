@@ -1,0 +1,160 @@
+{
+  "status": "complete",
+  "complete": true,
+  "truncated": false,
+  "supported_extensions": [
+    ".gd",
+    ".gdshader",
+    ".gdshaderinc",
+    ".tres",
+    ".tscn"
+  ],
+  "scanned_file_count": 6,
+  "scanned_byte_count": 384,
+  "oversized_file_count": 0,
+  "unreadable_file_count": 0,
+  "missing_root_count": 0,
+  "unsafe_path_count": 0,
+  "declared_owned_resource_count": 0,
+  "missing_owned_resource_count": 0,
+  "unsafe_owned_resource_count": 0,
+  "owned_resources": [],
+  "owned_resource_reference_count": 0,
+  "owned_resource_references_truncated": false,
+  "owned_resource_references": [],
+  "declared_path_role_count": 3,
+  "partial_path_role_count": 0,
+  "path_roles": [
+    {
+      "path": "res://config/local.override.json",
+      "role": "optional_input",
+      "status": "complete",
+      "exists": false,
+      "covered_modules": []
+    },
+    {
+      "path": "res://features",
+      "role": "scan_root",
+      "status": "complete",
+      "exists": true,
+      "covered_modules": [
+        "core",
+        "platform_adapter",
+        "shared"
+      ]
+    },
+    {
+      "path": "res://tests/fixtures",
+      "role": "test_fixture",
+      "status": "complete",
+      "exists": true,
+      "covered_modules": []
+    }
+  ],
+  "path_role_reference_count": 3,
+  "path_role_references_truncated": false,
+  "path_role_references": [
+    {
+      "source_path": "res://features/core/settings.gd",
+      "target_path": "res://config/local.override.json",
+      "source_domain": "project",
+      "role": "optional_input",
+      "line": 2
+    },
+    {
+      "source_path": "res://tests/verification/test_scan.gd",
+      "target_path": "res://features",
+      "source_domain": "test",
+      "role": "scan_root",
+      "line": 2
+    },
+    {
+      "source_path": "res://tests/verification/test_scan.gd",
+      "target_path": "res://tests/fixtures/sample.json",
+      "source_domain": "test",
+      "role": "test_fixture",
+      "line": 3
+    }
+  ],
+  "path_role_dependency_violation_count": 0,
+  "path_role_dependency_violations_truncated": false,
+  "path_role_dependency_violations": [],
+  "advisory_reference_count": 1,
+  "advisory_references_truncated": false,
+  "advisory_references": [
+    {
+      "source_path": "res://features/core/main.gd",
+      "target_path": "res://docs/help.txt",
+      "source_domain": "project",
+      "line": 9
+    }
+  ],
+  "unowned_reference_count": 0,
+  "unowned_references_truncated": false,
+  "unowned_references": [],
+  "module_file_counts": [
+    {
+      "module_id": "core",
+      "file_count": 3,
+      "class_name_count": 0
+    },
+    {
+      "module_id": "shared",
+      "file_count": 1,
+      "class_name_count": 1
+    },
+    {
+      "module_id": "verification",
+      "file_count": 1,
+      "class_name_count": 0
+    }
+  ],
+  "ambiguous_class_name_count": 0,
+  "ambiguous_class_names_truncated": false,
+  "ambiguous_class_names": [],
+  "edges": [
+    {
+      "source_module": "core",
+      "target_module": "shared",
+      "reference_count": 4,
+      "kinds": [
+        "class_name",
+        "resource_field",
+        "resource_load",
+        "shader_include"
+      ],
+      "evidence_truncated": false,
+      "evidence": [
+        {
+          "source_path": "res://features/core/main.gd",
+          "target_path": "res://features/shared/shared_type.gd",
+          "kind": "class_name",
+          "symbol": "SharedType",
+          "line": 2
+        },
+        {
+          "source_path": "res://features/core/main.gd",
+          "target_path": "res://features/shared/data.tres",
+          "kind": "resource_load",
+          "symbol": "res://features/shared/data.tres",
+          "line": 3
+        },
+        {
+          "source_path": "res://features/core/scene.tscn",
+          "target_path": "res://features/shared/data.tres",
+          "kind": "resource_field",
+          "symbol": "res://features/shared/data.tres",
+          "line": 2
+        },
+        {
+          "source_path": "res://features/core/shader.gdshader",
+          "target_path": "res://features/shared/common.gdshaderinc",
+          "kind": "shader_include",
+          "symbol": "res://features/shared/common.gdshaderinc",
+          "line": 2
+        }
+      ]
+    }
+  ],
+  "cycles": []
+}

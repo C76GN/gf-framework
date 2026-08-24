@@ -1,0 +1,157 @@
+{
+  "schema_version": 3,
+  "project": {
+    "id": "issue_96_path_roles",
+    "summary": "Freezes role-aware project dependency analysis for Issue #96.",
+    "stage": "tool",
+    "quality_priorities": [
+      "correctness",
+      "fail-closed evidence"
+    ],
+    "out_of_scope": []
+  },
+  "framework": {
+    "required_packages": [
+      "gf.kernel"
+    ],
+    "optional_packages": [],
+    "forbidden_packages": [],
+    "capability_requirements": [
+      {
+        "id": "architecture",
+        "decision_state": "confirmed",
+        "owner": "project",
+        "recipes": [
+          "composition-root"
+        ],
+        "acceptance": [
+          "Dependency observations preserve confidence and declared path-role evidence."
+        ],
+        "notes": ""
+      }
+    ],
+    "adapter_boundaries": [
+      {
+        "id": "platform_adapter",
+        "provider": "fixture",
+        "project_root": "res://features/platform_adapter",
+        "responsibility": "Issue #96 Adapter coverage fixture."
+      }
+    ]
+  },
+  "architecture": {
+    "modules": [
+      {
+        "id": "core",
+        "responsibility": "Issue #96 production-source fixture.",
+        "roots": [
+          "res://features/core"
+        ],
+        "allowed_dependencies": [
+          "shared"
+        ],
+        "forbidden_dependencies": [],
+        "ownership": "project"
+      },
+      {
+        "id": "shared",
+        "responsibility": "Issue #96 dependency target fixture.",
+        "roots": [
+          "res://features/shared"
+        ],
+        "allowed_dependencies": [],
+        "forbidden_dependencies": [],
+        "ownership": "project"
+      },
+      {
+        "id": "verification",
+        "responsibility": "Issue #96 test-source fixture.",
+        "roots": [
+          "res://tests/verification"
+        ],
+        "allowed_dependencies": [
+          "core",
+          "platform_adapter",
+          "shared"
+        ],
+        "forbidden_dependencies": [],
+        "ownership": "project"
+      }
+    ],
+    "owned_resources": [],
+    "path_roles": [
+      {
+        "path": "res://features",
+        "role": "scan_root"
+      },
+      {
+        "path": "res://tests/fixtures",
+        "role": "test_fixture"
+      },
+      {
+        "path": "res://config/local.override.json",
+        "role": "optional_input"
+      }
+    ],
+    "global_rules": [
+      "Project business code stays outside res://addons/gf."
+    ],
+    "project_profile_path": ""
+  },
+  "constraints": {
+    "platforms": [],
+    "determinism": {
+      "mode": "unknown",
+      "scope": [],
+      "notes": ""
+    },
+    "persistence": {
+      "mode": "unknown",
+      "compatibility": "unknown",
+      "notes": ""
+    },
+    "networking": {
+      "mode": "unknown",
+      "authority": "unknown",
+      "notes": ""
+    },
+    "performance_budgets": [],
+    "security_boundaries": [],
+    "lifecycle_rules": [],
+    "async_rules": []
+  },
+  "decisions": [],
+  "verification": {
+    "execution_policy": "review_required",
+    "checks": [
+      {
+        "id": "python_issue_96",
+        "description": "Run the focused pure-Python Issue #96 contract tests.",
+        "argv": [
+          "python",
+          "-B",
+          "tests/gf_core/tools/ai_developer/test_gf_ai_project_tool.py",
+          "-k",
+          "issue_96"
+        ],
+        "working_directory": ".",
+        "timeout_seconds": 120,
+        "network_access": "forbidden",
+        "writes_project": false,
+        "required": true
+      }
+    ],
+    "required_paths": [
+      "project.godot"
+    ]
+  },
+  "feedback": {
+    "repository": "C76GN/gf-framework",
+    "submission_policy": "approval_required",
+    "allow_network_submission": false,
+    "allow_source_snippets": false,
+    "allow_log_excerpt": false,
+    "extra_redaction_literals": []
+  },
+  "unknowns": []
+}

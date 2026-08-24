@@ -20,6 +20,7 @@ from .paths import (
 	atomic_write_json,
 	is_reserved_framework_resource_path,
 	normalize_portable_ownership_path,
+	portable_ownership_path_identity,
 	project_path_has_link_component,
 	read_json_object,
 	resolve_project_path,
@@ -112,7 +113,7 @@ def load_contract(
 	raw_schema_version = data.get("schema_version")
 	schema_version = raw_schema_version if isinstance(raw_schema_version, int) and not isinstance(raw_schema_version, bool) else 0
 	migration_required = schema_version > 0 and schema_version != CONTRACT_SCHEMA_VERSION
-	migration_available = schema_version == 1 and CONTRACT_SCHEMA_VERSION == 2
+	migration_available = schema_version in (1, 2) and CONTRACT_SCHEMA_VERSION == 3
 	if migration_required and migration_available:
 		issues = [_issue(
 			"error",
@@ -207,6 +208,7 @@ def _semantic_issues(data: dict[str, Any], project_root: Path) -> list[dict[str,
 		for raw_path in architecture.get("owned_resources", [])
 		if isinstance(raw_path, str)
 	]
+	path_roles = _object_list(architecture, "path_roles")
 	module_ids = _unique_ids(modules, "$.architecture.modules", issues)
 	adapters = _object_list(framework, "adapter_boundaries")
 	adapter_ids = _unique_ids(adapters, "$.framework.adapter_boundaries", issues)
@@ -342,6 +344,16 @@ def _semantic_issues(data: dict[str, Any], project_root: Path) -> list[dict[str,
 			f"$.architecture.owned_resources[{index}]",
 			issues,
 		)
+	for index, path_role in enumerate(path_roles):
+		raw_path = path_role.get("path")
+		if isinstance(raw_path, str):
+			_validate_path_role_path(
+				project_root,
+				raw_path,
+				f"$.architecture.path_roles[{index}].path",
+				issues,
+			)
+	issues.extend(_path_role_overlap_issues(path_roles))
 	issues.extend(_module_dependency_cycle_issues(modules, module_ids))
 	for index, adapter in enumerate(adapters):
 		raw_path = adapter.get("project_root")
@@ -427,6 +439,32 @@ def _validate_owned_resource_path(
 			"framework_owned_resource",
 			path,
 			"Project-owned resources must stay outside the reserved res://addons/gf boundary.",
+		))
+		return
+	_validate_contract_path(project_root, normalized_path.removeprefix("res://"), path, issues)
+
+
+def _validate_path_role_path(
+	project_root: Path,
+	raw_path: str,
+	path: str,
+	issues: list[dict[str, str]],
+) -> None:
+	normalized_path = normalize_portable_ownership_path(raw_path)
+	if not normalized_path:
+		issues.append(_issue(
+			"error",
+			"non_canonical_path_role_path",
+			path,
+			"Path roles must use one canonical cross-platform non-root res:// path.",
+		))
+		return
+	if is_reserved_framework_resource_path(normalized_path):
+		issues.append(_issue(
+			"error",
+			"framework_path_role",
+			path,
+			"Project path roles must stay outside the reserved res://addons/gf boundary.",
 		))
 		return
 	_validate_contract_path(project_root, normalized_path.removeprefix("res://"), path, issues)
@@ -528,6 +566,32 @@ def _ownership_root_overlap_issues(
 				"ownership_root_overlap",
 				"$.architecture.modules",
 				f"Ownership roots overlap between {left_owner} ({left_path}) and {right_owner} ({right_path}).",
+			))
+	return issues
+
+
+def _path_role_overlap_issues(
+	path_roles: list[dict[str, Any]],
+) -> list[dict[str, str]]:
+	identities: list[tuple[str, tuple[str, ...]]] = []
+	for path_role in path_roles:
+		raw_path = path_role.get("path")
+		if not isinstance(raw_path, str):
+			continue
+		identity = portable_ownership_path_identity(raw_path)
+		if not identity:
+			continue
+		identities.append((raw_path, tuple(identity.removeprefix("res://").split("/"))))
+	issues: list[dict[str, str]] = []
+	for left_index, (left_path, left_parts) in enumerate(identities):
+		for right_path, right_parts in identities[left_index + 1:]:
+			if not _parts_overlap(left_parts, right_parts):
+				continue
+			issues.append(_issue(
+				"error",
+				"path_role_overlap",
+				"$.architecture.path_roles",
+				f"Path roles must not share an exact or ancestor identity: {left_path} and {right_path}.",
 			))
 	return issues
 

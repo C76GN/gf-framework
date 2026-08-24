@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import stat
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -24,6 +25,9 @@ MAX_EDGE_EVIDENCE = 12
 MAX_AMBIGUOUS_CLASSES = 100
 MAX_UNOWNED_REFERENCE_EVIDENCE = 100
 MAX_OWNED_RESOURCE_REFERENCE_EVIDENCE = 100
+MAX_PATH_ROLE_REFERENCE_EVIDENCE = 100
+MAX_PATH_ROLE_DEPENDENCY_VIOLATION_EVIDENCE = 100
+MAX_ADVISORY_REFERENCE_EVIDENCE = 100
 SUPPORTED_EXTENSIONS = frozenset({".gd", ".gdshader", ".gdshaderinc", ".tres", ".tscn"})
 _RESOURCE_TEXT_EXTENSIONS = frozenset({".gdshader", ".gdshaderinc", ".tres", ".tscn"})
 _SKIPPED_DIRECTORY_NAMES = frozenset({".git", ".godot", ".import", "__pycache__", "node_modules"})
@@ -34,6 +38,20 @@ class SourceToken:
 	kind: str
 	value: str
 	line: int
+
+
+@dataclass(frozen=True)
+class PinnedSource:
+	text: str
+	identity: tuple[int, int, int, int, int]
+
+
+@dataclass(frozen=True)
+class PathRoleState:
+	path: str
+	role: str
+	status: str
+	covered_modules: tuple[str, ...]
 
 
 @dataclass(frozen=True)
@@ -89,7 +107,7 @@ class TargetOwnershipPlan:
 					source_module=not generated_output,
 					scan_files=not generated_output,
 					require_existing_root=not generated_output,
-					reference_kind="generated_output" if generated_output else "resource_path",
+					reference_kind="generated_output" if generated_output else "resource_load",
 				))
 		for adapter in adapters or []:
 			adapter_id = str(adapter.get("id", ""))
@@ -115,7 +133,7 @@ class TargetOwnershipPlan:
 				source_module=False,
 				scan_files=True,
 				require_existing_root=True,
-				reference_kind="resource_path",
+				reference_kind="resource_load",
 			))
 
 		for left_index, left in enumerate(roots):
@@ -133,6 +151,7 @@ class TargetOwnershipPlan:
 			key=lambda item: (-len(item.resource_root), item.resource_root, item.owner_id),
 		))
 		self._module_ids = frozenset(module_ids)
+		self._component_ids = frozenset(component_ids)
 		self.missing_root_count = missing_root_count
 		self.unsafe_path_count = unsafe_path_count
 
@@ -143,6 +162,10 @@ class TargetOwnershipPlan:
 	@property
 	def module_ids(self) -> frozenset[str]:
 		return self._module_ids
+
+	@property
+	def component_ids(self) -> frozenset[str]:
+		return self._component_ids
 
 	def ownership_of(self, resource_path: str) -> TargetOwnershipRoot | None:
 		normalized = normalize_resource_path(resource_path)
@@ -169,23 +192,34 @@ def analyze_module_dependencies(
 	if not contract_valid:
 		return _empty_analysis("contract_invalid", modules, complete=False)
 	owned_resource_collection = _collect_owned_resources(project_root, contract_data)
-
 	target_plan = TargetOwnershipPlan(modules, adapters)
 	collection = _collect_target_files(project_root, target_plan)
+	path_role_collection = _collect_path_roles(project_root, contract_data, target_plan)
 	available_owned_resources = set(owned_resource_collection["available_paths"])
 	files: list[Path] = collection.pop("files")
+	sources: dict[Path, PinnedSource] = {}
+	tokens_by_path: dict[Path, list[SourceToken]] = {}
 	class_definitions: dict[str, list[tuple[str, str]]] = {}
 	unreadable_paths: set[Path] = set()
 	for path in files:
-		if path.suffix.casefold() != ".gd":
-			continue
-		text = _read_utf8(path)
-		if text is None:
+		source = _read_pinned_utf8(path)
+		if source is None:
 			unreadable_paths.add(path)
+			continue
+		sources[path] = source
+		suffix = path.suffix.casefold()
+		if suffix == ".gd":
+			tokens = lex_gdscript(source.text)
+		elif suffix in (".gdshader", ".gdshaderinc"):
+			tokens = lex_shader_text(source.text)
+		else:
+			tokens = lex_resource_text(source.text)
+		tokens_by_path[path] = tokens
+		if suffix != ".gd":
 			continue
 		resource_path = _resource_path(project_root, path)
 		owner_id = target_plan.owner_of(resource_path)
-		for class_name in _declared_class_names(lex_gdscript(text)):
+		for class_name in _declared_class_names(tokens):
 			class_definitions.setdefault(class_name, []).append((owner_id, resource_path))
 
 	all_ambiguous_classes = [
@@ -204,21 +238,34 @@ def analyze_module_dependencies(
 	unowned_references: list[dict[str, Any]] = []
 	owned_resource_reference_count = 0
 	owned_resource_references: list[dict[str, Any]] = []
+	path_role_reference_count = 0
+	path_role_references: list[dict[str, Any]] = []
+	path_role_dependency_violation_count = 0
+	path_role_dependency_violations: list[dict[str, Any]] = []
+	advisory_reference_count = 0
+	advisory_references: list[dict[str, Any]] = []
+	module_allowed_dependencies = {
+		str(module.get("id", "")): frozenset(
+			dependency_id
+			for dependency_id in module.get("allowed_dependencies", [])
+			if isinstance(dependency_id, str)
+		)
+		for module in modules
+		if str(module.get("id", ""))
+	}
 	for path in files:
-		if path in unreadable_paths:
-			continue
-		text = _read_utf8(path)
-		if text is None:
-			unreadable_paths.add(path)
+		if path in unreadable_paths or path not in sources:
 			continue
 		source_path = _resource_path(project_root, path)
 		source_ownership = target_plan.ownership_of(source_path)
 		if source_ownership is None or not source_ownership.source_module:
 			continue
 		source_module = source_ownership.owner_id
-		if path.suffix.casefold() == ".gd":
-			tokens = lex_gdscript(text)
-			for token in tokens:
+		source_domain = _source_domain(path, project_root)
+		suffix = path.suffix.casefold()
+		tokens = tokens_by_path.get(path, [])
+		if suffix == ".gd":
+			for token_index, token in enumerate(tokens):
 				if token.kind == "identifier" and token.value in class_owners:
 					target_module, target_path = class_owners[token.value]
 					_add_reference(
@@ -232,39 +279,72 @@ def analyze_module_dependencies(
 						token.line,
 					)
 				elif token.kind == "string":
-					unowned_increment, owned_increment = _record_path_reference(
+					increments = _record_path_observation(
 						edges,
 						target_plan,
 						available_owned_resources,
+						path_role_collection["states"],
+						module_allowed_dependencies,
 						source_module,
 						source_path,
+						source_domain,
 						token.value,
 						token.line,
+						_gdscript_string_reference_kind(tokens, token_index),
 						unowned_references,
 						owned_resource_references,
+						path_role_references,
+						path_role_dependency_violations,
+						advisory_references,
 					)
-					unowned_reference_count += unowned_increment
-					owned_resource_reference_count += owned_increment
-		elif path.suffix.casefold() in _RESOURCE_TEXT_EXTENSIONS:
-			resource_tokens = (
-				lex_shader_text(text)
-				if path.suffix.casefold() in (".gdshader", ".gdshaderinc")
-				else lex_resource_text(text)
-			)
-			for token in resource_tokens:
-				unowned_increment, owned_increment = _record_path_reference(
+					unowned_reference_count += increments[0]
+					owned_resource_reference_count += increments[1]
+					path_role_reference_count += increments[2]
+					path_role_dependency_violation_count += increments[3]
+					advisory_reference_count += increments[4]
+		elif suffix in _RESOURCE_TEXT_EXTENSIONS:
+			resource_lines = sources[path].text.splitlines()
+			for token_index, token in enumerate(tokens):
+				if token.kind not in ("string", "shader_include"):
+					continue
+				if suffix in (".gdshader", ".gdshaderinc"):
+					high_confidence_kind = "shader_include" if token.kind == "shader_include" else None
+				else:
+					high_confidence_kind = _resource_string_reference_kind(
+						tokens,
+						token_index,
+						resource_lines,
+					)
+				increments = _record_path_observation(
 					edges,
 					target_plan,
 					available_owned_resources,
+					path_role_collection["states"],
+					module_allowed_dependencies,
 					source_module,
 					source_path,
+					source_domain,
 					token.value,
 					token.line,
+					high_confidence_kind,
 					unowned_references,
 					owned_resource_references,
+					path_role_references,
+					path_role_dependency_violations,
+					advisory_references,
 				)
-				unowned_reference_count += unowned_increment
-				owned_resource_reference_count += owned_increment
+				unowned_reference_count += increments[0]
+				owned_resource_reference_count += increments[1]
+				path_role_reference_count += increments[2]
+				path_role_dependency_violation_count += increments[3]
+				advisory_reference_count += increments[4]
+
+	unstable_paths = {
+		path
+		for path, source in sources.items()
+		if not _pinned_source_still_matches(path, source)
+	}
+	_mark_late_path_role_drift(path_role_collection)
 
 	edge_records = _edge_records(edges)
 	cycles = _dependency_cycles(edge_records, set(target_plan.module_ids))
@@ -288,19 +368,23 @@ def analyze_module_dependencies(
 		})
 
 	unreadable_count = len(unreadable_paths)
-	truncated = bool(collection["truncated"])
+	truncated = bool(collection["truncated"] or path_role_collection["truncated"])
+	unsafe_path_count = (
+		int(collection["unsafe_path_count"])
+		+ int(path_role_collection["unsafe_count"])
+		+ len(unstable_paths)
+	)
 	complete = (
 		not truncated
 		and unreadable_count == 0
 		and collection["missing_root_count"] == 0
-		and collection["unsafe_path_count"] == 0
+		and unsafe_path_count == 0
 		and owned_resource_collection["missing_count"] == 0
 		and owned_resource_collection["unsafe_count"] == 0
+		and path_role_collection["partial_count"] == 0
 		and not all_ambiguous_classes
 	)
-	status = ("complete" if modules else "not_configured") if complete else (
-		"truncated" if truncated else "incomplete"
-	)
+	status = ("complete" if modules else "not_configured") if complete else "partial"
 	return {
 		"status": status,
 		"complete": complete,
@@ -311,17 +395,51 @@ def analyze_module_dependencies(
 		"oversized_file_count": int(collection["oversized_file_count"]),
 		"unreadable_file_count": unreadable_count,
 		"missing_root_count": int(collection["missing_root_count"]),
-		"unsafe_path_count": int(collection["unsafe_path_count"]),
+		"unsafe_path_count": unsafe_path_count,
 		"declared_owned_resource_count": len(owned_resource_collection["records"]),
 		"missing_owned_resource_count": int(owned_resource_collection["missing_count"]),
 		"unsafe_owned_resource_count": int(owned_resource_collection["unsafe_count"]),
 		"owned_resources": owned_resource_collection["records"],
 		"owned_resource_reference_count": owned_resource_reference_count,
 		"owned_resource_references_truncated": owned_resource_reference_count > len(owned_resource_references),
-		"owned_resource_references": owned_resource_references,
+		"owned_resource_references": sorted(
+			owned_resource_references,
+			key=lambda item: (item["source_path"], item["line"], item["target_path"]),
+		),
+		"declared_path_role_count": len(path_role_collection["records"]),
+		"partial_path_role_count": int(path_role_collection["partial_count"]),
+		"path_roles": path_role_collection["records"],
+		"path_role_reference_count": path_role_reference_count,
+		"path_role_references_truncated": path_role_reference_count > len(path_role_references),
+		"path_role_references": sorted(
+			path_role_references,
+			key=lambda item: (item["source_path"], item["line"], item["target_path"], item["role"]),
+		),
+		"path_role_dependency_violation_count": path_role_dependency_violation_count,
+		"path_role_dependency_violations_truncated": (
+			path_role_dependency_violation_count > len(path_role_dependency_violations)
+		),
+		"path_role_dependency_violations": sorted(
+			path_role_dependency_violations,
+			key=lambda item: (
+				item["source_path"],
+				item["line"],
+				item["target_path"],
+				item["target_module"],
+			),
+		),
+		"advisory_reference_count": advisory_reference_count,
+		"advisory_references_truncated": advisory_reference_count > len(advisory_references),
+		"advisory_references": sorted(
+			advisory_references,
+			key=lambda item: (item["source_path"], item["line"], item["target_path"]),
+		),
 		"unowned_reference_count": unowned_reference_count,
 		"unowned_references_truncated": unowned_reference_count > len(unowned_references),
-		"unowned_references": unowned_references,
+		"unowned_references": sorted(
+			unowned_references,
+			key=lambda item: (item["source_path"], item["line"], item["target_path"]),
+		),
 		"module_file_counts": sorted(module_file_counts, key=lambda item: item["module_id"]),
 		"ambiguous_class_name_count": len(all_ambiguous_classes),
 		"ambiguous_class_names_truncated": len(all_ambiguous_classes) > len(ambiguous_classes),
@@ -333,16 +451,16 @@ def analyze_module_dependencies(
 
 def lex_gdscript(source: str) -> list[SourceToken]:
 	"""Return exact identifiers and string literals while excluding comments."""
-	return _lex_text(source, comment_markers=("#",), identifiers=True)
+	return _lex_text(source, comment_markers=("#",), identifiers=True, punctuation=True)
 
 
 def lex_resource_text(source: str) -> list[SourceToken]:
 	"""Return quoted values from Godot text resources while excluding comments."""
-	return _lex_text(source, comment_markers=("#", ";"), identifiers=False)
+	return _lex_text(source, comment_markers=("#", ";"), identifiers=True, punctuation=True)
 
 
 def lex_shader_text(source: str) -> list[SourceToken]:
-	"""Return shader string literals while excluding C-style comments."""
+	"""Return shader strings and exact include directives outside comments."""
 	tokens: list[SourceToken] = []
 	index = 0
 	line = 1
@@ -368,6 +486,12 @@ def lex_shader_text(source: str) -> list[SourceToken]:
 		if character in ("'", '"'):
 			quote = character
 			start_line = line
+			line_start = source.rfind("\n", 0, index) + 1
+			kind = (
+				"shader_include"
+				if character == '"' and source[line_start:index].strip() == "#include"
+				else "string"
+			)
 			index += 1
 			value: list[str] = []
 			while index < length and source[index] != quote:
@@ -383,13 +507,19 @@ def lex_shader_text(source: str) -> list[SourceToken]:
 				index += 1
 			if index < length:
 				index += 1
-			tokens.append(SourceToken("string", "".join(value), start_line))
+			tokens.append(SourceToken(kind, "".join(value), start_line))
 			continue
 		index += 1
 	return tokens
 
 
-def _lex_text(source: str, *, comment_markers: tuple[str, ...], identifiers: bool) -> list[SourceToken]:
+def _lex_text(
+	source: str,
+	*,
+	comment_markers: tuple[str, ...],
+	identifiers: bool,
+	punctuation: bool,
+) -> list[SourceToken]:
 	tokens: list[SourceToken] = []
 	index = 0
 	line = 1
@@ -438,6 +568,8 @@ def _lex_text(source: str, *, comment_markers: tuple[str, ...], identifiers: boo
 				index += 1
 			tokens.append(SourceToken("identifier", source[start:index], line))
 			continue
+		if punctuation and character in "().,=":
+			tokens.append(SourceToken("punctuation", character, line))
 		index += 1
 	return tokens
 
@@ -450,6 +582,69 @@ def _declared_class_names(tokens: list[SourceToken]) -> set[str]:
 			if candidate.kind == "identifier":
 				result.add(candidate.value)
 	return result
+
+
+def _gdscript_string_reference_kind(
+	tokens: list[SourceToken],
+	string_index: int,
+) -> str | None:
+	if string_index < 2:
+		return None
+	opening = tokens[string_index - 1]
+	method = tokens[string_index - 2]
+	if opening.kind != "punctuation" or opening.value != "(" or method.kind != "identifier":
+		return None
+	previous = tokens[string_index - 3] if string_index >= 3 else None
+	if method.value in ("load", "preload") and not (
+		previous is not None
+		and previous.kind == "punctuation"
+		and previous.value == "."
+	):
+		return "resource_load"
+	if method.value not in ("load", "load_threaded_request", "load_threaded_get"):
+		return None
+	if string_index < 4:
+		return None
+	receiver_separator = tokens[string_index - 3]
+	receiver = tokens[string_index - 4]
+	receiver_prefix = tokens[string_index - 5] if string_index >= 5 else None
+	if (
+		receiver_separator.kind == "punctuation"
+		and receiver_separator.value == "."
+		and receiver.kind == "identifier"
+		and receiver.value == "ResourceLoader"
+		and not (
+			receiver_prefix is not None
+			and receiver_prefix.kind == "punctuation"
+			and receiver_prefix.value == "."
+		)
+	):
+		return "resource_load"
+	return None
+
+
+def _resource_string_reference_kind(
+	tokens: list[SourceToken],
+	string_index: int,
+	source_lines: list[str],
+) -> str | None:
+	if string_index < 2:
+		return None
+	separator = tokens[string_index - 1]
+	field = tokens[string_index - 2]
+	if (
+		separator.kind == "punctuation"
+		and separator.value == "="
+		and field.kind == "identifier"
+		and field.value == "path"
+	):
+		line_index = tokens[string_index].line - 1
+		if (
+			0 <= line_index < len(source_lines)
+			and source_lines[line_index].lstrip().startswith("[ext_resource")
+		):
+			return "resource_field"
+	return None
 
 
 def _collect_target_files(project_root: Path, plan: TargetOwnershipPlan) -> dict[str, Any]:
@@ -590,24 +785,296 @@ def _collect_owned_resources(project_root: Path, contract_data: dict[str, Any]) 
 	}
 
 
-def _record_path_reference(
+def _collect_path_roles(
+	project_root: Path,
+	contract_data: dict[str, Any],
+	plan: TargetOwnershipPlan,
+) -> dict[str, Any]:
+	declarations = _contract_path_roles(contract_data)
+	prepared: list[dict[str, Any]] = []
+	conflicts: set[int] = set()
+	for index, declaration in enumerate(declarations):
+		raw_path = declaration.get("path")
+		role = declaration.get("role")
+		path = raw_path if isinstance(raw_path, str) else ""
+		role_name = role if isinstance(role, str) else ""
+		normalized = normalize_portable_ownership_path(path)
+		identity = portable_ownership_path_identity(path)
+		prepared.append({
+			"index": index,
+			"raw_path": path,
+			"path": normalized or path,
+			"role": role_name,
+			"identity_parts": tuple(identity.removeprefix("res://").split("/")) if identity else (),
+			"valid": bool(
+				normalized
+				and not is_reserved_framework_resource_path(normalized)
+				and role_name in ("scan_root", "test_fixture", "optional_input")
+			),
+		})
+	for left_index, left in enumerate(prepared):
+		left_parts = left["identity_parts"]
+		if not left_parts:
+			continue
+		for right in prepared[left_index + 1:]:
+			right_parts = right["identity_parts"]
+			shorter = min(len(left_parts), len(right_parts))
+			if shorter > 0 and left_parts[:shorter] == right_parts[:shorter]:
+				conflicts.update((int(left["index"]), int(right["index"])))
+
+	records: list[dict[str, Any]] = []
+	states: list[PathRoleState] = []
+	partial_count = 0
+	unsafe_count = 0
+	truncated = False
+	identity_groups: dict[tuple[str, str], dict[Path, tuple[int, int, int, int, int]]] = {}
+	for declaration in prepared:
+		path = str(declaration["path"])
+		role = str(declaration["role"])
+		record_status = "complete"
+		exists = False
+		covered_modules: list[str] = []
+		role_identities: dict[Path, tuple[int, int, int, int, int]] = {}
+		if not declaration["valid"] or int(declaration["index"]) in conflicts:
+			record_status = "partial"
+			unsafe_count += 1
+			exists = _path_lexists(project_root, path)
+		else:
+			relative_path = path.removeprefix("res://")
+			role_path = project_root / Path(*relative_path.split("/"))
+			linked_path = project_path_has_link_component(project_root, relative_path)
+			try:
+				metadata = role_path.lstat()
+			except FileNotFoundError:
+				metadata = None
+			except OSError:
+				metadata = None
+				record_status = "partial"
+				unsafe_count += 1
+			exists = metadata is not None
+			if linked_path:
+				record_status = "partial"
+				unsafe_count += 1
+			elif metadata is None:
+				if role != "optional_input":
+					record_status = "partial"
+				else:
+					parent_identity = _nearest_existing_parent_identity(project_root, role_path)
+					if parent_identity is None:
+						record_status = "partial"
+						unsafe_count += 1
+					else:
+						role_identities = parent_identity
+			elif _metadata_is_link_or_reparse(role_path, metadata):
+				record_status = "partial"
+				unsafe_count += 1
+			elif role == "optional_input":
+				if not stat.S_ISREG(metadata.st_mode) or not _safe_path(project_root, role_path, directory=False):
+					record_status = "partial"
+					unsafe_count += 1
+				elif _stat_identity(metadata) != _path_identity(role_path):
+					record_status = "partial"
+					unsafe_count += 1
+				else:
+					role_identities[role_path] = _stat_identity(metadata)
+			elif role == "scan_root":
+				if not stat.S_ISDIR(metadata.st_mode) or not _safe_path(project_root, role_path, directory=True):
+					record_status = "partial"
+					unsafe_count += 1
+				else:
+					scan = _scan_path_role_tree(project_root, role_path, plan=plan, prove_ownership=True)
+					covered_modules = scan["covered_modules"]
+					role_identities = scan["identities"]
+					unsafe_count += int(scan["unsafe_count"])
+					truncated = truncated or bool(scan["truncated"])
+					if not scan["complete"]:
+						record_status = "partial"
+			else:
+				if stat.S_ISREG(metadata.st_mode):
+					if not _safe_path(project_root, role_path, directory=False):
+						record_status = "partial"
+						unsafe_count += 1
+					else:
+						role_identities[role_path] = _stat_identity(metadata)
+				elif stat.S_ISDIR(metadata.st_mode) and _safe_path(project_root, role_path, directory=True):
+					scan = _scan_path_role_tree(project_root, role_path, plan=plan, prove_ownership=False)
+					role_identities = scan["identities"]
+					unsafe_count += int(scan["unsafe_count"])
+					truncated = truncated or bool(scan["truncated"])
+					if not scan["complete"]:
+						record_status = "partial"
+				else:
+					record_status = "partial"
+					unsafe_count += 1
+		if record_status == "partial":
+			partial_count += 1
+		else:
+			states.append(PathRoleState(
+				path=path,
+				role=role,
+				status=record_status,
+				covered_modules=tuple(sorted(covered_modules)),
+			))
+			identity_groups[(path, role)] = role_identities
+		records.append({
+			"path": path,
+			"role": role,
+			"status": record_status,
+			"exists": exists,
+			"covered_modules": sorted(covered_modules),
+		})
+	return {
+		"records": sorted(records, key=lambda item: (item["path"], item["role"])),
+		"states": tuple(sorted(states, key=lambda item: (item.path, item.role))),
+		"partial_count": partial_count,
+		"unsafe_count": unsafe_count,
+		"truncated": truncated,
+		"identity_groups": identity_groups,
+	}
+
+
+def _scan_path_role_tree(
+	project_root: Path,
+	root: Path,
+	*,
+	plan: TargetOwnershipPlan,
+	prove_ownership: bool,
+) -> dict[str, Any]:
+	stack = [root]
+	entry_count = 0
+	total_bytes = 0
+	unsafe_count = 0
+	truncated = False
+	covered_modules: set[str] = set()
+	identities: dict[Path, tuple[int, int, int, int, int]] = {}
+	root_owner = plan.ownership_of(_resource_path(project_root, root))
+	if root_owner is not None and root_owner.owner_id in plan.component_ids:
+		covered_modules.add(root_owner.owner_id)
+	try:
+		identities[root] = _stat_identity(root.lstat())
+	except OSError:
+		return {
+			"complete": False,
+			"truncated": False,
+			"unsafe_count": 1,
+			"covered_modules": sorted(covered_modules),
+			"identities": identities,
+		}
+	while stack and not truncated:
+		current = stack.pop()
+		try:
+			entries: list[os.DirEntry[str]] = []
+			with os.scandir(current) as iterator:
+				for entry in iterator:
+					if entry_count + len(entries) >= MAX_DEPENDENCY_FILES:
+						truncated = True
+						break
+					entries.append(entry)
+			entries.sort(key=lambda item: item.name)
+		except OSError:
+			unsafe_count += 1
+			continue
+		if truncated:
+			break
+		for entry in entries:
+			entry_count += 1
+			path = Path(entry.path)
+			try:
+				metadata = path.lstat()
+			except OSError:
+				unsafe_count += 1
+				continue
+			identities[path] = _stat_identity(metadata)
+			if _metadata_is_link_or_reparse(path, metadata):
+				unsafe_count += 1
+				continue
+			if prove_ownership:
+				ownership = plan.ownership_of(_resource_path(project_root, path))
+				if ownership is None:
+					unsafe_count += 1
+				else:
+					if ownership.owner_id in plan.component_ids:
+						covered_modules.add(ownership.owner_id)
+			if stat.S_ISDIR(metadata.st_mode):
+				stack.append(path)
+			elif stat.S_ISREG(metadata.st_mode):
+				total_bytes += int(metadata.st_size)
+				if total_bytes > MAX_DEPENDENCY_BYTES:
+					truncated = True
+					break
+			else:
+				unsafe_count += 1
+	for path, identity in identities.items():
+		if _path_identity(path) != identity:
+			unsafe_count += 1
+	return {
+		"complete": not truncated and unsafe_count == 0,
+		"truncated": truncated,
+		"unsafe_count": unsafe_count,
+		"covered_modules": sorted(covered_modules),
+		"identities": identities,
+	}
+
+
+def _mark_late_path_role_drift(collection: dict[str, Any]) -> None:
+	drifted: set[tuple[str, str]] = set()
+	for key, identities in collection.get("identity_groups", {}).items():
+		if any(_path_identity(path) != identity for path, identity in identities.items()):
+			drifted.add(key)
+	if not drifted:
+		return
+	newly_partial = 0
+	for record in collection["records"]:
+		key = (str(record["path"]), str(record["role"]))
+		if key in drifted and record["status"] == "complete":
+			record["status"] = "partial"
+			newly_partial += 1
+	collection["states"] = tuple(
+		state
+		for state in collection["states"]
+		if (state.path, state.role) not in drifted
+	)
+	collection["partial_count"] += newly_partial
+	collection["unsafe_count"] += len(drifted)
+
+
+def _record_path_observation(
 	edges: dict[tuple[str, str], dict[str, Any]],
 	matcher: TargetOwnershipPlan,
 	owned_resource_paths: set[str],
+	path_roles: tuple[PathRoleState, ...],
+	module_allowed_dependencies: dict[str, frozenset[str]],
 	source_module: str,
 	source_path: str,
+	source_domain: str,
 	raw_target_path: str,
 	line: int,
+	high_confidence_kind: str | None,
 	unowned_references: list[dict[str, Any]],
 	owned_resource_references: list[dict[str, Any]],
-) -> tuple[int, int]:
+	path_role_references: list[dict[str, Any]],
+	path_role_dependency_violations: list[dict[str, Any]],
+	advisory_references: list[dict[str, Any]],
+) -> tuple[int, int, int, int, int]:
 	target_path = normalize_resource_path(raw_target_path)
 	if not target_path:
-		return 0, 0
+		return 0, 0, 0, 0, 0
+	if is_reserved_framework_resource_path(target_path):
+		return 0, 0, 0, 0, 0
 	target_ownership = matcher.ownership_of(target_path)
-	if target_ownership is None:
-		if is_reserved_framework_resource_path(target_path):
-			return 0, 0
+	if high_confidence_kind is not None:
+		if target_ownership is not None:
+			_add_reference(
+				edges,
+				source_module,
+				target_ownership.owner_id,
+				source_path,
+				target_path,
+				high_confidence_kind,
+				raw_target_path,
+				line,
+			)
+			return 0, 0, 0, 0, 0
 		candidate = {
 			"source_path": source_path,
 			"target_path": target_path,
@@ -619,21 +1086,112 @@ def _record_path_reference(
 				and candidate not in owned_resource_references
 			):
 				owned_resource_references.append(candidate)
-			return 0, 1
+			return 0, 1, 0, 0, 0
 		if len(unowned_references) < MAX_UNOWNED_REFERENCE_EVIDENCE and candidate not in unowned_references:
 			unowned_references.append(candidate)
-		return 1, 0
-	_add_reference(
-		edges,
-		source_module,
-		target_ownership.owner_id,
-		source_path,
-		target_path,
-		target_ownership.reference_kind,
-		raw_target_path,
-		line,
-	)
-	return 0, 0
+		return 1, 0, 0, 0, 0
+
+	if target_ownership is not None and target_ownership.reference_kind == "generated_output":
+		_add_reference(
+			edges,
+			source_module,
+			target_ownership.owner_id,
+			source_path,
+			target_path,
+			"generated_output",
+			raw_target_path,
+			line,
+		)
+		return 0, 0, 0, 0, 0
+
+	path_role = _matching_path_role(path_roles, target_path, source_domain)
+	if path_role is not None:
+		candidate_with_role = {
+			"source_path": source_path,
+			"target_path": target_path,
+			"source_domain": source_domain,
+			"role": path_role.role,
+			"line": max(line, 1),
+		}
+		if (
+			len(path_role_references) < MAX_PATH_ROLE_REFERENCE_EVIDENCE
+			and candidate_with_role not in path_role_references
+		):
+			path_role_references.append(candidate_with_role)
+		violation_count = 0
+		if path_role.role == "scan_root":
+			allowed_dependencies = module_allowed_dependencies.get(source_module, frozenset())
+			for target_module in path_role.covered_modules:
+				if target_module == source_module or target_module in allowed_dependencies:
+					continue
+				violation_count += 1
+				violation = {
+					"source_path": source_path,
+					"source_module": source_module,
+					"target_path": target_path,
+					"target_module": target_module,
+					"line": max(line, 1),
+				}
+				if (
+					len(path_role_dependency_violations)
+					< MAX_PATH_ROLE_DEPENDENCY_VIOLATION_EVIDENCE
+					and violation not in path_role_dependency_violations
+				):
+					path_role_dependency_violations.append(violation)
+		return 0, 0, 1, violation_count, 0
+
+	if target_path in owned_resource_paths:
+		owned_candidate = {
+			"source_path": source_path,
+			"target_path": target_path,
+			"line": max(line, 1),
+		}
+		if (
+			len(owned_resource_references) < MAX_OWNED_RESOURCE_REFERENCE_EVIDENCE
+			and owned_candidate not in owned_resource_references
+		):
+			owned_resource_references.append(owned_candidate)
+		return 0, 1, 0, 0, 0
+
+	advisory_candidate = {
+		"source_path": source_path,
+		"target_path": target_path,
+		"source_domain": source_domain,
+		"line": max(line, 1),
+	}
+	if (
+		len(advisory_references) < MAX_ADVISORY_REFERENCE_EVIDENCE
+		and advisory_candidate not in advisory_references
+	):
+		advisory_references.append(advisory_candidate)
+	return 0, 0, 0, 0, 1
+
+
+def _matching_path_role(
+	path_roles: tuple[PathRoleState, ...],
+	target_path: str,
+	source_domain: str,
+) -> PathRoleState | None:
+	target_identity = portable_ownership_path_identity(target_path)
+	if not target_identity:
+		return None
+	for path_role in path_roles:
+		role_identity = portable_ownership_path_identity(path_role.path)
+		if not role_identity:
+			continue
+		if path_role.role in ("scan_root", "optional_input"):
+			matches = target_identity == role_identity
+		else:
+			matches = (
+				source_domain == "test"
+				and (
+					target_identity == role_identity
+					or target_identity.startswith(role_identity + "/")
+				)
+			)
+		if matches:
+			return path_role
+	return None
 
 
 def _add_reference(
@@ -751,6 +1309,13 @@ def _contract_owned_resources(contract_data: dict[str, Any]) -> list[str]:
 	return [path for path in architecture["owned_resources"] if isinstance(path, str)]
 
 
+def _contract_path_roles(contract_data: dict[str, Any]) -> list[dict[str, Any]]:
+	architecture = contract_data.get("architecture", {})
+	if not isinstance(architecture, dict) or not isinstance(architecture.get("path_roles"), list):
+		return []
+	return [path_role for path_role in architecture["path_roles"] if isinstance(path_role, dict)]
+
+
 def _portable_root_parts(resource_root: str) -> tuple[str, ...]:
 	identity = portable_ownership_path_identity(resource_root)
 	if not identity:
@@ -788,6 +1353,18 @@ def _empty_analysis(
 		"owned_resource_reference_count": 0,
 		"owned_resource_references_truncated": False,
 		"owned_resource_references": [],
+		"declared_path_role_count": 0,
+		"partial_path_role_count": 0,
+		"path_roles": [],
+		"path_role_reference_count": 0,
+		"path_role_references_truncated": False,
+		"path_role_references": [],
+		"path_role_dependency_violation_count": 0,
+		"path_role_dependency_violations_truncated": False,
+		"path_role_dependency_violations": [],
+		"advisory_reference_count": 0,
+		"advisory_references_truncated": False,
+		"advisory_references": [],
 		"unowned_reference_count": 0,
 		"unowned_references_truncated": False,
 		"unowned_references": [],
@@ -807,10 +1384,108 @@ def _resource_path(project_root: Path, path: Path) -> str:
 	return "res://" + path.relative_to(project_root).as_posix()
 
 
-def _read_utf8(path: Path) -> str | None:
+def _read_pinned_utf8(path: Path) -> PinnedSource | None:
 	try:
-		return path.read_text(encoding="utf-8")
-	except (OSError, UnicodeDecodeError):
+		before = path.lstat()
+		if _metadata_is_link_or_reparse(path, before) or not stat.S_ISREG(before.st_mode):
+			return None
+		if before.st_size > MAX_DEPENDENCY_FILE_BYTES:
+			return None
+		with path.open("rb") as stream:
+			opened_before = os.fstat(stream.fileno())
+			raw = stream.read(MAX_DEPENDENCY_FILE_BYTES + 1)
+			opened_after = os.fstat(stream.fileno())
+		after = path.lstat()
+		identity = _stat_identity(after)
+		if not (
+			_stat_identity(before) == _stat_identity(opened_before)
+			and _stat_identity(opened_before) == _stat_identity(opened_after)
+			and _stat_identity(opened_after) == identity
+			and len(raw) == int(after.st_size)
+			and len(raw) <= MAX_DEPENDENCY_FILE_BYTES
+		):
+			return None
+		return PinnedSource(raw.decode("utf-8", errors="strict"), identity)
+	except (OSError, UnicodeDecodeError, ValueError):
+		return None
+
+
+def _pinned_source_still_matches(path: Path, source: PinnedSource) -> bool:
+	return _path_identity(path) == source.identity
+
+
+def _source_domain(path: Path, project_root: Path) -> str:
+	try:
+		relative = path.relative_to(project_root)
+	except ValueError:
+		return "project"
+	if (
+		any(part.casefold() in ("test", "tests") for part in relative.parts)
+		or path.name.casefold().startswith("test_")
+	):
+		return "test"
+	return "project"
+
+
+def _path_lexists(project_root: Path, raw_path: str) -> bool:
+	normalized = normalize_resource_path(raw_path)
+	if not normalized:
+		return False
+	relative = normalized.removeprefix("res://")
+	path = project_root / Path(*relative.split("/"))
+	try:
+		path.lstat()
+	except OSError:
+		return False
+	return True
+
+
+def _nearest_existing_parent_identity(
+	project_root: Path,
+	path: Path,
+) -> dict[Path, tuple[int, int, int, int, int]] | None:
+	root = project_root.absolute()
+	current = path.parent.absolute()
+	while True:
+		try:
+			current.relative_to(root)
+		except ValueError:
+			return None
+		try:
+			metadata = current.lstat()
+		except FileNotFoundError:
+			if current == root:
+				return None
+			current = current.parent
+			continue
+		except OSError:
+			return None
+		if not stat.S_ISDIR(metadata.st_mode) or _metadata_is_link_or_reparse(current, metadata):
+			return None
+		return {current: _stat_identity(metadata)}
+
+
+def _metadata_is_link_or_reparse(path: Path, metadata: os.stat_result) -> bool:
+	if stat.S_ISLNK(metadata.st_mode) or path.is_symlink():
+		return True
+	reparse_flag = getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0)
+	return bool(reparse_flag and getattr(metadata, "st_file_attributes", 0) & reparse_flag)
+
+
+def _stat_identity(metadata: os.stat_result) -> tuple[int, int, int, int, int]:
+	return (
+		int(stat.S_IFMT(metadata.st_mode)),
+		int(metadata.st_dev),
+		int(metadata.st_ino),
+		int(metadata.st_size),
+		int(getattr(metadata, "st_mtime_ns", int(metadata.st_mtime * 1_000_000_000))),
+	)
+
+
+def _path_identity(path: Path) -> tuple[int, int, int, int, int] | None:
+	try:
+		return _stat_identity(path.lstat())
+	except OSError:
 		return None
 
 

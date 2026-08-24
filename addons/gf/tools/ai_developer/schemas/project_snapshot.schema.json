@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://gf-framework.dev/schemas/project-snapshot-v5.json",
+  "$id": "https://gf-framework.dev/schemas/project-snapshot-v6.json",
   "title": "GF Observed Project Snapshot",
   "type": "object",
   "additionalProperties": false,
@@ -16,7 +16,7 @@
     "drift"
   ],
   "properties": {
-    "schema_version": {"type": "integer", "const": 5},
+    "schema_version": {"type": "integer", "const": 6},
     "generator_version": {"type": "string", "minLength": 1},
     "generated_at_utc": {"type": "string", "minLength": 1},
     "project_root": {"type": "string", "const": "."},
@@ -30,7 +30,7 @@
         "sha256": {"type": "string", "pattern": "^$|^[0-9a-f]{64}$"},
         "issue_count": {"type": "integer", "minimum": 0},
         "schema_version": {"type": "integer", "minimum": 0},
-        "current_schema_version": {"type": "integer", "const": 2},
+        "current_schema_version": {"type": "integer", "const": 3},
         "migration_required": {"type": "boolean"},
         "migration_available": {"type": "boolean"}
       }
@@ -166,6 +166,18 @@
             "owned_resource_reference_count",
             "owned_resource_references_truncated",
             "owned_resource_references",
+            "declared_path_role_count",
+            "partial_path_role_count",
+            "path_roles",
+            "path_role_reference_count",
+            "path_role_references_truncated",
+            "path_role_references",
+            "path_role_dependency_violation_count",
+            "path_role_dependency_violations_truncated",
+            "path_role_dependency_violations",
+            "advisory_reference_count",
+            "advisory_references_truncated",
+            "advisory_references",
             "unowned_reference_count",
             "unowned_references_truncated",
             "unowned_references",
@@ -179,7 +191,7 @@
           "properties": {
             "status": {
               "type": "string",
-              "enum": ["not_configured", "contract_invalid", "complete", "incomplete", "truncated"]
+              "enum": ["not_configured", "contract_invalid", "complete", "partial"]
             },
             "complete": {"type": "boolean"},
             "truncated": {"type": "boolean"},
@@ -223,6 +235,87 @@
                 "properties": {
                   "source_path": {"type": "string", "pattern": "^res://.+$"},
                   "target_path": {"type": "string", "pattern": "^res://.+$"},
+                  "line": {"type": "integer", "minimum": 1}
+                }
+              }
+            },
+            "declared_path_role_count": {"type": "integer", "minimum": 0, "maximum": 100},
+            "partial_path_role_count": {"type": "integer", "minimum": 0, "maximum": 100},
+            "path_roles": {
+              "type": "array",
+              "maxItems": 100,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["path", "role", "status", "exists", "covered_modules"],
+                "properties": {
+                  "path": {"type": "string", "pattern": "^res://.+$"},
+                  "role": {"type": "string", "enum": ["scan_root", "test_fixture", "optional_input"]},
+                  "status": {"type": "string", "enum": ["complete", "partial"]},
+                  "exists": {"type": "boolean"},
+                  "covered_modules": {
+                    "type": "array",
+                    "maxItems": 160,
+                    "uniqueItems": true,
+                    "description": "Sorted owner ids from the shared declared Module and Adapter dependency namespace covered by this role.",
+                    "items": {"type": "string", "pattern": "^[a-z][a-z0-9_-]*$"}
+                  }
+                }
+              }
+            },
+            "path_role_reference_count": {"type": "integer", "minimum": 0},
+            "path_role_references_truncated": {"type": "boolean"},
+            "path_role_references": {
+              "type": "array",
+              "maxItems": 100,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["source_path", "target_path", "source_domain", "role", "line"],
+                "properties": {
+                  "source_path": {"type": "string", "pattern": "^res://.+$"},
+                  "target_path": {"type": "string", "pattern": "^res://.+$"},
+                  "source_domain": {"type": "string", "enum": ["project", "test"]},
+                  "role": {"type": "string", "enum": ["scan_root", "test_fixture", "optional_input"]},
+                  "line": {"type": "integer", "minimum": 1}
+                }
+              }
+            },
+            "path_role_dependency_violation_count": {"type": "integer", "minimum": 0},
+            "path_role_dependency_violations_truncated": {"type": "boolean"},
+            "path_role_dependency_violations": {
+              "type": "array",
+              "maxItems": 100,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["source_path", "source_module", "target_path", "target_module", "line"],
+                "properties": {
+                  "source_path": {"type": "string", "pattern": "^res://.+$"},
+                  "source_module": {"type": "string", "pattern": "^[a-z][a-z0-9_-]*$"},
+                  "target_path": {"type": "string", "pattern": "^res://.+$"},
+                  "target_module": {
+                    "type": "string",
+                    "pattern": "^[a-z][a-z0-9_-]*$",
+                    "description": "Covered Module or Adapter owner id retained under the compatibility field name."
+                  },
+                  "line": {"type": "integer", "minimum": 1}
+                }
+              }
+            },
+            "advisory_reference_count": {"type": "integer", "minimum": 0},
+            "advisory_references_truncated": {"type": "boolean"},
+            "advisory_references": {
+              "type": "array",
+              "maxItems": 100,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["source_path", "target_path", "source_domain", "line"],
+                "properties": {
+                  "source_path": {"type": "string", "pattern": "^res://.+$"},
+                  "target_path": {"type": "string", "pattern": "^res://.+$"},
+                  "source_domain": {"type": "string", "enum": ["project", "test"]},
                   "line": {"type": "integer", "minimum": 1}
                 }
               }
@@ -291,8 +384,8 @@
                     "type": "array",
                     "minItems": 1,
                     "uniqueItems": true,
-                    "description": "Observed reference mechanisms. generated_output identifies a resource-path literal owned by a target-only generated module.",
-                    "items": {"type": "string", "enum": ["class_name", "resource_path", "generated_output"]}
+                    "description": "Observed reference mechanisms. shader_include identifies an exact shader preprocessor include; generated_output identifies a resource-path literal owned by a target-only generated module.",
+                    "items": {"type": "string", "enum": ["class_name", "resource_load", "resource_field", "shader_include", "generated_output"]}
                   },
                   "evidence_truncated": {"type": "boolean"},
                   "evidence": {
@@ -309,7 +402,7 @@
                         "kind": {
                           "type": "string",
                           "description": "Reference mechanism for this bounded evidence item.",
-                          "enum": ["class_name", "resource_path", "generated_output"]
+                          "enum": ["class_name", "resource_load", "resource_field", "shader_include", "generated_output"]
                         },
                         "symbol": {"type": "string", "minLength": 1},
                         "line": {"type": "integer", "minimum": 1}

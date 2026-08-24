@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://gf-framework.dev/schemas/project-contract-v2.json",
+  "$id": "https://gf-framework.dev/schemas/project-contract-v3.json",
   "title": "GF Project Intent Contract",
   "type": "object",
   "additionalProperties": false,
@@ -18,7 +18,7 @@
   "properties": {
     "schema_version": {
       "type": "integer",
-      "const": 2
+      "const": 3
     },
     "project": {
       "type": "object",
@@ -185,7 +185,7 @@
     "architecture": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["modules", "global_rules", "project_profile_path"],
+      "required": ["modules", "path_roles", "global_rules", "project_profile_path"],
       "properties": {
         "modules": {
           "type": "array",
@@ -256,6 +256,28 @@
             "type": "string",
             "maxLength": 240,
             "pattern": "^res://(?!addons/gf(?:/|$))[^\\u0000-\\u001F\\u007F\\\\]+$"
+          }
+        },
+        "path_roles": {
+          "type": "array",
+          "maxItems": 100,
+          "uniqueItems": true,
+          "description": "Closed project path roles used by dependency analysis without weakening high-confidence resource evidence.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["path", "role"],
+            "properties": {
+              "path": {
+                "type": "string",
+                "maxLength": 240,
+                "pattern": "^res://[^\\u0000-\\u001F\\u007F\\\\]+$"
+              },
+              "role": {
+                "type": "string",
+                "enum": ["scan_root", "test_fixture", "optional_input"]
+              }
+            }
           }
         },
         "global_rules": {
