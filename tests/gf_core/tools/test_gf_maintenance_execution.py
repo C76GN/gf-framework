@@ -4260,7 +4260,7 @@ class GutShardPlanIntegrationTests(unittest.TestCase):
 			cwd_godot.write_bytes(b"fixture")
 
 			resolved = gf_maintenance.resolve_godot_executable(
-				environment={"PATH": "", "PATHEXT": ".EXE"},
+				environment={"PATH": "", "PATHEXT": ".exe"},
 				platform_name="nt",
 				cwd=root,
 			)
