@@ -114,7 +114,15 @@ def _find_executable(
 			cwd if not entry else _absolute_search_root(Path(entry), cwd)
 			for entry in path_value.split(os.pathsep)
 		] if path_value else []
-		search_roots = [cwd, *path_roots] if platform_name == "nt" else path_roots
+		windows_cwd_lookup_enabled = not _environment_has_nonempty_value_case_insensitive(
+			environment,
+			"NoDefaultCurrentDirectoryInExePath",
+		)
+		search_roots = (
+			[cwd, *path_roots]
+			if platform_name == "nt" and windows_cwd_lookup_enabled
+			else path_roots
+		)
 	file_names = _executable_file_names(
 		candidate_path.name,
 		environment=environment,
@@ -130,6 +138,18 @@ def _find_executable(
 				continue
 			return path
 	return None
+
+
+def _environment_has_nonempty_value_case_insensitive(
+	environment: Mapping[str, str],
+	key: str,
+) -> bool:
+	"""Match one non-empty Windows environment value without ambient state."""
+	key_folded = key.casefold()
+	return any(
+		name.casefold() == key_folded and value != ""
+		for name, value in environment.items()
+	)
 
 
 def _absolute_search_root(path: Path, cwd: Path) -> Path:

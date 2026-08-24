@@ -4267,6 +4267,60 @@ class GutShardPlanIntegrationTests(unittest.TestCase):
 
 		self.assertEqual(resolved, str(cwd_godot.resolve()))
 
+	def test_windows_godot_resolver_honors_cwd_lookup_suppression(self) -> None:
+		for suppression_key, suppression_value in (
+			("NoDefaultCurrentDirectoryInExePath", "1"),
+			("nodefaultcurrentdirectoryinexepath", "0"),
+		):
+			with (
+				self.subTest(
+					suppression_key=suppression_key,
+					suppression_value=suppression_value,
+				),
+				tempfile.TemporaryDirectory() as temporary_directory,
+			):
+				root = Path(temporary_directory)
+				path_bin = root / "path-bin"
+				path_bin.mkdir()
+				cwd_godot = root / "godot.exe"
+				path_godot = path_bin / "godot.exe"
+				cwd_godot.write_bytes(b"workspace fixture")
+				path_godot.write_bytes(b"path fixture")
+
+				resolved = gf_maintenance.resolve_godot_executable(
+					environment={
+						"PATH": str(path_bin),
+						"PATHEXT": ".exe",
+						suppression_key: suppression_value,
+					},
+					platform_name="nt",
+					cwd=root,
+				)
+
+			self.assertEqual(resolved, str(path_godot.resolve()))
+
+	def test_windows_godot_resolver_empty_cwd_lookup_suppression_keeps_cwd(self) -> None:
+		with tempfile.TemporaryDirectory() as temporary_directory:
+			root = Path(temporary_directory)
+			path_bin = root / "path-bin"
+			path_bin.mkdir()
+			cwd_godot = root / "godot.exe"
+			path_godot = path_bin / "godot.exe"
+			cwd_godot.write_bytes(b"workspace fixture")
+			path_godot.write_bytes(b"path fixture")
+
+			resolved = gf_maintenance.resolve_godot_executable(
+				environment={
+					"PATH": str(path_bin),
+					"PATHEXT": ".exe",
+					"NoDefaultCurrentDirectoryInExePath": "",
+				},
+				platform_name="nt",
+				cwd=root,
+			)
+
+		self.assertEqual(resolved, str(cwd_godot.resolve()))
+
 	def test_godot_resolver_does_not_fallback_from_configured_relative_path(self) -> None:
 		with tempfile.TemporaryDirectory() as temporary_directory:
 			root = Path(temporary_directory)
