@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFBinder" path="addons/gf/kernel/core/gf_binder.gd" module="kernel" extends="RefCounted" classDigest="52eca989825d3cfe7ca6c05e7cee25a836df50fc1aab9fa0b8f92cec60331cc0">
+<class name="GFBinder" path="addons/gf/kernel/core/gf_binder.gd" module="kernel" extends="RefCounted" classDigest="c8d09e950dbbcbc6dbdd3cc41c28b13ec01dceed536a2ee007514fd7fa6eb221">
 	<description>GFBinder: 面向 Installer 的声明式装配入口。</description>
 	<tags>
 		<tag name="api">public</tag>
@@ -11,6 +11,17 @@
 	<constants />
 	<properties />
 	<methods>
+		<member kind="method" name="create_required_plan">
+			<signature>func create_required_plan() -&gt; GFBindingPlan:</signature>
+			<description>创建一个绑定到当前候选 Architecture 的 required binding plan。
+Plan 只接纳显式 require_*() entry，并在首个失败时停止后续绑定、冻结类型化
+结果并使候选初始化失败。READY 架构继续使用既有热拓扑 API，不由 Plan 修改。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">绑定到当前 Architecture 的新 GFBindingPlan。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
 		<member kind="method" name="bind_model">
 			<signature>func bind_model(script_cls: Script) -&gt; GFBindBuilder:</signature>
 			<description>声明一个 Model 绑定。</description>

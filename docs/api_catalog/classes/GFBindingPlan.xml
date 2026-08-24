@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFBindingPlan" path="addons/gf/kernel/core/gf_binding_plan.gd" module="kernel" extends="RefCounted" classDigest="e00c920b3547cdba57cad6b81028a3e2896d8008a431a325b53297b1f6acc08e">
+	<description>GFBindingPlan: Installer 使用的显式、顺序、fail-fast required binding 计划。
+声明时冻结每个 Builder 的配置；execute() 仅接纳尚未进入 init/READY 的候选
+Architecture。首个失败会冻结类型化结果、使候选初始化失败并结算 Installer
+scope；成功不会替调用方 complete scope。READY 架构继续使用既有热拓扑 API，
+不由本计划修改。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">protocol</tag>
+		<tag name="since">unreleased</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties />
+	<methods>
+		<member kind="method" name="require_singleton">
+			<signature>func require_singleton( binding_id: StringName, builder: GFBindBuilder ) -&gt; GFBindingPlan:</signature>
+			<description>追加一个 required singleton entry，并立即冻结 Builder 配置。
+Plan 开始执行后调用保持 no-op；不会修改已经冻结的 entry。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">binding_id: 调用方定义的非空稳定 ID；同一 Plan 内必须唯一，最长 128 字符。</tag>
+				<tag name="param">builder: 由创建本 Plan 的同一 GFBinder 架构生成的 Builder。</tag>
+				<tag name="return">当前 Plan，便于继续声明 entry。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="require_transient">
+			<signature>func require_transient( binding_id: StringName, builder: GFBindBuilder ) -&gt; GFBindingPlan:</signature>
+			<description>追加一个 required transient factory entry，并立即冻结 Builder 配置。
+只有 bind_factory() 的 SELF 或 from_factory() 来源支持 transient。
+Plan 开始执行后调用保持 no-op；不会修改已经冻结的 entry。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">binding_id: 调用方定义的非空稳定 ID；同一 Plan 内必须唯一，最长 128 字符。</tag>
+				<tag name="param">builder: 由创建本 Plan 的同一 GFBinder 架构生成的 Builder。</tag>
+				<tag name="return">当前 Plan，便于继续声明 entry。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="execute">
+			<signature>func execute(scope: GFAsyncScope) -&gt; GFBindingPlanResult:</signature>
+			<description>按声明顺序执行 required entry，并在首个失败处停止。
+仅接纳 pre-init candidate Architecture；READY 架构不会被 claim、失败或修改。
+Plan 是 strict single-execute handle：执行中重入或结算后 replay 均返回
+ALREADY_EXECUTED，且不会触碰重入调用的新 scope 或 Architecture。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">scope: 当前 Installer 拥有的异步取消作用域；成功时仍由调用方拥有。</tag>
+				<tag name="return">精确 GFBindingPlanResult 终态。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

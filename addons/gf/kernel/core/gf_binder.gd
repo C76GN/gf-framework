@@ -15,6 +15,7 @@ extends RefCounted
 ## [br]
 ## @api framework_internal
 const GFBindBuilderBase = preload("res://addons/gf/kernel/core/gf_bind_builder.gd")
+const _GF_BINDING_PLAN_SCRIPT = preload("res://addons/gf/kernel/core/gf_binding_plan.gd")
 
 
 # --- 私有变量 ---
@@ -29,6 +30,19 @@ func _init(architecture: GFArchitecture) -> void:
 
 
 # --- 公共方法 ---
+
+## 创建一个绑定到当前候选 Architecture 的 required binding plan。
+## Plan 只接纳显式 require_*() entry，并在首个失败时停止后续绑定、冻结类型化
+## 结果并使候选初始化失败。READY 架构继续使用既有热拓扑 API，不由 Plan 修改。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @return 绑定到当前 Architecture 的新 GFBindingPlan。
+func create_required_plan() -> GFBindingPlan:
+	return _GF_BINDING_PLAN_SCRIPT.new(_architecture)
+
 
 ## 声明一个 Model 绑定。
 ## [br]

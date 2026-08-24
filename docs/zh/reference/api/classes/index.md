@@ -6,7 +6,7 @@
 
 | 模块 | 类 | 成员 | 页面内索引 |
 |---|---:|---:|---|
-| Kernel | 75 | 1107 | [Kernel](#module-kernel) |
+| Kernel | 77 | 1128 | [Kernel](#module-kernel) |
 | Standard | 476 | 7568 | [Standard](#module-standard) |
 | Action Queue | 16 | 214 | [Action Queue](#module-extensions-action_queue) |
 | Asset Metadata | 4 | 33 | [Asset Metadata](#module-extensions-asset_metadata) |
@@ -53,7 +53,8 @@
 | [`GFTypeEventSystem`](GFTypeEventSystem.md#gftypeeventsystem) | 运行时服务 (`runtime_service`) | `Object` | 28 | `addons/gf/kernel/core/gf_type_event_system.gd` |
 | [`GFBindBuilder`](GFBindBuilder.md#gfbindbuilder) | 协议与扩展点 (`protocol`) | `RefCounted` | 5 | `addons/gf/kernel/core/gf_bind_builder.gd` |
 | [`GFBindableProperty`](GFBindableProperty.md#gfbindableproperty) | 协议与扩展点 (`protocol`) | `RefCounted` | 22 | `addons/gf/kernel/core/gf_bindable_property.gd` |
-| [`GFBinder`](GFBinder.md#gfbinder) | 协议与扩展点 (`protocol`) | `RefCounted` | 4 | `addons/gf/kernel/core/gf_binder.gd` |
+| [`GFBinder`](GFBinder.md#gfbinder) | 协议与扩展点 (`protocol`) | `RefCounted` | 5 | `addons/gf/kernel/core/gf_binder.gd` |
+| [`GFBindingPlan`](GFBindingPlan.md#gfbindingplan) | 协议与扩展点 (`protocol`) | `RefCounted` | 3 | `addons/gf/kernel/core/gf_binding_plan.gd` |
 | [`GFClock`](GFClock.md#gfclock) | 协议与扩展点 (`protocol`) | `RefCounted` | 4 | `addons/gf/kernel/base/gf_clock.gd` |
 | [`GFCommand`](GFCommand.md#gfcommand) | 协议与扩展点 (`protocol`) | `Object` | 8 | `addons/gf/kernel/base/gf_command.gd` |
 | [`GFComputedProperty`](GFComputedProperty.md#gfcomputedproperty) | 协议与扩展点 (`protocol`) | `GFBindableProperty` | 14 | `addons/gf/kernel/core/gf_computed_property.gd` |
@@ -83,6 +84,7 @@
 | [`GFWeakMethodInvocation`](GFWeakMethodInvocation.md#gfweakmethodinvocation) | 运行时句柄 (`runtime_handle`) | `RefCounted` | 6 | `addons/gf/kernel/core/gf_weak_method_invocation.gd` |
 | [`GFArchitectureShutdownResult`](GFArchitectureShutdownResult.md#gfarchitectureshutdownresult) | 值对象 (`value_object`) | `RefCounted` | 22 | `addons/gf/kernel/core/gf_architecture_shutdown_result.gd` |
 | [`GFBindingLifetimes`](GFBindingLifetimes.md#gfbindinglifetimes) | 值对象 (`value_object`) | `RefCounted` | 1 | `addons/gf/kernel/core/gf_binding_lifetimes.gd` |
+| [`GFBindingPlanResult`](GFBindingPlanResult.md#gfbindingplanresult) | 值对象 (`value_object`) | `RefCounted` | 17 | `addons/gf/kernel/core/gf_binding_plan_result.gd` |
 | [`GFEventListener`](GFEventListener.md#gfeventlistener) | 事件契约 (`event_contract`) | `RefCounted` | 10 | `addons/gf/kernel/core/gf_event_listener.gd` |
 | [`GFAccessGenerator`](GFAccessGenerator.md#gfaccessgenerator) | 编辑器 API (`editor_api`) | `RefCounted` | 16 | `addons/gf/kernel/editor/gf_access_generator.gd` |
 | [`GFBakeDependencyReport`](GFBakeDependencyReport.md#gfbakedependencyreport) | 编辑器 API (`editor_api`) | `RefCounted` | 21 | `addons/gf/kernel/editor/gf_bake_dependency_report.gd` |

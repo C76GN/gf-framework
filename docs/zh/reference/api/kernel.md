@@ -13,10 +13,10 @@
 | 类别 | 类 | 成员 | 方法 |
 |---|---:|---:|---:|
 | [运行时服务](#category-runtime_service) | 15 | 312 | 241 |
-| [协议与扩展点](#category-protocol) | 19 | 213 | 188 |
+| [协议与扩展点](#category-protocol) | 20 | 217 | 192 |
 | [资源定义](#category-resource_definition) | 2 | 38 | 15 |
 | [运行时句柄](#category-runtime_handle) | 9 | 86 | 70 |
-| [值对象](#category-value_object) | 2 | 23 | 21 |
+| [值对象](#category-value_object) | 3 | 40 | 34 |
 | [事件契约](#category-event_contract) | 1 | 10 | 10 |
 | [编辑器 API](#category-editor_api) | 26 | 403 | 248 |
 | [工具 API](#category-tool_api) | 1 | 22 | 8 |
@@ -54,6 +54,7 @@
 | [`GFBindBuilder`](classes/GFBindBuilder.md#gfbindbuilder) | `RefCounted` | `addons/gf/kernel/core/gf_bind_builder.gd` |
 | [`GFBindableProperty`](classes/GFBindableProperty.md#gfbindableproperty) | `RefCounted` | `addons/gf/kernel/core/gf_bindable_property.gd` |
 | [`GFBinder`](classes/GFBinder.md#gfbinder) | `RefCounted` | `addons/gf/kernel/core/gf_binder.gd` |
+| [`GFBindingPlan`](classes/GFBindingPlan.md#gfbindingplan) | `RefCounted` | `addons/gf/kernel/core/gf_binding_plan.gd` |
 | [`GFClock`](classes/GFClock.md#gfclock) | `RefCounted` | `addons/gf/kernel/base/gf_clock.gd` |
 | [`GFCommand`](classes/GFCommand.md#gfcommand) | `Object` | `addons/gf/kernel/base/gf_command.gd` |
 | [`GFComputedProperty`](classes/GFComputedProperty.md#gfcomputedproperty) | `GFBindableProperty` | `addons/gf/kernel/core/gf_computed_property.gd` |
@@ -104,6 +105,7 @@
 |---|---|---|
 | [`GFArchitectureShutdownResult`](classes/GFArchitectureShutdownResult.md#gfarchitectureshutdownresult) | `RefCounted` | `addons/gf/kernel/core/gf_architecture_shutdown_result.gd` |
 | [`GFBindingLifetimes`](classes/GFBindingLifetimes.md#gfbindinglifetimes) | `RefCounted` | `addons/gf/kernel/core/gf_binding_lifetimes.gd` |
+| [`GFBindingPlanResult`](classes/GFBindingPlanResult.md#gfbindingplanresult) | `RefCounted` | `addons/gf/kernel/core/gf_binding_plan_result.gd` |
 
 <a id="category-event_contract"></a>
 

@@ -31,6 +31,8 @@ func install_bindings(binder: Variant, _scope: GFAsyncScope) -> void:
 
 `from_instance()` 适合把项目已经持有的对象暴露为单例语义。如果工厂需要每次创建新对象，使用 `from_factory(...).as_transient()`。`from_instance().as_transient()` 会被拒绝，避免已有实例被误当成短生命周期对象。
 
+多项绑定都属于启动硬要求时，使用 opt-in 的 `GFBinder.create_required_plan()` 统一执行、首失败诊断和 scope 结算；既有 `.as_singleton()` / `.as_transient()` 的 `bool` 返回与可选绑定语义保持不变，不会被框架自动转换为 required。Plan 的 pre-init-only、单次执行、结果字段、Callable 与 `from_instance()` ownership 边界见[声明式装配与工厂](../../architecture/assembly-diagnostics/binder-factories.md)。
+
 ## 路径与等待边界
 
 然后在 `Project Settings > gf/project/installers` 中加入安装器脚本资源。编辑器可能保存 `res://`，也可能保存稳定 `uid://`；运行时会把可解析 UID 规范化为真实 `res://` 脚本路径。之后 `await Gf.init()` 会按数组顺序逐个执行 Installer：每个 Installer 先执行 `install(architecture, scope)`，再执行 `install_bindings(binder, scope)`。所有 Installer 完成后，架构冻结注册快照、编译依赖 DAG，再依次执行 `init()`、`async_init()`、`ready()`、`begin_activation()` 四阶段。

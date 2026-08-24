@@ -5,17 +5,17 @@
 ## 范围
 
 - 源码根目录：`addons/gf`
-- 公开类：`849`
+- 公开类：`851`
 - 公开 AutoLoad：`1`
-- 公开成员：`12550`
-- 公开方法：`7724`
+- 公开成员：`12571`
+- 公开方法：`7741`
 - AutoLoad 公开方法：`65`
 
 ## 模块
 
 | 模块 | 类 | AutoLoad | 成员 | 方法 | 页面 |
 |---|---:|---:|---:|---:|---|
-| Kernel | 75 | 1 | 1176 | 866 | [kernel.md](kernel.md) |
+| Kernel | 77 | 1 | 1197 | 883 | [kernel.md](kernel.md) |
 | Standard | 476 | 0 | 7568 | 4801 | [standard.md](standard.md) |
 | Action Queue | 16 | 0 | 214 | 136 | [extensions-action-queue.md](extensions-action-queue.md) |
 | Asset Metadata | 4 | 0 | 33 | 24 | [extensions-asset-metadata.md](extensions-asset-metadata.md) |
