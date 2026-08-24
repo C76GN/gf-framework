@@ -23,6 +23,11 @@ if str(TOOLS_ROOT) not in sys.path:
 	sys.path.insert(0, str(TOOLS_ROOT))
 
 import gf_validation_inputs as inputs
+from gf_process_authority import FrozenGitProcess
+from gf_process_authority import FrozenProcessEnvironment
+from gf_process_authority import freeze_git_process
+from gf_process_supervisor import SupervisedBinaryProcessResult
+from gf_process_supervisor import SupervisedProcessCleanupError
 
 
 def _write(path: Path, content: str) -> None:
@@ -94,6 +99,13 @@ def _run_git(root: Path, *arguments: str) -> str:
 	if completed.returncode != 0:
 		raise AssertionError(completed.stderr)
 	return completed.stdout.strip()
+
+
+def _frozen_git_process(root: Path) -> FrozenGitProcess:
+	return freeze_git_process(
+		FrozenProcessEnvironment.capture(dict(os.environ)),
+		cwd=root,
+	)
 
 
 def _make_git_repository(parent: Path) -> Path:
@@ -739,7 +751,10 @@ class FrozenActionInputTests(unittest.TestCase):
 			try:
 				with mock.patch.object(inputs, "_run_git", side_effect=replacing_run_git):
 					with self.assertRaises(inputs.ValidationInputDriftError):
-						inputs.changed_paths_since(root)
+						inputs.changed_paths_since(
+							root,
+							git_process=_frozen_git_process(root),
+						)
 			finally:
 				if moved_workspace.exists() and os.path.lexists(workspace):
 					_remove_directory_link(workspace)
@@ -802,7 +817,279 @@ class FrozenActionInputTests(unittest.TestCase):
 				inputs.FrozenActionInputs.from_dict(invalid_complete)
 
 
+class AffectedGitAuthorityTests(unittest.TestCase):
+	def test_public_git_readers_require_explicit_authority(self) -> None:
+		with self.assertRaises(TypeError):
+			inputs.changed_paths_since(ROOT)  # type: ignore[call-arg]
+		with self.assertRaises(TypeError):
+			inputs.analyze_affected_checks(  # type: ignore[call-arg]
+				ROOT,
+				["public_docs_boundary"],
+			)
+
+	def test_git_dispatch_uses_absolute_identity_and_frozen_environment(self) -> None:
+		with tempfile.TemporaryDirectory() as temporary_directory:
+			root = Path(temporary_directory).resolve()
+			frozen_values = dict(os.environ)
+			frozen_values["GF_VALIDATION_INPUTS_AUTHORITY"] = "frozen"
+			git_process = freeze_git_process(
+				FrozenProcessEnvironment.capture(frozen_values),
+				cwd=root,
+			)
+			completed = SupervisedBinaryProcessResult(
+				return_code=0,
+				stdout=b"fixture\0",
+				stderr=b"",
+				timed_out=False,
+				duration_seconds=0.01,
+				pid=123,
+				cleanup_complete=True,
+			)
+			with (
+				mock.patch.dict(
+					os.environ,
+					{
+						"PATH": os.fspath(root / "ambient-path"),
+						"GF_VALIDATION_INPUTS_AUTHORITY": "ambient",
+					},
+					clear=True,
+				),
+				mock.patch.object(
+					inputs,
+					"run_supervised_process_bytes",
+					return_value=completed,
+				) as supervised,
+				mock.patch.object(
+					inputs,
+					"require_supervised_binary_quiet_boundary",
+					wraps=inputs.require_supervised_binary_quiet_boundary,
+				) as quiet_boundary,
+			):
+				output = inputs._run_git(
+					root,
+					["status", "--porcelain=v1", "-z"],
+					git_process=git_process,
+					limits=inputs.DEFAULT_INPUT_CAPTURE_LIMITS,
+					deadline=inputs._Deadline(None, lambda: 0.0),
+				)
+
+		self.assertEqual(output, b"fixture\0")
+		command = supervised.call_args.args[0]
+		self.assertEqual(
+			command,
+			list(git_process.command(["status", "--porcelain=v1", "-z"]).effective),
+		)
+		self.assertTrue(Path(command[0]).is_absolute())
+		dispatched_environment = supervised.call_args.kwargs["environment"]
+		self.assertEqual(dispatched_environment, git_process.environment.values())
+		self.assertEqual(
+			dispatched_environment["GF_VALIDATION_INPUTS_AUTHORITY"],
+			"frozen",
+		)
+		self.assertEqual(supervised.call_args.kwargs["cwd"], root)
+		self.assertEqual(
+			supervised.call_args.kwargs["deadline"],
+			quiet_boundary.call_args.kwargs["deadline"],
+		)
+		self.assertEqual(
+			supervised.call_args.kwargs["max_stdout_bytes"],
+			inputs.DEFAULT_INPUT_CAPTURE_LIMITS.max_git_output_bytes + 1,
+		)
+
+	def test_git_dispatch_rejects_unproved_process_boundary(self) -> None:
+		with tempfile.TemporaryDirectory() as temporary_directory:
+			root = Path(temporary_directory).resolve()
+			git_process = _frozen_git_process(root)
+			completed = SupervisedBinaryProcessResult(
+				return_code=0,
+				stdout=b"",
+				stderr=b"",
+				timed_out=False,
+				duration_seconds=0.01,
+				pid=123,
+				notes=("fixture cleanup note",),
+				cleanup_complete=False,
+			)
+			with mock.patch.object(
+				inputs,
+				"run_supervised_process_bytes",
+				return_value=completed,
+			):
+				with self.assertRaises(SupervisedProcessCleanupError) as raised:
+					inputs._run_git(
+						root,
+						["status", "--porcelain=v1"],
+						git_process=git_process,
+						limits=inputs.DEFAULT_INPUT_CAPTURE_LIMITS,
+						deadline=inputs._Deadline(None, lambda: 0.0),
+					)
+		self.assertTrue(raised.exception.cleanup_debt)
+		self.assertFalse(raised.exception.process_boundary_quiescent)
+		self.assertEqual(raised.exception.pid, 123)
+		self.assertEqual(raised.exception.notes, ("fixture cleanup note",))
+
+	def test_git_deadline_mapping_samples_supervisor_clock_before_remaining_budget(
+		self,
+	) -> None:
+		with tempfile.TemporaryDirectory() as temporary_directory:
+			root = Path(temporary_directory).resolve()
+			git_process = _frozen_git_process(root)
+			completed = SupervisedBinaryProcessResult(
+				return_code=0,
+				stdout=b"fixture\0",
+				stderr=b"",
+				timed_out=False,
+				duration_seconds=0.01,
+				pid=123,
+				cleanup_complete=True,
+			)
+			events: list[str] = []
+			advisory_values = iter((100.0, 103.0, 106.0, 107.0))
+			supervisor_values = iter((101.0, 104.0, 105.0))
+
+			def advisory_clock() -> float:
+				events.append("advisory")
+				return next(advisory_values)
+
+			def supervisor_clock() -> float:
+				events.append("supervisor")
+				return next(supervisor_values)
+
+			with mock.patch.object(
+				inputs.time,
+				"perf_counter",
+				side_effect=supervisor_clock,
+			), mock.patch.object(
+				inputs,
+				"run_supervised_process_bytes",
+				return_value=completed,
+			) as supervised, mock.patch.object(
+				inputs,
+				"require_supervised_binary_quiet_boundary",
+				wraps=inputs.require_supervised_binary_quiet_boundary,
+			) as quiet_boundary:
+				output = inputs._run_git(
+					root,
+					["status", "--porcelain=v1", "-z"],
+					git_process=git_process,
+					limits=inputs.DEFAULT_INPUT_CAPTURE_LIMITS,
+					deadline=inputs._Deadline(110.0, advisory_clock),
+				)
+
+		self.assertEqual(output, b"fixture\0")
+		self.assertEqual(
+			events,
+			[
+				"advisory",
+				"supervisor",
+				"advisory",
+				"supervisor",
+				"supervisor",
+				"advisory",
+				"advisory",
+			],
+		)
+		self.assertEqual(supervised.call_count, 1)
+		self.assertEqual(quiet_boundary.call_count, 1)
+		self.assertEqual(supervised.call_args.kwargs["timeout_seconds"], 7.0)
+		self.assertEqual(supervised.call_args.kwargs["deadline"], 108.0)
+		self.assertEqual(quiet_boundary.call_args.kwargs["deadline"], 108.0)
+
+	def test_git_dispatch_preserves_cleanup_debt_exception_identity(self) -> None:
+		with tempfile.TemporaryDirectory() as temporary_directory:
+			root = Path(temporary_directory).resolve()
+			git_process = _frozen_git_process(root)
+			debt = SupervisedProcessCleanupError(
+				"fixture Git cleanup debt",
+				pid=123,
+				process_tree_empty=False,
+			)
+			with mock.patch.object(
+				inputs,
+				"run_supervised_process_bytes",
+				side_effect=debt,
+			):
+				with self.assertRaises(SupervisedProcessCleanupError) as raised:
+					inputs._run_git(
+						root,
+						["status", "--porcelain=v1"],
+						git_process=git_process,
+						limits=inputs.DEFAULT_INPUT_CAPTURE_LIMITS,
+						deadline=inputs._Deadline(None, lambda: 0.0),
+					)
+
+		self.assertIs(raised.exception, debt)
+		self.assertTrue(raised.exception.cleanup_debt)
+		self.assertFalse(raised.exception.process_boundary_quiescent)
+
+	def test_git_quiet_acceptance_reuses_absolute_deadline_and_rejects_late_result(
+		self,
+	) -> None:
+		with tempfile.TemporaryDirectory() as temporary_directory:
+			root = Path(temporary_directory).resolve()
+			git_process = _frozen_git_process(root)
+			completed = SupervisedBinaryProcessResult(
+				return_code=0,
+				stdout=b"",
+				stderr=b"",
+				timed_out=False,
+				duration_seconds=0.01,
+				pid=123,
+				cleanup_complete=True,
+			)
+			with mock.patch.object(
+				inputs.time,
+				"perf_counter",
+				side_effect=(100.0, 131.0),
+			), mock.patch.object(
+				inputs,
+				"run_supervised_process_bytes",
+				return_value=completed,
+			) as supervised, mock.patch.object(
+				inputs,
+				"require_supervised_binary_quiet_boundary",
+				wraps=inputs.require_supervised_binary_quiet_boundary,
+			) as quiet_boundary, self.assertRaises(
+				inputs.ValidationInputDeadlineError
+			):
+				inputs._run_git(
+					root,
+					["status", "--porcelain=v1"],
+					git_process=git_process,
+					limits=inputs.DEFAULT_INPUT_CAPTURE_LIMITS,
+					deadline=inputs._Deadline(None, lambda: 0.0),
+				)
+
+		self.assertEqual(
+			supervised.call_args.kwargs["deadline"],
+			quiet_boundary.call_args.kwargs["deadline"],
+		)
+
+
 class AffectedAnalysisTests(unittest.TestCase):
+	def test_cleanup_debt_escapes_fallback_unchanged(self) -> None:
+		debt = SupervisedProcessCleanupError(
+			"fixture affected-analysis cleanup debt",
+			pid=456,
+			process_tree_empty=False,
+		)
+		with mock.patch.object(
+			inputs,
+			"changed_paths_since",
+			side_effect=debt,
+		):
+			with self.assertRaises(SupervisedProcessCleanupError) as raised:
+				inputs.analyze_affected_checks(
+					ROOT,
+					["public_docs_boundary"],
+					git_process=_frozen_git_process(ROOT),
+					input_specs=[_input_spec()],
+				)
+
+		self.assertIs(raised.exception, debt)
+		self.assertTrue(raised.exception.cleanup_debt)
+		self.assertFalse(raised.exception.process_boundary_quiescent)
+
 	def test_default_catalog_change_affects_all_declared_candidates(self) -> None:
 		with tempfile.TemporaryDirectory() as temporary_directory:
 			root = _make_default_catalog_git_repository(Path(temporary_directory))
@@ -816,6 +1103,7 @@ class AffectedAnalysisTests(unittest.TestCase):
 				check_names,
 				"HEAD",
 				True,
+				git_process=_frozen_git_process(root),
 			)
 
 		self.assertTrue(report["report_ok"])
@@ -844,6 +1132,7 @@ class AffectedAnalysisTests(unittest.TestCase):
 				check_names,
 				"HEAD",
 				True,
+				git_process=_frozen_git_process(root),
 			)
 
 			self.assertTrue(report["report_ok"])
@@ -872,6 +1161,7 @@ class AffectedAnalysisTests(unittest.TestCase):
 				check_names,
 				"HEAD",
 				True,
+				git_process=_frozen_git_process(root),
 			)
 
 			self.assertTrue(report["report_ok"])
@@ -908,6 +1198,7 @@ class AffectedAnalysisTests(unittest.TestCase):
 				check_names,
 				"HEAD",
 				True,
+				git_process=_frozen_git_process(root),
 			)
 
 			self.assertTrue(report["report_ok"])
@@ -941,6 +1232,7 @@ class AffectedAnalysisTests(unittest.TestCase):
 				["public_docs_boundary"],
 				"HEAD",
 				True,
+				git_process=_frozen_git_process(root),
 				input_specs=[_input_spec()],
 			)
 
@@ -971,6 +1263,7 @@ class AffectedAnalysisTests(unittest.TestCase):
 			report = inputs.analyze_affected_checks(
 				root,
 				["public_docs_boundary"],
+				git_process=_frozen_git_process(root),
 				input_specs=[_input_spec()],
 			)
 			check = report["checks"][0]
@@ -985,6 +1278,7 @@ class AffectedAnalysisTests(unittest.TestCase):
 			report = inputs.analyze_affected_checks(
 				root,
 				["public_docs_boundary", "gut"],
+				git_process=_frozen_git_process(root),
 				input_specs=[_input_spec()],
 			)
 			self.assertTrue(report["report_ok"])
@@ -1009,6 +1303,7 @@ class AffectedAnalysisTests(unittest.TestCase):
 			report = inputs.analyze_affected_checks(
 				root,
 				["public_docs_boundary"],
+				git_process=_frozen_git_process(root),
 				input_specs=[_input_spec()],
 			)
 			self.assertEqual(
@@ -1025,6 +1320,7 @@ class AffectedAnalysisTests(unittest.TestCase):
 
 			changed = inputs.changed_paths_since(
 				root,
+				git_process=_frozen_git_process(root),
 				pathspecs=("README.md", "docs"),
 			)
 			self.assertIn("README.md", changed.paths)
@@ -1036,6 +1332,7 @@ class AffectedAnalysisTests(unittest.TestCase):
 				["public_docs_boundary"],
 				"HEAD",
 				True,
+				git_process=_frozen_git_process(root),
 				input_specs=[_input_spec()],
 			)
 			self.assertEqual(report["affected_count"], 1)
@@ -1052,6 +1349,7 @@ class AffectedAnalysisTests(unittest.TestCase):
 					report = inputs.analyze_affected_checks(
 						root,
 						["public_docs_boundary"],
+						git_process=_frozen_git_process(root),
 						input_specs=[_input_spec()],
 						**kwargs,
 					)
@@ -1104,6 +1402,7 @@ class AffectedAnalysisTests(unittest.TestCase):
 				["public_docs_boundary", "gut"],
 				"HEAD",
 				True,
+				git_process=_frozen_git_process(root),
 				input_specs=[_input_spec()],
 			)
 			self.assertTrue(baseline["report_ok"])
@@ -1149,6 +1448,7 @@ class AffectedAnalysisTests(unittest.TestCase):
 				["public_docs_boundary"],
 				"HEAD",
 				True,
+				git_process=_frozen_git_process(root),
 				input_specs=[_input_spec()],
 			)
 			self.assertEqual(affected["checks"][0]["classification"], "affected")

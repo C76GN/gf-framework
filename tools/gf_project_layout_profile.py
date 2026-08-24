@@ -10,11 +10,14 @@ import math
 import os
 import re
 import stat
+import time
 from pathlib import Path
 from typing import Any
 from typing import Callable
+from typing import Mapping
 
 import gf_process_supervisor
+from gf_process_authority import FrozenGitProcess
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -348,17 +351,36 @@ def capture_subprocess_bytes_bounded(
 	command: list[str],
 	*,
 	cwd: Path,
+	environment: Mapping[str, str],
 	max_stdout_bytes: int,
 	max_stderr_bytes: int,
 ) -> dict[str, Any]:
+	deadline = time.perf_counter() + PROJECT_PROFILE_GIT_TIMEOUT_SECONDS
 	try:
 		process_result = gf_process_supervisor.run_supervised_process_bytes(
 			command,
 			cwd=cwd,
 			timeout_seconds=PROJECT_PROFILE_GIT_TIMEOUT_SECONDS,
+			deadline=deadline,
+			environment=dict(environment),
 			max_stdout_bytes=max_stdout_bytes,
 			max_stderr_bytes=max_stderr_bytes,
 		)
+		process_result = (
+			gf_process_supervisor.require_supervised_binary_quiet_boundary(
+				process_result,
+				deadline=deadline,
+			)
+		)
+	except gf_process_supervisor.SupervisedProcessCleanupError:
+		raise
+	except TimeoutError:
+		return {
+			"returncode": -1,
+			"stdout": b"",
+			"stderr": b"",
+			"error_kind": "timeout",
+		}
 	except OSError:
 		return {
 			"returncode": -1,
@@ -375,7 +397,7 @@ def capture_subprocess_bytes_bounded(
 		}
 	if process_result.timed_out:
 		error_kind = "timeout"
-	elif process_result.output_drain_failed or not process_result.cleanup_complete:
+	elif process_result.output_drain_failed:
 		error_kind = "process_tree"
 	else:
 		error_kind = ""
@@ -390,19 +412,25 @@ def capture_subprocess_bytes_bounded(
 def read_git_paths(
 	command: list[str],
 	*,
+	git_process: FrozenGitProcess,
 	strict_utf8: bool = False,
 ) -> dict[str, Any]:
-	capture = capture_git_paths(command)
+	capture = capture_git_paths(command, git_process=git_process)
 	return project_profile_git_paths_from_capture(
 		capture,
 		strict_utf8=strict_utf8,
 	)
 
 
-def capture_git_paths(command: list[str]) -> dict[str, Any]:
+def capture_git_paths(
+	command: list[str],
+	*,
+	git_process: FrozenGitProcess,
+) -> dict[str, Any]:
 	result = capture_subprocess_bytes_bounded(
-		["git", *command],
+		list(git_process.command(command).effective),
 		cwd=ROOT,
+		environment=git_process.environment.values(),
 		max_stdout_bytes=PROJECT_PROFILE_GIT_STDOUT_MAX_BYTES,
 		max_stderr_bytes=PROJECT_PROFILE_GIT_STDERR_MAX_BYTES,
 	)
@@ -525,6 +553,8 @@ def project_profile_boundary(
 	profile_path: str = "",
 	fail_on_warnings: bool = False,
 	profile_mode: str = "strict",
+	*,
+	git_process: FrozenGitProcess,
 ) -> dict[str, Any]:
 	if profile_mode not in PROFILE_MODES:
 		raise ValueError(f"Unsupported project profile mode: {profile_mode}")
@@ -533,16 +563,18 @@ def project_profile_boundary(
 			profile_path=profile_path,
 			fail_on_warnings=fail_on_warnings,
 			strict_v1=True,
+			git_process=git_process,
 		)
 	elif profile_mode == "legacy":
 		payload = _project_profile_boundary_phase1(
 			profile_path=profile_path,
 			fail_on_warnings=fail_on_warnings,
+			git_process=git_process,
 		)
 	else:
 		shared_profile_payload = load_project_profile(profile_path)
 		inventory_views = (
-			collect_project_profile_path_views()
+			collect_project_profile_path_views(git_process=git_process)
 			if shared_profile_payload["found"]
 			else None
 		)
@@ -555,6 +587,7 @@ def project_profile_boundary(
 				if inventory_views is not None
 				else None
 			),
+			git_process=git_process,
 		)
 		shadow_container = _project_profile_boundary_phase1(
 			profile_path=profile_path,
@@ -566,6 +599,7 @@ def project_profile_boundary(
 				if inventory_views is not None
 				else None
 			),
+			git_process=git_process,
 		)
 		payload["strict_v1_shadow"] = shadow_container.get("strict_v1_shadow")
 	return normalize_project_profile_boundary_payload(payload, profile_mode)
@@ -660,6 +694,8 @@ def _project_profile_boundary_phase1(
 	strict_v1_shadow: bool = False,
 	profile_payload: dict[str, Any] | None = None,
 	paths_payload: dict[str, Any] | None = None,
+	*,
+	git_process: FrozenGitProcess,
 ) -> dict[str, Any]:
 	if strict_v1 and strict_v1_shadow:
 		raise ValueError("strict_v1 and strict_v1_shadow are mutually exclusive")
@@ -771,9 +807,12 @@ def _project_profile_boundary_phase1(
 	strict_inventory = strict_v1 or (strict_v1_shadow and not strict_schema_has_errors)
 	if paths_payload is None:
 		paths_payload = (
-			collect_project_profile_paths(strict_v1=True)
+			collect_project_profile_paths(
+				strict_v1=True,
+				git_process=git_process,
+			)
 			if strict_inventory
-			else collect_project_profile_paths()
+			else collect_project_profile_paths(git_process=git_process)
 		)
 	strict_inventory_issues = list(paths_payload.get("errors", []))
 	legacy_inventory_issues = list(
@@ -2420,15 +2459,26 @@ def normalize_project_profile_path(path: str) -> str:
 	return normalized_path
 
 
-def collect_project_profile_paths(strict_v1: bool = False) -> dict[str, Any]:
-	views = collect_project_profile_path_views()
+def collect_project_profile_paths(
+	strict_v1: bool = False,
+	*,
+	git_process: FrozenGitProcess,
+) -> dict[str, Any]:
+	views = collect_project_profile_path_views(git_process=git_process)
 	return views["strict" if strict_v1 else "legacy"]
 
 
-def collect_project_profile_path_views() -> dict[str, dict[str, Any]]:
-	tracked_capture = capture_git_paths(["ls-files", "-z", "--cached"])
+def collect_project_profile_path_views(
+	*,
+	git_process: FrozenGitProcess,
+) -> dict[str, dict[str, Any]]:
+	tracked_capture = capture_git_paths(
+		["ls-files", "-z", "--cached"],
+		git_process=git_process,
+	)
 	untracked_capture = capture_git_paths(
-		["ls-files", "-z", "--others", "--exclude-standard"]
+		["ls-files", "-z", "--others", "--exclude-standard"],
+		git_process=git_process,
 	)
 	legacy_payload = make_project_profile_paths_payload(
 		project_profile_git_paths_from_capture(

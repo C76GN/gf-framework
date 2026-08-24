@@ -31,6 +31,7 @@ import xml.etree.ElementTree as ET
 import zipfile
 from collections.abc import Mapping
 from dataclasses import dataclass
+from dataclasses import replace
 from pathlib import Path
 from pathlib import PureWindowsPath
 from types import MappingProxyType
@@ -72,16 +73,25 @@ import gf_changelog
 import gf_gut_sharding
 import gf_gut_shard_worker
 import gf_path_security
+import gf_process_authority
 import gf_repository_policy
 import gf_project_layout_profile
+import gf_reference_manifest_reader
 import extract_release_notes as gf_release_notes
 import gf_process_supervisor
 import gf_maintenance_rendering as maintenance_rendering
 import gf_maintenance_static_checks
 import gf_semver
+from gf_executable_resolution import ExecutableResolutionError
+from gf_executable_resolution import FrozenEnvironmentError
+from gf_executable_resolution import frozen_environment_value
+from gf_executable_resolution import remove_owned_environment_value
+from gf_executable_resolution import resolve_frozen_executable
+from gf_executable_resolution import set_owned_environment_value
 from gf_maintenance_rendering import trim_text
 from gf_godot_process import CommandIdentity
 from gf_godot_process import GODOT_EXECUTABLE_ENV_VAR
+from gf_godot_process import GodotExecutableResolutionError
 from gf_godot_process import resolve_command_identity
 from gf_godot_process import resolve_godot_command
 from gf_godot_process import resolve_godot_executable
@@ -103,7 +113,14 @@ from gf_parallel_validation import ParallelShard
 from gf_parallel_validation import ParallelShardResult
 from gf_parallel_validation import WorkspaceSnapshotError
 from gf_parallel_validation import WorkspaceDeadlineError
+from gf_process_supervisor import exception_has_cleanup_debt
+from gf_process_supervisor import add_exception_note
 from gf_process_supervisor import run_supervised_process
+from gf_process_supervisor import safe_exception_traceback
+from gf_process_authority import FrozenGitProcess
+from gf_process_authority import FrozenProcessAuthority
+from gf_process_authority import FrozenProcessEnvironment
+from gf_process_authority import GitExecutableResolutionError
 from gf_workspace_snapshot import WorkspaceSnapshot
 
 
@@ -296,12 +313,15 @@ GODOT_RESOURCE_SUMMARY_RE = re.compile(
 	r"(?: \(run with [^)]+\))?\.$"
 )
 REFERENCE_PROJECT_ENV_VAR = "GF_REFERENCE_PROJECT_PATH"
-DEFAULT_REFERENCE_PROJECT = os.environ.get(REFERENCE_PROJECT_ENV_VAR, "../gf-reference-project")
+DEFAULT_REFERENCE_PROJECT = "../gf-reference-project"
 REFERENCE_BOOT_SCENE_ENV_VAR = "GF_REFERENCE_BOOT_SCENE"
 REFERENCE_SMOKE_SCENE_ENV_VAR = "GF_REFERENCE_SMOKE_SCENE"
-REFERENCE_MANIFEST_NAME = ".gf_reference_project.json"
+REFERENCE_MANIFEST_NAME = gf_reference_manifest_reader.REFERENCE_MANIFEST_NAME
 DEFAULT_REFERENCE_BOOT_SCENE = "res://scenes/app/driftbound_boot.tscn"
 DEFAULT_REFERENCE_SMOKE_SCENE = "res://tests/smoke/driftbound_smoke.tscn"
+REFERENCE_MANIFEST_READER_TIMEOUT_SECONDS = 30.0
+REFERENCE_MANIFEST_READER_STDOUT_MAX_BYTES = 64 * 1024
+REFERENCE_MANIFEST_READER_STDERR_MAX_BYTES = 16 * 1024
 GODOT_LOG_DIR = ROOT / "ai_analysis" / "godot_logs"
 LEGACY_MAINTENANCE_LOG_DIR = ROOT / ".gf"
 MAINTENANCE_KEEP_LOGS_ENV_VAR = "GF_MAINTENANCE_KEEP_LOGS"
@@ -851,41 +871,157 @@ def resolve_path_from_root(value: str) -> Path:
 	return path.resolve()
 
 
-def read_reference_manifest(project_root: str) -> dict[str, Any]:
-	manifest_path = resolve_path_from_root(project_root) / REFERENCE_MANIFEST_NAME
-	if not manifest_path.is_file():
-		return {}
+def reference_catalog_inputs(
+	process_environment: FrozenProcessEnvironment,
+) -> tuple[str, str, str]:
+	"""Bind validated reference paths to one frozen environment without file I/O."""
+	if not isinstance(process_environment, FrozenProcessEnvironment):
+		raise TypeError("Reference Catalog inputs require a frozen process environment.")
+	environment = process_environment.values()
 	try:
-		payload = json.loads(manifest_path.read_text(encoding="utf-8"))
-	except (OSError, json.JSONDecodeError):
-		return {}
-	if not isinstance(payload, dict):
-		return {}
-	return payload
+		reference_project_value = frozen_environment_value(
+			environment,
+			REFERENCE_PROJECT_ENV_VAR,
+		)
+		boot_scene_value = frozen_environment_value(
+			environment,
+			REFERENCE_BOOT_SCENE_ENV_VAR,
+		)
+		smoke_scene_value = frozen_environment_value(
+			environment,
+			REFERENCE_SMOKE_SCENE_ENV_VAR,
+		)
+		return (
+			gf_reference_manifest_reader.validate_reference_project(
+				DEFAULT_REFERENCE_PROJECT
+				if reference_project_value is None
+				else reference_project_value
+			),
+			gf_reference_manifest_reader.validate_reference_scene(
+				DEFAULT_REFERENCE_BOOT_SCENE
+				if boot_scene_value is None
+				else boot_scene_value
+			),
+			gf_reference_manifest_reader.validate_reference_scene(
+				DEFAULT_REFERENCE_SMOKE_SCENE
+				if smoke_scene_value is None
+				else smoke_scene_value
+			),
+		)
+	except (
+		FrozenEnvironmentError,
+		gf_reference_manifest_reader.ReferenceManifestError,
+	):
+		raise _ReferenceManifestSetupError from None
 
 
-def get_reference_scene(project_root: str, env_var: str, manifest_key: str, fallback: str) -> str:
-	env_value = os.environ.get(env_var, "").strip()
-	if env_value:
-		return env_value
-	manifest_value = read_reference_manifest(project_root).get(manifest_key, "")
-	if isinstance(manifest_value, str) and manifest_value.strip():
-		return manifest_value.strip()
-	return fallback
+class _ReferenceManifestSetupError(RuntimeError):
+	"""Stable parent-side setup failure for the supervised manifest reader."""
 
 
-REFERENCE_BOOT_SCENE = get_reference_scene(
-	DEFAULT_REFERENCE_PROJECT,
-	REFERENCE_BOOT_SCENE_ENV_VAR,
-	"boot_scene",
-	DEFAULT_REFERENCE_BOOT_SCENE,
-)
-REFERENCE_SMOKE_SCENE = get_reference_scene(
-	DEFAULT_REFERENCE_PROJECT,
-	REFERENCE_SMOKE_SCENE_ENV_VAR,
-	"smoke_scene",
-	DEFAULT_REFERENCE_SMOKE_SCENE,
-)
+class _ReferenceManifestDeadlineError(TimeoutError):
+	"""The original setup/suite deadline expired before manifest acceptance."""
+
+
+def _check_reference_manifest_deadline(deadline: float) -> None:
+	if time.perf_counter() >= deadline:
+		raise _ReferenceManifestDeadlineError
+
+
+def _remaining_reference_manifest_seconds(deadline: float) -> float:
+	now = time.perf_counter()
+	if now >= deadline:
+		raise _ReferenceManifestDeadlineError
+	return deadline - now
+
+
+def _reference_project_lexical_root(project_root: str) -> Path:
+	path = Path(project_root)
+	if not path.is_absolute():
+		path = ROOT / path
+	return gf_path_security.absolute_lexical_path(path)
+
+
+def _read_reference_manifest_supervised(
+	project_root: str,
+	process_environment: Mapping[str, str],
+	*,
+	deadline: float,
+) -> dict[str, Any]:
+	"""Read one optional manifest under an owned process and absolute deadline."""
+	remaining_seconds = _remaining_reference_manifest_seconds(deadline)
+	command = [
+		sys.executable,
+		str(ROOT / "tools/gf_reference_manifest_reader.py"),
+		"--project-root",
+		str(_reference_project_lexical_root(project_root)),
+	]
+	try:
+		result = gf_process_supervisor.run_supervised_process_bytes(
+			command,
+			cwd=ROOT,
+			timeout_seconds=remaining_seconds,
+			deadline=deadline,
+			max_stdout_bytes=REFERENCE_MANIFEST_READER_STDOUT_MAX_BYTES,
+			max_stderr_bytes=REFERENCE_MANIFEST_READER_STDERR_MAX_BYTES,
+			environment=dict(process_environment),
+		)
+		result = gf_process_supervisor.require_supervised_binary_quiet_boundary(
+			result,
+			deadline=deadline,
+		)
+	except MemoryError:
+		raise
+	except Exception as error:
+		if exception_has_cleanup_debt(error):
+			raise
+		if isinstance(error, TimeoutError) and time.perf_counter() >= deadline:
+			raise _ReferenceManifestDeadlineError from None
+		raise _ReferenceManifestSetupError from None
+	if result.timed_out:
+		raise _ReferenceManifestDeadlineError
+	_check_reference_manifest_deadline(deadline)
+	if (
+		result.return_code != 0
+		or result.stdout_truncated
+		or result.stderr_truncated
+		or result.output_drain_failed
+		or result.stderr
+	):
+		raise _ReferenceManifestSetupError
+	try:
+		return gf_reference_manifest_reader.decode_success_response(
+			result.stdout,
+			deadline_check=lambda: _check_reference_manifest_deadline(deadline),
+		)
+	except gf_reference_manifest_reader.ReferenceManifestError:
+		raise _ReferenceManifestSetupError from None
+
+
+def freeze_maintenance_invocation_environment(
+	process_environment: FrozenProcessEnvironment | None = None,
+) -> FrozenProcessEnvironment:
+	"""Use one explicit frozen environment, capturing ambient state at most once."""
+	if process_environment is not None and not isinstance(
+		process_environment,
+		FrozenProcessEnvironment,
+	):
+		raise TypeError("Maintenance invocation environment must be frozen.")
+	active_environment = gf_process_authority.active_process_environment()
+	active_authority = gf_process_authority.active_process_authority()
+	if active_authority is not None and active_environment is not active_authority.environment:
+		raise RuntimeError(
+			"Active process authority and process environment do not share one identity."
+		)
+	if active_environment is not None:
+		if process_environment is not None and process_environment is not active_environment:
+			raise ValueError(
+				"Nested maintenance invocation cannot replace its active frozen environment."
+			)
+		return active_environment
+	if process_environment is not None:
+		return process_environment
+	return FrozenProcessEnvironment.capture(capture_maintenance_process_environment())
 
 
 def godot_log_path(check_name: str) -> str:
@@ -894,8 +1030,12 @@ def godot_log_path(check_name: str) -> str:
 
 def validation_catalog_for_root(
 	root: Path,
+	*,
+	default_reference_project: str = DEFAULT_REFERENCE_PROJECT,
+	reference_boot_scene: str = DEFAULT_REFERENCE_BOOT_SCENE,
+	reference_smoke_scene: str = DEFAULT_REFERENCE_SMOKE_SCENE,
 ) -> gf_validation_catalog.ValidationCatalog:
-	"""Build the same Catalog projection for one isolated workspace root."""
+	"""Build one Catalog projection from explicit, already-resolved inputs."""
 	return gf_validation_catalog.build_validation_catalog(
 		gf_validation_catalog.ValidationCatalogContext(
 			python_executable=sys.executable,
@@ -904,14 +1044,26 @@ def validation_catalog_for_root(
 			gut_lifecycle_cli_resource_path=GUT_LIFECYCLE_CLI_RESOURCE_PATH,
 			gut_shard_config_disabled_argument=GUT_SHARD_CONFIG_DISABLED_ARGUMENT,
 			gut_lifecycle_hook_arguments=GUT_LIFECYCLE_HOOK_ARGUMENTS,
-			default_reference_project=DEFAULT_REFERENCE_PROJECT,
-			reference_boot_scene=REFERENCE_BOOT_SCENE,
-			reference_smoke_scene=REFERENCE_SMOKE_SCENE,
+			default_reference_project=default_reference_project,
+			reference_boot_scene=reference_boot_scene,
+			reference_smoke_scene=reference_smoke_scene,
 		)
 	)
 
 
-_VALIDATION_CATALOG = validation_catalog_for_root(ROOT)
+def _default_validation_catalog_for_root(
+	root: Path,
+) -> gf_validation_catalog.ValidationCatalog:
+	"""Build the non-authoritative static Catalog from constants only."""
+	return validation_catalog_for_root(
+		root,
+		default_reference_project=DEFAULT_REFERENCE_PROJECT,
+		reference_boot_scene=DEFAULT_REFERENCE_BOOT_SCENE,
+		reference_smoke_scene=DEFAULT_REFERENCE_SMOKE_SCENE,
+	)
+
+
+_VALIDATION_CATALOG = _default_validation_catalog_for_root(ROOT)
 VALIDATION_ACTION_NAMES: tuple[str, ...] = _VALIDATION_CATALOG.action_names
 
 CHECK_DEFINITIONS = _VALIDATION_CATALOG.command_definitions()
@@ -1073,6 +1225,131 @@ class ParallelShardCommandContract:
 	"""Frozen declared/effective action identities captured before shard dispatch."""
 
 	identities: Mapping[str, CommandIdentity]
+	resolver_workspace: Path | None = None
+	resolver_environment: Mapping[str, str] | None = None
+
+
+def with_maintenance_process_authority(function: Callable[..., Any]) -> Callable[..., Any]:
+	"""Give one direct action entry a single frozen authority for its full body."""
+	@functools.wraps(function)
+	def wrapped(*args: Any, **kwargs: Any) -> Any:
+		if gf_process_authority.active_process_authority() is not None:
+			return function(*args, **kwargs)
+		authority = active_or_freeze_maintenance_process_authority()
+		with gf_process_authority.activate_process_context(authority):
+			return function(*args, **kwargs)
+
+	return wrapped
+
+
+@dataclass(frozen=True)
+class PreparedParallelFullBatch:
+	"""Own every materialized shard and frozen command contract before dispatch."""
+
+	index: int
+	plan: tuple[ParallelCheckShardPlan, ...]
+	root: Path
+	shards: tuple[ParallelShard, ...]
+	report_paths: Mapping[str, Path]
+	command_contracts: Mapping[str, ParallelShardCommandContract]
+	cleanup_errors: list[str]
+
+
+class ParallelFullBatchLease:
+	"""Release one preflighted batch independently before later dispatch."""
+
+	def __init__(
+		self,
+		path: Path,
+		*,
+		cleanup_state: dict[str, bool],
+	) -> None:
+		self.cleanup_errors: list[str] = []
+		self._cleanup_state = cleanup_state
+		self._manager = managed_owned_directory(
+			path,
+			cleanup_errors=self.cleanup_errors,
+			cleanup_permitted=lambda: cleanup_state.get("permitted") is True,
+			cleanup_started=lambda: cleanup_state.__setitem__("permitted", False),
+			cleanup_succeeded=lambda: cleanup_state.__setitem__("permitted", True),
+			cleanup_failed=lambda: cleanup_state.__setitem__("permitted", False),
+			body_failed=lambda: cleanup_state.__setitem__("permitted", False),
+		)
+		self.root = self._manager.__enter__()
+		self.active = True
+
+	def release(self, error: BaseException | None = None) -> None:
+		if not self.active:
+			return
+		self.active = False
+		traceback = (
+			None
+			if error is None
+			else BaseException.__getattribute__(error, "__traceback__")
+		)
+		suppressed = self._manager.__exit__(
+			type(error) if error is not None else None,
+			error,
+			traceback,
+		)
+		if suppressed:
+			raise WorkspaceSnapshotError(
+				"Parallel Full batch owner unexpectedly suppressed an execution error."
+			)
+
+
+def release_parallel_full_batch_leases(
+	leases: Sequence[ParallelFullBatchLease],
+	*,
+	error: BaseException | None = None,
+) -> None:
+	"""Release every still-active lease without abandoning later owner cleanup."""
+	cleanup_failures: list[BaseException] = []
+	for lease in reversed(leases):
+		try:
+			lease.release(error)
+		except BaseException as cleanup_error:
+			cleanup_failures.append(cleanup_error)
+	if not cleanup_failures:
+		return
+	primary_cleanup_error = cleanup_failures[0]
+	for cleanup_error in cleanup_failures[1:]:
+		try:
+			gf_process_supervisor.add_exception_note(
+				primary_cleanup_error,
+				"Additional parallel batch owner cleanup failed: "
+				f"{type(cleanup_error).__name__}: "
+				f"{gf_process_supervisor.safe_exception_detail(cleanup_error)}",
+			)
+		except BaseException:
+			pass
+	if error is not None:
+		raise primary_cleanup_error from error
+	raise primary_cleanup_error
+
+
+def parallel_full_batch_cleanup_errors(
+	leases: Sequence[ParallelFullBatchLease],
+) -> list[str]:
+	return [error for lease in leases for error in lease.cleanup_errors]
+
+
+def raise_parallel_full_batch_cleanup_failure(
+	leases: Sequence[ParallelFullBatchLease],
+	*,
+	log_copy_errors: Sequence[str],
+) -> None:
+	cleanup_errors = parallel_full_batch_cleanup_errors(leases)
+	if not cleanup_errors:
+		return
+	details = [
+		*(f"failure-log copy: {error}" for error in log_copy_errors),
+		*(f"cleanup: {error}" for error in cleanup_errors),
+	]
+	raise WorkspaceSnapshotError(
+		"Parallel Full batch cleanup failed; retained the owning validation "
+		f"root for diagnosis: {'; '.join(details)}"
+	)
 
 
 def parallel_full_shard_plan(
@@ -1180,6 +1457,8 @@ def package_artifact_is_required(check_names: list[str]) -> bool:
 
 
 DEFERRED_COMMAND_SENTINEL = "<deferred-command>"
+UNRESOLVED_EXECUTABLE_SENTINEL = "<unresolved-executable>"
+UNRESOLVED_GODOT_EXECUTABLE_SENTINEL = "<unresolved-godot-executable>"
 
 
 class DeferredCommandMaterializationError(ValueError):
@@ -1300,6 +1579,8 @@ def materialize_check_command(
 		try:
 			materialized_command = materializer(deferred_command_context)
 		except Exception as error:
+			if exception_has_cleanup_debt(error):
+				raise
 			raise DeferredCommandMaterializationError(
 				f"Deferred command materializer failed for validation action: {name}"
 			) from error
@@ -1418,6 +1699,58 @@ class CommandResult:
 		if self.gut_lifecycle_report:
 			payload["gut_lifecycle_report"] = self.gut_lifecycle_report
 		return payload
+
+
+def make_unresolved_godot_command_result(
+	name: str,
+	declared_command: list[str],
+	timeout_seconds: float,
+	*,
+	duration_seconds: float = 0.0,
+) -> CommandResult:
+	"""Report a Godot selection failure without presenting an effective argv."""
+	return CommandResult(
+		name=name,
+		command=[
+			UNRESOLVED_GODOT_EXECUTABLE_SENTINEL,
+			*declared_command[1:],
+		],
+		exit_code=127,
+		stdout="",
+		stderr="Godot executable resolution failed before action dispatch.",
+		notes=[
+			"Install Godot or set GF_GODOT_EXECUTABLE to an existing executable path."
+		],
+		duration_seconds=duration_seconds,
+		timeout_seconds=timeout_seconds,
+		execution="not_started",
+	)
+
+
+def make_unresolved_command_result(
+	name: str,
+	declared_command: list[str],
+	timeout_seconds: float,
+	*,
+	duration_seconds: float = 0.0,
+) -> CommandResult:
+	"""Report a generic executable selection failure before process dispatch."""
+	return CommandResult(
+		name=name,
+		command=[
+			UNRESOLVED_EXECUTABLE_SENTINEL,
+			*declared_command[1:],
+		],
+		exit_code=127,
+		stdout="",
+		stderr="Executable resolution failed before action dispatch.",
+		notes=[
+			"Provide an existing executable through the frozen cwd/PATH search inputs."
+		],
+		duration_seconds=duration_seconds,
+		timeout_seconds=timeout_seconds,
+		execution="not_started",
+	)
 
 
 def add_package_artifact_consumer_arguments(parser: argparse.ArgumentParser) -> None:
@@ -4007,6 +4340,7 @@ def asset_lifecycle_boundary(fail_on_warnings: bool = False) -> dict[str, Any]:
 	}
 
 
+@with_maintenance_process_authority
 def project_profile_boundary(
 	profile_path: str = "",
 	fail_on_warnings: bool = False,
@@ -4016,6 +4350,7 @@ def project_profile_boundary(
 		profile_path=profile_path,
 		fail_on_warnings=fail_on_warnings,
 		profile_mode=profile_mode,
+		git_process=active_or_freeze_maintenance_process_authority().git,
 	)
 
 
@@ -4662,8 +4997,10 @@ GUT_SHARD_RUNTIME_SOURCE_MODULES = (
 	("tools/gf_gut_shard_worker.py", "gf_gut_shard_worker"),
 	("tools/gf_gut_sharding.py", "gf_gut_sharding"),
 	("tools/gf_parallel_validation.py", "gf_parallel_validation"),
+	("tools/gf_process_authority.py", "gf_process_authority"),
 	("tools/gf_process_supervisor.py", "gf_process_supervisor"),
 	("tools/gf_maintenance_check_graph.py", "gf_maintenance_check_graph"),
+	("tools/gf_executable_resolution.py", "gf_executable_resolution"),
 	("tools/gf_godot_process.py", "gf_godot_process"),
 	("tools/gf_package_paths.py", "gf_package_paths"),
 	("tools/gf_maintenance_rendering.py", "gf_maintenance_rendering"),
@@ -5182,6 +5519,7 @@ def validate_direct_gut_shard_worker_report(
 	expected_request: dict[str, Any],
 	workspace: Path,
 	*,
+	git_process: FrozenGitProcess,
 	expected_workspace_fingerprint: str,
 	expected_workspace_identity: tuple[int, int, int] | None = None,
 	deadline: float,
@@ -5205,7 +5543,11 @@ def validate_direct_gut_shard_worker_report(
 			workspace.lstat()
 		) != expected_workspace_identity:
 			raise ValueError("GUT shard worker workspace identity changed before post-validation.")
-	workspace_state = workspace_fingerprint(workspace, deadline=deadline)
+	workspace_state = workspace_fingerprint(
+		workspace,
+		git_process=git_process,
+		deadline=deadline,
+	)
 	if workspace_state.get("fingerprint") != expected_workspace_fingerprint:
 		raise ValueError("GUT shard worker changed its materialized source inputs.")
 	if expected_workspace_identity is not None and gf_parallel_validation._owned_directory_identity(  # noqa: SLF001
@@ -5281,6 +5623,7 @@ def materialize_gut_shard_workspaces(
 	batch_root: Path,
 	shards: list[dict[str, Any]],
 	*,
+	git_process: FrozenGitProcess,
 	deadline: float,
 ) -> tuple[dict[str, Path], dict[str, tuple[int, int, int]]]:
 	"""Materialize one candidate wave without sharing writable project state."""
@@ -5305,6 +5648,7 @@ def materialize_gut_shard_workspaces(
 				gf_parallel_validation.materialize_workspace,
 				captured_workspace,
 				batch_root / f"s{index}",
+				git_process=git_process,
 				deadline=deadline,
 				verify_source=False,
 				identity_callback=lambda identity, name=name: capture_identity(name, identity),
@@ -5322,6 +5666,7 @@ def execute_gut_shard_worker_wave(
 	requests: list[dict[str, Any]],
 	workspace_by_name: dict[str, Path],
 	*,
+	process_authority: FrozenProcessAuthority,
 	workspace_identity_by_name: dict[str, tuple[int, int, int]] | None = None,
 	expected_workspace_fingerprint: str,
 	deadline: float,
@@ -5369,6 +5714,7 @@ def execute_gut_shard_worker_wave(
 			for index, request in enumerate(requests):
 				worker_kwargs: dict[str, Any] = {
 					"cancellation_event": cancellation_event,
+					"process_authority": process_authority,
 				}
 				if workspace_identity_by_name is not None:
 					worker_kwargs["expected_workspace_identity"] = (
@@ -5445,6 +5791,7 @@ def execute_gut_shard_worker_wave(
 							report,
 							request,
 							workspace_by_name[name],
+							git_process=process_authority.git,
 							expected_workspace_fingerprint=expected_workspace_fingerprint,
 							expected_workspace_identity=(
 								workspace_identity_by_name[name]
@@ -5555,6 +5902,7 @@ def execute_gut_shard_candidate_reports(
 	manifest: dict[str, Any],
 	parallel_root: Path,
 	*,
+	process_authority: FrozenProcessAuthority,
 	jobs: int,
 	manifest_digest: str,
 	inventory_digest: str,
@@ -5593,6 +5941,7 @@ def execute_gut_shard_candidate_reports(
 					captured_workspace,
 					batch_root,
 					batch_shards,
+					git_process=process_authority.git,
 					deadline=deadline,
 				)
 				if cleanup_state is not None:
@@ -5646,6 +5995,7 @@ def execute_gut_shard_candidate_reports(
 					execute_gut_shard_worker_wave(
 						requests,
 						workspace_by_name,
+						process_authority=process_authority,
 						workspace_identity_by_name=workspace_identity_by_name,
 						expected_workspace_fingerprint=(
 							captured_workspace.workspace_fingerprint
@@ -5700,6 +6050,7 @@ def execute_gut_shard_candidate_reports(
 				cleanup_state["permitted"] = False
 			gf_parallel_validation.assert_source_matches_snapshot(
 				captured_workspace,
+				git_process=process_authority.git,
 				deadline=deadline,
 			)
 			if cleanup_state is not None:
@@ -5729,6 +6080,7 @@ def execute_gut_shard_control_report(
 	captured_workspace: CapturedWorkspace,
 	parallel_root: Path,
 	*,
+	process_authority: FrozenProcessAuthority,
 	inventory: tuple[str, ...],
 	manifest_digest: str,
 	inventory_digest: str,
@@ -5775,6 +6127,7 @@ def execute_gut_shard_control_report(
 			workspace = gf_parallel_validation.materialize_workspace(
 				captured_workspace,
 				control_root / "s0",
+				git_process=process_authority.git,
 				deadline=deadline,
 				verify_source=False,
 				identity_callback=capture_control_identity,
@@ -5821,6 +6174,7 @@ def execute_gut_shard_control_report(
 			reports, executed_count, worker_issues = execute_gut_shard_worker_wave(
 				[request],
 				{gf_gut_shard_worker.CONTROL_SHARD_NAME: workspace},
+				process_authority=process_authority,
 				workspace_identity_by_name={
 					gf_gut_shard_worker.CONTROL_SHARD_NAME: published_identity,
 				},
@@ -5840,6 +6194,7 @@ def execute_gut_shard_control_report(
 					cleanup_state["permitted"] = False
 				gf_parallel_validation.assert_source_matches_snapshot(
 					captured_workspace,
+					git_process=process_authority.git,
 					deadline=deadline,
 				)
 				if cleanup_state is not None:
@@ -8366,6 +8721,7 @@ def validate_gut_shard_run_report(
 	return json.loads(payload.decode("utf-8"))
 
 
+@with_maintenance_process_authority
 def gut_shard_run(
 	*,
 	jobs: int = GUT_SHARD_RUN_DEFAULT_JOBS,
@@ -8384,6 +8740,13 @@ def gut_shard_run(
 		raise TypeError("GUT shard timeout overrides must be integers.")
 	if timeout_seconds is not None and timeout_seconds <= 0:
 		raise ValueError("GUT shard timeout overrides must be positive seconds.")
+	process_authority = gf_process_authority.active_process_authority()
+	if process_authority is None:
+		process_authority = gf_process_authority.freeze_process_authority(
+			FrozenProcessEnvironment.capture(capture_maintenance_process_environment()),
+			cwd=ROOT,
+		)
+	git_process = process_authority.git
 	gut_timeout_seconds = resolve_gut_shard_run_gut_timeout_seconds(timeout_seconds)
 	started = time.perf_counter()
 	report = make_gut_shard_run_report(
@@ -8410,6 +8773,7 @@ def gut_shard_run(
 		deadline = started + total_timeout_seconds
 		captured_workspace = gf_parallel_validation.capture_workspace(
 			ROOT,
+			git_process=git_process,
 			deadline=deadline,
 		)
 		runtime_source_digest = validate_gut_shard_runtime_source_binding(
@@ -8428,6 +8792,7 @@ def gut_shard_run(
 		)
 		gf_parallel_validation.assert_source_matches_snapshot(
 			captured_workspace,
+			git_process=git_process,
 			deadline=deadline,
 		)
 		manifest_digest = gf_gut_sharding.canonical_digest(manifest)
@@ -8480,11 +8845,12 @@ def gut_shard_run(
 			}
 			worker_cancellation_event = threading.Event()
 			worker_reports, executed_count, candidate_issues = (
-				execute_gut_shard_candidate_reports(
-					captured_workspace,
-					manifest,
-					parallel_root,
-					jobs=jobs,
+					execute_gut_shard_candidate_reports(
+						captured_workspace,
+						manifest,
+						parallel_root,
+						process_authority=process_authority,
+						jobs=jobs,
 					manifest_digest=manifest_digest,
 					inventory_digest=inventory_digest,
 					runtime_source_digest=runtime_source_digest,
@@ -8550,6 +8916,7 @@ def gut_shard_run(
 				control, _control_executed, control_issues = execute_gut_shard_control_report(
 					captured_workspace,
 					parallel_root,
+					process_authority=process_authority,
 					inventory=inventory,
 					manifest_digest=manifest_digest,
 					inventory_digest=inventory_digest,
@@ -8608,6 +8975,7 @@ def gut_shard_run(
 				cleanup_state["permitted"] = False
 				gf_parallel_validation.assert_source_matches_snapshot(
 					captured_workspace,
+					git_process=git_process,
 					deadline=deadline,
 				)
 				if validate_gut_shard_runtime_source_binding(
@@ -9018,11 +9386,18 @@ def gut_shard_observation_environment(output: GutShardJunitOutput) -> dict[str, 
 		)
 	except ValueError as error:
 		raise ValueError("The GUT shard provenance output must stay below the repository root.") from error
-	return {
-		**os.environ,
-		GUT_SHARD_OBSERVATION_NONCE_ENVIRONMENT: output.nonce,
-		GUT_SHARD_OBSERVATION_PATH_ENVIRONMENT: provenance_resource_path,
-	}
+	environment = capture_maintenance_process_environment()
+	set_owned_environment_value(
+		environment,
+		GUT_SHARD_OBSERVATION_NONCE_ENVIRONMENT,
+		output.nonce,
+	)
+	set_owned_environment_value(
+		environment,
+		GUT_SHARD_OBSERVATION_PATH_ENVIRONMENT,
+		provenance_resource_path,
+	)
+	return environment
 
 
 def resolve_gut_shard_observation_timeout_seconds(
@@ -9370,6 +9745,7 @@ class CorePluginBootstrapDisplayDependencyError(FileNotFoundError):
 
 
 def core_plugin_bootstrap_smoke() -> dict[str, Any]:
+	process_environment = capture_maintenance_process_environment()
 	with strict_process_boundary_temporary_directory(
 		prefix="gf-core-plugin-bootstrap-smoke-",
 	) as temp_dir:
@@ -9384,7 +9760,12 @@ def core_plugin_bootstrap_smoke() -> dict[str, Any]:
 			"refresh_request_burst",
 			"resource_preview_translation",
 		]:
-			scenarios.append(run_core_plugin_bootstrap_smoke_scenario(temp_root, scenario_name, issues))
+			scenarios.append(run_core_plugin_bootstrap_smoke_scenario(
+				temp_root,
+				scenario_name,
+				issues,
+				base_environment=process_environment,
+			))
 		return make_core_plugin_bootstrap_smoke_payload(scenarios, issues)
 
 
@@ -9392,6 +9773,8 @@ def run_core_plugin_bootstrap_smoke_scenario(
 	temp_root: Path,
 	scenario_name: str,
 	issues: list[dict[str, Any]],
+	*,
+	base_environment: Mapping[str, str],
 ) -> dict[str, Any]:
 	project_root = temp_root / scenario_name / "project"
 	log_path = temp_root / scenario_name / "godot.log"
@@ -9400,19 +9783,23 @@ def run_core_plugin_bootstrap_smoke_scenario(
 	log_path.parent.mkdir(parents=True, exist_ok=True)
 	return_code = -1
 	try:
+		scenario_environment = make_core_plugin_bootstrap_smoke_environment(
+			temp_root,
+			scenario_name,
+			base_environment=base_environment,
+		)
+		process_environment = dict(scenario_environment)
 		command = make_core_plugin_bootstrap_smoke_command(
 			project_root,
 			log_path,
 			scenario_name,
+			environment=process_environment,
 		)
-		environment = make_core_plugin_bootstrap_smoke_environment(
-			temp_root,
-			scenario_name,
-		)
-		completed = run_maintenance_subprocess(
+		completed = _run_maintenance_subprocess_with_frozen_environment(
 			command,
 			timeout_seconds=180,
-			environment=environment,
+			cwd=ROOT,
+			environment=process_environment,
 		)
 		return_code = completed.returncode
 		log_text = read_text_file(log_path)
@@ -9507,6 +9894,14 @@ def run_core_plugin_bootstrap_smoke_scenario(
 			"core_plugin_bootstrap_smoke_display_dependency_missing",
 			"xvfb-run",
 			"The non-headless editor smoke display dependency was not found.",
+			row_key=scenario_name,
+			error=trim_text(str(error), 300),
+		))
+	except FrozenEnvironmentError as error:
+		issues.append(make_package_issue(
+			"core_plugin_bootstrap_smoke_environment_invalid",
+			"environment",
+			"The core plugin bootstrap environment has ambiguous platform variable names.",
 			row_key=scenario_name,
 			error=trim_text(str(error), 300),
 		))
@@ -9624,6 +10019,8 @@ def make_core_plugin_bootstrap_smoke_command(
 	project_root: Path,
 	log_path: Path,
 	scenario_name: str,
+	*,
+	environment: Mapping[str, str],
 ) -> list[str]:
 	if scenario_name != "resource_preview_translation":
 		command = [
@@ -9642,7 +10039,10 @@ def make_core_plugin_bootstrap_smoke_command(
 		return command
 
 	command = [
-		resolve_godot_executable(),
+		resolve_godot_executable(
+			environment=environment,
+			cwd=ROOT,
+		),
 		"--editor",
 		"--rendering-method",
 		"gl_compatibility",
@@ -9658,11 +10058,17 @@ def make_core_plugin_bootstrap_smoke_command(
 	if not sys.platform.startswith("linux"):
 		return command
 
-	xvfb_run = shutil.which("xvfb-run")
-	if not xvfb_run:
+	try:
+		xvfb_run = resolve_frozen_executable(
+			"xvfb-run",
+			environment=environment,
+			cwd=ROOT,
+			platform_name="posix",
+		)
+	except ExecutableResolutionError as error:
 		raise CorePluginBootstrapDisplayDependencyError(
 			"xvfb-run is required for the non-headless resource preview editor smoke."
-		)
+		) from error
 	return [
 		xvfb_run,
 		"-a",
@@ -9678,9 +10084,12 @@ def make_core_plugin_bootstrap_smoke_command(
 def make_core_plugin_bootstrap_smoke_environment(
 	temp_root: Path,
 	scenario_name: str,
-) -> dict[str, str] | None:
+	*,
+	base_environment: Mapping[str, str],
+) -> dict[str, str]:
+	environment = dict(base_environment)
 	if scenario_name != "resource_preview_translation":
-		return None
+		return environment
 
 	isolation_root = temp_root / scenario_name / "user"
 	directories = {
@@ -9695,22 +10104,30 @@ def make_core_plugin_bootstrap_smoke_environment(
 	for directory in directories.values():
 		directory.mkdir(parents=True, exist_ok=True)
 
-	environment = os.environ.copy()
-	environment.pop("GODOT_USER_HOME", None)
+	remove_owned_environment_value(environment, "GODOT_USER_HOME")
+	private_values: dict[str, str]
 	if os.name == "nt":
-		environment["APPDATA"] = str(directories["appdata"])
-		environment["LOCALAPPDATA"] = str(directories["localappdata"])
+		private_values = {
+			"APPDATA": str(directories["appdata"]),
+			"LOCALAPPDATA": str(directories["localappdata"]),
+		}
 	elif sys.platform == "darwin":
-		environment["HOME"] = str(directories["home"])
+		private_values = {"HOME": str(directories["home"])}
 	else:
-		environment["HOME"] = str(directories["home"])
-		environment["XDG_DATA_HOME"] = str(directories["data"])
-		environment["XDG_CONFIG_HOME"] = str(directories["config"])
-		environment["XDG_CACHE_HOME"] = str(directories["cache"])
-	environment["TMPDIR"] = str(directories["temp"])
-	environment["TEMP"] = str(directories["temp"])
-	environment["TMP"] = str(directories["temp"])
-	environment["PYTHONUTF8"] = "1"
+		private_values = {
+			"HOME": str(directories["home"]),
+			"XDG_DATA_HOME": str(directories["data"]),
+			"XDG_CONFIG_HOME": str(directories["config"]),
+			"XDG_CACHE_HOME": str(directories["cache"]),
+		}
+	private_values.update({
+		"TMPDIR": str(directories["temp"]),
+		"TEMP": str(directories["temp"]),
+		"TMP": str(directories["temp"]),
+		"PYTHONUTF8": "1",
+	})
+	for name, value in private_values.items():
+		set_owned_environment_value(environment, name, value)
 	return environment
 
 
@@ -10317,6 +10734,7 @@ def build_package_smoke_artifact_set(
 	artifact_root: Path,
 	workspace_state: dict[str, Any],
 	*,
+	process_environment: FrozenProcessEnvironment,
 	source_root: Path = ROOT,
 	deadline: float | None = None,
 ) -> PackageArtifactSet:
@@ -10345,6 +10763,7 @@ def build_package_smoke_artifact_set(
 			],
 			timeout_seconds=min(120.0, remaining) if remaining is not None else 120.0,
 			cwd=source_root,
+			process_environment=process_environment,
 		)
 	except subprocess.TimeoutExpired as error:
 		if deadline is not None and time.perf_counter() >= deadline:
@@ -10368,6 +10787,7 @@ def build_package_smoke_artifact_set(
 		artifact_root,
 		builder_data,
 		workspace_state,
+		builder_cwd=source_root,
 		deadline=deadline,
 	)
 	remaining_deadline_seconds(deadline, "package artifact sealing")
@@ -10436,7 +10856,7 @@ def strict_managed_temporary_directory(
 			message = "\n".join(cleanup_errors)
 			if body_error is not None:
 				try:
-					BaseException.add_note(body_error, message)
+					gf_process_supervisor.add_exception_note(body_error, message)
 				except BaseException:
 					# Retention diagnostics must never replace the primary body failure.
 					pass
@@ -10461,72 +10881,6 @@ def strict_process_boundary_temporary_directory(
 		cleanup_state["permitted"] = True
 
 
-def exception_has_cleanup_debt(error: BaseException) -> bool:
-	"""Return whether an exception chain carries an unproven cleanup boundary."""
-	uninspectable = object()
-
-	def raw_attribute(current: BaseException, name: str, default: object) -> object:
-		try:
-			attributes = BaseException.__getattribute__(current, "__dict__")
-			if isinstance(attributes, dict) and name in attributes:
-				return attributes[name]
-			return BaseException.__getattribute__(current, name)
-		except AttributeError:
-			return default
-		except BaseException:
-			return uninspectable
-
-	pending: list[BaseException] = [error]
-	seen: set[int] = set()
-	while pending:
-		current = pending.pop()
-		current_id = id(current)
-		if current_id in seen:
-			continue
-		seen.add(current_id)
-		try:
-			error_type = type(current)
-			if error_type.__getattribute__ is not BaseException.__getattribute__:
-				return True
-			for owner_type in error_type.__mro__:
-				if owner_type is BaseException:
-					break
-				owner_attributes = vars(owner_type)
-				if "__dict__" in owner_attributes or any(
-					name in owner_attributes
-					for name in (
-						"cleanup_debt",
-						"process_boundary_quiescent",
-						"__cause__",
-						"__context__",
-						"__suppress_context__",
-					)
-				):
-					return True
-		except BaseException:
-			return True
-		cleanup_debt = raw_attribute(current, "cleanup_debt", False)
-		process_boundary_quiescent = raw_attribute(
-			current,
-			"process_boundary_quiescent",
-			None,
-		)
-		cause = raw_attribute(current, "__cause__", None)
-		context = raw_attribute(current, "__context__", None)
-		if any(
-			value is uninspectable
-			for value in (cleanup_debt, process_boundary_quiescent, cause, context)
-		):
-			# An uninspectable exception chain cannot grant recursive cleanup authority.
-			return True
-		if cleanup_debt is True or process_boundary_quiescent is False:
-			return True
-		for nested in (cause, context):
-			if isinstance(nested, BaseException):
-				pending.append(nested)
-	return False
-
-
 def windows_utf16_path_code_units(path: Path | str) -> int:
 	"""Count the UTF-16 code units consumed by one Win32 path string."""
 
@@ -10542,7 +10896,13 @@ def managed_validation_directory(
 	cleanup_permitted: Callable[[], bool] | None = None,
 ) -> Any:
 	"""Own a short temp root so Windows path limits cannot corrupt validation results."""
-	override = os.environ.get(MAINTENANCE_VALIDATION_TEMP_ROOT_ENV_VAR, "").strip()
+	override = (
+		frozen_environment_value(
+			capture_maintenance_process_environment(),
+			MAINTENANCE_VALIDATION_TEMP_ROOT_ENV_VAR,
+		)
+		or ""
+	).strip()
 	if override:
 		candidate_roots = [Path(override)]
 	else:
@@ -10995,7 +11355,10 @@ def remove_managed_temporary_tree(
 			cleanup_path: Path | str = path
 			if os.name == "nt" and not str(path).startswith("\\\\?\\"):
 				cleanup_path = "\\\\?\\" + str(path)
-			shutil.rmtree(cleanup_path, onexc=make_managed_temp_remove_writable)
+			gf_process_supervisor.rmtree_with_exception_callback(
+				cleanup_path,
+				make_managed_temp_remove_writable,
+			)
 		except FileNotFoundError:
 			return ""
 		except OSError as error:
@@ -11046,11 +11409,16 @@ def load_or_build_private_package_artifact_set(
 	package_artifact_manifest_sha256: str = "",
 	workspace_state: dict[str, Any] | None = None,
 	*,
+	process_authority: FrozenProcessAuthority,
 	deadline: float | None = None,
 ) -> tuple[PackageArtifactSet, PackageArtifactSet, bool]:
 	"""Load or build a sealed set, then give one consumer an independent copy."""
 	effective_deadline = _ACTIVE_SUITE_DEADLINE if deadline is None else deadline
-	effective_workspace = workspace_state or workspace_fingerprint(ROOT, deadline=effective_deadline)
+	effective_workspace = workspace_state or workspace_fingerprint(
+		ROOT,
+		git_process=process_authority.git,
+		deadline=effective_deadline,
+	)
 	reused = package_artifact_inputs_are_complete(
 		package_artifact_manifest,
 		package_artifact_manifest_sha256,
@@ -11066,6 +11434,7 @@ def load_or_build_private_package_artifact_set(
 		try:
 			captured_workspace = gf_parallel_validation.capture_workspace(
 				ROOT,
+				git_process=process_authority.git,
 				deadline=effective_deadline,
 			)
 		except WorkspaceSnapshotError as error:
@@ -11080,6 +11449,7 @@ def load_or_build_private_package_artifact_set(
 			producer_workspace = gf_parallel_validation.materialize_workspace(
 				captured_workspace,
 				temp_root / "artifact-source",
+				git_process=process_authority.git,
 				deadline=effective_deadline,
 			)
 		except WorkspaceSnapshotError as error:
@@ -11089,6 +11459,7 @@ def load_or_build_private_package_artifact_set(
 		source_set = build_package_smoke_artifact_set(
 			temp_root / "artifact-producer",
 			effective_workspace,
+			process_environment=process_authority.environment,
 			source_root=producer_workspace,
 			deadline=effective_deadline,
 		)
@@ -11113,10 +11484,12 @@ def package_artifact_details(
 	}
 
 
+@with_maintenance_process_authority
 def package_build_boundary(
 	package_artifact_manifest: str = "",
 	package_artifact_manifest_sha256: str = "",
 ) -> dict[str, Any]:
+	process_authority = active_or_freeze_maintenance_process_authority()
 	with strict_process_boundary_temporary_directory(
 		prefix="gf-package-build-boundary-",
 	) as temp_dir:
@@ -11131,6 +11504,7 @@ def package_build_boundary(
 				temp_root / "artifact-consumer",
 				package_artifact_manifest,
 				package_artifact_manifest_sha256,
+				process_authority=process_authority,
 			)
 			builder_data = private_set.rebased_builder_data()
 			source_set.revalidate(deadline=_ACTIVE_SUITE_DEADLINE)
@@ -11343,10 +11717,12 @@ def package_status_index(status_data: dict[str, Any]) -> dict[str, dict[str, Any
 	}
 
 
+@with_maintenance_process_authority
 def package_editor_wizard_smoke(
 	package_artifact_manifest: str = "",
 	package_artifact_manifest_sha256: str = "",
 ) -> dict[str, Any]:
+	process_authority = active_or_freeze_maintenance_process_authority()
 	test_path = "res://tests/gf_core/kernel/editor/test_gf_package_manager_dock.gd"
 	log_path = GODOT_LOG_DIR / "package_editor_wizard_smoke.log"
 	import_log_path = GODOT_LOG_DIR / "package_editor_wizard_smoke_import.log"
@@ -11395,7 +11771,11 @@ def package_editor_wizard_smoke(
 		)
 		return make_package_editor_wizard_smoke_payload(command, scenarios, issues, test_path, log_path)
 	try:
-		import_completed = run_maintenance_subprocess(import_command, timeout_seconds=180)
+		import_completed = run_maintenance_subprocess(
+			import_command,
+			timeout_seconds=180,
+			process_environment=process_authority.environment,
+		)
 	except subprocess.TimeoutExpired as error:
 		issues.append(make_package_issue(
 			"package_editor_wizard_smoke_import_timeout",
@@ -11455,7 +11835,11 @@ def package_editor_wizard_smoke(
 		)
 		return make_package_editor_wizard_smoke_payload(command, scenarios, issues, test_path, log_path)
 	try:
-		completed = run_maintenance_subprocess(command, timeout_seconds=180)
+		completed = run_maintenance_subprocess(
+			command,
+			timeout_seconds=180,
+			process_environment=process_authority.environment,
+		)
 	except subprocess.TimeoutExpired as error:
 		issues.append(make_package_issue(
 			"package_editor_wizard_smoke_timeout",
@@ -11565,6 +11949,7 @@ def package_editor_wizard_smoke(
 				server_root,
 				package_artifact_manifest,
 				package_artifact_manifest_sha256,
+				process_authority=process_authority,
 			)
 			source_set.revalidate(deadline=_ACTIVE_SUITE_DEADLINE)
 		except PackageArtifactSetError as error:
@@ -12878,6 +13263,7 @@ def run_package_editor_wizard_smoke_script(
 	scenario: str,
 	issues: list[dict[str, Any]],
 ) -> dict[str, Any]:
+	process_environment = active_or_freeze_maintenance_process_authority().environment
 	log_path = GODOT_LOG_DIR / f"package_editor_wizard_smoke_{scenario}.log"
 	script_resource_path = "res://%s" % script_path.relative_to(project_root).as_posix()
 	command = [
@@ -12905,6 +13291,7 @@ def run_package_editor_wizard_smoke_script(
 		completed = run_maintenance_subprocess(
 			command,
 			timeout_seconds=PACKAGE_EDITOR_WIZARD_SMOKE_TRANSACTION_TIMEOUT_SECONDS,
+			process_environment=process_environment,
 		)
 	except subprocess.TimeoutExpired as error:
 		issues.append(make_package_issue(
@@ -13031,11 +13418,13 @@ def read_text_file_if_exists(path: Path) -> str:
 	return ""
 
 
+@with_maintenance_process_authority
 def package_godot_cli_smoke(
 	profile: str = "all",
 	package_artifact_manifest: str = "",
 	package_artifact_manifest_sha256: str = "",
 ) -> dict[str, Any]:
+	process_authority = active_or_freeze_maintenance_process_authority()
 	if profile not in {"all", "local", "network"}:
 		return {
 			"ok": False,
@@ -13067,6 +13456,7 @@ def package_godot_cli_smoke(
 				server_root,
 				package_artifact_manifest,
 				package_artifact_manifest_sha256,
+				process_authority=process_authority,
 			)
 			source_set.revalidate(deadline=_ACTIVE_SUITE_DEADLINE)
 		except PackageArtifactSetError as error:
@@ -15354,7 +15744,13 @@ def run_package_godot_cli_smoke_command(
 	env: dict[str, str] | None = None,
 	godot_project_root: Path | None = None,
 	timeout_seconds: float = 120,
+	process_environment: FrozenProcessEnvironment | None = None,
 ) -> dict[str, Any]:
+	base_process_environment = (
+		process_environment
+		if process_environment is not None
+		else active_or_freeze_maintenance_process_authority().environment
+	)
 	GODOT_LOG_DIR.mkdir(parents=True, exist_ok=True)
 	effective_args = prepare_package_smoke_cache_args(scenario, args, issues)
 	safe_scenario = re.sub(r"[^A-Za-z0-9_.-]+", "_", scenario)
@@ -15371,10 +15767,11 @@ def run_package_godot_cli_smoke_command(
 		"--",
 		*effective_args,
 	]
-	process_env = None
+	process_env = base_process_environment.values()
 	if env is not None:
-		process_env = os.environ.copy()
-		process_env.update(env)
+		for name, value in env.items():
+			set_owned_environment_value(process_env, name, value)
+	frozen_process_environment = FrozenProcessEnvironment.capture(process_env)
 	effective_timeout_seconds = package_godot_cli_smoke_command_timeout_seconds(
 		args,
 		timeout_seconds,
@@ -15383,7 +15780,7 @@ def run_package_godot_cli_smoke_command(
 		completed = run_maintenance_subprocess(
 			command,
 			timeout_seconds=effective_timeout_seconds,
-			environment=process_env,
+			process_environment=frozen_process_environment,
 		)
 	except subprocess.TimeoutExpired as error:
 		issues.append(make_package_issue(
@@ -15637,6 +16034,7 @@ def make_package_godot_cli_smoke_payload(
 	}
 
 
+@with_maintenance_process_authority
 def package_godot_smoke(
 	all_packages: bool = False,
 	package_ids: list[str] | None = None,
@@ -15644,6 +16042,7 @@ def package_godot_smoke(
 	package_artifact_manifest: str = "",
 	package_artifact_manifest_sha256: str = "",
 ) -> dict[str, Any]:
+	process_authority = active_or_freeze_maintenance_process_authority()
 	with strict_process_boundary_temporary_directory(
 		prefix="gf-package-godot-smoke-",
 	) as temp_dir:
@@ -15662,6 +16061,7 @@ def package_godot_smoke(
 				temp_root / "artifact-consumer",
 				package_artifact_manifest,
 				package_artifact_manifest_sha256,
+				process_authority=process_authority,
 			)
 			source_set.revalidate(deadline=_ACTIVE_SUITE_DEADLINE)
 		except PackageArtifactSetError as error:
@@ -15708,6 +16108,7 @@ def package_godot_smoke(
 			scenario_jobs,
 			scenarios,
 			issues,
+			process_environment=process_authority.environment,
 		)
 		return make_package_godot_smoke_payload(
 			scenarios,
@@ -15734,17 +16135,32 @@ def run_package_godot_smoke_specs(
 	jobs: int,
 	scenarios: list[dict[str, Any]],
 	issues: list[dict[str, Any]],
+	*,
+	process_environment: FrozenProcessEnvironment,
 ) -> None:
 	if jobs <= 1 or len(scenario_specs) <= 1:
 		for index, spec in enumerate(scenario_specs):
-			result = run_package_godot_smoke_scenario_result(temp_root, registry_path, index, spec)
+			result = run_package_godot_smoke_scenario_result(
+				temp_root,
+				registry_path,
+				index,
+				spec,
+				process_environment=process_environment,
+			)
 			extend_package_godot_smoke_result(result, scenarios, issues)
 		return
 
 	results: list[dict[str, Any]] = []
 	with concurrent.futures.ThreadPoolExecutor(max_workers=jobs) as executor:
 		future_by_index = {
-			executor.submit(run_package_godot_smoke_scenario_result, temp_root, registry_path, index, spec): index
+			executor.submit(
+				run_package_godot_smoke_scenario_result,
+				temp_root,
+				registry_path,
+				index,
+				spec,
+				process_environment=process_environment,
+			): index
 			for index, spec in enumerate(scenario_specs)
 		}
 		for future in concurrent.futures.as_completed(future_by_index):
@@ -15781,6 +16197,8 @@ def run_package_godot_smoke_scenario_result(
 	registry_path: Path,
 	index: int,
 	spec: dict[str, Any],
+	*,
+	process_environment: FrozenProcessEnvironment,
 ) -> dict[str, Any]:
 	local_scenarios: list[dict[str, Any]] = []
 	local_issues: list[dict[str, Any]] = []
@@ -15793,6 +16211,7 @@ def run_package_godot_smoke_scenario_result(
 		list(spec.get("expected_files", [])),
 		local_scenarios,
 		local_issues,
+		process_environment=process_environment,
 	)
 	return {
 		"index": index,
@@ -15995,6 +16414,8 @@ def run_package_godot_smoke_scenario(
 	expected_files: list[str],
 	scenarios: list[dict[str, Any]],
 	issues: list[dict[str, Any]],
+	*,
+	process_environment: FrozenProcessEnvironment,
 ) -> None:
 	start_issue_count = len(issues)
 	project_root = temp_root / scenario / "project"
@@ -16012,6 +16433,7 @@ def run_package_godot_smoke_scenario(
 		],
 		issues,
 		timeout_seconds=PACKAGE_GODOT_SMOKE_INSTALL_TIMEOUT_SECONDS,
+		process_environment=process_environment,
 	)
 	assert_package_godot_smoke_condition(
 		bool(install_data.get("ok")),
@@ -16071,6 +16493,7 @@ def run_package_godot_smoke_scenario(
 		parse_script_path,
 		temp_root / scenario / "godot.log",
 		issues,
+		process_environment=process_environment,
 	)
 	record_package_smoke_scenario(
 		scenarios,
@@ -16293,6 +16716,8 @@ def run_package_godot_editor_parse(
 	parse_script_path: Path,
 	log_path: Path,
 	issues: list[dict[str, Any]],
+	*,
+	process_environment: FrozenProcessEnvironment,
 ) -> dict[str, Any]:
 	log_path.parent.mkdir(parents=True, exist_ok=True)
 	command = [
@@ -16306,7 +16731,11 @@ def run_package_godot_editor_parse(
 		"--quit",
 	]
 	try:
-		completed = run_maintenance_subprocess(command, timeout_seconds=180)
+		completed = run_maintenance_subprocess(
+			command,
+			timeout_seconds=180,
+			process_environment=process_environment,
+		)
 	except subprocess.TimeoutExpired as error:
 		issues.append(make_package_issue(
 			"package_godot_smoke_timeout",
@@ -16435,9 +16864,15 @@ def run_package_smoke_json_command(
 	command: list[str],
 	issues: list[dict[str, Any]],
 	allow_failure: bool = False,
+	*,
+	process_environment: FrozenProcessEnvironment,
 ) -> dict[str, Any]:
 	try:
-		completed = run_maintenance_subprocess(command, timeout_seconds=120)
+		completed = run_maintenance_subprocess(
+			command,
+			timeout_seconds=120,
+			process_environment=process_environment,
+		)
 	except subprocess.TimeoutExpired as error:
 		issues.append(make_package_issue(
 			"package_smoke_command_timeout",
@@ -16572,20 +17007,28 @@ def create_directory_link_fixture(target: Path, link: Path) -> None:
 		os.symlink(target_path, link_path, target_is_directory=True)
 		return
 
-	command_processor = os.environ.get("COMSPEC", "cmd.exe")
+	process_environment = active_or_freeze_maintenance_process_authority().environment
+	environment_values = process_environment.values()
+	command_processor = next(
+		(
+			value
+			for name, value in environment_values.items()
+			if name.casefold() == "comspec"
+		),
+		"cmd.exe",
+	)
 	link_arguments = subprocess.list2cmdline([os.fspath(link_path), os.fspath(target_path)])
-	completed = subprocess.run(
+	completed = run_maintenance_subprocess(
 		[command_processor, "/d", "/s", "/c", f"mklink /J {link_arguments}"],
-		capture_output=True,
-		text=True,
-		encoding="utf-8",
-		errors="replace",
+		timeout_seconds=30.0,
+		process_environment=process_environment,
 	)
 	if completed.returncode != 0 or not os.path.lexists(link_path):
 		details = completed.stderr.strip() or completed.stdout.strip() or "junction was not created"
 		raise OSError(f"could not create Windows directory junction fixture: {details}")
 
 
+@with_maintenance_process_authority
 def maintenance_self_test() -> dict[str, Any]:
 	"""Run the lazily loaded white-box maintenance contract suite."""
 	import gf_maintenance_self_test
@@ -20969,21 +21412,53 @@ def read_git_paths(
 	return read_git_paths_uncached(command, strict_utf8=strict_utf8)
 
 
+def run_frozen_maintenance_git(
+	arguments: Sequence[str],
+	*,
+	binary_output: bool = False,
+) -> Any:
+	"""Dispatch Git only through one frozen absolute invocation capability."""
+	git_process = active_or_freeze_maintenance_process_authority().git
+	command = list(git_process.command(arguments).effective)
+	try:
+		result = run_supervised_process(
+			command,
+			cwd=ROOT,
+			timeout_seconds=30.0,
+			environment=git_process.environment.values(),
+			binary_output=binary_output,
+			text_errors="replace",
+		)
+	except gf_process_supervisor.SupervisedProcessStartError as error:
+		raise error.original_error from error
+	if result.process_boundary_quiescent is not True:
+		raise gf_parallel_validation.WorkspaceProcessBoundaryError(
+			"Maintenance Git process-boundary cleanup was not proven."
+		)
+	if result.timed_out:
+		raise subprocess.TimeoutExpired(
+			command,
+			30.0,
+			output=result.stdout,
+			stderr=result.stderr,
+		)
+	return result
+
+
 def read_git_paths_uncached(
 	command: list[str],
 	*,
 	strict_utf8: bool = False,
 ) -> dict[str, Any]:
-	result = subprocess.run(
-		["git", *command],
-		cwd=ROOT,
-		capture_output=True,
-	)
-	if result.returncode != 0:
-		message = (result.stderr or result.stdout).decode("utf-8", errors="replace").strip()
+	result = run_frozen_maintenance_git(command, binary_output=True)
+	if result.return_code != 0:
+		stderr = result.stderr if isinstance(result.stderr, bytes) else result.stderr.encode("utf-8")
+		stdout = result.stdout if isinstance(result.stdout, bytes) else result.stdout.encode("utf-8")
+		message = (stderr or stdout).decode("utf-8", errors="replace").strip()
 		return {"paths": [], "error": message or "git path scan failed."}
+	stdout = result.stdout if isinstance(result.stdout, bytes) else result.stdout.encode("utf-8")
 	try:
-		decoded_stdout = result.stdout.decode(
+		decoded_stdout = stdout.decode(
 			"utf-8",
 			errors="strict" if strict_utf8 else "replace",
 		)
@@ -21238,7 +21713,9 @@ def recommend_checks(categories: dict[str, list[dict[str, str]]]) -> list[str]:
 				"tools/gf_mcp_server.py "
 				"tools/gf_validation_catalog.py "
 				"tools/gf_project_layout_profile.py "
-				"tools/gf_godot_process.py tools/gf_package_artifact_set.py tools/gf_package_paths.py "
+				"tools/gf_executable_resolution.py tools/gf_godot_process.py "
+				"tools/gf_process_authority.py "
+				"tools/gf_package_artifact_set.py tools/gf_package_paths.py "
 				"tools/gf_parallel_validation.py tools/gf_process_supervisor.py "
 				"tools/gf_repository_policy.py tools/gf_semver.py tools/gf_workspace_snapshot.py"
 			),
@@ -21512,6 +21989,216 @@ def validate_validation_executor_registries(
 	)
 
 
+def rebind_frozen_validation_executors(
+	catalog: gf_validation_catalog.ValidationCatalog,
+	binding: ValidationExecutorBinding,
+) -> ValidationExecutorBinding:
+	"""Bind a resolved Catalog to the exact already-frozen callable mappings."""
+	if not isinstance(catalog, gf_validation_catalog.ValidationCatalog):
+		raise gf_validation_catalog.ValidationCatalogError(
+			"Resolved validation executor Catalog is invalid."
+		)
+	if type(binding) is not ValidationExecutorBinding:
+		raise gf_validation_catalog.ValidationCatalogError(
+			"Provisional validation executor binding is invalid."
+		)
+	if tuple(binding.in_process_adapters) != catalog.in_process_action_names:
+		raise gf_validation_catalog.ValidationCatalogError(
+			"Resolved in-process actions do not match the frozen adapter registry."
+		)
+	if (
+		tuple(binding.deferred_command_materializers)
+		!= catalog.deferred_action_names
+	):
+		raise gf_validation_catalog.ValidationCatalogError(
+			"Resolved deferred actions do not match the frozen materializer registry."
+		)
+	return ValidationExecutorBinding(
+		catalog=catalog,
+		in_process_adapters=binding.in_process_adapters,
+		deferred_command_materializers=binding.deferred_command_materializers,
+	)
+
+
+def _validation_catalog_non_command_authority(
+	catalog: gf_validation_catalog.ValidationCatalog,
+) -> tuple[Any, ...]:
+	return (
+		catalog.action_names,
+		tuple(
+			(name, catalog.executor_kind(name))
+			for name in catalog.action_names
+		),
+		catalog.in_process_action_names,
+		catalog.deferred_action_names,
+		catalog.default_timeout_seconds,
+		tuple(catalog.timeout_overrides().items()),
+		tuple(
+			(name, tuple(dependencies))
+			for name, dependencies in catalog.dependencies().items()
+		),
+		tuple(
+			(name, tuple(actions))
+			for name, actions in catalog.check_groups().items()
+		),
+		tuple(
+			(name, tuple(actions))
+			for name, actions in catalog.suites().items()
+		),
+		catalog.parallel_full_shard_suites,
+	)
+
+
+def _replace_validated_reference_scene_argument(
+	command: tuple[str, ...],
+	old_scene: str,
+	new_scene: str,
+) -> tuple[str, ...]:
+	indices = [
+		index
+		for index, argument in enumerate(command[:-1])
+		if argument == "--scene"
+	]
+	if len(indices) != 1 or command[indices[0] + 1] != old_scene:
+		raise gf_validation_catalog.ValidationCatalogError(
+			"Reference scene command does not have one exact replaceable argument."
+		)
+	resolved = list(command)
+	resolved[indices[0] + 1] = new_scene
+	return tuple(resolved)
+
+
+def _validation_plan_authority(
+	plan: gf_validation_catalog.ValidationPlan,
+) -> tuple[Any, ...]:
+	if type(plan) is not gf_validation_catalog.ValidationPlan:
+		raise gf_validation_catalog.ValidationCatalogError(
+			"Resolved reference validation plan is invalid."
+		)
+	return (
+		plan.suite,
+		plan.requested_actions,
+		plan.actions,
+		plan.describe_graph(),
+		tuple(
+			(lane.name, lane.owned_actions, lane.execution_actions)
+			for lane in plan.lanes
+		),
+	)
+
+
+def validate_resolved_reference_catalog(
+	provisional_catalog: gf_validation_catalog.ValidationCatalog,
+	resolved_catalog: gf_validation_catalog.ValidationCatalog,
+	*,
+	provisional_plan: gf_validation_catalog.ValidationPlan,
+	resolved_plan: gf_validation_catalog.ValidationPlan,
+	allowed_scene_changes: Mapping[str, tuple[str, str]],
+) -> None:
+	"""Prove that manifest resolution changed only requested scene argv values."""
+	if not isinstance(provisional_catalog, gf_validation_catalog.ValidationCatalog):
+		raise gf_validation_catalog.ValidationCatalogError(
+			"Provisional reference Catalog is invalid."
+		)
+	if not isinstance(resolved_catalog, gf_validation_catalog.ValidationCatalog):
+		raise gf_validation_catalog.ValidationCatalogError(
+			"Resolved reference Catalog is invalid."
+		)
+	if not isinstance(allowed_scene_changes, Mapping):
+		raise gf_validation_catalog.ValidationCatalogError(
+			"Reference scene changes must be a mapping."
+		)
+	if _validation_plan_authority(
+		provisional_plan
+	) != _validation_plan_authority(resolved_plan):
+		raise gf_validation_catalog.ValidationCatalogError(
+			"Reference Catalog resolution changed validation plan authority."
+		)
+	requested_action_set = frozenset(provisional_plan.requested_actions)
+	allowed_names = frozenset({"examples_boot", "examples_smoke"})
+	if any(
+		name not in allowed_names or name not in requested_action_set
+		for name in allowed_scene_changes
+	):
+		raise gf_validation_catalog.ValidationCatalogError(
+			"Reference Catalog resolution contains an unapproved action."
+		)
+	validated_changes: dict[str, tuple[str, str]] = {}
+	for name, change in allowed_scene_changes.items():
+		if (
+			type(change) is not tuple
+			or len(change) != 2
+			or any(type(value) is not str for value in change)
+		):
+			raise gf_validation_catalog.ValidationCatalogError(
+				"Reference Catalog scene change is invalid."
+			)
+		old_scene, new_scene = change
+		try:
+			old_scene = gf_reference_manifest_reader.validate_reference_scene(old_scene)
+			new_scene = gf_reference_manifest_reader.validate_reference_scene(new_scene)
+		except gf_reference_manifest_reader.ReferenceManifestError:
+			raise gf_validation_catalog.ValidationCatalogError(
+				"Reference Catalog scene change is invalid."
+			) from None
+		if old_scene != new_scene:
+			validated_changes[name] = (old_scene, new_scene)
+	if (
+		_validation_catalog_non_command_authority(provisional_catalog)
+		!= _validation_catalog_non_command_authority(resolved_catalog)
+	):
+		raise gf_validation_catalog.ValidationCatalogError(
+			"Reference Catalog resolution changed non-command authority."
+		)
+	provisional_commands = {
+		name: tuple(command)
+		for name, command in provisional_catalog.command_definitions().items()
+	}
+	resolved_commands = {
+		name: tuple(command)
+		for name, command in resolved_catalog.command_definitions().items()
+	}
+	if tuple(provisional_commands) != tuple(resolved_commands):
+		raise gf_validation_catalog.ValidationCatalogError(
+			"Reference Catalog resolution changed command membership."
+		)
+	for name, provisional_command in provisional_commands.items():
+		expected_command = provisional_command
+		if name in validated_changes:
+			expected_command = _replace_validated_reference_scene_argument(
+				provisional_command,
+				*validated_changes[name],
+			)
+		if resolved_commands[name] != expected_command:
+			raise gf_validation_catalog.ValidationCatalogError(
+				"Reference Catalog resolution changed an unapproved command argument."
+			)
+	provisional_context = provisional_catalog.command_projection_context
+	resolved_context = resolved_catalog.command_projection_context
+	if provisional_context is None or resolved_context is None:
+		if provisional_context is not resolved_context:
+			raise gf_validation_catalog.ValidationCatalogError(
+				"Reference Catalog resolution changed command projection authority."
+			)
+		return
+	expected_context = provisional_context
+	for action_name, (_old_scene, new_scene) in validated_changes.items():
+		if action_name == "examples_boot":
+			expected_context = replace(
+				expected_context,
+				reference_boot_scene=new_scene,
+			)
+		else:
+			expected_context = replace(
+				expected_context,
+				reference_smoke_scene=new_scene,
+			)
+	if resolved_context != expected_context:
+		raise gf_validation_catalog.ValidationCatalogError(
+			"Reference Catalog resolution changed command projection authority."
+		)
+
+
 def run_in_process_check(
 	name: str,
 	command: list[str],
@@ -21540,7 +22227,9 @@ def run_in_process_check(
 			timeout_seconds=timeout_seconds,
 			execution="in_process",
 		)
-	except Exception:
+	except Exception as error:
+		if exception_has_cleanup_debt(error):
+			raise
 		return CommandResult(
 			name=name,
 			command=command,
@@ -21700,12 +22389,13 @@ VALIDATION_SHADOW_REPORT_FIELDS = frozenset({
 def attach_affected_analysis_report(
 	data: dict[str, Any],
 	*,
+	git_process: FrozenGitProcess | None,
 	base_revision: str,
 	explain: bool,
 	force_failure: bool = False,
 	suite_deadline: float | None = None,
 ) -> None:
-	"""Attach fail-closed affected diagnostics without changing execution."""
+	"""Attach advisory diagnostics while leaving cleanup ownership debt terminal."""
 	check_names = tuple(str(name) for name in data.get("checks", []))
 	try:
 		if force_failure:
@@ -21716,6 +22406,8 @@ def attach_affected_analysis_report(
 				explain=explain,
 			)
 		else:
+			if git_process is None:
+				raise ValueError("Affected analysis requires a frozen Git capability.")
 			analysis_deadline = advisory_collection_deadline(
 				AFFECTED_ANALYSIS_COLLECTION_TIMEOUT_SECONDS,
 				suite_deadline,
@@ -21723,6 +22415,7 @@ def attach_affected_analysis_report(
 			report = gf_validation_inputs.analyze_affected_checks(
 				ROOT,
 				check_names,
+				git_process=git_process,
 				base_revision=base_revision,
 				explain=explain,
 				deadline_seconds=analysis_deadline,
@@ -21737,7 +22430,9 @@ def attach_affected_analysis_report(
 			explain=explain,
 		):
 			raise ValueError("Affected analysis report violates runner invariants.")
-	except Exception:
+	except Exception as error:
+		if exception_has_cleanup_debt(error):
+			raise
 		report = gf_validation_inputs.make_affected_analysis_failure(
 			check_names,
 			base_revision=base_revision,
@@ -21795,7 +22490,7 @@ def attach_validation_shadow_report(
 	parallel_occurrences: dict[str, list[dict[str, Any]]] | None = None,
 	suite_deadline: float | None = None,
 ) -> None:
-	"""Attach advisory execution evidence without changing validation semantics."""
+	"""Attach advisory evidence while leaving cleanup ownership debt terminal."""
 	collection_started = time.perf_counter()
 	try:
 		shadow_deadline = advisory_collection_deadline(
@@ -21811,6 +22506,8 @@ def attach_validation_shadow_report(
 			parallel_occurrences=parallel_occurrences,
 		)
 	except Exception as error:
+		if exception_has_cleanup_debt(error):
+			raise
 		data["validation_shadow"] = make_validation_shadow_failure_report(
 			data,
 			validation_shadow_error_code(error),
@@ -22192,36 +22889,215 @@ def run_checks(
 	affected_explain: bool = False,
 	progress_callback: Callable[[str, str, float | None], None] | None = None,
 	output_callback: Callable[[str, str, str], None] | None = None,
+	process_environment: FrozenProcessEnvironment | None = None,
 ) -> dict[str, Any]:
 	global _ACTIVE_WORKSPACE_SNAPSHOT
 	global _ACTIVE_SUITE_DEADLINE
 	global _API_CACHE
 	overall_started = time.perf_counter()
-	invocation_process_environment = capture_maintenance_process_environment(cwd=ROOT)
-	invocation_catalog = _VALIDATION_CATALOG
-	validation_plan = invocation_catalog.plan(
-		suite,
-		checks,
-		sync_examples=sync_examples,
-	)
-	selected_names = list(validation_plan.actions)
 	suite_deadline = (
 		overall_started + suite_timeout_seconds
 		if suite_timeout_seconds is not None
 		else None
 	)
+	reference_reader_deadline = (
+		suite_deadline
+		if suite_deadline is not None
+		else overall_started + REFERENCE_MANIFEST_READER_TIMEOUT_SECONDS
+	)
+	invocation_environment_snapshot = freeze_maintenance_invocation_environment(
+		process_environment
+	)
+	invocation_process_environment_values = invocation_environment_snapshot.values()
+	validation_plan: gf_validation_catalog.ValidationPlan
+	invocation_catalog = _VALIDATION_CATALOG
+	validation_executor_binding: ValidationExecutorBinding | None = None
+	reference_project = DEFAULT_REFERENCE_PROJECT
+	reference_boot_scene = DEFAULT_REFERENCE_BOOT_SCENE
+	reference_smoke_scene = DEFAULT_REFERENCE_SMOKE_SCENE
+	reference_setup_error = ""
+	reference_suite_deadline_exhausted = False
+	executor_setup_error = ""
+	parallel_setup_error = ""
+	resolved_jobs = 1
 	previous_snapshot = _ACTIVE_WORKSPACE_SNAPSHOT
 	previous_suite_deadline = _ACTIVE_SUITE_DEADLINE
 	previous_api_cache = _API_CACHE
 	snapshot = WorkspaceSnapshot(ROOT)
-	try:
-		resolved_jobs = resolve_check_jobs(
+	# Registry construction and every other invocation-scoped preflight consumer
+	# observe the same frozen environment through the active context.  No external
+	# reference helper is permitted until the callable registries are closed.
+	with gf_process_authority.activate_process_environment(
+		invocation_environment_snapshot
+	):
+		validation_plan = _VALIDATION_CATALOG.plan(
 			suite,
 			checks,
-			jobs,
 			sync_examples=sync_examples,
 		)
-	except ValueError as error:
+		try:
+			resolved_jobs = resolve_check_jobs(
+				suite,
+				checks,
+				jobs,
+				sync_examples=sync_examples,
+			)
+		except ValueError as error:
+			parallel_setup_error = str(error)
+		try:
+			(
+				reference_project,
+				reference_boot_scene,
+				reference_smoke_scene,
+			) = reference_catalog_inputs(invocation_environment_snapshot)
+		except _ReferenceManifestSetupError:
+			reference_setup_error = "Reference environment inputs are invalid."
+		if not parallel_setup_error and not reference_setup_error:
+			try:
+				invocation_catalog = validation_catalog_for_root(
+					ROOT,
+					default_reference_project=reference_project,
+					reference_boot_scene=reference_boot_scene,
+					reference_smoke_scene=reference_smoke_scene,
+				)
+				validation_plan = invocation_catalog.plan(
+					suite,
+					checks,
+					sync_examples=sync_examples,
+				)
+			except MemoryError:
+				raise
+			except Exception as error:
+				if exception_has_cleanup_debt(error):
+					raise
+				reference_setup_error = "Reference environment inputs are invalid."
+		if not parallel_setup_error and not reference_setup_error:
+			try:
+				raw_in_process_adapters = maintenance_in_process_adapter_registry()
+				raw_deferred_command_materializers = (
+					maintenance_deferred_command_materializer_registry()
+				)
+			except MemoryError:
+				raise
+			except Exception as error:
+				if exception_has_cleanup_debt(error):
+					raise
+				executor_setup_error = (
+					"Validation executor registries could not be constructed."
+				)
+			else:
+				try:
+					validation_executor_binding = (
+						validate_validation_executor_registries(
+							invocation_catalog,
+							raw_in_process_adapters,
+							raw_deferred_command_materializers,
+						)
+					)
+				except gf_validation_catalog.ValidationCatalogError as error:
+					executor_setup_error = str(error)
+				except MemoryError:
+					raise
+				except Exception as error:
+					if exception_has_cleanup_debt(error):
+						raise
+					executor_setup_error = (
+						"Validation executor registries could not be validated."
+					)
+		boot_scene_override = frozen_environment_value(
+			invocation_process_environment_values,
+			REFERENCE_BOOT_SCENE_ENV_VAR,
+		)
+		smoke_scene_override = frozen_environment_value(
+			invocation_process_environment_values,
+			REFERENCE_SMOKE_SCENE_ENV_VAR,
+		)
+		requires_manifest_boot = (
+			"examples_boot" in validation_plan.actions
+			and boot_scene_override is None
+		)
+		requires_manifest_smoke = (
+			"examples_smoke" in validation_plan.actions
+			and smoke_scene_override is None
+		)
+		if (
+			not parallel_setup_error
+			and not reference_setup_error
+			and not executor_setup_error
+			and (requires_manifest_boot or requires_manifest_smoke)
+		):
+			try:
+				manifest = _read_reference_manifest_supervised(
+					reference_project,
+					invocation_process_environment_values,
+					deadline=reference_reader_deadline,
+				)
+			except _ReferenceManifestDeadlineError:
+				if suite_deadline is not None:
+					reference_suite_deadline_exhausted = True
+				else:
+					reference_setup_error = (
+						"Reference manifest inputs exceeded their bounded setup deadline."
+					)
+			except _ReferenceManifestSetupError:
+				reference_setup_error = (
+					"Reference manifest inputs could not be established."
+				)
+			else:
+				resolved_boot_scene = reference_boot_scene
+				resolved_smoke_scene = reference_smoke_scene
+				allowed_scene_changes: dict[str, tuple[str, str]] = {}
+				if requires_manifest_boot and manifest["boot_scene"] is not None:
+					resolved_boot_scene = str(manifest["boot_scene"])
+					allowed_scene_changes["examples_boot"] = (
+						reference_boot_scene,
+						resolved_boot_scene,
+					)
+				if requires_manifest_smoke and manifest["smoke_scene"] is not None:
+					resolved_smoke_scene = str(manifest["smoke_scene"])
+					allowed_scene_changes["examples_smoke"] = (
+						reference_smoke_scene,
+						resolved_smoke_scene,
+					)
+				try:
+					resolved_catalog = validation_catalog_for_root(
+						ROOT,
+						default_reference_project=reference_project,
+						reference_boot_scene=resolved_boot_scene,
+						reference_smoke_scene=resolved_smoke_scene,
+					)
+					resolved_reference_plan = resolved_catalog.plan(
+						suite,
+						checks,
+						sync_examples=sync_examples,
+					)
+					validate_resolved_reference_catalog(
+						invocation_catalog,
+						resolved_catalog,
+						provisional_plan=validation_plan,
+						resolved_plan=resolved_reference_plan,
+						allowed_scene_changes=allowed_scene_changes,
+					)
+					if validation_executor_binding is None:
+						raise gf_validation_catalog.ValidationCatalogError(
+							"Provisional validation executor binding is unavailable."
+						)
+					validation_executor_binding = rebind_frozen_validation_executors(
+						resolved_catalog,
+						validation_executor_binding,
+					)
+					invocation_catalog = resolved_catalog
+					validation_plan = resolved_reference_plan
+				except MemoryError:
+					raise
+				except Exception as error:
+					if exception_has_cleanup_debt(error):
+						raise
+					reference_setup_error = (
+						"Reference manifest inputs changed unapproved validation authority."
+					)
+	selected_names = list(validation_plan.actions)
+	if parallel_setup_error:
 		workspace_state = {
 			"schema_version": 1,
 			"head": "",
@@ -22233,7 +23109,7 @@ def run_checks(
 			validation_plan,
 			workspace_state,
 			"parallel_validation_setup",
-			str(error),
+			parallel_setup_error,
 		)
 		data["workspace_snapshot"] = snapshot.stats()
 		data["workspace"] = workspace_state
@@ -22248,6 +23124,7 @@ def run_checks(
 		if affected:
 			attach_affected_analysis_report(
 				data,
+				git_process=None,
 				base_revision=affected_base,
 				explain=affected_explain,
 				force_failure=True,
@@ -22255,30 +23132,41 @@ def run_checks(
 			)
 		data["duration_seconds"] = round(time.perf_counter() - overall_started, 3)
 		return data
-	try:
-		raw_in_process_adapters = maintenance_in_process_adapter_registry()
-		raw_deferred_command_materializers = (
-			maintenance_deferred_command_materializer_registry()
+	if reference_suite_deadline_exhausted:
+		workspace_state = {
+			"schema_version": 1,
+			"head": "",
+			"dirty": True,
+			"untracked_file_count": 0,
+			"fingerprint": "0" * 64,
+		}
+		data = make_check_deadline_failure(
+			validation_plan,
+			workspace_state,
+			suite_timeout_seconds or 0,
 		)
-	except Exception:
-		# Registry construction binds live Python symbols and may fail before the
-		# Catalog validator runs.  Keep ordinary implementation failures inside the
-		# same bounded setup envelope without exposing arbitrary exception text.
-		executor_setup_error = "Validation executor registries could not be constructed."
-	else:
-		try:
-			validation_executor_binding = validate_validation_executor_registries(
-				invocation_catalog,
-				raw_in_process_adapters,
-				raw_deferred_command_materializers,
+		data["workspace_snapshot"] = snapshot.stats()
+		data["workspace"] = workspace_state
+		data["duration_seconds"] = round(time.perf_counter() - overall_started, 3)
+		data["execution"] = "parallel_shards" if resolved_jobs > 1 else "serial"
+		data["jobs"] = resolved_jobs
+		if validation_shadow:
+			data["validation_shadow"] = make_validation_shadow_failure_report(
+				data,
+				"suite_deadline_exhausted",
 			)
-		except gf_validation_catalog.ValidationCatalogError as error:
-			executor_setup_error = str(error)
-		except Exception:
-			executor_setup_error = "Validation executor registries could not be validated."
-		else:
-			executor_setup_error = ""
-	if executor_setup_error:
+		if affected:
+			attach_affected_analysis_report(
+				data,
+				git_process=None,
+				base_revision=affected_base,
+				explain=affected_explain,
+				force_failure=True,
+				suite_deadline=suite_deadline,
+			)
+		data["duration_seconds"] = round(time.perf_counter() - overall_started, 3)
+		return data
+	if executor_setup_error or reference_setup_error:
 		workspace_state = {
 			"schema_version": 1,
 			"head": "",
@@ -22290,7 +23178,7 @@ def run_checks(
 			validation_plan,
 			workspace_state,
 			"validation_executor_setup",
-			executor_setup_error,
+			executor_setup_error or reference_setup_error,
 		)
 		data["workspace_snapshot"] = snapshot.stats()
 		data["workspace"] = workspace_state
@@ -22305,6 +23193,7 @@ def run_checks(
 		if affected:
 			attach_affected_analysis_report(
 				data,
+				git_process=None,
 				base_revision=affected_base,
 				explain=affected_explain,
 				force_failure=True,
@@ -22312,8 +23201,64 @@ def run_checks(
 			)
 		data["duration_seconds"] = round(time.perf_counter() - overall_started, 3)
 		return data
+	if validation_executor_binding is None:
+		raise RuntimeError("Validation executor binding was not established.")
 	try:
-		workspace_state = workspace_fingerprint(ROOT, deadline=suite_deadline)
+		pin_godot_executable_selection(
+			invocation_process_environment_values,
+			cwd=ROOT,
+		)
+		invocation_process_authority = FrozenProcessEnvironment.capture(
+			invocation_process_environment_values
+		)
+		invocation_process_authority = gf_process_authority.freeze_process_authority(
+			invocation_process_authority,
+			cwd=ROOT,
+		)
+	except (FrozenEnvironmentError, GitExecutableResolutionError) as error:
+		workspace_state = {
+			"schema_version": 1,
+			"head": "",
+			"dirty": True,
+			"untracked_file_count": 0,
+			"fingerprint": "0" * 64,
+		}
+		data = make_check_setup_failure(
+			validation_plan,
+			workspace_state,
+			"validation_environment_setup",
+			str(error),
+		)
+		data["workspace_snapshot"] = snapshot.stats()
+		data["workspace"] = workspace_state
+		data["duration_seconds"] = round(time.perf_counter() - overall_started, 3)
+		data["execution"] = "parallel_shards" if resolved_jobs > 1 else "serial"
+		data["jobs"] = resolved_jobs
+		if validation_shadow:
+			data["validation_shadow"] = make_validation_shadow_failure_report(
+				data,
+				"validation_environment_setup_failed",
+			)
+		if affected:
+			attach_affected_analysis_report(
+				data,
+				git_process=None,
+				base_revision=affected_base,
+				explain=affected_explain,
+				force_failure=True,
+				suite_deadline=suite_deadline,
+			)
+		data["duration_seconds"] = round(time.perf_counter() - overall_started, 3)
+		return data
+	invocation_process_environment = MappingProxyType(
+		invocation_process_authority.environment.values()
+	)
+	try:
+		workspace_state = workspace_fingerprint(
+			ROOT,
+			git_process=invocation_process_authority.git,
+			deadline=suite_deadline,
+		)
 	except (TimeoutError, subprocess.TimeoutExpired) as error:
 		workspace_state = {
 			"schema_version": 1,
@@ -22341,6 +23286,7 @@ def run_checks(
 		if affected:
 			attach_affected_analysis_report(
 				data,
+				git_process=invocation_process_authority.git,
 				base_revision=affected_base,
 				explain=affected_explain,
 				force_failure=True,
@@ -22349,6 +23295,8 @@ def run_checks(
 		data["duration_seconds"] = round(time.perf_counter() - overall_started, 3)
 		return data
 	except gf_maintenance_check_graph.WorkspaceFingerprintError as error:
+		if exception_has_cleanup_debt(error):
+			raise
 		workspace_state = {
 			"schema_version": 1,
 			"head": "",
@@ -22375,6 +23323,7 @@ def run_checks(
 		if affected:
 			attach_affected_analysis_report(
 				data,
+				git_process=invocation_process_authority.git,
 				base_revision=affected_base,
 				explain=affected_explain,
 				force_failure=True,
@@ -22392,6 +23341,10 @@ def run_checks(
 	_ACTIVE_WORKSPACE_SNAPSHOT = snapshot
 	_ACTIVE_SUITE_DEADLINE = suite_deadline
 	_API_CACHE = None
+	process_environment_scope = gf_process_authority.activate_process_context(
+		invocation_process_authority,
+	)
+	process_environment_scope.__enter__()
 	try:
 		with contextlib.ExitStack() as stack:
 			effective_package_manifest = package_artifact_manifest
@@ -22403,6 +23356,7 @@ def run_checks(
 				if resolved_jobs > 1 or package_artifact_is_required(selected_names):
 					captured_workspace = gf_parallel_validation.capture_workspace(
 						ROOT,
+						git_process=invocation_process_authority.git,
 						deadline=suite_deadline,
 					)
 					if captured_workspace.workspace_fingerprint != workspace_state["fingerprint"]:
@@ -22443,12 +23397,14 @@ def run_checks(
 							gf_parallel_validation.materialize_workspace(
 								captured_workspace,
 								artifact_temp / "s",
+								git_process=invocation_process_authority.git,
 								deadline=suite_deadline,
 							)
 						)
 						package_artifact_set = build_package_smoke_artifact_set(
 							artifact_temp / "a",
 							workspace_state,
+							process_environment=invocation_process_authority.environment,
 							source_root=artifact_source_workspace,
 							deadline=suite_deadline,
 						)
@@ -22469,6 +23425,7 @@ def run_checks(
 					data = run_parallel_full_checks(
 						captured_workspace,
 						parallel_temp,
+						git_process=invocation_process_authority.git,
 						validation_plan=validation_plan,
 						validation_catalog=validation_executor_binding.catalog,
 						jobs=resolved_jobs,
@@ -22514,6 +23471,7 @@ def run_checks(
 							output_callback=output_callback,
 							workspace_state=workspace_state,
 							process_environment=invocation_process_environment,
+							git_process=invocation_process_authority.git,
 						)
 				if package_artifact_set is not None:
 					remaining_deadline_seconds(suite_deadline, "package artifact revalidation")
@@ -22521,7 +23479,11 @@ def run_checks(
 					remaining_deadline_seconds(suite_deadline, "package artifact revalidation")
 				if "examples_sync_write" not in selected_names:
 					remaining_deadline_seconds(suite_deadline, "workspace snapshot revalidation")
-					ending_workspace = workspace_fingerprint(ROOT, deadline=suite_deadline)
+					ending_workspace = workspace_fingerprint(
+						ROOT,
+						git_process=invocation_process_authority.git,
+						deadline=suite_deadline,
+					)
 					if ending_workspace["fingerprint"] != workspace_state["fingerprint"]:
 						raise WorkspaceSnapshotError(
 							"Workspace source changed while read-only maintenance checks were running."
@@ -22549,9 +23511,13 @@ def run_checks(
 				OSError,
 				ValueError,
 			) as error:
+				if exception_has_cleanup_debt(error):
+					raise
 				if data is None:
 					if isinstance(error, PackageArtifactSetError):
 						failure_name = "package_artifact_preparation"
+					elif isinstance(error, FrozenEnvironmentError):
+						failure_name = "validation_environment_setup"
 					elif isinstance(
 						error,
 						(gf_maintenance_check_graph.WorkspaceFingerprintError, WorkspaceSnapshotError),
@@ -22591,9 +23557,12 @@ def run_checks(
 					"\n".join(temporary_cleanup_errors),
 				)
 	finally:
-		_ACTIVE_WORKSPACE_SNAPSHOT = previous_snapshot
-		_ACTIVE_SUITE_DEADLINE = previous_suite_deadline
-		_API_CACHE = previous_api_cache
+		try:
+			process_environment_scope.__exit__(*sys.exc_info())
+		finally:
+			_ACTIVE_WORKSPACE_SNAPSHOT = previous_snapshot
+			_ACTIVE_SUITE_DEADLINE = previous_suite_deadline
+			_API_CACHE = previous_api_cache
 	if data is None:
 		raise RuntimeError("Maintenance checks did not produce a result.")
 	data["workspace_snapshot"] = snapshot.stats()
@@ -22618,6 +23587,7 @@ def run_checks(
 	if affected and "affected_analysis" not in data:
 		attach_affected_analysis_report(
 			data,
+			git_process=invocation_process_authority.git,
 			base_revision=affected_base,
 			explain=affected_explain,
 			suite_deadline=suite_deadline,
@@ -22714,18 +23684,58 @@ def append_check_orchestration_deadline(data: dict[str, Any], message: str) -> N
 
 
 def capture_maintenance_process_environment(
-	*,
-	cwd: Path = ROOT,
-) -> Mapping[str, str]:
-	"""Capture and freeze process selection inputs once for one invocation."""
-	environment = dict(os.environ)
-	environment.pop(GUT_SHARD_OBSERVATION_NONCE_ENVIRONMENT, None)
-	environment.pop(GUT_SHARD_OBSERVATION_PATH_ENVIRONMENT, None)
-	environment[GODOT_EXECUTABLE_ENV_VAR] = resolve_godot_executable(
-		environment=environment,
-		cwd=cwd,
+) -> dict[str, str]:
+	"""Capture owned process inputs without resolving executables or touching disk."""
+	active_environment = gf_process_authority.active_process_environment()
+	environment = (
+		active_environment.values()
+		if active_environment is not None
+		else dict(os.environ)
 	)
-	return MappingProxyType(environment)
+	remove_owned_environment_value(
+		environment,
+		GUT_SHARD_OBSERVATION_NONCE_ENVIRONMENT,
+	)
+	remove_owned_environment_value(
+		environment,
+		GUT_SHARD_OBSERVATION_PATH_ENVIRONMENT,
+	)
+	return environment
+
+
+def active_or_freeze_maintenance_process_authority() -> FrozenProcessAuthority:
+	"""Return the invocation authority or freeze one at a direct action entry."""
+	authority = gf_process_authority.active_process_authority()
+	if authority is not None:
+		return authority
+	return gf_process_authority.freeze_process_authority(
+		FrozenProcessEnvironment.capture(capture_maintenance_process_environment()),
+		cwd=ROOT,
+	)
+
+
+def pin_godot_executable_selection(
+	environment: dict[str, str],
+	*,
+	cwd: Path,
+) -> None:
+	"""Pin a found engine while preserving a missing selection for action failure."""
+	try:
+		resolved_godot = resolve_godot_executable(
+			environment=environment,
+			cwd=cwd,
+		)
+	except GodotExecutableResolutionError:
+		# Non-Godot actions remain usable without an installed engine. A later
+		# Godot action resolves against this same frozen mapping and fails closed
+		# before dispatch instead of handing a bare command to the operating system.
+		pass
+	else:
+		set_owned_environment_value(
+			environment,
+			GODOT_EXECUTABLE_ENV_VAR,
+			resolved_godot,
+		)
 
 
 def parallel_shard_environment(
@@ -22769,32 +23779,45 @@ def parallel_shard_environment(
 	environment = dict(
 		base_environment
 		if base_environment is not None
-		else capture_maintenance_process_environment(cwd=workspace)
+		else capture_maintenance_process_environment()
 	)
-	environment.pop("GODOT_USER_HOME", None)
+	remove_owned_environment_value(environment, "GODOT_USER_HOME")
+	private_values: dict[str, str]
 	if os.name == "nt":
-		environment["APPDATA"] = str(directories["appdata"])
-		environment["LOCALAPPDATA"] = str(directories["localappdata"])
-		environment["TMPDIR"] = str(directories["temp"])
-		environment["TEMP"] = str(directories["temp"])
-		environment["TMP"] = str(directories["temp"])
+		private_values = {
+			"APPDATA": str(directories["appdata"]),
+			"LOCALAPPDATA": str(directories["localappdata"]),
+			"TMPDIR": str(directories["temp"]),
+			"TEMP": str(directories["temp"]),
+			"TMP": str(directories["temp"]),
+		}
 	elif sys.platform == "darwin":
-		environment["HOME"] = str(directories["home"])
-		environment["TMPDIR"] = str(directories["temp"])
-		environment["TEMP"] = str(directories["temp"])
-		environment["TMP"] = str(directories["temp"])
+		private_values = {
+			"HOME": str(directories["home"]),
+			"TMPDIR": str(directories["temp"]),
+			"TEMP": str(directories["temp"]),
+			"TMP": str(directories["temp"]),
+		}
 	else:
-		environment["HOME"] = str(directories["home"])
-		environment["XDG_DATA_HOME"] = str(directories["data"])
-		environment["XDG_CONFIG_HOME"] = str(directories["config"])
-		environment["XDG_CACHE_HOME"] = str(directories["cache"])
-		environment["TMPDIR"] = str(directories["temp"])
-		environment["TEMP"] = str(directories["temp"])
-		environment["TMP"] = str(directories["temp"])
-	environment["PYTHONUTF8"] = "1"
-	environment[GODOT_EXECUTABLE_ENV_VAR] = resolve_godot_executable(
-		environment=environment,
-		cwd=workspace,
+		private_values = {
+			"HOME": str(directories["home"]),
+			"XDG_DATA_HOME": str(directories["data"]),
+			"XDG_CONFIG_HOME": str(directories["config"]),
+			"XDG_CACHE_HOME": str(directories["cache"]),
+			"TMPDIR": str(directories["temp"]),
+			"TEMP": str(directories["temp"]),
+			"TMP": str(directories["temp"]),
+		}
+	private_values["PYTHONUTF8"] = "1"
+	for name, value in private_values.items():
+		set_owned_environment_value(environment, name, value)
+	set_owned_environment_value(
+		environment,
+		GODOT_EXECUTABLE_ENV_VAR,
+		resolve_godot_executable(
+			environment=environment,
+			cwd=workspace,
+		),
 	)
 	return environment, isolation_root
 
@@ -23026,10 +24049,366 @@ def publish_parallel_validation_occurrences(
 		)
 
 
+def prepare_parallel_full_batch(
+	batch_index: int,
+	batch_plan: list[ParallelCheckShardPlan],
+	batch_root: Path,
+	*,
+	captured_workspace: CapturedWorkspace,
+	git_process: FrozenGitProcess,
+	expected_checks_by_shard: Mapping[str, list[str]],
+	validation_catalog: gf_validation_catalog.ValidationCatalog,
+	timeout_seconds: int | None,
+	suite_deadline: float | None,
+	fail_fast: bool,
+	package_artifact_manifest: str,
+	package_artifact_manifest_sha256: str,
+	base_process_environment: Mapping[str, str] | None,
+	cleanup_state: dict[str, bool],
+	cleanup_errors: list[str],
+) -> PreparedParallelFullBatch:
+	"""Materialize and freeze one batch without making it eligible to dispatch."""
+	cleanup_state["permitted"] = False
+	workspace_by_shard = materialize_parallel_full_workspaces(
+		captured_workspace,
+		batch_root,
+		batch_plan,
+		git_process=git_process,
+		deadline=suite_deadline,
+	)
+	cleanup_state["permitted"] = True
+	batch_shards: list[ParallelShard] = []
+	report_paths: dict[str, Path] = {}
+	command_contracts: dict[str, ParallelShardCommandContract] = {}
+	for batch_offset, shard_plan in enumerate(batch_plan):
+		workspace = workspace_by_shard[shard_plan.name]
+		shard, report_path = make_parallel_full_shard(
+			shard_plan,
+			workspace,
+			validation_catalog=validation_catalog,
+			private_environment_root=batch_root / "u" / str(batch_offset),
+			timeout_seconds=timeout_seconds,
+			suite_deadline=suite_deadline,
+			fail_fast=fail_fast,
+			package_artifact_manifest=package_artifact_manifest,
+			package_artifact_manifest_sha256=package_artifact_manifest_sha256,
+			base_process_environment=base_process_environment,
+		)
+		batch_shards.append(shard)
+		report_paths[shard.name] = report_path
+		if shard.environment is None:
+			raise WorkspaceSnapshotError(
+				f"Parallel Full shard {shard.name!r} has no frozen process environment."
+			)
+		command_contracts[shard.name] = freeze_parallel_shard_command_contract(
+			expected_checks_by_shard[shard.name],
+			authority_catalog=validation_catalog,
+			environment=shard.environment,
+			workspace=workspace,
+			package_artifact_manifest=package_artifact_manifest,
+			package_artifact_manifest_sha256=package_artifact_manifest_sha256,
+		)
+	return PreparedParallelFullBatch(
+		index=batch_index,
+		plan=tuple(batch_plan),
+		root=batch_root,
+		shards=tuple(batch_shards),
+		report_paths=MappingProxyType(report_paths),
+		command_contracts=MappingProxyType(command_contracts),
+		cleanup_errors=cleanup_errors,
+	)
+
+
+def assert_parallel_full_preflight_complete(
+	plan: Sequence[ParallelCheckShardPlan],
+	batches: Sequence[Sequence[ParallelCheckShardPlan]],
+	prepared_batches: Sequence[PreparedParallelFullBatch],
+	*,
+	validation_catalog: gf_validation_catalog.ValidationCatalog,
+) -> None:
+	"""Close the global admission barrier before any probe or shard can start."""
+	if len(prepared_batches) != len(batches):
+		raise WorkspaceSnapshotError(
+			"Parallel Full preflight did not prepare the complete batch plan."
+		)
+	expected_names = tuple(shard.name for shard in plan)
+	actual_names: list[str] = []
+	for batch_index, (expected_batch, prepared) in enumerate(
+		zip(batches, prepared_batches, strict=True)
+	):
+		if prepared.index != batch_index or prepared.plan != tuple(expected_batch):
+			raise WorkspaceSnapshotError(
+				"Parallel Full preflight batch identity differs from the captured plan."
+			)
+		batch_names = tuple(shard.name for shard in expected_batch)
+		if (
+			len(prepared.shards) != len(expected_batch)
+			or tuple(shard.name for shard in prepared.shards) != batch_names
+			or tuple(prepared.report_paths) != batch_names
+			or tuple(prepared.command_contracts) != batch_names
+		):
+			raise WorkspaceSnapshotError(
+				"Parallel Full preflight batch closure differs from the captured plan."
+			)
+		for shard_plan, shard in zip(expected_batch, prepared.shards, strict=True):
+			actual_names.append(shard.name)
+			workspace = Path(os.path.abspath(shard.workspace))
+			if not shard.command or not Path(shard.command[0]).is_absolute():
+				raise WorkspaceSnapshotError(
+					f"Parallel Full shard {shard.name!r} has no absolute outer executable identity."
+				)
+			if not shard.workspace.is_absolute() or not path_is_within_or_equal(
+				workspace,
+				prepared.root,
+			):
+				raise WorkspaceSnapshotError(
+					f"Parallel Full shard {shard.name!r} has an invalid materialized workspace."
+				)
+			report_path = prepared.report_paths[shard.name]
+			if (
+				not report_path.is_absolute()
+				or report_path == workspace
+				or not path_is_within_or_equal(report_path, workspace)
+			):
+				raise WorkspaceSnapshotError(
+					f"Parallel Full shard {shard.name!r} report escapes its materialized workspace."
+				)
+			if shard.environment is None:
+				raise WorkspaceSnapshotError(
+					f"Parallel Full shard {shard.name!r} has no frozen process environment."
+				)
+			contract = prepared.command_contracts[shard.name]
+			if contract.resolver_workspace != workspace or (
+				contract.resolver_environment is None
+				or dict(contract.resolver_environment) != dict(shard.environment)
+			):
+				raise WorkspaceSnapshotError(
+					f"Parallel Full shard {shard.name!r} command contract is not bound "
+					"to its final workspace and frozen environment."
+				)
+			if tuple(contract.identities) != shard_plan.execution_checks:
+				raise WorkspaceSnapshotError(
+					f"Parallel Full shard {shard.name!r} command contract action closure differs."
+				)
+			for check_name, identity in contract.identities.items():
+				if not identity.declared or not identity.effective:
+					raise WorkspaceSnapshotError(
+						f"Parallel Full action {check_name!r} has an empty command identity."
+					)
+				if (
+					validation_catalog.executor_kind(check_name)
+					is gf_validation_catalog.ValidationExecutorKind.SUBPROCESS
+					and not Path(identity.effective[0]).is_absolute()
+				):
+					raise WorkspaceSnapshotError(
+						f"Parallel Full action {check_name!r} effective executable is not absolute."
+					)
+	if tuple(actual_names) != expected_names or len(actual_names) != len(set(actual_names)):
+		raise WorkspaceSnapshotError(
+			"Parallel Full preflight shard closure differs from the captured plan."
+		)
+
+
+def execute_prepared_parallel_full_batch(
+	prepared: PreparedParallelFullBatch,
+	*,
+	jobs: int,
+	suite_deadline: float | None,
+	fail_fast: bool,
+	output_callback: Callable[[str, str, str], None] | None,
+	progress_callback: Callable[[str, str, float | None], None] | None,
+	captured_workspace: CapturedWorkspace,
+	git_process: FrozenGitProcess,
+	validation_catalog: gf_validation_catalog.ValidationCatalog,
+	expected_checks_by_shard: Mapping[str, list[str]],
+	expected_check_graphs_by_shard: Mapping[str, dict[str, Any]],
+	package_artifact_count: int,
+	cleanup_state: dict[str, bool],
+	occurrences: dict[str, list[tuple[str, dict[str, Any]]]],
+	parallel_shard_reports: list[dict[str, Any]],
+	failed_shards: list[str],
+	log_copy_errors: list[str],
+	shard_results: list[ParallelShardResult],
+	validation_occurrences_out: dict[str, list[dict[str, Any]]] | None,
+) -> set[str]:
+	"""Dispatch one fully preflighted batch and bind every accepted observation."""
+	batch_shards = list(prepared.shards)
+	run_remaining = remaining_deadline_seconds(
+		suite_deadline,
+		"parallel Full execution",
+	)
+	if cleanup_state.get("permitted") is not True:
+		raise WorkspaceSnapshotError(
+			"Parallel Full execution cannot start after cleanup ownership was lost."
+		)
+	for shard in batch_shards:
+		if progress_callback is not None:
+			progress_callback("started", f"shard:{shard.name}", None)
+	cleanup_state["permitted"] = False
+	batch_results = gf_parallel_validation.run_parallel_shards(
+		batch_shards,
+		max_workers=min(jobs, len(batch_shards)),
+		deadline_seconds=run_remaining,
+		fail_fast=fail_fast,
+		output_callback=output_callback,
+	)
+	if any(
+		result.process_boundary_quiescent is not True
+		for result in batch_results
+	):
+		cleanup_state["permitted"] = False
+		raise WorkspaceSnapshotError(
+			"Parallel Full shard process-boundary cleanup was not proven."
+		)
+	cleanup_state["permitted"] = True
+	assert_parallel_shard_results_match_dispatch(
+		batch_shards,
+		batch_results,
+	)
+	shard_results.extend(batch_results)
+	for dispatched_shard, shard_result in zip(
+		batch_shards,
+		batch_results,
+		strict=True,
+	):
+		if progress_callback is not None:
+			progress_callback(
+				"finished",
+				f"shard:{shard_result.name}",
+				shard_result.duration_seconds,
+			)
+		expected_checks = expected_checks_by_shard[shard_result.name]
+		report, report_issue = load_parallel_shard_report(
+			shard_result,
+			prepared.report_paths[shard_result.name],
+			expected_checks,
+			captured_workspace.workspace_state(),
+			validation_catalog=validation_catalog,
+			expected_command_contract=prepared.command_contracts[
+				shard_result.name
+			],
+			expected_check_graph=expected_check_graphs_by_shard[
+				shard_result.name
+			],
+			expected_requested_minimum_seconds=(
+				trusted_parallel_shard_timeout_option(
+					dispatched_shard.command,
+					"--timeout",
+				)
+			),
+			expected_suite_timeout_seconds=(
+				trusted_parallel_shard_timeout_option(
+					dispatched_shard.command,
+					"--suite-timeout",
+				)
+			),
+			expected_package_artifact_manifest=(
+				trusted_parallel_shard_command_option(
+					dispatched_shard.command,
+					"--package-artifact-manifest",
+				)
+				or ""
+			),
+			expected_package_artifact_manifest_sha256=(
+				trusted_parallel_shard_command_option(
+					dispatched_shard.command,
+					"--package-artifact-manifest-sha256",
+				)
+				or ""
+			),
+			expected_package_artifact_count=package_artifact_count,
+		)
+		try:
+			shard_workspace_state = workspace_fingerprint(
+				shard_result.workspace,
+				git_process=git_process,
+				deadline=suite_deadline,
+			)
+		except TimeoutError as error:
+			report_issue = append_issue_text(report_issue, str(error))
+		else:
+			if (
+				shard_workspace_state["fingerprint"]
+				!= captured_workspace.workspace_fingerprint
+			):
+				report_issue = append_issue_text(
+					report_issue,
+					"Shard workspace source changed while validation was running.",
+				)
+		if report_issue:
+			failed_shards.append(shard_result.name)
+			for check_name in expected_checks:
+				occurrences.setdefault(check_name, []).append((
+					shard_result.name,
+					make_parallel_missing_check_result(
+						check_name,
+						shard_result,
+						report_issue,
+						validation_catalog=validation_catalog,
+					),
+				))
+				publish_parallel_validation_occurrences(
+					validation_occurrences_out,
+					occurrences,
+				)
+		else:
+			assert report is not None
+			result_by_name = {
+				str(item.get("name", "")): item
+				for item in report.get("results", [])
+				if isinstance(item, dict)
+			}
+			for check_name in expected_checks:
+				result = result_by_name.get(check_name)
+				if result is None:
+					result = make_parallel_missing_check_result(
+						check_name,
+						shard_result,
+						"Shard ended before this check produced a result.",
+						validation_catalog=validation_catalog,
+					)
+				occurrences.setdefault(check_name, []).append((
+					shard_result.name,
+					result,
+				))
+				publish_parallel_validation_occurrences(
+					validation_occurrences_out,
+					occurrences,
+				)
+			if not shard_result.ok or not bool(report.get("ok")):
+				failed_shards.append(shard_result.name)
+		parallel_shard_reports.append({
+			"name": shard_result.name,
+			"expected_checks": expected_checks,
+			"report_valid": not report_issue,
+			"report_issue": report_issue,
+			"runner": shard_result.to_dict(),
+		})
+	batch_failed = {result.name for result in batch_results if not result.ok}
+	batch_failed.update(
+		name
+		for name in failed_shards
+		if name in {item.name for item in prepared.plan}
+	)
+	if batch_failed:
+		cleanup_state["permitted"] = False
+		batch_log_copy_errors = collect_parallel_failure_logs(
+			batch_results,
+			batch_failed,
+			captured_workspace.workspace_fingerprint,
+		)
+		if batch_log_copy_errors:
+			log_copy_errors.extend(batch_log_copy_errors)
+		else:
+			cleanup_state["permitted"] = True
+	return batch_failed
+
+
 def run_parallel_full_checks(
 	captured_workspace: CapturedWorkspace,
 	parallel_root: Path,
 	*,
+	git_process: FrozenGitProcess,
 	validation_plan: gf_validation_catalog.ValidationPlan,
 	validation_catalog: gf_validation_catalog.ValidationCatalog,
 	jobs: int,
@@ -23064,13 +24443,7 @@ def run_parallel_full_checks(
 			validation_plan=validation_plan,
 			validation_catalog=validation_catalog,
 		)
-	godot_isolation = run_parallel_godot_isolation_probe(
-		parallel_root,
-		deadline=suite_deadline,
-		output_callback=output_callback,
-		cleanup_state=cleanup_state,
-		base_process_environment=base_process_environment,
-	)
+	godot_isolation: dict[str, Any] = {}
 	occurrences: dict[str, list[tuple[str, dict[str, Any]]]] = {}
 	parallel_shard_reports: list[dict[str, Any]] = []
 	failed_shards: list[str] = []
@@ -23087,228 +24460,95 @@ def run_parallel_full_checks(
 	cleanup_state["permitted"] = False
 	gf_parallel_validation.assert_source_matches_snapshot(
 		captured_workspace,
+		git_process=git_process,
 		deadline=suite_deadline,
 	)
 	cleanup_state["permitted"] = True
-	stop_after_batch = False
-	for batch_index, batch_plan in enumerate(batches):
-		remaining_deadline_seconds(suite_deadline, "parallel Full scheduling")
-		batch_cleanup_errors: list[str] = []
-		batch_log_copy_errors: list[str] = []
-		with managed_owned_directory(
-			parallel_root / f"b{batch_index}",
-			cleanup_errors=batch_cleanup_errors,
-			cleanup_permitted=lambda: cleanup_state.get("permitted") is True,
-			cleanup_started=lambda: cleanup_state.__setitem__("permitted", False),
-			cleanup_succeeded=lambda: cleanup_state.__setitem__("permitted", True),
-			cleanup_failed=lambda: cleanup_state.__setitem__("permitted", False),
-			body_failed=lambda: cleanup_state.__setitem__("permitted", False),
-		) as batch_dir:
-			batch_root = batch_dir
-			cleanup_state["permitted"] = False
-			workspace_by_shard = materialize_parallel_full_workspaces(
-				captured_workspace,
-				batch_root,
-				batch_plan,
-				deadline=suite_deadline,
+	prepared_batches: list[PreparedParallelFullBatch] = []
+	batch_leases: list[ParallelFullBatchLease] = []
+	try:
+		for batch_index, batch_plan in enumerate(batches):
+			remaining_deadline_seconds(suite_deadline, "parallel Full scheduling")
+			lease = ParallelFullBatchLease(
+				parallel_root / f"b{batch_index}",
+				cleanup_state=cleanup_state,
 			)
-			cleanup_state["permitted"] = True
-			batch_shards: list[ParallelShard] = []
-			report_paths: dict[str, Path] = {}
-			command_contracts: dict[str, ParallelShardCommandContract] = {}
-			for batch_offset, shard_plan in enumerate(batch_plan):
-				workspace = workspace_by_shard[shard_plan.name]
-				shard, report_path = make_parallel_full_shard(
-					shard_plan,
-					workspace,
-					validation_catalog=validation_catalog,
-					private_environment_root=(
-						batch_root / "u" / str(batch_offset)
-					),
-					timeout_seconds=timeout_seconds,
-					suite_deadline=suite_deadline,
-					fail_fast=fail_fast,
-					package_artifact_manifest=package_artifact_manifest,
-					package_artifact_manifest_sha256=package_artifact_manifest_sha256,
-					base_process_environment=base_process_environment,
-				)
-				batch_shards.append(shard)
-				report_paths[shard.name] = report_path
-				if shard.environment is None:
-					raise WorkspaceSnapshotError(
-						f"Parallel Full shard {shard.name!r} has no frozen process environment."
-					)
-				command_contracts[shard.name] = freeze_parallel_shard_command_contract(
-					expected_checks_by_shard[shard.name],
-					authority_catalog=validation_catalog,
-					environment=shard.environment,
-					workspace=workspace,
-					package_artifact_manifest=package_artifact_manifest,
-					package_artifact_manifest_sha256=package_artifact_manifest_sha256,
-				)
-				if progress_callback is not None:
-					progress_callback("started", f"shard:{shard.name}", None)
-			run_remaining = remaining_deadline_seconds(suite_deadline, "parallel Full execution")
-			if cleanup_state.get("permitted") is not True:
-				raise WorkspaceSnapshotError(
-					"Parallel Full execution cannot start after cleanup ownership was lost."
-				)
-			# A supervisor may return a result whose process boundary is not proven.
-			# Keep the owning batch fail-closed across the return-to-inspection window;
-			# publish cleanup permission only after every result proves quiescence.
-			cleanup_state["permitted"] = False
-			batch_results = gf_parallel_validation.run_parallel_shards(
-				batch_shards,
-				max_workers=min(jobs, len(batch_shards)),
-				deadline_seconds=run_remaining,
+			batch_leases.append(lease)
+			prepared = prepare_parallel_full_batch(
+				batch_index,
+				batch_plan,
+				lease.root,
+				captured_workspace=captured_workspace,
+				git_process=git_process,
+				expected_checks_by_shard=expected_checks_by_shard,
+				validation_catalog=validation_catalog,
+				timeout_seconds=timeout_seconds,
+				suite_deadline=suite_deadline,
+				fail_fast=fail_fast,
+				package_artifact_manifest=package_artifact_manifest,
+				package_artifact_manifest_sha256=package_artifact_manifest_sha256,
+				base_process_environment=base_process_environment,
+				cleanup_state=cleanup_state,
+				cleanup_errors=lease.cleanup_errors,
+			)
+			prepared_batches.append(prepared)
+	except (FrozenEnvironmentError, ExecutableResolutionError):
+		# Command resolution is a proven no-child preflight. Release every
+		# materialized batch normally before publishing the structured setup error.
+		release_parallel_full_batch_leases(batch_leases)
+		raise_parallel_full_batch_cleanup_failure(
+			batch_leases,
+			log_copy_errors=log_copy_errors,
+		)
+		raise
+	except BaseException as error:
+		release_parallel_full_batch_leases(batch_leases, error=error)
+		raise
+
+	try:
+		assert_parallel_full_preflight_complete(
+			plan,
+			batches,
+			prepared_batches,
+			validation_catalog=validation_catalog,
+		)
+		godot_isolation = run_parallel_godot_isolation_probe(
+			parallel_root,
+			deadline=suite_deadline,
+			output_callback=output_callback,
+			cleanup_state=cleanup_state,
+			base_process_environment=base_process_environment,
+		)
+		for prepared, lease in zip(
+			prepared_batches,
+			batch_leases,
+			strict=True,
+		):
+			batch_failed = execute_prepared_parallel_full_batch(
+				prepared,
+				jobs=jobs,
+				suite_deadline=suite_deadline,
 				fail_fast=fail_fast,
 				output_callback=output_callback,
+				progress_callback=progress_callback,
+				captured_workspace=captured_workspace,
+				git_process=git_process,
+				validation_catalog=validation_catalog,
+				expected_checks_by_shard=expected_checks_by_shard,
+				expected_check_graphs_by_shard=expected_check_graphs_by_shard,
+				package_artifact_count=package_artifact_count,
+				cleanup_state=cleanup_state,
+				occurrences=occurrences,
+				parallel_shard_reports=parallel_shard_reports,
+				failed_shards=failed_shards,
+				log_copy_errors=log_copy_errors,
+				shard_results=shard_results,
+				validation_occurrences_out=validation_occurrences_out,
 			)
-			if any(
-				result.process_boundary_quiescent is not True
-				for result in batch_results
-			):
-				cleanup_state["permitted"] = False
-				raise WorkspaceSnapshotError(
-					"Parallel Full shard process-boundary cleanup was not proven."
-				)
-			cleanup_state["permitted"] = True
-			assert_parallel_shard_results_match_dispatch(
-				batch_shards,
-				batch_results,
-			)
-			shard_results.extend(batch_results)
-			for dispatched_shard, shard_result in zip(
-				batch_shards,
-				batch_results,
-				strict=True,
-			):
-				if progress_callback is not None:
-					progress_callback(
-						"finished",
-						f"shard:{shard_result.name}",
-						shard_result.duration_seconds,
-					)
-				expected_checks = expected_checks_by_shard[shard_result.name]
-				report, report_issue = load_parallel_shard_report(
-					shard_result,
-					report_paths[shard_result.name],
-					expected_checks,
-					captured_workspace.workspace_state(),
-					validation_catalog=validation_catalog,
-					expected_command_contract=command_contracts[shard_result.name],
-					expected_check_graph=expected_check_graphs_by_shard[
-						shard_result.name
-					],
-					expected_requested_minimum_seconds=(
-						trusted_parallel_shard_timeout_option(
-							dispatched_shard.command,
-							"--timeout",
-						)
-					),
-					expected_suite_timeout_seconds=(
-						trusted_parallel_shard_timeout_option(
-							dispatched_shard.command,
-							"--suite-timeout",
-						)
-					),
-					expected_package_artifact_manifest=(
-						trusted_parallel_shard_command_option(
-							dispatched_shard.command,
-							"--package-artifact-manifest",
-						)
-						or ""
-					),
-					expected_package_artifact_manifest_sha256=(
-						trusted_parallel_shard_command_option(
-							dispatched_shard.command,
-							"--package-artifact-manifest-sha256",
-						)
-						or ""
-					),
-					expected_package_artifact_count=package_artifact_count,
-				)
-				try:
-					shard_workspace_state = workspace_fingerprint(
-						shard_result.workspace,
-						deadline=suite_deadline,
-					)
-				except TimeoutError as error:
-					report_issue = append_issue_text(report_issue, str(error))
-				else:
-					if shard_workspace_state["fingerprint"] != captured_workspace.workspace_fingerprint:
-						report_issue = append_issue_text(
-							report_issue,
-							"Shard workspace source changed while validation was running.",
-						)
-				if report_issue:
-					failed_shards.append(shard_result.name)
-					for check_name in expected_checks:
-						occurrences.setdefault(check_name, []).append((
-							shard_result.name,
-							make_parallel_missing_check_result(
-								check_name,
-								shard_result,
-								report_issue,
-								validation_catalog=validation_catalog,
-							),
-						))
-						publish_parallel_validation_occurrences(
-							validation_occurrences_out,
-							occurrences,
-						)
-				else:
-					assert report is not None
-					result_by_name = {
-						str(item.get("name", "")): item
-						for item in report.get("results", [])
-						if isinstance(item, dict)
-					}
-					for check_name in expected_checks:
-						result = result_by_name.get(check_name)
-						if result is None:
-							result = make_parallel_missing_check_result(
-								check_name,
-								shard_result,
-								"Shard ended before this check produced a result.",
-								validation_catalog=validation_catalog,
-							)
-						occurrences.setdefault(check_name, []).append((shard_result.name, result))
-						publish_parallel_validation_occurrences(
-							validation_occurrences_out,
-							occurrences,
-						)
-					if not shard_result.ok or not bool(report.get("ok")):
-						failed_shards.append(shard_result.name)
-				parallel_shard_reports.append({
-					"name": shard_result.name,
-					"expected_checks": expected_checks,
-					"report_valid": not report_issue,
-					"report_issue": report_issue,
-					"runner": shard_result.to_dict(),
-				})
-			batch_failed = {result.name for result in batch_results if not result.ok}
-			batch_failed.update(
-				name for name in failed_shards if name in {item.name for item in batch_plan}
-			)
-			if batch_failed:
-				# Failure logs are the only durable evidence after a normal failed
-				# shard is released.  Keep the owning batch fail-closed until every
-				# source file has been copied from a stable handle and accepted.
-				cleanup_state["permitted"] = False
-				batch_log_copy_errors = collect_parallel_failure_logs(
-					batch_results,
-					batch_failed,
-					captured_workspace.workspace_fingerprint,
-				)
-				if batch_log_copy_errors:
-					log_copy_errors.extend(batch_log_copy_errors)
-				else:
-					cleanup_state["permitted"] = True
 			if fail_fast and batch_failed:
 				remaining_plan = [
 					shard
-					for remaining_batch in batches[batch_index + 1:]
+					for remaining_batch in batches[prepared.index + 1:]
 					for shard in remaining_batch
 				]
 				append_unstarted_parallel_shards(
@@ -23317,7 +24557,7 @@ def run_parallel_full_checks(
 					occurrences,
 					parallel_shard_reports,
 					failed_shards,
-					batch_root,
+					prepared.root,
 					"fail-fast followed a failed parallel Full shard",
 					validation_catalog=validation_catalog,
 					cancelled=True,
@@ -23326,25 +24566,30 @@ def run_parallel_full_checks(
 					validation_occurrences_out,
 					occurrences,
 				)
-				stop_after_batch = True
-		if batch_cleanup_errors:
-			log_copy_errors.extend(batch_cleanup_errors)
-			batch_failure_details = [
-				*(f"failure-log copy: {error}" for error in batch_log_copy_errors),
-				*(f"cleanup: {error}" for error in batch_cleanup_errors),
-			]
-			raise WorkspaceSnapshotError(
-				"Parallel Full batch cleanup failed; retained the owning validation "
-				f"root for diagnosis: {'; '.join(batch_failure_details)}"
+			batch_cleanup_was_permitted = cleanup_state.get("permitted") is True
+			cleanup_state["permitted"] = False
+			gf_parallel_validation.assert_source_matches_snapshot(
+				captured_workspace,
+				git_process=git_process,
+				deadline=suite_deadline,
 			)
-		cleanup_state["permitted"] = False
-		gf_parallel_validation.assert_source_matches_snapshot(
-			captured_workspace,
-			deadline=suite_deadline,
+			cleanup_state["permitted"] = batch_cleanup_was_permitted
+			lease.release()
+			raise_parallel_full_batch_cleanup_failure(
+				batch_leases,
+				log_copy_errors=log_copy_errors,
+			)
+			if fail_fast and batch_failed:
+				break
+	except BaseException as error:
+		release_parallel_full_batch_leases(batch_leases, error=error)
+		raise
+	else:
+		release_parallel_full_batch_leases(batch_leases)
+		raise_parallel_full_batch_cleanup_failure(
+			batch_leases,
+			log_copy_errors=log_copy_errors,
 		)
-		cleanup_state["permitted"] = True
-		if stop_after_batch:
-			break
 
 	canonical_checks = list(validation_plan.actions)
 	aggregated_results: list[dict[str, Any]] = []
@@ -23443,7 +24688,7 @@ def make_parallel_full_shard(
 ) -> tuple[ParallelShard, Path]:
 	report_relative_path = Path("build") / "p" / f"{shard_plan.name}.json"
 	command = [
-		sys.executable,
+		str(Path(sys.executable).resolve(strict=True)),
 		"tools/gf_maintenance.py",
 		"--json-output",
 		report_relative_path.as_posix(),
@@ -23542,17 +24787,30 @@ def freeze_parallel_shard_command_contract(
 			authority_catalog.executor_kind(name)
 			is gf_validation_catalog.ValidationExecutorKind.SUBPROCESS
 		):
-			identity = resolve_command_identity(
-				declared_command,
-				environment=environment,
-				cwd=workspace,
-			)
+			try:
+				identity = resolve_command_identity(
+					declared_command,
+					environment=environment,
+					cwd=workspace,
+				)
+			except GodotExecutableResolutionError as error:
+				raise GodotExecutableResolutionError(
+					f"Parallel Full action {name!r}: Godot executable could not be resolved "
+					"from the frozen cwd/PATH search."
+				) from error
+			except ExecutableResolutionError as error:
+				raise ExecutableResolutionError(
+					f"Parallel Full action {name!r}: executable could not be resolved "
+					"from the frozen cwd/PATH search."
+				) from error
 		else:
 			declared = tuple(declared_command)
 			identity = CommandIdentity(declared=declared, effective=declared)
 		identities[name] = identity
 	return ParallelShardCommandContract(
 		identities=MappingProxyType(identities),
+		resolver_workspace=Path(os.path.abspath(workspace)),
+		resolver_environment=MappingProxyType(dict(environment)),
 	)
 
 
@@ -23611,26 +24869,70 @@ def materialize_parallel_full_workspaces(
 	parallel_root: Path,
 	plan: list[ParallelCheckShardPlan],
 	*,
+	git_process: FrozenGitProcess,
 	deadline: float | None,
 ) -> dict[str, Path]:
 	workspaces: dict[str, Path] = {}
+	failures: list[tuple[str, BaseException]] = []
 	remaining_deadline_seconds(deadline, "parallel workspace materialization")
 	with concurrent.futures.ThreadPoolExecutor(
 		max_workers=len(plan),
 		thread_name_prefix="gf-workspace-materialize",
 	) as executor:
-		future_by_name = {
-			shard_plan.name: executor.submit(
-				gf_parallel_validation.materialize_workspace,
-				captured_workspace,
-				parallel_root / f"s{index}",
-				deadline=deadline,
-				verify_source=False,
+		future_by_name: dict[str, concurrent.futures.Future[Path]] = {}
+		for index, shard_plan in enumerate(plan):
+			try:
+				future_by_name[shard_plan.name] = executor.submit(
+					gf_parallel_validation.materialize_workspace,
+					captured_workspace,
+					parallel_root / f"s{index}",
+					git_process=git_process,
+					deadline=deadline,
+					verify_source=False,
+				)
+			except BaseException as error:
+				failures.append((f"{shard_plan.name}:submit", error))
+				break
+		for shard_name, future in future_by_name.items():
+			try:
+				workspaces[shard_name] = future.result()
+			except BaseException as error:
+				# Drain every sibling future before choosing a primary failure. A later
+				# materializer may carry process-boundary cleanup debt that must not be
+				# hidden by an earlier ordinary exception.
+				failures.append((shard_name, error))
+	if failures:
+		primary_name, primary_error = min(
+			enumerate(failures),
+			key=lambda indexed_failure: (
+				0
+				if exception_has_cleanup_debt(indexed_failure[1][1])
+				else 1
+				if not isinstance(indexed_failure[1][1], Exception)
+				else 2,
+				indexed_failure[0],
+			),
+		)[1]
+		for name, error in failures:
+			if error is primary_error:
+				continue
+			try:
+				gf_process_supervisor.add_exception_note(
+					primary_error,
+					"Additional parallel workspace materializer failure "
+					f"({name}): {type(error).__name__}: "
+					f"{gf_process_supervisor.safe_exception_detail(error)}",
+				)
+			except BaseException:
+				pass
+		try:
+			gf_process_supervisor.add_exception_note(
+				primary_error,
+				f"Selected primary parallel workspace materializer failure: {primary_name}",
 			)
-			for index, shard_plan in enumerate(plan)
-		}
-		for shard_plan in plan:
-			workspaces[shard_plan.name] = future_by_name[shard_plan.name].result()
+		except BaseException:
+			pass
+		raise primary_error
 	return workspaces
 
 
@@ -23892,6 +25194,28 @@ def load_parallel_shard_report(
 	):
 		return None, "Parent shard command identity contract is missing or inconsistent."
 	for name, identity in expected_command_contract.identities.items():
+		if (
+			not identity.declared
+			or not identity.effective
+			or any(type(part) is not str or not part for part in identity.declared)
+			or any(type(part) is not str or not part for part in identity.effective)
+		):
+			return None, (
+				f"Parent shard command identity for {name!r} is empty or malformed."
+			)
+		try:
+			contract_executor = validation_catalog.executor_kind(name)
+		except gf_validation_catalog.ValidationCatalogError:
+			return None, (
+				f"Parent shard command identity for {name!r} is not declared by the Catalog."
+			)
+		if (
+			contract_executor is gf_validation_catalog.ValidationExecutorKind.SUBPROCESS
+			and not Path(identity.effective[0]).is_absolute()
+		):
+			return None, (
+				f"Parent shard subprocess identity for {name!r} lacks an absolute executable."
+			)
 		try:
 			declared_manifest = trusted_parallel_shard_command_option(
 				identity.declared,
@@ -24666,6 +25990,8 @@ def run_checks_with_active_snapshot(
 	output_callback: Callable[[str, str, str], None] | None = None,
 	workspace_state: dict[str, Any] | None = None,
 	process_environment: Mapping[str, str] | None = None,
+	*,
+	git_process: FrozenGitProcess,
 ) -> dict[str, Any]:
 	suite_started = time.perf_counter()
 	suite_deadline = (
@@ -24675,18 +26001,31 @@ def run_checks_with_active_snapshot(
 	)
 	check_names = list(validation_plan.actions)
 	graph = validation_plan.check_graph
-	effective_workspace_state = workspace_state or workspace_fingerprint(ROOT)
-	workspace_state_fingerprint = str(effective_workspace_state["fingerprint"])
-	subprocess_environment = dict(
-		process_environment
-		if process_environment is not None
-		else capture_maintenance_process_environment(cwd=ROOT)
+	effective_workspace_state = workspace_state or workspace_fingerprint(
+		ROOT,
+		git_process=git_process,
 	)
-	subprocess_environment.pop(GUT_SHARD_OBSERVATION_NONCE_ENVIRONMENT, None)
-	subprocess_environment.pop(GUT_SHARD_OBSERVATION_PATH_ENVIRONMENT, None)
-	subprocess_environment[GODOT_EXECUTABLE_ENV_VAR] = resolve_godot_executable(
-		environment=subprocess_environment,
-		cwd=ROOT,
+	workspace_state_fingerprint = str(effective_workspace_state["fingerprint"])
+	if process_environment is None:
+		subprocess_environment = capture_maintenance_process_environment()
+	else:
+		subprocess_environment = dict(process_environment)
+	try:
+		pin_godot_executable_selection(subprocess_environment, cwd=ROOT)
+	except FrozenEnvironmentError as error:
+		return make_check_setup_failure(
+			validation_plan,
+			effective_workspace_state,
+			"validation_environment_setup",
+			str(error),
+		)
+	remove_owned_environment_value(
+		subprocess_environment,
+		GUT_SHARD_OBSERVATION_NONCE_ENVIRONMENT,
+	)
+	remove_owned_environment_value(
+		subprocess_environment,
+		GUT_SHARD_OBSERVATION_PATH_ENVIRONMENT,
 	)
 	results: list[dict[str, Any]] = []
 	result_exit_codes: dict[str, int] = {}
@@ -24801,7 +26140,9 @@ def run_checks_with_active_snapshot(
 				validation_executor_binding=validation_executor_binding,
 				deferred_command_context=deferred_command_context,
 			)
-		except DeferredCommandMaterializationError:
+		except DeferredCommandMaterializationError as error:
+			if exception_has_cleanup_debt(error):
+				raise
 			input_fingerprint = make_check_input_fingerprint(
 				name,
 				fallback_command,
@@ -24845,11 +26186,79 @@ def run_checks_with_active_snapshot(
 				effective=declared_command,
 			)
 		else:
-			command_identity = resolve_command_identity(
-				check_command_value,
-				environment=subprocess_environment,
-				cwd=ROOT,
-			)
+			try:
+				command_identity = resolve_command_identity(
+					check_command_value,
+					environment=subprocess_environment,
+					cwd=ROOT,
+				)
+			except FrozenEnvironmentError as error:
+				return make_check_setup_failure(
+					validation_plan,
+					effective_workspace_state,
+					"validation_environment_setup",
+					str(error),
+				)
+			except GodotExecutableResolutionError:
+				input_fingerprint = make_check_input_fingerprint(
+					name,
+					check_command_value,
+					None,
+					workspace_state_fingerprint,
+					dependency_fingerprints,
+					timeout_budget,
+				)
+				result = make_unresolved_godot_command_result(
+					name,
+					check_command_value,
+					check_timeout_seconds,
+				)
+				append_check_result(
+					results,
+					result_exit_codes,
+					result_fingerprints,
+					result,
+					dependencies,
+					dependency_fingerprints,
+					input_fingerprint,
+					timeout_budget.to_dict(),
+					complete_output_evidence=complete_output_evidence,
+				)
+				if progress_callback is not None:
+					progress_callback("finished", name, 0.0)
+				if fail_fast:
+					break
+				continue
+			except ExecutableResolutionError:
+				input_fingerprint = make_check_input_fingerprint(
+					name,
+					check_command_value,
+					None,
+					workspace_state_fingerprint,
+					dependency_fingerprints,
+					timeout_budget,
+				)
+				result = make_unresolved_command_result(
+					name,
+					check_command_value,
+					check_timeout_seconds,
+				)
+				append_check_result(
+					results,
+					result_exit_codes,
+					result_fingerprints,
+					result,
+					dependencies,
+					dependency_fingerprints,
+					input_fingerprint,
+					timeout_budget.to_dict(),
+					complete_output_evidence=complete_output_evidence,
+				)
+				if progress_callback is not None:
+					progress_callback("finished", name, 0.0)
+				if fail_fast:
+					break
+				continue
 		input_fingerprint = make_check_input_fingerprint(
 			name,
 			list(command_identity.declared),
@@ -24902,6 +26311,44 @@ def run_checks_with_active_snapshot(
 	}
 
 
+def _log_hygiene_terminal_error(error: BaseException) -> bool:
+	return (
+		exception_has_cleanup_debt(error)
+		or isinstance(error, (GeneratorExit, KeyboardInterrupt, MemoryError, SystemExit))
+	)
+
+
+def _finish_log_hygiene_without_masking(
+	primary_error: BaseException | None,
+	primary_traceback: Any,
+	finalizer: Callable[[], Any],
+) -> Any:
+	"""Run one finalizer while preserving terminal failures and cleanup debt."""
+	try:
+		finalization = finalizer()
+	except BaseException as secondary_error:
+		if primary_error is None:
+			raise
+		add_exception_note(
+			primary_error,
+			"Maintenance log finalization also failed with "
+			f"{type(secondary_error).__name__}.",
+		)
+		add_exception_note(
+			secondary_error,
+			"Maintenance work had already failed with "
+			f"{type(primary_error).__name__}.",
+		)
+		if _log_hygiene_terminal_error(primary_error):
+			raise primary_error.with_traceback(primary_traceback)
+		if _log_hygiene_terminal_error(secondary_error):
+			raise secondary_error from primary_error
+		raise primary_error.with_traceback(primary_traceback)
+	if primary_error is not None:
+		raise primary_error.with_traceback(primary_traceback)
+	return finalization
+
+
 def run_checks_with_log_hygiene(
 	suite: str = "quick",
 	checks: list[str] | None = None,
@@ -24916,9 +26363,18 @@ def run_checks_with_log_hygiene(
 	package_artifact_manifest_sha256: str = "",
 	progress_callback: Callable[[str, str, float | None], None] | None = None,
 	output_callback: Callable[[str, str, str], None] | None = None,
+	process_environment: FrozenProcessEnvironment | None = None,
 ) -> dict[str, Any]:
+	invocation_process_environment = freeze_maintenance_invocation_environment(
+		process_environment
+	)
+	keep_logs = maintenance_logs_kept_from_environment(
+		invocation_process_environment
+	)
 	before_snapshot, snapshot_errors = maintenance_log_snapshot()
 	data: dict[str, Any] | None = None
+	primary_error: BaseException | None = None
+	primary_traceback: Any = None
 	try:
 		data = run_checks(
 			suite=suite,
@@ -24934,14 +26390,21 @@ def run_checks_with_log_hygiene(
 			package_artifact_manifest_sha256=package_artifact_manifest_sha256,
 			progress_callback=progress_callback,
 			output_callback=output_callback,
+			process_environment=invocation_process_environment,
 		)
-	finally:
-		finalization = finalize_maintenance_log_session(
+	except BaseException as error:
+		primary_error = error
+		primary_traceback = safe_exception_traceback(error)
+	finalization = _finish_log_hygiene_without_masking(
+		primary_error,
+		primary_traceback,
+		lambda: finalize_maintenance_log_session(
 			before_snapshot,
 			snapshot_errors,
 			succeeded=bool(data is not None and data.get("ok")),
-			keep_logs=maintenance_logs_kept_from_environment(),
-		)
+			keep_logs=keep_logs,
+		),
+	)
 	if data is None:
 		raise RuntimeError("Maintenance checks did not produce a result.")
 	if finalization["errors"]:
@@ -24966,14 +26429,31 @@ def run_maintenance_subprocess(
 	command: list[str],
 	*,
 	timeout_seconds: float,
+	process_environment: FrozenProcessEnvironment,
 	cwd: Path = ROOT,
-	environment: dict[str, str] | None = None,
 ) -> subprocess.CompletedProcess[str]:
-	effective_command = resolve_godot_command(
+	if not isinstance(process_environment, FrozenProcessEnvironment):
+		raise TypeError("Maintenance subprocess requires a frozen process environment.")
+	return _run_maintenance_subprocess_with_frozen_environment(
+		command,
+		timeout_seconds=timeout_seconds,
+		cwd=cwd,
+		environment=process_environment.values(),
+	)
+
+
+def _run_maintenance_subprocess_with_frozen_environment(
+	command: list[str],
+	*,
+	timeout_seconds: float,
+	cwd: Path,
+	environment: dict[str, str],
+) -> subprocess.CompletedProcess[str]:
+	effective_command = list(resolve_command_identity(
 		command,
 		environment=environment,
 		cwd=cwd,
-	)
+	).effective)
 	try:
 		result = run_supervised_process(
 			effective_command,
@@ -25028,19 +26508,38 @@ def run_command(
 	started = time.perf_counter()
 	log_paths: list[Path] = []
 	supervisor_invoked = False
-	process_environment = environment
-	if process_environment is None:
-		process_environment = dict(os.environ)
-		process_environment.pop(GUT_SHARD_OBSERVATION_NONCE_ENVIRONMENT, None)
-		process_environment.pop(GUT_SHARD_OBSERVATION_PATH_ENVIRONMENT, None)
+	process_environment = (
+		capture_maintenance_process_environment()
+		if environment is None
+		else dict(environment)
+	)
 	if isinstance(command, CommandIdentity):
 		effective_command = list(command.effective)
+		if not effective_command or not Path(effective_command[0]).is_absolute():
+			raise ValueError(
+				"Frozen command identity requires an absolute effective executable."
+			)
 	else:
-		effective_command = resolve_godot_command(
-			command,
-			environment=process_environment,
-			cwd=ROOT,
-		)
+		try:
+			effective_command = list(resolve_command_identity(
+				command,
+				environment=process_environment,
+				cwd=ROOT,
+			).effective)
+		except GodotExecutableResolutionError:
+			return make_unresolved_godot_command_result(
+				name,
+				command,
+				timeout_seconds,
+				duration_seconds=time.perf_counter() - started,
+			)
+		except ExecutableResolutionError:
+			return make_unresolved_command_result(
+				name,
+				command,
+				timeout_seconds,
+				duration_seconds=time.perf_counter() - started,
+			)
 	try:
 		log_paths = prepare_command_log_paths(effective_command)
 		supervisor_invoked = True
@@ -25310,8 +26809,16 @@ def maintenance_cli_command(argv: list[str]) -> str:
 	return ""
 
 
-def maintenance_logs_kept_from_environment() -> bool:
-	return os.environ.get(MAINTENANCE_KEEP_LOGS_ENV_VAR, "").strip().lower() in {
+def maintenance_logs_kept_from_environment(
+	process_environment: FrozenProcessEnvironment,
+) -> bool:
+	if not isinstance(process_environment, FrozenProcessEnvironment):
+		raise TypeError("Maintenance log policy requires a frozen process environment.")
+	value = frozen_environment_value(
+		process_environment.values(),
+		MAINTENANCE_KEEP_LOGS_ENV_VAR,
+	)
+	return (value or "").strip().lower() in {
 		"1",
 		"true",
 		"yes",
@@ -25734,9 +27241,14 @@ def finalize_maintenance_log_session(
 
 
 def run_main_with_log_hygiene() -> int:
+	entry_process_environment = FrozenProcessEnvironment.capture(
+		capture_maintenance_process_environment()
+	)
 	original_argv = list(sys.argv)
 	normalized_argv = normalize_maintenance_cli_argv(original_argv)
-	keep_logs = "--keep-logs" in original_argv[1:] or maintenance_logs_kept_from_environment()
+	keep_logs = "--keep-logs" in original_argv[1:] or maintenance_logs_kept_from_environment(
+		entry_process_environment
+	)
 	command_name = maintenance_cli_command(normalized_argv)
 	skip_automatic_hygiene = command_name in {"godot-exit-leak-report", "log-hygiene"}
 	before_snapshot: dict[str, tuple[int, int, int, int]] = {}
@@ -25745,21 +27257,48 @@ def run_main_with_log_hygiene() -> int:
 		before_snapshot, snapshot_errors = maintenance_log_snapshot()
 	exit_code = 1
 	automatic_errors: list[str] = []
+	primary_error: BaseException | None = None
+	primary_traceback: Any = None
 	sys.argv = normalized_argv
 	try:
-		exit_code = main()
+		if command_name == "check":
+			process_scope = gf_process_authority.activate_process_environment(
+				entry_process_environment
+			)
+		else:
+			process_scope = gf_process_authority.activate_process_context(
+				gf_process_authority.freeze_process_authority(
+					entry_process_environment,
+					cwd=ROOT,
+				)
+			)
+		with process_scope:
+			exit_code = main()
+	except BaseException as error:
+		primary_error = error
+		primary_traceback = safe_exception_traceback(error)
 	finally:
 		sys.argv = original_argv
-		if not skip_automatic_hygiene:
-			finalization = finalize_maintenance_log_session(
-				before_snapshot,
-				snapshot_errors,
-				succeeded=exit_code == 0,
-				keep_logs=keep_logs,
-			)
-			automatic_errors = finalization["errors"]
-			if automatic_errors:
-				report_automatic_log_hygiene_errors(automatic_errors)
+
+	def finalize_automatic_logs() -> list[str]:
+		if skip_automatic_hygiene:
+			return []
+		finalization = finalize_maintenance_log_session(
+			before_snapshot,
+			snapshot_errors,
+			succeeded=primary_error is None and exit_code == 0,
+			keep_logs=keep_logs,
+		)
+		errors = finalization["errors"]
+		if errors:
+			report_automatic_log_hygiene_errors(errors)
+		return errors
+
+	automatic_errors = _finish_log_hygiene_without_masking(
+		primary_error,
+		primary_traceback,
+		finalize_automatic_logs,
+	)
 	if automatic_errors and exit_code == 0:
 		return 1
 	return exit_code
@@ -27445,53 +28984,25 @@ def strip_quotes(value: str) -> str:
 
 
 def git_text(args: list[str]) -> str:
-	result = subprocess.run(
-		["git", *args],
-		cwd=ROOT,
-		capture_output=True,
-		text=True,
-		encoding="utf-8",
-		errors="replace",
-	)
-	return result.stdout.strip()
+	result = run_frozen_maintenance_git(args)
+	return str(result.stdout).strip()
 
 
 def git_lines(args: list[str]) -> list[str]:
-	result = subprocess.run(
-		["git", *args],
-		cwd=ROOT,
-		capture_output=True,
-		text=True,
-		encoding="utf-8",
-		errors="replace",
-	)
-	text = result.stdout
+	result = run_frozen_maintenance_git(args)
+	text = str(result.stdout)
 	return [line for line in text.splitlines() if line.strip()]
 
 
 def git_exit_code(args: list[str]) -> int:
-	return subprocess.run(
-		["git", *args],
-		cwd=ROOT,
-		capture_output=True,
-		text=True,
-		encoding="utf-8",
-		errors="replace",
-	).returncode
+	return int(run_frozen_maintenance_git(args).return_code)
 
 
 def git_show_text(revision_path: str) -> str:
-	result = subprocess.run(
-		["git", "show", revision_path],
-		cwd=ROOT,
-		capture_output=True,
-		text=True,
-		encoding="utf-8",
-		errors="replace",
-	)
-	if result.returncode != 0:
+	result = run_frozen_maintenance_git(["show", revision_path])
+	if result.return_code != 0:
 		return ""
-	return result.stdout
+	return str(result.stdout)
 
 
 if __name__ == "__main__":

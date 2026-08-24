@@ -10,7 +10,6 @@ import os
 import re
 import secrets
 import shutil
-import subprocess
 import sys
 import time
 import urllib.parse
@@ -26,12 +25,19 @@ from gf_path_security import path_has_reparse_component
 from gf_path_security import path_is_inside_lexical
 from gf_path_security import PinnedReadError
 from gf_path_security import read_pinned_regular_file
+from gf_process_authority import freeze_process_authority
+from gf_process_authority import FrozenGitProcess
+from gf_process_authority import FrozenProcessEnvironment
+from gf_process_supervisor import require_supervised_binary_quiet_boundary
+from gf_process_supervisor import run_supervised_process_bytes
+from gf_process_supervisor import SupervisedProcessCleanupError
 
 
 ROOT = Path(__file__).resolve().parents[1]
 BUILD_ROOT = ROOT / "build"
 MANIFEST_SCHEMA_VERSION = 2
 DEFAULT_CHANNEL = "stable"
+FULL_GIT_OBJECT_ID_RE = re.compile(r"(?:[0-9a-f]{40}|[0-9a-f]{64})")
 
 
 def main() -> int:
@@ -49,19 +55,42 @@ def main() -> int:
 	version = args.version.strip() or build_asset_store_package.read_plugin_version()
 	output_dir = resolve_output_dir(args.output_dir, version)
 	manifest_path = resolve_manifest_path(args.manifest, output_dir, version)
-	if args.validate_only:
-		result = audit_release_artifact_manifest(manifest_path, version, git_head())
-	else:
-		archive_base_url = args.archive_base_url.strip() or (
-			f"https://github.com/C76GN/gf-framework/releases/download/{version}"
+	try:
+		process_authority = freeze_process_authority(
+			FrozenProcessEnvironment.capture(os.environ),
+			cwd=ROOT,
 		)
-		registry_url = args.registry_url.strip() or f"{archive_base_url}/gf-registry-{version}.json"
-		result = build_release_artifacts(
+		source_revision = git_head(process_authority.git)
+	except SupervisedProcessCleanupError:
+		raise
+	except (OSError, RuntimeError, UnicodeError, ValueError) as error:
+		result = make_failure(
 			version,
 			output_dir,
-			archive_base_url,
-			registry_url,
+			[f"Release Git authority setup failed: {type(error).__name__}"],
 		)
+	else:
+		if args.validate_only:
+			result = audit_release_artifact_manifest(
+				manifest_path,
+				version,
+				source_revision,
+			)
+		else:
+			archive_base_url = args.archive_base_url.strip() or (
+				f"https://github.com/C76GN/gf-framework/releases/download/{version}"
+			)
+			registry_url = (
+				args.registry_url.strip()
+				or f"{archive_base_url}/gf-registry-{version}.json"
+			)
+			result = build_release_artifacts(
+				version,
+				output_dir,
+				archive_base_url,
+				registry_url,
+				source_revision=source_revision,
+			)
 	print_result(result, args.json)
 	return 0 if result.get("ok") else 1
 
@@ -77,7 +106,18 @@ def build_release_artifacts(
 	output_dir: Path,
 	archive_base_url: str,
 	registry_url: str,
+	*,
+	source_revision: str,
 ) -> dict[str, Any]:
+	if (
+		type(source_revision) is not str
+		or FULL_GIT_OBJECT_ID_RE.fullmatch(source_revision) is None
+	):
+		return make_failure(
+			version,
+			output_dir,
+			["Release source revision must be one exact Git object id."],
+		)
 	plugin_version = build_asset_store_package.read_plugin_version()
 	if version != plugin_version:
 		return make_failure(
@@ -150,7 +190,7 @@ def build_release_artifacts(
 		manifest = {
 			"schema_version": MANIFEST_SCHEMA_VERSION,
 			"version": version,
-			"source_revision": git_head(),
+			"source_revision": source_revision,
 			"archive_base_url": archive_base_url,
 			"registry_url": registry_url,
 			"package_archive_build_count": 1,
@@ -159,12 +199,20 @@ def build_release_artifacts(
 			"artifacts": artifacts,
 		}
 		write_json(manifest_path, manifest)
-		candidate_audit = audit_release_artifact_manifest(manifest_path, version, git_head())
+		candidate_audit = audit_release_artifact_manifest(
+			manifest_path,
+			version,
+			source_revision,
+		)
 		if not candidate_audit.get("ok"):
 			return make_failure(version, output_dir, list(candidate_audit.get("issues", [])))
 		publish_candidate(candidate, output_dir)
 		published_manifest = output_dir / manifest_path.name
-		return audit_release_artifact_manifest(published_manifest, version, git_head())
+		return audit_release_artifact_manifest(
+			published_manifest,
+			version,
+			source_revision,
+		)
 	except (OSError, ValueError, json.JSONDecodeError) as exc:
 		return make_failure(version, output_dir, [f"Release artifact build failed: {exc}"])
 	finally:
@@ -282,8 +330,12 @@ def audit_release_artifact_manifest(
 		issues.append(f"Release artifact manifest schema_version must be {MANIFEST_SCHEMA_VERSION}.")
 	if expected_version and version != expected_version:
 		issues.append(f"Release artifact manifest version is {version!r}, expected {expected_version!r}.")
-	source_revision = str(data.get("source_revision", "")).strip()
-	if re.fullmatch(r"[0-9a-f]{40}", source_revision) is None:
+	raw_source_revision = data.get("source_revision", "")
+	source_revision = raw_source_revision if type(raw_source_revision) is str else ""
+	if (
+		type(raw_source_revision) is not str
+		or FULL_GIT_OBJECT_ID_RE.fullmatch(source_revision) is None
+	):
 		issues.append("Release artifact source_revision must be a full lowercase Git commit SHA.")
 	if expected_revision and source_revision != expected_revision:
 		issues.append("Release artifact source_revision does not match the checked-out revision.")
@@ -656,17 +708,41 @@ def sha256_file(path: Path) -> str:
 	return digest.hexdigest()
 
 
-def git_head() -> str:
-	completed = subprocess.run(
-		["git", "rev-parse", "HEAD"],
+def git_head(git_process: FrozenGitProcess) -> str:
+	identity = git_process.command(("rev-parse", "--verify", "HEAD"))
+	deadline = time.perf_counter() + 30.0
+	completed = run_supervised_process_bytes(
+		list(identity.effective),
 		cwd=ROOT,
-		capture_output=True,
-		text=True,
-		encoding="utf-8",
-		check=False,
-		timeout=30,
+		timeout_seconds=30.0,
+		deadline=deadline,
+		max_stdout_bytes=256,
+		max_stderr_bytes=4096,
+		environment=git_process.environment.values(),
 	)
-	return completed.stdout.strip() if completed.returncode == 0 else ""
+	completed = require_supervised_binary_quiet_boundary(
+		completed,
+		deadline=deadline,
+	)
+	if (
+		completed.return_code != 0
+		or completed.timed_out
+		or completed.stdout_truncated
+		or completed.stderr_truncated
+		or completed.output_drain_failed
+		or completed.stderr
+	):
+		raise RuntimeError("Git source revision capture did not complete cleanly.")
+	revision_output = completed.stdout.decode("utf-8", errors="strict")
+	if revision_output.endswith("\r\n"):
+		revision = revision_output[:-2]
+	elif revision_output.endswith("\n"):
+		revision = revision_output[:-1]
+	else:
+		revision = revision_output
+	if FULL_GIT_OBJECT_ID_RE.fullmatch(revision) is None:
+		raise ValueError("Git source revision is not one exact object id.")
+	return revision
 
 
 def make_failure(version: str, output_dir: Path, issues: list[str]) -> dict[str, Any]:

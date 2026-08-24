@@ -19,7 +19,63 @@ if str(TOOLS_ROOT) not in sys.path:
 	sys.path.insert(0, str(TOOLS_ROOT))
 
 import gf_parallel_validation as parallel_validation  # noqa: E402
+from gf_process_authority import FrozenGitProcess  # noqa: E402
+from gf_process_authority import FrozenProcessEnvironment  # noqa: E402
+from gf_process_authority import freeze_git_process  # noqa: E402
 import gf_process_supervisor as process_supervisor  # noqa: E402
+
+
+def _frozen_process_environment() -> FrozenProcessEnvironment:
+	return FrozenProcessEnvironment.capture(dict(os.environ))
+
+
+def _frozen_git_process(cwd: Path) -> FrozenGitProcess:
+	return freeze_git_process(
+		_frozen_process_environment(),
+		cwd=cwd.resolve(),
+	)
+
+
+def _shard_environment() -> dict[str, str]:
+	return _frozen_process_environment().values()
+
+
+class PythonCompatibilityBoundaryTests(unittest.TestCase):
+	def test_exception_note_helper_preserves_diagnostics(self) -> None:
+		error = RuntimeError("primary")
+
+		self.assertTrue(
+			process_supervisor.add_exception_note(error, "secondary diagnostic")
+		)
+		attributes = BaseException.__getattribute__(error, "__dict__")
+		self.assertEqual(attributes.get("__notes__"), ["secondary diagnostic"])
+
+	def test_rmtree_helper_uses_modern_exception_callback(self) -> None:
+		callback = mock.Mock()
+		with mock.patch.object(
+			process_supervisor.sys,
+			"version_info",
+			(3, 12),
+		), mock.patch.object(process_supervisor.shutil, "rmtree") as rmtree:
+			process_supervisor.rmtree_with_exception_callback("owned", callback)
+
+		rmtree.assert_called_once_with("owned", onexc=callback)
+
+	def test_rmtree_helper_adapts_legacy_error_tuple(self) -> None:
+		callback = mock.Mock()
+		with mock.patch.object(
+			process_supervisor.sys,
+			"version_info",
+			(3, 10),
+		), mock.patch.object(process_supervisor.shutil, "rmtree") as rmtree:
+			process_supervisor.rmtree_with_exception_callback("owned", callback)
+
+		rmtree.assert_called_once()
+		legacy_callback = rmtree.call_args.kwargs["onerror"]
+		operation = mock.Mock()
+		error = PermissionError("read only")
+		legacy_callback(operation, "owned/file", (PermissionError, error, None))
+		callback.assert_called_once_with(operation, "owned/file", error)
 
 
 class SupervisedGitTests(unittest.TestCase):
@@ -37,15 +93,26 @@ class SupervisedGitTests(unittest.TestCase):
 			self._git(source, "commit", "--quiet", "-m", "fixture")
 			expected = b"after\x00\xff\r\n"
 			payload_path.write_bytes(expected)
+			git_process = _frozen_git_process(root)
 
-			snapshot = parallel_validation.capture_workspace(source)
+			snapshot = parallel_validation.capture_workspace(
+				source,
+				git_process=git_process,
+			)
 			target = root / "target"
-			parallel_validation.materialize_workspace(snapshot, target)
+			parallel_validation.materialize_workspace(
+				snapshot,
+				target,
+				git_process=git_process,
+			)
 
 			self.assertTrue(snapshot.binary_diff)
 			self.assertEqual((target / "payload.bin").read_bytes(), expected)
 			self.assertEqual(
-				parallel_validation.capture_workspace(target).workspace_fingerprint,
+				parallel_validation.capture_workspace(
+					target,
+					git_process=git_process,
+				).workspace_fingerprint,
 				snapshot.workspace_fingerprint,
 			)
 
@@ -63,6 +130,7 @@ class SupervisedGitTests(unittest.TestCase):
 					],
 					cwd=ROOT,
 					timeout_seconds=10.0,
+					environment=dict(os.environ),
 					stdin_bytes=payload,
 					text_errors="surrogateescape",
 					binary_output=True,
@@ -75,6 +143,33 @@ class SupervisedGitTests(unittest.TestCase):
 					result.stdout.encode("utf-8", errors="surrogateescape"),
 					payload,
 				)
+
+	def test_supervisor_requires_non_null_explicit_environment_before_start(
+		self,
+	) -> None:
+		with mock.patch.object(
+			process_supervisor.subprocess,
+			"Popen",
+		) as popen, mock.patch.object(
+			process_supervisor,
+			"_new_process_tree_owner",
+		) as owner_factory:
+			with self.assertRaises(TypeError):
+				process_supervisor.run_supervised_process(
+					[sys.executable, "-c", "raise SystemExit(0)"],
+					cwd=ROOT,
+					timeout_seconds=10.0,
+				)
+			with self.assertRaises(TypeError):
+				process_supervisor.run_supervised_process(
+					[sys.executable, "-c", "raise SystemExit(0)"],
+					cwd=ROOT,
+					timeout_seconds=10.0,
+					environment=None,  # type: ignore[arg-type]
+				)
+
+		popen.assert_not_called()
+		owner_factory.assert_not_called()
 
 	def test_supervisor_refuses_launch_after_stdin_staging_timeout(self) -> None:
 		clock = [0.0]
@@ -109,6 +204,7 @@ class SupervisedGitTests(unittest.TestCase):
 				[sys.executable, "-c", "raise SystemExit(0)"],
 				cwd=ROOT,
 				timeout_seconds=1.0,
+				environment=dict(os.environ),
 				stdin_bytes=b"payload",
 			)
 
@@ -153,6 +249,7 @@ class SupervisedGitTests(unittest.TestCase):
 				[sys.executable, "-c", "raise SystemExit(0)"],
 				cwd=ROOT,
 				timeout_seconds=1.0,
+				environment=dict(os.environ),
 				stdin_bytes=b"payload",
 			)
 
@@ -192,6 +289,7 @@ class SupervisedGitTests(unittest.TestCase):
 				[sys.executable, "-c", "raise SystemExit(0)"],
 				cwd=ROOT,
 				timeout_seconds=10.0,
+				environment=dict(os.environ),
 				stdin_bytes=b"payload",
 				cancellation_event=cancellation,
 			)
@@ -234,6 +332,7 @@ class SupervisedGitTests(unittest.TestCase):
 				[sys.executable, "-c", "raise SystemExit(0)"],
 				cwd=ROOT,
 				timeout_seconds=10.0,
+				environment=dict(os.environ),
 				stdin_bytes=payload,
 				cancellation_event=cancellation,
 			)
@@ -245,15 +344,19 @@ class SupervisedGitTests(unittest.TestCase):
 		self.assertEqual(result.pid, 0)
 		self.assertTrue(result.process_boundary_quiescent)
 
-	def test_stdin_close_failure_does_not_mask_staging_control_exception(self) -> None:
+	def test_repeated_stdin_close_failure_upgrades_staging_control_to_cleanup_debt(
+		self,
+	) -> None:
 		class FailingStdin:
 			def __init__(self, error: BaseException) -> None:
 				self.error = error
+				self.close_count = 0
 
 			def write(self, _payload: object) -> int:
 				raise self.error
 
 			def close(self) -> None:
+				self.close_count += 1
 				raise OSError("fixture close failure")
 
 		for error in (
@@ -261,24 +364,33 @@ class SupervisedGitTests(unittest.TestCase):
 			SystemExit(9),
 			GeneratorExit("fixture generator exit"),
 		):
+			stdin_stream = FailingStdin(error)
 			with self.subTest(error=type(error).__name__), mock.patch.object(
 				process_supervisor.tempfile,
 				"TemporaryFile",
-				return_value=FailingStdin(error),
+				return_value=stdin_stream,
 			), mock.patch.object(
 				process_supervisor,
 				"_new_process_tree_owner",
 			) as owner_factory:
-				with self.assertRaises(type(error)) as raised:
+				with self.assertRaises(
+					process_supervisor.SupervisedProcessCleanupError
+				) as raised:
 					process_supervisor.run_supervised_process(
 						[sys.executable, "-c", "raise SystemExit(0)"],
 						cwd=ROOT,
 						timeout_seconds=10.0,
+						environment=dict(os.environ),
 						stdin_bytes=b"payload",
 					)
 
-			self.assertIs(raised.exception, error)
-			self.assertTrue(any("stdin cleanup also failed" in note for note in error.__notes__))
+			self.assertIs(raised.exception.original_error, error)
+			self.assertIs(raised.exception.__cause__, error)
+			self.assertTrue(raised.exception.cleanup_debt)
+			self.assertGreaterEqual(stdin_stream.close_count, 2)
+			self.assertTrue(
+				any("stdin cleanup failed" in note for note in raised.exception.notes)
+			)
 			owner_factory.assert_not_called()
 
 	def test_stdin_close_failure_does_not_mask_prelaunch_stop_result(self) -> None:
@@ -318,6 +430,7 @@ class SupervisedGitTests(unittest.TestCase):
 					[sys.executable, "-c", "raise SystemExit(0)"],
 					cwd=ROOT,
 					timeout_seconds=1.0,
+					environment=dict(os.environ),
 					stdin_bytes=b"payload",
 					cancellation_event=cancellation,
 				)
@@ -361,6 +474,7 @@ class SupervisedGitTests(unittest.TestCase):
 					[sys.executable, "-c", "raise SystemExit(0)"],
 					cwd=ROOT,
 					timeout_seconds=10.0,
+					environment=dict(os.environ),
 					stdin_bytes=b"payload",
 					cancellation_event=cancellation,
 				)
@@ -423,6 +537,7 @@ class SupervisedGitTests(unittest.TestCase):
 					[sys.executable, "-c", "raise SystemExit(0)"],
 					cwd=ROOT,
 					timeout_seconds=10.0,
+					environment=dict(os.environ),
 					cancellation_event=cancellation,
 				)
 
@@ -453,6 +568,7 @@ class SupervisedGitTests(unittest.TestCase):
 					[sys.executable, "-c", "import time; time.sleep(60)"],
 					cwd=ROOT,
 					timeout_seconds=10.0,
+					environment=dict(os.environ),
 				)
 
 		self.assertIs(raised.exception, primary)
@@ -481,6 +597,7 @@ class SupervisedGitTests(unittest.TestCase):
 					[sys.executable, "-c", "import time; time.sleep(60)"],
 					cwd=ROOT,
 					timeout_seconds=10.0,
+					environment=dict(os.environ),
 				)
 			except BaseException as error:
 				observed = error
@@ -534,6 +651,7 @@ class SupervisedGitTests(unittest.TestCase):
 					[sys.executable, "-c", "raise SystemExit(0)"],
 					cwd=ROOT,
 					timeout_seconds=10.0,
+					environment=dict(os.environ),
 					cancellation_event=cancellation,
 				)
 
@@ -567,6 +685,7 @@ class SupervisedGitTests(unittest.TestCase):
 					["fixture"],
 					cwd=ROOT,
 					timeout_seconds=10.0,
+					environment=dict(os.environ),
 				)
 		self.assertEqual(raised.exception.notes, unproved.notes)
 
@@ -585,6 +704,7 @@ class SupervisedGitTests(unittest.TestCase):
 					["fixture"],
 					cwd=ROOT,
 					timeout_seconds=10.0,
+					environment=dict(os.environ),
 				)
 		self.assertIs(raised.exception, original)
 
@@ -625,6 +745,7 @@ class SupervisedGitTests(unittest.TestCase):
 					[sys.executable, "-c", "raise SystemExit(0)"],
 					cwd=ROOT,
 					timeout_seconds=10.0,
+					environment=dict(os.environ),
 					stdin_bytes=b"payload",
 				)
 
@@ -675,6 +796,7 @@ class SupervisedGitTests(unittest.TestCase):
 					[sys.executable, "-c", "import sys; sys.stdin.buffer.read()"],
 					cwd=ROOT,
 					timeout_seconds=10.0,
+					environment=dict(os.environ),
 					stdin_bytes=b"payload",
 				)
 
@@ -711,6 +833,7 @@ class SupervisedGitTests(unittest.TestCase):
 				],
 				cwd=ROOT,
 				timeout_seconds=10.0,
+				environment=dict(os.environ),
 				stdin_bytes=payload,
 				text_errors="surrogateescape",
 				binary_output=True,
@@ -749,6 +872,7 @@ class SupervisedGitTests(unittest.TestCase):
 					[sys.executable, "-c", "raise SystemExit(0)"],
 					cwd=ROOT,
 					timeout_seconds=10.0,
+					environment=dict(os.environ),
 					stdin_bytes=b"payload",
 				)
 
@@ -773,7 +897,11 @@ class SupervisedGitTests(unittest.TestCase):
 			with self.assertRaises(
 				parallel_validation.WorkspaceProcessBoundaryError,
 			) as raised:
-				parallel_validation._run_git(ROOT, ["status", "--porcelain=v1"])  # noqa: SLF001
+				parallel_validation._run_git(  # noqa: SLF001
+					ROOT,
+					["status", "--porcelain=v1"],
+					git_process=_frozen_git_process(ROOT),
+				)
 
 		self.assertTrue(raised.exception.cleanup_debt)
 		self.assertFalse(raised.exception.process_boundary_quiescent)
@@ -794,6 +922,7 @@ class SupervisedGitTests(unittest.TestCase):
 					parallel_validation._run_git(  # noqa: SLF001
 						ROOT,
 						["status", "--porcelain=v1"],
+						git_process=_frozen_git_process(ROOT),
 					)
 			self.assertIs(raised.exception, error)
 
@@ -805,6 +934,7 @@ class SupervisedGitTests(unittest.TestCase):
 				command=(str(missing_executable),),
 				workspace=ROOT,
 				timeout_seconds=10.0,
+				environment=_shard_environment(),
 			)
 			result = parallel_validation.run_parallel_shards([shard], max_workers=1)[0]
 
@@ -814,6 +944,26 @@ class SupervisedGitTests(unittest.TestCase):
 		self.assertFalse(result.started)
 		self.assertFalse(result.ok)
 		self.assertTrue(result.process_boundary_quiescent)
+
+	def test_parallel_shard_rejects_bare_executable(self) -> None:
+		with self.assertRaisesRegex(ValueError, "absolute executable"):
+			parallel_validation.ParallelShard(
+				name="bare-command",
+				command=("fixture-command",),
+				workspace=ROOT,
+				timeout_seconds=10.0,
+				environment=_shard_environment(),
+			)
+
+	def test_parallel_shard_rejects_missing_environment(self) -> None:
+		with self.assertRaises((TypeError, AttributeError)):
+			parallel_validation.ParallelShard(
+				name="missing-environment",
+				command=(os.fspath(Path(sys.executable).resolve()),),
+				workspace=ROOT,
+				timeout_seconds=10.0,
+				environment=None,  # type: ignore[arg-type]
+			)
 
 	def test_pre_creation_start_errors_publish_positive_no_child_proof(self) -> None:
 		for original, expected_return_code in (
@@ -832,6 +982,7 @@ class SupervisedGitTests(unittest.TestCase):
 						["fixture-command"],
 						cwd=ROOT,
 						timeout_seconds=10.0,
+						environment=dict(os.environ),
 					)
 
 			self.assertIs(raised.exception.original_error, original)
@@ -862,6 +1013,7 @@ class SupervisedGitTests(unittest.TestCase):
 					["fixture-command"],
 					cwd=ROOT,
 					timeout_seconds=10.0,
+					environment=dict(os.environ),
 				)
 
 		self.assertIs(raised.exception.original_error, original)
@@ -876,9 +1028,10 @@ class SupervisedGitTests(unittest.TestCase):
 		original = HostileMissing("fixture missing")
 		shard = parallel_validation.ParallelShard(
 			name="hostile-start-error",
-			command=("fixture",),
+			command=(os.fspath((ROOT / "fixture").resolve()),),
 			workspace=ROOT,
 			timeout_seconds=10.0,
+			environment=_shard_environment(),
 		)
 		with mock.patch.object(
 			parallel_validation,
@@ -919,6 +1072,7 @@ class SupervisedGitTests(unittest.TestCase):
 					[sys.executable, "-c", "raise SystemExit(0)"],
 					cwd=ROOT,
 					timeout_seconds=10.0,
+					environment=dict(os.environ),
 				)
 
 		self.assertIs(raised.exception, original)
@@ -930,9 +1084,10 @@ class SupervisedGitTests(unittest.TestCase):
 	def test_generic_shard_start_error_retains_unproved_boundary(self) -> None:
 		shard = parallel_validation.ParallelShard(
 			name="generic-start-error",
-			command=("fixture",),
+			command=(os.fspath((ROOT / "fixture").resolve()),),
 			workspace=ROOT,
 			timeout_seconds=10.0,
+			environment=_shard_environment(),
 		)
 		with mock.patch.object(
 			parallel_validation,
@@ -967,15 +1122,25 @@ class SupervisedGitTests(unittest.TestCase):
 			"run_supervised_process",
 			return_value=result,
 		) as supervised:
+			git_process = _frozen_git_process(ROOT)
 			captured = parallel_validation._run_git(  # noqa: SLF001
 				ROOT,
 				["apply", "--binary", "--index"],
+				git_process=git_process,
 				input_bytes=payload,
 			)
 
 		self.assertEqual(captured, b"result\x00\xfe")
 		call = supervised.call_args
-		self.assertEqual(call.args[0], ["git", "apply", "--binary", "--index"])
+		self.assertEqual(
+			call.args[0],
+			[git_process.executable, "apply", "--binary", "--index"],
+		)
+		self.assertTrue(Path(call.args[0][0]).is_absolute())
+		self.assertEqual(
+			call.kwargs["environment"],
+			git_process.environment.values(),
+		)
 		self.assertEqual(call.kwargs["stdin_bytes"], payload)
 		self.assertEqual(call.kwargs["text_errors"], "surrogateescape")
 		self.assertTrue(call.kwargs["binary_output"])
@@ -1018,6 +1183,7 @@ class SupervisedGitTests(unittest.TestCase):
 					parallel_validation.materialize_workspace(
 						snapshot,
 						target,
+						git_process=_frozen_git_process(root),
 						verify_source=False,
 					)
 
@@ -1069,6 +1235,7 @@ class SupervisedGitTests(unittest.TestCase):
 						parallel_validation.materialize_workspace(
 							snapshot,
 							target,
+							git_process=_frozen_git_process(root),
 							verify_source=False,
 						)
 
@@ -1120,6 +1287,7 @@ class SupervisedGitTests(unittest.TestCase):
 					parallel_validation.materialize_workspace(
 						snapshot,
 						target,
+						git_process=_frozen_git_process(root),
 						verify_source=False,
 					)
 
@@ -1166,6 +1334,7 @@ class SupervisedGitTests(unittest.TestCase):
 					parallel_validation.materialize_workspace(
 						snapshot,
 						target,
+						git_process=_frozen_git_process(root),
 						verify_source=False,
 					)
 
@@ -1212,6 +1381,7 @@ class SupervisedGitTests(unittest.TestCase):
 					parallel_validation.materialize_workspace(
 						snapshot,
 						target,
+						git_process=_frozen_git_process(root),
 						verify_source=False,
 					)
 
@@ -1265,6 +1435,7 @@ class SupervisedGitTests(unittest.TestCase):
 					parallel_validation.materialize_workspace(
 						snapshot,
 						target,
+						git_process=_frozen_git_process(root),
 						verify_source=False,
 					)
 
@@ -1333,6 +1504,7 @@ class SupervisedGitTests(unittest.TestCase):
 					parallel_validation.materialize_workspace(
 						snapshot,
 						target,
+						git_process=_frozen_git_process(root),
 						verify_source=False,
 					)
 
@@ -1400,6 +1572,7 @@ class SupervisedGitTests(unittest.TestCase):
 					parallel_validation.materialize_workspace(
 						snapshot,
 						target,
+						git_process=_frozen_git_process(root),
 						verify_source=False,
 					)
 
@@ -1464,6 +1637,7 @@ class SupervisedGitTests(unittest.TestCase):
 					parallel_validation.materialize_workspace(
 						snapshot,
 						target,
+						git_process=_frozen_git_process(root),
 						verify_source=False,
 					)
 				except BaseException as error:
@@ -1525,6 +1699,7 @@ class SupervisedGitTests(unittest.TestCase):
 					parallel_validation.materialize_workspace(
 						snapshot,
 						target,
+						git_process=_frozen_git_process(root),
 						verify_source=False,
 						identity_callback=move_staging,
 					)
@@ -1587,6 +1762,7 @@ class SupervisedGitTests(unittest.TestCase):
 					parallel_validation.materialize_workspace(
 						snapshot,
 						target,
+						git_process=_frozen_git_process(root),
 						verify_source=False,
 					)
 
@@ -1667,6 +1843,7 @@ class SupervisedGitTests(unittest.TestCase):
 					parallel_validation.materialize_workspace(
 						snapshot,
 						target,
+						git_process=_frozen_git_process(root),
 						verify_source=False,
 					)
 

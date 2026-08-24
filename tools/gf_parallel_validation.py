@@ -8,7 +8,6 @@ import hashlib
 import math
 import os
 import re
-import shutil
 import stat
 import threading
 import time
@@ -21,7 +20,10 @@ from typing import Callable
 from typing import Iterable
 from typing import Mapping
 
+from gf_process_authority import FrozenGitProcess
 from gf_process_supervisor import SupervisedProcessStartError
+from gf_process_supervisor import add_exception_note
+from gf_process_supervisor import rmtree_with_exception_callback
 from gf_process_supervisor import run_supervised_process
 from gf_process_supervisor import safe_exception_detail
 
@@ -111,11 +113,7 @@ def _mark_workspace_cleanup_debt(
 		)
 	else:
 		debt_error = cleanup_error if primary_error is None else primary_error
-	try:
-		BaseException.add_note(debt_error, f"{message} Cleanup failure: {cleanup_error}")
-	except BaseException:
-		# Diagnostics must never replace the primary failure or revoke retained roots.
-		pass
+	add_exception_note(debt_error, f"{message} Cleanup failure: {cleanup_error}")
 	try:
 		attributes = BaseException.__getattribute__(debt_error, "__dict__")
 		attributes["cleanup_debt"] = True
@@ -198,7 +196,7 @@ class ParallelShard:
 	command: tuple[str, ...]
 	workspace: Path
 	timeout_seconds: float
-	environment: Mapping[str, str] | None = None
+	environment: Mapping[str, str]
 
 	def __post_init__(self) -> None:
 		name = str(self.name).strip()
@@ -207,15 +205,17 @@ class ParallelShard:
 		command = tuple(str(part) for part in self.command)
 		if not command or any(not part or "\0" in part for part in command):
 			raise ValueError(f"Parallel shard {name!r} has an invalid command.")
+		if not Path(command[0]).is_absolute():
+			raise ValueError(
+				f"Parallel shard {name!r} requires an absolute executable identity."
+			)
 		timeout_seconds = float(self.timeout_seconds)
 		if not math.isfinite(timeout_seconds) or timeout_seconds <= 0.0:
 			raise ValueError(f"Parallel shard {name!r} must have a positive finite timeout.")
-		environment = None
-		if self.environment is not None:
-			environment_copy = {str(key): str(value) for key, value in self.environment.items()}
-			if any(not key or "\0" in key or "=" in key or "\0" in value for key, value in environment_copy.items()):
-				raise ValueError(f"Parallel shard {name!r} has an invalid environment entry.")
-			environment = MappingProxyType(environment_copy)
+		environment_copy = {str(key): str(value) for key, value in self.environment.items()}
+		if any(not key or "\0" in key or "=" in key or "\0" in value for key, value in environment_copy.items()):
+			raise ValueError(f"Parallel shard {name!r} has an invalid environment entry.")
+		environment = MappingProxyType(environment_copy)
 		object.__setattr__(self, "name", name)
 		object.__setattr__(self, "command", command)
 		object.__setattr__(self, "workspace", _absolute_lexical_path(Path(self.workspace)))
@@ -303,12 +303,31 @@ class _CancellationState:
 			return self._reason
 
 
-def capture_workspace(root: Path, *, deadline: float | None = None) -> CapturedWorkspace:
+def capture_workspace(
+	root: Path,
+	*,
+	git_process: FrozenGitProcess,
+	deadline: float | None = None,
+) -> CapturedWorkspace:
 	"""Capture a stable Git workspace or fail when it changes during capture."""
+	if not isinstance(git_process, FrozenGitProcess):
+		raise TypeError("workspace capture requires a frozen Git process authority.")
 	_check_deadline(deadline, "workspace capture")
-	repository_root = _validate_repository_root(Path(root), deadline=deadline)
-	first = _capture_workspace_once(repository_root, deadline=deadline)
-	second = _capture_workspace_once(repository_root, deadline=deadline)
+	repository_root = _validate_repository_root(
+		Path(root),
+		git_process=git_process,
+		deadline=deadline,
+	)
+	first = _capture_workspace_once(
+		repository_root,
+		git_process=git_process,
+		deadline=deadline,
+	)
+	second = _capture_workspace_once(
+		repository_root,
+		git_process=git_process,
+		deadline=deadline,
+	)
 	if not _snapshots_have_identical_payload(first, second):
 		raise WorkspaceDriftError("Git workspace changed while its immutable snapshot was being captured.")
 	_check_deadline(deadline, "workspace capture")
@@ -319,6 +338,7 @@ def materialize_workspace(
 	snapshot: CapturedWorkspace,
 	target: Path,
 	*,
+	git_process: FrozenGitProcess,
 	deadline: float | None = None,
 	verify_source: bool = True,
 	identity_callback: Callable[[tuple[int, int, int]], None] | None = None,
@@ -327,7 +347,13 @@ def materialize_workspace(
 	_check_deadline(deadline, "workspace materialization")
 	if not isinstance(snapshot, CapturedWorkspace):
 		raise TypeError("snapshot must be a CapturedWorkspace instance.")
-	source_root = _validate_repository_root(snapshot.source_root, deadline=deadline)
+	if not isinstance(git_process, FrozenGitProcess):
+		raise TypeError("workspace materialization requires a frozen Git process authority.")
+	source_root = _validate_repository_root(
+		snapshot.source_root,
+		git_process=git_process,
+		deadline=deadline,
+	)
 	target_path = _absolute_lexical_path(Path(target))
 	if os.path.lexists(target_path):
 		raise WorkspaceSnapshotError(f"Materialization target already exists: {target_path}")
@@ -338,7 +364,11 @@ def materialize_workspace(
 	if _paths_overlap(source_root, target_path):
 		raise UnsafeWorkspacePathError("Materialization target must not contain or be contained by the source workspace.")
 	if verify_source:
-		_assert_source_matches_snapshot(snapshot, deadline=deadline)
+		_assert_source_matches_snapshot(
+			snapshot,
+			git_process=git_process,
+			deadline=deadline,
+		)
 
 	staging_root = target_parent / f".{target_path.name}.m"
 	try:
@@ -379,6 +409,7 @@ def materialize_workspace(
 				str(source_root),
 				str(staging_workspace),
 			],
+			git_process=git_process,
 			deadline=deadline,
 		)
 		_assert_path_has_no_link_components(staging_workspace)
@@ -397,26 +428,46 @@ def materialize_workspace(
 				snapshot.head,
 				"--",
 			],
+			git_process=git_process,
 			deadline=deadline,
 		)
-		_validate_workspace_tree_safety(staging_workspace, snapshot.head, deadline=deadline)
+		_validate_workspace_tree_safety(
+			staging_workspace,
+			snapshot.head,
+			git_process=git_process,
+			deadline=deadline,
+		)
 		if snapshot.binary_diff:
 			_run_git(
 				staging_workspace,
 				["apply", "--binary", "--index", "--whitespace=nowarn"],
+				git_process=git_process,
 				input_bytes=snapshot.binary_diff,
 				deadline=deadline,
 			)
 		_materialize_untracked_files(staging_workspace, snapshot.untracked_files)
 		_check_deadline(deadline, "workspace materialization")
-		_validate_workspace_tree_safety(staging_workspace, snapshot.head, deadline=deadline)
-		materialized = _capture_workspace_once(staging_workspace, deadline=deadline)
+		_validate_workspace_tree_safety(
+			staging_workspace,
+			snapshot.head,
+			git_process=git_process,
+			deadline=deadline,
+		)
+		materialized = _capture_workspace_once(
+			staging_workspace,
+			git_process=git_process,
+			deadline=deadline,
+		)
 		if not _snapshots_have_identical_payload(snapshot, materialized):
 			raise WorkspaceSnapshotError(
 				"Materialized workspace does not reproduce the captured workspace fingerprint."
 			)
 		if verify_source:
-			_assert_source_matches_snapshot(snapshot, deadline=deadline)
+			_assert_source_matches_snapshot(
+				snapshot,
+				git_process=git_process,
+				deadline=deadline,
+			)
 		if not _same_owned_directory_identity(
 			published_workspace_identity,
 			staging_workspace.lstat(),
@@ -433,8 +484,16 @@ def materialize_workspace(
 		):
 			raise WorkspaceSnapshotError("Published workspace identity differs from its staging directory.")
 		if verify_source:
-			_assert_source_matches_snapshot(snapshot, deadline=deadline)
-		published_snapshot = _capture_workspace_once(target_path, deadline=deadline)
+			_assert_source_matches_snapshot(
+				snapshot,
+				git_process=git_process,
+				deadline=deadline,
+			)
+		published_snapshot = _capture_workspace_once(
+			target_path,
+			git_process=git_process,
+			deadline=deadline,
+		)
 		if not _snapshots_have_identical_payload(snapshot, published_snapshot):
 			raise WorkspaceSnapshotError("Published workspace drifted during materialization.")
 		if identity_callback is not None:
@@ -512,19 +571,13 @@ def materialize_workspace(
 			if debt_error is error:
 				raise
 			raise debt_error from error
-		try:
-			preserved_paths = list(preserved_materialization_paths())
-			add_note = getattr(error, "add_note", None)
-			if callable(add_note):
-				add_note(
-					"Retained workspace materialization paths after process-control "
-					"interruption because a quiet process boundary was not proven: "
-					+ ", ".join(str(path) for path in preserved_paths)
-				)
-		except BaseException:
-			# Diagnostic collection must never replace the exact process-control
-			# exception after cleanup ownership has already been revoked.
-			pass
+		preserved_paths = list(preserved_materialization_paths())
+		add_exception_note(
+			error,
+			"Retained workspace materialization paths after process-control "
+			"interruption because a quiet process boundary was not proven: "
+			+ ", ".join(str(path) for path in preserved_paths),
+		)
 		raise
 	finally:
 		if cleanup_allowed:
@@ -545,12 +598,17 @@ def materialize_workspace(
 def assert_source_matches_snapshot(
 	snapshot: CapturedWorkspace,
 	*,
+	git_process: FrozenGitProcess,
 	deadline: float | None = None,
 ) -> None:
 	"""Verify one captured source at an orchestration boundary."""
 	if not isinstance(snapshot, CapturedWorkspace):
 		raise TypeError("snapshot must be a CapturedWorkspace instance.")
-	_assert_source_matches_snapshot(snapshot, deadline=deadline)
+	_assert_source_matches_snapshot(
+		snapshot,
+		git_process=git_process,
+		deadline=deadline,
+	)
 
 
 def run_parallel_shards(
@@ -651,16 +709,31 @@ def run_parallel_shards(
 	return [result for result in results if result is not None]
 
 
-def _capture_workspace_once(root: Path, *, deadline: float | None = None) -> CapturedWorkspace:
+def _capture_workspace_once(
+	root: Path,
+	*,
+	git_process: FrozenGitProcess,
+	deadline: float | None = None,
+) -> CapturedWorkspace:
 	_check_deadline(deadline, "workspace capture")
-	head = _read_head(root, deadline=deadline)
-	_validate_workspace_tree_safety(root, head, deadline=deadline)
+	head = _read_head(root, git_process=git_process, deadline=deadline)
+	_validate_workspace_tree_safety(
+		root,
+		head,
+		git_process=git_process,
+		deadline=deadline,
+	)
 	binary_diff = _run_git(
 		root,
 		["diff", "--binary", "--no-ext-diff", "HEAD", "--"],
+		git_process=git_process,
 		deadline=deadline,
 	)
-	untracked_paths = _read_untracked_paths(root, deadline=deadline)
+	untracked_paths = _read_untracked_paths(
+		root,
+		git_process=git_process,
+		deadline=deadline,
+	)
 	_validate_relative_path_set(untracked_paths)
 	captured_untracked_files: list[CapturedWorkspaceFile] = []
 	captured_untracked_bytes = 0
@@ -674,7 +747,7 @@ def _capture_workspace_once(root: Path, *, deadline: float | None = None) -> Cap
 			)
 		captured_untracked_files.append(captured_file)
 	untracked_files = tuple(captured_untracked_files)
-	if _read_head(root, deadline=deadline) != head:
+	if _read_head(root, git_process=git_process, deadline=deadline) != head:
 		raise WorkspaceDriftError("Git HEAD changed while the workspace was being captured.")
 	fingerprint = _fingerprint_captured_payload(head, binary_diff, untracked_files)
 	return CapturedWorkspace(
@@ -686,10 +759,16 @@ def _capture_workspace_once(root: Path, *, deadline: float | None = None) -> Cap
 	)
 
 
-def _read_head(root: Path, *, deadline: float | None = None) -> str:
+def _read_head(
+	root: Path,
+	*,
+	git_process: FrozenGitProcess,
+	deadline: float | None = None,
+) -> str:
 	head = _run_git(
 		root,
 		["rev-parse", "--verify", "HEAD^{commit}"],
+		git_process=git_process,
 		deadline=deadline,
 	).decode("ascii", errors="strict").strip()
 	if not GIT_OBJECT_ID_PATTERN.fullmatch(head):
@@ -697,10 +776,16 @@ def _read_head(root: Path, *, deadline: float | None = None) -> str:
 	return head
 
 
-def _read_untracked_paths(root: Path, *, deadline: float | None = None) -> list[str]:
+def _read_untracked_paths(
+	root: Path,
+	*,
+	git_process: FrozenGitProcess,
+	deadline: float | None = None,
+) -> list[str]:
 	payload = _run_git(
 		root,
 		["ls-files", "--others", "--exclude-standard", "-z"],
+		git_process=git_process,
 		deadline=deadline,
 	)
 	paths = _decode_nul_paths(payload, "untracked file list")
@@ -834,9 +919,14 @@ def _snapshots_have_identical_payload(left: CapturedWorkspace, right: CapturedWo
 def _assert_source_matches_snapshot(
 	snapshot: CapturedWorkspace,
 	*,
+	git_process: FrozenGitProcess,
 	deadline: float | None = None,
 ) -> None:
-	current = _capture_workspace_once(snapshot.source_root, deadline=deadline)
+	current = _capture_workspace_once(
+		snapshot.source_root,
+		git_process=git_process,
+		deadline=deadline,
+	)
 	if not _snapshots_have_identical_payload(snapshot, current):
 		raise WorkspaceDriftError(
 			"Source Git workspace drifted after capture; refusing to materialize a mixed revision."
@@ -925,7 +1015,12 @@ def _create_safe_parent_directories(root: Path, parent: Path) -> None:
 			raise UnsafeWorkspacePathError(f"Unsafe workspace directory component: {current}")
 
 
-def _validate_repository_root(root: Path, *, deadline: float | None = None) -> Path:
+def _validate_repository_root(
+	root: Path,
+	*,
+	git_process: FrozenGitProcess,
+	deadline: float | None = None,
+) -> Path:
 	_check_deadline(deadline, "repository validation")
 	root_path = _absolute_lexical_path(root)
 	if not root_path.is_dir():
@@ -934,6 +1029,7 @@ def _validate_repository_root(root: Path, *, deadline: float | None = None) -> P
 	reported_root = _run_git(
 		root_path,
 		["rev-parse", "--show-toplevel"],
+		git_process=git_process,
 		deadline=deadline,
 	).decode(
 		"utf-8",
@@ -1126,6 +1222,7 @@ def _validate_workspace_tree_safety(
 	root: Path,
 	head: str,
 	*,
+	git_process: FrozenGitProcess,
 	deadline: float | None = None,
 ) -> None:
 	_check_deadline(deadline, "workspace safety validation")
@@ -1133,6 +1230,7 @@ def _validate_workspace_tree_safety(
 	head_entries = _run_git(
 		root,
 		["ls-tree", "-r", "-z", "--full-tree", head],
+		git_process=git_process,
 		deadline=deadline,
 	)
 	for entry in _split_nul_records(head_entries, "HEAD tree"):
@@ -1149,7 +1247,12 @@ def _validate_workspace_tree_safety(
 			)
 		tracked_paths.append(relative_path)
 
-	index_entries = _run_git(root, ["ls-files", "--stage", "-z"], deadline=deadline)
+	index_entries = _run_git(
+		root,
+		["ls-files", "--stage", "-z"],
+		git_process=git_process,
+		deadline=deadline,
+	)
 	for entry in _split_nul_records(index_entries, "Git index"):
 		try:
 			header, path_bytes = entry.split(b"\t", 1)
@@ -1359,18 +1462,18 @@ def _run_git(
 	root: Path,
 	arguments: list[str],
 	*,
+	git_process: FrozenGitProcess,
 	input_bytes: bytes | None = None,
 	deadline: float | None = None,
 ) -> bytes:
 	timeout_seconds = _remaining_timeout(deadline, "git workspace operation")
-	environment = os.environ.copy()
-	environment["GIT_OPTIONAL_LOCKS"] = "0"
+	command_identity = git_process.command(arguments)
 	try:
 		completed = run_supervised_process(
-			["git", *arguments],
+			list(command_identity.effective),
 			cwd=root,
 			timeout_seconds=min(GIT_TIMEOUT_SECONDS, timeout_seconds),
-			environment=environment,
+			environment=git_process.environment.values(),
 			stdin_bytes=input_bytes,
 			text_errors="surrogateescape",
 			binary_output=True,
@@ -1444,7 +1547,7 @@ def _remove_owned_tree(
 	last_error: OSError | None = None
 	for attempt in range(8):
 		try:
-			shutil.rmtree(cleanup_path, onexc=_make_remove_writable)
+			rmtree_with_exception_callback(cleanup_path, _make_remove_writable)
 			return
 		except FileNotFoundError:
 			return
@@ -1501,6 +1604,12 @@ def _validate_parallel_shards(shards: list[ParallelShard]) -> None:
 		seen_names.add(shard.name)
 		if not shard.workspace.is_dir():
 			raise ValueError(f"Parallel shard workspace does not exist: {shard.workspace}")
+		if not Path(shard.command[0]).is_absolute():
+			raise ValueError(
+				f"Parallel shard {shard.name!r} lost its absolute executable identity."
+			)
+		if shard.environment is None:
+			raise ValueError(f"Parallel shard {shard.name!r} lost its frozen environment.")
 		_assert_path_has_no_link_components(shard.workspace)
 	for index, left in enumerate(shards):
 		for right in shards[index + 1:]:
@@ -1528,7 +1637,7 @@ def _run_parallel_shard(
 			list(shard.command),
 			cwd=shard.workspace,
 			timeout_seconds=effective_timeout,
-			environment=dict(shard.environment) if shard.environment is not None else None,
+			environment=dict(shard.environment),
 			stdout_callback=(
 				(lambda line: output_callback(shard.name, "stdout", line))
 				if output_callback is not None

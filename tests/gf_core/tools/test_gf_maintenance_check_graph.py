@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import os
 import subprocess
 import sys
 import tempfile
@@ -17,10 +18,17 @@ if str(TOOLS_ROOT) not in sys.path:
 	sys.path.insert(0, str(TOOLS_ROOT))
 
 import gf_maintenance_check_graph as check_graph  # noqa: E402
+import gf_process_authority as process_authority  # noqa: E402
 import gf_process_supervisor as process_supervisor  # noqa: E402
 
 
 class WorkspaceFingerprintGitTests(unittest.TestCase):
+	def setUp(self) -> None:
+		self.git_process = process_authority.freeze_git_process(
+			process_authority.FrozenProcessEnvironment.capture(dict(os.environ)),
+			cwd=ROOT,
+		)
+
 	def test_run_git_bytes_round_trips_binary_stdin_and_stdout(self) -> None:
 		payload = b"binary\x00payload\xff\r\nsecond-line\n"
 		with tempfile.TemporaryDirectory() as temporary_directory:
@@ -31,11 +39,13 @@ class WorkspaceFingerprintGitTests(unittest.TestCase):
 			object_id = check_graph.run_git_bytes(
 				repository,
 				["hash-object", "-w", "--stdin"],
+				git_process=self.git_process,
 				input_bytes=payload,
 			).decode("ascii", errors="strict").strip()
 			actual = check_graph.run_git_bytes(
 				repository,
 				["cat-file", "blob", object_id],
+				git_process=self.git_process,
 			)
 
 		self.assertRegex(object_id, r"^[0-9a-f]{40}(?:[0-9a-f]{24})?$")
@@ -66,6 +76,7 @@ class WorkspaceFingerprintGitTests(unittest.TestCase):
 				check_graph.run_git_bytes(
 					ROOT,
 					["hash-object", "--stdin"],
+					git_process=self.git_process,
 					input_bytes=payload,
 				)
 
@@ -76,7 +87,15 @@ class WorkspaceFingerprintGitTests(unittest.TestCase):
 		self.assertTrue(raised.exception.cleanup_debt)
 		self.assertFalse(raised.exception.process_boundary_quiescent)
 		call = supervised.call_args
-		self.assertEqual(call.args[0], ["git", "hash-object", "--stdin"])
+		self.assertEqual(
+			call.args[0],
+			[self.git_process.executable, "hash-object", "--stdin"],
+		)
+		self.assertTrue(Path(call.args[0][0]).is_absolute())
+		self.assertEqual(
+			call.kwargs["environment"],
+			self.git_process.environment.values(),
+		)
 		self.assertEqual(call.kwargs["stdin_bytes"], payload)
 		self.assertEqual(call.kwargs["text_errors"], "surrogateescape")
 		self.assertTrue(call.kwargs["binary_output"])
@@ -93,7 +112,11 @@ class WorkspaceFingerprintGitTests(unittest.TestCase):
 				side_effect=error,
 			):
 				with self.assertRaises(type(error)) as raised:
-					check_graph.run_git_bytes(ROOT, ["status", "--porcelain=v1"])
+					check_graph.run_git_bytes(
+						ROOT,
+						["status", "--porcelain=v1"],
+						git_process=self.git_process,
+					)
 			self.assertIs(raised.exception, error)
 
 	def test_run_git_bytes_wraps_ordinary_supervision_failure(self) -> None:
@@ -105,7 +128,11 @@ class WorkspaceFingerprintGitTests(unittest.TestCase):
 			with self.assertRaises(
 				check_graph.WorkspaceFingerprintProcessBoundaryError,
 			) as raised:
-				check_graph.run_git_bytes(ROOT, ["status", "--porcelain=v1"])
+				check_graph.run_git_bytes(
+					ROOT,
+					["status", "--porcelain=v1"],
+					git_process=self.git_process,
+				)
 		self.assertIsInstance(raised.exception.__cause__, RuntimeError)
 
 	def test_run_git_bytes_classifies_proven_no_child_start_failure_as_setup(self) -> None:
@@ -118,7 +145,11 @@ class WorkspaceFingerprintGitTests(unittest.TestCase):
 			with self.assertRaises(
 				check_graph.WorkspaceFingerprintSetupError,
 			) as raised:
-				check_graph.run_git_bytes(ROOT, ["status", "--porcelain=v1"])
+				check_graph.run_git_bytes(
+					ROOT,
+					["status", "--porcelain=v1"],
+					git_process=self.git_process,
+				)
 		self.assertIs(raised.exception.__cause__.original_error, original)
 
 	@staticmethod
