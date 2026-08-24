@@ -1,8 +1,4 @@
-## GFProjectileCatalog: 发射体场景目录。
-##
-## 用唯一稳定 ID 管理 PackedScene，供发射器、技能或项目自己的生成流程复用。
-## 重复导出 ID 读取时以首个有效条目为准，写入与移除会规范化重复项。
-## 目录不规定发射体的伤害、阵营、消耗或命中特效。
+## GFProjectileCatalog: typed projectile definition 目录。
 ## [br]
 ## @api public
 ## [br]
@@ -13,66 +9,80 @@ class_name GFProjectileCatalog
 extends Resource
 
 
-# --- 常量 ---
-
-const _GF_PROJECTILE_CATALOG_ENTRY_SCRIPT = preload("res://addons/gf/extensions/combat/projectiles/gf_projectile_catalog_entry.gd")
-
-
-# --- 导出变量 ---
-
-## 发射体场景条目列表。
+## 目录条目；重复或无效条目不会参与查找结果。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
+## [br]
+## @schema entries: Array[GFProjectileCatalogEntry]，每个有效 projectile_id 只保留首个定义。
 @export var entries: Array[GFProjectileCatalogEntry] = []
 
 
-# --- 公共方法 ---
-
-## 设置或替换一个发射体场景。
+## 设置或替换一个 typed definition。
 ## [br]
 ## @api public
 ## [br]
-## @param projectile_id: 发射体 ID。
+## @since unreleased
 ## [br]
-## @param scene: 发射体场景；为 null 时移除该 ID。
-func set_scene(projectile_id: StringName, scene: PackedScene) -> void:
+## @param projectile_id: 非空稳定 ID。
+## [br]
+## @param definition: typed definition；null 等价于移除。
+func set_definition(
+	projectile_id: StringName,
+	definition: GFProjectileDefinition
+) -> void:
 	if projectile_id == &"":
 		return
-	if scene == null:
-		var _remove_scene_result_41: Variant = remove_scene(projectile_id)
+	if definition == null:
+		var _removed: bool = remove_definition(projectile_id)
 		return
-
 	var entry: GFProjectileCatalogEntry = _get_entry(projectile_id)
 	if entry == null:
 		entry = GFProjectileCatalogEntry.new()
 		entry.projectile_id = projectile_id
 		entries.append(entry)
-	entry.scene = scene
-	_remove_duplicate_entries(projectile_id, entries.find(entry))
+	entry.definition = definition
+	_remove_duplicates(projectile_id, entries.find(entry))
 
 
-## 获取指定 ID 的发射体场景。
+## 查找指定 ID 的 typed definition。
 ## [br]
 ## @api public
 ## [br]
-## @param projectile_id: 发射体 ID。
+## @since unreleased
 ## [br]
-## @return 找到时返回 PackedScene，否则返回 null。
-func get_scene(projectile_id: StringName) -> PackedScene:
+## @param projectile_id: 稳定 ID。
+## [br]
+## @return: definition；不存在时返回 null。
+func get_definition(projectile_id: StringName) -> GFProjectileDefinition:
 	var entry: GFProjectileCatalogEntry = _get_entry(projectile_id)
-	if entry == null:
-		return null
-	return entry.scene
+	return entry.definition if entry != null else null
 
 
-## 移除指定 ID 的发射体场景。
+## 判断指定 ID 是否有有效 definition。
 ## [br]
 ## @api public
 ## [br]
-## @param projectile_id: 发射体 ID。
+## @since unreleased
 ## [br]
-## @return 移除成功返回 true。
-func remove_scene(projectile_id: StringName) -> bool:
+## @param projectile_id: 稳定 ID。
+## [br]
+## @return: 是否存在有效 definition。
+func has_definition(projectile_id: StringName) -> bool:
+	return get_definition(projectile_id) != null
+
+
+## 移除指定 ID 的所有重复条目。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param projectile_id: 稳定 ID。
+## [br]
+## @return: 是否至少移除一个条目。
+func remove_definition(projectile_id: StringName) -> bool:
 	var removed: bool = false
 	for index: int in range(entries.size() - 1, -1, -1):
 		var entry: GFProjectileCatalogEntry = entries[index]
@@ -82,59 +92,43 @@ func remove_scene(projectile_id: StringName) -> bool:
 	return removed
 
 
-## 检查指定 ID 是否存在有效场景。
+## 返回已排序且去重的有效 projectile ID。
 ## [br]
 ## @api public
 ## [br]
-## @param projectile_id: 发射体 ID。
+## @since 3.17.0
 ## [br]
-## @return 存在有效场景时返回 true。
-func has_scene(projectile_id: StringName) -> bool:
-	return get_scene(projectile_id) != null
-
-
-## 获取所有有效发射体 ID。
-## [br]
-## @api public
-## [br]
-## @return 按字典序排序的 ID 数组。
+## @return: 字典序排序的 ID 快照。
 func get_projectile_ids() -> PackedStringArray:
-	var ids: PackedStringArray = PackedStringArray()
-	var seen_ids: Dictionary = {}
+	var result: PackedStringArray = PackedStringArray()
+	var seen: Dictionary = {}
 	for entry: GFProjectileCatalogEntry in entries:
-		if entry == null or not entry.is_valid_entry() or seen_ids.has(entry.projectile_id):
+		if entry == null or not entry.is_valid_entry() or seen.has(entry.projectile_id):
 			continue
-		seen_ids[entry.projectile_id] = true
-		var _append_result_102: Variant = ids.append(String(entry.projectile_id))
-	ids.sort()
-	return ids
+		seen[entry.projectile_id] = true
+		var _appended: bool = result.append(String(entry.projectile_id))
+	result.sort()
+	return result
 
 
-## 清理空条目、空 ID 或空场景。
+## 清理 null、无效和重复条目。
 ## [br]
 ## @api public
 ## [br]
-## @return 被清理的条目数量。
+## @since 3.17.0
+## [br]
+## @return: 被移除的条目数量。
 func prune_invalid_entries() -> int:
-	var removed_count: int = 0
-	var seen_ids: Dictionary = {}
-	var index: int = 0
-	while index < entries.size():
+	var before_size: int = entries.size()
+	var seen: Dictionary = {}
+	for index: int in range(entries.size() - 1, -1, -1):
 		var entry: GFProjectileCatalogEntry = entries[index]
-		if (
-			entry == null
-			or not entry.is_valid_entry()
-			or seen_ids.has(entry.projectile_id)
-		):
+		if entry == null or not entry.is_valid_entry() or seen.has(entry.projectile_id):
 			entries.remove_at(index)
-			removed_count += 1
-			continue
-		seen_ids[entry.projectile_id] = true
-		index += 1
-	return removed_count
+		else:
+			seen[entry.projectile_id] = true
+	return before_size - entries.size()
 
-
-# --- 私有/辅助方法 ---
 
 func _get_entry(projectile_id: StringName) -> GFProjectileCatalogEntry:
 	if projectile_id == &"":
@@ -145,7 +139,7 @@ func _get_entry(projectile_id: StringName) -> GFProjectileCatalogEntry:
 	return null
 
 
-func _remove_duplicate_entries(projectile_id: StringName, keep_index: int) -> void:
+func _remove_duplicates(projectile_id: StringName, keep_index: int) -> void:
 	for index: int in range(entries.size() - 1, -1, -1):
 		if index == keep_index:
 			continue

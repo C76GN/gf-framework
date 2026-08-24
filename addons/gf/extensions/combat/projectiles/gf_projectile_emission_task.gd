@@ -209,6 +209,84 @@ func commit(emitted_count: int) -> Dictionary:
 	return _decorate_report(report)
 
 
+## 原子扣费但延迟用户 hook，返回可激活或补偿的 receipt。
+## [br]
+## @api framework_internal
+## [br]
+## @since unreleased
+## [br]
+## @param emitted_count: 全批预留成功后的实际候选数。
+## [br]
+## @return: 已扣费但尚未发布 hook 的 receipt；任务或提交失败时返回 null。
+func commit_deferred_for_framework(
+	emitted_count: int
+) -> GFProjectileEmissionReceipt:
+	if state != STATE_PREPARED or emitted_count <= 0 or emitted_count > _allowed_count:
+		state = STATE_FAILED
+		return null
+	var policy_snapshot: Dictionary = {}
+	var report: Dictionary = {
+		"ok": true,
+		"committed": true,
+		"reason": &"",
+		"emitted_count": emitted_count,
+	}
+	var committed_generation: int = 0
+	if _policy != null:
+		if not is_instance_valid(_policy):
+			state = STATE_FAILED
+			return null
+		policy_snapshot = _policy.capture_state_for_framework()
+		if (
+			not is_instance_valid(_policy)
+			or GFVariantData.get_option_int(
+				policy_snapshot,
+				"policy_instance_id",
+				-1
+			) != _policy.get_instance_id()
+		):
+			state = STATE_FAILED
+			return null
+		report = _policy.commit_deferred_for_framework(
+			_emitter,
+			_prepare_report,
+			emitted_count
+		)
+		if not is_instance_valid(_policy):
+			state = STATE_FAILED
+			return null
+		if report.has("policy_state_generation"):
+			committed_generation = GFVariantData.get_option_int(
+				report,
+				"policy_state_generation",
+				-1
+			)
+		else:
+			committed_generation = _policy.get_state_generation_for_framework()
+	if not GFVariantData.get_option_bool(report, "ok", false):
+		state = STATE_FAILED
+		return null
+	var receipt: GFProjectileEmissionReceipt = GFProjectileEmissionReceipt.new()
+	var initialize_result: Error = receipt.initialize_for_framework(
+		_policy,
+		_emitter,
+		_prepare_report,
+		emitted_count,
+		policy_snapshot,
+		committed_generation
+	)
+	if initialize_result != OK:
+		if _policy != null and is_instance_valid(_policy):
+			var _compensated: Dictionary = _policy.compensate_deferred_for_framework(
+				policy_snapshot,
+				committed_generation
+			)
+		state = STATE_FAILED
+		return null
+	state = STATE_COMMITTED
+	return receipt
+
+
 ## 回滚尚未提交的任务。
 ## [br]
 ## @api public

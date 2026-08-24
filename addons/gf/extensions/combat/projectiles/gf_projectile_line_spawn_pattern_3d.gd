@@ -16,21 +16,29 @@ extends GFProjectileSpawnPattern3D
 ## 默认发射数量。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 @export_range(1, 256, 1) var point_count: int = 1
 
 ## 线段局部起点。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 @export var local_start: Vector3 = Vector3.ZERO
 
 ## 线段局部终点。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 @export var local_end: Vector3 = Vector3.ZERO
 
 ## 生成变换是否朝向线段方向。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 @export var rotate_to_line: bool = false
 
 
@@ -40,18 +48,19 @@ extends GFProjectileSpawnPattern3D
 ## [br]
 ## @api protected
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param emitter: 发射器节点。
 ## [br]
-## @param _projectile_context: 本次发射上下文。
+## @param _launch_input: 本次 typed 发射输入；当前实现不读取。
 ## [br]
 ## @param emit_count: 调用方请求的数量；小于等于 0 时使用 point_count。
 ## [br]
 ## @return 全局 Transform3D 列表。
 ## [br]
-## @schema _projectile_context: Dictionary，本次发射上下文；当前实现不读取该字典。
 func _get_spawn_transforms(
 	emitter: Node3D,
-	_projectile_context: Dictionary = {},
+	_launch_input: GFProjectileLaunchInput3D = null,
 	emit_count: int = -1
 ) -> Array[Transform3D]:
 	if emitter == null:
