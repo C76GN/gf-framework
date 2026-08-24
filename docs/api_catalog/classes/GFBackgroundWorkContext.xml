@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFBackgroundWorkContext" path="addons/gf/standard/utilities/jobs/gf_background_work_context.gd" module="standard" extends="RefCounted" classDigest="d44c481d958654afcdb7d824c14faac284cc3e88fe15e18068ed55e10488b11e">
+	<description>GFBackgroundWorkContext: CPU/IO worker 的线程安全只读协作取消句柄。
+Utility 为已接纳的 CPU/IO work record 建立并由 Task 持有。
+opt-in 时作为 worker 第二参数；无需 release，终态、clear、dispose 后仍可读且不延长 Utility/线程寿命。
+自行 new() 得到未绑定对象，不能作为取消入口。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_handle</tag>
+		<tag name="since">unreleased</tag>
+	</tags>
+	<signals />
+	<enums>
+		<member kind="enum" name="CancellationReason">
+			<signature>enum CancellationReason {
+	## 尚未请求取消。
+	NONE = 0,
+	## cancel_work() 请求取消。
+	CANCEL_WORK = 1,
+	## cancel_all() 请求取消。
+	CANCEL_ALL = 2,
+	## clear_all() 请求取消并清空任务。
+	CLEAR_ALL = 3,
+	## GFBackgroundWorkUtility.dispose() 请求取消。
+	UTILITY_DISPOSED = 4,
+}</signature>
+			<description>框架拥有的稳定取消原因。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</enums>
+	<constants />
+	<properties />
+	<methods>
+		<member kind="method" name="get_work_id">
+			<signature>func get_work_id() -&gt; StringName:</signature>
+			<description>返回所属工作的稳定 ID。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">建立上下文时从 work record 冻结的工作 ID。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_cancel_requested">
+			<signature>func is_cancel_requested() -&gt; bool:</signature>
+			<description>返回是否已经收到取消请求。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">已请求取消时返回 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_cancel_reason">
+			<signature>func get_cancel_reason() -&gt; CancellationReason:</signature>
+			<description>返回稳定取消原因。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">首次取消请求提供的原因；未取消时为 NONE。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_cancel_requested_msec">
+			<signature>func get_cancel_requested_msec() -&gt; int:</signature>
+			<description>返回首次取消请求发生时的 Time.get_ticks_msec()。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">首次取消请求的毫秒 tick；未取消时为 0。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_debug_snapshot">
+			<signature>func get_debug_snapshot() -&gt; Dictionary:</signature>
+			<description>获取纯数据取消状态快照。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">同一锁采样的取消状态快照。</tag>
+				<tag name="schema">return: Dictionary，精确包含 work_id: String、cancel_requested: bool、cancel_reason: int、cancel_reason_name: String 和 cancel_requested_msec: int。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="cancellation_reason_name">
+			<signature>static func cancellation_reason_name(reason: CancellationReason) -&gt; String:</signature>
+			<description>获取取消原因名称。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">reason: 取消原因。</tag>
+				<tag name="return">稳定的小写原因名称。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

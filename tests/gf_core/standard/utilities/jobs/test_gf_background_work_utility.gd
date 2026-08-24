@@ -152,6 +152,398 @@ func test_object_payload_is_rejected_by_default() -> void:
 	utility.dispose()
 
 
+func test_explicit_context_worker_keeps_input_payload_pure_and_receives_identity() -> void:
+	var utility: GFBackgroundWorkUtility = GFBackgroundWorkUtility.new()
+	utility.init()
+	var worker: CooperativeWorker = CooperativeWorker.new()
+	var task: GFBackgroundWorkTask = utility.submit_cpu_work(
+		Callable(worker, "return_with_context"),
+		{ "value": 23 },
+		Callable(),
+		{
+			"id": &"context_identity",
+			"pass_cancellation_context": true,
+		}
+	)
+
+	await _pump_until_finished(utility, task)
+
+	assert_eq(task.status, GFBackgroundWorkTask.Status.COMPLETED)
+	assert_false(_contains_object(task.input_data), "Context 必须独立于纯 Variant input_data 传入。")
+	assert_eq(worker.get_last_work_id(), &"context_identity")
+	assert_eq(worker.get_call_count(), 1)
+	var context: GFBackgroundWorkContext = task.get_cancellation_context()
+	assert_not_null(context)
+	assert_eq(context.get_work_id(), &"context_identity")
+	assert_false(context.is_cancel_requested())
+	assert_eq(context.get_cancel_requested_msec(), 0)
+	var snapshot: Dictionary = context.get_debug_snapshot()
+	assert_eq(
+		snapshot.keys(),
+		[
+			"work_id",
+			"cancel_requested",
+			"cancel_reason",
+			"cancel_reason_name",
+			"cancel_requested_msec",
+		],
+		"Context 快照必须保持精确 5 字段 schema。"
+	)
+	assert_eq(GFVariantData.get_option_string(snapshot, "work_id"), "context_identity")
+	assert_false(GFVariantData.get_option_bool(snapshot, "cancel_requested", true))
+	assert_eq(
+		GFVariantData.get_option_int(snapshot, "cancel_reason", -1),
+		GFBackgroundWorkContext.CancellationReason.NONE
+	)
+	assert_eq(GFVariantData.get_option_string(snapshot, "cancel_reason_name"), "none")
+	assert_eq(GFVariantData.get_option_int(snapshot, "cancel_requested_msec", -1), 0)
+	assert_eq(
+		GFBackgroundWorkContext.cancellation_reason_name(
+			GFBackgroundWorkContext.CancellationReason.NONE
+		),
+		"none"
+	)
+	assert_eq(
+		GFBackgroundWorkContext.cancellation_reason_name(
+			GFBackgroundWorkContext.CancellationReason.CANCEL_WORK
+		),
+		"cancel_work"
+	)
+	assert_eq(
+		GFBackgroundWorkContext.cancellation_reason_name(
+			GFBackgroundWorkContext.CancellationReason.CANCEL_ALL
+		),
+		"cancel_all"
+	)
+	assert_eq(
+		GFBackgroundWorkContext.cancellation_reason_name(
+			GFBackgroundWorkContext.CancellationReason.CLEAR_ALL
+		),
+		"clear_all"
+	)
+	assert_eq(
+		GFBackgroundWorkContext.cancellation_reason_name(
+			GFBackgroundWorkContext.CancellationReason.UTILITY_DISPOSED
+		),
+		"utility_disposed"
+	)
+	utility.dispose()
+
+
+func test_context_opt_in_rejects_one_argument_worker_before_queueing() -> void:
+	var utility: GFBackgroundWorkUtility = GFBackgroundWorkUtility.new()
+	utility.init()
+	var worker: PureWorker = PureWorker.new()
+
+	var task: GFBackgroundWorkTask = utility.submit_cpu_work(
+		Callable(worker, "double_value"),
+		{ "value": 3 },
+		Callable(),
+		{ "pass_cancellation_context": true }
+	)
+
+	assert_eq(task.status, GFBackgroundWorkTask.Status.FAILED)
+	assert_string_contains(task.error_message, "两个参数")
+	assert_null(task.get_cancellation_context())
+	assert_eq(GFVariantData.get_option_int(utility.get_debug_snapshot(), "queued_count"), 0)
+	utility.dispose()
+
+
+func test_duplicate_id_rejection_does_not_publish_cancellation_context() -> void:
+	var utility: GFBackgroundWorkUtility = GFBackgroundWorkUtility.new()
+	utility.init()
+	utility.pause()
+	var worker: CooperativeWorker = CooperativeWorker.new()
+	var accepted: GFBackgroundWorkTask = utility.submit_cpu_work(
+		Callable(worker, "wait_for_cancel"),
+		{},
+		Callable(),
+		{
+			"id": &"duplicate_context",
+			"pass_cancellation_context": true,
+		}
+	)
+	var rejected: GFBackgroundWorkTask = utility.submit_io_work(
+		Callable(worker, "wait_for_cancel"),
+		{},
+		Callable(),
+		{
+			"id": &"duplicate_context",
+			"pass_cancellation_context": true,
+		}
+	)
+
+	assert_eq(accepted.status, GFBackgroundWorkTask.Status.QUEUED)
+	assert_not_null(accepted.get_cancellation_context())
+	assert_eq(rejected.status, GFBackgroundWorkTask.Status.FAILED)
+	assert_null(rejected.get_cancellation_context(), "接纳失败不得发布伪造的同 ID Context。")
+	assert_eq(worker.get_call_count(), 0)
+	utility.clear_all()
+	utility.dispose()
+
+
+func test_cancel_before_start_records_reason_without_invoking_worker() -> void:
+	var utility: GFBackgroundWorkUtility = GFBackgroundWorkUtility.new()
+	utility.init()
+	utility.pause()
+	var worker: CooperativeWorker = CooperativeWorker.new()
+	var task: GFBackgroundWorkTask = utility.submit_cpu_work(
+		Callable(worker, "wait_for_cancel"),
+		{},
+		Callable(),
+		{ "pass_cancellation_context": true }
+	)
+	var context: GFBackgroundWorkContext = task.get_cancellation_context()
+
+	assert_not_null(context)
+	assert_true(utility.cancel_work(task.work_id))
+
+	assert_eq(task.status, GFBackgroundWorkTask.Status.CANCELLED)
+	assert_eq(worker.get_call_count(), 0)
+	assert_true(context.is_cancel_requested())
+	assert_eq(
+		context.get_cancel_reason(),
+		GFBackgroundWorkContext.CancellationReason.CANCEL_WORK
+	)
+	assert_false(utility.cancel_work(task.work_id), "终态任务不得重复取消。")
+	utility.dispose()
+
+
+func test_running_cpu_cancel_releases_single_slot_for_successor() -> void:
+	var utility: GFBackgroundWorkUtility = GFBackgroundWorkUtility.new()
+	utility.max_threaded_tasks = 1
+	utility.init()
+	watch_signals(utility)
+	var worker: CooperativeWorker = CooperativeWorker.new()
+	var pure_worker: PureWorker = PureWorker.new()
+	var first: GFBackgroundWorkTask = utility.submit_cpu_work(
+		Callable(worker, "wait_for_cancel"),
+		{ "value": 1 },
+		Callable(),
+		{
+			"id": &"cooperative_first",
+			"pass_cancellation_context": true,
+		}
+	)
+	var successor: GFBackgroundWorkTask = utility.submit_cpu_work(
+		Callable(pure_worker, "double_value"),
+		{ "value": 5 },
+		Callable(),
+		{ "id": &"successor" }
+	)
+
+	assert_true(await _wait_for_worker_entry(worker), "首个 worker 应进入协作循环。")
+	assert_eq(first.status, GFBackgroundWorkTask.Status.RUNNING)
+	assert_eq(successor.status, GFBackgroundWorkTask.Status.QUEUED)
+	assert_true(utility.cancel_work(first.work_id))
+
+	await _pump_until_finished(utility, first)
+	await _pump_until_finished(utility, successor)
+
+	assert_eq(first.status, GFBackgroundWorkTask.Status.CANCELLED)
+	assert_false(worker.did_time_out(), "协作 worker 应观察 Context 后主动退出。")
+	assert_eq(
+		worker.get_observed_reason(),
+		GFBackgroundWorkContext.CancellationReason.CANCEL_WORK
+	)
+	assert_eq(successor.status, GFBackgroundWorkTask.Status.COMPLETED)
+	assert_signal_emit_count(utility, "work_cancelled", 1, "取消终态必须恰好发出一次。")
+	assert_signal_emit_count(utility, "work_completed", 1, "只有 successor 可以完成。")
+	assert_signal_not_emitted(utility, "work_applied", "取消任务不得进入 apply 终态。")
+	assert_eq(GFVariantData.get_option_int(utility.get_debug_snapshot(), "running_thread_count"), 0)
+	utility.dispose()
+
+
+func test_running_io_worker_observes_cancel_and_repeated_requests_keep_first_reason() -> void:
+	var utility: GFBackgroundWorkUtility = GFBackgroundWorkUtility.new()
+	utility.init()
+	watch_signals(utility)
+	var worker: CooperativeWorker = CooperativeWorker.new()
+	var task: GFBackgroundWorkTask = utility.submit_io_work(
+		Callable(worker, "wait_for_cancel"),
+		{},
+		Callable(),
+		{ "pass_cancellation_context": true }
+	)
+	var context: GFBackgroundWorkContext = task.get_cancellation_context()
+
+	assert_true(await _wait_for_worker_entry(worker))
+	assert_true(utility.cancel_work(task.work_id))
+	var requested_msec: int = context.get_cancel_requested_msec()
+	assert_gt(requested_msec, 0, "首次取消必须冻结非零毫秒 tick。")
+	var snapshot: Dictionary = context.get_debug_snapshot()
+	assert_true(GFVariantData.get_option_bool(snapshot, "cancel_requested"))
+	assert_eq(
+		GFVariantData.get_option_int(snapshot, "cancel_reason", -1),
+		GFBackgroundWorkContext.CancellationReason.CANCEL_WORK
+	)
+	assert_eq(GFVariantData.get_option_string(snapshot, "cancel_reason_name"), "cancel_work")
+	assert_eq(
+		GFVariantData.get_option_int(snapshot, "cancel_requested_msec", -1),
+		requested_msec
+	)
+	utility.cancel_all()
+	assert_eq(
+		context.get_cancel_reason(),
+		GFBackgroundWorkContext.CancellationReason.CANCEL_WORK,
+		"后续 cancel_all 不得覆盖首次取消原因。"
+	)
+	assert_eq(
+		context.get_cancel_requested_msec(),
+		requested_msec,
+		"重复取消不得覆盖首次请求时间。"
+	)
+
+	await _pump_until_finished(utility, task)
+
+	assert_eq(task.status, GFBackgroundWorkTask.Status.CANCELLED)
+	assert_eq(worker.get_observed_reason(), GFBackgroundWorkContext.CancellationReason.CANCEL_WORK)
+	assert_signal_emit_count(utility, "work_cancelled", 1)
+	assert_signal_not_emitted(utility, "work_completed")
+	assert_signal_not_emitted(utility, "work_applied")
+	utility.dispose()
+
+
+func test_cancel_after_worker_return_before_join_wins_completion_race() -> void:
+	var utility: GFBackgroundWorkUtility = GFBackgroundWorkUtility.new()
+	utility.init()
+	var worker: CooperativeWorker = CooperativeWorker.new()
+	var task: GFBackgroundWorkTask = utility.submit_cpu_work(
+		Callable(worker, "return_with_context"),
+		{},
+		Callable(),
+		{ "pass_cancellation_context": true }
+	)
+
+	assert_true(await _wait_for_worker_return(worker), "worker 应在 Utility tick 前物理返回。")
+	assert_eq(task.status, GFBackgroundWorkTask.Status.RUNNING, "join 前任务仍由 Utility 持有运行态。")
+	assert_true(utility.cancel_work(task.work_id))
+	utility.tick()
+
+	assert_eq(task.status, GFBackgroundWorkTask.Status.CANCELLED)
+	assert_eq(
+		task.get_cancellation_context().get_cancel_reason(),
+		GFBackgroundWorkContext.CancellationReason.CANCEL_WORK
+	)
+	assert_false(utility.cancel_work(task.work_id), "终态后的取消不得改变结果。")
+	utility.dispose()
+
+
+func test_cancel_all_publishes_cancel_all_reason_to_each_running_context() -> void:
+	var utility: GFBackgroundWorkUtility = GFBackgroundWorkUtility.new()
+	utility.max_threaded_tasks = 2
+	utility.init()
+	var first_worker: CooperativeWorker = CooperativeWorker.new()
+	var second_worker: CooperativeWorker = CooperativeWorker.new()
+	var first: GFBackgroundWorkTask = utility.submit_cpu_work(
+		Callable(first_worker, "wait_for_cancel"),
+		{},
+		Callable(),
+		{ "pass_cancellation_context": true }
+	)
+	var second: GFBackgroundWorkTask = utility.submit_io_work(
+		Callable(second_worker, "wait_for_cancel"),
+		{},
+		Callable(),
+		{ "pass_cancellation_context": true }
+	)
+
+	assert_true(await _wait_for_worker_entry(first_worker))
+	assert_true(await _wait_for_worker_entry(second_worker))
+	utility.cancel_all()
+	await _pump_until_finished(utility, first)
+	await _pump_until_finished(utility, second)
+
+	assert_eq(first_worker.get_observed_reason(), GFBackgroundWorkContext.CancellationReason.CANCEL_ALL)
+	assert_eq(second_worker.get_observed_reason(), GFBackgroundWorkContext.CancellationReason.CANCEL_ALL)
+	assert_eq(first.status, GFBackgroundWorkTask.Status.CANCELLED)
+	assert_eq(second.status, GFBackgroundWorkTask.Status.CANCELLED)
+	utility.dispose()
+
+
+func test_clear_all_and_dispose_publish_distinct_reasons_before_join() -> void:
+	var clear_utility: GFBackgroundWorkUtility = GFBackgroundWorkUtility.new()
+	clear_utility.max_threaded_tasks = 1
+	clear_utility.init()
+	var clear_worker: CooperativeWorker = CooperativeWorker.new()
+	var clear_queued_worker: CooperativeWorker = CooperativeWorker.new()
+	var clear_task: GFBackgroundWorkTask = clear_utility.submit_cpu_work(
+		Callable(clear_worker, "wait_for_cancel"),
+		{},
+		Callable(),
+		{ "pass_cancellation_context": true }
+	)
+	var clear_queued_task: GFBackgroundWorkTask = clear_utility.submit_io_work(
+		Callable(clear_queued_worker, "wait_for_cancel"),
+		{},
+		Callable(),
+		{ "pass_cancellation_context": true }
+	)
+	var clear_context: GFBackgroundWorkContext = clear_task.get_cancellation_context()
+	var clear_queued_context: GFBackgroundWorkContext = clear_queued_task.get_cancellation_context()
+	assert_true(await _wait_for_worker_entry(clear_worker))
+	assert_eq(clear_queued_task.status, GFBackgroundWorkTask.Status.QUEUED)
+
+	clear_utility.clear_all()
+
+	assert_eq(clear_task.status, GFBackgroundWorkTask.Status.CANCELLED)
+	assert_false(clear_worker.did_time_out(), "clear_all 必须先发布取消，再等待 worker join。")
+	assert_eq(
+		clear_worker.get_observed_reason(),
+		GFBackgroundWorkContext.CancellationReason.CLEAR_ALL
+	)
+	assert_eq(clear_context.get_cancel_reason(), GFBackgroundWorkContext.CancellationReason.CLEAR_ALL)
+	assert_eq(clear_queued_task.status, GFBackgroundWorkTask.Status.CANCELLED)
+	assert_eq(clear_queued_worker.get_call_count(), 0, "排队 worker 不得被启动。")
+	assert_eq(
+		clear_queued_context.get_cancel_reason(),
+		GFBackgroundWorkContext.CancellationReason.CLEAR_ALL
+	)
+	assert_eq(GFVariantData.get_option_int(clear_utility.get_debug_snapshot(), "task_count"), 0)
+	clear_utility.dispose()
+
+	var dispose_utility: GFBackgroundWorkUtility = GFBackgroundWorkUtility.new()
+	dispose_utility.max_threaded_tasks = 1
+	dispose_utility.init()
+	var dispose_worker: CooperativeWorker = CooperativeWorker.new()
+	var dispose_queued_worker: CooperativeWorker = CooperativeWorker.new()
+	var dispose_task: GFBackgroundWorkTask = dispose_utility.submit_io_work(
+		Callable(dispose_worker, "wait_for_cancel"),
+		{},
+		Callable(),
+		{ "pass_cancellation_context": true }
+	)
+	var dispose_queued_task: GFBackgroundWorkTask = dispose_utility.submit_cpu_work(
+		Callable(dispose_queued_worker, "wait_for_cancel"),
+		{},
+		Callable(),
+		{ "pass_cancellation_context": true }
+	)
+	var dispose_context: GFBackgroundWorkContext = dispose_task.get_cancellation_context()
+	var dispose_queued_context: GFBackgroundWorkContext = dispose_queued_task.get_cancellation_context()
+	assert_true(await _wait_for_worker_entry(dispose_worker))
+	assert_eq(dispose_queued_task.status, GFBackgroundWorkTask.Status.QUEUED)
+
+	dispose_utility.dispose()
+
+	assert_eq(dispose_task.status, GFBackgroundWorkTask.Status.CANCELLED)
+	assert_false(dispose_worker.did_time_out(), "dispose 必须先发布取消，再等待 worker join。")
+	assert_eq(
+		dispose_worker.get_observed_reason(),
+		GFBackgroundWorkContext.CancellationReason.UTILITY_DISPOSED
+	)
+	assert_eq(
+		dispose_context.get_cancel_reason(),
+		GFBackgroundWorkContext.CancellationReason.UTILITY_DISPOSED
+	)
+	assert_eq(dispose_queued_task.status, GFBackgroundWorkTask.Status.CANCELLED)
+	assert_eq(dispose_queued_worker.get_call_count(), 0, "排队 worker 不得被启动。")
+	assert_eq(
+		dispose_queued_context.get_cancel_reason(),
+		GFBackgroundWorkContext.CancellationReason.UTILITY_DISPOSED
+	)
+
+
 func test_pause_and_cancel_waiting_thread_task() -> void:
 	var utility: GFBackgroundWorkUtility = GFBackgroundWorkUtility.new()
 	utility.priority_aging_interval_msec = 250
@@ -499,6 +891,22 @@ func _pump_until_finished(
 	utility.tick()
 
 
+func _wait_for_worker_entry(worker: CooperativeWorker, max_frames: int = 120) -> bool:
+	for _frame: int in range(max_frames):
+		if worker.has_entered():
+			return true
+		await get_tree().process_frame
+	return worker.has_entered()
+
+
+func _wait_for_worker_return(worker: CooperativeWorker, max_frames: int = 120) -> bool:
+	for _frame: int in range(max_frames):
+		if worker.has_returned():
+			return true
+		await get_tree().process_frame
+	return worker.has_returned()
+
+
 # --- 内部类 ---
 
 class PureWorker:
@@ -528,6 +936,97 @@ class PureWorker:
 		return {
 			"value": GFVariantData.get_option_int(input, "value"),
 		}
+
+
+class CooperativeWorker:
+	extends RefCounted
+
+	const _FALLBACK_MSEC: int = 2000
+
+	var _mutex: Mutex = Mutex.new()
+	var _entered: bool = false
+	var _returned: bool = false
+	var _timed_out: bool = false
+	var _call_count: int = 0
+	var _last_work_id: StringName = &""
+	var _observed_reason: GFBackgroundWorkContext.CancellationReason = (
+		GFBackgroundWorkContext.CancellationReason.NONE
+	)
+
+	func return_with_context(
+		data: Variant,
+		context: GFBackgroundWorkContext
+	) -> Dictionary:
+		_record_entry(context)
+		_record_return(false, context.get_cancel_reason())
+		var input: Dictionary = GFVariantData.as_dictionary(data)
+		return { "value": GFVariantData.get_option_int(input, "value") }
+
+	func wait_for_cancel(
+		data: Variant,
+		context: GFBackgroundWorkContext
+	) -> Dictionary:
+		_record_entry(context)
+		var deadline_msec: int = Time.get_ticks_msec() + _FALLBACK_MSEC
+		while not context.is_cancel_requested() and Time.get_ticks_msec() < deadline_msec:
+			OS.delay_msec(1)
+		var timed_out: bool = not context.is_cancel_requested()
+		_record_return(timed_out, context.get_cancel_reason())
+		var input: Dictionary = GFVariantData.as_dictionary(data)
+		return { "value": GFVariantData.get_option_int(input, "value") }
+
+	func has_entered() -> bool:
+		_mutex.lock()
+		var entered: bool = _entered
+		_mutex.unlock()
+		return entered
+
+	func has_returned() -> bool:
+		_mutex.lock()
+		var returned: bool = _returned
+		_mutex.unlock()
+		return returned
+
+	func did_time_out() -> bool:
+		_mutex.lock()
+		var timed_out: bool = _timed_out
+		_mutex.unlock()
+		return timed_out
+
+	func get_call_count() -> int:
+		_mutex.lock()
+		var call_count: int = _call_count
+		_mutex.unlock()
+		return call_count
+
+	func get_last_work_id() -> StringName:
+		_mutex.lock()
+		var work_id: StringName = _last_work_id
+		_mutex.unlock()
+		return work_id
+
+	func get_observed_reason() -> GFBackgroundWorkContext.CancellationReason:
+		_mutex.lock()
+		var reason: GFBackgroundWorkContext.CancellationReason = _observed_reason
+		_mutex.unlock()
+		return reason
+
+	func _record_entry(context: GFBackgroundWorkContext) -> void:
+		_mutex.lock()
+		_entered = true
+		_call_count += 1
+		_last_work_id = context.get_work_id()
+		_mutex.unlock()
+
+	func _record_return(
+		timed_out: bool,
+		reason: GFBackgroundWorkContext.CancellationReason
+	) -> void:
+		_mutex.lock()
+		_timed_out = timed_out
+		_observed_reason = reason
+		_returned = true
+		_mutex.unlock()
 
 
 class ScopedCallbackSubmission:

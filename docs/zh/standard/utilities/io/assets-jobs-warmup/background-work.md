@@ -38,7 +38,29 @@ background.submit_cpu_work(
 `ERR_UNCONFIGURED`、`reason` 是 `resource_broker_not_configured`。该错误码与
 调试快照一致，调用方无需从本地化错误文本反推失败类型。
 
-CPU/IO worker 当前不是可抢占或 token 驱动的协作取消。等待中的任务会立刻进入 `cancelled`；运行中的任务只记录取消意图，等 worker 自行返回后抑制结果并提交取消终态。worker 不接收取消 token，`dispose()` 也必须等待已启动线程结束。因此这里只能提交受信、保证终止且自身具有输入/工作量上限的 Callable；不得把无界阻塞、不可控外部 I/O 或可能永久循环的工作交给该工具。`get_debug_snapshot()` 会报告等待、运行、资源请求、Broker draining/admission、应用队列和终态任务 ID，适合和运行时诊断面板或加载界面联动。
+CPU/IO worker 默认仍使用既有的一参 `(input_data)` 调用契约。需要协作取消时，显式设置 `options["pass_cancellation_context"] = true`，并让 worker 精确接收 `(input_data, context)` 两个参数；`GFBackgroundWorkContext` 与纯数据 payload 分离，以线程安全的只读查询公开 work ID、首次取消原因和一致诊断快照。worker 应在自身有界循环或 I/O 分段之间调用 `context.is_cancel_requested()`，并在观察到请求后尽快返回；首次原因可能是单任务取消、批量取消、`clear_all()` 或 Utility 释放，重复请求不会覆盖它。
+
+```gdscript
+var options: Dictionary = { "pass_cancellation_context": true }
+var task: GFBackgroundWorkTask = background.submit_cpu_work(
+	func(input: Variant, context: GFBackgroundWorkContext) -> Dictionary:
+		if not input is Array:
+			return {}
+		var rows: Array = input
+		var processed: int = 0
+		for row: Variant in rows:
+			if context.is_cancel_requested():
+				break
+			process_row(row)
+			processed += 1
+		return { "processed": processed },
+	rows_from_disk,
+	Callable(),
+	options
+)
+```
+
+协作上下文不是线程强杀能力：等待中的任务会立即进入 `cancelled`，运行中的任务仍要等 worker 返回并完成 join，随后 Utility 以取消优先提交唯一终态并抑制 apply callback。未 opt-in 或不轮询上下文的 worker 仍不可抢占，`clear_all()` / `dispose()` 也必须等待它结束。因此所有 worker 都必须受信、保证终止且具有输入或工作量硬上限；不得提交无界阻塞、不可控外部 I/O 或可能永久循环的工作。`get_debug_snapshot()` 会报告等待、运行、资源请求、Broker draining/admission、应用队列和终态任务 ID，适合和运行时诊断面板或加载界面联动。
 
 CPU/IO 等待任务使用 `GFPriorityWorkQueue` 仲裁。`options["priority"]` 仍表示基础优先级，但等待中的任务会按 `priority_aging_interval_msec` 和 `priority_aging_step` 获得无上限加成：刚进入场景所需的解析工作可以先跑，而较早排入的缓存整理、索引生成或遥测压缩也会最终获得执行机会。这个机制只改变启动顺序，不解释 priority 的业务含义，也不抢占已经运行的线程。`get_debug_snapshot()` 的 `queued_priority_entries` 会给出 work ID、基础/有效优先级、等待时间和稳定顺序，不暴露 worker、payload 或任务对象；诊断面板可据此区分“确实在等待”和“调度参数不合理”。
 

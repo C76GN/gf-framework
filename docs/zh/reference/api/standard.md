@@ -9,7 +9,7 @@
 | [运行时服务](#category-runtime_service) | 193 | 3479 | 2359 |
 | [协议与扩展点](#category-protocol) | 26 | 345 | 273 |
 | [资源定义](#category-resource_definition) | 122 | 1573 | 797 |
-| [运行时句柄](#category-runtime_handle) | 54 | 942 | 602 |
+| [运行时句柄](#category-runtime_handle) | 55 | 950 | 609 |
 | [值对象](#category-value_object) | 56 | 980 | 625 |
 | [领域模型](#category-domain_model) | 4 | 61 | 42 |
 | [事件契约](#category-event_contract) | 6 | 61 | 23 |
@@ -399,6 +399,7 @@
 | [`GFAudioBankMounter`](classes/GFAudioBankMounter.md#gfaudiobankmounter) | `Node` | `addons/gf/standard/utilities/audio/gf_audio_bank_mounter.gd` |
 | [`GFAudioBeatClock`](classes/GFAudioBeatClock.md#gfaudiobeatclock) | `RefCounted` | `addons/gf/standard/utilities/audio/gf_audio_beat_clock.gd` |
 | [`GFAudioEmitterHandle`](classes/GFAudioEmitterHandle.md#gfaudioemitterhandle) | `RefCounted` | `addons/gf/standard/utilities/audio/gf_audio_emitter_handle.gd` |
+| [`GFBackgroundWorkContext`](classes/GFBackgroundWorkContext.md#gfbackgroundworkcontext) | `RefCounted` | `addons/gf/standard/utilities/jobs/gf_background_work_context.gd` |
 | [`GFBackgroundWorkTask`](classes/GFBackgroundWorkTask.md#gfbackgroundworktask) | `RefCounted` | `addons/gf/standard/utilities/jobs/gf_background_work_task.gd` |
 | [`GFBgmSessionHandle`](classes/GFBgmSessionHandle.md#gfbgmsessionhandle) | `RefCounted` | `addons/gf/standard/utilities/audio/gf_bgm_session_handle.gd` |
 | [`GFBgmStartOperation`](classes/GFBgmStartOperation.md#gfbgmstartoperation) | `RefCounted` | `addons/gf/standard/utilities/audio/gf_bgm_start_operation.gd` |

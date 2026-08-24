@@ -34,6 +34,7 @@
 | 属性 | [`started_msec`](#member-gfbackgroundworktask-properties-started_msec) | `var started_msec: int = 0` |
 | 属性 | [`finished_msec`](#member-gfbackgroundworktask-properties-finished_msec) | `var finished_msec: int = 0` |
 | 方法 | [`is_finished`](#member-gfbackgroundworktask-methods-is_finished) | `func is_finished() -> bool:` |
+| 方法 | [`get_cancellation_context`](#member-gfbackgroundworktask-methods-get_cancellation_context) | `func get_cancellation_context() -> GFBackgroundWorkContext:` |
 | 方法 | [`to_dict`](#member-gfbackgroundworktask-methods-to_dict) | `func to_dict() -> Dictionary:` |
 | 方法 | [`kind_name`](#member-gfbackgroundworktask-methods-kind_name) | `static func kind_name(value: Kind) -> String:` |
 | 方法 | [`status_name`](#member-gfbackgroundworktask-methods-status_name) | `static func status_name(value: Status) -> String:` |
@@ -251,12 +252,13 @@ var resource_type_hint: String = ""
 ### `cancel_requested`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var cancel_requested: bool = false
 ```
 
-是否已请求取消。正在执行的线程任务不会被强行终止，只会在返回后转入取消终态。
+是否已请求取消。正在执行的线程任务不会被强行终止。 显式接收 GFBackgroundWorkContext 的 worker 可协作退出；其余 worker 返回后转入取消终态。
 
 <a id="member-gfbackgroundworktask-properties-created_msec"></a>
 
@@ -309,6 +311,21 @@ func is_finished() -> bool:
 当前工作是否已经进入终态。
 
 返回：已完成、失败或取消时返回 true。
+
+<a id="member-gfbackgroundworktask-methods-get_cancellation_context"></a>
+
+### `get_cancellation_context`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func get_cancellation_context() -> GFBackgroundWorkContext:
+```
+
+获取框架拥有的只读协作取消上下文。
+
+返回：已接纳 CPU/IO 工作的取消上下文；提交被拒绝或 RESOURCE 工作返回 null。
 
 <a id="member-gfbackgroundworktask-methods-to_dict"></a>
 
