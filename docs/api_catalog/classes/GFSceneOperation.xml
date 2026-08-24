@@ -1,0 +1,133 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFSceneOperation" path="addons/gf/standard/utilities/scene/gf_scene_operation.gd" module="standard" extends="RefCounted" classDigest="d68a42d6dd4b699685afa155506c4c83ca779dfc86b62acf163c85574a8b9425">
+	<description>GFSceneOperation: 单次类型化场景加载或预加载请求的 caller Operation。
+每个请求持有独立 ID、资源身份快照与取消能力。同一路径请求可以共享 Broker
+的物理加载，但每个 Operation 只观察并终结自己的 consumer Lease。
+Operation 只能由 [method GFSceneUtility.load_scene_request_async] 或
+[method GFSceneUtility.preload_scene_request_async] 取得。它是可由 caller 保留的
+RefCounted handle，无需显式 release，也不拥有 Utility、Broker 或底层 Lease。
+进入终态或 Utility dispose 后，身份、最终进度与结果快照仍可读取；pending 期间
+只有 [method cancel] 能力依赖创建它的 Utility 仍然存活。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_handle</tag>
+		<tag name="layer">standard/utilities/scene</tag>
+		<tag name="since">unreleased</tag>
+	</tags>
+	<signals>
+		<member kind="signal" name="progressed">
+			<signature>signal progressed(progress_ratio: float)</signature>
+			<description>当前 consumer 的加载进度发生变化时发出。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">progress_ratio: 当前进度，范围为 `0.0` 到 `1.0`。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="signal" name="completed">
+			<signature>signal completed(result: GFSceneOperationResult)</signature>
+			<description>当前 consumer 进入唯一终态时发出一次。
+同步 validation、cache hit 或生命周期拒绝可能在 request 方法返回前完成；调用方
+必须先查询 `is_completed()`，只在仍 pending 时连接该信号。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">result: 当前请求的隔离终态结果。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</signals>
+	<enums>
+		<member kind="enum" name="Kind">
+			<signature>enum Kind {
+	## 加载资源并在安全帧切换场景。
+	LOAD,
+	## 预加载场景资源；是否继续保留在缓存由容量与 fixed 策略决定。
+	PRELOAD,
+}</signature>
+			<description>类型化场景请求的执行种类。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</enums>
+	<constants />
+	<properties />
+	<methods>
+		<member kind="method" name="get_request_id">
+			<signature>func get_request_id() -&gt; int:</signature>
+			<description>获取 Scene Utility 分配的请求 ID。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">大于零的请求 ID；尚未配置时返回 0。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_kind">
+			<signature>func get_kind() -&gt; Kind:</signature>
+			<description>获取请求执行种类。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">`LOAD` 或 `PRELOAD`。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_scene_identity">
+			<signature>func get_scene_identity() -&gt; GFResourceIdentity:</signature>
+			<description>获取请求冻结的资源身份副本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">隔离的 GFResourceIdentity 快照；尚未配置时返回 null。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_progress_ratio">
+			<signature>func get_progress_ratio() -&gt; float:</signature>
+			<description>获取当前 consumer 的进度。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">范围为 `0.0` 到 `1.0` 的进度。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_pending">
+			<signature>func is_pending() -&gt; bool:</signature>
+			<description>检查请求是否仍等待 caller 终态。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">已配置且尚未完成时返回 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_completed">
+			<signature>func is_completed() -&gt; bool:</signature>
+			<description>检查请求是否已经进入 caller 终态。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">已有终态结果时返回 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_result">
+			<signature>func get_result() -&gt; GFSceneOperationResult:</signature>
+			<description>获取 caller 终态结果副本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">已完成时返回隔离结果；等待中返回 null。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="cancel">
+			<signature>func cancel() -&gt; bool:</signature>
+			<description>取消当前 caller 仍在等待的请求。
+preload 取消只释放当前 consumer Lease；同路径的其它 consumer 继续等待。load
+取消只终结当前切换请求，不会替换或接纳另一个 load。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">Scene Utility 首次接受当前 caller 的取消 intent 时返回 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

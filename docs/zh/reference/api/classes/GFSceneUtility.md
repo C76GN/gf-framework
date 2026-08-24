@@ -53,8 +53,10 @@
 | 方法 | [`setup_standalone_resource_broker`](#member-gfsceneutility-methods-setup_standalone_resource_broker) | `func setup_standalone_resource_broker( max_active_requests: int = 4, max_pending_requests: int = 256 ) -> GFResourceBroker:` |
 | 方法 | [`get_resource_broker`](#member-gfsceneutility-methods-get_resource_broker) | `func get_resource_broker() -> GFResourceBroker:` |
 | 方法 | [`load_scene_async`](#member-gfsceneutility-methods-load_scene_async) | `func load_scene_async( path: String, loading_scene_path: String = "", params: Dictionary = {}, minimum_duration_seconds: float = -1.0 ) -> Error:` |
+| 方法 | [`load_scene_request_async`](#member-gfsceneutility-methods-load_scene_request_async) | `func load_scene_request_async( path: String, loading_scene_path: String = "", params: Dictionary = {}, minimum_duration_seconds: float = -1.0, request_owner: Object = null, cancellation_token: GFCancellationToken = null ) -> GFSceneOperation:` |
 | 方法 | [`load_scene_with_transition`](#member-gfsceneutility-methods-load_scene_with_transition) | `func load_scene_with_transition(config: GFSceneTransitionConfig) -> Error:` |
 | 方法 | [`preload_scene`](#member-gfsceneutility-methods-preload_scene) | `func preload_scene(path: String, fixed: bool = false) -> Error:` |
+| 方法 | [`preload_scene_request_async`](#member-gfsceneutility-methods-preload_scene_request_async) | `func preload_scene_request_async( path: String, fixed: bool = false, request_owner: Object = null, cancellation_token: GFCancellationToken = null ) -> GFSceneOperation:` |
 | 方法 | [`begin_background_scene_load`](#member-gfsceneutility-methods-begin_background_scene_load) | `func begin_background_scene_load(path: String, params: Dictionary = {}, fixed: bool = false) -> Error:` |
 | 方法 | [`activate_background_scene`](#member-gfsceneutility-methods-activate_background_scene) | `func activate_background_scene( path: String, loading_scene_path: String = "", minimum_duration_seconds: float = -1.0 ) -> Error:` |
 | 方法 | [`get_background_scene_params`](#member-gfsceneutility-methods-get_background_scene_params) | `func get_background_scene_params(path: String) -> Dictionary:` |
@@ -210,19 +212,20 @@ signal scene_preload_progress(path: String, progress: float)
 ### `scene_preload_completed`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 signal scene_preload_completed(path: String, scene: PackedScene)
 ```
 
-当场景预加载完成并进入缓存时发出。
+当场景资源预加载完成时发出；临时缓存是否继续保留由容量策略决定。
 
 参数：
 
 | 名称 | 说明 |
 |---|---|
 | `path` | 目标场景路径。 |
-| `scene` | 已缓存的场景资源。 |
+| `scene` | 已加载的场景资源。 |
 
 <a id="member-gfsceneutility-signals-scene_preload_failed"></a>
 
@@ -422,12 +425,13 @@ enum SceneResourceState {
 ### `max_preloaded_scene_resources`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var max_preloaded_scene_resources: int:
 ```
 
-最多保留的预加载 PackedScene 数量；设为 `0` 表示禁用预加载缓存。
+最多保留的临时预加载 PackedScene 数量；设为 `0` 会清空并禁用临时缓存。 fixed 缓存不受该容量限制。
 
 <a id="member-gfsceneutility-properties-cache_loaded_scenes"></a>
 
@@ -720,6 +724,36 @@ func load_scene_async( path: String, loading_scene_path: String = "", params: Di
 
 - `params`: Dictionary[String, Variant]，切换完成后复制到当前场景参数中的场景切换参数。
 
+<a id="member-gfsceneutility-methods-load_scene_request_async"></a>
+
+### `load_scene_request_async`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func load_scene_request_async( path: String, loading_scene_path: String = "", params: Dictionary = {}, minimum_duration_seconds: float = -1.0, request_owner: Object = null, cancellation_token: GFCancellationToken = null ) -> GFSceneOperation:
+```
+
+创建一个可独立观察和取消的类型化场景加载请求。 同一时刻只接纳一个 load；后续请求以 `REASON_LOAD_BUSY` 同步拒绝，不取代当前请求。 成功终态只在目标 PackedScene 已于安全帧完成场景切换后冻结。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `path` | 目标场景资源路径。 |
+| `loading_scene_path` | 可选的过渡场景路径。 |
+| `params` | 本次切换参数；完成后可通过 get_current_scene_params() 读取。 |
+| `minimum_duration_seconds` | loading scene 最短保留秒数；小于 0 时使用默认值。 |
+| `request_owner` | 可选生命周期 owner；释放后只取消当前 consumer。 |
+| `cancellation_token` | 可选只读取消令牌。 |
+
+返回：已配置的 GFSceneOperation；同步拒绝也会携带稳定终态。
+
+结构：
+
+- `params`: Dictionary[String, Variant]，切换完成后复制到当前场景参数中的场景切换参数。
+
 <a id="member-gfsceneutility-methods-load_scene_with_transition"></a>
 
 ### `load_scene_with_transition`
@@ -745,21 +779,46 @@ func load_scene_with_transition(config: GFSceneTransitionConfig) -> Error:
 ### `preload_scene`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func preload_scene(path: String, fixed: bool = false) -> Error:
 ```
 
-预加载一个场景资源并放入缓存。
+预加载一个场景资源；临时缓存是否继续保留由容量策略决定。
 
 参数：
 
 | 名称 | 说明 |
 |---|---|
 | `path` | 目标场景资源路径。 |
-| `fixed` | 为 true 时写入固定缓存，不受 LRU 容量淘汰影响。 |
+| `fixed` | 为 true 时写入固定缓存，不受临时缓存容量或 LRU 淘汰影响。 |
 
 返回：发起请求的 Godot Error。
+
+<a id="member-gfsceneutility-methods-preload_scene_request_async"></a>
+
+### `preload_scene_request_async`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func preload_scene_request_async( path: String, fixed: bool = false, request_owner: Object = null, cancellation_token: GFCancellationToken = null ) -> GFSceneOperation:
+```
+
+创建一个可独立观察和取消的类型化场景预加载请求。 每次调用都从共享 Resource Broker 取得独立 consumer Lease；同一规范路径的 Lease 继续共享一个物理加载。任一 consumer 取消不会终结仍有其它兴趣的 path 聚合请求。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `path` | 目标场景资源路径。 |
+| `fixed` | 为 true 时写入固定缓存，不受临时缓存容量或 LRU 淘汰影响。 |
+| `request_owner` | 可选生命周期 owner；释放后只取消当前 consumer。 |
+| `cancellation_token` | 可选只读取消令牌。 |
+
+返回：已配置的 GFSceneOperation；同步拒绝与 cache hit 也携带稳定终态。
 
 <a id="member-gfsceneutility-methods-begin_background_scene_load"></a>
 
@@ -979,6 +1038,7 @@ func cancel_scene_preload(path: String) -> void:
 ### `cancel_all_scene_preloads`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func cancel_all_scene_preloads() -> void:

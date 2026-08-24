@@ -5,6 +5,7 @@
 ## 阅读入口
 
 - [切换与 Transition 配置](switching-transition.md)：`GFSceneUtility`、异步切换和 `GFSceneTransitionConfig`。
+- [类型化场景请求](async-requests.md)：逐请求 Operation、Broker consumer Lease、取消、终态与旧 API 兼容。
 - [预加载缓存与图谱](preload-cache-map.md)：预加载缓存、后台加载、LRU / fixed 缓存和 `GFScenePreloadMap`。
 - [参数、历史与安全帧](params-history-safe-frame.md)：切换参数、场景历史、安全切场和 headless 降级。
 - [瞬态模块、Loading 与失败恢复](transient-loading-failure.md)：瞬态模块清理、暂停恢复、Loading scene 协议和失败处理。

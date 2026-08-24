@@ -6,11 +6,11 @@
 
 | 类别 | 类 | 成员 | 方法 |
 |---|---:|---:|---:|
-| [运行时服务](#category-runtime_service) | 193 | 3479 | 2359 |
+| [运行时服务](#category-runtime_service) | 193 | 3481 | 2361 |
 | [协议与扩展点](#category-protocol) | 26 | 345 | 273 |
 | [资源定义](#category-resource_definition) | 122 | 1573 | 797 |
-| [运行时句柄](#category-runtime_handle) | 55 | 950 | 609 |
-| [值对象](#category-value_object) | 56 | 980 | 625 |
+| [运行时句柄](#category-runtime_handle) | 56 | 961 | 617 |
+| [值对象](#category-value_object) | 57 | 1009 | 635 |
 | [领域模型](#category-domain_model) | 4 | 61 | 42 |
 | [事件契约](#category-event_contract) | 6 | 61 | 23 |
 | [编辑器 API](#category-editor_api) | 11 | 70 | 48 |
@@ -427,6 +427,7 @@
 | [`GFRepeaterBinder`](classes/GFRepeaterBinder.md#gfrepeaterbinder) | `RefCounted` | `addons/gf/standard/utilities/ui/gf_repeater_binder.gd` |
 | [`GFResourceLease`](classes/GFResourceLease.md#gfresourcelease) | `RefCounted` | `addons/gf/standard/utilities/assets/gf_resource_lease.gd` |
 | [`GFRuntimeTaskGroup`](classes/GFRuntimeTaskGroup.md#gfruntimetaskgroup) | `GFRuntimeTask` | `addons/gf/standard/sequence/gf_runtime_task_group.gd` |
+| [`GFSceneOperation`](classes/GFSceneOperation.md#gfsceneoperation) | `RefCounted` | `addons/gf/standard/utilities/scene/gf_scene_operation.gd` |
 | [`GFShaderParameterBinder`](classes/GFShaderParameterBinder.md#gfshaderparameterbinder) | `Node` | `addons/gf/standard/utilities/display/gf_shader_parameter_binder.gd` |
 | [`GFSignalBridgeBinding`](classes/GFSignalBridgeBinding.md#gfsignalbridgebinding) | `RefCounted` | `addons/gf/standard/utilities/signals/bridge/gf_signal_bridge_binding.gd` |
 | [`GFSignalConnection`](classes/GFSignalConnection.md#gfsignalconnection) | `RefCounted` | `addons/gf/standard/utilities/signals/gf_signal_connection.gd` |
@@ -480,6 +481,7 @@
 | [`GFResourceIdentity`](classes/GFResourceIdentity.md#gfresourceidentity) | `RefCounted` | `addons/gf/standard/utilities/assets/gf_resource_identity.gd` |
 | [`GFResourceLoadState`](classes/GFResourceLoadState.md#gfresourceloadstate) | `RefCounted` | `addons/gf/standard/utilities/assets/gf_resource_load_state.gd` |
 | [`GFResultDictionary`](classes/GFResultDictionary.md#gfresultdictionary) | `RefCounted` | `addons/gf/standard/foundation/validation/gf_result_dictionary.gd` |
+| [`GFSceneOperationResult`](classes/GFSceneOperationResult.md#gfsceneoperationresult) | `RefCounted` | `addons/gf/standard/utilities/scene/gf_scene_operation_result.gd` |
 | [`GFSequenceContext`](classes/GFSequenceContext.md#gfsequencecontext) | `RefCounted` | `addons/gf/standard/sequence/gf_sequence_context.gd` |
 | [`GFSettingsLoadResult`](classes/GFSettingsLoadResult.md#gfsettingsloadresult) | `RefCounted` | `addons/gf/standard/utilities/settings/gf_settings_load_result.gd` |
 | [`GFSourceSpan`](classes/GFSourceSpan.md#gfsourcespan) | `RefCounted` | `addons/gf/standard/foundation/validation/gf_source_span.gd` |

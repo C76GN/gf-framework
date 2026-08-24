@@ -7,7 +7,7 @@
 | 模块 | 类 | 成员 | 页面内索引 |
 |---|---:|---:|---|
 | Kernel | 77 | 1128 | [Kernel](#module-kernel) |
-| Standard | 476 | 7568 | [Standard](#module-standard) |
+| Standard | 478 | 7610 | [Standard](#module-standard) |
 | Action Queue | 16 | 214 | [Action Queue](#module-extensions-action_queue) |
 | Asset Metadata | 4 | 33 | [Asset Metadata](#module-extensions-asset_metadata) |
 | Behavior Tree | 22 | 89 | [Behavior Tree](#module-extensions-behavior_tree) |
@@ -250,7 +250,7 @@
 | [`GFRuntimeTaskScheduler`](GFRuntimeTaskScheduler.md#gfruntimetaskscheduler) | 运行时服务 (`runtime_service`) | `GFUtility` | 21 | `addons/gf/standard/sequence/gf_runtime_task_scheduler.gd` |
 | [`GFSafeResourceCodec`](GFSafeResourceCodec.md#gfsaferesourcecodec) | 运行时服务 (`runtime_service`) | `RefCounted` | 13 | `addons/gf/standard/utilities/storage/gf_safe_resource_codec.gd` |
 | [`GFSceneContractTools`](GFSceneContractTools.md#gfscenecontracttools) | 运行时服务 (`runtime_service`) | `RefCounted` | 17 | `addons/gf/standard/utilities/scene/gf_scene_contract_tools.gd` |
-| [`GFSceneUtility`](GFSceneUtility.md#gfsceneutility) | 运行时服务 (`runtime_service`) | `GFUtility` | 76 | `addons/gf/standard/utilities/scene/gf_scene_utility.gd` |
+| [`GFSceneUtility`](GFSceneUtility.md#gfsceneutility) | 运行时服务 (`runtime_service`) | `GFUtility` | 78 | `addons/gf/standard/utilities/scene/gf_scene_utility.gd` |
 | [`GFScreenTransitionUtility`](GFScreenTransitionUtility.md#gfscreentransitionutility) | 运行时服务 (`runtime_service`) | `GFUtility` | 17 | `addons/gf/standard/utilities/scene/gf_screen_transition_utility.gd` |
 | [`GFScreenshotUtility`](GFScreenshotUtility.md#gfscreenshotutility) | 运行时服务 (`runtime_service`) | `GFUtility` | 22 | `addons/gf/standard/utilities/debug/gf_screenshot_utility.gd` |
 | [`GFScriptStructureTools`](GFScriptStructureTools.md#gfscriptstructuretools) | 运行时服务 (`runtime_service`) | `RefCounted` | 7 | `addons/gf/standard/utilities/assets/gf_script_structure_tools.gd` |
@@ -502,6 +502,7 @@
 | [`GFRepeaterBinder`](GFRepeaterBinder.md#gfrepeaterbinder) | 运行时句柄 (`runtime_handle`) | `RefCounted` | 13 | `addons/gf/standard/utilities/ui/gf_repeater_binder.gd` |
 | [`GFResourceLease`](GFResourceLease.md#gfresourcelease) | 运行时句柄 (`runtime_handle`) | `RefCounted` | 18 | `addons/gf/standard/utilities/assets/gf_resource_lease.gd` |
 | [`GFRuntimeTaskGroup`](GFRuntimeTaskGroup.md#gfruntimetaskgroup) | 运行时句柄 (`runtime_handle`) | `GFRuntimeTask` | 24 | `addons/gf/standard/sequence/gf_runtime_task_group.gd` |
+| [`GFSceneOperation`](GFSceneOperation.md#gfsceneoperation) | 运行时句柄 (`runtime_handle`) | `RefCounted` | 11 | `addons/gf/standard/utilities/scene/gf_scene_operation.gd` |
 | [`GFShaderParameterBinder`](GFShaderParameterBinder.md#gfshaderparameterbinder) | 运行时句柄 (`runtime_handle`) | `Node` | 14 | `addons/gf/standard/utilities/display/gf_shader_parameter_binder.gd` |
 | [`GFSignalBridgeBinding`](GFSignalBridgeBinding.md#gfsignalbridgebinding) | 运行时句柄 (`runtime_handle`) | `RefCounted` | 5 | `addons/gf/standard/utilities/signals/bridge/gf_signal_bridge_binding.gd` |
 | [`GFSignalConnection`](GFSignalConnection.md#gfsignalconnection) | 运行时句柄 (`runtime_handle`) | `RefCounted` | 18 | `addons/gf/standard/utilities/signals/gf_signal_connection.gd` |
@@ -548,6 +549,7 @@
 | [`GFResourceIdentity`](GFResourceIdentity.md#gfresourceidentity) | 值对象 (`value_object`) | `RefCounted` | 20 | `addons/gf/standard/utilities/assets/gf_resource_identity.gd` |
 | [`GFResourceLoadState`](GFResourceLoadState.md#gfresourceloadstate) | 值对象 (`value_object`) | `RefCounted` | 34 | `addons/gf/standard/utilities/assets/gf_resource_load_state.gd` |
 | [`GFResultDictionary`](GFResultDictionary.md#gfresultdictionary) | 值对象 (`value_object`) | `RefCounted` | 21 | `addons/gf/standard/foundation/validation/gf_result_dictionary.gd` |
+| [`GFSceneOperationResult`](GFSceneOperationResult.md#gfsceneoperationresult) | 值对象 (`value_object`) | `RefCounted` | 29 | `addons/gf/standard/utilities/scene/gf_scene_operation_result.gd` |
 | [`GFSequenceContext`](GFSequenceContext.md#gfsequencecontext) | 值对象 (`value_object`) | `RefCounted` | 6 | `addons/gf/standard/sequence/gf_sequence_context.gd` |
 | [`GFSettingsLoadResult`](GFSettingsLoadResult.md#gfsettingsloadresult) | 值对象 (`value_object`) | `RefCounted` | 19 | `addons/gf/standard/utilities/settings/gf_settings_load_result.gd` |
 | [`GFSourceSpan`](GFSourceSpan.md#gfsourcespan) | 值对象 (`value_object`) | `RefCounted` | 23 | `addons/gf/standard/foundation/validation/gf_source_span.gd` |

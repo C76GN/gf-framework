@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<apiCatalog schemaVersion="3" name="GF Framework" sourceRoot="addons/gf" sourceDigest="1a30fb26b280b48be9bb697494876df81e2c8438536097b056f679c15b14053a" classCount="851" methodCount="7741" autoloadCount="1" autoloadMethodCount="65">
+<apiCatalog schemaVersion="3" name="GF Framework" sourceRoot="addons/gf" sourceDigest="3ef049c2a7c097487276bae7cf9d85ea55dc2c771d58c9b9e060689fc02c3a7f" classCount="853" methodCount="7761" autoloadCount="1" autoloadMethodCount="65">
 	<module id="kernel" label="Kernel" classCount="77" methodCount="818" autoloadCount="1" autoloadMethodCount="65">
 		<class name="GFAccessGenerator" path="classes/GFAccessGenerator.xml" sourcePath="addons/gf/kernel/editor/gf_access_generator.gd" extends="RefCounted" />
 		<class name="GFArchitecture" path="classes/GFArchitecture.xml" sourcePath="addons/gf/kernel/core/gf_architecture.gd" extends="Object" />
@@ -80,7 +80,7 @@
 		<class name="GFWeakMethodInvocation" path="classes/GFWeakMethodInvocation.xml" sourcePath="addons/gf/kernel/core/gf_weak_method_invocation.gd" extends="RefCounted" />
 		<autoload name="Gf" path="autoloads/Gf.xml" sourcePath="addons/gf/kernel/core/gf.gd" extends="Node" packageId="gf.kernel" />
 	</module>
-	<module id="standard" label="Standard" classCount="476" methodCount="4801" autoloadCount="0" autoloadMethodCount="0">
+	<module id="standard" label="Standard" classCount="478" methodCount="4821" autoloadCount="0" autoloadMethodCount="0">
 		<class name="GFActivationTransaction" path="classes/GFActivationTransaction.xml" sourcePath="addons/gf/standard/foundation/policy/gf_activation_transaction.gd" extends="RefCounted" />
 		<class name="GFAnalyticsConfig" path="classes/GFAnalyticsConfig.xml" sourcePath="addons/gf/standard/utilities/analytics/gf_analytics_config.gd" extends="Resource" />
 		<class name="GFAnalyticsEventSchema" path="classes/GFAnalyticsEventSchema.xml" sourcePath="addons/gf/standard/utilities/analytics/gf_analytics_event_schema.gd" extends="Resource" />
@@ -409,6 +409,8 @@
 		<class name="GFSafeResourceCodec" path="classes/GFSafeResourceCodec.xml" sourcePath="addons/gf/standard/utilities/storage/gf_safe_resource_codec.gd" extends="RefCounted" />
 		<class name="GFSafeResourceCodecPolicy" path="classes/GFSafeResourceCodecPolicy.xml" sourcePath="addons/gf/standard/utilities/storage/gf_safe_resource_codec_policy.gd" extends="Resource" />
 		<class name="GFSceneContractTools" path="classes/GFSceneContractTools.xml" sourcePath="addons/gf/standard/utilities/scene/gf_scene_contract_tools.gd" extends="RefCounted" />
+		<class name="GFSceneOperation" path="classes/GFSceneOperation.xml" sourcePath="addons/gf/standard/utilities/scene/gf_scene_operation.gd" extends="RefCounted" />
+		<class name="GFSceneOperationResult" path="classes/GFSceneOperationResult.xml" sourcePath="addons/gf/standard/utilities/scene/gf_scene_operation_result.gd" extends="RefCounted" />
 		<class name="GFScenePreloadEntry" path="classes/GFScenePreloadEntry.xml" sourcePath="addons/gf/standard/utilities/scene/gf_scene_preload_entry.gd" extends="Resource" />
 		<class name="GFScenePreloadMap" path="classes/GFScenePreloadMap.xml" sourcePath="addons/gf/standard/utilities/scene/gf_scene_preload_map.gd" extends="Resource" />
 		<class name="GFSceneTransitionConfig" path="classes/GFSceneTransitionConfig.xml" sourcePath="addons/gf/standard/utilities/scene/gf_scene_transition_config.gd" extends="Resource" />
