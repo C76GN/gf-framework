@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFSceneUtility" path="addons/gf/standard/utilities/scene/gf_scene_utility.gd" module="standard" extends="GFUtility" classDigest="7be4893029bd3ed046a33ff13bf2bf0e17eced70ce475c381d1b3674c961713a">
+<class name="GFSceneUtility" path="addons/gf/standard/utilities/scene/gf_scene_utility.gd" module="standard" extends="GFUtility" classDigest="8c51d87b91966170d2d6e6dac0a33737d5dcc437dc1af4e1178cb262a1ca1f9a">
 	<description>GFSceneUtility: 场景与流程切换管理器。
 封装原生场景切换，支持带有 `loading scene` 的异步加载、PackedScene
 资源预加载缓存、切换参数、场景历史，并可在切换完成后清理不需要跨场景保留的 `System/Model`。</description>
@@ -62,11 +62,12 @@
 		</member>
 		<member kind="signal" name="scene_preload_completed">
 			<signature>signal scene_preload_completed(path: String, scene: PackedScene)</signature>
-			<description>当场景预加载完成并进入缓存时发出。</description>
+			<description>当场景资源预加载完成时发出；临时缓存是否继续保留由容量策略决定。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">path: 目标场景路径。</tag>
-				<tag name="param">scene: 已缓存的场景资源。</tag>
+				<tag name="param">scene: 已加载的场景资源。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="signal" name="scene_preload_failed">
@@ -170,9 +171,11 @@
 	<properties>
 		<member kind="property" name="max_preloaded_scene_resources">
 			<signature>var max_preloaded_scene_resources: int:</signature>
-			<description>最多保留的预加载 PackedScene 数量；设为 `0` 表示禁用预加载缓存。</description>
+			<description>最多保留的临时预加载 PackedScene 数量；设为 `0` 会清空并禁用临时缓存。
+fixed 缓存不受该容量限制。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="cache_loaded_scenes">
@@ -343,6 +346,24 @@
 				<tag name="since">3.0.0</tag>
 			</tags>
 		</member>
+		<member kind="method" name="load_scene_request_async">
+			<signature>func load_scene_request_async( path: String, loading_scene_path: String = "", params: Dictionary = {}, minimum_duration_seconds: float = -1.0, request_owner: Object = null, cancellation_token: GFCancellationToken = null ) -&gt; GFSceneOperation:</signature>
+			<description>创建一个可独立观察和取消的类型化场景加载请求。
+同一时刻只接纳一个 load；后续请求以 `REASON_LOAD_BUSY` 同步拒绝，不取代当前请求。
+成功终态只在目标 PackedScene 已于安全帧完成场景切换后冻结。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">path: 目标场景资源路径。</tag>
+				<tag name="param">loading_scene_path: 可选的过渡场景路径。</tag>
+				<tag name="param">params: 本次切换参数；完成后可通过 get_current_scene_params() 读取。</tag>
+				<tag name="param">minimum_duration_seconds: loading scene 最短保留秒数；小于 0 时使用默认值。</tag>
+				<tag name="param">request_owner: 可选生命周期 owner；释放后只取消当前 consumer。</tag>
+				<tag name="param">cancellation_token: 可选只读取消令牌。</tag>
+				<tag name="return">已配置的 GFSceneOperation；同步拒绝也会携带稳定终态。</tag>
+				<tag name="schema">params: Dictionary[String, Variant]，切换完成后复制到当前场景参数中的场景切换参数。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
 		<member kind="method" name="load_scene_with_transition">
 			<signature>func load_scene_with_transition(config: GFSceneTransitionConfig) -&gt; Error:</signature>
 			<description>按资源配置切换场景。</description>
@@ -354,12 +375,28 @@
 		</member>
 		<member kind="method" name="preload_scene">
 			<signature>func preload_scene(path: String, fixed: bool = false) -&gt; Error:</signature>
-			<description>预加载一个场景资源并放入缓存。</description>
+			<description>预加载一个场景资源；临时缓存是否继续保留由容量策略决定。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">path: 目标场景资源路径。</tag>
-				<tag name="param">fixed: 为 true 时写入固定缓存，不受 LRU 容量淘汰影响。</tag>
+				<tag name="param">fixed: 为 true 时写入固定缓存，不受临时缓存容量或 LRU 淘汰影响。</tag>
 				<tag name="return">发起请求的 Godot Error。</tag>
+				<tag name="since">3.17.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="preload_scene_request_async">
+			<signature>func preload_scene_request_async( path: String, fixed: bool = false, request_owner: Object = null, cancellation_token: GFCancellationToken = null ) -&gt; GFSceneOperation:</signature>
+			<description>创建一个可独立观察和取消的类型化场景预加载请求。
+每次调用都从共享 Resource Broker 取得独立 consumer Lease；同一规范路径的 Lease
+继续共享一个物理加载。任一 consumer 取消不会终结仍有其它兴趣的 path 聚合请求。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">path: 目标场景资源路径。</tag>
+				<tag name="param">fixed: 为 true 时写入固定缓存，不受临时缓存容量或 LRU 淘汰影响。</tag>
+				<tag name="param">request_owner: 可选生命周期 owner；释放后只取消当前 consumer。</tag>
+				<tag name="param">cancellation_token: 可选只读取消令牌。</tag>
+				<tag name="return">已配置的 GFSceneOperation；同步拒绝与 cache hit 也携带稳定终态。</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
 		<member kind="method" name="begin_background_scene_load">
@@ -465,6 +502,7 @@
 			<description>取消全部正在进行中的预加载请求。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="is_scene_preloading">

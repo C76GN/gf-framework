@@ -2,8 +2,8 @@
   "schema_version": 2,
   "catalog_version": "2.0.0",
   "framework_version": "11.0.0-dev.0",
-  "source_digest": "5f234329e83b14a1d1f9318c020b6948d34257ff5ba02529fe648af86c5b68cb",
-  "class_count": 827,
+  "source_digest": "a33f23b3edbf1f4576be6f8b3dbfe977fde4d272cacdaeb765eed307d689200e",
+  "class_count": 829,
   "autoload_count": 1,
   "package_count": 56,
   "packages": [
@@ -74810,6 +74810,312 @@
         }
       ]
     },
+    "GFSceneOperation": {
+      "owner_kind": "class",
+      "extends": "RefCounted",
+      "module": "standard",
+      "package_id": "gf.standard.assets",
+      "path": "addons/gf/standard/utilities/scene/gf_scene_operation.gd",
+      "summary": "GFSceneOperation: 单次类型化场景加载或预加载请求的 caller Operation。 每个请求持有独立 ID、资源身份快照与取消能力。同一路径请求可以共享 Broker 的物理加载，但每个 Operation 只观察并终结自己的 consumer Lease。",
+      "visibility": "public",
+      "category": "runtime_handle",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "signal",
+          "name": "progressed",
+          "signature": "signal progressed(progress_ratio: float)",
+          "summary": "当前 consumer 的加载进度发生变化时发出。",
+          "visibility": "public"
+        },
+        {
+          "kind": "signal",
+          "name": "completed",
+          "signature": "signal completed(result: GFSceneOperationResult)",
+          "summary": "当前 consumer 进入唯一终态时发出一次。",
+          "visibility": "public"
+        },
+        {
+          "kind": "enum",
+          "name": "Kind",
+          "signature": "enum Kind {\n\t## 加载资源并在安全帧切换场景。\n\tLOAD,\n\t## 预加载场景资源；是否继续保留在缓存由容量与 fixed 策略决定。\n\tPRELOAD,\n}",
+          "summary": "类型化场景请求的执行种类。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_request_id",
+          "signature": "func get_request_id() -> int",
+          "summary": "获取 Scene Utility 分配的请求 ID。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_kind",
+          "signature": "func get_kind() -> Kind",
+          "summary": "获取请求执行种类。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_scene_identity",
+          "signature": "func get_scene_identity() -> GFResourceIdentity",
+          "summary": "获取请求冻结的资源身份副本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_progress_ratio",
+          "signature": "func get_progress_ratio() -> float",
+          "summary": "获取当前 consumer 的进度。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "is_pending",
+          "signature": "func is_pending() -> bool",
+          "summary": "检查请求是否仍等待 caller 终态。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "is_completed",
+          "signature": "func is_completed() -> bool",
+          "summary": "检查请求是否已经进入 caller 终态。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_result",
+          "signature": "func get_result() -> GFSceneOperationResult",
+          "summary": "获取 caller 终态结果副本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "cancel",
+          "signature": "func cancel() -> bool",
+          "summary": "取消当前 caller 仍在等待的请求。",
+          "visibility": "public"
+        }
+      ]
+    },
+    "GFSceneOperationResult": {
+      "owner_kind": "class",
+      "extends": "RefCounted",
+      "module": "standard",
+      "package_id": "gf.standard.assets",
+      "path": "addons/gf/standard/utilities/scene/gf_scene_operation_result.gd",
+      "summary": "GFSceneOperationResult: 单次类型化场景请求的不可变终态。 结果冻结请求种类、资源身份、可选 PackedScene 与闭合 status/reason/error 联合。 所有身份 getter 返回隔离快照，调用方不能改写 Operation 已冻结的资源身份。",
+      "visibility": "public",
+      "category": "value_object",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "enum",
+          "name": "Status",
+          "signature": "enum Status {\n\t## 场景已缓存，或已经在安全帧成功切换。\n\tCOMPLETED,\n\t## 请求在 Broker dispatch 前或 admission 边界被拒绝。\n\tREJECTED,\n\t## 有效请求在资源加载、类型校验或场景切换阶段失败。\n\tFAILED,\n\t## caller、token、owner、path 或共享 Broker 生命周期取消了当前 consumer。\n\tCANCELLED,\n\t## Scene Utility 已释放。\n\tDISPOSED,\n}",
+          "summary": "类型化场景请求的唯一 caller 终态。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "REASON_SCENE_LOADED",
+          "signature": "const REASON_SCENE_LOADED: StringName = &\"scene_loaded\"",
+          "summary": "已在安全帧成功切换到目标场景。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "REASON_SCENE_PRELOADED",
+          "signature": "const REASON_SCENE_PRELOADED: StringName = &\"scene_preloaded\"",
+          "summary": "场景资源已成功预加载；是否继续保留在缓存由容量与 fixed 策略决定。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "REASON_CACHE_HIT",
+          "signature": "const REASON_CACHE_HIT: StringName = &\"cache_hit\"",
+          "summary": "请求直接命中已有场景缓存。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "REASON_INVALID_PATH",
+          "signature": "const REASON_INVALID_PATH: StringName = &\"invalid_path\"",
+          "summary": "场景路径为空、逃逸项目根目录、不存在或不是 PackedScene。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "REASON_OWNER_UNAVAILABLE",
+          "signature": "const REASON_OWNER_UNAVAILABLE: StringName = &\"owner_unavailable\"",
+          "summary": "请求 owner 在接纳前已经无效。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "REASON_LOAD_BUSY",
+          "signature": "const REASON_LOAD_BUSY: StringName = &\"load_busy\"",
+          "summary": "已有 load 请求正在等待，不允许 replacement。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "REASON_BROKER_REJECTED",
+          "signature": "const REASON_BROKER_REJECTED: StringName = &\"broker_rejected\"",
+          "summary": "Resource Broker 拒绝 consumer Lease 或底层请求 admission。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "REASON_RESOURCE_LOAD_FAILED",
+          "signature": "const REASON_RESOURCE_LOAD_FAILED: StringName = &\"resource_load_failed\"",
+          "summary": "已接纳的 Broker 请求在运行期加载失败。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "REASON_RESOURCE_TYPE_MISMATCH",
+          "signature": "const REASON_RESOURCE_TYPE_MISMATCH: StringName = &\"resource_type_mismatch\"",
+          "summary": "Broker 完成的资源不是 PackedScene。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "REASON_SCENE_CHANGE_FAILED",
+          "signature": "const REASON_SCENE_CHANGE_FAILED: StringName = &\"scene_change_failed\"",
+          "summary": "PackedScene 已准备完成，但安全帧场景切换失败。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "REASON_CALLER_CANCELLED",
+          "signature": "const REASON_CALLER_CANCELLED: StringName = &\"caller_cancelled\"",
+          "summary": "caller 通过 Operation.cancel() 显式取消当前 consumer。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "REASON_TOKEN_CANCELLED",
+          "signature": "const REASON_TOKEN_CANCELLED: StringName = &\"token_cancelled\"",
+          "summary": "绑定的 cancellation token 请求取消。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "REASON_OWNER_RELEASED",
+          "signature": "const REASON_OWNER_RELEASED: StringName = &\"owner_released\"",
+          "summary": "绑定的请求 owner 已释放。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "REASON_PATH_CANCELLED",
+          "signature": "const REASON_PATH_CANCELLED: StringName = &\"path_cancelled\"",
+          "summary": "旧 path-level cancel API 取消了同路径的全部 consumer。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "REASON_EXTERNAL_CANCELLED",
+          "signature": "const REASON_EXTERNAL_CANCELLED: StringName = &\"external_cancelled\"",
+          "summary": "共享 Resource Broker 被外部调用方显式取消。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "REASON_BROKER_DISPOSED",
+          "signature": "const REASON_BROKER_DISPOSED: StringName = &\"broker_disposed\"",
+          "summary": "共享 Resource Broker 已释放并取消当前 consumer Lease。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "REASON_BROKER_CANCELLED",
+          "signature": "const REASON_BROKER_CANCELLED: StringName = &\"broker_cancelled\"",
+          "summary": "Broker 返回了未纳入公开闭合集的取消原因。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "REASON_UTILITY_DISPOSED",
+          "signature": "const REASON_UTILITY_DISPOSED: StringName = &\"utility_disposed\"",
+          "summary": "Scene Utility 已释放并终结所有等待请求。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_status",
+          "signature": "func get_status() -> Status",
+          "summary": "获取请求终态。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "is_successful",
+          "signature": "func is_successful() -> bool",
+          "summary": "检查请求是否成功完成。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_request_id",
+          "signature": "func get_request_id() -> int",
+          "summary": "获取 Scene Utility 内唯一请求 ID。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_kind",
+          "signature": "func get_kind() -> int",
+          "summary": "获取请求执行种类。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_scene_identity",
+          "signature": "func get_scene_identity() -> GFResourceIdentity",
+          "summary": "获取请求冻结的资源身份副本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_scene",
+          "signature": "func get_scene() -> PackedScene",
+          "summary": "获取成功完成的 PackedScene。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_reason",
+          "signature": "func get_reason() -> StringName",
+          "summary": "获取闭合终态原因。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_error_code",
+          "signature": "func get_error_code() -> Error",
+          "summary": "获取终态 Error 码。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "duplicate_result",
+          "signature": "func duplicate_result() -> GFSceneOperationResult",
+          "summary": "创建隔离的结果 value 副本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "to_dict",
+          "signature": "func to_dict() -> Dictionary",
+          "summary": "转换为闭合诊断字典。",
+          "visibility": "public"
+        }
+      ]
+    },
     "GFScenePreloadEntry": {
       "owner_kind": "class",
       "extends": "Resource",
@@ -75206,7 +75512,7 @@
           "kind": "signal",
           "name": "scene_preload_completed",
           "signature": "signal scene_preload_completed(path: String, scene: PackedScene)",
-          "summary": "当场景预加载完成并进入缓存时发出。",
+          "summary": "当场景资源预加载完成时发出；临时缓存是否继续保留由容量策略决定。",
           "visibility": "public"
         },
         {
@@ -75283,7 +75589,7 @@
           "kind": "var",
           "name": "max_preloaded_scene_resources",
           "signature": "var max_preloaded_scene_resources: int",
-          "summary": "最多保留的预加载 PackedScene 数量；设为 `0` 表示禁用预加载缓存。",
+          "summary": "最多保留的临时预加载 PackedScene 数量；设为 `0` 会清空并禁用临时缓存。",
           "visibility": "public"
         },
         {
@@ -75428,6 +75734,13 @@
         },
         {
           "kind": "func",
+          "name": "load_scene_request_async",
+          "signature": "func load_scene_request_async( path: String, loading_scene_path: String = \"\", params: Dictionary = {}, minimum_duration_seconds: float = -1.0, request_owner: Object = null, cancellation_token: GFCancellationToken = null ) -> GFSceneOperation",
+          "summary": "创建一个可独立观察和取消的类型化场景加载请求。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
           "name": "load_scene_with_transition",
           "signature": "func load_scene_with_transition(config: GFSceneTransitionConfig) -> Error",
           "summary": "按资源配置切换场景。",
@@ -75437,7 +75750,14 @@
           "kind": "func",
           "name": "preload_scene",
           "signature": "func preload_scene(path: String, fixed: bool = false) -> Error",
-          "summary": "预加载一个场景资源并放入缓存。",
+          "summary": "预加载一个场景资源；临时缓存是否继续保留由容量策略决定。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "preload_scene_request_async",
+          "signature": "func preload_scene_request_async( path: String, fixed: bool = false, request_owner: Object = null, cancellation_token: GFCancellationToken = null ) -> GFSceneOperation",
+          "summary": "创建一个可独立观察和取消的类型化场景预加载请求。",
           "visibility": "public"
         },
         {

@@ -31,7 +31,12 @@ transition.minimum_duration_seconds = 0.35
 var transition_error: Error = scene_util.load_scene_with_transition(transition)
 ```
 
-这两个入口会同步返回“是否成功发起”对应的 Godot `Error`；路径无效、资源类型错误或当前状态拒绝时不会伪装成 `OK`。已经发起后的加载进度与异步终态继续通过 `scene_loading_progress`、`scene_load_failed` 和 `scene_changed` 等信号观察。
+这两个入口会同步返回“是否成功发起”对应的 Godot `Error`；路径无效、资源类型错误或当前状态拒绝时不会伪装成 `OK`。已经发起后的加载进度与异步终态继续通过 `scene_load_progress`、`scene_load_failed`、`scene_load_completed` 和 `scene_switch_completed` 等信号观察。成功信号只在 `SceneTree.scene_changed` 已确认冻结目标成为 `current_scene` 后发布。
+
+需要逐请求身份、独立取消或安全帧提交终态时，使用
+`load_scene_request_async()` 并保存返回的 `GFSceneOperation`。类型化入口与旧信号保持
+兼容，但全局信号不适合作为单次 consumer 的相关性协议；完整时序见
+[类型化场景请求](async-requests.md)。
 
 `minimum_duration_seconds` 只控制 loading scene 至少停留多久，避免缓存命中时过渡 UI 一闪而过；它不替代目标场景自己的初始化等待。
 

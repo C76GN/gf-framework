@@ -6,7 +6,7 @@
 
 - [设置与显示应用](settings-display/index.md)：`GFSettingsUtility`、`GFDisplaySettingsUtility`、`GFControlValueAdapter` 与 `GFFormBinder`。
 - [UI 栈、路由、视口与文本辅助](ui-stack-routing/index.md)：`GFUIUtility`、`GFUIRouterUtility`、`GFViewportUtility`、`GFTextFitter`、`GFTextAutoFit`、`GFRichTextFormatter` 与 `GFNodeTreeOps`。
-- [场景与流程切换](scene-flow/index.md)：`GFSceneUtility`、`GFSceneTransitionConfig`、`GFScenePreloadMap` 与瞬态模块清理。
+- [场景与流程切换](scene-flow/index.md)：`GFSceneUtility`、类型化 `GFSceneOperation`、`GFSceneTransitionConfig`、`GFScenePreloadMap` 与瞬态模块清理。
 - [3D 表面材质查询](surface-query.md)：`GFSurfaceUtility` 的 face 到 surface/material 映射。
 - [Shader 参数 Profile](shader-parameter-profile.md)：`GFShaderInterfaceSnapshot`、`GFShaderParameterProfile`、`GFShaderParameterUtility` 与 `GFShaderParameterBinder` 的接口快照、契约校验、周期环境表现组合、批量写入和场景绑定。
 
