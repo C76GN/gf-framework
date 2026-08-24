@@ -141,9 +141,21 @@ var data_version: int = 0
 var migrated: bool = false
 
 
+# --- 私有变量 ---
+
+var _origin_bound: bool = false
+var _origin_utility_id: int = 0
+var _origin_logical_path: String = ""
+var _origin_file_key: String = ""
+var _origin_token: String = ""
+var _origin_ok: bool = false
+var _origin_error_code: Error = FAILED
+var _origin_failure_kind: FailureKind = FailureKind.NONE
+
+
 # --- 公共方法 ---
 
-## 配置成功结果。
+## 配置成功结果，并清除任何不透明 Storage 来源绑定。
 ## [br]
 ## @api public
 ## [br]
@@ -168,6 +180,7 @@ func configure_success(
 	p_integrity_status: IntegrityStatus = IntegrityStatus.NOT_CHECKED,
 	p_document_schema_version: int = 0
 ) -> GFStorageReadResult:
+	_clear_origin_binding()
 	ok = true
 	payload = p_payload.duplicate(true)
 	metadata = p_metadata.duplicate(true)
@@ -182,7 +195,7 @@ func configure_success(
 	return self
 
 
-## 配置失败结果。
+## 配置失败结果，并清除任何不透明 Storage 来源绑定。
 ## [br]
 ## @api public
 ## [br]
@@ -211,6 +224,7 @@ func configure_failure(
 	p_document_schema_version: int = 0,
 	p_failure_kind: FailureKind = FailureKind.IO_FAILED
 ) -> GFStorageReadResult:
+	_clear_origin_binding()
 	ok = false
 	payload.clear()
 	metadata = p_metadata.duplicate(true)
@@ -242,12 +256,25 @@ func is_integrity_accepted() -> bool:
 ## [br]
 ## @since 9.0.0
 ## [br]
+## 原对象的授权资格字段仍精确匹配 Storage 签发快照时，副本保留不透明来源绑定；
+## `ok`、`error_code` 或 `failure_kind` 被改写后，副本不会保留该绑定。
+## [br]
 ## @return 新读取结果。
 func duplicate_result() -> GFStorageReadResult:
-	return from_dict(to_dict())
+	var copy: GFStorageReadResult = from_dict(to_dict())
+	if _origin_binding_is_current():
+		var _bound: bool = copy.bind_origin_for_framework(
+			_origin_utility_id,
+			_origin_logical_path,
+			_origin_file_key,
+			_origin_token
+		)
+	return copy
 
 
-## 转换为线程、报告和工具可传递的字典。
+## 转换为执行器、报告和工具可传递的字典。
+##
+## 不透明 Storage 来源绑定不会序列化；Dictionary 往返结果不能作为破坏性 family reset 授权证据。
 ## [br]
 ## @api public
 ## [br]
@@ -272,7 +299,7 @@ func to_dict() -> Dictionary:
 	}
 
 
-## 从字典应用读取结果字段。
+## 从字典应用读取结果字段，并清除任何不透明 Storage 来源绑定。
 ## [br]
 ## @api public
 ## [br]
@@ -282,6 +309,7 @@ func to_dict() -> Dictionary:
 ## [br]
 ## @schema data: Dictionary，GFStorageReadResult.to_dict() 输出。
 func apply_dict(data: Dictionary) -> void:
+	_clear_origin_binding()
 	ok = GFVariantData.get_option_bool(data, "ok")
 	payload = GFVariantData.get_option_dictionary(data, "payload") if ok else {}
 	metadata = GFVariantData.get_option_dictionary(data, "metadata")
@@ -302,7 +330,7 @@ func apply_dict(data: Dictionary) -> void:
 	migrated = GFVariantData.get_option_bool(data, "migrated")
 
 
-## 从字典创建读取结果。
+## 从字典创建不带 Storage 来源绑定的读取结果。
 ## [br]
 ## @api public
 ## [br]
@@ -319,7 +347,104 @@ static func from_dict(data: Dictionary) -> GFStorageReadResult:
 	return result
 
 
+# --- 框架内部方法 ---
+
+## 绑定本次读取的 Utility、root 与 logical identity；该来源不会进入公开字典 schema。
+## [br]
+## @api framework_internal
+## [br]
+## @layer standard/utilities/storage
+## [br]
+## @since unreleased
+## [br]
+## @param utility_id: 签发结果的 GFStorageUtility 实例 ID。
+## [br]
+## @param logical_path: canonical logical identity。
+## [br]
+## @param file_key: 冻结 Storage root 与 family 的私有绑定键。
+## [br]
+## @param origin_token: Utility 生命周期内不可序列化的来源 token。
+## [br]
+## @return 首次绑定合法来源时返回 true。
+func bind_origin_for_framework(
+	utility_id: int,
+	logical_path: String,
+	file_key: String,
+	origin_token: String
+) -> bool:
+	if (
+		_origin_bound
+		or utility_id == 0
+		or not GFStorageFamilyStore.is_valid_logical_file_path_for_framework(logical_path)
+		or file_key.is_empty()
+		or origin_token.is_empty()
+	):
+		return false
+	_origin_bound = true
+	_origin_utility_id = utility_id
+	_origin_logical_path = logical_path
+	_origin_file_key = file_key
+	_origin_token = origin_token
+	_origin_ok = ok
+	_origin_error_code = error_code
+	_origin_failure_kind = failure_kind
+	return true
+
+
+## 检查结果是否仍由指定 Utility 为同一 logical family 签发，且授权资格字段
+## `ok`、`error_code` 与 `failure_kind` 仍匹配签发快照。
+## [br]
+## @api framework_internal
+## [br]
+## @layer standard/utilities/storage
+## [br]
+## @since unreleased
+## [br]
+## @param utility_id: 当前 GFStorageUtility 实例 ID。
+## [br]
+## @param logical_path: 当前请求的 canonical logical identity。
+## [br]
+## @param file_key: 当前冻结 Storage root 与 family 的私有绑定键。
+## [br]
+## @param origin_token: 当前 Utility 生命周期的来源 token。
+## [br]
+## @return 来源、身份与绑定时终态全部精确匹配时返回 true。
+func matches_origin_for_framework(
+	utility_id: int,
+	logical_path: String,
+	file_key: String,
+	origin_token: String
+) -> bool:
+	return (
+		_origin_binding_is_current()
+		and utility_id == _origin_utility_id
+		and logical_path == _origin_logical_path
+		and file_key == _origin_file_key
+		and origin_token == _origin_token
+	)
+
+
 # --- 私有/辅助方法 ---
+
+func _clear_origin_binding() -> void:
+	_origin_bound = false
+	_origin_utility_id = 0
+	_origin_logical_path = ""
+	_origin_file_key = ""
+	_origin_token = ""
+	_origin_ok = false
+	_origin_error_code = FAILED
+	_origin_failure_kind = FailureKind.NONE
+
+
+func _origin_binding_is_current() -> bool:
+	return (
+		_origin_bound
+		and ok == _origin_ok
+		and error_code == _origin_error_code
+		and failure_kind == _origin_failure_kind
+	)
+
 
 static func _to_integrity_status(value: int) -> IntegrityStatus:
 	match value:

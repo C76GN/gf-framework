@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFStorageAsyncCallerResult" path="addons/gf/standard/utilities/storage/gf_storage_async_caller_result.gd" module="standard" extends="RefCounted" classDigest="380aa51c09ac1d7ee23e6076ae02479db2267a74299aef07fdb6c2a0a990fffc">
+<class name="GFStorageAsyncCallerResult" path="addons/gf/standard/utilities/storage/gf_storage_async_caller_result.gd" module="standard" extends="RefCounted" classDigest="1038649ddda75a4b5703b3fa89c3dfec4feb7259cc5d35d90ea82bb5dbfd31d6">
 	<description>GFStorageAsyncCallerResult: 单个 Storage consumer 的不可变 caller 终态。
 caller 终态与 `GFStorageAsyncOperation.completed` 表示的物理终态彼此独立。已接纳
-save/delete 在 caller 提前离开时返回 `OUTCOME_UNKNOWN`，不会把“停止观察”伪装成
+save/delete/reset 在 caller 提前离开时返回 `OUTCOME_UNKNOWN`，不会把“停止观察”伪装成
 磁盘工作已取消；晚到物理结果仍由原 Operation 恰好结算一次。</description>
 	<tags>
 		<tag name="api">public</tag>
@@ -17,7 +17,7 @@ save/delete 在 caller 提前离开时返回 `OUTCOME_UNKNOWN`，不会把“停
 	PHYSICAL_SETTLED,
 	## caller 已安全停止观察，且不会声称存在持久化副作用的不确定性。
 	CANCELLED,
-	## caller 已停止观察，但 save/delete 的持久化结果仍未知。
+	## caller 已停止观察，但 save/delete/reset 的持久化结果仍未知。
 	OUTCOME_UNKNOWN,
 }</signature>
 			<description>caller 观察的闭合终态分类。</description>
@@ -74,7 +74,7 @@ save/delete 在 caller 提前离开时返回 `OUTCOME_UNKNOWN`，不会把“停
 			<description>获取请求类型。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="return">`save`、`load` 或 `delete`；尚未配置时返回空值。</tag>
+				<tag name="return">`save`、`load`、`delete` 或 `reset`；尚未配置时返回空值。</tag>
 				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
@@ -146,7 +146,7 @@ save/delete 在 caller 提前离开时返回 `OUTCOME_UNKNOWN`，不会把“停
 			<description>返回 caller 是否因潜在持久化副作用进入未知结果。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="return">caller 已离开但 save/delete 物理结果未知时返回 true。</tag>
+				<tag name="return">caller 已离开但 save/delete/reset 物理结果未知时返回 true。</tag>
 				<tag name="since">unreleased</tag>
 			</tags>
 		</member>

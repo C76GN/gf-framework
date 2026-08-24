@@ -1,0 +1,114 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFStorageFamilyResetAuthorization" path="addons/gf/standard/utilities/storage/gf_storage_family_reset_authorization.gd" module="standard" extends="RefCounted" classDigest="cb39a5b52efc7cee1cee7ba1fa3b84034d7c1a7b85fefcf39a8f0def101a2117">
+	<description>GFStorageFamilyResetAuthorization: 单个 Storage logical family 的一次性破坏性恢复授权。
+授权只能由 GFStorageUtility 为当前实例、冻结 root 与 canonical logical identity 创建。
+reset 必须原样提交同一对象；跨 Utility、跨 root/file 或重复提交都会失败关闭。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_handle</tag>
+		<tag name="since">unreleased</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants>
+		<member kind="const" name="REASON_CORRUPT">
+			<signature>const REASON_CORRUPT: StringName = &amp;"corrupt"</signature>
+			<description>调用方已经确认目标读失败属于可破坏恢复的损坏状态。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATE_AVAILABLE">
+			<signature>const STATE_AVAILABLE: StringName = &amp;"available"</signature>
+			<description>授权尚未被 reset 请求消费。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATE_CLAIMED">
+			<signature>const STATE_CLAIMED: StringName = &amp;"claimed"</signature>
+			<description>授权已经被一个 reset 请求消费。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATE_STALE">
+			<signature>const STATE_STALE: StringName = &amp;"stale"</signature>
+			<description>授权无效、绑定不匹配或已经过期。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</constants>
+	<properties />
+	<methods>
+		<member kind="method" name="get_authorization_id">
+			<signature>func get_authorization_id() -&gt; int:</signature>
+			<description>获取当前 Utility 生命周期内唯一的授权 ID。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">正整数授权 ID；未配置时为 0。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_logical_path">
+			<signature>func get_logical_path() -&gt; String:</signature>
+			<description>获取授权绑定的 canonical logical identity。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">portable logical file path；未配置时为空字符串。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_reason">
+			<signature>func get_reason() -&gt; StringName:</signature>
+			<description>获取调用方确认的破坏性恢复原因。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">当前只可能为 REASON_CORRUPT；未配置时为空 StringName。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_state">
+			<signature>func get_state() -&gt; StringName:</signature>
+			<description>获取授权当前状态。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">STATE_AVAILABLE、STATE_CLAIMED 或 STATE_STALE。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_available">
+			<signature>func is_available() -&gt; bool:</signature>
+			<description>检查授权是否仍可提交一次。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">已配置且尚未消费时返回 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_claimed">
+			<signature>func is_claimed() -&gt; bool:</signature>
+			<description>检查授权是否已经被 reset 请求消费。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">已 claim 时返回 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_stale">
+			<signature>func is_stale() -&gt; bool:</signature>
+			<description>检查授权是否无效或已经过期。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">未配置或已标记 stale 时返回 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

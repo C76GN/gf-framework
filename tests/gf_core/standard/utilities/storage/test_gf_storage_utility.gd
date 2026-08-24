@@ -1266,10 +1266,14 @@ func test_frozen_async_task_rejects_absolute_storage_root() -> void:
 			"transaction_path": final_path + ".txn",
 		}
 
+		var recovery_result: Dictionary = _storage._recover_frozen_async_transaction(task)
 		assert_eq(
-			_storage._recover_frozen_async_transaction(task),
+			GFVariantData.get_option_int(recovery_result, "error", OK),
 			ERR_INVALID_PARAMETER,
 			"冻结 task 不得把 worker I/O root 扩大为任意绝对路径：%s" % absolute_root
+		)
+		assert_false(
+			GFVariantData.get_option_bool(recovery_result, "target_provenance", true)
 		)
 
 

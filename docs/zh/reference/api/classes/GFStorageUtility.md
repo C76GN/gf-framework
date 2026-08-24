@@ -53,6 +53,9 @@
 | 方法 | [`has_file`](#member-gfstorageutility-methods-has_file) | `func has_file(file_name: String) -> bool:` |
 | 方法 | [`delete_file`](#member-gfstorageutility-methods-delete_file) | `func delete_file(file_name: String) -> Error:` |
 | 方法 | [`delete_file_request_async`](#member-gfstorageutility-methods-delete_file_request_async) | `func delete_file_request_async( file_name: String, options: GFStorageAsyncRequestOptions = null ) -> GFStorageAsyncOperation:` |
+| 方法 | [`create_family_reset_authorization`](#member-gfstorageutility-methods-create_family_reset_authorization) | `func create_family_reset_authorization( file_name: String, observed_result: GFStorageReadResult ) -> GFStorageFamilyResetAuthorization:` |
+| 方法 | [`reset_file_family`](#member-gfstorageutility-methods-reset_file_family) | `func reset_file_family( file_name: String, authorization: GFStorageFamilyResetAuthorization ) -> GFStorageFamilyResetResult:` |
+| 方法 | [`reset_file_family_request_async`](#member-gfstorageutility-methods-reset_file_family_request_async) | `func reset_file_family_request_async( file_name: String, authorization: GFStorageFamilyResetAuthorization, options: GFStorageAsyncRequestOptions = null ) -> GFStorageAsyncOperation:` |
 | 方法 | [`save_data`](#member-gfstorageutility-methods-save_data) | `func save_data(file_name: String, data: Dictionary) -> Error:` |
 | 方法 | [`save_data_group`](#member-gfstorageutility-methods-save_data_group) | `func save_data_group(files: Dictionary) -> Error:` |
 | 方法 | [`load_data`](#member-gfstorageutility-methods-load_data) | `func load_data(file_name: String) -> GFStorageReadResult:` |
@@ -676,6 +679,73 @@ func delete_file_request_async( file_name: String, options: GFStorageAsyncReques
 
 返回：已配置的 typed 请求句柄；路径或生命周期校验失败时立即进入失败终态。
 
+<a id="member-gfstorageutility-methods-create_family_reset_authorization"></a>
+
+### `create_family_reset_authorization`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func create_family_reset_authorization( file_name: String, observed_result: GFStorageReadResult ) -> GFStorageFamilyResetAuthorization:
+```
+
+为一次显式的破坏性 family reset 创建绑定授权。 只有当前 GFStorageUtility 对同一 logical identity 返回的 CORRUPT 读取结果才可 创建授权。授权冻结 Utility、Storage root 与 canonical logical identity，且只能消费一次。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `file_name` | portable logical file identity。 |
+| `observed_result` | 调用方已经检查并决定破坏性恢复的 CORRUPT 读取结果。 |
+
+返回：可用的一次性授权；输入或读取分类不匹配时返回 stale 授权。
+
+<a id="member-gfstorageutility-methods-reset_file_family"></a>
+
+### `reset_file_family`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func reset_file_family( file_name: String, authorization: GFStorageFamilyResetAuthorization ) -> GFStorageFamilyResetResult:
+```
+
+同步 retire 并重新 claim 一个显式授权的 logical family。 该入口与同 family 的异步 save/load/delete/reset 串行。missing target 与 future layout 都在零写入前失败；同执行栈仍有该 family 工作时以 ERR_BUSY / UNAVAILABLE 拒绝。 结果不暴露任何 private path 或 retirement staging 名称。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `file_name` | 必须与 authorization 绑定完全一致的 portable logical identity。 |
+| `authorization` | 由 create_family_reset_authorization() 创建的一次性授权。 |
+
+返回：reset/recreate 的不可变 typed 终态。
+
+<a id="member-gfstorageutility-methods-reset_file_family_request_async"></a>
+
+### `reset_file_family_request_async`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func reset_file_family_request_async( file_name: String, authorization: GFStorageFamilyResetAuthorization, options: GFStorageAsyncRequestOptions = null ) -> GFStorageAsyncOperation:
+```
+
+通过当前 Storage executor 异步 retire 并重新 claim 一个显式授权的 logical family。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `file_name` | 必须与 authorization 绑定完全一致的 portable logical identity。 |
+| `authorization` | 由 create_family_reset_authorization() 创建的一次性授权。 |
+| `options` | 可选 caller owner、取消 token 与单调 deadline。 |
+
+返回：请求专属句柄；终态通过 GFStorageAsyncResult.get_reset_result() 读取。
+
 <a id="member-gfstorageutility-methods-save_data"></a>
 
 ### `save_data`
@@ -904,7 +974,7 @@ func get_late_settlement_diagnostics() -> Array[Dictionary]:
 
 结构：
 
-- `return`: Array of exact Dictionary entries with consumer_id, request_id, operation, file_name, caller_status, caller_end_kind, caller_reason, caller_completed_msec, worker_accepted, physical_cancel_requested, settlement_kind, physical_ok, physical_error_code, physical_completed_msec, late_duration_msec, read_failure_kind, write_failure_kind, delete_failure_kind, delete_existing_member_count, delete_removed_member_count, delete_remaining_member_count, and delete_failed_member fields.
+- `return`: Array of exact Dictionary entries with consumer_id, request_id, operation, file_name, caller_status, caller_end_kind, caller_reason, caller_completed_msec, worker_accepted, physical_cancel_requested, settlement_kind, physical_ok, physical_error_code, physical_completed_msec, late_duration_msec, read_failure_kind, write_failure_kind, delete_failure_kind, delete_existing_member_count, delete_removed_member_count, delete_remaining_member_count, delete_failed_member, reset_failure_kind, reset_source_kind, reset_failed_phase, reset_retired_member_count, reset_recreated_member_count, reset_remaining_evidence_count, and reset_failed_member fields.
 
 <a id="member-gfstorageutility-methods-wait_for_async_tasks"></a>
 
@@ -917,7 +987,7 @@ func get_late_settlement_diagnostics() -> Array[Dictionary]:
 func wait_for_async_tasks() -> void:
 ```
 
-等待已经入队和正在执行的异步纯数据任务全部完成。 需要在同一路径上混合同步与异步读写时，可先调用该方法收敛顺序。 Storage executor 的同步执行栈内会拒绝重入等待，避免等待当前调用栈自身完成。
+等待已经入队和正在执行的异步 save/load/delete/reset 任务全部完成。 需要在同一路径上混合同步与异步操作时，可先调用该方法收敛顺序。 Storage executor 的同步执行栈内会拒绝重入等待，避免等待当前调用栈自身完成。
 
 <a id="member-gfstorageutility-methods-migrate_data"></a>
 

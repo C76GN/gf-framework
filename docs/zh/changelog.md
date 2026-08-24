@@ -6,6 +6,7 @@
 
 ### 🚀 新增特性 (Added)
 
+- Storage 新增一次性 `GFStorageFamilyResetAuthorization`、类型化 `GFStorageFamilyResetResult`、`create_family_reset_authorization()`、`reset_file_family()` 与 `reset_file_family_request_async()`：调用方只能用同一 Utility、同一 canonical logical identity 的来源绑定 `CORRUPT` 读取结果授权破坏性 family reset。执行器以持久化 intent、retirement staging 与全新 owner/catalog claim 收敛 structural identity 损坏，并复用同 family FIFO、threaded/cooperative 执行、caller/物理双终态、取消、deadline、quiesce 与迟到诊断。
 - 新增 provider-neutral 的 `GFBoundedJsonObjectReader`：文本与路径入口会在 `JSON.parse()` 前执行不可关闭的 1 MiB/64 层硬上限，只接受 object 根节点并返回固定 8 字段 JSON-safe 报告；既有编辑器四字段 reader 与扩展六字段/累计预算 reader 改为兼容 adapter，保留原报告形状和调用入口。编辑器 adapter 的非正预算会恢复公共默认值；扩展 adapter 在累计预算耗尽时于打开文件前失败，并把字节或词法深度超限持久标记为 `budget_exceeded`。
 - Project Layout 新增 `GFProjectLayoutAnalyzer`、`GFProjectLayoutPlanner` 与 `GFProjectLayoutDock`：页面按用户请求在主线程分帧冻结项目库存，再由同一后台请求连续完成只读分析与候选计划；finding 解释和 move/rename/delete 影响模拟使用绑定同一 generation 与 input digest 的独立后台 query，新请求会取消旧 query 并丢弃陈旧结果。所有后台求值支持协作式取消，并以工作量与 finding 硬上限、稳定 incomplete reason 防止大项目卡死或静默截断。页面不自动扫描，不提供 Apply，也不会创建、移动、重命名、删除或改写项目文件。
 - 新增可选制作期包 `gf.tool.asset_browser`：`GFAssetBrowserModel` 以原子隔离的 `GFAssetCatalog` 快照、稳定选择、有界分页和缩略图任务代际提供 model-first 素材浏览状态；当前不注册 Dock，也不接管目录扫描、Provider、下载、导入或缓存。
@@ -46,7 +47,7 @@
 - `GFStorageUtility` 新增 provider-neutral 的异步执行模式：`AsyncExecutionMode.AUTOMATIC` 默认按 Godot `threads` / `nothreads` 能力选择 threaded 或 cooperative executor，`THREADED` 可要求 activation 在无线程运行时失败关闭，`COOPERATIVE` 则由 lifecycle tick 在主线程推进且不创建 `Thread`。公开 `async_execution_mode` 会在首个合法异步请求后冻结。
 - `GFStorageUtility` 新增 `has_file(logical_path)`；Storage 内部新增分片 catalog 与 opaque UUID family store，把 portable logical identity、owner 和 committed payload 建立可双向审计的稳定映射。
 - Storage 新增 `GFStorageDeleteResult`、`GFStorageAsyncOperation.OPERATION_DELETE` 与 `GFStorageUtility.delete_file_request_async()`：异步删除以逐请求 handle 返回类型化失败分类、有界 family 成员计数和不含物理路径的失败成员分类。
-- Storage 新增 `GFStorageAsyncRequestOptions` 与 `GFStorageAsyncCallerResult`：typed 请求可弱绑定 caller owner、只读 cancellation token 和单调 timeout，并通过 Operation 的独立 caller 终态安全停止观察。`GFStorageUtility.get_late_settlement_diagnostics()` 以不含 payload、Storage root 或私有 family 身份的精确 22 字段 schema，有界保留最近 64 条迟到物理终态。
+- Storage 新增 `GFStorageAsyncRequestOptions` 与 `GFStorageAsyncCallerResult`：typed 请求可弱绑定 caller owner、只读 cancellation token 和单调 timeout，并通过 Operation 的独立 caller 终态安全停止观察。`GFStorageUtility.get_late_settlement_diagnostics()` 以不含 payload、Storage root 或私有 family 身份的精确 29 字段 schema，有界保留最近 64 条迟到物理终态。
 - `GFSaveProfileUtility` 新增全局准备 work budget、单 profile slice budget 和软时间 budget；`GFSaveProfileResult` 新增准备耗时、Storage attempt 累计耗时与准备 work units 诊断。
 - 新增 `GFSaveProfileTransactionCoordinator`、`GFSaveProfileTransactionOperation` 与
   `GFSaveProfileTransactionResult`：在单 Profile 原语之上按精确有序 Provider 身份管理
@@ -187,6 +188,7 @@
 
 ### 🐛 Bug 修复 (Fixed)
 
+- 修复 Settings 把损坏数据恢复为默认值后仍无法覆盖 structural-corrupt Storage family，以及 catalog、owner 或事务 identity 损坏只能永久失败、无法由明确授权重建的问题。reset 现在在任何退休副作用前冻结证据并发布可恢复 intent，崩溃后优先于普通同 family I/O 幂等收敛；未知/future layout、多重有效 identity、来源不匹配、私有 ancestry link/wrong-type 与扫描预算耗尽都会零写失败关闭，未发布的截断 pending staging 可有界清理，已发布的损坏记录仍保留为冲突证据。
 - 修复 `GFStorageUtility` 异步保存、读取和删除在单线程 Web 导出中仍尝试 `Thread.start()`，导致请求启动失败并使依赖真实 Storage 的 Save Profile 无法完成 activation 的问题；默认 `AUTOMATIC` 现在在 `nothreads` 运行时选择 cooperative executor。请求调用栈只入队，正常调度由 `tick N` 接纳、`tick N+1` 执行此前已接纳任务，每个 tick 最多完成一个完整任务，同时保留请求身份、同 family FIFO、取消/deadline、物理终态、事务恢复和 quiesce 语义。
 
 - 修复 AI Developer 只能把生成报告、审计、截图或导出物声明为必须存在的精确文件或普通来源模块、导致尚未生成的输出根使依赖快照不完整的问题；`architecture.modules[].ownership: generated` 现在表示有界、只作为依赖目标的所有权：根可缺失且不参与来源扫描，源码路径引用以 `generated_output` 形成有界依赖证据，既有规范路径、框架保留根、所有权重叠与允许/禁止依赖门禁保持不变。
@@ -335,6 +337,8 @@
 
 ### 🔧 API 变动说明 (API Changes)
 
+- `GFStorageAsyncOperation` 新增 `OPERATION_RESET`；`GFStorageAsyncResult` 新增 `get_reset_result()`，其 exact `to_dict()` schema 新增必需 `reset_result` 字段。`GFStorageUtility.get_late_settlement_diagnostics()` 与框架内部 Operation 诊断的 exact schema 从 22 字段扩展到 29 字段，新增 reset failure/source/phase、retired/recreated/remaining 计数与 failed member。严格 Dictionary 消费者必须在 11.0 主版本迁移线同步升级。
+- `GFStorageReadResult` 的 Storage 来源绑定是不可序列化的 capability evidence：授权资格字段 `ok`、`error_code` 与 `failure_kind` 仍匹配签发快照时，`duplicate_result()` 保留绑定；`to_dict()` / `from_dict()`、`configure_success()`、`configure_failure()` 与 `apply_dict()` 不保留。新 `GFStorageFamilyResetAuthorization` 只接受同一 Utility 与目标 logical identity 的来源绑定结果，并按 attempt 一次性消费。
 - AI Developer 工具协议升级到 `5.0.0`，项目 Snapshot schema 升级到 v5；`module_dependency_analysis.edges[].kinds` 与 `evidence[].kind` 的闭合集合新增 `generated_output`。项目 Contract 仍为 schema v2，既有 `project`、模块型 `external_adapter`、framework Adapter 与精确 `owned_resources` 形状不变。
 
 - `GFProjectLayoutAnalyzer` 新增无 profile 观察、严格 profile 分析、冻结 snapshot 分析、finding 解释和变更影响模拟入口；`GFProjectLayoutPlanner` 从同一分析摘要生成 `writes_project=false` 的闭合计划；`GFProjectLayoutDock` 提供按需扫描、取消、复制报告和四个只读结果页面。`GFProjectLayoutValidator.validate_*()` 保留为弃用兼容 adapter，`GFProjectLayoutScaffolder` 已移除。
@@ -524,3 +528,4 @@
 85. 所有 Dialogue 存档调用都要先检查 `create_runtime_snapshot().is_empty()`；只持久化非空快照。需要在同步信号中存档时使用 `line_reached` 或 `dialogue_ended`，不要在 `dialogue_started`、由推进调用触发的 condition、mutation 或自动推进回调中缓存中间状态，也不要把空字典送入恢复入口。
 86. 项目若曾为生成报告、审计、截图或导出物逐文件维护 `architecture.owned_resources`，或把其目录声明成普通 `project` 模块，可改为独立的 `architecture.modules` 条目并设置 `ownership: generated`；让实际来源模块在 `allowed_dependencies` 中声明该生成模块。生成根可以尚不存在，工具不会扫描其中内容；不要用裸 `res://`、`res://addons/gf`、重叠根或相似前缀代替精确有界根，也不要把生成物反向视为人类意图来源。直接消费 `.gf/ai/project_snapshot.json` 的工具必须按 `schema_version` 从 v4 切换到 v5、接受 `generated_output` edge kind，并重新生成 Snapshot；不要原地迁移旧文件。
 87. 既有 Storage 与 Save Profile 调用默认无需迁移：保留 `async_execution_mode = AUTOMATIC` 即可让有线程构建继续使用 threaded executor，并让 `nothreads` Web 导出自动使用 cooperative executor。若项目必须保证后台线程并行，应在首个合法异步请求前显式选择 `THREADED`，并确保导出具备 `threads` feature；无线程 activation 会确定性失败。确定性测试或明确的主线程调度可选择 `COOPERATIVE`，但应持续驱动 lifecycle `tick()`，预留单个完整 I/O 可能占用一帧的预算，且不要把 `max_async_thread_count` 当作 cooperative 分片数。模式冻结后需要切换时，等待现有 Utility 收敛并创建新的 Storage 实例；关闭期使用 `wait_for_async_tasks()` 或 `dispose()` 时，应按同步 drain 边界评估阻塞时间。
+88. 处理 Storage structural corruption 时，不要删除或拼接 `.gf-storage` 私有路径，也不要用合成/序列化的 `GFStorageReadResult` 作为授权。保留同一 Utility 对同一 logical identity 返回的来源绑定 `CORRUPT` 结果，用 `create_family_reset_authorization()` 签发一次性 handle，再调用同步或异步 family reset；只有 `GFStorageFamilyResetResult.is_successful()` 为真时才能保存默认值。Settings 的 `ACTION_RESET_TO_DEFAULTS` 只恢复内存，使用 Storage adapter 时还需先完成上述 reset 再 `save_settings()`。reset 失败后原授权已消费，重试必须从授权资格字段 `ok`、`error_code` 与 `failure_kind` 仍匹配签发快照的读取证据签发新 handle。严格解析 `GFStorageAsyncResult.to_dict()` 的代码需加入 `reset_result`，迟到诊断 schema 需从 22 字段升级到 29 字段。

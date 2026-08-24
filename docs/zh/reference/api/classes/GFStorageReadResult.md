@@ -256,7 +256,7 @@ var migrated: bool = false
 func configure_success( p_payload: Dictionary, p_metadata: Dictionary = {}, p_integrity_status: IntegrityStatus = IntegrityStatus.NOT_CHECKED, p_document_schema_version: int = 0 ) -> GFStorageReadResult:
 ```
 
-配置成功结果。
+配置成功结果，并清除任何不透明 Storage 来源绑定。
 
 参数：
 
@@ -285,7 +285,7 @@ func configure_success( p_payload: Dictionary, p_metadata: Dictionary = {}, p_in
 func configure_failure( p_error: String, p_error_code: Error = ERR_INVALID_DATA, p_metadata: Dictionary = {}, p_integrity_status: IntegrityStatus = IntegrityStatus.NOT_CHECKED, p_document_schema_version: int = 0, p_failure_kind: FailureKind = FailureKind.IO_FAILED ) -> GFStorageReadResult:
 ```
 
-配置失败结果。
+配置失败结果，并清除任何不透明 Storage 来源绑定。
 
 参数：
 
@@ -330,7 +330,7 @@ func is_integrity_accepted() -> bool:
 func duplicate_result() -> GFStorageReadResult:
 ```
 
-创建读取结果深拷贝。
+创建读取结果深拷贝。 原对象的授权资格字段仍精确匹配 Storage 签发快照时，副本保留不透明来源绑定； `ok`、`error_code` 或 `failure_kind` 被改写后，副本不会保留该绑定。
 
 返回：新读取结果。
 
@@ -345,7 +345,7 @@ func duplicate_result() -> GFStorageReadResult:
 func to_dict() -> Dictionary:
 ```
 
-转换为线程、报告和工具可传递的字典。
+转换为执行器、报告和工具可传递的字典。 不透明 Storage 来源绑定不会序列化；Dictionary 往返结果不能作为破坏性 family reset 授权证据。
 
 返回：读取结果字典。
 
@@ -364,7 +364,7 @@ func to_dict() -> Dictionary:
 func apply_dict(data: Dictionary) -> void:
 ```
 
-从字典应用读取结果字段。
+从字典应用读取结果字段，并清除任何不透明 Storage 来源绑定。
 
 参数：
 
@@ -387,7 +387,7 @@ func apply_dict(data: Dictionary) -> void:
 static func from_dict(data: Dictionary) -> GFStorageReadResult:
 ```
 
-从字典创建读取结果。
+从字典创建不带 Storage 来源绑定的读取结果。
 
 参数：
 

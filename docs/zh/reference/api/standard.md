@@ -6,11 +6,11 @@
 
 | 类别 | 类 | 成员 | 方法 |
 |---|---:|---:|---:|
-| [运行时服务](#category-runtime_service) | 193 | 3476 | 2356 |
+| [运行时服务](#category-runtime_service) | 193 | 3479 | 2359 |
 | [协议与扩展点](#category-protocol) | 26 | 345 | 273 |
 | [资源定义](#category-resource_definition) | 122 | 1573 | 797 |
-| [运行时句柄](#category-runtime_handle) | 53 | 930 | 595 |
-| [值对象](#category-value_object) | 55 | 964 | 613 |
+| [运行时句柄](#category-runtime_handle) | 54 | 942 | 602 |
+| [值对象](#category-value_object) | 56 | 980 | 625 |
 | [领域模型](#category-domain_model) | 4 | 61 | 42 |
 | [事件契约](#category-event_contract) | 6 | 61 | 23 |
 | [编辑器 API](#category-editor_api) | 11 | 70 | 48 |
@@ -430,6 +430,7 @@
 | [`GFSignalBridgeBinding`](classes/GFSignalBridgeBinding.md#gfsignalbridgebinding) | `RefCounted` | `addons/gf/standard/utilities/signals/bridge/gf_signal_bridge_binding.gd` |
 | [`GFSignalConnection`](classes/GFSignalConnection.md#gfsignalconnection) | `RefCounted` | `addons/gf/standard/utilities/signals/gf_signal_connection.gd` |
 | [`GFStorageAsyncOperation`](classes/GFStorageAsyncOperation.md#gfstorageasyncoperation) | `RefCounted` | `addons/gf/standard/utilities/storage/gf_storage_async_operation.gd` |
+| [`GFStorageFamilyResetAuthorization`](classes/GFStorageFamilyResetAuthorization.md#gfstoragefamilyresetauthorization) | `RefCounted` | `addons/gf/standard/utilities/storage/gf_storage_family_reset_authorization.gd` |
 | [`GFStoragePayloadTransfer`](classes/GFStoragePayloadTransfer.md#gfstoragepayloadtransfer) | `RefCounted` | `addons/gf/standard/utilities/storage/gf_storage_payload_transfer.gd` |
 | [`GFTextGenerationContext`](classes/GFTextGenerationContext.md#gftextgenerationcontext) | `RefCounted` | `addons/gf/standard/foundation/text/gf_text_generation_context.gd` |
 | [`GFTimeoutController`](classes/GFTimeoutController.md#gftimeoutcontroller) | `RefCounted` | `addons/gf/standard/common/gf_timeout_controller.gd` |
@@ -489,6 +490,7 @@
 | [`GFStorageAsyncResult`](classes/GFStorageAsyncResult.md#gfstorageasyncresult) | `RefCounted` | `addons/gf/standard/utilities/storage/gf_storage_async_result.gd` |
 | [`GFStorageConflictReport`](classes/GFStorageConflictReport.md#gfstorageconflictreport) | `Resource` | `addons/gf/standard/utilities/storage/gf_storage_conflict_report.gd` |
 | [`GFStorageDeleteResult`](classes/GFStorageDeleteResult.md#gfstoragedeleteresult) | `RefCounted` | `addons/gf/standard/utilities/storage/gf_storage_delete_result.gd` |
+| [`GFStorageFamilyResetResult`](classes/GFStorageFamilyResetResult.md#gfstoragefamilyresetresult) | `RefCounted` | `addons/gf/standard/utilities/storage/gf_storage_family_reset_result.gd` |
 | [`GFStorageReadResult`](classes/GFStorageReadResult.md#gfstoragereadresult) | `RefCounted` | `addons/gf/standard/utilities/storage/gf_storage_read_result.gd` |
 | [`GFStorageSectionCache`](classes/GFStorageSectionCache.md#gfstoragesectioncache) | `RefCounted` | `addons/gf/standard/utilities/storage/gf_storage_section_cache.gd` |
 | [`GFTableRowPredicateRegistration`](classes/GFTableRowPredicateRegistration.md#gftablerowpredicateregistration) | `RefCounted` | `addons/gf/standard/utilities/ui/gf_table_row_predicate_registration.gd` |

@@ -271,6 +271,7 @@
       "res://tests/gf_core/standard/utilities/storage/test_gf_storage_codec.gd",
       "res://tests/gf_core/standard/utilities/storage/test_gf_storage_delete_operation.gd",
       "res://tests/gf_core/standard/utilities/storage/test_gf_storage_delete_result.gd",
+      "res://tests/gf_core/standard/utilities/storage/test_gf_storage_family_reset.gd",
       "res://tests/gf_core/standard/utilities/storage/test_gf_storage_family_store.gd",
       "res://tests/gf_core/standard/utilities/storage/test_gf_storage_payload_transfer.gd",
       "res://tests/gf_core/standard/utilities/storage/test_gf_storage_sync_utility.gd",

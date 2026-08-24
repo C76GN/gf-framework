@@ -105,6 +105,18 @@ const _DELETE_MEMBER_TRANSACTION_COMMIT: StringName = &"transaction_commit"
 const _DELETE_MEMBER_CANDIDATE: StringName = &"candidate"
 const _DELETE_MEMBER_RESOURCE_STAGE: StringName = &"resource_stage"
 const _DELETE_MEMBER_FINAL: StringName = &"final"
+const _RESET_MEMBER_CATALOG: StringName = &"catalog"
+const _RESET_MEMBER_FAMILY_CONTAINER: StringName = &"family_container"
+const _RESET_MEMBER_INTENT: StringName = &"reset_intent"
+const _RESET_INTENT_SCHEMA: String = "gf.storage.family-reset-intent"
+const _RESET_INTENT_SCHEMA_VERSION: int = 1
+const _RESET_STAGING_SEPARATOR: String = ".reset-"
+const _RESET_INTENT_SUFFIX: String = ".intent.json"
+const _RESET_MAX_INTENT_BYTES: int = 16 * 1024
+const _RESET_MAX_TREE_DEPTH: int = 16
+const _RESET_MAX_TREE_ENTRIES: int = 1024
+const _RESET_MAX_SHARD_ENTRIES: int = 256
+const _RESET_MAX_PENDING_INTENTS: int = 1024
 
 ## 递归枚举文件时默认允许进入的最大目录深度。
 ## [br]
@@ -286,6 +298,7 @@ var _next_async_request_id: int = 1
 var _next_async_consumer_id: int = 1
 var _next_async_record_id: int = 1
 var _next_async_transaction_id: int = 1
+var _next_family_reset_authorization_id: int = 1
 var _async_scheduler_running: bool = false
 var _async_scheduler_requested: bool = false
 var _async_start_only_running: bool = false
@@ -303,6 +316,7 @@ var _path_policy: _StoragePathPolicy
 var _file_ops: _StorageFileOps
 var _family_store: GFStorageFamilyStore
 var _transaction_manager: _StorageTransactionManager
+var _read_result_origin_token: String = ""
 var _storage_root_frozen: bool = false
 var _storage_reconciled: bool = false
 
@@ -310,6 +324,7 @@ var _storage_reconciled: bool = false
 # --- Godot 生命周期方法 ---
 
 func _init() -> void:
+	_read_result_origin_token = GFUuid.generate_v4()
 	_ensure_storage_helpers()
 
 
@@ -460,6 +475,8 @@ func save_resource(file_name: String, resource: Resource) -> Error:
 	init()
 	if not _wait_for_async_tasks_for_file(file_name):
 		return ERR_BUSY
+	if not _is_sync_io_admission_current():
+		return ERR_UNAVAILABLE
 	var prepare_error: Error = _prepare_family_for_write(file_name)
 	if prepare_error != OK:
 		return prepare_error
@@ -518,6 +535,8 @@ func load_resource(file_name: String, type_hint: String = "") -> Resource:
 
 	init()
 	if not _wait_for_async_tasks_for_file(file_name):
+		return null
+	if not _is_sync_io_admission_current():
 		return null
 	var prepare_error: Error = _prepare_family_for_read(file_name)
 	if prepare_error != OK:
@@ -597,6 +616,10 @@ func list_files(
 		or _family_store != family_store_at_entry
 	):
 		return PackedStringArray()
+	readiness_error = _ensure_storage_ready()
+	if readiness_error != OK:
+		push_error("[GFStorageUtility] list_files 无法收敛 Storage 恢复，错误码：%s" % readiness_error)
+		return PackedStringArray()
 	var recovery_error: Error = _transaction_manager._recover_all_catalog_transactions()
 	if recovery_error != OK:
 		_storage_reconciled = false
@@ -640,6 +663,8 @@ func has_file(file_name: String) -> bool:
 	init()
 	if not _wait_for_async_tasks_for_file(file_name):
 		return false
+	if not _is_sync_io_admission_current():
+		return false
 	if _prepare_family_for_read(file_name) != OK:
 		return false
 	return _family_store.has_file_for_framework(_make_family_descriptor(file_name))
@@ -670,6 +695,8 @@ func delete_file(file_name: String) -> Error:
 
 	if not _wait_for_async_tasks_for_file(canonical_file_name):
 		return ERR_BUSY
+	if not _is_sync_io_admission_current():
+		return ERR_UNAVAILABLE
 	var worker_result: Dictionary = _delete_file_thread(
 		GFVariantData.get_option_string(target_family, "storage_root_path"),
 		canonical_file_name
@@ -709,6 +736,174 @@ func delete_file_request_async(
 	return operation
 
 
+## 为一次显式的破坏性 family reset 创建绑定授权。
+##
+## 只有当前 GFStorageUtility 对同一 logical identity 返回的 CORRUPT 读取结果才可
+## 创建授权。授权冻结 Utility、Storage root 与 canonical logical identity，且只能消费一次。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param file_name: portable logical file identity。
+## [br]
+## @param observed_result: 调用方已经检查并决定破坏性恢复的 CORRUPT 读取结果。
+## [br]
+## @return 可用的一次性授权；输入或读取分类不匹配时返回 stale 授权。
+func create_family_reset_authorization(
+	file_name: String,
+	observed_result: GFStorageReadResult
+) -> GFStorageFamilyResetAuthorization:
+	var authorization: GFStorageFamilyResetAuthorization = (
+		GFStorageFamilyResetAuthorization.new()
+	)
+	if (
+		not _io_admission_open
+		or observed_result == null
+		or observed_result.ok
+		or observed_result.error_code == OK
+		or observed_result.failure_kind != GFStorageReadResult.FailureKind.CORRUPT
+		or not _validate_public_file_name(file_name, "create_family_reset_authorization")
+	):
+		return authorization
+	var canonical_file_name: String = _canonicalize_storage_file_name(file_name)
+	if canonical_file_name.is_empty():
+		return authorization
+	var target_family: Dictionary = _make_async_target_family(canonical_file_name)
+	if (
+		target_family.is_empty()
+		or not observed_result.matches_origin_for_framework(
+			get_instance_id(),
+			canonical_file_name,
+			GFVariantData.get_option_string(target_family, "file_key"),
+			_read_result_origin_token
+		)
+	):
+		return authorization
+	target_family = _freeze_async_target_family(canonical_file_name)
+	if target_family.is_empty():
+		return authorization
+	var authorization_id: int = _next_family_reset_authorization_id
+	_next_family_reset_authorization_id += 1
+	if _next_family_reset_authorization_id <= 0:
+		_next_family_reset_authorization_id = 1
+	var _configured: bool = authorization.configure_for_framework(
+		authorization_id,
+		get_instance_id(),
+		canonical_file_name,
+		GFVariantData.get_option_string(target_family, "file_key"),
+		GFStorageFamilyResetAuthorization.REASON_CORRUPT
+	)
+	return authorization
+
+
+## 同步 retire 并重新 claim 一个显式授权的 logical family。
+##
+## 该入口与同 family 的异步 save/load/delete/reset 串行。missing target 与 future layout
+## 都在零写入前失败；同执行栈仍有该 family 工作时以 ERR_BUSY / UNAVAILABLE 拒绝。
+## 结果不暴露任何 private path 或 retirement staging 名称。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param file_name: 必须与 authorization 绑定完全一致的 portable logical identity。
+## [br]
+## @param authorization: 由 create_family_reset_authorization() 创建的一次性授权。
+## [br]
+## @return reset/recreate 的不可变 typed 终态。
+func reset_file_family(
+	file_name: String,
+	authorization: GFStorageFamilyResetAuthorization
+) -> GFStorageFamilyResetResult:
+	if not _io_admission_open:
+		return _make_reset_result(
+			ERR_UNAVAILABLE,
+			GFStorageFamilyResetResult.FailureKind.UNAVAILABLE,
+			GFStorageFamilyResetResult.SourceKind.UNKNOWN,
+			GFStorageFamilyResetResult.Phase.PREFLIGHT,
+			0,
+			0,
+			0,
+			GFStorageFamilyResetResult.FamilyMember.NONE
+		)
+	if not _validate_public_file_name(file_name, "reset_file_family"):
+		return _make_reset_invalid_result()
+	var canonical_file_name: String = _canonicalize_storage_file_name(file_name)
+	if canonical_file_name.is_empty():
+		return _make_reset_invalid_result()
+	var target_family: Dictionary = _freeze_async_target_family(canonical_file_name)
+	if target_family.is_empty():
+		return _make_reset_invalid_result()
+	if not _wait_for_async_tasks_for_file(canonical_file_name):
+		return _make_reset_result(
+			ERR_BUSY,
+			GFStorageFamilyResetResult.FailureKind.UNAVAILABLE,
+			GFStorageFamilyResetResult.SourceKind.UNKNOWN,
+			GFStorageFamilyResetResult.Phase.PREFLIGHT,
+			0,
+			0,
+			0,
+			GFStorageFamilyResetResult.FamilyMember.NONE
+		)
+	if not _is_sync_io_admission_current():
+		return _make_reset_result(
+			ERR_UNAVAILABLE,
+			GFStorageFamilyResetResult.FailureKind.UNAVAILABLE,
+			GFStorageFamilyResetResult.SourceKind.UNKNOWN,
+			GFStorageFamilyResetResult.Phase.PREFLIGHT,
+			0,
+			0,
+			0,
+			GFStorageFamilyResetResult.FamilyMember.NONE
+		)
+	if not _claim_family_reset_authorization(
+		authorization,
+		canonical_file_name,
+		target_family
+	):
+		return _make_reset_unauthorized_result()
+	return _make_reset_result_from_worker(
+		_reset_file_family_thread(
+			GFVariantData.get_option_string(target_family, "storage_root_path"),
+			canonical_file_name
+		)
+	)
+
+
+## 通过当前 Storage executor 异步 retire 并重新 claim 一个显式授权的 logical family。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param file_name: 必须与 authorization 绑定完全一致的 portable logical identity。
+## [br]
+## @param authorization: 由 create_family_reset_authorization() 创建的一次性授权。
+## [br]
+## @param options: 可选 caller owner、取消 token 与单调 deadline。
+## [br]
+## @return 请求专属句柄；终态通过 GFStorageAsyncResult.get_reset_result() 读取。
+func reset_file_family_request_async(
+	file_name: String,
+	authorization: GFStorageFamilyResetAuthorization,
+	options: GFStorageAsyncRequestOptions = null
+) -> GFStorageAsyncOperation:
+	var operation: GFStorageAsyncOperation = _make_async_operation(
+		GFStorageAsyncOperation.OPERATION_RESET,
+		options
+	)
+	if operation.is_completed():
+		return operation
+	var _error: Error = _enqueue_async_reset(
+		file_name,
+		authorization,
+		operation,
+		"reset_file_family_request_async"
+	)
+	return operation
+
+
 # --- 公共方法（纯数据存取） ---
 
 ## 保存纯字典数据。
@@ -731,6 +926,8 @@ func save_data(file_name: String, data: Dictionary) -> Error:
 	init()
 	if not _wait_for_async_tasks_for_file(file_name):
 		return ERR_BUSY
+	if not _is_sync_io_admission_current():
+		return ERR_UNAVAILABLE
 	var prepare_error: Error = _prepare_family_for_write(file_name)
 	if prepare_error != OK:
 		return prepare_error
@@ -801,6 +998,15 @@ func save_data_group(files: Dictionary) -> Error:
 	for file_name: String in file_names:
 		if not _wait_for_async_tasks_for_file(file_name):
 			return ERR_BUSY
+		if not _is_sync_io_admission_current():
+			return ERR_UNAVAILABLE
+	for file_name: String in file_names:
+		var reset_recovery_error: Error = _resume_pending_reset_for_file(
+			_get_save_base_path(),
+			file_name
+		)
+		if reset_recovery_error != OK:
+			return reset_recovery_error
 	for file_name: String in file_names:
 		var claim_error: Error = _family_store.claim_family_for_framework(
 			_make_family_descriptor(file_name)
@@ -841,6 +1047,7 @@ func load_data(file_name: String) -> GFStorageReadResult:
 			ERR_UNAVAILABLE,
 			GFStorageReadResult.FailureKind.UNAVAILABLE
 		)
+		_bind_read_result_origin(last_load_result, file_name)
 		return last_load_result.duplicate_result()
 	if not _validate_public_file_name(file_name, "load_data"):
 		last_load_result = _make_load_failure(
@@ -850,7 +1057,15 @@ func load_data(file_name: String) -> GFStorageReadResult:
 		)
 		return last_load_result.duplicate_result()
 
-	init()
+	ignore_pause = true
+	var readiness_error: Error = _ensure_storage_ready()
+	if readiness_error != OK:
+		last_load_result = _make_load_failure(
+			"Storage recovery is unavailable",
+			readiness_error,
+			_classify_readiness_load_failure(readiness_error)
+		)
+		return last_load_result.duplicate_result()
 	if not _wait_for_async_tasks_for_file(file_name):
 		last_load_result = _make_load_failure(
 			"Storage file is still settling an async result.",
@@ -858,7 +1073,22 @@ func load_data(file_name: String) -> GFStorageReadResult:
 			GFStorageReadResult.FailureKind.UNAVAILABLE
 		)
 		return last_load_result.duplicate_result()
-	var prepare_error: Error = _prepare_family_for_read(file_name)
+	if not _is_sync_io_admission_current():
+		last_load_result = _make_load_failure(
+			"Storage I/O admission closed while waiting for async work.",
+			ERR_UNAVAILABLE,
+			GFStorageReadResult.FailureKind.UNAVAILABLE
+		)
+		return last_load_result.duplicate_result()
+	readiness_error = _ensure_storage_ready()
+	if readiness_error != OK:
+		last_load_result = _make_load_failure(
+			"Storage recovery is unavailable",
+			readiness_error,
+			_classify_readiness_load_failure(readiness_error)
+		)
+		return last_load_result.duplicate_result()
+	var prepare_error: Error = _prepare_family_for_read_after_readiness(file_name)
 	if prepare_error != OK:
 		var failure_kind: GFStorageReadResult.FailureKind = _classify_load_failure(
 			prepare_error
@@ -868,6 +1098,7 @@ func load_data(file_name: String) -> GFStorageReadResult:
 			prepare_error,
 			failure_kind
 		)
+		_bind_read_result_origin(last_load_result, file_name)
 		return last_load_result.duplicate_result()
 	return _read_json(file_name)
 
@@ -1027,13 +1258,13 @@ func load_data_request_async(
 ## [br]
 ## @return 最旧到最新排列的有界 late settlement 诊断副本。
 ## [br]
-## @schema return: Array of exact Dictionary entries with consumer_id, request_id, operation, file_name, caller_status, caller_end_kind, caller_reason, caller_completed_msec, worker_accepted, physical_cancel_requested, settlement_kind, physical_ok, physical_error_code, physical_completed_msec, late_duration_msec, read_failure_kind, write_failure_kind, delete_failure_kind, delete_existing_member_count, delete_removed_member_count, delete_remaining_member_count, and delete_failed_member fields.
+## @schema return: Array of exact Dictionary entries with consumer_id, request_id, operation, file_name, caller_status, caller_end_kind, caller_reason, caller_completed_msec, worker_accepted, physical_cancel_requested, settlement_kind, physical_ok, physical_error_code, physical_completed_msec, late_duration_msec, read_failure_kind, write_failure_kind, delete_failure_kind, delete_existing_member_count, delete_removed_member_count, delete_remaining_member_count, delete_failed_member, reset_failure_kind, reset_source_kind, reset_failed_phase, reset_retired_member_count, reset_recreated_member_count, reset_remaining_evidence_count, and reset_failed_member fields.
 func get_late_settlement_diagnostics() -> Array[Dictionary]:
 	return _async_late_settlements.duplicate(true)
 
 
-## 等待已经入队和正在执行的异步纯数据任务全部完成。
-## 需要在同一路径上混合同步与异步读写时，可先调用该方法收敛顺序。
+## 等待已经入队和正在执行的异步 save/load/delete/reset 任务全部完成。
+## 需要在同一路径上混合同步与异步操作时，可先调用该方法收敛顺序。
 ## Storage executor 的同步执行栈内会拒绝重入等待，避免等待当前调用栈自身完成。
 ## [br]
 ## @api public
@@ -1217,7 +1448,7 @@ func has_async_thread_capability_for_framework() -> bool:
 ## [br]
 ## @since unreleased
 ## [br]
-## @param task_type: `save`、`load` 或 `delete`。
+## @param task_type: `save`、`load`、`delete` 或 `reset`。
 ## [br]
 ## @param thread: 由 Utility 为当前请求独占创建的线程。
 ## [br]
@@ -1232,7 +1463,7 @@ func start_async_worker_for_framework(
 	if (
 		thread == null
 		or not callback.is_valid()
-		or task_type not in [&"save", &"load", &"delete"]
+		or task_type not in [&"save", &"load", &"delete", &"reset"]
 	):
 		return ERR_INVALID_PARAMETER
 	return thread.start(callback)
@@ -1343,6 +1574,93 @@ func remove_delete_family_member_for_framework(
 	return _remove_absolute_file(path)
 
 
+## 原子移动一个由 exact reset descriptor 派生的 identity root。
+## [br]
+## @api framework_internal
+## [br]
+## @layer standard/utilities/storage
+## [br]
+## @since unreleased
+## [br]
+## @param member_kind: catalog 或 family_container。
+## [br]
+## @param source_path: exact 或 retirement identity root。
+## [br]
+## @param target_path: 同一 identity 的对应 retirement 或 rollback 位置。
+## [br]
+## @return 原子 rename 的 Error；参数无效时返回 ERR_INVALID_PARAMETER。
+func move_reset_family_member_for_framework(
+	member_kind: StringName,
+	source_path: String,
+	target_path: String
+) -> Error:
+	if (
+		member_kind not in [_RESET_MEMBER_CATALOG, _RESET_MEMBER_FAMILY_CONTAINER]
+		or source_path.is_empty()
+		or target_path.is_empty()
+		or source_path == target_path
+		or _absolute_storage_leaf_exists(target_path)
+	):
+		return ERR_INVALID_PARAMETER
+	if not _absolute_storage_leaf_exists(source_path):
+		return ERR_FILE_NOT_FOUND
+	return DirAccess.rename_absolute(source_path, target_path)
+
+
+## 删除一个 exact reset intent 或 retirement identity root。
+## [br]
+## @api framework_internal
+## [br]
+## @layer standard/utilities/storage
+## [br]
+## @since unreleased
+## [br]
+## @param member_kind: catalog、family_container 或 reset_intent。
+## [br]
+## @param path: 已由 exact descriptor 与 reset ID 派生的私有绝对路径。
+## [br]
+## @return 删除成功或成员已不存在时返回 OK。
+func remove_reset_family_member_for_framework(
+	member_kind: StringName,
+	path: String
+) -> Error:
+	if (
+		path.is_empty()
+		or member_kind not in [
+			_RESET_MEMBER_CATALOG,
+			_RESET_MEMBER_FAMILY_CONTAINER,
+			_RESET_MEMBER_INTENT,
+		]
+	):
+		return ERR_INVALID_PARAMETER
+	var entry_budget: Array[int] = [_RESET_MAX_TREE_ENTRIES]
+	return _remove_reset_tree(path, 0, entry_budget)
+
+
+## 执行 reset recreate claim；测试替身可在精确发布边界注入故障。
+## [br]
+## @api framework_internal
+## [br]
+## @layer standard/utilities/storage
+## [br]
+## @since unreleased
+## [br]
+## @param family_store: 已绑定冻结 Storage root 的 family store。
+## [br]
+## @param descriptor: 当前 logical family 的精确 descriptor。
+## [br]
+## @schema descriptor: Dictionary，必须精确匹配 make_family_descriptor_for_framework() 的固定字段与派生路径。
+## [br]
+## @return claim 的 Godot Error。
+func claim_reset_family_for_framework(
+	family_store: GFStorageFamilyStore,
+	descriptor: Dictionary
+) -> Error:
+	if family_store == null or descriptor.is_empty():
+		return ERR_INVALID_PARAMETER
+	return family_store.claim_family_for_framework(descriptor)
+
+
 # --- 私有/辅助方法 ---
 
 func _make_async_operation(
@@ -1426,6 +1744,17 @@ func _complete_invalid_async_consumer(operation: GFStorageAsyncOperation) -> voi
 				GFStorageAsyncResult.WriteFailureKind.NONE,
 				{},
 				delete_result
+			)
+		GFStorageAsyncOperation.OPERATION_RESET:
+			var reset_result: GFStorageFamilyResetResult = _make_reset_invalid_result()
+			_complete_async_operation(
+				operation,
+				reset_result.get_error_code(),
+				null,
+				GFStorageAsyncResult.WriteFailureKind.NONE,
+				{},
+				null,
+				reset_result
 			)
 
 
@@ -1571,7 +1900,17 @@ func _enqueue_async_save(
 		var _updated: bool = operation.set_file_name_for_framework(canonical_file_name)
 		if _cancel_async_operation_before_queue_if_needed(operation):
 			return ERR_SKIP
-	init()
+	ignore_pause = true
+	var readiness_error: Error = _ensure_storage_ready()
+	if readiness_error != OK:
+		_complete_async_operation(
+			operation,
+			readiness_error,
+			null,
+			_classify_readiness_write_failure(readiness_error)
+		)
+		save_completed.emit(file_name, readiness_error)
+		return readiness_error
 	var target_family: Dictionary = _make_async_target_family(canonical_file_name)
 	_queue_async_task({
 		"type": &"save",
@@ -1639,7 +1978,17 @@ func _enqueue_async_payload_save(
 	if _cancel_async_operation_before_queue_if_needed(operation):
 		return ERR_SKIP
 
-	init()
+	ignore_pause = true
+	var readiness_error: Error = _ensure_storage_ready()
+	if readiness_error != OK:
+		_complete_async_operation(
+			operation,
+			readiness_error,
+			null,
+			_classify_readiness_write_failure(readiness_error)
+		)
+		save_completed.emit(file_name, readiness_error)
+		return readiness_error
 	var target_family: Dictionary = _make_async_target_family(canonical_file_name)
 	var target_file_key: String = GFVariantData.get_option_string(
 		target_family,
@@ -1742,7 +2091,22 @@ func _enqueue_async_load(
 		var _updated: bool = operation.set_file_name_for_framework(canonical_file_name)
 		if _cancel_async_operation_before_queue_if_needed(operation):
 			return ERR_SKIP
-	init()
+	ignore_pause = true
+	var readiness_error: Error = _ensure_storage_ready()
+	if readiness_error != OK:
+		var readiness_result: GFStorageReadResult = _make_load_failure(
+			"Storage readiness failed: %s" % error_string(readiness_error),
+			readiness_error,
+			_classify_readiness_load_failure(readiness_error)
+		)
+		last_load_result = readiness_result.duplicate_result()
+		_complete_async_operation(
+			operation,
+			readiness_error,
+			readiness_result
+		)
+		load_completed.emit(file_name, readiness_result.duplicate_result())
+		return readiness_error
 	var target_family: Dictionary = _make_async_target_family(canonical_file_name)
 	_queue_async_task({
 		"type": &"load",
@@ -1904,13 +2268,130 @@ func _enqueue_async_delete(
 	return OK
 
 
+func _enqueue_async_reset(
+	file_name: String,
+	authorization: GFStorageFamilyResetAuthorization,
+	operation: GFStorageAsyncOperation,
+	operation_name: String
+) -> Error:
+	if _is_disposing or not _io_admission_open:
+		var unavailable_result: GFStorageFamilyResetResult = _make_reset_result(
+			ERR_UNAVAILABLE,
+			GFStorageFamilyResetResult.FailureKind.UNAVAILABLE,
+			GFStorageFamilyResetResult.SourceKind.UNKNOWN,
+			GFStorageFamilyResetResult.Phase.PREFLIGHT,
+			0,
+			0,
+			0,
+			GFStorageFamilyResetResult.FamilyMember.NONE
+		)
+		_complete_async_operation(
+			operation,
+			unavailable_result.get_error_code(),
+			null,
+			GFStorageAsyncResult.WriteFailureKind.NONE,
+			{},
+			null,
+			unavailable_result
+		)
+		return ERR_UNAVAILABLE
+
+	var canonical_file_name: String = ""
+	if _validate_public_file_name(file_name, operation_name):
+		canonical_file_name = _canonicalize_storage_file_name(file_name)
+	if canonical_file_name.is_empty():
+		var invalid_result: GFStorageFamilyResetResult = _make_reset_invalid_result()
+		_complete_async_operation(
+			operation,
+			invalid_result.get_error_code(),
+			null,
+			GFStorageAsyncResult.WriteFailureKind.NONE,
+			{},
+			null,
+			invalid_result
+		)
+		return ERR_INVALID_PARAMETER
+
+	if operation != null:
+		var file_name_updated: bool = operation.set_file_name_for_framework(canonical_file_name)
+		if not file_name_updated:
+			var identity_result: GFStorageFamilyResetResult = _make_reset_invalid_result()
+			_complete_async_operation(
+				operation,
+				identity_result.get_error_code(),
+				null,
+				GFStorageAsyncResult.WriteFailureKind.NONE,
+				{},
+				null,
+				identity_result
+			)
+			return ERR_INVALID_PARAMETER
+		if _cancel_async_operation_before_queue_if_needed(operation):
+			return ERR_SKIP
+
+	var target_family: Dictionary = _freeze_async_target_family(canonical_file_name)
+	if target_family.is_empty():
+		var target_result: GFStorageFamilyResetResult = _make_reset_invalid_result()
+		_complete_async_operation(
+			operation,
+			target_result.get_error_code(),
+			null,
+			GFStorageAsyncResult.WriteFailureKind.NONE,
+			{},
+			null,
+			target_result
+		)
+		return ERR_INVALID_PARAMETER
+	if not _claim_family_reset_authorization(
+		authorization,
+		canonical_file_name,
+		target_family
+	):
+		var unauthorized_result: GFStorageFamilyResetResult = (
+			_make_reset_unauthorized_result()
+		)
+		_complete_async_operation(
+			operation,
+			unauthorized_result.get_error_code(),
+			null,
+			GFStorageAsyncResult.WriteFailureKind.NONE,
+			{},
+			null,
+			unauthorized_result
+		)
+		return ERR_UNAUTHORIZED
+
+	_queue_async_task({
+		"type": &"reset",
+		"file_name": file_name,
+		"storage_file_name": canonical_file_name,
+		"storage_root_path": GFVariantData.get_option_string(target_family, "storage_root_path"),
+		"family_id": GFVariantData.get_option_string(target_family, "family_id"),
+		"file_key": GFVariantData.get_option_string(target_family, "file_key"),
+		"catalog_path": GFVariantData.get_option_string(target_family, "catalog_path"),
+		"owner_path": GFVariantData.get_option_string(target_family, "owner_path"),
+		"final_path": GFVariantData.get_option_string(target_family, "final_path"),
+		"temp_path": GFVariantData.get_option_string(target_family, "temp_path"),
+		"backup_path": GFVariantData.get_option_string(target_family, "backup_path"),
+		"transaction_path": GFVariantData.get_option_string(target_family, "transaction_path"),
+		"transaction_pending_path": GFVariantData.get_option_string(target_family, "transaction_pending_path"),
+		"transaction_commit_path": GFVariantData.get_option_string(target_family, "transaction_commit_path"),
+		"transaction_commit_pending_path": GFVariantData.get_option_string(target_family, "transaction_commit_pending_path"),
+		"resource_stage_path": GFVariantData.get_option_string(target_family, "resource_stage_path"),
+		"operation": operation,
+	})
+	_request_async_start_only()
+	return OK
+
+
 func _complete_async_operation(
 	operation: GFStorageAsyncOperation,
 	error_code: Error,
 	read_result: GFStorageReadResult,
 	write_failure_kind: GFStorageAsyncResult.WriteFailureKind = GFStorageAsyncResult.WriteFailureKind.NONE,
 	write_validation_report: Dictionary = {},
-	delete_result: GFStorageDeleteResult = null
+	delete_result: GFStorageDeleteResult = null,
+	reset_result: GFStorageFamilyResetResult = null
 ) -> void:
 	if operation == null or operation.is_completed():
 		return
@@ -1920,10 +2401,12 @@ func _complete_async_operation(
 		GFStorageAsyncOperation.OPERATION_SAVE:
 			read_result = null
 			delete_result = null
+			reset_result = null
 		GFStorageAsyncOperation.OPERATION_LOAD:
 			write_failure_kind = GFStorageAsyncResult.WriteFailureKind.NONE
 			write_validation_report = {}
 			delete_result = null
+			reset_result = null
 		GFStorageAsyncOperation.OPERATION_DELETE:
 			read_result = null
 			write_failure_kind = GFStorageAsyncResult.WriteFailureKind.NONE
@@ -1931,12 +2414,23 @@ func _complete_async_operation(
 			if delete_result == null or not delete_result.is_configured_for_framework():
 				delete_result = _make_delete_result_fallback()
 			error_code = delete_result.get_error_code()
+			reset_result = null
+		GFStorageAsyncOperation.OPERATION_RESET:
+			read_result = null
+			write_failure_kind = GFStorageAsyncResult.WriteFailureKind.NONE
+			write_validation_report = {}
+			delete_result = null
+			if reset_result == null or not reset_result.is_configured_for_framework():
+				reset_result = _make_reset_result_fallback()
+			error_code = reset_result.get_error_code()
 
 	var ok: bool = error_code == OK
 	if operation_kind == GFStorageAsyncOperation.OPERATION_LOAD:
 		ok = read_result != null and read_result.ok
 	elif operation_kind == GFStorageAsyncOperation.OPERATION_DELETE:
 		ok = delete_result != null and delete_result.is_successful()
+	elif operation_kind == GFStorageAsyncOperation.OPERATION_RESET:
+		ok = reset_result != null and reset_result.is_successful()
 	var result: GFStorageAsyncResult = GFStorageAsyncResult.new()
 	var configured: bool = result.configure_for_framework(
 		operation.get_request_id(),
@@ -1947,7 +2441,9 @@ func _complete_async_operation(
 		read_result,
 		write_failure_kind,
 		write_validation_report,
-		delete_result
+		delete_result,
+		GFStorageAsyncResult.SettlementKind.DOMAIN_RESULT,
+		reset_result
 	)
 	if not configured:
 		result = _make_async_operation_fallback_result(operation)
@@ -2049,6 +2545,21 @@ func _make_async_operation_fallback_result(
 				{},
 				delete_failure
 			)
+		GFStorageAsyncOperation.OPERATION_RESET:
+			var reset_failure: GFStorageFamilyResetResult = _make_reset_result_fallback()
+			configured = result.configure_for_framework(
+				operation.get_request_id(),
+				operation.get_operation(),
+				operation.get_file_name(),
+				false,
+				reset_failure.get_error_code(),
+				null,
+				GFStorageAsyncResult.WriteFailureKind.NONE,
+				{},
+				null,
+				GFStorageAsyncResult.SettlementKind.DOMAIN_RESULT,
+				reset_failure
+			)
 	return result if configured else null
 
 
@@ -2100,6 +2611,25 @@ func _has_pending_async_task_for_file(file_name: String) -> bool:
 	return false
 
 
+func _is_sync_io_admission_current() -> bool:
+	return (
+		_io_admission_open
+		and not _is_disposing
+		and not _async_deferred_dispose_requested
+	)
+
+
+func _has_async_executor_work() -> bool:
+	return (
+		not _async_queue.is_empty()
+		or not _async_tasks.is_empty()
+		or not _async_file_locks.is_empty()
+		or not _async_settling_records.is_empty()
+		or _async_execution_depth > 0
+		or _async_completion_depth > 0
+	)
+
+
 func _ensure_storage_helpers() -> void:
 	if _path_policy == null:
 		_path_policy = _StoragePathPolicy.new(self)
@@ -2126,6 +2656,12 @@ func _ensure_storage_layout_ready() -> Error:
 	var storage_root_path: String = _get_save_base_path()
 	if storage_root_path.is_empty():
 		return ERR_INVALID_PARAMETER
+	var ancestry_error: Error = _validate_reset_mutation_ancestry(
+		storage_root_path,
+		{}
+	)
+	if ancestry_error != OK:
+		return ancestry_error
 	if not _family_store.configure_for_framework(storage_root_path):
 		return ERR_INVALID_PARAMETER
 	_storage_root_frozen = true
@@ -2140,11 +2676,247 @@ func _ensure_storage_ready() -> Error:
 	if layout_error != OK:
 		return layout_error
 	if not _storage_reconciled:
+		# 全局恢复会触及多个 family；异步执行器持有任何 ownership 时只确认 layout，
+		# 让当前 worker 在自己的 file lock 内走精确 per-family 恢复，并把全局扫描延后到 idle。
+		if _has_async_executor_work():
+			return OK
+		var reset_recovery_error: Error = _recover_all_pending_family_resets()
+		if reset_recovery_error != OK:
+			return reset_recovery_error
 		var recovery_error: Error = _transaction_manager._recover_all_catalog_transactions()
 		if recovery_error != OK:
 			return recovery_error
 		_storage_reconciled = true
 	return OK
+
+
+func _recover_all_pending_family_resets() -> Error:
+	var storage_root_path: String = _get_save_base_path()
+	if storage_root_path.is_empty():
+		return ERR_INVALID_PARAMETER
+	var ancestry_error: Error = _validate_reset_mutation_ancestry(
+		storage_root_path,
+		{}
+	)
+	if ancestry_error != OK:
+		return ancestry_error
+	var families_root: String = storage_root_path.path_join(
+		".gf-storage/v1/families"
+	)
+	if not DirAccess.dir_exists_absolute(families_root):
+		return OK
+	var discovery: Dictionary = _discover_pending_reset_logical_names(families_root)
+	var discovery_error: Error = GFVariantData.get_option_int(
+		discovery,
+		"error",
+		ERR_FILE_CORRUPT
+	) as Error
+	if discovery_error != OK:
+		return discovery_error
+	var logical_names: Array[String] = []
+	for value: Variant in GFVariantData.get_option_array(discovery, "logical_names"):
+		if not value is String:
+			return ERR_FILE_CORRUPT
+		var logical_name: String = value
+		logical_names.append(logical_name)
+	logical_names.sort()
+	for logical_name: String in logical_names:
+		var worker_result: Dictionary = _reset_file_family_thread(
+			storage_root_path,
+			logical_name
+		)
+		var reset_result: GFStorageFamilyResetResult = _make_reset_result_from_worker(
+			worker_result
+		)
+		var recovery_error: Error = reset_result.get_error_code()
+		if recovery_error != OK:
+			return recovery_error
+	return OK
+
+
+func _discover_pending_reset_logical_names(families_root: String) -> Dictionary:
+	var logical_names: Dictionary = {}
+	var pending_intent_count: Array[int] = [0]
+	var first_level: Dictionary = _list_reset_recovery_shards(families_root)
+	var first_error: Error = GFVariantData.get_option_int(
+		first_level,
+		"error",
+		ERR_FILE_CANT_READ
+	) as Error
+	if first_error != OK:
+		return {"error": int(first_error), "logical_names": []}
+	for first_entry: Dictionary in GFVariantData.get_option_array(first_level, "entries"):
+		var first_name: String = GFVariantData.get_option_string(first_entry, "name")
+		if (
+			not _is_reset_shard_name(first_name)
+			or not GFVariantData.get_option_bool(first_entry, "is_directory")
+			or GFVariantData.get_option_bool(first_entry, "is_link")
+		):
+			return {"error": int(ERR_FILE_CORRUPT), "logical_names": []}
+		var second_path: String = families_root.path_join(first_name)
+		var second_level: Dictionary = _list_reset_recovery_shards(second_path)
+		var second_error: Error = GFVariantData.get_option_int(
+			second_level,
+			"error",
+			ERR_FILE_CANT_READ
+		) as Error
+		if second_error != OK:
+			return {"error": int(second_error), "logical_names": []}
+		for second_entry: Dictionary in GFVariantData.get_option_array(
+			second_level,
+			"entries"
+		):
+			var second_name: String = GFVariantData.get_option_string(
+				second_entry,
+				"name"
+			)
+			if (
+				not _is_reset_shard_name(second_name)
+				or not GFVariantData.get_option_bool(second_entry, "is_directory")
+				or GFVariantData.get_option_bool(second_entry, "is_link")
+			):
+				return {"error": int(ERR_FILE_CORRUPT), "logical_names": []}
+			var family_parent: String = second_path.path_join(second_name)
+			var family_discovery: Error = _discover_reset_intents_in_family_parent(
+				family_parent,
+				logical_names,
+				pending_intent_count
+			)
+			if family_discovery != OK:
+				return {"error": int(family_discovery), "logical_names": []}
+	return {
+		"error": int(OK),
+		"logical_names": logical_names.keys(),
+	}
+
+
+func _list_reset_recovery_shards(path: String) -> Dictionary:
+	var directory: DirAccess = DirAccess.open(path)
+	if directory == null:
+		return {"error": int(ERR_FILE_CANT_OPEN), "entries": []}
+	var begin_error: Error = directory.list_dir_begin()
+	if begin_error != OK:
+		return {"error": int(begin_error), "entries": []}
+	var entries: Array[Dictionary] = []
+	var entry: String = directory.get_next()
+	while not entry.is_empty():
+		if entries.size() >= _RESET_MAX_SHARD_ENTRIES:
+			directory.list_dir_end()
+			return {"error": int(ERR_OUT_OF_MEMORY), "entries": []}
+		entries.append({
+			"name": entry,
+			"is_directory": directory.current_is_dir(),
+			"is_link": directory.is_link(entry),
+		})
+		entry = directory.get_next()
+	directory.list_dir_end()
+	entries.sort_custom(func(left: Dictionary, right: Dictionary) -> bool:
+		return GFVariantData.get_option_string(left, "name") < GFVariantData.get_option_string(
+			right,
+			"name"
+		)
+	)
+	return {"error": int(OK), "entries": entries}
+
+
+func _discover_reset_intents_in_family_parent(
+	family_parent: String,
+	logical_names: Dictionary,
+	pending_intent_count: Array[int]
+) -> Error:
+	if pending_intent_count.is_empty():
+		return ERR_INVALID_PARAMETER
+	var directory: DirAccess = DirAccess.open(family_parent)
+	if directory == null:
+		return ERR_FILE_CANT_OPEN
+	var begin_error: Error = directory.list_dir_begin()
+	if begin_error != OK:
+		return begin_error
+	var malformed_pending_paths: Array[String] = []
+	var entry: String = directory.get_next()
+	while not entry.is_empty():
+		if not entry.contains(_RESET_INTENT_SUFFIX):
+			entry = directory.get_next()
+			continue
+		if directory.is_link(entry) or directory.current_is_dir():
+			directory.list_dir_end()
+			return ERR_FILE_CORRUPT
+		pending_intent_count[0] += 1
+		if pending_intent_count[0] > _RESET_MAX_PENDING_INTENTS:
+			directory.list_dir_end()
+			return ERR_OUT_OF_MEMORY
+		var intent_path: String = family_parent.path_join(entry)
+		var intent: Dictionary = _read_reset_intent(intent_path)
+		if intent.is_empty():
+			if not _is_reset_intent_pending_leaf_shape(entry):
+				directory.list_dir_end()
+				return ERR_FILE_CORRUPT
+			malformed_pending_paths.append(intent_path)
+			entry = directory.get_next()
+			continue
+		var logical_name: String = GFVariantData.get_option_string(
+			intent,
+			"logical_path"
+		)
+		var descriptor: Dictionary = (
+			GFStorageFamilyStore.make_family_descriptor_for_framework(
+				_get_save_base_path(),
+				logical_name
+			)
+		)
+		var reset_id: String = _reset_id_from_intent_leaf(
+			entry,
+			GFVariantData.get_option_string(descriptor, "family_path").get_file()
+			+ _RESET_STAGING_SEPARATOR
+		)
+		if (
+			descriptor.is_empty()
+			or GFVariantData.get_option_string(descriptor, "family_path").get_base_dir()
+			!= family_parent
+			or not _reset_intent_matches_descriptor(intent, descriptor, reset_id)
+		):
+			directory.list_dir_end()
+			return ERR_FILE_CORRUPT
+		logical_names[logical_name] = true
+		entry = directory.get_next()
+	directory.list_dir_end()
+	for malformed_pending_path: String in malformed_pending_paths:
+		var cleanup_error: Error = _remove_absolute_file(malformed_pending_path)
+		if cleanup_error != OK:
+			return cleanup_error
+	return OK
+
+
+static func _is_reset_shard_name(value: String) -> bool:
+	if value.length() != 2:
+		return false
+	for index: int in range(2):
+		var character: String = value.substr(index, 1)
+		if not "0123456789abcdef".contains(character):
+			return false
+	return true
+
+
+static func _is_reset_intent_pending_leaf_shape(leaf_name: String) -> bool:
+	var pending_marker: String = _RESET_INTENT_SUFFIX + ".pending-"
+	var pending_index: int = leaf_name.find(pending_marker)
+	if pending_index <= 0:
+		return false
+	var pending_id: String = leaf_name.substr(
+		pending_index + pending_marker.length()
+	)
+	if not GFUuid.is_valid(pending_id, 4):
+		return false
+	var exact_leaf: String = leaf_name.substr(0, pending_index) + _RESET_INTENT_SUFFIX
+	var stem: String = exact_leaf.trim_suffix(_RESET_INTENT_SUFFIX)
+	var reset_separator_index: int = stem.rfind(_RESET_STAGING_SEPARATOR)
+	if reset_separator_index <= 0:
+		return false
+	var family_id: String = stem.substr(0, reset_separator_index)
+	var reset_id: String = stem.substr(
+		reset_separator_index + _RESET_STAGING_SEPARATOR.length()
+	)
+	return GFUuid.is_valid(family_id, 8) and GFUuid.is_valid(reset_id, 4)
 
 
 func _release_storage_helpers() -> void:
@@ -2183,6 +2955,30 @@ func _classify_load_failure(error: Error) -> GFStorageReadResult.FailureKind:
 			return GFStorageReadResult.FailureKind.UNAVAILABLE
 		_:
 			return GFStorageReadResult.FailureKind.IO_FAILED
+
+
+func _classify_readiness_load_failure(
+	error: Error
+) -> GFStorageReadResult.FailureKind:
+	match error:
+		ERR_INVALID_PARAMETER:
+			return GFStorageReadResult.FailureKind.INVALID_REQUEST
+		ERR_UNAVAILABLE:
+			return GFStorageReadResult.FailureKind.UNAVAILABLE
+		_:
+			return GFStorageReadResult.FailureKind.IO_FAILED
+
+
+func _classify_readiness_write_failure(
+	error: Error
+) -> GFStorageAsyncResult.WriteFailureKind:
+	match error:
+		ERR_INVALID_PARAMETER:
+			return GFStorageAsyncResult.WriteFailureKind.INVALID_REQUEST
+		ERR_UNAVAILABLE:
+			return GFStorageAsyncResult.WriteFailureKind.UNAVAILABLE
+		_:
+			return GFStorageAsyncResult.WriteFailureKind.IO_FAILED
 
 
 func _begin_dir_listing(dir: DirAccess) -> Error:
@@ -2502,7 +3298,8 @@ func _start_async_task(task: Dictionary) -> void:
 				target_error,
 				GFStorageAsyncResult.WriteFailureKind.INVALID_REQUEST,
 				"Frozen target validation failed",
-				GFStorageDeleteResult.FailureKind.INVALID_REQUEST
+				GFStorageDeleteResult.FailureKind.INVALID_REQUEST,
+				GFStorageFamilyResetResult.FailureKind.INVALID_REQUEST
 			)
 			_end_async_task_settlement(task)
 		return
@@ -2516,16 +3313,26 @@ func _start_async_task(task: Dictionary) -> void:
 			_has_exact_active_task_ownership(task)
 		)
 		return
-
-	if task_type != &"delete":
-		var recovery_error: Error = _recover_frozen_async_transaction(task)
+	if task_type not in [&"delete", &"reset"]:
+		var recovery_result: Dictionary = _recover_frozen_async_transaction(task)
+		var recovery_error: Error = GFVariantData.get_option_int(
+			recovery_result,
+			"error",
+			ERR_BUG
+		) as Error
 		if recovery_error != OK:
 			if _begin_async_task_settlement(task):
 				_emit_async_start_failed(
 					task,
 					recovery_error,
 					GFStorageAsyncResult.WriteFailureKind.IO_FAILED,
-					"Transaction recovery failed"
+					"Transaction recovery failed",
+					GFStorageDeleteResult.FailureKind.THREAD_START_FAILED,
+					GFStorageFamilyResetResult.FailureKind.THREAD_START_FAILED,
+					GFVariantData.get_option_bool(
+						recovery_result,
+						"target_provenance"
+					)
 				)
 				_end_async_task_settlement(task)
 			return
@@ -2553,6 +3360,11 @@ func _start_async_task(task: Dictionary) -> void:
 		)
 	elif task_type == &"delete":
 		callback = Callable(self, "_delete_file_thread").bind(
+			_get_task_storage_root_path(task),
+			storage_file_name
+		)
+	elif task_type == &"reset":
+		callback = Callable(self, "_reset_file_family_thread").bind(
 			_get_task_storage_root_path(task),
 			storage_file_name
 		)
@@ -2905,26 +3717,40 @@ func _validate_frozen_async_target(task: Dictionary) -> Error:
 	return OK
 
 
-func _recover_frozen_async_transaction(task: Dictionary) -> Error:
+func _recover_frozen_async_transaction(task: Dictionary) -> Dictionary:
 	var storage_file_name: String = _get_task_storage_file_name(task)
 	var storage_root_path: String = _get_task_storage_root_path(task)
 	var expected: Dictionary = GFStorageFamilyStore.make_family_descriptor_for_framework(
 		storage_root_path,
 		storage_file_name
 	)
+	if expected.is_empty():
+		return {"error": int(ERR_INVALID_PARAMETER), "target_provenance": false}
+	var ancestry_error: Error = _validate_reset_mutation_ancestry(
+		storage_root_path,
+		expected
+	)
+	if ancestry_error != OK:
+		return {"error": int(ancestry_error), "target_provenance": false}
 	var frozen_family_store: GFStorageFamilyStore = _GF_STORAGE_FAMILY_STORE_SCRIPT.new()
 	if not frozen_family_store.configure_for_framework(storage_root_path):
-		return ERR_INVALID_PARAMETER
+		return {"error": int(ERR_INVALID_PARAMETER), "target_provenance": false}
 	var layout_error: Error = frozen_family_store.ensure_layout_for_framework()
 	if layout_error != OK:
-		return layout_error
+		return {"error": int(layout_error), "target_provenance": false}
+	var reset_recovery_error: Error = _resume_pending_reset_for_file(
+		storage_root_path,
+		storage_file_name
+	)
+	if reset_recovery_error != OK:
+		return {"error": int(reset_recovery_error), "target_provenance": true}
 	var family_error: Error
 	if _get_task_type(task) == &"save":
 		family_error = frozen_family_store.claim_family_for_framework(expected)
 	else:
 		family_error = frozen_family_store.validate_family_for_framework(expected)
 	if family_error != OK:
-		return family_error
+		return {"error": int(family_error), "target_provenance": true}
 	var frozen_transaction_manager: _StorageTransactionManager = _StorageTransactionManager.new(
 		self,
 		_FrozenStoragePathPolicy.new(storage_root_path),
@@ -2940,7 +3766,7 @@ func _recover_frozen_async_transaction(task: Dictionary) -> Error:
 		_get_task_transaction_commit_path(task)
 	)
 	frozen_transaction_manager._dispose()
-	return recovery_error
+	return {"error": int(recovery_error), "target_provenance": true}
 
 
 func _emit_async_start_failed(
@@ -2948,7 +3774,9 @@ func _emit_async_start_failed(
 	error: Error,
 	write_failure_kind: GFStorageAsyncResult.WriteFailureKind = GFStorageAsyncResult.WriteFailureKind.THREAD_START_FAILED,
 	failure_reason: String = "Thread start failed",
-	delete_failure_kind: GFStorageDeleteResult.FailureKind = GFStorageDeleteResult.FailureKind.THREAD_START_FAILED
+	delete_failure_kind: GFStorageDeleteResult.FailureKind = GFStorageDeleteResult.FailureKind.THREAD_START_FAILED,
+	reset_failure_kind: GFStorageFamilyResetResult.FailureKind = GFStorageFamilyResetResult.FailureKind.THREAD_START_FAILED,
+	load_has_target_provenance: bool = false
 ) -> void:
 	var file_name: String = _get_task_file_name(task)
 	var task_type: StringName = _get_task_type(task)
@@ -2981,6 +3809,8 @@ func _emit_async_start_failed(
 			error,
 			failure_kind
 		)
+		if load_has_target_provenance:
+			_bind_read_result_origin(failed_result, _get_task_storage_file_name(task))
 		last_load_result = failed_result.duplicate_result()
 		_complete_async_operation(operation, failed_result.error_code, failed_result)
 		_release_async_file_lock_for_task(task)
@@ -3006,6 +3836,32 @@ func _emit_async_start_failed(
 			GFStorageAsyncResult.WriteFailureKind.NONE,
 			{},
 			delete_result
+		)
+		_release_async_file_lock_for_task(task)
+	elif task_type == &"reset":
+		push_error("[GFStorageUtility] 异步 family reset 失败：%s，原因：%s，错误码：%s" % [
+			file_name,
+			failure_reason,
+			error,
+		])
+		var reset_result: GFStorageFamilyResetResult = _make_reset_result(
+			error,
+			reset_failure_kind,
+			GFStorageFamilyResetResult.SourceKind.UNKNOWN,
+			GFStorageFamilyResetResult.Phase.PREFLIGHT,
+			0,
+			0,
+			0,
+			GFStorageFamilyResetResult.FamilyMember.NONE
+		)
+		_complete_async_operation(
+			operation,
+			reset_result.get_error_code(),
+			null,
+			GFStorageAsyncResult.WriteFailureKind.NONE,
+			{},
+			null,
+			reset_result
 		)
 		_release_async_file_lock_for_task(task)
 
@@ -3055,6 +3911,20 @@ func _complete_finished_async_task(task: Dictionary, result_variant: Variant) ->
 			GFStorageAsyncResult.WriteFailureKind.NONE,
 			{},
 			delete_result
+		)
+		_release_async_file_lock_for_task(task)
+	elif task_type == &"reset":
+		var reset_result: GFStorageFamilyResetResult = _make_reset_result_from_worker(
+			result_variant
+		)
+		_complete_async_operation(
+			operation,
+			reset_result.get_error_code(),
+			null,
+			GFStorageAsyncResult.WriteFailureKind.NONE,
+			{},
+			null,
+			reset_result
 		)
 		_release_async_file_lock_for_task(task)
 
@@ -3165,6 +4035,172 @@ func _make_delete_result_from_worker(result_variant: Variant) -> GFStorageDelete
 	return result if configured else _make_delete_result_fallback()
 
 
+func _make_reset_result(
+	error_code: Error,
+	failure_kind: GFStorageFamilyResetResult.FailureKind,
+	source_kind: GFStorageFamilyResetResult.SourceKind,
+	failed_phase: GFStorageFamilyResetResult.Phase,
+	retired_member_count: int,
+	recreated_member_count: int,
+	remaining_evidence_count: int,
+	failed_member: GFStorageFamilyResetResult.FamilyMember
+) -> GFStorageFamilyResetResult:
+	var result: GFStorageFamilyResetResult = GFStorageFamilyResetResult.new()
+	var configured: bool = result.configure_for_framework(
+		error_code,
+		failure_kind,
+		source_kind,
+		failed_phase,
+		retired_member_count,
+		recreated_member_count,
+		remaining_evidence_count,
+		failed_member
+	)
+	return result if configured else _make_reset_result_fallback()
+
+
+func _make_reset_result_fallback() -> GFStorageFamilyResetResult:
+	var result: GFStorageFamilyResetResult = GFStorageFamilyResetResult.new()
+	var configured: bool = result.configure_for_framework(
+		ERR_BUG,
+		GFStorageFamilyResetResult.FailureKind.IO_FAILED,
+		GFStorageFamilyResetResult.SourceKind.UNKNOWN,
+		GFStorageFamilyResetResult.Phase.PREFLIGHT,
+		0,
+		0,
+		0,
+		GFStorageFamilyResetResult.FamilyMember.NONE
+	)
+	if not configured:
+		push_error("[GFStorageUtility] 无法配置 family reset fallback 结果。")
+	return result
+
+
+func _make_reset_invalid_result() -> GFStorageFamilyResetResult:
+	return _make_reset_result(
+		ERR_INVALID_PARAMETER,
+		GFStorageFamilyResetResult.FailureKind.INVALID_REQUEST,
+		GFStorageFamilyResetResult.SourceKind.UNKNOWN,
+		GFStorageFamilyResetResult.Phase.PREFLIGHT,
+		0,
+		0,
+		0,
+		GFStorageFamilyResetResult.FamilyMember.NONE
+	)
+
+
+func _make_reset_unauthorized_result() -> GFStorageFamilyResetResult:
+	return _make_reset_result(
+		ERR_UNAUTHORIZED,
+		GFStorageFamilyResetResult.FailureKind.UNAUTHORIZED,
+		GFStorageFamilyResetResult.SourceKind.UNKNOWN,
+		GFStorageFamilyResetResult.Phase.PREFLIGHT,
+		0,
+		0,
+		0,
+		GFStorageFamilyResetResult.FamilyMember.NONE
+	)
+
+
+func _make_reset_result_from_worker(result_variant: Variant) -> GFStorageFamilyResetResult:
+	if not result_variant is Dictionary:
+		return _make_reset_result_fallback()
+	var raw_result: Dictionary = result_variant
+	var required_keys: Array[String] = [
+		"error_code",
+		"failure_kind",
+		"source_kind",
+		"failed_phase",
+		"retired_member_count",
+		"recreated_member_count",
+		"remaining_evidence_count",
+		"failed_member",
+	]
+	if raw_result.size() != required_keys.size():
+		return _make_reset_result_fallback()
+	for required_key: String in required_keys:
+		if not raw_result.has(required_key):
+			return _make_reset_result_fallback()
+	for required_key: String in required_keys:
+		if not raw_result.get(required_key) is int:
+			return _make_reset_result_fallback()
+
+	var numeric_error_code: int = raw_result.get("error_code")
+	var numeric_failure_kind: int = raw_result.get("failure_kind")
+	var numeric_source_kind: int = raw_result.get("source_kind")
+	var numeric_failed_phase: int = raw_result.get("failed_phase")
+	var retired_member_count: int = raw_result.get("retired_member_count")
+	var recreated_member_count: int = raw_result.get("recreated_member_count")
+	var remaining_evidence_count: int = raw_result.get("remaining_evidence_count")
+	var numeric_failed_member: int = raw_result.get("failed_member")
+	if (
+		numeric_error_code < OK
+		or numeric_error_code > ERR_PRINTER_ON_FIRE
+		or not GFStorageFamilyResetResult.FailureKind.values().has(numeric_failure_kind)
+		or not GFStorageFamilyResetResult.SourceKind.values().has(numeric_source_kind)
+		or not GFStorageFamilyResetResult.Phase.values().has(numeric_failed_phase)
+		or not GFStorageFamilyResetResult.FamilyMember.values().has(numeric_failed_member)
+	):
+		return _make_reset_result_fallback()
+	return _make_reset_result(
+		numeric_error_code as Error,
+		numeric_failure_kind as GFStorageFamilyResetResult.FailureKind,
+		numeric_source_kind as GFStorageFamilyResetResult.SourceKind,
+		numeric_failed_phase as GFStorageFamilyResetResult.Phase,
+		retired_member_count,
+		recreated_member_count,
+		remaining_evidence_count,
+		numeric_failed_member as GFStorageFamilyResetResult.FamilyMember
+	)
+
+
+static func _reset_failed_member_from_claim_state(
+	failed_member: StringName
+) -> GFStorageFamilyResetResult.FamilyMember:
+	match failed_member:
+		&"family_container":
+			return GFStorageFamilyResetResult.FamilyMember.FAMILY_CONTAINER
+		&"catalog":
+			return GFStorageFamilyResetResult.FamilyMember.CATALOG
+		&"none":
+			return GFStorageFamilyResetResult.FamilyMember.NONE
+		_:
+			return GFStorageFamilyResetResult.FamilyMember.OWNER
+
+
+func _claim_family_reset_authorization(
+	authorization: GFStorageFamilyResetAuthorization,
+	canonical_file_name: String,
+	target_family: Dictionary
+) -> bool:
+	return (
+		authorization != null
+		and authorization.claim_for_framework(
+			get_instance_id(),
+			canonical_file_name,
+			GFVariantData.get_option_string(target_family, "file_key")
+		)
+	)
+
+
+func _bind_read_result_origin(
+	result: GFStorageReadResult,
+	canonical_file_name: String
+) -> void:
+	if result == null or canonical_file_name.is_empty():
+		return
+	var target_family: Dictionary = _make_async_target_family(canonical_file_name)
+	var file_key: String = GFVariantData.get_option_string(target_family, "file_key")
+	if file_key.is_empty():
+		return
+	var _bound: bool = result.bind_origin_for_framework(
+		get_instance_id(),
+		canonical_file_name,
+		file_key,
+		_read_result_origin_token
+	)
+
+
 func _complete_async_load(
 	task: Dictionary,
 	result_variant: Variant,
@@ -3183,6 +4219,7 @@ func _complete_async_load(
 		result = GFStorageReadResult.from_dict(result_data)
 	var from_version: int = result.data_version if result != null else 0
 	result = _apply_schema_migrations(file_name, result, false)
+	_bind_read_result_origin(result, _get_task_storage_file_name(task))
 	var migration_to_version: int = result.data_version if result != null else from_version
 	var should_emit_migrated: bool = (
 		result != null
@@ -3332,6 +4369,12 @@ func _delete_file_thread(storage_root_path: String, logical_name: String) -> Dic
 			0,
 			GFStorageDeleteResult.FamilyMember.NONE
 		)
+	var reset_recovery_error: Error = _resume_pending_reset_for_file(
+		storage_root_path,
+		logical_name
+	)
+	if reset_recovery_error != OK:
+		return _make_delete_metadata_worker_failure(reset_recovery_error, 0)
 	var members: Array[Dictionary] = _make_delete_family_members(descriptor)
 	if members.size() != 8:
 		return _make_delete_worker_result(
@@ -3392,7 +4435,11 @@ func _delete_file_thread(storage_root_path: String, logical_name: String) -> Dic
 	if evidence_error != OK:
 		return _make_delete_worker_result(
 			evidence_error,
-			GFStorageDeleteResult.FailureKind.CONFLICT,
+			(
+				GFStorageDeleteResult.FailureKind.CONFLICT
+				if evidence_error == ERR_FILE_CORRUPT
+				else GFStorageDeleteResult.FailureKind.IO_FAILED
+			),
 			existing_member_count,
 			0,
 			existing_member_count,
@@ -3533,6 +4580,17 @@ func _validate_delete_transaction_evidence(
 	logical_name: String,
 	descriptor: Dictionary
 ) -> Error:
+	var family_path: String = GFVariantData.get_option_string(descriptor, "family_path")
+	if family_path.is_empty():
+		return ERR_INVALID_PARAMETER
+	if _absolute_storage_leaf_exists(family_path):
+		if (
+			_absolute_storage_path_is_link(family_path)
+			or not DirAccess.dir_exists_absolute(family_path)
+		):
+			return ERR_FILE_CORRUPT
+	else:
+		return OK
 	var evidence: Array[Dictionary] = [
 		{
 			"path": GFVariantData.get_option_string(descriptor, "transaction_pending_path"),
@@ -3562,9 +4620,19 @@ func _validate_delete_transaction_evidence(
 	var commit_reference: Dictionary = {}
 	for evidence_entry: Dictionary in evidence:
 		var evidence_path: String = GFVariantData.get_option_string(evidence_entry, "path")
+		if _absolute_storage_path_is_link(evidence_path):
+			return ERR_FILE_CORRUPT
 		if not FileAccess.file_exists(evidence_path):
 			continue
-		var marker: Dictionary = _read_transaction_record_absolute(evidence_path)
+		var marker_read: Dictionary = _read_transaction_record_result_absolute(evidence_path)
+		var marker_error: Error = GFVariantData.get_option_int(
+			marker_read,
+			"error",
+			ERR_FILE_CORRUPT
+		) as Error
+		if marker_error != OK:
+			return marker_error
+		var marker: Dictionary = GFVariantData.get_option_dictionary(marker_read, "record")
 		var expected_committed: bool = GFVariantData.get_option_bool(
 			evidence_entry,
 			"committed"
@@ -3642,6 +4710,1264 @@ func _make_delete_worker_result(
 		"remaining_member_count": remaining_member_count,
 		"failed_member": int(failed_member),
 	}
+
+
+func _resume_pending_reset_for_file(
+	storage_root_path: String,
+	logical_name: String
+) -> Error:
+	var descriptor: Dictionary = GFStorageFamilyStore.make_family_descriptor_for_framework(
+		storage_root_path,
+		logical_name
+	)
+	if descriptor.is_empty():
+		return ERR_INVALID_PARAMETER
+	var family_store: GFStorageFamilyStore = _GF_STORAGE_FAMILY_STORE_SCRIPT.new()
+	if not family_store.configure_for_framework(storage_root_path):
+		return ERR_INVALID_PARAMETER
+	var ancestry_error: Error = _validate_reset_mutation_ancestry(
+		storage_root_path,
+		descriptor
+	)
+	if ancestry_error != OK:
+		return ancestry_error
+	var layout_inspection: Dictionary = family_store.inspect_layout_for_reset_for_framework()
+	var layout_status: StringName = GFVariantData.get_option_string_name(
+		layout_inspection,
+		"status"
+	)
+	if layout_status == &"missing":
+		return OK
+	if layout_status == &"future":
+		return ERR_UNAVAILABLE
+	if layout_status == &"corrupt":
+		return ERR_FILE_CORRUPT
+	if layout_status != &"current":
+		return GFVariantData.get_option_int(
+			layout_inspection,
+			"error",
+			ERR_FILE_CANT_READ
+		) as Error
+	var intent_lookup: Dictionary = _find_reset_intent(descriptor)
+	var lookup_error: Error = GFVariantData.get_option_int(
+		intent_lookup,
+		"error",
+		ERR_FILE_CORRUPT
+	) as Error
+	if lookup_error != OK:
+		return lookup_error
+	if not GFVariantData.get_option_bool(intent_lookup, "exists"):
+		return OK
+	var worker_result: Dictionary = _reset_file_family_thread(
+		storage_root_path,
+		logical_name
+	)
+	return _make_reset_result_from_worker(worker_result).get_error_code()
+
+
+func _reset_file_family_thread(
+	storage_root_path: String,
+	logical_name: String
+) -> Dictionary:
+	var descriptor: Dictionary = GFStorageFamilyStore.make_family_descriptor_for_framework(
+		storage_root_path,
+		logical_name
+	)
+	if descriptor.is_empty():
+		return _make_reset_worker_result(
+			ERR_INVALID_PARAMETER,
+			GFStorageFamilyResetResult.FailureKind.INVALID_REQUEST,
+			GFStorageFamilyResetResult.SourceKind.UNKNOWN,
+			GFStorageFamilyResetResult.Phase.PREFLIGHT,
+			0,
+			0,
+			0,
+			GFStorageFamilyResetResult.FamilyMember.NONE
+		)
+	var family_store: GFStorageFamilyStore = _GF_STORAGE_FAMILY_STORE_SCRIPT.new()
+	if not family_store.configure_for_framework(storage_root_path):
+		return _make_reset_worker_result(
+			ERR_INVALID_PARAMETER,
+			GFStorageFamilyResetResult.FailureKind.INVALID_REQUEST,
+			GFStorageFamilyResetResult.SourceKind.UNKNOWN,
+			GFStorageFamilyResetResult.Phase.PREFLIGHT,
+			0,
+			0,
+			0,
+			GFStorageFamilyResetResult.FamilyMember.NONE
+		)
+	var ancestry_error: Error = _validate_reset_mutation_ancestry(
+		storage_root_path,
+		descriptor
+	)
+	if ancestry_error != OK:
+		return _make_reset_worker_result(
+			ancestry_error,
+			GFStorageFamilyResetResult.FailureKind.CONFLICT,
+			GFStorageFamilyResetResult.SourceKind.UNKNOWN,
+			GFStorageFamilyResetResult.Phase.PREFLIGHT,
+			0,
+			0,
+			0,
+			GFStorageFamilyResetResult.FamilyMember.LAYOUT
+		)
+
+	var layout_inspection: Dictionary = family_store.inspect_layout_for_reset_for_framework()
+	var layout_status: StringName = GFVariantData.get_option_string_name(
+		layout_inspection,
+		"status"
+	)
+	var layout_error: Error = GFVariantData.get_option_int(
+		layout_inspection,
+		"error",
+		ERR_FILE_CORRUPT
+	) as Error
+	match layout_status:
+		&"current":
+			pass
+		&"missing":
+			return _make_reset_worker_result(
+				ERR_FILE_NOT_FOUND,
+				GFStorageFamilyResetResult.FailureKind.NOT_FOUND,
+				GFStorageFamilyResetResult.SourceKind.MISSING,
+				GFStorageFamilyResetResult.Phase.PREFLIGHT,
+				0,
+				0,
+				0,
+				GFStorageFamilyResetResult.FamilyMember.NONE
+			)
+		&"future":
+			return _make_reset_worker_result(
+				ERR_UNAVAILABLE,
+				GFStorageFamilyResetResult.FailureKind.UNSUPPORTED_LAYOUT,
+				GFStorageFamilyResetResult.SourceKind.UNKNOWN,
+				GFStorageFamilyResetResult.Phase.PREFLIGHT,
+				0,
+				0,
+				0,
+				GFStorageFamilyResetResult.FamilyMember.LAYOUT
+			)
+		&"corrupt":
+			return _make_reset_worker_result(
+				ERR_FILE_CORRUPT,
+				GFStorageFamilyResetResult.FailureKind.CONFLICT,
+				GFStorageFamilyResetResult.SourceKind.UNKNOWN,
+				GFStorageFamilyResetResult.Phase.PREFLIGHT,
+				0,
+				0,
+				0,
+				GFStorageFamilyResetResult.FamilyMember.LAYOUT
+			)
+		_:
+			return _make_reset_worker_result(
+				layout_error,
+				GFStorageFamilyResetResult.FailureKind.IO_FAILED,
+				GFStorageFamilyResetResult.SourceKind.UNKNOWN,
+				GFStorageFamilyResetResult.Phase.PREFLIGHT,
+				0,
+				0,
+				0,
+				GFStorageFamilyResetResult.FamilyMember.LAYOUT
+			)
+
+	var intent_lookup: Dictionary = _find_reset_intent(descriptor)
+	var intent_error: Error = GFVariantData.get_option_int(
+		intent_lookup,
+		"error",
+		ERR_FILE_CORRUPT
+	) as Error
+	if intent_error != OK:
+		return _make_reset_worker_result(
+			intent_error,
+			(
+				GFStorageFamilyResetResult.FailureKind.CONFLICT
+				if intent_error == ERR_FILE_CORRUPT
+				else GFStorageFamilyResetResult.FailureKind.IO_FAILED
+			),
+			GFStorageFamilyResetResult.SourceKind.UNKNOWN,
+			GFStorageFamilyResetResult.Phase.PREFLIGHT,
+			0,
+			0,
+			_count_reset_evidence(descriptor, {}),
+			GFStorageFamilyResetResult.FamilyMember.RESET_INTENT
+		)
+	var catalog_path: String = GFVariantData.get_option_string(descriptor, "catalog_path")
+	var family_path: String = GFVariantData.get_option_string(descriptor, "family_path")
+	var has_exact_catalog: bool = _absolute_storage_leaf_exists(catalog_path)
+	var has_exact_family: bool = _absolute_storage_leaf_exists(family_path)
+	var has_existing_intent: bool = GFVariantData.get_option_bool(intent_lookup, "exists")
+	var resuming_existing_intent: bool = has_existing_intent
+	if not has_existing_intent and not has_exact_catalog and not has_exact_family:
+		return _make_reset_worker_result(
+			ERR_FILE_NOT_FOUND,
+			GFStorageFamilyResetResult.FailureKind.NOT_FOUND,
+			GFStorageFamilyResetResult.SourceKind.MISSING,
+			GFStorageFamilyResetResult.Phase.PREFLIGHT,
+			0,
+			0,
+			0,
+			GFStorageFamilyResetResult.FamilyMember.NONE
+		)
+
+	var source_kind: GFStorageFamilyResetResult.SourceKind
+	var reset_id: String
+	var intent_path: String
+	var initial_retired_member_count: int = 0
+	if has_existing_intent:
+		reset_id = GFVariantData.get_option_string(intent_lookup, "reset_id")
+		intent_path = GFVariantData.get_option_string(intent_lookup, "intent_path")
+		var numeric_source_kind: int = GFVariantData.get_option_int(
+			intent_lookup,
+			"source_kind",
+			GFStorageFamilyResetResult.SourceKind.UNKNOWN
+		)
+		if not GFStorageFamilyResetResult.SourceKind.values().has(numeric_source_kind):
+			return _make_reset_worker_result(
+				ERR_FILE_CORRUPT,
+				GFStorageFamilyResetResult.FailureKind.CONFLICT,
+				GFStorageFamilyResetResult.SourceKind.UNKNOWN,
+				GFStorageFamilyResetResult.Phase.PREFLIGHT,
+				0,
+				0,
+				_count_reset_evidence(descriptor, intent_lookup),
+				GFStorageFamilyResetResult.FamilyMember.RESET_INTENT
+			)
+		source_kind = numeric_source_kind as GFStorageFamilyResetResult.SourceKind
+		initial_retired_member_count = GFVariantData.get_option_int(
+			intent_lookup,
+			"initial_retired_member_count"
+		)
+	else:
+		var multi_member_evidence: Dictionary = _inspect_multi_member_reset_evidence(
+			logical_name,
+			descriptor
+		)
+		var multi_member_error: Error = GFVariantData.get_option_int(
+			multi_member_evidence,
+			"error",
+			ERR_FILE_CORRUPT
+		) as Error
+		if multi_member_error != OK:
+			return _make_reset_worker_result(
+				multi_member_error,
+				GFStorageFamilyResetResult.FailureKind.IO_FAILED,
+				GFStorageFamilyResetResult.SourceKind.UNKNOWN,
+				GFStorageFamilyResetResult.Phase.PREFLIGHT,
+				0,
+				0,
+				_count_reset_evidence(descriptor, {}),
+				GFStorageFamilyResetResult.FamilyMember.MUTABLE_EVIDENCE
+			)
+		if GFVariantData.get_option_bool(multi_member_evidence, "is_valid_multi"):
+			return _make_reset_worker_result(
+				ERR_BUSY,
+				GFStorageFamilyResetResult.FailureKind.CONFLICT,
+				GFStorageFamilyResetResult.SourceKind.STRUCTURAL_IDENTITY,
+				GFStorageFamilyResetResult.Phase.PREFLIGHT,
+				0,
+				0,
+				_count_reset_evidence(descriptor, {}),
+				GFStorageFamilyResetResult.FamilyMember.MUTABLE_EVIDENCE
+			)
+		var family_error: Error = family_store.validate_family_for_framework(descriptor)
+		var evidence_error: Error = _validate_delete_transaction_evidence(
+			logical_name,
+			descriptor
+		)
+		if family_error not in [OK, ERR_FILE_NOT_FOUND, ERR_FILE_CORRUPT]:
+			return _make_reset_worker_result(
+				family_error,
+				GFStorageFamilyResetResult.FailureKind.IO_FAILED,
+				GFStorageFamilyResetResult.SourceKind.UNKNOWN,
+				GFStorageFamilyResetResult.Phase.PREFLIGHT,
+				0,
+				0,
+				_count_reset_evidence(descriptor, {}),
+				GFStorageFamilyResetResult.FamilyMember.FAMILY_CONTAINER
+			)
+		if evidence_error not in [OK, ERR_FILE_CORRUPT]:
+			return _make_reset_worker_result(
+				evidence_error,
+				GFStorageFamilyResetResult.FailureKind.IO_FAILED,
+				GFStorageFamilyResetResult.SourceKind.UNKNOWN,
+				GFStorageFamilyResetResult.Phase.PREFLIGHT,
+				0,
+				0,
+				_count_reset_evidence(descriptor, {}),
+				GFStorageFamilyResetResult.FamilyMember.MUTABLE_EVIDENCE
+			)
+		source_kind = (
+			GFStorageFamilyResetResult.SourceKind.PAYLOAD_ONLY
+			if family_error == OK and evidence_error == OK
+			else GFStorageFamilyResetResult.SourceKind.STRUCTURAL_IDENTITY
+		)
+		reset_id = GFUuid.generate_v4()
+		intent_path = _make_reset_intent_path(descriptor, reset_id)
+		initial_retired_member_count = int(has_exact_catalog) + int(has_exact_family)
+		var intent: Dictionary = _make_reset_intent(
+			descriptor,
+			reset_id,
+			source_kind,
+			initial_retired_member_count
+		)
+		var publish_error: Error = _publish_reset_intent(intent_path, intent)
+		if publish_error != OK:
+			return _make_reset_worker_result(
+				publish_error,
+				GFStorageFamilyResetResult.FailureKind.IO_FAILED,
+				source_kind,
+				GFStorageFamilyResetResult.Phase.RETIRE,
+				0,
+				0,
+				_count_reset_evidence(descriptor, {}),
+				GFStorageFamilyResetResult.FamilyMember.RESET_INTENT
+			)
+		intent_lookup = {
+			"error": int(OK),
+			"exists": true,
+			"reset_id": reset_id,
+			"intent_path": intent_path,
+			"source_kind": int(source_kind),
+			"initial_retired_member_count": initial_retired_member_count,
+		}
+
+	var retired_paths: Dictionary = _make_reset_retired_paths(descriptor, reset_id)
+	var retired_catalog_path: String = GFVariantData.get_option_string(
+		retired_paths,
+		"catalog_path"
+	)
+	var retired_family_path: String = GFVariantData.get_option_string(
+		retired_paths,
+		"family_path"
+	)
+	if retired_catalog_path.is_empty() or retired_family_path.is_empty():
+		return _make_reset_worker_result(
+			ERR_INVALID_PARAMETER,
+			GFStorageFamilyResetResult.FailureKind.INVALID_REQUEST,
+			source_kind,
+			GFStorageFamilyResetResult.Phase.RETIRE,
+			0,
+			0,
+			_count_reset_evidence(descriptor, intent_lookup),
+			GFStorageFamilyResetResult.FamilyMember.RESET_INTENT
+		)
+
+	var retired_family_exists: bool = _absolute_storage_leaf_exists(retired_family_path)
+	var retired_catalog_exists: bool = _absolute_storage_leaf_exists(retired_catalog_path)
+	var exact_claim_state: Dictionary = (
+		family_store.inspect_reset_claim_for_framework(descriptor)
+		if resuming_existing_intent
+		else {}
+	)
+	var exact_is_fresh: bool = (
+		resuming_existing_intent
+		and GFVariantData.get_option_int(exact_claim_state, "error", FAILED) == OK
+		and GFVariantData.get_option_string_name(exact_claim_state, "state") == &"complete"
+	)
+	var retired_member_count: int = (
+		initial_retired_member_count
+		if exact_is_fresh
+		else int(retired_family_exists) + int(retired_catalog_exists)
+	)
+	var moved_family_now: bool = false
+	if (
+		not exact_is_fresh
+		and not retired_family_exists
+		and _absolute_storage_leaf_exists(family_path)
+	):
+		var move_family_error: Error = move_reset_family_member_for_framework(
+			_RESET_MEMBER_FAMILY_CONTAINER,
+			family_path,
+			retired_family_path
+		)
+		if move_family_error != OK:
+			return _make_reset_worker_result(
+				move_family_error,
+				GFStorageFamilyResetResult.FailureKind.IO_FAILED,
+				source_kind,
+				GFStorageFamilyResetResult.Phase.RETIRE,
+				retired_member_count,
+				0,
+				_count_reset_evidence(descriptor, intent_lookup),
+				GFStorageFamilyResetResult.FamilyMember.FAMILY_CONTAINER
+			)
+		retired_family_exists = true
+		moved_family_now = true
+		retired_member_count += 1
+	if (
+		not exact_is_fresh
+		and not retired_catalog_exists
+		and _absolute_storage_leaf_exists(catalog_path)
+	):
+		var move_catalog_error: Error = move_reset_family_member_for_framework(
+			_RESET_MEMBER_CATALOG,
+			catalog_path,
+			retired_catalog_path
+		)
+		if move_catalog_error != OK:
+			if moved_family_now:
+				var _rollback_error: Error = move_reset_family_member_for_framework(
+					_RESET_MEMBER_FAMILY_CONTAINER,
+					retired_family_path,
+					family_path
+				)
+			return _make_reset_worker_result(
+				move_catalog_error,
+				GFStorageFamilyResetResult.FailureKind.IO_FAILED,
+				source_kind,
+				GFStorageFamilyResetResult.Phase.RETIRE,
+				_count_existing_reset_retired_roots(retired_paths),
+				0,
+				_count_reset_evidence(descriptor, intent_lookup),
+				GFStorageFamilyResetResult.FamilyMember.CATALOG
+			)
+		retired_catalog_exists = true
+		retired_member_count += 1
+
+	var recreated_member_count: int = 0
+	if not exact_is_fresh:
+		var preclaim_state: Dictionary = (
+			family_store.inspect_reset_claim_for_framework(descriptor)
+		)
+		var preclaim_state_name: StringName = GFVariantData.get_option_string_name(
+			preclaim_state,
+			"state"
+		)
+		var preclaim_error: Error = GFVariantData.get_option_int(
+			preclaim_state,
+			"error",
+			ERR_FILE_CORRUPT
+		) as Error
+		if preclaim_error != OK or preclaim_state_name not in [&"empty", &"owner_only"]:
+			recreated_member_count = clampi(
+				GFVariantData.get_option_int(
+					preclaim_state,
+					"recreated_member_count"
+				),
+				0,
+				3
+			)
+			return _make_reset_worker_result(
+				ERR_FILE_CORRUPT if preclaim_error == OK else preclaim_error,
+				(
+					GFStorageFamilyResetResult.FailureKind.CONFLICT
+					if preclaim_error in [OK, ERR_FILE_CORRUPT]
+					else GFStorageFamilyResetResult.FailureKind.IO_FAILED
+				),
+				source_kind,
+				GFStorageFamilyResetResult.Phase.RECREATE,
+				retired_member_count,
+				recreated_member_count,
+				_count_reset_evidence(descriptor, intent_lookup),
+				_reset_failed_member_from_claim_state(
+					GFVariantData.get_option_string_name(
+						preclaim_state,
+						"failed_member"
+					)
+				)
+			)
+		var recreate_error: Error = claim_reset_family_for_framework(
+			family_store,
+			descriptor
+		)
+		if recreate_error != OK:
+			var recreated_state: Dictionary = (
+				family_store.inspect_reset_claim_for_framework(descriptor)
+			)
+			recreated_member_count = clampi(
+				GFVariantData.get_option_int(
+					recreated_state,
+					"recreated_member_count"
+				),
+				0,
+				3
+			)
+			var failed_member: GFStorageFamilyResetResult.FamilyMember = (
+				_reset_failed_member_from_claim_state(
+					GFVariantData.get_option_string_name(
+						recreated_state,
+						"failed_member"
+					)
+				)
+			)
+			return _make_reset_worker_result(
+				recreate_error,
+				(
+					GFStorageFamilyResetResult.FailureKind.CONFLICT
+					if recreate_error == ERR_FILE_CORRUPT
+					else GFStorageFamilyResetResult.FailureKind.IO_FAILED
+				),
+				source_kind,
+				GFStorageFamilyResetResult.Phase.RECREATE,
+				retired_member_count,
+				recreated_member_count,
+				_count_reset_evidence(descriptor, intent_lookup),
+				failed_member
+			)
+	var completed_claim_state: Dictionary = (
+		family_store.inspect_reset_claim_for_framework(descriptor)
+	)
+	var completed_claim_error: Error = GFVariantData.get_option_int(
+		completed_claim_state,
+		"error",
+		ERR_FILE_CORRUPT
+	) as Error
+	if (
+		completed_claim_error != OK
+		or GFVariantData.get_option_string_name(
+			completed_claim_state,
+			"state"
+		) != &"complete"
+	):
+		recreated_member_count = clampi(
+			GFVariantData.get_option_int(
+				completed_claim_state,
+				"recreated_member_count"
+			),
+			0,
+			3
+		)
+		return _make_reset_worker_result(
+			ERR_FILE_CORRUPT if completed_claim_error == OK else completed_claim_error,
+			(
+				GFStorageFamilyResetResult.FailureKind.CONFLICT
+				if completed_claim_error in [OK, ERR_FILE_CORRUPT]
+				else GFStorageFamilyResetResult.FailureKind.IO_FAILED
+			),
+			source_kind,
+			GFStorageFamilyResetResult.Phase.RECREATE,
+			retired_member_count,
+			recreated_member_count,
+			_count_reset_evidence(descriptor, intent_lookup),
+			_reset_failed_member_from_claim_state(
+				GFVariantData.get_option_string_name(
+					completed_claim_state,
+					"failed_member"
+				)
+			)
+		)
+	recreated_member_count = 3
+
+	if _absolute_storage_leaf_exists(retired_family_path):
+		var cleanup_family_error: Error = remove_reset_family_member_for_framework(
+			_RESET_MEMBER_FAMILY_CONTAINER,
+			retired_family_path
+		)
+		if cleanup_family_error != OK:
+			return _make_reset_worker_result(
+				cleanup_family_error,
+				GFStorageFamilyResetResult.FailureKind.IO_FAILED,
+				source_kind,
+				GFStorageFamilyResetResult.Phase.CLEANUP,
+				retired_member_count,
+				recreated_member_count,
+				_count_reset_evidence(descriptor, intent_lookup, true),
+				GFStorageFamilyResetResult.FamilyMember.FAMILY_CONTAINER
+			)
+	if _absolute_storage_leaf_exists(retired_catalog_path):
+		var cleanup_catalog_error: Error = remove_reset_family_member_for_framework(
+			_RESET_MEMBER_CATALOG,
+			retired_catalog_path
+		)
+		if cleanup_catalog_error != OK:
+			return _make_reset_worker_result(
+				cleanup_catalog_error,
+				GFStorageFamilyResetResult.FailureKind.IO_FAILED,
+				source_kind,
+				GFStorageFamilyResetResult.Phase.CLEANUP,
+				retired_member_count,
+				recreated_member_count,
+				_count_reset_evidence(descriptor, intent_lookup, true),
+				GFStorageFamilyResetResult.FamilyMember.CATALOG
+			)
+	var cleanup_intent_error: Error = remove_reset_family_member_for_framework(
+		_RESET_MEMBER_INTENT,
+		intent_path
+	)
+	if cleanup_intent_error != OK:
+		return _make_reset_worker_result(
+			cleanup_intent_error,
+			GFStorageFamilyResetResult.FailureKind.IO_FAILED,
+			source_kind,
+			GFStorageFamilyResetResult.Phase.CLEANUP,
+			retired_member_count,
+			recreated_member_count,
+			_count_reset_evidence(descriptor, intent_lookup, true),
+			GFStorageFamilyResetResult.FamilyMember.RESET_INTENT
+		)
+	return _make_reset_worker_result(
+		OK,
+		GFStorageFamilyResetResult.FailureKind.NONE,
+		source_kind,
+		GFStorageFamilyResetResult.Phase.NONE,
+		retired_member_count,
+		recreated_member_count,
+		0,
+		GFStorageFamilyResetResult.FamilyMember.NONE
+	)
+
+
+func _make_reset_worker_result(
+	error_code: Error,
+	failure_kind: GFStorageFamilyResetResult.FailureKind,
+	source_kind: GFStorageFamilyResetResult.SourceKind,
+	failed_phase: GFStorageFamilyResetResult.Phase,
+	retired_member_count: int,
+	recreated_member_count: int,
+	remaining_evidence_count: int,
+	failed_member: GFStorageFamilyResetResult.FamilyMember
+) -> Dictionary:
+	return {
+		"error_code": int(error_code),
+		"failure_kind": int(failure_kind),
+		"source_kind": int(source_kind),
+		"failed_phase": int(failed_phase),
+		"retired_member_count": clampi(retired_member_count, 0, 2),
+		"recreated_member_count": clampi(recreated_member_count, 0, 3),
+		"remaining_evidence_count": clampi(remaining_evidence_count, 0, 5),
+		"failed_member": int(failed_member),
+	}
+
+
+func _make_reset_intent(
+	descriptor: Dictionary,
+	reset_id: String,
+	source_kind: GFStorageFamilyResetResult.SourceKind,
+	initial_retired_member_count: int
+) -> Dictionary:
+	return {
+		"schema": _RESET_INTENT_SCHEMA,
+		"schema_version": _RESET_INTENT_SCHEMA_VERSION,
+		"reset_id": reset_id,
+		"logical_path": GFVariantData.get_option_string(descriptor, "logical_path"),
+		"logical_sha256": GFVariantData.get_option_string(descriptor, "logical_sha256"),
+		"family_id": GFVariantData.get_option_string(descriptor, "family_id"),
+		"source_kind": int(source_kind),
+		"initial_retired_member_count": initial_retired_member_count,
+	}
+
+
+func _make_reset_intent_path(descriptor: Dictionary, reset_id: String) -> String:
+	if not GFUuid.is_valid(reset_id, 4):
+		return ""
+	return (
+		GFVariantData.get_option_string(descriptor, "family_path")
+		+ _RESET_STAGING_SEPARATOR
+		+ reset_id
+		+ _RESET_INTENT_SUFFIX
+	)
+
+
+func _make_reset_retired_paths(descriptor: Dictionary, reset_id: String) -> Dictionary:
+	if not GFUuid.is_valid(reset_id, 4):
+		return {}
+	var suffix: String = _RESET_STAGING_SEPARATOR + reset_id
+	return {
+		"catalog_path": GFVariantData.get_option_string(descriptor, "catalog_path") + suffix,
+		"family_path": GFVariantData.get_option_string(descriptor, "family_path") + suffix,
+	}
+
+
+static func _reset_id_from_intent_leaf(leaf_name: String, prefix: String) -> String:
+	if prefix.is_empty() or not leaf_name.begins_with(prefix):
+		return ""
+	var pending_marker: String = _RESET_INTENT_SUFFIX + ".pending-"
+	var pending_index: int = leaf_name.find(pending_marker)
+	var exact_leaf: String = leaf_name
+	if pending_index >= 0:
+		var pending_id: String = leaf_name.substr(
+			pending_index + pending_marker.length()
+		)
+		if not GFUuid.is_valid(pending_id, 4):
+			return ""
+		exact_leaf = leaf_name.substr(0, pending_index) + _RESET_INTENT_SUFFIX
+	if not exact_leaf.ends_with(_RESET_INTENT_SUFFIX):
+		return ""
+	var reset_id: String = exact_leaf.trim_prefix(prefix).trim_suffix(
+		_RESET_INTENT_SUFFIX
+	)
+	return reset_id if GFUuid.is_valid(reset_id, 4) else ""
+
+
+func _publish_reset_intent(path: String, intent: Dictionary) -> Error:
+	if path.is_empty() or not _is_valid_reset_intent(intent):
+		return ERR_INVALID_PARAMETER
+	if FileAccess.file_exists(path):
+		return (
+			OK
+			if _reset_intents_match(_read_reset_intent(path), intent)
+			else ERR_FILE_CORRUPT
+		)
+	var parent_error: Error = _ensure_directory_absolute(path.get_base_dir())
+	if parent_error != OK:
+		return parent_error
+	var pending_path: String = path + ".pending-" + GFUuid.generate_v4()
+	var file: FileAccess = FileAccess.open(pending_path, FileAccess.WRITE)
+	if file == null:
+		return FileAccess.get_open_error()
+	var _stored: bool = file.store_string(JSON.stringify(intent, "\t")) != null
+	file.flush()
+	var write_error: Error = file.get_error()
+	file.close()
+	if write_error != OK:
+		var _pending_cleanup_error: Error = _remove_absolute_file(pending_path)
+		return write_error
+	if not _reset_intents_match(_read_reset_intent(pending_path), intent):
+		var _invalid_cleanup_error: Error = _remove_absolute_file(pending_path)
+		return ERR_FILE_CORRUPT
+	var publish_error: Error = DirAccess.rename_absolute(pending_path, path)
+	if publish_error == OK:
+		return OK
+	if (
+		FileAccess.file_exists(path)
+		and _reset_intents_match(_read_reset_intent(path), intent)
+	):
+		var _race_cleanup_error: Error = _remove_absolute_file(pending_path)
+		return OK
+	return publish_error
+
+
+func _find_reset_intent(descriptor: Dictionary) -> Dictionary:
+	var family_path: String = GFVariantData.get_option_string(descriptor, "family_path")
+	var family_parent: String = family_path.get_base_dir()
+	if not DirAccess.dir_exists_absolute(family_parent):
+		return {"error": int(OK), "exists": false}
+	var directory: DirAccess = DirAccess.open(family_parent)
+	if directory == null:
+		return {"error": int(ERR_FILE_CANT_OPEN), "exists": false}
+	var begin_error: Error = directory.list_dir_begin()
+	if begin_error != OK:
+		return {"error": int(begin_error), "exists": false}
+	var prefix: String = family_path.get_file() + _RESET_STAGING_SEPARATOR
+	var pending_marker: String = _RESET_INTENT_SUFFIX + ".pending-"
+	var exact_candidates: Array[String] = []
+	var pending_candidates: Array[String] = []
+	var target_candidate_count: int = 0
+	var entry: String = directory.get_next()
+	while not entry.is_empty():
+		var is_target_like: bool = (
+			entry.begins_with(prefix) and entry.contains(_RESET_INTENT_SUFFIX)
+		)
+		if not is_target_like:
+			entry = directory.get_next()
+			continue
+		target_candidate_count += 1
+		if target_candidate_count > _RESET_MAX_PENDING_INTENTS:
+			directory.list_dir_end()
+			return {"error": int(ERR_OUT_OF_MEMORY), "exists": false}
+		var pending_marker_index: int = entry.find(pending_marker)
+		var is_exact_intent: bool = (
+			entry.begins_with(prefix) and entry.ends_with(_RESET_INTENT_SUFFIX)
+		)
+		var is_pending_intent: bool = (
+			entry.begins_with(prefix)
+			and pending_marker_index > prefix.length()
+			and GFUuid.is_valid(
+				entry.substr(pending_marker_index + pending_marker.length()),
+				4
+			)
+		)
+		if (
+			not is_exact_intent
+			and not is_pending_intent
+			or directory.is_link(entry)
+			or directory.current_is_dir()
+		):
+			directory.list_dir_end()
+			return {"error": int(ERR_FILE_CORRUPT), "exists": false}
+		if is_exact_intent:
+			if not exact_candidates.is_empty():
+				directory.list_dir_end()
+				return {"error": int(ERR_FILE_CORRUPT), "exists": false}
+			exact_candidates.append(family_parent.path_join(entry))
+		else:
+			pending_candidates.append(family_parent.path_join(entry))
+		entry = directory.get_next()
+	directory.list_dir_end()
+	exact_candidates.sort()
+	pending_candidates.sort()
+	if exact_candidates.is_empty() and pending_candidates.is_empty():
+		return {"error": int(OK), "exists": false}
+	var records: Array[Dictionary] = []
+	for candidate_path: String in exact_candidates + pending_candidates:
+		var leaf_name: String = candidate_path.get_file()
+		var pending_index: int = leaf_name.find(pending_marker)
+		var is_pending: bool = pending_index >= 0
+		var exact_leaf: String = (
+			leaf_name.substr(0, pending_index) + _RESET_INTENT_SUFFIX
+			if is_pending
+			else leaf_name
+		)
+		var reset_id: String = exact_leaf.trim_prefix(prefix).trim_suffix(
+			_RESET_INTENT_SUFFIX
+		)
+		var intent: Dictionary = _read_reset_intent(candidate_path)
+		if (
+			not GFUuid.is_valid(reset_id, 4)
+			or not _reset_intent_matches_descriptor(intent, descriptor, reset_id)
+		):
+			if is_pending:
+				var cleanup_staging_error: Error = _remove_absolute_file(candidate_path)
+				if cleanup_staging_error != OK:
+					return {"error": int(cleanup_staging_error), "exists": false}
+				continue
+			return {"error": int(ERR_FILE_CORRUPT), "exists": false}
+		records.append({
+			"path": candidate_path,
+			"exact_path": family_parent.path_join(exact_leaf),
+			"reset_id": reset_id,
+			"intent": intent,
+			"pending": is_pending,
+		})
+	if records.is_empty():
+		return {"error": int(OK), "exists": false}
+	var canonical_record: Dictionary = records[0]
+	var canonical_reset_id: String = GFVariantData.get_option_string(
+		canonical_record,
+		"reset_id"
+	)
+	var canonical_intent: Dictionary = GFVariantData.get_option_dictionary(
+		canonical_record,
+		"intent"
+	)
+	for record: Dictionary in records:
+		if (
+			GFVariantData.get_option_string(record, "reset_id") != canonical_reset_id
+			or not _reset_intents_match(
+				GFVariantData.get_option_dictionary(record, "intent"),
+				canonical_intent
+			)
+		):
+			return {"error": int(ERR_FILE_CORRUPT), "exists": false}
+
+	var intent_path: String = (
+		exact_candidates[0]
+		if not exact_candidates.is_empty()
+		else GFVariantData.get_option_string(canonical_record, "exact_path")
+	)
+	if exact_candidates.is_empty():
+		var source_pending_path: String = GFVariantData.get_option_string(
+			canonical_record,
+			"path"
+		)
+		var publish_error: Error = DirAccess.rename_absolute(
+			source_pending_path,
+			intent_path
+		)
+		if publish_error != OK:
+			if (
+				not FileAccess.file_exists(intent_path)
+				or not _reset_intents_match(
+					_read_reset_intent(intent_path),
+					canonical_intent
+				)
+			):
+				return {"error": int(publish_error), "exists": false}
+	for pending_path: String in pending_candidates:
+		if not FileAccess.file_exists(pending_path):
+			continue
+		var cleanup_error: Error = _remove_absolute_file(pending_path)
+		if cleanup_error != OK:
+			return {"error": int(cleanup_error), "exists": false}
+	return {
+		"error": int(OK),
+		"exists": true,
+		"reset_id": canonical_reset_id,
+		"intent_path": intent_path,
+		"source_kind": GFVariantData.get_option_int(
+			canonical_intent,
+			"source_kind",
+			GFStorageFamilyResetResult.SourceKind.UNKNOWN
+		),
+		"initial_retired_member_count": GFVariantData.get_option_int(
+			canonical_intent,
+			"initial_retired_member_count"
+		),
+	}
+
+
+func _read_reset_intent(path: String) -> Dictionary:
+	if not FileAccess.file_exists(path):
+		return {}
+	var file: FileAccess = FileAccess.open(path, FileAccess.READ)
+	if file == null:
+		return {}
+	var length: int = file.get_length()
+	if length <= 0 or length > _RESET_MAX_INTENT_BYTES:
+		file.close()
+		return {}
+	var text: String = file.get_as_text()
+	var read_error: Error = file.get_error()
+	file.close()
+	if read_error != OK:
+		return {}
+	var parser: JSON = JSON.new()
+	if parser.parse(text) != OK or not parser.data is Dictionary:
+		return {}
+	var intent: Dictionary = parser.data
+	return intent if _is_valid_reset_intent(intent) else {}
+
+
+static func _is_valid_reset_intent(intent: Dictionary) -> bool:
+	if intent.size() != 8:
+		return false
+	var source_kind: int = GFVariantData.to_exact_int(intent.get("source_kind"), -1)
+	var initial_retired_member_count: int = GFVariantData.to_exact_int(
+		intent.get("initial_retired_member_count"),
+		-1
+	)
+	return (
+		intent.get("schema") is String
+		and intent.get("schema") == _RESET_INTENT_SCHEMA
+		and GFVariantData.to_exact_int(intent.get("schema_version"), -1)
+		== _RESET_INTENT_SCHEMA_VERSION
+		and intent.get("reset_id") is String
+		and GFUuid.is_valid(GFVariantData.get_option_string(intent, "reset_id"), 4)
+		and intent.get("logical_path") is String
+		and intent.get("logical_sha256") is String
+		and intent.get("family_id") is String
+		and source_kind in [
+			GFStorageFamilyResetResult.SourceKind.PAYLOAD_ONLY,
+			GFStorageFamilyResetResult.SourceKind.STRUCTURAL_IDENTITY,
+		]
+		and initial_retired_member_count in [1, 2]
+	)
+
+
+func _reset_intent_matches_descriptor(
+	intent: Dictionary,
+	descriptor: Dictionary,
+	reset_id: String
+) -> bool:
+	return (
+		_is_valid_reset_intent(intent)
+		and GFVariantData.get_option_string(intent, "reset_id") == reset_id
+		and GFVariantData.get_option_string(intent, "logical_path")
+		== GFVariantData.get_option_string(descriptor, "logical_path")
+		and GFVariantData.get_option_string(intent, "logical_sha256")
+		== GFVariantData.get_option_string(descriptor, "logical_sha256")
+		and GFVariantData.get_option_string(intent, "family_id")
+		== GFVariantData.get_option_string(descriptor, "family_id")
+	)
+
+
+static func _reset_intents_match(left: Dictionary, right: Dictionary) -> bool:
+	return (
+		_is_valid_reset_intent(left)
+		and _is_valid_reset_intent(right)
+		and GFVariantData.get_option_string(left, "schema")
+		== GFVariantData.get_option_string(right, "schema")
+		and GFVariantData.to_exact_int(left.get("schema_version"), -1)
+		== GFVariantData.to_exact_int(right.get("schema_version"), -1)
+		and GFVariantData.get_option_string(left, "reset_id")
+		== GFVariantData.get_option_string(right, "reset_id")
+		and GFVariantData.get_option_string(left, "logical_path")
+		== GFVariantData.get_option_string(right, "logical_path")
+		and GFVariantData.get_option_string(left, "logical_sha256")
+		== GFVariantData.get_option_string(right, "logical_sha256")
+		and GFVariantData.get_option_string(left, "family_id")
+		== GFVariantData.get_option_string(right, "family_id")
+		and GFVariantData.to_exact_int(left.get("source_kind"), -1)
+		== GFVariantData.to_exact_int(right.get("source_kind"), -1)
+		and GFVariantData.to_exact_int(left.get("initial_retired_member_count"), -1)
+		== GFVariantData.to_exact_int(right.get("initial_retired_member_count"), -1)
+	)
+
+
+func _count_existing_reset_retired_roots(retired_paths: Dictionary) -> int:
+	var count: int = 0
+	var catalog_path: String = GFVariantData.get_option_string(retired_paths, "catalog_path")
+	var family_path: String = GFVariantData.get_option_string(retired_paths, "family_path")
+	if _absolute_storage_leaf_exists(catalog_path):
+		count += 1
+	if _absolute_storage_leaf_exists(family_path):
+		count += 1
+	return count
+
+
+func _count_reset_evidence(
+	descriptor: Dictionary,
+	intent_lookup: Dictionary,
+	exclude_recreated_exact_claim: bool = false
+) -> int:
+	var count: int = 0
+	var catalog_path: String = GFVariantData.get_option_string(descriptor, "catalog_path")
+	var family_path: String = GFVariantData.get_option_string(descriptor, "family_path")
+	if not exclude_recreated_exact_claim and _absolute_storage_leaf_exists(catalog_path):
+		count += 1
+	if not exclude_recreated_exact_claim and _absolute_storage_leaf_exists(family_path):
+		count += 1
+	count += _count_reset_intent_artifacts(descriptor)
+	if GFVariantData.get_option_bool(intent_lookup, "exists"):
+		var retired_paths: Dictionary = _make_reset_retired_paths(
+			descriptor,
+			GFVariantData.get_option_string(intent_lookup, "reset_id")
+		)
+		count += _count_existing_reset_retired_roots(retired_paths)
+	return clampi(count, 0, 5)
+
+
+func _count_reset_intent_artifacts(descriptor: Dictionary) -> int:
+	var family_path: String = GFVariantData.get_option_string(descriptor, "family_path")
+	var family_parent: String = family_path.get_base_dir()
+	if not DirAccess.dir_exists_absolute(family_parent):
+		return 0
+	var directory: DirAccess = DirAccess.open(family_parent)
+	if directory == null or directory.list_dir_begin() != OK:
+		return 0
+	var prefix: String = family_path.get_file() + _RESET_STAGING_SEPARATOR
+	var count: int = 0
+	var entry: String = directory.get_next()
+	while not entry.is_empty():
+		if (
+			entry.begins_with(prefix)
+			and (
+				entry.contains(_RESET_INTENT_SUFFIX)
+			)
+		):
+			count += 1
+			if count >= 5:
+				directory.list_dir_end()
+				return 5
+		entry = directory.get_next()
+	directory.list_dir_end()
+	return count
+
+
+func _inspect_multi_member_reset_evidence(
+	logical_name: String,
+	descriptor: Dictionary
+) -> Dictionary:
+	var family_path: String = GFVariantData.get_option_string(descriptor, "family_path")
+	if family_path.is_empty():
+		return {"error": int(ERR_INVALID_PARAMETER), "is_valid_multi": false}
+	if not _absolute_storage_leaf_exists(family_path):
+		return {"error": int(OK), "is_valid_multi": false}
+	if (
+		_absolute_storage_path_is_link(family_path)
+		or not DirAccess.dir_exists_absolute(family_path)
+	):
+		return {"error": int(OK), "is_valid_multi": false}
+	for entry: Dictionary in [
+		{"path": GFVariantData.get_option_string(descriptor, "transaction_pending_path"), "committed": false},
+		{"path": GFVariantData.get_option_string(descriptor, "transaction_path"), "committed": false},
+		{"path": GFVariantData.get_option_string(descriptor, "transaction_commit_pending_path"), "committed": true},
+		{"path": GFVariantData.get_option_string(descriptor, "transaction_commit_path"), "committed": true},
+	]:
+		var path: String = GFVariantData.get_option_string(entry, "path")
+		if _absolute_storage_path_is_link(path):
+			continue
+		if not FileAccess.file_exists(path):
+			continue
+		var marker_read: Dictionary = _read_transaction_record_result_absolute(path)
+		var marker_error: Error = GFVariantData.get_option_int(
+			marker_read,
+			"error",
+			ERR_FILE_CORRUPT
+		) as Error
+		if marker_error == ERR_FILE_CORRUPT:
+			continue
+		if marker_error != OK:
+			return {"error": int(marker_error), "is_valid_multi": false}
+		var marker: Dictionary = GFVariantData.get_option_dictionary(marker_read, "record")
+		if _is_valid_multi_member_reset_marker(
+			marker,
+			logical_name,
+			GFVariantData.get_option_bool(entry, "committed")
+		):
+			return {"error": int(OK), "is_valid_multi": true}
+	return {"error": int(OK), "is_valid_multi": false}
+
+
+static func _is_valid_multi_member_reset_marker(
+	marker: Dictionary,
+	logical_name: String,
+	expected_committed: bool
+) -> bool:
+	if marker.size() != 6:
+		return false
+	if not marker.get("committed") is bool or marker.get("committed") != expected_committed:
+		return false
+	var expected_schema: String = (
+		_TRANSACTION_COMMIT_SCHEMA if expected_committed else _TRANSACTION_PREPARE_SCHEMA
+	)
+	if not marker.get("schema") is String or marker.get("schema") != expected_schema:
+		return false
+	if (
+		GFVariantData.to_exact_int(marker.get("schema_version"), -1)
+		!= _TRANSACTION_MARKER_SCHEMA_VERSION
+		or not marker.get("transaction_id") is String
+		or GFVariantData.get_option_string(marker, "transaction_id").is_empty()
+		or not marker.get("owner") is Dictionary
+		or not marker.get("members") is Array
+	):
+		return false
+	var members: Array = GFVariantData.get_option_array(marker, "members")
+	if members.size() <= 1 or members.size() > _MAX_TRANSACTION_FILES:
+		return false
+	var seen: Dictionary = {}
+	var contains_target: bool = false
+	for member_value: Variant in members:
+		if not member_value is Dictionary:
+			return false
+		var member: Dictionary = member_value
+		var member_path: String = GFVariantData.get_option_string(member, "logical_path")
+		if (
+			member.size() != 3
+			or not GFStorageFamilyStore.is_valid_logical_file_path_for_framework(member_path)
+			or seen.has(member_path)
+			or GFVariantData.get_option_string(member, "family_id")
+			!= GFStorageFamilyStore.make_family_id_for_framework(member_path)
+			or not member.get("had_final") is bool
+		):
+			return false
+		seen[member_path] = true
+		contains_target = contains_target or member_path == logical_name
+	var owner: Dictionary = GFVariantData.get_option_dictionary(marker, "owner")
+	var owner_path: String = GFVariantData.get_option_string(owner, "logical_path")
+	return (
+		owner.size() == 2
+		and seen.has(owner_path)
+		and GFVariantData.get_option_string(owner, "family_id")
+		== GFStorageFamilyStore.make_family_id_for_framework(owner_path)
+		and contains_target
+	)
+
+
+func _remove_reset_tree(path: String, depth: int, entry_budget: Array[int]) -> Error:
+	if path.is_empty() or entry_budget.is_empty() or depth > _RESET_MAX_TREE_DEPTH:
+		return ERR_INVALID_PARAMETER
+	if _absolute_storage_path_is_link(path):
+		return DirAccess.remove_absolute(path)
+	if FileAccess.file_exists(path):
+		return DirAccess.remove_absolute(path)
+	if not DirAccess.dir_exists_absolute(path):
+		return OK
+	var directory: DirAccess = DirAccess.open(path)
+	if directory == null:
+		return ERR_FILE_CANT_OPEN
+	var begin_error: Error = directory.list_dir_begin()
+	if begin_error != OK:
+		return begin_error
+	var entries: Array[Dictionary] = []
+	var entry: String = directory.get_next()
+	while not entry.is_empty():
+		entry_budget[0] -= 1
+		if entry_budget[0] < 0:
+			directory.list_dir_end()
+			return ERR_OUT_OF_MEMORY
+		entries.append({
+			"name": entry,
+			"is_directory": directory.current_is_dir(),
+			"is_link": directory.is_link(entry),
+		})
+		entry = directory.get_next()
+	directory.list_dir_end()
+	for entry_data: Dictionary in entries:
+		var child_path: String = path.path_join(
+			GFVariantData.get_option_string(entry_data, "name")
+		)
+		var remove_error: Error
+		if GFVariantData.get_option_bool(entry_data, "is_link"):
+			remove_error = DirAccess.remove_absolute(child_path)
+		elif GFVariantData.get_option_bool(entry_data, "is_directory"):
+			remove_error = _remove_reset_tree(child_path, depth + 1, entry_budget)
+		else:
+			remove_error = DirAccess.remove_absolute(child_path)
+		if remove_error != OK:
+			return remove_error
+	return DirAccess.remove_absolute(path)
+
+
+static func _absolute_storage_path_is_link(path: String) -> bool:
+	var parent_path: String = path.get_base_dir()
+	var leaf_name: String = path.get_file()
+	if parent_path.is_empty() or leaf_name.is_empty():
+		return false
+	var parent: DirAccess = DirAccess.open(parent_path)
+	return parent != null and parent.is_link(leaf_name)
+
+
+static func _absolute_storage_leaf_exists(path: String) -> bool:
+	return (
+		FileAccess.file_exists(path)
+		or DirAccess.dir_exists_absolute(path)
+		or _absolute_storage_path_is_link(path)
+	)
+
+
+static func _validate_reset_mutation_ancestry(
+	storage_root_path: String,
+	descriptor: Dictionary
+) -> Error:
+	if (
+		storage_root_path != "user://"
+		and (
+			not storage_root_path.begins_with("user://")
+			or storage_root_path.ends_with("/")
+		)
+	):
+		return ERR_INVALID_PARAMETER
+	var target_directories: Array[String] = [
+		storage_root_path,
+		storage_root_path.path_join(".gf-storage"),
+		storage_root_path.path_join(".gf-storage/v1"),
+		storage_root_path.path_join(".gf-storage/v1/catalog"),
+		storage_root_path.path_join(".gf-storage/v1/families"),
+	]
+	if not descriptor.is_empty():
+		for key: String in ["catalog_path", "family_path"]:
+			var identity_path: String = GFVariantData.get_option_string(descriptor, key)
+			if identity_path.is_empty():
+				return ERR_INVALID_PARAMETER
+			target_directories.append(identity_path.get_base_dir())
+	var visited: Dictionary = {}
+	for target_directory: String in target_directories:
+		var relative_path: String
+		if storage_root_path == "user://":
+			if not target_directory.begins_with("user://"):
+				return ERR_INVALID_PARAMETER
+			relative_path = target_directory.trim_prefix("user://")
+		else:
+			if (
+				target_directory != storage_root_path
+				and not target_directory.begins_with(storage_root_path + "/")
+			):
+				return ERR_INVALID_PARAMETER
+			relative_path = target_directory.trim_prefix(storage_root_path).trim_prefix("/")
+		var current_path: String = storage_root_path
+		if current_path != "user://":
+			var root_relative_path: String = current_path.trim_prefix("user://")
+			current_path = "user://"
+			for root_segment: String in root_relative_path.split("/", false):
+				current_path = current_path.path_join(root_segment)
+				var root_error: Error = _validate_reset_directory_component(
+					current_path,
+					visited
+				)
+				if root_error != OK:
+					return root_error
+		for segment: String in relative_path.split("/", false):
+			current_path = current_path.path_join(segment)
+			var component_error: Error = _validate_reset_directory_component(
+				current_path,
+				visited
+			)
+			if component_error != OK:
+				return component_error
+	return OK
+
+
+static func _validate_reset_directory_component(
+	path: String,
+	visited: Dictionary
+) -> Error:
+	if visited.has(path):
+		return OK
+	visited[path] = true
+	if _absolute_storage_path_is_link(path) or FileAccess.file_exists(path):
+		return ERR_FILE_CORRUPT
+	return OK
 
 
 func _save_data_thread(
@@ -4425,13 +6751,25 @@ func _load_data_thread(_file_name: String, path: String, codec_options: Dictiona
 			GFStorageReadResult.FailureKind.IO_FAILED
 		)
 
-	var bytes: PackedByteArray = file.get_buffer(file.get_length())
-	file.close()
-	if bytes.is_empty():
+	var expected_length: int = file.get_length()
+	if expected_length <= 0:
+		file.close()
 		return _make_thread_load_failure(
 			"File is empty",
 			ERR_FILE_CORRUPT,
 			GFStorageReadResult.FailureKind.CORRUPT
+		)
+	var bytes: PackedByteArray = file.get_buffer(expected_length)
+	var read_error: Error = file.get_error()
+	file.close()
+	if (
+		bytes.size() != expected_length
+		or (read_error != OK and read_error != ERR_FILE_EOF)
+	):
+		return _make_thread_load_failure(
+			"File read failed: %s" % error_string(read_error),
+			read_error if read_error not in [OK, ERR_FILE_EOF] else ERR_FILE_CANT_READ,
+			GFStorageReadResult.FailureKind.IO_FAILED
 		)
 
 	var thread_codec: GFStorageCodec = GFStorageCodec.new()
@@ -4505,63 +6843,110 @@ func _publish_single_transaction_record_absolute(
 	if not _is_valid_single_file_transaction_marker(record, file_name):
 		return ERR_INVALID_DATA
 	if FileAccess.file_exists(path):
-		return OK if _single_transaction_records_match(
-			record,
-			_read_transaction_record_absolute(path),
-			file_name
-		) else ERR_FILE_CORRUPT
+		return _match_single_transaction_record_at_path(record, path, file_name)
 	if FileAccess.file_exists(pending_path):
-		if not _single_transaction_records_match(
+		var pending_match_error: Error = _match_single_transaction_record_at_path(
 			record,
-			_read_transaction_record_absolute(pending_path),
+			pending_path,
 			file_name
-		):
-			return ERR_FILE_CORRUPT
+		)
+		if pending_match_error != OK:
+			return pending_match_error
 	else:
 		var write_error: Error = _write_plain_json_absolute(pending_path, record)
 		if write_error != OK:
 			return write_error
-		if not _single_transaction_records_match(
+		var written_match_error: Error = _match_single_transaction_record_at_path(
 			record,
-			_read_transaction_record_absolute(pending_path),
+			pending_path,
 			file_name
-		):
-			return ERR_FILE_CORRUPT
+		)
+		if written_match_error != OK:
+			return written_match_error
 	var publish_error: Error = DirAccess.rename_absolute(pending_path, path)
 	if publish_error == OK:
 		return OK
 	if not FileAccess.file_exists(path):
 		return publish_error
-	if not _single_transaction_records_match(
+	var published_match_error: Error = _match_single_transaction_record_at_path(
 		record,
-		_read_transaction_record_absolute(path),
+		path,
 		file_name
-	):
-		return ERR_FILE_CORRUPT
+	)
+	if published_match_error != OK:
+		return published_match_error
 	var _pending_cleanup_error: Error = _remove_absolute_file(pending_path)
 	return OK
 
 
-func _read_transaction_record_absolute(path: String) -> Dictionary:
+func _match_single_transaction_record_at_path(
+	expected: Dictionary,
+	path: String,
+	file_name: String
+) -> Error:
+	var read_result: Dictionary = _read_transaction_record_result_absolute(path)
+	var read_error: Error = GFVariantData.get_option_int(
+		read_result,
+		"error",
+		ERR_FILE_CORRUPT
+	) as Error
+	if read_error != OK:
+		return read_error
+	return (
+		OK
+		if _single_transaction_records_match(
+			expected,
+			GFVariantData.get_option_dictionary(read_result, "record"),
+			file_name
+		)
+		else ERR_FILE_CORRUPT
+	)
+
+
+static func _read_transaction_record_result_absolute(path: String) -> Dictionary:
+	if path.is_empty():
+		return {"error": int(ERR_INVALID_PARAMETER), "record": {}}
 	if not FileAccess.file_exists(path):
-		return {}
+		return {"error": int(ERR_FILE_NOT_FOUND), "record": {}}
 	var file: FileAccess = FileAccess.open(path, FileAccess.READ)
 	if file == null:
-		return {}
-	if file.get_length() <= 0 or file.get_length() > 64 * 1024:
+		return {"error": int(FileAccess.get_open_error()), "record": {}}
+	var expected_length: int = file.get_length()
+	var length_error: Error = file.get_error()
+	if length_error != OK:
 		file.close()
-		return {}
-	var content: String = file.get_as_text()
+		return {"error": int(length_error), "record": {}}
+	if expected_length <= 0 or expected_length > 64 * 1024:
+		file.close()
+		return {"error": int(ERR_FILE_CORRUPT), "record": {}}
+	var bytes: PackedByteArray = file.get_buffer(expected_length)
 	var read_error: Error = file.get_error()
 	file.close()
-	if read_error != OK:
-		return {}
+	if (
+		bytes.size() != expected_length
+		or (read_error != OK and read_error != ERR_FILE_EOF)
+	):
+		return {
+			"error": int(
+				read_error if read_error not in [OK, ERR_FILE_EOF] else ERR_FILE_CANT_READ
+			),
+			"record": {},
+		}
 	var json_parser: JSON = JSON.new()
-	var parse_error: Error = json_parser.parse(content)
+	var parse_error: Error = json_parser.parse(bytes.get_string_from_utf8())
 	if parse_error != OK:
-		return {}
+		return {"error": int(ERR_FILE_CORRUPT), "record": {}}
 	var parsed: Variant = json_parser.data
-	return GFVariantData.as_dictionary(parsed) if parsed is Dictionary else {}
+	if not parsed is Dictionary:
+		return {"error": int(ERR_FILE_CORRUPT), "record": {}}
+	return {"error": int(OK), "record": GFVariantData.as_dictionary(parsed)}
+
+
+func _read_transaction_record_absolute(path: String) -> Dictionary:
+	return GFVariantData.get_option_dictionary(
+		_read_transaction_record_result_absolute(path),
+		"record"
+	)
 
 
 func _single_transaction_records_match(
@@ -4696,6 +7081,12 @@ func _prepare_family_for_write(file_name: String) -> Error:
 	var readiness_error: Error = _ensure_storage_ready()
 	if readiness_error != OK:
 		return readiness_error
+	var reset_recovery_error: Error = _resume_pending_reset_for_file(
+		_get_save_base_path(),
+		file_name
+	)
+	if reset_recovery_error != OK:
+		return reset_recovery_error
 	var descriptor: Dictionary = _make_family_descriptor(file_name)
 	if descriptor.is_empty():
 		return ERR_INVALID_PARAMETER
@@ -4710,6 +7101,16 @@ func _prepare_family_for_read(file_name: String) -> Error:
 	var readiness_error: Error = _ensure_storage_ready()
 	if readiness_error != OK:
 		return readiness_error
+	return _prepare_family_for_read_after_readiness(file_name)
+
+
+func _prepare_family_for_read_after_readiness(file_name: String) -> Error:
+	var reset_recovery_error: Error = _resume_pending_reset_for_file(
+		_get_save_base_path(),
+		file_name
+	)
+	if reset_recovery_error != OK:
+		return reset_recovery_error
 	var descriptor: Dictionary = _make_family_descriptor(file_name)
 	if descriptor.is_empty():
 		return ERR_INVALID_PARAMETER
@@ -5086,6 +7487,7 @@ func _read_json(file_name: String) -> GFStorageReadResult:
 			ERR_FILE_NOT_FOUND,
 			GFStorageReadResult.FailureKind.NOT_FOUND
 		)
+		_bind_read_result_origin(last_load_result, file_name)
 		return last_load_result.duplicate_result()
 
 	var file: FileAccess = FileAccess.open(path, FileAccess.READ)
@@ -5097,21 +7499,46 @@ func _read_json(file_name: String) -> GFStorageReadResult:
 			open_error,
 			GFStorageReadResult.FailureKind.IO_FAILED
 		)
+		_bind_read_result_origin(last_load_result, file_name)
 		return last_load_result.duplicate_result()
 
-	var bytes: PackedByteArray = file.get_buffer(file.get_length())
-	file.close()
-
-	if bytes.is_empty():
+	var expected_length: int = file.get_length()
+	if expected_length <= 0:
+		file.close()
 		last_load_result = _make_load_failure(
 			"File is empty",
 			ERR_FILE_CORRUPT,
 			GFStorageReadResult.FailureKind.CORRUPT
 		)
+		_bind_read_result_origin(last_load_result, file_name)
+		return last_load_result.duplicate_result()
+	var bytes: PackedByteArray = file.get_buffer(expected_length)
+	var read_error: Error = file.get_error()
+	file.close()
+	if (
+		bytes.size() != expected_length
+		or (read_error != OK and read_error != ERR_FILE_EOF)
+	):
+		var reported_read_error: Error = (
+			read_error
+			if read_error not in [OK, ERR_FILE_EOF]
+			else ERR_FILE_CANT_READ
+		)
+		push_error(
+			"[GFStorageUtility] 无法完整读取文件：%s，错误码：%s"
+			% [path, reported_read_error]
+		)
+		last_load_result = _make_load_failure(
+			"File read failed: %s" % error_string(reported_read_error),
+			reported_read_error,
+			GFStorageReadResult.FailureKind.IO_FAILED
+		)
+		_bind_read_result_origin(last_load_result, file_name)
 		return last_load_result.duplicate_result()
 
 	var result: GFStorageReadResult = _get_codec().decode(bytes, _get_codec_options())
 	result = _apply_schema_migrations(file_name, result)
+	_bind_read_result_origin(result, file_name)
 	last_load_result = result.duplicate_result()
 	if not result.ok:
 		if _should_emit_load_integrity_failed(result):
@@ -5838,15 +8265,33 @@ class _StorageTransactionManager:
 			)
 			if record_error != OK:
 				return record_error
-			var marker: Dictionary = _read_transaction_marker(file_name)
-			if marker.is_empty():
-				marker = _read_transaction_commit_marker(file_name)
-			if marker.is_empty():
+			var marker_read: Dictionary = _read_first_transaction_marker_result(file_name)
+			var marker_error: Error = GFVariantData.get_option_int(
+				marker_read,
+				"error",
+				ERR_FILE_CORRUPT
+			) as Error
+			if marker_error == ERR_FILE_NOT_FOUND:
 				continue
+			if marker_error != OK:
+				return marker_error
+			var marker: Dictionary = GFVariantData.get_option_dictionary(marker_read, "record")
 
-			var transaction_files: Array[String] = _discover_transaction_marker_files(marker, file_name)
-			if transaction_files.is_empty():
-				return ERR_FILE_CORRUPT
+			var transaction_files_result: Dictionary = _discover_transaction_marker_files(
+				marker,
+				file_name
+			)
+			var transaction_files_error: Error = GFVariantData.get_option_int(
+				transaction_files_result,
+				"error",
+				ERR_FILE_CORRUPT
+			) as Error
+			if transaction_files_error != OK:
+				return transaction_files_error
+			var transaction_files: Array[String] = []
+			transaction_files.assign(
+				GFVariantData.get_option_array(transaction_files_result, "files")
+			)
 			var recovery_error: Error = _recover_transaction_group(transaction_files)
 			if recovery_error != OK:
 				return recovery_error
@@ -5916,9 +8361,20 @@ class _StorageTransactionManager:
 			if record_error != OK:
 				return record_error
 
-		var transaction_reference: Dictionary = _find_transaction_reference(file_names)
-		if transaction_reference.is_empty():
+		var transaction_reference_read: Dictionary = _find_transaction_reference(file_names)
+		var transaction_reference_error: Error = GFVariantData.get_option_int(
+			transaction_reference_read,
+			"error",
+			ERR_FILE_CORRUPT
+		) as Error
+		if transaction_reference_error == ERR_FILE_NOT_FOUND:
 			return _validate_stable_group_without_evidence(file_names)
+		if transaction_reference_error != OK:
+			return transaction_reference_error
+		var transaction_reference: Dictionary = GFVariantData.get_option_dictionary(
+			transaction_reference_read,
+			"record"
+		)
 		if _get_transaction_marker_files(
 			transaction_reference,
 			GFVariantData.get_option_string(
@@ -5932,16 +8388,38 @@ class _StorageTransactionManager:
 		var prepare_count: int = 0
 		var commit_count: int = 0
 		for file_name: String in file_names:
-			var prepare: Dictionary = _read_transaction_marker(file_name)
-			if not prepare.is_empty():
+			var prepare_read: Dictionary = _read_transaction_marker_result(file_name)
+			var prepare_error: Error = GFVariantData.get_option_int(
+				prepare_read,
+				"error",
+				ERR_FILE_CORRUPT
+			) as Error
+			if prepare_error == OK:
+				var prepare: Dictionary = GFVariantData.get_option_dictionary(
+					prepare_read,
+					"record"
+				)
 				if not _markers_share_snapshot(transaction_reference, prepare, file_name, false):
 					return ERR_FILE_CORRUPT
 				prepare_count += 1
-			var commit: Dictionary = _read_transaction_commit_marker(file_name)
-			if not commit.is_empty():
+			elif prepare_error != ERR_FILE_NOT_FOUND:
+				return prepare_error
+			var commit_read: Dictionary = _read_transaction_commit_marker_result(file_name)
+			var commit_error: Error = GFVariantData.get_option_int(
+				commit_read,
+				"error",
+				ERR_FILE_CORRUPT
+			) as Error
+			if commit_error == OK:
+				var commit: Dictionary = GFVariantData.get_option_dictionary(
+					commit_read,
+					"record"
+				)
 				if not _markers_share_snapshot(transaction_reference, commit, file_name, true):
 					return ERR_FILE_CORRUPT
 				commit_count += 1
+			elif commit_error != ERR_FILE_NOT_FOUND:
+				return commit_error
 
 		if commit_count == file_names.size():
 			return _finalize_committed_group(file_names)
@@ -5970,14 +8448,32 @@ class _StorageTransactionManager:
 		var record_error: Error = _validate_final_transaction_records_for_file(file_name)
 		if record_error != OK:
 			return record_error
-		var marker: Dictionary = _read_transaction_marker(file_name)
-		if marker.is_empty():
-			marker = _read_transaction_commit_marker(file_name)
-		if marker.is_empty():
+		var marker_read: Dictionary = _read_first_transaction_marker_result(file_name)
+		var marker_error: Error = GFVariantData.get_option_int(
+			marker_read,
+			"error",
+			ERR_FILE_CORRUPT
+		) as Error
+		if marker_error == ERR_FILE_NOT_FOUND:
 			return _validate_stable_group_without_evidence([file_name])
-		var transaction_files: Array[String] = _discover_transaction_marker_files(marker, file_name)
-		if transaction_files.is_empty():
-			return ERR_FILE_CORRUPT
+		if marker_error != OK:
+			return marker_error
+		var marker: Dictionary = GFVariantData.get_option_dictionary(marker_read, "record")
+		var transaction_files_result: Dictionary = _discover_transaction_marker_files(
+			marker,
+			file_name
+		)
+		var transaction_files_error: Error = GFVariantData.get_option_int(
+			transaction_files_result,
+			"error",
+			ERR_FILE_CORRUPT
+		) as Error
+		if transaction_files_error != OK:
+			return transaction_files_error
+		var transaction_files: Array[String] = []
+		transaction_files.assign(
+			GFVariantData.get_option_array(transaction_files_result, "files")
+		)
 		return _recover_transaction_group(transaction_files)
 
 	func _reconcile_pending_records_for_file(file_name: String) -> Error:
@@ -5994,15 +8490,34 @@ class _StorageTransactionManager:
 			)
 			if not FileAccess.file_exists(pending_path):
 				continue
-			var pending: Dictionary = _read_transaction_marker_absolute(pending_path)
-			if pending.is_empty() or (
+			var pending_read: Dictionary = _read_transaction_marker_result_absolute(pending_path)
+			var pending_error: Error = GFVariantData.get_option_int(
+				pending_read,
+				"error",
+				ERR_FILE_CORRUPT
+			) as Error
+			if pending_error != OK:
+				return pending_error
+			var pending: Dictionary = GFVariantData.get_option_dictionary(pending_read, "record")
+			if (
 				not _is_valid_marker_for_member(pending, file_name)
 				or GFVariantData.get_option_bool(pending, "committed") != committed
 			):
 				return ERR_FILE_CORRUPT
 			if FileAccess.file_exists(final_path):
-				var final_record: Dictionary = _read_transaction_marker_absolute(final_path)
-				if pending.is_empty() or not _transaction_records_match(final_record, pending):
+				var final_read: Dictionary = _read_transaction_marker_result_absolute(final_path)
+				var final_error: Error = GFVariantData.get_option_int(
+					final_read,
+					"error",
+					ERR_FILE_CORRUPT
+				) as Error
+				if final_error != OK:
+					return final_error
+				var final_record: Dictionary = GFVariantData.get_option_dictionary(
+					final_read,
+					"record"
+				)
+				if not _transaction_records_match(final_record, pending):
 					return ERR_FILE_CORRUPT
 				var remove_stale_pending: Error = _file_ops._remove_absolute(pending_path)
 				if remove_stale_pending != OK:
@@ -6016,7 +8531,18 @@ class _StorageTransactionManager:
 			if promote_error != OK:
 				if not FileAccess.file_exists(final_path):
 					return promote_error
-				var promoted: Dictionary = _read_transaction_marker_absolute(final_path)
+				var promoted_read: Dictionary = _read_transaction_marker_result_absolute(final_path)
+				var promoted_error: Error = GFVariantData.get_option_int(
+					promoted_read,
+					"error",
+					ERR_FILE_CORRUPT
+				) as Error
+				if promoted_error != OK:
+					return promoted_error
+				var promoted: Dictionary = GFVariantData.get_option_dictionary(
+					promoted_read,
+					"record"
+				)
 				if not _transaction_records_match(pending, promoted):
 					return ERR_FILE_CORRUPT
 				var remove_raced_pending: Error = _file_ops._remove_absolute(pending_path)
@@ -6033,10 +8559,17 @@ class _StorageTransactionManager:
 			)
 			if not FileAccess.file_exists(record_path):
 				continue
-			var record: Dictionary = _read_transaction_marker_absolute(record_path)
+			var record_read: Dictionary = _read_transaction_marker_result_absolute(record_path)
+			var read_error: Error = GFVariantData.get_option_int(
+				record_read,
+				"error",
+				ERR_FILE_CORRUPT
+			) as Error
+			if read_error != OK:
+				return read_error
+			var record: Dictionary = GFVariantData.get_option_dictionary(record_read, "record")
 			if (
-				record.is_empty()
-				or not _is_valid_marker_for_member(record, file_name)
+				not _is_valid_marker_for_member(record, file_name)
 				or GFVariantData.get_option_bool(record, "committed") != committed
 			):
 				return ERR_FILE_CORRUPT
@@ -6044,13 +8577,25 @@ class _StorageTransactionManager:
 
 	func _find_transaction_reference(file_names: Array[String]) -> Dictionary:
 		for file_name: String in file_names:
-			var prepare: Dictionary = _read_transaction_marker(file_name)
-			if not prepare.is_empty():
-				return prepare
-			var commit: Dictionary = _read_transaction_commit_marker(file_name)
-			if not commit.is_empty():
-				return commit
-		return {}
+			var prepare_read: Dictionary = _read_transaction_marker_result(file_name)
+			var prepare_error: Error = GFVariantData.get_option_int(
+				prepare_read,
+				"error",
+				ERR_FILE_CORRUPT
+			) as Error
+			if prepare_error == OK:
+				return prepare_read
+			if prepare_error != ERR_FILE_NOT_FOUND:
+				return prepare_read
+			var commit_read: Dictionary = _read_transaction_commit_marker_result(file_name)
+			var commit_error: Error = GFVariantData.get_option_int(
+				commit_read,
+				"error",
+				ERR_FILE_CORRUPT
+			) as Error
+			if commit_error != ERR_FILE_NOT_FOUND:
+				return commit_read
+		return {"error": int(ERR_FILE_NOT_FOUND), "record": {}}
 
 	func _validate_stable_group_without_evidence(file_names: Array[String]) -> Error:
 		for file_name: String in file_names:
@@ -6209,8 +8754,9 @@ class _StorageTransactionManager:
 		if file_names.is_empty():
 			return ERR_INVALID_PARAMETER
 		if markers_prepared:
-			if not _is_transaction_group_in_state(file_names, false):
-				return ERR_INVALID_DATA
+			var prepared_error: Error = _validate_transaction_group(file_names)
+			if prepared_error != OK:
+				return prepared_error
 		else:
 			var marker_error: Error = _write_transaction_markers(file_names, false)
 			if marker_error != OK:
@@ -6254,9 +8800,22 @@ class _StorageTransactionManager:
 	) -> Error:
 		file_names = _unique_file_names(file_names)
 		file_names.sort()
-		var transaction_reference: Dictionary = _find_transaction_reference(file_names)
-		if transaction_reference.is_empty():
-			return ERR_FILE_CORRUPT
+		var transaction_reference_read: Dictionary = _find_transaction_reference(file_names)
+		var transaction_reference_error: Error = GFVariantData.get_option_int(
+			transaction_reference_read,
+			"error",
+			ERR_FILE_CORRUPT
+		) as Error
+		if transaction_reference_error != OK:
+			return (
+				ERR_FILE_CORRUPT
+				if transaction_reference_error == ERR_FILE_NOT_FOUND
+				else transaction_reference_error
+			)
+		var transaction_reference: Dictionary = GFVariantData.get_option_dictionary(
+			transaction_reference_read,
+			"record"
+		)
 		return _rollback_group_from_record(file_names, transaction_reference)
 
 	func _write_transaction_markers(file_names: Array[String], committed: bool) -> Error:
@@ -6267,12 +8826,42 @@ class _StorageTransactionManager:
 		var transaction_id: String
 		var had_final_by_file: Dictionary = {}
 		if committed:
-			var first_prepare: Dictionary = _read_transaction_marker(file_names[0])
+			var first_prepare_read: Dictionary = _read_transaction_marker_result(file_names[0])
+			var first_prepare_error: Error = GFVariantData.get_option_int(
+				first_prepare_read,
+				"error",
+				ERR_FILE_CORRUPT
+			) as Error
+			if first_prepare_error != OK:
+				return (
+					ERR_FILE_CORRUPT
+					if first_prepare_error == ERR_FILE_NOT_FOUND
+					else first_prepare_error
+				)
+			var first_prepare: Dictionary = GFVariantData.get_option_dictionary(
+				first_prepare_read,
+				"record"
+			)
 			if not _is_valid_marker_for_member(first_prepare, file_names[0]):
 				return ERR_FILE_CORRUPT
 			transaction_id = GFVariantData.get_option_string(first_prepare, "transaction_id")
 			for file_name: String in file_names:
-				var prepare_marker: Dictionary = _read_transaction_marker(file_name)
+				var prepare_read: Dictionary = _read_transaction_marker_result(file_name)
+				var prepare_error: Error = GFVariantData.get_option_int(
+					prepare_read,
+					"error",
+					ERR_FILE_CORRUPT
+				) as Error
+				if prepare_error != OK:
+					return (
+						ERR_FILE_CORRUPT
+						if prepare_error == ERR_FILE_NOT_FOUND
+						else prepare_error
+					)
+				var prepare_marker: Dictionary = GFVariantData.get_option_dictionary(
+					prepare_read,
+					"record"
+				)
 				if not _markers_share_snapshot(first_prepare, prepare_marker, file_name, false):
 					return ERR_FILE_CORRUPT
 				had_final_by_file[file_name] = _get_marker_had_final(first_prepare, file_name)
@@ -6309,14 +8898,37 @@ class _StorageTransactionManager:
 		return OK
 
 	func _read_transaction_marker(file_name: String) -> Dictionary:
-		var path: String = _path_policy._get_full_path(_get_transaction_filename(file_name))
-		return _read_transaction_marker_absolute(path)
+		return GFVariantData.get_option_dictionary(
+			_read_transaction_marker_result(file_name),
+			"record"
+		)
 
 	func _read_transaction_commit_marker(file_name: String) -> Dictionary:
+		return GFVariantData.get_option_dictionary(
+			_read_transaction_commit_marker_result(file_name),
+			"record"
+		)
+
+	func _read_transaction_marker_result(file_name: String) -> Dictionary:
+		var path: String = _path_policy._get_full_path(_get_transaction_filename(file_name))
+		return _read_transaction_marker_result_absolute(path)
+
+	func _read_transaction_commit_marker_result(file_name: String) -> Dictionary:
 		var path: String = _path_policy._get_full_path(
 			_get_transaction_commit_filename(file_name)
 		)
-		return _read_transaction_marker_absolute(path)
+		return _read_transaction_marker_result_absolute(path)
+
+	func _read_first_transaction_marker_result(file_name: String) -> Dictionary:
+		var prepare_read: Dictionary = _read_transaction_marker_result(file_name)
+		var prepare_error: Error = GFVariantData.get_option_int(
+			prepare_read,
+			"error",
+			ERR_FILE_CORRUPT
+		) as Error
+		if prepare_error != ERR_FILE_NOT_FOUND:
+			return prepare_read
+		return _read_transaction_commit_marker_result(file_name)
 
 	func _publish_transaction_record(
 		path: String,
@@ -6328,14 +8940,14 @@ class _StorageTransactionManager:
 		if not _is_valid_marker_for_member(record, owner_file_name):
 			return ERR_INVALID_DATA
 		if FileAccess.file_exists(path):
-			return OK if _transaction_records_match(
-				record,
-				_read_transaction_marker_absolute(path)
-			) else ERR_FILE_CORRUPT
+			return _match_transaction_record_at_path(record, path)
 		if FileAccess.file_exists(pending_path):
-			var pending_record: Dictionary = _read_transaction_marker_absolute(pending_path)
-			if not _transaction_records_match(record, pending_record):
-				return ERR_FILE_CORRUPT
+			var pending_match_error: Error = _match_transaction_record_at_path(
+				record,
+				pending_path
+			)
+			if pending_match_error != OK:
+				return pending_match_error
 		else:
 			var write_error: Error = _file_ops._write_plain_json_absolute(
 				pending_path,
@@ -6343,21 +8955,23 @@ class _StorageTransactionManager:
 			)
 			if write_error != OK:
 				return write_error
-			if not _transaction_records_match(
+			var written_match_error: Error = _match_transaction_record_at_path(
 				record,
-				_read_transaction_marker_absolute(pending_path)
-			):
-				return ERR_FILE_CORRUPT
+				pending_path
+			)
+			if written_match_error != OK:
+				return written_match_error
 		var publish_error: Error = DirAccess.rename_absolute(pending_path, path)
 		if publish_error == OK:
 			return OK
 		if not FileAccess.file_exists(path):
 			return publish_error
-		if not _transaction_records_match(
+		var published_match_error: Error = _match_transaction_record_at_path(
 			record,
-			_read_transaction_marker_absolute(path)
-		):
-			return ERR_FILE_CORRUPT
+			path
+		)
+		if published_match_error != OK:
+			return published_match_error
 		var _pending_cleanup_error: Error = _file_ops._remove_absolute(pending_path)
 		return OK
 
@@ -6374,7 +8988,20 @@ class _StorageTransactionManager:
 				_get_transaction_filename(file_name)
 			)
 			if FileAccess.file_exists(prepare_path):
-				var prepare: Dictionary = _read_transaction_marker_absolute(prepare_path)
+				var prepare_read: Dictionary = _read_transaction_marker_result_absolute(
+					prepare_path
+				)
+				var prepare_error: Error = GFVariantData.get_option_int(
+					prepare_read,
+					"error",
+					ERR_FILE_CORRUPT
+				) as Error
+				if prepare_error != OK:
+					return prepare_error
+				var prepare: Dictionary = GFVariantData.get_option_dictionary(
+					prepare_read,
+					"record"
+				)
 				if GFVariantData.get_option_string(prepare, "transaction_id") != transaction_id:
 					return ERR_FILE_CORRUPT
 				var remove_prepare_error: Error = _file_ops._remove_absolute(prepare_path)
@@ -6433,25 +9060,32 @@ class _StorageTransactionManager:
 				return GFVariantData.get_option_bool(member, "had_final")
 		return false
 
-	func _read_transaction_marker_absolute(path: String) -> Dictionary:
-		if not FileAccess.file_exists(path):
-			return {}
-
-		var file: FileAccess = FileAccess.open(path, FileAccess.READ)
-		if file == null:
-			return {}
-		if file.get_length() <= 0 or file.get_length() > 64 * 1024:
-			file.close()
-			return {}
-		var content: String = file.get_as_text()
-		var read_error: Error = file.get_error()
-		file.close()
+	func _match_transaction_record_at_path(expected: Dictionary, path: String) -> Error:
+		var read_result: Dictionary = _read_transaction_marker_result_absolute(path)
+		var read_error: Error = GFVariantData.get_option_int(
+			read_result,
+			"error",
+			ERR_FILE_CORRUPT
+		) as Error
 		if read_error != OK:
-			return {}
-		var parsed: Variant = JSON.parse_string(content)
-		if parsed is Dictionary:
-			return GFVariantData.as_dictionary(parsed)
-		return {}
+			return read_error
+		return (
+			OK
+			if _transaction_records_match(
+				expected,
+				GFVariantData.get_option_dictionary(read_result, "record")
+			)
+			else ERR_FILE_CORRUPT
+		)
+
+	func _read_transaction_marker_result_absolute(path: String) -> Dictionary:
+		return GFStorageUtility._read_transaction_record_result_absolute(path)
+
+	func _read_transaction_marker_absolute(path: String) -> Dictionary:
+		return GFVariantData.get_option_dictionary(
+			_read_transaction_marker_result_absolute(path),
+			"record"
+		)
 
 	func _get_transaction_marker_files(
 		marker: Dictionary,
@@ -6474,21 +9108,32 @@ class _StorageTransactionManager:
 			return []
 		return result
 
-	func _discover_transaction_marker_files(marker: Dictionary, fallback_file_name: String) -> Array[String]:
+	func _discover_transaction_marker_files(
+		marker: Dictionary,
+		fallback_file_name: String
+	) -> Dictionary:
 		var declared_files: Array[String] = _get_transaction_marker_files(
 			marker,
 			fallback_file_name
 		)
 		if declared_files.is_empty():
-			return []
+			return {"error": int(ERR_FILE_CORRUPT), "files": []}
 		for file_name: String in declared_files:
 			var descriptor: Dictionary = GFStorageFamilyStore.make_family_descriptor_for_framework(
 				_path_policy._get_save_base_path(),
 				file_name
 			)
-			if _family_store.validate_family_for_framework(descriptor) != OK:
-				return []
-		return declared_files
+			var family_error: Error = _family_store.validate_family_for_framework(descriptor)
+			if family_error != OK:
+				return {
+					"error": int(
+						ERR_FILE_CORRUPT
+						if family_error in [ERR_FILE_NOT_FOUND, ERR_FILE_CORRUPT]
+						else family_error
+					),
+					"files": [],
+				}
+		return {"error": int(OK), "files": declared_files}
 
 	func _is_transaction_group_committed(file_names: Array[String]) -> bool:
 		return _is_transaction_group_in_state(file_names, true)
@@ -6536,7 +9181,22 @@ class _StorageTransactionManager:
 			var family_error: Error = _family_store.validate_family_for_framework(descriptor)
 			if family_error != OK:
 				return family_error
-			var marker: Dictionary = _read_transaction_marker(file_name)
+			var marker_read: Dictionary = _read_transaction_marker_result(file_name)
+			var marker_error: Error = GFVariantData.get_option_int(
+				marker_read,
+				"error",
+				ERR_FILE_CORRUPT
+			) as Error
+			if marker_error != OK:
+				return (
+					ERR_FILE_CORRUPT
+					if marker_error == ERR_FILE_NOT_FOUND
+					else marker_error
+				)
+			var marker: Dictionary = GFVariantData.get_option_dictionary(
+				marker_read,
+				"record"
+			)
 			if not _is_valid_marker_for_member(marker, file_name):
 				return ERR_FILE_CORRUPT
 			if GFVariantData.get_option_bool(marker, "committed"):
