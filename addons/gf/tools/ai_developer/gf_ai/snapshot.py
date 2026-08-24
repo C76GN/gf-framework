@@ -403,22 +403,52 @@ def _module_dependency_drift_issues(
 	analysis: dict[str, Any],
 ) -> list[dict[str, str]]:
 	issues: list[dict[str, str]] = []
-	status = str(analysis.get("status", "incomplete"))
+	status = str(analysis.get("status", "partial"))
 	if status not in ("complete", "not_configured"):
 		issues.append(_issue(
 			"error",
 			"module_dependency_analysis_incomplete",
 			"$.architecture",
 			(
-				"Observed module/adapter dependency target analysis is incomplete "
+				"Observed module/adapter dependency and path-role analysis is incomplete "
 				f"(status={status}, truncated={bool(analysis.get('truncated'))}, "
 				f"unreadable_files={int(analysis.get('unreadable_file_count', 0))}, "
 				f"missing_roots={int(analysis.get('missing_root_count', 0))}, "
 				f"unsafe_paths={int(analysis.get('unsafe_path_count', 0))}, "
 				f"missing_owned_resources={int(analysis.get('missing_owned_resource_count', 0))}, "
 				f"unsafe_owned_resources={int(analysis.get('unsafe_owned_resource_count', 0))}, "
+				f"partial_path_roles={int(analysis.get('partial_path_role_count', 0))}, "
 				f"ambiguous_classes={int(analysis.get('ambiguous_class_name_count', 0))})."
 			),
+		))
+
+	scan_root_violation_count = int(analysis.get("path_role_dependency_violation_count", 0))
+	scan_root_violations = [
+		item
+		for item in analysis.get("path_role_dependency_violations", [])
+		if isinstance(item, dict)
+	]
+	for item in scan_root_violations:
+		source_path = str(item.get("source_path", "$.architecture.path_roles"))
+		source_module = str(item.get("source_module", ""))
+		target_path = str(item.get("target_path", ""))
+		target_module = str(item.get("target_module", ""))
+		line = int(item.get("line", 0))
+		issues.append(_issue(
+			"error",
+			"undeclared_scan_root_dependency",
+			source_path,
+			f"Module {source_module!r} uses scan root {target_path!r} at "
+			f"{source_path}:{line}, but covered module/adapter component {target_module!r} is neither "
+			"self-owned nor declared in allowed_dependencies.",
+		))
+	if scan_root_violation_count > len(scan_root_violations):
+		issues.append(_issue(
+			"error",
+			"undeclared_scan_root_dependency",
+			"$.architecture.path_roles",
+			f"Scan-root dependency evidence omitted "
+			f"{scan_root_violation_count - len(scan_root_violations)} bounded observation(s).",
 		))
 
 	for item in analysis.get("ambiguous_class_names", []):

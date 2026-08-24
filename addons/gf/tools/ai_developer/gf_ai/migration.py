@@ -14,7 +14,6 @@ from .paths import CompareExchangeError, atomic_compare_exchange_json, read_json
 
 
 _SHA256_PATTERN = re.compile(r"^[0-9a-f]{64}$")
-_MIGRATION_ID = "project-contract-v1-to-v2"
 _MAX_CONTRACT_BYTES = 1024 * 1024
 
 
@@ -51,7 +50,7 @@ def plan_contract_migration(
 		if any(issue.get("severity") == "error" for issue in validation_issues):
 			return {"ok": False, "status": "blocked", **base, "issues": validation_issues}
 		return {"ok": True, "status": "up_to_date", **base, "issues": validation_issues}
-	if source_version != 1 or CONTRACT_SCHEMA_VERSION != 2:
+	if source_version not in (1, 2) or CONTRACT_SCHEMA_VERSION != 3:
 		return {
 			"ok": False,
 			"status": "blocked",
@@ -62,7 +61,23 @@ def plan_contract_migration(
 				f"No migration exists from contract schema v{source_version} to v{CONTRACT_SCHEMA_VERSION}.",
 			)],
 		}
-	candidate, conversion_issues = _migrate_v1_to_v2(source)
+	candidate = copy.deepcopy(source)
+	conversion_issues: list[dict[str, str]] = []
+	changes: list[dict[str, str]] = []
+	if source_version == 1:
+		candidate, conversion_issues = _migrate_v1_to_v2(candidate)
+		changes.append({
+			"code": "capability_requirements_structured",
+			"path": "$.framework.capability_requirements",
+			"message": "Converted required capability ids into owner-bound capability requirement records.",
+		})
+	if not conversion_issues:
+		candidate, conversion_issues = _migrate_v2_to_v3(candidate)
+		changes.append({
+			"code": "path_roles_initialized",
+			"path": "$.architecture.path_roles",
+			"message": "Initialized the closed project path-role declaration list.",
+		})
 	if conversion_issues:
 		return {"ok": False, "status": "blocked", **base, "candidate": candidate, "issues": conversion_issues}
 	validation_issues = validate_contract_data(candidate, project_root)
@@ -73,17 +88,13 @@ def plan_contract_migration(
 			"Migrated project contract exceeds the one-megabyte runtime input budget.",
 		))
 	target_sha256 = sha256_json(candidate)
-	changes = [{
-		"code": "capability_requirements_structured",
-		"path": "$.framework.capability_requirements",
-		"message": "Converted required capability ids into owner-bound capability requirement records.",
-	}]
+	migration_id = f"project-contract-v{source_version}-to-v{CONTRACT_SCHEMA_VERSION}"
 	if any(issue.get("severity") == "error" for issue in validation_issues):
 		return _with_plan_hash({
 			"ok": False,
 			"status": "blocked",
 			**base,
-			"migration_id": _MIGRATION_ID,
+			"migration_id": migration_id,
 			"target": {"schema_version": CONTRACT_SCHEMA_VERSION, "sha256": target_sha256},
 			"changes": changes,
 			"candidate": candidate,
@@ -93,7 +104,7 @@ def plan_contract_migration(
 		"ok": True,
 		"status": "ready",
 		**base,
-		"migration_id": _MIGRATION_ID,
+		"migration_id": migration_id,
 		"target": {"schema_version": CONTRACT_SCHEMA_VERSION, "sha256": target_sha256},
 		"changes": changes,
 		"candidate": candidate,
@@ -192,6 +203,29 @@ def _migrate_v1_to_v2(source: dict[str, Any]) -> tuple[dict[str, Any], list[dict
 		{"id": capability_id, "decision_state": "pending_review", "owner": "project", "recipes": [], "acceptance": [], "notes": ""}
 		for capability_id in legacy_capabilities
 	]
+	candidate["schema_version"] = 2
+	return candidate, []
+
+
+def _migrate_v2_to_v3(source: dict[str, Any]) -> tuple[dict[str, Any], list[dict[str, str]]]:
+	candidate = copy.deepcopy(source)
+	architecture = candidate.get("architecture")
+	if not isinstance(architecture, dict):
+		return candidate, [_issue("invalid_legacy_architecture", "$.architecture", "Legacy architecture field must be an object.")]
+	legacy_owned_resources = architecture.get("owned_resources")
+	if legacy_owned_resources is not None and not isinstance(legacy_owned_resources, list):
+		return candidate, [_issue(
+			"invalid_legacy_owned_resources",
+			"$.architecture.owned_resources",
+			"Legacy owned_resources must be an array when present.",
+		)]
+	if "path_roles" in architecture:
+		return candidate, [_issue(
+			"invalid_legacy_path_roles",
+			"$.architecture.path_roles",
+			"Legacy contract schemas must not predeclare schema v3 path_roles.",
+		)]
+	architecture["path_roles"] = []
 	candidate["schema_version"] = CONTRACT_SCHEMA_VERSION
 	return candidate, []
 
