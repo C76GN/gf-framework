@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFSaveProfileTransactionOperation" path="addons/gf/extensions/save/profile/gf_save_profile_transaction_operation.gd" module="extensions/save" extends="RefCounted" classDigest="099afddec6e78fd3624ef311c449ab3613ef2b52256467b51fd4ab9e8e332103">
+<class name="GFSaveProfileTransactionOperation" path="addons/gf/extensions/save/profile/gf_save_profile_transaction_operation.gd" module="extensions/save" extends="RefCounted" classDigest="fc1ed2c7a52e22a8e942ebd4cd2a5866c303bd2f712bd21f8aa4b9a377c4a64c">
 	<description>GFSaveProfileTransactionOperation: Profile 身份与持久化事务的异步句柄。
 句柄由 Save Profile 事务协调器完成一次且只完成一次。调用方可在连接信号前
 检查 `is_completed()`，避免同步拒绝或立即终态造成竞态。</description>
@@ -53,6 +53,22 @@
 				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
+		<member kind="const" name="OPERATION_BOOTSTRAP_AND_SWITCH">
+			<signature>const OPERATION_BOOTSTRAP_AND_SWITCH: StringName = &amp;"bootstrap_and_switch"</signature>
+			<description>从活动来源重新 flush 后，以当前 Provider 状态创建缺失目标并原子切换。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="OPERATION_ADOPT_AND_SWITCH">
+			<signature>const OPERATION_ADOPT_AND_SWITCH: StringName = &amp;"adopt_and_switch"</signature>
+			<description>从活动来源重新 flush 后，以当前 Provider 状态覆盖损坏目标并原子切换。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
 		<member kind="const" name="OPERATION_MUTATE_AND_PERSIST">
 			<signature>const OPERATION_MUTATE_AND_PERSIST: StringName = &amp;"mutate_and_persist"</signature>
 			<description>应用完整候选 section 并持久化。</description>
@@ -93,8 +109,8 @@
 		<member kind="method" name="get_source_profile_id">
 			<signature>func get_source_profile_id() -&gt; StringName:</signature>
 			<description>获取事务来源 Profile ID。
-activate、bootstrap 与 adopt 没有来源身份；mutate-and-persist 和 reconcile
-使用当前受管 Profile 作为来源。</description>
+activate、bootstrap 与 adopt 没有来源身份；switch、bootstrap/adopt-and-switch、
+mutate-and-persist 和 reconcile 使用当前受管 Profile 作为来源。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">来源 Profile ID；不适用时为空。</tag>

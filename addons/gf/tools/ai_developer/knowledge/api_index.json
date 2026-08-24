@@ -2,7 +2,7 @@
   "schema_version": 2,
   "catalog_version": "2.0.0",
   "framework_version": "11.0.0-dev.0",
-  "source_digest": "9a089d46962c238747b03892d9e4e057bf7eb99c808b1b3dac28f44fa4f2dce3",
+  "source_digest": "a602f3a0a753dd778c558883750bfe38638bf5bd025572e29aa0757445c6c5d5",
   "class_count": 824,
   "autoload_count": 1,
   "package_count": 56,
@@ -71482,7 +71482,7 @@
       "module": "extensions/save",
       "package_id": "gf.extension.save",
       "path": "addons/gf/extensions/save/profile/gf_save_profile_recovery_lease.gd",
-      "summary": "GFSaveProfileRecoveryLease: 缺失或损坏 Profile 的一次性恢复授权。 Lease 由失败的 activate 操作创建，并绑定创建时的事务、Profile、Provider domain generation 与 lifecycle epoch。bootstrap/adopt 必须原样提交同一 Lease；",
+      "summary": "GFSaveProfileRecoveryLease: 缺失或损坏 Profile 的一次性恢复授权。 Lease 由失败的 activate 或 switch 操作创建，并绑定创建时的事务、来源与目标 Profile、Provider domain generation 与 lifecycle epoch。恢复入口必须原样提交同一",
       "visibility": "public",
       "category": "runtime_handle",
       "since": "unreleased",
@@ -71491,14 +71491,14 @@
           "kind": "const",
           "name": "REASON_MISSING",
           "signature": "const REASON_MISSING: StringName = &\"missing\"",
-          "summary": "激活目标没有持久化文档。",
+          "summary": "activate 或 switch 目标没有持久化文档。",
           "visibility": "public"
         },
         {
           "kind": "const",
           "name": "REASON_CORRUPT",
           "signature": "const REASON_CORRUPT: StringName = &\"corrupt\"",
-          "summary": "激活目标文档损坏或完整性无效。",
+          "summary": "activate 或 switch 目标文档损坏、完整性无效或 Storage family 结构损坏。",
           "visibility": "public"
         },
         {
@@ -71534,6 +71534,13 @@
           "name": "get_transaction_id",
           "signature": "func get_transaction_id() -> int",
           "summary": "获取产生当前 Lease 的事务 ID。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_source_profile_id",
+          "signature": "func get_source_profile_id() -> StringName",
+          "summary": "获取恢复事务绑定的来源 Profile ID。",
           "visibility": "public"
         },
         {
@@ -72144,6 +72151,20 @@
         },
         {
           "kind": "func",
+          "name": "bootstrap_and_switch_profile",
+          "signature": "func bootstrap_and_switch_profile( lease: GFSaveProfileRecoveryLease, request: GFSaveProfileRequest = null ) -> GFSaveProfileTransactionOperation",
+          "summary": "使用 switch 返回的 missing lease 创建目标并原子切换活动身份。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "adopt_and_switch_profile",
+          "signature": "func adopt_and_switch_profile( lease: GFSaveProfileRecoveryLease, request: GFSaveProfileRequest = null ) -> GFSaveProfileTransactionOperation",
+          "summary": "使用 switch 返回的 corrupt lease 恢复目标并原子切换活动身份。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
           "name": "mutate_and_persist",
           "signature": "func mutate_and_persist( profile_id: StringName, request: GFSaveProfileMutationRequest ) -> GFSaveProfileTransactionOperation",
           "summary": "事务化应用一个或多个完整 section replacement 并持久化活动 Profile。",
@@ -72202,6 +72223,20 @@
           "name": "OPERATION_ADOPT",
           "signature": "const OPERATION_ADOPT: StringName = &\"adopt\"",
           "summary": "显式采用当前 Provider 状态作为恢复后的活跃 Profile。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "OPERATION_BOOTSTRAP_AND_SWITCH",
+          "signature": "const OPERATION_BOOTSTRAP_AND_SWITCH: StringName = &\"bootstrap_and_switch\"",
+          "summary": "从活动来源重新 flush 后，以当前 Provider 状态创建缺失目标并原子切换。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "OPERATION_ADOPT_AND_SWITCH",
+          "signature": "const OPERATION_ADOPT_AND_SWITCH: StringName = &\"adopt_and_switch\"",
+          "summary": "从活动来源重新 flush 后，以当前 Provider 状态覆盖损坏目标并原子切换。",
           "visibility": "public"
         },
         {
@@ -72317,6 +72352,20 @@
         },
         {
           "kind": "const",
+          "name": "STATUS_BOOTSTRAPPED_AND_SWITCHED",
+          "signature": "const STATUS_BOOTSTRAPPED_AND_SWITCHED: StringName = &\"bootstrapped_and_switched\"",
+          "summary": "缺失目标已持久化，活动身份随后从来源原子切换到目标。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "STATUS_ADOPTED_AND_SWITCHED",
+          "signature": "const STATUS_ADOPTED_AND_SWITCHED: StringName = &\"adopted_and_switched\"",
+          "summary": "损坏目标已显式恢复并持久化，活动身份随后从来源原子切换到目标。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
           "name": "STATUS_MUTATED",
           "signature": "const STATUS_MUTATED: StringName = &\"mutated\"",
           "summary": "候选 sections 已应用并持久化。",
@@ -72382,7 +72431,7 @@
           "kind": "const",
           "name": "STATUS_RECOVERY_REQUIRED",
           "signature": "const STATUS_RECOVERY_REQUIRED: StringName = &\"recovery_required\"",
-          "summary": "activate 检测到缺失或损坏文档，必须显式选择 bootstrap 或 adopt。",
+          "summary": "activate 或 switch 检测到可恢复的缺失/损坏目标，必须显式选择对应恢复入口。",
           "visibility": "public"
         },
         {
@@ -72557,7 +72606,7 @@
           "kind": "func",
           "name": "get_recovery_lease",
           "signature": "func get_recovery_lease() -> GFSaveProfileRecoveryLease",
-          "summary": "获取显式 bootstrap/adopt 所需的同一身份 Recovery Lease。",
+          "summary": "获取显式 bootstrap/adopt 或 bootstrap/adopt-and-switch 所需的同一身份 Recovery Lease。",
           "visibility": "public"
         },
         {

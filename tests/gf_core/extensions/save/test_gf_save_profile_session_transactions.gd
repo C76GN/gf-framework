@@ -655,6 +655,848 @@ func test_corrupt_activate_requires_lease_before_adopt_can_activate() -> void:
 	assert_eq(_coordinator.get_active_profile_id(profile.profile_id), profile.profile_id)
 
 
+func test_switch_recovery_leases_bind_source_and_reject_legacy_or_wrong_reason_apis() -> void:
+	var missing_provider: GFSaveProfileTransactionTestSupport.MemorySectionProvider = (
+		GFSaveProfileTransactionTestSupport.make_provider(&"missing", 10)
+	)
+	var corrupt_provider: GFSaveProfileTransactionTestSupport.MemorySectionProvider = (
+		GFSaveProfileTransactionTestSupport.make_provider(&"corrupt", 20)
+	)
+	var missing_providers: Array[GFSaveSectionProvider] = [missing_provider]
+	var corrupt_providers: Array[GFSaveSectionProvider] = [corrupt_provider]
+	var missing_source: GFSaveProfile = GFSaveProfileTransactionTestSupport.make_profile(
+		&"session.switch_recovery.missing_source",
+		missing_providers
+	)
+	var missing_target: GFSaveProfile = GFSaveProfileTransactionTestSupport.make_profile(
+		&"session.switch_recovery.missing_target",
+		missing_providers
+	)
+	var corrupt_source: GFSaveProfile = GFSaveProfileTransactionTestSupport.make_profile(
+		&"session.switch_recovery.corrupt_source",
+		corrupt_providers
+	)
+	var corrupt_target: GFSaveProfile = GFSaveProfileTransactionTestSupport.make_profile(
+		&"session.switch_recovery.corrupt_target",
+		corrupt_providers
+	)
+	assert_true(_register(missing_source))
+	assert_true(_register(missing_target))
+	assert_true(_register(corrupt_source))
+	assert_true(_register(corrupt_target))
+	_activate_existing(missing_source, { &"missing": { "value": 10 } })
+	_activate_existing(corrupt_source, { &"corrupt": { "value": 20 } })
+
+	var missing_switch: GFSaveProfileTransactionOperation = _coordinator.switch_profile(
+		missing_target.profile_id
+	)
+	var missing_lease: GFSaveProfileRecoveryLease = _complete_switch_recovery_failure(
+		missing_switch,
+		missing_target,
+		ERR_FILE_NOT_FOUND,
+		GFStorageReadResult.FailureKind.NOT_FOUND
+	)
+	assert_not_null(missing_lease)
+	if missing_lease == null:
+		return
+	assert_eq(missing_lease.get_source_profile_id(), missing_source.profile_id)
+	assert_eq(missing_lease.get_profile_id(), missing_target.profile_id)
+	assert_eq(missing_lease.get_transaction_id(), missing_switch.get_transaction_id())
+	assert_eq(missing_lease.get_reason(), GFSaveProfileRecoveryLease.REASON_MISSING)
+	var missing_report: Dictionary = missing_switch.get_result().to_dict()
+	var missing_lease_summary: Dictionary = GFVariantData.get_option_dictionary(
+		missing_report,
+		"recovery_lease"
+	)
+	assert_eq(
+		GFVariantData.get_option_string_name(missing_lease_summary, "source_profile_id"),
+		missing_source.profile_id
+	)
+	assert_eq(
+		_coordinator.get_active_profile_id(missing_target.profile_id),
+		missing_source.profile_id
+	)
+
+	var corrupt_switch: GFSaveProfileTransactionOperation = _coordinator.switch_profile(
+		corrupt_target.profile_id
+	)
+	var corrupt_lease: GFSaveProfileRecoveryLease = _complete_switch_document_corruption(
+		corrupt_switch,
+		corrupt_target
+	)
+	assert_not_null(corrupt_lease)
+	if corrupt_lease == null:
+		return
+	assert_eq(corrupt_lease.get_source_profile_id(), corrupt_source.profile_id)
+	assert_eq(corrupt_lease.get_profile_id(), corrupt_target.profile_id)
+	assert_eq(corrupt_lease.get_transaction_id(), corrupt_switch.get_transaction_id())
+	assert_eq(corrupt_lease.get_reason(), GFSaveProfileRecoveryLease.REASON_CORRUPT)
+	assert_eq(
+		_coordinator.get_active_profile_id(corrupt_target.profile_id),
+		corrupt_source.profile_id
+	)
+
+	var legacy_missing_request: GFSaveProfileRequest = GFSaveProfileRequest.take_ownership(
+		{},
+		{},
+		{ "api": "legacy_bootstrap" }
+	)
+	var legacy_missing: GFSaveProfileTransactionOperation = _coordinator.bootstrap_profile(
+		missing_lease,
+		legacy_missing_request
+	)
+	assert_eq(
+		legacy_missing.get_result().get_status(),
+		GFSaveProfileTransactionResult.STATUS_INVALID_LEASE
+	)
+	assert_false(legacy_missing_request.is_claimed())
+	assert_true(missing_lease.is_available())
+	var wrong_missing_request: GFSaveProfileRequest = GFSaveProfileRequest.take_ownership(
+		{},
+		{},
+		{ "api": "wrong_adopt_and_switch" }
+	)
+	var wrong_missing: GFSaveProfileTransactionOperation = (
+		_coordinator.adopt_and_switch_profile(missing_lease, wrong_missing_request)
+	)
+	assert_eq(
+		wrong_missing.get_result().get_status(),
+		GFSaveProfileTransactionResult.STATUS_INVALID_LEASE
+	)
+	assert_false(wrong_missing_request.is_claimed())
+	assert_true(missing_lease.is_available())
+
+	var legacy_corrupt_request: GFSaveProfileRequest = GFSaveProfileRequest.take_ownership(
+		{},
+		{},
+		{ "api": "legacy_adopt" }
+	)
+	var legacy_corrupt: GFSaveProfileTransactionOperation = _coordinator.adopt_profile(
+		corrupt_lease,
+		legacy_corrupt_request
+	)
+	assert_eq(
+		legacy_corrupt.get_result().get_status(),
+		GFSaveProfileTransactionResult.STATUS_INVALID_LEASE
+	)
+	assert_false(legacy_corrupt_request.is_claimed())
+	assert_true(corrupt_lease.is_available())
+	var wrong_corrupt_request: GFSaveProfileRequest = GFSaveProfileRequest.take_ownership(
+		{},
+		{},
+		{ "api": "wrong_bootstrap_and_switch" }
+	)
+	var wrong_corrupt: GFSaveProfileTransactionOperation = (
+		_coordinator.bootstrap_and_switch_profile(
+			corrupt_lease,
+			wrong_corrupt_request
+		)
+	)
+	assert_eq(
+		wrong_corrupt.get_result().get_status(),
+		GFSaveProfileTransactionResult.STATUS_INVALID_LEASE
+	)
+	assert_false(wrong_corrupt_request.is_claimed())
+	assert_true(corrupt_lease.is_available())
+
+
+func test_switch_unbound_structural_corruption_fails_closed() -> void:
+	var provider: GFSaveProfileTransactionTestSupport.MemorySectionProvider = (
+		GFSaveProfileTransactionTestSupport.make_provider(&"state", 33)
+	)
+	var providers: Array[GFSaveSectionProvider] = [provider]
+	var source: GFSaveProfile = GFSaveProfileTransactionTestSupport.make_profile(
+		&"session.switch_unbound_corrupt.source",
+		providers
+	)
+	var target: GFSaveProfile = GFSaveProfileTransactionTestSupport.make_profile(
+		&"session.switch_unbound_corrupt.target",
+		providers
+	)
+	assert_true(_register(source))
+	assert_true(_register(target))
+	_activate_existing(source, { &"state": { "value": 33 } })
+
+	var operation: GFSaveProfileTransactionOperation = _coordinator.switch_profile(
+		target.profile_id
+	)
+	_profile_utility.tick(0.0)
+	_storage.complete_load_for_file(
+		target.file_name,
+		GFSaveProfileTransactionTestSupport.read_failure(
+			ERR_FILE_CORRUPT,
+			"Injected unbound structural corruption.",
+			GFStorageReadResult.FailureKind.CORRUPT
+		)
+	)
+
+	assert_true(operation.is_completed())
+	assert_eq(
+		operation.get_result().get_status(),
+		GFSaveProfileTransactionResult.STATUS_TARGET_LOAD_FAILED
+	)
+	assert_null(operation.get_result().get_recovery_lease())
+	assert_eq(_coordinator.get_active_profile_id(target.profile_id), source.profile_id)
+	assert_eq(_storage.get_pending_save_count(), 0)
+
+
+func test_adopt_and_switch_resets_structural_family_before_target_save() -> void:
+	var fixture: Dictionary = _prepare_structural_switch_recovery(
+		"session.adopt_switch_reset.success"
+	)
+	var source: GFSaveProfile = _fixture_profile(fixture, "source")
+	var target: GFSaveProfile = _fixture_profile(fixture, "target")
+	var lease: GFSaveProfileRecoveryLease = _fixture_recovery_lease(fixture)
+	var request: GFSaveProfileRequest = GFSaveProfileRequest.take_ownership(
+		{},
+		{},
+		{ "recovery": "structural" }
+	)
+
+	var operation: GFSaveProfileTransactionOperation = (
+		_coordinator.adopt_and_switch_profile(lease, request)
+	)
+	assert_true(request.is_claimed())
+	assert_true(lease.is_claimed())
+	assert_eq(_storage.get_pending_reset_count(), 1)
+	assert_eq(_storage.reset_call_count, 1)
+	assert_eq(_storage.get_pending_save_count(), 0)
+	assert_eq(_coordinator.get_active_profile_id(target.profile_id), source.profile_id)
+
+	_storage.complete_next_reset()
+	assert_eq(_storage.get_pending_reset_count(), 0)
+	assert_eq(_storage.get_pending_save_count(), 1)
+	assert_eq(_storage.get_pending_save_file_name(), target.file_name)
+	assert_eq(_coordinator.get_active_profile_id(target.profile_id), source.profile_id)
+	_storage.complete_next_save(OK)
+
+	assert_true(operation.is_completed())
+	assert_eq(
+		operation.get_result().get_status(),
+		GFSaveProfileTransactionResult.STATUS_ADOPTED_AND_SWITCHED
+	)
+	assert_eq(
+		operation.get_result().get_operation(),
+		GFSaveProfileTransactionOperation.OPERATION_ADOPT_AND_SWITCH
+	)
+	assert_eq(_coordinator.get_active_profile_id(target.profile_id), target.profile_id)
+	assert_lt(
+		_storage.events.find("reset:%s" % target.file_name),
+		_storage.events.find("save:%s" % target.file_name)
+	)
+
+
+func test_adopt_and_switch_reset_failure_preserves_source_without_target_save() -> void:
+	var fixture: Dictionary = _prepare_structural_switch_recovery(
+		"session.adopt_switch_reset.failure"
+	)
+	var source: GFSaveProfile = _fixture_profile(fixture, "source")
+	var target: GFSaveProfile = _fixture_profile(fixture, "target")
+	var lease: GFSaveProfileRecoveryLease = _fixture_recovery_lease(fixture)
+	var operation: GFSaveProfileTransactionOperation = (
+		_coordinator.adopt_and_switch_profile(lease)
+	)
+	var reset_failure: GFStorageFamilyResetResult = GFStorageFamilyResetResult.new()
+	var _configured_failure: bool = reset_failure.configure_for_framework(
+		ERR_FILE_CANT_WRITE,
+		GFStorageFamilyResetResult.FailureKind.IO_FAILED,
+		GFStorageFamilyResetResult.SourceKind.STRUCTURAL_IDENTITY,
+		GFStorageFamilyResetResult.Phase.CLEANUP,
+		2,
+		3,
+		1,
+		GFStorageFamilyResetResult.FamilyMember.FAMILY_CONTAINER
+	)
+
+	_storage.complete_next_reset(reset_failure)
+
+	assert_true(operation.is_completed())
+	assert_eq(
+		operation.get_result().get_status(),
+		GFSaveProfileTransactionResult.STATUS_PERSIST_FAILED
+	)
+	assert_eq(operation.get_result().get_phase(), &"recovery_reset")
+	assert_eq(_storage.get_pending_save_count(), 0)
+	assert_eq(_coordinator.get_active_profile_id(target.profile_id), source.profile_id)
+	var reset_evidence: Dictionary = GFVariantData.get_option_dictionary(
+		operation.get_result().get_stage_evidence(),
+		"reset"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(reset_evidence, "failure_kind"),
+		int(GFStorageFamilyResetResult.FailureKind.IO_FAILED)
+	)
+
+
+func test_adopt_and_switch_reset_success_then_target_save_failure_preserves_source() -> void:
+	var fixture: Dictionary = _prepare_structural_switch_recovery(
+		"session.adopt_switch_reset.target_save_failure"
+	)
+	var source: GFSaveProfile = _fixture_profile(fixture, "source")
+	var target: GFSaveProfile = _fixture_profile(fixture, "target")
+	var lease: GFSaveProfileRecoveryLease = _fixture_recovery_lease(fixture)
+	var operation: GFSaveProfileTransactionOperation = (
+		_coordinator.adopt_and_switch_profile(lease)
+	)
+	assert_eq(_storage.get_pending_reset_count(), 1)
+	assert_eq(_storage.get_pending_save_count(), 0)
+
+	_storage.complete_next_reset()
+	assert_false(operation.is_completed())
+	assert_eq(_storage.get_pending_save_count(), 1)
+	assert_eq(_storage.get_pending_save_file_name(), target.file_name)
+	assert_eq(_coordinator.get_active_profile_id(target.profile_id), source.profile_id)
+	_storage.complete_next_save(ERR_FILE_CANT_WRITE)
+
+	assert_true(operation.is_completed())
+	assert_eq(
+		operation.get_result().get_operation(),
+		GFSaveProfileTransactionOperation.OPERATION_ADOPT_AND_SWITCH
+	)
+	assert_eq(
+		operation.get_result().get_status(),
+		GFSaveProfileTransactionResult.STATUS_PERSIST_FAILED
+	)
+	assert_eq(operation.get_result().get_phase(), &"recovery_target_save")
+	assert_eq(operation.get_result().get_active_profile_after(), source.profile_id)
+	assert_eq(_coordinator.get_active_profile_id(target.profile_id), source.profile_id)
+	var reset_evidence: Dictionary = GFVariantData.get_option_dictionary(
+		operation.get_result().get_stage_evidence(),
+		"reset"
+	)
+	assert_true(GFVariantData.get_option_bool(reset_evidence, "ok"))
+	assert_eq(
+		GFVariantData.get_option_int(reset_evidence, "failure_kind"),
+		int(GFStorageFamilyResetResult.FailureKind.NONE)
+	)
+	assert_lt(
+		_storage.events.find("reset:%s" % target.file_name),
+		_storage.events.find("save:%s" % target.file_name)
+	)
+
+
+func test_dispose_during_switch_reset_fences_request_and_waits_for_physical_tail() -> void:
+	var fixture: Dictionary = _prepare_structural_switch_recovery(
+		"session.adopt_switch_reset.dispose"
+	)
+	var target: GFSaveProfile = _fixture_profile(fixture, "target")
+	var lease: GFSaveProfileRecoveryLease = _fixture_recovery_lease(fixture)
+	var operation: GFSaveProfileTransactionOperation = (
+		_coordinator.adopt_and_switch_profile(lease)
+	)
+	var request_id: int = _storage.get_pending_reset_request_id()
+	var _connected: Error = operation.completed.connect(_on_transaction_completed) as Error
+	assert_gt(request_id, 0)
+
+	_coordinator.dispose()
+	assert_true(operation.is_completed())
+	assert_eq(
+		operation.get_result().get_status(),
+		GFSaveProfileTransactionResult.STATUS_OUTCOME_UNKNOWN
+	)
+	var reconcile_lease: GFSaveProfileReconcileLease = (
+		operation.get_result().get_reconcile_lease()
+	)
+	assert_not_null(reconcile_lease)
+	if reconcile_lease != null:
+		assert_true(reconcile_lease.get_storage_request_ids().has(request_id))
+	var quiesce: GFAsyncCompletion = _profile_utility.begin_quiesce(GFAsyncScope.new())
+	assert_false(quiesce.is_completed())
+
+	_storage.complete_next_reset()
+	assert_true(quiesce.is_successful())
+	assert_eq(_storage.get_pending_save_count(), 0)
+	assert_eq(_terminal_count, 1)
+	assert_eq(operation.get_result().get_target_profile_id(), target.profile_id)
+
+
+func test_switch_recovery_reservation_blocks_synchronous_flush_callback_save() -> void:
+	var provider: GFSaveProfileTransactionTestSupport.MemorySectionProvider = (
+		GFSaveProfileTransactionTestSupport.make_provider(&"state", 41)
+	)
+	var providers: Array[GFSaveSectionProvider] = [provider]
+	var source: GFSaveProfile = GFSaveProfileTransactionTestSupport.make_profile(
+		&"session.switch_reservation.source",
+		providers
+	)
+	var target: GFSaveProfile = GFSaveProfileTransactionTestSupport.make_profile(
+		&"session.switch_reservation.target",
+		providers
+	)
+	assert_true(_register(source))
+	assert_true(_register(target))
+	_activate_existing(source, { &"state": { "value": 41 } })
+	var switch_operation: GFSaveProfileTransactionOperation = _coordinator.switch_profile(
+		target.profile_id
+	)
+	var lease: GFSaveProfileRecoveryLease = _complete_switch_recovery_failure(
+		switch_operation,
+		target,
+		ERR_FILE_NOT_FOUND,
+		GFStorageReadResult.FailureKind.NOT_FOUND
+	)
+	var reentrant_request: GFSaveProfileRequest = GFSaveProfileRequest.take_ownership(
+		{},
+		{},
+		{ "source": "flush_callback" }
+	)
+	var callback_state: Dictionary = {}
+	var callback: Callable = func(_result: GFSaveProfileResult) -> void:
+		if not callback_state.is_empty():
+			return
+		callback_state["operation"] = _profile_utility.save_profile(
+			source.profile_id,
+			reentrant_request
+		)
+	var connected: Error = _profile_utility.profile_operation_completed.connect(
+		callback,
+		CONNECT_ONE_SHOT as Object.ConnectFlags
+	) as Error
+	assert_eq(connected, OK)
+
+	var recovery: GFSaveProfileTransactionOperation = (
+		_coordinator.bootstrap_and_switch_profile(lease)
+	)
+	assert_false(
+		recovery.is_completed(),
+		"同步 flush callback 后 recovery 不得在 target save 前失败：%s" % [
+			recovery.get_result().to_dict() if recovery.get_result() != null else {}
+		]
+	)
+	assert_false(reentrant_request.is_claimed())
+	var reentrant_value: Variant = GFVariantData.get_option_value(
+		callback_state,
+		"operation"
+	)
+	assert_true(reentrant_value is GFSaveProfileOperation)
+	if reentrant_value is GFSaveProfileOperation:
+		var reentrant_operation: GFSaveProfileOperation = reentrant_value
+		assert_true(reentrant_operation.is_completed())
+		assert_eq(reentrant_operation.get_result().get_status(), GFSaveProfileResult.STATUS_BUSY)
+	_profile_utility.tick(0.0)
+	assert_eq(_storage.get_pending_save_count(), 1)
+	assert_eq(_storage.get_pending_save_file_name(), target.file_name)
+	_storage.complete_next_save(OK)
+	assert_true(recovery.get_result().is_successful())
+
+
+func test_switch_recovery_source_flush_unknown_fences_source() -> void:
+	var provider: GFSaveProfileTransactionTestSupport.MemorySectionProvider = (
+		GFSaveProfileTransactionTestSupport.make_provider(&"state", 61)
+	)
+	var providers: Array[GFSaveSectionProvider] = [provider]
+	var source: GFSaveProfile = GFSaveProfileTransactionTestSupport.make_profile(
+		&"session.switch_unknown.source",
+		providers,
+		10
+	)
+	var target: GFSaveProfile = GFSaveProfileTransactionTestSupport.make_profile(
+		&"session.switch_unknown.target",
+		providers,
+		10
+	)
+	assert_true(_register(source))
+	assert_true(_register(target))
+	_activate_existing(source, { &"state": { "value": 61 } })
+	var switch_operation: GFSaveProfileTransactionOperation = _coordinator.switch_profile(
+		target.profile_id
+	)
+	var lease: GFSaveProfileRecoveryLease = _complete_switch_recovery_failure(
+		switch_operation,
+		target,
+		ERR_FILE_NOT_FOUND,
+		GFStorageReadResult.FailureKind.NOT_FOUND
+	)
+	provider.value = 62
+	var source_save: GFSaveProfileOperation = _profile_utility.save_profile(
+		source.profile_id
+	)
+	_profile_utility.tick(0.0)
+	assert_eq(_storage.get_pending_save_count(), 1)
+	var recovery: GFSaveProfileTransactionOperation = (
+		_coordinator.bootstrap_and_switch_profile(lease)
+	)
+	assert_false(recovery.is_completed())
+	var _advanced: bool = _clock.advance_msec(11)
+	_profile_utility.tick(0.0)
+
+	assert_eq(source_save.get_result().get_status(), GFSaveProfileResult.STATUS_OUTCOME_UNKNOWN)
+	assert_true(recovery.is_completed())
+	assert_eq(
+		recovery.get_result().get_status(),
+		GFSaveProfileTransactionResult.STATUS_OUTCOME_UNKNOWN
+	)
+	var reconcile_lease: GFSaveProfileReconcileLease = (
+		recovery.get_result().get_reconcile_lease()
+	)
+	assert_not_null(reconcile_lease)
+	if reconcile_lease != null:
+		assert_eq(reconcile_lease.get_reconcile_profile_id(), source.profile_id)
+	assert_eq(_coordinator.get_active_profile_id(target.profile_id), source.profile_id)
+	assert_eq(_storage.get_pending_save_count(), 1)
+	assert_eq(_storage.get_pending_save_file_name(), source.file_name)
+	_storage.complete_next_save(OK)
+	assert_eq(_storage.get_pending_save_count(), 0)
+
+
+func test_switch_recovery_target_save_unknown_fences_target_without_identity_commit() -> void:
+	var provider: GFSaveProfileTransactionTestSupport.MemorySectionProvider = (
+		GFSaveProfileTransactionTestSupport.make_provider(&"state", 71)
+	)
+	var providers: Array[GFSaveSectionProvider] = [provider]
+	var source: GFSaveProfile = GFSaveProfileTransactionTestSupport.make_profile(
+		&"session.switch_target_unknown.source",
+		providers,
+		10
+	)
+	var target: GFSaveProfile = GFSaveProfileTransactionTestSupport.make_profile(
+		&"session.switch_target_unknown.target",
+		providers,
+		10
+	)
+	assert_true(_register(source))
+	assert_true(_register(target))
+	_activate_existing(source, { &"state": { "value": 71 } })
+	var switch_operation: GFSaveProfileTransactionOperation = _coordinator.switch_profile(
+		target.profile_id
+	)
+	var lease: GFSaveProfileRecoveryLease = _complete_switch_recovery_failure(
+		switch_operation,
+		target,
+		ERR_FILE_NOT_FOUND,
+		GFStorageReadResult.FailureKind.NOT_FOUND
+	)
+	var identity_changes: Dictionary = { "count": 0 }
+	var callback: Callable = func(
+		_previous_profile_id: StringName,
+		_current_profile_id: StringName
+	) -> void:
+		identity_changes["count"] = GFVariantData.get_option_int(
+			identity_changes,
+			"count"
+		) + 1
+	var connected: Error = _coordinator.active_profile_changed.connect(callback) as Error
+	assert_eq(connected, OK)
+	var recovery: GFSaveProfileTransactionOperation = (
+		_coordinator.bootstrap_and_switch_profile(lease)
+	)
+	_profile_utility.tick(0.0)
+	assert_eq(_storage.get_pending_save_count(), 1)
+	assert_eq(_storage.get_pending_save_file_name(), target.file_name)
+	var _advanced: bool = _clock.advance_msec(11)
+	_profile_utility.tick(0.0)
+
+	assert_true(recovery.is_completed())
+	assert_eq(
+		recovery.get_result().get_status(),
+		GFSaveProfileTransactionResult.STATUS_OUTCOME_UNKNOWN
+	)
+	var reconcile_lease: GFSaveProfileReconcileLease = (
+		recovery.get_result().get_reconcile_lease()
+	)
+	assert_not_null(reconcile_lease)
+	if reconcile_lease != null:
+		assert_eq(reconcile_lease.get_reconcile_profile_id(), target.profile_id)
+	assert_eq(_coordinator.get_active_profile_id(target.profile_id), source.profile_id)
+	assert_eq(GFVariantData.get_option_int(identity_changes, "count"), 0)
+	_storage.complete_next_save(OK)
+	assert_eq(GFVariantData.get_option_int(identity_changes, "count"), 0)
+	if _coordinator.active_profile_changed.is_connected(callback):
+		_coordinator.active_profile_changed.disconnect(callback)
+
+
+func test_bootstrap_and_switch_reflushes_latest_source_before_atomic_commit() -> void:
+	var provider: GFSaveProfileTransactionTestSupport.MemorySectionProvider = (
+		GFSaveProfileTransactionTestSupport.make_provider(&"state", 5)
+	)
+	var providers: Array[GFSaveSectionProvider] = [provider]
+	var source: GFSaveProfile = GFSaveProfileTransactionTestSupport.make_profile(
+		&"session.bootstrap_switch.source",
+		providers
+	)
+	var target: GFSaveProfile = GFSaveProfileTransactionTestSupport.make_profile(
+		&"session.bootstrap_switch.target",
+		providers
+	)
+	assert_true(_register(source))
+	assert_true(_register(target))
+	_activate_existing(source, { &"state": { "value": 5 } })
+	var failed_switch: GFSaveProfileTransactionOperation = _coordinator.switch_profile(
+		target.profile_id
+	)
+	var lease: GFSaveProfileRecoveryLease = _complete_switch_recovery_failure(
+		failed_switch,
+		target,
+		ERR_FILE_NOT_FOUND,
+		GFStorageReadResult.FailureKind.NOT_FOUND
+	)
+	assert_not_null(lease)
+	if lease == null:
+		return
+
+	provider.value = 31
+	var source_request: GFSaveProfileRequest = GFSaveProfileRequest.take_ownership(
+		{},
+		{},
+		{ "generation": "latest_source" }
+	)
+	var source_save: GFSaveProfileOperation = _profile_utility.save_profile(
+		source.profile_id,
+		source_request
+	)
+	var recovery_request: GFSaveProfileRequest = GFSaveProfileRequest.take_ownership(
+		{ "recovery": "missing_switch" },
+		{},
+		{ "trace": 89 }
+	)
+	var recovery: GFSaveProfileTransactionOperation = (
+		_coordinator.bootstrap_and_switch_profile(lease, recovery_request)
+	)
+	assert_true(recovery_request.is_claimed(), "已接纳事务必须同步接管一次性 request。")
+	assert_true(lease.is_claimed(), "已接纳事务必须同步消费 switch Recovery Lease。")
+	assert_eq(_coordinator.get_active_profile_id(target.profile_id), source.profile_id)
+
+	_profile_utility.tick(0.0)
+	assert_true(source_request.is_claimed())
+	assert_eq(_storage.get_pending_save_count(), 1)
+	assert_eq(_storage.get_pending_save_file_name(), source.file_name)
+	assert_eq(_storage.save_calls.size(), 1, "target save 必须等待 recovery-time source flush。")
+	_storage.complete_next_save(OK)
+	_profile_utility.tick(0.0)
+	assert_true(source_save.is_completed())
+	assert_eq(_storage.get_pending_save_count(), 1)
+	assert_eq(_storage.get_pending_save_file_name(), target.file_name)
+	assert_eq(_storage.save_calls.size(), 2)
+	assert_eq(
+		GFSaveProfileTransactionTestSupport.get_saved_value(
+			_storage.save_calls[1],
+			&"state"
+		),
+		31,
+		"target 必须持久化 recovery 调用时重新 flush 的最新 source 状态。"
+	)
+	assert_eq(
+		_coordinator.get_active_profile_id(target.profile_id),
+		source.profile_id,
+		"target save 获得确定成功前不得提交活动身份。"
+	)
+	_storage.complete_next_save(OK)
+
+	assert_true(recovery.get_result().is_successful())
+	assert_eq(
+		recovery.get_operation(),
+		GFSaveProfileTransactionOperation.OPERATION_BOOTSTRAP_AND_SWITCH
+	)
+	assert_eq(
+		recovery.get_result().get_status(),
+		GFSaveProfileTransactionResult.STATUS_BOOTSTRAPPED_AND_SWITCHED
+	)
+	assert_eq(recovery.get_result().get_source_profile_id(), source.profile_id)
+	assert_eq(recovery.get_result().get_target_profile_id(), target.profile_id)
+	assert_eq(recovery.get_result().get_active_profile_before(), source.profile_id)
+	assert_eq(recovery.get_result().get_active_profile_after(), target.profile_id)
+	assert_eq(_coordinator.get_active_profile_id(target.profile_id), target.profile_id)
+
+
+func test_switch_recovery_stale_and_replayed_leases_do_not_claim_requests() -> void:
+	var provider: GFSaveProfileTransactionTestSupport.MemorySectionProvider = (
+		GFSaveProfileTransactionTestSupport.make_provider(&"state", 7)
+	)
+	var providers: Array[GFSaveSectionProvider] = [provider]
+	var source: GFSaveProfile = GFSaveProfileTransactionTestSupport.make_profile(
+		&"session.switch_recovery_lease.source",
+		providers
+	)
+	var target: GFSaveProfile = GFSaveProfileTransactionTestSupport.make_profile(
+		&"session.switch_recovery_lease.target",
+		providers
+	)
+	assert_true(_register(source))
+	assert_true(_register(target))
+	_activate_existing(source, { &"state": { "value": 7 } })
+	var first_switch: GFSaveProfileTransactionOperation = _coordinator.switch_profile(
+		target.profile_id
+	)
+	var stale_lease: GFSaveProfileRecoveryLease = _complete_switch_recovery_failure(
+		first_switch,
+		target,
+		ERR_FILE_NOT_FOUND,
+		GFStorageReadResult.FailureKind.NOT_FOUND
+	)
+	assert_not_null(stale_lease)
+	if stale_lease == null:
+		return
+
+	var second_switch: GFSaveProfileTransactionOperation = _coordinator.switch_profile(
+		target.profile_id
+	)
+	var current_lease: GFSaveProfileRecoveryLease = _complete_switch_recovery_failure(
+		second_switch,
+		target,
+		ERR_FILE_NOT_FOUND,
+		GFStorageReadResult.FailureKind.NOT_FOUND
+	)
+	assert_true(stale_lease.is_stale())
+	assert_not_null(current_lease)
+	if current_lease == null:
+		return
+	var stale_request: GFSaveProfileRequest = GFSaveProfileRequest.take_ownership(
+		{},
+		{},
+		{ "lease": "stale" }
+	)
+	var stale_recovery: GFSaveProfileTransactionOperation = (
+		_coordinator.bootstrap_and_switch_profile(stale_lease, stale_request)
+	)
+	assert_eq(
+		stale_recovery.get_result().get_status(),
+		GFSaveProfileTransactionResult.STATUS_INVALID_LEASE
+	)
+	assert_false(stale_request.is_claimed())
+
+	var accepted_request: GFSaveProfileRequest = GFSaveProfileRequest.take_ownership(
+		{},
+		{},
+		{ "lease": "accepted" }
+	)
+	var accepted: GFSaveProfileTransactionOperation = (
+		_coordinator.bootstrap_and_switch_profile(current_lease, accepted_request)
+	)
+	assert_true(current_lease.is_claimed())
+	assert_true(accepted_request.is_claimed())
+	var replay_request: GFSaveProfileRequest = GFSaveProfileRequest.take_ownership(
+		{},
+		{},
+		{ "lease": "replay" }
+	)
+	var replay: GFSaveProfileTransactionOperation = (
+		_coordinator.bootstrap_and_switch_profile(current_lease, replay_request)
+	)
+	assert_eq(
+		replay.get_result().get_status(),
+		GFSaveProfileTransactionResult.STATUS_INVALID_LEASE
+	)
+	assert_false(replay_request.is_claimed())
+
+	_profile_utility.tick(0.0)
+	assert_eq(_storage.get_pending_save_file_name(), target.file_name)
+	_storage.complete_next_save(OK)
+	assert_true(accepted.get_result().is_successful())
+	assert_eq(
+		accepted.get_result().get_status(),
+		GFSaveProfileTransactionResult.STATUS_BOOTSTRAPPED_AND_SWITCHED
+	)
+	assert_eq(_coordinator.get_active_profile_id(target.profile_id), target.profile_id)
+
+
+func test_bootstrap_and_switch_source_flush_failure_preserves_source() -> void:
+	var provider: GFSaveProfileTransactionTestSupport.MemorySectionProvider = (
+		GFSaveProfileTransactionTestSupport.make_provider(&"state", 11)
+	)
+	var providers: Array[GFSaveSectionProvider] = [provider]
+	var source: GFSaveProfile = GFSaveProfileTransactionTestSupport.make_profile(
+		&"session.bootstrap_switch_flush_failure.source",
+		providers
+	)
+	var target: GFSaveProfile = GFSaveProfileTransactionTestSupport.make_profile(
+		&"session.bootstrap_switch_flush_failure.target",
+		providers
+	)
+	assert_true(_register(source))
+	assert_true(_register(target))
+	_activate_existing(source, { &"state": { "value": 11 } })
+	var failed_switch: GFSaveProfileTransactionOperation = _coordinator.switch_profile(
+		target.profile_id
+	)
+	var lease: GFSaveProfileRecoveryLease = _complete_switch_recovery_failure(
+		failed_switch,
+		target,
+		ERR_FILE_NOT_FOUND,
+		GFStorageReadResult.FailureKind.NOT_FOUND
+	)
+	assert_not_null(lease)
+	if lease == null:
+		return
+
+	provider.value = 12
+	var source_save: GFSaveProfileOperation = _profile_utility.save_profile(source.profile_id)
+	var recovery_request: GFSaveProfileRequest = GFSaveProfileRequest.take_ownership(
+		{},
+		{},
+		{ "failure": "source_flush" }
+	)
+	var recovery: GFSaveProfileTransactionOperation = (
+		_coordinator.bootstrap_and_switch_profile(lease, recovery_request)
+	)
+	assert_true(recovery_request.is_claimed())
+	_profile_utility.tick(0.0)
+	assert_eq(_storage.get_pending_save_file_name(), source.file_name)
+	_storage.complete_next_save(ERR_FILE_CANT_WRITE)
+
+	assert_true(source_save.is_completed())
+	assert_true(recovery.is_completed())
+	assert_eq(
+		recovery.get_result().get_status(),
+		GFSaveProfileTransactionResult.STATUS_SOURCE_FLUSH_FAILED
+	)
+	assert_eq(_storage.get_pending_save_count(), 0)
+	assert_eq(_storage.save_calls.size(), 1, "source flush 失败后不得触碰 target 持久化。")
+	assert_eq(_coordinator.get_active_profile_id(target.profile_id), source.profile_id)
+	assert_eq(recovery.get_result().get_active_profile_after(), source.profile_id)
+
+
+func test_bootstrap_and_switch_target_save_failure_preserves_source() -> void:
+	var provider: GFSaveProfileTransactionTestSupport.MemorySectionProvider = (
+		GFSaveProfileTransactionTestSupport.make_provider(&"state", 13)
+	)
+	var providers: Array[GFSaveSectionProvider] = [provider]
+	var source: GFSaveProfile = GFSaveProfileTransactionTestSupport.make_profile(
+		&"session.bootstrap_switch_save_failure.source",
+		providers
+	)
+	var target: GFSaveProfile = GFSaveProfileTransactionTestSupport.make_profile(
+		&"session.bootstrap_switch_save_failure.target",
+		providers
+	)
+	assert_true(_register(source))
+	assert_true(_register(target))
+	_activate_existing(source, { &"state": { "value": 13 } })
+	var failed_switch: GFSaveProfileTransactionOperation = _coordinator.switch_profile(
+		target.profile_id
+	)
+	var lease: GFSaveProfileRecoveryLease = _complete_switch_recovery_failure(
+		failed_switch,
+		target,
+		ERR_FILE_NOT_FOUND,
+		GFStorageReadResult.FailureKind.NOT_FOUND
+	)
+	assert_not_null(lease)
+	if lease == null:
+		return
+	var recovery_request: GFSaveProfileRequest = GFSaveProfileRequest.take_ownership(
+		{},
+		{},
+		{ "failure": "target_save" }
+	)
+	var recovery: GFSaveProfileTransactionOperation = (
+		_coordinator.bootstrap_and_switch_profile(lease, recovery_request)
+	)
+	assert_true(recovery_request.is_claimed())
+	_profile_utility.tick(0.0)
+	assert_eq(_storage.get_pending_save_count(), 1)
+	assert_eq(_storage.get_pending_save_file_name(), target.file_name)
+	assert_eq(_coordinator.get_active_profile_id(target.profile_id), source.profile_id)
+	_storage.complete_next_save(ERR_FILE_CANT_WRITE)
+
+	assert_true(recovery.is_completed())
+	assert_eq(
+		recovery.get_result().get_status(),
+		GFSaveProfileTransactionResult.STATUS_PERSIST_FAILED
+	)
+	assert_eq(_coordinator.get_active_profile_id(target.profile_id), source.profile_id)
+	assert_eq(recovery.get_result().get_active_profile_after(), source.profile_id)
+
+
 func test_switch_waits_for_source_generation_before_loading_target() -> void:
 	var provider: GFSaveProfileTransactionTestSupport.MemorySectionProvider = (
 		GFSaveProfileTransactionTestSupport.make_provider(&"state", 0)
@@ -1169,6 +2011,98 @@ func _activate_existing(profile: GFSaveProfile, payloads: Dictionary) -> void:
 	)
 	assert_true(operation.is_completed())
 	assert_true(operation.get_result().is_successful())
+
+
+func _prepare_structural_switch_recovery(prefix: String) -> Dictionary:
+	_storage.enable_family_reset_authorization = true
+	var provider: GFSaveProfileTransactionTestSupport.MemorySectionProvider = (
+		GFSaveProfileTransactionTestSupport.make_provider(&"state", 55)
+	)
+	var providers: Array[GFSaveSectionProvider] = [provider]
+	var source: GFSaveProfile = GFSaveProfileTransactionTestSupport.make_profile(
+		StringName("%s.source" % prefix),
+		providers
+	)
+	var target: GFSaveProfile = GFSaveProfileTransactionTestSupport.make_profile(
+		StringName("%s.target" % prefix),
+		providers
+	)
+	assert_true(_register(source))
+	assert_true(_register(target))
+	_activate_existing(source, { &"state": { "value": 55 } })
+	var switch_operation: GFSaveProfileTransactionOperation = _coordinator.switch_profile(
+		target.profile_id
+	)
+	var lease: GFSaveProfileRecoveryLease = _complete_switch_recovery_failure(
+		switch_operation,
+		target,
+		ERR_FILE_CORRUPT,
+		GFStorageReadResult.FailureKind.CORRUPT
+	)
+	assert_not_null(lease)
+	return {
+		"source": source,
+		"target": target,
+		"lease": lease,
+	}
+
+
+func _fixture_profile(fixture: Dictionary, key: String) -> GFSaveProfile:
+	var value: Variant = fixture.get(key)
+	assert_true(value is GFSaveProfile, "结构恢复夹具必须提供强类型 Profile。")
+	if value is GFSaveProfile:
+		var profile: GFSaveProfile = value
+		return profile
+	return null
+
+
+func _fixture_recovery_lease(fixture: Dictionary) -> GFSaveProfileRecoveryLease:
+	var value: Variant = fixture.get("lease")
+	assert_true(value is GFSaveProfileRecoveryLease, "结构恢复夹具必须提供强类型 Lease。")
+	if value is GFSaveProfileRecoveryLease:
+		var lease: GFSaveProfileRecoveryLease = value
+		return lease
+	return null
+
+
+func _complete_switch_recovery_failure(
+	operation: GFSaveProfileTransactionOperation,
+	target: GFSaveProfile,
+	error_code: Error,
+	failure_kind: GFStorageReadResult.FailureKind
+) -> GFSaveProfileRecoveryLease:
+	_profile_utility.tick(0.0)
+	assert_eq(_storage.get_pending_load_file_name(), target.file_name)
+	_storage.complete_load_for_file(
+		target.file_name,
+		GFSaveProfileTransactionTestSupport.read_failure(
+			error_code,
+			"Injected switch recovery target failure.",
+			failure_kind
+		)
+	)
+	assert_true(operation.is_completed())
+	var result: GFSaveProfileTransactionResult = operation.get_result()
+	assert_eq(result.get_status(), GFSaveProfileTransactionResult.STATUS_RECOVERY_REQUIRED)
+	return result.get_recovery_lease()
+
+
+func _complete_switch_document_corruption(
+	operation: GFSaveProfileTransactionOperation,
+	target: GFSaveProfile
+) -> GFSaveProfileRecoveryLease:
+	_profile_utility.tick(0.0)
+	assert_eq(_storage.get_pending_load_file_name(), target.file_name)
+	_storage.complete_load_for_file(
+		target.file_name,
+		GFStorageReadResult.new().configure_success({
+			"malformed_save_document": true,
+		})
+	)
+	assert_true(operation.is_completed())
+	var result: GFSaveProfileTransactionResult = operation.get_result()
+	assert_eq(result.get_status(), GFSaveProfileTransactionResult.STATUS_RECOVERY_REQUIRED)
+	return result.get_recovery_lease()
 
 
 # --- 信号处理函数 ---

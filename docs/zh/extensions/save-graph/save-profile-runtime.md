@@ -238,8 +238,11 @@ schema ID 不匹配、迁移失败和 provider 应用失败不进入损坏恢复
 
 Coordinator 管理的 Profile 不把 `ACTION_USE_CURRENT_STATE` 当成激活授权：严格 activate
 会把 missing/corrupt 分别转换为受约束的 Recovery Lease，项目必须显式调用
-bootstrap/adopt，且只有写确认后才发布活动身份。Switch 的目标缺失或损坏会恢复并保留
-源活动身份，不会隐式创建或覆盖目标存档。
+bootstrap/adopt，且只有写确认后才发布活动身份。Switch 的目标缺失或可恢复损坏会返回
+绑定当前来源的 Lease；项目显式调用 `bootstrap_and_switch_profile()` 或
+`adopt_and_switch_profile()` 后，Coordinator 会重新 flush 来源，再按需执行来源绑定的
+Storage family reset，最后保存目标。目标保存确认前
+来源始终保持活动；结构损坏无法获得精确 reset 授权时失败关闭。
 
 未知 section 默认采用 `GFSaveProfile.UNKNOWN_SECTION_REJECT`，避免旧客户端读取后保存时
 静默删除新客户端数据。只有明确拥有向前兼容要求时才选择 `UNKNOWN_SECTION_PRESERVE`；

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<apiCatalog schemaVersion="3" name="GF Framework" sourceRoot="addons/gf" sourceDigest="42c892cbadc666fef13f294c40dfd03d9928105b0bda84a9c2d6be1f850ef2cc" classCount="848" methodCount="7714" autoloadCount="1" autoloadMethodCount="65">
+<apiCatalog schemaVersion="3" name="GF Framework" sourceRoot="addons/gf" sourceDigest="6b7ddd47f6a866942dd0cb856a93391a92f0e36889249c43f9e960ea202b0cba" classCount="848" methodCount="7717" autoloadCount="1" autoloadMethodCount="65">
 	<module id="kernel" label="Kernel" classCount="75" methodCount="801" autoloadCount="1" autoloadMethodCount="65">
 		<class name="GFAccessGenerator" path="classes/GFAccessGenerator.xml" sourcePath="addons/gf/kernel/editor/gf_access_generator.gd" extends="RefCounted" />
 		<class name="GFArchitecture" path="classes/GFArchitecture.xml" sourcePath="addons/gf/kernel/core/gf_architecture.gd" extends="Object" />
@@ -806,7 +806,7 @@
 		<class name="GFGravityField3D" path="classes/GFGravityField3D.xml" sourcePath="addons/gf/extensions/physics/nodes/gf_gravity_field_3d.gd" extends="Node3D" />
 		<class name="GFGravityProbe3D" path="classes/GFGravityProbe3D.xml" sourcePath="addons/gf/extensions/physics/nodes/gf_gravity_probe_3d.gd" extends="Node3D" />
 	</module>
-	<module id="extensions/save" label="Save" classCount="52" methodCount="414" autoloadCount="0" autoloadMethodCount="0">
+	<module id="extensions/save" label="Save" classCount="52" methodCount="417" autoloadCount="0" autoloadMethodCount="0">
 		<class name="GFNodeAnimationPlayerSerializer" path="classes/GFNodeAnimationPlayerSerializer.xml" sourcePath="addons/gf/extensions/save/serializers/gf_node_animation_player_serializer.gd" extends="GFNodeSerializer" />
 		<class name="GFNodeAudioStreamPlayerSerializer" path="classes/GFNodeAudioStreamPlayerSerializer.xml" sourcePath="addons/gf/extensions/save/serializers/gf_node_audio_stream_player_serializer.gd" extends="GFNodeSerializer" />
 		<class name="GFNodeCanvasItemSerializer" path="classes/GFNodeCanvasItemSerializer.xml" sourcePath="addons/gf/extensions/save/serializers/gf_node_canvas_item_serializer.gd" extends="GFNodeSerializer" />

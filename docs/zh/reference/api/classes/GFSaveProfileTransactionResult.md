@@ -19,6 +19,8 @@ Profile 事务的不可变终态快照。 结果不保留文档、section、Prov
 | 常量 | [`STATUS_SWITCHED`](#member-gfsaveprofiletransactionresult-constants-status_switched) | `const STATUS_SWITCHED: StringName = &"switched"` |
 | 常量 | [`STATUS_BOOTSTRAPPED`](#member-gfsaveprofiletransactionresult-constants-status_bootstrapped) | `const STATUS_BOOTSTRAPPED: StringName = &"bootstrapped"` |
 | 常量 | [`STATUS_ADOPTED`](#member-gfsaveprofiletransactionresult-constants-status_adopted) | `const STATUS_ADOPTED: StringName = &"adopted"` |
+| 常量 | [`STATUS_BOOTSTRAPPED_AND_SWITCHED`](#member-gfsaveprofiletransactionresult-constants-status_bootstrapped_and_switched) | `const STATUS_BOOTSTRAPPED_AND_SWITCHED: StringName = &"bootstrapped_and_switched"` |
+| 常量 | [`STATUS_ADOPTED_AND_SWITCHED`](#member-gfsaveprofiletransactionresult-constants-status_adopted_and_switched) | `const STATUS_ADOPTED_AND_SWITCHED: StringName = &"adopted_and_switched"` |
 | 常量 | [`STATUS_MUTATED`](#member-gfsaveprofiletransactionresult-constants-status_mutated) | `const STATUS_MUTATED: StringName = &"mutated"` |
 | 常量 | [`STATUS_RECONCILED`](#member-gfsaveprofiletransactionresult-constants-status_reconciled) | `const STATUS_RECONCILED: StringName = &"reconciled"` |
 | 常量 | [`STATUS_INVALID_PROFILE`](#member-gfsaveprofiletransactionresult-constants-status_invalid_profile) | `const STATUS_INVALID_PROFILE: StringName = &"invalid_profile"` |
@@ -115,6 +117,32 @@ const STATUS_ADOPTED: StringName = &"adopted"
 ```
 
 当前状态已被显式采用为恢复后的活跃 Profile。
+
+<a id="member-gfsaveprofiletransactionresult-constants-status_bootstrapped_and_switched"></a>
+
+### `STATUS_BOOTSTRAPPED_AND_SWITCHED`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+const STATUS_BOOTSTRAPPED_AND_SWITCHED: StringName = &"bootstrapped_and_switched"
+```
+
+缺失目标已持久化，活动身份随后从来源原子切换到目标。
+
+<a id="member-gfsaveprofiletransactionresult-constants-status_adopted_and_switched"></a>
+
+### `STATUS_ADOPTED_AND_SWITCHED`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+const STATUS_ADOPTED_AND_SWITCHED: StringName = &"adopted_and_switched"
+```
+
+损坏目标已显式恢复并持久化，活动身份随后从来源原子切换到目标。
 
 <a id="member-gfsaveprofiletransactionresult-constants-status_mutated"></a>
 
@@ -244,7 +272,7 @@ Profile 配置不支持请求的读取或写入阶段。
 const STATUS_RECOVERY_REQUIRED: StringName = &"recovery_required"
 ```
 
-activate 检测到缺失或损坏文档，必须显式选择 bootstrap 或 adopt。
+activate 或 switch 检测到可恢复的缺失/损坏目标，必须显式选择对应恢复入口。
 
 <a id="member-gfsaveprofiletransactionresult-constants-status_source_flush_failed"></a>
 
@@ -603,7 +631,7 @@ func get_stage_evidence() -> Dictionary:
 func get_recovery_lease() -> GFSaveProfileRecoveryLease:
 ```
 
-获取显式 bootstrap/adopt 所需的同一身份 Recovery Lease。
+获取显式 bootstrap/adopt 或 bootstrap/adopt-and-switch 所需的同一身份 Recovery Lease。
 
 返回：recovery_required 结果中的 Lease；其他结果通常为 null。
 

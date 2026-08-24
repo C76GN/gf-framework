@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFSaveProfileRecoveryLease" path="addons/gf/extensions/save/profile/gf_save_profile_recovery_lease.gd" module="extensions/save" extends="RefCounted" classDigest="d389e2a11ad3ed277cde8cc69819c28f56e512cac0574b406b6fc5d5d6cb117c">
+<class name="GFSaveProfileRecoveryLease" path="addons/gf/extensions/save/profile/gf_save_profile_recovery_lease.gd" module="extensions/save" extends="RefCounted" classDigest="5dd4d0b9b00b7ca86b92f9cbd48426da2106ea21e06f887939914d854e1197bd">
 	<description>GFSaveProfileRecoveryLease: 缺失或损坏 Profile 的一次性恢复授权。
-Lease 由失败的 activate 操作创建，并绑定创建时的事务、Profile、Provider
-domain generation 与 lifecycle epoch。bootstrap/adopt 必须原样提交同一 Lease；
-domain 或 epoch 前进后，旧 Lease 会失效，不能把陈旧恢复决定应用到新状态。</description>
+Lease 由失败的 activate 或 switch 操作创建，并绑定创建时的事务、来源与目标
+Profile、Provider domain generation 与 lifecycle epoch。恢复入口必须原样提交同一
+Lease；domain 或 epoch 前进后，旧 Lease 会失效，不能把陈旧恢复决定应用到新状态。</description>
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">runtime_handle</tag>
@@ -14,7 +14,7 @@ domain 或 epoch 前进后，旧 Lease 会失效，不能把陈旧恢复决定�
 	<constants>
 		<member kind="const" name="REASON_MISSING">
 			<signature>const REASON_MISSING: StringName = &amp;"missing"</signature>
-			<description>激活目标没有持久化文档。</description>
+			<description>activate 或 switch 目标没有持久化文档。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="since">unreleased</tag>
@@ -22,7 +22,7 @@ domain 或 epoch 前进后，旧 Lease 会失效，不能把陈旧恢复决定�
 		</member>
 		<member kind="const" name="REASON_CORRUPT">
 			<signature>const REASON_CORRUPT: StringName = &amp;"corrupt"</signature>
-			<description>激活目标文档损坏或完整性无效。</description>
+			<description>activate 或 switch 目标文档损坏、完整性无效或 Storage family 结构损坏。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="since">unreleased</tag>
@@ -70,6 +70,16 @@ domain 或 epoch 前进后，旧 Lease 会失效，不能把陈旧恢复决定�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">正整数事务 ID；未配置时为 0。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_source_profile_id">
+			<signature>func get_source_profile_id() -&gt; StringName:</signature>
+			<description>获取恢复事务绑定的来源 Profile ID。
+首次 activate 恢复没有来源；switch 恢复始终绑定创建 Lease 时仍然活动的来源。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">switch 恢复的来源 Profile ID；首次 activate 恢复时为空。</tag>
 				<tag name="since">unreleased</tag>
 			</tags>
 		</member>

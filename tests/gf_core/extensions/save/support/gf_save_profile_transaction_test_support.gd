@@ -91,9 +91,13 @@ class ControlledStorage extends GFStorageUtility:
 	var active_io_count: int = 0
 	var max_active_io_count: int = 0
 	var driver: GFSaveProfileUtility = null
+	var enable_family_reset_authorization: bool = false
+	var reset_call_count: int = 0
 	var _next_request_id: int = 1
+	var _next_authorization_id: int = 1
 	var _pending_save_operations: Array[GFStorageAsyncOperation] = []
 	var _pending_load_operations: Array[GFStorageAsyncOperation] = []
+	var _pending_reset_operations: Array[GFStorageAsyncOperation] = []
 
 	func save_data_request_async(
 		file_name: String,
@@ -167,6 +171,78 @@ class ControlledStorage extends GFStorageUtility:
 		_begin_io()
 		return operation
 
+	func create_family_reset_authorization(
+		file_name: String,
+		observed_result: GFStorageReadResult
+	) -> GFStorageFamilyResetAuthorization:
+		if (
+			not enable_family_reset_authorization
+			or observed_result == null
+			or observed_result.ok
+			or observed_result.failure_kind != GFStorageReadResult.FailureKind.CORRUPT
+		):
+			return super.create_family_reset_authorization(file_name, observed_result)
+		var authorization: GFStorageFamilyResetAuthorization = (
+			GFStorageFamilyResetAuthorization.new()
+		)
+		var configured: bool = authorization.configure_for_framework(
+			_next_authorization_id,
+			get_instance_id(),
+			file_name,
+			_get_async_file_key(file_name),
+			GFStorageFamilyResetAuthorization.REASON_CORRUPT
+		)
+		if not configured:
+			return null
+		_next_authorization_id += 1
+		return authorization
+
+	func reset_file_family_request_async(
+		file_name: String,
+		authorization: GFStorageFamilyResetAuthorization,
+		options: GFStorageAsyncRequestOptions = null
+	) -> GFStorageAsyncOperation:
+		var _ignored_options: GFStorageAsyncRequestOptions = options
+		var operation: GFStorageAsyncOperation = _make_operation(
+			GFStorageAsyncOperation.OPERATION_RESET,
+			file_name
+		)
+		var claimed: bool = (
+			authorization != null
+			and authorization.claim_for_framework(
+				get_instance_id(),
+				file_name,
+				_get_async_file_key(file_name)
+			)
+		)
+		if not claimed:
+			var unauthorized: GFStorageFamilyResetResult = (
+				GFStorageFamilyResetResult.new()
+			)
+			var _configured_unauthorized: bool = unauthorized.configure_for_framework(
+				ERR_UNAUTHORIZED,
+				GFStorageFamilyResetResult.FailureKind.UNAUTHORIZED,
+				GFStorageFamilyResetResult.SourceKind.UNKNOWN,
+				GFStorageFamilyResetResult.Phase.PREFLIGHT,
+				0,
+				0,
+				0,
+				GFStorageFamilyResetResult.FamilyMember.NONE
+			)
+			_complete_operation(
+				operation,
+				ERR_UNAUTHORIZED,
+				null,
+				GFStorageAsyncResult.WriteFailureKind.NONE,
+				unauthorized
+			)
+			return operation
+		reset_call_count += 1
+		events.append("reset:%s" % file_name)
+		_pending_reset_operations.append(operation)
+		_begin_io()
+		return operation
+
 	func complete_next_save(error_code: Error = OK) -> void:
 		complete_save_at(0, error_code)
 
@@ -181,6 +257,35 @@ class ControlledStorage extends GFStorageUtility:
 
 	func complete_next_load(result: GFStorageReadResult) -> void:
 		complete_load_at(0, result)
+
+	func complete_next_reset(
+		reset_result: GFStorageFamilyResetResult = null
+	) -> void:
+		if _pending_reset_operations.is_empty():
+			return
+		var operation: GFStorageAsyncOperation = _pending_reset_operations.pop_front()
+		var resolved_result: GFStorageFamilyResetResult = reset_result
+		if resolved_result == null:
+			resolved_result = GFStorageFamilyResetResult.new()
+			var _configured_success: bool = resolved_result.configure_for_framework(
+				OK,
+				GFStorageFamilyResetResult.FailureKind.NONE,
+				GFStorageFamilyResetResult.SourceKind.STRUCTURAL_IDENTITY,
+				GFStorageFamilyResetResult.Phase.NONE,
+				2,
+				3,
+				0,
+				GFStorageFamilyResetResult.FamilyMember.NONE
+			)
+		_end_io()
+		_complete_operation(
+			operation,
+			resolved_result.get_error_code(),
+			null,
+			GFStorageAsyncResult.WriteFailureKind.NONE,
+			resolved_result
+		)
+		_tick_driver()
 
 	func complete_load_at(index: int, result: GFStorageReadResult) -> void:
 		if index < 0 or index >= _pending_load_operations.size() or result == null:
@@ -203,6 +308,14 @@ class ControlledStorage extends GFStorageUtility:
 
 	func get_pending_load_count() -> int:
 		return _pending_load_operations.size()
+
+	func get_pending_reset_count() -> int:
+		return _pending_reset_operations.size()
+
+	func get_pending_reset_request_id(index: int = 0) -> int:
+		if index < 0 or index >= _pending_reset_operations.size():
+			return 0
+		return _pending_reset_operations[index].get_request_id()
 
 	func get_pending_save_file_name(index: int = 0) -> String:
 		if index < 0 or index >= _pending_save_operations.size():
@@ -252,7 +365,8 @@ class ControlledStorage extends GFStorageUtility:
 		read_result: GFStorageReadResult,
 		write_failure_kind: GFStorageAsyncResult.WriteFailureKind = (
 			GFStorageAsyncResult.WriteFailureKind.NONE
-		)
+		),
+		reset_result: GFStorageFamilyResetResult = null
 	) -> void:
 		var _finished_transfer: bool = operation.finish_payload_attempt_for_framework()
 		var successful: bool = error_code == OK
@@ -274,7 +388,10 @@ class ControlledStorage extends GFStorageUtility:
 			error_code,
 			read_result,
 			resolved_write_failure_kind,
-			{}
+			{},
+			null,
+			GFStorageAsyncResult.SettlementKind.DOMAIN_RESULT,
+			reset_result
 		)
 		var _completed: bool = operation.complete_for_framework(async_result)
 

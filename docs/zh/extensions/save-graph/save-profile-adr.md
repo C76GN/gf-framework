@@ -43,7 +43,8 @@ GF 已经具备版本化 `GFSaveDocument`、独立 section、迁移注册表、�
 - `GFSaveRecoveryPolicy` 只允许显式、可审计的恢复和有界重试。
 - `GFStorageAsyncOperation` 为每次底层 IO 提供独立 request ID 和类型化终态。
 - `GFSaveProfileTransactionCoordinator` 在上述原语之上编译精确 provider domain，管理
-  活动 Profile 身份，并串行推进 activate、switch、bootstrap、adopt、mutation 和 reconcile。
+  活动 Profile 身份，并串行推进 activate、switch、bootstrap、adopt、对应的 and-switch
+  continuation、mutation 和 reconcile。
 - `GFSaveProfileTransactionOperation` / `GFSaveProfileTransactionResult` 为跨 Profile 流程
   提供独立类型化句柄与不可变终态，不扩张普通 `GFSaveProfileResult` 的单 Profile 语义。
 - `GFSaveProfileRecoveryLease` 把已知 missing/corrupt 恢复选择变成一次性显式能力；
@@ -86,8 +87,8 @@ Profile 层不引入第二套文件格式，不解释业务字段，不绑定槽
 29. 每个 domain 最多有一个活动 Profile；只有严格加载或显式恢复写入获得确定成功后才可原子发布或切换活动身份。
 30. Coordinator 管理的 Profile 只允许稳定活动身份执行直接 save/flush；直接 load、非活动 Profile 操作和事务/fence 期间的全部直接操作必须失败关闭。
 31. Switch 必须先 flush 调用时源 generation，再采集完整 Provider 快照并严格加载目标；已知失败按逆序恢复且不改变源活动身份。
-32. 首次 activate 的 missing 只能产生 Bootstrap Recovery Lease，corrupt 只能产生 Adopt Recovery Lease；两类一次性能力不得互换、复用或跨 domain generation 使用；switch 目标的同类失败保留源身份并以 target load failure 结束。
-33. Bootstrap 与 Adopt 只有在候选写入确定成功后才激活目标；普通恢复政策不得隐式发布活动身份。
+32. 首次 activate 与 switch 的 missing 只能产生 Bootstrap Recovery Lease，corrupt 只能产生 Adopt Recovery Lease；switch Lease 还必须绑定仍活动的来源。两类一次性能力不得互换、复用或跨 domain generation 使用；无法为 Storage family 结构损坏签发精确 reset 授权时失败关闭。
+33. Bootstrap/Adopt 与对应的 and-switch continuation 只有在候选写入确定成功后才发布目标；switch continuation 必须重新 flush 调用时来源，按需先完成来源绑定的 family reset，普通恢复政策不得隐式发布或切换活动身份。
 34. Mutation 必须先固定 Provider 顺序并采集回滚快照，再应用类型化候选并等待保存终态；已知 Storage 失败证明未提交，因此逆序恢复内存且不得自动补偿写入。
 35. 任何无法证明提交与否的写入都必须冻结整个 domain 并返回 Reconcile Lease；不得自动回滚、补偿、重试、激活或接受冲突工作。
 36. Reconcile Lease 在底层 generation 证据 settled 前保持 waiting，pending 调用不 claim Request；ready 后只能严格重读 lease 指定 Profile，完整应用成功才解锁并重建活动身份。
@@ -121,7 +122,7 @@ Coordinator 在 primitive 状态机之外为每个 provider domain 维护以下�
 | Domain 状态 | 含义 | 公开准入 |
 | --- | --- | --- |
 | `inactive` | 尚无活动 Profile | activate；匹配 lease 的 bootstrap/adopt |
-| `active` | 一个 Profile 拥有当前 Provider 状态 | switch、mutation；活动 Profile save/flush |
+| `active` | 一个 Profile 拥有当前 Provider 状态 | switch、mutation；匹配 source-bound lease 的 `bootstrap_and_switch_profile()` / `adopt_and_switch_profile()`；活动 Profile save/flush |
 | `transacting` | 已接纳事务正在推进 | 拒绝并发 domain 操作与直接原语 |
 | `reconciliation_required` | 写入结果未知并持有 fence | 仅匹配 lease 的 reconcile 与诊断查询 |
 | `disposed` | 强制释放终态 | 无 |
@@ -148,10 +149,12 @@ Quiesce 是 Coordinator 的全局准入阶段，不伪装成额外 domain 状态
 | 非 managed 普通读取文档损坏 | `corrupt` | 显式 `use_current_state`，不立即覆盖原文件 | 原始读取结果、恢复动作 |
 | Managed activate 文件不存在 | `recovery_required` | 只签发 Bootstrap Recovery Lease | profile/domain/generation、读取结果 |
 | Managed activate 文档损坏 | `recovery_required` | 只签发 Adopt Recovery Lease | profile/domain/generation、读取结果 |
-| Switch 目标文件缺失或损坏 | `target_load_failed` | 恢复 Provider 并保留源身份 | 目标读取结果、回滚错误 |
+| Switch 目标文件缺失或可恢复损坏 | `recovery_required` | 只签发绑定来源的 Bootstrap/Adopt Recovery Lease；保留源身份 | 来源/目标、domain generation、目标读取结果 |
+| Switch 目标 Storage 结构损坏但无法授权 reset | `target_load_failed` | 失败关闭，不允许普通覆盖 | 目标读取结果、授权失败原因 |
 | Managed Profile 直接 load 或非活动 save/flush | `busy` | 改用 Coordinator，或等待活动稳定 | profile/domain/活动身份 |
 | Switch 的源 flush 失败 | `source_flush_failed` | 保留源活动身份 | 源 generation 与底层终态 |
 | Switch 目标已知失败 | `target_load_failed` / 应用失败 | 逆序恢复并保留源身份 | 目标读取结果、回滚错误 |
+| Switch 恢复 reset 或目标保存已知失败 | `persist_failed` | 保留源身份；reset 成功证据不得伪装成回滚 | reset 类型化证据、目标保存终态 |
 | Mutation 已知持久化失败 | `persist_failed` | 逆序恢复；不发补偿写 | generation、底层确定失败 |
 | 事务写入结果未知 | `outcome_unknown` | 冻结 domain，签发 Reconcile Lease | domain generation、request IDs |
 | Lease 无效、过期或重复消费 | `invalid_lease` | 重新取得当前状态证据 | lease kind、domain generation |
@@ -174,7 +177,8 @@ Quiesce 是 Coordinator 的全局准入阶段，不伪装成额外 domain 状态
 - `use_current_state` 只适用于非 managed 普通读取，表示保留内存中的当前/default 状态并
   返回显式 recovered 终态；读取本身不写盘，也不删除、替换或修补原文件。
 - Coordinator 的 strict load 忽略 `use_current_state`：missing/corrupt 必须分别经过
-  Bootstrap/Adopt Recovery Lease，写确认后才能发布活动身份。
+  Bootstrap/Adopt Recovery Lease；switch continuation 重新 flush 来源，并在 Storage
+  结构损坏时凭来源绑定授权先 reset family，写确认后才能发布或切换活动身份。
 - 未来 schema、schema id 不匹配和迁移失败不属于损坏恢复。
 - 重试延迟是有限的毫秒序列；序列耗尽后必须返回失败，禁止无限循环。
 - 时间判断只使用注入的 `GFClock` 单调时间，测试使用 `GFManualClock`。
@@ -220,8 +224,10 @@ Quiesce 是 Coordinator 的全局准入阶段，不伪装成额外 domain 状态
   activation，不只依赖测试替身；Save Profile 不为执行模式增加第二套公开 API。
 - 精确相同的有序 Provider 身份共享 domain，重排和部分重叠注册失败关闭；不相交 domain
   可独立推进；
-- activate/switch 只在严格成功后发布活动身份；首次 activate 的 missing/corrupt 分别
-  只能由匹配的 bootstrap/adopt lease 继续，switch 目标失败则保留源身份；
+- activate/switch 只在严格成功后发布活动身份；missing/corrupt 分别只能由匹配的
+  bootstrap/adopt continuation 继续，switch Lease 绑定来源且在目标保存确认前保留源身份；
+- source-bound switch recovery 覆盖调用时最新来源 flush、结构损坏 reset、目标保存、
+  已知失败与 source/target outcome-unknown fence，活动身份只在最终确认后发布一次；
 - 活动 managed Profile 只开放稳定期 save/flush，直接 load、非活动写入和事务期重入均被拒绝；
 - switch 源 flush、目标读取、应用和逆序恢复的每个故障点都保持可证明身份；
 - typed mutation 的无效请求不被消费，已知持久化失败逆序恢复且不产生补偿写；

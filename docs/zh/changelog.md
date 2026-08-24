@@ -51,11 +51,12 @@
 - `GFSaveProfileUtility` 新增全局准备 work budget、单 profile slice budget 和软时间 budget；`GFSaveProfileResult` 新增准备耗时、Storage attempt 累计耗时与准备 work units 诊断。
 - 新增 `GFSaveProfileTransactionCoordinator`、`GFSaveProfileTransactionOperation` 与
   `GFSaveProfileTransactionResult`：在单 Profile 原语之上按精确有序 Provider 身份管理
-  domain、活动 Profile、严格 activate/switch、显式 bootstrap/adopt、类型化 mutation
-  和 reconcile，并以独立不可变终态报告跨 Profile 事务。
+  domain、活动 Profile、严格 activate/switch、显式 bootstrap/adopt 及其 source-bound
+  and-switch continuation、类型化 mutation 和 reconcile，并以独立不可变终态报告跨 Profile 事务。
 - 新增 `GFSaveProfileRecoveryLease`、`GFSaveProfileReconcileLease` 与
-  `GFSaveProfileReconcileRequest`：missing/corrupt 只能通过匹配的一次性恢复能力继续，
-  写入结果未知时冻结 domain，等待底层证据 settled 后通过显式严格重读收敛。
+  `GFSaveProfileReconcileRequest`：missing/corrupt 只能通过匹配的一次性恢复能力继续；
+  switch Lease 额外绑定仍活动的来源，写入结果未知时冻结 domain，等待底层证据 settled
+  后通过显式严格重读收敛。
 - 新增 `GFSaveSectionMutation` 与 `GFSaveProfileMutationRequest`：用 move-only 候选 section
   清单替代事务内任意回调，固定 Provider 顺序并在确定失败时逆序恢复。
 - `GFSaveSlotStorageAdapter` 新增 `build_slot_file_plan()`：无需配置 Storage 即可返回已校验的数据/元数据文件名和 portable logical target，供同步入口在访问 backend 前复用同一模板安全规则。
@@ -275,6 +276,11 @@
   保存实际 claim Request 后消费 Recovery Lease 并推进 domain epoch，瞬时准入拒绝可用
   同一 Lease/Request 重试；底层超长错误进入事务 stage evidence 前限制为 2048 字符，
   missing/corrupt 激活仍可靠返回 `recovery_required` 与可用恢复能力。
+- 修复 `switch_profile()` 的 missing/corrupt 目标只能以 `target_load_failed` 结束、迫使项目
+  在 Coordinator 外拼接恢复的问题：新的一次性 source-bound Lease 允许显式
+  bootstrap/adopt-and-switch，并在 continuation 接纳后重新 flush 最新来源。Storage family
+  结构损坏必须先凭同一 Utility、同一目标读取签发的 opaque 授权完成 reset；无法授权时
+  失败关闭。reset、来源 flush 或目标保存的确定失败保留来源身份，未知结果只 fence 对应来源或目标。
 - 修复 SaveGraph 在 Source/Scope/Pipeline 已记录采集错误后仍生成并覆盖健康存档、内层格式版本接受缺失/旧版/字符串值、调用方 context 可伪造事务根、同步 apply 重入无界递归，以及 participant 或 Source snapshot 回滚失败只存在于可选 trace 的问题；默认 apply 结果现在始终公开 `rollback_failures` 与 `atomicity_restored`。
 - 修复 Graph 与 Slot 读取入口接受 `ok=true` 但 integrity 为 `INVALID` 的内容、PersistProperties 的 local/registry 同 ID Serializer 发生编码/解码实现漂移、Slot Sync 绕过 Adapter 模板与规范路径碰撞检查、Document parser 静默丢弃空白/非字符串/trim alias section key，以及 Section/Document 在有界持久化验收前深复制循环或超深容器的问题。
 - 修复 `GFSignalSubscriptionToken` 会隐式接管既有同一 `Signal + Callable` 连接、并在取消时断开其他创建方资源的问题；重复连接现在返回非活动 token，原连接继续由原创建方持有。
@@ -388,6 +394,15 @@
   `GFSaveProfileReconcileRequest`、`GFSaveSectionMutation` 与
   `GFSaveProfileMutationRequest` 是新的公开 operation、result、lease 和 move-only request
   类型；它们不与普通 `GFSaveProfileOperation` / `GFSaveProfileResult` 混用。`gf.save` 因新增可选活动身份事务层并收紧受管 Profile 准入，`extension_version` 从 `6.0.0` 提升到 `6.1.0`。
+- `GFSaveProfileTransactionCoordinator` 新增 `bootstrap_and_switch_profile()` 与
+  `adopt_and_switch_profile()`；`GFSaveProfileRecoveryLease` 新增 `get_source_profile_id()`；
+  Transaction Operation 新增 `OPERATION_BOOTSTRAP_AND_SWITCH` / `OPERATION_ADOPT_AND_SWITCH`，
+  Result 新增 `STATUS_BOOTSTRAPPED_AND_SWITCHED` / `STATUS_ADOPTED_AND_SWITCHED`；
+  `GFSaveProfileTransactionResult.to_dict().recovery_lease` 摘要新增 `source_profile_id`。
+  `switch_profile()` 的 missing/corrupt 目标现在可返回 source-bound
+  `STATUS_RECOVERY_REQUIRED`，结构损坏无法取得
+  Storage reset 授权时仍以 `STATUS_TARGET_LOAD_FAILED` 失败关闭。`gf.save` 因此以向后兼容
+  minor 能力把 `extension_version` 从 `6.2.1` 提升到 `6.3.0`；框架版本保持不变。
 - Save 扩展 Installer 现在先确保 `GFStorageUtility` 存在，再装配 Save Graph、Profile 与 Profile Transaction Coordinator；项目 Installer 不再重复拥有 Storage 注册。
 - `GFSaveGraphUtility.apply_scope()`、`apply_section()`、`apply_document()` 与 `load_scope()` 的结果 schema 新增稳定字段 `rollback_failures` 与 `atomicity_restored`；`GFSaveSlotStorageAdapter.build_slot_file_plan()` 是新的公开预检 API。SaveGraph 内层版本、读取完整性、Serializer ID 与 Slot 模板的准入语义同步收紧，`gf.save` 的 `extension_version` 从 `6.1.0` 提升到 `6.2.0`。
 - `GFModel`、`GFSystem`、`GFUtility` 新增 `begin_activation(GFAsyncScope) -> GFAsyncCompletion` 与 `begin_quiesce(GFAsyncScope) -> GFAsyncCompletion`。
@@ -458,6 +473,12 @@
     项目备份/确认政策，再调用 `adopt_profile()`。不要用 `ACTION_USE_CURRENT_STATE` 发布身份。
 23. 把项目手写的 flush-source/load-target 切换改为 `switch_profile()`，并以
     `GFSaveProfileTransactionResult` 判断 source flush、target load、rollback 和活动身份终态。
+    过去把目标 missing/corrupt 一律视为 `STATUS_TARGET_LOAD_FAILED` 的代码应处理
+    `STATUS_RECOVERY_REQUIRED`：确认 source-bound Lease 后分别调用
+    `bootstrap_and_switch_profile()` / `adopt_and_switch_profile()`。Continuation 会重新 flush
+    最新来源，目标保存确认前来源保持活动；switch Lease 不能交给 activation-only 的
+    `bootstrap_profile()` / `adopt_profile()`。Corrupt continuation 仍应先执行项目确认和备份
+    政策；不要绕过 Coordinator 直接覆盖或自行解析 Storage 私有布局。
 24. 需要“修改后必须持久化”的 section 流程改为构造 `GFSaveSectionMutation` 清单，通过
     `GFSaveProfileMutationRequest` 提交 `mutate_and_persist()`；成功 claim 后放弃请求与候选
     payload 的全部 alias，不再在写失败后自行追加补偿保存。

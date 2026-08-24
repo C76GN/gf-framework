@@ -54,6 +54,20 @@ const OPERATION_BOOTSTRAP: StringName = &"bootstrap"
 ## @since unreleased
 const OPERATION_ADOPT: StringName = &"adopt"
 
+## 从活动来源重新 flush 后，以当前 Provider 状态创建缺失目标并原子切换。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+const OPERATION_BOOTSTRAP_AND_SWITCH: StringName = &"bootstrap_and_switch"
+
+## 从活动来源重新 flush 后，以当前 Provider 状态覆盖损坏目标并原子切换。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+const OPERATION_ADOPT_AND_SWITCH: StringName = &"adopt_and_switch"
+
 ## 应用完整候选 section 并持久化。
 ## [br]
 ## @api public
@@ -107,8 +121,8 @@ func get_transaction_id() -> int:
 
 ## 获取事务来源 Profile ID。
 ##
-## activate、bootstrap 与 adopt 没有来源身份；mutate-and-persist 和 reconcile
-## 使用当前受管 Profile 作为来源。
+## activate、bootstrap 与 adopt 没有来源身份；switch、bootstrap/adopt-and-switch、
+## mutate-and-persist 和 reconcile 使用当前受管 Profile 作为来源。
 ## [br]
 ## @api public
 ## [br]
@@ -286,6 +300,8 @@ static func _get_valid_operations() -> Array[StringName]:
 		OPERATION_SWITCH,
 		OPERATION_BOOTSTRAP,
 		OPERATION_ADOPT,
+		OPERATION_BOOTSTRAP_AND_SWITCH,
+		OPERATION_ADOPT_AND_SWITCH,
 		OPERATION_MUTATE_AND_PERSIST,
 		OPERATION_RECONCILE,
 	]
