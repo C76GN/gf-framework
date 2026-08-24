@@ -70,6 +70,7 @@
 - 新增 `GFSpatialCanvasInputPolicy` 与 `GFSpatialCanvasSelectionModeBinding`；`GFSpatialCanvas2D.InputDisposition` 显式区分 ignored、handled 和 consumed，使鼠标 chord、选择修饰键、滚轮父级仲裁、可禁用单指行为、独立多指 pan/zoom、系统手势和取消 action 可以在不继承 Canvas 的前提下原子配置。
 - `GFHapticUtility` 新增 `get_last_output_report()`：在自动 tick 无法直接消费返回值时，仍可观察最近一次物理输出、停止、停止失败或 provider 拒绝；空刷新不会覆盖最近活动报告。
 - `GFInputMappingDock` 新增 `set_remap_config()` / `get_remap_config()`，只读编辑器诊断现在可显式检查玩家或 profile 覆盖后的有效绑定。
+- 新增 opt-in 的 `GFBindingPlan` 与 `GFBindingPlanResult`：Installer 可以按稳定 ID 声明同一 candidate Architecture 的 required singleton/transient 绑定，顺序执行并在首个创建、注册、别名或取消失败处停止，以闭合枚举、entry identity 和有界诊断统一触发 Architecture 初始化失败与 scope 结算；既有单项 fluent `bool` 入口继续承载显式 optional 路径。
 
 ### 🔄 机制更改 (Changed)
 
@@ -444,6 +445,7 @@
 - `GFNetworkSnapshot.make_patch_to()` 会把 `max_depth` 限制到 8，并以 `patch_operation_budget_exceeded` / `generated_patch_not_applicable` 显式拒绝 applicator 无法接受的成功候选。`GFNetworkServiceDiscovery.now_seconds` 只影响记录时间；`GFFixedTickClock.advance()` / `step_once()` 在同实例 signal 重入时无副作用返回。公开签名不变，`gf.network` 的 `extension_version` 提升到 `7.0.0`。
 - Physics 公开签名不变；`GFGravityProbe3D.sample()` / `sample_fields()` / `sample_field_provider()` 现在冻结入口查询状态并在同实例同步重入时返回零，全部重力/浮力公开向量保持有限。该运行语义收紧使 `gf.physics` 的 `extension_version` 提升到 `2.0.0`。
 - TurnBased 移除基于 Context 查找当前运行态的 `GFTurnPhase.finish()` / `finish(context)`，protected 扩展点从 `_execute(context)` 改为 `_execute(context, completion)`，并新增 `GFTurnPhaseCompletionHandle.try_complete()`。`GFTurnFlowSystem.dispose()` 现在显式终止接纳新 operation；`stop(true)` 继续对 stopped/恢复中队列执行幂等且可升级的清理，`GFTurnContext.get_actor_value()` 只调用接受两个兼容实参的 duck method。默认 non-finite 排序与自定义 comparator 的合同已写明，`gf.turn_based` 的 `extension_version` 从 `2.0.1` 提升到 `3.0.1`。
+- `GFBinder` 新增 `create_required_plan()`；新增 `GFBindingPlan.require_singleton()`、`require_transient()`、单次 `execute()`，以及 `GFBindingPlanResult` 的 `Status`、`BindingKind`、`Phase`、`Reason`、类型化 getter、`duplicate_result()` 与固定字段 `to_dict()`。Plan 只接纳 pre-init candidate 和同一 Architecture 的 Builder；成功不 complete Installer scope，首失败按“冻结结果 → Architecture 初始化失败 → scope 结算”收敛。原 `GFBinder` / `GFBindBuilder` 方法签名与 `bool` 返回不变。
 
 ### 📘 升级指南 (Migration Guide)
 
@@ -553,3 +555,4 @@
 87. 既有 Storage 与 Save Profile 调用默认无需迁移：保留 `async_execution_mode = AUTOMATIC` 即可让有线程构建继续使用 threaded executor，并让 `nothreads` Web 导出自动使用 cooperative executor。若项目必须保证后台线程并行，应在首个合法异步请求前显式选择 `THREADED`，并确保导出具备 `threads` feature；无线程 activation 会确定性失败。确定性测试或明确的主线程调度可选择 `COOPERATIVE`，但应持续驱动 lifecycle `tick()`，预留单个完整 I/O 可能占用一帧的预算，且不要把 `max_async_thread_count` 当作 cooperative 分片数。模式冻结后需要切换时，等待现有 Utility 收敛并创建新的 Storage 实例；关闭期使用 `wait_for_async_tasks()` 或 `dispose()` 时，应按同步 drain 边界评估阻塞时间。
 88. 处理 Storage structural corruption 时，不要删除或拼接 `.gf-storage` 私有路径，也不要用合成/序列化的 `GFStorageReadResult` 作为授权。保留同一 Utility 对同一 logical identity 返回的来源绑定 `CORRUPT` 结果，用 `create_family_reset_authorization()` 签发一次性 handle，再调用同步或异步 family reset；只有 `GFStorageFamilyResetResult.is_successful()` 为真时才能保存默认值。Settings 的 `ACTION_RESET_TO_DEFAULTS` 只恢复内存，使用 Storage adapter 时还需先完成上述 reset 再 `save_settings()`。reset 失败后原授权已消费，重试必须从授权资格字段 `ok`、`error_code` 与 `failure_kind` 仍匹配签发快照的读取证据签发新 handle。严格解析 `GFStorageAsyncResult.to_dict()` 的代码需加入 `reset_result`，迟到诊断 schema 需从 22 字段升级到 29 字段。
 89. 既有 Background Work worker 无需迁移，默认继续只接收一参纯数据 payload。需要在运行中协作退出的 CPU/IO worker 可设置 `pass_cancellation_context = true`，把签名改为 `(input_data, context)`，并在有界循环或 I/O 分段之间轮询 `context.is_cancel_requested()`；不要把 Mutex、自定义 token 或 Context 塞进 `input_data`。Context 只传达取消意图，不能强杀线程，因此仍需为 worker 保留绝对工作量或时间后备边界，并让 `clear_all()` / `dispose()` 等待物理返回与 join。
+90. 既有 Installer 无需迁移，继续逐项检查 `.as_singleton()` / `.as_transient()` 的 `bool` 即可。只有一组绑定全部属于 candidate 启动硬要求时，才改用 `create_required_plan()` 并检查 `GFBindingPlanResult` 的闭合枚举；不要把 optional 注册静默并入 required Plan。生命周期 `from_factory()` source 必须同步返回兼容 `Object`，而 `bind_factory().from_factory()` provider 会延后到运行时解析。生命周期 `from_instance()` 进入 Architecture 注入/注册后由 Architecture 结算；factory `from_instance()` 始终 caller-owned，框架回滚或 dispose 只撤销自己建立的注入作用域与监听，不释放外部实例。

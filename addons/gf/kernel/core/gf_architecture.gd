@@ -141,6 +141,10 @@ const DEFAULT_SNAPSHOT_MODELS_PER_FRAME: int = 8
 const _MAX_LIFECYCLE_TIMEOUT_SECONDS: float = 86_400.0
 const _MAX_LIFECYCLE_PARENT_DEPTH: int = 64
 const _MAX_TOPOLOGY_SERVICE_INTENTS: int = 64
+const _REQUIRED_REGISTRATION_ACCEPTED: int = 0
+const _REQUIRED_REGISTRATION_REJECTED_CALLER_OWNS: int = 1
+const _REQUIRED_REGISTRATION_REJECTED_ARCHITECTURE_SETTLED: int = 2
+const _REQUIRED_REGISTRATION_REJECTED_ARCHITECTURE_OWNS: int = 3
 
 
 # --- 公共变量 ---
@@ -1825,7 +1829,11 @@ func has_service(service_key: StringName, include_parent: bool = true) -> bool:
 ## [br]
 ## @param target_cls: 已注册 System 的实际脚本类。
 func register_system_alias(alias_cls: Script, target_cls: Script) -> void:
-	_register_module_alias(_system_registry, alias_cls, target_cls)
+	var _registered_alias: bool = _register_module_alias(
+		_system_registry,
+		alias_cls,
+		target_cls
+	)
 
 
 ## 为已注册 Model 增加一个额外查询别名。
@@ -1836,7 +1844,11 @@ func register_system_alias(alias_cls: Script, target_cls: Script) -> void:
 ## [br]
 ## @param target_cls: 已注册 Model 的实际脚本类。
 func register_model_alias(alias_cls: Script, target_cls: Script) -> void:
-	_register_module_alias(_model_registry, alias_cls, target_cls)
+	var _registered_alias: bool = _register_module_alias(
+		_model_registry,
+		alias_cls,
+		target_cls
+	)
 
 
 ## 为已注册 Utility 增加一个额外查询别名。
@@ -1847,7 +1859,11 @@ func register_model_alias(alias_cls: Script, target_cls: Script) -> void:
 ## [br]
 ## @param target_cls: 已注册 Utility 的实际脚本类。
 func register_utility_alias(alias_cls: Script, target_cls: Script) -> void:
-	_register_module_alias(_utility_registry, alias_cls, target_cls)
+	var _registered_alias: bool = _register_module_alias(
+		_utility_registry,
+		alias_cls,
+		target_cls
+	)
 
 
 ## 注销 System 查询别名，不影响目标 System 实例。
@@ -2687,6 +2703,172 @@ func track_framework_async_scope(scope: GFAsyncScope) -> void:
 ## @param scope: 要注销的框架异步作用域。
 func untrack_framework_async_scope(scope: GFAsyncScope) -> void:
 	_untrack_async_scope(scope)
+
+
+## 返回 required binding plan 是否仍可修改候选架构注册拓扑。
+## [br]
+## @api framework_internal
+## [br]
+## @since unreleased
+## [br]
+## @return 架构尚未 ready/init/activation/failure/quiesce/dispose 且没有冲突事务时返回 true。
+func can_accept_required_binding_plan_for_framework() -> bool:
+	if _runtime.is_ready():
+		return false
+	return _can_mutate_registration_state("execute_required_binding_plan")
+
+
+## 在同一个 disposal claim session 内执行一次 required lifecycle binding attempt。
+## [br]
+## @api framework_internal
+## [br]
+## @since unreleased
+## [br]
+## @param attempt: 同步创建、校验并注册 candidate 的内部回调。
+## [br]
+## @return 回调的原始终态；Callable 无效时返回 null。
+## [br]
+## @schema return: Variant returned by the synchronous required binding attempt; null when the Callable is invalid.
+func run_required_binding_attempt_for_framework(attempt: Callable) -> Variant:
+	if not attempt.is_valid():
+		return null
+	var _disposal_claims: Dictionary = _begin_module_disposal_session()
+	var attempt_result: Variant = attempt.call()
+	_end_module_disposal_session()
+	return attempt_result
+
+
+## 为 required binding plan 注册 Model 查询别名并返回精确结果。
+## [br]
+## @api framework_internal
+## [br]
+## @since unreleased
+## [br]
+## @param alias_cls: 查询别名脚本。
+## [br]
+## @param target_cls: 已注册 Model 的实际脚本。
+## [br]
+## @return 别名写入成功时返回 true。
+func register_model_alias_for_framework(alias_cls: Script, target_cls: Script) -> bool:
+	return _register_required_plan_alias(_model_registry, alias_cls, target_cls)
+
+
+## 为 required binding plan 注册 System 查询别名并返回精确结果。
+## [br]
+## @api framework_internal
+## [br]
+## @since unreleased
+## [br]
+## @param alias_cls: 查询别名脚本。
+## [br]
+## @param target_cls: 已注册 System 的实际脚本。
+## [br]
+## @return 别名写入成功时返回 true。
+func register_system_alias_for_framework(alias_cls: Script, target_cls: Script) -> bool:
+	return _register_required_plan_alias(_system_registry, alias_cls, target_cls)
+
+
+## 为 required binding plan 注册 Utility 查询别名并返回精确结果。
+## [br]
+## @api framework_internal
+## [br]
+## @since unreleased
+## [br]
+## @param alias_cls: 查询别名脚本。
+## [br]
+## @param target_cls: 已注册 Utility 的实际脚本。
+## [br]
+## @return 别名写入成功时返回 true。
+func register_utility_alias_for_framework(alias_cls: Script, target_cls: Script) -> bool:
+	return _register_required_plan_alias(_utility_registry, alias_cls, target_cls)
+
+
+## 为 required binding plan 注册 Model candidate，并由 Architecture 精确结算拒绝所有权。
+## [br]
+## @api framework_internal
+## [br]
+## @since unreleased
+## [br]
+## @param script_cls: Plan 声明并冻结的 Model 注册键。
+## [br]
+## @param instance: 要注册的 Model candidate。
+## [br]
+## @param release_owned_candidate_on_rejection: 为 true 时，Architecture 会且只会释放仍由调用方拥有的拒绝 candidate。
+## [br]
+## @return OK 表示 candidate 已由 Architecture 拥有；ERR_INVALID_DATA 表示 candidate
+## 无效或不匹配声明目标；其它错误表示注册被拒绝。
+func register_model_instance_for_required_plan_for_framework(
+	script_cls: Script,
+	instance: Object,
+	release_owned_candidate_on_rejection: bool
+) -> Error:
+	return _register_required_plan_module(
+		_model_registry,
+		script_cls,
+		instance,
+		release_owned_candidate_on_rejection
+	)
+
+
+## 为 required binding plan 注册 System candidate，并由 Architecture 精确结算拒绝所有权。
+## [br]
+## @api framework_internal
+## [br]
+## @since unreleased
+## [br]
+## @param script_cls: Plan 声明并冻结的 System 注册键。
+## [br]
+## @param instance: 要注册的 System candidate。
+## [br]
+## @param release_owned_candidate_on_rejection: 为 true 时，Architecture 会且只会释放仍由调用方拥有的拒绝 candidate。
+## [br]
+## @return OK 表示 candidate 已由 Architecture 拥有；ERR_INVALID_DATA 表示 candidate
+## 无效或不匹配声明目标；其它错误表示注册被拒绝。
+func register_system_instance_for_required_plan_for_framework(
+	script_cls: Script,
+	instance: Object,
+	release_owned_candidate_on_rejection: bool
+) -> Error:
+	var registration_error: Error = _register_required_plan_module(
+		_system_registry,
+		script_cls,
+		instance,
+		release_owned_candidate_on_rejection
+	)
+	if registration_error == OK:
+		_refresh_tick_caches()
+	return registration_error
+
+
+## 为 required binding plan 注册 Utility candidate，并由 Architecture 精确结算拒绝所有权。
+## [br]
+## @api framework_internal
+## [br]
+## @since unreleased
+## [br]
+## @param script_cls: Plan 声明并冻结的 Utility 注册键。
+## [br]
+## @param instance: 要注册的 Utility candidate。
+## [br]
+## @param release_owned_candidate_on_rejection: 为 true 时，Architecture 会且只会释放仍由调用方拥有的拒绝 candidate。
+## [br]
+## @return OK 表示 candidate 已由 Architecture 拥有；ERR_INVALID_DATA 表示 candidate
+## 无效或不匹配声明目标；其它错误表示注册被拒绝。
+func register_utility_instance_for_required_plan_for_framework(
+	script_cls: Script,
+	instance: Object,
+	release_owned_candidate_on_rejection: bool
+) -> Error:
+	var registration_error: Error = _register_required_plan_module(
+		_utility_registry,
+		script_cls,
+		instance,
+		release_owned_candidate_on_rejection
+	)
+	if registration_error == OK:
+		_refresh_cached_utility_refs()
+		_refresh_tick_caches()
+	return registration_error
 
 
 # --- 私有/辅助方法 ---
@@ -6534,10 +6716,36 @@ func _module_registry_contains_instance(module_registry: ModuleRegistry, instanc
 
 
 func _register_module(module_registry: ModuleRegistry, script_cls: Script, instance: Object) -> bool:
+	return (
+		_register_module_checked(module_registry, script_cls, instance)
+		== _REQUIRED_REGISTRATION_ACCEPTED
+	)
+
+
+func _register_module_checked(
+	module_registry: ModuleRegistry,
+	script_cls: Script,
+	instance: Object
+) -> int:
+	var _disposal_claims: Dictionary = _begin_module_disposal_session()
+	var outcome: int = _register_module_checked_in_disposal_session(
+		module_registry,
+		script_cls,
+		instance
+	)
+	_end_module_disposal_session()
+	return outcome
+
+
+func _register_module_checked_in_disposal_session(
+	module_registry: ModuleRegistry,
+	script_cls: Script,
+	instance: Object
+) -> int:
 	if not _can_mutate_registration_state("register_%s" % module_registry._label_key()):
-		return false
+		return _REQUIRED_REGISTRATION_REJECTED_CALLER_OWNS
 	if not _validate_registration(script_cls, instance, module_registry.label):
-		return false
+		return _REQUIRED_REGISTRATION_REJECTED_CALLER_OWNS
 	if module_registry._has_direct(script_cls):
 		var method_name: String = "register_%s" % module_registry._label_key()
 		var replacement_name: String = "replace_%s" % module_registry._label_key()
@@ -6545,7 +6753,16 @@ func _register_module(module_registry: ModuleRegistry, script_cls: Script, insta
 			method_name,
 			replacement_name,
 		])
-		return false
+		var registered_instance: Object = _get_dictionary_object(
+			module_registry.instances,
+			script_cls
+		)
+		if (
+			registered_instance == instance
+			or module_registry._get_key_for_instance(instance) != null
+		):
+			return _REQUIRED_REGISTRATION_REJECTED_ARCHITECTURE_OWNS
+		return _REQUIRED_REGISTRATION_REJECTED_CALLER_OWNS
 
 	var existing_key: Script = module_registry._get_key_for_instance(instance)
 	if existing_key != null:
@@ -6553,7 +6770,7 @@ func _register_module(module_registry: ModuleRegistry, script_cls: Script, insta
 			module_registry._label_key(),
 			_get_script_debug_key(existing_key, instance),
 		])
-		return false
+		return _REQUIRED_REGISTRATION_REJECTED_ARCHITECTURE_OWNS
 
 	var transaction: Dictionary = _runtime.begin_transaction("register_%s" % module_registry._label_key())
 	var injected_dependencies: bool = _inject_dependencies_if_needed(
@@ -6561,37 +6778,190 @@ func _register_module(module_registry: ModuleRegistry, script_cls: Script, insta
 		_get_active_lifecycle_serial_or_unbound()
 	)
 	if not injected_dependencies:
-		_cleanup_uncommitted_module(instance)
+		_cleanup_registration_candidate_if_unretained(instance)
 		_runtime.finish_transaction(transaction)
-		return false
+		return _REQUIRED_REGISTRATION_REJECTED_ARCHITECTURE_SETTLED
+	if _module_disposal_claims.has(instance):
+		_runtime.finish_transaction(transaction)
+		return _REQUIRED_REGISTRATION_REJECTED_ARCHITECTURE_SETTLED
+	if not _registration_candidate_is_live(instance):
+		_runtime.finish_transaction(transaction)
+		return _REQUIRED_REGISTRATION_REJECTED_ARCHITECTURE_SETTLED
+	if not _required_plan_candidate_matches_declaration(
+		module_registry,
+		script_cls,
+		instance
+	):
+		_cleanup_registration_candidate_if_unretained(instance)
+		_runtime.finish_transaction(transaction)
+		return _REQUIRED_REGISTRATION_REJECTED_ARCHITECTURE_SETTLED
 	if _runtime.is_transaction_invalidated(transaction):
 		push_error("[GFArchitecture] register_%s 失败：依赖注入期间注册事务已失效。" % module_registry._label_key())
-		_cleanup_uncommitted_module(instance)
+		_cleanup_registration_candidate_if_unretained(instance)
 		_runtime.finish_transaction(transaction)
-		return false
+		return _REQUIRED_REGISTRATION_REJECTED_ARCHITECTURE_SETTLED
 	if not _can_mutate_registration_state("register_%s" % module_registry._label_key()):
-		_cleanup_uncommitted_module(instance)
+		_cleanup_registration_candidate_if_unretained(instance)
 		_runtime.finish_transaction(transaction)
-		return false
+		return _REQUIRED_REGISTRATION_REJECTED_ARCHITECTURE_SETTLED
 	if module_registry._has_direct(script_cls):
 		var reentrant_instance: Object = _get_dictionary_object(module_registry.instances, script_cls)
 		_runtime.finish_transaction(transaction)
 		if reentrant_instance == instance:
-			return true
+			return _REQUIRED_REGISTRATION_ACCEPTED
 		push_error("[GFArchitecture] register_%s 失败：依赖注入期间同一脚本键已被重入注册。" % module_registry._label_key())
-		_cleanup_uncommitted_module(instance)
-		return false
+		_cleanup_registration_candidate_if_unretained(instance)
+		return _REQUIRED_REGISTRATION_REJECTED_ARCHITECTURE_SETTLED
 	var reentrant_key: Script = module_registry._get_key_for_instance(instance)
 	if reentrant_key != null:
 		_runtime.finish_transaction(transaction)
 		push_error("[GFArchitecture] register_%s 失败：依赖注入期间同一实例已被重入注册。" % module_registry._label_key())
-		return false
+		return _REQUIRED_REGISTRATION_REJECTED_ARCHITECTURE_OWNS
 	module_registry.instances[script_cls] = instance
 	module_registry._track_instance_key(instance, script_cls)
 	module_registry._clear_assignable_cache()
 	_track_registered_module(instance)
 	_runtime.finish_transaction(transaction)
-	return true
+	return _REQUIRED_REGISTRATION_ACCEPTED
+
+
+func _register_required_plan_module(
+	module_registry: ModuleRegistry,
+	script_cls: Script,
+	instance: Object,
+	release_owned_candidate_on_rejection: bool
+) -> Error:
+	var _disposal_claims: Dictionary = _begin_module_disposal_session()
+	var registration_error: Error = _register_required_plan_module_in_disposal_session(
+		module_registry,
+		script_cls,
+		instance,
+		release_owned_candidate_on_rejection
+	)
+	_end_module_disposal_session()
+	return registration_error
+
+
+func _register_required_plan_module_in_disposal_session(
+	module_registry: ModuleRegistry,
+	script_cls: Script,
+	instance: Object,
+	release_owned_candidate_on_rejection: bool
+) -> Error:
+	if _module_disposal_claims.has(instance):
+		return ERR_CANT_CREATE
+	if script_cls == null:
+		if (
+			release_owned_candidate_on_rejection
+			and instance != null
+			and is_instance_valid(instance)
+		):
+			_cleanup_required_source_owned_candidate(instance)
+		return ERR_INVALID_PARAMETER
+	if not _registration_candidate_is_live(instance):
+		return ERR_INVALID_DATA
+	if not _required_plan_candidate_matches_declaration(
+		module_registry,
+		script_cls,
+		instance
+	):
+		if release_owned_candidate_on_rejection:
+			_cleanup_required_source_owned_candidate(instance)
+		return ERR_INVALID_DATA
+	var outcome: int = _register_module_checked(
+		module_registry,
+		script_cls,
+		instance
+	)
+	if outcome == _REQUIRED_REGISTRATION_ACCEPTED:
+		return OK
+	if (
+		outcome == _REQUIRED_REGISTRATION_REJECTED_CALLER_OWNS
+		and release_owned_candidate_on_rejection
+	):
+		_cleanup_required_source_owned_candidate(instance)
+	return ERR_CANT_CREATE
+
+
+func _required_plan_candidate_matches_declaration(
+	module_registry: ModuleRegistry,
+	script_cls: Script,
+	instance: Object
+) -> bool:
+	if not _instance_matches_registration_label(instance, module_registry.label):
+		return false
+	var instance_script: Script = _get_instance_script(instance)
+	if instance_script == null:
+		return false
+	return GFScriptTypeInspector.script_extends_or_equals(
+		instance_script,
+		script_cls
+	)
+
+
+func _cleanup_registration_candidate_if_unretained(instance: Object) -> void:
+	if _required_plan_candidate_is_retained_by_architecture(instance):
+		return
+	_cleanup_uncommitted_module(instance)
+
+
+func _cleanup_required_source_owned_candidate(instance: Object) -> void:
+	if not _registration_candidate_is_live(instance):
+		return
+	if _required_plan_candidate_is_retained_by_architecture(instance):
+		return
+	var disposed_instances: Dictionary = (
+		_module_disposal_claims
+		if _module_disposal_session_depth > 0
+		else {}
+	)
+	if disposed_instances.has(instance):
+		return
+	disposed_instances[instance] = true
+	_event_system.unregister_owner(instance)
+	_unregister_services_for_owner(instance)
+	var _removed_stage: bool = _module_lifecycle_stages.erase(instance)
+	_lifecycle_hook_depth += 1
+	if instance.has_method("dispose"):
+		var _dispose_result: Variant = instance.call("dispose")
+	_lifecycle_hook_depth -= 1
+	if not is_instance_valid(instance):
+		return
+	_release_module_dependencies(instance)
+	if not is_instance_valid(instance):
+		return
+	if instance is Node:
+		var rejected_node: Node = instance
+		if (
+			rejected_node.get_parent() == null
+			and not rejected_node.is_queued_for_deletion()
+		):
+			rejected_node.free()
+		return
+	if not instance is RefCounted:
+		instance.free()
+
+
+func _required_plan_candidate_is_retained_by_architecture(instance: Object) -> bool:
+	if _get_module_registry_for_instance(instance) != null:
+		return true
+	for binding_variant: Variant in _factories.values():
+		var binding: GFBinding = _variant_to_binding(binding_variant)
+		if binding != null and binding.retains_instance_for_framework(instance):
+			return true
+	return false
+
+
+func _register_required_plan_alias(
+	module_registry: ModuleRegistry,
+	alias_cls: Script,
+	target_cls: Script
+) -> bool:
+	if alias_cls == null or target_cls == null:
+		return false
+	if not GFScriptTypeInspector.script_extends_or_equals(target_cls, alias_cls):
+		return false
+	return _register_module_alias(module_registry, alias_cls, target_cls)
 
 
 func _replace_module(module_registry: ModuleRegistry, script_cls: Script, instance: Object) -> bool:
@@ -6973,9 +7343,14 @@ func _cleanup_uncommitted_module_if_unregistered(
 
 
 func _cleanup_uncommitted_module(instance: Object) -> void:
-	if instance == null:
+	if not _registration_candidate_is_live(instance):
 		return
-	_dispose_module_once(instance, {})
+	var disposed_instances: Dictionary = (
+		_module_disposal_claims
+		if _module_disposal_session_depth > 0
+		else {}
+	)
+	_dispose_module_once(instance, disposed_instances)
 	var _removed_stage: bool = _module_lifecycle_stages.erase(instance)
 
 
@@ -7377,7 +7752,12 @@ func _remove_registered_module(
 		_remove_aliases_for(module_registry, registered_key)
 	module_registry._clear_assignable_cache()
 	if instance != null and dispose_instance:
-		_dispose_module_once(instance, {})
+		var disposed_instances: Dictionary = (
+			_module_disposal_claims
+			if _module_disposal_session_depth > 0
+			else {}
+		)
+		_dispose_module_once(instance, disposed_instances)
 	elif instance != null:
 		_event_system.unregister_owner(instance)
 		_unregister_services_for_owner(instance)
@@ -7394,23 +7774,36 @@ func _inject_dependencies_if_needed(
 ) -> bool:
 	if instance == null:
 		return true
+	if not _registration_candidate_is_live(instance):
+		return false
 	if not _is_dependency_injection_current(lifecycle_serial):
 		return false
 	var execution_scope_bound: bool = false
 	if execution_context and instance.has_method("_gf_begin_execution_scope"):
 		var begin_result: Variant = instance.call("_gf_begin_execution_scope", self, lifecycle_serial)
+		if not _registration_candidate_is_live(instance):
+			return false
 		if not _GF_VARIANT_ACCESS_SCRIPT.to_bool(begin_result):
 			return false
 		execution_scope_bound = true
 	if not execution_scope_bound:
 		_bind_dependency_scope_if_needed(instance, lifecycle_serial)
-	if instance != null and instance.has_method("inject_dependencies"):
+		if not _registration_candidate_is_live(instance):
+			return false
+	if instance.has_method("inject_dependencies"):
 		var _inject_dependencies_result: Variant = instance.call("inject_dependencies", self)
+		if not _registration_candidate_is_live(instance):
+			return false
 		if not _is_dependency_injection_current(lifecycle_serial):
 			return false
-	if instance != null and instance.has_method("inject"):
+	if instance.has_method("inject"):
 		var _inject_result: Variant = instance.call("inject", self)
-	return _is_dependency_injection_current(lifecycle_serial)
+		if not _registration_candidate_is_live(instance):
+			return false
+	return (
+		_registration_candidate_is_live(instance)
+		and _is_dependency_injection_current(lifecycle_serial)
+	)
 
 
 func _is_dependency_injection_current(lifecycle_serial: int) -> bool:
@@ -7430,7 +7823,10 @@ func _is_dependency_injection_current(lifecycle_serial: int) -> bool:
 
 
 func _bind_dependency_scope_if_needed(instance: Object, lifecycle_serial: int = -1) -> void:
-	if instance == null or not instance.has_method("_gf_set_dependency_scope"):
+	if (
+		not _registration_candidate_is_live(instance)
+		or not instance.has_method("_gf_set_dependency_scope")
+	):
 		return
 	if instance is GFModel or instance is GFSystem or instance is GFUtility or instance is GFCommand or instance is GFQuery:
 		instance.call("_gf_set_dependency_scope", self, lifecycle_serial)
@@ -7439,14 +7835,16 @@ func _bind_dependency_scope_if_needed(instance: Object, lifecycle_serial: int = 
 
 
 func _clear_injected_scope(instance: Object) -> void:
-	if instance != null and instance.has_method("_gf_set_dependency_scope"):
+	if not _registration_candidate_is_live(instance):
+		return
+	if instance.has_method("_gf_set_dependency_scope"):
 		instance.call("_gf_set_dependency_scope", null)
-	elif instance != null and instance.has_method("_release_dependency_scope"):
+	elif instance.has_method("_release_dependency_scope"):
 		instance.call("_release_dependency_scope")
 
 
 func _release_module_dependencies(instance: Object) -> void:
-	if instance == null:
+	if not _registration_candidate_is_live(instance):
 		return
 	_lifecycle_hook_depth += 1
 	_call_module_release_dependencies(instance)
@@ -7474,6 +7872,9 @@ func _validate_registration(script_cls: Script, instance: Object, label: String)
 	if instance == null:
 		push_error("[GFArchitecture] register_%s 失败：实例为空。" % label.to_lower())
 		return false
+	if not _registration_candidate_is_live(instance):
+		push_error("[GFArchitecture] register_%s 失败：实例已经失效或等待释放。" % label.to_lower())
+		return false
 	if not _instance_matches_registration_label(instance, label):
 		push_error("[GFArchitecture] register_%s 失败：实例类型必须继承 GF%s。" % [label.to_lower(), label])
 		return false
@@ -7485,6 +7886,17 @@ func _validate_registration(script_cls: Script, instance: Object, label: String)
 		push_error("[GFArchitecture] register_%s 失败：实例脚本必须继承或等于注册脚本类型。" % label.to_lower())
 		return false
 
+	return true
+
+
+func _registration_candidate_is_live(candidate: Variant) -> bool:
+	if candidate == null or not is_instance_valid(candidate):
+		return false
+	if not candidate is Object:
+		return false
+	if candidate is Node:
+		var node: Node = candidate
+		return not node.is_queued_for_deletion()
 	return true
 
 
@@ -7628,26 +8040,31 @@ func _has_module_reached_lifecycle_stage(instance: Object, target_stage: int) ->
 	)
 
 
-func _register_module_alias(module_registry: ModuleRegistry, alias_cls: Script, target_cls: Script) -> void:
+func _register_module_alias(
+	module_registry: ModuleRegistry,
+	alias_cls: Script,
+	target_cls: Script
+) -> bool:
 	if not _can_mutate_registration_state("register_%s_alias" % module_registry._label_key()):
-		return
+		return false
 	if _runtime.is_ready():
 		push_error(
 			"[GFArchitecture] register_%s_alias 失败：activation 后 alias 拓扑不可变。" % (
 				module_registry._label_key()
 			)
 		)
-		return
+		return false
 	if alias_cls == null or target_cls == null:
 		push_error("[GFArchitecture] register_%s_alias 失败：alias 或 target 为空。" % module_registry._label_key())
-		return
+		return false
 	if not GFScriptTypeInspector.script_extends_or_equals(target_cls, alias_cls):
 		push_error("[GFArchitecture] register_%s_alias 失败：target 必须继承或等于 alias。" % module_registry._label_key())
-		return
+		return false
 	if not module_registry._has_direct(target_cls):
 		push_warning("[GFArchitecture] register_%s_alias：目标类型尚未注册，仍会记录别名。" % module_registry._label_key())
 	module_registry.aliases[alias_cls] = target_cls
 	module_registry._clear_assignable_cache()
+	return module_registry.aliases.has(alias_cls)
 
 
 func _unregister_module_alias(module_registry: ModuleRegistry, alias_cls: Script) -> bool:

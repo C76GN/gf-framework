@@ -2,8 +2,8 @@
   "schema_version": 2,
   "catalog_version": "2.0.0",
   "framework_version": "11.0.0-dev.0",
-  "source_digest": "a06e3ff1d2e6c026d2a06d3a1a6e126ed08e1b29e7a650379e91585bd8e7b10c",
-  "class_count": 825,
+  "source_digest": "5f234329e83b14a1d1f9318c020b6948d34257ff5ba02529fe648af86c5b68cb",
+  "class_count": 827,
   "autoload_count": 1,
   "package_count": 56,
   "packages": [
@@ -11944,6 +11944,13 @@
       "members": [
         {
           "kind": "func",
+          "name": "create_required_plan",
+          "signature": "func create_required_plan() -> GFBindingPlan",
+          "summary": "创建一个绑定到当前候选 Architecture 的 required binding plan。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
           "name": "bind_model",
           "signature": "func bind_model(script_cls: Script) -> GFBindBuilder",
           "summary": "声明一个 Model 绑定。",
@@ -11988,6 +11995,172 @@
           "name": "Lifetime",
           "signature": "enum Lifetime {\n\t## 首次解析后缓存实例，后续解析复用。\n\tSINGLETON,\n\t## 每次解析都重新创建实例。\n\tTRANSIENT,\n}",
           "summary": "绑定实例的生命周期。",
+          "visibility": "public"
+        }
+      ]
+    },
+    "GFBindingPlan": {
+      "owner_kind": "class",
+      "extends": "RefCounted",
+      "module": "kernel",
+      "package_id": "gf.kernel",
+      "path": "addons/gf/kernel/core/gf_binding_plan.gd",
+      "summary": "GFBindingPlan: Installer 使用的显式、顺序、fail-fast required binding 计划。 声明时冻结每个 Builder 的配置；execute() 仅接纳尚未进入 init/READY 的候选 Architecture。首个失败会冻结类型化结果、使候选初始化失败并结算 Installer",
+      "visibility": "public",
+      "category": "protocol",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "func",
+          "name": "require_singleton",
+          "signature": "func require_singleton( binding_id: StringName, builder: GFBindBuilder ) -> GFBindingPlan",
+          "summary": "追加一个 required singleton entry，并立即冻结 Builder 配置。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "require_transient",
+          "signature": "func require_transient( binding_id: StringName, builder: GFBindBuilder ) -> GFBindingPlan",
+          "summary": "追加一个 required transient factory entry，并立即冻结 Builder 配置。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "execute",
+          "signature": "func execute(scope: GFAsyncScope) -> GFBindingPlanResult",
+          "summary": "按声明顺序执行 required entry，并在首个失败处停止。",
+          "visibility": "public"
+        }
+      ]
+    },
+    "GFBindingPlanResult": {
+      "owner_kind": "class",
+      "extends": "RefCounted",
+      "module": "kernel",
+      "package_id": "gf.kernel",
+      "path": "addons/gf/kernel/core/gf_binding_plan_result.gd",
+      "summary": "GFBindingPlanResult: required binding plan 的不可变终态结果。 结果精确标识首个失败 entry、绑定类别、阶段与稳定原因；不保留 Builder、 Architecture、Scope、实例或 Callable 引用，可安全用于诊断与持久化日志。",
+      "visibility": "public",
+      "category": "value_object",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "enum",
+          "name": "Status",
+          "signature": "enum Status {\n\t## 全部 required entry 已按顺序成功执行。\n\tSUCCESS = 0,\n\t## 某个 required entry 执行失败。\n\tFAILED = 1,\n\t## Scope 在执行前或执行期间取消。\n\tCANCELLED = 2,\n\t## Plan、Builder ownership 或 Scope 请求无效。\n\tINVALID_REQUEST = 3,\n}",
+          "summary": "Plan 终态。",
+          "visibility": "public"
+        },
+        {
+          "kind": "enum",
+          "name": "BindingKind",
+          "signature": "enum BindingKind {\n\t## 没有具体 entry。\n\tNONE = 0,\n\t## Model 生命周期模块。\n\tMODEL = 1,\n\t## System 生命周期模块。\n\tSYSTEM = 2,\n\t## Utility 生命周期模块。\n\tUTILITY = 3,\n\t## 短生命周期对象工厂。\n\tFACTORY = 4,\n}",
+          "summary": "绑定类别。",
+          "visibility": "public"
+        },
+        {
+          "kind": "enum",
+          "name": "Phase",
+          "signature": "enum Phase {\n\t## 没有失败阶段。\n\tNONE = 0,\n\t## Plan、Scope、Architecture 或 entry 前置校验。\n\tVALIDATION = 1,\n\t## SELF、factory 或 instance 来源的 candidate 创建。\n\tINSTANCE_CREATION = 2,\n\t## 生命周期模块或对象工厂注册。\n\tREGISTRATION = 3,\n\t## 模块查询别名注册。\n\tALIAS = 4,\n\t## Scope 取消观察。\n\tCANCELLATION = 5,\n}",
+          "summary": "首个失败阶段。",
+          "visibility": "public"
+        },
+        {
+          "kind": "enum",
+          "name": "Reason",
+          "signature": "enum Reason {\n\t## 没有失败原因。\n\tNONE = 0,\n\t## Plan 配置无效。\n\tINVALID_PLAN = 1,\n\t## Builder 不属于 Plan 的 Architecture。\n\tBUILDER_OWNERSHIP_MISMATCH = 2,\n\t## binding_id 在同一 Plan 中重复。\n\tDUPLICATE_BINDING_ID = 3,\n\t## 正在执行的 Plan 被重入，或已结算 Plan 被再次执行。\n\tALREADY_EXECUTED = 4,\n\t## Scope 为空或已经 complete。\n\tSCOPE_UNAVAILABLE = 5,\n\t## Scope 在执行前或执行期间取消。\n\tSCOPE_CANCELLED = 6,\n\t## Architecture 不再接纳 required binding mutation。\n\tARCHITECTURE_UNAVAILABLE = 7,\n\t## Entry 目标或冻结配置无效。\n\tINVALID_ENTRY = 8,\n\t## Entry 生命周期与目标类别不兼容。\n\tINVALID_LIFETIME = 9,\n\t## 无法创建绑定 candidate。\n\tINSTANCE_CREATION_FAILED = 10,\n\t## Architecture 拒绝注册模块或工厂。\n\tREGISTRATION_REJECTED = 11,\n\t## Architecture 拒绝注册模块别名。\n\tALIAS_REJECTED = 12,\n}",
+          "summary": "稳定失败原因。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "is_successful",
+          "signature": "func is_successful() -> bool",
+          "summary": "返回终态是否成功。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_status",
+          "signature": "func get_status() -> Status",
+          "summary": "返回 Plan 终态。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_binding_kind",
+          "signature": "func get_binding_kind() -> BindingKind",
+          "summary": "返回首个失败 entry 的绑定类别。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_failed_phase",
+          "signature": "func get_failed_phase() -> Phase",
+          "summary": "返回首个失败阶段。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_reason",
+          "signature": "func get_reason() -> Reason",
+          "summary": "返回稳定失败原因。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_entry_index",
+          "signature": "func get_entry_index() -> int",
+          "summary": "返回首个失败 entry 的零基索引。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_binding_id",
+          "signature": "func get_binding_id() -> StringName",
+          "summary": "返回首个失败 entry 的稳定调用方 ID。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_target_path",
+          "signature": "func get_target_path() -> String",
+          "summary": "返回目标脚本的稳定 res:// 路径。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_lifetime",
+          "signature": "func get_lifetime() -> int",
+          "summary": "返回 entry 请求的绑定生命周期。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_executed_count",
+          "signature": "func get_executed_count() -> int",
+          "summary": "返回已尝试的 entry 数量。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_detail",
+          "signature": "func get_detail() -> String",
+          "summary": "返回有界稳定诊断文本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "duplicate_result",
+          "signature": "func duplicate_result() -> GFBindingPlanResult",
+          "summary": "创建终态结果的隔离副本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "to_dict",
+          "signature": "func to_dict() -> Dictionary",
+          "summary": "转换为精确、纯数据 Dictionary。",
           "visibility": "public"
         }
       ]

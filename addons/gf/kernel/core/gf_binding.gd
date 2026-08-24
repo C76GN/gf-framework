@@ -76,6 +76,26 @@ func _init(
 
 # --- 框架内部方法 ---
 
+## 返回当前 Binding 是否仍保留指定实例作为固定 provider 或 Singleton 缓存。
+## [br]
+## @api framework_internal
+## [br]
+## @since unreleased
+## [br]
+## @param instance: 要检查的候选实例。
+## [br]
+## @return Binding 仍引用该实例时返回 true；不表示框架拥有调用其 dispose() 的权限。
+func retains_instance_for_framework(instance: Object) -> bool:
+	if instance == null or not is_instance_valid(instance):
+		return false
+	if provider is Object and is_same(provider, instance):
+		return true
+	return (
+		_has_cached_instance
+		and is_instance_valid(_cached_instance)
+		and is_same(_cached_instance, instance)
+	)
+
 ## 按当前生命周期解析实例。
 ## [br]
 ## @api framework_internal
@@ -233,6 +253,12 @@ func _provide(
 	else:
 		value = provider
 
+	if typeof(value) == TYPE_OBJECT and not is_instance_valid(value):
+		if _resolution_context_has_failed(resolution_context):
+			return null
+		_mark_resolution_context_failed(resolution_context)
+		push_error("[GFBinding] 绑定来源返回了已失效的 Object 实例。")
+		return null
 	if not value is Object:
 		if _resolution_context_has_failed(resolution_context):
 			return null

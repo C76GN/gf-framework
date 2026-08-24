@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<apiCatalog schemaVersion="3" name="GF Framework" sourceRoot="addons/gf" sourceDigest="67bd1230a5ff646b3c68259cdd9cf6b693e3689785bb37d023174f3b71c01bcb" classCount="849" methodCount="7724" autoloadCount="1" autoloadMethodCount="65">
-	<module id="kernel" label="Kernel" classCount="75" methodCount="801" autoloadCount="1" autoloadMethodCount="65">
+<apiCatalog schemaVersion="3" name="GF Framework" sourceRoot="addons/gf" sourceDigest="1a30fb26b280b48be9bb697494876df81e2c8438536097b056f679c15b14053a" classCount="851" methodCount="7741" autoloadCount="1" autoloadMethodCount="65">
+	<module id="kernel" label="Kernel" classCount="77" methodCount="818" autoloadCount="1" autoloadMethodCount="65">
 		<class name="GFAccessGenerator" path="classes/GFAccessGenerator.xml" sourcePath="addons/gf/kernel/editor/gf_access_generator.gd" extends="RefCounted" />
 		<class name="GFArchitecture" path="classes/GFArchitecture.xml" sourcePath="addons/gf/kernel/core/gf_architecture.gd" extends="Object" />
 		<class name="GFArchitectureShutdownResult" path="classes/GFArchitectureShutdownResult.xml" sourcePath="addons/gf/kernel/core/gf_architecture_shutdown_result.gd" extends="RefCounted" />
@@ -12,6 +12,8 @@
 		<class name="GFBindableProperty" path="classes/GFBindableProperty.xml" sourcePath="addons/gf/kernel/core/gf_bindable_property.gd" extends="RefCounted" />
 		<class name="GFBinder" path="classes/GFBinder.xml" sourcePath="addons/gf/kernel/core/gf_binder.gd" extends="RefCounted" />
 		<class name="GFBindingLifetimes" path="classes/GFBindingLifetimes.xml" sourcePath="addons/gf/kernel/core/gf_binding_lifetimes.gd" extends="RefCounted" />
+		<class name="GFBindingPlan" path="classes/GFBindingPlan.xml" sourcePath="addons/gf/kernel/core/gf_binding_plan.gd" extends="RefCounted" />
+		<class name="GFBindingPlanResult" path="classes/GFBindingPlanResult.xml" sourcePath="addons/gf/kernel/core/gf_binding_plan_result.gd" extends="RefCounted" />
 		<class name="GFBoundedJsonObjectReader" path="classes/GFBoundedJsonObjectReader.xml" sourcePath="addons/gf/kernel/core/gf_bounded_json_object_reader.gd" extends="RefCounted" />
 		<class name="GFCancellationSource" path="classes/GFCancellationSource.xml" sourcePath="addons/gf/kernel/core/gf_cancellation_source.gd" extends="RefCounted" />
 		<class name="GFCancellationToken" path="classes/GFCancellationToken.xml" sourcePath="addons/gf/kernel/core/gf_cancellation_token.gd" extends="RefCounted" />

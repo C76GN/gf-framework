@@ -81,6 +81,7 @@
     ],
     "gf.kernel": [
       "res://tests/gf_core/kernel/core/test_gf_bounded_json_object_reader.gd",
+      "res://tests/gf_core/kernel/core/test_gf_binding_plan.gd",
       "res://tests/gf_core/kernel/core/test_gf_project_installer_cancellation.gd",
       "res://tests/gf_core/kernel/core/test_gf_report_value_codec.gd",
       "res://tests/gf_core/kernel/core/test_gf_singleton.gd",

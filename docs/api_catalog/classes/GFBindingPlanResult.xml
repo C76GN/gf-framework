@@ -1,0 +1,231 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFBindingPlanResult" path="addons/gf/kernel/core/gf_binding_plan_result.gd" module="kernel" extends="RefCounted" classDigest="8246a9c2e6bff5e31d7cd67a716ce54c423e37b366a521ca603a252694ee1170">
+	<description>GFBindingPlanResult: required binding plan 的不可变终态结果。
+结果精确标识首个失败 entry、绑定类别、阶段与稳定原因；不保留 Builder、
+Architecture、Scope、实例或 Callable 引用，可安全用于诊断与持久化日志。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">value_object</tag>
+		<tag name="since">unreleased</tag>
+	</tags>
+	<signals />
+	<enums>
+		<member kind="enum" name="Status">
+			<signature>enum Status {
+	## 全部 required entry 已按顺序成功执行。
+	SUCCESS = 0,
+	## 某个 required entry 执行失败。
+	FAILED = 1,
+	## Scope 在执行前或执行期间取消。
+	CANCELLED = 2,
+	## Plan、Builder ownership 或 Scope 请求无效。
+	INVALID_REQUEST = 3,
+}</signature>
+			<description>Plan 终态。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="enum" name="BindingKind">
+			<signature>enum BindingKind {
+	## 没有具体 entry。
+	NONE = 0,
+	## Model 生命周期模块。
+	MODEL = 1,
+	## System 生命周期模块。
+	SYSTEM = 2,
+	## Utility 生命周期模块。
+	UTILITY = 3,
+	## 短生命周期对象工厂。
+	FACTORY = 4,
+}</signature>
+			<description>绑定类别。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="enum" name="Phase">
+			<signature>enum Phase {
+	## 没有失败阶段。
+	NONE = 0,
+	## Plan、Scope、Architecture 或 entry 前置校验。
+	VALIDATION = 1,
+	## SELF、factory 或 instance 来源的 candidate 创建。
+	INSTANCE_CREATION = 2,
+	## 生命周期模块或对象工厂注册。
+	REGISTRATION = 3,
+	## 模块查询别名注册。
+	ALIAS = 4,
+	## Scope 取消观察。
+	CANCELLATION = 5,
+}</signature>
+			<description>首个失败阶段。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="enum" name="Reason">
+			<signature>enum Reason {
+	## 没有失败原因。
+	NONE = 0,
+	## Plan 配置无效。
+	INVALID_PLAN = 1,
+	## Builder 不属于 Plan 的 Architecture。
+	BUILDER_OWNERSHIP_MISMATCH = 2,
+	## binding_id 在同一 Plan 中重复。
+	DUPLICATE_BINDING_ID = 3,
+	## 正在执行的 Plan 被重入，或已结算 Plan 被再次执行。
+	ALREADY_EXECUTED = 4,
+	## Scope 为空或已经 complete。
+	SCOPE_UNAVAILABLE = 5,
+	## Scope 在执行前或执行期间取消。
+	SCOPE_CANCELLED = 6,
+	## Architecture 不再接纳 required binding mutation。
+	ARCHITECTURE_UNAVAILABLE = 7,
+	## Entry 目标或冻结配置无效。
+	INVALID_ENTRY = 8,
+	## Entry 生命周期与目标类别不兼容。
+	INVALID_LIFETIME = 9,
+	## 无法创建绑定 candidate。
+	INSTANCE_CREATION_FAILED = 10,
+	## Architecture 拒绝注册模块或工厂。
+	REGISTRATION_REJECTED = 11,
+	## Architecture 拒绝注册模块别名。
+	ALIAS_REJECTED = 12,
+}</signature>
+			<description>稳定失败原因。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</enums>
+	<constants />
+	<properties />
+	<methods>
+		<member kind="method" name="is_successful">
+			<signature>func is_successful() -&gt; bool:</signature>
+			<description>返回终态是否成功。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">全部 required entry 成功时返回 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_status">
+			<signature>func get_status() -&gt; Status:</signature>
+			<description>返回 Plan 终态。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">Status 枚举值。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_binding_kind">
+			<signature>func get_binding_kind() -&gt; BindingKind:</signature>
+			<description>返回首个失败 entry 的绑定类别。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">BindingKind 枚举值；成功或无具体 entry 时为 NONE。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_failed_phase">
+			<signature>func get_failed_phase() -&gt; Phase:</signature>
+			<description>返回首个失败阶段。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">Phase 枚举值；成功时为 NONE。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_reason">
+			<signature>func get_reason() -&gt; Reason:</signature>
+			<description>返回稳定失败原因。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">Reason 枚举值；成功时为 NONE。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_entry_index">
+			<signature>func get_entry_index() -&gt; int:</signature>
+			<description>返回首个失败 entry 的零基索引。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">首个失败 entry 索引；成功或无具体 entry 时为 -1。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_binding_id">
+			<signature>func get_binding_id() -&gt; StringName:</signature>
+			<description>返回首个失败 entry 的稳定调用方 ID。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">binding_id；成功或无具体 entry 时为空。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_target_path">
+			<signature>func get_target_path() -&gt; String:</signature>
+			<description>返回目标脚本的稳定 res:// 路径。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">目标脚本路径；没有可识别目标时为空。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_lifetime">
+			<signature>func get_lifetime() -&gt; int:</signature>
+			<description>返回 entry 请求的绑定生命周期。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">GFBindingLifetimes.Lifetime 枚举值；无具体 entry 时为 -1。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_executed_count">
+			<signature>func get_executed_count() -&gt; int:</signature>
+			<description>返回已尝试的 entry 数量。
+只计已经进入 Builder attempt 的 entry：attempt 内失败的当前 entry 计入，声明、
+Plan、Scope 或 Architecture preflight 失败不计，未尝试的后续 entry 也不计。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">非负 entry 尝试数量。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_detail">
+			<signature>func get_detail() -&gt; String:</signature>
+			<description>返回有界稳定诊断文本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">最多 512 个字符的诊断文本。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="duplicate_result">
+			<signature>func duplicate_result() -&gt; GFBindingPlanResult:</signature>
+			<description>创建终态结果的隔离副本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">字段相同的新 GFBindingPlanResult。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="to_dict">
+			<signature>func to_dict() -&gt; Dictionary:</signature>
+			<description>转换为精确、纯数据 Dictionary。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">Plan 终态的纯数据投影。</tag>
+				<tag name="schema">return: Dictionary，精确包含 status: int、is_successful: bool、binding_kind: int、failed_phase: int、reason: int、entry_index: int、binding_id: String、target_path: String、lifetime: int、executed_count: int 和 detail: String。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>
