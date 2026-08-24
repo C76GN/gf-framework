@@ -3524,11 +3524,18 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 					)
 
 	def test_storage_backend_acceptance_fails_closed_without_godot(self) -> None:
+		missing_engine = self.project_root / "missing-godot.exe"
+		self.assertFalse(missing_engine.exists())
 		with (
 			mock.patch.dict(
 				build_gf_ai_developer_kit.os.environ,
 				{"GF_GODOT_EXECUTABLE": ""},
 				clear=False,
+			),
+			mock.patch.object(
+				build_gf_ai_developer_kit,
+				"resolve_godot_executable",
+				return_value=str(missing_engine),
 			),
 			mock.patch.object(
 				build_gf_ai_developer_kit.shutil,

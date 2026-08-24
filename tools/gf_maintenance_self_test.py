@@ -125,6 +125,13 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 		stdout="x",
 		stderr="",
 	).to_dict(max_output_chars=0)
+	command_output_complete = CommandResult(
+		name="output-complete-fixture",
+		command=["fixture"],
+		exit_code=1,
+		stdout=command_output_over_text,
+		stderr=command_output_over_text,
+	).to_dict(max_output_chars=None)
 	command_output_negative_rejected = False
 	try:
 		CommandResult(
@@ -182,8 +189,12 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 		== hashlib.sha256(b"").hexdigest()
 		and command_output_zero.get("stdout_truncated") is True
 		and command_output_zero.get("stderr_truncated") is False
+		and command_output_complete.get("stdout") == command_output_over_text
+		and command_output_complete.get("stderr") == command_output_over_text
+		and command_output_complete.get("stdout_truncated") is False
+		and command_output_complete.get("stderr_truncated") is False
 		and command_output_negative_rejected,
-		"CommandResult tails must preserve existing fields while reporting exact full-output character/UTF-8 counts, SHA-256, and truncation at 0/N/N+1 boundaries.",
+		"CommandResult tails must preserve existing fields while reporting exact full-output character/UTF-8 counts, SHA-256, and truncation at 0/N/N+1 boundaries; an explicit null limit must retain complete parent-verifiable evidence.",
 	)
 	mcp_server_source = read_text_file(ROOT / "tools/gf_mcp_server.py")
 	record_result(
@@ -1077,6 +1088,19 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 		expected_report_workspace = captured_fixture.workspace_state()
 		expected_package_manifest_sha256 = "5" * 64
 		expected_package_artifact_count = 7
+		fixture_godot = fixture_root / (
+			"fixture-godot.exe" if os.name == "nt" else "fixture-godot"
+		)
+		fixture_godot.write_bytes(b"fixture")
+		if os.name != "nt":
+			fixture_godot.chmod(0o755)
+		fixture_process_environment_values = dict(os.environ)
+		fixture_process_environment_values[GODOT_EXECUTABLE_ENV_VAR] = str(
+			fixture_godot
+		)
+		fixture_process_environment = MappingProxyType(
+			fixture_process_environment_values
+		)
 		valid_report = {
 			"ok": True,
 			"suite": "quick",
@@ -1129,6 +1153,92 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 				},
 			}],
 		}
+
+		def fixture_command_contract(
+			expected_checks: list[str],
+			*,
+			package_artifact_manifest: str = "",
+			package_artifact_manifest_sha256: str = "",
+		) -> ParallelShardCommandContract:
+			return freeze_parallel_shard_command_contract(
+				expected_checks,
+				authority_catalog=_VALIDATION_CATALOG,
+				environment=fixture_process_environment,
+				workspace=workspace_a,
+				package_artifact_manifest=package_artifact_manifest,
+				package_artifact_manifest_sha256=package_artifact_manifest_sha256,
+			)
+
+		def refresh_report_result_input_fingerprints(
+			report: dict[str, Any],
+			*,
+			package_artifact_manifest: str = "",
+			package_artifact_manifest_sha256: str = "",
+		) -> None:
+			accepted_result_fingerprints: dict[str, str] = {}
+			edges = report["check_graph"]["edges"]
+			command_contract = fixture_command_contract(
+				list(report["checks"]),
+				package_artifact_manifest=package_artifact_manifest,
+				package_artifact_manifest_sha256=package_artifact_manifest_sha256,
+			)
+			for result in report["results"]:
+				name = str(result["name"])
+				command_identity = command_contract.identities[name]
+				dependencies = [
+					str(edge["depends_on"])
+					for edge in edges
+					if edge["check"] == name
+				]
+				dependency_fingerprints = {
+					dependency: accepted_result_fingerprints[dependency]
+					for dependency in dependencies
+				}
+				requested_seconds = result["timeout_budget"][
+					"requested_minimum_seconds"
+				]
+				suite_remaining_seconds = result["timeout_budget"][
+					"suite_remaining_seconds"
+				]
+				resolved_budget = resolve_timeout_budget(
+					float(_VALIDATION_CATALOG.timeout_floor_seconds(name)),
+					(
+						None
+						if requested_seconds is None
+						else float(requested_seconds)
+					),
+					(
+						None
+						if suite_remaining_seconds is None
+						else float(suite_remaining_seconds)
+					),
+				)
+				result["dependencies"] = dependencies
+				result["dependency_fingerprints"] = dependency_fingerprints
+				result["timeout_budget"] = resolved_budget.to_dict()
+				result["timeout_seconds"] = resolved_budget.effective_seconds
+				result["input_fingerprint"] = make_check_input_fingerprint(
+					name,
+					list(command_identity.declared),
+					list(command_identity.effective),
+					captured_fixture.workspace_fingerprint,
+					dependency_fingerprints,
+					resolved_budget,
+				)
+				result["result_fingerprint"] = (
+					make_check_result_fingerprint_from_output_evidence(
+						result["input_fingerprint"],
+						exit_code=int(result["exit_code"]),
+						timed_out=bool(result["timed_out"]),
+						stdout_sha256=str(result["stdout_sha256"]),
+						stderr_sha256=str(result["stderr_sha256"]),
+					)
+				)
+				accepted_result_fingerprints[name] = str(
+					result["result_fingerprint"]
+				)
+
+		refresh_report_result_input_fingerprints(valid_report)
 		passing_report_runner = ParallelShardResult(
 			name="report-fixture",
 			command=(sys.executable, "fixture.py"),
@@ -1161,6 +1271,16 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 				report_path,
 				expected_checks,
 				expected_workspace_state,
+				validation_catalog=_VALIDATION_CATALOG,
+				expected_command_contract=fixture_command_contract(
+					expected_checks,
+					package_artifact_manifest=str(
+						kwargs.get("expected_package_artifact_manifest", "")
+					),
+					package_artifact_manifest_sha256=str(
+						kwargs.get("expected_package_artifact_manifest_sha256", "")
+					),
+				),
 				expected_check_graph=maintenance_check_graph().describe(
 					expected_checks
 				),
@@ -1176,6 +1296,132 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 			expected_package_artifact_manifest_sha256=expected_package_manifest_sha256,
 			expected_package_artifact_count=expected_package_artifact_count,
 		)
+		layered_timeout_report = json.loads(json.dumps(valid_report))
+		layered_timeout_report["results"][0]["timeout_budget"][
+			"requested_minimum_seconds"
+		] = 900.0
+		layered_timeout_report["results"][0]["timeout_budget"][
+			"suite_remaining_seconds"
+		] = 75.0
+		layered_timeout_report["suite_timeout_seconds"] = 90.0
+		refresh_report_result_input_fingerprints(layered_timeout_report)
+		layered_timeout_loaded, layered_timeout_issue = load_report_fixture(
+			passing_report_runner,
+			write_report_fixture("layered-timeout", layered_timeout_report),
+			expected_report_checks,
+			expected_report_workspace,
+			expected_requested_minimum_seconds=900.0,
+			expected_suite_timeout_seconds=90.0,
+		)
+		forged_requested_timeout_report = json.loads(json.dumps(
+			layered_timeout_report
+		))
+		forged_requested_timeout_report["results"][0]["timeout_budget"][
+			"requested_minimum_seconds"
+		] = 901.0
+		refresh_report_result_input_fingerprints(forged_requested_timeout_report)
+		_, forged_requested_timeout_issue = load_report_fixture(
+			passing_report_runner,
+			write_report_fixture(
+				"forged-requested-timeout",
+				forged_requested_timeout_report,
+			),
+			expected_report_checks,
+			expected_report_workspace,
+			expected_requested_minimum_seconds=900.0,
+			expected_suite_timeout_seconds=90.0,
+		)
+		forged_remaining_timeout_report = json.loads(json.dumps(
+			layered_timeout_report
+		))
+		forged_remaining_timeout_report["results"][0]["timeout_budget"][
+			"suite_remaining_seconds"
+		] = 91.0
+		refresh_report_result_input_fingerprints(forged_remaining_timeout_report)
+		_, forged_remaining_timeout_issue = load_report_fixture(
+			passing_report_runner,
+			write_report_fixture(
+				"forged-remaining-timeout",
+				forged_remaining_timeout_report,
+			),
+			expected_report_checks,
+			expected_report_workspace,
+			expected_requested_minimum_seconds=900.0,
+			expected_suite_timeout_seconds=90.0,
+		)
+		forged_timeout_policy_report = json.loads(json.dumps(valid_report))
+		forged_timeout_policy_budget = resolve_timeout_budget(1.0, None, None)
+		forged_timeout_policy_result = forged_timeout_policy_report["results"][0]
+		forged_timeout_policy_result["timeout_budget"] = (
+			forged_timeout_policy_budget.to_dict()
+		)
+		forged_timeout_policy_result["timeout_seconds"] = 1.0
+		forged_timeout_policy_result["input_fingerprint"] = make_check_input_fingerprint(
+			"diff",
+			list(fixture_command_contract(["diff"]).identities["diff"].declared),
+			list(fixture_command_contract(["diff"]).identities["diff"].effective),
+			captured_fixture.workspace_fingerprint,
+			{},
+			forged_timeout_policy_budget,
+		)
+		_, forged_timeout_policy_issue = load_report_fixture(
+			passing_report_runner,
+			write_report_fixture("forged-timeout-policy", forged_timeout_policy_report),
+			expected_report_checks,
+			expected_report_workspace,
+		)
+		forged_effective_timeout_report = json.loads(json.dumps(valid_report))
+		forged_effective_timeout_report["results"][0]["timeout_budget"][
+			"effective_seconds"
+		] = 1.0
+		forged_effective_timeout_report["results"][0]["timeout_seconds"] = 1.0
+		_, forged_effective_timeout_issue = load_report_fixture(
+			passing_report_runner,
+			write_report_fixture("forged-effective-timeout", forged_effective_timeout_report),
+			expected_report_checks,
+			expected_report_workspace,
+		)
+		forged_result_timeout_report = json.loads(json.dumps(valid_report))
+		forged_result_timeout_report["results"][0]["timeout_seconds"] = 1.0
+		_, forged_result_timeout_issue = load_report_fixture(
+			passing_report_runner,
+			write_report_fixture("forged-result-timeout", forged_result_timeout_report),
+			expected_report_checks,
+			expected_report_workspace,
+		)
+		forged_input_fingerprint_report = json.loads(json.dumps(valid_report))
+		forged_input_fingerprint_report["results"][0]["input_fingerprint"] = "9" * 64
+		_, forged_input_fingerprint_issue = load_report_fixture(
+			passing_report_runner,
+			write_report_fixture("forged-input-fingerprint", forged_input_fingerprint_report),
+			expected_report_checks,
+			expected_report_workspace,
+		)
+		forged_result_fingerprint_report = json.loads(json.dumps(valid_report))
+		forged_result_fingerprint_report["results"][0]["result_fingerprint"] = (
+			"8" * 64
+		)
+		_, forged_result_fingerprint_issue = load_report_fixture(
+			passing_report_runner,
+			write_report_fixture(
+				"forged-result-fingerprint",
+				forged_result_fingerprint_report,
+			),
+			expected_report_checks,
+			expected_report_workspace,
+		)
+		deferred_placeholder_report = json.loads(json.dumps(valid_report))
+		deferred_placeholder_report["results"][0]["command"] = [
+			DEFERRED_COMMAND_SENTINEL,
+			"subprocess",
+			"diff",
+		]
+		_, deferred_placeholder_issue = load_report_fixture(
+			passing_report_runner,
+			write_report_fixture("deferred-placeholder", deferred_placeholder_report),
+			expected_report_checks,
+			expected_report_workspace,
+		)
 		assigned_graph = dict(valid_report["check_graph"])
 		assigned_graph["fingerprint"] = "9" * 64
 		_, assigned_graph_issue = load_parallel_shard_report(
@@ -1183,7 +1429,254 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 			valid_report_path,
 			expected_report_checks,
 			expected_report_workspace,
+			validation_catalog=_VALIDATION_CATALOG,
+			expected_command_contract=fixture_command_contract(expected_report_checks),
 			expected_check_graph=assigned_graph,
+		)
+		forged_executor_report = json.loads(json.dumps(valid_report))
+		forged_executor_report["results"][0]["execution"] = "in_process"
+		_, forged_executor_issue = load_report_fixture(
+			passing_report_runner,
+			write_report_fixture("forged-executor", forged_executor_report),
+			expected_report_checks,
+			expected_report_workspace,
+		)
+		forged_subprocess_command_report = json.loads(json.dumps(valid_report))
+		forged_subprocess_command_report["results"][0]["command"] = [
+			"git",
+			"status",
+		]
+		_, forged_subprocess_command_issue = load_report_fixture(
+			passing_report_runner,
+			write_report_fixture(
+				"forged-subprocess-command",
+				forged_subprocess_command_report,
+			),
+			expected_report_checks,
+			expected_report_workspace,
+		)
+		in_process_checks = ["docs"]
+		in_process_report = json.loads(json.dumps(valid_report))
+		in_process_report["checks"] = in_process_checks
+		in_process_report["check_graph"] = maintenance_check_graph().describe(
+			in_process_checks
+		)
+		in_process_report["results"][0]["name"] = "docs"
+		in_process_report["results"][0]["command"] = (
+			_VALIDATION_CATALOG.command_definitions()["docs"]
+		)
+		in_process_report["results"][0]["execution"] = "in_process"
+		refresh_report_result_input_fingerprints(in_process_report)
+		in_process_loaded, in_process_issue = load_report_fixture(
+			passing_report_runner,
+			write_report_fixture("in-process-valid", in_process_report),
+			in_process_checks,
+			expected_report_workspace,
+		)
+		forged_in_process_command_report = json.loads(json.dumps(in_process_report))
+		forged_in_process_command_report["results"][0]["command"] = [
+			"python",
+			"forged.py",
+		]
+		_, forged_in_process_command_issue = load_report_fixture(
+			passing_report_runner,
+			write_report_fixture(
+				"in-process-forged-command",
+				forged_in_process_command_report,
+			),
+			in_process_checks,
+			expected_report_workspace,
+		)
+		isolated_command_catalog = validation_catalog_for_root(workspace_a)
+		isolated_root_commands_loaded = True
+		declared_godot_command_rejected = False
+		for root_bound_name in (
+			"gdscript_warnings",
+			"gdscript_lsp_diagnostics",
+			"mkdocs",
+		):
+			root_bound_report = json.loads(json.dumps(valid_report))
+			root_bound_report["checks"] = [root_bound_name]
+			root_bound_report["check_graph"] = maintenance_check_graph().describe(
+				[root_bound_name]
+			)
+			root_bound_result = root_bound_report["results"][0]
+			root_bound_result["name"] = root_bound_name
+			root_bound_result["command"] = list(
+				fixture_command_contract([root_bound_name]).identities[
+					root_bound_name
+				].effective
+			)
+			root_bound_result["execution"] = (
+				isolated_command_catalog.executor_kind(root_bound_name).value
+			)
+			refresh_report_result_input_fingerprints(root_bound_report)
+			root_bound_loaded, root_bound_issue = load_report_fixture(
+				passing_report_runner,
+				write_report_fixture(
+					f"isolated-root-{root_bound_name}",
+					root_bound_report,
+				),
+				[root_bound_name],
+				expected_report_workspace,
+			)
+			isolated_root_commands_loaded = (
+				isolated_root_commands_loaded
+				and root_bound_loaded is not None
+				and not root_bound_issue
+			)
+			if root_bound_name == "gdscript_warnings":
+				declared_godot_report = json.loads(json.dumps(root_bound_report))
+				declared_godot_report["results"][0]["command"] = (
+					isolated_command_catalog.command_definitions()[root_bound_name]
+				)
+				_, declared_godot_issue = load_report_fixture(
+					passing_report_runner,
+					write_report_fixture(
+						"isolated-root-gdscript-warnings-declared-command",
+						declared_godot_report,
+					),
+					[root_bound_name],
+					expected_report_workspace,
+				)
+				declared_godot_command_rejected = bool(declared_godot_issue)
+		dependency_chain_checks = ["docs", "public_docs_boundary", "mkdocs"]
+		dependency_chain_report = json.loads(json.dumps(valid_report))
+		dependency_chain_report["checks"] = dependency_chain_checks
+		dependency_chain_report["completed_check_count"] = len(
+			dependency_chain_checks
+		)
+		dependency_chain_report["check_graph"] = maintenance_check_graph().describe(
+			dependency_chain_checks
+		)
+		dependency_chain_report["results"] = []
+		for dependency_chain_name in dependency_chain_checks:
+			dependency_chain_result = json.loads(json.dumps(
+				valid_report["results"][0]
+			))
+			dependency_chain_result["name"] = dependency_chain_name
+			dependency_chain_result["command"] = (
+				isolated_command_catalog.command_definitions()[
+					dependency_chain_name
+				]
+			)
+			dependency_chain_result["execution"] = (
+				isolated_command_catalog.executor_kind(
+					dependency_chain_name
+				).value
+			)
+			dependency_chain_report["results"].append(dependency_chain_result)
+		refresh_report_result_input_fingerprints(dependency_chain_report)
+		dependency_chain_loaded, dependency_chain_issue = load_report_fixture(
+			passing_report_runner,
+			write_report_fixture(
+				"dependency-chain-valid",
+				dependency_chain_report,
+			),
+			dependency_chain_checks,
+			expected_report_workspace,
+		)
+		large_complete_output_report = json.loads(json.dumps(valid_report))
+		large_complete_stdout = "\u754c" * (
+			DEFAULT_COMMAND_RESULT_OUTPUT_CHARS + 1
+		)
+		large_complete_result = large_complete_output_report["results"][0]
+		large_complete_result["stdout"] = large_complete_stdout
+		large_complete_result["stdout_char_count"] = len(large_complete_stdout)
+		large_complete_result["stdout_utf8_byte_count"] = len(
+			large_complete_stdout.encode("utf-8")
+		)
+		large_complete_result["stdout_sha256"] = hashlib.sha256(
+			large_complete_stdout.encode("utf-8")
+		).hexdigest()
+		refresh_report_result_input_fingerprints(large_complete_output_report)
+		large_complete_loaded, large_complete_issue = load_report_fixture(
+			passing_report_runner,
+			write_report_fixture(
+				"large-complete-output",
+				large_complete_output_report,
+			),
+			expected_report_checks,
+			expected_report_workspace,
+		)
+		large_complete_public_result = (
+			large_complete_loaded["results"][0]
+			if large_complete_loaded is not None
+			else {}
+		)
+		large_complete_public_bounded = (
+			not large_complete_issue
+			and large_complete_public_result.get("stdout")
+			== large_complete_stdout[-DEFAULT_COMMAND_RESULT_OUTPUT_CHARS:]
+			and large_complete_public_result.get("stdout_truncated") is True
+			and large_complete_public_result.get("stdout_char_count")
+			== len(large_complete_stdout)
+			and large_complete_public_result.get("stdout_utf8_byte_count")
+			== len(large_complete_stdout.encode("utf-8"))
+			and large_complete_public_result.get("stdout_sha256")
+			== hashlib.sha256(large_complete_stdout.encode("utf-8")).hexdigest()
+		)
+		forged_truncated_output_report = json.loads(json.dumps(
+			dependency_chain_report
+		))
+		forged_truncated_result = forged_truncated_output_report["results"][0]
+		forged_truncated_result["stdout"] = ""
+		forged_truncated_result["stdout_char_count"] = 1
+		forged_truncated_result["stdout_utf8_byte_count"] = 1
+		forged_truncated_result["stdout_sha256"] = "9" * 64
+		forged_truncated_result["stdout_truncated"] = True
+		refresh_report_result_input_fingerprints(forged_truncated_output_report)
+		_, forged_truncated_output_issue = load_report_fixture(
+			passing_report_runner,
+			write_report_fixture(
+				"dependency-chain-truncated-output-forgery",
+				forged_truncated_output_report,
+			),
+			dependency_chain_checks,
+			expected_report_workspace,
+		)
+		coordinated_fingerprint_report = json.loads(json.dumps(
+			dependency_chain_report
+		))
+		forged_predecessor_fingerprint = "7" * 64
+		coordinated_fingerprint_report["results"][0][
+			"result_fingerprint"
+		] = forged_predecessor_fingerprint
+		coordinated_dependent = coordinated_fingerprint_report["results"][-1]
+		coordinated_dependent["dependency_fingerprints"]["docs"] = (
+			forged_predecessor_fingerprint
+		)
+		coordinated_budget_values = coordinated_dependent["timeout_budget"]
+		coordinated_budget = resolve_timeout_budget(
+			float(coordinated_budget_values["policy_seconds"]),
+			coordinated_budget_values["requested_minimum_seconds"],
+			coordinated_budget_values["suite_remaining_seconds"],
+		)
+		coordinated_dependent["input_fingerprint"] = make_check_input_fingerprint(
+			"mkdocs",
+			list(fixture_command_contract(dependency_chain_checks).identities["mkdocs"].declared),
+			list(fixture_command_contract(dependency_chain_checks).identities["mkdocs"].effective),
+			captured_fixture.workspace_fingerprint,
+			coordinated_dependent["dependency_fingerprints"],
+			coordinated_budget,
+		)
+		coordinated_dependent["result_fingerprint"] = (
+			make_check_result_fingerprint_from_output_evidence(
+				coordinated_dependent["input_fingerprint"],
+				exit_code=int(coordinated_dependent["exit_code"]),
+				timed_out=bool(coordinated_dependent["timed_out"]),
+				stdout_sha256=str(coordinated_dependent["stdout_sha256"]),
+				stderr_sha256=str(coordinated_dependent["stderr_sha256"]),
+			)
+		)
+		_, coordinated_fingerprint_issue = load_report_fixture(
+			passing_report_runner,
+			write_report_fixture(
+				"dependency-chain-coordinated-forgery",
+				coordinated_fingerprint_report,
+			),
+			dependency_chain_checks,
+			expected_report_workspace,
 		)
 		missing_report = json.loads(json.dumps(valid_report))
 		missing_report["results"] = []
@@ -1312,12 +1805,10 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 			gut_report_checks
 		)
 		gut_report["results"][0]["name"] = "gut"
-		gut_report["results"][0]["command"] = [
-			"godot",
-			"--headless",
-			"-s",
-			GUT_LIFECYCLE_CLI_RESOURCE_PATH,
-		]
+		gut_report["results"][0]["command"] = list(
+			fixture_command_contract(["gut"]).identities["gut"].effective
+		)
+		refresh_report_result_input_fingerprints(gut_report)
 		gut_report["results"][0]["gut_lifecycle_report"] = (
 			clean_lifecycle_report
 		)
@@ -1393,6 +1884,7 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 		timed_out_gut_result["gut_lifecycle_report"] = (
 			parse_gut_lifecycle_gate_output("partial output", "")
 		)
+		refresh_report_result_input_fingerprints(timed_out_gut_report)
 		timed_out_gut_loaded, timed_out_gut_issue = load_report_fixture(
 			failing_report_runner,
 			write_report_fixture(
@@ -1407,6 +1899,7 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 		cancelled_gut_result["exit_code"] = 130
 		cancelled_gut_result["timed_out"] = False
 		cancelled_gut_result["cancelled"] = True
+		refresh_report_result_input_fingerprints(cancelled_gut_report)
 		cancelled_gut_loaded, cancelled_gut_issue = load_report_fixture(
 			failing_report_runner,
 			write_report_fixture(
@@ -1418,6 +1911,7 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 		)
 		plain_124_gut_report = json.loads(json.dumps(timed_out_gut_report))
 		plain_124_gut_report["results"][0]["timed_out"] = False
+		refresh_report_result_input_fingerprints(plain_124_gut_report)
 		plain_124_gut_loaded, plain_124_gut_issue = load_report_fixture(
 			failing_report_runner,
 			write_report_fixture(
@@ -1474,7 +1968,29 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 			"parallel_shard_reports_are_strict_and_fail_closed",
 			valid_loaded is not None
 			and not valid_issue
+			and layered_timeout_loaded is not None
+			and not layered_timeout_issue
+			and bool(forged_requested_timeout_issue)
+			and bool(forged_remaining_timeout_issue)
+			and bool(forged_timeout_policy_issue)
+			and bool(forged_effective_timeout_issue)
+			and bool(forged_result_timeout_issue)
+			and bool(forged_input_fingerprint_issue)
+			and bool(forged_result_fingerprint_issue)
+			and bool(deferred_placeholder_issue)
 			and bool(assigned_graph_issue)
+			and bool(forged_executor_issue)
+			and bool(forged_subprocess_command_issue)
+			and in_process_loaded is not None
+			and not in_process_issue
+			and bool(forged_in_process_command_issue)
+			and isolated_root_commands_loaded
+			and declared_godot_command_rejected
+			and dependency_chain_loaded is not None
+			and not dependency_chain_issue
+			and large_complete_public_bounded
+			and bool(forged_truncated_output_issue)
+			and bool(coordinated_fingerprint_issue)
 			and bool(missing_issue)
 			and bool(invalid_exit_issue)
 			and bool(non_finite_issue)
@@ -1501,18 +2017,28 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 			and bool(forged_conflicting_terminal_issue)
 			and bool(impossible_gut_lifecycle_issue)
 			and bool(mismatch_issue),
-			"Parallel reports must retain closed failed GUT lifecycle evidence for timeouts while rejecting missing or oversized results, invalid scalars, opaque or inconsistent output evidence, duplicate/non-finite JSON, schema drift, inconsistent timeout/cancellation states, successful checks with failed lifecycle evidence, impossible lifecycle evidence, workspace escapes, and process/report disagreement.",
+			"Parallel reports must retain closed failed GUT lifecycle evidence for timeouts while rejecting missing or oversized results, invalid scalars, truncated, opaque, or inconsistent output evidence, duplicate/non-finite JSON, schema drift, inconsistent timeout/cancellation states, successful checks with failed lifecycle evidence, impossible lifecycle evidence, workspace escapes, and process/report disagreement.",
 		)
 		package_report_checks = ["package_build_boundary"]
 		package_report = json.loads(json.dumps(valid_report))
 		package_report["checks"] = package_report_checks
 		package_report["check_graph"] = maintenance_check_graph().describe(package_report_checks)
 		package_report["results"][0]["name"] = "package_build_boundary"
+		expected_package_manifest_path = str(
+			report_root / "package-artifact-manifest.json"
+		)
 		package_report["results"][0]["command"] = [
-			sys.executable,
-			"tools/gf_maintenance.py",
-			"package-build-boundary",
+			*_VALIDATION_CATALOG.command_definitions()["package_build_boundary"],
+			"--package-artifact-manifest",
+			expected_package_manifest_path,
+			"--package-artifact-manifest-sha256",
+			expected_package_manifest_sha256,
 		]
+		refresh_report_result_input_fingerprints(
+			package_report,
+			package_artifact_manifest=expected_package_manifest_path,
+			package_artifact_manifest_sha256=expected_package_manifest_sha256,
+		)
 		package_report["package_artifact_set"] = {
 			"reused": True,
 			"manifest_sha256": expected_package_manifest_sha256,
@@ -1524,6 +2050,28 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 			write_report_fixture("package-valid", package_report),
 			package_report_checks,
 			expected_report_workspace,
+			expected_package_artifact_manifest=expected_package_manifest_path,
+			expected_package_artifact_manifest_sha256=expected_package_manifest_sha256,
+			expected_package_artifact_count=expected_package_artifact_count,
+		)
+		mutated_package_path_report = json.loads(json.dumps(package_report))
+		mutated_package_path_report["results"][0]["command"][-3] = str(
+			report_root / "forged-package-artifact-manifest.json"
+		)
+		refresh_report_result_input_fingerprints(
+			mutated_package_path_report,
+			package_artifact_manifest=expected_package_manifest_path,
+			package_artifact_manifest_sha256=expected_package_manifest_sha256,
+		)
+		_, mutated_package_path_issue = load_report_fixture(
+			passing_report_runner,
+			write_report_fixture(
+				"package-mutated-path",
+				mutated_package_path_report,
+			),
+			package_report_checks,
+			expected_report_workspace,
+			expected_package_artifact_manifest=expected_package_manifest_path,
 			expected_package_artifact_manifest_sha256=expected_package_manifest_sha256,
 			expected_package_artifact_count=expected_package_artifact_count,
 		)
@@ -1534,6 +2082,7 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 			write_report_fixture("package-mutated-sha", mutated_package_sha_report),
 			package_report_checks,
 			expected_report_workspace,
+			expected_package_artifact_manifest=expected_package_manifest_path,
 			expected_package_artifact_manifest_sha256=expected_package_manifest_sha256,
 			expected_package_artifact_count=expected_package_artifact_count,
 		)
@@ -1544,6 +2093,7 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 			write_report_fixture("package-mutated-count", mutated_package_count_report),
 			package_report_checks,
 			expected_report_workspace,
+			expected_package_artifact_manifest=expected_package_manifest_path,
 			expected_package_artifact_manifest_sha256=expected_package_manifest_sha256,
 			expected_package_artifact_count=expected_package_artifact_count,
 		)
@@ -1561,6 +2111,7 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 			"parallel_package_shard_reports_bind_exact_artifact_identity",
 			package_loaded is not None
 			and not package_issue
+			and bool(mutated_package_path_issue)
 			and bool(mutated_package_sha_issue)
 			and bool(mutated_package_count_issue)
 			and bool(non_package_artifact_issue),
@@ -2083,6 +2634,10 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 		private_environment, private_root = parallel_shard_environment(
 			environment_workspace,
 			external_private_root,
+			base_environment={
+				**os.environ,
+				GODOT_EXECUTABLE_ENV_VAR: str(override_engine),
+			},
 		)
 		if os.name == "nt":
 			platform_environment_fields = ("APPDATA", "LOCALAPPDATA", "TMPDIR", "TEMP", "TMP")
@@ -2105,6 +2660,8 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 				for field_name in platform_environment_fields
 			)
 			and "GODOT_USER_HOME" not in private_environment
+			and private_environment[GODOT_EXECUTABLE_ENV_VAR]
+			== str(override_engine.resolve())
 			and private_root == external_private_root
 			and not paths_overlap(environment_workspace, private_root),
 			"Parallel Godot shards must use platform-native private data/config/cache roots.",
@@ -5864,8 +6421,18 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 		and "credential_gate_tests" in FULL_CHECKS
 		and "credential_gate" in RELEASE_CHECKS
 		and "credential_gate_tests" in RELEASE_CHECKS
-		and "credential_gate" not in maintenance_in_process_check_runners(),
+		and _VALIDATION_CATALOG.executor_kind("credential_gate")
+		is gf_validation_catalog.ValidationExecutorKind.SUBPROCESS,
 		"Credential scanning and its behavior tests must remain static gates in quick, full, and release flows.",
+	)
+	validation_executor_binding_fixture = validate_validation_executor_registries(
+		_VALIDATION_CATALOG,
+		maintenance_in_process_adapter_registry(),
+		maintenance_deferred_command_materializer_registry(),
+	)
+	deferred_command_context_fixture = DeferredCommandContext(
+		artifact_manifest="",
+		allow_breaking_api=False,
 	)
 	credential_path_fixture = "ghp_" + ("A" * 40)
 	credential_safe_release_fixture = safe_release_artifact_report({
@@ -5886,9 +6453,15 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 			},
 			ensure_ascii=False,
 		)
-		and "credential_gate" not in maintenance_in_process_check_runners()
-		and "release_metadata" not in maintenance_in_process_check_runners()
-		and "release-status" in check_command("release_metadata"),
+		and _VALIDATION_CATALOG.executor_kind("credential_gate")
+		is gf_validation_catalog.ValidationExecutorKind.SUBPROCESS
+		and _VALIDATION_CATALOG.executor_kind("release_metadata")
+		is gf_validation_catalog.ValidationExecutorKind.SUBPROCESS
+		and "release-status" in materialize_check_command(
+			"release_metadata",
+			validation_executor_binding=validation_executor_binding_fixture,
+			deferred_command_context=deferred_command_context_fixture,
+		),
 		"Credential and release scans must use supervised subprocesses and redact manifest/status path values.",
 	)
 	record_result(
@@ -5910,8 +6483,10 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 			}.issubset(CHECK_SUITES[suite_name])
 			for suite_name in ("quick", "framework-static", "framework", "full", "release")
 		)
-		and "codeql_suppression_policy" in maintenance_in_process_check_runners()
-		and "codeql_suppression_policy_tests" not in maintenance_in_process_check_runners(),
+		and _VALIDATION_CATALOG.executor_kind("codeql_suppression_policy")
+		is gf_validation_catalog.ValidationExecutorKind.IN_PROCESS
+		and _VALIDATION_CATALOG.executor_kind("codeql_suppression_policy_tests")
+		is gf_validation_catalog.ValidationExecutorKind.SUBPROCESS,
 		"CodeQL suppressions must remain forbidden by a tracked-source gate in quick, Full, and release flows.",
 	)
 	codeql_python_fixture_results = [
@@ -6167,6 +6742,7 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 		DEFAULT_PARALLEL_FULL_JOBS,
 		1,
 		validation_plan=parallel_validation_plan,
+		validation_catalog=_VALIDATION_CATALOG,
 	)
 	deadline_fixture_canonical_checks = list(parallel_validation_plan.actions)
 	record_result(
@@ -6207,24 +6783,38 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 		and invalid_parallel_job_requests_rejected,
 		"Full parallelism must stay bounded, expose jobs=1 diagnostics, and reject ambiguous suite/check combinations.",
 	)
-	fixture_package_command = check_command(
+	fixture_package_command = materialize_check_command(
 		"package_build_boundary",
 		"C:/fixture/gf-package-artifact-set.json",
 		"a" * 64,
+		validation_executor_binding=validation_executor_binding_fixture,
+		deferred_command_context=deferred_command_context_fixture,
 	)
 	record_result(
 		"parallel_full_shards_preserve_check_timeout_minima_and_scope_artifact_inputs",
 		set(PARALLEL_FULL_SHARD_TIMEOUT_SECONDS) == set(PARALLEL_FULL_SHARD_SUITES)
 		and all(value > 0 for value in PARALLEL_FULL_SHARD_TIMEOUT_SECONDS.values())
 		and all(
-			parallel_shard_timeout_seconds(shard, 3600)
+			parallel_shard_timeout_seconds(
+				shard,
+				3600,
+				validation_catalog=_VALIDATION_CATALOG,
+			)
 			>= len(expanded_check_names("quick", list(shard.checks))) * 3600
 			for shard in parallel_plan
 		)
-		and parallel_shard_timeout_seconds(framework_gut_shard, None) == 2820
+		and parallel_shard_timeout_seconds(
+			framework_gut_shard,
+			None,
+			validation_catalog=_VALIDATION_CATALOG,
+		) == 2820
 		and "--package-artifact-manifest" in fixture_package_command
 		and "--package-artifact-manifest-sha256" in fixture_package_command
-		and "--package-artifact-manifest" not in check_command("api"),
+		and "--package-artifact-manifest" not in materialize_check_command(
+			"api",
+			validation_executor_binding=validation_executor_binding_fixture,
+			deferred_command_context=deferred_command_context_fixture,
+		),
 		"Each shard budget must preserve every child check's requested minimum, while immutable package inputs reach only consumers.",
 	)
 	record_result(
@@ -6239,7 +6829,11 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 		and manual_full_timeout_value == str(gf_repository_policy.MANUAL_FULL_TIMEOUT_MINUTES)
 		and release_framework_command == gf_repository_policy.RELEASE_FRAMEWORK_COMMAND
 		and gf_repository_policy.FRAMEWORK_GUT_CI_TIMEOUT_MINUTES * 60
-		> parallel_shard_timeout_seconds(framework_gut_shard, None)
+		> parallel_shard_timeout_seconds(
+			framework_gut_shard,
+			None,
+			validation_catalog=_VALIDATION_CATALOG,
+		)
 		and gf_repository_policy.RELEASE_FRAMEWORK_TIMEOUT_MINUTES * 60
 		> gf_repository_policy.RELEASE_FRAMEWORK_SUITE_TIMEOUT_SECONDS,
 		(
@@ -6299,13 +6893,18 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 			"package_source_boundary",
 			"dependency_boundary",
 			"maintenance_self_test",
-		}.issubset(maintenance_in_process_check_runners()),
+		}.issubset(_VALIDATION_CATALOG.in_process_action_names)
+		and tuple(validation_executor_binding_fixture.in_process_adapters)
+		== _VALIDATION_CATALOG.in_process_action_names
+		and tuple(validation_executor_binding_fixture.deferred_command_materializers)
+		== _VALIDATION_CATALOG.deferred_action_names,
 		"pure static checks should reuse one maintenance process while external Godot and package smokes remain isolated.",
 	)
 	record_result(
 		"changelog_policy_is_a_quick_full_release_gate",
 		"changelog_policy" in CHECK_DEFINITIONS
-		and "changelog_policy" in maintenance_in_process_check_runners()
+		and _VALIDATION_CATALOG.executor_kind("changelog_policy")
+		is gf_validation_catalog.ValidationExecutorKind.IN_PROCESS
 		and all(
 			"changelog_policy" in set(CHECK_SUITES[suite_name])
 			for suite_name in (
