@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFBackgroundWorkUtility" path="addons/gf/standard/utilities/jobs/gf_background_work_utility.gd" module="standard" extends="GFUtility" classDigest="22a31453b15364dcc10c10e6f54f3a9cf66b9b94c31dd80209d3b6edfd5bd95e">
+<class name="GFBackgroundWorkUtility" path="addons/gf/standard/utilities/jobs/gf_background_work_utility.gd" module="standard" extends="GFUtility" classDigest="7824ca07b33c80855fd6c31c27f14fb3b29280949c56d5af322a0a0f6395eeb1">
 	<description>GFBackgroundWorkUtility: 纯数据后台工作协调器。
 统一协调 CPU/IO 线程工作、ResourceLoader 线程加载和主线程应用回调。
 默认只允许纯 Variant 输入数据，避免后台线程直接触碰 Node、Resource 或 Callable。</description>
@@ -202,13 +202,14 @@ Lease 始终由同一 Broker 管理。当前 Broker 由本 Utility 私有拥有�
 			<description>提交 CPU 纯数据后台工作。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="param">worker: 后台线程回调，签名推荐为 func(input_data: Variant) -&gt; Variant。</tag>
+				<tag name="param">worker: 后台线程回调。默认签名为 func(input_data: Variant) -&gt; Variant；启用协作取消上下文时为 func(input_data: Variant, context: GFBackgroundWorkContext) -&gt; Variant。</tag>
 				<tag name="param">input_data: 输入数据。默认只允许纯 Variant 容器和值。</tag>
 				<tag name="param">apply_callback: 主线程应用回调，签名推荐为 func(task: GFBackgroundWorkTask) -&gt; Variant。</tag>
-				<tag name="param">options: 可选配置，支持 id、priority、metadata、front、allow_object_payloads。</tag>
+				<tag name="param">options: 可选配置，支持 id、priority、metadata、front、allow_object_payloads、pass_cancellation_context。</tag>
 				<tag name="return">工作记录；参数无效时返回 failed 状态任务。</tag>
 				<tag name="schema">input_data: Variant，复制到工作线程的纯数据载荷；显式允许对象载荷时除外。</tag>
-				<tag name="schema">options: Dictionary，包含 id: StringName/String、priority: int、metadata: Dictionary、front: bool 和 allow_object_payloads: bool。</tag>
+				<tag name="schema">options: Dictionary，包含 id: StringName/String、priority: int、metadata: Dictionary、front: bool、allow_object_payloads: bool 和 pass_cancellation_context: bool；后者为 true 时 worker 必须精确接收 input_data 与只读 context 两个参数。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="submit_io_work">
@@ -216,13 +217,14 @@ Lease 始终由同一 Broker 管理。当前 Broker 由本 Utility 私有拥有�
 			<description>提交 IO 纯数据后台工作。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="param">worker: 后台线程回调，签名推荐为 func(input_data: Variant) -&gt; Variant。</tag>
+				<tag name="param">worker: 后台线程回调。默认签名为 func(input_data: Variant) -&gt; Variant；启用协作取消上下文时为 func(input_data: Variant, context: GFBackgroundWorkContext) -&gt; Variant。</tag>
 				<tag name="param">input_data: 输入数据。默认只允许纯 Variant 容器和值。</tag>
 				<tag name="param">apply_callback: 主线程应用回调，签名推荐为 func(task: GFBackgroundWorkTask) -&gt; Variant。</tag>
-				<tag name="param">options: 可选配置，支持 id、priority、metadata、front、allow_object_payloads。</tag>
+				<tag name="param">options: 可选配置，支持 id、priority、metadata、front、allow_object_payloads、pass_cancellation_context。</tag>
 				<tag name="return">工作记录；参数无效时返回 failed 状态任务。</tag>
 				<tag name="schema">input_data: Variant，复制到工作线程的纯数据载荷；显式允许对象载荷时除外。</tag>
-				<tag name="schema">options: Dictionary，包含 id: StringName/String、priority: int、metadata: Dictionary、front: bool 和 allow_object_payloads: bool。</tag>
+				<tag name="schema">options: Dictionary，包含 id: StringName/String、priority: int、metadata: Dictionary、front: bool、allow_object_payloads: bool 和 pass_cancellation_context: bool；后者为 true 时 worker 必须精确接收 input_data 与只读 context 两个参数。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="submit_resource_load">
@@ -245,6 +247,7 @@ Lease 始终由同一 Broker 管理。当前 Broker 由本 Utility 私有拥有�
 				<tag name="api">public</tag>
 				<tag name="param">work_id: 工作 ID。</tag>
 				<tag name="return">取消成功返回 true。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="cancel_all">

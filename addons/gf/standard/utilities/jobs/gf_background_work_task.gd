@@ -115,9 +115,12 @@ var resource_path: String = ""
 ## @api public
 var resource_type_hint: String = ""
 
-## 是否已请求取消。正在执行的线程任务不会被强行终止，只会在返回后转入取消终态。
+## 是否已请求取消。正在执行的线程任务不会被强行终止。
+## 显式接收 GFBackgroundWorkContext 的 worker 可协作退出；其余 worker 返回后转入取消终态。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 var cancel_requested: bool = false
 
 ## 创建时间。
@@ -142,6 +145,8 @@ var _worker_callback: Callable = Callable()
 var _apply_callback: Callable = Callable()
 var _worker_callback_target: RefCounted = null
 var _apply_callback_target: RefCounted = null
+var _cancellation_context: GFBackgroundWorkContext = null
+var _worker_receives_cancellation_context: bool = false
 
 
 # --- 公共方法 ---
@@ -153,6 +158,17 @@ var _apply_callback_target: RefCounted = null
 ## @return 已完成、失败或取消时返回 true。
 func is_finished() -> bool:
 	return status == Status.COMPLETED or status == Status.FAILED or status == Status.CANCELLED
+
+
+## 获取框架拥有的只读协作取消上下文。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @return 已接纳 CPU/IO 工作的取消上下文；提交被拒绝或 RESOURCE 工作返回 null。
+func get_cancellation_context() -> GFBackgroundWorkContext:
+	return _cancellation_context
 
 
 ## 转换为 Dictionary。
@@ -261,6 +277,30 @@ func get_worker_callback() -> Callable:
 ## @return 主线程应用回调。
 func get_apply_callback() -> Callable:
 	return _apply_callback
+
+
+## 设置框架拥有的协作取消上下文和 worker 调用形状。
+## [br]
+## @api framework_internal
+## [br]
+## @param context: CPU/IO 工作独占的取消上下文。
+## [br]
+## @param worker_receives_context: worker 是否接收 context 作为第二个参数。
+func set_cancellation_context_for_framework(
+	context: GFBackgroundWorkContext,
+	worker_receives_context: bool
+) -> void:
+	_cancellation_context = context
+	_worker_receives_cancellation_context = worker_receives_context
+
+
+## 返回 worker 是否接收协作取消上下文。
+## [br]
+## @api framework_internal
+## [br]
+## @return 启用双参数 worker 契约时返回 true。
+func worker_receives_cancellation_context_for_framework() -> bool:
+	return _worker_receives_cancellation_context
 
 
 # --- 私有/辅助方法 ---

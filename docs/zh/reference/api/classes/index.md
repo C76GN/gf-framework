@@ -7,7 +7,7 @@
 | 模块 | 类 | 成员 | 页面内索引 |
 |---|---:|---:|---|
 | Kernel | 75 | 1107 | [Kernel](#module-kernel) |
-| Standard | 475 | 7560 | [Standard](#module-standard) |
+| Standard | 476 | 7568 | [Standard](#module-standard) |
 | Action Queue | 16 | 214 | [Action Queue](#module-extensions-action_queue) |
 | Asset Metadata | 4 | 33 | [Asset Metadata](#module-extensions-asset_metadata) |
 | Behavior Tree | 22 | 89 | [Behavior Tree](#module-extensions-behavior_tree) |
@@ -472,7 +472,8 @@
 | [`GFAudioBankMounter`](GFAudioBankMounter.md#gfaudiobankmounter) | 运行时句柄 (`runtime_handle`) | `Node` | 12 | `addons/gf/standard/utilities/audio/gf_audio_bank_mounter.gd` |
 | [`GFAudioBeatClock`](GFAudioBeatClock.md#gfaudiobeatclock) | 运行时句柄 (`runtime_handle`) | `RefCounted` | 33 | `addons/gf/standard/utilities/audio/gf_audio_beat_clock.gd` |
 | [`GFAudioEmitterHandle`](GFAudioEmitterHandle.md#gfaudioemitterhandle) | 运行时句柄 (`runtime_handle`) | `RefCounted` | 20 | `addons/gf/standard/utilities/audio/gf_audio_emitter_handle.gd` |
-| [`GFBackgroundWorkTask`](GFBackgroundWorkTask.md#gfbackgroundworktask) | 运行时句柄 (`runtime_handle`) | `RefCounted` | 22 | `addons/gf/standard/utilities/jobs/gf_background_work_task.gd` |
+| [`GFBackgroundWorkContext`](GFBackgroundWorkContext.md#gfbackgroundworkcontext) | 运行时句柄 (`runtime_handle`) | `RefCounted` | 7 | `addons/gf/standard/utilities/jobs/gf_background_work_context.gd` |
+| [`GFBackgroundWorkTask`](GFBackgroundWorkTask.md#gfbackgroundworktask) | 运行时句柄 (`runtime_handle`) | `RefCounted` | 23 | `addons/gf/standard/utilities/jobs/gf_background_work_task.gd` |
 | [`GFBgmSessionHandle`](GFBgmSessionHandle.md#gfbgmsessionhandle) | 运行时句柄 (`runtime_handle`) | `RefCounted` | 11 | `addons/gf/standard/utilities/audio/gf_bgm_session_handle.gd` |
 | [`GFBgmStartOperation`](GFBgmStartOperation.md#gfbgmstartoperation) | 运行时句柄 (`runtime_handle`) | `RefCounted` | 6 | `addons/gf/standard/utilities/audio/gf_bgm_start_operation.gd` |
 | [`GFCallableRuntimeTask`](GFCallableRuntimeTask.md#gfcallableruntimetask) | 运行时句柄 (`runtime_handle`) | `GFRuntimeTask` | 13 | `addons/gf/standard/sequence/gf_callable_runtime_task.gd` |

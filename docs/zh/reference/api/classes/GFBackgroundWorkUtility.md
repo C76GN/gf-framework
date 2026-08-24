@@ -402,6 +402,7 @@ func get_resource_broker() -> GFResourceBroker:
 ### `submit_cpu_work`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func submit_cpu_work( worker: Callable, input_data: Variant = null, apply_callback: Callable = Callable(), options: Dictionary = {} ) -> GFBackgroundWorkTask:
@@ -413,23 +414,24 @@ func submit_cpu_work( worker: Callable, input_data: Variant = null, apply_callba
 
 | 名称 | 说明 |
 |---|---|
-| `worker` | 后台线程回调，签名推荐为 func(input_data: Variant) -> Variant。 |
+| `worker` | 后台线程回调。默认签名为 func(input_data: Variant) -> Variant；启用协作取消上下文时为 func(input_data: Variant, context: GFBackgroundWorkContext) -> Variant。 |
 | `input_data` | 输入数据。默认只允许纯 Variant 容器和值。 |
 | `apply_callback` | 主线程应用回调，签名推荐为 func(task: GFBackgroundWorkTask) -> Variant。 |
-| `options` | 可选配置，支持 id、priority、metadata、front、allow_object_payloads。 |
+| `options` | 可选配置，支持 id、priority、metadata、front、allow_object_payloads、pass_cancellation_context。 |
 
 返回：工作记录；参数无效时返回 failed 状态任务。
 
 结构：
 
 - `input_data`: Variant，复制到工作线程的纯数据载荷；显式允许对象载荷时除外。
-- `options`: Dictionary，包含 id: StringName/String、priority: int、metadata: Dictionary、front: bool 和 allow_object_payloads: bool。
+- `options`: Dictionary，包含 id: StringName/String、priority: int、metadata: Dictionary、front: bool、allow_object_payloads: bool 和 pass_cancellation_context: bool；后者为 true 时 worker 必须精确接收 input_data 与只读 context 两个参数。
 
 <a id="member-gfbackgroundworkutility-methods-submit_io_work"></a>
 
 ### `submit_io_work`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func submit_io_work( worker: Callable, input_data: Variant = null, apply_callback: Callable = Callable(), options: Dictionary = {} ) -> GFBackgroundWorkTask:
@@ -441,17 +443,17 @@ func submit_io_work( worker: Callable, input_data: Variant = null, apply_callbac
 
 | 名称 | 说明 |
 |---|---|
-| `worker` | 后台线程回调，签名推荐为 func(input_data: Variant) -> Variant。 |
+| `worker` | 后台线程回调。默认签名为 func(input_data: Variant) -> Variant；启用协作取消上下文时为 func(input_data: Variant, context: GFBackgroundWorkContext) -> Variant。 |
 | `input_data` | 输入数据。默认只允许纯 Variant 容器和值。 |
 | `apply_callback` | 主线程应用回调，签名推荐为 func(task: GFBackgroundWorkTask) -> Variant。 |
-| `options` | 可选配置，支持 id、priority、metadata、front、allow_object_payloads。 |
+| `options` | 可选配置，支持 id、priority、metadata、front、allow_object_payloads、pass_cancellation_context。 |
 
 返回：工作记录；参数无效时返回 failed 状态任务。
 
 结构：
 
 - `input_data`: Variant，复制到工作线程的纯数据载荷；显式允许对象载荷时除外。
-- `options`: Dictionary，包含 id: StringName/String、priority: int、metadata: Dictionary、front: bool 和 allow_object_payloads: bool。
+- `options`: Dictionary，包含 id: StringName/String、priority: int、metadata: Dictionary、front: bool、allow_object_payloads: bool 和 pass_cancellation_context: bool；后者为 true 时 worker 必须精确接收 input_data 与只读 context 两个参数。
 
 <a id="member-gfbackgroundworkutility-methods-submit_resource_load"></a>
 
@@ -485,6 +487,7 @@ func submit_resource_load( path: String, type_hint: String = "", apply_callback:
 ### `cancel_work`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func cancel_work(work_id: StringName) -> bool:

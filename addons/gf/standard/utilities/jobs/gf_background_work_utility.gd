@@ -190,7 +190,7 @@ func tick(_delta: float = 0.0) -> void:
 ## [br]
 ## @api public
 func dispose() -> void:
-	cancel_all()
+	_cancel_all_with_reason(GFBackgroundWorkContext.CancellationReason.UTILITY_DISPOSED)
 	_wait_for_active_thread_tasks()
 	clear_all()
 	if _owns_resource_broker and _resource_broker != null:
@@ -281,21 +281,23 @@ func get_resource_broker() -> GFResourceBroker:
 
 ## 提交 CPU 纯数据后台工作。
 ## [br]
-## @param worker: 后台线程回调，签名推荐为 func(input_data: Variant) -> Variant。
+## @param worker: 后台线程回调。默认签名为 func(input_data: Variant) -> Variant；启用协作取消上下文时为 func(input_data: Variant, context: GFBackgroundWorkContext) -> Variant。
 ## [br]
 ## @param input_data: 输入数据。默认只允许纯 Variant 容器和值。
 ## [br]
 ## @param apply_callback: 主线程应用回调，签名推荐为 func(task: GFBackgroundWorkTask) -> Variant。
 ## [br]
-## @param options: 可选配置，支持 id、priority、metadata、front、allow_object_payloads。
+## @param options: 可选配置，支持 id、priority、metadata、front、allow_object_payloads、pass_cancellation_context。
 ## [br]
 ## @return 工作记录；参数无效时返回 failed 状态任务。
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @schema input_data: Variant，复制到工作线程的纯数据载荷；显式允许对象载荷时除外。
 ## [br]
-## @schema options: Dictionary，包含 id: StringName/String、priority: int、metadata: Dictionary、front: bool 和 allow_object_payloads: bool。
+## @schema options: Dictionary，包含 id: StringName/String、priority: int、metadata: Dictionary、front: bool、allow_object_payloads: bool 和 pass_cancellation_context: bool；后者为 true 时 worker 必须精确接收 input_data 与只读 context 两个参数。
 func submit_cpu_work(
 	worker: Callable,
 	input_data: Variant = null,
@@ -307,21 +309,23 @@ func submit_cpu_work(
 
 ## 提交 IO 纯数据后台工作。
 ## [br]
-## @param worker: 后台线程回调，签名推荐为 func(input_data: Variant) -> Variant。
+## @param worker: 后台线程回调。默认签名为 func(input_data: Variant) -> Variant；启用协作取消上下文时为 func(input_data: Variant, context: GFBackgroundWorkContext) -> Variant。
 ## [br]
 ## @param input_data: 输入数据。默认只允许纯 Variant 容器和值。
 ## [br]
 ## @param apply_callback: 主线程应用回调，签名推荐为 func(task: GFBackgroundWorkTask) -> Variant。
 ## [br]
-## @param options: 可选配置，支持 id、priority、metadata、front、allow_object_payloads。
+## @param options: 可选配置，支持 id、priority、metadata、front、allow_object_payloads、pass_cancellation_context。
 ## [br]
 ## @return 工作记录；参数无效时返回 failed 状态任务。
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @schema input_data: Variant，复制到工作线程的纯数据载荷；显式允许对象载荷时除外。
 ## [br]
-## @schema options: Dictionary，包含 id: StringName/String、priority: int、metadata: Dictionary、front: bool 和 allow_object_payloads: bool。
+## @schema options: Dictionary，包含 id: StringName/String、priority: int、metadata: Dictionary、front: bool、allow_object_payloads: bool 和 pass_cancellation_context: bool；后者为 true 时 worker 必须精确接收 input_data 与只读 context 两个参数。
 func submit_io_work(
 	worker: Callable,
 	input_data: Variant = null,
@@ -375,38 +379,21 @@ func submit_resource_load(
 ## [br]
 ## @param work_id: 工作 ID。
 ## [br]
+## @since 3.17.0
+## [br]
 ## @return 取消成功返回 true。
 func cancel_work(work_id: StringName) -> bool:
-	var task: GFBackgroundWorkTask = get_task(work_id)
-	if task == null or task.is_finished():
-		return false
-
-	task.cancel_requested = true
-	if task.kind == GFBackgroundWorkTask.Kind.RESOURCE and task.status == GFBackgroundWorkTask.Status.RUNNING:
-		_release_resource_operation_for_task(task, &"resource_work_cancelled")
-		return true
-	if task.status == GFBackgroundWorkTask.Status.QUEUED:
-		var _removed_queued_task: bool = _queued_thread_tasks.remove_value(task)
-		_cancel_task(task)
-		return true
-
-	if task.status == GFBackgroundWorkTask.Status.APPLYING:
-		_apply_queue.erase(task)
-		_cancel_task(task)
-		return true
-
-	return true
+	return _cancel_work_with_reason(
+		work_id,
+		GFBackgroundWorkContext.CancellationReason.CANCEL_WORK
+	)
 
 
 ## 取消全部未完成工作。
 ## [br]
 ## @api public
 func cancel_all() -> void:
-	var task_values: Array = _tasks.values()
-	for task_variant: Variant in task_values:
-		var task: GFBackgroundWorkTask = _as_task(task_variant)
-		if task != null and not task.is_finished():
-			var _cancelled: bool = cancel_work(task.work_id)
+	_cancel_all_with_reason(GFBackgroundWorkContext.CancellationReason.CANCEL_ALL)
 
 
 ## 暂停启动新的 CPU/IO 线程工作；已运行和资源加载中的工作会继续推进。
@@ -480,11 +467,15 @@ func clear_finished_tasks() -> void:
 ## @api public
 func clear_all() -> void:
 	if not _active_thread_tasks.is_empty():
-		cancel_all()
+		_cancel_all_with_reason(GFBackgroundWorkContext.CancellationReason.CLEAR_ALL)
 		_wait_for_active_thread_tasks()
 	for task_variant: Variant in _tasks.values():
 		var task: GFBackgroundWorkTask = _as_task(task_variant)
 		if task != null and not task.is_finished():
+			_request_task_cancellation(
+				task,
+				GFBackgroundWorkContext.CancellationReason.CLEAR_ALL
+			)
 			task.cancel_requested = true
 			if task.kind == GFBackgroundWorkTask.Kind.RESOURCE:
 				_release_resource_operation_for_task(task, &"background_work_clear_all")
@@ -552,11 +543,30 @@ func _submit_threaded_work(
 	if not allow_payload_objects and not _is_thread_payload_safe(input_data):
 		_fail_task(task, "[GFBackgroundWorkUtility] 提交后台工作失败：payload 只能包含纯 Variant 数据。")
 		return task
-
+	var pass_cancellation_context: bool = GFVariantData.get_option_bool(
+		options,
+		"pass_cancellation_context",
+		false
+	)
+	if pass_cancellation_context and worker.get_argument_count() != 2:
+		_fail_task(
+			task,
+			"[GFBackgroundWorkUtility] 提交后台工作失败：启用 cancellation context 时 worker 必须接收两个参数。"
+		)
+		return task
+	var cancellation_context: GFBackgroundWorkContext = GFBackgroundWorkContext.new()
+	var context_error: Error = cancellation_context.configure_for_framework(task.work_id)
+	if context_error != OK:
+		_fail_task(task, "[GFBackgroundWorkUtility] 创建 cancellation context 失败：%d。" % context_error)
+		return task
 	task.input_data = GFVariantData.duplicate_variant(input_data)
 	if not _register_task(task):
 		_fail_task(task, "[GFBackgroundWorkUtility] 提交后台工作失败：工作 ID 已存在。")
 		return task
+	task.set_cancellation_context_for_framework(
+		cancellation_context,
+		pass_cancellation_context
+	)
 
 	_insert_queued_thread_task(task, GFVariantData.get_option_bool(options, "front", false))
 	work_queued.emit(task)
@@ -651,7 +661,12 @@ func _get_now_msec() -> int:
 
 func _start_thread_task(task: GFBackgroundWorkTask) -> void:
 	var thread: Thread = Thread.new()
-	var error: Error = thread.start(Callable(self, "_run_threaded_task").bind(task.get_worker_callback(), task.input_data))
+	var error: Error = thread.start(Callable(self, "_run_threaded_task").bind(
+		task.get_worker_callback(),
+		task.input_data,
+		task.get_cancellation_context(),
+		task.worker_receives_cancellation_context_for_framework()
+	))
 	if error != OK:
 		_fail_task(task, "[GFBackgroundWorkUtility] 启动线程失败：%d。" % error)
 		return
@@ -702,8 +717,17 @@ func _finish_thread_task(task: GFBackgroundWorkTask, result_variant: Variant) ->
 	_queue_apply_or_complete(task)
 
 
-func _run_threaded_task(worker: Callable, input_data: Variant) -> Dictionary:
-	var value: Variant = worker.call(input_data)
+func _run_threaded_task(
+	worker: Callable,
+	input_data: Variant,
+	cancellation_context: GFBackgroundWorkContext,
+	worker_receives_context: bool
+) -> Dictionary:
+	var value: Variant = (
+		worker.call(input_data, cancellation_context)
+		if worker_receives_context
+		else worker.call(input_data)
+	)
 	if value is Dictionary:
 		var value_dictionary: Dictionary = value
 		if not GFVariantData.get_option_bool(value_dictionary, GFResultDictionary.KEY_OK, true):
@@ -957,6 +981,53 @@ func _cancel_task(task: GFBackgroundWorkTask) -> void:
 	_finished_tasks.append(task)
 	_trim_finished_tasks()
 	work_cancelled.emit(task)
+
+
+func _cancel_work_with_reason(
+	work_id: StringName,
+	reason: GFBackgroundWorkContext.CancellationReason
+) -> bool:
+	var task: GFBackgroundWorkTask = get_task(work_id)
+	if task == null or task.is_finished():
+		return false
+
+	_request_task_cancellation(task, reason)
+	task.cancel_requested = true
+	if task.kind == GFBackgroundWorkTask.Kind.RESOURCE and task.status == GFBackgroundWorkTask.Status.RUNNING:
+		_release_resource_operation_for_task(task, &"resource_work_cancelled")
+		return true
+	if task.status == GFBackgroundWorkTask.Status.QUEUED:
+		var _removed_queued_task: bool = _queued_thread_tasks.remove_value(task)
+		_cancel_task(task)
+		return true
+
+	if task.status == GFBackgroundWorkTask.Status.APPLYING:
+		_apply_queue.erase(task)
+		_cancel_task(task)
+		return true
+
+	return true
+
+
+func _cancel_all_with_reason(
+	reason: GFBackgroundWorkContext.CancellationReason
+) -> void:
+	var task_values: Array = _tasks.values()
+	for task_variant: Variant in task_values:
+		var task: GFBackgroundWorkTask = _as_task(task_variant)
+		if task != null and not task.is_finished():
+			var _cancelled: bool = _cancel_work_with_reason(task.work_id, reason)
+
+
+func _request_task_cancellation(
+	task: GFBackgroundWorkTask,
+	reason: GFBackgroundWorkContext.CancellationReason
+) -> void:
+	if task == null:
+		return
+	var context: GFBackgroundWorkContext = task.get_cancellation_context()
+	if context != null:
+		var _requested: bool = context.request_cancel_for_framework(reason)
 
 
 func _wait_for_active_thread_tasks() -> void:

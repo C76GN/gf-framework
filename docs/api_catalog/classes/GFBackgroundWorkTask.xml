@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFBackgroundWorkTask" path="addons/gf/standard/utilities/jobs/gf_background_work_task.gd" module="standard" extends="RefCounted" classDigest="5efdc0c3ba25ebc247f19ede401fe83d7cab3bc0f1861ecebc3dca41f3d8c23a">
+<class name="GFBackgroundWorkTask" path="addons/gf/standard/utilities/jobs/gf_background_work_task.gd" module="standard" extends="RefCounted" classDigest="100626a93fb26dd01526a147d5f95dda52f9f92b7a5c317ce013f346e0267180">
 	<description>GFBackgroundWorkTask: 后台工作记录。
 保存后台工作状态、进度、输入数据、结果、错误文本和应用回调。
 任务本身不直接启动线程；执行由 GFBackgroundWorkUtility 统一协调。</description>
@@ -137,9 +137,11 @@
 		</member>
 		<member kind="property" name="cancel_requested">
 			<signature>var cancel_requested: bool = false</signature>
-			<description>是否已请求取消。正在执行的线程任务不会被强行终止，只会在返回后转入取消终态。</description>
+			<description>是否已请求取消。正在执行的线程任务不会被强行终止。
+显式接收 GFBackgroundWorkContext 的 worker 可协作退出；其余 worker 返回后转入取消终态。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="created_msec">
@@ -171,6 +173,15 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">已完成、失败或取消时返回 true。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_cancellation_context">
+			<signature>func get_cancellation_context() -&gt; GFBackgroundWorkContext:</signature>
+			<description>获取框架拥有的只读协作取消上下文。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">已接纳 CPU/IO 工作的取消上下文；提交被拒绝或 RESOURCE 工作返回 null。</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
 		<member kind="method" name="to_dict">
