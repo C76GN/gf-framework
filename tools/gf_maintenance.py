@@ -29,9 +29,11 @@ import traceback
 import urllib.parse
 import xml.etree.ElementTree as ET
 import zipfile
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from pathlib import PureWindowsPath
+from types import MappingProxyType
 from typing import Any
 from typing import Callable
 
@@ -78,11 +80,15 @@ import gf_maintenance_rendering as maintenance_rendering
 import gf_maintenance_static_checks
 import gf_semver
 from gf_maintenance_rendering import trim_text
+from gf_godot_process import CommandIdentity
+from gf_godot_process import GODOT_EXECUTABLE_ENV_VAR
+from gf_godot_process import resolve_command_identity
 from gf_godot_process import resolve_godot_command
 from gf_godot_process import resolve_godot_executable
 from gf_maintenance_check_graph import CheckGraph
 from gf_maintenance_check_graph import make_check_input_fingerprint
 from gf_maintenance_check_graph import make_check_result_fingerprint
+from gf_maintenance_check_graph import make_check_result_fingerprint_from_output_evidence
 from gf_maintenance_check_graph import resolve_timeout_budget
 from gf_maintenance_check_graph import stable_fingerprint
 from gf_maintenance_check_graph import workspace_fingerprint
@@ -886,19 +892,26 @@ def godot_log_path(check_name: str) -> str:
 	return (GODOT_LOG_DIR / f"{check_name}.log").as_posix()
 
 
-_VALIDATION_CATALOG = gf_validation_catalog.build_validation_catalog(
-	gf_validation_catalog.ValidationCatalogContext(
-		python_executable=sys.executable,
-		root=ROOT,
-		godot_log_directory=GODOT_LOG_DIR,
-		gut_lifecycle_cli_resource_path=GUT_LIFECYCLE_CLI_RESOURCE_PATH,
-		gut_shard_config_disabled_argument=GUT_SHARD_CONFIG_DISABLED_ARGUMENT,
-		gut_lifecycle_hook_arguments=GUT_LIFECYCLE_HOOK_ARGUMENTS,
-		default_reference_project=DEFAULT_REFERENCE_PROJECT,
-		reference_boot_scene=REFERENCE_BOOT_SCENE,
-		reference_smoke_scene=REFERENCE_SMOKE_SCENE,
+def validation_catalog_for_root(
+	root: Path,
+) -> gf_validation_catalog.ValidationCatalog:
+	"""Build the same Catalog projection for one isolated workspace root."""
+	return gf_validation_catalog.build_validation_catalog(
+		gf_validation_catalog.ValidationCatalogContext(
+			python_executable=sys.executable,
+			root=root,
+			godot_log_directory=root / "ai_analysis" / "godot_logs",
+			gut_lifecycle_cli_resource_path=GUT_LIFECYCLE_CLI_RESOURCE_PATH,
+			gut_shard_config_disabled_argument=GUT_SHARD_CONFIG_DISABLED_ARGUMENT,
+			gut_lifecycle_hook_arguments=GUT_LIFECYCLE_HOOK_ARGUMENTS,
+			default_reference_project=DEFAULT_REFERENCE_PROJECT,
+			reference_boot_scene=REFERENCE_BOOT_SCENE,
+			reference_smoke_scene=REFERENCE_SMOKE_SCENE,
+		)
 	)
-)
+
+
+_VALIDATION_CATALOG = validation_catalog_for_root(ROOT)
 VALIDATION_ACTION_NAMES: tuple[str, ...] = _VALIDATION_CATALOG.action_names
 
 CHECK_DEFINITIONS = _VALIDATION_CATALOG.command_definitions()
@@ -972,6 +985,7 @@ PARALLEL_SHARD_STARTUP_ALLOWANCE_SECONDS: int = 60
 PARALLEL_GODOT_PROBE_SENTINEL = "GF_PARALLEL_ISOLATION_PROBE="
 SHA256_HEX_RE = re.compile(r"^[0-9a-f]{64}$")
 MAX_PARALLEL_SHARD_REPORT_BYTES: int = 16 * 1024 * 1024
+DEFAULT_COMMAND_RESULT_OUTPUT_CHARS: int = 12000
 PARALLEL_SHARD_REPORT_REQUIRED_FIELDS = frozenset({
 	"ok",
 	"suite",
@@ -1054,6 +1068,13 @@ class ParallelCheckShardPlan:
 		}
 
 
+@dataclass(frozen=True)
+class ParallelShardCommandContract:
+	"""Frozen declared/effective action identities captured before shard dispatch."""
+
+	identities: Mapping[str, CommandIdentity]
+
+
 def parallel_full_shard_plan(
 	validation_plan: gf_validation_catalog.ValidationPlan,
 ) -> list[ParallelCheckShardPlan]:
@@ -1097,10 +1118,15 @@ def parallel_full_shard_batches(
 def parallel_shard_timeout_seconds(
 	shard_plan: ParallelCheckShardPlan,
 	requested_timeout_seconds: int | None,
+	*,
+	validation_catalog: gf_validation_catalog.ValidationCatalog,
 ) -> int:
 	"""Budget the whole sequential child closure without weakening per-check minima."""
 	closure_budget = sum(
-		resolve_check_timeout_seconds(check_name, requested_timeout_seconds)
+		max(
+			validation_catalog.timeout_floor_seconds(check_name),
+			requested_timeout_seconds or 0,
+		)
 		for check_name in shard_plan.execution_checks
 	)
 	return max(
@@ -1153,19 +1179,59 @@ def package_artifact_is_required(check_names: list[str]) -> bool:
 	return any(name in PACKAGE_ARTIFACT_CONSUMER_CHECKS for name in check_names)
 
 
-def check_command(
+DEFERRED_COMMAND_SENTINEL = "<deferred-command>"
+
+
+class DeferredCommandMaterializationError(ValueError):
+	"""Raised when a runner-owned deferred command cannot be materialized safely."""
+
+
+@dataclass(frozen=True)
+class DeferredCommandContext:
+	"""Invocation-scoped live arguments available to deferred materializers."""
+
+	artifact_manifest: str
+	allow_breaking_api: bool
+
+
+def release_metadata_command_contract(
+	context: DeferredCommandContext,
+) -> tuple[str, ...]:
+	command = (
+		sys.executable,
+		"tools/gf_maintenance.py",
+		"release-status",
+		"--json",
+		"--artifact-manifest",
+		context.artifact_manifest,
+	)
+	return (*command, "--allow-breaking-api") if context.allow_breaking_api else command
+
+
+def materialize_release_metadata_command(
+	context: DeferredCommandContext,
+) -> tuple[str, ...]:
+	return release_metadata_command_contract(context)
+
+
+def deferred_materialized_command_is_valid(
 	name: str,
-	package_artifact_manifest: str = "",
-	package_artifact_manifest_sha256: str = "",
-) -> list[str]:
+	command: tuple[object, ...],
+	context: DeferredCommandContext,
+) -> bool:
+	if not command or any(type(part) is not str or "\x00" in part for part in command):
+		return False
 	if name == "release_metadata":
-		return [
-			sys.executable,
-			"tools/gf_maintenance.py",
-			"release-status",
-			"--json",
-		]
-	command = list(CHECK_DEFINITIONS.get(name, ["<in-process>", name]))
+		return command == release_metadata_command_contract(context)
+	return all(command)
+
+
+def append_package_artifact_command_arguments(
+	name: str,
+	command: list[str],
+	package_artifact_manifest: str,
+	package_artifact_manifest_sha256: str,
+) -> list[str]:
 	if name not in PACKAGE_ARTIFACT_CONSUMER_CHECKS:
 		return command
 	if not package_artifact_inputs_are_complete(
@@ -1182,6 +1248,85 @@ def check_command(
 		"--package-artifact-manifest-sha256",
 		package_artifact_manifest_sha256,
 	]
+
+
+def fallback_check_command(
+	name: str,
+	package_artifact_manifest: str = "",
+	package_artifact_manifest_sha256: str = "",
+	*,
+	validation_catalog: gf_validation_catalog.ValidationCatalog,
+) -> list[str]:
+	static_command = validation_catalog.static_command(name)
+	command = (
+		static_command
+		if static_command is not None
+		else [
+			DEFERRED_COMMAND_SENTINEL,
+			validation_catalog.executor_kind(name).value,
+			name,
+		]
+	)
+	if (
+		name in PACKAGE_ARTIFACT_CONSUMER_CHECKS
+		and not package_artifact_manifest
+		and not package_artifact_manifest_sha256
+	):
+		return command
+	return append_package_artifact_command_arguments(
+		name,
+		command,
+		package_artifact_manifest,
+		package_artifact_manifest_sha256,
+	)
+
+
+def materialize_check_command(
+	name: str,
+	package_artifact_manifest: str = "",
+	package_artifact_manifest_sha256: str = "",
+	*,
+	validation_executor_binding: ValidationExecutorBinding,
+	deferred_command_context: DeferredCommandContext,
+) -> list[str]:
+	static_command = validation_executor_binding.catalog.static_command(name)
+	if static_command is None:
+		try:
+			materializer = validation_executor_binding.deferred_command_materializers[name]
+		except KeyError as error:
+			raise DeferredCommandMaterializationError(
+				f"Deferred command materializer is missing for validation action: {name}"
+			) from error
+		try:
+			materialized_command = materializer(deferred_command_context)
+		except Exception as error:
+			raise DeferredCommandMaterializationError(
+				f"Deferred command materializer failed for validation action: {name}"
+			) from error
+		if (
+			type(materialized_command) is not tuple
+			or not deferred_materialized_command_is_valid(
+				name,
+				materialized_command,
+				deferred_command_context,
+			)
+		):
+			raise DeferredCommandMaterializationError(
+				f"Deferred command materializer returned an invalid command for validation action: {name}"
+			)
+		command = list(materialized_command)
+	else:
+		command = static_command
+	if DEFERRED_COMMAND_SENTINEL in command:
+		raise DeferredCommandMaterializationError(
+			f"Materialized command contains the deferred-command sentinel for validation action: {name}"
+		)
+	return append_package_artifact_command_arguments(
+		name,
+		command,
+		package_artifact_manifest,
+		package_artifact_manifest_sha256,
+	)
 
 _API_CACHE: list[ApiScript] | None = None
 _ACTIVE_WORKSPACE_SNAPSHOT: WorkspaceSnapshot | None = None
@@ -1209,15 +1354,24 @@ class CommandResult:
 	streamed_output: bool = False
 	cancelled: bool = False
 
-	def to_dict(self, max_output_chars: int = 12000) -> dict[str, Any]:
-		if type(max_output_chars) is not int or max_output_chars < 0:
-			raise ValueError("max_output_chars must be a non-negative integer")
+	def to_dict(
+		self,
+		max_output_chars: int | None = DEFAULT_COMMAND_RESULT_OUTPUT_CHARS,
+	) -> dict[str, Any]:
+		if max_output_chars is not None and (
+			type(max_output_chars) is not int or max_output_chars < 0
+		):
+			raise ValueError("max_output_chars must be null or a non-negative integer")
 		stdout_bytes = self.stdout.encode("utf-8")
 		stderr_bytes = self.stderr.encode("utf-8")
 		stdout_char_count = len(self.stdout)
 		stderr_char_count = len(self.stderr)
-		stdout_truncated = stdout_char_count > max_output_chars
-		stderr_truncated = stderr_char_count > max_output_chars
+		stdout_truncated = (
+			max_output_chars is not None and stdout_char_count > max_output_chars
+		)
+		stderr_truncated = (
+			max_output_chars is not None and stderr_char_count > max_output_chars
+		)
 		stdout_tail = self.stdout
 		stderr_tail = self.stderr
 		if stdout_truncated:
@@ -1786,6 +1940,11 @@ def main() -> int:
 		metavar="REV",
 		help="Git revision used as the advisory affected-analysis base (default: HEAD).",
 	)
+	check_parser.add_argument(
+		"--internal-complete-output-evidence",
+		action="store_true",
+		help=argparse.SUPPRESS,
+	)
 	add_package_artifact_consumer_arguments(check_parser)
 	check_parser.add_argument("--json", action="store_true", help="Print JSON instead of text.")
 
@@ -1827,6 +1986,14 @@ def main() -> int:
 	args = parser.parse_args()
 	if args.command == "check" and args.explain and not args.affected:
 		parser.error("--explain requires --affected")
+	if args.command == "check" and args.internal_complete_output_evidence and (
+		not args.json_output or args.jobs != 1 or not args.check
+	):
+		parser.error(
+			"--internal-complete-output-evidence requires --json-output, "
+			"--jobs 1, and at least one explicit --check"
+		)
+	json_output_path: Path | None = None
 	if args.json_output:
 		try:
 			json_output_path = maintenance_json_output_path(args.json_output)
@@ -2036,6 +2203,7 @@ def main() -> int:
 			artifact_manifest=args.artifact_manifest,
 			package_artifact_manifest=args.package_artifact_manifest,
 			package_artifact_manifest_sha256=args.package_artifact_manifest_sha256,
+			complete_output_evidence=args.internal_complete_output_evidence,
 			validation_shadow=args.validation_shadow,
 			affected=args.affected,
 			affected_base=args.affected_base,
@@ -2044,7 +2212,18 @@ def main() -> int:
 			output_callback=None if args.json else maintenance_rendering.print_check_output,
 		)
 		renderer = maintenance_rendering.render_failed_checks_text if args.failed_only else maintenance_rendering.render_checks_text
-		maintenance_rendering.print_output(data, args.json, renderer)
+		if args.internal_complete_output_evidence:
+			assert json_output_path is not None
+			try:
+				write_internal_complete_output_evidence_report(
+					json_output_path,
+					data,
+				)
+			except ValueError as error:
+				print(str(error), file=sys.stderr)
+				return 1
+		else:
+			maintenance_rendering.print_output(data, args.json, renderer)
 		if args.github_annotations:
 			maintenance_rendering.print_github_check_annotations(data)
 		return 0 if data["ok"] else 1
@@ -2085,6 +2264,29 @@ def maintenance_json_output_path(value: str) -> Path:
 		return validate_controlled_path(requested_path, ROOT / "build")
 	except ValueError as error:
 		raise ValueError(f"Invalid --json-output path: {error}") from error
+
+
+def write_internal_complete_output_evidence_report(
+	path: Path,
+	data: dict[str, Any],
+	*,
+	max_utf8_bytes: int = MAX_PARALLEL_SHARD_REPORT_BYTES,
+) -> None:
+	"""Atomically write one bounded parent-verifiable private shard report."""
+	if type(max_utf8_bytes) is not int or max_utf8_bytes <= 0:
+		raise ValueError("Internal complete-output report limit must be a positive integer.")
+	payload = maintenance_rendering.encode_strict_json(
+		data,
+		indent=2,
+		trailing_newline=True,
+	)
+	payload_bytes = payload.encode("utf-8")
+	if len(payload_bytes) > max_utf8_bytes:
+		raise ValueError(
+			"Internal complete-output report exceeds the bounded UTF-8 size limit: "
+			f"actual={len(payload_bytes)}, limit={max_utf8_bytes}."
+		)
+	maintenance_rendering.write_utf8_json_output(path, payload)
 
 
 def project_summary(include_release: bool = False, artifact_manifest: str = "") -> dict[str, Any]:
@@ -21192,12 +21394,14 @@ def member_to_dict(member: ApiMember) -> dict[str, Any]:
 	}
 
 
-def maintenance_in_process_check_runners() -> dict[str, Callable[[], dict[str, Any]]]:
+def maintenance_in_process_adapter_registry() -> dict[str, Callable[[], dict[str, Any]]]:
+	"""Bind Catalog-selected in-process actions to trusted runtime callables."""
 	return {
 		"api": gf_maintenance_static_checks.api_reference_check,
 		"ai_api": gf_maintenance_static_checks.ai_api_check,
 		"docs": gf_maintenance_static_checks.docs_quality_check,
 		"changelog_policy": changelog_policy,
+		"codeql_suppression_policy": codeql_suppression_policy,
 		"public_docs_boundary": public_docs_boundary,
 		"public_api_boundary": public_api_boundary,
 		"resource_boundary": lambda: resource_boundary(fail_on_issues=True),
@@ -21213,15 +21417,104 @@ def maintenance_in_process_check_runners() -> dict[str, Callable[[], dict[str, A
 		"package_focused_gut_mapping": package_focused_gut_mapping,
 		"api_since_touched": api_since_touched,
 		"path_hygiene": path_hygiene,
-		"codeql_suppression_policy": codeql_suppression_policy,
-		"maintenance_self_test": maintenance_self_test,
 		"dependency_boundary": dependency_boundary,
+		"maintenance_self_test": maintenance_self_test,
 		"project_settings_drift": project_settings_drift,
 	}
 
 
+def maintenance_deferred_command_materializer_registry() -> dict[
+	str,
+	Callable[[DeferredCommandContext], tuple[str, ...]],
+]:
+	"""Bind Catalog-deferred actions to trusted live command materializers."""
+	return {
+		"release_metadata": materialize_release_metadata_command,
+	}
+
+
+@dataclass(frozen=True)
+class ValidationExecutorBinding:
+	"""Bind one Catalog to its exact frozen runtime executor callables."""
+
+	catalog: gf_validation_catalog.ValidationCatalog
+	in_process_adapters: Mapping[str, Callable[[], dict[str, Any]]]
+	deferred_command_materializers: Mapping[
+		str,
+		Callable[[DeferredCommandContext], tuple[str, ...]],
+	]
+
+
+def freeze_exact_callable_registry(
+	label: str,
+	expected_names: tuple[str, ...],
+	registry: Mapping[str, Callable[..., Any]],
+) -> Mapping[str, Callable[..., Any]]:
+	"""Read one exact callable registry once, validate it, and freeze the snapshot."""
+	if not isinstance(registry, Mapping):
+		raise gf_validation_catalog.ValidationCatalogError(
+			f"{label} must be a mapping."
+		)
+	actual_names = tuple(registry)
+	if any(type(name) is not str for name in actual_names):
+		raise gf_validation_catalog.ValidationCatalogError(
+			f"{label} contains a non-string action name."
+		)
+	if len(actual_names) != len(set(actual_names)):
+		raise gf_validation_catalog.ValidationCatalogError(
+			f"{label} contains duplicate action names."
+		)
+	expected_set = frozenset(expected_names)
+	actual_set = frozenset(actual_names)
+	missing = [name for name in expected_names if name not in actual_set]
+	extra = [name for name in actual_names if name not in expected_set]
+	if missing or extra:
+		raise gf_validation_catalog.ValidationCatalogError(
+			f"{label} does not match the Validation Catalog: "
+			f"missing={missing}, extra={extra}"
+		)
+	frozen_registry = {name: registry[name] for name in expected_names}
+	non_callable = [
+		name
+		for name, binding in frozen_registry.items()
+		if not callable(binding)
+	]
+	if non_callable:
+		raise gf_validation_catalog.ValidationCatalogError(
+			f"{label} contains non-callable bindings: {non_callable}"
+		)
+	return MappingProxyType(frozen_registry)
+
+
+def validate_validation_executor_registries(
+	catalog: gf_validation_catalog.ValidationCatalog,
+	in_process_adapters: Mapping[str, Callable[[], dict[str, Any]]],
+	deferred_command_materializers: Mapping[
+		str,
+		Callable[[DeferredCommandContext], tuple[str, ...]],
+	],
+) -> ValidationExecutorBinding:
+	"""Freeze both exact callable registries with their authority Catalog."""
+	frozen_adapters = freeze_exact_callable_registry(
+		"In-process adapter registry",
+		catalog.in_process_action_names,
+		in_process_adapters,
+	)
+	frozen_materializers = freeze_exact_callable_registry(
+		"Deferred command materializer registry",
+		catalog.deferred_action_names,
+		deferred_command_materializers,
+	)
+	return ValidationExecutorBinding(
+		catalog=catalog,
+		in_process_adapters=frozen_adapters,
+		deferred_command_materializers=frozen_materializers,
+	)
+
+
 def run_in_process_check(
 	name: str,
+	command: list[str],
 	runner: Callable[[], dict[str, Any]],
 	timeout_seconds: float,
 ) -> CommandResult:
@@ -21237,7 +21530,7 @@ def run_in_process_check(
 			stdout = json.dumps(data, ensure_ascii=False)
 		return CommandResult(
 			name=name,
-			command=CHECK_DEFINITIONS[name],
+			command=command,
 			exit_code=124 if timed_out else exit_code,
 			stdout=stdout,
 			stderr=stderr,
@@ -21250,7 +21543,7 @@ def run_in_process_check(
 	except Exception:
 		return CommandResult(
 			name=name,
-			command=CHECK_DEFINITIONS[name],
+			command=command,
 			exit_code=1,
 			stdout="",
 			stderr=traceback.format_exc(),
@@ -21274,12 +21567,20 @@ def append_check_result(
 	dependency_fingerprints: dict[str, str],
 	input_fingerprint: str,
 	timeout_budget: dict[str, float | None],
+	*,
+	complete_output_evidence: bool = False,
 ) -> dict[str, Any]:
 	return append_check_result_payload(
 		results,
 		result_exit_codes,
 		result_fingerprints,
-		result.to_dict(),
+		result.to_dict(
+			max_output_chars=(
+				None
+				if complete_output_evidence
+				else DEFAULT_COMMAND_RESULT_OUTPUT_CHARS
+			)
+		),
 		result.stdout,
 		result.stderr,
 		dependencies,
@@ -21315,7 +21616,8 @@ def append_check_result_payload(
 	payload["input_fingerprint"] = input_fingerprint
 	payload["result_fingerprint"] = result_fingerprint
 	payload["timeout_budget"] = timeout_budget
-	payload.setdefault("command", list(CHECK_DEFINITIONS.get(name, ["<in-process>", name])))
+	if "command" not in payload:
+		raise ValueError(f"Check result {name!r} is missing its materialized command.")
 	payload.setdefault("cwd", str(ROOT))
 	payload.setdefault("cancelled", False)
 	payload.setdefault("duration_seconds", 0.0)
@@ -21489,6 +21791,7 @@ def attach_validation_shadow_report(
 	data: dict[str, Any],
 	workspace_state: dict[str, Any],
 	*,
+	validation_catalog: gf_validation_catalog.ValidationCatalog,
 	parallel_occurrences: dict[str, list[dict[str, Any]]] | None = None,
 	suite_deadline: float | None = None,
 ) -> None:
@@ -21502,6 +21805,7 @@ def attach_validation_shadow_report(
 		data["validation_shadow"] = make_validation_shadow_report(
 			data,
 			workspace_state,
+			validation_catalog=validation_catalog,
 			collection_started=collection_started,
 			shadow_deadline_seconds=shadow_deadline,
 			parallel_occurrences=parallel_occurrences,
@@ -21606,6 +21910,7 @@ def validation_shadow_action_inputs(
 	check_name: str,
 	command: list[str],
 	*,
+	validation_catalog: gf_validation_catalog.ValidationCatalog,
 	workspace_digest: str,
 	allow_planned_command: bool,
 ) -> tuple[list[str], dict[str, str]]:
@@ -21638,10 +21943,11 @@ def validation_shadow_action_inputs(
 	manifest_count = command.count(manifest_flag)
 	digest_count = command.count(digest_flag)
 	if manifest_count == 0 and digest_count == 0 and allow_planned_command:
-		return check_command(
+		return fallback_check_command(
 			check_name,
 			PACKAGE_ARTIFACT_MANIFEST_ACTION_SENTINEL,
 			manifest_sha256,
+			validation_catalog=validation_catalog,
 		), {
 			PACKAGE_ARTIFACT_MANIFEST_DEPENDENCY_LABEL: manifest_sha256,
 		}
@@ -21669,6 +21975,7 @@ def make_validation_shadow_report(
 	data: dict[str, Any],
 	workspace_state: dict[str, Any],
 	*,
+	validation_catalog: gf_validation_catalog.ValidationCatalog,
 	collection_started: float | None = None,
 	shadow_deadline_seconds: float | None = None,
 	parallel_occurrences: dict[str, list[dict[str, Any]]] | None = None,
@@ -21728,14 +22035,25 @@ def make_validation_shadow_report(
 		command = (
 			[str(part) for part in result.get("command", [])]
 			if result is not None
-			else list(CHECK_DEFINITIONS.get(check_name, ["<in-process>", check_name]))
+			else fallback_check_command(
+				check_name,
+				validation_catalog=validation_catalog,
+			)
 		)
 		if not command:
-			command = ["<in-process>", check_name]
+			if str(result.get("execution", "")) in {"subprocess", "in_process"}:
+				raise ValueError(
+					f"Validation Shadow observed an empty materialized command for {check_name}."
+				)
+			command = fallback_check_command(
+				check_name,
+				validation_catalog=validation_catalog,
+			)
 		command, dependency_artifact_digests = validation_shadow_action_inputs(
 			data,
 			check_name,
 			command,
+			validation_catalog=validation_catalog,
 			workspace_digest=workspace_digest,
 			allow_planned_command=(
 				result is None
@@ -21867,6 +22185,7 @@ def run_checks(
 	artifact_manifest: str = "",
 	package_artifact_manifest: str = "",
 	package_artifact_manifest_sha256: str = "",
+	complete_output_evidence: bool = False,
 	validation_shadow: bool = False,
 	affected: bool = False,
 	affected_base: str = "HEAD",
@@ -21878,7 +22197,9 @@ def run_checks(
 	global _ACTIVE_SUITE_DEADLINE
 	global _API_CACHE
 	overall_started = time.perf_counter()
-	validation_plan = _VALIDATION_CATALOG.plan(
+	invocation_process_environment = capture_maintenance_process_environment(cwd=ROOT)
+	invocation_catalog = _VALIDATION_CATALOG
+	validation_plan = invocation_catalog.plan(
 		suite,
 		checks,
 		sync_examples=sync_examples,
@@ -21923,6 +22244,63 @@ def run_checks(
 			data["validation_shadow"] = make_validation_shadow_failure_report(
 				data,
 				"parallel_validation_setup_failed",
+			)
+		if affected:
+			attach_affected_analysis_report(
+				data,
+				base_revision=affected_base,
+				explain=affected_explain,
+				force_failure=True,
+				suite_deadline=suite_deadline,
+			)
+		data["duration_seconds"] = round(time.perf_counter() - overall_started, 3)
+		return data
+	try:
+		raw_in_process_adapters = maintenance_in_process_adapter_registry()
+		raw_deferred_command_materializers = (
+			maintenance_deferred_command_materializer_registry()
+		)
+	except Exception:
+		# Registry construction binds live Python symbols and may fail before the
+		# Catalog validator runs.  Keep ordinary implementation failures inside the
+		# same bounded setup envelope without exposing arbitrary exception text.
+		executor_setup_error = "Validation executor registries could not be constructed."
+	else:
+		try:
+			validation_executor_binding = validate_validation_executor_registries(
+				invocation_catalog,
+				raw_in_process_adapters,
+				raw_deferred_command_materializers,
+			)
+		except gf_validation_catalog.ValidationCatalogError as error:
+			executor_setup_error = str(error)
+		except Exception:
+			executor_setup_error = "Validation executor registries could not be validated."
+		else:
+			executor_setup_error = ""
+	if executor_setup_error:
+		workspace_state = {
+			"schema_version": 1,
+			"head": "",
+			"dirty": True,
+			"untracked_file_count": 0,
+			"fingerprint": "0" * 64,
+		}
+		data = make_check_setup_failure(
+			validation_plan,
+			workspace_state,
+			"validation_executor_setup",
+			executor_setup_error,
+		)
+		data["workspace_snapshot"] = snapshot.stats()
+		data["workspace"] = workspace_state
+		data["duration_seconds"] = round(time.perf_counter() - overall_started, 3)
+		data["execution"] = "parallel_shards" if resolved_jobs > 1 else "serial"
+		data["jobs"] = resolved_jobs
+		if validation_shadow:
+			data["validation_shadow"] = make_validation_shadow_failure_report(
+				data,
+				"validation_executor_setup_failed",
 			)
 		if affected:
 			attach_affected_analysis_report(
@@ -22092,6 +22470,7 @@ def run_checks(
 						captured_workspace,
 						parallel_temp,
 						validation_plan=validation_plan,
+						validation_catalog=validation_executor_binding.catalog,
 						jobs=resolved_jobs,
 						timeout_seconds=timeout_seconds,
 						suite_timeout_seconds=suite_timeout_seconds,
@@ -22103,6 +22482,7 @@ def run_checks(
 						output_callback=output_callback,
 						overall_started=overall_started,
 						suite_deadline=suite_deadline,
+						base_process_environment=invocation_process_environment,
 						validation_occurrences_out=validation_parallel_occurrences,
 						cleanup_state=parallel_cleanup_state,
 					)
@@ -22121,6 +22501,7 @@ def run_checks(
 					if data is None:
 						data = run_checks_with_active_snapshot(
 							validation_plan=validation_plan,
+							validation_executor_binding=validation_executor_binding,
 							timeout_seconds=timeout_seconds,
 							suite_timeout_seconds=remaining_suite_timeout,
 							fail_fast=fail_fast,
@@ -22128,9 +22509,11 @@ def run_checks(
 							artifact_manifest=artifact_manifest,
 							package_artifact_manifest=effective_package_manifest,
 							package_artifact_manifest_sha256=effective_package_manifest_sha256,
+							complete_output_evidence=complete_output_evidence,
 							progress_callback=progress_callback,
 							output_callback=output_callback,
 							workspace_state=workspace_state,
+							process_environment=invocation_process_environment,
 						)
 				if package_artifact_set is not None:
 					remaining_deadline_seconds(suite_deadline, "package artifact revalidation")
@@ -22228,6 +22611,7 @@ def run_checks(
 		attach_validation_shadow_report(
 			data,
 			workspace_state,
+			validation_catalog=validation_executor_binding.catalog,
 			parallel_occurrences=validation_parallel_occurrences,
 			suite_deadline=suite_deadline,
 		)
@@ -22329,9 +22713,26 @@ def append_check_orchestration_deadline(data: dict[str, Any], message: str) -> N
 	data["completed_check_count"] = len(results)
 
 
+def capture_maintenance_process_environment(
+	*,
+	cwd: Path = ROOT,
+) -> Mapping[str, str]:
+	"""Capture and freeze process selection inputs once for one invocation."""
+	environment = dict(os.environ)
+	environment.pop(GUT_SHARD_OBSERVATION_NONCE_ENVIRONMENT, None)
+	environment.pop(GUT_SHARD_OBSERVATION_PATH_ENVIRONMENT, None)
+	environment[GODOT_EXECUTABLE_ENV_VAR] = resolve_godot_executable(
+		environment=environment,
+		cwd=cwd,
+	)
+	return MappingProxyType(environment)
+
+
 def parallel_shard_environment(
 	workspace: Path,
 	isolation_root: Path,
+	*,
+	base_environment: Mapping[str, str] | None = None,
 ) -> tuple[dict[str, str], Path]:
 	"""Create a platform-native private user/config/cache boundary for one shard."""
 	if not isolation_root.is_absolute():
@@ -22365,7 +22766,11 @@ def parallel_shard_environment(
 	}
 	for directory in directories.values():
 		directory.mkdir(exist_ok=False)
-	environment = os.environ.copy()
+	environment = dict(
+		base_environment
+		if base_environment is not None
+		else capture_maintenance_process_environment(cwd=workspace)
+	)
 	environment.pop("GODOT_USER_HOME", None)
 	if os.name == "nt":
 		environment["APPDATA"] = str(directories["appdata"])
@@ -22387,6 +22792,10 @@ def parallel_shard_environment(
 		environment["TEMP"] = str(directories["temp"])
 		environment["TMP"] = str(directories["temp"])
 	environment["PYTHONUTF8"] = "1"
+	environment[GODOT_EXECUTABLE_ENV_VAR] = resolve_godot_executable(
+		environment=environment,
+		cwd=workspace,
+	)
 	return environment, isolation_root
 
 
@@ -22494,6 +22903,7 @@ def run_parallel_godot_isolation_probe(
 	deadline: float | None,
 	output_callback: Callable[[str, str, str], None] | None,
 	cleanup_state: dict[str, bool] | None = None,
+	base_process_environment: Mapping[str, str] | None = None,
 ) -> dict[str, Any]:
 	"""Prove that the current Godot executable honors two independent OS user roots."""
 	probe_root = parallel_root / "p"
@@ -22508,13 +22918,17 @@ def run_parallel_godot_isolation_probe(
 		environment, private_root = parallel_shard_environment(
 			project_root,
 			probe_root / "u" / f"p{label}",
+			base_environment=base_process_environment,
 		)
 		private_roots[label] = private_root
 		nonces[label] = nonce
 		shards.append(ParallelShard(
 			name=label,
 			command=(
-				resolve_godot_executable(environment=environment),
+				resolve_godot_executable(
+					environment=environment,
+					cwd=project_root,
+				),
 				"--headless",
 				"--path",
 				".",
@@ -22617,6 +23031,7 @@ def run_parallel_full_checks(
 	parallel_root: Path,
 	*,
 	validation_plan: gf_validation_catalog.ValidationPlan,
+	validation_catalog: gf_validation_catalog.ValidationCatalog,
 	jobs: int,
 	timeout_seconds: int | None,
 	suite_timeout_seconds: int | None,
@@ -22628,6 +23043,7 @@ def run_parallel_full_checks(
 	output_callback: Callable[[str, str, str], None] | None,
 	overall_started: float,
 	suite_deadline: float | None,
+	base_process_environment: Mapping[str, str] | None = None,
 	validation_occurrences_out: dict[str, list[dict[str, Any]]] | None = None,
 	cleanup_state: dict[str, bool] | None = None,
 ) -> dict[str, Any]:
@@ -22646,12 +23062,14 @@ def run_parallel_full_checks(
 			jobs,
 			suite_timeout_seconds,
 			validation_plan=validation_plan,
+			validation_catalog=validation_catalog,
 		)
 	godot_isolation = run_parallel_godot_isolation_probe(
 		parallel_root,
 		deadline=suite_deadline,
 		output_callback=output_callback,
 		cleanup_state=cleanup_state,
+		base_process_environment=base_process_environment,
 	)
 	occurrences: dict[str, list[tuple[str, dict[str, Any]]]] = {}
 	parallel_shard_reports: list[dict[str, Any]] = []
@@ -22697,11 +23115,13 @@ def run_parallel_full_checks(
 			cleanup_state["permitted"] = True
 			batch_shards: list[ParallelShard] = []
 			report_paths: dict[str, Path] = {}
+			command_contracts: dict[str, ParallelShardCommandContract] = {}
 			for batch_offset, shard_plan in enumerate(batch_plan):
 				workspace = workspace_by_shard[shard_plan.name]
 				shard, report_path = make_parallel_full_shard(
 					shard_plan,
 					workspace,
+					validation_catalog=validation_catalog,
 					private_environment_root=(
 						batch_root / "u" / str(batch_offset)
 					),
@@ -22710,9 +23130,22 @@ def run_parallel_full_checks(
 					fail_fast=fail_fast,
 					package_artifact_manifest=package_artifact_manifest,
 					package_artifact_manifest_sha256=package_artifact_manifest_sha256,
+					base_process_environment=base_process_environment,
 				)
 				batch_shards.append(shard)
 				report_paths[shard.name] = report_path
+				if shard.environment is None:
+					raise WorkspaceSnapshotError(
+						f"Parallel Full shard {shard.name!r} has no frozen process environment."
+					)
+				command_contracts[shard.name] = freeze_parallel_shard_command_contract(
+					expected_checks_by_shard[shard.name],
+					authority_catalog=validation_catalog,
+					environment=shard.environment,
+					workspace=workspace,
+					package_artifact_manifest=package_artifact_manifest,
+					package_artifact_manifest_sha256=package_artifact_manifest_sha256,
+				)
 				if progress_callback is not None:
 					progress_callback("started", f"shard:{shard.name}", None)
 			run_remaining = remaining_deadline_seconds(suite_deadline, "parallel Full execution")
@@ -22731,7 +23164,6 @@ def run_parallel_full_checks(
 				fail_fast=fail_fast,
 				output_callback=output_callback,
 			)
-			shard_results.extend(batch_results)
 			if any(
 				result.process_boundary_quiescent is not True
 				for result in batch_results
@@ -22741,7 +23173,16 @@ def run_parallel_full_checks(
 					"Parallel Full shard process-boundary cleanup was not proven."
 				)
 			cleanup_state["permitted"] = True
-			for shard_result in batch_results:
+			assert_parallel_shard_results_match_dispatch(
+				batch_shards,
+				batch_results,
+			)
+			shard_results.extend(batch_results)
+			for dispatched_shard, shard_result in zip(
+				batch_shards,
+				batch_results,
+				strict=True,
+			):
 				if progress_callback is not None:
 					progress_callback(
 						"finished",
@@ -22754,10 +23195,37 @@ def run_parallel_full_checks(
 					report_paths[shard_result.name],
 					expected_checks,
 					captured_workspace.workspace_state(),
+					validation_catalog=validation_catalog,
+					expected_command_contract=command_contracts[shard_result.name],
 					expected_check_graph=expected_check_graphs_by_shard[
 						shard_result.name
 					],
-					expected_package_artifact_manifest_sha256=package_artifact_manifest_sha256,
+					expected_requested_minimum_seconds=(
+						trusted_parallel_shard_timeout_option(
+							dispatched_shard.command,
+							"--timeout",
+						)
+					),
+					expected_suite_timeout_seconds=(
+						trusted_parallel_shard_timeout_option(
+							dispatched_shard.command,
+							"--suite-timeout",
+						)
+					),
+					expected_package_artifact_manifest=(
+						trusted_parallel_shard_command_option(
+							dispatched_shard.command,
+							"--package-artifact-manifest",
+						)
+						or ""
+					),
+					expected_package_artifact_manifest_sha256=(
+						trusted_parallel_shard_command_option(
+							dispatched_shard.command,
+							"--package-artifact-manifest-sha256",
+						)
+						or ""
+					),
 					expected_package_artifact_count=package_artifact_count,
 				)
 				try:
@@ -22778,7 +23246,12 @@ def run_parallel_full_checks(
 					for check_name in expected_checks:
 						occurrences.setdefault(check_name, []).append((
 							shard_result.name,
-							make_parallel_missing_check_result(check_name, shard_result, report_issue),
+							make_parallel_missing_check_result(
+								check_name,
+								shard_result,
+								report_issue,
+								validation_catalog=validation_catalog,
+							),
 						))
 						publish_parallel_validation_occurrences(
 							validation_occurrences_out,
@@ -22798,6 +23271,7 @@ def run_parallel_full_checks(
 								check_name,
 								shard_result,
 								"Shard ended before this check produced a result.",
+								validation_catalog=validation_catalog,
 							)
 						occurrences.setdefault(check_name, []).append((shard_result.name, result))
 						publish_parallel_validation_occurrences(
@@ -22845,6 +23319,7 @@ def run_parallel_full_checks(
 					failed_shards,
 					batch_root,
 					"fail-fast followed a failed parallel Full shard",
+					validation_catalog=validation_catalog,
 					cancelled=True,
 				)
 				publish_parallel_validation_occurrences(
@@ -22883,6 +23358,7 @@ def run_parallel_full_checks(
 					check_name,
 					fallback_shard,
 					"Parallel Full plan produced no occurrence for this check.",
+					validation_catalog=validation_catalog,
 				),
 			)]
 		failing = next(
@@ -22931,7 +23407,11 @@ def run_parallel_full_checks(
 		"parallel_plan": [
 			{
 				**shard.to_dict(),
-				"timeout_seconds": parallel_shard_timeout_seconds(shard, timeout_seconds),
+				"timeout_seconds": parallel_shard_timeout_seconds(
+					shard,
+					timeout_seconds,
+					validation_catalog=validation_catalog,
+				),
 			}
 			for shard in plan
 		],
@@ -22952,12 +23432,14 @@ def make_parallel_full_shard(
 	shard_plan: ParallelCheckShardPlan,
 	workspace: Path,
 	*,
+	validation_catalog: gf_validation_catalog.ValidationCatalog,
 	private_environment_root: Path,
 	timeout_seconds: int | None,
 	suite_deadline: float | None,
 	fail_fast: bool,
 	package_artifact_manifest: str,
 	package_artifact_manifest_sha256: str,
+	base_process_environment: Mapping[str, str] | None = None,
 ) -> tuple[ParallelShard, Path]:
 	report_relative_path = Path("build") / "p" / f"{shard_plan.name}.json"
 	command = [
@@ -22966,6 +23448,7 @@ def make_parallel_full_shard(
 		"--json-output",
 		report_relative_path.as_posix(),
 		"check",
+		"--internal-complete-output-evidence",
 		"--jobs",
 		"1",
 	]
@@ -22989,14 +23472,88 @@ def make_parallel_full_shard(
 	environment, _private_user_root = parallel_shard_environment(
 		workspace,
 		private_environment_root,
+		base_environment=base_process_environment,
 	)
 	return ParallelShard(
 		name=shard_plan.name,
 		command=tuple(command),
 		workspace=workspace,
-		timeout_seconds=parallel_shard_timeout_seconds(shard_plan, timeout_seconds),
+		timeout_seconds=parallel_shard_timeout_seconds(
+			shard_plan,
+			timeout_seconds,
+			validation_catalog=validation_catalog,
+		),
 		environment=environment,
 	), workspace / report_relative_path
+
+
+def freeze_parallel_shard_command_contract(
+	expected_checks: list[str],
+	*,
+	authority_catalog: gf_validation_catalog.ValidationCatalog,
+	environment: Mapping[str, str],
+	workspace: Path,
+	package_artifact_manifest: str,
+	package_artifact_manifest_sha256: str,
+) -> ParallelShardCommandContract:
+	"""Freeze every assigned action identity before the child process can start."""
+	if len(expected_checks) != len(set(expected_checks)):
+		raise WorkspaceSnapshotError("Parallel shard command contract contains duplicate actions.")
+	authority_commands = authority_catalog.command_definitions()
+	projected_commands = authority_catalog.project_static_commands(
+		root=workspace,
+		godot_log_directory=workspace / "ai_analysis" / "godot_logs",
+	)
+	if tuple(projected_commands) != tuple(authority_commands):
+		raise WorkspaceSnapshotError(
+			"Parallel shard static-command projection must preserve the captured Catalog action closure."
+		)
+	static_commands: dict[str, list[str]] = {}
+	for name, command in projected_commands.items():
+		if (
+			not isinstance(command, (list, tuple))
+			or not command
+			or any(type(part) is not str or not part for part in command)
+			or DEFERRED_COMMAND_SENTINEL in command
+		):
+			raise WorkspaceSnapshotError(
+				f"Parallel Full action {name!r} has an invalid projected static command."
+			)
+		static_commands[name] = list(command)
+	identities: dict[str, CommandIdentity] = {}
+	for name in expected_checks:
+		if name not in static_commands:
+			raise WorkspaceSnapshotError(
+				f"Parallel Full action {name!r} has no static Catalog command."
+			)
+		declared_command = list(static_commands[name])
+		if name in PACKAGE_ARTIFACT_CONSUMER_CHECKS:
+			if not package_artifact_manifest or not package_artifact_manifest_sha256:
+				raise WorkspaceSnapshotError(
+					f"Parallel Full action {name!r} is missing sealed artifact inputs."
+				)
+			declared_command.extend([
+				"--package-artifact-manifest",
+				package_artifact_manifest,
+				"--package-artifact-manifest-sha256",
+				package_artifact_manifest_sha256,
+			])
+		if (
+			authority_catalog.executor_kind(name)
+			is gf_validation_catalog.ValidationExecutorKind.SUBPROCESS
+		):
+			identity = resolve_command_identity(
+				declared_command,
+				environment=environment,
+				cwd=workspace,
+			)
+		else:
+			declared = tuple(declared_command)
+			identity = CommandIdentity(declared=declared, effective=declared)
+		identities[name] = identity
+	return ParallelShardCommandContract(
+		identities=MappingProxyType(identities),
+	)
 
 
 def append_unstarted_parallel_shards(
@@ -23008,6 +23565,7 @@ def append_unstarted_parallel_shards(
 	workspace_root: Path,
 	reason: str,
 	*,
+	validation_catalog: gf_validation_catalog.ValidationCatalog,
 	cancelled: bool,
 ) -> None:
 	for shard_plan in remaining_plan:
@@ -23031,7 +23589,12 @@ def append_unstarted_parallel_shards(
 		for check_name in expected_checks:
 			occurrences.setdefault(check_name, []).append((
 				shard_plan.name,
-				make_parallel_missing_check_result(check_name, shard_result, reason),
+				make_parallel_missing_check_result(
+					check_name,
+					shard_result,
+					reason,
+					validation_catalog=validation_catalog,
+				),
 			))
 		parallel_shard_reports.append({
 			"name": shard_plan.name,
@@ -23078,12 +23641,16 @@ def make_parallel_full_deadline_result(
 	suite_timeout_seconds: int,
 	*,
 	validation_plan: gf_validation_catalog.ValidationPlan,
+	validation_catalog: gf_validation_catalog.ValidationCatalog,
 ) -> dict[str, Any]:
 	canonical_checks = list(validation_plan.actions)
 	results = [
 		{
 			"name": check_name,
-			"command": list(CHECK_DEFINITIONS.get(check_name, ["<in-process>", check_name])),
+			"command": fallback_check_command(
+				check_name,
+				validation_catalog=validation_catalog,
+			),
 			"cwd": str(ROOT),
 			"exit_code": 124,
 			"timed_out": True,
@@ -23114,13 +23681,82 @@ def make_parallel_full_deadline_result(
 	}
 
 
+def assert_parallel_shard_results_match_dispatch(
+	dispatched_shards: list[ParallelShard],
+	shard_results: list[ParallelShardResult],
+) -> None:
+	"""Require supervisor metadata to echo the frozen parent dispatch exactly."""
+	if len(shard_results) != len(dispatched_shards):
+		raise WorkspaceSnapshotError(
+			"Parallel shard supervisor returned a result count that differs from dispatch."
+		)
+	for dispatched_shard, shard_result in zip(
+		dispatched_shards,
+		shard_results,
+		strict=True,
+	):
+		if (
+			shard_result.name != dispatched_shard.name
+			or shard_result.command != dispatched_shard.command
+			or shard_result.workspace != dispatched_shard.workspace
+		):
+			raise WorkspaceSnapshotError(
+				"Parallel shard supervisor result identity differs from its frozen parent dispatch."
+			)
+
+
+def trusted_parallel_shard_command_option(
+	command: tuple[str, ...],
+	option: str,
+) -> str | None:
+	"""Read one exact value from the frozen parent-dispatched shard command."""
+	indices = [index for index, part in enumerate(command) if part == option]
+	if not indices:
+		return None
+	if len(indices) != 1 or indices[0] + 1 >= len(command):
+		raise WorkspaceSnapshotError(
+			f"Parallel shard dispatch command has an invalid {option} option."
+		)
+	value = command[indices[0] + 1]
+	if not value:
+		raise WorkspaceSnapshotError(
+			f"Parallel shard dispatch command has an empty {option} value."
+		)
+	return value
+
+
+def trusted_parallel_shard_timeout_option(
+	command: tuple[str, ...],
+	option: str,
+) -> float | None:
+	value = trusted_parallel_shard_command_option(command, option)
+	if value is None:
+		return None
+	try:
+		seconds = float(value)
+	except ValueError as error:
+		raise WorkspaceSnapshotError(
+			f"Parallel shard dispatch command has an invalid {option} value."
+		) from error
+	if not math.isfinite(seconds) or seconds <= 0.0:
+		raise WorkspaceSnapshotError(
+			f"Parallel shard dispatch command has an invalid {option} value."
+		)
+	return seconds
+
+
 def load_parallel_shard_report(
 	shard_result: ParallelShardResult,
 	report_path: Path,
 	expected_checks: list[str],
 	expected_workspace_state: dict[str, object],
 	*,
+	validation_catalog: gf_validation_catalog.ValidationCatalog,
+	expected_command_contract: ParallelShardCommandContract,
 	expected_check_graph: dict[str, Any],
+	expected_requested_minimum_seconds: float | None = None,
+	expected_suite_timeout_seconds: float | None = None,
+	expected_package_artifact_manifest: str = "",
 	expected_package_artifact_manifest_sha256: str = "",
 	expected_package_artifact_count: int | None = None,
 ) -> tuple[dict[str, Any] | None, str]:
@@ -23159,6 +23795,21 @@ def load_parallel_shard_report(
 	suite_timeout = report.get("suite_timeout_seconds")
 	if suite_timeout is not None and not is_finite_positive_number(suite_timeout):
 		return None, "Shard report suite_timeout_seconds must be null or finite and positive."
+	if (
+		expected_requested_minimum_seconds is not None
+		and not is_finite_non_negative_number(expected_requested_minimum_seconds)
+	):
+		return None, "Parent shard requested timeout contract is invalid."
+	if (
+		expected_suite_timeout_seconds is not None
+		and not is_finite_positive_number(expected_suite_timeout_seconds)
+	):
+		return None, "Parent shard suite timeout contract is invalid."
+	if (suite_timeout is None) != (expected_suite_timeout_seconds is None) or (
+		suite_timeout is not None
+		and float(suite_timeout) != float(expected_suite_timeout_seconds)
+	):
+		return None, "Shard report suite_timeout_seconds differs from its parent dispatch contract."
 	if report.get("checks") != expected_checks:
 		return None, (
 			"Shard report check closure differs from its assigned plan: "
@@ -23190,7 +23841,10 @@ def load_parallel_shard_report(
 	if requires_package_artifact != ("package_artifact_set" in report):
 		return None, "Shard report package artifact provenance disagrees with its assigned checks."
 	if requires_package_artifact and (
-		SHA256_HEX_RE.fullmatch(expected_package_artifact_manifest_sha256) is None
+		not isinstance(expected_package_artifact_manifest, str)
+		or not expected_package_artifact_manifest
+		or not isinstance(expected_package_artifact_manifest_sha256, str)
+		or SHA256_HEX_RE.fullmatch(expected_package_artifact_manifest_sha256) is None
 		or type(expected_package_artifact_count) is not int
 		or expected_package_artifact_count <= 0
 	):
@@ -23232,6 +23886,57 @@ def load_parallel_shard_report(
 		return None, "Shard report contains duplicate check results."
 	if result_names != expected_checks[:len(result_names)]:
 		return None, "Shard report results must be an ordered prefix of its assigned check closure."
+	if tuple(expected_command_contract.identities) != tuple(expected_checks) or any(
+		not isinstance(identity, CommandIdentity)
+		for identity in expected_command_contract.identities.values()
+	):
+		return None, "Parent shard command identity contract is missing or inconsistent."
+	for name, identity in expected_command_contract.identities.items():
+		try:
+			declared_manifest = trusted_parallel_shard_command_option(
+				identity.declared,
+				"--package-artifact-manifest",
+			)
+			declared_manifest_sha256 = trusted_parallel_shard_command_option(
+				identity.declared,
+				"--package-artifact-manifest-sha256",
+			)
+			effective_manifest = trusted_parallel_shard_command_option(
+				identity.effective,
+				"--package-artifact-manifest",
+			)
+			effective_manifest_sha256 = trusted_parallel_shard_command_option(
+				identity.effective,
+				"--package-artifact-manifest-sha256",
+			)
+		except WorkspaceSnapshotError:
+			return None, (
+				f"Parent shard command identity for {name!r} has invalid package artifact options."
+			)
+		artifact_identity = (
+			declared_manifest,
+			declared_manifest_sha256,
+			effective_manifest,
+			effective_manifest_sha256,
+		)
+		if name in PACKAGE_ARTIFACT_CONSUMER_CHECKS:
+			if artifact_identity != (
+				expected_package_artifact_manifest,
+				expected_package_artifact_manifest_sha256,
+				expected_package_artifact_manifest,
+				expected_package_artifact_manifest_sha256,
+			):
+				return None, (
+					f"Parent shard package artifact command identity for {name!r} "
+					"differs from its dispatch contract."
+				)
+		elif any(value is not None for value in artifact_identity):
+			return None, (
+				f"Parent shard non-consumer command identity for {name!r} "
+				"unexpectedly contains package artifact options."
+			)
+	accepted_result_fingerprints: dict[str, str] = {}
+	previous_suite_remaining_seconds = expected_suite_timeout_seconds
 	for result in results:
 		name = str(result["name"])
 		result_fields = set(result)
@@ -23270,6 +23975,10 @@ def load_parallel_shard_report(
 		command = result.get("command")
 		if not isinstance(command, list) or not command or any(not isinstance(part, str) or not part for part in command):
 			return None, f"Shard result {name!r} command must be a non-empty string array."
+		if DEFERRED_COMMAND_SENTINEL in command:
+			return None, (
+				f"Shard result {name!r} executed a deferred-command placeholder."
+			)
 		cwd = result.get("cwd")
 		if (
 			not isinstance(cwd, str)
@@ -23280,8 +23989,19 @@ def load_parallel_shard_report(
 			!= os.path.normcase(os.path.abspath(shard_result.workspace))
 		):
 			return None, f"Shard result {name!r} cwd must equal its assigned workspace."
-		if result.get("execution") not in {"subprocess", "in_process"}:
-			return None, f"Shard result {name!r} execution is unsupported."
+		try:
+			expected_executor = validation_catalog.executor_kind(name)
+		except gf_validation_catalog.ValidationCatalogError:
+			return None, f"Shard result {name!r} is not declared by the Validation Catalog."
+		if result.get("execution") != expected_executor.value:
+			return None, (
+				f"Shard result {name!r} execution does not match the Validation Catalog."
+			)
+		command_identity = expected_command_contract.identities[name]
+		if command != list(command_identity.effective):
+			return None, (
+				f"Shard result {name!r} command does not match its frozen execution identity."
+			)
 		if not isinstance(result.get("stdout"), str) or not isinstance(result.get("stderr"), str):
 			return None, f"Shard result {name!r} stdout and stderr must be strings."
 		all_output_evidence_fields = {
@@ -23290,18 +24010,9 @@ def load_parallel_shard_report(
 			for suffix in ("char_count", "utf8_byte_count", "sha256", "truncated")
 		}
 		present_output_evidence_fields = all_output_evidence_fields.intersection(result_fields)
-		if present_output_evidence_fields and present_output_evidence_fields != all_output_evidence_fields:
+		if present_output_evidence_fields != all_output_evidence_fields:
 			return None, f"Shard result {name!r} output evidence must cover both streams."
 		for stream_name in ("stdout", "stderr"):
-			evidence_fields = {
-				f"{stream_name}_char_count",
-				f"{stream_name}_utf8_byte_count",
-				f"{stream_name}_sha256",
-				f"{stream_name}_truncated",
-			}
-			present_evidence_fields = evidence_fields.intersection(result_fields)
-			if not present_evidence_fields:
-				continue
 			stream_tail = result[stream_name]
 			try:
 				stream_tail_bytes = stream_tail.encode("utf-8")
@@ -23322,11 +24033,10 @@ def load_parallel_shard_report(
 			):
 				return None, f"Shard result {name!r} {stream_name} output evidence is invalid."
 			if truncated:
-				if char_count <= len(stream_tail) or utf8_byte_count <= len(stream_tail_bytes):
-					return None, (
-						f"Shard result {name!r} {stream_name} truncated tail is inconsistent."
-					)
-			elif (
+				return None, (
+					f"Shard result {name!r} {stream_name} must contain complete output evidence."
+				)
+			if (
 				char_count != len(stream_tail)
 				or utf8_byte_count != len(stream_tail_bytes)
 				or sha256 != hashlib.sha256(stream_tail_bytes).hexdigest()
@@ -23338,10 +24048,16 @@ def load_parallel_shard_report(
 			return None, f"Shard result {name!r} timeout_seconds must be finite and positive."
 		dependencies = result.get("dependencies")
 		dependency_fingerprints = result.get("dependency_fingerprints")
+		expected_dependencies = [
+			str(edge.get("depends_on", ""))
+			for edge in expected_check_graph.get("edges", [])
+			if isinstance(edge, dict) and edge.get("check") == name
+		]
 		if (
 			not isinstance(dependencies, list)
 			or any(not isinstance(value, str) or not value for value in dependencies)
 			or len(dependencies) != len(set(dependencies))
+			or dependencies != expected_dependencies
 			or not isinstance(dependency_fingerprints, dict)
 			or set(dependency_fingerprints) != set(dependencies)
 			or any(
@@ -23350,6 +24066,14 @@ def load_parallel_shard_report(
 			)
 		):
 			return None, f"Shard result {name!r} dependency provenance is invalid."
+		if any(
+			accepted_result_fingerprints.get(dependency)
+			!= dependency_fingerprints[dependency]
+			for dependency in dependencies
+		):
+			return None, (
+				f"Shard result {name!r} dependency fingerprints do not match prior results."
+			)
 		if "pid" in result and (type(result["pid"]) is not int or result["pid"] <= 0):
 			return None, f"Shard result {name!r} pid must be a positive integer."
 		if "streamed_output" in result and type(result["streamed_output"]) is not bool:
@@ -23428,6 +24152,94 @@ def load_parallel_shard_report(
 				or float(budget_value) < 0.0
 			):
 				return None, f"Shard result {name!r} timeout_budget.{budget_field} must be null or finite and non-negative."
+		catalog_policy_seconds = float(
+			validation_catalog.timeout_floor_seconds(name)
+		)
+		requested_minimum_seconds = timeout_budget["requested_minimum_seconds"]
+		suite_remaining_seconds = timeout_budget["suite_remaining_seconds"]
+		if (
+			(requested_minimum_seconds is None)
+			!= (expected_requested_minimum_seconds is None)
+			or (
+				requested_minimum_seconds is not None
+				and float(requested_minimum_seconds)
+				!= float(expected_requested_minimum_seconds)
+			)
+		):
+			return None, (
+				f"Shard result {name!r} requested timeout differs from its parent dispatch contract."
+			)
+		if expected_suite_timeout_seconds is None:
+			if suite_remaining_seconds is not None:
+				return None, (
+					f"Shard result {name!r} reports suite time without a parent suite timeout."
+				)
+		elif suite_remaining_seconds is None:
+			return None, (
+				f"Shard result {name!r} omits remaining suite time from a bounded parent dispatch."
+			)
+		else:
+			reported_remaining_seconds = float(suite_remaining_seconds)
+			if (
+				reported_remaining_seconds > float(expected_suite_timeout_seconds)
+				or (
+					previous_suite_remaining_seconds is not None
+					and reported_remaining_seconds
+					> float(previous_suite_remaining_seconds)
+				)
+			):
+				return None, (
+					f"Shard result {name!r} remaining suite time exceeds its parent dispatch contract."
+				)
+			previous_suite_remaining_seconds = reported_remaining_seconds
+		resolved_timeout_budget = resolve_timeout_budget(
+			catalog_policy_seconds,
+			(
+				None
+				if requested_minimum_seconds is None
+				else float(requested_minimum_seconds)
+			),
+			(
+				None
+				if suite_remaining_seconds is None
+				else float(suite_remaining_seconds)
+			),
+		)
+		if float(timeout_budget["policy_seconds"]) != catalog_policy_seconds:
+			return None, (
+				f"Shard result {name!r} timeout policy does not match the Validation Catalog."
+			)
+		if (
+			float(timeout_budget["effective_seconds"])
+			!= resolved_timeout_budget.effective_seconds
+		):
+			return None, f"Shard result {name!r} effective timeout is inconsistent."
+		if float(result["timeout_seconds"]) != resolved_timeout_budget.effective_seconds:
+			return None, (
+				f"Shard result {name!r} timeout_seconds disagrees with its timeout budget."
+			)
+		expected_input_fingerprint = make_check_input_fingerprint(
+			name,
+			list(command_identity.declared),
+			list(command_identity.effective),
+			str(expected_workspace_fingerprint),
+			dependency_fingerprints,
+			resolved_timeout_budget,
+		)
+		if result["input_fingerprint"] != expected_input_fingerprint:
+			return None, f"Shard result {name!r} input_fingerprint is inconsistent."
+		expected_result_fingerprint = (
+			make_check_result_fingerprint_from_output_evidence(
+				result["input_fingerprint"],
+				exit_code=exit_code,
+				timed_out=timed_out,
+				stdout_sha256=str(result["stdout_sha256"]),
+				stderr_sha256=str(result["stderr_sha256"]),
+			)
+		)
+		if result["result_fingerprint"] != expected_result_fingerprint:
+			return None, f"Shard result {name!r} result_fingerprint is inconsistent."
+		accepted_result_fingerprints[name] = expected_result_fingerprint
 	result_success = (
 		len(results) == len(expected_checks)
 		and all(
@@ -23444,7 +24256,29 @@ def load_parallel_shard_report(
 			"Shard process outcome disagrees with its report: "
 			f"process_ok={shard_result.ok}, report_ok={report.get('ok')}"
 		)
+	bound_verified_parallel_report_output(report)
 	return report, ""
+
+
+def bound_verified_parallel_report_output(
+	report: dict[str, Any],
+	*,
+	max_output_chars: int = DEFAULT_COMMAND_RESULT_OUTPUT_CHARS,
+) -> None:
+	"""Restore public diagnostic tails only after complete shard evidence is trusted."""
+	if type(max_output_chars) is not int or max_output_chars < 0:
+		raise ValueError("Verified output tail limit must be a non-negative integer.")
+	for result in report["results"]:
+		for stream_name in ("stdout", "stderr"):
+			stream_text = result[stream_name]
+			if len(stream_text) <= max_output_chars:
+				continue
+			result[stream_name] = (
+				stream_text[-max_output_chars:]
+				if max_output_chars > 0
+				else ""
+			)
+			result[f"{stream_name}_truncated"] = True
 
 
 def reject_non_finite_json_constant(value: str) -> None:
@@ -23477,11 +24311,16 @@ def make_parallel_missing_check_result(
 	check_name: str,
 	shard_result: ParallelShardResult,
 	reason: str,
+	*,
+	validation_catalog: gf_validation_catalog.ValidationCatalog,
 ) -> dict[str, Any]:
 	exit_code = 130 if shard_result.cancelled else (124 if shard_result.timed_out else 125)
 	return {
 		"name": check_name,
-		"command": list(CHECK_DEFINITIONS.get(check_name, ["<in-process>", check_name])),
+		"command": fallback_check_command(
+			check_name,
+			validation_catalog=validation_catalog,
+		),
 		"cwd": str(shard_result.workspace),
 		"exit_code": exit_code,
 		"process_exit_code": shard_result.process_exit_code,
@@ -23814,6 +24653,7 @@ def same_open_file_identity(left: os.stat_result, right: os.stat_result) -> bool
 
 def run_checks_with_active_snapshot(
 	validation_plan: gf_validation_catalog.ValidationPlan,
+	validation_executor_binding: ValidationExecutorBinding,
 	timeout_seconds: int | None = None,
 	suite_timeout_seconds: int | None = None,
 	fail_fast: bool = False,
@@ -23821,9 +24661,11 @@ def run_checks_with_active_snapshot(
 	artifact_manifest: str = "",
 	package_artifact_manifest: str = "",
 	package_artifact_manifest_sha256: str = "",
+	complete_output_evidence: bool = False,
 	progress_callback: Callable[[str, str, float | None], None] | None = None,
 	output_callback: Callable[[str, str, str], None] | None = None,
 	workspace_state: dict[str, Any] | None = None,
+	process_environment: Mapping[str, str] | None = None,
 ) -> dict[str, Any]:
 	suite_started = time.perf_counter()
 	suite_deadline = (
@@ -23835,26 +24677,39 @@ def run_checks_with_active_snapshot(
 	graph = validation_plan.check_graph
 	effective_workspace_state = workspace_state or workspace_fingerprint(ROOT)
 	workspace_state_fingerprint = str(effective_workspace_state["fingerprint"])
+	subprocess_environment = dict(
+		process_environment
+		if process_environment is not None
+		else capture_maintenance_process_environment(cwd=ROOT)
+	)
+	subprocess_environment.pop(GUT_SHARD_OBSERVATION_NONCE_ENVIRONMENT, None)
+	subprocess_environment.pop(GUT_SHARD_OBSERVATION_PATH_ENVIRONMENT, None)
+	subprocess_environment[GODOT_EXECUTABLE_ENV_VAR] = resolve_godot_executable(
+		environment=subprocess_environment,
+		cwd=ROOT,
+	)
 	results: list[dict[str, Any]] = []
 	result_exit_codes: dict[str, int] = {}
 	result_fingerprints: dict[str, str] = {}
-	in_process_runners = maintenance_in_process_check_runners()
+	deferred_command_context = DeferredCommandContext(
+		artifact_manifest=artifact_manifest,
+		allow_breaking_api=allow_breaking_api,
+	)
 	for name in check_names:
-		check_command_value = check_command(
+		fallback_command = fallback_check_command(
 			name,
 			package_artifact_manifest,
 			package_artifact_manifest_sha256,
+			validation_catalog=validation_executor_binding.catalog,
 		)
-		if name == "release_metadata":
-			check_command_value = [*check_command_value, "--artifact-manifest", artifact_manifest]
-			if allow_breaking_api:
-				check_command_value.append("--allow-breaking-api")
 		remaining_seconds = (
 			max(0.0, suite_deadline - time.perf_counter())
 			if suite_deadline is not None
 			else None
 		)
-		policy_timeout_seconds = float(resolve_check_timeout_seconds(name, None))
+		policy_timeout_seconds = float(
+			validation_executor_binding.catalog.timeout_floor_seconds(name)
+		)
 		timeout_budget = resolve_timeout_budget(
 			policy_timeout_seconds,
 			float(timeout_seconds) if timeout_seconds is not None else None,
@@ -23866,17 +24721,18 @@ def run_checks_with_active_snapshot(
 			for dependency in dependencies
 			if dependency in result_fingerprints
 		}
-		input_fingerprint = make_check_input_fingerprint(
-			name,
-			check_command_value,
-			workspace_state_fingerprint,
-			dependency_fingerprints,
-			timeout_budget,
-		)
 		if remaining_seconds is not None and remaining_seconds <= 0.0:
+			input_fingerprint = make_check_input_fingerprint(
+				name,
+				fallback_command,
+				None,
+				workspace_state_fingerprint,
+				dependency_fingerprints,
+				timeout_budget,
+			)
 			result = CommandResult(
 				name=name,
-				command=check_command_value,
+				command=fallback_command,
 				exit_code=124,
 				stdout="",
 				stderr="Suite deadline exhausted before this check started.",
@@ -23895,6 +24751,7 @@ def run_checks_with_active_snapshot(
 				dependency_fingerprints,
 				input_fingerprint,
 				timeout_budget.to_dict(),
+				complete_output_evidence=complete_output_evidence,
 			)
 			break
 		if progress_callback is not None:
@@ -23902,9 +24759,17 @@ def run_checks_with_active_snapshot(
 		check_timeout_seconds = timeout_budget.effective_seconds
 		blocked_by = [dependency for dependency in dependencies if result_exit_codes.get(dependency, 1) != 0]
 		if blocked_by:
+			input_fingerprint = make_check_input_fingerprint(
+				name,
+				fallback_command,
+				None,
+				workspace_state_fingerprint,
+				dependency_fingerprints,
+				timeout_budget,
+			)
 			result = CommandResult(
 				name=name,
-				command=check_command_value,
+				command=fallback_command,
 				exit_code=125,
 				stdout="",
 				stderr=f"Blocked by failed dependencies: {', '.join(blocked_by)}",
@@ -23922,15 +24787,92 @@ def run_checks_with_active_snapshot(
 				dependency_fingerprints,
 				input_fingerprint,
 				timeout_budget.to_dict(),
+				complete_output_evidence=complete_output_evidence,
 			)
 			payload["blocked_by"] = blocked_by
 			if progress_callback is not None:
 				progress_callback("finished", name, 0.0)
 			continue
-		if name in in_process_runners:
-			result = run_in_process_check(name, in_process_runners[name], check_timeout_seconds)
+		try:
+			check_command_value = materialize_check_command(
+				name,
+				package_artifact_manifest,
+				package_artifact_manifest_sha256,
+				validation_executor_binding=validation_executor_binding,
+				deferred_command_context=deferred_command_context,
+			)
+		except DeferredCommandMaterializationError:
+			input_fingerprint = make_check_input_fingerprint(
+				name,
+				fallback_command,
+				None,
+				workspace_state_fingerprint,
+				dependency_fingerprints,
+				timeout_budget,
+			)
+			result = CommandResult(
+				name=name,
+				command=fallback_command,
+				exit_code=125,
+				stdout="",
+				stderr="Deferred command materialization failed before action dispatch.",
+				notes=["The deferred action was not executed."],
+				duration_seconds=0.0,
+				timeout_seconds=check_timeout_seconds,
+				execution="not_started",
+			)
+			append_check_result(
+				results,
+				result_exit_codes,
+				result_fingerprints,
+				result,
+				dependencies,
+				dependency_fingerprints,
+				input_fingerprint,
+				timeout_budget.to_dict(),
+				complete_output_evidence=complete_output_evidence,
+			)
+			if progress_callback is not None:
+				progress_callback("finished", name, 0.0)
+			if fail_fast:
+				break
+			continue
+		executor_kind = validation_executor_binding.catalog.executor_kind(name)
+		if executor_kind is gf_validation_catalog.ValidationExecutorKind.IN_PROCESS:
+			declared_command = tuple(check_command_value)
+			command_identity = CommandIdentity(
+				declared=declared_command,
+				effective=declared_command,
+			)
 		else:
-			result = run_command(name, check_command_value, check_timeout_seconds, output_callback)
+			command_identity = resolve_command_identity(
+				check_command_value,
+				environment=subprocess_environment,
+				cwd=ROOT,
+			)
+		input_fingerprint = make_check_input_fingerprint(
+			name,
+			list(command_identity.declared),
+			list(command_identity.effective),
+			workspace_state_fingerprint,
+			dependency_fingerprints,
+			timeout_budget,
+		)
+		if executor_kind is gf_validation_catalog.ValidationExecutorKind.IN_PROCESS:
+			result = run_in_process_check(
+				name,
+				list(command_identity.effective),
+				validation_executor_binding.in_process_adapters[name],
+				check_timeout_seconds,
+			)
+		else:
+			result = run_command(
+				name,
+				command_identity,
+				check_timeout_seconds,
+				output_callback,
+				environment=subprocess_environment,
+			)
 		append_check_result(
 			results,
 			result_exit_codes,
@@ -23940,6 +24882,7 @@ def run_checks_with_active_snapshot(
 			dependency_fingerprints,
 			input_fingerprint,
 			timeout_budget.to_dict(),
+			complete_output_evidence=complete_output_evidence,
 		)
 		if progress_callback is not None:
 			progress_callback("finished", name, result.duration_seconds)
@@ -24026,7 +24969,11 @@ def run_maintenance_subprocess(
 	cwd: Path = ROOT,
 	environment: dict[str, str] | None = None,
 ) -> subprocess.CompletedProcess[str]:
-	effective_command = resolve_godot_command(command, environment=environment)
+	effective_command = resolve_godot_command(
+		command,
+		environment=environment,
+		cwd=cwd,
+	)
 	try:
 		result = run_supervised_process(
 			effective_command,
@@ -24072,7 +25019,7 @@ def run_maintenance_subprocess(
 
 def run_command(
 	name: str,
-	command: list[str],
+	command: list[str] | CommandIdentity,
 	timeout_seconds: float,
 	output_callback: Callable[[str, str, str], None] | None = None,
 	*,
@@ -24086,10 +25033,14 @@ def run_command(
 		process_environment = dict(os.environ)
 		process_environment.pop(GUT_SHARD_OBSERVATION_NONCE_ENVIRONMENT, None)
 		process_environment.pop(GUT_SHARD_OBSERVATION_PATH_ENVIRONMENT, None)
-	effective_command = resolve_godot_command(
-		command,
-		environment=process_environment,
-	)
+	if isinstance(command, CommandIdentity):
+		effective_command = list(command.effective)
+	else:
+		effective_command = resolve_godot_command(
+			command,
+			environment=process_environment,
+			cwd=ROOT,
+		)
 	try:
 		log_paths = prepare_command_log_paths(effective_command)
 		supervisor_invoked = True

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Canonical action, timeout, dependency, group, and suite catalog for GF validation."""
+"""Canonical action, executor, timeout, dependency, group, and suite catalog."""
 
 from __future__ import annotations
 
@@ -7,6 +7,7 @@ import re
 from collections.abc import Iterable
 from collections.abc import Sequence
 from dataclasses import dataclass
+from enum import Enum
 from pathlib import Path
 from types import MappingProxyType
 from typing import Any
@@ -21,6 +22,17 @@ _CATALOG_NAME_RE = re.compile(r"^[a-z][a-z0-9_-]*$")
 
 class ValidationCatalogError(ValueError):
 	"""Raised when the canonical validation catalog is incomplete or ambiguous."""
+
+
+class ValidationExecutorKind(str, Enum):
+	"""Closed executor choices declared independently from runtime result states."""
+
+	IN_PROCESS = "in_process"
+	SUBPROCESS = "subprocess"
+
+	def __str__(self) -> str:
+		"""Keep the Python 3.11 StrEnum string contract on Python 3.10."""
+		return self.value
 
 
 @dataclass(frozen=True)
@@ -68,15 +80,18 @@ class ValidationCatalog:
 	def __init__(
 		self,
 		*,
-		actions: Iterable[tuple[str, Sequence[str] | None]],
+		actions: Iterable[
+			tuple[str, Sequence[str] | None, ValidationExecutorKind]
+		],
 		dependencies: Iterable[tuple[str, Sequence[str]]],
 		check_groups: Iterable[tuple[str, Sequence[str]]],
 		suites: Iterable[tuple[str, Sequence[str]]],
 		parallel_full_shard_suites: Sequence[str],
 		default_timeout_seconds: int,
 		timeout_overrides: Iterable[tuple[str, int]],
+		command_projection_context: ValidationCatalogContext | None = None,
 	) -> None:
-		validated_actions = _validate_actions(actions)
+		validated_actions, validated_executors = _validate_actions(actions)
 		action_names = tuple(validated_actions)
 		known_actions = frozenset(action_names)
 		validated_default_timeout_seconds = _validated_positive_timeout_seconds(
@@ -111,7 +126,20 @@ class ValidationCatalog:
 		self._actions: Mapping[str, tuple[str, ...] | None] = MappingProxyType(
 			validated_actions
 		)
+		self._executors: Mapping[str, ValidationExecutorKind] = MappingProxyType(
+			validated_executors
+		)
 		self._action_names = action_names
+		self._in_process_action_names = tuple(
+			name
+			for name, executor_kind in self._executors.items()
+			if executor_kind is ValidationExecutorKind.IN_PROCESS
+		)
+		self._deferred_action_names = tuple(
+			name
+			for name, command in self._actions.items()
+			if command is None
+		)
 		self._default_timeout_seconds = validated_default_timeout_seconds
 		self._timeout_overrides: Mapping[str, int] = MappingProxyType(
 			validated_timeout_overrides
@@ -127,6 +155,14 @@ class ValidationCatalog:
 			validated_suites
 		)
 		self._parallel_full_shard_suites = validated_parallel_suites
+		if (
+			command_projection_context is not None
+			and type(command_projection_context) is not ValidationCatalogContext
+		):
+			raise ValidationCatalogError(
+				"Validation command projection context must be a ValidationCatalogContext."
+			)
+		self._command_projection_context = command_projection_context
 
 	@property
 	def action_names(self) -> tuple[str, ...]:
@@ -140,6 +176,72 @@ class ValidationCatalog:
 			for name, command in self._actions.items()
 			if command is not None
 		}
+
+	def project_static_commands(
+		self,
+		*,
+		root: Path,
+		godot_log_directory: Path,
+	) -> dict[str, list[str]]:
+		"""Project only root-bound argv from this captured Catalog to one workspace."""
+		context = self._command_projection_context
+		if context is None:
+			raise ValidationCatalogError(
+				"Validation Catalog has no static-command projection context."
+			)
+		if not isinstance(root, Path) or not isinstance(godot_log_directory, Path):
+			raise ValidationCatalogError(
+				"Validation command projection paths must be pathlib.Path values."
+			)
+		path_projections = (
+			(
+				context.godot_log_directory.as_posix(),
+				godot_log_directory.as_posix(),
+			),
+			(
+				(context.root / "ai_analysis/mkdocs_site").as_posix(),
+				(root / "ai_analysis/mkdocs_site").as_posix(),
+			),
+		)
+		return {
+			name: [
+				_project_static_command_argument(argument, path_projections)
+				for argument in command
+			]
+			for name, command in self._actions.items()
+			if command is not None
+		}
+
+	def static_command(self, action_name: str) -> list[str] | None:
+		"""Return one detached static command, or None for a known deferred action."""
+		_validate_action_name(action_name)
+		try:
+			command = self._actions[action_name]
+		except KeyError as error:
+			raise ValidationCatalogError(
+				f"Unknown validation action command: {action_name}"
+			) from error
+		return list(command) if command is not None else None
+
+	@property
+	def in_process_action_names(self) -> tuple[str, ...]:
+		"""Return in-process actions in canonical declaration order."""
+		return self._in_process_action_names
+
+	@property
+	def deferred_action_names(self) -> tuple[str, ...]:
+		"""Return actions whose commands must be materialized by the runner."""
+		return self._deferred_action_names
+
+	def executor_kind(self, action_name: str) -> ValidationExecutorKind:
+		"""Return the explicitly declared executor for one known action."""
+		_validate_action_name(action_name)
+		try:
+			return self._executors[action_name]
+		except KeyError as error:
+			raise ValidationCatalogError(
+				f"Unknown validation action executor: {action_name}"
+			) from error
 
 	@property
 	def default_timeout_seconds(self) -> int:
@@ -304,8 +406,23 @@ def build_validation_catalog(context: ValidationCatalogContext) -> ValidationCat
 	def python_script(script: str, *arguments: str) -> tuple[str, ...]:
 		return (python, script, *arguments)
 
-	actions: tuple[tuple[str, tuple[str, ...] | None], ...] = (
-		(
+	def in_process_action(
+		name: str,
+		command: tuple[str, ...] | None,
+	) -> tuple[str, tuple[str, ...] | None, ValidationExecutorKind]:
+		return (name, command, ValidationExecutorKind.IN_PROCESS)
+
+	def subprocess_action(
+		name: str,
+		command: tuple[str, ...] | None,
+	) -> tuple[str, tuple[str, ...] | None, ValidationExecutorKind]:
+		return (name, command, ValidationExecutorKind.SUBPROCESS)
+
+	actions: tuple[
+		tuple[str, tuple[str, ...] | None, ValidationExecutorKind],
+		...,
+	] = (
+		subprocess_action(
 			"godot_import",
 			(
 				"godot",
@@ -317,11 +434,11 @@ def build_validation_catalog(context: ValidationCatalogContext) -> ValidationCat
 				"--import",
 			),
 		),
-		(
+		subprocess_action(
 			"gut_lifecycle_smoke",
 			python_script("tools/gf_gut_lifecycle_smoke.py", "--json"),
 		),
-		(
+		subprocess_action(
 			"gut",
 			(
 				"godot",
@@ -339,8 +456,11 @@ def build_validation_catalog(context: ValidationCatalogContext) -> ValidationCat
 				"-gexit",
 			),
 		),
-		("api", python_script("tools/generate_api_reference.py", "--check")),
-		(
+		in_process_action(
+			"api",
+			python_script("tools/generate_api_reference.py", "--check"),
+		),
+		in_process_action(
 			"ai_api",
 			python_script(
 				"tools/generate_ai_api.py",
@@ -352,11 +472,11 @@ def build_validation_catalog(context: ValidationCatalogContext) -> ValidationCat
 				"--check-wiki-coverage",
 			),
 		),
-		(
+		subprocess_action(
 			"ai_developer_kit",
 			python_script("tests/gf_core/tools/ai_developer/test_gf_ai_project_tool.py"),
 		),
-		(
+		subprocess_action(
 			"ai_developer_adapter_acceptance",
 			python_script(
 				"tools/build_gf_ai_developer_kit.py",
@@ -364,7 +484,7 @@ def build_validation_catalog(context: ValidationCatalogContext) -> ValidationCat
 				"--json",
 			),
 		),
-		(
+		subprocess_action(
 			"ai_developer_kit_source",
 			python_script(
 				"tools/build_gf_ai_developer_kit.py",
@@ -372,65 +492,113 @@ def build_validation_catalog(context: ValidationCatalogContext) -> ValidationCat
 				"--json",
 			),
 		),
-		("docs", python_script("tools/check_docs_quality.py", "--strict")),
-		("changelog_policy", maintenance_command("changelog-policy", "--json")),
-		(
+		in_process_action(
+			"docs",
+			python_script("tools/check_docs_quality.py", "--strict"),
+		),
+		in_process_action(
+			"changelog_policy",
+			maintenance_command("changelog-policy", "--json"),
+		),
+		subprocess_action(
 			"repository_policy",
 			python_script("tools/gf_repository_policy.py", "validate", "--json"),
 		),
-		("credential_gate", python_script("tools/gf_credential_gate.py", "--json")),
-		(
+		subprocess_action(
+			"credential_gate",
+			python_script("tools/gf_credential_gate.py", "--json"),
+		),
+		subprocess_action(
 			"credential_gate_tests",
 			python_script("tests/gf_core/tools/test_gf_credential_gate.py"),
 		),
-		(
+		in_process_action(
 			"codeql_suppression_policy",
 			maintenance_command("codeql-suppression-policy", "--json"),
 		),
-		(
+		subprocess_action(
 			"codeql_suppression_policy_tests",
 			python_script("tests/gf_core/tools/test_gf_codeql_suppression_policy.py"),
 		),
-		("public_docs_boundary", maintenance_command("public-docs-boundary")),
-		("public_api_boundary", maintenance_command("public-api-boundary")),
-		(
+		in_process_action(
+			"public_docs_boundary",
+			maintenance_command("public-docs-boundary"),
+		),
+		in_process_action(
+			"public_api_boundary",
+			maintenance_command("public-api-boundary"),
+		),
+		in_process_action(
 			"resource_boundary",
 			maintenance_command("resource-boundary", "--fail-on-issues"),
 		),
-		("content_package_boundary", maintenance_command("content-package-boundary")),
-		("asset_lifecycle_boundary", maintenance_command("asset-lifecycle-boundary")),
-		("project_profile_boundary", maintenance_command("project-profile-boundary")),
-		("package_boundary", maintenance_command("package-boundary")),
-		("package_closure_audit", maintenance_command("package-closure-audit")),
-		("package_source_boundary", maintenance_command("package-source-boundary")),
-		("package_build_boundary", maintenance_command("package-build-boundary")),
-		(
+		in_process_action(
+			"content_package_boundary",
+			maintenance_command("content-package-boundary"),
+		),
+		in_process_action(
+			"asset_lifecycle_boundary",
+			maintenance_command("asset-lifecycle-boundary"),
+		),
+		in_process_action(
+			"project_profile_boundary",
+			maintenance_command("project-profile-boundary"),
+		),
+		in_process_action("package_boundary", maintenance_command("package-boundary")),
+		in_process_action(
+			"package_closure_audit",
+			maintenance_command("package-closure-audit"),
+		),
+		in_process_action(
+			"package_source_boundary",
+			maintenance_command("package-source-boundary"),
+		),
+		subprocess_action(
+			"package_build_boundary",
+			maintenance_command("package-build-boundary"),
+		),
+		in_process_action(
 			"package_user_dependency_boundary",
 			maintenance_command("package-user-dependency-boundary"),
 		),
-		(
+		in_process_action(
 			"package_external_command_audit",
 			maintenance_command("package-external-command-audit", "--fail-on-warnings"),
 		),
-		("core_only_smoke", maintenance_command("core-only-smoke")),
-		("core_plugin_bootstrap_smoke", maintenance_command("core-plugin-bootstrap-smoke")),
-		("package_editor_wizard_smoke", maintenance_command("package-editor-wizard-smoke")),
-		("package_focused_gut_mapping", maintenance_command("package-focused-gut-mapping")),
-		("package_godot_cli_smoke", maintenance_command("package-godot-cli-smoke")),
-		(
+		in_process_action("core_only_smoke", maintenance_command("core-only-smoke")),
+		subprocess_action(
+			"core_plugin_bootstrap_smoke",
+			maintenance_command("core-plugin-bootstrap-smoke"),
+		),
+		subprocess_action(
+			"package_editor_wizard_smoke",
+			maintenance_command("package-editor-wizard-smoke"),
+		),
+		in_process_action(
+			"package_focused_gut_mapping",
+			maintenance_command("package-focused-gut-mapping"),
+		),
+		subprocess_action(
+			"package_godot_cli_smoke",
+			maintenance_command("package-godot-cli-smoke"),
+		),
+		subprocess_action(
 			"package_godot_cli_local_smoke",
 			maintenance_command("package-godot-cli-smoke", "--profile", "local"),
 		),
-		(
+		subprocess_action(
 			"package_godot_cli_network_smoke",
 			maintenance_command("package-godot-cli-smoke", "--profile", "network"),
 		),
-		("package_godot_smoke", maintenance_command("package-godot-smoke")),
-		(
+		subprocess_action(
+			"package_godot_smoke",
+			maintenance_command("package-godot-smoke"),
+		),
+		subprocess_action(
 			"package_godot_matrix_smoke",
 			maintenance_command("package-godot-smoke", "--all-packages"),
 		),
-		(
+		subprocess_action(
 			"mkdocs",
 			(
 				python,
@@ -442,11 +610,20 @@ def build_validation_catalog(context: ValidationCatalogContext) -> ValidationCat
 				(context.root / "ai_analysis/mkdocs_site").as_posix(),
 			),
 		),
-		("api_since_touched", maintenance_command("api-since-touched")),
-		("path_hygiene", maintenance_command("path-hygiene")),
-		("dependency_boundary", maintenance_command("dependency-boundary")),
-		("maintenance_self_test", maintenance_command("maintenance-self-test")),
-		(
+		in_process_action(
+			"api_since_touched",
+			maintenance_command("api-since-touched"),
+		),
+		in_process_action("path_hygiene", maintenance_command("path-hygiene")),
+		in_process_action(
+			"dependency_boundary",
+			maintenance_command("dependency-boundary"),
+		),
+		in_process_action(
+			"maintenance_self_test",
+			maintenance_command("maintenance-self-test"),
+		),
+		subprocess_action(
 			"maintenance_execution_tests",
 			(
 				python,
@@ -463,23 +640,23 @@ def build_validation_catalog(context: ValidationCatalogContext) -> ValidationCat
 				"tests/gf_core/tools/test_gf_gut_shard_worker.py",
 			),
 		),
-		(
+		subprocess_action(
 			"maintenance_generator_tests",
 			python_script("tests/gf_core/tools/test_gf_maintenance_generators.py"),
 		),
-		(
+		subprocess_action(
 			"maintenance_test_evidence_tests",
 			python_script("tests/gf_core/tools/test_gf_maintenance_test_evidence.py"),
 		),
-		(
+		subprocess_action(
 			"package_distribution_tests",
 			python_script("tests/gf_core/kernel/package/test_gf_package_distribution.py"),
 		),
-		(
+		subprocess_action(
 			"package_schema_contract_tests",
 			python_script("tests/gf_core/kernel/package/test_gf_package_schema_contracts.py"),
 		),
-		(
+		subprocess_action(
 			"gdscript_warnings",
 			(
 				"godot",
@@ -492,7 +669,7 @@ def build_validation_catalog(context: ValidationCatalogContext) -> ValidationCat
 				"--quit",
 			),
 		),
-		(
+		subprocess_action(
 			"gdscript_lsp_diagnostics",
 			python_script(
 				"tools/gdscript_lsp_diagnostics.py",
@@ -524,9 +701,12 @@ def build_validation_catalog(context: ValidationCatalogContext) -> ValidationCat
 				"json",
 			),
 		),
-		("project_settings_drift", maintenance_command("project-settings-drift")),
-		("diff", ("git", "diff", "--check")),
-		(
+		in_process_action(
+			"project_settings_drift",
+			maintenance_command("project-settings-drift"),
+		),
+		subprocess_action("diff", ("git", "diff", "--check")),
+		subprocess_action(
 			"examples_sync",
 			python_script(
 				"tools/sync_reference_project.py",
@@ -535,7 +715,7 @@ def build_validation_catalog(context: ValidationCatalogContext) -> ValidationCat
 				"--check",
 			),
 		),
-		(
+		subprocess_action(
 			"examples_sync_write",
 			python_script(
 				"tools/sync_reference_project.py",
@@ -544,7 +724,7 @@ def build_validation_catalog(context: ValidationCatalogContext) -> ValidationCat
 				"--apply",
 			),
 		),
-		(
+		subprocess_action(
 			"examples_scan",
 			(
 				"godot",
@@ -558,7 +738,7 @@ def build_validation_catalog(context: ValidationCatalogContext) -> ValidationCat
 				"2",
 			),
 		),
-		(
+		subprocess_action(
 			"examples_boot",
 			(
 				"godot",
@@ -573,7 +753,7 @@ def build_validation_catalog(context: ValidationCatalogContext) -> ValidationCat
 				context.reference_boot_scene,
 			),
 		),
-		(
+		subprocess_action(
 			"examples_smoke",
 			(
 				"godot",
@@ -588,7 +768,7 @@ def build_validation_catalog(context: ValidationCatalogContext) -> ValidationCat
 				context.reference_smoke_scene,
 			),
 		),
-		(
+		subprocess_action(
 			"examples_coverage",
 			python_script(
 				"tools/generate_api_coverage_matrix.py",
@@ -600,7 +780,7 @@ def build_validation_catalog(context: ValidationCatalogContext) -> ValidationCat
 				"--check",
 			),
 		),
-		("release_metadata", None),
+		subprocess_action("release_metadata", None),
 	)
 	default_timeout_seconds = 600
 	timeout_overrides = (
@@ -919,30 +1099,55 @@ def build_validation_catalog(context: ValidationCatalogContext) -> ValidationCat
 		parallel_full_shard_suites=parallel_full_shard_suites,
 		default_timeout_seconds=default_timeout_seconds,
 		timeout_overrides=timeout_overrides,
+		command_projection_context=context,
 	)
 
 
+def _project_static_command_argument(
+	argument: str,
+	path_projections: tuple[tuple[str, str], ...],
+) -> str:
+	for source, target in path_projections:
+		if argument == source:
+			return target
+		source_prefix = source.rstrip("/") + "/"
+		if argument.startswith(source_prefix):
+			return target.rstrip("/") + "/" + argument[len(source_prefix):]
+	return argument
+
+
 def _validate_actions(
-	actions: Iterable[tuple[str, Sequence[str] | None]],
-) -> dict[str, tuple[str, ...] | None]:
+	actions: Iterable[
+		tuple[str, Sequence[str] | None, ValidationExecutorKind]
+	],
+) -> tuple[
+	dict[str, tuple[str, ...] | None],
+	dict[str, ValidationExecutorKind],
+]:
 	validated: dict[str, tuple[str, ...] | None] = {}
+	validated_executors: dict[str, ValidationExecutorKind] = {}
 	for declaration in actions:
-		if type(declaration) is not tuple or len(declaration) != 2:
-			raise ValidationCatalogError("Validation action declarations must be pairs.")
-		name, command = declaration
+		if type(declaration) is not tuple or len(declaration) != 3:
+			raise ValidationCatalogError("Validation action declarations must be triples.")
+		name, command, executor_kind = declaration
 		_validate_action_name(name)
 		if name in validated:
 			raise ValidationCatalogError(f"Duplicate validation action: {name}")
+		if type(executor_kind) is not ValidationExecutorKind:
+			raise ValidationCatalogError(
+				f"Validation action executor for {name} must be a ValidationExecutorKind."
+			)
+		validated_executors[name] = executor_kind
 		if command is None:
-			# Executor choice remains runner-owned in this migration slice.  None only
-			# means the runner must materialize this action's command from live inputs.
+			# A deferred command is orthogonal to executor choice.  The runner still
+			# materializes live arguments before dispatch.
 			validated[name] = None
 			continue
 		validated[name] = _validated_nonempty_strings(
 			f"Validation action command for {name}",
 			command,
 		)
-	return validated
+	return validated, validated_executors
 
 
 def _replace_sync_examples_action(name: str) -> str:
@@ -1086,6 +1291,7 @@ __all__ = [
 	"ValidationCatalog",
 	"ValidationCatalogContext",
 	"ValidationCatalogError",
+	"ValidationExecutorKind",
 	"ValidationLane",
 	"ValidationPlan",
 	"build_validation_catalog",

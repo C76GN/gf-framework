@@ -21,6 +21,7 @@ import time
 import unittest
 import xml.etree.ElementTree as ET
 from dataclasses import FrozenInstanceError
+from dataclasses import replace
 from pathlib import Path
 from types import ModuleType
 from unittest import mock
@@ -53,6 +54,44 @@ def _remove_directory_link_fixture(path: Path) -> None:
 
 def _full_validation_plan() -> gf_validation_catalog.ValidationPlan:
 	return gf_maintenance._VALIDATION_CATALOG.plan("full")
+
+
+def _in_process_adapter_registry_with(
+	**overrides: object,
+) -> dict[str, object]:
+	registry: dict[str, object] = dict(
+		gf_maintenance.maintenance_in_process_adapter_registry()
+	)
+	registry.update(overrides)
+	return registry
+
+
+def _deferred_command_materializer_registry_for(
+	catalog: gf_validation_catalog.ValidationCatalog,
+	**overrides: object,
+) -> dict[str, object]:
+	registry: dict[str, object] = {
+		name: (lambda _context, action_name=name: ("fixture-python", action_name))
+		for name in catalog.deferred_action_names
+	}
+	registry.update(overrides)
+	return registry
+
+
+def _validation_executor_binding(
+	catalog: gf_validation_catalog.ValidationCatalog,
+	in_process_adapters: object,
+	deferred_command_materializers: object | None = None,
+) -> gf_maintenance.ValidationExecutorBinding:
+	return gf_maintenance.validate_validation_executor_registries(
+		catalog,
+		in_process_adapters,
+		(
+			_deferred_command_materializer_registry_for(catalog)
+			if deferred_command_materializers is None
+			else deferred_command_materializers
+		),
+	)
 
 
 def _synthetic_parallel_shard_plan(
@@ -199,6 +238,9 @@ class ValidationCatalogContractTests(unittest.TestCase):
 	_PRE_MIGRATION_SNAPSHOT_SHA256 = (
 		"58f11a39f9f71c9687642bf82320059b9b16b4a56731020563bf589a8ff42eac"
 	)
+	_PRE_MIGRATION_EXECUTOR_PROJECTION_SHA256 = (
+		"85f24f2287735a812ef48ffe8b91489365dd0bbd06a7c24c8a8457280c32f346"
+	)
 
 	def test_default_catalog_matches_pre_migration_snapshot_exactly(self) -> None:
 		catalog = gf_validation_catalog.build_validation_catalog(
@@ -283,6 +325,30 @@ class ValidationCatalogContractTests(unittest.TestCase):
 		self.assertEqual(first_before["examples_boot"][-1], "<boot-first>")
 		self.assertEqual(first_before["examples_smoke"][-1], "<smoke-first>")
 
+	def test_captured_catalog_projects_only_root_bound_static_commands(self) -> None:
+		source_context = self._context("source")
+		catalog = gf_validation_catalog.build_validation_catalog(source_context)
+		target_root = ROOT / "projected-root"
+		target_log_directory = target_root / "ai_analysis" / "godot_logs"
+
+		projected = catalog.project_static_commands(
+			root=target_root,
+			godot_log_directory=target_log_directory,
+		)
+		expected = gf_validation_catalog.build_validation_catalog(
+			replace(
+				source_context,
+				root=target_root,
+				godot_log_directory=target_log_directory,
+			)
+		).command_definitions()
+
+		self.assertEqual(projected, expected)
+		self.assertEqual(
+			projected["gut_lifecycle_smoke"][0],
+			source_context.python_executable,
+		)
+
 	def test_catalog_timeout_policy_matches_pre_migration_runner_values(self) -> None:
 		catalog = gf_validation_catalog.build_validation_catalog(
 			self._snapshot_context()
@@ -307,6 +373,92 @@ class ValidationCatalogContractTests(unittest.TestCase):
 					catalog.timeout_floor_seconds(action_name),
 					timeout_seconds,
 				)
+
+	def test_catalog_executor_policy_matches_pre_migration_runner_values(self) -> None:
+		catalog = gf_validation_catalog.build_validation_catalog(
+			self._snapshot_context()
+		)
+		expected_in_process_actions = (
+			"api",
+			"ai_api",
+			"docs",
+			"changelog_policy",
+			"codeql_suppression_policy",
+			"public_docs_boundary",
+			"public_api_boundary",
+			"resource_boundary",
+			"content_package_boundary",
+			"asset_lifecycle_boundary",
+			"project_profile_boundary",
+			"package_boundary",
+			"package_closure_audit",
+			"package_source_boundary",
+			"package_user_dependency_boundary",
+			"package_external_command_audit",
+			"core_only_smoke",
+			"package_focused_gut_mapping",
+			"api_since_touched",
+			"path_hygiene",
+			"dependency_boundary",
+			"maintenance_self_test",
+			"project_settings_drift",
+		)
+		encoded = json.dumps(
+			[
+				[action_name, catalog.executor_kind(action_name).value]
+				for action_name in catalog.action_names
+			],
+			ensure_ascii=True,
+			separators=(",", ":"),
+		).encode("ascii")
+		executor_kinds = [
+			catalog.executor_kind(action_name)
+			for action_name in catalog.action_names
+		]
+
+		self.assertEqual(
+			hashlib.sha256(encoded).hexdigest(),
+			self._PRE_MIGRATION_EXECUTOR_PROJECTION_SHA256,
+		)
+		self.assertTrue(all(isinstance(kind, str) for kind in executor_kinds))
+		self.assertTrue(all(str(kind) == kind.value for kind in executor_kinds))
+		self.assertTrue(all(format(kind) == kind.value for kind in executor_kinds))
+		self.assertTrue(all(f"{kind}" == kind.value for kind in executor_kinds))
+		self.assertTrue(all(
+			json.dumps(kind) == json.dumps(kind.value)
+			for kind in executor_kinds
+		))
+		self.assertEqual(catalog.in_process_action_names, expected_in_process_actions)
+		self.assertEqual(catalog.deferred_action_names, ("release_metadata",))
+		self.assertEqual(
+			[
+				action_name
+				for action_name in catalog.action_names
+				if catalog.executor_kind(action_name)
+				is gf_validation_catalog.ValidationExecutorKind.IN_PROCESS
+			],
+			list(expected_in_process_actions),
+		)
+		self.assertEqual(
+			sum(
+				catalog.executor_kind(action_name)
+				is gf_validation_catalog.ValidationExecutorKind.SUBPROCESS
+				for action_name in catalog.action_names
+			),
+			34,
+		)
+		self.assertEqual(
+			sum(
+				catalog.executor_kind(action_name)
+				is gf_validation_catalog.ValidationExecutorKind.IN_PROCESS
+				for action_name in catalog.plan("full").actions
+			),
+			22,
+		)
+		self.assertIs(
+			catalog.executor_kind("release_metadata"),
+			gf_validation_catalog.ValidationExecutorKind.SUBPROCESS,
+		)
 
 	def test_runner_legacy_projections_come_from_catalog(self) -> None:
 		catalog = gf_maintenance._VALIDATION_CATALOG
@@ -353,6 +505,31 @@ class ValidationCatalogContractTests(unittest.TestCase):
 		self.assertEqual(catalog.check_graph.expand(["release_metadata"]), ["release_metadata"])
 		self.assertNotIn("release_metadata", gf_maintenance.CHECK_DEFINITIONS)
 		self.assertIsNot(gf_maintenance.CHECK_SUITES["api"], gf_maintenance.API_CHECKS)
+		adapter_registry = gf_maintenance.maintenance_in_process_adapter_registry()
+		materializer_registry = (
+			gf_maintenance.maintenance_deferred_command_materializer_registry()
+		)
+		self.assertEqual(
+			tuple(adapter_registry),
+			catalog.in_process_action_names,
+		)
+		self.assertEqual(
+			tuple(materializer_registry),
+			catalog.deferred_action_names,
+		)
+		binding = gf_maintenance.validate_validation_executor_registries(
+			catalog,
+			adapter_registry,
+			materializer_registry,
+		)
+		self.assertEqual(
+			tuple(binding.in_process_adapters),
+			catalog.in_process_action_names,
+		)
+		self.assertEqual(
+			tuple(binding.deferred_command_materializers),
+			catalog.deferred_action_names,
+		)
 
 	def test_plan_preserves_full_closure_and_isolated_lane_occurrences(self) -> None:
 		catalog = gf_maintenance._VALIDATION_CATALOG
@@ -486,30 +663,32 @@ class ValidationCatalogContractTests(unittest.TestCase):
 
 		def succeed(
 			name: str,
-			command: list[str],
+			command: gf_maintenance.CommandIdentity,
 			timeout_seconds: float,
 			_output_callback: object,
+			**_kwargs: object,
 		) -> gf_maintenance.CommandResult:
 			return gf_maintenance.CommandResult(
 				name=name,
-				command=command,
+				command=list(command.effective),
 				exit_code=0,
 				stdout="",
 				stderr="",
 				timeout_seconds=timeout_seconds,
 			)
 
+		validation_executor_binding = _validation_executor_binding(
+			gf_maintenance._VALIDATION_CATALOG,
+			gf_maintenance.maintenance_in_process_adapter_registry(),
+		)
 		with mock.patch.object(
-			gf_maintenance,
-			"maintenance_in_process_check_runners",
-			return_value={},
-		), mock.patch.object(
 			gf_maintenance,
 			"run_command",
 			side_effect=succeed,
 		):
 			report = gf_maintenance.run_checks_with_active_snapshot(
 				plan,
+				validation_executor_binding=validation_executor_binding,
 				workspace_state=workspace_state,
 			)
 
@@ -535,43 +714,24 @@ class ValidationCatalogContractTests(unittest.TestCase):
 			"untracked_file_count": 0,
 			"fingerprint": "b" * 64,
 		}
-		timeout_catalog = mock.Mock()
-		timeout_catalog.timeout_floor_seconds.return_value = 321
-
-		def succeed(
-			name: str,
-			command: list[str],
-			timeout_seconds: float,
-			_output_callback: object,
-		) -> gf_maintenance.CommandResult:
-			return gf_maintenance.CommandResult(
-				name=name,
-				command=command,
-				exit_code=0,
-				stdout="",
-				stderr="",
-				timeout_seconds=timeout_seconds,
-			)
-
+		adapter = mock.Mock(return_value={"ok": True})
+		validation_executor_binding = _validation_executor_binding(
+			gf_maintenance._VALIDATION_CATALOG,
+			_in_process_adapter_registry_with(api=adapter),
+		)
 		with mock.patch.object(
-			gf_maintenance,
-			"_VALIDATION_CATALOG",
-			timeout_catalog,
-		), mock.patch.object(
-			gf_maintenance,
-			"maintenance_in_process_check_runners",
-			return_value={},
-		), mock.patch.object(
-			gf_maintenance,
-			"run_command",
-			side_effect=succeed,
-		):
+			gf_maintenance._VALIDATION_CATALOG,
+			"timeout_floor_seconds",
+			return_value=321,
+		) as timeout_floor:
 			report = gf_maintenance.run_checks_with_active_snapshot(
 				plan,
+				validation_executor_binding=validation_executor_binding,
 				workspace_state=workspace_state,
 			)
 
-		timeout_catalog.timeout_floor_seconds.assert_called_once_with("api")
+		timeout_floor.assert_called_once_with("api")
+		adapter.assert_called_once_with()
 		self.assertEqual(
 			report["results"][0]["timeout_budget"],
 			{
@@ -581,6 +741,944 @@ class ValidationCatalogContractTests(unittest.TestCase):
 				"effective_seconds": 321.0,
 			},
 		)
+
+	def test_run_checks_keeps_assigned_timeout_while_action_budget_decreases(self) -> None:
+		workspace_state = {
+			"schema_version": 1,
+			"head": "a" * 40,
+			"dirty": False,
+			"untracked_file_count": 0,
+			"fingerprint": "b" * 64,
+		}
+		clock = [10.0]
+
+		def fingerprint(*_args: object, **_kwargs: object) -> dict[str, object]:
+			clock[0] = 11.1
+			return dict(workspace_state)
+
+		with mock.patch.object(
+			gf_maintenance.time,
+			"perf_counter",
+			side_effect=lambda: clock[0],
+		), mock.patch.object(
+			gf_maintenance,
+			"workspace_fingerprint",
+			side_effect=fingerprint,
+		), mock.patch.object(
+			gf_maintenance,
+			"maintenance_in_process_adapter_registry",
+			return_value=_in_process_adapter_registry_with(
+				docs=lambda: {"ok": True}
+			),
+		):
+			report = gf_maintenance.run_checks(
+				checks=["docs"],
+				jobs=1,
+				suite_timeout_seconds=90,
+			)
+
+		self.assertTrue(report["ok"])
+		self.assertEqual(report["suite_timeout_seconds"], 90)
+		self.assertEqual(
+			report["results"][0]["timeout_budget"]["suite_remaining_seconds"],
+			89.0,
+		)
+
+	def test_serial_runner_can_emit_complete_output_evidence_for_parallel_parent(self) -> None:
+		plan = gf_maintenance._VALIDATION_CATALOG.plan("api", ["api"])
+		workspace_state = {
+			"schema_version": 1,
+			"head": "a" * 40,
+			"dirty": False,
+			"untracked_file_count": 0,
+			"fingerprint": "b" * 64,
+		}
+		adapter_payload = {"ok": True, "details": "x" * 12001}
+		binding = _validation_executor_binding(
+			gf_maintenance._VALIDATION_CATALOG,
+			_in_process_adapter_registry_with(
+				api=mock.Mock(return_value=adapter_payload)
+			),
+		)
+
+		report = gf_maintenance.run_checks_with_active_snapshot(
+			plan,
+			validation_executor_binding=binding,
+			complete_output_evidence=True,
+			workspace_state=workspace_state,
+		)
+
+		result = report["results"][0]
+		expected_stdout = json.dumps(adapter_payload, ensure_ascii=False)
+		self.assertGreater(len(expected_stdout), 12000)
+		self.assertEqual(result["stdout"], expected_stdout)
+		self.assertFalse(result["stdout_truncated"])
+		self.assertEqual(result["stdout_char_count"], len(expected_stdout))
+		self.assertEqual(
+			result["stdout_sha256"],
+			hashlib.sha256(expected_stdout.encode("utf-8")).hexdigest(),
+		)
+
+	def test_check_cli_forwards_complete_output_evidence_only_when_requested(self) -> None:
+		for requested in (False, True):
+			argv = ["gf_maintenance.py", "check", "--check", "docs", "--json"]
+			if requested:
+				argv = [
+					"gf_maintenance.py",
+					"--json-output",
+					"build/p/complete-output-fixture.json",
+					"check",
+					"--check",
+					"docs",
+					"--jobs",
+					"1",
+					"--internal-complete-output-evidence",
+					"--json",
+				]
+			with self.subTest(requested=requested), mock.patch.object(
+				sys,
+				"argv",
+				argv,
+			), mock.patch.object(
+				gf_maintenance,
+				"run_checks",
+				return_value={"ok": True, "results": []},
+			) as runner, mock.patch.object(
+				gf_maintenance.maintenance_rendering,
+				"print_output",
+			) as print_output, mock.patch.object(
+				gf_maintenance,
+				"write_internal_complete_output_evidence_report",
+			) as complete_writer:
+				exit_code = gf_maintenance.main()
+
+			self.assertEqual(exit_code, 0)
+			self.assertIs(
+				runner.call_args.kwargs["complete_output_evidence"],
+				requested,
+			)
+			if requested:
+				complete_writer.assert_called_once()
+				print_output.assert_not_called()
+			else:
+				complete_writer.assert_not_called()
+				print_output.assert_called_once()
+
+		invalid_argv = (
+			[
+				"gf_maintenance.py",
+				"check",
+				"--check",
+				"docs",
+				"--jobs",
+				"1",
+				"--internal-complete-output-evidence",
+			],
+			[
+				"gf_maintenance.py",
+				"--json-output",
+				"build/p/missing-job.json",
+				"check",
+				"--check",
+				"docs",
+				"--internal-complete-output-evidence",
+			],
+			[
+				"gf_maintenance.py",
+				"--json-output",
+				"build/p/missing-check.json",
+				"check",
+				"--jobs",
+				"1",
+				"--internal-complete-output-evidence",
+			],
+		)
+		for argv in invalid_argv:
+			stderr = io.StringIO()
+			with self.subTest(argv=argv), mock.patch.object(
+				sys,
+				"argv",
+				argv,
+			), mock.patch.object(
+				gf_maintenance,
+				"run_checks",
+			) as runner, contextlib.redirect_stderr(stderr), self.assertRaises(
+				SystemExit,
+			) as raised:
+				gf_maintenance.main()
+			self.assertEqual(raised.exception.code, 2)
+			self.assertIn(
+				"requires --json-output, --jobs 1, and at least one explicit --check",
+				stderr.getvalue(),
+			)
+			runner.assert_not_called()
+
+	def test_executor_registry_failure_precedes_workspace_and_action_io(self) -> None:
+		with mock.patch.object(
+			gf_maintenance,
+			"maintenance_in_process_adapter_registry",
+			return_value={},
+		), mock.patch.object(
+			gf_maintenance,
+			"workspace_fingerprint",
+			side_effect=AssertionError("executor setup must fail before workspace I/O"),
+		) as fingerprint, mock.patch.object(
+			gf_maintenance,
+			"materialize_check_command",
+			side_effect=AssertionError("executor setup must fail before command materialization"),
+		) as command, mock.patch.object(
+			gf_maintenance,
+			"run_command",
+			side_effect=AssertionError("executor setup must fail before subprocess execution"),
+		) as subprocess_runner:
+			report = gf_maintenance.run_checks(checks=["docs"], jobs=1)
+
+		self.assertFalse(report["ok"])
+		self.assertEqual(report["completed_check_count"], 0)
+		self.assertEqual(report["results"][0]["name"], "validation_executor_setup")
+		fingerprint.assert_not_called()
+		command.assert_not_called()
+		subprocess_runner.assert_not_called()
+
+	def test_materializer_registry_failure_precedes_workspace_and_action_io(self) -> None:
+		with mock.patch.object(
+			gf_maintenance,
+			"maintenance_deferred_command_materializer_registry",
+			return_value={},
+		), mock.patch.object(
+			gf_maintenance,
+			"workspace_fingerprint",
+			side_effect=AssertionError("executor setup must fail before workspace I/O"),
+		) as fingerprint, mock.patch.object(
+			gf_maintenance,
+			"materialize_check_command",
+			side_effect=AssertionError("executor setup must fail before command materialization"),
+		) as command, mock.patch.object(
+			gf_maintenance,
+			"run_command",
+			side_effect=AssertionError("executor setup must fail before subprocess execution"),
+		) as subprocess_runner:
+			report = gf_maintenance.run_checks(checks=["docs"], jobs=1)
+
+		self.assertFalse(report["ok"])
+		self.assertEqual(report["completed_check_count"], 0)
+		self.assertEqual(report["results"][0]["name"], "validation_executor_setup")
+		fingerprint.assert_not_called()
+		command.assert_not_called()
+		subprocess_runner.assert_not_called()
+
+	def test_executor_registry_constructor_failure_is_bounded_before_io(self) -> None:
+		class HostileRegistryError(RuntimeError):
+			def __str__(self) -> str:
+				raise AssertionError("arbitrary registry exceptions must not be rendered")
+
+		class HostileCatalogRegistryError(
+			gf_validation_catalog.ValidationCatalogError
+		):
+			def __str__(self) -> str:
+				raise AssertionError("constructor errors must not inherit validator trust")
+
+		for error in (HostileRegistryError(), HostileCatalogRegistryError()):
+			with self.subTest(error_type=type(error).__name__), mock.patch.object(
+				gf_maintenance,
+				"maintenance_in_process_adapter_registry",
+				side_effect=error,
+			), mock.patch.object(
+				gf_maintenance,
+				"workspace_fingerprint",
+				side_effect=AssertionError("executor setup must fail before workspace I/O"),
+			) as fingerprint, mock.patch.object(
+				gf_maintenance,
+				"materialize_check_command",
+				side_effect=AssertionError(
+					"executor setup must fail before command materialization"
+				),
+			) as command:
+				report = gf_maintenance.run_checks(checks=["docs"], jobs=1)
+
+			self.assertFalse(report["ok"])
+			self.assertEqual(report["results"][0]["name"], "validation_executor_setup")
+			self.assertEqual(
+				report["results"][0]["stderr"],
+				"Validation executor registries could not be constructed.",
+			)
+			fingerprint.assert_not_called()
+			command.assert_not_called()
+
+	def test_run_checks_captures_one_catalog_before_registry_construction(self) -> None:
+		invocation_catalog = gf_maintenance._VALIDATION_CATALOG
+		replacement_catalog = gf_maintenance.validation_catalog_for_root(
+			ROOT / "replacement-catalog-root"
+		)
+		real_registry_constructor = (
+			gf_maintenance.maintenance_in_process_adapter_registry
+		)
+
+		def rebind_catalog_during_registry_construction() -> dict[str, object]:
+			gf_maintenance._VALIDATION_CATALOG = replacement_catalog
+			return real_registry_constructor()
+
+		with mock.patch.object(
+			gf_maintenance,
+			"_VALIDATION_CATALOG",
+			invocation_catalog,
+		), mock.patch.object(
+			gf_maintenance,
+			"maintenance_in_process_adapter_registry",
+			side_effect=rebind_catalog_during_registry_construction,
+		), mock.patch.object(
+			gf_maintenance,
+			"validate_validation_executor_registries",
+			side_effect=gf_validation_catalog.ValidationCatalogError("fixture stop"),
+		) as validate_registries, mock.patch.object(
+			gf_maintenance,
+			"workspace_fingerprint",
+			side_effect=AssertionError("executor setup must fail before workspace I/O"),
+		) as fingerprint:
+			report = gf_maintenance.run_checks(checks=["docs"], jobs=1)
+
+		self.assertFalse(report["ok"])
+		self.assertEqual(report["results"][0]["name"], "validation_executor_setup")
+		validate_registries.assert_called_once()
+		self.assertIs(validate_registries.call_args.args[0], invocation_catalog)
+		fingerprint.assert_not_called()
+
+	def test_parallel_executor_registry_failure_precedes_workspace_and_artifact_io(self) -> None:
+		plan = gf_maintenance._VALIDATION_CATALOG.plan("full")
+		with mock.patch.object(
+			gf_maintenance,
+			"maintenance_in_process_adapter_registry",
+			return_value={},
+		), mock.patch.object(
+			gf_maintenance,
+			"workspace_fingerprint",
+			side_effect=AssertionError("executor setup must fail before workspace I/O"),
+		) as fingerprint, mock.patch.object(
+			gf_maintenance.gf_parallel_validation,
+			"capture_workspace",
+			side_effect=AssertionError("executor setup must fail before workspace capture"),
+		) as capture, mock.patch.object(
+			gf_maintenance,
+			"build_package_smoke_artifact_set",
+			side_effect=AssertionError("executor setup must fail before artifact build"),
+		) as artifact_build, mock.patch.object(
+			gf_maintenance,
+			"run_parallel_godot_isolation_probe",
+			side_effect=AssertionError("executor setup must fail before isolation probe"),
+		) as isolation_probe, mock.patch.object(
+			gf_maintenance,
+			"run_parallel_full_checks",
+			side_effect=AssertionError("executor setup must fail before shard execution"),
+		) as parallel_runner:
+			report = gf_maintenance.run_checks(suite="full", jobs=2)
+
+		self.assertFalse(report["ok"])
+		self.assertEqual(report["checks"], list(plan.actions))
+		self.assertEqual(report["check_graph"], plan.describe_graph())
+		self.assertEqual(report["results"][0]["name"], "validation_executor_setup")
+		self.assertEqual(report["execution"], "parallel_shards")
+		self.assertEqual(report["jobs"], 2)
+		fingerprint.assert_not_called()
+		capture.assert_not_called()
+		artifact_build.assert_not_called()
+		isolation_probe.assert_not_called()
+		parallel_runner.assert_not_called()
+
+	def test_executor_setup_advisories_fail_closed_without_collection(self) -> None:
+		with mock.patch.object(
+			gf_maintenance,
+			"maintenance_in_process_adapter_registry",
+			return_value={},
+		), mock.patch.object(
+			gf_maintenance,
+			"workspace_fingerprint",
+			side_effect=AssertionError("executor setup must fail before workspace I/O"),
+		), mock.patch.object(
+			gf_maintenance.gf_validation_test_inventory,
+			"collect_test_inventory",
+		) as inventory, mock.patch.object(
+			gf_maintenance.gf_validation_inputs,
+			"analyze_affected_checks",
+		) as affected_analyzer:
+			report = gf_maintenance.run_checks(
+				checks=["docs"],
+				jobs=1,
+				validation_shadow=True,
+				affected=True,
+			)
+
+		self.assertEqual(report["results"][0]["name"], "validation_executor_setup")
+		self.assertEqual(report["validation_shadow"]["errors"], ["shadow_internal_error"])
+		self.assertEqual(report["validation_shadow"]["executed_action_count"], 0)
+		self.assertEqual(report["affected_analysis"]["errors"], ["affected_internal_error"])
+		self.assertEqual(report["affected_analysis"]["unknown_count"], 1)
+		self.assertEqual(report["affected_analysis"]["fallback_decision"], "execute")
+		inventory.assert_not_called()
+		affected_analyzer.assert_not_called()
+
+	def test_serial_dispatch_uses_catalog_executor_kind(self) -> None:
+		workspace_state = {
+			"schema_version": 1,
+			"head": "a" * 40,
+			"dirty": False,
+			"untracked_file_count": 0,
+			"fingerprint": "b" * 64,
+		}
+		for executor_kind in (
+			gf_validation_catalog.ValidationExecutorKind.IN_PROCESS,
+			gf_validation_catalog.ValidationExecutorKind.SUBPROCESS,
+		):
+			with self.subTest(executor_kind=executor_kind):
+				catalog = self._minimal_catalog(actions=(
+					("alpha", ("python",), executor_kind),
+					(
+						"beta",
+						None,
+						gf_validation_catalog.ValidationExecutorKind.SUBPROCESS,
+					),
+				))
+				plan = catalog.plan("suite", ["alpha"])
+				adapter = mock.Mock(return_value={"ok": True})
+				registry = _validation_executor_binding(
+					catalog,
+					{"alpha": adapter}
+					if executor_kind is gf_validation_catalog.ValidationExecutorKind.IN_PROCESS
+					else {},
+				)
+				materialized_command = ["fixture-python", "fixture.py", executor_kind.value]
+				subprocess_result = gf_maintenance.CommandResult(
+					name="alpha",
+					command=materialized_command,
+					exit_code=0,
+					stdout="",
+					stderr="",
+					timeout_seconds=10.0,
+				)
+				with mock.patch.object(
+					gf_maintenance,
+					"materialize_check_command",
+					return_value=materialized_command,
+				) as command, mock.patch.object(
+					gf_maintenance,
+					"make_check_input_fingerprint",
+					wraps=gf_maintenance.make_check_input_fingerprint,
+				) as input_fingerprint, mock.patch.object(
+					gf_maintenance,
+					"run_command",
+					return_value=subprocess_result,
+				) as subprocess_runner:
+					report = gf_maintenance.run_checks_with_active_snapshot(
+						plan,
+						validation_executor_binding=registry,
+						workspace_state=workspace_state,
+					)
+
+				self.assertTrue(report["ok"])
+				self.assertEqual(report["results"][0]["command"], materialized_command)
+				command.assert_called_once_with(
+					"alpha",
+					"",
+					"",
+					validation_executor_binding=registry,
+					deferred_command_context=gf_maintenance.DeferredCommandContext(
+						artifact_manifest="",
+						allow_breaking_api=False,
+					),
+				)
+				self.assertEqual(input_fingerprint.call_args.args[1], materialized_command)
+				self.assertEqual(input_fingerprint.call_args.args[2], materialized_command)
+				if executor_kind is gf_validation_catalog.ValidationExecutorKind.IN_PROCESS:
+					adapter.assert_called_once_with()
+					subprocess_runner.assert_not_called()
+					self.assertEqual(report["results"][0]["execution"], "in_process")
+				else:
+					adapter.assert_not_called()
+					identity = subprocess_runner.call_args.args[1]
+					self.assertIsInstance(identity, gf_maintenance.CommandIdentity)
+					self.assertEqual(list(identity.declared), materialized_command)
+					self.assertEqual(list(identity.effective), materialized_command)
+					self.assertIn("environment", subprocess_runner.call_args.kwargs)
+					self.assertEqual(report["results"][0]["execution"], "subprocess")
+
+	def test_serial_command_materialization_uses_the_bound_catalog(self) -> None:
+		catalog = self._minimal_catalog(actions=(
+			(
+				"alpha",
+				("custom-python", "custom.py"),
+				gf_validation_catalog.ValidationExecutorKind.IN_PROCESS,
+			),
+			(
+				"beta",
+				None,
+				gf_validation_catalog.ValidationExecutorKind.SUBPROCESS,
+			),
+		))
+		adapter = mock.Mock(return_value={"ok": True})
+		binding = _validation_executor_binding(
+			catalog,
+			{"alpha": adapter},
+		)
+		report = gf_maintenance.run_checks_with_active_snapshot(
+			catalog.plan("suite", ["alpha"]),
+			validation_executor_binding=binding,
+			workspace_state={
+				"schema_version": 1,
+				"head": "a" * 40,
+				"dirty": False,
+				"untracked_file_count": 0,
+				"fingerprint": "b" * 64,
+			},
+		)
+
+		self.assertTrue(report["ok"])
+		self.assertEqual(report["results"][0]["command"], ["custom-python", "custom.py"])
+		self.assertEqual(report["results"][0]["timeout_budget"]["policy_seconds"], 15.0)
+		adapter.assert_called_once_with()
+
+	def test_serial_godot_fingerprint_and_dispatch_share_one_frozen_identity(self) -> None:
+		catalog = self._minimal_catalog(actions=(
+			(
+				"alpha",
+				("godot", "--headless"),
+				gf_validation_catalog.ValidationExecutorKind.SUBPROCESS,
+			),
+			(
+				"beta",
+				None,
+				gf_validation_catalog.ValidationExecutorKind.SUBPROCESS,
+			),
+		))
+		binding = _validation_executor_binding(catalog, {})
+		with tempfile.TemporaryDirectory() as temporary_directory:
+			godot_path = Path(temporary_directory) / (
+				"fixture-godot.exe" if os.name == "nt" else "fixture-godot"
+			)
+			godot_path.write_bytes(b"fixture")
+			if os.name != "nt":
+				godot_path.chmod(0o755)
+			process_environment = {
+				gf_maintenance.GODOT_EXECUTABLE_ENV_VAR: str(godot_path),
+				"PATH": "",
+				"PATHEXT": ".EXE",
+			}
+
+			def succeed(
+				name: str,
+				identity: gf_maintenance.CommandIdentity,
+				timeout: float,
+				_output: object,
+				**_kwargs: object,
+			) -> gf_maintenance.CommandResult:
+				return gf_maintenance.CommandResult(
+					name=name,
+					command=list(identity.effective),
+					exit_code=0,
+					stdout="",
+					stderr="",
+					timeout_seconds=timeout,
+				)
+
+			with mock.patch.object(
+				gf_maintenance,
+				"make_check_input_fingerprint",
+				wraps=gf_maintenance.make_check_input_fingerprint,
+			) as input_fingerprint, mock.patch.object(
+				gf_maintenance,
+				"run_command",
+				side_effect=succeed,
+			) as subprocess_runner:
+				report = gf_maintenance.run_checks_with_active_snapshot(
+					catalog.plan("suite", ["alpha"]),
+					validation_executor_binding=binding,
+					workspace_state={
+						"schema_version": 1,
+						"head": "a" * 40,
+						"dirty": False,
+						"untracked_file_count": 0,
+						"fingerprint": "b" * 64,
+					},
+					process_environment=process_environment,
+				)
+
+		declared = ["godot", "--headless"]
+		effective = [str(godot_path.resolve()), "--headless"]
+		self.assertTrue(report["ok"])
+		self.assertEqual(report["results"][0]["command"], effective)
+		self.assertEqual(input_fingerprint.call_args.args[1], declared)
+		self.assertEqual(input_fingerprint.call_args.args[2], effective)
+		identity = subprocess_runner.call_args.args[1]
+		self.assertEqual(list(identity.declared), declared)
+		self.assertEqual(list(identity.effective), effective)
+		fingerprint_args = input_fingerprint.call_args.args
+		original_fingerprint = report["results"][0]["input_fingerprint"]
+		self.assertNotEqual(
+			gf_maintenance.make_check_input_fingerprint(
+				fingerprint_args[0],
+				["godot", "--editor"],
+				fingerprint_args[2],
+				fingerprint_args[3],
+				fingerprint_args[4],
+				fingerprint_args[5],
+			),
+			original_fingerprint,
+		)
+		self.assertNotEqual(
+			gf_maintenance.make_check_input_fingerprint(
+				fingerprint_args[0],
+				fingerprint_args[1],
+				["C:/forged/godot.exe", "--headless"],
+				fingerprint_args[3],
+				fingerprint_args[4],
+				fingerprint_args[5],
+			),
+			original_fingerprint,
+		)
+
+	def test_deferred_materializer_runs_once_before_either_executor(self) -> None:
+		workspace_state = {
+			"schema_version": 1,
+			"head": "a" * 40,
+			"dirty": False,
+			"untracked_file_count": 0,
+			"fingerprint": "b" * 64,
+		}
+		context = gf_maintenance.DeferredCommandContext(
+			artifact_manifest="artifact.json",
+			allow_breaking_api=True,
+		)
+		for executor_kind in (
+			gf_validation_catalog.ValidationExecutorKind.IN_PROCESS,
+			gf_validation_catalog.ValidationExecutorKind.SUBPROCESS,
+		):
+			with self.subTest(executor_kind=executor_kind):
+				catalog = self._minimal_catalog(actions=(
+					("alpha", None, executor_kind),
+					(
+						"beta",
+						("python",),
+						gf_validation_catalog.ValidationExecutorKind.SUBPROCESS,
+					),
+				))
+				adapter = mock.Mock(return_value={"ok": True})
+				materializer = mock.Mock(return_value=("fixture-python", "alpha.py"))
+				binding = _validation_executor_binding(
+					catalog,
+					{"alpha": adapter}
+					if executor_kind is gf_validation_catalog.ValidationExecutorKind.IN_PROCESS
+					else {},
+					{"alpha": materializer},
+				)
+				with mock.patch.object(
+					gf_maintenance,
+					"make_check_input_fingerprint",
+					wraps=gf_maintenance.make_check_input_fingerprint,
+				) as input_fingerprint, mock.patch.object(
+					gf_maintenance,
+					"run_command",
+					side_effect=lambda name, command, timeout, _output, **_kwargs: (
+						gf_maintenance.CommandResult(
+							name=name,
+							command=list(command.effective),
+							exit_code=0,
+							stdout="",
+							stderr="",
+							timeout_seconds=timeout,
+						)
+					),
+				) as subprocess_runner:
+					report = gf_maintenance.run_checks_with_active_snapshot(
+						catalog.plan("suite", ["alpha"]),
+						validation_executor_binding=binding,
+						artifact_manifest=context.artifact_manifest,
+						allow_breaking_api=context.allow_breaking_api,
+						workspace_state=workspace_state,
+					)
+
+				self.assertTrue(report["ok"])
+				materializer.assert_called_once_with(context)
+				command = report["results"][0]["command"]
+				self.assertEqual(command, ["fixture-python", "alpha.py"])
+				self.assertNotIn(gf_maintenance.DEFERRED_COMMAND_SENTINEL, command)
+				self.assertEqual(input_fingerprint.call_args.args[1], command)
+				self.assertEqual(input_fingerprint.call_args.args[2], command)
+				if executor_kind is gf_validation_catalog.ValidationExecutorKind.IN_PROCESS:
+					adapter.assert_called_once_with()
+					subprocess_runner.assert_not_called()
+				else:
+					adapter.assert_not_called()
+					identity = subprocess_runner.call_args.args[1]
+					self.assertEqual(list(identity.declared), command)
+					self.assertEqual(list(identity.effective), command)
+
+	def test_release_metadata_materializes_legacy_empty_manifest_argv(self) -> None:
+		for allow_breaking_api in (False, True):
+			with self.subTest(allow_breaking_api=allow_breaking_api):
+				context = gf_maintenance.DeferredCommandContext(
+					artifact_manifest="",
+					allow_breaking_api=allow_breaking_api,
+				)
+				expected = (
+					sys.executable,
+					"tools/gf_maintenance.py",
+					"release-status",
+					"--json",
+					"--artifact-manifest",
+					"",
+				)
+				if allow_breaking_api:
+					expected = (*expected, "--allow-breaking-api")
+				self.assertEqual(
+					gf_maintenance.materialize_release_metadata_command(context),
+					expected,
+				)
+
+	def test_release_metadata_empty_manifest_dispatch_preserves_result(self) -> None:
+		binding = gf_maintenance.validate_validation_executor_registries(
+			gf_maintenance._VALIDATION_CATALOG,
+			gf_maintenance.maintenance_in_process_adapter_registry(),
+			gf_maintenance.maintenance_deferred_command_materializer_registry(),
+		)
+		structured_stdout = json.dumps({
+			"ok": False,
+			"issues": ["Release status requires an artifact manifest."],
+		})
+		with mock.patch.object(
+			gf_maintenance,
+			"run_command",
+			side_effect=lambda name, command, timeout, _output, **_kwargs: (
+				gf_maintenance.CommandResult(
+					name=name,
+					command=list(command.effective),
+					exit_code=1,
+					stdout=structured_stdout,
+					stderr="",
+					timeout_seconds=timeout,
+				)
+			),
+		) as subprocess_runner:
+			report = gf_maintenance.run_checks_with_active_snapshot(
+				gf_maintenance._VALIDATION_CATALOG.plan(
+					"release",
+					["release_metadata"],
+				),
+				validation_executor_binding=binding,
+				artifact_manifest="",
+				workspace_state={
+					"schema_version": 1,
+					"head": "a" * 40,
+					"dirty": False,
+					"untracked_file_count": 0,
+					"fingerprint": "b" * 64,
+				},
+			)
+
+		result = report["results"][0]
+		self.assertFalse(report["ok"])
+		self.assertEqual(result["exit_code"], 1)
+		self.assertEqual(result["execution"], "subprocess")
+		self.assertEqual(json.loads(result["stdout"])["ok"], False)
+		self.assertEqual(
+			result["command"],
+			[
+				sys.executable,
+				"tools/gf_maintenance.py",
+				"release-status",
+				"--json",
+				"--artifact-manifest",
+				"",
+			],
+		)
+		identity = subprocess_runner.call_args.args[1]
+		self.assertEqual(list(identity.declared), result["command"])
+		self.assertEqual(list(identity.effective), result["command"])
+
+	def test_release_status_cli_accepts_explicit_empty_manifest(self) -> None:
+		completed = subprocess.run(
+			[
+				sys.executable,
+				"tools/gf_maintenance.py",
+				"release-status",
+				"--artifact-manifest",
+				"",
+				"--json",
+			],
+			cwd=ROOT,
+			capture_output=True,
+			text=True,
+			encoding="utf-8",
+			check=False,
+		)
+
+		self.assertEqual(completed.returncode, 1)
+		self.assertEqual(completed.stderr, "")
+		payload = json.loads(completed.stdout)
+		self.assertFalse(payload["ok"])
+		self.assertIn("requires --artifact-manifest", "\n".join(payload["issues"]))
+
+	def test_invalid_deferred_materializer_never_dispatches(self) -> None:
+		catalog = self._minimal_catalog(actions=(
+			(
+				"alpha",
+				None,
+				gf_validation_catalog.ValidationExecutorKind.IN_PROCESS,
+			),
+			(
+				"beta",
+				("python",),
+				gf_validation_catalog.ValidationExecutorKind.SUBPROCESS,
+			),
+		))
+		invalid_materializers = {
+			"list": mock.Mock(return_value=["python"]),
+			"empty": mock.Mock(return_value=()),
+			"empty part": mock.Mock(return_value=("",)),
+			"non-string": mock.Mock(return_value=(object(),)),
+			"sentinel": mock.Mock(return_value=(
+				gf_maintenance.DEFERRED_COMMAND_SENTINEL,
+			)),
+			"exception": mock.Mock(side_effect=RuntimeError("fixture failure")),
+		}
+		for label, materializer in invalid_materializers.items():
+			with self.subTest(label=label):
+				adapter = mock.Mock(return_value={"ok": True})
+				binding = _validation_executor_binding(
+					catalog,
+					{"alpha": adapter},
+					{"alpha": materializer},
+				)
+				report = gf_maintenance.run_checks_with_active_snapshot(
+					catalog.plan("suite", ["alpha"]),
+					validation_executor_binding=binding,
+					workspace_state={
+						"schema_version": 1,
+						"head": "a" * 40,
+						"dirty": False,
+						"untracked_file_count": 0,
+						"fingerprint": "b" * 64,
+					},
+				)
+
+				self.assertFalse(report["ok"])
+				result = report["results"][0]
+				self.assertEqual(result["execution"], "not_started")
+				self.assertEqual(result["exit_code"], 125)
+				self.assertEqual(
+					result["command"],
+					[
+						gf_maintenance.DEFERRED_COMMAND_SENTINEL,
+						"in_process",
+						"alpha",
+					],
+				)
+				adapter.assert_not_called()
+
+	def test_deferred_materializer_is_not_called_for_unexecuted_actions(self) -> None:
+		workspace_state = {
+			"schema_version": 1,
+			"head": "a" * 40,
+			"dirty": False,
+			"untracked_file_count": 0,
+			"fingerprint": "b" * 64,
+		}
+		blocked_catalog = self._minimal_catalog()
+		blocked_materializer = mock.Mock(return_value=("python", "beta.py"))
+		blocked_binding = _validation_executor_binding(
+			blocked_catalog,
+			{"alpha": mock.Mock(return_value={"ok": False})},
+			{"beta": blocked_materializer},
+		)
+		blocked_report = gf_maintenance.run_checks_with_active_snapshot(
+			blocked_catalog.plan("suite", ["beta"]),
+			validation_executor_binding=blocked_binding,
+			workspace_state=workspace_state,
+		)
+
+		blocked_materializer.assert_not_called()
+		self.assertEqual(blocked_report["results"][1]["execution"], "blocked")
+		self.assertEqual(
+			blocked_report["results"][1]["command"],
+			[
+				gf_maintenance.DEFERRED_COMMAND_SENTINEL,
+				"subprocess",
+				"beta",
+			],
+		)
+
+		deadline_catalog = self._minimal_catalog(actions=(
+			(
+				"alpha",
+				None,
+				gf_validation_catalog.ValidationExecutorKind.IN_PROCESS,
+			),
+			(
+				"beta",
+				("python",),
+				gf_validation_catalog.ValidationExecutorKind.SUBPROCESS,
+			),
+		))
+		deadline_materializer = mock.Mock(return_value=("python", "alpha.py"))
+		deadline_binding = _validation_executor_binding(
+			deadline_catalog,
+			{"alpha": mock.Mock(return_value={"ok": True})},
+			{"alpha": deadline_materializer},
+		)
+		deadline_report = gf_maintenance.run_checks_with_active_snapshot(
+			deadline_catalog.plan("suite", ["alpha"]),
+			validation_executor_binding=deadline_binding,
+			suite_timeout_seconds=0,
+			workspace_state=workspace_state,
+		)
+
+		deadline_materializer.assert_not_called()
+		self.assertEqual(deadline_report["results"][0]["execution"], "not_started")
+		self.assertEqual(
+			deadline_report["results"][0]["command"],
+			[
+				gf_maintenance.DEFERRED_COMMAND_SENTINEL,
+				"in_process",
+				"alpha",
+			],
+		)
+
+	def test_static_command_does_not_require_a_deferred_materializer(self) -> None:
+		catalog = self._minimal_catalog(
+			actions=((
+				"release_metadata",
+				("sentinel", "static-command"),
+				gf_validation_catalog.ValidationExecutorKind.SUBPROCESS,
+			),),
+			dependencies=(),
+			check_groups=(),
+			suites=(("suite", ("release_metadata",)),),
+			parallel_full_shard_suites=("suite",),
+			timeout_overrides=(),
+		)
+		binding = _validation_executor_binding(catalog, {})
+
+		self.assertEqual(
+			gf_maintenance.materialize_check_command(
+				"release_metadata",
+				validation_executor_binding=binding,
+				deferred_command_context=gf_maintenance.DeferredCommandContext(
+					artifact_manifest="fixture.json",
+					allow_breaking_api=True,
+				),
+			),
+			["sentinel", "static-command"],
+		)
+
+	def test_in_process_failure_records_the_materialized_command(self) -> None:
+		materialized_command = ["fixture-python", "fixture.py", "--sentinel"]
+		result = gf_maintenance.run_in_process_check(
+			"docs",
+			materialized_command,
+			mock.Mock(side_effect=RuntimeError("fixture failure")),
+			10.0,
+		)
+
+		self.assertEqual(result.exit_code, 1)
+		self.assertEqual(result.command, materialized_command)
+		self.assertEqual(result.execution, "in_process")
 
 	def test_invalid_parallel_jobs_return_a_structured_plan_setup_failure(self) -> None:
 		plan = gf_maintenance._VALIDATION_CATALOG.plan("quick")
@@ -618,7 +1716,18 @@ class ValidationCatalogContractTests(unittest.TestCase):
 	def test_rejects_duplicate_declarations_and_members(self) -> None:
 		invalid_overrides = {
 			"action": {
-				"actions": (("alpha", ("python",)), ("alpha", ("other",))),
+				"actions": (
+					(
+						"alpha",
+						("python",),
+						gf_validation_catalog.ValidationExecutorKind.IN_PROCESS,
+					),
+					(
+						"alpha",
+						("other",),
+						gf_validation_catalog.ValidationExecutorKind.SUBPROCESS,
+					),
+				),
 			},
 			"dependency owner": {
 				"dependencies": (("beta", ("alpha",)), ("beta", ("alpha",))),
@@ -669,6 +1778,132 @@ class ValidationCatalogContractTests(unittest.TestCase):
 			self._minimal_catalog().check_group("unknown")
 		with self.assertRaises(gf_validation_catalog.ValidationCatalogError):
 			self._minimal_catalog().timeout_floor_seconds("unknown")
+		with self.assertRaises(gf_validation_catalog.ValidationCatalogError):
+			self._minimal_catalog().executor_kind("unknown")
+		with self.assertRaises(gf_validation_catalog.ValidationCatalogError):
+			self._minimal_catalog().static_command("unknown")
+
+	def test_catalog_allows_an_explicit_all_subprocess_executor_policy(self) -> None:
+		catalog = self._minimal_catalog(actions=(
+			(
+				"alpha",
+				("python",),
+				gf_validation_catalog.ValidationExecutorKind.SUBPROCESS,
+			),
+			(
+				"beta",
+				None,
+				gf_validation_catalog.ValidationExecutorKind.SUBPROCESS,
+			),
+		))
+		self.assertEqual(catalog.in_process_action_names, ())
+		self.assertTrue(all(
+			catalog.executor_kind(action_name)
+			is gf_validation_catalog.ValidationExecutorKind.SUBPROCESS
+			for action_name in catalog.action_names
+		))
+
+	def test_validation_executor_registries_must_close_catalog_exactly(self) -> None:
+		catalog = self._minimal_catalog()
+		adapter = lambda: {"ok": True}
+		adapter_replacement = lambda: {"ok": False}
+		materializer = lambda _context: ("python", "beta.py")
+		materializer_replacement = lambda _context: ("replacement",)
+		valid_adapters = {"alpha": adapter}
+		valid_materializers = {"beta": materializer}
+		validated = gf_maintenance.validate_validation_executor_registries(
+			catalog,
+			valid_adapters,
+			valid_materializers,
+		)
+		self.assertIs(validated.catalog, catalog)
+		self.assertEqual(tuple(validated.in_process_adapters), ("alpha",))
+		self.assertEqual(tuple(validated.deferred_command_materializers), ("beta",))
+		valid_adapters["alpha"] = adapter_replacement
+		valid_adapters.clear()
+		valid_materializers["beta"] = materializer_replacement
+		valid_materializers.clear()
+		self.assertIs(validated.in_process_adapters["alpha"], adapter)
+		self.assertIs(
+			validated.deferred_command_materializers["beta"],
+			materializer,
+		)
+		with self.assertRaises(TypeError):
+			validated.in_process_adapters["alpha"] = lambda: {"ok": False}
+		with self.assertRaises(TypeError):
+			validated.deferred_command_materializers["beta"] = (
+				lambda _context: ("replacement",)
+			)
+
+		class DriftingCallableMapping(dict[str, object]):
+			def __init__(self, name: str, binding: object) -> None:
+				super().__init__({name: binding})
+				self.binding = binding
+				self.read_count = 0
+
+			def __getitem__(self, key: str) -> object:
+				self.read_count += 1
+				return self.binding if self.read_count == 1 else object()
+
+		drifting_adapters = DriftingCallableMapping("alpha", adapter)
+		drifting_materializers = DriftingCallableMapping("beta", materializer)
+		drift_binding = gf_maintenance.validate_validation_executor_registries(
+			catalog,
+			drifting_adapters,
+			drifting_materializers,
+		)
+		self.assertEqual(drifting_adapters.read_count, 1)
+		self.assertEqual(drifting_materializers.read_count, 1)
+		self.assertIs(drift_binding.in_process_adapters["alpha"], adapter)
+		self.assertIs(
+			drift_binding.deferred_command_materializers["beta"],
+			materializer,
+		)
+
+		class DuplicateKeyMapping(dict[str, object]):
+			def __iter__(self):
+				return iter(("alpha", "alpha"))
+
+		invalid_adapter_registries = {
+			"missing": {},
+			"extra subprocess adapter": {
+				"alpha": lambda: {"ok": True},
+				"beta": lambda: {"ok": True},
+			},
+			"non-callable": {"alpha": object()},
+			"non-string key": {1: lambda: {"ok": True}},
+			"not a mapping": [("alpha", lambda: {"ok": True})],
+			"duplicate key iteration": DuplicateKeyMapping({"alpha": adapter}),
+		}
+		for label, registry in invalid_adapter_registries.items():
+			with self.subTest(label=label), self.assertRaises(
+				gf_validation_catalog.ValidationCatalogError
+			):
+				gf_maintenance.validate_validation_executor_registries(
+					catalog,
+					registry,
+					{"beta": materializer},
+				)
+
+		invalid_materializer_registries = {
+			"missing": {},
+			"extra static action": {
+				"alpha": lambda _context: ("alpha",),
+				"beta": materializer,
+			},
+			"non-callable": {"beta": object()},
+			"non-string key": {1: materializer},
+			"not a mapping": [("beta", materializer)],
+		}
+		for label, registry in invalid_materializer_registries.items():
+			with self.subTest(label=label), self.assertRaises(
+				gf_validation_catalog.ValidationCatalogError
+			):
+				gf_maintenance.validate_validation_executor_registries(
+					catalog,
+					{"alpha": adapter},
+					registry,
+				)
 
 	def test_timeout_policy_rejects_non_positive_or_non_integer_seconds(self) -> None:
 		for value in (True, 0, -1, 1.0, "1"):
@@ -711,12 +1946,49 @@ class ValidationCatalogContractTests(unittest.TestCase):
 		catalog = self._minimal_catalog()
 		self.assertEqual(catalog.action_names, ("alpha", "beta"))
 		self.assertEqual(catalog.command_definitions(), {"alpha": ["python"]})
+		deferred_in_process = self._minimal_catalog(actions=(
+			(
+				"alpha",
+				None,
+				gf_validation_catalog.ValidationExecutorKind.IN_PROCESS,
+			),
+			(
+				"beta",
+				None,
+				gf_validation_catalog.ValidationExecutorKind.SUBPROCESS,
+			),
+		))
+		self.assertEqual(deferred_in_process.command_definitions(), {})
+		self.assertIs(
+			deferred_in_process.executor_kind("alpha"),
+			gf_validation_catalog.ValidationExecutorKind.IN_PROCESS,
+		)
 
 		for command in ([], (), ("",), (1,), "python"):
 			with self.subTest(command=command), self.assertRaises(
 				gf_validation_catalog.ValidationCatalogError
 			):
-				self._minimal_catalog(actions=(("alpha", command), ("beta", None)))
+				self._minimal_catalog(actions=(
+					(
+						"alpha",
+						command,
+						gf_validation_catalog.ValidationExecutorKind.IN_PROCESS,
+					),
+					(
+						"beta",
+						None,
+						gf_validation_catalog.ValidationExecutorKind.SUBPROCESS,
+					),
+				))
+		for actions in (
+			(("alpha", ("python",)),),
+			(("alpha", ("python",), "in_process"),),
+			(("alpha", ("python",), True),),
+		):
+			with self.subTest(actions=actions), self.assertRaises(
+				gf_validation_catalog.ValidationCatalogError
+			):
+				self._minimal_catalog(actions=actions)
 
 	def test_constructor_inputs_and_accessors_are_detached(self) -> None:
 		command = ["python"]
@@ -726,7 +1998,18 @@ class ValidationCatalogContractTests(unittest.TestCase):
 		lanes = ["suite"]
 		timeout_overrides = [("alpha", 15)]
 		catalog = self._minimal_catalog(
-			actions=(("alpha", command), ("beta", None)),
+			actions=(
+				(
+					"alpha",
+					command,
+					gf_validation_catalog.ValidationExecutorKind.IN_PROCESS,
+				),
+				(
+					"beta",
+					None,
+					gf_validation_catalog.ValidationExecutorKind.SUBPROCESS,
+				),
+			),
 			dependencies=(("beta", dependencies),),
 			check_groups=(("group", group),),
 			suites=(("suite", suite),),
@@ -741,11 +2024,14 @@ class ValidationCatalogContractTests(unittest.TestCase):
 		timeout_overrides.append(("beta", 30))
 
 		command_copy = catalog.command_definitions()
+		static_command_copy = catalog.static_command("alpha")
 		dependency_copy = catalog.dependencies()
 		group_copy = catalog.check_groups()
 		suite_copy = catalog.suites()
 		timeout_copy = catalog.timeout_overrides()
 		command_copy["alpha"].append("mutated")
+		assert static_command_copy is not None
+		static_command_copy.append("mutated")
 		dependency_copy["beta"].append("beta")
 		group_copy["group"].append("alpha")
 		suite_copy["suite"].append("alpha")
@@ -753,6 +2039,8 @@ class ValidationCatalogContractTests(unittest.TestCase):
 
 		self.assertEqual(catalog.action_names, ("alpha", "beta"))
 		self.assertEqual(catalog.command_definitions(), {"alpha": ["python"]})
+		self.assertEqual(catalog.static_command("alpha"), ["python"])
+		self.assertIsNone(catalog.static_command("beta"))
 		self.assertEqual(catalog.dependencies(), {"beta": ["alpha"]})
 		self.assertEqual(catalog.check_groups(), {"group": ["alpha", "beta"]})
 		self.assertEqual(catalog.suites(), {"suite": ["alpha", "beta"]})
@@ -761,6 +2049,16 @@ class ValidationCatalogContractTests(unittest.TestCase):
 		self.assertEqual(catalog.timeout_overrides(), {"alpha": 15})
 		self.assertEqual(catalog.timeout_floor_seconds("alpha"), 15)
 		self.assertEqual(catalog.timeout_floor_seconds("beta"), 10)
+		self.assertEqual(catalog.in_process_action_names, ("alpha",))
+		self.assertEqual(catalog.deferred_action_names, ("beta",))
+		self.assertIs(
+			catalog.executor_kind("alpha"),
+			gf_validation_catalog.ValidationExecutorKind.IN_PROCESS,
+		)
+		self.assertIs(
+			catalog.executor_kind("beta"),
+			gf_validation_catalog.ValidationExecutorKind.SUBPROCESS,
+		)
 
 	@staticmethod
 	def _snapshot_context() -> gf_validation_catalog.ValidationCatalogContext:
@@ -798,7 +2096,18 @@ class ValidationCatalogContractTests(unittest.TestCase):
 	@staticmethod
 	def _minimal_catalog(**overrides: object) -> gf_validation_catalog.ValidationCatalog:
 		arguments: dict[str, object] = {
-			"actions": (("alpha", ("python",)), ("beta", None)),
+			"actions": (
+				(
+					"alpha",
+					("python",),
+					gf_validation_catalog.ValidationExecutorKind.IN_PROCESS,
+				),
+				(
+					"beta",
+					None,
+					gf_validation_catalog.ValidationExecutorKind.SUBPROCESS,
+				),
+			),
 			"dependencies": (("beta", ("alpha",)),),
 			"check_groups": (("group", ("alpha", "beta")),),
 			"suites": (("suite", ("alpha", "beta")),),
@@ -825,6 +2134,31 @@ class StrictJsonBoundaryTests(unittest.TestCase):
 	def test_strict_encoder_rejects_non_finite_numbers(self) -> None:
 		with self.assertRaises(ValueError):
 			gf_maintenance_rendering.encode_strict_json({"value": float("nan")})
+
+	def test_internal_complete_output_writer_enforces_exact_utf8_limit_atomically(self) -> None:
+		data = {"ok": True, "text": "\u754c\nfixture"}
+		encoded = gf_maintenance_rendering.encode_strict_json(
+			data,
+			indent=2,
+			trailing_newline=True,
+		).encode("utf-8")
+		with tempfile.TemporaryDirectory() as temporary_directory:
+			path = Path(temporary_directory) / "report.json"
+			gf_maintenance.write_internal_complete_output_evidence_report(
+				path,
+				data,
+				max_utf8_bytes=len(encoded),
+			)
+			self.assertEqual(path.read_bytes(), encoded)
+			original_bytes = path.read_bytes()
+			with self.assertRaisesRegex(ValueError, "bounded UTF-8 size limit"):
+				gf_maintenance.write_internal_complete_output_evidence_report(
+					path,
+					data,
+					max_utf8_bytes=len(encoded) - 1,
+				)
+			self.assertEqual(path.read_bytes(), original_bytes)
+			self.assertEqual(list(path.parent.iterdir()), [path])
 
 	def test_atomic_json_writer_preserves_old_target_when_replace_fails(self) -> None:
 		with tempfile.TemporaryDirectory() as temporary_directory:
@@ -2849,8 +4183,186 @@ class GutShardPlanIntegrationTests(unittest.TestCase):
 		resolve_command.assert_called_once_with(
 			["godot"],
 			environment=environment,
+			cwd=ROOT,
 		)
 		self.assertIs(run_process.call_args.kwargs["environment"], environment)
+
+	def test_run_command_consumes_frozen_identity_without_resolving_again(self) -> None:
+		environment = {"PATH": "fixture-path"}
+		identity = gf_maintenance.CommandIdentity(
+			declared=("godot", "--headless"),
+			effective=("C:/fixture/godot.exe", "--headless"),
+		)
+		process_result = mock.Mock(
+			timed_out=False,
+			process_boundary_quiescent=True,
+			return_code=0,
+			stdout="",
+			stderr="",
+			duration_seconds=0.1,
+			pid=123,
+			notes=(),
+		)
+		with mock.patch.object(
+			gf_maintenance,
+			"resolve_godot_command",
+			side_effect=AssertionError("frozen identities must not be resolved twice"),
+		) as resolve_command, mock.patch.object(
+			gf_maintenance,
+			"prepare_command_log_paths",
+			return_value=[],
+		), mock.patch.object(
+			gf_maintenance,
+			"run_supervised_process",
+			return_value=process_result,
+		) as run_process:
+			result = gf_maintenance.run_command(
+				"gut",
+				identity,
+				1200.0,
+				environment=environment,
+			)
+
+		resolve_command.assert_not_called()
+		self.assertEqual(result.command, list(identity.effective))
+		self.assertEqual(run_process.call_args.args[0], list(identity.effective))
+
+	def test_godot_resolver_uses_supplied_path_and_cwd_not_ambient_path(self) -> None:
+		with tempfile.TemporaryDirectory() as temporary_directory:
+			root = Path(temporary_directory)
+			ambient_bin = root / "ambient"
+			frozen_bin = root / "frozen"
+			ambient_bin.mkdir()
+			frozen_bin.mkdir()
+			executable_name = "godot.exe" if os.name == "nt" else "godot"
+			ambient_godot = ambient_bin / executable_name
+			frozen_godot = frozen_bin / executable_name
+			for executable in (ambient_godot, frozen_godot):
+				executable.write_bytes(b"fixture")
+				if os.name != "nt":
+					executable.chmod(0o755)
+			environment = {
+				"PATH": "frozen",
+				"PATHEXT": ".EXE",
+			}
+			with mock.patch.dict(os.environ, {"PATH": str(ambient_bin)}):
+				resolved = gf_maintenance.resolve_godot_executable(
+					environment=environment,
+					cwd=root,
+				)
+
+		self.assertEqual(resolved, str(frozen_godot.resolve()))
+
+	def test_windows_godot_resolver_binds_bare_command_found_only_in_cwd(self) -> None:
+		with tempfile.TemporaryDirectory() as temporary_directory:
+			root = Path(temporary_directory)
+			cwd_godot = root / "godot.exe"
+			cwd_godot.write_bytes(b"fixture")
+
+			resolved = gf_maintenance.resolve_godot_executable(
+				environment={"PATH": "", "PATHEXT": ".exe"},
+				platform_name="nt",
+				cwd=root,
+			)
+
+		self.assertEqual(resolved, str(cwd_godot.resolve()))
+
+	def test_windows_godot_resolver_honors_cwd_lookup_suppression(self) -> None:
+		for suppression_key, suppression_value in (
+			("NoDefaultCurrentDirectoryInExePath", "1"),
+			("nodefaultcurrentdirectoryinexepath", "0"),
+		):
+			with (
+				self.subTest(
+					suppression_key=suppression_key,
+					suppression_value=suppression_value,
+				),
+				tempfile.TemporaryDirectory() as temporary_directory,
+			):
+				root = Path(temporary_directory)
+				path_bin = root / "path-bin"
+				path_bin.mkdir()
+				cwd_godot = root / "godot.exe"
+				path_godot = path_bin / "godot.exe"
+				cwd_godot.write_bytes(b"workspace fixture")
+				path_godot.write_bytes(b"path fixture")
+
+				resolved = gf_maintenance.resolve_godot_executable(
+					environment={
+						"PATH": str(path_bin),
+						"PATHEXT": ".exe",
+						suppression_key: suppression_value,
+					},
+					platform_name="nt",
+					cwd=root,
+				)
+
+			self.assertEqual(resolved, str(path_godot.resolve()))
+
+	def test_windows_godot_resolver_empty_cwd_lookup_suppression_keeps_cwd(self) -> None:
+		with tempfile.TemporaryDirectory() as temporary_directory:
+			root = Path(temporary_directory)
+			path_bin = root / "path-bin"
+			path_bin.mkdir()
+			cwd_godot = root / "godot.exe"
+			path_godot = path_bin / "godot.exe"
+			cwd_godot.write_bytes(b"workspace fixture")
+			path_godot.write_bytes(b"path fixture")
+
+			resolved = gf_maintenance.resolve_godot_executable(
+				environment={
+					"PATH": str(path_bin),
+					"PATHEXT": ".exe",
+					"NoDefaultCurrentDirectoryInExePath": "",
+				},
+				platform_name="nt",
+				cwd=root,
+			)
+
+		self.assertEqual(resolved, str(cwd_godot.resolve()))
+
+	def test_godot_resolver_does_not_fallback_from_configured_relative_path(self) -> None:
+		with tempfile.TemporaryDirectory() as temporary_directory:
+			root = Path(temporary_directory)
+			path_bin = root / "path-bin"
+			path_bin.mkdir()
+			executable_name = "godot.exe" if os.name == "nt" else "godot"
+			path_godot = path_bin / executable_name
+			path_godot.write_bytes(b"fixture")
+			if os.name != "nt":
+				path_godot.chmod(0o755)
+			configured = f".{os.sep}{executable_name}"
+
+			resolved = gf_maintenance.resolve_godot_executable(
+				configured,
+				environment={"PATH": str(path_bin), "PATHEXT": ".EXE"},
+				cwd=root,
+			)
+
+		self.assertEqual(resolved, configured)
+
+	def test_godot_resolver_does_not_fallback_from_environment_relative_path(self) -> None:
+		with tempfile.TemporaryDirectory() as temporary_directory:
+			root = Path(temporary_directory)
+			path_bin = root / "path-bin"
+			path_bin.mkdir()
+			executable_name = "godot.exe" if os.name == "nt" else "godot"
+			path_godot = path_bin / executable_name
+			path_godot.write_bytes(b"fixture")
+			if os.name != "nt":
+				path_godot.chmod(0o755)
+			configured = f".{os.sep}{executable_name}"
+
+			resolved = gf_maintenance.resolve_godot_executable(
+				environment={
+					gf_maintenance.GODOT_EXECUTABLE_ENV_VAR: configured,
+					"PATH": str(path_bin),
+					"PATHEXT": ".EXE",
+				},
+				cwd=root,
+			)
+
+		self.assertEqual(resolved, configured)
 
 	def test_run_command_scrubs_ambient_observation_environment_by_default(self) -> None:
 		process_result = mock.Mock(
@@ -3659,7 +5171,11 @@ class GutShardPlanIntegrationTests(unittest.TestCase):
 			if shard.name == "framework-gut"
 		)
 		self.assertEqual(
-			gf_maintenance.parallel_shard_timeout_seconds(framework_gut, None),
+			gf_maintenance.parallel_shard_timeout_seconds(
+				framework_gut,
+				None,
+				validation_catalog=gf_maintenance._VALIDATION_CATALOG,
+			),
 			2820,
 		)
 
@@ -3701,12 +5217,11 @@ class GutShardPlanIntegrationTests(unittest.TestCase):
 			execution_checks=tuple(floor_by_action),
 		)
 
-		with mock.patch.object(
-			gf_maintenance,
-			"_VALIDATION_CATALOG",
-			timeout_catalog,
-		):
-			resolved = gf_maintenance.parallel_shard_timeout_seconds(shard, None)
+		resolved = gf_maintenance.parallel_shard_timeout_seconds(
+			shard,
+			None,
+			validation_catalog=timeout_catalog,
+		)
 
 		self.assertEqual(
 			resolved,
@@ -3717,6 +5232,37 @@ class GutShardPlanIntegrationTests(unittest.TestCase):
 			mock.call(action_name)
 			for action_name in floor_by_action
 		])
+
+	def test_parallel_child_supervisor_timeout_uses_the_passed_catalog(self) -> None:
+		timeout_catalog = mock.Mock()
+		timeout_catalog.timeout_floor_seconds.return_value = 5000
+		plan = gf_maintenance.ParallelCheckShardPlan(
+			name="framework-static",
+			checks=("api",),
+			execution_checks=("api",),
+		)
+		with tempfile.TemporaryDirectory() as temporary_directory, mock.patch.object(
+			gf_maintenance,
+			"parallel_shard_environment",
+			return_value=({}, Path(temporary_directory) / "user"),
+		):
+			shard, _report_path = gf_maintenance.make_parallel_full_shard(
+				plan,
+				Path(temporary_directory),
+				validation_catalog=timeout_catalog,
+				private_environment_root=Path(temporary_directory) / "private",
+				timeout_seconds=None,
+				suite_deadline=None,
+				fail_fast=False,
+				package_artifact_manifest="",
+				package_artifact_manifest_sha256="",
+			)
+
+		self.assertEqual(
+			shard.timeout_seconds,
+			5000 + gf_maintenance.PARALLEL_SHARD_STARTUP_ALLOWANCE_SECONDS,
+		)
+		timeout_catalog.timeout_floor_seconds.assert_called_once_with("api")
 
 	def test_renderer_exposes_diagnostic_completeness_and_duration_scope(self) -> None:
 		text = gf_maintenance_rendering.render_gut_shard_plan_text({
@@ -9689,6 +11235,271 @@ class GutShardRunIntegrationTests(unittest.TestCase):
 
 
 class WorkspaceExecutionBoundaryTests(unittest.TestCase):
+	def test_parallel_command_projection_uses_captured_executor_authority(self) -> None:
+		with tempfile.TemporaryDirectory() as temporary_directory:
+			workspace = Path(temporary_directory).resolve()
+			catalog = gf_maintenance._VALIDATION_CATALOG
+			resolved_executable = str(workspace / "resolved-godot")
+
+			def resolve(
+				command: list[str],
+				**_kwargs: object,
+			) -> gf_maintenance.CommandIdentity:
+				return gf_maintenance.CommandIdentity(
+					declared=tuple(command),
+					effective=(resolved_executable, *command[1:]),
+				)
+
+			with mock.patch.object(
+				gf_maintenance,
+				"resolve_command_identity",
+				side_effect=resolve,
+			) as resolver:
+				contract = gf_maintenance.freeze_parallel_shard_command_contract(
+					["godot_import"],
+					authority_catalog=catalog,
+					environment={},
+					workspace=workspace,
+					package_artifact_manifest="",
+					package_artifact_manifest_sha256="",
+				)
+
+			resolver.assert_called_once()
+			self.assertEqual(
+				contract.identities["godot_import"].effective[0],
+				resolved_executable,
+			)
+
+	def test_parallel_contract_ignores_tampered_external_projection_copy(self) -> None:
+		with tempfile.TemporaryDirectory() as temporary_directory:
+			workspace = Path(temporary_directory).resolve()
+			catalog = gf_maintenance._VALIDATION_CATALOG
+			external_projection = catalog.project_static_commands(
+				root=workspace,
+				godot_log_directory=workspace / "ai_analysis" / "godot_logs",
+			)
+			external_projection["diff"] = ["git", "status"]
+
+			contract = gf_maintenance.freeze_parallel_shard_command_contract(
+				["diff"],
+				authority_catalog=catalog,
+				environment={},
+				workspace=workspace,
+				package_artifact_manifest="",
+				package_artifact_manifest_sha256="",
+			)
+
+		self.assertNotIn(
+			"projected_commands",
+			inspect.signature(
+				gf_maintenance.freeze_parallel_shard_command_contract
+			).parameters,
+		)
+		self.assertEqual(
+			contract.identities["diff"].declared,
+			("git", "diff", "--check"),
+		)
+
+	def test_parallel_package_artifact_contract_matches_parent_dispatch_tuple(self) -> None:
+		with tempfile.TemporaryDirectory() as temporary_directory:
+			workspace = Path(temporary_directory).resolve()
+			check_name = "package_build_boundary"
+			non_consumer_name = "diff"
+			expected_checks = [check_name, non_consumer_name]
+			workspace_state: dict[str, object] = {
+				"schema_version": 1,
+				"head": "a" * 40,
+				"dirty": False,
+				"untracked_file_count": 0,
+				"fingerprint": "b" * 64,
+			}
+			manifest_a = str(workspace / "artifact-a.json")
+			manifest_b = str(workspace / "artifact-b.json")
+			manifest_sha256 = "c" * 64
+			command = (
+				*gf_maintenance._VALIDATION_CATALOG.command_definitions()[check_name],
+				"--package-artifact-manifest",
+				manifest_b,
+				"--package-artifact-manifest-sha256",
+				manifest_sha256,
+			)
+			non_consumer_command = tuple(
+				gf_maintenance._VALIDATION_CATALOG.command_definitions()[
+					non_consumer_name
+				]
+			)
+			command_contract = gf_maintenance.ParallelShardCommandContract(
+				identities={
+					check_name: gf_maintenance.CommandIdentity(
+						declared=command,
+						effective=command,
+					),
+					non_consumer_name: gf_maintenance.CommandIdentity(
+						declared=non_consumer_command,
+						effective=non_consumer_command,
+					),
+				},
+			)
+			report = {
+				"ok": False,
+				"suite": "quick",
+				"checks": expected_checks,
+				"completed_check_count": 0,
+				"duration_seconds": 0.01,
+				"suite_timeout_seconds": None,
+				"check_graph": gf_maintenance.maintenance_check_graph().describe(
+					expected_checks
+				),
+				"workspace_fingerprint": workspace_state["fingerprint"],
+				"workspace_snapshot": {
+					"text_entry_count": 0,
+					"text_cache_hits": 0,
+					"text_cache_misses": 0,
+					"value_entry_count": 0,
+					"value_cache_hits": 0,
+					"value_cache_misses": 0,
+				},
+				"workspace": workspace_state,
+				"execution": "serial",
+				"jobs": 1,
+				"results": [],
+				"package_artifact_set": {
+					"reused": True,
+					"manifest_sha256": manifest_sha256,
+					"artifact_count": 1,
+					"workspace_fingerprint": workspace_state["fingerprint"],
+				},
+			}
+			report_path = workspace / "report.json"
+			report_path.write_text(
+				json.dumps(report, ensure_ascii=False),
+				encoding="utf-8",
+				newline="\n",
+			)
+			shard_result = gf_maintenance.ParallelShardResult(
+				name="fixture",
+				command=(sys.executable, "fixture.py"),
+				workspace=workspace,
+				exit_code=1,
+				process_exit_code=1,
+				stdout="",
+				stderr="",
+				timed_out=False,
+				cancelled=False,
+				duration_seconds=0.01,
+				pid=1,
+				started=True,
+			)
+
+			def load(
+				expected_manifest: str,
+				contract: gf_maintenance.ParallelShardCommandContract = command_contract,
+			) -> tuple[dict[str, object] | None, str]:
+				return gf_maintenance.load_parallel_shard_report(
+					shard_result,
+					report_path,
+					expected_checks,
+					workspace_state,
+					validation_catalog=gf_maintenance._VALIDATION_CATALOG,
+					expected_command_contract=contract,
+					expected_check_graph=report["check_graph"],
+					expected_package_artifact_manifest=expected_manifest,
+					expected_package_artifact_manifest_sha256=manifest_sha256,
+					expected_package_artifact_count=1,
+				)
+
+			matching_report, matching_issue = load(manifest_b)
+			self.assertIsNotNone(matching_report)
+			self.assertEqual(matching_issue, "")
+			mismatched_report, mismatched_issue = load(manifest_a)
+			self.assertIsNone(mismatched_report)
+			self.assertIn("package artifact", mismatched_issue.lower())
+			forged_non_consumer_contract = (
+				gf_maintenance.ParallelShardCommandContract(
+					identities={
+						**command_contract.identities,
+						non_consumer_name: gf_maintenance.CommandIdentity(
+							declared=(*non_consumer_command, *command[-4:]),
+							effective=(*non_consumer_command, *command[-4:]),
+						),
+					},
+				)
+			)
+			forged_report, forged_issue = load(
+				manifest_b,
+				forged_non_consumer_contract,
+			)
+			self.assertIsNone(forged_report)
+			self.assertIn("non-consumer", forged_issue)
+
+	def test_parallel_supervisor_result_identity_must_match_frozen_dispatch(self) -> None:
+		with tempfile.TemporaryDirectory() as temporary_directory:
+			workspace = Path(temporary_directory).resolve()
+			dispatched = gf_maintenance.ParallelShard(
+				name="fixture",
+				command=("python", "--timeout", "17"),
+				workspace=workspace,
+				timeout_seconds=18.0,
+				environment={},
+			)
+
+			def result(**overrides: object) -> gf_maintenance.ParallelShardResult:
+				values: dict[str, object] = {
+					"name": dispatched.name,
+					"command": dispatched.command,
+					"workspace": dispatched.workspace,
+					"exit_code": 0,
+					"process_exit_code": 0,
+					"stdout": "",
+					"stderr": "",
+					"timed_out": False,
+					"cancelled": False,
+					"duration_seconds": 0.1,
+					"pid": 1,
+					"started": True,
+					"process_boundary_quiescent": True,
+				}
+				values.update(overrides)
+				return gf_maintenance.ParallelShardResult(**values)
+
+			valid_result = result()
+			gf_maintenance.assert_parallel_shard_results_match_dispatch(
+				[dispatched],
+				[valid_result],
+			)
+			invalid_results = (
+				[],
+				[valid_result, valid_result],
+				[result(name="forged")],
+				[result(command=("python", "--timeout", "999"))],
+				[result(workspace=workspace / "forged")],
+			)
+			for shard_results in invalid_results:
+				with self.subTest(shard_results=shard_results), self.assertRaises(
+					gf_maintenance.WorkspaceSnapshotError
+				):
+					gf_maintenance.assert_parallel_shard_results_match_dispatch(
+						[dispatched],
+						shard_results,
+					)
+			second_dispatched = gf_maintenance.ParallelShard(
+				name="fixture-second",
+				command=("python", "--timeout", "23"),
+				workspace=workspace / "second",
+				timeout_seconds=24.0,
+				environment={},
+			)
+			second_result = result(
+				name=second_dispatched.name,
+				command=second_dispatched.command,
+				workspace=second_dispatched.workspace,
+			)
+			with self.assertRaises(gf_maintenance.WorkspaceSnapshotError):
+				gf_maintenance.assert_parallel_shard_results_match_dispatch(
+					[dispatched, second_dispatched],
+					[second_result, valid_result],
+				)
+
 	def test_parallel_full_schedule_separates_heavy_shards(self) -> None:
 		plan = gf_maintenance.parallel_full_shard_plan(_full_validation_plan())
 		plan_names = tuple(shard.name for shard in plan)
@@ -9754,16 +11565,18 @@ class WorkspaceExecutionBoundaryTests(unittest.TestCase):
 			_synthetic_parallel_shard_plan("first", ("docs",)),
 			_synthetic_parallel_shard_plan(
 				"framework-gut",
-				("api_reference",),
-				("docs", "api_reference"),
+				("api",),
+				("docs", "api"),
 			),
 			_synthetic_parallel_shard_plan("last", ("ai_api",)),
 		]
 		validation_plan = _synthetic_full_validation_plan(
 			plan,
-			dependencies={"api_reference": ("docs",)},
+			dependencies={"api": ("docs",)},
 		)
 		expected_graphs: dict[str, dict[str, object]] = {}
+		frozen_contracts: dict[str, gf_maintenance.ParallelShardCommandContract] = {}
+		contract_events: list[tuple[str, str]] = []
 
 		class ExpectedStop(RuntimeError):
 			pass
@@ -9804,6 +11617,7 @@ class WorkspaceExecutionBoundaryTests(unittest.TestCase):
 						command=("python", "-V"),
 						workspace=workspace,
 						timeout_seconds=1.0,
+						environment={},
 					),
 					workspace / "report.json",
 				)
@@ -9812,6 +11626,9 @@ class WorkspaceExecutionBoundaryTests(unittest.TestCase):
 				shards: list[object],
 				**_kwargs: object,
 			) -> list[object]:
+				for dispatched_shard in shards:
+					self.assertIn(str(dispatched_shard.name), frozen_contracts)
+					contract_events.append(("dispatch", str(dispatched_shard.name)))
 				shard = shards[0]
 				exit_code = 1 if shard.name == "framework-gut" else 0
 				return [gf_maintenance.ParallelShardResult(
@@ -9837,6 +11654,12 @@ class WorkspaceExecutionBoundaryTests(unittest.TestCase):
 				*_args: object,
 				**kwargs: object,
 			) -> tuple[dict[str, object], str]:
+				shard_name = str(shard_result.name)
+				self.assertIs(
+					kwargs["expected_command_contract"],
+					frozen_contracts[shard_name],
+				)
+				contract_events.append(("load", shard_name))
 				expected_graphs[str(shard_result.name)] = dict(
 					kwargs["expected_check_graph"]
 				)
@@ -9850,6 +11673,22 @@ class WorkspaceExecutionBoundaryTests(unittest.TestCase):
 						"duration_seconds": 0.1,
 					}],
 				}, "")
+
+			real_freeze_contract = gf_maintenance.freeze_parallel_shard_command_contract
+
+			def freeze_contract(
+				expected_checks: list[str],
+				**kwargs: object,
+			) -> gf_maintenance.ParallelShardCommandContract:
+				self.assertIs(
+					kwargs["authority_catalog"],
+					gf_maintenance._VALIDATION_CATALOG,
+				)
+				contract = real_freeze_contract(expected_checks, **kwargs)
+				shard_name = Path(str(kwargs["workspace"])).name
+				frozen_contracts[shard_name] = contract
+				contract_events.append(("freeze", shard_name))
+				return contract
 
 			with mock.patch.object(
 				gf_maintenance,
@@ -9876,8 +11715,18 @@ class WorkspaceExecutionBoundaryTests(unittest.TestCase):
 				side_effect=materialize,
 			), mock.patch.object(
 				gf_maintenance,
+				"validation_catalog_for_root",
+				side_effect=AssertionError(
+					"parallel projection must not construct a second Catalog"
+				),
+			), mock.patch.object(
+				gf_maintenance,
 				"make_parallel_full_shard",
 				side_effect=make_shard,
+			), mock.patch.object(
+				gf_maintenance,
+				"freeze_parallel_shard_command_contract",
+				side_effect=freeze_contract,
 			), mock.patch.object(
 				gf_maintenance.gf_parallel_validation,
 				"run_parallel_shards",
@@ -9904,6 +11753,7 @@ class WorkspaceExecutionBoundaryTests(unittest.TestCase):
 						captured,
 						parallel_root,
 						validation_plan=validation_plan,
+						validation_catalog=gf_maintenance._VALIDATION_CATALOG,
 						jobs=2,
 						timeout_seconds=None,
 						suite_timeout_seconds=None,
@@ -9918,13 +11768,22 @@ class WorkspaceExecutionBoundaryTests(unittest.TestCase):
 					)
 
 		self.assertEqual(run_parallel.call_count, 2)
+		for shard_name in ("first", "framework-gut"):
+			self.assertLess(
+				contract_events.index(("freeze", shard_name)),
+				contract_events.index(("dispatch", shard_name)),
+			)
+			self.assertLess(
+				contract_events.index(("dispatch", shard_name)),
+				contract_events.index(("load", shard_name)),
+			)
 		self.assertEqual(
 			[shard.name for shard in append_unstarted.call_args.args[0]],
 			["last"],
 		)
 		self.assertEqual(
 			expected_graphs["framework-gut"],
-			validation_plan.check_graph.describe(["docs", "api_reference"]),
+			validation_plan.check_graph.describe(["docs", "api"]),
 		)
 
 	def test_parallel_full_plan_owns_full_check_set_exactly_once(self) -> None:
@@ -10831,8 +12690,10 @@ class WorkspaceExecutionBoundaryTests(unittest.TestCase):
 			side_effect=[initial, ending],
 		), mock.patch.object(
 			gf_maintenance,
-			"maintenance_in_process_check_runners",
-			return_value={"docs": lambda: {"ok": True}},
+			"maintenance_in_process_adapter_registry",
+			return_value=_in_process_adapter_registry_with(
+				docs=lambda: {"ok": True}
+			),
 		):
 			result = gf_maintenance.run_checks(checks=["docs"], jobs=1)
 		self.assertFalse(result["ok"])
@@ -10895,8 +12756,10 @@ class ValidationShadowIntegrationTests(unittest.TestCase):
 			return_value=workspace_state,
 		), mock.patch.object(
 			gf_maintenance,
-			"maintenance_in_process_check_runners",
-			return_value={"docs": lambda: {"ok": True}},
+			"maintenance_in_process_adapter_registry",
+			return_value=_in_process_adapter_registry_with(
+				docs=lambda: {"ok": True}
+			),
 		), mock.patch.object(
 			gf_maintenance.gf_validation_test_inventory,
 			"collect_test_inventory",
@@ -10915,8 +12778,8 @@ class ValidationShadowIntegrationTests(unittest.TestCase):
 			return_value=workspace_state,
 		), mock.patch.object(
 			gf_maintenance,
-			"maintenance_in_process_check_runners",
-			return_value={"docs": runner},
+			"maintenance_in_process_adapter_registry",
+			return_value=_in_process_adapter_registry_with(docs=runner),
 		), mock.patch.object(
 			gf_maintenance.gf_validation_test_inventory,
 			"collect_test_inventory",
@@ -10958,8 +12821,10 @@ class ValidationShadowIntegrationTests(unittest.TestCase):
 			return_value=workspace_state,
 		), mock.patch.object(
 			gf_maintenance,
-			"maintenance_in_process_check_runners",
-			return_value={"docs": lambda: {"ok": True}},
+			"maintenance_in_process_adapter_registry",
+			return_value=_in_process_adapter_registry_with(
+				docs=lambda: {"ok": True}
+			),
 		), mock.patch.object(
 			gf_maintenance.gf_validation_test_inventory,
 			"collect_test_inventory",
@@ -10997,7 +12862,11 @@ class ValidationShadowIntegrationTests(unittest.TestCase):
 			"collect_test_inventory",
 			return_value=self._inventory(),
 		):
-			gf_maintenance.attach_validation_shadow_report(data, workspace_state)
+			gf_maintenance.attach_validation_shadow_report(
+				data,
+				workspace_state,
+				validation_catalog=gf_maintenance._VALIDATION_CATALOG,
+			)
 		success = data["validation_shadow"]
 		failure = gf_maintenance.make_validation_shadow_failure_report(
 			data,
@@ -11033,6 +12902,7 @@ class ValidationShadowIntegrationTests(unittest.TestCase):
 				gf_maintenance.make_validation_shadow_report(
 					data,
 					workspace_state,
+					validation_catalog=gf_maintenance._VALIDATION_CATALOG,
 					shadow_deadline_seconds=1.0,
 				)
 
@@ -11070,6 +12940,7 @@ class ValidationShadowIntegrationTests(unittest.TestCase):
 			gf_maintenance.attach_validation_shadow_report(
 				data,
 				workspace_state,
+				validation_catalog=gf_maintenance._VALIDATION_CATALOG,
 				suite_deadline=50.0,
 			)
 		deadline.assert_called_once_with(
@@ -11095,6 +12966,7 @@ class ValidationShadowIntegrationTests(unittest.TestCase):
 			gf_maintenance.attach_validation_shadow_report(
 				data,
 				self._workspace_state(),
+				validation_catalog=gf_maintenance._VALIDATION_CATALOG,
 				suite_deadline=1.0,
 			)
 		self.assertEqual(data["validation_shadow"]["errors"], ["shadow_deadline_exceeded"])
@@ -11128,6 +13000,7 @@ class ValidationShadowIntegrationTests(unittest.TestCase):
 				return gf_maintenance.make_validation_shadow_report(
 					data,
 					workspace_state,
+					validation_catalog=gf_maintenance._VALIDATION_CATALOG,
 				)
 
 		first = report("1" * 64)
@@ -11178,7 +13051,11 @@ class ValidationShadowIntegrationTests(unittest.TestCase):
 				"collect_test_inventory",
 				return_value=self._inventory(),
 			):
-				return gf_maintenance.make_validation_shadow_report(data, workspace_state)
+				return gf_maintenance.make_validation_shadow_report(
+					data,
+					workspace_state,
+					validation_catalog=gf_maintenance._VALIDATION_CATALOG,
+				)
 
 		first = report("C:/temp/gfa-one/manifest.json", "1" * 64)
 		second = report("C:/temp/gfa-two/manifest.json", "1" * 64)
@@ -11214,6 +13091,7 @@ class ValidationShadowIntegrationTests(unittest.TestCase):
 					"--package-artifact-manifest-sha256",
 					"2" * 64,
 				],
+				validation_catalog=gf_maintenance._VALIDATION_CATALOG,
 				workspace_digest="a" * 64,
 				allow_planned_command=False,
 			)
@@ -11256,6 +13134,7 @@ class ValidationShadowIntegrationTests(unittest.TestCase):
 						artifact_data,
 						"package_build_boundary",
 						command,
+						validation_catalog=gf_maintenance._VALIDATION_CATALOG,
 						workspace_digest="a" * 64,
 						allow_planned_command=False,
 					)
@@ -11287,7 +13166,11 @@ class ValidationShadowIntegrationTests(unittest.TestCase):
 			"collect_test_inventory",
 			return_value=self._inventory(),
 		):
-			report = gf_maintenance.make_validation_shadow_report(data, workspace_state)
+			report = gf_maintenance.make_validation_shadow_report(
+				data,
+				workspace_state,
+				validation_catalog=gf_maintenance._VALIDATION_CATALOG,
+			)
 		action = report["actions"][0]
 		self.assertFalse(action["execution_observed"])
 		material = action["shadow_evidence"]["action_key_material"]
@@ -11299,6 +13182,65 @@ class ValidationShadowIntegrationTests(unittest.TestCase):
 			material["dependency_artifacts"],
 			{gf_maintenance.PACKAGE_ARTIFACT_MANIFEST_DEPENDENCY_LABEL: "1" * 64},
 		)
+
+	def test_unstarted_deferred_subprocess_is_not_labeled_in_process(self) -> None:
+		workspace_state = self._workspace_state()
+		data = {
+			"ok": False,
+			"suite": "release",
+			"checks": ["release_metadata"],
+			"results": [],
+		}
+		with mock.patch.object(
+			gf_maintenance.gf_validation_test_inventory,
+			"collect_test_inventory",
+			return_value=self._inventory(),
+		):
+			report = gf_maintenance.make_validation_shadow_report(
+				data,
+				workspace_state,
+				validation_catalog=gf_maintenance._VALIDATION_CATALOG,
+			)
+
+		command = report["actions"][0]["shadow_evidence"]["action_key_material"][
+			"command"
+		]
+		self.assertEqual(
+			command,
+			[
+				gf_maintenance.DEFERRED_COMMAND_SENTINEL,
+				"subprocess",
+				"release_metadata",
+			],
+		)
+
+	def test_empty_observed_command_fails_shadow_closed(self) -> None:
+		workspace_state = self._workspace_state()
+		data = {
+			"ok": False,
+			"suite": "release",
+			"checks": ["release_metadata"],
+			"results": [{
+				"name": "release_metadata",
+				"command": [],
+				"execution": "subprocess",
+				"exit_code": 1,
+				"timed_out": False,
+				"cancelled": False,
+				"duration_seconds": 0.0,
+				"result_fingerprint": "e" * 64,
+			}],
+		}
+		with mock.patch.object(
+			gf_maintenance.gf_validation_test_inventory,
+			"collect_test_inventory",
+			return_value=self._inventory(),
+		), self.assertRaises(ValueError):
+			gf_maintenance.make_validation_shadow_report(
+				data,
+				workspace_state,
+				validation_catalog=gf_maintenance._VALIDATION_CATALOG,
+			)
 
 	def test_shadow_failure_never_stringifies_untrusted_exception(self) -> None:
 		class HostileError(RuntimeError):
@@ -11312,7 +13254,11 @@ class ValidationShadowIntegrationTests(unittest.TestCase):
 			"make_validation_shadow_report",
 			side_effect=HostileError(),
 		):
-			gf_maintenance.attach_validation_shadow_report(data, workspace_state)
+			gf_maintenance.attach_validation_shadow_report(
+				data,
+				workspace_state,
+				validation_catalog=gf_maintenance._VALIDATION_CATALOG,
+			)
 		shadow = data["validation_shadow"]
 		self.assertEqual(shadow["errors"], ["shadow_internal_error"])
 		json.dumps(shadow, allow_nan=False)
@@ -11385,8 +13331,10 @@ class ValidationShadowIntegrationTests(unittest.TestCase):
 			side_effect=fingerprint,
 		), mock.patch.object(
 			gf_maintenance,
-			"maintenance_in_process_check_runners",
-			return_value={"docs": lambda: {"ok": True}},
+			"maintenance_in_process_adapter_registry",
+			return_value=_in_process_adapter_registry_with(
+				docs=lambda: {"ok": True}
+			),
 		), mock.patch.object(
 			gf_maintenance,
 			"attach_validation_shadow_report",
@@ -11430,7 +13378,11 @@ class ValidationShadowIntegrationTests(unittest.TestCase):
 			"collect_test_inventory",
 			return_value=self._inventory(),
 		):
-			gf_maintenance.attach_validation_shadow_report(data, workspace_state)
+			gf_maintenance.attach_validation_shadow_report(
+				data,
+				workspace_state,
+				validation_catalog=gf_maintenance._VALIDATION_CATALOG,
+			)
 		shadow = data["validation_shadow"]
 		self.assertEqual(shadow["executed_action_count"], 0)
 		self.assertEqual(shadow["non_execution_action_count"], 1)
@@ -11478,7 +13430,11 @@ class ValidationShadowIntegrationTests(unittest.TestCase):
 			"collect_test_inventory",
 			return_value=self._inventory(),
 		):
-			gf_maintenance.attach_validation_shadow_report(data, workspace_state)
+			gf_maintenance.attach_validation_shadow_report(
+				data,
+				workspace_state,
+				validation_catalog=gf_maintenance._VALIDATION_CATALOG,
+			)
 		shadow = data["validation_shadow"]
 		self.assertEqual(shadow["executed_action_count"], 1)
 		self.assertEqual(shadow["execution_observation_count"], 2)
@@ -11514,7 +13470,7 @@ class ValidationShadowIntegrationTests(unittest.TestCase):
 		observations: dict[str, list[dict[str, object]]] = {}
 		plans = [
 			_synthetic_parallel_shard_plan("first", ("docs",)),
-			_synthetic_parallel_shard_plan("second", ("api_reference",)),
+			_synthetic_parallel_shard_plan("second", ("api",)),
 		]
 
 		with tempfile.TemporaryDirectory() as temporary_directory:
@@ -11549,6 +13505,7 @@ class ValidationShadowIntegrationTests(unittest.TestCase):
 					command=("python", "-V"),
 					workspace=workspace,
 					timeout_seconds=1.0,
+					environment={},
 				)
 				return shard, root / f"{plan.name}.json"
 
@@ -11628,6 +13585,7 @@ class ValidationShadowIntegrationTests(unittest.TestCase):
 						captured,
 						root / "parallel",
 						validation_plan=_synthetic_full_validation_plan(plans),
+						validation_catalog=gf_maintenance._VALIDATION_CATALOG,
 						jobs=1,
 						timeout_seconds=None,
 						suite_timeout_seconds=None,
@@ -11647,7 +13605,7 @@ class ValidationShadowIntegrationTests(unittest.TestCase):
 		data = {
 			"ok": False,
 			"suite": "full",
-			"checks": ["docs", "api_reference"],
+			"checks": ["docs", "api"],
 			"results": [],
 		}
 		with mock.patch.object(
@@ -11658,6 +13616,7 @@ class ValidationShadowIntegrationTests(unittest.TestCase):
 			shadow = gf_maintenance.make_validation_shadow_report(
 				data,
 				workspace_state,
+				validation_catalog=gf_maintenance._VALIDATION_CATALOG,
 				parallel_occurrences=observations,
 			)
 		self.assertEqual(shadow["execution_observation_count"], 1)
@@ -11698,6 +13657,7 @@ class ValidationShadowIntegrationTests(unittest.TestCase):
 						command=("python", "-V"),
 						workspace=workspace,
 						timeout_seconds=1.0,
+						environment={},
 					),
 					workspace / "report.json",
 				)
@@ -11759,6 +13719,7 @@ class ValidationShadowIntegrationTests(unittest.TestCase):
 						captured,
 						parallel_root,
 						validation_plan=_synthetic_full_validation_plan(plan),
+						validation_catalog=gf_maintenance._VALIDATION_CATALOG,
 						jobs=1,
 						timeout_seconds=None,
 						suite_timeout_seconds=None,
@@ -11815,6 +13776,7 @@ class ValidationShadowIntegrationTests(unittest.TestCase):
 						command=("python", "-V"),
 						workspace=workspace,
 						timeout_seconds=1.0,
+						environment={},
 					),
 					workspace / "report.json",
 				)
@@ -11894,6 +13856,7 @@ class ValidationShadowIntegrationTests(unittest.TestCase):
 						captured,
 						parallel_root,
 						validation_plan=_synthetic_full_validation_plan(plan),
+						validation_catalog=gf_maintenance._VALIDATION_CATALOG,
 						jobs=1,
 						timeout_seconds=None,
 						suite_timeout_seconds=None,
@@ -11973,6 +13936,7 @@ class ValidationShadowIntegrationTests(unittest.TestCase):
 						command=("python", "-V"),
 						workspace=workspace,
 						timeout_seconds=1.0,
+						environment={},
 					),
 					workspace / "report.json",
 				)
@@ -12052,6 +14016,7 @@ class ValidationShadowIntegrationTests(unittest.TestCase):
 						captured,
 						parallel_root,
 						validation_plan=_synthetic_full_validation_plan(plan),
+						validation_catalog=gf_maintenance._VALIDATION_CATALOG,
 						jobs=1,
 						timeout_seconds=None,
 						suite_timeout_seconds=None,
@@ -12098,7 +14063,11 @@ class ValidationShadowIntegrationTests(unittest.TestCase):
 			"collect_test_inventory",
 			return_value=self._inventory(),
 		):
-			gf_maintenance.attach_validation_shadow_report(data, workspace_state)
+			gf_maintenance.attach_validation_shadow_report(
+				data,
+				workspace_state,
+				validation_catalog=gf_maintenance._VALIDATION_CATALOG,
+			)
 		action = data["validation_shadow"]["actions"][0]["shadow_evidence"]
 		evidence_record = action["evidence"][0]
 		self.assertEqual(evidence_record["outcome"], "failed")
@@ -12147,6 +14116,7 @@ class ValidationShadowIntegrationTests(unittest.TestCase):
 			shard, _report_path = gf_maintenance.make_parallel_full_shard(
 				plan,
 				Path(temporary_directory),
+				validation_catalog=gf_maintenance._VALIDATION_CATALOG,
 				private_environment_root=Path(temporary_directory) / "private",
 				timeout_seconds=None,
 				suite_deadline=None,
@@ -12155,6 +14125,10 @@ class ValidationShadowIntegrationTests(unittest.TestCase):
 				package_artifact_manifest_sha256="",
 			)
 		self.assertNotIn("--validation-shadow", shard.command)
+		self.assertEqual(
+			shard.command.count("--internal-complete-output-evidence"),
+			1,
+		)
 
 
 class AffectedAnalysisIntegrationTests(unittest.TestCase):
@@ -12183,8 +14157,10 @@ class AffectedAnalysisIntegrationTests(unittest.TestCase):
 			return_value=workspace_state,
 		), mock.patch.object(
 			gf_maintenance,
-			"maintenance_in_process_check_runners",
-			return_value={"docs": lambda: {"ok": True}},
+			"maintenance_in_process_adapter_registry",
+			return_value=_in_process_adapter_registry_with(
+				docs=lambda: {"ok": True}
+			),
 		), mock.patch.object(
 			gf_maintenance.gf_validation_inputs,
 			"analyze_affected_checks",
@@ -12224,8 +14200,8 @@ class AffectedAnalysisIntegrationTests(unittest.TestCase):
 			side_effect=fingerprint,
 		), mock.patch.object(
 			gf_maintenance,
-			"maintenance_in_process_check_runners",
-			return_value={"docs": runner},
+			"maintenance_in_process_adapter_registry",
+			return_value=_in_process_adapter_registry_with(docs=runner),
 		), mock.patch.object(
 			gf_maintenance.gf_validation_inputs,
 			"analyze_affected_checks",
@@ -12328,8 +14304,10 @@ class AffectedAnalysisIntegrationTests(unittest.TestCase):
 			return_value=workspace_state,
 		), mock.patch.object(
 			gf_maintenance,
-			"maintenance_in_process_check_runners",
-			return_value={"docs": lambda: {"ok": True}},
+			"maintenance_in_process_adapter_registry",
+			return_value=_in_process_adapter_registry_with(
+				docs=lambda: {"ok": True}
+			),
 		), mock.patch.object(
 			gf_maintenance,
 			"attach_validation_shadow_report",
@@ -12394,8 +14372,10 @@ class AffectedAnalysisIntegrationTests(unittest.TestCase):
 			return_value=workspace_state,
 		), mock.patch.object(
 			gf_maintenance,
-			"maintenance_in_process_check_runners",
-			return_value={"docs": lambda: {"ok": True}},
+			"maintenance_in_process_adapter_registry",
+			return_value=_in_process_adapter_registry_with(
+				docs=lambda: {"ok": True}
+			),
 		), mock.patch.object(
 			gf_maintenance.gf_validation_inputs,
 			"analyze_affected_checks",
@@ -12534,6 +14514,7 @@ class AffectedAnalysisIntegrationTests(unittest.TestCase):
 			shard, _report_path = gf_maintenance.make_parallel_full_shard(
 				plan,
 				Path(temporary_directory),
+				validation_catalog=gf_maintenance._VALIDATION_CATALOG,
 				private_environment_root=Path(temporary_directory) / "private",
 				timeout_seconds=None,
 				suite_deadline=None,

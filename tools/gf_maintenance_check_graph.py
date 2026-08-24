@@ -520,15 +520,17 @@ def _validated_timeout_seconds(field_name: str, value: float) -> float:
 
 def make_check_input_fingerprint(
 	name: str,
-	command: list[str],
+	declared_command: list[str],
+	effective_command: list[str] | None,
 	workspace_fingerprint: str,
 	dependency_fingerprints: Mapping[str, str],
 	timeout_budget: TimeoutBudget,
 ) -> str:
 	return stable_fingerprint({
-		"schema_version": 1,
+		"schema_version": 2,
 		"name": name,
-		"command": command,
+		"declared_command": declared_command,
+		"effective_command": effective_command,
 		"workspace_fingerprint": workspace_fingerprint,
 		"dependencies": dict(sorted(dependency_fingerprints.items())),
 		"timeout": timeout_budget.to_dict(),
@@ -543,11 +545,33 @@ def make_check_result_fingerprint(
 	stdout: str,
 	stderr: str,
 ) -> str:
+	return make_check_result_fingerprint_from_output_evidence(
+		input_fingerprint,
+		exit_code=exit_code,
+		timed_out=timed_out,
+		stdout_sha256=hashlib.sha256(
+			stdout.encode("utf-8", errors="replace")
+		).hexdigest(),
+		stderr_sha256=hashlib.sha256(
+			stderr.encode("utf-8", errors="replace")
+		).hexdigest(),
+	)
+
+
+def make_check_result_fingerprint_from_output_evidence(
+	input_fingerprint: str,
+	*,
+	exit_code: int,
+	timed_out: bool,
+	stdout_sha256: str,
+	stderr_sha256: str,
+) -> str:
+	"""Bind a result to complete-output digests without requiring output replay."""
 	return stable_fingerprint({
 		"schema_version": 1,
 		"input_fingerprint": input_fingerprint,
 		"exit_code": exit_code,
 		"timed_out": timed_out,
-		"stdout_sha256": hashlib.sha256(stdout.encode("utf-8", errors="replace")).hexdigest(),
-		"stderr_sha256": hashlib.sha256(stderr.encode("utf-8", errors="replace")).hexdigest(),
+		"stdout_sha256": stdout_sha256,
+		"stderr_sha256": stderr_sha256,
 	})
