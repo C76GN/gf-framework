@@ -67,7 +67,9 @@ reconcile fence 仍拒绝注销，成功注销会使该 domain 的 recovery leas
   generation，再保存目标并在确认成功后切换身份。
 - `adopt_and_switch_profile()` 消费 source-bound `corrupt` lease；Storage family 结构损坏
   必须先使用同一 Utility、同一目标读取签发的 opaque 授权完成 family reset，无法授权时
-  失败关闭。Save 文档或完整性损坏不需要破坏性 reset。
+  失败关闭。Coordinator 会在消费 reset 授权前重新验证目标 family 的观察快照；目标已经
+  被较新写入修复时会保留当前来源与修复后的目标，不执行破坏性 reset。Save 文档或完整性
+  损坏不需要破坏性 reset。
 
 四个入口都把当前内存状态作为候选，只有 Storage 写入获得确定成功后才激活或切换目标。
 无效、过期、重复消费或原因不匹配的 lease 会失败关闭。框架不会因为 Profile 的普通

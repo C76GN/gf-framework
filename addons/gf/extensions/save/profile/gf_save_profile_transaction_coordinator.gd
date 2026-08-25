@@ -1421,6 +1421,22 @@ func _start_switch_recovery_reset(
 			transaction.stage_evidence
 		)
 		return
+	if not _profile_utility.validate_profile_family_reset_authorization_for_manager_for_framework(
+		transaction.target_profile_id,
+		transaction.reset_authorization,
+		target.permit
+	):
+		transaction.reset_authorization = null
+		_finish_domain_transaction(
+			domain,
+			transaction,
+			GFSaveProfileTransactionResult.STATUS_PERSIST_FAILED,
+			ERR_UNAUTHORIZED,
+			"Storage family reset authorization is stale after target revalidation.",
+			_STAGE_RECOVERY_RESET,
+			transaction.stage_evidence
+		)
+		return
 	transaction.stage = _STAGE_RECOVERY_RESET
 	var operation: GFStorageAsyncOperation = (
 		_profile_utility.reset_profile_family_for_manager_for_framework(

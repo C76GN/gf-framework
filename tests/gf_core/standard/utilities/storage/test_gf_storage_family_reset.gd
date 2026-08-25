@@ -348,20 +348,211 @@ func test_malformed_transaction_identity_is_retired_and_recreated() -> void:
 	assert_false(_storage.has_file(file_name))
 
 
+func test_surviving_companion_transaction_blocks_corrupt_target_reset() -> void:
+	var marker_scenarios: Array[Dictionary] = [
+		{"path_key": "transaction_pending_path", "committed": false},
+		{"path_key": "transaction_path", "committed": false},
+		{"path_key": "transaction_commit_pending_path", "committed": true},
+		{"path_key": "transaction_commit_path", "committed": true},
+	]
+	for scenario_index: int in range(marker_scenarios.size()):
+		if scenario_index > 0:
+			_recreate_storage_fixture_root()
+		var file_name: String = "structural/reverse-target-%d.json" % scenario_index
+		var companion_file_name: String = (
+			"structural/reverse-companion-%d.json" % scenario_index
+		)
+		assert_eq(_storage.save_data(file_name, { "value": 1 }), OK)
+		assert_eq(_storage.save_data(companion_file_name, { "value": 2 }), OK)
+		var descriptor: Dictionary = _descriptor(file_name)
+		var companion_descriptor: Dictionary = _descriptor(companion_file_name)
+		var file_names: Array[String] = [file_name, companion_file_name]
+		file_names.sort()
+		var had_final_by_file: Dictionary = {}
+		had_final_by_file[file_name] = true
+		had_final_by_file[companion_file_name] = true
+		var scenario: Dictionary = marker_scenarios[scenario_index]
+		var marker: Dictionary = GFStorageUtility._make_transaction_marker(
+			file_names,
+			companion_file_name,
+			"reverse-reset-conflict-%d" % scenario_index,
+			GFVariantData.get_option_bool(scenario, "committed"),
+			had_final_by_file
+		)
+		assert_eq(
+			_write_json(
+				GFVariantData.get_option_string(
+					companion_descriptor,
+					GFVariantData.get_option_string(scenario, "path_key")
+				),
+				marker
+			),
+			OK
+		)
+		assert_eq(
+			_write_text(
+				GFVariantData.get_option_string(descriptor, "transaction_path"),
+				"{"
+			),
+			OK
+		)
+		var observed_result: GFStorageReadResult = _assert_corrupt_read(file_name)
+		var authorization: GFStorageFamilyResetAuthorization = (
+			_create_available_authorization(file_name, observed_result)
+		)
+		var before_digest: String = _snapshot_tree_digest(_storage_root_path)
+
+		var reset_result: GFStorageFamilyResetResult = _storage.reset_file_family(
+			file_name,
+			authorization
+		)
+
+		_assert_reset_failure(
+			reset_result,
+			GFStorageFamilyResetResult.FailureKind.CONFLICT,
+			GFStorageFamilyResetResult.Phase.PREFLIGHT
+		)
+		assert_eq(reset_result.get_error_code(), ERR_BUSY)
+		assert_eq(
+			reset_result.get_failed_member(),
+			GFStorageFamilyResetResult.FamilyMember.MUTABLE_EVIDENCE
+		)
+		assert_eq(_snapshot_tree_digest(_storage_root_path), before_digest)
+
+
+func test_uncertain_companion_transaction_evidence_fails_closed() -> void:
+	var scenarios: Array[StringName] = [
+		&"malformed_record",
+		&"wrong_type_record",
+		&"unsorted_record",
+	]
+	for scenario_index: int in range(scenarios.size()):
+		if scenario_index > 0:
+			_recreate_storage_fixture_root()
+		var scenario: StringName = scenarios[scenario_index]
+		var file_name: String = "structural/uncertain-target-%s.json" % scenario
+		var companion_file_name: String = (
+			"structural/uncertain-companion-%s.json" % scenario
+		)
+		assert_eq(_storage.save_data(file_name, { "value": 1 }), OK)
+		assert_eq(_storage.save_data(companion_file_name, { "value": 2 }), OK)
+		var descriptor: Dictionary = _descriptor(file_name)
+		var companion_descriptor: Dictionary = _descriptor(companion_file_name)
+		assert_eq(
+			_write_text(
+				GFVariantData.get_option_string(descriptor, "transaction_path"),
+				"{"
+			),
+			OK
+		)
+		var companion_transaction_path: String = GFVariantData.get_option_string(
+			companion_descriptor,
+			"transaction_path"
+		)
+		if scenario == &"malformed_record":
+			assert_eq(_write_text(companion_transaction_path, "{"), OK)
+		elif scenario == &"wrong_type_record":
+			assert_eq(
+				DirAccess.make_dir_recursive_absolute(companion_transaction_path),
+				OK
+			)
+		else:
+			var other_file_name: String = (
+				"structural/uncertain-other-%s.json" % scenario
+			)
+			assert_eq(_storage.save_data(other_file_name, { "value": 3 }), OK)
+			var member_names: Array[String] = [
+				companion_file_name,
+				other_file_name,
+			]
+			member_names.sort()
+			var had_final_by_file: Dictionary = {}
+			had_final_by_file[companion_file_name] = true
+			had_final_by_file[other_file_name] = true
+			var marker: Dictionary = GFStorageUtility._make_transaction_marker(
+				member_names,
+				companion_file_name,
+				"uncertain-unsorted-record",
+				false,
+				had_final_by_file
+			)
+			var members: Array = GFVariantData.get_option_array(marker, "members")
+			members.reverse()
+			marker["members"] = members
+			assert_eq(_write_json(companion_transaction_path, marker), OK)
+		var observed_result: GFStorageReadResult = _assert_corrupt_read(file_name)
+		var authorization: GFStorageFamilyResetAuthorization = (
+			_create_available_authorization(file_name, observed_result)
+		)
+		var before_digest: String = _snapshot_tree_digest(_storage_root_path)
+
+		var reset_result: GFStorageFamilyResetResult = _storage.reset_file_family(
+			file_name,
+			authorization
+		)
+
+		_assert_reset_failure(
+			reset_result,
+			GFStorageFamilyResetResult.FailureKind.IO_FAILED,
+			GFStorageFamilyResetResult.Phase.PREFLIGHT
+		)
+		assert_eq(reset_result.get_error_code(), ERR_FILE_CORRUPT)
+		assert_eq(
+			reset_result.get_failed_member(),
+			GFStorageFamilyResetResult.FamilyMember.MUTABLE_EVIDENCE
+		)
+		assert_eq(_snapshot_tree_digest(_storage_root_path), before_digest)
+
+
+func test_reverse_companion_scan_exhaustion_fails_closed_without_writing() -> void:
+	_replace_storage(BoundedReverseScanStorageUtility.new())
+	var file_name: String = "structural/reverse-budget-target.json"
+	var companion_file_name: String = "structural/reverse-budget-companion.json"
+	assert_eq(_storage.save_data(file_name, { "value": 1 }), OK)
+	assert_eq(_storage.save_data(companion_file_name, { "value": 2 }), OK)
+	var descriptor: Dictionary = _descriptor(file_name)
+	assert_eq(
+		_write_text(
+			GFVariantData.get_option_string(descriptor, "transaction_path"),
+			"{"
+		),
+		OK
+	)
+	var observed_result: GFStorageReadResult = _assert_corrupt_read(file_name)
+	var authorization: GFStorageFamilyResetAuthorization = (
+		_create_available_authorization(file_name, observed_result)
+	)
+	var before_digest: String = _snapshot_tree_digest(_storage_root_path)
+
+	var reset_result: GFStorageFamilyResetResult = _storage.reset_file_family(
+		file_name,
+		authorization
+	)
+
+	_assert_reset_failure(
+		reset_result,
+		GFStorageFamilyResetResult.FailureKind.IO_FAILED,
+		GFStorageFamilyResetResult.Phase.PREFLIGHT
+	)
+	assert_eq(reset_result.get_error_code(), ERR_OUT_OF_MEMORY)
+	assert_eq(
+		reset_result.get_failed_member(),
+		GFStorageFamilyResetResult.FamilyMember.MUTABLE_EVIDENCE
+	)
+	assert_eq(_snapshot_tree_digest(_storage_root_path), before_digest)
+
+
 func test_valid_multi_member_transactions_block_reset_without_writing() -> void:
 	for committed: bool in [false, true]:
 		var phase_name: String = "commit" if committed else "prepare"
 		var file_name: String = "conflict/%s-target.json" % phase_name
 		var companion_file_name: String = "conflict/%s-companion.json" % phase_name
-		var observed_result: GFStorageReadResult = _save_and_corrupt_payload(
+		var _observed_result: GFStorageReadResult = _save_and_corrupt_payload(
 			file_name
 		)
 		assert_eq(
 			_storage.save_data(companion_file_name, { "preserved": phase_name }),
 			OK
-		)
-		var authorization: GFStorageFamilyResetAuthorization = (
-			_create_available_authorization(file_name, observed_result)
 		)
 		var descriptor: Dictionary = _descriptor(file_name)
 		var file_names: Array[String] = [file_name, companion_file_name]
@@ -380,6 +571,9 @@ func test_valid_multi_member_transactions_block_reset_without_writing() -> void:
 			"transaction_commit_path" if committed else "transaction_path"
 		)
 		assert_eq(_write_json(marker_path, marker), OK)
+		var authorization: GFStorageFamilyResetAuthorization = (
+			_create_fixture_authorization_for_current_family(file_name)
+		)
 		var before_digest: String = _snapshot_tree_digest(_storage_root_path)
 
 		var reset_result: GFStorageFamilyResetResult = _storage.reset_file_family(
@@ -492,6 +686,91 @@ func test_malformed_pending_reset_intents_are_discarded_without_touching_family(
 		assert_true(authorization.is_available())
 
 
+func test_cold_recovery_discards_semantically_mismatched_pending_intents() -> void:
+	var mismatch_keys: Array[String] = [
+		"reset_id",
+		"logical_path",
+		"family_id",
+	]
+	for scenario_index: int in range(mismatch_keys.size()):
+		if scenario_index > 0:
+			_recreate_storage_fixture_root()
+		var file_name: String = "recovery/mismatched-pending-%d.json" % scenario_index
+		var _observed_result: GFStorageReadResult = _save_and_corrupt_payload(
+			file_name
+		)
+		var descriptor: Dictionary = _descriptor(file_name)
+		var reset_id: String = GFUuid.generate_v4()
+		var pending_path: String = (
+			_reset_intent_path(descriptor, reset_id)
+			+ ".pending-"
+			+ GFUuid.generate_v4()
+		)
+		var intent: Dictionary = _make_reset_intent_fixture(
+			descriptor,
+			reset_id,
+			GFStorageFamilyResetResult.SourceKind.PAYLOAD_ONLY
+		)
+		match mismatch_keys[scenario_index]:
+			"reset_id":
+				intent["reset_id"] = GFUuid.generate_v4()
+			"logical_path":
+				intent["logical_path"] = "recovery/other-family.json"
+			"family_id":
+				intent["family_id"] = (
+					GFStorageFamilyStore.make_family_id_for_framework(
+						"recovery/other-family.json"
+					)
+				)
+		assert_eq(_write_json(pending_path, intent), OK)
+		var family_digest: String = _snapshot_tree_digest(
+			GFVariantData.get_option_string(descriptor, "family_path")
+		)
+		var catalog_bytes: PackedByteArray = FileAccess.get_file_as_bytes(
+			GFVariantData.get_option_string(descriptor, "catalog_path")
+		)
+
+		_replace_storage(_make_integrity_storage())
+
+		_assert_absolute_leaf_absent(pending_path)
+		assert_eq(
+			_snapshot_tree_digest(
+				GFVariantData.get_option_string(descriptor, "family_path")
+			),
+			family_digest
+		)
+		assert_eq(
+			FileAccess.get_file_as_bytes(
+				GFVariantData.get_option_string(descriptor, "catalog_path")
+			),
+			catalog_bytes
+		)
+
+
+func test_cold_recovery_fails_closed_for_semantically_mismatched_exact_intent() -> void:
+	var file_name: String = "recovery/mismatched-exact.json"
+	var _observed_result: GFStorageReadResult = _save_and_corrupt_payload(file_name)
+	var descriptor: Dictionary = _descriptor(file_name)
+	var reset_id: String = GFUuid.generate_v4()
+	var intent_path: String = _reset_intent_path(descriptor, reset_id)
+	var intent: Dictionary = _make_reset_intent_fixture(
+		descriptor,
+		reset_id,
+		GFStorageFamilyResetResult.SourceKind.PAYLOAD_ONLY
+	)
+	intent["logical_path"] = "recovery/other-exact-family.json"
+	assert_eq(_write_json(intent_path, intent), OK)
+	var before_digest: String = _snapshot_tree_digest(_storage_root_path)
+
+	_replace_storage_without_init(GFStorageUtility.new())
+	var load_result: GFStorageReadResult = _storage.load_data(file_name)
+
+	assert_false(load_result.ok)
+	assert_eq(load_result.error_code, ERR_FILE_CORRUPT)
+	assert_true(FileAccess.file_exists(intent_path))
+	assert_eq(_snapshot_tree_digest(_storage_root_path), before_digest)
+
+
 func test_malformed_exact_reset_intent_fails_closed_without_writing() -> void:
 	var file_name: String = "recovery/malformed-exact.json"
 	var observed_result: GFStorageReadResult = _save_and_corrupt_payload(file_name)
@@ -585,10 +864,7 @@ func test_wrong_shape_pending_reset_intent_fails_closed_without_writing() -> voi
 
 func test_owner_only_recreate_state_resumes_without_losing_retired_evidence() -> void:
 	var file_name: String = "recovery/owner-only.json"
-	var observed_result: GFStorageReadResult = _save_and_corrupt_payload(file_name)
-	var authorization: GFStorageFamilyResetAuthorization = (
-		_create_available_authorization(file_name, observed_result)
-	)
+	var _observed_result: GFStorageReadResult = _save_and_corrupt_payload(file_name)
 	var descriptor: Dictionary = _descriptor(file_name)
 	var reset_id: String = GFUuid.generate_v4()
 	var intent_path: String = _reset_intent_path(descriptor, reset_id)
@@ -637,6 +913,9 @@ func test_owner_only_recreate_state_resumes_without_losing_retired_evidence() ->
 			GFVariantData.get_option_string(descriptor, "catalog_path")
 		)
 	)
+	var authorization: GFStorageFamilyResetAuthorization = (
+		_create_fixture_authorization_for_current_family(file_name)
+	)
 
 	var reset_result: GFStorageFamilyResetResult = _storage.reset_file_family(
 		file_name,
@@ -653,10 +932,7 @@ func test_owner_only_recreate_state_resumes_without_losing_retired_evidence() ->
 
 func test_owner_only_recreate_discards_malformed_catalog_pending_and_resumes() -> void:
 	var file_name: String = "recovery/owner-only-catalog-pending.json"
-	var observed_result: GFStorageReadResult = _save_and_corrupt_payload(file_name)
-	var authorization: GFStorageFamilyResetAuthorization = (
-		_create_available_authorization(file_name, observed_result)
-	)
+	var _observed_result: GFStorageReadResult = _save_and_corrupt_payload(file_name)
 	var descriptor: Dictionary = _descriptor(file_name)
 	var reset_id: String = GFUuid.generate_v4()
 	assert_eq(
@@ -704,6 +980,9 @@ func test_owner_only_recreate_discards_malformed_catalog_pending_and_resumes() -
 		+ GFUuid.generate_v4()
 	)
 	assert_eq(_write_text(catalog_pending_path, ""), OK)
+	var authorization: GFStorageFamilyResetAuthorization = (
+		_create_fixture_authorization_for_current_family(file_name)
+	)
 
 	var reset_result: GFStorageFamilyResetResult = _storage.reset_file_family(
 		file_name,
@@ -781,11 +1060,8 @@ func test_cleanup_resume_preserves_initial_retired_count() -> void:
 			"catalog-remains" if retired_catalog_remains else "intent-only"
 		)
 		var file_name: String = "recovery/cleanup-%s.json" % scenario_name
-		var observed_result: GFStorageReadResult = _save_and_corrupt_payload(
+		var _observed_result: GFStorageReadResult = _save_and_corrupt_payload(
 			file_name
-		)
-		var authorization: GFStorageFamilyResetAuthorization = (
-			_create_available_authorization(file_name, observed_result)
 		)
 		var descriptor: Dictionary = _descriptor(file_name)
 		var reset_id: String = GFUuid.generate_v4()
@@ -831,6 +1107,9 @@ func test_cleanup_resume_preserves_initial_retired_count() -> void:
 		assert_eq(_remove_owned_test_tree(retired_family_path), OK)
 		if not retired_catalog_remains:
 			assert_eq(DirAccess.remove_absolute(retired_catalog_path), OK)
+		var authorization: GFStorageFamilyResetAuthorization = (
+			_create_fixture_authorization_for_current_family(file_name)
+		)
 
 		var reset_result: GFStorageFamilyResetResult = _storage.reset_file_family(
 			file_name,
@@ -847,10 +1126,7 @@ func test_cleanup_resume_preserves_initial_retired_count() -> void:
 
 func test_missing_family_race_returns_not_found_without_writing() -> void:
 	var file_name: String = "preflight/missing-race.json"
-	var observed_result: GFStorageReadResult = _save_and_corrupt_payload(file_name)
-	var authorization: GFStorageFamilyResetAuthorization = (
-		_create_available_authorization(file_name, observed_result)
-	)
+	var _observed_result: GFStorageReadResult = _save_and_corrupt_payload(file_name)
 	var descriptor: Dictionary = _descriptor(file_name)
 	assert_eq(
 		_remove_owned_test_tree(
@@ -863,6 +1139,9 @@ func test_missing_family_race_returns_not_found_without_writing() -> void:
 			GFVariantData.get_option_string(descriptor, "catalog_path")
 		),
 		OK
+	)
+	var authorization: GFStorageFamilyResetAuthorization = (
+		_create_fixture_authorization_for_current_family(file_name)
 	)
 	var before_digest: String = _snapshot_tree_digest(_storage_root_path)
 
@@ -930,11 +1209,8 @@ func test_storage_ancestry_links_fail_closed_without_crossing_boundary() -> void
 			_recreate_storage_fixture_root()
 		var scenario: StringName = scenarios[scenario_index]
 		var file_name: String = "boundary/%s.json" % scenario
-		var observed_result: GFStorageReadResult = _save_and_corrupt_payload(
+		var _observed_result: GFStorageReadResult = _save_and_corrupt_payload(
 			file_name
-		)
-		var authorization: GFStorageFamilyResetAuthorization = (
-			_create_available_authorization(file_name, observed_result)
 		)
 		var descriptor: Dictionary = _descriptor(file_name)
 		var link_path: String = ""
@@ -974,6 +1250,9 @@ func test_storage_ancestry_links_fail_closed_without_crossing_boundary() -> void
 		)
 		if link_error != OK:
 			continue
+		var authorization: GFStorageFamilyResetAuthorization = (
+			_create_fixture_authorization_for_current_family(file_name)
+		)
 
 		var reset_result: GFStorageFamilyResetResult = _storage.reset_file_family(
 			file_name,
@@ -1018,13 +1297,10 @@ func test_storage_ancestry_links_fail_closed_without_crossing_boundary() -> void
 func test_exact_family_directory_link_is_structural_and_reset_never_crosses_boundary() -> void:
 	var file_name: String = "boundary/exact-family-link.json"
 	var companion_file_name: String = "boundary/exact-family-link-companion.json"
-	var observed_result: GFStorageReadResult = _save_and_corrupt_payload(file_name)
+	var _observed_result: GFStorageReadResult = _save_and_corrupt_payload(file_name)
 	assert_eq(
 		_storage.save_data(companion_file_name, { "preserved": true }),
 		OK
-	)
-	var authorization: GFStorageFamilyResetAuthorization = (
-		_create_available_authorization(file_name, observed_result)
 	)
 	var descriptor: Dictionary = _descriptor(file_name)
 	var family_path: String = GFVariantData.get_option_string(
@@ -1064,6 +1340,9 @@ func test_exact_family_directory_link_is_structural_and_reset_never_crosses_boun
 	if link_error != OK:
 		return
 	assert_true(_absolute_path_is_link(family_path))
+	var authorization: GFStorageFamilyResetAuthorization = (
+		_create_fixture_authorization_for_current_family(file_name)
+	)
 
 	var reset_result: GFStorageFamilyResetResult = _storage.reset_file_family(
 		file_name,
@@ -1082,10 +1361,7 @@ func test_exact_family_directory_link_is_structural_and_reset_never_crosses_boun
 
 func test_allowed_payload_file_link_is_structural_and_reset_never_crosses_boundary() -> void:
 	var file_name: String = "boundary/payload-file-link.json"
-	var observed_result: GFStorageReadResult = _save_and_corrupt_payload(file_name)
-	var authorization: GFStorageFamilyResetAuthorization = (
-		_create_available_authorization(file_name, observed_result)
-	)
+	var _observed_result: GFStorageReadResult = _save_and_corrupt_payload(file_name)
 	var descriptor: Dictionary = _descriptor(file_name)
 	var payload_path: String = GFVariantData.get_option_string(
 		descriptor,
@@ -1104,6 +1380,9 @@ func test_allowed_payload_file_link_is_structural_and_reset_never_crosses_bounda
 	if link_error != OK:
 		return
 	assert_true(_absolute_path_is_link(payload_path))
+	var authorization: GFStorageFamilyResetAuthorization = (
+		_create_fixture_authorization_for_current_family(file_name)
+	)
 
 	var reset_result: GFStorageFamilyResetResult = _storage.reset_file_family(
 		file_name,
@@ -1169,10 +1448,7 @@ func test_mismatched_layout_publish_pending_fails_before_reset_mutation() -> voi
 
 func test_existing_intent_rejects_conflicting_fresh_claim_and_preserves_evidence() -> void:
 	var file_name: String = "recovery/conflicting-fresh-claim.json"
-	var observed_result: GFStorageReadResult = _save_and_corrupt_payload(file_name)
-	var authorization: GFStorageFamilyResetAuthorization = (
-		_create_available_authorization(file_name, observed_result)
-	)
+	var _observed_result: GFStorageReadResult = _save_and_corrupt_payload(file_name)
 	var descriptor: Dictionary = _descriptor(file_name)
 	var reset_id: String = GFUuid.generate_v4()
 	var retired_paths: Dictionary = _install_reset_intent_and_retire_exact(
@@ -1219,6 +1495,9 @@ func test_existing_intent_rejects_conflicting_fresh_claim_and_preserves_evidence
 		retired_catalog_path
 	)
 	var exact_claim_digest: String = _snapshot_tree_digest(family_path)
+	var authorization: GFStorageFamilyResetAuthorization = (
+		_create_fixture_authorization_for_current_family(file_name)
+	)
 
 	var reset_result: GFStorageFamilyResetResult = _storage.reset_file_family(
 		file_name,
@@ -1253,10 +1532,7 @@ func test_existing_intent_rejects_conflicting_fresh_claim_and_preserves_evidence
 
 func test_existing_intent_caps_overfull_exact_claim_without_mutating_evidence() -> void:
 	var file_name: String = "capacity/overfull-exact-claim.json"
-	var observed_result: GFStorageReadResult = _save_and_corrupt_payload(file_name)
-	var authorization: GFStorageFamilyResetAuthorization = (
-		_create_available_authorization(file_name, observed_result)
-	)
+	var _observed_result: GFStorageReadResult = _save_and_corrupt_payload(file_name)
 	var descriptor: Dictionary = _descriptor(file_name)
 	var reset_id: String = GFUuid.generate_v4()
 	var retired_paths: Dictionary = _install_reset_intent_and_retire_exact(
@@ -1306,6 +1582,9 @@ func test_existing_intent_caps_overfull_exact_claim_without_mutating_evidence() 
 		retired_catalog_path
 	)
 	var exact_claim_digest: String = _snapshot_tree_digest(family_path)
+	var authorization: GFStorageFamilyResetAuthorization = (
+		_create_fixture_authorization_for_current_family(file_name)
+	)
 
 	var reset_result: GFStorageFamilyResetResult = _storage.reset_file_family(
 		file_name,
@@ -1335,10 +1614,7 @@ func test_existing_intent_caps_overfull_exact_claim_without_mutating_evidence() 
 
 func test_claim_staging_directory_link_fails_closed_and_preserves_evidence() -> void:
 	var file_name: String = "boundary/claim-staging-link.json"
-	var observed_result: GFStorageReadResult = _save_and_corrupt_payload(file_name)
-	var authorization: GFStorageFamilyResetAuthorization = (
-		_create_available_authorization(file_name, observed_result)
-	)
+	var _observed_result: GFStorageReadResult = _save_and_corrupt_payload(file_name)
 	var descriptor: Dictionary = _descriptor(file_name)
 	var reset_id: String = GFUuid.generate_v4()
 	var retired_paths: Dictionary = _install_reset_intent_and_retire_exact(
@@ -1382,6 +1658,9 @@ func test_claim_staging_directory_link_fails_closed_and_preserves_evidence() -> 
 	var retired_catalog_bytes: PackedByteArray = FileAccess.get_file_as_bytes(
 		retired_catalog_path
 	)
+	var authorization: GFStorageFamilyResetAuthorization = (
+		_create_fixture_authorization_for_current_family(file_name)
+	)
 
 	var reset_result: GFStorageFamilyResetResult = _storage.reset_file_family(
 		file_name,
@@ -1412,11 +1691,8 @@ func test_claim_staging_directory_link_fails_closed_and_preserves_evidence() -> 
 
 func test_claim_staging_bound_ignores_ordinary_siblings_but_caps_target_candidates() -> void:
 	var ordinary_file_name: String = "capacity/ordinary-claim-siblings.json"
-	var ordinary_observed: GFStorageReadResult = _save_and_corrupt_payload(
+	var _ordinary_observed: GFStorageReadResult = _save_and_corrupt_payload(
 		ordinary_file_name
-	)
-	var ordinary_authorization: GFStorageFamilyResetAuthorization = (
-		_create_available_authorization(ordinary_file_name, ordinary_observed)
 	)
 	var ordinary_descriptor: Dictionary = _descriptor(ordinary_file_name)
 	var ordinary_reset_id: String = GFUuid.generate_v4()
@@ -1437,6 +1713,9 @@ func test_claim_staging_bound_ignores_ordinary_siblings_but_caps_target_candidat
 		if creation_error != OK:
 			break
 	assert_eq(creation_error, OK)
+	var ordinary_authorization: GFStorageFamilyResetAuthorization = (
+		_create_fixture_authorization_for_current_family(ordinary_file_name)
+	)
 	var ordinary_result: GFStorageFamilyResetResult = _storage.reset_file_family(
 		ordinary_file_name,
 		ordinary_authorization
@@ -1449,11 +1728,8 @@ func test_claim_staging_bound_ignores_ordinary_siblings_but_caps_target_candidat
 
 	_recreate_storage_fixture_root()
 	var bounded_file_name: String = "capacity/bounded-claim-candidates.json"
-	var bounded_observed: GFStorageReadResult = _save_and_corrupt_payload(
+	var _bounded_observed: GFStorageReadResult = _save_and_corrupt_payload(
 		bounded_file_name
-	)
-	var bounded_authorization: GFStorageFamilyResetAuthorization = (
-		_create_available_authorization(bounded_file_name, bounded_observed)
 	)
 	var bounded_descriptor: Dictionary = _descriptor(bounded_file_name)
 	var bounded_reset_id: String = GFUuid.generate_v4()
@@ -1491,6 +1767,9 @@ func test_claim_staging_bound_ignores_ordinary_siblings_but_caps_target_candidat
 	var retired_catalog_bytes: PackedByteArray = FileAccess.get_file_as_bytes(
 		retired_catalog_path
 	)
+	var bounded_authorization: GFStorageFamilyResetAuthorization = (
+		_create_fixture_authorization_for_current_family(bounded_file_name)
+	)
 
 	var bounded_result: GFStorageFamilyResetResult = _storage.reset_file_family(
 		bounded_file_name,
@@ -1526,11 +1805,8 @@ func test_exact_wrong_type_identity_leaves_are_retired_and_recreated() -> void:
 			_recreate_storage_fixture_root()
 		var scenario: StringName = scenarios[scenario_index]
 		var file_name: String = "structural/wrong-type-%s.json" % scenario
-		var observed_result: GFStorageReadResult = _save_and_corrupt_payload(
+		var _observed_result: GFStorageReadResult = _save_and_corrupt_payload(
 			file_name
-		)
-		var authorization: GFStorageFamilyResetAuthorization = (
-			_create_available_authorization(file_name, observed_result)
 		)
 		var descriptor: Dictionary = _descriptor(file_name)
 		if scenario == &"family_file":
@@ -1547,6 +1823,9 @@ func test_exact_wrong_type_identity_leaves_are_retired_and_recreated() -> void:
 			)
 			assert_eq(DirAccess.remove_absolute(catalog_path), OK)
 			assert_eq(DirAccess.make_dir_recursive_absolute(catalog_path), OK)
+		var authorization: GFStorageFamilyResetAuthorization = (
+			_create_fixture_authorization_for_current_family(file_name)
+		)
 
 		var reset_result: GFStorageFamilyResetResult = _storage.reset_file_family(
 			file_name,
@@ -1748,6 +2027,251 @@ func test_authorization_mismatch_marks_stale_and_successful_claim_cannot_be_reus
 		claimed_replay,
 		GFStorageFamilyResetResult.FailureKind.UNAUTHORIZED,
 		GFStorageFamilyResetResult.Phase.PREFLIGHT
+	)
+
+
+func test_authorization_rejects_family_changed_after_corrupt_observation() -> void:
+	var file_name: String = "authorization/changed-before-issue.json"
+	var observed_result: GFStorageReadResult = _save_and_corrupt_payload(file_name)
+	assert_eq(_storage.save_data(file_name, { "generation": 2 }), OK)
+
+	var authorization: GFStorageFamilyResetAuthorization = (
+		_storage.create_family_reset_authorization(file_name, observed_result)
+	)
+
+	_assert_stale_authorization(authorization)
+	var current_result: GFStorageReadResult = _storage.load_data(file_name)
+	assert_true(current_result.ok)
+	assert_eq(GFVariantData.get_option_int(current_result.payload, "generation"), 2)
+
+
+func test_authorization_is_invalidated_by_newer_same_family_save() -> void:
+	var cooperative_storage: CooperativeResetStorageUtility = (
+		CooperativeResetStorageUtility.new()
+	)
+	_replace_storage(cooperative_storage)
+	cooperative_storage.async_execution_mode = (
+		GFStorageUtility.AsyncExecutionMode.COOPERATIVE
+	)
+	var file_name: String = "authorization/newer-save.json"
+	var observed_result: GFStorageReadResult = _save_and_corrupt_payload(file_name)
+	var authorization: GFStorageFamilyResetAuthorization = (
+		_create_available_authorization(file_name, observed_result)
+	)
+	var save_operation: GFStorageAsyncOperation = _storage.save_data_request_async(
+		file_name,
+		{ "generation": 2 }
+	)
+	assert_not_null(save_operation)
+	if save_operation == null:
+		return
+
+	var reset_result: GFStorageFamilyResetResult = _storage.reset_file_family(
+		file_name,
+		authorization
+	)
+
+	_assert_reset_failure(
+		reset_result,
+		GFStorageFamilyResetResult.FailureKind.UNAUTHORIZED,
+		GFStorageFamilyResetResult.Phase.PREFLIGHT
+	)
+	assert_true(authorization.is_stale())
+	assert_true(save_operation.is_completed())
+	assert_eq(save_operation.get_result().get_error_code(), OK)
+	var current_result: GFStorageReadResult = _storage.load_data(file_name)
+	assert_true(current_result.ok)
+	assert_eq(GFVariantData.get_option_int(current_result.payload, "generation"), 2)
+
+
+func test_async_reset_rechecks_authorization_after_queued_same_family_save() -> void:
+	var cooperative_storage: CooperativeResetStorageUtility = (
+		CooperativeResetStorageUtility.new()
+	)
+	_replace_storage(cooperative_storage)
+	cooperative_storage.async_execution_mode = (
+		GFStorageUtility.AsyncExecutionMode.COOPERATIVE
+	)
+	var file_name: String = "authorization/async-newer-save.json"
+	var observed_result: GFStorageReadResult = _save_and_corrupt_payload(file_name)
+	var authorization: GFStorageFamilyResetAuthorization = (
+		_create_available_authorization(file_name, observed_result)
+	)
+	var save_operation: GFStorageAsyncOperation = _storage.save_data_request_async(
+		file_name,
+		{ "generation": 2 }
+	)
+	var reset_operation: GFStorageAsyncOperation = (
+		_storage.reset_file_family_request_async(file_name, authorization)
+	)
+	assert_not_null(save_operation)
+	assert_not_null(reset_operation)
+	if save_operation == null or reset_operation == null:
+		return
+	var operations: Array[GFStorageAsyncOperation] = [
+		save_operation,
+		reset_operation,
+	]
+
+	assert_true(await _pump_until_operations_complete(operations))
+
+	assert_eq(save_operation.get_result().get_error_code(), OK)
+	var reset_result: GFStorageFamilyResetResult = (
+		reset_operation.get_result().get_reset_result()
+	)
+	_assert_reset_failure(
+		reset_result,
+		GFStorageFamilyResetResult.FailureKind.UNAUTHORIZED,
+		GFStorageFamilyResetResult.Phase.PREFLIGHT
+	)
+	var current_result: GFStorageReadResult = _storage.load_data(file_name)
+	assert_true(current_result.ok)
+	assert_eq(GFVariantData.get_option_int(current_result.payload, "generation"), 2)
+
+
+func test_cold_target_structural_corruption_preserves_reset_provenance() -> void:
+	var identity_keys: Array[String] = [
+		"catalog_path",
+		"owner_path",
+		"transaction_path",
+	]
+	for scenario_index: int in range(identity_keys.size()):
+		if scenario_index > 0:
+			_recreate_storage_fixture_root()
+		var identity_key: String = identity_keys[scenario_index]
+		var file_name: String = "provenance/cold-%s.json" % identity_key
+		assert_eq(_storage.save_data(file_name, { "generation": 1 }), OK)
+		var descriptor: Dictionary = _descriptor(file_name)
+		assert_eq(
+			_write_text(
+				GFVariantData.get_option_string(descriptor, identity_key),
+				"{"
+			),
+			OK
+		)
+		_replace_storage_without_init(GFStorageUtility.new())
+
+		var observed_result: GFStorageReadResult = _storage.load_data(file_name)
+
+		assert_false(observed_result.ok)
+		assert_eq(observed_result.error_code, ERR_FILE_CORRUPT)
+		assert_eq(
+			observed_result.failure_kind,
+			GFStorageReadResult.FailureKind.CORRUPT
+		)
+		_assert_read_result_origin(observed_result, file_name, true)
+		var authorization: GFStorageFamilyResetAuthorization = (
+			_create_available_authorization(file_name, observed_result)
+		)
+		assert_true(authorization.is_available())
+
+
+func test_async_cold_target_provenance_overrides_unrelated_scan_budget_error() -> void:
+	var file_name: String = "provenance/cold-async-budget-target.json"
+	assert_eq(_storage.save_data(file_name, { "generation": 1 }), OK)
+	var descriptor: Dictionary = _descriptor(file_name)
+	assert_eq(
+		_write_text(
+			GFVariantData.get_option_string(descriptor, "catalog_path"),
+			"{"
+		),
+		OK
+	)
+	var families_root: String = _storage_root_path.path_join(
+		".gf-storage/v1/families"
+	)
+	var creation_error: Error = OK
+	for entry_index: int in range(256):
+		creation_error = DirAccess.make_dir_recursive_absolute(
+			families_root.path_join("scan-budget-%03d" % entry_index)
+		)
+		if creation_error != OK:
+			break
+	assert_eq(creation_error, OK)
+	var cold_storage: ColdCooperativeResetStorageUtility = (
+		ColdCooperativeResetStorageUtility.new()
+	)
+	_replace_storage_without_init(cold_storage)
+	cold_storage.async_execution_mode = GFStorageUtility.AsyncExecutionMode.COOPERATIVE
+
+	var operation: GFStorageAsyncOperation = _storage.load_data_request_async(
+		file_name
+	)
+
+	assert_not_null(operation)
+	if operation == null:
+		return
+	assert_true(operation.is_completed())
+	var async_result: GFStorageAsyncResult = operation.get_result()
+	assert_not_null(async_result)
+	if async_result == null:
+		return
+	assert_eq(async_result.get_error_code(), ERR_FILE_CORRUPT)
+	var observed_result: GFStorageReadResult = async_result.get_read_result()
+	assert_not_null(observed_result)
+	if observed_result == null:
+		return
+	assert_false(observed_result.ok)
+	assert_eq(observed_result.error_code, ERR_FILE_CORRUPT)
+	assert_eq(
+		observed_result.failure_kind,
+		GFStorageReadResult.FailureKind.CORRUPT
+	)
+	_assert_read_result_origin(observed_result, file_name, true)
+	var authorization: GFStorageFamilyResetAuthorization = (
+		_create_available_authorization(file_name, observed_result)
+	)
+	assert_true(authorization.is_available())
+
+
+func test_cold_global_layout_corruption_stays_unbound_from_target_family() -> void:
+	var file_name: String = "provenance/global-layout-unbound.json"
+	assert_eq(_storage.save_data(file_name, { "generation": 1 }), OK)
+	assert_eq(
+		_write_text(
+			_storage_root_path.path_join(".gf-storage/v1/layout.json"),
+			"{"
+		),
+		OK
+	)
+	_replace_storage_without_init(GFStorageUtility.new())
+
+	var observed_result: GFStorageReadResult = _storage.load_data(file_name)
+
+	assert_false(observed_result.ok)
+	assert_eq(observed_result.error_code, ERR_FILE_CORRUPT)
+	assert_eq(
+		observed_result.failure_kind,
+		GFStorageReadResult.FailureKind.IO_FAILED
+	)
+	_assert_read_result_origin(observed_result, file_name, false)
+	_assert_stale_authorization(
+		_storage.create_family_reset_authorization(file_name, observed_result)
+	)
+
+
+func test_resume_layout_drift_stays_unbound_from_target_family() -> void:
+	var file_name: String = "provenance/layout-drift-unbound.json"
+	assert_eq(_storage.save_data(file_name, { "generation": 1 }), OK)
+	var descriptor: Dictionary = _descriptor(file_name)
+	var _retired_paths: Dictionary = _install_reset_intent_and_retire_exact(
+		descriptor,
+		GFUuid.generate_v4(),
+		GFStorageFamilyResetResult.SourceKind.PAYLOAD_ONLY
+	)
+	_replace_storage_without_init(LayoutDriftDuringResumeStorageUtility.new())
+
+	var resume_result: Dictionary = _storage._resume_pending_reset_for_file_result(
+		_storage_root_path,
+		file_name
+	)
+
+	assert_eq(
+		GFVariantData.get_option_int(resume_result, "error"),
+		ERR_FILE_CORRUPT
+	)
+	assert_false(
+		GFVariantData.get_option_bool(resume_result, "target_provenance")
 	)
 
 
@@ -2460,10 +2984,7 @@ func test_partial_recreate_catalog_failure_reports_progress_and_retries() -> voi
 
 	faulty_storage.fail_catalog_claim = false
 	var retry_authorization: GFStorageFamilyResetAuthorization = (
-		_create_available_authorization(
-			file_name,
-			observed_result.duplicate_result()
-		)
+		_create_fixture_authorization_for_current_family(file_name)
 	)
 	var retry_result: GFStorageFamilyResetResult = _storage.reset_file_family(
 		file_name,
@@ -2744,6 +3265,30 @@ func _create_available_authorization(
 	assert_not_null(authorization)
 	assert_true(authorization.is_available())
 	return authorization
+
+
+func _create_fixture_authorization_for_current_family(
+	file_name: String
+) -> GFStorageFamilyResetAuthorization:
+	var descriptor: Dictionary = _descriptor(file_name)
+	var observation_token: String = _storage._make_family_observation_token(
+		file_name
+	)
+	assert_false(observation_token.is_empty())
+	var observed_result: GFStorageReadResult = _make_read_failure(
+		GFStorageReadResult.FailureKind.CORRUPT,
+		ERR_FILE_CORRUPT
+	)
+	assert_true(
+		observed_result.bind_origin_for_framework(
+			_storage.get_instance_id(),
+			file_name,
+			GFVariantData.get_option_string(descriptor, "file_key"),
+			_storage._read_result_origin_token,
+			observation_token
+		)
+	)
+	return _create_available_authorization(file_name, observed_result)
 
 
 func _assert_stale_authorization(
@@ -3361,6 +3906,31 @@ class GatedThreadedResetStorageUtility extends GFStorageUtility:
 class ColdCooperativeResetStorageUtility extends CooperativeResetStorageUtility:
 	func init() -> void:
 		pass
+
+
+class BoundedReverseScanStorageUtility extends GFStorageUtility:
+	func _get_reset_reverse_scan_entry_limit() -> int:
+		return 4
+
+
+class LayoutDriftDuringResumeStorageUtility extends GFStorageUtility:
+	func _reset_file_family_thread(
+		storage_root_path: String,
+		logical_name: String,
+		expected_observation_token: String = ""
+	) -> Dictionary:
+		var layout_file: FileAccess = FileAccess.open(
+			storage_root_path.path_join(".gf-storage/v1/layout.json"),
+			FileAccess.WRITE
+		)
+		if layout_file != null:
+			var _stored: bool = layout_file.store_string("{") != null
+			layout_file = null
+		return super._reset_file_family_thread(
+			storage_root_path,
+			logical_name,
+			expected_observation_token
+		)
 
 
 class CleanupFailureStorageUtility extends GFStorageUtility:

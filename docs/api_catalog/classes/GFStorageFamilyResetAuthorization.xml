@@ -1,8 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFStorageFamilyResetAuthorization" path="addons/gf/standard/utilities/storage/gf_storage_family_reset_authorization.gd" module="standard" extends="RefCounted" classDigest="cb39a5b52efc7cee1cee7ba1fa3b84034d7c1a7b85fefcf39a8f0def101a2117">
+<class name="GFStorageFamilyResetAuthorization" path="addons/gf/standard/utilities/storage/gf_storage_family_reset_authorization.gd" module="standard" extends="RefCounted" classDigest="8a197c2cafa08637d37a325b9a3c434558e8e9109c62c369262a5d26584cee64">
 	<description>GFStorageFamilyResetAuthorization: 单个 Storage logical family 的一次性破坏性恢复授权。
 授权只能由 GFStorageUtility 为当前实例、冻结 root 与 canonical logical identity 创建。
-reset 必须原样提交同一对象；跨 Utility、跨 root/file 或重复提交都会失败关闭。</description>
+reset 必须原样提交同一对象；跨 Utility、跨 root/file 或重复提交都会失败关闭。
+授权冻结签发时的 family 观察；较新写入或修复会在签发、claim 或 worker 复核时使其 stale。</description>
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">runtime_handle</tag>
@@ -87,7 +88,7 @@ reset 必须原样提交同一对象；跨 Utility、跨 root/file 或重复提�
 			<description>检查授权是否仍可提交一次。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="return">已配置且尚未消费时返回 true。</tag>
+				<tag name="return">本地句柄已配置且尚未消费时返回 true；实际提交仍会复核冻结的 family 观察。</tag>
 				<tag name="since">unreleased</tag>
 			</tags>
 		</member>

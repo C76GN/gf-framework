@@ -115,6 +115,7 @@ const _RESET_INTENT_SUFFIX: String = ".intent.json"
 const _RESET_MAX_INTENT_BYTES: int = 16 * 1024
 const _RESET_MAX_TREE_DEPTH: int = 16
 const _RESET_MAX_TREE_ENTRIES: int = 1024
+const _RESET_MAX_REVERSE_SCAN_ENTRIES: int = 16 * 1024
 const _RESET_MAX_SHARD_ENTRIES: int = 256
 const _RESET_MAX_PENDING_INTENTS: int = 1024
 
@@ -739,7 +740,8 @@ func delete_file_request_async(
 ## 为一次显式的破坏性 family reset 创建绑定授权。
 ##
 ## 只有当前 GFStorageUtility 对同一 logical identity 返回的 CORRUPT 读取结果才可
-## 创建授权。授权冻结 Utility、Storage root 与 canonical logical identity，且只能消费一次。
+## 创建授权。授权冻结 Utility、Storage root、canonical logical identity 与当前 family 观察，
+## 且只能消费一次；签发前或后发生的较新同 family 写入/修复会使旧观察失效。
 ## [br]
 ## @api public
 ## [br]
@@ -780,8 +782,21 @@ func create_family_reset_authorization(
 		)
 	):
 		return authorization
+	var observation_token: String = (
+		observed_result.get_origin_observation_token_for_framework(
+			get_instance_id(),
+			canonical_file_name,
+			GFVariantData.get_option_string(target_family, "file_key"),
+			_read_result_origin_token
+		)
+	)
+	if observation_token.is_empty():
+		return authorization
 	target_family = _freeze_async_target_family(canonical_file_name)
-	if target_family.is_empty():
+	if (
+		target_family.is_empty()
+		or observation_token != _make_family_observation_token(canonical_file_name)
+	):
 		return authorization
 	var authorization_id: int = _next_family_reset_authorization_id
 	_next_family_reset_authorization_id += 1
@@ -792,6 +807,7 @@ func create_family_reset_authorization(
 		get_instance_id(),
 		canonical_file_name,
 		GFVariantData.get_option_string(target_family, "file_key"),
+		observation_token,
 		GFStorageFamilyResetAuthorization.REASON_CORRUPT
 	)
 	return authorization
@@ -866,7 +882,8 @@ func reset_file_family(
 	return _make_reset_result_from_worker(
 		_reset_file_family_thread(
 			GFVariantData.get_option_string(target_family, "storage_root_path"),
-			canonical_file_name
+			canonical_file_name,
+			authorization.get_observation_token_for_framework()
 		)
 	)
 
@@ -1060,10 +1077,9 @@ func load_data(file_name: String) -> GFStorageReadResult:
 	ignore_pause = true
 	var readiness_error: Error = _ensure_storage_ready()
 	if readiness_error != OK:
-		last_load_result = _make_load_failure(
-			"Storage recovery is unavailable",
-			readiness_error,
-			_classify_readiness_load_failure(readiness_error)
+		last_load_result = _make_readiness_load_failure_for_target(
+			file_name,
+			readiness_error
 		)
 		return last_load_result.duplicate_result()
 	if not _wait_for_async_tasks_for_file(file_name):
@@ -1082,10 +1098,9 @@ func load_data(file_name: String) -> GFStorageReadResult:
 		return last_load_result.duplicate_result()
 	readiness_error = _ensure_storage_ready()
 	if readiness_error != OK:
-		last_load_result = _make_load_failure(
-			"Storage recovery is unavailable",
-			readiness_error,
-			_classify_readiness_load_failure(readiness_error)
+		last_load_result = _make_readiness_load_failure_for_target(
+			file_name,
+			readiness_error
 		)
 		return last_load_result.duplicate_result()
 	var prepare_error: Error = _prepare_family_for_read_after_readiness(file_name)
@@ -1403,6 +1418,44 @@ func get_registered_migrations() -> Array[Dictionary]:
 
 
 # --- 框架内部方法 ---
+
+## 在不消费授权的情况下复核当前 family 是否仍等于签发 corrupt read 时的观察快照。
+## [br]
+## @api framework_internal
+## [br]
+## @layer standard/utilities/storage
+## [br]
+## @since unreleased
+## [br]
+## @param file_name: 必须与 authorization 绑定一致的 canonical logical identity。
+## [br]
+## @param authorization: 待复核的一次性 reset 授权。
+## [br]
+## @return 快照、Utility 与 logical identity 都仍精确匹配时返回 true。
+func validate_family_reset_authorization_for_framework(
+	file_name: String,
+	authorization: GFStorageFamilyResetAuthorization
+) -> bool:
+	if (
+		not _io_admission_open
+		or authorization == null
+		or not authorization.is_available()
+		or not _validate_public_file_name(
+			file_name,
+			"validate_family_reset_authorization_for_framework"
+		)
+	):
+		return false
+	var canonical_file_name: String = _canonicalize_storage_file_name(file_name)
+	var target_family: Dictionary = _freeze_async_target_family(canonical_file_name)
+	if target_family.is_empty():
+		return false
+	return authorization.validate_for_framework(
+		get_instance_id(),
+		canonical_file_name,
+		GFVariantData.get_option_string(target_family, "file_key"),
+		_make_family_observation_token(canonical_file_name)
+	)
 
 ## 在首个异步请求前替换异步生命周期使用的单调时钟。
 ## [br]
@@ -2094,19 +2147,20 @@ func _enqueue_async_load(
 	ignore_pause = true
 	var readiness_error: Error = _ensure_storage_ready()
 	if readiness_error != OK:
-		var readiness_result: GFStorageReadResult = _make_load_failure(
-			"Storage readiness failed: %s" % error_string(readiness_error),
-			readiness_error,
-			_classify_readiness_load_failure(readiness_error)
+		var readiness_result: GFStorageReadResult = (
+			_make_readiness_load_failure_for_target(
+				canonical_file_name,
+				readiness_error
+			)
 		)
 		last_load_result = readiness_result.duplicate_result()
 		_complete_async_operation(
 			operation,
-			readiness_error,
+			readiness_result.error_code,
 			readiness_result
 		)
 		load_completed.emit(file_name, readiness_result.duplicate_result())
-		return readiness_error
+		return readiness_result.error_code
 	var target_family: Dictionary = _make_async_target_family(canonical_file_name)
 	_queue_async_task({
 		"type": &"load",
@@ -2378,6 +2432,7 @@ func _enqueue_async_reset(
 		"transaction_commit_path": GFVariantData.get_option_string(target_family, "transaction_commit_path"),
 		"transaction_commit_pending_path": GFVariantData.get_option_string(target_family, "transaction_commit_pending_path"),
 		"resource_stage_path": GFVariantData.get_option_string(target_family, "resource_stage_path"),
+		"reset_observation_token": authorization.get_observation_token_for_framework(),
 		"operation": operation,
 	})
 	_request_async_start_only()
@@ -2790,7 +2845,10 @@ func _discover_pending_reset_logical_names(families_root: String) -> Dictionary:
 	}
 
 
-func _list_reset_recovery_shards(path: String) -> Dictionary:
+func _list_reset_recovery_shards(
+	path: String,
+	entry_budget: Array[int] = []
+) -> Dictionary:
 	var directory: DirAccess = DirAccess.open(path)
 	if directory == null:
 		return {"error": int(ERR_FILE_CANT_OPEN), "entries": []}
@@ -2801,6 +2859,12 @@ func _list_reset_recovery_shards(path: String) -> Dictionary:
 	var entry: String = directory.get_next()
 	while not entry.is_empty():
 		if entries.size() >= _RESET_MAX_SHARD_ENTRIES:
+			directory.list_dir_end()
+			return {"error": int(ERR_OUT_OF_MEMORY), "entries": []}
+		if (
+			not entry_budget.is_empty()
+			and not _consume_reset_scan_budget(entry_budget)
+		):
 			directory.list_dir_end()
 			return {"error": int(ERR_OUT_OF_MEMORY), "entries": []}
 		entries.append({
@@ -2875,6 +2939,10 @@ func _discover_reset_intents_in_family_parent(
 			!= family_parent
 			or not _reset_intent_matches_descriptor(intent, descriptor, reset_id)
 		):
+			if _is_reset_intent_pending_leaf_shape(entry):
+				malformed_pending_paths.append(intent_path)
+				entry = directory.get_next()
+				continue
 			directory.list_dir_end()
 			return ERR_FILE_CORRUPT
 		logical_names[logical_name] = true
@@ -2967,6 +3035,50 @@ func _classify_readiness_load_failure(
 			return GFStorageReadResult.FailureKind.UNAVAILABLE
 		_:
 			return GFStorageReadResult.FailureKind.IO_FAILED
+
+
+func _make_readiness_load_failure_for_target(
+	canonical_file_name: String,
+	readiness_error: Error
+) -> GFStorageReadResult:
+	var target_preparation: Dictionary = _prepare_family_for_read_after_readiness_result(
+		canonical_file_name
+	)
+	var target_error: Error = GFVariantData.get_option_int(
+		target_preparation,
+		"error",
+		ERR_BUG
+	) as Error
+	var target_descriptor: Dictionary = (
+		GFStorageFamilyStore.make_family_descriptor_for_framework(
+			_get_save_base_path(),
+			canonical_file_name
+		)
+	)
+	if (
+		target_error == ERR_FILE_CORRUPT
+		and GFVariantData.get_option_bool(
+			target_preparation,
+			"target_provenance"
+		)
+		and not target_descriptor.is_empty()
+		and _validate_reset_mutation_ancestry(
+			_get_save_base_path(),
+			target_descriptor
+		) == OK
+	):
+		var target_result: GFStorageReadResult = _make_load_failure(
+			"Storage family unavailable",
+			ERR_FILE_CORRUPT,
+			GFStorageReadResult.FailureKind.CORRUPT
+		)
+		_bind_read_result_origin(target_result, canonical_file_name)
+		return target_result
+	return _make_load_failure(
+		"Storage recovery is unavailable",
+		readiness_error,
+		_classify_readiness_load_failure(readiness_error)
+	)
 
 
 func _classify_readiness_write_failure(
@@ -3366,7 +3478,8 @@ func _start_async_task(task: Dictionary) -> void:
 	elif task_type == &"reset":
 		callback = Callable(self, "_reset_file_family_thread").bind(
 			_get_task_storage_root_path(task),
-			storage_file_name
+			storage_file_name,
+			GFVariantData.get_option_string(task, "reset_observation_token")
 		)
 	if not callback.is_valid():
 		_settle_async_task_start_failure(
@@ -3738,19 +3851,31 @@ func _recover_frozen_async_transaction(task: Dictionary) -> Dictionary:
 	var layout_error: Error = frozen_family_store.ensure_layout_for_framework()
 	if layout_error != OK:
 		return {"error": int(layout_error), "target_provenance": false}
-	var reset_recovery_error: Error = _resume_pending_reset_for_file(
+	var reset_recovery_result: Dictionary = _resume_pending_reset_for_file_result(
 		storage_root_path,
 		storage_file_name
 	)
+	var reset_recovery_error: Error = GFVariantData.get_option_int(
+		reset_recovery_result,
+		"error",
+		ERR_BUG
+	) as Error
+	var target_provenance: bool = GFVariantData.get_option_bool(
+		reset_recovery_result,
+		"target_provenance"
+	)
 	if reset_recovery_error != OK:
-		return {"error": int(reset_recovery_error), "target_provenance": true}
+		return reset_recovery_result
 	var family_error: Error
 	if _get_task_type(task) == &"save":
 		family_error = frozen_family_store.claim_family_for_framework(expected)
 	else:
 		family_error = frozen_family_store.validate_family_for_framework(expected)
 	if family_error != OK:
-		return {"error": int(family_error), "target_provenance": true}
+		return {
+			"error": int(family_error),
+			"target_provenance": target_provenance,
+		}
 	var frozen_transaction_manager: _StorageTransactionManager = _StorageTransactionManager.new(
 		self,
 		_FrozenStoragePathPolicy.new(storage_root_path),
@@ -3766,7 +3891,10 @@ func _recover_frozen_async_transaction(task: Dictionary) -> Dictionary:
 		_get_task_transaction_commit_path(task)
 	)
 	frozen_transaction_manager._dispose()
-	return {"error": int(recovery_error), "target_provenance": true}
+	return {
+		"error": int(recovery_error),
+		"target_provenance": target_provenance,
+	}
 
 
 func _emit_async_start_failed(
@@ -4178,7 +4306,8 @@ func _claim_family_reset_authorization(
 		and authorization.claim_for_framework(
 			get_instance_id(),
 			canonical_file_name,
-			GFVariantData.get_option_string(target_family, "file_key")
+			GFVariantData.get_option_string(target_family, "file_key"),
+			_make_family_observation_token(canonical_file_name)
 		)
 	)
 
@@ -4187,18 +4316,74 @@ func _bind_read_result_origin(
 	result: GFStorageReadResult,
 	canonical_file_name: String
 ) -> void:
-	if result == null or canonical_file_name.is_empty():
+	if (
+		result == null
+		or result.ok
+		or result.error_code == OK
+		or result.failure_kind != GFStorageReadResult.FailureKind.CORRUPT
+		or canonical_file_name.is_empty()
+	):
 		return
 	var target_family: Dictionary = _make_async_target_family(canonical_file_name)
 	var file_key: String = GFVariantData.get_option_string(target_family, "file_key")
-	if file_key.is_empty():
+	var observation_token: String = _make_family_observation_token(
+		canonical_file_name
+	)
+	if file_key.is_empty() or observation_token.is_empty():
 		return
 	var _bound: bool = result.bind_origin_for_framework(
 		get_instance_id(),
 		canonical_file_name,
 		file_key,
-		_read_result_origin_token
+		_read_result_origin_token,
+		observation_token
 	)
+
+
+func _make_family_observation_token(
+	canonical_file_name: String,
+	storage_root_path: String = ""
+) -> String:
+	var resolved_storage_root_path: String = (
+		_get_save_base_path()
+		if storage_root_path.is_empty()
+		else storage_root_path
+	)
+	var descriptor: Dictionary = GFStorageFamilyStore.make_family_descriptor_for_framework(
+		resolved_storage_root_path,
+		canonical_file_name
+	)
+	if descriptor.is_empty():
+		return ""
+	var records: Array[String] = []
+	for path_key: String in [
+		"catalog_path",
+		"family_path",
+		"owner_path",
+		"payload_path",
+		"candidate_path",
+		"backup_path",
+		"transaction_path",
+		"transaction_pending_path",
+		"transaction_commit_path",
+		"transaction_commit_pending_path",
+		"resource_stage_path",
+	]:
+		var path: String = GFVariantData.get_option_string(descriptor, path_key)
+		if path.is_empty():
+			return ""
+		if _absolute_storage_path_is_link(path):
+			records.append(path_key + ":link")
+		elif FileAccess.file_exists(path):
+			var digest: String = FileAccess.get_sha256(path)
+			if digest.is_empty():
+				return ""
+			records.append(path_key + ":file:" + digest)
+		elif DirAccess.dir_exists_absolute(path):
+			records.append(path_key + ":directory")
+		else:
+			records.append(path_key + ":missing")
+	return JSON.stringify(records).sha256_text()
 
 
 func _complete_async_load(
@@ -4716,38 +4901,50 @@ func _resume_pending_reset_for_file(
 	storage_root_path: String,
 	logical_name: String
 ) -> Error:
+	var result: Dictionary = _resume_pending_reset_for_file_result(
+		storage_root_path,
+		logical_name
+	)
+	return GFVariantData.get_option_int(result, "error", ERR_BUG) as Error
+
+
+func _resume_pending_reset_for_file_result(
+	storage_root_path: String,
+	logical_name: String
+) -> Dictionary:
 	var descriptor: Dictionary = GFStorageFamilyStore.make_family_descriptor_for_framework(
 		storage_root_path,
 		logical_name
 	)
 	if descriptor.is_empty():
-		return ERR_INVALID_PARAMETER
+		return {"error": int(ERR_INVALID_PARAMETER), "target_provenance": false}
 	var family_store: GFStorageFamilyStore = _GF_STORAGE_FAMILY_STORE_SCRIPT.new()
 	if not family_store.configure_for_framework(storage_root_path):
-		return ERR_INVALID_PARAMETER
+		return {"error": int(ERR_INVALID_PARAMETER), "target_provenance": false}
 	var ancestry_error: Error = _validate_reset_mutation_ancestry(
 		storage_root_path,
 		descriptor
 	)
 	if ancestry_error != OK:
-		return ancestry_error
+		return {"error": int(ancestry_error), "target_provenance": false}
 	var layout_inspection: Dictionary = family_store.inspect_layout_for_reset_for_framework()
 	var layout_status: StringName = GFVariantData.get_option_string_name(
 		layout_inspection,
 		"status"
 	)
 	if layout_status == &"missing":
-		return OK
+		return {"error": int(OK), "target_provenance": false}
 	if layout_status == &"future":
-		return ERR_UNAVAILABLE
+		return {"error": int(ERR_UNAVAILABLE), "target_provenance": false}
 	if layout_status == &"corrupt":
-		return ERR_FILE_CORRUPT
+		return {"error": int(ERR_FILE_CORRUPT), "target_provenance": false}
 	if layout_status != &"current":
-		return GFVariantData.get_option_int(
+		var layout_error: Error = GFVariantData.get_option_int(
 			layout_inspection,
 			"error",
 			ERR_FILE_CANT_READ
 		) as Error
+		return {"error": int(layout_error), "target_provenance": false}
 	var intent_lookup: Dictionary = _find_reset_intent(descriptor)
 	var lookup_error: Error = GFVariantData.get_option_int(
 		intent_lookup,
@@ -4755,19 +4952,32 @@ func _resume_pending_reset_for_file(
 		ERR_FILE_CORRUPT
 	) as Error
 	if lookup_error != OK:
-		return lookup_error
+		return {"error": int(lookup_error), "target_provenance": true}
 	if not GFVariantData.get_option_bool(intent_lookup, "exists"):
-		return OK
+		return {"error": int(OK), "target_provenance": true}
 	var worker_result: Dictionary = _reset_file_family_thread(
 		storage_root_path,
 		logical_name
 	)
-	return _make_reset_result_from_worker(worker_result).get_error_code()
+	var worker_reset_result: GFStorageFamilyResetResult = (
+		_make_reset_result_from_worker(worker_result)
+	)
+	return {
+		"error": int(worker_reset_result.get_error_code()),
+		"target_provenance": (
+			worker_reset_result.get_error_code() == OK
+			or (
+				worker_reset_result.get_failed_member()
+				!= GFStorageFamilyResetResult.FamilyMember.LAYOUT
+			)
+		),
+	}
 
 
 func _reset_file_family_thread(
 	storage_root_path: String,
-	logical_name: String
+	logical_name: String,
+	expected_observation_token: String = ""
 ) -> Dictionary:
 	var descriptor: Dictionary = GFStorageFamilyStore.make_family_descriptor_for_framework(
 		storage_root_path,
@@ -4777,6 +4987,21 @@ func _reset_file_family_thread(
 		return _make_reset_worker_result(
 			ERR_INVALID_PARAMETER,
 			GFStorageFamilyResetResult.FailureKind.INVALID_REQUEST,
+			GFStorageFamilyResetResult.SourceKind.UNKNOWN,
+			GFStorageFamilyResetResult.Phase.PREFLIGHT,
+			0,
+			0,
+			0,
+			GFStorageFamilyResetResult.FamilyMember.NONE
+		)
+	if (
+		not expected_observation_token.is_empty()
+		and _make_family_observation_token(logical_name, storage_root_path)
+		!= expected_observation_token
+	):
+		return _make_reset_worker_result(
+			ERR_UNAUTHORIZED,
+			GFStorageFamilyResetResult.FailureKind.UNAUTHORIZED,
 			GFStorageFamilyResetResult.SourceKind.UNKNOWN,
 			GFStorageFamilyResetResult.Phase.PREFLIGHT,
 			0,
@@ -4942,6 +5167,24 @@ func _reset_file_family_thread(
 			logical_name,
 			descriptor
 		)
+		if (
+			GFVariantData.get_option_int(
+				multi_member_evidence,
+				"error",
+				ERR_FILE_CORRUPT
+			) == OK
+			and not GFVariantData.get_option_bool(
+				multi_member_evidence,
+				"is_valid_multi"
+			)
+		):
+			multi_member_evidence = (
+				_inspect_reverse_multi_member_reset_evidence(
+					storage_root_path,
+					logical_name,
+					descriptor
+				)
+			)
 		var multi_member_error: Error = GFVariantData.get_option_int(
 			multi_member_evidence,
 			"error",
@@ -5779,9 +6022,284 @@ func _inspect_multi_member_reset_evidence(
 	return {"error": int(OK), "is_valid_multi": false}
 
 
+func _get_reset_reverse_scan_entry_limit() -> int:
+	return _RESET_MAX_REVERSE_SCAN_ENTRIES
+
+
+func _inspect_reverse_multi_member_reset_evidence(
+	storage_root_path: String,
+	logical_name: String,
+	target_descriptor: Dictionary
+) -> Dictionary:
+	var families_root: String = storage_root_path.path_join(
+		".gf-storage/v1/families"
+	)
+	if not DirAccess.dir_exists_absolute(families_root):
+		return {"error": int(OK), "is_valid_multi": false}
+	var target_family_path: String = GFVariantData.get_option_string(
+		target_descriptor,
+		"family_path"
+	)
+	var entry_budget: Array[int] = [maxi(0, _get_reset_reverse_scan_entry_limit())]
+	var first_level: Dictionary = _list_reset_recovery_shards(
+		families_root,
+		entry_budget
+	)
+	var first_error: Error = GFVariantData.get_option_int(
+		first_level,
+		"error",
+		ERR_FILE_CANT_READ
+	) as Error
+	if first_error != OK:
+		return {"error": int(first_error), "is_valid_multi": false}
+	var first_entries: Array = GFVariantData.get_option_array(
+		first_level,
+		"entries"
+	)
+	var family_entry_count: int = 0
+	for first_entry_value: Variant in first_entries:
+		if not first_entry_value is Dictionary:
+			return {"error": int(ERR_FILE_CORRUPT), "is_valid_multi": false}
+		var first_entry: Dictionary = first_entry_value
+		var first_name: String = GFVariantData.get_option_string(first_entry, "name")
+		if (
+			not _is_reset_shard_name(first_name)
+			or not GFVariantData.get_option_bool(first_entry, "is_directory")
+			or GFVariantData.get_option_bool(first_entry, "is_link")
+		):
+			return {"error": int(ERR_FILE_CORRUPT), "is_valid_multi": false}
+		var second_root: String = families_root.path_join(first_name)
+		var second_level: Dictionary = _list_reset_recovery_shards(
+			second_root,
+			entry_budget
+		)
+		var second_error: Error = GFVariantData.get_option_int(
+			second_level,
+			"error",
+			ERR_FILE_CANT_READ
+		) as Error
+		if second_error != OK:
+			return {"error": int(second_error), "is_valid_multi": false}
+		var second_entries: Array = GFVariantData.get_option_array(
+			second_level,
+			"entries"
+		)
+		for second_entry_value: Variant in second_entries:
+			if not second_entry_value is Dictionary:
+				return {"error": int(ERR_FILE_CORRUPT), "is_valid_multi": false}
+			var second_entry: Dictionary = second_entry_value
+			var second_name: String = GFVariantData.get_option_string(
+				second_entry,
+				"name"
+			)
+			if (
+				not _is_reset_shard_name(second_name)
+				or not GFVariantData.get_option_bool(second_entry, "is_directory")
+				or GFVariantData.get_option_bool(second_entry, "is_link")
+			):
+				return {"error": int(ERR_FILE_CORRUPT), "is_valid_multi": false}
+			var family_parent: String = second_root.path_join(second_name)
+			var family_directory: DirAccess = DirAccess.open(family_parent)
+			if family_directory == null:
+				return {"error": int(ERR_FILE_CANT_OPEN), "is_valid_multi": false}
+			var begin_error: Error = family_directory.list_dir_begin()
+			if begin_error != OK:
+				return {"error": int(begin_error), "is_valid_multi": false}
+			var family_leaf: String = family_directory.get_next()
+			while not family_leaf.is_empty():
+				family_entry_count += 1
+				if family_entry_count > _RESET_MAX_TREE_ENTRIES:
+					family_directory.list_dir_end()
+					return {
+						"error": int(ERR_OUT_OF_MEMORY),
+						"is_valid_multi": false,
+					}
+				if not _consume_reset_scan_budget(entry_budget):
+					family_directory.list_dir_end()
+					return {
+						"error": int(ERR_OUT_OF_MEMORY),
+						"is_valid_multi": false,
+					}
+				var family_path: String = family_parent.path_join(family_leaf)
+				var is_family_identity: bool = GFUuid.is_valid(family_leaf, 8)
+				var compact_family_id: String = family_leaf.replace("-", "")
+				var is_surviving_family: bool = (
+					is_family_identity
+					and family_path != target_family_path
+				)
+				if is_surviving_family and (
+					compact_family_id.substr(0, 2) != first_name
+					or compact_family_id.substr(2, 2) != second_name
+				):
+					family_directory.list_dir_end()
+					return {
+						"error": int(ERR_FILE_CORRUPT),
+						"is_valid_multi": false,
+					}
+				if is_surviving_family and (
+					not family_directory.current_is_dir()
+					or family_directory.is_link(family_leaf)
+				):
+					family_directory.list_dir_end()
+					return {
+						"error": int(ERR_FILE_CORRUPT),
+						"is_valid_multi": false,
+					}
+				if is_surviving_family:
+					var surviving_evidence: Dictionary = (
+						_inspect_surviving_family_for_reset_target(
+							family_path,
+							family_leaf,
+							logical_name,
+							entry_budget
+						)
+					)
+					var surviving_error: Error = GFVariantData.get_option_int(
+						surviving_evidence,
+						"error",
+						ERR_FILE_CORRUPT
+					) as Error
+					if surviving_error != OK:
+						family_directory.list_dir_end()
+						return {
+							"error": int(surviving_error),
+							"is_valid_multi": false,
+						}
+					if GFVariantData.get_option_bool(
+						surviving_evidence,
+						"is_valid_multi"
+					):
+						family_directory.list_dir_end()
+						return {"error": int(OK), "is_valid_multi": true}
+				family_leaf = family_directory.get_next()
+			family_directory.list_dir_end()
+	return {"error": int(OK), "is_valid_multi": false}
+
+
+func _inspect_surviving_family_for_reset_target(
+	family_path: String,
+	owner_family_id: String,
+	target_logical_name: String,
+	entry_budget: Array[int]
+) -> Dictionary:
+	if entry_budget.is_empty():
+		return {"error": int(ERR_INVALID_PARAMETER), "is_valid_multi": false}
+	if (
+		_absolute_storage_path_is_link(family_path)
+		or not DirAccess.dir_exists_absolute(family_path)
+	):
+		return {"error": int(ERR_FILE_CORRUPT), "is_valid_multi": false}
+	var committed_by_leaf: Dictionary = {
+		"transaction.prepare.pending.json": false,
+		"transaction.prepare.json": false,
+		"transaction.commit.pending.json": true,
+		"transaction.commit.json": true,
+	}
+	var directory: DirAccess = DirAccess.open(family_path)
+	if directory == null:
+		return {"error": int(ERR_FILE_CANT_OPEN), "is_valid_multi": false}
+	var begin_error: Error = directory.list_dir_begin()
+	if begin_error != OK:
+		return {"error": int(begin_error), "is_valid_multi": false}
+	var marker_entries: Array[Dictionary] = []
+	var family_entry: String = directory.get_next()
+	while not family_entry.is_empty():
+		if not _consume_reset_scan_budget(entry_budget):
+			directory.list_dir_end()
+			return {"error": int(ERR_OUT_OF_MEMORY), "is_valid_multi": false}
+		if committed_by_leaf.has(family_entry):
+			if directory.current_is_dir() or directory.is_link(family_entry):
+				directory.list_dir_end()
+				return {"error": int(ERR_FILE_CORRUPT), "is_valid_multi": false}
+			marker_entries.append({
+				"leaf": family_entry,
+				"committed": GFVariantData.get_option_bool(
+					committed_by_leaf,
+					family_entry
+				),
+			})
+		family_entry = directory.get_next()
+	directory.list_dir_end()
+	marker_entries.sort_custom(func(left: Dictionary, right: Dictionary) -> bool:
+		return GFVariantData.get_option_string(left, "leaf") < GFVariantData.get_option_string(
+			right,
+			"leaf"
+		)
+	)
+	for marker_entry: Dictionary in marker_entries:
+		var marker_path: String = family_path.path_join(
+			GFVariantData.get_option_string(marker_entry, "leaf")
+		)
+		if _absolute_storage_path_is_link(marker_path):
+			return {"error": int(ERR_FILE_CORRUPT), "is_valid_multi": false}
+		var marker_read: Dictionary = _read_transaction_record_result_absolute(
+			marker_path
+		)
+		var marker_error: Error = GFVariantData.get_option_int(
+			marker_read,
+			"error",
+			ERR_FILE_CORRUPT
+		) as Error
+		if marker_error != OK:
+			return {"error": int(marker_error), "is_valid_multi": false}
+		var marker: Dictionary = GFVariantData.get_option_dictionary(
+			marker_read,
+			"record"
+		)
+		var owner: Dictionary = GFVariantData.get_option_dictionary(marker, "owner")
+		var owner_logical_path: String = GFVariantData.get_option_string(
+			owner,
+			"logical_path"
+		)
+		var expected_committed: bool = GFVariantData.get_option_bool(
+			marker_entry,
+			"committed"
+		)
+		var committed_value: Variant = marker.get("committed")
+		var valid_single: bool = (
+			committed_value is bool
+			and committed_value == expected_committed
+			and _is_valid_single_file_transaction_marker(
+				marker,
+				owner_logical_path
+			)
+		)
+		var valid_multi: bool = _is_valid_multi_member_transaction_marker(
+			marker,
+			expected_committed
+		)
+		if (
+			GFVariantData.get_option_string(owner, "family_id") != owner_family_id
+			or (not valid_single and not valid_multi)
+		):
+			return {"error": int(ERR_FILE_CORRUPT), "is_valid_multi": false}
+		if valid_multi and _is_valid_multi_member_reset_marker(
+			marker,
+			target_logical_name,
+			expected_committed
+		):
+			return {"error": int(OK), "is_valid_multi": true}
+	return {"error": int(OK), "is_valid_multi": false}
+
+
 static func _is_valid_multi_member_reset_marker(
 	marker: Dictionary,
 	logical_name: String,
+	expected_committed: bool
+) -> bool:
+	if not _is_valid_multi_member_transaction_marker(marker, expected_committed):
+		return false
+	for member_value: Variant in GFVariantData.get_option_array(marker, "members"):
+		if not member_value is Dictionary:
+			return false
+		var member: Dictionary = member_value
+		if GFVariantData.get_option_string(member, "logical_path") == logical_name:
+			return true
+	return false
+
+
+static func _is_valid_multi_member_transaction_marker(
+	marker: Dictionary,
 	expected_committed: bool
 ) -> bool:
 	if marker.size() != 6:
@@ -5806,7 +6324,7 @@ static func _is_valid_multi_member_reset_marker(
 	if members.size() <= 1 or members.size() > _MAX_TRANSACTION_FILES:
 		return false
 	var seen: Dictionary = {}
-	var contains_target: bool = false
+	var previous_member_path: String = ""
 	for member_value: Variant in members:
 		if not member_value is Dictionary:
 			return false
@@ -5816,13 +6334,14 @@ static func _is_valid_multi_member_reset_marker(
 			member.size() != 3
 			or not GFStorageFamilyStore.is_valid_logical_file_path_for_framework(member_path)
 			or seen.has(member_path)
+			or (not previous_member_path.is_empty() and member_path <= previous_member_path)
 			or GFVariantData.get_option_string(member, "family_id")
 			!= GFStorageFamilyStore.make_family_id_for_framework(member_path)
 			or not member.get("had_final") is bool
 		):
 			return false
 		seen[member_path] = true
-		contains_target = contains_target or member_path == logical_name
+		previous_member_path = member_path
 	var owner: Dictionary = GFVariantData.get_option_dictionary(marker, "owner")
 	var owner_path: String = GFVariantData.get_option_string(owner, "logical_path")
 	return (
@@ -5830,8 +6349,17 @@ static func _is_valid_multi_member_reset_marker(
 		and seen.has(owner_path)
 		and GFVariantData.get_option_string(owner, "family_id")
 		== GFStorageFamilyStore.make_family_id_for_framework(owner_path)
-		and contains_target
 	)
+
+
+static func _consume_reset_scan_budget(
+	entry_budget: Array[int],
+	amount: int = 1
+) -> bool:
+	if entry_budget.is_empty() or amount < 0 or entry_budget[0] < amount:
+		return false
+	entry_budget[0] -= amount
+	return true
 
 
 func _remove_reset_tree(path: String, depth: int, entry_budget: Array[int]) -> Error:
@@ -7105,24 +7633,48 @@ func _prepare_family_for_read(file_name: String) -> Error:
 
 
 func _prepare_family_for_read_after_readiness(file_name: String) -> Error:
-	var reset_recovery_error: Error = _resume_pending_reset_for_file(
+	var result: Dictionary = _prepare_family_for_read_after_readiness_result(file_name)
+	return GFVariantData.get_option_int(result, "error", ERR_BUG) as Error
+
+
+func _prepare_family_for_read_after_readiness_result(file_name: String) -> Dictionary:
+	var reset_recovery_result: Dictionary = _resume_pending_reset_for_file_result(
 		_get_save_base_path(),
 		file_name
 	)
+	var reset_recovery_error: Error = GFVariantData.get_option_int(
+		reset_recovery_result,
+		"error",
+		ERR_BUG
+	) as Error
+	var target_provenance: bool = GFVariantData.get_option_bool(
+		reset_recovery_result,
+		"target_provenance"
+	)
 	if reset_recovery_error != OK:
-		return reset_recovery_error
+		return reset_recovery_result
 	var descriptor: Dictionary = _make_family_descriptor(file_name)
 	if descriptor.is_empty():
-		return ERR_INVALID_PARAMETER
+		return {"error": int(ERR_INVALID_PARAMETER), "target_provenance": false}
 	var validate_error: Error = _family_store.validate_family_for_framework(descriptor)
 	if validate_error != OK:
-		return validate_error
+		return {
+			"error": int(validate_error),
+			"target_provenance": target_provenance,
+		}
 	var recovery_error: Error = _recover_transaction_files([file_name])
 	if recovery_error != OK:
-		return recovery_error
-	return OK if FileAccess.file_exists(
+		return {
+			"error": int(recovery_error),
+			"target_provenance": target_provenance,
+		}
+	var payload_exists: bool = FileAccess.file_exists(
 		GFVariantData.get_option_string(descriptor, "payload_path")
-	) else ERR_FILE_NOT_FOUND
+	)
+	return {
+		"error": int(OK if payload_exists else ERR_FILE_NOT_FOUND),
+		"target_provenance": target_provenance,
+	}
 
 
 func _resolve_internal_storage_path(file_name: String) -> String:

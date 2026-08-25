@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFStorageUtility" path="addons/gf/standard/utilities/storage/gf_storage_utility.gd" module="standard" extends="GFUtility" classDigest="5e1d516e6867a60c783d0f41b20abc2363b108b0e438e5f26c66e904775f16ee">
+<class name="GFStorageUtility" path="addons/gf/standard/utilities/storage/gf_storage_utility.gd" module="standard" extends="GFUtility" classDigest="b123840ce41983139f7709b47136f6ce41662494f5a8dbe78962d57b3006c49d">
 	<description>GFStorageUtility: 基于 `user://` 的轻量存档系统。
 支持槽位存档、元数据分离读取、`Resource` 存取，
 以及可配置 codec、完整性校验、版本迁移和简单混淆，适合通用本地持久化场景。
@@ -362,7 +362,8 @@ cooperative 模式固定每个 lifecycle tick 最多执行一个任务。</descr
 			<signature>func create_family_reset_authorization( file_name: String, observed_result: GFStorageReadResult ) -&gt; GFStorageFamilyResetAuthorization:</signature>
 			<description>为一次显式的破坏性 family reset 创建绑定授权。
 只有当前 GFStorageUtility 对同一 logical identity 返回的 CORRUPT 读取结果才可
-创建授权。授权冻结 Utility、Storage root 与 canonical logical identity，且只能消费一次。</description>
+创建授权。授权冻结 Utility、Storage root、canonical logical identity 与当前 family 观察，
+且只能消费一次；签发前或后发生的较新同 family 写入/修复会使旧观察失效。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">file_name: portable logical file identity。</tag>

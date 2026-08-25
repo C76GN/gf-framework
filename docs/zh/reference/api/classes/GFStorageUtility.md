@@ -690,7 +690,7 @@ func delete_file_request_async( file_name: String, options: GFStorageAsyncReques
 func create_family_reset_authorization( file_name: String, observed_result: GFStorageReadResult ) -> GFStorageFamilyResetAuthorization:
 ```
 
-为一次显式的破坏性 family reset 创建绑定授权。 只有当前 GFStorageUtility 对同一 logical identity 返回的 CORRUPT 读取结果才可 创建授权。授权冻结 Utility、Storage root 与 canonical logical identity，且只能消费一次。
+为一次显式的破坏性 family reset 创建绑定授权。 只有当前 GFStorageUtility 对同一 logical identity 返回的 CORRUPT 读取结果才可 创建授权。授权冻结 Utility、Storage root、canonical logical identity 与当前 family 观察， 且只能消费一次；签发前或后发生的较新同 family 写入/修复会使旧观察失效。
 
 参数：
 
