@@ -9,7 +9,7 @@
 - 类别：协议与扩展点 (`protocol`)
 - 首次版本：`3.17.0`
 
-发射体生命周期策略。 默认支持按时间和距离结束。项目可继承后叠加自定义结束条件。
+基于 session 观测值的生命周期策略。 Runtime 在 launch 时强持有策略快照；Definition 后续替换/清空或外部引用释放 不改变 ACTIVE session，终态清理后 Runtime 释放该快照。
 
 ## 成员概览
 
@@ -18,10 +18,8 @@
 | 属性 | [`max_seconds`](#member-gfprojectilelifetimepolicy-properties-max_seconds) | `var max_seconds: float = 0.0` |
 | 属性 | [`max_distance`](#member-gfprojectilelifetimepolicy-properties-max_distance) | `var max_distance: float = 0.0` |
 | 属性 | [`max_impacts`](#member-gfprojectilelifetimepolicy-properties-max_impacts) | `var max_impacts: int = 0` |
-| 方法 | [`setup`](#member-gfprojectilelifetimepolicy-methods-setup) | `func setup(projectile: Node, projectile_context: Dictionary = {}) -> void:` |
-| 方法 | [`should_finish`](#member-gfprojectilelifetimepolicy-methods-should_finish) | `func should_finish(projectile: Node, elapsed_seconds: float, projectile_context: Dictionary = {}) -> bool:` |
-| 方法 | [`_setup`](#member-gfprojectilelifetimepolicy-methods-_setup) | `func _setup(_projectile: Node, _projectile_context: Dictionary = {}) -> void:` |
-| 方法 | [`_should_finish`](#member-gfprojectilelifetimepolicy-methods-_should_finish) | `func _should_finish( _projectile: Node, _elapsed_seconds: float, _projectile_context: Dictionary = {} ) -> bool:` |
+| 方法 | [`get_end_reason`](#member-gfprojectilelifetimepolicy-methods-get_end_reason) | `func get_end_reason(session: GFProjectileSession) -> GFProjectileSession.EndReason:` |
+| 方法 | [`_should_finish`](#member-gfprojectilelifetimepolicy-methods-_should_finish) | `func _should_finish(_session: GFProjectileSession) -> bool:` |
 
 ## 属性
 
@@ -30,133 +28,80 @@
 ### `max_seconds`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var max_seconds: float = 0.0
 ```
 
-最长存活时间。小于等于 0 表示不按时间结束。
+最大活动时长；不大于零表示不限制。
 
 <a id="member-gfprojectilelifetimepolicy-properties-max_distance"></a>
 
 ### `max_distance`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var max_distance: float = 0.0
 ```
 
-最远移动距离。小于等于 0 表示不按距离结束。
+最大累计实际位移；不大于零表示不限制。
 
 <a id="member-gfprojectilelifetimepolicy-properties-max_impacts"></a>
 
 ### `max_impacts`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var max_impacts: int = 0
 ```
 
-最大成功命中次数。小于等于 0 表示不按命中次数结束。
+最大已接受 impact 数；不大于零表示不限制。
 
 ## 方法
 
-<a id="member-gfprojectilelifetimepolicy-methods-setup"></a>
+<a id="member-gfprojectilelifetimepolicy-methods-get_end_reason"></a>
 
-### `setup`
-
-- API：`public`
-
-```gdscript
-func setup(projectile: Node, projectile_context: Dictionary = {}) -> void:
-```
-
-发射体启动时调用。
-
-参数：
-
-| 名称 | 说明 |
-|---|---|
-| `projectile` | 发射体节点。 |
-| `projectile_context` | 本次发射的上下文字典。 |
-
-结构：
-
-- `projectile_context`: Dictionary，本次发射上下文；会写入初始位置和 impact_count。
-
-<a id="member-gfprojectilelifetimepolicy-methods-should_finish"></a>
-
-### `should_finish`
+### `get_end_reason`
 
 - API：`public`
+- 首次版本：`unreleased`
 
 ```gdscript
-func should_finish(projectile: Node, elapsed_seconds: float, projectile_context: Dictionary = {}) -> bool:
+func get_end_reason(session: GFProjectileSession) -> GFProjectileSession.EndReason:
 ```
 
-判断发射体是否应结束。
+计算当前 session 是否已触发生命周期终止条件。
 
 参数：
 
 | 名称 | 说明 |
 |---|---|
-| `projectile` | 发射体节点。 |
-| `elapsed_seconds` | 本次发射已经运行的秒数。 |
-| `projectile_context` | 本次发射的上下文字典。 |
+| `session` | 当前 projectile session。 |
 
-返回：应结束时返回 true。
-
-结构：
-
-- `projectile_context`: Dictionary，本次发射上下文；用于读取初始位置和 impact_count。
-
-<a id="member-gfprojectilelifetimepolicy-methods-_setup"></a>
-
-### `_setup`
-
-- API：`protected`
-
-```gdscript
-func _setup(_projectile: Node, _projectile_context: Dictionary = {}) -> void:
-```
-
-发射体启动扩展点。
-
-参数：
-
-| 名称 | 说明 |
-|---|---|
-| `_projectile` | 发射体节点。 |
-| `_projectile_context` | 本次发射上下文字典。 |
-
-结构：
-
-- `_projectile_context`: Dictionary，本次发射上下文；可写入生命周期策略状态。
+返回：尚未结束时为 `NONE`，否则为首个匹配的生命周期原因。
 
 <a id="member-gfprojectilelifetimepolicy-methods-_should_finish"></a>
 
 ### `_should_finish`
 
 - API：`protected`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func _should_finish( _projectile: Node, _elapsed_seconds: float, _projectile_context: Dictionary = {} ) -> bool:
+func _should_finish(_session: GFProjectileSession) -> bool:
 ```
 
-自定义结束条件扩展点。
+自定义生命周期终止钩子。
 
 参数：
 
 | 名称 | 说明 |
 |---|---|
-| `_projectile` | 发射体节点。 |
-| `_elapsed_seconds` | 本次发射已经运行的秒数。 |
-| `_projectile_context` | 本次发射上下文字典。 |
+| `_session` | 当前 projectile session。 |
 
-返回：应结束时返回 true。
-
-结构：
-
-- `_projectile_context`: Dictionary，本次发射上下文；可读取生命周期策略状态。
+返回：是否以 `LIFETIME_CUSTOM` 结束。

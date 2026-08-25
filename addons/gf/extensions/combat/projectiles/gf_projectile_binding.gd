@@ -1,4 +1,6 @@
 ## GFProjectileBinding: definition 与完整场景实例之间的拓扑快照。
+## 直接 `new()` 得到封闭的 unconfigured invalid value，其原因为 `INTERNAL_FAILURE`；
+## 只有 typed definition 的 `bind_instance()` 才能构造有效 topology。
 ## [br]
 ## @api public
 ## [br]
@@ -63,7 +65,7 @@ enum FailureReason {
 	MOTION_STATE_CREATION_FAILED = 21,
 	## Reservation 在消费前失效。
 	RESERVATION_INVALIDATED = 22,
-	## 无法归类的框架内部失败。
+	## 公开默认构造但尚未由 typed definition 初始化的封闭 invalid 状态。
 	INTERNAL_FAILURE = 23,
 }
 
@@ -76,6 +78,11 @@ var _root_ref: WeakRef = null
 var _runtime_ref: WeakRef = null
 var _impact_source_refs: Array[WeakRef] = []
 var _body_adapter: Resource = null
+var _scene_snapshot: PackedScene = null
+var _runtime_path_snapshot: NodePath = NodePath("")
+var _impact_source_paths_snapshot: Array[NodePath] = []
+var _motion_snapshot: GFProjectileMotion = null
+var _lifetime_snapshot: GFProjectileLifetimePolicy = null
 
 
 # --- 公共方法 ---
@@ -97,7 +104,7 @@ func is_valid() -> bool:
 ## [br]
 ## @since unreleased
 ## [br]
-## @return: 有效 binding 返回 `NONE`，否则返回确定失败原因。
+## @return: 有效 binding 返回 `NONE`；默认 `new()` 返回 `INTERNAL_FAILURE`；其余返回首个确定失败原因。
 func get_failure_reason() -> FailureReason:
 	return _failure_reason
 
@@ -143,7 +150,7 @@ func get_runtime() -> Node:
 ## [br]
 ## @return: 当前仍存活的 impact source。
 ## [br]
-## @schema return: Array[Node]，definition 声明顺序的显式 source；调用方可修改返回数组。
+## @schema return: Array[Node]，definition 声明顺序的同维 GFHitBox/GFHitScan 显式 union；调用方可修改返回数组。
 func get_impact_sources() -> Array[Node]:
 	var result: Array[Node] = []
 	for source_ref: WeakRef in _impact_source_refs:
@@ -174,6 +181,29 @@ func get_body_adapter() -> Resource:
 func is_current() -> bool:
 	if not is_valid():
 		return false
+	if not is_topology_current_for_framework():
+		return false
+	if not _declaration_is_current():
+		_failure_reason = FailureReason.STALE_BINDING
+		return false
+	return true
+
+
+# --- 框架内部方法 ---
+
+## 检查 ACTIVE session 使用的冻结实例 topology，不重读 mutable definition 声明。
+## [br]
+## @api framework_internal
+## [br]
+## @since unreleased
+## [br]
+## @return: root、runtime 与全部 source identity 仍存活并保持同根时返回 true。
+func is_topology_current_for_framework() -> bool:
+	if (
+		_failure_reason != FailureReason.NONE
+		and _failure_reason != FailureReason.STALE_BINDING
+	):
+		return false
 	var root: Node = get_instance_root()
 	var runtime: Node = get_runtime()
 	if (
@@ -195,7 +225,21 @@ func is_current() -> bool:
 			return false
 	return true
 
-# --- 框架内部方法 ---
+
+## 以 first-wins 语义冻结运行期准入失败。
+## [br]
+## @api framework_internal
+## [br]
+## @since unreleased
+## [br]
+## @param failure_reason: 非 NONE 的稳定失败原因。
+## [br]
+## @return: 本调用是否首次冻结失败。
+func fail_for_framework(failure_reason: FailureReason) -> bool:
+	if _failure_reason != FailureReason.NONE or failure_reason == FailureReason.NONE:
+		return false
+	_failure_reason = failure_reason
+	return true
 
 ## 构造框架内部 binding 快照。
 ## [br]
@@ -217,7 +261,7 @@ func is_current() -> bool:
 ## [br]
 ## @return: 初始化后的同一 binding。
 ## [br]
-## @schema impact_sources: Array[Node]，仅包含同一实例树内的显式 source。
+## @schema impact_sources: Array[Node]，仅包含同一实例树内的同维 GFHitBox/GFHitScan 显式 union。
 func initialize_for_framework(
 	failure_reason: FailureReason,
 	definition: GFProjectileDefinition = null,
@@ -234,6 +278,7 @@ func initialize_for_framework(
 	for source: Node in impact_sources:
 		_impact_source_refs.append(weakref(source))
 	_body_adapter = body_adapter
+	_capture_declaration_snapshot()
 	return self
 
 
@@ -249,3 +294,49 @@ func _node_from_ref(weak_reference: WeakRef) -> Node:
 			return null
 		return node
 	return null
+
+
+func _capture_declaration_snapshot() -> void:
+	_scene_snapshot = null
+	_runtime_path_snapshot = NodePath("")
+	_impact_source_paths_snapshot.clear()
+	_motion_snapshot = null
+	_lifetime_snapshot = null
+	if (
+		_failure_reason != FailureReason.NONE
+		or _definition == null
+		or not is_instance_valid(_definition)
+	):
+		return
+	_scene_snapshot = _definition.scene
+	_runtime_path_snapshot = _definition.runtime_path
+	_impact_source_paths_snapshot = _definition.impact_source_paths.duplicate()
+	_motion_snapshot = _definition.motion
+	_lifetime_snapshot = _definition.lifetime_policy
+
+
+func _declaration_is_current() -> bool:
+	if (
+		_definition == null
+		or not is_instance_valid(_definition)
+		or _scene_snapshot == null
+		or not is_instance_valid(_scene_snapshot)
+		or _definition.scene != _scene_snapshot
+		or _definition.runtime_path != _runtime_path_snapshot
+		or _definition.impact_source_paths != _impact_source_paths_snapshot
+		or _motion_snapshot == null
+		or not is_instance_valid(_motion_snapshot)
+		or _definition.motion != _motion_snapshot
+		or _definition.lifetime_policy != _lifetime_snapshot
+		or (_lifetime_snapshot != null and not is_instance_valid(_lifetime_snapshot))
+		or _body_adapter == null
+		or not is_instance_valid(_body_adapter)
+	):
+		return false
+	if _definition is GFProjectileDefinition2D:
+		var definition_2d: GFProjectileDefinition2D = _definition
+		return definition_2d.body_adapter == _body_adapter
+	if _definition is GFProjectileDefinition3D:
+		var definition_3d: GFProjectileDefinition3D = _definition
+		return definition_3d.body_adapter == _body_adapter
+	return false

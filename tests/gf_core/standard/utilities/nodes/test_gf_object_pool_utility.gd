@@ -118,6 +118,44 @@ func test_release_marks_node_inactive() -> void:
 	assert_eq(_pool.get_available_count(_scene), 1, "release 后节点应进入可用池。")
 
 
+func test_lost_lease_retirement_requires_exact_invalid_active_identity() -> void:
+	var lost_scene: PackedScene = _make_lifecycle_hook_scene()
+	var wrong_scene: PackedScene = _make_node_scene()
+	var node: LifecycleHookNode = _acquire_lifecycle_hook_node(lost_scene)
+	var hook_log: Array[StringName] = node.event_log
+	var instance_id: int = node.get_instance_id()
+
+	assert_false(
+		_pool.retire_lost_lease_for_framework(lost_scene, instance_id),
+		"live lease（包括潜在 id-reuse）不得被 lost-lease 入口结算。"
+	)
+	assert_false(_pool.retire_lost_lease_for_framework(wrong_scene, instance_id))
+	assert_false(_pool.retire_lost_lease_for_framework(lost_scene, instance_id + 1))
+	node.free()
+
+	assert_false(
+		_pool.retire_lost_lease_for_framework(wrong_scene, instance_id),
+		"scene 与 id 必须同时匹配 acquire owner linkage。"
+	)
+	assert_true(
+		_pool.retire_lost_lease_for_framework(lost_scene, instance_id),
+		"已同步销毁的精确 ACTIVE lease 必须无 hook 地首次结算。"
+	)
+	assert_false(
+		_pool.retire_lost_lease_for_framework(lost_scene, instance_id),
+		"lost lease 结算必须幂等，重复调用返回 false。"
+	)
+	var snapshot: Dictionary = _pool.get_debug_snapshot()
+	var scene_snapshot: Dictionary = GFVariantData.get_option_dictionary(
+		snapshot,
+		_pool_debug_key(lost_scene)
+	)
+	assert_eq(GFVariantData.get_option_int(scene_snapshot, "total", -1), 0)
+	assert_eq(GFVariantData.get_option_int(scene_snapshot, "active", -1), 0)
+	assert_eq(GFVariantData.get_option_int(scene_snapshot, "available", -1), 0)
+	assert_true(hook_log.is_empty(), "lost-lease 结算不得执行 public/internal release hook。")
+
+
 ## 验证 release 后 CanvasItem 会被隐藏并暂停处理，acquire 时恢复。
 func test_release_disables_visible_node_and_acquire_restores_it() -> void:
 	var control_scene: PackedScene = _make_control_scene()

@@ -19,7 +19,7 @@
 | 属性 | [`yaw_spread_degrees`](#member-gfprojectileconepattern3d-properties-yaw_spread_degrees) | `var yaw_spread_degrees: float = 0.0` |
 | 属性 | [`pitch_degrees`](#member-gfprojectileconepattern3d-properties-pitch_degrees) | `var pitch_degrees: float = 0.0` |
 | 属性 | [`radius`](#member-gfprojectileconepattern3d-properties-radius) | `var radius: float = 0.0` |
-| 方法 | [`_get_spawn_transforms`](#member-gfprojectileconepattern3d-methods-_get_spawn_transforms) | `func _get_spawn_transforms( emitter: Node3D, _projectile_context: Dictionary = {}, emit_count: int = -1 ) -> Array[Transform3D]:` |
+| 方法 | [`_get_spawn_transforms`](#member-gfprojectileconepattern3d-methods-_get_spawn_transforms) | `func _get_spawn_transforms( emitter: Node3D, _launch_input: GFProjectileLaunchInput3D = null, emit_count: int = -1 ) -> Array[Transform3D]:` |
 
 ## 属性
 
@@ -28,6 +28,7 @@
 ### `projectile_count`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var projectile_count: int = 1
@@ -40,6 +41,7 @@ var projectile_count: int = 1
 ### `yaw_spread_degrees`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var yaw_spread_degrees: float = 0.0
@@ -52,6 +54,7 @@ var yaw_spread_degrees: float = 0.0
 ### `pitch_degrees`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var pitch_degrees: float = 0.0
@@ -64,6 +67,7 @@ var pitch_degrees: float = 0.0
 ### `radius`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var radius: float = 0.0
@@ -78,9 +82,10 @@ var radius: float = 0.0
 ### `_get_spawn_transforms`
 
 - API：`protected`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func _get_spawn_transforms( emitter: Node3D, _projectile_context: Dictionary = {}, emit_count: int = -1 ) -> Array[Transform3D]:
+func _get_spawn_transforms( emitter: Node3D, _launch_input: GFProjectileLaunchInput3D = null, emit_count: int = -1 ) -> Array[Transform3D]:
 ```
 
 生成 3D 扇形发射变换。
@@ -90,11 +95,7 @@ func _get_spawn_transforms( emitter: Node3D, _projectile_context: Dictionary = {
 | 名称 | 说明 |
 |---|---|
 | `emitter` | 发射器节点。 |
-| `_projectile_context` | 本次发射上下文。 |
+| `_launch_input` | 本次 typed 发射输入；当前实现不读取。 |
 | `emit_count` | 调用方请求的数量；小于等于 0 时使用 projectile_count。 |
 
 返回：全局 Transform3D 列表。
-
-结构：
-
-- `_projectile_context`: Dictionary，本次发射上下文；当前实现不读取该字典。

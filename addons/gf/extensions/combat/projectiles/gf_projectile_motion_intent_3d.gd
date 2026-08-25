@@ -21,6 +21,8 @@ enum Kind {
 	MOVE = 1,
 	## 策略拒绝产生可应用 intent。
 	REJECTED = 2,
+	## 策略正常请求结束当前 session。
+	FINISH = 3,
 }
 
 
@@ -64,6 +66,19 @@ static func rejected(reason: StringName) -> GFProjectileMotionIntent3D:
 	var result: GFProjectileMotionIntent3D = GFProjectileMotionIntent3D.new()
 	result._kind = Kind.REJECTED
 	result._failure_reason = reason if reason != &"" else &"motion_rejected"
+	return result
+
+
+## 构造正常结束当前 session 的 FINISH intent。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @return: 不交给 body adapter 的 FINISH intent。
+static func finish() -> GFProjectileMotionIntent3D:
+	var result: GFProjectileMotionIntent3D = GFProjectileMotionIntent3D.new()
+	result._kind = Kind.FINISH
 	return result
 
 
@@ -111,12 +126,12 @@ func get_failure_reason() -> StringName:
 	return _failure_reason
 
 
-## 返回 intent 是否可交给 body adapter。
+## 返回 intent 是否为 runtime 可处理的非拒绝输出。
 ## [br]
 ## @api public
 ## [br]
 ## @since unreleased
 ## [br]
-## @return: NONE 或 MOVE 时为 true。
+## @return: NONE、MOVE 或 FINISH 时为 true。
 func is_valid() -> bool:
 	return _kind != Kind.REJECTED

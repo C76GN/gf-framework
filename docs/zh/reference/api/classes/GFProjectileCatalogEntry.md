@@ -9,14 +9,14 @@
 - 类别：资源定义 (`resource_definition`)
 - 首次版本：`3.17.0`
 
-发射体目录中的单个场景映射。 只把稳定 ID 映射到 PackedScene，不解释该场景的玩法含义。
+稳定 ID 到 typed projectile definition 的映射。
 
 ## 成员概览
 
 | 类型 | 名称 | 签名 |
 |---|---|---|
 | 属性 | [`projectile_id`](#member-gfprojectilecatalogentry-properties-projectile_id) | `var projectile_id: StringName = &""` |
-| 属性 | [`scene`](#member-gfprojectilecatalogentry-properties-scene) | `var scene: PackedScene = null` |
+| 属性 | [`definition`](#member-gfprojectilecatalogentry-properties-definition) | `var definition: GFProjectileDefinition = null` |
 | 方法 | [`is_valid_entry`](#member-gfprojectilecatalogentry-methods-is_valid_entry) | `func is_valid_entry() -> bool:` |
 
 ## 属性
@@ -26,24 +26,26 @@
 ### `projectile_id`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var projectile_id: StringName = &""
 ```
 
-发射体 ID。
+definition 的稳定目录 ID。
 
-<a id="member-gfprojectilecatalogentry-properties-scene"></a>
+<a id="member-gfprojectilecatalogentry-properties-definition"></a>
 
-### `scene`
+### `definition`
 
 - API：`public`
+- 首次版本：`unreleased`
 
 ```gdscript
-var scene: PackedScene = null
+var definition: GFProjectileDefinition = null
 ```
 
-发射体场景。
+与 ID 关联的 typed projectile definition。
 
 ## 方法
 
@@ -52,11 +54,12 @@ var scene: PackedScene = null
 ### `is_valid_entry`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func is_valid_entry() -> bool:
 ```
 
-检查条目是否可用于实例化。
+判断条目是否可参与目录查找。
 
-返回：ID 和场景都有效时返回 true。
+返回：ID 非空且 definition 非 null 时为 true。

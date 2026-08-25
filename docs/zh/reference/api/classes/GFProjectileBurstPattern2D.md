@@ -21,7 +21,7 @@
 | 属性 | [`radius`](#member-gfprojectileburstpattern2d-properties-radius) | `var radius: float = 0.0` |
 | 属性 | [`rotate_to_direction`](#member-gfprojectileburstpattern2d-properties-rotate_to_direction) | `var rotate_to_direction: bool = true` |
 | 属性 | [`include_emitter_rotation`](#member-gfprojectileburstpattern2d-properties-include_emitter_rotation) | `var include_emitter_rotation: bool = true` |
-| 方法 | [`_get_spawn_transforms`](#member-gfprojectileburstpattern2d-methods-_get_spawn_transforms) | `func _get_spawn_transforms( emitter: Node2D, _projectile_context: Dictionary = {}, emit_count: int = -1 ) -> Array[Transform2D]:` |
+| 方法 | [`_get_spawn_transforms`](#member-gfprojectileburstpattern2d-methods-_get_spawn_transforms) | `func _get_spawn_transforms( emitter: Node2D, _launch_input: GFProjectileLaunchInput2D = null, emit_count: int = -1 ) -> Array[Transform2D]:` |
 
 ## 属性
 
@@ -30,6 +30,7 @@
 ### `projectile_count`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var projectile_count: int = 1
@@ -42,6 +43,7 @@ var projectile_count: int = 1
 ### `spread_degrees`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var spread_degrees: float = 0.0
@@ -54,6 +56,7 @@ var spread_degrees: float = 0.0
 ### `center_angle_degrees`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var center_angle_degrees: float = 0.0
@@ -66,6 +69,7 @@ var center_angle_degrees: float = 0.0
 ### `radius`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var radius: float = 0.0
@@ -78,6 +82,7 @@ var radius: float = 0.0
 ### `rotate_to_direction`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var rotate_to_direction: bool = true
@@ -90,6 +95,7 @@ var rotate_to_direction: bool = true
 ### `include_emitter_rotation`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var include_emitter_rotation: bool = true
@@ -104,9 +110,10 @@ var include_emitter_rotation: bool = true
 ### `_get_spawn_transforms`
 
 - API：`protected`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func _get_spawn_transforms( emitter: Node2D, _projectile_context: Dictionary = {}, emit_count: int = -1 ) -> Array[Transform2D]:
+func _get_spawn_transforms( emitter: Node2D, _launch_input: GFProjectileLaunchInput2D = null, emit_count: int = -1 ) -> Array[Transform2D]:
 ```
 
 生成 2D 扇形或环形发射变换。
@@ -116,11 +123,7 @@ func _get_spawn_transforms( emitter: Node2D, _projectile_context: Dictionary = {
 | 名称 | 说明 |
 |---|---|
 | `emitter` | 发射器节点。 |
-| `_projectile_context` | 本次发射上下文。 |
+| `_launch_input` | 本次 typed 发射输入；当前实现不读取。 |
 | `emit_count` | 调用方请求的数量；小于等于 0 时使用 projectile_count。 |
 
 返回：全局 Transform2D 列表。
-
-结构：
-
-- `_projectile_context`: Dictionary，本次发射上下文；当前实现不读取该字典。

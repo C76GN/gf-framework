@@ -9,6 +9,9 @@ class_name GFProjectileSession
 extends RefCounted
 
 
+const _GF_COMBAT_FINITE_MATH = preload("res://addons/gf/extensions/combat/core/gf_combat_finite_math.gd")
+
+
 ## session 首次进入 FINISHED 时发出。
 ## [br]
 ## @api public
@@ -103,6 +106,7 @@ var _end_reason: EndReason = EndReason.NONE
 var _metadata: Dictionary = {}
 var _notification_barrier_depth: int = 0
 var _finished_notification_pending: bool = false
+var _terminal_body_observation_recorded: bool = false
 
 
 ## 返回当前生命周期状态。
@@ -325,8 +329,50 @@ func activate_for_framework(
 func advance_for_framework(delta: float, displacement_length: float) -> void:
 	if _status != Status.ACTIVE:
 		return
-	_elapsed_seconds += maxf(delta, 0.0)
-	_travelled_distance += maxf(displacement_length, 0.0)
+	if (
+		not _GF_COMBAT_FINITE_MATH.is_finite_float(delta)
+		or not _GF_COMBAT_FINITE_MATH.is_finite_float(displacement_length)
+		or delta < 0.0
+		or displacement_length < 0.0
+	):
+		var _invalid_observation: bool = finish(EndReason.INTERNAL_FAILURE)
+		return
+	_elapsed_seconds += delta
+	_travelled_distance += displacement_length
+
+
+## 记录 adapter apply 回调内同步结束后返回的最后一次 body 观测。
+## [br]
+## @api framework_internal
+## [br]
+## @since unreleased
+## [br]
+## @param generation: 发起 apply 的同一 session generation。
+## [br]
+## @param delta: 最后一次 apply 对应的有限非负秒数。
+## [br]
+## @param displacement_length: apply 已产生的有限非负实际位移长度。
+## [br]
+## @return: 同 generation 的首次 terminal 观测被记录时为 OK。
+func advance_terminal_body_result_for_framework(
+	generation: int,
+	delta: float,
+	displacement_length: float
+) -> Error:
+	if (
+		_status != Status.FINISHED
+		or generation != _generation
+		or _terminal_body_observation_recorded
+		or not _GF_COMBAT_FINITE_MATH.is_finite_float(delta)
+		or not _GF_COMBAT_FINITE_MATH.is_finite_float(displacement_length)
+		or delta < 0.0
+		or displacement_length < 0.0
+	):
+		return ERR_INVALID_DATA
+	_terminal_body_observation_recorded = true
+	_elapsed_seconds += delta
+	_travelled_distance += displacement_length
+	return OK
 
 
 ## 记录一次被 source 接受的 impact。

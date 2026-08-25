@@ -9,6 +9,9 @@ class_name GFProjectile3D
 extends Node
 
 
+const _GF_COMBAT_FINITE_MATH = preload("res://addons/gf/extensions/combat/core/gf_combat_finite_math.gd")
+
+
 ## session 已 ACTIVE 且允许发布 started 时发出。
 ## [br]
 ## @api public
@@ -49,8 +52,10 @@ var _prepared_body: GFProjectileBodyResult3D = null
 var _active_motion: GFProjectileMotion = null
 var _active_lifetime: GFProjectileLifetimePolicy = null
 var _active_adapter: GFProjectileBodyAdapter3D = null
-var _impact_sources: Array[GFHitBox3D] = []
+var _impact_sources: Array[Node] = []
 var _impact_callbacks: Array[Callable] = []
+var _body_application_session: GFProjectileSession = null
+var _terminal_cleanup_pending: bool = false
 
 
 func _ready() -> void:
@@ -63,9 +68,28 @@ func _exit_tree() -> void:
 		and is_instance_valid(_active_session)
 		and _active_session.is_active()
 	):
-		var _runtime_lost: bool = _active_session.finish(
-			GFProjectileSession.EndReason.RUNTIME_LOST
-		)
+		var session: GFProjectileSession = _active_session
+		var root_value: Variant = session.get_instance_root()
+		var root_is_exiting: bool = false
+		if (
+			typeof(root_value) == TYPE_OBJECT
+			and is_instance_valid(root_value)
+			and root_value is Node
+		):
+			var root: Node = root_value
+			root_is_exiting = not root.is_inside_tree()
+		if root_is_exiting:
+			var _root_lost: bool = session.finish(
+				GFProjectileSession.EndReason.ROOT_LOST
+			)
+		else:
+			# Root/ancestor 的 tree_exiting 信号在 child runtime 的 _exit_tree 之后。
+			# 延迟 RUNTIME_LOST 一拍，让真实 ROOT_LOST 保持 first-wins，也避免在
+			# Node 的 children lock 内触发 allocator retirement。
+			var _deferred_finish: Variant = session.call_deferred(
+				&"finish",
+				GFProjectileSession.EndReason.RUNTIME_LOST
+			)
 
 
 func _physics_process(delta: float) -> void:
@@ -78,17 +102,20 @@ func _physics_process(delta: float) -> void:
 		return
 	var session: GFProjectileSession = _active_session
 	var root: Node = session.get_instance_root()
-	var binding: GFProjectileBinding3D = _binding
-	var motion: GFProjectileMotion = _active_motion
-	var adapter: GFProjectileBodyAdapter3D = _active_adapter
-	if not _step_topology_is_current(session, root, binding):
+	var binding_value: Variant = _binding
+	var motion_value: Variant = _active_motion
+	var adapter_value: Variant = _active_adapter
+	if not _step_topology_is_current(session, root, binding_value):
 		return
-	if motion == null or not is_instance_valid(motion):
+	if not _is_live_object_of_type(motion_value, GFProjectileMotion):
 		var _motion_lost: bool = session.finish(GFProjectileSession.EndReason.MOTION_FAILED)
 		return
-	if adapter == null or not is_instance_valid(adapter):
+	if not _is_live_object_of_type(adapter_value, GFProjectileBodyAdapter3D):
 		var _adapter_lost: bool = session.finish(GFProjectileSession.EndReason.BODY_APPLICATION_FAILED)
 		return
+	var binding: GFProjectileBinding3D = binding_value
+	var motion: GFProjectileMotion = motion_value
+	var adapter: GFProjectileBodyAdapter3D = adapter_value
 	var current_body_value: Variant = adapter.capture_body(root)
 	if not _step_dependencies_are_current(session, root, binding, motion, adapter):
 		return
@@ -115,21 +142,59 @@ func _physics_process(delta: float) -> void:
 			reason = GFProjectileSession.EndReason.TARGET_LOST
 		var _intent_failed: bool = session.finish(reason)
 		return
-	var applied_body_value: Variant = adapter.apply_intent(root, intent)
-	if not _step_dependencies_are_current(session, root, binding, motion, adapter):
-		return
-	if not _is_live_object_of_type(applied_body_value, GFProjectileBodyResult3D):
-		var _apply_failed: bool = session.finish(GFProjectileSession.EndReason.BODY_APPLICATION_FAILED)
-		return
-	var applied_body: GFProjectileBodyResult3D = applied_body_value
-	if not applied_body.is_successful():
-		var _application_rejected: bool = session.finish(
-			GFProjectileSession.EndReason.BODY_APPLICATION_FAILED
+	if intent.get_kind() == GFProjectileMotionIntent3D.Kind.FINISH:
+		var _motion_finished: bool = session.finish(
+			GFProjectileSession.EndReason.MOTION_FINISHED
 		)
 		return
+	_body_application_session = session
+	var applied_body_value: Variant = adapter.apply_intent(root, intent)
+	var session_survived_application: bool = is_instance_valid(session)
+	var finished_during_application: bool = (
+		session_survived_application and session.is_finished()
+	)
+	_body_application_session = null
+	if not session_survived_application:
+		_discard_invalid_active_state()
+		return
+	if not finished_during_application:
+		if not _step_dependencies_are_current(session, root, binding, motion, adapter):
+			_finalize_terminal_cleanup(session)
+			return
+	elif not _terminal_application_is_owned(session, root, binding, motion, adapter):
+		_finalize_terminal_cleanup(session)
+		return
+	if not _is_live_object_of_type(applied_body_value, GFProjectileBodyResult3D):
+		if session.is_active():
+			var _apply_failed: bool = session.finish(
+				GFProjectileSession.EndReason.BODY_APPLICATION_FAILED
+			)
+		_finalize_terminal_cleanup(session)
+		return
+	var applied_body: GFProjectileBodyResult3D = applied_body_value
+	var displacement: Vector3 = applied_body.get_actual_displacement()
+	if (
+		not applied_body.is_successful()
+		or not _GF_COMBAT_FINITE_MATH.is_finite_transform3d(applied_body.get_transform())
+		or not _GF_COMBAT_FINITE_MATH.is_finite_vector3(displacement)
+	):
+		if session.is_active():
+			var _application_rejected: bool = session.finish(
+				GFProjectileSession.EndReason.BODY_APPLICATION_FAILED
+			)
+		_finalize_terminal_cleanup(session)
+		return
 	_current_body = applied_body
-	session.advance_for_framework(delta, applied_body.get_actual_displacement().length())
-	_evaluate_lifetime(session, _active_lifetime)
+	if finished_during_application:
+		var _terminal_observed: Error = session.advance_terminal_body_result_for_framework(
+			session.get_generation(),
+			delta,
+			displacement.length()
+		)
+		_finalize_terminal_cleanup(session)
+		return
+	session.advance_for_framework(delta, displacement.length())
+	_evaluate_lifetime(session)
 
 
 func _step_topology_is_current(
@@ -157,12 +222,39 @@ func _step_topology_is_current(
 		)
 		return false
 	var binding: GFProjectileBinding3D = binding_value
-	if binding != _binding or not binding.is_current():
+	if binding != _binding or not binding.is_topology_current_for_framework():
 		var _binding_lost: bool = session.finish(
 			GFProjectileSession.EndReason.IMPACT_SOURCE_LOST
 		)
 		return false
 	return true
+
+
+func _terminal_application_is_owned(
+	session_value: Variant,
+	root_value: Variant,
+	binding_value: Variant,
+	motion_value: Variant,
+	adapter_value: Variant
+) -> bool:
+	if (
+		not _is_live_object_of_type(session_value, GFProjectileSession)
+		or not _is_live_node(root_value)
+		or not _is_live_object_of_type(binding_value, GFProjectileBinding3D)
+		or not _is_live_object_of_type(motion_value, GFProjectileMotion)
+		or not _is_live_object_of_type(adapter_value, GFProjectileBodyAdapter3D)
+	):
+		return false
+	var session: GFProjectileSession = session_value
+	return (
+		_terminal_cleanup_pending
+		and session == _active_session
+		and session.is_finished()
+		and session.get_runtime() == self
+		and binding_value == _binding
+		and motion_value == _active_motion
+		and adapter_value == _active_adapter
+	)
 
 
 func _step_dependencies_are_current(
@@ -465,6 +557,39 @@ func release_terminal_retirement_for_framework(
 	return true
 
 
+## 校验 publication callback 返回后仍由本 runtime 持有同一 session/topology。
+## [br]
+## @api framework_internal
+## [br]
+## @since unreleased
+## [br]
+## @param session: publication barrier 内的同一 session。
+## [br]
+## @param instance_root: allocator 记录的同一完整 root。
+## [br]
+## @return: ACTIVE 或 barrier 内 FINISHED session 的 frozen topology 仍完整时为 true。
+func publication_is_current_for_framework(
+	session: GFProjectileSession,
+	instance_root: Node
+) -> bool:
+	if (
+		session == null
+		or not is_instance_valid(session)
+		or session != _active_session
+		or session.get_status() == GFProjectileSession.Status.UNCONFIGURED
+		or instance_root == null
+		or not is_instance_valid(instance_root)
+		or instance_root.is_queued_for_deletion()
+		or session.get_instance_root() != instance_root
+		or _managed_retirement_session != session
+		or _binding == null
+		or not is_instance_valid(_binding)
+		or not _binding.is_topology_current_for_framework()
+	):
+		return false
+	return _binding.get_runtime() == self
+
+
 func _activate_prepared(
 	binding: GFProjectileBinding3D,
 	launch_input: GFProjectileLaunchInput3D
@@ -511,7 +636,10 @@ func _activate_prepared(
 	_active_adapter = _prepared_adapter
 	_active_session = session
 	var finished_callback: Callable = _on_session_finished.bind(_generation)
-	var _finished_connected: int = session.finished.connect(finished_callback)
+	var _finished_connected: int = session.finished.connect(
+		finished_callback,
+		CONNECT_ONE_SHOT
+	)
 	_connect_impact_sources(binding, _generation)
 	set_physics_process(true)
 	return session
@@ -579,6 +707,9 @@ func _prepare_launch_payload(
 	):
 		return false
 	if not _is_live_object_of_type(state_value, GFProjectileMotionState):
+		var _state_creation_failed: bool = binding.fail_for_framework(
+			GFProjectileBinding.FailureReason.MOTION_STATE_CREATION_FAILED
+		)
 		return false
 	var state: GFProjectileMotionState = state_value
 	var frozen_input_value: Variant = launch_input.duplicate_input()
@@ -737,49 +868,53 @@ func _input_snapshot_boundary_is_current(
 func _connect_impact_sources(binding: GFProjectileBinding3D, generation: int) -> void:
 	_disconnect_impact_sources()
 	for source_node: Node in binding.get_impact_sources():
-		if not source_node is GFHitBox3D:
-			continue
-		var source: GFHitBox3D = source_node
 		var callback: Callable = _on_impact_accepted.bind(generation)
-		var _connected: int = source.hit_accepted.connect(callback)
-		_impact_sources.append(source)
-		_impact_callbacks.append(callback)
+		var connected: int = ERR_INVALID_PARAMETER
+		if source_node is GFHitBox3D:
+			var hit_box: GFHitBox3D = source_node
+			connected = hit_box.hit_accepted.connect(callback)
+		elif source_node is GFHitScan3D:
+			var hit_scan: GFHitScan3D = source_node
+			connected = hit_scan.hit_accepted.connect(callback)
+		if connected == OK:
+			_impact_sources.append(source_node)
+			_impact_callbacks.append(callback)
 
 
 func _disconnect_impact_sources() -> void:
 	for index: int in range(mini(_impact_sources.size(), _impact_callbacks.size())):
-		var source: GFHitBox3D = _impact_sources[index]
+		var source: Node = _impact_sources[index]
 		var callback: Callable = _impact_callbacks[index]
-		if is_instance_valid(source) and source.hit_accepted.is_connected(callback):
-			source.hit_accepted.disconnect(callback)
+		if not is_instance_valid(source):
+			continue
+		if source is GFHitBox3D:
+			var hit_box: GFHitBox3D = source
+			if hit_box.hit_accepted.is_connected(callback):
+				hit_box.hit_accepted.disconnect(callback)
+		elif source is GFHitScan3D:
+			var hit_scan: GFHitScan3D = source
+			if hit_scan.hit_accepted.is_connected(callback):
+				hit_scan.hit_accepted.disconnect(callback)
 	_impact_sources.clear()
 	_impact_callbacks.clear()
 
 
-func _evaluate_lifetime(
-	session: GFProjectileSession,
-	lifetime_policy: GFProjectileLifetimePolicy
-) -> void:
+func _evaluate_lifetime(session: GFProjectileSession) -> void:
 	if (
 		not _is_live_object_of_type(session, GFProjectileSession)
 		or session != _active_session
 		or not session.is_active()
-		or not _is_live_object_of_type(lifetime_policy, GFProjectileLifetimePolicy)
-		or lifetime_policy != _active_lifetime
 	):
 		return
+	if _active_lifetime == null:
+		return
+	var lifetime_policy: GFProjectileLifetimePolicy = _active_lifetime
 	var root_value: Variant = session.get_instance_root()
 	var binding_value: Variant = _binding
 	var reason_value: Variant = lifetime_policy.call(&"get_end_reason", session)
 	if not _step_topology_is_current(session, root_value, binding_value):
 		return
-	if (
-		not _is_live_object_of_type(lifetime_policy, GFProjectileLifetimePolicy)
-		or lifetime_policy != _active_lifetime
-	):
-		var _lifetime_lost: bool = session.finish(
-			GFProjectileSession.EndReason.INTERNAL_FAILURE
-		)
+	if lifetime_policy != _active_lifetime:
 		return
 	if typeof(reason_value) != TYPE_INT:
 		var _invalid_reason: bool = session.finish(
@@ -823,19 +958,7 @@ func _on_impact_accepted(
 	):
 		return
 	session.accept_impact_for_framework()
-	if not _is_live_object_of_type(binding_value, GFProjectileBinding3D):
-		return
-	var binding: GFProjectileBinding3D = binding_value
-	var definition: GFProjectileDefinition = binding.get_definition()
-	var lifetime: GFProjectileLifetimePolicy = (
-		definition.lifetime_policy
-		if definition != null and is_instance_valid(definition)
-		else null
-	)
-	_evaluate_lifetime(
-		session,
-		lifetime
-	)
+	_evaluate_lifetime(session)
 
 
 func _on_session_finished(
@@ -847,6 +970,26 @@ func _on_session_finished(
 		return
 	_disconnect_impact_sources()
 	set_physics_process(false)
+	if _body_application_session == finished_session:
+		_terminal_cleanup_pending = true
+	projectile_finished.emit(finished_session, reason)
+	if _body_application_session != finished_session:
+		_clear_active_session(finished_session)
+
+
+func _finalize_terminal_cleanup(session_value: Variant) -> void:
+	if (
+		not _is_live_object_of_type(session_value, GFProjectileSession)
+		or not _terminal_cleanup_pending
+		or session_value != _active_session
+	):
+		return
+	var session: GFProjectileSession = session_value
+	_terminal_cleanup_pending = false
+	_clear_active_session(session)
+
+
+func _clear_active_session(finished_session: GFProjectileSession) -> void:
 	_binding = null
 	_launch_input = null
 	_motion_state = null
@@ -854,7 +997,6 @@ func _on_session_finished(
 	_active_motion = null
 	_active_lifetime = null
 	_active_adapter = null
-	projectile_finished.emit(finished_session, reason)
 	if _active_session == finished_session:
 		_active_session = null
 
@@ -870,6 +1012,8 @@ func _discard_invalid_active_state() -> void:
 	_active_motion = null
 	_active_lifetime = null
 	_active_adapter = null
+	_body_application_session = null
+	_terminal_cleanup_pending = false
 
 
 func _is_live_node(value: Variant) -> bool:

@@ -7,10 +7,10 @@
 | 类别 | 类 | 成员 | 方法 |
 |---|---:|---:|---:|
 | [运行时服务](#category-runtime_service) | 2 | 17 | 16 |
-| [协议与扩展点](#category-protocol) | 9 | 100 | 54 |
-| [资源定义](#category-resource_definition) | 15 | 148 | 47 |
-| [运行时句柄](#category-runtime_handle) | 17 | 280 | 119 |
-| [值对象](#category-value_object) | 4 | 56 | 25 |
+| [协议与扩展点](#category-protocol) | 11 | 118 | 72 |
+| [资源定义](#category-resource_definition) | 22 | 151 | 46 |
+| [运行时句柄](#category-runtime_handle) | 19 | 275 | 126 |
+| [值对象](#category-value_object) | 13 | 125 | 89 |
 | [事件契约](#category-event_contract) | 4 | 8 | 0 |
 
 ## 类
@@ -33,6 +33,8 @@
 | [`GFBuff`](classes/GFBuff.md#gfbuff) | `RefCounted` | `addons/gf/extensions/combat/attributes/gf_buff.gd` |
 | [`GFBuffCheck`](classes/GFBuffCheck.md#gfbuffcheck) | `Resource` | `addons/gf/extensions/combat/attributes/gf_buff_check.gd` |
 | [`GFBuffEffect`](classes/GFBuffEffect.md#gfbuffeffect) | `Resource` | `addons/gf/extensions/combat/attributes/gf_buff_effect.gd` |
+| [`GFProjectileBodyAdapter2D`](classes/GFProjectileBodyAdapter2D.md#gfprojectilebodyadapter2d) | `Resource` | `addons/gf/extensions/combat/projectiles/gf_projectile_body_adapter_2d.gd` |
+| [`GFProjectileBodyAdapter3D`](classes/GFProjectileBodyAdapter3D.md#gfprojectilebodyadapter3d) | `Resource` | `addons/gf/extensions/combat/projectiles/gf_projectile_body_adapter_3d.gd` |
 | [`GFProjectileLifetimePolicy`](classes/GFProjectileLifetimePolicy.md#gfprojectilelifetimepolicy) | `Resource` | `addons/gf/extensions/combat/projectiles/gf_projectile_lifetime_policy.gd` |
 | [`GFProjectileMotion`](classes/GFProjectileMotion.md#gfprojectilemotion) | `Resource` | `addons/gf/extensions/combat/projectiles/gf_projectile_motion.gd` |
 | [`GFProjectileSpawnPattern2D`](classes/GFProjectileSpawnPattern2D.md#gfprojectilespawnpattern2d) | `Resource` | `addons/gf/extensions/combat/projectiles/gf_projectile_spawn_pattern_2d.gd` |
@@ -56,10 +58,17 @@
 | [`GFProjectileBurstPattern2D`](classes/GFProjectileBurstPattern2D.md#gfprojectileburstpattern2d) | `GFProjectileSpawnPattern2D` | `addons/gf/extensions/combat/projectiles/gf_projectile_burst_pattern_2d.gd` |
 | [`GFProjectileCatalog`](classes/GFProjectileCatalog.md#gfprojectilecatalog) | `Resource` | `addons/gf/extensions/combat/projectiles/gf_projectile_catalog.gd` |
 | [`GFProjectileCatalogEntry`](classes/GFProjectileCatalogEntry.md#gfprojectilecatalogentry) | `Resource` | `addons/gf/extensions/combat/projectiles/gf_projectile_catalog_entry.gd` |
+| [`GFProjectileCharacterBodyAdapter2D`](classes/GFProjectileCharacterBodyAdapter2D.md#gfprojectilecharacterbodyadapter2d) | `GFProjectileBodyAdapter2D` | `addons/gf/extensions/combat/projectiles/gf_projectile_character_body_adapter_2d.gd` |
+| [`GFProjectileCharacterBodyAdapter3D`](classes/GFProjectileCharacterBodyAdapter3D.md#gfprojectilecharacterbodyadapter3d) | `GFProjectileBodyAdapter3D` | `addons/gf/extensions/combat/projectiles/gf_projectile_character_body_adapter_3d.gd` |
 | [`GFProjectileConePattern3D`](classes/GFProjectileConePattern3D.md#gfprojectileconepattern3d) | `GFProjectileSpawnPattern3D` | `addons/gf/extensions/combat/projectiles/gf_projectile_cone_pattern_3d.gd` |
+| [`GFProjectileDefinition`](classes/GFProjectileDefinition.md#gfprojectiledefinition) | `Resource` | `addons/gf/extensions/combat/projectiles/gf_projectile_definition.gd` |
+| [`GFProjectileDefinition2D`](classes/GFProjectileDefinition2D.md#gfprojectiledefinition2d) | `GFProjectileDefinition` | `addons/gf/extensions/combat/projectiles/gf_projectile_definition_2d.gd` |
+| [`GFProjectileDefinition3D`](classes/GFProjectileDefinition3D.md#gfprojectiledefinition3d) | `GFProjectileDefinition` | `addons/gf/extensions/combat/projectiles/gf_projectile_definition_3d.gd` |
 | [`GFProjectileEmissionPolicy`](classes/GFProjectileEmissionPolicy.md#gfprojectileemissionpolicy) | `Resource` | `addons/gf/extensions/combat/projectiles/gf_projectile_emission_policy.gd` |
 | [`GFProjectileLineSpawnPattern2D`](classes/GFProjectileLineSpawnPattern2D.md#gfprojectilelinespawnpattern2d) | `GFProjectileSpawnPattern2D` | `addons/gf/extensions/combat/projectiles/gf_projectile_line_spawn_pattern_2d.gd` |
 | [`GFProjectileLineSpawnPattern3D`](classes/GFProjectileLineSpawnPattern3D.md#gfprojectilelinespawnpattern3d) | `GFProjectileSpawnPattern3D` | `addons/gf/extensions/combat/projectiles/gf_projectile_line_spawn_pattern_3d.gd` |
+| [`GFProjectileTransformBodyAdapter2D`](classes/GFProjectileTransformBodyAdapter2D.md#gfprojectiletransformbodyadapter2d) | `GFProjectileBodyAdapter2D` | `addons/gf/extensions/combat/projectiles/gf_projectile_transform_body_adapter_2d.gd` |
+| [`GFProjectileTransformBodyAdapter3D`](classes/GFProjectileTransformBodyAdapter3D.md#gfprojectiletransformbodyadapter3d) | `GFProjectileBodyAdapter3D` | `addons/gf/extensions/combat/projectiles/gf_projectile_transform_body_adapter_3d.gd` |
 | [`GFSkillTargetingRule2D`](classes/GFSkillTargetingRule2D.md#gfskilltargetingrule2d) | `Resource` | `addons/gf/extensions/combat/skills/gf_skill_targeting_rule_2d.gd` |
 
 <a id="category-runtime_handle"></a>
@@ -79,11 +88,13 @@
 | [`GFHurtBox3D`](classes/GFHurtBox3D.md#gfhurtbox3d) | `Area3D` | `addons/gf/extensions/combat/hit_detection/gf_hurt_box_3d.gd` |
 | [`GFModifiedAttribute`](classes/GFModifiedAttribute.md#gfmodifiedattribute) | `RefCounted` | `addons/gf/extensions/combat/attributes/gf_modified_attribute.gd` |
 | [`GFModifiedAttributeSet`](classes/GFModifiedAttributeSet.md#gfmodifiedattributeset) | `RefCounted` | `addons/gf/extensions/combat/attributes/gf_modified_attribute_set.gd` |
-| [`GFProjectile2D`](classes/GFProjectile2D.md#gfprojectile2d) | `GFHitBox2D` | `addons/gf/extensions/combat/projectiles/gf_projectile_2d.gd` |
-| [`GFProjectile3D`](classes/GFProjectile3D.md#gfprojectile3d) | `GFHitBox3D` | `addons/gf/extensions/combat/projectiles/gf_projectile_3d.gd` |
+| [`GFProjectile2D`](classes/GFProjectile2D.md#gfprojectile2d) | `Node` | `addons/gf/extensions/combat/projectiles/gf_projectile_2d.gd` |
+| [`GFProjectile3D`](classes/GFProjectile3D.md#gfprojectile3d) | `Node` | `addons/gf/extensions/combat/projectiles/gf_projectile_3d.gd` |
 | [`GFProjectileEmissionTask`](classes/GFProjectileEmissionTask.md#gfprojectileemissiontask) | `RefCounted` | `addons/gf/extensions/combat/projectiles/gf_projectile_emission_task.gd` |
 | [`GFProjectileEmitter2D`](classes/GFProjectileEmitter2D.md#gfprojectileemitter2d) | `Node2D` | `addons/gf/extensions/combat/projectiles/gf_projectile_emitter_2d.gd` |
 | [`GFProjectileEmitter3D`](classes/GFProjectileEmitter3D.md#gfprojectileemitter3d) | `Node3D` | `addons/gf/extensions/combat/projectiles/gf_projectile_emitter_3d.gd` |
+| [`GFProjectileMotionState`](classes/GFProjectileMotionState.md#gfprojectilemotionstate) | `RefCounted` | `addons/gf/extensions/combat/projectiles/gf_projectile_motion_state.gd` |
+| [`GFProjectileSession`](classes/GFProjectileSession.md#gfprojectilesession) | `RefCounted` | `addons/gf/extensions/combat/projectiles/gf_projectile_session.gd` |
 | [`GFTagComponent`](classes/GFTagComponent.md#gftagcomponent) | `RefCounted` | `addons/gf/extensions/combat/tags/gf_tag_component.gd` |
 
 <a id="category-value_object"></a>
@@ -95,6 +106,15 @@
 | [`GFCombatActionResult`](classes/GFCombatActionResult.md#gfcombatactionresult) | `RefCounted` | `addons/gf/extensions/combat/actions/gf_combat_action_result.gd` |
 | [`GFCombatHitContext`](classes/GFCombatHitContext.md#gfcombathitcontext) | `RefCounted` | `addons/gf/extensions/combat/hit_detection/gf_combat_hit_context.gd` |
 | [`GFModifier`](classes/GFModifier.md#gfmodifier) | `RefCounted` | `addons/gf/extensions/combat/attributes/gf_modifier.gd` |
+| [`GFProjectileBinding`](classes/GFProjectileBinding.md#gfprojectilebinding) | `RefCounted` | `addons/gf/extensions/combat/projectiles/gf_projectile_binding.gd` |
+| [`GFProjectileBinding2D`](classes/GFProjectileBinding2D.md#gfprojectilebinding2d) | `GFProjectileBinding` | `addons/gf/extensions/combat/projectiles/gf_projectile_binding_2d.gd` |
+| [`GFProjectileBinding3D`](classes/GFProjectileBinding3D.md#gfprojectilebinding3d) | `GFProjectileBinding` | `addons/gf/extensions/combat/projectiles/gf_projectile_binding_3d.gd` |
+| [`GFProjectileBodyResult2D`](classes/GFProjectileBodyResult2D.md#gfprojectilebodyresult2d) | `RefCounted` | `addons/gf/extensions/combat/projectiles/gf_projectile_body_result_2d.gd` |
+| [`GFProjectileBodyResult3D`](classes/GFProjectileBodyResult3D.md#gfprojectilebodyresult3d) | `RefCounted` | `addons/gf/extensions/combat/projectiles/gf_projectile_body_result_3d.gd` |
+| [`GFProjectileLaunchInput2D`](classes/GFProjectileLaunchInput2D.md#gfprojectilelaunchinput2d) | `Resource` | `addons/gf/extensions/combat/projectiles/gf_projectile_launch_input_2d.gd` |
+| [`GFProjectileLaunchInput3D`](classes/GFProjectileLaunchInput3D.md#gfprojectilelaunchinput3d) | `Resource` | `addons/gf/extensions/combat/projectiles/gf_projectile_launch_input_3d.gd` |
+| [`GFProjectileMotionIntent2D`](classes/GFProjectileMotionIntent2D.md#gfprojectilemotionintent2d) | `RefCounted` | `addons/gf/extensions/combat/projectiles/gf_projectile_motion_intent_2d.gd` |
+| [`GFProjectileMotionIntent3D`](classes/GFProjectileMotionIntent3D.md#gfprojectilemotionintent3d) | `RefCounted` | `addons/gf/extensions/combat/projectiles/gf_projectile_motion_intent_3d.gd` |
 | [`GFSkillActivationContext`](classes/GFSkillActivationContext.md#gfskillactivationcontext) | `RefCounted` | `addons/gf/extensions/combat/skills/gf_skill_activation_context.gd` |
 
 <a id="category-event_contract"></a>

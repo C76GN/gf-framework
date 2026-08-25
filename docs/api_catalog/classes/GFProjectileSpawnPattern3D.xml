@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFProjectileSpawnPattern3D" path="addons/gf/extensions/combat/projectiles/gf_projectile_spawn_pattern_3d.gd" module="extensions/combat" extends="Resource" classDigest="a7bedac2d23f57d758c3d676414b2b7959ae4347c32c4ddd1a8bbacbdef8f594">
+<class name="GFProjectileSpawnPattern3D" path="addons/gf/extensions/combat/projectiles/gf_projectile_spawn_pattern_3d.gd" module="extensions/combat" extends="Resource" classDigest="d2fbe242a47a59e02f2c7060fdfd7c448fa777a224e199efa70a99990b39edc8">
 	<description>GFProjectileSpawnPattern3D: 3D 发射体生成点模式基类。
 模式只返回全局 Transform3D 列表，不实例化节点，也不解释伤害、弹药或阵营。</description>
 	<tags>
@@ -13,15 +13,15 @@
 	<properties />
 	<methods>
 		<member kind="method" name="get_spawn_transforms">
-			<signature>func get_spawn_transforms( emitter: Node3D, projectile_context: Dictionary = {}, emit_count: int = -1 ) -&gt; Array[Transform3D]:</signature>
+			<signature>func get_spawn_transforms( emitter: Node3D, launch_input: GFProjectileLaunchInput3D = null, emit_count: int = -1 ) -&gt; Array[Transform3D]:</signature>
 			<description>计算本次发射的全局生成变换。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">emitter: 发射器节点。</tag>
-				<tag name="param">projectile_context: 本次发射上下文。</tag>
+				<tag name="param">launch_input: 本次 typed 发射输入；null 表示无额外输入。</tag>
 				<tag name="param">emit_count: 调用方请求的数量；小于等于 0 时由模式自行决定。</tag>
 				<tag name="return">全局 Transform3D 列表。</tag>
-				<tag name="schema">projectile_context: Dictionary，本次发射上下文；模式只读取调用方约定的数据。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="resolve_spawn_count">
@@ -35,15 +35,15 @@
 			</tags>
 		</member>
 		<member kind="method" name="_get_spawn_transforms">
-			<signature>func _get_spawn_transforms( emitter: Node3D, _projectile_context: Dictionary = {}, _emit_count: int = -1 ) -&gt; Array[Transform3D]:</signature>
+			<signature>func _get_spawn_transforms( emitter: Node3D, _launch_input: GFProjectileLaunchInput3D = null, _emit_count: int = -1 ) -&gt; Array[Transform3D]:</signature>
 			<description>生成点计算扩展点。</description>
 			<tags>
 				<tag name="api">protected</tag>
 				<tag name="param">emitter: 发射器节点。</tag>
-				<tag name="param">_projectile_context: 本次发射上下文。</tag>
+				<tag name="param">_launch_input: 本次 typed 发射输入；null 表示无额外输入。</tag>
 				<tag name="param">_emit_count: 调用方请求的数量；小于等于 0 时由模式自行决定。</tag>
 				<tag name="return">全局 Transform3D 列表。</tag>
-				<tag name="schema">_projectile_context: Dictionary，本次发射上下文；模式只读取调用方约定的数据。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="_get_default_spawn_count">

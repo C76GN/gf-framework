@@ -29,7 +29,7 @@ extends Resource
 ## [br]
 ## @since unreleased
 ## [br]
-## @schema impact_source_paths: Array[NodePath]，不得重复、越过 root 或混用维度。
+## @schema impact_source_paths: Array[NodePath]，每项必须显式指向同维 GFHitBox2D/GFHitScan2D 或 GFHitBox3D/GFHitScan3D；不得重复、越过 root 或混用维度。
 @export var impact_source_paths: Array[NodePath] = []
 
 ## 每个 session 使用的 motion 策略。
@@ -106,7 +106,7 @@ func _bind_instance(
 	if resolved_runtime != null and _runtime_has_opposite_dimension(resolved_runtime, dimension):
 		return binding.initialize_for_framework(GFProjectileBinding.FailureReason.RUNTIME_DIMENSION_MISMATCH)
 	var runtime_candidates: Array[Node] = []
-	_collect_runtimes(root, dimension, runtime_candidates)
+	_collect_runtimes(root, runtime_candidates)
 	if runtime_candidates.is_empty():
 		return binding.initialize_for_framework(GFProjectileBinding.FailureReason.MISSING_RUNTIME)
 	if runtime_candidates.size() > 1:
@@ -233,18 +233,14 @@ func _runtime_has_opposite_dimension(
 
 func _collect_runtimes(
 	node: Node,
-	dimension: GFProjectileSession.Dimension,
 	result: Array[Node]
 ) -> void:
 	for child: Node in node.get_children():
 		if not is_instance_valid(child) or child.is_queued_for_deletion():
 			continue
-		if (
-			(child is GFProjectile2D and dimension == GFProjectileSession.Dimension.TWO_D)
-			or (child is GFProjectile3D and dimension == GFProjectileSession.Dimension.THREE_D)
-		):
+		if child is GFProjectile2D or child is GFProjectile3D:
 			result.append(child)
-		_collect_runtimes(child, dimension, result)
+		_collect_runtimes(child, result)
 
 
 func _impact_matches_dimension(
@@ -252,8 +248,14 @@ func _impact_matches_dimension(
 	dimension: GFProjectileSession.Dimension
 ) -> bool:
 	return (
-		(source is GFHitBox2D and dimension == GFProjectileSession.Dimension.TWO_D)
-		or (source is GFHitBox3D and dimension == GFProjectileSession.Dimension.THREE_D)
+		(
+			(source is GFHitBox2D or source is GFHitScan2D)
+			and dimension == GFProjectileSession.Dimension.TWO_D
+		)
+		or (
+			(source is GFHitBox3D or source is GFHitScan3D)
+			and dimension == GFProjectileSession.Dimension.THREE_D
+		)
 	)
 
 
@@ -262,8 +264,14 @@ func _impact_has_opposite_dimension(
 	dimension: GFProjectileSession.Dimension
 ) -> bool:
 	return (
-		(source is GFHitBox3D and dimension == GFProjectileSession.Dimension.TWO_D)
-		or (source is GFHitBox2D and dimension == GFProjectileSession.Dimension.THREE_D)
+		(
+			(source is GFHitBox3D or source is GFHitScan3D)
+			and dimension == GFProjectileSession.Dimension.TWO_D
+		)
+		or (
+			(source is GFHitBox2D or source is GFHitScan2D)
+			and dimension == GFProjectileSession.Dimension.THREE_D
+		)
 	)
 
 

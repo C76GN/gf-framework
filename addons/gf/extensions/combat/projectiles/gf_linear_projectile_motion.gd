@@ -9,6 +9,9 @@ class_name GFLinearProjectileMotion
 extends GFProjectileMotion
 
 
+const _GF_COMBAT_FINITE_MATH = preload("res://addons/gf/extensions/combat/core/gf_combat_finite_math.gd")
+
+
 class _LinearState:
 	extends GFProjectileMotionState
 
@@ -60,6 +63,8 @@ func _create_state_2d(
 		initial_body == null
 		or not is_instance_valid(initial_body)
 		or not initial_body.is_successful()
+		or not _GF_COMBAT_FINITE_MATH.is_finite_float(speed)
+		or not _GF_COMBAT_FINITE_MATH.is_finite_vector2(direction_2d)
 	):
 		return null
 	var state: _LinearState = _LinearState.new()
@@ -69,7 +74,11 @@ func _create_state_2d(
 		direction = transform_value.basis_xform(direction)
 	if normalize_direction and not direction.is_zero_approx():
 		direction = direction.normalized()
+	if not _GF_COMBAT_FINITE_MATH.is_finite_vector2(direction):
+		return null
 	state._velocity_2d = direction * speed
+	if not _GF_COMBAT_FINITE_MATH.is_finite_vector2(state._velocity_2d):
+		return null
 	return state
 
 
@@ -81,6 +90,8 @@ func _create_state_3d(
 		initial_body == null
 		or not is_instance_valid(initial_body)
 		or not initial_body.is_successful()
+		or not _GF_COMBAT_FINITE_MATH.is_finite_float(speed)
+		or not _GF_COMBAT_FINITE_MATH.is_finite_vector3(direction_3d)
 	):
 		return null
 	var state: _LinearState = _LinearState.new()
@@ -89,7 +100,11 @@ func _create_state_3d(
 		direction = initial_body.get_transform().basis * direction
 	if normalize_direction and not direction.is_zero_approx():
 		direction = direction.normalized()
+	if not _GF_COMBAT_FINITE_MATH.is_finite_vector3(direction):
+		return null
 	state._velocity_3d = direction * speed
+	if not _GF_COMBAT_FINITE_MATH.is_finite_vector3(state._velocity_3d):
+		return null
 	return state
 
 

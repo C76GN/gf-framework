@@ -28,6 +28,146 @@ class RejectingHitReceiver2D:
 		}
 
 
+class DuckImpactSource2D:
+	extends Node2D
+
+	signal hit_accepted(
+		context: GFCombatHitContext,
+		receiver: Object,
+		report: Dictionary
+	)
+
+	func emit_hit_for_test(
+		context: GFCombatHitContext,
+		receiver: Object,
+		report: Dictionary
+	) -> void:
+		hit_accepted.emit(context, receiver, report)
+
+
+class InvalidStateMotion extends GFProjectileMotion:
+	func _create_state_2d(
+		_launch_input: GFProjectileLaunchInput2D,
+		_initial_body: GFProjectileBodyResult2D
+	) -> Variant:
+		return null
+
+	func _create_state_3d(
+		_launch_input: GFProjectileLaunchInput3D,
+		_initial_body: GFProjectileBodyResult3D
+	) -> Variant:
+		return null
+
+
+class TrackingMotionStateLifecycle extends GFProjectileMotion:
+	var state_refs: Array[WeakRef] = []
+	var computed_state_ids: Array[int] = []
+	var invalidate_definition_2d: GFProjectileDefinition2D = null
+	var invalidate_definition_3d: GFProjectileDefinition3D = null
+
+	func _create_state_2d(
+		_launch_input: GFProjectileLaunchInput2D,
+		_initial_body: GFProjectileBodyResult2D
+	) -> Variant:
+		var state: GFProjectileMotionState = GFProjectileMotionState.new()
+		state_refs.append(weakref(state))
+		if invalidate_definition_2d != null:
+			invalidate_definition_2d.runtime_path = NodePath("MutatedRuntime")
+		return state
+
+	func _create_state_3d(
+		_launch_input: GFProjectileLaunchInput3D,
+		_initial_body: GFProjectileBodyResult3D
+	) -> Variant:
+		var state: GFProjectileMotionState = GFProjectileMotionState.new()
+		state_refs.append(weakref(state))
+		if invalidate_definition_3d != null:
+			invalidate_definition_3d.runtime_path = NodePath("MutatedRuntime")
+		return state
+
+	func _compute_intent_2d(
+		state: GFProjectileMotionState,
+		_current_body: GFProjectileBodyResult2D,
+		delta: float
+	) -> Variant:
+		computed_state_ids.append(state.get_instance_id())
+		return GFProjectileMotionIntent2D.move(Vector2.ZERO, maxf(delta, 0.0))
+
+	func _compute_intent_3d(
+		state: GFProjectileMotionState,
+		_current_body: GFProjectileBodyResult3D,
+		delta: float
+	) -> Variant:
+		computed_state_ids.append(state.get_instance_id())
+		return GFProjectileMotionIntent3D.move(Vector3.ZERO, maxf(delta, 0.0))
+
+
+class FinishingMotion extends GFProjectileMotion:
+	func _compute_intent_2d(
+		_state: GFProjectileMotionState,
+		_current_body: GFProjectileBodyResult2D,
+		_delta: float
+	) -> Variant:
+		return GFProjectileMotionIntent2D.finish()
+
+	func _compute_intent_3d(
+		_state: GFProjectileMotionState,
+		_current_body: GFProjectileBodyResult3D,
+		_delta: float
+	) -> Variant:
+		return GFProjectileMotionIntent3D.finish()
+
+
+class FinishingApplyAdapter2D extends GFProjectileTransformBodyAdapter2D:
+	var active_session: GFProjectileSession = null
+	var displacement: Vector2 = Vector2(3.0, 4.0)
+	var apply_count: int = 0
+
+	func _apply_intent(
+		root: Node,
+		_intent: GFProjectileMotionIntent2D
+	) -> GFProjectileBodyResult2D:
+		apply_count += 1
+		if not root is Node2D:
+			return GFProjectileBodyResult2D.failed(&"unsupported_body")
+		var body: Node2D = root
+		var before_position: Vector2 = body.global_position
+		body.global_position += displacement
+		if active_session != null and active_session.is_active():
+			var _finished: bool = active_session.finish(
+				GFProjectileSession.EndReason.CALLER_FINISHED
+			)
+		return GFProjectileBodyResult2D.successful(
+			body.global_transform,
+			body.global_position - before_position
+		)
+
+
+class FinishingApplyAdapter3D extends GFProjectileTransformBodyAdapter3D:
+	var active_session: GFProjectileSession = null
+	var displacement: Vector3 = Vector3(2.0, 3.0, 6.0)
+	var apply_count: int = 0
+
+	func _apply_intent(
+		root: Node,
+		_intent: GFProjectileMotionIntent3D
+	) -> GFProjectileBodyResult3D:
+		apply_count += 1
+		if not root is Node3D:
+			return GFProjectileBodyResult3D.failed(&"unsupported_body")
+		var body: Node3D = root
+		var before_position: Vector3 = body.global_position
+		body.global_position += displacement
+		if active_session != null and active_session.is_active():
+			var _finished: bool = active_session.finish(
+				GFProjectileSession.EndReason.CALLER_FINISHED
+			)
+		return GFProjectileBodyResult3D.successful(
+			body.global_transform,
+			body.global_position - before_position
+		)
+
+
 class RecordingSpawnPattern2D extends GFProjectileSpawnPattern2D:
 	var received_count: int = 0
 	var default_count: int = 1
@@ -77,6 +217,35 @@ class RecordingEmissionPolicy extends GFProjectileEmissionPolicy:
 	) -> void:
 		commit_hook_count += 1
 		event_log.append(&"commit_hook")
+
+
+class HostileFailureEmissionPolicy extends GFProjectileEmissionPolicy:
+	var hostile_object: Object = null
+
+	func _prepare_emission(
+		_emitter: Node,
+		_projectile_id: StringName,
+		_prepare_report: Dictionary
+	) -> Dictionary:
+		var report: Dictionary = {}
+		report["ok"] = false
+		report["reason"] = "r".repeat(300)
+		report["policy_id"] = StringName("p".repeat(200))
+		report["projectile_id"] = NodePath("n".repeat(300))
+		report["remaining_cooldown_seconds"] = hostile_object
+		report["available_charges"] = NAN
+		report["required_charges"] = INF
+		report["unknown_detail"] = "must_not_escape"
+		report[NodePath("published")] = true
+		report[&"committed"] = true
+		report["compensated"] = false
+		report[NodePath("rolled_back")] = false
+		report[&"emitted_count"] = 3
+		report["consumed_charges"] = 1.5
+		report[&"emission_count"] = 7
+		report["hard_limit"] = 99
+		report[&"state"] = StringName("s".repeat(200))
+		return report
 
 
 class RecordingPreflightAdapter2D extends GFProjectileTransformBodyAdapter2D:
@@ -165,10 +334,31 @@ class FinishingCommitPolicy extends GFProjectileEmissionPolicy:
 			event_log.append(&"hook_finished")
 
 
+class InvalidatingCommitPolicy extends GFProjectileEmissionPolicy:
+	var source_path: NodePath = NodePath("Impact")
+
+	func _commit_emission(
+		emitter: Node,
+		_prepare_report: Dictionary,
+		_emitted_count: int
+	) -> void:
+		var parent: Node = emitter.get_parent() if emitter != null else null
+		if parent == null:
+			return
+		for candidate: Node in parent.get_children():
+			var source: Node = candidate.get_node_or_null(source_path)
+			if source == null:
+				continue
+			candidate.remove_child(source)
+			source.free()
+
+
 class ReleasingCommitPolicy extends GFProjectileEmissionPolicy:
 	enum ReleaseMode {
 		REMOVE_FROM_PARENT = 0,
 		QUEUE_FREE = 1,
+		FREE = 2,
+		DEFERRED_FREE = 3,
 	}
 
 	var release_mode: ReleaseMode = ReleaseMode.REMOVE_FROM_PARENT
@@ -207,6 +397,10 @@ class ReleasingCommitPolicy extends GFProjectileEmissionPolicy:
 		match release_mode:
 			ReleaseMode.QUEUE_FREE:
 				emitter.queue_free()
+			ReleaseMode.FREE:
+				emitter.free()
+			ReleaseMode.DEFERRED_FREE:
+				emitter.call_deferred(&"free")
 			_:
 				parent.remove_child(emitter)
 		event_log.append(&"release_requested")
@@ -236,7 +430,13 @@ class ReleasingPreparePolicy extends GFProjectileEmissionPolicy:
 
 
 class ReleasingDeferredCommitPolicy extends GFProjectileEmissionPolicy:
+	enum ReleaseMode {
+		REMOVE_FROM_PARENT = 0,
+		QUEUE_FREE = 1,
+	}
+
 	var deferred_commit_count: int = 0
+	var release_mode: ReleaseMode = ReleaseMode.REMOVE_FROM_PARENT
 
 	func commit_deferred_for_framework(
 		emitter: Node,
@@ -250,8 +450,12 @@ class ReleasingDeferredCommitPolicy extends GFProjectileEmissionPolicy:
 			emitted_count
 		)
 		var parent: Node = emitter.get_parent() if emitter != null else null
-		if parent != null:
-			parent.remove_child(emitter)
+		match release_mode:
+			ReleaseMode.QUEUE_FREE:
+				emitter.queue_free()
+			_:
+				if parent != null:
+					parent.remove_child(emitter)
 		return report
 
 
@@ -382,6 +586,21 @@ class RecordingObjectPool extends GFObjectPoolUtility:
 			_available_nodes.append(node)
 
 
+class LostLeaseRecordingPool extends GFObjectPoolUtility:
+	var lost_retirement_count: int = 0
+	var lost_retirement_ids: Array[int] = []
+
+	func retire_lost_lease_for_framework(
+		scene: PackedScene,
+		instance_id: int
+	) -> bool:
+		var settled: bool = super.retire_lost_lease_for_framework(scene, instance_id)
+		if settled:
+			lost_retirement_count += 1
+			lost_retirement_ids.append(instance_id)
+		return settled
+
+
 class ReleasingPrewarmPool extends RecordingObjectPool:
 	var emitter: GFProjectileEmitter2D = null
 	var prewarm_count: int = 0
@@ -506,10 +725,92 @@ func _runtime_3d_from(root: Node) -> GFProjectile3D:
 	return null
 
 
+func _weakref_points_to_live_lifetime(reference: WeakRef) -> bool:
+	if reference == null:
+		return false
+	var value: Variant = reference.get_ref()
+	if not value is GFProjectileLifetimePolicy:
+		return false
+	var lifetime: GFProjectileLifetimePolicy = value
+	return is_instance_valid(lifetime)
+
+
+func _weakref_points_to_live_motion_state(reference: WeakRef) -> bool:
+	if reference == null:
+		return false
+	var value: Variant = reference.get_ref()
+	if not value is GFProjectileMotionState:
+		return false
+	var state: GFProjectileMotionState = value
+	return is_instance_valid(state)
+
+
+func _assert_hostile_failure_details(details: Dictionary) -> void:
+	var expected_keys: Array[StringName] = [
+		&"ok",
+		&"reason",
+		&"policy_id",
+		&"projectile_id",
+		&"requested_count",
+		&"emit_count",
+		&"now_msec",
+		&"policy_instance_id",
+		&"policy_state_generation",
+		&"policy_enabled",
+		&"published",
+		&"committed",
+		&"compensated",
+		&"rolled_back",
+		&"emitted_count",
+		&"consumed_charges",
+	]
+	assert_eq(details.size(), 16, "失败详情必须在 16 个已接受字段处封顶。")
+	for key: StringName in expected_keys:
+		assert_true(details.has(key), "失败详情缺少允许字段 %s。" % key)
+	var forbidden_keys: Array[StringName] = [
+		&"unknown_detail",
+		&"remaining_cooldown_seconds",
+		&"available_charges",
+		&"required_charges",
+		&"emission_count",
+		&"hard_limit",
+		&"state",
+	]
+	for forbidden_key: StringName in forbidden_keys:
+		assert_false(details.has(forbidden_key), "失败详情不得泄漏字段 %s。" % forbidden_key)
+	var reason_value: Variant = details[&"reason"]
+	assert_eq(typeof(reason_value), TYPE_STRING)
+	var reason_text: String = reason_value if reason_value is String else ""
+	assert_eq(reason_text.length(), 256)
+	var policy_id_value: Variant = details[&"policy_id"]
+	assert_eq(typeof(policy_id_value), TYPE_STRING_NAME)
+	var policy_id: StringName = policy_id_value if policy_id_value is StringName else &""
+	assert_eq(String(policy_id).length(), 128)
+	var projectile_id_value: Variant = details[&"projectile_id"]
+	assert_eq(typeof(projectile_id_value), TYPE_NODE_PATH)
+	var projectile_id: NodePath = (
+		projectile_id_value if projectile_id_value is NodePath else NodePath("")
+	)
+	assert_eq(String(projectile_id).length(), 256)
+	for value: Variant in details.values():
+		assert_ne(typeof(value), TYPE_OBJECT, "失败详情不得保留 Object/RefCounted。")
+		if typeof(value) == TYPE_FLOAT:
+			var float_value: float = value
+			assert_true(is_finite(float_value), "失败详情只允许有限 float。")
+
+
 func _hit_box_2d_from(root: Node, source_path: NodePath) -> GFHitBox2D:
 	var value: Node = root.get_node_or_null(source_path)
 	if value is GFHitBox2D:
 		var source: GFHitBox2D = value
+		return source
+	return null
+
+
+func _hit_box_3d_from(root: Node, source_path: NodePath) -> GFHitBox3D:
+	var value: Node = root.get_node_or_null(source_path)
+	if value is GFHitBox3D:
+		var source: GFHitBox3D = value
 		return source
 	return null
 
@@ -521,6 +822,18 @@ func _first_signal_callable(source: Object, signal_name: StringName) -> Callable
 			var callback: Callable = callback_value
 			return callback
 	return Callable()
+
+
+func _count_retirement_records_in_tree(name_prefix: StringName) -> int:
+	var scene_tree: SceneTree = get_tree()
+	if scene_tree == null or scene_tree.root == null:
+		return 0
+	var count: int = 0
+	var prefix: String = String(name_prefix)
+	for child: Node in scene_tree.root.get_children():
+		if String(child.name).contains(prefix):
+			count += 1
+	return count
 
 
 func _finish_projectile_sessions(sessions: Array[GFProjectileSession]) -> void:
@@ -587,6 +900,21 @@ func test_projectile_definition_binds_zero_one_or_many_explicit_impact_sources()
 		assert_same(typed_adapter_3d, definition_3d.body_adapter)
 		assert_eq(binding_3d.get_impact_sources().size(), source_count)
 		assert_true(binding_3d.is_current())
+
+
+func test_projectile_binding_default_constructor_is_closed_internal_failure() -> void:
+	var binding: GFProjectileBinding = GFProjectileBinding.new()
+	assert_false(binding.is_valid())
+	assert_false(binding.is_current())
+	assert_eq(
+		binding.get_failure_reason(),
+		GFProjectileBinding.FailureReason.INTERNAL_FAILURE
+	)
+	assert_null(binding.get_definition())
+	assert_null(binding.get_instance_root())
+	assert_null(binding.get_runtime())
+	assert_true(binding.get_impact_sources().is_empty())
+	assert_null(binding.get_body_adapter())
 
 
 func test_projectile_binding_rejects_malformed_runtime_topology() -> void:
@@ -1524,6 +1852,8 @@ func test_projectile_emitter_deferred_commit_release_compensates_before_activati
 	assert_eq(emitted_count[0], 0, "deferred commit 后 release 不得进入 consume/publication。")
 	assert_eq(failure_reasons, [&"emitter_released"])
 	assert_eq(pool.acquire_count, 1)
+	await get_tree().process_frame
+	await get_tree().process_frame
 	assert_eq(pool.release_count, 1, "已分配但未 ACTIVE 的 lease 必须恰好一次退休。")
 	assert_almost_eq(policy.get_available_charges(0), 4.0, 0.0001)
 	assert_eq(
@@ -1534,6 +1864,64 @@ func test_projectile_emitter_deferred_commit_release_compensates_before_activati
 	if is_instance_valid(emitter):
 		emitter.free()
 	for candidate: Node in pool.acquired_nodes:
+		if is_instance_valid(candidate):
+			candidate.free()
+
+
+func test_projectile_emitter_queued_owner_releases_preactive_pool_claim() -> void:
+	for release_mode: ReleasingDeferredCommitPolicy.ReleaseMode in [
+		ReleasingDeferredCommitPolicy.ReleaseMode.QUEUE_FREE,
+	]:
+		var parent: Node2D = Node2D.new()
+		add_child_autofree(parent)
+		var emitter: GFProjectileEmitter2D = GFProjectileEmitter2D.new()
+		parent.add_child(emitter)
+		emitter.projectile_definition = _make_projectile_definition_2d()
+		emitter.use_object_pool = true
+		var pool: RecordingObjectPool = RecordingObjectPool.new()
+		pool.reuse_released_nodes = true
+		emitter.object_pool_utility = pool
+		var policy: ReleasingDeferredCommitPolicy = ReleasingDeferredCommitPolicy.new()
+		policy.release_mode = release_mode
+		policy.charge_capacity = 4.0
+		policy.charge_cost_per_request = 1.0
+		policy.charge_cost_per_projectile = 1.0
+		policy.reset(0)
+		emitter.emission_policy = policy
+
+		var roots: Array[Node] = emitter.emit_projectiles(
+			GFProjectileLaunchInput2D.new(),
+			&"",
+			1
+		)
+		assert_true(roots.is_empty())
+		assert_eq(pool.acquire_count, 1)
+		assert_almost_eq(
+			policy.get_available_charges(0),
+			4.0,
+			0.0001,
+			"ACTIVE 前 lost owner 必须补偿 deferred charge。"
+		)
+		assert_eq(
+			GFVariantData.get_option_int(policy.get_debug_snapshot(0), "emission_count"),
+			0,
+			"ACTIVE 前 lost owner 不得保留 emission settlement。"
+		)
+		await get_tree().process_frame
+		await get_tree().process_frame
+		assert_eq(pool.release_count, 1, "lost owner 的 pool lease 必须恰好一次退休。")
+		assert_eq(pool.acquired_nodes.size(), 1)
+		if pool.acquired_nodes.is_empty():
+			continue
+		var candidate: Node = pool.acquired_nodes[0]
+		assert_true(is_instance_valid(candidate))
+		var runtime: GFProjectile2D = _runtime_2d_from(candidate)
+		assert_not_null(runtime)
+		if runtime != null:
+			assert_false(
+				runtime.has_launch_claim_for_framework(),
+				"owner queued 后 reservation claim 不得随 pool root 复用。"
+			)
 		if is_instance_valid(candidate):
 			candidate.free()
 
@@ -1604,13 +1992,20 @@ func test_projectile_emitter_remove_during_commit_publishes_before_exact_retirem
 			GFProjectileSession.EndReason.EMITTER_RELEASED
 		)
 	assert_eq(pool.acquire_count, 1)
-	assert_eq(pool.release_count, 1, "remove_child publication 必须恰好一次归还 pool lease。")
+	assert_eq(
+		pool.release_count,
+		0,
+		"remove_child 回调栈内必须先保留 terminal claim，等待树安全点归还 lease。"
+	)
 	assert_almost_eq(policy.get_available_charges(0), 2.0, 0.0001)
 	assert_eq(
 		GFVariantData.get_option_int(policy.get_debug_snapshot(0), "emission_count"),
 		1,
 		"receipt 已发布且 session 已 ACTIVE 后不得补偿 charge/cooldown。"
 	)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	assert_eq(pool.release_count, 1, "remove_child publication 必须恰好一次归还 pool lease。")
 	policy.observed_sessions.clear()
 	if is_instance_valid(emitter):
 		emitter.free()
@@ -1683,7 +2078,11 @@ func test_projectile_emitter_queue_free_during_commit_publishes_3d_before_retire
 		)
 	policy.observed_sessions.clear()
 	assert_eq(pool.acquire_count, 1)
-	assert_eq(pool.release_count, 1, "queue_free publication 必须恰好一次归还 pool lease。")
+	assert_eq(
+		pool.release_count,
+		0,
+		"queue_free 回调栈内必须先保留 terminal claim，等待树安全点归还 lease。"
+	)
 	assert_almost_eq(policy.get_available_charges(0), 2.0, 0.0001)
 	assert_eq(
 		GFVariantData.get_option_int(policy.get_debug_snapshot(0), "emission_count"),
@@ -1693,6 +2092,249 @@ func test_projectile_emitter_queue_free_during_commit_publishes_3d_before_retire
 	await get_tree().process_frame
 	assert_false(is_instance_valid(emitter))
 	assert_eq(pool.release_count, 1, "延迟 _exit_tree 不得重复归还同一 lease。")
+	for candidate: Node in pool.acquired_nodes:
+		if is_instance_valid(candidate):
+			candidate.free()
+
+
+func test_projectile_emitter_deferred_free_in_commit_hook_publishes_full_batch_and_keeps_charge() -> void:
+	var parent: Node2D = Node2D.new()
+	add_child_autofree(parent)
+	var emitter: GFProjectileEmitter2D = GFProjectileEmitter2D.new()
+	parent.add_child(emitter)
+	emitter.projectile_definition = _make_projectile_definition_2d()
+	emitter.use_object_pool = true
+	var pool: RecordingObjectPool = RecordingObjectPool.new()
+	emitter.object_pool_utility = pool
+	var policy: ReleasingCommitPolicy = ReleasingCommitPolicy.new()
+	policy.release_mode = ReleasingCommitPolicy.ReleaseMode.DEFERRED_FREE
+	policy.charge_capacity = 4.0
+	policy.charge_cost_per_request = 1.0
+	policy.charge_cost_per_projectile = 1.0
+	policy.reset(0)
+	emitter.emission_policy = policy
+	var started_count: Array[int] = [0]
+	var emitted_count: Array[int] = [0]
+	var on_child_entered: Callable = func(candidate: Node) -> void:
+		var runtime_value: Node = candidate.get_node_or_null(NodePath("ProjectileRuntime"))
+		if runtime_value is GFProjectile2D:
+			var runtime: GFProjectile2D = runtime_value
+			var on_started: Callable = func(_session: GFProjectileSession) -> void:
+				started_count[0] += 1
+			var _started_connected: int = runtime.projectile_started.connect(on_started)
+	var _child_connected: int = parent.child_entered_tree.connect(on_child_entered)
+	var on_emitted: Callable = func(
+		_projectile_root: Node,
+		_session: GFProjectileSession,
+		_launch_input: GFProjectileLaunchInput2D
+	) -> void:
+		emitted_count[0] += 1
+	var _emitted_connected: int = emitter.projectile_emitted.connect(on_emitted)
+
+	var roots: Array[Node] = emitter.emit_projectiles(
+		GFProjectileLaunchInput2D.new(),
+		&"",
+		1
+	)
+	assert_eq(roots.size(), 1)
+	assert_true(is_instance_valid(emitter))
+	assert_eq(started_count[0], 1)
+	assert_eq(emitted_count[0], 1)
+	assert_eq(policy.observed_sessions.size(), 1)
+	if not policy.observed_sessions.is_empty():
+		assert_true(policy.observed_sessions[0].is_active())
+	assert_almost_eq(policy.get_available_charges(0), 2.0, 0.0001)
+	assert_eq(
+		GFVariantData.get_option_int(policy.get_debug_snapshot(0), "emission_count"),
+		1,
+		"ACTIVATED receipt 的 charge/cooldown 在 deferred free 后不得补偿。"
+	)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	assert_false(is_instance_valid(emitter))
+	if not policy.observed_sessions.is_empty():
+		assert_true(policy.observed_sessions[0].is_finished())
+		assert_eq(
+			policy.observed_sessions[0].get_end_reason(),
+			GFProjectileSession.EndReason.EMITTER_RELEASED
+		)
+	assert_eq(pool.release_count, 1)
+	policy.observed_sessions.clear()
+	for candidate: Node in pool.acquired_nodes:
+		if is_instance_valid(candidate):
+			candidate.free()
+
+
+func test_projectile_emitter_deferred_free_in_started_keeps_full_signal_order() -> void:
+	var parent: Node3D = Node3D.new()
+	add_child_autofree(parent)
+	var emitter: GFProjectileEmitter3D = GFProjectileEmitter3D.new()
+	parent.add_child(emitter)
+	emitter.projectile_definition = _make_projectile_definition_3d()
+	var candidates: Array[Node] = []
+	var sessions: Array[GFProjectileSession] = []
+	var events: Array[StringName] = []
+	var emitted_count: Array[int] = [0]
+	var on_child_entered: Callable = func(candidate: Node) -> void:
+		var runtime_value: Node = candidate.get_node_or_null(NodePath("ProjectileRuntime"))
+		if not runtime_value is GFProjectile3D:
+			return
+		candidates.append(candidate)
+		var runtime: GFProjectile3D = runtime_value
+		var on_started: Callable = func(session: GFProjectileSession) -> void:
+			events.append(&"started")
+			sessions.append(session)
+			var on_finished: Callable = func(
+				_finished_session: GFProjectileSession,
+				_reason: int
+			) -> void:
+				events.append(&"finished")
+			var _finished_connected: int = session.finished.connect(on_finished)
+			emitter.call_deferred(&"free")
+		var _started_connected: int = runtime.projectile_started.connect(on_started)
+	var _child_connected: int = parent.child_entered_tree.connect(on_child_entered)
+	var on_emitted: Callable = func(
+		_projectile_root: Node,
+		_session: GFProjectileSession,
+		_launch_input: GFProjectileLaunchInput3D
+	) -> void:
+		events.append(&"emitted")
+		emitted_count[0] += 1
+	var _emitted_connected: int = emitter.projectile_emitted.connect(on_emitted)
+
+	var roots: Array[Node] = emitter.emit_projectiles(
+		GFProjectileLaunchInput3D.new(),
+		&"",
+		1
+	)
+	assert_eq(roots.size(), 1)
+	assert_true(is_instance_valid(emitter))
+	assert_eq(events, [&"started", &"emitted"])
+	assert_eq(emitted_count[0], 1)
+	assert_eq(sessions.size(), 1)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	assert_false(is_instance_valid(emitter))
+	assert_eq(events, [&"started", &"emitted", &"finished"])
+	if not sessions.is_empty():
+		assert_eq(sessions[0].get_end_reason(), GFProjectileSession.EndReason.EMITTER_RELEASED)
+	for candidate: Node in candidates:
+		assert_false(is_instance_valid(candidate), "fresh root 必须在独立 retirement handoff 后释放。")
+
+
+func test_projectile_emitter_deferred_free_in_emitted_completes_fresh_2d_batch() -> void:
+	var parent: Node2D = Node2D.new()
+	add_child_autofree(parent)
+	var emitter: GFProjectileEmitter2D = GFProjectileEmitter2D.new()
+	parent.add_child(emitter)
+	emitter.projectile_definition = _make_projectile_definition_2d()
+	var candidates: Array[Node] = []
+	var sessions: Array[GFProjectileSession] = []
+	var started_count: Array[int] = [0]
+	var emitted_count: Array[int] = [0]
+	var on_child_entered: Callable = func(candidate: Node) -> void:
+		var runtime_value: Node = candidate.get_node_or_null(NodePath("ProjectileRuntime"))
+		if not runtime_value is GFProjectile2D:
+			return
+		candidates.append(candidate)
+		var runtime: GFProjectile2D = runtime_value
+		var on_started: Callable = func(_session: GFProjectileSession) -> void:
+			started_count[0] += 1
+		var _started_connected: int = runtime.projectile_started.connect(on_started)
+	var _child_connected: int = parent.child_entered_tree.connect(on_child_entered)
+	var on_emitted: Callable = func(
+		_projectile_root: Node,
+		_session: GFProjectileSession,
+		_launch_input: GFProjectileLaunchInput2D
+	) -> void:
+		emitted_count[0] += 1
+		for candidate: Node in candidates:
+			var runtime: GFProjectile2D = _runtime_2d_from(candidate)
+			if runtime == null:
+				continue
+			var active_session: GFProjectileSession = runtime.get_active_session()
+			if active_session != null and not sessions.has(active_session):
+				sessions.append(active_session)
+		if emitted_count[0] == 1:
+			emitter.call_deferred(&"free")
+	var _emitted_connected: int = emitter.projectile_emitted.connect(on_emitted)
+
+	var roots: Array[Node] = emitter.emit_projectiles(
+		GFProjectileLaunchInput2D.new(),
+		&"",
+		2
+	)
+	assert_eq(roots.size(), 2)
+	assert_true(is_instance_valid(emitter))
+	assert_eq(started_count[0], 2)
+	assert_eq(emitted_count[0], 2)
+	assert_eq(sessions.size(), 2)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	assert_false(is_instance_valid(emitter))
+	for session: GFProjectileSession in sessions:
+		assert_true(session.is_finished())
+		assert_eq(session.get_end_reason(), GFProjectileSession.EndReason.EMITTER_RELEASED)
+	for candidate: Node in candidates:
+		assert_false(is_instance_valid(candidate))
+
+
+func test_projectile_emitter_deferred_free_in_emitted_releases_3d_pool_batch_once() -> void:
+	var parent: Node3D = Node3D.new()
+	add_child_autofree(parent)
+	var emitter: GFProjectileEmitter3D = GFProjectileEmitter3D.new()
+	parent.add_child(emitter)
+	emitter.projectile_definition = _make_projectile_definition_3d()
+	emitter.use_object_pool = true
+	var pool: RecordingObjectPool = RecordingObjectPool.new()
+	emitter.object_pool_utility = pool
+	var sessions: Array[GFProjectileSession] = []
+	var started_count: Array[int] = [0]
+	var emitted_count: Array[int] = [0]
+	var on_child_entered: Callable = func(candidate: Node) -> void:
+		var runtime_value: Node = candidate.get_node_or_null(NodePath("ProjectileRuntime"))
+		if runtime_value is GFProjectile3D:
+			var runtime: GFProjectile3D = runtime_value
+			var on_started: Callable = func(_session: GFProjectileSession) -> void:
+				started_count[0] += 1
+			var _started_connected: int = runtime.projectile_started.connect(on_started)
+	var _child_connected: int = parent.child_entered_tree.connect(on_child_entered)
+	var on_emitted: Callable = func(
+		_projectile_root: Node,
+		_session: GFProjectileSession,
+		_launch_input: GFProjectileLaunchInput3D
+	) -> void:
+		emitted_count[0] += 1
+		for candidate: Node in pool.acquired_nodes:
+			var runtime: GFProjectile3D = _runtime_3d_from(candidate)
+			if runtime == null:
+				continue
+			var active_session: GFProjectileSession = runtime.get_active_session()
+			if active_session != null and not sessions.has(active_session):
+				sessions.append(active_session)
+		if emitted_count[0] == 1:
+			emitter.call_deferred(&"free")
+	var _emitted_connected: int = emitter.projectile_emitted.connect(on_emitted)
+
+	var roots: Array[Node] = emitter.emit_projectiles(
+		GFProjectileLaunchInput3D.new(),
+		&"",
+		2
+	)
+	assert_eq(roots.size(), 2)
+	assert_true(is_instance_valid(emitter))
+	assert_eq(started_count[0], 2)
+	assert_eq(emitted_count[0], 2)
+	assert_eq(sessions.size(), 2)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	assert_false(is_instance_valid(emitter))
+	for session: GFProjectileSession in sessions:
+		assert_true(session.is_finished())
+		assert_eq(session.get_end_reason(), GFProjectileSession.EndReason.EMITTER_RELEASED)
+	assert_eq(pool.acquire_count, 2)
+	assert_eq(pool.release_count, 2)
+	assert_eq(pool.released_nodes.size(), 2)
 	for candidate: Node in pool.acquired_nodes:
 		if is_instance_valid(candidate):
 			candidate.free()
@@ -1722,6 +2364,66 @@ func test_projectile_catalog_maps_ids_to_typed_definitions() -> void:
 	assert_true(catalog.entries.is_empty())
 
 
+func test_projectile_catalog_uses_first_valid_duplicate_consistently() -> void:
+	var catalog: GFProjectileCatalog = GFProjectileCatalog.new()
+	var invalid_entry: GFProjectileCatalogEntry = GFProjectileCatalogEntry.new()
+	invalid_entry.projectile_id = &"arrow"
+	var first_valid_entry: GFProjectileCatalogEntry = GFProjectileCatalogEntry.new()
+	first_valid_entry.projectile_id = &"arrow"
+	first_valid_entry.definition = _make_projectile_definition_2d()
+	var later_valid_entry: GFProjectileCatalogEntry = GFProjectileCatalogEntry.new()
+	later_valid_entry.projectile_id = &"arrow"
+	later_valid_entry.definition = _make_projectile_definition_3d()
+	catalog.entries = [invalid_entry, first_valid_entry, later_valid_entry]
+
+	assert_same(catalog.get_definition(&"arrow"), first_valid_entry.definition)
+	assert_true(catalog.has_definition(&"arrow"))
+	assert_eq(catalog.get_projectile_ids(), PackedStringArray(["arrow"]))
+
+	var parent: Node2D = Node2D.new()
+	add_child_autofree(parent)
+	var emitter: GFProjectileEmitter2D = GFProjectileEmitter2D.new()
+	parent.add_child(emitter)
+	emitter.projectile_catalog = catalog
+	emitter.default_projectile_id = &"arrow"
+	var sessions: Array[GFProjectileSession] = []
+	var on_emitted: Callable = func(
+		_projectile_root: Node,
+		session: GFProjectileSession,
+		_launch_input: GFProjectileLaunchInput2D
+	) -> void:
+		sessions.append(session)
+	var _emitted_connected: int = emitter.projectile_emitted.connect(on_emitted)
+	var emitted_root: Node = emitter.emit_projectile()
+	assert_not_null(emitted_root, "Emitter 必须跳过同 ID 的前置无效条目。")
+	assert_eq(sessions.size(), 1)
+	_finish_projectile_sessions(sessions)
+
+	var replacement: GFProjectileDefinition2D = _make_projectile_definition_2d()
+	catalog.set_definition(&"arrow", replacement)
+	assert_same(catalog.get_definition(&"arrow"), replacement)
+	assert_eq(catalog.entries.size(), 1)
+	assert_same(
+		catalog.entries[0],
+		first_valid_entry,
+		"set 必须替换首个有效条目，而不是复活前置无效条目。"
+	)
+	invalid_entry.definition = null
+	first_valid_entry.definition = replacement
+	catalog.entries = [invalid_entry, first_valid_entry, later_valid_entry]
+	assert_eq(catalog.prune_invalid_entries(), 2)
+	assert_eq(catalog.entries.size(), 1)
+	assert_same(catalog.entries[0], first_valid_entry)
+	assert_same(catalog.get_definition(&"arrow"), replacement)
+	catalog.entries.append(invalid_entry)
+	catalog.entries.append(later_valid_entry)
+	assert_true(catalog.remove_definition(&"arrow"))
+	assert_false(catalog.remove_definition(&"arrow"), "重复 remove 必须保持 first-wins 终态。")
+	assert_false(catalog.has_definition(&"arrow"))
+	assert_true(catalog.get_projectile_ids().is_empty())
+	assert_true(catalog.entries.is_empty())
+
+
 func test_projectile_emitter_resolves_typed_definition_from_catalog() -> void:
 	var parent: Node2D = Node2D.new()
 	add_child_autofree(parent)
@@ -1748,6 +2450,50 @@ func test_projectile_emitter_resolves_typed_definition_from_catalog() -> void:
 	if root != null:
 		assert_not_null(root.get_node_or_null(NodePath("ProjectileRuntime")))
 	_finish_projectile_sessions(sessions)
+
+
+func test_projectile_emit_failure_sanitizes_hostile_policy_details_symmetrically() -> void:
+	var hostile_policy: HostileFailureEmissionPolicy = HostileFailureEmissionPolicy.new()
+	var hostile_object: GFProjectileMotionState = GFProjectileMotionState.new()
+	var hostile_ref: WeakRef = weakref(hostile_object)
+	hostile_policy.hostile_object = hostile_object
+	var failure_reasons: Array[StringName] = []
+	var failure_details: Array[Dictionary] = []
+	var on_failed: Callable = func(reason: StringName, details: Dictionary) -> void:
+		failure_reasons.append(reason)
+		failure_details.append(details)
+
+	var parent_2d: Node2D = Node2D.new()
+	add_child_autofree(parent_2d)
+	var emitter_2d: GFProjectileEmitter2D = GFProjectileEmitter2D.new()
+	parent_2d.add_child(emitter_2d)
+	emitter_2d.projectile_definition = _make_projectile_definition_2d()
+	emitter_2d.emission_policy = hostile_policy
+	var _failed_2d_connected: int = emitter_2d.projectile_emit_failed.connect(on_failed)
+	assert_true(emitter_2d.emit_projectiles().is_empty())
+
+	var parent_3d: Node3D = Node3D.new()
+	add_child_autofree(parent_3d)
+	var emitter_3d: GFProjectileEmitter3D = GFProjectileEmitter3D.new()
+	parent_3d.add_child(emitter_3d)
+	emitter_3d.projectile_definition = _make_projectile_definition_3d()
+	emitter_3d.emission_policy = hostile_policy
+	var _failed_3d_connected: int = emitter_3d.projectile_emit_failed.connect(on_failed)
+	assert_true(emitter_3d.emit_projectiles().is_empty())
+
+	assert_eq(failure_reasons.size(), 2)
+	assert_eq(failure_details.size(), 2)
+	for reason: StringName in failure_reasons:
+		assert_eq(String(reason), "r".repeat(128))
+	for details: Dictionary in failure_details:
+		_assert_hostile_failure_details(details)
+	hostile_policy.hostile_object = null
+	hostile_object = null
+	assert_eq(
+		typeof(hostile_ref.get_ref()),
+		TYPE_NIL,
+		"信号详情不得通过 hostile Object 值延长 RefCounted 生命周期。"
+	)
 
 
 func test_projectile_emission_policy_caps_before_typed_2d_pattern_generation() -> void:
@@ -2161,6 +2907,50 @@ func test_homing_motion_clamps_at_arrival_distance_through_adapter() -> void:
 	var _finished: bool = session.finish(GFProjectileSession.EndReason.CALLER_FINISHED)
 
 
+func test_homing_negative_arrival_distance_disables_clamp_symmetrically() -> void:
+	var motion: GFHomingProjectileMotion = GFHomingProjectileMotion.new()
+	motion.speed = 10.0
+	motion.arrival_distance = -1.0
+	motion.stop_when_reached = true
+
+	var input_2d: GFProjectileLaunchInput2D = GFProjectileLaunchInput2D.new()
+	input_2d.set_target_position(Vector2(2.0, 0.0))
+	var initial_2d: GFProjectileBodyResult2D = GFProjectileBodyResult2D.successful(
+		Transform2D.IDENTITY
+	)
+	var state_2d: GFProjectileMotionState = motion.create_state_2d(input_2d, initial_2d)
+	assert_not_null(state_2d)
+	if state_2d != null:
+		var intent_2d: GFProjectileMotionIntent2D = motion.compute_intent_2d(
+			state_2d,
+			initial_2d,
+			1.0
+		)
+		assert_eq(intent_2d.get_kind(), GFProjectileMotionIntent2D.Kind.MOVE)
+		assert_eq(intent_2d.get_velocity(), Vector2(10.0, 0.0))
+
+	var input_3d: GFProjectileLaunchInput3D = GFProjectileLaunchInput3D.new()
+	input_3d.set_target_position(Vector3(2.0, 0.0, 0.0))
+	var initial_3d: GFProjectileBodyResult3D = GFProjectileBodyResult3D.successful(
+		Transform3D.IDENTITY
+	)
+	var state_3d: GFProjectileMotionState = motion.create_state_3d(input_3d, initial_3d)
+	assert_not_null(state_3d)
+	if state_3d != null:
+		var intent_3d: GFProjectileMotionIntent3D = motion.compute_intent_3d(
+			state_3d,
+			initial_3d,
+			1.0
+		)
+		assert_eq(intent_3d.get_kind(), GFProjectileMotionIntent3D.Kind.MOVE)
+		assert_eq(intent_3d.get_velocity(), Vector3(10.0, 0.0, 0.0))
+
+	motion.arrival_distance = NAN
+	assert_null(motion.create_state_2d(input_2d, initial_2d))
+	motion.arrival_distance = INF
+	assert_null(motion.create_state_3d(input_3d, initial_3d))
+
+
 func test_homing_motion_finishes_when_tracked_target_is_lost() -> void:
 	var root: Node2D = _make_bound_projectile_root_2d()
 	add_child_autofree(root)
@@ -2559,6 +3349,51 @@ func test_projectile_deferred_commit_publishes_hook_once_and_cannot_compensate_a
 	var repeated_publish: Dictionary = receipt.publish_for_framework()
 	assert_false(GFVariantData.get_option_bool(repeated_publish, "ok"))
 	assert_eq(policy.commit_hook_count, 1)
+
+
+func test_projectile_activated_receipt_stays_published_when_hook_hard_frees_emitter() -> void:
+	var parent: Node = Node.new()
+	add_child_autofree(parent)
+	var emitter_owner: Node = Node.new()
+	parent.add_child(emitter_owner)
+	var policy: ReleasingCommitPolicy = ReleasingCommitPolicy.new()
+	policy.release_mode = ReleasingCommitPolicy.ReleaseMode.FREE
+	policy.charge_capacity = 4.0
+	policy.charge_cost_per_request = 1.0
+	policy.charge_cost_per_projectile = 1.0
+	policy.reset(0)
+	var task: GFProjectileEmissionTask = GFProjectileEmissionTask.new()
+	var _configured_task: GFProjectileEmissionTask = task.configure(
+		emitter_owner,
+		policy,
+		&"arrow",
+		{},
+		1,
+		8,
+		0
+	)
+	assert_true(GFVariantData.get_option_bool(task.prepare(), "ok"))
+	var receipt: GFProjectileEmissionReceipt = task.commit_deferred_for_framework(1)
+	assert_not_null(receipt)
+	if receipt == null:
+		return
+	assert_eq(receipt.mark_activated_for_framework(), OK)
+
+	var publish_report: Dictionary = receipt.publish_for_framework()
+	assert_true(GFVariantData.get_option_bool(publish_report, "ok"))
+	assert_false(is_instance_valid(emitter_owner))
+	assert_eq(
+		receipt.get_state_for_framework(),
+		GFProjectileEmissionReceipt.State.PUBLISHED,
+		"ACTIVATED receipt 的 hook 销毁 emitter 后仍必须 first-wins PUBLISHED。"
+	)
+	assert_false(
+		GFVariantData.get_option_bool(
+			receipt.compensate_for_framework(&"hard_free_after_activation"),
+			"ok"
+		)
+	)
+	assert_almost_eq(policy.get_available_charges(0), 2.0, 0.0001)
 
 
 func test_projectile_receipt_and_policy_reject_reentrant_publication_settlement() -> void:
@@ -3116,3 +3951,822 @@ func test_projectile_emitter_exit_finishes_sessions_and_releases_pool_leases_onc
 	for candidate: Node in pool.acquired_nodes:
 		if is_instance_valid(candidate):
 			candidate.free()
+
+
+func test_projectile_definition_uses_explicit_hit_box_hit_scan_union() -> void:
+	var root_2d: Node2D = _make_bound_projectile_root_2d([&"HitBox"])
+	var scan_2d: GFHitScan2D = GFHitScan2D.new()
+	scan_2d.name = &"HitScan"
+	root_2d.add_child(scan_2d)
+	add_child_autofree(root_2d)
+	var paths: Array[NodePath] = [NodePath("HitBox"), NodePath("HitScan")]
+	var definition_2d: GFProjectileDefinition2D = _make_projectile_definition_2d(paths)
+	var binding_2d: GFProjectileBinding2D = definition_2d.bind_instance(root_2d)
+	assert_true(binding_2d.is_valid(), "2D Definition 应显式接受 HitBox/HitScan union。")
+	assert_true(binding_2d.get_impact_sources()[0] is GFHitBox2D)
+	assert_true(binding_2d.get_impact_sources()[1] is GFHitScan2D)
+	var session_2d: GFProjectileSession = _runtime_2d_from(root_2d).launch(binding_2d)
+	var context_2d: GFCombatHitContext = GFCombatHitContext.new()
+	var receiver_2d: HitReceiver2D = HitReceiver2D.new()
+	add_child_autofree(receiver_2d)
+	var hit_box_2d: GFHitBox2D = _hit_box_2d_from(root_2d, NodePath("HitBox"))
+	hit_box_2d.hit_accepted.emit(context_2d, receiver_2d, { "ok": true })
+	scan_2d.hit_accepted.emit(context_2d, receiver_2d, { "ok": true })
+	assert_eq(session_2d.get_accepted_impact_count(), 2)
+
+	var root_3d: Node3D = _make_bound_projectile_root_3d([&"HitBox"])
+	var scan_3d: GFHitScan3D = GFHitScan3D.new()
+	scan_3d.name = &"HitScan"
+	root_3d.add_child(scan_3d)
+	add_child_autofree(root_3d)
+	var definition_3d: GFProjectileDefinition3D = _make_projectile_definition_3d(paths)
+	var binding_3d: GFProjectileBinding3D = definition_3d.bind_instance(root_3d)
+	assert_true(binding_3d.is_valid(), "3D Definition 应与 2D 对称接受 typed union。")
+	assert_true(binding_3d.get_impact_sources()[0] is GFHitBox3D)
+	assert_true(binding_3d.get_impact_sources()[1] is GFHitScan3D)
+	var session_3d: GFProjectileSession = _runtime_3d_from(root_3d).launch(binding_3d)
+	var context_3d: GFCombatHitContext = GFCombatHitContext.new()
+	var receiver_3d: Node3D = Node3D.new()
+	add_child_autofree(receiver_3d)
+	var hit_box_3d: GFHitBox3D = _hit_box_3d_from(root_3d, NodePath("HitBox"))
+	hit_box_3d.hit_accepted.emit(context_3d, receiver_3d, { "ok": true })
+	scan_3d.hit_accepted.emit(context_3d, receiver_3d, { "ok": true })
+	assert_eq(session_3d.get_accepted_impact_count(), 2)
+
+	var duck_root: Node2D = _make_bound_projectile_root_2d()
+	var duck_source: DuckImpactSource2D = DuckImpactSource2D.new()
+	duck_source.name = &"DuckImpact"
+	duck_root.add_child(duck_source)
+	add_child_autofree(duck_root)
+	duck_source.emit_hit_for_test(GFCombatHitContext.new(), duck_root, { "ok": true })
+	var duck_definition: GFProjectileDefinition2D = _make_projectile_definition_2d(
+		[NodePath("DuckImpact")]
+	)
+	var duck_binding: GFProjectileBinding2D = duck_definition.bind_instance(duck_root)
+	assert_false(duck_binding.is_valid(), "同名 signal 的 duck source 不得绕过 typed union。")
+	assert_eq(
+		duck_binding.get_failure_reason(),
+		GFProjectileBinding.FailureReason.INVALID_IMPACT_SOURCE
+	)
+	var _finished_2d: bool = session_2d.finish(GFProjectileSession.EndReason.CALLER_FINISHED)
+	var _finished_3d: bool = session_3d.finish(GFProjectileSession.EndReason.CALLER_FINISHED)
+
+
+func test_projectile_definition_rejects_hidden_opposite_dimension_runtime() -> void:
+	var root_2d: Node2D = _make_bound_projectile_root_2d()
+	var nested_2d: Node = Node.new()
+	nested_2d.name = &"Nested"
+	root_2d.add_child(nested_2d)
+	var hidden_3d: GFProjectile3D = GFProjectile3D.new()
+	hidden_3d.name = &"Hidden3D"
+	nested_2d.add_child(hidden_3d)
+	add_child_autofree(root_2d)
+	var binding_2d: GFProjectileBinding2D = (
+		_make_projectile_definition_2d().bind_instance(root_2d)
+	)
+	assert_false(binding_2d.is_valid())
+	assert_eq(
+		binding_2d.get_failure_reason(),
+		GFProjectileBinding.FailureReason.AMBIGUOUS_RUNTIME
+	)
+
+	var root_3d: Node3D = _make_bound_projectile_root_3d()
+	var nested_3d: Node = Node.new()
+	nested_3d.name = &"Nested"
+	root_3d.add_child(nested_3d)
+	var hidden_2d: GFProjectile2D = GFProjectile2D.new()
+	hidden_2d.name = &"Hidden2D"
+	nested_3d.add_child(hidden_2d)
+	add_child_autofree(root_3d)
+	var binding_3d: GFProjectileBinding3D = (
+		_make_projectile_definition_3d().bind_instance(root_3d)
+	)
+	assert_false(binding_3d.is_valid())
+	assert_eq(
+		binding_3d.get_failure_reason(),
+		GFProjectileBinding.FailureReason.AMBIGUOUS_RUNTIME
+	)
+
+
+func test_projectile_binding_freezes_declaration_and_active_session_snapshot() -> void:
+	var stale_root: Node2D = _make_bound_projectile_root_2d()
+	add_child_autofree(stale_root)
+	var stale_definition: GFProjectileDefinition2D = _make_projectile_definition_2d()
+	var stale_binding: GFProjectileBinding2D = stale_definition.bind_instance(stale_root)
+	assert_true(stale_binding.is_valid())
+	stale_definition.runtime_path = NodePath("ChangedRuntime")
+	assert_false(stale_binding.is_current())
+	assert_eq(
+		stale_binding.get_failure_reason(),
+		GFProjectileBinding.FailureReason.STALE_BINDING
+	)
+	assert_null(_runtime_2d_from(stale_root).launch(stale_binding))
+
+	var active_root: Node2D = _make_bound_projectile_root_2d()
+	add_child_autofree(active_root)
+	var active_definition: GFProjectileDefinition2D = _make_projectile_definition_2d()
+	var frozen_motion: GFLinearProjectileMotion = GFLinearProjectileMotion.new()
+	frozen_motion.speed = 4.0
+	frozen_motion.use_local_direction = false
+	frozen_motion.direction_2d = Vector2.RIGHT
+	active_definition.motion = frozen_motion
+	var active_binding: GFProjectileBinding2D = active_definition.bind_instance(active_root)
+	var runtime: GFProjectile2D = _runtime_2d_from(active_root)
+	var session: GFProjectileSession = runtime.launch(active_binding)
+	assert_not_null(session)
+	active_definition.scene = _make_projectile_definition_2d().scene
+	active_definition.runtime_path = NodePath("ChangedRuntime")
+	active_definition.impact_source_paths = [NodePath("ChangedImpact")]
+	active_definition.motion = GFLinearProjectileMotion.new()
+	active_definition.lifetime_policy = GFProjectileLifetimePolicy.new()
+	active_definition.body_adapter = GFProjectileTransformBodyAdapter2D.new()
+	runtime._physics_process(0.5)
+	assert_eq(active_root.position, Vector2(2.0, 0.0))
+	assert_true(session.is_active(), "ACTIVE session 必须继续使用 bind/launch 时冻结的策略。")
+	var _active_finished: bool = session.finish(
+		GFProjectileSession.EndReason.CALLER_FINISHED
+	)
+
+
+func test_projectile_motion_state_and_reservation_failures_have_real_producers() -> void:
+	var state_root: Node2D = _make_bound_projectile_root_2d()
+	add_child_autofree(state_root)
+	var state_definition: GFProjectileDefinition2D = _make_projectile_definition_2d()
+	state_definition.motion = InvalidStateMotion.new()
+	var state_binding: GFProjectileBinding2D = state_definition.bind_instance(state_root)
+	assert_true(state_binding.is_valid())
+	assert_null(_runtime_2d_from(state_root).launch(state_binding))
+	assert_eq(
+		state_binding.get_failure_reason(),
+		GFProjectileBinding.FailureReason.MOTION_STATE_CREATION_FAILED
+	)
+
+	var reservation_root: Node2D = _make_bound_projectile_root_2d()
+	add_child_autofree(reservation_root)
+	var reservation_definition: GFProjectileDefinition2D = _make_projectile_definition_2d()
+	var reservation_binding: GFProjectileBinding2D = (
+		reservation_definition.bind_instance(reservation_root)
+	)
+	var retirement_owner: Node = Node.new()
+	add_child_autofree(retirement_owner)
+	var reservation_runtime: GFProjectile2D = _runtime_2d_from(reservation_root)
+	var reservation: GFProjectileLaunchReservation = (
+		reservation_runtime.reserve_launch_for_framework(
+			reservation_binding,
+			GFProjectileLaunchInput2D.new(),
+			retirement_owner
+		)
+	)
+	reservation_root.remove_child(reservation_runtime)
+	assert_ne(reservation.arm_for_framework(retirement_owner), OK)
+	assert_eq(
+		reservation_binding.get_failure_reason(),
+		GFProjectileBinding.FailureReason.RESERVATION_INVALIDATED
+	)
+	reservation_runtime.free()
+
+
+func test_projectile_runtime_owns_motion_state_for_exactly_one_generation() -> void:
+	var root_2d: Node2D = _make_bound_projectile_root_2d()
+	add_child_autofree(root_2d)
+	var definition_2d: GFProjectileDefinition2D = _make_projectile_definition_2d()
+	var motion_2d: TrackingMotionStateLifecycle = TrackingMotionStateLifecycle.new()
+	definition_2d.motion = motion_2d
+	var binding_2d: GFProjectileBinding2D = definition_2d.bind_instance(root_2d)
+	var runtime_2d: GFProjectile2D = _runtime_2d_from(root_2d)
+	var first_session: GFProjectileSession = runtime_2d.launch(binding_2d)
+	assert_not_null(first_session)
+	assert_eq(motion_2d.state_refs.size(), 1)
+	if first_session == null or motion_2d.state_refs.size() != 1:
+		return
+	var first_ref: WeakRef = motion_2d.state_refs[0]
+	assert_true(
+		_weakref_points_to_live_motion_state(first_ref),
+		"ACTIVE 2D runtime 必须强持有当前 generation 的 MotionState。"
+	)
+	var first_state_value: Variant = first_ref.get_ref()
+	assert_true(first_state_value is GFProjectileMotionState)
+	if not first_state_value is GFProjectileMotionState:
+		return
+	var external_state: GFProjectileMotionState = first_state_value
+	var first_state_id: int = external_state.get_instance_id()
+	first_state_value = null
+	runtime_2d._physics_process(0.1)
+	assert_eq(motion_2d.computed_state_ids, [first_state_id])
+	var _first_finished: bool = first_session.finish(
+		GFProjectileSession.EndReason.CALLER_FINISHED
+	)
+	assert_null(runtime_2d.get_active_session())
+	assert_true(
+		_weakref_points_to_live_motion_state(first_ref),
+		"外部 RefCounted 引用可以保留对象，但不得保留 runtime generation。"
+	)
+
+	var second_binding: GFProjectileBinding2D = definition_2d.bind_instance(root_2d)
+	var second_session: GFProjectileSession = runtime_2d.launch(second_binding)
+	assert_not_null(second_session)
+	assert_eq(motion_2d.state_refs.size(), 2)
+	if second_session == null or motion_2d.state_refs.size() != 2:
+		return
+	var second_ref: WeakRef = motion_2d.state_refs[1]
+	var second_state_value: Variant = second_ref.get_ref()
+	assert_true(second_state_value is GFProjectileMotionState)
+	if not second_state_value is GFProjectileMotionState:
+		return
+	var second_state: GFProjectileMotionState = second_state_value
+	var second_state_id: int = second_state.get_instance_id()
+	second_state_value = null
+	second_state = null
+	assert_ne(second_state_id, first_state_id, "新 generation 必须创建独立 MotionState。")
+	runtime_2d._physics_process(0.1)
+	assert_false(motion_2d.computed_state_ids.is_empty())
+	if not motion_2d.computed_state_ids.is_empty():
+		var last_state_id: int = motion_2d.computed_state_ids[
+			motion_2d.computed_state_ids.size() - 1
+		]
+		assert_eq(last_state_id, second_state_id)
+	var _second_finished: bool = second_session.finish(
+		GFProjectileSession.EndReason.CALLER_FINISHED
+	)
+	assert_eq(typeof(second_ref.get_ref()), TYPE_NIL)
+	external_state = null
+	assert_eq(typeof(first_ref.get_ref()), TYPE_NIL)
+
+	var root_3d: Node3D = _make_bound_projectile_root_3d()
+	add_child_autofree(root_3d)
+	var definition_3d: GFProjectileDefinition3D = _make_projectile_definition_3d()
+	var motion_3d: TrackingMotionStateLifecycle = TrackingMotionStateLifecycle.new()
+	definition_3d.motion = motion_3d
+	var binding_3d: GFProjectileBinding3D = definition_3d.bind_instance(root_3d)
+	var runtime_3d: GFProjectile3D = _runtime_3d_from(root_3d)
+	var session_3d: GFProjectileSession = runtime_3d.launch(binding_3d)
+	assert_not_null(session_3d)
+	assert_eq(motion_3d.state_refs.size(), 1)
+	if session_3d == null or motion_3d.state_refs.size() != 1:
+		return
+	var state_ref_3d: WeakRef = motion_3d.state_refs[0]
+	assert_true(_weakref_points_to_live_motion_state(state_ref_3d))
+	runtime_3d._physics_process(0.1)
+	var _finished_3d: bool = session_3d.finish(
+		GFProjectileSession.EndReason.CALLER_FINISHED
+	)
+	assert_eq(typeof(state_ref_3d.get_ref()), TYPE_NIL)
+
+
+func test_projectile_runtime_releases_motion_state_after_prepare_failure() -> void:
+	var root_2d: Node2D = _make_bound_projectile_root_2d()
+	add_child_autofree(root_2d)
+	var definition_2d: GFProjectileDefinition2D = _make_projectile_definition_2d()
+	var motion_2d: TrackingMotionStateLifecycle = TrackingMotionStateLifecycle.new()
+	motion_2d.invalidate_definition_2d = definition_2d
+	definition_2d.motion = motion_2d
+	var binding_2d: GFProjectileBinding2D = definition_2d.bind_instance(root_2d)
+	assert_null(_runtime_2d_from(root_2d).launch(binding_2d))
+	assert_eq(motion_2d.state_refs.size(), 1)
+	if motion_2d.state_refs.size() == 1:
+		assert_eq(
+			typeof(motion_2d.state_refs[0].get_ref()),
+			TYPE_NIL,
+			"2D prepare 失败后 runtime 必须释放未激活 MotionState。"
+		)
+
+	var root_3d: Node3D = _make_bound_projectile_root_3d()
+	add_child_autofree(root_3d)
+	var definition_3d: GFProjectileDefinition3D = _make_projectile_definition_3d()
+	var motion_3d: TrackingMotionStateLifecycle = TrackingMotionStateLifecycle.new()
+	motion_3d.invalidate_definition_3d = definition_3d
+	definition_3d.motion = motion_3d
+	var binding_3d: GFProjectileBinding3D = definition_3d.bind_instance(root_3d)
+	assert_null(_runtime_3d_from(root_3d).launch(binding_3d))
+	assert_eq(motion_3d.state_refs.size(), 1)
+	if motion_3d.state_refs.size() == 1:
+		assert_eq(
+			typeof(motion_3d.state_refs[0].get_ref()),
+			TYPE_NIL,
+			"3D prepare 失败后 runtime 必须释放未激活 MotionState。"
+		)
+
+
+func test_projectile_body_results_reject_non_finite_values_symmetrically() -> void:
+	var invalid_transform_2d: Transform2D = Transform2D.IDENTITY
+	invalid_transform_2d.origin.x = NAN
+	var result_2d: GFProjectileBodyResult2D = GFProjectileBodyResult2D.successful(
+		invalid_transform_2d,
+		Vector2.ZERO
+	)
+	assert_false(result_2d.is_successful())
+	assert_eq(result_2d.get_failure_reason(), &"non_finite_body_result")
+	assert_false(
+		GFProjectileBodyResult2D.successful(
+			Transform2D.IDENTITY,
+			Vector2(INF, 0.0)
+		).is_successful()
+	)
+	var invalid_transform_3d: Transform3D = Transform3D.IDENTITY
+	invalid_transform_3d.origin.z = -INF
+	var result_3d: GFProjectileBodyResult3D = GFProjectileBodyResult3D.successful(
+		invalid_transform_3d,
+		Vector3.ZERO
+	)
+	assert_false(result_3d.is_successful())
+	assert_eq(result_3d.get_failure_reason(), &"non_finite_body_result")
+	assert_false(
+		GFProjectileBodyResult3D.successful(
+			Transform3D.IDENTITY,
+			Vector3(0.0, NAN, 0.0)
+		).is_successful()
+	)
+
+
+func test_projectile_apply_finish_counts_last_displacement_once_in_both_dimensions() -> void:
+	var root_2d: Node2D = _make_bound_projectile_root_2d()
+	add_child_autofree(root_2d)
+	var definition_2d: GFProjectileDefinition2D = _make_projectile_definition_2d()
+	var adapter_2d: FinishingApplyAdapter2D = FinishingApplyAdapter2D.new()
+	definition_2d.body_adapter = adapter_2d
+	var binding_2d: GFProjectileBinding2D = definition_2d.bind_instance(root_2d)
+	var runtime_2d: GFProjectile2D = _runtime_2d_from(root_2d)
+	var session_2d: GFProjectileSession = runtime_2d.launch(binding_2d)
+	adapter_2d.active_session = session_2d
+	runtime_2d._physics_process(0.25)
+	assert_true(session_2d.is_finished())
+	assert_almost_eq(session_2d.get_elapsed_seconds(), 0.25, 0.0001)
+	assert_almost_eq(session_2d.get_travelled_distance(), 5.0, 0.0001)
+	runtime_2d._physics_process(0.25)
+	assert_eq(adapter_2d.apply_count, 1)
+	assert_almost_eq(session_2d.get_travelled_distance(), 5.0, 0.0001)
+	adapter_2d.active_session = null
+
+	var root_3d: Node3D = _make_bound_projectile_root_3d()
+	add_child_autofree(root_3d)
+	var definition_3d: GFProjectileDefinition3D = _make_projectile_definition_3d()
+	var adapter_3d: FinishingApplyAdapter3D = FinishingApplyAdapter3D.new()
+	definition_3d.body_adapter = adapter_3d
+	var binding_3d: GFProjectileBinding3D = definition_3d.bind_instance(root_3d)
+	var runtime_3d: GFProjectile3D = _runtime_3d_from(root_3d)
+	var session_3d: GFProjectileSession = runtime_3d.launch(binding_3d)
+	adapter_3d.active_session = session_3d
+	runtime_3d._physics_process(0.5)
+	assert_true(session_3d.is_finished())
+	assert_almost_eq(session_3d.get_elapsed_seconds(), 0.5, 0.0001)
+	assert_almost_eq(session_3d.get_travelled_distance(), 7.0, 0.0001)
+	runtime_3d._physics_process(0.5)
+	assert_eq(adapter_3d.apply_count, 1)
+	assert_almost_eq(session_3d.get_travelled_distance(), 7.0, 0.0001)
+	adapter_3d.active_session = null
+
+
+func test_projectile_finish_intent_maps_to_motion_finished_symmetrically() -> void:
+	assert_eq(GFProjectileMotionIntent2D.Kind.FINISH, 3)
+	assert_eq(GFProjectileMotionIntent3D.Kind.FINISH, 3)
+	assert_eq(GFProjectileMotionIntent2D.finish().get_kind(), 3)
+	assert_eq(GFProjectileMotionIntent3D.finish().get_kind(), 3)
+	var root_2d: Node2D = _make_bound_projectile_root_2d()
+	add_child_autofree(root_2d)
+	var definition_2d: GFProjectileDefinition2D = _make_projectile_definition_2d()
+	definition_2d.motion = FinishingMotion.new()
+	var binding_2d: GFProjectileBinding2D = definition_2d.bind_instance(root_2d)
+	var session_2d: GFProjectileSession = _runtime_2d_from(root_2d).launch(binding_2d)
+	_runtime_2d_from(root_2d)._physics_process(0.5)
+	assert_true(session_2d.is_finished())
+	assert_eq(session_2d.get_end_reason(), GFProjectileSession.EndReason.MOTION_FINISHED)
+	assert_eq(root_2d.position, Vector2.ZERO)
+
+	var root_3d: Node3D = _make_bound_projectile_root_3d()
+	add_child_autofree(root_3d)
+	var definition_3d: GFProjectileDefinition3D = _make_projectile_definition_3d()
+	definition_3d.motion = FinishingMotion.new()
+	var binding_3d: GFProjectileBinding3D = definition_3d.bind_instance(root_3d)
+	var session_3d: GFProjectileSession = _runtime_3d_from(root_3d).launch(binding_3d)
+	_runtime_3d_from(root_3d)._physics_process(0.5)
+	assert_true(session_3d.is_finished())
+	assert_eq(session_3d.get_end_reason(), GFProjectileSession.EndReason.MOTION_FINISHED)
+	assert_eq(root_3d.position, Vector3.ZERO)
+
+
+func test_projectile_active_lifetime_keeps_and_releases_strong_launch_snapshot() -> void:
+	var source_paths: Array[NodePath] = [NodePath("Impact")]
+	var root: Node2D = _make_bound_projectile_root_2d([&"Impact"])
+	add_child_autofree(root)
+	var definition: GFProjectileDefinition2D = _make_projectile_definition_2d(source_paths)
+	var lifetime: GFProjectileLifetimePolicy = GFProjectileLifetimePolicy.new()
+	lifetime.max_impacts = 1
+	definition.lifetime_policy = lifetime
+	var binding: GFProjectileBinding2D = definition.bind_instance(root)
+	var session: GFProjectileSession = _runtime_2d_from(root).launch(binding)
+	var lifetime_ref: WeakRef = weakref(lifetime)
+	var replacement: GFProjectileLifetimePolicy = GFProjectileLifetimePolicy.new()
+	replacement.max_impacts = 99
+	definition.lifetime_policy = replacement
+	definition.lifetime_policy = null
+	binding = null
+	lifetime = null
+	assert_true(
+		_weakref_points_to_live_lifetime(lifetime_ref),
+		"ACTIVE runtime 必须强持有 launch-time lifetime snapshot。"
+	)
+	var source: GFHitBox2D = _hit_box_2d_from(root, NodePath("Impact"))
+	var receiver: HitReceiver2D = HitReceiver2D.new()
+	add_child_autofree(receiver)
+	source.hit_accepted.emit(GFCombatHitContext.new(), receiver, { "ok": true })
+	assert_true(session.is_finished(), "Impact 必须使用 launch 时冻结的 lifetime。")
+	assert_eq(session.get_end_reason(), GFProjectileSession.EndReason.LIFETIME_IMPACTS)
+	assert_eq(
+		typeof(lifetime_ref.get_ref()),
+		TYPE_NIL,
+		"session 终态清理后 runtime 不得继续保留 lifetime snapshot。"
+	)
+
+
+func test_projectile_motion_rejects_non_finite_configuration_and_locked_target_keeps_flying() -> void:
+	var initial_2d: GFProjectileBodyResult2D = GFProjectileBodyResult2D.successful(
+		Transform2D.IDENTITY
+	)
+	var input_2d: GFProjectileLaunchInput2D = GFProjectileLaunchInput2D.new()
+	input_2d.set_target_position(Vector2(10.0, 0.0))
+	var linear: GFLinearProjectileMotion = GFLinearProjectileMotion.new()
+	linear.speed = NAN
+	assert_null(linear.create_state_2d(input_2d, initial_2d))
+	linear.speed = 1.0
+	linear.direction_2d = Vector2(INF, 0.0)
+	assert_null(linear.create_state_2d(input_2d, initial_2d))
+	var homing: GFHomingProjectileMotion = GFHomingProjectileMotion.new()
+	homing.speed = 1.0
+	homing.arrival_distance = INF
+	assert_null(homing.create_state_2d(input_2d, initial_2d))
+
+	var root: Node2D = _make_bound_projectile_root_2d()
+	add_child_autofree(root)
+	var target: Node2D = Node2D.new()
+	target.position = Vector2(10.0, 0.0)
+	var definition: GFProjectileDefinition2D = _make_projectile_definition_2d()
+	var locked_motion: GFHomingProjectileMotion = GFHomingProjectileMotion.new()
+	locked_motion.speed = 10.0
+	locked_motion.track_target = false
+	locked_motion.stop_when_reached = true
+	definition.motion = locked_motion
+	var binding: GFProjectileBinding2D = definition.bind_instance(root)
+	var launch_input: GFProjectileLaunchInput2D = GFProjectileLaunchInput2D.new()
+	launch_input.set_target_node(target)
+	var runtime: GFProjectile2D = _runtime_2d_from(root)
+	var session: GFProjectileSession = runtime.launch(binding, launch_input)
+	target.free()
+	runtime._physics_process(1.0)
+	runtime._physics_process(0.5)
+	assert_eq(root.position, Vector2(15.0, 0.0), "目标丢失后不得再按旧位置 clamp。")
+	assert_true(session.is_active())
+	var _finished: bool = session.finish(GFProjectileSession.EndReason.CALLER_FINISHED)
+
+
+func test_projectile_catalog_prune_keeps_first_valid_definition() -> void:
+	var catalog: GFProjectileCatalog = GFProjectileCatalog.new()
+	var first_entry: GFProjectileCatalogEntry = GFProjectileCatalogEntry.new()
+	first_entry.projectile_id = &"shared"
+	first_entry.definition = _make_projectile_definition_2d()
+	var duplicate_entry: GFProjectileCatalogEntry = GFProjectileCatalogEntry.new()
+	duplicate_entry.projectile_id = &"shared"
+	duplicate_entry.definition = _make_projectile_definition_3d()
+	catalog.entries = [first_entry, duplicate_entry]
+	assert_eq(catalog.prune_invalid_entries(), 1)
+	assert_eq(catalog.entries.size(), 1)
+	assert_same(catalog.entries[0], first_entry)
+	assert_same(catalog.get_definition(&"shared"), first_entry.definition)
+
+
+func test_projectile_publication_fences_receipt_started_and_emitted_callbacks() -> void:
+	var receipt_parent: Node2D = Node2D.new()
+	add_child_autofree(receipt_parent)
+	var receipt_emitter: GFProjectileEmitter2D = GFProjectileEmitter2D.new()
+	receipt_parent.add_child(receipt_emitter)
+	receipt_emitter.projectile_definition = _make_projectile_definition_2d(
+		[NodePath("Impact")]
+	)
+	receipt_emitter.emission_policy = InvalidatingCommitPolicy.new()
+	var receipt_roots: Array[Node] = receipt_emitter.emit_projectiles(
+		GFProjectileLaunchInput2D.new(),
+		&"",
+		1
+	)
+	assert_true(receipt_roots.is_empty(), "receipt hook 破坏 source 后必须 fail-close。")
+
+	var started_parent: Node2D = Node2D.new()
+	add_child_autofree(started_parent)
+	var started_emitter: GFProjectileEmitter2D = GFProjectileEmitter2D.new()
+	started_parent.add_child(started_emitter)
+	started_emitter.projectile_definition = _make_projectile_definition_2d(
+		[NodePath("Impact")]
+	)
+	var connect_started: Callable = func(candidate: Node) -> void:
+		var runtime: GFProjectile2D = _runtime_2d_from(candidate)
+		if runtime == null:
+			return
+		var invalidate_source: Callable = func(_session: GFProjectileSession) -> void:
+			var source: Node = candidate.get_node_or_null(NodePath("Impact"))
+			if source != null:
+				candidate.remove_child(source)
+				source.free()
+		var _connected: int = runtime.projectile_started.connect(invalidate_source)
+	var _child_connected: int = started_parent.child_entered_tree.connect(connect_started)
+	var started_roots: Array[Node] = started_emitter.emit_projectiles(
+		GFProjectileLaunchInput2D.new(),
+		&"",
+		1
+	)
+	started_parent.child_entered_tree.disconnect(connect_started)
+	assert_true(started_roots.is_empty(), "started callback 后必须复核 frozen topology。")
+
+	var emitted_parent: Node3D = Node3D.new()
+	add_child_autofree(emitted_parent)
+	var emitted_emitter: GFProjectileEmitter3D = GFProjectileEmitter3D.new()
+	emitted_parent.add_child(emitted_emitter)
+	emitted_emitter.projectile_definition = _make_projectile_definition_3d(
+		[NodePath("Impact")]
+	)
+	var invalidate_emitted: Callable = func(
+		projectile_root: Node,
+		_session: GFProjectileSession,
+		_launch_input: GFProjectileLaunchInput3D
+	) -> void:
+		var source: Node = projectile_root.get_node_or_null(NodePath("Impact"))
+		if source != null:
+			projectile_root.remove_child(source)
+			source.free()
+	var _emitted_connected: int = emitted_emitter.projectile_emitted.connect(
+		invalidate_emitted
+	)
+	var emitted_roots: Array[Node] = emitted_emitter.emit_projectiles(
+		GFProjectileLaunchInput3D.new(),
+		&"",
+		1
+	)
+	assert_true(emitted_roots.is_empty(), "emitted callback 后必须复核 3D source ownership。")
+
+
+func test_projectile_retirement_survives_emitter_and_root_tree_exit() -> void:
+	var parent_2d: Node2D = Node2D.new()
+	add_child_autofree(parent_2d)
+	var emitter_2d: GFProjectileEmitter2D = GFProjectileEmitter2D.new()
+	parent_2d.add_child(emitter_2d)
+	emitter_2d.projectile_definition = _make_projectile_definition_2d()
+	emitter_2d.use_object_pool = true
+	var pool_2d: RecordingObjectPool = RecordingObjectPool.new()
+	emitter_2d.object_pool_utility = pool_2d
+	var sessions_2d: Array[GFProjectileSession] = []
+	var capture_2d: Callable = func(
+		_projectile_root: Node,
+		session: GFProjectileSession,
+		_launch_input: GFProjectileLaunchInput2D
+	) -> void:
+		sessions_2d.append(session)
+	var _capture_2d_connected: int = emitter_2d.projectile_emitted.connect(capture_2d)
+	var roots_2d: Array[Node] = emitter_2d.emit_projectiles(
+		GFProjectileLaunchInput2D.new(),
+		&"",
+		1
+	)
+	assert_eq(roots_2d.size(), 1)
+	assert_eq(sessions_2d.size(), 1)
+	if roots_2d.is_empty() or sessions_2d.is_empty():
+		return
+	var runtime_2d: GFProjectile2D = _runtime_2d_from(roots_2d[0])
+	parent_2d.remove_child(roots_2d[0])
+	assert_true(sessions_2d[0].is_finished())
+	assert_eq(sessions_2d[0].get_end_reason(), GFProjectileSession.EndReason.ROOT_LOST)
+	assert_true(runtime_2d.has_launch_claim_for_framework())
+	await get_tree().process_frame
+	assert_eq(pool_2d.release_count, 1)
+	assert_false(runtime_2d.has_launch_claim_for_framework())
+
+	var parent_3d: Node3D = Node3D.new()
+	add_child_autofree(parent_3d)
+	var emitter_3d: GFProjectileEmitter3D = GFProjectileEmitter3D.new()
+	parent_3d.add_child(emitter_3d)
+	emitter_3d.projectile_definition = _make_projectile_definition_3d()
+	emitter_3d.use_object_pool = true
+	var pool_3d: RecordingObjectPool = RecordingObjectPool.new()
+	emitter_3d.object_pool_utility = pool_3d
+	var sessions_3d: Array[GFProjectileSession] = []
+	var capture_3d: Callable = func(
+		_projectile_root: Node,
+		session: GFProjectileSession,
+		_launch_input: GFProjectileLaunchInput3D
+	) -> void:
+		sessions_3d.append(session)
+	var _capture_3d_connected: int = emitter_3d.projectile_emitted.connect(capture_3d)
+	var roots_3d: Array[Node] = emitter_3d.emit_projectiles(
+		GFProjectileLaunchInput3D.new(),
+		&"",
+		1
+	)
+	assert_eq(roots_3d.size(), 1)
+	assert_eq(sessions_3d.size(), 1)
+	if roots_3d.is_empty() or sessions_3d.is_empty():
+		return
+	var runtime_3d: GFProjectile3D = _runtime_3d_from(roots_3d[0])
+	parent_3d.remove_child(emitter_3d)
+	assert_true(sessions_3d[0].is_finished())
+	assert_eq(
+		sessions_3d[0].get_end_reason(),
+		GFProjectileSession.EndReason.EMITTER_RELEASED
+	)
+	assert_true(runtime_3d.has_launch_claim_for_framework())
+	emitter_3d.free()
+	await get_tree().process_frame
+	assert_eq(pool_3d.release_count, 1)
+	assert_false(runtime_3d.has_launch_claim_for_framework())
+	for candidate: Node in pool_2d.acquired_nodes:
+		if is_instance_valid(candidate):
+			candidate.free()
+	for candidate: Node in pool_3d.acquired_nodes:
+		if is_instance_valid(candidate):
+			candidate.free()
+
+
+func test_projectile_external_root_free_retires_fresh_and_pool_roots_in_both_dimensions() -> void:
+	var parent_2d: Node2D = Node2D.new()
+	add_child_autofree(parent_2d)
+	var fresh_emitter_2d: GFProjectileEmitter2D = GFProjectileEmitter2D.new()
+	parent_2d.add_child(fresh_emitter_2d)
+	fresh_emitter_2d.projectile_definition = _make_projectile_definition_2d()
+	var fresh_root_2d: Node = fresh_emitter_2d.emit_projectile()
+	var fresh_session_2d: GFProjectileSession = _runtime_2d_from(
+		fresh_root_2d
+	).get_active_session()
+	fresh_root_2d.free()
+	assert_true(fresh_session_2d.is_finished())
+	assert_eq(fresh_session_2d.get_end_reason(), GFProjectileSession.EndReason.ROOT_LOST)
+
+	var parent_3d: Node3D = Node3D.new()
+	add_child_autofree(parent_3d)
+	var fresh_emitter_3d: GFProjectileEmitter3D = GFProjectileEmitter3D.new()
+	parent_3d.add_child(fresh_emitter_3d)
+	fresh_emitter_3d.projectile_definition = _make_projectile_definition_3d()
+	var fresh_root_3d: Node = fresh_emitter_3d.emit_projectile()
+	var fresh_session_3d: GFProjectileSession = _runtime_3d_from(
+		fresh_root_3d
+	).get_active_session()
+	fresh_root_3d.free()
+	assert_true(fresh_session_3d.is_finished())
+	assert_eq(fresh_session_3d.get_end_reason(), GFProjectileSession.EndReason.ROOT_LOST)
+
+	var pool_2d: LostLeaseRecordingPool = LostLeaseRecordingPool.new()
+	pool_2d.init()
+	var pooled_emitter_2d: GFProjectileEmitter2D = GFProjectileEmitter2D.new()
+	parent_2d.add_child(pooled_emitter_2d)
+	var pooled_definition_2d: GFProjectileDefinition2D = _make_projectile_definition_2d()
+	pooled_emitter_2d.projectile_definition = pooled_definition_2d
+	pooled_emitter_2d.use_object_pool = true
+	pooled_emitter_2d.object_pool_utility = pool_2d
+	var pooled_root_2d: Node = pooled_emitter_2d.emit_projectile()
+	var pooled_session_2d: GFProjectileSession = _runtime_2d_from(
+		pooled_root_2d
+	).get_active_session()
+	var pooled_id_2d: int = pooled_root_2d.get_instance_id()
+	pooled_root_2d.free()
+	assert_true(pooled_session_2d.is_finished())
+
+	var pool_3d: LostLeaseRecordingPool = LostLeaseRecordingPool.new()
+	pool_3d.init()
+	var pooled_emitter_3d: GFProjectileEmitter3D = GFProjectileEmitter3D.new()
+	parent_3d.add_child(pooled_emitter_3d)
+	var pooled_definition_3d: GFProjectileDefinition3D = _make_projectile_definition_3d()
+	pooled_emitter_3d.projectile_definition = pooled_definition_3d
+	pooled_emitter_3d.use_object_pool = true
+	pooled_emitter_3d.object_pool_utility = pool_3d
+	var pooled_root_3d: Node = pooled_emitter_3d.emit_projectile()
+	var pooled_session_3d: GFProjectileSession = _runtime_3d_from(
+		pooled_root_3d
+	).get_active_session()
+	var pooled_id_3d: int = pooled_root_3d.get_instance_id()
+	pooled_root_3d.free()
+	assert_true(pooled_session_3d.is_finished())
+
+	await get_tree().process_frame
+	await get_tree().process_frame
+	assert_eq(pool_2d.lost_retirement_count, 1)
+	assert_eq(pool_2d.lost_retirement_ids, [pooled_id_2d])
+	assert_false(
+		pool_2d.retire_lost_lease_for_framework(
+			pooled_definition_2d.scene,
+			pooled_id_2d
+		)
+	)
+	assert_eq(pool_3d.lost_retirement_count, 1)
+	assert_eq(pool_3d.lost_retirement_ids, [pooled_id_3d])
+	assert_false(
+		pool_3d.retire_lost_lease_for_framework(
+			pooled_definition_3d.scene,
+			pooled_id_3d
+		)
+	)
+	assert_eq(
+		_count_retirement_records_in_tree(&"GFProjectileRetirementRecord2D"),
+		0,
+		"fresh/pool 2D record 必须独立结算且不泄漏到 SceneTree root。"
+	)
+	assert_eq(
+		_count_retirement_records_in_tree(&"GFProjectileRetirementRecord3D"),
+		0,
+		"fresh/pool 3D record 必须独立结算且不泄漏到 SceneTree root。"
+	)
+	pool_2d.dispose()
+	pool_3d.dispose()
+
+
+func test_projectile_external_ancestor_free_retires_pool_2d_and_fresh_3d() -> void:
+	var ancestor_2d: Node2D = Node2D.new()
+	add_child_autofree(ancestor_2d)
+	var emitter_2d: GFProjectileEmitter2D = GFProjectileEmitter2D.new()
+	ancestor_2d.add_child(emitter_2d)
+	var definition_2d: GFProjectileDefinition2D = _make_projectile_definition_2d()
+	emitter_2d.projectile_definition = definition_2d
+	emitter_2d.use_object_pool = true
+	var pool_2d: LostLeaseRecordingPool = LostLeaseRecordingPool.new()
+	pool_2d.init()
+	emitter_2d.object_pool_utility = pool_2d
+	var root_2d: Node = emitter_2d.emit_projectile()
+	assert_not_null(root_2d)
+	if root_2d == null:
+		pool_2d.dispose()
+		return
+	var session_2d: GFProjectileSession = _runtime_2d_from(
+		root_2d
+	).get_active_session()
+	var root_id_2d: int = root_2d.get_instance_id()
+	ancestor_2d.free()
+	assert_false(is_instance_valid(ancestor_2d))
+	assert_false(is_instance_valid(emitter_2d))
+	assert_false(is_instance_valid(root_2d))
+	assert_true(session_2d.is_finished())
+	assert_eq(
+		session_2d.get_end_reason(),
+		GFProjectileSession.EndReason.ROOT_LOST,
+		"ancestor 同步销毁必须让 root tree-exit 在延迟 runtime loss 前 first-wins。"
+	)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	assert_eq(pool_2d.lost_retirement_count, 1)
+	assert_eq(pool_2d.lost_retirement_ids, [root_id_2d])
+	assert_eq(pool_2d.get_active_count(definition_2d.scene), 0)
+	assert_eq(
+		_count_retirement_records_in_tree(&"GFProjectileRetirementRecord2D"),
+		0
+	)
+	pool_2d.dispose()
+
+	var ancestor_3d: Node3D = Node3D.new()
+	add_child_autofree(ancestor_3d)
+	var emitter_3d: GFProjectileEmitter3D = GFProjectileEmitter3D.new()
+	ancestor_3d.add_child(emitter_3d)
+	emitter_3d.projectile_definition = _make_projectile_definition_3d()
+	var root_3d: Node = emitter_3d.emit_projectile()
+	assert_not_null(root_3d)
+	if root_3d == null:
+		return
+	var session_3d: GFProjectileSession = _runtime_3d_from(
+		root_3d
+	).get_active_session()
+	ancestor_3d.free()
+	assert_false(is_instance_valid(ancestor_3d))
+	assert_false(is_instance_valid(emitter_3d))
+	assert_false(is_instance_valid(root_3d))
+	assert_true(session_3d.is_finished())
+	assert_eq(
+		session_3d.get_end_reason(),
+		GFProjectileSession.EndReason.ROOT_LOST,
+		"fresh 3D ancestor 销毁必须让 root tree-exit first-wins。"
+	)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	assert_eq(
+		_count_retirement_records_in_tree(&"GFProjectileRetirementRecord3D"),
+		0
+	)
+
+
+func test_projectile_direct_runtime_removal_finishes_runtime_lost_after_tree_exit() -> void:
+	var root_2d: Node2D = _make_bound_projectile_root_2d()
+	add_child_autofree(root_2d)
+	var definition_2d: GFProjectileDefinition2D = _make_projectile_definition_2d()
+	var binding_2d: GFProjectileBinding2D = definition_2d.bind_instance(root_2d)
+	var runtime_2d: GFProjectile2D = _runtime_2d_from(root_2d)
+	var session_2d: GFProjectileSession = runtime_2d.launch(binding_2d)
+	root_2d.remove_child(runtime_2d)
+	assert_true(session_2d.is_active(), "child exit 回调栈内不得抢先覆盖潜在 ROOT_LOST。")
+	await get_tree().process_frame
+	assert_true(session_2d.is_finished())
+	assert_eq(session_2d.get_end_reason(), GFProjectileSession.EndReason.RUNTIME_LOST)
+	runtime_2d.free()
+
+	var root_3d: Node3D = _make_bound_projectile_root_3d()
+	add_child_autofree(root_3d)
+	var definition_3d: GFProjectileDefinition3D = _make_projectile_definition_3d()
+	var binding_3d: GFProjectileBinding3D = definition_3d.bind_instance(root_3d)
+	var runtime_3d: GFProjectile3D = _runtime_3d_from(root_3d)
+	var session_3d: GFProjectileSession = runtime_3d.launch(binding_3d)
+	root_3d.remove_child(runtime_3d)
+	assert_true(session_3d.is_active(), "3D child exit 使用同一延迟判别。")
+	await get_tree().process_frame
+	assert_true(session_3d.is_finished())
+	assert_eq(session_3d.get_end_reason(), GFProjectileSession.EndReason.RUNTIME_LOST)
+	runtime_3d.free()

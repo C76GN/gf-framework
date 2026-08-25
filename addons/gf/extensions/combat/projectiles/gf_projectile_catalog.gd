@@ -121,12 +121,13 @@ func get_projectile_ids() -> PackedStringArray:
 func prune_invalid_entries() -> int:
 	var before_size: int = entries.size()
 	var seen: Dictionary = {}
-	for index: int in range(entries.size() - 1, -1, -1):
-		var entry: GFProjectileCatalogEntry = entries[index]
+	var retained: Array[GFProjectileCatalogEntry] = []
+	for entry: GFProjectileCatalogEntry in entries:
 		if entry == null or not entry.is_valid_entry() or seen.has(entry.projectile_id):
-			entries.remove_at(index)
-		else:
-			seen[entry.projectile_id] = true
+			continue
+		seen[entry.projectile_id] = true
+		retained.append(entry)
+	entries = retained
 	return before_size - entries.size()
 
 
@@ -134,7 +135,11 @@ func _get_entry(projectile_id: StringName) -> GFProjectileCatalogEntry:
 	if projectile_id == &"":
 		return null
 	for entry: GFProjectileCatalogEntry in entries:
-		if entry != null and entry.projectile_id == projectile_id:
+		if (
+			entry != null
+			and entry.projectile_id == projectile_id
+			and entry.is_valid_entry()
+		):
 			return entry
 	return null
 

@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFProjectileDefinition2D" path="addons/gf/extensions/combat/projectiles/gf_projectile_definition_2d.gd" module="extensions/combat" extends="GFProjectileDefinition" classDigest="fc21396c71591888465933008df9c77d3f4cfca770c93ca311f2d89ba19bb412">
+	<description>GFProjectileDefinition2D: 2D projectile typed 定义。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">resource_definition</tag>
+		<tag name="since">unreleased</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties>
+		<member kind="property" name="body_adapter" decorators="@export">
+			<signature>var body_adapter: GFProjectileBodyAdapter2D = null</signature>
+			<description>驱动 2D root 的 body adapter。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</properties>
+	<methods>
+		<member kind="method" name="bind_instance">
+			<signature>func bind_instance(root: Node) -&gt; GFProjectileBinding2D:</signature>
+			<description>校验并绑定一个已进入 SceneTree 的完整 2D 实例。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">root: definition.scene 对应的完整实例 root。</tag>
+				<tag name="return">有效 topology snapshot 或带确定失败原因的 binding。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

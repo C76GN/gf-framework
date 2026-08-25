@@ -35,19 +35,190 @@ signal projectile_emitted(
 ## [br]
 ## @param details: 有界诊断详情。
 ## [br]
-## @schema details: Dictionary，仅包含本次失败的 project ID、policy 或 transaction 诊断字段。
+## @schema details: Dictionary，最多 16 项；键仅限 ok、reason、policy_id、projectile_id、requested_count、emit_count、emitted_count、hard_limit、now_msec、state、published、committed、compensated、rolled_back、remaining_cooldown_seconds、available_charges、required_charges、consumed_charges、emission_count、policy_instance_id、policy_state_generation、policy_enabled；值仅限 null、bool、int、有限 float、String（至多 256 字符）、StringName（至多 128 字符）或 NodePath（至多 256 字符）。
 signal projectile_emit_failed(reason: StringName, details: Dictionary)
 
 
 class _RetirementRecord:
-	extends RefCounted
+	extends Node
 
 	var _root: Node = null
+	var _root_instance_id: int = 0
 	var _scene: PackedScene = null
 	var _pool: GFObjectPoolUtility = null
 	var _session: GFProjectileSession = null
+	var _reservation: GFProjectileLaunchReservation = null
+	var _retirement_owner_id: int = 0
 	var _retired: bool = false
-	var _retirement_scheduled: bool = false
+	var _retirement_claimed: bool = false
+	var _root_tree_exiting: bool = false
+	var _force_deferred_pool: bool = false
+	var _settled_callback: Callable = Callable()
+
+	func _configure(
+		projectile_scene: PackedScene,
+		pool: GFObjectPoolUtility,
+		settled_callback: Callable,
+		retirement_owner_id: int
+	) -> void:
+		_scene = projectile_scene
+		_pool = pool
+		_settled_callback = settled_callback
+		_retirement_owner_id = retirement_owner_id
+
+	func _bind_root(projectile_root: Node) -> Error:
+		if (
+			_retirement_claimed
+			or projectile_root == null
+			or not is_instance_valid(projectile_root)
+			or projectile_root.is_queued_for_deletion()
+		):
+			return ERR_INVALID_PARAMETER
+		if _root != null and _root != projectile_root:
+			return ERR_ALREADY_IN_USE
+		_root = projectile_root
+		_root_instance_id = projectile_root.get_instance_id()
+		if not _root.tree_exiting.is_connected(_on_root_tree_exiting):
+			var connected: int = _root.tree_exiting.connect(
+				_on_root_tree_exiting,
+				CONNECT_ONE_SHOT
+			)
+			if connected != OK:
+				return connected as Error
+		return OK
+
+	func _bind_session(active_session: GFProjectileSession) -> Error:
+		if (
+			_retirement_claimed
+			or active_session == null
+			or not is_instance_valid(active_session)
+			or _session != null
+		):
+			return ERR_INVALID_PARAMETER
+		_session = active_session
+		_reservation = null
+		var connected: int = _session.finished.connect(
+			_on_session_finished,
+			CONNECT_ONE_SHOT
+		)
+		if connected != OK:
+			return connected as Error
+		return OK
+
+	func _bind_reservation(reservation: GFProjectileLaunchReservation) -> Error:
+		if (
+			_retirement_claimed
+			or reservation == null
+			or not is_instance_valid(reservation)
+			or _reservation != null
+			or _session != null
+		):
+			return ERR_INVALID_PARAMETER
+		_reservation = reservation
+		return OK
+
+	func _defer_pool_retirement() -> void:
+		_force_deferred_pool = true
+
+	func _retire(force_deferred_pool: bool = false) -> void:
+		if _retirement_claimed:
+			return
+		_retirement_claimed = true
+		_force_deferred_pool = _force_deferred_pool or force_deferred_pool
+		var root_requires_deferred_settlement: bool = (
+			_root_tree_exiting
+			or _root == null
+			or not is_instance_valid(_root)
+			or _root.is_queued_for_deletion()
+			or not _root.is_inside_tree()
+		)
+		if (
+			root_requires_deferred_settlement
+			or (
+				_pool != null
+				and is_instance_valid(_pool)
+				and _force_deferred_pool
+			)
+		):
+			call_deferred(&"_settle_now")
+			return
+		_settle_now()
+
+	func _settle_now() -> void:
+		if _retired:
+			return
+		_retired = true
+		var managed_session: GFProjectileSession = _session
+		var projectile_root: Node = _root
+		var projectile_root_id: int = _root_instance_id
+		var projectile_scene: PackedScene = _scene
+		var pool: GFObjectPoolUtility = _pool
+		_release_unconsumed_reservation()
+		if pool != null and is_instance_valid(pool):
+			if projectile_root != null and is_instance_valid(projectile_root):
+				pool.release(projectile_root, projectile_scene)
+			elif projectile_root_id > 0:
+				var _lost_retired: bool = pool.retire_lost_lease_for_framework(
+					projectile_scene,
+					projectile_root_id
+				)
+		elif (
+			projectile_root != null
+			and is_instance_valid(projectile_root)
+			and not projectile_root.is_queued_for_deletion()
+		):
+			projectile_root.queue_free()
+		_release_terminal_claim(managed_session)
+		_root = null
+		_root_instance_id = 0
+		_scene = null
+		_pool = null
+		_session = null
+		_reservation = null
+		_retirement_owner_id = 0
+		if _settled_callback.is_valid():
+			var _settled: Variant = _settled_callback.call(self)
+		_settled_callback = Callable()
+		queue_free()
+
+	func _release_terminal_claim(managed_session: GFProjectileSession) -> void:
+		if managed_session == null or not is_instance_valid(managed_session):
+			return
+		var runtime_value: Node = managed_session.get_runtime()
+		if runtime_value is GFProjectile3D:
+			var runtime: GFProjectile3D = runtime_value
+			var _released: bool = runtime.release_terminal_retirement_for_framework(
+				managed_session
+			)
+
+	func _release_unconsumed_reservation() -> void:
+		if _reservation == null or not is_instance_valid(_reservation):
+			return
+		var _invalidated: bool = _reservation.invalidate_lost_owner_for_framework(
+			_retirement_owner_id,
+			&"allocator_owner_lost"
+		)
+
+	func _on_root_tree_exiting() -> void:
+		_root_tree_exiting = true
+		_force_deferred_pool = true
+		if _session != null and is_instance_valid(_session) and _session.is_active():
+			var _finished: bool = _session.finish(
+				GFProjectileSession.EndReason.ROOT_LOST
+			)
+		elif _session == null:
+			_retire(true)
+
+	func _on_session_finished(
+		_finished_session: GFProjectileSession,
+		_reason: int
+	) -> void:
+		var root_is_exiting: bool = (
+			_root == null
+			or not is_instance_valid(_root)
+			or not _root.is_inside_tree()
+		)
+		_retire(_force_deferred_pool or _root_tree_exiting or root_is_exiting)
 
 
 class _DefinitionSnapshot:
@@ -157,13 +328,10 @@ const _GF_COMBAT_FINITE_MATH = preload("res://addons/gf/extensions/combat/core/g
 ## @since 3.17.0
 var object_pool_utility: GFObjectPoolUtility = null
 var _notification_barrier_depth: int = 0
-var _pending_retirements: Array[_RetirementRecord] = []
 var _active_retirements: Array[_RetirementRecord] = []
 var _is_releasing: bool = false
 var _release_generation: int = 0
 var _emission_in_progress: bool = false
-var _defer_tree_exit_retirements: bool = false
-var _retirement_flush_scheduled: bool = false
 
 
 func _enter_tree() -> void:
@@ -171,10 +339,12 @@ func _enter_tree() -> void:
 
 
 func _exit_tree() -> void:
-	_defer_tree_exit_retirements = true
 	_begin_emitter_release()
-	_defer_tree_exit_retirements = false
-	_schedule_retirement_flush()
+
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_PREDELETE:
+		_settle_predelete_retirements()
 
 
 ## 原子发射一个 3D projectile。
@@ -209,6 +379,9 @@ func emit_projectile(
 ## @param emit_count: 正数覆盖 pattern 数量；负值使用 pattern 默认值。
 ## [br]
 ## @return: 全批 ACTIVE 的完整 root；事务失败或发布期间 emitter release 时返回空数组。
+## callback 内 `remove_child()`、`queue_free()` 或 `call_deferred("free")` 均保持完整
+## started、emitted、finished 顺序与 exact retirement。Godot 原生禁止在对象自身 public call
+## 或 signal emission 锁内同步 `free()`；该非法输入不属于本方法的支持契约。
 ## [br]
 ## @schema return: Array[Node]，按 spawn transform 稳定顺序排列的 allocator-managed root。
 func emit_projectiles(
@@ -219,12 +392,22 @@ func emit_projectiles(
 	if _is_releasing or _emission_in_progress or is_queued_for_deletion():
 		return []
 	_emission_in_progress = true
+	var emitter_lifetime_ref: WeakRef = weakref(self)
 	var result: Array[Node] = _emit_projectiles_transaction(
 		launch_input,
 		projectile_id,
 		emit_count
 	)
-	_emission_in_progress = false
+	var emitter_after_transaction_value: Variant = emitter_lifetime_ref.get_ref()
+	if (
+		typeof(emitter_after_transaction_value) == TYPE_OBJECT
+		and is_instance_valid(emitter_after_transaction_value)
+		and emitter_after_transaction_value is GFProjectileEmitter3D
+	):
+		var emitter_after_transaction: GFProjectileEmitter3D = (
+			emitter_after_transaction_value
+		)
+		emitter_after_transaction._emission_in_progress = false
 	return result
 
 
@@ -233,24 +416,32 @@ func _emit_projectiles_transaction(
 	projectile_id: StringName,
 	emit_count: int
 ) -> Array[Node]:
+	var emitter_lifetime_ref: WeakRef = weakref(self)
+	var retirement_owner_id: int = get_instance_id()
 	var request_release_generation: int = _release_generation
 	var effective_id: StringName = projectile_id if projectile_id != &"" else default_projectile_id
 	var definition: GFProjectileDefinition3D = resolve_projectile_definition(effective_id)
+	if not GFProjectileEmitter3D._lifetime_ref_is_live(emitter_lifetime_ref):
+		return []
 	if not _request_is_current(request_release_generation):
 		_emit_failure(&"emitter_released", {})
 		return []
-	if (
-		definition == null
-		or not is_instance_valid(definition)
-		or definition.scene == null
-		or not is_instance_valid(definition.scene)
-	):
+	if definition == null or not is_instance_valid(definition):
+		_emit_failure(&"missing_definition", { "projectile_id": effective_id })
+		return []
+	var definition_scene: PackedScene = definition.scene
+	if not GFProjectileEmitter3D._lifetime_ref_is_live(emitter_lifetime_ref):
+		return []
+	if definition_scene == null or not is_instance_valid(definition_scene):
 		_emit_failure(&"missing_definition", { "projectile_id": effective_id })
 		return []
 	var merged_input: GFProjectileLaunchInput3D = _merge_launch_input(
 		launch_input,
-		request_release_generation
+		request_release_generation,
+		emitter_lifetime_ref
 	)
+	if not GFProjectileEmitter3D._lifetime_ref_is_live(emitter_lifetime_ref):
+		return []
 	if merged_input == null or not _request_is_current(request_release_generation):
 		var input_failure_reason: StringName = (
 			&"launch_input_invalidated"
@@ -260,6 +451,8 @@ func _emit_projectiles_transaction(
 		_emit_failure(input_failure_reason, {})
 		return []
 	var requested_count: int = _resolve_requested_count(emit_count)
+	if not GFProjectileEmitter3D._lifetime_ref_is_live(emitter_lifetime_ref):
+		return []
 	if not _request_is_current(request_release_generation):
 		_emit_failure(&"emitter_released", {})
 		return []
@@ -273,7 +466,11 @@ func _emit_projectiles_transaction(
 		hard_projectile_limit_per_request,
 		int(Time.get_ticks_msec())
 	)
+	if not GFProjectileEmitter3D._lifetime_ref_is_live(emitter_lifetime_ref):
+		return []
 	var prepare_report: Dictionary = task.prepare()
+	if not GFProjectileEmitter3D._lifetime_ref_is_live(emitter_lifetime_ref):
+		return []
 	if not _request_is_current(request_release_generation):
 		_abort_precommit([], [], task, &"emitter_released")
 		return []
@@ -285,6 +482,8 @@ func _emit_projectiles_transaction(
 		return []
 	var allowed_count: int = task.get_allowed_count()
 	var transforms: Array[Transform3D] = _get_spawn_transforms(merged_input, allowed_count)
+	if not GFProjectileEmitter3D._lifetime_ref_is_live(emitter_lifetime_ref):
+		return []
 	if not _request_is_current(request_release_generation):
 		_abort_precommit([], [], task, &"emitter_released")
 		return []
@@ -296,11 +495,15 @@ func _emit_projectiles_transaction(
 		_emit_failure(&"empty_spawn_pattern", empty_rollback)
 		return []
 	var definition_snapshot: _DefinitionSnapshot = _capture_definition_snapshot(definition)
+	if not GFProjectileEmitter3D._lifetime_ref_is_live(emitter_lifetime_ref):
+		return []
 	if definition_snapshot == null:
 		_abort_precommit([], [], task, &"invalid_definition")
 		return []
 	var projectile_scene: PackedScene = definition_snapshot._scene
 	var spawn_parent: Node = resolve_spawn_parent()
+	if not GFProjectileEmitter3D._lifetime_ref_is_live(emitter_lifetime_ref):
+		return []
 	var parent_fence_reason: StringName = _precommit_fence_failure_reason(
 		request_release_generation,
 		definition_snapshot,
@@ -335,6 +538,8 @@ func _emit_projectiles_transaction(
 			spawn_parent,
 			pool_snapshot
 		)
+		if not GFProjectileEmitter3D._lifetime_ref_is_live(emitter_lifetime_ref):
+			return []
 		if record == null:
 			_abort_precommit([], records, task, &"instantiate_failed")
 			return []
@@ -351,6 +556,8 @@ func _emit_projectiles_transaction(
 			_abort_precommit([], records, task, &"instantiate_failed")
 			return []
 		_apply_spawn_transform(record._root, spawn_transform)
+		if not GFProjectileEmitter3D._lifetime_ref_is_live(emitter_lifetime_ref):
+			return []
 		var placement_fence_reason: StringName = _precommit_fence_failure_reason(
 			request_release_generation,
 			definition_snapshot,
@@ -363,6 +570,8 @@ func _emit_projectiles_transaction(
 			_abort_precommit([], records, task, &"placement_invalidated")
 			return []
 		var candidate_input_value: Variant = merged_input.duplicate_input()
+		if not GFProjectileEmitter3D._lifetime_ref_is_live(emitter_lifetime_ref):
+			return []
 		if (
 			typeof(candidate_input_value) != TYPE_OBJECT
 			or not is_instance_valid(candidate_input_value)
@@ -385,6 +594,8 @@ func _emit_projectiles_transaction(
 			_abort_precommit(reservations, records, task, binding_fence_reason)
 			return []
 		var binding: GFProjectileBinding3D = definition.bind_instance(roots[index])
+		if not GFProjectileEmitter3D._lifetime_ref_is_live(emitter_lifetime_ref):
+			return []
 		var bound_fence_reason: StringName = _precommit_fence_failure_reason(
 			request_release_generation,
 			definition_snapshot,
@@ -406,8 +617,20 @@ func _emit_projectiles_transaction(
 			inputs[index],
 			self
 		)
+		if not GFProjectileEmitter3D._lifetime_ref_is_live(emitter_lifetime_ref):
+			if reservation != null and is_instance_valid(reservation):
+				var _invalidated_owner: bool = (
+					reservation.invalidate_lost_owner_for_framework(
+						retirement_owner_id,
+						&"allocator_owner_lost"
+					)
+				)
+			return []
 		if reservation != null:
 			reservations.append(reservation)
+			if records[index]._bind_reservation(reservation) != OK:
+				_abort_precommit(reservations, records, task, &"reservation_owner_failed")
+				return []
 		var reserved_fence_reason: StringName = _precommit_fence_failure_reason(
 			request_release_generation,
 			definition_snapshot,
@@ -443,6 +666,12 @@ func _emit_projectiles_transaction(
 		_abort_precommit(reservations, records, task, commit_fence_reason)
 		return []
 	var receipt: GFProjectileEmissionReceipt = task.commit_deferred_for_framework(roots.size())
+	if not GFProjectileEmitter3D._lifetime_ref_is_live(emitter_lifetime_ref):
+		if receipt != null and is_instance_valid(receipt):
+			var _compensated_lost_owner: Dictionary = (
+				receipt.compensate_for_framework(&"emitter_released")
+			)
+		return []
 	if receipt != null and not _request_is_current(request_release_generation):
 		_abort_committed_pre_activation(
 			receipt,
@@ -525,7 +754,6 @@ func _emit_projectiles_transaction(
 				{}
 			)
 			return []
-		records[index]._session = sessions[index]
 		var runtime_value: Node = sessions[index].get_runtime()
 		var retirement_claim_result: Error = ERR_INVALID_PARAMETER
 		if runtime_value is GFProjectile3D:
@@ -546,21 +774,31 @@ func _emit_projectiles_transaction(
 				claim_failure_reason = &"emitter_released"
 			_emit_failure(claim_failure_reason, {})
 			return []
-		var callback: Callable = _on_session_finished.bind(records[index])
-		var connected: int = sessions[index].finished.connect(callback)
+		var connected: int = records[index]._bind_session(sessions[index])
 		if connected != OK:
 			_handle_active_failure(sessions, records)
 			_release_session_barriers(sessions)
 			_release_notification_barrier()
 			_emit_failure(&"terminal_subscription_failed", {})
 			return []
-		_active_retirements.append(records[index])
 	var publish_report: Dictionary = receipt.publish_for_framework()
+	var emitter_after_publish_value: Variant = emitter_lifetime_ref.get_ref()
+	if (
+		typeof(emitter_after_publish_value) != TYPE_OBJECT
+		or not is_instance_valid(emitter_after_publish_value)
+	):
+		return []
 	if not GFVariantData.get_option_bool(publish_report, "ok", false):
 		_handle_active_failure(sessions, records)
 		_release_session_barriers(sessions)
 		_release_notification_barrier()
 		_emit_failure(&"emission_publish_failed", publish_report)
+		return []
+	if not _publication_sessions_are_current(sessions, records):
+		_handle_active_failure(sessions, records)
+		_release_session_barriers(sessions)
+		_release_notification_barrier()
+		_emit_failure(&"publication_invalidated", {})
 		return []
 	var released_during_publication: bool = _observe_publication_release(
 		request_release_generation
@@ -570,16 +808,46 @@ func _emit_projectiles_transaction(
 		if runtime_value is GFProjectile3D:
 			var runtime: GFProjectile3D = runtime_value
 			var _started: Error = runtime.publish_started_for_framework(sessions[index])
+		var emitter_after_started_value: Variant = emitter_lifetime_ref.get_ref()
+		if (
+			typeof(emitter_after_started_value) != TYPE_OBJECT
+			or not is_instance_valid(emitter_after_started_value)
+		):
+			return []
+		if not _publication_candidate_is_current(sessions[index], records[index]):
+			_handle_active_failure(sessions, records)
+			_release_session_barriers(sessions)
+			_release_notification_barrier()
+			_emit_failure(&"publication_invalidated", {})
+			return []
 		released_during_publication = (
 			_observe_publication_release(request_release_generation)
 			or released_during_publication
 		)
 		projectile_emitted.emit(roots[index], sessions[index], inputs[index])
+		var emitter_after_emitted_value: Variant = emitter_lifetime_ref.get_ref()
+		if (
+			typeof(emitter_after_emitted_value) != TYPE_OBJECT
+			or not is_instance_valid(emitter_after_emitted_value)
+		):
+			return []
+		if not _publication_candidate_is_current(sessions[index], records[index]):
+			_handle_active_failure(sessions, records)
+			_release_session_barriers(sessions)
+			_release_notification_barrier()
+			_emit_failure(&"publication_invalidated", {})
+			return []
 		released_during_publication = (
 			_observe_publication_release(request_release_generation)
 			or released_during_publication
 		)
 	_release_session_barriers(sessions)
+	var emitter_after_terminal_value: Variant = emitter_lifetime_ref.get_ref()
+	if (
+		typeof(emitter_after_terminal_value) != TYPE_OBJECT
+		or not is_instance_valid(emitter_after_terminal_value)
+	):
+		return []
 	released_during_publication = (
 		_observe_publication_release(request_release_generation)
 		or released_during_publication
@@ -654,16 +922,28 @@ func prewarm_projectiles(count: int, projectile_id: StringName = &"") -> bool:
 	):
 		return false
 	_emission_in_progress = true
+	var emitter_lifetime_ref: WeakRef = weakref(self)
 	var request_release_generation: int = _release_generation
 	var pool: GFObjectPoolUtility = object_pool_utility
 	var effective_id: StringName = projectile_id if projectile_id != &"" else default_projectile_id
 	var definition: GFProjectileDefinition3D = resolve_projectile_definition(effective_id)
+	if not GFProjectileEmitter3D._lifetime_ref_is_live(emitter_lifetime_ref):
+		return false
 	var spawn_parent: Node = resolve_spawn_parent()
+	if not GFProjectileEmitter3D._lifetime_ref_is_live(emitter_lifetime_ref):
+		return false
+	var projectile_scene: PackedScene = (
+		definition.scene
+		if definition != null and is_instance_valid(definition)
+		else null
+	)
+	if not GFProjectileEmitter3D._lifetime_ref_is_live(emitter_lifetime_ref):
+		return false
 	if (
 		definition == null
 		or not is_instance_valid(definition)
-		or definition.scene == null
-		or not is_instance_valid(definition.scene)
+		or projectile_scene == null
+		or not is_instance_valid(projectile_scene)
 		or spawn_parent == null
 		or not is_instance_valid(spawn_parent)
 		or spawn_parent.is_queued_for_deletion()
@@ -673,7 +953,9 @@ func prewarm_projectiles(count: int, projectile_id: StringName = &"") -> bool:
 	):
 		_emission_in_progress = false
 		return false
-	pool.prewarm(definition.scene, spawn_parent, count)
+	pool.prewarm(projectile_scene, spawn_parent, count)
+	if not GFProjectileEmitter3D._lifetime_ref_is_live(emitter_lifetime_ref):
+		return false
 	var succeeded: bool = (
 		_request_is_current(request_release_generation)
 		and is_instance_valid(pool)
@@ -685,11 +967,13 @@ func prewarm_projectiles(count: int, projectile_id: StringName = &"") -> bool:
 
 func _merge_launch_input(
 	call_input: GFProjectileLaunchInput3D,
-	request_release_generation: int
+	request_release_generation: int,
+	emitter_lifetime_ref: WeakRef
 ) -> GFProjectileLaunchInput3D:
 	var result: GFProjectileLaunchInput3D = _snapshot_external_launch_input(
 		default_launch_input,
-		request_release_generation
+		request_release_generation,
+		emitter_lifetime_ref
 	)
 	if result == null:
 		return null
@@ -697,7 +981,8 @@ func _merge_launch_input(
 		return result
 	var call_snapshot: GFProjectileLaunchInput3D = _snapshot_external_launch_input(
 		call_input,
-		request_release_generation
+		request_release_generation,
+		emitter_lifetime_ref
 	)
 	if call_snapshot == null:
 		return null
@@ -718,7 +1003,8 @@ func _merge_launch_input(
 
 func _snapshot_external_launch_input(
 	source: GFProjectileLaunchInput3D,
-	request_release_generation: int
+	request_release_generation: int,
+	emitter_lifetime_ref: WeakRef
 ) -> GFProjectileLaunchInput3D:
 	var result: GFProjectileLaunchInput3D = GFProjectileLaunchInput3D.new()
 	if source == null:
@@ -727,7 +1013,8 @@ func _snapshot_external_launch_input(
 		return null
 	var kind_value: Variant = source.call(&"get_target_kind")
 	if (
-		not is_instance_valid(source)
+		not GFProjectileEmitter3D._lifetime_ref_is_live(emitter_lifetime_ref)
+		or not is_instance_valid(source)
 		or not _request_is_current(request_release_generation)
 		or typeof(kind_value) != TYPE_INT
 	):
@@ -736,7 +1023,11 @@ func _snapshot_external_launch_input(
 	match kind:
 		GFProjectileLaunchInput3D.TargetKind.NODE:
 			var target_value: Variant = source.call(&"get_target_node")
-			if not is_instance_valid(source) or not _request_is_current(request_release_generation):
+			if (
+				not GFProjectileEmitter3D._lifetime_ref_is_live(emitter_lifetime_ref)
+				or not is_instance_valid(source)
+				or not _request_is_current(request_release_generation)
+			):
 				return null
 			if target_value == null:
 				result.set_target_none()
@@ -754,7 +1045,8 @@ func _snapshot_external_launch_input(
 		GFProjectileLaunchInput3D.TargetKind.POSITION:
 			var position_value: Variant = source.call(&"get_target_position")
 			if (
-				not is_instance_valid(source)
+				not GFProjectileEmitter3D._lifetime_ref_is_live(emitter_lifetime_ref)
+				or not is_instance_valid(source)
 				or not _request_is_current(request_release_generation)
 				or typeof(position_value) != TYPE_VECTOR3
 			):
@@ -767,7 +1059,8 @@ func _snapshot_external_launch_input(
 			return null
 	var metadata_value: Variant = source.call(&"get_metadata")
 	if (
-		not is_instance_valid(source)
+		not GFProjectileEmitter3D._lifetime_ref_is_live(emitter_lifetime_ref)
+		or not is_instance_valid(source)
 		or not _request_is_current(request_release_generation)
 		or typeof(metadata_value) != TYPE_DICTIONARY
 	):
@@ -803,16 +1096,37 @@ func _filter_finite_transforms(values: Array[Transform3D]) -> Array[Transform3D]
 	return result
 
 
+static func _lifetime_ref_is_live(emitter_lifetime_ref: WeakRef) -> bool:
+	if emitter_lifetime_ref == null:
+		return false
+	var emitter_value: Variant = emitter_lifetime_ref.get_ref()
+	return (
+		typeof(emitter_value) == TYPE_OBJECT
+		and is_instance_valid(emitter_value)
+		and emitter_value is GFProjectileEmitter3D
+	)
+
+
 func _allocate_candidate(
 	scene: PackedScene,
 	spawn_parent: Node,
 	pool: GFObjectPoolUtility
 ) -> _RetirementRecord:
+	var scene_tree: SceneTree = get_tree()
+	if scene_tree == null or scene_tree.root == null:
+		return null
+	var record: _RetirementRecord = _RetirementRecord.new()
+	record.name = &"GFProjectileRetirementRecord3D"
+	record.process_mode = Node.PROCESS_MODE_DISABLED
+	record._configure(scene, pool, _on_retirement_record_settled, get_instance_id())
+	scene_tree.root.add_child(record)
+	_active_retirements.append(record)
 	var root_value: Variant = null
 	if pool != null:
 		if not is_instance_valid(pool):
+			record._retire()
 			return null
-		root_value = pool.call(&"acquire", scene, spawn_parent)
+		root_value = pool.acquire(scene, spawn_parent, record._bind_root)
 	else:
 		root_value = scene.instantiate()
 	if (
@@ -820,12 +1134,12 @@ func _allocate_candidate(
 		or not is_instance_valid(root_value)
 		or not root_value is Node
 	):
+		record._retire()
 		return null
 	var root: Node = root_value
-	var record: _RetirementRecord = _RetirementRecord.new()
-	record._root = root
-	record._scene = scene
-	record._pool = pool
+	if record._bind_root(root) != OK:
+		record._retire()
+		return null
 	if (
 		pool == null
 		and is_instance_valid(spawn_parent)
@@ -914,6 +1228,39 @@ func _sessions_are_current(
 	return true
 
 
+func _publication_sessions_are_current(
+	sessions: Array[GFProjectileSession],
+	records: Array[_RetirementRecord]
+) -> bool:
+	if sessions.size() != records.size():
+		return false
+	for index: int in range(sessions.size()):
+		if not _publication_candidate_is_current(sessions[index], records[index]):
+			return false
+	return true
+
+
+func _publication_candidate_is_current(
+	session: GFProjectileSession,
+	record: _RetirementRecord
+) -> bool:
+	if (
+		session == null
+		or not is_instance_valid(session)
+		or record == null
+		or not is_instance_valid(record)
+		or record._retired
+		or record._session != session
+		or not _record_root_is_live(record)
+	):
+		return false
+	var runtime_value: Node = session.get_runtime()
+	if not runtime_value is GFProjectile3D:
+		return false
+	var runtime: GFProjectile3D = runtime_value
+	return runtime.publication_is_current_for_framework(session, record._root)
+
+
 func _apply_spawn_transform(root: Node, spawn_transform: Transform3D) -> void:
 	if root is Node3D:
 		var root_3d: Node3D = root
@@ -972,82 +1319,20 @@ func _handle_active_failure(
 		if session != null and is_instance_valid(session) and session.is_active():
 			var _finished: bool = session.finish(GFProjectileSession.EndReason.INTERNAL_FAILURE)
 	for record: _RetirementRecord in records:
-		_active_retirements.erase(record)
 		_retire(record)
 
 
-func _on_session_finished(
-	_session: GFProjectileSession,
-	_reason: int,
-	record: _RetirementRecord
-) -> void:
-	_active_retirements.erase(record)
-	_retire(record)
-
-
 func _retire(record: _RetirementRecord) -> void:
-	if _notification_barrier_depth > 0 or _defer_tree_exit_retirements:
-		if record != null and not _pending_retirements.has(record):
-			record._retirement_scheduled = true
-			_pending_retirements.append(record)
-		return
-	_retire_now(record)
+	if record != null and is_instance_valid(record):
+		record._retire()
 
 
 func _retire_now(record: _RetirementRecord) -> void:
-	if record == null or record._retired:
-		return
-	record._retired = true
-	record._retirement_scheduled = false
-	var managed_session: GFProjectileSession = record._session
-	record._session = null
-	_active_retirements.erase(record)
-	_pending_retirements.erase(record)
-	if record._root == null or not is_instance_valid(record._root):
-		_release_terminal_claim(managed_session)
-		return
-	if record._pool != null and is_instance_valid(record._pool):
-		record._pool.release(record._root, record._scene)
-	elif not record._root.is_queued_for_deletion():
-		record._root.queue_free()
-	_release_terminal_claim(managed_session)
+	_retire(record)
 
 
 func _release_notification_barrier() -> void:
 	_notification_barrier_depth = maxi(_notification_barrier_depth - 1, 0)
-	if _notification_barrier_depth > 0:
-		return
-	var pending: Array[_RetirementRecord] = _pending_retirements.duplicate()
-	_pending_retirements.clear()
-	for record: _RetirementRecord in pending:
-		_retire_now(record)
-
-
-func _schedule_retirement_flush() -> void:
-	if _pending_retirements.is_empty() or _retirement_flush_scheduled:
-		return
-	_retirement_flush_scheduled = true
-	call_deferred(&"_flush_scheduled_retirements")
-
-
-func _flush_scheduled_retirements() -> void:
-	_retirement_flush_scheduled = false
-	if _notification_barrier_depth > 0 or _defer_tree_exit_retirements:
-		_schedule_retirement_flush()
-		return
-	var pending: Array[_RetirementRecord] = _pending_retirements.duplicate()
-	_pending_retirements.clear()
-	for record: _RetirementRecord in pending:
-		_retire_now(record)
-
-
-func _release_terminal_claim(session: GFProjectileSession) -> void:
-	if session == null or not is_instance_valid(session):
-		return
-	var runtime_value: Node = session.get_runtime()
-	if runtime_value is GFProjectile3D:
-		var runtime: GFProjectile3D = runtime_value
-		var _released: bool = runtime.release_terminal_retirement_for_framework(session)
 
 
 func _release_session_barriers(sessions: Array[GFProjectileSession]) -> void:
@@ -1062,18 +1347,40 @@ func _begin_emitter_release() -> void:
 	_is_releasing = true
 	_release_generation += 1
 	var records: Array[_RetirementRecord] = _active_retirements.duplicate()
-	for pending_record: _RetirementRecord in _pending_retirements:
-		if not records.has(pending_record):
-			records.append(pending_record)
-	_active_retirements.clear()
-	_pending_retirements.clear()
 	for record: _RetirementRecord in records:
+		if record == null or not is_instance_valid(record):
+			continue
+		record._defer_pool_retirement()
 		var session: GFProjectileSession = record._session
 		if session != null and is_instance_valid(session) and session.is_active():
 			var _finished: bool = session.finish(
 				GFProjectileSession.EndReason.EMITTER_RELEASED
 			)
-		_retire(record)
+		elif session == null:
+			record._retire(true)
+
+
+func _settle_predelete_retirements() -> void:
+	var records: Array[_RetirementRecord] = _active_retirements.duplicate()
+	for record: _RetirementRecord in records:
+		if record == null or not is_instance_valid(record):
+			continue
+		record._defer_pool_retirement()
+		var session: GFProjectileSession = record._session
+		if session != null and is_instance_valid(session):
+			if session.is_active():
+				var _finished: bool = session.finish(
+					GFProjectileSession.EndReason.EMITTER_RELEASED
+				)
+			var _barrier_released: Error = (
+				session.release_notification_barrier_for_framework()
+			)
+		record._retire(true)
+	_active_retirements.clear()
+
+
+func _on_retirement_record_settled(record: _RetirementRecord) -> void:
+	_active_retirements.erase(record)
 
 
 func _observe_publication_release(start_generation: int) -> bool:
@@ -1124,6 +1431,8 @@ func _bounded_failure_details(details: Dictionary) -> Dictionary:
 		):
 			continue
 		var key: StringName = StringName(key_text.left(64))
+		if not _failure_detail_key_is_allowed(key):
+			continue
 		if typeof(value) == TYPE_STRING:
 			var string_value: String = value
 			result[key] = string_value.left(256)
@@ -1133,6 +1442,37 @@ func _bounded_failure_details(details: Dictionary) -> Dictionary:
 		elif typeof(value) == TYPE_NODE_PATH:
 			var path_value: NodePath = value
 			result[key] = NodePath(String(path_value).left(256))
+		elif typeof(value) == TYPE_FLOAT:
+			var float_value: float = value
+			if is_finite(float_value):
+				result[key] = float_value
 		else:
 			result[key] = value
 	return result
+
+
+func _failure_detail_key_is_allowed(key: StringName) -> bool:
+	return key in [
+		&"ok",
+		&"reason",
+		&"policy_id",
+		&"projectile_id",
+		&"requested_count",
+		&"emit_count",
+		&"emitted_count",
+		&"hard_limit",
+		&"now_msec",
+		&"state",
+		&"published",
+		&"committed",
+		&"compensated",
+		&"rolled_back",
+		&"remaining_cooldown_seconds",
+		&"available_charges",
+		&"required_charges",
+		&"consumed_charges",
+		&"emission_count",
+		&"policy_instance_id",
+		&"policy_state_generation",
+		&"policy_enabled",
+	]

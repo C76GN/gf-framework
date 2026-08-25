@@ -147,6 +147,35 @@ func abort_for_framework(owner: Object, _reason: StringName) -> bool:
 	return true
 
 
+## 当原 retirement owner 已失效时，由独立 allocator record 失效未消费 claim。
+## [br]
+## @api framework_internal
+## [br]
+## @since unreleased
+## [br]
+## @param owner_instance_id: 初始化时冻结的原 owner instance id。
+## [br]
+## @param _reason: 供 allocator 记录的稳定结算原因；本方法不调用用户代码。
+## [br]
+## @return: owner identity 匹配、原 owner 已非 live 且状态尚未消费时首次返回 true。
+func invalidate_lost_owner_for_framework(
+	owner_instance_id: int,
+	_reason: StringName
+) -> bool:
+	if (
+		owner_instance_id <= 0
+		or owner_instance_id != _owner_id
+		or (_state != State.RESERVED and _state != State.ARMED)
+	):
+		return false
+	var owner_value: Variant = _owner_ref.get_ref() if _owner_ref != null else null
+	if _owner_is_live(owner_value):
+		return false
+	_state = State.INVALIDATED
+	_release_claim()
+	return true
+
+
 ## 初始化 owner-bound reservation。
 ## [br]
 ## @api framework_internal
@@ -262,17 +291,26 @@ func _is_current_claim() -> bool:
 	if (
 		_binding == null
 		or not is_instance_valid(_binding)
-		or not _binding.is_current()
 	):
 		return false
+	if not _binding.is_current():
+		var _binding_invalidated: bool = _binding.fail_for_framework(
+			GFProjectileBinding.FailureReason.RESERVATION_INVALIDATED
+		)
+		return false
 	var runtime: Node = _node_from_ref(_runtime_ref)
+	var claim_is_current: bool = false
 	if runtime is GFProjectile2D:
 		var runtime_2d: GFProjectile2D = runtime
-		return runtime_2d.owns_launch_claim_for_framework(self)
-	if runtime is GFProjectile3D:
+		claim_is_current = runtime_2d.owns_launch_claim_for_framework(self)
+	elif runtime is GFProjectile3D:
 		var runtime_3d: GFProjectile3D = runtime
-		return runtime_3d.owns_launch_claim_for_framework(self)
-	return false
+		claim_is_current = runtime_3d.owns_launch_claim_for_framework(self)
+	if not claim_is_current:
+		var _claim_invalidated: bool = _binding.fail_for_framework(
+			GFProjectileBinding.FailureReason.RESERVATION_INVALIDATED
+		)
+	return claim_is_current
 
 
 func _invalidate() -> void:

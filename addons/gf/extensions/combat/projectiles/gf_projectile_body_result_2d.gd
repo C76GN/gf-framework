@@ -9,6 +9,9 @@ class_name GFProjectileBodyResult2D
 extends RefCounted
 
 
+const _GF_COMBAT_FINITE_MATH = preload("res://addons/gf/extensions/combat/core/gf_combat_finite_math.gd")
+
+
 var _successful: bool = false
 var _failure_reason: StringName = &"unconfigured"
 var _transform: Transform2D = Transform2D.IDENTITY
@@ -30,6 +33,11 @@ static func successful(
 	transform_value: Transform2D,
 	actual_displacement: Vector2 = Vector2.ZERO
 ) -> GFProjectileBodyResult2D:
+	if (
+		not _GF_COMBAT_FINITE_MATH.is_finite_transform2d(transform_value)
+		or not _GF_COMBAT_FINITE_MATH.is_finite_vector2(actual_displacement)
+	):
+		return failed(&"non_finite_body_result")
 	var result: GFProjectileBodyResult2D = GFProjectileBodyResult2D.new()
 	result._successful = true
 	result._failure_reason = &""
@@ -55,7 +63,8 @@ static func failed(
 ) -> GFProjectileBodyResult2D:
 	var result: GFProjectileBodyResult2D = GFProjectileBodyResult2D.new()
 	result._failure_reason = reason if reason != &"" else &"body_operation_failed"
-	result._transform = transform_value
+	if _GF_COMBAT_FINITE_MATH.is_finite_transform2d(transform_value):
+		result._transform = transform_value
 	return result
 
 

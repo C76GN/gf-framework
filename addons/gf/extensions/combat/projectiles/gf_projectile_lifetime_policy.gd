@@ -1,4 +1,6 @@
 ## GFProjectileLifetimePolicy: 基于 session 观测值的生命周期策略。
+## Runtime 在 launch 时强持有策略快照；Definition 后续替换/清空或外部引用释放
+## 不改变 ACTIVE session，终态清理后 Runtime 释放该快照。
 ## [br]
 ## @api public
 ## [br]
