@@ -9,6 +9,8 @@ class_name GFProjectileEmitter3D
 extends Node3D
 
 
+# --- 信号 ---
+
 ## 单个 root 的 session 已 ACTIVE 且 started 已按稳定顺序发布后发出。
 ## [br]
 ## @api public
@@ -39,226 +41,12 @@ signal projectile_emitted(
 signal projectile_emit_failed(reason: StringName, details: Dictionary)
 
 
-class _RetirementRecord:
-	extends Node
-
-	var _root: Node = null
-	var _root_instance_id: int = 0
-	var _scene: PackedScene = null
-	var _pool: GFObjectPoolUtility = null
-	var _session: GFProjectileSession = null
-	var _reservation: GFProjectileLaunchReservation = null
-	var _retirement_owner_id: int = 0
-	var _retired: bool = false
-	var _retirement_claimed: bool = false
-	var _root_tree_exiting: bool = false
-	var _force_deferred_pool: bool = false
-	var _settled_callback: Callable = Callable()
-
-	func _configure(
-		projectile_scene: PackedScene,
-		pool: GFObjectPoolUtility,
-		settled_callback: Callable,
-		retirement_owner_id: int
-	) -> void:
-		_scene = projectile_scene
-		_pool = pool
-		_settled_callback = settled_callback
-		_retirement_owner_id = retirement_owner_id
-
-	func _bind_root(projectile_root: Node) -> Error:
-		if (
-			_retirement_claimed
-			or projectile_root == null
-			or not is_instance_valid(projectile_root)
-			or projectile_root.is_queued_for_deletion()
-		):
-			return ERR_INVALID_PARAMETER
-		if _root != null and _root != projectile_root:
-			return ERR_ALREADY_IN_USE
-		_root = projectile_root
-		_root_instance_id = projectile_root.get_instance_id()
-		if not _root.tree_exiting.is_connected(_on_root_tree_exiting):
-			var connected: int = _root.tree_exiting.connect(
-				_on_root_tree_exiting,
-				CONNECT_ONE_SHOT
-			)
-			if connected != OK:
-				return connected as Error
-		return OK
-
-	func _bind_session(active_session: GFProjectileSession) -> Error:
-		if (
-			_retirement_claimed
-			or active_session == null
-			or not is_instance_valid(active_session)
-			or _session != null
-		):
-			return ERR_INVALID_PARAMETER
-		_session = active_session
-		_reservation = null
-		var connected: int = _session.finished.connect(
-			_on_session_finished,
-			CONNECT_ONE_SHOT
-		)
-		if connected != OK:
-			return connected as Error
-		return OK
-
-	func _bind_reservation(reservation: GFProjectileLaunchReservation) -> Error:
-		if (
-			_retirement_claimed
-			or reservation == null
-			or not is_instance_valid(reservation)
-			or _reservation != null
-			or _session != null
-		):
-			return ERR_INVALID_PARAMETER
-		_reservation = reservation
-		return OK
-
-	func _defer_pool_retirement() -> void:
-		_force_deferred_pool = true
-
-	func _retire(force_deferred_pool: bool = false) -> void:
-		if _retirement_claimed:
-			return
-		_retirement_claimed = true
-		_force_deferred_pool = _force_deferred_pool or force_deferred_pool
-		var root_requires_deferred_settlement: bool = (
-			_root_tree_exiting
-			or _root == null
-			or not is_instance_valid(_root)
-			or _root.is_queued_for_deletion()
-			or not _root.is_inside_tree()
-		)
-		if (
-			root_requires_deferred_settlement
-			or (
-				_pool != null
-				and is_instance_valid(_pool)
-				and _force_deferred_pool
-			)
-		):
-			call_deferred(&"_settle_now")
-			return
-		_settle_now()
-
-	func _settle_now() -> void:
-		if _retired:
-			return
-		_retired = true
-		var managed_session: GFProjectileSession = _session
-		var projectile_root: Node = _root
-		var projectile_root_id: int = _root_instance_id
-		var projectile_scene: PackedScene = _scene
-		var pool: GFObjectPoolUtility = _pool
-		_release_unconsumed_reservation()
-		if pool != null and is_instance_valid(pool):
-			if projectile_root != null and is_instance_valid(projectile_root):
-				var released_to_pool: bool = pool.release_for_framework(
-					projectile_root,
-					projectile_scene
-				)
-				if not released_to_pool and not projectile_root.is_queued_for_deletion():
-					projectile_root.queue_free()
-			elif projectile_root_id > 0:
-				var _lost_retired: bool = pool.retire_lost_lease_for_framework(
-					projectile_scene,
-					projectile_root_id
-				)
-		elif (
-			projectile_root != null
-			and is_instance_valid(projectile_root)
-			and not projectile_root.is_queued_for_deletion()
-		):
-			projectile_root.queue_free()
-		_release_terminal_claim(managed_session)
-		_root = null
-		_root_instance_id = 0
-		_scene = null
-		_pool = null
-		_session = null
-		_reservation = null
-		_retirement_owner_id = 0
-		if _settled_callback.is_valid():
-			var _settled: Variant = _settled_callback.call(self)
-		_settled_callback = Callable()
-		queue_free()
-
-	func _release_terminal_claim(managed_session: GFProjectileSession) -> void:
-		if managed_session == null or not is_instance_valid(managed_session):
-			return
-		var runtime_value: Node = managed_session.get_runtime()
-		if runtime_value is GFProjectile3D:
-			var runtime: GFProjectile3D = runtime_value
-			var _released: bool = runtime.release_terminal_retirement_for_framework(
-				managed_session
-			)
-
-	func _release_unconsumed_reservation() -> void:
-		if _reservation == null or not is_instance_valid(_reservation):
-			return
-		var _invalidated: bool = _reservation.invalidate_lost_owner_for_framework(
-			_retirement_owner_id,
-			&"allocator_owner_lost"
-		)
-
-	func _on_root_tree_exiting() -> void:
-		_root_tree_exiting = true
-		_force_deferred_pool = true
-		if _session != null and is_instance_valid(_session) and _session.is_active():
-			var _finished: bool = _session.finish(
-				GFProjectileSession.EndReason.ROOT_LOST
-			)
-		elif _session == null:
-			_retire(true)
-
-	func _on_session_finished(
-		_finished_session: GFProjectileSession,
-		_reason: int
-	) -> void:
-		var root_is_exiting: bool = (
-			_root == null
-			or not is_instance_valid(_root)
-			or not _root.is_inside_tree()
-		)
-		_retire(_force_deferred_pool or _root_tree_exiting or root_is_exiting)
-
-
-class _DefinitionSnapshot:
-	extends RefCounted
-
-	var _definition: GFProjectileDefinition3D = null
-	var _scene: PackedScene = null
-	var _runtime_path: NodePath = NodePath("")
-	var _impact_source_paths: Array[NodePath] = []
-	var _motion: GFProjectileMotion = null
-	var _lifetime: GFProjectileLifetimePolicy = null
-	var _body_adapter: GFProjectileBodyAdapter3D = null
-
-	func _is_current() -> bool:
-		return (
-			_definition != null
-			and is_instance_valid(_definition)
-			and _scene != null
-			and is_instance_valid(_scene)
-			and _definition.scene == _scene
-			and _definition.runtime_path == _runtime_path
-			and _definition.impact_source_paths == _impact_source_paths
-			and _motion != null
-			and is_instance_valid(_motion)
-			and _definition.motion == _motion
-			and _definition.lifetime_policy == _lifetime
-			and (_lifetime == null or is_instance_valid(_lifetime))
-			and _body_adapter != null
-			and is_instance_valid(_body_adapter)
-			and _definition.body_adapter == _body_adapter
-		)
-
+# --- 常量 ---
 
 const _GF_COMBAT_FINITE_MATH = preload("res://addons/gf/extensions/combat/core/gf_combat_finite_math.gd")
 
+
+# --- 导出变量 ---
 
 ## 未使用 catalog ID 时的直接 typed definition。
 ## [br]
@@ -326,18 +114,24 @@ const _GF_COMBAT_FINITE_MATH = preload("res://addons/gf/extensions/combat/core/g
 @export var use_object_pool: bool = false
 
 
+# --- 公共变量 ---
+
 ## pool 模式使用的 allocator；项目代码负责配置与生命周期。
 ## [br]
 ## @api public
 ## [br]
 ## @since 3.17.0
 var object_pool_utility: GFObjectPoolUtility = null
+# --- 私有变量 ---
+
 var _notification_barrier_depth: int = 0
 var _active_retirements: Array[_RetirementRecord] = []
 var _is_releasing: bool = false
 var _release_generation: int = 0
 var _emission_in_progress: bool = false
 
+
+# --- Godot 生命周期方法 ---
 
 func _enter_tree() -> void:
 	_is_releasing = false
@@ -351,6 +145,8 @@ func _notification(what: int) -> void:
 	if what == NOTIFICATION_PREDELETE:
 		_settle_predelete_retirements()
 
+
+# --- 公共方法 ---
 
 ## 原子发射一个 3D projectile。
 ## [br]
@@ -415,6 +211,110 @@ func emit_projectiles(
 		emitter_after_transaction._emission_in_progress = false
 	return result
 
+
+## 解析本次发射使用的 typed 3D definition。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param projectile_id: 可选 catalog ID。
+## [br]
+## @return: 匹配的 3D definition；缺失或维度不匹配时返回 null。
+func resolve_projectile_definition(
+	projectile_id: StringName = &""
+) -> GFProjectileDefinition3D:
+	if projectile_catalog != null and projectile_id != &"":
+		var catalog_definition: GFProjectileDefinition = projectile_catalog.get_definition(projectile_id)
+		if catalog_definition is GFProjectileDefinition3D:
+			var typed_definition: GFProjectileDefinition3D = catalog_definition
+			return typed_definition
+		return null
+	return projectile_definition
+
+
+## 解析完整实例 root 的生成父节点。
+## [br]
+## @api public
+## [br]
+## @since 3.17.0
+## [br]
+## @return: configured parent、emitter parent 或 tree 内 emitter；不可用时返回 null。
+func resolve_spawn_parent() -> Node:
+	if spawn_parent_path != NodePath(""):
+		var configured_parent: Node = get_node_or_null(spawn_parent_path)
+		if configured_parent != null:
+			return configured_parent
+	var parent: Node = get_parent()
+	return parent if parent != null else (self if is_inside_tree() else null)
+
+
+## 预热指定 definition 的 pool 实例。
+## [br]
+## @api public
+## [br]
+## @since 3.17.0
+## [br]
+## @param count: 要预热的正数量。
+## [br]
+## @param projectile_id: 可选 catalog ID。
+## [br]
+## @return: 是否已向配置的 pool 提交预热。
+func prewarm_projectiles(count: int, projectile_id: StringName = &"") -> bool:
+	if (
+		count <= 0
+		or object_pool_utility == null
+		or not is_instance_valid(object_pool_utility)
+		or _is_releasing
+		or _emission_in_progress
+		or is_queued_for_deletion()
+	):
+		return false
+	_emission_in_progress = true
+	var emitter_lifetime_ref: WeakRef = weakref(self)
+	var request_release_generation: int = _release_generation
+	var pool: GFObjectPoolUtility = object_pool_utility
+	var effective_id: StringName = projectile_id if projectile_id != &"" else default_projectile_id
+	var definition: GFProjectileDefinition3D = resolve_projectile_definition(effective_id)
+	if not GFProjectileEmitter3D._lifetime_ref_is_live(emitter_lifetime_ref):
+		return false
+	var spawn_parent: Node = resolve_spawn_parent()
+	if not GFProjectileEmitter3D._lifetime_ref_is_live(emitter_lifetime_ref):
+		return false
+	var projectile_scene: PackedScene = (
+		definition.scene
+		if definition != null and is_instance_valid(definition)
+		else null
+	)
+	if not GFProjectileEmitter3D._lifetime_ref_is_live(emitter_lifetime_ref):
+		return false
+	if (
+		definition == null
+		or not is_instance_valid(definition)
+		or projectile_scene == null
+		or not is_instance_valid(projectile_scene)
+		or spawn_parent == null
+		or not is_instance_valid(spawn_parent)
+		or spawn_parent.is_queued_for_deletion()
+		or not is_instance_valid(pool)
+		or pool != object_pool_utility
+		or not _request_is_current(request_release_generation)
+	):
+		_emission_in_progress = false
+		return false
+	pool.prewarm(projectile_scene, spawn_parent, count)
+	if not GFProjectileEmitter3D._lifetime_ref_is_live(emitter_lifetime_ref):
+		return false
+	var succeeded: bool = (
+		_request_is_current(request_release_generation)
+		and is_instance_valid(pool)
+		and pool == object_pool_utility
+	)
+	_emission_in_progress = false
+	return succeeded
+
+
+# --- 私有/辅助方法 ---
 
 func _emit_projectiles_transaction(
 	launch_input: GFProjectileLaunchInput3D,
@@ -877,108 +777,6 @@ func _emit_projectiles_transaction(
 		_emit_failure(&"emitter_released", {})
 		return []
 	return roots
-
-
-## 解析本次发射使用的 typed 3D definition。
-## [br]
-## @api public
-## [br]
-## @since unreleased
-## [br]
-## @param projectile_id: 可选 catalog ID。
-## [br]
-## @return: 匹配的 3D definition；缺失或维度不匹配时返回 null。
-func resolve_projectile_definition(
-	projectile_id: StringName = &""
-) -> GFProjectileDefinition3D:
-	if projectile_catalog != null and projectile_id != &"":
-		var catalog_definition: GFProjectileDefinition = projectile_catalog.get_definition(projectile_id)
-		if catalog_definition is GFProjectileDefinition3D:
-			var typed_definition: GFProjectileDefinition3D = catalog_definition
-			return typed_definition
-		return null
-	return projectile_definition
-
-
-## 解析完整实例 root 的生成父节点。
-## [br]
-## @api public
-## [br]
-## @since 3.17.0
-## [br]
-## @return: configured parent、emitter parent 或 tree 内 emitter；不可用时返回 null。
-func resolve_spawn_parent() -> Node:
-	if spawn_parent_path != NodePath(""):
-		var configured_parent: Node = get_node_or_null(spawn_parent_path)
-		if configured_parent != null:
-			return configured_parent
-	var parent: Node = get_parent()
-	return parent if parent != null else (self if is_inside_tree() else null)
-
-
-## 预热指定 definition 的 pool 实例。
-## [br]
-## @api public
-## [br]
-## @since 3.17.0
-## [br]
-## @param count: 要预热的正数量。
-## [br]
-## @param projectile_id: 可选 catalog ID。
-## [br]
-## @return: 是否已向配置的 pool 提交预热。
-func prewarm_projectiles(count: int, projectile_id: StringName = &"") -> bool:
-	if (
-		count <= 0
-		or object_pool_utility == null
-		or not is_instance_valid(object_pool_utility)
-		or _is_releasing
-		or _emission_in_progress
-		or is_queued_for_deletion()
-	):
-		return false
-	_emission_in_progress = true
-	var emitter_lifetime_ref: WeakRef = weakref(self)
-	var request_release_generation: int = _release_generation
-	var pool: GFObjectPoolUtility = object_pool_utility
-	var effective_id: StringName = projectile_id if projectile_id != &"" else default_projectile_id
-	var definition: GFProjectileDefinition3D = resolve_projectile_definition(effective_id)
-	if not GFProjectileEmitter3D._lifetime_ref_is_live(emitter_lifetime_ref):
-		return false
-	var spawn_parent: Node = resolve_spawn_parent()
-	if not GFProjectileEmitter3D._lifetime_ref_is_live(emitter_lifetime_ref):
-		return false
-	var projectile_scene: PackedScene = (
-		definition.scene
-		if definition != null and is_instance_valid(definition)
-		else null
-	)
-	if not GFProjectileEmitter3D._lifetime_ref_is_live(emitter_lifetime_ref):
-		return false
-	if (
-		definition == null
-		or not is_instance_valid(definition)
-		or projectile_scene == null
-		or not is_instance_valid(projectile_scene)
-		or spawn_parent == null
-		or not is_instance_valid(spawn_parent)
-		or spawn_parent.is_queued_for_deletion()
-		or not is_instance_valid(pool)
-		or pool != object_pool_utility
-		or not _request_is_current(request_release_generation)
-	):
-		_emission_in_progress = false
-		return false
-	pool.prewarm(projectile_scene, spawn_parent, count)
-	if not GFProjectileEmitter3D._lifetime_ref_is_live(emitter_lifetime_ref):
-		return false
-	var succeeded: bool = (
-		_request_is_current(request_release_generation)
-		and is_instance_valid(pool)
-		and pool == object_pool_utility
-	)
-	_emission_in_progress = false
-	return succeeded
 
 
 func _merge_launch_input(
@@ -1494,3 +1292,223 @@ func _failure_detail_key_is_allowed(key: StringName) -> bool:
 		&"policy_state_generation",
 		&"policy_enabled",
 	]
+
+
+# --- 内部类 ---
+
+class _RetirementRecord:
+	extends Node
+
+	var _root: Node = null
+	var _root_instance_id: int = 0
+	var _scene: PackedScene = null
+	var _pool: GFObjectPoolUtility = null
+	var _session: GFProjectileSession = null
+	var _reservation: GFProjectileLaunchReservation = null
+	var _retirement_owner_id: int = 0
+	var _retired: bool = false
+	var _retirement_claimed: bool = false
+	var _root_tree_exiting: bool = false
+	var _force_deferred_pool: bool = false
+	var _settled_callback: Callable = Callable()
+
+	func _configure(
+		projectile_scene: PackedScene,
+		pool: GFObjectPoolUtility,
+		settled_callback: Callable,
+		retirement_owner_id: int
+	) -> void:
+		_scene = projectile_scene
+		_pool = pool
+		_settled_callback = settled_callback
+		_retirement_owner_id = retirement_owner_id
+
+	func _bind_root(projectile_root: Node) -> Error:
+		if (
+			_retirement_claimed
+			or projectile_root == null
+			or not is_instance_valid(projectile_root)
+			or projectile_root.is_queued_for_deletion()
+		):
+			return ERR_INVALID_PARAMETER
+		if _root != null and _root != projectile_root:
+			return ERR_ALREADY_IN_USE
+		_root = projectile_root
+		_root_instance_id = projectile_root.get_instance_id()
+		if not _root.tree_exiting.is_connected(_on_root_tree_exiting):
+			var connected: int = _root.tree_exiting.connect(
+				_on_root_tree_exiting,
+				CONNECT_ONE_SHOT
+			)
+			if connected != OK:
+				return connected as Error
+		return OK
+
+	func _bind_session(active_session: GFProjectileSession) -> Error:
+		if (
+			_retirement_claimed
+			or active_session == null
+			or not is_instance_valid(active_session)
+			or _session != null
+		):
+			return ERR_INVALID_PARAMETER
+		_session = active_session
+		_reservation = null
+		var connected: int = _session.finished.connect(
+			_on_session_finished,
+			CONNECT_ONE_SHOT
+		)
+		if connected != OK:
+			return connected as Error
+		return OK
+
+	func _bind_reservation(reservation: GFProjectileLaunchReservation) -> Error:
+		if (
+			_retirement_claimed
+			or reservation == null
+			or not is_instance_valid(reservation)
+			or _reservation != null
+			or _session != null
+		):
+			return ERR_INVALID_PARAMETER
+		_reservation = reservation
+		return OK
+
+	func _defer_pool_retirement() -> void:
+		_force_deferred_pool = true
+
+	func _retire(force_deferred_pool: bool = false) -> void:
+		if _retirement_claimed:
+			return
+		_retirement_claimed = true
+		_force_deferred_pool = _force_deferred_pool or force_deferred_pool
+		var root_requires_deferred_settlement: bool = (
+			_root_tree_exiting
+			or _root == null
+			or not is_instance_valid(_root)
+			or _root.is_queued_for_deletion()
+			or not _root.is_inside_tree()
+		)
+		if (
+			root_requires_deferred_settlement
+			or (
+				_pool != null
+				and is_instance_valid(_pool)
+				and _force_deferred_pool
+			)
+		):
+			call_deferred(&"_settle_now")
+			return
+		_settle_now()
+
+	func _settle_now() -> void:
+		if _retired:
+			return
+		_retired = true
+		var managed_session: GFProjectileSession = _session
+		var projectile_root: Node = _root
+		var projectile_root_id: int = _root_instance_id
+		var projectile_scene: PackedScene = _scene
+		var pool: GFObjectPoolUtility = _pool
+		_release_unconsumed_reservation()
+		if pool != null and is_instance_valid(pool):
+			if projectile_root != null and is_instance_valid(projectile_root):
+				var released_to_pool: bool = pool.release_for_framework(
+					projectile_root,
+					projectile_scene
+				)
+				if not released_to_pool and not projectile_root.is_queued_for_deletion():
+					projectile_root.queue_free()
+			elif projectile_root_id > 0:
+				var _lost_retired: bool = pool.retire_lost_lease_for_framework(
+					projectile_scene,
+					projectile_root_id
+				)
+		elif (
+			projectile_root != null
+			and is_instance_valid(projectile_root)
+			and not projectile_root.is_queued_for_deletion()
+		):
+			projectile_root.queue_free()
+		_release_terminal_claim(managed_session)
+		_root = null
+		_root_instance_id = 0
+		_scene = null
+		_pool = null
+		_session = null
+		_reservation = null
+		_retirement_owner_id = 0
+		if _settled_callback.is_valid():
+			var _settled: Variant = _settled_callback.call(self)
+		_settled_callback = Callable()
+		queue_free()
+
+	func _release_terminal_claim(managed_session: GFProjectileSession) -> void:
+		if managed_session == null or not is_instance_valid(managed_session):
+			return
+		var runtime_value: Node = managed_session.get_runtime()
+		if runtime_value is GFProjectile3D:
+			var runtime: GFProjectile3D = runtime_value
+			var _released: bool = runtime.release_terminal_retirement_for_framework(
+				managed_session
+			)
+
+	func _release_unconsumed_reservation() -> void:
+		if _reservation == null or not is_instance_valid(_reservation):
+			return
+		var _invalidated: bool = _reservation.invalidate_lost_owner_for_framework(
+			_retirement_owner_id,
+			&"allocator_owner_lost"
+		)
+
+	func _on_root_tree_exiting() -> void:
+		_root_tree_exiting = true
+		_force_deferred_pool = true
+		if _session != null and is_instance_valid(_session) and _session.is_active():
+			var _finished: bool = _session.finish(
+				GFProjectileSession.EndReason.ROOT_LOST
+			)
+		elif _session == null:
+			_retire(true)
+
+	func _on_session_finished(
+		_finished_session: GFProjectileSession,
+		_reason: int
+	) -> void:
+		var root_is_exiting: bool = (
+			_root == null
+			or not is_instance_valid(_root)
+			or not _root.is_inside_tree()
+		)
+		_retire(_force_deferred_pool or _root_tree_exiting or root_is_exiting)
+
+
+class _DefinitionSnapshot:
+	extends RefCounted
+
+	var _definition: GFProjectileDefinition3D = null
+	var _scene: PackedScene = null
+	var _runtime_path: NodePath = NodePath("")
+	var _impact_source_paths: Array[NodePath] = []
+	var _motion: GFProjectileMotion = null
+	var _lifetime: GFProjectileLifetimePolicy = null
+	var _body_adapter: GFProjectileBodyAdapter3D = null
+
+	func _is_current() -> bool:
+		return (
+			_definition != null
+			and is_instance_valid(_definition)
+			and _scene != null
+			and is_instance_valid(_scene)
+			and _definition.scene == _scene
+			and _definition.runtime_path == _runtime_path
+			and _definition.impact_source_paths == _impact_source_paths
+			and _motion != null
+			and is_instance_valid(_motion)
+			and _definition.motion == _motion
+			and _definition.lifetime_policy == _lifetime
+			and (_lifetime == null or is_instance_valid(_lifetime))
+			and _body_adapter != null
+			and is_instance_valid(_body_adapter)
+			and _definition.body_adapter == _body_adapter
+		)

@@ -9,15 +9,12 @@ class_name GFLinearProjectileMotion
 extends GFProjectileMotion
 
 
+# --- 常量 ---
+
 const _GF_COMBAT_FINITE_MATH = preload("res://addons/gf/extensions/combat/core/gf_combat_finite_math.gd")
 
 
-class _LinearState:
-	extends GFProjectileMotionState
-
-	var _velocity_2d: Vector2 = Vector2.ZERO
-	var _velocity_3d: Vector3 = Vector3.ZERO
-
+# --- 导出变量 ---
 
 ## world-space 运动速度。
 ## [br]
@@ -54,6 +51,8 @@ class _LinearState:
 ## @since 3.17.0
 @export var normalize_direction: bool = true
 
+
+# --- 可重写钩子 / 虚方法 ---
 
 func _create_state_2d(
 	_launch_input: GFProjectileLaunchInput2D,
@@ -128,3 +127,12 @@ func _compute_intent_3d(
 		return GFProjectileMotionIntent3D.rejected(&"invalid_motion_state")
 	var linear_state: _LinearState = state
 	return GFProjectileMotionIntent3D.move(linear_state._velocity_3d, delta)
+
+
+# --- 内部类 ---
+
+class _LinearState:
+	extends GFProjectileMotionState
+
+	var _velocity_2d: Vector2 = Vector2.ZERO
+	var _velocity_3d: Vector3 = Vector3.ZERO

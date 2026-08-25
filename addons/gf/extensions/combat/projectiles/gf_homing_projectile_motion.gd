@@ -9,19 +9,12 @@ class_name GFHomingProjectileMotion
 extends GFProjectileMotion
 
 
+# --- 常量 ---
+
 const _GF_COMBAT_FINITE_MATH = preload("res://addons/gf/extensions/combat/core/gf_combat_finite_math.gd")
 
 
-class _HomingState:
-	extends GFProjectileMotionState
-
-	var _target_kind: int = 0
-	var _target_ref: WeakRef = null
-	var _target_position_2d: Vector2 = Vector2.ZERO
-	var _target_position_3d: Vector3 = Vector3.ZERO
-	var _locked_direction_2d: Vector2 = Vector2.ZERO
-	var _locked_direction_3d: Vector3 = Vector3.ZERO
-
+# --- 导出变量 ---
 
 ## world-space 追踪速度。
 ## [br]
@@ -52,6 +45,8 @@ class _HomingState:
 ## @since 3.17.0
 @export var stop_when_reached: bool = true
 
+
+# --- 可重写钩子 / 虚方法 ---
 
 func _create_state_2d(
 	launch_input: GFProjectileLaunchInput2D,
@@ -195,6 +190,8 @@ func _compute_intent_3d(
 	return _make_intent_3d(direction, offset.length(), delta, not locked_target_lost)
 
 
+# --- 私有/辅助方法 ---
+
 func _make_intent_2d(
 	direction: Vector2,
 	distance: float,
@@ -275,3 +272,16 @@ func _get_position_3d(node: Node3D) -> Vector3:
 
 func _get_position_2d(node: Node2D) -> Vector2:
 	return node.global_position if node.is_inside_tree() else node.position
+
+
+# --- 内部类 ---
+
+class _HomingState:
+	extends GFProjectileMotionState
+
+	var _target_kind: int = 0
+	var _target_ref: WeakRef = null
+	var _target_position_2d: Vector2 = Vector2.ZERO
+	var _target_position_3d: Vector3 = Vector3.ZERO
+	var _locked_direction_2d: Vector2 = Vector2.ZERO
+	var _locked_direction_3d: Vector3 = Vector3.ZERO

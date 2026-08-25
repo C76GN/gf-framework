@@ -9,6 +9,8 @@ class_name GFProjectileDefinition
 extends Resource
 
 
+# --- 导出变量 ---
+
 ## 可实例化的完整 projectile scene。
 ## [br]
 ## @api public
@@ -46,6 +48,8 @@ extends Resource
 ## @since unreleased
 @export var lifetime_policy: GFProjectileLifetimePolicy = null
 
+
+# --- 私有/辅助方法 ---
 
 func _bind_instance(
 	root: Node,

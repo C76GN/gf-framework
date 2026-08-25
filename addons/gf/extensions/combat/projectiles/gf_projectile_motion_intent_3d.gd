@@ -9,6 +9,8 @@ class_name GFProjectileMotionIntent3D
 extends RefCounted
 
 
+# --- 枚举 ---
+
 ## 定义 motion 计算的封闭输出种类。
 ## [br]
 ## @api public
@@ -26,11 +28,15 @@ enum Kind {
 }
 
 
+# --- 私有变量 ---
+
 var _kind: Kind = Kind.NONE
 var _velocity: Vector3 = Vector3.ZERO
 var _delta_seconds: float = 0.0
 var _failure_reason: StringName = &""
 
+
+# --- 公共方法 ---
 
 ## 构造 world-space MOVE intent。
 ## [br]

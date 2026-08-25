@@ -9,6 +9,8 @@ class_name GFProjectileCatalog
 extends Resource
 
 
+# --- 导出变量 ---
+
 ## 目录条目；重复或无效条目不会参与查找结果。
 ## [br]
 ## @api public
@@ -18,6 +20,8 @@ extends Resource
 ## @schema entries: Array[GFProjectileCatalogEntry]，每个有效 projectile_id 只保留首个定义。
 @export var entries: Array[GFProjectileCatalogEntry] = []
 
+
+# --- 公共方法 ---
 
 ## 设置或替换一个 typed definition。
 ## [br]
@@ -130,6 +134,8 @@ func prune_invalid_entries() -> int:
 	entries = retained
 	return before_size - entries.size()
 
+
+# --- 私有/辅助方法 ---
 
 func _get_entry(projectile_id: StringName) -> GFProjectileCatalogEntry:
 	if projectile_id == &"":

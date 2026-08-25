@@ -9,6 +9,8 @@ class_name GFProjectileLaunchReservation
 extends RefCounted
 
 
+# --- 枚举 ---
+
 ## 定义 reservation 的封闭单向状态。
 ## [br]
 ## @api framework_internal
@@ -22,6 +24,8 @@ enum State {
 }
 
 
+# --- 私有变量 ---
+
 var _state: State = State.INVALIDATED
 var _runtime_ref: WeakRef = null
 var _binding: GFProjectileBinding = null
@@ -30,6 +34,8 @@ var _owner_ref: WeakRef = null
 var _owner_id: int = 0
 var _activated_session: GFProjectileSession = null
 
+
+# --- 框架内部方法 ---
 
 ## 读取 reservation 状态。
 ## [br]
@@ -275,6 +281,8 @@ func record_activation_for_framework(
 	_activated_session = session
 	return OK
 
+
+# --- 私有/辅助方法 ---
 
 func _is_same_live_owner(owner: Object) -> bool:
 	if not _owner_is_live(owner) or _owner_ref == null:

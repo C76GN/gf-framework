@@ -9,14 +9,20 @@ class_name GFProjectileBodyResult3D
 extends RefCounted
 
 
+# --- 常量 ---
+
 const _GF_COMBAT_FINITE_MATH = preload("res://addons/gf/extensions/combat/core/gf_combat_finite_math.gd")
 
+
+# --- 私有变量 ---
 
 var _successful: bool = false
 var _failure_reason: StringName = &"unconfigured"
 var _transform: Transform3D = Transform3D.IDENTITY
 var _actual_displacement: Vector3 = Vector3.ZERO
 
+
+# --- 公共方法 ---
 
 ## 构造成功的 3D body 结果。
 ## [br]

@@ -9,6 +9,8 @@ class_name GFProjectileEmissionReceipt
 extends RefCounted
 
 
+# --- 枚举 ---
+
 ## 定义 deferred receipt 的封闭单向状态。
 ## [br]
 ## @api framework_internal
@@ -19,6 +21,8 @@ enum State {
 	COMPENSATED = 3,
 }
 
+
+# --- 私有变量 ---
 
 var _state: State = State.COMMITTED_UNPUBLISHED
 var _policy: GFProjectileEmissionPolicy = null
@@ -32,6 +36,8 @@ var _settlement_in_progress: bool = false
 var _publish_attempted: bool = false
 var _compensation_attempted: bool = false
 
+
+# --- 框架内部方法 ---
 
 ## 读取 receipt 状态。
 ## [br]
@@ -185,6 +191,8 @@ func initialize_for_framework(
 	_initialized = true
 	return OK
 
+
+# --- 私有/辅助方法 ---
 
 func _node_from_ref(weak_reference: WeakRef) -> Node:
 	if weak_reference == null:

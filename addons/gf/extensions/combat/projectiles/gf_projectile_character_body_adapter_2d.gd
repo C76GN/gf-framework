@@ -9,6 +9,8 @@ class_name GFProjectileCharacterBodyAdapter2D
 extends GFProjectileBodyAdapter2D
 
 
+# --- 可重写钩子 / 虚方法 ---
+
 func _validate_root(root: Node) -> Error:
 	if (
 		root == null

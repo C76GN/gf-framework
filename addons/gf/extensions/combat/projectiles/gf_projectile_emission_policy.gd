@@ -213,90 +213,6 @@ func commit_emission(emitter: Node, prepare_report: Dictionary, emitted_count: i
 	return report
 
 
-func _commit_emission_transaction(
-	emitter: Node,
-	prepare_report: Dictionary,
-	emitted_count: int,
-	now_msec: int
-) -> Dictionary:
-	if not is_configuration_valid():
-		return _make_commit_report(false, false, &"non_finite_policy_configuration", emitted_count, 0.0, now_msec)
-	if not GFVariantData.get_option_bool(prepare_report, "ok"):
-		return _make_commit_report(false, false, &"prepare_report_not_ok", emitted_count, 0.0, now_msec)
-	if emitted_count <= 0:
-		return _make_commit_report(false, false, &"nothing_emitted", emitted_count, 0.0, now_msec)
-	if GFVariantData.get_option_int(prepare_report, "policy_instance_id", -1) != get_instance_id():
-		return _make_commit_report(false, false, &"foreign_prepare_report", emitted_count, 0.0, now_msec)
-	if (
-		GFVariantData.get_option_int(prepare_report, "policy_state_generation", -1)
-		!= _state_generation
-	):
-		return _make_commit_report(false, false, &"stale_prepare_report", emitted_count, 0.0, now_msec)
-	if GFVariantData.get_option_bool(prepare_report, "policy_enabled", enabled) != enabled:
-		return _make_commit_report(false, false, &"stale_prepare_report", emitted_count, 0.0, now_msec)
-	var configuration_value: Variant = prepare_report.get("policy_configuration")
-	if (
-		typeof(configuration_value) != TYPE_DICTIONARY
-		or configuration_value != _capture_configuration()
-	):
-		return _make_commit_report(
-			false,
-			false,
-			&"stale_prepare_report",
-			emitted_count,
-			0.0,
-			now_msec
-		)
-
-	var prepared_emit_count: int = GFVariantData.get_option_int(prepare_report, "emit_count", 0)
-	if emitted_count > prepared_emit_count:
-		return _make_commit_report(false, false, &"invalid_emitted_count", emitted_count, 0.0, now_msec)
-	if not enabled:
-		return _make_commit_report(true, true, &"", emitted_count, 0.0, now_msec)
-	if max_projectiles_per_request > 0 and emitted_count > max_projectiles_per_request:
-		return _make_commit_report(false, false, &"invalid_emitted_count", emitted_count, 0.0, now_msec)
-	if max_emission_count > 0 and _emission_count >= max_emission_count:
-		return _make_commit_report(false, false, &"emission_count_exhausted", emitted_count, 0.0, now_msec)
-	if _get_remaining_cooldown_seconds_raw(now_msec) > 0.0:
-		return _make_commit_report(false, false, &"cooldown", emitted_count, 0.0, now_msec)
-
-	var available_charges: float = _get_available_charges_raw(now_msec)
-	var consumed_charges: float = _get_required_charges_raw(emitted_count)
-	if (
-		not _GF_COMBAT_FINITE_MATH.is_finite_float(available_charges)
-		or not _GF_COMBAT_FINITE_MATH.is_finite_float(consumed_charges)
-		or GFVariantData.get_option_int(
-			prepare_report,
-			"policy_state_generation",
-			-1
-		) != _state_generation
-		or GFVariantData.get_option_bool(prepare_report, "policy_enabled", enabled) != enabled
-	):
-		return _make_commit_report(
-			false,
-			false,
-			&"stale_prepare_report",
-			emitted_count,
-			0.0,
-			now_msec
-		)
-	if consumed_charges > 0.0 and available_charges + 0.000001 < consumed_charges:
-		return _make_commit_report(false, false, &"insufficient_charges", emitted_count, 0.0, now_msec)
-
-	if charge_capacity > 0.0 and (
-		charge_cost_per_request > 0.0
-		or charge_cost_per_projectile > 0.0
-	):
-		_charges = maxf(0.0, available_charges - consumed_charges)
-		_last_charge_update_msec = now_msec
-	_last_emission_msec = now_msec
-	_emission_count += 1
-	_state_generation += 1
-	if _defer_commit_hook_depth <= 0:
-		_commit_emission(emitter, prepare_report, emitted_count)
-	return _make_commit_report(true, true, &"", emitted_count, consumed_charges, now_msec)
-
-
 ## 提交 charge/cooldown，但延迟用户 commit hook。
 ## [br]
 ## @api framework_internal
@@ -413,24 +329,6 @@ func compensate_deferred_for_framework(
 	)
 	_deferred_settlement_in_progress = false
 	return report
-
-
-func _compensate_deferred_transaction(
-	snapshot: Dictionary,
-	expected_generation: int
-) -> Dictionary:
-	if (
-		GFVariantData.get_option_int(snapshot, "policy_instance_id", -1)
-		!= get_instance_id()
-		or _state_generation != expected_generation
-	):
-		return { "ok": false, "compensated": false, "reason": &"stale_compensation" }
-	_last_emission_msec = GFVariantData.get_option_int(snapshot, "last_emission_msec", -1)
-	_last_charge_update_msec = GFVariantData.get_option_int(snapshot, "last_charge_update_msec", -1)
-	_charges = GFVariantData.get_option_float(snapshot, "charges", -1.0)
-	_emission_count = GFVariantData.get_option_int(snapshot, "emission_count", 0)
-	_state_generation = GFVariantData.get_option_int(snapshot, "state_generation", 0)
-	return { "ok": true, "compensated": true, "reason": &"" }
 
 
 ## 读取策略 mutation generation。
@@ -602,6 +500,108 @@ func _commit_emission(_emitter: Node, _prepare_report: Dictionary, _emitted_coun
 
 
 # --- 私有/辅助方法 ---
+
+func _commit_emission_transaction(
+	emitter: Node,
+	prepare_report: Dictionary,
+	emitted_count: int,
+	now_msec: int
+) -> Dictionary:
+	if not is_configuration_valid():
+		return _make_commit_report(false, false, &"non_finite_policy_configuration", emitted_count, 0.0, now_msec)
+	if not GFVariantData.get_option_bool(prepare_report, "ok"):
+		return _make_commit_report(false, false, &"prepare_report_not_ok", emitted_count, 0.0, now_msec)
+	if emitted_count <= 0:
+		return _make_commit_report(false, false, &"nothing_emitted", emitted_count, 0.0, now_msec)
+	if GFVariantData.get_option_int(prepare_report, "policy_instance_id", -1) != get_instance_id():
+		return _make_commit_report(false, false, &"foreign_prepare_report", emitted_count, 0.0, now_msec)
+	if (
+		GFVariantData.get_option_int(prepare_report, "policy_state_generation", -1)
+		!= _state_generation
+	):
+		return _make_commit_report(false, false, &"stale_prepare_report", emitted_count, 0.0, now_msec)
+	if GFVariantData.get_option_bool(prepare_report, "policy_enabled", enabled) != enabled:
+		return _make_commit_report(false, false, &"stale_prepare_report", emitted_count, 0.0, now_msec)
+	var configuration_value: Variant = prepare_report.get("policy_configuration")
+	if (
+		typeof(configuration_value) != TYPE_DICTIONARY
+		or configuration_value != _capture_configuration()
+	):
+		return _make_commit_report(
+			false,
+			false,
+			&"stale_prepare_report",
+			emitted_count,
+			0.0,
+			now_msec
+		)
+
+	var prepared_emit_count: int = GFVariantData.get_option_int(prepare_report, "emit_count", 0)
+	if emitted_count > prepared_emit_count:
+		return _make_commit_report(false, false, &"invalid_emitted_count", emitted_count, 0.0, now_msec)
+	if not enabled:
+		return _make_commit_report(true, true, &"", emitted_count, 0.0, now_msec)
+	if max_projectiles_per_request > 0 and emitted_count > max_projectiles_per_request:
+		return _make_commit_report(false, false, &"invalid_emitted_count", emitted_count, 0.0, now_msec)
+	if max_emission_count > 0 and _emission_count >= max_emission_count:
+		return _make_commit_report(false, false, &"emission_count_exhausted", emitted_count, 0.0, now_msec)
+	if _get_remaining_cooldown_seconds_raw(now_msec) > 0.0:
+		return _make_commit_report(false, false, &"cooldown", emitted_count, 0.0, now_msec)
+
+	var available_charges: float = _get_available_charges_raw(now_msec)
+	var consumed_charges: float = _get_required_charges_raw(emitted_count)
+	if (
+		not _GF_COMBAT_FINITE_MATH.is_finite_float(available_charges)
+		or not _GF_COMBAT_FINITE_MATH.is_finite_float(consumed_charges)
+		or GFVariantData.get_option_int(
+			prepare_report,
+			"policy_state_generation",
+			-1
+		) != _state_generation
+		or GFVariantData.get_option_bool(prepare_report, "policy_enabled", enabled) != enabled
+	):
+		return _make_commit_report(
+			false,
+			false,
+			&"stale_prepare_report",
+			emitted_count,
+			0.0,
+			now_msec
+		)
+	if consumed_charges > 0.0 and available_charges + 0.000001 < consumed_charges:
+		return _make_commit_report(false, false, &"insufficient_charges", emitted_count, 0.0, now_msec)
+
+	if charge_capacity > 0.0 and (
+		charge_cost_per_request > 0.0
+		or charge_cost_per_projectile > 0.0
+	):
+		_charges = maxf(0.0, available_charges - consumed_charges)
+		_last_charge_update_msec = now_msec
+	_last_emission_msec = now_msec
+	_emission_count += 1
+	_state_generation += 1
+	if _defer_commit_hook_depth <= 0:
+		_commit_emission(emitter, prepare_report, emitted_count)
+	return _make_commit_report(true, true, &"", emitted_count, consumed_charges, now_msec)
+
+
+func _compensate_deferred_transaction(
+	snapshot: Dictionary,
+	expected_generation: int
+) -> Dictionary:
+	if (
+		GFVariantData.get_option_int(snapshot, "policy_instance_id", -1)
+		!= get_instance_id()
+		or _state_generation != expected_generation
+	):
+		return { "ok": false, "compensated": false, "reason": &"stale_compensation" }
+	_last_emission_msec = GFVariantData.get_option_int(snapshot, "last_emission_msec", -1)
+	_last_charge_update_msec = GFVariantData.get_option_int(snapshot, "last_charge_update_msec", -1)
+	_charges = GFVariantData.get_option_float(snapshot, "charges", -1.0)
+	_emission_count = GFVariantData.get_option_int(snapshot, "emission_count", 0)
+	_state_generation = GFVariantData.get_option_int(snapshot, "state_generation", 0)
+	return { "ok": true, "compensated": true, "reason": &"" }
+
 
 func _make_prepare_report(
 	ok: bool,

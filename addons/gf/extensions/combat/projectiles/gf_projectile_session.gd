@@ -9,8 +9,7 @@ class_name GFProjectileSession
 extends RefCounted
 
 
-const _GF_COMBAT_FINITE_MATH = preload("res://addons/gf/extensions/combat/core/gf_combat_finite_math.gd")
-
+# --- 信号 ---
 
 ## session 首次进入 FINISHED 时发出。
 ## [br]
@@ -23,6 +22,8 @@ const _GF_COMBAT_FINITE_MATH = preload("res://addons/gf/extensions/combat/core/g
 ## @param reason: `EndReason` 枚举值。
 signal finished(session: GFProjectileSession, reason: int)
 
+
+# --- 枚举 ---
 
 ## 定义 session 的空间维度。
 ## [br]
@@ -93,6 +94,13 @@ enum EndReason {
 }
 
 
+# --- 常量 ---
+
+const _GF_COMBAT_FINITE_MATH = preload("res://addons/gf/extensions/combat/core/gf_combat_finite_math.gd")
+
+
+# --- 私有变量 ---
+
 var _status: Status = Status.UNCONFIGURED
 var _dimension: Dimension = Dimension.TWO_D
 var _generation: int = 0
@@ -108,6 +116,8 @@ var _notification_barrier_depth: int = 0
 var _finished_notification_pending: bool = false
 var _terminal_body_observation_recorded: bool = false
 
+
+# --- 公共方法 ---
 
 ## 返回当前生命周期状态。
 ## [br]
@@ -265,6 +275,7 @@ func finish(reason: EndReason = EndReason.CALLER_FINISHED) -> bool:
 		finished.emit(self, reason)
 	return true
 
+# --- 框架内部方法 ---
 
 ## 由 runtime 原子激活 session。
 ## [br]
@@ -432,6 +443,8 @@ func release_notification_barrier_for_framework() -> Error:
 		finished.emit(self, _end_reason)
 	return OK
 
+
+# --- 私有/辅助方法 ---
 
 func _stop_body_once() -> void:
 	var root: Node = get_instance_root()

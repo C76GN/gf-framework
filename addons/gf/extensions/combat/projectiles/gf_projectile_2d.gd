@@ -9,8 +9,7 @@ class_name GFProjectile2D
 extends Node
 
 
-const _GF_COMBAT_FINITE_MATH = preload("res://addons/gf/extensions/combat/core/gf_combat_finite_math.gd")
-
+# --- 信号 ---
 
 ## session 已 ACTIVE 且允许发布 started 时发出。
 ## [br]
@@ -32,6 +31,13 @@ signal projectile_started(session: GFProjectileSession)
 ## @param reason: `GFProjectileSession.EndReason` 枚举值。
 signal projectile_finished(session: GFProjectileSession, reason: int)
 
+
+# --- 常量 ---
+
+const _GF_COMBAT_FINITE_MATH = preload("res://addons/gf/extensions/combat/core/gf_combat_finite_math.gd")
+
+
+# --- 私有变量 ---
 
 var _active_session: GFProjectileSession = null
 var _binding: GFProjectileBinding2D = null
@@ -57,6 +63,8 @@ var _impact_callbacks: Array[Callable] = []
 var _body_application_session: GFProjectileSession = null
 var _terminal_cleanup_pending: bool = false
 
+
+# --- Godot 生命周期方法 ---
 
 func _ready() -> void:
 	set_physics_process(false)
@@ -218,93 +226,7 @@ func _physics_process(delta: float) -> void:
 	_evaluate_lifetime(session)
 
 
-func _step_topology_is_current(
-	session_value: Variant,
-	root_value: Variant,
-	binding_value: Variant
-) -> bool:
-	if not _is_live_object_of_type(session_value, GFProjectileSession):
-		if _active_session != null and not is_instance_valid(_active_session):
-			_discard_invalid_active_state()
-		return false
-	var session: GFProjectileSession = session_value
-	if session != _active_session or not session.is_active():
-		return false
-	if not _is_live_node(root_value):
-		var _root_lost: bool = session.finish(GFProjectileSession.EndReason.ROOT_LOST)
-		return false
-	var root: Node = root_value
-	if session.get_instance_root() != root:
-		var _root_identity_lost: bool = session.finish(GFProjectileSession.EndReason.ROOT_LOST)
-		return false
-	if not _is_live_object_of_type(binding_value, GFProjectileBinding2D):
-		var _topology_lost: bool = session.finish(
-			GFProjectileSession.EndReason.IMPACT_SOURCE_LOST
-		)
-		return false
-	var binding: GFProjectileBinding2D = binding_value
-	if binding != _binding or not binding.is_topology_current_for_framework():
-		var _binding_lost: bool = session.finish(
-			GFProjectileSession.EndReason.IMPACT_SOURCE_LOST
-		)
-		return false
-	return true
-
-
-func _terminal_application_is_owned(
-	session_value: Variant,
-	root_value: Variant,
-	binding_value: Variant,
-	motion_value: Variant,
-	adapter_value: Variant
-) -> bool:
-	if (
-		not _is_live_object_of_type(session_value, GFProjectileSession)
-		or not _is_live_node(root_value)
-		or not _is_live_object_of_type(binding_value, GFProjectileBinding2D)
-		or not _is_live_object_of_type(motion_value, GFProjectileMotion)
-		or not _is_live_object_of_type(adapter_value, GFProjectileBodyAdapter2D)
-	):
-		return false
-	var session: GFProjectileSession = session_value
-	return (
-		_terminal_cleanup_pending
-		and session == _active_session
-		and session.is_finished()
-		and session.get_runtime() == self
-		and binding_value == _binding
-		and motion_value == _active_motion
-		and adapter_value == _active_adapter
-	)
-
-
-func _step_dependencies_are_current(
-	session_value: Variant,
-	root_value: Variant,
-	binding_value: Variant,
-	motion_value: Variant,
-	adapter_value: Variant
-) -> bool:
-	if not _step_topology_is_current(session_value, root_value, binding_value):
-		return false
-	var session: GFProjectileSession = session_value
-	if (
-		not _is_live_object_of_type(motion_value, GFProjectileMotion)
-		or motion_value != _active_motion
-		or not _is_live_object_of_type(_motion_state, GFProjectileMotionState)
-	):
-		var _motion_lost: bool = session.finish(GFProjectileSession.EndReason.MOTION_FAILED)
-		return false
-	if (
-		not _is_live_object_of_type(adapter_value, GFProjectileBodyAdapter2D)
-		or adapter_value != _active_adapter
-	):
-		var _adapter_lost: bool = session.finish(
-			GFProjectileSession.EndReason.BODY_APPLICATION_FAILED
-		)
-		return false
-	return true
-
+# --- 公共方法 ---
 
 ## 直接激活一个已验证 binding。
 ## [br]
@@ -379,6 +301,8 @@ func is_active() -> bool:
 		and _active_session.is_active()
 	)
 
+
+# --- 框架内部方法 ---
 
 ## 创建 owner-bound 的内部 launch reservation。
 ## [br]
@@ -609,6 +533,96 @@ func publication_is_current_for_framework(
 	):
 		return false
 	return _binding.get_runtime() == self
+
+
+# --- 私有/辅助方法 ---
+
+func _step_topology_is_current(
+	session_value: Variant,
+	root_value: Variant,
+	binding_value: Variant
+) -> bool:
+	if not _is_live_object_of_type(session_value, GFProjectileSession):
+		if _active_session != null and not is_instance_valid(_active_session):
+			_discard_invalid_active_state()
+		return false
+	var session: GFProjectileSession = session_value
+	if session != _active_session or not session.is_active():
+		return false
+	if not _is_live_node(root_value):
+		var _root_lost: bool = session.finish(GFProjectileSession.EndReason.ROOT_LOST)
+		return false
+	var root: Node = root_value
+	if session.get_instance_root() != root:
+		var _root_identity_lost: bool = session.finish(GFProjectileSession.EndReason.ROOT_LOST)
+		return false
+	if not _is_live_object_of_type(binding_value, GFProjectileBinding2D):
+		var _topology_lost: bool = session.finish(
+			GFProjectileSession.EndReason.IMPACT_SOURCE_LOST
+		)
+		return false
+	var binding: GFProjectileBinding2D = binding_value
+	if binding != _binding or not binding.is_topology_current_for_framework():
+		var _binding_lost: bool = session.finish(
+			GFProjectileSession.EndReason.IMPACT_SOURCE_LOST
+		)
+		return false
+	return true
+
+
+func _terminal_application_is_owned(
+	session_value: Variant,
+	root_value: Variant,
+	binding_value: Variant,
+	motion_value: Variant,
+	adapter_value: Variant
+) -> bool:
+	if (
+		not _is_live_object_of_type(session_value, GFProjectileSession)
+		or not _is_live_node(root_value)
+		or not _is_live_object_of_type(binding_value, GFProjectileBinding2D)
+		or not _is_live_object_of_type(motion_value, GFProjectileMotion)
+		or not _is_live_object_of_type(adapter_value, GFProjectileBodyAdapter2D)
+	):
+		return false
+	var session: GFProjectileSession = session_value
+	return (
+		_terminal_cleanup_pending
+		and session == _active_session
+		and session.is_finished()
+		and session.get_runtime() == self
+		and binding_value == _binding
+		and motion_value == _active_motion
+		and adapter_value == _active_adapter
+	)
+
+
+func _step_dependencies_are_current(
+	session_value: Variant,
+	root_value: Variant,
+	binding_value: Variant,
+	motion_value: Variant,
+	adapter_value: Variant
+) -> bool:
+	if not _step_topology_is_current(session_value, root_value, binding_value):
+		return false
+	var session: GFProjectileSession = session_value
+	if (
+		not _is_live_object_of_type(motion_value, GFProjectileMotion)
+		or motion_value != _active_motion
+		or not _is_live_object_of_type(_motion_state, GFProjectileMotionState)
+	):
+		var _motion_lost: bool = session.finish(GFProjectileSession.EndReason.MOTION_FAILED)
+		return false
+	if (
+		not _is_live_object_of_type(adapter_value, GFProjectileBodyAdapter2D)
+		or adapter_value != _active_adapter
+	):
+		var _adapter_lost: bool = session.finish(
+			GFProjectileSession.EndReason.BODY_APPLICATION_FAILED
+		)
+		return false
+	return true
 
 
 func _activate_prepared(
@@ -964,48 +978,6 @@ func _evaluate_lifetime(session: GFProjectileSession) -> void:
 		var _finished: bool = session.finish(reason)
 
 
-func _on_impact_accepted(
-	_context: GFCombatHitContext,
-	_receiver: Object,
-	_report: Dictionary,
-	generation: int
-) -> void:
-	if (
-		_active_session == null
-		or not is_instance_valid(_active_session)
-		or not _active_session.is_active()
-	):
-		return
-	var session: GFProjectileSession = _active_session
-	if generation != session.get_generation():
-		return
-	var binding_value: Variant = _binding
-	if not _step_topology_is_current(
-		session,
-		session.get_instance_root(),
-		binding_value
-	):
-		return
-	session.accept_impact_for_framework()
-	_evaluate_lifetime(session)
-
-
-func _on_session_finished(
-	finished_session: GFProjectileSession,
-	reason: int,
-	generation: int
-) -> void:
-	if _active_session != finished_session or generation != finished_session.get_generation():
-		return
-	_disconnect_impact_sources()
-	set_physics_process(false)
-	if _body_application_session == finished_session:
-		_terminal_cleanup_pending = true
-	projectile_finished.emit(finished_session, reason)
-	if _body_application_session != finished_session:
-		_clear_active_session(finished_session)
-
-
 func _finalize_terminal_cleanup(session_value: Variant) -> void:
 	if (
 		not _is_live_object_of_type(session_value, GFProjectileSession)
@@ -1071,3 +1043,47 @@ func _is_live_object_of_type(value: Variant, expected_type: Variant) -> bool:
 		and is_instance_valid(value)
 		and is_instance_of(value, expected_type)
 	)
+
+
+# --- 信号处理函数 ---
+
+func _on_impact_accepted(
+	_context: GFCombatHitContext,
+	_receiver: Object,
+	_report: Dictionary,
+	generation: int
+) -> void:
+	if (
+		_active_session == null
+		or not is_instance_valid(_active_session)
+		or not _active_session.is_active()
+	):
+		return
+	var session: GFProjectileSession = _active_session
+	if generation != session.get_generation():
+		return
+	var binding_value: Variant = _binding
+	if not _step_topology_is_current(
+		session,
+		session.get_instance_root(),
+		binding_value
+	):
+		return
+	session.accept_impact_for_framework()
+	_evaluate_lifetime(session)
+
+
+func _on_session_finished(
+	finished_session: GFProjectileSession,
+	reason: int,
+	generation: int
+) -> void:
+	if _active_session != finished_session or generation != finished_session.get_generation():
+		return
+	_disconnect_impact_sources()
+	set_physics_process(false)
+	if _body_application_session == finished_session:
+		_terminal_cleanup_pending = true
+	projectile_finished.emit(finished_session, reason)
+	if _body_application_session != finished_session:
+		_clear_active_session(finished_session)

@@ -9,6 +9,8 @@ class_name GFProjectileLaunchInput3D
 extends Resource
 
 
+# --- 枚举 ---
+
 ## 定义发射目标的封闭类型。
 ## [br]
 ## @api public
@@ -24,11 +26,15 @@ enum TargetKind {
 }
 
 
+# --- 私有变量 ---
+
 var _target_kind: TargetKind = TargetKind.NONE
 var _target_ref: WeakRef = null
 var _target_position: Vector3 = Vector3.ZERO
 var _metadata: Dictionary = {}
 
+
+# --- 公共方法 ---
 
 ## 清除目标。
 ## [br]

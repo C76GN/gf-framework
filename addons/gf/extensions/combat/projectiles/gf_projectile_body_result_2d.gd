@@ -9,14 +9,20 @@ class_name GFProjectileBodyResult2D
 extends RefCounted
 
 
+# --- 常量 ---
+
 const _GF_COMBAT_FINITE_MATH = preload("res://addons/gf/extensions/combat/core/gf_combat_finite_math.gd")
 
+
+# --- 私有变量 ---
 
 var _successful: bool = false
 var _failure_reason: StringName = &"unconfigured"
 var _transform: Transform2D = Transform2D.IDENTITY
 var _actual_displacement: Vector2 = Vector2.ZERO
 
+
+# --- 公共方法 ---
 
 ## 构造成功的 2D body 结果。
 ## [br]
