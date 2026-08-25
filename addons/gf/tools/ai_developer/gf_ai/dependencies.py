@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 import os
+import posixpath
 import stat
 from dataclasses import dataclass
 from pathlib import Path
@@ -23,6 +25,7 @@ MAX_DEPENDENCY_BYTES = 128 * 1024 * 1024
 MAX_DEPENDENCY_FILE_BYTES = 2 * 1024 * 1024
 MAX_EDGE_EVIDENCE = 12
 MAX_AMBIGUOUS_CLASSES = 100
+MAX_DECLARED_CLASS_OBSERVATIONS = MAX_DEPENDENCY_FILES
 MAX_UNOWNED_REFERENCE_EVIDENCE = 100
 MAX_OWNED_RESOURCE_REFERENCE_EVIDENCE = 100
 MAX_PATH_ROLE_REFERENCE_EVIDENCE = 100
@@ -38,12 +41,19 @@ class SourceToken:
 	kind: str
 	value: str
 	line: int
+	raw: bool = False
 
 
 @dataclass(frozen=True)
 class PinnedSource:
 	text: str
 	identity: tuple[int, int, int, int, int]
+
+
+@dataclass
+class PathRoleTraversalBudget:
+	remaining_entries: int
+	remaining_bytes: int
 
 
 @dataclass(frozen=True)
@@ -197,16 +207,26 @@ def analyze_module_dependencies(
 	path_role_collection = _collect_path_roles(project_root, contract_data, target_plan)
 	available_owned_resources = set(owned_resource_collection["available_paths"])
 	files: list[Path] = collection.pop("files")
-	sources: dict[Path, PinnedSource] = {}
-	tokens_by_path: dict[Path, list[SourceToken]] = {}
+	collection_identities: dict[Path, tuple[int, int, int, int, int]] = collection.pop("file_identities")
+	source_identities: dict[Path, tuple[int, int, int, int, int]] = {}
 	class_definitions: dict[str, list[tuple[str, str]]] = {}
+	class_observation_count = 0
+	class_observations_truncated = False
 	unreadable_paths: set[Path] = set()
+	unstable_paths: set[Path] = set()
 	for path in files:
-		source = _read_pinned_utf8(path)
-		if source is None:
-			unreadable_paths.add(path)
+		expected_identity = collection_identities.get(path)
+		if expected_identity is None or _path_identity(path) != expected_identity:
+			unstable_paths.add(path)
 			continue
-		sources[path] = source
+		source = _read_pinned_utf8(path, expected_identity=expected_identity)
+		if source is None:
+			if _path_identity(path) != expected_identity:
+				unstable_paths.add(path)
+			else:
+				unreadable_paths.add(path)
+			continue
+		source_identities[path] = source.identity
 		suffix = path.suffix.casefold()
 		if suffix == ".gd":
 			tokens = lex_gdscript(source.text)
@@ -214,13 +234,18 @@ def analyze_module_dependencies(
 			tokens = lex_shader_text(source.text)
 		else:
 			tokens = lex_resource_text(source.text)
-		tokens_by_path[path] = tokens
 		if suffix != ".gd":
+			del tokens
 			continue
 		resource_path = _resource_path(project_root, path)
 		owner_id = target_plan.owner_of(resource_path)
 		for class_name in _declared_class_names(tokens):
+			if class_observation_count >= MAX_DECLARED_CLASS_OBSERVATIONS:
+				class_observations_truncated = True
+				break
+			class_observation_count += 1
 			class_definitions.setdefault(class_name, []).append((owner_id, resource_path))
+		del tokens
 
 	all_ambiguous_classes = [
 		{"class_name": class_name, "paths": sorted({path for _, path in definitions})}
@@ -254,7 +279,11 @@ def analyze_module_dependencies(
 		if str(module.get("id", ""))
 	}
 	for path in files:
-		if path in unreadable_paths or path not in sources:
+		if path in unreadable_paths or path not in source_identities:
+			continue
+		source = _read_pinned_utf8(path, expected_identity=source_identities[path])
+		if source is None or source.identity != source_identities[path]:
+			unstable_paths.add(path)
 			continue
 		source_path = _resource_path(project_root, path)
 		source_ownership = target_plan.ownership_of(source_path)
@@ -263,7 +292,12 @@ def analyze_module_dependencies(
 		source_module = source_ownership.owner_id
 		source_domain = _source_domain(path, project_root)
 		suffix = path.suffix.casefold()
-		tokens = tokens_by_path.get(path, [])
+		if suffix == ".gd":
+			tokens = lex_gdscript(source.text)
+		elif suffix in (".gdshader", ".gdshaderinc"):
+			tokens = lex_shader_text(source.text)
+		else:
+			tokens = lex_resource_text(source.text)
 		if suffix == ".gd":
 			for token_index, token in enumerate(tokens):
 				if token.kind == "identifier" and token.value in class_owners:
@@ -303,7 +337,7 @@ def analyze_module_dependencies(
 					path_role_dependency_violation_count += increments[3]
 					advisory_reference_count += increments[4]
 		elif suffix in _RESOURCE_TEXT_EXTENSIONS:
-			resource_lines = sources[path].text.splitlines()
+			resource_lines = source.text.splitlines()
 			for token_index, token in enumerate(tokens):
 				if token.kind not in ("string", "shader_include"):
 					continue
@@ -315,6 +349,9 @@ def analyze_module_dependencies(
 						token_index,
 						resource_lines,
 					)
+				target_literal = token.value
+				if high_confidence_kind == "shader_include":
+					target_literal = _resolve_shader_include(source_path, token.value)
 				increments = _record_path_observation(
 					edges,
 					target_plan,
@@ -324,7 +361,7 @@ def analyze_module_dependencies(
 					source_module,
 					source_path,
 					source_domain,
-					token.value,
+					target_literal,
 					token.line,
 					high_confidence_kind,
 					unowned_references,
@@ -338,12 +375,13 @@ def analyze_module_dependencies(
 				path_role_reference_count += increments[2]
 				path_role_dependency_violation_count += increments[3]
 				advisory_reference_count += increments[4]
+		del tokens
 
-	unstable_paths = {
+	unstable_paths.update({
 		path
-		for path, source in sources.items()
-		if not _pinned_source_still_matches(path, source)
-	}
+		for path, identity in source_identities.items()
+		if _path_identity(path) != identity
+	})
 	_mark_late_path_role_drift(path_role_collection)
 
 	edge_records = _edge_records(edges)
@@ -368,7 +406,11 @@ def analyze_module_dependencies(
 		})
 
 	unreadable_count = len(unreadable_paths)
-	truncated = bool(collection["truncated"] or path_role_collection["truncated"])
+	truncated = bool(
+		collection["truncated"]
+		or path_role_collection["truncated"]
+		or class_observations_truncated
+	)
 	unsafe_path_count = (
 		int(collection["unsafe_path_count"])
 		+ int(path_role_collection["unsafe_count"])
@@ -539,6 +581,14 @@ def _lex_text(
 		if character in ("'", '"'):
 			quote = character
 			start_line = line
+			raw_string = bool(
+				index > 0
+				and source[index - 1] == "r"
+				and (
+					index < 2
+					or not (source[index - 2] == "_" or source[index - 2].isalnum())
+				)
+			)
 			triple = source.startswith(quote * 3, index)
 			index += 3 if triple else 1
 			value: list[str] = []
@@ -559,7 +609,7 @@ def _lex_text(
 					line += 1
 				value.append(source[index])
 				index += 1
-			tokens.append(SourceToken("string", "".join(value), start_line))
+			tokens.append(SourceToken("string", "".join(value), start_line, raw=raw_string))
 			continue
 		if identifiers and (character == "_" or character.isalpha()):
 			start = index
@@ -574,27 +624,36 @@ def _lex_text(
 	return tokens
 
 
-def _declared_class_names(tokens: list[SourceToken]) -> set[str]:
-	result: set[str] = set()
+def _declared_class_names(tokens: list[SourceToken]) -> Iterator[str]:
+	seen: set[str] = set()
 	for index, token in enumerate(tokens[:-1]):
 		if token.kind == "identifier" and token.value == "class_name":
 			candidate = tokens[index + 1]
-			if candidate.kind == "identifier":
-				result.add(candidate.value)
-	return result
+			if candidate.kind == "identifier" and candidate.value not in seen:
+				seen.add(candidate.value)
+				yield candidate.value
 
 
 def _gdscript_string_reference_kind(
 	tokens: list[SourceToken],
 	string_index: int,
 ) -> str | None:
-	if string_index < 2:
+	literal_prefix = tokens[string_index - 1] if string_index >= 1 else None
+	prefix_length = 1 if (
+		tokens[string_index].raw
+		and literal_prefix is not None
+		and literal_prefix.kind == "identifier"
+		and literal_prefix.value == "r"
+	) else 0
+	opening_index = string_index - 1 - prefix_length
+	method_index = string_index - 2 - prefix_length
+	if method_index < 0:
 		return None
-	opening = tokens[string_index - 1]
-	method = tokens[string_index - 2]
+	opening = tokens[opening_index]
+	method = tokens[method_index]
 	if opening.kind != "punctuation" or opening.value != "(" or method.kind != "identifier":
 		return None
-	previous = tokens[string_index - 3] if string_index >= 3 else None
+	previous = tokens[method_index - 1] if method_index >= 1 else None
 	if method.value in ("load", "preload") and not (
 		previous is not None
 		and previous.kind == "punctuation"
@@ -603,11 +662,11 @@ def _gdscript_string_reference_kind(
 		return "resource_load"
 	if method.value not in ("load", "load_threaded_request", "load_threaded_get"):
 		return None
-	if string_index < 4:
+	if method_index < 2:
 		return None
-	receiver_separator = tokens[string_index - 3]
-	receiver = tokens[string_index - 4]
-	receiver_prefix = tokens[string_index - 5] if string_index >= 5 else None
+	receiver_separator = tokens[method_index - 1]
+	receiver = tokens[method_index - 2]
+	receiver_prefix = tokens[method_index - 3] if method_index >= 3 else None
 	if (
 		receiver_separator.kind == "punctuation"
 		and receiver_separator.value == "."
@@ -647,8 +706,26 @@ def _resource_string_reference_kind(
 	return None
 
 
+def _resolve_shader_include(source_path: str, raw_include: str) -> str:
+	if normalize_resource_path(raw_include):
+		return raw_include
+	if (
+		not raw_include
+		or raw_include != raw_include.strip()
+		or "\\" in raw_include
+		or raw_include.startswith("/")
+	):
+		return raw_include
+	parent = posixpath.dirname(source_path.removeprefix("res://"))
+	resolved = posixpath.normpath(posixpath.join(parent, raw_include))
+	if resolved in ("", ".", "..") or resolved.startswith("../"):
+		return raw_include
+	return "res://" + resolved
+
+
 def _collect_target_files(project_root: Path, plan: TargetOwnershipPlan) -> dict[str, Any]:
 	files: list[Path] = []
+	file_identities: dict[Path, tuple[int, int, int, int, int]] = {}
 	seen: set[Path] = set()
 	total_bytes = 0
 	oversized_count = 0
@@ -658,6 +735,7 @@ def _collect_target_files(project_root: Path, plan: TargetOwnershipPlan) -> dict
 	if unsafe_path_count > 0:
 		return {
 			"files": [],
+			"file_identities": {},
 			"scanned_byte_count": 0,
 			"oversized_file_count": 0,
 			"missing_root_count": missing_root_count,
@@ -727,10 +805,18 @@ def _collect_target_files(project_root: Path, plan: TargetOwnershipPlan) -> dict
 					unsafe_path_count += 1
 					continue
 				try:
-					size = path.stat().st_size
+					metadata = path.lstat()
 				except OSError:
 					unsafe_path_count += 1
 					continue
+				if _metadata_is_link_or_reparse(path, metadata) or not stat.S_ISREG(metadata.st_mode):
+					unsafe_path_count += 1
+					continue
+				identity = _stat_identity(metadata)
+				if _path_identity(path) != identity:
+					unsafe_path_count += 1
+					continue
+				size = int(metadata.st_size)
 				if size > MAX_DEPENDENCY_FILE_BYTES:
 					oversized_count += 1
 					truncated = True
@@ -739,6 +825,7 @@ def _collect_target_files(project_root: Path, plan: TargetOwnershipPlan) -> dict
 					truncated = True
 					break
 				files.append(path)
+				file_identities[path] = identity
 				total_bytes += size
 			if truncated and (len(files) >= MAX_DEPENDENCY_FILES or total_bytes >= MAX_DEPENDENCY_BYTES):
 				break
@@ -746,6 +833,7 @@ def _collect_target_files(project_root: Path, plan: TargetOwnershipPlan) -> dict
 			break
 	return {
 		"files": sorted(files),
+		"file_identities": file_identities,
 		"scanned_byte_count": total_bytes,
 		"oversized_file_count": oversized_count,
 		"missing_root_count": missing_root_count,
@@ -827,6 +915,10 @@ def _collect_path_roles(
 	partial_count = 0
 	unsafe_count = 0
 	truncated = False
+	traversal_budget = PathRoleTraversalBudget(
+		remaining_entries=MAX_DEPENDENCY_FILES,
+		remaining_bytes=MAX_DEPENDENCY_BYTES,
+	)
 	identity_groups: dict[tuple[str, str], dict[Path, tuple[int, int, int, int, int]]] = {}
 	for declaration in prepared:
 		path = str(declaration["path"])
@@ -882,7 +974,13 @@ def _collect_path_roles(
 					record_status = "partial"
 					unsafe_count += 1
 				else:
-					scan = _scan_path_role_tree(project_root, role_path, plan=plan, prove_ownership=True)
+					scan = _scan_path_role_tree(
+						project_root,
+						role_path,
+						plan=plan,
+						prove_ownership=True,
+						budget=traversal_budget,
+					)
 					covered_modules = scan["covered_modules"]
 					role_identities = scan["identities"]
 					unsafe_count += int(scan["unsafe_count"])
@@ -897,7 +995,13 @@ def _collect_path_roles(
 					else:
 						role_identities[role_path] = _stat_identity(metadata)
 				elif stat.S_ISDIR(metadata.st_mode) and _safe_path(project_root, role_path, directory=True):
-					scan = _scan_path_role_tree(project_root, role_path, plan=plan, prove_ownership=False)
+					scan = _scan_path_role_tree(
+						project_root,
+						role_path,
+						plan=plan,
+						prove_ownership=False,
+						budget=traversal_budget,
+					)
 					role_identities = scan["identities"]
 					unsafe_count += int(scan["unsafe_count"])
 					truncated = truncated or bool(scan["truncated"])
@@ -939,10 +1043,9 @@ def _scan_path_role_tree(
 	*,
 	plan: TargetOwnershipPlan,
 	prove_ownership: bool,
+	budget: PathRoleTraversalBudget,
 ) -> dict[str, Any]:
 	stack = [root]
-	entry_count = 0
-	total_bytes = 0
 	unsafe_count = 0
 	truncated = False
 	covered_modules: set[str] = set()
@@ -950,8 +1053,29 @@ def _scan_path_role_tree(
 	root_owner = plan.ownership_of(_resource_path(project_root, root))
 	if root_owner is not None and root_owner.owner_id in plan.component_ids:
 		covered_modules.add(root_owner.owner_id)
+	if prove_ownership:
+		root_resource = _resource_path(project_root, root)
+		root_identity = portable_ownership_path_identity(root_resource)
+		for ownership_root in plan.roots:
+			ownership_identity = portable_ownership_path_identity(ownership_root.resource_root)
+			if (
+				root_identity
+				and ownership_identity
+				and (
+					ownership_identity == root_identity
+					or ownership_identity.startswith(root_identity + "/")
+				)
+			):
+				covered_modules.add(ownership_root.owner_id)
 	try:
-		identities[root] = _stat_identity(root.lstat())
+		root_metadata = root.lstat()
+		if (
+			not stat.S_ISDIR(root_metadata.st_mode)
+			or _metadata_is_link_or_reparse(root, root_metadata)
+			or not _safe_path(project_root, root, directory=True)
+		):
+			raise OSError("unsafe path-role root")
+		identities[root] = _stat_identity(root_metadata)
 	except OSError:
 		return {
 			"complete": False,
@@ -963,22 +1087,21 @@ def _scan_path_role_tree(
 	while stack and not truncated:
 		current = stack.pop()
 		try:
-			entries: list[os.DirEntry[str]] = []
-			with os.scandir(current) as iterator:
-				for entry in iterator:
-					if entry_count + len(entries) >= MAX_DEPENDENCY_FILES:
-						truncated = True
-						break
-					entries.append(entry)
-			entries.sort(key=lambda item: item.name)
+			entry_names, current_identity, exhausted = _scandir_pinned_directory(
+				current,
+				budget,
+			)
+			if current_identity != identities.get(current):
+				unsafe_count += 1
+				continue
+			if exhausted:
+				truncated = True
+				break
 		except OSError:
 			unsafe_count += 1
 			continue
-		if truncated:
-			break
-		for entry in entries:
-			entry_count += 1
-			path = Path(entry.path)
+		for entry_name in entry_names:
+			path = current / entry_name
 			try:
 				metadata = path.lstat()
 			except OSError:
@@ -998,10 +1121,12 @@ def _scan_path_role_tree(
 			if stat.S_ISDIR(metadata.st_mode):
 				stack.append(path)
 			elif stat.S_ISREG(metadata.st_mode):
-				total_bytes += int(metadata.st_size)
-				if total_bytes > MAX_DEPENDENCY_BYTES:
+				file_size = int(metadata.st_size)
+				if file_size > budget.remaining_bytes:
+					budget.remaining_bytes = 0
 					truncated = True
 					break
+				budget.remaining_bytes -= file_size
 			else:
 				unsafe_count += 1
 	for path, identity in identities.items():
@@ -1104,7 +1229,7 @@ def _record_path_observation(
 		)
 		return 0, 0, 0, 0, 0
 
-	path_role = _matching_path_role(path_roles, target_path, source_domain)
+	path_role = _matching_path_role(path_roles, raw_target_path, source_domain)
 	if path_role is not None:
 		candidate_with_role = {
 			"source_path": source_path,
@@ -1384,23 +1509,32 @@ def _resource_path(project_root: Path, path: Path) -> str:
 	return "res://" + path.relative_to(project_root).as_posix()
 
 
-def _read_pinned_utf8(path: Path) -> PinnedSource | None:
+def _read_pinned_utf8(
+	path: Path,
+	*,
+	expected_identity: tuple[int, int, int, int, int] | None = None,
+) -> PinnedSource | None:
 	try:
 		before = path.lstat()
 		if _metadata_is_link_or_reparse(path, before) or not stat.S_ISREG(before.st_mode):
 			return None
-		if before.st_size > MAX_DEPENDENCY_FILE_BYTES:
+		before_identity = _stat_identity(before)
+		if expected_identity is not None and before_identity != expected_identity:
+			return None
+		read_limit = int(expected_identity[3]) if expected_identity is not None else MAX_DEPENDENCY_FILE_BYTES
+		if before.st_size > MAX_DEPENDENCY_FILE_BYTES or read_limit > MAX_DEPENDENCY_FILE_BYTES:
 			return None
 		with path.open("rb") as stream:
 			opened_before = os.fstat(stream.fileno())
-			raw = stream.read(MAX_DEPENDENCY_FILE_BYTES + 1)
+			raw = stream.read(read_limit + 1)
 			opened_after = os.fstat(stream.fileno())
 		after = path.lstat()
 		identity = _stat_identity(after)
 		if not (
-			_stat_identity(before) == _stat_identity(opened_before)
+			before_identity == _stat_identity(opened_before)
 			and _stat_identity(opened_before) == _stat_identity(opened_after)
 			and _stat_identity(opened_after) == identity
+			and (expected_identity is None or identity == expected_identity)
 			and len(raw) == int(after.st_size)
 			and len(raw) <= MAX_DEPENDENCY_FILE_BYTES
 		):
@@ -1463,6 +1597,98 @@ def _nearest_existing_parent_identity(
 		if not stat.S_ISDIR(metadata.st_mode) or _metadata_is_link_or_reparse(current, metadata):
 			return None
 		return {current: _stat_identity(metadata)}
+
+
+def _scandir_pinned_directory(
+	path: Path,
+	budget: PathRoleTraversalBudget,
+) -> tuple[list[str], tuple[int, int, int, int, int], bool]:
+	if budget.remaining_entries <= 0:
+		return [], _required_directory_identity(path), True
+	before = path.lstat()
+	if not stat.S_ISDIR(before.st_mode) or _metadata_is_link_or_reparse(path, before):
+		raise OSError("unsafe directory")
+	identity = _stat_identity(before)
+	names: list[str] = []
+	exhausted = False
+	if os.name == "nt":
+		handle = _open_windows_pinned_directory(path)
+		try:
+			if _required_directory_identity(path) != identity:
+				raise OSError("directory changed before traversal")
+			with os.scandir(path) as iterator:
+				for entry in iterator:
+					if budget.remaining_entries <= 0:
+						exhausted = True
+						break
+					budget.remaining_entries -= 1
+					names.append(entry.name)
+		finally:
+			_close_windows_handle(handle)
+	else:
+		flags = os.O_RDONLY | getattr(os, "O_DIRECTORY", 0) | getattr(os, "O_NOFOLLOW", 0)
+		descriptor = os.open(path, flags)
+		try:
+			if _stat_identity(os.fstat(descriptor)) != identity:
+				raise OSError("directory changed before traversal")
+			with os.scandir(descriptor) as iterator:
+				for entry in iterator:
+					if budget.remaining_entries <= 0:
+						exhausted = True
+						break
+					budget.remaining_entries -= 1
+					names.append(entry.name)
+		finally:
+			os.close(descriptor)
+	if _required_directory_identity(path) != identity:
+		raise OSError("directory changed during traversal")
+	names.sort()
+	return names, identity, exhausted
+
+
+def _required_directory_identity(path: Path) -> tuple[int, int, int, int, int]:
+	metadata = path.lstat()
+	if not stat.S_ISDIR(metadata.st_mode) or _metadata_is_link_or_reparse(path, metadata):
+		raise OSError("unsafe directory")
+	return _stat_identity(metadata)
+
+
+def _open_windows_pinned_directory(path: Path) -> int:
+	import ctypes
+	from ctypes import wintypes
+
+	kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+	kernel32.CreateFileW.argtypes = [
+		wintypes.LPCWSTR,
+		wintypes.DWORD,
+		wintypes.DWORD,
+		wintypes.LPVOID,
+		wintypes.DWORD,
+		wintypes.DWORD,
+		wintypes.HANDLE,
+	]
+	kernel32.CreateFileW.restype = wintypes.HANDLE
+	handle = kernel32.CreateFileW(
+		str(path),
+		0x0001,
+		0x00000001 | 0x00000002,
+		None,
+		3,
+		0x02000000 | 0x00200000,
+		None,
+	)
+	invalid_handle = ctypes.c_void_p(-1).value
+	if handle == invalid_handle:
+		raise OSError(ctypes.get_last_error(), "unable to pin directory")
+	return int(handle)
+
+
+def _close_windows_handle(handle: int) -> None:
+	import ctypes
+
+	kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+	if not kernel32.CloseHandle(ctypes.c_void_p(handle)):
+		raise OSError(ctypes.get_last_error(), "unable to close pinned directory")
 
 
 def _metadata_is_link_or_reparse(path: Path, metadata: os.stat_result) -> bool:

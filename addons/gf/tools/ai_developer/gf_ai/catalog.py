@@ -1005,6 +1005,10 @@ def _api_index_issues(data: dict[str, Any]) -> list[str]:
 				issues.append(
 					f"API index {owner_kind} record owner_kind is invalid: {owner_name}."
 				)
+			if record.get("visibility") != "public":
+				issues.append(
+					f"API index {owner_kind} record visibility must equal public: {owner_name}."
+				)
 			owner_package_id = record.get("package_id")
 			if not isinstance(owner_package_id, str) or owner_package_id not in package_ids:
 				issues.append(
