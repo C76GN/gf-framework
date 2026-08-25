@@ -2,7 +2,7 @@
   "schema_version": 2,
   "catalog_version": "2.0.0",
   "framework_version": "11.0.0-dev.0",
-  "source_digest": "a33f23b3edbf1f4576be6f8b3dbfe977fde4d272cacdaeb765eed307d689200e",
+  "source_digest": "793a9856a402f3240db32105f577da13ddd8abb7f24fe3077db0527696c635dd",
   "class_count": 829,
   "autoload_count": 1,
   "package_count": 56,
@@ -75996,6 +75996,20 @@
           "name": "_do_change_scene",
           "signature": "func _do_change_scene(scene: PackedScene) -> bool",
           "summary": "切换到已加载的 PackedScene。",
+          "visibility": "protected"
+        },
+        {
+          "kind": "func",
+          "name": "_defer_target_scene_commit",
+          "signature": "func _defer_target_scene_commit() -> bool",
+          "summary": "声明 protected override 已接纳异步目标场景提交。",
+          "visibility": "protected"
+        },
+        {
+          "kind": "func",
+          "name": "_confirm_target_scene_commit",
+          "signature": "func _confirm_target_scene_commit() -> bool",
+          "summary": "确认 protected override 已完成目标场景提交。",
           "visibility": "protected"
         },
         {

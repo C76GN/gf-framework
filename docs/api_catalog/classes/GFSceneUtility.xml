@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFSceneUtility" path="addons/gf/standard/utilities/scene/gf_scene_utility.gd" module="standard" extends="GFUtility" classDigest="8c51d87b91966170d2d6e6dac0a33737d5dcc437dc1af4e1178cb262a1ca1f9a">
+<class name="GFSceneUtility" path="addons/gf/standard/utilities/scene/gf_scene_utility.gd" module="standard" extends="GFUtility" classDigest="b2236af51397777db56c71b2999f3763a5193b412b5442d8ca9486f58e95cf12">
 	<description>GFSceneUtility: 场景与流程切换管理器。
 封装原生场景切换，支持带有 `loading scene` 的异步加载、PackedScene
 资源预加载缓存、切换参数、场景历史，并可在切换完成后清理不需要跨场景保留的 `System/Model`。</description>
@@ -359,7 +359,7 @@ fixed 缓存不受该容量限制。</description>
 				<tag name="param">minimum_duration_seconds: loading scene 最短保留秒数；小于 0 时使用默认值。</tag>
 				<tag name="param">request_owner: 可选生命周期 owner；释放后只取消当前 consumer。</tag>
 				<tag name="param">cancellation_token: 可选只读取消令牌。</tag>
-				<tag name="return">已配置的 GFSceneOperation；同步拒绝也会携带稳定终态。</tag>
+				<tag name="return">已配置的 GFSceneOperation；同步拒绝也会携带稳定终态；非主线程或配置失败返回 null。</tag>
 				<tag name="schema">params: Dictionary[String, Variant]，切换完成后复制到当前场景参数中的场景切换参数。</tag>
 				<tag name="since">unreleased</tag>
 			</tags>
@@ -395,7 +395,7 @@ fixed 缓存不受该容量限制。</description>
 				<tag name="param">fixed: 为 true 时写入固定缓存，不受临时缓存容量或 LRU 淘汰影响。</tag>
 				<tag name="param">request_owner: 可选生命周期 owner；释放后只取消当前 consumer。</tag>
 				<tag name="param">cancellation_token: 可选只读取消令牌。</tag>
-				<tag name="return">已配置的 GFSceneOperation；同步拒绝与 cache hit 也携带稳定终态。</tag>
+				<tag name="return">已配置的 GFSceneOperation；同步拒绝与 cache hit 也携带稳定终态；非主线程或配置失败返回 null。</tag>
 				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
@@ -707,11 +707,43 @@ fixed 缓存不受该容量限制。</description>
 		</member>
 		<member kind="method" name="_do_change_scene">
 			<signature>func _do_change_scene(scene: PackedScene) -&gt; bool:</signature>
-			<description>切换到已加载的 PackedScene。</description>
+			<description>切换到已加载的 PackedScene。
+自定义异步 override 可先用 `_defer_target_scene_commit()` 声明等待，提交
+root 后再由 signal 或确认回执结算。</description>
 			<tags>
 				<tag name="api">protected</tag>
 				<tag name="param">scene: 目标 PackedScene。</tag>
-				<tag name="return">切换成功返回 true。</tag>
+				<tag name="return">接纳切换返回 true。</tag>
+				<tag name="since">3.17.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_defer_target_scene_commit">
+			<signature>func _defer_target_scene_commit() -&gt; bool:</signature>
+			<description>声明 protected override 已接纳异步目标场景提交。
+只允许在当前 `_do_change_scene()` 调用栈与 generation 内调用。同路径异步
+override 必须在返回 true 前调用，避免尚未替换的旧 target root 被判定为
+no-op；普通不同路径异步 override 继续兼容一次性 scene_changed observer。
+pathless 自定义异步实现还必须在安装精确 root 后调用
+`_confirm_target_scene_commit()`，signal 本身不会给匿名 root 授信。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="return">当前 override/generation 接受异步等待声明时返回 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_confirm_target_scene_commit">
+			<signature>func _confirm_target_scene_commit() -&gt; bool:</signature>
+			<description>确认 protected override 已完成目标场景提交。
+用于 `_do_change_scene()` 已更新 SceneTree/current scene 后提交精确 root
+回执；同步实现可在 override 栈内调用，异步实现可在稍后安装 root 后调用。
+override 栈内只记录当前 generation 回执；只有 override 返回 true 且
+owner/token 复核通过后才结算。可由规范路径识别的新 root 也能通过一次性
+scene_changed observer 结算；pathless 自定义实现必须显式调用本方法，不能只
+依赖匿名 root 的 signal。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="return">当前待提交 generation 与目标 scene root 匹配并接受确认时返回 true。</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
 		<member kind="method" name="_do_change_scene_sync">

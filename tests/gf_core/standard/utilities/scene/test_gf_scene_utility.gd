@@ -686,6 +686,38 @@ func test_scene_request_public_contract_is_frozen() -> void:
 	])
 
 
+func test_typed_scene_requests_reject_worker_thread_before_dispatch() -> void:
+	if _skip_typed_scene_runtime_scenario():
+		return
+	var scene_path: String = "res://addons/gut/gui/NormalGui.tscn"
+	var caller: ThreadedSceneRequestCaller = ThreadedSceneRequestCaller.new(
+		_scene_util,
+		scene_path
+	)
+	var worker: Thread = Thread.new()
+	var start_error: Error = worker.start(
+		Callable(caller, &"call_public_requests")
+	)
+	assert_eq(start_error, OK, "真实 worker 应能启动。")
+	if start_error != OK:
+		return
+
+	var worker_value: Variant = worker.wait_to_finish()
+	assert_true(worker_value is Array, "worker 应返回两次请求结果。")
+	if not worker_value is Array:
+		return
+	var request_values: Array = worker_value
+	assert_eq(request_values.size(), 2)
+	if request_values.size() != 2:
+		return
+	assert_true(request_values[0] == null, "off-main load 不得返回半配置句柄。")
+	assert_true(request_values[1] == null, "off-main preload 不得返回半配置句柄。")
+	assert_true(
+		_scene_util.lease_requested_paths.is_empty(),
+		"配置失败不得向 Broker 派发 Lease。"
+	)
+
+
 func test_typed_preload_consumers_share_physical_request_but_settle_independently() -> void:
 	if _skip_typed_scene_runtime_scenario():
 		return
@@ -1354,6 +1386,544 @@ func test_typed_load_completes_only_after_safe_scene_change() -> void:
 	assert_eq(_call_object(result, &"get_scene"), scene)
 	assert_signal_emit_count(operation, "completed", 1)
 	assert_signal_emit_count(_scene_util, "scene_load_completed", 1)
+
+
+func test_typed_load_legacy_synchronous_override_without_hook_completes_after_return() -> void:
+	if _skip_typed_scene_runtime_scenario():
+		return
+	var scene_path: String = "res://addons/gut/gui/NormalGui.tscn"
+	var utility: SynchronousSceneCommitUtility = (
+		SynchronousSceneCommitUtility.new()
+	)
+	utility.init()
+	utility.put_preloaded_scene(scene_path, _make_empty_scene())
+	var first: Object = _request_typed_load_from(utility, scene_path)
+	if first == null:
+		utility.dispose()
+		return
+	var completion_states: Array[bool] = []
+	var _completed_error: Error = first.connect(
+		&"completed",
+		func(_result: Variant) -> void:
+			completion_states.append(utility.override_active),
+		CONNECT_ONE_SHOT as Object.ConnectFlags
+	) as Error
+
+	utility.tick(0.0)
+	_assert_typed_terminal(first, "COMPLETED", "REASON_SCENE_LOADED", OK)
+	assert_eq(completion_states, [false], "legacy fallback 只能在 override 返回后结算。")
+	assert_false(
+		utility.has_pending_target_scene_commit_for_test(),
+		"同步完成的 protected override 不得遗留 scene_changed observer。"
+	)
+	var second: Object = _request_typed_load_from(utility, scene_path)
+	if second != null:
+		utility.tick(0.0)
+		_assert_typed_terminal(
+			second,
+			"COMPLETED",
+			"REASON_SCENE_LOADED",
+			OK
+		)
+	assert_eq(utility.packed_scene_changes, 2, "首个同步 commit 不得让后续 load 永久 busy。")
+	utility.dispose()
+
+
+func test_typed_load_sync_owner_release_reconciles_commit_without_signal() -> void:
+	if _skip_typed_scene_runtime_scenario():
+		return
+	var scene_path: String = "res://addons/gut/gui/NormalGui.tscn"
+	var request_owner: Node = Node.new()
+	add_child(request_owner)
+	var utility: SynchronousOwnerReleaseSceneCommitUtility = (
+		SynchronousOwnerReleaseSceneCommitUtility.new()
+	)
+	utility.owner_to_release = request_owner
+	utility.init()
+	utility.put_preloaded_scene(scene_path, _make_empty_scene())
+	var first: Object = _request_typed_load_from(
+		utility,
+		scene_path,
+		"",
+		{},
+		-1.0,
+		request_owner
+	)
+	if first == null:
+		utility.dispose()
+		request_owner.queue_free()
+		return
+
+	utility.tick(0.0)
+
+	_assert_typed_terminal(
+		first,
+		"CANCELLED",
+		"REASON_OWNER_RELEASED",
+		ERR_SKIP
+	)
+	assert_false(
+		utility.has_pending_target_scene_commit_for_test(),
+		"owner 取消调用方后，已同步发生的物理 commit 仍须结算并退休 observer。"
+	)
+	var second: Object = _request_typed_load_from(utility, scene_path)
+	if second != null:
+		utility.tick(0.0)
+		_assert_typed_terminal(
+			second,
+			"COMPLETED",
+			"REASON_SCENE_LOADED",
+			OK
+		)
+	assert_eq(utility.packed_scene_changes, 2, "stale caller 不得让后续 load 永久 busy。")
+	utility.dispose()
+
+
+func test_typed_load_failed_super_can_fall_back_to_sync_custom_commit() -> void:
+	if _skip_typed_scene_runtime_scenario():
+		return
+	var scene_path: String = "res://addons/gut/gui/NormalGui.tscn"
+	var utility: FailedSuperFallbackSceneCommitUtility = (
+		FailedSuperFallbackSceneCommitUtility.new()
+	)
+	utility.init()
+	utility.put_preloaded_scene(scene_path, _make_empty_scene())
+	var operation: Object = _request_typed_load_from(utility, scene_path)
+	if operation == null:
+		utility.dispose()
+		return
+
+	utility.tick(0.0)
+
+	assert_engine_error(
+		"Required object \"rp_scene\" is null.",
+		"测试显式接纳 super 使用 null PackedScene 的原生拒绝诊断。"
+	)
+	assert_push_error("[GFSceneUtility] 切换到目标场景失败，错误码：")
+	assert_true(utility.framework_change_failed)
+	_assert_typed_terminal(operation, "COMPLETED", "REASON_SCENE_LOADED", OK)
+	assert_false(
+		utility.has_pending_target_scene_commit_for_test(),
+		"失败的 super 不得遗留 wait-signal marker 阻塞后续同步 fallback。"
+	)
+	utility.dispose()
+
+
+func test_typed_load_confirm_receipt_is_discarded_when_override_returns_false() -> void:
+	if _skip_typed_scene_runtime_scenario():
+		return
+	var scene_path: String = "res://addons/gut/gui/NormalGui.tscn"
+	var utility: ConfirmThenRejectSceneCommitUtility = (
+		ConfirmThenRejectSceneCommitUtility.new()
+	)
+	utility.init()
+	utility.put_preloaded_scene(scene_path, _make_empty_scene())
+	watch_signals(utility)
+	var operation: Object = _request_typed_load_from(utility, scene_path)
+	if operation == null:
+		utility.dispose()
+		return
+	watch_signals(operation)
+	var completion_states: Array[bool] = []
+	var _completed_error: Error = operation.connect(
+		&"completed",
+		func(_result: Variant) -> void:
+			completion_states.append(utility.override_active),
+		CONNECT_ONE_SHOT as Object.ConnectFlags
+	) as Error
+
+	utility.tick(0.0)
+
+	assert_true(utility.confirm_accepted, "有效目标应接受当前 generation 的 confirm 回执。")
+	assert_true(
+		utility.pending_after_confirm,
+		"confirm 在 override 栈内只能记录回执，不能提前断开 observer。"
+	)
+	assert_eq(completion_states, [false], "失败终态必须在 override 返回后发布。")
+	_assert_typed_terminal(
+		operation,
+		"FAILED",
+		"REASON_SCENE_CHANGE_FAILED",
+		ERR_CANT_CREATE
+	)
+	assert_signal_emit_count(operation, "completed", 1)
+	assert_signal_not_emitted(utility, "scene_load_completed")
+	assert_false(utility.has_pending_target_scene_commit_for_test())
+	utility.dispose()
+
+
+func test_typed_load_sync_scene_changed_waits_for_override_return() -> void:
+	if _skip_typed_scene_runtime_scenario():
+		return
+	var scene_path: String = "res://addons/gut/gui/NormalGui.tscn"
+	var utility: SynchronousSignalSceneCommitUtility = (
+		SynchronousSignalSceneCommitUtility.new()
+	)
+	utility.init()
+	utility.put_preloaded_scene(scene_path, _make_empty_scene())
+	var operation: Object = _request_typed_load_from(utility, scene_path)
+	if operation == null:
+		utility.dispose()
+		return
+	var completion_states: Array[bool] = []
+	var _scene_completed_error: Error = utility.scene_load_completed.connect(
+		func(_path: String, _scene: PackedScene) -> void:
+			completion_states.append(utility.override_active),
+		CONNECT_ONE_SHOT as Object.ConnectFlags
+	) as Error
+	var _completed_error: Error = operation.connect(
+		&"completed",
+		func(_result: Variant) -> void:
+			completion_states.append(utility.override_active),
+		CONNECT_ONE_SHOT as Object.ConnectFlags
+	) as Error
+
+	utility.tick(0.0)
+
+	assert_true(
+		utility.pending_after_signal,
+		"override 栈内同步 scene_changed 只能留下当前 generation 回执。"
+	)
+	assert_eq(
+		completion_states,
+		[false, false],
+		"scene 与 Operation 完成通知都必须在 override 返回后发布。"
+	)
+	_assert_typed_terminal(operation, "COMPLETED", "REASON_SCENE_LOADED", OK)
+	assert_false(utility.has_pending_target_scene_commit_for_test())
+	utility.dispose()
+
+
+func test_typed_load_noop_override_does_not_claim_existing_empty_path_root() -> void:
+	if _skip_typed_scene_runtime_scenario():
+		return
+	var scene_path: String = "res://addons/gut/gui/NormalGui.tscn"
+	var scene_tree: SceneTree = get_tree()
+	var previous_scene: Node = scene_tree.current_scene
+	var existing_empty_path_root: Node = Node.new()
+	existing_empty_path_root.name = "GFExistingEmptyPathRoot"
+	scene_tree.root.add_child(existing_empty_path_root)
+	scene_tree.current_scene = existing_empty_path_root
+	assert_true(existing_empty_path_root.scene_file_path.is_empty())
+	var utility: NoOpSceneCommitUtility = NoOpSceneCommitUtility.new()
+	utility.init()
+	utility.put_preloaded_scene(scene_path, _make_empty_scene())
+	watch_signals(utility)
+	var operation: Object = _request_typed_load_from(utility, scene_path)
+	if operation == null:
+		utility.dispose()
+		scene_tree.current_scene = previous_scene
+		existing_empty_path_root.queue_free()
+		return
+	watch_signals(operation)
+
+	utility.tick(0.0)
+
+	assert_true(_call_bool(operation, &"is_pending"))
+	assert_signal_not_emitted(operation, "completed")
+	assert_signal_not_emitted(utility, "scene_load_completed")
+	assert_true(
+		utility.has_pending_target_scene_commit_for_test(),
+		"no-op custom override 应继续等待合法异步 commit，不能误收切前空路径 root。"
+	)
+	utility.dispose()
+	scene_tree.scene_changed.emit()
+	assert_false(utility.has_pending_target_scene_commit_for_test())
+	scene_tree.current_scene = previous_scene
+	existing_empty_path_root.queue_free()
+
+
+func test_typed_load_noop_override_does_not_claim_unchanged_same_path_root() -> void:
+	if _skip_typed_scene_runtime_scenario():
+		return
+	var scene_path: String = "res://addons/gut/gui/NormalGui.tscn"
+	var scene_tree: SceneTree = get_tree()
+	var previous_scene: Node = scene_tree.current_scene
+	var existing_target_root: Node = Node.new()
+	existing_target_root.name = "GFExistingSamePathRoot"
+	scene_tree.root.add_child(existing_target_root)
+	scene_tree.current_scene = existing_target_root
+	var utility: NoOpSceneCommitUtility = NoOpSceneCommitUtility.new()
+	utility.current_scene_path = scene_path
+	utility.init()
+	utility.put_preloaded_scene(scene_path, _make_empty_scene())
+	watch_signals(utility)
+	var operation: Object = _request_typed_load_from(utility, scene_path)
+	if operation == null:
+		utility.dispose()
+		scene_tree.current_scene = previous_scene
+		existing_target_root.queue_free()
+		return
+	watch_signals(operation)
+
+	utility.tick(0.0)
+
+	_assert_typed_terminal(
+		operation,
+		"FAILED",
+		"REASON_SCENE_CHANGE_FAILED",
+		ERR_CANT_CREATE
+	)
+	assert_signal_not_emitted(utility, "scene_load_completed")
+	assert_false(
+		utility.has_pending_target_scene_commit_for_test(),
+		"same-path no-op override 必须失败并退休 observer。"
+	)
+	var second: Object = _request_typed_load_from(utility, scene_path)
+	if second != null:
+		utility.tick(0.0)
+		_assert_typed_terminal(
+			second,
+			"FAILED",
+			"REASON_SCENE_CHANGE_FAILED",
+			ERR_CANT_CREATE
+		)
+	assert_eq(utility.packed_scene_changes, 2, "no-op 失败不得让第二个请求永久 busy。")
+	utility.dispose()
+	scene_tree.current_scene = previous_scene
+	existing_target_root.queue_free()
+
+
+func test_typed_load_same_path_deferred_override_uses_wait_receipt() -> void:
+	if _skip_typed_scene_runtime_scenario():
+		return
+	var scene_path: String = (
+		"res://tests/gf_core/fixtures/scene_signal_audit_valid.tscn"
+	)
+	var named_scene: PackedScene = load(scene_path) as PackedScene
+	assert_not_null(named_scene)
+	if named_scene == null:
+		return
+	var scene_tree: SceneTree = get_tree()
+	var previous_scene: Node = scene_tree.current_scene
+	var existing_target_root: Node = named_scene.instantiate()
+	assert_not_null(existing_target_root)
+	if existing_target_root == null:
+		return
+	existing_target_root.name = "GFDeferredSamePathExistingRoot"
+	scene_tree.root.add_child(existing_target_root)
+	scene_tree.current_scene = existing_target_root
+	assert_eq(existing_target_root.scene_file_path, scene_path)
+	var utility: SamePathDeferredSceneCommitUtility = (
+		SamePathDeferredSceneCommitUtility.new()
+	)
+	utility.current_scene_path = scene_path
+	utility.init()
+	utility.put_preloaded_scene(scene_path, named_scene)
+	var operation: Object = _request_typed_load_from(utility, scene_path)
+	if operation == null:
+		utility.dispose()
+		scene_tree.current_scene = previous_scene
+		existing_target_root.queue_free()
+		return
+
+	utility.tick(0.0)
+
+	assert_true(utility.defer_accepted)
+	assert_true(_call_bool(operation, &"is_pending"))
+	assert_true(utility.has_pending_target_scene_commit_for_test())
+	await scene_tree.process_frame
+	_assert_typed_terminal(operation, "COMPLETED", "REASON_SCENE_LOADED", OK)
+	assert_not_null(utility.committed_root)
+	assert_ne(utility.committed_root, existing_target_root)
+	if utility.committed_root != null:
+		assert_eq(utility.committed_root.scene_file_path, scene_path)
+	assert_false(utility.has_pending_target_scene_commit_for_test())
+	utility.dispose()
+	scene_tree.current_scene = previous_scene
+	existing_target_root.queue_free()
+
+
+func test_typed_load_different_path_async_override_keeps_legacy_observer() -> void:
+	if _skip_typed_scene_runtime_scenario():
+		return
+	var scene_path: String = "res://addons/gut/gui/NormalGui.tscn"
+	var utility: SampleSceneUtility = SampleSceneUtility.new()
+	utility.init()
+	utility.put_preloaded_scene(scene_path, _make_empty_scene())
+	var operation: Object = _request_typed_load_from(utility, scene_path)
+	if operation == null:
+		utility.dispose()
+		return
+
+	utility.tick(0.0)
+
+	assert_true(_call_bool(operation, &"is_pending"))
+	assert_true(
+		utility.has_pending_target_scene_commit_for_test(),
+		"不同路径 custom async 不要求新增 defer receipt。"
+	)
+	utility.confirm_target_scene_commit()
+	_assert_typed_terminal(operation, "COMPLETED", "REASON_SCENE_LOADED", OK)
+	assert_false(utility.has_pending_target_scene_commit_for_test())
+	utility.dispose()
+
+
+func test_typed_load_custom_override_claims_new_empty_path_root() -> void:
+	if _skip_typed_scene_runtime_scenario():
+		return
+	var scene_path: String = "res://addons/gut/gui/NormalGui.tscn"
+	var scene_tree: SceneTree = get_tree()
+	var previous_scene: Node = scene_tree.current_scene
+	var utility: ReplacingEmptyPathSceneCommitUtility = (
+		ReplacingEmptyPathSceneCommitUtility.new()
+	)
+	utility.init()
+	utility.put_preloaded_scene(scene_path, _make_empty_scene())
+	var operation: Object = _request_typed_load_from(utility, scene_path)
+	if operation == null:
+		utility.dispose()
+		return
+
+	utility.tick(0.0)
+
+	_assert_typed_terminal(operation, "COMPLETED", "REASON_SCENE_LOADED", OK)
+	assert_true(
+		utility.confirm_accepted,
+		"自定义 pathless commit 必须用 protected confirmation receipt 绑定当前 generation。"
+	)
+	assert_not_null(utility.committed_root)
+	if utility.committed_root != null:
+		assert_eq(scene_tree.current_scene, utility.committed_root)
+		assert_true(utility.committed_root.scene_file_path.is_empty())
+	scene_tree.current_scene = previous_scene
+	if utility.committed_root != null:
+		utility.committed_root.queue_free()
+	utility.dispose()
+
+
+func test_typed_load_pathless_deferred_override_requires_exact_confirm() -> void:
+	if _skip_typed_scene_runtime_scenario():
+		return
+	var scene_path: String = "res://addons/gut/gui/NormalGui.tscn"
+	var utility: PathlessDeferredSceneCommitUtility = (
+		PathlessDeferredSceneCommitUtility.new()
+	)
+	utility.init()
+	utility.put_preloaded_scene(scene_path, _make_empty_scene())
+	var operation: Object = _request_typed_load_from(utility, scene_path)
+	if operation == null:
+		utility.dispose()
+		return
+
+	utility.tick(0.0)
+
+	assert_true(utility.defer_accepted)
+	assert_true(_call_bool(operation, &"is_pending"))
+	assert_true(utility.has_pending_target_scene_commit_for_test())
+	await get_tree().process_frame
+	assert_true(utility.confirm_accepted)
+	_assert_typed_terminal(operation, "COMPLETED", "REASON_SCENE_LOADED", OK)
+	assert_not_null(utility.committed_root)
+	assert_false(utility.has_pending_target_scene_commit_for_test())
+	utility.dispose()
+
+
+func test_typed_load_pathless_wrong_root_signal_fails_without_explicit_receipt() -> void:
+	if _skip_typed_scene_runtime_scenario():
+		return
+	var scene_path: String = "res://addons/gut/gui/NormalGui.tscn"
+	var requested_scene: PackedScene = _make_empty_scene()
+	var wrong_scene: PackedScene = _make_empty_scene()
+	assert_true(requested_scene.resource_path.is_empty())
+	assert_true(wrong_scene.resource_path.is_empty())
+	var utility: WrongPathlessSceneCommitUtility = (
+		WrongPathlessSceneCommitUtility.new()
+	)
+	utility.wrong_scene = wrong_scene
+	utility.init()
+	utility.put_preloaded_scene(scene_path, requested_scene)
+	watch_signals(utility)
+	var operation: Object = _request_typed_load_from(utility, scene_path)
+	if operation == null:
+		utility.dispose()
+		return
+	watch_signals(operation)
+
+	utility.tick(0.0)
+
+	_assert_typed_terminal(
+		operation,
+		"FAILED",
+		"REASON_SCENE_CHANGE_FAILED",
+		ERR_CANT_CREATE
+	)
+	assert_not_null(utility.committed_root)
+	assert_eq(get_tree().current_scene, utility.committed_root)
+	assert_signal_not_emitted(utility, "scene_load_completed")
+	assert_false(utility.has_pending_target_scene_commit_for_test())
+	utility.dispose()
+
+
+func test_typed_load_pathless_confirm_rejects_replaced_proven_root() -> void:
+	if _skip_typed_scene_runtime_scenario():
+		return
+	var scene_path: String = "res://addons/gut/gui/NormalGui.tscn"
+	var utility: ProvenThenReplaceSceneCommitUtility = (
+		ProvenThenReplaceSceneCommitUtility.new()
+	)
+	utility.init()
+	utility.put_preloaded_scene(scene_path, _make_empty_scene())
+	watch_signals(utility)
+	var operation: Object = _request_typed_load_from(utility, scene_path)
+	if operation == null:
+		utility.dispose()
+		return
+	watch_signals(operation)
+
+	utility.tick(0.0)
+
+	assert_true(utility.confirm_accepted)
+	assert_not_null(utility.proven_root)
+	assert_not_null(utility.replacement_root)
+	assert_ne(utility.proven_root, utility.replacement_root)
+	_assert_typed_terminal(
+		operation,
+		"FAILED",
+		"REASON_SCENE_CHANGE_FAILED",
+		ERR_CANT_CREATE
+	)
+	assert_signal_not_emitted(utility, "scene_load_completed")
+	assert_false(utility.has_pending_target_scene_commit_for_test())
+	utility.dispose()
+
+
+func test_typed_load_sync_override_dispose_preserves_unobserved_commit() -> void:
+	if _skip_typed_scene_runtime_scenario():
+		return
+	var scene_path: String = "res://addons/gut/gui/NormalGui.tscn"
+	var utility: SynchronousDisposeSceneCommitUtility = (
+		SynchronousDisposeSceneCommitUtility.new()
+	)
+	utility.init()
+	utility.put_preloaded_scene(scene_path, _make_empty_scene())
+	watch_signals(utility)
+	var operation: Object = _request_typed_load_from(utility, scene_path)
+	if operation == null:
+		utility.dispose()
+		return
+	watch_signals(operation)
+
+	utility.tick(0.0)
+
+	_assert_typed_terminal(
+		operation,
+		"DISPOSED",
+		"REASON_UTILITY_DISPOSED",
+		ERR_UNAVAILABLE
+	)
+	assert_signal_emit_count(operation, "completed", 1)
+	assert_signal_not_emitted(utility, "scene_load_completed")
+	assert_true(
+		utility.has_pending_target_scene_commit_for_test(),
+		"dispose 后不得用 legacy fallback 消费尚未观察到的物理 commit。"
+	)
+	var scene_tree: SceneTree = get_tree()
+	scene_tree.scene_changed.emit()
+	assert_false(utility.has_pending_target_scene_commit_for_test())
+	assert_signal_emit_count(operation, "completed", 1)
+	assert_signal_not_emitted(utility, "scene_load_completed")
+	utility.dispose()
 
 
 func test_typed_load_scene_change_failure_settles_failed_once() -> void:
@@ -2356,6 +2926,81 @@ func test_typed_preload_publishes_final_progress_before_terminal_signals() -> vo
 	assert_almost_eq(_call_float(operation, &"get_progress_ratio"), 1.0, 0.001)
 
 
+func test_typed_preload_terminal_success_reentry_does_not_repoll_aggregate() -> void:
+	_assert_terminal_preload_progress_reentry_is_bounded(
+		_make_empty_scene(),
+		false,
+		"COMPLETED",
+		"REASON_SCENE_PRELOADED",
+		OK
+	)
+
+
+func test_typed_preload_terminal_failure_reentry_does_not_repoll_aggregate() -> void:
+	_assert_terminal_preload_progress_reentry_is_bounded(
+		null,
+		true,
+		"FAILED",
+		"REASON_RESOURCE_LOAD_FAILED",
+		ERR_CANT_OPEN
+	)
+
+
+func test_typed_preload_type_mismatch_reentry_does_not_repoll_aggregate() -> void:
+	var wrong_resource: Resource = Resource.new()
+	assert_not_null(wrong_resource)
+	if wrong_resource == null:
+		return
+	_assert_terminal_preload_progress_reentry_is_bounded(
+		wrong_resource,
+		false,
+		"FAILED",
+		"REASON_RESOURCE_TYPE_MISMATCH",
+		ERR_INVALID_DATA
+	)
+
+
+func test_typed_preload_terminal_broker_callback_cannot_repoll_same_aggregate() -> void:
+	if _skip_typed_scene_runtime_scenario():
+		return
+	var scene_path: String = "res://addons/gut/gui/NormalGui.tscn"
+	_scene_util.use_fake_threaded_resource = true
+	_scene_util.threaded_resource = _make_empty_scene()
+	var operation: Object = _request_typed_preload(scene_path)
+	if operation == null:
+		return
+	var nested_operations: Array[GFSceneOperation] = []
+	_scene_util._broker.poll_lease_callback = func() -> void:
+		var nested_operation: GFSceneOperation = (
+			_scene_util.preload_scene_request_async(scene_path)
+		)
+		if nested_operation != null:
+			nested_operations.append(nested_operation)
+	_scene_util.threaded_complete = true
+
+	_scene_util.tick(0.0)
+
+	_assert_typed_terminal(
+		operation,
+		"COMPLETED",
+		"REASON_SCENE_PRELOADED",
+		OK
+	)
+	assert_eq(
+		_scene_util._broker.poll_lease_call_count,
+		1,
+		"terminal broker callback 的同路径 admission 不得递归 poll 同一 aggregate。"
+	)
+	assert_eq(nested_operations.size(), 1)
+	if nested_operations.size() == 1:
+		_assert_typed_terminal(
+			nested_operations[0],
+			"REJECTED",
+			"REASON_BROKER_REJECTED",
+			ERR_BUSY
+		)
+
+
 func test_typed_load_via_preload_publishes_final_progress_before_load_terminal() -> void:
 	if _skip_typed_scene_runtime_scenario():
 		return
@@ -2460,6 +3105,157 @@ func test_typed_load_waits_for_real_scene_tree_commit_with_target_current_scene(
 	scene_tree.current_scene = previous_scene
 	target_scene.queue_free()
 	utility.dispose()
+
+
+func test_typed_load_accepts_committed_runtime_packed_scene_with_empty_path() -> void:
+	if _skip_typed_scene_runtime_scenario():
+		return
+	var scene_path: String = "res://tests/gf_core/fixtures/scene_signal_audit_valid.tscn"
+	var in_memory_scene: PackedScene = _make_empty_scene()
+	assert_true(in_memory_scene.resource_path.is_empty())
+	var scene_tree: SceneTree = get_tree()
+	var previous_scene: Node = scene_tree.current_scene
+	var sacrificial_scene: Node = Node.new()
+	sacrificial_scene.name = "GFInMemoryCommitSacrificialRoot"
+	scene_tree.root.add_child(sacrificial_scene)
+	scene_tree.current_scene = sacrificial_scene
+	var utility: GFSceneUtility = GFSceneUtility.new()
+	utility.init()
+	utility.put_preloaded_scene(scene_path, in_memory_scene)
+	watch_signals(utility)
+	var operation: Object = _request_typed_load_from(utility, scene_path)
+	if operation == null:
+		utility.dispose()
+		scene_tree.current_scene = previous_scene
+		sacrificial_scene.queue_free()
+		return
+	watch_signals(operation)
+
+	utility.tick(0.0)
+	assert_true(_call_bool(operation, &"is_pending"))
+	await scene_tree.scene_changed
+	var target_scene: Node = scene_tree.current_scene
+	assert_not_null(target_scene)
+	if target_scene == null:
+		utility.dispose()
+		scene_tree.current_scene = previous_scene
+		return
+
+	assert_true(
+		target_scene.scene_file_path.is_empty(),
+		"运行时打包场景的 committed root 应保持空 scene_file_path。"
+	)
+	_assert_typed_terminal(operation, "COMPLETED", "REASON_SCENE_LOADED", OK)
+	assert_signal_emit_count(operation, "completed", 1)
+	assert_signal_emit_count(utility, "scene_load_completed", 1)
+	scene_tree.current_scene = previous_scene
+	target_scene.queue_free()
+	utility.dispose()
+
+
+func test_typed_load_pathless_instantiate_owner_release_never_commits_root() -> void:
+	if _skip_typed_scene_runtime_scenario():
+		return
+	var scene_path: String = "res://tests/gf_core/fixtures/scene_signal_audit_valid.tscn"
+	var source_root: InstantiateCallbackSceneRoot = InstantiateCallbackSceneRoot.new()
+	var in_memory_scene: PackedScene = PackedScene.new()
+	var pack_error: Error = in_memory_scene.pack(source_root)
+	source_root.free()
+	assert_eq(pack_error, OK)
+	assert_true(in_memory_scene.resource_path.is_empty())
+	var request_owner: Node = Node.new()
+	add_child(request_owner)
+	var instantiate_callback_count: Array[int] = []
+	InstantiateCallbackSceneRoot.instantiate_callback = func() -> void:
+		instantiate_callback_count.append(1)
+		request_owner.queue_free()
+	var scene_tree: SceneTree = get_tree()
+	var previous_root: Node = scene_tree.current_scene
+	var utility: NativeSceneCommitUtility = NativeSceneCommitUtility.new()
+	utility.init()
+	utility.put_preloaded_scene(scene_path, in_memory_scene)
+	var operation: Object = _request_typed_load_from(
+		utility,
+		scene_path,
+		"",
+		{},
+		-1.0,
+		request_owner
+	)
+	if operation == null:
+		InstantiateCallbackSceneRoot.instantiate_callback = Callable()
+		utility.dispose()
+		request_owner.queue_free()
+		return
+
+	utility.tick(0.0)
+	InstantiateCallbackSceneRoot.instantiate_callback = Callable()
+
+	_assert_typed_terminal(
+		operation,
+		"CANCELLED",
+		"REASON_OWNER_RELEASED",
+		ERR_SKIP
+	)
+	assert_eq(instantiate_callback_count.size(), 1)
+	assert_eq(scene_tree.current_scene, previous_root)
+	assert_false(
+		utility.has_pending_target_scene_commit_for_test(),
+		"instantiate callback 取消 generation 后不得遗留 commit observer。"
+	)
+	utility.dispose()
+
+
+func test_typed_load_pathless_instantiate_signal_never_consumes_future_commit() -> void:
+	if _skip_typed_scene_runtime_scenario():
+		return
+	var scene_path: String = "res://tests/gf_core/fixtures/scene_signal_audit_valid.tscn"
+	var source_root: InstantiateCallbackSceneRoot = InstantiateCallbackSceneRoot.new()
+	var in_memory_scene: PackedScene = PackedScene.new()
+	var pack_error: Error = in_memory_scene.pack(source_root)
+	source_root.free()
+	assert_eq(pack_error, OK)
+	var scene_tree: SceneTree = get_tree()
+	var previous_scene: Node = scene_tree.current_scene
+	var existing_root: Node = Node.new()
+	existing_root.name = "GFInstantiateSignalExistingRoot"
+	scene_tree.root.add_child(existing_root)
+	scene_tree.current_scene = existing_root
+	InstantiateCallbackSceneRoot.instantiate_callback = func() -> void:
+		scene_tree.scene_changed.emit()
+	var utility: NativeSceneCommitUtility = NativeSceneCommitUtility.new()
+	utility.init()
+	utility.put_preloaded_scene(scene_path, in_memory_scene)
+	var operation: Object = _request_typed_load_from(utility, scene_path)
+	if operation == null:
+		InstantiateCallbackSceneRoot.instantiate_callback = Callable()
+		utility.dispose()
+		scene_tree.current_scene = previous_scene
+		existing_root.queue_free()
+		return
+
+	utility.tick(0.0)
+	InstantiateCallbackSceneRoot.instantiate_callback = Callable()
+
+	_assert_typed_terminal(
+		operation,
+		"FAILED",
+		"REASON_SCENE_CHANGE_FAILED",
+		ERR_CANT_CREATE
+	)
+	assert_false(
+		utility.has_pending_target_scene_commit_for_test(),
+		"instantiate 内的提前 signal 不得消费未来物理 commit 的 observer。"
+	)
+	await scene_tree.process_frame
+	assert_eq(
+		scene_tree.current_scene,
+		existing_root,
+		"提前 signal 后必须在 change_scene_to_node 前 fail closed。"
+	)
+	utility.dispose()
+	scene_tree.current_scene = previous_scene
+	existing_root.queue_free()
 
 
 func test_target_change_owner_teardown_reentry_cancels_without_late_success() -> void:
@@ -3042,6 +3838,82 @@ func _skip_typed_scene_runtime_scenario() -> bool:
 	return true
 
 
+func _assert_terminal_preload_progress_reentry_is_bounded(
+	resource: Resource,
+	threaded_failed: bool,
+	expected_status: String,
+	expected_reason: String,
+	expected_error: Error
+) -> void:
+	if _skip_typed_scene_runtime_scenario():
+		return
+	var scene_path: String = "res://addons/gut/gui/NormalGui.tscn"
+	_scene_util.use_fake_threaded_resource = true
+	_scene_util.threaded_resource = resource
+	_scene_util.threaded_failed = threaded_failed
+	var operation: Object = _request_typed_preload(scene_path)
+	if operation == null:
+		return
+	var reentry_state: Dictionary = {
+		"started": false,
+		"progress_call_count": 0,
+	}
+	var nested_operations: Array[GFSceneOperation] = []
+	var callback: Callable = func(_path: String, _progress: float) -> void:
+		reentry_state["progress_call_count"] = (
+			GFVariantData.get_option_int(reentry_state, "progress_call_count", 0)
+			+ 1
+		)
+		if GFVariantData.get_option_bool(reentry_state, "started", false):
+			return
+		reentry_state["started"] = true
+		var nested_load_operation: GFSceneOperation = (
+			_scene_util.load_scene_request_async(scene_path)
+		)
+		if nested_load_operation != null:
+			nested_operations.append(nested_load_operation)
+		var nested_preload_operation: GFSceneOperation = (
+			_scene_util.preload_scene_request_async(scene_path)
+		)
+		if nested_preload_operation != null:
+			nested_operations.append(nested_preload_operation)
+	var connect_error: Error = _scene_util.scene_preload_progress.connect(
+		callback
+	) as Error
+	assert_eq(connect_error, OK)
+
+	_scene_util.threaded_complete = not threaded_failed
+	_scene_util.tick(0.0)
+
+	_assert_typed_terminal(
+		operation,
+		expected_status,
+		expected_reason,
+		expected_error
+	)
+	assert_eq(
+		GFVariantData.get_option_int(reentry_state, "progress_call_count", 0),
+		1,
+		"terminal progress listener 的同路径 admission 不得同步重轮询同一 aggregate。"
+	)
+	assert_eq(nested_operations.size(), 2)
+	if nested_operations.size() == 2:
+		_assert_typed_terminal(
+			nested_operations[0],
+			"REJECTED",
+			"REASON_LOAD_BUSY",
+			ERR_BUSY
+		)
+		_assert_typed_terminal(
+			nested_operations[1],
+			"REJECTED",
+			"REASON_BROKER_REJECTED",
+			ERR_BUSY
+		)
+	if _scene_util.scene_preload_progress.is_connected(callback):
+		_scene_util.scene_preload_progress.disconnect(callback)
+
+
 func _request_typed_preload(
 	path: String,
 	fixed: bool = false,
@@ -3430,6 +4302,21 @@ func _get_scene_utility_transition(scene_util: GFSceneUtility) -> Dictionary:
 
 # --- 内部类 ---
 
+class ThreadedSceneRequestCaller extends RefCounted:
+	var _scene_utility: GFSceneUtility
+	var _scene_path: String
+
+	func _init(scene_utility: GFSceneUtility, scene_path: String) -> void:
+		_scene_utility = scene_utility
+		_scene_path = scene_path
+
+	func call_public_requests() -> Array:
+		return [
+			_scene_utility.load_scene_request_async(_scene_path),
+			_scene_utility.preload_scene_request_async(_scene_path),
+		]
+
+
 class DummyModel extends GFModel:
 	var disposed: bool = false
 
@@ -3444,8 +4331,24 @@ class DummyUtility extends GFUtility:
 		disposed = true
 
 
+class InstantiateCallbackSceneRoot extends Node:
+	static var instantiate_callback: Callable = Callable()
+
+	func _init() -> void:
+		if instantiate_callback.is_valid():
+			instantiate_callback.call()
+
+
+class NativeSceneCommitUtility extends GFSceneUtility:
+	func has_pending_target_scene_commit_for_test() -> bool:
+		return _has_pending_target_scene_commit()
+
+
 class SampleSceneUtility extends GFSceneUtility:
 	var _broker: SampleSceneResourceBroker = SampleSceneResourceBroker.new()
+	var _test_scene_tree: SceneTree = null
+	var _test_previous_scene_root_ref: WeakRef = null
+	var _test_committed_root_refs: Array[WeakRef] = []
 	var current_scene_path: String = "res://tests/current_scene.tscn"
 	var sync_scene_changes: Array[String] = []
 	var packed_scene_changes: int = 0
@@ -3494,6 +4397,10 @@ class SampleSceneUtility extends GFSceneUtility:
 		_broker.init()
 		var _bind_error: Error = set_resource_broker(_broker)
 
+	func dispose() -> void:
+		_cleanup_test_scene_roots()
+		super.dispose()
+
 	func _get_current_scene_path() -> String:
 		return current_scene_path
 
@@ -3509,8 +4416,13 @@ class SampleSceneUtility extends GFSceneUtility:
 		pending_fake_target_path = _target_path
 		return true
 
+	func call_framework_change_scene_for_test(scene: PackedScene) -> bool:
+		return super._do_change_scene(scene)
+
 	func confirm_target_scene_commit() -> void:
 		if pending_fake_target_path.is_empty():
+			return
+		if _install_test_scene_root(_target_scene_commit_scene) == null:
 			return
 		current_scene_path = pending_fake_target_path
 		pending_fake_target_path = ""
@@ -3526,6 +4438,233 @@ class SampleSceneUtility extends GFSceneUtility:
 
 	func _get_loading_scene_node() -> Node:
 		return loading_scene_node
+
+	func _install_test_scene_root(scene: PackedScene = null) -> Node:
+		var scene_tree: SceneTree = _get_scene_tree_value(Engine.get_main_loop())
+		if scene_tree == null:
+			return null
+		if _test_scene_tree == null:
+			_test_scene_tree = scene_tree
+			if scene_tree.current_scene != null:
+				_test_previous_scene_root_ref = weakref(scene_tree.current_scene)
+		var committed_root: Node = scene.instantiate() if scene != null else Node.new()
+		if committed_root == null:
+			return null
+		scene_tree.root.add_child(committed_root)
+		scene_tree.current_scene = committed_root
+		_test_committed_root_refs.append(weakref(committed_root))
+		return committed_root
+
+	func _cleanup_test_scene_roots() -> void:
+		if _test_scene_tree != null:
+			var current_root: Node = _test_scene_tree.current_scene
+			for root_ref: WeakRef in _test_committed_root_refs:
+				var root_value: Variant = root_ref.get_ref()
+				if root_value is Node:
+					var committed_root: Node = root_value
+					if current_root != committed_root:
+						continue
+					var previous_value: Variant = (
+						_test_previous_scene_root_ref.get_ref()
+						if _test_previous_scene_root_ref != null
+						else null
+					)
+					_test_scene_tree.current_scene = (
+						previous_value if previous_value is Node else null
+					)
+					break
+		for retired_root_ref: WeakRef in _test_committed_root_refs:
+			var retired_root_value: Variant = retired_root_ref.get_ref()
+			if retired_root_value is Node:
+				var retired_root: Node = retired_root_value
+				if not retired_root.is_queued_for_deletion():
+					retired_root.queue_free()
+		_test_scene_tree = null
+		_test_previous_scene_root_ref = null
+		_test_committed_root_refs.clear()
+
+
+class SynchronousSceneCommitUtility extends SampleSceneUtility:
+	var override_active: bool = false
+
+	func _do_change_scene(scene: PackedScene) -> bool:
+		override_active = true
+		packed_scene_changes += 1
+		var committed_root: Node = _install_test_scene_root(scene)
+		if committed_root == null:
+			override_active = false
+			return false
+		current_scene_path = _target_path
+		override_active = false
+		return true
+
+
+class SynchronousOwnerReleaseSceneCommitUtility extends SynchronousSceneCommitUtility:
+	var owner_to_release: Node = null
+
+	func _do_change_scene(scene: PackedScene) -> bool:
+		var accepted: bool = super._do_change_scene(scene)
+		if accepted and owner_to_release != null:
+			owner_to_release.queue_free()
+		return accepted
+
+
+class FailedSuperFallbackSceneCommitUtility extends SampleSceneUtility:
+	var framework_change_failed: bool = false
+
+	func _do_change_scene(scene: PackedScene) -> bool:
+		framework_change_failed = not call_framework_change_scene_for_test(null)
+		packed_scene_changes += 1
+		if _install_test_scene_root(scene) == null:
+			return false
+		current_scene_path = _target_path
+		return true
+
+
+class ConfirmThenRejectSceneCommitUtility extends SampleSceneUtility:
+	var override_active: bool = false
+	var confirm_accepted: bool = false
+	var pending_after_confirm: bool = false
+
+	func _do_change_scene(scene: PackedScene) -> bool:
+		override_active = true
+		packed_scene_changes += 1
+		if _install_test_scene_root(scene) == null:
+			override_active = false
+			return false
+		current_scene_path = _target_path
+		confirm_accepted = _confirm_target_scene_commit()
+		pending_after_confirm = _has_pending_target_scene_commit()
+		override_active = false
+		return false
+
+
+class SynchronousSignalSceneCommitUtility extends SampleSceneUtility:
+	var override_active: bool = false
+	var pending_after_signal: bool = false
+
+	func _do_change_scene(scene: PackedScene) -> bool:
+		override_active = true
+		packed_scene_changes += 1
+		if _install_test_scene_root(scene) == null:
+			override_active = false
+			return false
+		current_scene_path = _target_path
+		var scene_tree: SceneTree = _get_scene_tree_value(Engine.get_main_loop())
+		if scene_tree != null:
+			scene_tree.scene_changed.emit()
+		pending_after_signal = _has_pending_target_scene_commit()
+		override_active = false
+		return true
+
+
+class NoOpSceneCommitUtility extends SampleSceneUtility:
+	func _do_change_scene(_scene: PackedScene) -> bool:
+		packed_scene_changes += 1
+		return true
+
+
+class SamePathDeferredSceneCommitUtility extends SampleSceneUtility:
+	var defer_accepted: bool = false
+	var committed_root: Node = null
+
+	func _do_change_scene(scene: PackedScene) -> bool:
+		packed_scene_changes += 1
+		defer_accepted = _defer_target_scene_commit()
+		if not defer_accepted:
+			return false
+		call_deferred(
+			"_commit_deferred_scene_for_test",
+			scene,
+			_target_path
+		)
+		return true
+
+	func _commit_deferred_scene_for_test(
+		scene: PackedScene,
+		target_path: String
+	) -> void:
+		committed_root = _install_test_scene_root(scene)
+		if committed_root == null:
+			return
+		current_scene_path = target_path
+		var scene_tree: SceneTree = _get_scene_tree_value(Engine.get_main_loop())
+		if scene_tree != null:
+			scene_tree.scene_changed.emit()
+
+
+class ReplacingEmptyPathSceneCommitUtility extends SampleSceneUtility:
+	var committed_root: Node = null
+	var confirm_accepted: bool = false
+
+	func _do_change_scene(scene: PackedScene) -> bool:
+		packed_scene_changes += 1
+		committed_root = _install_test_scene_root(scene)
+		if committed_root == null:
+			return false
+		confirm_accepted = _confirm_target_scene_commit()
+		return confirm_accepted
+
+
+class PathlessDeferredSceneCommitUtility extends SampleSceneUtility:
+	var defer_accepted: bool = false
+	var confirm_accepted: bool = false
+	var committed_root: Node = null
+
+	func _do_change_scene(scene: PackedScene) -> bool:
+		packed_scene_changes += 1
+		defer_accepted = _defer_target_scene_commit()
+		if not defer_accepted:
+			return false
+		call_deferred("_commit_pathless_scene_for_test", scene)
+		return true
+
+	func _commit_pathless_scene_for_test(scene: PackedScene) -> void:
+		committed_root = _install_test_scene_root(scene)
+		if committed_root == null:
+			return
+		confirm_accepted = _confirm_target_scene_commit()
+
+
+class WrongPathlessSceneCommitUtility extends SampleSceneUtility:
+	var wrong_scene: PackedScene = null
+	var committed_root: Node = null
+
+	func _do_change_scene(_scene: PackedScene) -> bool:
+		packed_scene_changes += 1
+		committed_root = _install_test_scene_root(wrong_scene)
+		if committed_root == null:
+			return false
+		var scene_tree: SceneTree = _get_scene_tree_value(Engine.get_main_loop())
+		if scene_tree != null:
+			scene_tree.scene_changed.emit()
+		return true
+
+
+class ProvenThenReplaceSceneCommitUtility extends SampleSceneUtility:
+	var proven_root: Node = null
+	var replacement_root: Node = null
+	var confirm_accepted: bool = false
+
+	func _do_change_scene(scene: PackedScene) -> bool:
+		packed_scene_changes += 1
+		proven_root = _install_test_scene_root(scene)
+		if proven_root == null:
+			return false
+		current_scene_path = _target_path
+		confirm_accepted = _confirm_target_scene_commit()
+		if not confirm_accepted:
+			return false
+		replacement_root = _install_test_scene_root(scene)
+		return replacement_root != null
+
+
+class SynchronousDisposeSceneCommitUtility extends SampleSceneUtility:
+	func _do_change_scene(_scene: PackedScene) -> bool:
+		packed_scene_changes += 1
+		current_scene_path = _target_path
+		dispose()
+		return true
 
 
 class ReentrantSceneCommitUtility extends SampleSceneUtility:
@@ -3554,6 +4693,7 @@ class SampleSceneResourceBroker extends GFResourceBroker:
 	var lease_requested_paths: PackedStringArray = PackedStringArray()
 	var request_callback: Callable = Callable()
 	var poll_lease_callback: Callable = Callable()
+	var poll_lease_call_count: int = 0
 
 	func request(
 		path: String,
@@ -3569,6 +4709,7 @@ class SampleSceneResourceBroker extends GFResourceBroker:
 		return lease
 
 	func poll_lease(lease: GFResourceLease) -> Dictionary:
+		poll_lease_call_count += 1
 		var result: Dictionary = super.poll_lease(lease)
 		if poll_lease_callback.is_valid():
 			var callback: Callable = poll_lease_callback

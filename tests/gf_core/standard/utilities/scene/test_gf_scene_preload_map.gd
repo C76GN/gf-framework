@@ -477,6 +477,7 @@ class SceneUtilityProbe extends GFSceneUtility:
 			if _auto_neighbor_scene_changed_callback.is_valid()
 			else null
 		)
+		var _confirmed: bool = _confirm_target_scene_commit()
 		return true
 
 	func _scene_root_matches_target(_scene_root: Node, _target_scene_path: String) -> bool:
