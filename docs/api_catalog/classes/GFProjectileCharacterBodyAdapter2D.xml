@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFProjectileCharacterBodyAdapter2D" path="addons/gf/extensions/combat/projectiles/gf_projectile_character_body_adapter_2d.gd" module="extensions/combat" extends="GFProjectileBodyAdapter2D" classDigest="9a8d0ede451552eb4ae37ab54f31875a737cb3084d31f72b91ecbde7c899bd01">
+	<description>GFProjectileCharacterBodyAdapter2D: CharacterBody2D 运动适配器。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">resource_definition</tag>
+		<tag name="since">unreleased</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties />
+	<methods />
+	<innerClasses />
+</class>

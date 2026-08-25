@@ -1,0 +1,217 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFProjectileSession" path="addons/gf/extensions/combat/projectiles/gf_projectile_session.gd" module="extensions/combat" extends="RefCounted" classDigest="08d80ba9b0f76d9906047a4bda9dee2cd7906a4cff47f8a1ee1d2a5a4c69b8ff">
+	<description>GFProjectileSession: 一次 typed projectile 发射的运行期句柄。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_handle</tag>
+		<tag name="since">unreleased</tag>
+	</tags>
+	<signals>
+		<member kind="signal" name="finished">
+			<signature>signal finished(session: GFProjectileSession, reason: int)</signature>
+			<description>session 首次进入 FINISHED 时发出。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">session: 已结算的同一 session。</tag>
+				<tag name="param">reason: `EndReason` 枚举值。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</signals>
+	<enums>
+		<member kind="enum" name="Dimension">
+			<signature>enum Dimension {
+	## 2D runtime、adapter 与 motion。
+	TWO_D = 0,
+	## 3D runtime、adapter 与 motion。
+	THREE_D = 1,
+}</signature>
+			<description>定义 session 的空间维度。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="enum" name="Status">
+			<signature>enum Status {
+	## 尚未由 runtime 激活。
+	UNCONFIGURED = 0,
+	## 正在接受 motion、impact 与 lifetime 更新。
+	ACTIVE = 1,
+	## 已以 first-wins 原因结算。
+	FINISHED = 2,
+}</signature>
+			<description>定义 session 的封闭生命周期状态。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="enum" name="EndReason">
+			<signature>enum EndReason {
+	## 尚未结束。
+	NONE = 0,
+	## 调用方显式结束。
+	CALLER_FINISHED = 1,
+	## 达到最大活动时长。
+	LIFETIME_SECONDS = 2,
+	## 达到累计实际位移上限。
+	LIFETIME_DISTANCE = 3,
+	## 达到已接受 impact 上限。
+	LIFETIME_IMPACTS = 4,
+	## 自定义 lifetime hook 请求结束。
+	LIFETIME_CUSTOM = 5,
+	## Motion 正常请求结束。
+	MOTION_FINISHED = 6,
+	## 必需目标已丢失。
+	TARGET_LOST = 7,
+	## Motion 返回不可应用 intent。
+	INVALID_MOTION_INTENT = 8,
+	## Motion state 或计算失败。
+	MOTION_FAILED = 9,
+	## Body adapter 捕获或应用失败。
+	BODY_APPLICATION_FAILED = 10,
+	## 完整实例 root 已丢失。
+	ROOT_LOST = 11,
+	## Runtime 已丢失。
+	RUNTIME_LOST = 12,
+	## 显式 impact source topology 已丢失。
+	IMPACT_SOURCE_LOST = 13,
+	## Emitter 或 allocator 主动释放。
+	EMITTER_RELEASED = 14,
+	## 无法归类的框架内部失败。
+	INTERNAL_FAILURE = 15,
+}</signature>
+			<description>定义首次结束 session 的稳定原因。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</enums>
+	<constants />
+	<properties />
+	<methods>
+		<member kind="method" name="get_status">
+			<signature>func get_status() -&gt; Status:</signature>
+			<description>返回当前生命周期状态。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">封闭 `Status` 值。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_dimension">
+			<signature>func get_dimension() -&gt; Dimension:</signature>
+			<description>返回空间维度。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">TWO_D 或 THREE_D。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_generation">
+			<signature>func get_generation() -&gt; int:</signature>
+			<description>返回 runtime 分配的单调 generation。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">激活后为正数。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_instance_root">
+			<signature>func get_instance_root() -&gt; Node:</signature>
+			<description>返回完整实例 root。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">live root；释放后为 null。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_runtime">
+			<signature>func get_runtime() -&gt; Node:</signature>
+			<description>返回本次 session 的 runtime。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">live runtime；释放后为 null。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_elapsed_seconds">
+			<signature>func get_elapsed_seconds() -&gt; float:</signature>
+			<description>返回累计活动时长。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">非负秒数。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_travelled_distance">
+			<signature>func get_travelled_distance() -&gt; float:</signature>
+			<description>返回累计实际 world displacement 长度。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">非负累计距离，不是起点到当前位置净距离。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_accepted_impact_count">
+			<signature>func get_accepted_impact_count() -&gt; int:</signature>
+			<description>返回被当前 generation 接受的 impact 数。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">非负计数。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_end_reason">
+			<signature>func get_end_reason() -&gt; EndReason:</signature>
+			<description>返回首次结束原因。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">ACTIVE 时为 NONE，FINISHED 时为冻结原因。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_metadata">
+			<signature>func get_metadata() -&gt; Dictionary:</signature>
+			<description>返回 launch metadata 深副本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">可由调用方修改的独立 metadata。</tag>
+				<tag name="schema">return: Dictionary，激活时冻结的项目 metadata 深副本。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_active">
+			<signature>func is_active() -&gt; bool:</signature>
+			<description>判断 session 是否仍 ACTIVE。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">当前状态为 ACTIVE 时为 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_finished">
+			<signature>func is_finished() -&gt; bool:</signature>
+			<description>判断 session 是否已结算。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">当前状态为 FINISHED 时为 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="finish">
+			<signature>func finish(reason: EndReason = EndReason.CALLER_FINISHED) -&gt; bool:</signature>
+			<description>以 first-wins 语义结束 session，并 best-effort 要求 adapter 停止 body。
+stop 在 reason 冻结后执行，其结果不会改写本次既有终结原因。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">reason: 非 NONE 的结束原因。</tag>
+				<tag name="return">本调用是否首次完成结算。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

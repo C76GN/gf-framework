@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFProjectileDefinition" path="addons/gf/extensions/combat/projectiles/gf_projectile_definition.gd" module="extensions/combat" extends="Resource" classDigest="f62c08509eab57433d3d16640e24973923a38bf4476f0aef6a881f393b5e22d6">
+	<description>GFProjectileDefinition: projectile 场景、runtime 与策略的 typed 定义基类。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">resource_definition</tag>
+		<tag name="since">unreleased</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties>
+		<member kind="property" name="scene" decorators="@export">
+			<signature>var scene: PackedScene = null</signature>
+			<description>可实例化的完整 projectile scene。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="runtime_path" decorators="@export">
+			<signature>var runtime_path: NodePath = NodePath("ProjectileRuntime")</signature>
+			<description>scene root 到唯一 runtime 的显式路径。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="impact_source_paths" decorators="@export">
+			<signature>var impact_source_paths: Array[NodePath] = []</signature>
+			<description>scene root 到 0..N impact source 的显式有序路径。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="schema">impact_source_paths: Array[NodePath]，每项必须显式指向同维 GFHitBox2D/GFHitScan2D 或 GFHitBox3D/GFHitScan3D；不得重复、越过 root 或混用维度。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="motion" decorators="@export">
+			<signature>var motion: GFProjectileMotion = null</signature>
+			<description>每个 session 使用的 motion 策略。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="lifetime_policy" decorators="@export">
+			<signature>var lifetime_policy: GFProjectileLifetimePolicy = null</signature>
+			<description>可选生命周期策略；null 表示不自动结束。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</properties>
+	<methods />
+	<innerClasses />
+</class>

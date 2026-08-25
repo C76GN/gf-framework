@@ -15,9 +15,9 @@
 
 | 类型 | 名称 | 签名 |
 |---|---|---|
-| 方法 | [`get_spawn_transforms`](#member-gfprojectilespawnpattern2d-methods-get_spawn_transforms) | `func get_spawn_transforms( emitter: Node2D, projectile_context: Dictionary = {}, emit_count: int = -1 ) -> Array[Transform2D]:` |
+| 方法 | [`get_spawn_transforms`](#member-gfprojectilespawnpattern2d-methods-get_spawn_transforms) | `func get_spawn_transforms( emitter: Node2D, launch_input: GFProjectileLaunchInput2D = null, emit_count: int = -1 ) -> Array[Transform2D]:` |
 | 方法 | [`resolve_spawn_count`](#member-gfprojectilespawnpattern2d-methods-resolve_spawn_count) | `func resolve_spawn_count(emit_count: int = -1) -> int:` |
-| 方法 | [`_get_spawn_transforms`](#member-gfprojectilespawnpattern2d-methods-_get_spawn_transforms) | `func _get_spawn_transforms( emitter: Node2D, _projectile_context: Dictionary = {}, _emit_count: int = -1 ) -> Array[Transform2D]:` |
+| 方法 | [`_get_spawn_transforms`](#member-gfprojectilespawnpattern2d-methods-_get_spawn_transforms) | `func _get_spawn_transforms( emitter: Node2D, _launch_input: GFProjectileLaunchInput2D = null, _emit_count: int = -1 ) -> Array[Transform2D]:` |
 | 方法 | [`_get_default_spawn_count`](#member-gfprojectilespawnpattern2d-methods-_get_default_spawn_count) | `func _get_default_spawn_count() -> int:` |
 
 ## 方法
@@ -27,9 +27,10 @@
 ### `get_spawn_transforms`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func get_spawn_transforms( emitter: Node2D, projectile_context: Dictionary = {}, emit_count: int = -1 ) -> Array[Transform2D]:
+func get_spawn_transforms( emitter: Node2D, launch_input: GFProjectileLaunchInput2D = null, emit_count: int = -1 ) -> Array[Transform2D]:
 ```
 
 计算本次发射的全局生成变换。
@@ -39,14 +40,10 @@ func get_spawn_transforms( emitter: Node2D, projectile_context: Dictionary = {},
 | 名称 | 说明 |
 |---|---|
 | `emitter` | 发射器节点。 |
-| `projectile_context` | 本次发射上下文。 |
+| `launch_input` | 本次 typed 发射输入；null 表示无额外输入。 |
 | `emit_count` | 调用方请求的数量；小于等于 0 时由模式自行决定。 |
 
 返回：全局 Transform2D 列表。
-
-结构：
-
-- `projectile_context`: Dictionary，本次发射上下文；模式只读取调用方约定的数据。
 
 <a id="member-gfprojectilespawnpattern2d-methods-resolve_spawn_count"></a>
 
@@ -74,9 +71,10 @@ func resolve_spawn_count(emit_count: int = -1) -> int:
 ### `_get_spawn_transforms`
 
 - API：`protected`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func _get_spawn_transforms( emitter: Node2D, _projectile_context: Dictionary = {}, _emit_count: int = -1 ) -> Array[Transform2D]:
+func _get_spawn_transforms( emitter: Node2D, _launch_input: GFProjectileLaunchInput2D = null, _emit_count: int = -1 ) -> Array[Transform2D]:
 ```
 
 生成点计算扩展点。
@@ -86,14 +84,10 @@ func _get_spawn_transforms( emitter: Node2D, _projectile_context: Dictionary = {
 | 名称 | 说明 |
 |---|---|
 | `emitter` | 发射器节点。 |
-| `_projectile_context` | 本次发射上下文。 |
+| `_launch_input` | 本次 typed 发射输入；null 表示无额外输入。 |
 | `_emit_count` | 调用方请求的数量；小于等于 0 时由模式自行决定。 |
 
 返回：全局 Transform2D 列表。
-
-结构：
-
-- `_projectile_context`: Dictionary，本次发射上下文；模式只读取调用方约定的数据。
 
 <a id="member-gfprojectilespawnpattern2d-methods-_get_default_spawn_count"></a>
 

@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFProjectileCatalogEntry" path="addons/gf/extensions/combat/projectiles/gf_projectile_catalog_entry.gd" module="extensions/combat" extends="Resource" classDigest="5360f1b5d3b5dfb6eacda1d33aa6e7568d51eb8b9e32129068e11a076a7bde0e">
-	<description>GFProjectileCatalogEntry: 发射体目录中的单个场景映射。
-只把稳定 ID 映射到 PackedScene，不解释该场景的玩法含义。</description>
+<class name="GFProjectileCatalogEntry" path="addons/gf/extensions/combat/projectiles/gf_projectile_catalog_entry.gd" module="extensions/combat" extends="Resource" classDigest="8affd4046a5cbc00588566679c35def55bd99c1aa2f2eb798ddb816d2225997b">
+	<description>GFProjectileCatalogEntry: 稳定 ID 到 typed projectile definition 的映射。</description>
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">resource_definition</tag>
@@ -13,26 +12,29 @@
 	<properties>
 		<member kind="property" name="projectile_id" decorators="@export">
 			<signature>var projectile_id: StringName = &amp;""</signature>
-			<description>发射体 ID。</description>
+			<description>definition 的稳定目录 ID。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
-		<member kind="property" name="scene" decorators="@export">
-			<signature>var scene: PackedScene = null</signature>
-			<description>发射体场景。</description>
+		<member kind="property" name="definition" decorators="@export">
+			<signature>var definition: GFProjectileDefinition = null</signature>
+			<description>与 ID 关联的 typed projectile definition。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
 	</properties>
 	<methods>
 		<member kind="method" name="is_valid_entry">
 			<signature>func is_valid_entry() -&gt; bool:</signature>
-			<description>检查条目是否可用于实例化。</description>
+			<description>判断条目是否可参与目录查找。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="return">ID 和场景都有效时返回 true。</tag>
+				<tag name="return">ID 非空且 definition 非 null 时为 true。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 	</methods>

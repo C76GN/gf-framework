@@ -8,7 +8,7 @@ Combat 属于业务型扩展外置候选：当前随 GF 包分发以便统一测
 
 - [核心模型与系统边界](core-model/index.md)：属性、标签、Buff、技能、目标选择和战斗事件。
 - [命中桥接与碰撞窗口](hit-bridge/index.md)：HitBox、HurtBox、HitScan、碰撞形状配置、重叠广播和状态组。
-- [发射体与移动策略](projectiles.md)：Projectile、Motion、Lifetime、Emitter、Emission Task、Catalog 和 Spawn Pattern。
+- [发射体运行时](projectiles.md)：类型化 Definition/Binding、LaunchInput/Session、Motion/Adapter、两阶段 Emitter、Catalog 与 Spawn Pattern。
 - [通用动作与数值槽](actions-gauges.md)：`GFCombatAction`、`GFCombatActionModifier`、`GFCombatGauge` 和结果对象。
 - [运行时示例与系统驱动](runtime-usage/index.md)：事件监听、Buff、技能、运行时 Buff 调整和手动装配。
 

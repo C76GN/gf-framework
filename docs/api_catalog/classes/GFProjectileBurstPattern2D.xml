@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFProjectileBurstPattern2D" path="addons/gf/extensions/combat/projectiles/gf_projectile_burst_pattern_2d.gd" module="extensions/combat" extends="GFProjectileSpawnPattern2D" classDigest="a41aa84d593e8140fd71c4b5a3bfb2af42ab40ce72f3216c8eccc28d6f5c2bbe">
+<class name="GFProjectileBurstPattern2D" path="addons/gf/extensions/combat/projectiles/gf_projectile_burst_pattern_2d.gd" module="extensions/combat" extends="GFProjectileSpawnPattern2D" classDigest="bac8714ced7409d5b530943210876b3807b672ba13595cbfd93dc01bbefe83b4">
 	<description>GFProjectileBurstPattern2D: 2D 扇形/环形发射点模式。
 通过数量、角度和半径生成一组通用发射变换，适合散射、圆环、扇形或单点发射。</description>
 	<tags>
@@ -16,6 +16,7 @@
 			<description>默认发射数量。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="spread_degrees" decorators="@export">
@@ -23,6 +24,7 @@
 			<description>总扩散角度（度）。数量大于 1 时在该范围内均匀分布。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="center_angle_degrees" decorators="@export">
@@ -30,6 +32,7 @@
 			<description>相对发射器朝向的中心角度（度）。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="radius" decorators="@export">
@@ -37,6 +40,7 @@
 			<description>生成点距离发射器的半径。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="rotate_to_direction" decorators="@export">
@@ -44,6 +48,7 @@
 			<description>生成变换是否朝向对应发射方向。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="include_emitter_rotation" decorators="@export">
@@ -51,20 +56,21 @@
 			<description>是否把发射器自身旋转计入方向。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 	</properties>
 	<methods>
 		<member kind="method" name="_get_spawn_transforms">
-			<signature>func _get_spawn_transforms( emitter: Node2D, _projectile_context: Dictionary = {}, emit_count: int = -1 ) -&gt; Array[Transform2D]:</signature>
+			<signature>func _get_spawn_transforms( emitter: Node2D, _launch_input: GFProjectileLaunchInput2D = null, emit_count: int = -1 ) -&gt; Array[Transform2D]:</signature>
 			<description>生成 2D 扇形或环形发射变换。</description>
 			<tags>
 				<tag name="api">protected</tag>
 				<tag name="param">emitter: 发射器节点。</tag>
-				<tag name="param">_projectile_context: 本次发射上下文。</tag>
+				<tag name="param">_launch_input: 本次 typed 发射输入；当前实现不读取。</tag>
 				<tag name="param">emit_count: 调用方请求的数量；小于等于 0 时使用 projectile_count。</tag>
 				<tag name="return">全局 Transform2D 列表。</tag>
-				<tag name="schema">_projectile_context: Dictionary，本次发射上下文；当前实现不读取该字典。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 	</methods>

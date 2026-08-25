@@ -2,8 +2,8 @@
   "schema_version": 2,
   "catalog_version": "2.0.0",
   "framework_version": "11.0.0-dev.0",
-  "source_digest": "793a9856a402f3240db32105f577da13ddd8abb7f24fe3077db0527696c635dd",
-  "class_count": 829,
+  "source_digest": "50b33d3d7ac219ebcff4ee3d5c761b7ac6fc14d7e030619e1d2c8c63e158b2ab",
+  "class_count": 849,
   "autoload_count": 1,
   "package_count": 56,
   "packages": [
@@ -38576,7 +38576,7 @@
       "module": "extensions/combat",
       "package_id": "gf.extension.combat",
       "path": "addons/gf/extensions/combat/projectiles/gf_homing_projectile_motion.gd",
-      "summary": "GFHomingProjectileMotion: 2D/3D 通用追踪发射体移动策略。 目标可通过 launch() 上下文中的 target、target_position、target_position_2d 或 target_position_3d 传入，也可以用 target_path 从发射体节点相对查找。",
+      "summary": "GFHomingProjectileMotion: 使用 LaunchInput target 的 typed 追踪 intent 策略。",
       "visibility": "public",
       "category": "resource_definition",
       "since": "3.17.0",
@@ -38585,64 +38585,29 @@
           "kind": "var",
           "name": "speed",
           "signature": "var speed: float = 0.0",
-          "summary": "每秒移动距离。",
-          "visibility": "public"
-        },
-        {
-          "kind": "var",
-          "name": "target_path",
-          "signature": "var target_path: NodePath = NodePath(\"\")",
-          "summary": "可选目标节点路径。为空时只读取 projectile_context。",
-          "visibility": "public"
-        },
-        {
-          "kind": "var",
-          "name": "target_context_key",
-          "signature": "var target_context_key: StringName = &\"target\"",
-          "summary": "从 projectile_context 读取目标对象或位置的键。",
-          "visibility": "public"
-        },
-        {
-          "kind": "var",
-          "name": "target_position_context_key",
-          "signature": "var target_position_context_key: StringName = &\"target_position\"",
-          "summary": "从 projectile_context 读取通用目标位置的键。",
+          "summary": "world-space 追踪速度。",
           "visibility": "public"
         },
         {
           "kind": "var",
           "name": "arrival_distance",
           "signature": "var arrival_distance: float = 0.0",
-          "summary": "到目标的距离小于等于该值时视为到达。小于 0 表示不标记到达。",
+          "summary": "视为到达目标的距离；NaN/Inf 会被拒绝，有限负值保持兼容语义并禁用 arrival clamp。",
           "visibility": "public"
         },
         {
           "kind": "var",
           "name": "track_target",
           "signature": "var track_target: bool = true",
-          "summary": "是否每帧重新朝向当前目标。关闭后只在首次解析目标时锁定方向；",
+          "summary": "是否每帧重新读取 node 目标位置；关闭且目标仍存活时，方向与 arrival clamp 使用 launch 快照。",
           "visibility": "public"
         },
         {
           "kind": "var",
           "name": "stop_when_reached",
           "signature": "var stop_when_reached: bool = true",
-          "summary": "到达目标范围时是否停止并夹住位移，避免越过目标。",
+          "summary": "是否在本帧限制移动距离以停在 arrival boundary。",
           "visibility": "public"
-        },
-        {
-          "kind": "func",
-          "name": "_setup",
-          "signature": "func _setup(projectile: Node, projectile_context: Dictionary = {}) -> void",
-          "summary": "缓存初始追踪方向。",
-          "visibility": "protected"
-        },
-        {
-          "kind": "func",
-          "name": "_step",
-          "signature": "func _step(projectile: Node, delta: float, projectile_context: Dictionary = {}) -> void",
-          "summary": "推进追踪移动。",
-          "visibility": "protected"
         }
       ]
     },
@@ -46877,7 +46842,7 @@
       "module": "extensions/combat",
       "package_id": "gf.extension.combat",
       "path": "addons/gf/extensions/combat/projectiles/gf_linear_projectile_motion.gd",
-      "summary": "GFLinearProjectileMotion: 2D/3D 通用直线发射体移动策略。 该策略只处理线性位移，不处理碰撞、伤害、生命周期或目标选择。",
+      "summary": "GFLinearProjectileMotion: 2D/3D 对称的直线 intent 策略。",
       "visibility": "public",
       "category": "resource_definition",
       "since": "3.17.0",
@@ -46886,43 +46851,36 @@
           "kind": "var",
           "name": "speed",
           "signature": "var speed: float = 0.0",
-          "summary": "每秒移动距离。",
+          "summary": "world-space 运动速度。",
           "visibility": "public"
         },
         {
           "kind": "var",
           "name": "direction_2d",
           "signature": "var direction_2d: Vector2 = Vector2.RIGHT",
-          "summary": "2D 方向。use_local_direction 为 true 时按发射体当前变换转换。",
+          "summary": "2D 基础方向。",
           "visibility": "public"
         },
         {
           "kind": "var",
           "name": "direction_3d",
           "signature": "var direction_3d: Vector3 = Vector3.FORWARD",
-          "summary": "3D 方向。use_local_direction 为 true 时按发射体当前变换转换。",
+          "summary": "3D 基础方向。",
           "visibility": "public"
         },
         {
           "kind": "var",
           "name": "use_local_direction",
           "signature": "var use_local_direction: bool = true",
-          "summary": "是否把方向视为发射体本地坐标。",
+          "summary": "是否按初始 body basis 将基础方向转换到 world-space。",
           "visibility": "public"
         },
         {
           "kind": "var",
           "name": "normalize_direction",
           "signature": "var normalize_direction: bool = true",
-          "summary": "是否归一化方向。",
+          "summary": "是否在乘以 speed 前单位化方向。",
           "visibility": "public"
-        },
-        {
-          "kind": "func",
-          "name": "_step",
-          "signature": "func _step(projectile: Node, delta: float, projectile_context: Dictionary = {}) -> void",
-          "summary": "推进直线移动。",
-          "visibility": "protected"
         }
       ]
     },
@@ -61290,208 +61248,516 @@
     },
     "GFProjectile2D": {
       "owner_kind": "class",
-      "extends": "GFHitBox2D",
+      "extends": "Node",
       "module": "extensions/combat",
       "package_id": "gf.extension.combat",
       "path": "addons/gf/extensions/combat/projectiles/gf_projectile_2d.gd",
-      "summary": "GFProjectile2D: 可组合移动策略的 2D 发射体命中节点。 它继承 GFHitBox2D，命中仍通过 GFCombatHitContext 发送给 receive_hit()。 节点只负责移动、寿命和碰撞触发，不解释伤害、阵营或生命值规则。",
+      "summary": "GFProjectile2D: 2D projectile scene 内的 dimension-neutral runtime 节点。",
       "visibility": "public",
       "category": "runtime_handle",
       "since": "3.17.0",
       "members": [
         {
           "kind": "signal",
-          "name": "projectile_launched",
-          "signature": "signal projectile_launched(projectile: GFProjectile2D)",
-          "summary": "发射体启动时发出。",
+          "name": "projectile_started",
+          "signature": "signal projectile_started(session: GFProjectileSession)",
+          "summary": "session 已 ACTIVE 且允许发布 started 时发出。",
           "visibility": "public"
         },
         {
           "kind": "signal",
           "name": "projectile_finished",
-          "signature": "signal projectile_finished(projectile: GFProjectile2D, reason: StringName)",
-          "summary": "发射体结束时发出。",
-          "visibility": "public"
-        },
-        {
-          "kind": "var",
-          "name": "auto_launch_on_ready",
-          "signature": "var auto_launch_on_ready: bool = true",
-          "summary": "ready 后是否自动启动本次发射。",
-          "visibility": "public"
-        },
-        {
-          "kind": "var",
-          "name": "motion",
-          "signature": "var motion: Resource = null",
-          "summary": "移动策略。应实现 setup(projectile, context) 与 step(projectile, delta, context)。",
-          "visibility": "public"
-        },
-        {
-          "kind": "var",
-          "name": "lifetime_policy",
-          "signature": "var lifetime_policy: Resource = null",
-          "summary": "生命周期策略。应实现 setup(projectile, context) 与 should_finish(projectile, elapsed, context)。",
-          "visibility": "public"
-        },
-        {
-          "kind": "var",
-          "name": "finish_on_impact",
-          "signature": "var finish_on_impact: bool = true",
-          "summary": "命中任意 receive_hit() 接收器后是否结束。",
-          "visibility": "public"
-        },
-        {
-          "kind": "var",
-          "name": "queue_free_on_finish",
-          "signature": "var queue_free_on_finish: bool = true",
-          "summary": "结束时是否 queue_free。使用对象池时通常应关闭。",
+          "signature": "signal projectile_finished(session: GFProjectileSession, reason: int)",
+          "summary": "当前 session 首次结束时发出。",
           "visibility": "public"
         },
         {
           "kind": "func",
           "name": "launch",
-          "signature": "func launch(projectile_context: Dictionary = {}) -> void",
-          "summary": "启动或重置本次发射。",
+          "signature": "func launch( binding: GFProjectileBinding2D, launch_input: GFProjectileLaunchInput2D = null ) -> GFProjectileSession",
+          "summary": "直接激活一个已验证 binding。",
           "visibility": "public"
         },
         {
           "kind": "func",
-          "name": "finish",
-          "signature": "func finish(reason: StringName = &\"finished\") -> void",
-          "summary": "结束本次发射。",
+          "name": "get_active_session",
+          "signature": "func get_active_session() -> GFProjectileSession",
+          "summary": "返回当前 ACTIVE session。",
           "visibility": "public"
         },
         {
           "kind": "func",
-          "name": "is_projectile_active",
-          "signature": "func is_projectile_active() -> bool",
-          "summary": "判断发射体是否处于已启动状态。",
-          "visibility": "public"
-        },
-        {
-          "kind": "func",
-          "name": "get_elapsed_seconds",
-          "signature": "func get_elapsed_seconds() -> float",
-          "summary": "获取本次发射经过的秒数。",
-          "visibility": "public"
-        },
-        {
-          "kind": "func",
-          "name": "get_projectile_context",
-          "signature": "func get_projectile_context() -> Dictionary",
-          "summary": "获取本次发射上下文副本。",
-          "visibility": "public"
-        },
-        {
-          "kind": "func",
-          "name": "send_impact_to",
-          "signature": "func send_impact_to(candidate: Object) -> void",
-          "summary": "向碰撞候选对象发送一次发射体命中。",
+          "name": "is_active",
+          "signature": "func is_active() -> bool",
+          "summary": "判断 runtime 是否持有 ACTIVE session。",
           "visibility": "public"
         }
       ]
     },
     "GFProjectile3D": {
       "owner_kind": "class",
-      "extends": "GFHitBox3D",
+      "extends": "Node",
       "module": "extensions/combat",
       "package_id": "gf.extension.combat",
       "path": "addons/gf/extensions/combat/projectiles/gf_projectile_3d.gd",
-      "summary": "GFProjectile3D: 可组合移动策略的 3D 发射体命中节点。 它继承 GFHitBox3D，命中仍通过 GFCombatHitContext 发送给 receive_hit()。 节点只负责移动、寿命和碰撞触发，不解释伤害、阵营或生命值规则。",
+      "summary": "GFProjectile3D: 3D projectile scene 内的 dimension-neutral runtime 节点。",
       "visibility": "public",
       "category": "runtime_handle",
       "since": "3.17.0",
       "members": [
         {
           "kind": "signal",
-          "name": "projectile_launched",
-          "signature": "signal projectile_launched(projectile: GFProjectile3D)",
-          "summary": "发射体启动时发出。",
+          "name": "projectile_started",
+          "signature": "signal projectile_started(session: GFProjectileSession)",
+          "summary": "session 已 ACTIVE 且允许发布 started 时发出。",
           "visibility": "public"
         },
         {
           "kind": "signal",
           "name": "projectile_finished",
-          "signature": "signal projectile_finished(projectile: GFProjectile3D, reason: StringName)",
-          "summary": "发射体结束时发出。",
-          "visibility": "public"
-        },
-        {
-          "kind": "var",
-          "name": "auto_launch_on_ready",
-          "signature": "var auto_launch_on_ready: bool = true",
-          "summary": "ready 后是否自动启动本次发射。",
-          "visibility": "public"
-        },
-        {
-          "kind": "var",
-          "name": "motion",
-          "signature": "var motion: Resource = null",
-          "summary": "移动策略。应实现 setup(projectile, context) 与 step(projectile, delta, context)。",
-          "visibility": "public"
-        },
-        {
-          "kind": "var",
-          "name": "lifetime_policy",
-          "signature": "var lifetime_policy: Resource = null",
-          "summary": "生命周期策略。应实现 setup(projectile, context) 与 should_finish(projectile, elapsed, context)。",
-          "visibility": "public"
-        },
-        {
-          "kind": "var",
-          "name": "finish_on_impact",
-          "signature": "var finish_on_impact: bool = true",
-          "summary": "命中任意 receive_hit() 接收器后是否结束。",
-          "visibility": "public"
-        },
-        {
-          "kind": "var",
-          "name": "queue_free_on_finish",
-          "signature": "var queue_free_on_finish: bool = true",
-          "summary": "结束时是否 queue_free。使用对象池时通常应关闭。",
+          "signature": "signal projectile_finished(session: GFProjectileSession, reason: int)",
+          "summary": "当前 session 首次结束时发出。",
           "visibility": "public"
         },
         {
           "kind": "func",
           "name": "launch",
-          "signature": "func launch(projectile_context: Dictionary = {}) -> void",
-          "summary": "启动或重置本次发射。",
+          "signature": "func launch( binding: GFProjectileBinding3D, launch_input: GFProjectileLaunchInput3D = null ) -> GFProjectileSession",
+          "summary": "直接激活一个已验证 binding。",
           "visibility": "public"
         },
         {
           "kind": "func",
-          "name": "finish",
-          "signature": "func finish(reason: StringName = &\"finished\") -> void",
-          "summary": "结束本次发射。",
+          "name": "get_active_session",
+          "signature": "func get_active_session() -> GFProjectileSession",
+          "summary": "返回当前 ACTIVE session。",
           "visibility": "public"
         },
         {
           "kind": "func",
-          "name": "is_projectile_active",
-          "signature": "func is_projectile_active() -> bool",
-          "summary": "判断发射体是否处于已启动状态。",
+          "name": "is_active",
+          "signature": "func is_active() -> bool",
+          "summary": "判断 runtime 是否持有 ACTIVE session。",
+          "visibility": "public"
+        }
+      ]
+    },
+    "GFProjectileBinding": {
+      "owner_kind": "class",
+      "extends": "RefCounted",
+      "module": "extensions/combat",
+      "package_id": "gf.extension.combat",
+      "path": "addons/gf/extensions/combat/projectiles/gf_projectile_binding.gd",
+      "summary": "GFProjectileBinding: definition 与完整场景实例之间的拓扑快照。 直接 `new()` 得到封闭的 unconfigured invalid value，其原因为 `INTERNAL_FAILURE`； 只有 typed definition 的 `bind_instance()` 才能构造有效 topology。",
+      "visibility": "public",
+      "category": "value_object",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "enum",
+          "name": "FailureReason",
+          "signature": "enum FailureReason {\n\t## Topology 完整有效。\n\tNONE = 0,\n\t## Definition 缺少可用 scene 或声明无效。\n\tINVALID_DEFINITION = 1,\n\t## 实例 root 为 null 或已失效。\n\tINVALID_ROOT = 2,\n\t## Root 类型与 definition 维度不一致。\n\tROOT_DIMENSION_MISMATCH = 3,\n\t## Root 尚未进入 SceneTree。\n\tROOT_NOT_IN_TREE = 4,\n\t## Definition 未声明 runtime path。\n\tMISSING_RUNTIME_PATH = 5,\n\t## 实例树内没有对应维度 runtime。\n\tMISSING_RUNTIME = 6,\n\t## 实例树内存在多个对应维度 runtime。\n\tAMBIGUOUS_RUNTIME = 7,\n\t## 显式 runtime path 未指向唯一 runtime。\n\tRUNTIME_PATH_MISMATCH = 8,\n\t## Runtime path 解析到实例 root 之外。\n\tRUNTIME_OUTSIDE_ROOT = 9,\n\t## Runtime 节点维度错误。\n\tRUNTIME_DIMENSION_MISMATCH = 10,\n\t## Runtime 已有 ACTIVE session 或 launch claim。\n\tRUNTIME_BUSY = 11,\n\t## Definition 未配置 motion。\n\tMISSING_MOTION = 12,\n\t## Typed definition 未配置 body adapter。\n\tMISSING_BODY_ADAPTER = 13,\n\t## Body adapter 不支持该 root。\n\tUNSUPPORTED_MOTION_BODY = 14,\n\t## Impact source 路径或节点类型无效。\n\tINVALID_IMPACT_SOURCE = 15,\n\t## 显式 impact source 路径不存在。\n\tMISSING_IMPACT_SOURCE = 16,\n\t## Impact source 路径重复。\n\tDUPLICATE_IMPACT_SOURCE = 17,\n\t## Impact source 位于实例 root 之外。\n\tIMPACT_SOURCE_OUTSIDE_ROOT = 18,\n\t## Impact source 与 definition 维度不一致。\n\tIMPACT_SOURCE_DIMENSION_MISMATCH = 19,\n\t## Binding topology 已不再 current。\n\tSTALE_BINDING = 20,\n\t## Motion 拒绝创建 per-session state。\n\tMOTION_STATE_CREATION_FAILED = 21,\n\t## Reservation 在消费前失效。\n\tRESERVATION_INVALIDATED = 22,\n\t## 公开默认构造但尚未由 typed definition 初始化的封闭 invalid 状态。\n\tINTERNAL_FAILURE = 23,\n}",
+          "summary": "定义 binding 拒绝或失效的封闭原因。",
           "visibility": "public"
         },
         {
           "kind": "func",
-          "name": "get_elapsed_seconds",
-          "signature": "func get_elapsed_seconds() -> float",
-          "summary": "获取本次发射经过的秒数。",
+          "name": "is_valid",
+          "signature": "func is_valid() -> bool",
+          "summary": "返回 topology 是否已完整绑定。",
           "visibility": "public"
         },
         {
           "kind": "func",
-          "name": "get_projectile_context",
-          "signature": "func get_projectile_context() -> Dictionary",
-          "summary": "获取本次发射上下文副本。",
+          "name": "get_failure_reason",
+          "signature": "func get_failure_reason() -> FailureReason",
+          "summary": "返回首个绑定失败原因。",
           "visibility": "public"
         },
         {
           "kind": "func",
-          "name": "send_impact_to",
-          "signature": "func send_impact_to(candidate: Object) -> void",
-          "summary": "向碰撞候选对象发送一次发射体命中。",
+          "name": "get_definition",
+          "signature": "func get_definition() -> GFProjectileDefinition",
+          "summary": "返回创建本快照的 typed definition。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_instance_root",
+          "signature": "func get_instance_root() -> Node",
+          "summary": "返回绑定的完整实例根节点。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_runtime",
+          "signature": "func get_runtime() -> Node",
+          "summary": "返回唯一 runtime 节点。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_impact_sources",
+          "signature": "func get_impact_sources() -> Array[Node]",
+          "summary": "返回 definition 声明顺序的 live impact source 快照。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_body_adapter",
+          "signature": "func get_body_adapter() -> Resource",
+          "summary": "返回本次绑定冻结的 dimension-specific body adapter。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "is_current",
+          "signature": "func is_current() -> bool",
+          "summary": "检查弱引用 topology 是否仍与实例树一致。",
+          "visibility": "public"
+        }
+      ]
+    },
+    "GFProjectileBinding2D": {
+      "owner_kind": "class",
+      "extends": "GFProjectileBinding",
+      "module": "extensions/combat",
+      "package_id": "gf.extension.combat",
+      "path": "addons/gf/extensions/combat/projectiles/gf_projectile_binding_2d.gd",
+      "summary": "GFProjectileBinding2D: 2D projectile 的 typed 拓扑快照。",
+      "visibility": "public",
+      "category": "value_object",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "func",
+          "name": "get_definition",
+          "signature": "func get_definition() -> GFProjectileDefinition2D",
+          "summary": "返回创建本快照的 2D definition。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_instance_root",
+          "signature": "func get_instance_root() -> Node2D",
+          "summary": "返回绑定的完整 2D 实例根节点。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_runtime",
+          "signature": "func get_runtime() -> GFProjectile2D",
+          "summary": "返回唯一 2D runtime 节点。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_body_adapter",
+          "signature": "func get_body_adapter() -> GFProjectileBodyAdapter2D",
+          "summary": "返回冻结的 2D body adapter。",
+          "visibility": "public"
+        }
+      ]
+    },
+    "GFProjectileBinding3D": {
+      "owner_kind": "class",
+      "extends": "GFProjectileBinding",
+      "module": "extensions/combat",
+      "package_id": "gf.extension.combat",
+      "path": "addons/gf/extensions/combat/projectiles/gf_projectile_binding_3d.gd",
+      "summary": "GFProjectileBinding3D: 3D projectile 的 typed 拓扑快照。",
+      "visibility": "public",
+      "category": "value_object",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "func",
+          "name": "get_definition",
+          "signature": "func get_definition() -> GFProjectileDefinition3D",
+          "summary": "返回创建本快照的 3D definition。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_instance_root",
+          "signature": "func get_instance_root() -> Node3D",
+          "summary": "返回绑定的完整 3D 实例根节点。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_runtime",
+          "signature": "func get_runtime() -> GFProjectile3D",
+          "summary": "返回唯一 3D runtime 节点。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_body_adapter",
+          "signature": "func get_body_adapter() -> GFProjectileBodyAdapter3D",
+          "summary": "返回冻结的 3D body adapter。",
+          "visibility": "public"
+        }
+      ]
+    },
+    "GFProjectileBodyAdapter2D": {
+      "owner_kind": "class",
+      "extends": "Resource",
+      "module": "extensions/combat",
+      "package_id": "gf.extension.combat",
+      "path": "addons/gf/extensions/combat/projectiles/gf_projectile_body_adapter_2d.gd",
+      "summary": "GFProjectileBodyAdapter2D: 2D 发射体宿主运动适配协议。",
+      "visibility": "public",
+      "category": "protocol",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "func",
+          "name": "validate_root",
+          "signature": "func validate_root(root: Node) -> Error",
+          "summary": "校验完整实例 root 是否由本 adapter 支持。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "capture_body",
+          "signature": "func capture_body(root: Node) -> GFProjectileBodyResult2D",
+          "summary": "捕获运动计算所需的当前 body 快照。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "apply_intent",
+          "signature": "func apply_intent( root: Node, intent: GFProjectileMotionIntent2D ) -> GFProjectileBodyResult2D",
+          "summary": "将一次 typed intent 应用于 root。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "stop",
+          "signature": "func stop(root: Node) -> GFProjectileBodyResult2D",
+          "summary": "停止 root 的运动 authority，不产生额外位移。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "_validate_root",
+          "signature": "func _validate_root(_root: Node) -> Variant",
+          "summary": "实现具体 root 准入规则。",
+          "visibility": "protected"
+        },
+        {
+          "kind": "func",
+          "name": "_capture_body",
+          "signature": "func _capture_body(_root: Node) -> Variant",
+          "summary": "捕获具体 body 快照。",
+          "visibility": "protected"
+        },
+        {
+          "kind": "func",
+          "name": "_apply_intent",
+          "signature": "func _apply_intent( _root: Node, _intent: GFProjectileMotionIntent2D ) -> Variant",
+          "summary": "应用具体 body intent。",
+          "visibility": "protected"
+        },
+        {
+          "kind": "func",
+          "name": "_stop",
+          "signature": "func _stop(_root: Node) -> Variant",
+          "summary": "停止具体 body。",
+          "visibility": "protected"
+        }
+      ]
+    },
+    "GFProjectileBodyAdapter3D": {
+      "owner_kind": "class",
+      "extends": "Resource",
+      "module": "extensions/combat",
+      "package_id": "gf.extension.combat",
+      "path": "addons/gf/extensions/combat/projectiles/gf_projectile_body_adapter_3d.gd",
+      "summary": "GFProjectileBodyAdapter3D: 3D 发射体宿主运动适配协议。",
+      "visibility": "public",
+      "category": "protocol",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "func",
+          "name": "validate_root",
+          "signature": "func validate_root(root: Node) -> Error",
+          "summary": "校验完整实例 root 是否由本 adapter 支持。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "capture_body",
+          "signature": "func capture_body(root: Node) -> GFProjectileBodyResult3D",
+          "summary": "捕获运动计算所需的当前 body 快照。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "apply_intent",
+          "signature": "func apply_intent( root: Node, intent: GFProjectileMotionIntent3D ) -> GFProjectileBodyResult3D",
+          "summary": "将一次 typed intent 应用于 root。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "stop",
+          "signature": "func stop(root: Node) -> GFProjectileBodyResult3D",
+          "summary": "停止 root 的运动 authority，不产生额外位移。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "_validate_root",
+          "signature": "func _validate_root(_root: Node) -> Variant",
+          "summary": "实现具体 root 准入规则。",
+          "visibility": "protected"
+        },
+        {
+          "kind": "func",
+          "name": "_capture_body",
+          "signature": "func _capture_body(_root: Node) -> Variant",
+          "summary": "捕获具体 body 快照。",
+          "visibility": "protected"
+        },
+        {
+          "kind": "func",
+          "name": "_apply_intent",
+          "signature": "func _apply_intent( _root: Node, _intent: GFProjectileMotionIntent3D ) -> Variant",
+          "summary": "应用具体 body intent。",
+          "visibility": "protected"
+        },
+        {
+          "kind": "func",
+          "name": "_stop",
+          "signature": "func _stop(_root: Node) -> Variant",
+          "summary": "停止具体 body。",
+          "visibility": "protected"
+        }
+      ]
+    },
+    "GFProjectileBodyResult2D": {
+      "owner_kind": "class",
+      "extends": "RefCounted",
+      "module": "extensions/combat",
+      "package_id": "gf.extension.combat",
+      "path": "addons/gf/extensions/combat/projectiles/gf_projectile_body_result_2d.gd",
+      "summary": "GFProjectileBodyResult2D: 2D body adapter 的捕获或应用结果。",
+      "visibility": "public",
+      "category": "value_object",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "func",
+          "name": "successful",
+          "signature": "static func successful( transform_value: Transform2D, actual_displacement: Vector2 = Vector2.ZERO ) -> GFProjectileBodyResult2D",
+          "summary": "构造成功的 2D body 结果。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "failed",
+          "signature": "static func failed( reason: StringName, transform_value: Transform2D = Transform2D.IDENTITY ) -> GFProjectileBodyResult2D",
+          "summary": "构造失败的 2D body 结果。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "is_successful",
+          "signature": "func is_successful() -> bool",
+          "summary": "返回 body 操作是否成功。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_failure_reason",
+          "signature": "func get_failure_reason() -> StringName",
+          "summary": "返回失败原因。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_transform",
+          "signature": "func get_transform() -> Transform2D",
+          "summary": "返回操作后的 world transform。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_position",
+          "signature": "func get_position() -> Vector2",
+          "summary": "返回 transform 的 world position。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_actual_displacement",
+          "signature": "func get_actual_displacement() -> Vector2",
+          "summary": "返回本次操作实际产生的 world displacement。",
+          "visibility": "public"
+        }
+      ]
+    },
+    "GFProjectileBodyResult3D": {
+      "owner_kind": "class",
+      "extends": "RefCounted",
+      "module": "extensions/combat",
+      "package_id": "gf.extension.combat",
+      "path": "addons/gf/extensions/combat/projectiles/gf_projectile_body_result_3d.gd",
+      "summary": "GFProjectileBodyResult3D: 3D body adapter 的捕获或应用结果。",
+      "visibility": "public",
+      "category": "value_object",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "func",
+          "name": "successful",
+          "signature": "static func successful( transform_value: Transform3D, actual_displacement: Vector3 = Vector3.ZERO ) -> GFProjectileBodyResult3D",
+          "summary": "构造成功的 3D body 结果。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "failed",
+          "signature": "static func failed( reason: StringName, transform_value: Transform3D = Transform3D.IDENTITY ) -> GFProjectileBodyResult3D",
+          "summary": "构造失败的 3D body 结果。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "is_successful",
+          "signature": "func is_successful() -> bool",
+          "summary": "返回 body 操作是否成功。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_failure_reason",
+          "signature": "func get_failure_reason() -> StringName",
+          "summary": "返回失败原因。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_transform",
+          "signature": "func get_transform() -> Transform3D",
+          "summary": "返回操作后的 world transform。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_position",
+          "signature": "func get_position() -> Vector3",
+          "summary": "返回 transform 的 world position。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_actual_displacement",
+          "signature": "func get_actual_displacement() -> Vector3",
+          "summary": "返回本次操作实际产生的 world displacement。",
           "visibility": "public"
         }
       ]
@@ -61552,7 +61818,7 @@
         {
           "kind": "func",
           "name": "_get_spawn_transforms",
-          "signature": "func _get_spawn_transforms( emitter: Node2D, _projectile_context: Dictionary = {}, emit_count: int = -1 ) -> Array[Transform2D]",
+          "signature": "func _get_spawn_transforms( emitter: Node2D, _launch_input: GFProjectileLaunchInput2D = null, emit_count: int = -1 ) -> Array[Transform2D]",
           "summary": "生成 2D 扇形或环形发射变换。",
           "visibility": "protected"
         }
@@ -61564,7 +61830,7 @@
       "module": "extensions/combat",
       "package_id": "gf.extension.combat",
       "path": "addons/gf/extensions/combat/projectiles/gf_projectile_catalog.gd",
-      "summary": "GFProjectileCatalog: 发射体场景目录。 用唯一稳定 ID 管理 PackedScene，供发射器、技能或项目自己的生成流程复用。 重复导出 ID 读取时以首个有效条目为准，写入与移除会规范化重复项。",
+      "summary": "GFProjectileCatalog: typed projectile definition 目录。",
       "visibility": "public",
       "category": "resource_definition",
       "since": "3.17.0",
@@ -61573,49 +61839,49 @@
           "kind": "var",
           "name": "entries",
           "signature": "var entries: Array[GFProjectileCatalogEntry] = []",
-          "summary": "发射体场景条目列表。",
+          "summary": "目录条目；重复或无效条目不会参与查找结果。",
           "visibility": "public"
         },
         {
           "kind": "func",
-          "name": "set_scene",
-          "signature": "func set_scene(projectile_id: StringName, scene: PackedScene) -> void",
-          "summary": "设置或替换一个发射体场景。",
+          "name": "set_definition",
+          "signature": "func set_definition( projectile_id: StringName, definition: GFProjectileDefinition ) -> void",
+          "summary": "设置或替换一个 typed definition。",
           "visibility": "public"
         },
         {
           "kind": "func",
-          "name": "get_scene",
-          "signature": "func get_scene(projectile_id: StringName) -> PackedScene",
-          "summary": "获取指定 ID 的发射体场景。",
+          "name": "get_definition",
+          "signature": "func get_definition(projectile_id: StringName) -> GFProjectileDefinition",
+          "summary": "查找指定 ID 的 typed definition。",
           "visibility": "public"
         },
         {
           "kind": "func",
-          "name": "remove_scene",
-          "signature": "func remove_scene(projectile_id: StringName) -> bool",
-          "summary": "移除指定 ID 的发射体场景。",
+          "name": "has_definition",
+          "signature": "func has_definition(projectile_id: StringName) -> bool",
+          "summary": "判断指定 ID 是否有有效 definition。",
           "visibility": "public"
         },
         {
           "kind": "func",
-          "name": "has_scene",
-          "signature": "func has_scene(projectile_id: StringName) -> bool",
-          "summary": "检查指定 ID 是否存在有效场景。",
+          "name": "remove_definition",
+          "signature": "func remove_definition(projectile_id: StringName) -> bool",
+          "summary": "移除指定 ID 的所有重复条目。",
           "visibility": "public"
         },
         {
           "kind": "func",
           "name": "get_projectile_ids",
           "signature": "func get_projectile_ids() -> PackedStringArray",
-          "summary": "获取所有有效发射体 ID。",
+          "summary": "返回已排序且去重的有效 projectile ID。",
           "visibility": "public"
         },
         {
           "kind": "func",
           "name": "prune_invalid_entries",
           "signature": "func prune_invalid_entries() -> int",
-          "summary": "清理空条目、空 ID 或空场景。",
+          "summary": "清理 null、无效和重复条目。",
           "visibility": "public"
         }
       ]
@@ -61626,7 +61892,7 @@
       "module": "extensions/combat",
       "package_id": "gf.extension.combat",
       "path": "addons/gf/extensions/combat/projectiles/gf_projectile_catalog_entry.gd",
-      "summary": "GFProjectileCatalogEntry: 发射体目录中的单个场景映射。 只把稳定 ID 映射到 PackedScene，不解释该场景的玩法含义。",
+      "summary": "GFProjectileCatalogEntry: 稳定 ID 到 typed projectile definition 的映射。",
       "visibility": "public",
       "category": "resource_definition",
       "since": "3.17.0",
@@ -61635,24 +61901,48 @@
           "kind": "var",
           "name": "projectile_id",
           "signature": "var projectile_id: StringName = &\"\"",
-          "summary": "发射体 ID。",
+          "summary": "definition 的稳定目录 ID。",
           "visibility": "public"
         },
         {
           "kind": "var",
-          "name": "scene",
-          "signature": "var scene: PackedScene = null",
-          "summary": "发射体场景。",
+          "name": "definition",
+          "signature": "var definition: GFProjectileDefinition = null",
+          "summary": "与 ID 关联的 typed projectile definition。",
           "visibility": "public"
         },
         {
           "kind": "func",
           "name": "is_valid_entry",
           "signature": "func is_valid_entry() -> bool",
-          "summary": "检查条目是否可用于实例化。",
+          "summary": "判断条目是否可参与目录查找。",
           "visibility": "public"
         }
       ]
+    },
+    "GFProjectileCharacterBodyAdapter2D": {
+      "owner_kind": "class",
+      "extends": "GFProjectileBodyAdapter2D",
+      "module": "extensions/combat",
+      "package_id": "gf.extension.combat",
+      "path": "addons/gf/extensions/combat/projectiles/gf_projectile_character_body_adapter_2d.gd",
+      "summary": "GFProjectileCharacterBodyAdapter2D: CharacterBody2D 运动适配器。",
+      "visibility": "public",
+      "category": "resource_definition",
+      "since": "unreleased",
+      "members": []
+    },
+    "GFProjectileCharacterBodyAdapter3D": {
+      "owner_kind": "class",
+      "extends": "GFProjectileBodyAdapter3D",
+      "module": "extensions/combat",
+      "package_id": "gf.extension.combat",
+      "path": "addons/gf/extensions/combat/projectiles/gf_projectile_character_body_adapter_3d.gd",
+      "summary": "GFProjectileCharacterBodyAdapter3D: CharacterBody3D 运动适配器。",
+      "visibility": "public",
+      "category": "resource_definition",
+      "since": "unreleased",
+      "members": []
     },
     "GFProjectileConePattern3D": {
       "owner_kind": "class",
@@ -61696,9 +61986,111 @@
         {
           "kind": "func",
           "name": "_get_spawn_transforms",
-          "signature": "func _get_spawn_transforms( emitter: Node3D, _projectile_context: Dictionary = {}, emit_count: int = -1 ) -> Array[Transform3D]",
+          "signature": "func _get_spawn_transforms( emitter: Node3D, _launch_input: GFProjectileLaunchInput3D = null, emit_count: int = -1 ) -> Array[Transform3D]",
           "summary": "生成 3D 扇形发射变换。",
           "visibility": "protected"
+        }
+      ]
+    },
+    "GFProjectileDefinition": {
+      "owner_kind": "class",
+      "extends": "Resource",
+      "module": "extensions/combat",
+      "package_id": "gf.extension.combat",
+      "path": "addons/gf/extensions/combat/projectiles/gf_projectile_definition.gd",
+      "summary": "GFProjectileDefinition: projectile 场景、runtime 与策略的 typed 定义基类。",
+      "visibility": "public",
+      "category": "resource_definition",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "var",
+          "name": "scene",
+          "signature": "var scene: PackedScene = null",
+          "summary": "可实例化的完整 projectile scene。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "runtime_path",
+          "signature": "var runtime_path: NodePath = NodePath(\"ProjectileRuntime\")",
+          "summary": "scene root 到唯一 runtime 的显式路径。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "impact_source_paths",
+          "signature": "var impact_source_paths: Array[NodePath] = []",
+          "summary": "scene root 到 0..N impact source 的显式有序路径。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "motion",
+          "signature": "var motion: GFProjectileMotion = null",
+          "summary": "每个 session 使用的 motion 策略。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "lifetime_policy",
+          "signature": "var lifetime_policy: GFProjectileLifetimePolicy = null",
+          "summary": "可选生命周期策略；null 表示不自动结束。",
+          "visibility": "public"
+        }
+      ]
+    },
+    "GFProjectileDefinition2D": {
+      "owner_kind": "class",
+      "extends": "GFProjectileDefinition",
+      "module": "extensions/combat",
+      "package_id": "gf.extension.combat",
+      "path": "addons/gf/extensions/combat/projectiles/gf_projectile_definition_2d.gd",
+      "summary": "GFProjectileDefinition2D: 2D projectile typed 定义。",
+      "visibility": "public",
+      "category": "resource_definition",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "var",
+          "name": "body_adapter",
+          "signature": "var body_adapter: GFProjectileBodyAdapter2D = null",
+          "summary": "驱动 2D root 的 body adapter。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "bind_instance",
+          "signature": "func bind_instance(root: Node) -> GFProjectileBinding2D",
+          "summary": "校验并绑定一个已进入 SceneTree 的完整 2D 实例。",
+          "visibility": "public"
+        }
+      ]
+    },
+    "GFProjectileDefinition3D": {
+      "owner_kind": "class",
+      "extends": "GFProjectileDefinition",
+      "module": "extensions/combat",
+      "package_id": "gf.extension.combat",
+      "path": "addons/gf/extensions/combat/projectiles/gf_projectile_definition_3d.gd",
+      "summary": "GFProjectileDefinition3D: 3D projectile typed 定义。",
+      "visibility": "public",
+      "category": "resource_definition",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "var",
+          "name": "body_adapter",
+          "signature": "var body_adapter: GFProjectileBodyAdapter3D = null",
+          "summary": "驱动 3D root 的 body adapter。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "bind_instance",
+          "signature": "func bind_instance(root: Node) -> GFProjectileBinding3D",
+          "summary": "校验并绑定一个已进入 SceneTree 的完整 3D 实例。",
+          "visibility": "public"
         }
       ]
     },
@@ -61951,7 +62343,7 @@
       "module": "extensions/combat",
       "package_id": "gf.extension.combat",
       "path": "addons/gf/extensions/combat/projectiles/gf_projectile_emitter_2d.gd",
-      "summary": "GFProjectileEmitter2D: 通用 2D 发射体生成节点。 负责按场景目录和生成点模式实例化发射体，并把本次发射上下文交给 发射体的 launch()。它不解释伤害、阵营、弹药、冷却或特效规则。",
+      "summary": "GFProjectileEmitter2D: 以两阶段事务发射 typed 2D projectile definition。",
       "visibility": "public",
       "category": "runtime_handle",
       "since": "3.17.0",
@@ -61959,141 +62351,120 @@
         {
           "kind": "signal",
           "name": "projectile_emitted",
-          "signature": "signal projectile_emitted(projectile: Node, projectile_context: Dictionary)",
-          "summary": "发射体已生成。",
+          "signature": "signal projectile_emitted( projectile_root: Node, session: GFProjectileSession, launch_input: GFProjectileLaunchInput2D )",
+          "summary": "单个 root 的 session 已 ACTIVE 且 started 已按稳定顺序发布后发出。",
           "visibility": "public"
         },
         {
           "kind": "signal",
           "name": "projectile_emit_failed",
           "signature": "signal projectile_emit_failed(reason: StringName, details: Dictionary)",
-          "summary": "发射失败时发出。",
+          "summary": "本次发射在返回任何 root 前失败时发出。",
           "visibility": "public"
         },
         {
           "kind": "var",
-          "name": "projectile_scene",
-          "signature": "var projectile_scene: PackedScene = null",
-          "summary": "默认发射体场景。未使用目录或目录缺少 ID 时使用。",
+          "name": "projectile_definition",
+          "signature": "var projectile_definition: GFProjectileDefinition2D = null",
+          "summary": "未使用 catalog ID 时的直接 typed definition。",
           "visibility": "public"
         },
         {
           "kind": "var",
           "name": "projectile_catalog",
           "signature": "var projectile_catalog: GFProjectileCatalog = null",
-          "summary": "可选发射体目录。",
+          "summary": "可选 ID 到 typed definition 目录。",
           "visibility": "public"
         },
         {
           "kind": "var",
           "name": "default_projectile_id",
           "signature": "var default_projectile_id: StringName = &\"\"",
-          "summary": "默认目录 ID。",
+          "summary": "调用未指定 ID 时使用的目录 ID。",
           "visibility": "public"
         },
         {
           "kind": "var",
           "name": "spawn_pattern",
           "signature": "var spawn_pattern: GFProjectileSpawnPattern2D = null",
-          "summary": "2D 发射点模式。为空时使用发射器自身全局变换。",
+          "summary": "可选 typed 2D spawn pattern。",
           "visibility": "public"
         },
         {
           "kind": "var",
           "name": "emission_policy",
           "signature": "var emission_policy: GFProjectileEmissionPolicy = null",
-          "summary": "可选发射请求策略。用于通用冷却、数量裁剪或项目侧自定义门控。",
+          "summary": "可选限流、charge 与 cooldown 策略。",
           "visibility": "public"
         },
         {
           "kind": "var",
           "name": "hard_projectile_limit_per_request",
           "signature": "var hard_projectile_limit_per_request: int = 4096",
-          "summary": "单次请求在生成 transform 前不可绕过的硬数量上限。",
+          "summary": "单次请求的不可绕过候选硬上限。",
           "visibility": "public"
         },
         {
           "kind": "var",
-          "name": "default_context",
-          "signature": "var default_context: Dictionary = {}",
-          "summary": "默认上下文。每次发射会深拷贝后再合并调用方上下文。",
+          "name": "default_launch_input",
+          "signature": "var default_launch_input: GFProjectileLaunchInput2D = null",
+          "summary": "null 调用输入的默认值；每次请求和候选均深复制。",
           "visibility": "public"
         },
         {
           "kind": "var",
           "name": "spawn_parent_path",
           "signature": "var spawn_parent_path: NodePath = NodePath(\"\")",
-          "summary": "可选生成父节点路径。为空时优先使用发射器父节点。",
-          "visibility": "public"
-        },
-        {
-          "kind": "var",
-          "name": "launch_after_spawn",
-          "signature": "var launch_after_spawn: bool = true",
-          "summary": "是否在生成后调用发射体的 launch(context)。",
-          "visibility": "public"
-        },
-        {
-          "kind": "var",
-          "name": "disable_auto_launch_before_add",
-          "signature": "var disable_auto_launch_before_add: bool = true",
-          "summary": "生成前是否关闭常见发射体的 auto_launch_on_ready，避免进入树时使用空上下文启动。",
+          "summary": "相对 emitter 的生成父节点路径；空路径使用当前父节点。",
           "visibility": "public"
         },
         {
           "kind": "var",
           "name": "use_object_pool",
           "signature": "var use_object_pool: bool = false",
-          "summary": "是否使用 GFObjectPoolUtility 获取节点。池化场景应把 projectile 的 auto_launch_on_ready 设为 false。",
-          "visibility": "public"
-        },
-        {
-          "kind": "var",
-          "name": "release_pooled_projectile_on_finish",
-          "signature": "var release_pooled_projectile_on_finish: bool = true",
-          "summary": "使用对象池时，是否在 projectile_finished 后自动归还节点。",
+          "summary": "是否从 `object_pool_utility` 获取和归还完整实例 root。",
           "visibility": "public"
         },
         {
           "kind": "var",
           "name": "object_pool_utility",
           "signature": "var object_pool_utility: GFObjectPoolUtility = null",
-          "summary": "可选对象池工具。为空时会从注入架构或最近的 GFNodeContext 查询。",
+          "summary": "pool 模式使用的 allocator；项目代码负责配置与生命周期。",
           "visibility": "public"
         },
         {
           "kind": "func",
           "name": "emit_projectile",
-          "signature": "func emit_projectile(projectile_context: Dictionary = {}, projectile_id: StringName = &\"\") -> Node",
-          "summary": "发射单个发射体。",
+          "signature": "func emit_projectile( launch_input: GFProjectileLaunchInput2D = null, projectile_id: StringName = &\"\" ) -> Node",
+          "summary": "原子发射一个 2D projectile。",
           "visibility": "public"
         },
         {
           "kind": "func",
           "name": "emit_projectiles",
-          "signature": "func emit_projectiles( projectile_context: Dictionary = {}, projectile_id: StringName = &\"\", emit_count: int = -1 ) -> Array[Node]",
-          "summary": "按当前模式发射一批发射体。",
+          "signature": "func emit_projectiles( launch_input: GFProjectileLaunchInput2D = null, projectile_id: StringName = &\"\", emit_count: int = -1 ) -> Array[Node]",
+          "summary": "以两阶段事务原子发射一批 2D projectile。",
           "visibility": "public"
         },
         {
           "kind": "func",
-          "name": "resolve_projectile_scene",
-          "signature": "func resolve_projectile_scene(projectile_id: StringName = &\"\") -> PackedScene",
-          "summary": "解析当前要使用的发射体场景。",
+          "name": "resolve_projectile_definition",
+          "signature": "func resolve_projectile_definition( projectile_id: StringName = &\"\" ) -> GFProjectileDefinition2D",
+          "summary": "解析本次发射使用的 typed 2D definition。",
           "visibility": "public"
         },
         {
           "kind": "func",
           "name": "resolve_spawn_parent",
           "signature": "func resolve_spawn_parent() -> Node",
-          "summary": "解析发射体生成父节点。",
+          "summary": "解析完整实例 root 的生成父节点。",
           "visibility": "public"
         },
         {
           "kind": "func",
           "name": "prewarm_projectiles",
           "signature": "func prewarm_projectiles(count: int, projectile_id: StringName = &\"\") -> bool",
-          "summary": "预热对象池。",
+          "summary": "预热指定 definition 的 pool 实例。",
           "visibility": "public"
         }
       ]
@@ -62104,7 +62475,7 @@
       "module": "extensions/combat",
       "package_id": "gf.extension.combat",
       "path": "addons/gf/extensions/combat/projectiles/gf_projectile_emitter_3d.gd",
-      "summary": "GFProjectileEmitter3D: 通用 3D 发射体生成节点。 负责按场景目录和生成点模式实例化发射体，并把本次发射上下文交给 发射体的 launch()。它不解释伤害、阵营、弹药、冷却或特效规则。",
+      "summary": "GFProjectileEmitter3D: 以两阶段事务发射 typed 3D projectile definition。",
       "visibility": "public",
       "category": "runtime_handle",
       "since": "3.17.0",
@@ -62112,141 +62483,286 @@
         {
           "kind": "signal",
           "name": "projectile_emitted",
-          "signature": "signal projectile_emitted(projectile: Node, projectile_context: Dictionary)",
-          "summary": "发射体已生成。",
+          "signature": "signal projectile_emitted( projectile_root: Node, session: GFProjectileSession, launch_input: GFProjectileLaunchInput3D )",
+          "summary": "单个 root 的 session 已 ACTIVE 且 started 已按稳定顺序发布后发出。",
           "visibility": "public"
         },
         {
           "kind": "signal",
           "name": "projectile_emit_failed",
           "signature": "signal projectile_emit_failed(reason: StringName, details: Dictionary)",
-          "summary": "发射失败时发出。",
+          "summary": "本次发射在返回任何 root 前失败时发出。",
           "visibility": "public"
         },
         {
           "kind": "var",
-          "name": "projectile_scene",
-          "signature": "var projectile_scene: PackedScene = null",
-          "summary": "默认发射体场景。未使用目录或目录缺少 ID 时使用。",
+          "name": "projectile_definition",
+          "signature": "var projectile_definition: GFProjectileDefinition3D = null",
+          "summary": "未使用 catalog ID 时的直接 typed definition。",
           "visibility": "public"
         },
         {
           "kind": "var",
           "name": "projectile_catalog",
           "signature": "var projectile_catalog: GFProjectileCatalog = null",
-          "summary": "可选发射体目录。",
+          "summary": "可选 ID 到 typed definition 目录。",
           "visibility": "public"
         },
         {
           "kind": "var",
           "name": "default_projectile_id",
           "signature": "var default_projectile_id: StringName = &\"\"",
-          "summary": "默认目录 ID。",
+          "summary": "调用未指定 ID 时使用的目录 ID。",
           "visibility": "public"
         },
         {
           "kind": "var",
           "name": "spawn_pattern",
           "signature": "var spawn_pattern: GFProjectileSpawnPattern3D = null",
-          "summary": "3D 发射点模式。为空时使用发射器自身全局变换。",
+          "summary": "可选 typed 3D spawn pattern。",
           "visibility": "public"
         },
         {
           "kind": "var",
           "name": "emission_policy",
           "signature": "var emission_policy: GFProjectileEmissionPolicy = null",
-          "summary": "可选发射请求策略。用于通用冷却、数量裁剪或项目侧自定义门控。",
+          "summary": "可选限流、charge 与 cooldown 策略。",
           "visibility": "public"
         },
         {
           "kind": "var",
           "name": "hard_projectile_limit_per_request",
           "signature": "var hard_projectile_limit_per_request: int = 4096",
-          "summary": "单次请求在生成 transform 前不可绕过的硬数量上限。",
+          "summary": "单次请求的不可绕过候选硬上限。",
           "visibility": "public"
         },
         {
           "kind": "var",
-          "name": "default_context",
-          "signature": "var default_context: Dictionary = {}",
-          "summary": "默认上下文。每次发射会深拷贝后再合并调用方上下文。",
+          "name": "default_launch_input",
+          "signature": "var default_launch_input: GFProjectileLaunchInput3D = null",
+          "summary": "null 调用输入的默认值；每次请求和候选均深复制。",
           "visibility": "public"
         },
         {
           "kind": "var",
           "name": "spawn_parent_path",
           "signature": "var spawn_parent_path: NodePath = NodePath(\"\")",
-          "summary": "可选生成父节点路径。为空时优先使用发射器父节点。",
-          "visibility": "public"
-        },
-        {
-          "kind": "var",
-          "name": "launch_after_spawn",
-          "signature": "var launch_after_spawn: bool = true",
-          "summary": "是否在生成后调用发射体的 launch(context)。",
-          "visibility": "public"
-        },
-        {
-          "kind": "var",
-          "name": "disable_auto_launch_before_add",
-          "signature": "var disable_auto_launch_before_add: bool = true",
-          "summary": "生成前是否关闭常见发射体的 auto_launch_on_ready，避免进入树时使用空上下文启动。",
+          "summary": "相对 emitter 的生成父节点路径；空路径使用当前父节点。",
           "visibility": "public"
         },
         {
           "kind": "var",
           "name": "use_object_pool",
           "signature": "var use_object_pool: bool = false",
-          "summary": "是否使用 GFObjectPoolUtility 获取节点。池化场景应把 projectile 的 auto_launch_on_ready 设为 false。",
-          "visibility": "public"
-        },
-        {
-          "kind": "var",
-          "name": "release_pooled_projectile_on_finish",
-          "signature": "var release_pooled_projectile_on_finish: bool = true",
-          "summary": "使用对象池时，是否在 projectile_finished 后自动归还节点。",
+          "summary": "是否从 `object_pool_utility` 获取和归还完整实例 root。",
           "visibility": "public"
         },
         {
           "kind": "var",
           "name": "object_pool_utility",
           "signature": "var object_pool_utility: GFObjectPoolUtility = null",
-          "summary": "可选对象池工具。为空时会从注入架构或最近的 GFNodeContext 查询。",
+          "summary": "pool 模式使用的 allocator；项目代码负责配置与生命周期。",
           "visibility": "public"
         },
         {
           "kind": "func",
           "name": "emit_projectile",
-          "signature": "func emit_projectile(projectile_context: Dictionary = {}, projectile_id: StringName = &\"\") -> Node",
-          "summary": "发射单个发射体。",
+          "signature": "func emit_projectile( launch_input: GFProjectileLaunchInput3D = null, projectile_id: StringName = &\"\" ) -> Node",
+          "summary": "原子发射一个 3D projectile。",
           "visibility": "public"
         },
         {
           "kind": "func",
           "name": "emit_projectiles",
-          "signature": "func emit_projectiles( projectile_context: Dictionary = {}, projectile_id: StringName = &\"\", emit_count: int = -1 ) -> Array[Node]",
-          "summary": "按当前模式发射一批发射体。",
+          "signature": "func emit_projectiles( launch_input: GFProjectileLaunchInput3D = null, projectile_id: StringName = &\"\", emit_count: int = -1 ) -> Array[Node]",
+          "summary": "以两阶段事务原子发射一批 3D projectile。",
           "visibility": "public"
         },
         {
           "kind": "func",
-          "name": "resolve_projectile_scene",
-          "signature": "func resolve_projectile_scene(projectile_id: StringName = &\"\") -> PackedScene",
-          "summary": "解析当前要使用的发射体场景。",
+          "name": "resolve_projectile_definition",
+          "signature": "func resolve_projectile_definition( projectile_id: StringName = &\"\" ) -> GFProjectileDefinition3D",
+          "summary": "解析本次发射使用的 typed 3D definition。",
           "visibility": "public"
         },
         {
           "kind": "func",
           "name": "resolve_spawn_parent",
           "signature": "func resolve_spawn_parent() -> Node",
-          "summary": "解析发射体生成父节点。",
+          "summary": "解析完整实例 root 的生成父节点。",
           "visibility": "public"
         },
         {
           "kind": "func",
           "name": "prewarm_projectiles",
           "signature": "func prewarm_projectiles(count: int, projectile_id: StringName = &\"\") -> bool",
-          "summary": "预热对象池。",
+          "summary": "预热指定 definition 的 pool 实例。",
+          "visibility": "public"
+        }
+      ]
+    },
+    "GFProjectileLaunchInput2D": {
+      "owner_kind": "class",
+      "extends": "Resource",
+      "module": "extensions/combat",
+      "package_id": "gf.extension.combat",
+      "path": "addons/gf/extensions/combat/projectiles/gf_projectile_launch_input_2d.gd",
+      "summary": "GFProjectileLaunchInput2D: 2D 发射请求的 typed 快照。",
+      "visibility": "public",
+      "category": "value_object",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "enum",
+          "name": "TargetKind",
+          "signature": "enum TargetKind {\n\t## 未指定目标。\n\tNONE = 0,\n\t## 弱引用 Node2D 目标。\n\tNODE = 1,\n\t## 固定 world position 目标。\n\tPOSITION = 2,\n}",
+          "summary": "定义发射目标的封闭类型。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "set_target_none",
+          "signature": "func set_target_none() -> void",
+          "summary": "清除目标。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "set_target_node",
+          "signature": "func set_target_node(node: Node2D) -> void",
+          "summary": "使用弱引用 Node2D 作为目标。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "set_target_position",
+          "signature": "func set_target_position(position_value: Vector2) -> void",
+          "summary": "使用固定 world position 作为目标。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_target_kind",
+          "signature": "func get_target_kind() -> TargetKind",
+          "summary": "返回当前目标类型。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_target_node",
+          "signature": "func get_target_node() -> Node2D",
+          "summary": "返回当前 live node 目标。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_target_position",
+          "signature": "func get_target_position() -> Vector2",
+          "summary": "返回固定位置目标。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "set_metadata",
+          "signature": "func set_metadata(metadata: Dictionary) -> void",
+          "summary": "深复制调用方 metadata。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_metadata",
+          "signature": "func get_metadata() -> Dictionary",
+          "summary": "返回 metadata 深副本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "duplicate_input",
+          "signature": "func duplicate_input() -> GFProjectileLaunchInput2D",
+          "summary": "创建 target 与 metadata 均独立的 typed 副本。",
+          "visibility": "public"
+        }
+      ]
+    },
+    "GFProjectileLaunchInput3D": {
+      "owner_kind": "class",
+      "extends": "Resource",
+      "module": "extensions/combat",
+      "package_id": "gf.extension.combat",
+      "path": "addons/gf/extensions/combat/projectiles/gf_projectile_launch_input_3d.gd",
+      "summary": "GFProjectileLaunchInput3D: 3D 发射请求的 typed 快照。",
+      "visibility": "public",
+      "category": "value_object",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "enum",
+          "name": "TargetKind",
+          "signature": "enum TargetKind {\n\t## 未指定目标。\n\tNONE = 0,\n\t## 弱引用 Node3D 目标。\n\tNODE = 1,\n\t## 固定 world position 目标。\n\tPOSITION = 2,\n}",
+          "summary": "定义发射目标的封闭类型。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "set_target_none",
+          "signature": "func set_target_none() -> void",
+          "summary": "清除目标。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "set_target_node",
+          "signature": "func set_target_node(node: Node3D) -> void",
+          "summary": "使用弱引用 Node3D 作为目标。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "set_target_position",
+          "signature": "func set_target_position(position_value: Vector3) -> void",
+          "summary": "使用固定 world position 作为目标。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_target_kind",
+          "signature": "func get_target_kind() -> TargetKind",
+          "summary": "返回当前目标类型。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_target_node",
+          "signature": "func get_target_node() -> Node3D",
+          "summary": "返回当前 live node 目标。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_target_position",
+          "signature": "func get_target_position() -> Vector3",
+          "summary": "返回固定位置目标。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "set_metadata",
+          "signature": "func set_metadata(metadata: Dictionary) -> void",
+          "summary": "深复制调用方 metadata。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_metadata",
+          "signature": "func get_metadata() -> Dictionary",
+          "summary": "返回 metadata 深副本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "duplicate_input",
+          "signature": "func duplicate_input() -> GFProjectileLaunchInput3D",
+          "summary": "创建 target 与 metadata 均独立的 typed 副本。",
           "visibility": "public"
         }
       ]
@@ -62257,7 +62773,7 @@
       "module": "extensions/combat",
       "package_id": "gf.extension.combat",
       "path": "addons/gf/extensions/combat/projectiles/gf_projectile_lifetime_policy.gd",
-      "summary": "GFProjectileLifetimePolicy: 发射体生命周期策略。 默认支持按时间和距离结束。项目可继承后叠加自定义结束条件。",
+      "summary": "GFProjectileLifetimePolicy: 基于 session 观测值的生命周期策略。 Runtime 在 launch 时强持有策略快照；Definition 后续替换/清空或外部引用释放 不改变 ACTIVE session，终态清理后 Runtime 释放该快照。",
       "visibility": "public",
       "category": "protocol",
       "since": "3.17.0",
@@ -62266,49 +62782,35 @@
           "kind": "var",
           "name": "max_seconds",
           "signature": "var max_seconds: float = 0.0",
-          "summary": "最长存活时间。小于等于 0 表示不按时间结束。",
+          "summary": "最大活动时长；不大于零表示不限制。",
           "visibility": "public"
         },
         {
           "kind": "var",
           "name": "max_distance",
           "signature": "var max_distance: float = 0.0",
-          "summary": "最远移动距离。小于等于 0 表示不按距离结束。",
+          "summary": "最大累计实际位移；不大于零表示不限制。",
           "visibility": "public"
         },
         {
           "kind": "var",
           "name": "max_impacts",
           "signature": "var max_impacts: int = 0",
-          "summary": "最大成功命中次数。小于等于 0 表示不按命中次数结束。",
+          "summary": "最大已接受 impact 数；不大于零表示不限制。",
           "visibility": "public"
         },
         {
           "kind": "func",
-          "name": "setup",
-          "signature": "func setup(projectile: Node, projectile_context: Dictionary = {}) -> void",
-          "summary": "发射体启动时调用。",
+          "name": "get_end_reason",
+          "signature": "func get_end_reason(session: GFProjectileSession) -> GFProjectileSession.EndReason",
+          "summary": "计算当前 session 是否已触发生命周期终止条件。",
           "visibility": "public"
-        },
-        {
-          "kind": "func",
-          "name": "should_finish",
-          "signature": "func should_finish(projectile: Node, elapsed_seconds: float, projectile_context: Dictionary = {}) -> bool",
-          "summary": "判断发射体是否应结束。",
-          "visibility": "public"
-        },
-        {
-          "kind": "func",
-          "name": "_setup",
-          "signature": "func _setup(_projectile: Node, _projectile_context: Dictionary = {}) -> void",
-          "summary": "发射体启动扩展点。",
-          "visibility": "protected"
         },
         {
           "kind": "func",
           "name": "_should_finish",
-          "signature": "func _should_finish( _projectile: Node, _elapsed_seconds: float, _projectile_context: Dictionary = {} ) -> bool",
-          "summary": "自定义结束条件扩展点。",
+          "signature": "func _should_finish(_session: GFProjectileSession) -> bool",
+          "summary": "自定义生命周期终止钩子。",
           "visibility": "protected"
         }
       ]
@@ -62355,7 +62857,7 @@
         {
           "kind": "func",
           "name": "_get_spawn_transforms",
-          "signature": "func _get_spawn_transforms( emitter: Node2D, _projectile_context: Dictionary = {}, emit_count: int = -1 ) -> Array[Transform2D]",
+          "signature": "func _get_spawn_transforms( emitter: Node2D, _launch_input: GFProjectileLaunchInput2D = null, emit_count: int = -1 ) -> Array[Transform2D]",
           "summary": "生成 2D 线段发射变换。",
           "visibility": "protected"
         }
@@ -62403,7 +62905,7 @@
         {
           "kind": "func",
           "name": "_get_spawn_transforms",
-          "signature": "func _get_spawn_transforms( emitter: Node3D, _projectile_context: Dictionary = {}, emit_count: int = -1 ) -> Array[Transform3D]",
+          "signature": "func _get_spawn_transforms( emitter: Node3D, _launch_input: GFProjectileLaunchInput3D = null, emit_count: int = -1 ) -> Array[Transform3D]",
           "summary": "生成 3D 线段发射变换。",
           "visibility": "protected"
         }
@@ -62415,38 +62917,362 @@
       "module": "extensions/combat",
       "package_id": "gf.extension.combat",
       "path": "addons/gf/extensions/combat/projectiles/gf_projectile_motion.gd",
-      "summary": "GFProjectileMotion: 发射体移动策略基类。 移动策略只负责根据 delta 推进节点位置。需要跨帧保存的数据应写入 projectile_context，避免共享 Resource 在多个发射体之间串状态。",
+      "summary": "GFProjectileMotion: 以 per-session state 计算 typed intent 的移动策略基类。",
       "visibility": "public",
       "category": "protocol",
       "since": "3.17.0",
       "members": [
         {
           "kind": "func",
-          "name": "setup",
-          "signature": "func setup(projectile: Node, projectile_context: Dictionary = {}) -> void",
-          "summary": "发射体启动时调用。",
+          "name": "create_state_2d",
+          "signature": "func create_state_2d( launch_input: GFProjectileLaunchInput2D, initial_body: GFProjectileBodyResult2D ) -> GFProjectileMotionState",
+          "summary": "为一次 2D session 创建私有 motion state。",
           "visibility": "public"
         },
         {
           "kind": "func",
-          "name": "step",
-          "signature": "func step(projectile: Node, delta: float, projectile_context: Dictionary = {}) -> void",
-          "summary": "推进一帧移动。",
+          "name": "create_state_3d",
+          "signature": "func create_state_3d( launch_input: GFProjectileLaunchInput3D, initial_body: GFProjectileBodyResult3D ) -> GFProjectileMotionState",
+          "summary": "为一次 3D session 创建私有 motion state。",
           "visibility": "public"
         },
         {
           "kind": "func",
-          "name": "_setup",
-          "signature": "func _setup(_projectile: Node, _projectile_context: Dictionary = {}) -> void",
-          "summary": "发射体启动扩展点。",
+          "name": "compute_intent_2d",
+          "signature": "func compute_intent_2d( state: GFProjectileMotionState, current_body: GFProjectileBodyResult2D, delta: float ) -> GFProjectileMotionIntent2D",
+          "summary": "根据 state 与当前 body 快照计算 2D intent，不直接修改 root。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "compute_intent_3d",
+          "signature": "func compute_intent_3d( state: GFProjectileMotionState, current_body: GFProjectileBodyResult3D, delta: float ) -> GFProjectileMotionIntent3D",
+          "summary": "根据 state 与当前 body 快照计算 3D intent，不直接修改 root。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "_create_state_2d",
+          "signature": "func _create_state_2d( _launch_input: GFProjectileLaunchInput2D, _initial_body: GFProjectileBodyResult2D ) -> Variant",
+          "summary": "实现 2D state 创建策略。",
           "visibility": "protected"
         },
         {
           "kind": "func",
-          "name": "_step",
-          "signature": "func _step(_projectile: Node, _delta: float, _projectile_context: Dictionary = {}) -> void",
-          "summary": "发射体移动扩展点。",
+          "name": "_create_state_3d",
+          "signature": "func _create_state_3d( _launch_input: GFProjectileLaunchInput3D, _initial_body: GFProjectileBodyResult3D ) -> Variant",
+          "summary": "实现 3D state 创建策略。",
           "visibility": "protected"
+        },
+        {
+          "kind": "func",
+          "name": "_compute_intent_2d",
+          "signature": "func _compute_intent_2d( _state: GFProjectileMotionState, _current_body: GFProjectileBodyResult2D, _delta: float ) -> Variant",
+          "summary": "实现 2D intent 计算策略。",
+          "visibility": "protected"
+        },
+        {
+          "kind": "func",
+          "name": "_compute_intent_3d",
+          "signature": "func _compute_intent_3d( _state: GFProjectileMotionState, _current_body: GFProjectileBodyResult3D, _delta: float ) -> Variant",
+          "summary": "实现 3D intent 计算策略。",
+          "visibility": "protected"
+        }
+      ]
+    },
+    "GFProjectileMotionIntent2D": {
+      "owner_kind": "class",
+      "extends": "RefCounted",
+      "module": "extensions/combat",
+      "package_id": "gf.extension.combat",
+      "path": "addons/gf/extensions/combat/projectiles/gf_projectile_motion_intent_2d.gd",
+      "summary": "GFProjectileMotionIntent2D: 2D 移动策略的不可变输出。",
+      "visibility": "public",
+      "category": "value_object",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "enum",
+          "name": "Kind",
+          "signature": "enum Kind {\n\t## 未配置 intent。\n\tNONE = 0,\n\t## 请求按 world-space 速度移动。\n\tMOVE = 1,\n\t## 策略拒绝产生可应用 intent。\n\tREJECTED = 2,\n\t## 策略正常请求结束当前 session。\n\tFINISH = 3,\n}",
+          "summary": "定义 motion 计算的封闭输出种类。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "move",
+          "signature": "static func move(velocity: Vector2, delta_seconds: float) -> GFProjectileMotionIntent2D",
+          "summary": "构造 world-space MOVE intent。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "rejected",
+          "signature": "static func rejected(reason: StringName) -> GFProjectileMotionIntent2D",
+          "summary": "构造被策略拒绝的 intent。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "finish",
+          "signature": "static func finish() -> GFProjectileMotionIntent2D",
+          "summary": "构造正常结束当前 session 的 FINISH intent。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_kind",
+          "signature": "func get_kind() -> Kind",
+          "summary": "返回 intent 种类。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_velocity",
+          "signature": "func get_velocity() -> Vector2",
+          "summary": "返回 MOVE 的 world-space 速度。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_delta_seconds",
+          "signature": "func get_delta_seconds() -> float",
+          "summary": "返回 MOVE 对应的帧时长。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_failure_reason",
+          "signature": "func get_failure_reason() -> StringName",
+          "summary": "返回 REJECTED 原因。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "is_valid",
+          "signature": "func is_valid() -> bool",
+          "summary": "返回 intent 是否为 runtime 可处理的非拒绝输出。",
+          "visibility": "public"
+        }
+      ]
+    },
+    "GFProjectileMotionIntent3D": {
+      "owner_kind": "class",
+      "extends": "RefCounted",
+      "module": "extensions/combat",
+      "package_id": "gf.extension.combat",
+      "path": "addons/gf/extensions/combat/projectiles/gf_projectile_motion_intent_3d.gd",
+      "summary": "GFProjectileMotionIntent3D: 3D 移动策略的不可变输出。",
+      "visibility": "public",
+      "category": "value_object",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "enum",
+          "name": "Kind",
+          "signature": "enum Kind {\n\t## 未配置 intent。\n\tNONE = 0,\n\t## 请求按 world-space 速度移动。\n\tMOVE = 1,\n\t## 策略拒绝产生可应用 intent。\n\tREJECTED = 2,\n\t## 策略正常请求结束当前 session。\n\tFINISH = 3,\n}",
+          "summary": "定义 motion 计算的封闭输出种类。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "move",
+          "signature": "static func move(velocity: Vector3, delta_seconds: float) -> GFProjectileMotionIntent3D",
+          "summary": "构造 world-space MOVE intent。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "rejected",
+          "signature": "static func rejected(reason: StringName) -> GFProjectileMotionIntent3D",
+          "summary": "构造被策略拒绝的 intent。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "finish",
+          "signature": "static func finish() -> GFProjectileMotionIntent3D",
+          "summary": "构造正常结束当前 session 的 FINISH intent。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_kind",
+          "signature": "func get_kind() -> Kind",
+          "summary": "返回 intent 种类。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_velocity",
+          "signature": "func get_velocity() -> Vector3",
+          "summary": "返回 MOVE 的 world-space 速度。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_delta_seconds",
+          "signature": "func get_delta_seconds() -> float",
+          "summary": "返回 MOVE 对应的帧时长。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_failure_reason",
+          "signature": "func get_failure_reason() -> StringName",
+          "summary": "返回 REJECTED 原因。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "is_valid",
+          "signature": "func is_valid() -> bool",
+          "summary": "返回 intent 是否为 runtime 可处理的非拒绝输出。",
+          "visibility": "public"
+        }
+      ]
+    },
+    "GFProjectileMotionState": {
+      "owner_kind": "class",
+      "extends": "RefCounted",
+      "module": "extensions/combat",
+      "package_id": "gf.extension.combat",
+      "path": "addons/gf/extensions/combat/projectiles/gf_projectile_motion_state.gd",
+      "summary": "GFProjectileMotionState: 单个 Projectile generation 独占的移动状态基类。 进入 Runtime 的实例由 [method GFProjectileMotion.create_state_2d] 或 [method GFProjectileMotion.create_state_3d] 为一次 launch 创建。Runtime 会为该",
+      "visibility": "public",
+      "category": "runtime_handle",
+      "since": "unreleased",
+      "members": []
+    },
+    "GFProjectileSession": {
+      "owner_kind": "class",
+      "extends": "RefCounted",
+      "module": "extensions/combat",
+      "package_id": "gf.extension.combat",
+      "path": "addons/gf/extensions/combat/projectiles/gf_projectile_session.gd",
+      "summary": "GFProjectileSession: 一次 typed projectile 发射的运行期句柄。",
+      "visibility": "public",
+      "category": "runtime_handle",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "signal",
+          "name": "finished",
+          "signature": "signal finished(session: GFProjectileSession, reason: int)",
+          "summary": "session 首次进入 FINISHED 时发出。",
+          "visibility": "public"
+        },
+        {
+          "kind": "enum",
+          "name": "Dimension",
+          "signature": "enum Dimension {\n\t## 2D runtime、adapter 与 motion。\n\tTWO_D = 0,\n\t## 3D runtime、adapter 与 motion。\n\tTHREE_D = 1,\n}",
+          "summary": "定义 session 的空间维度。",
+          "visibility": "public"
+        },
+        {
+          "kind": "enum",
+          "name": "Status",
+          "signature": "enum Status {\n\t## 尚未由 runtime 激活。\n\tUNCONFIGURED = 0,\n\t## 正在接受 motion、impact 与 lifetime 更新。\n\tACTIVE = 1,\n\t## 已以 first-wins 原因结算。\n\tFINISHED = 2,\n}",
+          "summary": "定义 session 的封闭生命周期状态。",
+          "visibility": "public"
+        },
+        {
+          "kind": "enum",
+          "name": "EndReason",
+          "signature": "enum EndReason {\n\t## 尚未结束。\n\tNONE = 0,\n\t## 调用方显式结束。\n\tCALLER_FINISHED = 1,\n\t## 达到最大活动时长。\n\tLIFETIME_SECONDS = 2,\n\t## 达到累计实际位移上限。\n\tLIFETIME_DISTANCE = 3,\n\t## 达到已接受 impact 上限。\n\tLIFETIME_IMPACTS = 4,\n\t## 自定义 lifetime hook 请求结束。\n\tLIFETIME_CUSTOM = 5,\n\t## Motion 正常请求结束。\n\tMOTION_FINISHED = 6,\n\t## 必需目标已丢失。\n\tTARGET_LOST = 7,\n\t## Motion 返回不可应用 intent。\n\tINVALID_MOTION_INTENT = 8,\n\t## Motion state 或计算失败。\n\tMOTION_FAILED = 9,\n\t## Body adapter 捕获或应用失败。\n\tBODY_APPLICATION_FAILED = 10,\n\t## 完整实例 root 已丢失。\n\tROOT_LOST = 11,\n\t## Runtime 已丢失。\n\tRUNTIME_LOST = 12,\n\t## 显式 impact source topology 已丢失。\n\tIMPACT_SOURCE_LOST = 13,\n\t## Emitter 或 allocator 主动释放。\n\tEMITTER_RELEASED = 14,\n\t## 无法归类的框架内部失败。\n\tINTERNAL_FAILURE = 15,\n}",
+          "summary": "定义首次结束 session 的稳定原因。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_status",
+          "signature": "func get_status() -> Status",
+          "summary": "返回当前生命周期状态。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_dimension",
+          "signature": "func get_dimension() -> Dimension",
+          "summary": "返回空间维度。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_generation",
+          "signature": "func get_generation() -> int",
+          "summary": "返回 runtime 分配的单调 generation。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_instance_root",
+          "signature": "func get_instance_root() -> Node",
+          "summary": "返回完整实例 root。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_runtime",
+          "signature": "func get_runtime() -> Node",
+          "summary": "返回本次 session 的 runtime。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_elapsed_seconds",
+          "signature": "func get_elapsed_seconds() -> float",
+          "summary": "返回累计活动时长。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_travelled_distance",
+          "signature": "func get_travelled_distance() -> float",
+          "summary": "返回累计实际 world displacement 长度。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_accepted_impact_count",
+          "signature": "func get_accepted_impact_count() -> int",
+          "summary": "返回被当前 generation 接受的 impact 数。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_end_reason",
+          "signature": "func get_end_reason() -> EndReason",
+          "summary": "返回首次结束原因。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_metadata",
+          "signature": "func get_metadata() -> Dictionary",
+          "summary": "返回 launch metadata 深副本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "is_active",
+          "signature": "func is_active() -> bool",
+          "summary": "判断 session 是否仍 ACTIVE。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "is_finished",
+          "signature": "func is_finished() -> bool",
+          "summary": "判断 session 是否已结算。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "finish",
+          "signature": "func finish(reason: EndReason = EndReason.CALLER_FINISHED) -> bool",
+          "summary": "以 first-wins 语义结束 session，并 best-effort 要求 adapter 停止 body。",
+          "visibility": "public"
         }
       ]
     },
@@ -62464,7 +63290,7 @@
         {
           "kind": "func",
           "name": "get_spawn_transforms",
-          "signature": "func get_spawn_transforms( emitter: Node2D, projectile_context: Dictionary = {}, emit_count: int = -1 ) -> Array[Transform2D]",
+          "signature": "func get_spawn_transforms( emitter: Node2D, launch_input: GFProjectileLaunchInput2D = null, emit_count: int = -1 ) -> Array[Transform2D]",
           "summary": "计算本次发射的全局生成变换。",
           "visibility": "public"
         },
@@ -62478,7 +63304,7 @@
         {
           "kind": "func",
           "name": "_get_spawn_transforms",
-          "signature": "func _get_spawn_transforms( emitter: Node2D, _projectile_context: Dictionary = {}, _emit_count: int = -1 ) -> Array[Transform2D]",
+          "signature": "func _get_spawn_transforms( emitter: Node2D, _launch_input: GFProjectileLaunchInput2D = null, _emit_count: int = -1 ) -> Array[Transform2D]",
           "summary": "生成点计算扩展点。",
           "visibility": "protected"
         },
@@ -62505,7 +63331,7 @@
         {
           "kind": "func",
           "name": "get_spawn_transforms",
-          "signature": "func get_spawn_transforms( emitter: Node3D, projectile_context: Dictionary = {}, emit_count: int = -1 ) -> Array[Transform3D]",
+          "signature": "func get_spawn_transforms( emitter: Node3D, launch_input: GFProjectileLaunchInput3D = null, emit_count: int = -1 ) -> Array[Transform3D]",
           "summary": "计算本次发射的全局生成变换。",
           "visibility": "public"
         },
@@ -62519,7 +63345,7 @@
         {
           "kind": "func",
           "name": "_get_spawn_transforms",
-          "signature": "func _get_spawn_transforms( emitter: Node3D, _projectile_context: Dictionary = {}, _emit_count: int = -1 ) -> Array[Transform3D]",
+          "signature": "func _get_spawn_transforms( emitter: Node3D, _launch_input: GFProjectileLaunchInput3D = null, _emit_count: int = -1 ) -> Array[Transform3D]",
           "summary": "生成点计算扩展点。",
           "visibility": "protected"
         },
@@ -62531,6 +63357,30 @@
           "visibility": "protected"
         }
       ]
+    },
+    "GFProjectileTransformBodyAdapter2D": {
+      "owner_kind": "class",
+      "extends": "GFProjectileBodyAdapter2D",
+      "module": "extensions/combat",
+      "package_id": "gf.extension.combat",
+      "path": "addons/gf/extensions/combat/projectiles/gf_projectile_transform_body_adapter_2d.gd",
+      "summary": "GFProjectileTransformBodyAdapter2D: 直接应用 Node2D 变换的 body adapter。",
+      "visibility": "public",
+      "category": "resource_definition",
+      "since": "unreleased",
+      "members": []
+    },
+    "GFProjectileTransformBodyAdapter3D": {
+      "owner_kind": "class",
+      "extends": "GFProjectileBodyAdapter3D",
+      "module": "extensions/combat",
+      "package_id": "gf.extension.combat",
+      "path": "addons/gf/extensions/combat/projectiles/gf_projectile_transform_body_adapter_3d.gd",
+      "summary": "GFProjectileTransformBodyAdapter3D: 直接应用 Node3D 变换的 body adapter。",
+      "visibility": "public",
+      "category": "resource_definition",
+      "since": "unreleased",
+      "members": []
     },
     "GFPropertyBagCapability": {
       "owner_kind": "class",

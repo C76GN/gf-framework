@@ -1,120 +1,63 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFProjectile3D" path="addons/gf/extensions/combat/projectiles/gf_projectile_3d.gd" module="extensions/combat" extends="GFHitBox3D" classDigest="e8af7249a8e124763e4409924fa46e05ccfe374c51fe33712a6ef0904b926864">
-	<description>GFProjectile3D: 可组合移动策略的 3D 发射体命中节点。
-它继承 GFHitBox3D，命中仍通过 GFCombatHitContext 发送给 receive_hit()。
-节点只负责移动、寿命和碰撞触发，不解释伤害、阵营或生命值规则。</description>
+<class name="GFProjectile3D" path="addons/gf/extensions/combat/projectiles/gf_projectile_3d.gd" module="extensions/combat" extends="Node" classDigest="29df3fa5e4743156ac75329e029716b769c1e39c14d68955b0d55781b2f2209d">
+	<description>GFProjectile3D: 3D projectile scene 内的 dimension-neutral runtime 节点。</description>
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">runtime_handle</tag>
 		<tag name="since">3.17.0</tag>
 	</tags>
 	<signals>
-		<member kind="signal" name="projectile_launched">
-			<signature>signal projectile_launched(projectile: GFProjectile3D)</signature>
-			<description>发射体启动时发出。</description>
+		<member kind="signal" name="projectile_started">
+			<signature>signal projectile_started(session: GFProjectileSession)</signature>
+			<description>session 已 ACTIVE 且允许发布 started 时发出。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="param">projectile: 当前发射体。</tag>
+				<tag name="param">session: 本 runtime 的当前 session。</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
 		<member kind="signal" name="projectile_finished">
-			<signature>signal projectile_finished(projectile: GFProjectile3D, reason: StringName)</signature>
-			<description>发射体结束时发出。</description>
+			<signature>signal projectile_finished(session: GFProjectileSession, reason: int)</signature>
+			<description>当前 session 首次结束时发出。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="param">projectile: 当前发射体。</tag>
-				<tag name="param">reason: 结束原因。</tag>
+				<tag name="param">session: 已结算 session。</tag>
+				<tag name="param">reason: `GFProjectileSession.EndReason` 枚举值。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 	</signals>
 	<enums />
 	<constants />
-	<properties>
-		<member kind="property" name="auto_launch_on_ready" decorators="@export">
-			<signature>var auto_launch_on_ready: bool = true</signature>
-			<description>ready 后是否自动启动本次发射。</description>
-			<tags>
-				<tag name="api">public</tag>
-			</tags>
-		</member>
-		<member kind="property" name="motion" decorators="@export">
-			<signature>var motion: Resource = null</signature>
-			<description>移动策略。应实现 setup(projectile, context) 与 step(projectile, delta, context)。</description>
-			<tags>
-				<tag name="api">public</tag>
-			</tags>
-		</member>
-		<member kind="property" name="lifetime_policy" decorators="@export">
-			<signature>var lifetime_policy: Resource = null</signature>
-			<description>生命周期策略。应实现 setup(projectile, context) 与 should_finish(projectile, elapsed, context)。</description>
-			<tags>
-				<tag name="api">public</tag>
-			</tags>
-		</member>
-		<member kind="property" name="finish_on_impact" decorators="@export">
-			<signature>var finish_on_impact: bool = true</signature>
-			<description>命中任意 receive_hit() 接收器后是否结束。</description>
-			<tags>
-				<tag name="api">public</tag>
-			</tags>
-		</member>
-		<member kind="property" name="queue_free_on_finish" decorators="@export">
-			<signature>var queue_free_on_finish: bool = true</signature>
-			<description>结束时是否 queue_free。使用对象池时通常应关闭。</description>
-			<tags>
-				<tag name="api">public</tag>
-			</tags>
-		</member>
-	</properties>
+	<properties />
 	<methods>
 		<member kind="method" name="launch">
-			<signature>func launch(projectile_context: Dictionary = {}) -&gt; void:</signature>
-			<description>启动或重置本次发射。</description>
+			<signature>func launch( binding: GFProjectileBinding3D, launch_input: GFProjectileLaunchInput3D = null ) -&gt; GFProjectileSession:</signature>
+			<description>直接激活一个已验证 binding。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="param">projectile_context: 本次发射的上下文字典。</tag>
-				<tag name="schema">projectile_context: Dictionary，本次发射上下文；会复制后传给 motion、lifetime_policy 和命中记录。</tag>
+				<tag name="param">binding: 指向本 runtime 的 current 3D topology snapshot。</tag>
+				<tag name="param">launch_input: 可选 typed 输入；runtime 会在用户 callback 前冻结副本。</tag>
+				<tag name="return">ACTIVE session；准入、预检或重入失败时返回 null。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
-		<member kind="method" name="finish">
-			<signature>func finish(reason: StringName = &amp;"finished") -&gt; void:</signature>
-			<description>结束本次发射。</description>
+		<member kind="method" name="get_active_session">
+			<signature>func get_active_session() -&gt; GFProjectileSession:</signature>
+			<description>返回当前 ACTIVE session。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="param">reason: 结束原因。</tag>
+				<tag name="return">ACTIVE session；未激活或已结束时返回 null。</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
-		<member kind="method" name="is_projectile_active">
-			<signature>func is_projectile_active() -&gt; bool:</signature>
-			<description>判断发射体是否处于已启动状态。</description>
+		<member kind="method" name="is_active">
+			<signature>func is_active() -&gt; bool:</signature>
+			<description>判断 runtime 是否持有 ACTIVE session。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="return">已启动且未结束时返回 true。</tag>
-			</tags>
-		</member>
-		<member kind="method" name="get_elapsed_seconds">
-			<signature>func get_elapsed_seconds() -&gt; float:</signature>
-			<description>获取本次发射经过的秒数。</description>
-			<tags>
-				<tag name="api">public</tag>
-				<tag name="return">经过的秒数。</tag>
-			</tags>
-		</member>
-		<member kind="method" name="get_projectile_context">
-			<signature>func get_projectile_context() -&gt; Dictionary:</signature>
-			<description>获取本次发射上下文副本。</description>
-			<tags>
-				<tag name="api">public</tag>
-				<tag name="return">上下文字典副本。</tag>
-				<tag name="schema">return: Dictionary，本次发射上下文副本，包含调用方上下文、发射器写入字段和 impact 计数。</tag>
-			</tags>
-		</member>
-		<member kind="method" name="send_impact_to">
-			<signature>func send_impact_to(candidate: Object) -&gt; void:</signature>
-			<description>向碰撞候选对象发送一次发射体命中。</description>
-			<tags>
-				<tag name="api">public</tag>
-				<tag name="param">candidate: 碰撞候选对象，可为接收器或其子节点。</tag>
+				<tag name="return">当前 session ACTIVE 时为 true。</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
 	</methods>

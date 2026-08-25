@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFProjectileBodyResult2D" path="addons/gf/extensions/combat/projectiles/gf_projectile_body_result_2d.gd" module="extensions/combat" extends="RefCounted" classDigest="f589ab0c680880ab0575dd5b8b0aad30f71a85a6a3e21f02df5d25d0850a86b6">
+	<description>GFProjectileBodyResult2D: 2D body adapter 的捕获或应用结果。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">value_object</tag>
+		<tag name="since">unreleased</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties />
+	<methods>
+		<member kind="method" name="successful">
+			<signature>static func successful( transform_value: Transform2D, actual_displacement: Vector2 = Vector2.ZERO ) -&gt; GFProjectileBodyResult2D:</signature>
+			<description>构造成功的 2D body 结果。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">transform_value: 应用后的 world transform。</tag>
+				<tag name="param">actual_displacement: 本次操作产生的真实 world displacement。</tag>
+				<tag name="return">成功结果。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="failed">
+			<signature>static func failed( reason: StringName, transform_value: Transform2D = Transform2D.IDENTITY ) -&gt; GFProjectileBodyResult2D:</signature>
+			<description>构造失败的 2D body 结果。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">reason: 非空失败原因。</tag>
+				<tag name="param">transform_value: 失败边界观测到的 transform。</tag>
+				<tag name="return">失败结果。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_successful">
+			<signature>func is_successful() -&gt; bool:</signature>
+			<description>返回 body 操作是否成功。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">成功时为 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_failure_reason">
+			<signature>func get_failure_reason() -&gt; StringName:</signature>
+			<description>返回失败原因。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">成功结果为空，失败结果为稳定原因。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_transform">
+			<signature>func get_transform() -&gt; Transform2D:</signature>
+			<description>返回操作后的 world transform。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">2D transform 快照。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_position">
+			<signature>func get_position() -&gt; Vector2:</signature>
+			<description>返回 transform 的 world position。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">2D world position。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_actual_displacement">
+			<signature>func get_actual_displacement() -&gt; Vector2:</signature>
+			<description>返回本次操作实际产生的 world displacement。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">真实位移向量；捕获或停止操作为零。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

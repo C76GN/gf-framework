@@ -19,7 +19,7 @@
 | 属性 | [`local_start`](#member-gfprojectilelinespawnpattern2d-properties-local_start) | `var local_start: Vector2 = Vector2.ZERO` |
 | 属性 | [`local_end`](#member-gfprojectilelinespawnpattern2d-properties-local_end) | `var local_end: Vector2 = Vector2.ZERO` |
 | 属性 | [`rotate_to_line`](#member-gfprojectilelinespawnpattern2d-properties-rotate_to_line) | `var rotate_to_line: bool = false` |
-| 方法 | [`_get_spawn_transforms`](#member-gfprojectilelinespawnpattern2d-methods-_get_spawn_transforms) | `func _get_spawn_transforms( emitter: Node2D, _projectile_context: Dictionary = {}, emit_count: int = -1 ) -> Array[Transform2D]:` |
+| 方法 | [`_get_spawn_transforms`](#member-gfprojectilelinespawnpattern2d-methods-_get_spawn_transforms) | `func _get_spawn_transforms( emitter: Node2D, _launch_input: GFProjectileLaunchInput2D = null, emit_count: int = -1 ) -> Array[Transform2D]:` |
 
 ## 属性
 
@@ -28,6 +28,7 @@
 ### `point_count`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var point_count: int = 1
@@ -40,6 +41,7 @@ var point_count: int = 1
 ### `local_start`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var local_start: Vector2 = Vector2.ZERO
@@ -52,6 +54,7 @@ var local_start: Vector2 = Vector2.ZERO
 ### `local_end`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var local_end: Vector2 = Vector2.ZERO
@@ -64,6 +67,7 @@ var local_end: Vector2 = Vector2.ZERO
 ### `rotate_to_line`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var rotate_to_line: bool = false
@@ -78,9 +82,10 @@ var rotate_to_line: bool = false
 ### `_get_spawn_transforms`
 
 - API：`protected`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func _get_spawn_transforms( emitter: Node2D, _projectile_context: Dictionary = {}, emit_count: int = -1 ) -> Array[Transform2D]:
+func _get_spawn_transforms( emitter: Node2D, _launch_input: GFProjectileLaunchInput2D = null, emit_count: int = -1 ) -> Array[Transform2D]:
 ```
 
 生成 2D 线段发射变换。
@@ -90,11 +95,7 @@ func _get_spawn_transforms( emitter: Node2D, _projectile_context: Dictionary = {
 | 名称 | 说明 |
 |---|---|
 | `emitter` | 发射器节点。 |
-| `_projectile_context` | 本次发射上下文。 |
+| `_launch_input` | 本次 typed 发射输入；当前实现不读取。 |
 | `emit_count` | 调用方请求的数量；小于等于 0 时使用 point_count。 |
 
 返回：全局 Transform2D 列表。
-
-结构：
-
-- `_projectile_context`: Dictionary，本次发射上下文；当前实现不读取该字典。

@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFProjectileBinding3D" path="addons/gf/extensions/combat/projectiles/gf_projectile_binding_3d.gd" module="extensions/combat" extends="GFProjectileBinding" classDigest="617a91ffd8e8822fa585ac0e5db0c4400ce64c6d27de1ac735f6ac651c5210a1">
+	<description>GFProjectileBinding3D: 3D projectile 的 typed 拓扑快照。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">value_object</tag>
+		<tag name="since">unreleased</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties />
+	<methods>
+		<member kind="method" name="get_definition">
+			<signature>func get_definition() -&gt; GFProjectileDefinition3D:</signature>
+			<description>返回创建本快照的 3D definition。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">3D definition；准入前失败时可能为 null。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_instance_root">
+			<signature>func get_instance_root() -&gt; Node3D:</signature>
+			<description>返回绑定的完整 3D 实例根节点。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">live Node3D root；已释放时返回 null。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_runtime">
+			<signature>func get_runtime() -&gt; GFProjectile3D:</signature>
+			<description>返回唯一 3D runtime 节点。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">live GFProjectile3D；已释放时返回 null。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_body_adapter">
+			<signature>func get_body_adapter() -&gt; GFProjectileBodyAdapter3D:</signature>
+			<description>返回冻结的 3D body adapter。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">绑定准入时的 GFProjectileBodyAdapter3D。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

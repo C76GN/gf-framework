@@ -125,6 +125,8 @@ var _prewarm_request_id_mutex: Mutex = Mutex.new()
 var _pool_lifecycle_transition: int = _PoolLifecycleTransition.NONE
 var _queued_pool_lifecycle_transition: int = _PoolLifecycleTransition.NONE
 var _active_generations: Dictionary = {}
+var _active_lease_scenes: Dictionary = {}
+var _active_lease_nodes: Dictionary = {}
 var _transition_generations: Dictionary = {}
 var _operation_generation: int = 0
 var _lifecycle_serial: int = 0
@@ -315,7 +317,7 @@ func release(node: Node, scene: PackedScene) -> void:
 
 	var current_serial: int = _lifecycle_serial
 	var release_generation: int = _take_operation_generation()
-	var _active_generation_erased: bool = _active_generations.erase(node_id)
+	_erase_active_lease(node_id)
 	node.set_meta(_META_ACTIVE, false)
 	_transition_generations[node_id] = release_generation
 	if not _run_guarded_tree_operation(
@@ -666,6 +668,96 @@ func get_debug_snapshot() -> Dictionary:
 	return snapshot
 
 
+# --- 框架内部方法 ---
+
+## 仅在 scene 与 node 仍精确属于当前 ACTIVE lease 时执行归还。
+## [br]
+## @api framework_internal
+## [br]
+## @since unreleased
+## [br]
+## @param node: 待归还的 live 节点；若已排队删除，则仅同步退休精确 lease tracking。
+## [br]
+## @param scene: acquire 时冻结的 PackedScene identity。
+## [br]
+## @return: 当前 active generation 被本次调用接纳时返回 true；queued-live 节点不执行 hook 或树操作，仅移除精确 tracking；生命周期切换已清除 lease 或身份不匹配时返回 false 且零 mutation。
+func release_for_framework(node: Node, scene: PackedScene) -> bool:
+	if (
+		_is_disposed
+		or node == null
+		or not is_instance_valid(node)
+		or scene == null
+		or not is_instance_valid(scene)
+	):
+		return false
+	var node_id: int = node.get_instance_id()
+	if (
+		not _active_generations.has(node_id)
+		or not _active_lease_scenes.has(node_id)
+		or not _active_lease_nodes.has(node_id)
+		or not _all_nodes.has(scene)
+		or not _get_all_nodes_pool(scene).has(node)
+	):
+		return false
+	var tracked_scene: PackedScene = _variant_to_packed_scene(
+		_active_lease_scenes[node_id]
+	)
+	var tracked_node: Node = _variant_to_node(_active_lease_nodes[node_id])
+	if tracked_scene != scene or tracked_node != node:
+		return false
+	if node.is_queued_for_deletion():
+		return _retire_exact_active_lease_tracking(
+			scene,
+			node_id,
+			tracked_node
+		)
+	release(node, scene)
+	return true
+
+
+## 结算已被外部同步销毁、无法再走 `release()` 的 ACTIVE lease。
+## [br]
+## @api framework_internal
+## [br]
+## @since unreleased
+## [br]
+## @param scene: acquire 时记录的同一 PackedScene identity。
+## [br]
+## @param instance_id: acquire 时记录的正 Object instance id。
+## [br]
+## @return: 仅当 scene 与 id 精确匹配当前 ACTIVE lease、且该 id 当前没有 live Object 时首次返回 true。
+## [br]
+## @schema return: bool；成功仅同步移除丢失 lease 的 active generation、scene/node owner linkage 与 scene tracked-node identity；不调用 hook、signal，不修改 SceneTree，重复或任一准入失败返回 false 且零 mutation。
+func retire_lost_lease_for_framework(scene: PackedScene, instance_id: int) -> bool:
+	if (
+		_is_disposed
+		or scene == null
+		or not is_instance_valid(scene)
+		or instance_id <= 0
+		or not _active_generations.has(instance_id)
+		or not _active_lease_scenes.has(instance_id)
+		or not _active_lease_nodes.has(instance_id)
+	):
+		return false
+	var tracked_scene_value: Variant = _active_lease_scenes[instance_id]
+	if not tracked_scene_value is PackedScene:
+		return false
+	var tracked_scene: PackedScene = tracked_scene_value
+	if not is_instance_valid(tracked_scene) or not is_same(tracked_scene, scene):
+		return false
+	var live_value: Object = instance_from_id(instance_id)
+	if live_value != null and is_instance_valid(live_value):
+		return false
+	var tracked_node_value: Variant = _active_lease_nodes[instance_id]
+	if typeof(tracked_node_value) != TYPE_OBJECT or is_instance_valid(tracked_node_value):
+		return false
+	return _retire_exact_active_lease_tracking(
+		scene,
+		instance_id,
+		tracked_node_value
+	)
+
+
 # --- 私有/辅助方法 ---
 
 func _request_pool_lifecycle_transition(transition: int) -> void:
@@ -705,6 +797,8 @@ func _perform_pool_lifecycle_transition(transition: int) -> void:
 	_prewarm_reserved_counts.clear()
 	_active_prewarm_requests.clear()
 	_active_generations.clear()
+	_active_lease_scenes.clear()
+	_active_lease_nodes.clear()
 	_transition_generations.clear()
 	_pool_root = null
 	_is_disposed = transition == _PoolLifecycleTransition.DISPOSE
@@ -721,6 +815,8 @@ func _begin_node_acquire(node: Node, scene: PackedScene) -> int:
 	node.set_meta(_META_ACTIVE, true)
 	node.set_meta(_META_SOURCE_SCENE, scene)
 	_active_generations[node_id] = generation
+	_active_lease_scenes[node_id] = scene
+	_active_lease_nodes[node_id] = node
 	return generation
 
 
@@ -728,10 +824,14 @@ func _node_generation_matches(
 	node: Node,
 	node_id: int,
 	generations: Dictionary,
-	expected_generation: int
+	expected_generation: int,
+	clear_active_lease: bool = false
 ) -> bool:
 	if _get_valid_pool_node(node) == null:
-		var _invalid_generation_erased: bool = generations.erase(node_id)
+		if clear_active_lease:
+			_erase_active_lease(node_id)
+		else:
+			var _invalid_generation_erased: bool = generations.erase(node_id)
 		return false
 	if not generations.has(node_id):
 		return false
@@ -754,7 +854,11 @@ func _node_operation_matches(
 	match ownership_phase:
 		_NodeOwnershipPhase.ACTIVE:
 			return _node_generation_matches(
-				owner_node, owner_node_id, _active_generations, expected_generation
+				owner_node,
+				owner_node_id,
+				_active_generations,
+				expected_generation,
+				true
 			)
 		_NodeOwnershipPhase.TRANSITION:
 			return _node_generation_matches(
@@ -1084,7 +1188,13 @@ func _cancel_or_discard_stale_acquire(
 	if not is_instance_valid(node):
 		return
 	var node_id: int = node.get_instance_id()
-	if not _node_generation_matches(node, node_id, _active_generations, expected_generation):
+	if not _node_generation_matches(
+		node,
+		node_id,
+		_active_generations,
+		expected_generation,
+		true
+	):
 		return
 	release(node, scene)
 	if expected_lifecycle_serial != _lifecycle_serial:
@@ -2683,12 +2793,38 @@ func _resolve_owner_scene(node: Node, fallback_scene: PackedScene) -> PackedScen
 func _remove_node_from_scene_pool(node: Node, scene: PackedScene) -> void:
 	if is_instance_valid(node):
 		var node_id: int = node.get_instance_id()
-		var _active_generation_erased: bool = _active_generations.erase(node_id)
+		_erase_active_lease(node_id)
 		var _transition_generation_erased: bool = _transition_generations.erase(node_id)
 	if _all_nodes.has(scene):
 		_get_all_nodes_pool(scene).erase(node)
 	if _available_pools.has(scene):
 		_get_available_pool(scene).erase(node)
+
+
+func _retire_exact_active_lease_tracking(
+	scene: PackedScene,
+	instance_id: int,
+	tracked_node_value: Variant
+) -> bool:
+	if not _all_nodes.has(scene):
+		return false
+	var all_nodes: Array = _get_all_nodes_pool(scene)
+	var tracked_index: int = -1
+	for index: int in range(all_nodes.size()):
+		if is_same(all_nodes[index], tracked_node_value):
+			tracked_index = index
+			break
+	if tracked_index < 0:
+		return false
+	all_nodes.remove_at(tracked_index)
+	if _available_pools.has(scene):
+		var available_pool: Array = _get_available_pool(scene)
+		for index: int in range(available_pool.size() - 1, -1, -1):
+			if is_same(available_pool[index], tracked_node_value):
+				available_pool.remove_at(index)
+	var _transition_generation_erased: bool = _transition_generations.erase(instance_id)
+	_erase_active_lease(instance_id)
+	return true
 
 
 func _prune_invalid_scene_nodes(scene: PackedScene) -> void:
@@ -2734,12 +2870,20 @@ func _prune_invalid_generations() -> void:
 
 	for active_node_id_variant: Variant in _active_generations.keys():
 		if not tracked_ids.has(active_node_id_variant):
-			var _active_generation_erased: bool = _active_generations.erase(active_node_id_variant)
+			if active_node_id_variant is int:
+				var active_node_id: int = active_node_id_variant
+				_erase_active_lease(active_node_id)
 	for transition_node_id_variant: Variant in _transition_generations.keys():
 		if not tracked_ids.has(transition_node_id_variant):
 			var _transition_generation_erased: bool = (
 				_transition_generations.erase(transition_node_id_variant)
 			)
+
+
+func _erase_active_lease(instance_id: int) -> void:
+	var _active_generation_erased: bool = _active_generations.erase(instance_id)
+	var _active_scene_erased: bool = _active_lease_scenes.erase(instance_id)
+	var _active_node_erased: bool = _active_lease_nodes.erase(instance_id)
 
 
 func _prune_invalid_available_nodes_if_needed(scene: PackedScene) -> void:

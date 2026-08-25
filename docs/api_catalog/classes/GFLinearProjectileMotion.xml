@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFLinearProjectileMotion" path="addons/gf/extensions/combat/projectiles/gf_linear_projectile_motion.gd" module="extensions/combat" extends="GFProjectileMotion" classDigest="7f1d40d6406b9a34a053203844d58146756becc9752bfac3bede85417f69a7d8">
-	<description>GFLinearProjectileMotion: 2D/3D 通用直线发射体移动策略。
-该策略只处理线性位移，不处理碰撞、伤害、生命周期或目标选择。</description>
+<class name="GFLinearProjectileMotion" path="addons/gf/extensions/combat/projectiles/gf_linear_projectile_motion.gd" module="extensions/combat" extends="GFProjectileMotion" classDigest="37926a11c45fd857feb0ad00c3d47135894ecc49f8521d75a8c42057067ddf38">
+	<description>GFLinearProjectileMotion: 2D/3D 对称的直线 intent 策略。</description>
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">resource_definition</tag>
@@ -13,52 +12,45 @@
 	<properties>
 		<member kind="property" name="speed" decorators="@export">
 			<signature>var speed: float = 0.0</signature>
-			<description>每秒移动距离。</description>
+			<description>world-space 运动速度。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="direction_2d" decorators="@export">
 			<signature>var direction_2d: Vector2 = Vector2.RIGHT</signature>
-			<description>2D 方向。use_local_direction 为 true 时按发射体当前变换转换。</description>
+			<description>2D 基础方向。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="direction_3d" decorators="@export">
 			<signature>var direction_3d: Vector3 = Vector3.FORWARD</signature>
-			<description>3D 方向。use_local_direction 为 true 时按发射体当前变换转换。</description>
+			<description>3D 基础方向。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="use_local_direction" decorators="@export">
 			<signature>var use_local_direction: bool = true</signature>
-			<description>是否把方向视为发射体本地坐标。</description>
+			<description>是否按初始 body basis 将基础方向转换到 world-space。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="normalize_direction" decorators="@export">
 			<signature>var normalize_direction: bool = true</signature>
-			<description>是否归一化方向。</description>
+			<description>是否在乘以 speed 前单位化方向。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 	</properties>
-	<methods>
-		<member kind="method" name="_step">
-			<signature>func _step(projectile: Node, delta: float, projectile_context: Dictionary = {}) -&gt; void:</signature>
-			<description>推进直线移动。</description>
-			<tags>
-				<tag name="api">protected</tag>
-				<tag name="param">projectile: 发射体节点。</tag>
-				<tag name="param">delta: 物理帧间隔。</tag>
-				<tag name="param">projectile_context: 本次发射上下文字典。</tag>
-				<tag name="schema">projectile_context: Dictionary，本次发射上下文；会写入 velocity_2d 或 velocity_3d。</tag>
-			</tags>
-		</member>
-	</methods>
+	<methods />
 	<innerClasses />
 </class>

@@ -13,7 +13,7 @@
 | Behavior Tree | 22 | 89 | [Behavior Tree](#module-extensions-behavior_tree) |
 | Camera | 7 | 130 | [Camera](#module-extensions-camera) |
 | Capability | 11 | 148 | [Capability](#module-extensions-capability) |
-| Combat | 51 | 609 | [Combat](#module-extensions-combat) |
+| Combat | 71 | 694 | [Combat](#module-extensions-combat) |
 | Extensions / Content Package | 7 | 109 | [Extensions / Content Package](#module-extensions-content_package) |
 | Decision | 8 | 111 | [Decision](#module-extensions-decision) |
 | Dialogue | 5 | 75 | [Dialogue](#module-extensions-dialogue) |
@@ -705,8 +705,10 @@
 | [`GFBuff`](GFBuff.md#gfbuff) | 协议与扩展点 (`protocol`) | `RefCounted` | 35 | `addons/gf/extensions/combat/attributes/gf_buff.gd` |
 | [`GFBuffCheck`](GFBuffCheck.md#gfbuffcheck) | 协议与扩展点 (`protocol`) | `Resource` | 4 | `addons/gf/extensions/combat/attributes/gf_buff_check.gd` |
 | [`GFBuffEffect`](GFBuffEffect.md#gfbuffeffect) | 协议与扩展点 (`protocol`) | `Resource` | 14 | `addons/gf/extensions/combat/attributes/gf_buff_effect.gd` |
-| [`GFProjectileLifetimePolicy`](GFProjectileLifetimePolicy.md#gfprojectilelifetimepolicy) | 协议与扩展点 (`protocol`) | `Resource` | 7 | `addons/gf/extensions/combat/projectiles/gf_projectile_lifetime_policy.gd` |
-| [`GFProjectileMotion`](GFProjectileMotion.md#gfprojectilemotion) | 协议与扩展点 (`protocol`) | `Resource` | 4 | `addons/gf/extensions/combat/projectiles/gf_projectile_motion.gd` |
+| [`GFProjectileBodyAdapter2D`](GFProjectileBodyAdapter2D.md#gfprojectilebodyadapter2d) | 协议与扩展点 (`protocol`) | `Resource` | 8 | `addons/gf/extensions/combat/projectiles/gf_projectile_body_adapter_2d.gd` |
+| [`GFProjectileBodyAdapter3D`](GFProjectileBodyAdapter3D.md#gfprojectilebodyadapter3d) | 协议与扩展点 (`protocol`) | `Resource` | 8 | `addons/gf/extensions/combat/projectiles/gf_projectile_body_adapter_3d.gd` |
+| [`GFProjectileLifetimePolicy`](GFProjectileLifetimePolicy.md#gfprojectilelifetimepolicy) | 协议与扩展点 (`protocol`) | `Resource` | 5 | `addons/gf/extensions/combat/projectiles/gf_projectile_lifetime_policy.gd` |
+| [`GFProjectileMotion`](GFProjectileMotion.md#gfprojectilemotion) | 协议与扩展点 (`protocol`) | `Resource` | 8 | `addons/gf/extensions/combat/projectiles/gf_projectile_motion.gd` |
 | [`GFProjectileSpawnPattern2D`](GFProjectileSpawnPattern2D.md#gfprojectilespawnpattern2d) | 协议与扩展点 (`protocol`) | `Resource` | 4 | `addons/gf/extensions/combat/projectiles/gf_projectile_spawn_pattern_2d.gd` |
 | [`GFProjectileSpawnPattern3D`](GFProjectileSpawnPattern3D.md#gfprojectilespawnpattern3d) | 协议与扩展点 (`protocol`) | `Resource` | 4 | `addons/gf/extensions/combat/projectiles/gf_projectile_spawn_pattern_3d.gd` |
 | [`GFSkill`](GFSkill.md#gfskill) | 协议与扩展点 (`protocol`) | `RefCounted` | 22 | `addons/gf/extensions/combat/skills/gf_skill.gd` |
@@ -716,15 +718,22 @@
 | [`GFCombatActionModifier`](GFCombatActionModifier.md#gfcombatactionmodifier) | 资源定义 (`resource_definition`) | `Resource` | 15 | `addons/gf/extensions/combat/actions/gf_combat_action_modifier.gd` |
 | [`GFHitCollisionShapeConfig2D`](GFHitCollisionShapeConfig2D.md#gfhitcollisionshapeconfig2d) | 资源定义 (`resource_definition`) | `Resource` | 8 | `addons/gf/extensions/combat/hit_detection/gf_hit_collision_shape_config_2d.gd` |
 | [`GFHitCollisionShapeConfig3D`](GFHitCollisionShapeConfig3D.md#gfhitcollisionshapeconfig3d) | 资源定义 (`resource_definition`) | `Resource` | 8 | `addons/gf/extensions/combat/hit_detection/gf_hit_collision_shape_config_3d.gd` |
-| [`GFHomingProjectileMotion`](GFHomingProjectileMotion.md#gfhomingprojectilemotion) | 资源定义 (`resource_definition`) | `GFProjectileMotion` | 9 | `addons/gf/extensions/combat/projectiles/gf_homing_projectile_motion.gd` |
-| [`GFLinearProjectileMotion`](GFLinearProjectileMotion.md#gflinearprojectilemotion) | 资源定义 (`resource_definition`) | `GFProjectileMotion` | 6 | `addons/gf/extensions/combat/projectiles/gf_linear_projectile_motion.gd` |
+| [`GFHomingProjectileMotion`](GFHomingProjectileMotion.md#gfhomingprojectilemotion) | 资源定义 (`resource_definition`) | `GFProjectileMotion` | 4 | `addons/gf/extensions/combat/projectiles/gf_homing_projectile_motion.gd` |
+| [`GFLinearProjectileMotion`](GFLinearProjectileMotion.md#gflinearprojectilemotion) | 资源定义 (`resource_definition`) | `GFProjectileMotion` | 5 | `addons/gf/extensions/combat/projectiles/gf_linear_projectile_motion.gd` |
 | [`GFProjectileBurstPattern2D`](GFProjectileBurstPattern2D.md#gfprojectileburstpattern2d) | 资源定义 (`resource_definition`) | `GFProjectileSpawnPattern2D` | 7 | `addons/gf/extensions/combat/projectiles/gf_projectile_burst_pattern_2d.gd` |
 | [`GFProjectileCatalog`](GFProjectileCatalog.md#gfprojectilecatalog) | 资源定义 (`resource_definition`) | `Resource` | 7 | `addons/gf/extensions/combat/projectiles/gf_projectile_catalog.gd` |
 | [`GFProjectileCatalogEntry`](GFProjectileCatalogEntry.md#gfprojectilecatalogentry) | 资源定义 (`resource_definition`) | `Resource` | 3 | `addons/gf/extensions/combat/projectiles/gf_projectile_catalog_entry.gd` |
+| [`GFProjectileCharacterBodyAdapter2D`](GFProjectileCharacterBodyAdapter2D.md#gfprojectilecharacterbodyadapter2d) | 资源定义 (`resource_definition`) | `GFProjectileBodyAdapter2D` | 0 | `addons/gf/extensions/combat/projectiles/gf_projectile_character_body_adapter_2d.gd` |
+| [`GFProjectileCharacterBodyAdapter3D`](GFProjectileCharacterBodyAdapter3D.md#gfprojectilecharacterbodyadapter3d) | 资源定义 (`resource_definition`) | `GFProjectileBodyAdapter3D` | 0 | `addons/gf/extensions/combat/projectiles/gf_projectile_character_body_adapter_3d.gd` |
 | [`GFProjectileConePattern3D`](GFProjectileConePattern3D.md#gfprojectileconepattern3d) | 资源定义 (`resource_definition`) | `GFProjectileSpawnPattern3D` | 5 | `addons/gf/extensions/combat/projectiles/gf_projectile_cone_pattern_3d.gd` |
+| [`GFProjectileDefinition`](GFProjectileDefinition.md#gfprojectiledefinition) | 资源定义 (`resource_definition`) | `Resource` | 5 | `addons/gf/extensions/combat/projectiles/gf_projectile_definition.gd` |
+| [`GFProjectileDefinition2D`](GFProjectileDefinition2D.md#gfprojectiledefinition2d) | 资源定义 (`resource_definition`) | `GFProjectileDefinition` | 2 | `addons/gf/extensions/combat/projectiles/gf_projectile_definition_2d.gd` |
+| [`GFProjectileDefinition3D`](GFProjectileDefinition3D.md#gfprojectiledefinition3d) | 资源定义 (`resource_definition`) | `GFProjectileDefinition` | 2 | `addons/gf/extensions/combat/projectiles/gf_projectile_definition_3d.gd` |
 | [`GFProjectileEmissionPolicy`](GFProjectileEmissionPolicy.md#gfprojectileemissionpolicy) | 资源定义 (`resource_definition`) | `Resource` | 19 | `addons/gf/extensions/combat/projectiles/gf_projectile_emission_policy.gd` |
 | [`GFProjectileLineSpawnPattern2D`](GFProjectileLineSpawnPattern2D.md#gfprojectilelinespawnpattern2d) | 资源定义 (`resource_definition`) | `GFProjectileSpawnPattern2D` | 5 | `addons/gf/extensions/combat/projectiles/gf_projectile_line_spawn_pattern_2d.gd` |
 | [`GFProjectileLineSpawnPattern3D`](GFProjectileLineSpawnPattern3D.md#gfprojectilelinespawnpattern3d) | 资源定义 (`resource_definition`) | `GFProjectileSpawnPattern3D` | 5 | `addons/gf/extensions/combat/projectiles/gf_projectile_line_spawn_pattern_3d.gd` |
+| [`GFProjectileTransformBodyAdapter2D`](GFProjectileTransformBodyAdapter2D.md#gfprojectiletransformbodyadapter2d) | 资源定义 (`resource_definition`) | `GFProjectileBodyAdapter2D` | 0 | `addons/gf/extensions/combat/projectiles/gf_projectile_transform_body_adapter_2d.gd` |
+| [`GFProjectileTransformBodyAdapter3D`](GFProjectileTransformBodyAdapter3D.md#gfprojectiletransformbodyadapter3d) | 资源定义 (`resource_definition`) | `GFProjectileBodyAdapter3D` | 0 | `addons/gf/extensions/combat/projectiles/gf_projectile_transform_body_adapter_3d.gd` |
 | [`GFSkillTargetingRule2D`](GFSkillTargetingRule2D.md#gfskilltargetingrule2d) | 资源定义 (`resource_definition`) | `Resource` | 14 | `addons/gf/extensions/combat/skills/gf_skill_targeting_rule_2d.gd` |
 | [`GFCombatGauge`](GFCombatGauge.md#gfcombatgauge) | 运行时句柄 (`runtime_handle`) | `Node` | 23 | `addons/gf/extensions/combat/attributes/gf_combat_gauge.gd` |
 | [`GFHitBox2D`](GFHitBox2D.md#gfhitbox2d) | 运行时句柄 (`runtime_handle`) | `Area2D` | 24 | `addons/gf/extensions/combat/hit_detection/gf_hit_box_2d.gd` |
@@ -737,15 +746,26 @@
 | [`GFHurtBox3D`](GFHurtBox3D.md#gfhurtbox3d) | 运行时句柄 (`runtime_handle`) | `Area3D` | 21 | `addons/gf/extensions/combat/hit_detection/gf_hurt_box_3d.gd` |
 | [`GFModifiedAttribute`](GFModifiedAttribute.md#gfmodifiedattribute) | 运行时句柄 (`runtime_handle`) | `RefCounted` | 7 | `addons/gf/extensions/combat/attributes/gf_modified_attribute.gd` |
 | [`GFModifiedAttributeSet`](GFModifiedAttributeSet.md#gfmodifiedattributeset) | 运行时句柄 (`runtime_handle`) | `RefCounted` | 22 | `addons/gf/extensions/combat/attributes/gf_modified_attribute_set.gd` |
-| [`GFProjectile2D`](GFProjectile2D.md#gfprojectile2d) | 运行时句柄 (`runtime_handle`) | `GFHitBox2D` | 13 | `addons/gf/extensions/combat/projectiles/gf_projectile_2d.gd` |
-| [`GFProjectile3D`](GFProjectile3D.md#gfprojectile3d) | 运行时句柄 (`runtime_handle`) | `GFHitBox3D` | 13 | `addons/gf/extensions/combat/projectiles/gf_projectile_3d.gd` |
+| [`GFProjectile2D`](GFProjectile2D.md#gfprojectile2d) | 运行时句柄 (`runtime_handle`) | `Node` | 5 | `addons/gf/extensions/combat/projectiles/gf_projectile_2d.gd` |
+| [`GFProjectile3D`](GFProjectile3D.md#gfprojectile3d) | 运行时句柄 (`runtime_handle`) | `Node` | 5 | `addons/gf/extensions/combat/projectiles/gf_projectile_3d.gd` |
 | [`GFProjectileEmissionTask`](GFProjectileEmissionTask.md#gfprojectileemissiontask) | 运行时句柄 (`runtime_handle`) | `RefCounted` | 12 | `addons/gf/extensions/combat/projectiles/gf_projectile_emission_task.gd` |
-| [`GFProjectileEmitter2D`](GFProjectileEmitter2D.md#gfprojectileemitter2d) | 运行时句柄 (`runtime_handle`) | `Node2D` | 20 | `addons/gf/extensions/combat/projectiles/gf_projectile_emitter_2d.gd` |
-| [`GFProjectileEmitter3D`](GFProjectileEmitter3D.md#gfprojectileemitter3d) | 运行时句柄 (`runtime_handle`) | `Node3D` | 20 | `addons/gf/extensions/combat/projectiles/gf_projectile_emitter_3d.gd` |
+| [`GFProjectileEmitter2D`](GFProjectileEmitter2D.md#gfprojectileemitter2d) | 运行时句柄 (`runtime_handle`) | `Node2D` | 17 | `addons/gf/extensions/combat/projectiles/gf_projectile_emitter_2d.gd` |
+| [`GFProjectileEmitter3D`](GFProjectileEmitter3D.md#gfprojectileemitter3d) | 运行时句柄 (`runtime_handle`) | `Node3D` | 17 | `addons/gf/extensions/combat/projectiles/gf_projectile_emitter_3d.gd` |
+| [`GFProjectileMotionState`](GFProjectileMotionState.md#gfprojectilemotionstate) | 运行时句柄 (`runtime_handle`) | `RefCounted` | 0 | `addons/gf/extensions/combat/projectiles/gf_projectile_motion_state.gd` |
+| [`GFProjectileSession`](GFProjectileSession.md#gfprojectilesession) | 运行时句柄 (`runtime_handle`) | `RefCounted` | 17 | `addons/gf/extensions/combat/projectiles/gf_projectile_session.gd` |
 | [`GFTagComponent`](GFTagComponent.md#gftagcomponent) | 运行时句柄 (`runtime_handle`) | `RefCounted` | 8 | `addons/gf/extensions/combat/tags/gf_tag_component.gd` |
 | [`GFCombatActionResult`](GFCombatActionResult.md#gfcombatactionresult) | 值对象 (`value_object`) | `RefCounted` | 11 | `addons/gf/extensions/combat/actions/gf_combat_action_result.gd` |
 | [`GFCombatHitContext`](GFCombatHitContext.md#gfcombathitcontext) | 值对象 (`value_object`) | `RefCounted` | 20 | `addons/gf/extensions/combat/hit_detection/gf_combat_hit_context.gd` |
 | [`GFModifier`](GFModifier.md#gfmodifier) | 值对象 (`value_object`) | `RefCounted` | 13 | `addons/gf/extensions/combat/attributes/gf_modifier.gd` |
+| [`GFProjectileBinding`](GFProjectileBinding.md#gfprojectilebinding) | 值对象 (`value_object`) | `RefCounted` | 9 | `addons/gf/extensions/combat/projectiles/gf_projectile_binding.gd` |
+| [`GFProjectileBinding2D`](GFProjectileBinding2D.md#gfprojectilebinding2d) | 值对象 (`value_object`) | `GFProjectileBinding` | 4 | `addons/gf/extensions/combat/projectiles/gf_projectile_binding_2d.gd` |
+| [`GFProjectileBinding3D`](GFProjectileBinding3D.md#gfprojectilebinding3d) | 值对象 (`value_object`) | `GFProjectileBinding` | 4 | `addons/gf/extensions/combat/projectiles/gf_projectile_binding_3d.gd` |
+| [`GFProjectileBodyResult2D`](GFProjectileBodyResult2D.md#gfprojectilebodyresult2d) | 值对象 (`value_object`) | `RefCounted` | 7 | `addons/gf/extensions/combat/projectiles/gf_projectile_body_result_2d.gd` |
+| [`GFProjectileBodyResult3D`](GFProjectileBodyResult3D.md#gfprojectilebodyresult3d) | 值对象 (`value_object`) | `RefCounted` | 7 | `addons/gf/extensions/combat/projectiles/gf_projectile_body_result_3d.gd` |
+| [`GFProjectileLaunchInput2D`](GFProjectileLaunchInput2D.md#gfprojectilelaunchinput2d) | 值对象 (`value_object`) | `Resource` | 10 | `addons/gf/extensions/combat/projectiles/gf_projectile_launch_input_2d.gd` |
+| [`GFProjectileLaunchInput3D`](GFProjectileLaunchInput3D.md#gfprojectilelaunchinput3d) | 值对象 (`value_object`) | `Resource` | 10 | `addons/gf/extensions/combat/projectiles/gf_projectile_launch_input_3d.gd` |
+| [`GFProjectileMotionIntent2D`](GFProjectileMotionIntent2D.md#gfprojectilemotionintent2d) | 值对象 (`value_object`) | `RefCounted` | 9 | `addons/gf/extensions/combat/projectiles/gf_projectile_motion_intent_2d.gd` |
+| [`GFProjectileMotionIntent3D`](GFProjectileMotionIntent3D.md#gfprojectilemotionintent3d) | 值对象 (`value_object`) | `RefCounted` | 9 | `addons/gf/extensions/combat/projectiles/gf_projectile_motion_intent_3d.gd` |
 | [`GFSkillActivationContext`](GFSkillActivationContext.md#gfskillactivationcontext) | 值对象 (`value_object`) | `RefCounted` | 12 | `addons/gf/extensions/combat/skills/gf_skill_activation_context.gd` |
 | [`GFCombatPayloads`](GFCombatPayloads.md#gfcombatpayloads) | 事件契约 (`event_contract`) | `Node` | 0 | `addons/gf/extensions/combat/core/gf_combat_payloads.gd` |
 | [`GFCombatPayloads.GFBuffAppliedPayload`](GFCombatPayloads.md#gfcombatpayloadsgfbuffappliedpayload) | 事件契约 (`event_contract`) | `GFPayload` | 2 | `addons/gf/extensions/combat/core/gf_combat_payloads.gd` |

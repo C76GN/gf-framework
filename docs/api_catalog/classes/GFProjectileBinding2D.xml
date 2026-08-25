@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFProjectileBinding2D" path="addons/gf/extensions/combat/projectiles/gf_projectile_binding_2d.gd" module="extensions/combat" extends="GFProjectileBinding" classDigest="b65be3490719f9c1797a9cb2f673883e11db1ae495beb76ef014163cc969516f">
+	<description>GFProjectileBinding2D: 2D projectile 的 typed 拓扑快照。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">value_object</tag>
+		<tag name="since">unreleased</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties />
+	<methods>
+		<member kind="method" name="get_definition">
+			<signature>func get_definition() -&gt; GFProjectileDefinition2D:</signature>
+			<description>返回创建本快照的 2D definition。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">2D definition；准入前失败时可能为 null。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_instance_root">
+			<signature>func get_instance_root() -&gt; Node2D:</signature>
+			<description>返回绑定的完整 2D 实例根节点。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">live Node2D root；已释放时返回 null。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_runtime">
+			<signature>func get_runtime() -&gt; GFProjectile2D:</signature>
+			<description>返回唯一 2D runtime 节点。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">live GFProjectile2D；已释放时返回 null。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_body_adapter">
+			<signature>func get_body_adapter() -&gt; GFProjectileBodyAdapter2D:</signature>
+			<description>返回冻结的 2D body adapter。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">绑定准入时的 GFProjectileBodyAdapter2D。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

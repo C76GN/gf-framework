@@ -9,7 +9,7 @@
 - 类别：资源定义 (`resource_definition`)
 - 首次版本：`3.17.0`
 
-2D/3D 通用直线发射体移动策略。 该策略只处理线性位移，不处理碰撞、伤害、生命周期或目标选择。
+2D/3D 对称的直线 intent 策略。
 
 ## 成员概览
 
@@ -20,7 +20,6 @@
 | 属性 | [`direction_3d`](#member-gflinearprojectilemotion-properties-direction_3d) | `var direction_3d: Vector3 = Vector3.FORWARD` |
 | 属性 | [`use_local_direction`](#member-gflinearprojectilemotion-properties-use_local_direction) | `var use_local_direction: bool = true` |
 | 属性 | [`normalize_direction`](#member-gflinearprojectilemotion-properties-normalize_direction) | `var normalize_direction: bool = true` |
-| 方法 | [`_step`](#member-gflinearprojectilemotion-methods-_step) | `func _step(projectile: Node, delta: float, projectile_context: Dictionary = {}) -> void:` |
 
 ## 属性
 
@@ -29,83 +28,62 @@
 ### `speed`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var speed: float = 0.0
 ```
 
-每秒移动距离。
+world-space 运动速度。
 
 <a id="member-gflinearprojectilemotion-properties-direction_2d"></a>
 
 ### `direction_2d`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var direction_2d: Vector2 = Vector2.RIGHT
 ```
 
-2D 方向。use_local_direction 为 true 时按发射体当前变换转换。
+2D 基础方向。
 
 <a id="member-gflinearprojectilemotion-properties-direction_3d"></a>
 
 ### `direction_3d`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var direction_3d: Vector3 = Vector3.FORWARD
 ```
 
-3D 方向。use_local_direction 为 true 时按发射体当前变换转换。
+3D 基础方向。
 
 <a id="member-gflinearprojectilemotion-properties-use_local_direction"></a>
 
 ### `use_local_direction`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var use_local_direction: bool = true
 ```
 
-是否把方向视为发射体本地坐标。
+是否按初始 body basis 将基础方向转换到 world-space。
 
 <a id="member-gflinearprojectilemotion-properties-normalize_direction"></a>
 
 ### `normalize_direction`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var normalize_direction: bool = true
 ```
 
-是否归一化方向。
-
-## 方法
-
-<a id="member-gflinearprojectilemotion-methods-_step"></a>
-
-### `_step`
-
-- API：`protected`
-
-```gdscript
-func _step(projectile: Node, delta: float, projectile_context: Dictionary = {}) -> void:
-```
-
-推进直线移动。
-
-参数：
-
-| 名称 | 说明 |
-|---|---|
-| `projectile` | 发射体节点。 |
-| `delta` | 物理帧间隔。 |
-| `projectile_context` | 本次发射上下文字典。 |
-
-结构：
-
-- `projectile_context`: Dictionary，本次发射上下文；会写入 velocity_2d 或 velocity_3d。
+是否在乘以 speed 前单位化方向。

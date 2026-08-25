@@ -17,21 +17,22 @@ extends Resource
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param emitter: 发射器节点。
 ## [br]
-## @param projectile_context: 本次发射上下文。
+## @param launch_input: 本次 typed 发射输入；null 表示无额外输入。
 ## [br]
 ## @param emit_count: 调用方请求的数量；小于等于 0 时由模式自行决定。
 ## [br]
 ## @return 全局 Transform3D 列表。
 ## [br]
-## @schema projectile_context: Dictionary，本次发射上下文；模式只读取调用方约定的数据。
 func get_spawn_transforms(
 	emitter: Node3D,
-	projectile_context: Dictionary = {},
+	launch_input: GFProjectileLaunchInput3D = null,
 	emit_count: int = -1
 ) -> Array[Transform3D]:
-	return _get_spawn_transforms(emitter, projectile_context, emit_count)
+	return _get_spawn_transforms(emitter, launch_input, emit_count)
 
 
 ## 解析模式本次请求的最终数量，不生成变换。
@@ -55,18 +56,19 @@ func resolve_spawn_count(emit_count: int = -1) -> int:
 ## [br]
 ## @api protected
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param emitter: 发射器节点。
 ## [br]
-## @param _projectile_context: 本次发射上下文。
+## @param _launch_input: 本次 typed 发射输入；null 表示无额外输入。
 ## [br]
 ## @param _emit_count: 调用方请求的数量；小于等于 0 时由模式自行决定。
 ## [br]
 ## @return 全局 Transform3D 列表。
 ## [br]
-## @schema _projectile_context: Dictionary，本次发射上下文；模式只读取调用方约定的数据。
 func _get_spawn_transforms(
 	emitter: Node3D,
-	_projectile_context: Dictionary = {},
+	_launch_input: GFProjectileLaunchInput3D = null,
 	_emit_count: int = -1
 ) -> Array[Transform3D]:
 	if emitter == null:

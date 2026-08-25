@@ -1,8 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFProjectileMotion" path="addons/gf/extensions/combat/projectiles/gf_projectile_motion.gd" module="extensions/combat" extends="Resource" classDigest="a66faceee200ac0f3e790a21854382539e40ef03e722f6e9e852cecee8787d39">
-	<description>GFProjectileMotion: 发射体移动策略基类。
-移动策略只负责根据 delta 推进节点位置。需要跨帧保存的数据应写入
-projectile_context，避免共享 Resource 在多个发射体之间串状态。</description>
+<class name="GFProjectileMotion" path="addons/gf/extensions/combat/projectiles/gf_projectile_motion.gd" module="extensions/combat" extends="Resource" classDigest="439ce31576f7651172c75c60b9cee2ceb81352229aff9a494548f453321c0343">
+	<description>GFProjectileMotion: 以 per-session state 计算 typed intent 的移动策略基类。</description>
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">protocol</tag>
@@ -13,46 +11,100 @@ projectile_context，避免共享 Resource 在多个发射体之间串状态。<
 	<constants />
 	<properties />
 	<methods>
-		<member kind="method" name="setup">
-			<signature>func setup(projectile: Node, projectile_context: Dictionary = {}) -&gt; void:</signature>
-			<description>发射体启动时调用。</description>
+		<member kind="method" name="create_state_2d">
+			<signature>func create_state_2d( launch_input: GFProjectileLaunchInput2D, initial_body: GFProjectileBodyResult2D ) -&gt; GFProjectileMotionState:</signature>
+			<description>为一次 2D session 创建私有 motion state。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="param">projectile: 发射体节点。</tag>
-				<tag name="param">projectile_context: 本次发射的上下文字典。</tag>
-				<tag name="schema">projectile_context: Dictionary，本次发射上下文；移动策略可写入跨帧状态。</tag>
+				<tag name="param">launch_input: 已冻结的 2D 发射输入。</tag>
+				<tag name="param">initial_body: reserve 阶段捕获的初始 body 快照。</tag>
+				<tag name="return">仅供该 session 使用的 state；拒绝时返回 null。</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
-		<member kind="method" name="step">
-			<signature>func step(projectile: Node, delta: float, projectile_context: Dictionary = {}) -&gt; void:</signature>
-			<description>推进一帧移动。</description>
+		<member kind="method" name="create_state_3d">
+			<signature>func create_state_3d( launch_input: GFProjectileLaunchInput3D, initial_body: GFProjectileBodyResult3D ) -&gt; GFProjectileMotionState:</signature>
+			<description>为一次 3D session 创建私有 motion state。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="param">projectile: 发射体节点。</tag>
-				<tag name="param">delta: 物理帧间隔。</tag>
-				<tag name="param">projectile_context: 本次发射的上下文字典。</tag>
-				<tag name="schema">projectile_context: Dictionary，本次发射上下文；移动策略可读取或写入跨帧状态。</tag>
+				<tag name="param">launch_input: 已冻结的 3D 发射输入。</tag>
+				<tag name="param">initial_body: reserve 阶段捕获的初始 body 快照。</tag>
+				<tag name="return">仅供该 session 使用的 state；拒绝时返回 null。</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
-		<member kind="method" name="_setup">
-			<signature>func _setup(_projectile: Node, _projectile_context: Dictionary = {}) -&gt; void:</signature>
-			<description>发射体启动扩展点。</description>
+		<member kind="method" name="compute_intent_2d">
+			<signature>func compute_intent_2d( state: GFProjectileMotionState, current_body: GFProjectileBodyResult2D, delta: float ) -&gt; GFProjectileMotionIntent2D:</signature>
+			<description>根据 state 与当前 body 快照计算 2D intent，不直接修改 root。</description>
 			<tags>
-				<tag name="api">protected</tag>
-				<tag name="param">_projectile: 发射体节点。</tag>
-				<tag name="param">_projectile_context: 本次发射上下文字典。</tag>
-				<tag name="schema">_projectile_context: Dictionary，本次发射上下文；移动策略可写入跨帧状态。</tag>
+				<tag name="api">public</tag>
+				<tag name="param">state: 当前 session 私有 state。</tag>
+				<tag name="param">current_body: 当前 body 快照。</tag>
+				<tag name="param">delta: 本帧秒数。</tag>
+				<tag name="return">typed 2D intent。</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
-		<member kind="method" name="_step">
-			<signature>func _step(_projectile: Node, _delta: float, _projectile_context: Dictionary = {}) -&gt; void:</signature>
-			<description>发射体移动扩展点。</description>
+		<member kind="method" name="compute_intent_3d">
+			<signature>func compute_intent_3d( state: GFProjectileMotionState, current_body: GFProjectileBodyResult3D, delta: float ) -&gt; GFProjectileMotionIntent3D:</signature>
+			<description>根据 state 与当前 body 快照计算 3D intent，不直接修改 root。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">state: 当前 session 私有 state。</tag>
+				<tag name="param">current_body: 当前 body 快照。</tag>
+				<tag name="param">delta: 本帧秒数。</tag>
+				<tag name="return">typed 3D intent。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_create_state_2d">
+			<signature>func _create_state_2d( _launch_input: GFProjectileLaunchInput2D, _initial_body: GFProjectileBodyResult2D ) -&gt; Variant:</signature>
+			<description>实现 2D state 创建策略。</description>
 			<tags>
 				<tag name="api">protected</tag>
-				<tag name="param">_projectile: 发射体节点。</tag>
-				<tag name="param">_delta: 物理帧间隔。</tag>
-				<tag name="param">_projectile_context: 本次发射上下文字典。</tag>
-				<tag name="schema">_projectile_context: Dictionary，本次发射上下文；移动策略可读取或写入跨帧状态。</tag>
+				<tag name="param">_launch_input: 已冻结的发射输入。</tag>
+				<tag name="param">_initial_body: 初始 body 快照。</tag>
+				<tag name="return">session 私有 state。</tag>
+				<tag name="schema">return: Variant，必须为 live `GFProjectileMotionState`。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_create_state_3d">
+			<signature>func _create_state_3d( _launch_input: GFProjectileLaunchInput3D, _initial_body: GFProjectileBodyResult3D ) -&gt; Variant:</signature>
+			<description>实现 3D state 创建策略。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">_launch_input: 已冻结的发射输入。</tag>
+				<tag name="param">_initial_body: 初始 body 快照。</tag>
+				<tag name="return">session 私有 state。</tag>
+				<tag name="schema">return: Variant，必须为 live `GFProjectileMotionState`。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_compute_intent_2d">
+			<signature>func _compute_intent_2d( _state: GFProjectileMotionState, _current_body: GFProjectileBodyResult2D, _delta: float ) -&gt; Variant:</signature>
+			<description>实现 2D intent 计算策略。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">_state: session 私有 state。</tag>
+				<tag name="param">_current_body: 当前 body 快照。</tag>
+				<tag name="param">_delta: 本帧秒数；MOVE intent 必须原样回显该 delta，时间缩放应改写 velocity。</tag>
+				<tag name="return">typed 2D intent。</tag>
+				<tag name="schema">return: Variant，必须为 live `GFProjectileMotionIntent2D`。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_compute_intent_3d">
+			<signature>func _compute_intent_3d( _state: GFProjectileMotionState, _current_body: GFProjectileBodyResult3D, _delta: float ) -&gt; Variant:</signature>
+			<description>实现 3D intent 计算策略。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">_state: session 私有 state。</tag>
+				<tag name="param">_current_body: 当前 body 快照。</tag>
+				<tag name="param">_delta: 本帧秒数；MOVE intent 必须原样回显该 delta，时间缩放应改写 velocity。</tag>
+				<tag name="return">typed 3D intent。</tag>
+				<tag name="schema">return: Variant，必须为 live `GFProjectileMotionIntent3D`。</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
 	</methods>
