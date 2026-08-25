@@ -228,15 +228,9 @@ def analyze_module_dependencies(
 			continue
 		source_identities[path] = source.identity
 		suffix = path.suffix.casefold()
-		if suffix == ".gd":
-			tokens = lex_gdscript(source.text)
-		elif suffix in (".gdshader", ".gdshaderinc"):
-			tokens = lex_shader_text(source.text)
-		else:
-			tokens = lex_resource_text(source.text)
 		if suffix != ".gd":
-			del tokens
 			continue
+		tokens = lex_gdscript(source.text)
 		resource_path = _resource_path(project_root, path)
 		owner_id = target_plan.owner_of(resource_path)
 		for class_name in _declared_class_names(tokens):
@@ -493,12 +487,24 @@ def analyze_module_dependencies(
 
 def lex_gdscript(source: str) -> list[SourceToken]:
 	"""Return exact identifiers and string literals while excluding comments."""
-	return _lex_text(source, comment_markers=("#",), identifiers=True, punctuation=True)
+	return _lex_text(
+		source,
+		comment_markers=("#",),
+		identifiers=True,
+		punctuation=True,
+		raw_strings=True,
+	)
 
 
 def lex_resource_text(source: str) -> list[SourceToken]:
 	"""Return quoted values from Godot text resources while excluding comments."""
-	return _lex_text(source, comment_markers=("#", ";"), identifiers=True, punctuation=True)
+	return _lex_text(
+		source,
+		comment_markers=("#", ";"),
+		identifiers=True,
+		punctuation=True,
+		raw_strings=False,
+	)
 
 
 def lex_shader_text(source: str) -> list[SourceToken]:
@@ -507,6 +513,8 @@ def lex_shader_text(source: str) -> list[SourceToken]:
 	index = 0
 	line = 1
 	length = len(source)
+	include_directive = "#include"
+	include_prefix_index = 0
 	while index < length:
 		if source.startswith("//", index):
 			newline = source.find("\n", index)
@@ -518,20 +526,21 @@ def lex_shader_text(source: str) -> list[SourceToken]:
 			end = source.find("*/", index + 2)
 			comment_end = length if end < 0 else end + 2
 			line += source.count("\n", index, comment_end)
+			include_prefix_index = -1
 			index = comment_end
 			continue
 		character = source[index]
 		if character == "\n":
 			line += 1
+			include_prefix_index = 0
 			index += 1
 			continue
 		if character in ("'", '"'):
 			quote = character
 			start_line = line
-			line_start = source.rfind("\n", 0, index) + 1
 			kind = (
 				"shader_include"
-				if character == '"' and source[line_start:index].strip() == "#include"
+				if character == '"' and include_prefix_index == len(include_directive)
 				else "string"
 			)
 			index += 1
@@ -550,7 +559,20 @@ def lex_shader_text(source: str) -> list[SourceToken]:
 			if index < length:
 				index += 1
 			tokens.append(SourceToken(kind, "".join(value), start_line))
+			include_prefix_index = -1
 			continue
+		if include_prefix_index >= 0:
+			if include_prefix_index == 0 and character.isspace():
+				pass
+			elif (
+				include_prefix_index < len(include_directive)
+				and character == include_directive[include_prefix_index]
+			):
+				include_prefix_index += 1
+			elif include_prefix_index == len(include_directive) and character.isspace():
+				pass
+			else:
+				include_prefix_index = -1
 		index += 1
 	return tokens
 
@@ -561,6 +583,7 @@ def _lex_text(
 	comment_markers: tuple[str, ...],
 	identifiers: bool,
 	punctuation: bool,
+	raw_strings: bool,
 ) -> list[SourceToken]:
 	tokens: list[SourceToken] = []
 	index = 0
@@ -582,7 +605,8 @@ def _lex_text(
 			quote = character
 			start_line = line
 			raw_string = bool(
-				index > 0
+				raw_strings
+				and index > 0
 				and source[index - 1] == "r"
 				and (
 					index < 2
@@ -599,7 +623,16 @@ def _lex_text(
 				if not triple and source[index] == quote:
 					index += 1
 					break
-				if source[index] == "\\" and index + 1 < length:
+				if (
+					raw_string
+					and source[index] == "\\"
+					and index + 1 < length
+					and source[index + 1] in ("\\", quote)
+				):
+					value.extend(("\\", source[index + 1]))
+					index += 2
+					continue
+				if not raw_string and source[index] == "\\" and index + 1 < length:
 					if source[index + 1] == "\n":
 						line += 1
 					value.append(source[index + 1])

@@ -230,6 +230,22 @@ def _scan_sources(
 		if not current_resource:
 			unsafe_directory_count += 1
 			continue
+		marker = current_path / ".gdignore"
+		try:
+			marker.lstat()
+		except FileNotFoundError:
+			pass
+		except OSError:
+			invalid_gdignore_count += 1
+			continue
+		else:
+			marker_pin = _regular_snapshot(project_root, marker)
+			if marker_pin is not None:
+				gdignore_pins[marker] = marker_pin
+				ignored_directory_count += 1
+				continue
+			invalid_gdignore_count += 1
+			continue
 		entry_names: list[str] = []
 		try:
 			with os.scandir(current_path) as iterator:
@@ -246,7 +262,6 @@ def _scan_sources(
 		if truncated:
 			break
 		entry_names.sort()
-		marker = current_path / ".gdignore"
 		if ".gdignore" in entry_names:
 			marker_pin = _regular_snapshot(project_root, marker)
 			if marker_pin is not None:
@@ -286,8 +301,6 @@ def _scan_sources(
 			if not stat.S_ISDIR(metadata.st_mode):
 				if name.casefold().endswith(".gd"):
 					script_names.append(name)
-				else:
-					unsafe_directory_count += 1
 				continue
 			if not resource_path or not identity or not _safe_directory_path(project_root, candidate):
 				unsafe_directory_count += 1
