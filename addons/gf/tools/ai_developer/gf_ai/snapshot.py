@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from . import api_policy, catalog, dependencies
+from . import api_policy, catalog, dependencies, documentation
 from .constants import DEFAULT_CONTRACT_PATH, DEFAULT_SNAPSHOT_PATH, SCHEMA_ROOT, SNAPSHOT_SCHEMA_VERSION, TOOL_VERSION
 from .contract import load_contract
 from .paths import atomic_write_json, resolve_project_path
@@ -57,6 +57,10 @@ def build_snapshot(
 		max_script_bytes=_MAX_SCRIPT_BYTES,
 		max_source_bytes=_MAX_SOURCE_SCAN_BYTES,
 	)
+	documentation_reference_analysis = documentation.analyze_documentation_references(
+		project_root,
+		contract_result,
+	)
 	source_scan = api_package_policy_analysis
 	capability_readiness = _build_capability_readiness(
 		contract_result,
@@ -87,6 +91,7 @@ def build_snapshot(
 		declared_roots,
 		module_dependency_analysis,
 		api_package_policy_analysis,
+		documentation_reference_analysis,
 	)
 	return {
 		"schema_version": SNAPSHOT_SCHEMA_VERSION,
@@ -135,6 +140,7 @@ def build_snapshot(
 			"gf_api_usage": source_scan["gf_api_usage"],
 			"test_gf_api_usage": source_scan["test_gf_api_usage"],
 			"api_package_policy_analysis": api_package_policy_analysis,
+			"documentation_reference_analysis": documentation_reference_analysis,
 			"declared_roots": declared_roots,
 			"module_dependency_analysis": module_dependency_analysis,
 		},
@@ -216,6 +222,7 @@ def _build_drift(
 	declared_roots: list[dict[str, Any]],
 	module_dependency_analysis: dict[str, Any],
 	api_package_policy_analysis: dict[str, Any],
+	documentation_reference_analysis: dict[str, Any],
 ) -> dict[str, Any]:
 	issues: list[dict[str, str]] = []
 	for item in contract_result.get("issues", []):
@@ -288,6 +295,7 @@ def _build_drift(
 				issues.append(_issue("error", "blocking_unknown", unknown_id, f"Project contract still has a blocking unknown: {unknown_id}."))
 		issues.extend(_module_dependency_drift_issues(contract_data, module_dependency_analysis))
 	issues.extend(_api_package_policy_drift_issues(api_package_policy_analysis))
+	issues.extend(_documentation_reference_drift_issues(documentation_reference_analysis))
 	error_count = sum(1 for issue in issues if issue["severity"] == "error")
 	warning_count = sum(1 for issue in issues if issue["severity"] == "warning")
 	return {
@@ -350,6 +358,87 @@ def _api_package_policy_drift_issues(analysis: dict[str, Any]) -> list[dict[str,
 			"dynamic_gf_api_reference_advisory",
 			"$.architecture.source_domains",
 			f"Observed {int(analysis.get('advisory_count', 0))} dynamic or uncertain GF API reference(s); no package intent was inferred.",
+		))
+	return issues
+
+
+def _documentation_reference_drift_issues(analysis: dict[str, Any]) -> list[dict[str, str]]:
+	issues: list[dict[str, str]] = []
+	status = str(analysis.get("status", "partial"))
+	if status not in ("complete", "not_configured"):
+		issues.append(_issue(
+			"error",
+			"documentation_reference_analysis_incomplete",
+			"$.architecture.documentation_roots",
+			(
+				"GF documentation reference analysis is not complete "
+				f"(status={status}, catalog_issues={int(analysis.get('catalog_issue_count', 0))}, "
+				f"entries={int(analysis.get('entry_count', 0))}, "
+				f"oversized_files={int(analysis.get('skipped_large_file_count', 0))}, "
+				f"unreadable_files={int(analysis.get('unreadable_file_count', 0))}, "
+				f"unsafe_paths={int(analysis.get('unsafe_file_path_count', 0))}, "
+				f"unsafe_directories={int(analysis.get('unsafe_directory_count', 0))}, "
+				f"directory_identity_drift={int(analysis.get('directory_identity_drift_count', 0))}, "
+				f"truncated={bool(analysis.get('scan_truncated'))}, "
+				f"truncation_reason={str(analysis.get('scan_truncation_reason', ''))})."
+			),
+		))
+	root_issue_codes = {
+		"missing": "documentation_root_missing",
+		"not_directory": "documentation_root_not_directory",
+		"unsafe": "documentation_root_unsafe",
+		"excluded": "documentation_root_excluded",
+		"generated": "documentation_root_generated",
+		"drifted": "documentation_root_identity_drift",
+	}
+	for root_state in analysis.get("documentation_roots", []):
+		if not isinstance(root_state, dict):
+			continue
+		root_status = str(root_state.get("status", "unsafe"))
+		code = root_issue_codes.get(root_status)
+		if code is None:
+			continue
+		root = str(root_state.get("root", "$.architecture.documentation_roots"))
+		issues.append(_issue(
+			"error",
+			code,
+			root,
+			f"Declared documentation root is not safely scannable (status={root_status}): {root}.",
+		))
+	actionable_count = int(analysis.get("actionable_count", 0))
+	actionable = [
+		item for item in analysis.get("actionable_references", [])
+		if isinstance(item, dict)
+	]
+	for item in actionable:
+		status = str(item.get("status", "unknown_owner"))
+		code = "stale_gf_api_member_reference" if status == "unknown_member" else "stale_gf_api_owner_reference"
+		source_path = str(item.get("source_path", "$.architecture.documentation_roots"))
+		line = int(item.get("line", 0))
+		column = int(item.get("column", 0))
+		symbol = str(item.get("symbol", ""))
+		issues.append(_issue(
+			"error",
+			code,
+			source_path,
+			f"GF API reference {symbol!r} is absent from the exact catalog at {source_path}:{line}:{column}.",
+		))
+	if actionable_count > len(actionable):
+		issues.append(_issue(
+			"error",
+			"documentation_gf_reference_evidence_truncated",
+			"$.architecture.documentation_roots",
+			f"Documentation analysis has {actionable_count - len(actionable)} additional bounded actionable reference(s).",
+		))
+	if int(analysis.get("advisory_count", 0)) > 0:
+		issues.append(_issue(
+			"warning",
+			"documentation_gf_reference_advisory",
+			"$.architecture.documentation_roots",
+			(
+				f"Observed {int(analysis.get('advisory_count', 0))} GF-shaped prose reference(s); "
+				"prose is advisory and was not treated as executable API evidence."
+			),
 		))
 	return issues
 

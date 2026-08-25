@@ -1005,7 +1005,8 @@ def _api_index_issues(data: dict[str, Any]) -> list[str]:
 				issues.append(
 					f"API index {owner_kind} record owner_kind is invalid: {owner_name}."
 				)
-			if record.get("package_id") not in package_ids:
+			owner_package_id = record.get("package_id")
+			if not isinstance(owner_package_id, str) or owner_package_id not in package_ids:
 				issues.append(
 					f"API index {owner_kind} has no known owner package: {owner_name}."
 				)
@@ -1026,39 +1027,52 @@ def _package_dependency_cycle_issues(
 	packages: list[Any],
 	package_ids: set[str],
 ) -> list[str]:
-	graph = {
-		str(package.get("id")): sorted(
+	graph: dict[str, list[str]] = {}
+	for package in packages:
+		if not isinstance(package, dict) or not isinstance(package.get("id"), str):
+			continue
+		raw_dependencies = package.get("dependencies", [])
+		dependencies = raw_dependencies if isinstance(raw_dependencies, list) else []
+		graph[str(package["id"])] = sorted(
 			dependency_id
-			for dependency_id in package.get("dependencies", [])
+			for dependency_id in dependencies
 			if isinstance(dependency_id, str) and dependency_id in package_ids
 		)
-		for package in packages
-		if isinstance(package, dict) and isinstance(package.get("id"), str)
-	}
-	visiting: list[str] = []
-	visiting_set: set[str] = set()
-	visited: set[str] = set()
+	state: dict[str, int] = {}
 	cycles: set[tuple[str, ...]] = set()
 
-	def visit(package_id: str) -> None:
-		if package_id in visited:
-			return
-		if package_id in visiting_set:
-			start = visiting.index(package_id)
-			cycle = visiting[start:]
-			rotations = [tuple(cycle[index:] + cycle[:index]) for index in range(len(cycle))]
-			cycles.add(min(rotations))
-			return
-		visiting.append(package_id)
-		visiting_set.add(package_id)
-		for dependency_id in graph.get(package_id, []):
-			visit(dependency_id)
-		visiting.pop()
-		visiting_set.remove(package_id)
-		visited.add(package_id)
-
-	for package_id in sorted(graph):
-		visit(package_id)
+	for start_id in sorted(graph):
+		if state.get(start_id) == 2:
+			continue
+		path = [start_id]
+		positions = {start_id: 0}
+		state[start_id] = 1
+		stack: list[tuple[str, int]] = [(start_id, 0)]
+		while stack:
+			package_id, dependency_index = stack[-1]
+			dependencies = graph.get(package_id, [])
+			if dependency_index >= len(dependencies):
+				stack.pop()
+				state[package_id] = 2
+				positions.pop(package_id, None)
+				path.pop()
+				continue
+			dependency_id = dependencies[dependency_index]
+			stack[-1] = (package_id, dependency_index + 1)
+			dependency_state = state.get(dependency_id, 0)
+			if dependency_state == 2:
+				continue
+			if dependency_state == 1:
+				cycle_start = positions.get(dependency_id)
+				if cycle_start is not None:
+					cycle = path[cycle_start:]
+					minimum_index = min(range(len(cycle)), key=cycle.__getitem__)
+					cycles.add(tuple(cycle[minimum_index:] + cycle[:minimum_index]))
+				continue
+			positions[dependency_id] = len(path)
+			path.append(dependency_id)
+			state[dependency_id] = 1
+			stack.append((dependency_id, 0))
 	return [
 		"API index package dependency graph contains a cycle: "
 		+ " -> ".join((*cycle, cycle[0]))

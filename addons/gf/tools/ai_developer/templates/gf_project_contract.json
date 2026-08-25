@@ -1,5 +1,5 @@
 {
-  "schema_version": 4,
+  "schema_version": 5,
   "project": {
     "id": "gf_project",
     "summary": "A Godot project built with GF Framework.",
@@ -38,6 +38,7 @@
     "owned_resources": [],
     "path_roles": [],
     "source_domains": [],
+    "documentation_roots": [],
     "global_rules": [
       "Project business code stays outside res://addons/gf.",
       "External platform SDKs are isolated behind project-owned adapters."

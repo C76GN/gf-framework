@@ -30,10 +30,13 @@ ISSUE_96_ANALYSIS_FIXTURE_PATH = ISSUE_96_FIXTURE_ROOT / "module_dependency_anal
 ISSUE_121_FIXTURE_ROOT = Path(__file__).with_name("fixtures") / "issue_121"
 ISSUE_121_CONTRACT_FIXTURE_PATH = ISSUE_121_FIXTURE_ROOT / "project_contract_v4.json"
 ISSUE_121_ANALYSIS_FIXTURE_PATH = ISSUE_121_FIXTURE_ROOT / "api_package_policy_analysis_v7.json"
+ISSUE_122_FIXTURE_ROOT = Path(__file__).with_name("fixtures") / "issue_122"
+ISSUE_122_CONTRACT_FIXTURE_PATH = ISSUE_122_FIXTURE_ROOT / "project_contract_v5.json"
+ISSUE_122_ANALYSIS_FIXTURE_PATH = ISSUE_122_FIXTURE_ROOT / "documentation_reference_analysis_v8.json"
 sys.path.insert(0, str(ADDON_ROOT))
 sys.path.insert(0, str(TOOLS_ROOT))
 
-from gf_ai import adapters, api_policy, catalog, cli, context_bundle, dependencies, feedback, mcp, migration, paths, snapshot  # noqa: E402
+from gf_ai import adapters, api_policy, catalog, cli, context_bundle, dependencies, documentation, feedback, mcp, migration, paths, snapshot  # noqa: E402
 from gf_ai.constants import (  # noqa: E402
 	ARTIFACT_POLICY_PATH,
 	CONTRACT_SCHEMA_VERSION,
@@ -224,6 +227,7 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 		legacy["architecture"] = dict(current["architecture"])
 		legacy["architecture"].pop("path_roles")
 		legacy["architecture"].pop("source_domains")
+		legacy["architecture"].pop("documentation_roots")
 		legacy["framework"] = dict(current["framework"])
 		legacy["framework"]["required_capabilities"] = [
 			item["id"] for item in current["framework"]["capability_requirements"]
@@ -302,6 +306,7 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 		legacy["schema_version"] = 2
 		legacy["architecture"].pop("path_roles")
 		legacy["architecture"].pop("source_domains")
+		legacy["architecture"].pop("documentation_roots")
 		contract_path.write_text(json.dumps(legacy, ensure_ascii=False), encoding="utf-8")
 		original_bytes = contract_path.read_bytes()
 
@@ -314,13 +319,20 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 		self.assertEqual(loaded["schema_version"], 2)
 		self.assertTrue(plan["ok"], plan)
 		self.assertEqual(plan["status"], "ready")
-		self.assertEqual(plan["migration_id"], "project-contract-v2-to-v4")
+		self.assertEqual(plan["migration_id"], "project-contract-v2-to-v5")
 		self.assertEqual(
 			[item["code"] for item in plan["changes"]],
-			["path_roles_initialized", "source_domains_initialized", "declare_source_domain_roots"],
+			[
+				"path_roles_initialized",
+				"source_domains_initialized",
+				"declare_source_domain_roots",
+				"documentation_roots_initialized",
+				"declare_documentation_roots",
+			],
 		)
 		self.assertEqual(plan["candidate"]["architecture"]["path_roles"], [])
 		self.assertEqual(plan["candidate"]["architecture"]["source_domains"], [])
+		self.assertEqual(plan["candidate"]["architecture"]["documentation_roots"], [])
 		self.assertEqual(contract_path.read_bytes(), original_bytes)
 
 		applied = migration.apply_contract_migration(
@@ -331,15 +343,18 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 
 		self.assertTrue(applied["ok"], applied)
 		migrated_contract = json.loads(contract_path.read_text(encoding="utf-8"))
-		self.assertEqual(migrated_contract["schema_version"], 4)
+		self.assertEqual(migrated_contract["schema_version"], 5)
 		self.assertEqual(migrated_contract["architecture"]["path_roles"], [])
 		self.assertEqual(migrated_contract["architecture"]["source_domains"], [])
+		self.assertEqual(migrated_contract["architecture"]["documentation_roots"], [])
 		self.assertTrue(load_contract(self.project_root)["ok"])
 
 	def test_issue_96_contract_migration_rejects_legacy_path_roles_without_writing(self) -> None:
 		contract_path = self.project_root / ".gf/project_contract.json"
 		legacy = json.loads(contract_path.read_text(encoding="utf-8"))
 		legacy["schema_version"] = 2
+		legacy["architecture"].pop("source_domains")
+		legacy["architecture"].pop("documentation_roots")
 		legacy["architecture"]["path_roles"] = [{
 			"path": "res://config/local.override.json",
 			"role": "optional_input",
@@ -373,6 +388,7 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 		legacy["schema_version"] = 1
 		legacy["architecture"].pop("path_roles")
 		legacy["architecture"].pop("source_domains")
+		legacy["architecture"].pop("documentation_roots")
 		legacy["framework"]["required_capabilities"] = ["architecture", "architecture"]
 		del legacy["framework"]["capability_requirements"]
 		contract_path.write_text(json.dumps(legacy), encoding="utf-8")
@@ -401,6 +417,7 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 		legacy["schema_version"] = 1
 		legacy["architecture"].pop("path_roles")
 		legacy["architecture"].pop("source_domains")
+		legacy["architecture"].pop("documentation_roots")
 		legacy["framework"]["required_capabilities"] = [
 			item["id"] for item in legacy["framework"].pop("capability_requirements")
 		]
@@ -426,6 +443,7 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 		current["schema_version"] = 1
 		current["architecture"].pop("path_roles")
 		current["architecture"].pop("source_domains")
+		current["architecture"].pop("documentation_roots")
 		current["framework"]["required_capabilities"] = [
 			item["id"] for item in current["framework"].pop("capability_requirements")
 		]
@@ -490,6 +508,7 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 		legacy["schema_version"] = 1
 		legacy["architecture"].pop("path_roles")
 		legacy["architecture"].pop("source_domains")
+		legacy["architecture"].pop("documentation_roots")
 		legacy["framework"]["required_capabilities"] = [
 			item["id"] for item in legacy["framework"].pop("capability_requirements")
 		]
@@ -1388,14 +1407,17 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 		legacy = json.loads(contract_path.read_text(encoding="utf-8"))
 		legacy["schema_version"] = 3
 		legacy["architecture"].pop("source_domains", None)
+		legacy["architecture"].pop("documentation_roots", None)
 		contract_path.write_text(json.dumps(legacy, ensure_ascii=False), encoding="utf-8")
 
 		plan = migration.plan_contract_migration(self.project_root)
 
 		self.assertTrue(plan["ok"], plan)
-		self.assertEqual(plan["migration_id"], "project-contract-v3-to-v4")
+		self.assertEqual(plan["migration_id"], "project-contract-v3-to-v5")
 		self.assertEqual(plan["candidate"]["architecture"]["source_domains"], [])
+		self.assertEqual(plan["candidate"]["architecture"]["documentation_roots"], [])
 		self.assertIn("source_domains_initialized", {item["code"] for item in plan["changes"]})
+		self.assertIn("documentation_roots_initialized", {item["code"] for item in plan["changes"]})
 		self.assertIn("declare_source_domain_roots", {item["code"] for item in plan["changes"]})
 		self.assertIn("unmatched", " ".join(item["message"] for item in plan["changes"]).casefold())
 		applied = migration.apply_contract_migration(
@@ -1794,7 +1816,7 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 		)
 		self.assertEqual([item["observation_count"] for item in first["domains"]], [1, 1, 1, 1])
 
-	def test_issue_121_snapshot_v7_schema_and_drift_are_closed(self) -> None:
+	def test_issue_121_api_policy_remains_closed_in_snapshot_v8(self) -> None:
 		(self.project_root / "violation.gd").write_text(
 			"extends Node\nvar value := GFProjectLayoutAnalyzer.new()\n",
 			encoding="utf-8",
@@ -1802,10 +1824,10 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 
 		report = snapshot.build_snapshot(self.project_root)
 
-		self.assertEqual(TOOL_VERSION, "7.0.0")
-		self.assertEqual(CONTRACT_SCHEMA_VERSION, 4)
-		self.assertEqual(SNAPSHOT_SCHEMA_VERSION, 7)
-		self.assertEqual(report["schema_version"], 7)
+		self.assertEqual(TOOL_VERSION, "8.0.0")
+		self.assertEqual(CONTRACT_SCHEMA_VERSION, 5)
+		self.assertEqual(SNAPSHOT_SCHEMA_VERSION, 8)
+		self.assertEqual(report["schema_version"], 8)
 		self.assertEqual(validate_schema_file(report, SCHEMA_ROOT / "project_snapshot.schema.json"), [])
 		codes = {item["code"] for item in report["drift"]["issues"]}
 		self.assertIn("undeclared_gf_api_package_reference", codes)
@@ -1834,10 +1856,9 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 		report = snapshot.build_snapshot(self.project_root)
 		report["project"]["api_package_policy_analysis"] = analysis
 
-		self.assertEqual(
-			validate_schema_file(contract, SCHEMA_ROOT / "project_contract.schema.json"),
-			[],
-		)
+		legacy_schema_issues = validate_schema_file(contract, SCHEMA_ROOT / "project_contract.schema.json")
+		self.assertIn("const_mismatch", {item["code"] for item in legacy_schema_issues})
+		self.assertIn("missing_required", {item["code"] for item in legacy_schema_issues})
 		self.assertEqual(
 			validate_schema_file(report, SCHEMA_ROOT / "project_snapshot.schema.json"),
 			[],
@@ -1849,6 +1870,984 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 		self.assertEqual(
 			paths.sha256_json(analysis),
 			"72dedffcb5d3522a63c90111d22117bfa531d27949a33b1db7e27b8c4c7a05e8",
+		)
+		contract_path = self.project_root / ".gf/project_contract.json"
+		contract_path.write_text(json.dumps(contract, ensure_ascii=False), encoding="utf-8")
+		plan = migration.plan_contract_migration(self.project_root)
+		self.assertTrue(plan["ok"], plan)
+		self.assertEqual(plan["migration_id"], "project-contract-v4-to-v5")
+		self.assertEqual(plan["candidate"]["architecture"]["documentation_roots"], [])
+
+	def test_issue_122_contract_v4_migration_initializes_documentation_roots_and_is_cas_bound(self) -> None:
+		contract_path = self.project_root / ".gf/project_contract.json"
+		legacy = json.loads(contract_path.read_text(encoding="utf-8"))
+		legacy["schema_version"] = 4
+		legacy["architecture"].pop("documentation_roots", None)
+		contract_path.write_text(json.dumps(legacy, ensure_ascii=False), encoding="utf-8")
+		original_bytes = contract_path.read_bytes()
+
+		plan = migration.plan_contract_migration(self.project_root)
+
+		self.assertTrue(plan["ok"], plan)
+		self.assertEqual(plan["migration_id"], "project-contract-v4-to-v5")
+		self.assertEqual(plan["candidate"]["architecture"]["documentation_roots"], [])
+		self.assertIn("documentation_roots_initialized", {item["code"] for item in plan["changes"]})
+		self.assertEqual(contract_path.read_bytes(), original_bytes)
+		with mock.patch.object(
+			migration,
+			"atomic_compare_exchange_json",
+			side_effect=paths.CompareExchangeError("Project contract changed during compare-exchange."),
+		):
+			blocked = migration.apply_contract_migration(
+				self.project_root,
+				plan["plan_sha256"],
+				human_approved=True,
+			)
+		self.assertFalse(blocked["ok"])
+		self.assertEqual(blocked["issues"][0]["code"], "contract_source_changed")
+		self.assertEqual(contract_path.read_bytes(), original_bytes)
+
+		applied = migration.apply_contract_migration(
+			self.project_root,
+			plan["plan_sha256"],
+			human_approved=True,
+		)
+		self.assertTrue(applied["ok"], applied)
+		self.assertEqual(applied["status"], "applied")
+		self.assertEqual(json.loads(contract_path.read_text(encoding="utf-8")), plan["candidate"])
+
+		legacy["architecture"]["documentation_roots"] = []
+		contract_path.write_text(json.dumps(legacy, ensure_ascii=False), encoding="utf-8")
+		invalid = migration.plan_contract_migration(self.project_root)
+		self.assertFalse(invalid["ok"])
+		self.assertEqual(invalid["issues"][0]["code"], "invalid_legacy_documentation_roots")
+
+	def test_issue_122_documentation_roots_are_closed_portable_and_non_generated(self) -> None:
+		contract_path = self.project_root / ".gf/project_contract.json"
+		contract = json.loads(contract_path.read_text(encoding="utf-8"))
+		(self.project_root / "docs/architecture").mkdir(parents=True)
+		contract["architecture"]["documentation_roots"] = ["res://docs/architecture"]
+		self.assertFalse(any(
+			item["severity"] == "error"
+			for item in validate_contract_data(contract, self.project_root)
+		))
+
+		fixtures: list[tuple[str, dict[str, Any], str]] = []
+		duplicate = copy.deepcopy(contract)
+		duplicate["architecture"]["documentation_roots"].append("res://DOCS/architecture")
+		fixtures.append(("duplicate", duplicate, "duplicate_documentation_root"))
+		ancestor = copy.deepcopy(contract)
+		ancestor["architecture"]["documentation_roots"].append("res://docs")
+		fixtures.append(("ancestor", ancestor, "documentation_root_overlap"))
+		unicode_ancestor = copy.deepcopy(contract)
+		unicode_ancestor["architecture"]["documentation_roots"] = [
+			"res://do\u0301cs",
+			"res://d\u00f3cs/guide",
+		]
+		fixtures.append(("unicode-ancestor", unicode_ancestor, "documentation_root_overlap"))
+		reserved = copy.deepcopy(contract)
+		reserved["architecture"]["documentation_roots"] = ["res://Addons/GF/docs"]
+		fixtures.append(("reserved", reserved, "reserved_documentation_root"))
+		excluded = copy.deepcopy(contract)
+		excluded["architecture"]["documentation_roots"] = ["res://docs/build/guides"]
+		fixtures.append(("excluded", excluded, "excluded_documentation_root"))
+		noncanonical = copy.deepcopy(contract)
+		noncanonical["architecture"]["documentation_roots"] = ["res://docs/../docs"]
+		fixtures.append(("noncanonical", noncanonical, "non_canonical_documentation_root"))
+		generated = copy.deepcopy(contract)
+		generated["architecture"]["modules"] = [self._module(
+			"generated_docs",
+			ownership="generated",
+			root="res://generated/docs",
+		)]
+		generated["architecture"]["documentation_roots"] = ["res://generated/docs/reference"]
+		fixtures.append(("generated", generated, "generated_documentation_root"))
+		generated_descendant = copy.deepcopy(contract)
+		generated_descendant["architecture"]["modules"] = [self._module(
+			"generated_docs",
+			ownership="generated",
+			root="res://docs/generated-reference",
+		)]
+		generated_descendant["architecture"]["documentation_roots"] = ["res://docs"]
+		fixtures.append(("generated-descendant", generated_descendant, "generated_documentation_root"))
+
+		for label, candidate, expected_code in fixtures:
+			with self.subTest(label=label):
+				issues = validate_contract_data(candidate, self.project_root)
+				self.assertIn(expected_code, {item["code"] for item in issues})
+
+	def test_issue_122_markdown_code_is_high_confidence_and_prose_is_only_advisory(self) -> None:
+		doc_root = self.project_root / "docs/architecture"
+		doc_root.mkdir(parents=True)
+		guide = doc_root / "guide.md"
+		guide.write_text(
+			"GFArchitecture.fail_on_missing_declared_dependencies is stale prose.\n"
+			"ProjectArchitecture.member is project-owned prose.\n"
+			"`ProjectArchitecture.member`\n"
+			"`前GFArchitecture后`\n"
+			"`GFArchitecture.strict_dependency_lookup`\n"
+			"`GFArchitecture.fail_on_missing_declared_dependencies`\n"
+			"`GFNotInCatalog`\n"
+			"`Gf.create_architecture`\n"
+			"\\`GFArchitecture.fail_on_missing_declared_dependencies\\`\n"
+			"    GFArchitecture.fail_on_missing_declared_dependencies\n"
+			"`GFArchitecture.fail_on_missing_declared_dependencies remains unclosed\n"
+			"```gdscript\n"
+			"var architecture: GFArchitecture\n"
+			"GFArchitecture.fail_on_missing_declared_dependencies\n"
+			"```\n"
+			"~~~~gdscript\n"
+			"Gf.create_architecture()\n"
+			"~~~\n"
+			"~~~~\n",
+			encoding="utf-8",
+		)
+		self._set_documentation_roots(["res://docs/architecture"])
+		guide_bytes = guide.read_bytes()
+
+		analysis = documentation.analyze_documentation_references(
+			self.project_root,
+			load_contract(self.project_root),
+		)
+
+		self.assertEqual(analysis["status"], "complete")
+		self.assertEqual(guide.read_bytes(), guide_bytes)
+		self.assertTrue(analysis["complete"])
+		self.assertEqual(analysis["reference_count"], 7)
+		self.assertEqual(analysis["actionable_count"], 3)
+		self.assertEqual(analysis["advisory_count"], 4)
+		self.assertEqual(
+			{item["status"] for item in analysis["actionable_references"]},
+			{"unknown_owner", "unknown_member"},
+		)
+		self.assertIn(
+			("GFArchitecture", "strict_dependency_lookup", "current"),
+			{
+				(item["owner_name"], item["member_name"], item["status"])
+				for item in analysis["references"]
+			},
+		)
+		self.assertIn(
+			("Gf", "create_architecture", "current"),
+			{
+				(item["owner_name"], item["member_name"], item["status"])
+				for item in analysis["references"]
+			},
+		)
+		self.assertEqual(
+			{item["context"] for item in analysis["references"]},
+			{"fenced_code", "inline_code"},
+		)
+		self.assertTrue(all(item["source_path"] == "res://docs/architecture/guide.md" for item in analysis["references"]))
+		self.assertTrue(all(item["line"] >= 1 and item["column"] >= 1 for item in analysis["references"]))
+		self.assertTrue(all(item["end_column"] > item["column"] for item in analysis["references"]))
+		self.assertTrue(all(item["reason"] == "prose_api_reference" for item in analysis["advisories"]))
+		for item in [*analysis["references"], *analysis["advisories"]]:
+			self.assertTrue({"text", "excerpt", "context_text", "line_text"}.isdisjoint(item))
+		cr_items = list(documentation._markdown_reference_items(
+			"heading\r`GFArchitecture`\r",
+			"res://docs/architecture/cr.md",
+			documentation._public_owner_records(catalog.load_api_index()),
+		))
+		self.assertEqual(
+			(cr_items[0]["evidence"]["line"], cr_items[0]["evidence"]["column"]),
+			(2, 2),
+		)
+		boundary_items = list(documentation._markdown_reference_items(
+			"` GFNotInCatalog prose\n```gdscript\nGFArchitecture\n```\nend `",
+			"res://docs/architecture/boundary.md",
+			documentation._public_owner_records(catalog.load_api_index()),
+		))
+		self.assertEqual([item["kind"] for item in boundary_items], ["advisory", "reference"])
+		self.assertEqual(boundary_items[1]["evidence"]["context"], "fenced_code")
+		cross_block_items = list(documentation._markdown_reference_items(
+			"` GFNotInCatalog\n\nDifferent paragraph `",
+			"res://docs/architecture/cross-block.md",
+			documentation._public_owner_records(catalog.load_api_index()),
+		))
+		self.assertEqual([item["kind"] for item in cross_block_items], ["advisory"])
+		self.assertEqual(cross_block_items[0]["evidence"]["reason"], "prose_api_reference")
+
+	def test_issue_122_commonmark_container_fences_are_high_confidence_and_bounded(self) -> None:
+		owners = documentation._public_owner_records(catalog.load_api_index())
+		for newline in ("\n", "\r", "\r\n"):
+			with self.subTest(newline=ascii(newline)):
+				text = newline.join((
+					"> ```gdscript",
+					"> GFNotInCatalogQuote",
+					"> ```",
+					"GFOutsideClosedQuote",
+					"- ~~~gdscript",
+					"  GFNotInCatalogList",
+					"  ~~~",
+					"GFOutsideClosedList",
+					"> - ```gdscript",
+					">   GFNotInCatalogNested",
+					">   ```",
+					"> ```gdscript",
+					"GFOutsideQuoteContainer",
+					"- ```gdscript",
+					"GFOutsideListContainer",
+					"",
+				))
+				items = list(documentation._markdown_reference_items(
+					text,
+					"res://docs/architecture/containers.md",
+					owners,
+				))
+
+				references = [item["evidence"] for item in items if item["kind"] == "reference"]
+				advisories = [item["evidence"] for item in items if item["kind"] == "advisory"]
+				self.assertEqual(
+					[item["symbol"] for item in references],
+					[
+						"GFNotInCatalogQuote",
+						"GFNotInCatalogList",
+						"GFNotInCatalogNested",
+					],
+				)
+				self.assertTrue(all(item["context"] == "fenced_code" for item in references))
+				self.assertTrue(all(item["status"] == "unknown_owner" for item in references))
+				self.assertEqual(
+					[item["symbol"] for item in advisories],
+					[
+						"GFOutsideClosedQuote",
+						"GFOutsideClosedList",
+						"GFOutsideQuoteContainer",
+						"GFOutsideListContainer",
+					],
+				)
+				self.assertTrue(all(item["reason"] == "prose_api_reference" for item in advisories))
+
+	def test_issue_122_builtin_class_constructor_is_current_but_autoload_constructor_is_not(self) -> None:
+		items = list(documentation._markdown_reference_items(
+			(
+				"`GFArchitecture.new()` "
+				"`Gf.new()` "
+				"`GFArchitecture.not_a_real_member()`"
+			),
+			"res://docs/architecture/constructors.md",
+			documentation._public_owner_records(catalog.load_api_index()),
+		))
+		references = [item["evidence"] for item in items if item["kind"] == "reference"]
+
+		self.assertEqual(
+			[
+				(item["owner_kind"], item["owner_name"], item["member_name"], item["status"])
+				for item in references
+			],
+			[
+				("class", "GFArchitecture", "new", "current"),
+				("autoload", "Gf", "new", "unknown_member"),
+				("class", "GFArchitecture", "not_a_real_member", "unknown_member"),
+			],
+		)
+
+	def test_issue_122_html_comments_never_create_code_evidence(self) -> None:
+		owners = documentation._public_owner_records(catalog.load_api_index())
+		for newline in ("\n", "\r", "\r\n"):
+			with self.subTest(newline=ascii(newline)):
+				text = newline.join((
+					"<!-- `GFNotInCatalogSameLine` --> `GFArchitecture`",
+					"\\<!-- `GFNotInCatalogEscapedComment` -->",
+					"<!--> `GFNotInCatalogAfterShortComment`",
+					"<!---> `GFNotInCatalogAfterShortDashComment`",
+					"<!--",
+					"`GFNotInCatalogInlineComment`",
+					"```gdscript",
+					"GFNotInCatalogCommentFence",
+					"```",
+					"--> `GFNotInCatalogAfterMultilineComment`",
+					"```text",
+					"<!-- GFNotInCatalogLiteralComment -->",
+					"```",
+					"`<!-- GFNotInCatalogLiteralInline -->`",
+					"<!--",
+					"```gdscript",
+					"GFNotInCatalogUnclosedComment",
+					"",
+				))
+				items = list(documentation._markdown_reference_items(
+					text,
+					"res://docs/architecture/comments.md",
+					owners,
+				))
+
+				references = [item["evidence"] for item in items if item["kind"] == "reference"]
+				self.assertEqual(
+					[item["symbol"] for item in references],
+					[
+						"GFArchitecture",
+						"GFNotInCatalogEscapedComment",
+						"GFNotInCatalogAfterShortComment",
+						"GFNotInCatalogAfterShortDashComment",
+						"GFNotInCatalogAfterMultilineComment",
+						"GFNotInCatalogLiteralComment",
+						"GFNotInCatalogLiteralInline",
+					],
+				)
+				self.assertEqual(
+					[item["context"] for item in references],
+					[
+						"inline_code",
+						"inline_code",
+						"inline_code",
+						"inline_code",
+						"inline_code",
+						"fenced_code",
+						"inline_code",
+					],
+				)
+				observed_symbols = {
+					item["evidence"]["symbol"]
+					for item in items
+				}
+				self.assertTrue({
+					"GFNotInCatalogSameLine",
+					"GFNotInCatalogInlineComment",
+					"GFNotInCatalogCommentFence",
+					"GFNotInCatalogUnclosedComment",
+				}.isdisjoint(observed_symbols))
+
+	def test_issue_122_scans_only_declared_roots_and_empty_roots_are_not_configured(self) -> None:
+		declared = self.project_root / "docs/declared"
+		undeclared = self.project_root / "docs/private"
+		declared.mkdir(parents=True)
+		undeclared.mkdir(parents=True)
+		(declared / ".gdignore").write_text("", encoding="utf-8")
+		(declared / "guide.md").write_text("`GFArchitecture.strict_dependency_lookup`\n", encoding="utf-8")
+		(declared / "nested").mkdir()
+		(declared / "nested/.gdignore").write_text("", encoding="utf-8")
+		(declared / "nested/current.md").write_text("`Gf.create_architecture`\n", encoding="utf-8")
+		(undeclared / "notes.md").write_text(
+			"`GFArchitecture.fail_on_missing_declared_dependencies`\n",
+			encoding="utf-8",
+		)
+		self._set_documentation_roots(["res://docs/declared"])
+
+		analysis = documentation.analyze_documentation_references(
+			self.project_root,
+			load_contract(self.project_root),
+		)
+
+		self.assertEqual(analysis["status"], "complete")
+		self.assertEqual(analysis["reference_count"], 2)
+		self.assertEqual(analysis["actionable_count"], 0)
+		self.assertEqual(
+			{item["source_path"] for item in analysis["references"]},
+			{
+				"res://docs/declared/guide.md",
+				"res://docs/declared/nested/current.md",
+			},
+		)
+
+		self._set_documentation_roots([])
+		not_configured = documentation.analyze_documentation_references(
+			self.project_root,
+			load_contract(self.project_root),
+		)
+		report = snapshot.build_snapshot(self.project_root)
+		self.assertEqual(not_configured["status"], "not_configured")
+		self.assertFalse(not_configured["complete"])
+		self.assertEqual(not_configured["reference_count"], 0)
+		self.assertNotIn(
+			"documentation_reference_analysis_incomplete",
+			{item["code"] for item in report["drift"]["issues"]},
+		)
+
+	def test_issue_122_nested_excluded_directory_is_not_silently_omitted(self) -> None:
+		docs = self.project_root / "docs"
+		(docs / "build").mkdir(parents=True)
+		(docs / "guide.md").write_text("`GFArchitecture`\n", encoding="utf-8")
+		(docs / "build/generated.md").write_text("`GFNotInCatalog`\n", encoding="utf-8")
+		self._set_documentation_roots(["res://docs"])
+
+		analysis = documentation.analyze_documentation_references(
+			self.project_root,
+			load_contract(self.project_root),
+		)
+
+		self.assertEqual(analysis["status"], "partial")
+		self.assertEqual(analysis["unsafe_directory_count"], 1)
+		self.assertEqual(analysis["reference_count"], 1)
+		self.assertEqual(analysis["actionable_count"], 0)
+
+	def test_issue_122_project_addon_docs_are_scanned_but_reserved_gf_docs_are_not(self) -> None:
+		custom_docs = self.project_root / "addons/custom/docs"
+		custom_docs.mkdir(parents=True)
+		(custom_docs / "guide.md").write_text("`GFArchitecture`\n", encoding="utf-8")
+		(self.project_root / "addons/gf/private.md").write_text(
+			"`GFNotInCatalog`\n",
+			encoding="utf-8",
+		)
+		self._set_documentation_roots(["res://addons"])
+
+		analysis = documentation.analyze_documentation_references(
+			self.project_root,
+			load_contract(self.project_root),
+		)
+
+		self.assertEqual(analysis["status"], "complete")
+		self.assertEqual(analysis["reference_count"], 1)
+		self.assertEqual(analysis["actionable_count"], 0)
+		self.assertEqual(analysis["references"][0]["source_path"], "res://addons/custom/docs/guide.md")
+
+	def test_issue_122_root_link_utf8_budget_and_identity_failures_are_partial(self) -> None:
+		(self.project_root / "not-a-directory").write_text("file\n", encoding="utf-8")
+		outside = self.project_root.parent / f"{self.project_root.name}-linked-docs"
+		outside.mkdir(exist_ok=True)
+		linked = self.project_root / "linked-docs"
+		create_directory_link_fixture(outside, linked)
+		try:
+			self._set_documentation_roots([
+				"res://missing-docs",
+				"res://not-a-directory",
+				"res://linked-docs",
+			])
+			contract_result = load_contract(self.project_root)
+			root_analysis = documentation.analyze_documentation_references(
+				self.project_root,
+				contract_result,
+			)
+		finally:
+			if linked.exists() or linked.is_symlink():
+				linked.unlink() if linked.is_symlink() else os.rmdir(linked)
+			outside.rmdir()
+
+		self.assertTrue(contract_result["ok"], contract_result)
+		self.assertEqual(root_analysis["status"], "partial")
+		self.assertEqual(
+			{item["root"]: item["status"] for item in root_analysis["documentation_roots"]},
+			{
+				"res://linked-docs": "unsafe",
+				"res://missing-docs": "missing",
+				"res://not-a-directory": "not_directory",
+			},
+		)
+		root_drift_codes = {
+			item["code"] for item in snapshot._documentation_reference_drift_issues(root_analysis)
+		}
+		self.assertIn("documentation_reference_analysis_incomplete", root_drift_codes)
+		self.assertTrue(
+			{
+				"documentation_root_missing",
+				"documentation_root_not_directory",
+				"documentation_root_unsafe",
+			}.issubset(root_drift_codes),
+		)
+
+		docs = self.project_root / "docs"
+		docs.mkdir()
+		(docs / "a.md").write_text("`GFArchitecture`\n", encoding="utf-8")
+		(docs / "b.md").write_bytes(b"\xff")
+		self._set_documentation_roots(["res://docs"])
+		invalid_utf8 = documentation.analyze_documentation_references(
+			self.project_root,
+			load_contract(self.project_root),
+		)
+		self.assertEqual(invalid_utf8["status"], "partial")
+		self.assertEqual(invalid_utf8["unreadable_file_count"], 1)
+		self.assertEqual(
+			invalid_utf8["scanned_file_bytes"],
+			(docs / "a.md").stat().st_size + (docs / "b.md").stat().st_size,
+		)
+
+		(docs / "b.md").write_text("`GFArchitecture`\n", encoding="utf-8")
+		contract_result = load_contract(self.project_root)
+		first_size = (docs / "a.md").stat().st_size
+		count_limited = documentation.analyze_documentation_references(
+			self.project_root, contract_result, max_files=1,
+		)
+		single_limited = documentation.analyze_documentation_references(
+			self.project_root, contract_result, max_file_bytes=first_size - 1,
+		)
+		total_limited = documentation.analyze_documentation_references(
+			self.project_root, contract_result, max_total_bytes=first_size,
+		)
+		entry_limited = documentation.analyze_documentation_references(
+			self.project_root, contract_result, max_entries=1,
+		)
+		with mock.patch.object(
+			documentation,
+			"read_bounded_bytes",
+			side_effect=ValueError("File identity changed while it was read."),
+		):
+			read_drift = documentation.analyze_documentation_references(
+				self.project_root,
+				contract_result,
+			)
+		self.assertEqual(count_limited["scan_truncation_reason"], "file_count")
+		self.assertEqual(count_limited["status"], "partial")
+		self.assertEqual(single_limited["skipped_large_file_count"], 2)
+		self.assertEqual(single_limited["status"], "partial")
+		self.assertEqual(total_limited["scan_truncation_reason"], "byte_budget")
+		self.assertEqual(total_limited["status"], "partial")
+		self.assertEqual(entry_limited["entry_count"], 1)
+		self.assertEqual(entry_limited["scan_truncation_reason"], "entry_count")
+		self.assertEqual(entry_limited["status"], "partial")
+		self.assertEqual(read_drift["unreadable_file_count"], 2)
+		self.assertEqual(read_drift["status"], "partial")
+
+	def test_issue_122_surrogateescaped_markdown_paths_are_partial_and_snapshot_total(self) -> None:
+		surrogate_name = "unsafe-\udcff.md"
+		docs = self.project_root / "docs"
+		self.assertEqual(
+			documentation._canonical_resource_path(self.project_root, docs / surrogate_name),
+			"",
+		)
+		docs.mkdir()
+		placeholder = docs / "unsafe.md"
+		placeholder.write_text("`GFNotInCatalog`\n", encoding="utf-8")
+		self._set_documentation_roots(["res://docs"])
+		canonical_resource_path = documentation._canonical_resource_path
+
+		def reject_placeholder(project_root: Path, path: Path) -> str:
+			if path == placeholder:
+				return ""
+			return canonical_resource_path(project_root, path)
+
+		with mock.patch.object(
+			documentation,
+			"_canonical_resource_path",
+			side_effect=reject_placeholder,
+		):
+			report = snapshot.build_snapshot(self.project_root)
+		self._assert_issue_122_unsafe_path_snapshot(report)
+
+		if os.name != "posix":
+			return
+
+		placeholder.unlink()
+		raw_path = os.fsencode(docs) + b"/unsafe-\xff.md"
+		file_descriptor = os.open(raw_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+		try:
+			os.write(file_descriptor, b"`GFNotInCatalog`\n")
+		finally:
+			os.close(file_descriptor)
+		report = snapshot.build_snapshot(self.project_root)
+		self._assert_issue_122_unsafe_path_snapshot(report)
+
+	def test_issue_122_surrogateescaped_documentation_root_is_invalid_and_snapshot_total(self) -> None:
+		contract_path = self.project_root / DEFAULT_CONTRACT_PATH
+		contract = json.loads(contract_path.read_text(encoding="utf-8"))
+		contract["architecture"]["documentation_roots"] = ["res://docs/\udcff"]
+
+		direct_issues = validate_contract_data(contract, self.project_root)
+		self.assertIn(
+			("non_canonical_documentation_root", "$.architecture.documentation_roots[0]"),
+			{(item["code"], item["path"]) for item in direct_issues},
+		)
+
+		# Keep the source file valid UTF-8 while expressing the lone surrogate as
+		# a JSON escape, exactly as an untrusted contract can do on every platform.
+		contract_path.write_text(json.dumps(contract, ensure_ascii=True), encoding="utf-8")
+		contract_result = load_contract(self.project_root)
+		self.assertFalse(contract_result["ok"])
+		self.assertEqual(contract_result["contract"], {})
+		self.assertEqual(contract_result["issues"][0]["code"], "invalid_contract_json")
+
+		written = snapshot.write_snapshot(
+			self.project_root,
+			output_relative_path=".gf/surrogate-root-snapshot.json",
+		)
+		self.assertFalse(written["ok"])
+		self.assertTrue(paths.canonical_json_bytes(written))
+		self.assertEqual(
+			validate_schema_file(written["snapshot"], SCHEMA_ROOT / "project_snapshot.schema.json"),
+			[],
+		)
+		self.assertEqual(
+			read_json_object(self.project_root / ".gf/surrogate-root-snapshot.json"),
+			written["snapshot"],
+		)
+
+	def _assert_issue_122_unsafe_path_snapshot(self, report: dict[str, Any]) -> None:
+		analysis = report["project"]["documentation_reference_analysis"]
+
+		self.assertEqual(analysis["status"], "partial")
+		self.assertFalse(analysis["complete"])
+		self.assertEqual(analysis["file_count"], 1)
+		self.assertEqual(analysis["unsafe_file_path_count"], 1)
+		self.assertEqual(analysis["reference_count"], 0)
+		self.assertTrue(paths.canonical_json_bytes(report))
+		self.assertEqual(validate_schema_file(report, SCHEMA_ROOT / "project_snapshot.schema.json"), [])
+
+	def test_issue_122_nested_link_and_root_identity_drift_are_partial(self) -> None:
+		docs = self.project_root / "docs"
+		docs.mkdir()
+		(docs / "GUIDE.MD").write_text("`GFArchitecture`\n", encoding="utf-8")
+		outside = self.project_root.parent / f"{self.project_root.name}-nested-linked-docs"
+		outside.mkdir(exist_ok=True)
+		(outside / "private.md").write_text("`GFNotInCatalog`\n", encoding="utf-8")
+		linked = docs / "linked"
+		create_directory_link_fixture(outside, linked)
+		try:
+			self._set_documentation_roots(["res://docs"])
+			contract_result = load_contract(self.project_root)
+			link_analysis = documentation.analyze_documentation_references(
+				self.project_root,
+				contract_result,
+			)
+		finally:
+			if linked.exists() or linked.is_symlink():
+				linked.unlink() if linked.is_symlink() else os.rmdir(linked)
+			(outside / "private.md").unlink()
+			outside.rmdir()
+
+		self.assertEqual(link_analysis["status"], "partial")
+		self.assertEqual(link_analysis["unsafe_directory_count"], 1)
+		self.assertEqual(link_analysis["reference_count"], 1)
+		self.assertEqual(link_analysis["references"][0]["source_path"], "res://docs/GUIDE.MD")
+		directory_pin = documentation._directory_snapshot(self.project_root, docs)
+		self.assertIsNotNone(directory_pin)
+		with mock.patch.object(
+			documentation,
+			"_directory_snapshot",
+			side_effect=[directory_pin, directory_pin, (0, 0, 0, 0, 0)],
+		):
+			directory_drift = documentation._scan_documentation(
+				self.project_root,
+				(("res://docs", docs),),
+				documentation._public_owner_records(catalog.load_api_index()),
+				max_files=documentation.MAX_DOCUMENT_FILES,
+				max_file_bytes=documentation.MAX_DOCUMENT_BYTES,
+				max_total_bytes=documentation.MAX_DOCUMENT_SCAN_BYTES,
+			)
+		self.assertFalse(directory_drift["scan_complete"])
+		self.assertEqual(directory_drift["directory_identity_drift_count"], 1)
+
+		inside_target = docs / "real/subdir"
+		inside_target.mkdir(parents=True)
+		inside_link = docs / "inside-link"
+		create_directory_link_fixture(docs / "real", inside_link)
+		try:
+			self._set_documentation_roots(["res://docs/inside-link/subdir"])
+			linked_component = documentation.analyze_documentation_references(
+				self.project_root,
+				load_contract(self.project_root),
+			)
+		finally:
+			if inside_link.exists() or inside_link.is_symlink():
+				inside_link.unlink() if inside_link.is_symlink() else os.rmdir(inside_link)
+
+		self.assertEqual(linked_component["status"], "partial")
+		self.assertEqual(linked_component["documentation_roots"][0]["status"], "unsafe")
+		self._set_documentation_roots(["res://docs"])
+		contract_result = load_contract(self.project_root)
+
+		roots, states, pins = documentation._documentation_roots(
+			self.project_root,
+			contract_result["contract"]["architecture"],
+		)
+		drifted_pins = dict(pins)
+		drifted_pins["res://docs"] = (0, 0, 0, 0, 0)
+		with mock.patch.object(
+			documentation,
+			"_documentation_roots",
+			side_effect=[
+				(roots, copy.deepcopy(states), pins),
+				(roots, copy.deepcopy(states), drifted_pins),
+			],
+		):
+			drift_analysis = documentation.analyze_documentation_references(
+				self.project_root,
+				contract_result,
+			)
+
+		self.assertEqual(drift_analysis["status"], "partial")
+		self.assertEqual(drift_analysis["documentation_roots"][0]["status"], "drifted")
+
+	def test_issue_122_markdown_links_share_file_budget_and_snapshot_bounds(self) -> None:
+		docs = self.project_root / "docs"
+		docs.mkdir()
+		outside = self.project_root.parent / f"{self.project_root.name}-markdown-link-targets"
+		(outside / "a").mkdir(parents=True)
+		(outside / "b").mkdir()
+		links = (docs / "a.md", docs / "b.md")
+		create_directory_link_fixture(outside / "a", links[0])
+		create_directory_link_fixture(outside / "b", links[1])
+		try:
+			self._set_documentation_roots(["res://docs"])
+			analysis = documentation.analyze_documentation_references(
+				self.project_root,
+				load_contract(self.project_root),
+				max_files=1,
+			)
+			report = snapshot.build_snapshot(self.project_root)
+			report["project"]["documentation_reference_analysis"] = analysis
+		finally:
+			for link in links:
+				if link.exists() or link.is_symlink():
+					link.unlink() if link.is_symlink() else os.rmdir(link)
+			shutil.rmtree(outside)
+
+		self.assertEqual(analysis["status"], "partial")
+		self.assertEqual(analysis["entry_count"], 2)
+		self.assertEqual(analysis["file_count"], 1)
+		self.assertEqual(analysis["unsafe_file_path_count"], 1)
+		self.assertLessEqual(analysis["unsafe_file_path_count"], analysis["file_count"])
+		self.assertEqual(analysis["scan_truncation_reason"], "file_count")
+		self.assertEqual(validate_schema_file(report, SCHEMA_ROOT / "project_snapshot.schema.json"), [])
+
+	def test_issue_122_entry_budget_uses_one_enumeration_only_sentinel(self) -> None:
+		kept = mock.Mock()
+		kept.name = "kept.md"
+		sentinel = mock.MagicMock()
+		type(sentinel).name = mock.PropertyMock(
+			side_effect=AssertionError("the sentinel name must not be retained or sorted")
+		)
+		with mock.patch.object(documentation.os, "scandir") as scandir:
+			scandir.return_value.__enter__.return_value = iter((kept, sentinel))
+			names, truncated, failed = documentation._bounded_directory_entry_names(
+				self.project_root,
+				1,
+			)
+
+		self.assertEqual(names, ("kept.md",))
+		self.assertTrue(truncated)
+		self.assertFalse(failed)
+
+	def test_issue_122_actionable_and_advisory_evidence_are_independently_bounded(self) -> None:
+		docs = self.project_root / "docs"
+		docs.mkdir()
+		(docs / "b.md").write_text(
+			"`GFNotInCatalogTwo`\n"
+			"GFNotInCatalogFour prose\n",
+			encoding="utf-8",
+		)
+		(docs / "a.md").write_text(
+			"`GFArchitecture`\n"
+			"`GFNotInCatalogOne`\n"
+			"GFNotInCatalogThree prose\n",
+			encoding="utf-8",
+		)
+		self._set_documentation_roots(["res://docs"])
+		contract_result = load_contract(self.project_root)
+		with (
+			mock.patch.object(documentation, "MAX_REFERENCE_EVIDENCE", 1),
+			mock.patch.object(documentation, "MAX_ACTIONABLE_EVIDENCE", 1),
+			mock.patch.object(documentation, "MAX_ADVISORY_EVIDENCE", 1),
+		):
+			first = documentation.analyze_documentation_references(self.project_root, contract_result)
+			second = documentation.analyze_documentation_references(self.project_root, contract_result)
+
+		self.assertEqual(first, second)
+		self.assertEqual(first["reference_count"], 3)
+		self.assertTrue(first["references_truncated"])
+		self.assertEqual(len(first["references"]), 1)
+		self.assertEqual(first["actionable_count"], 2)
+		self.assertTrue(first["actionable_references_truncated"])
+		self.assertEqual(len(first["actionable_references"]), 1)
+		self.assertEqual(first["actionable_references"][0]["owner_name"], "GFNotInCatalogOne")
+		self.assertEqual(first["advisory_count"], 2)
+		self.assertTrue(first["advisories_truncated"])
+		self.assertEqual(len(first["advisories"]), 1)
+		drift_codes = {
+			item["code"] for item in snapshot._documentation_reference_drift_issues(first)
+		}
+		self.assertIn("documentation_gf_reference_evidence_truncated", drift_codes)
+
+	def test_issue_122_invalid_or_mismatched_catalog_never_derives_clean_evidence(self) -> None:
+		docs = self.project_root / "docs"
+		docs.mkdir()
+		(docs / "guide.md").write_text("`GFArchitecture.strict_dependency_lookup`\n", encoding="utf-8")
+		self._set_documentation_roots(["res://docs"])
+		contract_result = load_contract(self.project_root)
+
+		invalid_index = copy.deepcopy(catalog.load_api_index())
+		invalid_index["source_digest"] = "0" * 64
+		invalid = documentation.analyze_documentation_references(
+			self.project_root,
+			contract_result,
+			api_index=invalid_index,
+		)
+		self.assertEqual(invalid["status"], "catalog_invalid")
+		self.assertFalse(invalid["complete"])
+		self.assertEqual(invalid["reference_count"], 0)
+		with mock.patch.object(catalog, "load_api_index", side_effect=ValueError("catalog unavailable")):
+			unavailable = documentation.analyze_documentation_references(
+				self.project_root,
+				contract_result,
+			)
+		self.assertEqual(unavailable["status"], "catalog_invalid")
+		self.assertFalse(unavailable["complete"])
+		self.assertEqual(unavailable["reference_count"], 0)
+
+		incomplete_index = copy.deepcopy(catalog.load_api_index())
+		incomplete_index["classes"]["GFArchitecture"]["members"][0].pop("name")
+		payload = {key: value for key, value in incomplete_index.items() if key != "source_digest"}
+		incomplete_index["source_digest"] = paths.sha256_bytes(paths.canonical_json_bytes(payload))
+		incomplete = documentation.analyze_documentation_references(
+			self.project_root,
+			contract_result,
+			api_index=incomplete_index,
+		)
+		self.assertEqual(incomplete["status"], "catalog_invalid")
+		self.assertEqual(incomplete["reference_count"], 0)
+
+		malformed_cases = {
+			"null-dependencies": ("package", "dependencies", None),
+			"integer-dependencies": ("package", "dependencies", 1),
+			"non-string-dependency": ("package", "dependencies", [{}]),
+			"unhashable-owner-package": ("class", "package_id", []),
+		}
+		for label, (record_kind, field, value) in malformed_cases.items():
+			with self.subTest(label=label):
+				malformed_index = copy.deepcopy(catalog.load_api_index())
+				if record_kind == "package":
+					malformed_index["packages"][0][field] = value
+				else:
+					first_class = next(iter(malformed_index["classes"].values()))
+					first_class[field] = value
+				payload = {
+					key: item for key, item in malformed_index.items()
+					if key != "source_digest"
+				}
+				malformed_index["source_digest"] = paths.sha256_bytes(
+					paths.canonical_json_bytes(payload)
+				)
+				malformed = documentation.analyze_documentation_references(
+					self.project_root,
+					contract_result,
+					api_index=malformed_index,
+				)
+				self.assertEqual(malformed["status"], "catalog_invalid")
+				self.assertFalse(malformed["complete"])
+				self.assertEqual(malformed["reference_count"], 0)
+				malformed_report = snapshot.build_snapshot(self.project_root)
+				malformed_report["project"]["documentation_reference_analysis"] = malformed
+				self.assertEqual(
+					validate_schema_file(
+						malformed_report,
+						SCHEMA_ROOT / "project_snapshot.schema.json",
+					),
+					[],
+				)
+
+		cyclic_index = copy.deepcopy(catalog.load_api_index())
+		cyclic_index["classes"]["GFSystem"]["extends"] = "GFActionQueueSystem"
+		payload = {key: value for key, value in cyclic_index.items() if key != "source_digest"}
+		cyclic_index["source_digest"] = paths.sha256_bytes(paths.canonical_json_bytes(payload))
+		cyclic = documentation.analyze_documentation_references(
+			self.project_root,
+			contract_result,
+			api_index=cyclic_index,
+		)
+		self.assertEqual(cyclic["status"], "catalog_invalid")
+		self.assertEqual(cyclic["reference_count"], 0)
+
+		wrong_type_index = copy.deepcopy(catalog.load_api_index())
+		wrong_type_index["schema_version"] = "2"
+		payload = {key: value for key, value in wrong_type_index.items() if key != "source_digest"}
+		wrong_type_index["source_digest"] = paths.sha256_bytes(paths.canonical_json_bytes(payload))
+		wrong_type = documentation.analyze_documentation_references(
+			self.project_root,
+			contract_result,
+			api_index=wrong_type_index,
+		)
+		self.assertEqual(wrong_type["status"], "catalog_invalid")
+		self.assertEqual(wrong_type["catalog"]["schema_version"], 0)
+		report = snapshot.build_snapshot(self.project_root)
+		report["project"]["documentation_reference_analysis"] = wrong_type
+		self.assertEqual(validate_schema_file(report, SCHEMA_ROOT / "project_snapshot.schema.json"), [])
+
+		plugin_path = self.project_root / "addons/gf/plugin.cfg"
+		plugin_path.write_text('[plugin]\nname="GF"\nversion="0.0.0"\n', encoding="utf-8")
+		mismatched = documentation.analyze_documentation_references(
+			self.project_root,
+			contract_result,
+		)
+		self.assertEqual(mismatched["status"], "catalog_invalid")
+		self.assertFalse(mismatched["catalog"]["matches_project"])
+		self.assertEqual(mismatched["reference_count"], 0)
+
+		deep_cycle_index = copy.deepcopy(catalog.load_api_index())
+		chain_ids = [f"gf.test.deep.{index:04d}" for index in range(1_100)]
+		deep_cycle_index["packages"].extend(
+			{
+				"id": package_id,
+				"dependencies": [chain_ids[(index + 1) % len(chain_ids)]],
+			}
+			for index, package_id in enumerate(chain_ids)
+		)
+		deep_cycle_index["package_count"] = len(deep_cycle_index["packages"])
+		payload = {key: value for key, value in deep_cycle_index.items() if key != "source_digest"}
+		deep_cycle_index["source_digest"] = paths.sha256_bytes(paths.canonical_json_bytes(payload))
+		deep_cycle = documentation.analyze_documentation_references(
+			self.project_root,
+			contract_result,
+			api_index=deep_cycle_index,
+		)
+		self.assertEqual(deep_cycle["status"], "catalog_invalid")
+		self.assertEqual(deep_cycle["reference_count"], 0)
+		self.assertTrue(any("cycle" in item for item in deep_cycle["catalog_issues"]))
+
+	def test_issue_122_inherited_public_members_are_current_catalog_references(self) -> None:
+		docs = self.project_root / "docs"
+		docs.mkdir()
+		(docs / "guide.md").write_text("`GFAsyncScope.cancel_requested`\n", encoding="utf-8")
+		self._set_documentation_roots(["res://docs"])
+
+		analysis = documentation.analyze_documentation_references(
+			self.project_root,
+			load_contract(self.project_root),
+		)
+
+		self.assertEqual(analysis["status"], "complete")
+		self.assertEqual(analysis["actionable_count"], 0)
+		self.assertEqual(analysis["references"][0]["status"], "current")
+
+	def test_issue_122_snapshot_v8_schema_drift_and_fixtures_are_closed(self) -> None:
+		docs = self.project_root / "docs"
+		docs.mkdir()
+		(docs / "guide.md").write_text(
+			"`GFArchitecture.fail_on_missing_declared_dependencies`\n"
+			"`GFNotInCatalog`\n"
+			"GFNotInCatalog appears in prose.\n",
+			encoding="utf-8",
+		)
+		self._set_documentation_roots(["res://docs"])
+
+		report = snapshot.build_snapshot(self.project_root)
+		analysis = report["project"]["documentation_reference_analysis"]
+		codes = {item["code"] for item in report["drift"]["issues"]}
+		self.assertEqual(TOOL_VERSION, "8.0.0")
+		self.assertEqual(CONTRACT_SCHEMA_VERSION, 5)
+		self.assertEqual(SNAPSHOT_SCHEMA_VERSION, 8)
+		self.assertEqual(report["schema_version"], 8)
+		self.assertEqual(analysis["status"], "complete")
+		self.assertEqual(analysis["actionable_count"], 2)
+		self.assertEqual(analysis["advisory_count"], 1)
+		self.assertIn("stale_gf_api_member_reference", codes)
+		self.assertIn("stale_gf_api_owner_reference", codes)
+		self.assertIn("documentation_gf_reference_advisory", codes)
+		self.assertFalse(report["drift"]["ok"])
+		self.assertEqual(validate_schema_file(report, SCHEMA_ROOT / "project_snapshot.schema.json"), [])
+
+		contract = json.loads(ISSUE_122_CONTRACT_FIXTURE_PATH.read_text(encoding="utf-8"))
+		fixture_analysis = json.loads(ISSUE_122_ANALYSIS_FIXTURE_PATH.read_text(encoding="utf-8"))
+		fixture_report = snapshot.build_snapshot(self.project_root)
+		fixture_report["project"]["documentation_reference_analysis"] = fixture_analysis
+		self.assertEqual(validate_schema_file(contract, SCHEMA_ROOT / "project_contract.schema.json"), [])
+		self.assertEqual(validate_schema_file(fixture_report, SCHEMA_ROOT / "project_snapshot.schema.json"), [])
+		snapshot_schema = json.loads(
+			(SCHEMA_ROOT / "project_snapshot.schema.json").read_text(encoding="utf-8")
+		)
+		analysis_properties = snapshot_schema["properties"]["project"]["properties"][
+			"documentation_reference_analysis"
+		]["properties"]
+		self.assertEqual(analysis_properties["documentation_roots"]["maxItems"], 100)
+		self.assertEqual(analysis_properties["entry_count"]["maximum"], 100_000)
+		self.assertEqual(analysis_properties["unsafe_file_path_count"]["maximum"], 10_000)
+		self.assertEqual(analysis_properties["unsafe_directory_count"]["maximum"], 100_100)
+		self.assertEqual(analysis_properties["directory_identity_drift_count"]["maximum"], 100_100)
+		self.assertEqual(
+			paths.sha256_json(contract),
+			"2ceefb40593416c8f49561bc7b0af76a8b0949a12c616b0cb09e4703fe094c64",
+		)
+		self.assertEqual(
+			paths.sha256_json(fixture_analysis),
+			"4ae0fa1900b4d6d4679a349fbe66d0af1144d1c0e334b4c6fa55ad36a160cafa",
 		)
 
 	def test_module_dependency_analysis_accepts_declared_class_and_resource_edges(self) -> None:
@@ -3246,28 +4245,28 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 			"res://generated/report.json.bak",
 		)
 
-	def test_issue_121_protocol_versions_are_frozen(self) -> None:
+	def test_issue_122_protocol_versions_are_frozen(self) -> None:
 		self.assertEqual(
 			(TOOL_VERSION, SNAPSHOT_SCHEMA_VERSION, CONTRACT_SCHEMA_VERSION),
-			("7.0.0", 7, 4),
+			("8.0.0", 8, 5),
 		)
 
-	def test_issue_121_schema_identifiers_and_closed_protocol_enums_are_frozen(self) -> None:
+	def test_issue_122_schema_identifiers_and_closed_protocol_enums_are_frozen(self) -> None:
 		contract_schema = read_json_object(SCHEMA_ROOT / "project_contract.schema.json")
 		snapshot_schema = read_json_object(SCHEMA_ROOT / "project_snapshot.schema.json")
 
 		self.assertEqual(
 			(contract_schema["$id"], contract_schema["properties"]["schema_version"]["const"]),
-			("https://gf-framework.dev/schemas/project-contract-v4.json", 4),
+			("https://gf-framework.dev/schemas/project-contract-v5.json", 5),
 		)
 		self.assertEqual(
 			(snapshot_schema["$id"], snapshot_schema["properties"]["schema_version"]["const"]),
-			("https://gf-framework.dev/schemas/project-snapshot-v7.json", 7),
+			("https://gf-framework.dev/schemas/project-snapshot-v8.json", 8),
 		)
 		self.assertEqual(
 			snapshot_schema["properties"]["contract"]["properties"]
 			["current_schema_version"]["const"],
-			4,
+			5,
 		)
 		path_role_schema = (
 			contract_schema["properties"]["architecture"]["properties"]["path_roles"]
@@ -3285,6 +4284,10 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 			snapshot_schema["properties"]["project"]["properties"]
 			["api_package_policy_analysis"]
 		)
+		documentation_schema = (
+			snapshot_schema["properties"]["project"]["properties"]
+			["documentation_reference_analysis"]
+		)
 		self.assertEqual(
 			set(path_role_schema["properties"]["role"]["enum"]),
 			{"scan_root", "test_fixture", "optional_input"},
@@ -3296,6 +4299,21 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 		self.assertEqual(
 			set(api_policy_schema["properties"]["status"]["enum"]),
 			{"contract_invalid", "catalog_invalid", "complete", "partial"},
+		)
+		self.assertEqual(
+			set(documentation_schema["properties"]["status"]["enum"]),
+			{"contract_invalid", "catalog_invalid", "not_configured", "complete", "partial"},
+		)
+		self.assertEqual(
+			set(documentation_schema["properties"]["scan_truncation_reason"]["enum"]),
+			{"", "entry_count", "file_count", "byte_budget"},
+		)
+		self.assertEqual(
+			set(
+				documentation_schema["properties"]["actionable_references"]["items"]
+				["properties"]["status"]["enum"]
+			),
+			{"unknown_owner", "unknown_member"},
 		)
 		self.assertEqual(
 			set(
@@ -3521,6 +4539,7 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 		base = json.loads(ISSUE_96_CONTRACT_FIXTURE_PATH.read_text(encoding="utf-8"))
 		base["schema_version"] = CONTRACT_SCHEMA_VERSION
 		base["architecture"]["source_domains"] = []
+		base["architecture"]["documentation_roots"] = []
 		for relative in (
 			"features/core",
 			"features/platform_adapter",
@@ -4323,6 +5342,7 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 		contract["architecture"]["source_domains"] = [
 			{"root": "res://tests", "domain": "test"},
 		]
+		contract["architecture"]["documentation_roots"] = []
 		for relative in (
 			"features/core",
 			"features/shared",
@@ -4851,6 +5871,7 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 		legacy["schema_version"] = 1
 		legacy["architecture"].pop("path_roles")
 		legacy["architecture"].pop("source_domains")
+		legacy["architecture"].pop("documentation_roots")
 		legacy["framework"]["required_capabilities"] = [
 			item["id"] for item in legacy["framework"].pop("capability_requirements")
 		]
@@ -8175,6 +9196,12 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 		contract_path = self.project_root / ".gf/project_contract.json"
 		contract = json.loads(contract_path.read_text(encoding="utf-8"))
 		contract["architecture"]["owned_resources"] = paths
+		contract_path.write_text(json.dumps(contract, ensure_ascii=False), encoding="utf-8")
+
+	def _set_documentation_roots(self, roots: list[str]) -> None:
+		contract_path = self.project_root / ".gf/project_contract.json"
+		contract = json.loads(contract_path.read_text(encoding="utf-8"))
+		contract["architecture"]["documentation_roots"] = roots
 		contract_path.write_text(json.dumps(contract, ensure_ascii=False), encoding="utf-8")
 
 	@staticmethod

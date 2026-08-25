@@ -1,0 +1,121 @@
+{
+  "status": "complete",
+  "complete": true,
+  "catalog": {
+    "schema_version": 2,
+    "catalog_version": "2.0.0",
+    "framework_version": "11.0.0-dev.0",
+    "project_framework_version": "11.0.0-dev.0",
+    "source_digest": "5f234329e83b14a1d1f9318c020b6948d34257ff5ba02529fe648af86c5b68cb",
+    "matches_project": true
+  },
+  "catalog_issue_count": 0,
+  "catalog_issues_truncated": false,
+  "catalog_issues": [],
+  "contract_issue_count": 0,
+  "documentation_roots": [
+    {"root": "res://docs/architecture", "status": "ready"}
+  ],
+  "reference_count": 3,
+  "references_truncated": false,
+  "references": [
+    {
+      "source_path": "res://docs/architecture/guide.md",
+      "line": 3,
+      "column": 2,
+      "end_column": 41,
+      "context": "inline_code",
+      "symbol": "GFArchitecture.strict_dependency_lookup",
+      "reference_kind": "member",
+      "owner_kind": "class",
+      "owner_name": "GFArchitecture",
+      "member_name": "strict_dependency_lookup",
+      "package_id": "gf.kernel",
+      "status": "current"
+    },
+    {
+      "source_path": "res://docs/architecture/guide.md",
+      "line": 5,
+      "column": 1,
+      "end_column": 55,
+      "context": "fenced_code",
+      "symbol": "GFArchitecture.fail_on_missing_declared_dependencies",
+      "reference_kind": "member",
+      "owner_kind": "class",
+      "owner_name": "GFArchitecture",
+      "member_name": "fail_on_missing_declared_dependencies",
+      "package_id": "gf.kernel",
+      "status": "unknown_member"
+    },
+    {
+      "source_path": "res://docs/architecture/guide.md",
+      "line": 6,
+      "column": 1,
+      "end_column": 15,
+      "context": "fenced_code",
+      "symbol": "GFNotInCatalog",
+      "reference_kind": "owner",
+      "owner_kind": "",
+      "owner_name": "GFNotInCatalog",
+      "member_name": "",
+      "package_id": "",
+      "status": "unknown_owner"
+    }
+  ],
+  "actionable_count": 2,
+  "actionable_references_truncated": false,
+  "actionable_references": [
+    {
+      "source_path": "res://docs/architecture/guide.md",
+      "line": 5,
+      "column": 1,
+      "end_column": 55,
+      "context": "fenced_code",
+      "symbol": "GFArchitecture.fail_on_missing_declared_dependencies",
+      "reference_kind": "member",
+      "owner_kind": "class",
+      "owner_name": "GFArchitecture",
+      "member_name": "fail_on_missing_declared_dependencies",
+      "package_id": "gf.kernel",
+      "status": "unknown_member"
+    },
+    {
+      "source_path": "res://docs/architecture/guide.md",
+      "line": 6,
+      "column": 1,
+      "end_column": 15,
+      "context": "fenced_code",
+      "symbol": "GFNotInCatalog",
+      "reference_kind": "owner",
+      "owner_kind": "",
+      "owner_name": "GFNotInCatalog",
+      "member_name": "",
+      "package_id": "",
+      "status": "unknown_owner"
+    }
+  ],
+  "advisory_count": 1,
+  "advisories_truncated": false,
+  "advisories": [
+    {
+      "source_path": "res://docs/architecture/guide.md",
+      "line": 9,
+      "column": 1,
+      "end_column": 15,
+      "symbol": "GFNotInCatalog",
+      "reason": "prose_api_reference"
+    }
+  ],
+  "entry_count": 1,
+  "file_count": 1,
+  "scanned_file_count": 1,
+  "scanned_file_bytes": 187,
+  "scan_truncated": false,
+  "scan_truncation_reason": "",
+  "scan_complete": true,
+  "skipped_large_file_count": 0,
+  "unreadable_file_count": 0,
+  "unsafe_file_path_count": 0,
+  "unsafe_directory_count": 0,
+  "directory_identity_drift_count": 0
+}

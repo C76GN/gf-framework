@@ -32,6 +32,7 @@ from .schema import validate_schema_file
 _SOURCE_DOMAIN_EXCLUDED_ROOTS = frozenset({
 	".git", ".gf", ".godot", ".import", "__pycache__", "ai_analysis", "build", "node_modules", "site",
 })
+_MAX_DOCUMENTATION_ROOTS = 100
 
 
 def contract_path(project_root: Path, relative_path: str = DEFAULT_CONTRACT_PATH) -> Path:
@@ -118,7 +119,7 @@ def load_contract(
 	raw_schema_version = data.get("schema_version")
 	schema_version = raw_schema_version if isinstance(raw_schema_version, int) and not isinstance(raw_schema_version, bool) else 0
 	migration_required = schema_version > 0 and schema_version != CONTRACT_SCHEMA_VERSION
-	migration_available = schema_version in (1, 2, 3) and CONTRACT_SCHEMA_VERSION == 4
+	migration_available = schema_version in (1, 2, 3, 4) and CONTRACT_SCHEMA_VERSION == 5
 	if migration_required and migration_available:
 		issues = [_issue(
 			"error",
@@ -223,6 +224,8 @@ def _semantic_issues(data: dict[str, Any], project_root: Path) -> list[dict[str,
 	]
 	path_roles = _object_list(architecture, "path_roles")
 	source_domains = _object_list(architecture, "source_domains")
+	documentation_roots_value = architecture.get("documentation_roots", [])
+	documentation_roots = documentation_roots_value if isinstance(documentation_roots_value, list) else []
 	module_ids = _unique_ids(modules, "$.architecture.modules", issues)
 	adapters = _object_list(framework, "adapter_boundaries")
 	adapter_ids = _unique_ids(adapters, "$.framework.adapter_boundaries", issues)
@@ -369,6 +372,7 @@ def _semantic_issues(data: dict[str, Any], project_root: Path) -> list[dict[str,
 			)
 	issues.extend(_path_role_overlap_issues(path_roles))
 	issues.extend(_source_domain_issues(project_root, source_domains, modules))
+	issues.extend(_documentation_root_issues(documentation_roots, modules))
 	issues.extend(_module_dependency_cycle_issues(modules, module_ids))
 	for index, adapter in enumerate(adapters):
 		raw_path = adapter.get("project_root")
@@ -577,6 +581,89 @@ def _source_domain_issues(
 				"generated_source_domain_root",
 				path,
 				f"Source-domain root is owned by a target-only generated module: {raw_root}.",
+			))
+	return issues
+
+
+def _documentation_root_issues(
+	documentation_roots: list[Any],
+	modules: list[dict[str, Any]],
+) -> list[dict[str, str]]:
+	issues: list[dict[str, str]] = []
+	seen: dict[str, int] = {}
+	identities: list[tuple[str, tuple[str, ...]]] = []
+	generated_root_identities = {
+		identity
+		for module in modules
+		if module.get("ownership") == "generated"
+		for raw_root in module.get("roots", [])
+		if isinstance(raw_root, str)
+		for identity in (portable_ownership_path_identity(raw_root),)
+		if identity
+	}
+	for index, raw_root in enumerate(documentation_roots[:_MAX_DOCUMENTATION_ROOTS]):
+		if not isinstance(raw_root, str):
+			continue
+		path = f"$.architecture.documentation_roots[{index}]"
+		normalized = normalize_portable_ownership_path(raw_root)
+		if not normalized:
+			issues.append(_issue(
+				"error",
+				"non_canonical_documentation_root",
+				path,
+				"Documentation roots must use one canonical cross-platform non-root res:// path.",
+			))
+			continue
+		identity = portable_ownership_path_identity(normalized)
+		if identity in seen:
+			issues.append(_issue(
+				"error",
+				"duplicate_documentation_root",
+				path,
+				f"Documentation root duplicates declaration {seen[identity]} under portable path identity: {raw_root}.",
+			))
+			continue
+		seen[identity] = index
+		if is_reserved_framework_resource_path(normalized):
+			issues.append(_issue(
+				"error",
+				"reserved_documentation_root",
+				path,
+				"Documentation roots must stay outside the reserved res://addons/gf boundary.",
+			))
+			continue
+		parts = tuple(identity.removeprefix("res://").split("/"))
+		if any(part in _SOURCE_DOMAIN_EXCLUDED_ROOTS for part in parts):
+			issues.append(_issue(
+				"error",
+				"excluded_documentation_root",
+				path,
+				f"Documentation root is inside a scanner-excluded project directory: {raw_root}.",
+			))
+			continue
+		if any(
+			identity == generated_identity
+			or identity.startswith(generated_identity + "/")
+			or generated_identity.startswith(identity + "/")
+			for generated_identity in generated_root_identities
+		):
+			issues.append(_issue(
+				"error",
+				"generated_documentation_root",
+				path,
+				f"Documentation root overlaps a target-only generated module: {raw_root}.",
+			))
+			continue
+		identities.append((raw_root, parts))
+	for left_index, (left_root, left_parts) in enumerate(identities):
+		for right_root, right_parts in identities[left_index + 1:]:
+			if not _parts_overlap(left_parts, right_parts):
+				continue
+			issues.append(_issue(
+				"error",
+				"documentation_root_overlap",
+				"$.architecture.documentation_roots",
+				f"Documentation roots must not share an exact or ancestor identity: {left_root} and {right_root}.",
 			))
 	return issues
 
