@@ -362,94 +362,6 @@ func release(node: Node, scene: PackedScene) -> void:
 	available_pool.push_back(node)
 
 
-## 仅在 scene 与 node 仍精确属于当前 ACTIVE lease 时执行归还。
-## [br]
-## @api framework_internal
-## [br]
-## @since unreleased
-## [br]
-## @param node: 待归还的 live 节点；若已排队删除，则仅同步退休精确 lease tracking。
-## [br]
-## @param scene: acquire 时冻结的 PackedScene identity。
-## [br]
-## @return: 当前 active generation 被本次调用接纳时返回 true；queued-live 节点不执行 hook 或树操作，仅移除精确 tracking；生命周期切换已清除 lease 或身份不匹配时返回 false 且零 mutation。
-func release_for_framework(node: Node, scene: PackedScene) -> bool:
-	if (
-		_is_disposed
-		or node == null
-		or not is_instance_valid(node)
-		or scene == null
-		or not is_instance_valid(scene)
-	):
-		return false
-	var node_id: int = node.get_instance_id()
-	if (
-		not _active_generations.has(node_id)
-		or not _active_lease_scenes.has(node_id)
-		or not _active_lease_nodes.has(node_id)
-		or not _all_nodes.has(scene)
-		or not _get_all_nodes_pool(scene).has(node)
-	):
-		return false
-	var tracked_scene: PackedScene = _variant_to_packed_scene(
-		_active_lease_scenes[node_id]
-	)
-	var tracked_node: Node = _variant_to_node(_active_lease_nodes[node_id])
-	if tracked_scene != scene or tracked_node != node:
-		return false
-	if node.is_queued_for_deletion():
-		return _retire_exact_active_lease_tracking(
-			scene,
-			node_id,
-			tracked_node
-		)
-	release(node, scene)
-	return true
-
-
-## 结算已被外部同步销毁、无法再走 `release()` 的 ACTIVE lease。
-## [br]
-## @api framework_internal
-## [br]
-## @since unreleased
-## [br]
-## @param scene: acquire 时记录的同一 PackedScene identity。
-## [br]
-## @param instance_id: acquire 时记录的正 Object instance id。
-## [br]
-## @return: 仅当 scene 与 id 精确匹配当前 ACTIVE lease、且该 id 当前没有 live Object 时首次返回 true。
-## [br]
-## @schema return: bool；成功仅同步移除丢失 lease 的 active generation、scene/node owner linkage 与 scene tracked-node identity；不调用 hook、signal，不修改 SceneTree，重复或任一准入失败返回 false 且零 mutation。
-func retire_lost_lease_for_framework(scene: PackedScene, instance_id: int) -> bool:
-	if (
-		_is_disposed
-		or scene == null
-		or not is_instance_valid(scene)
-		or instance_id <= 0
-		or not _active_generations.has(instance_id)
-		or not _active_lease_scenes.has(instance_id)
-		or not _active_lease_nodes.has(instance_id)
-	):
-		return false
-	var tracked_scene_value: Variant = _active_lease_scenes[instance_id]
-	if not tracked_scene_value is PackedScene:
-		return false
-	var tracked_scene: PackedScene = tracked_scene_value
-	if not is_instance_valid(tracked_scene) or not is_same(tracked_scene, scene):
-		return false
-	var live_value: Object = instance_from_id(instance_id)
-	if live_value != null and is_instance_valid(live_value):
-		return false
-	var tracked_node_value: Variant = _active_lease_nodes[instance_id]
-	if typeof(tracked_node_value) != TYPE_OBJECT or is_instance_valid(tracked_node_value):
-		return false
-	return _retire_exact_active_lease_tracking(
-		scene,
-		instance_id,
-		tracked_node_value
-	)
-
-
 ## 预热对象池，预先实例化指定数量的节点以避免首次使用时的卡顿。
 ## [br]
 ## @api public
@@ -754,6 +666,96 @@ func get_debug_snapshot() -> Dictionary:
 			"active": get_active_count(scene),
 		}
 	return snapshot
+
+
+# --- 框架内部方法 ---
+
+## 仅在 scene 与 node 仍精确属于当前 ACTIVE lease 时执行归还。
+## [br]
+## @api framework_internal
+## [br]
+## @since unreleased
+## [br]
+## @param node: 待归还的 live 节点；若已排队删除，则仅同步退休精确 lease tracking。
+## [br]
+## @param scene: acquire 时冻结的 PackedScene identity。
+## [br]
+## @return: 当前 active generation 被本次调用接纳时返回 true；queued-live 节点不执行 hook 或树操作，仅移除精确 tracking；生命周期切换已清除 lease 或身份不匹配时返回 false 且零 mutation。
+func release_for_framework(node: Node, scene: PackedScene) -> bool:
+	if (
+		_is_disposed
+		or node == null
+		or not is_instance_valid(node)
+		or scene == null
+		or not is_instance_valid(scene)
+	):
+		return false
+	var node_id: int = node.get_instance_id()
+	if (
+		not _active_generations.has(node_id)
+		or not _active_lease_scenes.has(node_id)
+		or not _active_lease_nodes.has(node_id)
+		or not _all_nodes.has(scene)
+		or not _get_all_nodes_pool(scene).has(node)
+	):
+		return false
+	var tracked_scene: PackedScene = _variant_to_packed_scene(
+		_active_lease_scenes[node_id]
+	)
+	var tracked_node: Node = _variant_to_node(_active_lease_nodes[node_id])
+	if tracked_scene != scene or tracked_node != node:
+		return false
+	if node.is_queued_for_deletion():
+		return _retire_exact_active_lease_tracking(
+			scene,
+			node_id,
+			tracked_node
+		)
+	release(node, scene)
+	return true
+
+
+## 结算已被外部同步销毁、无法再走 `release()` 的 ACTIVE lease。
+## [br]
+## @api framework_internal
+## [br]
+## @since unreleased
+## [br]
+## @param scene: acquire 时记录的同一 PackedScene identity。
+## [br]
+## @param instance_id: acquire 时记录的正 Object instance id。
+## [br]
+## @return: 仅当 scene 与 id 精确匹配当前 ACTIVE lease、且该 id 当前没有 live Object 时首次返回 true。
+## [br]
+## @schema return: bool；成功仅同步移除丢失 lease 的 active generation、scene/node owner linkage 与 scene tracked-node identity；不调用 hook、signal，不修改 SceneTree，重复或任一准入失败返回 false 且零 mutation。
+func retire_lost_lease_for_framework(scene: PackedScene, instance_id: int) -> bool:
+	if (
+		_is_disposed
+		or scene == null
+		or not is_instance_valid(scene)
+		or instance_id <= 0
+		or not _active_generations.has(instance_id)
+		or not _active_lease_scenes.has(instance_id)
+		or not _active_lease_nodes.has(instance_id)
+	):
+		return false
+	var tracked_scene_value: Variant = _active_lease_scenes[instance_id]
+	if not tracked_scene_value is PackedScene:
+		return false
+	var tracked_scene: PackedScene = tracked_scene_value
+	if not is_instance_valid(tracked_scene) or not is_same(tracked_scene, scene):
+		return false
+	var live_value: Object = instance_from_id(instance_id)
+	if live_value != null and is_instance_valid(live_value):
+		return false
+	var tracked_node_value: Variant = _active_lease_nodes[instance_id]
+	if typeof(tracked_node_value) != TYPE_OBJECT or is_instance_valid(tracked_node_value):
+		return false
+	return _retire_exact_active_lease_tracking(
+		scene,
+		instance_id,
+		tracked_node_value
+	)
 
 
 # --- 私有/辅助方法 ---
