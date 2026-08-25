@@ -314,52 +314,10 @@ func release(node: Node, scene: PackedScene) -> void:
 	if not _active_generations.has(node_id):
 		push_warning("[GFObjectPoolUtility] release 失败：节点不属于当前借用代次。")
 		return
-
-	var current_serial: int = _lifecycle_serial
-	var release_generation: int = _take_operation_generation()
-	_erase_active_lease(node_id)
-	node.set_meta(_META_ACTIVE, false)
-	_transition_generations[node_id] = release_generation
-	if not _run_guarded_tree_operation(
+	var _release_accepted: bool = _release_authoritative_active_lease(
 		node,
-		_TreeOperation.RELEASE_HOOKS,
-		node_id,
-		_NodeOwnershipPhase.TRANSITION,
-		release_generation,
-		current_serial
-	):
-		_discard_candidate_if_lifecycle_changed(node, current_serial)
-		return
-	if not _run_guarded_tree_state_operation(
-		node, false, node_id, _NodeOwnershipPhase.TRANSITION,
-		release_generation, current_serial
-	):
-		_discard_candidate_if_lifecycle_changed(node, current_serial)
-		return
-
-	if not _available_pools.has(owner_scene):
-		_available_pools[owner_scene] = []
-
-	_prune_invalid_available_nodes_if_needed(owner_scene)
-	var available_pool: Array = _get_available_pool(owner_scene)
-	if max_available_per_scene > 0 and available_pool.size() >= max_available_per_scene:
-		var _capacity_transition_erased: bool = _transition_generations.erase(node_id)
-		_remove_node_from_scene_pool(node, owner_scene)
-		_queue_free_detached(node)
-		return
-
-	_move_to_pool_root(node)
-	if not _node_operation_matches(
-		node,
-		node_id,
-		_NodeOwnershipPhase.TRANSITION,
-		release_generation,
-		current_serial
-	):
-		_discard_candidate_if_lifecycle_changed(node, current_serial)
-		return
-	var _release_transition_erased: bool = _transition_generations.erase(node_id)
-	available_pool.push_back(node)
+		owner_scene
+	)
 
 
 ## 预热对象池，预先实例化指定数量的节点以避免首次使用时的卡顿。
@@ -680,7 +638,9 @@ func get_debug_snapshot() -> Dictionary:
 ## [br]
 ## @param scene: acquire 时冻结的 PackedScene identity。
 ## [br]
-## @return: 当前 active generation 被本次调用接纳时返回 true；queued-live 节点不执行 hook 或树操作，仅移除精确 tracking；生命周期切换已清除 lease 或身份不匹配时返回 false 且零 mutation。
+## @return: 当前 active generation 被本次调用接纳并同步擦除 authoritative lease 时返回 true；
+## 准入不依赖可变 Node metadata。queued-live 节点不执行 hook 或树操作，仅移除精确
+## tracking；生命周期切换已清除 lease 或身份不匹配时返回 false 且零 mutation。
 func release_for_framework(node: Node, scene: PackedScene) -> bool:
 	if (
 		_is_disposed
@@ -711,8 +671,7 @@ func release_for_framework(node: Node, scene: PackedScene) -> bool:
 			node_id,
 			tracked_node
 		)
-	release(node, scene)
-	return true
+	return _release_authoritative_active_lease(node, scene)
 
 
 ## 结算已被外部同步销毁、无法再走 `release()` 的 ACTIVE lease。
@@ -759,6 +718,72 @@ func retire_lost_lease_for_framework(scene: PackedScene, instance_id: int) -> bo
 
 
 # --- 私有/辅助方法 ---
+
+func _release_authoritative_active_lease(
+	node: Node,
+	owner_scene: PackedScene
+) -> bool:
+	if (
+		_is_disposed
+		or node == null
+		or not is_instance_valid(node)
+		or owner_scene == null
+		or not is_instance_valid(owner_scene)
+		or not _all_nodes.has(owner_scene)
+		or not _get_all_nodes_pool(owner_scene).has(node)
+	):
+		return false
+	var node_id: int = node.get_instance_id()
+	if not _active_generations.has(node_id):
+		return false
+
+	var current_serial: int = _lifecycle_serial
+	var release_generation: int = _take_operation_generation()
+	_erase_active_lease(node_id)
+	node.set_meta(_META_ACTIVE, false)
+	node.set_meta(_META_SOURCE_SCENE, owner_scene)
+	_transition_generations[node_id] = release_generation
+	if not _run_guarded_tree_operation(
+		node,
+		_TreeOperation.RELEASE_HOOKS,
+		node_id,
+		_NodeOwnershipPhase.TRANSITION,
+		release_generation,
+		current_serial
+	):
+		_discard_candidate_if_lifecycle_changed(node, current_serial)
+		return true
+	if not _run_guarded_tree_state_operation(
+		node, false, node_id, _NodeOwnershipPhase.TRANSITION,
+		release_generation, current_serial
+	):
+		_discard_candidate_if_lifecycle_changed(node, current_serial)
+		return true
+
+	if not _available_pools.has(owner_scene):
+		_available_pools[owner_scene] = []
+
+	_prune_invalid_available_nodes_if_needed(owner_scene)
+	var available_pool: Array = _get_available_pool(owner_scene)
+	if max_available_per_scene > 0 and available_pool.size() >= max_available_per_scene:
+		var _capacity_transition_erased: bool = _transition_generations.erase(node_id)
+		_remove_node_from_scene_pool(node, owner_scene)
+		_queue_free_detached(node)
+		return true
+
+	_move_to_pool_root(node)
+	if not _node_operation_matches(
+		node,
+		node_id,
+		_NodeOwnershipPhase.TRANSITION,
+		release_generation,
+		current_serial
+	):
+		_discard_candidate_if_lifecycle_changed(node, current_serial)
+		return true
+	var _release_transition_erased: bool = _transition_generations.erase(node_id)
+	available_pool.push_back(node)
+	return true
 
 func _request_pool_lifecycle_transition(transition: int) -> void:
 	if transition not in [_PoolLifecycleTransition.INITIALIZE, _PoolLifecycleTransition.DISPOSE]:
