@@ -78,7 +78,7 @@ signal projectile_emit_failed(reason: StringName, details: Dictionary)
 
 结构：
 
-- `details`: Dictionary，最多 16 项；键仅限 ok、reason、policy_id、projectile_id、requested_count、emit_count、emitted_count、hard_limit、now_msec、state、published、committed、compensated、rolled_back、remaining_cooldown_seconds、available_charges、required_charges、consumed_charges、emission_count、policy_instance_id、policy_state_generation、policy_enabled；值仅限 null、bool、int、有限 float、String（至多 256 字符）、StringName（至多 128 字符）或 NodePath（至多 256 字符）。
+- `details`: Dictionary，最多 16 项；键仅限 ok、reason、binding_failure_reason、policy_id、projectile_id、requested_count、emit_count、emitted_count、hard_limit、now_msec、state、published、committed、compensated、rolled_back、remaining_cooldown_seconds、available_charges、required_charges、consumed_charges、emission_count、policy_instance_id、policy_state_generation、policy_enabled；binding_failure_reason 为 GFProjectileBinding.FailureReason；值仅限 null、bool、int、有限 float、String（至多 256 字符）、StringName（至多 128 字符）或 NodePath（至多 256 字符）。
 
 ## 属性
 

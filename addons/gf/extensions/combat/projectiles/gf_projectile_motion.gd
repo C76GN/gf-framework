@@ -157,7 +157,7 @@ func _create_state_3d(
 ## [br]
 ## @param _current_body: 当前 body 快照。
 ## [br]
-## @param _delta: 本帧秒数。
+## @param _delta: 本帧秒数；MOVE intent 必须原样回显该 delta，时间缩放应改写 velocity。
 ## [br]
 ## @return: typed 2D intent。
 ## [br]
@@ -180,7 +180,7 @@ func _compute_intent_2d(
 ## [br]
 ## @param _current_body: 当前 body 快照。
 ## [br]
-## @param _delta: 本帧秒数。
+## @param _delta: 本帧秒数；MOVE intent 必须原样回显该 delta，时间缩放应改写 velocity。
 ## [br]
 ## @return: typed 3D intent。
 ## [br]

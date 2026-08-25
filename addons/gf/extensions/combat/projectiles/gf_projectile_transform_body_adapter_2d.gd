@@ -43,7 +43,14 @@ func _apply_intent(
 			reason = intent.get_failure_reason()
 		return GFProjectileBodyResult2D.failed(reason, before_transform)
 	if intent.get_kind() == GFProjectileMotionIntent2D.Kind.MOVE:
-		body.global_position += intent.get_velocity() * intent.get_delta_seconds()
+		var displacement: Vector2 = intent.get_velocity() * intent.get_delta_seconds()
+		var target_position: Vector2 = before_transform.origin + displacement
+		if not displacement.is_finite() or not target_position.is_finite():
+			return GFProjectileBodyResult2D.failed(
+				&"non_finite_motion_intent",
+				before_transform
+			)
+		body.global_position = target_position
 	var after_transform: Transform2D = body.global_transform
 	return GFProjectileBodyResult2D.successful(
 		after_transform,

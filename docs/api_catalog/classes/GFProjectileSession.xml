@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFProjectileSession" path="addons/gf/extensions/combat/projectiles/gf_projectile_session.gd" module="extensions/combat" extends="RefCounted" classDigest="5054af785bd7b2197ffa0347fab1a54ec8e7559da9319066082023f59e237356">
+<class name="GFProjectileSession" path="addons/gf/extensions/combat/projectiles/gf_projectile_session.gd" module="extensions/combat" extends="RefCounted" classDigest="08d80ba9b0f76d9906047a4bda9dee2cd7906a4cff47f8a1ee1d2a5a4c69b8ff">
 	<description>GFProjectileSession: 一次 typed projectile 发射的运行期句柄。</description>
 	<tags>
 		<tag name="api">public</tag>
@@ -69,7 +69,7 @@
 	INVALID_MOTION_INTENT = 8,
 	## Motion state 或计算失败。
 	MOTION_FAILED = 9,
-	## Body adapter 捕获、应用或停止失败。
+	## Body adapter 捕获或应用失败。
 	BODY_APPLICATION_FAILED = 10,
 	## 完整实例 root 已丢失。
 	ROOT_LOST = 11,
@@ -203,7 +203,8 @@
 		</member>
 		<member kind="method" name="finish">
 			<signature>func finish(reason: EndReason = EndReason.CALLER_FINISHED) -&gt; bool:</signature>
-			<description>以 first-wins 语义结束 session，并要求 adapter 停止 body。</description>
+			<description>以 first-wins 语义结束 session，并 best-effort 要求 adapter 停止 body。
+stop 在 reason 冻结后执行，其结果不会改写本次既有终结原因。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">reason: 非 NONE 的结束原因。</tag>

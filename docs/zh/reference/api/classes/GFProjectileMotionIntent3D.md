@@ -71,7 +71,7 @@ static func move(velocity: Vector3, delta_seconds: float) -> GFProjectileMotionI
 | `velocity` | world-space 速度。 |
 | `delta_seconds` | 本 intent 对应的非负帧时长。 |
 
-返回：合法 MOVE intent；非法数值返回 REJECTED。
+返回：velocity、delta 或位移乘积非法时返回 REJECTED，否则返回 MOVE intent。
 
 <a id="member-gfprojectilemotionintent3d-methods-rejected"></a>
 

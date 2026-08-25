@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFHomingProjectileMotion" path="addons/gf/extensions/combat/projectiles/gf_homing_projectile_motion.gd" module="extensions/combat" extends="GFProjectileMotion" classDigest="1df511c677e65b054c47df5ae023673921dfb1ed2699bf872444e20f3ded74cd">
+<class name="GFHomingProjectileMotion" path="addons/gf/extensions/combat/projectiles/gf_homing_projectile_motion.gd" module="extensions/combat" extends="GFProjectileMotion" classDigest="b6eb61359a09a1fef19ee49efbfeb58a2d6ae5cea43ffba4cfc7906ed038f21f">
 	<description>GFHomingProjectileMotion: 使用 LaunchInput target 的 typed 追踪 intent 策略。</description>
 	<tags>
 		<tag name="api">public</tag>
@@ -28,7 +28,8 @@
 		</member>
 		<member kind="property" name="track_target" decorators="@export">
 			<signature>var track_target: bool = true</signature>
-			<description>是否每帧重新读取 node 目标位置。</description>
+			<description>是否每帧重新读取 node 目标位置；关闭且目标仍存活时，方向与 arrival clamp 使用 launch 快照。
+目标失效后会沿锁定方向继续，并禁用旧位置 clamp。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="since">11.0.0</tag>

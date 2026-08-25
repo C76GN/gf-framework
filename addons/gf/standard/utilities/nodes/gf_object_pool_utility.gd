@@ -362,6 +362,46 @@ func release(node: Node, scene: PackedScene) -> void:
 	available_pool.push_back(node)
 
 
+## 仅在 scene 与 node 仍精确属于当前 ACTIVE lease 时执行归还。
+## [br]
+## @api framework_internal
+## [br]
+## @since unreleased
+## [br]
+## @param node: 待归还的 live 节点。
+## [br]
+## @param scene: acquire 时冻结的 PackedScene identity。
+## [br]
+## @return: 当前 active generation 被本次调用接纳时返回 true；生命周期切换已清除 lease 或身份不匹配时返回 false 且零 mutation。
+func release_for_framework(node: Node, scene: PackedScene) -> bool:
+	if (
+		_is_disposed
+		or node == null
+		or not is_instance_valid(node)
+		or node.is_queued_for_deletion()
+		or scene == null
+		or not is_instance_valid(scene)
+	):
+		return false
+	var node_id: int = node.get_instance_id()
+	if (
+		not _active_generations.has(node_id)
+		or not _active_lease_scenes.has(node_id)
+		or not _active_lease_nodes.has(node_id)
+		or not _all_nodes.has(scene)
+		or not _get_all_nodes_pool(scene).has(node)
+	):
+		return false
+	var tracked_scene: PackedScene = _variant_to_packed_scene(
+		_active_lease_scenes[node_id]
+	)
+	var tracked_node: Node = _variant_to_node(_active_lease_nodes[node_id])
+	if tracked_scene != scene or tracked_node != node:
+		return false
+	release(node, scene)
+	return true
+
+
 ## 结算已被外部同步销毁、无法再走 `release()` 的 ACTIVE lease。
 ## [br]
 ## @api framework_internal

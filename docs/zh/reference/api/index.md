@@ -5,10 +5,10 @@
 ## 范围
 
 - 源码根目录：`addons/gf`
-- 公开类：`853`
+- 公开类：`873`
 - 公开 AutoLoad：`1`
-- 公开成员：`12615`
-- 公开方法：`7763`
+- 公开成员：`12700`
+- 公开方法：`7851`
 - AutoLoad 公开方法：`65`
 
 ## 模块
@@ -22,7 +22,7 @@
 | Behavior Tree | 22 | 0 | 89 | 65 | [extensions-behavior-tree.md](extensions-behavior-tree.md) |
 | Camera | 7 | 0 | 130 | 43 | [extensions-camera.md](extensions-camera.md) |
 | Capability | 11 | 0 | 148 | 103 | [extensions-capability.md](extensions-capability.md) |
-| Combat | 51 | 0 | 609 | 261 | [extensions-combat.md](extensions-combat.md) |
+| Combat | 71 | 0 | 694 | 349 | [extensions-combat.md](extensions-combat.md) |
 | Extensions / Content Package | 7 | 0 | 109 | 71 | [extensions-content-package.md](extensions-content-package.md) |
 | Decision | 8 | 0 | 111 | 62 | [extensions-decision.md](extensions-decision.md) |
 | Dialogue | 5 | 0 | 75 | 36 | [extensions-dialogue.md](extensions-dialogue.md) |

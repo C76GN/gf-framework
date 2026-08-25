@@ -118,6 +118,30 @@ func test_release_marks_node_inactive() -> void:
 	assert_eq(_pool.get_available_count(_scene), 1, "release 后节点应进入可用池。")
 
 
+func test_release_for_framework_requires_current_active_lease() -> void:
+	var node: Node = _pool.acquire(_scene, _parent)
+
+	assert_true(
+		_pool.release_for_framework(node, _scene),
+		"精确匹配的当前 active lease 应被 framework release 接纳。"
+	)
+	assert_eq(_pool.get_active_count(_scene), 0)
+	assert_eq(_pool.get_available_count(_scene), 1)
+
+	var reused: Node = _pool.acquire(_scene, _parent)
+	assert_eq(reused, node, "测试必须在同一实例的新 active generation 上验证生命周期失效。")
+	_pool.init()
+
+	assert_false(
+		_pool.release_for_framework(reused, _scene),
+		"init 清除 lease tracking 后，framework release 必须零 mutation 拒绝旧 generation。"
+	)
+	assert_eq(reused.get_parent(), _parent, "拒绝路径不得移动调用方仍持有的业务节点。")
+	assert_false(reused.is_queued_for_deletion(), "拒绝路径不得释放调用方仍持有的业务节点。")
+	assert_eq(_pool.get_active_count(_scene), 0)
+	assert_eq(_pool.get_available_count(_scene), 0)
+
+
 func test_lost_lease_retirement_requires_exact_invalid_active_identity() -> void:
 	var lost_scene: PackedScene = _make_lifecycle_hook_scene()
 	var wrong_scene: PackedScene = _make_node_scene()

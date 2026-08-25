@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFProjectileMotion" path="addons/gf/extensions/combat/projectiles/gf_projectile_motion.gd" module="extensions/combat" extends="Resource" classDigest="886fc976175093188552a33a1f550a0caa3f00ec7c9239a9eb8471a19cebaafd">
+<class name="GFProjectileMotion" path="addons/gf/extensions/combat/projectiles/gf_projectile_motion.gd" module="extensions/combat" extends="Resource" classDigest="439ce31576f7651172c75c60b9cee2ceb81352229aff9a494548f453321c0343">
 	<description>GFProjectileMotion: 以 per-session state 计算 typed intent 的移动策略基类。</description>
 	<tags>
 		<tag name="api">public</tag>
@@ -88,7 +88,7 @@
 				<tag name="api">protected</tag>
 				<tag name="param">_state: session 私有 state。</tag>
 				<tag name="param">_current_body: 当前 body 快照。</tag>
-				<tag name="param">_delta: 本帧秒数。</tag>
+				<tag name="param">_delta: 本帧秒数；MOVE intent 必须原样回显该 delta，时间缩放应改写 velocity。</tag>
 				<tag name="return">typed 2D intent。</tag>
 				<tag name="schema">return: Variant，必须为 live `GFProjectileMotionIntent2D`。</tag>
 				<tag name="since">unreleased</tag>
@@ -101,7 +101,7 @@
 				<tag name="api">protected</tag>
 				<tag name="param">_state: session 私有 state。</tag>
 				<tag name="param">_current_body: 当前 body 快照。</tag>
-				<tag name="param">_delta: 本帧秒数。</tag>
+				<tag name="param">_delta: 本帧秒数；MOVE intent 必须原样回显该 delta，时间缩放应改写 velocity。</tag>
 				<tag name="return">typed 3D intent。</tag>
 				<tag name="schema">return: Variant，必须为 live `GFProjectileMotionIntent3D`。</tag>
 				<tag name="since">unreleased</tag>

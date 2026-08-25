@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<apiCatalog schemaVersion="3" name="GF Framework" sourceRoot="addons/gf" sourceDigest="af0dd6ef687917c88cdc72b38043e80a292797e45c817a1e5203ecb58d2c9158" classCount="853" methodCount="7763" autoloadCount="1" autoloadMethodCount="65">
+<apiCatalog schemaVersion="3" name="GF Framework" sourceRoot="addons/gf" sourceDigest="c3ea24d6d5fd5aa4c9dd12f1926c3755634bec47fdbd5e40cad0bf5ceffcca63" classCount="873" methodCount="7851" autoloadCount="1" autoloadMethodCount="65">
 	<module id="kernel" label="Kernel" classCount="77" methodCount="818" autoloadCount="1" autoloadMethodCount="65">
 		<class name="GFAccessGenerator" path="classes/GFAccessGenerator.xml" sourcePath="addons/gf/kernel/editor/gf_access_generator.gd" extends="RefCounted" />
 		<class name="GFArchitecture" path="classes/GFArchitecture.xml" sourcePath="addons/gf/kernel/core/gf_architecture.gd" extends="Object" />
@@ -630,7 +630,7 @@
 		<class name="GFNodeCapability" path="classes/GFNodeCapability.xml" sourcePath="addons/gf/extensions/capability/nodes/gf_node_capability.gd" extends="Node" />
 		<class name="GFPropertyBagCapability" path="classes/GFPropertyBagCapability.xml" sourcePath="addons/gf/extensions/capability/core/gf_property_bag_capability.gd" extends="GFCapability" />
 	</module>
-	<module id="extensions/combat" label="Combat" classCount="51" methodCount="261" autoloadCount="0" autoloadMethodCount="0">
+	<module id="extensions/combat" label="Combat" classCount="71" methodCount="349" autoloadCount="0" autoloadMethodCount="0">
 		<class name="GFBuff" path="classes/GFBuff.xml" sourcePath="addons/gf/extensions/combat/attributes/gf_buff.gd" extends="RefCounted" />
 		<class name="GFBuffCheck" path="classes/GFBuffCheck.xml" sourcePath="addons/gf/extensions/combat/attributes/gf_buff_check.gd" extends="Resource" />
 		<class name="GFBuffEffect" path="classes/GFBuffEffect.xml" sourcePath="addons/gf/extensions/combat/attributes/gf_buff_effect.gd" extends="Resource" />
@@ -660,22 +660,42 @@
 		<class name="GFModifiedAttribute" path="classes/GFModifiedAttribute.xml" sourcePath="addons/gf/extensions/combat/attributes/gf_modified_attribute.gd" extends="RefCounted" />
 		<class name="GFModifiedAttributeSet" path="classes/GFModifiedAttributeSet.xml" sourcePath="addons/gf/extensions/combat/attributes/gf_modified_attribute_set.gd" extends="RefCounted" />
 		<class name="GFModifier" path="classes/GFModifier.xml" sourcePath="addons/gf/extensions/combat/attributes/gf_modifier.gd" extends="RefCounted" />
-		<class name="GFProjectile2D" path="classes/GFProjectile2D.xml" sourcePath="addons/gf/extensions/combat/projectiles/gf_projectile_2d.gd" extends="GFHitBox2D" />
-		<class name="GFProjectile3D" path="classes/GFProjectile3D.xml" sourcePath="addons/gf/extensions/combat/projectiles/gf_projectile_3d.gd" extends="GFHitBox3D" />
+		<class name="GFProjectile2D" path="classes/GFProjectile2D.xml" sourcePath="addons/gf/extensions/combat/projectiles/gf_projectile_2d.gd" extends="Node" />
+		<class name="GFProjectile3D" path="classes/GFProjectile3D.xml" sourcePath="addons/gf/extensions/combat/projectiles/gf_projectile_3d.gd" extends="Node" />
+		<class name="GFProjectileBinding" path="classes/GFProjectileBinding.xml" sourcePath="addons/gf/extensions/combat/projectiles/gf_projectile_binding.gd" extends="RefCounted" />
+		<class name="GFProjectileBinding2D" path="classes/GFProjectileBinding2D.xml" sourcePath="addons/gf/extensions/combat/projectiles/gf_projectile_binding_2d.gd" extends="GFProjectileBinding" />
+		<class name="GFProjectileBinding3D" path="classes/GFProjectileBinding3D.xml" sourcePath="addons/gf/extensions/combat/projectiles/gf_projectile_binding_3d.gd" extends="GFProjectileBinding" />
+		<class name="GFProjectileBodyAdapter2D" path="classes/GFProjectileBodyAdapter2D.xml" sourcePath="addons/gf/extensions/combat/projectiles/gf_projectile_body_adapter_2d.gd" extends="Resource" />
+		<class name="GFProjectileBodyAdapter3D" path="classes/GFProjectileBodyAdapter3D.xml" sourcePath="addons/gf/extensions/combat/projectiles/gf_projectile_body_adapter_3d.gd" extends="Resource" />
+		<class name="GFProjectileBodyResult2D" path="classes/GFProjectileBodyResult2D.xml" sourcePath="addons/gf/extensions/combat/projectiles/gf_projectile_body_result_2d.gd" extends="RefCounted" />
+		<class name="GFProjectileBodyResult3D" path="classes/GFProjectileBodyResult3D.xml" sourcePath="addons/gf/extensions/combat/projectiles/gf_projectile_body_result_3d.gd" extends="RefCounted" />
 		<class name="GFProjectileBurstPattern2D" path="classes/GFProjectileBurstPattern2D.xml" sourcePath="addons/gf/extensions/combat/projectiles/gf_projectile_burst_pattern_2d.gd" extends="GFProjectileSpawnPattern2D" />
 		<class name="GFProjectileCatalog" path="classes/GFProjectileCatalog.xml" sourcePath="addons/gf/extensions/combat/projectiles/gf_projectile_catalog.gd" extends="Resource" />
 		<class name="GFProjectileCatalogEntry" path="classes/GFProjectileCatalogEntry.xml" sourcePath="addons/gf/extensions/combat/projectiles/gf_projectile_catalog_entry.gd" extends="Resource" />
+		<class name="GFProjectileCharacterBodyAdapter2D" path="classes/GFProjectileCharacterBodyAdapter2D.xml" sourcePath="addons/gf/extensions/combat/projectiles/gf_projectile_character_body_adapter_2d.gd" extends="GFProjectileBodyAdapter2D" />
+		<class name="GFProjectileCharacterBodyAdapter3D" path="classes/GFProjectileCharacterBodyAdapter3D.xml" sourcePath="addons/gf/extensions/combat/projectiles/gf_projectile_character_body_adapter_3d.gd" extends="GFProjectileBodyAdapter3D" />
 		<class name="GFProjectileConePattern3D" path="classes/GFProjectileConePattern3D.xml" sourcePath="addons/gf/extensions/combat/projectiles/gf_projectile_cone_pattern_3d.gd" extends="GFProjectileSpawnPattern3D" />
+		<class name="GFProjectileDefinition" path="classes/GFProjectileDefinition.xml" sourcePath="addons/gf/extensions/combat/projectiles/gf_projectile_definition.gd" extends="Resource" />
+		<class name="GFProjectileDefinition2D" path="classes/GFProjectileDefinition2D.xml" sourcePath="addons/gf/extensions/combat/projectiles/gf_projectile_definition_2d.gd" extends="GFProjectileDefinition" />
+		<class name="GFProjectileDefinition3D" path="classes/GFProjectileDefinition3D.xml" sourcePath="addons/gf/extensions/combat/projectiles/gf_projectile_definition_3d.gd" extends="GFProjectileDefinition" />
 		<class name="GFProjectileEmissionPolicy" path="classes/GFProjectileEmissionPolicy.xml" sourcePath="addons/gf/extensions/combat/projectiles/gf_projectile_emission_policy.gd" extends="Resource" />
 		<class name="GFProjectileEmissionTask" path="classes/GFProjectileEmissionTask.xml" sourcePath="addons/gf/extensions/combat/projectiles/gf_projectile_emission_task.gd" extends="RefCounted" />
 		<class name="GFProjectileEmitter2D" path="classes/GFProjectileEmitter2D.xml" sourcePath="addons/gf/extensions/combat/projectiles/gf_projectile_emitter_2d.gd" extends="Node2D" />
 		<class name="GFProjectileEmitter3D" path="classes/GFProjectileEmitter3D.xml" sourcePath="addons/gf/extensions/combat/projectiles/gf_projectile_emitter_3d.gd" extends="Node3D" />
+		<class name="GFProjectileLaunchInput2D" path="classes/GFProjectileLaunchInput2D.xml" sourcePath="addons/gf/extensions/combat/projectiles/gf_projectile_launch_input_2d.gd" extends="Resource" />
+		<class name="GFProjectileLaunchInput3D" path="classes/GFProjectileLaunchInput3D.xml" sourcePath="addons/gf/extensions/combat/projectiles/gf_projectile_launch_input_3d.gd" extends="Resource" />
 		<class name="GFProjectileLifetimePolicy" path="classes/GFProjectileLifetimePolicy.xml" sourcePath="addons/gf/extensions/combat/projectiles/gf_projectile_lifetime_policy.gd" extends="Resource" />
 		<class name="GFProjectileLineSpawnPattern2D" path="classes/GFProjectileLineSpawnPattern2D.xml" sourcePath="addons/gf/extensions/combat/projectiles/gf_projectile_line_spawn_pattern_2d.gd" extends="GFProjectileSpawnPattern2D" />
 		<class name="GFProjectileLineSpawnPattern3D" path="classes/GFProjectileLineSpawnPattern3D.xml" sourcePath="addons/gf/extensions/combat/projectiles/gf_projectile_line_spawn_pattern_3d.gd" extends="GFProjectileSpawnPattern3D" />
 		<class name="GFProjectileMotion" path="classes/GFProjectileMotion.xml" sourcePath="addons/gf/extensions/combat/projectiles/gf_projectile_motion.gd" extends="Resource" />
+		<class name="GFProjectileMotionIntent2D" path="classes/GFProjectileMotionIntent2D.xml" sourcePath="addons/gf/extensions/combat/projectiles/gf_projectile_motion_intent_2d.gd" extends="RefCounted" />
+		<class name="GFProjectileMotionIntent3D" path="classes/GFProjectileMotionIntent3D.xml" sourcePath="addons/gf/extensions/combat/projectiles/gf_projectile_motion_intent_3d.gd" extends="RefCounted" />
+		<class name="GFProjectileMotionState" path="classes/GFProjectileMotionState.xml" sourcePath="addons/gf/extensions/combat/projectiles/gf_projectile_motion_state.gd" extends="RefCounted" />
+		<class name="GFProjectileSession" path="classes/GFProjectileSession.xml" sourcePath="addons/gf/extensions/combat/projectiles/gf_projectile_session.gd" extends="RefCounted" />
 		<class name="GFProjectileSpawnPattern2D" path="classes/GFProjectileSpawnPattern2D.xml" sourcePath="addons/gf/extensions/combat/projectiles/gf_projectile_spawn_pattern_2d.gd" extends="Resource" />
 		<class name="GFProjectileSpawnPattern3D" path="classes/GFProjectileSpawnPattern3D.xml" sourcePath="addons/gf/extensions/combat/projectiles/gf_projectile_spawn_pattern_3d.gd" extends="Resource" />
+		<class name="GFProjectileTransformBodyAdapter2D" path="classes/GFProjectileTransformBodyAdapter2D.xml" sourcePath="addons/gf/extensions/combat/projectiles/gf_projectile_transform_body_adapter_2d.gd" extends="GFProjectileBodyAdapter2D" />
+		<class name="GFProjectileTransformBodyAdapter3D" path="classes/GFProjectileTransformBodyAdapter3D.xml" sourcePath="addons/gf/extensions/combat/projectiles/gf_projectile_transform_body_adapter_3d.gd" extends="GFProjectileBodyAdapter3D" />
 		<class name="GFSkill" path="classes/GFSkill.xml" sourcePath="addons/gf/extensions/combat/skills/gf_skill.gd" extends="RefCounted" />
 		<class name="GFSkillActivationContext" path="classes/GFSkillActivationContext.xml" sourcePath="addons/gf/extensions/combat/skills/gf_skill_activation_context.gd" extends="RefCounted" />
 		<class name="GFSkillActivationStep" path="classes/GFSkillActivationStep.xml" sourcePath="addons/gf/extensions/combat/skills/gf_skill_activation_step.gd" extends="RefCounted" />

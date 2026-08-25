@@ -124,7 +124,7 @@ enum EndReason {
 	INVALID_MOTION_INTENT = 8,
 	## Motion state 或计算失败。
 	MOTION_FAILED = 9,
-	## Body adapter 捕获、应用或停止失败。
+	## Body adapter 捕获或应用失败。
 	BODY_APPLICATION_FAILED = 10,
 	## 完整实例 root 已丢失。
 	ROOT_LOST = 11,
@@ -338,7 +338,7 @@ func is_finished() -> bool:
 func finish(reason: EndReason = EndReason.CALLER_FINISHED) -> bool:
 ```
 
-以 first-wins 语义结束 session，并要求 adapter 停止 body。
+以 first-wins 语义结束 session，并 best-effort 要求 adapter 停止 body。 stop 在 reason 冻结后执行，其结果不会改写本次既有终结原因。
 
 参数：
 

@@ -118,6 +118,22 @@ class FinishingMotion extends GFProjectileMotion:
 		return GFProjectileMotionIntent3D.finish()
 
 
+class MismatchedDeltaMotion extends GFProjectileMotion:
+	func _compute_intent_2d(
+		_state: GFProjectileMotionState,
+		_current_body: GFProjectileBodyResult2D,
+		delta: float
+	) -> Variant:
+		return GFProjectileMotionIntent2D.move(Vector2.RIGHT, delta + 0.125)
+
+	func _compute_intent_3d(
+		_state: GFProjectileMotionState,
+		_current_body: GFProjectileBodyResult3D,
+		delta: float
+	) -> Variant:
+		return GFProjectileMotionIntent3D.move(Vector3.FORWARD, delta + 0.125)
+
+
 class FinishingApplyAdapter2D extends GFProjectileTransformBodyAdapter2D:
 	var active_session: GFProjectileSession = null
 	var displacement: Vector2 = Vector2(3.0, 4.0)
@@ -254,6 +270,56 @@ class RecordingPreflightAdapter2D extends GFProjectileTransformBodyAdapter2D:
 	func _capture_body(root: Node) -> GFProjectileBodyResult2D:
 		capture_count += 1
 		return super._capture_body(root)
+
+
+class FailingStepCaptureAdapter2D extends GFProjectileTransformBodyAdapter2D:
+	var capture_count: int = 0
+
+	func _capture_body(root: Node) -> GFProjectileBodyResult2D:
+		capture_count += 1
+		if capture_count > 1:
+			return GFProjectileBodyResult2D.failed(&"capture_failed")
+		return super._capture_body(root)
+
+
+class FailingStepCaptureAdapter3D extends GFProjectileTransformBodyAdapter3D:
+	var capture_count: int = 0
+
+	func _capture_body(root: Node) -> GFProjectileBodyResult3D:
+		capture_count += 1
+		if capture_count > 1:
+			return GFProjectileBodyResult3D.failed(&"capture_failed")
+		return super._capture_body(root)
+
+
+class NonFiniteSuccessfulBodyResult2D extends GFProjectileBodyResult2D:
+	func is_successful() -> bool:
+		return true
+
+	func get_transform() -> Transform2D:
+		var corrupt_transform: Transform2D = Transform2D.IDENTITY
+		corrupt_transform.origin = Vector2(INF, 0.0)
+		return corrupt_transform
+
+
+class NonFiniteSuccessfulBodyResult3D extends GFProjectileBodyResult3D:
+	func is_successful() -> bool:
+		return true
+
+	func get_transform() -> Transform3D:
+		var corrupt_transform: Transform3D = Transform3D.IDENTITY
+		corrupt_transform.origin = Vector3(0.0, 0.0, INF)
+		return corrupt_transform
+
+
+class NonFiniteInitialCaptureAdapter2D extends GFProjectileTransformBodyAdapter2D:
+	func _capture_body(_root: Node) -> GFProjectileBodyResult2D:
+		return NonFiniteSuccessfulBodyResult2D.new()
+
+
+class NonFiniteInitialCaptureAdapter3D extends GFProjectileTransformBodyAdapter3D:
+	func _capture_body(_root: Node) -> GFProjectileBodyResult3D:
+		return NonFiniteSuccessfulBodyResult3D.new()
 
 
 class RecordingPreflightMotion extends GFLinearProjectileMotion:
@@ -585,6 +651,10 @@ class RecordingObjectPool extends GFObjectPoolUtility:
 		if reuse_released_nodes and node != null and is_instance_valid(node):
 			_available_nodes.append(node)
 
+	func release_for_framework(node: Node, scene: PackedScene) -> bool:
+		release(node, scene)
+		return true
+
 
 class LostLeaseRecordingPool extends GFObjectPoolUtility:
 	var lost_retirement_count: int = 0
@@ -820,6 +890,27 @@ func _first_signal_callable(source: Object, signal_name: StringName) -> Callable
 		var callback_value: Variant = GFVariantData.get_option_value(connection, "callable")
 		if callback_value is Callable:
 			var callback: Callable = callback_value
+			return callback
+	return Callable()
+
+
+func _signal_callable_for_target(
+	source: Object,
+	signal_name: StringName,
+	target: Object
+) -> Callable:
+	if target == null or not is_instance_valid(target):
+		return Callable()
+	var target_id: int = target.get_instance_id()
+	for connection: Dictionary in source.get_signal_connection_list(signal_name):
+		var callback_value: Variant = GFVariantData.get_option_value(
+			connection,
+			"callable"
+		)
+		if not callback_value is Callable:
+			continue
+		var callback: Callable = callback_value
+		if callback.get_object_id() == target_id:
 			return callback
 	return Callable()
 
@@ -1324,6 +1415,202 @@ func test_projectile_motion_3d_only_moves_root_through_body_adapter() -> void:
 	assert_eq(applied_body.get_position(), Vector3(1.0, 2.0, 1.5))
 	assert_eq(applied_body.get_actual_displacement(), Vector3(0.0, 0.0, -1.5))
 	assert_eq(applied_body.get_transform(), root.transform)
+
+
+func test_projectile_character_body_adapters_drive_runtime_flight_symmetrically() -> void:
+	var root_2d: CharacterBody2D = CharacterBody2D.new()
+	var runtime_2d: GFProjectile2D = GFProjectile2D.new()
+	runtime_2d.name = &"ProjectileRuntime"
+	root_2d.add_child(runtime_2d)
+	add_child_autofree(root_2d)
+	var definition_2d: GFProjectileDefinition2D = _make_projectile_definition_2d()
+	var motion_2d: GFLinearProjectileMotion = GFLinearProjectileMotion.new()
+	motion_2d.speed = 120.0
+	motion_2d.use_local_direction = false
+	motion_2d.direction_2d = Vector2.RIGHT
+	definition_2d.motion = motion_2d
+	definition_2d.body_adapter = GFProjectileCharacterBodyAdapter2D.new()
+	var binding_2d: GFProjectileBinding2D = definition_2d.bind_instance(root_2d)
+	assert_true(binding_2d.is_valid())
+	if not binding_2d.is_valid():
+		return
+	var session_2d: GFProjectileSession = runtime_2d.launch(binding_2d)
+	assert_not_null(session_2d)
+	if session_2d == null:
+		return
+	var before_2d: Vector2 = root_2d.global_position
+	runtime_2d._physics_process(0.25)
+	assert_gt(root_2d.global_position.x, before_2d.x)
+	assert_eq(root_2d.velocity, Vector2(120.0, 0.0))
+	assert_gt(session_2d.get_travelled_distance(), 0.0)
+	assert_true(session_2d.finish(GFProjectileSession.EndReason.CALLER_FINISHED))
+	assert_eq(root_2d.velocity, Vector2.ZERO)
+
+	var root_3d: CharacterBody3D = CharacterBody3D.new()
+	var runtime_3d: GFProjectile3D = GFProjectile3D.new()
+	runtime_3d.name = &"ProjectileRuntime"
+	root_3d.add_child(runtime_3d)
+	add_child_autofree(root_3d)
+	var definition_3d: GFProjectileDefinition3D = _make_projectile_definition_3d()
+	var motion_3d: GFLinearProjectileMotion = GFLinearProjectileMotion.new()
+	motion_3d.speed = 120.0
+	motion_3d.use_local_direction = false
+	motion_3d.direction_3d = Vector3(0.0, 0.0, -1.0)
+	definition_3d.motion = motion_3d
+	definition_3d.body_adapter = GFProjectileCharacterBodyAdapter3D.new()
+	var binding_3d: GFProjectileBinding3D = definition_3d.bind_instance(root_3d)
+	assert_true(binding_3d.is_valid())
+	if not binding_3d.is_valid():
+		return
+	var session_3d: GFProjectileSession = runtime_3d.launch(binding_3d)
+	assert_not_null(session_3d)
+	if session_3d == null:
+		return
+	var before_3d: Vector3 = root_3d.global_position
+	runtime_3d._physics_process(0.25)
+	assert_lt(root_3d.global_position.z, before_3d.z)
+	assert_eq(root_3d.velocity, Vector3(0.0, 0.0, -120.0))
+	assert_gt(session_3d.get_travelled_distance(), 0.0)
+	assert_true(session_3d.finish(GFProjectileSession.EndReason.CALLER_FINISHED))
+	assert_eq(root_3d.velocity, Vector3.ZERO)
+
+
+func test_projectile_full_scene_root_moves_view_and_all_impact_sources() -> void:
+	var template_2d: Node2D = Node2D.new()
+	template_2d.name = &"ProjectileRoot2D"
+	var view_2d: Node2D = Node2D.new()
+	view_2d.name = &"View"
+	view_2d.position = Vector2(1.0, 2.0)
+	template_2d.add_child(view_2d)
+	var template_runtime_2d: GFProjectile2D = GFProjectile2D.new()
+	template_runtime_2d.name = &"ProjectileRuntime"
+	template_2d.add_child(template_runtime_2d)
+	var hit_box_2d: GFHitBox2D = GFHitBox2D.new()
+	hit_box_2d.name = &"HitBox"
+	hit_box_2d.position = Vector2(3.0, 4.0)
+	template_2d.add_child(hit_box_2d)
+	var hit_scan_2d: GFHitScan2D = GFHitScan2D.new()
+	hit_scan_2d.name = &"HitScan"
+	hit_scan_2d.position = Vector2(-2.0, 5.0)
+	template_2d.add_child(hit_scan_2d)
+	var definition_2d: GFProjectileDefinition2D = GFProjectileDefinition2D.new()
+	definition_2d.scene = _pack_projectile_root(template_2d)
+	definition_2d.runtime_path = NodePath("ProjectileRuntime")
+	definition_2d.impact_source_paths = [NodePath("HitBox"), NodePath("HitScan")]
+	var motion_2d: GFLinearProjectileMotion = GFLinearProjectileMotion.new()
+	motion_2d.speed = 4.0
+	motion_2d.use_local_direction = false
+	motion_2d.direction_2d = Vector2.RIGHT
+	definition_2d.motion = motion_2d
+	definition_2d.body_adapter = GFProjectileTransformBodyAdapter2D.new()
+	var parent_2d: Node2D = Node2D.new()
+	add_child_autofree(parent_2d)
+	var emitter_2d: GFProjectileEmitter2D = GFProjectileEmitter2D.new()
+	parent_2d.add_child(emitter_2d)
+	emitter_2d.projectile_definition = definition_2d
+	var sessions_2d: Array[GFProjectileSession] = []
+	var on_emitted_2d: Callable = func(
+		_projectile_root: Node,
+		session: GFProjectileSession,
+		_launch_input: GFProjectileLaunchInput2D
+	) -> void:
+		sessions_2d.append(session)
+	var _emitted_2d_connected: int = emitter_2d.projectile_emitted.connect(
+		on_emitted_2d
+	)
+	var root_value_2d: Node = emitter_2d.emit_projectile()
+	assert_true(root_value_2d is Node2D)
+	assert_eq(sessions_2d.size(), 1)
+	if not root_value_2d is Node2D or sessions_2d.is_empty():
+		return
+	var root_2d: Node2D = root_value_2d
+	var emitted_view_2d: Node2D = root_2d.get_node(NodePath("View"))
+	var emitted_box_2d: GFHitBox2D = root_2d.get_node(NodePath("HitBox"))
+	var emitted_scan_2d: GFHitScan2D = root_2d.get_node(NodePath("HitScan"))
+	var before_root_2d: Vector2 = root_2d.global_position
+	var before_view_2d: Vector2 = emitted_view_2d.global_position
+	var before_box_2d: Vector2 = emitted_box_2d.global_position
+	var before_scan_2d: Vector2 = emitted_scan_2d.global_position
+	var runtime_2d: GFProjectile2D = _runtime_2d_from(root_2d)
+	runtime_2d._physics_process(0.5)
+	var displacement_2d: Vector2 = root_2d.global_position - before_root_2d
+	assert_eq(displacement_2d, Vector2(2.0, 0.0))
+	assert_eq(emitted_view_2d.global_position - before_view_2d, displacement_2d)
+	assert_eq(emitted_box_2d.global_position - before_box_2d, displacement_2d)
+	assert_eq(emitted_scan_2d.global_position - before_scan_2d, displacement_2d)
+	assert_eq(emitted_view_2d.position, Vector2(1.0, 2.0))
+	assert_eq(emitted_box_2d.position, Vector2(3.0, 4.0))
+	assert_eq(emitted_scan_2d.position, Vector2(-2.0, 5.0))
+	assert_almost_eq(sessions_2d[0].get_travelled_distance(), 2.0, 0.0001)
+	assert_true(sessions_2d[0].finish(GFProjectileSession.EndReason.CALLER_FINISHED))
+
+	var template_3d: Node3D = Node3D.new()
+	template_3d.name = &"ProjectileRoot3D"
+	var view_3d: Node3D = Node3D.new()
+	view_3d.name = &"View"
+	view_3d.position = Vector3(1.0, 2.0, 3.0)
+	template_3d.add_child(view_3d)
+	var template_runtime_3d: GFProjectile3D = GFProjectile3D.new()
+	template_runtime_3d.name = &"ProjectileRuntime"
+	template_3d.add_child(template_runtime_3d)
+	var hit_box_3d: GFHitBox3D = GFHitBox3D.new()
+	hit_box_3d.name = &"HitBox"
+	hit_box_3d.position = Vector3(3.0, 4.0, 5.0)
+	template_3d.add_child(hit_box_3d)
+	var hit_scan_3d: GFHitScan3D = GFHitScan3D.new()
+	hit_scan_3d.name = &"HitScan"
+	hit_scan_3d.position = Vector3(-2.0, 5.0, 7.0)
+	template_3d.add_child(hit_scan_3d)
+	var definition_3d: GFProjectileDefinition3D = GFProjectileDefinition3D.new()
+	definition_3d.scene = _pack_projectile_root(template_3d)
+	definition_3d.runtime_path = NodePath("ProjectileRuntime")
+	definition_3d.impact_source_paths = [NodePath("HitBox"), NodePath("HitScan")]
+	var motion_3d: GFLinearProjectileMotion = GFLinearProjectileMotion.new()
+	motion_3d.speed = 6.0
+	motion_3d.use_local_direction = false
+	motion_3d.direction_3d = Vector3(0.0, 0.0, -1.0)
+	definition_3d.motion = motion_3d
+	definition_3d.body_adapter = GFProjectileTransformBodyAdapter3D.new()
+	var parent_3d: Node3D = Node3D.new()
+	add_child_autofree(parent_3d)
+	var emitter_3d: GFProjectileEmitter3D = GFProjectileEmitter3D.new()
+	parent_3d.add_child(emitter_3d)
+	emitter_3d.projectile_definition = definition_3d
+	var sessions_3d: Array[GFProjectileSession] = []
+	var on_emitted_3d: Callable = func(
+		_projectile_root: Node,
+		session: GFProjectileSession,
+		_launch_input: GFProjectileLaunchInput3D
+	) -> void:
+		sessions_3d.append(session)
+	var _emitted_3d_connected: int = emitter_3d.projectile_emitted.connect(
+		on_emitted_3d
+	)
+	var root_value_3d: Node = emitter_3d.emit_projectile()
+	assert_true(root_value_3d is Node3D)
+	assert_eq(sessions_3d.size(), 1)
+	if not root_value_3d is Node3D or sessions_3d.is_empty():
+		return
+	var root_3d: Node3D = root_value_3d
+	var emitted_view_3d: Node3D = root_3d.get_node(NodePath("View"))
+	var emitted_box_3d: GFHitBox3D = root_3d.get_node(NodePath("HitBox"))
+	var emitted_scan_3d: GFHitScan3D = root_3d.get_node(NodePath("HitScan"))
+	var before_root_3d: Vector3 = root_3d.global_position
+	var before_view_3d: Vector3 = emitted_view_3d.global_position
+	var before_box_3d: Vector3 = emitted_box_3d.global_position
+	var before_scan_3d: Vector3 = emitted_scan_3d.global_position
+	var runtime_3d: GFProjectile3D = _runtime_3d_from(root_3d)
+	runtime_3d._physics_process(0.5)
+	var displacement_3d: Vector3 = root_3d.global_position - before_root_3d
+	assert_eq(displacement_3d, Vector3(0.0, 0.0, -3.0))
+	assert_eq(emitted_view_3d.global_position - before_view_3d, displacement_3d)
+	assert_eq(emitted_box_3d.global_position - before_box_3d, displacement_3d)
+	assert_eq(emitted_scan_3d.global_position - before_scan_3d, displacement_3d)
+	assert_eq(emitted_view_3d.position, Vector3(1.0, 2.0, 3.0))
+	assert_eq(emitted_box_3d.position, Vector3(3.0, 4.0, 5.0))
+	assert_eq(emitted_scan_3d.position, Vector3(-2.0, 5.0, 7.0))
+	assert_almost_eq(sessions_3d[0].get_travelled_distance(), 3.0, 0.0001)
+	assert_true(sessions_3d[0].finish(GFProjectileSession.EndReason.CALLER_FINISHED))
 
 
 func test_projectile_body_adapters_do_not_apply_rejected_intents() -> void:
@@ -2629,6 +2916,76 @@ func test_projectile_emitter_reports_missing_definition() -> void:
 	assert_signal_emitted(emitter, "projectile_emit_failed")
 
 
+func test_projectile_emitters_report_typed_binding_failure_reason() -> void:
+	var missing_template: Node2D = Node2D.new()
+	missing_template.name = &"MissingRuntimeRoot"
+	var missing_definition: GFProjectileDefinition2D = GFProjectileDefinition2D.new()
+	missing_definition.scene = _pack_projectile_root(missing_template)
+	missing_definition.runtime_path = NodePath("ProjectileRuntime")
+	missing_definition.motion = GFLinearProjectileMotion.new()
+	missing_definition.body_adapter = GFProjectileTransformBodyAdapter2D.new()
+	var parent_2d: Node2D = Node2D.new()
+	add_child_autofree(parent_2d)
+	var emitter_2d: GFProjectileEmitter2D = GFProjectileEmitter2D.new()
+	parent_2d.add_child(emitter_2d)
+	emitter_2d.projectile_definition = missing_definition
+	var reasons_2d: Array[StringName] = []
+	var details_2d: Array[Dictionary] = []
+	var on_failed_2d: Callable = func(reason: StringName, details: Dictionary) -> void:
+		reasons_2d.append(reason)
+		details_2d.append(details.duplicate(true))
+	var _failed_2d_connected: int = emitter_2d.projectile_emit_failed.connect(
+		on_failed_2d
+	)
+
+	assert_true(emitter_2d.emit_projectiles().is_empty())
+	assert_eq(reasons_2d, [&"binding_failed"])
+	assert_eq(details_2d.size(), 1)
+	if details_2d.size() == 1:
+		assert_eq(
+			GFVariantData.get_option_int(details_2d[0], "binding_failure_reason", -1),
+			GFProjectileBinding.FailureReason.MISSING_RUNTIME,
+			"推荐 Emitter 路径必须保留 missing runtime 的闭合诊断。"
+		)
+
+	var ambiguous_template: Node3D = Node3D.new()
+	ambiguous_template.name = &"AmbiguousRuntimeRoot"
+	var first_runtime: GFProjectile3D = GFProjectile3D.new()
+	first_runtime.name = &"ProjectileRuntime"
+	ambiguous_template.add_child(first_runtime)
+	var second_runtime: GFProjectile3D = GFProjectile3D.new()
+	second_runtime.name = &"SecondRuntime"
+	ambiguous_template.add_child(second_runtime)
+	var ambiguous_definition: GFProjectileDefinition3D = GFProjectileDefinition3D.new()
+	ambiguous_definition.scene = _pack_projectile_root(ambiguous_template)
+	ambiguous_definition.runtime_path = NodePath("ProjectileRuntime")
+	ambiguous_definition.motion = GFLinearProjectileMotion.new()
+	ambiguous_definition.body_adapter = GFProjectileTransformBodyAdapter3D.new()
+	var parent_3d: Node3D = Node3D.new()
+	add_child_autofree(parent_3d)
+	var emitter_3d: GFProjectileEmitter3D = GFProjectileEmitter3D.new()
+	parent_3d.add_child(emitter_3d)
+	emitter_3d.projectile_definition = ambiguous_definition
+	var reasons_3d: Array[StringName] = []
+	var details_3d: Array[Dictionary] = []
+	var on_failed_3d: Callable = func(reason: StringName, details: Dictionary) -> void:
+		reasons_3d.append(reason)
+		details_3d.append(details.duplicate(true))
+	var _failed_3d_connected: int = emitter_3d.projectile_emit_failed.connect(
+		on_failed_3d
+	)
+
+	assert_true(emitter_3d.emit_projectiles().is_empty())
+	assert_eq(reasons_3d, [&"binding_failed"])
+	assert_eq(details_3d.size(), 1)
+	if details_3d.size() == 1:
+		assert_eq(
+			GFVariantData.get_option_int(details_3d[0], "binding_failure_reason", -1),
+			GFProjectileBinding.FailureReason.AMBIGUOUS_RUNTIME,
+			"3D Emitter 也必须保留 ambiguous runtime 的闭合诊断。"
+		)
+
+
 func test_projectile_launch_reservation_is_owner_bound_and_single_consume() -> void:
 	var root: Node2D = _make_bound_projectile_root_2d()
 	add_child_autofree(root)
@@ -2883,6 +3240,82 @@ func test_projectile_session_finishes_on_elapsed_lifetime() -> void:
 	assert_eq(session.get_end_reason(), GFProjectileSession.EndReason.LIFETIME_SECONDS)
 
 
+func test_projectile_session_metric_overflow_is_zero_write_and_terminal_safe() -> void:
+	var active_root: Node2D = _make_bound_projectile_root_2d()
+	add_child_autofree(active_root)
+	var active_runtime: GFProjectile2D = _runtime_2d_from(active_root)
+	var active_session: GFProjectileSession = GFProjectileSession.new()
+	assert_eq(
+		active_session.activate_for_framework(
+			GFProjectileSession.Dimension.TWO_D,
+			1,
+			active_root,
+			active_runtime,
+			GFProjectileTransformBodyAdapter2D.new(),
+			{}
+		),
+		OK
+	)
+	active_session.advance_for_framework(1.0e308, 1.0e308)
+	assert_eq(active_session.get_elapsed_seconds(), 1.0e308)
+	assert_eq(active_session.get_travelled_distance(), 1.0e308)
+	active_session.advance_for_framework(1.0e308, 1.0e308)
+	assert_true(active_session.is_finished(), "累计溢出必须 first-wins 结束 ACTIVE session。")
+	assert_eq(
+		active_session.get_end_reason(),
+		GFProjectileSession.EndReason.INTERNAL_FAILURE
+	)
+	assert_eq(active_session.get_elapsed_seconds(), 1.0e308)
+	assert_eq(active_session.get_travelled_distance(), 1.0e308)
+	assert_true(is_finite(active_session.get_elapsed_seconds()))
+	assert_true(is_finite(active_session.get_travelled_distance()))
+
+	var terminal_root: Node2D = _make_bound_projectile_root_2d()
+	add_child_autofree(terminal_root)
+	var terminal_runtime: GFProjectile2D = _runtime_2d_from(terminal_root)
+	var terminal_session: GFProjectileSession = GFProjectileSession.new()
+	assert_eq(
+		terminal_session.activate_for_framework(
+			GFProjectileSession.Dimension.TWO_D,
+			2,
+			terminal_root,
+			terminal_runtime,
+			GFProjectileTransformBodyAdapter2D.new(),
+			{}
+		),
+		OK
+	)
+	terminal_session.advance_for_framework(1.0e308, 1.0e308)
+	assert_true(terminal_session.finish(GFProjectileSession.EndReason.CALLER_FINISHED))
+	assert_eq(
+		terminal_session.advance_terminal_body_result_for_framework(
+			terminal_session.get_generation(),
+			1.0e308,
+			1.0e308
+		),
+		ERR_INVALID_DATA,
+		"terminal metric 溢出必须拒绝且不得消费 one-shot observation。"
+	)
+	assert_eq(terminal_session.get_elapsed_seconds(), 1.0e308)
+	assert_eq(terminal_session.get_travelled_distance(), 1.0e308)
+	assert_eq(
+		terminal_session.advance_terminal_body_result_for_framework(
+			terminal_session.get_generation(),
+			1.0,
+			1.0
+		),
+		OK
+	)
+	assert_eq(
+		terminal_session.advance_terminal_body_result_for_framework(
+			terminal_session.get_generation(),
+			0.0,
+			0.0
+		),
+		ERR_INVALID_DATA
+	)
+
+
 func test_homing_motion_clamps_at_arrival_distance_through_adapter() -> void:
 	var root: Node2D = _make_bound_projectile_root_2d()
 	add_child_autofree(root)
@@ -3031,6 +3464,75 @@ func test_locked_homing_motion_keeps_private_2d_and_3d_direction_after_target_lo
 	var _finished_3d: bool = session_3d.finish(GFProjectileSession.EndReason.CALLER_FINISHED)
 
 
+func test_locked_homing_uses_launch_target_snapshot_for_arrival_clamp() -> void:
+	var root_2d: Node2D = _make_bound_projectile_root_2d()
+	add_child_autofree(root_2d)
+	var target_2d: Node2D = Node2D.new()
+	target_2d.position = Vector2(10.0, 0.0)
+	add_child_autofree(target_2d)
+	var definition_2d: GFProjectileDefinition2D = _make_projectile_definition_2d()
+	var motion_2d: GFHomingProjectileMotion = GFHomingProjectileMotion.new()
+	motion_2d.speed = 100.0
+	motion_2d.arrival_distance = 0.0
+	motion_2d.track_target = false
+	motion_2d.stop_when_reached = true
+	definition_2d.motion = motion_2d
+	var binding_2d: GFProjectileBinding2D = definition_2d.bind_instance(root_2d)
+	assert_true(binding_2d.is_valid())
+	if not binding_2d.is_valid():
+		return
+	var input_2d: GFProjectileLaunchInput2D = GFProjectileLaunchInput2D.new()
+	input_2d.set_target_node(target_2d)
+	var runtime_2d: GFProjectile2D = _runtime_2d_from(root_2d)
+	var session_2d: GFProjectileSession = runtime_2d.launch(binding_2d, input_2d)
+	assert_not_null(session_2d)
+	if session_2d == null:
+		return
+	target_2d.position = Vector2(100.0, 0.0)
+	runtime_2d._physics_process(1.0)
+	assert_eq(root_2d.position, Vector2(10.0, 0.0), "locked 2D 应按 launch 快照 clamp。")
+	assert_true(session_2d.is_active())
+
+	var root_3d: Node3D = _make_bound_projectile_root_3d()
+	add_child_autofree(root_3d)
+	var target_3d: Node3D = Node3D.new()
+	target_3d.position = Vector3(0.0, 0.0, -10.0)
+	add_child_autofree(target_3d)
+	var definition_3d: GFProjectileDefinition3D = _make_projectile_definition_3d()
+	var motion_3d: GFHomingProjectileMotion = GFHomingProjectileMotion.new()
+	motion_3d.speed = 100.0
+	motion_3d.arrival_distance = 0.0
+	motion_3d.track_target = false
+	motion_3d.stop_when_reached = true
+	definition_3d.motion = motion_3d
+	var binding_3d: GFProjectileBinding3D = definition_3d.bind_instance(root_3d)
+	assert_true(binding_3d.is_valid())
+	if not binding_3d.is_valid():
+		var _finished_2d_after_invalid_3d: bool = session_2d.finish(
+			GFProjectileSession.EndReason.CALLER_FINISHED
+		)
+		return
+	var input_3d: GFProjectileLaunchInput3D = GFProjectileLaunchInput3D.new()
+	input_3d.set_target_node(target_3d)
+	var runtime_3d: GFProjectile3D = _runtime_3d_from(root_3d)
+	var session_3d: GFProjectileSession = runtime_3d.launch(binding_3d, input_3d)
+	assert_not_null(session_3d)
+	if session_3d == null:
+		var _finished_2d_after_null_3d: bool = session_2d.finish(
+			GFProjectileSession.EndReason.CALLER_FINISHED
+		)
+		return
+	target_3d.position = Vector3(0.0, 0.0, -100.0)
+	runtime_3d._physics_process(1.0)
+	assert_eq(
+		root_3d.position,
+		Vector3(0.0, 0.0, -10.0),
+		"locked 3D 应按 launch 快照 clamp。"
+	)
+	assert_true(session_3d.is_active())
+	_finish_projectile_sessions([session_2d, session_3d])
+
+
 func test_projectile_session_tracks_zero_one_and_many_bound_impact_sources() -> void:
 	var receiver: HitReceiver2D = HitReceiver2D.new()
 	var rejecting_receiver: RejectingHitReceiver2D = RejectingHitReceiver2D.new()
@@ -3152,6 +3654,86 @@ func test_projectile_generation_ignores_stale_impact_callback() -> void:
 	var _second_finished: bool = second_session.finish(
 		GFProjectileSession.EndReason.CALLER_FINISHED
 	)
+
+
+func test_projectile_pool_reuse_rejects_stale_impact_and_terminal_callbacks() -> void:
+	var source_paths: Array[NodePath] = [NodePath("Impact")]
+	var definition: GFProjectileDefinition2D = _make_projectile_definition_2d(
+		source_paths
+	)
+	var parent: Node2D = Node2D.new()
+	add_child_autofree(parent)
+	var emitter: GFProjectileEmitter2D = GFProjectileEmitter2D.new()
+	parent.add_child(emitter)
+	emitter.projectile_definition = definition
+	emitter.use_object_pool = true
+	var pool: RecordingObjectPool = RecordingObjectPool.new()
+	pool.reuse_released_nodes = true
+	emitter.object_pool_utility = pool
+	var sessions: Array[GFProjectileSession] = []
+	var on_emitted: Callable = func(
+		_projectile_root: Node,
+		session: GFProjectileSession,
+		_launch_input: GFProjectileLaunchInput2D
+	) -> void:
+		sessions.append(session)
+	var _emitted_connected: int = emitter.projectile_emitted.connect(on_emitted)
+
+	var first_root: Node = emitter.emit_projectile()
+	assert_not_null(first_root)
+	assert_eq(sessions.size(), 1)
+	if first_root == null or sessions.size() != 1:
+		return
+	var runtime: GFProjectile2D = _runtime_2d_from(first_root)
+	var source: GFHitBox2D = _hit_box_2d_from(first_root, NodePath("Impact"))
+	var first_session: GFProjectileSession = sessions[0]
+	var stale_impact_callback: Callable = _signal_callable_for_target(
+		source,
+		&"hit_accepted",
+		runtime
+	)
+	var stale_terminal_callback: Callable = _signal_callable_for_target(
+		first_session,
+		&"finished",
+		runtime
+	)
+	assert_true(stale_impact_callback.is_valid())
+	assert_true(stale_terminal_callback.is_valid())
+	assert_true(first_session.finish(GFProjectileSession.EndReason.CALLER_FINISHED))
+	assert_eq(pool.release_count, 1)
+
+	var second_root: Node = emitter.emit_projectile()
+	assert_same(second_root, first_root, "测试池必须复用同一完整 root identity。")
+	assert_eq(sessions.size(), 2)
+	if second_root == null or sessions.size() != 2:
+		return
+	var second_session: GFProjectileSession = sessions[1]
+	assert_gt(second_session.get_generation(), first_session.get_generation())
+	var receiver: HitReceiver2D = HitReceiver2D.new()
+	add_child_autofree(receiver)
+	var stale_context: GFCombatHitContext = GFCombatHitContext.new()
+	var _stale_impact_result: Variant = stale_impact_callback.call(
+		stale_context,
+		receiver,
+		{ "ok": true }
+	)
+	var _stale_terminal_result: Variant = stale_terminal_callback.call(
+		first_session,
+		GFProjectileSession.EndReason.CALLER_FINISHED
+	)
+	assert_true(second_session.is_active())
+	assert_eq(second_session.get_accepted_impact_count(), 0)
+	assert_eq(pool.release_count, 1, "旧 terminal callback 不得归还新 generation。")
+	var current_source: GFHitBox2D = _hit_box_2d_from(
+		second_root,
+		NodePath("Impact")
+	)
+	var _current_report: Dictionary = current_source.send_to(receiver)
+	assert_eq(second_session.get_accepted_impact_count(), 1)
+	assert_true(second_session.finish(GFProjectileSession.EndReason.CALLER_FINISHED))
+	assert_eq(pool.release_count, 2)
+	if is_instance_valid(second_root):
+		second_root.free()
 
 
 func test_projectile_emission_policy_consumes_and_recovers_charges() -> void:
@@ -3868,6 +4450,47 @@ func test_projectile_emitter_releases_active_pool_lease_once_and_keeps_charge() 
 			candidate.free()
 
 
+func test_projectile_pool_generation_loss_falls_back_to_root_retirement() -> void:
+	var parent: Node2D = Node2D.new()
+	add_child_autofree(parent)
+	var pool: GFObjectPoolUtility = GFObjectPoolUtility.new()
+	pool.init()
+	var emitter: GFProjectileEmitter2D = GFProjectileEmitter2D.new()
+	parent.add_child(emitter)
+	emitter.projectile_definition = _make_projectile_definition_2d()
+	emitter.use_object_pool = true
+	emitter.object_pool_utility = pool
+	var sessions: Array[GFProjectileSession] = []
+	var on_emitted: Callable = func(
+		_projectile_root: Node,
+		session: GFProjectileSession,
+		_launch_input: GFProjectileLaunchInput2D
+	) -> void:
+		sessions.append(session)
+	var _emitted_connected: int = emitter.projectile_emitted.connect(on_emitted)
+
+	var roots: Array[Node] = emitter.emit_projectiles()
+	assert_eq(roots.size(), 1)
+	assert_eq(sessions.size(), 1)
+	if roots.is_empty() or sessions.is_empty():
+		pool.dispose()
+		return
+	var root: Node = roots[0]
+	var root_ref: WeakRef = weakref(root)
+	pool.init()
+	assert_true(
+		sessions[0].finish(GFProjectileSession.EndReason.CALLER_FINISHED)
+	)
+	assert_true(
+		root.is_queued_for_deletion(),
+		"pool lifecycle 丢失 ACTIVE generation 后 Emitter 必须接管完整 root 退休。"
+	)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	assert_true(root_ref.get_ref() == null)
+	pool.dispose()
+
+
 func test_projectile_emitter_exit_finishes_sessions_and_releases_pool_leases_once() -> void:
 	var parent: Node2D = Node2D.new()
 	add_child_autofree(parent)
@@ -4280,6 +4903,230 @@ func test_projectile_body_results_reject_non_finite_values_symmetrically() -> vo
 			Vector3(0.0, NAN, 0.0)
 		).is_successful()
 	)
+
+
+func test_projectile_motion_overflow_is_rejected_before_transform_mutation() -> void:
+	var overflow_intent_2d: GFProjectileMotionIntent2D = (
+		GFProjectileMotionIntent2D.move(Vector2(2.0e38, 0.0), 2.0)
+	)
+	var overflow_intent_3d: GFProjectileMotionIntent3D = (
+		GFProjectileMotionIntent3D.move(Vector3(0.0, 0.0, -2.0e38), 2.0)
+	)
+	assert_eq(overflow_intent_2d.get_kind(), GFProjectileMotionIntent2D.Kind.REJECTED)
+	assert_eq(overflow_intent_3d.get_kind(), GFProjectileMotionIntent3D.Kind.REJECTED)
+
+	var root_2d: Node2D = Node2D.new()
+	add_child_autofree(root_2d)
+	root_2d.global_position = Vector2(3.0e38, 0.0)
+	var before_2d: Transform2D = root_2d.global_transform
+	var candidate_overflow_2d: GFProjectileMotionIntent2D = (
+		GFProjectileMotionIntent2D.move(Vector2(1.0e38, 0.0), 0.5)
+	)
+	assert_eq(candidate_overflow_2d.get_kind(), GFProjectileMotionIntent2D.Kind.MOVE)
+	var result_2d: GFProjectileBodyResult2D = (
+		GFProjectileTransformBodyAdapter2D.new().apply_intent(
+			root_2d,
+			candidate_overflow_2d
+		)
+	)
+	assert_false(result_2d.is_successful())
+	assert_eq(result_2d.get_failure_reason(), &"non_finite_motion_intent")
+	assert_eq(root_2d.global_transform, before_2d, "2D overflow 必须在权威 root 写入前失败。")
+	var character_2d: CharacterBody2D = CharacterBody2D.new()
+	add_child_autofree(character_2d)
+	character_2d.global_position = before_2d.origin
+	character_2d.velocity = Vector2(3.0, 4.0)
+	var character_before_2d: Transform2D = character_2d.global_transform
+	var character_result_2d: GFProjectileBodyResult2D = (
+		GFProjectileCharacterBodyAdapter2D.new().apply_intent(
+			character_2d,
+			candidate_overflow_2d
+		)
+	)
+	assert_false(character_result_2d.is_successful())
+	assert_eq(character_result_2d.get_failure_reason(), &"non_finite_motion_intent")
+	assert_eq(character_2d.global_transform, character_before_2d)
+	assert_eq(character_2d.velocity, Vector2(3.0, 4.0))
+
+	var root_3d: Node3D = Node3D.new()
+	add_child_autofree(root_3d)
+	root_3d.global_position = Vector3(0.0, 0.0, -3.0e38)
+	var before_3d: Transform3D = root_3d.global_transform
+	var candidate_overflow_3d: GFProjectileMotionIntent3D = (
+		GFProjectileMotionIntent3D.move(Vector3(0.0, 0.0, -1.0e38), 0.5)
+	)
+	assert_eq(candidate_overflow_3d.get_kind(), GFProjectileMotionIntent3D.Kind.MOVE)
+	var result_3d: GFProjectileBodyResult3D = (
+		GFProjectileTransformBodyAdapter3D.new().apply_intent(
+			root_3d,
+			candidate_overflow_3d
+		)
+	)
+	assert_false(result_3d.is_successful())
+	assert_eq(result_3d.get_failure_reason(), &"non_finite_motion_intent")
+	assert_eq(root_3d.global_transform, before_3d, "3D overflow 必须在权威 root 写入前失败。")
+	var character_3d: CharacterBody3D = CharacterBody3D.new()
+	add_child_autofree(character_3d)
+	character_3d.global_position = before_3d.origin
+	character_3d.velocity = Vector3(3.0, 4.0, 5.0)
+	var character_before_3d: Transform3D = character_3d.global_transform
+	var character_result_3d: GFProjectileBodyResult3D = (
+		GFProjectileCharacterBodyAdapter3D.new().apply_intent(
+			character_3d,
+			candidate_overflow_3d
+		)
+	)
+	assert_false(character_result_3d.is_successful())
+	assert_eq(character_result_3d.get_failure_reason(), &"non_finite_motion_intent")
+	assert_eq(character_3d.global_transform, character_before_3d)
+	assert_eq(character_3d.velocity, Vector3(3.0, 4.0, 5.0))
+
+
+func test_projectile_runtime_rejects_failed_step_capture_before_motion() -> void:
+	var root_2d: Node2D = _make_bound_projectile_root_2d()
+	add_child_autofree(root_2d)
+	var adapter_2d: FailingStepCaptureAdapter2D = FailingStepCaptureAdapter2D.new()
+	var motion_2d: TrackingMotionStateLifecycle = TrackingMotionStateLifecycle.new()
+	var definition_2d: GFProjectileDefinition2D = _make_projectile_definition_2d()
+	definition_2d.body_adapter = adapter_2d
+	definition_2d.motion = motion_2d
+	var binding_2d: GFProjectileBinding2D = definition_2d.bind_instance(root_2d)
+	assert_true(binding_2d.is_valid())
+	if not binding_2d.is_valid():
+		return
+	var runtime_2d: GFProjectile2D = _runtime_2d_from(root_2d)
+	var session_2d: GFProjectileSession = runtime_2d.launch(binding_2d)
+	assert_not_null(session_2d)
+	if session_2d == null:
+		return
+	runtime_2d._physics_process(0.25)
+	assert_true(session_2d.is_finished())
+	assert_eq(
+		session_2d.get_end_reason(),
+		GFProjectileSession.EndReason.BODY_APPLICATION_FAILED
+	)
+	assert_true(
+		motion_2d.computed_state_ids.is_empty(),
+		"失败 capture 不得作为 current body 进入 Motion。"
+	)
+	if session_2d.is_active():
+		var _finished_2d: bool = session_2d.finish(
+			GFProjectileSession.EndReason.CALLER_FINISHED
+		)
+
+	var root_3d: Node3D = _make_bound_projectile_root_3d()
+	add_child_autofree(root_3d)
+	var adapter_3d: FailingStepCaptureAdapter3D = FailingStepCaptureAdapter3D.new()
+	var motion_3d: TrackingMotionStateLifecycle = TrackingMotionStateLifecycle.new()
+	var definition_3d: GFProjectileDefinition3D = _make_projectile_definition_3d()
+	definition_3d.body_adapter = adapter_3d
+	definition_3d.motion = motion_3d
+	var binding_3d: GFProjectileBinding3D = definition_3d.bind_instance(root_3d)
+	assert_true(binding_3d.is_valid())
+	if not binding_3d.is_valid():
+		return
+	var runtime_3d: GFProjectile3D = _runtime_3d_from(root_3d)
+	var session_3d: GFProjectileSession = runtime_3d.launch(binding_3d)
+	assert_not_null(session_3d)
+	if session_3d == null:
+		return
+	runtime_3d._physics_process(0.25)
+	assert_true(session_3d.is_finished())
+	assert_eq(
+		session_3d.get_end_reason(),
+		GFProjectileSession.EndReason.BODY_APPLICATION_FAILED
+	)
+	assert_true(
+		motion_3d.computed_state_ids.is_empty(),
+		"3D 失败 capture 同样不得进入 Motion。"
+	)
+	if session_3d.is_active():
+		var _finished_3d: bool = session_3d.finish(
+			GFProjectileSession.EndReason.CALLER_FINISHED
+		)
+
+
+func test_projectile_runtime_rejects_non_finite_initial_capture_before_motion() -> void:
+	var root_2d: Node2D = _make_bound_projectile_root_2d()
+	add_child_autofree(root_2d)
+	var motion_2d: TrackingMotionStateLifecycle = TrackingMotionStateLifecycle.new()
+	var definition_2d: GFProjectileDefinition2D = _make_projectile_definition_2d()
+	definition_2d.body_adapter = NonFiniteInitialCaptureAdapter2D.new()
+	definition_2d.motion = motion_2d
+	var binding_2d: GFProjectileBinding2D = definition_2d.bind_instance(root_2d)
+	assert_true(binding_2d.is_valid())
+	if not binding_2d.is_valid():
+		return
+	var runtime_2d: GFProjectile2D = _runtime_2d_from(root_2d)
+	assert_null(runtime_2d.launch(binding_2d))
+	assert_true(motion_2d.state_refs.is_empty(), "非有限 2D preflight capture 不得进入 Motion。")
+	assert_false(runtime_2d.is_active())
+
+	var root_3d: Node3D = _make_bound_projectile_root_3d()
+	add_child_autofree(root_3d)
+	var motion_3d: TrackingMotionStateLifecycle = TrackingMotionStateLifecycle.new()
+	var definition_3d: GFProjectileDefinition3D = _make_projectile_definition_3d()
+	definition_3d.body_adapter = NonFiniteInitialCaptureAdapter3D.new()
+	definition_3d.motion = motion_3d
+	var binding_3d: GFProjectileBinding3D = definition_3d.bind_instance(root_3d)
+	assert_true(binding_3d.is_valid())
+	if not binding_3d.is_valid():
+		return
+	var runtime_3d: GFProjectile3D = _runtime_3d_from(root_3d)
+	assert_null(runtime_3d.launch(binding_3d))
+	assert_true(motion_3d.state_refs.is_empty(), "非有限 3D preflight capture 不得进入 Motion。")
+	assert_false(runtime_3d.is_active())
+
+
+func test_projectile_runtime_rejects_motion_delta_mismatch_symmetrically() -> void:
+	var root_2d: Node2D = _make_bound_projectile_root_2d()
+	add_child_autofree(root_2d)
+	var definition_2d: GFProjectileDefinition2D = _make_projectile_definition_2d()
+	definition_2d.motion = MismatchedDeltaMotion.new()
+	definition_2d.body_adapter = GFProjectileTransformBodyAdapter2D.new()
+	var binding_2d: GFProjectileBinding2D = definition_2d.bind_instance(root_2d)
+	assert_true(binding_2d.is_valid())
+	if not binding_2d.is_valid():
+		return
+	var runtime_2d: GFProjectile2D = _runtime_2d_from(root_2d)
+	var session_2d: GFProjectileSession = runtime_2d.launch(binding_2d)
+	assert_not_null(session_2d)
+	if session_2d == null:
+		return
+	var before_2d: Transform2D = root_2d.global_transform
+	runtime_2d._physics_process(0.25)
+	assert_true(session_2d.is_finished())
+	assert_eq(
+		session_2d.get_end_reason(),
+		GFProjectileSession.EndReason.INVALID_MOTION_INTENT
+	)
+	assert_eq(root_2d.global_transform, before_2d)
+
+	var root_3d: CharacterBody3D = CharacterBody3D.new()
+	var runtime_3d: GFProjectile3D = GFProjectile3D.new()
+	runtime_3d.name = &"ProjectileRuntime"
+	root_3d.add_child(runtime_3d)
+	add_child_autofree(root_3d)
+	var definition_3d: GFProjectileDefinition3D = _make_projectile_definition_3d()
+	definition_3d.motion = MismatchedDeltaMotion.new()
+	definition_3d.body_adapter = GFProjectileCharacterBodyAdapter3D.new()
+	var binding_3d: GFProjectileBinding3D = definition_3d.bind_instance(root_3d)
+	assert_true(binding_3d.is_valid())
+	if not binding_3d.is_valid():
+		return
+	var session_3d: GFProjectileSession = runtime_3d.launch(binding_3d)
+	assert_not_null(session_3d)
+	if session_3d == null:
+		return
+	var before_3d: Transform3D = root_3d.global_transform
+	runtime_3d._physics_process(0.25)
+	assert_true(session_3d.is_finished())
+	assert_eq(
+		session_3d.get_end_reason(),
+		GFProjectileSession.EndReason.INVALID_MOTION_INTENT
+	)
+	assert_eq(root_3d.global_transform, before_3d)
+	assert_eq(root_3d.velocity, Vector3.ZERO)
 
 
 func test_projectile_apply_finish_counts_last_displacement_once_in_both_dimensions() -> void:

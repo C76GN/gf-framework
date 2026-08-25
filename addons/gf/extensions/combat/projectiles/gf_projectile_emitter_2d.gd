@@ -35,7 +35,7 @@ signal projectile_emitted(
 ## [br]
 ## @param details: 有界诊断详情。
 ## [br]
-## @schema details: Dictionary，最多 16 项；键仅限 ok、reason、policy_id、projectile_id、requested_count、emit_count、emitted_count、hard_limit、now_msec、state、published、committed、compensated、rolled_back、remaining_cooldown_seconds、available_charges、required_charges、consumed_charges、emission_count、policy_instance_id、policy_state_generation、policy_enabled；值仅限 null、bool、int、有限 float、String（至多 256 字符）、StringName（至多 128 字符）或 NodePath（至多 256 字符）。
+## @schema details: Dictionary，最多 16 项；键仅限 ok、reason、binding_failure_reason、policy_id、projectile_id、requested_count、emit_count、emitted_count、hard_limit、now_msec、state、published、committed、compensated、rolled_back、remaining_cooldown_seconds、available_charges、required_charges、consumed_charges、emission_count、policy_instance_id、policy_state_generation、policy_enabled；binding_failure_reason 为 GFProjectileBinding.FailureReason；值仅限 null、bool、int、有限 float、String（至多 256 字符）、StringName（至多 128 字符）或 NodePath（至多 256 字符）。
 signal projectile_emit_failed(reason: StringName, details: Dictionary)
 
 
@@ -156,7 +156,12 @@ class _RetirementRecord:
 		_release_unconsumed_reservation()
 		if pool != null and is_instance_valid(pool):
 			if projectile_root != null and is_instance_valid(projectile_root):
-				pool.release(projectile_root, projectile_scene)
+				var released_to_pool: bool = pool.release_for_framework(
+					projectile_root,
+					projectile_scene
+				)
+				if not released_to_pool and not projectile_root.is_queued_for_deletion():
+					projectile_root.queue_free()
 			elif projectile_root_id > 0:
 				var _lost_retired: bool = pool.retire_lost_lease_for_framework(
 					projectile_scene,
@@ -605,7 +610,18 @@ func _emit_projectiles_transaction(
 			_abort_precommit(reservations, records, task, bound_fence_reason)
 			return []
 		if binding == null or not binding.is_valid():
-			_abort_precommit(reservations, records, task, &"binding_failed")
+			var binding_failure_reason: int = (
+				binding.get_failure_reason()
+				if binding != null
+				else GFProjectileBinding.FailureReason.INTERNAL_FAILURE
+			)
+			_abort_precommit(
+				reservations,
+				records,
+				task,
+				&"binding_failed",
+				{ "binding_failure_reason": binding_failure_reason }
+			)
 			return []
 		var runtime_value: Node = binding.get_runtime()
 		if not runtime_value is GFProjectile2D:
@@ -1271,14 +1287,15 @@ func _abort_precommit(
 	reservations: Array[GFProjectileLaunchReservation],
 	records: Array[_RetirementRecord],
 	task: GFProjectileEmissionTask,
-	reason: StringName
+	reason: StringName,
+	details: Dictionary = {}
 ) -> void:
 	for reservation: GFProjectileLaunchReservation in reservations:
 		var _aborted: bool = reservation.abort_for_framework(self, reason)
 	for record: _RetirementRecord in records:
 		_retire_now(record)
 	var _rolled_back: Dictionary = task.rollback(reason)
-	_emit_failure(reason, {})
+	_emit_failure(reason, details)
 
 
 func _abort_committed_pre_activation(
@@ -1455,6 +1472,7 @@ func _failure_detail_key_is_allowed(key: StringName) -> bool:
 	return key in [
 		&"ok",
 		&"reason",
+		&"binding_failure_reason",
 		&"policy_id",
 		&"projectile_id",
 		&"requested_count",

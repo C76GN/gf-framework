@@ -12,9 +12,13 @@ Combat 的 Projectile API 把“场景拓扑、发射输入、运动决策、宿
 
 ```text
 ArrowRoot (Node2D 或 CharacterBody2D)
+├── View (项目视觉/动画子树)
 ├── ProjectileRuntime (GFProjectile2D)
-└── ImpactSource (GFHitBox2D 或 GFHitScan2D，可选)
+├── HitBox (GFHitBox2D，可选)
+└── HitScan (GFHitScan2D，可选)
 ```
+
+Emitter 与 BodyAdapter 始终把 `ArrowRoot` 作为唯一分配、移动和退休单元；所以 View、HitBox、HitScan 以及其他后代会随 root 一起移动，同时保持各自局部偏移。3D 使用同构的 `Node3D` / `CharacterBody3D`、`GFProjectile3D`、`GFHitBox3D` 与 `GFHitScan3D`。
 
 对应 Definition 至少配置：
 
@@ -63,9 +67,9 @@ if session == null:
 3. metadata 按 default → call 合并，同名键由 call 覆盖；
 4. 每个候选再取得彼此独立的最终快照。
 
-`GFProjectileSession` 是 2D/3D 共用的维度中立运行句柄。`get_status()` 返回 `UNCONFIGURED`、`ACTIVE` 或 `FINISHED`，`get_dimension()` 区分 `TWO_D` / `THREE_D`；其余 getter 提供 generation、完整实例 root、runtime、累计活动秒数、累计实际位移、已接受 impact 数、首次结束原因和 metadata 深副本。
+`GFProjectileSession` 是 2D/3D 共用的维度中立运行句柄。`get_status()` 返回 `UNCONFIGURED`、`ACTIVE` 或 `FINISHED`，`get_dimension()` 区分 `TWO_D` / `THREE_D`；其余 getter 提供 generation、完整实例 root、runtime、累计活动秒数、累计实际位移、已接受 impact 数、首次结束原因和 metadata 深副本。单帧观测与累计值都必须保持有限；累计溢出会保留最后一份有限指标并以 `INTERNAL_FAILURE` 结束，迟到 terminal 观测的溢出则失败关闭且不消费 one-shot 记录资格。
 
-`finish(reason)` 是 first-wins：只允许 ACTIVE Session 用非 `NONE` 原因结算一次，并会通过 Adapter 停止宿主运动 authority。重复 finish 不改变终态，也不产生额外位移。`GFProjectile2D` / `GFProjectile3D` 的 `get_active_session()` 和 `is_active()` 只描述当前 runtime，不承担完整 root 的释放。
+`finish(reason)` 是 first-wins：只允许 ACTIVE Session 用非 `NONE` 原因结算一次，并会 best-effort 通过 Adapter 停止宿主运动 authority。结束原因在 stop 前已经冻结；stop 的失败结果不会改写首次 reason。重复 finish 不改变终态，也不产生额外位移。`GFProjectile2D` / `GFProjectile3D` 的 `get_active_session()` 和 `is_active()` 只描述当前 runtime，不承担完整 root 的释放。
 
 ## Motion、Intent 与 BodyAdapter
 
@@ -73,7 +77,7 @@ if session == null:
 
 MotionState 是单个 Runtime generation 的私有运行状态：由 Motion 的 `create_state_*()` 创建，prepare 成功后由 Runtime 强持有；prepare 失败或 Session 进入终态时，Runtime 立即释放自己的 ownership，旧 state 对 Runtime 随即失效。外部保留这个 RefCounted 只会延长对象本身的存活时间，不会延长 Runtime 语义、恢复已结束 Session，也不会让旧 state 被下一次 launch 复用。
 
-Intent 只有 `NONE`、`MOVE`、`REJECTED`、`FINISH` 四种 Kind。MOVE 携带 world-space velocity 和本次 delta；REJECTED 携带稳定失败原因；FINISH 以 `MOTION_FINISHED` 正常结束 Session。自定义 Motion 应覆写 protected state/intent 钩子，把跨帧数据存入 Session 私有 MotionState，并保证计算同步、确定、有界、无宿主副作用。
+Intent 只有 `NONE`、`MOVE`、`REJECTED`、`FINISH` 四种 Kind。MOVE 携带 world-space velocity 和本次 delta；velocity、delta 及两者乘积都必须有限，否则在写宿主前转为 REJECTED。自定义 Motion 的 MOVE 必须原样回显本次 `compute_intent_*()` 收到的 delta；需要时间缩放时调整 velocity，不能另造 delta，否则 Runtime 会在 Adapter 前以 `INVALID_MOTION_INTENT` 终结。这使直接 Transform 与使用当前 physics step 的 CharacterBody 共享同一时间语义。REJECTED 携带稳定失败原因；FINISH 以 `MOTION_FINISHED` 正常结束 Session。自定义 Motion 应覆写 protected state/intent 钩子，把跨帧数据存入 Session 私有 MotionState，并保证计算同步、确定、有界、无宿主副作用。
 
 `GFProjectileBodyAdapter2D` / `GFProjectileBodyAdapter3D` 是唯一可写宿主的协议：
 
@@ -89,7 +93,9 @@ Intent 只有 `NONE`、`MOVE`、`REJECTED`、`FINISH` 四种 Kind。MOVE 携带 
 - `GFProjectileTransformBodyAdapter2D` / `GFProjectileTransformBodyAdapter3D` 直接更新普通 `Node2D` / `Node3D`，并明确拒绝 PhysicsBody。
 - `GFProjectileCharacterBodyAdapter2D` / `GFProjectileCharacterBodyAdapter3D` 只接受对应 CharacterBody，使用 `move_and_slide()`，并在 stop 时清零 velocity。
 
-`GFLinearProjectileMotion` 提供直线 world-space intent，可从初始 body basis 转换局部方向；`GFHomingProjectileMotion` 读取 typed LaunchInput target，按目标位置计算追踪 intent。Homing 的 `arrival_distance` 必须是有限值：`stop_when_reached` 启用时，非负值参与 arrival clamp，有限负值保持兼容语义并禁用 clamp；NaN/Inf 会在 state/intent 边界被拒绝。两者都不会自行写 root。自定义物理宿主应实现新的 Adapter，而不是让 Motion 通过 duck typing 操作节点。
+四个内置 Adapter 都会在写入前验证 intent 位移与候选 world position；乘法或加法溢出会返回稳定失败并保持 root transform 与 CharacterBody velocity 不变。CharacterBody 路径从真实 `move_and_slide()` 结果报告实际位移，不用 intent 位移冒充碰撞后的运动。
+
+`GFLinearProjectileMotion` 提供直线 world-space intent，可从初始 body basis 转换局部方向；`GFHomingProjectileMotion` 读取 typed LaunchInput target，按目标位置计算追踪 intent。`track_target=true` 时每帧刷新 node 目标；关闭且目标仍存活时，方向和 arrival clamp 都冻结到 launch 快照，目标后来移动也不会改写本次弹道；目标失效后则沿锁定方向继续并禁用旧位置 clamp。Homing 的 `arrival_distance` 必须是有限值：`stop_when_reached` 启用时，非负值参与 arrival clamp，有限负值保持兼容语义并禁用 clamp；NaN/Inf 会在 state/intent 边界被拒绝。两者都不会自行写 root。自定义物理宿主应实现新的 Adapter，而不是让 Motion 通过 duck typing 操作节点。
 
 ## 距离、Impact 与生命周期
 
@@ -127,11 +133,11 @@ func fire(target: Node2D) -> void:
         return
 ```
 
-2D 的精确入口为 `emit_projectile(launch_input, projectile_id) -> Node` 和 `emit_projectiles(launch_input, projectile_id, emit_count) -> Array[Node]`；3D 使用 `GFProjectileLaunchInput3D` 对称。返回值是 allocator 管理的完整实例 root，不是 runtime 子节点。`projectile_emitted(projectile_root, session, launch_input)` 在 Session ACTIVE 且 started 已发布后发出；`projectile_emit_failed(reason, details)` 只提供稳定原因和有界诊断。
+2D 的精确入口为 `emit_projectile(launch_input, projectile_id) -> Node` 和 `emit_projectiles(launch_input, projectile_id, emit_count) -> Array[Node]`；3D 使用 `GFProjectileLaunchInput3D` 对称。返回值是 allocator 管理的完整实例 root，不是 runtime 子节点。`projectile_emitted(projectile_root, session, launch_input)` 在 Session ACTIVE 且 started 已发布后发出；`projectile_emit_failed(reason, details)` 只提供稳定原因和有界诊断。`reason == &"binding_failed"` 时，`details.binding_failure_reason` 是对应 `GFProjectileBinding.FailureReason` 的整数值，可区分缺失/重复 runtime、错误维度、非法 impact source 与其他拓扑拒绝；不要仅依赖自由文本诊断。
 
 `GFProjectileSpawnPattern2D` / `GFProjectileSpawnPattern3D` 的 `get_spawn_transforms(emitter, launch_input, emit_count)` 只计算变换，不实例化节点。内置模式包括 `GFProjectileBurstPattern2D`、`GFProjectileLineSpawnPattern2D`、`GFProjectileConePattern3D` 和 `GFProjectileLineSpawnPattern3D`。自定义模式必须返回有限变换，并把请求数量与 Emitter 硬上限视为真实预算。
 
-Fresh 模式由 Emitter 实例化并最终 free 完整 root；pool 模式由显式提供的 `GFObjectPoolUtility` acquire/release。`use_object_pool` 不会隐式从全局 `Gf` 解析 Utility。无论哪种模式，同一候选都只退休一次；Session finish 本身不 free 或归还 root。
+Fresh 模式由 Emitter 实例化并最终 free 完整 root；pool 模式由显式提供的 `GFObjectPoolUtility` acquire/release。`use_object_pool` 不会隐式从全局 `Gf` 解析 Utility。正常结算只归还仍匹配本次 active lease 的精确 root；若同一 Utility 在 Session 活动期间被 `init()` 等生命周期切换清除了旧 lease tracking，Emitter 会对自己仍持有的精确 root 执行一次 free fallback，避免把无主节点遗留在业务父树。无论哪种模式，同一候选都只退休一次；Session finish 本身不 free 或归还 root。
 
 ## 两阶段批次与收费边界
 

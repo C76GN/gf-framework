@@ -187,7 +187,7 @@ func _compute_intent_2d( _state: GFProjectileMotionState, _current_body: GFProje
 |---|---|
 | `_state` | session 私有 state。 |
 | `_current_body` | 当前 body 快照。 |
-| `_delta` | 本帧秒数。 |
+| `_delta` | 本帧秒数；MOVE intent 必须原样回显该 delta，时间缩放应改写 velocity。 |
 
 返回：typed 2D intent。
 
@@ -214,7 +214,7 @@ func _compute_intent_3d( _state: GFProjectileMotionState, _current_body: GFProje
 |---|---|
 | `_state` | session 私有 state。 |
 | `_current_body` | 当前 body 快照。 |
-| `_delta` | 本帧秒数。 |
+| `_delta` | 本帧秒数；MOVE intent 必须原样回显该 delta，时间缩放应改写 velocity。 |
 
 返回：typed 3D intent。
 

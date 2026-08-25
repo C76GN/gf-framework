@@ -40,12 +40,35 @@ func _apply_intent(
 		if intent != null and intent.get_failure_reason() != &"":
 			reason = intent.get_failure_reason()
 		return GFProjectileBodyResult3D.failed(reason, before_transform)
-	body.velocity = intent.get_velocity() if intent.get_kind() == GFProjectileMotionIntent3D.Kind.MOVE else Vector3.ZERO
+	var before_velocity: Vector3 = body.velocity
+	var requested_velocity: Vector3 = (
+		intent.get_velocity()
+		if intent.get_kind() == GFProjectileMotionIntent3D.Kind.MOVE
+		else Vector3.ZERO
+	)
+	var intended_displacement: Vector3 = requested_velocity * intent.get_delta_seconds()
+	if (
+		not intended_displacement.is_finite()
+		or not (before_transform.origin + intended_displacement).is_finite()
+	):
+		return GFProjectileBodyResult3D.failed(
+			&"non_finite_motion_intent",
+			before_transform
+		)
+	body.velocity = requested_velocity
 	var _collided: bool = body.move_and_slide()
 	var after_transform: Transform3D = body.global_transform
+	var actual_displacement: Vector3 = after_transform.origin - before_transform.origin
+	if not after_transform.origin.is_finite() or not actual_displacement.is_finite():
+		body.global_transform = before_transform
+		body.velocity = before_velocity
+		return GFProjectileBodyResult3D.failed(
+			&"non_finite_motion_intent",
+			before_transform
+		)
 	return GFProjectileBodyResult3D.successful(
 		after_transform,
-		after_transform.origin - before_transform.origin
+		actual_displacement
 	)
 
 

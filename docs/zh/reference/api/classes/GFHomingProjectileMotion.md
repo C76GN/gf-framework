@@ -59,7 +59,7 @@ var arrival_distance: float = 0.0
 var track_target: bool = true
 ```
 
-是否每帧重新读取 node 目标位置。
+是否每帧重新读取 node 目标位置；关闭且目标仍存活时，方向与 arrival clamp 使用 launch 快照。 目标失效后会沿锁定方向继续，并禁用旧位置 clamp。
 
 <a id="member-gfhomingprojectilemotion-properties-stop_when_reached"></a>
 

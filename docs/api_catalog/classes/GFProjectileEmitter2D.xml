@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFProjectileEmitter2D" path="addons/gf/extensions/combat/projectiles/gf_projectile_emitter_2d.gd" module="extensions/combat" extends="Node2D" classDigest="3ac939afa513655499ea3810a89ae8a244a894261eeac91bb5892cb398204425">
+<class name="GFProjectileEmitter2D" path="addons/gf/extensions/combat/projectiles/gf_projectile_emitter_2d.gd" module="extensions/combat" extends="Node2D" classDigest="0049cf300855e513efe69c5b876d751126446e6e0a5008aaf256cbf4f2f91eb5">
 	<description>GFProjectileEmitter2D: 以两阶段事务发射 typed 2D projectile definition。</description>
 	<tags>
 		<tag name="api">public</tag>
@@ -25,7 +25,7 @@
 				<tag name="api">public</tag>
 				<tag name="param">reason: 稳定失败原因。</tag>
 				<tag name="param">details: 有界诊断详情。</tag>
-				<tag name="schema">details: Dictionary，最多 16 项；键仅限 ok、reason、policy_id、projectile_id、requested_count、emit_count、emitted_count、hard_limit、now_msec、state、published、committed、compensated、rolled_back、remaining_cooldown_seconds、available_charges、required_charges、consumed_charges、emission_count、policy_instance_id、policy_state_generation、policy_enabled；值仅限 null、bool、int、有限 float、String（至多 256 字符）、StringName（至多 128 字符）或 NodePath（至多 256 字符）。</tag>
+				<tag name="schema">details: Dictionary，最多 16 项；键仅限 ok、reason、binding_failure_reason、policy_id、projectile_id、requested_count、emit_count、emitted_count、hard_limit、now_msec、state、published、committed、compensated、rolled_back、remaining_cooldown_seconds、available_charges、required_charges、consumed_charges、emission_count、policy_instance_id、policy_state_generation、policy_enabled；binding_failure_reason 为 GFProjectileBinding.FailureReason；值仅限 null、bool、int、有限 float、String（至多 256 字符）、StringName（至多 128 字符）或 NodePath（至多 256 字符）。</tag>
 				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>

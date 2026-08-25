@@ -37,7 +37,8 @@ class _HomingState:
 ## @since 3.17.0
 @export var arrival_distance: float = 0.0
 
-## 是否每帧重新读取 node 目标位置。
+## 是否每帧重新读取 node 目标位置；关闭且目标仍存活时，方向与 arrival clamp 使用 launch 快照。
+## 目标失效后会沿锁定方向继续，并禁用旧位置 clamp。
 ## [br]
 ## @api public
 ## [br]
@@ -139,7 +140,7 @@ func _compute_intent_2d(
 				return GFProjectileMotionIntent2D.rejected(&"target_lost")
 			has_target = not homing_state._locked_direction_2d.is_zero_approx()
 			locked_target_lost = has_target
-		else:
+		elif track_target:
 			target_position = _get_position_2d(target)
 	if not has_target:
 		return GFProjectileMotionIntent2D.rejected(&"target_lost")
@@ -180,7 +181,7 @@ func _compute_intent_3d(
 				return GFProjectileMotionIntent3D.rejected(&"target_lost")
 			has_target = not homing_state._locked_direction_3d.is_zero_approx()
 			locked_target_lost = has_target
-		else:
+		elif track_target:
 			target_position = _get_position_3d(target)
 	if not has_target:
 		return GFProjectileMotionIntent3D.rejected(&"target_lost")

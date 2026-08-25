@@ -123,6 +123,19 @@ func _physics_process(delta: float) -> void:
 		var _capture_failed: bool = session.finish(GFProjectileSession.EndReason.BODY_APPLICATION_FAILED)
 		return
 	var current_body: GFProjectileBodyResult2D = current_body_value
+	if (
+		not current_body.is_successful()
+		or not _GF_COMBAT_FINITE_MATH.is_finite_transform2d(
+			current_body.get_transform()
+		)
+		or not _GF_COMBAT_FINITE_MATH.is_finite_vector2(
+			current_body.get_actual_displacement()
+		)
+	):
+		var _capture_rejected: bool = session.finish(
+			GFProjectileSession.EndReason.BODY_APPLICATION_FAILED
+		)
+		return
 	var intent_value: Variant = motion.compute_intent_2d(
 		_motion_state,
 		current_body,
@@ -141,6 +154,14 @@ func _physics_process(delta: float) -> void:
 		if intent.get_failure_reason() == &"target_lost":
 			reason = GFProjectileSession.EndReason.TARGET_LOST
 		var _intent_failed: bool = session.finish(reason)
+		return
+	if (
+		intent.get_kind() == GFProjectileMotionIntent2D.Kind.MOVE
+		and intent.get_delta_seconds() != delta
+	):
+		var _mismatched_delta: bool = session.finish(
+			GFProjectileSession.EndReason.INVALID_MOTION_INTENT
+		)
 		return
 	if intent.get_kind() == GFProjectileMotionIntent2D.Kind.FINISH:
 		var _motion_finished: bool = session.finish(
@@ -693,7 +714,15 @@ func _prepare_launch_payload(
 	if not _is_live_object_of_type(initial_body_value, GFProjectileBodyResult2D):
 		return false
 	var initial_body: GFProjectileBodyResult2D = initial_body_value
-	if not initial_body.is_successful():
+	if (
+		not initial_body.is_successful()
+		or not _GF_COMBAT_FINITE_MATH.is_finite_transform2d(
+			initial_body.get_transform()
+		)
+		or not _GF_COMBAT_FINITE_MATH.is_finite_vector2(
+			initial_body.get_actual_displacement()
+		)
+	):
 		return false
 	var state_value: Variant = motion.create_state_2d(launch_input, initial_body)
 	if not _preparation_dependencies_are_current(

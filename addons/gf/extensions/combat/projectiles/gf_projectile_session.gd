@@ -78,7 +78,7 @@ enum EndReason {
 	INVALID_MOTION_INTENT = 8,
 	## Motion state 或计算失败。
 	MOTION_FAILED = 9,
-	## Body adapter 捕获、应用或停止失败。
+	## Body adapter 捕获或应用失败。
 	BODY_APPLICATION_FAILED = 10,
 	## 完整实例 root 已丢失。
 	ROOT_LOST = 11,
@@ -243,7 +243,8 @@ func is_finished() -> bool:
 	return _status == Status.FINISHED
 
 
-## 以 first-wins 语义结束 session，并要求 adapter 停止 body。
+## 以 first-wins 语义结束 session，并 best-effort 要求 adapter 停止 body。
+## stop 在 reason 冻结后执行，其结果不会改写本次既有终结原因。
 ## [br]
 ## @api public
 ## [br]
@@ -323,9 +324,10 @@ func activate_for_framework(
 ## [br]
 ## @since unreleased
 ## [br]
-## @param delta: 本帧秒数；负值按零处理。
+## @param delta: 本帧有限非负秒数。
 ## [br]
-## @param displacement_length: adapter 返回的实际位移长度；负值按零处理。
+## @param displacement_length: adapter 返回的有限非负实际位移长度。
+## 两项累计值必须保持有限；溢出会以 INTERNAL_FAILURE 结束且保留最后有限快照。
 func advance_for_framework(delta: float, displacement_length: float) -> void:
 	if _status != Status.ACTIVE:
 		return
@@ -337,8 +339,16 @@ func advance_for_framework(delta: float, displacement_length: float) -> void:
 	):
 		var _invalid_observation: bool = finish(EndReason.INTERNAL_FAILURE)
 		return
-	_elapsed_seconds += delta
-	_travelled_distance += displacement_length
+	var next_elapsed_seconds: float = _elapsed_seconds + delta
+	var next_travelled_distance: float = _travelled_distance + displacement_length
+	if (
+		not _GF_COMBAT_FINITE_MATH.is_finite_float(next_elapsed_seconds)
+		or not _GF_COMBAT_FINITE_MATH.is_finite_float(next_travelled_distance)
+	):
+		var _overflowed_observation: bool = finish(EndReason.INTERNAL_FAILURE)
+		return
+	_elapsed_seconds = next_elapsed_seconds
+	_travelled_distance = next_travelled_distance
 
 
 ## 记录 adapter apply 回调内同步结束后返回的最后一次 body 观测。
@@ -353,7 +363,7 @@ func advance_for_framework(delta: float, displacement_length: float) -> void:
 ## [br]
 ## @param displacement_length: apply 已产生的有限非负实际位移长度。
 ## [br]
-## @return: 同 generation 的首次 terminal 观测被记录时为 OK。
+## @return: 同 generation 的首次有限 terminal 观测被记录时为 OK；累计溢出返回 ERR_INVALID_DATA。
 func advance_terminal_body_result_for_framework(
 	generation: int,
 	delta: float,
@@ -369,9 +379,16 @@ func advance_terminal_body_result_for_framework(
 		or displacement_length < 0.0
 	):
 		return ERR_INVALID_DATA
+	var next_elapsed_seconds: float = _elapsed_seconds + delta
+	var next_travelled_distance: float = _travelled_distance + displacement_length
+	if (
+		not _GF_COMBAT_FINITE_MATH.is_finite_float(next_elapsed_seconds)
+		or not _GF_COMBAT_FINITE_MATH.is_finite_float(next_travelled_distance)
+	):
+		return ERR_INVALID_DATA
 	_terminal_body_observation_recorded = true
-	_elapsed_seconds += delta
-	_travelled_distance += displacement_length
+	_elapsed_seconds = next_elapsed_seconds
+	_travelled_distance = next_travelled_distance
 	return OK
 
 
