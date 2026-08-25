@@ -48,7 +48,10 @@ def normalize_resource_path(raw_path: str) -> str:
 
 def normalize_portable_ownership_path(raw_path: str) -> str:
 	"""Return a canonical cross-platform ownership path, or an empty string."""
-	if any(ord(character) < 32 or ord(character) == 127 for character in raw_path):
+	if _contains_unicode_surrogate(raw_path) or any(
+		ord(character) < 32 or ord(character) == 127
+		for character in raw_path
+	):
 		return ""
 	normalized = normalize_resource_path(raw_path)
 	if not normalized or normalized != raw_path:
@@ -204,13 +207,15 @@ def read_json_object(path: Path, max_bytes: int = DEFAULT_MAX_JSON_BYTES) -> dic
 
 def strict_json_loads(source: str) -> Any:
 	try:
-		return json.loads(
+		value = json.loads(
 			source,
 			parse_constant=_reject_json_constant,
 			object_pairs_hook=_strict_json_object,
 		)
 	except RecursionError as exc:
 		raise ValueError("JSON nesting exceeds the parser limit.") from exc
+	_validate_json_unicode_scalars(value)
+	return value
 
 
 def canonical_json_bytes(value: Any) -> bytes:
@@ -364,6 +369,24 @@ def _fsync_parent_directory(path: Path) -> None:
 
 def _reject_json_constant(value: str) -> Any:
 	raise ValueError(f"Non-finite JSON number is not allowed: {value}.")
+
+
+def _validate_json_unicode_scalars(value: Any) -> None:
+	pending = [value]
+	while pending:
+		current = pending.pop()
+		if isinstance(current, str):
+			if _contains_unicode_surrogate(current):
+				raise ValueError("JSON strings must not contain Unicode surrogate code points.")
+		elif isinstance(current, list):
+			pending.extend(current)
+		elif isinstance(current, dict):
+			pending.extend(current.keys())
+			pending.extend(current.values())
+
+
+def _contains_unicode_surrogate(value: str) -> bool:
+	return any(0xD800 <= ord(character) <= 0xDFFF for character in value)
 
 
 def _strict_json_object(pairs: list[tuple[str, Any]]) -> dict[str, Any]:

@@ -506,7 +506,11 @@ def _markdown_reference_items(
 			owner_kind = ""
 			package_id = ""
 			status = "unknown_owner"
-		elif member_name and member_name not in owner["members"]:
+		elif (
+			member_name
+			and member_name not in owner["members"]
+			and not (member_name == "new" and owner["owner_kind"] == "class")
+		):
 			owner_kind = str(owner["owner_kind"])
 			package_id = str(owner["package_id"])
 			status = "unknown_member"

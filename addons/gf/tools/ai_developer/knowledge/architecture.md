@@ -33,7 +33,7 @@ Declare a rebuildable output directory as an `architecture.modules` entry with `
 
 ## Documentation evidence
 
-Only explicitly declared `architecture.documentation_roots` participate in GF API freshness analysis. Fenced Markdown code, including fences in explicit CommonMark blockquote/list containers, and unescaped inline code spans closed on the same physical line can produce exact owner/member evidence; a container boundary closes its unclosed fence, HTML comments produce no evidence, and prose or cross-line/unclosed spans remain advisory. Never rewrite project documentation from the report, copy surrounding prose into evidence, or treat a non-UTF-8-safe path, missing, linked, unreadable, over-budget, version-mismatched, or otherwise partial input as clean. Generated output roots cannot become authoritative documentation roots.
+Only explicitly declared `architecture.documentation_roots` participate in GF API freshness analysis. Fenced Markdown code, including fences in explicit CommonMark blockquote/list containers, and unescaped inline code spans closed on the same physical line can produce exact owner/member evidence; a container boundary closes its unclosed fence, HTML comments produce no evidence, and prose or cross-line/unclosed spans remain advisory. The built-in `new` constructor is current only for class owners, never for an AutoLoad. Never rewrite project documentation from the report, copy surrounding prose into evidence, or treat a lone JSON surrogate, non-UTF-8-safe path, missing, linked, unreadable, over-budget, version-mismatched, or otherwise partial input as clean. Generated output roots cannot become authoritative documentation roots.
 
 ## Hard boundaries
 

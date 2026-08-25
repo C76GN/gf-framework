@@ -2119,6 +2119,30 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 				)
 				self.assertTrue(all(item["reason"] == "prose_api_reference" for item in advisories))
 
+	def test_issue_122_builtin_class_constructor_is_current_but_autoload_constructor_is_not(self) -> None:
+		items = list(documentation._markdown_reference_items(
+			(
+				"`GFArchitecture.new()` "
+				"`Gf.new()` "
+				"`GFArchitecture.not_a_real_member()`"
+			),
+			"res://docs/architecture/constructors.md",
+			documentation._public_owner_records(catalog.load_api_index()),
+		))
+		references = [item["evidence"] for item in items if item["kind"] == "reference"]
+
+		self.assertEqual(
+			[
+				(item["owner_kind"], item["owner_name"], item["member_name"], item["status"])
+				for item in references
+			],
+			[
+				("class", "GFArchitecture", "new", "current"),
+				("autoload", "Gf", "new", "unknown_member"),
+				("class", "GFArchitecture", "not_a_real_member", "unknown_member"),
+			],
+		)
+
 	def test_issue_122_html_comments_never_create_code_evidence(self) -> None:
 		owners = documentation._public_owner_records(catalog.load_api_index())
 		for newline in ("\n", "\r", "\r\n"):
@@ -2402,6 +2426,40 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 			os.close(file_descriptor)
 		report = snapshot.build_snapshot(self.project_root)
 		self._assert_issue_122_unsafe_path_snapshot(report)
+
+	def test_issue_122_surrogateescaped_documentation_root_is_invalid_and_snapshot_total(self) -> None:
+		contract_path = self.project_root / DEFAULT_CONTRACT_PATH
+		contract = json.loads(contract_path.read_text(encoding="utf-8"))
+		contract["architecture"]["documentation_roots"] = ["res://docs/\udcff"]
+
+		direct_issues = validate_contract_data(contract, self.project_root)
+		self.assertIn(
+			("non_canonical_documentation_root", "$.architecture.documentation_roots[0]"),
+			{(item["code"], item["path"]) for item in direct_issues},
+		)
+
+		# Keep the source file valid UTF-8 while expressing the lone surrogate as
+		# a JSON escape, exactly as an untrusted contract can do on every platform.
+		contract_path.write_text(json.dumps(contract, ensure_ascii=True), encoding="utf-8")
+		contract_result = load_contract(self.project_root)
+		self.assertFalse(contract_result["ok"])
+		self.assertEqual(contract_result["contract"], {})
+		self.assertEqual(contract_result["issues"][0]["code"], "invalid_contract_json")
+
+		written = snapshot.write_snapshot(
+			self.project_root,
+			output_relative_path=".gf/surrogate-root-snapshot.json",
+		)
+		self.assertFalse(written["ok"])
+		self.assertTrue(paths.canonical_json_bytes(written))
+		self.assertEqual(
+			validate_schema_file(written["snapshot"], SCHEMA_ROOT / "project_snapshot.schema.json"),
+			[],
+		)
+		self.assertEqual(
+			read_json_object(self.project_root / ".gf/surrogate-root-snapshot.json"),
+			written["snapshot"],
+		)
 
 	def _assert_issue_122_unsafe_path_snapshot(self, report: dict[str, Any]) -> None:
 		analysis = report["project"]["documentation_reference_analysis"]
