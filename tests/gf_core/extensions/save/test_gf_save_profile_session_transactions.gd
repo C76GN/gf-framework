@@ -886,6 +886,33 @@ func test_adopt_and_switch_resets_structural_family_before_target_save() -> void
 	)
 
 
+func test_adopt_and_switch_revalidates_repaired_target_before_reset() -> void:
+	var fixture: Dictionary = _prepare_structural_switch_recovery(
+		"session.adopt_switch_reset.repaired_target"
+	)
+	var source: GFSaveProfile = _fixture_profile(fixture, "source")
+	var target: GFSaveProfile = _fixture_profile(fixture, "target")
+	var lease: GFSaveProfileRecoveryLease = _fixture_recovery_lease(fixture)
+	_storage.family_reset_authorization_current = false
+
+	var operation: GFSaveProfileTransactionOperation = (
+		_coordinator.adopt_and_switch_profile(lease)
+	)
+
+	assert_true(operation.is_completed())
+	assert_eq(
+		operation.get_result().get_status(),
+		GFSaveProfileTransactionResult.STATUS_PERSIST_FAILED
+	)
+	assert_eq(operation.get_result().get_error_code(), ERR_UNAUTHORIZED)
+	assert_eq(operation.get_result().get_phase(), &"recovery_reset")
+	assert_eq(_storage.reset_call_count, 0)
+	assert_eq(_storage.get_pending_reset_count(), 0)
+	assert_eq(_storage.get_pending_save_count(), 0)
+	assert_eq(_coordinator.get_active_profile_id(target.profile_id), source.profile_id)
+	assert_true(_storage.events.has("revalidate:%s" % target.file_name))
+
+
 func test_adopt_and_switch_reset_failure_preserves_source_without_target_save() -> void:
 	var fixture: Dictionary = _prepare_structural_switch_recovery(
 		"session.adopt_switch_reset.failure"

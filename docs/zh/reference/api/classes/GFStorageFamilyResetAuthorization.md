@@ -9,7 +9,7 @@
 - 类别：运行时句柄 (`runtime_handle`)
 - 首次版本：`unreleased`
 
-单个 Storage logical family 的一次性破坏性恢复授权。 授权只能由 GFStorageUtility 为当前实例、冻结 root 与 canonical logical identity 创建。 reset 必须原样提交同一对象；跨 Utility、跨 root/file 或重复提交都会失败关闭。
+单个 Storage logical family 的一次性破坏性恢复授权。 授权只能由 GFStorageUtility 为当前实例、冻结 root 与 canonical logical identity 创建。 reset 必须原样提交同一对象；跨 Utility、跨 root/file 或重复提交都会失败关闭。 授权冻结签发时的 family 观察；较新写入或修复会在签发、claim 或 worker 复核时使其 stale。
 
 ## 成员概览
 
@@ -156,7 +156,7 @@ func is_available() -> bool:
 
 检查授权是否仍可提交一次。
 
-返回：已配置且尚未消费时返回 true。
+返回：本地句柄已配置且尚未消费时返回 true；实际提交仍会复核冻结的 family 观察。
 
 <a id="member-gfstoragefamilyresetauthorization-methods-is_claimed"></a>
 

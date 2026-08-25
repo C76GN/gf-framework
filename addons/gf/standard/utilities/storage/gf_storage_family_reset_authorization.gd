@@ -2,6 +2,7 @@
 ##
 ## 授权只能由 GFStorageUtility 为当前实例、冻结 root 与 canonical logical identity 创建。
 ## reset 必须原样提交同一对象；跨 Utility、跨 root/file 或重复提交都会失败关闭。
+## 授权冻结签发时的 family 观察；较新写入或修复会在签发、claim 或 worker 复核时使其 stale。
 ## [br]
 ## @api public
 ## [br]
@@ -50,6 +51,7 @@ var _authorization_id: int = 0
 var _utility_id: int = 0
 var _logical_path: String = ""
 var _file_key: String = ""
+var _observation_token: String = ""
 var _reason: StringName = &""
 var _state: StringName = STATE_STALE
 
@@ -106,7 +108,7 @@ func get_state() -> StringName:
 ## [br]
 ## @since unreleased
 ## [br]
-## @return 已配置且尚未消费时返回 true。
+## @return 本地句柄已配置且尚未消费时返回 true；实际提交仍会复核冻结的 family 观察。
 func is_available() -> bool:
 	return _configured and _state == STATE_AVAILABLE
 
@@ -151,6 +153,8 @@ func is_stale() -> bool:
 ## [br]
 ## @param file_key: 冻结 root 与 family identity 的私有绑定键。
 ## [br]
+## @param observation_token: 触发授权的 corrupt read 所绑定的 family 观察快照。
+## [br]
 ## @param reason: 调用方确认的破坏性恢复原因。
 ## [br]
 ## @return 首次合法配置成功时返回 true。
@@ -159,6 +163,7 @@ func configure_for_framework(
 	utility_id: int,
 	logical_path: String,
 	file_key: String,
+	observation_token: String,
 	reason: StringName
 ) -> bool:
 	if (
@@ -167,6 +172,7 @@ func configure_for_framework(
 		or utility_id == 0
 		or not GFStorageFamilyStore.is_valid_logical_file_path_for_framework(logical_path)
 		or file_key.is_empty()
+		or observation_token.is_empty()
 		or reason != REASON_CORRUPT
 	):
 		return false
@@ -175,6 +181,7 @@ func configure_for_framework(
 	_utility_id = utility_id
 	_logical_path = logical_path
 	_file_key = file_key
+	_observation_token = observation_token
 	_reason = reason
 	_state = STATE_AVAILABLE
 	return true
@@ -196,11 +203,14 @@ func configure_for_framework(
 ## [br]
 ## @param expected_file_key: 当前冻结 root 与 family 的私有绑定键。
 ## [br]
+## @param expected_observation_token: 当前 serialization boundary 内重新观察的 family 快照。
+## [br]
 ## @return 精确匹配且首次消费时返回 true。
 func claim_for_framework(
 	expected_utility_id: int,
 	expected_logical_path: String,
-	expected_file_key: String
+	expected_file_key: String,
+	expected_observation_token: String
 ) -> bool:
 	if not is_available():
 		return false
@@ -208,11 +218,64 @@ func claim_for_framework(
 		expected_utility_id != _utility_id
 		or expected_logical_path != _logical_path
 		or expected_file_key != _file_key
+		or expected_observation_token != _observation_token
 	):
 		_state = STATE_STALE
 		return false
 	_state = STATE_CLAIMED
 	return true
+
+
+## 在不消费授权的情况下复核 Utility、identity 与 family 观察快照。
+##
+## 任一绑定不匹配都会把尚可用授权标记 stale，确保高层协调器可以在 reset
+## admission 前拒绝已经被新写入修复的目标。
+## [br]
+## @api framework_internal
+## [br]
+## @layer standard/utilities/storage
+## [br]
+## @since unreleased
+## [br]
+## @param expected_utility_id: 当前 GFStorageUtility 实例 ID。
+## [br]
+## @param expected_logical_path: 当前请求的 canonical logical identity。
+## [br]
+## @param expected_file_key: 当前冻结 root 与 family 的私有绑定键。
+## [br]
+## @param expected_observation_token: 当前 serialization boundary 内的 family 快照。
+## [br]
+## @return 所有绑定仍精确匹配时返回 true；不匹配会使授权 stale。
+func validate_for_framework(
+	expected_utility_id: int,
+	expected_logical_path: String,
+	expected_file_key: String,
+	expected_observation_token: String
+) -> bool:
+	if not is_available():
+		return false
+	if (
+		expected_utility_id != _utility_id
+		or expected_logical_path != _logical_path
+		or expected_file_key != _file_key
+		or expected_observation_token != _observation_token
+	):
+		_state = STATE_STALE
+		return false
+	return true
+
+
+## 获取 worker 二次复核所需的 opaque family 观察快照。
+## [br]
+## @api framework_internal
+## [br]
+## @layer standard/utilities/storage
+## [br]
+## @since unreleased
+## [br]
+## @return 已配置授权冻结的 opaque family 观察快照；未配置时为空字符串。
+func get_observation_token_for_framework() -> String:
+	return _observation_token if _configured else ""
 
 
 ## 显式使尚可用授权过期。

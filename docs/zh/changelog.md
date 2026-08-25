@@ -201,7 +201,7 @@
 
 - 修复类型化场景请求的四个终端边界：非主线程配置失败不再返回无法终结的半配置 Operation 或派发 Broker Lease；preload 在调用 Broker poll 前进入 settlement fence，终态回调中的同路径重入以 busy 失败关闭，不再递归轮询旧 aggregate；同步自定义切场的显式确认与同步 `scene_changed` 只记录 current-generation 回执，并在 override 返回 true 及 owner/token 复核后结算；同路径异步 override 用 `_defer_target_scene_commit()` 区分合法等待与 same-root no-op，不同路径 legacy async observer 保持兼容；基础 pathless commit 预实例化并只接受精确 root，自定义 pathless commit 则必须显式确认精确回执，不再把任意新空路径或同路径旧 root 误认成冻结目标。
 - 修复 required Binding Plan 把与直接注册键冲突的 alias、或同一 alias 指向不同 target 的覆盖写入误报为成功的问题；required 路径现在拒绝会被直接键遮蔽或改写既有目标的 alias，同时保留指向同一 target 的幂等映射。
-- 修复 Settings 把损坏数据恢复为默认值后仍无法覆盖 structural-corrupt Storage family，以及 catalog、owner 或事务 identity 损坏只能永久失败、无法由明确授权重建的问题。reset 现在在任何退休副作用前冻结证据并发布可恢复 intent，崩溃后优先于普通同 family I/O 幂等收敛；未知/future layout、多重有效 identity、来源不匹配、私有 ancestry link/wrong-type 与扫描预算耗尽都会零写失败关闭，未发布的截断 pending staging 可有界清理，已发布的损坏记录仍保留为冲突证据。
+- 修复 Settings 把损坏数据恢复为默认值后仍无法覆盖 structural-corrupt Storage family，以及 catalog、owner 或事务 identity 损坏只能永久失败、无法由明确授权重建的问题。reset 现在在任何退休副作用前冻结证据与 family 观察快照并发布可恢复 intent，崩溃后优先于普通同 family I/O 幂等收敛；冷启动目标损坏仍保留可授权来源，无关的全局 layout/恢复失败保持 unbound，授权后的较新写入会使旧决定失效，其他 family 的存活事务反向记录会阻止单 family 退休。未知/future layout、多重有效 identity、来源不匹配、私有 ancestry link/wrong-type 与扫描预算耗尽都会零写失败关闭；未发布且内容/文件名身份不匹配的 pending staging 可有界清理，已发布的损坏或不匹配记录仍保留为冲突证据。
 - 修复 `GFStorageUtility` 异步保存、读取和删除在单线程 Web 导出中仍尝试 `Thread.start()`，导致请求启动失败并使依赖真实 Storage 的 Save Profile 无法完成 activation 的问题；默认 `AUTOMATIC` 现在在 `nothreads` 运行时选择 cooperative executor。请求调用栈只入队，正常调度由 `tick N` 接纳、`tick N+1` 执行此前已接纳任务，每个 tick 最多完成一个完整任务，同时保留请求身份、同 family FIFO、取消/deadline、物理终态、事务恢复和 quiesce 语义。
 
 - 修复 AI Developer 只能把生成报告、审计、截图或导出物声明为必须存在的精确文件或普通来源模块、导致尚未生成的输出根使依赖快照不完整的问题；`architecture.modules[].ownership: generated` 现在表示有界、只作为依赖目标的所有权：根可缺失且不参与来源扫描，源码路径引用以 `generated_output` 形成有界依赖证据，既有规范路径、框架保留根、所有权重叠与允许/禁止依赖门禁保持不变。
@@ -292,7 +292,8 @@
   在 Coordinator 外拼接恢复的问题：新的一次性 source-bound Lease 允许显式
   bootstrap/adopt-and-switch，并在 continuation 接纳后重新 flush 最新来源。Storage family
   结构损坏必须先凭同一 Utility、同一目标读取签发的 opaque 授权完成 reset；无法授权时
-  失败关闭。reset、来源 flush 或目标保存的确定失败保留来源身份，未知结果只 fence 对应来源或目标。
+  失败关闭。Coordinator 在消费授权前重新验证目标，较新写入已经修复目标时不执行 reset。
+  reset、来源 flush 或目标保存的确定失败保留来源身份，未知结果只 fence 对应来源或目标。
 - 修复 SaveGraph 在 Source/Scope/Pipeline 已记录采集错误后仍生成并覆盖健康存档、内层格式版本接受缺失/旧版/字符串值、调用方 context 可伪造事务根、同步 apply 重入无界递归，以及 participant 或 Source snapshot 回滚失败只存在于可选 trace 的问题；默认 apply 结果现在始终公开 `rollback_failures` 与 `atomicity_restored`。
 - 修复 Graph 与 Slot 读取入口接受 `ok=true` 但 integrity 为 `INVALID` 的内容、PersistProperties 的 local/registry 同 ID Serializer 发生编码/解码实现漂移、Slot Sync 绕过 Adapter 模板与规范路径碰撞检查、Document parser 静默丢弃空白/非字符串/trim alias section key，以及 Section/Document 在有界持久化验收前深复制循环或超深容器的问题。
 - 修复 `GFSignalSubscriptionToken` 会隐式接管既有同一 `Signal + Callable` 连接、并在取消时断开其他创建方资源的问题；重复连接现在返回非活动 token，原连接继续由原创建方持有。

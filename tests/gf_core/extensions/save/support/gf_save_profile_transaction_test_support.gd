@@ -92,6 +92,7 @@ class ControlledStorage extends GFStorageUtility:
 	var max_active_io_count: int = 0
 	var driver: GFSaveProfileUtility = null
 	var enable_family_reset_authorization: bool = false
+	var family_reset_authorization_current: bool = true
 	var reset_call_count: int = 0
 	var _next_request_id: int = 1
 	var _next_authorization_id: int = 1
@@ -190,12 +191,24 @@ class ControlledStorage extends GFStorageUtility:
 			get_instance_id(),
 			file_name,
 			_get_async_file_key(file_name),
+			"controlled-observation",
 			GFStorageFamilyResetAuthorization.REASON_CORRUPT
 		)
 		if not configured:
 			return null
 		_next_authorization_id += 1
 		return authorization
+
+	func validate_family_reset_authorization_for_framework(
+		file_name: String,
+		authorization: GFStorageFamilyResetAuthorization
+	) -> bool:
+		events.append("revalidate:%s" % file_name)
+		if not family_reset_authorization_current:
+			if authorization != null:
+				var _stale: bool = authorization.mark_stale_for_framework()
+			return false
+		return authorization != null and authorization.is_available()
 
 	func reset_file_family_request_async(
 		file_name: String,
@@ -212,7 +225,8 @@ class ControlledStorage extends GFStorageUtility:
 			and authorization.claim_for_framework(
 				get_instance_id(),
 				file_name,
-				_get_async_file_key(file_name)
+				_get_async_file_key(file_name),
+				"controlled-observation"
 			)
 		)
 		if not claimed:

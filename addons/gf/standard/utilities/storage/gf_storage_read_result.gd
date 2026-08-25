@@ -148,6 +148,7 @@ var _origin_utility_id: int = 0
 var _origin_logical_path: String = ""
 var _origin_file_key: String = ""
 var _origin_token: String = ""
+var _origin_observation_token: String = ""
 var _origin_ok: bool = false
 var _origin_error_code: Error = FAILED
 var _origin_failure_kind: FailureKind = FailureKind.NONE
@@ -267,7 +268,8 @@ func duplicate_result() -> GFStorageReadResult:
 			_origin_utility_id,
 			_origin_logical_path,
 			_origin_file_key,
-			_origin_token
+			_origin_token,
+			_origin_observation_token
 		)
 	return copy
 
@@ -365,12 +367,15 @@ static func from_dict(data: Dictionary) -> GFStorageReadResult:
 ## [br]
 ## @param origin_token: Utility 生命周期内不可序列化的来源 token。
 ## [br]
+## @param observation_token: 读取终态绑定的不可序列化 family 观察快照。
+## [br]
 ## @return 首次绑定合法来源时返回 true。
 func bind_origin_for_framework(
 	utility_id: int,
 	logical_path: String,
 	file_key: String,
-	origin_token: String
+	origin_token: String,
+	observation_token: String
 ) -> bool:
 	if (
 		_origin_bound
@@ -378,6 +383,7 @@ func bind_origin_for_framework(
 		or not GFStorageFamilyStore.is_valid_logical_file_path_for_framework(logical_path)
 		or file_key.is_empty()
 		or origin_token.is_empty()
+		or observation_token.is_empty()
 	):
 		return false
 	_origin_bound = true
@@ -385,6 +391,7 @@ func bind_origin_for_framework(
 	_origin_logical_path = logical_path
 	_origin_file_key = file_key
 	_origin_token = origin_token
+	_origin_observation_token = observation_token
 	_origin_ok = ok
 	_origin_error_code = error_code
 	_origin_failure_kind = failure_kind
@@ -424,6 +431,39 @@ func matches_origin_for_framework(
 	)
 
 
+## 获取精确来源绑定携带的不可序列化 family 观察快照。
+## [br]
+## @api framework_internal
+## [br]
+## @layer standard/utilities/storage
+## [br]
+## @since unreleased
+## [br]
+## @param utility_id: 当前 GFStorageUtility 实例 ID。
+## [br]
+## @param logical_path: 当前请求的 canonical logical identity。
+## [br]
+## @param file_key: 当前冻结 Storage root 与 family 的私有绑定键。
+## [br]
+## @param origin_token: 当前 Utility 生命周期的来源 token。
+## [br]
+## @return 来源身份仍精确匹配时返回非空 opaque token，否则返回空字符串。
+func get_origin_observation_token_for_framework(
+	utility_id: int,
+	logical_path: String,
+	file_key: String,
+	origin_token: String
+) -> String:
+	if not matches_origin_for_framework(
+		utility_id,
+		logical_path,
+		file_key,
+		origin_token
+	):
+		return ""
+	return _origin_observation_token
+
+
 # --- 私有/辅助方法 ---
 
 func _clear_origin_binding() -> void:
@@ -432,6 +472,7 @@ func _clear_origin_binding() -> void:
 	_origin_logical_path = ""
 	_origin_file_key = ""
 	_origin_token = ""
+	_origin_observation_token = ""
 	_origin_ok = false
 	_origin_error_code = FAILED
 	_origin_failure_kind = FailureKind.NONE

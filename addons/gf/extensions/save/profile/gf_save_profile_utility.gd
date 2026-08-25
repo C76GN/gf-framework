@@ -832,6 +832,52 @@ func create_profile_family_reset_authorization_for_manager_for_framework(
 	return authorization if authorization != null and authorization.is_available() else null
 
 
+## 在 coordinator 消费 reset 授权前复核目标 Storage family 仍是原 corrupt 观察快照。
+## [br]
+## @api framework_internal
+## [br]
+## @since unreleased
+## [br]
+## @param profile_id: 受管 Profile ID。
+## [br]
+## @param authorization: 待复核且尚未消费的 family reset 授权。
+## [br]
+## @param permit: claim 时返回的 opaque capability。
+## [br]
+## @return Profile、permit 与当前 Storage family 快照都匹配时返回 true。
+func validate_profile_family_reset_authorization_for_manager_for_framework(
+	profile_id: StringName,
+	authorization: GFStorageFamilyResetAuthorization,
+	permit: RefCounted
+) -> bool:
+	var state: ProfileState = _get_state(profile_id)
+	_reap_expired_managed_permit_if_safe(state)
+	if (
+		not _admission_open
+		or _disposed
+		or _dispose_requested
+		or _unsafe_callback_depth > 0
+		or state == null
+		or _storage == null
+		or authorization == null
+		or not authorization.is_available()
+		or not _is_valid_managed_permit(state, permit)
+		or state.memory_transaction_active
+		or state.mode != STATE_IDLE
+		or _has_pending_operations(state)
+		or state.current_storage_operation != null
+		or state.manager_reset_operation != null
+		or not state.detached_write_operations.is_empty()
+		or state.pending_schedule_enqueued
+		or state.active_preparation_enqueued
+	):
+		return false
+	return _storage.validate_family_reset_authorization_for_framework(
+		state.file_name,
+		authorization
+	)
+
+
 ## 以 manager capability 对受管 Profile 的 frozen Storage family 发起 reset/recreate。
 ## [br]
 ## @api framework_internal
