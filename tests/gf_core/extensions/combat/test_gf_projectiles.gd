@@ -657,8 +657,23 @@ class RecordingObjectPool extends GFObjectPoolUtility:
 
 
 class LostLeaseRecordingPool extends GFObjectPoolUtility:
+	var framework_release_observations: Array[Dictionary] = []
 	var lost_retirement_count: int = 0
 	var lost_retirement_ids: Array[int] = []
+
+	func release_for_framework(node: Node, scene: PackedScene) -> bool:
+		var observation: Dictionary = {
+			"valid": node != null and is_instance_valid(node),
+			"queued": (
+				node != null
+				and is_instance_valid(node)
+				and node.is_queued_for_deletion()
+			),
+		}
+		var settled: bool = super.release_for_framework(node, scene)
+		observation["settled"] = settled
+		framework_release_observations.append(observation)
+		return settled
 
 	func retire_lost_lease_for_framework(
 		scene: PackedScene,
@@ -669,6 +684,13 @@ class LostLeaseRecordingPool extends GFObjectPoolUtility:
 			lost_retirement_count += 1
 			lost_retirement_ids.append(instance_id)
 		return settled
+
+	func has_active_lease_tracking_for_test(instance_id: int) -> bool:
+		return (
+			_active_generations.has(instance_id)
+			or _active_lease_scenes.has(instance_id)
+			or _active_lease_nodes.has(instance_id)
+		)
 
 
 class ReleasingPrewarmPool extends RecordingObjectPool:
@@ -4488,6 +4510,73 @@ func test_projectile_pool_generation_loss_falls_back_to_root_retirement() -> voi
 	await get_tree().process_frame
 	await get_tree().process_frame
 	assert_true(root_ref.get_ref() == null)
+	pool.dispose()
+
+
+func test_projectile_queued_root_callback_retires_real_pool_lease_exactly() -> void:
+	var parent: Node2D = Node2D.new()
+	add_child_autofree(parent)
+	var pool: LostLeaseRecordingPool = LostLeaseRecordingPool.new()
+	pool.init()
+	var emitter: GFProjectileEmitter2D = GFProjectileEmitter2D.new()
+	parent.add_child(emitter)
+	var definition: GFProjectileDefinition2D = _make_projectile_definition_2d()
+	emitter.projectile_definition = definition
+	emitter.use_object_pool = true
+	emitter.object_pool_utility = pool
+	var emitted_root_id: Array[int] = [0]
+	var emitted_root_ref: Array[WeakRef] = []
+	var on_emitted: Callable = func(
+		projectile_root: Node,
+		_session: GFProjectileSession,
+		_launch_input: GFProjectileLaunchInput2D
+	) -> void:
+		emitted_root_id[0] = projectile_root.get_instance_id()
+		emitted_root_ref.append(weakref(projectile_root))
+		projectile_root.queue_free()
+	var _emitted_connected: int = emitter.projectile_emitted.connect(on_emitted)
+
+	var roots: Array[Node] = emitter.emit_projectiles()
+	assert_true(roots.is_empty(), "回调已 queue_free 的 root 不得作为成功结果发布。")
+	assert_gt(emitted_root_id[0], 0)
+	assert_eq(emitted_root_ref.size(), 1)
+	for _frame_index: int in range(8):
+		if pool.lost_retirement_count > 0:
+			break
+		await get_tree().process_frame
+	if not emitted_root_ref.is_empty():
+		assert_true(emitted_root_ref[0].get_ref() == null)
+	var framework_settlement_count: int = 0
+	for observation: Dictionary in pool.framework_release_observations:
+		assert_true(GFVariantData.get_option_bool(observation, "valid"))
+		assert_true(GFVariantData.get_option_bool(observation, "queued"))
+		if GFVariantData.get_option_bool(observation, "settled"):
+			framework_settlement_count += 1
+	assert_eq(
+		framework_settlement_count + pool.lost_retirement_count,
+		1,
+		(
+			"queued root 必须由 framework release 或物理失效后的 exact lost-lease "
+			+ "retirement 恰好清账一次；observations=%s" % str(
+				pool.framework_release_observations
+			)
+		)
+	)
+	assert_eq(
+		pool.lost_retirement_ids,
+		[emitted_root_id[0]] if pool.lost_retirement_count == 1 else []
+	)
+	assert_false(
+		pool.has_active_lease_tracking_for_test(emitted_root_id[0]),
+		"Emitter settlement 后三张 active lease 账本必须全部清除。"
+	)
+	assert_false(
+		pool.retire_lost_lease_for_framework(
+			definition.scene,
+			emitted_root_id[0]
+		),
+		"Emitter deferred settlement 必须为 queued root 精确清除 active lease。"
+	)
 	pool.dispose()
 
 

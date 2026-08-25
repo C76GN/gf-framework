@@ -142,6 +142,26 @@ func test_release_for_framework_requires_current_active_lease() -> void:
 	assert_eq(_pool.get_available_count(_scene), 0)
 
 
+func test_release_for_framework_settles_exact_queued_active_lease() -> void:
+	var queued_scene: PackedScene = _make_lifecycle_hook_scene()
+	var node: LifecycleHookNode = _acquire_lifecycle_hook_node(queued_scene)
+	var hook_log: Array[StringName] = node.event_log
+	var node_id: int = node.get_instance_id()
+	node.queue_free()
+
+	assert_true(
+		_pool.release_for_framework(node, queued_scene),
+		"已 queue_free 但仍 live 的精确 ACTIVE lease 必须同步结算 tracking。"
+	)
+	assert_true(hook_log.is_empty(), "queued-live tracking 结算不得执行 release hook。")
+	await get_tree().process_frame
+	assert_false(is_instance_valid(node), "queued lease root 应由 SceneTree 正常物理销毁。")
+	assert_false(
+		_pool.retire_lost_lease_for_framework(queued_scene, node_id),
+		"queued-live 结算后不得残留可被 lost-lease 入口再次退休的 active generation。"
+	)
+
+
 func test_lost_lease_retirement_requires_exact_invalid_active_identity() -> void:
 	var lost_scene: PackedScene = _make_lifecycle_hook_scene()
 	var wrong_scene: PackedScene = _make_node_scene()

@@ -368,17 +368,16 @@ func release(node: Node, scene: PackedScene) -> void:
 ## [br]
 ## @since unreleased
 ## [br]
-## @param node: 待归还的 live 节点。
+## @param node: 待归还的 live 节点；若已排队删除，则仅同步退休精确 lease tracking。
 ## [br]
 ## @param scene: acquire 时冻结的 PackedScene identity。
 ## [br]
-## @return: 当前 active generation 被本次调用接纳时返回 true；生命周期切换已清除 lease 或身份不匹配时返回 false 且零 mutation。
+## @return: 当前 active generation 被本次调用接纳时返回 true；queued-live 节点不执行 hook 或树操作，仅移除精确 tracking；生命周期切换已清除 lease 或身份不匹配时返回 false 且零 mutation。
 func release_for_framework(node: Node, scene: PackedScene) -> bool:
 	if (
 		_is_disposed
 		or node == null
 		or not is_instance_valid(node)
-		or node.is_queued_for_deletion()
 		or scene == null
 		or not is_instance_valid(scene)
 	):
@@ -398,6 +397,12 @@ func release_for_framework(node: Node, scene: PackedScene) -> bool:
 	var tracked_node: Node = _variant_to_node(_active_lease_nodes[node_id])
 	if tracked_scene != scene or tracked_node != node:
 		return false
+	if node.is_queued_for_deletion():
+		return _retire_exact_active_lease_tracking(
+			scene,
+			node_id,
+			tracked_node
+		)
 	release(node, scene)
 	return true
 
@@ -438,24 +443,11 @@ func retire_lost_lease_for_framework(scene: PackedScene, instance_id: int) -> bo
 	var tracked_node_value: Variant = _active_lease_nodes[instance_id]
 	if typeof(tracked_node_value) != TYPE_OBJECT or is_instance_valid(tracked_node_value):
 		return false
-	if not _all_nodes.has(scene):
-		return false
-	var all_nodes: Array = _get_all_nodes_pool(scene)
-	var tracked_index: int = -1
-	for index: int in range(all_nodes.size()):
-		if is_same(all_nodes[index], tracked_node_value):
-			tracked_index = index
-			break
-	if tracked_index < 0:
-		return false
-	all_nodes.remove_at(tracked_index)
-	if _available_pools.has(scene):
-		var available_pool: Array = _get_available_pool(scene)
-		for index: int in range(available_pool.size() - 1, -1, -1):
-			if is_same(available_pool[index], tracked_node_value):
-				available_pool.remove_at(index)
-	_erase_active_lease(instance_id)
-	return true
+	return _retire_exact_active_lease_tracking(
+		scene,
+		instance_id,
+		tracked_node_value
+	)
 
 
 ## 预热对象池，预先实例化指定数量的节点以避免首次使用时的卡顿。
@@ -2805,6 +2797,32 @@ func _remove_node_from_scene_pool(node: Node, scene: PackedScene) -> void:
 		_get_all_nodes_pool(scene).erase(node)
 	if _available_pools.has(scene):
 		_get_available_pool(scene).erase(node)
+
+
+func _retire_exact_active_lease_tracking(
+	scene: PackedScene,
+	instance_id: int,
+	tracked_node_value: Variant
+) -> bool:
+	if not _all_nodes.has(scene):
+		return false
+	var all_nodes: Array = _get_all_nodes_pool(scene)
+	var tracked_index: int = -1
+	for index: int in range(all_nodes.size()):
+		if is_same(all_nodes[index], tracked_node_value):
+			tracked_index = index
+			break
+	if tracked_index < 0:
+		return false
+	all_nodes.remove_at(tracked_index)
+	if _available_pools.has(scene):
+		var available_pool: Array = _get_available_pool(scene)
+		for index: int in range(available_pool.size() - 1, -1, -1):
+			if is_same(available_pool[index], tracked_node_value):
+				available_pool.remove_at(index)
+	var _transition_generation_erased: bool = _transition_generations.erase(instance_id)
+	_erase_active_lease(instance_id)
+	return true
 
 
 func _prune_invalid_scene_nodes(scene: PackedScene) -> void:
