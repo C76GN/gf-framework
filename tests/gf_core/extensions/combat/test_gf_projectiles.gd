@@ -4221,7 +4221,9 @@ func test_projectile_runtime_releases_motion_state_after_prepare_failure() -> vo
 	motion_2d.invalidate_definition_2d = definition_2d
 	definition_2d.motion = motion_2d
 	var binding_2d: GFProjectileBinding2D = definition_2d.bind_instance(root_2d)
-	assert_null(_runtime_2d_from(root_2d).launch(binding_2d))
+	var failed_session_2d: GFProjectileSession = _runtime_2d_from(root_2d).launch(binding_2d)
+	motion_2d.invalidate_definition_2d = null
+	assert_null(failed_session_2d)
 	assert_eq(motion_2d.state_refs.size(), 1)
 	if motion_2d.state_refs.size() == 1:
 		assert_eq(
@@ -4237,7 +4239,9 @@ func test_projectile_runtime_releases_motion_state_after_prepare_failure() -> vo
 	motion_3d.invalidate_definition_3d = definition_3d
 	definition_3d.motion = motion_3d
 	var binding_3d: GFProjectileBinding3D = definition_3d.bind_instance(root_3d)
-	assert_null(_runtime_3d_from(root_3d).launch(binding_3d))
+	var failed_session_3d: GFProjectileSession = _runtime_3d_from(root_3d).launch(binding_3d)
+	motion_3d.invalidate_definition_3d = null
+	assert_null(failed_session_3d)
 	assert_eq(motion_3d.state_refs.size(), 1)
 	if motion_3d.state_refs.size() == 1:
 		assert_eq(
