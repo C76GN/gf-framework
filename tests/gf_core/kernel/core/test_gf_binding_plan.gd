@@ -544,6 +544,128 @@ func test_alias_rejection_reports_alias_phase_and_rolls_back_module() -> void:
 	architecture.dispose()
 
 
+func test_required_alias_rejects_existing_direct_registration() -> void:
+	var architecture: GFArchitecture = GFArchitecture.new()
+	assert_true(
+		await architecture.register_utility_instance(PlanSnapshotAliasBase.new())
+	)
+	var binder: GFBinder = architecture.create_binder()
+	var plan: GFBindingPlan = binder.create_required_plan()
+	var _entry: GFBindingPlan = plan.require_singleton(
+		&"alias.direct_conflict",
+		binder.bind_utility(PlanSnapshotUtility).with_alias(
+			PlanSnapshotAliasBase
+		)
+	)
+	var scope: GFAsyncScope = GFAsyncScope.new()
+
+	var result: GFBindingPlanResult = plan.execute(scope)
+
+	_assert_result(
+		result,
+		GFBindingPlanResult.Status.FAILED,
+		GFBindingPlanResult.BindingKind.UTILITY,
+		GFBindingPlanResult.Phase.ALIAS,
+		GFBindingPlanResult.Reason.ALIAS_REJECTED,
+		0,
+		&"alias.direct_conflict",
+		_script_path(PlanSnapshotUtility),
+		GFBindingLifetimes.Lifetime.SINGLETON,
+		1,
+		false
+	)
+	assert_true(scope.is_cancel_requested())
+	assert_true(architecture.has_initialization_failed())
+	assert_null(architecture.get_local_utility(PlanSnapshotAliasBase))
+	assert_null(architecture.get_local_utility(PlanSnapshotUtility))
+	assert_push_error(result.get_detail())
+	architecture.dispose()
+
+
+func test_required_alias_rejects_reuse_for_different_targets() -> void:
+	var architecture: GFArchitecture = GFArchitecture.new()
+	var binder: GFBinder = architecture.create_binder()
+	var plan: GFBindingPlan = binder.create_required_plan()
+	var _first_entry: GFBindingPlan = plan.require_singleton(
+		&"alias.first_target",
+		binder.bind_utility(PlanSnapshotUtility).with_alias(
+			PlanSnapshotAliasBase
+		)
+	)
+	var _second_entry: GFBindingPlan = plan.require_singleton(
+		&"alias.second_target",
+		binder.bind_utility(PlanSnapshotSecondUtility).with_alias(
+			PlanSnapshotAliasBase
+		)
+	)
+	var scope: GFAsyncScope = GFAsyncScope.new()
+
+	var result: GFBindingPlanResult = plan.execute(scope)
+
+	_assert_result(
+		result,
+		GFBindingPlanResult.Status.FAILED,
+		GFBindingPlanResult.BindingKind.UTILITY,
+		GFBindingPlanResult.Phase.ALIAS,
+		GFBindingPlanResult.Reason.ALIAS_REJECTED,
+		1,
+		&"alias.second_target",
+		_script_path(PlanSnapshotSecondUtility),
+		GFBindingLifetimes.Lifetime.SINGLETON,
+		2,
+		false
+	)
+	assert_true(scope.is_cancel_requested())
+	assert_true(architecture.has_initialization_failed())
+	assert_null(architecture.get_local_utility(PlanSnapshotAliasBase))
+	assert_null(architecture.get_local_utility(PlanSnapshotUtility))
+	assert_null(architecture.get_local_utility(PlanSnapshotSecondUtility))
+	assert_push_error(result.get_detail())
+	architecture.dispose()
+
+
+func test_required_alias_accepts_existing_idempotent_mapping() -> void:
+	var architecture: GFArchitecture = GFArchitecture.new()
+	architecture.register_utility_alias(
+		PlanSnapshotAliasBase,
+		PlanSnapshotUtility
+	)
+	assert_push_warning(
+		"[GFArchitecture] register_utility_alias：目标类型尚未注册，仍会记录别名。"
+	)
+	var binder: GFBinder = architecture.create_binder()
+	var plan: GFBindingPlan = binder.create_required_plan()
+	var _entry: GFBindingPlan = plan.require_singleton(
+		&"alias.idempotent",
+		binder.bind_utility(PlanSnapshotUtility).with_alias(
+			PlanSnapshotAliasBase
+		)
+	)
+	var scope: GFAsyncScope = GFAsyncScope.new()
+
+	var result: GFBindingPlanResult = plan.execute(scope)
+
+	_assert_result(
+		result,
+		GFBindingPlanResult.Status.SUCCESS,
+		GFBindingPlanResult.BindingKind.NONE,
+		GFBindingPlanResult.Phase.NONE,
+		GFBindingPlanResult.Reason.NONE,
+		-1,
+		&"",
+		"",
+		-1,
+		1,
+		true
+	)
+	assert_true(scope.is_active())
+	var utility: Object = architecture.get_local_utility(PlanSnapshotUtility)
+	assert_not_null(utility)
+	assert_same(architecture.get_local_utility(PlanSnapshotAliasBase), utility)
+	assert_true(await architecture.init())
+	architecture.dispose()
+
+
 func test_instance_creation_failure_reports_exact_first_entry() -> void:
 	var architecture: GFArchitecture = GFArchitecture.new()
 	var binder: GFBinder = architecture.create_binder()
@@ -2678,6 +2800,10 @@ class PlanSnapshotAliasBase extends GFUtility:
 
 
 class PlanSnapshotUtility extends PlanSnapshotAliasBase:
+	pass
+
+
+class PlanSnapshotSecondUtility extends PlanSnapshotAliasBase:
 	pass
 
 

@@ -6961,6 +6961,13 @@ func _register_required_plan_alias(
 		return false
 	if not GFScriptTypeInspector.script_extends_or_equals(target_cls, alias_cls):
 		return false
+	if module_registry._has_direct(alias_cls):
+		return alias_cls == target_cls
+	if module_registry.aliases.has(alias_cls):
+		return (
+			_get_dictionary_script(module_registry.aliases, alias_cls)
+			== target_cls
+		)
 	return _register_module_alias(module_registry, alias_cls, target_cls)
 
 
