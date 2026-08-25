@@ -87,16 +87,20 @@ load 采用 busy rejection，而不是 replacement：同一时刻已有 load 等
   consumer 的存活兴趣则要求写入 fixed 缓存。
 - load 即使命中缓存，也要等待 loading scene 最短时长与安全帧切换；只有场景切换
   被 `SceneTree.scene_changed` 确认，且 `current_scene` 身份仍为冻结目标后，才以
-  `REASON_SCENE_LOADED` 完成。运行时打包且没有 `resource_path` 的 `PackedScene` 允许以
-  同样没有 `scene_file_path`、且实例身份不同于切换前 current scene 的 committed root
-  完成；它不会因为缺少磁盘路径而在物理切换后伪报失败，也不会把切换前已有的任意
-  空路径 root 误认成目标。
-- 基础 `_do_change_scene()` 或调用 `super` 的 override 会等待一次
-  `SceneTree.scene_changed`。完全自定义的同步 override 在返回 `true` 且 current scene
-  匹配冻结目标时保留兼容完成路径；也可在可观察到目标 current scene 后调用
-  `_confirm_target_scene_commit()`。该确认和 override 栈内同步发出的 `scene_changed` 都只记录
-  当前 generation 回执；只有 override 返回 `true`，且 owner、token 与请求身份复核通过后才
-  结算。返回 `false` 会丢弃回执并进入切场失败终态。
+  `REASON_SCENE_LOADED` 完成。基础实现处理没有 `resource_path` 的运行时打包
+  `PackedScene` 时，会先预实例化唯一目标 root，再用 `change_scene_to_node()` 提交，并只
+  接受该精确 root；不能用“任意新空路径 root”冒充冻结目标。
+- 基础 `_do_change_scene()` 或调用 `super` 的 override 会等待 SceneTree 已接纳的 native
+  commit。完全自定义的同步 override 在返回 `true` 且安装了新的、可由规范路径识别的
+  target root 时保留兼容完成路径，也可调用 `_confirm_target_scene_commit()` 冻结精确
+  root 回执。同路径异步 override 必须在返回 `true` 前调用
+  `_defer_target_scene_commit()`；不同路径的既有异步 override 仍可直接等待一次性
+  `scene_changed`。自定义 pathless 异步 override 必须先 defer，并在安装精确 root 后调用
+  `_confirm_target_scene_commit()`；单独发出 signal 不会给匿名 root 授信。
+- defer、confirm 与 override 栈内同步发出的 `scene_changed` 都绑定 current generation；
+  只有 override 返回 `true`，且 owner、token 与请求身份复核通过后才结算。返回 `false`
+  会丢弃回执并进入切场失败终态。实例化期间的回调若取消或替换 generation，基础实现会
+  释放尚未入树的 root，并在任何物理切场前失败关闭。
 - 资源加载成功但类型不是 `PackedScene`，或安全帧切换失败，都会进入 `FAILED`，
   不会发出伪成功终态。
 - 成功终态前若 Operation 尚未到 `1.0`，会先发布一次 `progressed(1.0)`；已经是
@@ -143,7 +147,8 @@ load 采用 busy rejection，而不是 replacement：同一时刻已有 load 等
 `dispose()` 会先冻结所有 pending Operation 的 `DISPOSED` 终态，再清理 load、preload、
 缓存和自有 Broker，最后逐个发出完成通知。这样首个完成回调即使同步重入，也只能看到
 已经统一结算的请求集合；释放后的新 request 会同步返回 `DISPOSED`。
-若 `change_scene_to_packed()` 已被 SceneTree 接纳，并在旧场景退出时同步触发
+若 SceneTree 已接纳 native target commit（包括 `change_scene_to_packed()` 或
+`change_scene_to_node()`），并在旧场景退出时同步触发
 `dispose()`，Utility 会仅保留这一代一次性的 `scene_changed` 物理观察；回调先断开连接，
 再因 disposed 状态静默结束，不会发布 typed 或 legacy success。这样既不提前报告成功，
 也不会让观察器跨过本次已接纳的物理切换继续存活。

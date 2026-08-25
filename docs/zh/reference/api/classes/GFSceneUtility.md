@@ -91,6 +91,7 @@
 | 方法 | [`cleanup_transients`](#member-gfsceneutility-methods-cleanup_transients) | `func cleanup_transients() -> void:` |
 | 方法 | [`_get_loading_scene_node`](#member-gfsceneutility-methods-_get_loading_scene_node) | `func _get_loading_scene_node() -> Node:` |
 | 方法 | [`_do_change_scene`](#member-gfsceneutility-methods-_do_change_scene) | `func _do_change_scene(scene: PackedScene) -> bool:` |
+| 方法 | [`_defer_target_scene_commit`](#member-gfsceneutility-methods-_defer_target_scene_commit) | `func _defer_target_scene_commit() -> bool:` |
 | 方法 | [`_confirm_target_scene_commit`](#member-gfsceneutility-methods-_confirm_target_scene_commit) | `func _confirm_target_scene_commit() -> bool:` |
 | 方法 | [`_do_change_scene_sync`](#member-gfsceneutility-methods-_do_change_scene_sync) | `func _do_change_scene_sync(path: String) -> Error:` |
 | 方法 | [`_get_current_scene_path`](#member-gfsceneutility-methods-_get_current_scene_path) | `func _get_current_scene_path() -> String:` |
@@ -1474,7 +1475,7 @@ func _get_loading_scene_node() -> Node:
 func _do_change_scene(scene: PackedScene) -> bool:
 ```
 
-切换到已加载的 PackedScene。
+切换到已加载的 PackedScene。 自定义异步 override 可先用 `_defer_target_scene_commit()` 声明等待，提交 root 后再由 signal 或确认回执结算。
 
 参数：
 
@@ -1482,7 +1483,22 @@ func _do_change_scene(scene: PackedScene) -> bool:
 |---|---|
 | `scene` | 目标 PackedScene。 |
 
-返回：接纳切换返回 true；同步 override 可用 _confirm_target_scene_commit() 提交确认回执。
+返回：接纳切换返回 true。
+
+<a id="member-gfsceneutility-methods-_defer_target_scene_commit"></a>
+
+### `_defer_target_scene_commit`
+
+- API：`protected`
+- 首次版本：`unreleased`
+
+```gdscript
+func _defer_target_scene_commit() -> bool:
+```
+
+声明 protected override 已接纳异步目标场景提交。 只允许在当前 `_do_change_scene()` 调用栈与 generation 内调用。同路径异步 override 必须在返回 true 前调用，避免尚未替换的旧 target root 被判定为 no-op；普通不同路径异步 override 继续兼容一次性 scene_changed observer。 pathless 自定义异步实现还必须在安装精确 root 后调用 `_confirm_target_scene_commit()`，signal 本身不会给匿名 root 授信。
+
+返回：当前 override/generation 接受异步等待声明时返回 true。
 
 <a id="member-gfsceneutility-methods-_confirm_target_scene_commit"></a>
 
@@ -1495,7 +1511,7 @@ func _do_change_scene(scene: PackedScene) -> bool:
 func _confirm_target_scene_commit() -> bool:
 ```
 
-确认 protected override 已同步完成目标场景提交。 只用于 `_do_change_scene()` 已更新 SceneTree/current scene、但不会发出 `SceneTree.scene_changed` 的自定义实现。override 调用栈内只记录当前 generation 回执；只有 override 返回 true 且 owner/token 复核通过后才结算。 异步实现继续由一次性 scene_changed observer 结算。
+确认 protected override 已完成目标场景提交。 用于 `_do_change_scene()` 已更新 SceneTree/current scene 后提交精确 root 回执；同步实现可在 override 栈内调用，异步实现可在稍后安装 root 后调用。 override 栈内只记录当前 generation 回执；只有 override 返回 true 且 owner/token 复核通过后才结算。可由规范路径识别的新 root 也能通过一次性 scene_changed observer 结算；pathless 自定义实现必须显式调用本方法，不能只 依赖匿名 root 的 signal。
 
 返回：当前待提交 generation 与目标 scene root 匹配并接受确认时返回 true。
 

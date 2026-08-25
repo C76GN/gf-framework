@@ -2,7 +2,7 @@
   "schema_version": 2,
   "catalog_version": "2.0.0",
   "framework_version": "11.0.0-dev.0",
-  "source_digest": "6ccf7955faceda9d807d2a0285ca7e59c5a4da7a351196c87920a087b902583f",
+  "source_digest": "793a9856a402f3240db32105f577da13ddd8abb7f24fe3077db0527696c635dd",
   "class_count": 829,
   "autoload_count": 1,
   "package_count": 56,
@@ -76000,9 +76000,16 @@
         },
         {
           "kind": "func",
+          "name": "_defer_target_scene_commit",
+          "signature": "func _defer_target_scene_commit() -> bool",
+          "summary": "声明 protected override 已接纳异步目标场景提交。",
+          "visibility": "protected"
+        },
+        {
+          "kind": "func",
           "name": "_confirm_target_scene_commit",
           "signature": "func _confirm_target_scene_commit() -> bool",
-          "summary": "确认 protected override 已同步完成目标场景提交。",
+          "summary": "确认 protected override 已完成目标场景提交。",
           "visibility": "protected"
         },
         {

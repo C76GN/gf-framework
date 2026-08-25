@@ -337,6 +337,7 @@ var _target_scene_commit_previous_root_instance_id: int = 0
 var _target_scene_commit_call_generation: int = 0
 var _target_scene_commit_observed_generation: int = 0
 var _target_scene_commit_wait_signal_generation: int = 0
+var _target_scene_commit_proven_root_ref: WeakRef = null
 var _pending_previous_history_path: String = ""
 var _active_load_operation: _RESOURCE_LEASE_SCRIPT = null
 var _load_generation_serial: int = 0
@@ -2279,14 +2280,52 @@ func _get_loading_scene_node() -> Node:
 ## [br]
 ## @param scene: 目标 PackedScene。
 ## [br]
-## @return 接纳切换返回 true；同步 override 可用 _confirm_target_scene_commit() 提交确认回执。
+## 自定义异步 override 可先用 `_defer_target_scene_commit()` 声明等待，提交
+## root 后再由 signal 或确认回执结算。
+## [br]
+## @return 接纳切换返回 true。
 func _do_change_scene(scene: PackedScene) -> bool:
 	var scene_tree: SceneTree = _get_scene_tree_value(Engine.get_main_loop())
 	if scene_tree == null:
 		push_error("[GFSceneUtility] 无法获取 SceneTree，场景切换失败。")
 		return false
-	var error: Error = scene_tree.change_scene_to_packed(scene)
+	var error: Error = OK
+	var pathless_target_root_value: Variant = null
+	if scene == null:
+		error = scene_tree.change_scene_to_packed(scene)
+	elif scene.resource_path.is_empty():
+		var commit_generation: int = _target_scene_commit_call_generation
+		pathless_target_root_value = scene.instantiate()
+		if not _uncommitted_scene_root_is_live(pathless_target_root_value):
+			push_error("[GFSceneUtility] 无法实例化无资源路径的目标场景。")
+			_free_uncommitted_scene_root(pathless_target_root_value)
+			return false
+		_poll_typed_scene_request_lifetimes()
+		if (
+			not _uncommitted_scene_root_is_live(pathless_target_root_value)
+			or commit_generation <= 0
+			or commit_generation != _target_scene_commit_generation
+			or _target_scene_commit_call_generation != commit_generation
+			or _target_scene_commit_observed_generation == commit_generation
+			or not _has_pending_target_scene_commit()
+			or not _active_scene_load_context_is_current(
+				_target_scene_commit_path,
+				_target_scene_commit_load_generation,
+				_target_scene_commit_typed_request_id
+			)
+		):
+			_free_uncommitted_scene_root(pathless_target_root_value)
+			return false
+		var pathless_target_root: Node = pathless_target_root_value
+		_target_scene_commit_proven_root_ref = weakref(
+			pathless_target_root
+		)
+		error = scene_tree.change_scene_to_node(pathless_target_root)
+	else:
+		error = scene_tree.change_scene_to_packed(scene)
 	if error != OK:
+		_free_uncommitted_scene_root(pathless_target_root_value)
+		_target_scene_commit_proven_root_ref = null
 		push_error("[GFSceneUtility] 切换到目标场景失败，错误码：%d" % error)
 		return false
 	if (
@@ -2301,12 +2340,39 @@ func _do_change_scene(scene: PackedScene) -> bool:
 	return true
 
 
-## 确认 protected override 已同步完成目标场景提交。
+## 声明 protected override 已接纳异步目标场景提交。
 ##
-## 只用于 `_do_change_scene()` 已更新 SceneTree/current scene、但不会发出
-## `SceneTree.scene_changed` 的自定义实现。override 调用栈内只记录当前
-## generation 回执；只有 override 返回 true 且 owner/token 复核通过后才结算。
-## 异步实现继续由一次性 scene_changed observer 结算。
+## 只允许在当前 `_do_change_scene()` 调用栈与 generation 内调用。同路径异步
+## override 必须在返回 true 前调用，避免尚未替换的旧 target root 被判定为
+## no-op；普通不同路径异步 override 继续兼容一次性 scene_changed observer。
+## pathless 自定义异步实现还必须在安装精确 root 后调用
+## `_confirm_target_scene_commit()`，signal 本身不会给匿名 root 授信。
+## [br]
+## @api protected
+## [br]
+## @since unreleased
+## [br]
+## @return 当前 override/generation 接受异步等待声明时返回 true。
+func _defer_target_scene_commit() -> bool:
+	var generation: int = _target_scene_commit_call_generation
+	if (
+		generation <= 0
+		or generation != _target_scene_commit_generation
+		or not _has_pending_target_scene_commit()
+	):
+		return false
+	_target_scene_commit_wait_signal_generation = generation
+	return true
+
+
+## 确认 protected override 已完成目标场景提交。
+##
+## 用于 `_do_change_scene()` 已更新 SceneTree/current scene 后提交精确 root
+## 回执；同步实现可在 override 栈内调用，异步实现可在稍后安装 root 后调用。
+## override 栈内只记录当前 generation 回执；只有 override 返回 true 且
+## owner/token 复核通过后才结算。可由规范路径识别的新 root 也能通过一次性
+## scene_changed observer 结算；pathless 自定义实现必须显式调用本方法，不能只
+## 依赖匿名 root 的 signal。
 ## [br]
 ## @api protected
 ## [br]
@@ -2318,13 +2384,14 @@ func _confirm_target_scene_commit() -> bool:
 		return false
 	var scene_tree: SceneTree = _target_scene_commit_tree
 	var scene_root: Node = scene_tree.current_scene if scene_tree != null else null
-	if not _scene_root_matches_target_commit(
+	if not _scene_root_can_confirm_target_commit(
 		scene_root,
 		_target_scene_commit_path,
 		_target_scene_commit_scene,
 		_target_scene_commit_previous_root_instance_id
 	):
 		return false
+	_target_scene_commit_proven_root_ref = weakref(scene_root)
 	var generation: int = _target_scene_commit_generation
 	if _target_scene_commit_call_generation == generation:
 		_target_scene_commit_observed_generation = generation
@@ -4424,6 +4491,7 @@ func _poll_preload_requests(only_path: String = "") -> void:
 
 		var request: Dictionary = _get_preload_request(path)
 		var operation: _RESOURCE_LEASE_SCRIPT = _get_preload_request_operation(request)
+		request["settling"] = true
 		var preload_result: Dictionary = _poll_threaded_operation(operation)
 		_poll_typed_scene_request_lifetimes()
 		if not _preload_request_context_is_current(path, request):
@@ -4435,6 +4503,14 @@ func _poll_preload_requests(only_path: String = "") -> void:
 			_RESOURCE_LEASE_SCRIPT.STATUS_FAILED
 		)
 		var ratio: float = GFVariantData.get_option_float(preload_result, "progress", _get_preload_request_progress(request))
+		if (
+			status in [
+				_RESOURCE_LEASE_SCRIPT.STATUS_QUEUED,
+				_RESOURCE_LEASE_SCRIPT.STATUS_LOADING,
+			]
+			and not _is_preload_request_cancelled(request)
+		):
+			request["settling"] = false
 		request["progress"] = ratio
 
 		match status:
@@ -5017,7 +5093,7 @@ func _apply_target_scene_change(path: String, scene: PackedScene) -> void:
 			_fail_target_scene_change(path, auto_neighbor_generation)
 		return
 
-	# change_scene_to_packed() 会同步触发旧场景退出；在等待 scene_changed 前重验 owner/token。
+	# SceneTree native scene change 会同步触发旧场景退出；等待 scene_changed 前重验 owner/token。
 	_poll_typed_scene_request_lifetimes()
 	if not _active_scene_load_context_is_current(
 		path,
@@ -5025,11 +5101,23 @@ func _apply_target_scene_change(path: String, scene: PackedScene) -> void:
 		typed_request_id
 	):
 		if (
-			commit_observed_during_call
+			(
+				commit_observed_during_call
+				or (
+					not wait_for_scene_changed
+					and _target_scene_commit_root_was_replaced()
+				)
+			)
 			and commit_generation == _target_scene_commit_generation
 			and _has_pending_target_scene_commit()
 		):
 			_on_target_scene_changed(commit_generation)
+		elif (
+			not wait_for_scene_changed
+			and _target_scene_commit_is_unchanged_matching_root()
+			and commit_generation == _target_scene_commit_generation
+		):
+			_disconnect_target_scene_commit_observation(true)
 		return
 	if (
 		commit_generation != _target_scene_commit_generation
@@ -5039,8 +5127,18 @@ func _apply_target_scene_change(path: String, scene: PackedScene) -> void:
 	if commit_observed_during_call:
 		_on_target_scene_changed(commit_generation)
 		return
-	if not wait_for_scene_changed:
-		var _synchronous_commit: bool = _confirm_target_scene_commit()
+	if (
+		not wait_for_scene_changed
+		and _target_scene_commit_root_was_replaced()
+	):
+		_on_target_scene_changed(commit_generation)
+		return
+	if (
+		not wait_for_scene_changed
+		and _target_scene_commit_is_unchanged_matching_root()
+	):
+		_disconnect_target_scene_commit_observation(true)
+		_fail_target_scene_change(path, auto_neighbor_generation)
 
 
 func _begin_target_scene_commit_observation(
@@ -5114,6 +5212,7 @@ func _on_target_scene_changed(generation: int) -> void:
 	var previous_root_instance_id: int = (
 		_target_scene_commit_previous_root_instance_id
 	)
+	var proven_root_ref: WeakRef = _target_scene_commit_proven_root_ref
 	_disconnect_target_scene_commit_observation(false)
 
 	if _disposed:
@@ -5123,7 +5222,8 @@ func _on_target_scene_changed(generation: int) -> void:
 		scene_root,
 		path,
 		scene,
-		previous_root_instance_id
+		previous_root_instance_id,
+		proven_root_ref
 	):
 		if _active_scene_load_context_is_current(
 			path,
@@ -5212,9 +5312,31 @@ func _on_target_scene_changed(generation: int) -> void:
 func _scene_root_matches_target_commit(
 	scene_root: Node,
 	target_path: String,
+	_target_scene: PackedScene,
+	previous_root_instance_id: int,
+	proven_root_ref: WeakRef
+) -> bool:
+	if not _scene_root_replaced_since_target_commit(
+		scene_root,
+		previous_root_instance_id
+	):
+		return false
+	if proven_root_ref != null:
+		return _weak_ref_matches_node(proven_root_ref, scene_root)
+	return _scene_root_matches_target(scene_root, target_path)
+
+
+func _scene_root_can_confirm_target_commit(
+	scene_root: Node,
+	target_path: String,
 	target_scene: PackedScene,
 	previous_root_instance_id: int
 ) -> bool:
+	if not _scene_root_replaced_since_target_commit(
+		scene_root,
+		previous_root_instance_id
+	):
+		return false
 	if _scene_root_matches_target(scene_root, target_path):
 		return true
 	return (
@@ -5222,8 +5344,67 @@ func _scene_root_matches_target_commit(
 		and scene_root.scene_file_path.is_empty()
 		and target_scene != null
 		and target_scene.resource_path.is_empty()
+	)
+
+
+func _target_scene_commit_root_was_replaced() -> bool:
+	var scene_tree: SceneTree = _target_scene_commit_tree
+	var scene_root: Node = scene_tree.current_scene if scene_tree != null else null
+	return _scene_root_replaced_since_target_commit(
+		scene_root,
+		_target_scene_commit_previous_root_instance_id
+	)
+
+
+func _target_scene_commit_is_unchanged_matching_root() -> bool:
+	var scene_tree: SceneTree = _target_scene_commit_tree
+	var scene_root: Node = scene_tree.current_scene if scene_tree != null else null
+	return (
+		scene_root != null
+		and scene_root.get_instance_id()
+		== _target_scene_commit_previous_root_instance_id
+		and _scene_root_matches_target(
+			scene_root,
+			_target_scene_commit_path
+		)
+	)
+
+
+func _scene_root_replaced_since_target_commit(
+	scene_root: Node,
+	previous_root_instance_id: int
+) -> bool:
+	return (
+		scene_root != null
 		and scene_root.get_instance_id() != previous_root_instance_id
 	)
+
+
+func _weak_ref_matches_node(root_ref: WeakRef, node: Node) -> bool:
+	if root_ref == null or node == null:
+		return false
+	var referenced_value: Variant = root_ref.get_ref()
+	return referenced_value is Node and referenced_value == node
+
+
+func _uncommitted_scene_root_is_live(root_value: Variant) -> bool:
+	if typeof(root_value) != TYPE_OBJECT or not is_instance_valid(root_value):
+		return false
+	if not root_value is Node:
+		return false
+	var scene_root: Node = root_value
+	return not scene_root.is_queued_for_deletion()
+
+
+func _free_uncommitted_scene_root(root_value: Variant) -> void:
+	if typeof(root_value) != TYPE_OBJECT or not is_instance_valid(root_value):
+		return
+	if not root_value is Node:
+		return
+	var scene_root: Node = root_value
+	if scene_root.is_inside_tree():
+		return
+	scene_root.free()
 
 
 func _reconcile_suppressed_target_scene_commit(
@@ -5425,6 +5606,7 @@ func _disconnect_target_scene_commit_observation(invalidate_generation: bool) ->
 	_target_scene_commit_call_generation = 0
 	_target_scene_commit_observed_generation = 0
 	_target_scene_commit_wait_signal_generation = 0
+	_target_scene_commit_proven_root_ref = null
 
 
 func _set_paused(p_paused: bool) -> void:
