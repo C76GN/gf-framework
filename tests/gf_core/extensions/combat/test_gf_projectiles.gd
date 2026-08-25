@@ -5710,3 +5710,66 @@ func test_projectile_direct_runtime_removal_finishes_runtime_lost_after_tree_exi
 	assert_true(session_3d.is_finished())
 	assert_eq(session_3d.get_end_reason(), GFProjectileSession.EndReason.RUNTIME_LOST)
 	runtime_3d.free()
+
+
+func test_projectile_direct_root_queue_free_finishes_root_lost() -> void:
+	var root_2d: Node2D = _make_bound_projectile_root_2d()
+	add_child_autofree(root_2d)
+	var definition_2d: GFProjectileDefinition2D = _make_projectile_definition_2d()
+	var binding_2d: GFProjectileBinding2D = definition_2d.bind_instance(root_2d)
+	var runtime_2d: GFProjectile2D = _runtime_2d_from(root_2d)
+	var session_2d: GFProjectileSession = runtime_2d.launch(binding_2d)
+	var root_ref_2d: WeakRef = weakref(root_2d)
+	root_2d.queue_free()
+	assert_true(root_2d.is_queued_for_deletion())
+	assert_null(session_2d.get_instance_root(), "public getter 不得重新暴露 queued root。")
+	assert_true(session_2d.is_active(), "root tree-exit 前 session 仍应保持 ACTIVE。")
+	await get_tree().process_frame
+	await get_tree().process_frame
+	assert_true(session_2d.is_finished())
+	assert_eq(
+		session_2d.get_end_reason(),
+		GFProjectileSession.EndReason.ROOT_LOST,
+		"direct 2D launch 的完整 root queue_free 必须保持 ROOT_LOST。"
+	)
+	assert_true(root_ref_2d.get_ref() == null)
+
+	var root_3d: Node3D = _make_bound_projectile_root_3d()
+	add_child_autofree(root_3d)
+	var definition_3d: GFProjectileDefinition3D = _make_projectile_definition_3d()
+	var binding_3d: GFProjectileBinding3D = definition_3d.bind_instance(root_3d)
+	var runtime_3d: GFProjectile3D = _runtime_3d_from(root_3d)
+	var session_3d: GFProjectileSession = runtime_3d.launch(binding_3d)
+	var root_ref_3d: WeakRef = weakref(root_3d)
+	root_3d.queue_free()
+	assert_true(root_3d.is_queued_for_deletion())
+	assert_null(session_3d.get_instance_root())
+	assert_true(session_3d.is_active())
+	await get_tree().process_frame
+	await get_tree().process_frame
+	assert_true(session_3d.is_finished())
+	assert_eq(
+		session_3d.get_end_reason(),
+		GFProjectileSession.EndReason.ROOT_LOST,
+		"direct 3D launch 必须与 2D 使用同一 root-loss 判别。"
+	)
+	assert_true(root_ref_3d.get_ref() == null)
+
+
+func test_projectile_direct_root_remove_child_finishes_root_lost() -> void:
+	var root: Node2D = _make_bound_projectile_root_2d()
+	add_child_autofree(root)
+	var definition: GFProjectileDefinition2D = _make_projectile_definition_2d()
+	var binding: GFProjectileBinding2D = definition.bind_instance(root)
+	var runtime: GFProjectile2D = _runtime_2d_from(root)
+	var session: GFProjectileSession = runtime.launch(binding)
+
+	remove_child(root)
+	await get_tree().process_frame
+	assert_true(session.is_finished())
+	assert_eq(
+		session.get_end_reason(),
+		GFProjectileSession.EndReason.ROOT_LOST,
+		"direct root remove_child 必须优先于 child runtime 的 deferred RUNTIME_LOST。"
+	)
+	root.free()

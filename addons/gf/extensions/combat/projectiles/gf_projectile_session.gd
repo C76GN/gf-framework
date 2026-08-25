@@ -115,6 +115,7 @@ var _metadata: Dictionary = {}
 var _notification_barrier_depth: int = 0
 var _finished_notification_pending: bool = false
 var _terminal_body_observation_recorded: bool = false
+var _root_tree_exiting_callback: Callable = Callable()
 
 
 # --- 公共方法 ---
@@ -268,6 +269,7 @@ func finish(reason: EndReason = EndReason.CALLER_FINISHED) -> bool:
 		return false
 	_status = Status.FINISHED
 	_end_reason = reason
+	_disconnect_root_tree_exiting_observer()
 	_stop_body_once()
 	if _notification_barrier_depth > 0:
 		_finished_notification_pending = true
@@ -319,12 +321,20 @@ func activate_for_framework(
 		or not is_instance_valid(body_adapter)
 	):
 		return ERR_INVALID_PARAMETER
+	var root_tree_exiting_callback: Callable = _on_instance_root_tree_exiting
+	var connect_error: Error = instance_root.tree_exiting.connect(
+		root_tree_exiting_callback,
+		CONNECT_ONE_SHOT as Object.ConnectFlags
+	) as Error
+	if connect_error != OK:
+		return connect_error
 	_dimension = dimension
 	_generation = generation
 	_root_ref = weakref(instance_root)
 	_runtime_ref = weakref(runtime)
 	_body_adapter = body_adapter
 	_metadata = metadata.duplicate(true)
+	_root_tree_exiting_callback = root_tree_exiting_callback
 	_status = Status.ACTIVE
 	return OK
 
@@ -446,6 +456,21 @@ func release_notification_barrier_for_framework() -> Error:
 
 # --- 私有/辅助方法 ---
 
+func _disconnect_root_tree_exiting_observer() -> void:
+	var callback: Callable = _root_tree_exiting_callback
+	_root_tree_exiting_callback = Callable()
+	if not callback.is_valid() or _root_ref == null:
+		return
+	var root_value: Variant = _root_ref.get_ref()
+	if typeof(root_value) != TYPE_OBJECT or not is_instance_valid(root_value):
+		return
+	if not root_value is Node:
+		return
+	var root: Node = root_value
+	if root.tree_exiting.is_connected(callback):
+		root.tree_exiting.disconnect(callback)
+
+
 func _stop_body_once() -> void:
 	var root: Node = get_instance_root()
 	if root == null or _body_adapter == null or not is_instance_valid(_body_adapter):
@@ -468,3 +493,11 @@ func _node_from_ref(weak_reference: WeakRef) -> Node:
 			return null
 		return node
 	return null
+
+
+# --- 信号处理函数 ---
+
+func _on_instance_root_tree_exiting() -> void:
+	# one-shot signal 正在发射时只清本地 receipt，避免回调栈内反向 disconnect。
+	_root_tree_exiting_callback = Callable()
+	var _root_lost: bool = finish(EndReason.ROOT_LOST)

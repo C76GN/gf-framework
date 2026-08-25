@@ -142,6 +142,61 @@ func test_release_for_framework_requires_current_active_lease() -> void:
 	assert_eq(_pool.get_available_count(_scene), 0)
 
 
+func test_release_for_framework_uses_authoritative_lease_after_metadata_drift() -> void:
+	var node: Node = _pool.acquire(_scene, _parent)
+	assert_not_null(node)
+	if node == null:
+		return
+	node.set_meta(&"_gf_pool_active", false)
+
+	assert_true(
+		_pool.release_for_framework(node, _scene),
+		"framework exact-lease 入口不得把可变 Node metadata 当作授权证据。"
+	)
+	assert_eq(
+		_pool.get_active_count(_scene),
+		0,
+		"返回 true 时必须已经结算 authoritative active lease。"
+	)
+	assert_eq(
+		_pool.get_available_count(_scene),
+		1,
+		"metadata 漂移不得阻止精确 lease 正常归还所属池。"
+	)
+	assert_false(
+		_pool.release_for_framework(node, _scene),
+		"首次返回 true 后 authoritative lease 必须已退休，重复调用应拒绝。"
+	)
+
+	# 旧实现会在 legacy release() 的 metadata guard 处早退；保持失败用例可清理。
+	if _pool.get_available_count(_scene) == 0:
+		node.set_meta(&"_gf_pool_active", true)
+		_pool.release(node, _scene)
+
+	var reused: Node = _pool.acquire(_scene, _parent)
+	assert_same(reused, node)
+	var wrong_scene: PackedScene = _make_node_scene()
+	reused.set_meta(&"_gf_pool_source_scene", wrong_scene)
+	var wrong_source_accepted: bool = _pool.release_for_framework(reused, _scene)
+	var wrong_source_available: int = _pool.get_available_count(_scene)
+	if wrong_source_available == 0:
+		# 仅旧实现委托 metadata-sensitive legacy release() 时产生；消费红测诊断。
+		assert_push_warning(
+			"[GFObjectPoolUtility] release 收到不匹配的 PackedScene，已回退到节点原始所属池。"
+		)
+		assert_push_warning("[GFObjectPoolUtility] release 失败：节点不属于当前对象池。")
+	assert_true(wrong_source_accepted)
+	assert_eq(
+		wrong_source_available,
+		1,
+		"source-scene metadata 漂移也不得让 framework 入口假成功。"
+	)
+	assert_false(_pool.release_for_framework(reused, _scene))
+	if wrong_source_available == 0:
+		reused.set_meta(&"_gf_pool_source_scene", _scene)
+		_pool.release(reused, _scene)
+
+
 func test_release_for_framework_settles_exact_queued_active_lease() -> void:
 	var queued_scene: PackedScene = _make_lifecycle_hook_scene()
 	var node: LifecycleHookNode = _acquire_lifecycle_hook_node(queued_scene)
