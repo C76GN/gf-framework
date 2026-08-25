@@ -91,6 +91,7 @@
 | 方法 | [`cleanup_transients`](#member-gfsceneutility-methods-cleanup_transients) | `func cleanup_transients() -> void:` |
 | 方法 | [`_get_loading_scene_node`](#member-gfsceneutility-methods-_get_loading_scene_node) | `func _get_loading_scene_node() -> Node:` |
 | 方法 | [`_do_change_scene`](#member-gfsceneutility-methods-_do_change_scene) | `func _do_change_scene(scene: PackedScene) -> bool:` |
+| 方法 | [`_confirm_target_scene_commit`](#member-gfsceneutility-methods-_confirm_target_scene_commit) | `func _confirm_target_scene_commit() -> bool:` |
 | 方法 | [`_do_change_scene_sync`](#member-gfsceneutility-methods-_do_change_scene_sync) | `func _do_change_scene_sync(path: String) -> Error:` |
 | 方法 | [`_get_current_scene_path`](#member-gfsceneutility-methods-_get_current_scene_path) | `func _get_current_scene_path() -> String:` |
 
@@ -748,7 +749,7 @@ func load_scene_request_async( path: String, loading_scene_path: String = "", pa
 | `request_owner` | 可选生命周期 owner；释放后只取消当前 consumer。 |
 | `cancellation_token` | 可选只读取消令牌。 |
 
-返回：已配置的 GFSceneOperation；同步拒绝也会携带稳定终态。
+返回：已配置的 GFSceneOperation；同步拒绝也会携带稳定终态；非主线程或配置失败返回 null。
 
 结构：
 
@@ -818,7 +819,7 @@ func preload_scene_request_async( path: String, fixed: bool = false, request_own
 | `request_owner` | 可选生命周期 owner；释放后只取消当前 consumer。 |
 | `cancellation_token` | 可选只读取消令牌。 |
 
-返回：已配置的 GFSceneOperation；同步拒绝与 cache hit 也携带稳定终态。
+返回：已配置的 GFSceneOperation；同步拒绝与 cache hit 也携带稳定终态；非主线程或配置失败返回 null。
 
 <a id="member-gfsceneutility-methods-begin_background_scene_load"></a>
 
@@ -1467,6 +1468,7 @@ func _get_loading_scene_node() -> Node:
 ### `_do_change_scene`
 
 - API：`protected`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func _do_change_scene(scene: PackedScene) -> bool:
@@ -1480,7 +1482,22 @@ func _do_change_scene(scene: PackedScene) -> bool:
 |---|---|
 | `scene` | 目标 PackedScene。 |
 
-返回：切换成功返回 true。
+返回：接纳切换返回 true；同步 override 可用 _confirm_target_scene_commit() 提交确认回执。
+
+<a id="member-gfsceneutility-methods-_confirm_target_scene_commit"></a>
+
+### `_confirm_target_scene_commit`
+
+- API：`protected`
+- 首次版本：`unreleased`
+
+```gdscript
+func _confirm_target_scene_commit() -> bool:
+```
+
+确认 protected override 已同步完成目标场景提交。 只用于 `_do_change_scene()` 已更新 SceneTree/current scene、但不会发出 `SceneTree.scene_changed` 的自定义实现。override 调用栈内只记录当前 generation 回执；只有 override 返回 true 且 owner/token 复核通过后才结算。 异步实现继续由一次性 scene_changed observer 结算。
+
+返回：当前待提交 generation 与目标 scene root 匹配并接受确认时返回 true。
 
 <a id="member-gfsceneutility-methods-_do_change_scene_sync"></a>
 

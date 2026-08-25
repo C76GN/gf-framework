@@ -333,6 +333,10 @@ var _target_scene_commit_transition_params: Dictionary = {}
 var _target_scene_commit_previous_params: Dictionary = {}
 var _target_scene_commit_pending_history_path: String = ""
 var _target_scene_commit_previous_pause_state: bool = false
+var _target_scene_commit_previous_root_instance_id: int = 0
+var _target_scene_commit_call_generation: int = 0
+var _target_scene_commit_observed_generation: int = 0
+var _target_scene_commit_wait_signal_generation: int = 0
 var _pending_previous_history_path: String = ""
 var _active_load_operation: _RESOURCE_LEASE_SCRIPT = null
 var _load_generation_serial: int = 0
@@ -548,7 +552,8 @@ func load_scene_async(
 		scene_load_failed.emit(scene_path)
 		return ERR_INVALID_PARAMETER
 	var typed_request_id: int = _get_active_typed_load_request_id()
-	_settle_terminal_preload_request_before_admission(scene_path)
+	if not _settle_terminal_preload_request_before_admission(scene_path):
+		return ERR_BUSY
 	var current_typed_request_id: int = _get_active_typed_load_request_id()
 	if typed_request_id > 0 and current_typed_request_id != typed_request_id:
 		return OK if current_typed_request_id == 0 else ERR_BUSY
@@ -775,7 +780,7 @@ func load_scene_async(
 ## [br]
 ## @schema params: Dictionary[String, Variant]，切换完成后复制到当前场景参数中的场景切换参数。
 ## [br]
-## @return 已配置的 GFSceneOperation；同步拒绝也会携带稳定终态。
+## @return 已配置的 GFSceneOperation；同步拒绝也会携带稳定终态；非主线程或配置失败返回 null。
 func load_scene_request_async(
 	path: String,
 	loading_scene_path: String = "",
@@ -784,12 +789,16 @@ func load_scene_request_async(
 	request_owner: Object = null,
 	cancellation_token: GFCancellationToken = null
 ) -> GFSceneOperation:
+	if not Thread.is_main_thread():
+		return null
 	var scene_path: String = _normalize_scene_path(path)
 	var operation: GFSceneOperation = _create_scene_operation(
 		GFSceneOperation.Kind.LOAD,
 		path,
 		scene_path
 	)
+	if operation == null:
+		return null
 	if _disposed:
 		var _disposed_result: bool = _settle_scene_operation(
 			operation,
@@ -840,7 +849,15 @@ func load_scene_request_async(
 			ERR_BUSY
 		)
 		return operation
-	_settle_terminal_preload_request_before_admission(scene_path)
+	if not _settle_terminal_preload_request_before_admission(scene_path):
+		var _settling_busy_result: bool = _settle_scene_operation(
+			operation,
+			GFSceneOperationResult.Status.REJECTED,
+			null,
+			GFSceneOperationResult.REASON_LOAD_BUSY,
+			ERR_BUSY
+		)
+		return operation
 	if _disposed:
 		var _disposed_after_preload_settle: bool = _settle_scene_operation(
 			operation,
@@ -1155,19 +1172,23 @@ func preload_scene(path: String, fixed: bool = false) -> Error:
 ## [br]
 ## @param cancellation_token: 可选只读取消令牌。
 ## [br]
-## @return 已配置的 GFSceneOperation；同步拒绝与 cache hit 也携带稳定终态。
+## @return 已配置的 GFSceneOperation；同步拒绝与 cache hit 也携带稳定终态；非主线程或配置失败返回 null。
 func preload_scene_request_async(
 	path: String,
 	fixed: bool = false,
 	request_owner: Object = null,
 	cancellation_token: GFCancellationToken = null
 ) -> GFSceneOperation:
+	if not Thread.is_main_thread():
+		return null
 	var scene_path: String = _normalize_scene_path(path)
 	var operation: GFSceneOperation = _create_scene_operation(
 		GFSceneOperation.Kind.PRELOAD,
 		path,
 		scene_path
 	)
+	if operation == null:
+		return null
 	if _disposed:
 		var _disposed_result: bool = _settle_scene_operation(
 			operation,
@@ -1209,7 +1230,15 @@ func preload_scene_request_async(
 			ERR_INVALID_PARAMETER
 		)
 		return operation
-	_settle_terminal_preload_request_before_admission(scene_path)
+	if not _settle_terminal_preload_request_before_admission(scene_path):
+		var _settling_busy_result: bool = _settle_scene_operation(
+			operation,
+			GFSceneOperationResult.Status.REJECTED,
+			null,
+			GFSceneOperationResult.REASON_BROKER_REJECTED,
+			ERR_BUSY
+		)
+		return operation
 	if _disposed:
 		var _disposed_after_preload_settle: bool = _settle_scene_operation(
 			operation,
@@ -2246,22 +2275,62 @@ func _get_loading_scene_node() -> Node:
 ## [br]
 ## @api protected
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param scene: 目标 PackedScene。
 ## [br]
-## @return 切换成功返回 true。
+## @return 接纳切换返回 true；同步 override 可用 _confirm_target_scene_commit() 提交确认回执。
 func _do_change_scene(scene: PackedScene) -> bool:
 	var scene_tree: SceneTree = _get_scene_tree_value(Engine.get_main_loop())
 	if scene_tree == null:
 		push_error("[GFSceneUtility] 无法获取 SceneTree，场景切换失败。")
 		return false
-
 	var error: Error = scene_tree.change_scene_to_packed(scene)
 	if error != OK:
 		push_error("[GFSceneUtility] 切换到目标场景失败，错误码：%d" % error)
 		return false
+	if (
+		_target_scene_commit_call_generation == _target_scene_commit_generation
+		and _has_pending_target_scene_commit()
+	):
+		_target_scene_commit_wait_signal_generation = (
+			_target_scene_commit_generation
+		)
 
 	cleanup_transients()
 	return true
+
+
+## 确认 protected override 已同步完成目标场景提交。
+##
+## 只用于 `_do_change_scene()` 已更新 SceneTree/current scene、但不会发出
+## `SceneTree.scene_changed` 的自定义实现。override 调用栈内只记录当前
+## generation 回执；只有 override 返回 true 且 owner/token 复核通过后才结算。
+## 异步实现继续由一次性 scene_changed observer 结算。
+## [br]
+## @api protected
+## [br]
+## @since unreleased
+## [br]
+## @return 当前待提交 generation 与目标 scene root 匹配并接受确认时返回 true。
+func _confirm_target_scene_commit() -> bool:
+	if not _has_pending_target_scene_commit():
+		return false
+	var scene_tree: SceneTree = _target_scene_commit_tree
+	var scene_root: Node = scene_tree.current_scene if scene_tree != null else null
+	if not _scene_root_matches_target_commit(
+		scene_root,
+		_target_scene_commit_path,
+		_target_scene_commit_scene,
+		_target_scene_commit_previous_root_instance_id
+	):
+		return false
+	var generation: int = _target_scene_commit_generation
+	if _target_scene_commit_call_generation == generation:
+		_target_scene_commit_observed_generation = generation
+		return true
+	_on_target_scene_changed(generation)
+	return not _has_pending_target_scene_commit()
 
 
 ## 同步切换到场景文件路径。
@@ -2394,22 +2463,25 @@ func _retire_preload_request_after_reentry(
 	_forget_all_preload_request_leases(request)
 
 
-func _settle_terminal_preload_request_before_admission(path: String) -> void:
+func _settle_terminal_preload_request_before_admission(path: String) -> bool:
 	var scene_path: String = _normalize_scene_path(path)
 	if not _preload_requests.has(scene_path):
-		return
+		return true
 	var request: Dictionary = _get_preload_request(scene_path)
+	if GFVariantData.get_option_bool(request, "settling", false):
+		return false
 	var operation: _RESOURCE_LEASE_SCRIPT = _get_preload_request_operation(request)
 	if (
 		not _is_preload_request_cancelled(request)
 		and operation != null
 		and not operation.is_terminal()
 	):
-		return
+		return true
 	# Broker cancellation/settlement can precede the Utility tick. Retire that exact
 	# aggregate before admitting a later consumer so its new Lease cannot inherit the
 	# previous generation's terminal status.
 	_poll_preload_requests(scene_path)
+	return true
 
 
 func _get_active_typed_load_request_id() -> int:
@@ -2670,13 +2742,13 @@ func _create_scene_operation(
 		{ "check_exists": false }
 	)
 	var operation: GFSceneOperation = GFSceneOperation.new()
-	var _configured: bool = operation.configure_for_framework(
+	var configured: bool = operation.configure_for_framework(
 		_scene_request_serial,
 		kind,
 		identity,
 		Callable(self, &"_cancel_scene_operation")
 	)
-	return operation
+	return operation if configured else null
 
 
 func _request_scene_consumer_lease(
@@ -3729,7 +3801,8 @@ func _preload_scene_with_admission(
 		push_error(validation_error)
 		scene_preload_failed.emit(scene_path)
 		return ERR_INVALID_PARAMETER
-	_settle_terminal_preload_request_before_admission(scene_path)
+	if not _settle_terminal_preload_request_before_admission(scene_path):
+		return ERR_BUSY
 	if _disposed:
 		return ERR_UNAVAILABLE
 	if not _is_auto_neighbor_generation_current(auto_neighbor_generation):
@@ -4391,6 +4464,7 @@ func _poll_preload_requests(only_path: String = "") -> void:
 					_forget_all_preload_request_leases(request)
 					continue
 				if scene == null:
+					request["settling"] = true
 					scene_preload_progress.emit(path, ratio)
 					_poll_typed_scene_request_lifetimes()
 					if (
@@ -4452,6 +4526,7 @@ func _poll_preload_requests(only_path: String = "") -> void:
 				):
 					_retire_preload_request_after_reentry(path, request)
 					continue
+				request["settling"] = true
 				request["progress"] = 1.0
 				_update_typed_preload_progress(request, 1.0)
 				_poll_typed_scene_request_lifetimes()
@@ -4523,6 +4598,7 @@ func _poll_preload_requests(only_path: String = "") -> void:
 						_schedule_complete_loading(path, scene)
 
 			_RESOURCE_LEASE_SCRIPT.STATUS_FAILED:
+				request["settling"] = true
 				if not _is_preload_request_cancelled(request):
 					scene_preload_progress.emit(path, ratio)
 					_poll_typed_scene_request_lifetimes()
@@ -4918,7 +4994,18 @@ func _apply_target_scene_change(path: String, scene: PackedScene) -> void:
 		_fail_target_scene_change(path, auto_neighbor_generation)
 		return
 
+	_target_scene_commit_call_generation = commit_generation
+	_target_scene_commit_observed_generation = 0
+	_target_scene_commit_wait_signal_generation = 0
 	var change_accepted: bool = _do_change_scene(scene)
+	var commit_observed_during_call: bool = (
+		_target_scene_commit_observed_generation == commit_generation
+	)
+	var wait_for_scene_changed: bool = (
+		_target_scene_commit_wait_signal_generation == commit_generation
+	)
+	if _target_scene_commit_call_generation == commit_generation:
+		_target_scene_commit_call_generation = 0
 	if not change_accepted:
 		if commit_generation == _target_scene_commit_generation:
 			_disconnect_target_scene_commit_observation(true)
@@ -4932,6 +5019,28 @@ func _apply_target_scene_change(path: String, scene: PackedScene) -> void:
 
 	# change_scene_to_packed() 会同步触发旧场景退出；在等待 scene_changed 前重验 owner/token。
 	_poll_typed_scene_request_lifetimes()
+	if not _active_scene_load_context_is_current(
+		path,
+		load_generation,
+		typed_request_id
+	):
+		if (
+			commit_observed_during_call
+			and commit_generation == _target_scene_commit_generation
+			and _has_pending_target_scene_commit()
+		):
+			_on_target_scene_changed(commit_generation)
+		return
+	if (
+		commit_generation != _target_scene_commit_generation
+		or not _has_pending_target_scene_commit()
+	):
+		return
+	if commit_observed_during_call:
+		_on_target_scene_changed(commit_generation)
+		return
+	if not wait_for_scene_changed:
+		var _synchronous_commit: bool = _confirm_target_scene_commit()
 
 
 func _begin_target_scene_commit_observation(
@@ -4973,6 +5082,10 @@ func _begin_target_scene_commit_observation(
 	_target_scene_commit_previous_params = _current_scene_params.duplicate(true)
 	_target_scene_commit_pending_history_path = _pending_previous_history_path
 	_target_scene_commit_previous_pause_state = _previous_pause_state
+	var previous_root: Node = scene_tree.current_scene
+	_target_scene_commit_previous_root_instance_id = (
+		previous_root.get_instance_id() if previous_root != null else 0
+	)
 	return generation
 
 
@@ -4981,6 +5094,9 @@ func _on_target_scene_changed(generation: int) -> void:
 		generation != _target_scene_commit_generation
 		or not _has_pending_target_scene_commit()
 	):
+		return
+	if _target_scene_commit_call_generation == generation:
+		_target_scene_commit_observed_generation = generation
 		return
 	var scene_tree: SceneTree = _target_scene_commit_tree
 	var path: String = _target_scene_commit_path
@@ -4995,12 +5111,20 @@ func _on_target_scene_changed(generation: int) -> void:
 	var previous_params: Dictionary = _target_scene_commit_previous_params.duplicate(true)
 	var pending_history_path: String = _target_scene_commit_pending_history_path
 	var previous_pause_state: bool = _target_scene_commit_previous_pause_state
+	var previous_root_instance_id: int = (
+		_target_scene_commit_previous_root_instance_id
+	)
 	_disconnect_target_scene_commit_observation(false)
 
 	if _disposed:
 		return
 	var scene_root: Node = scene_tree.current_scene if scene_tree != null else null
-	if not _scene_root_matches_target(scene_root, path):
+	if not _scene_root_matches_target_commit(
+		scene_root,
+		path,
+		scene,
+		previous_root_instance_id
+	):
 		if _active_scene_load_context_is_current(
 			path,
 			load_generation,
@@ -5082,6 +5206,23 @@ func _on_target_scene_changed(generation: int) -> void:
 		previous_params,
 		pending_history_path,
 		previous_pause_state
+	)
+
+
+func _scene_root_matches_target_commit(
+	scene_root: Node,
+	target_path: String,
+	target_scene: PackedScene,
+	previous_root_instance_id: int
+) -> bool:
+	if _scene_root_matches_target(scene_root, target_path):
+		return true
+	return (
+		scene_root != null
+		and scene_root.scene_file_path.is_empty()
+		and target_scene != null
+		and target_scene.resource_path.is_empty()
+		and scene_root.get_instance_id() != previous_root_instance_id
 	)
 
 
@@ -5280,6 +5421,10 @@ func _disconnect_target_scene_commit_observation(invalidate_generation: bool) ->
 	_target_scene_commit_previous_params.clear()
 	_target_scene_commit_pending_history_path = ""
 	_target_scene_commit_previous_pause_state = false
+	_target_scene_commit_previous_root_instance_id = 0
+	_target_scene_commit_call_generation = 0
+	_target_scene_commit_observed_generation = 0
+	_target_scene_commit_wait_signal_generation = 0
 
 
 func _set_paused(p_paused: bool) -> void:

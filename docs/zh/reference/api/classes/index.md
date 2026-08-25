@@ -7,7 +7,7 @@
 | 模块 | 类 | 成员 | 页面内索引 |
 |---|---:|---:|---|
 | Kernel | 77 | 1128 | [Kernel](#module-kernel) |
-| Standard | 478 | 7610 | [Standard](#module-standard) |
+| Standard | 478 | 7611 | [Standard](#module-standard) |
 | Action Queue | 16 | 214 | [Action Queue](#module-extensions-action_queue) |
 | Asset Metadata | 4 | 33 | [Asset Metadata](#module-extensions-asset_metadata) |
 | Behavior Tree | 22 | 89 | [Behavior Tree](#module-extensions-behavior_tree) |
@@ -250,7 +250,7 @@
 | [`GFRuntimeTaskScheduler`](GFRuntimeTaskScheduler.md#gfruntimetaskscheduler) | 运行时服务 (`runtime_service`) | `GFUtility` | 21 | `addons/gf/standard/sequence/gf_runtime_task_scheduler.gd` |
 | [`GFSafeResourceCodec`](GFSafeResourceCodec.md#gfsaferesourcecodec) | 运行时服务 (`runtime_service`) | `RefCounted` | 13 | `addons/gf/standard/utilities/storage/gf_safe_resource_codec.gd` |
 | [`GFSceneContractTools`](GFSceneContractTools.md#gfscenecontracttools) | 运行时服务 (`runtime_service`) | `RefCounted` | 17 | `addons/gf/standard/utilities/scene/gf_scene_contract_tools.gd` |
-| [`GFSceneUtility`](GFSceneUtility.md#gfsceneutility) | 运行时服务 (`runtime_service`) | `GFUtility` | 78 | `addons/gf/standard/utilities/scene/gf_scene_utility.gd` |
+| [`GFSceneUtility`](GFSceneUtility.md#gfsceneutility) | 运行时服务 (`runtime_service`) | `GFUtility` | 79 | `addons/gf/standard/utilities/scene/gf_scene_utility.gd` |
 | [`GFScreenTransitionUtility`](GFScreenTransitionUtility.md#gfscreentransitionutility) | 运行时服务 (`runtime_service`) | `GFUtility` | 17 | `addons/gf/standard/utilities/scene/gf_screen_transition_utility.gd` |
 | [`GFScreenshotUtility`](GFScreenshotUtility.md#gfscreenshotutility) | 运行时服务 (`runtime_service`) | `GFUtility` | 22 | `addons/gf/standard/utilities/debug/gf_screenshot_utility.gd` |
 | [`GFScriptStructureTools`](GFScriptStructureTools.md#gfscriptstructuretools) | 运行时服务 (`runtime_service`) | `RefCounted` | 7 | `addons/gf/standard/utilities/assets/gf_script_structure_tools.gd` |

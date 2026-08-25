@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFSceneUtility" path="addons/gf/standard/utilities/scene/gf_scene_utility.gd" module="standard" extends="GFUtility" classDigest="8c51d87b91966170d2d6e6dac0a33737d5dcc437dc1af4e1178cb262a1ca1f9a">
+<class name="GFSceneUtility" path="addons/gf/standard/utilities/scene/gf_scene_utility.gd" module="standard" extends="GFUtility" classDigest="5ca6bf2341c38da2cf34626dc259bd41503281e3705f5958036b3e2669b8da57">
 	<description>GFSceneUtility: 场景与流程切换管理器。
 封装原生场景切换，支持带有 `loading scene` 的异步加载、PackedScene
 资源预加载缓存、切换参数、场景历史，并可在切换完成后清理不需要跨场景保留的 `System/Model`。</description>
@@ -359,7 +359,7 @@ fixed 缓存不受该容量限制。</description>
 				<tag name="param">minimum_duration_seconds: loading scene 最短保留秒数；小于 0 时使用默认值。</tag>
 				<tag name="param">request_owner: 可选生命周期 owner；释放后只取消当前 consumer。</tag>
 				<tag name="param">cancellation_token: 可选只读取消令牌。</tag>
-				<tag name="return">已配置的 GFSceneOperation；同步拒绝也会携带稳定终态。</tag>
+				<tag name="return">已配置的 GFSceneOperation；同步拒绝也会携带稳定终态；非主线程或配置失败返回 null。</tag>
 				<tag name="schema">params: Dictionary[String, Variant]，切换完成后复制到当前场景参数中的场景切换参数。</tag>
 				<tag name="since">unreleased</tag>
 			</tags>
@@ -395,7 +395,7 @@ fixed 缓存不受该容量限制。</description>
 				<tag name="param">fixed: 为 true 时写入固定缓存，不受临时缓存容量或 LRU 淘汰影响。</tag>
 				<tag name="param">request_owner: 可选生命周期 owner；释放后只取消当前 consumer。</tag>
 				<tag name="param">cancellation_token: 可选只读取消令牌。</tag>
-				<tag name="return">已配置的 GFSceneOperation；同步拒绝与 cache hit 也携带稳定终态。</tag>
+				<tag name="return">已配置的 GFSceneOperation；同步拒绝与 cache hit 也携带稳定终态；非主线程或配置失败返回 null。</tag>
 				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
@@ -711,7 +711,21 @@ fixed 缓存不受该容量限制。</description>
 			<tags>
 				<tag name="api">protected</tag>
 				<tag name="param">scene: 目标 PackedScene。</tag>
-				<tag name="return">切换成功返回 true。</tag>
+				<tag name="return">接纳切换返回 true；同步 override 可用 _confirm_target_scene_commit() 提交确认回执。</tag>
+				<tag name="since">3.17.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_confirm_target_scene_commit">
+			<signature>func _confirm_target_scene_commit() -&gt; bool:</signature>
+			<description>确认 protected override 已同步完成目标场景提交。
+只用于 `_do_change_scene()` 已更新 SceneTree/current scene、但不会发出
+`SceneTree.scene_changed` 的自定义实现。override 调用栈内只记录当前
+generation 回执；只有 override 返回 true 且 owner/token 复核通过后才结算。
+异步实现继续由一次性 scene_changed observer 结算。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="return">当前待提交 generation 与目标 scene root 匹配并接受确认时返回 true。</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
 		<member kind="method" name="_do_change_scene_sync">

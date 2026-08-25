@@ -5,6 +5,10 @@
 的流程；只关心“是否成功发起”并已使用全局路径信号的旧代码，可以继续使用
 `load_scene_async()` 与 `preload_scene()`。
 
+两套 request 入口都只能在主线程调用。非主线程调用或内部 Operation 配置失败会返回
+`null`，且不会发布 request ID、申请 Broker Lease 或改变 load/preload 状态；需要从 worker
+发起时，先把请求投递回主线程。
+
 ## 基本用法
 
 `load_scene_request_async()` 加载 `PackedScene`，并且只在安全帧切换成功后报告
@@ -17,7 +21,9 @@ var operation := scene_util.load_scene_request_async(
 	{ "spawn_point": "gate_a" }
 )
 
-if operation.is_completed():
+if operation == null:
+	_handle_scene_request_unavailable()
+elif operation.is_completed():
 	_consume_scene_result(operation.get_result())
 else:
 	operation.progressed.connect(_on_scene_progress)
@@ -34,16 +40,18 @@ var preload_operation := scene_util.preload_scene_request_async(
 	cancellation_token
 )
 
-if preload_operation.is_completed():
+if preload_operation == null:
+	_handle_scene_request_unavailable()
+elif preload_operation.is_completed():
 	_consume_scene_result(preload_operation.get_result())
 else:
 	preload_operation.completed.connect(_consume_scene_result, CONNECT_ONE_SHOT)
 ```
 
-Operation 可能在 request 方法返回前同步完成。无效路径、已释放的 Utility、不可用
+非 null 的 Operation 可能在 request 方法返回前同步完成。无效路径、已释放的 Utility、不可用
 owner、已经取消的 token、load busy、Broker admission 拒绝，以及 preload cache hit
-都可能走这条路径。因此调用方必须先检查 `is_completed()` 或 `get_result()`，只在仍
-pending 时连接 `completed`，不能假定连接信号后才会出现终态。
+都可能走这条路径。因此调用方必须先检查返回值非 null，再检查 `is_completed()` 或
+`get_result()`；只在仍 pending 时连接 `completed`，不能假定连接信号后才会出现终态。
 
 ## 请求身份与共享加载
 
@@ -62,7 +70,9 @@ owner 或取消它的 token，只终结该 consumer；其它 consumer 继续观�
 不会继续把同路径结果钉在 fixed cache；只要完成边界仍有任一 live fixed consumer，
 共享物理结果仍会进入 fixed cache。Broker 在 Utility tick 之前终结旧 Lease 时，下一
 次同路径 admission 会先退役旧 aggregate，再建立新 generation；后来创建的 consumer
-不会继承较早的取消终态。
+不会继承较早的取消终态。aggregate 发布终态 progress 前会进入不可加入的 settling
+边界；progress listener 同步发起的同路径 load/preload 以 `ERR_BUSY` 拒绝，不会递归
+轮询或加入正在发布终态的旧 generation。
 
 load 采用 busy rejection，而不是 replacement：同一时刻已有 load 等待时，新
 `load_scene_request_async()` 会同步得到 `REJECTED / REASON_LOAD_BUSY / ERR_BUSY`，
@@ -77,7 +87,16 @@ load 采用 busy rejection，而不是 replacement：同一时刻已有 load 等
   consumer 的存活兴趣则要求写入 fixed 缓存。
 - load 即使命中缓存，也要等待 loading scene 最短时长与安全帧切换；只有场景切换
   被 `SceneTree.scene_changed` 确认，且 `current_scene` 身份仍为冻结目标后，才以
-  `REASON_SCENE_LOADED` 完成。
+  `REASON_SCENE_LOADED` 完成。运行时打包且没有 `resource_path` 的 `PackedScene` 允许以
+  同样没有 `scene_file_path`、且实例身份不同于切换前 current scene 的 committed root
+  完成；它不会因为缺少磁盘路径而在物理切换后伪报失败，也不会把切换前已有的任意
+  空路径 root 误认成目标。
+- 基础 `_do_change_scene()` 或调用 `super` 的 override 会等待一次
+  `SceneTree.scene_changed`。完全自定义的同步 override 在返回 `true` 且 current scene
+  匹配冻结目标时保留兼容完成路径；也可在可观察到目标 current scene 后调用
+  `_confirm_target_scene_commit()`。该确认和 override 栈内同步发出的 `scene_changed` 都只记录
+  当前 generation 回执；只有 override 返回 `true`，且 owner、token 与请求身份复核通过后才
+  结算。返回 `false` 会丢弃回执并进入切场失败终态。
 - 资源加载成功但类型不是 `PackedScene`，或安全帧切换失败，都会进入 `FAILED`，
   不会发出伪成功终态。
 - 成功终态前若 Operation 尚未到 `1.0`，会先发布一次 `progressed(1.0)`；已经是
