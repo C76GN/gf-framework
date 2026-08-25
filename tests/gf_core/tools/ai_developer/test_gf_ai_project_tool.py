@@ -1854,6 +1854,10 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 		contract = json.loads(ISSUE_121_CONTRACT_FIXTURE_PATH.read_text(encoding="utf-8"))
 		analysis = json.loads(ISSUE_121_ANALYSIS_FIXTURE_PATH.read_text(encoding="utf-8"))
 		report = snapshot.build_snapshot(self.project_root)
+		self.assertIn("source_entry_count", report["project"])
+		self.assertIn("script_identity_drift_count", report["project"])
+		self.assertIn("source_entry_count", report["project"]["api_package_policy_analysis"])
+		self.assertIn("script_identity_drift_count", report["project"]["api_package_policy_analysis"])
 		report["project"]["api_package_policy_analysis"] = analysis
 
 		legacy_schema_issues = validate_schema_file(contract, SCHEMA_ROOT / "project_contract.schema.json")
@@ -9170,6 +9174,427 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 
 			with self.assertRaises(ValueError):
 				_confirm_submission(prepared, "a" * 64)
+
+	def test_review_163_relative_shader_include_resolves_against_source_directory(self) -> None:
+		modules = [self._module("renderer"), self._module("shared")]
+		self._set_modules(modules)
+		shader_path = self.project_root / "features/renderer/materials/main.gdshader"
+		shader_path.parent.mkdir(parents=True)
+		shader_path.write_text(
+			'#include "../../shared/includes/common.gdshaderinc"\nshader_type canvas_item;\n',
+			encoding="utf-8",
+		)
+		include_path = self.project_root / "features/shared/includes/common.gdshaderinc"
+		include_path.parent.mkdir(parents=True)
+		include_path.write_text("#define COMMON 1\n", encoding="utf-8")
+		analysis = dependencies.analyze_module_dependencies(
+			self.project_root,
+			self._issue_96_dependency_contract(modules, []),
+			contract_valid=True,
+		)
+		self.assertEqual(analysis["status"], "complete")
+		self.assertEqual(analysis["edges"][0]["source_module"], "renderer")
+		self.assertEqual(analysis["edges"][0]["target_module"], "shared")
+		self.assertEqual(analysis["edges"][0]["kinds"], ["shader_include"])
+		self.assertEqual(
+			analysis["edges"][0]["evidence"][0]["target_path"],
+			"res://features/shared/includes/common.gdshaderinc",
+		)
+
+	def test_review_163_raw_load_and_preload_literals_remain_high_confidence(self) -> None:
+		modules = [self._module("consumer"), self._module("shared")]
+		self._set_modules(modules)
+		(self.project_root / "features/shared/data.tres").write_text(
+			"[gd_resource format=3]\n",
+			encoding="utf-8",
+		)
+		(self.project_root / "features/consumer/main.gd").write_text(
+			'extends Node\nvar first = load(r"res://features/shared/data.tres")\n'
+			'var second = preload(r"res://features/shared/data.tres")\n',
+			encoding="utf-8",
+		)
+		analysis = dependencies.analyze_module_dependencies(
+			self.project_root,
+			self._issue_96_dependency_contract(modules, []),
+			contract_valid=True,
+		)
+		self.assertEqual(analysis["edges"][0]["kinds"], ["resource_load"])
+		self.assertEqual(analysis["edges"][0]["reference_count"], 2)
+		self.assertEqual(analysis["advisory_reference_count"], 0)
+
+	def test_review_163_scan_root_covers_absent_generated_module_roots(self) -> None:
+		modules = [
+			self._module("generated_reports", ownership="generated", root="res://generated/reports"),
+			self._module("verification", root="res://tests/verification"),
+		]
+		(self.project_root / "generated").mkdir()
+		(self.project_root / "tests/verification").mkdir(parents=True)
+		(self.project_root / "tests/verification/test_scan.gd").write_text(
+			'extends Node\nconst ROOT := "res://generated"\n',
+			encoding="utf-8",
+		)
+		analysis = dependencies.analyze_module_dependencies(
+			self.project_root,
+			self._issue_96_dependency_contract(
+				modules,
+				[{"path": "res://generated", "role": "scan_root"}],
+			),
+			contract_valid=True,
+		)
+		self.assertEqual(analysis["status"], "complete")
+		self.assertEqual(analysis["path_roles"][0]["covered_modules"], ["generated_reports"])
+		self.assertEqual(analysis["path_role_dependency_violation_count"], 1)
+
+	def test_review_163_path_role_matching_does_not_repair_literal_spelling(self) -> None:
+		modules = [
+			self._module("core"),
+			self._module("verification", root="res://tests/verification"),
+		]
+		self._set_modules(modules)
+		(self.project_root / "features/core/main.gd").write_text("extends Node\n", encoding="utf-8")
+		(self.project_root / "tests/verification/test_scan.gd").write_text(
+			'extends Node\nconst LABEL := " res://features "\n',
+			encoding="utf-8",
+		)
+		analysis = dependencies.analyze_module_dependencies(
+			self.project_root,
+			self._issue_96_dependency_contract(
+				modules,
+				[{"path": "res://features", "role": "scan_root"}],
+			),
+			contract_valid=True,
+		)
+		self.assertEqual(analysis["path_role_reference_count"], 0)
+		self.assertEqual(analysis["path_role_dependency_violation_count"], 0)
+		self.assertEqual(analysis["advisory_reference_count"], 1)
+
+	def test_review_163_path_role_root_replacement_is_rejected_inside_traversal(self) -> None:
+		modules = [self._module("core")]
+		self._set_modules(modules)
+		role_root = self.project_root / "features"
+		backup_root = self.project_root / "features-original"
+		external_root = self.project_root / "external-role-target"
+		(external_root / "core").mkdir(parents=True)
+		(external_root / "core/payload.gd").write_text("extends Node\n", encoding="utf-8")
+		real_safe_path = dependencies._safe_path
+		replaced = False
+		def replace_after_initial_validation(root: Path, path: Path, *, directory: bool) -> bool:
+			nonlocal replaced
+			result = real_safe_path(root, path, directory=directory)
+			if result and path == role_root and directory and not replaced:
+				replaced = True
+				role_root.rename(backup_root)
+				create_directory_link_fixture(external_root, role_root)
+			return result
+		try:
+			with mock.patch.object(dependencies, "_safe_path", side_effect=replace_after_initial_validation):
+				analysis = dependencies.analyze_module_dependencies(
+					self.project_root,
+					self._issue_96_dependency_contract(
+						modules,
+						[{"path": "res://features", "role": "scan_root"}],
+					),
+					contract_valid=True,
+				)
+		finally:
+			if os.path.lexists(role_root):
+				role_root.rmdir() if os.name == "nt" else role_root.unlink()
+			if backup_root.exists():
+				backup_root.rename(role_root)
+		self.assertTrue(replaced)
+		self.assertEqual(analysis["status"], "partial")
+		self.assertEqual(analysis["path_roles"][0]["status"], "partial")
+
+	def test_review_163_dependency_analysis_does_not_retain_all_token_batches(self) -> None:
+		modules = [self._module("core")]
+		self._set_modules(modules)
+		for index in range(6):
+			(self.project_root / f"features/core/source_{index}.gd").write_text(
+				f"extends Node\nclass_name ReviewTokenClass{index}\n",
+				encoding="utf-8",
+			)
+		real_lex = dependencies.lex_gdscript
+		live_batches = 0
+		peak_batches = 0
+		class TokenBatch(list[dependencies.SourceToken]):
+			def __init__(self, values: list[dependencies.SourceToken]) -> None:
+				nonlocal live_batches, peak_batches
+				super().__init__(values)
+				live_batches += 1
+				peak_batches = max(peak_batches, live_batches)
+			def __del__(self) -> None:
+				nonlocal live_batches
+				live_batches -= 1
+		def tracked_lex(source: str) -> list[dependencies.SourceToken]:
+			return TokenBatch(real_lex(source))
+		with mock.patch.object(dependencies, "lex_gdscript", side_effect=tracked_lex):
+			analysis = dependencies.analyze_module_dependencies(
+				self.project_root,
+				self._issue_96_dependency_contract(modules, []),
+				contract_valid=True,
+			)
+		self.assertEqual(analysis["status"], "complete")
+		self.assertLessEqual(peak_batches, 1)
+		self.assertEqual(live_batches, 0)
+
+	def test_review_163_path_role_traversals_share_one_entry_budget(self) -> None:
+		modules = [self._module("first"), self._module("second")]
+		self._set_modules(modules)
+		(self.project_root / "features/first/main.gd").write_text("extends Node\n", encoding="utf-8")
+		(self.project_root / "features/second/main.gd").write_text("extends Node\n", encoding="utf-8")
+		with mock.patch.object(dependencies, "MAX_DEPENDENCY_FILES", 1):
+			analysis = dependencies.analyze_module_dependencies(
+				self.project_root,
+				self._issue_96_dependency_contract(
+					modules,
+					[
+						{"path": "res://features/first", "role": "scan_root"},
+						{"path": "res://features/second", "role": "scan_root"},
+					],
+				),
+				contract_valid=True,
+			)
+		self.assertTrue(analysis["truncated"])
+		self.assertEqual(analysis["status"], "partial")
+		self.assertEqual([item["status"] for item in analysis["path_roles"]], ["complete", "partial"])
+
+	def test_review_163_path_role_failed_enumeration_keeps_consumed_entry_budget(self) -> None:
+		modules = [self._module("first"), self._module("second")]
+		self._set_modules(modules)
+		first_root = self.project_root / "features/first"
+		(first_root / "payload.txt").write_text("first\n", encoding="utf-8")
+		(self.project_root / "features/second/payload.txt").write_text("second\n", encoding="utf-8")
+		real_scan = dependencies._scandir_pinned_directory
+		failed_after_enumeration = False
+		def fail_first_scan_after_enumeration(path: Path, *args: object, **kwargs: object) -> object:
+			nonlocal failed_after_enumeration
+			result = real_scan(path, *args, **kwargs)
+			if path == first_root and not failed_after_enumeration:
+				failed_after_enumeration = True
+				raise OSError("directory identity drifted after enumeration")
+			return result
+		with (
+			mock.patch.object(dependencies, "MAX_DEPENDENCY_FILES", 1),
+			mock.patch.object(
+				dependencies,
+				"_scandir_pinned_directory",
+				side_effect=fail_first_scan_after_enumeration,
+			),
+		):
+			analysis = dependencies.analyze_module_dependencies(
+				self.project_root,
+				self._issue_96_dependency_contract(
+					modules,
+					[
+						{"path": "res://features/first", "role": "scan_root"},
+						{"path": "res://features/second", "role": "scan_root"},
+					],
+				),
+				contract_valid=True,
+			)
+		self.assertTrue(failed_after_enumeration)
+		self.assertTrue(analysis["truncated"])
+		self.assertEqual(
+			[item["status"] for item in analysis["path_roles"]],
+			["partial", "partial"],
+		)
+
+	def test_review_163_collection_pin_rejects_same_size_source_replacement(self) -> None:
+		modules = [self._module("consumer"), self._module("shared")]
+		self._set_modules(modules)
+		shared_source = "class_name SharedType\nextends RefCounted\n"
+		shared_path = self.project_root / "features/shared/shared_type.gd"
+		shared_path.write_text(
+			shared_source,
+			encoding="utf-8",
+		)
+		consumer_path = self.project_root / "features/consumer/main.gd"
+		mutated_source = "extends Node\nvar value: SharedType\n"
+		original_source = "extends Node\n#" + ("x" * (len(mutated_source) - len("extends Node\n#\n"))) + "\n"
+		self.assertEqual(len(original_source.encode("utf-8")), len(mutated_source.encode("utf-8")))
+		consumer_path.write_text(original_source, encoding="utf-8")
+		replacement_path = self.project_root / "same-size-replacement.tmp"
+		real_collect = dependencies._collect_target_files
+		replaced = False
+		def collect_then_replace(project_root: Path, plan: dependencies.TargetOwnershipPlan) -> dict[str, object]:
+			nonlocal replaced
+			result = real_collect(project_root, plan)
+			replacement_path.write_text(mutated_source, encoding="utf-8")
+			os.replace(replacement_path, consumer_path)
+			replaced = True
+			return result
+		with mock.patch.object(dependencies, "_collect_target_files", side_effect=collect_then_replace):
+			analysis = dependencies.analyze_module_dependencies(
+				self.project_root,
+				self._issue_96_dependency_contract(modules, []),
+				contract_valid=True,
+			)
+		self.assertTrue(replaced)
+		self.assertEqual(analysis["status"], "partial")
+		self.assertEqual(analysis["edges"], [])
+
+	def test_review_163_collection_pin_rejects_growth_beyond_source_budget(self) -> None:
+		modules = [self._module("consumer"), self._module("shared")]
+		self._set_modules(modules)
+		shared_source = "class_name SharedType\nextends RefCounted\n"
+		shared_path = self.project_root / "features/shared/shared_type.gd"
+		shared_path.write_text(
+			shared_source,
+			encoding="utf-8",
+		)
+		consumer_path = self.project_root / "features/consumer/main.gd"
+		original_source = "extends Node\n"
+		consumer_path.write_text(original_source, encoding="utf-8")
+		mutated_source = "extends Node\n" + ("# padding\n" * 20) + "var value: SharedType\n"
+		captured_budget = consumer_path.stat().st_size + shared_path.stat().st_size
+		real_collect = dependencies._collect_target_files
+		grew_after_collection = False
+		def collect_then_grow(project_root: Path, plan: dependencies.TargetOwnershipPlan) -> dict[str, object]:
+			nonlocal grew_after_collection
+			result = real_collect(project_root, plan)
+			consumer_path.write_text(mutated_source, encoding="utf-8")
+			grew_after_collection = True
+			return result
+		with (
+			mock.patch.object(dependencies, "MAX_DEPENDENCY_BYTES", captured_budget),
+			mock.patch.object(dependencies, "_collect_target_files", side_effect=collect_then_grow),
+		):
+			analysis = dependencies.analyze_module_dependencies(
+				self.project_root,
+				self._issue_96_dependency_contract(modules, []),
+				contract_valid=True,
+			)
+		self.assertTrue(grew_after_collection)
+		self.assertEqual(analysis["status"], "partial")
+		self.assertEqual(analysis["scanned_byte_count"], captured_budget)
+		self.assertEqual(analysis["edges"], [])
+
+	def test_review_164_invalid_utf8_still_consumes_source_byte_budget(self) -> None:
+		invalid = b"extends Node\n# \xff\n"
+		(self.project_root / "invalid.gd").write_bytes(invalid)
+		analysis = api_policy.analyze_api_package_policy(
+			self.project_root,
+			load_contract(self.project_root),
+		)
+		self.assertEqual(analysis["unreadable_script_count"], 1)
+		self.assertEqual(analysis["scanned_script_bytes"], len(invalid))
+		self.assertEqual(analysis["status"], "partial")
+
+	def test_review_164_failed_read_consumes_budget_before_next_script(self) -> None:
+		payload = b"extends Node\n"
+		(self.project_root / "first.gd").write_bytes(payload)
+		(self.project_root / "second.gd").write_bytes(payload)
+		real_read = api_policy.read_bounded_bytes
+		read_calls: list[str] = []
+		read_limits: list[int] = []
+		def read_then_fail(path: Path, max_bytes: int) -> bytes:
+			read_calls.append(path.name)
+			read_limits.append(max_bytes)
+			real_read(path, max_bytes)
+			raise ValueError("script identity drifted after bounded read")
+		with mock.patch.object(api_policy, "read_bounded_bytes", side_effect=read_then_fail):
+			analysis = api_policy.analyze_api_package_policy(
+				self.project_root,
+				load_contract(self.project_root),
+				max_source_bytes=len(payload),
+			)
+		self.assertEqual(read_calls, ["first.gd"])
+		self.assertEqual(read_limits, [len(payload)])
+		self.assertEqual(analysis["scanned_script_bytes"], len(payload))
+		self.assertEqual(analysis["unreadable_script_count"], 1)
+		self.assertTrue(analysis["source_scan_truncated"])
+		self.assertEqual(analysis["source_scan_truncation_reason"], "byte_budget")
+
+	def test_review_164_observation_evidence_is_bounded_during_scanning(self) -> None:
+		(self.project_root / "many.gd").write_text(
+			"extends Node\n" + "\n".join("var value_%d := Gf" % index for index in range(20)) + "\n",
+			encoding="utf-8",
+		)
+		with (
+			mock.patch.object(api_policy, "MAX_OBSERVATION_EVIDENCE", 1),
+			mock.patch.object(api_policy, "MAX_ACTIONABLE_EVIDENCE", 1),
+			mock.patch.object(api_policy, "_without_order", wraps=api_policy._without_order) as strip_order,
+		):
+			analysis = api_policy.analyze_api_package_policy(
+				self.project_root,
+				load_contract(self.project_root),
+			)
+		self.assertEqual(analysis["observation_count"], 20)
+		self.assertTrue(analysis["observations_truncated"])
+		self.assertEqual(len(analysis["observations"]), 1)
+		self.assertLessEqual(strip_order.call_count, 2)
+
+	def test_review_164_script_identity_is_rechecked_before_complete(self) -> None:
+		script_path = self.project_root / "race.gd"
+		script_path.write_text("extends Node\nvar allowed := Gf\n", encoding="utf-8")
+		real_lex = dependencies.lex_gdscript
+		mutated = False
+		def mutate_after_read(source: str) -> list[dependencies.SourceToken]:
+			nonlocal mutated
+			if not mutated and "var allowed" in source:
+				mutated = True
+				script_path.write_text(
+					"extends Node\nvar forbidden := GFProjectLayoutAnalyzer.new()\n",
+					encoding="utf-8",
+				)
+			return real_lex(source)
+		with mock.patch.object(dependencies, "lex_gdscript", side_effect=mutate_after_read):
+			analysis = api_policy.analyze_api_package_policy(
+				self.project_root,
+				load_contract(self.project_root),
+			)
+		self.assertTrue(mutated)
+		self.assertEqual(analysis["status"], "partial")
+		self.assertEqual(analysis["script_identity_drift_count"], 1)
+
+	def test_review_164_test_scripts_are_counted_before_read_attempts(self) -> None:
+		test_root = self.project_root / "tests"
+		test_root.mkdir()
+		(test_root / "oversized.gd").write_text("extends Node\n" + "# padding\n" * 20, encoding="utf-8")
+		(test_root / "invalid.gd").write_bytes(b"extends Node\n# \xff\n")
+		contract_path = self.project_root / ".gf/project_contract.json"
+		contract = json.loads(contract_path.read_text(encoding="utf-8"))
+		contract["architecture"]["source_domains"] = [{"root": "res://tests", "domain": "test"}]
+		contract_path.write_text(json.dumps(contract), encoding="utf-8")
+		analysis = api_policy.analyze_api_package_policy(
+			self.project_root,
+			load_contract(self.project_root),
+			max_script_bytes=32,
+		)
+		self.assertEqual(analysis["script_count"], 2)
+		self.assertEqual(analysis["test_script_count"], 2)
+		self.assertEqual(analysis["scanned_script_count"], 0)
+		self.assertEqual(analysis["skipped_large_script_count"], 1)
+		self.assertEqual(analysis["unreadable_script_count"], 1)
+
+	def test_review_164_source_tree_has_an_independent_entry_budget(self) -> None:
+		for index in range(4):
+			(self.project_root / f"empty/tree_{index}/leaf").mkdir(parents=True)
+		analysis = api_policy.analyze_api_package_policy(
+			self.project_root,
+			load_contract(self.project_root),
+			max_entries=3,
+		)
+		self.assertEqual(analysis["status"], "partial")
+		self.assertTrue(analysis["source_scan_truncated"])
+		self.assertEqual(analysis["source_scan_truncation_reason"], "entry_budget")
+		self.assertLessEqual(analysis["source_entry_count"], 3)
+
+	def test_review_164_api_catalog_rejects_nonpublic_owner_visibility(self) -> None:
+		baseline = build_gf_ai_developer_kit.render_api_index()
+		for invalid_visibility in ("private", None, 7):
+			with self.subTest(visibility=invalid_visibility):
+				api_index = copy.deepcopy(baseline)
+				api_index["autoloads"]["Gf"]["visibility"] = invalid_visibility
+				payload = {key: value for key, value in api_index.items() if key != "source_digest"}
+				api_index["source_digest"] = paths.sha256_bytes(paths.canonical_json_bytes(payload))
+				analysis = api_policy.analyze_api_package_policy(
+					self.project_root,
+					load_contract(self.project_root),
+					api_index=api_index,
+				)
+				self.assertEqual(analysis["status"], "catalog_invalid")
+				self.assertTrue(any("visibility" in issue for issue in analysis["catalog_issues"]))
 
 	def _enable_network_feedback(self) -> None:
 		contract_path = self.project_root / ".gf/project_contract.json"

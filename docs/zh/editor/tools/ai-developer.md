@@ -162,7 +162,7 @@ python addons/gf/tools/ai_developer/gf_ai_project.py agent-uninstall --project-r
 }
 ```
 
-- `scan_root` 必须是现存安全目录；分析器在独立的条目数与总字节预算内、不跟随任何符号链接/junction/重解析点地证明全部后代所有权。普通字符串只有精确命中声明根时才记录角色证据。Module 与 Adapter 共用依赖命名空间，因此兼容字段 `covered_modules` 会按稳定顺序保留两类 owner ID；根所覆盖的每个组件必须是引用来源自身，或已列入该来源的 `allowed_dependencies`。否则 Snapshot 产生有界 `path_role_dependency_violations` 和 error `undeclared_scan_root_dependency`。这项错误不把角色伪造成边：分析可以保持 `complete`，但 Snapshot 绝不能 clean。
+- `scan_root` 必须是现存安全目录；全部角色声明共享一次分析调用的条目数与总字节预算，根与每个后代目录在枚举期间固定普通目录身份，且不跟随任何符号链接/junction/重解析点。覆盖集合同时从现存条目与位于根下的声明 ownership root 推导，因此尚未生成的 `generated` Module root 也不能绕过依赖许可。普通字符串只有原始字面量本身就是精确 canonical 声明根时才记录角色证据，不会修剪空白或修复分隔符。Module 与 Adapter 共用依赖命名空间，因此兼容字段 `covered_modules` 会按稳定顺序保留两类 owner ID；根所覆盖的每个组件必须是引用来源自身，或已列入该来源的 `allowed_dependencies`。否则 Snapshot 产生有界 `path_role_dependency_violations` 和 error `undeclared_scan_root_dependency`。这项错误不把角色伪造成边：分析可以保持 `complete`，但 Snapshot 绝不能 clean。
 - `test_fixture` 必须是现存安全普通文件或目录，只解释 test source domain 中指向自身或后代的普通字符串；生产来源的同一字符串仍是 advisory，高置信 load/resource 引用仍按原规则处理。
 - `optional_input` 是允许缺失的精确文件身份；存在时必须是安全普通文件，只解释精确普通字符串，不覆盖相似前缀或后代，也不降低高置信引用。
 
@@ -170,9 +170,9 @@ python addons/gf/tools/ai_developer/gf_ai_project.py agent-uninstall --project-r
 
 Snapshot v8 的 `project.api_package_policy_analysis` 只把注释外、精确命中同版本 API catalog 公开 class 或 AutoLoad owner 的 GDScript identifier 作为高置信观测，并把 owner 精确映射到 `package_id`。允许集合是契约 `required_packages ∪ optional_packages` 的完整传递依赖闭包；`forbidden_packages` 优先，即使某个禁止包也落入允许闭包，命中仍为 `forbidden`。允许集合外的精确命中为 `outside_policy`，两者在 runtime/test/tool/editor 任一域都形成独立 actionable 漂移。完整 vendoring、正式 lockfile 是否存在以及其他域已经观察到什么都不会扩大允许集合或改变判定。
 
-`architecture.source_domains` 使用跨平台 canonical `res://` 目录根，按最深路径段匹配；显式嵌套的 runtime 根可以重置外层 test/tool/editor，未匹配脚本固定归入 runtime。声明根不能位于 `res://addons/gf`、任意层级的扫描排除目录或 target-only generated ownership 根内；缺失、非目录、link/reparse、`.gdignore` 冲突或扫描期间身份漂移会让分析为 `partial`。扫描遵守安全普通文件 `.gdignore`，只无条件排除框架保留的 `addons/gf`，项目自己的其他 `addons/*` 仍会扫描。脚本数、单文件、累计字节、严格 UTF-8、目录与文件身份都有硬边界；任一不完整状态都阻断 clean。
+`architecture.source_domains` 使用跨平台 canonical `res://` 目录根，按最深路径段匹配；显式嵌套的 runtime 根可以重置外层 test/tool/editor，未匹配脚本固定归入 runtime。声明根不能位于 `res://addons/gf`、任意层级的扫描排除目录或 target-only generated ownership 根内；缺失、非目录、link/reparse、`.gdignore` 冲突或扫描期间身份漂移会让分析为 `partial`。扫描遵守安全普通文件 `.gdignore`，只无条件排除框架保留的 `addons/gf`，项目自己的其他 `addons/*` 仍会扫描。目录项、脚本数、单文件和累计字节都有独立硬边界；每次读取尝试都在读取前按固定文件大小预留累计字节，并把同一大小作为单次读取上限，失败或非法 UTF-8 都不回滚预算。发现脚本后在任何读取尝试前先记录其权威 source domain，且每个成功读取的脚本会在最终 clean 前再次核对身份。任一不完整状态都阻断 clean。
 
-字符串中的已知 owner 或保守 GF 形状只进入 `advisories`，不会形成 package 观测；注释完全忽略。普通 `observations`、actionable 与 advisory 使用独立总计数、证据数组和截断标记，因此大量允许命中不能挤掉违规证据。兼容字段 `gf_api_usage` / `test_gf_api_usage` 仅分别投影 runtime/test 域的 class owner；不包含 AutoLoad，也不再使用路径名启发式。catalog schema/version/source digest、包图未知依赖或循环、公开 owner 缺失 package、源码读取或域根不完整时，分析只能是 `catalog_invalid`、`contract_invalid` 或 `partial`，不能报告 clean。
+字符串中的已知 owner 或保守 GF 形状只进入 `advisories`，不会形成 package 观测；注释完全忽略。普通 `observations`、actionable 与 advisory 在扫描发生时就分别维护独立总计数与证据上限，并输出截断标记，因此大量允许命中既不能造成无界保留，也不能挤掉违规证据。兼容字段 `gf_api_usage` / `test_gf_api_usage` 仅分别投影 runtime/test 域的 class owner；不包含 AutoLoad，也不再使用路径名启发式。catalog schema/version/source digest、包图未知依赖或循环、owner visibility 非精确 `public`、公开 owner 缺失 package、源码读取或域根不完整时，分析只能是 `catalog_invalid`、`contract_invalid` 或 `partial`，不能报告 clean。
 
 Snapshot v8 的 `project.documentation_reference_analysis` 只递归读取 `architecture.documentation_roots` 中的 `.md` 文件，例如 `{"architecture":{"documentation_roots":["res://docs/architecture","res://docs/maintenance"]}}`。
 
@@ -201,7 +201,7 @@ Snapshot v8 的 `project.documentation_reference_analysis` 只递归读取 `arch
 
 模块 `roots` 与 Adapter `project_root` 也是安全边界，因此同样必须采用跨平台规范路径，并以大小写无关方式避开 `res://addons/gf`。Module ID 与 Adapter ID 共用依赖命名空间，不能占用框架保留 token `gf` 或 `godot`。这项限制只作用于契约中的所有权声明和依赖身份；源码里指向合法 Godot 资源（例如文件名含 `[]`）的精确引用仍按普通资源路径解析，不会被误当成通配表达式或静默漏掉依赖边。
 
-分析结果只有在普通 Module 来源与 Adapter GDScript 目标共享的文件/字节预算未耗尽、这些来源根与 Adapter 根存在且安全、目录枚举完整、已声明项目资源与路径角色满足各自完整性契约、生成根若存在则目录路径安全、class 身份无歧义时才标记 `complete`。每个来源文件只按严格 UTF-8 打开和解码一次，并在读取后复核普通文件身份；非法 UTF-8、读取期间或分析结束前的身份漂移都会 fail closed。普通来源根或 Adapter 根缺失、非规范或保留路径、链接/重解析穿越、任一参与扫描的子目录枚举失败、文件不可读或超大、总预算截断、重叠所有权或重复 `class_name` 同样会得到 `partial`；未生成的 `generated` 根本身不产生 `declared_module_root_missing`，也不降低分析完整性。Adapter 不产生出边，也不能绕过其根与 GDScript 目标检查。禁止依赖优先于未声明依赖报告；观测到的边、Module 循环、scan-root 越权覆盖或不完整扫描只生成漂移事实，工具不会改写契约中的允许关系。Agent 必须先解决 `forbidden_module_dependency`、`undeclared_module_dependency`、`undeclared_scan_root_dependency`、`observed_module_dependency_cycle` 和 `module_dependency_analysis_incomplete`，不能把不完整快照当成“没有依赖”。
+分析结果只有在普通 Module 来源与 Adapter GDScript 目标共享的文件/字节预算未耗尽、这些来源根与 Adapter 根存在且安全、目录枚举完整、已声明项目资源与路径角色满足各自完整性契约、生成根若存在则目录路径安全、class 身份无歧义时才标记 `complete`。收集阶段按普通文件身份与大小计费并固定每个已收集文件；首遍只从同一固定身份的稳定 UTF-8 读取提取有界 class 声明，边分析再从该身份重新读取并逐文件释放文本/token，最终继续复核身份。收集后新增、因而不在当次枚举快照中的文件留待下一次分析；已收集文件在首读前替换或增长则 fail closed，不能以旧计费读取新内容。非法 UTF-8、两遍之间、读取期间或分析结束前的身份漂移同样 fail closed。裸调用的 raw string 仍是 `resource_load`，相对 Shader `#include` 会先相对当前 Shader 目录解析为项目资源身份。普通来源根或 Adapter 根缺失、非规范或保留路径、链接/重解析穿越、任一参与扫描的子目录枚举失败、文件不可读或超大、总预算截断、重叠所有权或重复 `class_name` 同样会得到 `partial`；未生成的 `generated` 根本身不产生 `declared_module_root_missing`，也不降低分析完整性。Adapter 不产生出边，也不能绕过其根与 GDScript 目标检查。禁止依赖优先于未声明依赖报告；观测到的边、Module 循环、scan-root 越权覆盖或不完整扫描只生成漂移事实，工具不会改写契约中的允许关系。Agent 必须先解决 `forbidden_module_dependency`、`undeclared_module_dependency`、`undeclared_scan_root_dependency`、`observed_module_dependency_cycle` 和 `module_dependency_analysis_incomplete`，不能把不完整快照当成“没有依赖”。
 
 API 索引用于准确定位，不替代行为源码、测试和正式文档。涉及副作用、线程、生命周期、失败恢复或持久化兼容时，仍应打开索引返回的源码路径核对。
 

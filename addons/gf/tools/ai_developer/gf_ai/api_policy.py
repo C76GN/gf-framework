@@ -22,6 +22,7 @@ SOURCE_DOMAINS = ("runtime", "test", "tool", "editor")
 MAX_PROJECT_SCRIPTS = 20_000
 MAX_SCRIPT_BYTES = 2 * 1024 * 1024
 MAX_SOURCE_SCAN_BYTES = 128 * 1024 * 1024
+MAX_SOURCE_SCAN_ENTRIES = 100_000
 MAX_OBSERVATION_EVIDENCE = 200
 MAX_ACTIONABLE_EVIDENCE = 200
 MAX_ADVISORY_EVIDENCE = 100
@@ -49,6 +50,7 @@ def analyze_api_package_policy(
 	max_scripts: int = MAX_PROJECT_SCRIPTS,
 	max_script_bytes: int = MAX_SCRIPT_BYTES,
 	max_source_bytes: int = MAX_SOURCE_SCAN_BYTES,
+	max_entries: int = MAX_SOURCE_SCAN_ENTRIES,
 ) -> dict[str, Any]:
 	"""Map bounded exact public API tokens to package-policy observations."""
 	catalog_error = ""
@@ -95,6 +97,7 @@ def analyze_api_package_policy(
 		max_scripts=max_scripts,
 		max_script_bytes=max_script_bytes,
 		max_source_bytes=max_source_bytes,
+		max_entries=max_entries,
 	)
 	_post_roots, post_domain_root_states, post_domain_root_pins = _source_domain_roots(
 		project_root,
@@ -118,21 +121,24 @@ def analyze_api_package_policy(
 	else:
 		status = "complete"
 
-	observations = [_without_order(item) for item in scan.pop("all_observations")]
-	actionable = [item for item in observations if item["policy"] != "allowed"]
-	advisories = [_without_order(item) for item in scan.pop("all_advisories")]
+	observation_count = int(scan.pop("observation_count"))
+	actionable_count = int(scan.pop("actionable_count"))
+	advisory_count = int(scan.pop("advisory_count"))
+	observations = [_without_order(item) for item in scan.pop("observation_evidence")]
+	actionable = [_without_order(item) for item in scan.pop("actionable_evidence")]
+	advisories = [_without_order(item) for item in scan.pop("advisory_evidence")]
+	domain_counts = scan.pop("domain_counts")
 	domain_summaries: list[dict[str, Any]] = []
 	for domain in SOURCE_DOMAINS:
-		domain_observations = [item for item in observations if item["source_domain"] == domain]
-		domain_advisories = [item for item in advisories if item["source_domain"] == domain]
+		counts = domain_counts[domain]
 		domain_summaries.append({
 			"domain": domain,
-			"observation_count": len(domain_observations),
-			"allowed_count": sum(item["policy"] == "allowed" for item in domain_observations),
-			"outside_policy_count": sum(item["policy"] == "outside_policy" for item in domain_observations),
-			"forbidden_count": sum(item["policy"] == "forbidden" for item in domain_observations),
-			"actionable_count": sum(item["policy"] != "allowed" for item in domain_observations),
-			"advisory_count": len(domain_advisories),
+			"observation_count": counts["observation_count"],
+			"allowed_count": counts["allowed_count"],
+			"outside_policy_count": counts["outside_policy_count"],
+			"forbidden_count": counts["forbidden_count"],
+			"actionable_count": counts["actionable_count"],
+			"advisory_count": counts["advisory_count"],
 		})
 
 	identity = _catalog_identity(api_index)
@@ -150,15 +156,15 @@ def analyze_api_package_policy(
 		"forbidden_packages": sorted(forbidden),
 		"source_domains": domain_root_states,
 		"domains": domain_summaries,
-		"observation_count": len(observations),
-		"observations_truncated": len(observations) > MAX_OBSERVATION_EVIDENCE,
-		"observations": observations[:MAX_OBSERVATION_EVIDENCE],
-		"actionable_count": len(actionable),
-		"actionable_observations_truncated": len(actionable) > MAX_ACTIONABLE_EVIDENCE,
-		"actionable_observations": actionable[:MAX_ACTIONABLE_EVIDENCE],
-		"advisory_count": len(advisories),
-		"advisories_truncated": len(advisories) > MAX_ADVISORY_EVIDENCE,
-		"advisories": advisories[:MAX_ADVISORY_EVIDENCE],
+		"observation_count": observation_count,
+		"observations_truncated": observation_count > len(observations),
+		"observations": observations,
+		"actionable_count": actionable_count,
+		"actionable_observations_truncated": actionable_count > len(actionable),
+		"actionable_observations": actionable,
+		"advisory_count": advisory_count,
+		"advisories_truncated": advisory_count > len(advisories),
+		"advisories": advisories,
 		**scan,
 	}
 
@@ -174,10 +180,12 @@ def _scan_sources(
 	max_scripts: int,
 	max_script_bytes: int,
 	max_source_bytes: int,
+	max_entries: int,
 ) -> dict[str, Any]:
 	script_count = 0
 	scanned_script_count = 0
 	scanned_script_bytes = 0
+	source_entry_count = 0
 	test_script_count = 0
 	skipped_large_script_count = 0
 	unreadable_script_count = 0
@@ -187,46 +195,70 @@ def _scan_sources(
 	ignored_directory_count = 0
 	truncated = False
 	truncation_reason = ""
+	observation_count = 0
+	actionable_count = 0
+	advisory_count = 0
 	observations: list[dict[str, Any]] = []
+	actionable: list[dict[str, Any]] = []
 	advisories: list[dict[str, Any]] = []
+	domain_counts = {
+		domain: {
+			"observation_count": 0,
+			"allowed_count": 0,
+			"outside_policy_count": 0,
+			"forbidden_count": 0,
+			"actionable_count": 0,
+			"advisory_count": 0,
+		}
+		for domain in SOURCE_DOMAINS
+	}
 	runtime_classes: set[str] = set()
 	test_classes: set[str] = set()
-	walk_errors: list[OSError] = []
 	walked_directory_pins: dict[Path, tuple[int, int, int, int, int]] = {}
 	gdignore_pins: dict[Path, tuple[int, int, int, int, int]] = {}
+	script_pins: dict[Path, tuple[int, int, int, int, int]] = {}
+	pending_directories = [project_root]
 
-	for current_root, directory_names, file_names in os.walk(
-		project_root,
-		topdown=True,
-		followlinks=False,
-		onerror=walk_errors.append,
-	):
-		current_path = Path(current_root)
+	while pending_directories and not truncated:
+		current_path = pending_directories.pop()
 		current_pin = _directory_snapshot(project_root, current_path)
 		if current_pin is None:
 			unsafe_directory_count += 1
-			directory_names[:] = []
 			continue
 		walked_directory_pins[current_path] = current_pin
 		current_resource = _canonical_source_path(project_root, current_path)
 		if not current_resource:
 			unsafe_directory_count += 1
-			directory_names[:] = []
 			continue
+		entry_names: list[str] = []
+		try:
+			with os.scandir(current_path) as iterator:
+				for entry in iterator:
+					if source_entry_count >= max_entries:
+						truncated = True
+						truncation_reason = "entry_budget"
+						break
+					source_entry_count += 1
+					entry_names.append(entry.name)
+		except OSError:
+			unsafe_directory_count += 1
+			continue
+		if truncated:
+			break
+		entry_names.sort()
 		marker = current_path / ".gdignore"
-		if ".gdignore" in file_names:
+		if ".gdignore" in entry_names:
 			marker_pin = _regular_snapshot(project_root, marker)
 			if marker_pin is not None:
 				gdignore_pins[marker] = marker_pin
 				ignored_directory_count += 1
-				directory_names[:] = []
 				continue
 			invalid_gdignore_count += 1
-			directory_names[:] = []
 			continue
 
 		safe_directories: list[str] = []
-		for name in sorted(directory_names):
+		script_names: list[str] = []
+		for name in entry_names:
 			candidate = current_path / name
 			resource_path = _canonical_source_path(project_root, candidate)
 			identity = portable_ownership_path_identity(resource_path)
@@ -236,15 +268,35 @@ def _scan_sources(
 				continue
 			if identity in excluded_root_identities:
 				continue
+			try:
+				metadata = candidate.lstat()
+			except OSError:
+				unsafe_directory_count += 1
+				continue
+			if _is_link_or_reparse(candidate, metadata):
+				if name.casefold().endswith(".gd"):
+					script_names.append(name)
+				else:
+					unsafe_directory_count += 1
+				continue
+			if stat.S_ISREG(metadata.st_mode):
+				if name.casefold().endswith(".gd"):
+					script_names.append(name)
+				continue
+			if not stat.S_ISDIR(metadata.st_mode):
+				if name.casefold().endswith(".gd"):
+					script_names.append(name)
+				else:
+					unsafe_directory_count += 1
+				continue
 			if not resource_path or not identity or not _safe_directory_path(project_root, candidate):
 				unsafe_directory_count += 1
 				continue
 			safe_directories.append(name)
-		directory_names[:] = safe_directories
+		for name in reversed(safe_directories):
+			pending_directories.append(current_path / name)
 
-		for file_name in sorted(file_names):
-			if not file_name.casefold().endswith(".gd"):
-				continue
+		for file_name in script_names:
 			path = current_path / file_name
 			source_path = _canonical_source_path(project_root, path)
 			identity = portable_ownership_path_identity(source_path)
@@ -258,50 +310,58 @@ def _scan_sources(
 				truncation_reason = "script_count"
 				break
 			script_count += 1
-			if not _safe_regular_path(project_root, path):
+			domain = _source_domain(identity, domain_roots)
+			if domain == "test":
+				test_script_count += 1
+			before_pin = _regular_snapshot(project_root, path)
+			if before_pin is None:
 				unsafe_script_path_count += 1
 				continue
+			file_size = before_pin[3]
+			if file_size > max_script_bytes:
+				skipped_large_script_count += 1
+				continue
+			if scanned_script_bytes + file_size > max_source_bytes:
+				truncated = True
+				truncation_reason = "byte_budget"
+				break
+			scanned_script_bytes += file_size
 			try:
-				raw = read_bounded_bytes(path, max_script_bytes)
+				raw = read_bounded_bytes(path, max(file_size, 1))
 			except ValueError as exc:
-				try:
-					too_large = path.lstat().st_size > max_script_bytes
-				except OSError:
-					too_large = False
-				if too_large:
-					skipped_large_script_count += 1
-				elif "linked or reparsed" in str(exc).casefold() or "regular file" in str(exc).casefold():
+				if "linked or reparsed" in str(exc).casefold() or "regular file" in str(exc).casefold():
 					unsafe_script_path_count += 1
 				else:
 					unreadable_script_count += 1
 				continue
-			if scanned_script_bytes + len(raw) > max_source_bytes:
-				truncated = True
-				truncation_reason = "byte_budget"
-				break
+			after_pin = _regular_snapshot(project_root, path)
+			if after_pin is None or after_pin != before_pin or len(raw) != file_size:
+				unsafe_script_path_count += 1
+				continue
+			script_pins[path] = after_pin
 			try:
 				text = raw.decode("utf-8", errors="strict")
 			except UnicodeDecodeError:
 				unreadable_script_count += 1
 				continue
 			scanned_script_count += 1
-			scanned_script_bytes += len(raw)
-			domain = _source_domain(identity, domain_roots)
-			if domain == "test":
-				test_script_count += 1
 			for occurrence, token in enumerate(dependencies.lex_gdscript(text)):
 				owner = owners.get(token.value)
 				if token.kind == "string":
 					if owner is None and _DYNAMIC_GF_SYMBOL_PATTERN.fullmatch(token.value) is None:
 						continue
-					advisories.append({
+					advisory_count += 1
+					domain_counts[domain]["advisory_count"] += 1
+					candidate = {
 						"source_path": source_path,
 						"line": token.line,
 						"source_domain": domain,
 						"symbol": token.value,
 						"reason": "dynamic_api_reference" if owner is not None else "unknown_dynamic_gf_symbol",
 						"_occurrence": occurrence,
-					})
+					}
+					if len(advisories) < MAX_ADVISORY_EVIDENCE:
+						advisories.append(candidate)
 					continue
 				if token.kind != "identifier" or owner is None:
 					continue
@@ -312,7 +372,10 @@ def _scan_sources(
 					policy = "allowed"
 				else:
 					policy = "outside_policy"
-				observations.append({
+				observation_count += 1
+				domain_counts[domain]["observation_count"] += 1
+				domain_counts[domain][policy + "_count"] += 1
+				candidate = {
 					"source_path": source_path,
 					"line": token.line,
 					"source_domain": domain,
@@ -321,7 +384,14 @@ def _scan_sources(
 					"package_id": package_id,
 					"policy": policy,
 					"_occurrence": occurrence,
-				})
+				}
+				if len(observations) < MAX_OBSERVATION_EVIDENCE:
+					observations.append(candidate)
+				if policy != "allowed":
+					actionable_count += 1
+					domain_counts[domain]["actionable_count"] += 1
+					if len(actionable) < MAX_ACTIONABLE_EVIDENCE:
+						actionable.append(candidate)
 				if owner["owner_kind"] == "class":
 					if domain == "runtime":
 						runtime_classes.add(token.value)
@@ -336,13 +406,16 @@ def _scan_sources(
 	advisories.sort(key=lambda item: (
 		item["source_path"], item["line"], item["_occurrence"], item["symbol"]
 	))
-	unsafe_directory_count += len(walk_errors)
 	directory_identity_drift_count = sum(
 		_directory_snapshot(project_root, path) != pin
 		for path, pin in walked_directory_pins.items()
 	) + sum(
 		_regular_snapshot(project_root, path) != pin
 		for path, pin in gdignore_pins.items()
+	)
+	script_identity_drift_count = sum(
+		_regular_snapshot(project_root, path) != pin
+		for path, pin in script_pins.items()
 	)
 	complete = not truncated and not any((
 		skipped_large_script_count,
@@ -351,11 +424,13 @@ def _scan_sources(
 		unsafe_directory_count,
 		invalid_gdignore_count,
 		directory_identity_drift_count,
+		script_identity_drift_count,
 	))
 	return {
 		"script_count": script_count,
 		"scanned_script_count": scanned_script_count,
 		"scanned_script_bytes": scanned_script_bytes,
+		"source_entry_count": source_entry_count,
 		"test_script_count": test_script_count,
 		"source_scan_truncated": truncated,
 		"source_scan_truncation_reason": truncation_reason,
@@ -367,10 +442,16 @@ def _scan_sources(
 		"invalid_gdignore_count": invalid_gdignore_count,
 		"ignored_directory_count": ignored_directory_count,
 		"directory_identity_drift_count": directory_identity_drift_count,
+		"script_identity_drift_count": script_identity_drift_count,
 		"gf_api_usage": sorted(runtime_classes),
 		"test_gf_api_usage": sorted(test_classes),
-		"all_observations": observations,
-		"all_advisories": advisories,
+		"observation_count": observation_count,
+		"actionable_count": actionable_count,
+		"advisory_count": advisory_count,
+		"observation_evidence": observations,
+		"actionable_evidence": actionable,
+		"advisory_evidence": advisories,
+		"domain_counts": domain_counts,
 	}
 
 

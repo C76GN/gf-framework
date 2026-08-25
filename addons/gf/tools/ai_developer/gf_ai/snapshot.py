@@ -17,6 +17,7 @@ from .schema import validate_schema_file
 _MAX_PROJECT_SCRIPTS = 20000
 _MAX_SCRIPT_BYTES = 2 * 1024 * 1024
 _MAX_SOURCE_SCAN_BYTES = 128 * 1024 * 1024
+_MAX_SOURCE_SCAN_ENTRIES = 100_000
 _MAX_CAPABILITY_RECIPE_PACKAGE_EVIDENCE = 40
 _MAX_CAPABILITY_RECIPE_GROUP_EVIDENCE = 40
 _MAX_CAPABILITY_CLASS_EVIDENCE = 80
@@ -56,6 +57,7 @@ def build_snapshot(
 		max_scripts=_MAX_PROJECT_SCRIPTS,
 		max_script_bytes=_MAX_SCRIPT_BYTES,
 		max_source_bytes=_MAX_SOURCE_SCAN_BYTES,
+		max_entries=_MAX_SOURCE_SCAN_ENTRIES,
 	)
 	documentation_reference_analysis = documentation.analyze_documentation_references(
 		project_root,
@@ -129,6 +131,7 @@ def build_snapshot(
 			"script_count": source_scan["script_count"],
 			"scanned_script_count": source_scan["scanned_script_count"],
 			"scanned_script_bytes": source_scan["scanned_script_bytes"],
+			"source_entry_count": source_scan["source_entry_count"],
 			"test_script_count": source_scan["test_script_count"],
 			"source_scan_truncated": source_scan["source_scan_truncated"],
 			"source_scan_truncation_reason": source_scan["source_scan_truncation_reason"],
@@ -137,6 +140,7 @@ def build_snapshot(
 			"unreadable_script_count": source_scan["unreadable_script_count"],
 			"unsafe_script_path_count": source_scan["unsafe_script_path_count"],
 			"unsafe_directory_count": source_scan["unsafe_directory_count"],
+			"script_identity_drift_count": source_scan["script_identity_drift_count"],
 			"gf_api_usage": source_scan["gf_api_usage"],
 			"test_gf_api_usage": source_scan["test_gf_api_usage"],
 			"api_package_policy_analysis": api_package_policy_analysis,
