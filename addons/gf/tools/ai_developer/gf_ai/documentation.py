@@ -50,6 +50,7 @@ _GF_OWNER_PATTERN = re.compile(r"^(?:Gf|GF[A-Z][A-Za-z0-9_]{0,157})$")
 _MEMBER_PATTERN = re.compile(r"^[A-Za-z_][A-Za-z0-9_]{0,159}$")
 _PACKAGE_ID_PATTERN = re.compile(r"^gf\.[a-z0-9_.-]{1,157}$")
 _FENCE_OPEN_PATTERN = re.compile(r"^ {0,3}(?P<fence>`{3,}|~{3,})(?P<info>[^\r\n]*)$")
+_LIST_MARKER_PATTERN = re.compile(r"(?:[*+-]|[0-9]{1,9}[.)])")
 
 _PROSE = 0
 _FENCED_CODE = 1
@@ -536,17 +537,37 @@ def _markdown_contexts(text: str) -> bytearray:
 	contexts = bytearray([_PROSE]) * len(text)
 	fence_character = ""
 	fence_length = 0
+	fence_containers: tuple[tuple[str, int], ...] = ()
+	html_comment_open = False
 	for offset, content_end in _markdown_line_bounds(text):
 		content = text[offset:content_end]
 		if fence_character:
-			if _is_fence_close(content, fence_character, fence_length):
+			container_content = _strip_container_content(content, fence_containers)
+			if container_content is None:
+				# CommonMark closes an unclosed fence at the end of its quote/list
+				# container. Reprocess this physical line outside that container.
+				fence_character = ""
+				fence_length = 0
+				fence_containers = ()
+			elif _is_fence_close(container_content, fence_character, fence_length):
 				contexts[offset:content_end] = bytes([_IGNORED_MARKER]) * len(content)
 				fence_character = ""
 				fence_length = 0
+				fence_containers = ()
 			else:
 				contexts[offset:content_end] = bytes([_FENCED_CODE]) * len(content)
+			if fence_character or container_content is not None:
+				continue
+		if html_comment_open:
+			html_comment_open = _mark_inline_code_and_html_comments(
+				text,
+				contexts,
+				offset,
+				content_end,
+				html_comment_open=True,
+			)
 			continue
-		opening = _FENCE_OPEN_PATTERN.fullmatch(content)
+		opening, containers = _fence_opening(content)
 		if opening is not None:
 			fence = opening.group("fence")
 			info = opening.group("info")
@@ -554,7 +575,15 @@ def _markdown_contexts(text: str) -> bytearray:
 				contexts[offset:content_end] = bytes([_IGNORED_MARKER]) * len(content)
 				fence_character = fence[0]
 				fence_length = len(fence)
-	_mark_inline_code(text, contexts)
+				fence_containers = containers
+				continue
+		html_comment_open = _mark_inline_code_and_html_comments(
+			text,
+			contexts,
+			offset,
+			content_end,
+			html_comment_open=False,
+		)
 	return contexts
 
 
@@ -578,21 +607,56 @@ def _markdown_line_bounds(text: str) -> Iterator[tuple[int, int]]:
 			line_start += 1
 
 
-def _mark_inline_code(text: str, contexts: bytearray) -> None:
-	# Inline parsing is deliberately conservative: a delimiter pair must close on
-	# the same physical line. This prevents unmatched delimiters in separate
-	# Markdown blocks from being paired without implementing a full block parser.
-	for line_start, line_end in _markdown_line_bounds(text):
-		segment_start = line_start
-		while segment_start < line_end:
-			while segment_start < line_end and contexts[segment_start] != _PROSE:
-				segment_start += 1
-			segment_end = segment_start
-			while segment_end < line_end and contexts[segment_end] == _PROSE:
-				segment_end += 1
-			if segment_start < segment_end:
-				_mark_inline_code_segment(text, contexts, segment_start, segment_end)
-			segment_start = segment_end
+def _mark_inline_code_and_html_comments(
+	text: str,
+	contexts: bytearray,
+	line_start: int,
+	line_end: int,
+	*,
+	html_comment_open: bool,
+) -> bool:
+	# Closed code spans bind before raw inline HTML. Marking them first lets a
+	# literal ``<!--`` inside code remain code, while a real comment can then
+	# overwrite every code-looking delimiter inside its disabled range.
+	_mark_inline_code_segment(text, contexts, line_start, line_end)
+	cursor = line_start
+	if html_comment_open:
+		closing = text.find("-->", cursor, line_end)
+		if closing < 0:
+			contexts[line_start:line_end] = bytes([_IGNORED_MARKER]) * (line_end - line_start)
+			return True
+		closing_end = closing + 3
+		contexts[line_start:closing_end] = bytes([_IGNORED_MARKER]) * (closing_end - line_start)
+		cursor = closing_end
+
+	while cursor < line_end:
+		opening = text.find("<!--", cursor, line_end)
+		if opening < 0:
+			break
+		if (
+			_is_escaped(text, opening)
+			or any(contexts[index] != _PROSE for index in range(opening, opening + 4))
+		):
+			cursor = opening + 4
+			continue
+		closing_end = _same_line_html_comment_closing_end(text, opening, line_end)
+		if closing_end is None:
+			contexts[opening:line_end] = bytes([_IGNORED_MARKER]) * (line_end - opening)
+			return True
+		contexts[opening:closing_end] = bytes([_IGNORED_MARKER]) * (closing_end - opening)
+		cursor = closing_end
+	return False
+
+
+def _same_line_html_comment_closing_end(text: str, opening: int, line_end: int) -> int | None:
+	# CommonMark also accepts the two empty comment forms ``<!-->`` and
+	# ``<!--->``. They must not leave the rest of the document disabled.
+	if text.startswith("<!-->", opening, line_end):
+		return opening + 5
+	if text.startswith("<!--->", opening, line_end):
+		return opening + 6
+	closing = text.find("-->", opening + 4, line_end)
+	return closing + 3 if closing >= 0 else None
 
 
 def _mark_inline_code_segment(
@@ -645,6 +709,102 @@ def _mark_inline_code_segment(
 def _is_fence_close(content: str, fence_character: str, minimum_length: int) -> bool:
 	pattern = rf"^ {{0,3}}{re.escape(fence_character)}{{{minimum_length},}}[ \t]*$"
 	return re.fullmatch(pattern, content) is not None
+
+
+def _fence_opening(
+	content: str,
+) -> tuple[re.Match[str] | None, tuple[tuple[str, int], ...]]:
+	container_content, containers = _strip_container_opening(content)
+	return _FENCE_OPEN_PATTERN.fullmatch(container_content), containers
+
+
+def _strip_container_opening(content: str) -> tuple[str, tuple[tuple[str, int], ...]]:
+	containers: list[tuple[str, int]] = []
+	cursor = 0
+	while cursor < len(content):
+		level_start = cursor
+		indent_end, indent_columns = _consume_prefix_indentation(content, level_start, 3)
+		if indent_end < len(content) and content[indent_end] == ">":
+			cursor = indent_end + 1
+			if cursor < len(content) and content[cursor] in " \t":
+				cursor += 1
+			containers.append(("quote", 0))
+			continue
+
+		marker = _LIST_MARKER_PATTERN.match(content, indent_end)
+		if marker is None:
+			break
+		spacing_start = marker.end()
+		spacing_end = spacing_start
+		while spacing_end < len(content) and content[spacing_end] in " \t":
+			spacing_end += 1
+		if spacing_end == spacing_start or spacing_end >= len(content):
+			break
+		marker_columns = indent_columns + len(marker.group(0))
+		content_columns = _advance_indentation_column(
+			content[spacing_start:spacing_end],
+			marker_columns,
+		)
+		spacing_columns = content_columns - marker_columns
+		if spacing_columns < 1 or spacing_columns > 4:
+			break
+		containers.append(("list", content_columns))
+		cursor = spacing_end
+	return content[cursor:], tuple(containers)
+
+
+def _strip_container_content(
+	content: str,
+	containers: tuple[tuple[str, int], ...],
+) -> str | None:
+	cursor = 0
+	for index, (container_kind, required_columns) in enumerate(containers):
+		if container_kind == "quote":
+			indent_end, _indent_columns = _consume_prefix_indentation(content, cursor, 3)
+			if indent_end >= len(content) or content[indent_end] != ">":
+				return None
+			cursor = indent_end + 1
+			if cursor < len(content) and content[cursor] in " \t":
+				cursor += 1
+			continue
+		if not content[cursor:].strip(" \t"):
+			return "" if all(kind == "list" for kind, _width in containers[index:]) else None
+		indent_end = _consume_required_indentation(content, cursor, required_columns)
+		if indent_end is None:
+			return None
+		cursor = indent_end
+	return content[cursor:]
+
+
+def _consume_prefix_indentation(content: str, start: int, maximum_columns: int) -> tuple[int, int]:
+	cursor = start
+	columns = 0
+	while cursor < len(content) and content[cursor] in " \t":
+		next_columns = _advance_indentation_column(content[cursor], columns)
+		if next_columns > maximum_columns:
+			break
+		columns = next_columns
+		cursor += 1
+	return cursor, columns
+
+
+def _consume_required_indentation(content: str, start: int, required_columns: int) -> int | None:
+	cursor = start
+	columns = 0
+	while cursor < len(content) and content[cursor] in " \t" and columns < required_columns:
+		next_columns = _advance_indentation_column(content[cursor], columns)
+		if next_columns > required_columns:
+			return None
+		columns = next_columns
+		cursor += 1
+	return cursor if columns == required_columns else None
+
+
+def _advance_indentation_column(value: str, initial_column: int) -> int:
+	column = initial_column
+	for character in value:
+		column = column + 1 if character == " " else (column // 4 + 1) * 4
+	return column
 
 
 def _is_escaped(text: str, index: int) -> bool:
@@ -897,6 +1057,10 @@ def _canonical_resource_path(project_root: Path, path: Path) -> str:
 		return ""
 	resource_path = "res://" + "/".join(relative.parts)
 	if len(resource_path) > MAX_SOURCE_PATH_LENGTH:
+		return ""
+	try:
+		resource_path.encode("utf-8", errors="strict")
+	except UnicodeEncodeError:
 		return ""
 	return resource_path if portable_ownership_path_identity(resource_path) else ""
 

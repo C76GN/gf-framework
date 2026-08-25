@@ -2068,6 +2068,123 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 		self.assertEqual([item["kind"] for item in cross_block_items], ["advisory"])
 		self.assertEqual(cross_block_items[0]["evidence"]["reason"], "prose_api_reference")
 
+	def test_issue_122_commonmark_container_fences_are_high_confidence_and_bounded(self) -> None:
+		owners = documentation._public_owner_records(catalog.load_api_index())
+		for newline in ("\n", "\r", "\r\n"):
+			with self.subTest(newline=ascii(newline)):
+				text = newline.join((
+					"> ```gdscript",
+					"> GFNotInCatalogQuote",
+					"> ```",
+					"GFOutsideClosedQuote",
+					"- ~~~gdscript",
+					"  GFNotInCatalogList",
+					"  ~~~",
+					"GFOutsideClosedList",
+					"> - ```gdscript",
+					">   GFNotInCatalogNested",
+					">   ```",
+					"> ```gdscript",
+					"GFOutsideQuoteContainer",
+					"- ```gdscript",
+					"GFOutsideListContainer",
+					"",
+				))
+				items = list(documentation._markdown_reference_items(
+					text,
+					"res://docs/architecture/containers.md",
+					owners,
+				))
+
+				references = [item["evidence"] for item in items if item["kind"] == "reference"]
+				advisories = [item["evidence"] for item in items if item["kind"] == "advisory"]
+				self.assertEqual(
+					[item["symbol"] for item in references],
+					[
+						"GFNotInCatalogQuote",
+						"GFNotInCatalogList",
+						"GFNotInCatalogNested",
+					],
+				)
+				self.assertTrue(all(item["context"] == "fenced_code" for item in references))
+				self.assertTrue(all(item["status"] == "unknown_owner" for item in references))
+				self.assertEqual(
+					[item["symbol"] for item in advisories],
+					[
+						"GFOutsideClosedQuote",
+						"GFOutsideClosedList",
+						"GFOutsideQuoteContainer",
+						"GFOutsideListContainer",
+					],
+				)
+				self.assertTrue(all(item["reason"] == "prose_api_reference" for item in advisories))
+
+	def test_issue_122_html_comments_never_create_code_evidence(self) -> None:
+		owners = documentation._public_owner_records(catalog.load_api_index())
+		for newline in ("\n", "\r", "\r\n"):
+			with self.subTest(newline=ascii(newline)):
+				text = newline.join((
+					"<!-- `GFNotInCatalogSameLine` --> `GFArchitecture`",
+					"\\<!-- `GFNotInCatalogEscapedComment` -->",
+					"<!--> `GFNotInCatalogAfterShortComment`",
+					"<!---> `GFNotInCatalogAfterShortDashComment`",
+					"<!--",
+					"`GFNotInCatalogInlineComment`",
+					"```gdscript",
+					"GFNotInCatalogCommentFence",
+					"```",
+					"--> `GFNotInCatalogAfterMultilineComment`",
+					"```text",
+					"<!-- GFNotInCatalogLiteralComment -->",
+					"```",
+					"`<!-- GFNotInCatalogLiteralInline -->`",
+					"<!--",
+					"```gdscript",
+					"GFNotInCatalogUnclosedComment",
+					"",
+				))
+				items = list(documentation._markdown_reference_items(
+					text,
+					"res://docs/architecture/comments.md",
+					owners,
+				))
+
+				references = [item["evidence"] for item in items if item["kind"] == "reference"]
+				self.assertEqual(
+					[item["symbol"] for item in references],
+					[
+						"GFArchitecture",
+						"GFNotInCatalogEscapedComment",
+						"GFNotInCatalogAfterShortComment",
+						"GFNotInCatalogAfterShortDashComment",
+						"GFNotInCatalogAfterMultilineComment",
+						"GFNotInCatalogLiteralComment",
+						"GFNotInCatalogLiteralInline",
+					],
+				)
+				self.assertEqual(
+					[item["context"] for item in references],
+					[
+						"inline_code",
+						"inline_code",
+						"inline_code",
+						"inline_code",
+						"inline_code",
+						"fenced_code",
+						"inline_code",
+					],
+				)
+				observed_symbols = {
+					item["evidence"]["symbol"]
+					for item in items
+				}
+				self.assertTrue({
+					"GFNotInCatalogSameLine",
+					"GFNotInCatalogInlineComment",
+					"GFNotInCatalogCommentFence",
+					"GFNotInCatalogUnclosedComment",
+				}.isdisjoint(observed_symbols))
+
 	def test_issue_122_scans_only_declared_roots_and_empty_roots_are_not_configured(self) -> None:
 		declared = self.project_root / "docs/declared"
 		undeclared = self.project_root / "docs/private"
@@ -2246,6 +2363,56 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 		self.assertEqual(entry_limited["status"], "partial")
 		self.assertEqual(read_drift["unreadable_file_count"], 2)
 		self.assertEqual(read_drift["status"], "partial")
+
+	def test_issue_122_surrogateescaped_markdown_paths_are_partial_and_snapshot_total(self) -> None:
+		surrogate_name = "unsafe-\udcff.md"
+		docs = self.project_root / "docs"
+		self.assertEqual(
+			documentation._canonical_resource_path(self.project_root, docs / surrogate_name),
+			"",
+		)
+		docs.mkdir()
+		placeholder = docs / "unsafe.md"
+		placeholder.write_text("`GFNotInCatalog`\n", encoding="utf-8")
+		self._set_documentation_roots(["res://docs"])
+		canonical_resource_path = documentation._canonical_resource_path
+
+		def reject_placeholder(project_root: Path, path: Path) -> str:
+			if path == placeholder:
+				return ""
+			return canonical_resource_path(project_root, path)
+
+		with mock.patch.object(
+			documentation,
+			"_canonical_resource_path",
+			side_effect=reject_placeholder,
+		):
+			report = snapshot.build_snapshot(self.project_root)
+		self._assert_issue_122_unsafe_path_snapshot(report)
+
+		if os.name != "posix":
+			return
+
+		placeholder.unlink()
+		raw_path = os.fsencode(docs) + b"/unsafe-\xff.md"
+		file_descriptor = os.open(raw_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+		try:
+			os.write(file_descriptor, b"`GFNotInCatalog`\n")
+		finally:
+			os.close(file_descriptor)
+		report = snapshot.build_snapshot(self.project_root)
+		self._assert_issue_122_unsafe_path_snapshot(report)
+
+	def _assert_issue_122_unsafe_path_snapshot(self, report: dict[str, Any]) -> None:
+		analysis = report["project"]["documentation_reference_analysis"]
+
+		self.assertEqual(analysis["status"], "partial")
+		self.assertFalse(analysis["complete"])
+		self.assertEqual(analysis["file_count"], 1)
+		self.assertEqual(analysis["unsafe_file_path_count"], 1)
+		self.assertEqual(analysis["reference_count"], 0)
+		self.assertTrue(paths.canonical_json_bytes(report))
+		self.assertEqual(validate_schema_file(report, SCHEMA_ROOT / "project_snapshot.schema.json"), [])
 
 	def test_issue_122_nested_link_and_root_identity_drift_are_partial(self) -> None:
 		docs = self.project_root / "docs"
