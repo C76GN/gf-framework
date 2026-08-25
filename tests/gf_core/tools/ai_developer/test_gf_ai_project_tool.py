@@ -9,6 +9,7 @@ import io
 import json
 import os
 import shutil
+import stat
 import struct
 import subprocess
 import sys
@@ -9595,6 +9596,298 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 				)
 				self.assertEqual(analysis["status"], "catalog_invalid")
 				self.assertTrue(any("visibility" in issue for issue in analysis["catalog_issues"]))
+
+	def test_review_170_gdignore_prunes_before_descendant_entry_budget(self) -> None:
+		ignored_root = self.project_root / "z_ignored"
+		ignored_root.mkdir()
+		(ignored_root / ".gdignore").write_text("", encoding="utf-8")
+		(ignored_root / "generated.gd").write_text("extends Node\n", encoding="utf-8")
+		(ignored_root / "payload.txt").write_text("generated\n", encoding="utf-8")
+		(self.project_root / "visible.gd").write_text("extends Node\n", encoding="utf-8")
+		root_entry_count = sum(1 for _entry in os.scandir(self.project_root))
+
+		analysis = api_policy.analyze_api_package_policy(
+			self.project_root,
+			load_contract(self.project_root),
+			max_entries=root_entry_count + 1,
+		)
+
+		self.assertEqual(analysis["status"], "complete")
+		self.assertTrue(analysis["complete"])
+		self.assertEqual(analysis["ignored_directory_count"], 1)
+		self.assertFalse(analysis["source_scan_truncated"])
+		self.assertEqual(analysis["script_count"], 1)
+		self.assertEqual(analysis["scanned_script_count"], 1)
+		self.assertEqual(analysis["source_entry_count"], root_entry_count + 1)
+
+	def test_review_170_unrelated_non_script_special_file_is_ignored(self) -> None:
+		special_path = self.project_root / "runtime.pipe"
+		special_path.write_text("placeholder\n", encoding="utf-8")
+		(self.project_root / "main.gd").write_text("extends Node\n", encoding="utf-8")
+		real_lstat = Path.lstat
+		def lstat_with_special_file(path: Path, *args: object, **kwargs: object) -> Any:
+			metadata = real_lstat(path, *args, **kwargs)
+			if path != special_path:
+				return metadata
+			special_metadata = mock.Mock()
+			special_metadata.st_mode = stat.S_IFIFO | 0o600
+			special_metadata.st_file_attributes = int(
+				getattr(metadata, "st_file_attributes", 0) or 0
+			)
+			return special_metadata
+
+		with mock.patch.object(Path, "lstat", autospec=True, side_effect=lstat_with_special_file):
+			analysis = api_policy.analyze_api_package_policy(
+				self.project_root,
+				load_contract(self.project_root),
+			)
+
+		self.assertEqual(analysis["status"], "complete")
+		self.assertTrue(analysis["complete"])
+		self.assertEqual(analysis["unsafe_directory_count"], 0)
+		self.assertEqual(analysis["script_count"], 1)
+		self.assertEqual(analysis["scanned_script_count"], 1)
+
+	def test_review_170_gd_shaped_special_file_remains_unsafe(self) -> None:
+		special_path = self.project_root / "poison.GD"
+		special_path.write_text("extends Node\n", encoding="utf-8")
+		real_lstat = Path.lstat
+		def lstat_with_special_file(path: Path, *args: object, **kwargs: object) -> Any:
+			metadata = real_lstat(path, *args, **kwargs)
+			if path != special_path:
+				return metadata
+			special_metadata = mock.Mock()
+			special_metadata.st_mode = stat.S_IFIFO | 0o600
+			special_metadata.st_file_attributes = int(
+				getattr(metadata, "st_file_attributes", 0) or 0
+			)
+			return special_metadata
+
+		with mock.patch.object(Path, "lstat", autospec=True, side_effect=lstat_with_special_file):
+			analysis = api_policy.analyze_api_package_policy(
+				self.project_root,
+				load_contract(self.project_root),
+			)
+
+		self.assertEqual(analysis["status"], "partial")
+		self.assertFalse(analysis["complete"])
+		self.assertEqual(analysis["unsafe_script_path_count"], 1)
+		self.assertEqual(analysis["script_count"], 1)
+		self.assertEqual(analysis["scanned_script_count"], 0)
+
+	def test_review_170_class_discovery_does_not_lex_non_gd_twice(self) -> None:
+		modules = [self._module("consumer", allowed=["shared"]), self._module("shared")]
+		self._set_modules(modules)
+		(self.project_root / "features/consumer/main.gd").write_text(
+			"extends Node\n",
+			encoding="utf-8",
+		)
+		for name in ("material.tres", "scene.tscn"):
+			(self.project_root / f"features/consumer/{name}").write_text(
+				'[ext_resource type="Resource" path="res://features/shared/data.tres" id="1"]\n',
+				encoding="utf-8",
+			)
+		(self.project_root / "features/shared/data.tres").write_text(
+			"[gd_resource format=3]\n",
+			encoding="utf-8",
+		)
+		(self.project_root / "features/consumer/main.gdshader").write_text(
+			'#include "res://features/shared/common.gdshaderinc"\n',
+			encoding="utf-8",
+		)
+		(self.project_root / "features/shared/common.gdshaderinc").write_text(
+			"#define COMMON 1\n",
+			encoding="utf-8",
+		)
+		expected_resource_lexes = 3
+		expected_shader_lexes = 2
+		with (
+			mock.patch.object(
+				dependencies,
+				"lex_resource_text",
+				wraps=dependencies.lex_resource_text,
+			) as resource_lex,
+			mock.patch.object(
+				dependencies,
+				"lex_shader_text",
+				wraps=dependencies.lex_shader_text,
+			) as shader_lex,
+		):
+			analysis = dependencies.analyze_module_dependencies(
+				self.project_root,
+				self._issue_96_dependency_contract(modules, []),
+				contract_valid=True,
+			)
+
+		self.assertEqual(analysis["status"], "complete")
+		self.assertEqual(resource_lex.call_count, expected_resource_lexes)
+		self.assertEqual(shader_lex.call_count, expected_shader_lexes)
+		self.assertEqual(analysis["edges"][0]["source_module"], "consumer")
+		self.assertEqual(analysis["edges"][0]["target_module"], "shared")
+		self.assertEqual(analysis["edges"][0]["kinds"], ["resource_field", "shader_include"])
+
+	def test_review_170_shader_lexer_uses_bounded_line_prefix_work(self) -> None:
+		class BoundedPrefixSource(str):
+			def rfind(
+				self,
+				substring: str,
+				start: int = 0,
+				end: int | None = None,
+			) -> int:
+				if substring == "\n" and start == 0:
+					raise AssertionError("shader lexing rescanned a growing line prefix")
+				if end is None:
+					return super().rfind(substring, start)
+				return super().rfind(substring, start, end)
+
+			def __getitem__(self, key: int | slice) -> str:
+				if isinstance(key, slice):
+					start, stop, step = key.indices(len(self))
+					if step == 1 and stop - start > 32:
+						raise AssertionError("shader lexing copied a growing line prefix")
+				return super().__getitem__(key)
+
+		ordinary_line = " ".join('"value"' for _index in range(256))
+		source = BoundedPrefixSource(
+			ordinary_line
+			+ '\n  #include   "res://features/shared/common.gdshaderinc"\n'
+			+ '#define LABEL "res://features/shared/not-an-include.tres"\n'
+		)
+
+		tokens = dependencies.lex_shader_text(source)
+		include_tokens = [token for token in tokens if token.kind == "shader_include"]
+
+		self.assertEqual(len(include_tokens), 1)
+		self.assertEqual(
+			include_tokens[0].value,
+			"res://features/shared/common.gdshaderinc",
+		)
+
+	def test_review_170_raw_load_literals_preserve_backslash_separators(self) -> None:
+		modules = [self._module("consumer", allowed=["shared"]), self._module("shared")]
+		self._set_modules(modules)
+		(self.project_root / "features/shared/data.tres").write_text(
+			"[gd_resource format=3]\n",
+			encoding="utf-8",
+		)
+		(self.project_root / "features/consumer/main.gd").write_text(
+			'extends Node\nvar first = load(r"res://features\\shared\\data.tres")\n'
+			'var second = ResourceLoader.load(r"res://features\\shared\\data.tres")\n',
+			encoding="utf-8",
+		)
+
+		analysis = dependencies.analyze_module_dependencies(
+			self.project_root,
+			self._issue_96_dependency_contract(modules, []),
+			contract_valid=True,
+		)
+
+		self.assertEqual(analysis["status"], "complete")
+		self.assertEqual(len(analysis["edges"]), 1)
+		self.assertEqual(analysis["edges"][0]["source_module"], "consumer")
+		self.assertEqual(analysis["edges"][0]["target_module"], "shared")
+		self.assertEqual(analysis["edges"][0]["kinds"], ["resource_load"])
+		self.assertEqual(analysis["edges"][0]["reference_count"], 2)
+		self.assertEqual(analysis["unowned_reference_count"], 0)
+		self.assertEqual(analysis["advisory_reference_count"], 0)
+
+	def test_review_170_raw_escaped_quote_does_not_swallow_following_load(self) -> None:
+		modules = [self._module("consumer", allowed=["shared"]), self._module("shared")]
+		self._set_modules(modules)
+		(self.project_root / "features/shared/data.tres").write_text(
+			"[gd_resource format=3]\n",
+			encoding="utf-8",
+		)
+		source = (
+			"extends Node\n"
+			r'var ordinary = "prefix\"suffix"' + "\n"
+			r'var label = r"prefix\"suffix"' + "\n"
+			'var value = load("res://features/shared/data.tres")\n'
+		)
+		(self.project_root / "features/consumer/main.gd").write_text(source, encoding="utf-8")
+
+		tokens = dependencies.lex_gdscript(source)
+		analysis = dependencies.analyze_module_dependencies(
+			self.project_root,
+			self._issue_96_dependency_contract(modules, []),
+			contract_valid=True,
+		)
+
+		self.assertEqual(next(token.value for token in tokens if token.raw), r'prefix\"suffix')
+		self.assertIn('prefix"suffix', [token.value for token in tokens if not token.raw])
+		self.assertEqual(len(analysis["edges"]), 1)
+		self.assertEqual(analysis["edges"][0]["kinds"], ["resource_load"])
+		self.assertEqual(analysis["edges"][0]["reference_count"], 1)
+
+	def test_review_170_raw_triple_escaped_delimiter_preserves_following_load(self) -> None:
+		modules = [self._module("consumer", allowed=["shared"]), self._module("shared")]
+		self._set_modules(modules)
+		(self.project_root / "features/shared/data.tres").write_text(
+			"[gd_resource format=3]\n",
+			encoding="utf-8",
+		)
+		source = (
+			"extends Node\n"
+			r'var label = r"""prefix\"""suffix"""' + "\n"
+			'var value = load("res://features/shared/data.tres")\n'
+		)
+		(self.project_root / "features/consumer/main.gd").write_text(source, encoding="utf-8")
+
+		tokens = dependencies.lex_gdscript(source)
+		analysis = dependencies.analyze_module_dependencies(
+			self.project_root,
+			self._issue_96_dependency_contract(modules, []),
+			contract_valid=True,
+		)
+
+		self.assertEqual(next(token.value for token in tokens if token.raw), r'prefix\"""suffix')
+		self.assertEqual(len(analysis["edges"]), 1)
+		self.assertEqual(analysis["edges"][0]["kinds"], ["resource_load"])
+		self.assertEqual(analysis["edges"][0]["reference_count"], 1)
+
+	def test_review_170_raw_backslash_runs_preserve_delimiter_parity(self) -> None:
+		resource_path = "res://features/shared/data.tres"
+		cases = (
+			(
+				"single_even",
+				'r"single_even' + ("\\" * 2) + '"',
+				"single_even" + ("\\" * 2),
+			),
+			(
+				"single_odd",
+				'r"single_odd' + ("\\" * 3) + '"quoted"',
+				"single_odd" + ("\\" * 3) + '"quoted',
+			),
+			(
+				"triple_even",
+				'r"""triple_even' + ("\\" * 2) + '"""',
+				"triple_even" + ("\\" * 2),
+			),
+			(
+				"triple_odd",
+				'r"""triple_odd' + ("\\" * 3) + '"""quoted"""',
+				"triple_odd" + ("\\" * 3) + '"""quoted',
+			),
+		)
+		for label, literal, expected_value in cases:
+			with self.subTest(case=label):
+				source = (
+					"extends Node\nvar label = " + literal + "\n"
+					f'var value = load("{resource_path}")\n'
+				)
+				tokens = dependencies.lex_gdscript(source)
+				raw_token = next(token for token in tokens if token.raw)
+				load_index = next(
+					index
+					for index, token in enumerate(tokens)
+					if token.kind == "string" and token.value == resource_path
+				)
+
+				self.assertEqual(raw_token.value, expected_value)
+				self.assertEqual(
+					dependencies._gdscript_string_reference_kind(tokens, load_index),
+					"resource_load",
+				)
 
 	def _enable_network_feedback(self) -> None:
 		contract_path = self.project_root / ".gf/project_contract.json"
