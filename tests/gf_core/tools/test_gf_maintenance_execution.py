@@ -45,6 +45,8 @@ import gf_process_supervisor
 import gf_project_layout_profile
 import gf_reference_manifest_reader
 import gf_validation_catalog
+import gf_validation_contracts
+import gf_validation_inputs
 import gf_workspace_snapshot
 
 
@@ -1423,7 +1425,7 @@ class MaintenanceSelfTestModuleTests(unittest.TestCase):
 
 class ValidationCatalogContractTests(unittest.TestCase):
 	_AUTHORITY_SNAPSHOT_SHA256 = (
-		"a94836e818c8a1b729cbb9c8ea77fca2af7ada3e0599d64229a8c2e75e787c7a"
+		"078ad76c3f4de5525fb7b1564ab588d30bf6ab8e3588fa20ee6a14be664bc733"
 	)
 	_PRE_MIGRATION_EXECUTOR_PROJECTION_SHA256 = (
 		"85f24f2287735a812ef48ffe8b91489365dd0bbd06a7c24c8a8457280c32f346"
@@ -1438,6 +1440,10 @@ class ValidationCatalogContractTests(unittest.TestCase):
 			"actions": [
 				[name, self._normalize_snapshot_value(commands.get(name))]
 				for name in catalog.action_names
+			],
+			"input_specs": [
+				self._normalize_snapshot_value(spec.to_dict())
+				for spec in catalog.input_specs
 			],
 			"dependencies": [
 				[name, dependencies]
@@ -1468,17 +1474,45 @@ class ValidationCatalogContractTests(unittest.TestCase):
 		self.assertEqual(
 			(
 				len(snapshot["actions"]),
+				len(snapshot["input_specs"]),
 				len(snapshot["dependencies"]),
 				len(snapshot["groups"]),
 				len(snapshot["suites"]),
 				len(snapshot["lanes"]),
 			),
-			(57, 9, 22, 20, 8),
+			(57, 3, 9, 22, 20, 8),
 		)
 		self.assertEqual(
 			[name for name in catalog.action_names if name not in commands],
 			["release_metadata"],
 		)
+
+	def test_default_catalog_owns_exactly_the_three_affected_input_specs(self) -> None:
+		catalog = gf_validation_catalog.build_validation_catalog(
+			self._snapshot_context()
+		)
+		expected_names = (
+			"public_docs_boundary",
+			"public_api_boundary",
+			"package_user_dependency_boundary",
+		)
+
+		self.assertIs(type(catalog.input_specs), tuple)
+		self.assertEqual(
+			tuple(spec.check_name for spec in catalog.input_specs),
+			expected_names,
+		)
+		for spec in catalog.input_specs:
+			with self.subTest(action_name=spec.check_name):
+				self.assertIsInstance(
+					spec,
+					gf_validation_contracts.CheckInputSpec,
+				)
+				self.assertIs(catalog.input_spec(spec.check_name), spec)
+		for action_name in catalog.action_names:
+			if action_name not in expected_names:
+				with self.subTest(undeclared_action_name=action_name):
+					self.assertIsNone(catalog.input_spec(action_name))
 
 	def test_context_materialization_is_isolated(self) -> None:
 		first = gf_validation_catalog.build_validation_catalog(
@@ -1801,6 +1835,7 @@ class ValidationCatalogContractTests(unittest.TestCase):
 				)
 				for name in provisional.action_names
 			),
+			input_specs=provisional.input_specs,
 			dependencies=(
 				(name, dependencies)
 				for name, dependencies in provisional.dependencies().items()
@@ -3926,6 +3961,7 @@ class ValidationCatalogContractTests(unittest.TestCase):
 			fingerprint.assert_not_called()
 
 	def test_rejects_duplicate_declarations_and_members(self) -> None:
+		input_spec = self._input_spec("alpha")
 		invalid_overrides = {
 			"action": {
 				"actions": (
@@ -3965,6 +4001,9 @@ class ValidationCatalogContractTests(unittest.TestCase):
 			"timeout override": {
 				"timeout_overrides": (("alpha", 1), ("alpha", 2)),
 			},
+			"input spec": {
+				"input_specs": (input_spec, input_spec),
+			},
 		}
 		for label, overrides in invalid_overrides.items():
 			with self.subTest(label=label), self.assertRaises(
@@ -3980,6 +4019,9 @@ class ValidationCatalogContractTests(unittest.TestCase):
 			"suite action": {"suites": (("suite", ("unknown",)),)},
 			"lane suite": {"parallel_full_shard_suites": ("unknown",)},
 			"timeout action": {"timeout_overrides": (("unknown", 1),)},
+			"input spec action": {
+				"input_specs": (self._input_spec("unknown"),),
+			},
 		}
 		for label, overrides in invalid_overrides.items():
 			with self.subTest(label=label), self.assertRaises(
@@ -3994,6 +4036,17 @@ class ValidationCatalogContractTests(unittest.TestCase):
 			self._minimal_catalog().executor_kind("unknown")
 		with self.assertRaises(gf_validation_catalog.ValidationCatalogError):
 			self._minimal_catalog().static_command("unknown")
+		with self.assertRaises(gf_validation_catalog.ValidationCatalogError):
+			self._minimal_catalog().input_spec("unknown")
+
+	def test_rejects_non_contract_input_spec_values(self) -> None:
+		for invalid_input_spec in (None, object(), {"check_name": "alpha"}):
+			with self.subTest(
+				invalid_input_spec=invalid_input_spec
+			), self.assertRaises(
+				gf_validation_catalog.ValidationCatalogError
+			):
+				self._minimal_catalog(input_specs=(invalid_input_spec,))
 
 	def test_catalog_allows_an_explicit_all_subprocess_executor_policy(self) -> None:
 		catalog = self._minimal_catalog(actions=(
@@ -4209,6 +4262,8 @@ class ValidationCatalogContractTests(unittest.TestCase):
 		suite = ["alpha", "beta"]
 		lanes = ["suite"]
 		timeout_overrides = [("alpha", 15)]
+		input_spec = self._input_spec("alpha")
+		input_specs = [input_spec]
 		catalog = self._minimal_catalog(
 			actions=(
 				(
@@ -4227,6 +4282,7 @@ class ValidationCatalogContractTests(unittest.TestCase):
 			suites=(("suite", suite),),
 			parallel_full_shard_suites=lanes,
 			timeout_overrides=timeout_overrides,
+			input_specs=input_specs,
 		)
 		command.append("mutated")
 		dependencies.append("beta")
@@ -4234,6 +4290,7 @@ class ValidationCatalogContractTests(unittest.TestCase):
 		suite.append("alpha")
 		lanes.append("suite")
 		timeout_overrides.append(("beta", 30))
+		input_specs.append(self._input_spec("beta"))
 
 		command_copy = catalog.command_definitions()
 		static_command_copy = catalog.static_command("alpha")
@@ -4261,6 +4318,10 @@ class ValidationCatalogContractTests(unittest.TestCase):
 		self.assertEqual(catalog.timeout_overrides(), {"alpha": 15})
 		self.assertEqual(catalog.timeout_floor_seconds("alpha"), 15)
 		self.assertEqual(catalog.timeout_floor_seconds("beta"), 10)
+		self.assertIs(type(catalog.input_specs), tuple)
+		self.assertEqual(catalog.input_specs, (input_spec,))
+		self.assertIs(catalog.input_spec("alpha"), input_spec)
+		self.assertIsNone(catalog.input_spec("beta"))
 		self.assertEqual(catalog.in_process_action_names, ("alpha",))
 		self.assertEqual(catalog.deferred_action_names, ("beta",))
 		self.assertIs(
@@ -4326,9 +4387,20 @@ class ValidationCatalogContractTests(unittest.TestCase):
 			"parallel_full_shard_suites": ("suite",),
 			"default_timeout_seconds": 10,
 			"timeout_overrides": (("alpha", 15),),
+			"input_specs": (),
 		}
 		arguments.update(overrides)
 		return gf_validation_catalog.ValidationCatalog(**arguments)
+
+	@staticmethod
+	def _input_spec(action_name: str) -> gf_validation_contracts.CheckInputSpec:
+		return gf_validation_contracts.CheckInputSpec(
+			check_name=action_name,
+			source_rules=(
+				gf_validation_contracts.PathRule("exact", "README.md"),
+			),
+			implementation_files=("tools/gf_maintenance.py",),
+		)
 
 	@staticmethod
 	def _normalize_snapshot_value(value: object) -> object:
@@ -13274,6 +13346,12 @@ class GutShardRuntimeSourceBindingTests(unittest.TestCase):
 			gf_maintenance.GUT_SHARD_RUNTIME_SOURCE_MODULES,
 			"Validation Catalog participates in GUT shard command planning and must be "
 			"bound into the runtime source closure.",
+		)
+		self.assertIn(
+			("tools/gf_validation_contracts.py", "gf_validation_contracts"),
+			gf_maintenance.GUT_SHARD_RUNTIME_SOURCE_MODULES,
+			"Catalog-owned input specs participate in GUT shard command planning and "
+			"their contract module must be bound into the runtime source closure.",
 		)
 
 	def test_top_report_and_worker_request_bind_runtime_digest(self) -> None:
@@ -22880,6 +22958,8 @@ class AffectedAnalysisIntegrationTests(unittest.TestCase):
 	def test_affected_analysis_attaches_after_execution_and_workspace_freeze(self) -> None:
 		workspace_state = self._workspace_state()
 		events: list[str] = []
+		invocation_catalog = gf_maintenance._VALIDATION_CATALOG
+		invocation_input_specs = invocation_catalog.input_specs
 
 		def fingerprint(*_args: object, **_kwargs: object) -> dict[str, object]:
 			events.append("workspace_fingerprint")
@@ -22887,6 +22967,7 @@ class AffectedAnalysisIntegrationTests(unittest.TestCase):
 
 		def runner() -> dict[str, object]:
 			events.append("execute")
+			gf_maintenance._VALIDATION_CATALOG = object()
 			return {"ok": True}
 
 		def analyze(*args: object, **kwargs: object) -> dict[str, object]:
@@ -22896,7 +22977,7 @@ class AffectedAnalysisIntegrationTests(unittest.TestCase):
 			self.assertTrue(kwargs["explain"])
 			self.assertIs(
 				kwargs["input_specs"],
-				gf_maintenance.gf_validation_inputs.DEFAULT_AFFECTED_INPUT_SPECS,
+				invocation_input_specs,
 			)
 			self.assertGreater(float(kwargs["deadline_seconds"]), time.monotonic())
 			return self._analysis("fixture-base")
@@ -22913,6 +22994,15 @@ class AffectedAnalysisIntegrationTests(unittest.TestCase):
 			gf_maintenance.gf_validation_inputs,
 			"analyze_affected_checks",
 			side_effect=analyze,
+		), mock.patch.object(
+			gf_validation_inputs,
+			"DEFAULT_AFFECTED_INPUT_SPECS",
+			(object(),),
+			create=True,
+		), mock.patch.object(
+			gf_maintenance,
+			"_VALIDATION_CATALOG",
+			invocation_catalog,
 		):
 			result = gf_maintenance.run_checks(
 				checks=["docs"],
@@ -22953,6 +23043,7 @@ class AffectedAnalysisIntegrationTests(unittest.TestCase):
 		) as analyze:
 			gf_maintenance.attach_affected_analysis_report(
 				data,
+				validation_catalog=gf_maintenance._VALIDATION_CATALOG,
 				base_revision="HEAD",
 				explain=True,
 				git_process=_SHARED_PROCESS_AUTHORITY.git,
@@ -22981,6 +23072,7 @@ class AffectedAnalysisIntegrationTests(unittest.TestCase):
 			) as raised:
 				gf_maintenance.attach_affected_analysis_report(
 					data,
+					validation_catalog=gf_maintenance._VALIDATION_CATALOG,
 					base_revision="HEAD",
 					explain=False,
 					git_process=_SHARED_PROCESS_AUTHORITY.git,
@@ -23071,6 +23163,7 @@ class AffectedAnalysisIntegrationTests(unittest.TestCase):
 		):
 			gf_maintenance.attach_affected_analysis_report(
 				data,
+				validation_catalog=gf_maintenance._VALIDATION_CATALOG,
 				base_revision="HEAD",
 				explain=False,
 				git_process=_SHARED_PROCESS_AUTHORITY.git,
@@ -23134,7 +23227,7 @@ class AffectedAnalysisIntegrationTests(unittest.TestCase):
 	def test_first_affected_specs_cover_the_exact_maintenance_inputs(self) -> None:
 		specs = {
 			spec.check_name: spec
-			for spec in gf_maintenance.gf_validation_inputs.DEFAULT_AFFECTED_INPUT_SPECS
+			for spec in gf_maintenance._VALIDATION_CATALOG.input_specs
 		}
 		self.assertEqual(
 			set(specs),
@@ -23209,6 +23302,7 @@ class AffectedAnalysisIntegrationTests(unittest.TestCase):
 		):
 			gf_maintenance.attach_affected_analysis_report(
 				data,
+				validation_catalog=gf_maintenance._VALIDATION_CATALOG,
 				base_revision="HEAD",
 				explain=False,
 				git_process=_SHARED_PROCESS_AUTHORITY.git,
@@ -23228,6 +23322,7 @@ class AffectedAnalysisIntegrationTests(unittest.TestCase):
 		):
 			gf_maintenance.attach_affected_analysis_report(
 				data,
+				validation_catalog=gf_maintenance._VALIDATION_CATALOG,
 				base_revision="HEAD",
 				explain=False,
 				git_process=_SHARED_PROCESS_AUTHORITY.git,

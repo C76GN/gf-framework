@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import copy
 import hashlib
+import inspect
 import json
 import os
 import stat
@@ -22,6 +23,8 @@ TOOLS_ROOT = ROOT / "tools"
 if str(TOOLS_ROOT) not in sys.path:
 	sys.path.insert(0, str(TOOLS_ROOT))
 
+import gf_validation_catalog
+import gf_validation_contracts
 import gf_validation_inputs as inputs
 from gf_process_authority import FrozenGitProcess
 from gf_process_authority import FrozenProcessEnvironment
@@ -70,20 +73,40 @@ def _create_directory_link(target: Path, link: Path) -> None:
 		raise OSError("could not create directory-link test fixture")
 
 
-def _input_spec(check_name: str = "public_docs_boundary") -> inputs.CheckInputSpec:
-	return inputs.CheckInputSpec(
+def _input_spec(
+	check_name: str = "public_docs_boundary",
+) -> gf_validation_contracts.CheckInputSpec:
+	return gf_validation_contracts.CheckInputSpec(
 		check_name=check_name,
 		source_rules=(
-			inputs.PathRule(
+			gf_validation_contracts.PathRule(
 				"tree",
 				"docs",
 				suffixes=(".md",),
 				excluded_prefixes=("docs/reference/api",),
 			),
-			inputs.PathRule("exact", "README.md"),
+			gf_validation_contracts.PathRule("exact", "README.md"),
 		),
 		implementation_files=("tools/checker.py",),
 	)
+
+
+def _default_input_specs() -> tuple[gf_validation_contracts.CheckInputSpec, ...]:
+	context = gf_validation_catalog.ValidationCatalogContext(
+		python_executable=sys.executable,
+		root=ROOT,
+		godot_log_directory=ROOT / ".godot" / "gf-test-logs",
+		gut_lifecycle_cli_resource_path="res://tests/gf_core/support/gf_gut_cli.gd",
+		gut_shard_config_disabled_argument="-gconfig=",
+		gut_lifecycle_hook_arguments=(
+			"-gpre_run_script=res://tests/gf_core/support/gf_gut_pre_run_hook.gd",
+			"-gpost_run_script=res://tests/gf_core/support/gf_gut_post_run_hook.gd",
+		),
+		default_reference_project="../gf-reference-project",
+		reference_boot_scene="res://scenes/app/driftbound_boot.tscn",
+		reference_smoke_scene="res://tests/smoke/driftbound_smoke.tscn",
+	)
+	return gf_validation_catalog.build_validation_catalog(context).input_specs
 
 
 def _run_git(root: Path, *arguments: str) -> str:
@@ -141,6 +164,7 @@ def _make_default_catalog_git_repository(parent: Path) -> Path:
 		("tools/gf_api_owners.py", "OWNER_VERSION = 1\n"),
 		("tools/gf_maintenance.py", "RULE_VERSION = 1\n"),
 		("tools/gf_validation_catalog.py", "CATALOG_VERSION = 1\n"),
+		("tools/gf_validation_contracts.py", "CONTRACTS_VERSION = 1\n"),
 		("tools/gf_validation_inputs.py", "INPUT_VERSION = 1\n"),
 		("tools/gf_workspace_snapshot.py", "SNAPSHOT_VERSION = 1\n"),
 	):
@@ -155,16 +179,18 @@ def _make_default_catalog_git_repository(parent: Path) -> Path:
 
 class InputSpecContractTests(unittest.TestCase):
 	def test_default_catalog_declares_only_three_phase_two_candidates(self) -> None:
+		input_specs = _default_input_specs()
+		input_spec_by_name = {spec.check_name: spec for spec in input_specs}
 		self.assertEqual(
-			[spec.check_name for spec in inputs.DEFAULT_AFFECTED_INPUT_SPECS],
+			[spec.check_name for spec in input_specs],
 			[
-				"package_user_dependency_boundary",
-				"public_api_boundary",
 				"public_docs_boundary",
+				"public_api_boundary",
+				"package_user_dependency_boundary",
 			],
 		)
 		self.assertEqual(
-			set(inputs.DEFAULT_AFFECTED_INPUT_SPEC_BY_NAME),
+			set(input_spec_by_name),
 			{
 				"package_user_dependency_boundary",
 				"public_api_boundary",
@@ -175,6 +201,7 @@ class InputSpecContractTests(unittest.TestCase):
 			"package_user_dependency_boundary": (
 				"tools/gf_maintenance.py",
 				"tools/gf_validation_catalog.py",
+				"tools/gf_validation_contracts.py",
 				"tools/gf_validation_inputs.py",
 				"tools/gf_workspace_snapshot.py",
 			),
@@ -183,17 +210,19 @@ class InputSpecContractTests(unittest.TestCase):
 				"tools/gf_api_owners.py",
 				"tools/gf_maintenance.py",
 				"tools/gf_validation_catalog.py",
+				"tools/gf_validation_contracts.py",
 				"tools/gf_validation_inputs.py",
 				"tools/gf_workspace_snapshot.py",
 			),
 			"public_docs_boundary": (
 				"tools/gf_maintenance.py",
 				"tools/gf_validation_catalog.py",
+				"tools/gf_validation_contracts.py",
 				"tools/gf_validation_inputs.py",
 				"tools/gf_workspace_snapshot.py",
 			),
 		}
-		for spec in inputs.DEFAULT_AFFECTED_INPUT_SPECS:
+		for spec in input_specs:
 			with self.subTest(check_name=spec.check_name):
 				self.assertEqual(
 					spec.implementation_files,
@@ -202,7 +231,7 @@ class InputSpecContractTests(unittest.TestCase):
 				self.assertFalse(hasattr(spec, "reuse_scope"))
 				self.assertFalse(hasattr(spec, "input_closure"))
 
-		public_docs = inputs.DEFAULT_AFFECTED_INPUT_SPEC_BY_NAME[
+		public_docs = input_spec_by_name[
 			"public_docs_boundary"
 		]
 		self.assertTrue(public_docs.matches_source_path("docs/zh/guide.md"))
@@ -210,12 +239,12 @@ class InputSpecContractTests(unittest.TestCase):
 			public_docs.matches_source_path("docs/zh/reference/api/GFNode.md")
 		)
 		self.assertTrue(public_docs.matches_source_path("ASSET_STORE.md"))
-		public_api = inputs.DEFAULT_AFFECTED_INPUT_SPEC_BY_NAME[
+		public_api = input_spec_by_name[
 			"public_api_boundary"
 		]
 		self.assertTrue(public_api.matches_source_path("addons/gf/kernel/node.gd"))
 		self.assertFalse(public_api.matches_source_path("addons/gf/README.md"))
-		package_user = inputs.DEFAULT_AFFECTED_INPUT_SPEC_BY_NAME[
+		package_user = input_spec_by_name[
 			"package_user_dependency_boundary"
 		]
 		self.assertTrue(package_user.matches_source_path("addons/gf/plugin.gd"))
@@ -229,7 +258,10 @@ class InputSpecContractTests(unittest.TestCase):
 	def test_path_rule_and_input_spec_have_exact_versioned_round_trip(self) -> None:
 		spec = _input_spec()
 		payload = spec.to_dict()
-		self.assertEqual(payload["schema_version"], inputs.INPUT_SPEC_SCHEMA_VERSION)
+		self.assertEqual(
+			payload["schema_version"],
+			gf_validation_contracts.INPUT_SPEC_SCHEMA_VERSION,
+		)
 		self.assertEqual(
 			set(payload),
 			{
@@ -818,6 +850,14 @@ class FrozenActionInputTests(unittest.TestCase):
 
 
 class AffectedGitAuthorityTests(unittest.TestCase):
+	def test_affected_analysis_requires_explicit_input_specs(self) -> None:
+		parameter = inspect.signature(
+			inputs.analyze_affected_checks
+		).parameters["input_specs"]
+
+		self.assertIs(parameter.kind, inspect.Parameter.KEYWORD_ONLY)
+		self.assertIs(parameter.default, inspect.Parameter.empty)
+
 	def test_public_git_readers_require_explicit_authority(self) -> None:
 		with self.assertRaises(TypeError):
 			inputs.changed_paths_since(ROOT)  # type: ignore[call-arg]
@@ -825,6 +865,7 @@ class AffectedGitAuthorityTests(unittest.TestCase):
 			inputs.analyze_affected_checks(  # type: ignore[call-arg]
 				ROOT,
 				["public_docs_boundary"],
+				input_specs=(),
 			)
 
 	def test_git_dispatch_uses_absolute_identity_and_frozen_environment(self) -> None:
@@ -1094,8 +1135,9 @@ class AffectedAnalysisTests(unittest.TestCase):
 		with tempfile.TemporaryDirectory() as temporary_directory:
 			root = _make_default_catalog_git_repository(Path(temporary_directory))
 			_write(root / "tools/gf_validation_catalog.py", "CATALOG_VERSION = 2\n")
+			input_specs = _default_input_specs()
 			check_names = [
-				spec.check_name for spec in inputs.DEFAULT_AFFECTED_INPUT_SPECS
+				spec.check_name for spec in input_specs
 			]
 
 			report = inputs.analyze_affected_checks(
@@ -1104,6 +1146,7 @@ class AffectedAnalysisTests(unittest.TestCase):
 				"HEAD",
 				True,
 				git_process=_frozen_git_process(root),
+				input_specs=input_specs,
 			)
 
 		self.assertTrue(report["report_ok"])
@@ -1123,8 +1166,9 @@ class AffectedAnalysisTests(unittest.TestCase):
 		with tempfile.TemporaryDirectory() as temporary_directory:
 			root = _make_default_catalog_git_repository(Path(temporary_directory))
 			_write(root / "tools/gf_workspace_snapshot.py", "SNAPSHOT_VERSION = 2\n")
+			input_specs = _default_input_specs()
 			check_names = [
-				spec.check_name for spec in inputs.DEFAULT_AFFECTED_INPUT_SPECS
+				spec.check_name for spec in input_specs
 			]
 
 			report = inputs.analyze_affected_checks(
@@ -1133,6 +1177,7 @@ class AffectedAnalysisTests(unittest.TestCase):
 				"HEAD",
 				True,
 				git_process=_frozen_git_process(root),
+				input_specs=input_specs,
 			)
 
 			self.assertTrue(report["report_ok"])
@@ -1152,8 +1197,9 @@ class AffectedAnalysisTests(unittest.TestCase):
 		with tempfile.TemporaryDirectory() as temporary_directory:
 			root = _make_default_catalog_git_repository(Path(temporary_directory))
 			_write(root / "tools/gdscript_api_parser.py", "PARSER_VERSION = 2\n")
+			input_specs = _default_input_specs()
 			check_names = [
-				spec.check_name for spec in inputs.DEFAULT_AFFECTED_INPUT_SPECS
+				spec.check_name for spec in input_specs
 			]
 
 			report = inputs.analyze_affected_checks(
@@ -1162,6 +1208,7 @@ class AffectedAnalysisTests(unittest.TestCase):
 				"HEAD",
 				True,
 				git_process=_frozen_git_process(root),
+				input_specs=input_specs,
 			)
 
 			self.assertTrue(report["report_ok"])
@@ -1189,8 +1236,9 @@ class AffectedAnalysisTests(unittest.TestCase):
 		with tempfile.TemporaryDirectory() as temporary_directory:
 			root = _make_default_catalog_git_repository(Path(temporary_directory))
 			_write(root / "tools/gf_api_owners.py", "OWNER_VERSION = 2\n")
+			input_specs = _default_input_specs()
 			check_names = [
-				spec.check_name for spec in inputs.DEFAULT_AFFECTED_INPUT_SPECS
+				spec.check_name for spec in input_specs
 			]
 
 			report = inputs.analyze_affected_checks(
@@ -1199,6 +1247,7 @@ class AffectedAnalysisTests(unittest.TestCase):
 				"HEAD",
 				True,
 				git_process=_frozen_git_process(root),
+				input_specs=input_specs,
 			)
 
 			self.assertTrue(report["report_ok"])
