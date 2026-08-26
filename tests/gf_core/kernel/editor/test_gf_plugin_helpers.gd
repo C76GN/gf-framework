@@ -29,7 +29,6 @@ const GF_EDITOR_WORKSPACE_DOCK = preload("res://addons/gf/kernel/editor/gf_edito
 const GF_EDITOR_WORKSPACE_UI = preload("res://addons/gf/kernel/editor/gf_editor_workspace_ui.gd")
 const GF_EDITOR_WORKSPACE_WINDOW = preload("res://addons/gf/kernel/editor/gf_editor_workspace_window.gd")
 const GF_EXTENSION_MANAGER_DOCK = preload("res://addons/gf/kernel/editor/extension/gf_extension_manager_dock.gd")
-const GF_PACKAGE_MANAGER_DOCK = preload("res://addons/gf/kernel/editor/package/gf_package_manager_dock.gd")
 const GF_EXTENSION_SETTINGS_BASE = preload("res://addons/gf/kernel/extension/gf_extension_settings.gd")
 const GF_VARIANT_ACCESS = preload("res://addons/gf/kernel/core/gf_variant_access.gd")
 const GF_STANDARD_EDITOR_CONTRIBUTIONS_PATH: String = "res://addons/gf/standard/editor/gf_editor_contributions.json"
@@ -70,7 +69,6 @@ func test_plugin_split_helpers_load() -> void:
 	assert_not_null(GF_RESOURCE_PREVIEW_SOURCE_REGISTRY_SCRIPT, "Resource 预览来源注册表脚本应可加载。")
 	assert_not_null(GF_EDITOR_WORKSPACE_UI, "工作区页面 UI 辅助脚本应可加载。")
 	assert_not_null(GF_EDITOR_WORKSPACE_WINDOW, "独立工作区窗口脚本应可加载。")
-	assert_not_null(GF_PACKAGE_MANAGER_DOCK, "包管理工作区页面脚本应可加载。")
 
 
 func test_editor_workspace_ui_builds_common_page_chrome() -> void:
@@ -722,7 +720,7 @@ func test_builtin_tool_contribution_catalog_merges_valid_manifest_after_base_rec
 	var base_records: Dictionary = GF_EDITOR_CONTRIBUTION_REGISTRY.empty_records()
 	base_records["dock_records"] = [{
 		"source_id": "gf.standard.test:base.dock",
-		"path": "res://addons/gf/kernel/editor/package/gf_package_manager_dock.gd",
+		"path": "res://addons/gf/kernel/editor/extension/gf_extension_manager_dock.gd",
 		"label": "Base Fixture",
 		"short_label": "基础",
 		"order": 70,
@@ -1776,10 +1774,6 @@ func test_plugin_dock_tools_keeps_core_docks_available_without_extensions() -> v
 		core_paths.has("res://addons/gf/kernel/editor/extension/gf_extension_manager_dock.gd"),
 		"扩展管理器应作为 kernel Dock 保持可用。"
 	)
-	assert_true(
-		core_paths.has("res://addons/gf/kernel/editor/package/gf_package_manager_dock.gd"),
-		"包管理器应作为 kernel Dock 保持可用。"
-	)
 	assert_true(extension_records.is_empty(), "全禁用时不应注册任何扩展级 Dock。")
 
 
@@ -1847,15 +1841,15 @@ func test_plugin_dock_tools_sorts_workspace_records_by_order() -> void:
 func test_plugin_dock_tools_deduplicates_workspace_records_by_path() -> void:
 	var tools: Object = _new_object(GF_PLUGIN_DOCK_TOOLS)
 	var records: Array[Dictionary] = [
-		{"path": "res://addons/gf/kernel/editor/package/gf_package_manager_dock.gd", "label": "Core Package", "order": 70},
-		{"path": "res://addons/gf/kernel/editor/package/gf_package_manager_dock.gd", "label": "Duplicate Package", "order": 1},
+		{"path": "res://addons/gf/kernel/editor/extension/gf_extension_manager_dock.gd", "label": "Core Extension", "order": 70},
+		{"path": "res://addons/gf/kernel/editor/extension/gf_extension_manager_dock.gd", "label": "Duplicate Extension", "order": 1},
 		{"path": "res://addons/gf/extensions/save/editor/gf_save_graph_dock.gd", "label": "Save", "order": 30},
 	]
 
 	var deduplicated: Array = _call_array(tools, &"_deduplicate_dock_records", [records])
 
 	assert_eq(deduplicated.size(), 2, "工作区页面应按 path 全局去重。")
-	assert_eq(GF_VARIANT_ACCESS.get_option_string(_dictionary_at(deduplicated, 0), "label"), "Core Package", "重复 path 应保留先出现的核心/标准记录。")
+	assert_eq(GF_VARIANT_ACCESS.get_option_string(_dictionary_at(deduplicated, 0), "label"), "Core Extension", "重复 path 应保留先出现的核心/标准记录。")
 
 
 func test_plugin_dock_tools_creates_workspace_lazily() -> void:
@@ -2595,29 +2589,6 @@ func _record_array_has_identity(records: Array, identity_key: String, identity: 
 		if GF_VARIANT_ACCESS.get_option_string(record, identity_key) == identity:
 			return true
 	return false
-
-
-func _make_package_manager_entry(package_id: String, kind: String) -> Dictionary:
-	return {
-		"id": package_id,
-		"kind": kind,
-		"version": "unreleased",
-		"display_name": package_id,
-		"description": "Package manager test fixture.",
-		"dependencies": [],
-		"packages": [],
-		"paths": [],
-		"installed": false,
-		"reason": [],
-		"required_by": [],
-		"install_preview": {
-			"ok": true,
-			"install_order": [package_id],
-			"to_install": [package_id],
-			"to_update": [],
-		},
-		"uninstall_preview": {},
-	}
 
 
 func _select_option_by_text(option_button: OptionButton, text: String) -> bool:

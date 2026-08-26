@@ -2,9 +2,6 @@
   "schema_version": 1,
   "id": "gf.standard.input",
   "kind": "standard",
-  "version": "unreleased",
-  "display_name": "GF Standard Input",
-  "description": "Input mapping, formatting, runtime detectors, remapping, recording, triggers, and touch controls.",
   "dependencies": [
     "gf.kernel",
     "gf.standard.base"
@@ -23,8 +20,5 @@
     "addons/gf/standard/input/sources/**",
     "addons/gf/standard/input/touch/**",
     "addons/gf/standard/input/triggers/**"
-  ],
-  "metadata": {
-    "stage": "standard-split-v1"
-  }
+  ]
 }

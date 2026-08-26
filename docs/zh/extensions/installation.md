@@ -1,4 +1,4 @@
-# 安装与装配
+# 扩展启用与装配
 
 扩展代码存在并不代表会自动注册运行时模块。需要参与 `GFArchitecture` 的扩展，应提供一个继承 `GFInstaller` 的 `extension.gd` 或安装器脚本，并在 manifest 的 `installer_paths` 中声明。
 
@@ -20,18 +20,11 @@
 
 外部扩展根目录只是一种发现机制，不是项目目录规范。GF 不要求项目把玩法代码、资源或业务脚本放进这些目录；只有希望被 GF 扩展管理器发现、启用、导出过滤或贡献编辑器入口的独立扩展，才需要提供 manifest。
 
-## 两类 Preset 与依赖
+## 扩展组合与依赖
 
-GF 有两类消费方和两套稳定 ID，不能互换：
+完整 GF 插件已经包含内置可选扩展的源码。`GF Extensions` 和 `GFExtensionPreset` 只选择项目中已经存在的扩展，例如 `gf.save`；它们只写本地扩展启用设置，不下载、更新、卸载或覆盖文件。
 
-| 任务 | 消费方 | Preset / 成员 ID | 是否写文件 |
-| --- | --- | --- | --- |
-| 选择已经存在于项目中的扩展 | `GF Extensions` / `GFExtensionPreset` | 扩展选择 preset，例如成员 `gf.save` | 只写扩展启用设置，不下载 package |
-| 安装模块化 package 闭包 | `GF Package Manager` / package CLI | package 安装 preset，例如 `gf.preset.save`，成员 `gf.extension.save` | 经过预览与事务校验后写 package 文件和 lockfile |
-
-Save 是最小映射示例：扩展 manifest ID 是 `gf.save`，承载其文件的 package ID 是 `gf.extension.save`，官方 package 安装 preset ID 是 `gf.preset.save`。其他扩展也必须分别从扩展 manifest、package manifest 和 package preset 读取实际 ID，不能靠名称拼接推断。需要下载、更新、卸载、registry、offline bundle 或供应链校验时，使用内置 [Package Manager](../editor/workspace.md#package-manager)；本页其余“preset”均特指扩展选择 preset。
-
-扩展选择 preset 是安装向导或项目工具使用的启用组合，例如把 Save、Dialogue、Domain 一次写入显式启用列表。它不会写入扩展 manifest，也不代表这些扩展之间存在硬依赖。
+扩展选择 preset 是扩展管理器或项目工具使用的启用组合，例如把 Save、Dialogue、Domain 一次写入显式启用列表。它不会写入扩展 manifest，也不代表这些扩展之间存在硬依赖。
 
 `GFExtensionPreset` 是 preset JSON 对应的结构化描述。GF 内置只提供动态基础组合，例如默认选择、全部关闭和全部可发现扩展。业务组合由项目或 `addons/gf` 外的独立插件提供 preset JSON，并把路径写入 `gf/extensions/preset_paths`：
 
@@ -49,7 +42,7 @@ Save 是最小映射示例：扩展 manifest ID 是 `gf.save`，承载其文件�
 
 `GFExtensionPresetDiscovery` 是项目工具需要直接读取 preset 诊断时的底层快照入口。它会把内置动态 preset、项目 JSON preset、重复 ID、无效文件和未知扩展 ID 汇总到同一个 report，并根据 manifest、preset 路径和 preset 文件内容自动失效。
 
-扩展选择 preset JSON 使用字段白名单，只描述 `id`、`display_name`、`description`、`extension_ids` 和 `tags`；`name`、`summary`、`extensions` 等旧别名字段会被拒绝。`dependencies`、`optional_dependencies`、`load_after` 等软关系字段，以及 `download_url`、`packages`、`registry`、`installer_paths` 等 package 下载或装配覆盖字段会被 `GFExtensionPreset.get_validation_errors()` 拒绝。这条边界只适用于 `GFExtensionPreset`：它负责本地扩展选择，网络下载、package registry、离线包、完整性校验与安装事务由内置 Package Manager 负责。项目自定义下载器或私有供应链集成仍应放在 `addons/gf` 外，并复用公开 package 协议，而不是把下载字段塞进扩展选择 preset。
+扩展选择 preset JSON 使用字段白名单，只描述 `id`、`display_name`、`description`、`extension_ids` 和 `tags`；`name`、`summary`、`extensions` 等旧别名字段会被拒绝。`dependencies`、`optional_dependencies`、`load_after` 等软关系字段，以及 `download_url`、`packages`、`registry`、`installer_paths` 等下载或装配覆盖字段也会被 `GFExtensionPreset.get_validation_errors()` 拒绝。扩展 preset 永远只是本地选择，不应被扩展为框架下载器。
 
 `GFExtensionPreset.from_json_file()` 只在 preset 文件可读、JSON 为对象且校验通过时返回对象。编辑器或项目工具需要展示诊断时，应使用 `from_json_file_report()`，它返回 JSON-safe 的 `preset_data` 与错误列表，适合直接进入日志、CI 报告或工具输出。
 
@@ -69,7 +62,7 @@ Manifest、preset 和 tool contribution 的 JSON object 文件读取由 `GFExten
 }
 ```
 
-工具贡献路径必须位于所属扩展根目录内；`debugger_plugin_paths` 的目标脚本应继承 `EditorDebuggerPlugin`。`GFExtensionSettings.get_enabled_debugger_plugin_paths()` 只返回当前启用扩展的有效工具贡献；没有安装 tool package 时不会从运行时包猜测或合成 Debugger 入口。无效 tool contribution 会使选择报告进入 `partial` 并隔离该文件的无效路径，但不会使运行时 manifest 图失效，也不会阻断 manifest 中有效的 `installer_paths`。
+工具贡献路径必须位于所属扩展根目录内；`debugger_plugin_paths` 的目标脚本应继承 `EditorDebuggerPlugin`。`GFExtensionSettings.get_enabled_debugger_plugin_paths()` 只返回当前启用扩展的有效工具贡献；扩展目录没有声明对应贡献时，不会从其他脚本猜测或合成 Debugger 入口。无效 tool contribution 会使选择报告进入 `partial` 并隔离该文件的无效路径，但不会使运行时 manifest 图失效，也不会阻断 manifest 中有效的 `installer_paths`。
 
 扩展 manifest 的 `dependencies` 只描述启用当前扩展必须同时启用的基础能力。GF 内置扩展保持原子化，只声明 `gf.kernel` 与 `gf.standard`；跨扩展项目流程应放在项目 Installer 或 `addons/gf` 外的独立插件中。
 

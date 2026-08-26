@@ -83,7 +83,7 @@ const _COMPILER_STAGE_DEFINITIONS: Array[Dictionary] = [
 		"implementation_version": GFConfigPipelineLayoutStage.IMPLEMENTATION_VERSION,
 		"path": "res://addons/gf/tools/config_pipeline/gf_config_pipeline_layout_stage.gd",
 		"implementation_dependencies": [
-			"res://addons/gf/kernel/package/gf_bounded_zip_support.gd",
+			"res://addons/gf/tools/config_pipeline/gf_bounded_zip_support.gd",
 			"res://addons/gf/tools/config_pipeline/gf_config_pipeline_table_source.gd",
 			"res://addons/gf/standard/utilities/config/gf_config_table_importer.gd",
 			"res://addons/gf/standard/foundation/variant/gf_variant_data.gd",

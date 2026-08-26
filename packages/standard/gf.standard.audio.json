@@ -2,9 +2,6 @@
   "schema_version": 1,
   "id": "gf.standard.audio",
   "kind": "standard",
-  "version": "unreleased",
-  "display_name": "GF Standard Audio",
-  "description": "Audio banks, clips, events, emitters, libraries, settings, and runtime utility APIs.",
   "dependencies": [
     "gf.kernel",
     "gf.standard.base",
@@ -53,8 +50,5 @@
     "addons/gf/standard/utilities/audio/gf_bgm_start_operation.gd.uid",
     "addons/gf/standard/utilities/audio/gf_bgm_start_result.gd",
     "addons/gf/standard/utilities/audio/gf_bgm_start_result.gd.uid"
-  ],
-  "metadata": {
-    "stage": "standard-split-v1"
-  }
+  ]
 }

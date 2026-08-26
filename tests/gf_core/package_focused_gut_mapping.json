@@ -93,9 +93,7 @@
       "res://tests/gf_core/kernel/editor/test_gf_artifact_write_transaction.gd",
       "res://tests/gf_core/kernel/editor/test_gf_generated_artifact_report.gd",
       "res://tests/gf_core/kernel/editor/test_gf_template_generation_manifest.gd",
-      "res://tests/gf_core/kernel/extension/test_gf_extension_manifest.gd",
-      "res://tests/gf_core/kernel/package/test_gf_bounded_zip_support.gd",
-      "res://tests/gf_core/kernel/package/test_gf_package_manager_backend.gd"
+      "res://tests/gf_core/kernel/extension/test_gf_extension_manifest.gd"
     ],
     "gf.standard.agent_environment": [
       "res://tests/gf_core/standard/utilities/agent/test_gf_runtime_agent_environment.gd"
@@ -324,6 +322,7 @@
       "res://tests/gf_core/tools/asset_browser/test_gf_asset_browser_model.gd"
     ],
     "gf.tool.config_pipeline": [
+      "res://tests/gf_core/tools/config_pipeline/test_gf_bounded_zip_support.gd",
       "res://tests/gf_core/tools/config_pipeline/test_gf_config_pipeline.gd",
       "res://tests/gf_core/tools/config_pipeline/test_gf_config_pipeline_stages.gd",
       "res://tests/gf_core/tools/config_pipeline/test_gf_config_access_generator.gd"

@@ -8,7 +8,7 @@ const GF_TRANSIENT_GDSCRIPT_TEST_SUPPORT = preload(
 	"res://tests/gf_core/support/gf_transient_gdscript_test_support.gd"
 )
 const GF_BOUNDED_ZIP_SUPPORT_SCRIPT = preload(
-	"res://addons/gf/kernel/package/gf_bounded_zip_support.gd"
+	"res://addons/gf/tools/config_pipeline/gf_bounded_zip_support.gd"
 )
 
 

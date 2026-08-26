@@ -1,9 +1,9 @@
 # GFProjectLayoutDock
 
-[API Reference](../index.md) / [Tool Packages](../tools.md) / [类索引](index.md)
+[API Reference](../index.md) / [Tools](../tools.md) / [类索引](index.md)
 
 - 路径：`addons/gf/tools/project_layout/editor/gf_project_layout_dock.gd`
-- 模块：`Tool Packages`
+- 模块：`Tools`
 - 继承：`VBoxContainer`
 - API：`public`
 - 类别：编辑器 API (`editor_api`)

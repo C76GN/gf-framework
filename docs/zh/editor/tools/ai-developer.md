@@ -1,13 +1,13 @@
 # AI Developer Kit
 
-AI Developer Kit 是可选的制作期工具包 `gf.tool.ai_developer`。它让项目侧 AI 先读取项目明确声明的意图，再查询与当前 GF 版本绑定的能力和 API 目录，最后依据真实项目状态实施与验证。GF 运行时、导出游戏和普通包管理流程不依赖 AI、Python、MCP 或特定 Agent 客户端。
+AI Developer Kit 是可选的制作期工具。它让项目侧 AI 先读取项目明确声明的意图，再查询与当前 GF 版本绑定的能力和 API 目录，最后依据真实项目状态实施与验证。GF 运行时和导出游戏不依赖 AI、Python、MCP 或特定 Agent 客户端。
 
 ## 解决的问题
 
 直接把整个框架源码交给 AI 临时分析，容易产生三类错误：把过期类名当成当前 API、把项目业务选择误认为框架规范，以及在缺少平台、持久化或网络约束时自行补全假设。套件用四份不同职责的数据避免这些问题：
 
 - `.gf/project_contract.json`：由项目维护并进入版本控制的意图、模块所有权、能力 owner、选定 Recipe、验收条件、约束、未知项和验证命令。
-- `.gf/ai/project_snapshot.json`：工具生成的已安装包、GF/目录版本一致性、package 事实来源、插件状态、能力就绪证据、按 runtime/test/tool/editor 权威域分离的有界公开 API package policy、声明文档根内的 API 引用新鲜度与模块依赖扫描，以及契约漂移事实；截断、超大文件、不可读文件和不安全路径都会让证据明确标记为不完整。
+- `.gf/ai/project_snapshot.json`：工具生成的框架组件状态、GF/目录版本一致性、组件事实来源、插件状态、能力就绪证据、按 runtime/test/tool/editor 权威域分离的有界公开 API package policy、声明文档根内的 API 引用新鲜度与模块依赖扫描，以及契约漂移事实；截断、超大文件、不可读文件和不安全路径都会让证据明确标记为不完整。
 - `knowledge/capabilities.json`：按需求搜索的稳定能力目录，不把一个具体类当成架构入口。
 - `knowledge/api_index.json`：从同一 GF 发行版公开 API 生成的 schema v2、catalog version `2.0.0` owner 索引；既有 `classes` / `class_count` 保持类语义，独立的 `autoloads` / `autoload_count` 收录受控 AutoLoad，并共同提供成员、包归属和源码路径。
 
@@ -17,7 +17,7 @@ AI Developer Kit 是可选的制作期工具包 `gf.tool.ai_developer`。它让�
 
 ## 安装边界
 
-完整 `gf-framework-<version>.zip` 已包含套件源码。模块化项目可以单独安装 `gf.tool.ai_developer`。GitHub Release 还提供与 GF 版本相同的 `gf-ai-developer-kit-<version>.zip`，作为经过校验的独立 Codex 插件产物。
+完整 `gf-framework-<version>.zip` 已包含套件源码。GitHub Release 还提供与 GF 版本相同的 `gf-ai-developer-kit-<version>.zip`，作为经过校验的独立 Codex 插件产物；它是框架完整 ZIP 之外唯一单独发布的可选工具 ZIP。
 
 项目侧命令只使用 Python 标准库。只有运行这套可选工具时才需要 Python 3.10 或更高版本；Godot 插件、GF 运行时和导出的游戏不需要 Python。
 
@@ -32,7 +32,9 @@ python addons/gf/tools/ai_developer/gf_ai_project.py validate --project-root .
 
 初始化不会覆盖已有文件。契约使用严格 JSON Schema，未知字段、错误类型、重复声明、互相冲突的 required/optional/forbidden package，以及不存在的能力 ID 都会失败。模板中的 `unknowns` 不是待办装饰；会影响当前架构决策的未知项应标记为 blocking，并在确认后从契约中解决。
 
-项目存在 `.gf/packages.lock.json` 时，快照只接受 Package Manager 的正式闭合结构：根字段、`schema_version` 精确整数类型、registry source、每个完整 package entry、文件元数据、当前框架/entry 版本、包类型、`required_by` 与依赖闭包都必须有效。任何一项无效时只保留有界诊断，可信 `packages` 集合固定为空，也不会静默退回目录猜测。没有 lockfile 的完整源码分发或开发仓库才根据当前版本目录中的代表文件生成 `filesystem` 观测；两种来源都会明确记录在 `framework.package_state`。
+GF 11 不生成或更新 `.gf/packages.lock.json`，正常完整安装会根据当前版本目录中的代表文件生成 `filesystem` 观测。项目如果仍保留 GF 10 的旧 lockfile，快照会把它当作迁移保护证据并执行只读、失败关闭的完整校验；任一字段无效时可信 `packages` 集合固定为空，也不会静默退回目录猜测。完成[从 GF 10 模块化安装迁移](../../overview/quickstart/package-manager-migration.md)并归档旧 lockfile 后，快照恢复以完整插件目录为当前事实源。两种过渡来源都会明确记录在 `framework.package_state`。
+
+项目契约和 API Catalog 中的 package ID 用于表达能力与公开 API 的源码归属，不是安装、下载或更新命令。
 
 重点字段包括：
 
@@ -68,7 +70,7 @@ CLI 会再次展示完整候选，并要求原样输入 `MIGRATE <plan-sha256>`�
 
 ## 为 Agent 安装项目规则
 
-适配器只管理带稳定边界标记的内容，不接管用户已有说明。项目已安装 `gf.tool.ai_developer` 时，默认安装 Codex Skill 和根 `AGENTS.md` 管理块：
+适配器只管理带稳定边界标记的内容，不接管用户已有说明。项目使用完整插件中包含的 AI Developer 工具时，默认安装 Codex Skill 和根 `AGENTS.md` 管理块：
 
 ```powershell
 python addons/gf/tools/ai_developer/gf_ai_project.py agent-install --project-root .
@@ -77,7 +79,7 @@ python addons/gf/tools/ai_developer/gf_ai_project.py agent-status --project-root
 
 可通过重复 `--target` 选择 `agents`、`claude`、`codex`、`copilot`、`cursor` 或 `gemini`，也可以使用 `--target all`。`--dry-run` 只返回计划。安装和卸载遇到已修改、残缺、重复、超出单文件/本次调用读取预算或穿越 symlink/junction/reparse 的托管内容都会拒绝覆盖；确认要用当前版本模板替换托管内容时，安装命令必须显式传 `--replace-drifted`。托管块替换只切换精确 marker 区间，块外 UTF-8 字节（包括 CRLF、首尾空行、Markdown 尾空格与缩进）保持不变；提交计划同时绑定原文件存在性和 SHA-256，计划后已发生的普通编辑会使整批操作失败并恢复已写目标。跨平台父目录 rename/reparse 的对抗性竞态仍需完整的 handle-pinned Project I/O 能力，不能把当前路径复核过度解释为已经封闭该窗口。
 
-独立插件已经从自身目录提供 Codex Skill，因此未安装项目内 tool package 时，默认 `agent-install` 只写 `AGENTS.md` 管理块，并拒绝 `--target codex` 产生一个无法独立解析 runtime 的项目副本。其他 Agent 目标仍可按需安装。
+当 Agent 宿主已经从独立插件目录加载 Codex Skill 时，默认 `agent-install` 只写 `AGENTS.md` 管理块，并拒绝 `--target codex` 产生一个无法独立解析 runtime 的项目副本。其他 Agent 目标仍可按需安装。
 
 ```powershell
 python addons/gf/tools/ai_developer/gf_ai_project.py agent-uninstall --project-root . --target cursor

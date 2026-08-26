@@ -45,11 +45,11 @@ GF does not define your gameplay rules. It does not replace Godot physics, rende
 
 ## Install
 
-Install the official Store package `gf-framework-10.0.0.zip`. It contains the full `addons/gf` addon folder: kernel, standard library, editor tooling, package manager, and bundled optional extensions. Optional extensions remain disabled until the project explicitly enables them, so the full package is the recommended first-install path.
+Install the official Store package `gf-framework-10.0.0.zip`. It contains the complete `addons/gf` addon folder: kernel, standard library, editor tooling, and bundled optional extensions. Optional extensions remain disabled until the project explicitly enables them.
 
 Copy `addons/gf` into your Godot project and enable `GF Framework` in `Project > Project Settings > Plugins`. From the boot flow, call `Gf.init()` with `await` and stop when it returns `false`. A project installer supplies registrations during that call; it does not replace checking the awaited result.
 
-Advanced modular installs are available from the GitHub Release. Download `gf-kernel-10.0.0.zip` only when you intentionally want a minimal bootstrap and will install additional packages through `GF Package Manager`, the Godot-native package CLI, a release registry, or an offline bundle. The minimal kernel package is not the recommended Store download for first-time users.
+Upgrade by closing Godot, committing or backing up the project, and replacing the whole `addons/gf` directory with the directory from one newer full release. Do not overlay files from different GF versions.
 
 Documentation: https://gf-framework.readthedocs.io/
 Source: https://github.com/C76GN/gf-framework
@@ -95,15 +95,12 @@ Before adding screenshots, prefer images that show actual GF editor tooling or d
 - Minimum Godot version: `4.7`
 - Primary download package: `gf-framework-10.0.0.zip`
 - Primary download URL: `https://github.com/C76GN/gf-framework/releases/download/10.0.0/gf-framework-10.0.0.zip`
-- Download package should use the attached `gf-framework-10.0.0.zip` release asset generated inside the single-pass `tools/build_gf_release_artifacts.py` artifact set, not GitHub's automatic source archive and not the minimal `gf-kernel-10.0.0.zip` package.
+- Download package should use the attached `gf-framework-10.0.0.zip` release asset generated inside the single-pass `tools/build_gf_release_artifacts.py` artifact set, not GitHub's automatic source archive.
 - Package layout must have `addons/` at the zip root, with the plugin under `addons/gf/**`.
-- Advanced modular release assets, for GitHub Release users rather than the Store primary download:
-  - `gf-kernel-10.0.0.zip`
-  - `gf-registry-10.0.0.json`
-  - `gf-registry-source.json`
-  - `gf-package-offline-bundle-10.0.0.zip`
+- GitHub Release attachments are limited to:
+  - `gf-framework-10.0.0.zip`
   - `gf-ai-developer-kit-10.0.0.zip`
-  - package zips such as `gf-standard-base-10.0.0.zip` and `gf-extension-save-10.0.0.zip`
+  - `gf-release-artifacts-10.0.0.json`
 - Release artifact build: `python tools\build_gf_release_artifacts.py --version 10.0.0 --output-dir build\release`
 - Immutable artifact validation: `python tools\build_gf_release_artifacts.py --version 10.0.0 --manifest build\release\gf-release-artifacts-10.0.0.json --validate-only`
 - Release metadata check: `python tools\gf_maintenance.py release-status --version 10.0.0 --artifact-manifest build\release\gf-release-artifacts-10.0.0.json`
@@ -132,7 +129,7 @@ Use these values for the `10.0.0` Store update:
 1. Create or edit version `10.0.0`.
 2. Set minimum Godot version to `4.7`.
 3. Upload `gf-framework-10.0.0.zip` as the version download.
-4. Do not upload `gf-kernel-10.0.0.zip` as the primary Store package.
+4. Do not upload legacy kernel-only, registry, offline-bundle, or per-module artifacts.
 5. Keep documentation URL as `https://gf-framework.readthedocs.io/`.
 6. Keep source URL as `https://github.com/C76GN/gf-framework`.
-7. Mention modular packages only as an advanced GitHub Release path.
+7. Describe optional extensions as locally enabled parts of the complete addon, not as separate downloads.

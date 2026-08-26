@@ -26,7 +26,7 @@ router.register_routes(routes)
 1. `ProjectSettings.get_setting("gf/project/installers", [])` 是否含项目 Installer。
 2. `await Gf.init()` 是否返回 `true`；失败时读取 `last_initialization_error`。
 3. Installer 是否真的注册了 `GFUIUtility` 和 `GFUIRouterUtility`。
-4. 最小 package 安装是否包含 `gf.standard.ui.navigation`。
+4. `addons/gf/standard` 是否来自同一份完整发布包，相关脚本是否存在且能够解析。
 
 ## 路由与逻辑层
 

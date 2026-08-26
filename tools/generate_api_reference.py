@@ -45,7 +45,7 @@ CATALOG_VERSION = "3"
 MODULE_LABELS = {
 	"kernel": "Kernel",
 	"standard": "Standard",
-	"tools": "Tool Packages",
+	"tools": "Tools",
 	"extensions/action_queue": "Action Queue",
 	"extensions/asset_metadata": "Asset Metadata",
 	"extensions/behavior_tree": "Behavior Tree",

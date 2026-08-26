@@ -45,7 +45,7 @@ print(issue_data["source_span"]["column"])
 
 ## Drift Report
 
-需要比较两个来源是否一致时，可以使用 `GFDriftReport`。它只接受调用方提供的稳定 key 或 key -> entry 字典，并输出 `matched`、`missing`、`extra` 和 `stale`，不关心这些 key 来自资源注册表、配置表、package lockfile 还是编辑器缓存。
+需要比较两个来源是否一致时，可以使用 `GFDriftReport`。它只接受调用方提供的稳定 key 或 key -> entry 字典，并输出 `matched`、`missing`、`extra` 和 `stale`，不关心这些 key 来自资源注册表、配置表、构建依赖快照还是编辑器缓存。
 
 ```gdscript
 var report := GFDriftReport.compare_entries(

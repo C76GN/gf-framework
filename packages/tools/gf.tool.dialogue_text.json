@@ -2,9 +2,6 @@
   "schema_version": 1,
   "id": "gf.tool.dialogue_text",
   "kind": "tool",
-  "version": "unreleased",
-  "display_name": "GF Dialogue Text Tool",
-  "description": "Optional authoring tool that compiles strict JSON text into GF dialogue resources.",
   "dependencies": [
     "gf.kernel",
     "gf.standard.base",
@@ -13,8 +10,5 @@
   ],
   "paths": [
     "addons/gf/tools/dialogue_text/**"
-  ],
-  "metadata": {
-    "stage": "tool-split-v1"
-  }
+  ]
 }

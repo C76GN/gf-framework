@@ -2,9 +2,6 @@
   "schema_version": 1,
   "id": "gf.standard.settings",
   "kind": "standard",
-  "version": "unreleased",
-  "display_name": "GF Standard Settings",
-  "description": "Generic runtime settings definitions, staging, validation, and a synchronous persistence port.",
   "dependencies": [
     "gf.kernel",
     "gf.standard.base",
@@ -25,8 +22,5 @@
     "addons/gf/standard/utilities/settings/gf_settings_store_utility.gd.uid",
     "addons/gf/standard/utilities/settings/gf_settings_utility.gd",
     "addons/gf/standard/utilities/settings/gf_settings_utility.gd.uid"
-  ],
-  "metadata": {
-    "stage": "standard-ui-core-split-v1"
-  }
+  ]
 }

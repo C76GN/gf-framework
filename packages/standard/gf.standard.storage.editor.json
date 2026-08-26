@@ -2,9 +2,6 @@
   "schema_version": 1,
   "id": "gf.standard.storage.editor",
   "kind": "standard",
-  "version": "unreleased",
-  "display_name": "GF Standard Storage Editor",
-  "description": "Editor-only storage viewer docks and storage authoring helpers.",
   "dependencies": [
     "gf.kernel",
     "gf.standard.base",
@@ -12,8 +9,5 @@
   ],
   "paths": [
     "addons/gf/standard/utilities/storage/editor/**"
-  ],
-  "metadata": {
-    "stage": "standard-editor-split-v1"
-  }
+  ]
 }

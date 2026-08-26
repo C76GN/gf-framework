@@ -344,34 +344,7 @@ func test_business_extensions_remain_optional_atomic_extensions_without_internal
 	)
 
 
-func test_2d_toolkit_preset_closure_stays_runtime_only_and_expected_size() -> void:
-	var manifests_by_id: Dictionary = _collect_package_manifests(PACKAGE_ROOT)
-	var closure: Dictionary = _resolve_package_closure("gf.preset.2d_toolkit", manifests_by_id)
-	var expected_ids: Array[String] = [
-		"gf.extension.camera",
-		"gf.extension.flow",
-		"gf.extension.interaction",
-		"gf.extension.physics",
-		"gf.kernel",
-		"gf.preset.2d_toolkit",
-		"gf.standard.base",
-		"gf.standard.deterministic",
-		"gf.standard.input",
-		"gf.standard.spatial",
-		"gf.standard.spatial.canvas",
-		"gf.standard.ui",
-	]
-	var actual_ids: Array[String] = _sorted_dictionary_string_keys(closure)
-	var editor_packages: Array[String] = []
-	for package_id: String in actual_ids:
-		if package_id.contains(".editor"):
-			editor_packages.append(package_id)
-
-	assert_eq(actual_ids, expected_ids, "2D toolkit preset 闭包应稳定包含 2D 运行时常用能力和必要依赖。")
-	assert_eq(editor_packages, [], "2D toolkit runtime preset 不能拉入 editor-only package。")
-
-
-func test_standard_input_package_closure_stays_runtime_only() -> void:
+func test_standard_input_module_closure_stays_runtime_only() -> void:
 	var manifests_by_id: Dictionary = _collect_package_manifests(PACKAGE_ROOT)
 	var closure: Dictionary = _resolve_package_closure("gf.standard.input", manifests_by_id)
 	var actual_ids: Array[String] = _sorted_dictionary_string_keys(closure)
@@ -379,50 +352,12 @@ func test_standard_input_package_closure_stays_runtime_only() -> void:
 	assert_eq(
 		actual_ids,
 		["gf.kernel", "gf.standard.base", "gf.standard.input"],
-		"Input runtime package 只能安装自身和基础运行时依赖。"
+		"Input runtime module 只能依赖自身和基础运行时模块。"
 	)
 	assert_false(
 		actual_ids.has("gf.standard.input.editor"),
-		"Input runtime package 不能反向安装 editor Dock。"
+		"Input runtime module 不能反向依赖 editor module。"
 	)
-
-
-func test_save_preset_closure_stays_minimal_runtime_only() -> void:
-	var manifests_by_id: Dictionary = _collect_package_manifests(PACKAGE_ROOT)
-	var closure: Dictionary = _resolve_package_closure("gf.preset.save", manifests_by_id)
-	var expected_ids: Array[String] = [
-		"gf.extension.save",
-		"gf.kernel",
-		"gf.preset.save",
-		"gf.standard.base",
-		"gf.standard.deterministic",
-		"gf.standard.storage",
-	]
-	var actual_ids: Array[String] = _sorted_dictionary_string_keys(closure)
-
-	assert_eq(actual_ids, expected_ids, "Save preset 只应安装保存扩展和必需标准依赖。")
-	assert_false(_contains_editor_package(actual_ids), "Save runtime preset 不能拉入 editor-only package。")
-
-
-func test_rpg_save_dialogue_preset_closure_stays_runtime_only_without_ui_fan_in() -> void:
-	var manifests_by_id: Dictionary = _collect_package_manifests(PACKAGE_ROOT)
-	var closure: Dictionary = _resolve_package_closure("gf.preset.rpg_save_dialogue", manifests_by_id)
-	var expected_ids: Array[String] = [
-		"gf.extension.dialogue",
-		"gf.extension.domain",
-		"gf.extension.save",
-		"gf.kernel",
-		"gf.preset.rpg_save_dialogue",
-		"gf.standard.base",
-		"gf.standard.config",
-		"gf.standard.deterministic",
-		"gf.standard.storage",
-	]
-	var actual_ids: Array[String] = _sorted_dictionary_string_keys(closure)
-
-	assert_eq(actual_ids, expected_ids, "RPG Save Dialogue preset 只应包含叙事保存工作流的运行时闭包。")
-	assert_false(actual_ids.has("gf.standard.ui"), "RPG Save Dialogue preset 不应隐式拉入 UI aggregate。")
-	assert_false(_contains_editor_package(actual_ids), "RPG Save Dialogue runtime preset 不能拉入 editor-only package。")
 
 
 func test_bundled_extensions_do_not_call_global_gf_facade() -> void:
@@ -573,8 +508,6 @@ func _resolve_package_closure_recursive(
 	result[package_id] = true
 	var manifest_data: Dictionary = GF_VARIANT_ACCESS.get_option_dictionary(manifests_by_id, package_id, {})
 	var child_ids: Array = GF_VARIANT_ACCESS.get_option_array(manifest_data, "dependencies", [])
-	if GF_VARIANT_ACCESS.get_option_string(manifest_data, "kind") == "preset":
-		child_ids = GF_VARIANT_ACCESS.get_option_array(manifest_data, "packages", [])
 	for child_id_variant: Variant in child_ids:
 		var child_id: String = GF_VARIANT_ACCESS.to_text(child_id_variant)
 		_resolve_package_closure_recursive(child_id, manifests_by_id, result, visiting)
@@ -587,13 +520,6 @@ func _sorted_dictionary_string_keys(source: Dictionary) -> Array[String]:
 		result.append(GF_VARIANT_ACCESS.to_text(key_variant))
 	result.sort()
 	return result
-
-
-func _contains_editor_package(package_ids: Array[String]) -> bool:
-	for package_id: String in package_ids:
-		if package_id.contains(".editor"):
-			return true
-	return false
 
 
 func _read_text(path: String) -> String:

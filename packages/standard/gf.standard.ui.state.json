@@ -2,9 +2,6 @@
   "schema_version": 1,
   "id": "gf.standard.ui.state",
   "kind": "standard",
-  "version": "unreleased",
-  "display_name": "GF Standard UI State Binders",
-  "description": "ReactiveState-to-Control binders, item list binders, and repeater binders.",
   "dependencies": [
     "gf.kernel",
     "gf.standard.base",
@@ -18,8 +15,5 @@
     "addons/gf/standard/utilities/ui/gf_reactive_state_control_binder.gd.uid",
     "addons/gf/standard/utilities/ui/gf_repeater_binder.gd",
     "addons/gf/standard/utilities/ui/gf_repeater_binder.gd.uid"
-  ],
-  "metadata": {
-    "stage": "standard-ui-core-split-v1"
-  }
+  ]
 }

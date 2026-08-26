@@ -62,8 +62,14 @@ FRAMEWORK_CI_SUITES = (
 	"framework-gut",
 	"framework-lsp",
 	"framework-static",
+	"framework-integration",
 )
-FRAMEWORK_GUT_CI_TIMEOUT_MINUTES = 60
+FRAMEWORK_CI_TIMEOUT_MINUTES = {
+	"framework-gut": 60,
+	"framework-lsp": 15,
+	"framework-static": 20,
+	"framework-integration": 30,
+}
 REPOSITORY_POLICY_COMMAND = "python tools/gf_repository_policy.py validate --json"
 PULL_REQUEST_POLICY_COMMAND = "python tools/gf_repository_policy.py validate-pr --json"
 QUICK_CI_COMMAND = (
@@ -74,13 +80,26 @@ FRAMEWORK_CI_COMMAND = (
 	"python tools/gf_maintenance.py check --suite ${{ matrix.suite }} "
 	"--failed-only --github-annotations"
 )
-PACKAGE_CI_COMMAND = FRAMEWORK_CI_COMMAND
-RELEASE_FRAMEWORK_TIMEOUT_MINUTES = 90
-RELEASE_FRAMEWORK_SUITE_TIMEOUT_SECONDS = 4800
-RELEASE_FRAMEWORK_COMMAND = (
-	"python tools/gf_maintenance.py check --suite framework "
-	f"--suite-timeout {RELEASE_FRAMEWORK_SUITE_TIMEOUT_SECONDS} "
-	"--failed-only --github-annotations"
+RELEASE_FRAMEWORK_COMMAND = FRAMEWORK_CI_COMMAND
+RELEASE_BUILD_ARTIFACT_COMMAND = (
+	'python tools/build_gf_release_artifacts.py --version "${GITHUB_REF_NAME}" '
+	"--output-dir build/release"
+)
+RELEASE_METADATA_COMMAND = (
+	'python tools/gf_maintenance.py release-status --version "${GITHUB_REF_NAME}" '
+	'--artifact-manifest "build/release/gf-release-artifacts-${GITHUB_REF_NAME}.json"'
+)
+RELEASE_UPLOAD_ACTION = "actions/upload-artifact@v7"
+RELEASE_UPLOAD_WITH_FIELDS = (
+	("name", "gf-release-${{ github.ref_name }}"),
+	("path", "build/release"),
+	("if-no-files-found", "error"),
+	("retention-days", "7"),
+)
+RELEASE_DOWNLOAD_ACTION = "actions/download-artifact@v8"
+RELEASE_DOWNLOAD_WITH_FIELDS = (
+	("name", "gf-release-${{ github.ref_name }}"),
+	("path", "build/release"),
 )
 RELEASE_VERIFY_ARTIFACT_COMMAND = (
 	'python tools/build_gf_release_artifacts.py --version "${GITHUB_REF_NAME}" '
@@ -95,11 +114,8 @@ RELEASE_CREATE_COMMAND = (
 	'gh release create "${GITHUB_REF_NAME}" \\ '
 	'"build/release/gf-framework-${GITHUB_REF_NAME}.zip" \\ '
 	'"build/release/gf-ai-developer-kit-${GITHUB_REF_NAME}.zip" \\ '
-	'"build/release/gf-registry-${GITHUB_REF_NAME}.json" \\ '
-	'"build/release/gf-registry-source.json" \\ '
-	'"build/release/gf-package-offline-bundle-${GITHUB_REF_NAME}.zip" \\ '
 	'"build/release/gf-release-artifacts-${GITHUB_REF_NAME}.json" \\ '
-	'build/release/packages/*.zip \\ --verify-tag \\ '
+	'--verify-tag \\ '
 	'--title "${GITHUB_REF_NAME}" \\ '
 	'--notes-file "${RUNNER_TEMP}/release-notes.md"'
 )
@@ -116,21 +132,7 @@ WINDOWS_STAGING_TEST_COMMAND = (
 	"tests.gf_core.tools.test_gf_parallel_validation "
 	"tests.gf_core.tools.test_gf_maintenance_check_graph"
 )
-PACKAGE_CI_SUITES = (
-	"package-contract",
-	"package-editor",
-	"package-cli-local",
-	"package-cli-network",
-	"package-godot-ci",
-)
-RELEASE_PACKAGE_SUITES = (
-	"package-contract",
-	"package-editor",
-	"package-cli-local",
-	"package-cli-network",
-	"package-godot-release",
-)
-REQUIRED_CI_SUITES = (*FRAMEWORK_CI_SUITES, *PACKAGE_CI_SUITES)
+REQUIRED_CI_SUITES = FRAMEWORK_CI_SUITES
 DRAFT_GATE_NAME = "${{ github.event_name == 'pull_request' && github.event.pull_request.draft == true && (github.event.action != 'edited' || github.event.changes.base.ref.from != '') && 'GF draft gate' || 'GF draft gate (not applicable)' }}"
 REPOSITORY_POLICY_NAME = "GF repository policy"
 FULL_VALIDATION_EVENT = "github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.draft == false && (github.event.action != 'edited' || github.event.changes.base.ref.from != ''))"
@@ -489,12 +491,13 @@ def audit_maintenance_skill_contracts(sources: dict[str, str]) -> list[str]:
 	)
 	require(
 		framework_checks,
-		"Ready/main `framework-gut` uses exactly 60 minutes",
+		"`framework-gut` 60 minutes, `framework-lsp` 15 minutes, "
+		"`framework-static` 20 minutes, and `framework-integration` 30 minutes",
 		"Ready/main workflow deadline contract",
 	)
 	require(
 		framework_checks,
-		"tag-release `release-framework-checks` uses exactly 90 minutes around a 4,800-second",
+		"Ready/main and tag release use the same exact per-shard limits",
 		"release workflow deadline contract",
 	)
 	require(
@@ -737,7 +740,6 @@ def audit_release_workflow(source: str) -> list[str]:
 	required_job_ids = {
 		"build-release-artifacts",
 		"release-framework-checks",
-		"release-package-checks",
 		"create-release",
 	}
 	missing_job_ids = sorted(required_job_ids - set(jobs))
@@ -748,8 +750,7 @@ def audit_release_workflow(source: str) -> list[str]:
 		issues.append(f"Release workflow has unsupported jobs: {', '.join(extra_job_ids)}.")
 	expected_job_fields = {
 		"build-release-artifacts": ("name", "runs-on", "timeout-minutes", "steps"),
-		"release-framework-checks": ("name", "runs-on", "timeout-minutes", "steps"),
-		"release-package-checks": ("name", "runs-on", "timeout-minutes", "strategy", "steps"),
+		"release-framework-checks": ("name", "runs-on", "timeout-minutes", "strategy", "steps"),
 		"create-release": ("name", "permissions", "needs", "runs-on", "timeout-minutes", "steps"),
 	}
 	for job_id, expected_fields in expected_job_fields.items():
@@ -764,9 +765,6 @@ def audit_release_workflow(source: str) -> list[str]:
 		"release-framework-checks": (
 			"Checkout tag", "Set up Python", "Install documentation dependencies",
 			"Set up Godot", "Run release framework shard",
-		),
-		"release-package-checks": (
-			"Checkout tag", "Set up Python", "Set up Godot", "Run release package shard",
 		),
 		"create-release": (
 			"Checkout tag", "Set up Python", "Download verified release artifact set",
@@ -787,6 +785,30 @@ def audit_release_workflow(source: str) -> list[str]:
 			issues.append(f"Release job {job_id} permission contents must not be write.")
 		if permission_keys and (permission_keys != ["contents"] or contents_permission != "read"):
 			issues.append(f"Release job {job_id} may only narrow its permissions to contents: read.")
+	build_release_job = jobs.get("build-release-artifacts", "")
+	if build_release_job:
+		require_exact_run_step(
+			build_release_job,
+			"build-release-artifacts",
+			"Build release artifact set",
+			RELEASE_BUILD_ARTIFACT_COMMAND,
+			issues,
+		)
+		require_exact_run_step(
+			build_release_job,
+			"build-release-artifacts",
+			"Verify release metadata against built artifacts",
+			RELEASE_METADATA_COMMAND,
+			issues,
+		)
+		require_exact_action_step(
+			build_release_job,
+			"build-release-artifacts",
+			"Upload immutable release artifact set",
+			RELEASE_UPLOAD_ACTION,
+			RELEASE_UPLOAD_WITH_FIELDS,
+			issues,
+		)
 	if "create-release" not in jobs:
 		issues.append("Release workflow is missing create-release job.")
 	framework_job = jobs.get("release-framework-checks", "")
@@ -794,7 +816,7 @@ def audit_release_workflow(source: str) -> list[str]:
 		issues.append("Release workflow is missing release-framework-checks job.")
 	else:
 		actual_framework_job_fields = extract_ci_job_field_keys(framework_job)
-		expected_framework_job_fields = ["name", "runs-on", "timeout-minutes", "steps"]
+		expected_framework_job_fields = ["name", "runs-on", "timeout-minutes", "strategy", "steps"]
 		if actual_framework_job_fields != expected_framework_job_fields:
 			issues.append(
 				"Release job release-framework-checks fields are "
@@ -804,9 +826,24 @@ def audit_release_workflow(source: str) -> list[str]:
 			framework_job,
 			"release-framework-checks",
 			"timeout-minutes",
-			str(RELEASE_FRAMEWORK_TIMEOUT_MINUTES),
+			"${{ matrix.timeout_minutes }}",
 			issues,
 		)
+		require_exact_matrix_suites(
+			framework_job,
+			"release-framework-checks",
+			FRAMEWORK_CI_SUITES,
+			issues,
+		)
+		for suite, timeout_minutes in FRAMEWORK_CI_TIMEOUT_MINUTES.items():
+			require_exact_matrix_suite_scalar(
+				framework_job,
+				"release-framework-checks",
+				suite,
+				"timeout_minutes",
+				str(timeout_minutes),
+				issues,
+			)
 		release_framework_step = extract_ci_step_block(
 			framework_job,
 			"Run release framework shard",
@@ -823,27 +860,20 @@ def audit_release_workflow(source: str) -> list[str]:
 				"Release job release-framework-checks Run release framework shard command "
 				f"is {actual_release_command!r}, expected {RELEASE_FRAMEWORK_COMMAND!r}."
 			)
-	package_job = jobs.get("release-package-checks", "")
-	if package_job:
-		require_exact_matrix_suites(
-			package_job,
-			"release-package-checks",
-			RELEASE_PACKAGE_SUITES,
-			issues,
-		)
-		require_exact_run_step(
-			package_job,
-			"release-package-checks",
-			"Run release package shard",
-			PACKAGE_CI_COMMAND,
-			issues,
-		)
 	create_release_job = jobs.get("create-release", "")
 	if create_release_job:
 		require_exact_job_needs(
 			create_release_job,
 			"create-release",
-			("build-release-artifacts", "release-framework-checks", "release-package-checks"),
+			("build-release-artifacts", "release-framework-checks"),
+			issues,
+		)
+		require_exact_action_step(
+			create_release_job,
+			"create-release",
+			"Download verified release artifact set",
+			RELEASE_DOWNLOAD_ACTION,
+			RELEASE_DOWNLOAD_WITH_FIELDS,
 			issues,
 		)
 		require_exact_run_step(
@@ -899,7 +929,6 @@ def audit_ci_workflow(policy: dict[str, Any], source: str) -> list[str]:
 		"repository-policy",
 		"quick-checks",
 		"framework-checks",
-		"package-checks",
 		"windows-process-supervision",
 		"draft-gate",
 		"full-validation-gate",
@@ -915,9 +944,6 @@ def audit_ci_workflow(policy: dict[str, Any], source: str) -> list[str]:
 		"repository-policy": ("name", "runs-on", "timeout-minutes", "steps"),
 		"quick-checks": ("name", "if", "needs", "runs-on", "timeout-minutes", "steps"),
 		"framework-checks": (
-			"name", "if", "needs", "runs-on", "timeout-minutes", "strategy", "steps",
-		),
-		"package-checks": (
 			"name", "if", "needs", "runs-on", "timeout-minutes", "strategy", "steps",
 		),
 		"windows-process-supervision": (
@@ -944,7 +970,6 @@ def audit_ci_workflow(policy: dict[str, Any], source: str) -> list[str]:
 			"Checkout", "Set up Python", "Install documentation dependencies",
 			"Set up Godot", "Run framework maintenance shard",
 		),
-		"package-checks": ("Checkout", "Set up Python", "Set up Godot", "Run package maintenance shard"),
 		"windows-process-supervision": (
 			"Checkout", "Set up Python", "Verify owned process-tree cleanup",
 			"Verify Windows staging and startup boundaries",
@@ -1088,32 +1113,20 @@ def audit_ci_workflow(policy: dict[str, Any], source: str) -> list[str]:
 			issues,
 		)
 		require_exact_matrix_suites(framework_job, "framework-checks", FRAMEWORK_CI_SUITES, issues)
-		require_exact_matrix_suite_scalar(
-			framework_job,
-			"framework-checks",
-			"framework-gut",
-			"timeout_minutes",
-			str(FRAMEWORK_GUT_CI_TIMEOUT_MINUTES),
-			issues,
-		)
+		for suite, timeout_minutes in FRAMEWORK_CI_TIMEOUT_MINUTES.items():
+			require_exact_matrix_suite_scalar(
+				framework_job,
+				"framework-checks",
+				suite,
+				"timeout_minutes",
+				str(timeout_minutes),
+				issues,
+			)
 		require_exact_run_step(
 			framework_job,
 			"framework-checks",
 			"Run framework maintenance shard",
 			FRAMEWORK_CI_COMMAND,
-			issues,
-		)
-
-	package_job = jobs.get("package-checks", "")
-	if package_job:
-		require_exact_job_scalar(package_job, "package-checks", "if", ready_job_if, issues)
-		require_exact_job_needs(package_job, "package-checks", ("repository-policy",), issues)
-		require_exact_matrix_suites(package_job, "package-checks", PACKAGE_CI_SUITES, issues)
-		require_exact_run_step(
-			package_job,
-			"package-checks",
-			"Run package maintenance shard",
-			PACKAGE_CI_COMMAND,
 			issues,
 		)
 
@@ -1236,7 +1249,6 @@ def audit_ci_workflow(policy: dict[str, Any], source: str) -> list[str]:
 			(
 				"repository-policy",
 				"framework-checks",
-				"package-checks",
 				"windows-process-supervision",
 			),
 			issues,
@@ -1248,7 +1260,6 @@ def audit_ci_workflow(policy: dict[str, Any], source: str) -> list[str]:
 			(
 				("POLICY_RESULT", "${{ needs.repository-policy.result }}", "Repository policy failed"),
 				("FRAMEWORK_RESULT", "${{ needs.framework-checks.result }}", "Framework checks failed"),
-				("PACKAGE_RESULT", "${{ needs.package-checks.result }}", "Package checks failed"),
 				(
 					"WINDOWS_PROCESS_RESULT",
 					"${{ needs.windows-process-supervision.result }}",
@@ -1831,6 +1842,43 @@ def require_exact_run_step(
 		)
 
 
+def require_exact_action_step(
+	job_source: str,
+	job_id: str,
+	step_name: str,
+	expected_action: str,
+	expected_with_fields: tuple[tuple[str, str], ...],
+	issues: list[str],
+) -> None:
+	step_source = extract_ci_step_block(job_source, step_name)
+	actual_fields = extract_ci_step_field_keys(step_source)
+	if actual_fields != ["uses", "with"]:
+		issues.append(
+			f"CI job {job_id} {step_name} fields are {actual_fields!r}, "
+			"expected ['uses', 'with']."
+		)
+	actual_action = extract_yaml_scalar(step_source, "uses", 8)
+	if actual_action != expected_action:
+		issues.append(
+			f"CI job {job_id} {step_name} action is {actual_action!r}, "
+			f"expected {expected_action!r}."
+		)
+	expected_with_keys = [field_name for field_name, _value in expected_with_fields]
+	actual_with_keys = extract_yaml_mapping_keys(step_source, "with", 8)
+	if actual_with_keys != expected_with_keys:
+		issues.append(
+			f"CI job {job_id} {step_name} with fields are {actual_with_keys!r}, "
+			f"expected {expected_with_keys!r}."
+		)
+	for field_name, expected_value in expected_with_fields:
+		actual_value = extract_yaml_scalar(step_source, field_name, 10)
+		if actual_value != expected_value:
+			issues.append(
+				f"CI job {job_id} {step_name} with {field_name} is "
+				f"{actual_value!r}, expected {expected_value!r}."
+			)
+
+
 def require_exact_job_needs(
 	job_source: str,
 	job_id: str,
@@ -2114,14 +2162,16 @@ def run_maintenance_skill_contract_mutation_self_tests() -> list[str]:
 		),
 		(
 			".codex/skills/gf-framework-maintenance/references/checks.md",
-			"Ready/main `framework-gut` uses exactly 60 minutes",
-			"Ready/main `framework-gut` uses exactly 59 minutes",
+			"`framework-gut` 60 minutes, `framework-lsp` 15 minutes, "
+			"`framework-static` 20 minutes, and `framework-integration` 30 minutes",
+			"`framework-gut` 59 minutes, `framework-lsp` 15 minutes, "
+			"`framework-static` 20 minutes, and `framework-integration` 30 minutes",
 			"Ready/main workflow deadline contract",
 		),
 		(
 			".codex/skills/gf-framework-maintenance/references/checks.md",
-			"tag-release `release-framework-checks` uses exactly 90 minutes around a 4,800-second",
-			"tag-release `release-framework-checks` uses exactly 80 minutes around a 4,700-second",
+			"Ready/main and tag release use the same exact per-shard limits",
+			"Ready/main uses exact per-shard limits",
 			"release workflow deadline contract",
 		),
 		(
@@ -2159,535 +2209,73 @@ def run_ci_workflow_mutation_self_tests(policy: dict[str, Any]) -> list[str]:
 	jobs, duplicate_jobs = extract_ci_job_blocks(source)
 	repository_job = jobs.get("repository-policy", "")
 	framework_job = jobs.get("framework-checks", "")
-	package_job = jobs.get("package-checks", "")
 	windows_job = jobs.get("windows-process-supervision", "")
-	if (
-		duplicate_jobs
-		or not repository_job
-		or not framework_job
-		or not package_job
-		or not windows_job
-	):
+	if duplicate_jobs or not repository_job or not framework_job or not windows_job:
 		return ["Repository policy self-test could not isolate governed Ready CI jobs."]
 
-	def mutate_ci_job(job_source: str, marker: str, replacement: str) -> str:
+	def mutate_job(job_source: str, marker: str, replacement: str) -> str:
 		if job_source.count(marker) != 1 or source.count(job_source) != 1:
 			return source
 		return source.replace(job_source, job_source.replace(marker, replacement, 1), 1)
 
-	def make_windows_step_block_scalar_decoy() -> str:
-		step = extract_ci_step_block(
-			windows_job,
-			"Verify Windows staging and startup boundaries",
-		)
-		if (
-			not step
-			or windows_job.count(step) != 1
-			or windows_job.count("    steps:\n") != 1
-			or source.count(windows_job) != 1
-		):
-			return source
-		weakened_step = step.replace(
-			"      - name: Verify Windows staging and startup boundaries",
-			"      - name: Weakened Windows staging boundary",
-			1,
-		).replace(
-			"          tests.gf_core.tools.test_gf_parallel_validation",
-			"          tests.gf_core.tools.test_gf_gut_sharding",
-			1,
-		)
-		mutated_job = windows_job.replace(step, weakened_step, 1).replace(
-			"    steps:\n",
-			"    concurrency: |2\n"
-			"      - name: Verify Windows staging and startup boundaries\n"
-			"        run: >\n"
-			"          python -B -m unittest\n"
-			"          tests.gf_core.tools.test_gf_parallel_validation\n"
-			"          tests.gf_core.tools.test_gf_maintenance_check_graph\n"
-			"    steps:\n",
-			1,
-		)
-		return source.replace(windows_job, mutated_job, 1)
 	mutations = (
 		(
 			"global_shell_override",
-			source.replace(
-				"\njobs:\n",
-				"\ndefaults:\n  run:\n    shell: 'echo {0}'\n\njobs:\n",
-				1,
-			),
+			source.replace("\njobs:\n", "\ndefaults:\n  run:\n    shell: 'echo {0}'\n\njobs:\n", 1),
 			"CI top-level fields",
 		),
 		(
-			"quoted_extra_job",
-			source.replace(
-				"\njobs:\n",
-				"\njobs:\n"
-				'  "evil":\n'
-				"    name: GF merge gate\n"
-				"    runs-on: ubuntu-latest\n"
-				"    steps:\n"
-				"      - name: Fake success\n"
-				"        run: echo pass\n\n",
-				1,
-			),
-			"unsupported jobs",
-		),
-		(
-			"extra_top_level_oidc_permission",
-			source.replace(
-				"permissions:\n  contents: read",
-				"permissions:\n  id-token: write\n  contents: read",
-				1,
-			),
+			"extra_top_level_permission",
+			source.replace("permissions:\n  contents: read", "permissions:\n  id-token: write\n  contents: read", 1),
 			"top-level permissions",
 		),
 		(
-			"quoted_extra_pull_request_type",
+			"missing_framework_integration",
+			source.replace("            suite: framework-integration", "            # suite: framework-integration", 1),
+			"framework-checks matrix suites",
+		),
+		(
+			"short_framework_integration_timeout",
+			source.replace("            timeout_minutes: 30", "            timeout_minutes: 29", 1),
+			"framework-checks matrix suite framework-integration timeout_minutes",
+		),
+		(
+			"skipped_framework_step",
+			mutate_job(
+				framework_job,
+				"      - name: Run framework maintenance shard\n",
+				"      - name: Run framework maintenance shard\n        if: false\n",
+			),
+			"Run framework maintenance shard fields",
+		),
+		(
+			"wrong_windows_runner",
+			mutate_job(windows_job, "    runs-on: windows-latest", "    runs-on: ubuntu-latest"),
+			"windows-process-supervision runs-on",
+		),
+		(
+			"missing_windows_dependency",
+			source.replace("      - windows-process-supervision", "      # - windows-process-supervision", 1),
+			"full-validation-gate needs",
+		),
+		(
+			"missing_framework_dependency",
+			source.replace("      - framework-checks", "      # - framework-checks", 1),
+			"full-validation-gate needs",
+		),
+		(
+			"wrong_full_gate_result",
 			source.replace(
-				"      - converted_to_draft",
-				'      - converted_to_draft\n      - "labeled"',
+				"          FRAMEWORK_RESULT: ${{ needs.framework-checks.result }}",
+				"          FRAMEWORK_RESULT: ${{ needs.repository-policy.result }}",
 				1,
 			),
-			"pull_request.types",
-		),
-		(
-			"pull_request_paths_ignore",
-			source.replace(
-				"    types:\n",
-				"    paths-ignore: ['**']\n    types:\n",
-				1,
-			),
-			"pull_request trigger must contain only types",
-		),
-		(
-			"push_paths_ignore",
-			source.replace(
-				"    branches:\n      - main",
-				"    branches:\n      - main\n    paths-ignore: ['**']",
-				1,
-			),
-			"push trigger must contain only branches",
-		),
-		(
-			"wrong_push_branch",
-			source.replace("      - main", "      - release", 1),
-			"CI push.branches",
-		),
-		(
-			"failure_tolerant_repository_policy_job",
-			mutate_ci_job(
-				repository_job,
-				"    timeout-minutes: 5",
-				"    continue-on-error: true\n    timeout-minutes: 5",
-			),
-			"must not set continue-on-error",
-		),
-		(
-			"skipped_repository_policy_step",
-			mutate_ci_job(
-				repository_job,
-				"      - name: Validate repository policy\n",
-				"      - name: Validate repository policy\n        if: false\n",
-			),
-			"Validate repository policy fields",
-		),
-		(
-			"extra_repository_policy_step",
-			mutate_ci_job(
-				repository_job,
-				"      - name: Validate repository policy\n",
-				"      - name: Unexpected preparation\n"
-				"        run: echo unexpected\n\n"
-				"      - name: Validate repository policy\n",
-			),
-			"repository-policy step names",
-		),
-		(
-			"inline_hash_spoofed_repository_policy_command",
-			mutate_ci_job(
-				repository_job,
-				f"        run: {REPOSITORY_POLICY_COMMAND}",
-				f"        run: {REPOSITORY_POLICY_COMMAND}# || true",
-			),
-			"Validate repository policy command",
-		),
-		(
-			"inline_hash_spoofed_pull_request_policy_command",
-			mutate_ci_job(
-				repository_job,
-				f"        run: {PULL_REQUEST_POLICY_COMMAND}",
-				f"        run: {PULL_REQUEST_POLICY_COMMAND}# || true",
-			),
-			"Validate pull request contract command",
-		),
-		(
-			"failure_tolerant_package_step",
-			mutate_ci_job(
-				package_job,
-				"      - name: Run package maintenance shard\n",
-				"      - name: Run package maintenance shard\n"
-				"        continue-on-error: true\n",
-			),
-			"must not set continue-on-error",
-		),
-		(
-			"skipped_package_step",
-			mutate_ci_job(
-				package_job,
-				"      - name: Run package maintenance shard\n",
-				"      - name: Run package maintenance shard\n        if: false\n",
-			),
-			"Run package maintenance shard fields",
-		),
-		(
-			"first_field_failure_tolerant_package_step",
-			mutate_ci_job(
-				package_job,
-				"      - name: Run package maintenance shard\n",
-				"      - continue-on-error: true\n        name: Run package maintenance shard\n",
-			),
-			"unsupported step item spelling",
-		),
-		(
-			"flow_failure_tolerant_package_step",
-			mutate_ci_job(
-				package_job,
-				"      - name: Set up Godot\n        uses: ./.github/actions/setup-godot",
-				'      - {name: Set up Godot, continue-on-error: true, uses: "./.github/actions/setup-godot"}',
-			),
-			"unsupported step item spelling",
-		),
-		(
-			"escaped_failure_tolerant_package_job",
-			mutate_ci_job(
-				package_job,
-				"    timeout-minutes: ${{ matrix.timeout_minutes }}",
-				'    "continue\\u002don\\u002derror": true\n'
-				"    timeout-minutes: ${{ matrix.timeout_minutes }}",
-			),
-			"unsupported direct field spelling",
-		),
-		(
-			"escaped_failure_tolerant_package_step",
-			mutate_ci_job(
-				package_job,
-				"      - name: Run package maintenance shard\n",
-				"      - name: Run package maintenance shard\n"
-				'        "continue\\u002don\\u002derror": true\n',
-			),
-			"unsupported direct field spelling",
-		),
-		(
-			"unguarded_full_validation",
-			source.replace(
-				"github.event_name == 'push' ||\n      (github.event_name == 'pull_request' &&",
-				"github.event_name != 'pull_request' ||",
-				1,
-			),
-			"framework-checks if",
-		),
-		(
-			"missing_epoch_run_name",
-			source.replace("GF CI|mode=", "GF CI|type=", 1),
-			"CI run-name",
-		),
-		(
-			"manual_dispatch_in_required_ci",
-			source.replace("\npermissions:\n", "\n  workflow_dispatch:\n\npermissions:\n", 1),
-			"must not expose workflow_dispatch",
-		),
-		(
-			"broad_top_level_actions_permission",
-			source.replace(
-				"permissions:\n  contents: read",
-				"permissions:\n  actions: read\n  contents: read",
-				1,
-			),
-			"top-level permission actions",
+			"full-validation-gate evaluator",
 		),
 		(
 			"missing_merge_gate_checks_permission",
 			source.replace("      checks: read", "      checks: none", 1),
 			"merge-gate permission checks",
-		),
-		(
-			"comment_spoofed_cancellation",
-			source.replace("      !cancelled() &&", "      always() && # !cancelled() &&", 1),
-			"draft-gate if",
-		),
-		(
-			"comment_spoofed_framework_suite",
-			source.replace("            suite: framework-lsp", "            # suite: framework-lsp", 1),
-			"framework-checks matrix suites",
-		),
-		(
-			"short_framework_gut_timeout",
-			source.replace(
-				f"            timeout_minutes: {FRAMEWORK_GUT_CI_TIMEOUT_MINUTES}",
-				f"            timeout_minutes: {FRAMEWORK_GUT_CI_TIMEOUT_MINUTES - 1}",
-				1,
-			),
-			"framework-checks matrix suite framework-gut timeout_minutes",
-		),
-		(
-			"block_scalar_spoofed_framework_gut_timeout",
-			source.replace(
-				f"            timeout_minutes: {FRAMEWORK_GUT_CI_TIMEOUT_MINUTES}",
-				f"            timeout_minutes: {FRAMEWORK_GUT_CI_TIMEOUT_MINUTES - 1}",
-				1,
-			).replace(
-				"    strategy:\n",
-				"    env:\n"
-				"      GF_MATRIX_POLICY_FIXTURE: |\n"
-				"        include:\n"
-				"          - suite: framework-gut\n"
-				f"            timeout_minutes: {FRAMEWORK_GUT_CI_TIMEOUT_MINUTES}\n"
-				"    strategy:\n",
-				1,
-			),
-			"framework-checks matrix suite framework-gut timeout_minutes",
-		),
-		(
-			"unbound_framework_timeout",
-			source.replace(
-				"    timeout-minutes: ${{ matrix.timeout_minutes }}",
-				f"    timeout-minutes: {FRAMEWORK_GUT_CI_TIMEOUT_MINUTES}",
-				1,
-			),
-			"framework-checks timeout-minutes",
-		),
-		(
-			"failure_tolerant_framework_step",
-			mutate_ci_job(
-				framework_job,
-				"      - name: Run framework maintenance shard\n",
-				"      - name: Run framework maintenance shard\n"
-				"        continue-on-error: true\n",
-			),
-			"Run framework maintenance shard fields",
-		),
-		(
-			"failure_tolerant_framework_job",
-			mutate_ci_job(
-				framework_job,
-				"    timeout-minutes: ${{ matrix.timeout_minutes }}",
-				"    continue-on-error: true\n"
-				"    timeout-minutes: ${{ matrix.timeout_minutes }}",
-			),
-			"framework-checks fields",
-		),
-		(
-			"comment_spoofed_merge_dependency",
-			source.replace("      - package-checks", "      # - package-checks", 1),
-			"full-validation-gate needs",
-		),
-		(
-			"wrong_windows_process_runner",
-			source.replace("    runs-on: windows-latest", "    runs-on: ubuntu-latest", 1),
-			"windows-process-supervision runs-on",
-		),
-		(
-			"missing_windows_process_test",
-			source.replace(
-				"python tools/gf_maintenance.py maintenance-self-test --json",
-				"python tools/gf_maintenance.py summary --json",
-				1,
-			),
-			"Verify owned process-tree cleanup command",
-		),
-		(
-			"failure_tolerant_windows_process_job",
-			mutate_ci_job(
-				windows_job,
-				"    timeout-minutes: 5",
-				"    continue-on-error: true\n    timeout-minutes: 5",
-			),
-			"windows-process-supervision fields",
-		),
-		(
-			"failure_tolerant_windows_process_self_test",
-			mutate_ci_job(
-				windows_job,
-				"      - name: Verify owned process-tree cleanup\n",
-				"      - name: Verify owned process-tree cleanup\n"
-				"        continue-on-error: true\n",
-			),
-			"Verify owned process-tree cleanup fields",
-		),
-		(
-			"inline_hash_spoofed_windows_process_self_test",
-			mutate_ci_job(
-				windows_job,
-				f"        run: {WINDOWS_PROCESS_SELF_TEST_COMMAND}",
-				f"        run: {WINDOWS_PROCESS_SELF_TEST_COMMAND}#; exit 0",
-			),
-			"Verify owned process-tree cleanup command",
-		),
-		(
-			"missing_windows_staging_tests",
-			source.replace(
-				"tests.gf_core.tools.test_gf_parallel_validation",
-				"tests.gf_core.tools.test_gf_gut_sharding",
-				1,
-			),
-			"windows-process-supervision is missing governed command",
-		),
-		(
-			"shell_commented_windows_staging_tests",
-			source.replace(
-				"          python -B -m unittest",
-				"          python -B -m unittest # governed modules are shell-commented",
-				1,
-			),
-			"Windows staging/startup command",
-		),
-		(
-			"block_scalar_spoofed_windows_staging_step",
-			make_windows_step_block_scalar_decoy(),
-			"Windows staging/startup step fields",
-		),
-		(
-			"missing_windows_process_merge_dependency",
-			source.replace(
-				"      - windows-process-supervision",
-				"      # - windows-process-supervision",
-				1,
-			),
-			"full-validation-gate needs",
-		),
-		(
-			"static_required_merge_name",
-			source.replace(MERGE_GATE_NAME, "GF merge gate", 1),
-			"merge-gate name",
-		),
-		(
-			"mutable_full_marker_name",
-			source.replace(
-				FULL_VALIDATION_GATE_NAME,
-				"GF full validation (${{ github.event.pull_request.head.sha || github.sha }})",
-				1,
-			),
-			"full-validation-gate name",
-		),
-		(
-			"missing_full_validation_merge_dependency",
-			source.replace("      - full-validation-gate", "      # - full-validation-gate", 1),
-			"merge-gate needs",
-		),
-		(
-			"extra_merge_gate_oidc_permission",
-			mutate_ci_job(
-				jobs.get("merge-gate", ""),
-				"      actions: read",
-				'      "id-token": write\n      actions: read',
-			),
-			"merge-gate permissions",
-		),
-		(
-			"skippable_required_merge_gate",
-			source.replace("      always() &&", "      !cancelled() &&", 1),
-			"merge-gate if",
-		),
-		(
-			"missing_metadata_relay",
-			source.replace(
-				"python tools/gf_repository_policy.py validate-pr-gate",
-				"python tools/gf_repository_policy.py validate-pr",
-				1,
-			),
-			"merge-gate relay command is not governed",
-		),
-		(
-			"decoy_metadata_relay",
-			source.replace(
-				"python tools/gf_repository_policy.py validate-pr-gate",
-				"python tools/gf_repository_policy.py validate-pr",
-				1,
-			).replace(
-				"          GH_TOKEN: ${{ github.token }}",
-				"          GH_TOKEN: ${{ github.token }}\n"
-				"          GF_RELAY_COMMAND_DECOY: python tools/gf_repository_policy.py validate-pr-gate --wait-seconds 1800 --poll-seconds 10",
-				1,
-			),
-			"merge-gate relay environment fields",
-		),
-		(
-			"bypassed_current_full_evaluator",
-			source.replace(
-				'          if [ "${FULL_VALIDATION_RESULT}" != "success" ]; then\n'
-				'            echo "Full validation failed: ${FULL_VALIDATION_RESULT}"\n'
-				"            exit 1\n"
-				"          fi",
-				"          echo bypass-current-full-result",
-				1,
-			),
-			"current Full evaluator command",
-		),
-		(
-			"folded_current_full_evaluator_changes_shell_lines",
-			source.replace(
-				'        run: |\n'
-				'          if [ "${FULL_VALIDATION_RESULT}" != "success" ]; then\n'
-				'            echo "Full validation failed: ${FULL_VALIDATION_RESULT}"\n'
-				"            exit 1\n"
-				"          fi",
-				'        run: >\n'
-				'          if [ "${FULL_VALIDATION_RESULT}" != "success" ]; then\n'
-				"\n"
-				'          echo "Full validation failed: ${FULL_VALIDATION_RESULT}"\n'
-				"          exit 1\n"
-				"\n"
-				"          fi",
-				1,
-			),
-			"current Full evaluator must match the canonical literal script",
-		),
-		(
-			"wrong_metadata_relay_step_condition",
-			source.replace(
-				"      - name: Checkout relay policy\n        if: >-\n          success() &&",
-				"      - name: Checkout relay policy\n        if: >-\n          always() &&",
-				1,
-			),
-			"relay checkout condition is not governed",
-		),
-		(
-			"missing_metadata_relay_token",
-			source.replace("          GH_TOKEN: ${{ github.token }}", "          GF_TOKEN: ${{ github.token }}", 1),
-			"relay environment fields are not governed",
-		),
-		(
-			"wrong_job_quick_command",
-			source.replace("          --suite quick", "          --suite policy-only", 1).replace(
-				"python tools/gf_repository_policy.py validate --json",
-				"python tools/gf_repository_policy.py validate --json\n          # --suite quick",
-				1,
-			),
-			"Run quick maintenance suite command",
-		),
-		(
-			"draft_gate_non_failing_branch",
-			source.replace("            exit 1", "            exit 0", 1),
-			"draft-gate evaluator",
-		),
-		(
-			"draft_gate_wrong_result_mapping",
-			source.replace(
-				"          QUICK_RESULT: ${{ needs.quick-checks.result }}",
-				"          QUICK_RESULT: ${{ needs.repository-policy.result }}",
-				1,
-			),
-			"draft-gate evaluator",
-		),
-		(
-			"full_gate_wrong_result_mapping",
-			source.replace(
-				"          PACKAGE_RESULT: ${{ needs.package-checks.result }}",
-				"          PACKAGE_RESULT: ${{ needs.framework-checks.result }}",
-				1,
-			),
-			"full-validation-gate evaluator",
 		),
 	)
 	issues: list[str] = []
@@ -2924,329 +2512,153 @@ def run_release_workflow_mutation_self_tests() -> list[str]:
 	if audit_release_workflow(source):
 		return []
 	jobs, duplicate_jobs = extract_ci_job_blocks(source)
+	build_job = jobs.get("build-release-artifacts", "")
 	framework_job = jobs.get("release-framework-checks", "")
-	package_job = jobs.get("release-package-checks", "")
-	create_release_job = jobs.get("create-release", "")
-	if duplicate_jobs or not framework_job or not package_job or not create_release_job:
+	create_job = jobs.get("create-release", "")
+	if duplicate_jobs or not build_job or not framework_job or not create_job:
 		return ["Repository policy self-test could not isolate release-framework-checks."]
 
-	def mutate_release_job(job_source: str, marker: str, replacement: str) -> str:
+	def mutate_job(job_source: str, marker: str, replacement: str) -> str:
 		if job_source.count(marker) != 1 or source.count(job_source) != 1:
 			return source
 		return source.replace(job_source, job_source.replace(marker, replacement, 1), 1)
 
-	def mutate_framework_job(marker: str, replacement: str) -> str:
-		return mutate_release_job(framework_job, marker, replacement)
-
-	def make_release_timeout_decoy() -> str:
-		timeout_marker = f"          --suite-timeout {RELEASE_FRAMEWORK_SUITE_TIMEOUT_SECONDS}"
-		if (
-			framework_job.count(timeout_marker) != 1
-			or framework_job.count("    steps:\n") != 1
-			or source.count(framework_job) != 1
-		):
-			return source
-		mutated_job = framework_job.replace(
-			timeout_marker,
-			f"          --suite-timeout {RELEASE_FRAMEWORK_SUITE_TIMEOUT_SECONDS - 100}",
-			1,
-		).replace(
-			"    steps:\n",
-			"    env:\n"
-			f"      GF_TIMEOUT_DECOY: \"--suite-timeout {RELEASE_FRAMEWORK_SUITE_TIMEOUT_SECONDS}\"\n"
-			"    steps:\n",
-			1,
-		)
-		return source.replace(framework_job, mutated_job, 1)
-
-	def make_release_step_block_scalar_decoy() -> str:
-		step = extract_ci_step_block(framework_job, "Run release framework shard")
-		if (
-			not step
-			or framework_job.count(step) != 1
-			or framework_job.count("    steps:\n") != 1
-			or source.count(framework_job) != 1
-		):
-			return source
-		weakened_step = step.replace(
-			"      - name: Run release framework shard",
-			"      - name: Run weakened release framework shard",
-			1,
-		).replace(
-			f"          --suite-timeout {RELEASE_FRAMEWORK_SUITE_TIMEOUT_SECONDS}",
-			f"          --suite-timeout {RELEASE_FRAMEWORK_SUITE_TIMEOUT_SECONDS - 100}",
-			1,
-		)
-		mutated_job = framework_job.replace(step, weakened_step, 1).replace(
-			"    steps:\n",
-			"    concurrency: |2\n"
-			"      - name: Run release framework shard\n"
-			"        run: >\n"
-			"          python tools/gf_maintenance.py check\n"
-			"          --suite framework\n"
-			f"          --suite-timeout {RELEASE_FRAMEWORK_SUITE_TIMEOUT_SECONDS}\n"
-			"          --failed-only\n"
-			"          --github-annotations\n"
-			"    steps:\n",
-			1,
-		)
-		return source.replace(framework_job, mutated_job, 1)
-
 	mutations = (
 		(
-			"release_global_shell_override",
+			"extra_release_job",
 			source.replace(
 				"\njobs:\n",
-				"\ndefaults:\n  run:\n    shell: 'echo {0}'\n\njobs:\n",
-				1,
-			),
-			"Release top-level fields",
-		),
-		(
-			"release_quoted_extra_job",
-			source.replace(
-				"\njobs:\n",
-				"\njobs:\n"
-				'  "evil":\n'
-				"    name: Fake release success\n"
-				"    runs-on: ubuntu-latest\n"
-				"    steps:\n"
-				"      - name: Fake success\n"
-				"        run: echo pass\n\n",
+				"\njobs:\n  unexpected:\n    runs-on: ubuntu-latest\n    steps:\n      - run: echo pass\n\n",
 				1,
 			),
 			"unsupported jobs",
 		),
 		(
-			"release_broad_tag_trigger",
-			source.replace(
-				'      - "[0-9]*.[0-9]*.[0-9]*"',
-				'      - "*"',
-				1,
+			"missing_framework_integration",
+			source.replace("            suite: framework-integration", "            # suite: framework-integration", 1),
+			"release-framework-checks matrix suites",
+		),
+		(
+			"short_release_gut_timeout",
+			source.replace("            timeout_minutes: 60", "            timeout_minutes: 59", 1),
+			"release-framework-checks matrix suite framework-gut timeout_minutes",
+		),
+		(
+			"old_monolithic_framework_suite",
+			mutate_job(
+				framework_job,
+				"          --suite ${{ matrix.suite }}",
+				"          --suite framework",
 			),
-			"exact governed stable-tag push filter",
+			"Run release framework shard command",
 		),
 		(
-			"release_manual_trigger",
-			source.replace(
-				"permissions:\n",
-				"  workflow_dispatch:\n\npermissions:\n",
-				1,
+			"skipped_framework_step",
+			mutate_job(
+				framework_job,
+				"      - name: Run release framework shard\n",
+				"      - name: Run release framework shard\n        if: false\n",
 			),
-			"exact governed stable-tag push filter",
+			"Run release framework shard fields",
 		),
 		(
-			"release_global_concurrency_group",
-			source.replace(
-				"  group: release-${{ github.ref_name }}",
-				"  group: release-global",
-				1,
-			),
-			"tag-scoped and non-cancelling",
-		),
-		(
-			"release_cancelling_concurrency",
-			source.replace(
-				"  cancel-in-progress: false",
-				"  cancel-in-progress: true",
-				1,
-			),
-			"tag-scoped and non-cancelling",
-		),
-		(
-			"release_extra_oidc_permission",
-			source.replace(
-				"permissions:\n  contents: read",
-				'permissions:\n  "id-token": write\n  contents: read',
-				1,
-			),
-			"top-level permissions",
-		),
-		(
-			"broad_release_top_level_permission",
-			source.replace("permissions:\n  contents: read", "permissions:\n  contents: write", 1),
-			"top-level permission contents",
-		),
-		(
-			"missing_release_package_job",
-			source.replace(
-				package_job,
-				"  # release-package-checks removed by hostile mutation\n",
-				1,
-			).replace(
-				"      - release-package-checks",
-				"      # - release-package-checks",
-				1,
-			),
-			"missing governed jobs: release-package-checks",
-		),
-		(
-			"missing_release_package_dependency",
-			mutate_release_job(
-				create_release_job,
-				"      - release-package-checks",
-				"      # - release-package-checks",
+			"missing_framework_dependency",
+			mutate_job(
+				create_job,
+				"      - release-framework-checks",
+				"      # - release-framework-checks",
 			),
 			"create-release needs",
 		),
 		(
-			"comment_spoofed_release_package_suite",
-			mutate_release_job(
-				package_job,
-				"            suite: package-godot-release",
-				"            suite: package-contract\n"
-				"            # suite: package-godot-release",
+			"unexpected_extra_attachment",
+			mutate_job(
+				create_job,
+				'            "build/release/gf-release-artifacts-${GITHUB_REF_NAME}.json" \\',
+				'            "build/release/unexpected-extra.txt" \\\n            "build/release/gf-release-artifacts-${GITHUB_REF_NAME}.json" \\',
 			),
-			"release-package-checks matrix suites",
+			"Create release command",
 		),
 		(
-			"failure_tolerant_create_release_job",
-			mutate_release_job(
-				create_release_job,
-				"    timeout-minutes: 20",
-				"    continue-on-error: true\n    timeout-minutes: 20",
+			"wrong_release_builder",
+			mutate_job(
+				build_job,
+				"python tools/build_gf_release_artifacts.py",
+				"python tools/not_the_release_builder.py",
 			),
-			"must not set continue-on-error",
+			"Build release artifact set command",
 		),
 		(
-			"skipped_create_release_job",
-			mutate_release_job(
-				create_release_job,
-				"    name: Create GitHub Release\n",
-				"    name: Create GitHub Release\n    if: false\n",
+			"wrong_release_metadata_command",
+			mutate_job(
+				build_job,
+				"python tools/gf_maintenance.py release-status",
+				"python tools/gf_maintenance.py workspace-status",
 			),
-			"create-release fields",
+			"Verify release metadata against built artifacts command",
 		),
 		(
-			"skipped_release_package_step",
-			mutate_release_job(
-				package_job,
-				"      - name: Run release package shard\n",
-				"      - name: Run release package shard\n        if: false\n",
+			"wrong_release_upload_action",
+			mutate_job(
+				build_job,
+				"uses: actions/upload-artifact@v7",
+				"uses: actions/upload-artifact@v6",
 			),
-			"Run release package shard fields",
+			"Upload immutable release artifact set action",
 		),
 		(
-			"flow_failure_tolerant_release_package_step",
-			mutate_release_job(
-				package_job,
-				"      - name: Set up Godot\n        uses: ./.github/actions/setup-godot",
-				'      - {name: Set up Godot, continue-on-error: true, uses: "./.github/actions/setup-godot"}',
+			"wrong_release_upload_name",
+			mutate_job(
+				build_job,
+				"name: gf-release-${{ github.ref_name }}",
+				"name: unexpected-release",
 			),
-			"unsupported step item spelling",
+			"Upload immutable release artifact set with name",
 		),
 		(
-			"skipped_create_release_step",
-			mutate_release_job(
-				create_release_job,
-				"      - name: Create release\n",
-				"      - name: Create release\n        if: false\n",
+			"wrong_release_upload_path",
+			mutate_job(
+				build_job,
+				"path: build/release",
+				"path: build",
 			),
-			"Create release fields",
+			"Upload immutable release artifact set with path",
 		),
 		(
-			"missing_release_publish_permission",
-			source.replace(
-				"    permissions:\n      contents: write",
-				"    permissions:\n      contents: read",
-				1,
+			"wrong_release_download_action",
+			mutate_job(
+				create_job,
+				"uses: actions/download-artifact@v8",
+				"uses: actions/download-artifact@v7",
 			),
-			"create-release permission contents",
+			"Download verified release artifact set action",
 		),
 		(
-			"release_build_job_write_permission",
-			source.replace(
-				"  build-release-artifacts:\n",
-				"  build-release-artifacts:\n    permissions:\n      contents: write\n",
-				1,
+			"wrong_release_download_name",
+			mutate_job(
+				create_job,
+				"name: gf-release-${{ github.ref_name }}",
+				"name: unexpected-release",
 			),
-			"build-release-artifacts permission contents must not be write",
+			"Download verified release artifact set with name",
 		),
 		(
-			"short_release_framework_timeout",
-			mutate_framework_job(
-				f"    timeout-minutes: {RELEASE_FRAMEWORK_TIMEOUT_MINUTES}",
-				f"    timeout-minutes: {RELEASE_FRAMEWORK_TIMEOUT_MINUTES - 1}",
+			"wrong_release_download_path",
+			mutate_job(
+				create_job,
+				"path: build/release",
+				"path: build",
 			),
-			"release-framework-checks timeout-minutes",
+			"Download verified release artifact set with path",
 		),
 		(
-			"missing_release_framework_suite_timeout",
-			mutate_framework_job(
-				f"          --suite-timeout {RELEASE_FRAMEWORK_SUITE_TIMEOUT_SECONDS}",
-				"          # governed suite timeout removed",
+			"build_job_write_permission",
+			mutate_job(
+				build_job,
+				"    runs-on: ubuntu-latest",
+				"    permissions:\n      contents: write\n    runs-on: ubuntu-latest",
 			),
-			"Run release framework shard command",
-		),
-		(
-			"decoy_release_framework_suite_timeout",
-			make_release_timeout_decoy(),
-			"Run release framework shard command",
-		),
-		(
-			"shell_commented_release_framework_arguments",
-			mutate_framework_job(
-				"          python tools/gf_maintenance.py check",
-				"          python tools/gf_maintenance.py check # governed arguments are shell-commented",
-			),
-			"Run release framework shard command",
-		),
-		(
-			"skipped_release_framework_step",
-			mutate_framework_job(
-				"      - name: Run release framework shard\n",
-				"      - name: Run release framework shard\n        if: ${{ false }}\n",
-			),
-			"Run release framework shard fields",
-		),
-		(
-			"failure_tolerant_release_framework_step",
-			mutate_framework_job(
-				"      - name: Run release framework shard\n",
-				"      - name: Run release framework shard\n        continue-on-error: true\n",
-			),
-			"Run release framework shard fields",
-		),
-		(
-			"quoted_failure_tolerant_release_framework_step",
-			mutate_framework_job(
-				"      - name: Run release framework shard\n",
-				"      - name: Run release framework shard\n"
-				'        "continue-on-error": true\n',
-			),
-			"Run release framework shard fields",
-		),
-		(
-			"quoted_skipped_release_framework_step",
-			mutate_framework_job(
-				"      - name: Run release framework shard\n",
-				"      - name: Run release framework shard\n"
-				'        "if": false\n',
-			),
-			"Run release framework shard fields",
-		),
-		(
-			"failure_tolerant_release_framework_job",
-			mutate_framework_job(
-				f"    timeout-minutes: {RELEASE_FRAMEWORK_TIMEOUT_MINUTES}",
-				"    continue-on-error: true\n"
-				f"    timeout-minutes: {RELEASE_FRAMEWORK_TIMEOUT_MINUTES}",
-			),
-			"release-framework-checks fields",
-		),
-		(
-			"quoted_failure_tolerant_release_framework_job",
-			mutate_framework_job(
-				f"    timeout-minutes: {RELEASE_FRAMEWORK_TIMEOUT_MINUTES}",
-				'    "continue-on-error": true\n'
-				f"    timeout-minutes: {RELEASE_FRAMEWORK_TIMEOUT_MINUTES}",
-			),
-			"release-framework-checks fields",
-		),
-		(
-			"block_scalar_spoofed_release_framework_step",
-			make_release_step_block_scalar_decoy(),
-			"Run release framework shard fields",
+			"permission contents must not be write",
 		),
 	)
 	issues: list[str] = []
@@ -3254,7 +2666,7 @@ def run_release_workflow_mutation_self_tests() -> list[str]:
 		mutation_issues = audit_release_workflow(mutated_source)
 		if not any(expected_fragment in issue for issue in mutation_issues):
 			issues.append(
-				f"Repository policy self-test {name} did not detect its release workflow mutation: "
+				f"Repository policy self-test {name} did not detect its release mutation: "
 				f"{mutation_issues}"
 			)
 	return issues

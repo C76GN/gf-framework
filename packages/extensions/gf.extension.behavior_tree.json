@@ -2,9 +2,6 @@
   "schema_version": 1,
   "id": "gf.extension.behavior_tree",
   "kind": "extension",
-  "version": "unreleased",
-  "display_name": "GF Behavior Tree",
-  "description": "Package manifest for the bundled Behavior Tree extension.",
   "dependencies": [
     "gf.kernel",
     "gf.standard.base"
@@ -12,6 +9,5 @@
   "paths": [
     "addons/gf/extensions/behavior_tree/**"
   ],
-  "gf_extension_id": "gf.behavior_tree",
-  "metadata": {}
+  "gf_extension_id": "gf.behavior_tree"
 }

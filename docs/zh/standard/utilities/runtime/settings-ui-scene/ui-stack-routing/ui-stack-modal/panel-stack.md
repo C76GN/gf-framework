@@ -2,7 +2,7 @@
 
 `GFUIUtility` 用逻辑层和层内栈管理项目 UI。`HUD`、`POPUP`、`TOP` 是开箱即用的默认层，不是固定上限；项目可以用 `GFUILayerDefinition` 注册任意非负逻辑层 ID。逻辑层 ID 用于路由、栈和诊断，`canvas_layer` 只决定 Godot 绘制顺序，两者不应共用一套数字语义。预置层的实际绘制值是 HUD=50、POPUP=60、TOP=70，因此自定义层的 `layer_id = 3`、`canvas_layer = 3` 会画在 HUD 下方，不会因为 ID 比 2 大而自动置顶。
 
-`GFUIUtility` 属于 `gf.standard.ui.navigation`，不会因为插件存在而自动注册到项目架构。完整包已经包含该 package；最小 kernel 安装需要先安装它及其依赖。
+完整插件已经包含 `GFUIUtility` 及其依赖，但它不会因为源码存在而自动注册到项目架构。
 
 ## 启动装配
 

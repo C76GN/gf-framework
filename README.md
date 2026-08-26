@@ -31,13 +31,15 @@ The legacy GitHub Wiki keeps only entry links. Read the Docs is the single offic
 
 ## Installation
 
-For normal installs, use the official Godot Asset Store/Asset Library package or the GitHub Release asset named `gf-framework-<version>.zip`. This package contains the full `addons/gf` addon folder: kernel, standard library, editor tooling, package manager, and bundled optional extensions. Optional extensions remain disabled until the project explicitly enables them, so the full package is the recommended first-install path.
+Install GF from the official Godot Asset Store/Asset Library package or the GitHub Release asset named `gf-framework-<version>.zip`. It contains the complete `addons/gf` addon: kernel, standard library, editor tooling, and bundled optional extensions. Optional extensions remain disabled until the project explicitly enables them.
 
-Advanced users who want a minimal bootstrap can download `gf-kernel-<version>.zip` from the same GitHub Release, enable the plugin, then install only the needed packages from `GF Package Manager` or the Godot-native package CLI. This modular path is useful for controlled project templates and offline/internal registries, but it is not the default package for the Godot websites.
+GF releases provide the complete framework ZIP, the optional standalone AI Developer Kit ZIP, and the release artifact manifest. GF 11 no longer provides a Package Manager, a package CLI, or per-module download archives.
 
 Copy `addons/gf` from the package into your Godot project, then enable `GF Framework` from `Project > Project Settings > Plugins`.
 
 Godot does not automatically enable editor plugins after files are copied into `addons`. This is expected: plugin enablement belongs to the target project's `project.godot`, and the user must opt in before editor plugin code runs.
+
+To upgrade, close Godot, commit or back up the project, and replace the whole `addons/gf` directory with the one from a single newer release. Do not overlay files from different GF versions. Projects that used the GF 10 modular installer should follow the [GF 10 modular-install migration guide](docs/zh/overview/quickstart/package-manager-migration.md) before moving to GF 11.
 
 When enabled, the plugin registers the `Gf` AutoLoad automatically:
 
@@ -138,7 +140,7 @@ Extension-specific editor tools are declared by `gf_extension.json` manifests an
 
 ## AI-Assisted Project Development
 
-The optional `gf.tool.ai_developer` package provides a strict project intent contract, an observed-state snapshot, a version-bound GF capability/API catalog, managed agent instructions, and an approval-gated framework feedback workflow. It keeps project business rules and platform SDK adapters outside GF and does not add any dependency to the game runtime or exported build.
+The optional GF AI Developer Kit provides a strict project intent contract, an observed-state snapshot, a version-bound GF capability/API catalog, managed agent instructions, and an approval-gated framework feedback workflow. It keeps project business rules and platform SDK adapters outside GF and does not add any dependency to the game runtime or exported build.
 
 See the [AI Developer Kit guide](docs/zh/editor/tools/ai-developer.md). A matching standalone `gf-ai-developer-kit-<version>.zip` is published with each release for supported agent hosts.
 

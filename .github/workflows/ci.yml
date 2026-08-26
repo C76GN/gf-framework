@@ -110,6 +110,11 @@ jobs:
             install_docs: true
             setup_godot: false
             timeout_minutes: 20
+          - name: integration
+            suite: framework-integration
+            install_docs: false
+            setup_godot: true
+            timeout_minutes: 30
 
     steps:
       - name: Checkout
@@ -134,59 +139,6 @@ jobs:
         uses: ./.github/actions/setup-godot
 
       - name: Run framework maintenance shard
-        run: >
-          python tools/gf_maintenance.py check
-          --suite ${{ matrix.suite }}
-          --failed-only
-          --github-annotations
-
-  package-checks:
-    name: GF package checks (${{ matrix.name }})
-    if: >-
-      github.event_name == 'push' ||
-      (github.event_name == 'pull_request' &&
-      github.event.pull_request.draft == false &&
-      (github.event.action != 'edited' || github.event.changes.base.ref.from != ''))
-    needs:
-      - repository-policy
-    runs-on: ubuntu-latest
-    timeout-minutes: ${{ matrix.timeout_minutes }}
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - name: contract
-            suite: package-contract
-            timeout_minutes: 30
-          - name: editor
-            suite: package-editor
-            timeout_minutes: 30
-          - name: cli-local
-            suite: package-cli-local
-            timeout_minutes: 30
-          - name: cli-network
-            suite: package-cli-network
-            timeout_minutes: 30
-          - name: godot
-            suite: package-godot-ci
-            timeout_minutes: 30
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
-          fetch-tags: true
-
-      - name: Set up Python
-        uses: actions/setup-python@v7
-        with:
-          python-version: "3.12"
-
-      - name: Set up Godot
-        uses: ./.github/actions/setup-godot
-
-      - name: Run package maintenance shard
         run: >
           python tools/gf_maintenance.py check
           --suite ${{ matrix.suite }}
@@ -265,7 +217,6 @@ jobs:
     needs:
       - repository-policy
       - framework-checks
-      - package-checks
       - windows-process-supervision
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -275,7 +226,6 @@ jobs:
         env:
           POLICY_RESULT: ${{ needs.repository-policy.result }}
           FRAMEWORK_RESULT: ${{ needs.framework-checks.result }}
-          PACKAGE_RESULT: ${{ needs.package-checks.result }}
           WINDOWS_PROCESS_RESULT: ${{ needs.windows-process-supervision.result }}
         run: |
           if [ "${POLICY_RESULT}" != "success" ]; then
@@ -284,10 +234,6 @@ jobs:
           fi
           if [ "${FRAMEWORK_RESULT}" != "success" ]; then
             echo "Framework checks failed: ${FRAMEWORK_RESULT}"
-            exit 1
-          fi
-          if [ "${PACKAGE_RESULT}" != "success" ]; then
-            echo "Package checks failed: ${PACKAGE_RESULT}"
             exit 1
           fi
           if [ "${WINDOWS_PROCESS_RESULT}" != "success" ]; then

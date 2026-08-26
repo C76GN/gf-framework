@@ -2,9 +2,6 @@
   "schema_version": 1,
   "id": "gf.standard.config",
   "kind": "standard",
-  "version": "unreleased",
-  "display_name": "GF Standard Config",
-  "description": "Config providers, config tables, config schema helpers, and validation rules.",
   "dependencies": [
     "gf.kernel",
     "gf.standard.base"
@@ -58,8 +55,5 @@
     "addons/gf/standard/utilities/config/validation/gf_config_size_validation_rule.gd.uid",
     "addons/gf/standard/utilities/config/validation/gf_config_validation_rule.gd",
     "addons/gf/standard/utilities/config/validation/gf_config_validation_rule.gd.uid"
-  ],
-  "metadata": {
-    "stage": "standard-split-v1"
-  }
+  ]
 }

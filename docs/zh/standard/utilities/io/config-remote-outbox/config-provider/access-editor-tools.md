@@ -21,7 +21,7 @@ var item := GFConfigAccess.get_items_record(1001)
 var levels := GFConfigAccess.get_levels_table()
 ```
 
-生成器属于制作期 `gf.tool.config_pipeline` package，不进入 Kernel 或运行时配置闭包，也不会默认硬引用标准库的 `GFConfigProvider`。如果希望生成的访问器能在不显式传 provider 时工作，需要像上面这样传入项目自己的 `provider_accessor`。也可以在调用点显式传入 provider：`GFConfigAccess.get_items_record(1001, provider)`。
+生成器属于制作期 Config Pipeline 工具，不进入 Kernel 或运行时配置路径，也不会默认硬引用标准库的 `GFConfigProvider`。如果希望生成的访问器能在不显式传 provider 时工作，需要像上面这样传入项目自己的 `provider_accessor`。也可以在调用点显式传入 provider：`GFConfigAccess.get_items_record(1001, provider)`。
 
 访问器适合稳定表名、团队协作和重构检查；原始 `GFConfigProvider` 仍适合动态表名、热更新表包或项目自定义导表运行时。
 
@@ -51,7 +51,7 @@ var source := GFConfigAccessGenerator.new().build_source(
 
 开发期如果需要做 Resource 批量检查或表格式编辑，可以复用 `GFResourceTableEditor` 和 `GFEditorValueField`。
 
-`GFConfigTableEditorTools` 可以把 `GFConfigTableSchema` 转成通用列描述，也可以生成字段编辑描述和跨表引用候选记录。它属于可选的 `gf.standard.config.editor` 包，运行时读取配置只需要安装 `gf.standard.config`。字段编辑描述会保留列名、标签、默认值、可编辑状态和 metadata，并额外输出 `editor_kind`、Godot `property_info`、字段约束、校验规则摘要、引用描述和可选引用候选；这些信息来自 `GFConfigTableColumn`、字段校验规则、`GFConfigTableReference` 和调用方显式写入的 metadata。
+`GFConfigTableEditorTools` 可以把 `GFConfigTableSchema` 转成通用列描述，也可以生成字段编辑描述和跨表引用候选记录。它只用于编辑期；运行时读取配置不需要调用这些编辑辅助类。字段编辑描述会保留列名、标签、默认值、可编辑状态和 metadata，并额外输出 `editor_kind`、Godot `property_info`、字段约束、校验规则摘要、引用描述和可选引用候选；这些信息来自 `GFConfigTableColumn`、字段校验规则、`GFConfigTableReference` 和调用方显式写入的 metadata。
 
 它只返回 `Dictionary` / `Array` 描述数据，不创建 Control，也不解释字段业务含义；项目工具可以把这些描述映射到自己的表格控件、Inspector 或校验面板。需要强制指定项目侧控件语义时，优先通过字段 metadata 覆盖 `editor_kind`、`property_type`、`property_hint`、`property_hint_string`、`resource_type` 或 `resource_extensions`，而不是在框架里写死表名、字段名或资源分类。
 

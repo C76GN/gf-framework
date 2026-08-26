@@ -892,7 +892,7 @@
 		<class name="GFTurnPhase" path="classes/GFTurnPhase.xml" sourcePath="addons/gf/extensions/turn_based/resources/gf_turn_phase.gd" extends="Resource" />
 		<class name="GFTurnPhaseCompletionHandle" path="classes/GFTurnPhaseCompletionHandle.xml" sourcePath="addons/gf/extensions/turn_based/runtime/gf_turn_phase_completion_handle.gd" extends="RefCounted" />
 	</module>
-	<module id="tools" label="Tool Packages" classCount="22" methodCount="118" autoloadCount="0" autoloadMethodCount="0">
+	<module id="tools" label="Tools" classCount="22" methodCount="118" autoloadCount="0" autoloadMethodCount="0">
 		<class name="GFAssetBrowserModel" path="classes/GFAssetBrowserModel.xml" sourcePath="addons/gf/tools/asset_browser/gf_asset_browser_model.gd" extends="RefCounted" />
 		<class name="GFConfigAccessGenerator" path="classes/GFConfigAccessGenerator.xml" sourcePath="addons/gf/tools/config_pipeline/gf_config_access_generator.gd" extends="RefCounted" />
 		<class name="GFConfigPipeline" path="classes/GFConfigPipeline.xml" sourcePath="addons/gf/tools/config_pipeline/gf_config_pipeline.gd" extends="RefCounted" />

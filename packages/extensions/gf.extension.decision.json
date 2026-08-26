@@ -2,9 +2,6 @@
   "schema_version": 1,
   "id": "gf.extension.decision",
   "kind": "extension",
-  "version": "unreleased",
-  "display_name": "GF Decision",
-  "description": "Package manifest for the bundled Decision extension.",
   "dependencies": [
     "gf.kernel",
     "gf.standard.base"
@@ -12,6 +9,5 @@
   "paths": [
     "addons/gf/extensions/decision/**"
   ],
-  "gf_extension_id": "gf.decision",
-  "metadata": {}
+  "gf_extension_id": "gf.decision"
 }

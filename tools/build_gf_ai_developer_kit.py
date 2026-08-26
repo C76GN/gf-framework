@@ -536,7 +536,6 @@ def render_api_index() -> dict[str, Any]:
 			"id": record["id"],
 			"kind": record["kind"],
 			"dependencies": record["dependencies"],
-			"description": record["description"],
 			"representative_path": representative,
 		})
 

@@ -148,8 +148,6 @@ def _make_default_catalog_git_repository(parent: Path) -> Path:
 	root.mkdir()
 	for path, content in (
 		("addons/gf/plugin.gd", "extends EditorPlugin\n"),
-		("addons/gf/kernel/package/manager.gd", "class_name GFPackageManager\n"),
-		("addons/gf/kernel/editor/package/installer.gd", "extends RefCounted\n"),
 		("addons/gf/README.md", "# GF\n"),
 		("addons/gf/extensions/README.md", "# Extensions\n"),
 		("ASSET_LIBRARY.md", "Asset Library\n"),
@@ -178,7 +176,7 @@ def _make_default_catalog_git_repository(parent: Path) -> Path:
 
 
 class InputSpecContractTests(unittest.TestCase):
-	def test_default_catalog_declares_only_three_phase_two_candidates(self) -> None:
+	def test_default_catalog_declares_only_public_boundary_candidates(self) -> None:
 		input_specs = _default_input_specs()
 		input_spec_by_name = {spec.check_name: spec for spec in input_specs}
 		self.assertEqual(
@@ -186,25 +184,16 @@ class InputSpecContractTests(unittest.TestCase):
 			[
 				"public_docs_boundary",
 				"public_api_boundary",
-				"package_user_dependency_boundary",
 			],
 		)
 		self.assertEqual(
 			set(input_spec_by_name),
 			{
-				"package_user_dependency_boundary",
 				"public_api_boundary",
 				"public_docs_boundary",
 			},
 		)
 		expected_implementation_files = {
-			"package_user_dependency_boundary": (
-				"tools/gf_maintenance.py",
-				"tools/gf_validation_catalog.py",
-				"tools/gf_validation_contracts.py",
-				"tools/gf_validation_inputs.py",
-				"tools/gf_workspace_snapshot.py",
-			),
 			"public_api_boundary": (
 				"tools/gdscript_api_parser.py",
 				"tools/gf_api_owners.py",
@@ -244,16 +233,6 @@ class InputSpecContractTests(unittest.TestCase):
 		]
 		self.assertTrue(public_api.matches_source_path("addons/gf/kernel/node.gd"))
 		self.assertFalse(public_api.matches_source_path("addons/gf/README.md"))
-		package_user = input_spec_by_name[
-			"package_user_dependency_boundary"
-		]
-		self.assertTrue(package_user.matches_source_path("addons/gf/plugin.gd"))
-		self.assertTrue(package_user.matches_source_path(
-			"addons/gf/kernel/editor/package/installer.gd"
-		))
-		self.assertFalse(package_user.matches_source_path(
-			"addons/gf/standard/package/example.gd"
-		))
 
 	def test_path_rule_and_input_spec_have_exact_versioned_round_trip(self) -> None:
 		spec = _input_spec()
@@ -1150,7 +1129,7 @@ class AffectedAnalysisTests(unittest.TestCase):
 			)
 
 		self.assertTrue(report["report_ok"])
-		self.assertEqual(report["affected_count"], 3)
+		self.assertEqual(report["affected_count"], 2)
 		self.assertEqual(report["unknown_count"], 0)
 		for check in report["checks"]:
 			self.assertEqual(
@@ -1162,7 +1141,7 @@ class AffectedAnalysisTests(unittest.TestCase):
 				["tools/gf_validation_catalog.py"],
 			)
 
-	def test_default_catalog_shared_snapshot_change_affects_all_three_candidates(self) -> None:
+	def test_default_catalog_shared_snapshot_change_affects_both_candidates(self) -> None:
 		with tempfile.TemporaryDirectory() as temporary_directory:
 			root = _make_default_catalog_git_repository(Path(temporary_directory))
 			_write(root / "tools/gf_workspace_snapshot.py", "SNAPSHOT_VERSION = 2\n")
@@ -1181,7 +1160,7 @@ class AffectedAnalysisTests(unittest.TestCase):
 			)
 
 			self.assertTrue(report["report_ok"])
-			self.assertEqual(report["affected_count"], 3)
+			self.assertEqual(report["affected_count"], 2)
 			self.assertEqual(report["unknown_count"], 0)
 			for check in report["checks"]:
 				self.assertEqual(
@@ -1213,7 +1192,7 @@ class AffectedAnalysisTests(unittest.TestCase):
 
 			self.assertTrue(report["report_ok"])
 			self.assertEqual(report["affected_count"], 1)
-			self.assertEqual(report["unaffected_count"], 2)
+			self.assertEqual(report["unaffected_count"], 1)
 			by_name = {check["check_name"]: check for check in report["checks"]}
 			self.assertEqual(
 				by_name["public_api_boundary"]["reason_codes"],
@@ -1223,10 +1202,7 @@ class AffectedAnalysisTests(unittest.TestCase):
 				by_name["public_api_boundary"]["matched_paths"],
 				["tools/gdscript_api_parser.py"],
 			)
-			for check_name in (
-				"package_user_dependency_boundary",
-				"public_docs_boundary",
-			):
+			for check_name in ("public_docs_boundary",):
 				self.assertEqual(
 					by_name[check_name]["reason_codes"],
 					["no_declared_input_changed"],
@@ -1252,7 +1228,7 @@ class AffectedAnalysisTests(unittest.TestCase):
 
 			self.assertTrue(report["report_ok"])
 			self.assertEqual(report["affected_count"], 1)
-			self.assertEqual(report["unaffected_count"], 2)
+			self.assertEqual(report["unaffected_count"], 1)
 			by_name = {check["check_name"]: check for check in report["checks"]}
 			self.assertEqual(
 				by_name["public_api_boundary"]["reason_codes"],
@@ -1262,10 +1238,7 @@ class AffectedAnalysisTests(unittest.TestCase):
 				by_name["public_api_boundary"]["matched_paths"],
 				["tools/gf_api_owners.py"],
 			)
-			for check_name in (
-				"package_user_dependency_boundary",
-				"public_docs_boundary",
-			):
+			for check_name in ("public_docs_boundary",):
 				self.assertEqual(
 					by_name[check_name]["reason_codes"],
 					["no_declared_input_changed"],

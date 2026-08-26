@@ -2,14 +2,10 @@
   "schema_version": 1,
   "id": "gf.tool.project_layout",
   "kind": "tool",
-  "version": "unreleased",
-  "display_name": "GF Project Layout Tool",
-  "description": "Read-only project layout analysis, explanation, impact simulation, planning, and Editor workspace tooling.",
-  "dependencies": ["gf.kernel"],
+  "dependencies": [
+    "gf.kernel"
+  ],
   "paths": [
     "addons/gf/tools/project_layout/**"
-  ],
-  "metadata": {
-    "stage": "project-layout-read-only-v1"
-  }
+  ]
 }

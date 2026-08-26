@@ -2,9 +2,6 @@
   "schema_version": 1,
   "id": "gf.standard.ui",
   "kind": "standard",
-  "version": "unreleased",
-  "display_name": "GF Standard UI",
-  "description": "Core UI value adapters, form/list/table projection helpers, modal value objects, text fitting, and bounded virtual list binding.",
   "dependencies": [
     "gf.kernel",
     "gf.standard.base"
@@ -56,8 +53,5 @@
     "addons/gf/standard/utilities/ui/gf_virtual_list_model.gd.uid",
     "addons/gf/standard/utilities/ui/gf_virtual_list_sync_result.gd",
     "addons/gf/standard/utilities/ui/gf_virtual_list_sync_result.gd.uid"
-  ],
-  "metadata": {
-    "stage": "standard-ui-core-split-v1"
-  }
+  ]
 }

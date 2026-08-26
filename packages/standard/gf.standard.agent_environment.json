@@ -2,17 +2,11 @@
   "schema_version": 1,
   "id": "gf.standard.agent_environment",
   "kind": "standard",
-  "version": "unreleased",
-  "display_name": "GF Standard Runtime Agent Environment",
-  "description": "Transport-neutral, default-closed runtime Agent endpoint sessions with strict JSON schemas, exact grants, short-lived hashed credentials, replay and rate controls, policy checks, bounded results, and payload-free audit events.",
   "dependencies": [
     "gf.kernel",
     "gf.standard.base"
   ],
   "paths": [
     "addons/gf/standard/utilities/agent/**"
-  ],
-  "metadata": {
-    "stage": "standard-split-v1"
-  }
+  ]
 }

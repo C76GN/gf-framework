@@ -1,6 +1,6 @@
 # Bank 工具与导入
 
-`GFAudioBankTools` 提供纯配置层的扫描、导入和播放前校验辅助，可用于编辑器按钮、构建脚本或项目自己的音频表生成流程。它不会创建全局音频单例，也不会改变 `GFAudioUtility` 的播放路径。该类和 `GFAudioLibraryTools` 属于可选的 `gf.standard.audio.editor` 工具包；导出的运行时包只需要安装 `gf.standard.audio`。
+`GFAudioBankTools` 提供纯配置层的扫描、导入和播放前校验辅助，可用于编辑器按钮、构建脚本或项目自己的音频表生成流程。它不会创建全局音频单例，也不会改变 `GFAudioUtility` 的播放路径。该类和 `GFAudioLibraryTools` 只用于制作期；导出的游戏只需要引用运行时音频能力和已经生成的资源。
 
 ## 扫描与生成
 
@@ -66,7 +66,7 @@ var import_report := GFAudioBankTools.sync_bank_from_scan(bank, "res://audio", {
 
 ## 素材库候选与导入计划
 
-`GFAudioLibraryTools` 用于编辑器工具或构建脚本从素材库目录收集候选音频，按关键字过滤，再生成可检查的复制计划。它不会直接修改 `GFAudioBank`；复制完成后的目标路径可以继续交给 `GFAudioBankTools` 生成或同步 Bank。发布运行时构建时可不安装 `gf.standard.audio.editor`，保留生成好的 `GFAudioBank` / `GFAudioClip` 资源即可。
+`GFAudioLibraryTools` 用于编辑器工具或构建脚本从素材库目录收集候选音频，按关键字过滤，再生成可检查的复制计划。它不会直接修改 `GFAudioBank`；复制完成后的目标路径可以继续交给 `GFAudioBankTools` 生成或同步 Bank。发布运行时构建时不需要调用这些制作期工具，保留生成好的 `GFAudioBank` / `GFAudioClip` 资源即可。
 
 ```gdscript
 var entries := GFAudioLibraryTools.scan_library("D:/audio-library", {

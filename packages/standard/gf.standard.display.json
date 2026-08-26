@@ -2,9 +2,6 @@
   "schema_version": 1,
   "id": "gf.standard.display",
   "kind": "standard",
-  "version": "unreleased",
-  "display_name": "GF Standard Display",
-  "description": "Viewport, surface, render warmup, and shader parameter helpers that do not require settings persistence.",
   "dependencies": [
     "gf.kernel",
     "gf.standard.base"
@@ -26,8 +23,5 @@
     "addons/gf/standard/utilities/display/gf_surface_utility.gd.uid",
     "addons/gf/standard/utilities/display/gf_viewport_utility.gd",
     "addons/gf/standard/utilities/display/gf_viewport_utility.gd.uid"
-  ],
-  "metadata": {
-    "stage": "standard-ui-core-split-v1"
-  }
+  ]
 }

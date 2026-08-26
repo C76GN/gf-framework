@@ -34,7 +34,7 @@ manifest 声明的 Installer 脚本路径必须位于扩展根目录内，避免
 - `access_generator_extension_paths`
 - `debugger_plugin_paths`
 
-工具贡献路径必须位于所属扩展根目录内。制作期脚本是否随 runtime package 分发，由对应 package manifest 的物理路径闭包决定；只有明确拆分为独立 tool package 的能力，runtime-only 安装才不会包含这些脚本。脚本已安装且扩展启用后，有效路径才会进入根编辑器插件生命周期。`editor_dock_paths` 指向的页面继续使用运行时 manifest 中的 `editor_dock_order` 和 `editor_dock_short_label` 作为展示元数据。
+工具贡献路径必须位于所属扩展根目录内，并随完整 GF 插件一起分发。扩展启用后，有效路径才会进入根编辑器插件生命周期；禁用扩展时，对应编辑器贡献不会装载，导出过滤也可以排除其目录。`editor_dock_paths` 指向的页面继续使用运行时 manifest 中的 `editor_dock_order` 和 `editor_dock_short_label` 作为展示元数据。
 
 不存在 `editor/gf_tool_contribution.json` 表示扩展没有工具贡献，不是错误。文件存在但 schema、扩展 ID、路径边界、资源或脚本类型无效时，选择报告进入 `partial` 并隔离该文件的无效路径；运行时 manifest 图及其有效 `installer_paths` 仍可使用。把上述八类字段写入 `gf_extension.json` 会被拒绝，七个迁移字段会明确提示新的声明位置；不提供永久双读兼容。
 

@@ -2,9 +2,6 @@
   "schema_version": 1,
   "id": "gf.standard.diagnostics",
   "kind": "standard",
-  "version": "unreleased",
-  "display_name": "GF Standard Diagnostics",
-  "description": "Runtime diagnostics, explicit lazy snapshot providers, recipe-driven bounded session traces, build info snapshots, operation timelines, and the lightweight developer console used by tools that only need observability hooks.",
   "dependencies": [
     "gf.kernel",
     "gf.standard.base"
@@ -36,8 +33,5 @@
     "addons/gf/standard/utilities/debug/gf_session_trace_recipe.gd.uid",
     "addons/gf/standard/utilities/debug/gf_session_trace_utility.gd",
     "addons/gf/standard/utilities/debug/gf_session_trace_utility.gd.uid"
-  ],
-  "metadata": {
-    "stage": "standard-split-v1"
-  }
+  ]
 }

@@ -2,9 +2,6 @@
   "schema_version": 1,
   "id": "gf.extension.network",
   "kind": "extension",
-  "version": "unreleased",
-  "display_name": "GF Network",
-  "description": "Package manifest for the bundled Network extension.",
   "dependencies": [
     "gf.kernel",
     "gf.standard.base",
@@ -24,6 +21,5 @@
     "addons/gf/extensions/network/extension.gd.uid",
     "addons/gf/extensions/network/gf_extension.json"
   ],
-  "gf_extension_id": "gf.network",
-  "metadata": {}
+  "gf_extension_id": "gf.network"
 }

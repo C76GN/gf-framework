@@ -1,4 +1,4 @@
-## Tests the distributable metadata boundary of the optional AI Developer Kit.
+## Tests the internal module ownership boundary of the optional AI Developer Kit.
 extends GutTest
 
 

@@ -2,9 +2,6 @@
   "schema_version": 1,
   "id": "gf.extension.content_package",
   "kind": "extension",
-  "version": "unreleased",
-  "display_name": "GF Content Package",
-  "description": "Package manifest for the bundled Content Package extension.",
   "dependencies": [
     "gf.kernel",
     "gf.standard.base",
@@ -13,6 +10,5 @@
   "paths": [
     "addons/gf/extensions/content_package/**"
   ],
-  "gf_extension_id": "gf.content_package",
-  "metadata": {}
+  "gf_extension_id": "gf.content_package"
 }

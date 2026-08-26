@@ -51,9 +51,33 @@ jobs:
           retention-days: 7
 
   release-framework-checks:
-    name: GF release framework checks
+    name: GF release framework checks (${{ matrix.name }})
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: ${{ matrix.timeout_minutes }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: gut
+            suite: framework-gut
+            install_docs: false
+            setup_godot: true
+            timeout_minutes: 60
+          - name: lsp
+            suite: framework-lsp
+            install_docs: false
+            setup_godot: true
+            timeout_minutes: 15
+          - name: static
+            suite: framework-static
+            install_docs: true
+            setup_godot: false
+            timeout_minutes: 20
+          - name: integration
+            suite: framework-integration
+            install_docs: false
+            setup_godot: true
+            timeout_minutes: 30
 
     steps:
       - name: Checkout tag
@@ -68,61 +92,16 @@ jobs:
           python-version: "3.12"
 
       - name: Install documentation dependencies
+        if: matrix.install_docs == true
         run: |
           python -m pip install --upgrade pip
           python -m pip install -r docs/requirements.txt
 
       - name: Set up Godot
+        if: matrix.setup_godot == true
         uses: ./.github/actions/setup-godot
 
       - name: Run release framework shard
-        run: >
-          python tools/gf_maintenance.py check
-          --suite framework
-          --suite-timeout 4800
-          --failed-only
-          --github-annotations
-
-  release-package-checks:
-    name: GF release package checks (${{ matrix.name }})
-    runs-on: ubuntu-latest
-    timeout-minutes: ${{ matrix.timeout_minutes }}
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - name: contract
-            suite: package-contract
-            timeout_minutes: 30
-          - name: editor
-            suite: package-editor
-            timeout_minutes: 30
-          - name: cli-local
-            suite: package-cli-local
-            timeout_minutes: 30
-          - name: cli-network
-            suite: package-cli-network
-            timeout_minutes: 30
-          - name: godot-matrix
-            suite: package-godot-release
-            timeout_minutes: 30
-
-    steps:
-      - name: Checkout tag
-        uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
-          fetch-tags: true
-
-      - name: Set up Python
-        uses: actions/setup-python@v7
-        with:
-          python-version: "3.12"
-
-      - name: Set up Godot
-        uses: ./.github/actions/setup-godot
-
-      - name: Run release package shard
         run: >
           python tools/gf_maintenance.py check
           --suite ${{ matrix.suite }}
@@ -136,7 +115,6 @@ jobs:
     needs:
       - build-release-artifacts
       - release-framework-checks
-      - release-package-checks
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
@@ -178,11 +156,7 @@ jobs:
           gh release create "${GITHUB_REF_NAME}" \
             "build/release/gf-framework-${GITHUB_REF_NAME}.zip" \
             "build/release/gf-ai-developer-kit-${GITHUB_REF_NAME}.zip" \
-            "build/release/gf-registry-${GITHUB_REF_NAME}.json" \
-            "build/release/gf-registry-source.json" \
-            "build/release/gf-package-offline-bundle-${GITHUB_REF_NAME}.zip" \
             "build/release/gf-release-artifacts-${GITHUB_REF_NAME}.json" \
-            build/release/packages/*.zip \
             --verify-tag \
             --title "${GITHUB_REF_NAME}" \
             --notes-file "${RUNNER_TEMP}/release-notes.md"

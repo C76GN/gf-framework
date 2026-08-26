@@ -4,25 +4,25 @@
 
 ## 核心类
 
-- `GFCompatibilityProfile` 是资源化的能力描述，记录 Godot 版本、GF 版本、平台、功能标识、包条目、artifact 条目和自定义 metadata。
-- `GFCompatibilityPreflight` 把版本、平台、功能、包、artifact 声明和外部报告合并为 `GFValidationReportDictionary` 兼容报告。
+- `GFCompatibilityProfile` 是资源化的能力描述，记录 Godot 版本、GF 版本、平台、功能标识、调用方定义的外部组件条目、artifact 条目和自定义 metadata；这里的 `packages` 字段只是通用兼容性清单，不接入 GF 的安装或发行流程。
+- `GFCompatibilityPreflight` 把版本、平台、功能、外部组件、artifact 声明和外部报告合并为 `GFValidationReportDictionary` 兼容报告。
 - `GFArtifactFreshnessReport` 检查本地文件是否存在、可读、大小和 `sha256` 是否匹配，以及记录的 source digest 是否仍等于当前 source digest。
 - `GFActivationTransaction` 用显式步骤表达 prepare、commit 和 rollback，失败时会把已应用步骤按逆序回滚并返回事务报告。
 
 ## 兼容性预检
 
-`GFCompatibilityProfile` 不猜测项目能力，也不推导包闭包。项目或工具应把自己已经知道的目标环境、安装包和功能开关显式写入 Profile，再交给预检器检查。
+`GFCompatibilityProfile` 不猜测项目能力，也不推导依赖闭包。项目或工具应把自己已经知道的目标环境、第三方组件和功能开关显式写入 Profile，再交给预检器检查。
 
 ```gdscript
 var profile: GFCompatibilityProfile = GFCompatibilityProfile.from_current_environment({
 	"framework_version": "6.0.0",
-	"features": PackedStringArray(["content_package", "offline_bundle"]),
+	"features": PackedStringArray(["content_package", "local_catalog"]),
 })
-profile.add_package(&"gf.standard.base", "6.0.0")
+profile.add_package(&"third_party.renderer", "2.1.0")
 profile.add_artifact(&"native_bridge", "res://native/bridge.gdip")
 
 var preflight: GFCompatibilityPreflight = GFCompatibilityPreflight.new()
-preflight.configure("Install preflight", profile)
+preflight.configure("Runtime compatibility preflight", profile)
 preflight.require_godot_version("4.7.0")
 preflight.require_features(PackedStringArray(["content_package"]))
 preflight.require_artifact(&"native_bridge", {
@@ -43,11 +43,11 @@ var report: Dictionary = preflight.get_report()
 
 ## 产物新鲜度
 
-`GFArtifactFreshnessReport` 适合构建缓存、导入器输出、生成文件或离线 bundle 的本地预检。它只读取文件存在性、长度、修改时间和可选 `sha256`，不会解释文件内容。
+`GFArtifactFreshnessReport` 适合构建缓存、导入器输出或生成文件的本地预检。它只读取文件存在性、长度、修改时间和可选 `sha256`，不会解释文件内容。
 
 ```gdscript
 var artifacts: GFArtifactFreshnessReport = GFArtifactFreshnessReport.new()
-artifacts.add_artifact(&"registry", "user://registry.json", {
+artifacts.add_artifact(&"generated_index", "user://generated/index.json", {
 	"expected_sha256": expected_sha256,
 	"expected_size_bytes": expected_size,
 	"recorded_source_digest": old_digest,
@@ -86,6 +86,6 @@ var report: Dictionary = transaction.commit({ "catalog": catalog })
 ## 使用边界
 
 - 这些类型不执行远程载荷，也不让普通数据包绕过项目的安全策略。
-- Profile 中的平台、功能、包和 artifact 标识都由调用方定义；GF 不为某个项目写死能力名称。
+- Profile 中的平台、功能、外部组件和 artifact 标识都由调用方定义；GF 不为某个项目写死能力名称，也不会据此安装、更新或卸载文件。
 - 事务回调必须是调用方已经持有并信任的同步 `Callable`，不要把字符串、资源文件或外部数据解释成可执行逻辑；需要异步 prepare/commit/rollback 时，应在项目层显式编排或等待未来独立 async API。
 - 需要具体下载、解压、签名、版本求解或平台服务接入时，应在项目工具或独立插件中组合这些报告结果。

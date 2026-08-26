@@ -580,14 +580,6 @@ def build_validation_catalog(context: ValidationCatalogContext) -> ValidationCat
 			"package_source_boundary",
 			maintenance_command("package-source-boundary"),
 		),
-		subprocess_action(
-			"package_build_boundary",
-			maintenance_command("package-build-boundary"),
-		),
-		in_process_action(
-			"package_user_dependency_boundary",
-			maintenance_command("package-user-dependency-boundary"),
-		),
 		in_process_action(
 			"package_external_command_audit",
 			maintenance_command("package-external-command-audit", "--fail-on-warnings"),
@@ -597,33 +589,9 @@ def build_validation_catalog(context: ValidationCatalogContext) -> ValidationCat
 			"core_plugin_bootstrap_smoke",
 			maintenance_command("core-plugin-bootstrap-smoke"),
 		),
-		subprocess_action(
-			"package_editor_wizard_smoke",
-			maintenance_command("package-editor-wizard-smoke"),
-		),
 		in_process_action(
 			"package_focused_gut_mapping",
 			maintenance_command("package-focused-gut-mapping"),
-		),
-		subprocess_action(
-			"package_godot_cli_smoke",
-			maintenance_command("package-godot-cli-smoke"),
-		),
-		subprocess_action(
-			"package_godot_cli_local_smoke",
-			maintenance_command("package-godot-cli-smoke", "--profile", "local"),
-		),
-		subprocess_action(
-			"package_godot_cli_network_smoke",
-			maintenance_command("package-godot-cli-smoke", "--profile", "network"),
-		),
-		subprocess_action(
-			"package_godot_smoke",
-			maintenance_command("package-godot-smoke"),
-		),
-		subprocess_action(
-			"package_godot_matrix_smoke",
-			maintenance_command("package-godot-smoke", "--all-packages"),
 		),
 		subprocess_action(
 			"mkdocs",
@@ -678,12 +646,8 @@ def build_validation_catalog(context: ValidationCatalogContext) -> ValidationCat
 			python_script("tests/gf_core/tools/test_gf_maintenance_test_evidence.py"),
 		),
 		subprocess_action(
-			"package_distribution_tests",
-			python_script("tests/gf_core/kernel/package/test_gf_package_distribution.py"),
-		),
-		subprocess_action(
-			"package_schema_contract_tests",
-			python_script("tests/gf_core/kernel/package/test_gf_package_schema_contracts.py"),
+			"module_descriptor_tests",
+			python_script("tests/gf_core/tools/test_gf_module_descriptors.py"),
 		),
 		subprocess_action(
 			"gdscript_warnings",
@@ -853,23 +817,6 @@ def build_validation_catalog(context: ValidationCatalogContext) -> ValidationCat
 				*common_input_implementation_files,
 			),
 		),
-		CheckInputSpec(
-			check_name="package_user_dependency_boundary",
-			source_rules=(
-				PathRule(
-					"tree",
-					"addons/gf/kernel/editor/package",
-					suffixes=(".gd",),
-				),
-				PathRule(
-					"tree",
-					"addons/gf/kernel/package",
-					suffixes=(".gd",),
-				),
-				PathRule("exact", "addons/gf/plugin.gd"),
-			),
-			implementation_files=common_input_implementation_files,
-		),
 	)
 	default_timeout_seconds = 600
 	timeout_overrides = (
@@ -886,20 +833,6 @@ def build_validation_catalog(context: ValidationCatalogContext) -> ValidationCat
 		# run. A measured Windows run takes about 5.5 minutes, so retain a bounded
 		# 15-minute outer budget while each supervised Godot phase stays capped.
 		("ai_developer_adapter_acceptance", 900),
-		# The editor wizard smoke launches and tears down isolated editor projects;
-		# a clean Windows run is routinely longer than the generic ten-minute budget.
-		("package_editor_wizard_smoke", 1200),
-		# This check runs 24 isolated Godot CLI scenarios. A measured Windows release
-		# run reaches its late failure-path scenarios after 20 minutes, so keep a
-		# dedicated 40-minute outer budget while each Godot command remains capped.
-		("package_godot_cli_smoke", 2400),
-		# The split profiles measure around ten minutes on Windows. Keep a 2x
-		# scenario-level margin while failing materially earlier than the aggregate.
-		("package_godot_cli_local_smoke", 1200),
-		("package_godot_cli_network_smoke", 1200),
-		# The release matrix installs and parses every registry package in an isolated
-		# project. At 52 packages it exceeds the generic ten-minute budget on Windows.
-		("package_godot_matrix_smoke", 2400),
 	)
 
 	dependencies: tuple[tuple[str, tuple[str, ...]], ...] = (
@@ -931,10 +864,10 @@ def build_validation_catalog(context: ValidationCatalogContext) -> ValidationCat
 		"package_boundary",
 		"package_closure_audit",
 		"package_source_boundary",
-		"package_user_dependency_boundary",
 		"package_external_command_audit",
 		"core_only_smoke",
 		"package_focused_gut_mapping",
+		"module_descriptor_tests",
 		"api_since_touched",
 		"repository_policy",
 		"credential_gate",
@@ -948,34 +881,14 @@ def build_validation_catalog(context: ValidationCatalogContext) -> ValidationCat
 		"dependency_boundary",
 		"diff",
 	)
-	package_contract_smoke_checks = ("package_build_boundary",)
-	package_editor_checks = ("package_editor_wizard_smoke",)
-	package_cli_local_checks = ("package_godot_cli_local_smoke",)
-	package_cli_network_checks = ("package_godot_cli_network_smoke",)
-	package_cli_checks = (*package_cli_local_checks, *package_cli_network_checks)
-	package_smoke_checks = (
-		*package_contract_smoke_checks,
-		*package_editor_checks,
-		*package_cli_checks,
-	)
-	package_contract_checks = (
-		"ai_developer_adapter_acceptance",
+	module_boundary_checks = (
 		"package_boundary",
 		"package_closure_audit",
 		"package_source_boundary",
-		"package_user_dependency_boundary",
 		"package_external_command_audit",
 		"core_only_smoke",
-		"core_plugin_bootstrap_smoke",
 		"package_focused_gut_mapping",
-		"package_distribution_tests",
-		"package_schema_contract_tests",
-		*package_contract_smoke_checks,
-	)
-	package_checks = (
-		*package_contract_checks,
-		*package_editor_checks,
-		*package_cli_checks,
+		"module_descriptor_tests",
 	)
 	quick_checks = (
 		"api",
@@ -987,75 +900,12 @@ def build_validation_catalog(context: ValidationCatalogContext) -> ValidationCat
 		"public_api_boundary",
 		*light_boundary_checks,
 	)
-	full_checks = (
-		"gut_lifecycle_smoke",
-		"gut",
-		"api",
-		"ai_api",
-		"ai_developer_kit",
-		"docs",
-		"changelog_policy",
-		"public_docs_boundary",
-		"public_api_boundary",
-		"resource_boundary",
-		"content_package_boundary",
-		"asset_lifecycle_boundary",
-		"project_profile_boundary",
-		*package_checks,
-		"package_godot_smoke",
-		"mkdocs",
-		"api_since_touched",
-		"repository_policy",
-		"credential_gate",
-		"credential_gate_tests",
-		"codeql_suppression_policy",
-		"codeql_suppression_policy_tests",
-		"path_hygiene",
-		"maintenance_self_test",
-		"maintenance_execution_tests",
-		"maintenance_generator_tests",
-		"maintenance_test_evidence_tests",
-		"dependency_boundary",
-		"gdscript_warnings",
-		"gdscript_lsp_diagnostics",
-		"diff",
-	)
-	release_checks = (
-		"gut_lifecycle_smoke",
-		"gut",
-		"api",
-		"ai_api",
-		"ai_developer_kit",
-		"docs",
-		"changelog_policy",
-		"public_docs_boundary",
-		"public_api_boundary",
-		"resource_boundary",
-		"content_package_boundary",
-		"asset_lifecycle_boundary",
-		"project_profile_boundary",
-		*package_checks,
-		"package_godot_matrix_smoke",
-		"mkdocs",
-		"api_since_touched",
-		"repository_policy",
-		"credential_gate",
-		"credential_gate_tests",
-		"codeql_suppression_policy",
-		"codeql_suppression_policy_tests",
-		"path_hygiene",
-		"maintenance_self_test",
-		"maintenance_execution_tests",
-		"maintenance_generator_tests",
-		"maintenance_test_evidence_tests",
-		"dependency_boundary",
-		"gdscript_warnings",
-		"gdscript_lsp_diagnostics",
-		"diff",
-		"release_metadata",
-	)
 	framework_gut_checks = ("gut_lifecycle_smoke", "gut", "gdscript_warnings")
 	framework_lsp_checks = ("gdscript_lsp_diagnostics",)
+	framework_integration_checks = (
+		"ai_developer_adapter_acceptance",
+		"core_plugin_bootstrap_smoke",
+	)
 	framework_static_checks = (
 		"api",
 		"ai_api",
@@ -1068,6 +918,7 @@ def build_validation_catalog(context: ValidationCatalogContext) -> ValidationCat
 		"content_package_boundary",
 		"asset_lifecycle_boundary",
 		"project_profile_boundary",
+		*module_boundary_checks,
 		"mkdocs",
 		"api_since_touched",
 		"repository_policy",
@@ -1084,71 +935,28 @@ def build_validation_catalog(context: ValidationCatalogContext) -> ValidationCat
 		"diff",
 	)
 	framework_checks = (
-		"gut_lifecycle_smoke",
-		"gut",
-		"api",
-		"ai_api",
-		"ai_developer_kit",
-		"docs",
-		"changelog_policy",
-		"public_docs_boundary",
-		"public_api_boundary",
-		"resource_boundary",
-		"content_package_boundary",
-		"asset_lifecycle_boundary",
-		"project_profile_boundary",
-		"mkdocs",
-		"api_since_touched",
-		"repository_policy",
-		"credential_gate",
-		"credential_gate_tests",
-		"codeql_suppression_policy",
-		"codeql_suppression_policy_tests",
-		"path_hygiene",
-		"maintenance_self_test",
-		"maintenance_execution_tests",
-		"maintenance_generator_tests",
-		"maintenance_test_evidence_tests",
-		"dependency_boundary",
-		"gdscript_warnings",
-		"gdscript_lsp_diagnostics",
-		"diff",
+		*framework_gut_checks,
+		*framework_lsp_checks,
+		*framework_static_checks,
+		*framework_integration_checks,
 	)
-	package_ci_checks = (*package_checks, "package_godot_smoke")
-	package_release_checks = (*package_checks, "package_godot_matrix_smoke")
-	package_artifact_consumer_checks = (
-		"package_build_boundary",
-		"package_editor_wizard_smoke",
-		"package_godot_cli_smoke",
-		"package_godot_cli_local_smoke",
-		"package_godot_cli_network_smoke",
-		"package_godot_smoke",
-		"package_godot_matrix_smoke",
-	)
+	full_checks = framework_checks
+	release_checks = (*framework_checks, "release_metadata")
 
 	check_groups = (
 		("api", api_checks),
 		("docs", docs_checks),
 		("examples", examples_checks),
 		("light_boundary", light_boundary_checks),
-		("package_contract_smoke", package_contract_smoke_checks),
-		("package_editor", package_editor_checks),
-		("package_cli_local", package_cli_local_checks),
-		("package_cli_network", package_cli_network_checks),
-		("package_cli", package_cli_checks),
-		("package_smoke", package_smoke_checks),
-		("package_contract", package_contract_checks),
-		("package", package_checks),
+		("module_boundary", module_boundary_checks),
 		("quick", quick_checks),
 		("full", full_checks),
 		("release", release_checks),
 		("framework_gut", framework_gut_checks),
 		("framework_lsp", framework_lsp_checks),
 		("framework_static", framework_static_checks),
+		("framework_integration", framework_integration_checks),
 		("framework", framework_checks),
-		("package_ci", package_ci_checks),
-		("package_release", package_release_checks),
-		("package_artifact_consumers", package_artifact_consumer_checks),
 	)
 
 	suites = (
@@ -1159,27 +967,14 @@ def build_validation_catalog(context: ValidationCatalogContext) -> ValidationCat
 		("framework-gut", framework_gut_checks),
 		("framework-lsp", framework_lsp_checks),
 		("framework-static", framework_static_checks),
+		("framework-integration", framework_integration_checks),
 		("quick", quick_checks),
-		("package", package_checks),
-		("package-contract", package_contract_checks),
-		("package-editor", package_editor_checks),
-		("package-cli", package_cli_checks),
-		("package-cli-local", package_cli_local_checks),
-		("package-cli-network", package_cli_network_checks),
-		("package-godot-ci", ("package_godot_smoke",)),
-		("package-godot-release", ("package_godot_matrix_smoke",)),
-		("package-ci", package_ci_checks),
-		("package-release", package_release_checks),
 		("full", full_checks),
 		("release", release_checks),
 	)
 	parallel_full_shard_suites = (
-		"package-editor",
 		"framework-static",
-		"package-godot-ci",
-		"package-cli-local",
-		"package-cli-network",
-		"package-contract",
+		"framework-integration",
 		"framework-gut",
 		"framework-lsp",
 	)
