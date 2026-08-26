@@ -11,6 +11,7 @@ from pathlib import PurePosixPath
 
 FILE_ATTRIBUTE_REPARSE_POINT = 0x0400
 DEFAULT_PINNED_READ_CHUNK_BYTES = 64 * 1024
+_NATIVE_OS_NAME = os.name
 
 
 class PinnedReadError(OSError):
@@ -86,6 +87,26 @@ def read_pinned_utf8_regular_file(
 		raise PinnedReadError("path_security.invalid_utf8") from None
 
 
+def read_optional_pinned_utf8_regular_file(
+	containment_root: Path,
+	relative_path: str,
+	*,
+	max_bytes: int,
+) -> str | None:
+	"""Read one optional UTF-8 leaf while proving a stable missing observation."""
+	payload = read_optional_pinned_regular_file(
+		containment_root,
+		relative_path,
+		max_bytes=max_bytes,
+	)
+	if payload is None:
+		return None
+	try:
+		return payload.decode("utf-8", errors="strict")
+	except UnicodeDecodeError:
+		raise PinnedReadError("path_security.invalid_utf8") from None
+
+
 def read_pinned_regular_file(
 	containment_root: Path,
 	relative_path: str,
@@ -108,6 +129,29 @@ def read_pinned_regular_file(
 	except (OSError, TypeError, ValueError):
 		raise PinnedReadError("path_security.file_unavailable") from None
 	return payload
+
+
+def read_optional_pinned_regular_file(
+	containment_root: Path,
+	relative_path: str,
+	*,
+	max_bytes: int,
+) -> bytes | None:
+	"""Read a contained regular-file leaf, or prove that exact leaf was missing."""
+	if type(max_bytes) is not int or max_bytes < 0:
+		raise PinnedReadError("path_security.invalid_budget")
+	try:
+		absolute_root = absolute_lexical_path(containment_root)
+		relative = _canonical_relative_path(relative_path)
+		absolute_path = absolute_root.joinpath(*relative.parts)
+		return _read_optional_pinned_regular_file(
+			absolute_path,
+			max_bytes=max_bytes,
+		)
+	except PinnedReadError:
+		raise
+	except (OSError, TypeError, ValueError):
+		raise PinnedReadError("path_security.file_unavailable") from None
 
 
 def _canonical_relative_path(path: str) -> PurePosixPath:
@@ -172,10 +216,66 @@ def _read_pinned_regular_file(path: Path, *, max_bytes: int) -> bytes:
 		])
 
 
+def _read_optional_pinned_regular_file(
+	path: Path,
+	*,
+	max_bytes: int,
+) -> bytes | None:
+	directory_bindings = _open_directory_chain(path.parent)
+	file_descriptor = -1
+	try:
+		parent_descriptor = directory_bindings[-1][1]
+		try:
+			path_before = _stat_path_entry(path, parent_descriptor)
+		except FileNotFoundError:
+			# Observe the same missing leaf twice while the complete parent chain
+			# remains pinned. Other lookup failures are never interpreted as absence.
+			if not _directory_bindings_are_current(directory_bindings):
+				raise PinnedReadError("path_security.chain_changed")
+			try:
+				_stat_path_entry(path, parent_descriptor)
+			except FileNotFoundError:
+				if not _directory_bindings_are_current(directory_bindings):
+					raise PinnedReadError("path_security.chain_changed")
+				return None
+			else:
+				raise PinnedReadError("path_security.file_changed")
+		_assert_safe_regular_metadata(path_before, max_bytes=max_bytes)
+		file_descriptor = _open_file_entry(path, parent_descriptor)
+		opened_before = os.fstat(file_descriptor)
+		if not _same_regular_file_identity(path_before, opened_before):
+			raise PinnedReadError("path_security.file_changed")
+
+		payload = _read_opened_file_bytes(
+			file_descriptor,
+			opened_before.st_size,
+			max_bytes=max_bytes,
+		)
+		opened_after = os.fstat(file_descriptor)
+		path_after = _stat_path_entry(path, parent_descriptor)
+		if (
+			not _same_regular_file_snapshot(opened_before, opened_after)
+			or not _same_regular_file_identity(opened_after, path_after)
+			or not _same_regular_file_snapshot(path_before, path_after)
+			or not _directory_bindings_are_current(directory_bindings)
+		):
+			raise PinnedReadError("path_security.file_changed")
+		return payload
+	finally:
+		_close_descriptors([
+			file_descriptor,
+			*(
+				descriptor
+				for _path, descriptor, _opened, _parent
+				in reversed(directory_bindings)
+			),
+		])
+
+
 def _open_directory_chain(
 	directory: Path,
 ) -> list[tuple[Path, int, os.stat_result, int]]:
-	if os.name != "nt" and (
+	if _NATIVE_OS_NAME != "nt" and (
 		os.open not in os.supports_dir_fd
 		or os.stat not in os.supports_dir_fd
 		or os.stat not in os.supports_follow_symlinks
@@ -189,7 +289,7 @@ def _open_directory_chain(
 	try:
 		for path in _full_directory_paths(directory):
 			parent_descriptor = (
-				-1 if os.name == "nt" or not bindings else bindings[-1][1]
+				-1 if _NATIVE_OS_NAME == "nt" or not bindings else bindings[-1][1]
 			)
 			before = _stat_path_entry(path, parent_descriptor)
 			_assert_safe_directory_metadata(before)
@@ -286,7 +386,7 @@ def _full_directory_paths(directory: Path) -> tuple[Path, ...]:
 
 
 def _stat_path_entry(path: Path, parent_descriptor: int) -> os.stat_result:
-	if os.name == "nt" or parent_descriptor < 0:
+	if _NATIVE_OS_NAME == "nt" or parent_descriptor < 0:
 		return os.lstat(path)
 	return os.stat(
 		path.name,
@@ -296,7 +396,7 @@ def _stat_path_entry(path: Path, parent_descriptor: int) -> os.stat_result:
 
 
 def _open_directory_entry(path: Path, parent_descriptor: int) -> int:
-	if os.name == "nt":
+	if _NATIVE_OS_NAME == "nt":
 		return _windows_open_descriptor(path, expect_directory=True)
 	flags = (
 		os.O_RDONLY
@@ -310,7 +410,7 @@ def _open_directory_entry(path: Path, parent_descriptor: int) -> int:
 
 
 def _open_file_entry(path: Path, parent_descriptor: int) -> int:
-	if os.name == "nt":
+	if _NATIVE_OS_NAME == "nt":
 		return _windows_open_descriptor(path, expect_directory=False)
 	return os.open(
 		path.name,
@@ -427,7 +527,7 @@ def _same_object_identity(
 
 
 def _windows_open_descriptor(path: Path, *, expect_directory: bool) -> int:
-	if os.name != "nt":
+	if _NATIVE_OS_NAME != "nt":
 		raise PinnedReadError("path_security.platform_unsupported")
 	import ctypes
 	import msvcrt

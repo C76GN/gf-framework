@@ -16,7 +16,6 @@ import math
 import os
 import re
 import secrets
-import shutil
 import stat
 import time
 import unicodedata
@@ -27,6 +26,8 @@ from typing import Any
 from typing import Mapping
 
 import gf_path_security
+from gf_process_supervisor import add_exception_note
+from gf_process_supervisor import rmtree_with_exception_callback
 
 
 MANIFEST_SCHEMA_VERSION = 1
@@ -103,13 +104,13 @@ def _mark_private_artifact_cleanup_debt(
 	debt_error = cleanup_error if primary_error is None else primary_error
 	try:
 		if cleanup_error is None:
-			BaseException.add_note(
+			add_exception_note(
 				debt_error,
 				"Retained private package artifact roots after process-control interruption: "
 				f"{preserved_display}",
 			)
 		else:
-			BaseException.add_note(
+			add_exception_note(
 				debt_error,
 				"Retained private package artifact roots after cleanup failure: "
 				f"{preserved_display}: {cleanup_error}",
@@ -243,19 +244,31 @@ class PackageArtifactSet:
 def assemble_package_artifact_inputs(
 	root: str | Path,
 	builder_data: Mapping[str, Any],
+	*,
+	builder_cwd: str | Path,
 ) -> tuple[PackageArtifactInput, ...]:
 	"""Validate builder JSON and derive the fixed package artifact input paths."""
 	root_path = _validated_root(root)
-	normalized_builder = _normalize_builder_result(root_path, builder_data)
+	normalized_builder = _normalize_builder_result(
+		root_path,
+		builder_data,
+		builder_cwd=_normalize_builder_cwd(builder_cwd),
+	)
 	return _inputs_from_normalized_builder(root_path, normalized_builder)
 
 
 def assemble_package_artifact_set_inputs(
 	root: str | Path,
 	builder_data: Mapping[str, Any],
+	*,
+	builder_cwd: str | Path,
 ) -> tuple[PackageArtifactInput, ...]:
 	"""Compatibility spelling that makes the owning artifact set explicit."""
-	return assemble_package_artifact_inputs(root, builder_data)
+	return assemble_package_artifact_inputs(
+		root,
+		builder_data,
+		builder_cwd=builder_cwd,
+	)
 
 
 def seal_package_artifact_set(
@@ -263,6 +276,7 @@ def seal_package_artifact_set(
 	builder_data: Mapping[str, Any],
 	workspace_state: Mapping[str, Any],
 	*,
+	builder_cwd: str | Path,
 	deadline: float | None = None,
 ) -> PackageArtifactSet:
 	"""Seal one already-built package distribution and return its validated set."""
@@ -274,7 +288,12 @@ def seal_package_artifact_set(
 			f"Package artifact set is already sealed: {manifest_path.as_posix()}"
 		)
 	normalized_workspace = _normalize_workspace_state(workspace_state, "workspace state")
-	normalized_builder = _normalize_builder_result(root_path, builder_data, deadline=deadline)
+	normalized_builder = _normalize_builder_result(
+		root_path,
+		builder_data,
+		builder_cwd=_normalize_builder_cwd(builder_cwd),
+		deadline=deadline,
+	)
 	inputs = _inputs_from_normalized_builder(root_path, normalized_builder)
 
 	# Validate every builder output and the tree before adding owned metadata.
@@ -694,6 +713,7 @@ def _normalize_builder_result(
 	root: Path,
 	builder_data: Mapping[str, Any],
 	*,
+	builder_cwd: Path | None = None,
 	deadline: float | None = None,
 ) -> dict[str, Any]:
 	_check_deadline(deadline, "package builder result normalization")
@@ -710,19 +730,33 @@ def _normalize_builder_result(
 	if not _is_int(package_count) or package_count != len(packages):
 		raise PackageArtifactSetError("Package builder result package_count is inconsistent.")
 
-	_assert_builder_path(root, data.get("output_dir"), root / "packages", "output_dir")
-	_assert_builder_path(root, data.get("registry"), root / REGISTRY_RELATIVE_PATH, "registry")
+	_assert_builder_path(
+		root,
+		data.get("output_dir"),
+		root / "packages",
+		"output_dir",
+		builder_cwd=builder_cwd,
+	)
+	_assert_builder_path(
+		root,
+		data.get("registry"),
+		root / REGISTRY_RELATIVE_PATH,
+		"registry",
+		builder_cwd=builder_cwd,
+	)
 	_assert_builder_path(
 		root,
 		data.get("registry_source"),
 		root / REGISTRY_SOURCE_RELATIVE_PATH,
 		"registry_source",
+		builder_cwd=builder_cwd,
 	)
 	_assert_builder_path(
 		root,
 		data.get("offline_bundle"),
 		root / OFFLINE_BUNDLE_RELATIVE_PATH,
 		"offline_bundle",
+		builder_cwd=builder_cwd,
 	)
 	data["output_dir"] = "packages"
 	data["registry"] = REGISTRY_RELATIVE_PATH
@@ -779,7 +813,13 @@ def _normalize_builder_result(
 			)
 		seen_archives[archive_identity] = relative_path
 		archive_path = root / "packages" / archive_name
-		_assert_builder_path(root, archive_value, archive_path, f"packages[{package_id}].archive")
+		_assert_builder_path(
+			root,
+			archive_value,
+			archive_path,
+			f"packages[{package_id}].archive",
+			builder_cwd=builder_cwd,
+		)
 		size_bytes, sha256 = _snapshot_regular_file(archive_path, deadline=deadline)
 		if package.get("size_bytes") != size_bytes:
 			raise PackageArtifactSetError(f"Package builder size does not match archive bytes: {package_id}")
@@ -932,21 +972,37 @@ def _validated_root(value: str | Path) -> Path:
 	return root
 
 
-def _assert_builder_path(root: Path, raw_value: Any, expected: Path, field: str) -> None:
+def _normalize_builder_cwd(value: str | Path) -> Path:
+	if value is None:
+		raise PackageArtifactSetError("Package builder cwd is required.")
+	raw_path = Path(value)
+	if not raw_path.is_absolute():
+		raise PackageArtifactSetError("Package builder cwd must be an explicit absolute path.")
+	return gf_path_security.absolute_lexical_path(raw_path)
+
+
+def _assert_builder_path(
+	root: Path,
+	raw_value: Any,
+	expected: Path,
+	field: str,
+	*,
+	builder_cwd: Path | None,
+) -> None:
 	if not isinstance(raw_value, str) or not raw_value.strip():
 		raise PackageArtifactSetError(f"Package builder result field {field} must be a path string.")
 	normalized = raw_value.replace("\\", "/")
 	if ".." in PurePosixPath(normalized).parts:
 		raise PackageArtifactSetError(f"Package builder result field {field} contains '..'.")
 	raw_path = Path(raw_value)
-	candidates = (
-		[gf_path_security.absolute_lexical_path(raw_path)]
-		if raw_path.is_absolute()
-		else [
-			gf_path_security.absolute_lexical_path(root / raw_path),
-			gf_path_security.absolute_lexical_path(Path.cwd() / raw_path),
+	if raw_path.is_absolute():
+		candidates = [gf_path_security.absolute_lexical_path(raw_path)]
+	elif builder_cwd is not None:
+		candidates = [
+			gf_path_security.absolute_lexical_path(builder_cwd / raw_path)
 		]
-	)
+	else:
+		candidates = [gf_path_security.absolute_lexical_path(root / raw_path)]
 	expected_path = gf_path_security.absolute_lexical_path(expected)
 	if not any(_same_lexical_path(candidate, expected_path) for candidate in candidates):
 		raise PackageArtifactSetError(
@@ -1487,7 +1543,7 @@ def _safe_remove_private_tree(
 	last_error = ""
 	for attempt in range(8):
 		try:
-			shutil.rmtree(cleanup_path, onexc=_make_remove_writable)
+			rmtree_with_exception_callback(cleanup_path, _make_remove_writable)
 			return ""
 		except FileNotFoundError:
 			return ""

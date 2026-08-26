@@ -5,7 +5,6 @@ from __future__ import annotations
 
 import json
 import os
-import subprocess
 import sys
 import tempfile
 import unittest
@@ -22,6 +21,7 @@ import gf_codeql_suppression_policy as policy  # noqa: E402
 import gf_credential_gate as credential_gate  # noqa: E402
 import gf_maintenance  # noqa: E402
 import gf_path_security as path_security  # noqa: E402
+from gf_process_supervisor import SupervisedProcessResult  # noqa: E402
 
 
 class CodeqlSuppressionPolicyTests(unittest.TestCase):
@@ -908,15 +908,18 @@ query-filters:
 		}
 		for name, (stdout, expected_error) in fixtures.items():
 			with self.subTest(name=name):
-				completed = subprocess.CompletedProcess(
-					args=["git", "ls-files"],
-					returncode=0,
+				completed = SupervisedProcessResult(
+					return_code=0,
 					stdout=stdout,
 					stderr=b"",
+					timed_out=False,
+					duration_seconds=0.1,
+					pid=123,
+					process_boundary_quiescent=True,
 				)
 				with mock.patch.object(
-					gf_maintenance.subprocess,
-					"run",
+					gf_maintenance,
+					"run_supervised_process",
 					return_value=completed,
 				):
 					result = gf_maintenance.read_git_paths_uncached(
@@ -1023,7 +1026,7 @@ query-filters:
 		for flag_name in ("O_DIRECTORY", "O_NOFOLLOW", "O_NONBLOCK"):
 			with self.subTest(flag_name=flag_name):
 				with (
-					mock.patch.object(path_security.os, "name", "posix"),
+					mock.patch.object(path_security, "_NATIVE_OS_NAME", "posix"),
 					mock.patch.object(
 						path_security.os,
 						"supports_dir_fd",
@@ -1051,7 +1054,7 @@ query-filters:
 					"path_security.platform_unsupported",
 				)
 		with (
-			mock.patch.object(path_security.os, "name", "posix"),
+			mock.patch.object(path_security, "_NATIVE_OS_NAME", "posix"),
 			mock.patch.object(
 				path_security.os,
 				"supports_dir_fd",

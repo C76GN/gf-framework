@@ -392,6 +392,11 @@ class ValidationCatalog:
 		"""Return the ordered Full-shard suite topology."""
 		return self._parallel_full_shard_suites
 
+	@property
+	def command_projection_context(self) -> ValidationCatalogContext | None:
+		"""Return the immutable context that owns all projected command arguments."""
+		return self._command_projection_context
+
 
 def build_validation_catalog(context: ValidationCatalogContext) -> ValidationCatalog:
 	"""Build the canonical GF validation catalog from runner-provided context."""
@@ -630,6 +635,7 @@ def build_validation_catalog(context: ValidationCatalogContext) -> ValidationCat
 				"-m",
 				"unittest",
 				"tests/gf_core/tools/test_gf_maintenance_execution.py",
+				"tests/gf_core/tools/test_gf_posix_process_watchdog.py",
 				"tests/gf_core/tools/test_gf_maintenance_check_graph.py",
 				"tests/gf_core/tools/test_gf_parallel_validation.py",
 				"tests/gf_core/tools/test_gf_validation_contracts.py",
@@ -638,6 +644,7 @@ def build_validation_catalog(context: ValidationCatalogContext) -> ValidationCat
 				"tests/gf_core/tools/test_gf_validation_test_inventory.py",
 				"tests/gf_core/tools/test_gf_gut_sharding.py",
 				"tests/gf_core/tools/test_gf_gut_shard_worker.py",
+				"tests/gf_core/tools/test_build_gf_release_artifacts.py",
 			),
 		),
 		subprocess_action(
@@ -673,11 +680,13 @@ def build_validation_catalog(context: ValidationCatalogContext) -> ValidationCat
 			"gdscript_lsp_diagnostics",
 			python_script(
 				"tools/gdscript_lsp_diagnostics.py",
-				"--connect-or-spawn",
+				"--spawn-lsp",
 				"--port",
-				"6005",
+				"0",
 				"--startup-timeout",
 				"120",
+				"--lsp-process-timeout",
+				"600",
 				"--request-timeout",
 				"60",
 				"--per-file-timeout",
@@ -788,6 +797,9 @@ def build_validation_catalog(context: ValidationCatalogContext) -> ValidationCat
 		# budget on clean Windows runs. Keep the same measured floor as the explicit
 		# full-suite observation and qualification control.
 		("gut", 1200),
+		# The owned LSP server has a 600-second inner lifetime. Preserve a bounded
+		# cleanup and report-publication margin outside that process-tree boundary.
+		("gdscript_lsp_diagnostics", 660),
 		# Runs six focused process-level lifecycle scenarios after a shared import.
 		("gut_lifecycle_smoke", 360),
 		# The executable Adapter contract performs one isolated import and one GUT

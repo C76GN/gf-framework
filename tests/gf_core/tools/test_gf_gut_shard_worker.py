@@ -22,7 +22,25 @@ if str(TOOLS_ROOT) not in sys.path:
 	sys.path.insert(0, str(TOOLS_ROOT))
 
 import gf_gut_shard_worker as worker  # noqa: E402
+import gf_maintenance  # noqa: E402
+from gf_process_authority import FrozenProcessAuthority  # noqa: E402
+from gf_process_authority import FrozenProcessEnvironment  # noqa: E402
+from gf_process_authority import freeze_process_authority  # noqa: E402
 from gf_process_supervisor import SupervisedProcessResult  # noqa: E402
+
+
+def _frozen_process_environment() -> FrozenProcessEnvironment:
+	return FrozenProcessEnvironment.capture(dict(os.environ))
+
+
+def _frozen_process_authority() -> FrozenProcessAuthority:
+	return freeze_process_authority(
+		_frozen_process_environment(),
+		cwd=ROOT,
+	)
+
+
+_SHARED_PROCESS_AUTHORITY = _frozen_process_authority()
 
 
 class GutShardWorkerTests(unittest.TestCase):
@@ -179,6 +197,7 @@ class GutShardWorkerTests(unittest.TestCase):
 			):
 				report = worker.run_worker(
 					request,
+					process_authority=_SHARED_PROCESS_AUTHORITY,
 					process_runner=process_runner,
 					result_adapter=self._authority_adapter,
 					expected_workspace_identity=self._identity(root),
@@ -195,6 +214,7 @@ class GutShardWorkerTests(unittest.TestCase):
 			process_runner = mock.Mock(side_effect=AssertionError("runner must not start"))
 			report = worker.run_worker(
 				self._request(root),
+				process_authority=_SHARED_PROCESS_AUTHORITY,
 				process_runner=process_runner,
 				result_adapter=self._authority_adapter,
 			)
@@ -240,6 +260,7 @@ class GutShardWorkerTests(unittest.TestCase):
 			):
 				report = worker.run_worker(
 					request,
+					process_authority=_SHARED_PROCESS_AUTHORITY,
 					process_runner=process_runner,
 					result_adapter=self._authority_adapter,
 					expected_workspace_identity=self._identity(root),
@@ -333,6 +354,7 @@ class GutShardWorkerTests(unittest.TestCase):
 			):
 				report = worker.run_worker(
 					request,
+					process_authority=_SHARED_PROCESS_AUTHORITY,
 					process_runner=process_runner,
 					result_adapter=self._authority_adapter,
 					expected_workspace_identity=self._identity(root),
@@ -358,6 +380,7 @@ class GutShardWorkerTests(unittest.TestCase):
 			):
 				report = worker.run_worker(
 					request,
+					process_authority=_SHARED_PROCESS_AUTHORITY,
 					process_runner=process_runner,
 					result_adapter=self._authority_adapter,
 					expected_workspace_identity=self._identity(root),
@@ -398,6 +421,7 @@ class GutShardWorkerTests(unittest.TestCase):
 			):
 				report = worker.run_worker(
 					request,
+					process_authority=_SHARED_PROCESS_AUTHORITY,
 					process_runner=process_runner,
 					result_adapter=self._authority_adapter,
 					expected_workspace_identity=self._identity(root),
@@ -429,6 +453,7 @@ class GutShardWorkerTests(unittest.TestCase):
 			):
 				report = worker.run_worker(
 					request,
+					process_authority=_SHARED_PROCESS_AUTHORITY,
 					process_runner=process_runner,
 					result_adapter=self._authority_adapter,
 					expected_workspace_identity=self._identity(root),
@@ -464,6 +489,7 @@ class GutShardWorkerTests(unittest.TestCase):
 			):
 				report = worker.run_worker(
 					request,
+					process_authority=_SHARED_PROCESS_AUTHORITY,
 					process_runner=process_runner,
 					result_adapter=self._authority_adapter,
 					expected_workspace_identity=self._identity(root),
@@ -502,6 +528,7 @@ class GutShardWorkerTests(unittest.TestCase):
 			):
 				report = worker.run_worker(
 					request,
+					process_authority=_SHARED_PROCESS_AUTHORITY,
 					process_runner=process_runner,
 					result_adapter=self._authority_adapter,
 					expected_workspace_identity=self._identity(root),
@@ -543,6 +570,7 @@ class GutShardWorkerTests(unittest.TestCase):
 			):
 				report = worker.run_worker(
 					request,
+					process_authority=_SHARED_PROCESS_AUTHORITY,
 					process_runner=process_runner,
 					result_adapter=self._authority_adapter,
 					expected_workspace_identity=self._identity(root),
@@ -581,6 +609,7 @@ class GutShardWorkerTests(unittest.TestCase):
 			):
 				report = worker.run_worker(
 					request,
+					process_authority=_SHARED_PROCESS_AUTHORITY,
 					process_runner=lambda *_args, **_kwargs: self._process_result(),
 					result_adapter=self._authority_adapter,
 					expected_workspace_identity=self._identity(root),
@@ -642,6 +671,7 @@ class GutShardWorkerTests(unittest.TestCase):
 				):
 					report = worker.run_worker(
 						request,
+						process_authority=_SHARED_PROCESS_AUTHORITY,
 						process_runner=process_runner,
 						result_adapter=self._authority_adapter,
 						expected_workspace_identity=self._identity(root),
@@ -662,6 +692,7 @@ class GutShardWorkerTests(unittest.TestCase):
 			environment = worker._private_environment(  # noqa: SLF001
 				workspace,
 				private_root,
+				process_environment=_SHARED_PROCESS_AUTHORITY.environment,
 				observation_nonce="a" * 64,
 			)
 			self.assertFalse(worker._paths_overlap(workspace, private_root))  # noqa: SLF001
@@ -757,6 +788,7 @@ class GutShardWorkerTests(unittest.TestCase):
 				worker._private_environment(  # noqa: SLF001
 					workspace,
 					second_root,
+					process_environment=_SHARED_PROCESS_AUTHORITY.environment,
 					observation_nonce=second_nonce,
 				)
 			self.assertEqual(marker.read_text(encoding="utf-8"), "retain")
@@ -771,6 +803,7 @@ class GutShardWorkerTests(unittest.TestCase):
 			with mock.patch.dict(
 				os.environ,
 				{
+					"GODOT_USER_HOME": str(parent / "ambient-user-home"),
 					worker.OBSERVATION_NONCE_ENVIRONMENT: "ambient-nonce",
 					worker.OBSERVATION_PATH_ENVIRONMENT: "res://ambient.json",
 				},
@@ -779,6 +812,7 @@ class GutShardWorkerTests(unittest.TestCase):
 				environment = worker._private_environment(  # noqa: SLF001
 					workspace,
 					private_root,
+					process_environment=_frozen_process_environment(),
 					observation_nonce=nonce,
 				)
 			self.assertEqual(
@@ -792,6 +826,19 @@ class GutShardWorkerTests(unittest.TestCase):
 					f"{nonce}/gut-authoritative-provenance.json"
 				),
 			)
+			self.assertNotIn("GODOT_USER_HOME", environment)
+			for environment_name in (
+				worker.OBSERVATION_NONCE_ENVIRONMENT,
+				worker.OBSERVATION_PATH_ENVIRONMENT,
+			):
+				self.assertEqual(
+					[
+						key
+						for key in environment
+						if key.casefold() == environment_name.casefold()
+					],
+					[environment_name],
+				)
 			self.assertEqual(
 				worker._remove_private_environment_root(  # noqa: SLF001
 					private_root,
@@ -818,6 +865,7 @@ class GutShardWorkerTests(unittest.TestCase):
 				worker._private_environment(  # noqa: SLF001
 					workspace,
 					private_root,
+					process_environment=_SHARED_PROCESS_AUTHORITY.environment,
 					observation_nonce="a" * 64,
 				)
 			self.assertFalse(private_root.exists())
@@ -840,6 +888,7 @@ class GutShardWorkerTests(unittest.TestCase):
 				worker._private_environment(  # noqa: SLF001
 					workspace,
 					private_root,
+					process_environment=_SHARED_PROCESS_AUTHORITY.environment,
 					observation_nonce="a" * 64,
 				)
 			self.assertFalse(private_root.exists())
@@ -852,6 +901,7 @@ class GutShardWorkerTests(unittest.TestCase):
 			process_runner = mock.Mock(side_effect=AssertionError("runner must not start"))
 			report = worker.run_worker(
 				request,
+				process_authority=_SHARED_PROCESS_AUTHORITY,
 				process_runner=process_runner,
 				result_adapter=self._authority_adapter,
 				cancellation_event=cancellation_event,
@@ -883,6 +933,7 @@ class GutShardWorkerTests(unittest.TestCase):
 			):
 				report = worker.run_worker(
 					request,
+					process_authority=_SHARED_PROCESS_AUTHORITY,
 					process_runner=process_runner,
 					result_adapter=self._authority_adapter,
 					cancellation_event=cancellation_event,
@@ -907,6 +958,7 @@ class GutShardWorkerTests(unittest.TestCase):
 			):
 				report = worker.run_worker(
 					request,
+					process_authority=_SHARED_PROCESS_AUTHORITY,
 					process_runner=mock.Mock(side_effect=LookupError("synthetic runner failure")),
 					result_adapter=self._authority_adapter,
 					expected_workspace_identity=self._identity(root),
@@ -934,6 +986,7 @@ class GutShardWorkerTests(unittest.TestCase):
 			):
 				report = worker.run_worker(
 					request,
+					process_authority=_SHARED_PROCESS_AUTHORITY,
 					process_runner=lambda *_args, **_kwargs: self._process_result(
 						return_code=1,
 						process_boundary_quiescent=False,
@@ -971,6 +1024,7 @@ class GutShardWorkerTests(unittest.TestCase):
 			):
 				report = worker.run_worker(
 					request,
+					process_authority=_SHARED_PROCESS_AUTHORITY,
 					process_runner=lambda *_args, **_kwargs: self._process_result(return_code=1),
 					result_adapter=self._authority_adapter,
 					expected_workspace_identity=self._identity(root),
@@ -996,8 +1050,10 @@ class GutShardWorkerTests(unittest.TestCase):
 			def replace_during_fingerprint(
 				_path: Path,
 				*,
+				git_process: object,
 				deadline: float,
 			) -> dict[str, str]:
+				self.assertIs(git_process, _SHARED_PROCESS_AUTHORITY.git)
 				self.assertGreater(deadline, 0.0)
 				workspace.rename(replaced)
 				workspace.mkdir()
@@ -1017,6 +1073,7 @@ class GutShardWorkerTests(unittest.TestCase):
 					workspace,
 					"1" * 64,
 					published_identity,
+					git_process=_SHARED_PROCESS_AUTHORITY.git,
 					deadline=10**12,
 				)
 			self.assertNotEqual(self._identity(workspace), published_identity)
@@ -1038,9 +1095,14 @@ class GutShardWorkerTests(unittest.TestCase):
 			with (
 				mock.patch.object(worker, "_validate_workspace_binding"),
 				mock.patch.object(worker, "_validate_shard_binding"),
+				mock.patch.dict(
+					os.environ,
+					self._fixture_godot_environment(root),
+				),
 			):
 				report = worker.run_worker(
 					request,
+					process_authority=_frozen_process_authority(),
 					process_runner=replace_log_root,
 					result_adapter=None,
 					expected_workspace_identity=self._identity(root),
@@ -1065,28 +1127,89 @@ class GutShardWorkerTests(unittest.TestCase):
 			root = Path(temporary_directory)
 			log_path = root / "phase.log"
 			command = ("godot", "--log-file", str(log_path))
+			environment = self._fixture_godot_environment(root)
 			def process_runner(_command: list[str], **_kwargs: object) -> SupervisedProcessResult:
 				log_path.write_text("SCRIPT ERROR: fixture\n", encoding="utf-8")
 				return self._process_result()
-			_result, phase, _lifecycle = worker._run_authoritative_phase(  # noqa: SLF001
-				"godot_import",
-				command,
-				workspace=ROOT,
-				timeout_seconds=10.0,
-				environment={},
-				process_runner=process_runner,
-				result_adapter=None,
-				owned_log_root=root,
-				expected_workspace_identity=self._identity(ROOT),
-				expected_log_chain=((root, self._identity(root)),),
-				expected_log_root_identity=self._identity(root),
-			)
+			with mock.patch.object(
+				gf_maintenance,
+				"resolve_godot_command",
+				wraps=gf_maintenance.resolve_godot_command,
+			) as resolve_godot:
+				_result, phase, _lifecycle = worker._run_authoritative_phase(  # noqa: SLF001
+					"godot_import",
+					command,
+					workspace=ROOT,
+					timeout_seconds=10.0,
+					environment=environment,
+					process_runner=process_runner,
+					result_adapter=None,
+					owned_log_root=root,
+					expected_workspace_identity=self._identity(ROOT),
+					expected_log_chain=((root, self._identity(root)),),
+					expected_log_root_identity=self._identity(root),
+				)
 			self.assertFalse(phase["ok"])
 			self.assertEqual(phase["exit_code"], 1)
+			resolve_godot.assert_called_once_with(
+				list(command),
+				environment=environment,
+				cwd=ROOT,
+			)
+
+	def test_authority_preflight_distinguishes_invalid_environment_from_missing_godot(
+		self,
+	) -> None:
+		with tempfile.TemporaryDirectory() as temporary_directory:
+			root = Path(temporary_directory)
+			command = ("godot", "--log-file", str(root / "phase.log"))
+			process_runner = mock.Mock(
+				side_effect=AssertionError(
+					"authority preflight failures must not start a process"
+				)
+			)
+			cases = (
+				(
+					gf_maintenance.FrozenEnvironmentError(
+						"fixture environment is invalid"
+					),
+					"worker_environment_invalid",
+				),
+				(
+					gf_maintenance.GodotExecutableResolutionError(
+						"fixture Godot is missing"
+					),
+					"worker_authority_preflight_failed",
+				),
+			)
+			for resolver_error, expected_code in cases:
+				with self.subTest(expected_code=expected_code), mock.patch.object(
+					gf_maintenance,
+					"resolve_godot_command",
+					side_effect=resolver_error,
+				), self.assertRaises(worker.GutShardWorkerError) as raised:
+					worker._run_authoritative_phase(  # noqa: SLF001
+						"godot_import",
+						command,
+						workspace=ROOT,
+						timeout_seconds=10.0,
+						environment={"PATH": ""},
+						process_runner=process_runner,
+						result_adapter=None,
+						owned_log_root=root,
+						expected_workspace_identity=self._identity(ROOT),
+						expected_log_chain=((root, self._identity(root)),),
+						expected_log_root_identity=self._identity(root),
+					)
+
+				self.assertEqual(raised.exception.code, expected_code)
+				self.assertEqual(raised.exception.phase, "godot_import")
+			process_runner.assert_not_called()
 
 	def test_authority_evaluator_missing_log_is_structured_infrastructure_failure(self) -> None:
 		with tempfile.TemporaryDirectory() as temporary_directory:
 			root = Path(temporary_directory)
+			environment = self._fixture_godot_environment(root)
 			with self.assertRaisesRegex(
 				worker.GutShardWorkerError,
 				"worker_phase_evidence_invalid",
@@ -1096,7 +1219,7 @@ class GutShardWorkerTests(unittest.TestCase):
 					("godot", "--log-file", str(root / "missing.log")),
 					workspace=ROOT,
 					timeout_seconds=10.0,
-					environment={},
+					environment=environment,
 					process_runner=lambda *_args, **_kwargs: self._process_result(),
 					result_adapter=None,
 					owned_log_root=root,
@@ -1110,6 +1233,7 @@ class GutShardWorkerTests(unittest.TestCase):
 			root = Path(temporary_directory)
 			log_path = root / "phase.log"
 			command = ("godot", "--log-file", str(log_path))
+			environment = self._fixture_godot_environment(root)
 			def process_runner(_command: list[str], **_kwargs: object) -> SupervisedProcessResult:
 				log_path.write_text(
 					"WARNING: ObjectDB instances leaked at exit (run with --verbose for details).\n",
@@ -1121,7 +1245,7 @@ class GutShardWorkerTests(unittest.TestCase):
 				command,
 				workspace=ROOT,
 				timeout_seconds=10.0,
-				environment={},
+				environment=environment,
 				process_runner=process_runner,
 				result_adapter=None,
 				owned_log_root=root,
@@ -1134,6 +1258,7 @@ class GutShardWorkerTests(unittest.TestCase):
 	def test_unproven_process_boundary_reads_no_log_or_lifecycle_evidence(self) -> None:
 		with tempfile.TemporaryDirectory() as temporary_directory:
 			root = Path(temporary_directory)
+			environment = self._fixture_godot_environment(root)
 			adapter = mock.Mock(side_effect=AssertionError("authority adapter must not inspect evidence"))
 			with mock.patch.object(
 				worker,
@@ -1149,7 +1274,7 @@ class GutShardWorkerTests(unittest.TestCase):
 					("godot", "--log-file", str(root / "phase.log")),
 					workspace=ROOT,
 					timeout_seconds=10.0,
-					environment={},
+					environment=environment,
 					process_runner=lambda *_args, **_kwargs: self._process_result(
 						process_boundary_quiescent=False,
 					),
@@ -1315,6 +1440,7 @@ class GutShardWorkerTests(unittest.TestCase):
 			workspace.rmdir()
 			report = worker.run_worker(
 				request,
+				process_authority=_SHARED_PROCESS_AUTHORITY,
 				process_runner=mock.Mock(side_effect=AssertionError("runner must not start")),
 				result_adapter=self._authority_adapter,
 				expected_workspace_identity=workspace_identity,
@@ -1595,6 +1721,14 @@ class GutShardWorkerTests(unittest.TestCase):
 			cancelled=cancelled,
 			process_boundary_quiescent=process_boundary_quiescent,
 		)
+
+	@staticmethod
+	def _fixture_godot_environment(root: Path) -> dict[str, str]:
+		executable = root / ("fixture-godot.exe" if os.name == "nt" else "fixture-godot")
+		executable.write_bytes(b"fixture")
+		if os.name != "nt":
+			executable.chmod(0o755)
+		return {"GF_GODOT_EXECUTABLE": str(executable)}
 
 	@staticmethod
 	def _identity(path: Path) -> tuple[int, int, int]:

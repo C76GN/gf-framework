@@ -14,7 +14,6 @@ import math
 import os
 import re
 import stat
-import subprocess
 import time
 import unicodedata
 from dataclasses import dataclass
@@ -26,6 +25,12 @@ from typing import Any
 from typing import Callable
 from typing import Iterable
 from typing import Mapping
+
+from gf_process_authority import FrozenGitProcess
+from gf_process_supervisor import SupervisedProcessStartError
+from gf_process_supervisor import exception_has_cleanup_debt
+from gf_process_supervisor import require_supervised_binary_quiet_boundary
+from gf_process_supervisor import run_supervised_process_bytes
 
 
 INPUT_SPEC_SCHEMA_VERSION = 1
@@ -213,9 +218,21 @@ class _Deadline:
 	def timeout_seconds(self) -> float:
 		if self.deadline_seconds is None:
 			return 30.0
-		self.check()
-		now_value = float(self.monotonic())
-		remaining = self.deadline_seconds - now_value
+		try:
+			now_value = self.monotonic()
+		except Exception as error:
+			raise ValidationInputContractError(
+				"validation_inputs.advisory_clock_failed"
+			) from error
+		if (
+			type(now_value) not in (int, float)
+			or not math.isfinite(float(now_value))
+			or float(now_value) < 0.0
+		):
+			raise ValidationInputContractError(
+				"validation_inputs.advisory_clock_invalid"
+			)
+		remaining = self.deadline_seconds - float(now_value)
 		if remaining <= 0.0:
 			raise ValidationInputDeadlineError(
 				"validation_inputs.advisory_deadline_exceeded"
@@ -728,12 +745,13 @@ def changed_paths_since(
 	repository_root: Path,
 	base_revision: str = "HEAD",
 	*,
+	git_process: FrozenGitProcess,
 	pathspecs: Iterable[str] = (),
 	limits: InputCaptureLimits = DEFAULT_INPUT_CAPTURE_LIMITS,
 	deadline_seconds: float | None = None,
 	monotonic: Callable[[], float] = time.monotonic,
 ) -> ChangedPathSet:
-	"""Return tracked changes plus all relevant untracked paths since ``base``."""
+	"""Read changed paths through the caller's already-frozen Git capability."""
 	_validate_limits(limits)
 	_validate_base_revision(base_revision)
 	validated_pathspecs = _validated_pathspecs(pathspecs)
@@ -744,6 +762,7 @@ def changed_paths_since(
 	base_resolved = _git_text(
 		root,
 		["rev-parse", "--verify", "--quiet", f"{base_revision}^{{commit}}"],
+		git_process=git_process,
 		limits=limits,
 		deadline=deadline,
 		base_operation=True,
@@ -752,6 +771,7 @@ def changed_paths_since(
 	base_tree = _git_text(
 		root,
 		["rev-parse", "--verify", "--quiet", f"{base_resolved}^{{tree}}"],
+		git_process=git_process,
 		limits=limits,
 		deadline=deadline,
 		base_operation=True,
@@ -761,6 +781,7 @@ def changed_paths_since(
 	diff_output = _run_git(
 		root,
 		["diff", "--name-status", "-z", "--find-renames", base_resolved, *path_arguments],
+		git_process=git_process,
 		limits=limits,
 		deadline=deadline,
 	)
@@ -768,6 +789,7 @@ def changed_paths_since(
 	untracked_output = _run_git(
 		root,
 		["ls-files", "--others", "-z", *path_arguments],
+		git_process=git_process,
 		limits=limits,
 		deadline=deadline,
 	)
@@ -798,6 +820,7 @@ def analyze_affected_checks(
 	explain: bool = False,
 	deadline_seconds: float | None = None,
 	*,
+	git_process: FrozenGitProcess,
 	input_specs: Iterable[CheckInputSpec] | None = None,
 	artifact_digests: Mapping[str, Mapping[str, str]] | None = None,
 	limits: InputCaptureLimits = DEFAULT_INPUT_CAPTURE_LIMITS,
@@ -805,8 +828,12 @@ def analyze_affected_checks(
 ) -> dict[str, Any]:
 	"""Return advisory affectedness while fixing every decision to ``execute``.
 
-	All exceptions are mapped to one exact-schema failure envelope.  The caller can
-	therefore attach this report without changing check execution or suite outcome.
+	Git resolution and environment capture belong to the invocation owner; this
+	analysis only consumes the explicit immutable capability it receives.
+
+	Ordinary analysis failures are mapped to one exact-schema failure envelope.
+	Unproven process cleanup is ownership debt and must escape unchanged so the
+	invocation owner can stop execution and preserve retained resources.
 	"""
 	names = _safe_check_names(check_names)
 	safe_base = _safe_base_revision(base_revision)
@@ -831,6 +858,7 @@ def analyze_affected_checks(
 		before = changed_paths_since(
 			repository_root,
 			base_revision,
+			git_process=git_process,
 			pathspecs=tuple(sorted(pathspecs, key=_portable_sort_key)),
 			limits=limits,
 			deadline_seconds=deadline.deadline_seconds,
@@ -855,6 +883,7 @@ def analyze_affected_checks(
 		after = changed_paths_since(
 			repository_root,
 			base_revision,
+			git_process=git_process,
 			pathspecs=tuple(sorted(pathspecs, key=_portable_sort_key)),
 			limits=limits,
 			deadline_seconds=deadline.deadline_seconds,
@@ -932,6 +961,8 @@ def analyze_affected_checks(
 		)
 		return validate_affected_analysis_report(report)
 	except Exception as error:
+		if exception_has_cleanup_debt(error):
+			raise
 		return make_affected_analysis_failure(
 			names,
 			safe_base,
@@ -1746,56 +1777,83 @@ def _run_git(
 	root: Path,
 	arguments: list[str],
 	*,
+	git_process: FrozenGitProcess,
 	limits: InputCaptureLimits,
 	deadline: _Deadline,
 	base_operation: bool = False,
 ) -> bytes:
 	deadline.check()
-	environment = os.environ.copy()
-	environment.update({
-		"GIT_CONFIG_NOSYSTEM": "1",
-		"GIT_OPTIONAL_LOCKS": "0",
-		"GIT_TERMINAL_PROMPT": "0",
-		"LC_ALL": "C",
-		"LANG": "C",
-	})
+	command_identity = git_process.command(arguments)
+	supervisor_now = time.perf_counter()
+	timeout_seconds = deadline.timeout_seconds()
+	process_deadline = supervisor_now + timeout_seconds
+	environment = git_process.environment.values()
 	try:
-		completed = subprocess.run(
-			["git", *arguments],
+		completed = run_supervised_process_bytes(
+			list(command_identity.effective),
 			cwd=root,
-			env=environment,
-			stdin=subprocess.DEVNULL,
-			stdout=subprocess.PIPE,
-			stderr=subprocess.PIPE,
-			check=False,
-			timeout=deadline.timeout_seconds(),
+			environment=environment,
+			timeout_seconds=timeout_seconds,
+			deadline=process_deadline,
+			max_stdout_bytes=limits.max_git_output_bytes + 1,
+			max_stderr_bytes=limits.max_git_output_bytes + 1,
 		)
-	except subprocess.TimeoutExpired as error:
-		raise ValidationInputDeadlineError(
-			"validation_inputs.git_deadline_exceeded"
-		) from error
-	except OSError as error:
+		completed = require_supervised_binary_quiet_boundary(
+			completed,
+			deadline=process_deadline,
+		)
+		if time.perf_counter() >= process_deadline:
+			raise TimeoutError(
+				"Affected-analysis Git result crossed its absolute acceptance deadline."
+			)
+	except SupervisedProcessStartError as error:
 		raise ValidationInputGitError(
 			"validation_inputs.git_unavailable"
 		) from error
+	except TimeoutError as error:
+		if exception_has_cleanup_debt(error):
+			raise
+		raise ValidationInputDeadlineError(
+			"validation_inputs.git_deadline_exceeded"
+		) from error
+	except Exception as error:
+		if exception_has_cleanup_debt(error):
+			raise
+		raise ValidationInputGitError(
+			"validation_inputs.git_process_boundary_failed"
+		) from error
 	deadline.check()
+	stdout = completed.stdout
+	stderr = completed.stderr
+	if completed.output_drain_failed:
+		raise ValidationInputGitError(
+			"validation_inputs.git_process_boundary_failed"
+		)
 	if (
-		len(completed.stdout) > limits.max_git_output_bytes
-		or len(completed.stderr) > limits.max_git_output_bytes
+		completed.stdout_truncated
+		or completed.stderr_truncated
+		or len(stdout) > limits.max_git_output_bytes
+		or len(stderr) > limits.max_git_output_bytes
 	):
 		raise ValidationInputLimitError(
 			"validation_inputs.git_output_limit"
 		)
-	if completed.returncode != 0:
+	if completed.timed_out:
+		raise ValidationInputDeadlineError(
+			"validation_inputs.git_deadline_exceeded"
+		)
+	deadline.check()
+	if completed.return_code != 0:
 		error_type = ValidationInputBaseError if base_operation else ValidationInputGitError
 		raise error_type("validation_inputs.git_command_failed")
-	return completed.stdout
+	return stdout
 
 
 def _git_text(
 	root: Path,
 	arguments: list[str],
 	*,
+	git_process: FrozenGitProcess,
 	limits: InputCaptureLimits,
 	deadline: _Deadline,
 	base_operation: bool,
@@ -1803,6 +1861,7 @@ def _git_text(
 	data = _run_git(
 		root,
 		arguments,
+		git_process=git_process,
 		limits=limits,
 		deadline=deadline,
 		base_operation=base_operation,

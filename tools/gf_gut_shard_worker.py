@@ -26,7 +26,13 @@ if str(TOOLS_ROOT) not in sys.path:
 	sys.path.insert(0, str(TOOLS_ROOT))
 
 import gf_gut_sharding
+from gf_process_authority import FrozenGitProcess
+from gf_process_authority import FrozenProcessAuthority
+from gf_process_authority import FrozenProcessEnvironment
 import gf_process_supervisor
+from gf_executable_resolution import FrozenEnvironmentError
+from gf_executable_resolution import remove_owned_environment_value
+from gf_executable_resolution import set_owned_environment_value
 
 
 SCHEMA_VERSION = 1
@@ -404,12 +410,15 @@ def _validate_junit_path(value: str) -> str:
 def run_worker(
 	request: Mapping[str, Any],
 	*,
+	process_authority: FrozenProcessAuthority,
 	process_runner: Callable[..., Any] = gf_process_supervisor.run_supervised_process,
 	result_adapter: Callable[..., Any] | None = None,
 	cancellation_event: threading.Event | None = None,
 	expected_workspace_identity: tuple[int, int, int] | None = None,
 ) -> dict[str, Any]:
 	"""Execute import then one selected GUT command and return a closed report."""
+	if not isinstance(process_authority, FrozenProcessAuthority):
+		raise TypeError("GUT shard worker requires one frozen process authority.")
 	duration_started = time.perf_counter()
 	deadline_started = time.monotonic()
 	normalized = validate_request(dict(request))
@@ -434,6 +443,7 @@ def run_worker(
 			workspace,
 			normalized["workspace_fingerprint"],
 			workspace_identity,
+			git_process=process_authority.git,
 			deadline=deadline,
 		)
 		workspace_identity_chain_valid = True
@@ -463,6 +473,7 @@ def run_worker(
 		environment = _private_environment(
 			workspace,
 			requested_private_environment_root,
+			process_environment=process_authority.environment,
 			observation_nonce=normalized["nonce"],
 		)
 		# _private_environment owns rollback until it returns.  Track the root here
@@ -1132,7 +1143,14 @@ def _run_authoritative_phase(
 			effective_command = maintenance.resolve_godot_command(
 				effective_command,
 				environment=environment,
+				cwd=workspace,
 			)
+		except FrozenEnvironmentError as error:
+			raise GutShardWorkerError(
+				"worker_environment_invalid",
+				"The authoritative process environment is invalid.",
+				phase,
+			) from error
 		except (OSError, ValueError) as error:
 			raise GutShardWorkerError(
 				"worker_authority_preflight_failed",
@@ -1451,6 +1469,7 @@ def _validate_workspace_binding(
 	expected_fingerprint: str,
 	expected_workspace_identity: tuple[int, int, int],
 	*,
+	git_process: FrozenGitProcess,
 	deadline: float,
 ) -> None:
 	_assert_workspace_identity(workspace, expected_workspace_identity)
@@ -1458,7 +1477,11 @@ def _validate_workspace_binding(
 	actual: Any = None
 	try:
 		from gf_maintenance_check_graph import workspace_fingerprint
-		actual = workspace_fingerprint(workspace, deadline=deadline)["fingerprint"]
+		actual = workspace_fingerprint(
+			workspace,
+			git_process=git_process,
+			deadline=deadline,
+		)["fingerprint"]
 	except (ImportError, KeyError, OSError, ValueError) as error:
 		fingerprint_error = error
 	# The publication token is the only workspace identity authority.  Recheck it
@@ -1717,8 +1740,11 @@ def _private_environment(
 	workspace: Path,
 	root: Path,
 	*,
+	process_environment: FrozenProcessEnvironment,
 	observation_nonce: str,
 ) -> dict[str, str]:
+	if not isinstance(process_environment, FrozenProcessEnvironment):
+		raise TypeError("Private worker environment requires a frozen base environment.")
 	if _paths_overlap(workspace, root):
 		raise GutShardWorkerError(
 			"worker_private_environment_overlap",
@@ -1744,35 +1770,41 @@ def _private_environment(
 		for directory in directories.values():
 			directory.mkdir(exist_ok=False)
 			_validate_real_directory(directory, "platform isolation directory")
-		environment = os.environ.copy()
-		environment.pop("GODOT_USER_HOME", None)
-		environment.pop(OBSERVATION_NONCE_ENVIRONMENT, None)
-		environment.pop(OBSERVATION_PATH_ENVIRONMENT, None)
+		environment = process_environment.values()
+		for name in (
+			"GODOT_USER_HOME",
+			OBSERVATION_NONCE_ENVIRONMENT,
+			OBSERVATION_PATH_ENVIRONMENT,
+		):
+			remove_owned_environment_value(environment, name)
+		private_values: dict[str, str]
 		if os.name == "nt":
 			# Godot appends ``Godot/app_userdata/<project>`` to APPDATA.  Point it
 			# at the already-owned root instead of adding another directory name;
 			# deep Storage transaction paths must remain below legacy MAX_PATH on
 			# Windows hosts where long-path support is disabled.
-			environment.update({
+			private_values = {
 				"APPDATA": str(root),
 				"LOCALAPPDATA": str(directories["localappdata"]),
-			})
+			}
 		elif sys.platform == "darwin":
-			environment["HOME"] = str(directories["home"])
+			private_values = {"HOME": str(directories["home"])}
 		else:
-			environment.update({
+			private_values = {
 				"HOME": str(directories["home"]),
 				"XDG_DATA_HOME": str(directories["data"]),
 				"XDG_CONFIG_HOME": str(directories["config"]),
 				"XDG_CACHE_HOME": str(directories["cache"]),
-			})
+			}
 		for key in ("TMPDIR", "TEMP", "TMP"):
-			environment[key] = str(directories["temp"])
-		environment[OBSERVATION_NONCE_ENVIRONMENT] = observation_nonce
-		environment[OBSERVATION_PATH_ENVIRONMENT] = (
+			private_values[key] = str(directories["temp"])
+		private_values[OBSERVATION_NONCE_ENVIRONMENT] = observation_nonce
+		private_values[OBSERVATION_PATH_ENVIRONMENT] = (
 			_observation_provenance_resource_path(observation_nonce)
 		)
-		environment["PYTHONUTF8"] = "1"
+		private_values["PYTHONUTF8"] = "1"
+		for name, value in private_values.items():
+			set_owned_environment_value(environment, name, value)
 		return environment
 	except BaseException as error:
 		cleanup_error = _remove_private_environment_root(root, root_identity)

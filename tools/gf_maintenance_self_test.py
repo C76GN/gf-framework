@@ -39,6 +39,26 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 	global _ACTIVE_WORKSPACE_SNAPSHOT
 	tests: list[dict[str, Any]] = []
 	failures: list[dict[str, Any]] = []
+	process_authority = active_or_freeze_maintenance_process_authority()
+	git_process = process_authority.git
+	process_environment = process_authority.environment
+
+	def run_fixture_git(repository_root: Path, arguments: list[str]) -> None:
+		result = run_supervised_process(
+			list(git_process.command(arguments).effective),
+			cwd=repository_root,
+			timeout_seconds=30.0,
+			environment=git_process.environment.values(),
+		)
+		if result.process_boundary_quiescent is not True:
+			raise gf_parallel_validation.WorkspaceProcessBoundaryError(
+				"Self-test Git fixture did not prove a quiet process boundary."
+			)
+		if result.timed_out or result.return_code != 0:
+			raise RuntimeError(
+				"Self-test Git fixture failed: "
+				+ str(result.stderr or result.stdout)
+			)
 
 	def record_result(name: str, passed: bool, message: str = "") -> None:
 		result = {"name": name, "passed": passed}
@@ -383,6 +403,7 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 			producer_root,
 			fixture_builder_data,
 			fixture_workspace_state,
+			builder_cwd=producer_root,
 		)
 		private_set = gf_package_artifact_set.materialize_package_artifact_set(
 			sealed_set,
@@ -428,6 +449,7 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 				sealed_set.manifest_path.as_posix(),
 				sealed_set.manifest_sha256,
 				fixture_workspace_state,
+				process_authority=process_authority,
 				deadline=time.perf_counter() - 1.0,
 			)
 		except PackageArtifactDeadlineError:
@@ -786,51 +808,41 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 			["config", "user.name", "GF Maintenance"],
 			["config", "core.autocrlf", "false"],
 		):
-			subprocess.run(
-				["git", *git_args],
-				cwd=source_root,
-				check=True,
-				capture_output=True,
-			)
+			run_fixture_git(source_root, git_args)
 		tracked_path = source_root / "tracked.txt"
 		tracked_path.write_text("committed\n", encoding="utf-8")
-		subprocess.run(["git", "add", "tracked.txt"], cwd=source_root, check=True, capture_output=True)
-		subprocess.run(
-			["git", "commit", "--quiet", "-m", "fixture"],
-			cwd=source_root,
-			check=True,
-			capture_output=True,
-		)
+		run_fixture_git(source_root, ["add", "tracked.txt"])
+		run_fixture_git(source_root, ["commit", "--quiet", "-m", "fixture"])
 		staged_added_path = source_root / "staged-added.txt"
 		staged_added_path.write_text("staged\n", encoding="utf-8")
-		subprocess.run(
-			["git", "add", "staged-added.txt"],
-			cwd=source_root,
-			check=True,
-			capture_output=True,
-		)
+		run_fixture_git(source_root, ["add", "staged-added.txt"])
 		tracked_path.write_text("dirty\n", encoding="utf-8")
 		(source_root / "untracked.bin").write_bytes(b"\x00gf-parallel-fixture\xff")
-		captured_fixture = gf_parallel_validation.capture_workspace(source_root)
+		captured_fixture = gf_parallel_validation.capture_workspace(
+			source_root,
+			git_process=git_process,
+		)
 		workspace_a = gf_parallel_validation.materialize_workspace(
 			captured_fixture,
 			fixture_root / "workspace-a",
+			git_process=git_process,
 		)
 		workspace_b = gf_parallel_validation.materialize_workspace(
 			captured_fixture,
 			fixture_root / "workspace-b",
+			git_process=git_process,
 		)
 		normal_parallel_results = gf_parallel_validation.run_parallel_shards(
 			[
-				ParallelShard("a", (sys.executable, "-c", "print('a')"), workspace_a, 10),
-				ParallelShard("b", (sys.executable, "-c", "print('b')"), workspace_b, 10),
+				ParallelShard("a", (str(Path(sys.executable).resolve(strict=True)), "-c", "print('a')"), workspace_a, 10, process_environment.values()),
+				ParallelShard("b", (str(Path(sys.executable).resolve(strict=True)), "-c", "print('b')"), workspace_b, 10, process_environment.values()),
 			],
 			max_workers=2,
 		)
 		fail_fast_results = gf_parallel_validation.run_parallel_shards(
 			[
-				ParallelShard("failure", (sys.executable, "-c", "raise SystemExit(7)"), workspace_a, 10),
-				ParallelShard("not-started", (sys.executable, "-c", "print('unexpected')"), workspace_b, 10),
+				ParallelShard("failure", (str(Path(sys.executable).resolve(strict=True)), "-c", "raise SystemExit(7)"), workspace_a, 10, process_environment.values()),
+				ParallelShard("not-started", (str(Path(sys.executable).resolve(strict=True)), "-c", "print('unexpected')"), workspace_b, 10, process_environment.values()),
 			],
 			max_workers=1,
 			fail_fast=True,
@@ -844,7 +856,11 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 			gf_parallel_validation._run_git = fail_materialization_git
 			failed_target = fixture_root / "failed-workspace"
 			try:
-				gf_parallel_validation.materialize_workspace(captured_fixture, failed_target)
+				gf_parallel_validation.materialize_workspace(
+					captured_fixture,
+					failed_target,
+					git_process=git_process,
+				)
 			except WorkspaceSnapshotError:
 				failed_materialization_cleaned = (
 					not os.path.lexists(failed_target)
@@ -854,8 +870,14 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 			gf_parallel_validation._run_git = original_parallel_run_git
 		record_result(
 			"parallel_validation_materializes_equivalent_isolated_workspaces",
-			captured_fixture.workspace_fingerprint == workspace_fingerprint(workspace_a)["fingerprint"]
-			and captured_fixture.workspace_fingerprint == workspace_fingerprint(workspace_b)["fingerprint"]
+			captured_fixture.workspace_fingerprint == workspace_fingerprint(
+				workspace_a,
+				git_process=git_process,
+			)["fingerprint"]
+			and captured_fixture.workspace_fingerprint == workspace_fingerprint(
+				workspace_b,
+				git_process=git_process,
+			)["fingerprint"]
 			and (workspace_a / "tracked.txt").read_text(encoding="utf-8") == "dirty\n"
 			and (workspace_a / "staged-added.txt").read_text(encoding="utf-8") == "staged\n"
 			and (workspace_b / "untracked.bin").read_bytes() == b"\x00gf-parallel-fixture\xff"
@@ -907,24 +929,12 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 				["config", "user.name", "GF Maintenance"],
 				["config", "core.autocrlf", "false"],
 			):
-				subprocess.run(
-					["git", *total_git_args],
-					cwd=total_source_root,
-					check=True,
-					capture_output=True,
-				)
+				run_fixture_git(total_source_root, total_git_args)
 			(total_source_root / "tracked.txt").write_text("fixture\n", encoding="utf-8")
-			subprocess.run(
-				["git", "add", "tracked.txt"],
-				cwd=total_source_root,
-				check=True,
-				capture_output=True,
-			)
-			subprocess.run(
-				["git", "commit", "--quiet", "-m", "fixture"],
-				cwd=total_source_root,
-				check=True,
-				capture_output=True,
+			run_fixture_git(total_source_root, ["add", "tracked.txt"])
+			run_fixture_git(
+				total_source_root,
+				["commit", "--quiet", "-m", "fixture"],
 			)
 			(total_source_root / "small-a.bin").write_bytes(b"aaaa")
 			(total_source_root / "small-b.bin").write_bytes(b"bbbb")
@@ -933,14 +943,18 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 				sum(
 					captured.size_bytes
 					for captured in gf_parallel_validation.capture_workspace(
-						total_source_root
+						total_source_root,
+						git_process=git_process,
 					).untracked_files
 				)
 				== 8
 			)
 			(total_source_root / "small-c.bin").write_bytes(b"c")
 			try:
-				gf_parallel_validation.capture_workspace(total_source_root)
+				gf_parallel_validation.capture_workspace(
+					total_source_root,
+					git_process=git_process,
+				)
 			except WorkspaceSnapshotError:
 				total_limit_rejected = True
 		finally:
@@ -1094,7 +1108,16 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 		fixture_godot.write_bytes(b"fixture")
 		if os.name != "nt":
 			fixture_godot.chmod(0o755)
+		fixture_git = fixture_root / ("git.exe" if os.name == "nt" else "git")
+		fixture_git.write_bytes(b"fixture")
+		if os.name != "nt":
+			fixture_git.chmod(0o755)
 		fixture_process_environment_values = dict(os.environ)
+		set_owned_environment_value(
+			fixture_process_environment_values,
+			"PATH",
+			str(fixture_root),
+		)
 		fixture_process_environment_values[GODOT_EXECUTABLE_ENV_VAR] = str(
 			fixture_godot
 		)
@@ -1238,6 +1261,16 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 					result["result_fingerprint"]
 				)
 
+		valid_diff_identity = fixture_command_contract(
+			expected_report_checks
+		).identities["diff"]
+		valid_report["results"][0]["command"] = list(
+			valid_diff_identity.effective
+		)
+		valid_diff_identity_is_frozen = (
+			valid_diff_identity.declared == ("git", "diff", "--check")
+			and Path(valid_diff_identity.effective[0]).is_absolute()
+		)
 		refresh_report_result_input_fingerprints(valid_report)
 		passing_report_runner = ParallelShardResult(
 			name="report-fixture",
@@ -1550,15 +1583,18 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 			dependency_chain_checks
 		)
 		dependency_chain_report["results"] = []
+		dependency_chain_contract = fixture_command_contract(
+			dependency_chain_checks
+		)
 		for dependency_chain_name in dependency_chain_checks:
 			dependency_chain_result = json.loads(json.dumps(
 				valid_report["results"][0]
 			))
 			dependency_chain_result["name"] = dependency_chain_name
-			dependency_chain_result["command"] = (
-				isolated_command_catalog.command_definitions()[
+			dependency_chain_result["command"] = list(
+				dependency_chain_contract.identities[
 					dependency_chain_name
-				]
+				].effective
 			)
 			dependency_chain_result["execution"] = (
 				isolated_command_catalog.executor_kind(
@@ -1966,7 +2002,8 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 		)
 		record_result(
 			"parallel_shard_reports_are_strict_and_fail_closed",
-			valid_loaded is not None
+			valid_diff_identity_is_frozen
+			and valid_loaded is not None
 			and not valid_issue
 			and layered_timeout_loaded is not None
 			and not layered_timeout_issue
@@ -2027,13 +2064,14 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 		expected_package_manifest_path = str(
 			report_root / "package-artifact-manifest.json"
 		)
-		package_report["results"][0]["command"] = [
-			*_VALIDATION_CATALOG.command_definitions()["package_build_boundary"],
-			"--package-artifact-manifest",
-			expected_package_manifest_path,
-			"--package-artifact-manifest-sha256",
-			expected_package_manifest_sha256,
-		]
+		package_command_identity = fixture_command_contract(
+			package_report_checks,
+			package_artifact_manifest=expected_package_manifest_path,
+			package_artifact_manifest_sha256=expected_package_manifest_sha256,
+		).identities["package_build_boundary"]
+		package_report["results"][0]["command"] = list(
+			package_command_identity.effective
+		)
 		refresh_report_result_input_fingerprints(
 			package_report,
 			package_artifact_manifest=expected_package_manifest_path,
@@ -2129,24 +2167,12 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 				["config", "user.name", "GF Maintenance"],
 				["config", "core.autocrlf", "false"],
 			):
-				subprocess.run(
-					["git", *git_args],
-					cwd=repository_root,
-					check=True,
-					capture_output=True,
-				)
+				run_fixture_git(repository_root, git_args)
 			(repository_root / "tracked.txt").write_text("fixture\n", encoding="utf-8")
-			subprocess.run(
-				["git", "add", "tracked.txt"],
-				cwd=repository_root,
-				check=True,
-				capture_output=True,
-			)
-			subprocess.run(
-				["git", "commit", "--quiet", "-m", "fixture"],
-				cwd=repository_root,
-				check=True,
-				capture_output=True,
+			run_fixture_git(repository_root, ["add", "tracked.txt"])
+			run_fixture_git(
+				repository_root,
+				["commit", "--quiet", "-m", "fixture"],
 			)
 
 		fingerprint_root = fingerprint_fixture_root / "chunked"
@@ -2174,12 +2200,16 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 		try:
 			gf_maintenance_check_graph.WORKSPACE_FINGERPRINT_CHUNK_BYTES = 4
 			gf_maintenance_check_graph.os.read = track_chunked_fingerprint_read
-			chunked_fingerprint = workspace_fingerprint(fingerprint_root)["fingerprint"]
+			chunked_fingerprint = workspace_fingerprint(
+				fingerprint_root,
+				git_process=git_process,
+			)["fingerprint"]
 		finally:
 			gf_maintenance_check_graph.os.read = original_fingerprint_os_read
 			gf_maintenance_check_graph.WORKSPACE_FINGERPRINT_CHUNK_BYTES = original_fingerprint_chunk_bytes
 		captured_fingerprint = gf_parallel_validation.capture_workspace(
-			fingerprint_root
+			fingerprint_root,
+			git_process=git_process,
 		).workspace_fingerprint
 		record_result(
 			"workspace_fingerprint_chunking_preserves_v1_digest",
@@ -2344,7 +2374,10 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 		try:
 			Path.lstat = reject_fingerprint_pre_lstat
 			try:
-				workspace_fingerprint(fingerprint_root)
+				workspace_fingerprint(
+					fingerprint_root,
+					git_process=git_process,
+				)
 			except gf_maintenance_check_graph.WorkspaceFingerprintDriftError:
 				pre_lstat_rejected = True
 		finally:
@@ -2394,7 +2427,10 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 			Path.lstat = present_fingerprint_path_as_symlink
 			gf_maintenance_check_graph.os.readlink = reject_fingerprint_readlink
 			try:
-				workspace_fingerprint(fingerprint_root)
+				workspace_fingerprint(
+					fingerprint_root,
+					git_process=git_process,
+				)
 			except gf_maintenance_check_graph.WorkspaceFingerprintDriftError:
 				readlink_rejected = True
 		finally:
@@ -2454,7 +2490,10 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 			Path.lstat = replace_symlink_during_readlink
 			gf_maintenance_check_graph.os.readlink = read_replaced_symlink_target
 			try:
-				workspace_fingerprint(fingerprint_root)
+				workspace_fingerprint(
+					fingerprint_root,
+					git_process=git_process,
+				)
 			except gf_maintenance_check_graph.WorkspaceFingerprintDriftError:
 				symlink_race_rejected = True
 		finally:
@@ -2527,16 +2566,25 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 			oversized_path = limit_root / "oversized.bin"
 			oversized_path.write_bytes(b"123456789")
 			try:
-				workspace_fingerprint(limit_root)
+				workspace_fingerprint(
+					limit_root,
+					git_process=git_process,
+				)
 			except gf_maintenance_check_graph.WorkspaceFingerprintSetupError:
 				file_limit_rejected = True
 			oversized_path.unlink()
 			(limit_root / "a.bin").write_bytes(b"aaaaaa")
 			(limit_root / "b.bin").write_bytes(b"bbbbbb")
-			total_limit_exact_accepted = workspace_fingerprint(limit_root)["untracked_file_count"] == 2
+			total_limit_exact_accepted = workspace_fingerprint(
+				limit_root,
+				git_process=git_process,
+			)["untracked_file_count"] == 2
 			(limit_root / "c.bin").write_bytes(b"c")
 			try:
-				workspace_fingerprint(limit_root)
+				workspace_fingerprint(
+					limit_root,
+					git_process=git_process,
+				)
 			except gf_maintenance_check_graph.WorkspaceFingerprintSetupError:
 				total_limit_rejected = True
 		finally:
@@ -2565,9 +2613,10 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 		def fail_workspace_fingerprint_setup(
 			_root: Path,
 			*,
+			git_process: FrozenGitProcess,
 			deadline: float | None = None,
 		) -> dict[str, Any]:
-			del deadline
+			del deadline, git_process
 			raise gf_maintenance_check_graph.WorkspaceFingerprintSetupError(
 				"fixture fingerprint setup failure"
 			)
@@ -2610,12 +2659,17 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 		override_engine = fixture_root / "custom-godot.exe"
 		for executable_path in (steam_launcher, steam_engine, override_engine):
 			executable_path.write_bytes(b"fixture")
+			if os.name != "nt":
+				executable_path.chmod(
+					executable_path.stat().st_mode | stat.S_IXUSR
+				)
 		record_result(
 			"godot_resolver_bypasses_detached_windows_steam_launcher",
 			resolve_godot_executable(
 				str(steam_launcher),
 				environment={},
 				platform_name="nt",
+				cwd=fixture_root,
 			) == str(steam_engine.resolve()),
 			"Windows maintenance checks must supervise the foreground Steam engine binary.",
 		)
@@ -2625,6 +2679,7 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 				str(steam_launcher),
 				environment={"GF_GODOT_EXECUTABLE": str(override_engine)},
 				platform_name="nt",
+				cwd=fixture_root,
 			) == str(override_engine.resolve()),
 			"GF_GODOT_EXECUTABLE must remain the explicit cross-platform executable override.",
 		)
@@ -2798,9 +2853,19 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 		with managed_owned_directory(batch_path, cleanup_errors=batch_cleanup_errors) as batch_root:
 			batch_workspace = batch_root / "s0"
 			batch_workspace.mkdir()
+			batch_godot = batch_root / (
+				"fixture-godot.exe" if os.name == "nt" else "fixture-godot"
+			)
+			batch_godot.write_bytes(b"fixture")
+			if os.name != "nt":
+				batch_godot.chmod(0o755)
 			_batch_environment, _batch_private_root = parallel_shard_environment(
 				batch_workspace,
 				batch_root / "u0",
+				base_environment={
+					**os.environ,
+					GODOT_EXECUTABLE_ENV_VAR: str(batch_godot),
+				},
 			)
 		record_result(
 			"parallel_batches_cleanup_workspaces_and_private_os_roots_together",
@@ -3722,6 +3787,7 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 			[sys.executable, "-c", "raise SystemExit(99)"],
 			cwd=ROOT,
 			timeout_seconds=10,
+			environment=process_environment.values(),
 			cancellation_event=pre_cancelled_event,
 		)
 		cancel_ready_path = Path(temp_dir) / "grandchild-ready-cancel.txt"
@@ -3757,6 +3823,7 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 				[sys.executable, "-c", cancel_parent_code],
 				cwd=ROOT,
 				timeout_seconds=10,
+				environment=process_environment.values(),
 				cancellation_event=running_cancel_event,
 			)
 		finally:
@@ -3801,6 +3868,7 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 				[sys.executable, "-c", interrupt_parent_code],
 				cwd=ROOT,
 				timeout_seconds=10,
+				environment=process_environment.values(),
 				heartbeat_callback=interrupt_heartbeat,
 				heartbeat_interval_seconds=0.05,
 			)
@@ -3853,6 +3921,7 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 			[sys.executable, "-c", orphan_parent_code],
 			cwd=ROOT,
 			timeout_seconds=10,
+			environment=process_environment.values(),
 		)
 		time.sleep(4.2)
 		record_result(
@@ -3888,6 +3957,7 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 			[sys.executable, "-c", detached_parent_code],
 			cwd=ROOT,
 			timeout_seconds=10,
+			environment=process_environment.values(),
 		)
 		time.sleep(0.8)
 		record_result(
@@ -4225,6 +4295,7 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 						[sys.executable, "-c", process_code],
 						cwd=ROOT,
 						timeout_seconds=10,
+						environment=process_environment.values(),
 					)
 				except KeyboardInterrupt:
 					interrupted = True
@@ -4284,8 +4355,8 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 		def run_windows_unassigned_startup_retry_fixture() -> dict[str, Any]:
 			state: dict[str, Any] = {
 				"interrupt_raised": False,
-				"interrupted": False,
-				"same_exception": False,
+				"cleanup_debt_raised": False,
+				"cause_preserved": False,
 				"kill_calls": 0,
 				"injected_kill_failures": 0,
 				"outer_terminate_calls": 0,
@@ -4366,10 +4437,16 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 						[sys.executable, "-c", process_code],
 						cwd=ROOT,
 						timeout_seconds=10,
+						environment=process_environment.values(),
 					)
-				except KeyboardInterrupt as error:
-					state["interrupted"] = True
-					state["same_exception"] = error is injected_interrupt
+				except gf_process_supervisor.SupervisedProcessCleanupError as error:
+					state["cleanup_debt_raised"] = True
+					state["cause_preserved"] = (
+						error.__cause__ is injected_interrupt
+						and error.original_error is injected_interrupt
+						and error.cleanup_debt is True
+						and error.process_boundary_quiescent is False
+					)
 				except BaseException as error:
 					state["error"] = f"{type(error).__name__}: {error}"
 			finally:
@@ -4413,8 +4490,8 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 				not windows_unassigned_startup_retry_state["error"]
 				and not windows_unassigned_startup_retry_state["fixture_cleanup_error"]
 				and windows_unassigned_startup_retry_state["interrupt_raised"]
-				and windows_unassigned_startup_retry_state["interrupted"]
-				and windows_unassigned_startup_retry_state["same_exception"]
+				and windows_unassigned_startup_retry_state["cleanup_debt_raised"]
+				and windows_unassigned_startup_retry_state["cause_preserved"]
 				and windows_unassigned_startup_retry_state["kill_calls"] == 3
 				and windows_unassigned_startup_retry_state["injected_kill_failures"] == 2
 				and windows_unassigned_startup_retry_state["outer_terminate_calls"] >= 2
@@ -4427,7 +4504,7 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 				and not windows_unassigned_startup_retry_state["marker_exists"]
 			),
 			"A suspended Windows child whose two local startup kill/reap attempts fail must remain published "
-			"to the outer cleanup chain until its third real kill is reaped; "
+			"to the outer cleanup chain until its third real kill is reaped, then expose cleanup debt with the interrupt as cause; "
 			f"state={windows_unassigned_startup_retry_state}.",
 		)
 
@@ -4506,6 +4583,7 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 					[sys.executable, "-c", cleanup_parent_code],
 					cwd=ROOT,
 					timeout_seconds=10,
+					environment=process_environment.values(),
 				)
 			except KeyboardInterrupt:
 				cleanup_interrupted = True
@@ -4627,6 +4705,7 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 					[sys.executable, "-c", persistent_failure_process_code],
 					cwd=ROOT,
 					timeout_seconds=0.5,
+					environment=process_environment.values(),
 				)
 			except BaseException as error:
 				persistent_failure_error = f"{type(error).__name__}: {error}"
@@ -4794,6 +4873,7 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 					[sys.executable, "-c", reap_noop_process_code],
 					cwd=ROOT,
 					timeout_seconds=0.5,
+					environment=process_environment.values(),
 				)
 			except BaseException as error:
 				reap_noop_error = f"{type(error).__name__}: {error}"
@@ -4979,6 +5059,7 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 					[sys.executable, "-c", terminate_retry_parent_code],
 					cwd=ROOT,
 					timeout_seconds=10,
+					environment=process_environment.values(),
 				)
 			except BaseException as error:
 				terminate_retry_error = f"{type(error).__name__}: {error}"
@@ -5036,8 +5117,8 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 				"interrupt_injected": False,
 				"second_interrupt_injected": False,
 				"boundary_after_success": False,
-				"interrupted": False,
-				"same_exception": False,
+				"cleanup_debt_raised": False,
+				"cause_preserved": False,
 				"handle_zero": False,
 				"owner_closed": False,
 				"process_reaped": False,
@@ -5156,10 +5237,16 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 						[sys.executable, "-c", "print('close-handle-fixture', flush=True)"],
 						cwd=ROOT,
 						timeout_seconds=10,
+						environment=process_environment.values(),
 					)
-				except KeyboardInterrupt as error:
-					state["interrupted"] = True
-					state["same_exception"] = error is injected_interrupt
+				except gf_process_supervisor.SupervisedProcessCleanupError as error:
+					state["cleanup_debt_raised"] = True
+					state["cause_preserved"] = (
+						error.__cause__ is injected_interrupt
+						and error.original_error is injected_interrupt
+						and error.cleanup_debt is True
+						and error.process_boundary_quiescent is False
+					)
 				except BaseException as error:
 					state["error"] = f"{type(error).__name__}: {error}"
 			finally:
@@ -5224,8 +5311,8 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 				not windows_pre_call_state["error"]
 				and not windows_pre_call_state["cleanup_error"]
 				and windows_pre_call_state["interrupt_injected"]
-				and windows_pre_call_state["interrupted"]
-				and windows_pre_call_state["same_exception"]
+				and windows_pre_call_state["cleanup_debt_raised"]
+				and windows_pre_call_state["cause_preserved"]
 				and windows_pre_call_state["worker_start_attempts"] == 2
 				and windows_pre_call_state["low_level_start_attempts"] == 0
 				and len(windows_pre_call_state["operations"]) == 2
@@ -5244,7 +5331,7 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 				and windows_pre_call_state["pipes_closed"]
 			),
 			"A main-thread interruption before the CloseHandle worker starts must preserve the handle for one safe "
-			"emergency retry and propagate the same exception; "
+			"emergency retry and publish cleanup debt with the interruption as cause; "
 			f"platform={os.name}, starts={windows_pre_call_state['worker_start_attempts']}, "
 			f"low_level_starts={windows_pre_call_state['low_level_start_attempts']}, "
 			f"operation_handles={windows_pre_call_state['operation_handles']}, "
@@ -5252,8 +5339,8 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 			f"wrapper_results={windows_pre_call_state['wrapper_results']}, "
 			f"native_results={windows_pre_call_state['native_results']}, "
 			f"worker_threads={windows_pre_call_state['worker_thread_names']}, "
-			f"interrupted={windows_pre_call_state['interrupted']}, "
-			f"same_exception={windows_pre_call_state['same_exception']}, "
+			f"cleanup_debt={windows_pre_call_state['cleanup_debt_raised']}, "
+			f"cause_preserved={windows_pre_call_state['cause_preserved']}, "
 			f"handle_zero={windows_pre_call_state['handle_zero']}, "
 			f"owner_closed={windows_pre_call_state['owner_closed']}, "
 			f"reaped={windows_pre_call_state['process_reaped']}, "
@@ -5273,8 +5360,8 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 				and not windows_double_start_state["cleanup_error"]
 				and windows_double_start_state["interrupt_injected"]
 				and windows_double_start_state["second_interrupt_injected"]
-				and windows_double_start_state["interrupted"]
-				and windows_double_start_state["same_exception"]
+				and windows_double_start_state["cleanup_debt_raised"]
+				and windows_double_start_state["cause_preserved"]
 				and windows_double_start_state["worker_start_attempts"] == 2
 				and windows_double_start_state["low_level_start_attempts"] == 1
 				and len(windows_double_start_state["operations"]) == 2
@@ -5295,7 +5382,7 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 				and windows_double_start_state["pipes_closed"]
 			),
 			"Two pre-call Thread.start failures must retain one operation, close its numeric handle exactly once "
-			"through the low-level fallback, and propagate the first exception without a stale retry; "
+			"through the low-level fallback, and publish cleanup debt with the first interruption as cause; "
 			f"platform={os.name}, starts={windows_double_start_state['worker_start_attempts']}, "
 			f"low_level_starts={windows_double_start_state['low_level_start_attempts']}, "
 			f"operation_handles={windows_double_start_state['operation_handles']}, "
@@ -5303,8 +5390,8 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 			f"wrapper_results={windows_double_start_state['wrapper_results']}, "
 			f"native_results={windows_double_start_state['native_results']}, "
 			f"worker_threads={windows_double_start_state['worker_thread_names']}, "
-			f"interrupted={windows_double_start_state['interrupted']}, "
-			f"same_exception={windows_double_start_state['same_exception']}, "
+			f"cleanup_debt={windows_double_start_state['cleanup_debt_raised']}, "
+			f"cause_preserved={windows_double_start_state['cause_preserved']}, "
 			f"handle_zero={windows_double_start_state['handle_zero']}, "
 			f"owner_closed={windows_double_start_state['owner_closed']}, "
 			f"reaped={windows_double_start_state['process_reaped']}, "
@@ -5322,8 +5409,8 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 				and not windows_post_success_state["cleanup_error"]
 				and windows_post_success_state["interrupt_injected"]
 				and windows_post_success_state["boundary_after_success"]
-				and windows_post_success_state["interrupted"]
-				and windows_post_success_state["same_exception"]
+				and windows_post_success_state["cleanup_debt_raised"]
+				and windows_post_success_state["cause_preserved"]
 				and windows_post_success_state["worker_start_attempts"] == 1
 				and windows_post_success_state["low_level_start_attempts"] == 0
 				and len(windows_post_success_state["operations"]) == 1
@@ -5339,8 +5426,8 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 				and windows_post_success_state["process_reaped"]
 				and windows_post_success_state["pipes_closed"]
 			),
-			"A main-thread interruption after successful CloseHandle publication must propagate the same exception "
-			"without retrying the consumed numeric handle; "
+			"A main-thread interruption after successful CloseHandle publication must publish cleanup debt with the "
+			"interruption as cause without retrying the consumed numeric handle; "
 			f"platform={os.name}, starts={windows_post_success_state['worker_start_attempts']}, "
 			f"low_level_starts={windows_post_success_state['low_level_start_attempts']}, "
 			f"operation_handles={windows_post_success_state['operation_handles']}, "
@@ -5349,8 +5436,8 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 			f"native_results={windows_post_success_state['native_results']}, "
 			f"worker_threads={windows_post_success_state['worker_thread_names']}, "
 			f"boundary_after_success={windows_post_success_state['boundary_after_success']}, "
-			f"interrupted={windows_post_success_state['interrupted']}, "
-			f"same_exception={windows_post_success_state['same_exception']}, "
+			f"cleanup_debt={windows_post_success_state['cleanup_debt_raised']}, "
+			f"cause_preserved={windows_post_success_state['cause_preserved']}, "
 			f"handle_zero={windows_post_success_state['handle_zero']}, "
 			f"owner_closed={windows_post_success_state['owner_closed']}, "
 			f"reaped={windows_post_success_state['process_reaped']}, "
@@ -5368,7 +5455,7 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 				not windows_false_retry_state["error"]
 				and not windows_false_retry_state["cleanup_error"]
 				and not windows_false_retry_state["interrupt_injected"]
-				and not windows_false_retry_state["interrupted"]
+				and not windows_false_retry_state["cleanup_debt_raised"]
 				and windows_false_retry_state["worker_start_attempts"] == 2
 				and windows_false_retry_state["low_level_start_attempts"] == 0
 				and len(windows_false_retry_state["operations"]) == 2
@@ -5819,12 +5906,13 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 		),
 	)
 	record_result(
-		"gut_sharding_tests_share_the_maintenance_execution_owner",
+		"maintenance_execution_tests_own_process_and_gut_protocol_coverage",
 		CHECK_DEFINITIONS.get("maintenance_execution_tests") == [
 			sys.executable,
 			"-m",
 			"unittest",
 			"tests/gf_core/tools/test_gf_maintenance_execution.py",
+			"tests/gf_core/tools/test_gf_posix_process_watchdog.py",
 			"tests/gf_core/tools/test_gf_maintenance_check_graph.py",
 			"tests/gf_core/tools/test_gf_parallel_validation.py",
 			"tests/gf_core/tools/test_gf_validation_contracts.py",
@@ -5833,10 +5921,11 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 			"tests/gf_core/tools/test_gf_validation_test_inventory.py",
 			"tests/gf_core/tools/test_gf_gut_sharding.py",
 			"tests/gf_core/tools/test_gf_gut_shard_worker.py",
+			"tests/gf_core/tools/test_build_gf_release_artifacts.py",
 		],
 		(
-			"GUT shard protocol tests must stay in the existing maintenance execution "
-			"owner instead of creating an unowned or suite-expanding test path."
+			"Real POSIX watchdog and GUT shard protocol tests must stay in the existing "
+			"maintenance execution owner instead of creating unowned test paths."
 		),
 	)
 	record_result(
@@ -6186,6 +6275,7 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 			"--json",
 		],
 		timeout_seconds=10,
+		process_environment=process_environment,
 	)
 	maintenance_source = read_text_file(ROOT / "tools/gf_maintenance.py")
 	obsolete_release_builders = (
@@ -6963,13 +7053,16 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 		"The hard gate must scan GF runtime and gf_core tests while excluding vendored GUT sources.",
 	)
 	record_result(
-		"gdscript_lsp_diagnostics_uses_scaled_timeout_retries",
-		"--connect-or-spawn" in gdscript_lsp_command
-		and "--spawn-lsp" not in gdscript_lsp_command
-		and gdscript_lsp_command[gdscript_lsp_command.index("--port") + 1] == "6005"
+		"gdscript_lsp_diagnostics_owns_dynamic_lsp_and_uses_scaled_timeout_retries",
+		"--spawn-lsp" in gdscript_lsp_command
+		and "--connect-or-spawn" not in gdscript_lsp_command
+		and gdscript_lsp_command[gdscript_lsp_command.index("--port") + 1] == "0"
 		and "--max-file-timeout" in gdscript_lsp_command
-		and "--timeout-retries" in gdscript_lsp_command,
-		"GDScript LSP diagnostics should reuse an active editor and use scaled timeout retries.",
+		and "--timeout-retries" in gdscript_lsp_command
+		and "--lsp-process-timeout" in gdscript_lsp_command
+		and resolve_check_timeout_seconds("gdscript_lsp_diagnostics", None)
+		> int(gdscript_lsp_command[gdscript_lsp_command.index("--lsp-process-timeout") + 1]),
+		"The authoritative LSP gate must own a dynamic server, retain scaled retries, and reserve outer cleanup time.",
 	)
 	gdscript_lsp_source = read_text_file(ROOT / "tools/gdscript_lsp_diagnostics.py")
 	record_result(
@@ -6979,10 +7072,14 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 		"connected LSP diagnostics must not broadcast disk changes over an editor's unsaved buffers.",
 	)
 	record_result(
-		"gdscript_lsp_connected_mode_writes_auditable_result",
+		"gdscript_lsp_connected_mode_is_auditable_but_non_authoritative",
 		"_write_connection_audit_log" in gdscript_lsp_source
-		and '"mode": "connected"' in gdscript_lsp_source,
-		"connected LSP diagnostics must persist an auditable result without requiring a spawned Godot log.",
+		and "retained_owned_lease = process is not None and process.has_lease"
+		in gdscript_lsp_source
+		and '"connected_non_authoritative"' in gdscript_lsp_source
+		and '"invocation_owned"' in gdscript_lsp_source
+		and 'else "non_authoritative"' in gdscript_lsp_source,
+		"Connected LSP diagnostics must remain auditable while a start failure that already published a lease reports its actual retained authority.",
 	)
 	record_result(
 		"gdscript_lsp_rejects_cross_project_ports",

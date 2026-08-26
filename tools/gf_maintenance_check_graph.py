@@ -16,6 +16,7 @@ from typing import Any
 from typing import Iterable
 from typing import Mapping
 
+from gf_process_authority import FrozenGitProcess
 from gf_process_supervisor import SupervisedProcessStartError
 from gf_process_supervisor import run_supervised_process
 
@@ -59,21 +60,33 @@ def stable_fingerprint(value: Any) -> str:
 	return hashlib.sha256(payload).hexdigest()
 
 
-def workspace_fingerprint(root: Path, *, deadline: float | None = None) -> dict[str, Any]:
+def workspace_fingerprint(
+	root: Path,
+	*,
+	git_process: FrozenGitProcess,
+	deadline: float | None = None,
+) -> dict[str, Any]:
 	"""Fingerprint committed state plus every non-ignored local change."""
 	_check_deadline(deadline, "workspace fingerprint")
-	head = run_git_bytes(root, ["rev-parse", "HEAD"], deadline=deadline).decode(
+	head = run_git_bytes(
+		root,
+		["rev-parse", "HEAD"],
+		git_process=git_process,
+		deadline=deadline,
+	).decode(
 		"utf-8",
 		errors="replace",
 	).strip()
 	diff = run_git_bytes(
 		root,
 		["diff", "--binary", "--no-ext-diff", "HEAD", "--"],
+		git_process=git_process,
 		deadline=deadline,
 	)
 	untracked_output = run_git_bytes(
 		root,
 		["ls-files", "--others", "--exclude-standard", "-z"],
+		git_process=git_process,
 		deadline=deadline,
 	)
 	untracked_paths = sorted(
@@ -327,18 +340,21 @@ def run_git_bytes(
 	root: Path,
 	args: list[str],
 	*,
+	git_process: FrozenGitProcess,
 	input_bytes: bytes | None = None,
 	deadline: float | None = None,
 ) -> bytes:
 	"""Run Git under the shared tree owner while preserving exact binary I/O."""
 	timeout_seconds = _remaining_timeout(deadline, "workspace fingerprint git operation")
 	effective_timeout = min(30.0, timeout_seconds)
-	command = ["git", *args]
+	command_identity = git_process.command(args)
+	command = list(command_identity.effective)
 	try:
 		completed = run_supervised_process(
 			command,
 			cwd=root,
 			timeout_seconds=effective_timeout,
+			environment=git_process.environment.values(),
 			stdin_bytes=input_bytes,
 			text_errors="surrogateescape",
 			binary_output=True,

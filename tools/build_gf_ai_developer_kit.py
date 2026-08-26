@@ -11,7 +11,6 @@ import json
 import os
 import re
 import secrets
-import shutil
 import stat
 import struct
 import subprocess
@@ -19,6 +18,7 @@ import sys
 import tempfile
 import unicodedata
 import zipfile
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from pathlib import PurePosixPath
@@ -28,11 +28,17 @@ from typing import BinaryIO
 import build_gf_package
 from gdscript_api_parser import ApiDocs, ApiMember, visibility_of
 from gf_api_owners import OWNER_KIND_CLASS, ApiOwner, collect_api_owners
-from gf_godot_process import GODOT_EXECUTABLE_ENV_VAR, resolve_godot_executable
+from gf_executable_resolution import frozen_environment_value
+from gf_executable_resolution import remove_owned_environment_value
+from gf_executable_resolution import set_owned_environment_value
+from gf_godot_process import GODOT_EXECUTABLE_ENV_VAR
+from gf_godot_process import GodotExecutableResolutionError
+from gf_godot_process import resolve_godot_executable
 from gf_parallel_validation import WorkspaceProcessBoundaryError
 from gf_process_supervisor import (
 	SupervisedProcessResult,
 	SupervisedProcessStartError,
+	add_exception_note,
 	safe_exception_detail,
 	safe_exception_traceback,
 	run_supervised_process,
@@ -65,6 +71,10 @@ STORAGE_ACCEPTANCE_COPY_FILE_LIMIT = 50_000
 STORAGE_ACCEPTANCE_COPY_BYTE_LIMIT = 1024 * 1024 * 1024
 STORAGE_ACCEPTANCE_COPY_SINGLE_FILE_LIMIT = 128 * 1024 * 1024
 STORAGE_REDACTION_CANARY = "REDACTION_CANARY_DO_NOT_EMIT"
+_STORAGE_ACCEPTANCE_OBSERVATION_ENVIRONMENT_NAMES = (
+	"GF_GUT_SHARD_OBSERVATION_NONCE",
+	"GF_GUT_SHARD_OBSERVATION_PATH",
+)
 _STORAGE_ACCEPTANCE_LIFECYCLE_PREFIX = "GF_TEST_LIFECYCLE_GATE="
 _STORAGE_ACCEPTANCE_LIFECYCLE_MAX_JSON_BYTES = 65_536
 _STORAGE_ACCEPTANCE_LIFECYCLE_REQUIRED_KEYS = frozenset({
@@ -1152,26 +1162,84 @@ def validate_storage_backend_templates(
 	return issues
 
 
-def resolve_storage_backend_acceptance_engine(godot_executable: str = "") -> str:
+def resolve_storage_backend_acceptance_engine(
+	*,
+	environment: Mapping[str, str],
+	cwd: Path,
+) -> str:
 	"""Resolve a real foreground Godot process before acceptance supervision."""
-	environment = os.environ.copy()
-	configured = godot_executable.strip()
-	if configured:
-		environment[GODOT_EXECUTABLE_ENV_VAR] = configured
-	configured_environment = environment.get(
-		GODOT_EXECUTABLE_ENV_VAR,
-		"",
+	configured_environment = (
+		frozen_environment_value(environment, GODOT_EXECUTABLE_ENV_VAR) or ""
 	).strip()
 	candidates = (
-		(configured or configured_environment,)
+		(configured_environment,)
 		if configured_environment
 		else ("godot", "godot4")
 	)
 	for candidate in candidates:
-		resolved = resolve_godot_executable(candidate, environment=environment)
-		if Path(resolved).is_file() or shutil.which(resolved):
+		try:
+			resolved = resolve_godot_executable(
+				candidate,
+				environment=environment,
+				cwd=cwd,
+			)
+		except GodotExecutableResolutionError:
+			continue
+		if Path(resolved).is_file():
 			return resolved
 	return ""
+
+
+def _verify_storage_acceptance_project_binding(
+	binding: _OwnedRootBinding,
+	*,
+	project_root: Path,
+	owner_root: Path,
+	cleanup_state: dict[str, bool] | None = None,
+) -> Path:
+	"""Require one active exact binding to keep the process cwd pinned."""
+	try:
+		absolute_owner_root = Path(os.path.abspath(owner_root))
+		registered = _registered_owned_binding_for(absolute_owner_root)
+		if registered is not binding or binding.root != absolute_owner_root:
+			raise ValueError(
+				"Storage template acceptance lost its exact private owner binding."
+			)
+		absolute_project_root = binding.require_registered_directory(project_root)
+		_assert_owned_path(
+			absolute_project_root,
+			absolute_owner_root,
+			require_directory=True,
+		)
+		binding.verify()
+		return absolute_project_root
+	except BaseException:
+		if cleanup_state is not None:
+			cleanup_state["permitted"] = False
+		raise
+
+
+def _assert_storage_acceptance_empty_project(
+	binding: _OwnedRootBinding,
+	*,
+	project_root: Path,
+	owner_root: Path,
+	cleanup_state: dict[str, bool],
+) -> Path:
+	project_root = _verify_storage_acceptance_project_binding(
+		binding,
+		project_root=project_root,
+		owner_root=owner_root,
+		cleanup_state=cleanup_state,
+	)
+	try:
+		return _assert_owned_empty_directory(project_root, owner_root)
+	except FileExistsError:
+		# Stable non-emptiness is an ordinary setup rejection, not ownership debt.
+		raise
+	except BaseException:
+		cleanup_state["permitted"] = False
+		raise
 
 
 class _StorageAcceptanceTemporaryRoot:
@@ -1197,7 +1265,7 @@ class _StorageAcceptanceTemporaryRoot:
 		root = self._require_root()
 		preserved_paths = (root,)
 		try:
-			BaseException.add_note(error, f"{reason}: {root}")
+			add_exception_note(error, f"{reason}: {root}")
 		except BaseException:
 			# Diagnostics must not replace the primary or revoke retention.
 			pass
@@ -1274,7 +1342,7 @@ class _StorageAcceptanceTemporaryRoot:
 					"Retained storage acceptance root after finalizer detach failure",
 				)
 				try:
-					BaseException.add_note(
+					add_exception_note(
 						detach_error,
 						"Storage acceptance root cleanup also failed after finalizer "
 						f"detach interruption: {type(cleanup_error).__name__}: "
@@ -1342,7 +1410,7 @@ class _StorageAcceptanceTemporaryRoot:
 					"Retained storage acceptance root after cleanup failure",
 				)
 				try:
-					BaseException.add_note(
+					add_exception_note(
 						retained_error,
 						"Storage acceptance root cleanup also failed: "
 						f"{type(cleanup_error).__name__}: "
@@ -1475,6 +1543,7 @@ def run_storage_backend_template_acceptance(
 	godot_executable: str = "",
 ) -> dict[str, Any]:
 	"""Copy templates into a clean project, import them, and run their GUT suite."""
+	base_environment = dict(os.environ)
 	issues = validate_storage_backend_templates()
 	if issues:
 		return {
@@ -1483,160 +1552,309 @@ def run_storage_backend_template_acceptance(
 			"issues": issues,
 		}
 
-	engine = resolve_storage_backend_acceptance_engine(godot_executable)
-	if not engine:
-		return {
-			"ok": False,
-			"phase": "engine_resolution",
-			"issues": ["Godot executable is required for storage template acceptance."],
-		}
-
 	try:
 		with _storage_acceptance_temporary_root(
 			prefix="gf-storage-template-acceptance-"
 		) as (session_root, cleanup_state):
 			project_root = session_root / "project"
 			with _private_owned_root(session_root):
-				prepare_storage_backend_template_acceptance_project(project_root)
-
-			private_environment = os.environ.copy()
-			for directory_name, variable_name in (
-				("appdata", "APPDATA"),
-				("localappdata", "LOCALAPPDATA"),
-				("xdg-data", "XDG_DATA_HOME"),
-				("xdg-config", "XDG_CONFIG_HOME"),
-				("xdg-cache", "XDG_CACHE_HOME"),
-			):
-				private_path = session_root / directory_name
-				private_path.mkdir()
-				private_environment[variable_name] = str(private_path)
-
-			import_log = session_root / "import.log"
-			import_command = [
-				engine,
-				"--headless",
-				"--log-file",
-				str(import_log),
-				"--path",
-				str(project_root),
-				"--import",
-			]
-			import_result = _run_storage_acceptance_process(
-				import_command,
-				cwd=project_root,
-				environment=private_environment,
-				cleanup_state=cleanup_state,
-			)
-			import_output = _combined_storage_acceptance_output(
-				import_result,
-				import_log,
-			)
-			if (
-				import_result.return_code != 0
-				or import_result.timed_out
-				or import_result.cancelled
-				or import_result.stdout_truncated
-				or import_result.stderr_truncated
-				or STORAGE_REDACTION_CANARY in import_output
-				or _storage_acceptance_has_script_failure(import_output)
-			):
-				return _storage_acceptance_failure(
-					"godot_import",
-					import_result.return_code,
-					import_output,
-					{
-						"timed_out": import_result.timed_out,
-						"output_truncated": (
-							import_result.stdout_truncated
-							or import_result.stderr_truncated
-						),
-						"redaction_canary_observed": (
-							STORAGE_REDACTION_CANARY in import_output
-						),
-					},
+				try:
+					binding = _registered_owned_binding_for(session_root)
+					if (
+						binding is None
+						or binding.root != Path(os.path.abspath(session_root))
+					):
+						raise ValueError(
+							"Storage template acceptance requires its exact private owner binding."
+						)
+				except BaseException:
+					cleanup_state["permitted"] = False
+					raise
+				private_environment = dict(base_environment)
+				private_paths: dict[str, Path] = {}
+				try:
+					for directory_name, variable_name in (
+						("home", "HOME"),
+						("appdata", "APPDATA"),
+						("localappdata", "LOCALAPPDATA"),
+						("xdg-data", "XDG_DATA_HOME"),
+						("xdg-config", "XDG_CONFIG_HOME"),
+						("xdg-cache", "XDG_CACHE_HOME"),
+						("temp", "TMPDIR"),
+					):
+						private_path = _ensure_owned_directory_tree(
+							session_root,
+							session_root / directory_name,
+						)
+						private_paths[variable_name] = private_path
+				except BaseException:
+					cleanup_state["permitted"] = False
+					raise
+				remove_owned_environment_value(
+					private_environment,
+					"GODOT_USER_HOME",
 				)
+				for observation_name in (
+					_STORAGE_ACCEPTANCE_OBSERVATION_ENVIRONMENT_NAMES
+				):
+					remove_owned_environment_value(
+						private_environment,
+						observation_name,
+					)
+				if os.name == "nt":
+					private_values = {
+						"APPDATA": str(private_paths["APPDATA"]),
+						"LOCALAPPDATA": str(private_paths["LOCALAPPDATA"]),
+					}
+				elif sys.platform == "darwin":
+					private_values = {"HOME": str(private_paths["HOME"])}
+				else:
+					private_values = {
+						"HOME": str(private_paths["HOME"]),
+						"XDG_DATA_HOME": str(private_paths["XDG_DATA_HOME"]),
+						"XDG_CONFIG_HOME": str(private_paths["XDG_CONFIG_HOME"]),
+						"XDG_CACHE_HOME": str(private_paths["XDG_CACHE_HOME"]),
+					}
+				private_values.update({
+					"TMPDIR": str(private_paths["TMPDIR"]),
+					"TEMP": str(private_paths["TMPDIR"]),
+					"TMP": str(private_paths["TMPDIR"]),
+					"PYTHONUTF8": "1",
+				})
+				for name, value in private_values.items():
+					set_owned_environment_value(private_environment, name, value)
+				configured_engine = godot_executable.strip()
+				if configured_engine:
+					set_owned_environment_value(
+						private_environment,
+						GODOT_EXECUTABLE_ENV_VAR,
+						configured_engine,
+					)
 
-			gut_log = session_root / "gut.log"
-			gut_command = [
-				engine,
-				"--headless",
-				"--log-file",
-				str(gut_log),
-				"--path",
-				str(project_root),
-				"-s",
-				"res://tests/gf_core/support/gf_gut_cli.gd",
-				(
-					"-gtest=res://adapters/storage/sample/"
-					"storage_backend_contract_test.gd"
-				),
-				(
-					"-gpre_run_script=res://tests/gf_core/support/"
-					"gf_gut_pre_run_hook.gd"
-				),
-				(
-					"-gpost_run_script=res://tests/gf_core/support/"
-					"gf_gut_post_run_hook.gd"
-				),
-				"-gexit",
-			]
-			gut_result = _run_storage_acceptance_process(
-				gut_command,
-				cwd=project_root,
-				environment=private_environment,
-				cleanup_state=cleanup_state,
-			)
-			gut_output = _combined_storage_acceptance_output(
-				gut_result,
-				gut_log,
-			)
-			passing_match = re.search(
-				r"(?m)^\s*Passing Tests\s+(\d+)\s*$",
-				gut_output,
-			)
-			passing_tests = (
-				int(passing_match.group(1))
-				if passing_match is not None
-				else 0
-			)
-			lifecycle_ok = _storage_acceptance_lifecycle_ok(gut_output)
-			if (
-				gut_result.return_code != 0
-				or gut_result.timed_out
-				or gut_result.cancelled
-				or gut_result.stdout_truncated
-				or gut_result.stderr_truncated
-				or STORAGE_REDACTION_CANARY in gut_output
-				or _storage_acceptance_has_script_failure(gut_output)
-				or "---- All tests passed! ----" not in gut_output
-				or passing_tests != 8
-				or not lifecycle_ok
-			):
-				return _storage_acceptance_failure(
-					"gut",
-					gut_result.return_code,
+				try:
+					project_root = _ensure_owned_directory_tree(
+						session_root,
+						project_root,
+					)
+				except BaseException:
+					cleanup_state["permitted"] = False
+					raise
+				project_root = _assert_storage_acceptance_empty_project(
+					binding,
+					project_root=project_root,
+					owner_root=session_root,
+					cleanup_state=cleanup_state,
+				)
+				engine = ""
+				try:
+					engine = resolve_storage_backend_acceptance_engine(
+						environment=private_environment,
+						cwd=project_root,
+					)
+				finally:
+					project_root = _assert_storage_acceptance_empty_project(
+						binding,
+						project_root=project_root,
+						owner_root=session_root,
+						cleanup_state=cleanup_state,
+					)
+				if not engine:
+					return {
+						"ok": False,
+						"phase": "engine_resolution",
+						"issues": [
+							"Godot executable is required for storage template acceptance."
+						],
+					}
+				try:
+					populate_storage_backend_template_acceptance_project(
+						project_root,
+						owner_root=session_root,
+					)
+				finally:
+					project_root = _verify_storage_acceptance_project_binding(
+						binding,
+						project_root=project_root,
+						owner_root=session_root,
+						cleanup_state=cleanup_state,
+					)
+
+				import_log = session_root / "import.log"
+				import_command = [
+					engine,
+					"--headless",
+					"--log-file",
+					str(import_log),
+					"--path",
+					str(project_root),
+					"--import",
+				]
+				project_root = _verify_storage_acceptance_project_binding(
+					binding,
+					project_root=project_root,
+					owner_root=session_root,
+					cleanup_state=cleanup_state,
+				)
+				try:
+					import_result = _run_storage_acceptance_process(
+						import_command,
+						cwd=project_root,
+						environment=private_environment,
+						cleanup_state=cleanup_state,
+					)
+				finally:
+					project_root = _verify_storage_acceptance_project_binding(
+						binding,
+						project_root=project_root,
+						owner_root=session_root,
+						cleanup_state=cleanup_state,
+					)
+				try:
+					import_output = _combined_storage_acceptance_output(
+						import_result,
+						import_log,
+					)
+				finally:
+					project_root = _verify_storage_acceptance_project_binding(
+						binding,
+						project_root=project_root,
+						owner_root=session_root,
+						cleanup_state=cleanup_state,
+					)
+				if (
+					import_result.return_code != 0
+					or import_result.timed_out
+					or import_result.cancelled
+					or import_result.stdout_truncated
+					or import_result.stderr_truncated
+					or STORAGE_REDACTION_CANARY in import_output
+					or _storage_acceptance_has_script_failure(import_output)
+				):
+					return _storage_acceptance_failure(
+						"godot_import",
+						import_result.return_code,
+						import_output,
+						{
+							"timed_out": import_result.timed_out,
+							"output_truncated": (
+								import_result.stdout_truncated
+								or import_result.stderr_truncated
+							),
+							"redaction_canary_observed": (
+								STORAGE_REDACTION_CANARY in import_output
+							),
+						},
+					)
+
+				gut_log = session_root / "gut.log"
+				gut_command = [
+					engine,
+					"--headless",
+					"--log-file",
+					str(gut_log),
+					"--path",
+					str(project_root),
+					"-s",
+					"res://tests/gf_core/support/gf_gut_cli.gd",
+					(
+						"-gtest=res://adapters/storage/sample/"
+						"storage_backend_contract_test.gd"
+					),
+					(
+						"-gpre_run_script=res://tests/gf_core/support/"
+						"gf_gut_pre_run_hook.gd"
+					),
+					(
+						"-gpost_run_script=res://tests/gf_core/support/"
+						"gf_gut_post_run_hook.gd"
+					),
+					"-gexit",
+				]
+				project_root = _verify_storage_acceptance_project_binding(
+					binding,
+					project_root=project_root,
+					owner_root=session_root,
+					cleanup_state=cleanup_state,
+				)
+				try:
+					gut_result = _run_storage_acceptance_process(
+						gut_command,
+						cwd=project_root,
+						environment=private_environment,
+						cleanup_state=cleanup_state,
+					)
+				finally:
+					project_root = _verify_storage_acceptance_project_binding(
+						binding,
+						project_root=project_root,
+						owner_root=session_root,
+						cleanup_state=cleanup_state,
+					)
+				try:
+					gut_output = _combined_storage_acceptance_output(
+						gut_result,
+						gut_log,
+					)
+				finally:
+					project_root = _verify_storage_acceptance_project_binding(
+						binding,
+						project_root=project_root,
+						owner_root=session_root,
+						cleanup_state=cleanup_state,
+					)
+				passing_match = re.search(
+					r"(?m)^\s*Passing Tests\s+(\d+)\s*$",
 					gut_output,
-					{
-						"passing_tests": passing_tests,
-						"lifecycle_ok": lifecycle_ok,
-						"timed_out": gut_result.timed_out,
-						"output_truncated": (
-							gut_result.stdout_truncated
-							or gut_result.stderr_truncated
-						),
-						"redaction_canary_observed": (
-							STORAGE_REDACTION_CANARY in gut_output
-						),
-					},
 				)
-			return {
-				"ok": True,
-				"phase": "complete",
-				"import_return_code": import_result.return_code,
-				"gut_return_code": gut_result.return_code,
-				"passing_tests": passing_tests,
-				"lifecycle_ok": lifecycle_ok,
-			}
+				passing_tests = (
+					int(passing_match.group(1))
+					if passing_match is not None
+					else 0
+				)
+				lifecycle_ok = _storage_acceptance_lifecycle_ok(gut_output)
+				if (
+					gut_result.return_code != 0
+					or gut_result.timed_out
+					or gut_result.cancelled
+					or gut_result.stdout_truncated
+					or gut_result.stderr_truncated
+					or STORAGE_REDACTION_CANARY in gut_output
+					or _storage_acceptance_has_script_failure(gut_output)
+					or "---- All tests passed! ----" not in gut_output
+					or passing_tests != 8
+					or not lifecycle_ok
+				):
+					return _storage_acceptance_failure(
+						"gut",
+						gut_result.return_code,
+						gut_output,
+						{
+							"passing_tests": passing_tests,
+							"lifecycle_ok": lifecycle_ok,
+							"timed_out": gut_result.timed_out,
+							"output_truncated": (
+								gut_result.stdout_truncated
+								or gut_result.stderr_truncated
+							),
+							"redaction_canary_observed": (
+								STORAGE_REDACTION_CANARY in gut_output
+							),
+						},
+					)
+				_verify_storage_acceptance_project_binding(
+					binding,
+					project_root=project_root,
+					owner_root=session_root,
+					cleanup_state=cleanup_state,
+				)
+				return {
+					"ok": True,
+					"phase": "complete",
+					"import_return_code": import_result.return_code,
+					"gut_return_code": gut_result.return_code,
+					"passing_tests": passing_tests,
+					"lifecycle_ok": lifecycle_ok,
+				}
 	except WorkspaceProcessBoundaryError:
 		# A retained acceptance root and its ownership debt are part of the
 		# fail-closed boundary. Do not collapse them into an ordinary environment
@@ -1655,14 +1873,31 @@ def run_storage_backend_template_acceptance(
 		}
 
 
-def prepare_storage_backend_template_acceptance_project(
+def populate_storage_backend_template_acceptance_project(
 	project_root: Path,
+	*,
+	owner_root: Path,
 ) -> None:
-	if os.path.lexists(project_root):
-		raise FileExistsError(
-			"Storage template acceptance project root must not already exist."
+	absolute_owner_root = Path(os.path.abspath(owner_root))
+	binding = _registered_owned_binding_for(absolute_owner_root)
+	if binding is None or binding.root != absolute_owner_root:
+		raise ValueError(
+			"Storage template acceptance population requires a private owned-root binding."
 		)
-	_ensure_owned_directory_tree(project_root.parent, project_root)
+	binding.verify()
+	absolute_project_root, _absolute_root = _absolute_owned_path(
+		project_root,
+		absolute_owner_root,
+	)
+	if absolute_project_root == absolute_owner_root:
+		raise ValueError(
+			"Storage template acceptance project must be below its private owner root."
+		)
+	project_root = binding.require_registered_directory(absolute_project_root)
+	project_root = _assert_owned_empty_directory(
+		project_root,
+		absolute_owner_root,
+	)
 	adapter_root = project_root / "adapters/storage/sample"
 	_ensure_owned_directory_tree(project_root, adapter_root)
 	_copy_owned_tree(
@@ -1695,6 +1930,7 @@ def prepare_storage_backend_template_acceptance_project(
 			project_root,
 		)
 	_write_storage_acceptance_project_file(project_root)
+	binding.verify()
 
 
 def _write_storage_acceptance_project_file(project_root: Path) -> None:
@@ -3748,7 +3984,7 @@ class _OwnedRootBinding:
 				self._close_error = sticky_error
 			elif sticky_error is not interruption:
 				try:
-					BaseException.add_note(
+					add_exception_note(
 						sticky_error,
 						"Additional owned-root binding cleanup interruption: "
 						f"{safe_exception_detail(interruption)}",
@@ -3763,7 +3999,7 @@ class _OwnedRootBinding:
 				if cleanup_error is primary_cleanup_error:
 					continue
 				try:
-					BaseException.add_note(
+					add_exception_note(
 						primary_cleanup_error,
 						"Additional owned-root binding cleanup failed: "
 						f"{safe_exception_detail(cleanup_error)}",
@@ -3803,6 +4039,30 @@ class _OwnedRootBinding:
 				)
 			)
 			self.verify()
+		return absolute_directory
+
+	def require_registered_directory(self, directory: Path) -> Path:
+		"""Require an existing directory already pinned by this exact binding."""
+		self.verify()
+		absolute_directory, _absolute_root = _absolute_owned_path(
+			directory,
+			self.root,
+		)
+		if os.name == "nt":
+			registered = (
+				_windows_path_key(absolute_directory)
+				in self._windows_directories
+			)
+		else:
+			registered = (
+				tuple(absolute_directory.relative_to(self.root).parts)
+				in self._posix_directories
+			)
+		if not registered:
+			raise ValueError(
+				"Owned target directory was not created and pinned by this binding."
+			)
+		self.verify()
 		return absolute_directory
 
 	def create_target(self, path: Path) -> _OwnedTargetBinding:
@@ -4677,7 +4937,7 @@ def _mark_storage_owned_cleanup_debt(
 		)
 	)
 	try:
-		BaseException.add_note(
+		add_exception_note(
 			debt_error,
 			f"{reason}: {safe_exception_detail(cleanup_error)}",
 		)
@@ -4867,7 +5127,7 @@ class _OpenOwnedDirectoryDescriptor:
 		)
 		for cleanup_error in cleanup_errors[1:]:
 			try:
-				BaseException.add_note(
+				add_exception_note(
 					debt_error,
 					"Additional owned directory descriptor cleanup failed: "
 					f"{safe_exception_detail(cleanup_error)}",
@@ -5285,6 +5545,52 @@ def _list_owned_regular_files(
 	):
 		raise ValueError("Owned directory changed during enumeration.")
 	return sorted(files, key=lambda item: item.name)
+
+
+def _assert_owned_empty_directory(
+	directory: Path,
+	owner_root: Path,
+) -> Path:
+	"""Pin and verify an existing owned directory before first population."""
+	absolute_directory, directory_before = _assert_owned_path(
+		directory,
+		owner_root,
+		require_directory=True,
+	)
+	absolute_root = Path(os.path.abspath(owner_root))
+	binding = _registered_owned_binding_for(absolute_root)
+	if binding is not None:
+		binding.verify()
+	chain_before = _snapshot_owned_directory_chain(
+		absolute_root,
+		absolute_directory,
+	)
+	with os.scandir(absolute_directory) as entries:
+		has_entry = next(entries, None) is not None
+	try:
+		directory_after = os.lstat(absolute_directory)
+	except OSError as exc:
+		raise ValueError(
+			"Owned population target disappeared during validation."
+		) from exc
+	chain_after = _snapshot_owned_directory_chain(
+		absolute_root,
+		absolute_directory,
+	)
+	if (
+		not _same_file_identity(directory_before, directory_after)
+		or not _same_directory_chain_identity(chain_before, chain_after)
+	):
+		raise ValueError(
+			"Owned population target changed during validation."
+		)
+	if binding is not None:
+		binding.verify()
+	if has_entry:
+		raise FileExistsError(
+			"Owned population target must be an existing empty directory."
+		)
+	return absolute_directory
 
 
 def _copy_owned_regular_file(

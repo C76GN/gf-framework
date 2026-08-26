@@ -1585,6 +1585,327 @@ class CredentialGateTests(unittest.TestCase):
 				},
 			)
 
+	def test_git_capability_is_absolute_and_stable_after_ambient_mutation(self) -> None:
+		with tempfile.TemporaryDirectory() as temp_dir:
+			root = Path(temp_dir)
+			repository = self._init_repository(root / "repository")
+			(repository / "safe.txt").write_text("ordinary content\n", encoding="utf-8")
+			self._git(repository, "add", "safe.txt")
+			real_supervisor = (
+				credential_gate.gf_process_supervisor.run_supervised_process_bytes
+			)
+			dispatches: list[tuple[tuple[str, ...], dict[str, str]]] = []
+
+			def observe_dispatch(
+				command: list[str],
+				*,
+				cwd: Path,
+				timeout_seconds: float,
+				deadline: float,
+				max_stdout_bytes: int,
+				max_stderr_bytes: int,
+				environment: dict[str, str],
+			) -> object:
+				dispatches.append((tuple(command), dict(environment)))
+				result = real_supervisor(
+					command,
+					cwd=cwd,
+					timeout_seconds=timeout_seconds,
+					deadline=deadline,
+					max_stdout_bytes=max_stdout_bytes,
+					max_stderr_bytes=max_stderr_bytes,
+					environment=environment,
+				)
+				if len(dispatches) == 1:
+					os.environ["PATH"] = str(root / "ambient-path-after-freeze")
+					os.environ["GIT_DIR"] = str(root / "ambient-git-dir-after-freeze")
+					os.environ["GIT_WORK_TREE"] = str(root / "ambient-work-tree-after-freeze")
+				return result
+
+			with (
+				mock.patch.dict(os.environ, {}, clear=False),
+				mock.patch.object(
+					credential_gate.gf_process_supervisor,
+					"run_supervised_process_bytes",
+					side_effect=observe_dispatch,
+				),
+			):
+				result = credential_gate.scan_tracked_repository(repository)
+
+			self.assertTrue(result["ok"], result)
+			self.assertEqual(len(dispatches), 4)
+			first_command, first_environment = dispatches[0]
+			self.assertTrue(Path(first_command[0]).is_absolute())
+			self.assertTrue(
+				all(command[0] == first_command[0] for command, _environment in dispatches)
+			)
+			self.assertTrue(
+				all(environment == first_environment for _command, environment in dispatches)
+			)
+			self.assertNotIn("GIT_DIR", first_environment)
+			self.assertNotIn("GIT_WORK_TREE", first_environment)
+			self.assertEqual(first_environment["GIT_CONFIG_NOSYSTEM"], "1")
+			self.assertEqual(first_environment["GIT_OPTIONAL_LOCKS"], "0")
+			self.assertEqual(first_environment["GIT_TERMINAL_PROMPT"], "0")
+
+	def test_combined_gate_freezes_process_authority_once(self) -> None:
+		with tempfile.TemporaryDirectory() as temp_dir:
+			root = Path(temp_dir)
+			repository = self._init_repository(root / "repository")
+			(repository / "safe.txt").write_text("ordinary content\n", encoding="utf-8")
+			self._git(repository, "add", "safe.txt")
+			release_root = root / "release"
+			release_root.mkdir()
+			artifact_path = release_root / "artifact.txt"
+			artifact_path.write_text("ordinary release content\n", encoding="utf-8")
+			manifest_path = self._write_manifest(release_root, artifact_path)
+			real_authority = credential_gate._credential_gate_process_authority
+
+			with mock.patch.object(
+				credential_gate,
+				"_credential_gate_process_authority",
+				wraps=real_authority,
+			) as authority_capture:
+				result = credential_gate.scan_repository_and_release(
+					repository,
+					manifest_path,
+				)
+
+			self.assertTrue(result["ok"], result)
+			self.assertEqual(authority_capture.call_count, 1)
+
+	def test_git_supervisor_requires_cleanup_and_maps_failures(self) -> None:
+		with tempfile.TemporaryDirectory() as temp_dir:
+			repository = self._init_repository(Path(temp_dir))
+			git_process = credential_gate._credential_gate_process_authority(
+				repository
+			).git
+			result_type = (
+				credential_gate.gf_process_supervisor.SupervisedBinaryProcessResult
+			)
+			base_result = {
+				"return_code": 0,
+				"stdout": b"ok",
+				"stderr": b"",
+				"timed_out": False,
+				"duration_seconds": 0.1,
+				"pid": 123,
+				"cleanup_complete": True,
+			}
+			failure_cases = (
+				("timeout", {"timed_out": True}),
+				("output-drain", {"output_drain_failed": True}),
+			)
+			for label, overrides in failure_cases:
+				with self.subTest(label=label):
+					completed = result_type(**{**base_result, **overrides})
+					with (
+						mock.patch.object(
+							credential_gate.gf_process_supervisor,
+							"run_supervised_process_bytes",
+							return_value=completed,
+						),
+						self.assertRaises(credential_gate.GateInputError) as raised,
+					):
+						credential_gate._run_git_bounded_capture(
+							git_process,
+							("status",),
+							repository,
+							16,
+							16,
+						)
+					self.assertEqual(
+						raised.exception.rule_id,
+						"credential_gate.git_index_unavailable",
+					)
+
+			with (
+				mock.patch.object(
+					credential_gate.gf_process_supervisor,
+					"run_supervised_process_bytes",
+					side_effect=OSError("synthetic start failure"),
+				),
+				self.assertRaises(credential_gate.GateInputError) as raised,
+			):
+				credential_gate._run_git_bounded_capture(
+					git_process,
+					("status",),
+					repository,
+					16,
+					16,
+				)
+			self.assertEqual(
+				raised.exception.rule_id,
+				"credential_gate.git_index_unavailable",
+			)
+
+	def test_git_capture_execution_and_cleanup_share_one_deadline(self) -> None:
+		with tempfile.TemporaryDirectory() as temp_dir:
+			repository = self._init_repository(Path(temp_dir))
+			git_process = credential_gate._credential_gate_process_authority(
+				repository
+			).git
+			completed = (
+				credential_gate.gf_process_supervisor.SupervisedBinaryProcessResult(
+					return_code=0,
+					stdout=b"ok",
+					stderr=b"",
+					timed_out=False,
+					duration_seconds=0.1,
+					pid=123,
+					cleanup_complete=True,
+				)
+			)
+			with (
+				mock.patch.object(
+					credential_gate.time,
+					"perf_counter",
+					return_value=100.0,
+				) as clock,
+				mock.patch.object(
+					credential_gate.gf_process_supervisor,
+					"run_supervised_process_bytes",
+					return_value=completed,
+				) as supervisor,
+				mock.patch.object(
+					credential_gate.gf_process_supervisor,
+					"require_supervised_binary_quiet_boundary",
+					return_value=completed,
+				) as quiet_boundary,
+			):
+				actual = credential_gate._run_git_bounded_capture(
+					git_process,
+					("status",),
+					repository,
+					16,
+					16,
+				)
+
+		self.assertEqual(actual, (0, b"ok", b""))
+		clock.assert_called_once_with()
+		self.assertEqual(supervisor.call_args.kwargs["deadline"], 130.0)
+		self.assertEqual(quiet_boundary.call_args.kwargs["deadline"], 130.0)
+
+	def test_git_cleanup_debt_precedes_output_failures_and_stops_later_git(self) -> None:
+		with tempfile.TemporaryDirectory() as temp_dir:
+			repository = self._init_repository(Path(temp_dir))
+			completed = (
+				credential_gate.gf_process_supervisor.SupervisedBinaryProcessResult(
+					return_code=124,
+					stdout=b"partial",
+					stderr=b"partial",
+					timed_out=True,
+					duration_seconds=0.1,
+					pid=123,
+					stdout_truncated=True,
+					stderr_truncated=True,
+					output_drain_failed=True,
+					cleanup_complete=False,
+				)
+			)
+			with mock.patch.object(
+				credential_gate.gf_process_supervisor,
+				"run_supervised_process_bytes",
+				return_value=completed,
+			) as supervisor:
+				with self.assertRaises(
+					credential_gate.gf_process_supervisor.SupervisedProcessCleanupError
+				):
+					credential_gate.run_tracked_gate(repository)
+
+			self.assertEqual(supervisor.call_count, 1)
+
+	def test_git_deferred_cleanup_requires_a_positive_final_proof(self) -> None:
+		with tempfile.TemporaryDirectory() as temp_dir:
+			repository = self._init_repository(Path(temp_dir))
+			git_process = credential_gate._credential_gate_process_authority(
+				repository
+			).git
+			deferred_cleanup = mock.Mock()
+			deferred_cleanup.wait.return_value = True
+			deferred_cleanup.snapshot.return_value = (
+				credential_gate.gf_process_supervisor.SupervisedBinaryCleanupStatus(
+					complete=True,
+					cleanup_complete=False,
+					owner_closed=True,
+					process_tree_empty=False,
+					pid=123,
+				)
+			)
+			completed = (
+				credential_gate.gf_process_supervisor.SupervisedBinaryProcessResult(
+					return_code=0,
+					stdout=b"ok",
+					stderr=b"",
+					timed_out=False,
+					duration_seconds=0.1,
+					pid=123,
+					cleanup_complete=False,
+					deferred_cleanup=deferred_cleanup,
+				)
+			)
+			with mock.patch.object(
+				credential_gate.gf_process_supervisor,
+				"run_supervised_process_bytes",
+				return_value=completed,
+			), self.assertRaises(
+				credential_gate.gf_process_supervisor.SupervisedProcessCleanupError
+			):
+				credential_gate._run_git_bounded_capture(
+					git_process,
+					("status",),
+					repository,
+					16,
+					16,
+				)
+
+			deferred_cleanup.wait.assert_called_once()
+
+	def test_git_supervisor_maps_any_output_overrun_to_budget_rule(self) -> None:
+		with tempfile.TemporaryDirectory() as temp_dir:
+			repository = self._init_repository(Path(temp_dir))
+			git_process = credential_gate._credential_gate_process_authority(
+				repository
+			).git
+			result_type = (
+				credential_gate.gf_process_supervisor.SupervisedBinaryProcessResult
+			)
+			for label, overrides in (
+				("stdout-truncated", {"stdout_truncated": True}),
+				("stderr-truncated", {"stderr_truncated": True}),
+				("zero-budget", {"stdout": b"x"}),
+			):
+				with self.subTest(label=label):
+					completed = result_type(**{
+						"return_code": 0,
+						"stdout": b"",
+						"stderr": b"",
+						"timed_out": False,
+						"duration_seconds": 0.1,
+						"pid": 123,
+						"cleanup_complete": True,
+						**overrides,
+					})
+					with (
+						mock.patch.object(
+							credential_gate.gf_process_supervisor,
+							"run_supervised_process_bytes",
+							return_value=completed,
+						),
+						self.assertRaises(credential_gate.GateInputError) as raised,
+					):
+						credential_gate._run_git_bounded_capture(
+							git_process,
+							("status",),
+							repository,
+							0 if label == "zero-budget" else 16,
+							16,
+						)
+					self.assertEqual(
+						raised.exception.rule_id,
+						"credential_gate.git_index_output_budget_exceeded",
+					)
+
 	def test_git_environment_cannot_redirect_repository_scope(self) -> None:
 		with tempfile.TemporaryDirectory() as temp_dir:
 			root = Path(temp_dir)

@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import copy
+import contextlib
 import hashlib
 import io
 import json
@@ -6287,6 +6288,19 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 	def test_storage_backend_acceptance_fails_closed_without_godot(self) -> None:
 		missing_engine = self.project_root / "missing-godot.exe"
 		self.assertFalse(missing_engine.exists())
+		resolution_cwd_existed = False
+
+		def unresolved_engine(
+			configured: str,
+			*,
+			environment: dict[str, str],
+			cwd: Path,
+		) -> str:
+			del configured, environment
+			nonlocal resolution_cwd_existed
+			resolution_cwd_existed = cwd.is_dir()
+			return str(missing_engine)
+
 		with (
 			mock.patch.dict(
 				build_gf_ai_developer_kit.os.environ,
@@ -6295,14 +6309,25 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 			),
 			mock.patch.object(
 				build_gf_ai_developer_kit,
-				"resolve_godot_executable",
-				return_value=str(missing_engine),
+				"validate_storage_backend_templates",
+				return_value=[],
 			),
 			mock.patch.object(
-				build_gf_ai_developer_kit.shutil,
-				"which",
-				return_value=None,
+				build_gf_ai_developer_kit,
+				"populate_storage_backend_template_acceptance_project",
+			) as prepare_project,
+			mock.patch.object(
+				build_gf_ai_developer_kit,
+				"resolve_godot_executable",
+				side_effect=unresolved_engine,
 			),
+			mock.patch.object(
+				build_gf_ai_developer_kit,
+				"_run_storage_acceptance_process",
+				side_effect=AssertionError(
+					"Unresolved storage acceptance engines must not dispatch."
+				),
+			) as process_runner,
 		):
 			acceptance = (
 				build_gf_ai_developer_kit
@@ -6311,6 +6336,9 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 
 		self.assertFalse(acceptance["ok"], acceptance)
 		self.assertEqual(acceptance["phase"], "engine_resolution")
+		self.assertTrue(resolution_cwd_existed)
+		prepare_project.assert_not_called()
+		process_runner.assert_not_called()
 
 	def test_storage_acceptance_boundary_debt_propagates_with_retained_root(self) -> None:
 		raw_error = RuntimeError("fixture boundary debt")
@@ -6342,7 +6370,7 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 				return_value="fixture-godot",
 			), mock.patch.object(
 				build_gf_ai_developer_kit,
-				"prepare_storage_backend_template_acceptance_project",
+				"populate_storage_backend_template_acceptance_project",
 			), mock.patch.object(
 				build_gf_ai_developer_kit,
 				"run_supervised_process",
@@ -6404,7 +6432,7 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 					return_value="fixture-godot",
 				), mock.patch.object(
 					build_gf_ai_developer_kit,
-					"prepare_storage_backend_template_acceptance_project",
+					"populate_storage_backend_template_acceptance_project",
 					side_effect=primary,
 				):
 					observed: BaseException | None = None
@@ -6718,7 +6746,7 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 			return_value="fixture-godot",
 		), mock.patch.object(
 			build_gf_ai_developer_kit,
-			"prepare_storage_backend_template_acceptance_project",
+			"populate_storage_backend_template_acceptance_project",
 			side_effect=primary,
 		):
 			observed: BaseException | None = None
@@ -6811,7 +6839,7 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 			return_value="fixture-godot",
 		), mock.patch.object(
 			build_gf_ai_developer_kit,
-			"prepare_storage_backend_template_acceptance_project",
+			"populate_storage_backend_template_acceptance_project",
 			side_effect=primary,
 		):
 			with self.assertRaises(ValueError) as raised:
@@ -6839,7 +6867,7 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 			return_value="fixture-godot",
 		), mock.patch.object(
 			build_gf_ai_developer_kit,
-			"prepare_storage_backend_template_acceptance_project",
+			"populate_storage_backend_template_acceptance_project",
 			side_effect=primary,
 		):
 			observed: BaseException | None = None
@@ -6851,33 +6879,793 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 
 	def test_storage_backend_acceptance_uses_shared_godot_resolver(self) -> None:
 		configured = "D:/fixture/godot.exe"
-		resolved = "D:/fixture/godot.windows.opt.tools.64.exe"
-		with (
-			mock.patch.object(
-				build_gf_ai_developer_kit,
-				"resolve_godot_executable",
-				return_value=resolved,
-			) as resolve_godot,
-			mock.patch.object(
-				build_gf_ai_developer_kit.shutil,
-				"which",
-				return_value=resolved,
-			),
-		):
-			engine = (
-				build_gf_ai_developer_kit
-				.resolve_storage_backend_acceptance_engine(configured)
-			)
+		mixed_name = "gF_GoDoT_ExEcUtAbLe"
+		environment = {
+			"PATH": "frozen-storage-path",
+			mixed_name: configured,
+		}
+		real_reader = build_gf_ai_developer_kit.frozen_environment_value
+
+		def read_as_windows(
+			source: dict[str, str],
+			name: str,
+			*,
+			platform_name: str | None = None,
+		) -> str | None:
+			return real_reader(source, name, platform_name="nt")
+
+		with tempfile.TemporaryDirectory() as temporary_directory:
+			resolution_cwd = Path(temporary_directory) / "project"
+			resolution_cwd.mkdir()
+			resolved_path = Path(temporary_directory) / "godot.windows.opt.tools.64.exe"
+			resolved_path.write_bytes(b"fixture")
+			resolved = str(resolved_path)
+			with (
+				mock.patch.object(
+					build_gf_ai_developer_kit,
+					"frozen_environment_value",
+					side_effect=read_as_windows,
+				),
+				mock.patch.object(
+					build_gf_ai_developer_kit,
+					"resolve_godot_executable",
+					return_value=resolved,
+				) as resolve_godot,
+			):
+				engine = (
+					build_gf_ai_developer_kit
+					.resolve_storage_backend_acceptance_engine(
+						environment=environment,
+						cwd=resolution_cwd,
+					)
+				)
 
 		self.assertEqual(engine, resolved)
 		resolve_godot.assert_called_once()
 		self.assertEqual(resolve_godot.call_args.args, (configured,))
+		self.assertIs(resolve_godot.call_args.kwargs["environment"], environment)
 		self.assertEqual(
-			resolve_godot.call_args.kwargs["environment"][
+			resolve_godot.call_args.kwargs["cwd"],
+			resolution_cwd,
+		)
+		self.assertEqual(environment, {
+			"PATH": "frozen-storage-path",
+			mixed_name: configured,
+		})
+
+	def test_storage_backend_acceptance_binds_relative_engine_to_project_cwd(
+		self,
+	) -> None:
+		with tempfile.TemporaryDirectory() as temporary_directory:
+			root = Path(temporary_directory)
+			project_root = root / "project"
+			engine_root = project_root / "engine"
+			path_root = root / "path"
+			engine_root.mkdir(parents=True)
+			path_root.mkdir()
+			project_engine = engine_root / "godot.exe"
+			path_engine = path_root / "godot.exe"
+			for executable in (project_engine, path_engine):
+				executable.write_bytes(b"fixture")
+				executable.chmod(0o700)
+
+			engine = (
+				build_gf_ai_developer_kit
+				.resolve_storage_backend_acceptance_engine(
+					environment={
+						"PATH": str(path_root),
+						build_gf_ai_developer_kit.GODOT_EXECUTABLE_ENV_VAR:
+						"engine/godot.exe",
+					},
+					cwd=project_root,
+				)
+			)
+
+			self.assertEqual(Path(engine), project_engine.resolve())
+
+	def test_storage_acceptance_public_entry_creates_cwd_before_relative_resolution(
+		self,
+	) -> None:
+		lifecycle_payload = {
+			"schema_version": 1,
+			"ok": True,
+			"baseline_available": True,
+			"warning_tracking_available": True,
+			"unhandled_warning_count": 0,
+			"orphan_count": 0,
+			"warnings": [],
+			"orphans": [],
+			"details_truncated": False,
+			"configuration_error": "",
+		}
+		gut_output = "\n".join((
+			"Passing Tests 8",
+			"---- All tests passed! ----",
+			"GF_TEST_LIFECYCLE_GATE="
+			+ json.dumps(lifecycle_payload, separators=(",", ":")),
+		))
+		with tempfile.TemporaryDirectory() as temporary_directory:
+			session_root = Path(temporary_directory) / "session"
+			session_root.mkdir()
+			engine_root = session_root / "engine"
+			engine_root.mkdir()
+			engine = engine_root / "godot.exe"
+			engine.write_bytes(b"fixture")
+			engine.chmod(0o700)
+			project_root = session_root / "project"
+			cleanup_state = {"permitted": True}
+			events: list[str] = []
+			resolved_environment: dict[str, str] | None = None
+			active_binding: object | None = None
+			real_resolver = (
+				build_gf_ai_developer_kit
+				.resolve_storage_backend_acceptance_engine
+			)
+
+			@contextlib.contextmanager
+			def fixed_temporary_root(
+				*,
+				prefix: str,
+			) -> Any:
+				del prefix
+				yield session_root, cleanup_state
+
+			def resolve_engine(
+				*,
+				environment: dict[str, str],
+				cwd: Path,
+			) -> str:
+				nonlocal active_binding, resolved_environment
+				self.assertEqual(cwd, project_root)
+				self.assertTrue(cwd.is_dir())
+				self.assertEqual(list(cwd.iterdir()), [])
+				active_binding = (
+					build_gf_ai_developer_kit
+					._registered_owned_binding_for(session_root)
+				)
+				self.assertIsNotNone(active_binding)
+				events.append("resolve")
+				resolved_environment = environment
+				return real_resolver(environment=environment, cwd=cwd)
+
+			def populate_project(cwd: Path, *, owner_root: Path) -> None:
+				self.assertEqual(cwd, project_root)
+				self.assertEqual(owner_root, session_root)
+				self.assertTrue(cwd.is_dir())
+				self.assertEqual(list(cwd.iterdir()), [])
+				self.assertIs(
+					build_gf_ai_developer_kit
+					._registered_owned_binding_for(session_root),
+					active_binding,
+				)
+				events.append("populate")
+
+			def run_process(
+				command: list[str],
+				*,
+				cwd: Path,
+				environment: dict[str, str],
+				cleanup_state: dict[str, bool],
+			) -> build_gf_ai_developer_kit.SupervisedProcessResult:
+				self.assertEqual(cwd, project_root)
+				self.assertEqual(command[0], str(engine.resolve()))
+				self.assertIs(environment, resolved_environment)
+				self.assertIs(cleanup_state, cleanup_state_fixture)
+				self.assertIs(
+					build_gf_ai_developer_kit
+					._registered_owned_binding_for(session_root),
+					active_binding,
+				)
+				phase = "gut" if "-s" in command else "import"
+				events.append(phase)
+				output = gut_output if phase == "gut" else "fixture import complete"
+				log_path = Path(command[command.index("--log-file") + 1])
+				log_path.write_text(output, encoding="utf-8")
+				return build_gf_ai_developer_kit.SupervisedProcessResult(
+					return_code=0,
+					stdout=output,
+					stderr="",
+					timed_out=False,
+					duration_seconds=0.01,
+					pid=123,
+					process_boundary_quiescent=True,
+				)
+
+			cleanup_state_fixture = cleanup_state
+			with mock.patch.object(
+				build_gf_ai_developer_kit,
+				"_storage_acceptance_temporary_root",
+				side_effect=fixed_temporary_root,
+			), mock.patch.object(
+				build_gf_ai_developer_kit,
+				"validate_storage_backend_templates",
+				return_value=[],
+			), mock.patch.object(
+				build_gf_ai_developer_kit,
+				"resolve_storage_backend_acceptance_engine",
+				side_effect=resolve_engine,
+			), mock.patch.object(
+				build_gf_ai_developer_kit,
+				"populate_storage_backend_template_acceptance_project",
+				side_effect=populate_project,
+			), mock.patch.object(
+				build_gf_ai_developer_kit,
+				"_run_storage_acceptance_process",
+				side_effect=run_process,
+			):
+				acceptance = (
+					build_gf_ai_developer_kit
+					.run_storage_backend_template_acceptance(
+						"../engine/godot.exe"
+					)
+				)
+
+		self.assertTrue(acceptance["ok"], acceptance)
+		self.assertEqual(events, ["resolve", "populate", "import", "gut"])
+		self.assertIsNone(
+			build_gf_ai_developer_kit._registered_owned_binding_for(session_root)
+		)
+
+	def test_storage_acceptance_population_rejects_nonempty_project_root(
+		self,
+	) -> None:
+		with tempfile.TemporaryDirectory() as temporary_directory:
+			session_root = Path(temporary_directory)
+			project_root = session_root / "project"
+			project_root.mkdir()
+			marker = project_root / "existing.txt"
+			with build_gf_ai_developer_kit._private_owned_root(session_root):
+				build_gf_ai_developer_kit._ensure_owned_directory_tree(
+					session_root,
+					project_root,
+				)
+				marker.write_text("owned", encoding="utf-8")
+				with self.assertRaisesRegex(
+					FileExistsError,
+					"existing empty directory",
+				):
+					(
+						build_gf_ai_developer_kit
+						.populate_storage_backend_template_acceptance_project(
+							project_root,
+							owner_root=session_root,
+						)
+					)
+			self.assertEqual(marker.read_text(encoding="utf-8"), "owned")
+
+	def test_storage_acceptance_public_entry_rejects_nonempty_cwd_before_resolution(
+		self,
+	) -> None:
+		with tempfile.TemporaryDirectory() as temporary_directory:
+			session_root = Path(temporary_directory) / "session"
+			session_root.mkdir()
+			project_root = session_root / "project"
+			project_root.mkdir()
+			marker = project_root / "existing.txt"
+			marker.write_text("owned", encoding="utf-8")
+			cleanup_state = {"permitted": True}
+
+			@contextlib.contextmanager
+			def fixed_temporary_root(*, prefix: str) -> Any:
+				del prefix
+				yield session_root, cleanup_state
+
+			with mock.patch.object(
+				build_gf_ai_developer_kit,
+				"_storage_acceptance_temporary_root",
+				side_effect=fixed_temporary_root,
+			), mock.patch.object(
+				build_gf_ai_developer_kit,
+				"validate_storage_backend_templates",
+				return_value=[],
+			), mock.patch.object(
+				build_gf_ai_developer_kit,
+				"resolve_storage_backend_acceptance_engine",
+			) as resolver, mock.patch.object(
+				build_gf_ai_developer_kit,
+				"populate_storage_backend_template_acceptance_project",
+			) as populate, mock.patch.object(
+				build_gf_ai_developer_kit,
+				"_run_storage_acceptance_process",
+			) as process:
+				report = (
+					build_gf_ai_developer_kit
+					.run_storage_backend_template_acceptance("missing-godot")
+				)
+				marker_text = marker.read_text(encoding="utf-8")
+
+		self.assertFalse(report["ok"])
+		self.assertEqual(report["phase"], "environment")
+		resolver.assert_not_called()
+		populate.assert_not_called()
+		process.assert_not_called()
+		self.assertEqual(marker_text, "owned")
+
+	def test_storage_acceptance_revalidates_empty_cwd_before_unresolved_return(
+		self,
+	) -> None:
+		with tempfile.TemporaryDirectory() as temporary_directory:
+			session_root = Path(temporary_directory) / "session"
+			session_root.mkdir()
+			project_root = session_root / "project"
+			cleanup_state = {"permitted": True}
+			marker = project_root / "resolver-created.txt"
+
+			@contextlib.contextmanager
+			def fixed_temporary_root(*, prefix: str) -> Any:
+				del prefix
+				yield session_root, cleanup_state
+
+			def mutate_then_miss(
+				*,
+				environment: dict[str, str],
+				cwd: Path,
+			) -> str:
+				del environment
+				self.assertEqual(cwd, project_root)
+				marker.write_text("late", encoding="utf-8")
+				return ""
+
+			with mock.patch.object(
+				build_gf_ai_developer_kit,
+				"_storage_acceptance_temporary_root",
+				side_effect=fixed_temporary_root,
+			), mock.patch.object(
+				build_gf_ai_developer_kit,
+				"validate_storage_backend_templates",
+				return_value=[],
+			), mock.patch.object(
+				build_gf_ai_developer_kit,
+				"resolve_storage_backend_acceptance_engine",
+				side_effect=mutate_then_miss,
+			) as resolver, mock.patch.object(
+				build_gf_ai_developer_kit,
+				"populate_storage_backend_template_acceptance_project",
+			) as populate, mock.patch.object(
+				build_gf_ai_developer_kit,
+				"_run_storage_acceptance_process",
+			) as process:
+				report = (
+					build_gf_ai_developer_kit
+					.run_storage_backend_template_acceptance("missing-godot")
+				)
+				marker_text = marker.read_text(encoding="utf-8")
+
+		self.assertFalse(report["ok"])
+		self.assertEqual(report["phase"], "environment")
+		resolver.assert_called_once()
+		populate.assert_not_called()
+		process.assert_not_called()
+		self.assertEqual(marker_text, "late")
+
+	def test_storage_acceptance_private_environment_identity_drift_starts_nothing(
+		self,
+	) -> None:
+		with tempfile.TemporaryDirectory() as temporary_directory:
+			session_root = Path(temporary_directory) / "session"
+			session_root.mkdir()
+			cleanup_state = {"permitted": True}
+			replacement_outcome: list[str] = []
+
+			@contextlib.contextmanager
+			def fixed_temporary_root(*, prefix: str) -> Any:
+				del prefix
+				yield session_root, cleanup_state
+
+			def replace_private_directory(
+				*,
+				environment: dict[str, str],
+				cwd: Path,
+			) -> str:
+				del cwd
+				active_name = (
+					"APPDATA"
+					if os.name == "nt"
+					else "HOME"
+					if sys.platform == "darwin"
+					else "XDG_DATA_HOME"
+				)
+				private_path = Path(environment[active_name])
+				displaced = private_path.with_name(private_path.name + "-old")
+				try:
+					private_path.rename(displaced)
+				except OSError as error:
+					replacement_outcome.append("blocked")
+					raise ValueError(
+						"Pinned private environment directory replacement was blocked."
+					) from error
+				private_path.mkdir()
+				replacement_outcome.append("replaced")
+				return str(session_root / "fixture-godot")
+
+			with mock.patch.object(
+				build_gf_ai_developer_kit,
+				"_storage_acceptance_temporary_root",
+				side_effect=fixed_temporary_root,
+			), mock.patch.object(
+				build_gf_ai_developer_kit,
+				"validate_storage_backend_templates",
+				return_value=[],
+			), mock.patch.object(
+				build_gf_ai_developer_kit,
+				"resolve_storage_backend_acceptance_engine",
+				side_effect=replace_private_directory,
+			), mock.patch.object(
+				build_gf_ai_developer_kit,
+				"populate_storage_backend_template_acceptance_project",
+			) as populate, mock.patch.object(
+				build_gf_ai_developer_kit,
+				"_run_storage_acceptance_process",
+			) as process:
+				report = (
+					build_gf_ai_developer_kit
+					.run_storage_backend_template_acceptance("fixture-godot")
+				)
+
+		self.assertFalse(report["ok"])
+		self.assertEqual(report["phase"], "environment")
+		self.assertEqual(len(replacement_outcome), 1)
+		populate.assert_not_called()
+		process.assert_not_called()
+		if replacement_outcome == ["replaced"]:
+			self.assertFalse(cleanup_state["permitted"])
+
+	def test_storage_acceptance_population_does_not_create_unpinned_project(
+		self,
+	) -> None:
+		with tempfile.TemporaryDirectory() as temporary_directory:
+			session_root = Path(temporary_directory)
+			project_root = session_root / "project"
+			with build_gf_ai_developer_kit._private_owned_root(session_root):
+				with self.assertRaisesRegex(
+					ValueError,
+					"created and pinned",
+				):
+					(
+						build_gf_ai_developer_kit
+						.populate_storage_backend_template_acceptance_project(
+							project_root,
+							owner_root=session_root,
+						)
+					)
+			self.assertFalse(project_root.exists())
+
+	def test_storage_backend_acceptance_skips_unresolved_bare_candidate(self) -> None:
+		with tempfile.TemporaryDirectory() as temporary_directory:
+			resolution_cwd = Path(temporary_directory) / "project"
+			resolution_cwd.mkdir()
+			resolved_path = Path(temporary_directory) / "godot4"
+			resolved_path.write_bytes(b"fixture")
+			resolution_error = (
+				build_gf_ai_developer_kit.GodotExecutableResolutionError(
+					"fixture unresolved"
+				)
+			)
+			with mock.patch.object(
+				build_gf_ai_developer_kit,
+				"resolve_godot_executable",
+				side_effect=(resolution_error, str(resolved_path)),
+			) as resolve_godot:
+				engine = (
+					build_gf_ai_developer_kit
+					.resolve_storage_backend_acceptance_engine(
+						environment={},
+						cwd=resolution_cwd,
+					)
+				)
+
+		self.assertEqual(engine, str(resolved_path))
+		self.assertEqual(
+			[call.args[0] for call in resolve_godot.call_args_list],
+			["godot", "godot4"],
+		)
+
+	def test_storage_acceptance_reuses_one_invocation_environment(self) -> None:
+		explicit_engine = self.project_root / "explicit-godot.exe"
+		environment_engine = self.project_root / "environment-godot.exe"
+		for executable in (explicit_engine, environment_engine):
+			executable.write_bytes(b"fixture")
+			executable.chmod(0o700)
+		real_resolver = build_gf_ai_developer_kit.resolve_godot_executable
+		real_setter = build_gf_ai_developer_kit.set_owned_environment_value
+		real_remover = build_gf_ai_developer_kit.remove_owned_environment_value
+		resolved_candidate = ""
+		resolved_environment: dict[str, str] | None = None
+		resolved_cwd: Path | None = None
+		mixed_name = "gF_GoDoT_ExEcUtAbLe"
+		mixed_user_home = "gOdOt_UsEr_HoMe"
+		if os.name == "nt":
+			isolated_names = (
+				"APPDATA",
+				"LOCALAPPDATA",
+				"TMPDIR",
+				"TEMP",
+				"TMP",
+				"PYTHONUTF8",
+			)
+		elif sys.platform == "darwin":
+			isolated_names = (
+				"HOME",
+				"TMPDIR",
+				"TEMP",
+				"TMP",
+				"PYTHONUTF8",
+			)
+		else:
+			isolated_names = (
+				"HOME",
+				"XDG_DATA_HOME",
+				"XDG_CONFIG_HOME",
+				"XDG_CACHE_HOME",
+				"TMPDIR",
+				"TEMP",
+				"TMP",
+				"PYTHONUTF8",
+			)
+		ambient_environment = {
+			"PATH": "frozen-storage-path",
+			"FROZEN_MARKER": "captured",
+			mixed_name: str(environment_engine),
+			mixed_user_home: "ambient-user-home",
+		}
+		for isolated_name in isolated_names:
+			ambient_environment[isolated_name.swapcase()] = "ambient-private-value"
+
+		def resolve_candidate(
+			configured: str,
+			*,
+			environment: dict[str, str],
+			cwd: Path,
+		) -> str:
+			nonlocal resolved_candidate, resolved_environment, resolved_cwd
+			resolved_candidate = configured
+			resolved_environment = environment
+			resolved_cwd = cwd
+			build_gf_ai_developer_kit.os.environ["AMBIENT_ONLY"] = "late-mutation"
+			return real_resolver(
+				configured,
+				environment=environment,
+				cwd=cwd,
+			)
+
+		def set_as_windows(
+			environment: dict[str, str],
+			name: str,
+			value: str,
+			*,
+			platform_name: str | None = None,
+		) -> None:
+			real_setter(
+				environment,
+				name,
+				value,
+				platform_name="nt",
+			)
+
+		def remove_as_windows(
+			environment: dict[str, str],
+			name: str,
+			*,
+			platform_name: str | None = None,
+		) -> None:
+			real_remover(
+				environment,
+				name,
+				platform_name="nt",
+			)
+
+		with mock.patch.object(
+			build_gf_ai_developer_kit.os,
+			"environ",
+			ambient_environment,
+		), mock.patch.object(
+			build_gf_ai_developer_kit,
+			"validate_storage_backend_templates",
+			return_value=[],
+		), mock.patch.object(
+			build_gf_ai_developer_kit,
+			"resolve_godot_executable",
+			side_effect=resolve_candidate,
+		), mock.patch.object(
+			build_gf_ai_developer_kit,
+			"set_owned_environment_value",
+			side_effect=set_as_windows,
+		), mock.patch.object(
+			build_gf_ai_developer_kit,
+			"remove_owned_environment_value",
+			side_effect=remove_as_windows,
+		), mock.patch.object(
+			build_gf_ai_developer_kit,
+			"populate_storage_backend_template_acceptance_project",
+		), mock.patch.object(
+			build_gf_ai_developer_kit,
+			"_run_storage_acceptance_process",
+			side_effect=FileNotFoundError("fixture stop after environment capture"),
+		) as process_runner:
+			acceptance = (
+				build_gf_ai_developer_kit
+				.run_storage_backend_template_acceptance(str(explicit_engine))
+			)
+
+		self.assertFalse(acceptance["ok"])
+		self.assertEqual(acceptance["phase"], "environment")
+		self.assertIsNotNone(resolved_environment)
+		self.assertIsNotNone(resolved_cwd)
+		assert resolved_environment is not None
+		assert resolved_cwd is not None
+		self.assertEqual(resolved_candidate, str(explicit_engine))
+		self.assertEqual(resolved_environment["PATH"], "frozen-storage-path")
+		self.assertEqual(resolved_environment["FROZEN_MARKER"], "captured")
+		self.assertEqual(
+			resolved_environment[
 				build_gf_ai_developer_kit.GODOT_EXECUTABLE_ENV_VAR
 			],
-			configured,
+			str(explicit_engine),
 		)
+		self.assertEqual(
+			[
+				key
+				for key in resolved_environment
+				if key.casefold()
+				== build_gf_ai_developer_kit.GODOT_EXECUTABLE_ENV_VAR.casefold()
+			],
+			[build_gf_ai_developer_kit.GODOT_EXECUTABLE_ENV_VAR],
+		)
+		self.assertFalse(any(
+			key.casefold() == "GODOT_USER_HOME".casefold()
+			for key in resolved_environment
+		))
+		for isolated_name in isolated_names:
+			self.assertEqual(
+				[
+					key
+					for key in resolved_environment
+					if key.casefold() == isolated_name.casefold()
+				],
+				[isolated_name],
+			)
+			if isolated_name != "PYTHONUTF8":
+				self.assertTrue(
+					Path(resolved_environment[isolated_name]).is_relative_to(
+						resolved_cwd.parent
+					),
+				)
+		self.assertNotIn("AMBIENT_ONLY", resolved_environment)
+		process_environment = process_runner.call_args.kwargs["environment"]
+		process_cwd = process_runner.call_args.kwargs["cwd"]
+		process_command = process_runner.call_args.args[0]
+		self.assertIs(process_environment, resolved_environment)
+		self.assertEqual(process_cwd, resolved_cwd)
+		self.assertEqual(process_command[0], str(explicit_engine.resolve()))
+		self.assertEqual(process_environment["PATH"], "frozen-storage-path")
+		self.assertEqual(process_environment["FROZEN_MARKER"], "captured")
+		self.assertNotIn("AMBIENT_ONLY", process_environment)
+
+	def test_storage_acceptance_scrubs_stale_observation_authority(self) -> None:
+		explicit_engine = self.project_root / "explicit-observation-godot.exe"
+		explicit_engine.write_bytes(b"fixture")
+		explicit_engine.chmod(0o700)
+		nonce_name, path_name = (
+			build_gf_ai_developer_kit
+			._STORAGE_ACCEPTANCE_OBSERVATION_ENVIRONMENT_NAMES
+		)
+		ambient_environment = {
+			"PATH": "frozen-storage-path",
+			nonce_name: "canonical-stale-nonce",
+			"gF_gUt_ShArD_oBsErVaTiOn_NoNcE": "mixed-stale-nonce",
+			path_name: "canonical-stale-path",
+			"gF_gUt_ShArD_oBsErVaTiOn_PaTh": "mixed-stale-path",
+		}
+		ambient_snapshot = dict(ambient_environment)
+		real_setter = build_gf_ai_developer_kit.set_owned_environment_value
+		real_remover = build_gf_ai_developer_kit.remove_owned_environment_value
+		process_environments: list[dict[str, str]] = []
+
+		def set_as_windows(
+			environment: dict[str, str],
+			name: str,
+			value: str,
+			*,
+			platform_name: str | None = None,
+		) -> None:
+			real_setter(environment, name, value, platform_name="nt")
+
+		def remove_as_windows(
+			environment: dict[str, str],
+			name: str,
+			*,
+			platform_name: str | None = None,
+		) -> None:
+			real_remover(environment, name, platform_name="nt")
+
+		lifecycle_payload = {
+			"schema_version": 1,
+			"ok": True,
+			"baseline_available": True,
+			"warning_tracking_available": True,
+			"unhandled_warning_count": 0,
+			"orphan_count": 0,
+			"warnings": [],
+			"orphans": [],
+			"details_truncated": False,
+			"configuration_error": "",
+		}
+		gut_output = "\n".join((
+			"Passing Tests 8",
+			"---- All tests passed! ----",
+			"GF_TEST_LIFECYCLE_GATE="
+			+ json.dumps(lifecycle_payload, separators=(",", ":")),
+		))
+
+		def run_process(
+			command: list[str],
+			*,
+			cwd: Path,
+			environment: dict[str, str],
+			cleanup_state: dict[str, bool],
+		) -> build_gf_ai_developer_kit.SupervisedProcessResult:
+			del cwd, cleanup_state
+			process_environments.append(environment)
+			output = gut_output if "-s" in command else "fixture import complete"
+			log_path = Path(command[command.index("--log-file") + 1])
+			log_path.write_text(output, encoding="utf-8")
+			return build_gf_ai_developer_kit.SupervisedProcessResult(
+				return_code=0,
+				stdout=output,
+				stderr="",
+				timed_out=False,
+				duration_seconds=0.01,
+				pid=123,
+				process_boundary_quiescent=True,
+			)
+
+		with mock.patch.object(
+			build_gf_ai_developer_kit.os,
+			"environ",
+			ambient_environment,
+		), mock.patch.object(
+			build_gf_ai_developer_kit,
+			"validate_storage_backend_templates",
+			return_value=[],
+		), mock.patch.object(
+			build_gf_ai_developer_kit,
+			"resolve_godot_executable",
+			return_value=str(explicit_engine.resolve()),
+		) as resolve_godot, mock.patch.object(
+			build_gf_ai_developer_kit,
+			"set_owned_environment_value",
+			side_effect=set_as_windows,
+		), mock.patch.object(
+			build_gf_ai_developer_kit,
+			"remove_owned_environment_value",
+			side_effect=remove_as_windows,
+		), mock.patch.object(
+			build_gf_ai_developer_kit,
+			"populate_storage_backend_template_acceptance_project",
+		), mock.patch.object(
+			build_gf_ai_developer_kit,
+			"_run_storage_acceptance_process",
+			side_effect=run_process,
+		):
+			acceptance = (
+				build_gf_ai_developer_kit
+				.run_storage_backend_template_acceptance(str(explicit_engine))
+			)
+
+		self.assertTrue(acceptance["ok"], acceptance)
+		self.assertEqual(len(process_environments), 2)
+		resolver_environment = resolve_godot.call_args.kwargs["environment"]
+		self.assertTrue(all(
+			environment is resolver_environment
+			for environment in process_environments
+		))
+		for environment in (resolver_environment, *process_environments):
+			for owned_name in (nonce_name, path_name):
+				self.assertFalse(any(
+					key.casefold() == owned_name.casefold()
+					for key in environment
+				))
+		self.assertEqual(ambient_environment, ambient_snapshot)
 
 	def test_storage_backend_acceptance_has_an_explicit_cli_action(self) -> None:
 		expected = {
@@ -7730,6 +8518,7 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 			],
 			cwd=ROOT,
 			timeout_seconds=30.0,
+			environment=dict(os.environ),
 			max_stdout_characters=64,
 			max_stderr_characters=64,
 		)

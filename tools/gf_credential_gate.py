@@ -12,10 +12,9 @@ import os
 import re
 import stat
 import struct
-import subprocess
 import sys
 import tempfile
-import threading
+import time
 import zipfile
 import zlib
 from contextlib import contextmanager
@@ -25,13 +24,20 @@ from pathlib import PurePosixPath
 from typing import BinaryIO
 from typing import Iterator
 
+import gf_process_supervisor
 from gf_path_security import absolute_lexical_path
 from gf_path_security import path_has_reparse_component
 from gf_path_security import path_is_inside_lexical
+from gf_process_authority import active_process_authority
+from gf_process_authority import freeze_process_authority
+from gf_process_authority import FrozenGitProcess
+from gf_process_authority import FrozenProcessAuthority
+from gf_process_authority import FrozenProcessEnvironment
 
 
 ROOT = Path(__file__).resolve().parents[1]
 SCHEMA_VERSION = 1
+GIT_CAPTURE_TIMEOUT_SECONDS = 30.0
 
 TEXT_SUFFIXES = frozenset({
 	".cfg",
@@ -648,6 +654,8 @@ def main() -> int:
 			)
 		else:
 			result = run_tracked_gate(Path(args.repo_root))
+	except gf_process_supervisor.SupervisedProcessCleanupError:
+		raise
 	except Exception:
 		result = _failure_result(
 			"internal",
@@ -670,6 +678,8 @@ def run_tracked_gate(
 ) -> dict[str, object]:
 	try:
 		return scan_tracked_repository(repo_root, limits)
+	except gf_process_supervisor.SupervisedProcessCleanupError:
+		raise
 	except Exception:
 		return _failure_result(
 			"tracked",
@@ -978,6 +988,8 @@ def run_repository_and_release_gate(
 ) -> dict[str, object]:
 	try:
 		return scan_repository_and_release(repo_root, artifact_manifest, limits)
+	except gf_process_supervisor.SupervisedProcessCleanupError:
+		raise
 	except Exception:
 		return _failure_result(
 			"tracked_and_release",
@@ -993,7 +1005,23 @@ def scan_repository_and_release(
 ) -> dict[str, object]:
 	active_limits = limits or GateLimits()
 	work_budget = WorkBudget()
-	source = scan_tracked_repository(repo_root, active_limits, work_budget)
+	try:
+		process_authority = _credential_gate_process_authority(repo_root)
+	except gf_process_supervisor.SupervisedProcessCleanupError:
+		raise
+	except (OSError, RuntimeError, ValueError):
+		source = _failure_result(
+			"tracked",
+			"credential_gate.git_index_unavailable",
+			"git-index",
+		)
+	else:
+		source = scan_tracked_repository(
+			repo_root,
+			active_limits,
+			work_budget,
+			git_process=process_authority.git,
+		)
 	release = scan_release_manifest(artifact_manifest, active_limits, work_budget)
 	issues = [
 		*list(source.get("issues", [])),
@@ -1013,6 +1041,8 @@ def scan_tracked_repository(
 	repo_root: Path = ROOT,
 	limits: GateLimits | None = None,
 	work_budget: WorkBudget | None = None,
+	*,
+	git_process: FrozenGitProcess | None = None,
 ) -> dict[str, object]:
 	active_limits = limits or GateLimits()
 	active_work_budget = work_budget or WorkBudget()
@@ -1022,11 +1052,20 @@ def scan_tracked_repository(
 		collector.add("credential_gate.work_budget_exhausted", "gate")
 		return _result("tracked", collector, stats)
 	root = absolute_lexical_path(repo_root)
+	if git_process is None:
+		try:
+			git_process = _credential_gate_process_authority(root).git
+		except gf_process_supervisor.SupervisedProcessCleanupError:
+			raise
+		except (OSError, RuntimeError, ValueError):
+			collector.add("credential_gate.git_index_unavailable", "git-index")
+			return _result("tracked", collector, stats)
 	try:
 		tracked_paths, repository_binding, index_fingerprint = _git_tracked_paths(
 			root,
 			active_limits,
 			active_work_budget,
+			git_process,
 		)
 	except GateInputError as error:
 		collector.add(error.rule_id, "git-index")
@@ -1108,6 +1147,7 @@ def scan_tracked_repository(
 			root,
 			active_limits,
 			active_work_budget,
+			git_process,
 		)
 	except GateInputError as error:
 		collector.add(error.rule_id, "git-index")
@@ -1335,15 +1375,17 @@ def _git_tracked_paths(
 	root: Path,
 	limits: GateLimits,
 	work_budget: WorkBudget,
+	git_process: FrozenGitProcess,
 ) -> tuple[list[str], tuple[tuple[Path, os.stat_result], ...], bytes]:
+	if not isinstance(git_process, FrozenGitProcess):
+		raise TypeError("Tracked repository scan requires a frozen Git capability.")
 	if path_has_reparse_component(root):
 		raise GateInputError("credential_gate.repository_root_linked")
 	repository_binding = _snapshot_full_directory_chain(root)
-	git_environment = _isolated_git_environment()
-	top_level_code, top_level_stdout, top_level_stderr = _run_bounded_capture(
-		["git", "rev-parse", "--show-toplevel"],
+	top_level_code, top_level_stdout, top_level_stderr = _run_git_bounded_capture(
+		git_process,
+		("rev-parse", "--show-toplevel"),
 		root,
-		git_environment,
 		limits.max_git_root_output_bytes,
 		limits.max_git_stderr_bytes,
 	)
@@ -1353,10 +1395,10 @@ def _git_tracked_paths(
 	)
 	if not _directory_binding_is_current(root, repository_binding):
 		raise GateInputError("credential_gate.repository_changed")
-	completed_code, completed_stdout, completed_stderr = _run_bounded_capture(
-		["git", "ls-files", "-z", "--cached", "--stage"],
+	completed_code, completed_stdout, completed_stderr = _run_git_bounded_capture(
+		git_process,
+		("ls-files", "-z", "--cached", "--stage"),
 		root,
-		git_environment,
 		limits.max_git_index_output_bytes,
 		limits.max_git_stderr_bytes,
 	)
@@ -1413,102 +1455,60 @@ def _git_tracked_paths(
 	)
 
 
-def _run_bounded_capture(
-	arguments: list[str],
+def _credential_gate_process_authority(repo_root: Path) -> FrozenProcessAuthority:
+	"""Reuse an active authority or freeze ambient process state exactly once."""
+	active_authority = active_process_authority()
+	if active_authority is not None:
+		return active_authority
+	return freeze_process_authority(
+		FrozenProcessEnvironment.capture(os.environ),
+		cwd=absolute_lexical_path(repo_root),
+	)
+
+
+def _run_git_bounded_capture(
+	git_process: FrozenGitProcess,
+	arguments: tuple[str, ...],
 	cwd: Path,
-	environment: dict[str, str],
 	max_stdout_bytes: int,
 	max_stderr_bytes: int,
 ) -> tuple[int, bytes, bytes]:
+	"""Run one frozen Git command with bounded output and positive cleanup proof."""
+	identity = git_process.command(arguments)
+	stdout_budget = max(0, max_stdout_bytes)
+	stderr_budget = max(0, max_stderr_bytes)
+	deadline = time.perf_counter() + GIT_CAPTURE_TIMEOUT_SECONDS
 	try:
-		process = subprocess.Popen(
-			arguments,
+		completed = gf_process_supervisor.run_supervised_process_bytes(
+			list(identity.effective),
 			cwd=cwd,
-			env=environment,
-			stdin=subprocess.DEVNULL,
-			stdout=subprocess.PIPE,
-			stderr=subprocess.PIPE,
+			timeout_seconds=GIT_CAPTURE_TIMEOUT_SECONDS,
+			deadline=deadline,
+			max_stdout_bytes=max(1, stdout_budget),
+			max_stderr_bytes=max(1, stderr_budget),
+			environment=git_process.environment.values(),
 		)
+		completed = gf_process_supervisor.require_supervised_binary_quiet_boundary(
+			completed,
+			deadline=deadline,
+		)
+	except gf_process_supervisor.SupervisedProcessCleanupError:
+		raise
 	except OSError:
 		raise GateInputError("credential_gate.git_index_unavailable") from None
-	if process.stdout is None or process.stderr is None:
-		process.kill()
-		raise GateInputError("credential_gate.git_index_unavailable")
-
-	stdout_buffer = bytearray()
-	stderr_buffer = bytearray()
-	output_exceeded = threading.Event()
-	reader_failed = threading.Event()
-
-	def read_stream(
-		stream: BinaryIO,
-		buffer: bytearray,
-		max_bytes: int,
-	) -> None:
-		try:
-			while True:
-				chunk = stream.read(64 * 1024)
-				if not chunk:
-					return
-				remaining = max(0, max_bytes + 1 - len(buffer))
-				if remaining:
-					buffer.extend(chunk[:remaining])
-				if len(buffer) > max_bytes or len(chunk) > remaining:
-					output_exceeded.set()
-					try:
-						process.kill()
-					except OSError:
-						pass
-					return
-		except (OSError, ValueError):
-			reader_failed.set()
-			try:
-				process.kill()
-			except OSError:
-				pass
-
-	stdout_thread = threading.Thread(
-		target=read_stream,
-		args=(process.stdout, stdout_buffer, max(0, max_stdout_bytes)),
-		daemon=True,
-	)
-	stderr_thread = threading.Thread(
-		target=read_stream,
-		args=(process.stderr, stderr_buffer, max(0, max_stderr_bytes)),
-		daemon=True,
-	)
-	stdout_thread.start()
-	stderr_thread.start()
-	try:
-		return_code = process.wait(timeout=30)
-	except subprocess.TimeoutExpired:
-		process.kill()
-		try:
-			process.wait(timeout=5)
-		except subprocess.TimeoutExpired:
-			pass
-		raise GateInputError("credential_gate.git_index_unavailable") from None
-	finally:
-		stdout_thread.join(timeout=5)
-		stderr_thread.join(timeout=5)
-		process.stdout.close()
-		process.stderr.close()
-	if stdout_thread.is_alive() or stderr_thread.is_alive() or reader_failed.is_set():
-		raise GateInputError("credential_gate.git_index_unavailable")
-	if output_exceeded.is_set():
+	if (
+		completed.stdout_truncated
+		or completed.stderr_truncated
+		or len(completed.stdout) > stdout_budget
+		or len(completed.stderr) > stderr_budget
+	):
 		raise GateInputError("credential_gate.git_index_output_budget_exceeded")
-	return return_code, bytes(stdout_buffer), bytes(stderr_buffer)
-
-
-def _isolated_git_environment() -> dict[str, str]:
-	environment = {
-		key: value
-		for key, value in os.environ.items()
-		if not key.upper().startswith("GIT_")
-	}
-	environment["GIT_CONFIG_NOSYSTEM"] = "1"
-	environment["GIT_OPTIONAL_LOCKS"] = "0"
-	return environment
+	if (
+		completed.timed_out
+		or completed.output_drain_failed
+	):
+		raise GateInputError("credential_gate.git_index_unavailable")
+	return completed.return_code, completed.stdout, completed.stderr
 
 
 def _paths_identical(left: Path, right: Path) -> bool:

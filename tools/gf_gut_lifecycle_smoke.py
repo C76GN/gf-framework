@@ -8,10 +8,14 @@ import json
 import os
 import secrets
 import sys
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from gf_executable_resolution import remove_owned_environment_value
+from gf_executable_resolution import set_owned_environment_value
+from gf_godot_process import GodotExecutableResolutionError
 from gf_godot_process import resolve_godot_executable
 from gf_maintenance import (
 	GUT_LIFECYCLE_CLI_RESOURCE_PATH,
@@ -21,6 +25,8 @@ from gf_maintenance import (
 	GUT_LIFECYCLE_GATE_PREFIX,
 	GUT_POST_RUN_HOOK_RESOURCE_PATH,
 	GUT_PRE_RUN_HOOK_RESOURCE_PATH,
+	GUT_SHARD_OBSERVATION_NONCE_ENVIRONMENT,
+	GUT_SHARD_OBSERVATION_PATH_ENVIRONMENT,
 	godot_exit_leak_report_from_output,
 	gut_report_all_tests_passed,
 	has_gdscript_reload_warning,
@@ -169,10 +175,17 @@ def main() -> int:
 	)
 	parser.add_argument("--json", action="store_true", help="Print JSON output.")
 	args = parser.parse_args()
+	process_environment = dict(os.environ)
 
 	LOG_ROOT.mkdir(parents=True, exist_ok=True)
-	godot = resolve_godot_executable()
-	results = [run_scenario(godot, scenario) for scenario in SCENARIOS]
+	results = [
+		run_scenario(
+			"godot",
+			scenario,
+			base_environment=process_environment,
+		)
+		for scenario in SCENARIOS
+	]
 	payload = {
 		"ok": all(result.ok for result in results),
 		"scenario_count": len(results),
@@ -190,7 +203,12 @@ def main() -> int:
 	return 0 if payload["ok"] else 1
 
 
-def run_scenario(godot: str, scenario: Scenario) -> ScenarioResult:
+def run_scenario(
+	godot: str,
+	scenario: Scenario,
+	*,
+	base_environment: Mapping[str, str],
+) -> ScenarioResult:
 	run_token = f"{os.getpid()}_{secrets.token_hex(4)}"
 	log_path = LOG_ROOT / f"gut_lifecycle_smoke_{scenario.name}_{run_token}.log"
 	log_path.unlink(missing_ok=True)
@@ -210,10 +228,37 @@ def run_scenario(godot: str, scenario: Scenario) -> ScenarioResult:
 		"-gdisable_colors",
 		*scenario.extra_arguments,
 	]
-	environment = os.environ.copy()
-	environment.pop(BOOTSTRAP_FIXTURE_ENVIRONMENT, None)
+	environment = dict(base_environment)
+	remove_owned_environment_value(
+		environment,
+		BOOTSTRAP_FIXTURE_ENVIRONMENT,
+	)
+	for observation_name in (
+		GUT_SHARD_OBSERVATION_NONCE_ENVIRONMENT,
+		GUT_SHARD_OBSERVATION_PATH_ENVIRONMENT,
+	):
+		remove_owned_environment_value(environment, observation_name)
 	if scenario.bootstrap_fixture:
-		environment[BOOTSTRAP_FIXTURE_ENVIRONMENT] = scenario.bootstrap_fixture
+		set_owned_environment_value(
+			environment,
+			BOOTSTRAP_FIXTURE_ENVIRONMENT,
+			scenario.bootstrap_fixture,
+		)
+	try:
+		resolved_godot = resolve_godot_executable(
+			godot,
+			environment=environment,
+			cwd=ROOT,
+		)
+	except GodotExecutableResolutionError:
+		return ScenarioResult(
+			name=scenario.name,
+			ok=False,
+			issues=[
+				"Godot executable could not be resolved before scenario dispatch."
+			],
+		)
+	command[0] = resolved_godot
 	try:
 		process_result = run_supervised_process(
 			command,
