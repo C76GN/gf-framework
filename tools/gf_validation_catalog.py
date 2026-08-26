@@ -14,6 +14,8 @@ from typing import Any
 from typing import Mapping
 
 from gf_maintenance_check_graph import CheckGraph
+from gf_validation_contracts import CheckInputSpec
+from gf_validation_contracts import PathRule
 
 
 _ACTION_NAME_RE = re.compile(r"^[a-z][a-z0-9_]*$")
@@ -83,6 +85,7 @@ class ValidationCatalog:
 		actions: Iterable[
 			tuple[str, Sequence[str] | None, ValidationExecutorKind]
 		],
+		input_specs: Iterable[CheckInputSpec],
 		dependencies: Iterable[tuple[str, Sequence[str]]],
 		check_groups: Iterable[tuple[str, Sequence[str]]],
 		suites: Iterable[tuple[str, Sequence[str]]],
@@ -94,6 +97,7 @@ class ValidationCatalog:
 		validated_actions, validated_executors = _validate_actions(actions)
 		action_names = tuple(validated_actions)
 		known_actions = frozenset(action_names)
+		validated_input_specs = _validate_input_specs(input_specs, action_names)
 		validated_default_timeout_seconds = _validated_positive_timeout_seconds(
 			"Default validation action timeout",
 			default_timeout_seconds,
@@ -130,6 +134,10 @@ class ValidationCatalog:
 			validated_executors
 		)
 		self._action_names = action_names
+		self._input_specs = validated_input_specs
+		self._input_specs_by_name: Mapping[str, CheckInputSpec] = MappingProxyType({
+			spec.check_name: spec for spec in validated_input_specs
+		})
 		self._in_process_action_names = tuple(
 			name
 			for name, executor_kind in self._executors.items()
@@ -168,6 +176,20 @@ class ValidationCatalog:
 	def action_names(self) -> tuple[str, ...]:
 		"""Return every action, including actions without a static command."""
 		return self._action_names
+
+	@property
+	def input_specs(self) -> tuple[CheckInputSpec, ...]:
+		"""Return advisory input declarations in action declaration order."""
+		return self._input_specs
+
+	def input_spec(self, action_name: str) -> CheckInputSpec | None:
+		"""Return one advisory declaration, or None for a known undeclared action."""
+		_validate_action_name(action_name)
+		if action_name not in self._actions:
+			raise ValidationCatalogError(
+				f"Unknown validation action input spec: {action_name}"
+			)
+		return self._input_specs_by_name.get(action_name)
 
 	def command_definitions(self) -> dict[str, list[str]]:
 		"""Return statically materialized commands in canonical declaration order."""
@@ -791,6 +813,64 @@ def build_validation_catalog(context: ValidationCatalogContext) -> ValidationCat
 		),
 		subprocess_action("release_metadata", None),
 	)
+	common_input_implementation_files = (
+		"tools/gf_maintenance.py",
+		"tools/gf_validation_catalog.py",
+		"tools/gf_validation_contracts.py",
+		"tools/gf_validation_inputs.py",
+		"tools/gf_workspace_snapshot.py",
+	)
+	input_specs = (
+		CheckInputSpec(
+			check_name="public_docs_boundary",
+			source_rules=(
+				PathRule("exact", "addons/gf/extensions/README.md"),
+				PathRule("exact", "addons/gf/README.md"),
+				PathRule("exact", "ASSET_LIBRARY.md"),
+				PathRule("exact", "ASSET_STORE.md"),
+				PathRule("tree", "docs/wiki", suffixes=(".md",)),
+				PathRule(
+					"tree",
+					"docs/zh",
+					suffixes=(".md",),
+					excluded_prefixes=("docs/zh/reference/api",),
+				),
+				PathRule("exact", "README.md"),
+				PathRule("exact", "README.zh.md"),
+			),
+			implementation_files=common_input_implementation_files,
+		),
+		CheckInputSpec(
+			check_name="public_api_boundary",
+			source_rules=(
+				PathRule("tree", "addons/gf", suffixes=(".gd",)),
+				PathRule("tree", "docs/api_catalog", suffixes=(".xml",)),
+				PathRule("tree", "docs/zh/reference/api", suffixes=(".md",)),
+			),
+			implementation_files=(
+				"tools/gdscript_api_parser.py",
+				"tools/gf_api_owners.py",
+				*common_input_implementation_files,
+			),
+		),
+		CheckInputSpec(
+			check_name="package_user_dependency_boundary",
+			source_rules=(
+				PathRule(
+					"tree",
+					"addons/gf/kernel/editor/package",
+					suffixes=(".gd",),
+				),
+				PathRule(
+					"tree",
+					"addons/gf/kernel/package",
+					suffixes=(".gd",),
+				),
+				PathRule("exact", "addons/gf/plugin.gd"),
+			),
+			implementation_files=common_input_implementation_files,
+		),
+	)
 	default_timeout_seconds = 600
 	timeout_overrides = (
 		# The unfiltered authoritative suite exceeds the generic ten-minute
@@ -1105,6 +1185,7 @@ def build_validation_catalog(context: ValidationCatalogContext) -> ValidationCat
 	)
 	return ValidationCatalog(
 		actions=actions,
+		input_specs=input_specs,
 		dependencies=dependencies,
 		check_groups=check_groups,
 		suites=suites,
@@ -1160,6 +1241,39 @@ def _validate_actions(
 			command,
 		)
 	return validated, validated_executors
+
+
+def _validate_input_specs(
+	input_specs: Iterable[CheckInputSpec],
+	action_names: tuple[str, ...],
+) -> tuple[CheckInputSpec, ...]:
+	if isinstance(input_specs, (str, bytes)):
+		raise ValidationCatalogError(
+			"Validation input specs must be an iterable of CheckInputSpec values."
+		)
+	try:
+		iterator = iter(input_specs)
+	except TypeError as error:
+		raise ValidationCatalogError(
+			"Validation input specs must be an iterable of CheckInputSpec values."
+		) from error
+	known_actions = frozenset(action_names)
+	by_name: dict[str, CheckInputSpec] = {}
+	for spec in iterator:
+		if type(spec) is not CheckInputSpec:
+			raise ValidationCatalogError(
+				"Validation input specs must contain CheckInputSpec values."
+			)
+		if spec.check_name not in known_actions:
+			raise ValidationCatalogError(
+				f"Validation input spec references an unknown action: {spec.check_name}"
+			)
+		if spec.check_name in by_name:
+			raise ValidationCatalogError(
+				f"Duplicate validation input spec: {spec.check_name}"
+			)
+		by_name[spec.check_name] = spec
+	return tuple(by_name[name] for name in action_names if name in by_name)
 
 
 def _replace_sync_examples_action(name: str) -> str:

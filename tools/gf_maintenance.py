@@ -4994,6 +4994,7 @@ def gut_shard_plan(
 GUT_SHARD_RUNTIME_SOURCE_MODULES = (
 	("tools/gf_maintenance.py", "gf_maintenance"),
 	("tools/gf_validation_catalog.py", "gf_validation_catalog"),
+	("tools/gf_validation_contracts.py", "gf_validation_contracts"),
 	("tools/gf_gut_shard_worker.py", "gf_gut_shard_worker"),
 	("tools/gf_gut_sharding.py", "gf_gut_sharding"),
 	("tools/gf_parallel_validation.py", "gf_parallel_validation"),
@@ -22031,6 +22032,7 @@ def _validation_catalog_non_command_authority(
 		),
 		catalog.in_process_action_names,
 		catalog.deferred_action_names,
+		catalog.input_specs,
 		catalog.default_timeout_seconds,
 		tuple(catalog.timeout_overrides().items()),
 		tuple(
@@ -22389,6 +22391,7 @@ VALIDATION_SHADOW_REPORT_FIELDS = frozenset({
 def attach_affected_analysis_report(
 	data: dict[str, Any],
 	*,
+	validation_catalog: gf_validation_catalog.ValidationCatalog,
 	git_process: FrozenGitProcess | None,
 	base_revision: str,
 	explain: bool,
@@ -22398,6 +22401,11 @@ def attach_affected_analysis_report(
 	"""Attach advisory diagnostics while leaving cleanup ownership debt terminal."""
 	check_names = tuple(str(name) for name in data.get("checks", []))
 	try:
+		if not isinstance(
+			validation_catalog,
+			gf_validation_catalog.ValidationCatalog,
+		):
+			raise ValueError("Affected analysis requires a captured Validation Catalog.")
 		if force_failure:
 			report = gf_validation_inputs.make_affected_analysis_failure(
 				check_names,
@@ -22419,7 +22427,7 @@ def attach_affected_analysis_report(
 				base_revision=base_revision,
 				explain=explain,
 				deadline_seconds=analysis_deadline,
-				input_specs=gf_validation_inputs.DEFAULT_AFFECTED_INPUT_SPECS,
+				input_specs=validation_catalog.input_specs,
 				monotonic=time.monotonic,
 			)
 		report = gf_validation_inputs.validate_affected_analysis_report(report)
@@ -22930,7 +22938,7 @@ def run_checks(
 	with gf_process_authority.activate_process_environment(
 		invocation_environment_snapshot
 	):
-		validation_plan = _VALIDATION_CATALOG.plan(
+		validation_plan = invocation_catalog.plan(
 			suite,
 			checks,
 			sync_examples=sync_examples,
@@ -23124,6 +23132,7 @@ def run_checks(
 		if affected:
 			attach_affected_analysis_report(
 				data,
+				validation_catalog=invocation_catalog,
 				git_process=None,
 				base_revision=affected_base,
 				explain=affected_explain,
@@ -23158,6 +23167,7 @@ def run_checks(
 		if affected:
 			attach_affected_analysis_report(
 				data,
+				validation_catalog=invocation_catalog,
 				git_process=None,
 				base_revision=affected_base,
 				explain=affected_explain,
@@ -23193,6 +23203,7 @@ def run_checks(
 		if affected:
 			attach_affected_analysis_report(
 				data,
+				validation_catalog=invocation_catalog,
 				git_process=None,
 				base_revision=affected_base,
 				explain=affected_explain,
@@ -23242,6 +23253,7 @@ def run_checks(
 		if affected:
 			attach_affected_analysis_report(
 				data,
+				validation_catalog=invocation_catalog,
 				git_process=None,
 				base_revision=affected_base,
 				explain=affected_explain,
@@ -23286,6 +23298,7 @@ def run_checks(
 		if affected:
 			attach_affected_analysis_report(
 				data,
+				validation_catalog=invocation_catalog,
 				git_process=invocation_process_authority.git,
 				base_revision=affected_base,
 				explain=affected_explain,
@@ -23323,6 +23336,7 @@ def run_checks(
 		if affected:
 			attach_affected_analysis_report(
 				data,
+				validation_catalog=invocation_catalog,
 				git_process=invocation_process_authority.git,
 				base_revision=affected_base,
 				explain=affected_explain,
@@ -23587,6 +23601,7 @@ def run_checks(
 	if affected and "affected_analysis" not in data:
 		attach_affected_analysis_report(
 			data,
+			validation_catalog=invocation_catalog,
 			git_process=invocation_process_authority.git,
 			base_revision=affected_base,
 			explain=affected_explain,

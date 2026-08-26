@@ -19,8 +19,6 @@ import unicodedata
 from dataclasses import dataclass
 from dataclasses import field
 from pathlib import Path
-from pathlib import PurePosixPath
-from types import MappingProxyType
 from typing import Any
 from typing import Callable
 from typing import Iterable
@@ -31,9 +29,12 @@ from gf_process_supervisor import SupervisedProcessStartError
 from gf_process_supervisor import exception_has_cleanup_debt
 from gf_process_supervisor import require_supervised_binary_quiet_boundary
 from gf_process_supervisor import run_supervised_process_bytes
+from gf_validation_contracts import CheckInputSpec
+from gf_validation_contracts import PathRule
+from gf_validation_contracts import ValidationInputContractError
+from gf_validation_contracts import ValidationInputError
 
 
-INPUT_SPEC_SCHEMA_VERSION = 1
 FROZEN_ACTION_INPUTS_SCHEMA_VERSION = 1
 AFFECTED_ANALYSIS_SCHEMA_VERSION = 1
 FILE_ATTRIBUTE_REPARSE_POINT = 0x0400
@@ -42,7 +43,6 @@ MAX_CHECK_NAME_CHARACTERS = 128
 MAX_BASE_REVISION_CHARACTERS = 256
 MAX_ARTIFACT_NAME_CHARACTERS = 128
 
-PATH_RULE_KINDS = frozenset({"exact", "tree"})
 AFFECTED_CLASSIFICATIONS = frozenset({"affected", "unaffected", "unknown"})
 AFFECTED_ANALYSIS_ERROR_CODES = frozenset({
 	"affected_base_invalid",
@@ -110,20 +110,6 @@ FROZEN_ACTION_INPUT_FIELDS = frozenset({
 	"unknown_reasons",
 })
 
-_PATH_RULE_FIELDS = frozenset({
-	"schema_version",
-	"kind",
-	"path",
-	"suffixes",
-	"excluded_prefixes",
-})
-_INPUT_SPEC_FIELDS = frozenset({
-	"schema_version",
-	"check_name",
-	"source_rules",
-	"implementation_files",
-	"consumed_artifacts",
-})
 _CHECK_NAME_RE = re.compile(r"^[a-z][a-z0-9_]*$")
 _ARTIFACT_NAME_RE = re.compile(r"^[a-z][a-z0-9_.-]*$")
 _SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
@@ -137,14 +123,6 @@ _WINDOWS_RESERVED_NAMES = frozenset({
 	*(f"COM{index}" for index in range(1, 10)),
 	*(f"LPT{index}" for index in range(1, 10)),
 })
-
-
-class ValidationInputError(RuntimeError):
-	"""Base error for strict validation-input analysis."""
-
-
-class ValidationInputContractError(ValidationInputError):
-	"""Raised for malformed schemas, paths, or declarations."""
 
 
 class ValidationInputCaptureError(ValidationInputError):
@@ -261,225 +239,6 @@ class _CaptureState:
 	missing_paths: list[
 		tuple[Path, str, tuple[tuple[Path, _FileSnapshot], ...]]
 	] = field(default_factory=list)
-
-
-@dataclass(frozen=True)
-class PathRule:
-	"""One exact-file or recursive-tree source selector.
-
-	Paths use canonical repository-relative POSIX syntax.  Tree suffix matching is
-	case-insensitive to conservatively cover platform differences; exclusions are
-	whole path prefixes below the selected tree.
-	"""
-
-	kind: str
-	path: str
-	suffixes: tuple[str, ...] = ()
-	excluded_prefixes: tuple[str, ...] = ()
-
-	def __post_init__(self) -> None:
-		if type(self.kind) is not str or self.kind not in PATH_RULE_KINDS:
-			raise ValidationInputContractError(
-				"validation_inputs.path_rule_kind_invalid"
-			)
-		_validate_portable_relative_path(self.path)
-		if type(self.suffixes) is not tuple:
-			raise ValidationInputContractError(
-				"validation_inputs.path_rule_suffixes_not_tuple"
-			)
-		if type(self.excluded_prefixes) is not tuple:
-			raise ValidationInputContractError(
-				"validation_inputs.path_rule_exclusions_not_tuple"
-			)
-		for suffix in self.suffixes:
-			_validate_suffix(suffix)
-		for prefix in self.excluded_prefixes:
-			_validate_portable_relative_path(prefix)
-			if not _is_strict_child_path(prefix, self.path):
-				raise ValidationInputContractError(
-					"validation_inputs.path_rule_exclusion_outside_tree"
-				)
-		if self.kind == "exact" and (self.suffixes or self.excluded_prefixes):
-			raise ValidationInputContractError(
-				"validation_inputs.exact_rule_has_tree_options"
-			)
-		if len(set(self.suffixes)) != len(self.suffixes):
-			raise ValidationInputContractError(
-				"validation_inputs.path_rule_duplicate_suffix"
-			)
-		if len(set(self.excluded_prefixes)) != len(self.excluded_prefixes):
-			raise ValidationInputContractError(
-				"validation_inputs.path_rule_duplicate_exclusion"
-			)
-		if tuple(sorted(self.suffixes, key=_portable_sort_key)) != self.suffixes:
-			raise ValidationInputContractError(
-				"validation_inputs.path_rule_suffixes_not_canonical"
-			)
-		if (
-			tuple(sorted(self.excluded_prefixes, key=_portable_sort_key))
-			!= self.excluded_prefixes
-		):
-			raise ValidationInputContractError(
-				"validation_inputs.path_rule_exclusions_not_canonical"
-			)
-		for index, prefix in enumerate(self.excluded_prefixes):
-			if any(
-				_is_same_or_child_path(prefix, earlier)
-				for earlier in self.excluded_prefixes[:index]
-			):
-				raise ValidationInputContractError(
-					"validation_inputs.path_rule_redundant_exclusion"
-				)
-
-	@classmethod
-	def from_dict(cls, payload: Mapping[str, Any]) -> PathRule:
-		data = _validated_exact_object("path rule", payload, _PATH_RULE_FIELDS)
-		_validate_schema_version(data["schema_version"], "path rule")
-		return cls(
-			kind=data["kind"],
-			path=data["path"],
-			suffixes=_validated_string_tuple("suffixes", data["suffixes"]),
-			excluded_prefixes=_validated_string_tuple(
-				"excluded_prefixes",
-				data["excluded_prefixes"],
-			),
-		)
-
-	def to_dict(self) -> dict[str, Any]:
-		return {
-			"schema_version": INPUT_SPEC_SCHEMA_VERSION,
-			"kind": self.kind,
-			"path": self.path,
-			"suffixes": list(self.suffixes),
-			"excluded_prefixes": list(self.excluded_prefixes),
-		}
-
-	def matches(self, logical_path: str) -> bool:
-		_validate_portable_relative_path(logical_path)
-		if self.kind == "exact":
-			return logical_path == self.path
-		if not _is_same_or_child_path(logical_path, self.path):
-			return False
-		if any(
-			_is_same_or_child_path(logical_path, prefix)
-			for prefix in self.excluded_prefixes
-		):
-			return False
-		if logical_path == self.path or not self.suffixes:
-			return True
-		return PurePosixPath(logical_path).suffix.casefold() in {
-			suffix.casefold() for suffix in self.suffixes
-		}
-
-
-@dataclass(frozen=True)
-class CheckInputSpec:
-	"""Explicit candidate input declaration for one maintenance check."""
-
-	check_name: str
-	source_rules: tuple[PathRule, ...]
-	implementation_files: tuple[str, ...]
-	consumed_artifacts: tuple[str, ...] = ()
-
-	def __post_init__(self) -> None:
-		_validate_check_name(self.check_name)
-		if type(self.source_rules) is not tuple or not self.source_rules:
-			raise ValidationInputContractError(
-				"validation_inputs.source_rules_required"
-			)
-		if any(type(rule) is not PathRule for rule in self.source_rules):
-			raise ValidationInputContractError(
-				"validation_inputs.source_rule_type_invalid"
-			)
-		if type(self.implementation_files) is not tuple or not self.implementation_files:
-			raise ValidationInputContractError(
-				"validation_inputs.implementation_files_required"
-			)
-		if type(self.consumed_artifacts) is not tuple:
-			raise ValidationInputContractError(
-				"validation_inputs.consumed_artifacts_not_tuple"
-			)
-		for path in self.implementation_files:
-			_validate_portable_relative_path(path)
-		for artifact_name in self.consumed_artifacts:
-			_validate_artifact_name(artifact_name)
-		_rule_keys = [
-			(rule.kind, rule.path, rule.suffixes, rule.excluded_prefixes)
-			for rule in self.source_rules
-		]
-		if len(set(_rule_keys)) != len(_rule_keys):
-			raise ValidationInputContractError(
-				"validation_inputs.duplicate_source_rule"
-			)
-		for field_name, values in (
-			("implementation_files", self.implementation_files),
-			("consumed_artifacts", self.consumed_artifacts),
-		):
-			if len(set(values)) != len(values):
-				raise ValidationInputContractError(
-					f"validation_inputs.duplicate_{field_name}"
-				)
-			if tuple(sorted(values, key=_portable_sort_key)) != values:
-				raise ValidationInputContractError(
-					f"validation_inputs.{field_name}_not_canonical"
-				)
-		if tuple(sorted(self.source_rules, key=_path_rule_sort_key)) != self.source_rules:
-			raise ValidationInputContractError(
-				"validation_inputs.source_rules_not_canonical"
-			)
-
-	@classmethod
-	def from_dict(cls, payload: Mapping[str, Any]) -> CheckInputSpec:
-		data = _validated_exact_object("input spec", payload, _INPUT_SPEC_FIELDS)
-		_validate_schema_version(data["schema_version"], "input spec")
-		if type(data["source_rules"]) is not list:
-			raise ValidationInputContractError(
-				"validation_inputs.source_rules_not_array"
-			)
-		return cls(
-			check_name=data["check_name"],
-			source_rules=tuple(
-				PathRule.from_dict(rule) for rule in data["source_rules"]
-			),
-			implementation_files=_validated_string_tuple(
-				"implementation_files",
-				data["implementation_files"],
-			),
-			consumed_artifacts=_validated_string_tuple(
-				"consumed_artifacts",
-				data["consumed_artifacts"],
-			),
-		)
-
-	def to_dict(self) -> dict[str, Any]:
-		return {
-			"schema_version": INPUT_SPEC_SCHEMA_VERSION,
-			"check_name": self.check_name,
-			"source_rules": [rule.to_dict() for rule in self.source_rules],
-			"implementation_files": list(self.implementation_files),
-			"consumed_artifacts": list(self.consumed_artifacts),
-		}
-
-	@property
-	def digest(self) -> str:
-		return _stable_digest(
-			b"gf-validation-input-spec-v1\0",
-			self.to_dict(),
-		)
-
-	def matches_source_path(self, logical_path: str) -> bool:
-		return any(rule.matches(logical_path) for rule in self.source_rules)
-
-	def matches_implementation_path(self, logical_path: str) -> bool:
-		_validate_portable_relative_path(logical_path)
-		return logical_path in self.implementation_files
-
-	def git_pathspecs(self) -> tuple[str, ...]:
-		paths = {
-			*(rule.path for rule in self.source_rules),
-			*self.implementation_files,
-		}
-		return tuple(sorted(paths, key=_portable_sort_key))
 
 
 @dataclass(frozen=True)
@@ -821,7 +580,7 @@ def analyze_affected_checks(
 	deadline_seconds: float | None = None,
 	*,
 	git_process: FrozenGitProcess,
-	input_specs: Iterable[CheckInputSpec] | None = None,
+	input_specs: Iterable[CheckInputSpec],
 	artifact_digests: Mapping[str, Mapping[str, str]] | None = None,
 	limits: InputCaptureLimits = DEFAULT_INPUT_CAPTURE_LIMITS,
 	monotonic: Callable[[], float] = time.monotonic,
@@ -846,9 +605,7 @@ def analyze_affected_checks(
 		_validate_check_name_sequence(names)
 		_validate_limits(limits)
 		deadline = _make_deadline(deadline_seconds, monotonic)
-		catalog = _input_spec_catalog(
-			DEFAULT_AFFECTED_INPUT_SPECS if input_specs is None else input_specs
-		)
+		catalog = _input_spec_catalog(input_specs)
 		declared_specs = [catalog[name] for name in names if name in catalog]
 		pathspecs = {
 			path
@@ -2140,21 +1897,6 @@ def _validate_path_segment(segment: str) -> None:
 		)
 
 
-def _validate_suffix(suffix: Any) -> None:
-	if (
-		type(suffix) is not str
-		or len(suffix) < 2
-		or not suffix.startswith(".")
-		or suffix != suffix.casefold()
-		or "/" in suffix
-		or "\\" in suffix
-		or any(not (character.isalnum() or character in {".", "_", "-"}) for character in suffix)
-	):
-		raise ValidationInputContractError(
-			"validation_inputs.suffix_invalid"
-		)
-
-
 def _consume_entry(
 	logical_path: str,
 	*,
@@ -2173,15 +1915,6 @@ def _consume_entry(
 		)
 
 
-def _path_rule_sort_key(rule: PathRule) -> tuple[Any, ...]:
-	return (
-		_portable_sort_key(rule.path),
-		rule.kind,
-		rule.suffixes,
-		rule.excluded_prefixes,
-	)
-
-
 def _portable_key(value: str) -> str:
 	return unicodedata.normalize("NFC", value).casefold()
 
@@ -2192,10 +1925,6 @@ def _portable_sort_key(value: str) -> tuple[str, bytes]:
 
 def _is_same_or_child_path(path: str, parent: str) -> bool:
 	return path == parent or path.startswith(f"{parent}/")
-
-
-def _is_strict_child_path(path: str, parent: str) -> bool:
-	return path.startswith(f"{parent}/")
 
 
 def _has_reparse_attribute(value: os.stat_result) -> bool:
@@ -2245,10 +1974,6 @@ def _validated_string_tuple(field_name: str, value: Any) -> tuple[str, ...]:
 	return tuple(value)
 
 
-def _validate_schema_version(value: Any, label: str) -> None:
-	_validate_specific_schema_version(value, INPUT_SPEC_SCHEMA_VERSION, label)
-
-
 def _validate_specific_schema_version(value: Any, expected: int, label: str) -> None:
 	if type(value) is not int or value != expected:
 		raise ValidationInputContractError(
@@ -2292,91 +2017,6 @@ def _assert_strict_json_safe(payload: Any) -> None:
 		) from error
 
 
-def _declared_input_spec(
-	check_name: str,
-	*,
-	source_rules: Iterable[PathRule],
-	additional_implementation_files: Iterable[str] = (),
-) -> CheckInputSpec:
-	"""Build one module-owned declaration in the canonical contract order."""
-	return CheckInputSpec(
-		check_name=check_name,
-		source_rules=tuple(sorted(source_rules, key=_path_rule_sort_key)),
-		implementation_files=tuple(sorted({
-			"tools/gf_maintenance.py",
-			"tools/gf_validation_catalog.py",
-			"tools/gf_validation_inputs.py",
-			"tools/gf_workspace_snapshot.py",
-			*additional_implementation_files,
-		}, key=_portable_sort_key)),
-	)
-
-
-# Phase-two candidate declarations are deliberately limited to three read-only,
-# in-process text scanners.  They drive affected/unaffected diagnostics only;
-# declaring a path set here does not claim a complete input closure or permit
-# evidence reuse.  Undeclared checks continue to resolve to unknown -> execute.
-DEFAULT_AFFECTED_INPUT_SPECS: tuple[CheckInputSpec, ...] = (
-	_declared_input_spec(
-		"package_user_dependency_boundary",
-		source_rules=(
-			PathRule(
-				"tree",
-				"addons/gf/kernel/editor/package",
-				suffixes=(".gd",),
-			),
-			PathRule(
-				"tree",
-				"addons/gf/kernel/package",
-				suffixes=(".gd",),
-			),
-			PathRule("exact", "addons/gf/plugin.gd"),
-		),
-	),
-	_declared_input_spec(
-		"public_api_boundary",
-		additional_implementation_files=(
-			"tools/gdscript_api_parser.py",
-			"tools/gf_api_owners.py",
-		),
-		source_rules=(
-			PathRule("tree", "addons/gf", suffixes=(".gd",)),
-			PathRule("tree", "docs/api_catalog", suffixes=(".xml",)),
-			PathRule(
-				"tree",
-				"docs/zh/reference/api",
-				suffixes=(".md",),
-			),
-		),
-	),
-	_declared_input_spec(
-		"public_docs_boundary",
-		source_rules=(
-			PathRule("exact", "addons/gf/extensions/README.md"),
-			PathRule("exact", "addons/gf/README.md"),
-			PathRule("exact", "ASSET_LIBRARY.md"),
-			PathRule("exact", "ASSET_STORE.md"),
-			PathRule(
-				"tree",
-				"docs/wiki",
-				suffixes=(".md",),
-			),
-			PathRule(
-				"tree",
-				"docs/zh",
-				suffixes=(".md",),
-				excluded_prefixes=("docs/zh/reference/api",),
-			),
-			PathRule("exact", "README.md"),
-			PathRule("exact", "README.zh.md"),
-		),
-	),
-)
-DEFAULT_AFFECTED_INPUT_SPEC_BY_NAME: Mapping[str, CheckInputSpec] = MappingProxyType({
-	spec.check_name: spec for spec in DEFAULT_AFFECTED_INPUT_SPECS
-})
-
-
 __all__ = [
 	"AFFECTED_ANALYSIS_ERROR_CODES",
 	"AFFECTED_ANALYSIS_REPORT_FIELDS",
@@ -2385,16 +2025,10 @@ __all__ = [
 	"AFFECTED_CLASSIFICATIONS",
 	"AFFECTED_REASON_CODES",
 	"ChangedPathSet",
-	"CheckInputSpec",
 	"DEFAULT_INPUT_CAPTURE_LIMITS",
-	"DEFAULT_AFFECTED_INPUT_SPECS",
-	"DEFAULT_AFFECTED_INPUT_SPEC_BY_NAME",
 	"FROZEN_ACTION_INPUTS_SCHEMA_VERSION",
 	"FrozenActionInputs",
-	"INPUT_SPEC_SCHEMA_VERSION",
 	"InputCaptureLimits",
-	"PATH_RULE_KINDS",
-	"PathRule",
 	"ValidationInputBaseError",
 	"ValidationInputCaptureError",
 	"ValidationInputContractError",
