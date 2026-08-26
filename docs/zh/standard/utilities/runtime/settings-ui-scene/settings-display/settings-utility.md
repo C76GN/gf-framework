@@ -24,17 +24,13 @@ if save_error != OK:
 
 `GFSettingsStoreUtility` 只定义三个物理同步入口：`is_persistence_enabled()` 查询 capability，`read_settings(file_name)` 返回 `GFStorageReadResult`，`write_settings(file_name, data)` 返回 Godot `Error`。自定义后端必须保留成功空字典与失败终态的区别，不能用 `{}` 同时表达“空设置”和“读取失败”。
 
-| 实现 | 所属 package | 用途 |
+| 实现 | 源码位置 | 用途 |
 | --- | --- | --- |
-| `GFSettingsFileStoreUtility` | `gf.standard.settings` | 把 JSON 写入 `user://`，保留 standalone 的历史默认行为 |
-| `GFSettingsNullStoreUtility` | `gf.standard.settings` | 显式返回 `UNAVAILABLE` 的 capability 哨兵，适合测试或缺失后端诊断 |
-| `GFStorageSettingsStoreUtility` | `gf.standard.settings.storage` | 声明并缓存 `GFStorageUtility` 依赖，把 Settings 端口同步转发到 Storage |
+| `GFSettingsFileStoreUtility` | `standard/utilities/settings` | 把 JSON 写入 `user://`，保留 standalone 的历史默认行为 |
+| `GFSettingsNullStoreUtility` | `standard/utilities/settings` | 显式返回 `UNAVAILABLE` 的 capability 哨兵，适合测试或缺失后端诊断 |
+| `GFStorageSettingsStoreUtility` | `standard/utilities/settings_storage` | 声明并缓存 `GFStorageUtility` 依赖，把 Settings 端口同步转发到 Storage |
 
-模块化项目只需要内存核心或 File Store 时安装 `gf.standard.settings`。该端口在本阶段仍复用 `GFStorageReadResult`，所以 `gf.standard.settings` 的安装闭包仍包含 `gf.standard.storage`；这里的中立性是后端中立，不表示类型或 package 已与 Storage 完全解耦。Architecture 要复用 `GFStorageUtility` 的 root、完整性与恢复边界时，再安装只提供 adapter 的 `gf.standard.settings.storage`；该命令会解析完整依赖闭包：
-
-```powershell
-godot --headless --path . --script res://addons/gf/kernel/package/gf_package_cli.gd -- install gf.standard.settings.storage
-```
+完整 GF 插件已经包含这些实现。只需要内存核心或 File Store 时直接使用 `GFSettingsUtility`；该端口在本阶段仍复用 `GFStorageReadResult`，所以这里的中立性是后端中立，不表示类型已经与 Storage 完全解耦。Architecture 要复用 `GFStorageUtility` 的 root、完整性与恢复边界时，使用 `GFStorageSettingsStoreUtility` adapter。
 
 ### Standalone 兼容路径
 
@@ -61,7 +57,7 @@ settings.init()
 Architecture 模式不会隐式回退到 `user://`。启用持久化时，项目必须在初始化前把一个可用实现注册为精确的 `GFSettingsStoreUtility` alias；只按具体实现类型注册不能满足 Settings 的依赖声明。迁移时按原有后端分流：
 
 - 原先依赖隐式 `user://` fallback 的项目，注册 `GFSettingsFileStoreUtility` 为精确 base alias，保持文件语义不变。
-- 原先已经让 Settings 复用 `GFStorageUtility` 的项目，安装 `gf.standard.settings.storage`，并注册 `GFStorageSettingsStoreUtility` 为精确 base alias。
+- 原先已经让 Settings 复用 `GFStorageUtility` 的项目，使用 `GFStorageSettingsStoreUtility`，并把它注册为精确 base alias。
 - 不需要持久化的项目，在注册和初始化前设置 `persistence_enabled=false`，不注册 Store。
 
 下面演示第二条 Storage adapter 路径：

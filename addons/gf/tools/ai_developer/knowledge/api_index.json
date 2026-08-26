@@ -2,7 +2,7 @@
   "schema_version": 2,
   "catalog_version": "2.0.0",
   "framework_version": "11.0.0-dev.0",
-  "source_digest": "50b33d3d7ac219ebcff4ee3d5c761b7ac6fc14d7e030619e1d2c8c63e158b2ab",
+  "source_digest": "4fdd6c8f285c4d9be73a7e5cb713e858bbb05e4163dbeaeddf84ce2ec5898040",
   "class_count": 849,
   "autoload_count": 1,
   "package_count": 56,
@@ -17,7 +17,6 @@
         "gf.standard.display",
         "gf.standard.diagnostics"
       ],
-      "description": "Package manifest for the bundled Action Queue extension.",
       "representative_path": "addons/gf/extensions/action_queue/actions/gf_audio_action.gd"
     },
     {
@@ -28,7 +27,6 @@
         "gf.standard.base",
         "gf.standard.assets"
       ],
-      "description": "Package manifest for the bundled Asset Metadata extension.",
       "representative_path": "addons/gf/extensions/asset_metadata/editor/gf_asset_metadata_gltf_document_extension.gd"
     },
     {
@@ -38,7 +36,6 @@
         "gf.kernel",
         "gf.standard.base"
       ],
-      "description": "Package manifest for the bundled Behavior Tree extension.",
       "representative_path": "addons/gf/extensions/behavior_tree/runtime/gf_behavior_tree.gd"
     },
     {
@@ -49,7 +46,6 @@
         "gf.standard.base",
         "gf.standard.input"
       ],
-      "description": "Package manifest for the bundled Camera extension.",
       "representative_path": "addons/gf/extensions/camera/core/gf_camera_finite_math.gd"
     },
     {
@@ -59,7 +55,6 @@
         "gf.kernel",
         "gf.standard.base"
       ],
-      "description": "Package manifest for the bundled Capability extension.",
       "representative_path": "addons/gf/extensions/capability/core/gf_capability.gd"
     },
     {
@@ -69,7 +64,6 @@
         "gf.kernel",
         "gf.standard.base"
       ],
-      "description": "Package manifest for the bundled Combat extension.",
       "representative_path": "addons/gf/extensions/combat/actions/gf_combat_action.gd"
     },
     {
@@ -80,7 +74,6 @@
         "gf.standard.base",
         "gf.standard.assets"
       ],
-      "description": "Package manifest for the bundled Content Package extension.",
       "representative_path": "addons/gf/extensions/content_package/extension.gd"
     },
     {
@@ -90,7 +83,6 @@
         "gf.kernel",
         "gf.standard.base"
       ],
-      "description": "Package manifest for the bundled Decision extension.",
       "representative_path": "addons/gf/extensions/decision/extension.gd"
     },
     {
@@ -100,7 +92,6 @@
         "gf.kernel",
         "gf.standard.base"
       ],
-      "description": "Package manifest for the bundled Dialogue extension.",
       "representative_path": "addons/gf/extensions/dialogue/resources/gf_dialogue_line.gd"
     },
     {
@@ -111,7 +102,6 @@
         "gf.standard.base",
         "gf.standard.config"
       ],
-      "description": "Package manifest for the bundled Domain Models extension.",
       "representative_path": "addons/gf/extensions/domain/attributes/gf_attribute_set.gd"
     },
     {
@@ -122,7 +112,6 @@
         "gf.standard.base",
         "gf.standard.input"
       ],
-      "description": "Package manifest for the bundled Feedback extension.",
       "representative_path": "addons/gf/extensions/feedback/extension.gd"
     },
     {
@@ -133,7 +122,6 @@
         "gf.standard.base",
         "gf.standard.spatial"
       ],
-      "description": "Package manifest for the bundled Flow extension.",
       "representative_path": "addons/gf/extensions/flow/editor/gf_flow_graph_dock.gd"
     },
     {
@@ -143,7 +131,6 @@
         "gf.kernel",
         "gf.standard.base"
       ],
-      "description": "Package manifest for the bundled Interaction extension.",
       "representative_path": "addons/gf/extensions/interaction/nodes/gf_interaction_receiver.gd"
     },
     {
@@ -153,7 +140,6 @@
         "gf.kernel",
         "gf.standard.base"
       ],
-      "description": "Package manifest for the optional Layered Sprite extension.",
       "representative_path": "addons/gf/extensions/layered_sprite/nodes/gf_layered_sprite_2d.gd"
     },
     {
@@ -165,7 +151,6 @@
         "gf.standard.deterministic",
         "gf.standard.diagnostics"
       ],
-      "description": "Package manifest for the bundled Network extension.",
       "representative_path": "addons/gf/extensions/network/backends/gf_enet_network_backend.gd"
     },
     {
@@ -175,7 +160,6 @@
         "gf.kernel",
         "gf.standard.base"
       ],
-      "description": "Package manifest for the bundled Physics extension.",
       "representative_path": "addons/gf/extensions/physics/core/gf_buoyancy_math_3d.gd"
     },
     {
@@ -187,7 +171,6 @@
         "gf.standard.deterministic",
         "gf.standard.storage"
       ],
-      "description": "Package manifest for the bundled Save extension.",
       "representative_path": "addons/gf/extensions/save/core/gf_persist_properties_source.gd"
     },
     {
@@ -197,14 +180,12 @@
         "gf.kernel",
         "gf.standard.base"
       ],
-      "description": "Package manifest for the bundled Turn Based extension.",
       "representative_path": "addons/gf/extensions/turn_based/extension.gd"
     },
     {
       "id": "gf.kernel",
       "kind": "kernel",
       "dependencies": [],
-      "description": "Minimal GF framework core, plugin entry, lifecycle, extension manager, and Godot-native package management base.",
       "representative_path": "addons/gf/kernel/base/gf_clock.gd"
     },
     {
@@ -214,7 +195,6 @@
         "gf.kernel",
         "gf.standard.base"
       ],
-      "description": "Transport-neutral, default-closed runtime Agent endpoint sessions with strict JSON schemas, exact grants, short-lived hashed credentials, replay and rate controls, policy checks, bounded results, and payload-free audit events.",
       "representative_path": "addons/gf/standard/utilities/agent/gf_runtime_agent_environment.gd"
     },
     {
@@ -224,7 +204,6 @@
         "gf.kernel",
         "gf.standard.base"
       ],
-      "description": "Resource registry, asset handles, I/O, background jobs, remote cache, and scene loading helpers.",
       "representative_path": "addons/gf/standard/utilities/assets/gf_asset_catalog.gd"
     },
     {
@@ -235,7 +214,6 @@
         "gf.standard.base",
         "gf.standard.assets"
       ],
-      "description": "Audio banks, clips, events, emitters, libraries, settings, and runtime utility APIs.",
       "representative_path": "addons/gf/standard/utilities/audio/gf_audio_backend.gd"
     },
     {
@@ -246,7 +224,6 @@
         "gf.standard.base",
         "gf.standard.audio"
       ],
-      "description": "Editor-only audio bank inspectors and audio authoring helpers.",
       "representative_path": "addons/gf/standard/utilities/audio/editor/gf_audio_bank_inspector_plugin.gd"
     },
     {
@@ -255,7 +232,6 @@
       "dependencies": [
         "gf.kernel"
       ],
-      "description": "Shared standard foundations: async/message support, command and sequence helpers, validation, variant, identity, collections, tags, logging, time, signals, pooling, analytics, and node utilities.",
       "representative_path": "addons/gf/standard/command/gf_undoable_command.gd"
     },
     {
@@ -265,7 +241,6 @@
         "gf.kernel",
         "gf.standard.base"
       ],
-      "description": "Config providers, config tables, config schema helpers, and validation rules.",
       "representative_path": "addons/gf/standard/utilities/config/gf_config_build_profile.gd"
     },
     {
@@ -276,7 +251,6 @@
         "gf.standard.base",
         "gf.standard.config"
       ],
-      "description": "Editor and tooling helpers for config table descriptors and reference choices.",
       "representative_path": "addons/gf/standard/utilities/config/gf_config_table_editor_tools.gd"
     },
     {
@@ -288,7 +262,6 @@
         "gf.standard.assets",
         "gf.standard.diagnostics"
       ],
-      "description": "Runtime debug draw and overlay, metrics, screenshots, support reports, runtime inspector, tunables, and signal probes.",
       "representative_path": "addons/gf/standard/utilities/debug/gf_debug_draw_utility.gd"
     },
     {
@@ -300,7 +273,6 @@
         "gf.standard.diagnostics",
         "gf.standard.debug"
       ],
-      "description": "Editor-only debugger plugins, diagnostic docks, signal graph docks, and build-info export tooling for GF runtime diagnostics.",
       "representative_path": "addons/gf/standard/utilities/debug/editor/gf_build_info_export_plugin.gd"
     },
     {
@@ -310,7 +282,6 @@
         "gf.kernel",
         "gf.standard.base"
       ],
-      "description": "Deterministic random, seed utilities, deterministic serialization, numeric formatting, fixed decimals, fixed vectors, and numeric serialization support.",
       "representative_path": "addons/gf/standard/foundation/deterministic/gf_deterministic_random.gd"
     },
     {
@@ -320,7 +291,6 @@
         "gf.kernel",
         "gf.standard.base"
       ],
-      "description": "Runtime diagnostics, explicit lazy snapshot providers, recipe-driven bounded session traces, build info snapshots, operation timelines, and the lightweight developer console used by tools that only need observability hooks.",
       "representative_path": "addons/gf/standard/utilities/debug/gf_async_tracker_utility.gd"
     },
     {
@@ -330,7 +300,6 @@
         "gf.kernel",
         "gf.standard.base"
       ],
-      "description": "Viewport, surface, render warmup, and shader parameter helpers that do not require settings persistence.",
       "representative_path": "addons/gf/standard/utilities/display/gf_render_warmup_manifest.gd"
     },
     {
@@ -343,7 +312,6 @@
         "gf.standard.settings",
         "gf.standard.display"
       ],
-      "description": "Display, language, and audio-bus settings applier that bridges GFSettingsUtility with engine-level display/audio APIs.",
       "representative_path": "addons/gf/standard/utilities/display/gf_display_settings_utility.gd"
     },
     {
@@ -361,7 +329,6 @@
         "gf.standard.debug.editor",
         "gf.standard.spatial.editor"
       ],
-      "description": "Optional data-only standard editor contribution catalog read by the root plugin; contribution payloads remain owned by their declaring packages.",
       "representative_path": "addons/gf/standard/editor/gf_editor_contributions.json"
     },
     {
@@ -371,7 +338,6 @@
         "gf.kernel",
         "gf.standard.base"
       ],
-      "description": "Input mapping, formatting, runtime detectors, remapping, recording, triggers, and touch controls.",
       "representative_path": "addons/gf/standard/input/common/gf_input_action_press_registry.gd"
     },
     {
@@ -382,7 +348,6 @@
         "gf.standard.base",
         "gf.standard.input"
       ],
-      "description": "Editor-only, read-only input mapping diagnostics with optional remap inspection.",
       "representative_path": "addons/gf/standard/input/editor/gf_input_mapping_dock.gd"
     },
     {
@@ -392,7 +357,6 @@
         "gf.kernel",
         "gf.standard.base"
       ],
-      "description": "Platform-neutral adapter registration, explicit contract routing, request lifecycle, timeout, and lifecycle event forwarding.",
       "representative_path": "addons/gf/standard/platform/gf_platform_adapter.gd"
     },
     {
@@ -403,7 +367,6 @@
         "gf.standard.base",
         "gf.standard.storage"
       ],
-      "description": "Generic runtime settings definitions, staging, validation, and a synchronous persistence port.",
       "representative_path": "addons/gf/standard/utilities/settings/gf_setting_definition.gd"
     },
     {
@@ -415,7 +378,6 @@
         "gf.standard.settings",
         "gf.standard.storage"
       ],
-      "description": "Lifecycle-aware adapter that connects the backend-neutral settings persistence port to GFStorageUtility.",
       "representative_path": "addons/gf/standard/utilities/settings_storage/gf_storage_settings_store_utility.gd"
     },
     {
@@ -426,7 +388,6 @@
         "gf.standard.base",
         "gf.standard.deterministic"
       ],
-      "description": "Graph/grid/math helpers, collision broadphase and narrowphase, spatial queries, pattern tools, packing, Poisson sampling, and Voronoi helpers.",
       "representative_path": "addons/gf/standard/foundation/math/gf_collision_broadphase_2d.gd"
     },
     {
@@ -438,7 +399,6 @@
         "gf.standard.input",
         "gf.standard.spatial"
       ],
-      "description": "Bounded runtime Control for 2D world navigation, configurable input and parent-scroll arbitration, grid snapping, stable item selection, and project-validated placement sessions.",
       "representative_path": "addons/gf/standard/utilities/spatial_canvas/gf_spatial_canvas_2d.gd"
     },
     {
@@ -449,7 +409,6 @@
         "gf.standard.base",
         "gf.standard.spatial"
       ],
-      "description": "Editor-only spatial/math inspectors, properties, and paint tooling.",
       "representative_path": "addons/gf/standard/foundation/math/editor/gf_pattern_2d_editor_property.gd"
     },
     {
@@ -459,7 +418,6 @@
         "gf.kernel",
         "gf.standard.base"
       ],
-      "description": "Reactive state store and state update helpers shared by UI and runtime code.",
       "representative_path": "addons/gf/standard/utilities/state/gf_reactive_state_store.gd"
     },
     {
@@ -469,7 +427,6 @@
         "gf.kernel",
         "gf.standard.base"
       ],
-      "description": "Pure and node state machine runtime plus structural validators.",
       "representative_path": "addons/gf/standard/state_machine/node/gf_node_state.gd"
     },
     {
@@ -480,7 +437,6 @@
         "gf.standard.base",
         "gf.standard.state_machine"
       ],
-      "description": "Editor-only state machine docks, inspectors, authoring helpers, and source templates.",
       "representative_path": "addons/gf/standard/state_machine/node/editor/gf_node_state_machine_dock.gd"
     },
     {
@@ -490,7 +446,6 @@
         "gf.kernel",
         "gf.standard.base"
       ],
-      "description": "Storage backends, snapshot utilities, history helpers, and safe resource codecs.",
       "representative_path": "addons/gf/standard/utilities/history/gf_command_history_utility.gd"
     },
     {
@@ -501,7 +456,6 @@
         "gf.standard.base",
         "gf.standard.storage"
       ],
-      "description": "Editor-only storage viewer docks and storage authoring helpers.",
       "representative_path": "addons/gf/standard/utilities/storage/editor/gf_storage_viewer_dock.gd"
     },
     {
@@ -511,7 +465,6 @@
         "gf.kernel",
         "gf.standard.base"
       ],
-      "description": "Core UI value adapters, form/list/table projection helpers, modal value objects, text fitting, and bounded virtual list binding.",
       "representative_path": "addons/gf/standard/utilities/ui/gf_control_focus_utility.gd"
     },
     {
@@ -523,7 +476,6 @@
         "gf.standard.assets",
         "gf.standard.ui"
       ],
-      "description": "Stack-based UI panel management, route resources, typed asynchronous navigation, and bounded route preload coordination.",
       "representative_path": "addons/gf/standard/utilities/ui/gf_ui_layer_definition.gd"
     },
     {
@@ -535,7 +487,6 @@
         "gf.standard.state",
         "gf.standard.ui"
       ],
-      "description": "ReactiveState-to-Control binders, item list binders, and repeater binders.",
       "representative_path": "addons/gf/standard/utilities/ui/gf_item_list_binder.gd"
     },
     {
@@ -544,7 +495,6 @@
       "dependencies": [
         "gf.kernel"
       ],
-      "description": "Optional project intent contract, target-bound migrations, explicit hash-bound offline context bundles, capability readiness evidence, versioned GF knowledge, agent skills, local MCP/CLI, and approval-gated framework feedback workflow.",
       "representative_path": "addons/gf/tools/ai_developer/knowledge/capabilities.json"
     },
     {
@@ -555,7 +505,6 @@
         "gf.standard.base",
         "gf.standard.assets"
       ],
-      "description": "Optional model-first asset browsing state and bounded preview coordination.",
       "representative_path": "addons/gf/tools/asset_browser/gf_asset_browser_model.gd"
     },
     {
@@ -566,8 +515,7 @@
         "gf.standard.base",
         "gf.standard.config"
       ],
-      "description": "Optional staged config compiler with versioned IR that turns CSV, JSON, ConfigFile, or XLSX sources into validated GF resources or JSON data.",
-      "representative_path": "addons/gf/tools/config_pipeline/gf_config_access_generator.gd"
+      "representative_path": "addons/gf/tools/config_pipeline/gf_bounded_zip_support.gd"
     },
     {
       "id": "gf.tool.dialogue_text",
@@ -578,7 +526,6 @@
         "gf.standard.assets",
         "gf.extension.dialogue"
       ],
-      "description": "Optional authoring tool that compiles strict JSON text into GF dialogue resources.",
       "representative_path": "addons/gf/tools/dialogue_text/gf_dialogue_json_source_parser.gd"
     },
     {
@@ -588,7 +535,6 @@
         "gf.kernel",
         "gf.standard.base"
       ],
-      "description": "Closed, version-bound LSP WorkspaceEdit planning and transactional commit support for saved project GDScript files.",
       "representative_path": "addons/gf/tools/lsp_workspace_edit/gf_lsp_workspace_edit_adapter.gd"
     },
     {
@@ -599,7 +545,6 @@
         "gf.standard.base",
         "gf.extension.network"
       ],
-      "description": "Editor-only Network contract generation actions and typed accessor generator.",
       "representative_path": "addons/gf/extensions/network/editor/gf_network_contract_audit.gd"
     },
     {
@@ -608,7 +553,6 @@
       "dependencies": [
         "gf.kernel"
       ],
-      "description": "Read-only project layout analysis, explanation, impact simulation, planning, and Editor workspace tooling.",
       "representative_path": "addons/gf/tools/project_layout/editor/gf_project_layout_dock.gd"
     }
   ],

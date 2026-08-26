@@ -32,7 +32,7 @@ codex/      Codex-owned short-lived work
 ```
 
 Use lowercase names with digits, dots, underscores, or hyphens after the
-prefix, for example `fix/package-rollback` or `codex/workflow-governance`.
+prefix, for example `fix/save-rollback` or `codex/workflow-governance`.
 
 ## Pull Request States
 
@@ -45,9 +45,10 @@ Draft and Ready PRs have different contracts:
   mergeable.
 - **Ready for review**: scope, migration impact, tests, and documentation are
   complete. CI runs every shard whose union is equivalent to the full suite;
-  framework work is partitioned into `framework-gut`, `framework-lsp`, and
-  `framework-static` so independent checks can finish concurrently. A focused
-  Windows job also verifies native process-tree cleanup. These results are
+  framework work is partitioned into `framework-gut`, `framework-lsp`,
+  `framework-static`, and `framework-integration` so independent checks can
+  finish concurrently. A focused Windows job also verifies native process-tree
+  cleanup. These results are
   aggregated into a frozen-base `GF full validation (<BASE_SHA>)` marker before
   the merge gate.
 - **Mergeable**: both required checks, `GF repository policy` and the stable
@@ -132,7 +133,6 @@ from presenting itself as the last published release.
 - The Changelog gate maps a governed development identity to its stable core
   for API baseline SemVer enforcement and also verifies every bundled extension
   manifest against the full framework identity.
-- Package manifest versions remain `unreleased` until the release transaction.
 - New public API uses `@since unreleased` until the final release version is
   selected.
 - The `dev` counter changes only for an intentionally published prerelease
@@ -177,14 +177,10 @@ The full suite always treats LSP
 errors, warnings, diagnostic timeouts, connection failures, and transport
 failures as hard failures.
 
-Within one suite invocation, package smoke checks reuse one sealed package
-artifact set. The runner verifies its hashes and source-workspace fingerprint,
-then gives every consumer a private copy and requires its report to match the
-same manifest digest and artifact count. Tree scans, hashing, copying, and final
-revalidation obey the suite's absolute deadline. It does not reuse package
-artifacts across revisions, and consumers must not mutate the shared bytes. A
-release is a separate operation and must pass the Release workflow against one
-immutable release artifact set.
+A release is a separate operation and must pass the Release workflow against
+one immutable three-file artifact set: the complete framework ZIP, the optional
+standalone AI Developer Kit ZIP, and their release manifest. Release validation
+must consume those exact bytes instead of rebuilding equivalent archives.
 
 ## Hotfixes and Releases
 

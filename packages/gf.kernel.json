@@ -2,9 +2,6 @@
   "schema_version": 1,
   "id": "gf.kernel",
   "kind": "kernel",
-  "version": "unreleased",
-  "display_name": "GF Kernel",
-  "description": "Minimal GF framework core, plugin entry, lifecycle, extension manager, and Godot-native package management base.",
   "dependencies": [],
   "paths": [
     "addons/gf/plugin.cfg",
@@ -16,8 +13,5 @@
     "addons/gf/README.md",
     "addons/gf/extensions/README.md",
     "addons/gf/kernel/**"
-  ],
-  "metadata": {
-    "stage": "core-only-bootstrap"
-  }
+  ]
 }

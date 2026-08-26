@@ -1,9 +1,9 @@
 # GFLspWorkspaceEditPlan
 
-[API Reference](../index.md) / [Tool Packages](../tools.md) / [类索引](index.md)
+[API Reference](../index.md) / [Tools](../tools.md) / [类索引](index.md)
 
 - 路径：`addons/gf/tools/lsp_workspace_edit/gf_lsp_workspace_edit_plan.gd`
-- 模块：`Tool Packages`
+- 模块：`Tools`
 - 继承：`RefCounted`
 - API：`public`
 - 类别：值对象 (`value_object`)

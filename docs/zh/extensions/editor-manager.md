@@ -14,7 +14,7 @@
 
 “扩展组合”下拉框读取 `GFExtensionSettings.get_extension_presets()`，底层由 `GFExtensionPresetDiscovery` 生成 preset 快照。GF 内置只提供动态基础组合，例如默认选择、全部关闭和全部可发现扩展；项目或外部插件可以通过 `gf/extensions/preset_paths` 提供业务组合 JSON，也可以在面板中通过“添加组合文件”选择项目内的 JSON 文件。点击“应用组合”只会更新当前勾选状态，仍需要点击“保存设置”持久化；“移除组合文件”只会移除项目 preset 路径，不能删除内置动态组合。
 
-组合 JSON 只允许描述启用 ID、显示名、说明和标签。扩展管理器不会从 preset 读取下载地址、包仓库、Installer 覆盖或软依赖字段。GF 内置安装向导只应写入本地 ProjectSettings、preset 启用状态并提示导出审计；下载、registry、包仓库或复杂包安装只能由 `addons/gf` 外的独立插件或项目自管工具承担。
+组合 JSON 只允许描述启用 ID、显示名、说明和标签。扩展管理器不会从 preset 读取下载地址、Installer 覆盖或软依赖字段，也不会下载、更新或卸载框架文件。它只写入本地 ProjectSettings、preset 启用状态并提示导出审计。
 
 手动勾选、启用全部、禁用全部或应用扩展组合后保存，会把 `gf/extensions/selection_mode` 写为 `explicit`，并把当前可发现扩展 ID 写入 `gf/extensions/enabled`。点击“恢复默认”后保存，会把模式写回 `default`，有效启用列表重新由当前 manifest 默认值派生，不会把某一时刻的默认列表固化成项目设置。
 

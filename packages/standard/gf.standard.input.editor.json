@@ -2,9 +2,6 @@
   "schema_version": 1,
   "id": "gf.standard.input.editor",
   "kind": "standard",
-  "version": "unreleased",
-  "display_name": "GF Standard Input Editor",
-  "description": "Editor-only, read-only input mapping diagnostics with optional remap inspection.",
   "dependencies": [
     "gf.kernel",
     "gf.standard.base",
@@ -12,8 +9,5 @@
   ],
   "paths": [
     "addons/gf/standard/input/editor/**"
-  ],
-  "metadata": {
-    "stage": "standard-editor-split-v1"
-  }
+  ]
 }

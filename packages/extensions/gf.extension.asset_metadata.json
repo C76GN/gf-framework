@@ -2,9 +2,6 @@
   "schema_version": 1,
   "id": "gf.extension.asset_metadata",
   "kind": "extension",
-  "version": "unreleased",
-  "display_name": "GF Asset Metadata",
-  "description": "Package manifest for the bundled Asset Metadata extension.",
   "dependencies": [
     "gf.kernel",
     "gf.standard.base",
@@ -13,6 +10,5 @@
   "paths": [
     "addons/gf/extensions/asset_metadata/**"
   ],
-  "gf_extension_id": "gf.asset_metadata",
-  "metadata": {}
+  "gf_extension_id": "gf.asset_metadata"
 }

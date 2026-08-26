@@ -2,9 +2,6 @@
   "schema_version": 1,
   "id": "gf.standard.state_machine.editor",
   "kind": "standard",
-  "version": "unreleased",
-  "display_name": "GF Standard State Machine Editor",
-  "description": "Editor-only state machine docks, inspectors, authoring helpers, and source templates.",
   "dependencies": [
     "gf.kernel",
     "gf.standard.base",
@@ -12,8 +9,5 @@
   ],
   "paths": [
     "addons/gf/standard/state_machine/node/editor/**"
-  ],
-  "metadata": {
-    "stage": "standard-editor-split-v1"
-  }
+  ]
 }

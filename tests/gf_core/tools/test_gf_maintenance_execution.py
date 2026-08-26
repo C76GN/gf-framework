@@ -1109,128 +1109,6 @@ class MaintenanceInvocationAuthorityTests(unittest.TestCase):
 		self.assertIs(raised.exception.__context__, secondary)
 		self.assertTrue(gf_process_supervisor.exception_has_cleanup_debt(raised.exception))
 
-	def test_package_builder_relative_paths_require_explicit_builder_cwd(self) -> None:
-		artifact_module = gf_maintenance.gf_package_artifact_set
-		with tempfile.TemporaryDirectory() as temporary_directory:
-			builder_cwd = Path(temporary_directory).resolve()
-			artifact_root = builder_cwd / "artifact"
-			archive_path = artifact_root / "packages" / "gf.fixture.zip"
-			archive_path.parent.mkdir(parents=True)
-			archive_path.write_bytes(b"fixture-package")
-			path_prefix = artifact_root.relative_to(builder_cwd).as_posix()
-			builder_data = {
-				"ok": True,
-				"issues": [],
-				"package_count": 1,
-				"output_dir": f"{path_prefix}/packages",
-				"registry": f"{path_prefix}/{artifact_module.REGISTRY_RELATIVE_PATH}",
-				"registry_source": (
-					f"{path_prefix}/{artifact_module.REGISTRY_SOURCE_RELATIVE_PATH}"
-				),
-				"offline_bundle": (
-					f"{path_prefix}/{artifact_module.OFFLINE_BUNDLE_RELATIVE_PATH}"
-				),
-				"packages": [{
-					"id": "gf.fixture",
-					"kind": "kernel",
-					"ok": True,
-					"issues": [],
-					"archive": f"{path_prefix}/packages/{archive_path.name}",
-					"size_bytes": archive_path.stat().st_size,
-					"sha256": hashlib.sha256(archive_path.read_bytes()).hexdigest(),
-				}],
-			}
-			root_relative_builder_data = copy.deepcopy(builder_data)
-			root_relative_builder_data.update({
-				"output_dir": "packages",
-				"registry": artifact_module.REGISTRY_RELATIVE_PATH,
-				"registry_source": artifact_module.REGISTRY_SOURCE_RELATIVE_PATH,
-				"offline_bundle": artifact_module.OFFLINE_BUNDLE_RELATIVE_PATH,
-			})
-			root_relative_builder_data["packages"][0]["archive"] = (
-				f"packages/{archive_path.name}"
-			)
-			with mock.patch.object(
-				artifact_module.Path,
-				"cwd",
-				return_value=builder_cwd,
-			) as ambient_cwd:
-				with self.assertRaises(TypeError):
-					artifact_module.assemble_package_artifact_inputs(
-						artifact_root,
-						builder_data,
-					)
-				with self.assertRaisesRegex(
-					artifact_module.PackageArtifactSetError,
-					"cwd is required",
-				):
-					artifact_module.assemble_package_artifact_inputs(
-						artifact_root,
-						builder_data,
-						builder_cwd=None,
-					)
-				with self.assertRaisesRegex(
-					artifact_module.PackageArtifactSetError,
-					"does not point at the artifact root layout",
-				):
-					artifact_module.assemble_package_artifact_inputs(
-						artifact_root,
-						root_relative_builder_data,
-						builder_cwd=builder_cwd,
-					)
-				inputs = artifact_module.assemble_package_artifact_inputs(
-					artifact_root,
-					builder_data,
-					builder_cwd=builder_cwd,
-				)
-
-			ambient_cwd.assert_not_called()
-			self.assertIn(
-				artifact_module.REGISTRY_RELATIVE_PATH,
-				{item.relative_path for item in inputs},
-			)
-			self.assertIn(
-				f"packages/{archive_path.name}",
-				{item.relative_path for item in inputs},
-			)
-
-	def test_package_artifact_producer_passes_the_exact_subprocess_cwd_to_sealer(self) -> None:
-		with tempfile.TemporaryDirectory() as temporary_directory:
-			root = Path(temporary_directory).resolve()
-			artifact_root = root / "artifact"
-			source_root = root / "source"
-			process_environment = _frozen_process_environment()
-			sealed = mock.Mock()
-			completed = subprocess.CompletedProcess(
-				args=["fixture-builder"],
-				returncode=0,
-				stdout="{}",
-				stderr="",
-			)
-			with mock.patch.object(
-				gf_maintenance,
-				"run_maintenance_subprocess",
-				return_value=completed,
-			) as run_builder, mock.patch.object(
-				gf_maintenance.gf_package_artifact_set,
-				"seal_package_artifact_set",
-				return_value=sealed,
-			) as seal:
-				actual = gf_maintenance.build_package_smoke_artifact_set(
-					artifact_root,
-					{"fixture": True},
-					process_environment=process_environment,
-					source_root=source_root,
-				)
-
-		self.assertIs(actual, sealed)
-		self.assertEqual(run_builder.call_args.kwargs["cwd"], source_root)
-		self.assertIs(
-			run_builder.call_args.kwargs["process_environment"],
-			process_environment,
-		)
-		self.assertEqual(seal.call_args.kwargs["builder_cwd"], source_root)
-
 
 def _remove_directory_link_fixture(path: Path) -> None:
 	if not os.path.lexists(path):
@@ -1425,10 +1303,10 @@ class MaintenanceSelfTestModuleTests(unittest.TestCase):
 
 class ValidationCatalogContractTests(unittest.TestCase):
 	_AUTHORITY_SNAPSHOT_SHA256 = (
-		"078ad76c3f4de5525fb7b1564ab588d30bf6ab8e3588fa20ee6a14be664bc733"
+		"6533e4096a6dd5c17a5fa82850c4f066599f4c7f344c0da6e1d30e3d767ddd99"
 	)
 	_PRE_MIGRATION_EXECUTOR_PROJECTION_SHA256 = (
-		"85f24f2287735a812ef48ffe8b91489365dd0bbd06a7c24c8a8457280c32f346"
+		"414df23ef834a3c471a1c559ea7f1e5577375e3fd468c99381b828501e4816ef"
 	)
 
 	def test_default_catalog_matches_authority_snapshot_exactly(self) -> None:
@@ -1480,21 +1358,20 @@ class ValidationCatalogContractTests(unittest.TestCase):
 				len(snapshot["suites"]),
 				len(snapshot["lanes"]),
 			),
-			(57, 3, 9, 22, 20, 8),
+			(48, 2, 9, 13, 11, 4),
 		)
 		self.assertEqual(
 			[name for name in catalog.action_names if name not in commands],
 			["release_metadata"],
 		)
 
-	def test_default_catalog_owns_exactly_the_three_affected_input_specs(self) -> None:
+	def test_default_catalog_owns_exactly_the_two_affected_input_specs(self) -> None:
 		catalog = gf_validation_catalog.build_validation_catalog(
 			self._snapshot_context()
 		)
 		expected_names = (
 			"public_docs_boundary",
 			"public_api_boundary",
-			"package_user_dependency_boundary",
 		)
 
 		self.assertIs(type(catalog.input_specs), tuple)
@@ -1579,11 +1456,6 @@ class ValidationCatalogContractTests(unittest.TestCase):
 			"gdscript_lsp_diagnostics": 660,
 			"gut_lifecycle_smoke": 360,
 			"ai_developer_adapter_acceptance": 900,
-			"package_editor_wizard_smoke": 1200,
-			"package_godot_cli_smoke": 2400,
-			"package_godot_cli_local_smoke": 1200,
-			"package_godot_cli_network_smoke": 1200,
-			"package_godot_matrix_smoke": 2400,
 		}
 
 		self.assertEqual(catalog.default_timeout_seconds, 600)
@@ -1615,7 +1487,6 @@ class ValidationCatalogContractTests(unittest.TestCase):
 			"package_boundary",
 			"package_closure_audit",
 			"package_source_boundary",
-			"package_user_dependency_boundary",
 			"package_external_command_audit",
 			"core_only_smoke",
 			"package_focused_gut_mapping",
@@ -1667,7 +1538,7 @@ class ValidationCatalogContractTests(unittest.TestCase):
 				is gf_validation_catalog.ValidationExecutorKind.SUBPROCESS
 				for action_name in catalog.action_names
 			),
-			34,
+			26,
 		)
 		self.assertEqual(
 			sum(
@@ -1675,7 +1546,7 @@ class ValidationCatalogContractTests(unittest.TestCase):
 				is gf_validation_catalog.ValidationExecutorKind.IN_PROCESS
 				for action_name in catalog.plan("full").actions
 			),
-			22,
+			21,
 		)
 		self.assertIs(
 			catalog.executor_kind("release_metadata"),
@@ -1689,23 +1560,15 @@ class ValidationCatalogContractTests(unittest.TestCase):
 			"docs": gf_maintenance.DOCS_CHECKS,
 			"examples": gf_maintenance.EXAMPLES_CHECKS,
 			"light_boundary": gf_maintenance.LIGHT_BOUNDARY_CHECKS,
-			"package_contract_smoke": gf_maintenance.PACKAGE_CONTRACT_SMOKE_CHECKS,
-			"package_editor": gf_maintenance.PACKAGE_EDITOR_CHECKS,
-			"package_cli_local": gf_maintenance.PACKAGE_CLI_LOCAL_CHECKS,
-			"package_cli_network": gf_maintenance.PACKAGE_CLI_NETWORK_CHECKS,
-			"package_cli": gf_maintenance.PACKAGE_CLI_CHECKS,
-			"package_smoke": gf_maintenance.PACKAGE_SMOKE_CHECKS,
-			"package_contract": gf_maintenance.PACKAGE_CONTRACT_CHECKS,
-			"package": gf_maintenance.PACKAGE_CHECKS,
+			"module_boundary": gf_maintenance.MODULE_BOUNDARY_CHECKS,
 			"quick": gf_maintenance.QUICK_CHECKS,
 			"full": gf_maintenance.FULL_CHECKS,
 			"release": gf_maintenance.RELEASE_CHECKS,
 			"framework_gut": gf_maintenance.FRAMEWORK_GUT_CHECKS,
 			"framework_lsp": gf_maintenance.FRAMEWORK_LSP_CHECKS,
 			"framework_static": gf_maintenance.FRAMEWORK_STATIC_CHECKS,
+			"framework_integration": gf_maintenance.FRAMEWORK_INTEGRATION_CHECKS,
 			"framework": gf_maintenance.FRAMEWORK_CHECKS,
-			"package_ci": gf_maintenance.PACKAGE_CI_CHECKS,
-			"package_release": gf_maintenance.PACKAGE_RELEASE_CHECKS,
 		}
 
 		self.assertEqual(gf_maintenance.CHECK_DEFINITIONS, catalog.command_definitions())
@@ -1714,10 +1577,6 @@ class ValidationCatalogContractTests(unittest.TestCase):
 		for name, actions in legacy_groups.items():
 			with self.subTest(group=name):
 				self.assertEqual(actions, catalog.check_group(name))
-		self.assertEqual(
-			gf_maintenance.PACKAGE_ARTIFACT_CONSUMER_CHECKS,
-			frozenset(catalog.check_group("package_artifact_consumers")),
-		)
 		self.assertEqual(gf_maintenance.CHECK_SUITES, catalog.suites())
 		self.assertEqual(
 			gf_maintenance.PARALLEL_FULL_SHARD_SUITES,
@@ -1913,13 +1772,13 @@ class ValidationCatalogContractTests(unittest.TestCase):
 			for action in lane.owned_actions
 		]
 
-		self.assertEqual(len(plan.actions), 46)
+		self.assertEqual(len(plan.actions), 39)
 		self.assertEqual(tuple(lane.name for lane in plan.lanes), catalog.parallel_full_shard_suites)
 		self.assertEqual(set(owned_actions), set(catalog.check_group("full")))
 		self.assertEqual(len(owned_actions), len(set(owned_actions)))
 		self.assertEqual(
 			sum(len(lane.execution_actions) for lane in plan.lanes),
-			47,
+			40,
 			"隔离 lane 必须分别执行各自的依赖 occurrence，不能按全局 action 去重。",
 		)
 		self.assertEqual(
@@ -2565,7 +2424,7 @@ class ValidationCatalogContractTests(unittest.TestCase):
 		self.assertIs(validate_registries.call_args.args[0], invocation_catalog)
 		fingerprint.assert_not_called()
 
-	def test_parallel_executor_registry_failure_precedes_workspace_and_artifact_io(self) -> None:
+	def test_parallel_executor_registry_failure_precedes_workspace_io(self) -> None:
 		plan = gf_maintenance._VALIDATION_CATALOG.plan("full")
 		with mock.patch.object(
 			gf_maintenance,
@@ -2580,10 +2439,6 @@ class ValidationCatalogContractTests(unittest.TestCase):
 			"capture_workspace",
 			side_effect=AssertionError("executor setup must fail before workspace capture"),
 		) as capture, mock.patch.object(
-			gf_maintenance,
-			"build_package_smoke_artifact_set",
-			side_effect=AssertionError("executor setup must fail before artifact build"),
-		) as artifact_build, mock.patch.object(
 			gf_maintenance,
 			"run_parallel_godot_isolation_probe",
 			side_effect=AssertionError("executor setup must fail before isolation probe"),
@@ -2602,7 +2457,6 @@ class ValidationCatalogContractTests(unittest.TestCase):
 		self.assertEqual(report["jobs"], 2)
 		fingerprint.assert_not_called()
 		capture.assert_not_called()
-		artifact_build.assert_not_called()
 		isolation_probe.assert_not_called()
 		parallel_runner.assert_not_called()
 
@@ -2621,13 +2475,8 @@ class ValidationCatalogContractTests(unittest.TestCase):
 			untracked_files=(),
 			workspace_fingerprint=str(workspace_state["fingerprint"]),
 		)
-		artifact_set = mock.Mock(
-			artifacts=(object(),),
-			manifest_sha256="c" * 64,
-		)
 		with tempfile.TemporaryDirectory() as temporary_directory:
 			managed_root = Path(temporary_directory)
-			artifact_set.manifest_path = managed_root / "artifact-manifest.json"
 
 			@contextlib.contextmanager
 			def managed_directory(*, prefix: str, **_kwargs: object):
@@ -2665,14 +2514,6 @@ class ValidationCatalogContractTests(unittest.TestCase):
 				"materialize_workspace",
 				return_value=ROOT,
 			), mock.patch.object(
-				gf_maintenance,
-				"build_package_smoke_artifact_set",
-				return_value=artifact_set,
-			), mock.patch.object(
-				gf_maintenance,
-				"package_artifact_details",
-				return_value={"fixture": True},
-			), mock.patch.object(
 				gf_maintenance.gf_parallel_validation,
 				"run_parallel_shards",
 				side_effect=AssertionError(
@@ -2685,7 +2526,7 @@ class ValidationCatalogContractTests(unittest.TestCase):
 		self.assertEqual(report["execution"], "parallel_shards")
 		self.assertEqual(report["jobs"], 2)
 		self.assertEqual(report["completed_check_count"], 0)
-		self.assertEqual(report["results"][0]["name"], "parallel_validation_setup")
+		self.assertEqual(report["results"][0]["name"], "validation_environment_setup")
 		self.assertIn(
 			"Godot executable could not be resolved",
 			report["results"][0]["stderr"],
@@ -2790,8 +2631,6 @@ class ValidationCatalogContractTests(unittest.TestCase):
 				self.assertEqual(report["results"][0]["command"], materialized_command)
 				command.assert_called_once_with(
 					"alpha",
-					"",
-					"",
 					validation_executor_binding=registry,
 					deferred_command_context=gf_maintenance.DeferredCommandContext(
 						artifact_manifest="",
@@ -3540,27 +3379,36 @@ class ValidationCatalogContractTests(unittest.TestCase):
 		self.assertEqual(list(identity.effective), effective_command)
 
 	def test_release_status_cli_accepts_explicit_empty_manifest(self) -> None:
-		completed = subprocess.run(
+		payload = {
+			"ok": False,
+			"issues": ["Release status requires --artifact-manifest."],
+		}
+		stdout = io.StringIO()
+		with mock.patch.object(
+			gf_maintenance,
+			"release_status",
+			return_value=payload,
+		) as release_status, mock.patch.object(
+			sys,
+			"argv",
 			[
-				sys.executable,
-				"tools/gf_maintenance.py",
+				"gf_maintenance.py",
 				"release-status",
 				"--artifact-manifest",
 				"",
 				"--json",
 			],
-			cwd=ROOT,
-			capture_output=True,
-			text=True,
-			encoding="utf-8",
-			check=False,
-		)
+		), contextlib.redirect_stdout(stdout):
+			exit_code = gf_maintenance.main()
 
-		self.assertEqual(completed.returncode, 1)
-		self.assertEqual(completed.stderr, "")
-		payload = json.loads(completed.stdout)
-		self.assertFalse(payload["ok"])
-		self.assertIn("requires --artifact-manifest", "\n".join(payload["issues"]))
+		self.assertEqual(exit_code, 1)
+		self.assertEqual(json.loads(stdout.getvalue()), payload)
+		release_status.assert_called_once_with(
+			"",
+			allow_dirty=False,
+			allow_breaking_api=False,
+			artifact_manifest="",
+		)
 
 	def test_invalid_deferred_materializer_never_dispatches(self) -> None:
 		catalog = self._minimal_catalog(actions=(
@@ -13175,8 +13023,6 @@ class GutShardPlanIntegrationTests(unittest.TestCase):
 				timeout_seconds=None,
 				suite_deadline=None,
 				fail_fast=False,
-				package_artifact_manifest="",
-				package_artifact_manifest_sha256="",
 			)
 
 		self.assertEqual(
@@ -19328,8 +19174,6 @@ class WorkspaceExecutionBoundaryTests(unittest.TestCase):
 					authority_catalog=catalog,
 					environment={},
 					workspace=workspace,
-					package_artifact_manifest="",
-					package_artifact_manifest_sha256="",
 				)
 
 			resolver.assert_called_once()
@@ -19361,8 +19205,6 @@ class WorkspaceExecutionBoundaryTests(unittest.TestCase):
 					"PATHEXT": ".EXE",
 				},
 				workspace=workspace,
-				package_artifact_manifest="",
-				package_artifact_manifest_sha256="",
 			)
 
 		identity = contract.identities["diff"]
@@ -19527,8 +19369,6 @@ class WorkspaceExecutionBoundaryTests(unittest.TestCase):
 				authority_catalog=gf_maintenance._VALIDATION_CATALOG,
 				environment=environment,
 				workspace=workspace,
-				package_artifact_manifest="",
-				package_artifact_manifest_sha256="",
 			)
 
 		self.assertEqual(
@@ -19556,8 +19396,6 @@ class WorkspaceExecutionBoundaryTests(unittest.TestCase):
 				authority_catalog=catalog,
 				environment={"PATH": "", "PATHEXT": ".EXE"},
 				workspace=workspace,
-				package_artifact_manifest="",
-				package_artifact_manifest_sha256="",
 			)
 
 		self.assertNotIn(
@@ -19574,150 +19412,6 @@ class WorkspaceExecutionBoundaryTests(unittest.TestCase):
 			contract.identities["diff"].effective[0],
 			str(git_path.resolve()),
 		)
-
-	def test_parallel_package_artifact_contract_matches_parent_dispatch_tuple(self) -> None:
-		with tempfile.TemporaryDirectory() as temporary_directory:
-			workspace = Path(temporary_directory).resolve()
-			git_name = "git.exe" if os.name == "nt" else "git"
-			git_path = workspace / git_name
-			git_path.write_bytes(b"fixture")
-			if os.name != "nt":
-				git_path.chmod(0o755)
-			check_name = "package_build_boundary"
-			non_consumer_name = "diff"
-			expected_checks = [check_name, non_consumer_name]
-			workspace_state: dict[str, object] = {
-				"schema_version": 1,
-				"head": "a" * 40,
-				"dirty": False,
-				"untracked_file_count": 0,
-				"fingerprint": "b" * 64,
-			}
-			manifest_a = str(workspace / "artifact-a.json")
-			manifest_b = str(workspace / "artifact-b.json")
-			manifest_sha256 = "c" * 64
-			command = (
-				*gf_maintenance._VALIDATION_CATALOG.command_definitions()[check_name],
-				"--package-artifact-manifest",
-				manifest_b,
-				"--package-artifact-manifest-sha256",
-				manifest_sha256,
-			)
-			non_consumer_command = tuple(
-				gf_maintenance._VALIDATION_CATALOG.command_definitions()[
-					non_consumer_name
-				]
-			)
-			non_consumer_effective_command = (
-				str(git_path.resolve()),
-				*non_consumer_command[1:],
-			)
-			command_contract = gf_maintenance.ParallelShardCommandContract(
-				identities={
-					check_name: gf_maintenance.CommandIdentity(
-						declared=command,
-						effective=command,
-					),
-					non_consumer_name: gf_maintenance.CommandIdentity(
-						declared=non_consumer_command,
-						effective=non_consumer_effective_command,
-					),
-				},
-			)
-			report = {
-				"ok": False,
-				"suite": "quick",
-				"checks": expected_checks,
-				"completed_check_count": 0,
-				"duration_seconds": 0.01,
-				"suite_timeout_seconds": None,
-				"check_graph": gf_maintenance.maintenance_check_graph().describe(
-					expected_checks
-				),
-				"workspace_fingerprint": workspace_state["fingerprint"],
-				"workspace_snapshot": {
-					"text_entry_count": 0,
-					"text_cache_hits": 0,
-					"text_cache_misses": 0,
-					"value_entry_count": 0,
-					"value_cache_hits": 0,
-					"value_cache_misses": 0,
-				},
-				"workspace": workspace_state,
-				"execution": "serial",
-				"jobs": 1,
-				"results": [],
-				"package_artifact_set": {
-					"reused": True,
-					"manifest_sha256": manifest_sha256,
-					"artifact_count": 1,
-					"workspace_fingerprint": workspace_state["fingerprint"],
-				},
-			}
-			report_path = workspace / "report.json"
-			report_path.write_text(
-				json.dumps(report, ensure_ascii=False),
-				encoding="utf-8",
-				newline="\n",
-			)
-			shard_result = gf_maintenance.ParallelShardResult(
-				name="fixture",
-				command=(sys.executable, "fixture.py"),
-				workspace=workspace,
-				exit_code=1,
-				process_exit_code=1,
-				stdout="",
-				stderr="",
-				timed_out=False,
-				cancelled=False,
-				duration_seconds=0.01,
-				pid=1,
-				started=True,
-			)
-
-			def load(
-				expected_manifest: str,
-				contract: gf_maintenance.ParallelShardCommandContract = command_contract,
-			) -> tuple[dict[str, object] | None, str]:
-				return gf_maintenance.load_parallel_shard_report(
-					shard_result,
-					report_path,
-					expected_checks,
-					workspace_state,
-					validation_catalog=gf_maintenance._VALIDATION_CATALOG,
-					expected_command_contract=contract,
-					expected_check_graph=report["check_graph"],
-					expected_package_artifact_manifest=expected_manifest,
-					expected_package_artifact_manifest_sha256=manifest_sha256,
-					expected_package_artifact_count=1,
-				)
-
-			matching_report, matching_issue = load(manifest_b)
-			self.assertIsNotNone(matching_report)
-			self.assertEqual(matching_issue, "")
-			mismatched_report, mismatched_issue = load(manifest_a)
-			self.assertIsNone(mismatched_report)
-			self.assertIn("package artifact", mismatched_issue.lower())
-			forged_non_consumer_contract = (
-				gf_maintenance.ParallelShardCommandContract(
-					identities={
-						**command_contract.identities,
-						non_consumer_name: gf_maintenance.CommandIdentity(
-							declared=(*non_consumer_command, *command[-4:]),
-							effective=(
-								*non_consumer_effective_command,
-								*command[-4:],
-							),
-						),
-					},
-				)
-			)
-			forged_report, forged_issue = load(
-				manifest_b,
-				forged_non_consumer_contract,
-			)
-			self.assertIsNone(forged_report)
-			self.assertIn("non-consumer", forged_issue)
 
 	def test_parallel_supervisor_result_identity_must_match_frozen_dispatch(self) -> None:
 		with tempfile.TemporaryDirectory() as temporary_directory:
@@ -19793,12 +19487,8 @@ class WorkspaceExecutionBoundaryTests(unittest.TestCase):
 		self.assertEqual(
 			plan_names,
 			(
-				"package-editor",
 				"framework-static",
-				"package-godot-ci",
-				"package-cli-local",
-				"package-cli-network",
-				"package-contract",
+				"framework-integration",
 				"framework-gut",
 				"framework-lsp",
 			),
@@ -19809,9 +19499,7 @@ class WorkspaceExecutionBoundaryTests(unittest.TestCase):
 				for batch in gf_maintenance.parallel_full_shard_batches(plan, 2)
 			),
 			(
-				("package-editor", "framework-static"),
-				("package-godot-ci", "package-cli-local"),
-				("package-cli-network", "package-contract"),
+				("framework-static", "framework-integration"),
 				("framework-gut",),
 				("framework-lsp",),
 			),
@@ -19822,8 +19510,7 @@ class WorkspaceExecutionBoundaryTests(unittest.TestCase):
 				for batch in gf_maintenance.parallel_full_shard_batches(plan, 3)
 			),
 			(
-				("package-editor", "framework-static", "package-godot-ci"),
-				("package-cli-local", "package-cli-network", "package-contract"),
+				("framework-static", "framework-integration"),
 				("framework-gut",),
 				("framework-lsp",),
 			),
@@ -20046,9 +19733,6 @@ class WorkspaceExecutionBoundaryTests(unittest.TestCase):
 						timeout_seconds=None,
 						suite_timeout_seconds=None,
 						fail_fast=True,
-						package_artifact_manifest="manifest.json",
-						package_artifact_manifest_sha256="d" * 64,
-						package_artifact_count=1,
 						progress_callback=None,
 						output_callback=None,
 						overall_started=time.perf_counter(),
@@ -20204,9 +19888,6 @@ class WorkspaceExecutionBoundaryTests(unittest.TestCase):
 						timeout_seconds=None,
 						suite_timeout_seconds=None,
 						fail_fast=False,
-						package_artifact_manifest="",
-						package_artifact_manifest_sha256="",
-						package_artifact_count=0,
 						progress_callback=lambda status, name, duration: (
 							progress_events.append((status, name, duration))
 						),
@@ -20373,7 +20054,6 @@ class WorkspaceExecutionBoundaryTests(unittest.TestCase):
 		self.assertEqual(
 			tuple((shard.name, shard.checks) for shard in plan),
 			(
-				("package-editor", ("package_editor_wizard_smoke",)),
 				(
 					"framework-static",
 					(
@@ -20388,6 +20068,13 @@ class WorkspaceExecutionBoundaryTests(unittest.TestCase):
 						"content_package_boundary",
 						"asset_lifecycle_boundary",
 						"project_profile_boundary",
+						"package_boundary",
+						"package_closure_audit",
+						"package_source_boundary",
+						"package_external_command_audit",
+						"core_only_smoke",
+						"package_focused_gut_mapping",
+						"module_descriptor_tests",
 						"mkdocs",
 						"api_since_touched",
 						"repository_policy",
@@ -20404,24 +20091,11 @@ class WorkspaceExecutionBoundaryTests(unittest.TestCase):
 						"diff",
 					),
 				),
-				("package-godot-ci", ("package_godot_smoke",)),
-				("package-cli-local", ("package_godot_cli_local_smoke",)),
-				("package-cli-network", ("package_godot_cli_network_smoke",)),
 				(
-					"package-contract",
+					"framework-integration",
 					(
 						"ai_developer_adapter_acceptance",
-						"package_boundary",
-						"package_closure_audit",
-						"package_source_boundary",
-						"package_user_dependency_boundary",
-						"package_external_command_audit",
-						"core_only_smoke",
 						"core_plugin_bootstrap_smoke",
-						"package_focused_gut_mapping",
-						"package_distribution_tests",
-						"package_schema_contract_tests",
-						"package_build_boundary",
 					),
 				),
 				(
@@ -20474,13 +20148,12 @@ class WorkspaceExecutionBoundaryTests(unittest.TestCase):
 			destination_root = (
 				destination_containment_root
 				/ ("session-" + "x" * 96)
-				/ "package-editor"
+				/ "framework-static"
 			)
 			source_root.mkdir(parents=True)
 			destination_root.mkdir(parents=True)
 			entry_name = (
-				"package_editor_wizard_smoke_minimal_kernel_project_editor_"
-				"offline_bundle_preset_install_uninstall.log"
+				"framework_static_" + "x" * 96 + "_failure_evidence.log"
 			)
 			payload = b"retained failure evidence"
 			(source_root / entry_name).write_bytes(payload)
@@ -20518,12 +20191,11 @@ class WorkspaceExecutionBoundaryTests(unittest.TestCase):
 			workspace_root = fixture_root / "workspace"
 			source_root = workspace_root / ("source-" + "x" * 104)
 			destination_containment_root = fixture_root / "destination"
-			destination_root = destination_containment_root / "package-editor"
+			destination_root = destination_containment_root / "framework-static"
 			source_root.mkdir(parents=True)
 			destination_root.mkdir(parents=True)
 			entry_name = (
-				"package_editor_wizard_smoke_minimal_kernel_project_editor_"
-				"offline_bundle_preset_install_uninstall.log"
+				"framework_static_" + "x" * 96 + "_failure_evidence.log"
 			)
 			payload = b"retained failure evidence"
 			source_path = source_root / entry_name
@@ -20556,18 +20228,10 @@ class WorkspaceExecutionBoundaryTests(unittest.TestCase):
 				if os.path.lexists(extended_source):
 					os.unlink(extended_source)
 
-	def test_standalone_process_smokes_use_guarded_temporary_roots(self) -> None:
-		for function in (
-			gf_maintenance.core_plugin_bootstrap_smoke,
-			gf_maintenance.package_build_boundary,
-			gf_maintenance.package_editor_wizard_smoke,
-			gf_maintenance.package_godot_cli_smoke,
-			gf_maintenance.package_godot_smoke,
-		):
-			with self.subTest(function=function.__name__):
-				source = inspect.getsource(function)
-				self.assertIn("strict_process_boundary_temporary_directory", source)
-				self.assertNotIn("with strict_managed_temporary_directory", source)
+	def test_core_plugin_smoke_uses_a_guarded_temporary_root(self) -> None:
+		source = inspect.getsource(gf_maintenance.core_plugin_bootstrap_smoke)
+		self.assertIn("strict_process_boundary_temporary_directory", source)
+		self.assertNotIn("with strict_managed_temporary_directory", source)
 
 	def test_process_boundary_temp_retains_root_until_body_proves_quiescence(self) -> None:
 		with tempfile.TemporaryDirectory() as temporary_directory:
@@ -20638,452 +20302,6 @@ class WorkspaceExecutionBoundaryTests(unittest.TestCase):
 			gf_maintenance.exception_has_cleanup_debt,
 			gf_process_supervisor.exception_has_cleanup_debt,
 		)
-
-	def test_cleanup_debt_classifier_bypasses_lying_exception_getters(self) -> None:
-		class HostileDebtError(gf_maintenance.PackageArtifactSetError):
-			def __init__(self, message: str) -> None:
-				super().__init__(message)
-				attributes = BaseException.__getattribute__(self, "__dict__")
-				attributes["cleanup_debt"] = True
-				attributes["process_boundary_quiescent"] = False
-
-			def __getattribute__(self, name: str) -> object:
-				if name == "cleanup_debt":
-					return False
-				if name == "process_boundary_quiescent":
-					return True
-				return super().__getattribute__(name)
-
-		with tempfile.TemporaryDirectory() as temporary_directory:
-			owned_root = Path(temporary_directory) / "owned"
-			owned_root.mkdir()
-			marker = owned_root / "must-retain.txt"
-			marker.write_text("retained", encoding="utf-8")
-			primary = HostileDebtError("synthetic uninspectable cleanup boundary")
-
-			with mock.patch.object(
-				gf_maintenance.tempfile,
-				"mkdtemp",
-				return_value=str(owned_root),
-			), mock.patch.object(
-				gf_maintenance,
-				"load_or_build_private_package_artifact_set",
-				side_effect=primary,
-			):
-				with self.assertRaises(HostileDebtError) as raised:
-					gf_maintenance.package_build_boundary()
-
-			self.assertIs(raised.exception, primary)
-			self.assertEqual(marker.read_text(encoding="utf-8"), "retained")
-
-	def test_cleanup_debt_classifier_rejects_hidden_context_descriptor(self) -> None:
-		class HostileWrapper(gf_maintenance.PackageArtifactSetError):
-			@property
-			def __context__(self) -> None:
-				return None
-
-		debt = gf_maintenance.gf_parallel_validation.WorkspaceProcessBoundaryError(
-			"fixture hidden cleanup debt"
-		)
-		try:
-			raise debt
-		except gf_maintenance.WorkspaceSnapshotError:
-			try:
-				raise HostileWrapper("fixture wrapper") from None
-			except HostileWrapper as wrapper:
-				primary = wrapper
-
-		self.assertTrue(gf_maintenance.exception_has_cleanup_debt(primary))
-
-	def test_package_capture_wrapper_does_not_format_hostile_cleanup_debt(self) -> None:
-		class HostileSnapshotError(gf_maintenance.WorkspaceSnapshotError):
-			cleanup_debt = True
-			process_boundary_quiescent = False
-
-			def __str__(self) -> str:
-				raise SystemExit("fixture hostile snapshot __str__")
-
-		with tempfile.TemporaryDirectory() as temporary_directory:
-			owned_root = Path(temporary_directory) / "owned"
-			owned_root.mkdir()
-			marker = owned_root / "must-retain.txt"
-			marker.write_text("retained", encoding="utf-8")
-			primary = HostileSnapshotError("synthetic capture cleanup debt")
-			workspace_state = {"fingerprint": "a" * 64}
-
-			with (
-				mock.patch.object(
-					gf_maintenance.tempfile,
-					"mkdtemp",
-					return_value=str(owned_root),
-				),
-				mock.patch.object(
-					gf_maintenance,
-					"workspace_fingerprint",
-					return_value=workspace_state,
-				),
-				mock.patch.object(
-					gf_maintenance.gf_parallel_validation,
-					"capture_workspace",
-					side_effect=primary,
-				),
-			):
-				with self.assertRaises(gf_maintenance.PackageArtifactSetError) as raised:
-					gf_maintenance.package_build_boundary()
-
-			self.assertIs(raised.exception.__cause__, primary)
-			self.assertTrue(gf_maintenance.exception_has_cleanup_debt(raised.exception))
-			self.assertEqual(marker.read_text(encoding="utf-8"), "retained")
-
-	def test_package_build_diagnostic_does_not_format_hostile_ordinary_error(self) -> None:
-		class HostilePackageError(gf_maintenance.PackageArtifactSetError):
-			def __str__(self) -> str:
-				raise SystemExit("fixture hostile package error text")
-
-		with mock.patch.object(
-			gf_maintenance,
-			"load_or_build_private_package_artifact_set",
-			side_effect=HostilePackageError("fixture invalid artifact set"),
-		):
-			report = gf_maintenance.package_build_boundary()
-
-		self.assertFalse(report["ok"])
-		self.assertEqual(report["issues"][0]["kind"], "package_artifact_set_invalid")
-		self.assertIn("detail unavailable", report["issues"][0]["error"])
-
-	def test_package_build_boundary_preserves_wrapped_materializer_debt(self) -> None:
-		with tempfile.TemporaryDirectory() as temporary_directory:
-			owned_root = Path(temporary_directory) / "owned"
-			owned_root.mkdir()
-
-			def fail_with_boundary(
-				temp_root: Path,
-				_consumer_root: Path,
-				*_args: object,
-				**_kwargs: object,
-			) -> object:
-				marker = temp_root / "artifact-source" / "must-retain.txt"
-				marker.parent.mkdir(parents=True)
-				marker.write_text("retained", encoding="utf-8")
-				try:
-					raise gf_maintenance.gf_parallel_validation.WorkspaceProcessBoundaryError(
-						"synthetic materializer boundary debt",
-						preserved_paths=(marker.parent,),
-					)
-				except gf_maintenance.WorkspaceSnapshotError as error:
-					raise gf_maintenance.PackageArtifactSetError(
-						"wrapped materializer failure"
-					) from error
-
-			with mock.patch.object(
-				gf_maintenance.tempfile,
-				"mkdtemp",
-				return_value=str(owned_root),
-			), mock.patch.object(
-				gf_maintenance,
-				"load_or_build_private_package_artifact_set",
-				side_effect=fail_with_boundary,
-			):
-				with self.assertRaises(
-					gf_maintenance.PackageArtifactSetError,
-				) as raised:
-					gf_maintenance.package_build_boundary()
-			self.assertTrue(gf_maintenance.exception_has_cleanup_debt(raised.exception))
-			self.assertIsInstance(
-				raised.exception.__cause__,
-				gf_maintenance.gf_parallel_validation.WorkspaceProcessBoundaryError,
-			)
-			self.assertIn(
-				"Retained temporary root",
-				"\n".join(getattr(raised.exception, "__notes__", ())),
-			)
-			self.assertTrue((owned_root / "artifact-source" / "must-retain.txt").is_file())
-
-	def test_private_artifact_cleanup_failure_carries_debt_and_retained_path(self) -> None:
-		artifact_module = gf_maintenance.gf_package_artifact_set
-		with tempfile.TemporaryDirectory() as temporary_directory:
-			root = Path(temporary_directory)
-			source_root = root / "source"
-			source_root.mkdir()
-			manifest_path = source_root / artifact_module.MANIFEST_FILENAME
-			manifest_path.write_text("{}\n", encoding="utf-8")
-			source = artifact_module.PackageArtifactSet(
-				root=source_root,
-				manifest_path=manifest_path,
-				manifest_sha256="a" * 64,
-				workspace_state={},
-				artifacts=(),
-				builder_result={},
-			)
-			target = root / "consumer"
-			staging = root / ".consumer.a-deadbeef"
-			primary = artifact_module.PackageArtifactSetError("private copy validation failed")
-
-			with (
-				mock.patch.object(
-					artifact_module,
-					"revalidate_package_artifact_set",
-					return_value=source,
-				),
-				mock.patch.object(
-					artifact_module,
-					"load_package_artifact_set",
-					side_effect=primary,
-				),
-				mock.patch.object(artifact_module.secrets, "token_hex", return_value="deadbeef"),
-				mock.patch.object(
-					artifact_module,
-					"_safe_remove_private_tree",
-					return_value="exact private staging cleanup was refused",
-				),
-			):
-				with self.assertRaises(artifact_module.PackageArtifactSetError) as raised:
-					artifact_module.materialize_package_artifact_set(source, target)
-
-			self.assertIs(raised.exception, primary)
-			self.assertTrue(raised.exception.cleanup_debt)
-			self.assertFalse(raised.exception.process_boundary_quiescent)
-			self.assertEqual(raised.exception.preserved_paths, (staging,))
-			self.assertIsInstance(
-				raised.exception.cleanup_error,
-				artifact_module.PackageArtifactSetError,
-			)
-			self.assertIn(
-				"exact private staging cleanup was refused",
-				str(raised.exception.cleanup_error),
-			)
-			self.assertTrue(staging.is_dir())
-
-	def test_missing_private_artifact_staging_is_cleanup_debt(self) -> None:
-		artifact_module = gf_maintenance.gf_package_artifact_set
-		with tempfile.TemporaryDirectory() as temporary_directory:
-			root = Path(temporary_directory)
-			source_root = root / "source"
-			source_root.mkdir()
-			manifest_path = source_root / artifact_module.MANIFEST_FILENAME
-			manifest_path.write_text("{}\n", encoding="utf-8")
-			source = artifact_module.PackageArtifactSet(
-				root=source_root,
-				manifest_path=manifest_path,
-				manifest_sha256="a" * 64,
-				workspace_state={},
-				artifacts=(),
-				builder_result={},
-			)
-			target = root / "consumer"
-			staging = root / ".consumer.a-deadbeef"
-			moved_staging = root / "moved-private-staging"
-			primary = artifact_module.PackageArtifactSetError(
-				"private copy validation failed"
-			)
-
-			def move_staging_then_fail(*_args: object, **_kwargs: object) -> object:
-				staging.rename(moved_staging)
-				raise primary
-
-			with (
-				mock.patch.object(
-					artifact_module,
-					"revalidate_package_artifact_set",
-					return_value=source,
-				),
-				mock.patch.object(
-					artifact_module,
-					"load_package_artifact_set",
-					side_effect=move_staging_then_fail,
-				),
-				mock.patch.object(artifact_module.secrets, "token_hex", return_value="deadbeef"),
-			):
-				with self.assertRaises(artifact_module.PackageArtifactSetError) as raised:
-					artifact_module.materialize_package_artifact_set(source, target)
-
-			self.assertIs(raised.exception, primary)
-			self.assertTrue(raised.exception.cleanup_debt)
-			self.assertFalse(raised.exception.process_boundary_quiescent)
-			self.assertEqual(raised.exception.preserved_paths, (staging,))
-			self.assertTrue(moved_staging.is_dir())
-
-	def test_private_artifact_publication_move_then_control_retains_target(self) -> None:
-		artifact_module = gf_maintenance.gf_package_artifact_set
-		with tempfile.TemporaryDirectory() as temporary_directory:
-			root = Path(temporary_directory)
-			source_root = root / "source"
-			source_root.mkdir()
-			manifest_path = source_root / artifact_module.MANIFEST_FILENAME
-			manifest_path.write_text("{}\n", encoding="utf-8")
-			source = artifact_module.PackageArtifactSet(
-				root=source_root,
-				manifest_path=manifest_path,
-				manifest_sha256="a" * 64,
-				workspace_state={},
-				artifacts=(),
-				builder_result={},
-			)
-			target = root / "consumer"
-			staging = root / ".consumer.a-deadbeef"
-			primary = KeyboardInterrupt("fixture publication interruption")
-			real_replace = os.replace
-
-			def move_then_interrupt(source_path: object, target_path: object) -> None:
-				real_replace(source_path, target_path)
-				raise primary
-
-			with (
-				mock.patch.object(
-					artifact_module,
-					"revalidate_package_artifact_set",
-					return_value=source,
-				),
-				mock.patch.object(
-					artifact_module,
-					"load_package_artifact_set",
-					return_value=source,
-				),
-				mock.patch.object(artifact_module.secrets, "token_hex", return_value="deadbeef"),
-				mock.patch.object(
-					artifact_module.os,
-					"replace",
-					side_effect=move_then_interrupt,
-				),
-			):
-				observed: BaseException | None = None
-				try:
-					artifact_module.materialize_package_artifact_set(source, target)
-				except BaseException as error:
-					observed = error
-
-			self.assertIs(observed, primary)
-			self.assertTrue(primary.cleanup_debt)
-			self.assertFalse(primary.process_boundary_quiescent)
-			self.assertEqual(primary.preserved_paths, (target,))
-			self.assertTrue(target.is_dir())
-			self.assertFalse(staging.exists())
-
-	def test_package_build_boundary_preserves_private_artifact_cleanup_debt(self) -> None:
-		with tempfile.TemporaryDirectory() as temporary_directory:
-			owned_root = Path(temporary_directory) / "owned"
-			staging = owned_root / ".artifact-consumer.a-deadbeef"
-			staging.mkdir(parents=True)
-			debt = gf_maintenance.PackageArtifactSetError(
-				"private artifact cleanup could not be proven"
-			)
-			debt.cleanup_debt = True
-			debt.process_boundary_quiescent = False
-			debt.preserved_paths = (staging,)
-
-			with mock.patch.object(
-				gf_maintenance.tempfile,
-				"mkdtemp",
-				return_value=str(owned_root),
-			), mock.patch.object(
-				gf_maintenance,
-				"load_or_build_private_package_artifact_set",
-				side_effect=debt,
-			):
-				with self.assertRaises(gf_maintenance.PackageArtifactSetError) as raised:
-					gf_maintenance.package_build_boundary()
-
-			self.assertIs(raised.exception, debt)
-			self.assertTrue(gf_maintenance.exception_has_cleanup_debt(raised.exception))
-			self.assertTrue(staging.is_dir())
-
-	def test_package_build_boundary_retains_replaced_published_artifact_root(self) -> None:
-		artifact_module = gf_maintenance.gf_package_artifact_set
-		with tempfile.TemporaryDirectory() as temporary_directory:
-			root = Path(temporary_directory)
-			source_root = root / "source"
-			source_root.mkdir()
-			manifest_path = source_root / artifact_module.MANIFEST_FILENAME
-			manifest_path.write_text("{}\n", encoding="utf-8")
-			source = artifact_module.PackageArtifactSet(
-				root=source_root,
-				manifest_path=manifest_path,
-				manifest_sha256="a" * 64,
-				workspace_state={},
-				artifacts=(),
-				builder_result={},
-			)
-			owned_root = root / "owned"
-			owned_root.mkdir()
-			target = owned_root / "artifact-consumer"
-			published_original = owned_root / "published-original"
-			replacement_marker = target / "replacement.txt"
-			primary = artifact_module.PackageArtifactSetError(
-				"published private artifact validation failed"
-			)
-			load_count = 0
-
-			def replace_before_final_validation(*_args: object, **_kwargs: object) -> object:
-				nonlocal load_count
-				load_count += 1
-				if load_count == 1:
-					return source
-				target.rename(published_original)
-				target.mkdir()
-				replacement_marker.write_text("retained", encoding="utf-8")
-				raise primary
-
-			def materialize_private_set(
-				_temp_root: Path,
-				consumer_root: Path,
-				*_args: object,
-				**_kwargs: object,
-			) -> object:
-				return artifact_module.materialize_package_artifact_set(source, consumer_root)
-
-			with (
-				mock.patch.object(
-					artifact_module,
-					"revalidate_package_artifact_set",
-					return_value=source,
-				),
-				mock.patch.object(
-					artifact_module,
-					"load_package_artifact_set",
-					side_effect=replace_before_final_validation,
-				),
-				mock.patch.object(artifact_module.secrets, "token_hex", return_value="deadbeef"),
-				mock.patch.object(
-					gf_maintenance.tempfile,
-					"mkdtemp",
-					return_value=str(owned_root),
-				),
-				mock.patch.object(
-					gf_maintenance,
-					"load_or_build_private_package_artifact_set",
-					side_effect=materialize_private_set,
-				),
-			):
-				with self.assertRaises(artifact_module.PackageArtifactSetError) as raised:
-					gf_maintenance.package_build_boundary()
-
-			self.assertIs(raised.exception, primary)
-			self.assertTrue(gf_maintenance.exception_has_cleanup_debt(raised.exception))
-			self.assertEqual(raised.exception.preserved_paths, (target,))
-			self.assertTrue(owned_root.is_dir())
-			self.assertTrue(
-				(published_original / artifact_module.MANIFEST_FILENAME).is_file()
-			)
-			self.assertEqual(replacement_marker.read_text(encoding="utf-8"), "retained")
-
-	def test_process_boundary_temp_cleans_handled_non_debt_failure(self) -> None:
-		with tempfile.TemporaryDirectory() as temporary_directory:
-			owned_root = Path(temporary_directory) / "owned"
-			owned_root.mkdir()
-			with mock.patch.object(
-				gf_maintenance.tempfile,
-				"mkdtemp",
-				return_value=str(owned_root),
-			), mock.patch.object(
-				gf_maintenance,
-				"load_or_build_private_package_artifact_set",
-				side_effect=gf_maintenance.PackageArtifactSetError(
-					"ordinary closed artifact failure"
-				),
-			):
-				report = gf_maintenance.package_build_boundary()
-			self.assertFalse(report["ok"])
-			self.assertFalse(owned_root.exists())
 
 	def test_maintenance_subprocess_requires_positive_process_boundary_proof(self) -> None:
 		unproved = gf_maintenance.gf_process_supervisor.SupervisedProcessResult(
@@ -21275,108 +20493,6 @@ class WorkspaceExecutionBoundaryTests(unittest.TestCase):
 						process_environment=_SHARED_PROCESS_AUTHORITY.environment,
 					)
 			self.assertIs(raised.exception.__cause__, original_error)
-
-	def test_parallel_full_boundary_debt_retains_artifact_and_validation_roots(self) -> None:
-		workspace_state = {
-			"schema_version": 1,
-			"head": "a" * 40,
-			"dirty": False,
-			"untracked_file_count": 0,
-			"fingerprint": "b" * 64,
-		}
-		captured = gf_maintenance.CapturedWorkspace(
-			source_root=gf_maintenance.ROOT,
-			head="a" * 40,
-			binary_diff=b"",
-			untracked_files=(),
-			workspace_fingerprint="b" * 64,
-		)
-		retained_roots: dict[str, Path] = {}
-		with tempfile.TemporaryDirectory() as temporary_directory:
-			temp_root = Path(temporary_directory)
-
-			def materialize(
-				_captured: object,
-				target: Path,
-				**_kwargs: object,
-			) -> Path:
-				target.mkdir()
-				retained_roots["artifact"] = target.parent
-				return target
-
-			def build_artifact(artifact_root: Path, *_args: object, **_kwargs: object) -> object:
-				artifact_root.mkdir()
-				artifact = mock.Mock()
-				artifact.manifest_path = artifact_root / "manifest.json"
-				artifact.manifest_sha256 = "c" * 64
-				artifact.artifacts = (mock.Mock(),)
-				return artifact
-
-			def fail_parallel(
-				_captured: object,
-				parallel_root: Path,
-				**kwargs: object,
-			) -> object:
-				retained_roots["validation"] = parallel_root
-				kwargs["cleanup_state"]["permitted"] = False
-				raise gf_maintenance.WorkspaceSnapshotError(
-					"synthetic unproved Full consumer process boundary"
-				)
-
-			with mock.patch.dict(
-				os.environ,
-				{
-					gf_maintenance.MAINTENANCE_VALIDATION_TEMP_ROOT_ENV_VAR: str(temp_root),
-				},
-			), mock.patch.object(
-				gf_maintenance,
-				"workspace_fingerprint",
-				return_value=workspace_state,
-			), mock.patch.object(
-				gf_maintenance,
-				"expanded_check_names",
-				return_value=["package_build_boundary"],
-			), mock.patch.object(
-				gf_maintenance,
-				"resolve_check_jobs",
-				return_value=2,
-			), mock.patch.object(
-				gf_maintenance,
-				"WINDOWS_PARALLEL_VALIDATION_ROOT_MAX_CHARACTERS",
-				260,
-			), mock.patch.object(
-				gf_maintenance.gf_parallel_validation,
-				"capture_workspace",
-				return_value=captured,
-			), mock.patch.object(
-				gf_maintenance.gf_parallel_validation,
-				"materialize_workspace",
-				side_effect=materialize,
-			), mock.patch.object(
-				gf_maintenance,
-				"build_package_smoke_artifact_set",
-				side_effect=build_artifact,
-			), mock.patch.object(
-				gf_maintenance,
-				"run_parallel_full_checks",
-				side_effect=fail_parallel,
-			), mock.patch.object(
-				gf_maintenance,
-				"package_artifact_details",
-				return_value={"retained_fixture": True},
-			):
-				result = gf_maintenance.run_checks(
-					checks=["package_build_boundary"],
-					jobs=2,
-				)
-			self.assertFalse(result["ok"])
-			self.assertTrue(retained_roots["artifact"].exists())
-			self.assertIn("validation", retained_roots, result)
-			self.assertTrue(retained_roots["validation"].exists())
-			self.assertIn(
-				"temporary_workspace_cleanup",
-				{item["name"] for item in result["results"]},
-			)
 
 	def test_workspace_snapshot_keeps_only_the_current_live_identity(self) -> None:
 		with tempfile.TemporaryDirectory() as temporary_directory:
@@ -21724,176 +20840,6 @@ class ValidationShadowIntegrationTests(unittest.TestCase):
 		self.assertEqual(
 			first_evidence["action_key_material"]["dependency_artifacts"],
 			{},
-		)
-
-	def test_package_artifact_action_key_uses_digest_not_ephemeral_path(self) -> None:
-		workspace_state = self._workspace_state()
-
-		def report(manifest_path: str, digest: str) -> dict[str, object]:
-			data = {
-				"ok": True,
-				"suite": "package-contract",
-				"checks": ["package_build_boundary"],
-				"package_artifact_set": {
-					"reused": False,
-					"manifest_sha256": digest,
-					"artifact_count": 1,
-					"workspace_fingerprint": "a" * 64,
-				},
-				"results": [{
-					"name": "package_build_boundary",
-					"command": [
-						"python",
-						"tools/gf_maintenance.py",
-						"package-build-boundary",
-						"--package-artifact-manifest",
-						manifest_path,
-						"--package-artifact-manifest-sha256",
-						digest,
-					],
-					"execution": "in_process",
-					"exit_code": 0,
-					"timed_out": False,
-					"cancelled": False,
-					"duration_seconds": 0.1,
-					"result_fingerprint": "e" * 64,
-				}],
-			}
-			with mock.patch.object(
-				gf_maintenance.gf_validation_test_inventory,
-				"collect_test_inventory",
-				return_value=self._inventory(),
-			):
-				return gf_maintenance.make_validation_shadow_report(
-					data,
-					workspace_state,
-					validation_catalog=gf_maintenance._VALIDATION_CATALOG,
-				)
-
-		first = report("C:/temp/gfa-one/manifest.json", "1" * 64)
-		second = report("C:/temp/gfa-two/manifest.json", "1" * 64)
-		changed = report("C:/temp/gfa-two/manifest.json", "2" * 64)
-		first_evidence = first["actions"][0]["shadow_evidence"]
-		second_evidence = second["actions"][0]["shadow_evidence"]
-		changed_evidence = changed["actions"][0]["shadow_evidence"]
-		self.assertEqual(first_evidence["action_key"], second_evidence["action_key"])
-		self.assertNotEqual(first_evidence["action_key"], changed_evidence["action_key"])
-		material = first_evidence["action_key_material"]
-		self.assertIn(
-			gf_maintenance.PACKAGE_ARTIFACT_MANIFEST_ACTION_SENTINEL,
-			material["command"],
-		)
-		self.assertNotIn("C:/temp/gfa-one/manifest.json", material["command"])
-		self.assertEqual(
-			material["dependency_artifacts"],
-			{gf_maintenance.PACKAGE_ARTIFACT_MANIFEST_DEPENDENCY_LABEL: "1" * 64},
-		)
-		with self.assertRaisesRegex(ValueError, "differs from the parent"):
-			gf_maintenance.validation_shadow_action_inputs(
-				{"package_artifact_set": {
-					"reused": False,
-					"manifest_sha256": "1" * 64,
-					"artifact_count": 1,
-					"workspace_fingerprint": "a" * 64,
-				}},
-				"package_build_boundary",
-				[
-					"python",
-					"--package-artifact-manifest",
-					"C:/temp/gfa/manifest.json",
-					"--package-artifact-manifest-sha256",
-					"2" * 64,
-				],
-				validation_catalog=gf_maintenance._VALIDATION_CATALOG,
-				workspace_digest="a" * 64,
-				allow_planned_command=False,
-			)
-		malformed_commands = (
-			[
-				"python",
-				"--package-artifact-manifest",
-				"--package-artifact-manifest-sha256",
-				"1" * 64,
-			],
-			[
-				"python",
-				"--package-artifact-manifest-sha256",
-				"1" * 64,
-				"--package-artifact-manifest",
-				"manifest.json",
-			],
-			[
-				"python",
-				"--package-artifact-manifest",
-				"one.json",
-				"--package-artifact-manifest",
-				"two.json",
-				"--package-artifact-manifest-sha256",
-				"1" * 64,
-			],
-		)
-		artifact_data = {
-			"package_artifact_set": {
-				"reused": False,
-				"manifest_sha256": "1" * 64,
-				"artifact_count": 1,
-				"workspace_fingerprint": "a" * 64,
-			},
-		}
-		for command in malformed_commands:
-			with self.subTest(command=command):
-				with self.assertRaises(ValueError):
-					gf_maintenance.validation_shadow_action_inputs(
-						artifact_data,
-						"package_build_boundary",
-						command,
-						validation_catalog=gf_maintenance._VALIDATION_CATALOG,
-						workspace_digest="a" * 64,
-						allow_planned_command=False,
-					)
-
-	def test_unstarted_package_action_uses_a_stable_planned_command(self) -> None:
-		workspace_state = self._workspace_state()
-		data = {
-			"ok": False,
-			"suite": "full",
-			"checks": ["package_build_boundary"],
-			"package_artifact_set": {
-				"reused": False,
-				"manifest_sha256": "1" * 64,
-				"artifact_count": 1,
-				"workspace_fingerprint": "a" * 64,
-			},
-			"results": [{
-				"name": "package_build_boundary",
-				"command": ["python", "tools/gf_maintenance.py", "package-build-boundary"],
-				"execution": "not_started",
-				"exit_code": 124,
-				"timed_out": True,
-				"cancelled": False,
-				"duration_seconds": 0.0,
-			}],
-		}
-		with mock.patch.object(
-			gf_maintenance.gf_validation_test_inventory,
-			"collect_test_inventory",
-			return_value=self._inventory(),
-		):
-			report = gf_maintenance.make_validation_shadow_report(
-				data,
-				workspace_state,
-				validation_catalog=gf_maintenance._VALIDATION_CATALOG,
-			)
-		action = report["actions"][0]
-		self.assertFalse(action["execution_observed"])
-		material = action["shadow_evidence"]["action_key_material"]
-		self.assertIn(
-			gf_maintenance.PACKAGE_ARTIFACT_MANIFEST_ACTION_SENTINEL,
-			material["command"],
-		)
-		self.assertEqual(
-			material["dependency_artifacts"],
-			{gf_maintenance.PACKAGE_ARTIFACT_MANIFEST_DEPENDENCY_LABEL: "1" * 64},
 		)
 
 	def test_unstarted_deferred_subprocess_is_not_labeled_in_process(self) -> None:
@@ -22333,9 +21279,6 @@ class ValidationShadowIntegrationTests(unittest.TestCase):
 						timeout_seconds=None,
 						suite_timeout_seconds=None,
 						fail_fast=False,
-						package_artifact_manifest="manifest.json",
-						package_artifact_manifest_sha256="d" * 64,
-						package_artifact_count=1,
 						progress_callback=None,
 						output_callback=None,
 						overall_started=0.0,
@@ -22468,9 +21411,6 @@ class ValidationShadowIntegrationTests(unittest.TestCase):
 						timeout_seconds=None,
 						suite_timeout_seconds=None,
 						fail_fast=False,
-						package_artifact_manifest="manifest.json",
-						package_artifact_manifest_sha256="d" * 64,
-						package_artifact_count=1,
 						progress_callback=None,
 						output_callback=None,
 						overall_started=time.perf_counter(),
@@ -22606,9 +21546,6 @@ class ValidationShadowIntegrationTests(unittest.TestCase):
 						timeout_seconds=None,
 						suite_timeout_seconds=None,
 						fail_fast=False,
-						package_artifact_manifest="manifest.json",
-						package_artifact_manifest_sha256="d" * 64,
-						package_artifact_count=1,
 						progress_callback=None,
 						output_callback=None,
 						overall_started=time.perf_counter(),
@@ -22776,9 +21713,6 @@ class ValidationShadowIntegrationTests(unittest.TestCase):
 						timeout_seconds=None,
 						suite_timeout_seconds=None,
 						fail_fast=False,
-						package_artifact_manifest="manifest.json",
-						package_artifact_manifest_sha256="d" * 64,
-						package_artifact_count=1,
 						progress_callback=None,
 						output_callback=None,
 						overall_started=time.perf_counter(),
@@ -22878,8 +21812,6 @@ class ValidationShadowIntegrationTests(unittest.TestCase):
 				timeout_seconds=None,
 				suite_deadline=None,
 				fail_fast=False,
-				package_artifact_manifest="",
-				package_artifact_manifest_sha256="",
 			)
 		self.assertNotIn("--validation-shadow", shard.command)
 		self.assertEqual(
@@ -23232,7 +22164,6 @@ class AffectedAnalysisIntegrationTests(unittest.TestCase):
 		self.assertEqual(
 			set(specs),
 			{
-				"package_user_dependency_boundary",
 				"public_api_boundary",
 				"public_docs_boundary",
 			},
@@ -23248,16 +22179,6 @@ class AffectedAnalysisIntegrationTests(unittest.TestCase):
 		)
 		self.assertTrue(
 			specs["public_api_boundary"].matches_source_path("addons/gf/value.gd")
-		)
-		self.assertTrue(
-			specs["package_user_dependency_boundary"].matches_source_path(
-				"addons/gf/kernel/package/installer.gd"
-			)
-		)
-		self.assertFalse(
-			specs["package_user_dependency_boundary"].matches_source_path(
-				"addons/gf/kernel/unrelated.gd"
-			)
 		)
 
 	def test_affected_failure_is_unknown_execute_and_cannot_change_success(self) -> None:
@@ -23434,12 +22355,45 @@ class AffectedAnalysisIntegrationTests(unittest.TestCase):
 				timeout_seconds=None,
 				suite_deadline=None,
 				fail_fast=False,
-				package_artifact_manifest="",
-				package_artifact_manifest_sha256="",
 			)
 		self.assertNotIn("--affected", shard.command)
 		self.assertNotIn("--explain", shard.command)
 		self.assertNotIn("--affected-base", shard.command)
+
+
+class InternalModuleDescriptorInventoryTests(unittest.TestCase):
+	def test_deleted_tracked_descriptors_are_excluded_from_the_worktree_inventory(
+		self,
+	) -> None:
+		def read_paths(arguments: list[str]) -> dict[str, object]:
+			if "--deleted" in arguments:
+				paths = ["packages/presets/retired.json"]
+			elif "--cached" in arguments:
+				paths = [
+					"packages/gf.kernel.json",
+					"packages/presets/retired.json",
+				]
+			else:
+				paths = ["packages/tools/gf.tool.fixture.json"]
+			return {"paths": paths, "error": ""}
+
+		with mock.patch.object(
+			gf_maintenance,
+			"read_git_paths",
+			side_effect=read_paths,
+		):
+			result = gf_maintenance.collect_package_manifest_paths()
+
+		self.assertEqual(
+			result,
+			{
+				"paths": [
+					"packages/gf.kernel.json",
+					"packages/tools/gf.tool.fixture.json",
+				],
+				"errors": [],
+			},
+		)
 
 
 if __name__ == "__main__":

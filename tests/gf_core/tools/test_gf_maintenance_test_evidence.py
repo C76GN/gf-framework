@@ -79,20 +79,6 @@ class PythonTestEvidenceTests(unittest.TestCase):
 
 	def test_evidence_checks_are_owned_by_their_required_suites(self) -> None:
 		for suite_name, checks in {
-			"package-contract": gf_maintenance.PACKAGE_CONTRACT_CHECKS,
-			"package": gf_maintenance.PACKAGE_CHECKS,
-			"package-ci": gf_maintenance.PACKAGE_CI_CHECKS,
-			"package-release": gf_maintenance.PACKAGE_RELEASE_CHECKS,
-			"full": gf_maintenance.FULL_CHECKS,
-			"release": gf_maintenance.RELEASE_CHECKS,
-		}.items():
-			with self.subTest(suite=suite_name):
-				for required_check in (
-					"package_distribution_tests",
-					"package_schema_contract_tests",
-				):
-					self.assertIn(required_check, checks)
-		for suite_name, checks in {
 			"light-boundary": gf_maintenance.LIGHT_BOUNDARY_CHECKS,
 			"quick": gf_maintenance.QUICK_CHECKS,
 			"framework-static": gf_maintenance.FRAMEWORK_STATIC_CHECKS,
@@ -102,6 +88,18 @@ class PythonTestEvidenceTests(unittest.TestCase):
 		}.items():
 			with self.subTest(suite=suite_name):
 				self.assertIn("maintenance_test_evidence_tests", checks)
+
+	def test_static_module_descriptor_evidence_is_framework_governed(self) -> None:
+		for suite_name, checks in {
+			"light-boundary": gf_maintenance.LIGHT_BOUNDARY_CHECKS,
+			"quick": gf_maintenance.QUICK_CHECKS,
+			"framework-static": gf_maintenance.FRAMEWORK_STATIC_CHECKS,
+			"framework": gf_maintenance.FRAMEWORK_CHECKS,
+			"full": gf_maintenance.FULL_CHECKS,
+			"release": gf_maintenance.RELEASE_CHECKS,
+		}.items():
+			with self.subTest(suite=suite_name):
+				self.assertIn("module_descriptor_tests", checks)
 
 
 if __name__ == "__main__":

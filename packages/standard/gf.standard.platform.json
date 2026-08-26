@@ -2,18 +2,11 @@
   "schema_version": 1,
   "id": "gf.standard.platform",
   "kind": "standard",
-  "version": "unreleased",
-  "display_name": "GF Standard Platform",
-  "description": "Platform-neutral adapter registration, explicit contract routing, request lifecycle, timeout, and lifecycle event forwarding.",
   "dependencies": [
     "gf.kernel",
     "gf.standard.base"
   ],
   "paths": [
     "addons/gf/standard/platform/**"
-  ],
-  "metadata": {
-    "stage": "platform-runtime-v1",
-    "sdk_boundary": "external-adapter"
-  }
+  ]
 }

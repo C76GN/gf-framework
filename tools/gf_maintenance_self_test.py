@@ -229,24 +229,6 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 		and "gf_maintenance.MAX_PARALLEL_FULL_JOBS" in mcp_server_source,
 		"MCP checks must preserve log cleanup, reject ambiguous empty selections, and expose bounded Full parallelism and deadlines.",
 	)
-	record_result(
-		"package_smoke_redirect_rejects_response_splitting_controls",
-		validate_package_smoke_header_value("/registry/index.json?channel=stable")
-		== "/registry/index.json?channel=stable"
-		and validate_package_smoke_header_value("/registry/%0d%0aindex.json")
-		== "/registry/%0d%0aindex.json"
-		and validate_package_smoke_header_value("/registry/index.json\r\nX-Injected: yes") is None
-		and validate_package_smoke_header_value("/registry/index.json\nX-Injected: yes") is None
-		and validate_package_smoke_header_value("/registry/index.json\rX-Injected: yes") is None,
-		"package smoke redirects must preserve safe targets and reject every raw CR/LF header boundary.",
-	)
-	default_source_smoke_url = package_smoke_default_registry_source_url("http://127.0.0.1:8123")
-	record_result(
-		"package_default_source_smoke_does_not_depend_on_insecure_http_redirects",
-		default_source_smoke_url == "http://127.0.0.1:8123/sources/default_godot_cli.json"
-		and "/redirect/" not in urllib.parse.urlparse(default_source_smoke_url).path,
-		"The local HTTP default-source smoke must use the source manifest directly; redirect coverage belongs to the native HTTPS policy tests.",
-	)
 	with tempfile.TemporaryDirectory(prefix="gf-workspace-snapshot-self-test-") as temp_dir:
 		snapshot_path = Path(temp_dir) / "fixture.txt"
 		snapshot_path.write_text("first", encoding="utf-8")
@@ -360,130 +342,6 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 		fingerprint_a == fingerprint_b and fingerprint_a != fingerprint_changed,
 		"fingerprints must ignore dictionary insertion order but change with their inputs.",
 	)
-
-	with tempfile.TemporaryDirectory(prefix="gf-package-artifact-set-self-test-") as temp_dir:
-		fixture_root = Path(temp_dir)
-		producer_root = fixture_root / "producer"
-		(producer_root / "packages").mkdir(parents=True)
-		(producer_root / "registry").mkdir()
-		(producer_root / "offline_bundle").mkdir()
-		archive_path = producer_root / "packages/gf.fixture.zip"
-		registry_path = producer_root / gf_package_artifact_set.REGISTRY_RELATIVE_PATH
-		registry_source_path = producer_root / gf_package_artifact_set.REGISTRY_SOURCE_RELATIVE_PATH
-		offline_bundle_path = producer_root / gf_package_artifact_set.OFFLINE_BUNDLE_RELATIVE_PATH
-		archive_path.write_bytes(b"fixture-package-archive")
-		registry_path.write_text("{}\n", encoding="utf-8")
-		registry_source_path.write_text("{}\n", encoding="utf-8")
-		offline_bundle_path.write_bytes(b"fixture-offline-bundle")
-		fixture_workspace_state = {
-			"schema_version": 1,
-			"head": "1" * 40,
-			"dirty": True,
-			"fingerprint": "2" * 64,
-		}
-		fixture_builder_data = {
-			"ok": True,
-			"issues": [],
-			"output_dir": (producer_root / "packages").as_posix(),
-			"registry": registry_path.as_posix(),
-			"registry_source": registry_source_path.as_posix(),
-			"offline_bundle": offline_bundle_path.as_posix(),
-			"package_count": 1,
-			"packages": [{
-				"id": "gf.fixture",
-				"kind": "kernel",
-				"ok": True,
-				"issues": [],
-				"archive": archive_path.as_posix(),
-				"size_bytes": archive_path.stat().st_size,
-				"sha256": sha256_file(archive_path),
-			}],
-		}
-		sealed_set = gf_package_artifact_set.seal_package_artifact_set(
-			producer_root,
-			fixture_builder_data,
-			fixture_workspace_state,
-			builder_cwd=producer_root,
-		)
-		private_set = gf_package_artifact_set.materialize_package_artifact_set(
-			sealed_set,
-			fixture_root / "consumer",
-		)
-		original_artifact_copy = gf_package_artifact_set._copy_regular_file_with_deadline
-		failed_private_cleanup_rejected = False
-		try:
-			def fail_private_artifact_copy(*_args: Any, **_kwargs: Any) -> None:
-				raise OSError("fixture copy failure")
-
-			gf_package_artifact_set._copy_regular_file_with_deadline = fail_private_artifact_copy
-			try:
-				gf_package_artifact_set.materialize_package_artifact_set(
-					sealed_set,
-					fixture_root / "failed-consumer",
-				)
-			except OSError:
-				failed_private_cleanup_rejected = True
-		finally:
-			gf_package_artifact_set._copy_regular_file_with_deadline = original_artifact_copy
-		artifact_cleanup_root = fixture_root / "artifact-cleanup-owned"
-		artifact_cleanup_moved = fixture_root / "artifact-cleanup-moved"
-		artifact_cleanup_root.mkdir()
-		artifact_cleanup_identity = artifact_cleanup_root.lstat()
-		os.replace(artifact_cleanup_root, artifact_cleanup_moved)
-		artifact_cleanup_root.mkdir()
-		artifact_identity_issue = gf_package_artifact_set._safe_remove_private_tree(
-			artifact_cleanup_root,
-			expected_identity=artifact_cleanup_identity,
-		)
-		private_archive = private_set.package_archive_paths[0]
-		artifact_deadline_rejected = False
-		try:
-			sealed_set.revalidate(deadline=time.perf_counter() - 1.0)
-		except PackageArtifactDeadlineError:
-			artifact_deadline_rejected = True
-		consumer_deadline_rejected = False
-		try:
-			load_or_build_private_package_artifact_set(
-				fixture_root,
-				fixture_root / "expired-consumer",
-				sealed_set.manifest_path.as_posix(),
-				sealed_set.manifest_sha256,
-				fixture_workspace_state,
-				process_authority=process_authority,
-				deadline=time.perf_counter() - 1.0,
-			)
-		except PackageArtifactDeadlineError:
-			consumer_deadline_rejected = True
-		private_archive.write_bytes(b"tampered-private-copy")
-		private_tamper_rejected = False
-		workspace_mismatch_rejected = False
-		try:
-			private_set.revalidate()
-		except PackageArtifactSetError:
-			private_tamper_rejected = True
-		try:
-			gf_package_artifact_set.load_package_artifact_set(
-				sealed_set.manifest_path,
-				sealed_set.manifest_sha256,
-				{**fixture_workspace_state, "fingerprint": "3" * 64},
-			)
-		except PackageArtifactSetError:
-			workspace_mismatch_rejected = True
-		record_result(
-			"package_artifact_set_is_sealed_and_consumers_are_private",
-			sealed_set.revalidate().manifest_sha256 == sealed_set.manifest_sha256
-			and private_tamper_rejected
-			and workspace_mismatch_rejected
-			and artifact_deadline_rejected
-			and consumer_deadline_rejected
-			and failed_private_cleanup_rejected
-			and not list(fixture_root.glob(".failed-consumer.a-*"))
-			and bool(artifact_identity_issue)
-			and artifact_cleanup_root.exists()
-			and artifact_cleanup_moved.exists()
-			and archive_path.read_bytes() == b"fixture-package-archive",
-			"Package smoke artifacts must bind provenance, honor absolute deadlines, isolate writes, clean failed staging, and refuse replaced roots.",
-		)
 
 	windows_short_repository_root = PureWindowsPath(
 		r"C:\Users\RUNNER~1\AppData\Local\Temp\gf-fixture\source"
@@ -1100,8 +958,6 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 		report_root.mkdir(parents=True)
 		expected_report_checks = ["diff"]
 		expected_report_workspace = captured_fixture.workspace_state()
-		expected_package_manifest_sha256 = "5" * 64
-		expected_package_artifact_count = 7
 		fixture_godot = fixture_root / (
 			"fixture-godot.exe" if os.name == "nt" else "fixture-godot"
 		)
@@ -1179,32 +1035,20 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 
 		def fixture_command_contract(
 			expected_checks: list[str],
-			*,
-			package_artifact_manifest: str = "",
-			package_artifact_manifest_sha256: str = "",
 		) -> ParallelShardCommandContract:
 			return freeze_parallel_shard_command_contract(
 				expected_checks,
 				authority_catalog=_VALIDATION_CATALOG,
 				environment=fixture_process_environment,
 				workspace=workspace_a,
-				package_artifact_manifest=package_artifact_manifest,
-				package_artifact_manifest_sha256=package_artifact_manifest_sha256,
 			)
 
 		def refresh_report_result_input_fingerprints(
 			report: dict[str, Any],
-			*,
-			package_artifact_manifest: str = "",
-			package_artifact_manifest_sha256: str = "",
 		) -> None:
 			accepted_result_fingerprints: dict[str, str] = {}
 			edges = report["check_graph"]["edges"]
-			command_contract = fixture_command_contract(
-				list(report["checks"]),
-				package_artifact_manifest=package_artifact_manifest,
-				package_artifact_manifest_sha256=package_artifact_manifest_sha256,
-			)
+			command_contract = fixture_command_contract(list(report["checks"]))
 			for result in report["results"]:
 				name = str(result["name"])
 				command_identity = command_contract.identities[name]
@@ -1305,15 +1149,7 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 				expected_checks,
 				expected_workspace_state,
 				validation_catalog=_VALIDATION_CATALOG,
-				expected_command_contract=fixture_command_contract(
-					expected_checks,
-					package_artifact_manifest=str(
-						kwargs.get("expected_package_artifact_manifest", "")
-					),
-					package_artifact_manifest_sha256=str(
-						kwargs.get("expected_package_artifact_manifest_sha256", "")
-					),
-				),
+				expected_command_contract=fixture_command_contract(expected_checks),
 				expected_check_graph=maintenance_check_graph().describe(
 					expected_checks
 				),
@@ -1326,8 +1162,6 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 			valid_report_path,
 			expected_report_checks,
 			expected_report_workspace,
-			expected_package_artifact_manifest_sha256=expected_package_manifest_sha256,
-			expected_package_artifact_count=expected_package_artifact_count,
 		)
 		layered_timeout_report = json.loads(json.dumps(valid_report))
 		layered_timeout_report["results"][0]["timeout_budget"][
@@ -2056,106 +1890,6 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 			and bool(mismatch_issue),
 			"Parallel reports must retain closed failed GUT lifecycle evidence for timeouts while rejecting missing or oversized results, invalid scalars, truncated, opaque, or inconsistent output evidence, duplicate/non-finite JSON, schema drift, inconsistent timeout/cancellation states, successful checks with failed lifecycle evidence, impossible lifecycle evidence, workspace escapes, and process/report disagreement.",
 		)
-		package_report_checks = ["package_build_boundary"]
-		package_report = json.loads(json.dumps(valid_report))
-		package_report["checks"] = package_report_checks
-		package_report["check_graph"] = maintenance_check_graph().describe(package_report_checks)
-		package_report["results"][0]["name"] = "package_build_boundary"
-		expected_package_manifest_path = str(
-			report_root / "package-artifact-manifest.json"
-		)
-		package_command_identity = fixture_command_contract(
-			package_report_checks,
-			package_artifact_manifest=expected_package_manifest_path,
-			package_artifact_manifest_sha256=expected_package_manifest_sha256,
-		).identities["package_build_boundary"]
-		package_report["results"][0]["command"] = list(
-			package_command_identity.effective
-		)
-		refresh_report_result_input_fingerprints(
-			package_report,
-			package_artifact_manifest=expected_package_manifest_path,
-			package_artifact_manifest_sha256=expected_package_manifest_sha256,
-		)
-		package_report["package_artifact_set"] = {
-			"reused": True,
-			"manifest_sha256": expected_package_manifest_sha256,
-			"artifact_count": expected_package_artifact_count,
-			"workspace_fingerprint": captured_fixture.workspace_fingerprint,
-		}
-		package_loaded, package_issue = load_report_fixture(
-			passing_report_runner,
-			write_report_fixture("package-valid", package_report),
-			package_report_checks,
-			expected_report_workspace,
-			expected_package_artifact_manifest=expected_package_manifest_path,
-			expected_package_artifact_manifest_sha256=expected_package_manifest_sha256,
-			expected_package_artifact_count=expected_package_artifact_count,
-		)
-		mutated_package_path_report = json.loads(json.dumps(package_report))
-		mutated_package_path_report["results"][0]["command"][-3] = str(
-			report_root / "forged-package-artifact-manifest.json"
-		)
-		refresh_report_result_input_fingerprints(
-			mutated_package_path_report,
-			package_artifact_manifest=expected_package_manifest_path,
-			package_artifact_manifest_sha256=expected_package_manifest_sha256,
-		)
-		_, mutated_package_path_issue = load_report_fixture(
-			passing_report_runner,
-			write_report_fixture(
-				"package-mutated-path",
-				mutated_package_path_report,
-			),
-			package_report_checks,
-			expected_report_workspace,
-			expected_package_artifact_manifest=expected_package_manifest_path,
-			expected_package_artifact_manifest_sha256=expected_package_manifest_sha256,
-			expected_package_artifact_count=expected_package_artifact_count,
-		)
-		mutated_package_sha_report = json.loads(json.dumps(package_report))
-		mutated_package_sha_report["package_artifact_set"]["manifest_sha256"] = "6" * 64
-		_, mutated_package_sha_issue = load_report_fixture(
-			passing_report_runner,
-			write_report_fixture("package-mutated-sha", mutated_package_sha_report),
-			package_report_checks,
-			expected_report_workspace,
-			expected_package_artifact_manifest=expected_package_manifest_path,
-			expected_package_artifact_manifest_sha256=expected_package_manifest_sha256,
-			expected_package_artifact_count=expected_package_artifact_count,
-		)
-		mutated_package_count_report = json.loads(json.dumps(package_report))
-		mutated_package_count_report["package_artifact_set"]["artifact_count"] += 1
-		_, mutated_package_count_issue = load_report_fixture(
-			passing_report_runner,
-			write_report_fixture("package-mutated-count", mutated_package_count_report),
-			package_report_checks,
-			expected_report_workspace,
-			expected_package_artifact_manifest=expected_package_manifest_path,
-			expected_package_artifact_manifest_sha256=expected_package_manifest_sha256,
-			expected_package_artifact_count=expected_package_artifact_count,
-		)
-		non_package_artifact_report = json.loads(json.dumps(valid_report))
-		non_package_artifact_report["package_artifact_set"] = package_report["package_artifact_set"]
-		_, non_package_artifact_issue = load_report_fixture(
-			passing_report_runner,
-			write_report_fixture("non-package-artifact", non_package_artifact_report),
-			expected_report_checks,
-			expected_report_workspace,
-			expected_package_artifact_manifest_sha256=expected_package_manifest_sha256,
-			expected_package_artifact_count=expected_package_artifact_count,
-		)
-		record_result(
-			"parallel_package_shard_reports_bind_exact_artifact_identity",
-			package_loaded is not None
-			and not package_issue
-			and bool(mutated_package_path_issue)
-			and bool(mutated_package_sha_issue)
-			and bool(mutated_package_count_issue)
-			and bool(non_package_artifact_issue),
-			"Package shard reports must match the parent sealed set exactly without widening non-package reports.",
-		)
-
 	with tempfile.TemporaryDirectory(prefix="gf-workspace-fingerprint-self-test-") as temp_dir:
 		fingerprint_fixture_root = Path(temp_dir)
 
@@ -6011,7 +5745,7 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 			"GUT runner without a path-inheritance shim outside the LSP scan closure."
 		),
 	)
-	gut_config_payload = read_json_object(ROOT / ".gutconfig.json")
+	gut_config_payload = json.loads(read_text_file(ROOT / ".gutconfig.json"))
 	record_result(
 		"gut_lifecycle_hook_configuration_is_canonical",
 		gut_config_payload == {
@@ -6136,18 +5870,14 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 	)
 	record_result(
 		"ci_workflow_runs_all_full_suite_shards",
-		ci_workflow_source.count("--suite ${{ matrix.suite }}") == 2
+		ci_workflow_source.count("--suite ${{ matrix.suite }}") == 1
 		and all(
 			f"suite: {suite_name}" in ci_workflow_source
 			for suite_name in (
 				"framework-gut",
 				"framework-lsp",
 				"framework-static",
-				"package-contract",
-				"package-editor",
-				"package-cli-local",
-				"package-cli-network",
-				"package-godot-ci",
+				"framework-integration",
 			)
 		),
 		"CI workflow must run every set-equivalent full-suite shard.",
@@ -6174,7 +5904,7 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 		and "github.event.pull_request.draft == true" in ci_workflow_source
 		and "github.event.pull_request.draft == false" in ci_workflow_source
 		and re.search(r"(?ms)^  draft-gate:.*?if:.*?!cancelled\(\).*?needs:.*?repository-policy.*?quick-checks", ci_workflow_source) is not None
-		and re.search(r"(?ms)^  full-validation-gate:.*?if:.*?!cancelled\(\).*?needs:.*?repository-policy.*?framework-checks.*?package-checks.*?windows-process-supervision", ci_workflow_source) is not None
+		and re.search(r"(?ms)^  full-validation-gate:.*?if:.*?!cancelled\(\).*?needs:.*?repository-policy.*?framework-checks.*?windows-process-supervision", ci_workflow_source) is not None
 		and re.search(r"(?ms)^  merge-gate:.*?if:.*?always\(\).*?needs:.*?repository-policy.*?full-validation-gate", ci_workflow_source) is not None
 		and re.search(r"(?ms)^  merge-gate:.*?needs:(?P<needs>.*?)(?=^    runs-on:)", ci_workflow_source) is not None
 		and "quick-checks" not in re.search(
@@ -6219,30 +5949,24 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 		"Draft quick CI must remain pure Python and avoid documentation or Godot environment bootstrap.",
 	)
 	record_result(
-		"release_workflow_gates_publish_on_all_release_shards",
+		"release_workflow_gates_publish_on_all_framework_shards",
 		"release-framework-checks:" in release_workflow_source
-		and "release-package-checks:" in release_workflow_source
-		and "--suite framework" in release_workflow_source
-		and (
-			f"--suite-timeout {gf_repository_policy.RELEASE_FRAMEWORK_SUITE_TIMEOUT_SECONDS}"
-			in release_workflow_source
-		)
+		and "release-package-checks:" not in release_workflow_source
 		and "--suite ${{ matrix.suite }}" in release_workflow_source
 		and all(
 			f"suite: {suite_name}" in release_workflow_source
 			for suite_name in (
-				"package-contract",
-				"package-editor",
-				"package-cli-local",
-				"package-cli-network",
-				"package-godot-release",
+				"framework-gut",
+				"framework-lsp",
+				"framework-static",
+				"framework-integration",
 			)
 		)
 		and re.search(
-			r"(?s)create-release:.*?needs:.*?build-release-artifacts.*?release-framework-checks.*?release-package-checks",
+			r"(?s)create-release:.*?needs:.*?build-release-artifacts.*?release-framework-checks",
 			release_workflow_source,
 		) is not None,
-		"Release publishing must wait for metadata/framework and every package matrix shard.",
+		"Release publishing must wait for metadata and all four framework shards.",
 	)
 	record_result(
 		"release_workflow_builds_one_immutable_artifact_set",
@@ -6258,12 +5982,17 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 	)
 	release_artifact_builder_source = read_text_file(ROOT / "tools/build_gf_release_artifacts.py")
 	record_result(
-		"release_artifact_set_includes_one_versioned_ai_developer_kit",
-		'"ai_developer_kit_build_count": 1' in release_artifact_builder_source
-		and 'f"gf-ai-developer-kit-{version}.zip": "ai_developer_kit"' in release_artifact_builder_source
-		and '"ai_developer_kit": f"gf-ai-developer-kit-{version}.zip"' in release_artifact_builder_source
-		and '"build/release/gf-ai-developer-kit-${GITHUB_REF_NAME}.zip"' in release_workflow_source,
-		"Release build, manifest audit, semantic audit, and upload must share one GF AI Developer Kit artifact.",
+		"release_artifact_set_has_exact_three_published_files",
+		'RELEASE_ARTIFACT_ROLES = ("framework", "ai_developer_kit")' in release_artifact_builder_source
+		and 'f"gf-framework-{version}.zip"' in release_artifact_builder_source
+		and 'f"gf-ai-developer-kit-{version}.zip"' in release_artifact_builder_source
+		and 'f"gf-release-artifacts-{version}.json"' in release_artifact_builder_source
+		and '"build/release/gf-framework-${GITHUB_REF_NAME}.zip"' in release_workflow_source
+		and '"build/release/gf-ai-developer-kit-${GITHUB_REF_NAME}.zip"' in release_workflow_source
+		and '"build/release/gf-release-artifacts-${GITHUB_REF_NAME}.json"' in release_workflow_source
+		and "build/release/registry/" not in release_workflow_source
+		and "build/release/packages/" not in release_workflow_source,
+		"Release build, audit, transport, and publication must expose exactly the framework ZIP, AI Developer Kit ZIP, and manifest.",
 	)
 	release_without_manifest = run_maintenance_subprocess(
 		[
@@ -6323,18 +6052,9 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 	])
 	maintenance_recommendations = maintenance_plan["recommended_checks"]
 	record_result(
-		"workspace_status_path_scope_limits_general_maintenance_recommendations",
-		"python tools/gf_maintenance.py check --check package_godot_matrix_smoke --json" not in maintenance_recommendations,
-		"general maintenance path recommendations should not force package matrix smoke by default.",
-	)
-
-	package_plan = workspace_status(paths=["tools/build_gf_release_artifacts.py"])
-	artifact_set_plan = workspace_status(paths=["tools/gf_package_artifact_set.py"])
-	record_result(
-		"workspace_status_path_scope_keeps_package_tool_recommendations",
-		"python tools/gf_maintenance.py check --suite package --json" in package_plan["recommended_checks"]
-		and "python tools/gf_maintenance.py check --suite package --json" in artifact_set_plan["recommended_checks"],
-		"package maintenance tool changes must still recommend package validation.",
+		"workspace_status_path_scope_keeps_general_maintenance_recommendations_framework_only",
+		all("--suite package" not in command for command in maintenance_recommendations),
+		"retired Package Manager suites must not return through maintenance recommendations.",
 	)
 	workflow_plan = workspace_status(paths=[".github/workflows/ci.yml", ".github/workflows/ci-manual.yml"])
 	record_result(
@@ -6367,16 +6087,6 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 		GF_MANIFEST_ALLOWED_FIELDS.isdisjoint(GF_MANIFEST_FORBIDDEN_RELATION_FIELDS),
 		"manifest relation fields must stay outside the allowed bundled manifest field set.",
 	)
-	record_result(
-		"preset_relation_fields_are_not_allowed_fields",
-		GF_PRESET_ALLOWED_FIELDS.isdisjoint(GF_PRESET_FORBIDDEN_RELATION_FIELDS),
-		"preset relation fields must stay outside the allowed preset field set.",
-	)
-	record_result(
-		"preset_package_fields_are_not_allowed_fields",
-		GF_PRESET_ALLOWED_FIELDS.isdisjoint(GF_PRESET_FORBIDDEN_PACKAGE_FIELDS),
-		"preset package fields must stay outside the allowed preset field set.",
-	)
 	previous_identifier_snapshot = _ACTIVE_WORKSPACE_SNAPSHOT
 	identifier_snapshot = WorkspaceSnapshot(ROOT)
 	_ACTIVE_WORKSPACE_SNAPSHOT = identifier_snapshot
@@ -6395,11 +6105,6 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 		"dependency scans must tokenize each source once without broadening identifier matches.",
 	)
 	record_result(
-		"quick_suite_excludes_long_package_smokes",
-		set(CHECK_SUITES["quick"]).isdisjoint(PACKAGE_SMOKE_CHECKS),
-		"quick suite must stay light; long package build/install/Godot CLI smoke belongs to the package suite.",
-	)
-	record_result(
 		"quick_suite_excludes_maintenance_self_test",
 		"maintenance_self_test" not in CHECK_SUITES["quick"]
 		and "maintenance_self_test" in CHECK_SUITES["framework"]
@@ -6414,13 +6119,10 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 		and "ai_developer_kit" in CHECK_SUITES["api"]
 		and "ai_developer_kit" in CHECK_SUITES["framework-static"]
 		and "ai_developer_kit" in CHECK_SUITES["framework"]
-		and "ai_developer_kit" not in CHECK_SUITES["package-contract"]
-		and "ai_developer_kit" not in CHECK_SUITES["package"]
 		and "ai_developer_adapter_acceptance" not in CHECK_SUITES["api"]
 		and "ai_developer_adapter_acceptance" not in CHECK_SUITES["framework-static"]
-		and "ai_developer_adapter_acceptance" not in CHECK_SUITES["framework"]
-		and "ai_developer_adapter_acceptance" in CHECK_SUITES["package-contract"]
-		and "ai_developer_adapter_acceptance" in CHECK_SUITES["package"]
+		and "ai_developer_adapter_acceptance" in CHECK_SUITES["framework-integration"]
+		and "ai_developer_adapter_acceptance" in CHECK_SUITES["framework"]
 		and {
 			"tools/build_gf_ai_developer_kit.py",
 			"--storage-backend-acceptance",
@@ -6465,37 +6167,7 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 		and gf_semver.parse_semver("1.0.0-\u0661") is None
 		and gf_semver.parse_semver("v1.0.0") is None
 		and gf_semver.next_major_version("8.2.0-dev.0") == "9.0.0",
-		"Python package tooling must share strict SemVer parsing and prerelease precedence.",
-	)
-	from build_gf_package import make_framework_compatibility_fields
-	from gf_package_resolver import compatibility_range_issues
-
-	dev_compatibility_fields = make_framework_compatibility_fields("8.2.0-dev.0")
-	record_result(
-		"package_build_and_resolver_preserve_prerelease_compatibility",
-		dev_compatibility_fields == {
-			"minimum_framework_version": "8.2.0-dev.0",
-			"maximum_framework_version_exclusive": "9.0.0",
-		}
-		and any(
-			"lower than minimum_framework_version 8.2.0" in issue
-			for issue in compatibility_range_issues("registry", "8.2.0-dev.0", "8.2.0", "9.0.0")
-		)
-		and not compatibility_range_issues("registry", "8.2.0-dev.1", "8.2.0-dev.0", "9.0.0")
-		and any(
-			"maximum_framework_version_exclusive 9.0.0" in issue
-			for issue in compatibility_range_issues("registry", "9.0.0-dev.0", "8.1.0", "9.0.0")
-		)
-		and any(
-			"target GF framework version is not SemVer" in issue
-			for issue in compatibility_range_issues("registry", "v8.2.0", "8.1.0", "9.0.0")
-		),
-		"Package archives and CLI planning must preserve strict SemVer and exclude prereleases from the next compatibility line.",
-	)
-	record_result(
-		"package_suite_includes_long_package_smokes",
-		set(PACKAGE_SMOKE_CHECKS).issubset(CHECK_SUITES["package"]),
-		"package suite must cover the package build/install/Godot CLI/uninstall smoke checks.",
+		"Release version handling must preserve strict SemVer parsing and prerelease precedence.",
 	)
 	record_result(
 		"credential_gate_covers_tracked_source_in_light_and_release_flows",
@@ -6690,6 +6362,7 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 		set(FRAMEWORK_CHECKS) == set(FRAMEWORK_GUT_CHECKS).union(
 			FRAMEWORK_LSP_CHECKS,
 			FRAMEWORK_STATIC_CHECKS,
+			FRAMEWORK_INTEGRATION_CHECKS,
 		)
 		and all(
 			left.isdisjoint(right)
@@ -6697,27 +6370,21 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 				set(FRAMEWORK_GUT_CHECKS),
 				set(FRAMEWORK_LSP_CHECKS),
 				set(FRAMEWORK_STATIC_CHECKS),
+				set(FRAMEWORK_INTEGRATION_CHECKS),
 			))
 			for right in (
 				set(FRAMEWORK_GUT_CHECKS),
 				set(FRAMEWORK_LSP_CHECKS),
 				set(FRAMEWORK_STATIC_CHECKS),
+				set(FRAMEWORK_INTEGRATION_CHECKS),
 			)[index + 1:]
 		)
 		and set(FULL_CHECKS) == set(FRAMEWORK_GUT_CHECKS).union(
 			FRAMEWORK_LSP_CHECKS,
 			FRAMEWORK_STATIC_CHECKS,
-			PACKAGE_CONTRACT_CHECKS,
-			PACKAGE_EDITOR_CHECKS,
-			PACKAGE_CLI_CHECKS,
-			{"package_godot_smoke"},
-		)
-		and set(PACKAGE_CI_CHECKS) == set(PACKAGE_CONTRACT_CHECKS).union(
-			PACKAGE_EDITOR_CHECKS,
-			PACKAGE_CLI_CHECKS,
-			{"package_godot_smoke"},
+			FRAMEWORK_INTEGRATION_CHECKS,
 		),
-		"parallel framework partitions and package matrix shards must be disjoint within framework and set-equivalent to full/package-ci.",
+		"the four disjoint framework shards must be set-equivalent to framework and full.",
 	)
 	parallel_validation_plan = _VALIDATION_CATALOG.plan("full")
 	parallel_plan = parallel_full_shard_plan(parallel_validation_plan)
@@ -6738,20 +6405,19 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 		"timeout_minutes",
 	)
 	release_framework_job = release_jobs.get("release-framework-checks", "")
-	release_framework_step = gf_repository_policy.extract_ci_step_block(
-		release_framework_job,
-		"Run release framework shard",
-	)
-	release_framework_command = gf_repository_policy.extract_yaml_scalar(
-		release_framework_step,
-		"run",
-		8,
-	)
-	release_framework_timeout_value = gf_repository_policy.extract_yaml_scalar(
-		release_framework_job,
-		"timeout-minutes",
-		4,
-	)
+	release_shard_timeouts = {
+		suite_name: gf_repository_policy.extract_matrix_suite_scalar(
+			release_framework_job,
+			suite_name,
+			"timeout_minutes",
+		)
+		for suite_name in (
+			"framework-gut",
+			"framework-lsp",
+			"framework-static",
+			"framework-integration",
+		)
+	}
 	manual_full_timeout_value = gf_repository_policy.extract_yaml_scalar(
 		manual_jobs.get("manual-full-validation", ""),
 		"timeout-minutes",
@@ -6784,25 +6450,18 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 	record_result(
 		"local_parallel_full_schedule_separates_heavy_shards",
 		parallel_plan_names == (
-			"package-editor",
 			"framework-static",
-			"package-godot-ci",
-			"package-cli-local",
-			"package-cli-network",
-			"package-contract",
+			"framework-integration",
 			"framework-gut",
 			"framework-lsp",
 		)
 		and parallel_batch_names_by_jobs[2] == (
-			("package-editor", "framework-static"),
-			("package-godot-ci", "package-cli-local"),
-			("package-cli-network", "package-contract"),
+			("framework-static", "framework-integration"),
 			("framework-gut",),
 			("framework-lsp",),
 		)
 		and parallel_batch_names_by_jobs[3] == (
-			("package-editor", "framework-static", "package-godot-ci"),
-			("package-cli-local", "package-cli-network", "package-contract"),
+			("framework-static", "framework-integration"),
 			("framework-gut",),
 			("framework-lsp",),
 		)
@@ -6873,15 +6532,8 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 		and invalid_parallel_job_requests_rejected,
 		"Full parallelism must stay bounded, expose jobs=1 diagnostics, and reject ambiguous suite/check combinations.",
 	)
-	fixture_package_command = materialize_check_command(
-		"package_build_boundary",
-		"C:/fixture/gf-package-artifact-set.json",
-		"a" * 64,
-		validation_executor_binding=validation_executor_binding_fixture,
-		deferred_command_context=deferred_command_context_fixture,
-	)
 	record_result(
-		"parallel_full_shards_preserve_check_timeout_minima_and_scope_artifact_inputs",
+		"parallel_full_shards_preserve_check_timeout_minima",
 		set(PARALLEL_FULL_SHARD_TIMEOUT_SECONDS) == set(PARALLEL_FULL_SHARD_SUITES)
 		and all(value > 0 for value in PARALLEL_FULL_SHARD_TIMEOUT_SECONDS.values())
 		and all(
@@ -6897,15 +6549,8 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 			framework_gut_shard,
 			None,
 			validation_catalog=_VALIDATION_CATALOG,
-		) == 2820
-		and "--package-artifact-manifest" in fixture_package_command
-		and "--package-artifact-manifest-sha256" in fixture_package_command
-		and "--package-artifact-manifest" not in materialize_check_command(
-			"api",
-			validation_executor_binding=validation_executor_binding_fixture,
-			deferred_command_context=deferred_command_context_fixture,
-		),
-		"Each shard budget must preserve every child check's requested minimum, while immutable package inputs reach only consumers.",
+		) == 2820,
+		"Each shard budget must preserve every child check's requested minimum.",
 	)
 	record_result(
 		"workflow_deadlines_preserve_the_closed_framework_gut_envelope",
@@ -6913,53 +6558,35 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 		and not release_duplicate_jobs
 		and not manual_duplicate_jobs
 		and ci_framework_gut_timeout_value
-		== str(gf_repository_policy.FRAMEWORK_GUT_CI_TIMEOUT_MINUTES)
-		and release_framework_timeout_value
-		== str(gf_repository_policy.RELEASE_FRAMEWORK_TIMEOUT_MINUTES)
+		== str(gf_repository_policy.FRAMEWORK_CI_TIMEOUT_MINUTES["framework-gut"])
+		and release_shard_timeouts == {
+			"framework-gut": "60",
+			"framework-lsp": "15",
+			"framework-static": "20",
+			"framework-integration": "30",
+		}
 		and manual_full_timeout_value == str(gf_repository_policy.MANUAL_FULL_TIMEOUT_MINUTES)
-		and release_framework_command == gf_repository_policy.RELEASE_FRAMEWORK_COMMAND
-		and gf_repository_policy.FRAMEWORK_GUT_CI_TIMEOUT_MINUTES * 60
+		and gf_repository_policy.FRAMEWORK_CI_TIMEOUT_MINUTES["framework-gut"] * 60
 		> parallel_shard_timeout_seconds(
 			framework_gut_shard,
 			None,
 			validation_catalog=_VALIDATION_CATALOG,
-		)
-		and gf_repository_policy.RELEASE_FRAMEWORK_TIMEOUT_MINUTES * 60
-		> gf_repository_policy.RELEASE_FRAMEWORK_SUITE_TIMEOUT_SECONDS,
+		),
 		(
 			"Ready/main framework GUT must retain its exact 60-minute outer deadline above "
-			"the 2,820-second child envelope; release framework must retain a 4,800-second "
-			"maintenance deadline within its exact 90-minute outer deadline; manual Full "
-			"must remain 90 minutes."
+			"the 2,820-second child envelope; release must preserve the four shard-specific "
+			"deadlines; manual Full must remain 90 minutes."
 		),
 	)
 	record_result(
 		"release_shards_preserve_release_suite_coverage",
-		set(RELEASE_CHECKS) == set(FRAMEWORK_CHECKS).union(
-			PACKAGE_CONTRACT_CHECKS,
-			PACKAGE_EDITOR_CHECKS,
-			PACKAGE_CLI_CHECKS,
-			{"package_godot_matrix_smoke", "release_metadata"},
-		)
-		and set(PACKAGE_RELEASE_CHECKS) == set(PACKAGE_CONTRACT_CHECKS).union(
-			PACKAGE_EDITOR_CHECKS,
-			PACKAGE_CLI_CHECKS,
-			{"package_godot_matrix_smoke"},
-		),
-		"parallel release matrix shards plus release metadata must be set-equivalent to the release and package-release suites.",
+		set(RELEASE_CHECKS) == set(FRAMEWORK_CHECKS).union({"release_metadata"}),
+		"the four release framework shards plus release metadata must be set-equivalent to the release suite.",
 	)
 	record_result(
-		"long_package_smokes_have_dedicated_timeout_budgets",
+		"integration_checks_have_dedicated_timeout_budgets",
 		resolve_check_timeout_seconds("ai_developer_adapter_acceptance", None) == 900
 		and resolve_check_timeout_seconds("ai_developer_adapter_acceptance", 45) == 900
-		and resolve_check_timeout_seconds("package_editor_wizard_smoke", None) == 1200
-		and resolve_check_timeout_seconds("package_editor_wizard_smoke", 45) == 1200
-		and resolve_check_timeout_seconds("package_godot_cli_smoke", None) == 2400
-		and resolve_check_timeout_seconds("package_godot_cli_smoke", 45) == 2400
-		and resolve_check_timeout_seconds("package_godot_cli_local_smoke", None) == 1200
-		and resolve_check_timeout_seconds("package_godot_cli_network_smoke", None) == 1200
-		and resolve_check_timeout_seconds("package_godot_matrix_smoke", None) == 2400
-		and resolve_check_timeout_seconds("package_godot_matrix_smoke", 45) == 2400
 		and resolve_check_timeout_seconds("api", None)
 		== _VALIDATION_CATALOG.default_timeout_seconds
 		and resolve_check_timeout_seconds("api", 900) == 900,
@@ -6988,7 +6615,7 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 		== _VALIDATION_CATALOG.in_process_action_names
 		and tuple(validation_executor_binding_fixture.deferred_command_materializers)
 		== _VALIDATION_CATALOG.deferred_action_names,
-		"pure static checks should reuse one maintenance process while external Godot and package smokes remain isolated.",
+		"pure static checks should reuse one maintenance process while external Godot checks remain isolated.",
 	)
 	record_result(
 		"changelog_policy_is_a_quick_full_release_gate",
@@ -7021,9 +6648,9 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 				"docs",
 				"examples",
 				"quick",
-				"package",
 				"framework-gut",
 				"framework-static",
+				"framework-integration",
 			)
 		),
 		"Full, release, and their framework shard must fail on LSP diagnostics without making lighter suites run the editor scan.",
@@ -7206,10 +6833,19 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 		command_payload.get("godot_exit_leak_report", {}).get("rid_allocation_total") == 2,
 		f"unexpected command payload: {command_payload}",
 	)
+	retired_package_manager_paths = (
+		"addons/gf/kernel/editor/package/gf_package_manager_dock.gd",
+		"addons/gf/kernel/editor/package/gf_package_manager_worker.gd",
+		"addons/gf/kernel/package/gf_package_cache_policy.gd",
+		"addons/gf/kernel/package/gf_package_cli.gd",
+		"addons/gf/kernel/package/gf_package_filesystem_cache_store.gd",
+		"addons/gf/kernel/package/gf_package_manager_backend.gd",
+		"addons/gf/kernel/package/gf_package_transaction_engine.gd",
+	)
 	record_result(
-		"addons_kernel_package_tools_removed_from_plugin_tree",
-		not (ROOT / "addons/gf/kernel/package_tools").exists(),
-		"Python package manager maintenance tools must live under tools/ only; ordinary users should install GF with Godot alone.",
+		"retired_package_manager_tools_stay_out_of_plugin_tree",
+		all(not (ROOT / relative_path).exists() for relative_path in retired_package_manager_paths),
+		"Retired Package Manager scripts must not return to the shipped plugin tree.",
 	)
 	layer_boundary_constants = read_layer_boundary_manifest_constants()
 	record_result(
@@ -7786,74 +7422,6 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 		"public_docs_boundary_rejects_optional_pages_as_fixed_workspace_pages",
 		issue_exists(public_doc_workspace_bad_issues, "optional_extension_workspace_page_as_core_page"),
 		"optional extension pages must not be described as fixed workspace pages.",
-	)
-
-	public_doc_external_install_bad_issues = audit_public_doc_boundary_text(
-		"\n".join([
-			"To install a GF extension, users must install Python and run tools/gf_package_installer.py.",
-			"安装扩展需要 npm 或 Git 作为前置条件。",
-		]),
-		"README.md",
-	)
-	record_result(
-		"public_docs_boundary_rejects_external_tools_as_user_package_install_requirements",
-		issue_exists(public_doc_external_install_bad_issues, "public_doc_package_manager_python_tool_path")
-		and issue_exists(public_doc_external_install_bad_issues, "public_doc_package_install_external_tool_requirement", line=1)
-		and issue_exists(public_doc_external_install_bad_issues, "public_doc_package_install_external_tool_requirement", line=2),
-		f"public docs must not require Python/npm/Git for ordinary package installs: {public_doc_external_install_bad_issues}",
-	)
-
-	public_doc_external_install_allowed_issues = audit_public_doc_boundary_text(
-		"\n".join([
-			"Python dependencies are only needed when building the documentation locally.",
-			"Installing GF extensions does not require Python, npm/npx, Git, Node, or pip.",
-			"维护侧 Python 工具只用于本地构建和 release 审计；普通用户安装扩展不需要它。",
-		]),
-		"README.md",
-	)
-	record_result(
-		"public_docs_boundary_allows_docs_and_negated_no_python_install_wording",
-		not issue_exists(public_doc_external_install_allowed_issues, "public_doc_package_manager_python_tool_path")
-		and not issue_exists(public_doc_external_install_allowed_issues, "public_doc_package_install_external_tool_requirement"),
-		f"docs-only and no-Python wording should pass: {public_doc_external_install_allowed_issues}",
-	)
-
-	public_doc_signature_claim_bad_issues = audit_public_doc_boundary_text(
-		"\n".join([
-			"GF package registry signatures are verified before install.",
-			"GF 扩展包安装前会完成签名验签。",
-		]),
-		"README.md",
-	)
-	record_result(
-		"public_docs_boundary_rejects_package_signature_verification_claims",
-		issue_exists(
-			public_doc_signature_claim_bad_issues,
-			"public_doc_package_signature_verification_claim",
-			line=1,
-		)
-		and issue_exists(
-			public_doc_signature_claim_bad_issues,
-			"public_doc_package_signature_verification_claim",
-			line=2,
-		),
-		f"public docs must not claim package signature verification before implementation: {public_doc_signature_claim_bad_issues}",
-	)
-
-	public_doc_signature_claim_allowed_issues = audit_public_doc_boundary_text(
-		"\n".join([
-			"Signature fields are rejected until Godot-native verification exists.",
-			"签名验签实现前，registry 签名字段会被拒绝。",
-		]),
-		"README.md",
-	)
-	record_result(
-		"public_docs_boundary_allows_unsupported_signature_policy_wording",
-		not issue_exists(
-			public_doc_signature_claim_allowed_issues,
-			"public_doc_package_signature_verification_claim",
-		),
-		f"unsupported signature policy wording should pass: {public_doc_signature_claim_allowed_issues}",
 	)
 
 	resource_boundary_fixture = "\n".join([
@@ -8516,11 +8084,9 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 		"schema_version": 1,
 		"id": "gf.standard.fixture",
 		"kind": "standard",
-		"version": "unreleased",
 		"dependencies": ["gf.kernel"],
 		"paths": ["addons/gf/standard/**"],
 		"exclude_paths": ["addons/gf/standard/**"],
-		"metadata": {},
 	}
 	valid_package_issues = audit_package_manifest_data(
 		valid_package_data,
@@ -8532,46 +8098,35 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 		f"valid package manifest fixture should pass: {valid_package_issues}",
 	)
 
-	package_metadata_policy_data = dict(valid_package_data)
-	package_metadata_policy_data["metadata"] = {
-		"stage": "fixture",
+	package_distribution_policy_data = dict(valid_package_data)
+	package_distribution_policy_data.update({
+		"version": "unreleased",
+		"display_name": "Fixture",
+		"metadata": {"stage": "fixture"},
 		"download_url": "https://example.test/package.zip",
-		"nested": {
-			"load_after": ["gf.extension.save"],
-		},
-	}
-	package_metadata_policy_issues = audit_package_manifest_data(
-		package_metadata_policy_data,
+		"registry": "https://example.test/registry.json",
+	})
+	package_distribution_policy_issues = audit_package_manifest_data(
+		package_distribution_policy_data,
 		"packages/gf.standard.fixture.json",
 	)
 	record_result(
-		"package_boundary_rejects_forbidden_metadata_policy_fields",
-		issue_exists(package_metadata_policy_issues, "forbidden_package_metadata_field", field="metadata.download_url")
-		and issue_exists(package_metadata_policy_issues, "forbidden_package_metadata_field", field="metadata.nested.load_after"),
-		f"forbidden package metadata policy fields should be reported: {package_metadata_policy_issues}",
+		"package_boundary_keeps_descriptors_internal_and_static",
+		issue_exists(package_distribution_policy_issues, "forbidden_package_manifest_field", field="download_url")
+		and issue_exists(package_distribution_policy_issues, "forbidden_package_manifest_field", field="registry")
+		and issue_exists(package_distribution_policy_issues, "unsupported_package_manifest_field", field="version")
+		and issue_exists(package_distribution_policy_issues, "unsupported_package_manifest_field", field="display_name")
+		and issue_exists(package_distribution_policy_issues, "unsupported_package_manifest_field", field="metadata"),
+		f"internal module descriptors must reject distribution and presentation policy: {package_distribution_policy_issues}",
 	)
-	package_builder_metadata_policy_fields = build_gf_package.forbidden_package_manifest_metadata_field_paths(
-		package_metadata_policy_data["metadata"]
-	)
-	record_result(
-		"package_builder_rejects_forbidden_nested_metadata_policy_fields",
-		package_builder_metadata_policy_fields == [
-			"metadata.download_url",
-			"metadata.nested.load_after",
-		],
-		(
-			"Standalone package builder must apply the same fail-closed nested metadata policy: "
-			f"{package_builder_metadata_policy_fields}"
-		),
-	)
-	deep_package_metadata: dict[str, Any] = {}
-	deep_package_cursor = deep_package_metadata
+	deep_package_structure: dict[str, Any] = {}
+	deep_package_cursor = deep_package_structure
 	for depth_index in range(70):
-		nested_metadata: dict[str, Any] = {}
-		deep_package_cursor[f"level_{depth_index}"] = nested_metadata
-		deep_package_cursor = nested_metadata
+		nested_structure: dict[str, Any] = {}
+		deep_package_cursor[f"level_{depth_index}"] = nested_structure
+		deep_package_cursor = nested_structure
 	deep_package_data = dict(valid_package_data)
-	deep_package_data["metadata"] = deep_package_metadata
+	deep_package_data["unexpected"] = deep_package_structure
 	deep_package_issues = audit_package_manifest_data(
 		deep_package_data,
 		"packages/gf.standard.deep.json",
@@ -8581,12 +8136,12 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 		issue_exists(
 			deep_package_issues,
 			"package_manifest_nesting_too_deep",
-			expected_value="<= 64",
+			expected_value="<= 32",
 		),
 		f"Excessively nested package manifests must fail closed: {deep_package_issues}",
 	)
 	wide_package_data = dict(valid_package_data)
-	wide_package_data["metadata"] = {"values": [0] * (16 * 1024)}
+	wide_package_data["unexpected"] = {"values": [0] * (4 * 1024)}
 	wide_package_issues = audit_package_manifest_data(
 		wide_package_data,
 		"packages/gf.standard.wide.json",
@@ -8596,7 +8151,7 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 		issue_exists(
 			wide_package_issues,
 			"package_manifest_node_budget_exceeded",
-			expected_value="<= 16384",
+			expected_value="<= 4096",
 		),
 		f"Excessively wide package manifests must fail closed: {wide_package_issues}",
 	)
@@ -8614,6 +8169,7 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 		"id": "gf.extension.bad",
 		"kind": "extension",
 		"version": "4.x",
+		"display_name": "Bad",
 		"download_url": "https://example.test/gf-extension-bad.zip",
 		"registry_signature_url": "https://example.test/gf-extension-bad.zip.sig",
 		"paths": ["../outside/**"],
@@ -8625,13 +8181,15 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 		"packages/gf.extension.bad.json",
 	)
 	record_result(
-		"package_boundary_rejects_forbidden_fields_bad_version_paths_and_non_preset_packages",
+		"package_boundary_rejects_distribution_fields_and_bad_static_paths",
 		issue_exists(invalid_package_issues, "forbidden_package_manifest_field", field="download_url")
 		and issue_exists(invalid_package_issues, "forbidden_package_manifest_field", field="registry_signature_url")
-		and issue_exists(invalid_package_issues, "invalid_package_version", field="version")
+		and issue_exists(invalid_package_issues, "unsupported_package_manifest_field", field="version")
+		and issue_exists(invalid_package_issues, "unsupported_package_manifest_field", field="display_name")
+		and issue_exists(invalid_package_issues, "unsupported_package_manifest_field", field="packages")
 		and issue_exists(invalid_package_issues, "invalid_package_path", field="paths", row_index=0)
 		and issue_exists(invalid_package_issues, "invalid_package_exclude_path", field="exclude_paths", row_index=0)
-		and issue_exists(invalid_package_issues, "non_preset_declares_packages", field="packages"),
+		and issue_exists(invalid_package_issues, "extension_package_missing_gf_extension_id", field="gf_extension_id"),
 		f"invalid package manifest issues should be reported: {invalid_package_issues}",
 	)
 
@@ -8641,7 +8199,6 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 			"id": "gf.kernel",
 			"kind": "kernel",
 			"dependencies": [],
-			"packages": [],
 			"paths": ["addons/gf/kernel/**"],
 			"issues": [],
 		},
@@ -8650,7 +8207,6 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 			"id": "gf.standard.a",
 			"kind": "standard",
 			"dependencies": ["gf.standard.b"],
-			"packages": [],
 			"paths": ["addons/gf/standard/a/**"],
 			"issues": [],
 		},
@@ -8659,7 +8215,6 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 			"id": "gf.standard.b",
 			"kind": "standard",
 			"dependencies": ["gf.standard.a"],
-			"packages": [],
 			"paths": ["addons/gf/standard/b/**"],
 			"issues": [],
 		},
@@ -8668,7 +8223,6 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 			"id": "gf.extension.save",
 			"kind": "extension",
 			"dependencies": ["gf.extension.dialogue", "gf.standard.missing"],
-			"packages": [],
 			"paths": ["addons/gf/extensions/save/**"],
 			"issues": [],
 		},
@@ -8677,7 +8231,6 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 			"id": "gf.extension.dialogue",
 			"kind": "extension",
 			"dependencies": ["gf.kernel"],
-			"packages": [],
 			"paths": ["addons/gf/extensions/dialogue/**"],
 			"issues": [],
 		},
@@ -8686,7 +8239,6 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 			"id": "gf.extension.bad_tool_dep",
 			"kind": "extension",
 			"dependencies": ["gf.tool.fixture"],
-			"packages": [],
 			"paths": ["addons/gf/extensions/bad_tool_dep/**"],
 			"issues": [],
 		},
@@ -8695,7 +8247,6 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 			"id": "gf.tool.fixture",
 			"kind": "tool",
 			"dependencies": ["gf.kernel", "gf.standard.a", "gf.extension.dialogue"],
-			"packages": [],
 			"paths": ["addons/gf/tools/fixture/**"],
 			"issues": [],
 		},
@@ -8704,7 +8255,6 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 			"id": "gf.tool.depends_tool",
 			"kind": "tool",
 			"dependencies": ["gf.tool.fixture"],
-			"packages": [],
 			"paths": ["addons/gf/tools/depends_tool/**"],
 			"issues": [],
 		},
@@ -8940,7 +8490,6 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 			"id": "gf.kernel",
 			"kind": "kernel",
 			"dependencies": [],
-			"packages": [],
 			"paths": ["addons/gf/kernel/**"],
 			"issues": [],
 		},
@@ -8949,7 +8498,6 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 			"id": "gf.standard.base",
 			"kind": "standard",
 			"dependencies": ["gf.kernel"],
-			"packages": [],
 			"paths": ["addons/gf/standard/base/**"],
 			"issues": [],
 		},
@@ -8958,7 +8506,6 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 			"id": "gf.standard.assets",
 			"kind": "standard",
 			"dependencies": ["gf.kernel", "gf.standard.base"],
-			"packages": [],
 			"paths": ["addons/gf/standard/assets/**"],
 			"issues": [],
 		},
@@ -8967,7 +8514,6 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 			"id": "gf.standard.audio",
 			"kind": "standard",
 			"dependencies": ["gf.kernel", "gf.standard.assets"],
-			"packages": [],
 			"paths": ["addons/gf/standard/audio/**"],
 			"issues": [],
 		},
@@ -8976,7 +8522,6 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 			"id": "gf.standard.state",
 			"kind": "standard",
 			"dependencies": ["gf.kernel", "gf.standard.base"],
-			"packages": [],
 			"paths": ["addons/gf/standard/state/**"],
 			"issues": [],
 		},
@@ -8985,7 +8530,6 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 			"id": "gf.standard.storage",
 			"kind": "standard",
 			"dependencies": ["gf.kernel", "gf.standard.base"],
-			"packages": [],
 			"paths": ["addons/gf/standard/storage/**"],
 			"issues": [],
 		},
@@ -8994,7 +8538,6 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 			"id": "gf.standard.ui",
 			"kind": "standard",
 			"dependencies": ["gf.kernel", "gf.standard.base", "gf.standard.assets", "gf.standard.audio", "gf.standard.state", "gf.standard.storage"],
-			"packages": [],
 			"paths": ["addons/gf/standard/ui/**"],
 			"issues": [],
 		},
@@ -9003,7 +8546,6 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 			"id": PACKAGE_CLOSURE_DEBUG_PACKAGE_ID,
 			"kind": "standard",
 			"dependencies": ["gf.kernel", "gf.standard.base", "gf.standard.assets", "gf.standard.audio", "gf.standard.state", "gf.standard.storage", "gf.standard.ui"],
-			"packages": [],
 			"paths": ["addons/gf/standard/debug/**"],
 			"issues": [],
 		},
@@ -9012,7 +8554,6 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 			"id": PACKAGE_CLOSURE_EDITOR_PACKAGE_ID,
 			"kind": "standard",
 			"dependencies": ["gf.kernel", "gf.standard.base"],
-			"packages": [],
 			"paths": ["addons/gf/standard/editor/**"],
 			"issues": [],
 		},
@@ -9021,7 +8562,6 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 			"id": "gf.extension.heavy",
 			"kind": "extension",
 			"dependencies": ["gf.kernel", "gf.standard.base", PACKAGE_CLOSURE_DEBUG_PACKAGE_ID],
-			"packages": [],
 			"paths": ["addons/gf/extensions/heavy/**"],
 			"issues": [],
 		},
@@ -9030,7 +8570,6 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 			"id": "gf.extension.bad_editor",
 			"kind": "extension",
 			"dependencies": ["gf.kernel", PACKAGE_CLOSURE_EDITOR_PACKAGE_ID],
-			"packages": [],
 			"paths": ["addons/gf/extensions/bad_editor/**"],
 			"issues": [],
 		},
@@ -9272,61 +8811,6 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 		f"unowned distributable files should fail: {distribution_ownership_issues}",
 	)
 
-	record_result(
-		"package_godot_smoke_normalizes_selected_package_ids",
-		normalize_package_godot_smoke_package_ids([" gf.standard.base ", "", "gf.standard.base", "gf.kernel"])
-		== ["gf.standard.base", "gf.kernel"],
-		"selected package ids should be trimmed, de-duplicated, and kept in user order.",
-	)
-	expected_default_all_jobs = max(1, min(PACKAGE_GODOT_SMOKE_DEFAULT_ALL_PACKAGE_JOBS, os.cpu_count() or 1))
-	record_result(
-		"package_godot_smoke_job_count_defaults_are_bounded",
-		package_godot_smoke_job_count("all", 0) == expected_default_all_jobs
-		and package_godot_smoke_job_count("representative", 0) == 1
-		and package_godot_smoke_job_count("selected", 0) == 1
-		and package_godot_smoke_job_count("all", 2) == 2,
-		"package Godot smoke should parallelize all-package mode by default while keeping focused modes serial.",
-	)
-	record_result(
-		"package_godot_smoke_parallel_installs_have_dedicated_timeout_headroom",
-		PACKAGE_GODOT_SMOKE_INSTALL_TIMEOUT_SECONDS == 240,
-		"all-package workers need a longer install budget than ordinary single-command CLI smoke scenarios.",
-	)
-	record_result(
-		"package_smoke_complex_transactions_have_bounded_timeout_headroom",
-		PACKAGE_EDITOR_WIZARD_SMOKE_TRANSACTION_TIMEOUT_SECONDS == 240
-		and PACKAGE_GODOT_CLI_SMOKE_PRESET_INSTALL_TIMEOUT_SECONDS == 240
-		and package_godot_cli_smoke_command_timeout_seconds(
-			["install", "gf.preset.rpg_save_dialogue", "--json"],
-			120,
-		) == 240
-		and package_godot_cli_smoke_command_timeout_seconds(
-			["install", "gf.preset.rpg_save_dialogue", "--json"],
-			300,
-		) == 300
-		and package_godot_cli_smoke_command_timeout_seconds(
-			["verify", "--json"],
-			120,
-		) == 120,
-		"editor transactions and multi-package CLI preset installs need bounded headroom beyond ordinary smoke commands.",
-	)
-	package_smoke_assertion_issues: list[dict[str, Any]] = []
-	assert_package_godot_smoke_condition(
-		False,
-		package_smoke_assertion_issues,
-		"fixture_scenario",
-		"fixture_failure",
-		"Fixture package smoke failure.",
-		row_key="gf.fixture",
-	)
-	record_result(
-		"package_godot_smoke_assertion_preserves_explicit_row_key",
-		len(package_smoke_assertion_issues) == 1
-		and package_smoke_assertion_issues[0].get("kind") == "fixture_failure"
-		and package_smoke_assertion_issues[0].get("row_key") == "gf.fixture",
-		f"package smoke assertion failures must not crash while adding context: {package_smoke_assertion_issues}",
-	)
-
 	bad_core_plugin_source = "\n".join([
 		"const BadStandard = preload(\"res://addons/gf/standard/utilities/debug/gf_build_info.gd\")",
 		"func run() -> void:",
@@ -9550,183 +9034,6 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 		"package_source_boundary_allows_root_composed_optional_tool_catalog",
 		len(package_source_optional_issues) == 0,
 		f"narrow optional discovery references should pass: {package_source_optional_issues}",
-	)
-
-	with tempfile.TemporaryDirectory(prefix="gf-package-build-self-test-") as temp_dir:
-		registry_path = Path(temp_dir) / "registry/index.json"
-		registry_path.parent.mkdir(parents=True, exist_ok=True)
-		registry_path.write_text(json.dumps({
-			"schema_version": PACKAGE_REGISTRY_SCHEMA_VERSION,
-			"framework_version": "unreleased",
-			"minimum_framework_version": "unreleased",
-			"maximum_framework_version_exclusive": "",
-			"packages": {
-				"gf.kernel": {
-					"minimum_framework_version": "unreleased",
-					"maximum_framework_version_exclusive": "",
-					"archive": "../packages/gf-kernel-unreleased.zip",
-					"sha256": "not-the-archive-sha",
-					"size_bytes": 123,
-					"signature_url": "../packages/gf-kernel-unreleased.zip.sig",
-				},
-			},
-		}), encoding="utf-8")
-		package_build_issues = audit_package_build_result(
-			{
-				"ok": True,
-				"packages": [
-					{
-						"ok": True,
-						"id": "gf.kernel",
-						"archive": str(Path(temp_dir) / "packages/gf-kernel-unreleased.zip"),
-						"sha256": "builder-sha",
-						"size_bytes": 456,
-						"issues": [],
-					}
-				],
-				"issues": [],
-			},
-			registry_path,
-		)
-	record_result(
-		"package_build_boundary_reports_missing_archive_and_registry_mismatch",
-		issue_exists(package_build_issues, "package_archive_missing", row_key="gf.kernel")
-		and issue_exists(package_build_issues, "package_registry_sha256_mismatch", row_key="gf.kernel")
-		and issue_exists(package_build_issues, "package_registry_size_mismatch", row_key="gf.kernel")
-		and issue_exists(package_build_issues, "package_registry_signature_field", row_key="gf.kernel", field="signature_url"),
-		f"package build archive and registry mismatches should be reported: {package_build_issues}",
-	)
-
-	with tempfile.TemporaryDirectory(prefix="gf-package-build-tool-self-test-") as temp_dir:
-		archive_path = Path(temp_dir) / "packages/gf-kernel-unreleased.zip"
-		archive_path.parent.mkdir(parents=True, exist_ok=True)
-		with zipfile.ZipFile(archive_path, "w", compression=zipfile.ZIP_DEFLATED) as archive:
-			archive.writestr("addons/gf/plugin.gd", "# fixture\n")
-			archive.writestr("addons/gf/kernel/package_tools/gf_package_installer.py", "# fixture\n")
-		registry_path = Path(temp_dir) / "registry/index.json"
-		registry_path.parent.mkdir(parents=True, exist_ok=True)
-		registry_path.write_text(json.dumps({
-			"schema_version": PACKAGE_REGISTRY_SCHEMA_VERSION,
-			"framework_version": "unreleased",
-			"minimum_framework_version": "unreleased",
-			"maximum_framework_version_exclusive": "",
-			"packages": {
-				"gf.kernel": {
-					"minimum_framework_version": "unreleased",
-					"maximum_framework_version_exclusive": "",
-					"archive": "../packages/gf-kernel-unreleased.zip",
-					"sha256": sha256_path(archive_path),
-					"size_bytes": archive_path.stat().st_size,
-				},
-			},
-		}), encoding="utf-8")
-		package_tool_archive_issues = audit_package_build_result(
-			{
-				"ok": True,
-				"packages": [
-					{
-						"ok": True,
-						"id": "gf.kernel",
-						"archive": str(archive_path),
-						"sha256": sha256_path(archive_path),
-						"size_bytes": archive_path.stat().st_size,
-						"issues": [],
-					}
-				],
-				"issues": [],
-			},
-			registry_path,
-		)
-	record_result(
-		"package_build_boundary_rejects_kernel_python_package_tools",
-		issue_exists(package_tool_archive_issues, "kernel_archive_contains_package_tool", row_key="gf.kernel"),
-		f"kernel package tools should be rejected from shipped gf.kernel archives: {package_tool_archive_issues}",
-	)
-
-	with tempfile.TemporaryDirectory(prefix="gf-package-build-external-tool-self-test-") as temp_dir:
-		archive_path = Path(temp_dir) / "packages/gf-extension-save-unreleased.zip"
-		archive_path.parent.mkdir(parents=True, exist_ok=True)
-		with zipfile.ZipFile(archive_path, "w", compression=zipfile.ZIP_DEFLATED) as archive:
-			archive.writestr("addons/gf/extensions/save/gf_save.gd", "# fixture\n")
-			archive.writestr("addons/gf/extensions/save/install.py", "# fixture\n")
-			archive.writestr("addons/gf/extensions/save/package.json", "{}\n")
-		registry_path = Path(temp_dir) / "registry/index.json"
-		registry_path.parent.mkdir(parents=True, exist_ok=True)
-		registry_path.write_text(json.dumps({
-			"schema_version": PACKAGE_REGISTRY_SCHEMA_VERSION,
-			"framework_version": "unreleased",
-			"minimum_framework_version": "unreleased",
-			"maximum_framework_version_exclusive": "",
-			"packages": {
-				"gf.extension.save": {
-					"minimum_framework_version": "unreleased",
-					"maximum_framework_version_exclusive": "",
-					"archive": "../packages/gf-extension-save-unreleased.zip",
-					"sha256": sha256_path(archive_path),
-					"size_bytes": archive_path.stat().st_size,
-				},
-			},
-		}), encoding="utf-8")
-		external_tool_archive_issues = audit_package_build_result(
-			{
-				"ok": True,
-				"packages": [
-					{
-						"ok": True,
-						"id": "gf.extension.save",
-						"archive": str(archive_path),
-						"sha256": sha256_path(archive_path),
-						"size_bytes": archive_path.stat().st_size,
-						"issues": [],
-					}
-				],
-				"issues": [],
-			},
-			registry_path,
-		)
-	record_result(
-		"package_build_boundary_rejects_runtime_external_tool_payload",
-		issue_exists(external_tool_archive_issues, "runtime_package_external_tool_payload", row_key="gf.extension.save"),
-		f"runtime package archives should reject Python/npm/shell payloads: {external_tool_archive_issues}",
-	)
-
-	with tempfile.TemporaryDirectory(prefix="gf-package-source-signature-self-test-") as temp_dir:
-		registry_path = Path(temp_dir) / "registry/index.json"
-		registry_source_path = Path(temp_dir) / "registry/gf-registry-source.json"
-		registry_path.parent.mkdir(parents=True, exist_ok=True)
-		registry_path.write_text(json.dumps({
-			"schema_version": PACKAGE_REGISTRY_SCHEMA_VERSION,
-			"framework_version": "1.2.3",
-			"minimum_framework_version": "1.2.3",
-			"maximum_framework_version_exclusive": "2.0.0",
-			"packages": {},
-		}), encoding="utf-8")
-		registry_source_path.write_text(json.dumps({
-			"schema_version": 1,
-			"default_channel": "stable",
-			"channels": {
-				"stable": {
-					"registry": "index.json",
-					"registry_sha256": sha256_path(registry_path),
-					"registry_size_bytes": registry_path.stat().st_size,
-					"registry_signature_url": "gf-registry-1.2.3.json.sig",
-					"mirrors": [],
-				},
-			},
-		}), encoding="utf-8")
-		package_source_signature_issues = audit_package_build_registry_source_manifest(
-			registry_source_path,
-			registry_path,
-		)
-	record_result(
-		"package_build_boundary_rejects_registry_source_signature_fields_without_verification",
-		issue_exists(
-			package_source_signature_issues,
-			"package_registry_source_signature_field",
-			row_key="stable",
-			field="registry_signature_url",
-		),
-		f"registry source signature fields should be rejected until native verification exists: {package_source_signature_issues}",
 	)
 
 	public_api_allowed_issues = audit_public_api_boundary_text(

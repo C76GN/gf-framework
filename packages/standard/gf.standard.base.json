@@ -2,9 +2,6 @@
   "schema_version": 1,
   "id": "gf.standard.base",
   "kind": "standard",
-  "version": "unreleased",
-  "display_name": "GF Standard Base",
-  "description": "Shared standard foundations: async/message support, command and sequence helpers, validation, variant, identity, collections, tags, logging, time, signals, pooling, analytics, and node utilities.",
   "dependencies": [
     "gf.kernel"
   ],
@@ -32,8 +29,5 @@
     "addons/gf/standard/utilities/pooling/**",
     "addons/gf/standard/utilities/signals/**",
     "addons/gf/standard/utilities/time/**"
-  ],
-  "metadata": {
-    "stage": "standard-split-v1"
-  }
+  ]
 }

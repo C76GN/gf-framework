@@ -1,9 +1,9 @@
 # GFAssetBrowserModel
 
-[API Reference](../index.md) / [Tool Packages](../tools.md) / [类索引](index.md)
+[API Reference](../index.md) / [Tools](../tools.md) / [类索引](index.md)
 
 - 路径：`addons/gf/tools/asset_browser/gf_asset_browser_model.gd`
-- 模块：`Tool Packages`
+- 模块：`Tools`
 - 继承：`RefCounted`
 - API：`public`
 - 类别：工具 API (`tool_api`)

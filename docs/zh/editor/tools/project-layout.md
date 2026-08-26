@@ -6,7 +6,7 @@
 
 ## 第一次使用
 
-如果使用完整 GF 插件，Project Layout 页面会随工具包进入 `GF Workspace`；模块化安装需要先安装 `gf.tool.project_layout`。启用 GF 编辑器插件后：
+Project Layout 已包含在完整 GF 插件中，并会进入 `GF Workspace`。启用 GF 编辑器插件后：
 
 1. 从 `工具 > GF > 打开 GF 工作区` 打开 [GF Workspace](../workspace.md)。
 2. 选择简称为“结构”的 `GF Project Layout` 页面。

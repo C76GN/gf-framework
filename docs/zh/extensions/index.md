@@ -8,7 +8,7 @@ GF 内置扩展是随框架分发的可选原子能力。它们提供可以独�
 
 - [扩展目录结构](extension-layout.md)：扩展根目录、扩展内部槽位和目录命名原则。
 - [Manifest 规范](manifest/index.md)：`gf_extension.json` 的运行时字段、独立 tool contribution、版本、依赖和校验。
-- [安装与装配](installation.md)：扩展启用状态、Installer、项目设置和运行时装配顺序。
+- [扩展启用与装配](installation.md)：扩展启用状态、Installer、项目设置和运行时装配顺序。
 - [编辑器扩展管理器](editor-manager.md)：GF Workspace 扩展面板、编辑器贡献、引用审计和导出排除。
 - [放置规则](placement-rules.md)：新增能力进入 `kernel`、`standard`、内置扩展、项目代码或独立插件的判断方式。
 
@@ -18,7 +18,7 @@ GF 内置扩展是随框架分发的可选原子能力。它们提供可以独�
 - 内置扩展 manifest 的 `dependencies` 只表示硬依赖，只允许声明 `gf.kernel` 与 `gf.standard`。不要把推荐、可选协作、加载顺序或 preset 组合写进 manifest。
 - 需要多个扩展协作时，在项目 Installer、项目 System 或独立插件中组合，不把组合逻辑写回任一内置扩展。
 - 标准库工具需要扩展数据时，由扩展侧通过标准库提供的通用注册入口主动贡献；标准库不写扩展路径、扩展 ID 或扩展内类型名。
-- Preset 只是项目初始化时的一组启用 ID，属于项目 JSON、安装向导或外部插件配置，不改变扩展之间的依赖边界，也不写回 manifest。
+- Preset 只是项目初始化时的一组启用 ID，属于项目 JSON、扩展管理器或外部插件配置，不改变扩展之间的依赖边界，也不写回 manifest。
 
 ## 默认启用策略
 

@@ -631,52 +631,6 @@ def render_package_source_boundary_text(data: dict[str, Any]) -> str:
 	return "\n".join(lines)
 
 
-def render_package_build_boundary_text(data: dict[str, Any]) -> str:
-	lines = [
-		(
-			f"package_build_boundary: ok={data['ok']} "
-			f"packages={data['package_count']} "
-			f"archives={data['archive_count']} "
-			f"registry_packages={data['registry_package_count']} "
-			f"issues={data['issue_count']}"
-		),
-	]
-	issue_counts = format_counter_summary(data.get("issue_kind_counts", []))
-	if issue_counts:
-		lines.append(f"issue_kinds: {issue_counts}")
-	for issue in data["issues"]:
-		location = issue.get("path", "")
-		details = []
-		for key in ("row_key", "field", "actual_value", "expected_value"):
-			if issue.get(key):
-				details.append(f"{key}={issue[key]}")
-		suffix = f" ({', '.join(details)})" if details else ""
-		lines.append(f"- {issue['kind']}: {location}{suffix} {issue.get('message', '')}".rstrip())
-	return "\n".join(lines)
-
-
-def render_package_user_dependency_boundary_text(data: dict[str, Any]) -> str:
-	lines = [
-		(
-			f"package_user_dependency_boundary: ok={data['ok']} "
-			f"source_files={data['source_file_count']} "
-			f"issues={data['issue_count']}"
-		),
-	]
-	issue_counts = format_counter_summary(data.get("issue_kind_counts", []))
-	if issue_counts:
-		lines.append(f"issue_kinds: {issue_counts}")
-	for issue in data["issues"]:
-		location = f"{issue.get('path', '')}:{issue.get('line', '')}".rstrip(":")
-		details = []
-		for key in ("actual_value", "expected_value"):
-			if issue.get(key):
-				details.append(f"{key}={issue[key]}")
-		suffix = f" ({', '.join(details)})" if details else ""
-		lines.append(f"- {issue['kind']}: {location}{suffix} {issue.get('message', '')}".rstrip())
-	return "\n".join(lines)
-
-
 def render_package_external_command_audit_text(data: dict[str, Any]) -> str:
 	lines = [
 		(
@@ -761,37 +715,6 @@ def render_core_plugin_bootstrap_smoke_text(data: dict[str, Any]) -> str:
 				details.append(f"{key}={issue[key]}")
 		suffix = f" ({', '.join(details)})" if details else ""
 		lines.append(f"- {issue['kind']}: {location}{suffix} {issue.get('message', '')}".rstrip())
-	return "\n".join(lines)
-
-
-def render_package_editor_wizard_smoke_text(data: dict[str, Any]) -> str:
-	lines = [
-		(
-			f"package_editor_wizard_smoke: ok={data['ok']} "
-			f"scenarios={data['scenario_count']} "
-			f"issues={data['issue_count']}"
-		),
-	]
-	for scenario in data["scenarios"]:
-		details = []
-		for key in ("test_path", "exit_code", "log_path"):
-			if key in scenario:
-				details.append(f"{key}={scenario[key]}")
-		suffix = f" ({', '.join(details)})" if details else ""
-		lines.append(f"- {scenario.get('name', '')}: ok={scenario.get('ok', False)}{suffix}")
-	issue_counts = format_counter_summary(data.get("issue_kind_counts", []))
-	if issue_counts:
-		lines.append(f"issue_kinds: {issue_counts}")
-	for issue in data["issues"]:
-		location = issue.get("path", "")
-		details = []
-		for key in ("row_key", "actual_value"):
-			if issue.get(key):
-				details.append(f"{key}={issue[key]}")
-		suffix = f" ({', '.join(details)})" if details else ""
-		lines.append(f"- {issue['kind']}: {location}{suffix} {issue.get('message', '')}".rstrip())
-		if issue.get("error"):
-			lines.append(indent_text(str(issue["error"]), "  error_tail: "))
 	return "\n".join(lines)
 
 
@@ -975,67 +898,6 @@ def render_gut_shard_run_text(data: dict[str, Any]) -> str:
 		)
 	for issue in data["issues"]:
 		lines.append(f"- {issue['kind']}: {issue.get('message', '')}".rstrip())
-	return "\n".join(lines)
-
-
-def render_package_godot_cli_smoke_text(data: dict[str, Any]) -> str:
-	lines = [
-		(
-			f"package_godot_cli_smoke: ok={data['ok']} "
-			f"scenarios={data['scenario_count']} "
-			f"issues={data['issue_count']}"
-		),
-	]
-	for scenario in data["scenarios"]:
-		details = []
-		for key in ("package_count", "installed_file_count", "removed_file_count", "dry_run", "cache_file_count", "registry_mirror_index"):
-			if key in scenario:
-				details.append(f"{key}={scenario[key]}")
-		suffix = f" ({', '.join(details)})" if details else ""
-		lines.append(f"- {scenario.get('name', '')}: ok={scenario.get('ok', False)}{suffix}")
-	issue_counts = format_counter_summary(data.get("issue_kind_counts", []))
-	if issue_counts:
-		lines.append(f"issue_kinds: {issue_counts}")
-	for issue in data["issues"]:
-		location = issue.get("path", "")
-		details = []
-		for key in ("row_key", "field", "actual_value", "expected_value"):
-			if issue.get(key):
-				details.append(f"{key}={issue[key]}")
-		suffix = f" ({', '.join(details)})" if details else ""
-		lines.append(f"- {issue['kind']}: {location}{suffix} {issue.get('message', '')}".rstrip())
-	return "\n".join(lines)
-
-
-def render_package_godot_smoke_text(data: dict[str, Any]) -> str:
-	lines = [
-		(
-			f"package_godot_smoke: ok={data['ok']} "
-			f"mode={data.get('mode', 'representative')} "
-			f"packages={data.get('package_count', 0)} "
-			f"jobs={data.get('jobs', 1)} "
-			f"scenarios={data['scenario_count']} "
-			f"issues={data['issue_count']}"
-		),
-	]
-	for scenario in data["scenarios"]:
-		details = []
-		for key in ("package_id", "package_kind", "installed_file_count", "expected_file_count", "preload_count", "exit_leak_warning_count"):
-			if key in scenario:
-				details.append(f"{key}={scenario[key]}")
-		suffix = f" ({', '.join(details)})" if details else ""
-		lines.append(f"- {scenario.get('name', '')}: ok={scenario.get('ok', False)}{suffix}")
-	issue_counts = format_counter_summary(data.get("issue_kind_counts", []))
-	if issue_counts:
-		lines.append(f"issue_kinds: {issue_counts}")
-	for issue in data["issues"]:
-		location = issue.get("path", "")
-		details = []
-		for key in ("row_key", "field", "actual_value", "expected_value"):
-			if issue.get(key):
-				details.append(f"{key}={issue[key]}")
-		suffix = f" ({', '.join(details)})" if details else ""
-		lines.append(f"- {issue['kind']}: {location}{suffix} {issue.get('message', '')}".rstrip())
 	return "\n".join(lines)
 
 
@@ -1378,17 +1240,6 @@ def render_release_status_text(data: dict[str, Any]) -> str:
 		f"missing_rules={len(package_archive.get('missing_export_ignore_rules', []))} "
 		f"blocked_dirs={len(package_archive.get('blocked_package_dirs', []))} "
 		f"asset_store_package_issues={len(package_archive.get('asset_store_package', {}).get('issues', []))}"
-	)
-	modular_registry = package_archive.get("modular_package_registry", {})
-	lines.append(
-		"package_registry: "
-		f"skipped={modular_registry.get('skipped', False)} "
-		f"packages={modular_registry.get('package_count', 0)} "
-		f"archives={modular_registry.get('archive_count', 0)} "
-		f"presets={modular_registry.get('preset_count', 0)} "
-		f"source={bool(modular_registry.get('registry_source', ''))} "
-		f"offline_bundle={bool(modular_registry.get('offline_bundle', ''))} "
-		f"issues={len(modular_registry.get('issues', []))}"
 	)
 	lines.append(f"tag: exists={data['tag_exists']} points_at_head={data['tag_points_at_head']}")
 	if data["issues"]:

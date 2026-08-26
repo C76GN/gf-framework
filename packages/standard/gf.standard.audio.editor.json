@@ -2,9 +2,6 @@
   "schema_version": 1,
   "id": "gf.standard.audio.editor",
   "kind": "standard",
-  "version": "unreleased",
-  "display_name": "GF Standard Audio Editor",
-  "description": "Editor-only audio bank inspectors and audio authoring helpers.",
   "dependencies": [
     "gf.kernel",
     "gf.standard.base",
@@ -16,8 +13,5 @@
     "addons/gf/standard/utilities/audio/gf_audio_library_tools.gd",
     "addons/gf/standard/utilities/audio/gf_audio_library_tools.gd.uid",
     "addons/gf/standard/utilities/audio/editor/**"
-  ],
-  "metadata": {
-    "stage": "standard-editor-split-v1"
-  }
+  ]
 }

@@ -2,9 +2,6 @@
   "schema_version": 1,
   "id": "gf.extension.camera",
   "kind": "extension",
-  "version": "unreleased",
-  "display_name": "GF Camera",
-  "description": "Package manifest for the bundled Camera extension.",
   "dependencies": [
     "gf.kernel",
     "gf.standard.base",
@@ -13,6 +10,5 @@
   "paths": [
     "addons/gf/extensions/camera/**"
   ],
-  "gf_extension_id": "gf.camera",
-  "metadata": {}
+  "gf_extension_id": "gf.camera"
 }

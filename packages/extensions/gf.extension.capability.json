@@ -2,9 +2,6 @@
   "schema_version": 1,
   "id": "gf.extension.capability",
   "kind": "extension",
-  "version": "unreleased",
-  "display_name": "GF Capability",
-  "description": "Package manifest for the bundled Capability extension.",
   "dependencies": [
     "gf.kernel",
     "gf.standard.base"
@@ -12,6 +9,5 @@
   "paths": [
     "addons/gf/extensions/capability/**"
   ],
-  "gf_extension_id": "gf.capability",
-  "metadata": {}
+  "gf_extension_id": "gf.capability"
 }

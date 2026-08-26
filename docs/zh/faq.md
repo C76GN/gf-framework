@@ -26,7 +26,7 @@ GF 是面向 Godot 项目的轻量架构框架。它提供启动装配、模块�
 
 ## 怎样完整卸载 GF？
 
-不要在插件仍启用时直接删除 `addons/gf`。先清理项目引用并禁用插件，让 GF 对称移除自己登记的 AutoLoad；再关闭编辑器、删除文件并重新验证项目。完整的状态保留、package 区分和失败恢复步骤见 [卸载、清理与恢复](overview/quickstart/uninstall.md)。
+不要在插件仍启用时直接删除 `addons/gf`。先清理项目引用并禁用插件，让 GF 对称移除自己登记的 AutoLoad；再关闭编辑器、删除文件并重新验证项目。完整的状态保留、GF 10 遗留状态和失败恢复步骤见[卸载、清理与恢复](overview/quickstart/uninstall.md)。
 
 ## 项目代码应该放进 `addons/gf` 吗？
 
@@ -64,7 +64,7 @@ GF 不替代 Godot 的 `Control` 和 `CanvasLayer`。`GFUIUtility` 会把 HUD、
 
 ## `GFUIRouterUtility` 查询为 `null` 是接口被删除了吗？
 
-不是。`register_routes()` 仍然存在；`Invalid call ... in base 'Nil'` 表示 Router 实例没有进入当前架构。检查 `gf/project/installers`、`await Gf.init()` 的布尔结果和 `last_initialization_error`，并确认 Installer 注册了 UI 与 Router。最小 package 安装还需要 `gf.standard.ui.navigation`。详见 [UI 路由与导航历史](standard/utilities/runtime/settings-ui-scene/ui-stack-routing/ui-router.md)。
+不是。`register_routes()` 仍然存在；`Invalid call ... in base 'Nil'` 表示 Router 实例没有进入当前架构。检查 `gf/project/installers`、`await Gf.init()` 的布尔结果和 `last_initialization_error`，并确认 Installer 注册了 UI 与 Router。完整插件已经包含相关源码，但不会自动把 Utility 注册到项目架构。详见[UI 路由与导航历史](standard/utilities/runtime/settings-ui-scene/ui-stack-routing/ui-router.md)。
 
 ## HTTPRequest 是否需要项目自己维护池？ { #runtime-services }
 

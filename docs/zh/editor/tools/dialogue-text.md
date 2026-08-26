@@ -117,4 +117,4 @@ var result: Dictionary = compiler.compile_source("prologue.gf_dialogue.json", lo
 
 ## API Reference
 
-完整方法与格式常量见 [Tool Packages API Reference](../../reference/api/tools.md)。
+完整方法与格式常量见 [Tools API Reference](../../reference/api/tools.md)。

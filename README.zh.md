@@ -31,13 +31,15 @@ GF Framework 是一个面向 Godot 4 的轻量级游戏架构框架。它把数�
 
 ## 安装
 
-普通安装推荐使用 Godot Asset Store / Asset Library 官方页面下载的包，或 GitHub Release 中的 `gf-framework-<version>.zip`。这个包包含完整的 `addons/gf` 插件目录：kernel、standard、编辑器工具、包管理器和随包发布的可选内置扩展。可选扩展默认仍是关闭的，只有项目显式启用后才参与装配，所以完整包是默认首装入口。
+请从 Godot Asset Store / Asset Library 官方页面，或 GitHub Release 中的 `gf-framework-<version>.zip` 安装 GF。它包含完整的 `addons/gf` 插件目录：kernel、standard、编辑器工具和随包发布的可选内置扩展。可选扩展默认关闭，只有项目显式启用后才参与装配。
 
-如果只想做最小引导，可以从同一个 GitHub Release 下载 `gf-kernel-<version>.zip`，启用插件后再通过 `GF Package Manager` 或 Godot 原生命令行按需安装 package。这个模块化路径适合受控项目模板、离线包或团队内部 registry，但不作为 Godot 官方站点的默认下载包。
+GF Release 提供完整框架 ZIP、可选的独立 AI Developer Kit ZIP 和发布产物清单。GF 11 不再提供 Package Manager、包管理命令行或逐模块下载包。
 
 将包里的 `addons/gf` 复制到 Godot 项目中，然后在 `Project > Project Settings > Plugins` 启用 `GF Framework`。
 
 Godot 不会在文件复制到 `addons` 后自动启用编辑器插件，这是正常行为。插件启用状态属于目标项目的 `project.godot`，需要用户明确启用后，编辑器插件代码才会运行。
+
+升级时先关闭 Godot，提交或备份项目，再用同一个新版本发布包中的完整目录替换整个 `addons/gf`；不要把不同 GF 版本的文件叠加在一起。曾使用 GF 10 模块化安装器的项目，应先按照[从 GF 10 模块化安装迁移](docs/zh/overview/quickstart/package-manager-migration.md)完成收敛，再升级到 GF 11。
 
 插件启用后会自动注册 `Gf` AutoLoad：
 
@@ -138,7 +140,7 @@ GF 核心编辑器能力包括扩展管理、强类型 GF/config 访问器生成
 
 ## AI 辅助项目开发
 
-可选 `gf.tool.ai_developer` 包提供严格项目意图契约、观测快照、与 GF 版本绑定的能力/API 目录、受控 Agent 规则和审批式框架反馈流程。它要求项目业务与平台 SDK Adapter 留在 GF 外部，不会给游戏运行时或导出产物增加 AI/Python 依赖。
+可选 GF AI Developer Kit 提供严格项目意图契约、观测快照、与 GF 版本绑定的能力/API 目录、受控 Agent 规则和审批式框架反馈流程。它要求项目业务与平台 SDK Adapter 留在 GF 外部，不会给游戏运行时或导出产物增加 AI/Python 依赖。
 
 完整用法见 [AI Developer Kit 指南](docs/zh/editor/tools/ai-developer.md)。每个 GF Release 同时提供同版本 `gf-ai-developer-kit-<version>.zip` 独立产物，供支持的 Agent 宿主使用。
 

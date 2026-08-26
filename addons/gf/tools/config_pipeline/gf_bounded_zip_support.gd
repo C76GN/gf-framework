@@ -1,8 +1,8 @@
 @tool
 
-# GF 有界 ZIP 支持：为可信消费方提供同一私有快照上的中央目录预检与受控读取。
+# GF Config Pipeline 有界 ZIP 支持：为可信消费方提供同一私有快照上的中央目录预检与受控读取。
 #
-# 这里只验证 ZIP 格式、portable 路径和资源预算，不解释 package manifest、XLSX
+# 这里只验证 ZIP 格式、portable 路径和资源预算，不解释 XLSX
 # 布局或目标目录策略，也不提供通用解包入口或向调用方目标目录写入。快照
 # 容量是同一进程内的硬上限，不宣称跨进程全局配额；框架不会自动删除其他
 # 进程遗留的目录。GDScript 文件 API 无法固定父目录句柄，因此 user:// 根必须
@@ -14,8 +14,6 @@ extends RefCounted
 
 
 # --- 常量 ---
-
-const _GF_PACKAGE_TRANSACTION_ENGINE = preload("res://addons/gf/kernel/package/gf_package_transaction_engine.gd")
 
 const _DEFAULT_MAX_ARCHIVE_BYTES: int = 64 * 1024 * 1024
 const _DEFAULT_MAX_ENTRY_COUNT: int = 4096
@@ -77,12 +75,12 @@ static var _snapshot_mutex: Mutex = Mutex.new()
 ## 打开一个绑定受控归档快照、中央目录预检和随机访问句柄生命周期的会话。
 ##
 ## 调用线程成为会话 owner，后续查询、读取和关闭必须由同一线程完成；这允许
-## 编辑器后台 worker 完整拥有 package archive 生命周期，同时拒绝跨线程共享
+## 调用方 worker 完整拥有 archive 生命周期，同时拒绝跨线程共享
 ## FileAccess 游标或代替 owner 清理快照。
 ## [br]
 ## @api framework_internal
 ## [br]
-## @layer kernel/package
+## @layer tools/config_pipeline
 ## [br]
 ## @param archive_path: ZIP 文件路径。
 ## [br]
@@ -131,7 +129,7 @@ static func open_archive(
 ## [br]
 ## @api framework_internal
 ## [br]
-## @layer kernel/package
+## @layer tools/config_pipeline
 ## [br]
 ## @return 任何会话均不能越过的归档压缩字节数。
 static func get_absolute_max_archive_bytes() -> int:
@@ -142,7 +140,7 @@ static func get_absolute_max_archive_bytes() -> int:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @layer kernel/package
+## @layer tools/config_pipeline
 ## [br]
 ## @return 任何会话均不能越过的累计解压字节数。
 static func get_absolute_max_total_uncompressed_bytes() -> int:
@@ -158,7 +156,7 @@ static func get_absolute_max_total_uncompressed_bytes() -> int:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @layer kernel/package
+## @layer tools/config_pipeline
 ## [br]
 ## @param archive_path: ZIP 文件路径。
 ## [br]
@@ -864,7 +862,7 @@ static func _inspect_archive_file(
 ## [br]
 ## @api framework_internal
 ## [br]
-## @layer kernel/package
+## @layer tools/config_pipeline
 ## [br]
 ## @param session: open_archive() 返回的 opaque session。
 ## [br]
@@ -901,7 +899,7 @@ static func get_inspection(session: Dictionary) -> Dictionary:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @layer kernel/package
+## @layer tools/config_pipeline
 ## [br]
 ## @param session: open_archive() 返回的 opaque session。
 ## [br]
@@ -925,7 +923,7 @@ static func get_files(session: Dictionary) -> PackedStringArray:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @layer kernel/package
+## @layer tools/config_pipeline
 ## [br]
 ## @param session: open_archive() 返回的 opaque session。
 ## [br]
@@ -1141,7 +1139,7 @@ static func read_entry(
 ## [br]
 ## @api framework_internal
 ## [br]
-## @layer kernel/package
+## @layer tools/config_pipeline
 ## [br]
 ## @param session: open_archive() 返回的 opaque session。
 ## [br]
@@ -2463,9 +2461,7 @@ static func _normalize_entry_path(path: String, is_directory: bool) -> String:
 	for part: String in normalized.split("/", true):
 		if (
 			not _string_is_ascii(part)
-			or not _GF_PACKAGE_TRANSACTION_ENGINE.is_portable_literal_path_component(
-				part
-			)
+			or not _is_portable_literal_path_component(part)
 		):
 			return ""
 		var _part_appended: bool = safe_parts.append(part)
@@ -2705,6 +2701,34 @@ static func _sanitize_issue_message(message: String) -> String:
 static func _string_is_ascii(value: String) -> bool:
 	for index: int in range(value.length()):
 		if value.unicode_at(index) > 0x7f:
+			return false
+	return true
+
+
+static func _is_portable_literal_path_component(component: String) -> bool:
+	if (
+		component.is_empty()
+		or component == "."
+		or component == ".."
+		or component != component.rstrip(" .")
+	):
+		return false
+	var invalid_characters: String = "<>:\"/\\|?*"
+	for index: int in range(component.length()):
+		var character: String = component.substr(index, 1)
+		var codepoint: int = component.unicode_at(index)
+		if codepoint < 32 or codepoint == 127 or invalid_characters.contains(character):
+			return false
+	var device_stem: String = component.split(".", true)[0].to_upper()
+	if ["CON", "PRN", "AUX", "NUL"].has(device_stem):
+		return false
+	if device_stem.length() == 4:
+		var device_prefix: String = device_stem.substr(0, 3)
+		var device_number: String = device_stem.substr(3, 1)
+		if (
+			(device_prefix == "COM" or device_prefix == "LPT")
+			and "123456789".contains(device_number)
+		):
 			return false
 	return true
 

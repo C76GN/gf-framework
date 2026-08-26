@@ -2,9 +2,6 @@
   "schema_version": 1,
   "id": "gf.tool.config_pipeline",
   "kind": "tool",
-  "version": "unreleased",
-  "display_name": "GF Config Pipeline Tool",
-  "description": "Optional staged config compiler with versioned IR that turns CSV, JSON, ConfigFile, or XLSX sources into validated GF resources or JSON data.",
   "dependencies": [
     "gf.kernel",
     "gf.standard.base",
@@ -12,8 +9,5 @@
   ],
   "paths": [
     "addons/gf/tools/config_pipeline/**"
-  ],
-  "metadata": {
-    "stage": "versioned-pipeline-v1"
-  }
+  ]
 }

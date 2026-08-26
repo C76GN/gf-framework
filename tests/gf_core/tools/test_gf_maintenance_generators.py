@@ -1004,9 +1004,8 @@ func install(architecture: GFArchitecture, scope: GFAsyncScope) -> void:
 			write(
 				"docs/zh/extensions/installation.md",
 				(
-					"扩展选择 preset 使用 `gf.save`；package 安装 preset `gf.preset.save` "
-					"安装 `gf.extension.save`。见 "
-					"[Package Manager](../editor/workspace.md#package-manager)。\n"
+					"`GFExtensionPreset` 只写本地扩展启用设置，不下载、更新、"
+					"卸载或覆盖文件；例如 `gf.save`。\n"
 				),
 			)
 			write(
@@ -1019,7 +1018,10 @@ func install(architecture: GFArchitecture, scope: GFAsyncScope) -> void:
 			)
 			write(
 				"docs/zh/overview/quickstart/install-autoload.md",
-				"[Packages](../../editor/workspace.md#package-manager) [Uninstall](uninstall.md)\n",
+				(
+					"GF 11 只提供完整框架 ZIP。参见 [Uninstall](uninstall.md) 与 "
+					"[GF 10 migration](package-manager-migration.md)。\n"
+				),
 			)
 			write(
 				"docs/zh/faq.md",

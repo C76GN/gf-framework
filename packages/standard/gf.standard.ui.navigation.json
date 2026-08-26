@@ -2,9 +2,6 @@
   "schema_version": 1,
   "id": "gf.standard.ui.navigation",
   "kind": "standard",
-  "version": "unreleased",
-  "display_name": "GF Standard UI Navigation",
-  "description": "Stack-based UI panel management, route resources, typed asynchronous navigation, and bounded route preload coordination.",
   "dependencies": [
     "gf.kernel",
     "gf.standard.base",
@@ -28,8 +25,5 @@
     "addons/gf/standard/utilities/ui/gf_ui_router_utility.gd.uid",
     "addons/gf/standard/utilities/ui/gf_ui_utility.gd",
     "addons/gf/standard/utilities/ui/gf_ui_utility.gd.uid"
-  ],
-  "metadata": {
-    "stage": "standard-ui-core-split-v1"
-  }
+  ]
 }

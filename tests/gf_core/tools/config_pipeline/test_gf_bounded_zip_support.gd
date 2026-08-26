@@ -3,8 +3,8 @@ extends GutTest
 
 # --- 常量 ---
 
-const GF_BOUNDED_ZIP_SUPPORT = preload("res://addons/gf/kernel/package/gf_bounded_zip_support.gd")
-const TEST_ROOT: String = "res://ai_analysis/tmp_bounded_zip_support"
+const GF_BOUNDED_ZIP_SUPPORT = preload("res://addons/gf/tools/config_pipeline/gf_bounded_zip_support.gd")
+const TEST_ROOT: String = "res://ai_analysis/tmp_config_pipeline_bounded_zip_support"
 
 
 # --- Godot 生命周期方法 ---
@@ -598,7 +598,7 @@ func test_session_can_be_owned_and_consumed_by_a_worker_thread() -> void:
 
 	assert_true(
 		_option_bool(session, "ok"),
-		"编辑器 package worker 应能创建有界 ZIP 会话。"
+		"后台 worker 应能创建有界 ZIP 会话。"
 	)
 	assert_true(
 		_option_bool(inspection, "ok"),

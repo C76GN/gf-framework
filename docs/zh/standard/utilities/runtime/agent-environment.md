@@ -2,7 +2,7 @@
 
 `GFRuntimeAgentEnvironment` 为运行时自动化、受控本地工具或项目自有 Agent 适配器提供一条传输无关的最小调用边界。宿主只注册明确命名、明确输入输出 Schema 的 endpoint；调用方只能使用短期 session 中被精确授权的 endpoint。
 
-该能力属于可选包 `gf.standard.agent_environment`，依赖 `gf.kernel` 与 `gf.standard.base`。它默认关闭，不会自行监听端口、连接模型服务、扫描项目对象或暴露诊断命令。
+该能力是默认不启用的可选标准能力，依赖 GF kernel 与 standard base。它不会自行监听端口、连接模型服务、扫描项目对象或暴露诊断命令。
 
 ## 适用边界
 

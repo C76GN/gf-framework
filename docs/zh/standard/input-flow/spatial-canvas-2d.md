@@ -2,7 +2,7 @@
 
 `GFSpatialCanvas2D` 是面向游戏内建造界面、战术地图、关卡沙盘和其他 2D 空间交互的运行时 `Control`。它把世界坐标与画布坐标转换、平移缩放、网格吸附、候选查询、稳定选择和受控放置会话放在一个有硬预算的通用边界内；项目仍拥有节点、模型、占位规则、权限和最终业务命令。
 
-该能力位于可选包 `gf.standard.spatial.canvas`。包依赖 `gf.kernel`、`gf.standard.base`、`gf.standard.input` 和 `gf.standard.spatial`，也包含在 `gf.preset.2d_toolkit` 中。
+该能力位于 standard 层，完整插件已包含其源码。它依赖 kernel、standard base、input 和 spatial 能力，但不会因源码存在而自动进入项目架构。
 
 ## 创建画布与挂载内容
 

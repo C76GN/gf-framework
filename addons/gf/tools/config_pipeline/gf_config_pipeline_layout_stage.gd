@@ -37,7 +37,7 @@ const _DEFAULT_MAX_XLSX_PATH_DEPTH: int = 32
 const _DEFAULT_MAX_XLSX_SHARED_STRINGS: int = 100000
 const _DEFAULT_MAX_XLSX_ROWS: int = 100000
 const _DEFAULT_MAX_XLSX_COLUMNS: int = 512
-const _GF_BOUNDED_ZIP_SUPPORT = preload("res://addons/gf/kernel/package/gf_bounded_zip_support.gd")
+const _GF_BOUNDED_ZIP_SUPPORT = preload("res://addons/gf/tools/config_pipeline/gf_bounded_zip_support.gd")
 
 
 # --- 公共方法 ---
@@ -148,7 +148,7 @@ func get_stage_descriptor() -> Dictionary:
 		"input_contract": "gf.config_pipeline.reader_result@2",
 		"output_contract": "gf.config_pipeline.layout_result@2",
 		"implementation_dependencies": [
-			"res://addons/gf/kernel/package/gf_bounded_zip_support.gd",
+			"res://addons/gf/tools/config_pipeline/gf_bounded_zip_support.gd",
 			"res://addons/gf/tools/config_pipeline/gf_config_pipeline_table_source.gd",
 			"res://addons/gf/standard/utilities/config/gf_config_table_importer.gd",
 			"res://addons/gf/standard/foundation/variant/gf_variant_data.gd",

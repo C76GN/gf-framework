@@ -2,9 +2,6 @@
   "schema_version": 1,
   "id": "gf.standard.editor",
   "kind": "standard",
-  "version": "unreleased",
-  "display_name": "GF Standard Editor Contributions",
-  "description": "Optional data-only standard editor contribution catalog read by the root plugin; contribution payloads remain owned by their declaring packages.",
   "dependencies": [
     "gf.kernel",
     "gf.standard.base",
@@ -19,8 +16,5 @@
   ],
   "paths": [
     "addons/gf/standard/editor/**"
-  ],
-  "metadata": {
-    "stage": "standard-split-v1"
-  }
+  ]
 }

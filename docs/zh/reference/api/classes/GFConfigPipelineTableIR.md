@@ -1,9 +1,9 @@
 # GFConfigPipelineTableIR
 
-[API Reference](../index.md) / [Tool Packages](../tools.md) / [类索引](index.md)
+[API Reference](../index.md) / [Tools](../tools.md) / [类索引](index.md)
 
 - 路径：`addons/gf/tools/config_pipeline/gf_config_pipeline_table_ir.gd`
-- 模块：`Tool Packages`
+- 模块：`Tools`
 - 继承：`RefCounted`
 - API：`public`
 - 类别：工具 API (`tool_api`)

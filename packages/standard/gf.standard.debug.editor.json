@@ -2,9 +2,6 @@
   "schema_version": 1,
   "id": "gf.standard.debug.editor",
   "kind": "standard",
-  "version": "unreleased",
-  "display_name": "GF Standard Debug Editor",
-  "description": "Editor-only debugger plugins, diagnostic docks, signal graph docks, and build-info export tooling for GF runtime diagnostics.",
   "dependencies": [
     "gf.kernel",
     "gf.standard.base",
@@ -13,8 +10,5 @@
   ],
   "paths": [
     "addons/gf/standard/utilities/debug/editor/**"
-  ],
-  "metadata": {
-    "stage": "standard-editor-split-v1"
-  }
+  ]
 }

@@ -2,9 +2,6 @@
   "schema_version": 1,
   "id": "gf.extension.layered_sprite",
   "kind": "extension",
-  "version": "unreleased",
-  "display_name": "GF Layered Sprite",
-  "description": "Package manifest for the optional Layered Sprite extension.",
   "dependencies": [
     "gf.kernel",
     "gf.standard.base"
@@ -12,6 +9,5 @@
   "paths": [
     "addons/gf/extensions/layered_sprite/**"
   ],
-  "gf_extension_id": "gf.layered_sprite",
-  "metadata": {}
+  "gf_extension_id": "gf.layered_sprite"
 }

@@ -13,13 +13,6 @@ extends RefCounted
 ## @layer kernel/editor
 const EXTENSION_MANAGER_DOCK_SCRIPT_PATH: String = "res://addons/gf/kernel/editor/extension/gf_extension_manager_dock.gd"
 
-## 包管理页面脚本路径。
-## [br]
-## @api framework_internal
-## [br]
-## @layer kernel/editor
-const PACKAGE_MANAGER_DOCK_SCRIPT_PATH: String = "res://addons/gf/kernel/editor/package/gf_package_manager_dock.gd"
-
 ## 工作区窗口脚本。
 ## [br]
 ## @api framework_internal
@@ -121,14 +114,6 @@ func get_workspace_window() -> Window:
 
 func _collect_core_dock_records() -> Array[Dictionary]:
 	var records: Array[Dictionary] = _copy_records(_standard_dock_records)
-	records.append(
-		{
-			"path": PACKAGE_MANAGER_DOCK_SCRIPT_PATH,
-			"label": "GF Package Manager",
-			"short_label": "包",
-			"order": 70,
-		}
-	)
 	records.append(
 		{
 			"path": EXTENSION_MANAGER_DOCK_SCRIPT_PATH,

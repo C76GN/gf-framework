@@ -2,9 +2,6 @@
   "schema_version": 1,
   "id": "gf.extension.combat",
   "kind": "extension",
-  "version": "unreleased",
-  "display_name": "GF Combat",
-  "description": "Package manifest for the bundled Combat extension.",
   "dependencies": [
     "gf.kernel",
     "gf.standard.base"
@@ -12,6 +9,5 @@
   "paths": [
     "addons/gf/extensions/combat/**"
   ],
-  "gf_extension_id": "gf.combat",
-  "metadata": {}
+  "gf_extension_id": "gf.combat"
 }

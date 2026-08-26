@@ -2,9 +2,6 @@
   "schema_version": 1,
   "id": "gf.standard.spatial",
   "kind": "standard",
-  "version": "unreleased",
-  "display_name": "GF Standard Spatial",
-  "description": "Graph/grid/math helpers, collision broadphase and narrowphase, spatial queries, pattern tools, packing, Poisson sampling, and Voronoi helpers.",
   "dependencies": [
     "gf.kernel",
     "gf.standard.base",
@@ -120,8 +117,5 @@
     "addons/gf/standard/foundation/math/gf_weighted_table.gd",
     "addons/gf/standard/foundation/math/gf_weighted_table.gd.uid",
     "addons/gf/standard/utilities/spatial/**"
-  ],
-  "metadata": {
-    "stage": "standard-split-v1"
-  }
+  ]
 }

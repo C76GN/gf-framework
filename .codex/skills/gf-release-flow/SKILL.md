@@ -20,7 +20,7 @@ Use this skill only when the user has explicitly moved the task into release, co
 
 ## Flow
 
-1. Determine SemVer from the consumer contract, including APIs, ProjectSettings, package/extension schemas, persisted data, protocols, platform support, defaults, errors, ordering, and lifecycle behavior: patch for compatible fixes without new public capability, minor for backward-compatible public API/features, major only for approved migration-requiring changes.
+1. Determine SemVer from the consumer contract, including APIs, ProjectSettings, extension/content-package schemas, persisted data, protocols, platform support, defaults, errors, ordering, and lifecycle behavior: patch for compatible fixes without new public capability, minor for backward-compatible public API/features, major only for approved migration-requiring changes.
 2. Run `python tools/gf_maintenance.py api-baseline-diff --version <version> --enforce-version --json` before finalizing metadata. Patch releases must fail when compatible public classes, members, or signature expansions were added; minor/patch releases must fail on breaking API changes unless the explicit breaking-release procedure applies.
 3. Replace the development identity with the final stable SemVer and verify or update release metadata:
    - `addons/gf/plugin.cfg`

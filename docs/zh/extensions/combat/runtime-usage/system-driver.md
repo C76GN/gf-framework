@@ -10,4 +10,4 @@ func install(architecture: GFArchitecture, _scope: GFAsyncScope) -> void:
 	await architecture.register_system_instance(combat_sys)
 ```
 
-手动装配时，项目需要保证系统只注册一次，并明确自己的 Installer 顺序。扩展自动装配、启用状态和 Installer 规则见 [安装与装配](../../installation.md)。
+手动装配时，项目需要保证系统只注册一次，并明确自己的 Installer 顺序。扩展自动装配、启用状态和 Installer 规则见[扩展启用与装配](../../installation.md)。

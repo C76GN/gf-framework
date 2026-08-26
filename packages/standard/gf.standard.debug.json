@@ -2,9 +2,6 @@
   "schema_version": 1,
   "id": "gf.standard.debug",
   "kind": "standard",
-  "version": "unreleased",
-  "display_name": "GF Standard Debug",
-  "description": "Runtime debug draw and overlay, metrics, screenshots, support reports, runtime inspector, tunables, and signal probes.",
   "dependencies": [
     "gf.kernel",
     "gf.standard.base",
@@ -30,8 +27,5 @@
     "addons/gf/standard/utilities/debug/gf_support_report_utility.gd.uid",
     "addons/gf/standard/utilities/debug/gf_support_report_workflow.gd",
     "addons/gf/standard/utilities/debug/gf_support_report_workflow.gd.uid"
-  ],
-  "metadata": {
-    "stage": "standard-split-v1"
-  }
+  ]
 }

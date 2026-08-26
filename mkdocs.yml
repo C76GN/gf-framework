@@ -116,7 +116,7 @@ nav:
           - 总览: reference/api/index.md
           - Kernel: reference/api/kernel.md
           - Standard: reference/api/standard.md
-          - Tool Packages API: reference/api/tools.md
+          - Tools API: reference/api/tools.md
           - Extensions:
               - Action Queue: reference/api/extensions-action-queue.md
               - Asset Metadata: reference/api/extensions-asset-metadata.md
@@ -131,6 +131,7 @@ nav:
               - Feedback: reference/api/extensions-feedback.md
               - Flow: reference/api/extensions-flow.md
               - Interaction: reference/api/extensions-interaction.md
+              - Layered Sprite: reference/api/extensions-layered-sprite.md
               - Network: reference/api/extensions-network.md
               - Physics: reference/api/extensions-physics.md
               - Save: reference/api/extensions-save.md

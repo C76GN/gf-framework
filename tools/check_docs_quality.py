@@ -307,12 +307,10 @@ def check_public_entry_contracts(repository_root: Path) -> list[str]:
 
     extension_text = texts.get("extension installation", "")
     extension_requirements = (
-        "扩展选择 preset",
-        "package 安装 preset",
+        "`GFExtensionPreset`",
+        "只写本地扩展启用设置",
+        "不下载、更新、卸载或覆盖文件",
         "`gf.save`",
-        "`gf.extension.save`",
-        "`gf.preset.save`",
-        "../editor/workspace.md#package-manager",
     )
     for fragment in extension_requirements:
         if extension_text and fragment not in extension_text:
@@ -324,7 +322,6 @@ def check_public_entry_contracts(repository_root: Path) -> list[str]:
         "只移除由 GF 插件登记的 `Gf` AutoLoad",
         "不会删除同名但不指向 GF 的 AutoLoad",
         "`.gf/packages.lock.json`",
-        "package 卸载不是完整插件卸载",
         "恢复同一版本",
     )
     for fragment in uninstall_requirements:
@@ -334,8 +331,10 @@ def check_public_entry_contracts(repository_root: Path) -> list[str]:
     install_text = texts.get("installation guide", "")
     if install_text and "uninstall.md" not in install_text:
         errors.append("installation guide must link the complete uninstall journey")
-    if install_text and "../../editor/workspace.md#package-manager" not in install_text:
-        errors.append("installation guide must link the package lifecycle and security contract")
+    if install_text and "GF 11 只提供完整框架 ZIP" not in install_text:
+        errors.append("installation guide must state the complete-framework ZIP boundary")
+    if install_text and "package-manager-migration.md" not in install_text:
+        errors.append("installation guide must link the GF 10 migration guide")
 
     faq_text = texts.get("FAQ", "")
     if faq_text and not has_visible_heading(faq_text, 2, "按主题查找"):

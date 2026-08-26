@@ -63,7 +63,7 @@ Runner 在 `start()` 前同步计算完整资源指纹，恢复时要求指纹�
 
 - 条件和 mutation 只保存 ID 与载荷，实际含义由项目通过 `GFDialogueContext` 的回调处理。
 - Runner 不创建 UI，也不读取输入；项目界面负责显示 `get_current_line()` 和 `get_available_responses()`。
-- 可复用的严格 JSON 编译可以安装独立 `gf.tool.dialogue_text`；分支可视化、语音、字幕、本地化表、内容目录和存档恢复仍放在项目层或独立插件里。
+- 完整 GF Framework 已包含 `gf.tool.dialogue_text` 源码；项目需要可复用的严格 JSON 编译时直接使用这项制作期工具即可。分支可视化、语音、字幕、本地化表、内容目录和存档恢复仍放在项目层或独立插件里。
 - `validate_resource()` 与 Runner 都只处理通用图结构，不替项目决定内容发布、版本迁移或副作用事务策略。
 
 ## API Reference

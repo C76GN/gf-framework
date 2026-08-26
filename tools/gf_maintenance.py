@@ -11,7 +11,6 @@ import ctypes
 import fnmatch
 import functools
 import hashlib
-import http.server
 import json
 import math
 import os
@@ -26,7 +25,6 @@ import tempfile
 import threading
 import time
 import traceback
-import urllib.parse
 import xml.etree.ElementTree as ET
 import zipfile
 from collections.abc import Mapping
@@ -58,8 +56,6 @@ from generated_output_transaction import GeneratedOutputTransactionError
 from generated_output_transaction import lexical_absolute_path
 from generated_output_transaction import replace_generated_trees
 from generated_output_transaction import validate_controlled_path
-import gf_package_cache
-import gf_package_artifact_set
 import gf_parallel_validation
 import gf_maintenance_check_graph
 import gf_validation_contracts
@@ -105,9 +101,6 @@ from gf_maintenance_check_graph import workspace_fingerprint
 from gf_package_paths import ManifestPathIndex
 from gf_package_paths import manifest_path_matches as shared_manifest_path_matches
 from gf_package_paths import portable_manifest_path_identity as shared_portable_manifest_path_identity
-from gf_package_artifact_set import PackageArtifactSet
-from gf_package_artifact_set import PackageArtifactDeadlineError
-from gf_package_artifact_set import PackageArtifactSetError
 from gf_parallel_validation import CapturedWorkspace
 from gf_parallel_validation import ParallelShard
 from gf_parallel_validation import ParallelShardResult
@@ -183,8 +176,8 @@ GOVERNED_WORKFLOW_ACTION_VERSIONS = {
 	"actions/download-artifact": "v8",
 }
 CI_WORKFLOW_ACTION_COUNTS = {
-	"actions/checkout": 6,
-	"actions/setup-python": 6,
+	"actions/checkout": 5,
+	"actions/setup-python": 5,
 	"actions/upload-artifact": 0,
 	"actions/download-artifact": 0,
 }
@@ -195,8 +188,8 @@ MANUAL_CI_WORKFLOW_ACTION_COUNTS = {
 	"actions/download-artifact": 0,
 }
 RELEASE_WORKFLOW_ACTION_COUNTS = {
-	"actions/checkout": 4,
-	"actions/setup-python": 4,
+	"actions/checkout": 3,
+	"actions/setup-python": 3,
 	"actions/upload-artifact": 1,
 	"actions/download-artifact": 1,
 }
@@ -291,10 +284,6 @@ GUT_SHARD_RUN_WORKER_FINALIZE_ALLOWANCE_SECONDS = int(
 )
 GUT_TEST_ORPHAN_RE = re.compile(r"^\s*(?P<count>[1-9]\d*)\s+[Oo]rphans?\s*$")
 GUT_RUN_SUMMARY_ORPHAN_RE = re.compile(r"^\s*Orphans\s+(?P<count>[1-9]\d*)\s*$")
-PACKAGE_GODOT_SMOKE_DEFAULT_ALL_PACKAGE_JOBS = 4
-PACKAGE_GODOT_SMOKE_INSTALL_TIMEOUT_SECONDS = 240
-PACKAGE_EDITOR_WIZARD_SMOKE_TRANSACTION_TIMEOUT_SECONDS = 240
-PACKAGE_GODOT_CLI_SMOKE_PRESET_INSTALL_TIMEOUT_SECONDS = 240
 GODOT_RID_LEAK_RE = re.compile(
 	r"^(?:ERROR:\s*)?(?P<count>\d+) RID allocations of type '(?P<type>[^']+)' were leaked at exit\."
 )
@@ -553,26 +542,6 @@ EDITOR_CONTRIBUTION_TARGET_FIELDS = ("path", "template_path")
 PACKAGE_FOCUSED_GUT_ALLOWED_EXTERNAL_PREFIXES = {
 	"gf.standard.editor": ("res://tests/gf_core/kernel/editor/",),
 }
-PACKAGE_USER_DEPENDENCY_BOUNDARY_SCAN_ROOTS = (
-	"addons/gf/plugin.gd",
-	"addons/gf/kernel/package",
-	"addons/gf/kernel/editor/package",
-)
-PACKAGE_USER_DEPENDENCY_BOUNDARY_SCAN_EXTENSIONS = {".gd"}
-PACKAGE_USER_DEPENDENCY_FORBIDDEN_PROCESS_APIS = (
-	"OS.execute",
-	"OS.create_process",
-	"OS.shell_open",
-)
-PACKAGE_USER_DEPENDENCY_FORBIDDEN_COMMAND_LITERAL_RE = re.compile(
-	r"""(?P<quote>["'])(?:python|python3|py|pip|npm|npx|node|git|curl|powershell|pwsh|cmd|cmd\.exe)(?P=quote)""",
-	re.IGNORECASE,
-)
-PACKAGE_USER_DEPENDENCY_FORBIDDEN_PATH_LITERALS = (
-	"addons/gf/kernel/package_tools/",
-	"tools/build_gf_package.py",
-	"tools/gf_package_resolver.py",
-)
 PACKAGE_EXTERNAL_COMMAND_AUDIT_PROCESS_CALL_RE = re.compile(
 	r"\bOS\.(?P<api>execute|create_process|shell_open)\s*\("
 )
@@ -610,20 +579,14 @@ PACKAGE_SIGNATURE_POLICY_FIELDS = {
 	"signing_key_id",
 	"signing_keys",
 }
-REGISTRY_SOURCE_UNSUPPORTED_SIGNATURE_FIELDS = PACKAGE_SIGNATURE_POLICY_FIELDS
 PACKAGE_MANIFEST_ALLOWED_FIELDS = {
 	"schema_version",
 	"id",
 	"kind",
-	"version",
-	"display_name",
-	"description",
 	"dependencies",
 	"exclude_paths",
 	"paths",
 	"gf_extension_id",
-	"packages",
-	"metadata",
 }
 PACKAGE_MANIFEST_FORBIDDEN_FIELDS = {
 	"archive",
@@ -643,21 +606,14 @@ PACKAGE_MANIFEST_FORBIDDEN_FIELDS = {
 	"sha256",
 	"size_bytes",
 } | PACKAGE_SIGNATURE_POLICY_FIELDS
-PACKAGE_MANIFEST_FORBIDDEN_METADATA_FIELDS = (
-	PACKAGE_MANIFEST_FORBIDDEN_FIELDS
-	| GF_PRESET_FORBIDDEN_RELATION_FIELDS
-	| GF_PRESET_FORBIDDEN_PACKAGE_FIELDS
-)
-PACKAGE_MANIFEST_KINDS = {"kernel", "standard", "extension", "preset", "tool"}
+PACKAGE_MANIFEST_KINDS = {"kernel", "standard", "extension", "tool"}
 PACKAGE_MANIFEST_SCHEMA_VERSION = 1
 PACKAGE_MANIFEST_MAX_BYTES = 1024 * 1024
-PACKAGE_MANIFEST_MAX_DEPTH = 64
-PACKAGE_MANIFEST_MAX_NODES = 16 * 1024
-PACKAGE_REGISTRY_SCHEMA_VERSION = 2
-PACKAGE_ID_RE = re.compile(r"^(?:gf\.kernel|gf\.(?:standard|extension|preset|tool)\.[a-z0-9_]+(?:\.[a-z0-9_]+)*)$")
+PACKAGE_MANIFEST_MAX_DEPTH = 32
+PACKAGE_MANIFEST_MAX_NODES = 4096
+PACKAGE_ID_RE = re.compile(r"^(?:gf\.kernel|gf\.(?:standard|extension|tool)\.[a-z0-9_]+(?:\.[a-z0-9_]+)*)$")
 PACKAGE_CLOSURE_EXTENSION_TOTAL_WARNING_THRESHOLD = 8
 PACKAGE_CLOSURE_EXTENSION_STANDARD_WARNING_THRESHOLD = 6
-PACKAGE_CLOSURE_PRESET_TOTAL_INFO_THRESHOLD = 12
 PACKAGE_CLOSURE_DEBUG_PACKAGE_ID = "gf.standard.debug"
 PACKAGE_CLOSURE_EDITOR_PACKAGE_ID = "gf.standard.editor"
 PACKAGE_AGGREGATE_CLOSURE_BASELINES = {
@@ -685,10 +641,6 @@ PACKAGE_SOURCE_BOUNDARY_SCAN_EXTENSIONS = {
 PACKAGE_DISTRIBUTION_OWNERSHIP_IGNORED_SUFFIXES = {
 	".import",
 }
-KERNEL_FORBIDDEN_PACKAGE_TOOL_PATHS = (
-	"addons/gf/kernel/package_tools/gf_package_installer.py",
-	"addons/gf/kernel/package_tools/gf_package_resolver.py",
-)
 RUNTIME_PACKAGE_FORBIDDEN_EXTERNAL_TOOL_SUFFIXES = {
 	".bash",
 	".bat",
@@ -812,58 +764,6 @@ PUBLIC_DOC_BOUNDARY_PATTERNS: list[tuple[str, re.Pattern[str], str]] = [
 		"README editor-tool summaries must distinguish core editor tools from optional extension contributions.",
 	),
 ]
-PUBLIC_DOC_PACKAGE_MANAGER_TOOL_PATH_RE = re.compile(
-	r"\btools[\\/]+gf_package_(?:installer|resolver)\.py\b",
-	re.IGNORECASE,
-)
-PUBLIC_DOC_USER_INSTALL_CONCEPT_RE = re.compile(
-	r"(?:install(?:ing)?\s+(?:a\s+)?(?:gf\s+)?(?:extension|package|preset)|"
-	r"package\s+manager|extension\s+install|package\s+install|"
-	r"安装.{0,16}(?:扩展|包|preset)|包管理|扩展安装|包安装)",
-	re.IGNORECASE,
-)
-PUBLIC_DOC_EXTERNAL_TOOL_RE = re.compile(
-	r"\b(?:python|pip|npm|npx|node|git)\b",
-	re.IGNORECASE,
-)
-PUBLIC_DOC_EXTERNAL_TOOL_REQUIREMENT_RE = re.compile(
-	r"(?:requires?|required|must|need(?:s|ed)?|depends?\s+on|dependency|"
-	r"必须|需要|依赖|前置条件|必备)",
-	re.IGNORECASE,
-)
-PUBLIC_DOC_EXTERNAL_TOOL_NEGATION_RE = re.compile(
-	r"(?:does\s+not\s+require|do\s+not\s+need|without|not\s+a\s+requirement|"
-	r"not\s+required|only\s+when\s+building\s+the\s+documentation|"
-	r"no-python|不需要|无需|不依赖|不能成为|不是.*前置|只.*维护|只.*本地构建|减少)",
-	re.IGNORECASE,
-)
-PUBLIC_DOC_PACKAGE_SIGNATURE_CLAIM_RE = re.compile(
-	r"(?:"
-	r"(?:package|packages|registry|registries|archive|archives|download|downloads|"
-	r"release|releases|extension|extensions|preset|presets).{0,80}"
-	r"(?:signature\s+verification|verified\s+signature|signature\s+verified|"
-	r"signatures?\s+(?:are\s+)?verified|signed|trusted|authentic)|"
-	r"(?:signature\s+verification|verified\s+signature|signature\s+verified|"
-	r"signatures?\s+(?:are\s+)?verified|signed|trusted|authentic).{0,80}"
-	r"(?:package|packages|registry|registries|archive|archives|download|downloads|"
-	r"release|releases|extension|extensions|preset|presets)|"
-	r"(?:GF\s*包|扩展包|资源包|内容包|package|扩展|预设|registry|注册表|索引|归档|下载|发布|安装).{0,80}"
-	r"(?:签名验证|签名校验|验签|签名已验证|已验证签名|可信|受信任)|"
-	r"(?:签名验证|签名校验|验签|签名已验证|已验证签名|可信|受信任).{0,80}"
-	r"(?:GF\s*包|扩展包|资源包|内容包|package|扩展|预设|registry|注册表|索引|归档|下载|发布|安装)"
-	r")",
-	re.IGNORECASE,
-)
-PUBLIC_DOC_PACKAGE_SIGNATURE_NEGATION_RE = re.compile(
-	r"(?:not\s+(?:implemented|yet|supported|verified|trusted)|"
-	r"until.{0,80}(?:native|Godot-native).{0,80}(?:verification|verifier)|"
-	r"before.{0,80}(?:verification|verifier).{0,80}exists|"
-	r"must\s+(?:fail|be\s+rejected)|reject(?:ed|s|ing)?|unsupported|"
-	r"does\s+not\s+(?:claim|verify|trust)|no\s+signature\s+verification|"
-	r"未实现|尚未|拒绝|不支持|不能.{0,40}静默|不会.{0,40}静默|"
-	r"不声称|实现前|没有.{0,40}验签|未完成)",
-	re.IGNORECASE,
-)
 def resolve_path_from_root(value: str) -> Path:
 	path = Path(value)
 	if not path.is_absolute():
@@ -1069,9 +969,6 @@ VALIDATION_ACTION_NAMES: tuple[str, ...] = _VALIDATION_CATALOG.action_names
 CHECK_DEFINITIONS = _VALIDATION_CATALOG.command_definitions()
 
 CHECK_DEPENDENCIES = _VALIDATION_CATALOG.dependencies()
-PACKAGE_ARTIFACT_CONSUMER_CHECKS: frozenset[str] = frozenset(
-	_VALIDATION_CATALOG.check_group("package_artifact_consumers")
-)
 
 
 def expand_check_dependencies(check_names: list[str]) -> list[str]:
@@ -1086,22 +983,7 @@ API_CHECKS: list[str] = _VALIDATION_CATALOG.check_group("api")
 DOCS_CHECKS: list[str] = _VALIDATION_CATALOG.check_group("docs")
 EXAMPLES_CHECKS: list[str] = _VALIDATION_CATALOG.check_group("examples")
 LIGHT_BOUNDARY_CHECKS: list[str] = _VALIDATION_CATALOG.check_group("light_boundary")
-PACKAGE_CONTRACT_SMOKE_CHECKS: list[str] = _VALIDATION_CATALOG.check_group(
-	"package_contract_smoke"
-)
-PACKAGE_EDITOR_CHECKS: list[str] = _VALIDATION_CATALOG.check_group("package_editor")
-PACKAGE_CLI_LOCAL_CHECKS: list[str] = _VALIDATION_CATALOG.check_group(
-	"package_cli_local"
-)
-PACKAGE_CLI_NETWORK_CHECKS: list[str] = _VALIDATION_CATALOG.check_group(
-	"package_cli_network"
-)
-PACKAGE_CLI_CHECKS: list[str] = _VALIDATION_CATALOG.check_group("package_cli")
-PACKAGE_SMOKE_CHECKS: list[str] = _VALIDATION_CATALOG.check_group("package_smoke")
-PACKAGE_CONTRACT_CHECKS: list[str] = _VALIDATION_CATALOG.check_group(
-	"package_contract"
-)
-PACKAGE_CHECKS: list[str] = _VALIDATION_CATALOG.check_group("package")
+MODULE_BOUNDARY_CHECKS: list[str] = _VALIDATION_CATALOG.check_group("module_boundary")
 QUICK_CHECKS: list[str] = _VALIDATION_CATALOG.check_group("quick")
 FULL_CHECKS: list[str] = _VALIDATION_CATALOG.check_group("full")
 RELEASE_CHECKS: list[str] = _VALIDATION_CATALOG.check_group("release")
@@ -1110,11 +992,10 @@ FRAMEWORK_LSP_CHECKS: list[str] = _VALIDATION_CATALOG.check_group("framework_lsp
 FRAMEWORK_STATIC_CHECKS: list[str] = _VALIDATION_CATALOG.check_group(
 	"framework_static"
 )
-FRAMEWORK_CHECKS: list[str] = _VALIDATION_CATALOG.check_group("framework")
-PACKAGE_CI_CHECKS: list[str] = _VALIDATION_CATALOG.check_group("package_ci")
-PACKAGE_RELEASE_CHECKS: list[str] = _VALIDATION_CATALOG.check_group(
-	"package_release"
+FRAMEWORK_INTEGRATION_CHECKS: list[str] = _VALIDATION_CATALOG.check_group(
+	"framework_integration"
 )
+FRAMEWORK_CHECKS: list[str] = _VALIDATION_CATALOG.check_group("framework")
 
 CHECK_SUITES: dict[str, list[str]] = _VALIDATION_CATALOG.suites()
 PARALLEL_FULL_SHARD_SUITES: tuple[str, ...] = (
@@ -1127,11 +1008,7 @@ PARALLEL_FULL_SHARD_TIMEOUT_SECONDS: dict[str, int] = {
 	"framework-gut": 1800,
 	"framework-lsp": 900,
 	"framework-static": 1200,
-	"package-contract": 900,
-	"package-editor": 1800,
-	"package-cli-local": 1500,
-	"package-cli-network": 1500,
-	"package-godot-ci": 1200,
+	"framework-integration": 1800,
 }
 PARALLEL_SHARD_STARTUP_ALLOWANCE_SECONDS: int = 60
 PARALLEL_GODOT_PROBE_SENTINEL = "GF_PARALLEL_ISOLATION_PROBE="
@@ -1153,7 +1030,7 @@ PARALLEL_SHARD_REPORT_REQUIRED_FIELDS = frozenset({
 	"execution",
 	"jobs",
 })
-PARALLEL_SHARD_REPORT_OPTIONAL_FIELDS = frozenset({"package_artifact_set"})
+PARALLEL_SHARD_REPORT_OPTIONAL_FIELDS = frozenset()
 PARALLEL_SHARD_WORKSPACE_FIELDS = frozenset({
 	"schema_version",
 	"head",
@@ -1452,10 +1329,6 @@ def expanded_check_names(
 	)
 
 
-def package_artifact_is_required(check_names: list[str]) -> bool:
-	return any(name in PACKAGE_ARTIFACT_CONSUMER_CHECKS for name in check_names)
-
-
 DEFERRED_COMMAND_SENTINEL = "<deferred-command>"
 UNRESOLVED_EXECUTABLE_SENTINEL = "<unresolved-executable>"
 UNRESOLVED_GODOT_EXECUTABLE_SENTINEL = "<unresolved-godot-executable>"
@@ -1505,34 +1378,8 @@ def deferred_materialized_command_is_valid(
 	return all(command)
 
 
-def append_package_artifact_command_arguments(
-	name: str,
-	command: list[str],
-	package_artifact_manifest: str,
-	package_artifact_manifest_sha256: str,
-) -> list[str]:
-	if name not in PACKAGE_ARTIFACT_CONSUMER_CHECKS:
-		return command
-	if not package_artifact_inputs_are_complete(
-		package_artifact_manifest,
-		package_artifact_manifest_sha256,
-	):
-		raise PackageArtifactSetError(
-			f"Package artifact inputs were not prepared for package consumer check: {name}"
-		)
-	return [
-		*command,
-		"--package-artifact-manifest",
-		package_artifact_manifest,
-		"--package-artifact-manifest-sha256",
-		package_artifact_manifest_sha256,
-	]
-
-
 def fallback_check_command(
 	name: str,
-	package_artifact_manifest: str = "",
-	package_artifact_manifest_sha256: str = "",
 	*,
 	validation_catalog: gf_validation_catalog.ValidationCatalog,
 ) -> list[str]:
@@ -1546,24 +1393,11 @@ def fallback_check_command(
 			name,
 		]
 	)
-	if (
-		name in PACKAGE_ARTIFACT_CONSUMER_CHECKS
-		and not package_artifact_manifest
-		and not package_artifact_manifest_sha256
-	):
-		return command
-	return append_package_artifact_command_arguments(
-		name,
-		command,
-		package_artifact_manifest,
-		package_artifact_manifest_sha256,
-	)
+	return command
 
 
 def materialize_check_command(
 	name: str,
-	package_artifact_manifest: str = "",
-	package_artifact_manifest_sha256: str = "",
 	*,
 	validation_executor_binding: ValidationExecutorBinding,
 	deferred_command_context: DeferredCommandContext,
@@ -1602,12 +1436,7 @@ def materialize_check_command(
 		raise DeferredCommandMaterializationError(
 			f"Materialized command contains the deferred-command sentinel for validation action: {name}"
 		)
-	return append_package_artifact_command_arguments(
-		name,
-		command,
-		package_artifact_manifest,
-		package_artifact_manifest_sha256,
-	)
+	return command
 
 _API_CACHE: list[ApiScript] | None = None
 _ACTIVE_WORKSPACE_SNAPSHOT: WorkspaceSnapshot | None = None
@@ -1750,20 +1579,6 @@ def make_unresolved_command_result(
 		duration_seconds=duration_seconds,
 		timeout_seconds=timeout_seconds,
 		execution="not_started",
-	)
-
-
-def add_package_artifact_consumer_arguments(parser: argparse.ArgumentParser) -> None:
-	"""Add coordinator-owned immutable package artifact inputs to one command."""
-	parser.add_argument(
-		"--package-artifact-manifest",
-		default="",
-		help=argparse.SUPPRESS,
-	)
-	parser.add_argument(
-		"--package-artifact-manifest-sha256",
-		default="",
-		help=argparse.SUPPRESS,
 	)
 
 
@@ -1952,49 +1767,36 @@ def main() -> int:
 
 	package_boundary_parser = subparsers.add_parser(
 		"package-boundary",
-		help="Check GF package manifests for schema, path ownership, and dependency graph violations.",
+		help="Check internal GF module descriptors for schema, path ownership, and dependency graph violations.",
 	)
 	package_boundary_parser.add_argument("--json", action="store_true", help="Print JSON instead of text.")
 
 	package_closure_audit_parser = subparsers.add_parser(
 		"package-closure-audit",
-		help="Report GF package install closures, standard fan-in, and oversized extension dependency risk.",
+		help="Report internal GF module dependency closures, standard fan-in, and oversized extension dependency risk.",
 	)
 	package_closure_audit_parser.add_argument("--json", action="store_true", help="Print JSON instead of text.")
 
 	package_source_boundary_parser = subparsers.add_parser(
 		"package-source-boundary",
-		help="Check GF package-owned source files for undeclared package path and class references.",
+		help="Check GF module-owned source files for undeclared module path and class references.",
 	)
 	package_source_boundary_parser.add_argument("--json", action="store_true", help="Print JSON instead of text.")
 
-	package_build_boundary_parser = subparsers.add_parser(
-		"package-build-boundary",
-		help="Build all modular GF package archives in a temp directory and validate the generated registry.",
-	)
-	add_package_artifact_consumer_arguments(package_build_boundary_parser)
-	package_build_boundary_parser.add_argument("--json", action="store_true", help="Print JSON instead of text.")
-
-	package_user_dependency_boundary_parser = subparsers.add_parser(
-		"package-user-dependency-boundary",
-		help="Check user-facing package manager scripts for external CLI dependencies.",
-	)
-	package_user_dependency_boundary_parser.add_argument("--json", action="store_true", help="Print JSON instead of text.")
-
 	package_external_command_audit_parser = subparsers.add_parser(
 		"package-external-command-audit",
-		help="Report OS external command calls in package-owned GF source.",
+		help="Report OS external command calls in module-owned GF source.",
 	)
 	package_external_command_audit_parser.add_argument(
 		"--fail-on-warnings",
 		action="store_true",
-		help="Return a failing exit code when package-owned external command calls are found. Default is report-only.",
+		help="Return a failing exit code when module-owned external command calls are found. Default is report-only.",
 	)
 	package_external_command_audit_parser.add_argument("--json", action="store_true", help="Print JSON instead of text.")
 
 	core_only_smoke_parser = subparsers.add_parser(
 		"core-only-smoke",
-		help="Check that the root plugin entry does not require standard packages at parse time.",
+		help="Check that the root plugin entry does not require standard modules at parse time.",
 	)
 	core_only_smoke_parser.add_argument("--json", action="store_true", help="Print JSON instead of text.")
 
@@ -2004,16 +1806,9 @@ def main() -> int:
 	)
 	core_plugin_bootstrap_smoke_parser.add_argument("--json", action="store_true", help="Print JSON instead of text.")
 
-	package_editor_wizard_smoke_parser = subparsers.add_parser(
-		"package-editor-wizard-smoke",
-		help="Smoke-test the editor package manager wizard dock with focused GUT coverage.",
-	)
-	add_package_artifact_consumer_arguments(package_editor_wizard_smoke_parser)
-	package_editor_wizard_smoke_parser.add_argument("--json", action="store_true", help="Print JSON instead of text.")
-
 	package_focused_gut_mapping_parser = subparsers.add_parser(
 		"package-focused-gut-mapping",
-		help="Validate the package-to-focused-GUT coverage mapping used by maintenance gates.",
+		help="Validate the module-to-focused-GUT coverage mapping used by maintenance gates.",
 	)
 	package_focused_gut_mapping_parser.add_argument("--json", action="store_true", help="Print JSON instead of text.")
 
@@ -2079,47 +1874,6 @@ def main() -> int:
 		),
 	)
 	gut_shard_run_parser.add_argument("--json", action="store_true", help="Print JSON instead of text.")
-
-	package_godot_cli_smoke_parser = subparsers.add_parser(
-		"package-godot-cli-smoke",
-		help="Smoke-test the Godot-native package CLI without requiring Python on the user install path.",
-	)
-	add_package_artifact_consumer_arguments(package_godot_cli_smoke_parser)
-	package_godot_cli_smoke_parser.add_argument(
-		"--profile",
-		choices=("all", "local", "network"),
-		default="all",
-		help="Run all scenarios or one independently sharded native CLI profile.",
-	)
-	package_godot_cli_smoke_parser.add_argument("--json", action="store_true", help="Print JSON instead of text.")
-
-	package_godot_smoke_parser = subparsers.add_parser(
-		"package-godot-smoke",
-		help="Install package closures into temp projects and check Godot editor parse/reload output.",
-	)
-	add_package_artifact_consumer_arguments(package_godot_smoke_parser)
-	package_godot_smoke_parser.add_argument(
-		"--all-packages",
-		action="store_true",
-		help="Check every package in the generated registry instead of representative roots.",
-	)
-	package_godot_smoke_parser.add_argument(
-		"--package",
-		action="append",
-		dest="package_ids",
-		default=[],
-		help="Check one package id from the generated registry. May be passed more than once.",
-	)
-	package_godot_smoke_parser.add_argument(
-		"--jobs",
-		type=int,
-		default=0,
-		help=(
-			"Number of package parse scenarios to run concurrently. "
-			"Default: 4 for --all-packages, 1 otherwise."
-		),
-	)
-	package_godot_smoke_parser.add_argument("--json", action="store_true", help="Print JSON instead of text.")
 
 	maintenance_self_test_parser = subparsers.add_parser(
 		"maintenance-self-test",
@@ -2278,7 +2032,6 @@ def main() -> int:
 		action="store_true",
 		help=argparse.SUPPRESS,
 	)
-	add_package_artifact_consumer_arguments(check_parser)
 	check_parser.add_argument("--json", action="store_true", help="Print JSON instead of text.")
 
 	release_parser = subparsers.add_parser("release-status", help="Check release metadata consistency.")
@@ -2421,17 +2174,6 @@ def main() -> int:
 		data = package_source_boundary()
 		maintenance_rendering.print_output(data, args.json, maintenance_rendering.render_package_source_boundary_text)
 		return 0 if data["ok"] else 1
-	if args.command == "package-build-boundary":
-		data = package_build_boundary(
-			package_artifact_manifest=args.package_artifact_manifest,
-			package_artifact_manifest_sha256=args.package_artifact_manifest_sha256,
-		)
-		maintenance_rendering.print_output(data, args.json, maintenance_rendering.render_package_build_boundary_text)
-		return 0 if data["ok"] else 1
-	if args.command == "package-user-dependency-boundary":
-		data = package_user_dependency_boundary()
-		maintenance_rendering.print_output(data, args.json, maintenance_rendering.render_package_user_dependency_boundary_text)
-		return 0 if data["ok"] else 1
 	if args.command == "package-external-command-audit":
 		data = package_external_command_audit(fail_on_warnings=args.fail_on_warnings)
 		maintenance_rendering.print_output(data, args.json, maintenance_rendering.render_package_external_command_audit_text)
@@ -2443,13 +2185,6 @@ def main() -> int:
 	if args.command == "core-plugin-bootstrap-smoke":
 		data = core_plugin_bootstrap_smoke()
 		maintenance_rendering.print_output(data, args.json, maintenance_rendering.render_core_plugin_bootstrap_smoke_text)
-		return 0 if data["ok"] else 1
-	if args.command == "package-editor-wizard-smoke":
-		data = package_editor_wizard_smoke(
-			package_artifact_manifest=args.package_artifact_manifest,
-			package_artifact_manifest_sha256=args.package_artifact_manifest_sha256,
-		)
-		maintenance_rendering.print_output(data, args.json, maintenance_rendering.render_package_editor_wizard_smoke_text)
 		return 0 if data["ok"] else 1
 	if args.command == "package-focused-gut-mapping":
 		data = package_focused_gut_mapping()
@@ -2478,24 +2213,6 @@ def main() -> int:
 			args.json,
 			maintenance_rendering.render_gut_shard_run_text,
 		)
-		return 0 if data["ok"] else 1
-	if args.command == "package-godot-cli-smoke":
-		data = package_godot_cli_smoke(
-			profile=args.profile,
-			package_artifact_manifest=args.package_artifact_manifest,
-			package_artifact_manifest_sha256=args.package_artifact_manifest_sha256,
-		)
-		maintenance_rendering.print_output(data, args.json, maintenance_rendering.render_package_godot_cli_smoke_text)
-		return 0 if data["ok"] else 1
-	if args.command == "package-godot-smoke":
-		data = package_godot_smoke(
-			all_packages=args.all_packages,
-			package_ids=args.package_ids,
-			jobs=args.jobs,
-			package_artifact_manifest=args.package_artifact_manifest,
-			package_artifact_manifest_sha256=args.package_artifact_manifest_sha256,
-		)
-		maintenance_rendering.print_output(data, args.json, maintenance_rendering.render_package_godot_smoke_text)
 		return 0 if data["ok"] else 1
 	if args.command == "maintenance-self-test":
 		data = maintenance_self_test()
@@ -2534,8 +2251,6 @@ def main() -> int:
 			sync_examples=args.sync_examples,
 			allow_breaking_api=args.allow_breaking_api,
 			artifact_manifest=args.artifact_manifest,
-			package_artifact_manifest=args.package_artifact_manifest,
-			package_artifact_manifest_sha256=args.package_artifact_manifest_sha256,
 			complete_output_evidence=args.internal_complete_output_evidence,
 			validation_shadow=args.validation_shadow,
 			affected=args.affected,
@@ -4585,12 +4300,10 @@ def collect_package_closure_rows(
 			"kind": str(record.get("kind", "")),
 			"path": str(record.get("path", "")),
 			"direct_dependencies": list(record.get("dependencies", [])),
-			"direct_packages": list(record.get("packages", [])),
 			"closure": closure,
 			"closure_count": len(closure),
 			"standard_count": package_closure_kind_count(kind_counts, "standard"),
 			"extension_count": package_closure_kind_count(kind_counts, "extension"),
-			"preset_count": package_closure_kind_count(kind_counts, "preset"),
 			"kind_counts": kind_counts,
 			"owned_file_count": int(direct_metrics.get("file_count", 0)),
 			"owned_gdscript_count": int(direct_metrics.get("gdscript_count", 0)),
@@ -4637,7 +4350,7 @@ def audit_package_closure_rows(records: list[dict[str, Any]], closure_rows: list
 				issues.append(make_boundary_issue(
 					"package_extension_large_closure",
 					path,
-					"Extension install closure is large enough to need boundary review before it becomes expected user payload.",
+					"Extension dependency closure is large enough to need an internal module-boundary review.",
 					severity="warning",
 					row_key=package_id,
 					actual_value=f"{row.get('closure_count')} total / {row.get('standard_count')} standard",
@@ -4654,16 +4367,6 @@ def audit_package_closure_rows(records: list[dict[str, Any]], closure_rows: list
 				severity="warning",
 				row_key=package_id,
 				actual_value="gf.standard.ui",
-			))
-		elif kind == "preset" and int(row.get("closure_count", 0)) > PACKAGE_CLOSURE_PRESET_TOTAL_INFO_THRESHOLD:
-			issues.append(make_boundary_issue(
-				"package_preset_large_closure",
-				path,
-				"Preset install closure is intentionally broad; editor wizard and CLI dry-run should show the full closure.",
-				severity="info",
-				row_key=package_id,
-				actual_value=row.get("closure_count"),
-				expected_value=f"visible closure > {PACKAGE_CLOSURE_PRESET_TOTAL_INFO_THRESHOLD}",
 			))
 	return issues
 
@@ -4752,7 +4455,6 @@ def make_package_closure_audit_payload(
 		"kind_counts": count_record_field(records, "kind"),
 		"extension_total_warning_threshold": PACKAGE_CLOSURE_EXTENSION_TOTAL_WARNING_THRESHOLD,
 		"extension_standard_warning_threshold": PACKAGE_CLOSURE_EXTENSION_STANDARD_WARNING_THRESHOLD,
-		"preset_total_info_threshold": PACKAGE_CLOSURE_PRESET_TOTAL_INFO_THRESHOLD,
 		"aggregate_closure_baselines": dict(PACKAGE_AGGREGATE_CLOSURE_BASELINES),
 		"standard_fan_in_baselines": dict(PACKAGE_STANDARD_FAN_IN_BASELINES),
 		"closures": closure_rows,
@@ -4774,15 +4476,12 @@ def package_record_sort_key(record: dict[str, Any]) -> tuple[int, str]:
 		"kernel": 0,
 		"standard": 1,
 		"extension": 2,
-		"preset": 3,
-		"tool": 4,
+		"tool": 3,
 	}
 	return (kind_order.get(str(record.get("kind", "")), 99), str(record.get("id", "")))
 
 
 def package_direct_package_dependencies(record: dict[str, Any]) -> list[str]:
-	if record.get("kind") == "preset":
-		return [str(package_id) for package_id in record.get("packages", [])]
 	return [str(package_id) for package_id in record.get("dependencies", [])]
 
 
@@ -9510,7 +9209,6 @@ def audit_package_focused_gut_mapping(
 	required_package_ids = sorted(
 		package_id
 		for package_id, record in records_by_id.items()
-		if record.get("kind") != "preset"
 	)
 	mapping_package_ids = sorted(mapping_packages.keys())
 	for package_id in mapping_package_ids:
@@ -9524,21 +9222,12 @@ def audit_package_focused_gut_mapping(
 				row_key=package_id,
 			))
 			continue
-		if record.get("kind") == "preset":
-			issues.append(make_package_issue(
-				"preset_package_focused_gut_mapping",
-				PACKAGE_FOCUSED_GUT_MAPPING_RELATIVE_PATH,
-				"Preset packages do not own source and must not declare focused GUT mappings.",
-				field="packages",
-				row_key=package_id,
-			))
-
 	for package_id in required_package_ids:
 		if package_id not in mapping_packages:
 			issues.append(make_package_issue(
 				"missing_package_focused_gut_mapping",
 				PACKAGE_FOCUSED_GUT_MAPPING_RELATIVE_PATH,
-				"Every non-preset package must declare its focused GUT coverage mapping.",
+				"Every internal module must declare its focused GUT coverage mapping.",
 				field="packages",
 				row_key=package_id,
 			))
@@ -9564,7 +9253,7 @@ def audit_package_focused_gut_mapping(
 			issues.append(make_package_issue(
 				"empty_package_focused_gut_tests",
 				PACKAGE_FOCUSED_GUT_MAPPING_RELATIVE_PATH,
-				"Focused GUT mapping for a non-preset package must not be empty.",
+				"Focused GUT mapping for an internal module must not be empty.",
 				field="packages",
 				row_key=package_id,
 			))
@@ -9647,7 +9336,7 @@ def make_package_focused_gut_mapping_payload(
 	required_records = [
 		record
 		for record in records
-		if record.get("id") and record.get("kind") != "preset"
+		if record.get("id")
 	]
 	required_ids = {str(record.get("id", "")) for record in required_records}
 	mapped_required_ids = [
@@ -9812,7 +9501,7 @@ def run_core_plugin_bootstrap_smoke_scenario(
 				"Godot editor reload returned a failing process exit code for a core plugin bootstrap scenario.",
 				row_key=scenario_name,
 				actual_value=str(completed.returncode),
-				error=package_godot_smoke_output_excerpt(combined_output),
+				error=godot_smoke_output_excerpt(combined_output),
 			))
 		if has_godot_script_error(combined_output, ""):
 			issues.append(make_package_issue(
@@ -9820,7 +9509,7 @@ def run_core_plugin_bootstrap_smoke_scenario(
 				"godot",
 				"Godot reported script loading or parse errors while bootstrapping the root plugin.",
 				row_key=scenario_name,
-				error=package_godot_smoke_output_excerpt(combined_output),
+				error=godot_smoke_output_excerpt(combined_output),
 			))
 		if has_gdscript_reload_warning(combined_output, ""):
 			issues.append(make_package_issue(
@@ -9828,7 +9517,7 @@ def run_core_plugin_bootstrap_smoke_scenario(
 				"godot",
 				"Godot reported GDScript reload warnings while bootstrapping the root plugin.",
 				row_key=scenario_name,
-				error=package_godot_smoke_output_excerpt(combined_output),
+				error=godot_smoke_output_excerpt(combined_output),
 			))
 		expected_diagnostic_state = {
 			"partial_standard_manifest_missing_targets": "degraded",
@@ -9841,7 +9530,7 @@ def run_core_plugin_bootstrap_smoke_scenario(
 				"godot",
 				"An absent optional standard manifest must not emit a corruption diagnostic.",
 				row_key=scenario_name,
-				error=package_godot_smoke_output_excerpt(combined_output),
+				error=godot_smoke_output_excerpt(combined_output),
 			))
 		elif expected_diagnostic_state is not None and (
 			diagnostic_marker not in combined_output
@@ -9853,7 +9542,7 @@ def run_core_plugin_bootstrap_smoke_scenario(
 				"Partial or invalid standard manifests must emit their stable bootstrap state.",
 				row_key=scenario_name,
 				expected_value=expected_diagnostic_state,
-				error=package_godot_smoke_output_excerpt(combined_output),
+				error=godot_smoke_output_excerpt(combined_output),
 			))
 		if scenario_name == "refresh_request_burst":
 			refresh_marker = "[GF Framework] 已刷新 GF 编辑器贡献记录（generation=100）。"
@@ -9865,7 +9554,7 @@ def run_core_plugin_bootstrap_smoke_scenario(
 					row_key=scenario_name,
 					actual_value=str(log_text.count(refresh_marker)),
 					expected_value="1",
-					error=package_godot_smoke_output_excerpt(combined_output),
+					error=godot_smoke_output_excerpt(combined_output),
 				))
 			if "[GF Framework][PLUGIN-BOOT-002]" in combined_output:
 				issues.append(make_package_issue(
@@ -9873,7 +9562,7 @@ def run_core_plugin_bootstrap_smoke_scenario(
 					"godot",
 					"The real EditorFileSystem refresh burst reported a bounded refresh failure.",
 					row_key=scenario_name,
-					error=package_godot_smoke_output_excerpt(combined_output),
+					error=godot_smoke_output_excerpt(combined_output),
 				))
 		if scenario_name == "resource_preview_translation":
 			validate_resource_preview_translation_smoke_output(
@@ -10148,7 +9837,7 @@ def validate_resource_preview_translation_smoke_output(
 			row_key=scenario_name,
 			actual_value=str(log_text.count(success_marker)),
 			expected_value="1",
-			error=package_godot_smoke_output_excerpt(combined_output),
+			error=godot_smoke_output_excerpt(combined_output),
 		))
 
 	csv_source = "res://preview_translation.csv"
@@ -10188,233 +9877,6 @@ def make_core_plugin_bootstrap_smoke_payload(
 	}
 
 
-PACKAGE_INTERNAL_SOURCE_CONTRACT_PATHS: tuple[str, ...] = (
-	"addons/gf/kernel/package/gf_package_manager_backend.gd",
-	"addons/gf/kernel/package/gf_package_transaction_engine.gd",
-	"addons/gf/kernel/package/gf_package_cache_policy.gd",
-	"addons/gf/kernel/package/gf_package_filesystem_cache_store.gd",
-	"addons/gf/kernel/package/gf_package_cli.gd",
-)
-
-
-def _gdscript_top_level_function_bodies(source: str) -> dict[str, str]:
-	structural_lines, starts_in_multiline = scan_gdscript_structure(source.splitlines())
-	declarations: list[tuple[int, str]] = []
-	for index, structural_line in enumerate(structural_lines):
-		if starts_in_multiline[index]:
-			continue
-		match = re.match(r"^(?:static\s+)?func\s+([A-Za-z_]\w*)\s*\(", structural_line)
-		if match:
-			declarations.append((index, match.group(1)))
-	result: dict[str, str] = {}
-	for declaration_index, (start_index, function_name) in enumerate(declarations):
-		end_index = (
-			declarations[declaration_index + 1][0]
-			if declaration_index + 1 < len(declarations)
-			else len(structural_lines)
-		)
-		result[function_name] = "\n".join(structural_lines[start_index:end_index])
-	return result
-
-
-def _gdscript_top_level_literal_constants(source: str) -> tuple[dict[str, str], dict[str, str]]:
-	structural_lines, starts_in_multiline = scan_gdscript_structure(source.splitlines())
-	preloads: dict[str, str] = {}
-	strings: dict[str, str] = {}
-	preload_re = re.compile(
-		r"^\s*const\s+(?P<name>[A-Za-z_]\w*)(?:\s*:[^=]+)?\s*=\s*"
-		r"preload\(\s*(?P<quote>[\"'])(?P<value>[^\"']*)(?P=quote)\s*\)\s*$"
-	)
-	string_re = re.compile(
-		r"^\s*const\s+(?P<name>[A-Za-z_]\w*)(?:\s*:[^=]+)?\s*=\s*"
-		r"(?P<quote>[\"'])(?P<value>[^\"']*)(?P=quote)\s*$"
-	)
-	for index, raw_line in enumerate(source.splitlines()):
-		if starts_in_multiline[index]:
-			continue
-		structural_match = re.match(
-			r"^const\s+([A-Za-z_]\w*)\b",
-			structural_lines[index],
-		)
-		if structural_match == None:
-			continue
-		code_line = strip_gdscript_line_comment(raw_line).strip()
-		if preload_match := preload_re.match(code_line):
-			preloads[preload_match.group("name")] = preload_match.group("value")
-			continue
-		if string_match := string_re.match(code_line):
-			strings[string_match.group("name")] = string_match.group("value")
-	return preloads, strings
-
-
-def audit_package_internal_source_contracts(
-	source_overrides: dict[str, str] | None = None,
-) -> list[dict[str, Any]]:
-	overrides = source_overrides or {}
-	sources: dict[str, str] = {}
-	issues: list[dict[str, Any]] = []
-	for source_path in PACKAGE_INTERNAL_SOURCE_CONTRACT_PATHS:
-		if source_path in overrides:
-			sources[source_path] = overrides[source_path]
-			continue
-		try:
-			sources[source_path] = (ROOT / source_path).read_text(encoding="utf-8")
-		except (OSError, UnicodeDecodeError) as error:
-			issues.append(make_package_issue(
-				"package_internal_source_unreadable",
-				source_path,
-				"Package internal source contracts require readable UTF-8 GDScript.",
-				error=str(error),
-			))
-	if issues:
-		return issues
-
-	backend_path, engine_path, policy_path, store_path, cli_path = PACKAGE_INTERNAL_SOURCE_CONTRACT_PATHS
-	expected_preloads = {
-		backend_path: {
-			"_GF_PACKAGE_CACHE_POLICY": policy_path.replace("addons/", "res://addons/", 1),
-			"_GF_PACKAGE_FILESYSTEM_CACHE_STORE": store_path.replace("addons/", "res://addons/", 1),
-			"_GF_PACKAGE_TRANSACTION_ENGINE": engine_path.replace("addons/", "res://addons/", 1),
-		},
-		store_path: {
-			"_GF_PACKAGE_CACHE_POLICY": policy_path.replace("addons/", "res://addons/", 1),
-		},
-		cli_path: {
-			"_GF_PACKAGE_MANAGER_BACKEND": backend_path.replace("addons/", "res://addons/", 1),
-			"_GF_PACKAGE_CACHE_POLICY": policy_path.replace("addons/", "res://addons/", 1),
-		},
-	}
-	expected_strings = {
-		policy_path: {
-			"_SCHEMA_CONTRACT_PATH": "res://addons/gf/kernel/package/gf_package_cache_schema.json",
-		},
-		engine_path: {
-			"_SCHEMA_CONTRACT_PATH": "res://addons/gf/kernel/package/gf_package_transaction_schema.json",
-		},
-		cli_path: {
-			"COMMAND_INSTALL": "install",
-			"COMMAND_UNINSTALL": "uninstall",
-			"COMMAND_UPDATE": "update",
-			"COMMAND_RECOVER": "recover",
-			"COMMAND_CACHE_INIT": "cache-init",
-		},
-	}
-	for source_path, expected in expected_preloads.items():
-		preloads, _strings = _gdscript_top_level_literal_constants(sources[source_path])
-		for constant_name, expected_path in expected.items():
-			if preloads.get(constant_name) != expected_path:
-				issues.append(make_package_issue(
-					"package_internal_preload_contract",
-					source_path,
-					"Package delegation preloads must be real top-level declarations with exact targets.",
-					symbol=constant_name,
-					expected_value=expected_path,
-					actual_value=preloads.get(constant_name, ""),
-				))
-	for source_path, expected in expected_strings.items():
-		_preloads, strings = _gdscript_top_level_literal_constants(sources[source_path])
-		for constant_name, expected_value in expected.items():
-			if strings.get(constant_name) != expected_value:
-				issues.append(make_package_issue(
-					"package_internal_literal_contract",
-					source_path,
-					"Package schema and CLI literals must be real top-level declarations.",
-					symbol=constant_name,
-					expected_value=expected_value,
-					actual_value=strings.get(constant_name, ""),
-				))
-
-	backend_bodies = _gdscript_top_level_function_bodies(sources[backend_path])
-	engine_bodies = _gdscript_top_level_function_bodies(sources[engine_path])
-	cli_bodies = _gdscript_top_level_function_bodies(sources[cli_path])
-	transaction_execute_owners = sorted(
-		function_name
-		for function_name, body in backend_bodies.items()
-		if re.search(r"\b_GF_PACKAGE_TRANSACTION_ENGINE\.execute\s*\(", body)
-	)
-	if transaction_execute_owners != ["_execute_package_transaction"]:
-		issues.append(make_package_issue(
-			"package_transaction_execute_owner",
-			backend_path,
-			"Exactly one backend adapter must call the transaction engine execute entry point.",
-			expected_value=["_execute_package_transaction"],
-			actual_value=transaction_execute_owners,
-		))
-	adapter_body = backend_bodies.get("_execute_package_transaction", "")
-	if not re.search(r"\b_GF_PACKAGE_TRANSACTION_ENGINE\.make_request\s*\(", adapter_body):
-		issues.append(make_package_issue(
-			"package_transaction_adapter_contract",
-			backend_path,
-			"The package transaction adapter must construct requests through the transaction engine.",
-			symbol="_execute_package_transaction",
-		))
-	legacy_function_names = {
-		"_copy_staged_files_to_project",
-		"_delete_package_files_from_project",
-		"_write_lockfile_last",
-		"_rollback_install_files",
-	}
-	for function_name in sorted(legacy_function_names.intersection(backend_bodies)):
-		issues.append(make_package_issue(
-			"package_legacy_transaction_declaration",
-			backend_path,
-			"Known legacy package transaction implementations must not return to the backend.",
-			symbol=function_name,
-		))
-
-	backend_structural = "\n".join(scan_gdscript_structure(sources[backend_path].splitlines())[0])
-	for required_call in (
-		r"\b_GF_PACKAGE_CACHE_POLICY\.initialize_external_cache\s*\(",
-		r"\b_GF_PACKAGE_CACHE_POLICY\.resolve_context\s*\(",
-		r"\b_GF_PACKAGE_FILESYSTEM_CACHE_STORE\.find_artifact\s*\(",
-		r"\b_GF_PACKAGE_FILESYSTEM_CACHE_STORE\.commit_artifact\s*\(",
-	):
-		if not re.search(required_call, backend_structural):
-			issues.append(make_package_issue(
-				"package_cache_delegation_contract",
-				backend_path,
-				"Package cache policy/store delegation must be an executable call, not text in a comment or string.",
-				expected_value=required_call,
-			))
-
-	for source_path, bodies, function_name in (
-		(engine_path, engine_bodies, "_tree_has_link"),
-		(engine_path, engine_bodies, "_remove_tree"),
-		(backend_path, backend_bodies, "_remove_path_recursive_absolute"),
-	):
-		if not re.search(r"\bdirectory\.include_hidden\s*=\s*true\b", bodies.get(function_name, "")):
-			issues.append(make_package_issue(
-				"package_hidden_scan_contract",
-				source_path,
-				"Hidden-entry scanning must be executable code in the owning filesystem function.",
-				symbol=function_name,
-			))
-	cleanup_body = engine_bodies.get("_cleanup_active_transaction", "")
-	if not re.search(
-		r"\bDirAccess\.rename_absolute\s*\(\s*active_root\s*,\s*cleanup_root\s*\)",
-		cleanup_body,
-	):
-		issues.append(make_package_issue(
-			"package_transaction_cleanup_contract",
-			engine_path,
-			"Committed transaction cleanup must atomically move the active directory before deletion.",
-			symbol="_cleanup_active_transaction",
-		))
-	cli_body = cli_bodies.get("_run_cli", "")
-	for required_call in (
-		r"\b_GF_PACKAGE_MANAGER_BACKEND\.initialize_package_cache\s*\(",
-		r"\b_GF_PACKAGE_MANAGER_BACKEND\.recover_package_transaction\s*\(",
-	):
-		if not re.search(required_call, cli_body):
-			issues.append(make_package_issue(
-				"package_cli_delegation_contract",
-				cli_path,
-				"Package CLI recovery/cache initialization must delegate through executable backend calls.",
-				expected_value=required_call,
-			))
-	return issues
-
-
 def package_source_boundary() -> dict[str, Any]:
 	paths_payload = collect_package_manifest_paths()
 	scan_errors = paths_payload["errors"]
@@ -10431,7 +9893,6 @@ def package_source_boundary() -> dict[str, Any]:
 	ownership_index = PackageOwnershipIndex(collect_package_source_owner_entries(records))
 	issues.extend(audit_package_path_ownership(records, ownership_index=ownership_index))
 	issues.extend(audit_editor_contribution_target_ownership(ownership_index))
-	issues.extend(audit_package_internal_source_contracts())
 	if issues:
 		return make_package_source_boundary_payload(records, [], issues)
 
@@ -10457,85 +9918,6 @@ def package_source_boundary() -> dict[str, Any]:
 		ownership_index=ownership_index,
 	))
 	return make_package_source_boundary_payload(records, source_paths, issues, distribution_paths)
-
-
-def package_user_dependency_boundary() -> dict[str, Any]:
-	source_paths = collect_package_user_dependency_boundary_paths()
-	issues: list[dict[str, Any]] = []
-	for source_path in source_paths:
-		source = read_text_file(ROOT / source_path)
-		issues.extend(audit_package_user_dependency_source(source, source_path))
-	return make_package_user_dependency_boundary_payload(source_paths, issues)
-
-
-def collect_package_user_dependency_boundary_paths() -> list[str]:
-	paths: set[str] = set()
-	for raw_root in PACKAGE_USER_DEPENDENCY_BOUNDARY_SCAN_ROOTS:
-		root_path = ROOT / raw_root
-		if root_path.is_file():
-			if root_path.suffix.lower() in PACKAGE_USER_DEPENDENCY_BOUNDARY_SCAN_EXTENSIONS:
-				paths.add(raw_root.replace("\\", "/"))
-			continue
-		if not root_path.is_dir():
-			continue
-		for source_path in root_path.rglob("*"):
-			if not source_path.is_file():
-				continue
-			if source_path.suffix.lower() not in PACKAGE_USER_DEPENDENCY_BOUNDARY_SCAN_EXTENSIONS:
-				continue
-			paths.add(source_path.relative_to(ROOT).as_posix())
-	return sorted(paths)
-
-
-def audit_package_user_dependency_source(source: str, path: str) -> list[dict[str, Any]]:
-	issues: list[dict[str, Any]] = []
-	for line_number, raw_line in enumerate(source.splitlines(), start=1):
-		line = strip_gdscript_line_comment(raw_line)
-		if not line.strip():
-			continue
-		for process_api in PACKAGE_USER_DEPENDENCY_FORBIDDEN_PROCESS_APIS:
-			if process_api in line:
-				issues.append(make_package_issue(
-					"package_user_external_process_api",
-					path,
-					"User-facing package manager scripts must not execute external processes; ordinary package install must require only Godot.",
-					line=line_number,
-					actual_value=process_api,
-				))
-		command_match = PACKAGE_USER_DEPENDENCY_FORBIDDEN_COMMAND_LITERAL_RE.search(line)
-		if command_match:
-			issues.append(make_package_issue(
-				"package_user_external_command_literal",
-				path,
-				"User-facing package manager scripts must not hard-code Python, npm, Git, shell, or similar external CLI commands.",
-				line=line_number,
-				actual_value=command_match.group(0),
-			))
-		for forbidden_path in PACKAGE_USER_DEPENDENCY_FORBIDDEN_PATH_LITERALS:
-			if forbidden_path in line:
-				issues.append(make_package_issue(
-					"package_user_package_tool_reference",
-					path,
-					"User-facing package manager scripts must not call or reference Python package tool paths.",
-					line=line_number,
-					actual_value=forbidden_path,
-				))
-	return issues
-
-
-def make_package_user_dependency_boundary_payload(
-	source_paths: list[str],
-	issues: list[dict[str, Any]],
-) -> dict[str, Any]:
-	return {
-		"ok": len(issues) == 0,
-		"root": str(ROOT),
-		"source_file_count": len(source_paths),
-		"issue_count": len(issues),
-		"issue_kind_counts": count_issue_field(issues, "kind"),
-		"scan_roots": list(PACKAGE_USER_DEPENDENCY_BOUNDARY_SCAN_ROOTS),
-		"issues": issues,
-	}
 
 
 def package_external_command_audit(fail_on_warnings: bool = False) -> dict[str, Any]:
@@ -10729,70 +10111,6 @@ def make_package_external_command_audit_payload(
 		"command_counts": count_issue_field(issues, "command"),
 		"issues": issues,
 	}
-
-
-def build_package_smoke_artifact_set(
-	artifact_root: Path,
-	workspace_state: dict[str, Any],
-	*,
-	process_environment: FrozenProcessEnvironment,
-	source_root: Path = ROOT,
-	deadline: float | None = None,
-) -> PackageArtifactSet:
-	"""Build and seal one invocation-scoped package distribution."""
-	remaining = remaining_deadline_seconds(deadline, "package artifact preparation")
-	artifact_root.mkdir(parents=True, exist_ok=False)
-	output_dir = artifact_root / "packages"
-	registry_path = artifact_root / gf_package_artifact_set.REGISTRY_RELATIVE_PATH
-	registry_source_path = artifact_root / gf_package_artifact_set.REGISTRY_SOURCE_RELATIVE_PATH
-	offline_bundle_path = artifact_root / gf_package_artifact_set.OFFLINE_BUNDLE_RELATIVE_PATH
-	try:
-		completed = run_maintenance_subprocess(
-			[
-				sys.executable,
-				"tools/build_gf_package.py",
-				"--all",
-				"--output-dir",
-				str(output_dir),
-				"--registry",
-				str(registry_path),
-				"--registry-source",
-				str(registry_source_path),
-				"--offline-bundle",
-				str(offline_bundle_path),
-				"--json",
-			],
-			timeout_seconds=min(120.0, remaining) if remaining is not None else 120.0,
-			cwd=source_root,
-			process_environment=process_environment,
-		)
-	except subprocess.TimeoutExpired as error:
-		if deadline is not None and time.perf_counter() >= deadline:
-			raise WorkspaceDeadlineError(
-				"Suite deadline exhausted while building the package artifact set."
-			) from error
-		raise PackageArtifactSetError(f"Package builder timed out: {error}") from error
-	if completed.returncode != 0:
-		details = trim_text(completed.stderr.strip() or completed.stdout.strip(), 1200)
-		raise PackageArtifactSetError(
-			f"Package builder returned exit code {completed.returncode}: {details}"
-		)
-	try:
-		builder_data = json.loads(completed.stdout or "{}")
-	except json.JSONDecodeError as error:
-		raise PackageArtifactSetError(f"Package builder returned invalid JSON: {error}") from error
-	if not isinstance(builder_data, dict):
-		raise PackageArtifactSetError("Package builder JSON must be an object.")
-	remaining_deadline_seconds(deadline, "package artifact sealing")
-	artifact_set = gf_package_artifact_set.seal_package_artifact_set(
-		artifact_root,
-		builder_data,
-		workspace_state,
-		builder_cwd=source_root,
-		deadline=deadline,
-	)
-	remaining_deadline_seconds(deadline, "package artifact sealing")
-	return artifact_set
 
 
 def remaining_deadline_seconds(deadline: float | None, operation: str) -> float | None:
@@ -11395,5407 +10713,7 @@ def make_managed_temp_remove_writable(
 		raise error
 
 
-def package_artifact_inputs_are_complete(manifest: str, manifest_sha256: str) -> bool:
-	if bool(manifest) != bool(manifest_sha256):
-		raise PackageArtifactSetError(
-			"Package artifact manifest and expected SHA-256 must be supplied together."
-		)
-	return bool(manifest)
-
-
-def load_or_build_private_package_artifact_set(
-	temp_root: Path,
-	consumer_root: Path,
-	package_artifact_manifest: str = "",
-	package_artifact_manifest_sha256: str = "",
-	workspace_state: dict[str, Any] | None = None,
-	*,
-	process_authority: FrozenProcessAuthority,
-	deadline: float | None = None,
-) -> tuple[PackageArtifactSet, PackageArtifactSet, bool]:
-	"""Load or build a sealed set, then give one consumer an independent copy."""
-	effective_deadline = _ACTIVE_SUITE_DEADLINE if deadline is None else deadline
-	effective_workspace = workspace_state or workspace_fingerprint(
-		ROOT,
-		git_process=process_authority.git,
-		deadline=effective_deadline,
-	)
-	reused = package_artifact_inputs_are_complete(
-		package_artifact_manifest,
-		package_artifact_manifest_sha256,
-	)
-	if reused:
-		source_set = gf_package_artifact_set.load_package_artifact_set(
-			package_artifact_manifest,
-			package_artifact_manifest_sha256,
-			effective_workspace,
-			deadline=effective_deadline,
-		)
-	else:
-		try:
-			captured_workspace = gf_parallel_validation.capture_workspace(
-				ROOT,
-				git_process=process_authority.git,
-				deadline=effective_deadline,
-			)
-		except WorkspaceSnapshotError as error:
-			raise PackageArtifactSetError(
-				"Could not capture an immutable package artifact source workspace."
-			) from error
-		if captured_workspace.workspace_fingerprint != effective_workspace["fingerprint"]:
-			raise PackageArtifactSetError(
-				"Package artifact producer capture does not match the requested workspace provenance."
-			)
-		try:
-			producer_workspace = gf_parallel_validation.materialize_workspace(
-				captured_workspace,
-				temp_root / "artifact-source",
-				git_process=process_authority.git,
-				deadline=effective_deadline,
-			)
-		except WorkspaceSnapshotError as error:
-			raise PackageArtifactSetError(
-				"Could not materialize the package artifact source workspace."
-			) from error
-		source_set = build_package_smoke_artifact_set(
-			temp_root / "artifact-producer",
-			effective_workspace,
-			process_environment=process_authority.environment,
-			source_root=producer_workspace,
-			deadline=effective_deadline,
-		)
-	private_set = gf_package_artifact_set.materialize_package_artifact_set(
-		source_set,
-		consumer_root,
-		deadline=effective_deadline,
-	)
-	return source_set, private_set, reused
-
-
-def package_artifact_details(
-	artifact_set: PackageArtifactSet,
-	*,
-	reused: bool,
-) -> dict[str, Any]:
-	return {
-		"reused": reused,
-		"manifest_sha256": artifact_set.manifest_sha256,
-		"artifact_count": len(artifact_set.artifacts),
-		"workspace_fingerprint": artifact_set.workspace_state["fingerprint"],
-	}
-
-
-@with_maintenance_process_authority
-def package_build_boundary(
-	package_artifact_manifest: str = "",
-	package_artifact_manifest_sha256: str = "",
-) -> dict[str, Any]:
-	process_authority = active_or_freeze_maintenance_process_authority()
-	with strict_process_boundary_temporary_directory(
-		prefix="gf-package-build-boundary-",
-	) as temp_dir:
-		temp_root = Path(temp_dir)
-		issues: list[dict[str, Any]] = []
-		builder_data: dict[str, Any] = {}
-		private_set: PackageArtifactSet | None = None
-		reused = False
-		try:
-			source_set, private_set, reused = load_or_build_private_package_artifact_set(
-				temp_root,
-				temp_root / "artifact-consumer",
-				package_artifact_manifest,
-				package_artifact_manifest_sha256,
-				process_authority=process_authority,
-			)
-			builder_data = private_set.rebased_builder_data()
-			source_set.revalidate(deadline=_ACTIVE_SUITE_DEADLINE)
-		except PackageArtifactSetError as error:
-			if exception_has_cleanup_debt(error):
-				raise
-			issues.append(make_package_issue(
-				"package_artifact_set_invalid",
-				"tools/gf_package_artifact_set.py",
-				"Package build boundary could not obtain a trusted private artifact set.",
-				error=trim_text(
-					gf_process_supervisor.safe_exception_detail(error),
-					1000,
-				),
-			))
-		registry_path = private_set.registry_path if private_set is not None else temp_root / "artifact-consumer/registry/index.json"
-		registry_source_path = private_set.registry_source_path if private_set is not None else temp_root / "artifact-consumer/registry/gf-registry-source.json"
-		offline_bundle_path = private_set.offline_bundle_path if private_set is not None else temp_root / "artifact-consumer/offline_bundle/gf-package-offline-bundle.zip"
-		if builder_data and private_set is not None:
-			issues.extend(audit_package_build_result(builder_data, registry_path))
-			issues.extend(audit_package_build_registry_source_manifest(registry_source_path, registry_path))
-			issues.extend(audit_package_build_offline_bundle(offline_bundle_path, registry_path, registry_source_path, builder_data))
-
-		packages = builder_data.get("packages", []) if isinstance(builder_data.get("packages", []), list) else []
-		return {
-			"ok": len(issues) == 0,
-			"root": str(ROOT),
-			"package_count": len(packages),
-			"archive_count": len([package for package in packages if package.get("archive")]),
-			"registry_package_count": count_package_build_registry_entries(registry_path),
-			"registry_source": registry_source_path.as_posix(),
-			"registry_source_exists": registry_source_path.is_file(),
-			"offline_bundle": offline_bundle_path.as_posix(),
-			"offline_bundle_exists": offline_bundle_path.is_file(),
-			"issue_count": len(issues),
-			"issue_kind_counts": count_issue_field(issues, "kind"),
-			"issues": issues,
-			"artifact_set": (
-				package_artifact_details(private_set, reused=reused)
-				if private_set is not None
-				else {"reused": reused}
-			),
-		}
-
-
-def prepare_package_smoke_cache_args(
-	scenario: str,
-	args: list[str],
-	issues: list[dict[str, Any]],
-) -> list[str]:
-	if not args or args[0] == "cache-init" or "--cache-dir" not in args or "--cache-mode" in args:
-		return list(args)
-	cache_index = args.index("--cache-dir")
-	if cache_index + 1 >= len(args):
-		return list(args)
-	cache_dir = args[cache_index + 1]
-	init_report = gf_package_cache.initialize_external_cache(cache_dir)
-	if not init_report.get("ok"):
-		issues.append(make_package_issue(
-			"package_smoke_cache_init_failed",
-			"addons/gf/kernel/package/gf_package_cache_schema.json",
-			"Package smoke could not initialize its explicit external cache fixture.",
-			row_key=scenario,
-			error=trim_text(str(init_report.get("issues", [])), 500),
-		))
-	return [*args, "--cache-mode", gf_package_cache.MODE_EXTERNAL_SHARED_RW]
-
-
-def record_package_smoke_scenario(
-	scenarios: list[dict[str, Any]],
-	name: str,
-	ok: bool,
-	details: dict[str, Any] | None = None,
-) -> None:
-	scenario = {"name": name, "ok": ok}
-	if details:
-		scenario.update(details)
-	scenarios.append(scenario)
-
-
-def validate_package_smoke_header_value(value: str) -> str | None:
-	sanitized = value.replace("\n", "").replace("\r", "")
-	return sanitized if sanitized == value else None
-
-
-def start_package_smoke_server(root: Path, issues: list[dict[str, Any]]) -> tuple[Any, threading.Thread | None, str]:
-	class QuietPackageHandler(http.server.SimpleHTTPRequestHandler):
-		flaky_counts: dict[str, int] = {}
-
-		def do_GET(self) -> None:
-			parsed_path = urllib.parse.urlparse(self.path)
-			if parsed_path.path.startswith("/redirect/"):
-				target = "/" + parsed_path.path.removeprefix("/redirect/")
-				if parsed_path.query:
-					target = f"{target}?{parsed_path.query}"
-				header_target = validate_package_smoke_header_value(target)
-				if header_target is None:
-					self.send_error(400, "Invalid redirect target")
-					return
-				self.send_response(302)
-				self.send_header("Location", header_target)
-				self.end_headers()
-				return
-			if parsed_path.path.startswith("/flaky-once/"):
-				target_path = "/" + parsed_path.path.removeprefix("/flaky-once/")
-				target = target_path
-				if parsed_path.query:
-					target = f"{target}?{parsed_path.query}"
-				request_count = QuietPackageHandler.flaky_counts.get(target_path, 0)
-				if request_count == 0:
-					QuietPackageHandler.flaky_counts[target_path] = 1
-					self.send_response(500)
-					self.end_headers()
-					self.wfile.write(b"temporary fixture failure")
-					return
-				self.path = target
-			super().do_GET()
-
-		def log_message(self, _format: str, *_args: Any) -> None:
-			return
-
-	try:
-		handler = functools.partial(QuietPackageHandler, directory=str(root))
-		server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), handler)
-		thread = threading.Thread(target=server.serve_forever, daemon=True)
-		thread.start()
-		return server, thread, f"http://127.0.0.1:{server.server_port}"
-	except OSError as error:
-		issues.append(make_package_issue(
-			"package_smoke_server_failed",
-			"tools/gf_maintenance.py",
-			"Could not start local HTTP fixture server.",
-			error=trim_text(str(error), 300),
-		))
-		return None, None, ""
-
-
-def stop_package_smoke_server(server: Any, thread: threading.Thread) -> None:
-	server.shutdown()
-	server.server_close()
-	thread.join(timeout=5)
-
-
-def package_smoke_url(base_url: str, relative_path: str) -> str:
-	return base_url.rstrip("/") + "/" + relative_path.strip("/")
-
-
-def package_smoke_default_registry_source_url(base_url: str) -> str:
-	"""Return the direct source URL used by the local HTTP default-source smoke."""
-	return package_smoke_url(base_url, "sources/default_godot_cli.json")
-
-
-def package_smoke_cache_has_file(cache_root: Path, child_dir: str, suffix: str) -> bool:
-	root = cache_root / child_dir
-	return root.is_dir() and any(path.is_file() and path.suffix == suffix for path in root.rglob("*"))
-
-
-def package_smoke_cache_file_count(cache_root: Path) -> int:
-	if not cache_root.is_dir():
-		return 0
-	return len([path for path in cache_root.rglob("*") if path.is_file()])
-
-
-def read_json_object(path: Path) -> dict[str, Any]:
-	try:
-		data = json.loads(path.read_text(encoding="utf-8"))
-	except (OSError, UnicodeDecodeError, json.JSONDecodeError):
-		return {}
-	return data if isinstance(data, dict) else {}
-
-
-def write_json_object(path: Path, data: dict[str, Any]) -> None:
-	path.parent.mkdir(parents=True, exist_ok=True)
-	path.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-
-
-def sha256_file(path: Path) -> str:
-	digest = hashlib.sha256()
-	with path.open("rb") as handle:
-		for chunk in iter(lambda: handle.read(1024 * 1024), b""):
-			digest.update(chunk)
-	return digest.hexdigest()
-
-
-def project_has_files(project_root: Path) -> bool:
-	if not project_root.exists():
-		return False
-	ignored_prefixes = (
-		".gf/package_cache/",
-		".gf/package_workspace/",
-	)
-	for path in project_root.rglob("*"):
-		if not path.is_file():
-			continue
-		relative_path = path.relative_to(project_root).as_posix()
-		if relative_path.startswith(ignored_prefixes):
-			continue
-		return True
-	return False
-
-
-def package_status_index(status_data: dict[str, Any]) -> dict[str, dict[str, Any]]:
-	packages = status_data.get("packages", [])
-	if not isinstance(packages, list):
-		return {}
-	return {
-		str(item.get("id", "")): item
-		for item in packages
-		if isinstance(item, dict) and item.get("id")
-	}
-
-
-@with_maintenance_process_authority
-def package_editor_wizard_smoke(
-	package_artifact_manifest: str = "",
-	package_artifact_manifest_sha256: str = "",
-) -> dict[str, Any]:
-	process_authority = active_or_freeze_maintenance_process_authority()
-	test_path = "res://tests/gf_core/kernel/editor/test_gf_package_manager_dock.gd"
-	log_path = GODOT_LOG_DIR / "package_editor_wizard_smoke.log"
-	import_log_path = GODOT_LOG_DIR / "package_editor_wizard_smoke_import.log"
-	command = [
-		"godot",
-		"--headless",
-		"--log-file",
-		log_path.as_posix(),
-		"--path",
-		".",
-		"-s",
-		GUT_LIFECYCLE_CLI_RESOURCE_PATH,
-		f"-gtest={test_path}",
-		*GUT_LIFECYCLE_HOOK_ARGUMENTS,
-		"-gexit",
-		"-gdisable_colors",
-	]
-	GODOT_LOG_DIR.mkdir(parents=True, exist_ok=True)
-	issues: list[dict[str, Any]] = []
-	scenarios: list[dict[str, Any]] = []
-	scenario = "package_manager_dock_gut"
-	import_command = [
-		"godot",
-		"--headless",
-		"--log-file",
-		import_log_path.as_posix(),
-		"--path",
-		".",
-		"--import",
-	]
-	try:
-		import_log_paths = prepare_command_log_paths(import_command)
-	except OSError as error:
-		issues.append(make_package_issue(
-			"package_editor_wizard_smoke_import_log_invalid",
-			test_path,
-			"Editor package wizard import preflight log path is unsafe or cannot be prepared.",
-			row_key=scenario,
-			error=trim_text(str(error), 600),
-		))
-		record_package_editor_wizard_smoke_scenario(
-			scenarios,
-			scenario,
-			False,
-			{"test_path": test_path, "log_path": import_log_path.as_posix()},
-		)
-		return make_package_editor_wizard_smoke_payload(command, scenarios, issues, test_path, log_path)
-	try:
-		import_completed = run_maintenance_subprocess(
-			import_command,
-			timeout_seconds=180,
-			process_environment=process_authority.environment,
-		)
-	except subprocess.TimeoutExpired as error:
-		issues.append(make_package_issue(
-			"package_editor_wizard_smoke_import_timeout",
-			test_path,
-			"Editor package wizard focused GUT import preflight timed out.",
-			row_key=scenario,
-			error=trim_text(str(error), 300),
-		))
-		record_package_editor_wizard_smoke_scenario(
-			scenarios,
-			scenario,
-			False,
-			{"test_path": test_path, "log_path": import_log_path.as_posix()},
-		)
-		return make_package_editor_wizard_smoke_payload(command, scenarios, issues, test_path, log_path)
-	import_log_text, import_log_errors = read_command_log_outputs(import_log_paths)
-	import_output = f"{import_completed.stdout}\n{import_completed.stderr}\n{import_log_text}"
-	if (
-		import_completed.returncode != 0
-		or bool(import_log_errors)
-		or has_godot_script_error(import_output, "")
-		or has_gdscript_reload_warning(import_output, "")
-	):
-		issues.append(make_package_issue(
-			"package_editor_wizard_smoke_import_failed",
-			test_path,
-			"Editor package wizard focused GUT import preflight failed.",
-			row_key=scenario,
-			actual_value=str(import_completed.returncode),
-			error=trim_text(
-				"\n".join([*import_log_errors, import_output.strip()]).strip(),
-				1200,
-			),
-		))
-		record_package_editor_wizard_smoke_scenario(
-			scenarios,
-			scenario,
-			False,
-			{"test_path": test_path, "log_path": import_log_path.as_posix()},
-		)
-		return make_package_editor_wizard_smoke_payload(command, scenarios, issues, test_path, log_path)
-	try:
-		log_paths = prepare_command_log_paths(command)
-	except OSError as error:
-		issues.append(make_package_issue(
-			"package_editor_wizard_smoke_log_invalid",
-			test_path,
-			"Editor package wizard focused GUT log path is unsafe or cannot be prepared.",
-			row_key=scenario,
-			error=trim_text(str(error), 600),
-		))
-		record_package_editor_wizard_smoke_scenario(
-			scenarios,
-			scenario,
-			False,
-			{"test_path": test_path, "log_path": log_path.as_posix()},
-		)
-		return make_package_editor_wizard_smoke_payload(command, scenarios, issues, test_path, log_path)
-	try:
-		completed = run_maintenance_subprocess(
-			command,
-			timeout_seconds=180,
-			process_environment=process_authority.environment,
-		)
-	except subprocess.TimeoutExpired as error:
-		issues.append(make_package_issue(
-			"package_editor_wizard_smoke_timeout",
-			test_path,
-			"Editor package wizard focused GUT timed out.",
-			row_key=scenario,
-			error=trim_text(str(error), 300),
-		))
-		record_package_editor_wizard_smoke_scenario(
-			scenarios,
-			scenario,
-			False,
-			{"test_path": test_path, "log_path": log_path.as_posix()},
-		)
-		return make_package_editor_wizard_smoke_payload(command, scenarios, issues, test_path, log_path)
-
-	log_text, log_errors = read_command_log_outputs(log_paths)
-	combined_output = f"{completed.stdout}\n{completed.stderr}\n{log_text}"
-	if log_errors:
-		issues.append(make_package_issue(
-			"package_editor_wizard_smoke_log_missing",
-			test_path,
-			"Editor package wizard focused GUT did not produce a fresh readable managed log.",
-			row_key=scenario,
-			error=trim_text("\n".join(log_errors), 1200),
-		))
-	if completed.returncode != 0:
-		issues.append(make_package_issue(
-			"package_editor_wizard_smoke_command_failed",
-			test_path,
-			"Editor package wizard focused GUT returned a failing exit code.",
-			row_key=scenario,
-			actual_value=str(completed.returncode),
-			error=trim_text(combined_output.strip(), 1200),
-		))
-	if not gut_report_all_tests_passed(combined_output):
-		issues.append(make_package_issue(
-			"package_editor_wizard_smoke_gut_not_passed",
-			test_path,
-			"Editor package wizard focused GUT did not report all tests passed.",
-			row_key=scenario,
-			error=trim_text(combined_output.strip(), 1200),
-		))
-	if has_godot_script_error(combined_output, ""):
-		issues.append(make_package_issue(
-			"package_editor_wizard_smoke_script_error",
-			test_path,
-			"Editor package wizard focused GUT reported a script loading or parse error.",
-			row_key=scenario,
-			error=trim_text(combined_output.strip(), 1200),
-		))
-	if has_gdscript_reload_warning(combined_output, ""):
-		issues.append(make_package_issue(
-			"package_editor_wizard_smoke_reload_warning",
-			test_path,
-			"Editor package wizard focused GUT reported a GDScript reload warning.",
-			row_key=scenario,
-			error=trim_text(combined_output.strip(), 1200),
-		))
-	lifecycle_report = parse_gut_lifecycle_gate_output(combined_output, "")
-	if not lifecycle_report["ok"]:
-		issues.append(make_package_issue(
-			"package_editor_wizard_smoke_lifecycle_gate_failed",
-			test_path,
-			"Editor package wizard focused GUT did not produce a clean lifecycle report.",
-			row_key=scenario,
-			actual_value=json.dumps(lifecycle_report, ensure_ascii=False, sort_keys=True),
-			error=trim_text(combined_output.strip(), 1200),
-		))
-	exit_leak_report = godot_exit_leak_report_from_output(
-		"package_editor_wizard_smoke",
-		combined_output,
-		"",
-	)
-	if exit_leak_report["has_leaks"]:
-		issues.append(make_package_issue(
-			"package_editor_wizard_smoke_exit_leak",
-			test_path,
-			"Editor package wizard focused GUT reported a Godot exit leak.",
-			row_key=scenario,
-			actual_value=json.dumps(exit_leak_report, ensure_ascii=False, sort_keys=True),
-			error=trim_text(combined_output.strip(), 1200),
-		))
-
-	record_package_editor_wizard_smoke_scenario(
-		scenarios,
-		scenario,
-		len(issues) == 0,
-		{
-			"test_path": test_path,
-			"exit_code": completed.returncode,
-			"log_path": log_path.as_posix(),
-			"lifecycle_report": lifecycle_report,
-			"godot_exit_leak_report": exit_leak_report,
-		},
-	)
-	with strict_process_boundary_temporary_directory(
-		prefix="gf-package-editor-wizard-smoke-",
-	) as temp_dir:
-		temp_root = Path(temp_dir)
-		server_root = temp_root / "server"
-		private_set: PackageArtifactSet | None = None
-		reused = False
-		try:
-			source_set, private_set, reused = load_or_build_private_package_artifact_set(
-				temp_root,
-				server_root,
-				package_artifact_manifest,
-				package_artifact_manifest_sha256,
-				process_authority=process_authority,
-			)
-			source_set.revalidate(deadline=_ACTIVE_SUITE_DEADLINE)
-		except PackageArtifactSetError as error:
-			if exception_has_cleanup_debt(error):
-				raise
-			issues.append(make_package_issue(
-				"package_editor_wizard_artifact_set_invalid",
-				"tools/gf_package_artifact_set.py",
-				"Editor package wizard smoke could not obtain a trusted private artifact set.",
-				row_key="build_registry",
-				error=trim_text(str(error), 1000),
-			))
-		registry_path = private_set.registry_path if private_set is not None else server_root / "registry/index.json"
-		offline_bundle_path = private_set.offline_bundle_path if private_set is not None else server_root / "offline_bundle/gf-package-offline-bundle.zip"
-		build_data = private_set.rebased_builder_data() if private_set is not None else {}
-		record_package_editor_wizard_smoke_scenario(
-			scenarios,
-			"build_registry",
-			private_set is not None and bool(build_data.get("ok")),
-			{
-				"package_count": build_data.get("package_count", 0),
-				"artifact_set_reused": reused,
-			},
-		)
-		if bool(build_data.get("ok")):
-			run_package_editor_wizard_smoke_minimal_kernel_local_install(
-				temp_root,
-				registry_path,
-				scenarios,
-				issues,
-			)
-			run_package_editor_wizard_smoke_minimal_kernel_local_preset_install(
-				temp_root,
-				registry_path,
-				scenarios,
-				issues,
-			)
-			run_package_editor_wizard_smoke_source_signature_rejection(
-				temp_root,
-				registry_path,
-				scenarios,
-				issues,
-			)
-			run_package_editor_wizard_smoke_package_signature_rejection(
-				temp_root,
-				registry_path,
-				scenarios,
-				issues,
-			)
-			run_package_editor_wizard_smoke_minimal_kernel_offline_bundle_preset_install(
-				temp_root,
-				offline_bundle_path,
-				scenarios,
-				issues,
-			)
-			run_package_editor_wizard_smoke_minimal_kernel_offline_bundle_zip_preset_install(
-				temp_root,
-				offline_bundle_path,
-				scenarios,
-				issues,
-			)
-			server, thread, base_url = start_package_smoke_server(server_root, issues)
-			if server is not None and thread is not None:
-				try:
-					run_package_editor_wizard_smoke_minimal_kernel_http_install(
-						temp_root,
-						base_url,
-						registry_path,
-						scenarios,
-						issues,
-					)
-					run_package_editor_wizard_smoke_minimal_kernel_http_standard_install(
-						temp_root,
-						base_url,
-						registry_path,
-						scenarios,
-						issues,
-					)
-					run_package_editor_wizard_smoke_minimal_kernel_http_preset_install(
-						temp_root,
-						base_url,
-						registry_path,
-						scenarios,
-						issues,
-					)
-				finally:
-					stop_package_smoke_server(server, thread)
-	payload = make_package_editor_wizard_smoke_payload(command, scenarios, issues, test_path, log_path)
-	if not payload["ok"]:
-		payload["stdout_tail"] = trim_text(completed.stdout, 3000)
-		payload["stderr_tail"] = trim_text(completed.stderr, 3000)
-		payload["log_tail"] = trim_text(log_text, 3000)
-	return payload
-
-
-def run_package_editor_wizard_smoke_minimal_kernel_http_install(
-	temp_root: Path,
-	base_url: str,
-	registry_path: Path,
-	scenarios: list[dict[str, Any]],
-	issues: list[dict[str, Any]],
-) -> None:
-	scenario = "minimal_kernel_project_editor_install_uninstall"
-	start_issue_count = len(issues)
-	project_root = temp_root / "minimal_kernel_editor_project"
-	write_package_godot_smoke_project(project_root, scenario)
-	kernel_archive_path = resolve_package_godot_cli_smoke_local_archive(registry_path, "gf.kernel")
-	if kernel_archive_path is None:
-		issues.append(make_package_issue(
-			"package_editor_wizard_smoke_minimal_kernel_archive_missing",
-			"tools/build_gf_package.py",
-			"Editor wizard smoke setup should find the locally built gf.kernel archive.",
-			row_key=scenario,
-		))
-		record_package_editor_wizard_smoke_scenario(scenarios, scenario, False)
-		return
-	registry_url = package_smoke_url(base_url, "registry/index.json")
-	if not prepare_package_smoke_kernel_baseline(kernel_archive_path, project_root, scenario, issues):
-		record_package_editor_wizard_smoke_scenario(scenarios, scenario, False)
-		return
-	script_path = write_package_editor_wizard_smoke_script(
-		project_root,
-		registry_url,
-	)
-	script_data = run_package_editor_wizard_smoke_script(project_root, script_path, scenario, issues)
-	assert_package_editor_wizard_smoke_condition(
-		bool(script_data.get("ok")),
-		issues,
-		scenario,
-		"package_editor_wizard_smoke_minimal_kernel_install_failed",
-		"A project containing only gf.kernel should install and uninstall gf.extension.save through the editor package manager Dock.",
-		actual_value=str(script_data.get("issues", [])),
-	)
-	assert_package_editor_wizard_smoke_condition(
-		(project_root / "addons/gf/plugin.gd").is_file()
-		and not (project_root / "addons/gf/standard/utilities/storage/gf_storage_utility.gd").exists()
-		and not (project_root / "addons/gf/extensions/save/gf_extension.json").exists(),
-		issues,
-		scenario,
-		"package_editor_wizard_smoke_minimal_kernel_uninstall_state_invalid",
-		"Editor wizard smoke should remove the selected extension closure while keeping gf.kernel.",
-	)
-	assert_package_editor_wizard_smoke_condition(
-		not (project_root / "addons/gf/kernel/package_tools").exists(),
-		issues,
-		scenario,
-		"package_editor_wizard_smoke_minimal_kernel_added_package_tools",
-		"Editor wizard install must not add maintenance-side Python package tools to a user project.",
-	)
-	record_package_editor_wizard_smoke_scenario(
-		scenarios,
-		scenario,
-		len(issues) == start_issue_count,
-		{
-			"package_count": script_data.get("package_count", 0),
-			"installed_file_count": script_data.get("installed_file_count", 0),
-			"removed_file_count": script_data.get("removed_file_count", 0),
-			"selected_package_id": script_data.get("selected_package_id", ""),
-		},
-	)
-
-
-def run_package_editor_wizard_smoke_minimal_kernel_local_install(
-	temp_root: Path,
-	registry_path: Path,
-	scenarios: list[dict[str, Any]],
-	issues: list[dict[str, Any]],
-) -> None:
-	scenario = "minimal_kernel_project_editor_local_install_uninstall"
-	start_issue_count = len(issues)
-	project_root = temp_root / "minimal_kernel_editor_local_project"
-	write_package_godot_smoke_project(project_root, scenario)
-	kernel_archive_path = resolve_package_godot_cli_smoke_local_archive(registry_path, "gf.kernel")
-	if kernel_archive_path is None:
-		issues.append(make_package_issue(
-			"package_editor_wizard_smoke_minimal_kernel_local_archive_missing",
-			"tools/build_gf_package.py",
-			"Editor wizard local registry smoke setup should find the locally built gf.kernel archive.",
-			row_key=scenario,
-		))
-		record_package_editor_wizard_smoke_scenario(scenarios, scenario, False)
-		return
-	if not prepare_package_smoke_kernel_baseline(kernel_archive_path, project_root, scenario, issues):
-		record_package_editor_wizard_smoke_scenario(scenarios, scenario, False)
-		return
-	script_path = write_package_editor_wizard_smoke_script(
-		project_root,
-		registry_path.as_posix(),
-	)
-	script_data = run_package_editor_wizard_smoke_script(project_root, script_path, scenario, issues)
-	installed_archive = str(script_data.get("installed_archive", ""))
-	assert_package_editor_wizard_smoke_condition(
-		bool(script_data.get("ok")),
-		issues,
-		scenario,
-		"package_editor_wizard_smoke_minimal_kernel_local_install_failed",
-		"A project containing only gf.kernel should install and uninstall gf.extension.save through the editor package manager Dock using a local registry file.",
-		actual_value=str(script_data.get("issues", [])),
-	)
-	assert_package_editor_wizard_smoke_condition(
-		installed_archive
-		and not installed_archive.startswith("http://")
-		and not installed_archive.startswith("https://"),
-		issues,
-		scenario,
-		"package_editor_wizard_smoke_minimal_kernel_local_archive_is_remote",
-		"Editor wizard local registry install should not persist a remote archive URL in the lockfile.",
-		actual_value=installed_archive,
-	)
-	assert_package_editor_wizard_smoke_condition(
-		(project_root / "addons/gf/plugin.gd").is_file()
-		and not (project_root / "addons/gf/standard/utilities/storage/gf_storage_utility.gd").exists()
-		and not (project_root / "addons/gf/extensions/save/gf_extension.json").exists(),
-		issues,
-		scenario,
-		"package_editor_wizard_smoke_minimal_kernel_local_uninstall_state_invalid",
-		"Editor wizard local registry smoke should remove the selected extension closure while keeping gf.kernel.",
-	)
-	assert_package_editor_wizard_smoke_condition(
-		not (project_root / "addons/gf/kernel/package_tools").exists(),
-		issues,
-		scenario,
-		"package_editor_wizard_smoke_minimal_kernel_local_added_package_tools",
-		"Editor wizard local registry install must not add maintenance-side Python package tools to a user project.",
-	)
-	record_package_editor_wizard_smoke_scenario(
-		scenarios,
-		scenario,
-		len(issues) == start_issue_count,
-		{
-			"package_count": script_data.get("package_count", 0),
-			"installed_file_count": script_data.get("installed_file_count", 0),
-			"removed_file_count": script_data.get("removed_file_count", 0),
-			"selected_package_id": script_data.get("selected_package_id", ""),
-		},
-	)
-
-
-def run_package_editor_wizard_smoke_minimal_kernel_local_preset_install(
-	temp_root: Path,
-	registry_path: Path,
-	scenarios: list[dict[str, Any]],
-	issues: list[dict[str, Any]],
-	scenario: str = "minimal_kernel_project_editor_local_preset_install_uninstall",
-	project_dir_name: str = "minimal_kernel_editor_local_preset_project",
-	dock_registry_value: str = "",
-) -> None:
-	start_issue_count = len(issues)
-	project_root = temp_root / project_dir_name
-	write_package_godot_smoke_project(project_root, scenario)
-	kernel_archive_path = resolve_package_godot_cli_smoke_local_archive(registry_path, "gf.kernel")
-	if kernel_archive_path is None:
-		issues.append(make_package_issue(
-			"package_editor_wizard_smoke_minimal_kernel_local_preset_archive_missing",
-			"tools/build_gf_package.py",
-			"Editor wizard local registry preset smoke setup should find the locally built gf.kernel archive.",
-			row_key=scenario,
-		))
-		record_package_editor_wizard_smoke_scenario(scenarios, scenario, False)
-		return
-	operation_registry_value = dock_registry_value if dock_registry_value else registry_path.as_posix()
-	if not prepare_package_smoke_kernel_baseline(kernel_archive_path, project_root, scenario, issues):
-		record_package_editor_wizard_smoke_scenario(scenarios, scenario, False)
-		return
-	script_path = write_package_editor_wizard_smoke_preset_script(
-		project_root,
-		operation_registry_value,
-	)
-	script_data = run_package_editor_wizard_smoke_script(project_root, script_path, scenario, issues)
-	installed_archive = str(script_data.get("installed_archive", ""))
-	assert_package_editor_wizard_smoke_condition(
-		bool(script_data.get("ok")),
-		issues,
-		scenario,
-		"package_editor_wizard_smoke_minimal_kernel_local_preset_install_failed",
-		"A project containing only gf.kernel should install and uninstall gf.preset.rpg_save_dialogue through the editor package manager Dock using a local registry file.",
-		actual_value=str(script_data.get("issues", [])),
-	)
-	assert_package_editor_wizard_smoke_condition(
-		installed_archive
-		and not installed_archive.startswith("http://")
-		and not installed_archive.startswith("https://"),
-		issues,
-		scenario,
-		"package_editor_wizard_smoke_minimal_kernel_local_preset_archive_is_remote",
-		"Editor wizard local registry preset install should persist local archive paths for concrete packages.",
-		actual_value=installed_archive,
-	)
-	assert_package_editor_wizard_smoke_condition(
-		(project_root / "addons/gf/plugin.gd").is_file()
-		and not (project_root / "addons/gf/extensions/save/gf_extension.json").exists()
-		and not (project_root / "addons/gf/extensions/dialogue/gf_extension.json").exists()
-		and not (project_root / "addons/gf/extensions/domain/gf_extension.json").exists()
-		and not (project_root / "addons/gf/standard/utilities/config/gf_config_provider.gd").exists()
-		and not (project_root / "addons/gf/standard/utilities/storage/gf_storage_utility.gd").exists()
-		and not (project_root / "addons/gf/standard/foundation/deterministic/gf_deterministic_variant_serializer.gd").exists(),
-		issues,
-		scenario,
-		"package_editor_wizard_smoke_minimal_kernel_local_preset_uninstall_state_invalid",
-		"Editor wizard local registry preset smoke should remove the selected preset closure while keeping gf.kernel.",
-	)
-	assert_package_editor_wizard_smoke_condition(
-		not (project_root / "addons/gf/kernel/package_tools").exists(),
-		issues,
-		scenario,
-		"package_editor_wizard_smoke_minimal_kernel_local_preset_added_package_tools",
-		"Editor wizard local registry preset install must not add maintenance-side Python package tools to a user project.",
-	)
-	record_package_editor_wizard_smoke_scenario(
-		scenarios,
-		scenario,
-		len(issues) == start_issue_count,
-		{
-			"package_count": script_data.get("package_count", 0),
-			"installed_file_count": script_data.get("installed_file_count", 0),
-			"removed_file_count": script_data.get("removed_file_count", 0),
-			"selected_package_id": script_data.get("selected_package_id", ""),
-			"installed_archive": installed_archive,
-		},
-	)
-
-
-def run_package_editor_wizard_smoke_source_signature_rejection(
-	temp_root: Path,
-	registry_path: Path,
-	scenarios: list[dict[str, Any]],
-	issues: list[dict[str, Any]],
-) -> None:
-	scenario = "minimal_kernel_project_editor_source_signature_status_rejection"
-	start_issue_count = len(issues)
-	project_root = temp_root / "minimal_kernel_editor_source_signature_project"
-	write_package_godot_smoke_project(project_root, scenario)
-	kernel_archive_path = resolve_package_godot_cli_smoke_local_archive(registry_path, "gf.kernel")
-	if kernel_archive_path is None:
-		issues.append(make_package_issue(
-			"package_editor_wizard_smoke_source_signature_archive_missing",
-			"tools/build_gf_package.py",
-			"Editor wizard source signature smoke setup should find the locally built gf.kernel archive.",
-			row_key=scenario,
-		))
-		record_package_editor_wizard_smoke_scenario(scenarios, scenario, False)
-		return
-	extract_package_godot_cli_smoke_archive(kernel_archive_path, project_root, scenario, issues)
-	source_path = temp_root / "editor_source_signature/gf-registry-source.json"
-	registry_ref = os.path.relpath(registry_path, source_path.parent).replace("\\", "/")
-	write_json_object(source_path, {
-		"schema_version": 1,
-		"default_channel": "stable",
-		"registry_signature_url": "gf-registry-unreleased.json.sig",
-		"channels": {
-			"stable": {
-				"registry": registry_ref,
-				"registry_sha256": sha256_file(registry_path),
-				"registry_size_bytes": registry_path.stat().st_size,
-			},
-		},
-	})
-	script_path = write_package_editor_wizard_smoke_status_rejection_script(
-		project_root,
-		source_path.as_posix(),
-		"Registry source manifest signature field is not supported until native verification is implemented",
-		"",
-	)
-	script_data = run_package_editor_wizard_smoke_script(project_root, script_path, scenario, issues)
-	assert_package_editor_wizard_smoke_condition(
-		bool(script_data.get("ok")),
-		issues,
-		scenario,
-		"package_editor_wizard_smoke_source_signature_not_rejected",
-		"Editor package manager Dock should surface registry source signature rejection and keep package rows empty.",
-		actual_value=str(script_data.get("issues", [])),
-	)
-	assert_package_editor_wizard_smoke_condition(
-		not (project_root / ".gf/packages.lock.json").exists()
-		and not (project_root / "addons/gf/standard/utilities/storage/gf_storage_utility.gd").exists()
-		and not (project_root / "addons/gf/extensions/save/gf_extension.json").exists()
-		and (project_root / "addons/gf/plugin.gd").is_file(),
-		issues,
-		scenario,
-		"package_editor_wizard_smoke_source_signature_mutated_project",
-		"Editor source signature rejection must not write lockfiles or package files.",
-	)
-	record_package_editor_wizard_smoke_scenario(
-		scenarios,
-		scenario,
-		len(issues) == start_issue_count,
-		{
-			"status_package_count": script_data.get("status_package_count", 0),
-			"dock_package_count": script_data.get("dock_package_count", 0),
-			"issue_count": script_data.get("status_issue_count", 0),
-		},
-	)
-
-
-def run_package_editor_wizard_smoke_package_signature_rejection(
-	temp_root: Path,
-	registry_path: Path,
-	scenarios: list[dict[str, Any]],
-	issues: list[dict[str, Any]],
-) -> None:
-	scenario = "minimal_kernel_project_editor_package_signature_status_rejection"
-	start_issue_count = len(issues)
-	project_root = temp_root / "minimal_kernel_editor_package_signature_project"
-	write_package_godot_smoke_project(project_root, scenario)
-	kernel_archive_path = resolve_package_godot_cli_smoke_local_archive(registry_path, "gf.kernel")
-	if kernel_archive_path is None:
-		issues.append(make_package_issue(
-			"package_editor_wizard_smoke_package_signature_archive_missing",
-			"tools/build_gf_package.py",
-			"Editor wizard package signature smoke setup should find the locally built gf.kernel archive.",
-			row_key=scenario,
-		))
-		record_package_editor_wizard_smoke_scenario(scenarios, scenario, False)
-		return
-	extract_package_godot_cli_smoke_archive(kernel_archive_path, project_root, scenario, issues)
-	registry_data = read_json_object(registry_path)
-	packages = registry_data.get("packages", {})
-	if not isinstance(packages, dict) or not isinstance(packages.get("gf.extension.save"), dict):
-		issues.append(make_package_issue(
-			"package_editor_wizard_smoke_package_signature_fixture_invalid",
-			registry_path.as_posix(),
-			"Editor wizard package signature smoke fixture should contain gf.extension.save.",
-			row_key=scenario,
-		))
-		record_package_editor_wizard_smoke_scenario(scenarios, scenario, False)
-		return
-	save_entry = packages["gf.extension.save"]
-	save_entry["signature_url"] = "gf-extension-save-unreleased.zip.sig"
-	signed_registry_path = temp_root / "editor_package_signature/index.json"
-	write_json_object(signed_registry_path, registry_data)
-	script_path = write_package_editor_wizard_smoke_status_rejection_script(
-		project_root,
-		signed_registry_path.as_posix(),
-		"Registry package signature field is not supported until native verification is implemented",
-		"gf.extension.save",
-	)
-	script_data = run_package_editor_wizard_smoke_script(project_root, script_path, scenario, issues)
-	assert_package_editor_wizard_smoke_condition(
-		bool(script_data.get("ok")),
-		issues,
-		scenario,
-		"package_editor_wizard_smoke_package_signature_not_rejected",
-		"Editor package manager Dock should surface registry package signature rejection and not expose that package as selectable.",
-		actual_value=str(script_data.get("issues", [])),
-	)
-	assert_package_editor_wizard_smoke_condition(
-		not (project_root / ".gf/packages.lock.json").exists()
-		and not (project_root / "addons/gf/standard/utilities/storage/gf_storage_utility.gd").exists()
-		and not (project_root / "addons/gf/extensions/save/gf_extension.json").exists()
-		and (project_root / "addons/gf/plugin.gd").is_file(),
-		issues,
-		scenario,
-		"package_editor_wizard_smoke_package_signature_mutated_project",
-		"Editor package signature rejection must not write lockfiles or package files.",
-	)
-	record_package_editor_wizard_smoke_scenario(
-		scenarios,
-		scenario,
-		len(issues) == start_issue_count,
-		{
-			"status_package_count": script_data.get("status_package_count", 0),
-			"dock_package_count": script_data.get("dock_package_count", 0),
-			"issue_count": script_data.get("status_issue_count", 0),
-			"forbidden_package_id": "gf.extension.save",
-		},
-	)
-
-
-def run_package_editor_wizard_smoke_minimal_kernel_offline_bundle_preset_install(
-	temp_root: Path,
-	offline_bundle_path: Path,
-	scenarios: list[dict[str, Any]],
-	issues: list[dict[str, Any]],
-) -> None:
-	scenario = "minimal_kernel_project_editor_offline_bundle_preset_install_uninstall"
-	start_issue_count = len(issues)
-	extract_root = temp_root / "editor_offline_bundle_extracted"
-	extract_package_godot_cli_smoke_offline_bundle(offline_bundle_path, extract_root, scenario, issues)
-	extracted_registry_path = extract_root / "registry/index.json"
-	assert_package_editor_wizard_smoke_condition(
-		extracted_registry_path.is_file(),
-		issues,
-		scenario,
-		"package_editor_wizard_smoke_offline_bundle_registry_missing",
-		"Extracted offline bundle should contain registry/index.json for local editor wizard installs.",
-		expected_value="registry/index.json",
-	)
-	if not extracted_registry_path.is_file():
-		record_package_editor_wizard_smoke_scenario(scenarios, scenario, False)
-		return
-	run_package_editor_wizard_smoke_minimal_kernel_local_preset_install(
-		temp_root,
-		extracted_registry_path,
-		scenarios,
-		issues,
-		scenario,
-		"minimal_kernel_editor_offline_bundle_preset_project",
-	)
-	if len(scenarios) == 0:
-		return
-	scenario_record = scenarios[-1]
-	if scenario_record.get("name") != scenario:
-		return
-	scenario_record["offline_bundle"] = offline_bundle_path.as_posix()
-	scenario_record["extracted_registry"] = extracted_registry_path.as_posix()
-	scenario_record["offline_bundle_entry_count"] = package_godot_cli_smoke_zip_file_count(offline_bundle_path)
-	scenario_record["ok"] = bool(scenario_record.get("ok")) and len(issues) == start_issue_count
-
-
-def run_package_editor_wizard_smoke_minimal_kernel_offline_bundle_zip_preset_install(
-	temp_root: Path,
-	offline_bundle_path: Path,
-	scenarios: list[dict[str, Any]],
-	issues: list[dict[str, Any]],
-) -> None:
-	scenario = "minimal_kernel_project_editor_offline_bundle_zip_preset_install_uninstall"
-	start_issue_count = len(issues)
-	extract_root = temp_root / "editor_offline_bundle_zip_setup_extracted"
-	extract_package_godot_cli_smoke_offline_bundle(offline_bundle_path, extract_root, scenario, issues)
-	extracted_registry_path = extract_root / "registry/index.json"
-	assert_package_editor_wizard_smoke_condition(
-		extracted_registry_path.is_file(),
-		issues,
-		scenario,
-		"package_editor_wizard_smoke_offline_bundle_zip_setup_registry_missing",
-		"Extracted offline bundle should contain registry/index.json for minimal-kernel fixture setup.",
-		expected_value="registry/index.json",
-	)
-	if not extracted_registry_path.is_file():
-		record_package_editor_wizard_smoke_scenario(scenarios, scenario, False)
-		return
-	run_package_editor_wizard_smoke_minimal_kernel_local_preset_install(
-		temp_root,
-		extracted_registry_path,
-		scenarios,
-		issues,
-		scenario,
-		"minimal_kernel_editor_offline_bundle_zip_preset_project",
-		offline_bundle_path.as_posix(),
-	)
-	if len(scenarios) == 0:
-		return
-	scenario_record = scenarios[-1]
-	if scenario_record.get("name") != scenario:
-		return
-	scenario_record["offline_bundle"] = offline_bundle_path.as_posix()
-	scenario_record["setup_registry"] = extracted_registry_path.as_posix()
-	scenario_record["offline_bundle_entry_count"] = package_godot_cli_smoke_zip_file_count(offline_bundle_path)
-	scenario_record["ok"] = bool(scenario_record.get("ok")) and len(issues) == start_issue_count
-
-
-def run_package_editor_wizard_smoke_minimal_kernel_http_standard_install(
-	temp_root: Path,
-	base_url: str,
-	registry_path: Path,
-	scenarios: list[dict[str, Any]],
-	issues: list[dict[str, Any]],
-) -> None:
-	scenario = "minimal_kernel_project_editor_standard_install_uninstall"
-	start_issue_count = len(issues)
-	project_root = temp_root / "minimal_kernel_editor_standard_project"
-	write_package_godot_smoke_project(project_root, scenario)
-	kernel_archive_path = resolve_package_godot_cli_smoke_local_archive(registry_path, "gf.kernel")
-	if kernel_archive_path is None:
-		issues.append(make_package_issue(
-			"package_editor_wizard_smoke_minimal_kernel_standard_archive_missing",
-			"tools/build_gf_package.py",
-			"Editor wizard standard smoke setup should find the locally built gf.kernel archive.",
-			row_key=scenario,
-		))
-		record_package_editor_wizard_smoke_scenario(scenarios, scenario, False)
-		return
-	registry_url = package_smoke_url(base_url, "registry/index.json")
-	if not prepare_package_smoke_kernel_baseline(kernel_archive_path, project_root, scenario, issues):
-		record_package_editor_wizard_smoke_scenario(scenarios, scenario, False)
-		return
-	script_path = write_package_editor_wizard_smoke_standard_script(
-		project_root,
-		registry_url,
-	)
-	script_data = run_package_editor_wizard_smoke_script(project_root, script_path, scenario, issues)
-	assert_package_editor_wizard_smoke_condition(
-		bool(script_data.get("ok")),
-		issues,
-		scenario,
-		"package_editor_wizard_smoke_minimal_kernel_standard_install_failed",
-		"A project containing only gf.kernel should install and uninstall gf.standard.storage through the editor package manager Dock.",
-		actual_value=str(script_data.get("issues", [])),
-	)
-	assert_package_editor_wizard_smoke_condition(
-		(project_root / "addons/gf/plugin.gd").is_file()
-		and not (project_root / "addons/gf/standard/utilities/logging/gf_log_utility.gd").exists()
-		and not (project_root / "addons/gf/standard/utilities/storage/gf_storage_utility.gd").exists()
-		and not (project_root / "addons/gf/extensions/save/gf_extension.json").exists(),
-		issues,
-		scenario,
-		"package_editor_wizard_smoke_minimal_kernel_standard_uninstall_state_invalid",
-		"Editor wizard standard smoke should remove the selected standard closure while keeping gf.kernel.",
-	)
-	assert_package_editor_wizard_smoke_condition(
-		not (project_root / "addons/gf/kernel/package_tools").exists(),
-		issues,
-		scenario,
-		"package_editor_wizard_smoke_minimal_kernel_standard_added_package_tools",
-		"Editor wizard standard install must not add maintenance-side Python package tools to a user project.",
-	)
-	record_package_editor_wizard_smoke_scenario(
-		scenarios,
-		scenario,
-		len(issues) == start_issue_count,
-		{
-			"package_count": script_data.get("package_count", 0),
-			"installed_file_count": script_data.get("installed_file_count", 0),
-			"removed_file_count": script_data.get("removed_file_count", 0),
-			"selected_package_id": script_data.get("selected_package_id", ""),
-		},
-	)
-
-
-def run_package_editor_wizard_smoke_minimal_kernel_http_preset_install(
-	temp_root: Path,
-	base_url: str,
-	registry_path: Path,
-	scenarios: list[dict[str, Any]],
-	issues: list[dict[str, Any]],
-) -> None:
-	scenario = "minimal_kernel_project_editor_preset_install_uninstall"
-	start_issue_count = len(issues)
-	project_root = temp_root / "minimal_kernel_editor_preset_project"
-	write_package_godot_smoke_project(project_root, scenario)
-	kernel_archive_path = resolve_package_godot_cli_smoke_local_archive(registry_path, "gf.kernel")
-	if kernel_archive_path is None:
-		issues.append(make_package_issue(
-			"package_editor_wizard_smoke_minimal_kernel_preset_archive_missing",
-			"tools/build_gf_package.py",
-			"Editor wizard preset smoke setup should find the locally built gf.kernel archive.",
-			row_key=scenario,
-		))
-		record_package_editor_wizard_smoke_scenario(scenarios, scenario, False)
-		return
-	registry_url = package_smoke_url(base_url, "registry/index.json")
-	if not prepare_package_smoke_kernel_baseline(kernel_archive_path, project_root, scenario, issues):
-		record_package_editor_wizard_smoke_scenario(scenarios, scenario, False)
-		return
-	script_path = write_package_editor_wizard_smoke_preset_script(
-		project_root,
-		registry_url,
-	)
-	script_data = run_package_editor_wizard_smoke_script(project_root, script_path, scenario, issues)
-	assert_package_editor_wizard_smoke_condition(
-		bool(script_data.get("ok")),
-		issues,
-		scenario,
-		"package_editor_wizard_smoke_minimal_kernel_preset_install_failed",
-		"A project containing only gf.kernel should install and uninstall gf.preset.rpg_save_dialogue through the editor package manager Dock.",
-		actual_value=str(script_data.get("issues", [])),
-	)
-	assert_package_editor_wizard_smoke_condition(
-		(project_root / "addons/gf/plugin.gd").is_file()
-		and not (project_root / "addons/gf/extensions/save/gf_extension.json").exists()
-		and not (project_root / "addons/gf/extensions/dialogue/gf_extension.json").exists()
-		and not (project_root / "addons/gf/extensions/domain/gf_extension.json").exists()
-		and not (project_root / "addons/gf/standard/utilities/config/gf_config_provider.gd").exists()
-		and not (project_root / "addons/gf/standard/utilities/storage/gf_storage_utility.gd").exists()
-		and not (project_root / "addons/gf/standard/foundation/deterministic/gf_deterministic_variant_serializer.gd").exists(),
-		issues,
-		scenario,
-		"package_editor_wizard_smoke_minimal_kernel_preset_uninstall_state_invalid",
-		"Editor wizard preset smoke should remove the selected preset closure while keeping gf.kernel.",
-	)
-	assert_package_editor_wizard_smoke_condition(
-		not (project_root / "addons/gf/kernel/package_tools").exists(),
-		issues,
-		scenario,
-		"package_editor_wizard_smoke_minimal_kernel_preset_added_package_tools",
-		"Editor wizard preset install must not add maintenance-side Python package tools to a user project.",
-	)
-	record_package_editor_wizard_smoke_scenario(
-		scenarios,
-		scenario,
-		len(issues) == start_issue_count,
-		{
-			"package_count": script_data.get("package_count", 0),
-			"installed_file_count": script_data.get("installed_file_count", 0),
-			"removed_file_count": script_data.get("removed_file_count", 0),
-			"selected_package_id": script_data.get("selected_package_id", ""),
-		},
-	)
-
-
-def write_package_editor_wizard_smoke_script(project_root: Path, registry_url: str) -> Path:
-	script_path = project_root / ".gf/package_editor_wizard_minimal_smoke.gd"
-	script_path.parent.mkdir(parents=True, exist_ok=True)
-	script_path.write_text(
-		"\n".join([
-			"extends SceneTree",
-			"",
-			"const DOCK_SCRIPT_PATH: String = \"res://addons/gf/kernel/editor/package/gf_package_manager_dock.gd\"",
-			f"const REGISTRY_URL: String = {json.dumps(registry_url)}",
-			"",
-			"func _init() -> void:",
-			"\tvar result: Dictionary = _run_smoke()",
-			"\tprint(JSON.stringify(result))",
-			"\tquit(0 if bool(result.get(\"ok\", false)) else 1)",
-			"",
-			"",
-			"func _run_smoke() -> Dictionary:",
-			"\tvar dock_script_resource: Resource = load(DOCK_SCRIPT_PATH)",
-			"\tif not (dock_script_resource is Script):",
-			"\t\treturn _fail(\"dock_script_missing\", \"Package manager Dock script could not be loaded.\")",
-			"\tvar dock_script: Script = dock_script_resource",
-			"\tvar dock_value: Variant = dock_script.new()",
-			"\tif not (dock_value is VBoxContainer):",
-			"\t\treturn _fail(\"dock_instance_invalid\", \"Package manager Dock did not instantiate as VBoxContainer.\")",
-			"\tvar dock: VBoxContainer = dock_value",
-			"\tget_root().add_child(dock)",
-			"\tvar registry_field_value: Variant = dock.get(\"_registry_field\")",
-			"\tif not (registry_field_value is LineEdit):",
-			"\t\treturn _fail(\"registry_field_missing\", \"Package manager Dock registry field is unavailable.\")",
-			"\tvar registry_field: LineEdit = registry_field_value",
-			"\tregistry_field.text = REGISTRY_URL",
-			"\tvar refresh_result: Variant = dock.call(\"_refresh_status\")",
-			"\tvar _unused_refresh: Variant = refresh_result",
-			"\tvar packages_value: Variant = dock.get(\"_packages\")",
-			"\tif not (packages_value is Array):",
-			"\t\treturn _fail(\"packages_missing\", \"Package manager Dock did not load package entries.\")",
-			"\tvar packages: Array = packages_value",
-			"\tif not _has_package(packages, \"gf.extension.save\"):",
-			"\t\treturn _fail(\"save_package_missing\", \"HTTP registry did not expose gf.extension.save in the Dock.\", {\"package_count\": packages.size()})",
-			"\tvar view_filter_value: Variant = dock.get(\"_view_filter_option\")",
-			"\tif view_filter_value is OptionButton:",
-			"\t\tvar view_filter: OptionButton = view_filter_value",
-			"\t\tview_filter.select(1)",
-			"\t\tvar view_result: Variant = dock.call(\"_on_view_filter_selected\", 1)",
-			"\t\tvar _unused_view: Variant = view_result",
-			"\tvar select_result: Variant = dock.call(\"_select_package\", \"gf.extension.save\")",
-			"\tvar _unused_select: Variant = select_result",
-			"\tvar selected_package_id: String = str(dock.get(\"_selected_package_id\"))",
-			"\tif selected_package_id != \"gf.extension.save\":",
-			"\t\treturn _fail(\"save_package_not_selected\", \"Package manager Dock did not select gf.extension.save.\", {\"selected_package_id\": selected_package_id})",
-			"\tvar details_value: Variant = dock.get(\"_details_output\")",
-			"\tif details_value is TextEdit:",
-			"\t\tvar details_output: TextEdit = details_value",
-			"\t\tif not details_output.text.contains(\"install preview:\"):",
-			"\t\t\treturn _fail(\"install_preview_missing\", \"Package manager Dock details did not expose the install preview.\")",
-			"\tvar install_value: Variant = dock.call(\"_run_native_operation\", \"install\", false)",
-			"\tif not (install_value is Dictionary):",
-			"\t\treturn _fail(\"install_result_invalid\", \"Package manager Dock native install did not return a Dictionary.\")",
-			"\tvar install_result: Dictionary = install_value",
-			"\tif not bool(install_result.get(\"ok\", false)):",
-			"\t\treturn _fail(\"install_failed\", \"Package manager Dock native install failed.\", {\"issues\": install_result.get(\"issues\", [])})",
-			"\tif not FileAccess.file_exists(\"res://addons/gf/extensions/save/gf_extension.json\"):",
-			"\t\treturn _fail(\"save_manifest_missing\", \"Save extension manifest was not installed.\")",
-			"\tif not FileAccess.file_exists(\"res://addons/gf/standard/utilities/storage/gf_storage_utility.gd\"):",
-			"\t\treturn _fail(\"storage_utility_missing\", \"Storage standard dependency was not installed.\")",
-			"\tif DirAccess.dir_exists_absolute(ProjectSettings.globalize_path(\"res://addons/gf/kernel/package_tools\")):",
-			"\t\treturn _fail(\"package_tools_added\", \"Maintenance-side Python package tools were installed into the user project.\")",
-			"\tvar installed_archive: String = _lockfile_archive(\"gf.extension.save\")",
-			"\tvar refresh_after_install: Variant = dock.call(\"_refresh_status\")",
-			"\tvar _unused_refresh_after_install: Variant = refresh_after_install",
-			"\tvar select_installed_result: Variant = dock.call(\"_select_package\", \"gf.extension.save\")",
-			"\tvar _unused_select_installed: Variant = select_installed_result",
-			"\tvar last_status_value: Variant = dock.get(\"_last_status\")",
-			"\tvar last_status: Dictionary = last_status_value if last_status_value is Dictionary else {}",
-			"\tif details_value is TextEdit:",
-			"\t\tvar uninstall_details_output: TextEdit = details_value",
-			"\t\tif not uninstall_details_output.text.contains(\"uninstall preview:\"):",
-			"\t\t\treturn _fail(\"uninstall_preview_missing\", \"Package manager Dock details did not expose the uninstall preview after install.\", {\"details\": uninstall_details_output.text, \"status_ok\": bool(last_status.get(\"ok\", false)), \"status_issues\": last_status.get(\"issues\", []), \"status_package_count\": int(last_status.get(\"package_count\", 0)), \"status_installed_count\": int(last_status.get(\"installed_count\", 0))})",
-			"\tvar uninstall_value: Variant = dock.call(\"_run_native_operation\", \"uninstall\", false)",
-			"\tif not (uninstall_value is Dictionary):",
-			"\t\treturn _fail(\"uninstall_result_invalid\", \"Package manager Dock native uninstall did not return a Dictionary.\")",
-			"\tvar uninstall_result: Dictionary = uninstall_value",
-			"\tif not bool(uninstall_result.get(\"ok\", false)):",
-			"\t\treturn _fail(\"uninstall_failed\", \"Package manager Dock native uninstall failed.\", {\"issues\": uninstall_result.get(\"issues\", [])})",
-			"\tif FileAccess.file_exists(\"res://addons/gf/extensions/save/gf_extension.json\"):",
-			"\t\treturn _fail(\"save_manifest_left_after_uninstall\", \"Save extension manifest was left after uninstall.\")",
-			"\tif FileAccess.file_exists(\"res://addons/gf/standard/utilities/storage/gf_storage_utility.gd\"):",
-			"\t\treturn _fail(\"storage_utility_left_after_uninstall\", \"Storage standard dependency was left after uninstall.\")",
-			"\tif not FileAccess.file_exists(\"res://addons/gf/plugin.gd\"):",
-			"\t\treturn _fail(\"kernel_removed_after_uninstall\", \"Kernel plugin entry was removed after uninstall.\")",
-			"\tif DirAccess.dir_exists_absolute(ProjectSettings.globalize_path(\"res://addons/gf/kernel/package_tools\")):",
-			"\t\treturn _fail(\"package_tools_left_after_uninstall\", \"Maintenance-side Python package tools exist after uninstall.\")",
-			"\treturn {",
-			"\t\t\"ok\": true,",
-			"\t\t\"package_count\": packages.size(),",
-			"\t\t\"installed_file_count\": int(install_result.get(\"installed_file_count\", 0)),",
-			"\t\t\"removed_file_count\": int(uninstall_result.get(\"removed_file_count\", 0)),",
-			"\t\t\"selected_package_id\": selected_package_id,",
-			"\t\t\"installed_archive\": installed_archive,",
-			"\t}",
-			"",
-			"",
-			"func _lockfile_installed() -> Dictionary:",
-			"\tvar file: FileAccess = FileAccess.open(\"res://.gf/packages.lock.json\", FileAccess.READ)",
-			"\tif file == null:",
-			"\t\treturn {}",
-			"\tvar text: String = file.get_as_text()",
-			"\tvar parsed: Variant = JSON.parse_string(text)",
-			"\tif not (parsed is Dictionary):",
-			"\t\treturn {}",
-			"\tvar data: Dictionary = parsed",
-			"\tvar installed_value: Variant = data.get(\"installed\", {})",
-			"\tif installed_value is Dictionary:",
-			"\t\treturn installed_value",
-			"\treturn {}",
-			"",
-			"",
-			"func _lockfile_archive(package_id: String) -> String:",
-			"\tvar installed: Dictionary = _lockfile_installed()",
-			"\tvar entry_value: Variant = installed.get(package_id, {})",
-			"\tif entry_value is Dictionary:",
-			"\t\tvar entry: Dictionary = entry_value",
-			"\t\treturn str(entry.get(\"archive\", \"\"))",
-			"\treturn \"\"",
-			"",
-			"",
-			"func _has_package(packages: Array, package_id: String) -> bool:",
-			"\tfor package_value: Variant in packages:",
-			"\t\tif package_value is Dictionary:",
-			"\t\t\tvar package_entry: Dictionary = package_value",
-			"\t\t\tif str(package_entry.get(\"id\", \"\")) == package_id:",
-			"\t\t\t\treturn true",
-			"\treturn false",
-			"",
-			"",
-			"func _fail(kind: String, message: String, extra: Dictionary = {}) -> Dictionary:",
-			"\tvar result: Dictionary = {",
-			"\t\t\"ok\": false,",
-			"\t\t\"issues\": [message],",
-			"\t\t\"kind\": kind,",
-			"\t}",
-			"\tfor key: Variant in extra.keys():",
-			"\t\tresult[key] = extra[key]",
-			"\treturn result",
-			"",
-		]) + "\n",
-		encoding="utf-8",
-	)
-	return script_path
-
-
-def write_package_editor_wizard_smoke_standard_script(project_root: Path, registry_url: str) -> Path:
-	script_path = project_root / ".gf/package_editor_wizard_minimal_standard_smoke.gd"
-	script_path.parent.mkdir(parents=True, exist_ok=True)
-	script_path.write_text(
-		"\n".join([
-			"extends SceneTree",
-			"",
-			"const DOCK_SCRIPT_PATH: String = \"res://addons/gf/kernel/editor/package/gf_package_manager_dock.gd\"",
-			"const PACKAGE_ID: String = \"gf.standard.storage\"",
-			f"const REGISTRY_URL: String = {json.dumps(registry_url)}",
-			"",
-			"func _init() -> void:",
-			"\tvar result: Dictionary = _run_smoke()",
-			"\tprint(JSON.stringify(result))",
-			"\tquit(0 if bool(result.get(\"ok\", false)) else 1)",
-			"",
-			"",
-			"func _run_smoke() -> Dictionary:",
-			"\tvar dock_script_resource: Resource = load(DOCK_SCRIPT_PATH)",
-			"\tif not (dock_script_resource is Script):",
-			"\t\treturn _fail(\"dock_script_missing\", \"Package manager Dock script could not be loaded.\")",
-			"\tvar dock_script: Script = dock_script_resource",
-			"\tvar dock_value: Variant = dock_script.new()",
-			"\tif not (dock_value is VBoxContainer):",
-			"\t\treturn _fail(\"dock_instance_invalid\", \"Package manager Dock did not instantiate as VBoxContainer.\")",
-			"\tvar dock: VBoxContainer = dock_value",
-			"\tget_root().add_child(dock)",
-			"\tvar registry_field_value: Variant = dock.get(\"_registry_field\")",
-			"\tif not (registry_field_value is LineEdit):",
-			"\t\treturn _fail(\"registry_field_missing\", \"Package manager Dock registry field is unavailable.\")",
-			"\tvar registry_field: LineEdit = registry_field_value",
-			"\tregistry_field.text = REGISTRY_URL",
-			"\tvar refresh_result: Variant = dock.call(\"_refresh_status\")",
-			"\tvar _unused_refresh: Variant = refresh_result",
-			"\tvar packages_value: Variant = dock.get(\"_packages\")",
-			"\tif not (packages_value is Array):",
-			"\t\treturn _fail(\"packages_missing\", \"Package manager Dock did not load package entries.\")",
-			"\tvar packages: Array = packages_value",
-			"\tif not _has_package(packages, PACKAGE_ID):",
-			"\t\treturn _fail(\"standard_package_missing\", \"HTTP registry did not expose gf.standard.storage in the Dock.\", {\"package_count\": packages.size()})",
-			"\tvar view_filter_value: Variant = dock.get(\"_view_filter_option\")",
-			"\tif view_filter_value is OptionButton:",
-			"\t\tvar view_filter: OptionButton = view_filter_value",
-			"\t\tview_filter.select(2)",
-			"\t\tvar view_result: Variant = dock.call(\"_on_view_filter_selected\", 2)",
-			"\t\tvar _unused_view: Variant = view_result",
-			"\tvar select_result: Variant = dock.call(\"_select_package\", PACKAGE_ID)",
-			"\tvar _unused_select: Variant = select_result",
-			"\tvar selected_package_id: String = str(dock.get(\"_selected_package_id\"))",
-			"\tif selected_package_id != PACKAGE_ID:",
-			"\t\treturn _fail(\"standard_package_not_selected\", \"Package manager Dock did not select gf.standard.storage.\", {\"selected_package_id\": selected_package_id})",
-			"\tvar details_value: Variant = dock.get(\"_details_output\")",
-			"\tif details_value is TextEdit:",
-			"\t\tvar details_output: TextEdit = details_value",
-			"\t\tif not details_output.text.contains(\"install preview:\"):",
-			"\t\t\treturn _fail(\"install_preview_missing\", \"Package manager Dock details did not expose the standard install preview.\")",
-			"\tvar install_value: Variant = dock.call(\"_run_native_operation\", \"install\", false)",
-			"\tif not (install_value is Dictionary):",
-			"\t\treturn _fail(\"install_result_invalid\", \"Package manager Dock native standard install did not return a Dictionary.\")",
-			"\tvar install_result: Dictionary = install_value",
-			"\tif not bool(install_result.get(\"ok\", false)):",
-			"\t\treturn _fail(\"install_failed\", \"Package manager Dock native standard install failed.\", {\"issues\": install_result.get(\"issues\", [])})",
-			"\tvar installed_after_install: Dictionary = _lockfile_installed()",
-			"\tfor package_id: String in [\"gf.kernel\", \"gf.standard.base\", PACKAGE_ID]:",
-			"\t\tif not installed_after_install.has(package_id):",
-			"\t\t\treturn _fail(\"installed_package_missing\", \"Standard install did not record an expected package in the lockfile.\", {\"package_id\": package_id})",
-			"\tfor unexpected_package_id: String in [\"gf.extension.save\", \"gf.preset.save\", \"gf.preset.rpg_save_dialogue\"]:",
-			"\t\tif installed_after_install.has(unexpected_package_id):",
-			"\t\t\treturn _fail(\"unexpected_package_installed\", \"Direct standard install should not install extension or preset packages.\", {\"package_id\": unexpected_package_id})",
-			"\tvar storage_entry_value: Variant = installed_after_install.get(PACKAGE_ID, {})",
-			"\tif storage_entry_value is Dictionary:",
-			"\t\tvar storage_entry: Dictionary = storage_entry_value",
-			"\t\tvar storage_reason_value: Variant = storage_entry.get(\"reason\", [])",
-			"\t\tif storage_reason_value is Array:",
-			"\t\t\tvar storage_reasons: Array = storage_reason_value",
-			"\t\t\tif not storage_reasons.has(\"manual\"):",
-			"\t\t\t\treturn _fail(\"manual_reason_missing\", \"Direct standard install should pin the selected standard package as manual.\")",
-			"\tfor relative_path: String in [",
-			"\t\t\"res://addons/gf/standard/utilities/logging/gf_log_utility.gd\",",
-			"\t\t\"res://addons/gf/standard/utilities/storage/gf_storage_utility.gd\",",
-			"\t]:",
-			"\t\tif not FileAccess.file_exists(relative_path):",
-			"\t\t\treturn _fail(\"installed_file_missing\", \"Standard install did not materialize an expected package file.\", {\"path\": relative_path})",
-			"\tif FileAccess.file_exists(\"res://addons/gf/extensions/save/gf_extension.json\"):",
-			"\t\treturn _fail(\"extension_file_added\", \"Direct standard install should not add extension files.\")",
-			"\tif DirAccess.dir_exists_absolute(ProjectSettings.globalize_path(\"res://addons/gf/kernel/package_tools\")):",
-			"\t\treturn _fail(\"package_tools_added\", \"Maintenance-side Python package tools were installed into the user project.\")",
-			"\tvar refresh_after_install: Variant = dock.call(\"_refresh_status\")",
-			"\tvar _unused_refresh_after_install: Variant = refresh_after_install",
-			"\tvar select_installed_result: Variant = dock.call(\"_select_package\", PACKAGE_ID)",
-			"\tvar _unused_select_installed: Variant = select_installed_result",
-			"\tvar last_status_value: Variant = dock.get(\"_last_status\")",
-			"\tvar last_status: Dictionary = last_status_value if last_status_value is Dictionary else {}",
-			"\tif details_value is TextEdit:",
-			"\t\tvar uninstall_details_output: TextEdit = details_value",
-			"\t\tif not uninstall_details_output.text.contains(\"uninstall preview:\"):",
-			"\t\t\treturn _fail(\"uninstall_preview_missing\", \"Package manager Dock details did not expose the standard uninstall preview after install.\", {\"details\": uninstall_details_output.text, \"status_ok\": bool(last_status.get(\"ok\", false)), \"status_issues\": last_status.get(\"issues\", []), \"status_package_count\": int(last_status.get(\"package_count\", 0)), \"status_installed_count\": int(last_status.get(\"installed_count\", 0))})",
-			"\tvar uninstall_value: Variant = dock.call(\"_run_native_operation\", \"uninstall\", false)",
-			"\tif not (uninstall_value is Dictionary):",
-			"\t\treturn _fail(\"uninstall_result_invalid\", \"Package manager Dock native standard uninstall did not return a Dictionary.\")",
-			"\tvar uninstall_result: Dictionary = uninstall_value",
-			"\tif not bool(uninstall_result.get(\"ok\", false)):",
-			"\t\treturn _fail(\"uninstall_failed\", \"Package manager Dock native standard uninstall failed.\", {\"issues\": uninstall_result.get(\"issues\", [])})",
-			"\tvar installed_after_uninstall: Dictionary = _lockfile_installed()",
-			"\tif installed_after_uninstall.keys().size() != 1 or not installed_after_uninstall.has(\"gf.kernel\"):",
-			"\t\treturn _fail(\"uninstall_lockfile_invalid\", \"Standard uninstall should prune the project back to kernel-only.\", {\"installed\": installed_after_uninstall.keys()})",
-			"\tfor relative_path: String in [",
-			"\t\t\"res://addons/gf/standard/utilities/logging/gf_log_utility.gd\",",
-			"\t\t\"res://addons/gf/standard/utilities/storage/gf_storage_utility.gd\",",
-			"\t]:",
-			"\t\tif FileAccess.file_exists(relative_path):",
-			"\t\t\treturn _fail(\"package_file_left_after_uninstall\", \"Standard uninstall left an expected package file behind.\", {\"path\": relative_path})",
-			"\tif FileAccess.file_exists(\"res://addons/gf/extensions/save/gf_extension.json\"):",
-			"\t\treturn _fail(\"extension_file_left_after_uninstall\", \"Direct standard install/uninstall should not leave extension files.\")",
-			"\tif not FileAccess.file_exists(\"res://addons/gf/plugin.gd\"):",
-			"\t\treturn _fail(\"kernel_removed_after_uninstall\", \"Kernel plugin entry was removed after standard uninstall.\")",
-			"\tif DirAccess.dir_exists_absolute(ProjectSettings.globalize_path(\"res://addons/gf/kernel/package_tools\")):",
-			"\t\treturn _fail(\"package_tools_left_after_uninstall\", \"Maintenance-side Python package tools exist after standard uninstall.\")",
-			"\treturn {",
-			"\t\t\"ok\": true,",
-			"\t\t\"package_count\": packages.size(),",
-			"\t\t\"installed_file_count\": int(install_result.get(\"installed_file_count\", 0)),",
-			"\t\t\"removed_file_count\": int(uninstall_result.get(\"removed_file_count\", 0)),",
-			"\t\t\"selected_package_id\": selected_package_id,",
-			"\t}",
-			"",
-			"",
-			"func _lockfile_installed() -> Dictionary:",
-			"\tvar file: FileAccess = FileAccess.open(\"res://.gf/packages.lock.json\", FileAccess.READ)",
-			"\tif file == null:",
-			"\t\treturn {}",
-			"\tvar text: String = file.get_as_text()",
-			"\tvar parsed: Variant = JSON.parse_string(text)",
-			"\tif not (parsed is Dictionary):",
-			"\t\treturn {}",
-			"\tvar data: Dictionary = parsed",
-			"\tvar installed_value: Variant = data.get(\"installed\", {})",
-			"\tif installed_value is Dictionary:",
-			"\t\treturn installed_value",
-			"\treturn {}",
-			"",
-			"",
-			"func _has_package(packages: Array, package_id: String) -> bool:",
-			"\tfor package_value: Variant in packages:",
-			"\t\tif package_value is Dictionary:",
-			"\t\t\tvar package_entry: Dictionary = package_value",
-			"\t\t\tif str(package_entry.get(\"id\", \"\")) == package_id:",
-			"\t\t\t\treturn true",
-			"\treturn false",
-			"",
-			"",
-			"func _fail(kind: String, message: String, extra: Dictionary = {}) -> Dictionary:",
-			"\tvar result: Dictionary = {",
-			"\t\t\"ok\": false,",
-			"\t\t\"issues\": [message],",
-			"\t\t\"kind\": kind,",
-			"\t}",
-			"\tfor key: Variant in extra.keys():",
-			"\t\tresult[key] = extra[key]",
-			"\treturn result",
-			"",
-		]) + "\n",
-		encoding="utf-8",
-	)
-	return script_path
-
-
-def write_package_editor_wizard_smoke_preset_script(project_root: Path, registry_url: str) -> Path:
-	script_path = project_root / ".gf/package_editor_wizard_minimal_preset_smoke.gd"
-	script_path.parent.mkdir(parents=True, exist_ok=True)
-	script_path.write_text(
-		"\n".join([
-			"extends SceneTree",
-			"",
-			"const DOCK_SCRIPT_PATH: String = \"res://addons/gf/kernel/editor/package/gf_package_manager_dock.gd\"",
-			"const PACKAGE_ID: String = \"gf.preset.rpg_save_dialogue\"",
-			f"const REGISTRY_URL: String = {json.dumps(registry_url)}",
-			"",
-			"func _init() -> void:",
-			"\tvar result: Dictionary = _run_smoke()",
-			"\tprint(JSON.stringify(result))",
-			"\tquit(0 if bool(result.get(\"ok\", false)) else 1)",
-			"",
-			"",
-			"func _run_smoke() -> Dictionary:",
-			"\tvar dock_script_resource: Resource = load(DOCK_SCRIPT_PATH)",
-			"\tif not (dock_script_resource is Script):",
-			"\t\treturn _fail(\"dock_script_missing\", \"Package manager Dock script could not be loaded.\")",
-			"\tvar dock_script: Script = dock_script_resource",
-			"\tvar dock_value: Variant = dock_script.new()",
-			"\tif not (dock_value is VBoxContainer):",
-			"\t\treturn _fail(\"dock_instance_invalid\", \"Package manager Dock did not instantiate as VBoxContainer.\")",
-			"\tvar dock: VBoxContainer = dock_value",
-			"\tget_root().add_child(dock)",
-			"\tvar registry_field_value: Variant = dock.get(\"_registry_field\")",
-			"\tif not (registry_field_value is LineEdit):",
-			"\t\treturn _fail(\"registry_field_missing\", \"Package manager Dock registry field is unavailable.\")",
-			"\tvar registry_field: LineEdit = registry_field_value",
-			"\tregistry_field.text = REGISTRY_URL",
-			"\tvar refresh_result: Variant = dock.call(\"_refresh_status\")",
-			"\tvar _unused_refresh: Variant = refresh_result",
-			"\tvar packages_value: Variant = dock.get(\"_packages\")",
-			"\tif not (packages_value is Array):",
-			"\t\treturn _fail(\"packages_missing\", \"Package manager Dock did not load package entries.\")",
-			"\tvar packages: Array = packages_value",
-			"\tif not _has_package(packages, PACKAGE_ID):",
-			"\t\treturn _fail(\"preset_package_missing\", \"HTTP registry did not expose the RPG preset in the Dock.\", {\"package_count\": packages.size()})",
-			"\tvar select_result: Variant = dock.call(\"_select_package\", PACKAGE_ID)",
-			"\tvar _unused_select: Variant = select_result",
-			"\tvar selected_package_id: String = str(dock.get(\"_selected_package_id\"))",
-			"\tif selected_package_id != PACKAGE_ID:",
-			"\t\treturn _fail(\"preset_package_not_selected\", \"Package manager Dock did not select the RPG preset.\", {\"selected_package_id\": selected_package_id})",
-			"\tvar details_value: Variant = dock.get(\"_details_output\")",
-			"\tif details_value is TextEdit:",
-			"\t\tvar details_output: TextEdit = details_value",
-			"\t\tif not details_output.text.contains(\"install preview:\"):",
-			"\t\t\treturn _fail(\"install_preview_missing\", \"Package manager Dock details did not expose the preset install preview.\")",
-			"\tvar install_value: Variant = dock.call(\"_run_native_operation\", \"install\", false)",
-			"\tif not (install_value is Dictionary):",
-			"\t\treturn _fail(\"install_result_invalid\", \"Package manager Dock native preset install did not return a Dictionary.\")",
-			"\tvar install_result: Dictionary = install_value",
-			"\tif not bool(install_result.get(\"ok\", false)):",
-			"\t\treturn _fail(\"install_failed\", \"Package manager Dock native preset install failed.\", {\"issues\": install_result.get(\"issues\", [])})",
-			"\tvar installed_after_install: Dictionary = _lockfile_installed()",
-			"\tfor package_id: String in [PACKAGE_ID, \"gf.extension.save\", \"gf.extension.dialogue\", \"gf.extension.domain\", \"gf.standard.base\", \"gf.standard.config\", \"gf.standard.storage\", \"gf.standard.deterministic\"]:",
-			"\t\tif not installed_after_install.has(package_id):",
-			"\t\t\treturn _fail(\"installed_package_missing\", \"Preset install did not record an expected package in the lockfile.\", {\"package_id\": package_id})",
-			"\tvar preset_entry_value: Variant = installed_after_install.get(PACKAGE_ID, {})",
-			"\tif preset_entry_value is Dictionary:",
-			"\t\tvar preset_entry: Dictionary = preset_entry_value",
-			"\t\tvar preset_files_value: Variant = preset_entry.get(\"files\", [])",
-			"\t\tif preset_files_value is Array:",
-			"\t\t\tvar preset_files: Array = preset_files_value",
-			"\t\t\tif not preset_files.is_empty():",
-			"\t\t\t\treturn _fail(\"preset_entry_has_files\", \"Preset lock entry should not own physical files.\")",
-			"\tvar installed_archive: String = \"\"",
-			"\tvar save_entry_value: Variant = installed_after_install.get(\"gf.extension.save\", {})",
-			"\tif save_entry_value is Dictionary:",
-			"\t\tvar save_entry: Dictionary = save_entry_value",
-			"\t\tinstalled_archive = str(save_entry.get(\"archive\", \"\"))",
-			"\tfor relative_path: String in [",
-			"\t\t\"res://addons/gf/extensions/save/gf_extension.json\",",
-			"\t\t\"res://addons/gf/extensions/dialogue/gf_extension.json\",",
-			"\t\t\"res://addons/gf/extensions/domain/gf_extension.json\",",
-			"\t\t\"res://addons/gf/standard/utilities/config/gf_config_provider.gd\",",
-			"\t\t\"res://addons/gf/standard/utilities/storage/gf_storage_utility.gd\",",
-			"\t\t\"res://addons/gf/standard/foundation/deterministic/gf_deterministic_variant_serializer.gd\",",
-			"\t]:",
-			"\t\tif not FileAccess.file_exists(relative_path):",
-			"\t\t\treturn _fail(\"installed_file_missing\", \"Preset install did not materialize an expected package file.\", {\"path\": relative_path})",
-			"\tif DirAccess.dir_exists_absolute(ProjectSettings.globalize_path(\"res://addons/gf/kernel/package_tools\")):",
-			"\t\treturn _fail(\"package_tools_added\", \"Maintenance-side Python package tools were installed into the user project.\")",
-			"\tvar refresh_after_install: Variant = dock.call(\"_refresh_status\")",
-			"\tvar _unused_refresh_after_install: Variant = refresh_after_install",
-			"\tvar select_installed_result: Variant = dock.call(\"_select_package\", PACKAGE_ID)",
-			"\tvar _unused_select_installed: Variant = select_installed_result",
-			"\tvar last_status_value: Variant = dock.get(\"_last_status\")",
-			"\tvar last_status: Dictionary = last_status_value if last_status_value is Dictionary else {}",
-			"\tif details_value is TextEdit:",
-			"\t\tvar uninstall_details_output: TextEdit = details_value",
-			"\t\tif not uninstall_details_output.text.contains(\"uninstall preview:\"):",
-			"\t\t\treturn _fail(\"uninstall_preview_missing\", \"Package manager Dock details did not expose the preset uninstall preview after install.\", {\"details\": uninstall_details_output.text, \"status_ok\": bool(last_status.get(\"ok\", false)), \"status_issues\": last_status.get(\"issues\", []), \"status_package_count\": int(last_status.get(\"package_count\", 0)), \"status_installed_count\": int(last_status.get(\"installed_count\", 0))})",
-			"\tvar uninstall_value: Variant = dock.call(\"_run_native_operation\", \"uninstall\", false)",
-			"\tif not (uninstall_value is Dictionary):",
-			"\t\treturn _fail(\"uninstall_result_invalid\", \"Package manager Dock native preset uninstall did not return a Dictionary.\")",
-			"\tvar uninstall_result: Dictionary = uninstall_value",
-			"\tif not bool(uninstall_result.get(\"ok\", false)):",
-			"\t\treturn _fail(\"uninstall_failed\", \"Package manager Dock native preset uninstall failed.\", {\"issues\": uninstall_result.get(\"issues\", [])})",
-			"\tvar installed_after_uninstall: Dictionary = _lockfile_installed()",
-			"\tif installed_after_uninstall.keys().size() != 1 or not installed_after_uninstall.has(\"gf.kernel\"):",
-			"\t\treturn _fail(\"uninstall_lockfile_invalid\", \"Preset uninstall should prune the project back to kernel-only.\", {\"installed\": installed_after_uninstall.keys()})",
-			"\tfor relative_path: String in [",
-			"\t\t\"res://addons/gf/extensions/save/gf_extension.json\",",
-			"\t\t\"res://addons/gf/extensions/dialogue/gf_extension.json\",",
-			"\t\t\"res://addons/gf/extensions/domain/gf_extension.json\",",
-			"\t\t\"res://addons/gf/standard/utilities/config/gf_config_provider.gd\",",
-			"\t\t\"res://addons/gf/standard/utilities/storage/gf_storage_utility.gd\",",
-			"\t\t\"res://addons/gf/standard/foundation/deterministic/gf_deterministic_variant_serializer.gd\",",
-			"\t]:",
-			"\t\tif FileAccess.file_exists(relative_path):",
-			"\t\t\treturn _fail(\"package_file_left_after_uninstall\", \"Preset uninstall left an expected package file behind.\", {\"path\": relative_path})",
-			"\tif not FileAccess.file_exists(\"res://addons/gf/plugin.gd\"):",
-			"\t\treturn _fail(\"kernel_removed_after_uninstall\", \"Kernel plugin entry was removed after preset uninstall.\")",
-			"\tif DirAccess.dir_exists_absolute(ProjectSettings.globalize_path(\"res://addons/gf/kernel/package_tools\")):",
-			"\t\treturn _fail(\"package_tools_left_after_uninstall\", \"Maintenance-side Python package tools exist after preset uninstall.\")",
-			"\treturn {",
-			"\t\t\"ok\": true,",
-			"\t\t\"package_count\": packages.size(),",
-			"\t\t\"installed_file_count\": int(install_result.get(\"installed_file_count\", 0)),",
-			"\t\t\"removed_file_count\": int(uninstall_result.get(\"removed_file_count\", 0)),",
-			"\t\t\"selected_package_id\": selected_package_id,",
-			"\t\t\"installed_archive\": installed_archive,",
-			"\t}",
-			"",
-			"",
-			"func _lockfile_installed() -> Dictionary:",
-			"\tvar file: FileAccess = FileAccess.open(\"res://.gf/packages.lock.json\", FileAccess.READ)",
-			"\tif file == null:",
-			"\t\treturn {}",
-			"\tvar text: String = file.get_as_text()",
-			"\tvar parsed: Variant = JSON.parse_string(text)",
-			"\tif not (parsed is Dictionary):",
-			"\t\treturn {}",
-			"\tvar data: Dictionary = parsed",
-			"\tvar installed_value: Variant = data.get(\"installed\", {})",
-			"\tif installed_value is Dictionary:",
-			"\t\treturn installed_value",
-			"\treturn {}",
-			"",
-			"",
-			"func _has_package(packages: Array, package_id: String) -> bool:",
-			"\tfor package_value: Variant in packages:",
-			"\t\tif package_value is Dictionary:",
-			"\t\t\tvar package_entry: Dictionary = package_value",
-			"\t\t\tif str(package_entry.get(\"id\", \"\")) == package_id:",
-			"\t\t\t\treturn true",
-			"\treturn false",
-			"",
-			"",
-			"func _fail(kind: String, message: String, extra: Dictionary = {}) -> Dictionary:",
-			"\tvar result: Dictionary = {",
-			"\t\t\"ok\": false,",
-			"\t\t\"issues\": [message],",
-			"\t\t\"kind\": kind,",
-			"\t}",
-			"\tfor key: Variant in extra.keys():",
-			"\t\tresult[key] = extra[key]",
-			"\treturn result",
-			"",
-		]) + "\n",
-		encoding="utf-8",
-	)
-	return script_path
-
-
-def write_package_editor_wizard_smoke_status_rejection_script(
-	project_root: Path,
-	registry_url: str,
-	expected_issue_needle: str,
-	forbidden_package_id: str,
-) -> Path:
-	script_path = project_root / ".gf/package_editor_wizard_status_rejection_smoke.gd"
-	script_path.parent.mkdir(parents=True, exist_ok=True)
-	script_path.write_text(
-		"\n".join([
-			"extends SceneTree",
-			"",
-			"const DOCK_SCRIPT_PATH: String = \"res://addons/gf/kernel/editor/package/gf_package_manager_dock.gd\"",
-			f"const REGISTRY_URL: String = {json.dumps(registry_url)}",
-			f"const EXPECTED_ISSUE_NEEDLE: String = {json.dumps(expected_issue_needle)}",
-			f"const FORBIDDEN_PACKAGE_ID: String = {json.dumps(forbidden_package_id)}",
-			"",
-			"func _init() -> void:",
-			"\tvar result: Dictionary = _run_smoke()",
-			"\tprint(JSON.stringify(result))",
-			"\tquit(0 if bool(result.get(\"ok\", false)) else 1)",
-			"",
-			"",
-			"func _run_smoke() -> Dictionary:",
-			"\tvar dock_script_resource: Resource = load(DOCK_SCRIPT_PATH)",
-			"\tif not (dock_script_resource is Script):",
-			"\t\treturn _fail(\"dock_script_missing\", \"Package manager Dock script could not be loaded.\")",
-			"\tvar dock_script: Script = dock_script_resource",
-			"\tvar dock_value: Variant = dock_script.new()",
-			"\tif not (dock_value is VBoxContainer):",
-			"\t\treturn _fail(\"dock_instance_invalid\", \"Package manager Dock did not instantiate as VBoxContainer.\")",
-			"\tvar dock: VBoxContainer = dock_value",
-			"\tget_root().add_child(dock)",
-			"\tvar registry_field_value: Variant = dock.get(\"_registry_field\")",
-			"\tif not (registry_field_value is LineEdit):",
-			"\t\treturn _fail(\"registry_field_missing\", \"Package manager Dock registry field is unavailable.\")",
-			"\tvar registry_field: LineEdit = registry_field_value",
-			"\tregistry_field.text = REGISTRY_URL",
-			"\tvar refresh_result: Variant = dock.call(\"_refresh_status\")",
-			"\tvar _unused_refresh: Variant = refresh_result",
-			"\tvar last_status_value: Variant = dock.get(\"_last_status\")",
-			"\tif not (last_status_value is Dictionary):",
-			"\t\treturn _fail(\"last_status_missing\", \"Package manager Dock did not retain backend status data.\")",
-			"\tvar last_status: Dictionary = last_status_value",
-			"\tif bool(last_status.get(\"ok\", true)):",
-			"\t\treturn _fail(\"status_unexpectedly_ok\", \"Package manager Dock accepted unsupported signature metadata.\", {\"status\": last_status})",
-			"\tvar status_issues: Array = _as_array(last_status.get(\"issues\", []))",
-			"\tvar issue_text: String = _join_array_text(status_issues)",
-			"\tif not issue_text.contains(EXPECTED_ISSUE_NEEDLE):",
-			"\t\treturn _fail(\"expected_issue_missing\", \"Package manager Dock did not expose the expected signature rejection issue.\", {\"issues\": status_issues})",
-			"\tvar packages_value: Variant = dock.get(\"_packages\")",
-			"\tif not (packages_value is Array):",
-			"\t\treturn _fail(\"packages_missing\", \"Package manager Dock package rows are unavailable after rejection.\")",
-			"\tvar dock_packages: Array = packages_value",
-			"\tif not dock_packages.is_empty():",
-			"\t\treturn _fail(\"dock_packages_not_empty\", \"Package manager Dock should clear visible packages after status rejection.\", {\"dock_package_count\": dock_packages.size()})",
-			"\tif not FORBIDDEN_PACKAGE_ID.is_empty() and _status_has_package(last_status, FORBIDDEN_PACKAGE_ID):",
-			"\t\treturn _fail(\"forbidden_package_listed\", \"Rejected signature package should not remain in backend status packages.\", {\"package_id\": FORBIDDEN_PACKAGE_ID})",
-			"\tvar details_value: Variant = dock.get(\"_details_output\")",
-			"\tif not (details_value is TextEdit):",
-			"\t\treturn _fail(\"details_output_missing\", \"Package manager Dock details output is unavailable.\")",
-			"\tvar details_output: TextEdit = details_value",
-			"\tif not details_output.text.contains(EXPECTED_ISSUE_NEEDLE):",
-			"\t\treturn _fail(\"details_issue_missing\", \"Package manager Dock details should show the signature rejection issue.\", {\"details\": details_output.text})",
-			"\tvar status_label_value: Variant = dock.get(\"_status_label\")",
-			"\tif status_label_value is Label:",
-			"\t\tvar status_label: Label = status_label_value",
-			"\t\tif not status_label.text.contains(\"失败\"):",
-			"\t\t\treturn _fail(\"status_label_not_failed\", \"Package manager Dock status label should show a failed status refresh.\", {\"label\": status_label.text})",
-			"\tif FileAccess.file_exists(\"res://.gf/packages.lock.json\"):",
-			"\t\treturn _fail(\"lockfile_written\", \"Package manager Dock status rejection should not write a lockfile.\")",
-			"\tfor relative_path: String in [",
-			"\t\t\"res://addons/gf/extensions/save/gf_extension.json\",",
-			"\t\t\"res://addons/gf/standard/utilities/storage/gf_storage_utility.gd\",",
-			"\t]:",
-			"\t\tif FileAccess.file_exists(relative_path):",
-			"\t\t\treturn _fail(\"package_file_written\", \"Package manager Dock status rejection should not install package files.\", {\"path\": relative_path})",
-			"\tif DirAccess.dir_exists_absolute(ProjectSettings.globalize_path(\"res://addons/gf/kernel/package_tools\")):",
-			"\t\treturn _fail(\"package_tools_added\", \"Package manager Dock rejection should not add maintenance-side Python package tools.\")",
-			"\tif not FileAccess.file_exists(\"res://addons/gf/plugin.gd\"):",
-			"\t\treturn _fail(\"kernel_missing\", \"Package manager Dock rejection should keep the existing kernel plugin entry.\")",
-			"\tvar status_packages: Array = _as_array(last_status.get(\"packages\", []))",
-			"\treturn {",
-			"\t\t\"ok\": true,",
-			"\t\t\"status_issue_count\": status_issues.size(),",
-			"\t\t\"status_package_count\": int(last_status.get(\"package_count\", status_packages.size())),",
-			"\t\t\"dock_package_count\": dock_packages.size(),",
-			"\t\t\"forbidden_package_id\": FORBIDDEN_PACKAGE_ID,",
-			"\t}",
-			"",
-			"",
-			"func _as_array(value: Variant) -> Array:",
-			"\tif value is Array:",
-			"\t\tvar array_value: Array = value",
-			"\t\treturn array_value",
-			"\treturn []",
-			"",
-			"",
-			"func _join_array_text(values: Array) -> String:",
-			"\tvar parts: PackedStringArray = PackedStringArray()",
-			"\tfor item: Variant in values:",
-			"\t\tvar _append_result: bool = parts.append(str(item))",
-			"\treturn \"\\n\".join(parts)",
-			"",
-			"",
-			"func _status_has_package(status_data: Dictionary, package_id: String) -> bool:",
-			"\tvar packages: Array = _as_array(status_data.get(\"packages\", []))",
-			"\tfor package_value: Variant in packages:",
-			"\t\tif package_value is Dictionary:",
-			"\t\t\tvar package_entry: Dictionary = package_value",
-			"\t\t\tif str(package_entry.get(\"id\", \"\")) == package_id:",
-			"\t\t\t\treturn true",
-			"\treturn false",
-			"",
-			"",
-			"func _fail(kind: String, message: String, extra: Dictionary = {}) -> Dictionary:",
-			"\tvar result: Dictionary = {",
-			"\t\t\"ok\": false,",
-			"\t\t\"issues\": [message],",
-			"\t\t\"kind\": kind,",
-			"\t}",
-			"\tfor key: Variant in extra.keys():",
-			"\t\tresult[key] = extra[key]",
-			"\treturn result",
-			"",
-		]) + "\n",
-		encoding="utf-8",
-	)
-	return script_path
-
-
-def run_package_editor_wizard_smoke_script(
-	project_root: Path,
-	script_path: Path,
-	scenario: str,
-	issues: list[dict[str, Any]],
-) -> dict[str, Any]:
-	process_environment = active_or_freeze_maintenance_process_authority().environment
-	log_path = GODOT_LOG_DIR / f"package_editor_wizard_smoke_{scenario}.log"
-	script_resource_path = "res://%s" % script_path.relative_to(project_root).as_posix()
-	command = [
-		"godot",
-		"--headless",
-		"--log-file",
-		log_path.as_posix(),
-		"--path",
-		str(project_root),
-		"--script",
-		script_resource_path,
-	]
-	try:
-		log_paths = prepare_command_log_paths(command)
-	except OSError as error:
-		issues.append(make_package_issue(
-			"package_editor_wizard_smoke_minimal_log_invalid",
-			script_path.as_posix(),
-			"Minimal kernel editor wizard smoke log path is unsafe or cannot be prepared.",
-			row_key=scenario,
-			error=trim_text(str(error), 600),
-		))
-		return {}
-	try:
-		completed = run_maintenance_subprocess(
-			command,
-			timeout_seconds=PACKAGE_EDITOR_WIZARD_SMOKE_TRANSACTION_TIMEOUT_SECONDS,
-			process_environment=process_environment,
-		)
-	except subprocess.TimeoutExpired as error:
-		issues.append(make_package_issue(
-			"package_editor_wizard_smoke_minimal_script_timeout",
-			script_path.as_posix(),
-			"Minimal kernel editor wizard smoke script timed out.",
-			row_key=scenario,
-			error=trim_text(str(error), 300),
-		))
-		return {}
-	log_text, log_errors = read_command_log_outputs(log_paths)
-	combined_output = f"{completed.stdout}\n{completed.stderr}\n{log_text}"
-	if log_errors:
-		issues.append(make_package_issue(
-			"package_editor_wizard_smoke_minimal_log_missing",
-			script_path.as_posix(),
-			"Minimal kernel editor wizard smoke did not produce a fresh readable managed log.",
-			row_key=scenario,
-			error=trim_text("\n".join(log_errors), 1200),
-		))
-	if completed.returncode != 0:
-		issues.append(make_package_issue(
-			"package_editor_wizard_smoke_minimal_script_failed",
-			script_path.as_posix(),
-			"Minimal kernel editor wizard smoke script returned a failing exit code.",
-			row_key=scenario,
-			actual_value=str(completed.returncode),
-			error=trim_text(combined_output.strip(), 1200),
-		))
-	if has_godot_script_error(combined_output, ""):
-		issues.append(make_package_issue(
-			"package_editor_wizard_smoke_minimal_script_error",
-			script_path.as_posix(),
-			"Minimal kernel editor wizard smoke script reported a script loading or parse error.",
-			row_key=scenario,
-			error=trim_text(combined_output.strip(), 1200),
-		))
-	if has_gdscript_reload_warning(combined_output, ""):
-		issues.append(make_package_issue(
-			"package_editor_wizard_smoke_minimal_reload_warning",
-			script_path.as_posix(),
-			"Minimal kernel editor wizard smoke script reported a GDScript reload warning.",
-			row_key=scenario,
-			error=trim_text(combined_output.strip(), 1200),
-		))
-	exit_leak_report = godot_exit_leak_report_from_output(
-		f"package_editor_wizard_smoke_{scenario}",
-		combined_output,
-		"",
-	)
-	if exit_leak_report["has_leaks"]:
-		issues.append(make_package_issue(
-			"package_editor_wizard_smoke_minimal_exit_leak",
-			script_path.as_posix(),
-			"Minimal kernel editor wizard smoke reported a Godot exit leak.",
-			row_key=scenario,
-			actual_value=json.dumps(exit_leak_report, ensure_ascii=False, sort_keys=True),
-			error=trim_text(combined_output.strip(), 1200),
-		))
-	data = parse_package_godot_cli_json(completed.stdout)
-	if not data:
-		issues.append(make_package_issue(
-			"package_editor_wizard_smoke_minimal_invalid_json",
-			script_path.as_posix(),
-			"Minimal kernel editor wizard smoke script should print a JSON object.",
-			row_key=scenario,
-			error=trim_text(combined_output.strip(), 1200),
-		))
-	return data
-
-
-def assert_package_editor_wizard_smoke_condition(
-	condition: bool,
-	issues: list[dict[str, Any]],
-	scenario: str,
-	kind: str,
-	message: str,
-	**extra: Any,
-) -> None:
-	if condition:
-		return
-	issues.append(make_package_issue(kind, "addons/gf/kernel/editor/package/gf_package_manager_dock.gd", message, row_key=scenario, **extra))
-
-
-def record_package_editor_wizard_smoke_scenario(
-	scenarios: list[dict[str, Any]],
-	name: str,
-	ok: bool,
-	details: dict[str, Any] | None = None,
-) -> None:
-	scenario = {"name": name, "ok": ok}
-	if details:
-		scenario.update(details)
-	scenarios.append(scenario)
-
-
-def make_package_editor_wizard_smoke_payload(
-	command: list[str],
-	scenarios: list[dict[str, Any]],
-	issues: list[dict[str, Any]],
-	test_path: str,
-	log_path: Path,
-) -> dict[str, Any]:
-	return {
-		"ok": len(issues) == 0 and all(bool(scenario.get("ok")) for scenario in scenarios),
-		"root": str(ROOT),
-		"test_path": test_path,
-		"log_path": log_path.as_posix(),
-		"command": command,
-		"scenario_count": len(scenarios),
-		"issue_count": len(issues),
-		"issue_kind_counts": count_issue_field(issues, "kind"),
-		"scenarios": scenarios,
-		"issues": issues,
-	}
-
-
-def read_text_file_if_exists(path: Path) -> str:
-	try:
-		if path.exists():
-			return path.read_text(encoding="utf-8", errors="replace")
-	except OSError:
-		return ""
-	return ""
-
-
-@with_maintenance_process_authority
-def package_godot_cli_smoke(
-	profile: str = "all",
-	package_artifact_manifest: str = "",
-	package_artifact_manifest_sha256: str = "",
-) -> dict[str, Any]:
-	process_authority = active_or_freeze_maintenance_process_authority()
-	if profile not in {"all", "local", "network"}:
-		return {
-			"ok": False,
-			"root": str(ROOT),
-			"profile": profile,
-			"scenario_count": 0,
-			"issue_count": 1,
-			"scenarios": [],
-			"issues": [make_package_issue(
-				"package_godot_cli_smoke_unknown_profile",
-				"tools/gf_maintenance.py",
-				f"Unknown Godot CLI smoke profile: {profile}",
-			)],
-		}
-	with strict_process_boundary_temporary_directory(
-		prefix="gf-package-godot-cli-smoke-",
-	) as temp_dir:
-		temp_root = Path(temp_dir)
-		server_root = temp_root / "server"
-		project_root = temp_root / "local_cli_project"
-		issues: list[dict[str, Any]] = []
-		scenarios: list[dict[str, Any]] = []
-
-		private_set: PackageArtifactSet | None = None
-		reused = False
-		try:
-			source_set, private_set, reused = load_or_build_private_package_artifact_set(
-				temp_root,
-				server_root,
-				package_artifact_manifest,
-				package_artifact_manifest_sha256,
-				process_authority=process_authority,
-			)
-			source_set.revalidate(deadline=_ACTIVE_SUITE_DEADLINE)
-		except PackageArtifactSetError as error:
-			if exception_has_cleanup_debt(error):
-				raise
-			issues.append(make_package_issue(
-				"package_godot_cli_smoke_artifact_set_invalid",
-				"tools/gf_package_artifact_set.py",
-				"Godot package CLI smoke could not obtain a trusted private artifact set.",
-				row_key="build_registry",
-				error=trim_text(str(error), 1000),
-			))
-		registry_path = private_set.registry_path if private_set is not None else server_root / "registry/index.json"
-		offline_bundle_path = private_set.offline_bundle_path if private_set is not None else server_root / "offline_bundle/gf-package-offline-bundle.zip"
-		build_data = private_set.rebased_builder_data() if private_set is not None else {}
-		record_package_godot_cli_smoke_scenario(
-			scenarios,
-			"build_registry",
-			private_set is not None and bool(build_data.get("ok")),
-			{
-				"package_count": build_data.get("package_count", 0),
-				"artifact_set_reused": reused,
-			},
-		)
-		if issues or not build_data.get("ok"):
-			if not build_data.get("ok") and not issues:
-				issues.append(make_package_issue(
-					"package_godot_cli_smoke_builder_failed",
-					"tools/build_gf_package.py",
-					"Package builder did not report ok=true.",
-					row_key="build_registry",
-				))
-			return make_package_godot_cli_smoke_payload(scenarios, issues, registry_path, profile)
-
-		if profile in {"all", "local"}:
-			run_package_godot_cli_smoke_status(temp_root, registry_path, project_root, scenarios, issues)
-			run_package_godot_cli_smoke_human_status(temp_root, registry_path, project_root, scenarios, issues)
-			run_package_godot_cli_smoke_dry_run(temp_root, registry_path, scenarios, issues)
-			run_package_godot_cli_smoke_install(registry_path, project_root, scenarios, issues)
-			run_package_godot_cli_smoke_verify(registry_path, project_root, scenarios, issues)
-			run_package_godot_cli_smoke_uninstall(registry_path, project_root, scenarios, issues)
-			run_package_godot_cli_smoke_missing_file_list_rejection(temp_root, registry_path, scenarios, issues)
-			run_package_godot_cli_smoke_minimal_kernel_local_install_verify_uninstall(temp_root, registry_path, scenarios, issues)
-			run_package_godot_cli_smoke_minimal_kernel_local_preset_install_verify_uninstall(temp_root, registry_path, scenarios, issues)
-			run_package_godot_cli_smoke_minimal_kernel_offline_bundle_preset_install_verify_uninstall(
-				temp_root,
-				offline_bundle_path,
-				scenarios,
-				issues,
-			)
-			run_package_godot_cli_smoke_minimal_kernel_offline_bundle_zip_preset_install_verify_uninstall(
-				temp_root,
-				offline_bundle_path,
-				scenarios,
-				issues,
-			)
-		if profile in {"all", "network"}:
-			server, thread, base_url = start_package_smoke_server(server_root, issues)
-			if server is not None and thread is not None:
-				try:
-					registry_url = package_smoke_url(base_url, "registry/index.json")
-					run_package_godot_cli_smoke_http_install(temp_root, registry_url, scenarios, issues)
-					run_package_godot_cli_smoke_minimal_kernel_http_install_verify_uninstall(temp_root, base_url, registry_path, scenarios, issues)
-					run_package_godot_cli_smoke_minimal_kernel_http_standard_install_verify_uninstall(temp_root, base_url, registry_path, scenarios, issues)
-					run_package_godot_cli_smoke_minimal_kernel_http_preset_install_verify_uninstall(temp_root, base_url, registry_path, scenarios, issues)
-					run_package_godot_cli_smoke_http_retry_install(temp_root, base_url, scenarios, issues)
-					run_package_godot_cli_smoke_http_dry_run(temp_root, registry_url, scenarios, issues)
-					run_package_godot_cli_smoke_http_source_mirror_install(temp_root, base_url, server_root, scenarios, issues)
-					run_package_godot_cli_smoke_default_source_install(temp_root, base_url, server_root, scenarios, issues)
-					run_package_godot_cli_smoke_source_signature_rejection(temp_root, base_url, server_root, scenarios, issues)
-					run_package_godot_cli_smoke_package_signature_rejection(temp_root, base_url, registry_path, server_root, scenarios, issues)
-					run_package_godot_cli_smoke_external_tool_payload_rejection(temp_root, base_url, registry_path, server_root, scenarios, issues)
-					run_package_godot_cli_smoke_http_download_failure(temp_root, base_url, registry_path, server_root, scenarios, issues)
-				finally:
-					stop_package_smoke_server(server, thread)
-		return make_package_godot_cli_smoke_payload(scenarios, issues, registry_path, profile)
-
-
-def run_package_godot_cli_smoke_status(
-	temp_root: Path,
-	registry_path: Path,
-	project_root: Path,
-	scenarios: list[dict[str, Any]],
-	issues: list[dict[str, Any]],
-) -> None:
-	scenario = "godot_cli_status_empty_project"
-	start_issue_count = len(issues)
-	status_data = run_package_godot_cli_smoke_command(
-		scenario,
-		[
-			"status",
-			"--registry",
-			str(registry_path),
-			"--project-root",
-			str(project_root),
-			"--json",
-		],
-		issues,
-	)
-	assert_package_godot_cli_smoke_condition(
-		bool(status_data.get("ok")),
-		issues,
-		scenario,
-		"package_godot_cli_smoke_status_failed",
-		"Godot native package CLI status should succeed without Python on the user path.",
-	)
-	assert_package_godot_cli_smoke_condition(
-		status_data.get("backend") == "godot_native",
-		issues,
-		scenario,
-		"package_godot_cli_smoke_backend_mismatch",
-		"Godot native package CLI status should report the godot_native backend.",
-		actual_value=str(status_data.get("backend", "")),
-	)
-	assert_package_godot_cli_smoke_condition(
-		int(status_data.get("package_count", 0)) > 0,
-		issues,
-		scenario,
-		"package_godot_cli_smoke_missing_packages",
-		"Godot native package CLI status should list registry packages.",
-	)
-	record_package_godot_cli_smoke_scenario(
-		scenarios,
-		scenario,
-		len(issues) == start_issue_count,
-		{"package_count": status_data.get("package_count", 0), "temp_root": temp_root.as_posix()},
-	)
-
-
-def run_package_godot_cli_smoke_human_status(
-	temp_root: Path,
-	registry_path: Path,
-	project_root: Path,
-	scenarios: list[dict[str, Any]],
-	issues: list[dict[str, Any]],
-) -> None:
-	scenario = "godot_cli_human_status_output"
-	start_issue_count = len(issues)
-	status_data = run_package_godot_cli_smoke_command(
-		scenario,
-		[
-			"status",
-			"--registry",
-			str(registry_path),
-			"--project-root",
-			str(project_root),
-		],
-		issues,
-		expect_json=False,
-	)
-	stdout = str(status_data.get("stdout", ""))
-	assert_package_godot_cli_smoke_condition(
-		int(status_data.get("exit_code", 1)) == 0,
-		issues,
-		scenario,
-		"package_godot_cli_smoke_human_status_failed",
-		"Godot native package CLI default status output should exit successfully.",
-		actual_value=str(status_data.get("exit_code", "")),
-	)
-	for expected_text in ["GF Package CLI status: ok", "Packages:", "Registry:"]:
-		assert_package_godot_cli_smoke_condition(
-			expected_text in stdout,
-			issues,
-			scenario,
-			"package_godot_cli_smoke_human_status_missing_text",
-			"Godot native package CLI default status output should be human-readable.",
-			expected_value=expected_text,
-		)
-	assert_package_godot_cli_smoke_condition(
-		not bool(parse_package_godot_cli_json(stdout)),
-		issues,
-		scenario,
-		"package_godot_cli_smoke_human_status_printed_json",
-		"Godot native package CLI default status output should not print the JSON payload.",
-	)
-	record_package_godot_cli_smoke_scenario(
-		scenarios,
-		scenario,
-		len(issues) == start_issue_count,
-		{"temp_root": temp_root.as_posix()},
-	)
-
-
-def run_package_godot_cli_smoke_dry_run(
-	temp_root: Path,
-	registry_path: Path,
-	scenarios: list[dict[str, Any]],
-	issues: list[dict[str, Any]],
-) -> None:
-	scenario = "godot_cli_install_dry_run_no_mutation"
-	start_issue_count = len(issues)
-	project_root = temp_root / "dry_run_project"
-	install_data = run_package_godot_cli_smoke_command(
-		scenario,
-		[
-			"install",
-			"gf.extension.save",
-			"--registry",
-			str(registry_path),
-			"--project-root",
-			str(project_root),
-			"--dry-run",
-			"--json",
-		],
-		issues,
-	)
-	assert_package_godot_cli_smoke_condition(
-		bool(install_data.get("ok")) and bool(install_data.get("dry_run")),
-		issues,
-		scenario,
-		"package_godot_cli_smoke_dry_run_failed",
-		"Godot native package CLI dry-run install should validate archives without writing project files.",
-	)
-	assert_package_godot_cli_smoke_condition(
-		not project_has_files(project_root),
-		issues,
-		scenario,
-		"package_godot_cli_smoke_dry_run_mutated_project",
-		"Godot native package CLI dry-run install must not mutate the target project.",
-	)
-	record_package_godot_cli_smoke_scenario(
-		scenarios,
-		scenario,
-		len(issues) == start_issue_count,
-		{"dry_run": install_data.get("dry_run", False)},
-	)
-
-
-def run_package_godot_cli_smoke_install(
-	registry_path: Path,
-	project_root: Path,
-	scenarios: list[dict[str, Any]],
-	issues: list[dict[str, Any]],
-) -> None:
-	scenario = "godot_cli_install_save"
-	start_issue_count = len(issues)
-	install_data = run_package_godot_cli_smoke_command(
-		scenario,
-		[
-			"install",
-			"gf.extension.save",
-			"--registry",
-			str(registry_path),
-			"--project-root",
-			str(project_root),
-			"--json",
-		],
-		issues,
-	)
-	assert_package_godot_cli_smoke_condition(
-		bool(install_data.get("ok")),
-		issues,
-		scenario,
-		"package_godot_cli_smoke_install_failed",
-		"Godot native package CLI should install gf.extension.save and its dependencies.",
-	)
-	for relative_path in [
-		"addons/gf/plugin.gd",
-		"addons/gf/standard/utilities/storage/gf_storage_utility.gd",
-		"addons/gf/extensions/save/gf_extension.json",
-	]:
-		assert_package_godot_cli_smoke_condition(
-			(project_root / relative_path).is_file(),
-			issues,
-			scenario,
-			"package_godot_cli_smoke_missing_installed_file",
-			f"Godot native package CLI install should write {relative_path}.",
-			expected_value=relative_path,
-		)
-	lockfile_data = read_json_object(project_root / ".gf/packages.lock.json")
-	installed = lockfile_data.get("installed", {}) if isinstance(lockfile_data.get("installed", {}), dict) else {}
-	for package_id in ["gf.kernel", "gf.standard.storage", "gf.extension.save"]:
-		assert_package_godot_cli_smoke_condition(
-			package_id in installed,
-			issues,
-			scenario,
-			"package_godot_cli_smoke_missing_lockfile_package",
-			f"Godot native package CLI install should record {package_id} in the lockfile.",
-			expected_value=package_id,
-		)
-	record_package_godot_cli_smoke_scenario(
-		scenarios,
-		scenario,
-		len(issues) == start_issue_count,
-		{"installed_file_count": install_data.get("installed_file_count", 0)},
-	)
-
-
-def run_package_godot_cli_smoke_verify(
-	registry_path: Path,
-	project_root: Path,
-	scenarios: list[dict[str, Any]],
-	issues: list[dict[str, Any]],
-) -> None:
-	scenario = "godot_cli_verify_lockfile"
-	start_issue_count = len(issues)
-	verify_data = run_package_godot_cli_smoke_command(
-		scenario,
-		[
-			"verify",
-			"--registry",
-			str(registry_path),
-			"--project-root",
-			str(project_root),
-			"--json",
-		],
-		issues,
-		allow_failure=True,
-	)
-	assert_package_godot_cli_smoke_condition(
-		bool(verify_data.get("ok")),
-		issues,
-		scenario,
-		"package_godot_cli_smoke_verify_failed",
-		"Godot native package CLI verify should accept the installer-written lockfile.",
-	)
-	record_package_godot_cli_smoke_scenario(
-		scenarios,
-		scenario,
-		len(issues) == start_issue_count,
-		{"issue_count": verify_data.get("issue_count", 0)},
-	)
-
-
-def run_package_godot_cli_smoke_uninstall(
-	registry_path: Path,
-	project_root: Path,
-	scenarios: list[dict[str, Any]],
-	issues: list[dict[str, Any]],
-) -> None:
-	scenario = "godot_cli_uninstall_save"
-	start_issue_count = len(issues)
-	uninstall_data = run_package_godot_cli_smoke_command(
-		scenario,
-		[
-			"uninstall",
-			"gf.extension.save",
-			"--registry",
-			str(registry_path),
-			"--project-root",
-			str(project_root),
-			"--json",
-		],
-		issues,
-	)
-	assert_package_godot_cli_smoke_condition(
-		bool(uninstall_data.get("ok")),
-		issues,
-		scenario,
-		"package_godot_cli_smoke_uninstall_failed",
-		"Godot native package CLI should uninstall gf.extension.save safely.",
-	)
-	assert_package_godot_cli_smoke_condition(
-		not (project_root / "addons/gf/extensions/save/gf_extension.json").exists(),
-		issues,
-		scenario,
-		"package_godot_cli_smoke_uninstall_left_extension",
-		"Godot native package CLI uninstall should remove the extension package file.",
-	)
-	assert_package_godot_cli_smoke_condition(
-		(project_root / "addons/gf/plugin.gd").is_file(),
-		issues,
-		scenario,
-		"package_godot_cli_smoke_uninstall_removed_kernel",
-		"Godot native package CLI uninstall should keep the bundled kernel package.",
-	)
-	record_package_godot_cli_smoke_scenario(
-		scenarios,
-		scenario,
-		len(issues) == start_issue_count,
-		{"removed_file_count": uninstall_data.get("removed_file_count", 0)},
-	)
-
-
-def run_package_godot_cli_smoke_missing_file_list_rejection(
-	temp_root: Path,
-	registry_path: Path,
-	scenarios: list[dict[str, Any]],
-	issues: list[dict[str, Any]],
-) -> None:
-	scenario = "godot_cli_missing_file_list_rejection"
-	start_issue_count = len(issues)
-	project_root = temp_root / "missing_files_cli_project"
-	run_package_godot_cli_smoke_command(
-		scenario,
-		[
-			"install",
-			"gf.extension.save",
-			"--registry",
-			str(registry_path),
-			"--project-root",
-			str(project_root),
-			"--json",
-		],
-		issues,
-	)
-	extra_file = project_root / "addons/gf/extensions/save/project_extra_file.gd"
-	extra_file.parent.mkdir(parents=True, exist_ok=True)
-	extra_file.write_text("extends Node\n", encoding="utf-8")
-	remove_package_smoke_lockfile_files(
-		project_root,
-		[
-			"gf.extension.save",
-			"gf.standard.base",
-			"gf.standard.deterministic",
-			"gf.standard.storage",
-		],
-	)
-	uninstall_data = run_package_godot_cli_smoke_command(
-		scenario,
-		[
-			"uninstall",
-			"gf.extension.save",
-			"--registry",
-			str(registry_path),
-			"--project-root",
-			str(project_root),
-			"--json",
-		],
-		issues,
-		allow_failure=True,
-	)
-	verify_data = run_package_godot_cli_smoke_command(
-		scenario,
-		[
-			"verify",
-			"--registry",
-			str(registry_path),
-			"--project-root",
-			str(project_root),
-			"--json",
-		],
-		issues,
-		allow_failure=True,
-	)
-	lockfile_data = read_json_object(project_root / ".gf/packages.lock.json")
-	installed = lockfile_data.get("installed", {}) if isinstance(lockfile_data.get("installed", {}), dict) else {}
-	uninstall_issues = package_smoke_string_list(uninstall_data.get("issues", []))
-	assert_package_godot_cli_smoke_condition(
-		not bool(uninstall_data.get("ok"))
-		and int(uninstall_data.get("planned_file_count", -1)) == 0
-		and int(uninstall_data.get("removed_file_count", -1)) == 0
-		and any("missing the installed files list" in issue for issue in uninstall_issues),
-		issues,
-		scenario,
-		"package_godot_cli_smoke_missing_files_not_rejected",
-		"Godot native package CLI should reject lockfile entries that lack exact files lists.",
-		actual_value=json.dumps({
-			"ok": uninstall_data.get("ok"),
-			"planned_file_count": uninstall_data.get("planned_file_count"),
-			"removed_file_count": uninstall_data.get("removed_file_count"),
-			"issues": uninstall_issues,
-		}, ensure_ascii=False, sort_keys=True),
-	)
-	assert_package_godot_cli_smoke_condition(
-		not bool(verify_data.get("ok")),
-		issues,
-		scenario,
-		"package_godot_cli_smoke_missing_files_verify_not_rejected",
-		"Godot native package CLI verify should reject lockfiles that lack installed files lists.",
-		actual_value=str(verify_data.get("issues", [])),
-	)
-	assert_package_godot_cli_smoke_condition(
-		"gf.extension.save" in installed
-		and "gf.standard.storage" in installed
-		and "gf.standard.base" in installed
-		and "gf.standard.deterministic" in installed
-		and "gf.kernel" in installed
-		and (project_root / "addons/gf/extensions/save/gf_extension.json").exists()
-		and (project_root / "addons/gf/standard/utilities/storage/gf_storage_utility.gd").exists()
-		and extra_file.is_file(),
-		issues,
-		scenario,
-		"package_godot_cli_smoke_missing_files_rejection_mutated_project",
-		"Godot native package CLI strict rejection should not delete package or user-added files.",
-		actual_value=",".join(sorted(installed.keys())),
-	)
-	record_package_godot_cli_smoke_scenario(
-		scenarios,
-		scenario,
-		len(issues) == start_issue_count,
-		{
-			"planned_file_count": uninstall_data.get("planned_file_count", 0),
-			"removed_file_count": uninstall_data.get("removed_file_count", 0),
-			"verify_ok": verify_data.get("ok", False),
-		},
-	)
-
-
-def run_package_godot_cli_smoke_http_install(
-	temp_root: Path,
-	registry_url: str,
-	scenarios: list[dict[str, Any]],
-	issues: list[dict[str, Any]],
-) -> None:
-	scenario = "godot_cli_http_install_save"
-	start_issue_count = len(issues)
-	project_root = temp_root / "http_cli_project"
-	cache_root = temp_root / "http_cli_cache"
-	install_data = run_package_godot_cli_smoke_command(
-		scenario,
-		[
-			"install",
-			"gf.extension.save",
-			"--registry",
-			registry_url,
-			"--project-root",
-			str(project_root),
-			"--cache-dir",
-			str(cache_root),
-			"--json",
-		],
-		issues,
-	)
-	assert_package_godot_cli_smoke_condition(
-		bool(install_data.get("ok")),
-		issues,
-		scenario,
-		"package_godot_cli_smoke_http_install_failed",
-		"Godot native package CLI should install gf.extension.save from an HTTP registry.",
-	)
-	for relative_path in [
-		"addons/gf/plugin.gd",
-		"addons/gf/standard/utilities/storage/gf_storage_utility.gd",
-		"addons/gf/extensions/save/gf_extension.json",
-	]:
-		assert_package_godot_cli_smoke_condition(
-			(project_root / relative_path).is_file(),
-			issues,
-			scenario,
-			"package_godot_cli_smoke_http_missing_installed_file",
-			f"Godot native package CLI HTTP install should write {relative_path}.",
-			expected_value=relative_path,
-		)
-	lockfile_data = read_json_object(project_root / ".gf/packages.lock.json")
-	installed = lockfile_data.get("installed", {}) if isinstance(lockfile_data.get("installed", {}), dict) else {}
-	save_entry = installed.get("gf.extension.save", {}) if isinstance(installed.get("gf.extension.save", {}), dict) else {}
-	assert_package_godot_cli_smoke_condition(
-		str(save_entry.get("archive", "")).startswith("http://127.0.0.1:"),
-		issues,
-		scenario,
-		"package_godot_cli_smoke_http_lockfile_archive_not_url",
-		"Godot native package CLI HTTP install should persist the resolved archive URL in the lockfile.",
-		actual_value=str(save_entry.get("archive", "")),
-	)
-	assert_package_godot_cli_smoke_condition(
-		package_smoke_cache_has_file(cache_root, "objects/sha256", ".zip")
-		and package_smoke_cache_has_file(project_root / ".gf/package_workspace", "registries", ".json"),
-		issues,
-		scenario,
-		"package_godot_cli_smoke_http_cache_missing",
-		"Godot native package CLI HTTP install should cache the registry and downloaded archives.",
-	)
-	record_package_godot_cli_smoke_scenario(
-		scenarios,
-		scenario,
-		len(issues) == start_issue_count,
-		{
-			"installed_file_count": install_data.get("installed_file_count", 0),
-			"cache_file_count": package_smoke_cache_file_count(cache_root),
-		},
-	)
-
-
-def run_package_godot_cli_smoke_minimal_kernel_local_install_verify_uninstall(
-	temp_root: Path,
-	registry_path: Path,
-	scenarios: list[dict[str, Any]],
-	issues: list[dict[str, Any]],
-) -> None:
-	scenario = "godot_cli_minimal_kernel_project_local_install_verify_uninstall"
-	start_issue_count = len(issues)
-	project_root = temp_root / "minimal_kernel_cli_local_project"
-	write_package_godot_smoke_project(project_root, scenario)
-	kernel_archive_path = resolve_package_godot_cli_smoke_local_archive(registry_path, "gf.kernel")
-	if kernel_archive_path is None:
-		assert_package_godot_cli_smoke_condition(
-			False,
-			issues,
-			scenario,
-			"package_godot_cli_smoke_minimal_kernel_local_archive_missing",
-			"Smoke setup should find the locally built gf.kernel archive for local registry install.",
-		)
-		record_package_godot_cli_smoke_scenario(scenarios, scenario, False)
-		return
-	if not prepare_package_smoke_kernel_baseline(kernel_archive_path, project_root, scenario, issues):
-		record_package_godot_cli_smoke_scenario(scenarios, scenario, False)
-		return
-	install_data = run_package_godot_cli_smoke_command(
-		scenario,
-		[
-			"install",
-			"gf.extension.save",
-			"--registry",
-			str(registry_path),
-			"--project-root",
-			str(project_root),
-			"--json",
-		],
-		issues,
-		godot_project_root=project_root,
-	)
-	install_lockfile_data = read_json_object(project_root / ".gf/packages.lock.json")
-	installed_after_install = (
-		install_lockfile_data.get("installed", {})
-		if isinstance(install_lockfile_data.get("installed", {}), dict)
-		else {}
-	)
-	save_entry = (
-		installed_after_install.get("gf.extension.save", {})
-		if isinstance(installed_after_install.get("gf.extension.save", {}), dict)
-		else {}
-	)
-	assert_package_godot_cli_smoke_condition(
-		bool(install_data.get("ok")) and int(install_data.get("installed_file_count", 0)) > 0,
-		issues,
-		scenario,
-		"package_godot_cli_smoke_minimal_kernel_local_install_failed",
-		"A project containing only gf.kernel should install gf.extension.save from a local registry through its own Godot-native CLI.",
-		actual_value=str(install_data.get("issues", [])),
-	)
-	for package_id in ["gf.kernel", "gf.standard.base", "gf.standard.deterministic", "gf.standard.storage", "gf.extension.save"]:
-		assert_package_godot_cli_smoke_condition(
-			package_id in installed_after_install,
-			issues,
-			scenario,
-			"package_godot_cli_smoke_minimal_kernel_local_missing_lockfile_package",
-			"Minimal gf.kernel local install should record the selected extension closure in the lockfile.",
-			expected_value=package_id,
-		)
-	assert_package_godot_cli_smoke_condition(
-		str(save_entry.get("archive", ""))
-		and not str(save_entry.get("archive", "")).startswith("http://")
-		and not str(save_entry.get("archive", "")).startswith("https://"),
-		issues,
-		scenario,
-		"package_godot_cli_smoke_minimal_kernel_local_archive_is_remote",
-		"Local registry installs should not persist a remote archive URL in the lockfile.",
-		actual_value=str(save_entry.get("archive", "")),
-	)
-	for relative_path in [
-		"addons/gf/plugin.gd",
-		"addons/gf/kernel/package/gf_package_cli.gd",
-		"addons/gf/standard/utilities/storage/gf_storage_utility.gd",
-		"addons/gf/extensions/save/gf_extension.json",
-	]:
-		assert_package_godot_cli_smoke_condition(
-			(project_root / relative_path).is_file(),
-			issues,
-			scenario,
-			"package_godot_cli_smoke_minimal_kernel_local_missing_installed_file",
-			"Minimal gf.kernel local registry install should materialize the selected package closure.",
-			expected_value=relative_path,
-		)
-	assert_package_godot_cli_smoke_condition(
-		not (project_root / "addons/gf/kernel/package_tools").exists(),
-		issues,
-		scenario,
-		"package_godot_cli_smoke_minimal_kernel_local_added_package_tools",
-		"Local registry install must not add maintenance-side Python package tools to a user project.",
-	)
-	update_data = run_package_godot_cli_smoke_command(
-		scenario,
-		[
-			"update",
-			"--all-installed",
-			"--registry",
-			str(registry_path),
-			"--project-root",
-			str(project_root),
-			"--json",
-		],
-		issues,
-		godot_project_root=project_root,
-	)
-	assert_package_godot_cli_smoke_condition(
-		bool(update_data.get("ok")) and bool(update_data.get("all_installed")),
-		issues,
-		scenario,
-		"package_godot_cli_smoke_minimal_kernel_local_update_failed",
-		"Minimal gf.kernel project CLI should support update --all-installed after installing a package closure.",
-		actual_value=str(update_data.get("issues", [])),
-	)
-	verify_data = run_package_godot_cli_smoke_command(
-		scenario,
-		[
-			"verify",
-			"--registry",
-			str(registry_path),
-			"--project-root",
-			str(project_root),
-			"--json",
-		],
-		issues,
-		godot_project_root=project_root,
-	)
-	assert_package_godot_cli_smoke_condition(
-		bool(verify_data.get("ok")),
-		issues,
-		scenario,
-		"package_godot_cli_smoke_minimal_kernel_local_verify_failed",
-		"Minimal gf.kernel project CLI should verify the lockfile after local registry install.",
-		actual_value=str(verify_data.get("issues", [])),
-	)
-	uninstall_data = run_package_godot_cli_smoke_command(
-		scenario,
-		[
-			"uninstall",
-			"gf.extension.save",
-			"--registry",
-			str(registry_path),
-			"--project-root",
-			str(project_root),
-			"--json",
-		],
-		issues,
-		godot_project_root=project_root,
-	)
-	post_uninstall_verify_data = run_package_godot_cli_smoke_command(
-		scenario,
-		[
-			"verify",
-			"--registry",
-			str(registry_path),
-			"--project-root",
-			str(project_root),
-			"--json",
-		],
-		issues,
-		godot_project_root=project_root,
-	)
-	lockfile_data = read_json_object(project_root / ".gf/packages.lock.json")
-	installed_after_uninstall = (
-		lockfile_data.get("installed", {})
-		if isinstance(lockfile_data.get("installed", {}), dict)
-		else {}
-	)
-	assert_package_godot_cli_smoke_condition(
-		bool(uninstall_data.get("ok")) and int(uninstall_data.get("removed_file_count", 0)) > 0,
-		issues,
-		scenario,
-		"package_godot_cli_smoke_minimal_kernel_local_uninstall_failed",
-		"Minimal gf.kernel project CLI should uninstall gf.extension.save from a local registry and prune unused dependencies.",
-		actual_value=str(uninstall_data.get("issues", [])),
-	)
-	assert_package_godot_cli_smoke_condition(
-		bool(post_uninstall_verify_data.get("ok")),
-		issues,
-		scenario,
-		"package_godot_cli_smoke_minimal_kernel_local_post_uninstall_verify_failed",
-		"Minimal gf.kernel project CLI should verify the lockfile after local registry uninstall.",
-		actual_value=str(post_uninstall_verify_data.get("issues", [])),
-	)
-	assert_package_godot_cli_smoke_condition(
-		sorted(installed_after_uninstall.keys()) == ["gf.kernel"]
-		and (project_root / "addons/gf/plugin.gd").is_file()
-		and (project_root / "addons/gf/kernel/package/gf_package_cli.gd").is_file()
-		and not (project_root / "addons/gf/standard/utilities/storage/gf_storage_utility.gd").exists()
-		and not (project_root / "addons/gf/extensions/save/gf_extension.json").exists()
-		and not (project_root / "addons/gf/kernel/package_tools").exists(),
-		issues,
-		scenario,
-		"package_godot_cli_smoke_minimal_kernel_local_uninstall_state_invalid",
-		"Minimal gf.kernel project CLI local uninstall should keep only kernel and prune the selected extension closure.",
-		actual_value=str(sorted(installed_after_uninstall.keys())),
-	)
-	record_package_godot_cli_smoke_scenario(
-		scenarios,
-		scenario,
-		len(issues) == start_issue_count,
-		{
-			"installed_file_count": install_data.get("installed_file_count", 0),
-			"updated_file_count": update_data.get("updated_file_count", 0),
-			"removed_file_count": uninstall_data.get("removed_file_count", 0),
-			"post_uninstall_issue_count": post_uninstall_verify_data.get("issue_count", 0),
-		},
-	)
-
-
-def run_package_godot_cli_smoke_minimal_kernel_local_preset_install_verify_uninstall(
-	temp_root: Path,
-	registry_path: Path,
-	scenarios: list[dict[str, Any]],
-	issues: list[dict[str, Any]],
-	scenario: str = "godot_cli_minimal_kernel_project_local_preset_install_verify_uninstall",
-	project_dir_name: str = "minimal_kernel_cli_local_preset_project",
-	cli_registry_value: str = "",
-) -> None:
-	start_issue_count = len(issues)
-	project_root = temp_root / project_dir_name
-	operation_registry_value = cli_registry_value if cli_registry_value else str(registry_path)
-	write_package_godot_smoke_project(project_root, scenario)
-	kernel_archive_path = resolve_package_godot_cli_smoke_local_archive(registry_path, "gf.kernel")
-	if kernel_archive_path is None:
-		assert_package_godot_cli_smoke_condition(
-			False,
-			issues,
-			scenario,
-			"package_godot_cli_smoke_minimal_kernel_local_preset_archive_missing",
-			"Smoke setup should find the locally built gf.kernel archive for local registry preset install.",
-		)
-		record_package_godot_cli_smoke_scenario(scenarios, scenario, False)
-		return
-	if not prepare_package_smoke_kernel_baseline(kernel_archive_path, project_root, scenario, issues):
-		record_package_godot_cli_smoke_scenario(scenarios, scenario, False)
-		return
-	install_data = run_package_godot_cli_smoke_command(
-		scenario,
-		[
-			"install",
-			"gf.preset.rpg_save_dialogue",
-			"--registry",
-			operation_registry_value,
-			"--project-root",
-			str(project_root),
-			"--json",
-		],
-		issues,
-		godot_project_root=project_root,
-	)
-	install_lockfile_data = read_json_object(project_root / ".gf/packages.lock.json")
-	installed_after_install = (
-		install_lockfile_data.get("installed", {})
-		if isinstance(install_lockfile_data.get("installed", {}), dict)
-		else {}
-	)
-	preset_entry = (
-		installed_after_install.get("gf.preset.rpg_save_dialogue", {})
-		if isinstance(installed_after_install.get("gf.preset.rpg_save_dialogue", {}), dict)
-		else {}
-	)
-	save_entry = (
-		installed_after_install.get("gf.extension.save", {})
-		if isinstance(installed_after_install.get("gf.extension.save", {}), dict)
-		else {}
-	)
-	assert_package_godot_cli_smoke_condition(
-		bool(install_data.get("ok")) and int(install_data.get("installed_file_count", 0)) > 0,
-		issues,
-		scenario,
-		"package_godot_cli_smoke_minimal_kernel_local_preset_install_failed",
-		"A project containing only gf.kernel should install gf.preset.rpg_save_dialogue from a local registry through its own Godot-native CLI.",
-		actual_value=str(install_data.get("issues", [])),
-	)
-	for package_id in [
-		"gf.kernel",
-		"gf.preset.rpg_save_dialogue",
-		"gf.extension.save",
-		"gf.extension.dialogue",
-		"gf.extension.domain",
-		"gf.standard.base",
-		"gf.standard.config",
-		"gf.standard.storage",
-		"gf.standard.deterministic",
-	]:
-		assert_package_godot_cli_smoke_condition(
-			package_id in installed_after_install,
-			issues,
-			scenario,
-			"package_godot_cli_smoke_minimal_kernel_local_preset_missing_lockfile_package",
-			"Minimal gf.kernel local preset install should record the preset, concrete packages, and dependencies in the lockfile.",
-			expected_value=package_id,
-		)
-	assert_package_godot_cli_smoke_condition(
-		not package_smoke_string_list(preset_entry.get("files", [])),
-		issues,
-		scenario,
-		"package_godot_cli_smoke_minimal_kernel_local_preset_has_files",
-		"Preset lock entries should not own physical files.",
-		actual_value=str(preset_entry.get("files", [])),
-	)
-	assert_package_godot_cli_smoke_condition(
-		str(save_entry.get("archive", ""))
-		and not str(save_entry.get("archive", "")).startswith("http://")
-		and not str(save_entry.get("archive", "")).startswith("https://"),
-		issues,
-		scenario,
-		"package_godot_cli_smoke_minimal_kernel_local_preset_archive_is_remote",
-		"Local registry preset installs should persist local archive paths for concrete packages.",
-		actual_value=str(save_entry.get("archive", "")),
-	)
-	for relative_path in [
-		"addons/gf/extensions/save/gf_extension.json",
-		"addons/gf/extensions/dialogue/gf_extension.json",
-		"addons/gf/extensions/domain/gf_extension.json",
-		"addons/gf/standard/utilities/config/gf_config_provider.gd",
-		"addons/gf/standard/utilities/storage/gf_storage_utility.gd",
-		"addons/gf/standard/foundation/deterministic/gf_deterministic_variant_serializer.gd",
-	]:
-		assert_package_godot_cli_smoke_condition(
-			(project_root / relative_path).is_file(),
-			issues,
-			scenario,
-			"package_godot_cli_smoke_minimal_kernel_local_preset_missing_installed_file",
-			"Minimal gf.kernel local preset install should materialize the preset package closure.",
-			expected_value=relative_path,
-		)
-	assert_package_godot_cli_smoke_condition(
-		not (project_root / "addons/gf/kernel/package_tools").exists(),
-		issues,
-		scenario,
-		"package_godot_cli_smoke_minimal_kernel_local_preset_added_package_tools",
-		"Installing presets from a local registry must not add maintenance-side Python package tools to a user project.",
-	)
-	verify_data = run_package_godot_cli_smoke_command(
-		scenario,
-		[
-			"verify",
-			"--registry",
-			operation_registry_value,
-			"--project-root",
-			str(project_root),
-			"--json",
-		],
-		issues,
-		godot_project_root=project_root,
-	)
-	assert_package_godot_cli_smoke_condition(
-		bool(verify_data.get("ok")),
-		issues,
-		scenario,
-		"package_godot_cli_smoke_minimal_kernel_local_preset_verify_failed",
-		"Minimal gf.kernel project CLI should verify the lockfile after local registry preset install.",
-		actual_value=str(verify_data.get("issues", [])),
-	)
-	uninstall_data = run_package_godot_cli_smoke_command(
-		scenario,
-		[
-			"uninstall",
-			"gf.preset.rpg_save_dialogue",
-			"--registry",
-			operation_registry_value,
-			"--project-root",
-			str(project_root),
-			"--json",
-		],
-		issues,
-		godot_project_root=project_root,
-	)
-	post_uninstall_verify_data = run_package_godot_cli_smoke_command(
-		scenario,
-		[
-			"verify",
-			"--registry",
-			operation_registry_value,
-			"--project-root",
-			str(project_root),
-			"--json",
-		],
-		issues,
-		godot_project_root=project_root,
-	)
-	lockfile_data = read_json_object(project_root / ".gf/packages.lock.json")
-	installed_after_uninstall = (
-		lockfile_data.get("installed", {})
-		if isinstance(lockfile_data.get("installed", {}), dict)
-		else {}
-	)
-	assert_package_godot_cli_smoke_condition(
-		bool(uninstall_data.get("ok")) and int(uninstall_data.get("removed_file_count", 0)) > 0,
-		issues,
-		scenario,
-		"package_godot_cli_smoke_minimal_kernel_local_preset_uninstall_failed",
-		"Minimal gf.kernel project CLI should uninstall gf.preset.rpg_save_dialogue from a local registry and prune unused concrete packages.",
-		actual_value=str(uninstall_data.get("issues", [])),
-	)
-	assert_package_godot_cli_smoke_condition(
-		bool(post_uninstall_verify_data.get("ok")),
-		issues,
-		scenario,
-		"package_godot_cli_smoke_minimal_kernel_local_preset_post_uninstall_verify_failed",
-		"Minimal gf.kernel project CLI should verify the lockfile after local registry preset uninstall.",
-		actual_value=str(post_uninstall_verify_data.get("issues", [])),
-	)
-	assert_package_godot_cli_smoke_condition(
-		sorted(installed_after_uninstall.keys()) == ["gf.kernel"]
-		and (project_root / "addons/gf/plugin.gd").is_file()
-		and (project_root / "addons/gf/kernel/package/gf_package_cli.gd").is_file()
-		and not (project_root / "addons/gf/extensions/save/gf_extension.json").exists()
-		and not (project_root / "addons/gf/extensions/dialogue/gf_extension.json").exists()
-		and not (project_root / "addons/gf/extensions/domain/gf_extension.json").exists()
-		and not (project_root / "addons/gf/standard/utilities/config/gf_config_provider.gd").exists()
-		and not (project_root / "addons/gf/standard/utilities/storage/gf_storage_utility.gd").exists()
-		and not (project_root / "addons/gf/standard/foundation/deterministic/gf_deterministic_variant_serializer.gd").exists()
-		and not (project_root / "addons/gf/kernel/package_tools").exists(),
-		issues,
-		scenario,
-		"package_godot_cli_smoke_minimal_kernel_local_preset_uninstall_state_invalid",
-		"Minimal gf.kernel project CLI local preset uninstall should keep only kernel and prune unneeded preset packages.",
-		actual_value=str(sorted(installed_after_uninstall.keys())),
-	)
-	record_package_godot_cli_smoke_scenario(
-		scenarios,
-		scenario,
-		len(issues) == start_issue_count,
-		{
-			"installed_file_count": install_data.get("installed_file_count", 0),
-			"removed_file_count": uninstall_data.get("removed_file_count", 0),
-			"post_uninstall_issue_count": post_uninstall_verify_data.get("issue_count", 0),
-			"installed_archive": str(save_entry.get("archive", "")),
-		},
-	)
-
-
-def run_package_godot_cli_smoke_minimal_kernel_offline_bundle_preset_install_verify_uninstall(
-	temp_root: Path,
-	offline_bundle_path: Path,
-	scenarios: list[dict[str, Any]],
-	issues: list[dict[str, Any]],
-) -> None:
-	scenario = "godot_cli_minimal_kernel_project_offline_bundle_preset_install_verify_uninstall"
-	start_issue_count = len(issues)
-	extract_root = temp_root / "offline_bundle_extracted"
-	extract_package_godot_cli_smoke_offline_bundle(offline_bundle_path, extract_root, scenario, issues)
-	extracted_registry_path = extract_root / "registry/index.json"
-	assert_package_godot_cli_smoke_condition(
-		extracted_registry_path.is_file(),
-		issues,
-		scenario,
-		"package_godot_cli_smoke_offline_bundle_registry_missing",
-		"Extracted offline bundle should contain registry/index.json for local Godot-native installs.",
-		expected_value="registry/index.json",
-	)
-	if not extracted_registry_path.is_file():
-		record_package_godot_cli_smoke_scenario(scenarios, scenario, False)
-		return
-	run_package_godot_cli_smoke_minimal_kernel_local_preset_install_verify_uninstall(
-		temp_root,
-		extracted_registry_path,
-		scenarios,
-		issues,
-		scenario,
-		"minimal_kernel_cli_offline_bundle_preset_project",
-	)
-	if len(scenarios) == 0:
-		return
-	scenario_record = scenarios[-1]
-	if scenario_record.get("name") != scenario:
-		return
-	scenario_record["offline_bundle"] = offline_bundle_path.as_posix()
-	scenario_record["extracted_registry"] = extracted_registry_path.as_posix()
-	scenario_record["offline_bundle_entry_count"] = package_godot_cli_smoke_zip_file_count(offline_bundle_path)
-	scenario_record["ok"] = bool(scenario_record.get("ok")) and len(issues) == start_issue_count
-
-
-def run_package_godot_cli_smoke_minimal_kernel_offline_bundle_zip_preset_install_verify_uninstall(
-	temp_root: Path,
-	offline_bundle_path: Path,
-	scenarios: list[dict[str, Any]],
-	issues: list[dict[str, Any]],
-) -> None:
-	scenario = "godot_cli_minimal_kernel_project_offline_bundle_zip_preset_install_verify_uninstall"
-	start_issue_count = len(issues)
-	extract_root = temp_root / "offline_bundle_zip_setup_extracted"
-	extract_package_godot_cli_smoke_offline_bundle(offline_bundle_path, extract_root, scenario, issues)
-	extracted_registry_path = extract_root / "registry/index.json"
-	assert_package_godot_cli_smoke_condition(
-		extracted_registry_path.is_file(),
-		issues,
-		scenario,
-		"package_godot_cli_smoke_offline_bundle_zip_setup_registry_missing",
-		"Extracted offline bundle should contain registry/index.json for minimal-kernel CLI fixture setup.",
-		expected_value="registry/index.json",
-	)
-	if not extracted_registry_path.is_file():
-		record_package_godot_cli_smoke_scenario(scenarios, scenario, False)
-		return
-	run_package_godot_cli_smoke_minimal_kernel_local_preset_install_verify_uninstall(
-		temp_root,
-		extracted_registry_path,
-		scenarios,
-		issues,
-		scenario,
-		"minimal_kernel_cli_offline_bundle_zip_preset_project",
-		offline_bundle_path.as_posix(),
-	)
-	if len(scenarios) == 0:
-		return
-	scenario_record = scenarios[-1]
-	if scenario_record.get("name") != scenario:
-		return
-	scenario_record["offline_bundle"] = offline_bundle_path.as_posix()
-	scenario_record["setup_registry"] = extracted_registry_path.as_posix()
-	scenario_record["offline_bundle_entry_count"] = package_godot_cli_smoke_zip_file_count(offline_bundle_path)
-	scenario_record["ok"] = bool(scenario_record.get("ok")) and len(issues) == start_issue_count
-
-
-def run_package_godot_cli_smoke_minimal_kernel_http_install_verify_uninstall(
-	temp_root: Path,
-	base_url: str,
-	registry_path: Path,
-	scenarios: list[dict[str, Any]],
-	issues: list[dict[str, Any]],
-) -> None:
-	scenario = "godot_cli_minimal_kernel_project_http_install_verify_uninstall"
-	start_issue_count = len(issues)
-	project_root = temp_root / "minimal_kernel_cli_project"
-	cache_root = temp_root / "minimal_kernel_cli_cache"
-	registry_url = package_smoke_url(base_url, "registry/index.json")
-	write_package_godot_smoke_project(project_root, scenario)
-	kernel_archive_path = resolve_package_godot_cli_smoke_local_archive(registry_path, "gf.kernel")
-	if kernel_archive_path is None:
-		assert_package_godot_cli_smoke_condition(
-			False,
-			issues,
-			scenario,
-			"package_godot_cli_smoke_minimal_kernel_archive_missing",
-			"Smoke setup should find the locally built gf.kernel archive.",
-		)
-		record_package_godot_cli_smoke_scenario(scenarios, scenario, False)
-		return
-	if not prepare_package_smoke_kernel_baseline(kernel_archive_path, project_root, scenario, issues):
-		record_package_godot_cli_smoke_scenario(scenarios, scenario, False)
-		return
-	assert_package_godot_cli_smoke_condition(
-		(project_root / "addons/gf/kernel/package/gf_package_cli.gd").is_file(),
-		issues,
-		scenario,
-		"package_godot_cli_smoke_minimal_kernel_cli_missing",
-		"The built gf.kernel archive should contain the Godot-native package CLI.",
-	)
-	assert_package_godot_cli_smoke_condition(
-		not (project_root / "addons/gf/standard").exists()
-		and not (project_root / "addons/gf/extensions/save").exists()
-		and not (project_root / "addons/gf/kernel/package_tools").exists(),
-		issues,
-		scenario,
-		"package_godot_cli_smoke_minimal_kernel_not_minimal",
-		"The minimal gf.kernel fixture should not include standard packages, extensions, or Python package tools.",
-	)
-	install_data = run_package_godot_cli_smoke_command(
-		scenario,
-		[
-			"install",
-			"gf.extension.save",
-			"--registry",
-			registry_url,
-			"--project-root",
-			str(project_root),
-			"--cache-dir",
-			str(cache_root),
-			"--json",
-		],
-		issues,
-		godot_project_root=project_root,
-	)
-	assert_package_godot_cli_smoke_condition(
-		bool(install_data.get("ok")),
-		issues,
-		scenario,
-		"package_godot_cli_smoke_minimal_kernel_install_failed",
-		"A project containing only gf.kernel should install gf.extension.save from HTTP through its own Godot-native CLI.",
-		actual_value=str(install_data.get("issues", [])),
-	)
-	for relative_path in [
-		"addons/gf/plugin.gd",
-		"addons/gf/kernel/package/gf_package_cli.gd",
-		"addons/gf/standard/utilities/storage/gf_storage_utility.gd",
-		"addons/gf/extensions/save/gf_extension.json",
-	]:
-		assert_package_godot_cli_smoke_condition(
-			(project_root / relative_path).is_file(),
-			issues,
-			scenario,
-			"package_godot_cli_smoke_minimal_kernel_missing_installed_file",
-			"Minimal gf.kernel project install should materialize the selected package closure.",
-			expected_value=relative_path,
-		)
-	assert_package_godot_cli_smoke_condition(
-		not (project_root / "addons/gf/kernel/package_tools").exists(),
-		issues,
-		scenario,
-		"package_godot_cli_smoke_minimal_kernel_added_package_tools",
-		"Installing extensions must not add maintenance-side Python package tools to a user project.",
-	)
-	verify_data = run_package_godot_cli_smoke_command(
-		scenario,
-		[
-			"verify",
-			"--registry",
-			registry_url,
-			"--project-root",
-			str(project_root),
-			"--cache-dir",
-			str(cache_root),
-			"--json",
-		],
-		issues,
-		godot_project_root=project_root,
-	)
-	assert_package_godot_cli_smoke_condition(
-		bool(verify_data.get("ok")),
-		issues,
-		scenario,
-		"package_godot_cli_smoke_minimal_kernel_verify_failed",
-		"Minimal gf.kernel project CLI should verify the lockfile after HTTP install.",
-		actual_value=str(verify_data.get("issues", [])),
-	)
-	uninstall_data = run_package_godot_cli_smoke_command(
-		scenario,
-		[
-			"uninstall",
-			"gf.extension.save",
-			"--registry",
-			registry_url,
-			"--project-root",
-			str(project_root),
-			"--cache-dir",
-			str(cache_root),
-			"--json",
-		],
-		issues,
-		godot_project_root=project_root,
-	)
-	post_uninstall_verify_data = run_package_godot_cli_smoke_command(
-		scenario,
-		[
-			"verify",
-			"--registry",
-			registry_url,
-			"--project-root",
-			str(project_root),
-			"--cache-dir",
-			str(cache_root),
-			"--json",
-		],
-		issues,
-		godot_project_root=project_root,
-	)
-	lockfile_data = read_json_object(project_root / ".gf/packages.lock.json")
-	installed = lockfile_data.get("installed", {}) if isinstance(lockfile_data.get("installed", {}), dict) else {}
-	assert_package_godot_cli_smoke_condition(
-		bool(uninstall_data.get("ok")) and int(uninstall_data.get("removed_file_count", 0)) > 0,
-		issues,
-		scenario,
-		"package_godot_cli_smoke_minimal_kernel_uninstall_failed",
-		"Minimal gf.kernel project CLI should uninstall gf.extension.save and prune unused standard dependencies.",
-		actual_value=str(uninstall_data.get("issues", [])),
-	)
-	assert_package_godot_cli_smoke_condition(
-		bool(post_uninstall_verify_data.get("ok")),
-		issues,
-		scenario,
-		"package_godot_cli_smoke_minimal_kernel_post_uninstall_verify_failed",
-		"Minimal gf.kernel project CLI should verify the lockfile after HTTP uninstall.",
-		actual_value=str(post_uninstall_verify_data.get("issues", [])),
-	)
-	assert_package_godot_cli_smoke_condition(
-		"gf.kernel" in installed
-		and "gf.extension.save" not in installed
-		and "gf.standard.storage" not in installed
-		and "gf.standard.base" not in installed
-		and "gf.standard.deterministic" not in installed
-		and (project_root / "addons/gf/plugin.gd").is_file()
-		and (project_root / "addons/gf/kernel/package/gf_package_cli.gd").is_file()
-		and not (project_root / "addons/gf/standard/utilities/storage/gf_storage_utility.gd").exists()
-		and not (project_root / "addons/gf/extensions/save/gf_extension.json").exists()
-		and not (project_root / "addons/gf/kernel/package_tools").exists(),
-		issues,
-		scenario,
-		"package_godot_cli_smoke_minimal_kernel_uninstall_state_invalid",
-		"Minimal gf.kernel project CLI uninstall should keep kernel, remove the selected extension closure, and avoid Python package tools.",
-		actual_value=str(sorted(installed.keys())),
-	)
-	record_package_godot_cli_smoke_scenario(
-		scenarios,
-		scenario,
-		len(issues) == start_issue_count,
-		{
-			"installed_file_count": install_data.get("installed_file_count", 0),
-			"removed_file_count": uninstall_data.get("removed_file_count", 0),
-			"post_uninstall_issue_count": post_uninstall_verify_data.get("issue_count", 0),
-			"cache_file_count": package_smoke_cache_file_count(cache_root),
-		},
-	)
-
-
-def run_package_godot_cli_smoke_minimal_kernel_http_standard_install_verify_uninstall(
-	temp_root: Path,
-	base_url: str,
-	registry_path: Path,
-	scenarios: list[dict[str, Any]],
-	issues: list[dict[str, Any]],
-) -> None:
-	scenario = "godot_cli_minimal_kernel_project_http_standard_install_verify_uninstall"
-	start_issue_count = len(issues)
-	project_root = temp_root / "minimal_kernel_cli_standard_project"
-	cache_root = temp_root / "minimal_kernel_cli_standard_cache"
-	registry_url = package_smoke_url(base_url, "registry/index.json")
-	write_package_godot_smoke_project(project_root, scenario)
-	kernel_archive_path = resolve_package_godot_cli_smoke_local_archive(registry_path, "gf.kernel")
-	if kernel_archive_path is None:
-		assert_package_godot_cli_smoke_condition(
-			False,
-			issues,
-			scenario,
-			"package_godot_cli_smoke_minimal_kernel_standard_archive_missing",
-			"Smoke setup should find the locally built gf.kernel archive for standard package install.",
-		)
-		record_package_godot_cli_smoke_scenario(scenarios, scenario, False)
-		return
-	if not prepare_package_smoke_kernel_baseline(kernel_archive_path, project_root, scenario, issues):
-		record_package_godot_cli_smoke_scenario(scenarios, scenario, False)
-		return
-	install_data = run_package_godot_cli_smoke_command(
-		scenario,
-		[
-			"install",
-			"gf.standard.storage",
-			"--registry",
-			registry_url,
-			"--project-root",
-			str(project_root),
-			"--cache-dir",
-			str(cache_root),
-			"--json",
-		],
-		issues,
-		godot_project_root=project_root,
-	)
-	install_lockfile_data = read_json_object(project_root / ".gf/packages.lock.json")
-	installed_after_install = (
-		install_lockfile_data.get("installed", {})
-		if isinstance(install_lockfile_data.get("installed", {}), dict)
-		else {}
-	)
-	assert_package_godot_cli_smoke_condition(
-		bool(install_data.get("ok")) and int(install_data.get("installed_file_count", 0)) > 0,
-		issues,
-		scenario,
-		"package_godot_cli_smoke_minimal_kernel_standard_install_failed",
-		"A project containing only gf.kernel should install gf.standard.storage from HTTP through its own Godot-native CLI.",
-		actual_value=str(install_data.get("issues", [])),
-	)
-	for package_id in ["gf.kernel", "gf.standard.base", "gf.standard.storage"]:
-		assert_package_godot_cli_smoke_condition(
-			package_id in installed_after_install,
-			issues,
-			scenario,
-			"package_godot_cli_smoke_minimal_kernel_standard_missing_lockfile_package",
-			"Minimal gf.kernel standard install should record the selected standard package and its dependencies in the lockfile.",
-			expected_value=package_id,
-		)
-	for unexpected_package_id in ["gf.extension.save", "gf.preset.save", "gf.preset.rpg_save_dialogue"]:
-		assert_package_godot_cli_smoke_condition(
-			unexpected_package_id not in installed_after_install,
-			issues,
-			scenario,
-			"package_godot_cli_smoke_minimal_kernel_standard_extra_lockfile_package",
-			"Direct standard package install should not install extension or preset packages.",
-			expected_value=unexpected_package_id,
-		)
-	for relative_path in [
-		"addons/gf/standard/utilities/logging/gf_log_utility.gd",
-		"addons/gf/standard/utilities/storage/gf_storage_utility.gd",
-	]:
-		assert_package_godot_cli_smoke_condition(
-			(project_root / relative_path).is_file(),
-			issues,
-			scenario,
-			"package_godot_cli_smoke_minimal_kernel_standard_missing_installed_file",
-			"Minimal gf.kernel standard install should materialize the selected standard package closure.",
-			expected_value=relative_path,
-		)
-	assert_package_godot_cli_smoke_condition(
-		not (project_root / "addons/gf/extensions/save/gf_extension.json").exists()
-		and not (project_root / "addons/gf/kernel/package_tools").exists(),
-		issues,
-		scenario,
-		"package_godot_cli_smoke_minimal_kernel_standard_unwanted_payload",
-		"Direct standard install must not add extensions or maintenance-side Python package tools.",
-	)
-	verify_data = run_package_godot_cli_smoke_command(
-		scenario,
-		[
-			"verify",
-			"--registry",
-			registry_url,
-			"--project-root",
-			str(project_root),
-			"--cache-dir",
-			str(cache_root),
-			"--json",
-		],
-		issues,
-		godot_project_root=project_root,
-	)
-	assert_package_godot_cli_smoke_condition(
-		bool(verify_data.get("ok")),
-		issues,
-		scenario,
-		"package_godot_cli_smoke_minimal_kernel_standard_verify_failed",
-		"Minimal gf.kernel project CLI should verify the lockfile after HTTP standard install.",
-		actual_value=str(verify_data.get("issues", [])),
-	)
-	uninstall_data = run_package_godot_cli_smoke_command(
-		scenario,
-		[
-			"uninstall",
-			"gf.standard.storage",
-			"--registry",
-			registry_url,
-			"--project-root",
-			str(project_root),
-			"--cache-dir",
-			str(cache_root),
-			"--json",
-		],
-		issues,
-		godot_project_root=project_root,
-	)
-	post_uninstall_verify_data = run_package_godot_cli_smoke_command(
-		scenario,
-		[
-			"verify",
-			"--registry",
-			registry_url,
-			"--project-root",
-			str(project_root),
-			"--cache-dir",
-			str(cache_root),
-			"--json",
-		],
-		issues,
-		godot_project_root=project_root,
-	)
-	lockfile_data = read_json_object(project_root / ".gf/packages.lock.json")
-	installed_after_uninstall = (
-		lockfile_data.get("installed", {})
-		if isinstance(lockfile_data.get("installed", {}), dict)
-		else {}
-	)
-	assert_package_godot_cli_smoke_condition(
-		bool(uninstall_data.get("ok")) and int(uninstall_data.get("removed_file_count", 0)) > 0,
-		issues,
-		scenario,
-		"package_godot_cli_smoke_minimal_kernel_standard_uninstall_failed",
-		"Minimal gf.kernel project CLI should uninstall gf.standard.storage and prune unused standard dependencies.",
-		actual_value=str(uninstall_data.get("issues", [])),
-	)
-	assert_package_godot_cli_smoke_condition(
-		bool(post_uninstall_verify_data.get("ok")),
-		issues,
-		scenario,
-		"package_godot_cli_smoke_minimal_kernel_standard_post_uninstall_verify_failed",
-		"Minimal gf.kernel project CLI should verify the lockfile after HTTP standard uninstall.",
-		actual_value=str(post_uninstall_verify_data.get("issues", [])),
-	)
-	assert_package_godot_cli_smoke_condition(
-		sorted(installed_after_uninstall.keys()) == ["gf.kernel"]
-		and (project_root / "addons/gf/plugin.gd").is_file()
-		and (project_root / "addons/gf/kernel/package/gf_package_cli.gd").is_file()
-		and not (project_root / "addons/gf/standard/utilities/logging/gf_log_utility.gd").exists()
-		and not (project_root / "addons/gf/standard/utilities/storage/gf_storage_utility.gd").exists()
-		and not (project_root / "addons/gf/extensions/save/gf_extension.json").exists()
-		and not (project_root / "addons/gf/kernel/package_tools").exists(),
-		issues,
-		scenario,
-		"package_godot_cli_smoke_minimal_kernel_standard_uninstall_state_invalid",
-		"Minimal gf.kernel project CLI standard uninstall should keep only kernel and prune unneeded standard dependencies.",
-		actual_value=str(sorted(installed_after_uninstall.keys())),
-	)
-	record_package_godot_cli_smoke_scenario(
-		scenarios,
-		scenario,
-		len(issues) == start_issue_count,
-		{
-			"installed_file_count": install_data.get("installed_file_count", 0),
-			"removed_file_count": uninstall_data.get("removed_file_count", 0),
-			"post_uninstall_issue_count": post_uninstall_verify_data.get("issue_count", 0),
-			"cache_file_count": package_smoke_cache_file_count(cache_root),
-		},
-	)
-
-
-def run_package_godot_cli_smoke_minimal_kernel_http_preset_install_verify_uninstall(
-	temp_root: Path,
-	base_url: str,
-	registry_path: Path,
-	scenarios: list[dict[str, Any]],
-	issues: list[dict[str, Any]],
-) -> None:
-	scenario = "godot_cli_minimal_kernel_project_http_preset_install_verify_uninstall"
-	start_issue_count = len(issues)
-	project_root = temp_root / "minimal_kernel_cli_preset_project"
-	cache_root = temp_root / "minimal_kernel_cli_preset_cache"
-	registry_url = package_smoke_url(base_url, "registry/index.json")
-	write_package_godot_smoke_project(project_root, scenario)
-	kernel_archive_path = resolve_package_godot_cli_smoke_local_archive(registry_path, "gf.kernel")
-	if kernel_archive_path is None:
-		assert_package_godot_cli_smoke_condition(
-			False,
-			issues,
-			scenario,
-			"package_godot_cli_smoke_minimal_kernel_preset_archive_missing",
-			"Smoke setup should find the locally built gf.kernel archive for preset install.",
-		)
-		record_package_godot_cli_smoke_scenario(scenarios, scenario, False)
-		return
-	if not prepare_package_smoke_kernel_baseline(kernel_archive_path, project_root, scenario, issues):
-		record_package_godot_cli_smoke_scenario(scenarios, scenario, False)
-		return
-	install_data = run_package_godot_cli_smoke_command(
-		scenario,
-		[
-			"install",
-			"gf.preset.rpg_save_dialogue",
-			"--registry",
-			registry_url,
-			"--project-root",
-			str(project_root),
-			"--cache-dir",
-			str(cache_root),
-			"--json",
-		],
-		issues,
-		godot_project_root=project_root,
-		timeout_seconds=PACKAGE_GODOT_CLI_SMOKE_PRESET_INSTALL_TIMEOUT_SECONDS,
-	)
-	install_lockfile_data = read_json_object(project_root / ".gf/packages.lock.json")
-	installed_after_install = (
-		install_lockfile_data.get("installed", {})
-		if isinstance(install_lockfile_data.get("installed", {}), dict)
-		else {}
-	)
-	preset_entry = (
-		installed_after_install.get("gf.preset.rpg_save_dialogue", {})
-		if isinstance(installed_after_install.get("gf.preset.rpg_save_dialogue", {}), dict)
-		else {}
-	)
-	assert_package_godot_cli_smoke_condition(
-		bool(install_data.get("ok")) and int(install_data.get("installed_file_count", 0)) > 0,
-		issues,
-		scenario,
-		"package_godot_cli_smoke_minimal_kernel_preset_install_failed",
-		"A project containing only gf.kernel should install gf.preset.rpg_save_dialogue from HTTP through its own Godot-native CLI.",
-		actual_value=str(install_data.get("issues", [])),
-	)
-	for package_id in [
-		"gf.kernel",
-		"gf.preset.rpg_save_dialogue",
-		"gf.extension.save",
-		"gf.extension.dialogue",
-		"gf.extension.domain",
-		"gf.standard.base",
-		"gf.standard.config",
-		"gf.standard.storage",
-		"gf.standard.deterministic",
-	]:
-		assert_package_godot_cli_smoke_condition(
-			package_id in installed_after_install,
-			issues,
-			scenario,
-			"package_godot_cli_smoke_minimal_kernel_preset_missing_lockfile_package",
-			"Minimal gf.kernel preset install should record the preset, concrete packages, and dependencies in the lockfile.",
-			expected_value=package_id,
-		)
-	assert_package_godot_cli_smoke_condition(
-		not package_smoke_string_list(preset_entry.get("files", [])),
-		issues,
-		scenario,
-		"package_godot_cli_smoke_minimal_kernel_preset_has_files",
-		"Preset lock entries should not own physical files.",
-		actual_value=str(preset_entry.get("files", [])),
-	)
-	for relative_path in [
-		"addons/gf/extensions/save/gf_extension.json",
-		"addons/gf/extensions/dialogue/gf_extension.json",
-		"addons/gf/extensions/domain/gf_extension.json",
-		"addons/gf/standard/utilities/config/gf_config_provider.gd",
-		"addons/gf/standard/utilities/storage/gf_storage_utility.gd",
-		"addons/gf/standard/foundation/deterministic/gf_deterministic_variant_serializer.gd",
-	]:
-		assert_package_godot_cli_smoke_condition(
-			(project_root / relative_path).is_file(),
-			issues,
-			scenario,
-			"package_godot_cli_smoke_minimal_kernel_preset_missing_installed_file",
-			"Minimal gf.kernel preset install should materialize the preset package closure.",
-			expected_value=relative_path,
-		)
-	assert_package_godot_cli_smoke_condition(
-		not (project_root / "addons/gf/kernel/package_tools").exists(),
-		issues,
-		scenario,
-		"package_godot_cli_smoke_minimal_kernel_preset_added_package_tools",
-		"Installing presets must not add maintenance-side Python package tools to a user project.",
-	)
-	verify_data = run_package_godot_cli_smoke_command(
-		scenario,
-		[
-			"verify",
-			"--registry",
-			registry_url,
-			"--project-root",
-			str(project_root),
-			"--cache-dir",
-			str(cache_root),
-			"--json",
-		],
-		issues,
-		godot_project_root=project_root,
-	)
-	assert_package_godot_cli_smoke_condition(
-		bool(verify_data.get("ok")),
-		issues,
-		scenario,
-		"package_godot_cli_smoke_minimal_kernel_preset_verify_failed",
-		"Minimal gf.kernel project CLI should verify the lockfile after HTTP preset install.",
-		actual_value=str(verify_data.get("issues", [])),
-	)
-	uninstall_data = run_package_godot_cli_smoke_command(
-		scenario,
-		[
-			"uninstall",
-			"gf.preset.rpg_save_dialogue",
-			"--registry",
-			registry_url,
-			"--project-root",
-			str(project_root),
-			"--cache-dir",
-			str(cache_root),
-			"--json",
-		],
-		issues,
-		godot_project_root=project_root,
-	)
-	post_uninstall_verify_data = run_package_godot_cli_smoke_command(
-		scenario,
-		[
-			"verify",
-			"--registry",
-			registry_url,
-			"--project-root",
-			str(project_root),
-			"--cache-dir",
-			str(cache_root),
-			"--json",
-		],
-		issues,
-		godot_project_root=project_root,
-	)
-	lockfile_data = read_json_object(project_root / ".gf/packages.lock.json")
-	installed_after_uninstall = (
-		lockfile_data.get("installed", {})
-		if isinstance(lockfile_data.get("installed", {}), dict)
-		else {}
-	)
-	assert_package_godot_cli_smoke_condition(
-		bool(uninstall_data.get("ok")) and int(uninstall_data.get("removed_file_count", 0)) > 0,
-		issues,
-		scenario,
-		"package_godot_cli_smoke_minimal_kernel_preset_uninstall_failed",
-		"Minimal gf.kernel project CLI should uninstall gf.preset.rpg_save_dialogue and prune unused concrete packages.",
-		actual_value=str(uninstall_data.get("issues", [])),
-	)
-	assert_package_godot_cli_smoke_condition(
-		bool(post_uninstall_verify_data.get("ok")),
-		issues,
-		scenario,
-		"package_godot_cli_smoke_minimal_kernel_preset_post_uninstall_verify_failed",
-		"Minimal gf.kernel project CLI should verify the lockfile after HTTP preset uninstall.",
-		actual_value=str(post_uninstall_verify_data.get("issues", [])),
-	)
-	assert_package_godot_cli_smoke_condition(
-		sorted(installed_after_uninstall.keys()) == ["gf.kernel"]
-		and (project_root / "addons/gf/plugin.gd").is_file()
-		and (project_root / "addons/gf/kernel/package/gf_package_cli.gd").is_file()
-		and not (project_root / "addons/gf/extensions/save/gf_extension.json").exists()
-		and not (project_root / "addons/gf/extensions/dialogue/gf_extension.json").exists()
-		and not (project_root / "addons/gf/extensions/domain/gf_extension.json").exists()
-		and not (project_root / "addons/gf/standard/utilities/config/gf_config_provider.gd").exists()
-		and not (project_root / "addons/gf/standard/utilities/storage/gf_storage_utility.gd").exists()
-		and not (project_root / "addons/gf/standard/foundation/deterministic/gf_deterministic_variant_serializer.gd").exists()
-		and not (project_root / "addons/gf/kernel/package_tools").exists(),
-		issues,
-		scenario,
-		"package_godot_cli_smoke_minimal_kernel_preset_uninstall_state_invalid",
-		"Minimal gf.kernel project CLI preset uninstall should keep only kernel and prune unneeded preset packages.",
-		actual_value=str(sorted(installed_after_uninstall.keys())),
-	)
-	record_package_godot_cli_smoke_scenario(
-		scenarios,
-		scenario,
-		len(issues) == start_issue_count,
-		{
-			"installed_file_count": install_data.get("installed_file_count", 0),
-			"removed_file_count": uninstall_data.get("removed_file_count", 0),
-			"post_uninstall_issue_count": post_uninstall_verify_data.get("issue_count", 0),
-			"cache_file_count": package_smoke_cache_file_count(cache_root),
-		},
-	)
-
-
-def run_package_godot_cli_smoke_http_retry_install(
-	temp_root: Path,
-	base_url: str,
-	scenarios: list[dict[str, Any]],
-	issues: list[dict[str, Any]],
-) -> None:
-	scenario = "godot_cli_http_retry_install"
-	start_issue_count = len(issues)
-	project_root = temp_root / "http_cli_retry_project"
-	cache_root = temp_root / "http_cli_retry_cache"
-	install_data = run_package_godot_cli_smoke_command(
-		scenario,
-		[
-			"install",
-			"gf.extension.save",
-			"--registry",
-			package_smoke_url(base_url, "flaky-once/registry/index.json"),
-			"--project-root",
-			str(project_root),
-			"--cache-dir",
-			str(cache_root),
-			"--json",
-		],
-		issues,
-	)
-	assert_package_godot_cli_smoke_condition(
-		bool(install_data.get("ok")),
-		issues,
-		scenario,
-		"package_godot_cli_smoke_http_retry_failed",
-		"Godot native package CLI should retry transient HTTP registry and archive failures.",
-	)
-	assert_package_godot_cli_smoke_condition(
-		(project_root / "addons/gf/extensions/save/gf_extension.json").is_file(),
-		issues,
-		scenario,
-		"package_godot_cli_smoke_http_retry_missing_file",
-		"Godot native package CLI retry install should write selected package files.",
-	)
-	assert_package_godot_cli_smoke_condition(
-		package_smoke_cache_has_file(cache_root, "objects/sha256", ".zip")
-		and package_smoke_cache_has_file(project_root / ".gf/package_workspace", "registries", ".json"),
-		issues,
-		scenario,
-		"package_godot_cli_smoke_http_retry_cache_missing",
-		"Godot native package CLI retry install should cache the registry and downloaded archives.",
-	)
-	record_package_godot_cli_smoke_scenario(
-		scenarios,
-		scenario,
-		len(issues) == start_issue_count,
-		{
-			"installed_file_count": install_data.get("installed_file_count", 0),
-			"cache_file_count": package_smoke_cache_file_count(cache_root),
-		},
-	)
-
-
-def run_package_godot_cli_smoke_http_dry_run(
-	temp_root: Path,
-	registry_url: str,
-	scenarios: list[dict[str, Any]],
-	issues: list[dict[str, Any]],
-) -> None:
-	scenario = "godot_cli_http_dry_run_no_mutation"
-	start_issue_count = len(issues)
-	project_root = temp_root / "http_cli_dry_run_project"
-	cache_root = temp_root / "http_cli_dry_run_cache"
-	install_data = run_package_godot_cli_smoke_command(
-		scenario,
-		[
-			"install",
-			"gf.extension.save",
-			"--registry",
-			registry_url,
-			"--project-root",
-			str(project_root),
-			"--cache-dir",
-			str(cache_root),
-			"--dry-run",
-			"--json",
-		],
-		issues,
-	)
-	assert_package_godot_cli_smoke_condition(
-		bool(install_data.get("ok")) and bool(install_data.get("dry_run")),
-		issues,
-		scenario,
-		"package_godot_cli_smoke_http_dry_run_failed",
-		"Godot native package CLI HTTP dry-run should resolve and validate archives successfully.",
-	)
-	assert_package_godot_cli_smoke_condition(
-		not project_has_files(project_root),
-		issues,
-		scenario,
-		"package_godot_cli_smoke_http_dry_run_mutated_project",
-		"Godot native package CLI HTTP dry-run must not write files to the target project.",
-	)
-	record_package_godot_cli_smoke_scenario(
-		scenarios,
-		scenario,
-		len(issues) == start_issue_count,
-		{
-			"dry_run": install_data.get("dry_run", False),
-			"cache_file_count": package_smoke_cache_file_count(cache_root),
-		},
-	)
-
-
-def run_package_godot_cli_smoke_http_source_mirror_install(
-	temp_root: Path,
-	base_url: str,
-	server_root: Path,
-	scenarios: list[dict[str, Any]],
-	issues: list[dict[str, Any]],
-) -> None:
-	scenario = "godot_cli_http_source_mirror_install"
-	start_issue_count = len(issues)
-	project_root = temp_root / "http_cli_source_mirror_project"
-	cache_root = temp_root / "http_cli_source_mirror_cache"
-	source_path = server_root / "sources/godot_cli.json"
-	registry_path = server_root / "registry/index.json"
-	write_json_object(source_path, {
-		"schema_version": 1,
-		"default_channel": "stable",
-		"channels": {
-			"stable": {
-				"registry": "../missing/index.json",
-				"registry_sha256": sha256_file(registry_path),
-				"registry_size_bytes": registry_path.stat().st_size,
-				"mirrors": ["../registry/index.json"],
-			},
-		},
-	})
-	install_data = run_package_godot_cli_smoke_command(
-		scenario,
-		[
-			"install",
-			"gf.extension.save",
-			"--registry",
-			package_smoke_url(base_url, "sources/godot_cli.json"),
-			"--channel",
-			"stable",
-			"--project-root",
-			str(project_root),
-			"--cache-dir",
-			str(cache_root),
-			"--json",
-		],
-		issues,
-	)
-	assert_package_godot_cli_smoke_condition(
-		bool(install_data.get("ok")),
-		issues,
-		scenario,
-		"package_godot_cli_smoke_http_source_mirror_failed",
-		"Godot native package CLI should use a registry source mirror when the primary channel registry is unavailable.",
-	)
-	assert_package_godot_cli_smoke_condition(
-		(project_root / "addons/gf/extensions/save/gf_extension.json").is_file(),
-		issues,
-		scenario,
-		"package_godot_cli_smoke_http_source_mirror_missing_file",
-		"Godot native package CLI registry source mirror install should write selected package files.",
-	)
-	assert_package_godot_cli_smoke_condition(
-		package_smoke_cache_has_file(cache_root, "objects/sha256", ".json")
-		and package_smoke_cache_has_file(cache_root, "objects/sha256", ".zip"),
-		issues,
-		scenario,
-		"package_godot_cli_smoke_http_source_mirror_cache_missing",
-		"Godot native package CLI registry source mirror install should cache registry source, registry, and archives.",
-	)
-	assert_package_godot_cli_smoke_condition(
-		install_data.get("registry_channel") == "stable"
-		and int(install_data.get("registry_mirror_index", -2)) == 0
-		and str(install_data.get("registry_source_manifest", "")).startswith("http://127.0.0.1:")
-		and is_sha256_hex(str(install_data.get("registry_source_sha256", "")))
-		and int_value(install_data.get("registry_source_size_bytes", 0)) > 0,
-		issues,
-		scenario,
-		"package_godot_cli_smoke_http_source_mirror_diagnostics_missing",
-		"Godot native package CLI registry source mirror install should report channel, mirror index, source manifest, and registry integrity.",
-	)
-	record_package_godot_cli_smoke_scenario(
-		scenarios,
-		scenario,
-		len(issues) == start_issue_count,
-		{
-			"installed_file_count": install_data.get("installed_file_count", 0),
-			"cache_file_count": package_smoke_cache_file_count(cache_root),
-			"registry_mirror_index": install_data.get("registry_mirror_index", None),
-		},
-	)
-
-
-def run_package_godot_cli_smoke_default_source_install(
-	temp_root: Path,
-	base_url: str,
-	server_root: Path,
-	scenarios: list[dict[str, Any]],
-	issues: list[dict[str, Any]],
-) -> None:
-	scenario = "godot_cli_default_source_install"
-	start_issue_count = len(issues)
-	project_root = temp_root / "default_source_cli_project"
-	cache_root = temp_root / "default_source_cli_cache"
-	source_path = server_root / "sources/default_godot_cli.json"
-	registry_path = server_root / "registry/index.json"
-	write_json_object(source_path, {
-		"schema_version": 1,
-		"default_channel": "stable",
-		"channels": {
-			"stable": {
-				"registry": "../registry/index.json",
-				"registry_sha256": sha256_file(registry_path),
-				"registry_size_bytes": registry_path.stat().st_size,
-				"mirrors": [],
-			},
-		},
-	})
-	install_data = run_package_godot_cli_smoke_command(
-		scenario,
-		[
-			"install",
-			"gf.extension.save",
-			"--project-root",
-			str(project_root),
-			"--cache-dir",
-			str(cache_root),
-			"--json",
-		],
-		issues,
-		env={
-			# Local smoke transport is intentionally HTTP. Redirect policy rejects
-			# every HTTP redirect, so exercise default-source selection directly;
-			# HTTPS asset-host redirects are covered by native policy tests.
-			"GF_PACKAGE_DEFAULT_REGISTRY_SOURCE": package_smoke_default_registry_source_url(base_url),
-		},
-	)
-	assert_package_godot_cli_smoke_condition(
-		bool(install_data.get("ok")),
-		issues,
-		scenario,
-		"package_godot_cli_smoke_default_source_failed",
-		"Godot native package CLI should install from the default registry source when --registry is omitted.",
-	)
-	assert_package_godot_cli_smoke_condition(
-		(project_root / "addons/gf/extensions/save/gf_extension.json").is_file(),
-		issues,
-		scenario,
-		"package_godot_cli_smoke_default_source_missing_file",
-		"Godot native package CLI default source install should write selected package files.",
-	)
-	assert_package_godot_cli_smoke_condition(
-		package_smoke_cache_has_file(cache_root, "objects/sha256", ".json")
-		and package_smoke_cache_has_file(cache_root, "objects/sha256", ".zip"),
-		issues,
-		scenario,
-		"package_godot_cli_smoke_default_source_cache_missing",
-		"Godot native package CLI default source install should cache source, registry, and archives.",
-	)
-	assert_package_godot_cli_smoke_condition(
-		install_data.get("registry_channel") == "stable"
-		and int(install_data.get("registry_mirror_index", -2)) == -1
-		and str(install_data.get("registry_source_manifest", ""))
-		== package_smoke_default_registry_source_url(base_url)
-		and is_sha256_hex(str(install_data.get("registry_source_sha256", "")))
-		and int_value(install_data.get("registry_source_size_bytes", 0)) > 0,
-		issues,
-		scenario,
-		"package_godot_cli_smoke_default_source_diagnostics_missing",
-		"Godot native package CLI default source install should report source manifest, selected channel, primary registry, and registry integrity.",
-	)
-	record_package_godot_cli_smoke_scenario(
-		scenarios,
-		scenario,
-		len(issues) == start_issue_count,
-		{
-			"installed_file_count": install_data.get("installed_file_count", 0),
-			"cache_file_count": package_smoke_cache_file_count(cache_root),
-			"registry_mirror_index": install_data.get("registry_mirror_index", None),
-		},
-	)
-
-
-def run_package_godot_cli_smoke_source_signature_rejection(
-	temp_root: Path,
-	base_url: str,
-	server_root: Path,
-	scenarios: list[dict[str, Any]],
-	issues: list[dict[str, Any]],
-) -> None:
-	scenario = "godot_cli_source_signature_rejection"
-	start_issue_count = len(issues)
-	project_root = temp_root / "source_signature_cli_project"
-	cache_root = temp_root / "source_signature_cli_cache"
-	source_path = server_root / "sources/signature_godot_cli.json"
-	registry_path = server_root / "registry/index.json"
-	write_json_object(source_path, {
-		"schema_version": 1,
-		"default_channel": "stable",
-		"channels": {
-			"stable": {
-				"registry": "../registry/index.json",
-				"registry_sha256": sha256_file(registry_path),
-				"registry_size_bytes": registry_path.stat().st_size,
-				"registry_signature_url": "gf-registry-unreleased.json.sig",
-				"mirrors": [],
-			},
-		},
-	})
-	status_data = run_package_godot_cli_smoke_command(
-		scenario,
-		[
-			"status",
-			"--registry",
-			package_smoke_url(base_url, "sources/signature_godot_cli.json"),
-			"--project-root",
-			str(project_root),
-			"--cache-dir",
-			str(cache_root),
-			"--json",
-		],
-		issues,
-		allow_failure=True,
-	)
-	assert_package_godot_cli_smoke_condition(
-		not bool(status_data.get("ok")),
-		issues,
-		scenario,
-		"package_godot_cli_smoke_source_signature_not_rejected",
-		"Godot native package CLI must reject registry source signature fields until native verification exists.",
-	)
-	assert_package_godot_cli_smoke_condition(
-		int_value(status_data.get("package_count", 0)) == 0,
-		issues,
-		scenario,
-		"package_godot_cli_smoke_source_signature_listed_packages",
-		"Godot native package CLI must not list packages after rejecting unsupported registry source signature fields.",
-		actual_value=str(status_data.get("package_count", "")),
-	)
-	assert_package_godot_cli_smoke_condition(
-		package_godot_cli_result_issues_contain(
-			status_data,
-			"signature field is not supported until native verification is implemented",
-		),
-		issues,
-		scenario,
-		"package_godot_cli_smoke_source_signature_issue_missing",
-		"Godot native package CLI should explain unsupported registry source signature fields in issues.",
-	)
-	assert_package_godot_cli_smoke_condition(
-		not project_has_files(project_root),
-		issues,
-		scenario,
-		"package_godot_cli_smoke_source_signature_mutated_project",
-		"Godot native package CLI registry source signature rejection must not write files to the target project.",
-	)
-	record_package_godot_cli_smoke_scenario(
-		scenarios,
-		scenario,
-		len(issues) == start_issue_count,
-		{
-			"cache_file_count": package_smoke_cache_file_count(cache_root),
-			"package_count": status_data.get("package_count", 0),
-		},
-	)
-
-
-def run_package_godot_cli_smoke_package_signature_rejection(
-	temp_root: Path,
-	base_url: str,
-	registry_path: Path,
-	server_root: Path,
-	scenarios: list[dict[str, Any]],
-	issues: list[dict[str, Any]],
-) -> None:
-	scenario = "godot_cli_package_signature_rejection"
-	start_issue_count = len(issues)
-	project_root = temp_root / "package_signature_cli_project"
-	cache_root = temp_root / "package_signature_cli_cache"
-	signed_registry_path = server_root / "signed_package_godot_cli/index.json"
-	registry_data = read_json_object(registry_path)
-	packages = registry_data.get("packages", {})
-	if isinstance(packages, dict):
-		save_entry = packages.get("gf.extension.save", {})
-		if isinstance(save_entry, dict):
-			save_entry["signature_url"] = "gf-extension-save-unreleased.zip.sig"
-			packages["gf.extension.save"] = save_entry
-	write_json_object(signed_registry_path, registry_data)
-	status_data = run_package_godot_cli_smoke_command(
-		scenario,
-		[
-			"status",
-			"--registry",
-			package_smoke_url(base_url, "signed_package_godot_cli/index.json"),
-			"--project-root",
-			str(project_root),
-			"--cache-dir",
-			str(cache_root),
-			"--json",
-		],
-		issues,
-		allow_failure=True,
-	)
-	status_issues = package_smoke_string_list(status_data.get("issues", []))
-	status_packages = package_status_index(status_data)
-	assert_package_godot_cli_smoke_condition(
-		not bool(status_data.get("ok")),
-		issues,
-		scenario,
-		"package_godot_cli_smoke_package_signature_not_rejected",
-		"Godot native package CLI must reject registry package signature fields until native verification exists.",
-		actual_value=str(status_issues),
-	)
-	assert_package_godot_cli_smoke_condition(
-		"gf.extension.save" not in status_packages,
-		issues,
-		scenario,
-		"package_godot_cli_smoke_package_signature_listed_package",
-		"Godot native package CLI must not list a package entry after rejecting its unsupported signature fields.",
-		actual_value=",".join(sorted(status_packages.keys())),
-	)
-	assert_package_godot_cli_smoke_condition(
-		any("Registry package signature field is not supported until native verification is implemented" in issue for issue in status_issues),
-		issues,
-		scenario,
-		"package_godot_cli_smoke_package_signature_issue_missing",
-		"Godot native package CLI should explain unsupported registry package signature fields in issues.",
-		actual_value=str(status_issues),
-	)
-	assert_package_godot_cli_smoke_condition(
-		not project_has_files(project_root),
-		issues,
-		scenario,
-		"package_godot_cli_smoke_package_signature_mutated_project",
-		"Godot native package CLI registry package signature rejection must not write files to the target project.",
-	)
-	record_package_godot_cli_smoke_scenario(
-		scenarios,
-		scenario,
-		len(issues) == start_issue_count,
-		{
-			"cache_file_count": package_smoke_cache_file_count(cache_root),
-			"package_count": status_data.get("package_count", 0),
-		},
-	)
-
-
-def run_package_godot_cli_smoke_external_tool_payload_rejection(
-	temp_root: Path,
-	base_url: str,
-	registry_path: Path,
-	server_root: Path,
-	scenarios: list[dict[str, Any]],
-	issues: list[dict[str, Any]],
-) -> None:
-	scenario = "godot_cli_external_tool_payload_rejection"
-	start_issue_count = len(issues)
-	project_root = temp_root / "external_tool_payload_cli_project"
-	cache_root = temp_root / "external_tool_payload_cli_cache"
-	bad_registry_path = server_root / "external_tool_godot_cli/index.json"
-	bad_archive = server_root / "external_tool_godot_cli/gf-extension-save.zip"
-	bad_archive.parent.mkdir(parents=True, exist_ok=True)
-	with zipfile.ZipFile(bad_archive, "w", compression=zipfile.ZIP_DEFLATED) as archive:
-		archive.writestr("addons/gf/extensions/save/install.py", "# fixture\n")
-		archive.writestr("addons/gf/extensions/save/package.json", "{}\n")
-	registry_data = read_json_object(registry_path)
-	save_entry = registry_data["packages"]["gf.extension.save"]
-	save_entry["archive"] = "gf-extension-save.zip"
-	save_entry["sha256"] = sha256_file(bad_archive)
-	save_entry["size_bytes"] = bad_archive.stat().st_size
-	write_json_object(bad_registry_path, registry_data)
-	install_data = run_package_godot_cli_smoke_command(
-		scenario,
-		[
-			"install",
-			"gf.extension.save",
-			"--registry",
-			package_smoke_url(base_url, "external_tool_godot_cli/index.json"),
-			"--project-root",
-			str(project_root),
-			"--cache-dir",
-			str(cache_root),
-			"--json",
-		],
-		issues,
-		allow_failure=True,
-	)
-	install_issues = "\n".join(package_smoke_string_list(install_data.get("issues", [])))
-	assert_package_godot_cli_smoke_condition(
-		not bool(install_data.get("ok")) and "external tool payload" in install_issues,
-		issues,
-		scenario,
-		"package_godot_cli_smoke_external_tool_payload_not_rejected",
-		"Godot native package CLI must reject remote runtime package archives that contain Python/npm tool payloads.",
-		actual_value=install_issues,
-	)
-	assert_package_godot_cli_smoke_condition(
-		not project_has_files(project_root),
-		issues,
-		scenario,
-		"package_godot_cli_smoke_external_tool_payload_mutated_project",
-		"Godot native package CLI remote external tool payload rejection must not write files to the target project.",
-	)
-	record_package_godot_cli_smoke_scenario(
-		scenarios,
-		scenario,
-		len(issues) == start_issue_count,
-		{"cache_file_count": package_smoke_cache_file_count(cache_root)},
-	)
-
-
-def run_package_godot_cli_smoke_http_download_failure(
-	temp_root: Path,
-	base_url: str,
-	registry_path: Path,
-	server_root: Path,
-	scenarios: list[dict[str, Any]],
-	issues: list[dict[str, Any]],
-) -> None:
-	scenario = "godot_cli_http_download_failure_no_mutation"
-	start_issue_count = len(issues)
-	project_root = temp_root / "http_cli_download_failure_project"
-	cache_root = temp_root / "http_cli_download_failure_cache"
-	bad_registry_path = server_root / "bad_download/index.json"
-	registry_data = read_json_object(registry_path)
-	registry_data["packages"]["gf.extension.save"]["archive"] = "../missing/gf-extension-save-unreleased.zip"
-	write_json_object(bad_registry_path, registry_data)
-	install_data = run_package_godot_cli_smoke_command(
-		scenario,
-		[
-			"install",
-			"gf.extension.save",
-			"--registry",
-			package_smoke_url(base_url, "bad_download/index.json"),
-			"--project-root",
-			str(project_root),
-			"--cache-dir",
-			str(cache_root),
-			"--json",
-		],
-		issues,
-		allow_failure=True,
-	)
-	assert_package_godot_cli_smoke_condition(
-		not bool(install_data.get("ok")),
-		issues,
-		scenario,
-		"package_godot_cli_smoke_http_download_failure_not_rejected",
-		"Godot native package CLI should reject a missing remote archive.",
-	)
-	assert_package_godot_cli_smoke_condition(
-		not project_has_files(project_root),
-		issues,
-		scenario,
-		"package_godot_cli_smoke_http_download_failure_mutated_project",
-		"Godot native package CLI HTTP download failure must not write files to the target project.",
-	)
-	record_package_godot_cli_smoke_scenario(
-		scenarios,
-		scenario,
-		len(issues) == start_issue_count,
-		{"cache_file_count": package_smoke_cache_file_count(cache_root)},
-	)
-
-
-def package_godot_cli_smoke_command_timeout_seconds(
-	args: list[str],
-	requested_timeout_seconds: float,
-) -> float:
-	if (
-		args
-		and args[0] == "install"
-		and any(value.startswith("gf.preset.") for value in args[1:] if not value.startswith("--"))
-	):
-		return max(
-			requested_timeout_seconds,
-			float(PACKAGE_GODOT_CLI_SMOKE_PRESET_INSTALL_TIMEOUT_SECONDS),
-		)
-	return requested_timeout_seconds
-
-
-def run_package_godot_cli_smoke_command(
-	scenario: str,
-	args: list[str],
-	issues: list[dict[str, Any]],
-	allow_failure: bool = False,
-	expect_json: bool = True,
-	env: dict[str, str] | None = None,
-	godot_project_root: Path | None = None,
-	timeout_seconds: float = 120,
-	process_environment: FrozenProcessEnvironment | None = None,
-) -> dict[str, Any]:
-	base_process_environment = (
-		process_environment
-		if process_environment is not None
-		else active_or_freeze_maintenance_process_authority().environment
-	)
-	GODOT_LOG_DIR.mkdir(parents=True, exist_ok=True)
-	effective_args = prepare_package_smoke_cache_args(scenario, args, issues)
-	safe_scenario = re.sub(r"[^A-Za-z0-9_.-]+", "_", scenario)
-	project_path = godot_project_root if godot_project_root is not None else Path(".")
-	command = [
-		"godot",
-		"--headless",
-		"--log-file",
-		godot_log_path(f"package_godot_cli_smoke_{safe_scenario}"),
-		"--path",
-		str(project_path),
-		"--script",
-		"res://addons/gf/kernel/package/gf_package_cli.gd",
-		"--",
-		*effective_args,
-	]
-	process_env = base_process_environment.values()
-	if env is not None:
-		for name, value in env.items():
-			set_owned_environment_value(process_env, name, value)
-	frozen_process_environment = FrozenProcessEnvironment.capture(process_env)
-	effective_timeout_seconds = package_godot_cli_smoke_command_timeout_seconds(
-		args,
-		timeout_seconds,
-	)
-	try:
-		completed = run_maintenance_subprocess(
-			command,
-			timeout_seconds=effective_timeout_seconds,
-			process_environment=frozen_process_environment,
-		)
-	except subprocess.TimeoutExpired as error:
-		issues.append(make_package_issue(
-			"package_godot_cli_smoke_timeout",
-			"addons/gf/kernel/package/gf_package_cli.gd",
-			"Godot native package CLI command timed out.",
-			row_key=scenario,
-			error=trim_text(str(error), 300),
-		))
-		return {}
-	combined_output = f"{completed.stdout}\n{completed.stderr}"
-	if completed.returncode != 0 and not allow_failure:
-		issues.append(make_package_issue(
-			"package_godot_cli_smoke_command_failed",
-			"addons/gf/kernel/package/gf_package_cli.gd",
-			"Godot native package CLI returned a failing exit code.",
-			row_key=scenario,
-			actual_value=str(completed.returncode),
-			error=trim_text(combined_output.strip(), 1000),
-		))
-	if has_godot_script_error(completed.stdout, completed.stderr):
-		issues.append(make_package_issue(
-			"package_godot_cli_smoke_script_error",
-			"addons/gf/kernel/package/gf_package_cli.gd",
-			"Godot native package CLI reported a script loading or parse error.",
-			row_key=scenario,
-			error=trim_text(combined_output.strip(), 1000),
-		))
-	if has_gdscript_reload_warning(completed.stdout, completed.stderr):
-		issues.append(make_package_issue(
-			"package_godot_cli_smoke_reload_warning",
-			"addons/gf/kernel/package/gf_package_cli.gd",
-			"Godot native package CLI reported a GDScript reload warning.",
-			row_key=scenario,
-			error=trim_text(combined_output.strip(), 1000),
-		))
-	if not expect_json:
-		return {
-			"ok": completed.returncode == 0,
-			"exit_code": completed.returncode,
-			"stdout": completed.stdout,
-			"stderr": completed.stderr,
-		}
-	data = parse_package_godot_cli_json(completed.stdout)
-	if not data:
-		issues.append(make_package_issue(
-			"package_godot_cli_smoke_invalid_json",
-			"addons/gf/kernel/package/gf_package_cli.gd",
-			"Godot native package CLI must print a JSON object to stdout.",
-			row_key=scenario,
-			error=trim_text(combined_output.strip(), 1000),
-		))
-	return data
-
-
-def resolve_package_godot_cli_smoke_local_archive(registry_path: Path, package_id: str) -> Path | None:
-	registry_data = read_json_object(registry_path)
-	packages = registry_data.get("packages", {})
-	entry = packages.get(package_id, {}) if isinstance(packages, dict) else {}
-	if not isinstance(entry, dict):
-		return None
-	archive_value = str(entry.get("archive", ""))
-	if not archive_value or urllib.parse.urlparse(archive_value).scheme:
-		return None
-	archive_path = Path(archive_value)
-	if not archive_path.is_absolute():
-		archive_path = registry_path.parent / archive_path
-	archive_path = archive_path.resolve()
-	if not archive_path.is_file():
-		return None
-	return archive_path
-
-
-def prepare_package_smoke_kernel_baseline(
-	kernel_archive_path: Path,
-	project_root: Path,
-	scenario: str,
-	issues: list[dict[str, Any]],
-) -> bool:
-	start_issue_count = len(issues)
-	extract_package_godot_cli_smoke_archive(kernel_archive_path, project_root, scenario, issues)
-	baseline_ok = (
-		(project_root / "addons/gf/plugin.gd").is_file()
-		and (project_root / "addons/gf/kernel/package/gf_package_cli.gd").is_file()
-		and not (project_root / ".gf/packages.lock.json").exists()
-		and not (project_root / "addons/gf/kernel/package_tools").exists()
-	)
-	if not baseline_ok:
-		issues.append(make_package_issue(
-			"package_smoke_kernel_baseline_invalid",
-			"tools/build_gf_package.py",
-			"Minimal-kernel smoke setup requires a raw extracted gf.kernel archive without a pre-created lockfile.",
-			row_key=scenario,
-			actual_value=relative_or_absolute_path(kernel_archive_path),
-		))
-	return baseline_ok and len(issues) == start_issue_count
-
-
-def extract_package_godot_cli_smoke_archive(
-	archive_path: Path,
-	project_root: Path,
-	scenario: str,
-	issues: list[dict[str, Any]],
-) -> None:
-	try:
-		with zipfile.ZipFile(archive_path, "r") as archive:
-			for info in archive.infolist():
-				normalized = info.filename.replace("\\", "/")
-				if info.is_dir():
-					continue
-				if (
-					normalized.startswith("/")
-					or normalized.startswith("../")
-					or "/../" in normalized
-					or not normalized.startswith("addons/gf/")
-				):
-					issues.append(make_package_issue(
-						"package_godot_cli_smoke_minimal_kernel_archive_unsafe_path",
-						"tools/build_gf_package.py",
-						"Smoke setup rejected an unsafe gf.kernel archive entry.",
-						row_key=scenario,
-						actual_value=normalized,
-					))
-					continue
-				target_path = project_root / normalized
-				target_path.parent.mkdir(parents=True, exist_ok=True)
-				target_path.write_bytes(archive.read(info))
-	except zipfile.BadZipFile as error:
-		issues.append(make_package_issue(
-			"package_godot_cli_smoke_minimal_kernel_archive_bad_zip",
-			"tools/build_gf_package.py",
-			"Smoke setup could not read the built gf.kernel archive.",
-			row_key=scenario,
-			error=trim_text(str(error), 300),
-		))
-
-
-def extract_package_godot_cli_smoke_offline_bundle(
-	bundle_path: Path,
-	extract_root: Path,
-	scenario: str,
-	issues: list[dict[str, Any]],
-) -> None:
-	if not bundle_path.is_file():
-		issues.append(make_package_issue(
-			"package_godot_cli_smoke_offline_bundle_missing",
-			relative_or_absolute_path(bundle_path),
-			"Smoke setup should find the built offline bundle zip.",
-			row_key=scenario,
-		))
-		return
-	extract_root.mkdir(parents=True, exist_ok=True)
-	try:
-		with zipfile.ZipFile(bundle_path, "r") as archive:
-			for info in archive.infolist():
-				normalized = info.filename.replace("\\", "/")
-				if info.is_dir():
-					continue
-				if not package_build_bundle_entry_is_safe(normalized):
-					issues.append(make_package_issue(
-						"package_godot_cli_smoke_offline_bundle_unsafe_path",
-						relative_or_absolute_path(bundle_path),
-						"Smoke setup rejected an unsafe offline bundle entry.",
-						row_key=scenario,
-						actual_value=normalized,
-					))
-					continue
-				target_path = extract_root / normalized
-				target_path.parent.mkdir(parents=True, exist_ok=True)
-				target_path.write_bytes(archive.read(info))
-	except zipfile.BadZipFile as error:
-		issues.append(make_package_issue(
-			"package_godot_cli_smoke_offline_bundle_bad_zip",
-			relative_or_absolute_path(bundle_path),
-			"Smoke setup could not read the built offline bundle zip.",
-			row_key=scenario,
-			error=trim_text(str(error), 300),
-		))
-
-
-def package_godot_cli_smoke_zip_file_count(path: Path) -> int:
-	try:
-		with zipfile.ZipFile(path, "r") as archive:
-			return len([name for name in archive.namelist() if name and not name.endswith("/")])
-	except (OSError, zipfile.BadZipFile):
-		return 0
-
-
-def parse_package_godot_cli_json(stdout: str) -> dict[str, Any]:
-	for raw_line in reversed(stdout.splitlines()):
-		line = raw_line.strip()
-		if not line.startswith("{") or not line.endswith("}"):
-			continue
-		try:
-			data = json.loads(line)
-		except json.JSONDecodeError:
-			continue
-		if isinstance(data, dict):
-			return data
-	return {}
-
-
-def assert_package_godot_cli_smoke_condition(
-	condition: bool,
-	issues: list[dict[str, Any]],
-	scenario: str,
-	kind: str,
-	message: str,
-	**extra: Any,
-) -> None:
-	if condition:
-		return
-	issues.append(make_package_issue(kind, "addons/gf/kernel/package/gf_package_cli.gd", message, row_key=scenario, **extra))
-
-
-def package_godot_cli_result_issues_contain(data: dict[str, Any], text: str) -> bool:
-	result_issues = data.get("issues", [])
-	if not isinstance(result_issues, list):
-		return False
-	return any(text in str(issue) for issue in result_issues)
-
-
-def record_package_godot_cli_smoke_scenario(
-	scenarios: list[dict[str, Any]],
-	name: str,
-	ok: bool,
-	details: dict[str, Any] | None = None,
-) -> None:
-	scenario = {"name": name, "ok": ok}
-	if details:
-		scenario.update(details)
-	scenarios.append(scenario)
-
-
-def make_package_godot_cli_smoke_payload(
-	scenarios: list[dict[str, Any]],
-	issues: list[dict[str, Any]],
-	registry_path: Path,
-	profile: str = "all",
-) -> dict[str, Any]:
-	return {
-		"ok": len(issues) == 0 and all(bool(scenario.get("ok")) for scenario in scenarios),
-		"root": str(ROOT),
-		"registry": registry_path.as_posix(),
-		"profile": profile,
-		"scenario_count": len(scenarios),
-		"issue_count": len(issues),
-		"issue_kind_counts": count_issue_field(issues, "kind"),
-		"scenarios": scenarios,
-		"issues": issues,
-	}
-
-
-@with_maintenance_process_authority
-def package_godot_smoke(
-	all_packages: bool = False,
-	package_ids: list[str] | None = None,
-	jobs: int = 0,
-	package_artifact_manifest: str = "",
-	package_artifact_manifest_sha256: str = "",
-) -> dict[str, Any]:
-	process_authority = active_or_freeze_maintenance_process_authority()
-	with strict_process_boundary_temporary_directory(
-		prefix="gf-package-godot-smoke-",
-	) as temp_dir:
-		temp_root = Path(temp_dir)
-		issues: list[dict[str, Any]] = []
-		scenarios: list[dict[str, Any]] = []
-		selected_package_ids = normalize_package_godot_smoke_package_ids(package_ids or [])
-		mode = "selected" if selected_package_ids else ("all" if all_packages else "representative")
-		scenario_jobs = package_godot_smoke_job_count(mode, jobs)
-
-		private_set: PackageArtifactSet | None = None
-		reused = False
-		try:
-			source_set, private_set, reused = load_or_build_private_package_artifact_set(
-				temp_root,
-				temp_root / "artifact-consumer",
-				package_artifact_manifest,
-				package_artifact_manifest_sha256,
-				process_authority=process_authority,
-			)
-			source_set.revalidate(deadline=_ACTIVE_SUITE_DEADLINE)
-		except PackageArtifactSetError as error:
-			if exception_has_cleanup_debt(error):
-				raise
-			issues.append(make_package_issue(
-				"package_godot_smoke_artifact_set_invalid",
-				"tools/gf_package_artifact_set.py",
-				"Package Godot smoke could not obtain a trusted private artifact set.",
-				row_key="build_registry",
-				error=trim_text(str(error), 1000),
-			))
-		registry_path = private_set.registry_path if private_set is not None else temp_root / "artifact-consumer/registry/index.json"
-		build_data = private_set.rebased_builder_data() if private_set is not None else {}
-		record_package_smoke_scenario(
-			scenarios,
-			"build_registry",
-			private_set is not None and bool(build_data.get("ok")),
-			{
-				"package_count": build_data.get("package_count", 0),
-				"artifact_set_reused": reused,
-			},
-		)
-		if issues or not build_data.get("ok"):
-			if not build_data.get("ok") and not issues:
-				issues.append(make_package_issue(
-					"package_godot_smoke_builder_failed",
-					"tools/build_gf_package.py",
-					"Package builder did not report ok=true.",
-					row_key="build_registry",
-				))
-			return make_package_godot_smoke_payload(scenarios, issues, registry_path, mode, 0)
-
-		if selected_package_ids:
-			scenario_specs = package_godot_smoke_selected_package_specs(registry_path, selected_package_ids, issues)
-		elif all_packages:
-			scenario_specs = package_godot_smoke_all_package_specs(registry_path, issues)
-		else:
-			scenario_specs = package_godot_smoke_representative_specs()
-		run_package_godot_smoke_specs(
-			temp_root,
-			registry_path,
-			scenario_specs,
-			scenario_jobs,
-			scenarios,
-			issues,
-			process_environment=process_authority.environment,
-		)
-		return make_package_godot_smoke_payload(
-			scenarios,
-			issues,
-			registry_path,
-			mode,
-			len(scenario_specs),
-			scenario_jobs,
-		)
-
-
-def package_godot_smoke_job_count(mode: str, jobs: int) -> int:
-	if jobs > 0:
-		return max(1, jobs)
-	if mode == "all":
-		return max(1, min(PACKAGE_GODOT_SMOKE_DEFAULT_ALL_PACKAGE_JOBS, os.cpu_count() or 1))
-	return 1
-
-
-def run_package_godot_smoke_specs(
-	temp_root: Path,
-	registry_path: Path,
-	scenario_specs: list[dict[str, Any]],
-	jobs: int,
-	scenarios: list[dict[str, Any]],
-	issues: list[dict[str, Any]],
-	*,
-	process_environment: FrozenProcessEnvironment,
-) -> None:
-	if jobs <= 1 or len(scenario_specs) <= 1:
-		for index, spec in enumerate(scenario_specs):
-			result = run_package_godot_smoke_scenario_result(
-				temp_root,
-				registry_path,
-				index,
-				spec,
-				process_environment=process_environment,
-			)
-			extend_package_godot_smoke_result(result, scenarios, issues)
-		return
-
-	results: list[dict[str, Any]] = []
-	with concurrent.futures.ThreadPoolExecutor(max_workers=jobs) as executor:
-		future_by_index = {
-			executor.submit(
-				run_package_godot_smoke_scenario_result,
-				temp_root,
-				registry_path,
-				index,
-				spec,
-				process_environment=process_environment,
-			): index
-			for index, spec in enumerate(scenario_specs)
-		}
-		for future in concurrent.futures.as_completed(future_by_index):
-			index = future_by_index[future]
-			try:
-				results.append(future.result())
-			except Exception as error:
-				if exception_has_cleanup_debt(error):
-					raise
-				spec = scenario_specs[index]
-				scenario_name = str(spec.get("name", ""))
-				results.append({
-					"index": index,
-					"scenarios": [{
-						"name": scenario_name,
-						"ok": False,
-						"package_id": str(spec.get("package_id", "")),
-						"package_kind": str(spec.get("kind", "")),
-					}],
-					"issues": [make_package_issue(
-						"package_godot_smoke_worker_failed",
-						"tools/gf_maintenance.py",
-						"Package Godot smoke worker raised an unexpected exception.",
-						row_key=scenario_name,
-						error=trim_text(str(error), 500),
-					)],
-				})
-	for result in sorted(results, key=lambda item: int_value(item.get("index", 0))):
-		extend_package_godot_smoke_result(result, scenarios, issues)
-
-
-def run_package_godot_smoke_scenario_result(
-	temp_root: Path,
-	registry_path: Path,
-	index: int,
-	spec: dict[str, Any],
-	*,
-	process_environment: FrozenProcessEnvironment,
-) -> dict[str, Any]:
-	local_scenarios: list[dict[str, Any]] = []
-	local_issues: list[dict[str, Any]] = []
-	run_package_godot_smoke_scenario(
-		temp_root,
-		registry_path,
-		str(spec["name"]),
-		str(spec["package_id"]),
-		str(spec.get("kind", "")),
-		list(spec.get("expected_files", [])),
-		local_scenarios,
-		local_issues,
-		process_environment=process_environment,
-	)
-	return {
-		"index": index,
-		"scenarios": local_scenarios,
-		"issues": local_issues,
-	}
-
-
-def extend_package_godot_smoke_result(
-	result: dict[str, Any],
-	scenarios: list[dict[str, Any]],
-	issues: list[dict[str, Any]],
-) -> None:
-	for scenario in result.get("scenarios", []):
-		if isinstance(scenario, dict):
-			scenarios.append(scenario)
-	for issue in result.get("issues", []):
-		if isinstance(issue, dict):
-			issues.append(issue)
-
-
-def normalize_package_godot_smoke_package_ids(package_ids: list[str]) -> list[str]:
-	result: list[str] = []
-	seen: set[str] = set()
-	for raw_id in package_ids:
-		package_id = str(raw_id).strip()
-		if not package_id or package_id in seen:
-			continue
-		seen.add(package_id)
-		result.append(package_id)
-	return result
-
-
-def package_godot_smoke_representative_specs() -> list[dict[str, Any]]:
-	return [
-		{
-			"name": "core_only_godot_parse",
-			"package_id": "gf.kernel",
-			"kind": "kernel",
-			"expected_files": ["addons/gf/plugin.gd"],
-		},
-		{
-			"name": "standard_storage_godot_parse",
-			"package_id": "gf.standard.storage",
-			"kind": "standard",
-			"expected_files": ["addons/gf/standard/utilities/storage/gf_storage_utility.gd"],
-		},
-		{
-			"name": "extension_save_godot_parse",
-			"package_id": "gf.extension.save",
-			"kind": "extension",
-			"expected_files": ["addons/gf/extensions/save/gf_extension.json"],
-		},
-		{
-			"name": "preset_rpg_godot_parse",
-			"package_id": "gf.preset.rpg_save_dialogue",
-			"kind": "preset",
-			"expected_files": ["addons/gf/extensions/dialogue/gf_extension.json"],
-		},
-	]
-
-
-def package_godot_smoke_all_package_specs(
-	registry_path: Path,
-	issues: list[dict[str, Any]],
-) -> list[dict[str, Any]]:
-	registry_data = read_json_object(registry_path)
-	packages = registry_data.get("packages", {})
-	if not isinstance(packages, dict):
-		issues.append(make_package_issue(
-			"package_godot_smoke_invalid_registry_packages",
-			relative_or_absolute_path(registry_path),
-			"Generated registry must contain a packages object for all-packages Godot smoke.",
-			field="packages",
-		))
-		return []
-
-	specs: list[dict[str, Any]] = []
-	for package_id in sorted(packages.keys()):
-		entry = packages[package_id]
-		if not isinstance(entry, dict):
-			issues.append(make_package_issue(
-				"package_godot_smoke_invalid_registry_entry",
-				relative_or_absolute_path(registry_path),
-				"Generated registry package entries must be objects.",
-				row_key=str(package_id),
-				actual_value=type(entry).__name__,
-			))
-			continue
-		kind = package_manifest_string(entry, "kind") or expected_package_kind_from_id(str(package_id))
-		expected_files: list[str] = []
-		if kind != "preset":
-			expected_file = package_godot_smoke_representative_file(entry)
-			if expected_file:
-				expected_files.append(expected_file)
-			else:
-				issues.append(make_package_issue(
-					"package_godot_smoke_missing_representative_file",
-					relative_or_absolute_path(registry_path),
-					"Non-preset packages must have at least one source file that can be asserted after install.",
-					row_key=str(package_id),
-					field="paths",
-				))
-		specs.append({
-			"name": package_godot_smoke_all_package_scenario_name(str(package_id)),
-			"package_id": str(package_id),
-			"kind": kind,
-			"expected_files": expected_files,
-		})
-	return specs
-
-
-def package_godot_smoke_selected_package_specs(
-	registry_path: Path,
-	package_ids: list[str],
-	issues: list[dict[str, Any]],
-) -> list[dict[str, Any]]:
-	all_specs = package_godot_smoke_all_package_specs(registry_path, issues)
-	specs_by_id = {str(spec["package_id"]): spec for spec in all_specs}
-	selected_specs: list[dict[str, Any]] = []
-	for package_id in package_ids:
-		spec = specs_by_id.get(package_id)
-		if spec is None:
-			issues.append(make_package_issue(
-				"package_godot_smoke_unknown_package",
-				relative_or_absolute_path(registry_path),
-				"Selected package id must exist in the generated registry.",
-				row_key=package_id,
-			))
-			continue
-		selected_specs.append(spec)
-	return selected_specs
-
-
-def package_godot_smoke_all_package_scenario_name(package_id: str) -> str:
-	safe_id = re.sub(r"[^A-Za-z0-9_]+", "_", package_id).strip("_")
-	return f"all_package_{safe_id}_godot_parse"
-
-
-def package_godot_smoke_representative_file(registry_entry: dict[str, Any]) -> str:
-	candidates: list[str] = []
-	seen: set[str] = set()
-	for raw_path in package_manifest_string_array(registry_entry, "paths"):
-		for candidate in package_godot_smoke_source_files_for_pattern(raw_path):
-			if candidate in seen:
-				continue
-			seen.add(candidate)
-			candidates.append(candidate)
-	if not candidates:
-		return ""
-	return sorted(candidates, key=package_godot_smoke_source_file_sort_key)[0]
-
-
-def package_godot_smoke_source_files_for_pattern(raw_path: str) -> list[str]:
-	pattern = normalize_package_manifest_path_for_matching(raw_path)
-	if not pattern:
-		return []
-	if not any(character in pattern for character in "*?"):
-		source_path = ROOT / pattern
-		if source_path.is_file():
-			return [pattern]
-		if source_path.is_dir():
-			return [
-				path.relative_to(ROOT).as_posix()
-				for path in sorted(source_path.rglob("*"))
-				if path.is_file()
-			]
-		return []
-
-	anchor = package_path_anchor(pattern)
-	if not anchor:
-		return []
-	anchor_path = ROOT / anchor
-	if not anchor_path.exists():
-		return []
-	return [
-		path.relative_to(ROOT).as_posix()
-		for path in sorted(anchor_path.rglob("*"))
-		if path.is_file() and package_manifest_path_matches(path.relative_to(ROOT).as_posix(), pattern)
-	]
-
-
-def package_godot_smoke_source_file_sort_key(path: str) -> tuple[int, str]:
-	suffix = Path(path).suffix.lower()
-	if suffix == ".gd":
-		return (0, path)
-	if suffix == ".json":
-		return (1, path)
-	if suffix == ".cfg":
-		return (2, path)
-	return (3, path)
-
-
-def run_package_godot_smoke_scenario(
-	temp_root: Path,
-	registry_path: Path,
-	scenario: str,
-	package_id: str,
-	package_kind: str,
-	expected_files: list[str],
-	scenarios: list[dict[str, Any]],
-	issues: list[dict[str, Any]],
-	*,
-	process_environment: FrozenProcessEnvironment,
-) -> None:
-	start_issue_count = len(issues)
-	project_root = temp_root / scenario / "project"
-	write_package_godot_smoke_project(project_root, scenario)
-	install_data = run_package_godot_cli_smoke_command(
-		scenario,
-		[
-			"install",
-			package_id,
-			"--registry",
-			str(registry_path),
-			"--project-root",
-			str(project_root),
-			"--json",
-		],
-		issues,
-		timeout_seconds=PACKAGE_GODOT_SMOKE_INSTALL_TIMEOUT_SECONDS,
-		process_environment=process_environment,
-	)
-	assert_package_godot_smoke_condition(
-		bool(install_data.get("ok")),
-		issues,
-		scenario,
-		"package_godot_smoke_install_failed",
-		"Package install should succeed before running the Godot parse smoke.",
-		row_key=package_id,
-		actual_value=str(install_data.get("issues", [])),
-	)
-	if not install_data.get("ok"):
-		record_package_smoke_scenario(
-			scenarios,
-			scenario,
-			False,
-			{
-				"package_id": package_id,
-				"package_kind": package_kind,
-				"installed_file_count": install_data.get("installed_file_count", 0),
-			},
-		)
-		return
-	installed_file_count = int_value(install_data.get("installed_file_count", 0))
-	assert_package_godot_smoke_condition(
-		installed_file_count > 0,
-		issues,
-		scenario,
-		"package_godot_smoke_empty_install",
-		"Installed package closure should copy at least one file.",
-		row_key=package_id,
-		actual_value=str(installed_file_count),
-	)
-	for relative_path in expected_files:
-		assert_package_godot_smoke_condition(
-			(project_root / relative_path).exists(),
-			issues,
-			scenario,
-			"package_godot_smoke_expected_file_missing",
-			"Installed package closure should contain the expected representative file.",
-			row_key=package_id,
-			expected_value=relative_path,
-		)
-	assert_package_godot_smoke_lockfile_file_lists(
-		project_root,
-		scenario,
-		package_id,
-		package_kind,
-		expected_files,
-		issues,
-	)
-	assert_package_godot_smoke_runtime_write_policy(project_root, scenario, package_id, issues)
-	parse_script_path = write_package_godot_smoke_preload_script(project_root)
-	assert_package_godot_smoke_tool_script_marker(parse_script_path, scenario, package_id, issues)
-	parse_data = run_package_godot_editor_parse(
-		scenario,
-		project_root,
-		parse_script_path,
-		temp_root / scenario / "godot.log",
-		issues,
-		process_environment=process_environment,
-	)
-	record_package_smoke_scenario(
-		scenarios,
-		scenario,
-		len(issues) == start_issue_count,
-		{
-			"package_id": package_id,
-			"package_kind": package_kind,
-			"installed_file_count": installed_file_count,
-			"expected_file_count": len(expected_files),
-			"preload_count": parse_data.get("preload_count", 0),
-			"exit_leak_warning_count": parse_data.get("exit_leak_warning_count", 0),
-		},
-	)
-
-
-def assert_package_godot_smoke_lockfile_file_lists(
-	project_root: Path,
-	scenario: str,
-	package_id: str,
-	package_kind: str,
-	expected_files: list[str],
-	issues: list[dict[str, Any]],
-) -> None:
-	lockfile_path = project_root / ".gf/packages.lock.json"
-	assert_package_godot_smoke_condition(
-		lockfile_path.is_file(),
-		issues,
-		scenario,
-		"package_godot_smoke_lockfile_missing",
-		"Installed package closure should write the exact package lockfile.",
-		row_key=package_id,
-		expected_value=".gf/packages.lock.json",
-	)
-	if not lockfile_path.is_file():
-		return
-
-	lockfile_data = read_json_object(lockfile_path)
-	installed = lockfile_data.get("installed", {}) if isinstance(lockfile_data.get("installed", {}), dict) else {}
-	assert_package_godot_smoke_condition(
-		package_id in installed,
-		issues,
-		scenario,
-		"package_godot_smoke_lockfile_missing_selected_package",
-		"Installed package closure should record the selected package in the lockfile.",
-		row_key=package_id,
-		expected_value=package_id,
-	)
-
-	all_lock_files: set[str] = set()
-	for installed_package_id, raw_entry in installed.items():
-		entry = raw_entry if isinstance(raw_entry, dict) else {}
-		files = package_smoke_string_list(entry.get("files", []))
-		if str(installed_package_id).startswith("gf.preset."):
-			assert_package_godot_smoke_condition(
-				not files,
-				issues,
-				scenario,
-				"package_godot_smoke_preset_lockfile_has_files",
-				"Preset package lock entries should not own physical files.",
-				row_key=str(installed_package_id),
-				actual_value=str(files[:8]),
-			)
-			continue
-
-		assert_package_godot_smoke_condition(
-			bool(files),
-			issues,
-			scenario,
-			"package_godot_smoke_lockfile_files_missing",
-			"Concrete installed package entries should record exact file lists.",
-			row_key=str(installed_package_id),
-		)
-		for raw_relative_path in files:
-			relative_path = normalize_package_manifest_path(raw_relative_path)
-			all_lock_files.add(relative_path)
-			assert_package_godot_smoke_condition(
-				relative_path == raw_relative_path and relative_path.startswith("addons/gf/"),
-				issues,
-				scenario,
-				"package_godot_smoke_lockfile_file_outside_runtime_root",
-				"Package lockfile files should stay under addons/gf for Godot-only runtime packages.",
-				row_key=str(installed_package_id),
-				actual_value=raw_relative_path,
-			)
-			assert_package_godot_smoke_condition(
-				(project_root / relative_path).is_file(),
-				issues,
-				scenario,
-				"package_godot_smoke_lockfile_file_missing_on_disk",
-				"Every lockfile-owned package file should exist after install.",
-				row_key=str(installed_package_id),
-				expected_value=relative_path,
-			)
-
-	if package_kind != "preset":
-		selected_entry = installed.get(package_id, {}) if isinstance(installed.get(package_id, {}), dict) else {}
-		selected_files = package_smoke_string_list(selected_entry.get("files", []))
-		assert_package_godot_smoke_condition(
-			bool(selected_files),
-			issues,
-			scenario,
-			"package_godot_smoke_selected_lockfile_files_missing",
-			"Selected concrete package should own at least one exact installed file.",
-			row_key=package_id,
-		)
-	for relative_path in expected_files:
-		assert_package_godot_smoke_condition(
-			relative_path in all_lock_files,
-			issues,
-			scenario,
-			"package_godot_smoke_expected_file_missing_from_lockfile",
-			"Representative installed files should also be recorded in lockfile file lists.",
-			row_key=package_id,
-			expected_value=relative_path,
-		)
-
-
-def assert_package_godot_smoke_runtime_write_policy(
-	project_root: Path,
-	scenario: str,
-	package_id: str,
-	issues: list[dict[str, Any]],
-) -> None:
-	allowed_root_files = {"project.godot"}
-	allowed_exact_files = {".gf/packages.lock.json"}
-	for path in project_root.rglob("*"):
-		if not path.is_file():
-			continue
-		relative_path = path.relative_to(project_root).as_posix()
-		if (
-			relative_path in allowed_root_files
-			or relative_path in allowed_exact_files
-			or relative_path.startswith("addons/gf/")
-		):
-			continue
-		assert_package_godot_smoke_condition(
-			False,
-			issues,
-			scenario,
-			"package_godot_smoke_unexpected_runtime_write",
-			"Godot package install smoke should only write project.godot, .gf lockfile, and addons/gf package files before editor parse.",
-			row_key=package_id,
-			actual_value=relative_path,
-		)
-	assert_package_godot_smoke_condition(
-		not (project_root / "addons/gf/kernel/package_tools").exists(),
-		issues,
-		scenario,
-		"package_godot_smoke_added_package_tools",
-		"Godot package smoke install must not ship maintenance-side Python package tools to user projects.",
-		row_key=package_id,
-	)
-
-
-def assert_package_godot_smoke_tool_script_marker(
-	parse_script_path: Path,
-	scenario: str,
-	package_id: str,
-	issues: list[dict[str, Any]],
-) -> None:
-	source = read_text_file(parse_script_path)
-	first_line = next((line.strip() for line in source.splitlines() if line.strip()), "")
-	assert_package_godot_smoke_condition(
-		first_line == "@tool",
-		issues,
-		scenario,
-		"package_godot_smoke_preload_script_missing_tool",
-		"Generated package parse smoke script should be marked @tool so editor-only parse paths are exercised.",
-		row_key=package_id,
-		actual_value=first_line,
-	)
-
-
-def write_package_godot_smoke_project(project_root: Path, scenario: str) -> None:
-	project_root.mkdir(parents=True, exist_ok=True)
-	project_file = project_root / "project.godot"
-	project_file.write_text(
-		"\n".join([
-			"; Engine configuration file.",
-			"; Generated by GF package-godot-smoke.",
-			"config_version=5",
-			"",
-			"[application]",
-			f'config/name="GF Package Smoke {scenario}"',
-			"",
-			"[editor_plugins]",
-			'enabled=PackedStringArray("res://addons/gf/plugin.cfg")',
-			"",
-		]),
-		encoding="utf-8",
-	)
-
-
-def write_package_godot_smoke_preload_script(project_root: Path) -> Path:
-	script_paths = sorted(
-		path
-		for path in (project_root / "addons/gf").rglob("*.gd")
-		if path.is_file()
-	)
-	lines = [
-		"@tool",
-		"extends RefCounted",
-		"",
-	]
-	for index, path in enumerate(script_paths):
-		relative_path = path.relative_to(project_root).as_posix()
-		lines.append(f'const SCRIPT_{index:04d} = preload("res://{relative_path}")')
-	lines.append("")
-	lines.append("static func script_count() -> int:")
-	lines.append(f"\treturn {len(script_paths)}")
-	script_path = project_root / "package_godot_parse_smoke.gd"
-	script_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
-	return script_path
-
-
-def run_package_godot_editor_parse(
-	scenario: str,
-	project_root: Path,
-	parse_script_path: Path,
-	log_path: Path,
-	issues: list[dict[str, Any]],
-	*,
-	process_environment: FrozenProcessEnvironment,
-) -> dict[str, Any]:
-	log_path.parent.mkdir(parents=True, exist_ok=True)
-	command = [
-		"godot",
-		"--headless",
-		"--log-file",
-		str(log_path),
-		"--path",
-		str(project_root),
-		"--editor",
-		"--quit",
-	]
-	try:
-		completed = run_maintenance_subprocess(
-			command,
-			timeout_seconds=180,
-			process_environment=process_environment,
-		)
-	except subprocess.TimeoutExpired as error:
-		issues.append(make_package_issue(
-			"package_godot_smoke_timeout",
-			"godot",
-			"Godot editor parse smoke timed out.",
-			row_key=scenario,
-			error=trim_text(str(error), 300),
-		))
-		return {"preload_count": package_godot_smoke_preload_count(parse_script_path), "exit_leak_warning_count": 0}
-	except FileNotFoundError as error:
-		issues.append(make_package_issue(
-			"package_godot_smoke_godot_missing",
-			"godot",
-			"Godot executable was not found on PATH.",
-			row_key=scenario,
-			error=trim_text(str(error), 300),
-		))
-		return {"preload_count": package_godot_smoke_preload_count(parse_script_path), "exit_leak_warning_count": 0}
-
-	log_text = read_text_file(log_path)
-	combined_output = "\n".join([completed.stdout, completed.stderr, log_text])
-	if completed.returncode != 0:
-		issues.append(make_package_issue(
-			"package_godot_smoke_process_failed",
-			"godot",
-			"Godot editor parse smoke returned a failing process exit code.",
-			row_key=scenario,
-			actual_value=str(completed.returncode),
-			error=package_godot_smoke_output_excerpt(combined_output),
-		))
-	if has_godot_script_error(combined_output, ""):
-		issues.append(make_package_issue(
-			"package_godot_smoke_script_error",
-			"godot",
-			"Godot reported script loading or parse errors for an installed package closure.",
-			row_key=scenario,
-			error=package_godot_smoke_output_excerpt(combined_output),
-		))
-	if has_gdscript_reload_warning(combined_output, ""):
-		issues.append(make_package_issue(
-			"package_godot_smoke_reload_warning",
-			"godot",
-			"Godot reported GDScript reload warnings for an installed package closure.",
-			row_key=scenario,
-			error=package_godot_smoke_output_excerpt(combined_output),
-		))
-	exit_leak_warnings = collect_godot_exit_leak_warnings(combined_output, "")
-	return {
-		"preload_count": package_godot_smoke_preload_count(parse_script_path),
-		"exit_leak_warning_count": len(exit_leak_warnings),
-	}
-
-
-def package_godot_smoke_preload_count(parse_script_path: Path) -> int:
-	source = read_text_file(parse_script_path)
-	return len([line for line in source.splitlines() if "preload(" in line])
-
-
-def package_godot_smoke_output_excerpt(output: str) -> str:
+def godot_smoke_output_excerpt(output: str) -> str:
 	lines: list[str] = []
 	for line in output.splitlines():
 		if (
@@ -16808,119 +10726,6 @@ def package_godot_smoke_output_excerpt(output: str) -> str:
 		if len(lines) >= 12:
 			break
 	return trim_text("\n".join(lines) if lines else output.strip(), 1200)
-
-
-def assert_package_godot_smoke_condition(
-	condition: bool,
-	issues: list[dict[str, Any]],
-	scenario: str,
-	kind: str,
-	message: str,
-	**extra: Any,
-) -> None:
-	if condition:
-		return
-	extra.setdefault("row_key", scenario)
-	issues.append(make_package_issue(kind, "tools/gf_maintenance.py", message, **extra))
-
-
-def make_package_godot_smoke_payload(
-	scenarios: list[dict[str, Any]],
-	issues: list[dict[str, Any]],
-	registry_path: Path,
-	mode: str,
-	package_count: int,
-	jobs: int = 1,
-) -> dict[str, Any]:
-	return {
-		"ok": len(issues) == 0 and all(bool(scenario.get("ok")) for scenario in scenarios),
-		"root": str(ROOT),
-		"registry": registry_path.as_posix(),
-		"mode": mode,
-		"package_count": package_count,
-		"jobs": jobs,
-		"scenario_count": len(scenarios),
-		"issue_count": len(issues),
-		"issue_kind_counts": count_issue_field(issues, "kind"),
-		"scenarios": scenarios,
-		"issues": issues,
-	}
-
-
-def remove_package_smoke_lockfile_files(project_root: Path, package_ids: list[str]) -> None:
-	lockfile_path = project_root / ".gf/packages.lock.json"
-	data = read_json_object(lockfile_path)
-	installed = data.get("installed", {})
-	if not isinstance(installed, dict):
-		return
-	for package_id in package_ids:
-		entry = installed.get(package_id, {})
-		if isinstance(entry, dict):
-			entry.pop("files", None)
-	lockfile_path.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-
-
-def run_package_smoke_json_command(
-	scenario: str,
-	command: list[str],
-	issues: list[dict[str, Any]],
-	allow_failure: bool = False,
-	*,
-	process_environment: FrozenProcessEnvironment,
-) -> dict[str, Any]:
-	try:
-		completed = run_maintenance_subprocess(
-			command,
-			timeout_seconds=120,
-			process_environment=process_environment,
-		)
-	except subprocess.TimeoutExpired as error:
-		issues.append(make_package_issue(
-			"package_smoke_command_timeout",
-			command[1] if len(command) > 1 else command[0],
-			"Command timed out during package smoke.",
-			row_key=scenario,
-			error=trim_text(str(error), 300),
-		))
-		return {}
-	if completed.returncode != 0 and not allow_failure:
-		issues.append(make_package_issue(
-			"package_smoke_command_failed",
-			command[1] if len(command) > 1 else command[0],
-			"Command returned a failing exit code during package smoke.",
-			row_key=scenario,
-			actual_value=str(completed.returncode),
-			error=trim_text(completed.stderr.strip() or completed.stdout.strip(), 1000),
-		))
-	try:
-		data = json.loads(completed.stdout or "{}")
-	except json.JSONDecodeError as error:
-		issues.append(make_package_issue(
-			"package_smoke_invalid_json",
-			command[1] if len(command) > 1 else command[0],
-			"Command must return JSON for package smoke.",
-			row_key=scenario,
-			error=trim_text(str(error), 300),
-		))
-		return {}
-	if not isinstance(data, dict):
-		issues.append(make_package_issue(
-			"package_smoke_invalid_json_root",
-			command[1] if len(command) > 1 else command[0],
-			"Command JSON root must be an object for package smoke.",
-			row_key=scenario,
-			actual_value=type(data).__name__,
-		))
-		return {}
-	return data
-
-
-def package_smoke_string_list(value: Any) -> list[str]:
-	if isinstance(value, str):
-		return [value.strip()] if value.strip() else []
-	if not isinstance(value, list):
-		return []
-	return [item.strip() for item in value if isinstance(item, str) and item.strip()]
 
 
 def audit_setup_godot_action_source(source: str) -> list[str]:
@@ -17897,16 +11702,6 @@ def audit_public_doc_boundary_text(source: str, path: str) -> list[dict[str, Any
 					line=line_number,
 					symbol=trim_text(line.strip(), 180),
 				))
-		issues.extend(audit_public_doc_package_install_external_dependency_line(
-			line,
-			path,
-			line_number,
-		))
-		issues.extend(audit_public_doc_package_signature_claim_line(
-			line,
-			path,
-			line_number,
-		))
 	if not any(
 		issue.get("kind") == "internal_validation_reuse_contract"
 		for issue in issues
@@ -17922,56 +11717,6 @@ def audit_public_doc_boundary_text(source: str, path: str) -> list[dict[str, Any
 				symbol=trim_text(" ".join(match.group(0).split()), 180),
 			))
 	return issues
-
-
-def audit_public_doc_package_install_external_dependency_line(
-	line: str,
-	path: str,
-	line_number: int,
-) -> list[dict[str, Any]]:
-	if PUBLIC_DOC_EXTERNAL_TOOL_NEGATION_RE.search(line):
-		return []
-	issues: list[dict[str, Any]] = []
-	tool_path_match = PUBLIC_DOC_PACKAGE_MANAGER_TOOL_PATH_RE.search(line)
-	if tool_path_match != None:
-		issues.append(make_boundary_issue(
-			"public_doc_package_manager_python_tool_path",
-			path,
-			"Public docs must not route ordinary users to maintenance-side Python package manager scripts.",
-			line=line_number,
-			symbol=tool_path_match.group(0),
-		))
-	if (
-		PUBLIC_DOC_USER_INSTALL_CONCEPT_RE.search(line)
-		and PUBLIC_DOC_EXTERNAL_TOOL_RE.search(line)
-		and PUBLIC_DOC_EXTERNAL_TOOL_REQUIREMENT_RE.search(line)
-	):
-		issues.append(make_boundary_issue(
-			"public_doc_package_install_external_tool_requirement",
-			path,
-			"Public docs must not describe Python, npm/npx, Git, Node, or pip as required for ordinary GF package installation.",
-			line=line_number,
-			symbol=trim_text(line.strip(), 180),
-		))
-	return issues
-
-
-def audit_public_doc_package_signature_claim_line(
-	line: str,
-	path: str,
-	line_number: int,
-) -> list[dict[str, Any]]:
-	if PUBLIC_DOC_PACKAGE_SIGNATURE_NEGATION_RE.search(line):
-		return []
-	if not PUBLIC_DOC_PACKAGE_SIGNATURE_CLAIM_RE.search(line):
-		return []
-	return [make_boundary_issue(
-		"public_doc_package_signature_verification_claim",
-		path,
-		"Public docs must not claim GF package or registry signature verification before Godot-native verification is implemented.",
-		line=line_number,
-		symbol=trim_text(line.strip(), 180),
-	)]
 
 
 def collect_resource_boundary_paths() -> dict[str, Any]:
@@ -18044,6 +11789,7 @@ def should_scan_content_package_manifest_path(path: str) -> bool:
 
 def collect_package_manifest_paths() -> dict[str, Any]:
 	tracked_paths_result = read_git_paths(["ls-files", "-z", "--cached"])
+	deleted_paths_result = read_git_paths(["ls-files", "-z", "--deleted"])
 	untracked_paths_result = read_git_paths(["ls-files", "-z", "--others", "--exclude-standard"])
 	errors: list[dict[str, Any]] = []
 	if tracked_paths_result["error"]:
@@ -18051,6 +11797,12 @@ def collect_package_manifest_paths() -> dict[str, Any]:
 			"package_manifest_tracked_scan_failed",
 			"",
 			trim_text(tracked_paths_result["error"], 1000),
+		))
+	if deleted_paths_result["error"]:
+		errors.append(make_package_issue(
+			"package_manifest_deleted_scan_failed",
+			"",
+			trim_text(deleted_paths_result["error"], 1000),
 		))
 	if untracked_paths_result["error"]:
 		errors.append(make_package_issue(
@@ -18061,10 +11813,11 @@ def collect_package_manifest_paths() -> dict[str, Any]:
 	if errors:
 		return {"paths": [], "errors": errors}
 
+	deleted_paths = set(deleted_paths_result["paths"])
 	paths = sorted({
 		path
 		for path in tracked_paths_result["paths"] + untracked_paths_result["paths"]
-		if should_scan_package_manifest_path(path)
+		if path not in deleted_paths and should_scan_package_manifest_path(path)
 	})
 	return {"paths": paths, "errors": []}
 
@@ -18083,7 +11836,6 @@ def load_package_manifest_record(path: str) -> dict[str, Any]:
 		"id": "",
 		"kind": "",
 		"dependencies": [],
-		"packages": [],
 		"paths": [],
 		"exclude_paths": [],
 		"gf_extension_id": "",
@@ -18115,7 +11867,11 @@ def load_package_manifest_record(path: str) -> dict[str, Any]:
 			))
 		return record
 	try:
-		data = json.loads(manifest_bytes.decode("utf-8", errors="strict"))
+		data = json.loads(
+			manifest_bytes.decode("utf-8", errors="strict"),
+			parse_constant=reject_non_finite_json_constant,
+			object_pairs_hook=reject_duplicate_json_object_keys,
+		)
 	except RecursionError:
 		issues.append(make_package_issue(
 			"package_manifest_nesting_too_deep",
@@ -18124,7 +11880,7 @@ def load_package_manifest_record(path: str) -> dict[str, Any]:
 			expected_value=f"<= {PACKAGE_MANIFEST_MAX_DEPTH}",
 		))
 		return record
-	except (UnicodeDecodeError, json.JSONDecodeError) as error:
+	except (UnicodeDecodeError, json.JSONDecodeError, ValueError) as error:
 		issues.append(make_package_issue(
 			"invalid_package_manifest_json",
 			path,
@@ -18146,7 +11902,6 @@ def load_package_manifest_record(path: str) -> dict[str, Any]:
 	record["id"] = package_manifest_string(data, "id")
 	record["kind"] = package_manifest_string(data, "kind")
 	record["dependencies"] = package_manifest_string_array(data, "dependencies")
-	record["packages"] = package_manifest_string_array(data, "packages")
 	record["paths"] = normalize_package_manifest_paths(
 		[item for item in data.get("paths", []) if isinstance(item, str)]
 		if isinstance(data.get("paths", []), list)
@@ -18171,19 +11926,22 @@ def audit_package_manifest_data(data: dict[str, Any], path: str) -> list[dict[st
 			issues.append(make_package_issue(
 				"forbidden_package_manifest_field",
 				path,
-				"Download, registry, and checksum fields belong to the generated registry, not local package manifests.",
+				"Retired distribution, installation, and signature fields are not part of internal module descriptors.",
 				field=field_name,
 			))
 		elif field_name not in PACKAGE_MANIFEST_ALLOWED_FIELDS:
 			issues.append(make_package_issue(
 				"unsupported_package_manifest_field",
 				path,
-				"Package manifest fields are whitelisted; project-specific data belongs in metadata.",
+				"Internal module descriptor fields are whitelisted.",
 				field=field_name,
 			))
 
 	schema_version = data.get("schema_version")
-	if schema_version != PACKAGE_MANIFEST_SCHEMA_VERSION:
+	if (
+		type(schema_version) is not int
+		or schema_version != PACKAGE_MANIFEST_SCHEMA_VERSION
+	):
 		issues.append(make_package_issue(
 			"invalid_package_schema_version",
 			path,
@@ -18205,7 +11963,7 @@ def audit_package_manifest_data(data: dict[str, Any], path: str) -> list[dict[st
 		issues.append(make_package_issue(
 			"invalid_package_id",
 			path,
-			"Package id must use gf.kernel, gf.standard.*, gf.extension.*, gf.preset.*, or gf.tool.*.",
+			"Internal module id must use gf.kernel, gf.standard.*, gf.extension.*, or gf.tool.*.",
 			field="id",
 			actual_value=package_id,
 		))
@@ -18215,7 +11973,7 @@ def audit_package_manifest_data(data: dict[str, Any], path: str) -> list[dict[st
 		issues.append(make_package_issue(
 			"invalid_package_kind",
 			path,
-			"Package kind must be one of kernel, standard, extension, preset, or tool.",
+			"Internal module kind must be one of kernel, standard, extension, or tool.",
 			field="kind",
 			actual_value=kind,
 		))
@@ -18229,24 +11987,7 @@ def audit_package_manifest_data(data: dict[str, Any], path: str) -> list[dict[st
 			expected_value=expected_package_kind_from_id(package_id),
 		))
 
-	version = package_manifest_string(data, "version")
-	if not version:
-		issues.append(make_package_issue(
-			"missing_package_version",
-			path,
-			"Package version is required.",
-			field="version",
-		))
-	elif version != "unreleased" and SEMVER_RE.match(version) is None:
-		issues.append(make_package_issue(
-			"invalid_package_version",
-			path,
-			"Package version must be 'unreleased' or SemVer.",
-			field="version",
-			actual_value=version,
-		))
-
-	for field_name in ("display_name", "description", "gf_extension_id"):
+	for field_name in ("gf_extension_id",):
 		if field_name in data and not isinstance(data[field_name], str):
 			issues.append(make_package_issue(
 				f"invalid_package_{field_name}",
@@ -18255,66 +11996,16 @@ def audit_package_manifest_data(data: dict[str, Any], path: str) -> list[dict[st
 				field=field_name,
 				expected_value="string",
 			))
-	if "metadata" in data and not isinstance(data["metadata"], dict):
-		issues.append(make_package_issue(
-			"invalid_package_metadata",
-			path,
-			"metadata must be an object when present.",
-			field="metadata",
-			expected_value="object",
-		))
-	elif isinstance(data.get("metadata"), dict):
-		issues.extend(audit_package_manifest_metadata_fields(data["metadata"], path))
-
 	validate_package_string_array(data, "dependencies", path, issues)
 	validate_package_string_array(data, "exclude_paths", path, issues)
 	validate_package_string_array(data, "paths", path, issues)
-	validate_package_string_array(data, "packages", path, issues)
-
-	if kind == "preset":
-		if package_manifest_string_array(data, "dependencies"):
-			issues.append(make_package_issue(
-				"preset_package_declares_dependencies",
-				path,
-				"Preset manifests must use packages, not dependencies.",
-				field="dependencies",
-			))
-		if package_manifest_string_array(data, "paths"):
-			issues.append(make_package_issue(
-				"preset_package_declares_paths",
-				path,
-				"Preset manifests install packages and must not own source paths.",
-				field="paths",
-			))
-		if package_manifest_string_array(data, "exclude_paths"):
-			issues.append(make_package_issue(
-				"preset_package_declares_exclude_paths",
-				path,
-				"Preset manifests install packages and must not own source path exclusions.",
-				field="exclude_paths",
-			))
-		if not package_manifest_string_array(data, "packages"):
-			issues.append(make_package_issue(
-				"preset_package_missing_packages",
-				path,
-				"Preset manifests must declare at least one package id.",
-				field="packages",
-			))
-	else:
-		if "packages" in data:
-			issues.append(make_package_issue(
-				"non_preset_declares_packages",
-				path,
-				"Only preset manifests may declare packages.",
-				field="packages",
-			))
-		if not package_manifest_string_array(data, "paths"):
-			issues.append(make_package_issue(
-				"package_manifest_missing_paths",
-				path,
-				"Non-preset package manifests must declare owned paths.",
-				field="paths",
-			))
+	if not package_manifest_string_array(data, "paths"):
+		issues.append(make_package_issue(
+			"package_manifest_missing_paths",
+			path,
+			"Internal module descriptors must declare owned paths.",
+			field="paths",
+		))
 
 	if kind != "extension" and "gf_extension_id" in data:
 		issues.append(make_package_issue(
@@ -18425,36 +12116,6 @@ def audit_package_manifest_shape(value: Any, path: str) -> list[dict[str, Any]]:
 	return []
 
 
-def audit_package_manifest_metadata_fields(
-	metadata: dict[str, Any],
-	path: str,
-	prefix: str = "metadata",
-) -> list[dict[str, Any]]:
-	issues: list[dict[str, Any]] = []
-	stack: list[tuple[dict[str, Any] | list[Any], str]] = [(metadata, prefix)]
-	while stack:
-		current, current_prefix = stack.pop()
-		items = current.items() if isinstance(current, dict) else enumerate(current)
-		for raw_key, value in items:
-			key_text = str(raw_key)
-			field_path = (
-				f"{current_prefix}.{key_text}"
-				if isinstance(current, dict)
-				else f"{current_prefix}[{key_text}]"
-			)
-			if isinstance(current, dict) and key_text in PACKAGE_MANIFEST_FORBIDDEN_METADATA_FIELDS:
-				issues.append(make_package_issue(
-					"forbidden_package_metadata_field",
-					path,
-					"Package manifest metadata must not hide dependency, registry, download, installer, or signature policy fields.",
-					field=field_path,
-					actual_value=key_text,
-				))
-			if isinstance(value, (dict, list)):
-				stack.append((value, field_path))
-	return issues
-
-
 def audit_package_manifest_graph(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
 	issues: list[dict[str, Any]] = []
 	records_by_id: dict[str, list[dict[str, Any]]] = {}
@@ -18511,35 +12172,6 @@ def audit_package_manifest_graph(records: list[dict[str, Any]]) -> list[dict[str
 					field="dependencies",
 					row_key=package_id,
 					actual_value=dependency_id,
-				))
-
-		for included_package_id in [item for item in record.get("packages", []) if isinstance(item, str) and item]:
-			if included_package_id == package_id:
-				issues.append(make_package_issue(
-					"preset_self_package",
-					str(record["path"]),
-					"Preset must not include itself.",
-					field="packages",
-					row_key=package_id,
-					actual_value=included_package_id,
-				))
-			elif included_package_id not in package_ids:
-				issues.append(make_package_issue(
-					"missing_preset_package",
-					str(record["path"]),
-					"Preset package id is missing from scanned package manifests.",
-					field="packages",
-					row_key=package_id,
-					actual_value=included_package_id,
-				))
-			elif included_package_id.startswith("gf.preset."):
-				issues.append(make_package_issue(
-					"preset_includes_preset",
-					str(record["path"]),
-					"Preset manifests must include concrete packages, not other presets.",
-					field="packages",
-					row_key=package_id,
-					actual_value=included_package_id,
 				))
 
 	for cycle in collect_package_dependency_cycles(dependency_map):
@@ -18804,7 +12436,7 @@ def audit_core_only_plugin_source(
 			issues.append(make_package_issue(
 				"plugin_preloads_standard",
 				path,
-				"The root plugin must not preload standard package files; gf-core must parse without standard installed.",
+				"The root plugin must not preload standard module files; gf-core must parse without standard modules.",
 				line=line_number,
 			))
 		if re.search(r"\bload\s*\(\s*['\"]res://addons/gf/standard/", line):
@@ -19191,723 +12823,6 @@ def gdscript_code_identifier_source(source: str) -> str:
 		line = strip_gdscript_line_comment(raw_line)
 		code_lines.append("".join(iter_gdscript_code_characters(line)))
 	return "\n".join(code_lines)
-
-
-def audit_package_build_result(builder_data: dict[str, Any], registry_path: Path) -> list[dict[str, Any]]:
-	issues: list[dict[str, Any]] = []
-	if builder_data.get("ok") is not True:
-		for message in builder_data.get("issues", []):
-			issues.append(make_package_issue(
-				"package_builder_reported_issue",
-				"tools/build_gf_package.py",
-				trim_text(str(message), 500),
-			))
-	packages = builder_data.get("packages", [])
-	if not isinstance(packages, list) or not packages:
-		issues.append(make_package_issue(
-			"package_builder_missing_packages",
-			"tools/build_gf_package.py",
-			"Package builder must produce at least one package archive.",
-		))
-		return issues
-
-	registry_data = load_package_build_registry_data(registry_path, issues)
-	registry_packages = registry_data.get("packages", {}) if isinstance(registry_data, dict) else {}
-	if isinstance(registry_packages, dict):
-		if len(registry_packages) != len(packages):
-			issues.append(make_package_issue(
-				"package_registry_count_mismatch",
-				relative_or_absolute_path(registry_path),
-				"Generated registry package count must match built package count.",
-				actual_value=str(len(registry_packages)),
-				expected_value=str(len(packages)),
-			))
-	else:
-		issues.append(make_package_issue(
-			"invalid_package_registry_packages",
-			relative_or_absolute_path(registry_path),
-			"Generated registry packages field must be an object.",
-			field="packages",
-		))
-		registry_packages = {}
-
-	for package in packages:
-		if not isinstance(package, dict):
-			issues.append(make_package_issue(
-				"invalid_package_build_record",
-				"tools/build_gf_package.py",
-				"Package builder package entries must be objects.",
-			))
-			continue
-		package_id = str(package.get("id", ""))
-		registry_entry = registry_packages.get(package_id)
-		if not isinstance(registry_entry, dict):
-			issues.append(make_package_issue(
-				"package_registry_missing_entry",
-				relative_or_absolute_path(registry_path),
-				"Generated registry is missing a built package entry.",
-				row_key=package_id,
-			))
-			continue
-		for field_name in sorted(PACKAGE_SIGNATURE_POLICY_FIELDS.intersection(registry_entry)):
-			issues.append(make_package_issue(
-				"package_registry_signature_field",
-				relative_or_absolute_path(registry_path),
-				"Registry package signature fields must not ship until Godot-native signature verification is implemented.",
-				row_key=package_id,
-				field=field_name,
-			))
-		for field_name in ["minimum_framework_version", "maximum_framework_version_exclusive"]:
-			if field_name not in registry_entry:
-				issues.append(make_package_issue(
-					"package_registry_missing_package_compatibility_field",
-					relative_or_absolute_path(registry_path),
-					"Generated registry package entries must declare framework compatibility bounds.",
-					row_key=package_id,
-					field=field_name,
-				))
-		if str(package.get("kind", "")) == "preset":
-			issues.extend(audit_package_build_preset_registry_entry(package_id, registry_entry, registry_path))
-			continue
-		archive_path = resolve_package_build_archive_path(str(package.get("archive", "")))
-		if package.get("ok") is not True:
-			for message in package.get("issues", []):
-				issues.append(make_package_issue(
-					"package_archive_reported_issue",
-					relative_or_absolute_path(archive_path),
-					trim_text(str(message), 500),
-					row_key=package_id,
-				))
-		issues.extend(audit_package_build_archive(package_id, archive_path))
-		archive_sha256 = sha256_path(archive_path) if archive_path.is_file() else ""
-		archive_size = archive_path.stat().st_size if archive_path.is_file() else 0
-		if archive_sha256 and archive_sha256 != package.get("sha256"):
-			issues.append(make_package_issue(
-				"package_archive_sha256_mismatch",
-				relative_or_absolute_path(archive_path),
-				"Builder sha256 must match the package archive bytes.",
-				row_key=package_id,
-			))
-		if registry_entry.get("sha256") != archive_sha256:
-			issues.append(make_package_issue(
-				"package_registry_sha256_mismatch",
-				relative_or_absolute_path(registry_path),
-				"Generated registry sha256 must match archive bytes.",
-				row_key=package_id,
-			))
-		if registry_entry.get("size_bytes") != archive_size:
-			issues.append(make_package_issue(
-				"package_registry_size_mismatch",
-				relative_or_absolute_path(registry_path),
-				"Generated registry size_bytes must match archive bytes.",
-				row_key=package_id,
-			))
-		if not str(registry_entry.get("archive", "")).strip():
-			issues.append(make_package_issue(
-				"package_registry_empty_archive",
-				relative_or_absolute_path(registry_path),
-				"Generated registry archive field must not be empty.",
-				row_key=package_id,
-				field="archive",
-			))
-	return issues
-
-
-def audit_package_build_registry_source_manifest(registry_source_path: Path, registry_path: Path) -> list[dict[str, Any]]:
-	issues: list[dict[str, Any]] = []
-	location = relative_or_absolute_path(registry_source_path)
-	if not registry_source_path.is_file():
-		return [
-			make_package_issue(
-				"package_registry_source_missing",
-				location,
-				"Package builder must create a registry source manifest for channel-based online installs.",
-			)
-		]
-	try:
-		data = json.loads(registry_source_path.read_text(encoding="utf-8"))
-	except (OSError, UnicodeDecodeError, json.JSONDecodeError) as error:
-		return [
-			make_package_issue(
-				"invalid_package_registry_source_json",
-				location,
-				"Generated registry source manifest must be readable UTF-8 JSON.",
-				error=trim_text(str(error), 300),
-			)
-		]
-	if not isinstance(data, dict):
-		return [
-			make_package_issue(
-				"invalid_package_registry_source",
-				location,
-				"Generated registry source manifest root must be an object.",
-				actual_value=type(data).__name__,
-				expected_value="object",
-			)
-		]
-	for scope, field_name in collect_registry_source_signature_fields(data):
-		issues.append(make_package_issue(
-			"package_registry_source_signature_field",
-			location,
-			"Registry source signature fields must not ship until Godot-native signature verification is implemented.",
-			row_key=scope,
-			field=field_name,
-		))
-	if data.get("schema_version") != 1:
-		issues.append(make_package_issue(
-			"invalid_package_registry_source_schema_version",
-			location,
-			"Generated registry source manifest schema_version must be 1.",
-			field="schema_version",
-			actual_value=str(data.get("schema_version", "")),
-		))
-	default_channel = str(data.get("default_channel", "")).strip()
-	if not default_channel:
-		issues.append(make_package_issue(
-			"package_registry_source_default_channel_missing",
-			location,
-			"Generated registry source manifest default_channel is required.",
-			field="default_channel",
-		))
-	channels = data.get("channels", {})
-	if not isinstance(channels, dict) or not channels:
-		issues.append(make_package_issue(
-			"invalid_package_registry_source_channels",
-			location,
-			"Generated registry source manifest channels field must be a non-empty object.",
-			field="channels",
-		))
-		return issues
-	channel_entry = channels.get(default_channel)
-	if not isinstance(channel_entry, dict):
-		issues.append(make_package_issue(
-			"package_registry_source_channel_missing",
-			location,
-			"Generated registry source manifest default channel must exist.",
-			row_key=default_channel,
-		))
-		return issues
-	if not str(channel_entry.get("registry", "")).strip():
-		issues.append(make_package_issue(
-			"package_registry_source_registry_missing",
-			location,
-			"Generated registry source channel registry field is required.",
-			row_key=default_channel,
-			field="registry",
-		))
-	registry_sha256 = str(channel_entry.get("registry_sha256", "")).strip().lower()
-	if not is_sha256_hex(registry_sha256):
-		issues.append(make_package_issue(
-			"package_registry_source_sha256_invalid",
-			location,
-			"Generated registry source channel registry_sha256 must be a sha256 hex digest.",
-			row_key=default_channel,
-			field="registry_sha256",
-		))
-	elif registry_path.is_file() and registry_sha256 != sha256_path(registry_path):
-		issues.append(make_package_issue(
-			"package_registry_source_sha256_mismatch",
-			location,
-			"Generated registry source channel registry_sha256 must match the generated registry.",
-			row_key=default_channel,
-			field="registry_sha256",
-		))
-	registry_size = channel_entry.get("registry_size_bytes", 0)
-	if not is_non_negative_int_metadata(registry_size):
-		issues.append(make_package_issue(
-			"package_registry_source_size_invalid",
-			location,
-			"Generated registry source channel registry_size_bytes must be a non-negative integer.",
-			row_key=default_channel,
-			field="registry_size_bytes",
-		))
-	elif registry_path.is_file() and int_value(registry_size) != registry_path.stat().st_size:
-		issues.append(make_package_issue(
-			"package_registry_source_size_mismatch",
-			location,
-			"Generated registry source channel registry_size_bytes must match the generated registry.",
-			row_key=default_channel,
-			field="registry_size_bytes",
-		))
-	mirrors = channel_entry.get("mirrors", [])
-	if not isinstance(mirrors, list):
-		issues.append(make_package_issue(
-			"invalid_package_registry_source_mirrors",
-			location,
-			"Generated registry source channel mirrors must be an array.",
-			row_key=default_channel,
-			field="mirrors",
-		))
-	elif any(not isinstance(mirror, str) or not mirror.strip() for mirror in mirrors):
-		issues.append(make_package_issue(
-			"invalid_package_registry_source_mirror",
-			location,
-			"Generated registry source channel mirrors must contain non-empty strings.",
-			row_key=default_channel,
-			field="mirrors",
-		))
-	return issues
-
-
-def audit_package_build_offline_bundle(
-	bundle_path: Path,
-	registry_path: Path,
-	registry_source_path: Path,
-	builder_data: dict[str, Any],
-) -> list[dict[str, Any]]:
-	issues: list[dict[str, Any]] = []
-	location = relative_or_absolute_path(bundle_path)
-	if not bundle_path.is_file():
-		return [
-			make_package_issue(
-				"package_offline_bundle_missing",
-				location,
-				"Package builder must create an offline bundle zip when requested.",
-			)
-		]
-	if not str(builder_data.get("offline_bundle", "")).strip():
-		issues.append(make_package_issue(
-			"package_offline_bundle_not_reported",
-			"tools/build_gf_package.py",
-			"Package builder JSON should report the offline bundle path when one is requested.",
-			field="offline_bundle",
-		))
-	packages = builder_data.get("packages", [])
-	if not isinstance(packages, list):
-		packages = []
-	archive_paths = [
-		resolve_package_build_archive_path(str(package.get("archive", "")))
-		for package in packages
-		if isinstance(package, dict) and str(package.get("kind", "")) != "preset"
-	]
-	expected_files = [registry_path, registry_source_path, *archive_paths]
-	common_root = package_build_offline_bundle_common_root(expected_files)
-	expected_entries = sorted(package_build_bundle_entry(path, common_root) for path in expected_files)
-	try:
-		with zipfile.ZipFile(bundle_path, "r") as archive:
-			names = sorted(name for name in archive.namelist() if name and not name.endswith("/"))
-			name_set = set(names)
-			registry_entry = package_build_bundle_entry(registry_path, common_root)
-			registry_bytes = archive.read(registry_entry) if registry_entry in name_set else b""
-			source_entry = package_build_bundle_entry(registry_source_path, common_root)
-			source_bytes = archive.read(source_entry) if source_entry in name_set else b""
-	except (zipfile.BadZipFile, KeyError) as error:
-		return [
-			make_package_issue(
-				"invalid_package_offline_bundle_zip",
-				location,
-				"Offline bundle must be a readable zip containing the generated registry files.",
-				error=trim_text(str(error), 300),
-			)
-		]
-	if names != expected_entries:
-		issues.append(make_package_issue(
-			"package_offline_bundle_entries_mismatch",
-			location,
-			"Offline bundle entries must exactly match the generated registry, registry source, and package archives.",
-			actual_value=", ".join(names[:30]),
-			expected_value=", ".join(expected_entries[:30]),
-		))
-	for name in names:
-		if not package_build_bundle_entry_is_safe(name):
-			issues.append(make_package_issue(
-				"package_offline_bundle_unsafe_entry",
-				location,
-				"Offline bundle entries must be relative safe paths.",
-				actual_value=name,
-			))
-	registry_entry = package_build_bundle_entry(registry_path, common_root)
-	if registry_entry not in name_set:
-		issues.append(make_package_issue(
-			"package_offline_bundle_registry_missing",
-			location,
-			"Offline bundle must include the generated registry JSON.",
-			expected_value=registry_entry,
-		))
-		return issues
-	registry_data = parse_package_build_bundle_json(registry_bytes)
-	registry_packages = registry_data.get("packages", {}) if isinstance(registry_data, dict) else {}
-	if not isinstance(registry_packages, dict):
-		issues.append(make_package_issue(
-			"package_offline_bundle_registry_invalid",
-			location,
-			"Offline bundle registry JSON must contain a packages object.",
-			field="packages",
-		))
-		registry_packages = {}
-	for package_id, registry_entry_value in registry_packages.items():
-		if not isinstance(registry_entry_value, dict) or str(registry_entry_value.get("kind", "")) == "preset":
-			continue
-		archive_ref = str(registry_entry_value.get("archive", "")).strip()
-		archive_entry = normalize_package_build_bundle_relative_entry(registry_entry, archive_ref)
-		if not archive_entry or archive_entry not in name_set:
-			issues.append(make_package_issue(
-				"package_offline_bundle_archive_missing",
-				location,
-				"Offline bundle registry archive references must resolve to package zips inside the bundle.",
-				row_key=str(package_id),
-				actual_value=archive_ref,
-			))
-			continue
-		with zipfile.ZipFile(bundle_path, "r") as archive:
-			archive_bytes = archive.read(archive_entry)
-		expected_sha = str(registry_entry_value.get("sha256", "")).strip().lower()
-		expected_size = int_value(registry_entry_value.get("size_bytes", 0))
-		if is_sha256_hex(expected_sha) and hashlib.sha256(archive_bytes).hexdigest() != expected_sha:
-			issues.append(make_package_issue(
-				"package_offline_bundle_archive_sha256_mismatch",
-				location,
-				"Offline bundle package archive bytes must match registry sha256.",
-				row_key=str(package_id),
-				field="sha256",
-			))
-		if expected_size > 0 and len(archive_bytes) != expected_size:
-			issues.append(make_package_issue(
-				"package_offline_bundle_archive_size_mismatch",
-				location,
-				"Offline bundle package archive bytes must match registry size_bytes.",
-				row_key=str(package_id),
-				field="size_bytes",
-			))
-	source_entry = package_build_bundle_entry(registry_source_path, common_root)
-	if source_entry not in name_set:
-		issues.append(make_package_issue(
-			"package_offline_bundle_registry_source_missing",
-			location,
-			"Offline bundle must include the generated registry source manifest.",
-			expected_value=source_entry,
-		))
-		return issues
-	source_data = parse_package_build_bundle_json(source_bytes)
-	channel_name = str(source_data.get("default_channel", "")).strip() if isinstance(source_data, dict) else ""
-	channels = source_data.get("channels", {}) if isinstance(source_data, dict) else {}
-	channel_entry = channels.get(channel_name, {}) if isinstance(channels, dict) else {}
-	if isinstance(channel_entry, dict):
-		source_registry_ref = str(channel_entry.get("registry", "")).strip()
-		source_registry_entry = normalize_package_build_bundle_relative_entry(source_entry, source_registry_ref)
-		if source_registry_entry != registry_entry:
-			issues.append(make_package_issue(
-				"package_offline_bundle_source_registry_mismatch",
-				location,
-				"Offline bundle registry source manifest should resolve to the bundled registry JSON.",
-				actual_value=source_registry_ref,
-				expected_value=registry_entry,
-			))
-		registry_sha = str(channel_entry.get("registry_sha256", "")).strip().lower()
-		if is_sha256_hex(registry_sha) and hashlib.sha256(registry_bytes).hexdigest() != registry_sha:
-			issues.append(make_package_issue(
-				"package_offline_bundle_source_sha256_mismatch",
-				location,
-				"Offline bundle registry source sha256 must match bundled registry bytes.",
-				field="registry_sha256",
-			))
-		if int_value(channel_entry.get("registry_size_bytes", 0)) != len(registry_bytes):
-			issues.append(make_package_issue(
-				"package_offline_bundle_source_size_mismatch",
-				location,
-				"Offline bundle registry source size must match bundled registry bytes.",
-				field="registry_size_bytes",
-			))
-	else:
-		issues.append(make_package_issue(
-			"package_offline_bundle_source_channel_invalid",
-			location,
-			"Offline bundle registry source manifest must contain its default channel entry.",
-			field="channels",
-		))
-	return issues
-
-
-def package_build_offline_bundle_common_root(paths: list[Path]) -> Path:
-	return Path(os.path.commonpath([str(path.resolve()) for path in paths]))
-
-
-def package_build_bundle_entry(path: Path, common_root: Path) -> str:
-	return os.path.relpath(path, common_root).replace("\\", "/")
-
-
-def package_build_bundle_entry_is_safe(entry: str) -> bool:
-	if not entry or entry.startswith("/") or "\\" in entry:
-		return False
-	return all(part not in ("", ".", "..") for part in entry.split("/"))
-
-
-def normalize_package_build_bundle_relative_entry(parent_entry: str, reference: str) -> str:
-	if not reference or reference.startswith(("http://", "https://")) or "\\" in reference or reference.startswith("/"):
-		return ""
-	parent_dir = posixpath.dirname(parent_entry)
-	normalized = posixpath.normpath(posixpath.join(parent_dir, reference)).replace("\\", "/")
-	if normalized == "." or normalized.startswith("../") or normalized.startswith("/"):
-		return ""
-	return normalized
-
-
-def parse_package_build_bundle_json(data: bytes) -> dict[str, Any]:
-	try:
-		parsed = json.loads(data.decode("utf-8"))
-	except (UnicodeDecodeError, json.JSONDecodeError):
-		return {}
-	return parsed if isinstance(parsed, dict) else {}
-
-
-def collect_registry_source_signature_fields(data: dict[str, Any]) -> list[tuple[str, str]]:
-	result: list[tuple[str, str]] = []
-	for field_name in sorted(REGISTRY_SOURCE_UNSUPPORTED_SIGNATURE_FIELDS.intersection(data)):
-		result.append(("root", field_name))
-	channels = data.get("channels", {})
-	if not isinstance(channels, dict):
-		return result
-	for channel_name, channel_entry in channels.items():
-		if not isinstance(channel_entry, dict):
-			continue
-		for field_name in sorted(REGISTRY_SOURCE_UNSUPPORTED_SIGNATURE_FIELDS.intersection(channel_entry)):
-			result.append((str(channel_name), field_name))
-	return result
-
-
-def audit_package_build_preset_registry_entry(
-	package_id: str,
-	registry_entry: dict[str, Any],
-	registry_path: Path,
-) -> list[dict[str, Any]]:
-	issues: list[dict[str, Any]] = []
-	location = relative_or_absolute_path(registry_path)
-	if str(registry_entry.get("kind", "")) != "preset":
-		issues.append(make_package_issue(
-			"package_preset_registry_kind_mismatch",
-			location,
-			"Preset registry entries must keep kind=preset.",
-			row_key=package_id,
-			actual_value=str(registry_entry.get("kind", "")),
-		))
-	if str(registry_entry.get("archive", "")).strip():
-		issues.append(make_package_issue(
-			"package_preset_registry_has_archive",
-			location,
-			"Preset registry entries must not declare an archive.",
-			row_key=package_id,
-			field="archive",
-		))
-	if str(registry_entry.get("sha256", "")).strip():
-		issues.append(make_package_issue(
-			"package_preset_registry_has_sha256",
-			location,
-			"Preset registry entries must not declare sha256.",
-			row_key=package_id,
-			field="sha256",
-		))
-	if int_value(registry_entry.get("size_bytes", 0)) != 0:
-		issues.append(make_package_issue(
-			"package_preset_registry_has_size",
-			location,
-			"Preset registry entries must not declare a positive size_bytes.",
-			row_key=package_id,
-			field="size_bytes",
-		))
-	if package_manifest_string_array(registry_entry, "paths"):
-		issues.append(make_package_issue(
-			"package_preset_registry_has_paths",
-			location,
-			"Preset registry entries must not own paths.",
-			row_key=package_id,
-			field="paths",
-		))
-	if not package_manifest_string_array(registry_entry, "packages"):
-		issues.append(make_package_issue(
-			"package_preset_registry_missing_packages",
-			location,
-			"Preset registry entries must list concrete packages.",
-			row_key=package_id,
-			field="packages",
-		))
-	return issues
-
-
-def load_package_build_registry_data(registry_path: Path, issues: list[dict[str, Any]]) -> dict[str, Any]:
-	try:
-		data = json.loads(registry_path.read_text(encoding="utf-8"))
-	except (OSError, UnicodeDecodeError, json.JSONDecodeError) as error:
-		issues.append(make_package_issue(
-			"invalid_package_registry_json",
-			relative_or_absolute_path(registry_path),
-			"Generated package registry must be readable UTF-8 JSON.",
-			error=trim_text(str(error), 300),
-		))
-		return {}
-	if not isinstance(data, dict):
-		issues.append(make_package_issue(
-			"invalid_package_registry",
-			relative_or_absolute_path(registry_path),
-			"Generated package registry root must be an object.",
-			expected_value="object",
-			actual_value=type(data).__name__,
-		))
-		return {}
-	if data.get("schema_version") != PACKAGE_REGISTRY_SCHEMA_VERSION:
-		issues.append(make_package_issue(
-			"invalid_package_registry_schema_version",
-			relative_or_absolute_path(registry_path),
-			f"Generated package registry schema_version must be {PACKAGE_REGISTRY_SCHEMA_VERSION}.",
-			field="schema_version",
-			expected_value=PACKAGE_REGISTRY_SCHEMA_VERSION,
-			actual_value=str(data.get("schema_version", "")),
-		))
-	for field_name in ["minimum_framework_version", "maximum_framework_version_exclusive"]:
-		if field_name not in data:
-			issues.append(make_package_issue(
-				"package_registry_missing_framework_compatibility_field",
-				relative_or_absolute_path(registry_path),
-				"Generated package registry must declare framework compatibility bounds.",
-				field=field_name,
-			))
-	return data
-
-
-def audit_package_build_archive(package_id: str, archive_path: Path) -> list[dict[str, Any]]:
-	issues: list[dict[str, Any]] = []
-	display_path = relative_or_absolute_path(archive_path)
-	if not archive_path.is_file():
-		return [
-			make_package_issue(
-				"package_archive_missing",
-				display_path,
-				"Package archive was not created.",
-				row_key=package_id,
-			)
-		]
-	try:
-		with zipfile.ZipFile(archive_path, "r") as archive:
-			names = sorted(name for name in archive.namelist() if name and not name.endswith("/"))
-	except zipfile.BadZipFile as error:
-		return [
-			make_package_issue(
-				"invalid_package_archive_zip",
-				display_path,
-				"Package archive must be a valid zip file.",
-				row_key=package_id,
-				error=trim_text(str(error), 300),
-			)
-		]
-	top_level_entries = sorted({name.split("/", 1)[0] for name in names})
-	if top_level_entries != ["addons"]:
-		issues.append(make_package_issue(
-			"package_archive_bad_root",
-			display_path,
-			"Package archive root must contain only addons/.",
-			row_key=package_id,
-			actual_value=", ".join(top_level_entries),
-		))
-	if package_id == "gf.kernel":
-		for tool_path in KERNEL_FORBIDDEN_PACKAGE_TOOL_PATHS:
-			if tool_path in names:
-				issues.append(make_package_issue(
-					"kernel_archive_contains_package_tool",
-					display_path,
-					"gf.kernel archive must not ship maintenance-side Python package tools; user package management must use the Godot-native backend.",
-					row_key=package_id,
-					actual_value=tool_path,
-				))
-	blocked_dirs = {".git", ".godot", ".import", ".vs", "__pycache__", "node_modules"}
-	blocked_names = {".DS_Store", "Thumbs.db"}
-	blocked_suffixes = {".import", ".pyc", ".pyo", ".tmp", ".log"}
-	for name in names:
-		if not name.startswith("addons/gf/"):
-			issues.append(make_package_issue(
-				"package_archive_entry_outside_addons_gf",
-				display_path,
-				"Package archive entries must stay under addons/gf.",
-				row_key=package_id,
-				actual_value=name,
-			))
-		parts = name.split("/")
-		if any(part in blocked_dirs for part in parts):
-			issues.append(make_package_issue(
-				"package_archive_blocked_directory",
-				display_path,
-				"Package archive must not contain generated or vendored cache directories.",
-				row_key=package_id,
-				actual_value=name,
-			))
-		if Path(name).name in blocked_names or Path(name).suffix in blocked_suffixes:
-			issues.append(make_package_issue(
-				"package_archive_blocked_file",
-				display_path,
-				"Package archive must not contain generated or temporary files.",
-				row_key=package_id,
-				actual_value=name,
-			))
-		lower_name = Path(name).name.lower()
-		lower_suffix = Path(name).suffix.lower()
-		if (
-			not package_id.startswith("gf.tool.")
-			and (
-				lower_name in RUNTIME_PACKAGE_FORBIDDEN_EXTERNAL_TOOL_FILES
-				or lower_suffix in RUNTIME_PACKAGE_FORBIDDEN_EXTERNAL_TOOL_SUFFIXES
-			)
-		):
-			issues.append(make_package_issue(
-				"runtime_package_external_tool_payload",
-				display_path,
-				"Runtime package archives must not ship Python, npm/Node, or shell tool payloads; ordinary package install must require only Godot.",
-				row_key=package_id,
-				actual_value=name,
-			))
-	return issues
-
-
-def resolve_package_build_archive_path(path: str) -> Path:
-	archive_path = Path(path)
-	if not archive_path.is_absolute():
-		archive_path = ROOT / archive_path
-	return archive_path
-
-
-def count_package_build_registry_entries(registry_path: Path) -> int:
-	try:
-		data = json.loads(registry_path.read_text(encoding="utf-8"))
-	except (OSError, UnicodeDecodeError, json.JSONDecodeError):
-		return 0
-	packages = data.get("packages", {}) if isinstance(data, dict) else {}
-	return len(packages) if isinstance(packages, dict) else 0
-
-
-def sha256_path(path: Path) -> str:
-	digest = hashlib.sha256()
-	with path.open("rb") as handle:
-		for chunk in iter(lambda: handle.read(1024 * 1024), b""):
-			digest.update(chunk)
-	return digest.hexdigest()
-
-
-def is_sha256_hex(value: str) -> bool:
-	return len(value) == 64 and all(char in "0123456789abcdefABCDEF" for char in value)
-
-
-def is_non_negative_int_metadata(value: Any) -> bool:
-	if isinstance(value, bool):
-		return False
-	if isinstance(value, int):
-		return value >= 0
-	if isinstance(value, str):
-		return value.strip().isdigit()
-	return False
-
-
-def int_value(value: Any) -> int:
-	if isinstance(value, bool):
-		return int(value)
-	if isinstance(value, int):
-		return value
-	if isinstance(value, str) and value.strip().isdigit():
-		return int(value.strip())
-	return 0
-
-
-def relative_or_absolute_path(path: Path) -> str:
-	try:
-		return path.relative_to(ROOT).as_posix()
-	except ValueError:
-		return path.as_posix()
 
 
 def collect_package_dependency_cycles(dependency_map: dict[str, list[str]]) -> list[list[str]]:
@@ -21687,8 +14602,7 @@ def recommend_checks(categories: dict[str, list[dict[str, str]]]) -> list[str]:
 			"python tools/gf_maintenance.py content-package-boundary --json",
 			"python tools/gf_maintenance.py asset-lifecycle-boundary --json",
 			"python tools/gf_maintenance.py project-profile-boundary --json",
-			"python tools/gf_maintenance.py check --suite package --json",
-			"python tools/gf_maintenance.py package-godot-smoke --json",
+			"python tools/gf_maintenance.py check --suite framework-static --json",
 		])
 	if categories["examples"]:
 		recommendations.append("python tools/gf_maintenance.py check --suite examples --json")
@@ -21716,19 +14630,13 @@ def recommend_checks(categories: dict[str, list[dict[str, str]]]) -> list[str]:
 				"tools/gf_project_layout_profile.py "
 				"tools/gf_executable_resolution.py tools/gf_godot_process.py "
 				"tools/gf_process_authority.py "
-				"tools/gf_package_artifact_set.py tools/gf_package_paths.py "
+				"tools/gf_package_paths.py "
 				"tools/gf_parallel_validation.py tools/gf_process_supervisor.py "
 				"tools/gf_repository_policy.py tools/gf_semver.py tools/gf_workspace_snapshot.py"
 			),
 			"python tools/gf_maintenance.py maintenance-self-test --json",
 			"python tools/gf_maintenance.py check --suite quick --json",
 		])
-		if has_package_maintenance_paths(categories["maintenance_tools"]):
-			recommendations.extend([
-				"python tools/gf_maintenance.py check --suite package --json",
-				"python tools/gf_maintenance.py package-godot-smoke --json",
-				"python tools/gf_maintenance.py check --check package_godot_matrix_smoke --json",
-			])
 		if has_repository_policy_paths(categories["maintenance_tools"]):
 			recommendations.append("python tools/gf_repository_policy.py validate --json")
 	if categories["release_metadata"]:
@@ -21749,28 +14657,11 @@ def recommend_checks(categories: dict[str, list[dict[str, str]]]) -> list[str]:
 		recommendations.append("python tools/gf_maintenance.py dependency-boundary --json")
 		recommendations.append("python tools/gf_maintenance.py content-package-boundary --json")
 		recommendations.append("python tools/gf_maintenance.py project-profile-boundary --json")
-		recommendations.append("python tools/gf_maintenance.py check --suite package --json")
-		recommendations.append("python tools/gf_maintenance.py check --check package_godot_matrix_smoke --json")
+		recommendations.append("python tools/gf_maintenance.py check --suite framework-static --json")
 		recommendations.append("python tools/gf_maintenance.py public-docs-boundary --json")
 	if categories["other"]:
 		recommendations.append("python tools/gf_maintenance.py check --suite quick --json")
 	return dedupe_preserve_order(recommendations)
-
-
-def has_package_maintenance_paths(entries: list[dict[str, str]]) -> bool:
-	package_paths = {
-		"tools/build_gf_package.py",
-		"tools/build_gf_release_artifacts.py",
-		"tools/gf_package_artifact_set.py",
-		"tools/gf_path_security.py",
-		"tools/gf_package_resolver.py",
-		"tools/gf_semver.py",
-	}
-	for entry in entries:
-		path = entry["path"]
-		if path in package_paths or path.startswith("packages/"):
-			return True
-	return False
 
 
 def has_repository_policy_paths(entries: list[dict[str, str]]) -> bool:
@@ -21889,7 +14780,6 @@ def maintenance_in_process_adapter_registry() -> dict[str, Callable[[], dict[str
 		"package_boundary": package_boundary,
 		"package_closure_audit": package_closure_audit,
 		"package_source_boundary": package_source_boundary,
-		"package_user_dependency_boundary": package_user_dependency_boundary,
 		"package_external_command_audit": lambda: package_external_command_audit(fail_on_warnings=True),
 		"core_only_smoke": core_only_smoke,
 		"package_focused_gut_mapping": package_focused_gut_mapping,
@@ -22323,8 +15213,6 @@ VALIDATION_SHADOW_SCHEMA_VERSION = 1
 VALIDATION_SHADOW_REPORT_DOMAIN = b"gf-maintenance-validation-shadow-v1\0"
 VALIDATION_SHADOW_COLLECTION_TIMEOUT_SECONDS = 15.0
 AFFECTED_ANALYSIS_COLLECTION_TIMEOUT_SECONDS = 15.0
-PACKAGE_ARTIFACT_MANIFEST_ACTION_SENTINEL = "<package-artifact-manifest>"
-PACKAGE_ARTIFACT_MANIFEST_DEPENDENCY_LABEL = "package_artifact_set_manifest"
 VALIDATION_SHADOW_ERROR_CODES = frozenset({
 	"evidence_construction_failed",
 	"inventory_capture_failed",
@@ -22610,72 +15498,6 @@ def make_validation_shadow_failure_report(
 	return finalize_validation_shadow_report(report)
 
 
-def validation_shadow_action_inputs(
-	data: dict[str, Any],
-	check_name: str,
-	command: list[str],
-	*,
-	validation_catalog: gf_validation_catalog.ValidationCatalog,
-	workspace_digest: str,
-	allow_planned_command: bool,
-) -> tuple[list[str], dict[str, str]]:
-	"""Canonicalize private artifact paths and bind their sealed manifest identity."""
-	if check_name not in PACKAGE_ARTIFACT_CONSUMER_CHECKS:
-		return command, {}
-	artifact_set = data.get("package_artifact_set")
-	if (
-		not isinstance(artifact_set, dict)
-		or set(artifact_set) != {
-			"reused",
-			"manifest_sha256",
-			"artifact_count",
-			"workspace_fingerprint",
-		}
-		or type(artifact_set.get("reused")) is not bool
-		or type(artifact_set.get("artifact_count")) is not int
-		or artifact_set["artifact_count"] <= 0
-		or artifact_set.get("workspace_fingerprint") != workspace_digest
-	):
-		raise ValueError("Package consumer Shadow evidence requires the parent artifact set.")
-	manifest_sha256 = artifact_set.get("manifest_sha256")
-	if (
-		not isinstance(manifest_sha256, str)
-		or SHA256_HEX_RE.fullmatch(manifest_sha256) is None
-	):
-		raise ValueError("Package consumer Shadow evidence has an invalid manifest digest.")
-	manifest_flag = "--package-artifact-manifest"
-	digest_flag = "--package-artifact-manifest-sha256"
-	manifest_count = command.count(manifest_flag)
-	digest_count = command.count(digest_flag)
-	if manifest_count == 0 and digest_count == 0 and allow_planned_command:
-		return fallback_check_command(
-			check_name,
-			PACKAGE_ARTIFACT_MANIFEST_ACTION_SENTINEL,
-			manifest_sha256,
-			validation_catalog=validation_catalog,
-		), {
-			PACKAGE_ARTIFACT_MANIFEST_DEPENDENCY_LABEL: manifest_sha256,
-		}
-	if manifest_count != 1 or digest_count != 1:
-		raise ValueError("Package consumer command has an invalid artifact argument shape.")
-	manifest_index = command.index(manifest_flag)
-	digest_index = command.index(digest_flag)
-	if (
-		digest_index != manifest_index + 2
-		or digest_index + 2 != len(command)
-		or not command[manifest_index + 1]
-		or command[manifest_index + 1] in {manifest_flag, digest_flag}
-	):
-		raise ValueError("Package consumer command is missing an artifact argument value.")
-	if command[digest_index + 1] != manifest_sha256:
-		raise ValueError("Package consumer command digest differs from the parent artifact set.")
-	canonical_command = list(command)
-	canonical_command[manifest_index + 1] = PACKAGE_ARTIFACT_MANIFEST_ACTION_SENTINEL
-	return canonical_command, {
-		PACKAGE_ARTIFACT_MANIFEST_DEPENDENCY_LABEL: manifest_sha256,
-	}
-
-
 def make_validation_shadow_report(
 	data: dict[str, Any],
 	workspace_state: dict[str, Any],
@@ -22754,26 +15576,13 @@ def make_validation_shadow_report(
 				check_name,
 				validation_catalog=validation_catalog,
 			)
-		command, dependency_artifact_digests = validation_shadow_action_inputs(
-			data,
-			check_name,
-			command,
-			validation_catalog=validation_catalog,
-			workspace_digest=workspace_digest,
-			allow_planned_command=(
-				result is None
-				or str(result.get("execution", "")) not in {"subprocess", "in_process"}
-			),
-		)
 		material = gf_validation_evidence.make_action_key_material(
 			action_name=check_name,
 			implementation_epoch=policy.implementation_epoch,
 			command=command,
 			contract_digest=contract_digest,
 			input_digests={"workspace": workspace_digest},
-			# Ordinary DAG prerequisites do not contribute artifact inputs. Only
-			# explicitly consumed, parent-validated artifact bytes are bound here.
-			dependency_artifact_digests=dependency_artifact_digests,
+			dependency_artifact_digests={},
 			toolchain_digests={},
 			environment_digests={},
 			discovery_digest=str(inventory["inventory_sha256"]),
@@ -22888,8 +15697,6 @@ def run_checks(
 	sync_examples: bool = False,
 	allow_breaking_api: bool = False,
 	artifact_manifest: str = "",
-	package_artifact_manifest: str = "",
-	package_artifact_manifest_sha256: str = "",
 	complete_output_evidence: bool = False,
 	validation_shadow: bool = False,
 	affected: bool = False,
@@ -23346,8 +16153,6 @@ def run_checks(
 		data["duration_seconds"] = round(time.perf_counter() - overall_started, 3)
 		return data
 	data: dict[str, Any] | None = None
-	package_artifact_set: PackageArtifactSet | None = None
-	package_artifact_reused = False
 	validation_parallel_occurrences: dict[str, list[dict[str, Any]]] | None = (
 		{} if validation_shadow else None
 	)
@@ -23361,13 +16166,8 @@ def run_checks(
 	process_environment_scope.__enter__()
 	try:
 		with contextlib.ExitStack() as stack:
-			effective_package_manifest = package_artifact_manifest
-			effective_package_manifest_sha256 = package_artifact_manifest_sha256
 			try:
-				captured_workspace: CapturedWorkspace | None = None
-				artifact_source_workspace: Path | None = None
-				artifact_cleanup_state: dict[str, bool] | None = None
-				if resolved_jobs > 1 or package_artifact_is_required(selected_names):
+				if resolved_jobs > 1:
 					captured_workspace = gf_parallel_validation.capture_workspace(
 						ROOT,
 						git_process=invocation_process_authority.git,
@@ -23376,58 +16176,6 @@ def run_checks(
 					if captured_workspace.workspace_fingerprint != workspace_state["fingerprint"]:
 						raise WorkspaceSnapshotError(
 							"Parallel workspace capture does not match the maintenance workspace fingerprint."
-						)
-				if package_artifact_is_required(selected_names):
-					remaining_deadline_seconds(suite_deadline, "package artifact preparation")
-					if package_artifact_inputs_are_complete(
-						effective_package_manifest,
-						effective_package_manifest_sha256,
-					):
-						package_artifact_set = gf_package_artifact_set.load_package_artifact_set(
-							effective_package_manifest,
-							effective_package_manifest_sha256,
-							workspace_state,
-							deadline=suite_deadline,
-						)
-						remaining_deadline_seconds(suite_deadline, "package artifact loading")
-						package_artifact_reused = True
-					else:
-						artifact_cleanup_state = {"permitted": True}
-						artifact_temp = stack.enter_context(managed_validation_directory(
-							prefix="gfa-",
-							cleanup_errors=temporary_cleanup_errors,
-							windows_max_characters=WINDOWS_ARTIFACT_VALIDATION_ROOT_MAX_CHARACTERS,
-							cleanup_permitted=lambda: artifact_cleanup_state["permitted"],
-						))
-						if captured_workspace is None:
-							raise WorkspaceSnapshotError(
-								"Package artifact creation requires a captured source workspace."
-							)
-						# Git materialization owns subprocess trees.  Revoke the wider
-						# artifact-root cleanup before launch and only republish it after
-						# the materializer returns with a proven quiet boundary.
-						artifact_cleanup_state["permitted"] = False
-						artifact_source_workspace = (
-							gf_parallel_validation.materialize_workspace(
-								captured_workspace,
-								artifact_temp / "s",
-								git_process=invocation_process_authority.git,
-								deadline=suite_deadline,
-							)
-						)
-						package_artifact_set = build_package_smoke_artifact_set(
-							artifact_temp / "a",
-							workspace_state,
-							process_environment=invocation_process_authority.environment,
-							source_root=artifact_source_workspace,
-							deadline=suite_deadline,
-						)
-						effective_package_manifest = package_artifact_set.manifest_path.as_posix()
-						effective_package_manifest_sha256 = package_artifact_set.manifest_sha256
-				if resolved_jobs > 1 and captured_workspace is not None:
-					if package_artifact_set is None:
-						raise PackageArtifactSetError(
-							"Parallel Full requires one sealed package artifact set."
 						)
 					parallel_cleanup_state = {"permitted": True}
 					parallel_temp = stack.enter_context(managed_validation_directory(
@@ -23446,9 +16194,6 @@ def run_checks(
 						timeout_seconds=timeout_seconds,
 						suite_timeout_seconds=suite_timeout_seconds,
 						fail_fast=fail_fast,
-						package_artifact_manifest=effective_package_manifest,
-						package_artifact_manifest_sha256=effective_package_manifest_sha256,
-						package_artifact_count=len(package_artifact_set.artifacts),
 						progress_callback=progress_callback,
 						output_callback=output_callback,
 						overall_started=overall_started,
@@ -23478,8 +16223,6 @@ def run_checks(
 							fail_fast=fail_fast,
 							allow_breaking_api=allow_breaking_api,
 							artifact_manifest=artifact_manifest,
-							package_artifact_manifest=effective_package_manifest,
-							package_artifact_manifest_sha256=effective_package_manifest_sha256,
 							complete_output_evidence=complete_output_evidence,
 							progress_callback=progress_callback,
 							output_callback=output_callback,
@@ -23487,10 +16230,6 @@ def run_checks(
 							process_environment=invocation_process_environment,
 							git_process=invocation_process_authority.git,
 						)
-				if package_artifact_set is not None:
-					remaining_deadline_seconds(suite_deadline, "package artifact revalidation")
-					package_artifact_set.revalidate(workspace_state, deadline=suite_deadline)
-					remaining_deadline_seconds(suite_deadline, "package artifact revalidation")
 				if "examples_sync_write" not in selected_names:
 					remaining_deadline_seconds(suite_deadline, "workspace snapshot revalidation")
 					ending_workspace = workspace_fingerprint(
@@ -23502,13 +16241,7 @@ def run_checks(
 						raise WorkspaceSnapshotError(
 							"Workspace source changed while read-only maintenance checks were running."
 						)
-				if artifact_cleanup_state is not None:
-					# The artifact root is shared by its builder and every downstream
-					# serial/parallel consumer.  Publish wider cleanup permission only
-					# after every supervised process and final revalidation returned with
-					# a proven quiet boundary.
-					artifact_cleanup_state["permitted"] = True
-			except (WorkspaceDeadlineError, PackageArtifactDeadlineError, TimeoutError) as error:
+			except (WorkspaceDeadlineError, TimeoutError) as error:
 				if data is None:
 					data = make_check_deadline_failure(
 						validation_plan,
@@ -23520,25 +16253,20 @@ def run_checks(
 					append_check_orchestration_deadline(data, str(error))
 			except (
 				gf_maintenance_check_graph.WorkspaceFingerprintError,
-				PackageArtifactSetError,
 				WorkspaceSnapshotError,
+				FrozenEnvironmentError,
+				ExecutableResolutionError,
 				OSError,
 				ValueError,
 			) as error:
 				if exception_has_cleanup_debt(error):
 					raise
 				if data is None:
-					if isinstance(error, PackageArtifactSetError):
-						failure_name = "package_artifact_preparation"
-					elif isinstance(error, FrozenEnvironmentError):
-						failure_name = "validation_environment_setup"
-					elif isinstance(
-						error,
-						(gf_maintenance_check_graph.WorkspaceFingerprintError, WorkspaceSnapshotError),
-					):
-						failure_name = "workspace_snapshot_integrity"
-					else:
-						failure_name = "parallel_validation_setup"
+					failure_name = (
+						"validation_environment_setup"
+						if isinstance(error, (FrozenEnvironmentError, ExecutableResolutionError))
+						else "workspace_snapshot_integrity"
+					)
 					data = make_check_setup_failure(
 						validation_plan,
 						workspace_state,
@@ -23546,14 +16274,9 @@ def run_checks(
 						str(error),
 					)
 				else:
-					failure_name = (
-						"package_artifact_integrity"
-						if isinstance(error, PackageArtifactSetError)
-						else "workspace_snapshot_integrity"
-					)
 					append_check_orchestration_failure(
 						data,
-						failure_name,
+						"workspace_snapshot_integrity",
 						str(error),
 					)
 		if temporary_cleanup_errors:
@@ -23585,11 +16308,6 @@ def run_checks(
 	data["suite_timeout_seconds"] = suite_timeout_seconds
 	data.setdefault("execution", "parallel_shards" if resolved_jobs > 1 else "serial")
 	data.setdefault("jobs", resolved_jobs)
-	if package_artifact_set is not None:
-		data["package_artifact_set"] = package_artifact_details(
-			package_artifact_set,
-			reused=package_artifact_reused,
-		)
 	if validation_shadow and "validation_shadow" not in data:
 		attach_validation_shadow_report(
 			data,
@@ -24076,8 +16794,6 @@ def prepare_parallel_full_batch(
 	timeout_seconds: int | None,
 	suite_deadline: float | None,
 	fail_fast: bool,
-	package_artifact_manifest: str,
-	package_artifact_manifest_sha256: str,
 	base_process_environment: Mapping[str, str] | None,
 	cleanup_state: dict[str, bool],
 	cleanup_errors: list[str],
@@ -24105,8 +16821,6 @@ def prepare_parallel_full_batch(
 			timeout_seconds=timeout_seconds,
 			suite_deadline=suite_deadline,
 			fail_fast=fail_fast,
-			package_artifact_manifest=package_artifact_manifest,
-			package_artifact_manifest_sha256=package_artifact_manifest_sha256,
 			base_process_environment=base_process_environment,
 		)
 		batch_shards.append(shard)
@@ -24120,8 +16834,6 @@ def prepare_parallel_full_batch(
 			authority_catalog=validation_catalog,
 			environment=shard.environment,
 			workspace=workspace,
-			package_artifact_manifest=package_artifact_manifest,
-			package_artifact_manifest_sha256=package_artifact_manifest_sha256,
 		)
 	return PreparedParallelFullBatch(
 		index=batch_index,
@@ -24237,7 +16949,6 @@ def execute_prepared_parallel_full_batch(
 	validation_catalog: gf_validation_catalog.ValidationCatalog,
 	expected_checks_by_shard: Mapping[str, list[str]],
 	expected_check_graphs_by_shard: Mapping[str, dict[str, Any]],
-	package_artifact_count: int,
 	cleanup_state: dict[str, bool],
 	occurrences: dict[str, list[tuple[str, dict[str, Any]]]],
 	parallel_shard_reports: list[dict[str, Any]],
@@ -24317,21 +17028,6 @@ def execute_prepared_parallel_full_batch(
 					"--suite-timeout",
 				)
 			),
-			expected_package_artifact_manifest=(
-				trusted_parallel_shard_command_option(
-					dispatched_shard.command,
-					"--package-artifact-manifest",
-				)
-				or ""
-			),
-			expected_package_artifact_manifest_sha256=(
-				trusted_parallel_shard_command_option(
-					dispatched_shard.command,
-					"--package-artifact-manifest-sha256",
-				)
-				or ""
-			),
-			expected_package_artifact_count=package_artifact_count,
 		)
 		try:
 			shard_workspace_state = workspace_fingerprint(
@@ -24430,9 +17126,6 @@ def run_parallel_full_checks(
 	timeout_seconds: int | None,
 	suite_timeout_seconds: int | None,
 	fail_fast: bool,
-	package_artifact_manifest: str,
-	package_artifact_manifest_sha256: str,
-	package_artifact_count: int,
 	progress_callback: Callable[[str, str, float | None], None] | None,
 	output_callback: Callable[[str, str, str], None] | None,
 	overall_started: float,
@@ -24500,8 +17193,6 @@ def run_parallel_full_checks(
 				timeout_seconds=timeout_seconds,
 				suite_deadline=suite_deadline,
 				fail_fast=fail_fast,
-				package_artifact_manifest=package_artifact_manifest,
-				package_artifact_manifest_sha256=package_artifact_manifest_sha256,
 				base_process_environment=base_process_environment,
 				cleanup_state=cleanup_state,
 				cleanup_errors=lease.cleanup_errors,
@@ -24551,7 +17242,6 @@ def run_parallel_full_checks(
 				validation_catalog=validation_catalog,
 				expected_checks_by_shard=expected_checks_by_shard,
 				expected_check_graphs_by_shard=expected_check_graphs_by_shard,
-				package_artifact_count=package_artifact_count,
 				cleanup_state=cleanup_state,
 				occurrences=occurrences,
 				parallel_shard_reports=parallel_shard_reports,
@@ -24697,8 +17387,6 @@ def make_parallel_full_shard(
 	timeout_seconds: int | None,
 	suite_deadline: float | None,
 	fail_fast: bool,
-	package_artifact_manifest: str,
-	package_artifact_manifest_sha256: str,
 	base_process_environment: Mapping[str, str] | None = None,
 ) -> tuple[ParallelShard, Path]:
 	report_relative_path = Path("build") / "p" / f"{shard_plan.name}.json"
@@ -24721,13 +17409,6 @@ def make_parallel_full_shard(
 		command.extend(["--suite-timeout", str(max(1, math.ceil(remaining)))])
 	if fail_fast:
 		command.append("--fail-fast")
-	if any(name in PACKAGE_ARTIFACT_CONSUMER_CHECKS for name in shard_plan.checks):
-		command.extend([
-			"--package-artifact-manifest",
-			package_artifact_manifest,
-			"--package-artifact-manifest-sha256",
-			package_artifact_manifest_sha256,
-		])
 	command.append("--json")
 	environment, _private_user_root = parallel_shard_environment(
 		workspace,
@@ -24753,8 +17434,6 @@ def freeze_parallel_shard_command_contract(
 	authority_catalog: gf_validation_catalog.ValidationCatalog,
 	environment: Mapping[str, str],
 	workspace: Path,
-	package_artifact_manifest: str,
-	package_artifact_manifest_sha256: str,
 ) -> ParallelShardCommandContract:
 	"""Freeze every assigned action identity before the child process can start."""
 	if len(expected_checks) != len(set(expected_checks)):
@@ -24787,17 +17466,6 @@ def freeze_parallel_shard_command_contract(
 				f"Parallel Full action {name!r} has no static Catalog command."
 			)
 		declared_command = list(static_commands[name])
-		if name in PACKAGE_ARTIFACT_CONSUMER_CHECKS:
-			if not package_artifact_manifest or not package_artifact_manifest_sha256:
-				raise WorkspaceSnapshotError(
-					f"Parallel Full action {name!r} is missing sealed artifact inputs."
-				)
-			declared_command.extend([
-				"--package-artifact-manifest",
-				package_artifact_manifest,
-				"--package-artifact-manifest-sha256",
-				package_artifact_manifest_sha256,
-			])
 		if (
 			authority_catalog.executor_kind(name)
 			is gf_validation_catalog.ValidationExecutorKind.SUBPROCESS
@@ -25073,9 +17741,6 @@ def load_parallel_shard_report(
 	expected_check_graph: dict[str, Any],
 	expected_requested_minimum_seconds: float | None = None,
 	expected_suite_timeout_seconds: float | None = None,
-	expected_package_artifact_manifest: str = "",
-	expected_package_artifact_manifest_sha256: str = "",
-	expected_package_artifact_count: int | None = None,
 ) -> tuple[dict[str, Any] | None, str]:
 	try:
 		report_bytes = read_bounded_regular_file_under_root(
@@ -25150,46 +17815,6 @@ def load_parallel_shard_report(
 		or any(type(value) is not int or value < 0 for value in workspace_snapshot.values())
 	):
 		return None, "Shard report workspace_snapshot has an invalid shape or counter."
-	requires_package_artifact = any(
-		name in PACKAGE_ARTIFACT_CONSUMER_CHECKS
-		for name in expected_checks
-	)
-	package_artifact_details_value = report.get("package_artifact_set")
-	if requires_package_artifact != ("package_artifact_set" in report):
-		return None, "Shard report package artifact provenance disagrees with its assigned checks."
-	if requires_package_artifact and (
-		not isinstance(expected_package_artifact_manifest, str)
-		or not expected_package_artifact_manifest
-		or not isinstance(expected_package_artifact_manifest_sha256, str)
-		or SHA256_HEX_RE.fullmatch(expected_package_artifact_manifest_sha256) is None
-		or type(expected_package_artifact_count) is not int
-		or expected_package_artifact_count <= 0
-	):
-		return None, "Parent package artifact provenance is missing or invalid."
-	if package_artifact_details_value is not None:
-		if (
-			not isinstance(package_artifact_details_value, dict)
-			or set(package_artifact_details_value) != {
-				"reused",
-				"manifest_sha256",
-				"artifact_count",
-				"workspace_fingerprint",
-			}
-			or package_artifact_details_value.get("reused") is not True
-			or not isinstance(package_artifact_details_value.get("manifest_sha256"), str)
-			or SHA256_HEX_RE.fullmatch(package_artifact_details_value["manifest_sha256"]) is None
-			or type(package_artifact_details_value.get("artifact_count")) is not int
-			or package_artifact_details_value["artifact_count"] <= 0
-			or package_artifact_details_value.get("workspace_fingerprint") != expected_workspace_fingerprint
-		):
-			return None, "Shard report package artifact provenance is invalid."
-		if (
-			package_artifact_details_value["manifest_sha256"]
-			!= expected_package_artifact_manifest_sha256
-			or package_artifact_details_value["artifact_count"]
-			!= expected_package_artifact_count
-		):
-			return None, "Shard report package artifact identity differs from the parent sealed set."
 	results = report.get("results")
 	if not isinstance(results, list) or any(not isinstance(item, dict) for item in results):
 		return None, "Shard report results must be an array of objects."
@@ -25230,49 +17855,6 @@ def load_parallel_shard_report(
 		):
 			return None, (
 				f"Parent shard subprocess identity for {name!r} lacks an absolute executable."
-			)
-		try:
-			declared_manifest = trusted_parallel_shard_command_option(
-				identity.declared,
-				"--package-artifact-manifest",
-			)
-			declared_manifest_sha256 = trusted_parallel_shard_command_option(
-				identity.declared,
-				"--package-artifact-manifest-sha256",
-			)
-			effective_manifest = trusted_parallel_shard_command_option(
-				identity.effective,
-				"--package-artifact-manifest",
-			)
-			effective_manifest_sha256 = trusted_parallel_shard_command_option(
-				identity.effective,
-				"--package-artifact-manifest-sha256",
-			)
-		except WorkspaceSnapshotError:
-			return None, (
-				f"Parent shard command identity for {name!r} has invalid package artifact options."
-			)
-		artifact_identity = (
-			declared_manifest,
-			declared_manifest_sha256,
-			effective_manifest,
-			effective_manifest_sha256,
-		)
-		if name in PACKAGE_ARTIFACT_CONSUMER_CHECKS:
-			if artifact_identity != (
-				expected_package_artifact_manifest,
-				expected_package_artifact_manifest_sha256,
-				expected_package_artifact_manifest,
-				expected_package_artifact_manifest_sha256,
-			):
-				return None, (
-					f"Parent shard package artifact command identity for {name!r} "
-					"differs from its dispatch contract."
-				)
-		elif any(value is not None for value in artifact_identity):
-			return None, (
-				f"Parent shard non-consumer command identity for {name!r} "
-				"unexpectedly contains package artifact options."
 			)
 	accepted_result_fingerprints: dict[str, str] = {}
 	previous_suite_remaining_seconds = expected_suite_timeout_seconds
@@ -25998,8 +18580,6 @@ def run_checks_with_active_snapshot(
 	fail_fast: bool = False,
 	allow_breaking_api: bool = False,
 	artifact_manifest: str = "",
-	package_artifact_manifest: str = "",
-	package_artifact_manifest_sha256: str = "",
 	complete_output_evidence: bool = False,
 	progress_callback: Callable[[str, str, float | None], None] | None = None,
 	output_callback: Callable[[str, str, str], None] | None = None,
@@ -26052,8 +18632,6 @@ def run_checks_with_active_snapshot(
 	for name in check_names:
 		fallback_command = fallback_check_command(
 			name,
-			package_artifact_manifest,
-			package_artifact_manifest_sha256,
 			validation_catalog=validation_executor_binding.catalog,
 		)
 		remaining_seconds = (
@@ -26150,8 +18728,6 @@ def run_checks_with_active_snapshot(
 		try:
 			check_command_value = materialize_check_command(
 				name,
-				package_artifact_manifest,
-				package_artifact_manifest_sha256,
 				validation_executor_binding=validation_executor_binding,
 				deferred_command_context=deferred_command_context,
 			)
@@ -26374,8 +18950,6 @@ def run_checks_with_log_hygiene(
 	sync_examples: bool = False,
 	allow_breaking_api: bool = False,
 	artifact_manifest: str = "",
-	package_artifact_manifest: str = "",
-	package_artifact_manifest_sha256: str = "",
 	progress_callback: Callable[[str, str, float | None], None] | None = None,
 	output_callback: Callable[[str, str, str], None] | None = None,
 	process_environment: FrozenProcessEnvironment | None = None,
@@ -26401,8 +18975,6 @@ def run_checks_with_log_hygiene(
 			sync_examples=sync_examples,
 			allow_breaking_api=allow_breaking_api,
 			artifact_manifest=artifact_manifest,
-			package_artifact_manifest=package_artifact_manifest,
-			package_artifact_manifest_sha256=package_artifact_manifest_sha256,
 			progress_callback=progress_callback,
 			output_callback=output_callback,
 			process_environment=invocation_process_environment,
@@ -27978,9 +20550,6 @@ def safe_release_artifact_report(report: dict[str, Any]) -> dict[str, Any]:
 		"artifact_count": int(report.get("artifact_count", 0))
 		if isinstance(report.get("artifact_count"), int)
 		else 0,
-		"package_archive_count": int(report.get("package_archive_count", 0))
-		if isinstance(report.get("package_archive_count"), int)
-		else 0,
 		"issue_count": issue_count,
 		"issues": (
 			[f"Release artifact audit reported {issue_count} issue(s)."]
@@ -28336,11 +20905,6 @@ def release_status(
 				"Asset Store package layout is invalid: " + issue
 				for issue in package_archive["asset_store_package"].get("issues", [])
 			)
-		if not package_archive["modular_package_registry"].get("ok", False):
-			issues.extend(
-				"Modular package release registry is invalid: " + issue
-				for issue in package_archive["modular_package_registry"].get("issues", [])
-			)
 
 	tag_exists = git_exit_code(["rev-parse", "-q", "--verify", f"refs/tags/{version}"]) == 0
 	tag_points_at_head = version in git_lines(["tag", "--points-at", "HEAD"])
@@ -28506,12 +21070,6 @@ def make_skipped_package_archive(reason: str) -> dict[str, Any]:
 			"issues": [],
 			"reason": reason,
 		},
-		"modular_package_registry": {
-			"ok": True,
-			"skipped": True,
-			"issues": [],
-			"reason": reason,
-		},
 	}
 
 
@@ -28660,7 +21218,6 @@ def audit_prebuilt_package_archive(release_artifacts: dict[str, Any]) -> dict[st
 		],
 		"blocked_package_dirs": find_blocked_package_dirs(ROOT / "addons/gf"),
 		"asset_store_package": {"ok": ok, "issues": artifact_issues},
-		"modular_package_registry": {"ok": ok, "issues": artifact_issues},
 	}
 
 

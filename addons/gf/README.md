@@ -10,43 +10,15 @@ Gf -> res://addons/gf/kernel/core/gf.gd
 
 The plugin also opens the standalone `GF Workspace`. New projects start with only the GF kernel and standard library active; bundled optional extensions are disabled until explicitly enabled. The `GF Extensions` page is used for inspecting extension manifests, enabling or disabling extensions, auto-running enabled extension installers, excluding disabled extensions during export, and reporting disabled-extension references when strict export checks are enabled.
 
-The official Godot Asset Store/Asset Library package and the main GitHub Release package are the full `gf-framework-<version>.zip` addon package. Minimal `gf-kernel-<version>.zip` release assets are intended for advanced modular bootstrap flows where a project installs additional GF packages through the package manager.
+The official Godot Asset Store/Asset Library download and the GitHub Release asset named `gf-framework-<version>.zip` both contain the complete addon. Bundled optional extensions are present but remain disabled until the project enables them locally.
 
-The optional `gf.tool.ai_developer` package provides project intent, version-bound API discovery, managed agent instructions, and approval-gated GF feedback tooling without affecting the Godot runtime or exported game. See the [AI Developer Kit guide](https://github.com/C76GN/gf-framework/blob/main/docs/zh/editor/tools/ai-developer.md).
+The optional GF AI Developer Kit provides project intent, version-bound API discovery, managed agent instructions, and approval-gated GF feedback tooling without affecting the Godot runtime or exported game. See the [AI Developer Kit guide](https://github.com/C76GN/gf-framework/blob/main/docs/zh/editor/tools/ai-developer.md).
 
-## Package Management
+## Installation And Upgrades
 
-If this project was installed from the minimal `gf.kernel` package, open `Tools > GF > Open GF Workspace` and use the `GF Package Manager` page to inspect, install, update, or remove additional GF packages.
+GF 11 is installed and upgraded as one addon. Close Godot, commit or back up the project, then replace the whole `addons/gf` directory with the directory from one `gf-framework-<version>.zip` release. Do not overlay files from different versions.
 
-The same package manager is also available without Python:
-
-```powershell
-godot --headless --path . --script res://addons/gf/kernel/package/gf_package_cli.gd -- status
-godot --headless --path . --script res://addons/gf/kernel/package/gf_package_cli.gd -- install <package-id>...
-godot --headless --path . --script res://addons/gf/kernel/package/gf_package_cli.gd -- update [<package-id>...] [--all-installed]
-godot --headless --path . --script res://addons/gf/kernel/package/gf_package_cli.gd -- uninstall <package-id>...
-godot --headless --path . --script res://addons/gf/kernel/package/gf_package_cli.gd -- verify
-```
-
-Common options are:
-
-- `--registry <index.json-or-url-or-source.json>`: use a local registry, remote registry, registry source, or offline bundle source instead of the default GF release source.
-- `--channel <name>`: select a channel from a registry source; defaults to the source's stable channel.
-- `--project-root <path>`: install into another Godot project; defaults to the current `--path` project.
-- `--lockfile <path>`: override the package lockfile; defaults to `.gf/packages.lock.json`.
-- `--cache-dir <path>`: override the download cache; defaults to `.gf/package_cache`.
-- `--dry-run`: preview install or uninstall without writing files.
-- `--all-installed`: with `update`, update every installed package recorded in the lockfile.
-- `--force`: allow uninstall when the package manager would normally block removal.
-- `--json`: print machine-readable output.
-
-When `--registry` is omitted, GF uses the registry source for the installed framework version from `addons/gf/plugin.cfg`. For example, a project on GF `1.0.0` reads the `1.0.0` release registry by default. A registry or package whose `minimum_framework_version` / `maximum_framework_version_exclusive` does not match the target project is rejected before files are downloaded, staged, or overwritten.
-
-Registry v2 is a closed contract. Missing, unknown, or incorrectly typed fields are rejected before planning; concrete packages require a non-empty archive, a full SHA-256, and a positive byte size, while presets keep empty `dependencies` and `paths` and carry no archive fields. A batch uninstall evaluates `required_by` against the projected final request set, so dependencies outside that set still block removal.
-
-The package manager is not a self-updater for the running framework. With the default source, `install gf.kernel` on GF `1.0.0` targets the `1.0.0` registry. To move a project to GF `1.0.1`, replace the framework from the GF `1.0.1` release first, then run `status` and use `update --all-installed` to align installed optional packages with the new registry.
-
-Installed packages are tracked in `.gf/packages.lock.json`. GF does not update existing packages automatically when the framework is manually replaced; run `status`, then `update <package-id>` or `update --all-installed` to apply updates from the currently selected registry. `update` only targets packages already present in the lockfile. Use `install` to add new packages.
+GF 11 does not include a Package Manager, a package CLI, online registries, offline bundles, or per-module release archives. Projects created with the GF 10 modular installer must complete the [GF 10 migration procedure](https://github.com/C76GN/gf-framework/blob/main/docs/zh/overview/quickstart/package-manager-migration.md) before replacing the addon.
 
 ## Layout
 
@@ -60,43 +32,15 @@ Bundled GF extensions are atomic and disabled by default: they depend only on th
 
 本目录是 GF Framework 的 Godot 插件分发目录。将 `addons/gf` 复制到 Godot 4 项目后，在 `Project > Project Settings > Plugins` 启用 `GF Framework`，插件会自动注册 `Gf` AutoLoad，并默认打开独立的 `GF Workspace`；其中的 `GF Extensions` 页面用于查看、启用、禁用和导出管理 GF 扩展。
 
-Godot Asset Store / Asset Library 官方页面和 GitHub Release 主下载包使用完整的 `gf-framework-<version>.zip` 插件包。`gf-kernel-<version>.zip` 是高级模块化引导入口，适合项目先安装最小 kernel，再通过包管理器按需安装其他 GF package。
+Godot Asset Store / Asset Library 官方页面和 GitHub Release 中的 `gf-framework-<version>.zip` 都提供完整插件。可选内置扩展随包存在，但只有项目在本地显式启用后才会参与装配。
 
-可选 `gf.tool.ai_developer` 包提供项目意图、版本化 API 查询、Agent 规则和审批式 GF 反馈工具，不影响 Godot 运行时或导出游戏。完整说明见 [AI Developer Kit 指南](https://github.com/C76GN/gf-framework/blob/main/docs/zh/editor/tools/ai-developer.md)。
+可选 GF AI Developer Kit 提供项目意图、版本化 API 查询、Agent 规则和审批式 GF 反馈工具，不影响 Godot 运行时或导出游戏。完整说明见 [AI Developer Kit 指南](https://github.com/C76GN/gf-framework/blob/main/docs/zh/editor/tools/ai-developer.md)。
 
-## 包管理快速入口
+## 安装与升级
 
-如果项目只安装了最小 `gf.kernel` 包，可以从 `工具 > GF > 打开 GF 工作区` 进入 `GF Package Manager` 页面，查看、安装、更新或移除其他 GF package。
+GF 11 以完整插件为单位安装和升级。先关闭 Godot，提交或备份项目，再用某一个 `gf-framework-<version>.zip` 发布包中的完整目录替换整个 `addons/gf`；不要叠加不同版本的文件。
 
-也可以直接使用 Godot 原生命令行，不需要 Python：
-
-```powershell
-godot --headless --path . --script res://addons/gf/kernel/package/gf_package_cli.gd -- status
-godot --headless --path . --script res://addons/gf/kernel/package/gf_package_cli.gd -- install <package-id>...
-godot --headless --path . --script res://addons/gf/kernel/package/gf_package_cli.gd -- update [<package-id>...] [--all-installed]
-godot --headless --path . --script res://addons/gf/kernel/package/gf_package_cli.gd -- uninstall <package-id>...
-godot --headless --path . --script res://addons/gf/kernel/package/gf_package_cli.gd -- verify
-```
-
-常用参数：
-
-- `--registry <index.json-or-url-or-source.json>`：改用本地 registry、远程 registry、registry source 或离线包 source。
-- `--channel <name>`：选择 registry source 中的 channel；默认使用 stable channel。
-- `--project-root <path>`：把 package 安装到另一个 Godot 项目；默认是当前 `--path` 项目。
-- `--lockfile <path>`：覆盖 package lockfile 路径；默认是 `.gf/packages.lock.json`。
-- `--cache-dir <path>`：覆盖下载缓存目录；默认是 `.gf/package_cache`。
-- `--dry-run`：只预览安装或卸载，不写项目文件。
-- `--all-installed`：配合 `update` 使用，更新 lockfile 中全部已安装 package。
-- `--force`：强制执行通常会被阻止的卸载。
-- `--json`：输出机器可读 JSON。
-
-不传 `--registry` 时，GF 会根据当前项目 `addons/gf/plugin.cfg` 中的框架版本选择同版本 release registry source。例如 GF `1.0.0` 项目默认读取 `1.0.0` registry。registry 或 package 的 `minimum_framework_version` / `maximum_framework_version_exclusive` 与目标项目不匹配时，安装会在下载、暂存和覆盖文件前失败。
-
-registry v2 是闭合协议：缺字段、未知字段和错误类型都会在规划前被拒绝；具体 package 必须提供非空 archive、完整 SHA-256 与正整数 size，preset 的 `dependencies` / `paths` 必须为空且不能携带 archive 字段。批量卸载会按请求集合的投影最终态判断 `required_by`，集合外 depender 仍然阻断移除。
-
-包管理器不是正在运行的 GF 框架自更新器。使用默认源时，GF `1.0.0` 项目执行 `install gf.kernel` 仍然会对齐 `1.0.0` registry。要把项目升级到 GF `1.0.1`，应先用 GF `1.0.1` release 替换框架，再运行 `status` 并用 `update --all-installed` 对齐已安装的可选 package。
-
-已安装 package 记录在 `.gf/packages.lock.json`。手动替换或升级 GF 框架不会自动同步更新已安装 package；先运行 `status` 查看状态，再执行 `update <package-id>` 或 `update --all-installed`，即可按当前 registry 更新。`update` 只处理 lockfile 里已经安装的 package；新增 package 仍使用 `install`。
+GF 11 不再包含 Package Manager、包管理命令行、在线 registry、离线 bundle 或逐模块发布包。曾使用 GF 10 模块化安装器的项目，必须先完成[从 GF 10 模块化安装迁移](https://github.com/C76GN/gf-framework/blob/main/docs/zh/overview/quickstart/package-manager-migration.md)，再替换插件目录。
 
 完整项目说明请看 GitHub 上的 [`README.md`](https://github.com/C76GN/gf-framework/blob/main/README.md) 和 [`README.zh.md`](https://github.com/C76GN/gf-framework/blob/main/README.zh.md)，正式文档请看 [Read the Docs](https://gf-framework.readthedocs.io/)。
 

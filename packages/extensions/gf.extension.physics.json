@@ -2,9 +2,6 @@
   "schema_version": 1,
   "id": "gf.extension.physics",
   "kind": "extension",
-  "version": "unreleased",
-  "display_name": "GF Physics",
-  "description": "Package manifest for the bundled Physics extension.",
   "dependencies": [
     "gf.kernel",
     "gf.standard.base"
@@ -12,6 +9,5 @@
   "paths": [
     "addons/gf/extensions/physics/**"
   ],
-  "gf_extension_id": "gf.physics",
-  "metadata": {}
+  "gf_extension_id": "gf.physics"
 }
