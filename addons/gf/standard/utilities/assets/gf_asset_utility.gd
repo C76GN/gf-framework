@@ -143,7 +143,6 @@ var _pinned_cache_paths: Dictionary = {}
 var _reference_counts: Dictionary = {}
 var _owner_reference_counts: Dictionary = {}
 var _owner_refs: Dictionary = {}
-var _owner_release_connected: Dictionary = {}
 var _handle_refs: Array[WeakRef] = []
 var _group_paths: Dictionary = {}
 var _group_pin_counts: Dictionary = {}
@@ -174,7 +173,6 @@ func init() -> void:
 	_reference_counts.clear()
 	_owner_reference_counts.clear()
 	_owner_refs.clear()
-	_owner_release_connected.clear()
 	_handle_refs.clear()
 	_group_paths.clear()
 	_group_pin_counts.clear()
@@ -218,7 +216,6 @@ func dispose() -> void:
 	_reference_counts.clear()
 	_owner_reference_counts.clear()
 	_owner_refs.clear()
-	_owner_release_connected.clear()
 	_handle_refs.clear()
 	_group_paths.clear()
 	_group_pin_counts.clear()
@@ -1446,27 +1443,6 @@ func _get_callback_entry_type_hint(entry: Dictionary) -> String:
 	return GFVariantData.get_option_string(entry, "type_hint", "")
 
 
-func _connect_signal_checked(
-	source_signal: Signal,
-	callback: Callable,
-	one_shot: bool = false
-) -> void:
-	if not source_signal.is_null() and callback.is_valid():
-		var connected_callback: Callable = callback
-		if one_shot:
-			var one_shot_callback: Callable
-			one_shot_callback = func() -> void:
-				if source_signal.is_connected(one_shot_callback):
-					source_signal.disconnect(one_shot_callback)
-				var callback_result: Variant = callback.call()
-				if callback_result != null:
-					return
-			connected_callback = one_shot_callback
-		var error: Error = source_signal.connect(connected_callback) as Error
-		if error != OK and error != ERR_ALREADY_EXISTS:
-			push_warning("[GFAssetUtility] Signal 连接失败：%d。" % error)
-
-
 func _append_report_path(report: Dictionary, key: String, path: String) -> void:
 	var paths: PackedStringArray = _get_packed_string_array_value(
 		GFVariantData.get_option_value(report, key, PackedStringArray())
@@ -1838,10 +1814,17 @@ func _track_owner(owner: Object) -> void:
 
 	var owner_id: int = owner.get_instance_id()
 	_owner_refs[owner_id] = weakref(owner)
-	if owner is Node and not GFVariantData.get_option_bool(_owner_release_connected, owner_id, false):
+	if owner is Node:
 		var owner_node: Node = owner
-		_connect_signal_checked(owner_node.tree_exited, _release_owner_id.bind(owner_id), true)
-		_owner_release_connected[owner_id] = true
+		var owner_exit_callback: Callable = _release_owner_id.bind(owner_id)
+		if owner_node.tree_exited.is_connected(owner_exit_callback):
+			return
+		var connect_error: Error = owner_node.tree_exited.connect(
+			owner_exit_callback,
+			CONNECT_ONE_SHOT as Object.ConnectFlags
+		) as Error
+		if connect_error != OK:
+			push_warning("[GFAssetUtility] owner 退出树信号连接失败：%d。" % connect_error)
 
 
 func _track_handle(handle: GFAssetHandle) -> void:
@@ -1906,7 +1889,6 @@ func _release_owner_id(owner_id: int) -> int:
 
 	_release_owner_handles(owner_id)
 	_erase_dictionary_key(_owner_refs, owner_id)
-	_erase_dictionary_key(_owner_release_connected, owner_id)
 	return released_count
 
 

@@ -199,6 +199,7 @@
 
 ### 🐛 Bug 修复 (Fixed)
 
+- 修复 `GFAssetUtility` 为 Node owner 注册 `tree_exited` 一次性回调时，自引用局部 `Callable` 在退树阶段变为空并触发引擎错误的问题；改由 Godot 原生 `CONNECT_ONE_SHOT` 管理断开，并以实际信号连接状态去重，使 `release_owner()` / `handle.release()` 后重获以及节点退树重入都能保持单一生命周期连接并精确释放句柄。
 - 修复 direct Projectile launch 的完整 root 在 `queue_free()` / 退树时被 child runtime 误报为 `RUNTIME_LOST`，以及对象池 authoritative lease 已匹配但可变 Node metadata 漂移时 `release_for_framework()` 假成功的问题；Session 现在直接观察 frozen root 的一次性退树信号并保留 `ROOT_LOST` first-wins，framework pool 入口则绕过 legacy metadata 准入、修复 metadata 并在返回成功前同步擦除精确 active lease。
 - 修复 Combat Projectile 在 binding 失败时丢失 `GFProjectileBinding.FailureReason`、对象池活动 lease 被 `init()` 清除 tracking 后完整 root 无法退休、失败/非有限 capture 仍进入 Motion、有限 velocity/delta 的乘法或候选位置溢出会先污染权威 root、Session 累计指标溢出，以及 locked Homing 的 arrival clamp 仍读取 live target 的问题；2D/3D Emitter 现在提供有界 `binding_failure_reason`，池结算只归还精确 active lease 并对失效 tracking 的自有 root 单次 free fallback，Runtime 在失败 capture 后立即终结，Intent 与 Transform/CharacterBody Adapter 则在任何宿主写入前拒绝非有限结果，Session 保留最后有限指标；`track_target=false` 时 live target 后续移动不再改写 launch 快照，目标失效后沿锁定方向继续并禁用 clamp。
 - 修复类型化场景请求的四个终端边界：非主线程配置失败不再返回无法终结的半配置 Operation 或派发 Broker Lease；preload 在调用 Broker poll 前进入 settlement fence，终态回调中的同路径重入以 busy 失败关闭，不再递归轮询旧 aggregate；同步自定义切场的显式确认与同步 `scene_changed` 只记录 current-generation 回执，并在 override 返回 true 及 owner/token 复核后结算；同路径异步 override 用 `_defer_target_scene_commit()` 区分合法等待与 same-root no-op，不同路径 legacy async observer 保持兼容；基础 pathless commit 预实例化并只接受精确 root，自定义 pathless commit 则必须显式确认精确回执，不再把任意新空路径或同路径旧 root 误认成冻结目标。
