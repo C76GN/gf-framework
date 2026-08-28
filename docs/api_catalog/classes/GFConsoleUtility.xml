@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFConsoleUtility" path="addons/gf/standard/utilities/debug/gf_console_utility.gd" module="standard" extends="GFUtility" classDigest="a2deac00a175c2153a5b8d5abd10eb7ae78fe92dc1924fe1c41db6dec2638b03">
+<class name="GFConsoleUtility" path="addons/gf/standard/utilities/debug/gf_console_utility.gd" module="standard" extends="GFUtility" classDigest="78af9702436036db494debbed361ca1d7be96a33d1c8cc44023cf4eb0e3d9987">
 	<description>GFConsoleUtility: 运行时开发者控制台。
 提供命令注册、解析与执行能力，并在初始化时构建覆盖全屏的调试 GUI。
 默认通过快捷键呼出，同时会消费 `GFLogUtility` 的日志信号进行彩色输出。</description>
@@ -230,6 +230,24 @@ prefix 和 raw_input。GF 会按当前参数前缀做一次稳定过滤。</desc
 				<tag name="api">public</tag>
 				<tag name="param">raw_input: 用户输入的完整字符串。</tag>
 				<tag name="return">找到并成功执行命令时返回 `true`。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="set_console_visible">
+			<signature>func set_console_visible(console_visible: bool) -&gt; void:</signature>
+			<description>设置控制台 GUI 可见性。GUI 未创建或已释放时不会执行任何操作。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">console_visible: 为 true 时显示控制台 GUI。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_console_visible">
+			<signature>func is_console_visible() -&gt; bool:</signature>
+			<description>检查控制台 GUI 是否可见。GUI 未创建或已释放时返回 false。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">控制台 GUI 可见时返回 true。</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
 		<member kind="method" name="append_output_line">

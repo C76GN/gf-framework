@@ -73,6 +73,23 @@ func test_init_is_idempotent_for_console_overlay() -> void:
 	assert_eq(_count_console_overlays(), 1, "重复 init 不应创建多个控制台 overlay。")
 
 
+func test_console_visibility_can_be_controlled_explicitly() -> void:
+	assert_false(_console.is_console_visible(), "控制台 GUI 初始应保持隐藏。")
+	_console.set_console_visible(true)
+	assert_true(_console.is_console_visible(), "显式显示后应报告可见。")
+	_console._console_gui._dragging = true
+	_console._console_gui._resizing = true
+	_console.set_console_visible(false)
+	assert_false(_console.is_console_visible(), "显式隐藏后应报告不可见。")
+	assert_false(_console._console_gui._dragging, "显式隐藏应结束窗口拖拽状态。")
+	assert_false(_console._console_gui._resizing, "显式隐藏应结束窗口缩放状态。")
+
+	_console.dispose()
+
+	_console.set_console_visible(true)
+	assert_false(_console.is_console_visible(), "GUI 已释放时应报告不可见。")
+
+
 func test_subscription_cancels_command_registration() -> void:
 	var cb: Callable = func(_args: PackedStringArray) -> void:
 		pass
@@ -574,12 +591,14 @@ func test_dispose_detaches_console_gui_immediately() -> void:
 
 func test_dispose_leaves_console_attached_during_autoload_tree_exit() -> void:
 	var gui: CanvasLayer = _console._console_gui
+	_console.set_console_visible(true)
 	GFAutoload.begin_tree_exit_scope()
 
 	_console.dispose()
 	_console = null
 
 	assert_not_null(gui.get_parent(), "AutoLoad 退出时不应重入修改控制台 GUI 的父节点。")
+	assert_true(gui.is_queued_for_deletion(), "AutoLoad 退出时仍应登记 GUI 延迟释放。")
 
 	GFAutoload.end_tree_exit_scope()
 	await get_tree().process_frame
