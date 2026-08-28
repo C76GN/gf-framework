@@ -2,7 +2,7 @@
   "schema_version": 2,
   "catalog_version": "2.0.0",
   "framework_version": "11.0.0-dev.0",
-  "source_digest": "4fdd6c8f285c4d9be73a7e5cb713e858bbb05e4163dbeaeddf84ce2ec5898040",
+  "source_digest": "9e3ae9c9d4218b545692bfa7eadc7f1bcb2ba25f7d3ae6701c6db97c8a4017fc",
   "class_count": 849,
   "autoload_count": 1,
   "package_count": 56,
@@ -22506,6 +22506,20 @@
           "name": "execute_command",
           "signature": "func execute_command(raw_input: String) -> bool",
           "summary": "解析并执行一条原始输入。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "set_console_visible",
+          "signature": "func set_console_visible(console_visible: bool) -> void",
+          "summary": "设置控制台 GUI 可见性。GUI 未创建或已释放时不会执行任何操作。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "is_console_visible",
+          "signature": "func is_console_visible() -> bool",
+          "summary": "检查控制台 GUI 是否可见。GUI 未创建或已释放时返回 false。",
           "visibility": "public"
         },
         {

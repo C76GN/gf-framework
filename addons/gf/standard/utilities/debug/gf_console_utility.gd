@@ -500,6 +500,31 @@ func execute_command(raw_input: String) -> bool:
 	return true
 
 
+## 设置控制台 GUI 可见性。GUI 未创建或已释放时不会执行任何操作。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param console_visible: 为 true 时显示控制台 GUI。
+func set_console_visible(console_visible: bool) -> void:
+	if not is_instance_valid(_console_gui):
+		return
+
+	_console_gui._set_console_visible(console_visible)
+
+
+## 检查控制台 GUI 是否可见。GUI 未创建或已释放时返回 false。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @return 控制台 GUI 可见时返回 true。
+func is_console_visible() -> bool:
+	return is_instance_valid(_console_gui) and _console_gui.visible
+
+
 ## 向控制台输出追加一行 BBCode 文本。
 ## [br]
 ## @api public
@@ -1344,10 +1369,7 @@ class _GFConsoleGUI extends CanvasLayer:
 			if not key_event.pressed or key_event.echo:
 				return
 			if key_event.keycode == toggle_key:
-				visible = not visible
-				if visible:
-					_layout_console()
-					_input_field.call_deferred("grab_focus")
+				_set_console_visible(not visible)
 				get_viewport().set_input_as_handled()
 			elif visible and _input_field.has_focus() and key_event.keycode == KEY_UP:
 				_show_previous_history()
@@ -1441,6 +1463,26 @@ class _GFConsoleGUI extends CanvasLayer:
 
 
 	# --- 私有/辅助方法 ---
+
+	func _set_console_visible(console_visible: bool) -> void:
+		visible = console_visible
+		if not visible:
+			_dragging = false
+			_resizing = false
+			return
+
+		_layout_console()
+		call_deferred("_grab_input_focus_if_visible")
+
+
+	func _grab_input_focus_if_visible() -> void:
+		if is_queued_for_deletion() or not visible or not is_inside_tree():
+			return
+		if not is_instance_valid(_input_field) or not _input_field.is_inside_tree():
+			return
+
+		_input_field.grab_focus()
+
 
 	func _apply_layer() -> void:
 		layer = _TOPMOST_LAYER if keep_topmost else _DEFAULT_LAYER

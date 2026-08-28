@@ -40,6 +40,8 @@
 | 方法 | [`suggest_command_arguments`](#member-gfconsoleutility-methods-suggest_command_arguments) | `func suggest_command_arguments(raw_input: String) -> PackedStringArray:` |
 | 方法 | [`suggest_similar_commands`](#member-gfconsoleutility-methods-suggest_similar_commands) | `func suggest_similar_commands(cmd_name: String, limit: int = 3, threshold: float = 0.5) -> PackedStringArray:` |
 | 方法 | [`execute_command`](#member-gfconsoleutility-methods-execute_command) | `func execute_command(raw_input: String) -> bool:` |
+| 方法 | [`set_console_visible`](#member-gfconsoleutility-methods-set_console_visible) | `func set_console_visible(console_visible: bool) -> void:` |
+| 方法 | [`is_console_visible`](#member-gfconsoleutility-methods-is_console_visible) | `func is_console_visible() -> bool:` |
 | 方法 | [`append_output_line`](#member-gfconsoleutility-methods-append_output_line) | `func append_output_line(bbcode_line: String) -> void:` |
 | 方法 | [`append_output_lines`](#member-gfconsoleutility-methods-append_output_lines) | `func append_output_lines(bbcode_lines: PackedStringArray) -> void:` |
 | 方法 | [`clear_output`](#member-gfconsoleutility-methods-clear_output) | `func clear_output() -> void:` |
@@ -441,6 +443,40 @@ func execute_command(raw_input: String) -> bool:
 | `raw_input` | 用户输入的完整字符串。 |
 
 返回：找到并成功执行命令时返回 `true`。
+
+<a id="member-gfconsoleutility-methods-set_console_visible"></a>
+
+### `set_console_visible`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func set_console_visible(console_visible: bool) -> void:
+```
+
+设置控制台 GUI 可见性。GUI 未创建或已释放时不会执行任何操作。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `console_visible` | 为 true 时显示控制台 GUI。 |
+
+<a id="member-gfconsoleutility-methods-is_console_visible"></a>
+
+### `is_console_visible`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func is_console_visible() -> bool:
+```
+
+检查控制台 GUI 是否可见。GUI 未创建或已释放时返回 false。
+
+返回：控制台 GUI 可见时返回 true。
 
 <a id="member-gfconsoleutility-methods-append_output_line"></a>
 

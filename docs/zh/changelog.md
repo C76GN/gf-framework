@@ -6,6 +6,7 @@
 
 ### 🚀 新增特性 (Added)
 
+- `GFConsoleUtility` 新增 `set_console_visible()` 与 `is_console_visible()`；项目可从触摸按钮、手柄菜单或自动化调试入口显式控制既有控制台，未创建或已释放的 GUI 保持 no-op 与不可见语义。
 - Combat Projectile 新增 `GFProjectileDefinition2D` / `GFProjectileDefinition3D` 类型化场景拓扑、`GFProjectileBinding2D` / `GFProjectileBinding3D` 校验快照、2D/3D LaunchInput、维度中立 `GFProjectileSession`、per-session MotionState/Intent、BodyResult/BodyAdapter，以及 Transform/CharacterBody 对称适配器；显式 0..N 同维 HitBox/HitScan typed union impact source、实际位移累计、generation 隔离与 first-wins Session 终态共同替代共享 Dictionary 私有状态。
 - Background Work 新增线程安全、只读的 `GFBackgroundWorkContext` 与显式 `pass_cancellation_context` opt-in：CPU/IO worker 可在有界工作段之间观察首次取消原因并协作退出，而默认一参 worker、纯数据 payload 边界和不可强杀线程的行为保持不变。单任务取消、批量取消、`clear_all()` 与 Utility 释放使用稳定且 first-wins 的类型化原因；已启动 CPU/IO 线程任务在主线程 join 后唯一提交取消终态，尚未启动的排队任务立即取消。
 - Storage 新增一次性 `GFStorageFamilyResetAuthorization`、类型化 `GFStorageFamilyResetResult`、`create_family_reset_authorization()`、`reset_file_family()` 与 `reset_file_family_request_async()`：调用方只能用同一 Utility、同一 canonical logical identity 的来源绑定 `CORRUPT` 读取结果授权破坏性 family reset。执行器以持久化 intent、retirement staging 与全新 owner/catalog claim 收敛 structural identity 损坏，并复用同 family FIFO、threaded/cooperative 执行、caller/物理双终态、取消、deadline、quiesce 与迟到诊断。
