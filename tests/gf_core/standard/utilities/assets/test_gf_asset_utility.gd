@@ -227,6 +227,134 @@ func test_release_owner_releases_owned_asset_handles() -> void:
 	handle_owner.free()
 
 
+func test_node_owner_exit_releases_asset_handle_without_engine_error() -> void:
+	var handle_owner: Node = Node.new()
+	add_child(handle_owner)
+	watch_signals(_utility)
+	var handle: GFAssetHandle = _utility.acquire_handle(
+		"res://owned_tree_exit.tres",
+		handle_owner,
+		&"",
+		"",
+		Resource.new()
+	)
+
+	handle_owner.queue_free()
+	await get_tree().process_frame
+
+	assert_true(handle.is_released(), "Node owner 退出树后应自动释放对应句柄。")
+	assert_eq(
+		_utility.get_asset_reference_count("res://owned_tree_exit.tres"),
+		0,
+		"Node owner 退出树后路径引用计数应归零。"
+	)
+	assert_signal_emit_count(_utility, "asset_handle_released", 1)
+	assert_engine_error_count(0, "Node owner 退出树时不得使用空 Callable 查询或断开信号。")
+
+
+func test_release_owner_then_reacquire_reuses_tree_exit_connection() -> void:
+	var handle_owner: Node = Node.new()
+	add_child(handle_owner)
+	var first_handle: GFAssetHandle = _utility.acquire_handle(
+		"res://owned_reacquire.tres",
+		handle_owner,
+		&"",
+		"",
+		Resource.new()
+	)
+
+	assert_eq(_utility.release_owner(handle_owner), 1)
+	assert_true(first_handle.is_released())
+	var second_handle: GFAssetHandle = _utility.acquire_handle(
+		"res://owned_reacquire.tres",
+		handle_owner
+	)
+
+	assert_not_null(second_handle, "同一 owner 在显式释放后应能重新获取句柄。")
+	assert_eq(
+		handle_owner.tree_exited.get_connections().size(),
+		1,
+		"同一 owner 的 tree_exited 生命周期只应保留一个连接。"
+	)
+
+	handle_owner.queue_free()
+	await get_tree().process_frame
+
+	assert_true(second_handle.is_released(), "重新获取的句柄仍应在 owner 退出树时释放。")
+	assert_eq(_utility.get_asset_reference_count("res://owned_reacquire.tres"), 0)
+	assert_engine_error_count(0, "重新获取不得重复连接信号或在退出树时使用空 Callable。")
+
+
+func test_handle_release_then_reacquire_keeps_single_tree_exit_lifecycle() -> void:
+	var handle_owner: Node = Node.new()
+	add_child(handle_owner)
+	var first_handle: GFAssetHandle = _utility.acquire_handle(
+		"res://owned_handle_reacquire.tres",
+		handle_owner,
+		&"",
+		"",
+		Resource.new()
+	)
+
+	assert_true(first_handle.release(), "首次句柄应能显式释放。")
+	var second_handle: GFAssetHandle = _utility.acquire_handle(
+		"res://owned_handle_reacquire.tres",
+		handle_owner
+	)
+
+	assert_not_null(second_handle, "同一 owner 在句柄释放后应能重新获取。")
+	assert_eq(
+		handle_owner.tree_exited.get_connections().size(),
+		1,
+		"重新获取后仍只能有一个 owner 退出树生命周期连接。"
+	)
+
+	handle_owner.queue_free()
+	await get_tree().process_frame
+
+	assert_true(second_handle.is_released(), "重新获取的句柄应在 owner 退出树时释放。")
+	assert_eq(_utility.get_asset_reference_count("res://owned_handle_reacquire.tres"), 0)
+	assert_engine_error_count(0, "句柄释放后重获取不得重复连接或使用空 Callable。")
+
+
+func test_node_owner_reentry_reconnects_next_tree_exit_lifecycle() -> void:
+	var handle_owner: Node = Node.new()
+	add_child(handle_owner)
+	var first_handle: GFAssetHandle = _utility.acquire_handle(
+		"res://owned_reentry.tres",
+		handle_owner,
+		&"",
+		"",
+		Resource.new()
+	)
+
+	remove_child(handle_owner)
+	await get_tree().process_frame
+
+	assert_true(first_handle.is_released(), "首次退出树应释放第一份句柄。")
+	assert_eq(handle_owner.tree_exited.get_connections().size(), 0)
+
+	add_child(handle_owner)
+	var second_handle: GFAssetHandle = _utility.acquire_handle(
+		"res://owned_reentry.tres",
+		handle_owner
+	)
+	assert_not_null(second_handle)
+	assert_eq(
+		handle_owner.tree_exited.get_connections().size(),
+		1,
+		"one-shot 连接消费后，下一次获取应建立新的生命周期连接。"
+	)
+
+	remove_child(handle_owner)
+	await get_tree().process_frame
+
+	assert_true(second_handle.is_released(), "再次退出树应释放重新获取的句柄。")
+	assert_eq(_utility.get_asset_reference_count("res://owned_reentry.tres"), 0)
+	assert_engine_error_count(0, "owner 重入树后的下一次生命周期不得产生引擎错误。")
+	handle_owner.free()
+
+
 func test_preload_group_async_registers_and_unloads_group() -> void:
 	var completing: CompletingAssetUtility = CompletingAssetUtility.new()
 	_replace_utility(completing)
