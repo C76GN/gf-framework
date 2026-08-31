@@ -122,6 +122,7 @@ class FrozenProcessAuthorityTests(unittest.TestCase):
 			"GIT_DIR": "ambient-dir",
 			"GIT_WORK_TREE": "ambient-tree",
 			"GIT_ARBITRARY_AUTHORITY": "ambient-custom",
+			"GIT_NO_REPLACE_OBJECTS": "0",
 			"GIT_OPTIONAL_LOCKS": "1",
 			"GIT_CONFIG_NOSYSTEM": "0",
 			"GIT_TERMINAL_PROMPT": "1",
@@ -139,6 +140,7 @@ class FrozenProcessAuthorityTests(unittest.TestCase):
 				if name.upper().startswith("GIT_")
 			},
 			{
+				"GIT_NO_REPLACE_OBJECTS": "1",
 				"GIT_OPTIONAL_LOCKS": "0",
 				"GIT_CONFIG_NOSYSTEM": "1",
 				"GIT_TERMINAL_PROMPT": "0",
@@ -146,6 +148,102 @@ class FrozenProcessAuthorityTests(unittest.TestCase):
 		)
 		self.assertEqual(git_environment["LC_ALL"], "C")
 		self.assertEqual(git_environment["LANG"], "C")
+
+	def test_git_authority_ignores_replacement_objects(self) -> None:
+		with tempfile.TemporaryDirectory() as temporary_directory:
+			repository = Path(temporary_directory)
+			authority = gf_process_authority.freeze_process_authority(
+				_frozen_process_environment(),
+				cwd=repository,
+			)
+			protected_environment = authority.git.environment.values()
+			unprotected_environment = dict(protected_environment)
+			unprotected_environment.pop("GIT_NO_REPLACE_OBJECTS")
+
+			def run_git(
+				arguments: list[str],
+				*,
+				environment: dict[str, str] | None = None,
+			) -> str:
+				completed = subprocess.run(
+					list(authority.git.command(arguments).effective),
+					cwd=repository,
+					env=protected_environment if environment is None else environment,
+					capture_output=True,
+					text=True,
+					check=False,
+					timeout=10.0,
+				)
+				self.assertEqual(completed.returncode, 0, completed.stderr)
+				return completed.stdout.strip()
+
+			run_git(["init", "--quiet"])
+			run_git(["config", "user.name", "fixture"])
+			run_git(["config", "user.email", "fixture@example.invalid"])
+			hooks_directory = repository / "empty-hooks"
+			hooks_directory.mkdir()
+			run_git(["config", "commit.gpgSign", "false"])
+			run_git(["config", "tag.gpgSign", "false"])
+			run_git(["config", "core.useReplaceRefs", "true"])
+			run_git(["config", "core.hooksPath", hooks_directory.as_posix()])
+			catalog_path = repository / "catalog.txt"
+			catalog_path.write_text("original\n", encoding="utf-8")
+			run_git(["add", "catalog.txt"])
+			run_git(["commit", "--quiet", "-m", "base"])
+			base_oid = run_git(["rev-parse", "HEAD"])
+			run_git(["tag", "-a", "10.0.0", base_oid, "-m", "base"])
+
+			catalog_path.write_text("head\n", encoding="utf-8")
+			run_git(["add", "catalog.txt"])
+			run_git(["commit", "--quiet", "-m", "head"])
+			head_oid = run_git(["rev-parse", "HEAD"])
+			catalog_path.write_text("replacement\n", encoding="utf-8")
+			run_git(["add", "catalog.txt"])
+			replacement_tree = run_git(["write-tree"])
+			replacement_oid = run_git([
+				"commit-tree",
+				replacement_tree,
+				"-m",
+				"replacement",
+			])
+			run_git(["replace", base_oid, replacement_oid])
+
+			alternate_oid = run_git([
+				"commit-tree",
+				replacement_tree,
+				"-m",
+				"alternate",
+			])
+			run_git(["tag", "-a", "10.5.0", alternate_oid, "-m", "alternate"])
+			replacement_head_oid = run_git([
+				"commit-tree",
+				replacement_tree,
+				"-p",
+				alternate_oid,
+				"-m",
+				"replacement head",
+			])
+			run_git(["replace", head_oid, replacement_head_oid])
+
+			self.assertEqual(
+				run_git(
+					["show", f"{base_oid}:catalog.txt"],
+					environment=unprotected_environment,
+				),
+				"replacement",
+			)
+			self.assertEqual(run_git(["show", f"{base_oid}:catalog.txt"]), "original")
+			inventory_command = [
+				"for-each-ref",
+				"--merged=HEAD",
+				"--format=%(refname:strip=2)",
+				"refs/tags",
+			]
+			self.assertEqual(
+				set(run_git(inventory_command, environment=unprotected_environment).splitlines()),
+				{"10.5.0"},
+			)
+			self.assertEqual(set(run_git(inventory_command).splitlines()), {"10.0.0"})
 
 	def test_active_process_context_resets_every_capability_after_failure(self) -> None:
 		previous_environment = gf_process_authority.active_process_environment()
@@ -1612,6 +1710,22 @@ class ValidationCatalogContractTests(unittest.TestCase):
 			catalog.deferred_action_names,
 		)
 
+	def test_changelog_policy_adapter_binds_breaking_waiver(self) -> None:
+		for allow_breaking_api in (False, True):
+			with self.subTest(allow_breaking_api=allow_breaking_api), mock.patch.object(
+				gf_maintenance,
+				"changelog_policy",
+				return_value={"ok": True},
+			) as policy:
+				adapter = gf_maintenance.maintenance_in_process_adapter_registry(
+					allow_breaking_api=allow_breaking_api,
+				)["changelog_policy"]
+				self.assertEqual(adapter(), {"ok": True})
+
+			policy.assert_called_once_with(
+				allow_breaking_api=allow_breaking_api,
+			)
+
 	def test_reference_catalog_resolution_reuses_exact_frozen_callable_mappings(
 		self,
 	) -> None:
@@ -2171,7 +2285,7 @@ class ValidationCatalogContractTests(unittest.TestCase):
 			gf_maintenance,
 			"maintenance_in_process_adapter_registry",
 			return_value={},
-		), mock.patch.object(
+		) as adapter_registry, mock.patch.object(
 			gf_maintenance,
 			"pin_godot_executable_selection",
 			side_effect=AssertionError(
@@ -2190,11 +2304,16 @@ class ValidationCatalogContractTests(unittest.TestCase):
 			"run_command",
 			side_effect=AssertionError("executor setup must fail before subprocess execution"),
 		) as subprocess_runner:
-			report = gf_maintenance.run_checks(checks=["docs"], jobs=1)
+			report = gf_maintenance.run_checks(
+				checks=["docs"],
+				jobs=1,
+				allow_breaking_api=True,
+			)
 
 		self.assertFalse(report["ok"])
 		self.assertEqual(report["completed_check_count"], 0)
 		self.assertEqual(report["results"][0]["name"], "validation_executor_setup")
+		adapter_registry.assert_called_once_with(allow_breaking_api=True)
 		executable_pin.assert_not_called()
 		fingerprint.assert_not_called()
 		command.assert_not_called()
@@ -2216,8 +2335,9 @@ class ValidationCatalogContractTests(unittest.TestCase):
 			events.append("capture")
 			return real_capture()
 
-		def construct_adapters() -> dict[str, object]:
+		def construct_adapters(*, allow_breaking_api: bool = False) -> dict[str, object]:
 			events.append("adapters")
+			self.assertFalse(allow_breaking_api)
 			active_environment = gf_process_authority.active_process_environment()
 			self.assertIsNotNone(active_environment)
 			self.assertEqual(
@@ -2225,7 +2345,7 @@ class ValidationCatalogContractTests(unittest.TestCase):
 				"captured-at-entry",
 			)
 			os.environ[sentinel_name] = "changed-by-registry"
-			return real_adapters()
+			return real_adapters(allow_breaking_api=allow_breaking_api)
 
 		def construct_materializers() -> dict[str, object]:
 			events.append("materializers")
@@ -2459,6 +2579,78 @@ class ValidationCatalogContractTests(unittest.TestCase):
 		capture.assert_not_called()
 		isolation_probe.assert_not_called()
 		parallel_runner.assert_not_called()
+
+	def test_parallel_runner_receives_breaking_waiver(self) -> None:
+		plan = gf_maintenance._VALIDATION_CATALOG.plan("full")
+		workspace_state = {
+			"schema_version": 1,
+			"head": "a" * 40,
+			"dirty": False,
+			"untracked_file_count": 0,
+			"fingerprint": "b" * 64,
+		}
+		captured_workspace = gf_maintenance.CapturedWorkspace(
+			source_root=ROOT,
+			head=str(workspace_state["head"]),
+			binary_diff=b"",
+			untracked_files=(),
+			workspace_fingerprint=str(workspace_state["fingerprint"]),
+		)
+		parallel_report = {
+			"ok": True,
+			"suite": "full",
+			"checks": list(plan.actions),
+			"completed_check_count": len(plan.actions),
+			"duration_seconds": 0.0,
+			"check_graph": plan.describe_graph(),
+			"workspace_fingerprint": workspace_state["fingerprint"],
+			"results": [],
+		}
+		with tempfile.TemporaryDirectory() as temporary_directory:
+			parallel_root = Path(temporary_directory) / "parallel"
+
+			@contextlib.contextmanager
+			def managed_directory(**_kwargs: object):
+				parallel_root.mkdir()
+				yield parallel_root
+
+			with mock.patch.object(
+				gf_maintenance,
+				"pin_godot_executable_selection",
+			), mock.patch.object(
+				gf_maintenance.gf_process_authority,
+				"freeze_process_authority",
+				return_value=_SHARED_PROCESS_AUTHORITY,
+			), mock.patch.object(
+				gf_maintenance,
+				"workspace_fingerprint",
+				return_value=workspace_state,
+			), mock.patch.object(
+				gf_maintenance.gf_parallel_validation,
+				"capture_workspace",
+				return_value=captured_workspace,
+			), mock.patch.object(
+				gf_maintenance,
+				"managed_validation_directory",
+				side_effect=managed_directory,
+			), mock.patch.object(
+				gf_maintenance,
+				"run_parallel_full_checks",
+				return_value=parallel_report,
+			) as parallel_runner:
+				report = gf_maintenance.run_checks(
+					suite="full",
+					jobs=2,
+					allow_breaking_api=True,
+					process_environment=_SHARED_PROCESS_AUTHORITY.environment,
+				)
+
+		self.assertTrue(report["ok"])
+		parallel_runner.assert_called_once()
+		self.assertIs(
+			parallel_runner.call_args.kwargs["allow_breaking_api"],
+			True,
+		)
 
 	def test_parallel_unresolved_godot_is_structured_before_shard_dispatch(self) -> None:
 		workspace_state = {
@@ -13023,6 +13215,7 @@ class GutShardPlanIntegrationTests(unittest.TestCase):
 				timeout_seconds=None,
 				suite_deadline=None,
 				fail_fast=False,
+				allow_breaking_api=False,
 			)
 
 		self.assertEqual(
@@ -19551,6 +19744,7 @@ class WorkspaceExecutionBoundaryTests(unittest.TestCase):
 		expected_graphs: dict[str, dict[str, object]] = {}
 		frozen_contracts: dict[str, gf_maintenance.ParallelShardCommandContract] = {}
 		contract_events: list[tuple[str, str]] = []
+		shard_waivers: list[bool] = []
 
 		class ExpectedStop(RuntimeError):
 			pass
@@ -19585,6 +19779,7 @@ class WorkspaceExecutionBoundaryTests(unittest.TestCase):
 				workspace: Path,
 				**_kwargs: object,
 			) -> tuple[object, Path]:
+				shard_waivers.append(_kwargs["allow_breaking_api"] is True)
 				return (
 					gf_maintenance.ParallelShard(
 						name=str(shard_plan.name),
@@ -19733,6 +19928,7 @@ class WorkspaceExecutionBoundaryTests(unittest.TestCase):
 						timeout_seconds=None,
 						suite_timeout_seconds=None,
 						fail_fast=True,
+						allow_breaking_api=True,
 						progress_callback=None,
 						output_callback=None,
 						overall_started=time.perf_counter(),
@@ -19740,6 +19936,7 @@ class WorkspaceExecutionBoundaryTests(unittest.TestCase):
 					)
 
 		self.assertEqual(run_parallel.call_count, 2)
+		self.assertEqual(shard_waivers, [True, True, True])
 		first_dispatch_index = min(
 			index
 			for index, event in enumerate(contract_events)
@@ -19888,6 +20085,7 @@ class WorkspaceExecutionBoundaryTests(unittest.TestCase):
 						timeout_seconds=None,
 						suite_timeout_seconds=None,
 						fail_fast=False,
+						allow_breaking_api=False,
 						progress_callback=lambda status, name, duration: (
 							progress_events.append((status, name, duration))
 						),
@@ -21279,6 +21477,7 @@ class ValidationShadowIntegrationTests(unittest.TestCase):
 						timeout_seconds=None,
 						suite_timeout_seconds=None,
 						fail_fast=False,
+						allow_breaking_api=False,
 						progress_callback=None,
 						output_callback=None,
 						overall_started=0.0,
@@ -21411,6 +21610,7 @@ class ValidationShadowIntegrationTests(unittest.TestCase):
 						timeout_seconds=None,
 						suite_timeout_seconds=None,
 						fail_fast=False,
+						allow_breaking_api=False,
 						progress_callback=None,
 						output_callback=None,
 						overall_started=time.perf_counter(),
@@ -21546,6 +21746,7 @@ class ValidationShadowIntegrationTests(unittest.TestCase):
 						timeout_seconds=None,
 						suite_timeout_seconds=None,
 						fail_fast=False,
+						allow_breaking_api=False,
 						progress_callback=None,
 						output_callback=None,
 						overall_started=time.perf_counter(),
@@ -21713,6 +21914,7 @@ class ValidationShadowIntegrationTests(unittest.TestCase):
 						timeout_seconds=None,
 						suite_timeout_seconds=None,
 						fail_fast=False,
+						allow_breaking_api=False,
 						progress_callback=None,
 						output_callback=None,
 						overall_started=time.perf_counter(),
@@ -21812,12 +22014,41 @@ class ValidationShadowIntegrationTests(unittest.TestCase):
 				timeout_seconds=None,
 				suite_deadline=None,
 				fail_fast=False,
+				allow_breaking_api=False,
 			)
 		self.assertNotIn("--validation-shadow", shard.command)
 		self.assertEqual(
 			shard.command.count("--internal-complete-output-evidence"),
 			1,
 		)
+
+	def test_parallel_child_command_binds_breaking_waiver_once(self) -> None:
+		plan = _synthetic_parallel_shard_plan("framework-static", ("docs",))
+		for allow_breaking_api in (False, True):
+			with (
+				self.subTest(allow_breaking_api=allow_breaking_api),
+				tempfile.TemporaryDirectory() as temporary_directory,
+				mock.patch.object(
+					gf_maintenance,
+					"parallel_shard_environment",
+					return_value=({}, Path(temporary_directory) / "user"),
+				),
+			):
+				shard, _report_path = gf_maintenance.make_parallel_full_shard(
+					plan,
+					Path(temporary_directory),
+					validation_catalog=gf_maintenance._VALIDATION_CATALOG,
+					private_environment_root=Path(temporary_directory) / "private",
+					timeout_seconds=None,
+					suite_deadline=None,
+					fail_fast=False,
+					allow_breaking_api=allow_breaking_api,
+				)
+
+			self.assertEqual(
+				shard.command.count("--allow-breaking-api"),
+				int(allow_breaking_api),
+			)
 
 
 class AffectedAnalysisIntegrationTests(unittest.TestCase):
@@ -22355,10 +22586,590 @@ class AffectedAnalysisIntegrationTests(unittest.TestCase):
 				timeout_seconds=None,
 				suite_deadline=None,
 				fail_fast=False,
+				allow_breaking_api=False,
 			)
 		self.assertNotIn("--affected", shard.command)
 		self.assertNotIn("--explain", shard.command)
 		self.assertNotIn("--affected-base", shard.command)
+
+
+class ChangelogBaselinePolicyTests(unittest.TestCase):
+	@staticmethod
+	def _git_result(
+		stdout: str = "",
+		return_code: int = 0,
+		*,
+		stderr: str = "",
+		stdout_truncated: bool = False,
+		stderr_truncated: bool = False,
+	) -> mock.Mock:
+		return mock.Mock(
+			stdout=stdout,
+			stderr=stderr,
+			return_code=return_code,
+			stdout_truncated=stdout_truncated,
+			stderr_truncated=stderr_truncated,
+		)
+
+	@staticmethod
+	def _changed_changelog(candidate_heading: str, overview: str) -> str:
+		return (
+			"# 更新日志 (Changelog)\n\n"
+			+ candidate_heading
+			+ "\n\n**版本概述**："
+			+ overview
+			+ "\n\n### 🔄 机制更改 (Changed)\n\n"
+			+ "- Describe one consumer-visible change.\n"
+		)
+
+	def _run_changelog_policy(
+		self,
+		text: str,
+		*,
+		version: str,
+		breaking_change_count: int,
+		allow_breaking_api: bool = False,
+	) -> dict[str, object]:
+		with tempfile.TemporaryDirectory() as temp_directory:
+			changelog_path = Path(temp_directory) / "changelog.md"
+			changelog_path.write_text(text, encoding="utf-8")
+			with mock.patch.object(
+				gf_maintenance,
+				"CHANGELOG_PATH",
+				changelog_path,
+			), mock.patch.object(
+				gf_maintenance,
+				"read_plugin_version",
+				return_value=version,
+			), mock.patch.object(
+				gf_maintenance,
+				"read_extension_versions",
+				return_value=[],
+			), mock.patch.object(
+				gf_maintenance,
+				"api_baseline_diff",
+				return_value={
+					"ok": True,
+					"base_tag": "10.0.0",
+					"summary": {"breaking_change_count": breaking_change_count},
+					"issues": [],
+				},
+			) as api_baseline:
+				report = gf_maintenance.changelog_policy(
+					allow_breaking_api=allow_breaking_api,
+				)
+
+			api_baseline.assert_called_once_with(
+				version=gf_maintenance.changelog_release_target_version(version),
+				enforce_version=True,
+				allow_breaking=allow_breaking_api,
+			)
+			return report
+
+	def test_api_baseline_reads_captured_oid_for_automatic_and_explicit_tags(self) -> None:
+		captured_kwargs: list[dict[str, object]] = []
+
+		def run_git(arguments: object, **kwargs: object) -> mock.Mock:
+			command = list(arguments)
+			if command == [
+				"for-each-ref",
+				"--merged=HEAD",
+				"--format=%(refname:strip=2)%09%(objecttype)%09%(*objecttype)%09%(*objectname)",
+				"refs/tags",
+			]:
+				captured_kwargs.append(kwargs)
+				return self._git_result(
+					"10.2.0\tcommit\t\t\n"
+					+ "10.0.0\ttag\tcommit\t" + "a" * 40 + "\n"
+					+ "11.0.0\ttag\tcommit\t" + "b" * 40 + "\n"
+					+ "not-semver\ttag\tcommit\t" + "c" * 40 + "\n"
+				)
+			raise AssertionError(f"Unexpected Git command: {command}")
+
+		base_snapshot = {"classes": {}, "autoloads": {}, "errors": []}
+		current_snapshot = {"classes": {}, "autoloads": {}, "errors": []}
+		for case_name, explicit_tag in (("automatic", ""), ("explicit", "10.0.0")):
+			with self.subTest(case_name=case_name), mock.patch.object(
+				gf_maintenance,
+				"run_frozen_maintenance_git",
+				side_effect=run_git,
+			), mock.patch.object(
+				gf_maintenance,
+				"read_api_catalog_snapshot_from_git",
+				return_value=base_snapshot,
+			) as read_base, mock.patch.object(
+				gf_maintenance,
+				"read_api_catalog_snapshot_from_workspace",
+				return_value=current_snapshot,
+			):
+				report = gf_maintenance.api_baseline_diff(
+					base_tag=explicit_tag,
+					version="11.0.0-dev.0",
+				)
+
+			self.assertTrue(report["ok"], report["issues"])
+			self.assertEqual(report["base_tag"], "10.0.0")
+			read_base.assert_called_once_with("a" * 40, label="10.0.0")
+		self.assertTrue(captured_kwargs)
+		self.assertTrue(all(
+			kwargs == {
+				"max_stdout_characters": (
+					gf_maintenance.API_BASELINE_TAG_INVENTORY_STDOUT_MAX_CHARS
+				),
+				"max_stderr_characters": (
+					gf_maintenance.API_BASELINE_TAG_INVENTORY_STDERR_MAX_CHARS
+				),
+			}
+			for kwargs in captured_kwargs
+		))
+
+	def test_api_baseline_recursively_peels_legacy_nested_annotated_tag(self) -> None:
+		immediate_tag_oid = "d" * 40
+		commit_oid = "e" * 40
+		non_semver_tag_oid = "f" * 40
+		batch_command = [
+			"cat-file",
+			"--batch-check=%(rest) %(objectname) %(objecttype)",
+		]
+		batch_calls = 0
+
+		def run_git(arguments: object, **kwargs: object) -> mock.Mock:
+			nonlocal batch_calls
+			command = list(arguments)
+			if command[0] == "for-each-ref":
+				return self._git_result(
+					"10.0.0\ttag\ttag\t" + immediate_tag_oid + "\n"
+					+ "not-semver\ttag\ttag\t" + non_semver_tag_oid + "\n"
+					+ "9.0.0\ttag\tcommit\t" + "a" * 40 + "\n"
+				)
+			if command == batch_command:
+				batch_calls += 1
+				self.assertEqual(
+					kwargs,
+					{
+						"stdin_bytes": (
+							f"{immediate_tag_oid}^{{commit}} {immediate_tag_oid}\n"
+						).encode("ascii"),
+						"max_stdout_characters": (
+							gf_maintenance.API_BASELINE_TAG_INVENTORY_STDOUT_MAX_CHARS
+						),
+						"max_stderr_characters": (
+							gf_maintenance.API_BASELINE_TAG_INVENTORY_STDERR_MAX_CHARS
+						),
+					},
+				)
+				return self._git_result(f"{immediate_tag_oid} {commit_oid} commit\n")
+			raise AssertionError(f"Unexpected Git command: {command}")
+
+		base_snapshot = {"classes": {}, "autoloads": {}, "errors": []}
+		current_snapshot = {"classes": {}, "autoloads": {}, "errors": []}
+		with mock.patch.object(
+			gf_maintenance,
+			"run_frozen_maintenance_git",
+			side_effect=run_git,
+		), mock.patch.object(
+			gf_maintenance,
+			"read_api_catalog_snapshot_from_git",
+			return_value=base_snapshot,
+		) as read_base, mock.patch.object(
+			gf_maintenance,
+			"read_api_catalog_snapshot_from_workspace",
+			return_value=current_snapshot,
+		):
+			report = gf_maintenance.api_baseline_diff(version="11.0.0-dev.0")
+
+		self.assertTrue(report["ok"], report["issues"])
+		self.assertEqual(report["base_tag"], "10.0.0")
+		self.assertEqual(batch_calls, 1)
+		read_base.assert_called_once_with(commit_oid, label="10.0.0")
+
+	def test_nested_api_baseline_peel_fails_closed_on_untrusted_output(self) -> None:
+		object_id = "d" * 40
+		commit_oid = "e" * 40
+		valid_output = f"{object_id} {commit_oid} commit\n"
+		cases = (
+			("git failure", self._git_result(valid_output, return_code=1)),
+			("git warning", self._git_result(valid_output, stderr="warning\n")),
+			("truncated stdout", self._git_result(valid_output, stdout_truncated=True)),
+			("truncated stderr", self._git_result(valid_output, stderr_truncated=True)),
+			("missing object", self._git_result(f"{object_id}^{{commit}} missing\n")),
+			("wrong echoed oid", self._git_result(f"{'c' * 40} {commit_oid} commit\n")),
+			("invalid commit oid", self._git_result(f"{object_id} deadbeef commit\n")),
+			("wrong object type", self._git_result(f"{object_id} {commit_oid} tag\n")),
+			("missing row", self._git_result("")),
+			("extra row", self._git_result(valid_output * 2)),
+		)
+		for case_name, batch_result in cases:
+			batch_calls = 0
+
+			def run_git(arguments: object, **_kwargs: object) -> mock.Mock:
+				nonlocal batch_calls
+				command = list(arguments)
+				if command[0] == "for-each-ref":
+					return self._git_result(
+						"10.0.0\ttag\ttag\t" + object_id + "\n"
+						+ "9.0.0\ttag\tcommit\t" + "a" * 40 + "\n"
+					)
+				if command[0] == "cat-file":
+					batch_calls += 1
+					return batch_result
+				raise AssertionError(f"Unexpected Git command: {command}")
+
+			with self.subTest(case_name=case_name), mock.patch.object(
+				gf_maintenance,
+				"run_frozen_maintenance_git",
+				side_effect=run_git,
+			):
+				self.assertEqual(
+					gf_maintenance.find_latest_semver_tag_before("11.0.0"),
+					"",
+				)
+			self.assertEqual(batch_calls, 1)
+
+	def test_explicit_api_baseline_rejects_lightweight_tag_before_snapshot_io(self) -> None:
+		def run_git(arguments: object, **_kwargs: object) -> mock.Mock:
+			command = list(arguments)
+			if command == [
+				"for-each-ref",
+				"--merged=HEAD",
+				"--format=%(refname:strip=2)%09%(objecttype)%09%(*objecttype)%09%(*objectname)",
+				"refs/tags",
+			]:
+				return self._git_result("10.2.0\tcommit\t\t\n")
+			raise AssertionError(f"Unexpected Git command: {command}")
+
+		base_snapshot = {"classes": {}, "autoloads": {}, "errors": []}
+		current_snapshot = {"classes": {}, "autoloads": {}, "errors": []}
+		with mock.patch.object(
+			gf_maintenance,
+			"run_frozen_maintenance_git",
+			side_effect=run_git,
+		), mock.patch.object(
+			gf_maintenance,
+			"read_api_catalog_snapshot_from_git",
+			return_value=base_snapshot,
+		) as read_base, mock.patch.object(
+			gf_maintenance,
+			"read_api_catalog_snapshot_from_workspace",
+			return_value=current_snapshot,
+		) as read_current:
+			report = gf_maintenance.api_baseline_diff(
+				base_tag="10.2.0",
+				version="11.0.0",
+			)
+
+		self.assertFalse(report["ok"])
+		self.assertTrue(any("annotated" in issue for issue in report["issues"]))
+		read_base.assert_not_called()
+		read_current.assert_not_called()
+
+	def test_explicit_api_baseline_reports_inventory_failure_before_snapshot_io(self) -> None:
+		with mock.patch.object(
+			gf_maintenance,
+			"run_frozen_maintenance_git",
+			return_value=self._git_result(
+				"10.0.0\ttag\tcommit\t" + "a" * 40 + "\n",
+				stderr="warning: ignoring broken ref\n",
+			),
+		), mock.patch.object(
+			gf_maintenance,
+			"read_api_catalog_snapshot_from_git",
+		) as read_base, mock.patch.object(
+			gf_maintenance,
+			"read_api_catalog_snapshot_from_workspace",
+		) as read_current:
+			report = gf_maintenance.api_baseline_diff(
+				base_tag="10.0.0",
+				version="11.0.0",
+			)
+
+		self.assertFalse(report["ok"])
+		self.assertTrue(any("complete annotated SemVer tag inventory" in issue for issue in report["issues"]))
+		self.assertFalse(any("Explicit API baseline tag" in issue for issue in report["issues"]))
+		read_base.assert_not_called()
+		read_current.assert_not_called()
+
+	def test_frozen_git_forwards_bounded_io_options(self) -> None:
+		process_authority = mock.Mock()
+		process_authority.git.command.return_value.effective = ("git.exe", "for-each-ref")
+		process_authority.git.environment.values.return_value = {"PATH": "fixture"}
+		process_result = mock.Mock(
+			process_boundary_quiescent=True,
+			timed_out=False,
+		)
+		with mock.patch.object(
+			gf_maintenance,
+			"active_or_freeze_maintenance_process_authority",
+			return_value=process_authority,
+		), mock.patch.object(
+			gf_maintenance,
+			"run_supervised_process",
+			return_value=process_result,
+		) as supervisor:
+			result = gf_maintenance.run_frozen_maintenance_git(
+				["for-each-ref"],
+				stdin_bytes=b"fixture input",
+				max_stdout_characters=123,
+				max_stderr_characters=45,
+			)
+
+		self.assertIs(result, process_result)
+		supervisor.assert_called_once_with(
+			["git.exe", "for-each-ref"],
+			cwd=gf_maintenance.ROOT,
+			timeout_seconds=30.0,
+			environment={"PATH": "fixture"},
+			stdin_bytes=b"fixture input",
+			binary_output=False,
+			text_errors="replace",
+			max_stdout_characters=123,
+			max_stderr_characters=45,
+		)
+
+	def test_api_baseline_tag_inventory_fails_closed_on_untrusted_output(self) -> None:
+		valid_but_untrusted = "10.0.0\ttag\tcommit\t" + "a" * 40 + "\n"
+		older_valid_tag = "9.0.0\ttag\tcommit\t" + "b" * 40 + "\n"
+		cases = (
+			("git failure with partial output", valid_but_untrusted, 1, "", False, False),
+			("git warning with partial output", valid_but_untrusted, 0, "broken ref\n", False, False),
+			("malformed row", "10.0.0\ttag\tcommit\n", 0, "", False, False),
+			(
+				"invalid peeled oid cannot fall back",
+				"10.0.0\ttag\tcommit\tdeadbeef\n" + older_valid_tag,
+				0,
+				"",
+				False,
+				False,
+			),
+			("truncated stdout", valid_but_untrusted, 0, "", True, False),
+		)
+		for case_name, stdout, return_code, stderr, stdout_truncated, stderr_truncated in cases:
+			with self.subTest(case_name=case_name), mock.patch.object(
+				gf_maintenance,
+				"run_frozen_maintenance_git",
+				return_value=self._git_result(
+					stdout,
+					return_code,
+					stderr=stderr,
+					stdout_truncated=stdout_truncated,
+					stderr_truncated=stderr_truncated,
+				),
+			):
+				self.assertEqual(
+					gf_maintenance.find_latest_semver_tag_before("11.0.0"),
+					"",
+				)
+
+	def test_breaking_api_requires_api_changes_and_migration_categories(self) -> None:
+		changed_only = self._changed_changelog(
+			"## [未发布]",
+			"Describe the pending release.",
+		)
+		complete = (
+			changed_only
+			+ "\n### 🔧 API 变动说明 (API Changes)\n\n"
+			+ "- Describe the breaking API contract.\n"
+			+ "\n### 📘 升级指南 (Migration Guide)\n\n"
+			+ "- Describe how callers migrate.\n"
+		)
+		api_only = (
+			changed_only
+			+ "\n### 🔧 API 变动说明 (API Changes)\n\n"
+			+ "- Describe the breaking API contract.\n"
+		)
+		migration_only = (
+			changed_only
+			+ "\n### 📘 升级指南 (Migration Guide)\n\n"
+			+ "- Describe how callers migrate.\n"
+		)
+		empty_api_changes = (
+			changed_only
+			+ "\n### 🔧 API 变动说明 (API Changes)\n\n"
+			+ "<!-- Intentionally invisible. -->\n"
+			+ "\n### 📘 升级指南 (Migration Guide)\n\n"
+			+ "- Describe how callers migrate.\n"
+		)
+		reports = {
+			name: self._run_changelog_policy(
+				text,
+				version="11.0.0-dev.0",
+				breaking_change_count=1,
+			)
+			for name, text in {
+				"missing": changed_only,
+				"missing_migration": api_only,
+				"missing_api": migration_only,
+				"empty": empty_api_changes,
+				"complete": complete,
+			}.items()
+		}
+
+		self.assertFalse(reports["missing"]["ok"])
+		self.assertTrue(
+			any(
+				"API Changes" in issue and "Migration Guide" in issue
+				for issue in reports["missing"]["issues"]
+			)
+		)
+		self.assertTrue(any(
+			"missing: 📘 升级指南 (Migration Guide)" in issue
+			for issue in reports["missing_migration"]["issues"]
+		))
+		self.assertTrue(any(
+			"missing: 🔧 API 变动说明 (API Changes)" in issue
+			for issue in reports["missing_api"]["issues"]
+		))
+		self.assertFalse(reports["empty"]["ok"])
+		self.assertTrue(any(
+			"must not be empty" in issue
+			for issue in reports["empty"]["issues"]
+		))
+		self.assertTrue(reports["complete"]["ok"], reports["complete"]["issues"])
+
+	def test_stable_breaking_api_requires_migration_categories(self) -> None:
+		changed_only = self._changed_changelog(
+			"## [11.0.0] - 2026-08-31",
+			"Describe the stable release.",
+		)
+		complete = (
+			changed_only
+			+ "\n### 🔧 API 变动说明 (API Changes)\n\n"
+			+ "- Describe the breaking API contract.\n"
+			+ "\n### 📘 升级指南 (Migration Guide)\n\n"
+			+ "- Describe how callers migrate.\n"
+		)
+		missing_report = self._run_changelog_policy(
+			changed_only,
+			version="11.0.0",
+			breaking_change_count=1,
+		)
+		complete_report = self._run_changelog_policy(
+			complete,
+			version="11.0.0",
+			breaking_change_count=1,
+		)
+
+		self.assertFalse(missing_report["ok"])
+		self.assertTrue(complete_report["ok"], complete_report["issues"])
+
+	def test_breaking_waiver_preserves_migration_categories(self) -> None:
+		changed_only = self._changed_changelog(
+			"## [11.0.0] - 2026-08-31",
+			"Describe the waived stable release.",
+		)
+		complete = (
+			changed_only
+			+ "\n### 🔧 API 变动说明 (API Changes)\n\n"
+			+ "- Document the approved baseline false positive.\n"
+			+ "\n### 📘 升级指南 (Migration Guide)\n\n"
+			+ "- Explain why callers require no migration.\n"
+		)
+		missing_report = self._run_changelog_policy(
+			changed_only,
+			version="11.0.0",
+			breaking_change_count=1,
+			allow_breaking_api=True,
+		)
+		complete_report = self._run_changelog_policy(
+			complete,
+			version="11.0.0",
+			breaking_change_count=1,
+			allow_breaking_api=True,
+		)
+
+		self.assertFalse(missing_report["ok"])
+		self.assertTrue(any(
+			"API Changes" in issue and "Migration Guide" in issue
+			for issue in missing_report["issues"]
+		))
+		self.assertTrue(complete_report["ok"], complete_report["issues"])
+
+	def test_release_status_forwards_breaking_changelog_requirement(self) -> None:
+		plugin_audit = {
+			"version": "11.0.0",
+			"missing_required_fields": [],
+			"script_inside_addon": True,
+			"script_exists": True,
+			"script_has_tool": True,
+			"script_extends_editor_plugin": True,
+			"script_path": "addons/gf/plugin.gd",
+			"required_files": {},
+		}
+		asset_store = {
+			"fields": {
+				"Current release version": "11.0.0",
+				"Release tag": "11.0.0",
+				"Source code URL": "https://github.com/C76GN/gf-framework",
+			},
+			"tags": ["framework"],
+			"ai_disclose_reason": "",
+		}
+		for breaking_change_count, expected_categories in (
+			(1, gf_maintenance.BREAKING_API_CHANGELOG_CATEGORIES),
+			(0, ()),
+		):
+			with self.subTest(breaking_change_count=breaking_change_count), mock.patch.object(
+				gf_maintenance.gf_credential_gate,
+				"run_tracked_gate",
+				return_value={"ok": True, "issues": []},
+			), mock.patch.multiple(
+				gf_maintenance,
+				audit_plugin_cfg=mock.DEFAULT,
+				git_lines=mock.DEFAULT,
+				git_exit_code=mock.DEFAULT,
+				read_unresolved_since_markers=mock.DEFAULT,
+				read_future_since_markers=mock.DEFAULT,
+				api_baseline_diff=mock.DEFAULT,
+				read_asset_library_fields=mock.DEFAULT,
+				read_asset_library_preview_todos=mock.DEFAULT,
+				read_asset_store_metadata=mock.DEFAULT,
+				read_extension_versions=mock.DEFAULT,
+				audit_release_changelog=mock.DEFAULT,
+			) as patched:
+				patched["audit_plugin_cfg"].return_value = plugin_audit
+				patched["git_lines"].return_value = []
+				patched["git_exit_code"].return_value = 1
+				patched["read_unresolved_since_markers"].return_value = []
+				patched["read_future_since_markers"].return_value = []
+				patched["api_baseline_diff"].return_value = {
+					"ok": True,
+					"base_tag": "10.0.0",
+					"summary": {"breaking_change_count": breaking_change_count},
+					"issues": [],
+					"diff": {},
+				}
+				patched["read_asset_library_fields"].return_value = {
+					"Asset Version": "11.0.0",
+					"Download Commit/URL": "11.0.0",
+					"Icon URL": "",
+				}
+				patched["read_asset_library_preview_todos"].return_value = []
+				patched["read_asset_store_metadata"].return_value = asset_store
+				patched["read_extension_versions"].return_value = []
+				patched["audit_release_changelog"].return_value = {
+					"versions": ["11.0.0"],
+					"sections": [],
+					"issues": [],
+				}
+
+				gf_maintenance.release_status(expected_version="11.0.0")
+
+				patched["audit_release_changelog"].assert_called_once_with(
+					"11.0.0",
+					required_categories=expected_categories,
+				)
+
+	def test_nonbreaking_api_does_not_require_api_migration_categories(self) -> None:
+		report = self._run_changelog_policy(
+			self._changed_changelog(
+				"## [未发布]",
+				"Describe the pending release.",
+			),
+			version="11.0.0-dev.0",
+			breaking_change_count=0,
+		)
+
+		self.assertTrue(report["ok"], report["issues"])
 
 
 class InternalModuleDescriptorInventoryTests(unittest.TestCase):

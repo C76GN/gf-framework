@@ -27,6 +27,7 @@
 - 已发布历史只由不可变 Git tag 和 GitHub Release 保存，不建立平行 Markdown 归档，也不重写已发布 tag。
 - 版本概述和分类正文写消费者可观察的能力、修复、行为变化与迁移义务；内部重构只有影响这些结果时才记录。
 - API 破坏、删除或改名必须同时进入 `API Changes` 与 `Migration Guide`，并服从 API baseline 的 SemVer 门禁。
+- API baseline 的自动选择与显式 `--base-tag` 使用同一资格规则：只接受低于目标版本、能 peel 到 commit、且其 commit 是当前 `HEAD` 祖先的 annotated 稳定 SemVer tag。工具以有界 tag 清单捕获的对象 OID 为根；旧 Git 只展开一层 tag 时，再用一次有界批处理递归 peel，并始终以最终 commit OID 读取基线。Git 查询失败、输出被截断、stderr 非空、格式异常或没有合格 tag 时失败关闭，不能退回 lightweight、分叉或未来版本 tag。
 
 ## 验证
 
@@ -35,4 +36,4 @@ python tools\gf_maintenance.py changelog-policy --json
 python tools\gf_maintenance.py maintenance-self-test --json
 ```
 
-`changelog_policy` 属于 docs、quick、full 与 release 门禁。解析器只接受规范 ATX 标题和可见 Markdown；原始 HTML、注释与可见内容混写、非 ASCII 标题空格、渲染为空的概述或分类正文都会失败关闭。修改契约时必须同步 `tools/gf_changelog.py` 与 maintenance self-test fixture。
+`changelog_policy` 属于 docs、quick、full 与 release 门禁。解析器只接受规范 ATX 标题和可见 Markdown；原始 HTML、注释与可见内容混写、非 ASCII 标题空格、渲染为空的概述或分类正文都会失败关闭。API baseline 的 `breaking_change_count` 大于零时，同一解析器会强制当前开发态或稳定态候选段同时提供非空 `API Changes` 与 `Migration Guide`；`check` 调用会把同一个 `--allow-breaking-api` 值传给 `changelog_policy` 与 `release_metadata`，包括所有并行 Full 子进程，但它只影响 SemVer 例外，不免除迁移说明。修改契约时必须同步 `tools/gf_changelog.py` 与 maintenance self-test fixture。

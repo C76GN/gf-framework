@@ -559,6 +559,8 @@ def validate_document_layout(
 def validate_formal_section(
 	section: dict[str, Any],
 	path_label: str,
+	*,
+	required_categories: tuple[str, ...] = (),
 ) -> list[str]:
 	"""Validate one stable release candidate section."""
 
@@ -577,13 +579,21 @@ def validate_formal_section(
 		date.fromisoformat(date_match.group("date"))
 	except ValueError:
 		issues.append(f"{path_label} line {section['line']} contains an invalid calendar date.")
-	issues.extend(validate_entry_structure(section, path_label))
+	issues.extend(
+		validate_entry_structure(
+			section,
+			path_label,
+			required_categories=required_categories,
+		)
+	)
 	return issues
 
 
 def validate_unreleased_section(
 	section: dict[str, Any],
 	path_label: str,
+	*,
+	required_categories: tuple[str, ...] = (),
 ) -> list[str]:
 	"""Validate one development release candidate section."""
 
@@ -595,13 +605,21 @@ def validate_unreleased_section(
 		)
 	if not str(section["body"]).strip():
 		issues.append(f"{path_label} section [未发布] must not be empty.")
-	issues.extend(validate_entry_structure(section, path_label))
+	issues.extend(
+		validate_entry_structure(
+			section,
+			path_label,
+			required_categories=required_categories,
+		)
+	)
 	return issues
 
 
 def validate_entry_structure(
 	section: dict[str, Any],
 	path_label: str,
+	*,
+	required_categories: tuple[str, ...] = (),
 ) -> list[str]:
 	"""Validate the reader-visible overview and ordered category bodies."""
 
@@ -731,4 +749,15 @@ def validate_entry_structure(
 			issues.append(
 				f"{path_label} line {line_number} category '### {category}' must not be empty."
 			)
+	missing_required_categories = [
+		category
+		for category in required_categories
+		if category not in seen_categories
+	]
+	if missing_required_categories:
+		issues.append(
+			f"{path_label} section [{section['version']}] must contain non-empty API Changes "
+			"and Migration Guide categories when the API baseline reports breaking changes; "
+			"missing: " + ", ".join(missing_required_categories) + "."
+		)
 	return issues
