@@ -18,7 +18,7 @@ const _MAX_PATH_SEGMENTS: int = 256
 ## [br]
 ## @layer extensions/save
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param worker_report: Storage worker 返回的隔离诊断。
 ## [br]

@@ -584,7 +584,7 @@ func get_virtual_source_snapshot(source_id: StringName = &"virtual") -> Dictiona
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param source_id: 虚拟输入源标识。
 ## [br]
@@ -954,7 +954,7 @@ func clear_player_input_state(player_index: int) -> void:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @layer standard/input
 ## [br]
@@ -1124,7 +1124,7 @@ func begin_virtual_pulse_lease_for_framework(
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @layer standard/input
 ## [br]

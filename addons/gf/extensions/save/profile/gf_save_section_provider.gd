@@ -145,7 +145,7 @@ func validate_provider() -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param context: 本次操作的临时上下文。
 ## [br]
@@ -248,7 +248,7 @@ func make_section(payload: Variant, metadata: Dictionary = {}) -> GFSaveSection:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param payload: 调用方移交的纯 Variant 载荷。
 ## [br]
@@ -278,7 +278,7 @@ func make_snapshot(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param payload: 调用方移交的纯 Variant 载荷。
 ## [br]
@@ -304,7 +304,7 @@ func make_completed_snapshot(
 ## [br]
 ## @api protected
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param _context: 本次操作的临时上下文。
 ## [br]

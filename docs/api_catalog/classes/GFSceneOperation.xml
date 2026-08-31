@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFSceneOperation" path="addons/gf/standard/utilities/scene/gf_scene_operation.gd" module="standard" extends="RefCounted" classDigest="d68a42d6dd4b699685afa155506c4c83ca779dfc86b62acf163c85574a8b9425">
+<class name="GFSceneOperation" path="addons/gf/standard/utilities/scene/gf_scene_operation.gd" module="standard" extends="RefCounted" classDigest="4cc2c636900c1712ce7ed2f9b2fa2484665ebae2acb4eda986d1a7f4cd6c4205">
 	<description>GFSceneOperation: 单次类型化场景加载或预加载请求的 caller Operation。
 每个请求持有独立 ID、资源身份快照与取消能力。同一路径请求可以共享 Broker
 的物理加载，但每个 Operation 只观察并终结自己的 consumer Lease。
@@ -12,7 +12,7 @@ RefCounted handle，无需显式 release，也不拥有 Utility、Broker 或底�
 		<tag name="api">public</tag>
 		<tag name="category">runtime_handle</tag>
 		<tag name="layer">standard/utilities/scene</tag>
-		<tag name="since">unreleased</tag>
+		<tag name="since">11.0.0</tag>
 	</tags>
 	<signals>
 		<member kind="signal" name="progressed">
@@ -21,7 +21,7 @@ RefCounted handle，无需显式 release，也不拥有 Utility、Broker 或底�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">progress_ratio: 当前进度，范围为 `0.0` 到 `1.0`。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="signal" name="completed">
@@ -32,7 +32,7 @@ RefCounted handle，无需显式 release，也不拥有 Utility、Broker 或底�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">result: 当前请求的隔离终态结果。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 	</signals>
@@ -47,7 +47,7 @@ RefCounted handle，无需显式 release，也不拥有 Utility、Broker 或底�
 			<description>类型化场景请求的执行种类。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 	</enums>
@@ -60,7 +60,7 @@ RefCounted handle，无需显式 release，也不拥有 Utility、Broker 或底�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">大于零的请求 ID；尚未配置时返回 0。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_kind">
@@ -69,7 +69,7 @@ RefCounted handle，无需显式 release，也不拥有 Utility、Broker 或底�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">`LOAD` 或 `PRELOAD`。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_scene_identity">
@@ -78,7 +78,7 @@ RefCounted handle，无需显式 release，也不拥有 Utility、Broker 或底�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">隔离的 GFResourceIdentity 快照；尚未配置时返回 null。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_progress_ratio">
@@ -87,7 +87,7 @@ RefCounted handle，无需显式 release，也不拥有 Utility、Broker 或底�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">范围为 `0.0` 到 `1.0` 的进度。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="is_pending">
@@ -96,7 +96,7 @@ RefCounted handle，无需显式 release，也不拥有 Utility、Broker 或底�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">已配置且尚未完成时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="is_completed">
@@ -105,7 +105,7 @@ RefCounted handle，无需显式 release，也不拥有 Utility、Broker 或底�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">已有终态结果时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_result">
@@ -114,7 +114,7 @@ RefCounted handle，无需显式 release，也不拥有 Utility、Broker 或底�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">已完成时返回隔离结果；等待中返回 null。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="cancel">
@@ -125,7 +125,7 @@ preload 取消只释放当前 consumer Lease；同路径的其它 consumer 继�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">Scene Utility 首次接受当前 caller 的取消 intent 时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 	</methods>

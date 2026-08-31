@@ -8,7 +8,7 @@
 ## [br]
 ## @category value_object
 ## [br]
-## @since unreleased
+## @since 11.0.0
 class_name GFAudioPlaybackRegionResult
 extends RefCounted
 
@@ -19,7 +19,7 @@ extends RefCounted
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 enum Status {
 	## 尚未执行验证或准备。
 	NONE,
@@ -40,7 +40,7 @@ enum Status {
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 var status: Status = Status.NONE
 
 ## 稳定原因标识。
@@ -49,7 +49,7 @@ var status: Status = Status.NONE
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 var reason: StringName:
 	get:
 		return _reason
@@ -60,42 +60,42 @@ var reason: StringName:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 var message: String = ""
 
 ## 本地准备出的 session 私有音频流；后端评估结果不需要填写。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 var prepared_stream: AudioStream = null
 
 ## 实际播放起点，单位为秒。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 var start_seconds: float = 0.0
 
 ## 实际播放或循环终点，单位为秒；-1 表示自然结尾。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 var end_seconds: float = -1.0
 
 ## 实际循环起点，单位为秒；禁用循环时为 -1。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 var loop_start_seconds: float = -1.0
 
 ## 实际循环模式，对应 GFAudioPlaybackRegion.LoopMode 枚举值。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @schema loop_mode: GFAudioPlaybackRegion.LoopMode enum value stored as int.
 var loop_mode: int = 0
@@ -112,7 +112,7 @@ var _reason: StringName = &"none"
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 状态为 VALID 或 APPLIED 时返回 true。
 func is_success() -> bool:
@@ -123,7 +123,7 @@ func is_success() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 状态为 APPLIED 时返回 true。
 func is_applied() -> bool:
@@ -134,7 +134,7 @@ func is_applied() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 区间处理结果字典。
 ## [br]
@@ -158,7 +158,7 @@ func to_dictionary() -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param reason_id: 稳定原因标识。
 ## [br]
@@ -180,7 +180,7 @@ static func unsupported(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param result_status: 区间处理状态。
 ## [br]

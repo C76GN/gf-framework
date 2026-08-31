@@ -12,7 +12,7 @@
 ## [br]
 ## @category runtime_handle
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @layer standard/utilities/scene
 class_name GFSceneOperation
@@ -25,7 +25,7 @@ extends RefCounted
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param progress_ratio: 当前进度，范围为 `0.0` 到 `1.0`。
 signal progressed(progress_ratio: float)
@@ -37,7 +37,7 @@ signal progressed(progress_ratio: float)
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param result: 当前请求的隔离终态结果。
 signal completed(result: GFSceneOperationResult)
@@ -49,7 +49,7 @@ signal completed(result: GFSceneOperationResult)
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 enum Kind {
 	## 加载资源并在安全帧切换场景。
 	LOAD,
@@ -77,7 +77,7 @@ var _final_progress_signal_pending: bool = false
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 大于零的请求 ID；尚未配置时返回 0。
 func get_request_id() -> int:
@@ -88,7 +88,7 @@ func get_request_id() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return `LOAD` 或 `PRELOAD`。
 func get_kind() -> Kind:
@@ -99,7 +99,7 @@ func get_kind() -> Kind:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 隔离的 GFResourceIdentity 快照；尚未配置时返回 null。
 func get_scene_identity() -> GFResourceIdentity:
@@ -110,7 +110,7 @@ func get_scene_identity() -> GFResourceIdentity:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 范围为 `0.0` 到 `1.0` 的进度。
 func get_progress_ratio() -> float:
@@ -121,7 +121,7 @@ func get_progress_ratio() -> float:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 已配置且尚未完成时返回 true。
 func is_pending() -> bool:
@@ -132,7 +132,7 @@ func is_pending() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 已有终态结果时返回 true。
 func is_completed() -> bool:
@@ -143,7 +143,7 @@ func is_completed() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 已完成时返回隔离结果；等待中返回 null。
 func get_result() -> GFSceneOperationResult:
@@ -157,7 +157,7 @@ func get_result() -> GFSceneOperationResult:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return Scene Utility 首次接受当前 caller 的取消 intent 时返回 true。
 func cancel() -> bool:
@@ -183,7 +183,7 @@ func cancel() -> bool:
 ## [br]
 ## @layer standard/utilities/scene
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param request_id: Utility 内唯一且大于零的请求 ID。
 ## [br]
@@ -224,7 +224,7 @@ func configure_for_framework(
 ## [br]
 ## @layer standard/utilities/scene
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param progress_ratio: 最新进度，写入前会限制到 `0.0` 到 `1.0`。
 ## [br]
@@ -249,7 +249,7 @@ func update_progress_for_framework(progress_ratio: float) -> bool:
 ## [br]
 ## @layer standard/utilities/scene
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param result: 与当前请求身份匹配的闭合终态结果。
 ## [br]
@@ -292,7 +292,7 @@ func complete_for_framework(
 ## [br]
 ## @layer standard/utilities/scene
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 首次发出已冻结终态时返回 true。
 func emit_completed_for_framework() -> bool:
@@ -317,7 +317,7 @@ func emit_completed_for_framework() -> bool:
 ## [br]
 ## @layer standard/utilities/scene
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 请求身份与取消能力均已冻结时返回 true。
 func is_configured_for_framework() -> bool:

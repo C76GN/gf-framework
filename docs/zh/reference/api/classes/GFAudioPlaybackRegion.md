@@ -7,7 +7,7 @@
 - 继承：`Resource`
 - API：`public`
 - 类别：资源定义 (`resource_definition`)
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 类型化音频播放区间与循环点。 使用秒数描述播放起点、自然或显式终点以及循环模式。流准备始终复制源 `AudioStream`，只在副本上写入 Godot 原生循环属性，并对无法精确表达的组合 返回 UNSUPPORTED，避免静默播放错误区间。
 
@@ -32,7 +32,7 @@
 ### `LoopMode`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 enum LoopMode {
@@ -56,7 +56,7 @@ enum LoopMode {
 ### `start_seconds`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 var start_seconds: float = 0.0
@@ -69,7 +69,7 @@ var start_seconds: float = 0.0
 ### `end_seconds`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 var end_seconds: float = -1.0
@@ -82,7 +82,7 @@ var end_seconds: float = -1.0
 ### `loop_mode`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 var loop_mode: LoopMode = LoopMode.DISABLED
@@ -95,7 +95,7 @@ var loop_mode: LoopMode = LoopMode.DISABLED
 ### `loop_start_seconds`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 var loop_start_seconds: float = -1.0
@@ -110,7 +110,7 @@ var loop_start_seconds: float = -1.0
 ### `validate`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func validate(stream_length_seconds: float = -1.0) -> GFAudioPlaybackRegionResult:
@@ -131,7 +131,7 @@ func validate(stream_length_seconds: float = -1.0) -> GFAudioPlaybackRegionResul
 ### `prepare_stream`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func prepare_stream(stream: AudioStream) -> GFAudioPlaybackRegionResult:
@@ -152,7 +152,7 @@ func prepare_stream(stream: AudioStream) -> GFAudioPlaybackRegionResult:
 ### `duplicate_region`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func duplicate_region() -> GFAudioPlaybackRegion:
@@ -167,7 +167,7 @@ func duplicate_region() -> GFAudioPlaybackRegion:
 ### `to_dictionary`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func to_dictionary() -> Dictionary:

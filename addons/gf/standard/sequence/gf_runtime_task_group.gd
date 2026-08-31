@@ -58,7 +58,7 @@ const REJECTION_PARALLEL_REQUIREMENT_CONFLICT: StringName = &"group_parallel_req
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const REJECTION_TASK_GRAPH_CYCLE: StringName = &"group_task_graph_cycle"
 
 ## 同一任务实例从子任务图中的多个位置可达时的拒绝原因。
@@ -66,7 +66,7 @@ const REJECTION_TASK_GRAPH_CYCLE: StringName = &"group_task_graph_cycle"
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const REJECTION_TASK_GRAPH_REUSED: StringName = &"group_task_graph_reused"
 
 ## 子任务图超过框架有界遍历预算时的拒绝原因。
@@ -74,7 +74,7 @@ const REJECTION_TASK_GRAPH_REUSED: StringName = &"group_task_graph_reused"
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const REJECTION_TASK_GRAPH_LIMIT: StringName = &"group_task_graph_limit"
 
 ## 子任务组模式不属于 [enum Mode] 闭合集合时的拒绝原因。
@@ -82,7 +82,7 @@ const REJECTION_TASK_GRAPH_LIMIT: StringName = &"group_task_graph_limit"
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const REJECTION_INVALID_MODE: StringName = &"group_invalid_mode"
 
 ## 子任务树允许的最大嵌套深度；根任务组深度为 0。
@@ -90,7 +90,7 @@ const REJECTION_INVALID_MODE: StringName = &"group_invalid_mode"
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const MAX_TASK_GRAPH_DEPTH: int = 256
 
 ## 单个任务组调度树允许的最大任务实例数，包含根任务组。
@@ -98,7 +98,7 @@ const MAX_TASK_GRAPH_DEPTH: int = 256
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const MAX_TASK_GRAPH_NODES: int = 4096
 
 

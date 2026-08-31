@@ -205,7 +205,7 @@ func write(entry: Dictionary) -> void:
 ### `tick`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func tick(delta: float) -> void:

@@ -7,7 +7,7 @@
 ## [br]
 ## @category value_object
 ## [br]
-## @since unreleased
+## @since 11.0.0
 class_name GFCalendarGrid
 extends RefCounted
 
@@ -18,35 +18,35 @@ extends RefCounted
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const STATUS_BUILT: StringName = &"built"
 
 ## 目标日期、周起点或固定行数无效。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const STATUS_INVALID_REQUEST: StringName = &"invalid_request"
 
 ## 指定行数无法容纳目标月的全部日期。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const STATUS_INSUFFICIENT_ROWS: StringName = &"insufficient_rows"
 
 ## 完整周所需的相邻日期超出支持年份范围。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const STATUS_OUT_OF_RANGE: StringName = &"out_of_range"
 
 ## 网格固定列数。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const COLUMN_COUNT: int = 7
 
 
@@ -68,7 +68,7 @@ var _error: String = ""
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return: 包含完整月历网格时返回 true。
 func is_successful() -> bool:
@@ -79,7 +79,7 @@ func is_successful() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return: `STATUS_*` 常量之一。
 func get_status() -> StringName:
@@ -90,7 +90,7 @@ func get_status() -> StringName:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return: 成功时为空字符串。
 func get_error() -> String:
@@ -101,7 +101,7 @@ func get_error() -> String:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return: 成功时的目标年份；失败时返回 0。
 func get_year() -> int:
@@ -112,7 +112,7 @@ func get_year() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return: 成功时的 1 到 12；失败时返回 0。
 func get_month() -> int:
@@ -123,7 +123,7 @@ func get_month() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return: `GFCivilDate.Weekday` 值；失败时返回 0。
 func get_week_start() -> int:
@@ -134,7 +134,7 @@ func get_week_start() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return: 成功时为 4 到 6；失败时返回 0。
 func get_row_count() -> int:
@@ -145,7 +145,7 @@ func get_row_count() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return: 始终返回 7。
 func get_column_count() -> int:
@@ -156,7 +156,7 @@ func get_column_count() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return: 成功时为行数乘 7；失败时返回 0。
 func get_cell_count() -> int:
@@ -167,7 +167,7 @@ func get_cell_count() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param index: 从 0 开始的行主序索引。
 ## [br]
@@ -182,7 +182,7 @@ func get_cell(index: int) -> GFCivilDate:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return: 按行主序排列的新数组；修改该数组不会影响网格。
 func get_cells() -> Array[GFCivilDate]:
@@ -199,7 +199,7 @@ func get_cells() -> Array[GFCivilDate]:
 ## [br]
 ## @layer standard/utilities/time
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param status: `STATUS_*` 常量之一。
 ## [br]

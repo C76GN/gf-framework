@@ -7,7 +7,7 @@
 - 继承：`RefCounted`
 - API：`public`
 - 类别：运行时句柄 (`runtime_handle`)
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 槽位接收回调的临时只读库存投影。 库存模型与原子转移规划器会为每次槽位接收检查创建此视图。查询反映 当前逐步候选，因而后续槽位可观察此前写入；视图不暴露可变库存引用。 回调返回后视图立即失效，项目不得跨回调保存并依赖它。
 
@@ -34,7 +34,7 @@
 ### `is_active`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func is_active() -> bool:
@@ -49,7 +49,7 @@ func is_active() -> bool:
 ### `get_slot_count`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_slot_count() -> int:
@@ -64,7 +64,7 @@ func get_slot_count() -> int:
 ### `is_valid_slot`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func is_valid_slot(slot_index: int) -> bool:
@@ -85,7 +85,7 @@ func is_valid_slot(slot_index: int) -> bool:
 ### `get_stack`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_stack(slot_index: int) -> GFInventoryStack:
@@ -106,7 +106,7 @@ func get_stack(slot_index: int) -> GFInventoryStack:
 ### `get_stack_data`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_stack_data(slot_index: int) -> Dictionary:
@@ -131,7 +131,7 @@ func get_stack_data(slot_index: int) -> Dictionary:
 ### `is_slot_empty`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func is_slot_empty(slot_index: int) -> bool:
@@ -152,7 +152,7 @@ func is_slot_empty(slot_index: int) -> bool:
 ### `get_item_total`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_item_total(item_id: StringName, instance_data: Dictionary = {}) -> int:
@@ -178,7 +178,7 @@ func get_item_total(item_id: StringName, instance_data: Dictionary = {}) -> int:
 ### `has_item`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func has_item( item_id: StringName, amount: int = 1, instance_data: Dictionary = {} ) -> bool:
@@ -205,7 +205,7 @@ func has_item( item_id: StringName, amount: int = 1, instance_data: Dictionary =
 ### `get_empty_slot_indices`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_empty_slot_indices() -> PackedInt32Array:
@@ -220,7 +220,7 @@ func get_empty_slot_indices() -> PackedInt32Array:
 ### `get_occupied_slot_indices`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_occupied_slot_indices() -> PackedInt32Array:
@@ -235,7 +235,7 @@ func get_occupied_slot_indices() -> PackedInt32Array:
 ### `get_slots_for_item`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_slots_for_item( item_id: StringName, instance_data: Dictionary = {} ) -> PackedInt32Array:

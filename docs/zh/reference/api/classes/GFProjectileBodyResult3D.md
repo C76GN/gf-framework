@@ -7,7 +7,7 @@
 - 继承：`RefCounted`
 - API：`public`
 - 类别：值对象 (`value_object`)
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 3D body adapter 的捕获或应用结果。
 
@@ -30,7 +30,7 @@
 ### `successful`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 static func successful( transform_value: Transform3D, actual_displacement: Vector3 = Vector3.ZERO ) -> GFProjectileBodyResult3D:
@@ -52,7 +52,7 @@ static func successful( transform_value: Transform3D, actual_displacement: Vecto
 ### `failed`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 static func failed( reason: StringName, transform_value: Transform3D = Transform3D.IDENTITY ) -> GFProjectileBodyResult3D:
@@ -74,7 +74,7 @@ static func failed( reason: StringName, transform_value: Transform3D = Transform
 ### `is_successful`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func is_successful() -> bool:
@@ -89,7 +89,7 @@ func is_successful() -> bool:
 ### `get_failure_reason`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_failure_reason() -> StringName:
@@ -104,7 +104,7 @@ func get_failure_reason() -> StringName:
 ### `get_transform`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_transform() -> Transform3D:
@@ -119,7 +119,7 @@ func get_transform() -> Transform3D:
 ### `get_position`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_position() -> Vector3:
@@ -134,7 +134,7 @@ func get_position() -> Vector3:
 ### `get_actual_displacement`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_actual_displacement() -> Vector3:

@@ -147,7 +147,7 @@ var physics_tick_enabled: bool = false:
 ### `get_required_models`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_required_models() -> Array[Script]:
@@ -162,7 +162,7 @@ func get_required_models() -> Array[Script]:
 ### `get_required_systems`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_required_systems() -> Array[Script]:
@@ -177,7 +177,7 @@ func get_required_systems() -> Array[Script]:
 ### `get_required_utilities`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_required_utilities() -> Array[Script]:
@@ -192,7 +192,7 @@ func get_required_utilities() -> Array[Script]:
 ### `get_required_factories`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_required_factories() -> Array[Script]:
@@ -251,7 +251,7 @@ func ready() -> void:
 ### `begin_activation`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func begin_activation(_scope: GFAsyncScope) -> GFAsyncCompletion:
@@ -272,7 +272,7 @@ func begin_activation(_scope: GFAsyncScope) -> GFAsyncCompletion:
 ### `begin_quiesce`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func begin_quiesce(_scope: GFAsyncScope) -> GFAsyncCompletion:

@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFVirtualListSyncResult" path="addons/gf/standard/utilities/ui/gf_virtual_list_sync_result.gd" module="standard" extends="RefCounted" classDigest="7d9d7279518d8d1adf0710ba67deb5db7f240bf269cec65fa750a7b9f410b414">
+<class name="GFVirtualListSyncResult" path="addons/gf/standard/utilities/ui/gf_virtual_list_sync_result.gd" module="standard" extends="RefCounted" classDigest="4587d5d498c6a8ea37e019ba4f34400b8e73633869d687e2edbb8833c847a0fe">
 	<description>GFVirtualListSyncResult: 虚拟列表同步的不可变诊断结果。
 只保存范围、计数、版本和稳定错误信息，不保存项目条目数据或原始稳定 ID。</description>
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">value_object</tag>
-		<tag name="since">unreleased</tag>
+		<tag name="since">11.0.0</tag>
 	</tags>
 	<signals />
 	<enums />
@@ -15,7 +15,7 @@
 			<description>目标范围已完整同步。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="STATUS_UNCHANGED">
@@ -23,7 +23,7 @@
 			<description>当前 materialization 已满足目标且没有结构变化。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="STATUS_DEFERRED">
@@ -34,7 +34,7 @@ materialization；若已调用 bind/unbind、测量、布局或焦点副作用�
 不可信 materialization。调用方应以结果中的当前索引为准并等待下一轮结果。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="STATUS_TRUNCATED">
@@ -42,7 +42,7 @@ materialization；若已调用 bind/unbind、测量、布局或焦点副作用�
 			<description>目标范围超过显式节点预算，已优先物化真实视口范围。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="STATUS_UNBOUND">
@@ -50,7 +50,7 @@ materialization；若已调用 bind/unbind、测量、布局或焦点副作用�
 			<description>Binder 当前没有有效绑定。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="STATUS_DISPOSED">
@@ -58,7 +58,7 @@ materialization；若已调用 bind/unbind、测量、布局或焦点副作用�
 			<description>Binder 已进入不可复用的终态。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="STATUS_INVALID_IDENTITY">
@@ -66,7 +66,7 @@ materialization；若已调用 bind/unbind、测量、布局或焦点副作用�
 			<description>identity callback 返回了不可稳定编码的值。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="STATUS_DUPLICATE_IDENTITY">
@@ -74,7 +74,7 @@ materialization；若已调用 bind/unbind、测量、布局或焦点副作用�
 			<description>当前请求范围包含重复稳定 identity。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="STATUS_FACTORY_FAILED">
@@ -82,7 +82,7 @@ materialization；若已调用 bind/unbind、测量、布局或焦点副作用�
 			<description>item factory 没有返回可接管的 parentless Control。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="STATUS_BIND_FAILED">
@@ -90,7 +90,7 @@ materialization；若已调用 bind/unbind、测量、布局或焦点副作用�
 			<description>项目 bind callback 拒绝了一个条目。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 	</constants>
@@ -102,7 +102,7 @@ materialization；若已调用 bind/unbind、测量、布局或焦点副作用�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">完整、无变化或按显式预算截断完成时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_status">
@@ -111,7 +111,7 @@ materialization；若已调用 bind/unbind、测量、布局或焦点副作用�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">`STATUS_*` 常量之一。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_layout_revision">
@@ -120,7 +120,7 @@ materialization；若已调用 bind/unbind、测量、布局或焦点副作用�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">`GFVirtualListModel` revision。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_data_revision">
@@ -129,7 +129,7 @@ materialization；若已调用 bind/unbind、测量、布局或焦点副作用�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">从 0 开始的 data revision。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_viewport_range">
@@ -138,7 +138,7 @@ materialization；若已调用 bind/unbind、测量、布局或焦点副作用�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">Vector2i(start, end)，end 不包含。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_requested_range">
@@ -147,7 +147,7 @@ materialization；若已调用 bind/unbind、测量、布局或焦点副作用�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">Vector2i(start, end)，end 不包含。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_materialized_indices">
@@ -156,7 +156,7 @@ materialization；若已调用 bind/unbind、测量、布局或焦点副作用�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">升序物化索引。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_materialized_count">
@@ -165,7 +165,7 @@ materialization；若已调用 bind/unbind、测量、布局或焦点副作用�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">当前活动 Control 数量。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_pooled_count">
@@ -174,7 +174,7 @@ materialization；若已调用 bind/unbind、测量、布局或焦点副作用�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">parentless 池节点数量。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_created_count">
@@ -183,7 +183,7 @@ materialization；若已调用 bind/unbind、测量、布局或焦点副作用�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">factory 成功创建数量。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_reused_count">
@@ -192,7 +192,7 @@ materialization；若已调用 bind/unbind、测量、布局或焦点副作用�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">复用数量。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_released_count">
@@ -201,7 +201,7 @@ materialization；若已调用 bind/unbind、测量、布局或焦点副作用�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">已执行 unbind 的旧绑定数量。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_measured_count">
@@ -210,7 +210,7 @@ materialization；若已调用 bind/unbind、测量、布局或焦点副作用�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">测量数量。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_anchor_adjustment">
@@ -219,7 +219,7 @@ materialization；若已调用 bind/unbind、测量、布局或焦点副作用�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">主轴滚动调整量。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="was_truncated">
@@ -228,7 +228,7 @@ materialization；若已调用 bind/unbind、测量、布局或焦点副作用�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">目标范围未完整物化时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_error_index">
@@ -237,7 +237,7 @@ materialization；若已调用 bind/unbind、测量、布局或焦点副作用�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">没有索引错误时为 -1。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_error">
@@ -246,7 +246,7 @@ materialization；若已调用 bind/unbind、测量、布局或焦点副作用�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">成功时为空。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="duplicate_result">
@@ -255,7 +255,7 @@ materialization；若已调用 bind/unbind、测量、布局或焦点副作用�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">新结果对象。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="to_dict">
@@ -265,7 +265,7 @@ materialization；若已调用 bind/unbind、测量、布局或焦点副作用�
 				<tag name="api">public</tag>
 				<tag name="return">JSON-safe 同步摘要；状态使用 String，范围与索引只使用 JSON 原生容器和整数。</tag>
 				<tag name="schema">return: Dictionary with String status; viewport_range and requested_range Dictionaries containing start and end_exclusive ints; materialized_indices Array[int]; revisions and counts in 0..9007199254740991; finite anchor_adjustment; truncated; error_index in -1..9007199254740991; and error.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 	</methods>

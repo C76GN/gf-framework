@@ -121,7 +121,7 @@ signal bgm_finished(history_key: String)
 ### `playback_region_rejected`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 signal playback_region_rejected(channel: StringName, reason: StringName)
@@ -213,7 +213,7 @@ var max_sfx_players: int = 32
 ### `max_idle_ambient_players`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 var max_idle_ambient_players: int = 16:
@@ -289,7 +289,7 @@ func dispose() -> void:
 ### `start_bgm`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func start_bgm( path: String, options: Dictionary = {}, owner: Node = null ) -> GFBgmStartOperation:
@@ -316,7 +316,7 @@ func start_bgm( path: String, options: Dictionary = {}, owner: Node = null ) -> 
 ### `start_bgm_clip`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func start_bgm_clip( clip: GFAudioClip, crossfade_seconds: float = -1.0, owner: Node = null ) -> GFBgmStartOperation:
@@ -1631,7 +1631,7 @@ func get_debug_snapshot() -> Dictionary:
 ### `get_last_playback_region_rejection`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_last_playback_region_rejection() -> Dictionary:

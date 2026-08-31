@@ -134,7 +134,7 @@ func get_debug_snapshot(context: GFDecisionContext) -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param score_value: 已计算的考虑项分数。
 ## [br]

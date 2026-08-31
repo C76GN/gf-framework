@@ -7,7 +7,7 @@
 - 继承：`RefCounted`
 - API：`public`
 - 类别：值对象 (`value_object`)
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 无时区、无时刻的不可变公民日期。 使用前推格里高利历，支持 0001-01-01 到 9999-12-31。 本类只处理日期数学，不读取系统时钟，不包含时区、语言区域、节假日或业务日规则。
 
@@ -48,7 +48,7 @@
 ### `Weekday`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 enum Weekday {
@@ -78,7 +78,7 @@ ISO 8601 星期编号，星期一为 1，星期日为 7。
 ### `MIN_YEAR`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const MIN_YEAR: int = 1
@@ -91,7 +91,7 @@ const MIN_YEAR: int = 1
 ### `MAX_YEAR`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const MAX_YEAR: int = 9999
@@ -106,7 +106,7 @@ const MAX_YEAR: int = 9999
 ### `create`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 static func create(year: int, month: int, day: int) -> GFCivilDateResult:
@@ -129,7 +129,7 @@ static func create(year: int, month: int, day: int) -> GFCivilDateResult:
 ### `parse_iso8601`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 static func parse_iso8601(text: String) -> GFCivilDateResult:
@@ -150,7 +150,7 @@ static func parse_iso8601(text: String) -> GFCivilDateResult:
 ### `from_dict`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 static func from_dict(data: Dictionary) -> GFCivilDateResult:
@@ -175,7 +175,7 @@ static func from_dict(data: Dictionary) -> GFCivilDateResult:
 ### `from_ordinal`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 static func from_ordinal(ordinal: int) -> GFCivilDateResult:
@@ -196,7 +196,7 @@ static func from_ordinal(ordinal: int) -> GFCivilDateResult:
 ### `is_leap_year`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 static func is_leap_year(year: int) -> bool:
@@ -217,7 +217,7 @@ static func is_leap_year(year: int) -> bool:
 ### `get_days_in_month`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 static func get_days_in_month(year: int, month: int) -> int:
@@ -239,7 +239,7 @@ static func get_days_in_month(year: int, month: int) -> int:
 ### `is_valid`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func is_valid() -> bool:
@@ -254,7 +254,7 @@ func is_valid() -> bool:
 ### `get_year`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_year() -> int:
@@ -269,7 +269,7 @@ func get_year() -> int:
 ### `get_month`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_month() -> int:
@@ -284,7 +284,7 @@ func get_month() -> int:
 ### `get_day`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_day() -> int:
@@ -299,7 +299,7 @@ func get_day() -> int:
 ### `to_iso8601`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func to_iso8601() -> String:
@@ -314,7 +314,7 @@ func to_iso8601() -> String:
 ### `to_dict`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func to_dict() -> Dictionary:
@@ -333,7 +333,7 @@ func to_dict() -> Dictionary:
 ### `to_ordinal`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func to_ordinal() -> int:
@@ -348,7 +348,7 @@ func to_ordinal() -> int:
 ### `get_weekday`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_weekday() -> int:
@@ -363,7 +363,7 @@ func get_weekday() -> int:
 ### `get_day_of_year`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_day_of_year() -> int:
@@ -378,7 +378,7 @@ func get_day_of_year() -> int:
 ### `get_iso_week_year`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_iso_week_year() -> int:
@@ -393,7 +393,7 @@ func get_iso_week_year() -> int:
 ### `get_iso_week_number`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_iso_week_number() -> int:
@@ -408,7 +408,7 @@ func get_iso_week_number() -> int:
 ### `add_days`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func add_days(days: int) -> GFCivilDateResult:
@@ -429,7 +429,7 @@ func add_days(days: int) -> GFCivilDateResult:
 ### `add_months`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func add_months(months: int, clamp_day: bool = true) -> GFCivilDateResult:
@@ -451,7 +451,7 @@ func add_months(months: int, clamp_day: bool = true) -> GFCivilDateResult:
 ### `add_years`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func add_years(years: int, clamp_day: bool = true) -> GFCivilDateResult:
@@ -473,7 +473,7 @@ func add_years(years: int, clamp_day: bool = true) -> GFCivilDateResult:
 ### `compare_to`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func compare_to(other: GFCivilDate) -> GFCivilDateDifferenceResult:
@@ -494,7 +494,7 @@ func compare_to(other: GFCivilDate) -> GFCivilDateDifferenceResult:
 ### `days_until`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func days_until(other: GFCivilDate) -> GFCivilDateDifferenceResult:

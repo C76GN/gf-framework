@@ -69,7 +69,7 @@ extends Resource
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 @export var supports_playback_region_contract: bool = false
 
 ## 可选元数据，供项目层或调试面板展示。

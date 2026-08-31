@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFSettingsUtility" path="addons/gf/standard/utilities/settings/gf_settings_utility.gd" module="standard" extends="GFUtility" classDigest="cb6dd439165c4ef7d84cdfa3ed53f926cbeb092c5e8fb97d3f07d9f2a941d5e9">
+<class name="GFSettingsUtility" path="addons/gf/standard/utilities/settings/gf_settings_utility.gd" module="standard" extends="GFUtility" classDigest="55199d0c7d323dbca1f74cc3d9e9e7a8fe9ec759a43afab2ba3416857d385339">
 	<description>GFSettingsUtility: 通用设置注册、读写与持久化工具。
 设置项以 StringName 键访问，可选使用 GFSettingDefinition 声明默认值和类型。
 该工具只管理抽象设置值，不直接绑定窗口、音频、输入或任何项目业务。</description>
@@ -106,7 +106,7 @@
 架构模式启用时必须注册唯一的 GFSettingsStoreUtility；关闭时设置工具保持纯内存模式。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 	</properties>
@@ -125,7 +125,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">启用持久化时仅包含 GFSettingsStoreUtility，否则为空。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="ready">
@@ -133,7 +133,7 @@
 			<description>在架构 ready 阶段解析唯一的设置持久化端口。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="begin_activation">
@@ -143,7 +143,7 @@
 				<tag name="api">public</tag>
 				<tag name="param">_scope: 当前 Settings 激活阶段的取消作用域。</tag>
 				<tag name="return">Store 可用并完成同步自动加载尝试时成功的一次性完成源。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="begin_quiesce">
@@ -153,7 +153,7 @@
 				<tag name="api">public</tag>
 				<tag name="param">scope: 当前 Settings 静默阶段的取消作用域。</tag>
 				<tag name="return">全部已接纳记录成功持久化时成功；失败时保留 target 证据；scope 取消时返回 CANCELLED，提升开放 batch 但不启动新 I/O，并保留 pending 供显式重试。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="dispose">
@@ -169,7 +169,7 @@
 			<description>释放架构 Store 引用和基类依赖作用域。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="register_definition">

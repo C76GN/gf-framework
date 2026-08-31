@@ -7,7 +7,7 @@
 ## [br]
 ## @category value_object
 ## [br]
-## @since unreleased
+## @since 11.0.0
 class_name GFTableRowPredicateRegistration
 extends RefCounted
 
@@ -31,7 +31,7 @@ var _enabled: bool = true
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param predicate_id: 非空、无首尾空白且 UTF-8 编码不超过 128 字节的稳定 ID。
 ## [br]
@@ -60,7 +60,7 @@ static func create(
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param registration: 待隔离的注册值。
 ## [br]
@@ -82,7 +82,7 @@ static func snapshot_for_framework(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 稳定谓词 ID。
 func get_predicate_id() -> StringName:
@@ -93,7 +93,7 @@ func get_predicate_id() -> StringName:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 注册的谓词。
 func get_predicate() -> GFTableRowPredicate:
@@ -104,7 +104,7 @@ func get_predicate() -> GFTableRowPredicate:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return order；数值越小越早执行。
 func get_order() -> int:
@@ -115,7 +115,7 @@ func get_order() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 启用时返回 true。
 func is_enabled() -> bool:
@@ -126,7 +126,7 @@ func is_enabled() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return GFValidationReportDictionary 兼容报告。
 ## [br]

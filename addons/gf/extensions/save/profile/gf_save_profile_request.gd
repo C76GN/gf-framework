@@ -8,7 +8,7 @@
 ## [br]
 ## @category runtime_handle
 ## [br]
-## @since unreleased
+## @since 11.0.0
 class_name GFSaveProfileRequest
 extends RefCounted
 
@@ -31,7 +31,7 @@ var _result_metadata: Dictionary = {}
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param document_metadata: 写入文档的持久化元数据。
 ## [br]
@@ -63,7 +63,7 @@ static func take_ownership(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 已成功 claim 时返回 true。
 func is_claimed() -> bool:
@@ -76,7 +76,7 @@ func is_claimed() -> bool:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 请求已经初始化且尚未 claim 时返回 true。
 func is_available_for_framework() -> bool:
@@ -89,7 +89,7 @@ func is_available_for_framework() -> bool:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 包含 document_metadata、context 和 result_metadata 的所有权记录。
 ## [br]

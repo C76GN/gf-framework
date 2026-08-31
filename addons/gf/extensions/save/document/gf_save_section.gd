@@ -217,7 +217,7 @@ func duplicate_section() -> GFSaveSection:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 规范 section 记录。
 ## [br]

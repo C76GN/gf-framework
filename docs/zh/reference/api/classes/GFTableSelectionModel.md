@@ -233,7 +233,7 @@ func replace_selection(row_ids: Array) -> bool:
 ### `replace_selection_with_anchor`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func replace_selection_with_anchor( row_ids: Array, selection_anchor: Variant ) -> bool:

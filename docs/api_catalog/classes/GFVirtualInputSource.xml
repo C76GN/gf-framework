@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFVirtualInputSource" path="addons/gf/standard/input/sources/gf_virtual_input_source.gd" module="standard" extends="RefCounted" classDigest="89e9abbced24af6c05ccd6dcd8986023efa86516ac640e70df6bbafcdf50d596">
+<class name="GFVirtualInputSource" path="addons/gf/standard/input/sources/gf_virtual_input_source.gd" module="standard" extends="RefCounted" classDigest="89361fcd4a0c0b54eb8751f0c6e60044a6728216b269abb55611c140a28d6dbf">
 	<description>GFVirtualInputSource: 可编程虚拟输入源。
 用于测试、回放、AI 控制或项目自定义输入桥接，向 GFInputMappingUtility
 注入抽象动作值；它不读取 InputMap，也不规定具体设备或玩法语义。</description>
@@ -22,7 +22,7 @@
 			<description>同一 source_id、player_index 与 action_id 已存在脉冲时的处理策略。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 	</enums>
@@ -71,7 +71,7 @@
 				<tag name="api">public</tag>
 				<tag name="param">timer_utility: 可注入的定时器工具；null 会禁用后续 pulse_action()。</tag>
 				<tag name="return">当前输入源；dispose 后返回同一终态实例且不修改配置。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_timer_utility">
@@ -80,7 +80,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">当前注入且仍存活的 GFTimerUtility。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="pulse_action">
@@ -99,7 +99,7 @@ owner 与 cancellation_token 均可省略；同时提供时采用 OR 语义。�
 				<tag name="return">类型化脉冲句柄；输入无效时返回立即 FAILED 的句柄。</tag>
 				<tag name="schema">value: Variant，GFInputMappingUtility 接受的 bool、float、Vector2 或 Vector3 动作值。</tag>
 				<tag name="schema">owner: Variant，null 或仍有效的 Object；无效及已释放对象会在写入前失败。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="set_action_value">
@@ -207,7 +207,7 @@ owner 与 cancellation_token 均可省略；同时提供时采用 OR 语义。�
 			<description>取消全部 Source-owned 脉冲、清除当前 source_id 贡献并释放依赖引用。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_snapshot">

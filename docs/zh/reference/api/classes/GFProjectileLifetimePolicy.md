@@ -69,7 +69,7 @@ var max_impacts: int = 0
 ### `get_end_reason`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_end_reason(session: GFProjectileSession) -> GFProjectileSession.EndReason:

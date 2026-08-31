@@ -43,7 +43,7 @@ signal profile_state_changed(profile_id: StringName, previous_state: StringName,
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param profile_id: 证据所属 Profile ID。
 ## [br]
@@ -64,7 +64,7 @@ const STATE_IDLE: StringName = &"idle"
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const STATE_PREPARING: StringName = &"preparing"
 
 ## 正在等待保存 IO。
@@ -106,14 +106,14 @@ const STATE_DISPOSED: StringName = &"disposed"
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const MANAGED_ACCESS_BLOCKED: int = 0
 
 ## 受管 Profile 只允许直接 save 与 flush。
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const MANAGED_ACCESS_SAVE_FLUSH: int = 1
 
 const _PREPARATION_PHASE_PROVIDER_SCAN: StringName = &"provider_scan"
@@ -134,7 +134,7 @@ const _PAYLOAD_VALIDATION_ADAPTER = preload(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 var save_preparation_work_budget_per_tick: int = 64:
 	set(value):
 		save_preparation_work_budget_per_tick = maxi(value, 1)
@@ -143,7 +143,7 @@ var save_preparation_work_budget_per_tick: int = 64:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 var save_preparation_slice_budget: int = 8:
 	set(value):
 		save_preparation_slice_budget = maxi(value, 1)
@@ -154,7 +154,7 @@ var save_preparation_slice_budget: int = 8:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 var save_preparation_time_budget_usec: int = 2000:
 	set(value):
 		save_preparation_time_budget_usec = maxi(value, 0)
@@ -220,7 +220,7 @@ func ready() -> void:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 仅包含 GFStorageUtility 的依赖声明。
 func get_required_utilities() -> Array[Script]:
@@ -232,7 +232,7 @@ func get_required_utilities() -> Array[Script]:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param _scope: 当前 Profile 服务激活阶段的取消作用域。
 ## [br]
@@ -265,7 +265,7 @@ func begin_activation(_scope: GFAsyncScope) -> GFAsyncCompletion:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param scope: 当前 Profile 服务静默阶段的取消作用域。
 ## [br]
@@ -583,7 +583,7 @@ func get_profile_state_snapshot(profile_id: StringName) -> Dictionary:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param profile_id: 已注册且空闲的 Profile ID。
 ## [br]
@@ -624,7 +624,7 @@ func claim_profile_management_for_framework(
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param profile_id: 受管 Profile ID。
 ## [br]
@@ -666,7 +666,7 @@ func set_profile_managed_access_for_framework(
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param profile_id: 受管 Profile ID。
 ## [br]
@@ -706,7 +706,7 @@ func release_profile_management_for_framework(
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param profile_id: 受管 Profile ID。
 ## [br]
@@ -736,7 +736,7 @@ func abandon_profile_management_for_framework(
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param profile_id: 受管 Profile ID。
 ## [br]
@@ -760,7 +760,7 @@ func save_profile_for_manager_for_framework(
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param profile_id: 受管 Profile ID。
 ## [br]
@@ -791,7 +791,7 @@ func load_profile_strict_for_manager_for_framework(
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param profile_id: 受管 Profile ID。
 ## [br]
@@ -836,7 +836,7 @@ func create_profile_family_reset_authorization_for_manager_for_framework(
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param profile_id: 受管 Profile ID。
 ## [br]
@@ -882,7 +882,7 @@ func validate_profile_family_reset_authorization_for_manager_for_framework(
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param profile_id: 受管 Profile ID。
 ## [br]
@@ -932,7 +932,7 @@ func reset_profile_family_for_manager_for_framework(
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param profile_id: 受管 Profile ID。
 ## [br]
@@ -955,7 +955,7 @@ func flush_profile_for_manager_for_framework(
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param profile_id: 受管 Profile ID。
 ## [br]
@@ -973,7 +973,7 @@ func unregister_profile_for_manager_for_framework(
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param profile_id: 已注册 Profile ID。
 ## [br]
@@ -999,7 +999,7 @@ func get_profile_descriptor_for_manager_for_framework(profile_id: StringName) ->
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param profile_id: Profile ID。
 ## [br]
@@ -1062,7 +1062,7 @@ func get_generation_evidence_for_framework(
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param profile_id: 受管且空闲的活动 Profile ID。
 ## [br]
@@ -1241,7 +1241,7 @@ func apply_profile_candidates_for_manager_for_framework(
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param profile_id: 受管 Profile ID。
 ## [br]
@@ -4411,7 +4411,7 @@ class ProfileState extends RefCounted:
 ## [br]
 ## @category internal_helper
 ## [br]
-## @since unreleased
+## @since 11.0.0
 class ManagedProfilePermit extends RefCounted:
 	var _owner: WeakRef = null
 	var _serial: int = 0
@@ -4421,7 +4421,7 @@ class ManagedProfilePermit extends RefCounted:
 	## [br]
 	## @api framework_internal
 	## [br]
-	## @since unreleased
+	## @since 11.0.0
 	## [br]
 	## @param owner: 持有 capability 的事务协调器。
 	## [br]
@@ -4441,7 +4441,7 @@ class ManagedProfilePermit extends RefCounted:
 	## [br]
 	## @api framework_internal
 	## [br]
-	## @since unreleased
+	## @since 11.0.0
 	## [br]
 	## @return capability 可继续用于受管调用时返回 true。
 	func is_active_for_framework() -> bool:
@@ -4457,7 +4457,7 @@ class ManagedProfilePermit extends RefCounted:
 	## [br]
 	## @api framework_internal
 	## [br]
-	## @since unreleased
+	## @since 11.0.0
 	func invalidate_for_framework() -> void:
 		_active = false
 		_owner = null

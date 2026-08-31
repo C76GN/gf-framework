@@ -20,7 +20,7 @@ extends Resource
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 @export var definition: GFProjectileDefinition = null
 
 

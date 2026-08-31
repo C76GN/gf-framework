@@ -8,7 +8,7 @@
 ## [br]
 ## @category runtime_handle
 ## [br]
-## @since unreleased
+## @since 11.0.0
 class_name GFSaveSectionSnapshotOperation
 extends RefCounted
 
@@ -19,42 +19,42 @@ extends RefCounted
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const STATUS_PENDING: StringName = &"pending"
 
 ## 正在等待后续主线程 slice。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const STATUS_RUNNING: StringName = &"running"
 
 ## Snapshot 已准备完成且等待框架接管。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const STATUS_SUCCEEDED: StringName = &"succeeded"
 
 ## Provider 准备失败。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const STATUS_FAILED: StringName = &"failed"
 
 ## 框架停止了未完成准备。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const STATUS_CANCELLED: StringName = &"cancelled"
 
 ## 成功 Snapshot 已被框架接管。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const STATUS_CLAIMED: StringName = &"claimed"
 
 
@@ -79,7 +79,7 @@ var _configured: bool = false
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param snapshot: 已封存且尚未接管的 Snapshot。
 ## [br]
@@ -98,7 +98,7 @@ static func completed(snapshot: GFSaveSectionSnapshot) -> GFSaveSectionSnapshotO
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return `STATUS_*` 常量之一。
 func get_status() -> StringName:
@@ -109,7 +109,7 @@ func get_status() -> StringName:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 配置前为空。
 func get_section_id() -> StringName:
@@ -120,7 +120,7 @@ func get_section_id() -> StringName:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 配置前为 0。
 func get_schema_version() -> int:
@@ -131,7 +131,7 @@ func get_schema_version() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return pending 或 running 时返回 true。
 func is_pending() -> bool:
@@ -142,7 +142,7 @@ func is_pending() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 成功、失败、取消或已接管时返回 true。
 func is_completed() -> bool:
@@ -153,7 +153,7 @@ func is_completed() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 成功或已接管时返回 true。
 func is_successful() -> bool:
@@ -164,7 +164,7 @@ func is_successful() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 失败或取消时的 Error；其他状态为 OK。
 func get_error_code() -> Error:
@@ -175,7 +175,7 @@ func get_error_code() -> Error:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 失败或取消描述。
 func get_error() -> String:
@@ -186,7 +186,7 @@ func get_error() -> String:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 非负 work units。
 func get_consumed_work_units() -> int:
@@ -199,7 +199,7 @@ func get_consumed_work_units() -> int:
 ## [br]
 ## @api protected
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param snapshot: 已封存且尚未接管的 Snapshot。
 ## [br]
@@ -224,7 +224,7 @@ func _complete_snapshot(snapshot: GFSaveSectionSnapshot) -> bool:
 ## [br]
 ## @api protected
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param error_code: 非 OK 的 Godot Error 码。
 ## [br]
@@ -252,7 +252,7 @@ func _fail_snapshot(error_code: Error, error: String) -> bool:
 ## [br]
 ## @api protected
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param _step_budget: 本次最多可消费的 work units。
 ## [br]
@@ -269,7 +269,7 @@ func _advance_snapshot(_step_budget: int) -> int:
 ## [br]
 ## @api protected
 ## [br]
-## @since unreleased
+## @since 11.0.0
 func _cancel_snapshot() -> void:
 	pass
 
@@ -280,7 +280,7 @@ func _cancel_snapshot() -> void:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param section_id: Provider section ID。
 ## [br]
@@ -306,7 +306,7 @@ func configure_for_framework(section_id: StringName, schema_version: int) -> boo
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param step_budget: 正数 work-unit 预算。
 ## [br]
@@ -325,7 +325,7 @@ func advance_for_framework(step_budget: int) -> int:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 尚未接管的成功 Snapshot；其他状态返回 null。
 func take_snapshot_for_framework() -> GFSaveSectionSnapshot:
@@ -341,7 +341,7 @@ func take_snapshot_for_framework() -> GFSaveSectionSnapshot:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 本次取消 pending/running 或尚未接管的 succeeded 操作时返回 true。
 func cancel_for_framework() -> bool:

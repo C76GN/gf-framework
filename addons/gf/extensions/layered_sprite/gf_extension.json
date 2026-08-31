@@ -1,7 +1,7 @@
 {
   "id": "gf.layered_sprite",
   "display_name": "GF Layered Sprite",
-  "version": "11.0.0-dev.0",
+  "version": "11.0.0",
   "extension_version": "1.0.0",
   "kind": "extension",
   "description": "Shared-timeline layered sprite definitions and runtime playback.",

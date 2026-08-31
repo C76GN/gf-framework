@@ -8,7 +8,7 @@
 ## [br]
 ## @category value_object
 ## [br]
-## @since unreleased
+## @since 11.0.0
 class_name GFLspWorkspaceEditPlan
 extends RefCounted
 
@@ -29,7 +29,7 @@ var _payload: Dictionary = {}
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return: 计划已成功预检且尚未被消费时为 true。
 func is_valid() -> bool:
@@ -40,7 +40,7 @@ func is_valid() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return: 计划已被一次性消费时为 true。
 func is_consumed() -> bool:
@@ -51,7 +51,7 @@ func is_consumed() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return: 有效计划的 64 位小写十六进制摘要；无效计划返回空字符串。
 func get_plan_sha256() -> String:
@@ -62,7 +62,7 @@ func get_plan_sha256() -> String:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return: JSON-safe 报告副本。
 ## [br]
@@ -82,7 +82,7 @@ func get_report() -> Dictionary:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param valid: 预检是否成功。
 ## [br]
@@ -117,7 +117,7 @@ func initialize_for_adapter(
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return: 有效且未消费计划的 payload 副本；否则为空字典。
 ## [br]
@@ -132,7 +132,7 @@ func read_payload_for_adapter() -> Dictionary:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param expected_plan_sha256: 适配器根据内部载荷重新计算的摘要。
 ## [br]

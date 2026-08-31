@@ -2,7 +2,7 @@
 
 状态：Accepted
 
-适用版本：11.0.0-dev.0
+适用版本：11.0.0
 决策范围：`gf.extension.save`
 
 ## 背景

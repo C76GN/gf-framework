@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFStorageDeleteResult" path="addons/gf/standard/utilities/storage/gf_storage_delete_result.gd" module="standard" extends="RefCounted" classDigest="ef3cca99ee5ad508d56475e2eb6ee8ff499439299f894f5c54881af5a69415a5">
+<class name="GFStorageDeleteResult" path="addons/gf/standard/utilities/storage/gf_storage_delete_result.gd" module="standard" extends="RefCounted" classDigest="896438d05304759b98433f07cce726fe9896cd1ac10f2b46cbe2e6af74ce3356">
 	<description>GFStorageDeleteResult: 单次异步 Storage family 删除的不可变终态。
 结果只公开有界成员计数与失败成员分类，不暴露 Storage root、family path 或
 私有 sidecar 文件名。实例只能由 Storage 框架内部配置一次。</description>
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">value_object</tag>
-		<tag name="since">unreleased</tag>
+		<tag name="since">11.0.0</tag>
 	</tags>
 	<signals />
 	<enums>
@@ -30,7 +30,7 @@
 			<description>删除失败的稳定分类。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="enum" name="FamilyMember">
@@ -53,7 +53,7 @@
 			<description>删除 family 时可报告的有界成员分类。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 	</enums>
@@ -66,7 +66,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">已配置为完整成功终态时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_error_code">
@@ -75,7 +75,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">成功时为 OK；未配置实例返回 FAILED。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_failure_kind">
@@ -84,7 +84,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">`FailureKind` 枚举值。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_existing_member_count">
@@ -93,7 +93,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">0 到 8 的成员数量。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_removed_member_count">
@@ -102,7 +102,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">0 到 8 的成员数量。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_remaining_member_count">
@@ -111,7 +111,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">0 到 8 的成员数量。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_failed_member">
@@ -120,7 +120,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">没有失败成员时返回 `FamilyMember.NONE`；无法解析 worker 结果时返回 `FAMILY_METADATA`。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="duplicate_result">
@@ -129,7 +129,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">新结果对象；未配置实例返回新的未配置对象。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="to_dict">
@@ -139,7 +139,7 @@
 				<tag name="api">public</tag>
 				<tag name="return">删除终态及有界 family 成员计数。</tag>
 				<tag name="schema">return: Dictionary with exactly ok: bool, error_code: int (Error), failure_kind: int (FailureKind), existing_member_count: int, removed_member_count: int, remaining_member_count: int, and failed_member: int (FamilyMember).</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 	</methods>

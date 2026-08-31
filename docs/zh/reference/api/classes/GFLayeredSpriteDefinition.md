@@ -7,7 +7,7 @@
 - 继承：`Resource`
 - API：`public`
 - 类别：资源定义 (`resource_definition`)
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 GFLayeredSpriteDefinition：分层精灵的时间轴和层集合。 时间轴唯一拥有动画速度、循环和帧时长；各层变体只提供同拓扑的帧纹理。
 
@@ -26,7 +26,7 @@ GFLayeredSpriteDefinition：分层精灵的时间轴和层集合。 时间轴唯
 ### `timeline_frames`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 var timeline_frames: SpriteFrames = null
@@ -39,7 +39,7 @@ var timeline_frames: SpriteFrames = null
 ### `default_animation`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 var default_animation: StringName = &""
@@ -52,7 +52,7 @@ var default_animation: StringName = &""
 ### `layers`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 var layers: Array[GFLayeredSpriteLayerDefinition] = []

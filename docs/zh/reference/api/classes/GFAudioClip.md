@@ -154,7 +154,7 @@ var spatial_settings: Resource = null
 ### `playback_region`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 var playback_region: GFAudioPlaybackRegion = null

@@ -8,7 +8,7 @@
 ## [br]
 ## @category runtime_handle
 ## [br]
-## @since unreleased
+## @since 11.0.0
 class_name GFStorageFamilyResetAuthorization
 extends RefCounted
 
@@ -19,28 +19,28 @@ extends RefCounted
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const REASON_CORRUPT: StringName = &"corrupt"
 
 ## 授权尚未被 reset 请求消费。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const STATE_AVAILABLE: StringName = &"available"
 
 ## 授权已经被一个 reset 请求消费。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const STATE_CLAIMED: StringName = &"claimed"
 
 ## 授权无效、绑定不匹配或已经过期。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const STATE_STALE: StringName = &"stale"
 
 
@@ -62,7 +62,7 @@ var _state: StringName = STATE_STALE
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 正整数授权 ID；未配置时为 0。
 func get_authorization_id() -> int:
@@ -73,7 +73,7 @@ func get_authorization_id() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return portable logical file path；未配置时为空字符串。
 func get_logical_path() -> String:
@@ -84,7 +84,7 @@ func get_logical_path() -> String:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 当前只可能为 REASON_CORRUPT；未配置时为空 StringName。
 func get_reason() -> StringName:
@@ -95,7 +95,7 @@ func get_reason() -> StringName:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return STATE_AVAILABLE、STATE_CLAIMED 或 STATE_STALE。
 func get_state() -> StringName:
@@ -106,7 +106,7 @@ func get_state() -> StringName:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 本地句柄已配置且尚未消费时返回 true；实际提交仍会复核冻结的 family 观察。
 func is_available() -> bool:
@@ -117,7 +117,7 @@ func is_available() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 已 claim 时返回 true。
 func is_claimed() -> bool:
@@ -128,7 +128,7 @@ func is_claimed() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 未配置或已标记 stale 时返回 true。
 func is_stale() -> bool:
@@ -143,7 +143,7 @@ func is_stale() -> bool:
 ## [br]
 ## @layer standard/utilities/storage
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param authorization_id: Utility 生命周期内唯一的正整数 ID。
 ## [br]
@@ -195,7 +195,7 @@ func configure_for_framework(
 ## [br]
 ## @layer standard/utilities/storage
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param expected_utility_id: 当前 GFStorageUtility 实例 ID。
 ## [br]
@@ -235,7 +235,7 @@ func claim_for_framework(
 ## [br]
 ## @layer standard/utilities/storage
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param expected_utility_id: 当前 GFStorageUtility 实例 ID。
 ## [br]
@@ -271,7 +271,7 @@ func validate_for_framework(
 ## [br]
 ## @layer standard/utilities/storage
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 已配置授权冻结的 opaque family 观察快照；未配置时为空字符串。
 func get_observation_token_for_framework() -> String:
@@ -284,7 +284,7 @@ func get_observation_token_for_framework() -> String:
 ## [br]
 ## @layer standard/utilities/storage
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 本次确实从 available 转为 stale 时返回 true。
 func mark_stale_for_framework() -> bool:

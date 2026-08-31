@@ -27,7 +27,7 @@ extends Resource
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param projectile_id: 非空稳定 ID。
 ## [br]
@@ -54,7 +54,7 @@ func set_definition(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param projectile_id: 稳定 ID。
 ## [br]
@@ -68,7 +68,7 @@ func get_definition(projectile_id: StringName) -> GFProjectileDefinition:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param projectile_id: 稳定 ID。
 ## [br]
@@ -81,7 +81,7 @@ func has_definition(projectile_id: StringName) -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param projectile_id: 稳定 ID。
 ## [br]

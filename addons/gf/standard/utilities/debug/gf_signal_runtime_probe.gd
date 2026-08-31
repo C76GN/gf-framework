@@ -162,7 +162,7 @@ var _events: Array[Dictionary] = []
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 func dispose() -> void:
 	var _removed_count: int = unwatch_all()
 	clear_events()

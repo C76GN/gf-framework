@@ -21,21 +21,21 @@ extends Node
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const MAX_TARGET_DIMENSION: int = 1024
 
 ## 单个缩略图允许的最大总像素数。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const MAX_TARGET_PIXELS: int = 1_048_576
 
 ## 等待执行的最大任务数；超出后新任务立即失败。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const MAX_PENDING_TASKS: int = 256
 
 

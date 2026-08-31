@@ -7,7 +7,7 @@
 - 继承：`RefCounted`
 - API：`public`
 - 类别：运行时服务 (`runtime_service`)
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 从公民日期构建通用月历网格。 只计算完整周和相邻日期，不创建 UI 节点，不决定语言区域、节假日、选中态或业务标记。
 
@@ -24,7 +24,7 @@
 ### `build_month_grid`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 static func build_month_grid( month: GFCivilDate, week_start: int = GFCivilDate.Weekday.MONDAY, fixed_rows: int = 0 ) -> GFCalendarGrid:

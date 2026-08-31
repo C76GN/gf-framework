@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFSaveSlotStorageAdapter" path="addons/gf/extensions/save/slots/gf_save_slot_storage_adapter.gd" module="extensions/save" extends="Resource" classDigest="679d34f99d6500a529607d041e1ec54235877e7cf70a127d17abafafd9c440b4">
+<class name="GFSaveSlotStorageAdapter" path="addons/gf/extensions/save/slots/gf_save_slot_storage_adapter.gd" module="extensions/save" extends="Resource" classDigest="8cda592c6fc4fc9c473627c57028b88d2ab053560b213e9348f270846fdfa17c">
 	<description>GFSaveSlotStorageAdapter: Save 扩展的通用槽位存储适配器。
 把逻辑槽位索引映射到可配置的数据/元数据文件名，并通过 GFStorageUtility
 的通用字典事务 API 完成持久化。该类不定义项目存档字段，也不绑定 UI。</description>
@@ -115,7 +115,7 @@
 				<tag name="param">slot_index: 槽位索引；必须大于等于 0。</tag>
 				<tag name="return">文件计划。</tag>
 				<tag name="schema">return: Dictionary，包含 ok、error、data_file_name、metadata_file_name、data_target、metadata_target。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="save_slot">

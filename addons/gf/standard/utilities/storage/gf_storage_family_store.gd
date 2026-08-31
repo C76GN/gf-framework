@@ -10,7 +10,7 @@
 ## [br]
 ## @layer standard/utilities/storage
 ## [br]
-## @since unreleased
+## @since 11.0.0
 class_name GFStorageFamilyStore
 extends RefCounted
 
@@ -288,7 +288,7 @@ func get_storage_root_path_for_framework() -> String:
 ## [br]
 ## @layer standard/utilities/storage
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return layout 状态与 Error，不包含物理路径。
 ## [br]
@@ -417,7 +417,7 @@ func inspect_layout_for_reset_for_framework() -> Dictionary:
 ## [br]
 ## @layer standard/utilities/storage
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param descriptor: make_family_descriptor_for_framework() 的精确结果。
 ## [br]

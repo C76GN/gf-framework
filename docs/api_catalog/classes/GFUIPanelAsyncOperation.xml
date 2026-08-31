@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFUIPanelAsyncOperation" path="addons/gf/standard/utilities/ui/gf_ui_panel_async_operation.gd" module="standard" extends="RefCounted" classDigest="e92db01bed357ca0c9021950aa442df3f39088908ecd87117686fed064f642cc">
+<class name="GFUIPanelAsyncOperation" path="addons/gf/standard/utilities/ui/gf_ui_panel_async_operation.gd" module="standard" extends="RefCounted" classDigest="39a692b44dd65e382213dbfb4ebf89592506152f0ec082d727eae8ddb6fe645c">
 	<description>GFUIPanelAsyncOperation: 单次异步 UI 面板请求的可观察句柄。
 句柄冻结 UI 分配的请求序号、路径、层级与操作类型，并且只接受一个终态。
 成功面板仅以弱引用保存，句柄不会延长面板节点的生命周期。</description>
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">runtime_handle</tag>
-		<tag name="since">unreleased</tag>
+		<tag name="since">11.0.0</tag>
 	</tags>
 	<signals>
 		<member kind="signal" name="completed">
@@ -15,7 +15,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">handle: 已完成的当前句柄。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 	</signals>
@@ -26,7 +26,7 @@
 			<description>请求尚未进入终态时由 get_status() 返回的状态。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="OPERATION_PUSH">
@@ -34,7 +34,7 @@
 			<description>压入面板操作。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="OPERATION_REPLACE">
@@ -42,7 +42,7 @@
 			<description>替换层级操作。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 	</constants>
@@ -54,7 +54,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">配置后为大于零的请求序号；未配置时为 0。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_path">
@@ -63,7 +63,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">请求创建时冻结的场景路径。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_layer">
@@ -72,7 +72,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">请求创建时冻结的逻辑层 ID。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_operation">
@@ -81,7 +81,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">`OPERATION_*` 常量之一。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="is_pending">
@@ -90,7 +90,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">已配置且尚未完成时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="is_completed">
@@ -99,7 +99,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">已完成时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_status">
@@ -108,7 +108,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">等待中返回 STATUS_PENDING；完成后返回 GFUIUtility.AsyncPanelLoadStatus。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_panel">
@@ -118,7 +118,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">当前仍有效的成功面板；否则返回 null。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_debug_snapshot">
@@ -128,7 +128,7 @@
 				<tag name="api">public</tag>
 				<tag name="return">请求身份与终态摘要。</tag>
 				<tag name="schema">return: Dictionary，包含 serial、path、layer、operation、pending、completed、status、has_panel 和 panel_instance_id。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 	</methods>

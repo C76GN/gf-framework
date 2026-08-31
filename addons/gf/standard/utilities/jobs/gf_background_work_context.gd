@@ -8,7 +8,7 @@
 ## [br]
 ## @category runtime_handle
 ## [br]
-## @since unreleased
+## @since 11.0.0
 class_name GFBackgroundWorkContext
 extends RefCounted
 
@@ -19,7 +19,7 @@ extends RefCounted
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 enum CancellationReason {
 	## 尚未请求取消。
 	NONE = 0,
@@ -49,7 +49,7 @@ var _cancel_requested_msec: int = 0
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 建立上下文时从 work record 冻结的工作 ID。
 func get_work_id() -> StringName:
@@ -63,7 +63,7 @@ func get_work_id() -> StringName:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 已请求取消时返回 true。
 func is_cancel_requested() -> bool:
@@ -77,7 +77,7 @@ func is_cancel_requested() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 首次取消请求提供的原因；未取消时为 NONE。
 func get_cancel_reason() -> CancellationReason:
@@ -91,7 +91,7 @@ func get_cancel_reason() -> CancellationReason:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 首次取消请求的毫秒 tick；未取消时为 0。
 func get_cancel_requested_msec() -> int:
@@ -105,7 +105,7 @@ func get_cancel_requested_msec() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 同一锁采样的取消状态快照。
 ## [br]
@@ -127,7 +127,7 @@ func get_debug_snapshot() -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param reason: 取消原因。
 ## [br]

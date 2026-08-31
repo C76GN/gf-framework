@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFProjectileDefinition" path="addons/gf/extensions/combat/projectiles/gf_projectile_definition.gd" module="extensions/combat" extends="Resource" classDigest="f62c08509eab57433d3d16640e24973923a38bf4476f0aef6a881f393b5e22d6">
+<class name="GFProjectileDefinition" path="addons/gf/extensions/combat/projectiles/gf_projectile_definition.gd" module="extensions/combat" extends="Resource" classDigest="52786dd1277ec3ddbcb3179ed6abe5f528c1eb7b8117bc404904f2149cbc9957">
 	<description>GFProjectileDefinition: projectile 场景、runtime 与策略的 typed 定义基类。</description>
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">resource_definition</tag>
-		<tag name="since">unreleased</tag>
+		<tag name="since">11.0.0</tag>
 	</tags>
 	<signals />
 	<enums />
@@ -15,7 +15,7 @@
 			<description>可实例化的完整 projectile scene。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="runtime_path" decorators="@export">
@@ -23,7 +23,7 @@
 			<description>scene root 到唯一 runtime 的显式路径。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="impact_source_paths" decorators="@export">
@@ -32,7 +32,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="schema">impact_source_paths: Array[NodePath]，每项必须显式指向同维 GFHitBox2D/GFHitScan2D 或 GFHitBox3D/GFHitScan3D；不得重复、越过 root 或混用维度。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="motion" decorators="@export">
@@ -40,7 +40,7 @@
 			<description>每个 session 使用的 motion 策略。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="lifetime_policy" decorators="@export">
@@ -48,7 +48,7 @@
 			<description>可选生命周期策略；null 表示不自动结束。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 	</properties>

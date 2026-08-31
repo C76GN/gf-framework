@@ -7,7 +7,7 @@
 - 继承：`RefCounted`
 - API：`public`
 - 类别：值对象 (`value_object`)
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 单次 BGM start request 的不可变类型化终态。 结果使用闭合 status/reason/error/disposition 联合。只有 `STARTED` 携带已提交的规范 会话句柄；其他终态不伪造会话身份或播放 owner。
 
@@ -60,7 +60,7 @@
 ### `Status`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 enum Status {
@@ -84,7 +84,7 @@ BGM start request 的唯一 caller 终态。
 ### `BackendDisposition`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 enum BackendDisposition {
@@ -111,7 +111,7 @@ enum BackendDisposition {
 ### `REASON_LOCAL_STARTED`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const REASON_LOCAL_STARTED: StringName = &"local_started"
@@ -124,7 +124,7 @@ const REASON_LOCAL_STARTED: StringName = &"local_started"
 ### `REASON_BACKEND_STARTED`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const REASON_BACKEND_STARTED: StringName = &"backend_started"
@@ -137,7 +137,7 @@ Audio Backend 接受并提交会话。
 ### `REASON_BACKEND_FALLBACK_STARTED`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const REASON_BACKEND_FALLBACK_STARTED: StringName = &"backend_fallback_started"
@@ -150,7 +150,7 @@ const REASON_BACKEND_FALLBACK_STARTED: StringName = &"backend_fallback_started"
 ### `REASON_INVALID_PATH`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const REASON_INVALID_PATH: StringName = &"invalid_path"
@@ -163,7 +163,7 @@ BGM 路径为空或不符合请求契约。
 ### `REASON_INVALID_OPTIONS`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const REASON_INVALID_OPTIONS: StringName = &"invalid_options"
@@ -176,7 +176,7 @@ BGM options 不符合闭合选项契约。
 ### `REASON_INVALID_CLIP`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const REASON_INVALID_CLIP: StringName = &"invalid_clip"
@@ -189,7 +189,7 @@ GFAudioClip 为空、没有 source 或无法冻结。
 ### `REASON_INVALID_PLAYBACK_REGION`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const REASON_INVALID_PLAYBACK_REGION: StringName = &"invalid_playback_region"
@@ -202,7 +202,7 @@ const REASON_INVALID_PLAYBACK_REGION: StringName = &"invalid_playback_region"
 ### `REASON_UTILITY_NOT_INITIALIZED`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const REASON_UTILITY_NOT_INITIALIZED: StringName = &"utility_not_initialized"
@@ -215,7 +215,7 @@ Audio Utility 尚未初始化或已经释放。
 ### `REASON_BACKEND_DISPATCH_IN_PROGRESS`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const REASON_BACKEND_DISPATCH_IN_PROGRESS: StringName = &"backend_dispatch_in_progress"
@@ -228,7 +228,7 @@ BGM 请求从 Audio Backend 回调中重入，不能安全接纳。
 ### `REASON_OWNER_UNAVAILABLE`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const REASON_OWNER_UNAVAILABLE: StringName = &"owner_unavailable"
@@ -241,7 +241,7 @@ const REASON_OWNER_UNAVAILABLE: StringName = &"owner_unavailable"
 ### `REASON_ASSET_LOAD_FAILED`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const REASON_ASSET_LOAD_FAILED: StringName = &"asset_load_failed"
@@ -254,7 +254,7 @@ const REASON_ASSET_LOAD_FAILED: StringName = &"asset_load_failed"
 ### `REASON_STREAM_UNPLAYABLE`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const REASON_STREAM_UNPLAYABLE: StringName = &"stream_unplayable"
@@ -267,7 +267,7 @@ const REASON_STREAM_UNPLAYABLE: StringName = &"stream_unplayable"
 ### `REASON_BACKEND_REJECTED_AND_LOCAL_FAILED`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const REASON_BACKEND_REJECTED_AND_LOCAL_FAILED: StringName = (
@@ -282,7 +282,7 @@ const REASON_BACKEND_REJECTED_AND_LOCAL_FAILED: StringName = (
 ### `REASON_BACKEND_OWNER_RELEASE_FAILED`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const REASON_BACKEND_OWNER_RELEASE_FAILED: StringName = &"backend_owner_release_failed"
@@ -295,7 +295,7 @@ const REASON_BACKEND_OWNER_RELEASE_FAILED: StringName = &"backend_owner_release_
 ### `REASON_LOCAL_PLAYER_REJECTED`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const REASON_LOCAL_PLAYER_REJECTED: StringName = &"local_player_rejected"
@@ -308,7 +308,7 @@ const REASON_LOCAL_PLAYER_REJECTED: StringName = &"local_player_rejected"
 ### `REASON_SESSION_PUBLICATION_FAILED`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const REASON_SESSION_PUBLICATION_FAILED: StringName = &"session_publication_failed"
@@ -321,7 +321,7 @@ Audio Backend 已接受物理播放候选，但框架无法发布规范 Session 
 ### `REASON_NEWER_REQUEST`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const REASON_NEWER_REQUEST: StringName = &"newer_request"
@@ -334,7 +334,7 @@ const REASON_NEWER_REQUEST: StringName = &"newer_request"
 ### `REASON_CALLER_CANCELLED`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const REASON_CALLER_CANCELLED: StringName = &"caller_cancelled"
@@ -347,7 +347,7 @@ const REASON_CALLER_CANCELLED: StringName = &"caller_cancelled"
 ### `REASON_OWNER_RELEASED`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const REASON_OWNER_RELEASED: StringName = &"owner_released"
@@ -360,7 +360,7 @@ const REASON_OWNER_RELEASED: StringName = &"owner_released"
 ### `REASON_STOP_REQUESTED`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const REASON_STOP_REQUESTED: StringName = &"stop_requested"
@@ -373,7 +373,7 @@ BGM 通道被显式停止。
 ### `REASON_UTILITY_DISPOSED`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const REASON_UTILITY_DISPOSED: StringName = &"utility_disposed"
@@ -386,7 +386,7 @@ Audio Utility 已释放。
 ### `REASON_BACKEND_CHANGED`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const REASON_BACKEND_CHANGED: StringName = &"backend_changed"
@@ -401,7 +401,7 @@ Audio Backend topology 变更流程在请求等待期间开始，并使当前请
 ### `get_status`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_status() -> Status:
@@ -416,7 +416,7 @@ func get_status() -> Status:
 ### `is_successful`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func is_successful() -> bool:
@@ -431,7 +431,7 @@ func is_successful() -> bool:
 ### `get_request_id`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_request_id() -> int:
@@ -446,7 +446,7 @@ func get_request_id() -> int:
 ### `get_reason`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_reason() -> StringName:
@@ -461,7 +461,7 @@ func get_reason() -> StringName:
 ### `get_error_code`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_error_code() -> Error:
@@ -476,7 +476,7 @@ func get_error_code() -> Error:
 ### `get_history_key`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_history_key() -> String:
@@ -491,7 +491,7 @@ func get_history_key() -> String:
 ### `get_owner_kind`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_owner_kind() -> GFBgmSessionHandle.OwnerKind:
@@ -506,7 +506,7 @@ func get_owner_kind() -> GFBgmSessionHandle.OwnerKind:
 ### `get_backend_disposition`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_backend_disposition() -> BackendDisposition:
@@ -521,7 +521,7 @@ func get_backend_disposition() -> BackendDisposition:
 ### `used_backend_fallback`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func used_backend_fallback() -> bool:
@@ -536,7 +536,7 @@ func used_backend_fallback() -> bool:
 ### `get_session_id`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_session_id() -> int:
@@ -551,7 +551,7 @@ func get_session_id() -> int:
 ### `get_session_handle`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_session_handle() -> GFBgmSessionHandle:
@@ -566,7 +566,7 @@ func get_session_handle() -> GFBgmSessionHandle:
 ### `duplicate_result`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func duplicate_result() -> GFBgmStartResult:
@@ -581,7 +581,7 @@ func duplicate_result() -> GFBgmStartResult:
 ### `to_dict`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func to_dict() -> Dictionary:

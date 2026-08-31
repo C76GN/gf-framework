@@ -169,7 +169,7 @@ enum OverflowPolicy {
 ### `DEFAULT_OUTPUT_REFRESH_SECONDS`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const DEFAULT_OUTPUT_REFRESH_SECONDS: float = 0.05
@@ -182,7 +182,7 @@ const DEFAULT_OUTPUT_REFRESH_SECONDS: float = 0.05
 ### `MIN_OUTPUT_DURATION_SECONDS`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const MIN_OUTPUT_DURATION_SECONDS: float = 0.001
@@ -762,7 +762,7 @@ func get_haptic_info(haptic_id: int) -> Dictionary:
 ### `get_last_output_report`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_last_output_report() -> Dictionary:

@@ -589,7 +589,7 @@ func init() -> void:
 ### `ready`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func ready() -> void:
@@ -632,7 +632,7 @@ func dispose() -> void:
 ### `release_dependencies`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func release_dependencies() -> void:
@@ -645,7 +645,7 @@ func release_dependencies() -> void:
 ### `set_resource_broker`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func set_resource_broker(broker: GFResourceBroker) -> Error:
@@ -666,7 +666,7 @@ func set_resource_broker(broker: GFResourceBroker) -> Error:
 ### `setup_standalone_resource_broker`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func setup_standalone_resource_broker( max_active_requests: int = 4, max_pending_requests: int = 256 ) -> GFResourceBroker:
@@ -688,7 +688,7 @@ func setup_standalone_resource_broker( max_active_requests: int = 4, max_pending
 ### `get_resource_broker`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_resource_broker() -> GFResourceBroker:
@@ -731,7 +731,7 @@ func load_scene_async( path: String, loading_scene_path: String = "", params: Di
 ### `load_scene_request_async`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func load_scene_request_async( path: String, loading_scene_path: String = "", params: Dictionary = {}, minimum_duration_seconds: float = -1.0, request_owner: Object = null, cancellation_token: GFCancellationToken = null ) -> GFSceneOperation:
@@ -803,7 +803,7 @@ func preload_scene(path: String, fixed: bool = false) -> Error:
 ### `preload_scene_request_async`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func preload_scene_request_async( path: String, fixed: bool = false, request_owner: Object = null, cancellation_token: GFCancellationToken = null ) -> GFSceneOperation:
@@ -1490,7 +1490,7 @@ func _do_change_scene(scene: PackedScene) -> bool:
 ### `_defer_target_scene_commit`
 
 - API：`protected`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func _defer_target_scene_commit() -> bool:
@@ -1505,7 +1505,7 @@ func _defer_target_scene_commit() -> bool:
 ### `_confirm_target_scene_commit`
 
 - API：`protected`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func _confirm_target_scene_commit() -> bool:

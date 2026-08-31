@@ -7,7 +7,7 @@
 ## [br]
 ## @category value_object
 ## [br]
-## @since unreleased
+## @since 11.0.0
 class_name GFTableRowView
 extends RefCounted
 
@@ -34,7 +34,7 @@ var _values: Dictionary = {}
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 稳定行 ID 副本。
 ## [br]
@@ -47,7 +47,7 @@ func get_row_id() -> Variant:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 构建该视图时的源行索引。
 func get_source_row_index() -> int:
@@ -58,7 +58,7 @@ func get_source_row_index() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param column_id: 稳定列 ID。
 ## [br]
@@ -71,7 +71,7 @@ func has_value(column_id: StringName) -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param column_id: 稳定列 ID。
 ## [br]
@@ -90,7 +90,7 @@ func get_value(column_id: StringName, default_value: Variant = null) -> Variant:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 以列 ID 为键的隔离值副本。
 ## [br]
@@ -109,7 +109,7 @@ func get_values() -> Dictionary:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param value: 待隔离的 Variant。
 ## [br]
@@ -137,7 +137,7 @@ static func duplicate_isolated_variant_for_framework(value: Variant) -> Dictiona
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param source: 框架持有的 canonical RowView。
 ## [br]
@@ -159,7 +159,7 @@ static func snapshot_for_framework(source: GFTableRowView) -> GFTableRowView:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param source_row_index: 源行索引。
 ## [br]

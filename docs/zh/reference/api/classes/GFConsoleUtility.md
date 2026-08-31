@@ -449,7 +449,7 @@ func execute_command(raw_input: String) -> bool:
 ### `set_console_visible`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func set_console_visible(console_visible: bool) -> void:
@@ -468,7 +468,7 @@ func set_console_visible(console_visible: bool) -> void:
 ### `is_console_visible`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func is_console_visible() -> bool:

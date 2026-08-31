@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFRuntimeTaskGroup" path="addons/gf/standard/sequence/gf_runtime_task_group.gd" module="standard" extends="GFRuntimeTask" classDigest="6111da413bbb2e54c254ff7e77b42ae5279928944d6a9b3388059c6c1fc37142">
+<class name="GFRuntimeTaskGroup" path="addons/gf/standard/sequence/gf_runtime_task_group.gd" module="standard" extends="GFRuntimeTask" classDigest="1ef6e1b122b2852fea0730b17f688603dc07ece5e7fb4b379f32bc6234be514a">
 	<description>组合多个运行时任务的复合任务。
 任务组用于把多个 [GFRuntimeTask] 编排为顺序、等待全部或等待任一完成的流程。
 子任务在组内部推进，不会单独注册到外层调度器；外层调度器只看到一个占用聚合后的任务。
@@ -51,7 +51,7 @@
 			<description>子任务图包含 self-cycle 或祖先回边时的拒绝原因。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="REJECTION_TASK_GRAPH_REUSED">
@@ -59,7 +59,7 @@
 			<description>同一任务实例从子任务图中的多个位置可达时的拒绝原因。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="REJECTION_TASK_GRAPH_LIMIT">
@@ -67,7 +67,7 @@
 			<description>子任务图超过框架有界遍历预算时的拒绝原因。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="REJECTION_INVALID_MODE">
@@ -75,7 +75,7 @@
 			<description>子任务组模式不属于 [enum Mode] 闭合集合时的拒绝原因。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="MAX_TASK_GRAPH_DEPTH">
@@ -83,7 +83,7 @@
 			<description>子任务树允许的最大嵌套深度；根任务组深度为 0。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="MAX_TASK_GRAPH_NODES">
@@ -91,7 +91,7 @@
 			<description>单个任务组调度树允许的最大任务实例数，包含根任务组。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 	</constants>

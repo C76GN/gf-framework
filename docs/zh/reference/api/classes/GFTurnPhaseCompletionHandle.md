@@ -7,7 +7,7 @@
 - 继承：`RefCounted`
 - API：`public`
 - 类别：运行时句柄 (`runtime_handle`)
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 单次阶段运行的完成能力句柄。 有效句柄只会由 GFTurnFlowSystem 传给当前 GFTurnPhase._execute() 调用；项目手工 new() 的实例没有完成权限。 首次对有效运行调用 try_complete() 会完成该阶段；停止、超时、释放、dispose、重启后的旧句柄及重复调用都返回 false，不影响其他代际。
 
@@ -24,7 +24,7 @@
 ### `try_complete`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func try_complete() -> bool:

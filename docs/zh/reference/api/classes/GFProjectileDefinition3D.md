@@ -7,7 +7,7 @@
 - 继承：`GFProjectileDefinition`
 - API：`public`
 - 类别：资源定义 (`resource_definition`)
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 3D projectile typed 定义。
 
@@ -25,7 +25,7 @@
 ### `body_adapter`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 var body_adapter: GFProjectileBodyAdapter3D = null
@@ -40,7 +40,7 @@ var body_adapter: GFProjectileBodyAdapter3D = null
 ### `bind_instance`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func bind_instance(root: Node) -> GFProjectileBinding3D:

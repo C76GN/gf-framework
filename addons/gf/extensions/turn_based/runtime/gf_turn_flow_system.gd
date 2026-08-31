@@ -279,7 +279,7 @@ func stop(should_clear_actions: bool = true) -> void:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 func dispose() -> void:
 	if _is_disposed:
 		return

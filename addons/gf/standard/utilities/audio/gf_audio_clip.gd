@@ -69,7 +69,7 @@ extends Resource
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 @export var playback_region: GFAudioPlaybackRegion = null
 
 ## 可选音频元数据，供导入器、编辑器或项目层扩展使用。

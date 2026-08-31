@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFProjectLayoutPlanner" path="addons/gf/tools/project_layout/gf_project_layout_planner.gd" module="tools" extends="RefCounted" classDigest="0e9607920df5447954b7860ca15e8ecafd691cbd229ffd3fb6e22ab81ad06bd6">
+<class name="GFProjectLayoutPlanner" path="addons/gf/tools/project_layout/gf_project_layout_planner.gd" module="tools" extends="RefCounted" classDigest="b81de894812a5bae304314ea5f1a78bd96dddcef32ce456889a3c5b995c88997">
 	<description>GFProjectLayoutPlanner: 基于项目结构分析快照生成只读改进计划。
 Planner 的规划核心只消费已经编译的 profile 与完整冻结分析图，不访问当前文件系统，
 也不创建、移动、删除或改写项目内容。它输出可审查的相对路径步骤，并用 blocker
@@ -8,7 +8,7 @@ Feature 内聚式 profile 只是显式示例，不是所有项目都必须采用
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">tool_api</tag>
-		<tag name="since">unreleased</tag>
+		<tag name="since">11.0.0</tag>
 	</tags>
 	<signals />
 	<enums />
@@ -18,7 +18,7 @@ Feature 内聚式 profile 只是显式示例，不是所有项目都必须采用
 			<description>Feature 内聚式项目结构示例 profile 路径。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 	</constants>
@@ -35,7 +35,7 @@ Feature 内聚式 profile 只是显式示例，不是所有项目都必须采用
 				<tag name="schema">source_analysis: Dictionary，必须是 GFProjectLayoutAnalyzer 生成并通过闭合 analysis/graph contract 的完整报告，不能手工拼装字段子集。</tag>
 				<tag name="schema">options: Dictionary，可包含 feature_ids、include_optional_zones 和 include_optional_feature_subdirs。</tag>
 				<tag name="schema">return: Dictionary，精确包含 schema_version、kind、complete、profile_id、source_analysis_digest、contract_digest、project_root、capabilities、steps、blockers 和 issues；capabilities 精确包含 writes_project、planning_scope、supported_rule_kinds 和 ignored_rule_kinds；每个 step 精确包含 step_id、kind、relative_path、requires、evidence_ids、preconditions 和 risk。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="plan_profile_path">
@@ -50,7 +50,7 @@ Feature 内聚式 profile 只是显式示例，不是所有项目都必须采用
 				<tag name="schema">source_analysis: Dictionary，必须是 GFProjectLayoutAnalyzer 生成并通过闭合 analysis/graph contract 的完整报告，不能手工拼装字段子集。</tag>
 				<tag name="schema">options: Dictionary，可包含 feature_ids、include_optional_zones 和 include_optional_feature_subdirs。</tag>
 				<tag name="schema">return: Dictionary，精确包含 schema_version、kind、complete、profile_id、source_analysis_digest、contract_digest、project_root、capabilities、steps、blockers 和 issues；capabilities 精确包含 writes_project、planning_scope、supported_rule_kinds 和 ignored_rule_kinds；每个 step 精确包含 step_id、kind、relative_path、requires、evidence_ids、preconditions 和 risk。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="plan_profile">
@@ -66,7 +66,7 @@ Feature 内聚式 profile 只是显式示例，不是所有项目都必须采用
 				<tag name="schema">source_analysis: Dictionary，必须是 GFProjectLayoutAnalyzer 生成并通过闭合 analysis/graph contract 的完整报告，不能手工拼装字段子集。</tag>
 				<tag name="schema">options: Dictionary，可包含 feature_ids、include_optional_zones 和 include_optional_feature_subdirs。</tag>
 				<tag name="schema">return: Dictionary，精确包含 schema_version、kind、complete、profile_id、source_analysis_digest、contract_digest、project_root、capabilities、steps、blockers 和 issues；capabilities 精确包含 writes_project、planning_scope、supported_rule_kinds 和 ignored_rule_kinds；每个 step 精确包含 step_id、kind、relative_path、requires、evidence_ids、preconditions 和 risk。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="make_feature_module_paths">
@@ -80,7 +80,7 @@ Feature 内聚式 profile 只是显式示例，不是所有项目都必须采用
 				<tag name="return">去重后的相对目录列表，例如 features/inventory/scripts。</tag>
 				<tag name="schema">profile: Dictionary，包含一条或多条 feature_module_contract 规则。</tag>
 				<tag name="schema">options: Dictionary，可包含 include_optional_feature_subdirs。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 	</methods>

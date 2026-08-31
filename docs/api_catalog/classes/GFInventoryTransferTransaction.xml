@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFInventoryTransferTransaction" path="addons/gf/extensions/domain/inventory/gf_inventory_transfer_transaction.gd" module="extensions/domain" extends="RefCounted" classDigest="855759e956c70b901a92262651e7da8422a113d6e2765b2c6601913e639eb316">
+<class name="GFInventoryTransferTransaction" path="addons/gf/extensions/domain/inventory/gf_inventory_transfer_transaction.gd" module="extensions/domain" extends="RefCounted" classDigest="0cce1b03d2473e917b9ec01feedbae68b651c7b31cf6a2204b99822ebe0fcb08">
 	<description>GFInventoryTransferTransaction: 两个槽位库存之间的一次性原子转移句柄。
 `prepare()` 只构建有界隔离候选；`commit()` 会重新取得稳定顺序锁、校验
 model identity 与 revision，并重新规划后才执行无回调的内存替换。跨模型成功
@@ -7,7 +7,7 @@ model identity 与 revision，并重新规划后才执行无回调的内存替�
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">runtime_handle</tag>
-		<tag name="since">unreleased</tag>
+		<tag name="since">11.0.0</tag>
 	</tags>
 	<signals>
 		<member kind="signal" name="completed">
@@ -17,7 +17,7 @@ model identity 与 revision，并重新规划后才执行无回调的内存替�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">result: 不保留模型或候选堆叠的隔离终态结果。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 	</signals>
@@ -41,7 +41,7 @@ model identity 与 revision，并重新规划后才执行无回调的内存替�
 				<tag name="param">amount: 请求数量；小于等于 0 表示来源堆叠全部数量。</tag>
 				<tag name="param">allow_partial: 来源或目标容量不足时是否允许部分转移。</tag>
 				<tag name="return">一次性事务句柄；使用 `get_prepare_result()` 检查规划结果。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="is_prepared">
@@ -50,7 +50,7 @@ model identity 与 revision，并重新规划后才执行无回调的内存替�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">当前未完成且 prepare 状态有效时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="is_completed">
@@ -59,7 +59,7 @@ model identity 与 revision，并重新规划后才执行无回调的内存替�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">`commit()` 已被消费时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_prepare_result">
@@ -68,7 +68,7 @@ model identity 与 revision，并重新规划后才执行无回调的内存替�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">隔离规划结果；配置尚未完成时返回 null。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_result">
@@ -77,7 +77,7 @@ model identity 与 revision，并重新规划后才执行无回调的内存替�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">`commit()` 后的隔离结果；尚未提交时返回 null。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="commit">
@@ -88,7 +88,7 @@ model identity 与 revision，并重新规划后才执行无回调的内存替�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">唯一终态结果；重复调用返回首次终态的隔离副本。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 	</methods>

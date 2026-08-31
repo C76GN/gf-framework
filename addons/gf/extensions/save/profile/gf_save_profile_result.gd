@@ -53,7 +53,7 @@ const STATUS_INVALID_PROFILE: StringName = &"invalid_profile"
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const STATUS_INVALID_REQUEST: StringName = &"invalid_request"
 
 ## 当前 Profile 不支持请求的操作。
@@ -74,7 +74,7 @@ const STATUS_BUSY: StringName = &"busy"
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const STATUS_PREPARATION_FAILED: StringName = &"preparation_failed"
 
 ## section 应用前快照采集失败。
@@ -413,7 +413,7 @@ func get_duration_msec() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 单调毫秒耗时。
 func get_preparation_duration_msec() -> int:
@@ -426,7 +426,7 @@ func get_preparation_duration_msec() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 单调毫秒耗时。
 func get_storage_duration_msec() -> int:
@@ -437,7 +437,7 @@ func get_storage_duration_msec() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 非负 work units。
 func get_preparation_work_units() -> int:

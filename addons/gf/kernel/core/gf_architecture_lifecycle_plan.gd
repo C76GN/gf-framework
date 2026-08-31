@@ -8,7 +8,7 @@
 ## [br]
 ## @category internal_helper
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @layer kernel/core
 class_name GFArchitectureLifecyclePlan
@@ -72,7 +72,7 @@ var _dependency_records: Array[Dictionary] = []
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param model_instances: 本地 Model 注册快照。
 ## [br]
@@ -147,7 +147,7 @@ func compile(
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 计划可用于生命周期执行时返回 true。
 func is_valid() -> bool:
@@ -158,7 +158,7 @@ func is_valid() -> bool:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return compile 时冻结的激活顺序副本。
 func get_activation_order() -> Array[Object]:
@@ -169,7 +169,7 @@ func get_activation_order() -> Array[Object]:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return compile 时冻结的严格逆序关闭顺序副本。
 func get_shutdown_order() -> Array[Object]:
@@ -181,7 +181,7 @@ func get_shutdown_order() -> Array[Object]:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param instance: 要查询的本地模块实例。
 ## [br]
@@ -215,7 +215,7 @@ func get_dependency_closure(instance: Object, include_self: bool = true) -> Dict
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 有界依赖诊断的深层容器副本。
 ## [br]
@@ -231,7 +231,7 @@ func get_diagnostics() -> Array[Dictionary]:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 诊断超过容量并被截断时返回 true。
 func were_diagnostics_truncated() -> bool:
@@ -242,7 +242,7 @@ func were_diagnostics_truncated() -> bool:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 由父架构或其它外部 resolver 满足的声明数量。
 func get_external_dependency_count() -> int:
@@ -254,7 +254,7 @@ func get_external_dependency_count() -> int:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 每个本地模块及其四类声明的稳定快照。
 ## [br]
@@ -268,7 +268,7 @@ func get_dependency_snapshot() -> Array[Dictionary]:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 防御性复制后的依赖解析记录。
 ## [br]

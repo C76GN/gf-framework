@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFEditorSceneMetadataPatch" path="addons/gf/kernel/editor/gf_editor_scene_metadata_patch.gd" module="kernel" extends="GFEditorCommand" classDigest="6e402aeb842ace223813b867c8ee6953a59d849c8f3bbbf21f03c1c9ae92d3a5">
+<class name="GFEditorSceneMetadataPatch" path="addons/gf/kernel/editor/gf_editor_scene_metadata_patch.gd" module="kernel" extends="GFEditorCommand" classDigest="75f749875eb08c98e4873d941695a78d5e35d4034d92cbee1c4e1696f95eeda2">
 	<description>GFEditorSceneMetadataPatch: 可撤销的场景节点 metadata 修改命令。
 用于把编辑器工具对场景根节点或普通节点 metadata 的读写收敛成 GFEditorCommand。
 该命令只处理 Object metadata，不规定具体工具面板、场景分组或业务含义。</description>
@@ -106,7 +106,7 @@
 			<tags>
 				<tag name="api">protected</tag>
 				<tag name="return">metadata 目标节点。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 	</methods>

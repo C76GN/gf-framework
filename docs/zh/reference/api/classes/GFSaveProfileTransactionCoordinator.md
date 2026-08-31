@@ -7,7 +7,7 @@
 - 继承：`GFUtility`
 - API：`public`
 - 类别：运行时服务 (`runtime_service`)
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 活动 Profile 身份与跨 Profile 事务协调器。 Coordinator 在完全相同且同序的 Provider 实例拓扑上建立独立 domain，委托 `GFSaveProfileUtility` 完成 generation、Storage IO、重试与 detached settlement。 它不解释业务 payload，也不拥有项目的身份到路径、云同步或恢复选择。
 
@@ -50,7 +50,7 @@
 ### `active_profile_changed`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 signal active_profile_changed( previous_profile_id: StringName, current_profile_id: StringName )
@@ -70,7 +70,7 @@ signal active_profile_changed( previous_profile_id: StringName, current_profile_
 ### `transaction_completed`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 signal transaction_completed(result: GFSaveProfileTransactionResult)
@@ -91,7 +91,7 @@ signal transaction_completed(result: GFSaveProfileTransactionResult)
 ### `DOMAIN_STATE_INACTIVE`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const DOMAIN_STATE_INACTIVE: StringName = &"inactive"
@@ -104,7 +104,7 @@ Domain 尚未建立活动身份。
 ### `DOMAIN_STATE_ACTIVE`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const DOMAIN_STATE_ACTIVE: StringName = &"active"
@@ -117,7 +117,7 @@ Domain 已建立一个可直接 save/flush 的活动身份。
 ### `DOMAIN_STATE_TRANSACTING`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const DOMAIN_STATE_TRANSACTING: StringName = &"transacting"
@@ -130,7 +130,7 @@ Domain 正在执行一个事务。
 ### `DOMAIN_STATE_RECONCILIATION_REQUIRED`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const DOMAIN_STATE_RECONCILIATION_REQUIRED: StringName = &"reconciliation_required"
@@ -143,7 +143,7 @@ Domain 被 outcome_unknown 或显式故障围栏占用，必须对账。
 ### `DOMAIN_STATE_DISPOSED`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const DOMAIN_STATE_DISPOSED: StringName = &"disposed"
@@ -158,7 +158,7 @@ Coordinator 已释放。
 ### `get_required_utilities`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_required_utilities() -> Array[Script]:
@@ -173,7 +173,7 @@ func get_required_utilities() -> Array[Script]:
 ### `ready`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func ready() -> void:
@@ -186,7 +186,7 @@ func ready() -> void:
 ### `begin_activation`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func begin_activation(_scope: GFAsyncScope) -> GFAsyncCompletion:
@@ -207,7 +207,7 @@ func begin_activation(_scope: GFAsyncScope) -> GFAsyncCompletion:
 ### `begin_quiesce`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func begin_quiesce(scope: GFAsyncScope) -> GFAsyncCompletion:
@@ -228,7 +228,7 @@ func begin_quiesce(scope: GFAsyncScope) -> GFAsyncCompletion:
 ### `tick`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func tick(_delta: float) -> void:
@@ -247,7 +247,7 @@ func tick(_delta: float) -> void:
 ### `dispose`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func dispose() -> void:
@@ -260,7 +260,7 @@ func dispose() -> void:
 ### `release_dependencies`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func release_dependencies() -> void:
@@ -273,7 +273,7 @@ func release_dependencies() -> void:
 ### `setup`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func setup( profile_utility: GFSaveProfileUtility ) -> GFSaveProfileTransactionCoordinator:
@@ -294,7 +294,7 @@ func setup( profile_utility: GFSaveProfileUtility ) -> GFSaveProfileTransactionC
 ### `register_profile`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func register_profile( profile: GFSaveProfile, migrations: GFSaveMigrationRegistry = null ) -> Dictionary:
@@ -320,7 +320,7 @@ func register_profile( profile: GFSaveProfile, migrations: GFSaveMigrationRegist
 ### `unregister_profile`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func unregister_profile(profile_id: StringName) -> bool:
@@ -341,7 +341,7 @@ func unregister_profile(profile_id: StringName) -> bool:
 ### `get_active_profile_id`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_active_profile_id(profile_id: StringName) -> StringName:
@@ -362,7 +362,7 @@ func get_active_profile_id(profile_id: StringName) -> StringName:
 ### `get_domain_state_snapshot`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_domain_state_snapshot(profile_id: StringName) -> Dictionary:
@@ -387,7 +387,7 @@ func get_domain_state_snapshot(profile_id: StringName) -> Dictionary:
 ### `activate_profile`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func activate_profile( profile_id: StringName, context: Dictionary = {}, metadata: Dictionary = {} ) -> GFSaveProfileTransactionOperation:
@@ -415,7 +415,7 @@ func activate_profile( profile_id: StringName, context: Dictionary = {}, metadat
 ### `switch_profile`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func switch_profile( target_profile_id: StringName, context: Dictionary = {}, metadata: Dictionary = {} ) -> GFSaveProfileTransactionOperation:
@@ -443,7 +443,7 @@ func switch_profile( target_profile_id: StringName, context: Dictionary = {}, me
 ### `bootstrap_profile`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func bootstrap_profile( lease: GFSaveProfileRecoveryLease, request: GFSaveProfileRequest = null ) -> GFSaveProfileTransactionOperation:
@@ -465,7 +465,7 @@ func bootstrap_profile( lease: GFSaveProfileRecoveryLease, request: GFSaveProfil
 ### `adopt_profile`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func adopt_profile( lease: GFSaveProfileRecoveryLease, request: GFSaveProfileRequest = null ) -> GFSaveProfileTransactionOperation:
@@ -487,7 +487,7 @@ func adopt_profile( lease: GFSaveProfileRecoveryLease, request: GFSaveProfileReq
 ### `bootstrap_and_switch_profile`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func bootstrap_and_switch_profile( lease: GFSaveProfileRecoveryLease, request: GFSaveProfileRequest = null ) -> GFSaveProfileTransactionOperation:
@@ -509,7 +509,7 @@ func bootstrap_and_switch_profile( lease: GFSaveProfileRecoveryLease, request: G
 ### `adopt_and_switch_profile`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func adopt_and_switch_profile( lease: GFSaveProfileRecoveryLease, request: GFSaveProfileRequest = null ) -> GFSaveProfileTransactionOperation:
@@ -531,7 +531,7 @@ func adopt_and_switch_profile( lease: GFSaveProfileRecoveryLease, request: GFSav
 ### `mutate_and_persist`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func mutate_and_persist( profile_id: StringName, request: GFSaveProfileMutationRequest ) -> GFSaveProfileTransactionOperation:
@@ -553,7 +553,7 @@ func mutate_and_persist( profile_id: StringName, request: GFSaveProfileMutationR
 ### `reconcile_profile`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func reconcile_profile( lease: GFSaveProfileReconcileLease, request: GFSaveProfileReconcileRequest = null ) -> GFSaveProfileTransactionOperation:

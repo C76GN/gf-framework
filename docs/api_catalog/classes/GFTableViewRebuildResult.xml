@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFTableViewRebuildResult" path="addons/gf/standard/utilities/ui/gf_table_view_rebuild_result.gd" module="standard" extends="RefCounted" classDigest="f5d0fc0dc7d8c5be36169746ddd1182426c463ecbfb3e4d408e9da39e9fcf14e">
+<class name="GFTableViewRebuildResult" path="addons/gf/standard/utilities/ui/gf_table_view_rebuild_result.gd" module="standard" extends="RefCounted" classDigest="178162af8d42750623f1a1ee7a173942ee6539edef3f3d9c08611e27b62d1ee7">
 	<description>GFTableViewRebuildResult: 表格投影事务的类型化结果。
 成功结果描述一次提交或 no-op；失败结果描述未提交的阶段、谓词和行身份。
 结果不携带源 row，从而可安全交给 UI 诊断层。</description>
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">value_object</tag>
-		<tag name="since">unreleased</tag>
+		<tag name="since">11.0.0</tag>
 	</tags>
 	<signals />
 	<enums />
@@ -19,7 +19,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">成功时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="was_committed">
@@ -28,7 +28,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">提交时返回 true；成功 no-op 返回 false。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_view_revision">
@@ -37,7 +37,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">当前已提交 revision。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_visible_count">
@@ -46,7 +46,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">可见行数量。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_scanned_row_count">
@@ -55,7 +55,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">已扫描行数量。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_predicate_evaluation_count">
@@ -64,7 +64,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">谓词求值次数。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_error_code">
@@ -73,7 +73,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">失败错误码；成功时为空。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_error_message">
@@ -82,7 +82,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">失败说明；成功时为空。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_failed_predicate_id">
@@ -91,7 +91,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">失败谓词 ID；非谓词失败时为空。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_failed_source_row_index">
@@ -100,7 +100,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">失败行索引；非行失败时为 -1。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_failed_row_id">
@@ -110,7 +110,7 @@
 				<tag name="api">public</tag>
 				<tag name="return">失败行 ID；非行失败时为 null。</tag>
 				<tag name="schema">return: Variant stable row identity copy, or null.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="duplicate_result">
@@ -119,7 +119,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">新结果对象；未配置实例返回新的未配置实例。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 	</methods>

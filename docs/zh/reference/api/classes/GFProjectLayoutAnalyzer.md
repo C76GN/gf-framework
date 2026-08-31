@@ -7,7 +7,7 @@
 - 继承：`RefCounted`
 - API：`public`
 - 类别：工具 API (`tool_api`)
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 只读的项目结构分析器。 捕获项目目录库存，并按可选 profile 分析目录分区、Feature 模块契约、命名、生成物边界和大桶目录增长。 所有公开操作都只读取项目；该类型不会创建、移动、删除或改写任何项目文件。 未知选项、字段、错误类型和非规范相对路径都会失败关闭；扫描预算在流式枚举期间全局生效。
 
@@ -32,7 +32,7 @@
 ### `EXAMPLE_FEATURE_COHESIVE_PROFILE_PATH`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const EXAMPLE_FEATURE_COHESIVE_PROFILE_PATH: String = "res://addons/gf/tools/project_layout/profiles/feature_cohesive_v1.json"
@@ -47,7 +47,7 @@ Feature 内聚式示例 profile 路径。
 ### `analyze`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func analyze(options: Dictionary = {}) -> Dictionary:
@@ -73,7 +73,7 @@ func analyze(options: Dictionary = {}) -> Dictionary:
 ### `analyze_example_profile`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func analyze_example_profile(options: Dictionary = {}) -> Dictionary:
@@ -99,7 +99,7 @@ func analyze_example_profile(options: Dictionary = {}) -> Dictionary:
 ### `analyze_profile_path`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func analyze_profile_path(profile_path: String, options: Dictionary = {}) -> Dictionary:
@@ -126,7 +126,7 @@ func analyze_profile_path(profile_path: String, options: Dictionary = {}) -> Dic
 ### `analyze_profile`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func analyze_profile(profile: Dictionary, options: Dictionary = {}) -> Dictionary:
@@ -154,7 +154,7 @@ func analyze_profile(profile: Dictionary, options: Dictionary = {}) -> Dictionar
 ### `analyze_snapshot`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func analyze_snapshot(snapshot: Dictionary) -> Dictionary:
@@ -180,7 +180,7 @@ func analyze_snapshot(snapshot: Dictionary) -> Dictionary:
 ### `analyze_profile_snapshot`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func analyze_profile_snapshot( profile: Dictionary, snapshot: Dictionary ) -> Dictionary:
@@ -208,7 +208,7 @@ func analyze_profile_snapshot( profile: Dictionary, snapshot: Dictionary ) -> Di
 ### `explain_finding`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func explain_finding(analysis: Dictionary, finding_id: String) -> Dictionary:
@@ -235,7 +235,7 @@ func explain_finding(analysis: Dictionary, finding_id: String) -> Dictionary:
 ### `analyze_change_impact`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func analyze_change_impact(analysis: Dictionary, change: Dictionary) -> Dictionary:

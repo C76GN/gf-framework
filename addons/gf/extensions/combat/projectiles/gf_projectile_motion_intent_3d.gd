@@ -4,7 +4,7 @@
 ## [br]
 ## @category value_object
 ## [br]
-## @since unreleased
+## @since 11.0.0
 class_name GFProjectileMotionIntent3D
 extends RefCounted
 
@@ -15,7 +15,7 @@ extends RefCounted
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 enum Kind {
 	## 未配置 intent。
 	NONE = 0,
@@ -42,7 +42,7 @@ var _failure_reason: StringName = &""
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param velocity: world-space 速度。
 ## [br]
@@ -68,7 +68,7 @@ static func move(velocity: Vector3, delta_seconds: float) -> GFProjectileMotionI
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param reason: 稳定失败原因。
 ## [br]
@@ -84,7 +84,7 @@ static func rejected(reason: StringName) -> GFProjectileMotionIntent3D:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return: 不交给 body adapter 的 FINISH intent。
 static func finish() -> GFProjectileMotionIntent3D:
@@ -97,7 +97,7 @@ static func finish() -> GFProjectileMotionIntent3D:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return: 封闭 `Kind` 值。
 func get_kind() -> Kind:
@@ -108,7 +108,7 @@ func get_kind() -> Kind:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return: 3D world-space velocity。
 func get_velocity() -> Vector3:
@@ -119,7 +119,7 @@ func get_velocity() -> Vector3:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return: 非负秒数。
 func get_delta_seconds() -> float:
@@ -130,7 +130,7 @@ func get_delta_seconds() -> float:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return: REJECTED 时为非空稳定原因。
 func get_failure_reason() -> StringName:
@@ -141,7 +141,7 @@ func get_failure_reason() -> StringName:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return: NONE、MOVE 或 FINISH 时为 true。
 func is_valid() -> bool:

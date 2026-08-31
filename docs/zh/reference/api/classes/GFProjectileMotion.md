@@ -31,7 +31,7 @@
 ### `create_state_2d`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func create_state_2d( launch_input: GFProjectileLaunchInput2D, initial_body: GFProjectileBodyResult2D ) -> GFProjectileMotionState:
@@ -53,7 +53,7 @@ func create_state_2d( launch_input: GFProjectileLaunchInput2D, initial_body: GFP
 ### `create_state_3d`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func create_state_3d( launch_input: GFProjectileLaunchInput3D, initial_body: GFProjectileBodyResult3D ) -> GFProjectileMotionState:
@@ -75,7 +75,7 @@ func create_state_3d( launch_input: GFProjectileLaunchInput3D, initial_body: GFP
 ### `compute_intent_2d`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func compute_intent_2d( state: GFProjectileMotionState, current_body: GFProjectileBodyResult2D, delta: float ) -> GFProjectileMotionIntent2D:
@@ -98,7 +98,7 @@ func compute_intent_2d( state: GFProjectileMotionState, current_body: GFProjecti
 ### `compute_intent_3d`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func compute_intent_3d( state: GFProjectileMotionState, current_body: GFProjectileBodyResult3D, delta: float ) -> GFProjectileMotionIntent3D:
@@ -121,7 +121,7 @@ func compute_intent_3d( state: GFProjectileMotionState, current_body: GFProjecti
 ### `_create_state_2d`
 
 - API：`protected`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func _create_state_2d( _launch_input: GFProjectileLaunchInput2D, _initial_body: GFProjectileBodyResult2D ) -> Variant:
@@ -147,7 +147,7 @@ func _create_state_2d( _launch_input: GFProjectileLaunchInput2D, _initial_body: 
 ### `_create_state_3d`
 
 - API：`protected`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func _create_state_3d( _launch_input: GFProjectileLaunchInput3D, _initial_body: GFProjectileBodyResult3D ) -> Variant:
@@ -173,7 +173,7 @@ func _create_state_3d( _launch_input: GFProjectileLaunchInput3D, _initial_body: 
 ### `_compute_intent_2d`
 
 - API：`protected`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func _compute_intent_2d( _state: GFProjectileMotionState, _current_body: GFProjectileBodyResult2D, _delta: float ) -> Variant:
@@ -200,7 +200,7 @@ func _compute_intent_2d( _state: GFProjectileMotionState, _current_body: GFProje
 ### `_compute_intent_3d`
 
 - API：`protected`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func _compute_intent_3d( _state: GFProjectileMotionState, _current_body: GFProjectileBodyResult3D, _delta: float ) -> Variant:

@@ -7,7 +7,7 @@
 - 继承：`RefCounted`
 - API：`public`
 - 类别：值对象 (`value_object`)
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 完整周构成的不可变月历网格结果。 成功网格始终为 7 列、4 到 6 行，并包含目标月的全部日期。 返回的日期集合是隔离副本，不暴露内部数组。
 
@@ -39,7 +39,7 @@
 ### `STATUS_BUILT`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const STATUS_BUILT: StringName = &"built"
@@ -52,7 +52,7 @@ const STATUS_BUILT: StringName = &"built"
 ### `STATUS_INVALID_REQUEST`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const STATUS_INVALID_REQUEST: StringName = &"invalid_request"
@@ -65,7 +65,7 @@ const STATUS_INVALID_REQUEST: StringName = &"invalid_request"
 ### `STATUS_INSUFFICIENT_ROWS`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const STATUS_INSUFFICIENT_ROWS: StringName = &"insufficient_rows"
@@ -78,7 +78,7 @@ const STATUS_INSUFFICIENT_ROWS: StringName = &"insufficient_rows"
 ### `STATUS_OUT_OF_RANGE`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const STATUS_OUT_OF_RANGE: StringName = &"out_of_range"
@@ -91,7 +91,7 @@ const STATUS_OUT_OF_RANGE: StringName = &"out_of_range"
 ### `COLUMN_COUNT`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const COLUMN_COUNT: int = 7
@@ -106,7 +106,7 @@ const COLUMN_COUNT: int = 7
 ### `is_successful`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func is_successful() -> bool:
@@ -121,7 +121,7 @@ func is_successful() -> bool:
 ### `get_status`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_status() -> StringName:
@@ -136,7 +136,7 @@ func get_status() -> StringName:
 ### `get_error`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_error() -> String:
@@ -151,7 +151,7 @@ func get_error() -> String:
 ### `get_year`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_year() -> int:
@@ -166,7 +166,7 @@ func get_year() -> int:
 ### `get_month`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_month() -> int:
@@ -181,7 +181,7 @@ func get_month() -> int:
 ### `get_week_start`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_week_start() -> int:
@@ -196,7 +196,7 @@ func get_week_start() -> int:
 ### `get_row_count`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_row_count() -> int:
@@ -211,7 +211,7 @@ func get_row_count() -> int:
 ### `get_column_count`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_column_count() -> int:
@@ -226,7 +226,7 @@ func get_column_count() -> int:
 ### `get_cell_count`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_cell_count() -> int:
@@ -241,7 +241,7 @@ func get_cell_count() -> int:
 ### `get_cell`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_cell(index: int) -> GFCivilDate:
@@ -262,7 +262,7 @@ func get_cell(index: int) -> GFCivilDate:
 ### `get_cells`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_cells() -> Array[GFCivilDate]:

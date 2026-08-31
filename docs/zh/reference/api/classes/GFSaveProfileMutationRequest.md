@@ -7,7 +7,7 @@
 - 继承：`RefCounted`
 - API：`public`
 - 类别：运行时句柄 (`runtime_handle`)
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 mutate-and-persist 的一次性所有权请求。 请求在创建时原子接管每个 `GFSaveSectionMutation`，随后只允许协调器 claim 一次。调用方必须放弃传入的 Dictionary、Array 及其全部嵌套 alias；请求 不公开任何候选 payload getter，也不接受 Callable 或可执行 patch。
 
@@ -28,7 +28,7 @@ mutate-and-persist 的一次性所有权请求。 请求在创建时原子接管
 ### `take_ownership`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 static func take_ownership( mutations: Array[GFSaveSectionMutation], document_metadata: Dictionary = {}, context: Dictionary = {}, result_metadata: Dictionary = {} ) -> GFSaveProfileMutationRequest:
@@ -58,7 +58,7 @@ static func take_ownership( mutations: Array[GFSaveSectionMutation], document_me
 ### `is_available`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func is_available() -> bool:
@@ -73,7 +73,7 @@ func is_available() -> bool:
 ### `is_claimed`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func is_claimed() -> bool:
@@ -88,7 +88,7 @@ func is_claimed() -> bool:
 ### `get_mutation_count`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_mutation_count() -> int:
@@ -103,7 +103,7 @@ func get_mutation_count() -> int:
 ### `get_section_ids`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_section_ids() -> PackedStringArray:

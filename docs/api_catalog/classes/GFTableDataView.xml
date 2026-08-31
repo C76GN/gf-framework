@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFTableDataView" path="addons/gf/standard/utilities/ui/gf_table_data_view.gd" module="standard" extends="RefCounted" classDigest="4a6d424052329e7ba29decd033ad47e555f440f38b3fb138c65c36ba225ee3a2">
+<class name="GFTableDataView" path="addons/gf/standard/utilities/ui/gf_table_data_view.gd" module="standard" extends="RefCounted" classDigest="5076cafa86d5f80139726a2f24483ecf09b27f688254e5c577985087eb42c7f3">
 	<description>GFTableDataView: 通用表格数据视图模型。
 维护行数据、列定义、可见行索引、排序、过滤和单元格提交，
 供运行时 UI、编辑器 Dock、资源表或配置表工具自行选择渲染方式。
@@ -35,7 +35,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">result: 保留 prior projection 的类型化失败结果。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="signal" name="filter_changed">
@@ -82,7 +82,7 @@
 			<description>单个表格允许注册的命名行谓词上限。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 	</constants>
@@ -97,7 +97,7 @@
 				<tag name="api">public</tag>
 				<tag name="param">column_id: 新的稳定行 ID 字段键；为空时使用源行索引。</tag>
 				<tag name="return">类型化投影重建结果。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_row_id_column">
@@ -106,7 +106,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">当前稳定行 ID 字段键；为空时使用源行索引。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="set_filter_case_sensitive">
@@ -117,7 +117,7 @@
 				<tag name="api">public</tag>
 				<tag name="param">case_sensitive: 为 true 时区分大小写。</tag>
 				<tag name="return">类型化投影重建结果。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="is_filter_case_sensitive">
@@ -126,7 +126,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">区分大小写时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="set_selection_model">
@@ -138,7 +138,7 @@
 				<tag name="api">public</tag>
 				<tag name="param">model: 非空选择模型。</tag>
 				<tag name="return">类型化投影重建结果。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_selection_model">
@@ -147,7 +147,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">当前非空选择模型。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="set_columns">
@@ -365,7 +365,7 @@ metadata 快照；调用方后续修改注册对象不会改变已提交 registr
 				<tag name="param">registrations: 谓词注册定义；提交时复制 metadata。</tag>
 				<tag name="return">类型化投影重建结果。</tag>
 				<tag name="schema">registrations: Array of GFTableRowPredicateRegistration values.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="register_row_predicate">
@@ -375,7 +375,7 @@ metadata 快照；调用方后续修改注册对象不会改变已提交 registr
 				<tag name="api">public</tag>
 				<tag name="param">registration: 谓词注册定义；提交时复制 metadata。</tag>
 				<tag name="return">类型化投影重建结果。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="unregister_row_predicate">
@@ -385,7 +385,7 @@ metadata 快照；调用方后续修改注册对象不会改变已提交 registr
 				<tag name="api">public</tag>
 				<tag name="param">predicate_id: 要移除的稳定谓词 ID。</tag>
 				<tag name="return">类型化投影重建结果。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="set_row_predicate_enabled">
@@ -396,7 +396,7 @@ metadata 快照；调用方后续修改注册对象不会改变已提交 registr
 				<tag name="param">predicate_id: 稳定谓词 ID。</tag>
 				<tag name="param">enabled: 是否参与候选投影。</tag>
 				<tag name="return">类型化投影重建结果。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="set_row_predicate_order">
@@ -407,7 +407,7 @@ metadata 快照；调用方后续修改注册对象不会改变已提交 registr
 				<tag name="param">predicate_id: 稳定谓词 ID。</tag>
 				<tag name="param">order: 新顺序；数值越小越早执行。</tag>
 				<tag name="return">类型化投影重建结果。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_row_predicate">
@@ -417,7 +417,7 @@ metadata 快照；调用方后续修改注册对象不会改变已提交 registr
 				<tag name="api">public</tag>
 				<tag name="param">predicate_id: 稳定谓词 ID。</tag>
 				<tag name="return">独立 metadata 快照；predicate 协议实例保持同一引用，不存在时返回 null。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_row_predicates">
@@ -427,7 +427,7 @@ metadata 快照；调用方后续修改注册对象不会改变已提交 registr
 				<tag name="api">public</tag>
 				<tag name="return">独立 metadata 快照数组；predicate 协议实例保持同一引用。</tag>
 				<tag name="schema">return: Array of GFTableRowPredicateRegistration values.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_row_predicate_ids">
@@ -436,7 +436,7 @@ metadata 快照；调用方后续修改注册对象不会改变已提交 registr
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">稳定谓词 ID 数组。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_view_revision">
@@ -445,7 +445,7 @@ metadata 快照；调用方后续修改注册对象不会改变已提交 registr
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">单调递增 revision。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_last_view_rebuild_result">
@@ -454,7 +454,7 @@ metadata 快照；调用方后续修改注册对象不会改变已提交 registr
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">最近结果的隔离副本；尚未执行时返回 revision 0 的成功 no-op。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="sort_by_column">

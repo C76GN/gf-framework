@@ -7,7 +7,7 @@
 - 继承：`RefCounted`
 - API：`public`
 - 类别：运行时句柄 (`runtime_handle`)
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 Save Profile 保存请求的一次性所有权句柄。 `take_ownership()` 不会深复制输入。成功创建后，调用方必须立即且永久放弃 document metadata、Provider context、result metadata 及其全部嵌套集合 alias。 Utility 只允许 claim 一次，且不会公开任何 payload getter。
 
@@ -25,7 +25,7 @@ Save Profile 保存请求的一次性所有权句柄。 `take_ownership()` 不�
 ### `take_ownership`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 static func take_ownership( document_metadata: Dictionary, context: Dictionary, result_metadata: Dictionary ) -> GFSaveProfileRequest:
@@ -54,7 +54,7 @@ static func take_ownership( document_metadata: Dictionary, context: Dictionary, 
 ### `is_claimed`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func is_claimed() -> bool:

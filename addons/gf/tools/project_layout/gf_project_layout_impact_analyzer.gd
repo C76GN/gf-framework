@@ -37,7 +37,7 @@ const _INDEX_FIELDS: PackedStringArray = [
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param analysis: 通过闭合 Project Layout analysis contract 的报告。
 ## [br]
@@ -69,7 +69,7 @@ func analyze_change(analysis: Dictionary, change: Dictionary) -> Dictionary:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param analysis: 已通过 validation 绑定校验的冻结分析报告。
 ## [br]

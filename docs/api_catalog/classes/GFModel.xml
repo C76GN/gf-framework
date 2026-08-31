@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFModel" path="addons/gf/kernel/base/gf_model.gd" module="kernel" extends="Object" classDigest="0eb970028e23640ca44cd1f35041fef441fb3eb5cf18177765e3e4e722a7caac">
+<class name="GFModel" path="addons/gf/kernel/base/gf_model.gd" module="kernel" extends="Object" classDigest="73b83d01b0a3632b35d5b8f841e481d1999f84857f79521fafcba1adc10d5b8c">
 	<description>GFModel: 数据层抽象基类。
 负责管理应用数据和业务状态。
 子类可以实现 'init'、'async_init'、'ready'、'begin_activation'、
@@ -39,7 +39,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">此模型激活前必须可解析的 Model 脚本。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_required_systems">
@@ -49,7 +49,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">此模型激活前必须可解析的 System 脚本。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_required_utilities">
@@ -59,7 +59,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">此模型激活前必须可解析的 Utility 脚本。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_required_factories">
@@ -69,7 +69,7 @@ Factory 依赖只校验绑定可用性，不参与模块生命周期 DAG。</des
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">此模型激活前必须可解析的 Factory 脚本。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="init">
@@ -111,7 +111,7 @@ Godot 4 支持在 void 函数内部使用 await，框架的 Gf.init() 会串行�
 				<tag name="api">public</tag>
 				<tag name="param">_scope: 当前模型激活阶段的取消作用域。</tag>
 				<tag name="return">当前激活阶段的一次性完成源。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="begin_quiesce">
@@ -123,7 +123,7 @@ Godot 4 支持在 void 函数内部使用 await，框架的 Gf.init() 会串行�
 				<tag name="api">public</tag>
 				<tag name="param">_scope: 当前模型静默阶段的取消作用域。</tag>
 				<tag name="return">当前静默阶段的一次性完成源。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="dispose">

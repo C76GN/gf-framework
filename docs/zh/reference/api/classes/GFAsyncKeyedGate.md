@@ -288,7 +288,7 @@ const STATUS_REJECTED: StringName = &"rejected"
 ### `STATUS_BUSY`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const STATUS_BUSY: StringName = &"busy"
@@ -658,7 +658,7 @@ func request_lease(key: Variant, options: Dictionary = {}) -> Dictionary:
 ### `try_request_lease`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func try_request_lease(key: Variant, options: Dictionary = {}) -> Dictionary:

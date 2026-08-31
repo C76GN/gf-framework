@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFInputAction" path="addons/gf/standard/input/mapping/gf_input_action.gd" module="standard" extends="Resource" classDigest="6d1908dfeb47b56e432a724a387811581701955c9fef83bdd73c9e8889a5ef9e">
+<class name="GFInputAction" path="addons/gf/standard/input/mapping/gf_input_action.gd" module="standard" extends="Resource" classDigest="ecda507d4967971ff540695b20d47e3268dff55060dc46dee0150501a9a3e70f">
 	<description>GFInputAction: 资源化输入动作描述。
 只描述“项目想要读取的抽象动作”，不绑定具体按键、设备或玩法逻辑。</description>
 	<tags>
@@ -84,7 +84,7 @@
 精确中立值始终释放；两个正阈值相等时与旧式单阈值行为一致。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 	</properties>

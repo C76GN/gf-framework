@@ -9,7 +9,7 @@
 ## [br]
 ## @category tool_api
 ## [br]
-## @since unreleased
+## @since 11.0.0
 class_name GFProjectLayoutPlanner
 extends RefCounted
 
@@ -20,7 +20,7 @@ extends RefCounted
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const EXAMPLE_FEATURE_COHESIVE_PROFILE_PATH: String = "res://addons/gf/tools/project_layout/profiles/feature_cohesive_v1.json"
 
 const _BOUNDED_JSON_OBJECT_READER_SCRIPT = preload(
@@ -141,7 +141,7 @@ const _RUNTIME_FIELDS: PackedStringArray = ["cancel_check", "max_work_units"]
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const MAX_WORK_UNITS: int = (
 	_ANALYSIS_CONTRACT_SCRIPT.MAX_VALIDATION_WORK_UNITS
 	+ _MAX_PLANNER_OWN_WORK_UNITS
@@ -167,7 +167,7 @@ var _active_feature_ids: PackedStringArray = PackedStringArray()
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param source_analysis: GFProjectLayoutAnalyzer 返回的完整只读分析快照。
 ## [br]
@@ -188,7 +188,7 @@ func plan_example_profile(source_analysis: Dictionary, options: Dictionary = {})
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param profile_path: JSON profile 路径。
 ## [br]
@@ -252,7 +252,7 @@ func plan_profile_path(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param profile: 项目结构 profile 字典。
 ## [br]
@@ -290,7 +290,7 @@ func plan_profile(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param profile: 项目结构 profile 字典。
 ## [br]
@@ -337,7 +337,7 @@ func make_feature_module_paths(
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param compilation: canonical compiler 返回的 Analyzer 或 Planner compilation。
 ## [br]

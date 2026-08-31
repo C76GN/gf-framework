@@ -8,7 +8,7 @@ This repository is prepared for Godot Asset Library submission with a focused in
 
 - `addons/gf/**`
 
-The legacy Asset Library submission should represent the complete GF addon. Use the `gf-framework-10.0.0.zip` GitHub Release asset when the form accepts a package URL. If the legacy form only accepts a tag or commit, keep `Download Commit/URL` at `10.0.0`; `.gitattributes` keeps GitHub archive downloads focused on `addons/gf/**`.
+The legacy Asset Library submission should represent the complete GF addon. Use the `gf-framework-11.0.0.zip` GitHub Release asset when the form accepts a package URL. If the legacy form only accepts a tag or commit, keep `Download Commit/URL` at `11.0.0`; `.gitattributes` keeps GitHub archive downloads focused on `addons/gf/**`.
 
 GF 11 and later do not publish a minimal kernel, registry, offline bundle, or per-module archives. A release contains the complete framework ZIP, the optional standalone AI Developer Kit ZIP, and the release artifact manifest.
 
@@ -35,10 +35,10 @@ Documentation: https://gf-framework.readthedocs.io/
 - Repository URL: `https://github.com/C76GN/gf-framework`
 - Issues URL: `https://github.com/C76GN/gf-framework/issues`
 - Minimum Godot Version: `4.7`
-- Asset Version: `10.0.0`
-- Download Commit/URL: `10.0.0`
-- Preferred Package URL: `https://github.com/C76GN/gf-framework/releases/download/10.0.0/gf-framework-10.0.0.zip`
-- Icon URL: `https://raw.githubusercontent.com/C76GN/gf-framework/10.0.0/addons/gf/icon.png`
+- Asset Version: `11.0.0`
+- Download Commit/URL: `11.0.0`
+- Preferred Package URL: `https://github.com/C76GN/gf-framework/releases/download/11.0.0/gf-framework-11.0.0.zip`
+- Icon URL: `https://raw.githubusercontent.com/C76GN/gf-framework/11.0.0/addons/gf/icon.png`
 
 ## Short Description
 
@@ -51,15 +51,15 @@ No preview images are currently pinned. If previews are added, store their sourc
 ## Before Submitting
 
 1. Commit and push the Asset Library preparation changes.
-2. Prefer the `gf-framework-10.0.0.zip` release asset URL if the legacy form accepts a direct package URL.
-3. If the form only accepts a tag or commit, use `10.0.0` for `Download Commit/URL`.
+2. Prefer the `gf-framework-11.0.0.zip` release asset URL if the legacy form accepts a direct package URL.
+3. If the form only accepts a tag or commit, use `11.0.0` for `Download Commit/URL`.
 4. Do not publish legacy kernel-only, registry, offline-bundle, or per-module artifacts.
 5. Use the icon raw URL with the same release tag.
-6. From a clean release commit, build the complete immutable artifact set once with `python tools\build_gf_release_artifacts.py --version 10.0.0 --output-dir build\release`; do not rebuild individual attachments separately.
-7. Validate the same bytes with `python tools\build_gf_release_artifacts.py --version 10.0.0 --manifest build\release\gf-release-artifacts-10.0.0.json --validate-only`.
+6. From a clean release commit, build the complete immutable artifact set once with `python tools\build_gf_release_artifacts.py --version 11.0.0 --output-dir build\release`; do not rebuild individual attachments separately.
+7. Validate the same bytes with `python tools\build_gf_release_artifacts.py --version 11.0.0 --manifest build\release\gf-release-artifacts-11.0.0.json --validate-only`.
 8. Run `python tools\gf_maintenance.py check --suite full --json` on the target minimum Godot version.
-9. Run `python tools\gf_maintenance.py release-status --version 10.0.0 --artifact-manifest build\release\gf-release-artifacts-10.0.0.json`.
-10. Create the GitHub Release from a no-prefix SemVer tag such as `10.0.0`.
+9. Run `python tools\gf_maintenance.py release-status --version 11.0.0 --artifact-manifest build\release\gf-release-artifacts-11.0.0.json`.
+10. Create the GitHub Release from a no-prefix SemVer tag such as `11.0.0`.
 
 ## Version Bump Checklist
 

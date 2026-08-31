@@ -42,7 +42,7 @@
 ### `PulseReplacementPolicy`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 enum PulseReplacementPolicy {
@@ -116,7 +116,7 @@ func configure( input_mapping: GFInputMappingUtility, p_source_id: StringName = 
 ### `set_timer_utility`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func set_timer_utility(timer_utility: GFTimerUtility) -> GFVirtualInputSource:
@@ -137,7 +137,7 @@ func set_timer_utility(timer_utility: GFTimerUtility) -> GFVirtualInputSource:
 ### `get_timer_utility`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_timer_utility() -> GFTimerUtility:
@@ -152,7 +152,7 @@ func get_timer_utility() -> GFTimerUtility:
 ### `pulse_action`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func pulse_action( action_id: StringName, value: Variant = true, duration_seconds: float = 0.1, owner: Variant = null, cancellation_token: GFCancellationToken = null, replacement_policy: PulseReplacementPolicy = PulseReplacementPolicy.REPLACE ) -> GFVirtualInputPulseOperation:
@@ -393,7 +393,7 @@ func clear_all() -> void:
 ### `dispose`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func dispose() -> void:

@@ -110,7 +110,7 @@ func drive_tick(delta: float, time_provider: Object) -> void:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param delta: 调用方基于单调时钟计算的帧间隔；会收束到 0.0 至 0.1 秒。
 ## [br]
@@ -134,7 +134,7 @@ func drive_lifecycle_tick(delta: float, allowed_instances: Dictionary) -> void:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param instance: 已完成 ready、等待 activation 提交的 System 或 Utility。
 ## [br]
@@ -164,7 +164,7 @@ func add_lifecycle_candidate(instance: Object) -> bool:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param instance: 要移除临时 tick 记录的未提交模块实例。
 func remove_lifecycle_candidate(instance: Object) -> void:

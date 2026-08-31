@@ -39,7 +39,7 @@
 ### `SettlementKind`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 enum SettlementKind {
@@ -57,7 +57,7 @@ enum SettlementKind {
 ### `WriteFailureKind`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 enum WriteFailureKind {
@@ -132,7 +132,7 @@ func get_file_name() -> String:
 ### `get_settlement_kind`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_settlement_kind() -> SettlementKind:
@@ -147,7 +147,7 @@ func get_settlement_kind() -> SettlementKind:
 ### `is_cancelled`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func is_cancelled() -> bool:
@@ -207,7 +207,7 @@ func get_read_result() -> GFStorageReadResult:
 ### `get_delete_result`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_delete_result() -> GFStorageDeleteResult:
@@ -222,7 +222,7 @@ func get_delete_result() -> GFStorageDeleteResult:
 ### `get_reset_result`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_reset_result() -> GFStorageFamilyResetResult:
@@ -237,7 +237,7 @@ func get_reset_result() -> GFStorageFamilyResetResult:
 ### `get_write_failure_kind`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_write_failure_kind() -> WriteFailureKind:
@@ -252,7 +252,7 @@ func get_write_failure_kind() -> WriteFailureKind:
 ### `get_write_validation_report`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_write_validation_report() -> Dictionary:

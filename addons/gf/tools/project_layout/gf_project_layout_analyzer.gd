@@ -8,7 +8,7 @@
 ## [br]
 ## @category tool_api
 ## [br]
-## @since unreleased
+## @since 11.0.0
 class_name GFProjectLayoutAnalyzer
 extends RefCounted
 
@@ -19,7 +19,7 @@ extends RefCounted
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const EXAMPLE_FEATURE_COHESIVE_PROFILE_PATH: String = "res://addons/gf/tools/project_layout/profiles/feature_cohesive_v1.json"
 
 const _BOUNDED_JSON_OBJECT_READER_SCRIPT = preload(
@@ -211,7 +211,7 @@ var _runtime_report: Dictionary = {}
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param options: 分析选项。
 ## [br]
@@ -240,7 +240,7 @@ func analyze(options: Dictionary = {}) -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param options: 校验选项。
 ## [br]
@@ -257,7 +257,7 @@ func analyze_example_profile(options: Dictionary = {}) -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param profile_path: JSON profile 路径。
 ## [br]
@@ -320,7 +320,7 @@ func analyze_profile_path(profile_path: String, options: Dictionary = {}) -> Dic
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param profile: 项目结构 profile 字典。
 ## [br]
@@ -372,7 +372,7 @@ func analyze_profile(profile: Dictionary, options: Dictionary = {}) -> Dictionar
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param snapshot: data-only 项目库存。
 ## [br]
@@ -391,7 +391,7 @@ func analyze_snapshot(snapshot: Dictionary) -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param profile: 已解析的严格 profile。
 ## [br]
@@ -418,7 +418,7 @@ func analyze_profile_snapshot(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param analysis: 本类型生成的项目结构分析报告。
 ## [br]
@@ -441,7 +441,7 @@ func explain_finding(analysis: Dictionary, finding_id: String) -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param analysis: 本类型生成的项目结构分析报告。
 ## [br]
@@ -465,7 +465,7 @@ func analyze_change_impact(analysis: Dictionary, change: Dictionary) -> Dictiona
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param snapshot: data-only 项目库存。
 ## [br]
@@ -502,7 +502,7 @@ func analyze_snapshot_for_framework(
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param profile: 已解析的严格 profile。
 ## [br]
@@ -530,7 +530,7 @@ func compile_profile(profile: Dictionary) -> Dictionary:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param compilation: compile_profile() 返回的 data-only 结果。
 ## [br]

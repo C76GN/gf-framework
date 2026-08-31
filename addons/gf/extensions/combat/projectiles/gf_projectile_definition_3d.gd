@@ -4,7 +4,7 @@
 ## [br]
 ## @category resource_definition
 ## [br]
-## @since unreleased
+## @since 11.0.0
 class_name GFProjectileDefinition3D
 extends GFProjectileDefinition
 
@@ -13,7 +13,7 @@ extends GFProjectileDefinition
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 @export var body_adapter: GFProjectileBodyAdapter3D = null
 
 
@@ -21,7 +21,7 @@ extends GFProjectileDefinition
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param root: definition.scene 对应的完整实例 root。
 ## [br]

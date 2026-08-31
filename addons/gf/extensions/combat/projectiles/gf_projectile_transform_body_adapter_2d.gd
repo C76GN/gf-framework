@@ -4,7 +4,7 @@
 ## [br]
 ## @category resource_definition
 ## [br]
-## @since unreleased
+## @since 11.0.0
 class_name GFProjectileTransformBodyAdapter2D
 extends GFProjectileBodyAdapter2D
 

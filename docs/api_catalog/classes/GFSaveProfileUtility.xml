@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFSaveProfileUtility" path="addons/gf/extensions/save/profile/gf_save_profile_utility.gd" module="extensions/save" extends="GFUtility" classDigest="db7703edad6d7c9f4265d26058d1f7aaa703e0bffad1fab404d539e06de4851d">
+<class name="GFSaveProfileUtility" path="addons/gf/extensions/save/profile/gf_save_profile_utility.gd" module="extensions/save" extends="GFUtility" classDigest="19dea08cd019acc5e473dbb17774d7cd296b8582b6185628ac80025ae54533c4">
 	<description>GFSaveProfileUtility: 多 section 存档的异步协调器。
 每个 profile 只串行推进一个当前 IO；超时后无法取消的写入会 detached 保留路径所有权。
 连续保存通过 generation 合并为最新后续写入；读取在保存屏障后执行，并在主线程完成迁移、校验和 provider 事务化应用。</description>
@@ -45,7 +45,7 @@
 			<description>正在主线程分片准备 section Snapshot。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="STATE_SAVING">
@@ -97,7 +97,7 @@
 每个 work unit 的成本有界。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="save_preparation_slice_budget">
@@ -105,7 +105,7 @@
 			<description>单个 Profile 每次轮转最多获得的准备 work units。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="save_preparation_time_budget_usec">
@@ -114,7 +114,7 @@
 时间预算只能阻止开始下一个协作式 slice，不能抢占正在运行的 Provider 回调。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 	</properties>
@@ -136,7 +136,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">仅包含 GFStorageUtility 的依赖声明。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="begin_activation">
@@ -146,7 +146,7 @@
 				<tag name="api">public</tag>
 				<tag name="param">_scope: 当前 Profile 服务激活阶段的取消作用域。</tag>
 				<tag name="return">Storage 可用且实例未 dispose/quiesce 时成功，否则返回失败终态。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="begin_quiesce">
@@ -158,7 +158,7 @@
 				<tag name="api">public</tag>
 				<tag name="param">scope: 当前 Profile 服务静默阶段的取消作用域。</tag>
 				<tag name="return">所有已接纳工作进入终态后成功的一次性完成源。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="tick">

@@ -7,7 +7,7 @@
 - 继承：`RefCounted`
 - API：`public`
 - 类别：值对象 (`value_object`)
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 已预检 LSP WorkspaceEdit 的一次性提交计划。 该值对象由 GFLspWorkspaceEditAdapter 创建，绑定工作区身份与版本、文档版本、 来源 SHA-256、结果 SHA-256 和完整计划 SHA-256。公开读取只返回隔离副本， 不暴露待写入源码；计划一旦进入底层写事务即被消费，不能重复提交。
 
@@ -27,7 +27,7 @@
 ### `is_valid`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func is_valid() -> bool:
@@ -42,7 +42,7 @@ func is_valid() -> bool:
 ### `is_consumed`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func is_consumed() -> bool:
@@ -57,7 +57,7 @@ func is_consumed() -> bool:
 ### `get_plan_sha256`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_plan_sha256() -> String:
@@ -72,7 +72,7 @@ func get_plan_sha256() -> String:
 ### `get_report`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_report() -> Dictionary:

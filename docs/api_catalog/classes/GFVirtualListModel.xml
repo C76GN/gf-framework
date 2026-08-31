@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFVirtualListModel" path="addons/gf/standard/utilities/ui/gf_virtual_list_model.gd" module="standard" extends="RefCounted" classDigest="23e87f7039a51a34e13ddc7b810dc865758bd4bf05b109760a3ea882446f3ac3">
+<class name="GFVirtualListModel" path="addons/gf/standard/utilities/ui/gf_virtual_list_model.gd" module="standard" extends="RefCounted" classDigest="1d52ac125dde68ac7788386d435cc681d4d2af4db27877e241a9c0d393868c0b">
 	<description>GFVirtualListModel: 可变尺寸虚拟列表布局模型。
 维护条目数量、估算尺寸、实测尺寸、累计偏移和可见范围，供聊天流、
 日志面板、资源列表或编辑器 Dock 自行渲染可见 Control。它不创建 UI 节点，
@@ -17,7 +17,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">revision: 变更后的单调递增布局版本号。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 	</signals>
@@ -150,7 +150,7 @@ scroll_offset 之前时，调用方可把当前滚动偏移加上该值。</desc
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">从 0 开始、只在布局实际变化时递增的版本号。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_item_extent">
@@ -197,7 +197,7 @@ scroll_offset 之前时，调用方可把当前滚动偏移加上该值。</desc
 				<tag name="param">scroll_offset: 当前滚动偏移。</tag>
 				<tag name="param">viewport_extent: 视口尺寸。</tag>
 				<tag name="return">Vector2i(start, end)，end 为不包含的结束索引。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_visible_range">

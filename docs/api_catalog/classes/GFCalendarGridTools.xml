@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFCalendarGridTools" path="addons/gf/standard/utilities/time/gf_calendar_grid_tools.gd" module="standard" extends="RefCounted" classDigest="4e0f254927e9bd70ea9c3a896d8256da0559c272be239a20eade4375e6ff84a9">
+<class name="GFCalendarGridTools" path="addons/gf/standard/utilities/time/gf_calendar_grid_tools.gd" module="standard" extends="RefCounted" classDigest="f1e60f3eab874d4d8185984bca0f0810bdbd4b9e1825c63fb8a94f8b52f27216">
 	<description>GFCalendarGridTools: 从公民日期构建通用月历网格。
 只计算完整周和相邻日期，不创建 UI 节点，不决定语言区域、节假日、选中态或业务标记。</description>
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">runtime_service</tag>
-		<tag name="since">unreleased</tag>
+		<tag name="since">11.0.0</tag>
 	</tags>
 	<signals />
 	<enums />
@@ -21,7 +21,7 @@
 				<tag name="param">week_start: `GFCivilDate.Weekday` 值，默认星期一。</tag>
 				<tag name="param">fixed_rows: 0 表示最小完整周数；否则必须为 4、5 或 6。</tag>
 				<tag name="return">7 列、4 到 6 行的网格，或包含稳定失败状态的结果。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 	</methods>

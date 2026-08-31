@@ -115,7 +115,7 @@ enum SelectionMode {
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 enum InputDisposition {
 	## 事件未被画布识别或当前策略要求继续交给其他接收者。
 	IGNORED,
@@ -1376,7 +1376,7 @@ func get_placement_snapshot() -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param policy: 候选输入策略。
 ## [br]
@@ -1397,7 +1397,7 @@ func set_input_policy(policy: GFSpatialCanvasInputPolicy) -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 当前策略的深拷贝。
 func get_input_policy() -> GFSpatialCanvasInputPolicy:

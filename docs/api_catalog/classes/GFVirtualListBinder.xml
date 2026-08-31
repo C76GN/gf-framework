@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFVirtualListBinder" path="addons/gf/standard/utilities/ui/gf_virtual_list_binder.gd" module="standard" extends="RefCounted" classDigest="c1f0a45a0b8d9d81acb80cb32c937f176a39e946759f99972f0092b8e9c417b6">
+<class name="GFVirtualListBinder" path="addons/gf/standard/utilities/ui/gf_virtual_list_binder.gd" module="standard" extends="RefCounted" classDigest="dd75347e8d50b68ec130067a67d68703fb1eb2407e85811b26ddd45320bc1692">
 	<description>GFVirtualListBinder: owner-bound 虚拟列表 Control 物化与回收协调器。
 连接项目提供的 `ScrollContainer`、绝对布局 content root、`GFVirtualListModel`
 与行回调，只物化真实视口及 overscan 范围。项目继续拥有条目数据、稳定 ID、
@@ -8,7 +8,7 @@
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">runtime_handle</tag>
-		<tag name="since">unreleased</tag>
+		<tag name="since">11.0.0</tag>
 	</tags>
 	<signals>
 		<member kind="signal" name="sync_completed">
@@ -17,7 +17,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">result: 不含项目条目载荷的 typed 同步结果。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 	</signals>
@@ -32,7 +32,7 @@
 			<description>列表滚动和尺寸测量使用的主轴。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="enum" name="ScrollAlignment">
@@ -49,7 +49,7 @@
 			<description>把条目滚入视口时使用的对齐方式。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 	</enums>
@@ -59,7 +59,7 @@
 			<description>默认活动 Control 硬上限。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="DEFAULT_MAX_POOLED_ITEMS">
@@ -67,7 +67,7 @@
 			<description>默认 parentless pool Control 上限。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="ABSOLUTE_MAX_MATERIALIZED_ITEMS">
@@ -75,7 +75,7 @@
 			<description>活动物化 Control 的框架级绝对硬上限。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="ABSOLUTE_MAX_POOLED_ITEMS">
@@ -83,7 +83,7 @@
 			<description>parentless pool 的框架级绝对硬上限。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="ABSOLUTE_MAX_IDENTITY_TOKEN_LENGTH">
@@ -91,7 +91,7 @@
 			<description>稳定 identity token 允许的最大 UTF-8 字节数。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 	</constants>
@@ -102,7 +102,7 @@
 同步 callback 内修改时，当前轮继续使用入口快照，下一轮才采用新值。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="max_materialized_items">
@@ -110,7 +110,7 @@
 			<description>活动物化 Control 硬上限；运行时按至少 1 处理。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="max_pooled_items">
@@ -119,7 +119,7 @@
 同步事务内收紧预算时，会在候选提交或回滚完成后统一裁剪。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="auto_measure">
@@ -127,7 +127,7 @@
 			<description>是否在新绑定或数据失效后自动测量活动行；不影响显式 request_measurement()。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="auto_reveal_focus">
@@ -135,7 +135,7 @@
 			<description>虚拟焦点变化后是否按最近边界自动滚入视口。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="fill_cross_axis">
@@ -144,7 +144,7 @@
 同步 callback 内修改时，当前轮继续使用入口快照，下一轮才采用新值。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 	</properties>
@@ -174,7 +174,7 @@ Container。factory 返回的 Control 必须 parentless；返回后其所有权�
 				<tag name="schema">identity_callback: Callable(int) -&gt; stable Variant key.</tag>
 				<tag name="schema">measure_callback: Optional Callable(Control, int, Variant) -&gt; finite positive float.</tag>
 				<tag name="schema">focus_target_callback: Optional Callable(Control, int, Variant) -&gt; Control descendant.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="request_sync">
@@ -183,7 +183,7 @@ Container。factory 返回的 Control 必须 parentless；返回后其所有权�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">当前处于有效绑定生命周期时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="sync_now">
@@ -192,7 +192,7 @@ Container。factory 返回的 Control 必须 parentless；返回后其所有权�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">typed 同步结果。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="invalidate_items">
@@ -201,7 +201,7 @@ Container。factory 返回的 Control 必须 parentless；返回后其所有权�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">当前已绑定时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="request_measurement">
@@ -210,7 +210,7 @@ Container。factory 返回的 Control 必须 parentless；返回后其所有权�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">当前已绑定时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="scroll_to_item">
@@ -224,7 +224,7 @@ Container。factory 返回的 Control 必须 parentless；返回后其所有权�
 				<tag name="param">item_index: 条目索引。</tag>
 				<tag name="param">alignment: `ScrollAlignment` 值。</tag>
 				<tag name="return">索引和绑定有效、当前不在同步 callback 内，且滚动操作期间 data generation、</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_materialized_control">
@@ -234,7 +234,7 @@ Container。factory 返回的 Control 必须 parentless；返回后其所有权�
 				<tag name="api">public</tag>
 				<tag name="param">item_index: 条目索引。</tag>
 				<tag name="return">未物化时为 null。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_materialized_control_by_id">
@@ -245,7 +245,7 @@ Container。factory 返回的 Control 必须 parentless；返回后其所有权�
 				<tag name="param">item_id: identity callback 使用的稳定 ID。</tag>
 				<tag name="return">ID 无效或未物化时为 null。</tag>
 				<tag name="schema">item_id: Stable Variant key accepted by GFVariantKeyCodec.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_last_sync_result">
@@ -254,7 +254,7 @@ Container。factory 返回的 Control 必须 parentless；返回后其所有权�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">尚未同步时返回当前生命周期终态结果。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_debug_snapshot">
@@ -264,7 +264,7 @@ Container。factory 返回的 Control 必须 parentless；返回后其所有权�
 				<tag name="api">public</tag>
 				<tag name="return">生命周期、范围和计数摘要。</tag>
 				<tag name="schema">return: Dictionary with state, bound, disposed, lifecycle_generation, data_revision, pending_sync, active_count, pooled_count, and last_result.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="is_bound">
@@ -273,7 +273,7 @@ Container。factory 返回的 Control 必须 parentless；返回后其所有权�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">已绑定且未进入 teardown 时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="is_disposed">
@@ -282,7 +282,7 @@ Container。factory 返回的 Control 必须 parentless；返回后其所有权�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">dispose 已完成时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="unbind">
@@ -290,7 +290,7 @@ Container。factory 返回的 Control 必须 parentless；返回后其所有权�
 			<description>解除当前绑定并释放全部 Binder-owned Control；实例仍可重新 bind。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="dispose">
@@ -298,7 +298,7 @@ Container。factory 返回的 Control 必须 parentless；返回后其所有权�
 			<description>进入终态并释放行、pool、连接和 callback。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 	</methods>

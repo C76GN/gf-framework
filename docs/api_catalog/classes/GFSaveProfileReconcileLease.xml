@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFSaveProfileReconcileLease" path="addons/gf/extensions/save/profile/gf_save_profile_reconcile_lease.gd" module="extensions/save" extends="RefCounted" classDigest="38d902cbb53d042a8333bfa914f9f50af9581286bd997cf5b730d0900ba50a36">
+<class name="GFSaveProfileReconcileLease" path="addons/gf/extensions/save/profile/gf_save_profile_reconcile_lease.gd" module="extensions/save" extends="RefCounted" classDigest="8db4da786db62d296681c35acaf03f81538896c45714480c8cfbfa78e735e130">
 	<description>GFSaveProfileReconcileLease: outcome_unknown 的持续所有权与对账围栏。
 Lease 保留同一对象身份，直到所有相关底层请求 late-settle 并由显式 reconcile
 操作解除 domain 围栏。结果副本不会复制 Lease；因此调用方连接 `settled`、
@@ -7,7 +7,7 @@ Lease 保留同一对象身份，直到所有相关底层请求 late-settle 并�
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">runtime_handle</tag>
-		<tag name="since">unreleased</tag>
+		<tag name="since">11.0.0</tag>
 	</tags>
 	<signals>
 		<member kind="signal" name="settled">
@@ -18,7 +18,7 @@ Lease 保留同一对象身份，直到所有相关底层请求 late-settle 并�
 				<tag name="api">public</tag>
 				<tag name="param">lease: 当前同一身份 Lease。</tag>
 				<tag name="param">state: `STATE_READY` 或 `STATE_DISPOSED_UNRESOLVED`。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 	</signals>
@@ -29,7 +29,7 @@ Lease 保留同一对象身份，直到所有相关底层请求 late-settle 并�
 			<description>仍在等待至少一个底层请求 late-settle。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="STATE_READY">
@@ -37,7 +37,7 @@ Lease 保留同一对象身份，直到所有相关底层请求 late-settle 并�
 			<description>已取得有界 settlement evidence，可以开始显式对账。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="STATE_RECONCILING">
@@ -45,7 +45,7 @@ Lease 保留同一对象身份，直到所有相关底层请求 late-settle 并�
 			<description>一个 reconcile 操作已经接管 Lease。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="STATE_RESOLVED">
@@ -53,7 +53,7 @@ Lease 保留同一对象身份，直到所有相关底层请求 late-settle 并�
 			<description>对账已经完成，Provider domain 围栏可以释放。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="STATE_DISPOSED_UNRESOLVED">
@@ -61,7 +61,7 @@ Lease 保留同一对象身份，直到所有相关底层请求 late-settle 并�
 			<description>Utility 已释放，但不确定副作用尚未完成对账。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 	</constants>
@@ -73,7 +73,7 @@ Lease 保留同一对象身份，直到所有相关底层请求 late-settle 并�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">正整数 Lease ID；未配置时为 0。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_transaction_id">
@@ -82,7 +82,7 @@ Lease 保留同一对象身份，直到所有相关底层请求 late-settle 并�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">正整数事务 ID；未配置时为 0。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_operation">
@@ -91,7 +91,7 @@ Lease 保留同一对象身份，直到所有相关底层请求 late-settle 并�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">`GFSaveProfileTransactionOperation.OPERATION_*` 常量之一。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_reconcile_profile_id">
@@ -100,7 +100,7 @@ Lease 保留同一对象身份，直到所有相关底层请求 late-settle 并�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">非空 Profile ID。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_source_profile_id">
@@ -109,7 +109,7 @@ Lease 保留同一对象身份，直到所有相关底层请求 late-settle 并�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">来源 Profile ID；不适用时为空。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_target_profile_id">
@@ -118,7 +118,7 @@ Lease 保留同一对象身份，直到所有相关底层请求 late-settle 并�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">目标 Profile ID；不适用时为空。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_domain_id">
@@ -127,7 +127,7 @@ Lease 保留同一对象身份，直到所有相关底层请求 late-settle 并�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">Utility 生命周期内唯一的正整数 domain ID。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_domain_generation">
@@ -136,7 +136,7 @@ Lease 保留同一对象身份，直到所有相关底层请求 late-settle 并�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">正整数 domain generation。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_epoch">
@@ -145,7 +145,7 @@ Lease 保留同一对象身份，直到所有相关底层请求 late-settle 并�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">正整数 lifecycle epoch。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_storage_request_ids">
@@ -154,7 +154,7 @@ Lease 保留同一对象身份，直到所有相关底层请求 late-settle 并�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">按发起顺序排列的正整数请求 ID。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_state">
@@ -163,7 +163,7 @@ Lease 保留同一对象身份，直到所有相关底层请求 late-settle 并�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">`STATE_*` 常量之一。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="is_waiting">
@@ -172,7 +172,7 @@ Lease 保留同一对象身份，直到所有相关底层请求 late-settle 并�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">waiting 时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="is_ready">
@@ -181,7 +181,7 @@ Lease 保留同一对象身份，直到所有相关底层请求 late-settle 并�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">ready 时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="is_terminal">
@@ -190,7 +190,7 @@ Lease 保留同一对象身份，直到所有相关底层请求 late-settle 并�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">resolved 或 disposed_unresolved 时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_settlement_evidence">
@@ -200,7 +200,7 @@ Lease 保留同一对象身份，直到所有相关底层请求 late-settle 并�
 				<tag name="api">public</tag>
 				<tag name="return">有界 evidence 副本。</tag>
 				<tag name="schema">return: Payload-free bounded Dictionary containing scalar, packed-array, Array, and Dictionary evidence only.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_resolution_evidence">
@@ -210,7 +210,7 @@ Lease 保留同一对象身份，直到所有相关底层请求 late-settle 并�
 				<tag name="api">public</tag>
 				<tag name="return">resolved 前为空；resolved 后返回有界 evidence 副本。</tag>
 				<tag name="schema">return: Payload-free bounded Dictionary containing scalar, packed-array, Array, and Dictionary evidence only.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 	</methods>

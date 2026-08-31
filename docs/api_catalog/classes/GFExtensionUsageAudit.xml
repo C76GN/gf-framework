@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFExtensionUsageAudit" path="addons/gf/kernel/extension/gf_extension_usage_audit.gd" module="kernel" extends="RefCounted" classDigest="1bec8f2612ce91a530191ace5de7dc190626d162c9c89dcbc6b4eafa79762615">
+<class name="GFExtensionUsageAudit" path="addons/gf/kernel/extension/gf_extension_usage_audit.gd" module="kernel" extends="RefCounted" classDigest="c12114a29d2105c232fd403260237696b4729b9c297f5a07d3bf24718981fb2c">
 	<description>GFExtensionUsageAudit: 检查禁用扩展是否仍被项目文件直接引用。</description>
 	<tags>
 		<tag name="api">public</tag>
@@ -187,7 +187,7 @@
 				<tag name="return">引用与扫描完整性报告。</tag>
 				<tag name="schema">options: Dictionary controlling scan roots, ignored roots, strong and weak reference limits, shared depth, candidate file count, file byte and total byte budgets, weak text reporting, and Godot dependency graph usage.</tag>
 				<tag name="schema">return: Dictionary containing ok, partial_scan, budget_exceeded, truncated, references, weak_references, candidate_file_count, scanned_file_count, scanned_bytes, skipped_files, scan_warnings, issue_count, issues, and class_name_scan.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 	</methods>

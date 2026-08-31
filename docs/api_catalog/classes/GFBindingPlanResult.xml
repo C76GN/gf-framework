@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFBindingPlanResult" path="addons/gf/kernel/core/gf_binding_plan_result.gd" module="kernel" extends="RefCounted" classDigest="8246a9c2e6bff5e31d7cd67a716ce54c423e37b366a521ca603a252694ee1170">
+<class name="GFBindingPlanResult" path="addons/gf/kernel/core/gf_binding_plan_result.gd" module="kernel" extends="RefCounted" classDigest="6c998ef3f0b7230574f3ce6f2256c8083c0eeacd7039efa74119b15f19a893c9">
 	<description>GFBindingPlanResult: required binding plan 的不可变终态结果。
 结果精确标识首个失败 entry、绑定类别、阶段与稳定原因；不保留 Builder、
 Architecture、Scope、实例或 Callable 引用，可安全用于诊断与持久化日志。</description>
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">value_object</tag>
-		<tag name="since">unreleased</tag>
+		<tag name="since">11.0.0</tag>
 	</tags>
 	<signals />
 	<enums>
@@ -24,7 +24,7 @@ Architecture、Scope、实例或 Callable 引用，可安全用于诊断与持�
 			<description>Plan 终态。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="enum" name="BindingKind">
@@ -43,7 +43,7 @@ Architecture、Scope、实例或 Callable 引用，可安全用于诊断与持�
 			<description>绑定类别。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="enum" name="Phase">
@@ -64,7 +64,7 @@ Architecture、Scope、实例或 Callable 引用，可安全用于诊断与持�
 			<description>首个失败阶段。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="enum" name="Reason">
@@ -99,7 +99,7 @@ Architecture、Scope、实例或 Callable 引用，可安全用于诊断与持�
 			<description>稳定失败原因。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 	</enums>
@@ -112,7 +112,7 @@ Architecture、Scope、实例或 Callable 引用，可安全用于诊断与持�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">全部 required entry 成功时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_status">
@@ -121,7 +121,7 @@ Architecture、Scope、实例或 Callable 引用，可安全用于诊断与持�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">Status 枚举值。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_binding_kind">
@@ -130,7 +130,7 @@ Architecture、Scope、实例或 Callable 引用，可安全用于诊断与持�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">BindingKind 枚举值；成功或无具体 entry 时为 NONE。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_failed_phase">
@@ -139,7 +139,7 @@ Architecture、Scope、实例或 Callable 引用，可安全用于诊断与持�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">Phase 枚举值；成功时为 NONE。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_reason">
@@ -148,7 +148,7 @@ Architecture、Scope、实例或 Callable 引用，可安全用于诊断与持�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">Reason 枚举值；成功时为 NONE。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_entry_index">
@@ -157,7 +157,7 @@ Architecture、Scope、实例或 Callable 引用，可安全用于诊断与持�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">首个失败 entry 索引；成功或无具体 entry 时为 -1。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_binding_id">
@@ -166,7 +166,7 @@ Architecture、Scope、实例或 Callable 引用，可安全用于诊断与持�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">binding_id；成功或无具体 entry 时为空。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_target_path">
@@ -175,7 +175,7 @@ Architecture、Scope、实例或 Callable 引用，可安全用于诊断与持�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">目标脚本路径；没有可识别目标时为空。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_lifetime">
@@ -184,7 +184,7 @@ Architecture、Scope、实例或 Callable 引用，可安全用于诊断与持�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">GFBindingLifetimes.Lifetime 枚举值；无具体 entry 时为 -1。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_executed_count">
@@ -195,7 +195,7 @@ Plan、Scope 或 Architecture preflight 失败不计，未尝试的后续 entry 
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">非负 entry 尝试数量。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_detail">
@@ -204,7 +204,7 @@ Plan、Scope 或 Architecture preflight 失败不计，未尝试的后续 entry 
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">最多 512 个字符的诊断文本。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="duplicate_result">
@@ -213,7 +213,7 @@ Plan、Scope 或 Architecture preflight 失败不计，未尝试的后续 entry 
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">字段相同的新 GFBindingPlanResult。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="to_dict">
@@ -223,7 +223,7 @@ Plan、Scope 或 Architecture preflight 失败不计，未尝试的后续 entry 
 				<tag name="api">public</tag>
 				<tag name="return">Plan 终态的纯数据投影。</tag>
 				<tag name="schema">return: Dictionary，精确包含 status: int、is_successful: bool、binding_kind: int、failed_phase: int、reason: int、entry_index: int、binding_id: String、target_path: String、lifetime: int、executed_count: int 和 detail: String。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 	</methods>

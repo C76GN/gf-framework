@@ -7,7 +7,7 @@
 ## [br]
 ## @category value_object
 ## [br]
-## @since unreleased
+## @since 11.0.0
 class_name GFStorageFamilyResetResult
 extends RefCounted
 
@@ -18,7 +18,7 @@ extends RefCounted
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 enum FailureKind {
 	## reset/recreate 成功。
 	NONE,
@@ -44,7 +44,7 @@ enum FailureKind {
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 enum SourceKind {
 	## 尚未完成目标分类。
 	UNKNOWN,
@@ -60,7 +60,7 @@ enum SourceKind {
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 enum Phase {
 	## 没有失败阶段。
 	NONE,
@@ -78,7 +78,7 @@ enum Phase {
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 enum FamilyMember {
 	## 没有失败成员。
 	NONE,
@@ -123,7 +123,7 @@ var _failed_member: FamilyMember = FamilyMember.NONE
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 已配置为无剩余 evidence 的成功终态时返回 true。
 func is_successful() -> bool:
@@ -134,7 +134,7 @@ func is_successful() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 成功时为 OK；未配置实例返回 FAILED。
 func get_error_code() -> Error:
@@ -145,7 +145,7 @@ func get_error_code() -> Error:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return FailureKind 枚举值。
 func get_failure_kind() -> FailureKind:
@@ -156,7 +156,7 @@ func get_failure_kind() -> FailureKind:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return SourceKind 枚举值。
 func get_source_kind() -> SourceKind:
@@ -167,7 +167,7 @@ func get_source_kind() -> SourceKind:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 成功时为 Phase.NONE。
 func get_failed_phase() -> Phase:
@@ -178,7 +178,7 @@ func get_failed_phase() -> Phase:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 0 到 2，分别对应 family container 与 catalog claim。
 func get_retired_member_count() -> int:
@@ -189,7 +189,7 @@ func get_retired_member_count() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 0 到 3，分别计 family container、owner 与 catalog。
 func get_recreated_member_count() -> int:
@@ -200,7 +200,7 @@ func get_recreated_member_count() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## 有效的 recreated exact claim 不计入该值。
 ## [br]
@@ -213,7 +213,7 @@ func get_remaining_evidence_count() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 没有失败成员时为 FamilyMember.NONE。
 func get_failed_member() -> FamilyMember:
@@ -224,7 +224,7 @@ func get_failed_member() -> FamilyMember:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 新结果对象；未配置实例返回新的未配置对象。
 func duplicate_result() -> GFStorageFamilyResetResult:
@@ -247,7 +247,7 @@ func duplicate_result() -> GFStorageFamilyResetResult:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return reset/recreate 终态、分类、阶段与有界 evidence 计数。
 ## [br]
@@ -274,7 +274,7 @@ func to_dict() -> Dictionary:
 ## [br]
 ## @layer standard/utilities/storage
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param error_code: 物理终态 Error。
 ## [br]
@@ -332,7 +332,7 @@ func configure_for_framework(
 ## [br]
 ## @layer standard/utilities/storage
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 已配置时返回 true。
 func is_configured_for_framework() -> bool:

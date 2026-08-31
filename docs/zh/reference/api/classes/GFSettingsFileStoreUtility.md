@@ -7,7 +7,7 @@
 - 继承：`GFSettingsStoreUtility`
 - API：`public`
 - 类别：运行时服务 (`runtime_service`)
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 基于 `user://` 的设置文件 Store。 该实现保留 GFSettingsUtility 历史 fallback 的同步 JSON 语义，只接受不含路径、 `..`、盘符或前后空白的简单 basename，并返回严格 GFStorageReadResult。
 
@@ -26,7 +26,7 @@
 ### `is_persistence_enabled`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func is_persistence_enabled() -> bool:
@@ -41,7 +41,7 @@ func is_persistence_enabled() -> bool:
 ### `read_settings`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func read_settings(file_name: String) -> GFStorageReadResult:
@@ -62,7 +62,7 @@ func read_settings(file_name: String) -> GFStorageReadResult:
 ### `write_settings`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func write_settings(file_name: String, data: Dictionary) -> Error:

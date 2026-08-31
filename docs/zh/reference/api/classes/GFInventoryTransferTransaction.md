@@ -7,7 +7,7 @@
 - 继承：`RefCounted`
 - API：`public`
 - 类别：运行时句柄 (`runtime_handle`)
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 两个槽位库存之间的一次性原子转移句柄。 `prepare()` 只构建有界隔离候选；`commit()` 会重新取得稳定顺序锁、校验 model identity 与 revision，并重新规划后才执行无回调的内存替换。跨模型成功 时先同时写入两边状态，再依次派发来源、目标和事务终态通知。
 
@@ -30,7 +30,7 @@
 ### `completed`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 signal completed(result: GFInventoryTransferResult)
@@ -51,7 +51,7 @@ signal completed(result: GFInventoryTransferResult)
 ### `prepare`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 static func prepare( source: GFSlotInventoryModel, target: GFSlotInventoryModel, source_slot: int, target_slot: int = -1, amount: int = 0, allow_partial: bool = false ) -> GFInventoryTransferTransaction:
@@ -77,7 +77,7 @@ static func prepare( source: GFSlotInventoryModel, target: GFSlotInventoryModel,
 ### `is_prepared`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func is_prepared() -> bool:
@@ -92,7 +92,7 @@ func is_prepared() -> bool:
 ### `is_completed`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func is_completed() -> bool:
@@ -107,7 +107,7 @@ func is_completed() -> bool:
 ### `get_prepare_result`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_prepare_result() -> GFInventoryTransferResult:
@@ -122,7 +122,7 @@ func get_prepare_result() -> GFInventoryTransferResult:
 ### `get_result`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_result() -> GFInventoryTransferResult:
@@ -137,7 +137,7 @@ func get_result() -> GFInventoryTransferResult:
 ### `commit`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func commit() -> GFInventoryTransferResult:

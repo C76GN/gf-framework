@@ -211,7 +211,7 @@ func get_metadata_file_name(slot_index: int) -> String:
 ### `build_slot_file_plan`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func build_slot_file_plan(slot_index: int) -> Dictionary:

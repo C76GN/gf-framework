@@ -7,7 +7,7 @@
 - 继承：`RefCounted`
 - API：`public`
 - 类别：值对象 (`value_object`)
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 架构关闭流程的不可变终态快照。 结果显式区分正常完成、失败、取消、超时、强制释放和重复释放，并以有界、 JSON-safe 的模块条目保留关闭证据。所有集合在写入和读取边界都会重新复制， 调用方不能借由返回值修改已提交终态。
 
@@ -45,7 +45,7 @@
 ### `Status`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 enum Status {
@@ -73,7 +73,7 @@ enum Status {
 ### `create`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 static func create( status: Status, started_at_msec: int, completed_at_msec: int, module_results: Array[Dictionary] = [], unfinished_modules: Array[Dictionary] = [], duplicate_request_count: int = 0, error_code: Error = OK, error: String = "", cancel_reason: String = "" ) -> GFArchitectureShutdownResult:
@@ -107,7 +107,7 @@ static func create( status: Status, started_at_msec: int, completed_at_msec: int
 ### `succeeded`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 static func succeeded( module_results: Array[Dictionary] = [], started_at_msec: int = 0, completed_at_msec: int = 0, duplicate_request_count: int = 0 ) -> GFArchitectureShutdownResult:
@@ -135,7 +135,7 @@ static func succeeded( module_results: Array[Dictionary] = [], started_at_msec: 
 ### `failed`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 static func failed( error_code: Error, error: String, module_results: Array[Dictionary] = [], unfinished_modules: Array[Dictionary] = [], started_at_msec: int = 0, completed_at_msec: int = 0, duplicate_request_count: int = 0 ) -> GFArchitectureShutdownResult:
@@ -167,7 +167,7 @@ static func failed( error_code: Error, error: String, module_results: Array[Dict
 ### `cancelled`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 static func cancelled( reason: String = "cancelled", module_results: Array[Dictionary] = [], unfinished_modules: Array[Dictionary] = [], started_at_msec: int = 0, completed_at_msec: int = 0, duplicate_request_count: int = 0 ) -> GFArchitectureShutdownResult:
@@ -198,7 +198,7 @@ static func cancelled( reason: String = "cancelled", module_results: Array[Dicti
 ### `timed_out`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 static func timed_out( error: String, module_results: Array[Dictionary] = [], unfinished_modules: Array[Dictionary] = [], started_at_msec: int = 0, completed_at_msec: int = 0, duplicate_request_count: int = 0 ) -> GFArchitectureShutdownResult:
@@ -229,7 +229,7 @@ static func timed_out( error: String, module_results: Array[Dictionary] = [], un
 ### `forced`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 static func forced( error: String, module_results: Array[Dictionary] = [], unfinished_modules: Array[Dictionary] = [], started_at_msec: int = 0, completed_at_msec: int = 0, duplicate_request_count: int = 0 ) -> GFArchitectureShutdownResult:
@@ -260,7 +260,7 @@ static func forced( error: String, module_results: Array[Dictionary] = [], unfin
 ### `already_disposed`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 static func already_disposed( started_at_msec: int = 0, completed_at_msec: int = 0, duplicate_request_count: int = 0 ) -> GFArchitectureShutdownResult:
@@ -283,7 +283,7 @@ static func already_disposed( started_at_msec: int = 0, completed_at_msec: int =
 ### `is_successful`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func is_successful() -> bool:
@@ -298,7 +298,7 @@ func is_successful() -> bool:
 ### `get_status`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_status() -> Status:
@@ -313,7 +313,7 @@ func get_status() -> Status:
 ### `get_status_name`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_status_name() -> StringName:
@@ -328,7 +328,7 @@ func get_status_name() -> StringName:
 ### `get_started_at_msec`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_started_at_msec() -> int:
@@ -343,7 +343,7 @@ func get_started_at_msec() -> int:
 ### `get_completed_at_msec`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_completed_at_msec() -> int:
@@ -358,7 +358,7 @@ func get_completed_at_msec() -> int:
 ### `get_duration_msec`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_duration_msec() -> int:
@@ -373,7 +373,7 @@ func get_duration_msec() -> int:
 ### `get_module_results`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_module_results() -> Array[Dictionary]:
@@ -392,7 +392,7 @@ func get_module_results() -> Array[Dictionary]:
 ### `get_unfinished_modules`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_unfinished_modules() -> Array[Dictionary]:
@@ -411,7 +411,7 @@ func get_unfinished_modules() -> Array[Dictionary]:
 ### `get_duplicate_request_count`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_duplicate_request_count() -> int:
@@ -426,7 +426,7 @@ func get_duplicate_request_count() -> int:
 ### `get_error_code`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_error_code() -> Error:
@@ -441,7 +441,7 @@ func get_error_code() -> Error:
 ### `get_error`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_error() -> String:
@@ -456,7 +456,7 @@ func get_error() -> String:
 ### `get_cancel_reason`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_cancel_reason() -> String:
@@ -471,7 +471,7 @@ func get_cancel_reason() -> String:
 ### `duplicate_result`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func duplicate_result() -> GFArchitectureShutdownResult:
@@ -486,7 +486,7 @@ func duplicate_result() -> GFArchitectureShutdownResult:
 ### `to_dict`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func to_dict() -> Dictionary:

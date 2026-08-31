@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFStorageAsyncRequestOptions" path="addons/gf/standard/utilities/storage/gf_storage_async_request_options.gd" module="standard" extends="RefCounted" classDigest="a939daa2c89180687d235e3a33461996970351f2595e6334bad1bae63e6eb812">
+<class name="GFStorageAsyncRequestOptions" path="addons/gf/standard/utilities/storage/gf_storage_async_request_options.gd" module="standard" extends="RefCounted" classDigest="2640112f366d30f93b20dcf05ab301874b4e56cd994ca0b455c1f5ea92834663">
 	<description>GFStorageAsyncRequestOptions: 异步 Storage caller 观察生命周期的不可变选项。
 选项只弱持有 owner，并可绑定只读取消令牌与单调 timeout。必须通过 `create()`
 构造；直接 `new()` 或非法参数会得到 `is_valid() == false` 的对象，避免把错误选项
@@ -7,7 +7,7 @@
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">value_object</tag>
-		<tag name="since">unreleased</tag>
+		<tag name="since">11.0.0</tag>
 	</tags>
 	<signals />
 	<enums />
@@ -26,7 +26,7 @@ owner 不会被强持有；需要在 Node 离树时结束观察的调用方，�
 				<tag name="param">cancel_token: 可选只读取消令牌；已取消令牌会在 worker 接纳前参与仲裁。</tag>
 				<tag name="param">timeout_msec: 非负单调超时毫秒数；`0` 表示不设截止时间。</tag>
 				<tag name="return">始终返回对象；参数非法时对象的 `is_valid()` 为 false。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="is_valid">
@@ -35,7 +35,7 @@ owner 不会被强持有；需要在 Node 离树时结束观察的调用方，�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">仅 `create()` 接受全部参数时返回 true；owner 后续释放不会改写该配置事实。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 	</methods>

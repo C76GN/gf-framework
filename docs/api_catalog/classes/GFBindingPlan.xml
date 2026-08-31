@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFBindingPlan" path="addons/gf/kernel/core/gf_binding_plan.gd" module="kernel" extends="RefCounted" classDigest="e00c920b3547cdba57cad6b81028a3e2896d8008a431a325b53297b1f6acc08e">
+<class name="GFBindingPlan" path="addons/gf/kernel/core/gf_binding_plan.gd" module="kernel" extends="RefCounted" classDigest="8d5646197559597803394bc697da866b886485eaf6fcd5841f8d647e33eb2a38">
 	<description>GFBindingPlan: Installer 使用的显式、顺序、fail-fast required binding 计划。
 声明时冻结每个 Builder 的配置；execute() 仅接纳尚未进入 init/READY 的候选
 Architecture。首个失败会冻结类型化结果、使候选初始化失败并结算 Installer
@@ -8,7 +8,7 @@ scope；成功不会替调用方 complete scope。READY 架构继续使用既有
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">protocol</tag>
-		<tag name="since">unreleased</tag>
+		<tag name="since">11.0.0</tag>
 	</tags>
 	<signals />
 	<enums />
@@ -24,7 +24,7 @@ Plan 开始执行后调用保持 no-op；不会修改已经冻结的 entry。</d
 				<tag name="param">binding_id: 调用方定义的非空稳定 ID；同一 Plan 内必须唯一，最长 128 字符。</tag>
 				<tag name="param">builder: 由创建本 Plan 的同一 GFBinder 架构生成的 Builder。</tag>
 				<tag name="return">当前 Plan，便于继续声明 entry。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="require_transient">
@@ -37,7 +37,7 @@ Plan 开始执行后调用保持 no-op；不会修改已经冻结的 entry。</d
 				<tag name="param">binding_id: 调用方定义的非空稳定 ID；同一 Plan 内必须唯一，最长 128 字符。</tag>
 				<tag name="param">builder: 由创建本 Plan 的同一 GFBinder 架构生成的 Builder。</tag>
 				<tag name="return">当前 Plan，便于继续声明 entry。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="execute">
@@ -50,7 +50,7 @@ ALREADY_EXECUTED，且不会触碰重入调用的新 scope 或 Architecture。</
 				<tag name="api">public</tag>
 				<tag name="param">scope: 当前 Installer 拥有的异步取消作用域；成功时仍由调用方拥有。</tag>
 				<tag name="return">精确 GFBindingPlanResult 终态。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 	</methods>

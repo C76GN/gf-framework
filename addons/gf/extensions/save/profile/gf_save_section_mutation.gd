@@ -8,7 +8,7 @@
 ## [br]
 ## @category runtime_handle
 ## [br]
-## @since unreleased
+## @since 11.0.0
 class_name GFSaveSectionMutation
 extends RefCounted
 
@@ -19,21 +19,21 @@ extends RefCounted
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const STATE_AVAILABLE: StringName = &"available"
 
 ## Mutation 已被框架接管，候选载荷不再可用。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const STATE_CLAIMED: StringName = &"claimed"
 
 ## Mutation 已被框架丢弃，候选载荷不再可用。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const STATE_DISCARDED: StringName = &"discarded"
 
 const _PERSISTED_VALUE_VALIDATOR_SCRIPT = preload(
@@ -60,7 +60,7 @@ var _state: StringName = STATE_DISCARDED
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param section_id: 稳定 section ID。
 ## [br]
@@ -107,7 +107,7 @@ static func take_ownership(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return section ID。
 func get_section_id() -> StringName:
@@ -118,7 +118,7 @@ func get_section_id() -> StringName:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 正整数 schema 版本；无效句柄为 0。
 func get_schema_version() -> int:
@@ -129,7 +129,7 @@ func get_schema_version() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return `STATE_*` 常量之一。
 func get_state() -> StringName:
@@ -140,7 +140,7 @@ func get_state() -> StringName:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 尚未 claim 或 discard 时返回 true。
 func is_available() -> bool:
@@ -153,7 +153,7 @@ func is_available() -> bool:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 包含 section_id、schema_version、state 和 available 的快照。
 ## [br]
@@ -171,7 +171,7 @@ func inspect_for_framework() -> Dictionary:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 规范候选记录；不可用时返回空字典。
 ## [br]
@@ -195,7 +195,7 @@ func claim_for_framework() -> Dictionary:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 本次确实丢弃可用 Mutation 时返回 true。
 func discard_for_framework() -> bool:

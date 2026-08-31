@@ -18,7 +18,7 @@ extends RefCounted
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 enum PulseReplacementPolicy {
 	## 原子交接同一动作贡献，不产生中间释放。
 	REPLACE,
@@ -133,7 +133,7 @@ func configure(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param timer_utility: 可注入的定时器工具；null 会禁用后续 pulse_action()。
 ## [br]
@@ -149,7 +149,7 @@ func set_timer_utility(timer_utility: GFTimerUtility) -> GFVirtualInputSource:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return: 当前注入且仍存活的 GFTimerUtility。
 func get_timer_utility() -> GFTimerUtility:
@@ -163,7 +163,7 @@ func get_timer_utility() -> GFTimerUtility:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param action_id: 已注册的抽象动作标识。
 ## [br]
@@ -458,7 +458,7 @@ func clear_all() -> void:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 func dispose() -> void:
 	if _disposed:
 		return
@@ -500,7 +500,7 @@ func get_snapshot() -> Dictionary:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @layer standard/input
 ## [br]

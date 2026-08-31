@@ -148,7 +148,7 @@ const STATUS_INVALID_PRELOAD_POLICY: StringName = &"invalid_preload_policy"
 ### `STATUS_INVALID_LIFECYCLE`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const STATUS_INVALID_LIFECYCLE: StringName = &"invalid_lifecycle"

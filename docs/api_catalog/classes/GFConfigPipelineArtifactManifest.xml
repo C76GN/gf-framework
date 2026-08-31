@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFConfigPipelineArtifactManifest" path="addons/gf/tools/config_pipeline/gf_config_pipeline_artifact_manifest.gd" module="tools" extends="RefCounted" classDigest="912c054ca1dca108bba3210be4494819928f3a4450711990e07ac30abad7a9d1">
+<class name="GFConfigPipelineArtifactManifest" path="addons/gf/tools/config_pipeline/gf_config_pipeline_artifact_manifest.gd" module="tools" extends="RefCounted" classDigest="d77f5367b4aa98294c62a9754d85b65e5fcd48cd26b48a04c12e2e8e6a5f40af">
 	<description>GFConfigPipelineArtifactManifest: 配置导表产物 manifest 辅助。
 为 GFConfigPipelineProfile 生成输入摘要、输出摘要和 freshness 报告，支持 CI、
 编辑器按钮或命令行在导表前判断是否可以跳过未变化的产物。
@@ -111,7 +111,7 @@
 				<tag name="schema">run_result: Dictionary，必须包含与 profile.sources 一一对应的 table_results；每项包含 source_receipt。</tag>
 				<tag name="schema">options: Dictionary，可包含 max_freshness_file_bytes、max_freshness_total_bytes 和 max_freshness_entries。</tag>
 				<tag name="schema">return: Dictionary，包含 success、stable、error_code、error、receipt_entries、current_entries 和 scan_report。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 	</methods>

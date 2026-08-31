@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFConfigAccessGenerator" path="addons/gf/tools/config_pipeline/gf_config_access_generator.gd" module="tools" extends="RefCounted" classDigest="cc225468d071b48efca6c4b7092f4f9aa6fe76ac3904a78fa4c9ce13b5c12f0c">
+<class name="GFConfigAccessGenerator" path="addons/gf/tools/config_pipeline/gf_config_access_generator.gd" module="tools" extends="RefCounted" classDigest="a19c014acd4e8728c810ea512a0deacfc086c4f8c7e7595f8833bd2947cf2216">
 	<description>GFConfigAccessGenerator: 生成静态导表访问器脚本。
 默认生成结果只封装 provider 的 `get_record()` / `get_table()` 调用，
 也可按 schema 字段声明生成可选记录包装类；生成器本身不规定项目表结构语义。</description>
@@ -85,7 +85,7 @@
 				<tag name="schema">schemas: Array of Dictionary or Object schemas with table_name/table_key and optional metadata.</tag>
 				<tag name="schema">options: Dictionary controlling method_name_style, constant_prefix, record_method_pattern, table_method_pattern, include_schema_comments, include_typed_records, typed_record_method_pattern, and typed_record_class_suffix.</tag>
 				<tag name="schema">return: Dictionary，包含 success、source、input_schema_count、emitted_schema_count、skipped_schema_count、issues 和 error。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="build_source">

@@ -7,7 +7,7 @@
 - 继承：`RefCounted`
 - API：`public`
 - 类别：值对象 (`value_object`)
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 单个 Storage consumer 的不可变 caller 终态。 caller 终态与 `GFStorageAsyncOperation.completed` 表示的物理终态彼此独立。已接纳 save/delete/reset 在 caller 提前离开时返回 `OUTCOME_UNKNOWN`，不会把“停止观察”伪装成 磁盘工作已取消；晚到物理结果仍由原 Operation 恰好结算一次。
 
@@ -39,7 +39,7 @@
 ### `Status`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 enum Status {
@@ -59,7 +59,7 @@ caller 观察的闭合终态分类。
 ### `EndKind`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 enum EndKind {
@@ -87,7 +87,7 @@ caller 终态的稳定来源分类。
 ### `get_consumer_id`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_consumer_id() -> int:
@@ -102,7 +102,7 @@ func get_consumer_id() -> int:
 ### `get_request_id`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_request_id() -> int:
@@ -117,7 +117,7 @@ func get_request_id() -> int:
 ### `get_operation`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_operation() -> StringName:
@@ -132,7 +132,7 @@ func get_operation() -> StringName:
 ### `get_file_name`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_file_name() -> String:
@@ -147,7 +147,7 @@ func get_file_name() -> String:
 ### `get_status`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_status() -> Status:
@@ -162,7 +162,7 @@ func get_status() -> Status:
 ### `get_end_kind`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_end_kind() -> EndKind:
@@ -177,7 +177,7 @@ func get_end_kind() -> EndKind:
 ### `get_reason`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_reason() -> StringName:
@@ -192,7 +192,7 @@ func get_reason() -> StringName:
 ### `get_completed_at_msec`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_completed_at_msec() -> int:
@@ -207,7 +207,7 @@ func get_completed_at_msec() -> int:
 ### `get_error_code`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_error_code() -> Error:
@@ -222,7 +222,7 @@ func get_error_code() -> Error:
 ### `is_successful`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func is_successful() -> bool:
@@ -237,7 +237,7 @@ func is_successful() -> bool:
 ### `is_outcome_unknown`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func is_outcome_unknown() -> bool:
@@ -252,7 +252,7 @@ func is_outcome_unknown() -> bool:
 ### `get_physical_result`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_physical_result() -> GFStorageAsyncResult:
@@ -267,7 +267,7 @@ func get_physical_result() -> GFStorageAsyncResult:
 ### `duplicate_result`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func duplicate_result() -> GFStorageAsyncCallerResult:
@@ -282,7 +282,7 @@ func duplicate_result() -> GFStorageAsyncCallerResult:
 ### `to_dict`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func to_dict() -> Dictionary:

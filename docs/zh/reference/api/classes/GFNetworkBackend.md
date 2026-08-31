@@ -128,7 +128,7 @@ signal message_received(peer_id: int, bytes: PackedByteArray)
 ### `MAX_TRANSPORT_METRICS_ENRICHMENT_MSEC`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const MAX_TRANSPORT_METRICS_ENRICHMENT_MSEC: int = 10

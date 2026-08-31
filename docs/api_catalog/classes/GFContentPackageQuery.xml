@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFContentPackageQuery" path="addons/gf/extensions/content_package/resources/gf_content_package_query.gd" module="extensions/content_package" extends="Resource" classDigest="be803b9e7a17f81deef3780d0edf796820af707eeacd7f497ee28badf5f36948">
+<class name="GFContentPackageQuery" path="addons/gf/extensions/content_package/resources/gf_content_package_query.gd" module="extensions/content_package" extends="Resource" classDigest="111ea6108e8fbc3ed9417020021d3bc7b17275d93538d2cc3a9924638f713c3b">
 	<description>GFContentPackageQuery: 内容包目录的确定性通用查询条件。
 查询只描述 package、content type、依赖、资源键、安全分类和 metadata 约束，
 不解释项目业务语义。所有非空条件采用 AND 语义，列表条件要求 manifest 包含全部值。</description>
@@ -143,7 +143,7 @@
 				<tag name="return">查询报告字典。</tag>
 				<tag name="schema">options: Dictionary with GFReportValueCodec encoding options.</tag>
 				<tag name="schema">return: JSON-safe Dictionary based on the normalized query state.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="duplicate_query">

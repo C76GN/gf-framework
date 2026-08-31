@@ -7,7 +7,7 @@
 ## [br]
 ## @category value_object
 ## [br]
-## @since unreleased
+## @since 11.0.0
 class_name GFStorageDeleteResult
 extends RefCounted
 
@@ -18,7 +18,7 @@ extends RefCounted
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 enum FailureKind {
 	## 删除成功。
 	NONE,
@@ -40,7 +40,7 @@ enum FailureKind {
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 enum FamilyMember {
 	## 没有失败成员。
 	NONE,
@@ -76,7 +76,7 @@ var _failed_member: FamilyMember = FamilyMember.NONE
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 已配置为完整成功终态时返回 true。
 func is_successful() -> bool:
@@ -87,7 +87,7 @@ func is_successful() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 成功时为 OK；未配置实例返回 FAILED。
 func get_error_code() -> Error:
@@ -98,7 +98,7 @@ func get_error_code() -> Error:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return `FailureKind` 枚举值。
 func get_failure_kind() -> FailureKind:
@@ -109,7 +109,7 @@ func get_failure_kind() -> FailureKind:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 0 到 8 的成员数量。
 func get_existing_member_count() -> int:
@@ -120,7 +120,7 @@ func get_existing_member_count() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 0 到 8 的成员数量。
 func get_removed_member_count() -> int:
@@ -131,7 +131,7 @@ func get_removed_member_count() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 0 到 8 的成员数量。
 func get_remaining_member_count() -> int:
@@ -142,7 +142,7 @@ func get_remaining_member_count() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 没有失败成员时返回 `FamilyMember.NONE`；无法解析 worker 结果时返回 `FAMILY_METADATA`。
 func get_failed_member() -> FamilyMember:
@@ -153,7 +153,7 @@ func get_failed_member() -> FamilyMember:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 新结果对象；未配置实例返回新的未配置对象。
 func duplicate_result() -> GFStorageDeleteResult:
@@ -174,7 +174,7 @@ func duplicate_result() -> GFStorageDeleteResult:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 删除终态及有界 family 成员计数。
 ## [br]
@@ -197,7 +197,7 @@ func to_dict() -> Dictionary:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param error_code: 删除 Error 码。
 ## [br]
@@ -246,7 +246,7 @@ func configure_for_framework(
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 已配置时返回 true。
 func is_configured_for_framework() -> bool:

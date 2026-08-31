@@ -87,7 +87,7 @@ signal projectile_emit_failed(reason: StringName, details: Dictionary)
 ### `projectile_definition`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 var projectile_definition: GFProjectileDefinition2D = null
@@ -165,7 +165,7 @@ var hard_projectile_limit_per_request: int = 4096:
 ### `default_launch_input`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 var default_launch_input: GFProjectileLaunchInput2D = null
@@ -268,7 +268,7 @@ func emit_projectiles( launch_input: GFProjectileLaunchInput2D = null, projectil
 ### `resolve_projectile_definition`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func resolve_projectile_definition( projectile_id: StringName = &"" ) -> GFProjectileDefinition2D:

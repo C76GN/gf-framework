@@ -21,7 +21,7 @@ extends RefCounted
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param revision: 变更后的单调递增布局版本号。
 signal layout_changed(revision: int)
@@ -284,7 +284,7 @@ func get_item_count() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 从 0 开始、只在布局实际变化时递增的版本号。
 func get_revision() -> int:
@@ -350,7 +350,7 @@ func get_content_extent(include_trailing_padding: bool = true) -> float:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param scroll_offset: 当前滚动偏移。
 ## [br]

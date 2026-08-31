@@ -7,7 +7,7 @@
 - 继承：`RefCounted`
 - API：`public`
 - 类别：工具 API (`tool_api`)
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 基于项目结构分析快照生成只读改进计划。 Planner 的规划核心只消费已经编译的 profile 与完整冻结分析图，不访问当前文件系统， 也不创建、移动、删除或改写项目内容。它输出可审查的相对路径步骤，并用 blocker 显式报告冻结图中已观察到的文件阻塞。 Feature 内聚式 profile 只是显式示例，不是所有项目都必须采用的默认目录规范。
 
@@ -28,7 +28,7 @@
 ### `EXAMPLE_FEATURE_COHESIVE_PROFILE_PATH`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const EXAMPLE_FEATURE_COHESIVE_PROFILE_PATH: String = "res://addons/gf/tools/project_layout/profiles/feature_cohesive_v1.json"
@@ -43,7 +43,7 @@ Feature 内聚式项目结构示例 profile 路径。
 ### `plan_example_profile`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func plan_example_profile(source_analysis: Dictionary, options: Dictionary = {}) -> Dictionary:
@@ -71,7 +71,7 @@ func plan_example_profile(source_analysis: Dictionary, options: Dictionary = {})
 ### `plan_profile_path`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func plan_profile_path( profile_path: String, source_analysis: Dictionary, options: Dictionary = {} ) -> Dictionary:
@@ -100,7 +100,7 @@ func plan_profile_path( profile_path: String, source_analysis: Dictionary, optio
 ### `plan_profile`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func plan_profile( profile: Dictionary, source_analysis: Dictionary, options: Dictionary = {} ) -> Dictionary:
@@ -130,7 +130,7 @@ func plan_profile( profile: Dictionary, source_analysis: Dictionary, options: Di
 ### `make_feature_module_paths`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func make_feature_module_paths( profile: Dictionary, feature_id: String, options: Dictionary = {} ) -> PackedStringArray:

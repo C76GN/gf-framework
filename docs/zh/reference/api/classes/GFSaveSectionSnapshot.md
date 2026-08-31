@@ -7,7 +7,7 @@
 - 继承：`RefCounted`
 - API：`public`
 - 类别：运行时句柄 (`runtime_handle`)
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 单个 Save section 的一次性所有权快照。 Snapshot 只保存纯 Variant 数据，并在框架接管后立即清空自身引用。调用 `take_ownership()` 后，调用方必须放弃原 payload、metadata 及其全部嵌套别名； GDScript 不提供语言级 move 语义，因此该约束属于显式所有权协议。
 
@@ -31,7 +31,7 @@
 ### `STATE_AVAILABLE`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const STATE_AVAILABLE: StringName = &"available"
@@ -44,7 +44,7 @@ Snapshot 尚未被框架接管。
 ### `STATE_CLAIMED`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const STATE_CLAIMED: StringName = &"claimed"
@@ -57,7 +57,7 @@ Snapshot 已被框架接管，载荷不再可用。
 ### `STATE_DISCARDED`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const STATE_DISCARDED: StringName = &"discarded"
@@ -72,7 +72,7 @@ Snapshot 已被取消并释放载荷。
 ### `take_ownership`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 static func take_ownership( section_id: StringName, schema_version: int, payload: Variant, metadata: Dictionary = {} ) -> GFSaveSectionSnapshot:
@@ -101,7 +101,7 @@ static func take_ownership( section_id: StringName, schema_version: int, payload
 ### `get_section_id`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_section_id() -> StringName:
@@ -116,7 +116,7 @@ func get_section_id() -> StringName:
 ### `get_schema_version`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_schema_version() -> int:
@@ -131,7 +131,7 @@ func get_schema_version() -> int:
 ### `get_state`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_state() -> StringName:
@@ -146,7 +146,7 @@ func get_state() -> StringName:
 ### `is_available`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func is_available() -> bool:

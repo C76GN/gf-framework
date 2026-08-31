@@ -53,7 +53,7 @@ func write(_entry: Dictionary) -> void:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param _delta: 本帧时间增量（秒）。
 func tick(_delta: float) -> void:

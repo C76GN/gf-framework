@@ -47,7 +47,7 @@ func set_input_context(context: GFInputContext) -> void:
 ### `set_remap_config`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func set_remap_config(config: GFInputRemapConfig) -> void:
@@ -66,7 +66,7 @@ func set_remap_config(config: GFInputRemapConfig) -> void:
 ### `get_remap_config`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_remap_config() -> GFInputRemapConfig:

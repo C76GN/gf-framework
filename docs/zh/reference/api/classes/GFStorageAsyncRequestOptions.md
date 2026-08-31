@@ -7,7 +7,7 @@
 - 继承：`RefCounted`
 - API：`public`
 - 类别：值对象 (`value_object`)
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 异步 Storage caller 观察生命周期的不可变选项。 选项只弱持有 owner，并可绑定只读取消令牌与单调 timeout。必须通过 `create()` 构造；直接 `new()` 或非法参数会得到 `is_valid() == false` 的对象，避免把错误选项 静默解释成没有生命周期约束。
 
@@ -25,7 +25,7 @@
 ### `create`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 static func create( owner: Object, cancel_token: GFCancellationToken = null, timeout_msec: int = 0 ) -> GFStorageAsyncRequestOptions:
@@ -48,7 +48,7 @@ static func create( owner: Object, cancel_token: GFCancellationToken = null, tim
 ### `is_valid`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func is_valid() -> bool:

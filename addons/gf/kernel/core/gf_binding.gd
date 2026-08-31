@@ -80,7 +80,7 @@ func _init(
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param instance: 要检查的候选实例。
 ## [br]

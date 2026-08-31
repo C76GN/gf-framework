@@ -7,7 +7,7 @@
 - 继承：`RefCounted`
 - API：`public`
 - 类别：运行时句柄 (`runtime_handle`)
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 已提交 BGM 播放会话的类型化控制句柄。 句柄只代表一个精确的逻辑会话身份，不暴露本地播放器或后端对象。替换后的旧句柄 不能停止新会话；会话终态只由 Audio Utility 写入一次。
 
@@ -34,7 +34,7 @@
 ### `ended`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 signal ended(handle: GFBgmSessionHandle, end_kind: EndKind)
@@ -56,7 +56,7 @@ signal ended(handle: GFBgmSessionHandle, end_kind: EndKind)
 ### `OwnerKind`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 enum OwnerKind {
@@ -76,7 +76,7 @@ BGM 会话的物理播放 owner。
 ### `EndKind`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 enum EndKind {
@@ -106,7 +106,7 @@ BGM 会话的终结原因。
 ### `get_session_id`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_session_id() -> int:
@@ -121,7 +121,7 @@ func get_session_id() -> int:
 ### `get_request_id`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_request_id() -> int:
@@ -136,7 +136,7 @@ func get_request_id() -> int:
 ### `get_history_key`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_history_key() -> String:
@@ -151,7 +151,7 @@ func get_history_key() -> String:
 ### `get_owner_kind`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_owner_kind() -> OwnerKind:
@@ -166,7 +166,7 @@ func get_owner_kind() -> OwnerKind:
 ### `is_active`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func is_active() -> bool:
@@ -181,7 +181,7 @@ func is_active() -> bool:
 ### `is_terminal`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func is_terminal() -> bool:
@@ -196,7 +196,7 @@ func is_terminal() -> bool:
 ### `get_end_kind`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_end_kind() -> EndKind:
@@ -211,7 +211,7 @@ func get_end_kind() -> EndKind:
 ### `stop`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func stop(fade_seconds: float = 0.0) -> bool:

@@ -455,7 +455,7 @@ func prewarm_async_budget(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param scene: 要预热的 PackedScene 资源。
 ## [br]
@@ -502,7 +502,7 @@ func prewarm_request_async(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param scene: 要预热的 PackedScene 资源。
 ## [br]
@@ -632,7 +632,7 @@ func get_debug_snapshot() -> Dictionary:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param node: 待归还的 live 节点；若已排队删除，则仅同步退休精确 lease tracking。
 ## [br]
@@ -678,7 +678,7 @@ func release_for_framework(node: Node, scene: PackedScene) -> bool:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param scene: acquire 时记录的同一 PackedScene identity。
 ## [br]

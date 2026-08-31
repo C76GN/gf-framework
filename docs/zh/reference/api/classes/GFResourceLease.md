@@ -7,7 +7,7 @@
 - 继承：`RefCounted`
 - API：`public`
 - 类别：运行时句柄 (`runtime_handle`)
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 共享资源 Broker 返回的消费者所有权句柄。 每次请求都会得到独立 Lease；同一路径可以复用同一个底层 threaded load， 但取消或释放只影响当前消费者。未完成时释放最后一个 Lease 会让 Broker 继续 drain 已经发起且无法中止的 ResourceLoader 请求。
 
@@ -41,7 +41,7 @@
 ### `STATUS_QUEUED`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const STATUS_QUEUED: StringName = &"queued"
@@ -54,7 +54,7 @@ const STATUS_QUEUED: StringName = &"queued"
 ### `STATUS_LOADING`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const STATUS_LOADING: StringName = &"loading"
@@ -67,7 +67,7 @@ const STATUS_LOADING: StringName = &"loading"
 ### `STATUS_COMPLETED`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const STATUS_COMPLETED: StringName = &"completed"
@@ -80,7 +80,7 @@ const STATUS_COMPLETED: StringName = &"completed"
 ### `STATUS_FAILED`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const STATUS_FAILED: StringName = &"failed"
@@ -93,7 +93,7 @@ const STATUS_FAILED: StringName = &"failed"
 ### `STATUS_CANCELLED`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const STATUS_CANCELLED: StringName = &"cancelled"
@@ -108,7 +108,7 @@ const STATUS_CANCELLED: StringName = &"cancelled"
 ### `cancel`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func cancel(reason: StringName = &"cancelled") -> void:
@@ -127,7 +127,7 @@ func cancel(reason: StringName = &"cancelled") -> void:
 ### `release`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func release() -> void:
@@ -140,7 +140,7 @@ func release() -> void:
 ### `is_terminal`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func is_terminal() -> bool:
@@ -155,7 +155,7 @@ func is_terminal() -> bool:
 ### `is_released`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func is_released() -> bool:
@@ -170,7 +170,7 @@ Lease 是否已经释放。
 ### `get_status`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_status() -> StringName:
@@ -185,7 +185,7 @@ func get_status() -> StringName:
 ### `get_progress`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_progress() -> float:
@@ -200,7 +200,7 @@ func get_progress() -> float:
 ### `get_resource`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_resource() -> Resource:
@@ -215,7 +215,7 @@ func get_resource() -> Resource:
 ### `get_path`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_path() -> String:
@@ -230,7 +230,7 @@ func get_path() -> String:
 ### `get_type_hint`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_type_hint() -> String:
@@ -245,7 +245,7 @@ func get_type_hint() -> String:
 ### `get_consumer_id`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_consumer_id() -> StringName:
@@ -260,7 +260,7 @@ func get_consumer_id() -> StringName:
 ### `get_request_error`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_request_error() -> Error:
@@ -275,7 +275,7 @@ func get_request_error() -> Error:
 ### `get_error_message`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_error_message() -> String:
@@ -290,7 +290,7 @@ func get_error_message() -> String:
 ### `to_poll_result`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func to_poll_result() -> Dictionary:

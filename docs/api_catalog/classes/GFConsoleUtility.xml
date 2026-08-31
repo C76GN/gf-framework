@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFConsoleUtility" path="addons/gf/standard/utilities/debug/gf_console_utility.gd" module="standard" extends="GFUtility" classDigest="78af9702436036db494debbed361ca1d7be96a33d1c8cc44023cf4eb0e3d9987">
+<class name="GFConsoleUtility" path="addons/gf/standard/utilities/debug/gf_console_utility.gd" module="standard" extends="GFUtility" classDigest="ae1dba4049eed2d717ce6e6cd00f604a108e3d24c87e3720df6004d35bba8ac2">
 	<description>GFConsoleUtility: 运行时开发者控制台。
 提供命令注册、解析与执行能力，并在初始化时构建覆盖全屏的调试 GUI。
 默认通过快捷键呼出，同时会消费 `GFLogUtility` 的日志信号进行彩色输出。</description>
@@ -238,7 +238,7 @@ prefix 和 raw_input。GF 会按当前参数前缀做一次稳定过滤。</desc
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">console_visible: 为 true 时显示控制台 GUI。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="is_console_visible">
@@ -247,7 +247,7 @@ prefix 和 raw_input。GF 会按当前参数前缀做一次稳定过滤。</desc
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">控制台 GUI 可见时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="append_output_line">

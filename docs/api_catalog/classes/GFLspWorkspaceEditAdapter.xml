@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFLspWorkspaceEditAdapter" path="addons/gf/tools/lsp_workspace_edit/gf_lsp_workspace_edit_adapter.gd" module="tools" extends="RefCounted" classDigest="d7e29f9767f62aad85e6c045a99d745c19cc8512f63c6376770232e43beb9f1b">
+<class name="GFLspWorkspaceEditAdapter" path="addons/gf/tools/lsp_workspace_edit/gf_lsp_workspace_edit_adapter.gd" module="tools" extends="RefCounted" classDigest="bd1753435b4adfa4e1e03c86a977263f8df0811f338eb485cd63edc541dc5924">
 	<description>GFLspWorkspaceEditAdapter: 调用方提供的闭合 LSP WorkspaceEdit 安全适配器。
 该工具只把已完成的 `documentChanges` 文本编辑转换为一次性预检计划，并在
 工作区、文档版本和磁盘来源摘要仍一致时通过 GFArtifactWriteTransaction 提交。
@@ -9,7 +9,7 @@
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">tool_api</tag>
-		<tag name="since">unreleased</tag>
+		<tag name="since">11.0.0</tag>
 	</tags>
 	<signals />
 	<enums />
@@ -19,7 +19,7 @@
 			<description>LSP UTF-8 position encoding 标识。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="POSITION_ENCODING_UTF16">
@@ -27,7 +27,7 @@
 			<description>LSP UTF-16 position encoding 标识。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 	</constants>
@@ -50,7 +50,7 @@ workspace_snapshot 中恰好出现一次且 saved=true。计划阶段会读取�
 				<tag name="schema">workspace_snapshot: closed Dictionary，仅包含 workspace_uri:String、workspace_version:int 和 documents:Array；每个 document 仅包含 uri:String、version:int、saved:bool、source_sha256:String，且 documents 必须与 edit 目标集合完全一致。</tag>
 				<tag name="schema">options: closed Dictionary，必须包含 position_encoding=utf-8|utf-16；可包含 max_file_count、max_edits_per_file、max_file_bytes、max_total_bytes、max_workspace_edit_bytes，均为正整数且不得超过工具绝对上限。</tag>
 				<tag name="schema">return: GFLspWorkspaceEditPlan；使用 get_report() 读取不含源码正文的 JSON-safe 证据。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="commit_plan">
@@ -66,7 +66,7 @@ workspace_snapshot 中恰好出现一次且 saved=true。计划阶段会读取�
 				<tag name="return">不含源码正文的闭合提交报告。</tag>
 				<tag name="schema">workspace_snapshot: 与 build_plan() 的 workspace_snapshot 相同，且工作区身份/版本、目标集合、文档版本与来源 SHA-256 必须仍匹配计划。</tag>
 				<tag name="schema">return: closed Dictionary，仅包含 ok、status、plan_sha256、written_count、unchanged_count、recovery_required、recovery_action、recovery_transaction、issues、artifact_report；recovery_required=true 时调用方必须按 recovery_action 将 recovery_transaction 原样交给 GFArtifactWriteTransaction.rollback() 或 complete()。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 	</methods>

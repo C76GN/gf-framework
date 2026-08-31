@@ -7,7 +7,7 @@
 - 继承：`RefCounted`
 - API：`public`
 - 类别：运行时句柄 (`runtime_handle`)
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 outcome_unknown 的持续所有权与对账围栏。 Lease 保留同一对象身份，直到所有相关底层请求 late-settle 并由显式 reconcile 操作解除 domain 围栏。结果副本不会复制 Lease；因此调用方连接 `settled`、 轮询状态和提交对账时观察的是同一条生命周期。
 
@@ -45,7 +45,7 @@ outcome_unknown 的持续所有权与对账围栏。 Lease 保留同一对象身
 ### `settled`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 signal settled(lease: GFSaveProfileReconcileLease, state: StringName)
@@ -67,7 +67,7 @@ Lease 首次离开 waiting 时发出。 正常 late settlement 进入 ready；Ut
 ### `STATE_WAITING`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const STATE_WAITING: StringName = &"waiting"
@@ -80,7 +80,7 @@ const STATE_WAITING: StringName = &"waiting"
 ### `STATE_READY`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const STATE_READY: StringName = &"ready"
@@ -93,7 +93,7 @@ const STATE_READY: StringName = &"ready"
 ### `STATE_RECONCILING`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const STATE_RECONCILING: StringName = &"reconciling"
@@ -106,7 +106,7 @@ const STATE_RECONCILING: StringName = &"reconciling"
 ### `STATE_RESOLVED`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const STATE_RESOLVED: StringName = &"resolved"
@@ -119,7 +119,7 @@ const STATE_RESOLVED: StringName = &"resolved"
 ### `STATE_DISPOSED_UNRESOLVED`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const STATE_DISPOSED_UNRESOLVED: StringName = &"disposed_unresolved"
@@ -134,7 +134,7 @@ Utility 已释放，但不确定副作用尚未完成对账。
 ### `get_lease_id`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_lease_id() -> int:
@@ -149,7 +149,7 @@ func get_lease_id() -> int:
 ### `get_transaction_id`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_transaction_id() -> int:
@@ -164,7 +164,7 @@ func get_transaction_id() -> int:
 ### `get_operation`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_operation() -> StringName:
@@ -179,7 +179,7 @@ func get_operation() -> StringName:
 ### `get_reconcile_profile_id`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_reconcile_profile_id() -> StringName:
@@ -194,7 +194,7 @@ func get_reconcile_profile_id() -> StringName:
 ### `get_source_profile_id`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_source_profile_id() -> StringName:
@@ -209,7 +209,7 @@ func get_source_profile_id() -> StringName:
 ### `get_target_profile_id`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_target_profile_id() -> StringName:
@@ -224,7 +224,7 @@ func get_target_profile_id() -> StringName:
 ### `get_domain_id`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_domain_id() -> int:
@@ -239,7 +239,7 @@ func get_domain_id() -> int:
 ### `get_domain_generation`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_domain_generation() -> int:
@@ -254,7 +254,7 @@ func get_domain_generation() -> int:
 ### `get_epoch`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_epoch() -> int:
@@ -269,7 +269,7 @@ func get_epoch() -> int:
 ### `get_storage_request_ids`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_storage_request_ids() -> PackedInt64Array:
@@ -284,7 +284,7 @@ func get_storage_request_ids() -> PackedInt64Array:
 ### `get_state`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_state() -> StringName:
@@ -299,7 +299,7 @@ func get_state() -> StringName:
 ### `is_waiting`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func is_waiting() -> bool:
@@ -314,7 +314,7 @@ func is_waiting() -> bool:
 ### `is_ready`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func is_ready() -> bool:
@@ -329,7 +329,7 @@ func is_ready() -> bool:
 ### `is_terminal`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func is_terminal() -> bool:
@@ -344,7 +344,7 @@ func is_terminal() -> bool:
 ### `get_settlement_evidence`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_settlement_evidence() -> Dictionary:
@@ -363,7 +363,7 @@ func get_settlement_evidence() -> Dictionary:
 ### `get_resolution_evidence`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_resolution_evidence() -> Dictionary:

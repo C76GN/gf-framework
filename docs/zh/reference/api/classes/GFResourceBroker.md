@@ -7,7 +7,7 @@
 - 继承：`GFUtility`
 - API：`public`
 - 类别：运行时服务 (`runtime_service`)
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 framework-level threaded ResourceLoader admission broker。 一个显式共享实例可以注入 Asset、Scene 与 BackgroundWork Utility， 统一执行有界 FIFO admission、同资源身份复用、消费者级取消和底层请求 drain。 Broker 不使用全局 singleton；架构模式应把它注册为 Utility，独立模式应显式 创建并传给每个消费者。
 
@@ -42,7 +42,7 @@ framework-level threaded ResourceLoader admission broker。 一个显式共享�
 ### `DEFAULT_MAX_ACTIVE_REQUESTS`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const DEFAULT_MAX_ACTIVE_REQUESTS: int = 4
@@ -55,7 +55,7 @@ const DEFAULT_MAX_ACTIVE_REQUESTS: int = 4
 ### `ABSOLUTE_MAX_ACTIVE_REQUESTS`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const ABSOLUTE_MAX_ACTIVE_REQUESTS: int = 64
@@ -68,7 +68,7 @@ const ABSOLUTE_MAX_ACTIVE_REQUESTS: int = 64
 ### `DEFAULT_MAX_PENDING_REQUESTS`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const DEFAULT_MAX_PENDING_REQUESTS: int = 256
@@ -81,7 +81,7 @@ const DEFAULT_MAX_PENDING_REQUESTS: int = 256
 ### `ABSOLUTE_MAX_PENDING_REQUESTS`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const ABSOLUTE_MAX_PENDING_REQUESTS: int = 4096
@@ -94,7 +94,7 @@ const ABSOLUTE_MAX_PENDING_REQUESTS: int = 4096
 ### `REASON_ACTIVE_TYPE_HINT_NOT_SATISFIED`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const REASON_ACTIVE_TYPE_HINT_NOT_SATISFIED: String = "active_type_hint_not_satisfied"
@@ -107,7 +107,7 @@ const REASON_ACTIVE_TYPE_HINT_NOT_SATISFIED: String = "active_type_hint_not_sati
 ### `REASON_ACTIVE_ADMISSION_CONSTRAINTS_NOT_SATISFIED`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const REASON_ACTIVE_ADMISSION_CONSTRAINTS_NOT_SATISFIED: String = "active_admission_constraints_not_satisfied"
@@ -122,7 +122,7 @@ const REASON_ACTIVE_ADMISSION_CONSTRAINTS_NOT_SATISFIED: String = "active_admiss
 ### `max_active_requests`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 var max_active_requests: int = DEFAULT_MAX_ACTIVE_REQUESTS:
@@ -135,7 +135,7 @@ var max_active_requests: int = DEFAULT_MAX_ACTIVE_REQUESTS:
 ### `max_pending_requests`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 var max_pending_requests: int = DEFAULT_MAX_PENDING_REQUESTS:
@@ -150,7 +150,7 @@ var max_pending_requests: int = DEFAULT_MAX_PENDING_REQUESTS:
 ### `init`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func init() -> void:
@@ -163,7 +163,7 @@ func init() -> void:
 ### `tick`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func tick(_delta: float = 0.0) -> void:
@@ -182,7 +182,7 @@ func tick(_delta: float = 0.0) -> void:
 ### `dispose`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func dispose() -> void:
@@ -195,7 +195,7 @@ func dispose() -> void:
 ### `request`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func request(path: String, type_hint: String = "", options: Dictionary = {}) -> GFResourceLease:
@@ -222,7 +222,7 @@ func request(path: String, type_hint: String = "", options: Dictionary = {}) -> 
 ### `pump`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func pump() -> void:
@@ -235,7 +235,7 @@ func pump() -> void:
 ### `poll_lease`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func poll_lease(lease: GFResourceLease) -> Dictionary:
@@ -260,7 +260,7 @@ func poll_lease(lease: GFResourceLease) -> Dictionary:
 ### `cancel_all`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func cancel_all(reason: StringName = &"cancelled") -> void:
@@ -279,7 +279,7 @@ func cancel_all(reason: StringName = &"cancelled") -> void:
 ### `is_idle`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func is_idle() -> bool:
@@ -294,7 +294,7 @@ Broker 是否已经没有 queued、active 或 draining 请求。
 ### `get_debug_snapshot`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_debug_snapshot() -> Dictionary:
@@ -313,7 +313,7 @@ func get_debug_snapshot() -> Dictionary:
 ### `_request_threaded_resource`
 
 - API：`protected`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func _request_threaded_resource(path: String, type_hint: String) -> Error:
@@ -335,7 +335,7 @@ func _request_threaded_resource(path: String, type_hint: String) -> Error:
 ### `_poll_threaded_resource`
 
 - API：`protected`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func _poll_threaded_resource(path: String, previous_progress: float) -> Dictionary:

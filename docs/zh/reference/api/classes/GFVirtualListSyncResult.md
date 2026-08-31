@@ -7,7 +7,7 @@
 - 继承：`RefCounted`
 - API：`public`
 - 类别：值对象 (`value_object`)
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 虚拟列表同步的不可变诊断结果。 只保存范围、计数、版本和稳定错误信息，不保存项目条目数据或原始稳定 ID。
 
@@ -52,7 +52,7 @@
 ### `STATUS_SYNCED`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const STATUS_SYNCED: StringName = &"synced"
@@ -65,7 +65,7 @@ const STATUS_SYNCED: StringName = &"synced"
 ### `STATUS_UNCHANGED`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const STATUS_UNCHANGED: StringName = &"unchanged"
@@ -78,7 +78,7 @@ const STATUS_UNCHANGED: StringName = &"unchanged"
 ### `STATUS_DEFERRED`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const STATUS_DEFERRED: StringName = &"deferred"
@@ -91,7 +91,7 @@ const STATUS_DEFERRED: StringName = &"deferred"
 ### `STATUS_TRUNCATED`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const STATUS_TRUNCATED: StringName = &"truncated"
@@ -104,7 +104,7 @@ const STATUS_TRUNCATED: StringName = &"truncated"
 ### `STATUS_UNBOUND`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const STATUS_UNBOUND: StringName = &"unbound"
@@ -117,7 +117,7 @@ Binder 当前没有有效绑定。
 ### `STATUS_DISPOSED`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const STATUS_DISPOSED: StringName = &"disposed"
@@ -130,7 +130,7 @@ Binder 已进入不可复用的终态。
 ### `STATUS_INVALID_IDENTITY`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const STATUS_INVALID_IDENTITY: StringName = &"invalid_identity"
@@ -143,7 +143,7 @@ identity callback 返回了不可稳定编码的值。
 ### `STATUS_DUPLICATE_IDENTITY`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const STATUS_DUPLICATE_IDENTITY: StringName = &"duplicate_identity"
@@ -156,7 +156,7 @@ const STATUS_DUPLICATE_IDENTITY: StringName = &"duplicate_identity"
 ### `STATUS_FACTORY_FAILED`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const STATUS_FACTORY_FAILED: StringName = &"factory_failed"
@@ -169,7 +169,7 @@ item factory 没有返回可接管的 parentless Control。
 ### `STATUS_BIND_FAILED`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const STATUS_BIND_FAILED: StringName = &"bind_failed"
@@ -184,7 +184,7 @@ const STATUS_BIND_FAILED: StringName = &"bind_failed"
 ### `is_successful`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func is_successful() -> bool:
@@ -199,7 +199,7 @@ func is_successful() -> bool:
 ### `get_status`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_status() -> StringName:
@@ -214,7 +214,7 @@ func get_status() -> StringName:
 ### `get_layout_revision`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_layout_revision() -> int:
@@ -229,7 +229,7 @@ func get_layout_revision() -> int:
 ### `get_data_revision`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_data_revision() -> int:
@@ -244,7 +244,7 @@ func get_data_revision() -> int:
 ### `get_viewport_range`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_viewport_range() -> Vector2i:
@@ -259,7 +259,7 @@ func get_viewport_range() -> Vector2i:
 ### `get_requested_range`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_requested_range() -> Vector2i:
@@ -274,7 +274,7 @@ func get_requested_range() -> Vector2i:
 ### `get_materialized_indices`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_materialized_indices() -> PackedInt32Array:
@@ -289,7 +289,7 @@ func get_materialized_indices() -> PackedInt32Array:
 ### `get_materialized_count`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_materialized_count() -> int:
@@ -304,7 +304,7 @@ func get_materialized_count() -> int:
 ### `get_pooled_count`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_pooled_count() -> int:
@@ -319,7 +319,7 @@ func get_pooled_count() -> int:
 ### `get_created_count`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_created_count() -> int:
@@ -334,7 +334,7 @@ func get_created_count() -> int:
 ### `get_reused_count`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_reused_count() -> int:
@@ -349,7 +349,7 @@ func get_reused_count() -> int:
 ### `get_released_count`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_released_count() -> int:
@@ -364,7 +364,7 @@ func get_released_count() -> int:
 ### `get_measured_count`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_measured_count() -> int:
@@ -379,7 +379,7 @@ func get_measured_count() -> int:
 ### `get_anchor_adjustment`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_anchor_adjustment() -> float:
@@ -394,7 +394,7 @@ func get_anchor_adjustment() -> float:
 ### `was_truncated`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func was_truncated() -> bool:
@@ -409,7 +409,7 @@ func was_truncated() -> bool:
 ### `get_error_index`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_error_index() -> int:
@@ -424,7 +424,7 @@ func get_error_index() -> int:
 ### `get_error`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_error() -> String:
@@ -439,7 +439,7 @@ func get_error() -> String:
 ### `duplicate_result`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func duplicate_result() -> GFVirtualListSyncResult:
@@ -454,7 +454,7 @@ func duplicate_result() -> GFVirtualListSyncResult:
 ### `to_dict`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func to_dict() -> Dictionary:

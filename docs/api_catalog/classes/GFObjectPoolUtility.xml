@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFObjectPoolUtility" path="addons/gf/standard/utilities/nodes/gf_object_pool_utility.gd" module="standard" extends="GFUtility" classDigest="d5f005f8853bf4dc1aac144e3da1ee8c03c8dece6c6eb99b7535e0046806e932">
+<class name="GFObjectPoolUtility" path="addons/gf/standard/utilities/nodes/gf_object_pool_utility.gd" module="standard" extends="GFUtility" classDigest="d0ca904857ea8ad3150ba581aebe0d558264f32332adf13e6f1a3c63cc71a4d3">
 	<description>GFObjectPoolUtility: 节点对象池管理器。
 继承自 GFUtility，管理 Node 对象的实例化与回收，
 避免高频 instance/free 操作带来的内存碎片和性能抖动。
@@ -146,7 +146,7 @@
 				<tag name="param">cancellation_token: 可选取消令牌或 GFAsyncScope。</tag>
 				<tag name="param">prepare_callback: 可选 `func(node: Node) -&gt; Error`；非 OK 终止请求。</tag>
 				<tag name="return">请求专属 Operation；调用方应先检查同步终态再连接 completed。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="prewarm_budget_request_async">
@@ -165,7 +165,7 @@
 				<tag name="param">cancellation_token: 可选取消令牌或 GFAsyncScope。</tag>
 				<tag name="param">prepare_callback: 可选 `func(node: Node) -&gt; Error`；非 OK 终止请求。</tag>
 				<tag name="return">请求专属 Operation；调用方应先检查同步终态再连接 completed。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_available_count">

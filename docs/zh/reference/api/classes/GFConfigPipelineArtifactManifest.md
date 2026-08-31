@@ -193,7 +193,7 @@ func get_default_manifest_path(output_path: String) -> String:
 ### `make_source_receipt_validation_report`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func make_source_receipt_validation_report( profile: GFConfigPipelineProfile, run_result: Dictionary, options: Dictionary = {} ) -> Dictionary:

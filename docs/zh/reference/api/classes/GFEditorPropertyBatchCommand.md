@@ -286,7 +286,7 @@ func _do_it() -> Error:
 ### `_get_undo_context`
 
 - API：`protected`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func _get_undo_context() -> Object:
@@ -301,7 +301,7 @@ func _get_undo_context() -> Object:
 ### `_get_undo_targets`
 
 - API：`protected`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func _get_undo_targets() -> Array[Object]:

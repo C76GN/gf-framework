@@ -160,7 +160,7 @@ signal load_completed(file_name: String, result: GFStorageReadResult)
 ### `AsyncExecutionMode`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 enum AsyncExecutionMode {
@@ -382,7 +382,7 @@ var require_resource_load_type_hint: bool = true
 ### `async_execution_mode`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 var async_execution_mode: AsyncExecutionMode = AsyncExecutionMode.AUTOMATIC:
@@ -507,7 +507,7 @@ func tick(_delta: float = 0.0) -> void:
 ### `begin_activation`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func begin_activation(_scope: GFAsyncScope) -> GFAsyncCompletion:
@@ -528,7 +528,7 @@ func begin_activation(_scope: GFAsyncScope) -> GFAsyncCompletion:
 ### `begin_quiesce`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func begin_quiesce(scope: GFAsyncScope) -> GFAsyncCompletion:
@@ -620,7 +620,7 @@ func list_files( directory_name: String = "", extension_filter: String = "", rec
 ### `has_file`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func has_file(file_name: String) -> bool:
@@ -662,7 +662,7 @@ func delete_file(file_name: String) -> Error:
 ### `delete_file_request_async`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func delete_file_request_async( file_name: String, options: GFStorageAsyncRequestOptions = null ) -> GFStorageAsyncOperation:
@@ -684,7 +684,7 @@ func delete_file_request_async( file_name: String, options: GFStorageAsyncReques
 ### `create_family_reset_authorization`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func create_family_reset_authorization( file_name: String, observed_result: GFStorageReadResult ) -> GFStorageFamilyResetAuthorization:
@@ -706,7 +706,7 @@ func create_family_reset_authorization( file_name: String, observed_result: GFSt
 ### `reset_file_family`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func reset_file_family( file_name: String, authorization: GFStorageFamilyResetAuthorization ) -> GFStorageFamilyResetResult:
@@ -728,7 +728,7 @@ func reset_file_family( file_name: String, authorization: GFStorageFamilyResetAu
 ### `reset_file_family_request_async`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func reset_file_family_request_async( file_name: String, authorization: GFStorageFamilyResetAuthorization, options: GFStorageAsyncRequestOptions = null ) -> GFStorageAsyncOperation:
@@ -896,7 +896,7 @@ func save_data_request_async( file_name: String, data: Dictionary, options: GFSt
 ### `save_payload_request_async`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func save_payload_request_async( file_name: String, transfer: GFStoragePayloadTransfer, options: GFStorageAsyncRequestOptions = null ) -> GFStorageAsyncOperation:
@@ -962,7 +962,7 @@ func load_data_request_async( file_name: String, options: GFStorageAsyncRequestO
 ### `get_late_settlement_diagnostics`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_late_settlement_diagnostics() -> Array[Dictionary]:

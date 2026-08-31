@@ -46,7 +46,7 @@
 ### `layout_changed`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 signal layout_changed(revision: int)
@@ -289,7 +289,7 @@ func get_item_count() -> int:
 ### `get_revision`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_revision() -> int:
@@ -384,7 +384,7 @@ func get_content_extent(include_trailing_padding: bool = true) -> float:
 ### `get_viewport_range`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_viewport_range(scroll_offset: float, viewport_extent: float) -> Vector2i:

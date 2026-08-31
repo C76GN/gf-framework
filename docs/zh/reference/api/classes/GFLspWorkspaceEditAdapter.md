@@ -7,7 +7,7 @@
 - 继承：`RefCounted`
 - API：`public`
 - 类别：工具 API (`tool_api`)
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 调用方提供的闭合 LSP WorkspaceEdit 安全适配器。 该工具只把已完成的 `documentChanges` 文本编辑转换为一次性预检计划，并在 工作区、文档版本和磁盘来源摘要仍一致时通过 GFArtifactWriteTransaction 提交。 它不建立 LSP 连接、不请求 rename/code action、不处理 create/rename/delete 文件操作、不读取未保存缓冲区、不驱动 UI，也不触发编辑器文件系统扫描。 允许目标严格限定为当前 `res://` 内已存在且未经过链接的 portable `.gd` 文件。
 
@@ -27,7 +27,7 @@
 ### `POSITION_ENCODING_UTF8`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const POSITION_ENCODING_UTF8: String = "utf-8"
@@ -40,7 +40,7 @@ LSP UTF-8 position encoding 标识。
 ### `POSITION_ENCODING_UTF16`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const POSITION_ENCODING_UTF16: String = "utf-16"
@@ -55,7 +55,7 @@ LSP UTF-16 position encoding 标识。
 ### `build_plan`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 static func build_plan( workspace_edit: Dictionary, workspace_snapshot: Dictionary, options: Dictionary = {} ) -> GFLspWorkspaceEditPlan:
@@ -85,7 +85,7 @@ static func build_plan( workspace_edit: Dictionary, workspace_snapshot: Dictiona
 ### `commit_plan`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 static func commit_plan( plan: GFLspWorkspaceEditPlan, workspace_snapshot: Dictionary ) -> Dictionary:

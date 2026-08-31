@@ -7,7 +7,7 @@
 ## [br]
 ## @category value_object
 ## [br]
-## @since unreleased
+## @since 11.0.0
 class_name GFViewportSurfaceInputCapture
 extends RefCounted
 
@@ -30,7 +30,7 @@ var _target_generation: int = 0
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return: 包含完整指针与代际身份时返回 true。
 func is_valid() -> bool:
@@ -41,7 +41,7 @@ func is_valid() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return: Resolver 提供的稳定输入源标识。
 func get_source_id() -> StringName:
@@ -52,7 +52,7 @@ func get_source_id() -> StringName:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return: 按下时的非负设备标识。
 func get_device_id() -> int:
@@ -63,7 +63,7 @@ func get_device_id() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return: 按下时的非负指针标识。
 func get_pointer_id() -> int:
@@ -74,7 +74,7 @@ func get_pointer_id() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return: `GFViewportSurfaceInputBridge.PointerType` 值。
 func get_pointer_type() -> int:
@@ -85,7 +85,7 @@ func get_pointer_type() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return: 大于 0 的捕获代际。
 func get_capture_generation() -> int:
@@ -96,7 +96,7 @@ func get_capture_generation() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return: 大于 0 的外部目标代际。
 func get_target_generation() -> int:
@@ -111,7 +111,7 @@ func get_target_generation() -> int:
 ## [br]
 ## @layer standard/input
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param bridge_instance_id: 创建桥的非零 Object 实例 ID。
 ## [br]
@@ -165,7 +165,7 @@ func configure_from_input_layer(
 ## [br]
 ## @layer standard/input
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param bridge_instance_id: 待比对的桥实例 ID。
 ## [br]

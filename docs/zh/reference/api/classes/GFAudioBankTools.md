@@ -109,7 +109,7 @@ const DEFAULT_MAX_AUDIO_PATHS: int = 10000
 ### `DEFAULT_MAX_SCANNED_ENTRIES`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const DEFAULT_MAX_SCANNED_ENTRIES: int = 100000
@@ -122,7 +122,7 @@ const DEFAULT_MAX_SCANNED_ENTRIES: int = 100000
 ### `ABSOLUTE_MAX_SCAN_DEPTH`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const ABSOLUTE_MAX_SCAN_DEPTH: int = 64
@@ -135,7 +135,7 @@ const ABSOLUTE_MAX_SCAN_DEPTH: int = 64
 ### `ABSOLUTE_MAX_AUDIO_PATHS`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const ABSOLUTE_MAX_AUDIO_PATHS: int = 100000
@@ -148,7 +148,7 @@ const ABSOLUTE_MAX_AUDIO_PATHS: int = 100000
 ### `ABSOLUTE_MAX_SCANNED_ENTRIES`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const ABSOLUTE_MAX_SCANNED_ENTRIES: int = 1000000

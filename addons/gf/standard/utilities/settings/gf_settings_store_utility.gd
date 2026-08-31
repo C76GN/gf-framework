@@ -8,7 +8,7 @@
 ## [br]
 ## @category protocol
 ## [br]
-## @since unreleased
+## @since 11.0.0
 class_name GFSettingsStoreUtility
 extends GFUtility
 
@@ -19,7 +19,7 @@ extends GFUtility
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 可以读取和写入设置时返回 true。
 func is_persistence_enabled() -> bool:
@@ -30,7 +30,7 @@ func is_persistence_enabled() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param file_name: Store 内的逻辑设置文件名。
 ## [br]
@@ -43,7 +43,7 @@ func read_settings(file_name: String) -> GFStorageReadResult:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param file_name: Store 内的逻辑设置文件名。
 ## [br]

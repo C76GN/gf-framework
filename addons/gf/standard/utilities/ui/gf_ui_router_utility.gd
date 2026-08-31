@@ -160,7 +160,7 @@ func dispose() -> void:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param _delta: 本帧时间增量；生命周期清理不依赖具体数值。
 func tick(_delta: float) -> void:

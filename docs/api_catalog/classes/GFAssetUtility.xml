@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFAssetUtility" path="addons/gf/standard/utilities/assets/gf_asset_utility.gd" module="standard" extends="GFUtility" classDigest="91b2331c8f3ae5e1625fd0bc4dc38d72322fb1b844c0b121a926835be663c9f8">
+<class name="GFAssetUtility" path="addons/gf/standard/utilities/assets/gf_asset_utility.gd" module="standard" extends="GFUtility" classDigest="81365b593b3fc1281de5abc3bc5bed5db35a8c60a6084345973a173a90fd11a3">
 	<description>GFAssetUtility: 异步资源加载管理器，带 LRU 缓存。
 封装 Godot 的 threaded `ResourceLoader` 请求，
 用于避免大资源同步加载阻塞主线程，并在完成后统一分发回调与维护缓存。</description>
@@ -116,7 +116,7 @@
 			<description>从所属架构解析显式注册的共享 GFResourceBroker。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="dispose">
@@ -131,7 +131,7 @@
 			<description>释放共享 Broker 引用和架构依赖作用域。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="set_resource_broker">
@@ -145,7 +145,7 @@ idle，才能替换为其它 Broker。</description>
 				<tag name="api">public</tag>
 				<tag name="param">broker: 要共享的 Broker。</tag>
 				<tag name="return">绑定结果；请求尚未收敛或私有 Broker 尚未 idle 时返回 `ERR_BUSY`。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="setup_standalone_resource_broker">
@@ -158,7 +158,7 @@ set_resource_broker()；本入口只适合单个独立 Utility。</description>
 				<tag name="param">max_active_requests: Broker 同时活动的底层请求上限。</tag>
 				<tag name="param">max_pending_requests: Broker 等待 admission 的不同请求上限。</tag>
 				<tag name="return">创建的 Broker；存在活动请求时返回 null。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_resource_broker">
@@ -167,7 +167,7 @@ set_resource_broker()；本入口只适合单个独立 Utility。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">已绑定的 Broker；未配置时返回 null。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="load_async">

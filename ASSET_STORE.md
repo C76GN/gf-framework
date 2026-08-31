@@ -45,7 +45,7 @@ GF does not define your gameplay rules. It does not replace Godot physics, rende
 
 ## Install
 
-Install the official Store package `gf-framework-10.0.0.zip`. It contains the complete `addons/gf` addon folder: kernel, standard library, editor tooling, and bundled optional extensions. Optional extensions remain disabled until the project explicitly enables them.
+Install the official Store package `gf-framework-11.0.0.zip`. It contains the complete `addons/gf` addon folder: kernel, standard library, editor tooling, and bundled optional extensions. Optional extensions remain disabled until the project explicitly enables them.
 
 Copy `addons/gf` into your Godot project and enable `GF Framework` in `Project > Project Settings > Plugins`. From the boot flow, call `Gf.init()` with `await` and stop when it returns `false`. A project installer supplies registrations during that call; it does not replace checking the awaited result.
 
@@ -90,20 +90,20 @@ Before adding screenshots, prefer images that show actual GF editor tooling or d
 
 ## Versions
 
-- Current release version: `10.0.0`
-- Release tag: `10.0.0`
+- Current release version: `11.0.0`
+- Release tag: `11.0.0`
 - Minimum Godot version: `4.7`
-- Primary download package: `gf-framework-10.0.0.zip`
-- Primary download URL: `https://github.com/C76GN/gf-framework/releases/download/10.0.0/gf-framework-10.0.0.zip`
-- Download package should use the attached `gf-framework-10.0.0.zip` release asset generated inside the single-pass `tools/build_gf_release_artifacts.py` artifact set, not GitHub's automatic source archive.
+- Primary download package: `gf-framework-11.0.0.zip`
+- Primary download URL: `https://github.com/C76GN/gf-framework/releases/download/11.0.0/gf-framework-11.0.0.zip`
+- Download package should use the attached `gf-framework-11.0.0.zip` release asset generated inside the single-pass `tools/build_gf_release_artifacts.py` artifact set, not GitHub's automatic source archive.
 - Package layout must have `addons/` at the zip root, with the plugin under `addons/gf/**`.
 - GitHub Release attachments are limited to:
-  - `gf-framework-10.0.0.zip`
-  - `gf-ai-developer-kit-10.0.0.zip`
-  - `gf-release-artifacts-10.0.0.json`
-- Release artifact build: `python tools\build_gf_release_artifacts.py --version 10.0.0 --output-dir build\release`
-- Immutable artifact validation: `python tools\build_gf_release_artifacts.py --version 10.0.0 --manifest build\release\gf-release-artifacts-10.0.0.json --validate-only`
-- Release metadata check: `python tools\gf_maintenance.py release-status --version 10.0.0 --artifact-manifest build\release\gf-release-artifacts-10.0.0.json`
+  - `gf-framework-11.0.0.zip`
+  - `gf-ai-developer-kit-11.0.0.zip`
+  - `gf-release-artifacts-11.0.0.json`
+- Release artifact build: `python tools\build_gf_release_artifacts.py --version 11.0.0 --output-dir build\release`
+- Immutable artifact validation: `python tools\build_gf_release_artifacts.py --version 11.0.0 --manifest build\release\gf-release-artifacts-11.0.0.json --validate-only`
+- Release metadata check: `python tools\gf_maintenance.py release-status --version 11.0.0 --artifact-manifest build\release\gf-release-artifacts-11.0.0.json`
 - Changelog source: `docs/zh/changelog.md`
 
 ## Pricing
@@ -124,11 +124,11 @@ When the asset version changes, update these locations together:
 
 ## Upload Checklist
 
-Use these values for the `10.0.0` Store update:
+Use these values for the `11.0.0` Store update:
 
-1. Create or edit version `10.0.0`.
+1. Create or edit version `11.0.0`.
 2. Set minimum Godot version to `4.7`.
-3. Upload `gf-framework-10.0.0.zip` as the version download.
+3. Upload `gf-framework-11.0.0.zip` as the version download.
 4. Do not upload legacy kernel-only, registry, offline-bundle, or per-module artifacts.
 5. Keep documentation URL as `https://gf-framework.readthedocs.io/`.
 6. Keep source URL as `https://github.com/C76GN/gf-framework`.

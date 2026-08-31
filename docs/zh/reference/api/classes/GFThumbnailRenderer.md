@@ -39,7 +39,7 @@
 ### `MAX_TARGET_DIMENSION`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const MAX_TARGET_DIMENSION: int = 1024
@@ -52,7 +52,7 @@ const MAX_TARGET_DIMENSION: int = 1024
 ### `MAX_TARGET_PIXELS`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const MAX_TARGET_PIXELS: int = 1_048_576
@@ -65,7 +65,7 @@ const MAX_TARGET_PIXELS: int = 1_048_576
 ### `MAX_PENDING_TASKS`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const MAX_PENDING_TASKS: int = 256

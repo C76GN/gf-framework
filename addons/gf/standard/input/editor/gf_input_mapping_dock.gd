@@ -95,7 +95,7 @@ func set_input_context(context: GFInputContext) -> void:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param config: 玩家或项目层重映射配置；null 表示只诊断默认绑定。
 func set_remap_config(config: GFInputRemapConfig) -> void:
@@ -107,7 +107,7 @@ func set_remap_config(config: GFInputRemapConfig) -> void:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return: 当前重映射配置；未配置时为 null。
 func get_remap_config() -> GFInputRemapConfig:

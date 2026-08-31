@@ -7,7 +7,7 @@
 - 继承：`RefCounted`
 - API：`public`
 - 类别：运行时句柄 (`runtime_handle`)
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 单次类型化场景加载或预加载请求的 caller Operation。 每个请求持有独立 ID、资源身份快照与取消能力。同一路径请求可以共享 Broker 的物理加载，但每个 Operation 只观察并终结自己的 consumer Lease。 Operation 只能由 [method GFSceneUtility.load_scene_request_async] 或 [method GFSceneUtility.preload_scene_request_async] 取得。它是可由 caller 保留的 RefCounted handle，无需显式 release，也不拥有 Utility、Broker 或底层 Lease。 进入终态或 Utility dispose 后，身份、最终进度与结果快照仍可读取；pending 期间 只有 [method cancel] 能力依赖创建它的 Utility 仍然存活。
 
@@ -34,7 +34,7 @@
 ### `progressed`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 signal progressed(progress_ratio: float)
@@ -53,7 +53,7 @@ signal progressed(progress_ratio: float)
 ### `completed`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 signal completed(result: GFSceneOperationResult)
@@ -74,7 +74,7 @@ signal completed(result: GFSceneOperationResult)
 ### `Kind`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 enum Kind {
@@ -94,7 +94,7 @@ enum Kind {
 ### `get_request_id`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_request_id() -> int:
@@ -109,7 +109,7 @@ func get_request_id() -> int:
 ### `get_kind`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_kind() -> Kind:
@@ -124,7 +124,7 @@ func get_kind() -> Kind:
 ### `get_scene_identity`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_scene_identity() -> GFResourceIdentity:
@@ -139,7 +139,7 @@ func get_scene_identity() -> GFResourceIdentity:
 ### `get_progress_ratio`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_progress_ratio() -> float:
@@ -154,7 +154,7 @@ func get_progress_ratio() -> float:
 ### `is_pending`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func is_pending() -> bool:
@@ -169,7 +169,7 @@ func is_pending() -> bool:
 ### `is_completed`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func is_completed() -> bool:
@@ -184,7 +184,7 @@ func is_completed() -> bool:
 ### `get_result`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_result() -> GFSceneOperationResult:
@@ -199,7 +199,7 @@ func get_result() -> GFSceneOperationResult:
 ### `cancel`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func cancel() -> bool:

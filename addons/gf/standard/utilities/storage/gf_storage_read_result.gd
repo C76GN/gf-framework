@@ -357,7 +357,7 @@ static func from_dict(data: Dictionary) -> GFStorageReadResult:
 ## [br]
 ## @layer standard/utilities/storage
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param utility_id: 签发结果的 GFStorageUtility 实例 ID。
 ## [br]
@@ -405,7 +405,7 @@ func bind_origin_for_framework(
 ## [br]
 ## @layer standard/utilities/storage
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param utility_id: 当前 GFStorageUtility 实例 ID。
 ## [br]
@@ -437,7 +437,7 @@ func matches_origin_for_framework(
 ## [br]
 ## @layer standard/utilities/storage
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param utility_id: 当前 GFStorageUtility 实例 ID。
 ## [br]

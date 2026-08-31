@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFLspWorkspaceEditPlan" path="addons/gf/tools/lsp_workspace_edit/gf_lsp_workspace_edit_plan.gd" module="tools" extends="RefCounted" classDigest="f3e9242a383a7a44530503b23047584415a0402687b601075f1bf8c0f2e3df2a">
+<class name="GFLspWorkspaceEditPlan" path="addons/gf/tools/lsp_workspace_edit/gf_lsp_workspace_edit_plan.gd" module="tools" extends="RefCounted" classDigest="eeda05abce0d4b80e62ff0c067084085674be28823f52acd7aab24b54c872d20">
 	<description>GFLspWorkspaceEditPlan: 已预检 LSP WorkspaceEdit 的一次性提交计划。
 该值对象由 GFLspWorkspaceEditAdapter 创建，绑定工作区身份与版本、文档版本、
 来源 SHA-256、结果 SHA-256 和完整计划 SHA-256。公开读取只返回隔离副本，
@@ -7,7 +7,7 @@
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">value_object</tag>
-		<tag name="since">unreleased</tag>
+		<tag name="since">11.0.0</tag>
 	</tags>
 	<signals />
 	<enums />
@@ -20,7 +20,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">计划已成功预检且尚未被消费时为 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="is_consumed">
@@ -29,7 +29,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">计划已被一次性消费时为 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_plan_sha256">
@@ -38,7 +38,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">有效计划的 64 位小写十六进制摘要；无效计划返回空字符串。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_report">
@@ -48,7 +48,7 @@
 				<tag name="api">public</tag>
 				<tag name="return">JSON-safe 报告副本。</tag>
 				<tag name="schema">return: closed Dictionary，包含 ok、status、plan_sha256、workspace_uri、workspace_version、position_encoding、document_count、edit_count、changed_count、source_bytes、result_bytes、issues、documents、consumed。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 	</methods>

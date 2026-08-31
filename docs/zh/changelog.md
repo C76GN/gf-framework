@@ -1,6 +1,6 @@
 # 更新日志 (Changelog)
 
-## [未发布]
+## [11.0.0] - 2026-08-31
 
 **版本概述**：本轮新增类型化音频播放区间与循环点、共享资源 admission Broker、request-scoped 对象池预热与类型化场景请求 Operation，以及带解析前硬预算的公共 JSON object 读取器，并让既有编辑器与扩展 JSON reader 通过兼容 adapter 复用同一核心；把 Architecture 启动升级为依赖 DAG 驱动的四阶段激活并增加类型化异步关闭，把 Settings 持久化拆为 Store 端口与可选 Storage adapter，为 Save Profile 增加精确 provider domain、活动身份与显式恢复/对账事务，补充 Headless 服务探针和周期环境表现的项目组合配方，修复并加固 AI Developer 的项目 Adapter 依赖边界、Kernel 资源所有权与路径边界，以及触屏/拖放的重入生命周期和输出租约问题，同时把 Changelog、安全扫描抑制和内部 API section 约束转为可执行维护门禁，并收紧热模块事务、Save Profile 准备、可选依赖、后台回调所有权、按 key 并发、场景邻居稳定帧、渲染预热和音频释放契约；此外加入冻结模块访问策略、Route 请求生命周期、类型化虚拟输入 Pulse，以及有界虚拟列表 Binder、事务式表格谓词和可验证的 Spatial Canvas 输入策略，使生成访问、异步 UI、定时输入和大型交互界面都具备明确的身份、终态、传播与所有权边界，并把 Combat Projectile 重建为类型化拓扑、Session/Intent/Adapter 和两阶段发射事务；GF 11 同时退役低使用率的用户侧动态包管理，安装与升级统一使用完整框架发布包。框架只提供可验证的通用机制，不内置项目启动、存档业务、部署协议、领域过滤器、行视觉、环境模型、弹药伤害规则或轮询式音频模拟。
 
@@ -390,7 +390,7 @@
 - `GFLogSink.tick(delta)`、`GFLogUtility.tick(delta)` 及内置 timed sink 覆写是新的 11.0.0 公开时间推进契约；`GFAnalyticsUtility.get_dropped_event_count()` 是新的 11.0.0 聚合丢弃观察 API。Analytics 内置 HTTP 非 2xx 失败报告新增 `response_code`，`error` 收紧为不含正文的稳定 `HTTP {status}`。
 - `GFConfigAccessGenerator.build_source_with_report()` 与 `GFConfigPipelineArtifactManifest.make_source_receipt_validation_report()` 是新的 11.0.0 公开 API。Reader/Layout/Validation Stage 的内置契约版本和实现版本已升级；Stage descriptor 新增 `implementation_dependencies`。`build_table()` / `build_database()` 的表结果新增 `source_receipt`，`export_profile()` 新增 `source_validation_report`，访问器生成结果新增 input/emitted/skipped 计数与 `issues`，JSON 导出 options 新增 `max_nodes` / `max_output_bytes` 并收紧 `max_depth` 到绝对上限。
 - `GFExtensionManifest` 移除七个编辑器路径公开成员；`GFExtensionSettings` 现有七个 `get_enabled_*_paths()` 签名保持不变，但只读取已验证的 Tool Contribution。内部的路径归属记录只用于让 Dock / Inspector 组合所属 manifest 的展示名、短标签与排序，不扩张公开 selection snapshot schema。
-- 本轮有意移除 10.x 已公开的通用 `loop` 输入与 `current_bgm_loop` 快照字段，开发身份进入 `11.0.0-dev.0` 主版本迁移线；不提供双轨兼容分支。
+- 本轮有意移除 10.x 已公开的通用 `loop` 输入与 `current_bgm_loop` 快照字段，发行身份进入 `11.0.0` 主版本迁移线；不提供双轨兼容分支。
 - `GFAudioClip.playback_region: GFAudioPlaybackRegion` 为新的可选公开属性。
 - `GFAudioBackendCapability.supports_playback_region_contract`、`GFAudioBackend.evaluate_playback_region()`、`GFAudioUtility.playback_region_rejected` 与 `GFAudioUtility.get_last_playback_region_rejection()` 为新的公开 API。
 - `GFAudioUtility.start_bgm(path, options, owner)` 与 `start_bgm_clip(clip, crossfade_seconds, owner)` 返回新的 `GFBgmStartOperation`；其 `completed/get_result()` 产出闭合 `GFBgmStartResult`。只有 `STARTED` 携带规范 `GFBgmSessionHandle`；该句柄用 `stop()` 精确控制一个逻辑 Session，并以 `ended` / `EndKind` 报告唯一结束原因。既有 `play_bgm*()` 保持 void wrapper，legacy 空路径 stop 仍保留，而 typed 空路径固定拒绝。

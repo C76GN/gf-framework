@@ -264,7 +264,7 @@ enum SelectionMode {
 ### `InputDisposition`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 enum InputDisposition {
@@ -1179,7 +1179,7 @@ func get_placement_snapshot() -> Dictionary:
 ### `set_input_policy`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func set_input_policy(policy: GFSpatialCanvasInputPolicy) -> bool:
@@ -1200,7 +1200,7 @@ func set_input_policy(policy: GFSpatialCanvasInputPolicy) -> bool:
 ### `get_input_policy`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_input_policy() -> GFSpatialCanvasInputPolicy:

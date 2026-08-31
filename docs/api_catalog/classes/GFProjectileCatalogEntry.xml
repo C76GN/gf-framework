@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFProjectileCatalogEntry" path="addons/gf/extensions/combat/projectiles/gf_projectile_catalog_entry.gd" module="extensions/combat" extends="Resource" classDigest="8affd4046a5cbc00588566679c35def55bd99c1aa2f2eb798ddb816d2225997b">
+<class name="GFProjectileCatalogEntry" path="addons/gf/extensions/combat/projectiles/gf_projectile_catalog_entry.gd" module="extensions/combat" extends="Resource" classDigest="c5cc8d17c372470b27133b53a5208462f887efad9edbd2edab17763640075add">
 	<description>GFProjectileCatalogEntry: 稳定 ID 到 typed projectile definition 的映射。</description>
 	<tags>
 		<tag name="api">public</tag>
@@ -23,7 +23,7 @@
 			<description>与 ID 关联的 typed projectile definition。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 	</properties>

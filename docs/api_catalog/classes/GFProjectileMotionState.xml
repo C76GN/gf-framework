@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFProjectileMotionState" path="addons/gf/extensions/combat/projectiles/gf_projectile_motion_state.gd" module="extensions/combat" extends="RefCounted" classDigest="0c2ceb179193cdb84addf4cb4026f6dbd79b7801a88773ecbc114ae8c8bee35e">
+<class name="GFProjectileMotionState" path="addons/gf/extensions/combat/projectiles/gf_projectile_motion_state.gd" module="extensions/combat" extends="RefCounted" classDigest="69843dd2e099c927d7a28f3b0527496ccaea91214840624f973f84a26bc1d368">
 	<description>GFProjectileMotionState: 单个 Projectile generation 独占的移动状态基类。
 进入 Runtime 的实例由 [method GFProjectileMotion.create_state_2d] 或
 [method GFProjectileMotion.create_state_3d] 为一次 launch 创建。Runtime 会为该
@@ -10,7 +10,7 @@ ownership，旧 state 对 Runtime 随即失效。
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">runtime_handle</tag>
-		<tag name="since">unreleased</tag>
+		<tag name="since">11.0.0</tag>
 	</tags>
 	<signals />
 	<enums />

@@ -4,7 +4,7 @@
 ## [br]
 ## @category value_object
 ## [br]
-## @since unreleased
+## @since 11.0.0
 class_name GFProjectileBinding3D
 extends GFProjectileBinding
 
@@ -15,7 +15,7 @@ extends GFProjectileBinding
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return: 3D definition；准入前失败时可能为 null。
 func get_definition() -> GFProjectileDefinition3D:
@@ -30,7 +30,7 @@ func get_definition() -> GFProjectileDefinition3D:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return: live Node3D root；已释放时返回 null。
 func get_instance_root() -> Node3D:
@@ -45,7 +45,7 @@ func get_instance_root() -> Node3D:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return: live GFProjectile3D；已释放时返回 null。
 func get_runtime() -> GFProjectile3D:
@@ -60,7 +60,7 @@ func get_runtime() -> GFProjectile3D:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return: 绑定准入时的 GFProjectileBodyAdapter3D。
 func get_body_adapter() -> GFProjectileBodyAdapter3D:

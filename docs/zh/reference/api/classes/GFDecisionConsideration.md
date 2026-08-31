@@ -242,7 +242,7 @@ func get_debug_snapshot(context: GFDecisionContext) -> Dictionary:
 ### `get_debug_snapshot_from_score`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_debug_snapshot_from_score(score_value: float) -> Dictionary:

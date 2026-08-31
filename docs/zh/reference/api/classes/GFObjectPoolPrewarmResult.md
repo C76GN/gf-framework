@@ -7,7 +7,7 @@
 - 继承：`RefCounted`
 - API：`public`
 - 类别：值对象 (`value_object`)
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 单次对象池预热请求的不可变终态。 结果冻结请求身份、最终有效的容量准入和每个请求单位的唯一 disposition。调用方可以区分 完成、容量部分接纳、拒绝、取消、Utility 生命周期终结、输入无效与执行失败。
 
@@ -59,7 +59,7 @@
 ### `Status`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 enum Status {
@@ -89,7 +89,7 @@ enum Status {
 ### `REASON_COMPLETED`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const REASON_COMPLETED: StringName = &"completed"
@@ -102,7 +102,7 @@ const REASON_COMPLETED: StringName = &"completed"
 ### `REASON_CAPACITY_LIMITED`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const REASON_CAPACITY_LIMITED: StringName = &"capacity_limited"
@@ -115,7 +115,7 @@ const REASON_CAPACITY_LIMITED: StringName = &"capacity_limited"
 ### `REASON_CAPACITY_UNAVAILABLE`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const REASON_CAPACITY_UNAVAILABLE: StringName = &"capacity_unavailable"
@@ -128,7 +128,7 @@ const REASON_CAPACITY_UNAVAILABLE: StringName = &"capacity_unavailable"
 ### `REASON_CALLER_CANCELLED`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const REASON_CALLER_CANCELLED: StringName = &"caller_cancelled"
@@ -141,7 +141,7 @@ caller 显式取消请求。
 ### `REASON_TOKEN_CANCELLED`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const REASON_TOKEN_CANCELLED: StringName = &"token_cancelled"
@@ -154,7 +154,7 @@ const REASON_TOKEN_CANCELLED: StringName = &"token_cancelled"
 ### `REASON_CANCELLATION_SCOPE_COMPLETED`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const REASON_CANCELLATION_SCOPE_COMPLETED: StringName = &"cancellation_scope_completed"
@@ -167,7 +167,7 @@ const REASON_CANCELLATION_SCOPE_COMPLETED: StringName = &"cancellation_scope_com
 ### `REASON_OWNER_RELEASED`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const REASON_OWNER_RELEASED: StringName = &"owner_released"
@@ -180,7 +180,7 @@ const REASON_OWNER_RELEASED: StringName = &"owner_released"
 ### `REASON_PARENT_RELEASED`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const REASON_PARENT_RELEASED: StringName = &"parent_released"
@@ -193,7 +193,7 @@ const REASON_PARENT_RELEASED: StringName = &"parent_released"
 ### `REASON_UTILITY_DISPOSED`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const REASON_UTILITY_DISPOSED: StringName = &"utility_disposed"
@@ -206,7 +206,7 @@ Object Pool Utility 已释放。
 ### `REASON_UTILITY_REINITIALIZED`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const REASON_UTILITY_REINITIALIZED: StringName = &"utility_reinitialized"
@@ -219,7 +219,7 @@ Object Pool Utility 已重新初始化。
 ### `REASON_INVALID_SCENE`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const REASON_INVALID_SCENE: StringName = &"invalid_scene"
@@ -232,7 +232,7 @@ PackedScene 无效。
 ### `REASON_INVALID_COUNT`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const REASON_INVALID_COUNT: StringName = &"invalid_count"
@@ -245,7 +245,7 @@ const REASON_INVALID_COUNT: StringName = &"invalid_count"
 ### `REASON_INVALID_PARENT`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const REASON_INVALID_PARENT: StringName = &"invalid_parent"
@@ -258,7 +258,7 @@ parent 在接纳时无效或已排队删除。
 ### `REASON_INVALID_OWNER`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const REASON_INVALID_OWNER: StringName = &"invalid_owner"
@@ -271,7 +271,7 @@ owner 在接纳时无效或 Node owner 不在场景树中。
 ### `REASON_INVALID_PREPARE_CALLBACK`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const REASON_INVALID_PREPARE_CALLBACK: StringName = &"invalid_prepare_callback"
@@ -284,7 +284,7 @@ prepare_callback 不是空 Callable 或有效 Callable。
 ### `REASON_MAIN_THREAD_REQUIRED`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const REASON_MAIN_THREAD_REQUIRED: StringName = &"main_thread_required"
@@ -297,7 +297,7 @@ typed request 必须从主线程提交。
 ### `REASON_SCENE_INSTANTIATION_FAILED`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const REASON_SCENE_INSTANTIATION_FAILED: StringName = &"scene_instantiation_failed"
@@ -310,7 +310,7 @@ PackedScene 无法实例化为有效 Node。
 ### `REASON_PREPARE_CALLBACK_FAILED`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const REASON_PREPARE_CALLBACK_FAILED: StringName = &"prepare_callback_failed"
@@ -323,7 +323,7 @@ prepare_callback 显式返回非 OK Error。
 ### `REASON_INVALID_PREPARE_CALLBACK_RESULT`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const REASON_INVALID_PREPARE_CALLBACK_RESULT: StringName = &"invalid_prepare_callback_result"
@@ -336,7 +336,7 @@ prepare_callback 返回值不是合法 Error 整数。
 ### `REASON_CANDIDATE_INVALIDATED`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const REASON_CANDIDATE_INVALIDATED: StringName = &"candidate_invalidated"
@@ -349,7 +349,7 @@ const REASON_CANDIDATE_INVALIDATED: StringName = &"candidate_invalidated"
 ### `REASON_INTERNAL_FAILURE`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const REASON_INTERNAL_FAILURE: StringName = &"internal_failure"
@@ -364,7 +364,7 @@ const REASON_INTERNAL_FAILURE: StringName = &"internal_failure"
 ### `get_status`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_status() -> Status:
@@ -379,7 +379,7 @@ func get_status() -> Status:
 ### `is_successful`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func is_successful() -> bool:
@@ -394,7 +394,7 @@ func is_successful() -> bool:
 ### `get_request_id`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_request_id() -> int:
@@ -409,7 +409,7 @@ func get_request_id() -> int:
 ### `get_scene_identity`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_scene_identity() -> String:
@@ -424,7 +424,7 @@ func get_scene_identity() -> String:
 ### `get_requested_count`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_requested_count() -> int:
@@ -439,7 +439,7 @@ func get_requested_count() -> int:
 ### `get_admitted_count`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_admitted_count() -> int:
@@ -454,7 +454,7 @@ func get_admitted_count() -> int:
 ### `get_created_count`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_created_count() -> int:
@@ -469,7 +469,7 @@ func get_created_count() -> int:
 ### `get_skipped_count`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_skipped_count() -> int:
@@ -484,7 +484,7 @@ func get_skipped_count() -> int:
 ### `get_cancelled_count`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_cancelled_count() -> int:
@@ -499,7 +499,7 @@ func get_cancelled_count() -> int:
 ### `get_failed_count`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_failed_count() -> int:
@@ -514,7 +514,7 @@ func get_failed_count() -> int:
 ### `get_reason`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_reason() -> StringName:
@@ -529,7 +529,7 @@ func get_reason() -> StringName:
 ### `get_error_code`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_error_code() -> Error:
@@ -544,7 +544,7 @@ func get_error_code() -> Error:
 ### `duplicate_result`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func duplicate_result() -> GFObjectPoolPrewarmResult:
@@ -559,7 +559,7 @@ func duplicate_result() -> GFObjectPoolPrewarmResult:
 ### `to_dict`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func to_dict() -> Dictionary:

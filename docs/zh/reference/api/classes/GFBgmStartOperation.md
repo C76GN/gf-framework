@@ -7,7 +7,7 @@
 - 继承：`RefCounted`
 - API：`public`
 - 类别：运行时句柄 (`runtime_handle`)
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 单次 BGM start request 的类型化 caller Operation。 Operation 只表达“是否已经提交播放会话”的短生命周期终态。成功返回的 `GFBgmSessionHandle` 独立表达后续播放会话生命周期；会话结束不会改写 start 结果。
 
@@ -29,7 +29,7 @@
 ### `completed`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 signal completed(result: GFBgmStartResult)
@@ -50,7 +50,7 @@ start request 进入唯一 caller 终态时发出一次。 同步 validation/bac
 ### `get_request_id`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_request_id() -> int:
@@ -65,7 +65,7 @@ func get_request_id() -> int:
 ### `is_pending`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func is_pending() -> bool:
@@ -80,7 +80,7 @@ func is_pending() -> bool:
 ### `is_completed`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func is_completed() -> bool:
@@ -95,7 +95,7 @@ func is_completed() -> bool:
 ### `get_result`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_result() -> GFBgmStartResult:
@@ -110,7 +110,7 @@ func get_result() -> GFBgmStartResult:
 ### `cancel`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func cancel() -> bool:

@@ -116,7 +116,7 @@ const DEFAULT_MAX_INCIDENTS: int = 200
 ### `DEFAULT_MAX_PHASES_PER_OPERATION`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const DEFAULT_MAX_PHASES_PER_OPERATION: int = 64
@@ -365,7 +365,7 @@ var max_incidents: int = DEFAULT_MAX_INCIDENTS:
 ### `max_phases_per_operation`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 var max_phases_per_operation: int = DEFAULT_MAX_PHASES_PER_OPERATION:

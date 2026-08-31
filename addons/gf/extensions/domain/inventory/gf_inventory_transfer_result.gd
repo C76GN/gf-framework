@@ -6,7 +6,7 @@
 ## [br]
 ## @category value_object
 ## [br]
-## @since unreleased
+## @since 11.0.0
 class_name GFInventoryTransferResult
 extends RefCounted
 
@@ -17,63 +17,63 @@ extends RefCounted
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const STATUS_PREPARED: StringName = &"prepared"
 
 ## 两个库存已完成原子内存提交；不表示库存通知已经派发完毕。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const STATUS_COMMITTED: StringName = &"committed"
 
 ## 请求参数、模型身份或槽位无效。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const STATUS_INVALID_REQUEST: StringName = &"invalid_request"
 
 ## 模型正在处理其他变更或通知，无法取得协调锁。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const STATUS_BUSY: StringName = &"busy"
 
 ## 来源槽位没有可转移堆叠或请求数量超过来源且不允许部分转移。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const STATUS_NOT_ENOUGH_ITEMS: StringName = &"not_enough_items"
 
 ## 目标容量不足或目标槽位拒绝物品。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const STATUS_NOT_ENOUGH_SPACE: StringName = &"not_enough_space"
 
 ## 实例数据或规则数据包含不支持、循环或超预算的结构。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const STATUS_UNSUPPORTED_DATA: StringName = &"unsupported_data"
 
 ## 模型 identity 或 revision 在 prepare 后发生变化。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const STATUS_STALE_REVISION: StringName = &"stale_revision"
 
 ## 重新规划结果与 prepare 阶段绑定的计划摘要不同。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const STATUS_STALE_PLAN: StringName = &"stale_plan"
 
 # --- 私有变量 ---
@@ -95,7 +95,7 @@ var _target_revision: int = -1
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return: 状态为 prepared 或 committed 时返回 true。
 func is_successful() -> bool:
@@ -106,7 +106,7 @@ func is_successful() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return: `STATUS_*` 常量之一。
 func get_status() -> StringName:
@@ -117,7 +117,7 @@ func get_status() -> StringName:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return: 转移物品 ID；请求尚未识别物品时为空。
 func get_item_id() -> StringName:
@@ -128,7 +128,7 @@ func get_item_id() -> StringName:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return: 非负请求数量。
 func get_requested_amount() -> int:
@@ -139,7 +139,7 @@ func get_requested_amount() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return: 非负转移数量。
 func get_transferred_amount() -> int:
@@ -150,7 +150,7 @@ func get_transferred_amount() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return: 请求数量减去实际转移数量。
 func get_remaining_amount() -> int:
@@ -161,7 +161,7 @@ func get_remaining_amount() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return: 来源槽位索引；无有效槽位时为 -1。
 func get_source_slot() -> int:
@@ -172,7 +172,7 @@ func get_source_slot() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return: 显式目标槽位索引；自动选择时为 -1。
 func get_target_slot() -> int:
@@ -183,7 +183,7 @@ func get_target_slot() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return: 非负 revision；无有效来源时为 -1。
 func get_source_revision() -> int:
@@ -194,7 +194,7 @@ func get_source_revision() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return: 非负 revision；无有效目标时为 -1。
 func get_target_revision() -> int:
@@ -205,7 +205,7 @@ func get_target_revision() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return: 不共享可变集合的新结果。
 func duplicate_result() -> GFInventoryTransferResult:
@@ -228,7 +228,7 @@ func duplicate_result() -> GFInventoryTransferResult:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return: 只含状态、物品、数量、槽位与 revision 的字典。
 ## [br]
@@ -254,7 +254,7 @@ func to_dict() -> Dictionary:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param status: `STATUS_*` 常量之一。
 ## [br]

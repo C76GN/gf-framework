@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFProjectileDefinition3D" path="addons/gf/extensions/combat/projectiles/gf_projectile_definition_3d.gd" module="extensions/combat" extends="GFProjectileDefinition" classDigest="0d9c270d6edab963b8428910ec0305ad632e95ebd6469b27e84db49eac106fda">
+<class name="GFProjectileDefinition3D" path="addons/gf/extensions/combat/projectiles/gf_projectile_definition_3d.gd" module="extensions/combat" extends="GFProjectileDefinition" classDigest="c8a7df798dd5027371247d4cbca5ffe1ee4b3ebee1224ec783c2e26d0cd7b4c1">
 	<description>GFProjectileDefinition3D: 3D projectile typed 定义。</description>
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">resource_definition</tag>
-		<tag name="since">unreleased</tag>
+		<tag name="since">11.0.0</tag>
 	</tags>
 	<signals />
 	<enums />
@@ -15,7 +15,7 @@
 			<description>驱动 3D root 的 body adapter。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 	</properties>
@@ -27,7 +27,7 @@
 				<tag name="api">public</tag>
 				<tag name="param">root: definition.scene 对应的完整实例 root。</tag>
 				<tag name="return">有效 topology snapshot 或带确定失败原因的 binding。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 	</methods>

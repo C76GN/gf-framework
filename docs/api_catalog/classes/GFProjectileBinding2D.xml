@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFProjectileBinding2D" path="addons/gf/extensions/combat/projectiles/gf_projectile_binding_2d.gd" module="extensions/combat" extends="GFProjectileBinding" classDigest="b65be3490719f9c1797a9cb2f673883e11db1ae495beb76ef014163cc969516f">
+<class name="GFProjectileBinding2D" path="addons/gf/extensions/combat/projectiles/gf_projectile_binding_2d.gd" module="extensions/combat" extends="GFProjectileBinding" classDigest="15bc19410a916712379cf2e844dfca492ed860e7a1e437e5ee5ea98652b73cb4">
 	<description>GFProjectileBinding2D: 2D projectile 的 typed 拓扑快照。</description>
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">value_object</tag>
-		<tag name="since">unreleased</tag>
+		<tag name="since">11.0.0</tag>
 	</tags>
 	<signals />
 	<enums />
@@ -17,7 +17,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">2D definition；准入前失败时可能为 null。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_instance_root">
@@ -26,7 +26,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">live Node2D root；已释放时返回 null。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_runtime">
@@ -35,7 +35,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">live GFProjectile2D；已释放时返回 null。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_body_adapter">
@@ -44,7 +44,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">绑定准入时的 GFProjectileBodyAdapter2D。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 	</methods>

@@ -126,7 +126,7 @@ func validate_provider() -> Dictionary:
 ### `begin_save_snapshot`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func begin_save_snapshot( context: Dictionary = {} ) -> GFSaveSectionSnapshotOperation:
@@ -255,7 +255,7 @@ func make_section(payload: Variant, metadata: Dictionary = {}) -> GFSaveSection:
 ### `make_snapshot`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func make_snapshot( payload: Variant, metadata: Dictionary = {} ) -> GFSaveSectionSnapshot:
@@ -282,7 +282,7 @@ func make_snapshot( payload: Variant, metadata: Dictionary = {} ) -> GFSaveSecti
 ### `make_completed_snapshot`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func make_completed_snapshot( payload: Variant, metadata: Dictionary = {} ) -> GFSaveSectionSnapshotOperation:
@@ -309,7 +309,7 @@ func make_completed_snapshot( payload: Variant, metadata: Dictionary = {} ) -> G
 ### `_begin_save_snapshot`
 
 - API：`protected`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func _begin_save_snapshot( _context: Dictionary = {} ) -> GFSaveSectionSnapshotOperation:

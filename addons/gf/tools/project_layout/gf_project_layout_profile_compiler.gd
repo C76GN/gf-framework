@@ -163,7 +163,7 @@ var _profile_compile_terminal: bool = false
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param contract_digest: 待验证的摘要。
 ## [br]
@@ -176,7 +176,7 @@ static func contract_digest_is_canonical_for_framework(contract_digest: String) 
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param profile: 调用方提供的 schema-v1 profile。
 ## [br]

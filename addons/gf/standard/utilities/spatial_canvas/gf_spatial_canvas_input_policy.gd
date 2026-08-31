@@ -7,7 +7,7 @@
 ## [br]
 ## @category resource_definition
 ## [br]
-## @since unreleased
+## @since 11.0.0
 class_name GFSpatialCanvasInputPolicy
 extends Resource
 
@@ -18,7 +18,7 @@ extends Resource
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 enum ModifierMask {
 	## 不要求修饰键。
 	NONE = 0,
@@ -36,7 +36,7 @@ enum ModifierMask {
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 enum WheelAxis {
 	## 使用向上/向下滚轮事件。
 	VERTICAL,
@@ -48,7 +48,7 @@ enum WheelAxis {
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 enum WheelRouting {
 	## 画布处理目标轴上的所有滚轮事件。
 	CANVAS,
@@ -62,7 +62,7 @@ enum WheelRouting {
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 enum TouchPrimaryBehavior {
 	## 单指不执行画布行为；若启用任一多指行为，首触点仍会被捕获以等待后续触点。
 	NONE,
@@ -79,14 +79,14 @@ enum TouchPrimaryBehavior {
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const ABSOLUTE_MAX_SELECTION_MODIFIER_BINDINGS: int = 15
 
 ## 校验单个 InputMap action 时允许扫描的事件绝对上限。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const ABSOLUTE_MAX_ACTION_EVENTS: int = 64
 
 const _ALL_MODIFIER_MASK: int = (
@@ -103,14 +103,14 @@ const _ALL_MODIFIER_MASK: int = (
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 @export var pan_mouse_button: MouseButton = MOUSE_BUTTON_MIDDLE
 
 ## 通过 InputMap 触发平移捕获的动作；空名称表示禁用动作绑定。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 @export var pan_action: StringName = &""
 
 ## 直接平移按钮必须精确匹配的修饰键掩码。
@@ -119,28 +119,28 @@ const _ALL_MODIFIER_MASK: int = (
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 @export_flags("Shift:1", "Ctrl:2", "Alt:4", "Meta:8") var pan_modifier_mask: int = ModifierMask.NONE
 
 ## 直接触发选择捕获的鼠标按钮；[constant MOUSE_BUTTON_NONE] 表示禁用直接按钮。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 @export var selection_mouse_button: MouseButton = MOUSE_BUTTON_LEFT
 
 ## 通过 InputMap 触发选择捕获的动作；空名称表示禁用动作绑定。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 @export var selection_action: StringName = &""
 
 ## 没有选择修饰键绑定精确匹配时使用的 [code]GFSpatialCanvas2D.SelectionMode[/code]。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 @export var selection_default_mode: GFSpatialCanvas2D.SelectionMode = (
 	GFSpatialCanvas2D.SelectionMode.REPLACE
 )
@@ -149,84 +149,84 @@ const _ALL_MODIFIER_MASK: int = (
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 @export var selection_modifier_bindings: Array[GFSpatialCanvasSelectionModeBinding] = []
 
 ## 区分点选和框选的局部画布像素阈值。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 @export var drag_threshold: float = 4.0
 
 ## 用于画布缩放的滚轮轴。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 @export var wheel_axis: WheelAxis = WheelAxis.VERTICAL
 
 ## 滚轮缩放路由策略。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 @export var wheel_routing: WheelRouting = WheelRouting.CANVAS
 
 ## [constant WheelRouting.MODIFIER_GATED] 下必须精确匹配的修饰键掩码。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 @export_flags("Shift:1", "Ctrl:2", "Alt:4", "Meta:8") var wheel_modifier_mask: int = ModifierMask.NONE
 
 ## 每个滚轮刻度的缩放倍率，必须为有限且大于 1 的值。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 @export var wheel_zoom_factor: float = 1.1
 
 ## 是否处理原始 ScreenTouch / ScreenDrag 事件。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 @export var touch_enabled: bool = true
 
 ## 单指触摸的主行为。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 @export var touch_primary_behavior: TouchPrimaryBehavior = TouchPrimaryBehavior.PAN
 
 ## 是否允许双指及以上触点驱动平移。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 @export var touch_multi_pan_enabled: bool = true
 
 ## 是否允许双指及以上触点驱动捏合缩放。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 @export var touch_multi_zoom_enabled: bool = true
 
 ## 是否处理 Godot 的系统 PanGesture 事件。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 @export var system_pan_gesture_enabled: bool = true
 
 ## 是否处理 Godot 的系统 MagnifyGesture 事件。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 @export var system_magnify_gesture_enabled: bool = true
 
 ## 取消活动放置或瞬态选择的非指针 InputMap 动作；空名称表示禁用取消输入。
@@ -235,21 +235,21 @@ const _ALL_MODIFIER_MASK: int = (
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 @export var placement_cancel_action: StringName = &"ui_cancel"
 
 ## 一般已处理事件是否由 Canvas GUI 边界消费。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 @export var consume_handled_events: bool = true
 
 ## 已处理滚轮事件是否由 Canvas GUI 边界消费。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 @export var consume_wheel_events: bool = true
 
 
@@ -281,7 +281,7 @@ func _init() -> void:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 策略校验报告。
 ## [br]
@@ -335,7 +335,7 @@ func validate_policy() -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 新策略。
 func duplicate_policy() -> GFSpatialCanvasInputPolicy:

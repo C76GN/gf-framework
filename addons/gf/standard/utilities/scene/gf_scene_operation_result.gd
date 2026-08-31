@@ -7,7 +7,7 @@
 ## [br]
 ## @category value_object
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @layer standard/utilities/scene
 class_name GFSceneOperationResult
@@ -20,7 +20,7 @@ extends RefCounted
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 enum Status {
 	## 场景已缓存，或已经在安全帧成功切换。
 	COMPLETED,
@@ -41,126 +41,126 @@ enum Status {
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const REASON_SCENE_LOADED: StringName = &"scene_loaded"
 
 ## 场景资源已成功预加载；是否继续保留在缓存由容量与 fixed 策略决定。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const REASON_SCENE_PRELOADED: StringName = &"scene_preloaded"
 
 ## 请求直接命中已有场景缓存。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const REASON_CACHE_HIT: StringName = &"cache_hit"
 
 ## 场景路径为空、逃逸项目根目录、不存在或不是 PackedScene。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const REASON_INVALID_PATH: StringName = &"invalid_path"
 
 ## 请求 owner 在接纳前已经无效。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const REASON_OWNER_UNAVAILABLE: StringName = &"owner_unavailable"
 
 ## 已有 load 请求正在等待，不允许 replacement。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const REASON_LOAD_BUSY: StringName = &"load_busy"
 
 ## Resource Broker 拒绝 consumer Lease 或底层请求 admission。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const REASON_BROKER_REJECTED: StringName = &"broker_rejected"
 
 ## 已接纳的 Broker 请求在运行期加载失败。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const REASON_RESOURCE_LOAD_FAILED: StringName = &"resource_load_failed"
 
 ## Broker 完成的资源不是 PackedScene。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const REASON_RESOURCE_TYPE_MISMATCH: StringName = &"resource_type_mismatch"
 
 ## PackedScene 已准备完成，但安全帧场景切换失败。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const REASON_SCENE_CHANGE_FAILED: StringName = &"scene_change_failed"
 
 ## caller 通过 Operation.cancel() 显式取消当前 consumer。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const REASON_CALLER_CANCELLED: StringName = &"caller_cancelled"
 
 ## 绑定的 cancellation token 请求取消。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const REASON_TOKEN_CANCELLED: StringName = &"token_cancelled"
 
 ## 绑定的请求 owner 已释放。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const REASON_OWNER_RELEASED: StringName = &"owner_released"
 
 ## 旧 path-level cancel API 取消了同路径的全部 consumer。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const REASON_PATH_CANCELLED: StringName = &"path_cancelled"
 
 ## 共享 Resource Broker 被外部调用方显式取消。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const REASON_EXTERNAL_CANCELLED: StringName = &"external_cancelled"
 
 ## 共享 Resource Broker 已释放并取消当前 consumer Lease。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const REASON_BROKER_DISPOSED: StringName = &"broker_disposed"
 
 ## Broker 返回了未纳入公开闭合集的取消原因。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const REASON_BROKER_CANCELLED: StringName = &"broker_cancelled"
 
 ## Scene Utility 已释放并终结所有等待请求。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const REASON_UTILITY_DISPOSED: StringName = &"utility_disposed"
 
 const _KIND_LOAD: int = 0
@@ -185,7 +185,7 @@ var _configured: bool = false
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return `Status` 闭合枚举值。
 func get_status() -> Status:
@@ -196,7 +196,7 @@ func get_status() -> Status:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 仅 `COMPLETED` 返回 true。
 func is_successful() -> bool:
@@ -207,7 +207,7 @@ func is_successful() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 大于零的请求 ID；尚未配置时返回 0。
 func get_request_id() -> int:
@@ -218,7 +218,7 @@ func get_request_id() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 与 `GFSceneOperation.Kind` 对应的 int enum。
 func get_kind() -> int:
@@ -229,7 +229,7 @@ func get_kind() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 隔离的 GFResourceIdentity 快照；尚未配置时返回 null。
 func get_scene_identity() -> GFResourceIdentity:
@@ -242,7 +242,7 @@ func get_scene_identity() -> GFResourceIdentity:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return `COMPLETED` 时返回场景资源；其它终态返回 null。
 func get_scene() -> PackedScene:
@@ -253,7 +253,7 @@ func get_scene() -> PackedScene:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 当前 status 允许的 `REASON_*` 常量之一。
 func get_reason() -> StringName:
@@ -264,7 +264,7 @@ func get_reason() -> StringName:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return `COMPLETED` 为 OK；其它 status 为与 reason 对应的非 OK 码。
 func get_error_code() -> Error:
@@ -277,7 +277,7 @@ func get_error_code() -> Error:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 新结果对象。
 func duplicate_result() -> GFSceneOperationResult:
@@ -299,7 +299,7 @@ func duplicate_result() -> GFSceneOperationResult:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 请求身份、种类、终态、可选场景与错误信息。
 ## [br]
@@ -330,7 +330,7 @@ func to_dict() -> Dictionary:
 ## [br]
 ## @layer standard/utilities/scene
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param status: 请求唯一 caller 终态。
 ## [br]
@@ -382,7 +382,7 @@ func configure_for_framework(
 ## [br]
 ## @layer standard/utilities/scene
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return closed union 已冻结时返回 true。
 func is_configured_for_framework() -> bool:

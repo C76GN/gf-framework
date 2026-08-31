@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFSaveSectionSnapshotOperation" path="addons/gf/extensions/save/profile/gf_save_section_snapshot_operation.gd" module="extensions/save" extends="RefCounted" classDigest="84f1eb0fa527c1d48aa0a17472d86bff856b2ec91520f6f20833f4138a16c056">
+<class name="GFSaveSectionSnapshotOperation" path="addons/gf/extensions/save/profile/gf_save_section_snapshot_operation.gd" module="extensions/save" extends="RefCounted" classDigest="6721251008eb0f3dd43bb8ef0f2b099b65f9eafb5b22980707240bd7d98f6e5d">
 	<description>GFSaveSectionSnapshotOperation: section 主线程协作式快照操作。
 Provider 在 `_advance_snapshot()` 中按 work budget 推进一个有界 slice，并通过
 `_complete_snapshot()` 或 `_fail_snapshot()` 进入唯一终态。该操作不会创建线程；
@@ -7,7 +7,7 @@ Provider 在 `_advance_snapshot()` 中按 work budget 推进一个有界 slice�
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">runtime_handle</tag>
-		<tag name="since">unreleased</tag>
+		<tag name="since">11.0.0</tag>
 	</tags>
 	<signals />
 	<enums />
@@ -17,7 +17,7 @@ Provider 在 `_advance_snapshot()` 中按 work budget 推进一个有界 slice�
 			<description>尚未执行 Provider slice。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="STATUS_RUNNING">
@@ -25,7 +25,7 @@ Provider 在 `_advance_snapshot()` 中按 work budget 推进一个有界 slice�
 			<description>正在等待后续主线程 slice。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="STATUS_SUCCEEDED">
@@ -33,7 +33,7 @@ Provider 在 `_advance_snapshot()` 中按 work budget 推进一个有界 slice�
 			<description>Snapshot 已准备完成且等待框架接管。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="STATUS_FAILED">
@@ -41,7 +41,7 @@ Provider 在 `_advance_snapshot()` 中按 work budget 推进一个有界 slice�
 			<description>Provider 准备失败。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="STATUS_CANCELLED">
@@ -49,7 +49,7 @@ Provider 在 `_advance_snapshot()` 中按 work budget 推进一个有界 slice�
 			<description>框架停止了未完成准备。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="STATUS_CLAIMED">
@@ -57,7 +57,7 @@ Provider 在 `_advance_snapshot()` 中按 work budget 推进一个有界 slice�
 			<description>成功 Snapshot 已被框架接管。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 	</constants>
@@ -72,7 +72,7 @@ Operation，并在 `_advance_snapshot()` 中按预算分片。</description>
 				<tag name="api">public</tag>
 				<tag name="param">snapshot: 已封存且尚未接管的 Snapshot。</tag>
 				<tag name="return">已成功操作；Snapshot 无效时返回已失败操作。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_status">
@@ -81,7 +81,7 @@ Operation，并在 `_advance_snapshot()` 中按预算分片。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">`STATUS_*` 常量之一。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_section_id">
@@ -90,7 +90,7 @@ Operation，并在 `_advance_snapshot()` 中按预算分片。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">配置前为空。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_schema_version">
@@ -99,7 +99,7 @@ Operation，并在 `_advance_snapshot()` 中按预算分片。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">配置前为 0。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="is_pending">
@@ -108,7 +108,7 @@ Operation，并在 `_advance_snapshot()` 中按预算分片。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">pending 或 running 时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="is_completed">
@@ -117,7 +117,7 @@ Operation，并在 `_advance_snapshot()` 中按预算分片。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">成功、失败、取消或已接管时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="is_successful">
@@ -126,7 +126,7 @@ Operation，并在 `_advance_snapshot()` 中按预算分片。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">成功或已接管时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_error_code">
@@ -135,7 +135,7 @@ Operation，并在 `_advance_snapshot()` 中按预算分片。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">失败或取消时的 Error；其他状态为 OK。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_error">
@@ -144,7 +144,7 @@ Operation，并在 `_advance_snapshot()` 中按预算分片。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">失败或取消描述。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_consumed_work_units">
@@ -153,7 +153,7 @@ Operation，并在 `_advance_snapshot()` 中按预算分片。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">非负 work units。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="_complete_snapshot">
@@ -163,7 +163,7 @@ Operation，并在 `_advance_snapshot()` 中按预算分片。</description>
 				<tag name="api">protected</tag>
 				<tag name="param">snapshot: 已封存且尚未接管的 Snapshot。</tag>
 				<tag name="return">首次成功完成时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="_fail_snapshot">
@@ -174,7 +174,7 @@ Operation，并在 `_advance_snapshot()` 中按预算分片。</description>
 				<tag name="param">error_code: 非 OK 的 Godot Error 码。</tag>
 				<tag name="param">error: 不含业务载荷的错误描述。</tag>
 				<tag name="return">首次失败完成时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="_advance_snapshot">
@@ -186,7 +186,7 @@ Operation，并在 `_advance_snapshot()` 中按预算分片。</description>
 				<tag name="api">protected</tag>
 				<tag name="param">_step_budget: 本次最多可消费的 work units。</tag>
 				<tag name="return">实际消费量；框架至少按 1 计费。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="_cancel_snapshot">
@@ -194,7 +194,7 @@ Operation，并在 `_advance_snapshot()` 中按预算分片。</description>
 			<description>响应框架取消。</description>
 			<tags>
 				<tag name="api">protected</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 	</methods>

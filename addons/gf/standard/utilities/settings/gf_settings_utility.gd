@@ -121,7 +121,7 @@ var save_debounce_seconds: float = 0.25
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 var persistence_enabled: bool = true:
 	set(value):
 		if _settings_store_binding_frozen and persistence_enabled != value:
@@ -214,7 +214,7 @@ func init() -> void:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 启用持久化时仅包含 GFSettingsStoreUtility，否则为空。
 func get_required_utilities() -> Array[Script]:
@@ -228,7 +228,7 @@ func get_required_utilities() -> Array[Script]:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 func ready() -> void:
 	if not _architecture_mode or not persistence_enabled:
 		return
@@ -242,7 +242,7 @@ func ready() -> void:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param _scope: 当前 Settings 激活阶段的取消作用域。
 ## [br]
@@ -302,7 +302,7 @@ func begin_activation(_scope: GFAsyncScope) -> GFAsyncCompletion:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param scope: 当前 Settings 静默阶段的取消作用域。
 ## [br]
@@ -342,7 +342,7 @@ func dispose() -> void:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 func release_dependencies() -> void:
 	_architecture_mode = false
 	if not _owns_settings_store:
@@ -1063,7 +1063,7 @@ func _write_persisted_data(file_name: String, data: Dictionary) -> Error:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param architecture: 当前注册该 Settings Utility 的架构。
 func inject_dependencies(architecture: GFArchitecture) -> void:
@@ -1079,7 +1079,7 @@ func inject_dependencies(architecture: GFArchitecture) -> void:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param store: 新的同步 Settings Store；null 表示清除当前 Store。
 ## [br]

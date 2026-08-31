@@ -51,14 +51,14 @@ const STATUS_LOAD_FAILED: StringName = &"load_failed"
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const MAX_JSON_BYTES: int = 1_048_576
 
 ## JSON 清单允许的最大对象/数组嵌套深度。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const MAX_JSON_DEPTH: int = 64
 
 ## 生成产物报告脚本。

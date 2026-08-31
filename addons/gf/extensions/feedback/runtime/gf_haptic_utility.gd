@@ -93,14 +93,14 @@ enum OverflowPolicy {
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const DEFAULT_OUTPUT_REFRESH_SECONDS: float = 0.05
 
 ## 允许提交到底层输出的最短震动时长（秒）。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const MIN_OUTPUT_DURATION_SECONDS: float = 0.001
 
 
@@ -697,7 +697,7 @@ func get_haptic_info(haptic_id: int) -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return: 最近输出活动报告；尚无输出活动时返回计数和明细均为空的完整报告。
 ## [br]

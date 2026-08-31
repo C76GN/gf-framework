@@ -34,7 +34,7 @@
 ### `DEFAULT_MAX_ID3_BYTES`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const DEFAULT_MAX_ID3_BYTES: int = 1024 * 1024
@@ -47,7 +47,7 @@ const DEFAULT_MAX_ID3_BYTES: int = 1024 * 1024
 ### `ABSOLUTE_MAX_ID3_BYTES`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const ABSOLUTE_MAX_ID3_BYTES: int = 8 * 1024 * 1024

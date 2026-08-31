@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFAudioBackend" path="addons/gf/standard/utilities/audio/gf_audio_backend.gd" module="standard" extends="RefCounted" classDigest="560db602fd2f2d20880520f470f4162360119df9be26fb0ca09a01b26809e72b">
+<class name="GFAudioBackend" path="addons/gf/standard/utilities/audio/gf_audio_backend.gd" module="standard" extends="RefCounted" classDigest="355e4aa3cbc7d039d343284871806b84357c080182537253df8edaa67c22318b">
 	<description>GFAudioBackend: GFAudioUtility 的可插拔音频后端协议。
 默认实现不处理任何请求。项目或扩展可继承它，把部分音频事件转交给
 外部中间件、平台接口或自定义混音系统；未声明可处理的请求会回退到 Godot 默认播放器。</description>
@@ -90,7 +90,7 @@
 				<tag name="param">_context: 请求上下文。</tag>
 				<tag name="return">逐请求能力评估；默认显式返回 unsupported。</tag>
 				<tag name="schema">_context: 请求上下文 Dictionary；键和值由 GFAudioUtility 或具体后端约定。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="play_bgm_path">

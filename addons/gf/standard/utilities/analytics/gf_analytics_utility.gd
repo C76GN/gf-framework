@@ -429,7 +429,7 @@ func get_queue_size() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return: 当前实例初始化以来的累计丢弃数量。
 func get_dropped_event_count() -> int:

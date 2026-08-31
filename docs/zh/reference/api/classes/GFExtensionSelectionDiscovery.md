@@ -28,7 +28,7 @@ GF 扩展启用选择与贡献路径快照缓存。 基于 manifest 集合、当
 ### `STATUS_VALID`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const STATUS_VALID: StringName = &"valid"
@@ -41,7 +41,7 @@ const STATUS_VALID: StringName = &"valid"
 ### `STATUS_PARTIAL`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const STATUS_PARTIAL: StringName = &"partial"
@@ -54,7 +54,7 @@ const STATUS_PARTIAL: StringName = &"partial"
 ### `STATUS_INVALID`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const STATUS_INVALID: StringName = &"invalid"

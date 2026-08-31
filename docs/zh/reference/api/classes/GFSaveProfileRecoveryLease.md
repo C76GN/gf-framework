@@ -7,7 +7,7 @@
 - 继承：`RefCounted`
 - API：`public`
 - 类别：运行时句柄 (`runtime_handle`)
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 缺失或损坏 Profile 的一次性恢复授权。 Lease 由失败的 activate 或 switch 操作创建，并绑定创建时的事务、来源与目标 Profile、Provider domain generation 与 lifecycle epoch。恢复入口必须原样提交同一 Lease；domain 或 epoch 前进后，旧 Lease 会失效，不能把陈旧恢复决定应用到新状态。
 
@@ -40,7 +40,7 @@
 ### `REASON_MISSING`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const REASON_MISSING: StringName = &"missing"
@@ -53,7 +53,7 @@ activate 或 switch 目标没有持久化文档。
 ### `REASON_CORRUPT`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const REASON_CORRUPT: StringName = &"corrupt"
@@ -66,7 +66,7 @@ activate 或 switch 目标文档损坏、完整性无效或 Storage family 结�
 ### `STATE_AVAILABLE`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const STATE_AVAILABLE: StringName = &"available"
@@ -79,7 +79,7 @@ Lease 尚未被恢复操作消费。
 ### `STATE_CLAIMED`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const STATE_CLAIMED: StringName = &"claimed"
@@ -92,7 +92,7 @@ Lease 已被一个恢复操作消费。
 ### `STATE_STALE`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const STATE_STALE: StringName = &"stale"
@@ -107,7 +107,7 @@ Lease 的 domain generation 或 lifecycle epoch 已过期。
 ### `get_lease_id`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_lease_id() -> int:
@@ -122,7 +122,7 @@ func get_lease_id() -> int:
 ### `get_transaction_id`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_transaction_id() -> int:
@@ -137,7 +137,7 @@ func get_transaction_id() -> int:
 ### `get_source_profile_id`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_source_profile_id() -> StringName:
@@ -152,7 +152,7 @@ func get_source_profile_id() -> StringName:
 ### `get_profile_id`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_profile_id() -> StringName:
@@ -167,7 +167,7 @@ func get_profile_id() -> StringName:
 ### `get_reason`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_reason() -> StringName:
@@ -182,7 +182,7 @@ func get_reason() -> StringName:
 ### `get_domain_id`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_domain_id() -> int:
@@ -197,7 +197,7 @@ func get_domain_id() -> int:
 ### `get_domain_generation`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_domain_generation() -> int:
@@ -212,7 +212,7 @@ func get_domain_generation() -> int:
 ### `get_epoch`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_epoch() -> int:
@@ -227,7 +227,7 @@ func get_epoch() -> int:
 ### `get_state`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_state() -> StringName:
@@ -242,7 +242,7 @@ func get_state() -> StringName:
 ### `is_available`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func is_available() -> bool:
@@ -257,7 +257,7 @@ func is_available() -> bool:
 ### `is_claimed`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func is_claimed() -> bool:
@@ -272,7 +272,7 @@ func is_claimed() -> bool:
 ### `is_stale`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func is_stale() -> bool:

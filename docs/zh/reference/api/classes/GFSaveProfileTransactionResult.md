@@ -7,7 +7,7 @@
 - 继承：`RefCounted`
 - API：`public`
 - 类别：值对象 (`value_object`)
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 Profile 事务的不可变终态快照。 结果不保留文档、section、Provider snapshot 或候选 payload，只保留有界阶段 证据、类型化回滚失败、调用方元数据和必要的 Lease。`duplicate_result()` 会 隔离复制集合，但刻意保留 Recovery/Reconcile Lease 的同一对象身份。
 
@@ -71,7 +71,7 @@ Profile 事务的不可变终态快照。 结果不保留文档、section、Prov
 ### `STATUS_ACTIVATED`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const STATUS_ACTIVATED: StringName = &"activated"
@@ -84,7 +84,7 @@ const STATUS_ACTIVATED: StringName = &"activated"
 ### `STATUS_SWITCHED`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const STATUS_SWITCHED: StringName = &"switched"
@@ -97,7 +97,7 @@ const STATUS_SWITCHED: StringName = &"switched"
 ### `STATUS_BOOTSTRAPPED`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const STATUS_BOOTSTRAPPED: StringName = &"bootstrapped"
@@ -110,7 +110,7 @@ const STATUS_BOOTSTRAPPED: StringName = &"bootstrapped"
 ### `STATUS_ADOPTED`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const STATUS_ADOPTED: StringName = &"adopted"
@@ -123,7 +123,7 @@ const STATUS_ADOPTED: StringName = &"adopted"
 ### `STATUS_BOOTSTRAPPED_AND_SWITCHED`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const STATUS_BOOTSTRAPPED_AND_SWITCHED: StringName = &"bootstrapped_and_switched"
@@ -136,7 +136,7 @@ const STATUS_BOOTSTRAPPED_AND_SWITCHED: StringName = &"bootstrapped_and_switched
 ### `STATUS_ADOPTED_AND_SWITCHED`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const STATUS_ADOPTED_AND_SWITCHED: StringName = &"adopted_and_switched"
@@ -149,7 +149,7 @@ const STATUS_ADOPTED_AND_SWITCHED: StringName = &"adopted_and_switched"
 ### `STATUS_MUTATED`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const STATUS_MUTATED: StringName = &"mutated"
@@ -162,7 +162,7 @@ const STATUS_MUTATED: StringName = &"mutated"
 ### `STATUS_RECONCILED`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const STATUS_RECONCILED: StringName = &"reconciled"
@@ -175,7 +175,7 @@ outcome_unknown 已通过显式重新读取完成对账。
 ### `STATUS_INVALID_PROFILE`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const STATUS_INVALID_PROFILE: StringName = &"invalid_profile"
@@ -188,7 +188,7 @@ Profile ID、Provider topology 或事务身份无效。
 ### `STATUS_INVALID_REQUEST`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const STATUS_INVALID_REQUEST: StringName = &"invalid_request"
@@ -201,7 +201,7 @@ const STATUS_INVALID_REQUEST: StringName = &"invalid_request"
 ### `STATUS_INVALID_LEASE`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const STATUS_INVALID_LEASE: StringName = &"invalid_lease"
@@ -214,7 +214,7 @@ Recovery/Reconcile Lease 无效、已消费或绑定已经过期。
 ### `STATUS_INACTIVE`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const STATUS_INACTIVE: StringName = &"inactive"
@@ -227,7 +227,7 @@ const STATUS_INACTIVE: StringName = &"inactive"
 ### `STATUS_ALREADY_ACTIVE`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const STATUS_ALREADY_ACTIVE: StringName = &"already_active"
@@ -240,7 +240,7 @@ activate/bootstrap/adopt 的目标 domain 已有活跃 Profile。
 ### `STATUS_BUSY`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const STATUS_BUSY: StringName = &"busy"
@@ -253,7 +253,7 @@ Provider domain 正在执行互斥事务或发生不安全回调重入。
 ### `STATUS_UNSUPPORTED_OPERATION`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const STATUS_UNSUPPORTED_OPERATION: StringName = &"unsupported_operation"
@@ -266,7 +266,7 @@ Profile 配置不支持请求的读取或写入阶段。
 ### `STATUS_RECOVERY_REQUIRED`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const STATUS_RECOVERY_REQUIRED: StringName = &"recovery_required"
@@ -279,7 +279,7 @@ activate 或 switch 检测到可恢复的缺失/损坏目标，必须显式选�
 ### `STATUS_SOURCE_FLUSH_FAILED`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const STATUS_SOURCE_FLUSH_FAILED: StringName = &"source_flush_failed"
@@ -292,7 +292,7 @@ switch 无法把来源 Profile flush 到调用时 generation barrier。
 ### `STATUS_TARGET_LOAD_FAILED`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const STATUS_TARGET_LOAD_FAILED: StringName = &"target_load_failed"
@@ -305,7 +305,7 @@ switch 已 flush 来源，但无法读取或应用目标 Profile。
 ### `STATUS_SNAPSHOT_FAILED`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const STATUS_SNAPSHOT_FAILED: StringName = &"snapshot_failed"
@@ -318,7 +318,7 @@ Provider 回滚或候选应用前的快照采集失败。
 ### `STATUS_APPLY_FAILED`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const STATUS_APPLY_FAILED: StringName = &"apply_failed"
@@ -331,7 +331,7 @@ const STATUS_APPLY_FAILED: StringName = &"apply_failed"
 ### `STATUS_ROLLBACK_FAILED`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const STATUS_ROLLBACK_FAILED: StringName = &"rollback_failed"
@@ -344,7 +344,7 @@ const STATUS_ROLLBACK_FAILED: StringName = &"rollback_failed"
 ### `STATUS_PERSIST_FAILED`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const STATUS_PERSIST_FAILED: StringName = &"persist_failed"
@@ -357,7 +357,7 @@ const STATUS_PERSIST_FAILED: StringName = &"persist_failed"
 ### `STATUS_OUTCOME_UNKNOWN`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const STATUS_OUTCOME_UNKNOWN: StringName = &"outcome_unknown"
@@ -370,7 +370,7 @@ const STATUS_OUTCOME_UNKNOWN: StringName = &"outcome_unknown"
 ### `STATUS_RECONCILE_PENDING`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const STATUS_RECONCILE_PENDING: StringName = &"reconcile_pending"
@@ -383,7 +383,7 @@ Reconcile Lease 仍在等待 late settlement evidence。
 ### `STATUS_RECONCILE_FAILED`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const STATUS_RECONCILE_FAILED: StringName = &"reconcile_failed"
@@ -396,7 +396,7 @@ const STATUS_RECONCILE_FAILED: StringName = &"reconcile_failed"
 ### `STATUS_DISPOSED`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const STATUS_DISPOSED: StringName = &"disposed"
@@ -411,7 +411,7 @@ Utility 释放时事务仍未完成。
 ### `is_successful`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func is_successful() -> bool:
@@ -426,7 +426,7 @@ func is_successful() -> bool:
 ### `get_status`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_status() -> StringName:
@@ -441,7 +441,7 @@ func get_status() -> StringName:
 ### `get_operation`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_operation() -> StringName:
@@ -456,7 +456,7 @@ func get_operation() -> StringName:
 ### `get_transaction_id`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_transaction_id() -> int:
@@ -471,7 +471,7 @@ func get_transaction_id() -> int:
 ### `get_source_profile_id`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_source_profile_id() -> StringName:
@@ -486,7 +486,7 @@ func get_source_profile_id() -> StringName:
 ### `get_target_profile_id`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_target_profile_id() -> StringName:
@@ -501,7 +501,7 @@ func get_target_profile_id() -> StringName:
 ### `get_active_profile_before`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_active_profile_before() -> StringName:
@@ -516,7 +516,7 @@ func get_active_profile_before() -> StringName:
 ### `get_active_profile_after`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_active_profile_after() -> StringName:
@@ -531,7 +531,7 @@ func get_active_profile_after() -> StringName:
 ### `get_phase`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_phase() -> StringName:
@@ -546,7 +546,7 @@ func get_phase() -> StringName:
 ### `get_error_code`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_error_code() -> Error:
@@ -561,7 +561,7 @@ func get_error_code() -> Error:
 ### `get_error`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_error() -> String:
@@ -576,7 +576,7 @@ func get_error() -> String:
 ### `get_failed_section_id`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_failed_section_id() -> StringName:
@@ -591,7 +591,7 @@ func get_failed_section_id() -> StringName:
 ### `get_rollback_errors`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_rollback_errors() -> Array[GFSaveRollbackFailure]:
@@ -606,7 +606,7 @@ func get_rollback_errors() -> Array[GFSaveRollbackFailure]:
 ### `get_stage_evidence`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_stage_evidence() -> Dictionary:
@@ -625,7 +625,7 @@ func get_stage_evidence() -> Dictionary:
 ### `get_recovery_lease`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_recovery_lease() -> GFSaveProfileRecoveryLease:
@@ -640,7 +640,7 @@ func get_recovery_lease() -> GFSaveProfileRecoveryLease:
 ### `get_reconcile_lease`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_reconcile_lease() -> GFSaveProfileReconcileLease:
@@ -655,7 +655,7 @@ func get_reconcile_lease() -> GFSaveProfileReconcileLease:
 ### `get_metadata`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_metadata() -> Dictionary:
@@ -674,7 +674,7 @@ func get_metadata() -> Dictionary:
 ### `get_started_at_msec`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_started_at_msec() -> int:
@@ -689,7 +689,7 @@ func get_started_at_msec() -> int:
 ### `get_completed_at_msec`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_completed_at_msec() -> int:
@@ -704,7 +704,7 @@ func get_completed_at_msec() -> int:
 ### `get_duration_msec`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_duration_msec() -> int:
@@ -719,7 +719,7 @@ func get_duration_msec() -> int:
 ### `duplicate_result`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func duplicate_result() -> GFSaveProfileTransactionResult:
@@ -734,7 +734,7 @@ func duplicate_result() -> GFSaveProfileTransactionResult:
 ### `to_dict`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func to_dict() -> Dictionary:

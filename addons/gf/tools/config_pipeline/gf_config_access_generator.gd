@@ -162,7 +162,7 @@ func generate_with_report(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param schemas: 带有非空 table_name 或 table_key 的 schema 列表。
 ## [br]

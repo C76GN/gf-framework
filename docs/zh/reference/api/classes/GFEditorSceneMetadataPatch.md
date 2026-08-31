@@ -184,7 +184,7 @@ func _undo_it() -> Error:
 ### `_get_undo_context`
 
 - API：`protected`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func _get_undo_context() -> Object:

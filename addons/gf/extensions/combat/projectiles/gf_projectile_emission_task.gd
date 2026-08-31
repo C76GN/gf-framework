@@ -213,7 +213,7 @@ func commit(emitted_count: int) -> Dictionary:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param emitted_count: 全批预留成功后的实际候选数。
 ## [br]

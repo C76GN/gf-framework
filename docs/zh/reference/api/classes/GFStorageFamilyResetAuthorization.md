@@ -7,7 +7,7 @@
 - 继承：`RefCounted`
 - API：`public`
 - 类别：运行时句柄 (`runtime_handle`)
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 单个 Storage logical family 的一次性破坏性恢复授权。 授权只能由 GFStorageUtility 为当前实例、冻结 root 与 canonical logical identity 创建。 reset 必须原样提交同一对象；跨 Utility、跨 root/file 或重复提交都会失败关闭。 授权冻结签发时的 family 观察；较新写入或修复会在签发、claim 或 worker 复核时使其 stale。
 
@@ -34,7 +34,7 @@
 ### `REASON_CORRUPT`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const REASON_CORRUPT: StringName = &"corrupt"
@@ -47,7 +47,7 @@ const REASON_CORRUPT: StringName = &"corrupt"
 ### `STATE_AVAILABLE`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const STATE_AVAILABLE: StringName = &"available"
@@ -60,7 +60,7 @@ const STATE_AVAILABLE: StringName = &"available"
 ### `STATE_CLAIMED`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const STATE_CLAIMED: StringName = &"claimed"
@@ -73,7 +73,7 @@ const STATE_CLAIMED: StringName = &"claimed"
 ### `STATE_STALE`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const STATE_STALE: StringName = &"stale"
@@ -88,7 +88,7 @@ const STATE_STALE: StringName = &"stale"
 ### `get_authorization_id`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_authorization_id() -> int:
@@ -103,7 +103,7 @@ func get_authorization_id() -> int:
 ### `get_logical_path`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_logical_path() -> String:
@@ -118,7 +118,7 @@ func get_logical_path() -> String:
 ### `get_reason`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_reason() -> StringName:
@@ -133,7 +133,7 @@ func get_reason() -> StringName:
 ### `get_state`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_state() -> StringName:
@@ -148,7 +148,7 @@ func get_state() -> StringName:
 ### `is_available`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func is_available() -> bool:
@@ -163,7 +163,7 @@ func is_available() -> bool:
 ### `is_claimed`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func is_claimed() -> bool:
@@ -178,7 +178,7 @@ func is_claimed() -> bool:
 ### `is_stale`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func is_stale() -> bool:

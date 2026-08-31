@@ -120,7 +120,7 @@ signal view_changed(view_revision: int, visible_count: int)
 ### `view_rebuild_failed`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 signal view_rebuild_failed(result: GFTableViewRebuildResult)
@@ -210,7 +210,7 @@ signal cell_value_committed( row_index: int, row_id: Variant, column_id: StringN
 ### `MAX_ROW_PREDICATE_COUNT`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const MAX_ROW_PREDICATE_COUNT: int = 64
@@ -225,7 +225,7 @@ const MAX_ROW_PREDICATE_COUNT: int = 64
 ### `set_row_id_column`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func set_row_id_column(column_id: StringName) -> GFTableViewRebuildResult:
@@ -246,7 +246,7 @@ func set_row_id_column(column_id: StringName) -> GFTableViewRebuildResult:
 ### `get_row_id_column`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_row_id_column() -> StringName:
@@ -261,7 +261,7 @@ func get_row_id_column() -> StringName:
 ### `set_filter_case_sensitive`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func set_filter_case_sensitive(case_sensitive: bool) -> GFTableViewRebuildResult:
@@ -282,7 +282,7 @@ func set_filter_case_sensitive(case_sensitive: bool) -> GFTableViewRebuildResult
 ### `is_filter_case_sensitive`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func is_filter_case_sensitive() -> bool:
@@ -297,7 +297,7 @@ func is_filter_case_sensitive() -> bool:
 ### `set_selection_model`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func set_selection_model(model: GFTableSelectionModel) -> GFTableViewRebuildResult:
@@ -318,7 +318,7 @@ func set_selection_model(model: GFTableSelectionModel) -> GFTableViewRebuildResu
 ### `get_selection_model`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_selection_model() -> GFTableSelectionModel:
@@ -745,7 +745,7 @@ func get_filter_query() -> String:
 ### `set_row_predicates`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func set_row_predicates( registrations: Array[GFTableRowPredicateRegistration] ) -> GFTableViewRebuildResult:
@@ -770,7 +770,7 @@ func set_row_predicates( registrations: Array[GFTableRowPredicateRegistration] )
 ### `register_row_predicate`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func register_row_predicate( registration: GFTableRowPredicateRegistration ) -> GFTableViewRebuildResult:
@@ -791,7 +791,7 @@ func register_row_predicate( registration: GFTableRowPredicateRegistration ) -> 
 ### `unregister_row_predicate`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func unregister_row_predicate(predicate_id: StringName) -> GFTableViewRebuildResult:
@@ -812,7 +812,7 @@ func unregister_row_predicate(predicate_id: StringName) -> GFTableViewRebuildRes
 ### `set_row_predicate_enabled`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func set_row_predicate_enabled( predicate_id: StringName, enabled: bool ) -> GFTableViewRebuildResult:
@@ -834,7 +834,7 @@ func set_row_predicate_enabled( predicate_id: StringName, enabled: bool ) -> GFT
 ### `set_row_predicate_order`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func set_row_predicate_order( predicate_id: StringName, order: int ) -> GFTableViewRebuildResult:
@@ -856,7 +856,7 @@ func set_row_predicate_order( predicate_id: StringName, order: int ) -> GFTableV
 ### `get_row_predicate`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_row_predicate(predicate_id: StringName) -> GFTableRowPredicateRegistration:
@@ -877,7 +877,7 @@ func get_row_predicate(predicate_id: StringName) -> GFTableRowPredicateRegistrat
 ### `get_row_predicates`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_row_predicates() -> Array[GFTableRowPredicateRegistration]:
@@ -896,7 +896,7 @@ func get_row_predicates() -> Array[GFTableRowPredicateRegistration]:
 ### `get_row_predicate_ids`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_row_predicate_ids() -> Array[StringName]:
@@ -911,7 +911,7 @@ func get_row_predicate_ids() -> Array[StringName]:
 ### `get_view_revision`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_view_revision() -> int:
@@ -926,7 +926,7 @@ func get_view_revision() -> int:
 ### `get_last_view_rebuild_result`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_last_view_rebuild_result() -> GFTableViewRebuildResult:

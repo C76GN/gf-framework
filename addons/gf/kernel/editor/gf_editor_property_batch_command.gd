@@ -277,7 +277,7 @@ func _do_it() -> Error:
 ## [br]
 ## @api protected
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return: 第一个有效属性目标。
 func _get_undo_context() -> Object:
@@ -296,7 +296,7 @@ func _get_undo_context() -> Object:
 ## [br]
 ## @api protected
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return: 全部唯一属性目标。
 func _get_undo_targets() -> Array[Object]:

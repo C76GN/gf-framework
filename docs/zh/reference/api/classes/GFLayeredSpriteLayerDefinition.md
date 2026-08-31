@@ -7,7 +7,7 @@
 - 继承：`Resource`
 - API：`public`
 - 类别：资源定义 (`resource_definition`)
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 GFLayeredSpriteLayerDefinition：分层精灵的单层定义。 层定义只描述稳定身份、绘制属性和可选帧变体；具体业务含义由项目自行解释。
 
@@ -30,7 +30,7 @@ GFLayeredSpriteLayerDefinition：分层精灵的单层定义。 层定义只描�
 ### `layer_id`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 var layer_id: StringName = &""
@@ -43,7 +43,7 @@ var layer_id: StringName = &""
 ### `default_variant_id`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 var default_variant_id: StringName = &""
@@ -56,7 +56,7 @@ var default_variant_id: StringName = &""
 ### `variants`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 var variants: Array[GFLayeredSpriteVariant] = []
@@ -69,7 +69,7 @@ var variants: Array[GFLayeredSpriteVariant] = []
 ### `offset`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 var offset: Vector2 = Vector2.ZERO
@@ -82,7 +82,7 @@ var offset: Vector2 = Vector2.ZERO
 ### `modulate`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 var modulate: Color = Color.WHITE
@@ -95,7 +95,7 @@ var modulate: Color = Color.WHITE
 ### `visible`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 var visible: bool = true
@@ -108,7 +108,7 @@ var visible: bool = true
 ### `draw_order`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 var draw_order: int = 0

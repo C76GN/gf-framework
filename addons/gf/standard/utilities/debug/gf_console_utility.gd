@@ -504,7 +504,7 @@ func execute_command(raw_input: String) -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param console_visible: 为 true 时显示控制台 GUI。
 func set_console_visible(console_visible: bool) -> void:
@@ -518,7 +518,7 @@ func set_console_visible(console_visible: bool) -> void:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 控制台 GUI 可见时返回 true。
 func is_console_visible() -> bool:

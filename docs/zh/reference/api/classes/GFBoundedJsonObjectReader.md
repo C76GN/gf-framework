@@ -7,7 +7,7 @@
 - 继承：`RefCounted`
 - API：`public`
 - 类别：运行时服务 (`runtime_service`)
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 有界 JSON object 读取器。 在调用 JSON.parse() 前限制 UTF-8 字节数与对象/数组词法嵌套深度， 适合项目运行时、编辑器工具和 headless 工具读取不可信 JSON object 输入。 该类不负责恢复 Godot Variant marker；解析后的遍历预算由上层 codec 另行处理。
 
@@ -29,7 +29,7 @@
 ### `DEFAULT_MAX_BYTES`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const DEFAULT_MAX_BYTES: int = 1024 * 1024
@@ -42,7 +42,7 @@ const DEFAULT_MAX_BYTES: int = 1024 * 1024
 ### `ABSOLUTE_MAX_BYTES`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const ABSOLUTE_MAX_BYTES: int = 1024 * 1024
@@ -55,7 +55,7 @@ const ABSOLUTE_MAX_BYTES: int = 1024 * 1024
 ### `DEFAULT_MAX_DEPTH`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const DEFAULT_MAX_DEPTH: int = 64
@@ -68,7 +68,7 @@ const DEFAULT_MAX_DEPTH: int = 64
 ### `ABSOLUTE_MAX_DEPTH`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const ABSOLUTE_MAX_DEPTH: int = 64
@@ -83,7 +83,7 @@ const ABSOLUTE_MAX_DEPTH: int = 64
 ### `parse_object`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 static func parse_object( text: String, max_bytes: int = DEFAULT_MAX_BYTES, max_depth: int = DEFAULT_MAX_DEPTH ) -> Dictionary:
@@ -110,7 +110,7 @@ static func parse_object( text: String, max_bytes: int = DEFAULT_MAX_BYTES, max_
 ### `read_object`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 static func read_object( path: String, max_bytes: int = DEFAULT_MAX_BYTES, max_depth: int = DEFAULT_MAX_DEPTH ) -> Dictionary:

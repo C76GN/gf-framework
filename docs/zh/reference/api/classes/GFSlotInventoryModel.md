@@ -288,7 +288,7 @@ func set_registry(item_registry: GFInventoryItemRegistry) -> void:
 ### `set_allow_growth`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func set_allow_growth(enabled: bool) -> void:
@@ -307,7 +307,7 @@ func set_allow_growth(enabled: bool) -> void:
 ### `get_revision`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_revision() -> int:

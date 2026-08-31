@@ -151,7 +151,7 @@ const STATUS_REJECTED: StringName = &"rejected"
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const STATUS_BUSY: StringName = &"busy"
 
 ## 默认每个 key 的并发槽位数。
@@ -659,7 +659,7 @@ func request_lease(key: Variant, options: Dictionary = {}) -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param key: 并发仲裁 key。
 ## [br]

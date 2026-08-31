@@ -8,7 +8,7 @@
 ## [br]
 ## @category runtime_handle
 ## [br]
-## @since unreleased
+## @since 11.0.0
 class_name GFSaveSectionSnapshot
 extends RefCounted
 
@@ -19,21 +19,21 @@ extends RefCounted
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const STATE_AVAILABLE: StringName = &"available"
 
 ## Snapshot 已被框架接管，载荷不再可用。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const STATE_CLAIMED: StringName = &"claimed"
 
 ## Snapshot 已被取消并释放载荷。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const STATE_DISCARDED: StringName = &"discarded"
 
 
@@ -55,7 +55,7 @@ var _state: StringName = STATE_DISCARDED
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param section_id: 稳定 section ID。
 ## [br]
@@ -91,7 +91,7 @@ static func take_ownership(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return section ID。
 func get_section_id() -> StringName:
@@ -102,7 +102,7 @@ func get_section_id() -> StringName:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 正整数 schema 版本。
 func get_schema_version() -> int:
@@ -113,7 +113,7 @@ func get_schema_version() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return `STATE_*` 常量之一。
 func get_state() -> StringName:
@@ -124,7 +124,7 @@ func get_state() -> StringName:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 尚未接管或释放时返回 true。
 func is_available() -> bool:
@@ -137,7 +137,7 @@ func is_available() -> bool:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 规范 section 记录；已接管或释放时返回空字典。
 ## [br]
@@ -161,7 +161,7 @@ func claim_for_framework() -> Dictionary:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 本次确实释放了可用 Snapshot 时返回 true。
 func discard_for_framework() -> bool:

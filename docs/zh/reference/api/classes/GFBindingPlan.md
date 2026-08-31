@@ -7,7 +7,7 @@
 - 继承：`RefCounted`
 - API：`public`
 - 类别：协议与扩展点 (`protocol`)
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 Installer 使用的显式、顺序、fail-fast required binding 计划。 声明时冻结每个 Builder 的配置；execute() 仅接纳尚未进入 init/READY 的候选 Architecture。首个失败会冻结类型化结果、使候选初始化失败并结算 Installer scope；成功不会替调用方 complete scope。READY 架构继续使用既有热拓扑 API， 不由本计划修改。
 
@@ -26,7 +26,7 @@ Installer 使用的显式、顺序、fail-fast required binding 计划。 声明
 ### `require_singleton`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func require_singleton( binding_id: StringName, builder: GFBindBuilder ) -> GFBindingPlan:
@@ -48,7 +48,7 @@ func require_singleton( binding_id: StringName, builder: GFBindBuilder ) -> GFBi
 ### `require_transient`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func require_transient( binding_id: StringName, builder: GFBindBuilder ) -> GFBindingPlan:
@@ -70,7 +70,7 @@ func require_transient( binding_id: StringName, builder: GFBindBuilder ) -> GFBi
 ### `execute`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func execute(scope: GFAsyncScope) -> GFBindingPlanResult:

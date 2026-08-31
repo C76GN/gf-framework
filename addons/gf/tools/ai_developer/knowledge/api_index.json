@@ -1,8 +1,8 @@
 {
   "schema_version": 2,
   "catalog_version": "2.0.0",
-  "framework_version": "11.0.0-dev.0",
-  "source_digest": "9e3ae9c9d4218b545692bfa7eadc7f1bcb2ba25f7d3ae6701c6db97c8a4017fc",
+  "framework_version": "11.0.0",
+  "source_digest": "b4f6c96816e293c87888c85a1e6efc4a14a1723924e8e6c690071002581c6e94",
   "class_count": 849,
   "autoload_count": 1,
   "package_count": 56,
@@ -2864,7 +2864,7 @@
       "summary": "GFArchitectureShutdownResult: 架构关闭流程的不可变终态快照。 结果显式区分正常完成、失败、取消、超时、强制释放和重复释放，并以有界、 JSON-safe 的模块条目保留关闭证据。所有集合在写入和读取边界都会重新复制，",
       "visibility": "public",
       "category": "value_object",
-      "since": "unreleased",
+      "since": "11.0.0",
       "members": [
         {
           "kind": "enum",
@@ -3315,7 +3315,7 @@
       "summary": "GFAssetBrowserModel: 资产浏览器的无界面状态模型。 持有隔离的 GFAssetCatalog 快照、查询代际和稳定 ID 选择，供项目编辑器 页面自行决定布局、来源注入和资源物化策略。本模型不扫描目录、不下载、",
       "visibility": "public",
       "category": "tool_api",
-      "since": "unreleased",
+      "since": "11.0.0",
       "members": [
         {
           "kind": "signal",
@@ -9263,7 +9263,7 @@
       "summary": "GFAudioPlaybackRegion: 类型化音频播放区间与循环点。 使用秒数描述播放起点、自然或显式终点以及循环模式。流准备始终复制源 `AudioStream`，只在副本上写入 Godot 原生循环属性，并对无法精确表达的组合",
       "visibility": "public",
       "category": "resource_definition",
-      "since": "unreleased",
+      "since": "11.0.0",
       "members": [
         {
           "kind": "enum",
@@ -9339,7 +9339,7 @@
       "summary": "GFAudioPlaybackRegionResult: 音频播放区间验证与流准备结果。 以稳定状态和原因说明区间是否有效、是否被执行者精确接受，以及本地准备路径 成功生成的 session 私有音频流。后端评估返回 APPLIED 时可以不携带本地流；",
       "visibility": "public",
       "category": "value_object",
-      "since": "unreleased",
+      "since": "11.0.0",
       "members": [
         {
           "kind": "enum",
@@ -10258,7 +10258,7 @@
       "summary": "GFBackgroundWorkContext: CPU/IO worker 的线程安全只读协作取消句柄。 Utility 为已接纳的 CPU/IO work record 建立并由 Task 持有。 opt-in 时作为 worker 第二参数；无需 release，终态、clear、dispose 后仍可读且不延长 Utility/线程寿命。",
       "visibility": "public",
       "category": "runtime_handle",
-      "since": "unreleased",
+      "since": "11.0.0",
       "members": [
         {
           "kind": "enum",
@@ -11078,7 +11078,7 @@
       "summary": "GFBgmSessionHandle: 已提交 BGM 播放会话的类型化控制句柄。 句柄只代表一个精确的逻辑会话身份，不暴露本地播放器或后端对象。替换后的旧句柄 不能停止新会话；会话终态只由 Audio Utility 写入一次。",
       "visibility": "public",
       "category": "runtime_handle",
-      "since": "unreleased",
+      "since": "11.0.0",
       "members": [
         {
           "kind": "signal",
@@ -11168,7 +11168,7 @@
       "summary": "GFBgmStartOperation: 单次 BGM start request 的类型化 caller Operation。 Operation 只表达“是否已经提交播放会话”的短生命周期终态。成功返回的 `GFBgmSessionHandle` 独立表达后续播放会话生命周期；会话结束不会改写 start 结果。",
       "visibility": "public",
       "category": "runtime_handle",
-      "since": "unreleased",
+      "since": "11.0.0",
       "members": [
         {
           "kind": "signal",
@@ -11223,7 +11223,7 @@
       "summary": "GFBgmStartResult: 单次 BGM start request 的不可变类型化终态。 结果使用闭合 status/reason/error/disposition 联合。只有 `STARTED` 携带已提交的规范 会话句柄；其他终态不伪造会话身份或播放 owner。",
       "visibility": "public",
       "category": "value_object",
-      "since": "unreleased",
+      "since": "11.0.0",
       "members": [
         {
           "kind": "enum",
@@ -11952,7 +11952,7 @@
       "summary": "GFBindingPlan: Installer 使用的显式、顺序、fail-fast required binding 计划。 声明时冻结每个 Builder 的配置；execute() 仅接纳尚未进入 init/READY 的候选 Architecture。首个失败会冻结类型化结果、使候选初始化失败并结算 Installer",
       "visibility": "public",
       "category": "protocol",
-      "since": "unreleased",
+      "since": "11.0.0",
       "members": [
         {
           "kind": "func",
@@ -11986,7 +11986,7 @@
       "summary": "GFBindingPlanResult: required binding plan 的不可变终态结果。 结果精确标识首个失败 entry、绑定类别、阶段与稳定原因；不保留 Builder、 Architecture、Scope、实例或 Callable 引用，可安全用于诊断与持久化日志。",
       "visibility": "public",
       "category": "value_object",
-      "since": "unreleased",
+      "since": "11.0.0",
       "members": [
         {
           "kind": "enum",
@@ -12354,7 +12354,7 @@
       "summary": "GFBoundedJsonObjectReader: 有界 JSON object 读取器。 在调用 JSON.parse() 前限制 UTF-8 字节数与对象/数组词法嵌套深度， 适合项目运行时、编辑器工具和 headless 工具读取不可信 JSON object 输入。",
       "visibility": "public",
       "category": "runtime_service",
-      "since": "unreleased",
+      "since": "11.0.0",
       "members": [
         {
           "kind": "const",
@@ -14230,7 +14230,7 @@
       "summary": "GFCalendarGrid: 完整周构成的不可变月历网格结果。 成功网格始终为 7 列、4 到 6 行，并包含目标月的全部日期。 返回的日期集合是隔离副本，不暴露内部数组。",
       "visibility": "public",
       "category": "value_object",
-      "since": "unreleased",
+      "since": "11.0.0",
       "members": [
         {
           "kind": "const",
@@ -14355,7 +14355,7 @@
       "summary": "GFCalendarGridTools: 从公民日期构建通用月历网格。 只计算完整周和相邻日期，不创建 UI 节点，不决定语言区域、节假日、选中态或业务标记。",
       "visibility": "public",
       "category": "runtime_service",
-      "since": "unreleased",
+      "since": "11.0.0",
       "members": [
         {
           "kind": "func",
@@ -16408,7 +16408,7 @@
       "summary": "GFCivilDate: 无时区、无时刻的不可变公民日期。 使用前推格里高利历，支持 0001-01-01 到 9999-12-31。 本类只处理日期数学，不读取系统时钟，不包含时区、语言区域、节假日或业务日规则。",
       "visibility": "public",
       "category": "value_object",
-      "since": "unreleased",
+      "since": "11.0.0",
       "members": [
         {
           "kind": "enum",
@@ -16596,7 +16596,7 @@
       "summary": "GFCivilDateDifferenceResult: 两个公民日期的不可变关系结果。 成功时同时表达有符号日差与比较次序，失败时不使用 0 伪装相等。",
       "visibility": "public",
       "category": "value_object",
-      "since": "unreleased",
+      "since": "11.0.0",
       "members": [
         {
           "kind": "const",
@@ -16658,7 +16658,7 @@
       "summary": "GFCivilDateResult: 公民日期创建或运算的不可变结果。 成功与失败都使用稳定状态表达，避免用零值日期、隐式钳制或 null 猜测失败原因。",
       "visibility": "public",
       "category": "value_object",
-      "since": "unreleased",
+      "since": "11.0.0",
       "members": [
         {
           "kind": "const",
@@ -44646,7 +44646,7 @@
       "summary": "GFInventoryReadView: 槽位接收回调的临时只读库存投影。 库存模型与原子转移规划器会为每次槽位接收检查创建此视图。查询反映 当前逐步候选，因而后续槽位可观察此前写入；视图不暴露可变库存引用。",
       "visibility": "public",
       "category": "runtime_handle",
-      "since": "unreleased",
+      "since": "11.0.0",
       "members": [
         {
           "kind": "func",
@@ -44937,7 +44937,7 @@
       "summary": "GFInventoryTransferResult: 槽位库存转移的类型化阶段结果。 结果只保存事务状态、稳定身份、数量与 revision，不保留库存模型或候选堆叠。",
       "visibility": "public",
       "category": "value_object",
-      "since": "unreleased",
+      "since": "11.0.0",
       "members": [
         {
           "kind": "const",
@@ -45097,7 +45097,7 @@
       "summary": "GFInventoryTransferTransaction: 两个槽位库存之间的一次性原子转移句柄。 `prepare()` 只构建有界隔离候选；`commit()` 会重新取得稳定顺序锁、校验 model identity 与 revision，并重新规划后才执行无回调的内存替换。跨模型成功",
       "visibility": "public",
       "category": "runtime_handle",
-      "since": "unreleased",
+      "since": "11.0.0",
       "members": [
         {
           "kind": "signal",
@@ -45909,7 +45909,7 @@
       "summary": "GFLayeredSprite2D：由单一时间轴驱动的通用分层精灵节点。 配置会先完整校验并复制帧拓扑，再原子替换当前状态。节点只负责层、变体和播放， 不拥有资源发现、下载、缓存或任何项目业务分类。",
       "visibility": "public",
       "category": "runtime_service",
-      "since": "unreleased",
+      "since": "11.0.0",
       "members": [
         {
           "kind": "signal",
@@ -46160,7 +46160,7 @@
       "summary": "GFLayeredSpriteDefinition：分层精灵的时间轴和层集合。 时间轴唯一拥有动画速度、循环和帧时长；各层变体只提供同拓扑的帧纹理。",
       "visibility": "public",
       "category": "resource_definition",
-      "since": "unreleased",
+      "since": "11.0.0",
       "members": [
         {
           "kind": "var",
@@ -46194,7 +46194,7 @@
       "summary": "GFLayeredSpriteLayerDefinition：分层精灵的单层定义。 层定义只描述稳定身份、绘制属性和可选帧变体；具体业务含义由项目自行解释。",
       "visibility": "public",
       "category": "resource_definition",
-      "since": "unreleased",
+      "since": "11.0.0",
       "members": [
         {
           "kind": "var",
@@ -46256,7 +46256,7 @@
       "summary": "GFLayeredSpriteVariant：分层精灵单层的帧资源变体。 变体只以稳定 ID 关联一组 [SpriteFrames]，不包含服装、装备或角色等业务语义。",
       "visibility": "public",
       "category": "resource_definition",
-      "since": "unreleased",
+      "since": "11.0.0",
       "members": [
         {
           "kind": "var",
@@ -47262,7 +47262,7 @@
       "summary": "GFLspWorkspaceEditAdapter: 调用方提供的闭合 LSP WorkspaceEdit 安全适配器。 该工具只把已完成的 `documentChanges` 文本编辑转换为一次性预检计划，并在 工作区、文档版本和磁盘来源摘要仍一致时通过 GFArtifactWriteTransaction 提交。",
       "visibility": "public",
       "category": "tool_api",
-      "since": "unreleased",
+      "since": "11.0.0",
       "members": [
         {
           "kind": "const",
@@ -47303,7 +47303,7 @@
       "summary": "GFLspWorkspaceEditPlan: 已预检 LSP WorkspaceEdit 的一次性提交计划。 该值对象由 GFLspWorkspaceEditAdapter 创建，绑定工作区身份与版本、文档版本、 来源 SHA-256、结果 SHA-256 和完整计划 SHA-256。公开读取只返回隔离副本，",
       "visibility": "public",
       "category": "value_object",
-      "since": "unreleased",
+      "since": "11.0.0",
       "members": [
         {
           "kind": "func",
@@ -56028,7 +56028,7 @@
       "summary": "GFObjectPoolPrewarmOperation: 单次异步对象池预热请求句柄。 Operation 冻结请求身份并跟踪最终有效的容量准入和实时进度，只接受一个类型化终态。同步校验、 零工作或同步退化请求可能在入口返回前完成；调用方应先查询 `is_completed()`。",
       "visibility": "public",
       "category": "runtime_handle",
-      "since": "unreleased",
+      "since": "11.0.0",
       "members": [
         {
           "kind": "signal",
@@ -56174,7 +56174,7 @@
       "summary": "GFObjectPoolPrewarmResult: 单次对象池预热请求的不可变终态。 结果冻结请求身份、最终有效的容量准入和每个请求单位的唯一 disposition。调用方可以区分 完成、容量部分接纳、拒绝、取消、Utility 生命周期终结、输入无效与执行失败。",
       "visibility": "public",
       "category": "value_object",
-      "since": "unreleased",
+      "since": "11.0.0",
       "members": [
         {
           "kind": "enum",
@@ -60799,7 +60799,7 @@
       "summary": "GFProjectLayoutAnalyzer: 只读的项目结构分析器。 捕获项目目录库存，并按可选 profile 分析目录分区、Feature 模块契约、命名、生成物边界和大桶目录增长。 所有公开操作都只读取项目；该类型不会创建、移动、删除或改写任何项目文件。",
       "visibility": "public",
       "category": "tool_api",
-      "since": "unreleased",
+      "since": "11.0.0",
       "members": [
         {
           "kind": "const",
@@ -60875,7 +60875,7 @@
       "summary": "GFProjectLayoutDock: GF Project Layout 只读工作区页面。 页面按用户操作捕获项目库存，在后台生成分析结果，并展示 finding、解释、影响和计划。 它不提供 Apply、自动修复、创建、移动、重命名或删除入口。",
       "visibility": "public",
       "category": "editor_api",
-      "since": "unreleased",
+      "since": "11.0.0",
       "members": [
         {
           "kind": "const",
@@ -60965,7 +60965,7 @@
       "summary": "GFProjectLayoutPlanner: 基于项目结构分析快照生成只读改进计划。 Planner 的规划核心只消费已经编译的 profile 与完整冻结分析图，不访问当前文件系统， 也不创建、移动、删除或改写项目内容。它输出可审查的相对路径步骤，并用 blocker",
       "visibility": "public",
       "category": "tool_api",
-      "since": "unreleased",
+      "since": "11.0.0",
       "members": [
         {
           "kind": "const",
@@ -61309,7 +61309,7 @@
       "summary": "GFProjectileBinding: definition 与完整场景实例之间的拓扑快照。 直接 `new()` 得到封闭的 unconfigured invalid value，其原因为 `INTERNAL_FAILURE`； 只有 typed definition 的 `bind_instance()` 才能构造有效 topology。",
       "visibility": "public",
       "category": "value_object",
-      "since": "unreleased",
+      "since": "11.0.0",
       "members": [
         {
           "kind": "enum",
@@ -61385,7 +61385,7 @@
       "summary": "GFProjectileBinding2D: 2D projectile 的 typed 拓扑快照。",
       "visibility": "public",
       "category": "value_object",
-      "since": "unreleased",
+      "since": "11.0.0",
       "members": [
         {
           "kind": "func",
@@ -61426,7 +61426,7 @@
       "summary": "GFProjectileBinding3D: 3D projectile 的 typed 拓扑快照。",
       "visibility": "public",
       "category": "value_object",
-      "since": "unreleased",
+      "since": "11.0.0",
       "members": [
         {
           "kind": "func",
@@ -61467,7 +61467,7 @@
       "summary": "GFProjectileBodyAdapter2D: 2D 发射体宿主运动适配协议。",
       "visibility": "public",
       "category": "protocol",
-      "since": "unreleased",
+      "since": "11.0.0",
       "members": [
         {
           "kind": "func",
@@ -61536,7 +61536,7 @@
       "summary": "GFProjectileBodyAdapter3D: 3D 发射体宿主运动适配协议。",
       "visibility": "public",
       "category": "protocol",
-      "since": "unreleased",
+      "since": "11.0.0",
       "members": [
         {
           "kind": "func",
@@ -61605,7 +61605,7 @@
       "summary": "GFProjectileBodyResult2D: 2D body adapter 的捕获或应用结果。",
       "visibility": "public",
       "category": "value_object",
-      "since": "unreleased",
+      "since": "11.0.0",
       "members": [
         {
           "kind": "func",
@@ -61667,7 +61667,7 @@
       "summary": "GFProjectileBodyResult3D: 3D body adapter 的捕获或应用结果。",
       "visibility": "public",
       "category": "value_object",
-      "since": "unreleased",
+      "since": "11.0.0",
       "members": [
         {
           "kind": "func",
@@ -61887,7 +61887,7 @@
       "summary": "GFProjectileCharacterBodyAdapter2D: CharacterBody2D 运动适配器。",
       "visibility": "public",
       "category": "resource_definition",
-      "since": "unreleased",
+      "since": "11.0.0",
       "members": []
     },
     "GFProjectileCharacterBodyAdapter3D": {
@@ -61899,7 +61899,7 @@
       "summary": "GFProjectileCharacterBodyAdapter3D: CharacterBody3D 运动适配器。",
       "visibility": "public",
       "category": "resource_definition",
-      "since": "unreleased",
+      "since": "11.0.0",
       "members": []
     },
     "GFProjectileConePattern3D": {
@@ -61959,7 +61959,7 @@
       "summary": "GFProjectileDefinition: projectile 场景、runtime 与策略的 typed 定义基类。",
       "visibility": "public",
       "category": "resource_definition",
-      "since": "unreleased",
+      "since": "11.0.0",
       "members": [
         {
           "kind": "var",
@@ -62007,7 +62007,7 @@
       "summary": "GFProjectileDefinition2D: 2D projectile typed 定义。",
       "visibility": "public",
       "category": "resource_definition",
-      "since": "unreleased",
+      "since": "11.0.0",
       "members": [
         {
           "kind": "var",
@@ -62034,7 +62034,7 @@
       "summary": "GFProjectileDefinition3D: 3D projectile typed 定义。",
       "visibility": "public",
       "category": "resource_definition",
-      "since": "unreleased",
+      "since": "11.0.0",
       "members": [
         {
           "kind": "var",
@@ -62568,7 +62568,7 @@
       "summary": "GFProjectileLaunchInput2D: 2D 发射请求的 typed 快照。",
       "visibility": "public",
       "category": "value_object",
-      "since": "unreleased",
+      "since": "11.0.0",
       "members": [
         {
           "kind": "enum",
@@ -62651,7 +62651,7 @@
       "summary": "GFProjectileLaunchInput3D: 3D 发射请求的 typed 快照。",
       "visibility": "public",
       "category": "value_object",
-      "since": "unreleased",
+      "since": "11.0.0",
       "members": [
         {
           "kind": "enum",
@@ -62947,7 +62947,7 @@
       "summary": "GFProjectileMotionIntent2D: 2D 移动策略的不可变输出。",
       "visibility": "public",
       "category": "value_object",
-      "since": "unreleased",
+      "since": "11.0.0",
       "members": [
         {
           "kind": "enum",
@@ -63023,7 +63023,7 @@
       "summary": "GFProjectileMotionIntent3D: 3D 移动策略的不可变输出。",
       "visibility": "public",
       "category": "value_object",
-      "since": "unreleased",
+      "since": "11.0.0",
       "members": [
         {
           "kind": "enum",
@@ -63099,7 +63099,7 @@
       "summary": "GFProjectileMotionState: 单个 Projectile generation 独占的移动状态基类。 进入 Runtime 的实例由 [method GFProjectileMotion.create_state_2d] 或 [method GFProjectileMotion.create_state_3d] 为一次 launch 创建。Runtime 会为该",
       "visibility": "public",
       "category": "runtime_handle",
-      "since": "unreleased",
+      "since": "11.0.0",
       "members": []
     },
     "GFProjectileSession": {
@@ -63111,7 +63111,7 @@
       "summary": "GFProjectileSession: 一次 typed projectile 发射的运行期句柄。",
       "visibility": "public",
       "category": "runtime_handle",
-      "since": "unreleased",
+      "since": "11.0.0",
       "members": [
         {
           "kind": "signal",
@@ -63325,7 +63325,7 @@
       "summary": "GFProjectileTransformBodyAdapter2D: 直接应用 Node2D 变换的 body adapter。",
       "visibility": "public",
       "category": "resource_definition",
-      "since": "unreleased",
+      "since": "11.0.0",
       "members": []
     },
     "GFProjectileTransformBodyAdapter3D": {
@@ -63337,7 +63337,7 @@
       "summary": "GFProjectileTransformBodyAdapter3D: 直接应用 Node3D 变换的 body adapter。",
       "visibility": "public",
       "category": "resource_definition",
-      "since": "unreleased",
+      "since": "11.0.0",
       "members": []
     },
     "GFPropertyBagCapability": {
@@ -66823,7 +66823,7 @@
       "summary": "GFResourceBroker: framework-level threaded ResourceLoader admission broker。 一个显式共享实例可以注入 Asset、Scene 与 BackgroundWork Utility， 统一执行有界 FIFO admission、同资源身份复用、消费者级取消和底层请求 drain。",
       "visibility": "public",
       "category": "runtime_service",
-      "since": "unreleased",
+      "since": "11.0.0",
       "members": [
         {
           "kind": "const",
@@ -67329,7 +67329,7 @@
       "summary": "GFResourceLease: 共享资源 Broker 返回的消费者所有权句柄。 每次请求都会得到独立 Lease；同一路径可以复用同一个底层 threaded load， 但取消或释放只影响当前消费者。未完成时释放最后一个 Lease 会让 Broker",
       "visibility": "public",
       "category": "runtime_handle",
-      "since": "unreleased",
+      "since": "11.0.0",
       "members": [
         {
           "kind": "const",
@@ -72196,7 +72196,7 @@
       "summary": "GFSaveProfileMutationRequest: mutate-and-persist 的一次性所有权请求。 请求在创建时原子接管每个 `GFSaveSectionMutation`，随后只允许协调器 claim 一次。调用方必须放弃传入的 Dictionary、Array 及其全部嵌套 alias；请求",
       "visibility": "public",
       "category": "runtime_handle",
-      "since": "unreleased",
+      "since": "11.0.0",
       "members": [
         {
           "kind": "func",
@@ -72334,7 +72334,7 @@
       "summary": "GFSaveProfileReconcileLease: outcome_unknown 的持续所有权与对账围栏。 Lease 保留同一对象身份，直到所有相关底层请求 late-settle 并由显式 reconcile 操作解除 domain 围栏。结果副本不会复制 Lease；因此调用方连接 `settled`、",
       "visibility": "public",
       "category": "runtime_handle",
-      "since": "unreleased",
+      "since": "11.0.0",
       "members": [
         {
           "kind": "signal",
@@ -72501,7 +72501,7 @@
       "summary": "GFSaveProfileReconcileRequest: uncertain 写入对账的一次性请求句柄。 请求只携带调用方纯数据上下文和结果元数据，不携带 Recovery/Reconcile Lease 身份。Lease 必须作为独立类型化参数提交，避免从 Dictionary 恢复所有权。",
       "visibility": "public",
       "category": "runtime_handle",
-      "since": "unreleased",
+      "since": "11.0.0",
       "members": [
         {
           "kind": "func",
@@ -72535,7 +72535,7 @@
       "summary": "GFSaveProfileRecoveryLease: 缺失或损坏 Profile 的一次性恢复授权。 Lease 由失败的 activate 或 switch 操作创建，并绑定创建时的事务、来源与目标 Profile、Provider domain generation 与 lifecycle epoch。恢复入口必须原样提交同一",
       "visibility": "public",
       "category": "runtime_handle",
-      "since": "unreleased",
+      "since": "11.0.0",
       "members": [
         {
           "kind": "const",
@@ -72667,7 +72667,7 @@
       "summary": "GFSaveProfileRequest: Save Profile 保存请求的一次性所有权句柄。 `take_ownership()` 不会深复制输入。成功创建后，调用方必须立即且永久放弃 document metadata、Provider context、result metadata 及其全部嵌套集合 alias。",
       "visibility": "public",
       "category": "runtime_handle",
-      "since": "unreleased",
+      "since": "11.0.0",
       "members": [
         {
           "kind": "func",
@@ -73036,7 +73036,7 @@
       "summary": "GFSaveProfileTransactionCoordinator: 活动 Profile 身份与跨 Profile 事务协调器。 Coordinator 在完全相同且同序的 Provider 实例拓扑上建立独立 domain，委托 `GFSaveProfileUtility` 完成 generation、Storage IO、重试与 detached settlement。",
       "visibility": "public",
       "category": "runtime_service",
-      "since": "unreleased",
+      "since": "11.0.0",
       "members": [
         {
           "kind": "signal",
@@ -73238,7 +73238,7 @@
       "summary": "GFSaveProfileTransactionOperation: Profile 身份与持久化事务的异步句柄。 句柄由 Save Profile 事务协调器完成一次且只完成一次。调用方可在连接信号前 检查 `is_completed()`，避免同步拒绝或立即终态造成竞态。",
       "visibility": "public",
       "category": "runtime_handle",
-      "since": "unreleased",
+      "since": "11.0.0",
       "members": [
         {
           "kind": "signal",
@@ -73370,7 +73370,7 @@
       "summary": "GFSaveProfileTransactionResult: Profile 事务的不可变终态快照。 结果不保留文档、section、Provider snapshot 或候选 payload，只保留有界阶段 证据、类型化回滚失败、调用方元数据和必要的 Lease。`duplicate_result()` 会",
       "visibility": "public",
       "category": "value_object",
-      "since": "unreleased",
+      "since": "11.0.0",
       "members": [
         {
           "kind": "const",
@@ -74253,7 +74253,7 @@
       "summary": "GFSaveSectionMutation: 单个 Save section 的一次性候选替换句柄。 Mutation 只描述完整候选 section，不接受可执行 Callable 或增量 patch。 `take_ownership()` 成功后，调用方必须永久放弃 payload、metadata 及其全部",
       "visibility": "public",
       "category": "runtime_handle",
-      "since": "unreleased",
+      "since": "11.0.0",
       "members": [
         {
           "kind": "const",
@@ -74454,7 +74454,7 @@
       "summary": "GFSaveSectionSnapshot: 单个 Save section 的一次性所有权快照。 Snapshot 只保存纯 Variant 数据，并在框架接管后立即清空自身引用。调用 `take_ownership()` 后，调用方必须放弃原 payload、metadata 及其全部嵌套别名；",
       "visibility": "public",
       "category": "runtime_handle",
-      "since": "unreleased",
+      "since": "11.0.0",
       "members": [
         {
           "kind": "const",
@@ -74523,7 +74523,7 @@
       "summary": "GFSaveSectionSnapshotOperation: section 主线程协作式快照操作。 Provider 在 `_advance_snapshot()` 中按 work budget 推进一个有界 slice，并通过 `_complete_snapshot()` 或 `_fail_snapshot()` 进入唯一终态。该操作不会创建线程；",
       "visibility": "public",
       "category": "runtime_handle",
-      "since": "unreleased",
+      "since": "11.0.0",
       "members": [
         {
           "kind": "const",
@@ -75627,7 +75627,7 @@
       "summary": "GFSceneOperation: 单次类型化场景加载或预加载请求的 caller Operation。 每个请求持有独立 ID、资源身份快照与取消能力。同一路径请求可以共享 Broker 的物理加载，但每个 Operation 只观察并终结自己的 consumer Lease。",
       "visibility": "public",
       "category": "runtime_handle",
-      "since": "unreleased",
+      "since": "11.0.0",
       "members": [
         {
           "kind": "signal",
@@ -75717,7 +75717,7 @@
       "summary": "GFSceneOperationResult: 单次类型化场景请求的不可变终态。 结果冻结请求种类、资源身份、可选 PackedScene 与闭合 status/reason/error 联合。 所有身份 getter 返回隔离快照，调用方不能改写 Operation 已冻结的资源身份。",
       "visibility": "public",
       "category": "value_object",
-      "since": "unreleased",
+      "since": "11.0.0",
       "members": [
         {
           "kind": "enum",
@@ -78434,7 +78434,7 @@
       "summary": "GFSettingsFileStoreUtility: 基于 `user://` 的设置文件 Store。 该实现保留 GFSettingsUtility 历史 fallback 的同步 JSON 语义，只接受不含路径、 `..`、盘符或前后空白的简单 basename，并返回严格 GFStorageReadResult。",
       "visibility": "public",
       "category": "runtime_service",
-      "since": "unreleased",
+      "since": "11.0.0",
       "members": [
         {
           "kind": "func",
@@ -78614,7 +78614,7 @@
       "summary": "GFSettingsNullStoreUtility: 显式不可用的设置持久化 Store 哨兵。 该实现继承 GFSettingsStoreUtility 的明确 UNAVAILABLE 结果，适合测试隔离或显式 表达 Store capability 缺失。纯内存模式应在 GFSettingsUtility 上设置",
       "visibility": "public",
       "category": "runtime_service",
-      "since": "unreleased",
+      "since": "11.0.0",
       "members": []
     },
     "GFSettingsRecoveryPolicy": {
@@ -78681,7 +78681,7 @@
       "summary": "GFSettingsStoreUtility: 设置持久化的同步物理端口。 该协议只定义设置载荷的读取、写入与能力查询，不绑定文件、Storage Utility、 云服务或平台 SDK。Architecture 模式且启用持久化时应注册一个派生 Store Utility；",
       "visibility": "public",
       "category": "protocol",
-      "since": "unreleased",
+      "since": "11.0.0",
       "members": [
         {
           "kind": "func",
@@ -82996,7 +82996,7 @@
       "summary": "GFSpatialCanvasInputPolicy: 空间画布输入解释策略。 以数据方式声明平移、选择、滚轮、触摸和取消输入。策略不持有节点、 Viewport 或父容器引用；[code]GFSpatialCanvas2D[/code] 只接受完整校验通过的隔离副本。",
       "visibility": "public",
       "category": "resource_definition",
-      "since": "unreleased",
+      "since": "11.0.0",
       "members": [
         {
           "kind": "enum",
@@ -83212,7 +83212,7 @@
       "summary": "GFSpatialCanvasSelectionModeBinding: 空间画布选择修饰键绑定。 只描述修饰键掩码到 [code]GFSpatialCanvas2D.SelectionMode[/code] 的映射， 不读取设备状态，也不拥有输入生命周期。",
       "visibility": "public",
       "category": "resource_definition",
-      "since": "unreleased",
+      "since": "11.0.0",
       "members": [
         {
           "kind": "var",
@@ -84963,7 +84963,7 @@
       "summary": "GFStorageAsyncCallerResult: 单个 Storage consumer 的不可变 caller 终态。 caller 终态与 `GFStorageAsyncOperation.completed` 表示的物理终态彼此独立。已接纳 save/delete/reset 在 caller 提前离开时返回 `OUTCOME_UNKNOWN`，不会把“停止观察”伪装成",
       "visibility": "public",
       "category": "value_object",
-      "since": "unreleased",
+      "since": "11.0.0",
       "members": [
         {
           "kind": "enum",
@@ -85234,7 +85234,7 @@
       "summary": "GFStorageAsyncRequestOptions: 异步 Storage caller 观察生命周期的不可变选项。 选项只弱持有 owner，并可绑定只读取消令牌与单调 timeout。必须通过 `create()` 构造；直接 `new()` 或非法参数会得到 `is_valid() == false` 的对象，避免把错误选项",
       "visibility": "public",
       "category": "value_object",
-      "since": "unreleased",
+      "since": "11.0.0",
       "members": [
         {
           "kind": "func",
@@ -85838,7 +85838,7 @@
       "summary": "GFStorageDeleteResult: 单次异步 Storage family 删除的不可变终态。 结果只公开有界成员计数与失败成员分类，不暴露 Storage root、family path 或 私有 sidecar 文件名。实例只能由 Storage 框架内部配置一次。",
       "visibility": "public",
       "category": "value_object",
-      "since": "unreleased",
+      "since": "11.0.0",
       "members": [
         {
           "kind": "enum",
@@ -86053,7 +86053,7 @@
       "summary": "GFStorageFamilyResetAuthorization: 单个 Storage logical family 的一次性破坏性恢复授权。 授权只能由 GFStorageUtility 为当前实例、冻结 root 与 canonical logical identity 创建。 reset 必须原样提交同一对象；跨 Utility、跨 root/file 或重复提交都会失败关闭。",
       "visibility": "public",
       "category": "runtime_handle",
-      "since": "unreleased",
+      "since": "11.0.0",
       "members": [
         {
           "kind": "const",
@@ -86143,7 +86143,7 @@
       "summary": "GFStorageFamilyResetResult: 单个 Storage logical family 破坏性 reset/recreate 的不可变终态。 结果只公开 logical 层分类、阶段与有界计数，不暴露 Storage root、family path、 retirement staging 或任何私有 sidecar 名称。实例只能由 Storage 框架内部配置一次。",
       "visibility": "public",
       "category": "value_object",
-      "since": "unreleased",
+      "since": "11.0.0",
       "members": [
         {
           "kind": "enum",
@@ -86261,7 +86261,7 @@
       "summary": "GFStoragePayloadTransfer: 异步 Storage 写入载荷的单所有者传递句柄。 调用方通过静态 `take_ownership()` 把 Dictionary 的逻辑唯一所有权移交给新句柄。 移交不会深拷贝；调用成功后，调用方必须永久放弃源 Dictionary 以及它的全部",
       "visibility": "public",
       "category": "runtime_handle",
-      "since": "unreleased",
+      "since": "11.0.0",
       "members": [
         {
           "kind": "enum",
@@ -86587,7 +86587,7 @@
       "summary": "GFStorageSettingsStoreUtility: GFStorageUtility 的设置持久化适配器。 该 Utility 声明显式 Storage 生命周期依赖，只在依赖完成 ready 后缓存并同步转发 设置读取和写入；释放依赖时清理缓存，避免在 Storage quiesce 或 dispose 后继续访问。",
       "visibility": "public",
       "category": "runtime_service",
-      "since": "unreleased",
+      "since": "11.0.0",
       "members": [
         {
           "kind": "func",
@@ -88646,7 +88646,7 @@
       "summary": "GFTableRowPredicate: 表格结构化行过滤协议。 项目通过子类实现同步、只读、有界且无副作用的行判断。 GFTableDataView 按注册顺序契约组合多个谓词，并把显式失败视为整次投影失败。",
       "visibility": "public",
       "category": "protocol",
-      "since": "unreleased",
+      "since": "11.0.0",
       "members": [
         {
           "kind": "func",
@@ -88673,7 +88673,7 @@
       "summary": "GFTableRowPredicateRegistration: 命名行谓词的注册定义值。 把项目谓词与稳定 ID、启用状态和显式顺序组合成一次注册定义。 GFTableDataView 会复制数组并以 order 升序、predicate_id 字典序稳定执行。",
       "visibility": "public",
       "category": "value_object",
-      "since": "unreleased",
+      "since": "11.0.0",
       "members": [
         {
           "kind": "func",
@@ -88728,7 +88728,7 @@
       "summary": "GFTableRowPredicateResult: 类型化行谓词求值结果。 成功结果明确表示包含或排除当前行；失败结果携带稳定错误码和有界说明， 供 GFTableDataView 中止候选投影并保留上一份已提交视图。",
       "visibility": "public",
       "category": "value_object",
-      "since": "unreleased",
+      "since": "11.0.0",
       "members": [
         {
           "kind": "func",
@@ -88790,7 +88790,7 @@
       "summary": "GFTableRowView: 表格行谓词使用的隔离只读视图。 只公开稳定行 ID、源索引和已配置列的复制值，不公开源行容器。 项目谓词可以读取隐藏列，但不能通过该视图修改权威表格数据。",
       "visibility": "public",
       "category": "value_object",
-      "since": "unreleased",
+      "since": "11.0.0",
       "members": [
         {
           "kind": "func",
@@ -88970,7 +88970,7 @@
       "summary": "GFTableViewRebuildResult: 表格投影事务的类型化结果。 成功结果描述一次提交或 no-op；失败结果描述未提交的阶段、谓词和行身份。 结果不携带源 row，从而可安全交给 UI 诊断层。",
       "visibility": "public",
       "category": "value_object",
-      "since": "unreleased",
+      "since": "11.0.0",
       "members": [
         {
           "kind": "func",
@@ -92928,7 +92928,7 @@
       "summary": "GFTurnPhaseCompletionHandle: 单次阶段运行的完成能力句柄。 有效句柄只会由 GFTurnFlowSystem 传给当前 GFTurnPhase._execute() 调用；项目手工 new() 的实例没有完成权限。 首次对有效运行调用 try_complete() 会完成该阶段；停止、超时、释放、dispose、重启后的旧句柄及重复调用都返回 false，不影响其他代际。",
       "visibility": "public",
       "category": "runtime_handle",
-      "since": "unreleased",
+      "since": "11.0.0",
       "members": [
         {
           "kind": "func",
@@ -93469,7 +93469,7 @@
       "summary": "GFUIPanelAsyncOperation: 单次异步 UI 面板请求的可观察句柄。 句柄冻结 UI 分配的请求序号、路径、层级与操作类型，并且只接受一个终态。 成功面板仅以弱引用保存，句柄不会延长面板节点的生命周期。",
       "visibility": "public",
       "category": "runtime_handle",
-      "since": "unreleased",
+      "since": "11.0.0",
       "members": [
         {
           "kind": "signal",
@@ -96896,7 +96896,7 @@
       "summary": "GFViewportSurfaceInputBridge: 将外部表面命中桥接为 Viewport 指针事件。 调用方只提供稳定 source/device/pointer 身份、目标 Viewport 代际、 0..1 标准化表面坐标和显式单调毫秒。桥不求解射线、UV、Mesh、XR 或交互模式；",
       "visibility": "public",
       "category": "runtime_service",
-      "since": "unreleased",
+      "since": "11.0.0",
       "members": [
         {
           "kind": "signal",
@@ -97042,7 +97042,7 @@
       "summary": "GFViewportSurfaceInputCapture: 表面指针按下代际的不可变回执。 调用方必须保留该回执并在 move、release 或 cancel 时原样交回创建它的 [code]GFViewportSurfaceInputBridge[/code]。同一 source/device/pointer key 重用后，旧回执不能操作新代际。",
       "visibility": "public",
       "category": "value_object",
-      "since": "unreleased",
+      "since": "11.0.0",
       "members": [
         {
           "kind": "func",
@@ -97368,7 +97368,7 @@
       "summary": "GFVirtualInputPulseOperation: 单次虚拟输入脉冲的类型化运行时句柄。 句柄冻结创建时的 Mapping、source_id、player_index 与 action_id，并由 GFInputMappingUtility 的权威 lease 保证旧定时器不会释放后续脉冲。owner 与",
       "visibility": "public",
       "category": "runtime_handle",
-      "since": "unreleased",
+      "since": "11.0.0",
       "members": [
         {
           "kind": "signal",
@@ -97625,7 +97625,7 @@
       "summary": "GFVirtualListBinder: owner-bound 虚拟列表 Control 物化与回收协调器。 连接项目提供的 `ScrollContainer`、绝对布局 content root、`GFVirtualListModel` 与行回调，只物化真实视口及 overscan 范围。项目继续拥有条目数据、稳定 ID、",
       "visibility": "public",
       "category": "runtime_handle",
-      "since": "unreleased",
+      "since": "11.0.0",
       "members": [
         {
           "kind": "signal",
@@ -98161,7 +98161,7 @@
       "summary": "GFVirtualListSyncResult: 虚拟列表同步的不可变诊断结果。 只保存范围、计数、版本和稳定错误信息，不保存项目条目数据或原始稳定 ID。",
       "visibility": "public",
       "category": "value_object",
-      "since": "unreleased",
+      "since": "11.0.0",
       "members": [
         {
           "kind": "const",

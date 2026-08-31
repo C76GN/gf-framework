@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFStorageFamilyResetAuthorization" path="addons/gf/standard/utilities/storage/gf_storage_family_reset_authorization.gd" module="standard" extends="RefCounted" classDigest="8a197c2cafa08637d37a325b9a3c434558e8e9109c62c369262a5d26584cee64">
+<class name="GFStorageFamilyResetAuthorization" path="addons/gf/standard/utilities/storage/gf_storage_family_reset_authorization.gd" module="standard" extends="RefCounted" classDigest="7b8a02c1b467290a26e1e4ae160dea1fe4135d84c414904abde3aace767ec2f4">
 	<description>GFStorageFamilyResetAuthorization: 单个 Storage logical family 的一次性破坏性恢复授权。
 授权只能由 GFStorageUtility 为当前实例、冻结 root 与 canonical logical identity 创建。
 reset 必须原样提交同一对象；跨 Utility、跨 root/file 或重复提交都会失败关闭。
@@ -7,7 +7,7 @@ reset 必须原样提交同一对象；跨 Utility、跨 root/file 或重复提�
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">runtime_handle</tag>
-		<tag name="since">unreleased</tag>
+		<tag name="since">11.0.0</tag>
 	</tags>
 	<signals />
 	<enums />
@@ -17,7 +17,7 @@ reset 必须原样提交同一对象；跨 Utility、跨 root/file 或重复提�
 			<description>调用方已经确认目标读失败属于可破坏恢复的损坏状态。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="STATE_AVAILABLE">
@@ -25,7 +25,7 @@ reset 必须原样提交同一对象；跨 Utility、跨 root/file 或重复提�
 			<description>授权尚未被 reset 请求消费。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="STATE_CLAIMED">
@@ -33,7 +33,7 @@ reset 必须原样提交同一对象；跨 Utility、跨 root/file 或重复提�
 			<description>授权已经被一个 reset 请求消费。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="STATE_STALE">
@@ -41,7 +41,7 @@ reset 必须原样提交同一对象；跨 Utility、跨 root/file 或重复提�
 			<description>授权无效、绑定不匹配或已经过期。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 	</constants>
@@ -53,7 +53,7 @@ reset 必须原样提交同一对象；跨 Utility、跨 root/file 或重复提�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">正整数授权 ID；未配置时为 0。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_logical_path">
@@ -62,7 +62,7 @@ reset 必须原样提交同一对象；跨 Utility、跨 root/file 或重复提�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">portable logical file path；未配置时为空字符串。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_reason">
@@ -71,7 +71,7 @@ reset 必须原样提交同一对象；跨 Utility、跨 root/file 或重复提�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">当前只可能为 REASON_CORRUPT；未配置时为空 StringName。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_state">
@@ -80,7 +80,7 @@ reset 必须原样提交同一对象；跨 Utility、跨 root/file 或重复提�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">STATE_AVAILABLE、STATE_CLAIMED 或 STATE_STALE。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="is_available">
@@ -89,7 +89,7 @@ reset 必须原样提交同一对象；跨 Utility、跨 root/file 或重复提�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">本地句柄已配置且尚未消费时返回 true；实际提交仍会复核冻结的 family 观察。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="is_claimed">
@@ -98,7 +98,7 @@ reset 必须原样提交同一对象；跨 Utility、跨 root/file 或重复提�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">已 claim 时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="is_stale">
@@ -107,7 +107,7 @@ reset 必须原样提交同一对象；跨 Utility、跨 root/file 或重复提�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">未配置或已标记 stale 时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 	</methods>

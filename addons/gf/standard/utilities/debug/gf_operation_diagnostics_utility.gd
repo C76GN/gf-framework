@@ -39,7 +39,7 @@ const DEFAULT_MAX_INCIDENTS: int = 200
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const DEFAULT_MAX_PHASES_PER_OPERATION: int = 64
 
 ## 单个操作默认保留的状态轨迹数量。
@@ -188,7 +188,7 @@ var max_incidents: int = DEFAULT_MAX_INCIDENTS:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 var max_phases_per_operation: int = DEFAULT_MAX_PHASES_PER_OPERATION:
 	set(value):
 		max_phases_per_operation = maxi(value, 0)

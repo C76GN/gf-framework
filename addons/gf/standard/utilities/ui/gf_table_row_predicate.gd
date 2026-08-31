@@ -7,7 +7,7 @@
 ## [br]
 ## @category protocol
 ## [br]
-## @since unreleased
+## @since 11.0.0
 class_name GFTableRowPredicate
 extends RefCounted
 
@@ -18,7 +18,7 @@ extends RefCounted
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param row_view: 不暴露源 row 的隔离只读视图。
 ## [br]
@@ -33,7 +33,7 @@ func evaluate(row_view: GFTableRowView) -> GFTableRowPredicateResult:
 ## [br]
 ## @api protected
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param _row_view: 当前行的隔离只读视图。
 ## [br]
@@ -54,7 +54,7 @@ func _evaluate(_row_view: GFTableRowView) -> GFTableRowPredicateResult:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param predicate: 待执行的类型化谓词。
 ## [br]

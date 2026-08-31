@@ -217,7 +217,7 @@ func commit_emission(emitter: Node, prepare_report: Dictionary, emitted_count: i
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param emitter: 本次 emission 的 typed emitter。
 ## [br]
@@ -245,7 +245,7 @@ func commit_deferred_for_framework(
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param emitter: 原 deferred commit 的 typed emitter。
 ## [br]
@@ -281,7 +281,7 @@ func publish_deferred_for_framework(
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return: 同一 policy 实例可用于精确补偿的内部快照。
 ## [br]
@@ -301,7 +301,7 @@ func capture_state_for_framework() -> Dictionary:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param snapshot: `capture_state_for_framework()` 返回的内部快照。
 ## [br]
@@ -335,7 +335,7 @@ func compensate_deferred_for_framework(
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return: 当前策略 mutation generation。
 func get_state_generation_for_framework() -> int:

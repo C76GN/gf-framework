@@ -6,7 +6,7 @@
 ## [br]
 ## @category resource_definition
 ## [br]
-## @since unreleased
+## @since 11.0.0
 class_name GFLayeredSpriteLayerDefinition
 extends Resource
 
@@ -17,47 +17,47 @@ extends Resource
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 @export var layer_id: StringName = &""
 
 ## 初始变体 ID，必须引用 [member variants] 中的条目。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 @export var default_variant_id: StringName = &""
 
 ## 同一层可切换的帧变体。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 @export var variants: Array[GFLayeredSpriteVariant] = []
 
 ## 相对节点原点的绘制偏移。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 @export var offset: Vector2 = Vector2.ZERO
 
 ## 初始调制颜色。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 @export var modulate: Color = Color.WHITE
 
 ## 初始可见性。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 @export var visible: bool = true
 
 ## 层内绘制顺序；数值较小的层先绘制。相同值保持定义顺序。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 @export_range(-4096, 4096, 1) var draw_order: int = 0

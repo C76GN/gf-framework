@@ -7,7 +7,7 @@
 ## [br]
 ## @category runtime_service
 ## [br]
-## @since unreleased
+## @since 11.0.0
 class_name GFSettingsFileStoreUtility
 extends GFSettingsStoreUtility
 
@@ -18,7 +18,7 @@ extends GFSettingsStoreUtility
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 始终返回 true；单次文件错误由读写结果报告。
 func is_persistence_enabled() -> bool:
@@ -29,7 +29,7 @@ func is_persistence_enabled() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param file_name: 不含目录部分的安全文件名。
 ## [br]
@@ -102,7 +102,7 @@ func read_settings(file_name: String) -> GFStorageReadResult:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param file_name: 不含目录部分的安全文件名。
 ## [br]

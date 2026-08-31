@@ -7,7 +7,7 @@
 - 继承：`RefCounted`
 - API：`public`
 - 类别：运行时句柄 (`runtime_handle`)
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 section 主线程协作式快照操作。 Provider 在 `_advance_snapshot()` 中按 work budget 推进一个有界 slice，并通过 `_complete_snapshot()` 或 `_fail_snapshot()` 进入唯一终态。该操作不会创建线程； 所有 Provider 回调仍由 GFSaveProfileUtility 在主线程调度。
 
@@ -43,7 +43,7 @@ section 主线程协作式快照操作。 Provider 在 `_advance_snapshot()` 中
 ### `STATUS_PENDING`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const STATUS_PENDING: StringName = &"pending"
@@ -56,7 +56,7 @@ const STATUS_PENDING: StringName = &"pending"
 ### `STATUS_RUNNING`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const STATUS_RUNNING: StringName = &"running"
@@ -69,7 +69,7 @@ const STATUS_RUNNING: StringName = &"running"
 ### `STATUS_SUCCEEDED`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const STATUS_SUCCEEDED: StringName = &"succeeded"
@@ -82,7 +82,7 @@ Snapshot 已准备完成且等待框架接管。
 ### `STATUS_FAILED`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const STATUS_FAILED: StringName = &"failed"
@@ -95,7 +95,7 @@ Provider 准备失败。
 ### `STATUS_CANCELLED`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const STATUS_CANCELLED: StringName = &"cancelled"
@@ -108,7 +108,7 @@ const STATUS_CANCELLED: StringName = &"cancelled"
 ### `STATUS_CLAIMED`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const STATUS_CLAIMED: StringName = &"claimed"
@@ -123,7 +123,7 @@ const STATUS_CLAIMED: StringName = &"claimed"
 ### `completed`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 static func completed(snapshot: GFSaveSectionSnapshot) -> GFSaveSectionSnapshotOperation:
@@ -144,7 +144,7 @@ static func completed(snapshot: GFSaveSectionSnapshot) -> GFSaveSectionSnapshotO
 ### `get_status`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_status() -> StringName:
@@ -159,7 +159,7 @@ func get_status() -> StringName:
 ### `get_section_id`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_section_id() -> StringName:
@@ -174,7 +174,7 @@ func get_section_id() -> StringName:
 ### `get_schema_version`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_schema_version() -> int:
@@ -189,7 +189,7 @@ func get_schema_version() -> int:
 ### `is_pending`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func is_pending() -> bool:
@@ -204,7 +204,7 @@ func is_pending() -> bool:
 ### `is_completed`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func is_completed() -> bool:
@@ -219,7 +219,7 @@ func is_completed() -> bool:
 ### `is_successful`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func is_successful() -> bool:
@@ -234,7 +234,7 @@ func is_successful() -> bool:
 ### `get_error_code`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_error_code() -> Error:
@@ -249,7 +249,7 @@ func get_error_code() -> Error:
 ### `get_error`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_error() -> String:
@@ -264,7 +264,7 @@ func get_error() -> String:
 ### `get_consumed_work_units`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_consumed_work_units() -> int:
@@ -279,7 +279,7 @@ func get_consumed_work_units() -> int:
 ### `_complete_snapshot`
 
 - API：`protected`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func _complete_snapshot(snapshot: GFSaveSectionSnapshot) -> bool:
@@ -300,7 +300,7 @@ func _complete_snapshot(snapshot: GFSaveSectionSnapshot) -> bool:
 ### `_fail_snapshot`
 
 - API：`protected`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func _fail_snapshot(error_code: Error, error: String) -> bool:
@@ -322,7 +322,7 @@ func _fail_snapshot(error_code: Error, error: String) -> bool:
 ### `_advance_snapshot`
 
 - API：`protected`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func _advance_snapshot(_step_budget: int) -> int:
@@ -343,7 +343,7 @@ func _advance_snapshot(_step_budget: int) -> int:
 ### `_cancel_snapshot`
 
 - API：`protected`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func _cancel_snapshot() -> void:

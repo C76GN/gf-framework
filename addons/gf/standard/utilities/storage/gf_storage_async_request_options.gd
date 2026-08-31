@@ -8,7 +8,7 @@
 ## [br]
 ## @category value_object
 ## [br]
-## @since unreleased
+## @since 11.0.0
 class_name GFStorageAsyncRequestOptions
 extends RefCounted
 
@@ -32,7 +32,7 @@ var _timeout_msec: int = 0
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param owner: 当前 consumer 的非空生命周期 owner。
 ## [br]
@@ -61,7 +61,7 @@ static func create(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 仅 `create()` 接受全部参数时返回 true；owner 后续释放不会改写该配置事实。
 func is_valid() -> bool:
@@ -76,7 +76,7 @@ func is_valid() -> bool:
 ## [br]
 ## @layer standard/utilities/storage
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return owner 仍有效时返回对象，否则返回 null。
 func get_owner_for_framework() -> Object:
@@ -97,7 +97,7 @@ func get_owner_for_framework() -> Object:
 ## [br]
 ## @layer standard/utilities/storage
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 配置时冻结的 owner 实例 ID；无效配置返回 0。
 func get_owner_id_for_framework() -> int:
@@ -110,7 +110,7 @@ func get_owner_id_for_framework() -> int:
 ## [br]
 ## @layer standard/utilities/storage
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 配置有效且弱 owner 已释放时返回 true。
 func owner_is_released_for_framework() -> bool:
@@ -123,7 +123,7 @@ func owner_is_released_for_framework() -> bool:
 ## [br]
 ## @layer standard/utilities/storage
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 配置的只读取消令牌；未配置时返回 null。
 func get_cancel_token_for_framework() -> GFCancellationToken:
@@ -136,7 +136,7 @@ func get_cancel_token_for_framework() -> GFCancellationToken:
 ## [br]
 ## @layer standard/utilities/storage
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 非负 timeout 毫秒数；`0` 表示无 deadline。
 func get_timeout_msec_for_framework() -> int:

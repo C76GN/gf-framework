@@ -7,7 +7,7 @@
 ## [br]
 ## @category runtime_service
 ## [br]
-## @since unreleased
+## @since 11.0.0
 class_name GFStorageSettingsStoreUtility
 extends GFSettingsStoreUtility
 
@@ -23,7 +23,7 @@ var _storage_utility: GFStorageUtility = null
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 func ready() -> void:
 	_storage_utility = null
 	var utility: Object = get_utility(GFStorageUtility, true)
@@ -36,7 +36,7 @@ func ready() -> void:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 func release_dependencies() -> void:
 	_storage_utility = null
 	super.release_dependencies()
@@ -48,7 +48,7 @@ func release_dependencies() -> void:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 只包含 GFStorageUtility 的依赖声明。
 func get_required_utilities() -> Array[Script]:
@@ -59,7 +59,7 @@ func get_required_utilities() -> Array[Script]:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return Storage 依赖已缓存时返回 true。
 func is_persistence_enabled() -> bool:
@@ -70,7 +70,7 @@ func is_persistence_enabled() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param file_name: Storage root 内的逻辑文件名。
 ## [br]
@@ -95,7 +95,7 @@ func read_settings(file_name: String) -> GFStorageReadResult:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param file_name: Storage root 内的逻辑文件名。
 ## [br]

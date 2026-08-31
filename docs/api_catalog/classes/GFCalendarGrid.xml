@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFCalendarGrid" path="addons/gf/standard/utilities/time/gf_calendar_grid.gd" module="standard" extends="RefCounted" classDigest="9153f4f608ab85841084e601bd7f7f61830c599fa88b8292b5ee4e417ca835bf">
+<class name="GFCalendarGrid" path="addons/gf/standard/utilities/time/gf_calendar_grid.gd" module="standard" extends="RefCounted" classDigest="e0d52e91dcb0b5b453a663071797f4bbbc6839b45c73e7806c32fe818814454c">
 	<description>GFCalendarGrid: 完整周构成的不可变月历网格结果。
 成功网格始终为 7 列、4 到 6 行，并包含目标月的全部日期。
 返回的日期集合是隔离副本，不暴露内部数组。</description>
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">value_object</tag>
-		<tag name="since">unreleased</tag>
+		<tag name="since">11.0.0</tag>
 	</tags>
 	<signals />
 	<enums />
@@ -16,7 +16,7 @@
 			<description>网格已成功构建。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="STATUS_INVALID_REQUEST">
@@ -24,7 +24,7 @@
 			<description>目标日期、周起点或固定行数无效。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="STATUS_INSUFFICIENT_ROWS">
@@ -32,7 +32,7 @@
 			<description>指定行数无法容纳目标月的全部日期。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="STATUS_OUT_OF_RANGE">
@@ -40,7 +40,7 @@
 			<description>完整周所需的相邻日期超出支持年份范围。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="COLUMN_COUNT">
@@ -48,7 +48,7 @@
 			<description>网格固定列数。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 	</constants>
@@ -60,7 +60,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">包含完整月历网格时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_status">
@@ -69,7 +69,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">`STATUS_*` 常量之一。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_error">
@@ -78,7 +78,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">成功时为空字符串。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_year">
@@ -87,7 +87,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">成功时的目标年份；失败时返回 0。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_month">
@@ -96,7 +96,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">成功时的 1 到 12；失败时返回 0。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_week_start">
@@ -105,7 +105,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">`GFCivilDate.Weekday` 值；失败时返回 0。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_row_count">
@@ -114,7 +114,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">成功时为 4 到 6；失败时返回 0。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_column_count">
@@ -123,7 +123,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">始终返回 7。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_cell_count">
@@ -132,7 +132,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">成功时为行数乘 7；失败时返回 0。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_cell">
@@ -142,7 +142,7 @@
 				<tag name="api">public</tag>
 				<tag name="param">index: 从 0 开始的行主序索引。</tag>
 				<tag name="return">索引合法时的不可变日期；否则返回 null。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_cells">
@@ -151,7 +151,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">按行主序排列的新数组；修改该数组不会影响网格。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 	</methods>

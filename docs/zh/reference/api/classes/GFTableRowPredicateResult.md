@@ -7,7 +7,7 @@
 - 继承：`RefCounted`
 - API：`public`
 - 类别：值对象 (`value_object`)
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 类型化行谓词求值结果。 成功结果明确表示包含或排除当前行；失败结果携带稳定错误码和有界说明， 供 GFTableDataView 中止候选投影并保留上一份已提交视图。
 
@@ -30,7 +30,7 @@
 ### `included`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 static func included() -> GFTableRowPredicateResult:
@@ -45,7 +45,7 @@ static func included() -> GFTableRowPredicateResult:
 ### `excluded`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 static func excluded() -> GFTableRowPredicateResult:
@@ -60,7 +60,7 @@ static func excluded() -> GFTableRowPredicateResult:
 ### `failed`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 static func failed( error_code: StringName, error_message: String = "" ) -> GFTableRowPredicateResult:
@@ -82,7 +82,7 @@ static func failed( error_code: StringName, error_message: String = "" ) -> GFTa
 ### `is_successful`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func is_successful() -> bool:
@@ -97,7 +97,7 @@ func is_successful() -> bool:
 ### `should_include`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func should_include() -> bool:
@@ -112,7 +112,7 @@ func should_include() -> bool:
 ### `get_error_code`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_error_code() -> StringName:
@@ -127,7 +127,7 @@ func get_error_code() -> StringName:
 ### `get_error_message`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_error_message() -> String:

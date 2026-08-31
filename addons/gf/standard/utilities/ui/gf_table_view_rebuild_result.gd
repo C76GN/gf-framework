@@ -7,7 +7,7 @@
 ## [br]
 ## @category value_object
 ## [br]
-## @since unreleased
+## @since 11.0.0
 class_name GFTableViewRebuildResult
 extends RefCounted
 
@@ -42,7 +42,7 @@ var _failed_row_id: Variant = null
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 成功时返回 true。
 func is_successful() -> bool:
@@ -53,7 +53,7 @@ func is_successful() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 提交时返回 true；成功 no-op 返回 false。
 func was_committed() -> bool:
@@ -64,7 +64,7 @@ func was_committed() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 当前已提交 revision。
 func get_view_revision() -> int:
@@ -75,7 +75,7 @@ func get_view_revision() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 可见行数量。
 func get_visible_count() -> int:
@@ -86,7 +86,7 @@ func get_visible_count() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 已扫描行数量。
 func get_scanned_row_count() -> int:
@@ -97,7 +97,7 @@ func get_scanned_row_count() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 谓词求值次数。
 func get_predicate_evaluation_count() -> int:
@@ -108,7 +108,7 @@ func get_predicate_evaluation_count() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 失败错误码；成功时为空。
 func get_error_code() -> StringName:
@@ -119,7 +119,7 @@ func get_error_code() -> StringName:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 失败说明；成功时为空。
 func get_error_message() -> String:
@@ -130,7 +130,7 @@ func get_error_message() -> String:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 失败谓词 ID；非谓词失败时为空。
 func get_failed_predicate_id() -> StringName:
@@ -141,7 +141,7 @@ func get_failed_predicate_id() -> StringName:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 失败行索引；非行失败时为 -1。
 func get_failed_source_row_index() -> int:
@@ -152,7 +152,7 @@ func get_failed_source_row_index() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 失败行 ID；非行失败时为 null。
 ## [br]
@@ -165,7 +165,7 @@ func get_failed_row_id() -> Variant:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 新结果对象；未配置实例返回新的未配置实例。
 func duplicate_result() -> GFTableViewRebuildResult:
@@ -201,7 +201,7 @@ func duplicate_result() -> GFTableViewRebuildResult:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param committed: 是否提交了新 revision。
 ## [br]
@@ -242,7 +242,7 @@ func configure_success_for_framework(
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param error_code: 稳定错误码。
 ## [br]

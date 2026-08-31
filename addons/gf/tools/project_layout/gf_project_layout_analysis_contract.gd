@@ -167,7 +167,7 @@ const _MAX_VALIDATION_ERRORS: int = 128
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const MAX_VALIDATION_WORK_UNITS: int = 12_000_000
 ## Project Layout inventory 在捕获、传输、生产和消费各层共享的不可关闭 envelope。
 ## [br]
@@ -308,7 +308,7 @@ static func data_string_length_is_admissible(value: String) -> bool:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param root_path: 规范 res:// 项目源码根。
 ## [br]
@@ -420,7 +420,7 @@ func build_inventory_attachment(
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param root_path: 规范 res:// 项目源码根。
 ## [br]
@@ -606,7 +606,7 @@ func _inventory_digest_for_validation(
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param finding: 不含 finding_id 也可的 finding 语义字段。
 ## [br]
@@ -630,7 +630,7 @@ func stable_finding_id(finding: Dictionary, occurrence: int) -> String:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param edge_kind: 边类型。
 ## [br]
@@ -655,7 +655,7 @@ func stable_edge_id(
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param analysis: 待消费的 Project Layout analysis。
 ## [br]

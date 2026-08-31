@@ -7,7 +7,7 @@
 - 继承：`RefCounted`
 - API：`public`
 - 类别：运行时句柄 (`runtime_handle`)
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 异步 Storage 写入载荷的单所有者传递句柄。 调用方通过静态 `take_ownership()` 把 Dictionary 的逻辑唯一所有权移交给新句柄。 移交不会深拷贝；调用成功后，调用方必须永久放弃源 Dictionary 以及它的全部 嵌套 alias。失败操作只通过 `GFStorageAsyncOperation.reclaim_failed_payload()` 归还同一 opaque 句柄用于重试，任何阶段都不公开 payload getter。 首次合法 Storage 请求会把句柄绑定到一个 Storage 实例、规范文件名、冻结的 target file-family identity 和 codec options。同一绑定可取得多个只读 attempt lease，用于 timeout 后仍有旧 attempt 运行时复用同一逻辑快照。最终调用 `release()`；若仍有活动 attempt，载荷会在最后一个 attempt 结束后才清空。
 
@@ -30,7 +30,7 @@
 ### `State`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 enum State {
@@ -56,7 +56,7 @@ enum State {
 ### `take_ownership`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 static func take_ownership(payload: Dictionary) -> GFStoragePayloadTransfer:
@@ -81,7 +81,7 @@ static func take_ownership(payload: Dictionary) -> GFStoragePayloadTransfer:
 ### `get_state`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_state() -> State:
@@ -96,7 +96,7 @@ func get_state() -> State:
 ### `is_claimed`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func is_claimed() -> bool:
@@ -111,7 +111,7 @@ func is_claimed() -> bool:
 ### `is_released`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func is_released() -> bool:
@@ -126,7 +126,7 @@ func is_released() -> bool:
 ### `get_active_attempt_count`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_active_attempt_count() -> int:
@@ -141,7 +141,7 @@ func get_active_attempt_count() -> int:
 ### `release`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func release() -> bool:

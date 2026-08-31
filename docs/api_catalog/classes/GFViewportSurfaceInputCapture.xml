@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFViewportSurfaceInputCapture" path="addons/gf/standard/input/runtime/gf_viewport_surface_input_capture.gd" module="standard" extends="RefCounted" classDigest="80feebb771350e7481fe1373889a5544ec667a5a2a2bc15ba3762f0c041b6139">
+<class name="GFViewportSurfaceInputCapture" path="addons/gf/standard/input/runtime/gf_viewport_surface_input_capture.gd" module="standard" extends="RefCounted" classDigest="6a897618f03eb212846da680570bed103af08a1834cd91bff7daf449f1eddca8">
 	<description>GFViewportSurfaceInputCapture: 表面指针按下代际的不可变回执。
 调用方必须保留该回执并在 move、release 或 cancel 时原样交回创建它的
 [code]GFViewportSurfaceInputBridge[/code]。同一 source/device/pointer key 重用后，旧回执不能操作新代际。</description>
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">value_object</tag>
-		<tag name="since">unreleased</tag>
+		<tag name="since">11.0.0</tag>
 	</tags>
 	<signals />
 	<enums />
@@ -19,7 +19,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">包含完整指针与代际身份时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_source_id">
@@ -28,7 +28,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">Resolver 提供的稳定输入源标识。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_device_id">
@@ -37,7 +37,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">按下时的非负设备标识。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_pointer_id">
@@ -46,7 +46,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">按下时的非负指针标识。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_pointer_type">
@@ -55,7 +55,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">`GFViewportSurfaceInputBridge.PointerType` 值。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_capture_generation">
@@ -64,7 +64,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">大于 0 的捕获代际。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_target_generation">
@@ -73,7 +73,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">大于 0 的外部目标代际。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 	</methods>

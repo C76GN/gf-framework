@@ -6,7 +6,7 @@
 ## [br]
 ## @category value_object
 ## [br]
-## @since unreleased
+## @since 11.0.0
 class_name GFCivilDateResult
 extends RefCounted
 
@@ -17,28 +17,28 @@ extends RefCounted
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const STATUS_OK: StringName = &"ok"
 
 ## 年份或运算结果超出支持范围。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const STATUS_OUT_OF_RANGE: StringName = &"out_of_range"
 
 ## 年、月、日组合不是有效公民日期。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const STATUS_INVALID_DATE: StringName = &"invalid_date"
 
 ## 日期文本或字典不符合声明的稳定格式。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const STATUS_INVALID_FORMAT: StringName = &"invalid_format"
 
 
@@ -56,7 +56,7 @@ var _error: String = ""
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return: 包含有效日期时返回 true。
 func is_successful() -> bool:
@@ -67,7 +67,7 @@ func is_successful() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return: `STATUS_*` 常量之一。
 func get_status() -> StringName:
@@ -78,7 +78,7 @@ func get_status() -> StringName:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return: 成功时返回不可变日期；失败时返回 null。
 func get_date() -> GFCivilDate:
@@ -89,7 +89,7 @@ func get_date() -> GFCivilDate:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return: 成功时为空字符串。
 func get_error() -> String:
@@ -104,7 +104,7 @@ func get_error() -> String:
 ## [br]
 ## @layer standard/utilities/time
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param status: `STATUS_*` 常量之一。
 ## [br]

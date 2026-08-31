@@ -4,7 +4,7 @@
 ## [br]
 ## @category runtime_handle
 ## [br]
-## @since unreleased
+## @since 11.0.0
 class_name GFProjectileSession
 extends RefCounted
 
@@ -15,7 +15,7 @@ extends RefCounted
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param session: 已结算的同一 session。
 ## [br]
@@ -29,7 +29,7 @@ signal finished(session: GFProjectileSession, reason: int)
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 enum Dimension {
 	## 2D runtime、adapter 与 motion。
 	TWO_D = 0,
@@ -42,7 +42,7 @@ enum Dimension {
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 enum Status {
 	## 尚未由 runtime 激活。
 	UNCONFIGURED = 0,
@@ -57,7 +57,7 @@ enum Status {
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 enum EndReason {
 	## 尚未结束。
 	NONE = 0,
@@ -124,7 +124,7 @@ var _root_tree_exiting_callback: Callable = Callable()
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return: 封闭 `Status` 值。
 func get_status() -> Status:
@@ -135,7 +135,7 @@ func get_status() -> Status:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return: TWO_D 或 THREE_D。
 func get_dimension() -> Dimension:
@@ -146,7 +146,7 @@ func get_dimension() -> Dimension:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return: 激活后为正数。
 func get_generation() -> int:
@@ -157,7 +157,7 @@ func get_generation() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return: live root；释放后为 null。
 func get_instance_root() -> Node:
@@ -168,7 +168,7 @@ func get_instance_root() -> Node:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return: live runtime；释放后为 null。
 func get_runtime() -> Node:
@@ -179,7 +179,7 @@ func get_runtime() -> Node:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return: 非负秒数。
 func get_elapsed_seconds() -> float:
@@ -190,7 +190,7 @@ func get_elapsed_seconds() -> float:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return: 非负累计距离，不是起点到当前位置净距离。
 func get_travelled_distance() -> float:
@@ -201,7 +201,7 @@ func get_travelled_distance() -> float:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return: 非负计数。
 func get_accepted_impact_count() -> int:
@@ -212,7 +212,7 @@ func get_accepted_impact_count() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return: ACTIVE 时为 NONE，FINISHED 时为冻结原因。
 func get_end_reason() -> EndReason:
@@ -223,7 +223,7 @@ func get_end_reason() -> EndReason:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return: 可由调用方修改的独立 metadata。
 ## [br]
@@ -236,7 +236,7 @@ func get_metadata() -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return: 当前状态为 ACTIVE 时为 true。
 func is_active() -> bool:
@@ -247,7 +247,7 @@ func is_active() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return: 当前状态为 FINISHED 时为 true。
 func is_finished() -> bool:
@@ -259,7 +259,7 @@ func is_finished() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param reason: 非 NONE 的结束原因。
 ## [br]
@@ -283,7 +283,7 @@ func finish(reason: EndReason = EndReason.CALLER_FINISHED) -> bool:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param dimension: 本次 session 的空间维度。
 ## [br]
@@ -343,7 +343,7 @@ func activate_for_framework(
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param delta: 本帧有限非负秒数。
 ## [br]
@@ -376,7 +376,7 @@ func advance_for_framework(delta: float, displacement_length: float) -> void:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param generation: 发起 apply 的同一 session generation。
 ## [br]
@@ -417,7 +417,7 @@ func advance_terminal_body_result_for_framework(
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 func accept_impact_for_framework() -> void:
 	if _status == Status.ACTIVE:
 		_accepted_impact_count += 1
@@ -427,7 +427,7 @@ func accept_impact_for_framework() -> void:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return: ACTIVE 时建立一层 barrier 并返回 OK，否则返回错误。
 func begin_notification_barrier_for_framework() -> Error:
@@ -441,7 +441,7 @@ func begin_notification_barrier_for_framework() -> Error:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return: 成功释放一层 barrier 时返回 OK，否则返回错误。
 func release_notification_barrier_for_framework() -> Error:

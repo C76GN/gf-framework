@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFBackgroundWorkTask" path="addons/gf/standard/utilities/jobs/gf_background_work_task.gd" module="standard" extends="RefCounted" classDigest="100626a93fb26dd01526a147d5f95dda52f9f92b7a5c317ce013f346e0267180">
+<class name="GFBackgroundWorkTask" path="addons/gf/standard/utilities/jobs/gf_background_work_task.gd" module="standard" extends="RefCounted" classDigest="a82a50a55904c0a61123e6cdc05524867d1194dd48c2f538ab05010daba67835">
 	<description>GFBackgroundWorkTask: 后台工作记录。
 保存后台工作状态、进度、输入数据、结果、错误文本和应用回调。
 任务本身不直接启动线程；执行由 GFBackgroundWorkUtility 统一协调。</description>
@@ -181,7 +181,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">已接纳 CPU/IO 工作的取消上下文；提交被拒绝或 RESOURCE 工作返回 null。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="to_dict">

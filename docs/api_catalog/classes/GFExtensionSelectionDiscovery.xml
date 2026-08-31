@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFExtensionSelectionDiscovery" path="addons/gf/kernel/extension/gf_extension_selection_discovery.gd" module="kernel" extends="RefCounted" classDigest="056976751ccd5fbe5bdb60d9e9f887ca231f96efbbb1e28f6a6f66b21921a283">
+<class name="GFExtensionSelectionDiscovery" path="addons/gf/kernel/extension/gf_extension_selection_discovery.gd" module="kernel" extends="RefCounted" classDigest="0ace2cf8272db4ea18a831b246971d5a68132b87f6dbf7d5b37f2ddc054a35cb">
 	<description>GFExtensionSelectionDiscovery: GF 扩展启用选择与贡献路径快照缓存。
 基于 manifest 集合、当前启用 ID 和扩展工具贡献文件，生成启用选择、依赖图、
 enabled/disabled manifest 与各类贡献路径的稳定 snapshot。</description>
@@ -17,7 +17,7 @@ enabled/disabled manifest 与各类贡献路径的稳定 snapshot。</descriptio
 			<description>启用选择完整有效。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="STATUS_PARTIAL">
@@ -25,7 +25,7 @@ enabled/disabled manifest 与各类贡献路径的稳定 snapshot。</descriptio
 			<description>启用选择包含可隔离的问题，但已验证的已知扩展路径仍可使用。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="STATUS_INVALID">
@@ -33,7 +33,7 @@ enabled/disabled manifest 与各类贡献路径的稳定 snapshot。</descriptio
 			<description>Manifest 图无效，任何扩展路径都不得使用。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 	</constants>

@@ -7,7 +7,7 @@
 - 继承：`RefCounted`
 - API：`public`
 - 类别：运行时句柄 (`runtime_handle`)
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 owner-bound 虚拟列表 Control 物化与回收协调器。 连接项目提供的 `ScrollContainer`、绝对布局 content root、`GFVirtualListModel` 与行回调，只物化真实视口及 overscan 范围。项目继续拥有条目数据、稳定 ID、 行视觉、选择、激活、输入和无障碍语义；Binder 拥有 factory 成功交付的 Control， 并在 unbind、任一绑定节点退出或 dispose 时确定性解除回调和节点引用。
 
@@ -51,7 +51,7 @@ owner-bound 虚拟列表 Control 物化与回收协调器。 连接项目提供�
 ### `sync_completed`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 signal sync_completed(result: GFVirtualListSyncResult)
@@ -72,7 +72,7 @@ signal sync_completed(result: GFVirtualListSyncResult)
 ### `LayoutAxis`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 enum LayoutAxis {
@@ -90,7 +90,7 @@ enum LayoutAxis {
 ### `ScrollAlignment`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 enum ScrollAlignment {
@@ -114,7 +114,7 @@ enum ScrollAlignment {
 ### `DEFAULT_MAX_MATERIALIZED_ITEMS`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const DEFAULT_MAX_MATERIALIZED_ITEMS: int = 512
@@ -127,7 +127,7 @@ const DEFAULT_MAX_MATERIALIZED_ITEMS: int = 512
 ### `DEFAULT_MAX_POOLED_ITEMS`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const DEFAULT_MAX_POOLED_ITEMS: int = 64
@@ -140,7 +140,7 @@ const DEFAULT_MAX_POOLED_ITEMS: int = 64
 ### `ABSOLUTE_MAX_MATERIALIZED_ITEMS`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const ABSOLUTE_MAX_MATERIALIZED_ITEMS: int = 4096
@@ -153,7 +153,7 @@ const ABSOLUTE_MAX_MATERIALIZED_ITEMS: int = 4096
 ### `ABSOLUTE_MAX_POOLED_ITEMS`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const ABSOLUTE_MAX_POOLED_ITEMS: int = 1024
@@ -166,7 +166,7 @@ parentless pool 的框架级绝对硬上限。
 ### `ABSOLUTE_MAX_IDENTITY_TOKEN_LENGTH`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const ABSOLUTE_MAX_IDENTITY_TOKEN_LENGTH: int = 1024
@@ -181,7 +181,7 @@ const ABSOLUTE_MAX_IDENTITY_TOKEN_LENGTH: int = 1024
 ### `layout_axis`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 var layout_axis: LayoutAxis = LayoutAxis.VERTICAL:
@@ -194,7 +194,7 @@ var layout_axis: LayoutAxis = LayoutAxis.VERTICAL:
 ### `max_materialized_items`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 var max_materialized_items: int = DEFAULT_MAX_MATERIALIZED_ITEMS:
@@ -207,7 +207,7 @@ var max_materialized_items: int = DEFAULT_MAX_MATERIALIZED_ITEMS:
 ### `max_pooled_items`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 var max_pooled_items: int = DEFAULT_MAX_POOLED_ITEMS:
@@ -220,7 +220,7 @@ parentless pool 最多保留的 Control 数量；小于 0 时按 0 处理。 同
 ### `auto_measure`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 var auto_measure: bool = true
@@ -233,7 +233,7 @@ var auto_measure: bool = true
 ### `auto_reveal_focus`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 var auto_reveal_focus: bool = true
@@ -246,7 +246,7 @@ var auto_reveal_focus: bool = true
 ### `fill_cross_axis`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 var fill_cross_axis: bool = true
@@ -261,7 +261,7 @@ var fill_cross_axis: bool = true
 ### `bind`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func bind( owner: Node, scroll_container: ScrollContainer, content_root: Control, layout_model: GFVirtualListModel, item_factory: Callable, bind_callback: Callable, unbind_callback: Callable, identity_callback: Callable, focus_model: GFVirtualListFocusModel = null, measure_callback: Callable = Callable(), focus_target_callback: Callable = Callable() ) -> bool:
@@ -301,7 +301,7 @@ func bind( owner: Node, scroll_container: ScrollContainer, content_root: Control
 ### `request_sync`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func request_sync() -> bool:
@@ -316,7 +316,7 @@ func request_sync() -> bool:
 ### `sync_now`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func sync_now() -> GFVirtualListSyncResult:
@@ -331,7 +331,7 @@ func sync_now() -> GFVirtualListSyncResult:
 ### `invalidate_items`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func invalidate_items() -> bool:
@@ -346,7 +346,7 @@ func invalidate_items() -> bool:
 ### `request_measurement`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func request_measurement() -> bool:
@@ -361,7 +361,7 @@ func request_measurement() -> bool:
 ### `scroll_to_item`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func scroll_to_item( item_index: int, alignment: ScrollAlignment = ScrollAlignment.NEAREST ) -> bool:
@@ -383,7 +383,7 @@ func scroll_to_item( item_index: int, alignment: ScrollAlignment = ScrollAlignme
 ### `get_materialized_control`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_materialized_control(item_index: int) -> Control:
@@ -404,7 +404,7 @@ func get_materialized_control(item_index: int) -> Control:
 ### `get_materialized_control_by_id`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_materialized_control_by_id(item_id: Variant) -> Control:
@@ -429,7 +429,7 @@ func get_materialized_control_by_id(item_id: Variant) -> Control:
 ### `get_last_sync_result`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_last_sync_result() -> GFVirtualListSyncResult:
@@ -444,7 +444,7 @@ func get_last_sync_result() -> GFVirtualListSyncResult:
 ### `get_debug_snapshot`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_debug_snapshot() -> Dictionary:
@@ -463,7 +463,7 @@ func get_debug_snapshot() -> Dictionary:
 ### `is_bound`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func is_bound() -> bool:
@@ -478,7 +478,7 @@ func is_bound() -> bool:
 ### `is_disposed`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func is_disposed() -> bool:
@@ -493,7 +493,7 @@ func is_disposed() -> bool:
 ### `unbind`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func unbind() -> void:
@@ -506,7 +506,7 @@ func unbind() -> void:
 ### `dispose`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func dispose() -> void:

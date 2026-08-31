@@ -7,7 +7,7 @@
 - 继承：`RefCounted`
 - API：`public`
 - 类别：值对象 (`value_object`)
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 公民日期创建或运算的不可变结果。 成功与失败都使用稳定状态表达，避免用零值日期、隐式钳制或 null 猜测失败原因。
 
@@ -31,7 +31,7 @@
 ### `STATUS_OK`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const STATUS_OK: StringName = &"ok"
@@ -44,7 +44,7 @@ const STATUS_OK: StringName = &"ok"
 ### `STATUS_OUT_OF_RANGE`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const STATUS_OUT_OF_RANGE: StringName = &"out_of_range"
@@ -57,7 +57,7 @@ const STATUS_OUT_OF_RANGE: StringName = &"out_of_range"
 ### `STATUS_INVALID_DATE`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const STATUS_INVALID_DATE: StringName = &"invalid_date"
@@ -70,7 +70,7 @@ const STATUS_INVALID_DATE: StringName = &"invalid_date"
 ### `STATUS_INVALID_FORMAT`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const STATUS_INVALID_FORMAT: StringName = &"invalid_format"
@@ -85,7 +85,7 @@ const STATUS_INVALID_FORMAT: StringName = &"invalid_format"
 ### `is_successful`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func is_successful() -> bool:
@@ -100,7 +100,7 @@ func is_successful() -> bool:
 ### `get_status`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_status() -> StringName:
@@ -115,7 +115,7 @@ func get_status() -> StringName:
 ### `get_date`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_date() -> GFCivilDate:
@@ -130,7 +130,7 @@ func get_date() -> GFCivilDate:
 ### `get_error`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_error() -> String:

@@ -1,7 +1,7 @@
 {
   "profile_id": "project.sample_adapter",
   "godot_version": "4.7.0",
-  "framework_version": "11.0.0-dev.0",
+  "framework_version": "11.0.0",
   "platforms": ["sample_platform"],
   "features": ["platform_adapter", "platform_lobby"],
   "packages": [

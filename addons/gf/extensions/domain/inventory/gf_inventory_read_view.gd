@@ -8,7 +8,7 @@
 ## [br]
 ## @category runtime_handle
 ## [br]
-## @since unreleased
+## @since 11.0.0
 class_name GFInventoryReadView
 extends RefCounted
 
@@ -26,7 +26,7 @@ var _active: bool = false
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return: 仍可查询时返回 true；回调返回后为 false。
 func is_active() -> bool:
@@ -37,7 +37,7 @@ func is_active() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return: 当前候选槽位数量；失效后返回 0。
 func get_slot_count() -> int:
@@ -48,7 +48,7 @@ func get_slot_count() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param slot_index: 槽位索引。
 ## [br]
@@ -61,7 +61,7 @@ func is_valid_slot(slot_index: int) -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param slot_index: 槽位索引。
 ## [br]
@@ -75,7 +75,7 @@ func get_stack(slot_index: int) -> GFInventoryStack:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param slot_index: 槽位索引。
 ## [br]
@@ -91,7 +91,7 @@ func get_stack_data(slot_index: int) -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param slot_index: 槽位索引。
 ## [br]
@@ -104,7 +104,7 @@ func is_slot_empty(slot_index: int) -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param item_id: 物品标识。
 ## [br]
@@ -133,7 +133,7 @@ func get_item_total(item_id: StringName, instance_data: Dictionary = {}) -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param item_id: 物品标识。
 ## [br]
@@ -156,7 +156,7 @@ func has_item(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return: 空槽位索引；失效视图返回空数组。
 func get_empty_slot_indices() -> PackedInt32Array:
@@ -173,7 +173,7 @@ func get_empty_slot_indices() -> PackedInt32Array:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return: 已占用槽位索引；失效视图返回空数组。
 func get_occupied_slot_indices() -> PackedInt32Array:
@@ -190,7 +190,7 @@ func get_occupied_slot_indices() -> PackedInt32Array:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param item_id: 物品标识。
 ## [br]
@@ -224,7 +224,7 @@ func get_slots_for_item(
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param candidate_slots: 已有界隔离的候选槽位数组。
 ## [br]
@@ -249,7 +249,7 @@ func configure_for_framework(
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 func invalidate_for_framework() -> void:
 	_active = false
 	_candidate_slots = []

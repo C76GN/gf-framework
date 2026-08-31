@@ -214,7 +214,7 @@ class RuntimeState extends RefCounted:
 	## [br]
 	## @api framework_internal
 	## [br]
-	## @since unreleased
+	## @since 11.0.0
 	## [br]
 	## @param context: 本次运行的 Context。
 	## [br]
@@ -257,7 +257,7 @@ class RuntimeState extends RefCounted:
 	## [br]
 	## @api framework_internal
 	## [br]
-	## @since unreleased
+	## @since 11.0.0
 	## [br]
 	## @return: 传给项目 `_execute()` 的精确 completion handle。
 	func get_completion_handle() -> GFTurnPhaseCompletionHandle:
@@ -267,7 +267,7 @@ class RuntimeState extends RefCounted:
 	## [br]
 	## @api framework_internal
 	## [br]
-	## @since unreleased
+	## @since 11.0.0
 	## [br]
 	## @return: 本次运行仍有效且首次完成时返回 true。
 	func try_complete_from_flow() -> bool:
@@ -279,7 +279,7 @@ class RuntimeState extends RefCounted:
 	## [br]
 	## @layer extensions/turn_based
 	## [br]
-	## @since unreleased
+	## @since 11.0.0
 	## [br]
 	## @param handle: 请求完成本次运行的精确 handle。
 	## [br]
@@ -291,7 +291,7 @@ class RuntimeState extends RefCounted:
 	## [br]
 	## @api framework_internal
 	## [br]
-	## @since unreleased
+	## @since 11.0.0
 	func invalidate_from_flow() -> void:
 		if _completion_handle != null:
 			var _invalidated: bool = _completion_handle.invalidate_from_turn_based(self)

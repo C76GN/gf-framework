@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFTurnPhaseCompletionHandle" path="addons/gf/extensions/turn_based/runtime/gf_turn_phase_completion_handle.gd" module="extensions/turn_based" extends="RefCounted" classDigest="156c90a67fa8849f2ed239cffb72b1182aa4892892a2fb52d3d6f5568e2a77d9">
+<class name="GFTurnPhaseCompletionHandle" path="addons/gf/extensions/turn_based/runtime/gf_turn_phase_completion_handle.gd" module="extensions/turn_based" extends="RefCounted" classDigest="c11f2e98d2cd95cd26548e6a5c6cc576459039feeda98c56a2a230806ea018c6">
 	<description>GFTurnPhaseCompletionHandle: 单次阶段运行的完成能力句柄。
 有效句柄只会由 GFTurnFlowSystem 传给当前 GFTurnPhase._execute() 调用；项目手工 new() 的实例没有完成权限。
 首次对有效运行调用 try_complete() 会完成该阶段；停止、超时、释放、dispose、重启后的旧句柄及重复调用都返回 false，不影响其他代际。</description>
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">runtime_handle</tag>
-		<tag name="since">unreleased</tag>
+		<tag name="since">11.0.0</tag>
 	</tags>
 	<signals />
 	<enums />
@@ -19,7 +19,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">当前主线程首次完成仍有效的精确运行时返回 true；失效、重复或非主线程调用返回 false。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 	</methods>

@@ -89,7 +89,7 @@ const STATUS_LOAD_FAILED: StringName = &"load_failed"
 ### `MAX_JSON_BYTES`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const MAX_JSON_BYTES: int = 1_048_576
@@ -102,7 +102,7 @@ JSON 清单允许的最大 UTF-8 字节数。
 ### `MAX_JSON_DEPTH`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const MAX_JSON_DEPTH: int = 64

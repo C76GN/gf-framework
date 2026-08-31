@@ -310,7 +310,7 @@ static func find_references_to_root(root_path: String, options: Dictionary = {})
 ### `find_references_to_root_report`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 static func find_references_to_root_report( root_path: String, options: Dictionary = {} ) -> Dictionary:

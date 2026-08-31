@@ -4,7 +4,7 @@
 ## [br]
 ## @category runtime_handle
 ## [br]
-## @since unreleased
+## @since 11.0.0
 class_name GFProjectileLaunchReservation
 extends RefCounted
 
@@ -41,7 +41,7 @@ var _activated_session: GFProjectileSession = null
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return: 当前封闭状态。
 func get_state_for_framework() -> State:
@@ -52,7 +52,7 @@ func get_state_for_framework() -> State:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param owner: 创建 reservation 的同一 live retirement owner。
 ## [br]
@@ -73,7 +73,7 @@ func arm_for_framework(owner: Object) -> Error:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param owner: 创建 reservation 的同一 live retirement owner。
 ## [br]
@@ -136,7 +136,7 @@ func consume_for_framework(owner: Object) -> GFProjectileSession:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param owner: 创建 reservation 的同一 live retirement owner。
 ## [br]
@@ -157,7 +157,7 @@ func abort_for_framework(owner: Object, _reason: StringName) -> bool:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param owner_instance_id: 初始化时冻结的原 owner instance id。
 ## [br]
@@ -186,7 +186,7 @@ func invalidate_lost_owner_for_framework(
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param runtime: 持有 launch claim 的 typed runtime。
 ## [br]
@@ -227,7 +227,7 @@ func initialize_for_framework(
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param runtime: 持有 reservation 的同一 runtime。
 ## [br]
@@ -255,7 +255,7 @@ func replace_launch_input_for_framework(
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param runtime: 持有 reservation 的同一 runtime。
 ## [br]

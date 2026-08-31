@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFTableRowPredicateRegistration" path="addons/gf/standard/utilities/ui/gf_table_row_predicate_registration.gd" module="standard" extends="RefCounted" classDigest="d255e5cc925d23270662ce0928c32371a66322e7e7b6ab510c92336839d01844">
+<class name="GFTableRowPredicateRegistration" path="addons/gf/standard/utilities/ui/gf_table_row_predicate_registration.gd" module="standard" extends="RefCounted" classDigest="63dd2002295af21b69db6822f6a23cfdeb84099df5fbd387a88ee6bf7f983309">
 	<description>GFTableRowPredicateRegistration: 命名行谓词的注册定义值。
 把项目谓词与稳定 ID、启用状态和显式顺序组合成一次注册定义。
 GFTableDataView 会复制数组并以 order 升序、predicate_id 字典序稳定执行。</description>
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">value_object</tag>
-		<tag name="since">unreleased</tag>
+		<tag name="since">11.0.0</tag>
 	</tags>
 	<signals />
 	<enums />
@@ -23,7 +23,7 @@ GFTableDataView 会复制数组并以 order 升序、predicate_id 字典序稳�
 				<tag name="param">order: 执行顺序；数值越小越早执行。</tag>
 				<tag name="param">enabled: 是否参与投影。</tag>
 				<tag name="return">新的注册值；调用方仍应检查 validate_registration()。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_predicate_id">
@@ -32,7 +32,7 @@ GFTableDataView 会复制数组并以 order 升序、predicate_id 字典序稳�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">稳定谓词 ID。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_predicate">
@@ -41,7 +41,7 @@ GFTableDataView 会复制数组并以 order 升序、predicate_id 字典序稳�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">注册的谓词。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_order">
@@ -50,7 +50,7 @@ GFTableDataView 会复制数组并以 order 升序、predicate_id 字典序稳�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">order；数值越小越早执行。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="is_enabled">
@@ -59,7 +59,7 @@ GFTableDataView 会复制数组并以 order 升序、predicate_id 字典序稳�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">启用时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="validate_registration">
@@ -69,7 +69,7 @@ GFTableDataView 会复制数组并以 order 升序、predicate_id 字典序稳�
 				<tag name="api">public</tag>
 				<tag name="return">GFValidationReportDictionary 兼容报告。</tag>
 				<tag name="schema">return: Dictionary with ok, issues, counts, summary, and next_actions.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 	</methods>

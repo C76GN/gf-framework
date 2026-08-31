@@ -49,7 +49,7 @@ var entries: Array[GFProjectileCatalogEntry] = []
 ### `set_definition`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func set_definition( projectile_id: StringName, definition: GFProjectileDefinition ) -> void:
@@ -69,7 +69,7 @@ func set_definition( projectile_id: StringName, definition: GFProjectileDefiniti
 ### `get_definition`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_definition(projectile_id: StringName) -> GFProjectileDefinition:
@@ -90,7 +90,7 @@ func get_definition(projectile_id: StringName) -> GFProjectileDefinition:
 ### `has_definition`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func has_definition(projectile_id: StringName) -> bool:
@@ -111,7 +111,7 @@ func has_definition(projectile_id: StringName) -> bool:
 ### `remove_definition`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func remove_definition(projectile_id: StringName) -> bool:

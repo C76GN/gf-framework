@@ -8,7 +8,7 @@
 ## [br]
 ## @category runtime_service
 ## [br]
-## @since unreleased
+## @since 11.0.0
 class_name GFSaveProfileTransactionCoordinator
 extends GFUtility
 
@@ -19,7 +19,7 @@ extends GFUtility
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param previous_profile_id: 提交前活动 Profile；首次激活时为空。
 ## [br]
@@ -33,7 +33,7 @@ signal active_profile_changed(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param result: 不包含持久化 payload 的隔离结果。
 signal transaction_completed(result: GFSaveProfileTransactionResult)
@@ -45,35 +45,35 @@ signal transaction_completed(result: GFSaveProfileTransactionResult)
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const DOMAIN_STATE_INACTIVE: StringName = &"inactive"
 
 ## Domain 已建立一个可直接 save/flush 的活动身份。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const DOMAIN_STATE_ACTIVE: StringName = &"active"
 
 ## Domain 正在执行一个事务。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const DOMAIN_STATE_TRANSACTING: StringName = &"transacting"
 
 ## Domain 被 outcome_unknown 或显式故障围栏占用，必须对账。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const DOMAIN_STATE_RECONCILIATION_REQUIRED: StringName = &"reconciliation_required"
 
 ## Coordinator 已释放。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const DOMAIN_STATE_DISPOSED: StringName = &"disposed"
 
 const _STAGE_ACTIVATE_LOAD: StringName = &"activate_load"
@@ -126,7 +126,7 @@ func _init() -> void:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 仅包含 `GFSaveProfileUtility`。
 func get_required_utilities() -> Array[Script]:
@@ -138,7 +138,7 @@ func get_required_utilities() -> Array[Script]:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 func ready() -> void:
 	if _profile_utility_explicit:
 		return
@@ -152,7 +152,7 @@ func ready() -> void:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param _scope: 当前激活阶段的取消作用域。
 ## [br]
@@ -178,7 +178,7 @@ func begin_activation(_scope: GFAsyncScope) -> GFAsyncCompletion:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param scope: 当前静默阶段的取消作用域。
 ## [br]
@@ -200,7 +200,7 @@ func begin_quiesce(scope: GFAsyncScope) -> GFAsyncCompletion:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param _delta: 未使用；底层 IO 由 Profile Utility 推进。
 func tick(_delta: float) -> void:
@@ -224,7 +224,7 @@ func tick(_delta: float) -> void:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 func dispose() -> void:
 	if _disposed:
 		return
@@ -239,7 +239,7 @@ func dispose() -> void:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 func release_dependencies() -> void:
 	_disconnect_profile_utility()
 	super.release_dependencies()
@@ -251,7 +251,7 @@ func release_dependencies() -> void:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param profile_utility: 已配置的底层 Profile Utility。
 ## [br]
@@ -273,7 +273,7 @@ func setup(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param profile: Profile 声明。
 ## [br]
@@ -362,7 +362,7 @@ func register_profile(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param profile_id: 受管 Profile ID。
 ## [br]
@@ -399,7 +399,7 @@ func unregister_profile(profile_id: StringName) -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param profile_id: 用于定位 Provider domain 的任一受管 Profile ID。
 ## [br]
@@ -413,7 +413,7 @@ func get_active_profile_id(profile_id: StringName) -> StringName:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param profile_id: 用于定位 Provider domain 的任一受管 Profile ID。
 ## [br]
@@ -453,7 +453,7 @@ func get_domain_state_snapshot(profile_id: StringName) -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param profile_id: 已注册受管 Profile ID。
 ## [br]
@@ -533,7 +533,7 @@ func activate_profile(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param target_profile_id: 同一 domain 内的目标 Profile ID。
 ## [br]
@@ -626,7 +626,7 @@ func switch_profile(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param lease: 尚未过期的 missing Recovery Lease。
 ## [br]
@@ -649,7 +649,7 @@ func bootstrap_profile(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param lease: 尚未过期的 corrupt Recovery Lease。
 ## [br]
@@ -675,7 +675,7 @@ func adopt_profile(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param lease: 尚未过期且绑定活动来源的 missing Recovery Lease。
 ## [br]
@@ -703,7 +703,7 @@ func bootstrap_and_switch_profile(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param lease: 尚未过期且绑定活动来源的 corrupt Recovery Lease。
 ## [br]
@@ -726,7 +726,7 @@ func adopt_and_switch_profile(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param profile_id: 当前 domain 的活动 Profile ID。
 ## [br]
@@ -826,7 +826,7 @@ func mutate_and_persist(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param lease: 当前 Coordinator 持有的 Reconcile Lease。
 ## [br]
@@ -3627,7 +3627,7 @@ func _on_profile_generation_evidence_changed(
 ## [br]
 ## @category internal_helper
 ## [br]
-## @since unreleased
+## @since 11.0.0
 class ManagedProfile extends RefCounted:
 	## 受管 Profile 的稳定 ID。
 	## [br]
@@ -3676,7 +3676,7 @@ class ManagedProfile extends RefCounted:
 ## [br]
 ## @category internal_helper
 ## [br]
-## @since unreleased
+## @since 11.0.0
 class DomainState extends RefCounted:
 	## domain 的稳定运行时 ID。
 	## [br]
@@ -3740,7 +3740,7 @@ class DomainState extends RefCounted:
 ## [br]
 ## @category internal_helper
 ## [br]
-## @since unreleased
+## @since 11.0.0
 class TransactionState extends RefCounted:
 	## 向调用方暴露的类型化事务操作句柄。
 	## [br]

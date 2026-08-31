@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFSpatialCanvas2D" path="addons/gf/standard/utilities/spatial_canvas/gf_spatial_canvas_2d.gd" module="standard" extends="Control" classDigest="f137ae89b3ab2ebb85a973dff1f0d1e242c93ef990e949226f9466001cf7c462">
+<class name="GFSpatialCanvas2D" path="addons/gf/standard/utilities/spatial_canvas/gf_spatial_canvas_2d.gd" module="standard" extends="Control" classDigest="acb5a7250f39cac14553f9d91ebba9f512adbd7581c9df2f614f6d5e0c87ac79">
 	<description>GFSpatialCanvas2D: 有界运行时 2D 空间交互画布。
 统一管理画布视图、世界/画布/格子坐标转换、显式条目查询、稳定选择和项目校验的
 放置会话。项目仍拥有内容节点、占位与权限规则、业务命令、存档和网络同步。</description>
@@ -111,7 +111,7 @@
 会让画布自身的 [code]_gui_input()[/code] 调用 [method Control.accept_event]。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 	</enums>
@@ -598,7 +598,7 @@ GF 只更新该节点的位置与缩放，不扫描、重挂或主动释放项�
 				<tag name="api">public</tag>
 				<tag name="param">policy: 候选输入策略。</tag>
 				<tag name="return">策略有效并完成替换时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_input_policy">
@@ -607,7 +607,7 @@ GF 只更新该节点的位置与缩放，不扫描、重挂或主动释放项�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">当前策略的深拷贝。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="handle_input_event">

@@ -66,7 +66,7 @@ signal load_completed(file_name: String, result: GFStorageReadResult)
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 enum AsyncExecutionMode {
 	## 自动选择；无线程能力的构建使用 cooperative，否则使用线程。
 	AUTOMATIC = 0,
@@ -234,7 +234,7 @@ var require_resource_load_type_hint: bool = true
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 var async_execution_mode: AsyncExecutionMode = AsyncExecutionMode.AUTOMATIC:
 	set(value):
 		if value == async_execution_mode:
@@ -388,7 +388,7 @@ func tick(_delta: float = 0.0) -> void:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param _scope: 当前 Storage 激活阶段的取消作用域。
 ## [br]
@@ -437,7 +437,7 @@ func begin_activation(_scope: GFAsyncScope) -> GFAsyncCompletion:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param scope: 当前 Storage 静默阶段的取消作用域。
 ## [br]
@@ -651,7 +651,7 @@ func list_files(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param file_name: portable logical file identity。
 ## [br]
@@ -712,7 +712,7 @@ func delete_file(file_name: String) -> Error:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param file_name: portable logical file identity。
 ## [br]
@@ -745,7 +745,7 @@ func delete_file_request_async(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param file_name: portable logical file identity。
 ## [br]
@@ -821,7 +821,7 @@ func create_family_reset_authorization(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param file_name: 必须与 authorization 绑定完全一致的 portable logical identity。
 ## [br]
@@ -892,7 +892,7 @@ func reset_file_family(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param file_name: 必须与 authorization 绑定完全一致的 portable logical identity。
 ## [br]
@@ -1193,7 +1193,7 @@ func save_data_request_async(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param file_name: 目标文件名。
 ## [br]
@@ -1269,7 +1269,7 @@ func load_data_request_async(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 最旧到最新排列的有界 late settlement 诊断副本。
 ## [br]
@@ -1425,7 +1425,7 @@ func get_registered_migrations() -> Array[Dictionary]:
 ## [br]
 ## @layer standard/utilities/storage
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param file_name: 必须与 authorization 绑定一致的 canonical logical identity。
 ## [br]
@@ -1463,7 +1463,7 @@ func validate_family_reset_authorization_for_framework(
 ## [br]
 ## @layer standard/utilities/storage
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param clock: 非空单调时钟。
 ## [br]
@@ -1486,7 +1486,7 @@ func set_async_clock_for_framework(clock: GFClock) -> bool:
 ## [br]
 ## @layer standard/utilities/storage
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return Godot feature tags 声明 `threads` 时返回 true。
 func has_async_thread_capability_for_framework() -> bool:
@@ -1499,7 +1499,7 @@ func has_async_thread_capability_for_framework() -> bool:
 ## [br]
 ## @layer standard/utilities/storage
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param task_type: `save`、`load`、`delete` 或 `reset`。
 ## [br]
@@ -1531,7 +1531,7 @@ func start_async_worker_for_framework(
 ## [br]
 ## @layer standard/utilities/storage
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param operation: 发起请求的同一 consumer operation。
 ## [br]
@@ -1599,7 +1599,7 @@ func request_async_operation_cancel_for_framework(
 ## [br]
 ## @layer standard/utilities/storage
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param member_kind: 八个冻结 delete stage kind 之一。
 ## [br]
@@ -1633,7 +1633,7 @@ func remove_delete_family_member_for_framework(
 ## [br]
 ## @layer standard/utilities/storage
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param member_kind: catalog 或 family_container。
 ## [br]
@@ -1666,7 +1666,7 @@ func move_reset_family_member_for_framework(
 ## [br]
 ## @layer standard/utilities/storage
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param member_kind: catalog、family_container 或 reset_intent。
 ## [br]
@@ -1696,7 +1696,7 @@ func remove_reset_family_member_for_framework(
 ## [br]
 ## @layer standard/utilities/storage
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param family_store: 已绑定冻结 Storage root 的 family store。
 ## [br]

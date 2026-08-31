@@ -7,7 +7,7 @@
 - 继承：`RefCounted`
 - API：`public`
 - 类别：运行时服务 (`runtime_service`)
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 将外部表面命中桥接为 Viewport 指针事件。 调用方只提供稳定 source/device/pointer 身份、目标 Viewport 代际、 0..1 标准化表面坐标和显式单调毫秒。桥不求解射线、UV、Mesh、XR 或交互模式； 也不复制 Pointer Activity、Gesture 或 DragDrop 的所有权。
 
@@ -42,7 +42,7 @@
 ### `input_forwarded`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 signal input_forwarded( source_id: StringName, device_id: int, pointer_id: int, capture_generation: int, target_generation: int, target: Viewport, event: InputEvent )
@@ -69,7 +69,7 @@ signal input_forwarded( source_id: StringName, device_id: int, pointer_id: int, 
 ### `PointerType`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 enum PointerType {
@@ -89,7 +89,7 @@ enum PointerType {
 ### `configure_limits`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func configure_limits( max_active_pointers: int = _DEFAULT_MAX_ACTIVE_POINTERS, max_click_history: int = _DEFAULT_MAX_CLICK_HISTORY, double_click_interval_msec: int = _DEFAULT_DOUBLE_CLICK_INTERVAL_MSEC, double_click_distance_pixels: float = _DEFAULT_DOUBLE_CLICK_DISTANCE_PIXELS, max_pointer_timestamps: int = _DEFAULT_MAX_POINTER_TIMESTAMPS ) -> bool:
@@ -114,7 +114,7 @@ func configure_limits( max_active_pointers: int = _DEFAULT_MAX_ACTIVE_POINTERS, 
 ### `forward_mouse_hover`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func forward_mouse_hover( source_id: StringName, device_id: int, pointer_id: int, target: Viewport, target_generation: int, normalized_position: Vector2, timestamp_msec: int ) -> bool:
@@ -141,7 +141,7 @@ func forward_mouse_hover( source_id: StringName, device_id: int, pointer_id: int
 ### `capture_pointer`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func capture_pointer( source_id: StringName, device_id: int, pointer_id: int, pointer_type: PointerType, target: Viewport, target_generation: int, normalized_position: Vector2, timestamp_msec: int, mouse_button: MouseButton = MOUSE_BUTTON_LEFT ) -> GFViewportSurfaceInputCapture:
@@ -170,7 +170,7 @@ func capture_pointer( source_id: StringName, device_id: int, pointer_id: int, po
 ### `move_pointer`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func move_pointer( capture: GFViewportSurfaceInputCapture, target: Viewport, target_generation: int, normalized_position: Vector2, timestamp_msec: int ) -> bool:
@@ -195,7 +195,7 @@ func move_pointer( capture: GFViewportSurfaceInputCapture, target: Viewport, tar
 ### `press_mouse_button`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func press_mouse_button( capture: GFViewportSurfaceInputCapture, target: Viewport, target_generation: int, normalized_position: Vector2, timestamp_msec: int, mouse_button: MouseButton ) -> bool:
@@ -221,7 +221,7 @@ func press_mouse_button( capture: GFViewportSurfaceInputCapture, target: Viewpor
 ### `release_pointer`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func release_pointer( capture: GFViewportSurfaceInputCapture, timestamp_msec: int, mouse_button: MouseButton = MOUSE_BUTTON_LEFT ) -> bool:
@@ -244,7 +244,7 @@ func release_pointer( capture: GFViewportSurfaceInputCapture, timestamp_msec: in
 ### `release_pointer_on_surface`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func release_pointer_on_surface( capture: GFViewportSurfaceInputCapture, target: Viewport, target_generation: int, normalized_position: Vector2, timestamp_msec: int, mouse_button: MouseButton = MOUSE_BUTTON_LEFT ) -> bool:
@@ -270,7 +270,7 @@ func release_pointer_on_surface( capture: GFViewportSurfaceInputCapture, target:
 ### `cancel_pointer`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func cancel_pointer(capture: GFViewportSurfaceInputCapture, timestamp_msec: int) -> bool:
@@ -292,7 +292,7 @@ func cancel_pointer(capture: GFViewportSurfaceInputCapture, timestamp_msec: int)
 ### `cancel_source`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func cancel_source( source_id: StringName, timestamp_msec: int, device_id: int = -1 ) -> int:
@@ -315,7 +315,7 @@ func cancel_source( source_id: StringName, timestamp_msec: int, device_id: int =
 ### `cancel_target`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func cancel_target(target: Viewport, target_generation: int, timestamp_msec: int) -> int:
@@ -338,7 +338,7 @@ func cancel_target(target: Viewport, target_generation: int, timestamp_msec: int
 ### `prune_released_captures`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func prune_released_captures(timestamp_msec: int = 0) -> int:
@@ -359,7 +359,7 @@ func prune_released_captures(timestamp_msec: int = 0) -> int:
 ### `has_capture`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func has_capture(capture: GFViewportSurfaceInputCapture) -> bool:
@@ -380,7 +380,7 @@ func has_capture(capture: GFViewportSurfaceInputCapture) -> bool:
 ### `get_active_pointer_count`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_active_pointer_count() -> int:
@@ -395,7 +395,7 @@ func get_active_pointer_count() -> int:
 ### `get_click_history_count`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_click_history_count() -> int:
@@ -410,7 +410,7 @@ func get_click_history_count() -> int:
 ### `get_pointer_timestamp_count`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_pointer_timestamp_count() -> int:
@@ -425,7 +425,7 @@ func get_pointer_timestamp_count() -> int:
 ### `is_disposed`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func is_disposed() -> bool:
@@ -440,7 +440,7 @@ func is_disposed() -> bool:
 ### `dispose`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func dispose(timestamp_msec: int = 0) -> void:

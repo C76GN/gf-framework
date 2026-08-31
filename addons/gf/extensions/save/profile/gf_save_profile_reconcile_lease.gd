@@ -8,7 +8,7 @@
 ## [br]
 ## @category runtime_handle
 ## [br]
-## @since unreleased
+## @since 11.0.0
 class_name GFSaveProfileReconcileLease
 extends RefCounted
 
@@ -21,7 +21,7 @@ extends RefCounted
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param lease: 当前同一身份 Lease。
 ## [br]
@@ -35,35 +35,35 @@ signal settled(lease: GFSaveProfileReconcileLease, state: StringName)
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const STATE_WAITING: StringName = &"waiting"
 
 ## 已取得有界 settlement evidence，可以开始显式对账。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const STATE_READY: StringName = &"ready"
 
 ## 一个 reconcile 操作已经接管 Lease。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const STATE_RECONCILING: StringName = &"reconciling"
 
 ## 对账已经完成，Provider domain 围栏可以释放。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const STATE_RESOLVED: StringName = &"resolved"
 
 ## Utility 已释放，但不确定副作用尚未完成对账。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const STATE_DISPOSED_UNRESOLVED: StringName = &"disposed_unresolved"
 
 const _MAX_EVIDENCE_DEPTH: int = 16
@@ -96,7 +96,7 @@ var _settled_signal_emitted: bool = false
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 正整数 Lease ID；未配置时为 0。
 func get_lease_id() -> int:
@@ -107,7 +107,7 @@ func get_lease_id() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 正整数事务 ID；未配置时为 0。
 func get_transaction_id() -> int:
@@ -118,7 +118,7 @@ func get_transaction_id() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return `GFSaveProfileTransactionOperation.OPERATION_*` 常量之一。
 func get_operation() -> StringName:
@@ -129,7 +129,7 @@ func get_operation() -> StringName:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 非空 Profile ID。
 func get_reconcile_profile_id() -> StringName:
@@ -140,7 +140,7 @@ func get_reconcile_profile_id() -> StringName:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 来源 Profile ID；不适用时为空。
 func get_source_profile_id() -> StringName:
@@ -151,7 +151,7 @@ func get_source_profile_id() -> StringName:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 目标 Profile ID；不适用时为空。
 func get_target_profile_id() -> StringName:
@@ -162,7 +162,7 @@ func get_target_profile_id() -> StringName:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return Utility 生命周期内唯一的正整数 domain ID。
 func get_domain_id() -> int:
@@ -173,7 +173,7 @@ func get_domain_id() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 正整数 domain generation。
 func get_domain_generation() -> int:
@@ -184,7 +184,7 @@ func get_domain_generation() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 正整数 lifecycle epoch。
 func get_epoch() -> int:
@@ -195,7 +195,7 @@ func get_epoch() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 按发起顺序排列的正整数请求 ID。
 func get_storage_request_ids() -> PackedInt64Array:
@@ -206,7 +206,7 @@ func get_storage_request_ids() -> PackedInt64Array:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return `STATE_*` 常量之一。
 func get_state() -> StringName:
@@ -217,7 +217,7 @@ func get_state() -> StringName:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return waiting 时返回 true。
 func is_waiting() -> bool:
@@ -228,7 +228,7 @@ func is_waiting() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return ready 时返回 true。
 func is_ready() -> bool:
@@ -239,7 +239,7 @@ func is_ready() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return resolved 或 disposed_unresolved 时返回 true。
 func is_terminal() -> bool:
@@ -250,7 +250,7 @@ func is_terminal() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 有界 evidence 副本。
 ## [br]
@@ -263,7 +263,7 @@ func get_settlement_evidence() -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return resolved 前为空；resolved 后返回有界 evidence 副本。
 ## [br]
@@ -278,7 +278,7 @@ func get_resolution_evidence() -> Dictionary:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param lease_id: Utility 生命周期内唯一的正整数 Lease ID。
 ## [br]
@@ -346,7 +346,7 @@ func configure_for_framework(
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return Lease 身份、围栏、状态与 settlement evidence。
 ## [br]
@@ -373,7 +373,7 @@ func inspect_for_framework() -> Dictionary:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param settlement_evidence: 不含文档、section 或 Provider payload 的证据。
 ## [br]
@@ -393,7 +393,7 @@ func mark_ready_for_framework(settlement_evidence: Dictionary = {}) -> bool:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param expected_reconcile_profile_id: 本次对账重新读取的 Profile ID。
 ## [br]
@@ -429,7 +429,7 @@ func claim_for_framework(
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 首次从 reconciling 恢复为 ready 时返回 true。
 func release_reconcile_for_framework() -> bool:
@@ -443,7 +443,7 @@ func release_reconcile_for_framework() -> bool:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param resolution_evidence: 不含文档、section 或 Provider payload 的最终证据。
 ## [br]
@@ -462,7 +462,7 @@ func mark_resolved_for_framework(resolution_evidence: Dictionary = {}) -> bool:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 首次转为 disposed_unresolved 时返回 true。
 func mark_disposed_unresolved_for_framework() -> bool:

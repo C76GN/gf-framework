@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFSaveProfileRecoveryLease" path="addons/gf/extensions/save/profile/gf_save_profile_recovery_lease.gd" module="extensions/save" extends="RefCounted" classDigest="5dd4d0b9b00b7ca86b92f9cbd48426da2106ea21e06f887939914d854e1197bd">
+<class name="GFSaveProfileRecoveryLease" path="addons/gf/extensions/save/profile/gf_save_profile_recovery_lease.gd" module="extensions/save" extends="RefCounted" classDigest="c00135a522d34ed30d8add388f0a76a0a0f41443745dfd0d5817ffb66a33cd35">
 	<description>GFSaveProfileRecoveryLease: 缺失或损坏 Profile 的一次性恢复授权。
 Lease 由失败的 activate 或 switch 操作创建，并绑定创建时的事务、来源与目标
 Profile、Provider domain generation 与 lifecycle epoch。恢复入口必须原样提交同一
@@ -7,7 +7,7 @@ Lease；domain 或 epoch 前进后，旧 Lease 会失效，不能把陈旧恢复
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">runtime_handle</tag>
-		<tag name="since">unreleased</tag>
+		<tag name="since">11.0.0</tag>
 	</tags>
 	<signals />
 	<enums />
@@ -17,7 +17,7 @@ Lease；domain 或 epoch 前进后，旧 Lease 会失效，不能把陈旧恢复
 			<description>activate 或 switch 目标没有持久化文档。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="REASON_CORRUPT">
@@ -25,7 +25,7 @@ Lease；domain 或 epoch 前进后，旧 Lease 会失效，不能把陈旧恢复
 			<description>activate 或 switch 目标文档损坏、完整性无效或 Storage family 结构损坏。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="STATE_AVAILABLE">
@@ -33,7 +33,7 @@ Lease；domain 或 epoch 前进后，旧 Lease 会失效，不能把陈旧恢复
 			<description>Lease 尚未被恢复操作消费。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="STATE_CLAIMED">
@@ -41,7 +41,7 @@ Lease；domain 或 epoch 前进后，旧 Lease 会失效，不能把陈旧恢复
 			<description>Lease 已被一个恢复操作消费。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="STATE_STALE">
@@ -49,7 +49,7 @@ Lease；domain 或 epoch 前进后，旧 Lease 会失效，不能把陈旧恢复
 			<description>Lease 的 domain generation 或 lifecycle epoch 已过期。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 	</constants>
@@ -61,7 +61,7 @@ Lease；domain 或 epoch 前进后，旧 Lease 会失效，不能把陈旧恢复
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">正整数 Lease ID；未配置时为 0。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_transaction_id">
@@ -70,7 +70,7 @@ Lease；domain 或 epoch 前进后，旧 Lease 会失效，不能把陈旧恢复
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">正整数事务 ID；未配置时为 0。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_source_profile_id">
@@ -80,7 +80,7 @@ Lease；domain 或 epoch 前进后，旧 Lease 会失效，不能把陈旧恢复
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">switch 恢复的来源 Profile ID；首次 activate 恢复时为空。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_profile_id">
@@ -89,7 +89,7 @@ Lease；domain 或 epoch 前进后，旧 Lease 会失效，不能把陈旧恢复
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">Profile ID。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_reason">
@@ -98,7 +98,7 @@ Lease；domain 或 epoch 前进后，旧 Lease 会失效，不能把陈旧恢复
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">`REASON_MISSING` 或 `REASON_CORRUPT`。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_domain_id">
@@ -107,7 +107,7 @@ Lease；domain 或 epoch 前进后，旧 Lease 会失效，不能把陈旧恢复
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">Utility 生命周期内唯一的正整数 domain ID。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_domain_generation">
@@ -116,7 +116,7 @@ Lease；domain 或 epoch 前进后，旧 Lease 会失效，不能把陈旧恢复
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">正整数 domain generation。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_epoch">
@@ -125,7 +125,7 @@ Lease；domain 或 epoch 前进后，旧 Lease 会失效，不能把陈旧恢复
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">正整数 lifecycle epoch。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_state">
@@ -134,7 +134,7 @@ Lease；domain 或 epoch 前进后，旧 Lease 会失效，不能把陈旧恢复
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">`STATE_*` 常量之一。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="is_available">
@@ -143,7 +143,7 @@ Lease；domain 或 epoch 前进后，旧 Lease 会失效，不能把陈旧恢复
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">可用时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="is_claimed">
@@ -152,7 +152,7 @@ Lease；domain 或 epoch 前进后，旧 Lease 会失效，不能把陈旧恢复
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">已 claim 时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="is_stale">
@@ -161,7 +161,7 @@ Lease；domain 或 epoch 前进后，旧 Lease 会失效，不能把陈旧恢复
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">已标记 stale 或从未有效配置时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 	</methods>

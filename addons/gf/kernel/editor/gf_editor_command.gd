@@ -274,7 +274,7 @@ func _undo_it() -> Error:
 ## [br]
 ## @api protected
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return: 用于选择 UndoRedo history 的对象。
 func _get_undo_context() -> Object:
@@ -287,7 +287,7 @@ func _get_undo_context() -> Object:
 ## [br]
 ## @api protected
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return: 命令的全部变更目标。
 func _get_undo_targets() -> Array[Object]:
