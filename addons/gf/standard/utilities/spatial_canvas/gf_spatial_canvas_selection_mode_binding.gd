@@ -7,7 +7,7 @@
 ## [br]
 ## @category resource_definition
 ## [br]
-## @since unreleased
+## @since 11.0.0
 class_name GFSpatialCanvasSelectionModeBinding
 extends Resource
 
@@ -18,14 +18,14 @@ extends Resource
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 @export_flags("Shift:1", "Ctrl:2", "Alt:4", "Meta:8") var modifier_mask: int = 0
 
 ## 匹配时使用的 [code]GFSpatialCanvas2D.SelectionMode[/code] 值。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 @export var selection_mode: GFSpatialCanvas2D.SelectionMode = (
 	GFSpatialCanvas2D.SelectionMode.REPLACE
 )
@@ -37,7 +37,7 @@ extends Resource
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 新绑定。
 func duplicate_binding() -> GFSpatialCanvasSelectionModeBinding:

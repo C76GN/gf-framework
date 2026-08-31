@@ -373,7 +373,7 @@ func init() -> void:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 func ready() -> void:
 	if _disposed or _resource_broker != null:
 		return
@@ -425,7 +425,7 @@ func dispose() -> void:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 func release_dependencies() -> void:
 	_resource_broker = null
 	_owns_resource_broker = false
@@ -442,7 +442,7 @@ func release_dependencies() -> void:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param broker: 要共享的 Broker。
 ## [br]
@@ -476,7 +476,7 @@ func set_resource_broker(broker: GFResourceBroker) -> Error:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param max_active_requests: Broker 同时活动的底层请求上限。
 ## [br]
@@ -511,7 +511,7 @@ func setup_standalone_resource_broker(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 已绑定的 Broker；未配置时返回 null。
 func get_resource_broker() -> GFResourceBroker:
@@ -765,7 +765,7 @@ func load_scene_async(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param path: 目标场景资源路径。
 ## [br]
@@ -1163,7 +1163,7 @@ func preload_scene(path: String, fixed: bool = false) -> Error:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param path: 目标场景资源路径。
 ## [br]
@@ -2350,7 +2350,7 @@ func _do_change_scene(scene: PackedScene) -> bool:
 ## [br]
 ## @api protected
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 当前 override/generation 接受异步等待声明时返回 true。
 func _defer_target_scene_commit() -> bool:
@@ -2376,7 +2376,7 @@ func _defer_target_scene_commit() -> bool:
 ## [br]
 ## @api protected
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 当前待提交 generation 与目标 scene root 匹配并接受确认时返回 true。
 func _confirm_target_scene_commit() -> bool:

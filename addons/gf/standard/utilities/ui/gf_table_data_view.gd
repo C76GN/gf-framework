@@ -39,7 +39,7 @@ signal view_changed(view_revision: int, visible_count: int)
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param result: 保留 prior projection 的类型化失败结果。
 signal view_rebuild_failed(result: GFTableViewRebuildResult)
@@ -102,7 +102,7 @@ signal cell_value_committed(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const MAX_ROW_PREDICATE_COUNT: int = 64
 
 
@@ -136,7 +136,7 @@ var _state_publication_in_progress: bool = false
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param column_id: 新的稳定行 ID 字段键；为空时使用源行索引。
 ## [br]
@@ -189,7 +189,7 @@ func set_row_id_column(column_id: StringName) -> GFTableViewRebuildResult:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 当前稳定行 ID 字段键；为空时使用源行索引。
 func get_row_id_column() -> StringName:
@@ -202,7 +202,7 @@ func get_row_id_column() -> StringName:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param case_sensitive: 为 true 时区分大小写。
 ## [br]
@@ -238,7 +238,7 @@ func set_filter_case_sensitive(case_sensitive: bool) -> GFTableViewRebuildResult
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 区分大小写时返回 true。
 func is_filter_case_sensitive() -> bool:
@@ -252,7 +252,7 @@ func is_filter_case_sensitive() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param model: 非空选择模型。
 ## [br]
@@ -294,7 +294,7 @@ func set_selection_model(model: GFTableSelectionModel) -> GFTableViewRebuildResu
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 当前非空选择模型。
 func get_selection_model() -> GFTableSelectionModel:
@@ -790,7 +790,7 @@ func get_filter_query() -> String:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param registrations: 谓词注册定义；提交时复制 metadata。
 ## [br]
@@ -845,7 +845,7 @@ func set_row_predicates(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param registration: 谓词注册定义；提交时复制 metadata。
 ## [br]
@@ -875,7 +875,7 @@ func register_row_predicate(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param predicate_id: 要移除的稳定谓词 ID。
 ## [br]
@@ -901,7 +901,7 @@ func unregister_row_predicate(predicate_id: StringName) -> GFTableViewRebuildRes
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param predicate_id: 稳定谓词 ID。
 ## [br]
@@ -936,7 +936,7 @@ func set_row_predicate_enabled(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param predicate_id: 稳定谓词 ID。
 ## [br]
@@ -971,7 +971,7 @@ func set_row_predicate_order(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param predicate_id: 稳定谓词 ID。
 ## [br]
@@ -991,7 +991,7 @@ func get_row_predicate(predicate_id: StringName) -> GFTableRowPredicateRegistrat
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 独立 metadata 快照数组；predicate 协议实例保持同一引用。
 ## [br]
@@ -1004,7 +1004,7 @@ func get_row_predicates() -> Array[GFTableRowPredicateRegistration]:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 稳定谓词 ID 数组。
 func get_row_predicate_ids() -> Array[StringName]:
@@ -1018,7 +1018,7 @@ func get_row_predicate_ids() -> Array[StringName]:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 单调递增 revision。
 func get_view_revision() -> int:
@@ -1029,7 +1029,7 @@ func get_view_revision() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 最近结果的隔离副本；尚未执行时返回 revision 0 的成功 no-op。
 func get_last_view_rebuild_result() -> GFTableViewRebuildResult:

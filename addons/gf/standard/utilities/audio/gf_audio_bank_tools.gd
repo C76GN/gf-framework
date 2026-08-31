@@ -57,28 +57,28 @@ const DEFAULT_MAX_AUDIO_PATHS: int = 10000
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const DEFAULT_MAX_SCANNED_ENTRIES: int = 100000
 
 ## 单次扫描递归深度的框架绝对硬上限。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const ABSOLUTE_MAX_SCAN_DEPTH: int = 64
 
 ## 单次扫描收集音频路径数量的框架绝对硬上限。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const ABSOLUTE_MAX_AUDIO_PATHS: int = 100000
 
 ## 单次扫描检查目录项总数的框架绝对硬上限。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const ABSOLUTE_MAX_SCANNED_ENTRIES: int = 1000000
 
 # --- 公共方法 ---

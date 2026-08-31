@@ -9,7 +9,7 @@
 ## [br]
 ## @category runtime_handle
 ## [br]
-## @since unreleased
+## @since 11.0.0
 class_name GFVirtualListBinder
 extends RefCounted
 
@@ -20,7 +20,7 @@ extends RefCounted
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param result: 不含项目条目载荷的 typed 同步结果。
 signal sync_completed(result: GFVirtualListSyncResult)
@@ -32,7 +32,7 @@ signal sync_completed(result: GFVirtualListSyncResult)
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 enum LayoutAxis {
 	## 以 Y 轴和垂直滚动条组织条目。
 	VERTICAL,
@@ -44,7 +44,7 @@ enum LayoutAxis {
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 enum ScrollAlignment {
 	## 已可见时不滚动，否则移动到最近边界。
 	NEAREST,
@@ -63,35 +63,35 @@ enum ScrollAlignment {
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const DEFAULT_MAX_MATERIALIZED_ITEMS: int = 512
 
 ## 默认 parentless pool Control 上限。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const DEFAULT_MAX_POOLED_ITEMS: int = 64
 
 ## 活动物化 Control 的框架级绝对硬上限。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const ABSOLUTE_MAX_MATERIALIZED_ITEMS: int = 4096
 
 ## parentless pool 的框架级绝对硬上限。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const ABSOLUTE_MAX_POOLED_ITEMS: int = 1024
 
 ## 稳定 identity token 允许的最大 UTF-8 字节数。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const ABSOLUTE_MAX_IDENTITY_TOKEN_LENGTH: int = 1024
 
 const _STATE_UNBOUND: StringName = &"unbound"
@@ -110,7 +110,7 @@ const _STATE_DISPOSED: StringName = &"disposed"
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 var layout_axis: LayoutAxis = LayoutAxis.VERTICAL:
 	set(value):
 		if value not in [LayoutAxis.VERTICAL, LayoutAxis.HORIZONTAL]:
@@ -121,7 +121,7 @@ var layout_axis: LayoutAxis = LayoutAxis.VERTICAL:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 var max_materialized_items: int = DEFAULT_MAX_MATERIALIZED_ITEMS:
 	set(value):
 		max_materialized_items = clampi(value, 1, ABSOLUTE_MAX_MATERIALIZED_ITEMS)
@@ -131,7 +131,7 @@ var max_materialized_items: int = DEFAULT_MAX_MATERIALIZED_ITEMS:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 var max_pooled_items: int = DEFAULT_MAX_POOLED_ITEMS:
 	set(value):
 		max_pooled_items = clampi(value, 0, ABSOLUTE_MAX_POOLED_ITEMS)
@@ -144,14 +144,14 @@ var max_pooled_items: int = DEFAULT_MAX_POOLED_ITEMS:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 var auto_measure: bool = true
 
 ## 虚拟焦点变化后是否按最近边界自动滚入视口。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 var auto_reveal_focus: bool = true
 
 ## 是否让行 Control 填满 content root 的交叉轴。
@@ -159,7 +159,7 @@ var auto_reveal_focus: bool = true
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 var fill_cross_axis: bool = true
 
 
@@ -247,7 +247,7 @@ var _emitting_sync_completed: bool = false
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param owner: 生命周期 owner；退出 SceneTree 后 Binder 自动 dispose。
 ## [br]
@@ -346,7 +346,7 @@ func bind(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 当前处于有效绑定生命周期时返回 true。
 func request_sync() -> bool:
@@ -363,7 +363,7 @@ func request_sync() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return typed 同步结果。
 func sync_now() -> GFVirtualListSyncResult:
@@ -419,7 +419,7 @@ func sync_now() -> GFVirtualListSyncResult:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 当前已绑定时返回 true。
 func invalidate_items() -> bool:
@@ -435,7 +435,7 @@ func invalidate_items() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 当前已绑定时返回 true。
 func request_measurement() -> bool:
@@ -449,7 +449,7 @@ func request_measurement() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param item_index: 条目索引。
 ## [br]
@@ -477,7 +477,7 @@ func scroll_to_item(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param item_index: 条目索引。
 ## [br]
@@ -494,7 +494,7 @@ func get_materialized_control(item_index: int) -> Control:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param item_id: identity callback 使用的稳定 ID。
 ## [br]
@@ -513,7 +513,7 @@ func get_materialized_control_by_id(item_id: Variant) -> Control:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 尚未同步时返回当前生命周期终态结果。
 func get_last_sync_result() -> GFVirtualListSyncResult:
@@ -529,7 +529,7 @@ func get_last_sync_result() -> GFVirtualListSyncResult:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 生命周期、范围和计数摘要。
 ## [br]
@@ -552,7 +552,7 @@ func get_debug_snapshot() -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 已绑定且未进入 teardown 时返回 true。
 func is_bound() -> bool:
@@ -563,7 +563,7 @@ func is_bound() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return dispose 已完成时返回 true。
 func is_disposed() -> bool:
@@ -574,7 +574,7 @@ func is_disposed() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 func unbind() -> void:
 	if _state in [_STATE_UNBOUND, _STATE_UNBINDING, _STATE_DISPOSING, _STATE_DISPOSED]:
 		return
@@ -589,7 +589,7 @@ func unbind() -> void:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 func dispose() -> void:
 	if _state in [_STATE_DISPOSING, _STATE_DISPOSED] or _dispose_requested:
 		return

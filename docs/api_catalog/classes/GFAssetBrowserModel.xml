@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFAssetBrowserModel" path="addons/gf/tools/asset_browser/gf_asset_browser_model.gd" module="tools" extends="RefCounted" classDigest="4ae48227074ed92c7c12d2daf6a772e15122e6e05d5dda3eb2ceeefa30450ff8">
+<class name="GFAssetBrowserModel" path="addons/gf/tools/asset_browser/gf_asset_browser_model.gd" module="tools" extends="RefCounted" classDigest="909ba0ed3a29d083ec6244e7895018e007d4e91ca203cb4b4f2517caad4fb748">
 	<description>GFAssetBrowserModel: 资产浏览器的无界面状态模型。
 持有隔离的 GFAssetCatalog 快照、查询代际和稳定 ID 选择，供项目编辑器
 页面自行决定布局、来源注入和资源物化策略。本模型不扫描目录、不下载、
@@ -10,7 +10,7 @@ listener 触发的嵌套 mutation 只会排到队尾；当前 signal 的全部 l
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">tool_api</tag>
-		<tag name="since">unreleased</tag>
+		<tag name="since">11.0.0</tag>
 	</tags>
 	<signals>
 		<member kind="signal" name="catalog_changed">
@@ -20,7 +20,7 @@ listener 触发的嵌套 mutation 只会排到队尾；当前 signal 的全部 l
 				<tag name="api">public</tag>
 				<tag name="param">catalog_revision: 新目录 revision。</tag>
 				<tag name="param">query_generation: 新查询 generation。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="signal" name="query_changed">
@@ -29,7 +29,7 @@ listener 触发的嵌套 mutation 只会排到队尾；当前 signal 的全部 l
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">query_generation: 新查询 generation。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="signal" name="selection_changed">
@@ -38,7 +38,7 @@ listener 触发的嵌套 mutation 只会排到队尾；当前 signal 的全部 l
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">asset_id: 新选择；空 ID 表示没有选择。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="signal" name="preview_resolved">
@@ -51,7 +51,7 @@ listener 按只读引用使用。</description>
 				<tag name="api">public</tag>
 				<tag name="param">report: 预览终态报告。</tag>
 				<tag name="schema">report: 闭合 Dictionary，精确包含 asset_id: StringName、preview_generation: int、catalog_revision: int、query_generation: int、state: StringName、result、error: String 和 cancel_reason: StringName。result 只能是 null、Image、ImageTexture，或精确包含 ok: true、generated_count: 非负 int、cancelled: bool、changes: Array 的 MeshLibrary plan；generated_count 必须等于 changes 数量且最多为 MAX_RESULT_COUNT，每个 change 精确包含非负 item_id: int、可空 old_preview: Texture2D 和非空 new_preview: Texture2D。所有 Dictionary / Array 容器只读；Image / Texture2D 是无法冻结的 Engine Object 句柄，listener 必须按只读引用使用。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 	</signals>
@@ -62,7 +62,7 @@ listener 按只读引用使用。</description>
 			<description>单个模型快照允许的最大资产数。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="MAX_QUERY_LENGTH">
@@ -70,7 +70,7 @@ listener 按只读引用使用。</description>
 			<description>查询文本允许的最大字符数。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="MAX_PAGE_SIZE">
@@ -78,7 +78,7 @@ listener 按只读引用使用。</description>
 			<description>单页允许返回的最大资产数。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="MAX_RESULT_COUNT">
@@ -86,7 +86,7 @@ listener 按只读引用使用。</description>
 			<description>一次查询允许保留的最大匹配资产数。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 	</constants>
@@ -102,7 +102,7 @@ listener 按只读引用使用。</description>
 				<tag name="param">catalog: 要复制的资产目录。</tag>
 				<tag name="return">替换报告。</tag>
 				<tag name="schema">return: Dictionary with ok, changed, error, asset_count, catalog_revision, and query_generation.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="select_asset">
@@ -112,7 +112,7 @@ listener 按只读引用使用。</description>
 				<tag name="api">public</tag>
 				<tag name="param">asset_id: 要选择的资产 ID；空 ID 用于清除选择。</tag>
 				<tag name="return">选择请求有效时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="set_query">
@@ -126,7 +126,7 @@ listener 按只读引用使用。</description>
 				<tag name="param">asset_ids: 可选查询闭集；为空时查询整个目录。</tag>
 				<tag name="return">查询更新报告。</tag>
 				<tag name="schema">return: Dictionary with ok, changed, error, query_generation, query, and filter_count.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_selected_asset_id">
@@ -135,7 +135,7 @@ listener 按只读引用使用。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">当前选择；没有选择时返回空 StringName。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_catalog_revision">
@@ -144,7 +144,7 @@ listener 按只读引用使用。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">从 0 开始、成功替换后递增的 revision。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_query_generation">
@@ -153,7 +153,7 @@ listener 按只读引用使用。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">从 0 开始、目录或查询变化后递增的 generation。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="request_preview">
@@ -167,7 +167,7 @@ listener 按只读引用使用。</description>
 				<tag name="param">renderer: 执行请求的缩略图渲染器。</tag>
 				<tag name="param">request: 已由调用方构建的渲染请求。</tag>
 				<tag name="return">当前代际任务；输入无效时返回 null。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="cancel_preview">
@@ -177,7 +177,7 @@ listener 按只读引用使用。</description>
 				<tag name="api">public</tag>
 				<tag name="param">reason: 取消原因。</tag>
 				<tag name="return">本次调用是否发出新的取消请求。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_preview_generation">
@@ -186,7 +186,7 @@ listener 按只读引用使用。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">从 0 开始、新预览或主动失效时递增的 generation。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_active_preview_task">
@@ -195,7 +195,7 @@ listener 按只读引用使用。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">当前任务；没有任务时返回 null。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="dispose">
@@ -204,7 +204,7 @@ listener 按只读引用使用。</description>
 dispose() 是终态操作；调用后目录、查询、选择和预览写入口均会拒绝新请求。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_page">
@@ -216,7 +216,7 @@ dispose() 是终态操作；调用后目录、查询、选择和预览写入口�
 				<tag name="param">page_size: 每页数量。</tag>
 				<tag name="return">分页浏览报告。</tag>
 				<tag name="schema">return: Dictionary with catalog_revision, query_generation, query, page, page_size, page_count, total_count, has_previous, has_next, asset_ids, and items.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 	</methods>

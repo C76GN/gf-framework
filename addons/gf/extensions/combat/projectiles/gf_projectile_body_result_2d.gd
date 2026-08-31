@@ -4,7 +4,7 @@
 ## [br]
 ## @category value_object
 ## [br]
-## @since unreleased
+## @since 11.0.0
 class_name GFProjectileBodyResult2D
 extends RefCounted
 
@@ -28,7 +28,7 @@ var _actual_displacement: Vector2 = Vector2.ZERO
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param transform_value: 应用后的 world transform。
 ## [br]
@@ -56,7 +56,7 @@ static func successful(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param reason: 非空失败原因。
 ## [br]
@@ -78,7 +78,7 @@ static func failed(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return: 成功时为 true。
 func is_successful() -> bool:
@@ -89,7 +89,7 @@ func is_successful() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return: 成功结果为空，失败结果为稳定原因。
 func get_failure_reason() -> StringName:
@@ -100,7 +100,7 @@ func get_failure_reason() -> StringName:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return: 2D transform 快照。
 func get_transform() -> Transform2D:
@@ -111,7 +111,7 @@ func get_transform() -> Transform2D:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return: 2D world position。
 func get_position() -> Vector2:
@@ -122,7 +122,7 @@ func get_position() -> Vector2:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return: 真实位移向量；捕获或停止操作为零。
 func get_actual_displacement() -> Vector2:

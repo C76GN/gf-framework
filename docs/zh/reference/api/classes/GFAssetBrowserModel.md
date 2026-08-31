@@ -7,7 +7,7 @@
 - 继承：`RefCounted`
 - API：`public`
 - 类别：工具 API (`tool_api`)
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 资产浏览器的无界面状态模型。 持有隔离的 GFAssetCatalog 快照、查询代际和稳定 ID 选择，供项目编辑器 页面自行决定布局、来源注入和资源物化策略。本模型不扫描目录、不下载、 不导入资源，也不拥有 provider 或缓存。 catalog、query、selection 与 preview 通知共用非重入 FIFO 队列。同步 listener 触发的嵌套 mutation 只会排到队尾；当前 signal 的全部 listener 返回后才按提交顺序继续发布冻结参数。dispose() 会丢弃尚未派发的队尾通知。
 
@@ -43,7 +43,7 @@
 ### `catalog_changed`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 signal catalog_changed(catalog_revision: int, query_generation: int)
@@ -63,7 +63,7 @@ signal catalog_changed(catalog_revision: int, query_generation: int)
 ### `query_changed`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 signal query_changed(query_generation: int)
@@ -82,7 +82,7 @@ signal query_changed(query_generation: int)
 ### `selection_changed`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 signal selection_changed(asset_id: StringName)
@@ -101,7 +101,7 @@ signal selection_changed(asset_id: StringName)
 ### `preview_resolved`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 signal preview_resolved(report: Dictionary)
@@ -126,7 +126,7 @@ signal preview_resolved(report: Dictionary)
 ### `MAX_CATALOG_ENTRIES`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const MAX_CATALOG_ENTRIES: int = 10_000
@@ -139,7 +139,7 @@ const MAX_CATALOG_ENTRIES: int = 10_000
 ### `MAX_QUERY_LENGTH`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const MAX_QUERY_LENGTH: int = 512
@@ -152,7 +152,7 @@ const MAX_QUERY_LENGTH: int = 512
 ### `MAX_PAGE_SIZE`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const MAX_PAGE_SIZE: int = 100
@@ -165,7 +165,7 @@ const MAX_PAGE_SIZE: int = 100
 ### `MAX_RESULT_COUNT`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const MAX_RESULT_COUNT: int = 10_000
@@ -180,7 +180,7 @@ const MAX_RESULT_COUNT: int = 10_000
 ### `replace_catalog`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func replace_catalog(catalog: GFAssetCatalog) -> Dictionary:
@@ -205,7 +205,7 @@ func replace_catalog(catalog: GFAssetCatalog) -> Dictionary:
 ### `select_asset`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func select_asset(asset_id: StringName) -> bool:
@@ -226,7 +226,7 @@ func select_asset(asset_id: StringName) -> bool:
 ### `set_query`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func set_query( query_text: String, asset_ids: PackedStringArray = PackedStringArray() ) -> Dictionary:
@@ -252,7 +252,7 @@ func set_query( query_text: String, asset_ids: PackedStringArray = PackedStringA
 ### `get_selected_asset_id`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_selected_asset_id() -> StringName:
@@ -267,7 +267,7 @@ func get_selected_asset_id() -> StringName:
 ### `get_catalog_revision`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_catalog_revision() -> int:
@@ -282,7 +282,7 @@ func get_catalog_revision() -> int:
 ### `get_query_generation`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_query_generation() -> int:
@@ -297,7 +297,7 @@ func get_query_generation() -> int:
 ### `request_preview`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func request_preview( asset_id: StringName, renderer: GFThumbnailRenderer, request: GFThumbnailRenderRequest ) -> GFThumbnailRenderTask:
@@ -320,7 +320,7 @@ func request_preview( asset_id: StringName, renderer: GFThumbnailRenderer, reque
 ### `cancel_preview`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func cancel_preview(reason: StringName = &"cancelled") -> bool:
@@ -341,7 +341,7 @@ func cancel_preview(reason: StringName = &"cancelled") -> bool:
 ### `get_preview_generation`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_preview_generation() -> int:
@@ -356,7 +356,7 @@ func get_preview_generation() -> int:
 ### `get_active_preview_task`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_active_preview_task() -> GFThumbnailRenderTask:
@@ -371,7 +371,7 @@ func get_active_preview_task() -> GFThumbnailRenderTask:
 ### `dispose`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func dispose() -> void:
@@ -384,7 +384,7 @@ func dispose() -> void:
 ### `get_page`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_page(page: int = 1, page_size: int = 50) -> Dictionary:

@@ -7,7 +7,7 @@
 - 继承：`VBoxContainer`
 - API：`public`
 - 类别：编辑器 API (`editor_api`)
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 GF Project Layout 只读工作区页面。 页面按用户操作捕获项目库存，在后台生成分析结果，并展示 finding、解释、影响和计划。 它不提供 Apply、自动修复、创建、移动、重命名或删除入口。
 
@@ -34,7 +34,7 @@ GF Project Layout 只读工作区页面。 页面按用户操作捕获项目库�
 ### `STATE_IDLE`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const STATE_IDLE: String = "idle"
@@ -47,7 +47,7 @@ const STATE_IDLE: String = "idle"
 ### `STATE_CAPTURING`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const STATE_CAPTURING: String = "capturing"
@@ -60,7 +60,7 @@ const STATE_CAPTURING: String = "capturing"
 ### `STATE_ANALYZING`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const STATE_ANALYZING: String = "analyzing"
@@ -73,7 +73,7 @@ const STATE_ANALYZING: String = "analyzing"
 ### `STATE_COMPLETE`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const STATE_COMPLETE: String = "complete"
@@ -86,7 +86,7 @@ const STATE_COMPLETE: String = "complete"
 ### `STATE_PARTIAL`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const STATE_PARTIAL: String = "partial"
@@ -99,7 +99,7 @@ const STATE_PARTIAL: String = "partial"
 ### `STATE_CANCELLED`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const STATE_CANCELLED: String = "cancelled"
@@ -112,7 +112,7 @@ const STATE_CANCELLED: String = "cancelled"
 ### `STATE_FAILED`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const STATE_FAILED: String = "failed"
@@ -127,7 +127,7 @@ const STATE_FAILED: String = "failed"
 ### `scan_project`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func scan_project() -> void:
@@ -140,7 +140,7 @@ func scan_project() -> void:
 ### `cancel_scan`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func cancel_scan() -> void:
@@ -153,7 +153,7 @@ func cancel_scan() -> void:
 ### `get_state`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_state() -> String:
@@ -168,7 +168,7 @@ func get_state() -> String:
 ### `get_last_result`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_last_result() -> Dictionary:

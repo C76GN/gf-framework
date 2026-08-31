@@ -14,7 +14,7 @@
 ## [br]
 ## @category runtime_handle
 ## [br]
-## @since unreleased
+## @since 11.0.0
 class_name GFStoragePayloadTransfer
 extends RefCounted
 
@@ -25,7 +25,7 @@ extends RefCounted
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 enum State {
 	## 尚未接收载荷。
 	EMPTY,
@@ -61,7 +61,7 @@ var _active_attempt_ids: Dictionary = {}
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param payload: 要移交的纯 Variant Dictionary。
 ## [br]
@@ -79,7 +79,7 @@ static func take_ownership(payload: Dictionary) -> GFStoragePayloadTransfer:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return `State` 枚举值。
 func get_state() -> State:
@@ -90,7 +90,7 @@ func get_state() -> State:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return CLAIMED 或 RELEASE_PENDING 时返回 true。
 func is_claimed() -> bool:
@@ -101,7 +101,7 @@ func is_claimed() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 已清空且不可复用时返回 true。
 func is_released() -> bool:
@@ -112,7 +112,7 @@ func is_released() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 已取得且尚未完成的 attempt lease 数量。
 func get_active_attempt_count() -> int:
@@ -126,7 +126,7 @@ func get_active_attempt_count() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 首次接受释放请求时返回 true。
 func release() -> bool:
@@ -149,7 +149,7 @@ func release() -> bool:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param storage_id: 发起请求的 Storage 实例 ID。
 ## [br]
@@ -208,7 +208,7 @@ func begin_attempt_for_framework(
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param attempt_id: begin_attempt_for_framework() 分配的 attempt ID。
 ## [br]

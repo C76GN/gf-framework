@@ -7,7 +7,7 @@
 - 继承：`GFProjectileBinding`
 - API：`public`
 - 类别：值对象 (`value_object`)
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 3D projectile 的 typed 拓扑快照。
 
@@ -27,7 +27,7 @@
 ### `get_definition`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_definition() -> GFProjectileDefinition3D:
@@ -42,7 +42,7 @@ func get_definition() -> GFProjectileDefinition3D:
 ### `get_instance_root`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_instance_root() -> Node3D:
@@ -57,7 +57,7 @@ func get_instance_root() -> Node3D:
 ### `get_runtime`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_runtime() -> GFProjectile3D:
@@ -72,7 +72,7 @@ func get_runtime() -> GFProjectile3D:
 ### `get_body_adapter`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_body_adapter() -> GFProjectileBodyAdapter3D:

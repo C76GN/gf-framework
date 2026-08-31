@@ -174,7 +174,7 @@ func replace_selection(row_ids: Array) -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param row_ids: 稳定行 ID 列表。
 ## [br]

@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFCivilDateDifferenceResult" path="addons/gf/standard/utilities/time/gf_civil_date_difference_result.gd" module="standard" extends="RefCounted" classDigest="27ee4c2c648994d4ad4e711c2f23c7af64853b98617a640b1a4d2cc7310ad596">
+<class name="GFCivilDateDifferenceResult" path="addons/gf/standard/utilities/time/gf_civil_date_difference_result.gd" module="standard" extends="RefCounted" classDigest="b759eb2eb94de6affc4f2c03f78117f4934481c8a917e0d3921f3e8999c25660">
 	<description>GFCivilDateDifferenceResult: 两个公民日期的不可变关系结果。
 成功时同时表达有符号日差与比较次序，失败时不使用 0 伪装相等。</description>
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">value_object</tag>
-		<tag name="since">unreleased</tag>
+		<tag name="since">11.0.0</tag>
 	</tags>
 	<signals />
 	<enums />
@@ -15,7 +15,7 @@
 			<description>日期关系已成功计算。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="STATUS_INVALID_DATE">
@@ -23,7 +23,7 @@
 			<description>任一输入不是有效公民日期。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 	</constants>
@@ -35,7 +35,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">成功时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_status">
@@ -44,7 +44,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">`STATUS_*` 常量之一。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_days">
@@ -53,7 +53,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">成功时的 `right - left` 日差；失败时返回 0，应先检查 [method is_successful]。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_comparison">
@@ -62,7 +62,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">左侧较早为 -1，相等为 0，较晚为 1；失败时返回 0。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_error">
@@ -71,7 +71,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">成功时为空字符串。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 	</methods>

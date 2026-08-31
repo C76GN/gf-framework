@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFSaveProfileTransactionResult" path="addons/gf/extensions/save/profile/gf_save_profile_transaction_result.gd" module="extensions/save" extends="RefCounted" classDigest="dde1684aa2f01600e0f893a62626e5f87496821e29644c7efd62080ff2c99d0c">
+<class name="GFSaveProfileTransactionResult" path="addons/gf/extensions/save/profile/gf_save_profile_transaction_result.gd" module="extensions/save" extends="RefCounted" classDigest="ed0d63ea3cd7420915b9142a4bb27b95a8327d615c01faa2858642a804362bb3">
 	<description>GFSaveProfileTransactionResult: Profile 事务的不可变终态快照。
 结果不保留文档、section、Provider snapshot 或候选 payload，只保留有界阶段
 证据、类型化回滚失败、调用方元数据和必要的 Lease。`duplicate_result()` 会
@@ -7,7 +7,7 @@
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">value_object</tag>
-		<tag name="since">unreleased</tag>
+		<tag name="since">11.0.0</tag>
 	</tags>
 	<signals />
 	<enums />
@@ -17,7 +17,7 @@
 			<description>已存在 Profile 已成功激活。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="STATUS_SWITCHED">
@@ -25,7 +25,7 @@
 			<description>活跃身份已成功切换。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="STATUS_BOOTSTRAPPED">
@@ -33,7 +33,7 @@
 			<description>缺失 Profile 已从当前状态显式创建并激活。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="STATUS_ADOPTED">
@@ -41,7 +41,7 @@
 			<description>当前状态已被显式采用为恢复后的活跃 Profile。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="STATUS_BOOTSTRAPPED_AND_SWITCHED">
@@ -49,7 +49,7 @@
 			<description>缺失目标已持久化，活动身份随后从来源原子切换到目标。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="STATUS_ADOPTED_AND_SWITCHED">
@@ -57,7 +57,7 @@
 			<description>损坏目标已显式恢复并持久化，活动身份随后从来源原子切换到目标。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="STATUS_MUTATED">
@@ -65,7 +65,7 @@
 			<description>候选 sections 已应用并持久化。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="STATUS_RECONCILED">
@@ -73,7 +73,7 @@
 			<description>outcome_unknown 已通过显式重新读取完成对账。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="STATUS_INVALID_PROFILE">
@@ -81,7 +81,7 @@
 			<description>Profile ID、Provider topology 或事务身份无效。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="STATUS_INVALID_REQUEST">
@@ -89,7 +89,7 @@
 			<description>一次性请求无效、已被 claim 或含不支持的数据。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="STATUS_INVALID_LEASE">
@@ -97,7 +97,7 @@
 			<description>Recovery/Reconcile Lease 无效、已消费或绑定已经过期。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="STATUS_INACTIVE">
@@ -105,7 +105,7 @@
 			<description>请求要求活跃 Profile，但当前 Provider domain 未激活。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="STATUS_ALREADY_ACTIVE">
@@ -113,7 +113,7 @@
 			<description>activate/bootstrap/adopt 的目标 domain 已有活跃 Profile。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="STATUS_BUSY">
@@ -121,7 +121,7 @@
 			<description>Provider domain 正在执行互斥事务或发生不安全回调重入。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="STATUS_UNSUPPORTED_OPERATION">
@@ -129,7 +129,7 @@
 			<description>Profile 配置不支持请求的读取或写入阶段。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="STATUS_RECOVERY_REQUIRED">
@@ -137,7 +137,7 @@
 			<description>activate 或 switch 检测到可恢复的缺失/损坏目标，必须显式选择对应恢复入口。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="STATUS_SOURCE_FLUSH_FAILED">
@@ -145,7 +145,7 @@
 			<description>switch 无法把来源 Profile flush 到调用时 generation barrier。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="STATUS_TARGET_LOAD_FAILED">
@@ -153,7 +153,7 @@
 			<description>switch 已 flush 来源，但无法读取或应用目标 Profile。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="STATUS_SNAPSHOT_FAILED">
@@ -161,7 +161,7 @@
 			<description>Provider 回滚或候选应用前的快照采集失败。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="STATUS_APPLY_FAILED">
@@ -169,7 +169,7 @@
 			<description>至少一个候选 section 应用失败，且内存回滚成功。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="STATUS_ROLLBACK_FAILED">
@@ -177,7 +177,7 @@
 			<description>恢复来源或候选内存状态时至少一个 Provider 回滚失败。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="STATUS_PERSIST_FAILED">
@@ -185,7 +185,7 @@
 			<description>候选持久化确定失败，且内存回滚已成功。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="STATUS_OUTCOME_UNKNOWN">
@@ -193,7 +193,7 @@
 			<description>写请求已进入底层，但其最终物理副作用无法确认。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="STATUS_RECONCILE_PENDING">
@@ -201,7 +201,7 @@
 			<description>Reconcile Lease 仍在等待 late settlement evidence。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="STATUS_RECONCILE_FAILED">
@@ -209,7 +209,7 @@
 			<description>显式重新读取或证据校验未能完成对账。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="STATUS_DISPOSED">
@@ -217,7 +217,7 @@
 			<description>Utility 释放时事务仍未完成。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 	</constants>
@@ -229,7 +229,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">终态属于成功状态时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_status">
@@ -238,7 +238,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">`STATUS_*` 常量之一。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_operation">
@@ -247,7 +247,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">`GFSaveProfileTransactionOperation.OPERATION_*` 常量之一。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_transaction_id">
@@ -256,7 +256,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">正整数事务 ID。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_source_profile_id">
@@ -265,7 +265,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">来源 Profile ID；不适用时为空。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_target_profile_id">
@@ -274,7 +274,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">目标 Profile ID；不适用时为空。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_active_profile_before">
@@ -283,7 +283,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">开始前活跃身份；domain 未激活时为空。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_active_profile_after">
@@ -292,7 +292,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">终态活跃身份；未激活或身份未知时为空。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_phase">
@@ -301,7 +301,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">协调器定义的 payload-free 阶段名。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_error_code">
@@ -310,7 +310,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">成功时为 OK。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_error">
@@ -319,7 +319,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">成功时为空；失败说明最多 2048 个字符。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_failed_section_id">
@@ -328,7 +328,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">非 section 失败时为空。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_rollback_errors">
@@ -337,7 +337,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">按回滚顺序排列的隔离副本。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_stage_evidence">
@@ -347,7 +347,7 @@
 				<tag name="api">public</tag>
 				<tag name="return">有界 evidence 副本。</tag>
 				<tag name="schema">return: Payload-free bounded Dictionary containing scalar, packed-array, Array, and Dictionary evidence only.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_recovery_lease">
@@ -356,7 +356,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">recovery_required 结果中的 Lease；其他结果通常为 null。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_reconcile_lease">
@@ -365,7 +365,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">需要或正在对账时的 Lease；不适用时为 null。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_metadata">
@@ -375,7 +375,7 @@
 				<tag name="api">public</tag>
 				<tag name="return">调用方在一次性请求中移交的结果元数据。</tag>
 				<tag name="schema">return: Dictionary with caller-defined result metadata.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_started_at_msec">
@@ -384,7 +384,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">非负单调毫秒时间。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_completed_at_msec">
@@ -393,7 +393,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">不早于开始时间的单调毫秒时间。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_duration_msec">
@@ -402,7 +402,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">非负单调毫秒耗时。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="duplicate_result">
@@ -412,7 +412,7 @@ Recovery/Reconcile Lease 不复制，以维持原始恢复授权和持续对账�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">新结果对象。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="to_dict">
@@ -422,7 +422,7 @@ Recovery/Reconcile Lease 不复制，以维持原始恢复授权和持续对账�
 				<tag name="api">public</tag>
 				<tag name="return">事务身份、终态、阶段证据、Lease 摘要、错误与时间信息。</tag>
 				<tag name="schema">return: Payload-free Dictionary with transaction identity, status, active identities, phase, rollback failures, evidence, lease summaries, metadata, errors, and timing.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 	</methods>

@@ -11,6 +11,6 @@
 ## [br]
 ## @category runtime_handle
 ## [br]
-## @since unreleased
+## @since 11.0.0
 class_name GFProjectileMotionState
 extends RefCounted

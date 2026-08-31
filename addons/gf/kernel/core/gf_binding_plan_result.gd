@@ -7,7 +7,7 @@
 ## [br]
 ## @category value_object
 ## [br]
-## @since unreleased
+## @since 11.0.0
 class_name GFBindingPlanResult
 extends RefCounted
 
@@ -18,7 +18,7 @@ extends RefCounted
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 enum Status {
 	## 全部 required entry 已按顺序成功执行。
 	SUCCESS = 0,
@@ -34,7 +34,7 @@ enum Status {
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 enum BindingKind {
 	## 没有具体 entry。
 	NONE = 0,
@@ -52,7 +52,7 @@ enum BindingKind {
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 enum Phase {
 	## 没有失败阶段。
 	NONE = 0,
@@ -72,7 +72,7 @@ enum Phase {
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 enum Reason {
 	## 没有失败原因。
 	NONE = 0,
@@ -134,7 +134,7 @@ var _detail: String = "Binding plan result is not configured."
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 全部 required entry 成功时返回 true。
 func is_successful() -> bool:
@@ -145,7 +145,7 @@ func is_successful() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return Status 枚举值。
 func get_status() -> Status:
@@ -156,7 +156,7 @@ func get_status() -> Status:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return BindingKind 枚举值；成功或无具体 entry 时为 NONE。
 func get_binding_kind() -> BindingKind:
@@ -167,7 +167,7 @@ func get_binding_kind() -> BindingKind:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return Phase 枚举值；成功时为 NONE。
 func get_failed_phase() -> Phase:
@@ -178,7 +178,7 @@ func get_failed_phase() -> Phase:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return Reason 枚举值；成功时为 NONE。
 func get_reason() -> Reason:
@@ -189,7 +189,7 @@ func get_reason() -> Reason:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 首个失败 entry 索引；成功或无具体 entry 时为 -1。
 func get_entry_index() -> int:
@@ -200,7 +200,7 @@ func get_entry_index() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return binding_id；成功或无具体 entry 时为空。
 func get_binding_id() -> StringName:
@@ -211,7 +211,7 @@ func get_binding_id() -> StringName:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 目标脚本路径；没有可识别目标时为空。
 func get_target_path() -> String:
@@ -222,7 +222,7 @@ func get_target_path() -> String:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return GFBindingLifetimes.Lifetime 枚举值；无具体 entry 时为 -1。
 func get_lifetime() -> int:
@@ -235,7 +235,7 @@ func get_lifetime() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 非负 entry 尝试数量。
 func get_executed_count() -> int:
@@ -246,7 +246,7 @@ func get_executed_count() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 最多 512 个字符的诊断文本。
 func get_detail() -> String:
@@ -257,7 +257,7 @@ func get_detail() -> String:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 字段相同的新 GFBindingPlanResult。
 func duplicate_result() -> GFBindingPlanResult:
@@ -281,7 +281,7 @@ func duplicate_result() -> GFBindingPlanResult:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return Plan 终态的纯数据投影。
 ## [br]

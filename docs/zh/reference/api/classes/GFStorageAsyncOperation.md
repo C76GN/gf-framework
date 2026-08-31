@@ -61,7 +61,7 @@ signal completed(result: GFStorageAsyncResult)
 ### `caller_completed`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 signal caller_completed(result: GFStorageAsyncCallerResult)
@@ -108,7 +108,7 @@ const OPERATION_LOAD: StringName = &"load"
 ### `OPERATION_DELETE`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const OPERATION_DELETE: StringName = &"delete"
@@ -121,7 +121,7 @@ const OPERATION_DELETE: StringName = &"delete"
 ### `OPERATION_RESET`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const OPERATION_RESET: StringName = &"reset"
@@ -151,7 +151,7 @@ func get_request_id() -> int:
 ### `get_consumer_id`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_consumer_id() -> int:
@@ -241,7 +241,7 @@ func get_result() -> GFStorageAsyncResult:
 ### `is_caller_pending`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func is_caller_pending() -> bool:
@@ -256,7 +256,7 @@ func is_caller_pending() -> bool:
 ### `is_caller_completed`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func is_caller_completed() -> bool:
@@ -271,7 +271,7 @@ func is_caller_completed() -> bool:
 ### `get_caller_result`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_caller_result() -> GFStorageAsyncCallerResult:
@@ -286,7 +286,7 @@ func get_caller_result() -> GFStorageAsyncCallerResult:
 ### `cancel_observation`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func cancel_observation(reason: StringName = &"cancelled") -> bool:
@@ -307,7 +307,7 @@ func cancel_observation(reason: StringName = &"cancelled") -> bool:
 ### `get_payload_transfer`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_payload_transfer() -> GFStoragePayloadTransfer:
@@ -322,7 +322,7 @@ func get_payload_transfer() -> GFStoragePayloadTransfer:
 ### `reclaim_failed_payload`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func reclaim_failed_payload() -> GFStoragePayloadTransfer:

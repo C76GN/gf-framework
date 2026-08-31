@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFArchitectureShutdownResult" path="addons/gf/kernel/core/gf_architecture_shutdown_result.gd" module="kernel" extends="RefCounted" classDigest="36470ff19b27b02a7c557dfcc9a1318bb22ec4a2f78f38b2d8a421cfda4961ba">
+<class name="GFArchitectureShutdownResult" path="addons/gf/kernel/core/gf_architecture_shutdown_result.gd" module="kernel" extends="RefCounted" classDigest="fd65bd92b156b72d9ea70c64d40609c01988ecca58d713ad84c3ce258faed5d1">
 	<description>GFArchitectureShutdownResult: 架构关闭流程的不可变终态快照。
 结果显式区分正常完成、失败、取消、超时、强制释放和重复释放，并以有界、
 JSON-safe 的模块条目保留关闭证据。所有集合在写入和读取边界都会重新复制，
@@ -8,7 +8,7 @@ JSON-safe 的模块条目保留关闭证据。所有集合在写入和读取边�
 		<tag name="api">public</tag>
 		<tag name="category">value_object</tag>
 		<tag name="layer">kernel/core</tag>
-		<tag name="since">unreleased</tag>
+		<tag name="since">11.0.0</tag>
 	</tags>
 	<signals />
 	<enums>
@@ -30,7 +30,7 @@ JSON-safe 的模块条目保留关闭证据。所有集合在写入和读取边�
 			<description>架构关闭终态。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 	</enums>
@@ -57,7 +57,7 @@ instance_id 保留 Godot 返回的有符号 int 身份值。</description>
 				<tag name="return">新的不可变结果。</tag>
 				<tag name="schema">module_results: Array of Dictionaries with kind, script, instance_id, status, reason, and duration_msec.</tag>
 				<tag name="schema">unfinished_modules: Array of Dictionaries with kind, script, instance_id, status, reason, and duration_msec.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="succeeded">
@@ -71,7 +71,7 @@ instance_id 保留 Godot 返回的有符号 int 身份值。</description>
 				<tag name="param">duplicate_request_count: 并发重复请求数量。</tag>
 				<tag name="return">新的成功结果。</tag>
 				<tag name="schema">module_results: Array of Dictionaries with kind, script, instance_id, status, reason, and duration_msec.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="failed">
@@ -89,7 +89,7 @@ instance_id 保留 Godot 返回的有符号 int 身份值。</description>
 				<tag name="return">新的失败结果。</tag>
 				<tag name="schema">module_results: Array of Dictionaries with kind, script, instance_id, status, reason, and duration_msec.</tag>
 				<tag name="schema">unfinished_modules: Array of Dictionaries with kind, script, instance_id, status, reason, and duration_msec.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="cancelled">
@@ -106,7 +106,7 @@ instance_id 保留 Godot 返回的有符号 int 身份值。</description>
 				<tag name="return">新的取消结果。</tag>
 				<tag name="schema">module_results: Array of Dictionaries with kind, script, instance_id, status, reason, and duration_msec.</tag>
 				<tag name="schema">unfinished_modules: Array of Dictionaries with kind, script, instance_id, status, reason, and duration_msec.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="timed_out">
@@ -123,7 +123,7 @@ instance_id 保留 Godot 返回的有符号 int 身份值。</description>
 				<tag name="return">新的超时结果。</tag>
 				<tag name="schema">module_results: Array of Dictionaries with kind, script, instance_id, status, reason, and duration_msec.</tag>
 				<tag name="schema">unfinished_modules: Array of Dictionaries with kind, script, instance_id, status, reason, and duration_msec.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="forced">
@@ -140,7 +140,7 @@ instance_id 保留 Godot 返回的有符号 int 身份值。</description>
 				<tag name="return">新的强制释放结果。</tag>
 				<tag name="schema">module_results: Array of Dictionaries with kind, script, instance_id, status, reason, and duration_msec.</tag>
 				<tag name="schema">unfinished_modules: Array of Dictionaries with kind, script, instance_id, status, reason, and duration_msec.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="already_disposed">
@@ -152,7 +152,7 @@ instance_id 保留 Godot 返回的有符号 int 身份值。</description>
 				<tag name="param">completed_at_msec: 单调完成时间。</tag>
 				<tag name="param">duplicate_request_count: 并发重复请求数量。</tag>
 				<tag name="return">新的已释放结果。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="is_successful">
@@ -161,7 +161,7 @@ instance_id 保留 Godot 返回的有符号 int 身份值。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">正常完成或此前已释放时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_status">
@@ -170,7 +170,7 @@ instance_id 保留 Godot 返回的有符号 int 身份值。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">`Status` 终态。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_status_name">
@@ -179,7 +179,7 @@ instance_id 保留 Godot 返回的有符号 int 身份值。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">小写稳定状态名称。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_started_at_msec">
@@ -188,7 +188,7 @@ instance_id 保留 Godot 返回的有符号 int 身份值。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">非负单调毫秒时间。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_completed_at_msec">
@@ -197,7 +197,7 @@ instance_id 保留 Godot 返回的有符号 int 身份值。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">不早于开始时间的单调毫秒时间。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_duration_msec">
@@ -206,7 +206,7 @@ instance_id 保留 Godot 返回的有符号 int 身份值。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">非负单调毫秒耗时。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_module_results">
@@ -216,7 +216,7 @@ instance_id 保留 Godot 返回的有符号 int 身份值。</description>
 				<tag name="api">public</tag>
 				<tag name="return">最多 256 个规范化模块条目。</tag>
 				<tag name="schema">return: Array of Dictionaries with kind, script, instance_id, status, reason, and duration_msec.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_unfinished_modules">
@@ -226,7 +226,7 @@ instance_id 保留 Godot 返回的有符号 int 身份值。</description>
 				<tag name="api">public</tag>
 				<tag name="return">最多 256 个规范化模块条目。</tag>
 				<tag name="schema">return: Array of Dictionaries with kind, script, instance_id, status, reason, and duration_msec.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_duplicate_request_count">
@@ -235,7 +235,7 @@ instance_id 保留 Godot 返回的有符号 int 身份值。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">非负重复请求数量。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_error_code">
@@ -244,7 +244,7 @@ instance_id 保留 Godot 返回的有符号 int 身份值。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">成功终态为 OK。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_error">
@@ -253,7 +253,7 @@ instance_id 保留 Godot 返回的有符号 int 身份值。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">最多 2048 个字符的失败说明。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_cancel_reason">
@@ -262,7 +262,7 @@ instance_id 保留 Godot 返回的有符号 int 身份值。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">最多 1024 个字符的取消原因；非取消终态为空。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="duplicate_result">
@@ -271,7 +271,7 @@ instance_id 保留 Godot 返回的有符号 int 身份值。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">新的不可变结果对象。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="to_dict">
@@ -281,7 +281,7 @@ instance_id 保留 Godot 返回的有符号 int 身份值。</description>
 				<tag name="api">public</tag>
 				<tag name="return">关闭终态、时间、模块结果和错误证据的隔离快照。</tag>
 				<tag name="schema">return: Dictionary with ok, status, status_name, started_at_msec, completed_at_msec, duration_msec, module_results, unfinished_modules, duplicate_request_count, error_code, error, and cancel_reason.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 	</methods>

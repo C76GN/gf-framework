@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFThumbnailRenderer" path="addons/gf/kernel/editor/gf_thumbnail_renderer.gd" module="kernel" extends="Node" classDigest="f0dcc967a2f64ee4f42995116802d615f808b296db91dd33d979ccf200aa3fa4">
+<class name="GFThumbnailRenderer" path="addons/gf/kernel/editor/gf_thumbnail_renderer.gd" module="kernel" extends="Node" classDigest="aa19f54139410abe66f161f83f72c6518f7d8a90ba18e70207ddffa0d00dfebd">
 	<description>GFThumbnailRenderer: 编辑器缩略图渲染辅助节点。
 使用独立 SubViewport 渲染 CanvasItem、Node3D 或 Mesh，供项目自定义编辑器工具复用。</description>
 	<tags>
@@ -16,7 +16,7 @@
 			<description>单边允许的最大渲染像素数。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="MAX_TARGET_PIXELS">
@@ -24,7 +24,7 @@
 			<description>单个缩略图允许的最大总像素数。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="MAX_PENDING_TASKS">
@@ -32,7 +32,7 @@
 			<description>等待执行的最大任务数；超出后新任务立即失败。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 	</constants>

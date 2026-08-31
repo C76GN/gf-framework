@@ -6,7 +6,7 @@
 ## [br]
 ## @category runtime_service
 ## [br]
-## @since unreleased
+## @since 11.0.0
 class_name GFCalendarGridTools
 extends RefCounted
 
@@ -17,7 +17,7 @@ extends RefCounted
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param month: 目标月内的任意有效日期，其日值不影响结果。
 ## [br]

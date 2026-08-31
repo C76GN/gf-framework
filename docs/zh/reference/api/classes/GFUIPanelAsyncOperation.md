@@ -7,7 +7,7 @@
 - 继承：`RefCounted`
 - API：`public`
 - 类别：运行时句柄 (`runtime_handle`)
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 单次异步 UI 面板请求的可观察句柄。 句柄冻结 UI 分配的请求序号、路径、层级与操作类型，并且只接受一个终态。 成功面板仅以弱引用保存，句柄不会延长面板节点的生命周期。
 
@@ -36,7 +36,7 @@
 ### `completed`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 signal completed(handle: GFUIPanelAsyncOperation)
@@ -57,7 +57,7 @@ signal completed(handle: GFUIPanelAsyncOperation)
 ### `STATUS_PENDING`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const STATUS_PENDING: int = -1
@@ -70,7 +70,7 @@ const STATUS_PENDING: int = -1
 ### `OPERATION_PUSH`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const OPERATION_PUSH: StringName = &"push"
@@ -83,7 +83,7 @@ const OPERATION_PUSH: StringName = &"push"
 ### `OPERATION_REPLACE`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const OPERATION_REPLACE: StringName = &"replace"
@@ -98,7 +98,7 @@ const OPERATION_REPLACE: StringName = &"replace"
 ### `get_serial`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_serial() -> int:
@@ -113,7 +113,7 @@ func get_serial() -> int:
 ### `get_path`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_path() -> String:
@@ -128,7 +128,7 @@ func get_path() -> String:
 ### `get_layer`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_layer() -> int:
@@ -143,7 +143,7 @@ func get_layer() -> int:
 ### `get_operation`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_operation() -> StringName:
@@ -158,7 +158,7 @@ func get_operation() -> StringName:
 ### `is_pending`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func is_pending() -> bool:
@@ -173,7 +173,7 @@ func is_pending() -> bool:
 ### `is_completed`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func is_completed() -> bool:
@@ -188,7 +188,7 @@ func is_completed() -> bool:
 ### `get_status`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_status() -> int:
@@ -203,7 +203,7 @@ func get_status() -> int:
 ### `get_panel`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_panel() -> Node:
@@ -218,7 +218,7 @@ func get_panel() -> Node:
 ### `get_debug_snapshot`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_debug_snapshot() -> Dictionary:

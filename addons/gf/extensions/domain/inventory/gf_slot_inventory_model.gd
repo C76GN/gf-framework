@@ -193,7 +193,7 @@ func set_registry(item_registry: GFInventoryItemRegistry) -> void:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param enabled: 是否允许 `add_item()` 在需要新堆叠时增长槽位。
 func set_allow_growth(enabled: bool) -> void:
@@ -212,7 +212,7 @@ func set_allow_growth(enabled: bool) -> void:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return: 当前非负 revision。
 func get_revision() -> int:
@@ -1160,7 +1160,7 @@ func _should_sort_slot_before(
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param owner: 本次转移事务句柄。
 ## [br]
@@ -1179,7 +1179,7 @@ func lock_inventory_transfer_for_framework(owner: Object) -> bool:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param owner: 当前锁持有者。
 func unlock_inventory_transfer_for_framework(owner: Object) -> void:
@@ -1193,7 +1193,7 @@ func unlock_inventory_transfer_for_framework(owner: Object) -> void:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param owner: 当前锁持有者。
 ## [br]
@@ -1213,7 +1213,7 @@ func get_inventory_transfer_stack_for_framework(
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param owner: 当前锁持有者。
 ## [br]
@@ -1253,7 +1253,7 @@ func apply_inventory_transfer_plan_for_framework(
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param owner: 当前锁持有者。
 func flush_inventory_transfer_events_for_framework(owner: Object) -> void:

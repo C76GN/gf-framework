@@ -7,7 +7,7 @@
 ## [br]
 ## @category value_object
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @layer standard/utilities/audio
 class_name GFBgmStartResult
@@ -20,7 +20,7 @@ extends RefCounted
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 enum Status {
 	## 后端或本地播放器已经接受并提交会话。
 	STARTED,
@@ -38,7 +38,7 @@ enum Status {
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 enum BackendDisposition {
 	## 没有可用后端，或请求在探测前终结。
 	NOT_ATTEMPTED,
@@ -60,91 +60,91 @@ enum BackendDisposition {
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const REASON_LOCAL_STARTED: StringName = &"local_started"
 
 ## Audio Backend 接受并提交会话。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const REASON_BACKEND_STARTED: StringName = &"backend_started"
 
 ## 后端未接受请求，本地 fallback 接受并提交会话。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const REASON_BACKEND_FALLBACK_STARTED: StringName = &"backend_fallback_started"
 
 ## BGM 路径为空或不符合请求契约。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const REASON_INVALID_PATH: StringName = &"invalid_path"
 
 ## BGM options 不符合闭合选项契约。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const REASON_INVALID_OPTIONS: StringName = &"invalid_options"
 
 ## GFAudioClip 为空、没有 source 或无法冻结。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const REASON_INVALID_CLIP: StringName = &"invalid_clip"
 
 ## 播放区间不符合本地或后端的精确执行契约。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const REASON_INVALID_PLAYBACK_REGION: StringName = &"invalid_playback_region"
 
 ## Audio Utility 尚未初始化或已经释放。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const REASON_UTILITY_NOT_INITIALIZED: StringName = &"utility_not_initialized"
 
 ## BGM 请求从 Audio Backend 回调中重入，不能安全接纳。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const REASON_BACKEND_DISPATCH_IN_PROGRESS: StringName = &"backend_dispatch_in_progress"
 
 ## 请求 owner 在接纳前已经无效。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const REASON_OWNER_UNAVAILABLE: StringName = &"owner_unavailable"
 
 ## 异步或同步资源加载没有取得音频流。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const REASON_ASSET_LOAD_FAILED: StringName = &"asset_load_failed"
 
 ## 取得的音频流无法构造可执行播放计划。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const REASON_STREAM_UNPLAYABLE: StringName = &"stream_unplayable"
 
 ## 后端拒绝后，本地 fallback 也无法开始。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const REASON_BACKEND_REJECTED_AND_LOCAL_FAILED: StringName = (
 	&"backend_rejected_and_local_failed"
 )
@@ -153,63 +153,63 @@ const REASON_BACKEND_REJECTED_AND_LOCAL_FAILED: StringName = (
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const REASON_BACKEND_OWNER_RELEASE_FAILED: StringName = &"backend_owner_release_failed"
 
 ## 本地播放器拒绝已经准备完成的执行计划。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const REASON_LOCAL_PLAYER_REJECTED: StringName = &"local_player_rejected"
 
 ## Audio Backend 已接受物理播放候选，但框架无法发布规范 Session 身份。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const REASON_SESSION_PUBLICATION_FAILED: StringName = &"session_publication_failed"
 
 ## 更新且有效的 BGM 请求取代了当前等待请求。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const REASON_NEWER_REQUEST: StringName = &"newer_request"
 
 ## 调用方显式取消等待中的 start request。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const REASON_CALLER_CANCELLED: StringName = &"caller_cancelled"
 
 ## 请求 owner 已退出生命周期。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const REASON_OWNER_RELEASED: StringName = &"owner_released"
 
 ## BGM 通道被显式停止。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const REASON_STOP_REQUESTED: StringName = &"stop_requested"
 
 ## Audio Utility 已释放。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const REASON_UTILITY_DISPOSED: StringName = &"utility_disposed"
 
 ## Audio Backend topology 变更流程在请求等待期间开始，并使当前请求失效。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const REASON_BACKEND_CHANGED: StringName = &"backend_changed"
 
 
@@ -232,7 +232,7 @@ var _configured: bool = false
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return `STARTED`、`REJECTED`、`FAILED`、`SUPERSEDED` 或 `CANCELLED`。
 func get_status() -> Status:
@@ -243,7 +243,7 @@ func get_status() -> Status:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 仅 `STARTED` 返回 true。
 func is_successful() -> bool:
@@ -254,7 +254,7 @@ func is_successful() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 大于零的请求 ID；尚未配置时返回 0。
 func get_request_id() -> int:
@@ -265,7 +265,7 @@ func get_request_id() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 当前 status 允许的 `REASON_*` 常量之一。
 func get_reason() -> StringName:
@@ -276,7 +276,7 @@ func get_reason() -> StringName:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return `STARTED` 为 OK；其他 status 为与 reason 对应的非 OK 码。
 func get_error_code() -> Error:
@@ -287,7 +287,7 @@ func get_error_code() -> Error:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 请求 history key；未提供时为空字符串。
 func get_history_key() -> String:
@@ -298,7 +298,7 @@ func get_history_key() -> String:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return `STARTED` 为 `LOCAL` 或 `BACKEND`；其他终态为 `NONE`。
 func get_owner_kind() -> GFBgmSessionHandle.OwnerKind:
@@ -309,7 +309,7 @@ func get_owner_kind() -> GFBgmSessionHandle.OwnerKind:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return `BackendDisposition` 闭合枚举值。
 func get_backend_disposition() -> BackendDisposition:
@@ -320,7 +320,7 @@ func get_backend_disposition() -> BackendDisposition:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return `STARTED/LOCAL` 且 backend 为 `NOT_CLAIMED` 或 `REJECTED` 时返回 true。
 func used_backend_fallback() -> bool:
@@ -338,7 +338,7 @@ func used_backend_fallback() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return `STARTED` 返回大于零的会话 ID；其他终态返回 0。
 func get_session_id() -> int:
@@ -351,7 +351,7 @@ func get_session_id() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return `STARTED` 返回规范句柄；其他终态返回 null。
 func get_session_handle() -> GFBgmSessionHandle:
@@ -364,7 +364,7 @@ func get_session_handle() -> GFBgmSessionHandle:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 新结果对象。
 func duplicate_result() -> GFBgmStartResult:
@@ -386,7 +386,7 @@ func duplicate_result() -> GFBgmStartResult:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 请求、终态、backend 处理结果和会话身份的隔离报告。
 ## [br]
@@ -413,7 +413,7 @@ func to_dict() -> Dictionary:
 ## [br]
 ## @layer standard/utilities/audio
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param status: 请求唯一 caller 终态。
 ## [br]
@@ -480,7 +480,7 @@ func configure_for_framework(
 ## [br]
 ## @layer standard/utilities/audio
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return closed union 已冻结时返回 true。
 func is_configured_for_framework() -> bool:

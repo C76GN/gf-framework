@@ -7,7 +7,7 @@
 - 继承：`RefCounted`
 - API：`public`
 - 类别：值对象 (`value_object`)
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 音频播放区间验证与流准备结果。 以稳定状态和原因说明区间是否有效、是否被执行者精确接受，以及本地准备路径 成功生成的 session 私有音频流。后端评估返回 APPLIED 时可以不携带本地流； 结果不会把音频载荷写入字典快照。
 
@@ -37,7 +37,7 @@
 ### `Status`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 enum Status {
@@ -63,7 +63,7 @@ enum Status {
 ### `status`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 var status: Status = Status.NONE
@@ -76,7 +76,7 @@ var status: Status = Status.NONE
 ### `reason`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 var reason: StringName:
@@ -89,7 +89,7 @@ var reason: StringName:
 ### `message`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 var message: String = ""
@@ -102,7 +102,7 @@ var message: String = ""
 ### `prepared_stream`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 var prepared_stream: AudioStream = null
@@ -115,7 +115,7 @@ var prepared_stream: AudioStream = null
 ### `start_seconds`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 var start_seconds: float = 0.0
@@ -128,7 +128,7 @@ var start_seconds: float = 0.0
 ### `end_seconds`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 var end_seconds: float = -1.0
@@ -141,7 +141,7 @@ var end_seconds: float = -1.0
 ### `loop_start_seconds`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 var loop_start_seconds: float = -1.0
@@ -154,7 +154,7 @@ var loop_start_seconds: float = -1.0
 ### `loop_mode`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 var loop_mode: int = 0
@@ -173,7 +173,7 @@ var loop_mode: int = 0
 ### `is_success`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func is_success() -> bool:
@@ -188,7 +188,7 @@ func is_success() -> bool:
 ### `is_applied`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func is_applied() -> bool:
@@ -203,7 +203,7 @@ func is_applied() -> bool:
 ### `to_dictionary`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func to_dictionary() -> Dictionary:
@@ -222,7 +222,7 @@ func to_dictionary() -> Dictionary:
 ### `unsupported`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 static func unsupported( reason_id: StringName, result_message: String ) -> GFAudioPlaybackRegionResult:
@@ -244,7 +244,7 @@ static func unsupported( reason_id: StringName, result_message: String ) -> GFAu
 ### `status_to_string`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 static func status_to_string(result_status: Status) -> StringName:

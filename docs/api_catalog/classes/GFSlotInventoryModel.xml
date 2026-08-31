@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFSlotInventoryModel" path="addons/gf/extensions/domain/inventory/gf_slot_inventory_model.gd" module="extensions/domain" extends="GFModel" classDigest="c2704aefe7c36e2eb1f51ab6cc8bcbf511083dca4bd42a2b6ab7303c34189f40">
+<class name="GFSlotInventoryModel" path="addons/gf/extensions/domain/inventory/gf_slot_inventory_model.gd" module="extensions/domain" extends="GFModel" classDigest="0d4e08cc63dda8cb516c330d188c5b32992dbbf6000a4338dd168ee5f4fe2750">
 	<description>GFSlotInventoryModel: 通用可序列化槽位库存模型。
 管理固定或可增长槽位中的 `GFInventoryStack`，支持槽位接收规则、
 堆叠容量、最大堆叠数量、实例数据兼容性、移动、交换和序列化。</description>
@@ -130,7 +130,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">enabled: 是否允许 `add_item()` 在需要新堆叠时增长槽位。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_revision">
@@ -141,7 +141,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">当前非负 revision。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="set_slot_count">

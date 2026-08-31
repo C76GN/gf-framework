@@ -52,7 +52,7 @@ const _GF_COMBAT_FINITE_MATH = preload("res://addons/gf/extensions/combat/core/g
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 @export var projectile_definition: GFProjectileDefinition2D = null
 
 ## 可选 ID 到 typed definition 目录。
@@ -96,7 +96,7 @@ const _GF_COMBAT_FINITE_MATH = preload("res://addons/gf/extensions/combat/core/g
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 @export var default_launch_input: GFProjectileLaunchInput2D = null
 
 ## 相对 emitter 的生成父节点路径；空路径使用当前父节点。
@@ -216,7 +216,7 @@ func emit_projectiles(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param projectile_id: 可选 catalog ID。
 ## [br]

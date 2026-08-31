@@ -210,7 +210,7 @@ func _undo_it() -> Error:
 ## [br]
 ## @api protected
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return: metadata 目标节点。
 func _get_undo_context() -> Object:

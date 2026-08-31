@@ -7,7 +7,7 @@
 ## [br]
 ## @category value_object
 ## [br]
-## @since unreleased
+## @since 11.0.0
 class_name GFTableRowPredicateResult
 extends RefCounted
 
@@ -33,7 +33,7 @@ var _error_message: String = ""
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 新的包含结果。
 static func included() -> GFTableRowPredicateResult:
@@ -48,7 +48,7 @@ static func included() -> GFTableRowPredicateResult:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 新的排除结果。
 static func excluded() -> GFTableRowPredicateResult:
@@ -63,7 +63,7 @@ static func excluded() -> GFTableRowPredicateResult:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param error_code: 非空、无首尾空白且 UTF-8 编码不超过 128 字节的稳定错误码。
 ## [br]
@@ -88,7 +88,7 @@ static func failed(
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param source: 项目谓词返回的候选结果。
 ## [br]
@@ -110,7 +110,7 @@ static func snapshot_for_framework(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 成功时返回 true。
 func is_successful() -> bool:
@@ -121,7 +121,7 @@ func is_successful() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 成功且应包含当前行时返回 true。
 func should_include() -> bool:
@@ -132,7 +132,7 @@ func should_include() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 失败错误码；成功时为空。
 func get_error_code() -> StringName:
@@ -143,7 +143,7 @@ func get_error_code() -> StringName:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 失败说明；成功时为空。
 func get_error_message() -> String:
@@ -156,7 +156,7 @@ func get_error_message() -> String:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return included()、excluded() 或 failed() 已完成配置时返回 true。
 func is_configured_for_framework() -> bool:

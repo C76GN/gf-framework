@@ -15,7 +15,7 @@ extends Node
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param session: 本 runtime 的当前 session。
 signal projectile_started(session: GFProjectileSession)
@@ -272,7 +272,7 @@ func launch(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return: ACTIVE session；未激活或已结束时返回 null。
 func get_active_session() -> GFProjectileSession:
@@ -291,7 +291,7 @@ func get_active_session() -> GFProjectileSession:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return: 当前 session ACTIVE 时为 true。
 func is_active() -> bool:
@@ -308,7 +308,7 @@ func is_active() -> bool:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param binding: 指向本 runtime 的 current 2D topology snapshot。
 ## [br]
@@ -365,7 +365,7 @@ func reserve_launch_for_framework(
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return: 是否存在 reservation、direct prepare 或尚未完成 terminal cleanup 的 session ownership。
 func has_launch_claim_for_framework() -> bool:
@@ -381,7 +381,7 @@ func has_launch_claim_for_framework() -> bool:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param reservation: 待核对的 reservation identity。
 ## [br]
@@ -399,7 +399,7 @@ func owns_launch_claim_for_framework(reservation: GFProjectileLaunchReservation)
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param reservation: 只能释放 identity 相同的当前 reservation。
 func release_launch_claim_for_framework(reservation: GFProjectileLaunchReservation) -> void:
@@ -412,7 +412,7 @@ func release_launch_claim_for_framework(reservation: GFProjectileLaunchReservati
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param reservation: 当前 ARMED reservation。
 ## [br]
@@ -443,7 +443,7 @@ func consume_launch_reservation_for_framework(
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param session: 当前 generation 的已激活或 notification-barrier 内已结算 session。
 ## [br]
@@ -464,7 +464,7 @@ func publish_started_for_framework(session: GFProjectileSession) -> Error:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param session: 当前 ACTIVE session；emitter 将负责其最终 retirement。
 ## [br]
@@ -488,7 +488,7 @@ func begin_terminal_retirement_for_framework(
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param session: 建立 claim 的同一 session。
 ## [br]
@@ -506,7 +506,7 @@ func release_terminal_retirement_for_framework(
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param session: publication barrier 内的同一 session。
 ## [br]

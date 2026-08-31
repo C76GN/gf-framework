@@ -253,7 +253,7 @@ var save_debounce_seconds: float = 0.25
 ### `persistence_enabled`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 var persistence_enabled: bool = true:
@@ -281,7 +281,7 @@ func init() -> void:
 ### `get_required_utilities`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_required_utilities() -> Array[Script]:
@@ -296,7 +296,7 @@ func get_required_utilities() -> Array[Script]:
 ### `ready`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func ready() -> void:
@@ -309,7 +309,7 @@ func ready() -> void:
 ### `begin_activation`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func begin_activation(_scope: GFAsyncScope) -> GFAsyncCompletion:
@@ -330,7 +330,7 @@ func begin_activation(_scope: GFAsyncScope) -> GFAsyncCompletion:
 ### `begin_quiesce`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func begin_quiesce(scope: GFAsyncScope) -> GFAsyncCompletion:
@@ -364,7 +364,7 @@ func dispose() -> void:
 ### `release_dependencies`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func release_dependencies() -> void:

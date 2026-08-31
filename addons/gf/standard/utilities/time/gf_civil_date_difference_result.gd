@@ -6,7 +6,7 @@
 ## [br]
 ## @category value_object
 ## [br]
-## @since unreleased
+## @since 11.0.0
 class_name GFCivilDateDifferenceResult
 extends RefCounted
 
@@ -17,14 +17,14 @@ extends RefCounted
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const STATUS_OK: StringName = &"ok"
 
 ## 任一输入不是有效公民日期。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const STATUS_INVALID_DATE: StringName = &"invalid_date"
 
 
@@ -42,7 +42,7 @@ var _error: String = ""
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return: 成功时返回 true。
 func is_successful() -> bool:
@@ -53,7 +53,7 @@ func is_successful() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return: `STATUS_*` 常量之一。
 func get_status() -> StringName:
@@ -64,7 +64,7 @@ func get_status() -> StringName:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return: 成功时的 `right - left` 日差；失败时返回 0，应先检查 [method is_successful]。
 func get_days() -> int:
@@ -75,7 +75,7 @@ func get_days() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return: 左侧较早为 -1，相等为 0，较晚为 1；失败时返回 0。
 func get_comparison() -> int:
@@ -88,7 +88,7 @@ func get_comparison() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return: 成功时为空字符串。
 func get_error() -> String:
@@ -103,7 +103,7 @@ func get_error() -> String:
 ## [br]
 ## @layer standard/utilities/time
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param status: `STATUS_*` 常量之一。
 ## [br]

@@ -7,7 +7,7 @@
 - 继承：`RefCounted`
 - API：`public`
 - 类别：运行时句柄 (`runtime_handle`)
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 一次 typed projectile 发射的运行期句柄。
 
@@ -40,7 +40,7 @@
 ### `finished`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 signal finished(session: GFProjectileSession, reason: int)
@@ -62,7 +62,7 @@ session 首次进入 FINISHED 时发出。
 ### `Dimension`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 enum Dimension {
@@ -80,7 +80,7 @@ enum Dimension {
 ### `Status`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 enum Status {
@@ -100,7 +100,7 @@ enum Status {
 ### `EndReason`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 enum EndReason {
@@ -148,7 +148,7 @@ enum EndReason {
 ### `get_status`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_status() -> Status:
@@ -163,7 +163,7 @@ func get_status() -> Status:
 ### `get_dimension`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_dimension() -> Dimension:
@@ -178,7 +178,7 @@ func get_dimension() -> Dimension:
 ### `get_generation`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_generation() -> int:
@@ -193,7 +193,7 @@ func get_generation() -> int:
 ### `get_instance_root`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_instance_root() -> Node:
@@ -208,7 +208,7 @@ func get_instance_root() -> Node:
 ### `get_runtime`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_runtime() -> Node:
@@ -223,7 +223,7 @@ func get_runtime() -> Node:
 ### `get_elapsed_seconds`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_elapsed_seconds() -> float:
@@ -238,7 +238,7 @@ func get_elapsed_seconds() -> float:
 ### `get_travelled_distance`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_travelled_distance() -> float:
@@ -253,7 +253,7 @@ func get_travelled_distance() -> float:
 ### `get_accepted_impact_count`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_accepted_impact_count() -> int:
@@ -268,7 +268,7 @@ func get_accepted_impact_count() -> int:
 ### `get_end_reason`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_end_reason() -> EndReason:
@@ -283,7 +283,7 @@ func get_end_reason() -> EndReason:
 ### `get_metadata`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_metadata() -> Dictionary:
@@ -302,7 +302,7 @@ func get_metadata() -> Dictionary:
 ### `is_active`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func is_active() -> bool:
@@ -317,7 +317,7 @@ func is_active() -> bool:
 ### `is_finished`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func is_finished() -> bool:
@@ -332,7 +332,7 @@ func is_finished() -> bool:
 ### `finish`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func finish(reason: EndReason = EndReason.CALLER_FINISHED) -> bool:

@@ -67,7 +67,7 @@ const STATUS_INVALID_PRELOAD_POLICY: StringName = &"invalid_preload_policy"
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const STATUS_INVALID_LIFECYCLE: StringName = &"invalid_lifecycle"
 
 ## 预加载策略需要 Asset Utility，但当前架构未提供。

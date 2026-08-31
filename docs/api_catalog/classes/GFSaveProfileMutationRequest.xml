@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFSaveProfileMutationRequest" path="addons/gf/extensions/save/profile/gf_save_profile_mutation_request.gd" module="extensions/save" extends="RefCounted" classDigest="34e35100a7637fc4b0037ba43a26a638cfcbdc59ec680200a2c44c14cd841f49">
+<class name="GFSaveProfileMutationRequest" path="addons/gf/extensions/save/profile/gf_save_profile_mutation_request.gd" module="extensions/save" extends="RefCounted" classDigest="0c40039797df38e911f52df7952635f5ec82578d5e7bbefb2b0f723c819b9d1a">
 	<description>GFSaveProfileMutationRequest: mutate-and-persist 的一次性所有权请求。
 请求在创建时原子接管每个 `GFSaveSectionMutation`，随后只允许协调器 claim
 一次。调用方必须放弃传入的 Dictionary、Array 及其全部嵌套 alias；请求
@@ -7,7 +7,7 @@
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">runtime_handle</tag>
-		<tag name="since">unreleased</tag>
+		<tag name="since">11.0.0</tag>
 	</tags>
 	<signals />
 	<enums />
@@ -31,7 +31,7 @@ Mutation 必须非空、可用且 section ID 唯一。方法会先完成全部�
 				<tag name="schema">document_metadata: Dictionary accepted by the Save persisted-value contract whose source aliases are abandoned after success.</tag>
 				<tag name="schema">context: Bounded Dictionary without Callable, Signal, RID, Object, or circular references whose source aliases are abandoned after success.</tag>
 				<tag name="schema">result_metadata: Bounded Dictionary without Callable, Signal, RID, Object, or circular references whose source aliases are abandoned after success.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="is_available">
@@ -40,7 +40,7 @@ Mutation 必须非空、可用且 section ID 唯一。方法会先完成全部�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">尚未 claim 时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="is_claimed">
@@ -49,7 +49,7 @@ Mutation 必须非空、可用且 section ID 唯一。方法会先完成全部�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">已成功 claim 时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_mutation_count">
@@ -58,7 +58,7 @@ Mutation 必须非空、可用且 section ID 唯一。方法会先完成全部�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">尚未 claim 时返回候选数；claim 后为 0。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_section_ids">
@@ -67,7 +67,7 @@ Mutation 必须非空、可用且 section ID 唯一。方法会先完成全部�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">按请求收集顺序排列的 section ID；不包含候选载荷。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 	</methods>

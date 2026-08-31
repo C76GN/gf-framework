@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFProjectileMotionIntent3D" path="addons/gf/extensions/combat/projectiles/gf_projectile_motion_intent_3d.gd" module="extensions/combat" extends="RefCounted" classDigest="315b4e23bc33f372f01d82cc80c9594ffab988c48b895df085c144cf1df34a6b">
+<class name="GFProjectileMotionIntent3D" path="addons/gf/extensions/combat/projectiles/gf_projectile_motion_intent_3d.gd" module="extensions/combat" extends="RefCounted" classDigest="5ffd425796c1df826e6979ac7da042c5c615742ed29d92c3436f57a1615ce7fd">
 	<description>GFProjectileMotionIntent3D: 3D 移动策略的不可变输出。</description>
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">value_object</tag>
-		<tag name="since">unreleased</tag>
+		<tag name="since">11.0.0</tag>
 	</tags>
 	<signals />
 	<enums>
@@ -22,7 +22,7 @@
 			<description>定义 motion 计算的封闭输出种类。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 	</enums>
@@ -37,7 +37,7 @@
 				<tag name="param">velocity: world-space 速度。</tag>
 				<tag name="param">delta_seconds: 本 intent 对应的非负帧时长。</tag>
 				<tag name="return">velocity、delta 或位移乘积非法时返回 REJECTED，否则返回 MOVE intent。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="rejected">
@@ -47,7 +47,7 @@
 				<tag name="api">public</tag>
 				<tag name="param">reason: 稳定失败原因。</tag>
 				<tag name="return">REJECTED intent。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="finish">
@@ -56,7 +56,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">不交给 body adapter 的 FINISH intent。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_kind">
@@ -65,7 +65,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">封闭 `Kind` 值。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_velocity">
@@ -74,7 +74,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">3D world-space velocity。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_delta_seconds">
@@ -83,7 +83,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">非负秒数。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_failure_reason">
@@ -92,7 +92,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">REJECTED 时为非空稳定原因。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="is_valid">
@@ -101,7 +101,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">NONE、MOVE 或 FINISH 时为 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 	</methods>

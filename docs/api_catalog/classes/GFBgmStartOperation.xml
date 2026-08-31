@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFBgmStartOperation" path="addons/gf/standard/utilities/audio/gf_bgm_start_operation.gd" module="standard" extends="RefCounted" classDigest="9d995014f492c67f77a91bb526433f38c930acdd42eb1cc136388dc95be0cd84">
+<class name="GFBgmStartOperation" path="addons/gf/standard/utilities/audio/gf_bgm_start_operation.gd" module="standard" extends="RefCounted" classDigest="019316128b88ae674b6dc460d56cee04ea017a34737eb023b9045c4d3a0783fb">
 	<description>GFBgmStartOperation: 单次 BGM start request 的类型化 caller Operation。
 Operation 只表达“是否已经提交播放会话”的短生命周期终态。成功返回的
 `GFBgmSessionHandle` 独立表达后续播放会话生命周期；会话结束不会改写 start 结果。</description>
@@ -7,7 +7,7 @@ Operation 只表达“是否已经提交播放会话”的短生命周期终态�
 		<tag name="api">public</tag>
 		<tag name="category">runtime_handle</tag>
 		<tag name="layer">standard/utilities/audio</tag>
-		<tag name="since">unreleased</tag>
+		<tag name="since">11.0.0</tag>
 	</tags>
 	<signals>
 		<member kind="signal" name="completed">
@@ -18,7 +18,7 @@ Operation 只表达“是否已经提交播放会话”的短生命周期终态�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">result: 当前请求的隔离终态结果。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 	</signals>
@@ -32,7 +32,7 @@ Operation 只表达“是否已经提交播放会话”的短生命周期终态�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">大于零的请求 ID；尚未配置时返回 0。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="is_pending">
@@ -41,7 +41,7 @@ Operation 只表达“是否已经提交播放会话”的短生命周期终态�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">已配置且尚未完成时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="is_completed">
@@ -50,7 +50,7 @@ Operation 只表达“是否已经提交播放会话”的短生命周期终态�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">已有终态结果时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_result">
@@ -59,7 +59,7 @@ Operation 只表达“是否已经提交播放会话”的短生命周期终态�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">已完成时返回隔离结果；等待中返回 null。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="cancel">
@@ -71,7 +71,7 @@ Session Handle 精确停止。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">本次调用首次取消等待请求时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 	</methods>

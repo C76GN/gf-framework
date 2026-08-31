@@ -561,7 +561,7 @@ func _instantiate_script_as_object(script_cls: Script) -> Variant:
 ## [br]
 ## @category internal_helper
 ## [br]
-## @since unreleased
+## @since 11.0.0
 class RequiredBindingAttempt extends RefCounted:
 	var _successful: bool = false
 	var _phase: int = _GF_BINDING_PLAN_RESULT_SCRIPT.Phase.VALIDATION

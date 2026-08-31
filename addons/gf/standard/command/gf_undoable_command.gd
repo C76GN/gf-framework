@@ -28,7 +28,7 @@ const _SNAPSHOT_ITEM_OVERHEAD_BYTES: int = 64
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const MAX_SNAPSHOT_BYTES: int = 16 * 1024 * 1024
 
 

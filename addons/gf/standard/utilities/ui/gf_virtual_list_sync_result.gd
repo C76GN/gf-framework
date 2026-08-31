@@ -6,7 +6,7 @@
 ## [br]
 ## @category value_object
 ## [br]
-## @since unreleased
+## @since 11.0.0
 class_name GFVirtualListSyncResult
 extends RefCounted
 
@@ -17,14 +17,14 @@ extends RefCounted
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const STATUS_SYNCED: StringName = &"synced"
 
 ## 当前 materialization 已满足目标且没有结构变化。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const STATUS_UNCHANGED: StringName = &"unchanged"
 
 ## 当前轮冻结快照在完成提交前或项目绑定副作用期间失效；Binder 已保留后续同步请求。
@@ -35,56 +35,56 @@ const STATUS_UNCHANGED: StringName = &"unchanged"
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const STATUS_DEFERRED: StringName = &"deferred"
 
 ## 目标范围超过显式节点预算，已优先物化真实视口范围。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const STATUS_TRUNCATED: StringName = &"truncated"
 
 ## Binder 当前没有有效绑定。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const STATUS_UNBOUND: StringName = &"unbound"
 
 ## Binder 已进入不可复用的终态。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const STATUS_DISPOSED: StringName = &"disposed"
 
 ## identity callback 返回了不可稳定编码的值。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const STATUS_INVALID_IDENTITY: StringName = &"invalid_identity"
 
 ## 当前请求范围包含重复稳定 identity。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const STATUS_DUPLICATE_IDENTITY: StringName = &"duplicate_identity"
 
 ## item factory 没有返回可接管的 parentless Control。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const STATUS_FACTORY_FAILED: StringName = &"factory_failed"
 
 ## 项目 bind callback 拒绝了一个条目。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const STATUS_BIND_FAILED: StringName = &"bind_failed"
 
 # JSON number 可以无损表达的最大整数。
@@ -119,7 +119,7 @@ var _error: String = ""
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 完整、无变化或按显式预算截断完成时返回 true。
 func is_successful() -> bool:
@@ -130,7 +130,7 @@ func is_successful() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return `STATUS_*` 常量之一。
 func get_status() -> StringName:
@@ -141,7 +141,7 @@ func get_status() -> StringName:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return `GFVirtualListModel` revision。
 func get_layout_revision() -> int:
@@ -152,7 +152,7 @@ func get_layout_revision() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 从 0 开始的 data revision。
 func get_data_revision() -> int:
@@ -163,7 +163,7 @@ func get_data_revision() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return Vector2i(start, end)，end 不包含。
 func get_viewport_range() -> Vector2i:
@@ -174,7 +174,7 @@ func get_viewport_range() -> Vector2i:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return Vector2i(start, end)，end 不包含。
 func get_requested_range() -> Vector2i:
@@ -185,7 +185,7 @@ func get_requested_range() -> Vector2i:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 升序物化索引。
 func get_materialized_indices() -> PackedInt32Array:
@@ -196,7 +196,7 @@ func get_materialized_indices() -> PackedInt32Array:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 当前活动 Control 数量。
 func get_materialized_count() -> int:
@@ -207,7 +207,7 @@ func get_materialized_count() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return parentless 池节点数量。
 func get_pooled_count() -> int:
@@ -218,7 +218,7 @@ func get_pooled_count() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return factory 成功创建数量。
 func get_created_count() -> int:
@@ -229,7 +229,7 @@ func get_created_count() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 复用数量。
 func get_reused_count() -> int:
@@ -240,7 +240,7 @@ func get_reused_count() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 已执行 unbind 的旧绑定数量。
 func get_released_count() -> int:
@@ -251,7 +251,7 @@ func get_released_count() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 测量数量。
 func get_measured_count() -> int:
@@ -262,7 +262,7 @@ func get_measured_count() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 主轴滚动调整量。
 func get_anchor_adjustment() -> float:
@@ -273,7 +273,7 @@ func get_anchor_adjustment() -> float:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 目标范围未完整物化时返回 true。
 func was_truncated() -> bool:
@@ -284,7 +284,7 @@ func was_truncated() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 没有索引错误时为 -1。
 func get_error_index() -> int:
@@ -295,7 +295,7 @@ func get_error_index() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 成功时为空。
 func get_error() -> String:
@@ -306,7 +306,7 @@ func get_error() -> String:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 新结果对象。
 func duplicate_result() -> GFVirtualListSyncResult:
@@ -319,7 +319,7 @@ func duplicate_result() -> GFVirtualListSyncResult:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return JSON-safe 同步摘要；状态使用 String，范围与索引只使用 JSON 原生容器和整数。
 ## [br]
@@ -353,7 +353,7 @@ func to_dict() -> Dictionary:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param data: 同步诊断字段。
 ## [br]

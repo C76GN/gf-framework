@@ -7,7 +7,7 @@
 - 继承：`RefCounted`
 - API：`public`
 - 类别：值对象 (`value_object`)
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 表面指针按下代际的不可变回执。 调用方必须保留该回执并在 move、release 或 cancel 时原样交回创建它的 [code]GFViewportSurfaceInputBridge[/code]。同一 source/device/pointer key 重用后，旧回执不能操作新代际。
 
@@ -30,7 +30,7 @@
 ### `is_valid`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func is_valid() -> bool:
@@ -45,7 +45,7 @@ func is_valid() -> bool:
 ### `get_source_id`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_source_id() -> StringName:
@@ -60,7 +60,7 @@ func get_source_id() -> StringName:
 ### `get_device_id`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_device_id() -> int:
@@ -75,7 +75,7 @@ func get_device_id() -> int:
 ### `get_pointer_id`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_pointer_id() -> int:
@@ -90,7 +90,7 @@ func get_pointer_id() -> int:
 ### `get_pointer_type`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_pointer_type() -> int:
@@ -105,7 +105,7 @@ func get_pointer_type() -> int:
 ### `get_capture_generation`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_capture_generation() -> int:
@@ -120,7 +120,7 @@ func get_capture_generation() -> int:
 ### `get_target_generation`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_target_generation() -> int:

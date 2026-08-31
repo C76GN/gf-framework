@@ -145,7 +145,7 @@ func get_metadata_file_name(slot_index: int) -> String:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param slot_index: 槽位索引；必须大于等于 0。
 ## [br]

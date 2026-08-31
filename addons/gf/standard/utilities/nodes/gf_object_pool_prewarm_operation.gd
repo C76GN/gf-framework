@@ -7,7 +7,7 @@
 ## [br]
 ## @category runtime_handle
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @layer standard/utilities/nodes
 class_name GFObjectPoolPrewarmOperation
@@ -20,7 +20,7 @@ extends RefCounted
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param operation: 当前规范 Operation。
 signal progressed(operation: GFObjectPoolPrewarmOperation)
@@ -29,7 +29,7 @@ signal progressed(operation: GFObjectPoolPrewarmOperation)
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param result: 当前请求的隔离终态结果。
 signal completed(result: GFObjectPoolPrewarmResult)
@@ -64,7 +64,7 @@ var _pending_final_failed_count: int = 0
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return Utility 首次接受 caller 取消时返回 true。
 func cancel() -> bool:
@@ -91,7 +91,7 @@ func cancel() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 大于零的请求 ID；尚未配置时返回 0。
 func get_request_id() -> int:
@@ -102,7 +102,7 @@ func get_request_id() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 请求场景；已释放时返回 null。
 func get_scene() -> PackedScene:
@@ -119,7 +119,7 @@ func get_scene() -> PackedScene:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 资源路径或实例 ID 身份。
 func get_scene_identity() -> String:
@@ -130,7 +130,7 @@ func get_scene_identity() -> String:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 已配置且未完成时返回 true。
 func is_pending() -> bool:
@@ -141,7 +141,7 @@ func is_pending() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 已完成时返回 true。
 func is_completed() -> bool:
@@ -152,7 +152,7 @@ func is_completed() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 非负请求数量。
 func get_requested_count() -> int:
@@ -163,7 +163,7 @@ func get_requested_count() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 非负且不大于 requested 的数量；运行期容量复核可在终态前减少该值。
 func get_admitted_count() -> int:
@@ -174,7 +174,7 @@ func get_admitted_count() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 已提交节点数量。
 func get_created_count() -> int:
@@ -185,7 +185,7 @@ func get_created_count() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return `requested - admitted`。
 func get_skipped_count() -> int:
@@ -196,7 +196,7 @@ func get_skipped_count() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 当前已归类取消的单位数。
 func get_cancelled_count() -> int:
@@ -207,7 +207,7 @@ func get_cancelled_count() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 当前已归类失败的单位数。
 func get_failed_count() -> int:
@@ -218,7 +218,7 @@ func get_failed_count() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return created、skipped、cancelled 与 failed 的总和。
 func get_processed_count() -> int:
@@ -229,7 +229,7 @@ func get_processed_count() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return `requested - processed`。
 func get_remaining_count() -> int:
@@ -240,7 +240,7 @@ func get_remaining_count() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 0.0 到 1.0；零工作为 1.0。
 func get_progress_ratio() -> float:
@@ -253,7 +253,7 @@ func get_progress_ratio() -> float:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 已完成结果；等待中返回 null。
 func get_result() -> GFObjectPoolPrewarmResult:
@@ -264,7 +264,7 @@ func get_result() -> GFObjectPoolPrewarmResult:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 请求身份、实时计数、进度和可选终态。
 ## [br]
@@ -296,7 +296,7 @@ func get_debug_snapshot() -> Dictionary:
 ## [br]
 ## @layer standard/utilities/nodes
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param cancel_delegate: Utility 提供的 capture-only 闭包，签名为 `(operation, reason) -> bool`；不得使用绑定实例方法。
 ## [br]
@@ -350,7 +350,7 @@ func configure_for_framework(
 ## [br]
 ## @layer standard/utilities/nodes
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param request_id: Utility 内线程安全分配的唯一请求 ID。
 ## [br]
@@ -401,7 +401,7 @@ func configure_terminal_for_framework(
 ## [br]
 ## @layer standard/utilities/nodes
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param settlement_authority: 仅由所属 Utility 原生闭包持有的 capability 候选。
 ## [br]
@@ -428,7 +428,7 @@ func record_capacity_skipped_for_framework(settlement_authority: Callable) -> bo
 ## [br]
 ## @layer standard/utilities/nodes
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param settlement_authority: 仅由所属 Utility 原生闭包持有的 capability 候选。
 ## [br]
@@ -449,7 +449,7 @@ func accepts_settlement_authority_for_framework(
 ## [br]
 ## @layer standard/utilities/nodes
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param settlement_authority: 仅由所属 Utility 原生闭包持有的 capability 候选。
 ## [br]
@@ -474,7 +474,7 @@ func record_created_for_framework(settlement_authority: Callable) -> bool:
 ## [br]
 ## @layer standard/utilities/nodes
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param settlement_authority: 仅由所属 Utility 原生闭包持有的 capability 候选。
 ## [br]
@@ -498,7 +498,7 @@ func begin_settlement_barrier_for_framework(settlement_authority: Callable) -> b
 ## [br]
 ## @layer standard/utilities/nodes
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param settlement_authority: 仅由所属 Utility 原生闭包持有的 capability 候选。
 ## [br]
@@ -521,7 +521,7 @@ func end_settlement_barrier_for_framework(settlement_authority: Callable) -> boo
 ## [br]
 ## @layer standard/utilities/nodes
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param settlement_authority: 仅由所属 Utility 原生闭包持有的 capability 候选。
 ## [br]
@@ -591,7 +591,7 @@ func finish_for_framework(
 ## [br]
 ## @layer standard/utilities/nodes
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 首次通知返回 true。
 func emit_completed_for_framework() -> bool:

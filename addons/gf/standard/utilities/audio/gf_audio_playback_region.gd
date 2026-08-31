@@ -8,7 +8,7 @@
 ## [br]
 ## @category resource_definition
 ## [br]
-## @since unreleased
+## @since 11.0.0
 class_name GFAudioPlaybackRegion
 extends Resource
 
@@ -19,7 +19,7 @@ extends Resource
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 enum LoopMode {
 	## 不循环。
 	DISABLED,
@@ -38,28 +38,28 @@ enum LoopMode {
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 @export_range(0.0, 86_400.0, 0.001, "or_greater") var start_seconds: float = 0.0
 
 ## 播放或循环终点，单位为秒；-1 表示音频流自然结尾。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 @export_range(-1.0, 86_400.0, 0.001, "or_greater") var end_seconds: float = -1.0
 
 ## 循环模式。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 @export var loop_mode: LoopMode = LoopMode.DISABLED
 
 ## 循环起点，单位为秒；-1 表示使用 start_seconds。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 @export_range(-1.0, 86_400.0, 0.001, "or_greater") var loop_start_seconds: float = -1.0
 
 
@@ -69,7 +69,7 @@ enum LoopMode {
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param stream_length_seconds: 音频流长度；-1 表示长度未知。
 ## [br]
@@ -144,7 +144,7 @@ func validate(stream_length_seconds: float = -1.0) -> GFAudioPlaybackRegionResul
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param stream: 要准备的源音频流；不会被修改。
 ## [br]
@@ -213,7 +213,7 @@ func prepare_stream(stream: AudioStream) -> GFAudioPlaybackRegionResult:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 独立的播放区间资源。
 func duplicate_region() -> GFAudioPlaybackRegion:
@@ -229,7 +229,7 @@ func duplicate_region() -> GFAudioPlaybackRegion:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 播放区间字典。
 ## [br]

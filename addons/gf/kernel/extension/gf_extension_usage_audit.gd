@@ -270,7 +270,7 @@ static func find_references_to_root(root_path: String, options: Dictionary = {})
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param root_path: 扩展根目录。
 ## [br]

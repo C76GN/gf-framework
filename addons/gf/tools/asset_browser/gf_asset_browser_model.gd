@@ -14,7 +14,7 @@
 ## [br]
 ## @category tool_api
 ## [br]
-## @since unreleased
+## @since 11.0.0
 class_name GFAssetBrowserModel
 extends RefCounted
 
@@ -25,7 +25,7 @@ extends RefCounted
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param catalog_revision: 新目录 revision。
 ## [br]
@@ -36,7 +36,7 @@ signal catalog_changed(catalog_revision: int, query_generation: int)
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param query_generation: 新查询 generation。
 signal query_changed(query_generation: int)
@@ -45,7 +45,7 @@ signal query_changed(query_generation: int)
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param asset_id: 新选择；空 ID 表示没有选择。
 signal selection_changed(asset_id: StringName)
@@ -58,7 +58,7 @@ signal selection_changed(asset_id: StringName)
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param report: 预览终态报告。
 ## [br]
@@ -72,28 +72,28 @@ signal preview_resolved(report: Dictionary)
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const MAX_CATALOG_ENTRIES: int = 10_000
 
 ## 查询文本允许的最大字符数。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const MAX_QUERY_LENGTH: int = 512
 
 ## 单页允许返回的最大资产数。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const MAX_PAGE_SIZE: int = 100
 
 ## 一次查询允许保留的最大匹配资产数。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const MAX_RESULT_COUNT: int = 10_000
 
 const _MAX_FILTER_ASSET_IDS: int = 10_000
@@ -142,7 +142,7 @@ var _notification_dispatch_in_progress: bool = false
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param catalog: 要复制的资产目录。
 ## [br]
@@ -205,7 +205,7 @@ func replace_catalog(catalog: GFAssetCatalog) -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param asset_id: 要选择的资产 ID；空 ID 用于清除选择。
 ## [br]
@@ -239,7 +239,7 @@ func select_asset(asset_id: StringName) -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param query_text: 交给 GFAssetCatalog 的文本查询。
 ## [br]
@@ -296,7 +296,7 @@ func set_query(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return: 当前选择；没有选择时返回空 StringName。
 func get_selected_asset_id() -> StringName:
@@ -307,7 +307,7 @@ func get_selected_asset_id() -> StringName:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return: 从 0 开始、成功替换后递增的 revision。
 func get_catalog_revision() -> int:
@@ -318,7 +318,7 @@ func get_catalog_revision() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return: 从 0 开始、目录或查询变化后递增的 generation。
 func get_query_generation() -> int:
@@ -332,7 +332,7 @@ func get_query_generation() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param asset_id: 当前目录中的稳定资产 ID。
 ## [br]
@@ -403,7 +403,7 @@ func request_preview(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param reason: 取消原因。
 ## [br]
@@ -418,7 +418,7 @@ func cancel_preview(reason: StringName = &"cancelled") -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return: 从 0 开始、新预览或主动失效时递增的 generation。
 func get_preview_generation() -> int:
@@ -429,7 +429,7 @@ func get_preview_generation() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return: 当前任务；没有任务时返回 null。
 func get_active_preview_task() -> GFThumbnailRenderTask:
@@ -442,7 +442,7 @@ func get_active_preview_task() -> GFThumbnailRenderTask:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 func dispose() -> void:
 	if _disposed:
 		return
@@ -455,7 +455,7 @@ func dispose() -> void:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param page: 从 1 开始的页码。
 ## [br]

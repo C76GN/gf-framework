@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFAudioClip" path="addons/gf/standard/utilities/audio/gf_audio_clip.gd" module="standard" extends="Resource" classDigest="9909cb22af317f839520a0af60c5f4ac3a37a5d751ba7083d632fbdd20a4fb6a">
+<class name="GFAudioClip" path="addons/gf/standard/utilities/audio/gf_audio_clip.gd" module="standard" extends="Resource" classDigest="d47ef3ff7c41f9d352fe7de55498ee6677eb7ffa07ca06fe29dff33d26c0f277">
 	<description>GFAudioClip: 可资源化的音频播放配置。
 支持直接引用 `AudioStream`，也支持提供资源路径交给 `GFAudioUtility`
 按需加载。</description>
@@ -84,7 +84,7 @@
 精确表达的起点和循环点，不用帧轮询模拟有限终点。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="metadata" decorators="@export">

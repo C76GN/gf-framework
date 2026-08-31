@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFLogUtility" path="addons/gf/standard/utilities/logging/gf_log_utility.gd" module="standard" extends="GFUtility" classDigest="99f32579aebbfd497f02dd1b46deb50f31e18cc0d9d5a3b6dea8a0ec1e52a5f6">
+<class name="GFLogUtility" path="addons/gf/standard/utilities/logging/gf_log_utility.gd" module="standard" extends="GFUtility" classDigest="dec709be7918387aa065895c62b1bf241ee0f951e9cd4550cddfb2bed8ace52e">
 	<description>GFLogUtility: 集中式日志系统。
 取代原生 print / push_error，提供分级日志（DEBUG → FATAL），
 每条日志同时写入本地按日期命名的日志文件，进入内存环形缓存，
@@ -132,7 +132,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">delta: 本帧时间增量（秒）；非有限或非正数不会推进状态。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="debug">

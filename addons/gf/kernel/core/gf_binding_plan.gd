@@ -9,7 +9,7 @@
 ## [br]
 ## @category protocol
 ## [br]
-## @since unreleased
+## @since 11.0.0
 class_name GFBindingPlan
 extends RefCounted
 
@@ -20,14 +20,14 @@ extends RefCounted
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const GFBindingLifetimesBase = preload("res://addons/gf/kernel/core/gf_binding_lifetimes.gd")
 
 ## Plan 结果脚本缓存。
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const GFBindingPlanResultBase = preload("res://addons/gf/kernel/core/gf_binding_plan_result.gd")
 
 const _STATE_BUILDING: int = 0
@@ -65,7 +65,7 @@ func _init(architecture: GFArchitecture) -> void:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param binding_id: 调用方定义的非空稳定 ID；同一 Plan 内必须唯一，最长 128 字符。
 ## [br]
@@ -89,7 +89,7 @@ func require_singleton(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param binding_id: 调用方定义的非空稳定 ID；同一 Plan 内必须唯一，最长 128 字符。
 ## [br]
@@ -114,7 +114,7 @@ func require_transient(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param scope: 当前 Installer 拥有的异步取消作用域；成功时仍由调用方拥有。
 ## [br]
@@ -482,7 +482,7 @@ func _finish_terminal_settlement() -> void:
 ## [br]
 ## @category internal_helper
 ## [br]
-## @since unreleased
+## @since 11.0.0
 class RequiredBindingEntry extends RefCounted:
 	var _index: int = -1
 	var _binding_id: StringName = &""

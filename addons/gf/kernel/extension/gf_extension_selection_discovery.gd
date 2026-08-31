@@ -20,21 +20,21 @@ extends RefCounted
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const STATUS_VALID: StringName = &"valid"
 
 ## 启用选择包含可隔离的问题，但已验证的已知扩展路径仍可使用。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const STATUS_PARTIAL: StringName = &"partial"
 
 ## Manifest 图无效，任何扩展路径都不得使用。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const STATUS_INVALID: StringName = &"invalid"
 
 const _TOOL_CONTRIBUTION_FILE_NAME: String = "gf_tool_contribution.json"

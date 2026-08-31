@@ -7,7 +7,7 @@
 - 继承：`RefCounted`
 - API：`public`
 - 类别：值对象 (`value_object`)
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 槽位库存转移的类型化阶段结果。 结果只保存事务状态、稳定身份、数量与 revision，不保留库存模型或候选堆叠。
 
@@ -44,7 +44,7 @@
 ### `STATUS_PREPARED`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const STATUS_PREPARED: StringName = &"prepared"
@@ -57,7 +57,7 @@ const STATUS_PREPARED: StringName = &"prepared"
 ### `STATUS_COMMITTED`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const STATUS_COMMITTED: StringName = &"committed"
@@ -70,7 +70,7 @@ const STATUS_COMMITTED: StringName = &"committed"
 ### `STATUS_INVALID_REQUEST`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const STATUS_INVALID_REQUEST: StringName = &"invalid_request"
@@ -83,7 +83,7 @@ const STATUS_INVALID_REQUEST: StringName = &"invalid_request"
 ### `STATUS_BUSY`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const STATUS_BUSY: StringName = &"busy"
@@ -96,7 +96,7 @@ const STATUS_BUSY: StringName = &"busy"
 ### `STATUS_NOT_ENOUGH_ITEMS`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const STATUS_NOT_ENOUGH_ITEMS: StringName = &"not_enough_items"
@@ -109,7 +109,7 @@ const STATUS_NOT_ENOUGH_ITEMS: StringName = &"not_enough_items"
 ### `STATUS_NOT_ENOUGH_SPACE`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const STATUS_NOT_ENOUGH_SPACE: StringName = &"not_enough_space"
@@ -122,7 +122,7 @@ const STATUS_NOT_ENOUGH_SPACE: StringName = &"not_enough_space"
 ### `STATUS_UNSUPPORTED_DATA`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const STATUS_UNSUPPORTED_DATA: StringName = &"unsupported_data"
@@ -135,7 +135,7 @@ const STATUS_UNSUPPORTED_DATA: StringName = &"unsupported_data"
 ### `STATUS_STALE_REVISION`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const STATUS_STALE_REVISION: StringName = &"stale_revision"
@@ -148,7 +148,7 @@ const STATUS_STALE_REVISION: StringName = &"stale_revision"
 ### `STATUS_STALE_PLAN`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const STATUS_STALE_PLAN: StringName = &"stale_plan"
@@ -163,7 +163,7 @@ const STATUS_STALE_PLAN: StringName = &"stale_plan"
 ### `is_successful`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func is_successful() -> bool:
@@ -178,7 +178,7 @@ func is_successful() -> bool:
 ### `get_status`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_status() -> StringName:
@@ -193,7 +193,7 @@ func get_status() -> StringName:
 ### `get_item_id`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_item_id() -> StringName:
@@ -208,7 +208,7 @@ func get_item_id() -> StringName:
 ### `get_requested_amount`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_requested_amount() -> int:
@@ -223,7 +223,7 @@ func get_requested_amount() -> int:
 ### `get_transferred_amount`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_transferred_amount() -> int:
@@ -238,7 +238,7 @@ func get_transferred_amount() -> int:
 ### `get_remaining_amount`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_remaining_amount() -> int:
@@ -253,7 +253,7 @@ func get_remaining_amount() -> int:
 ### `get_source_slot`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_source_slot() -> int:
@@ -268,7 +268,7 @@ func get_source_slot() -> int:
 ### `get_target_slot`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_target_slot() -> int:
@@ -283,7 +283,7 @@ func get_target_slot() -> int:
 ### `get_source_revision`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_source_revision() -> int:
@@ -298,7 +298,7 @@ func get_source_revision() -> int:
 ### `get_target_revision`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_target_revision() -> int:
@@ -313,7 +313,7 @@ func get_target_revision() -> int:
 ### `duplicate_result`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func duplicate_result() -> GFInventoryTransferResult:
@@ -328,7 +328,7 @@ func duplicate_result() -> GFInventoryTransferResult:
 ### `to_dict`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func to_dict() -> Dictionary:

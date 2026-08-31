@@ -187,7 +187,7 @@ func init() -> void:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 func ready() -> void:
 	if _disposed or _resource_broker != null:
 		return
@@ -230,7 +230,7 @@ func dispose() -> void:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 func release_dependencies() -> void:
 	_resource_broker = null
 	_owns_resource_broker = false
@@ -248,7 +248,7 @@ func release_dependencies() -> void:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param broker: 要共享的 Broker。
 ## [br]
@@ -278,7 +278,7 @@ func set_resource_broker(broker: GFResourceBroker) -> Error:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param max_active_requests: Broker 同时活动的底层请求上限。
 ## [br]
@@ -308,7 +308,7 @@ func setup_standalone_resource_broker(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 已绑定的 Broker；未配置时返回 null。
 func get_resource_broker() -> GFResourceBroker:

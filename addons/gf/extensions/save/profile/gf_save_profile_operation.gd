@@ -206,7 +206,7 @@ func configure_for_framework(
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param profile_id: Profile ID。
 ## [br]
@@ -325,7 +325,7 @@ func get_metadata_for_framework() -> Dictionary:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 受管事务要求严格读取时返回 true。
 func requires_strict_recovery_for_framework() -> bool:
@@ -336,7 +336,7 @@ func requires_strict_recovery_for_framework() -> bool:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 非受管 load 返回 null；调用方只能执行对象身份复核。
 func get_manager_permit_for_framework() -> RefCounted:

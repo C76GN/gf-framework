@@ -7,7 +7,7 @@
 - 继承：`RefCounted`
 - API：`public`
 - 类别：值对象 (`value_object`)
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 两个公民日期的不可变关系结果。 成功时同时表达有符号日差与比较次序，失败时不使用 0 伪装相等。
 
@@ -30,7 +30,7 @@
 ### `STATUS_OK`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const STATUS_OK: StringName = &"ok"
@@ -43,7 +43,7 @@ const STATUS_OK: StringName = &"ok"
 ### `STATUS_INVALID_DATE`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const STATUS_INVALID_DATE: StringName = &"invalid_date"
@@ -58,7 +58,7 @@ const STATUS_INVALID_DATE: StringName = &"invalid_date"
 ### `is_successful`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func is_successful() -> bool:
@@ -73,7 +73,7 @@ func is_successful() -> bool:
 ### `get_status`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_status() -> StringName:
@@ -88,7 +88,7 @@ func get_status() -> StringName:
 ### `get_days`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_days() -> int:
@@ -103,7 +103,7 @@ func get_days() -> int:
 ### `get_comparison`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_comparison() -> int:
@@ -118,7 +118,7 @@ func get_comparison() -> int:
 ### `get_error`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_error() -> String:

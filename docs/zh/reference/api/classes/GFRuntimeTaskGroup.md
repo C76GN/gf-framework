@@ -95,7 +95,7 @@ const REJECTION_PARALLEL_REQUIREMENT_CONFLICT: StringName = &"group_parallel_req
 ### `REJECTION_TASK_GRAPH_CYCLE`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const REJECTION_TASK_GRAPH_CYCLE: StringName = &"group_task_graph_cycle"
@@ -108,7 +108,7 @@ const REJECTION_TASK_GRAPH_CYCLE: StringName = &"group_task_graph_cycle"
 ### `REJECTION_TASK_GRAPH_REUSED`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const REJECTION_TASK_GRAPH_REUSED: StringName = &"group_task_graph_reused"
@@ -121,7 +121,7 @@ const REJECTION_TASK_GRAPH_REUSED: StringName = &"group_task_graph_reused"
 ### `REJECTION_TASK_GRAPH_LIMIT`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const REJECTION_TASK_GRAPH_LIMIT: StringName = &"group_task_graph_limit"
@@ -134,7 +134,7 @@ const REJECTION_TASK_GRAPH_LIMIT: StringName = &"group_task_graph_limit"
 ### `REJECTION_INVALID_MODE`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const REJECTION_INVALID_MODE: StringName = &"group_invalid_mode"
@@ -147,7 +147,7 @@ const REJECTION_INVALID_MODE: StringName = &"group_invalid_mode"
 ### `MAX_TASK_GRAPH_DEPTH`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const MAX_TASK_GRAPH_DEPTH: int = 256
@@ -160,7 +160,7 @@ const MAX_TASK_GRAPH_DEPTH: int = 256
 ### `MAX_TASK_GRAPH_NODES`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const MAX_TASK_GRAPH_NODES: int = 4096

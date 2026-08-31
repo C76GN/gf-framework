@@ -7,7 +7,7 @@
 - 继承：`RefCounted`
 - API：`public`
 - 类别：值对象 (`value_object`)
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 单次类型化场景请求的不可变终态。 结果冻结请求种类、资源身份、可选 PackedScene 与闭合 status/reason/error 联合。 所有身份 getter 返回隔离快照，调用方不能改写 Operation 已冻结的资源身份。
 
@@ -52,7 +52,7 @@
 ### `Status`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 enum Status {
@@ -78,7 +78,7 @@ enum Status {
 ### `REASON_SCENE_LOADED`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const REASON_SCENE_LOADED: StringName = &"scene_loaded"
@@ -91,7 +91,7 @@ const REASON_SCENE_LOADED: StringName = &"scene_loaded"
 ### `REASON_SCENE_PRELOADED`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const REASON_SCENE_PRELOADED: StringName = &"scene_preloaded"
@@ -104,7 +104,7 @@ const REASON_SCENE_PRELOADED: StringName = &"scene_preloaded"
 ### `REASON_CACHE_HIT`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const REASON_CACHE_HIT: StringName = &"cache_hit"
@@ -117,7 +117,7 @@ const REASON_CACHE_HIT: StringName = &"cache_hit"
 ### `REASON_INVALID_PATH`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const REASON_INVALID_PATH: StringName = &"invalid_path"
@@ -130,7 +130,7 @@ const REASON_INVALID_PATH: StringName = &"invalid_path"
 ### `REASON_OWNER_UNAVAILABLE`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const REASON_OWNER_UNAVAILABLE: StringName = &"owner_unavailable"
@@ -143,7 +143,7 @@ const REASON_OWNER_UNAVAILABLE: StringName = &"owner_unavailable"
 ### `REASON_LOAD_BUSY`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const REASON_LOAD_BUSY: StringName = &"load_busy"
@@ -156,7 +156,7 @@ const REASON_LOAD_BUSY: StringName = &"load_busy"
 ### `REASON_BROKER_REJECTED`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const REASON_BROKER_REJECTED: StringName = &"broker_rejected"
@@ -169,7 +169,7 @@ Resource Broker 拒绝 consumer Lease 或底层请求 admission。
 ### `REASON_RESOURCE_LOAD_FAILED`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const REASON_RESOURCE_LOAD_FAILED: StringName = &"resource_load_failed"
@@ -182,7 +182,7 @@ const REASON_RESOURCE_LOAD_FAILED: StringName = &"resource_load_failed"
 ### `REASON_RESOURCE_TYPE_MISMATCH`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const REASON_RESOURCE_TYPE_MISMATCH: StringName = &"resource_type_mismatch"
@@ -195,7 +195,7 @@ Broker 完成的资源不是 PackedScene。
 ### `REASON_SCENE_CHANGE_FAILED`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const REASON_SCENE_CHANGE_FAILED: StringName = &"scene_change_failed"
@@ -208,7 +208,7 @@ PackedScene 已准备完成，但安全帧场景切换失败。
 ### `REASON_CALLER_CANCELLED`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const REASON_CALLER_CANCELLED: StringName = &"caller_cancelled"
@@ -221,7 +221,7 @@ caller 通过 Operation.cancel() 显式取消当前 consumer。
 ### `REASON_TOKEN_CANCELLED`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const REASON_TOKEN_CANCELLED: StringName = &"token_cancelled"
@@ -234,7 +234,7 @@ const REASON_TOKEN_CANCELLED: StringName = &"token_cancelled"
 ### `REASON_OWNER_RELEASED`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const REASON_OWNER_RELEASED: StringName = &"owner_released"
@@ -247,7 +247,7 @@ const REASON_OWNER_RELEASED: StringName = &"owner_released"
 ### `REASON_PATH_CANCELLED`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const REASON_PATH_CANCELLED: StringName = &"path_cancelled"
@@ -260,7 +260,7 @@ const REASON_PATH_CANCELLED: StringName = &"path_cancelled"
 ### `REASON_EXTERNAL_CANCELLED`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const REASON_EXTERNAL_CANCELLED: StringName = &"external_cancelled"
@@ -273,7 +273,7 @@ const REASON_EXTERNAL_CANCELLED: StringName = &"external_cancelled"
 ### `REASON_BROKER_DISPOSED`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const REASON_BROKER_DISPOSED: StringName = &"broker_disposed"
@@ -286,7 +286,7 @@ const REASON_BROKER_DISPOSED: StringName = &"broker_disposed"
 ### `REASON_BROKER_CANCELLED`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const REASON_BROKER_CANCELLED: StringName = &"broker_cancelled"
@@ -299,7 +299,7 @@ Broker 返回了未纳入公开闭合集的取消原因。
 ### `REASON_UTILITY_DISPOSED`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const REASON_UTILITY_DISPOSED: StringName = &"utility_disposed"
@@ -314,7 +314,7 @@ Scene Utility 已释放并终结所有等待请求。
 ### `get_status`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_status() -> Status:
@@ -329,7 +329,7 @@ func get_status() -> Status:
 ### `is_successful`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func is_successful() -> bool:
@@ -344,7 +344,7 @@ func is_successful() -> bool:
 ### `get_request_id`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_request_id() -> int:
@@ -359,7 +359,7 @@ func get_request_id() -> int:
 ### `get_kind`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_kind() -> int:
@@ -374,7 +374,7 @@ func get_kind() -> int:
 ### `get_scene_identity`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_scene_identity() -> GFResourceIdentity:
@@ -389,7 +389,7 @@ func get_scene_identity() -> GFResourceIdentity:
 ### `get_scene`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_scene() -> PackedScene:
@@ -404,7 +404,7 @@ func get_scene() -> PackedScene:
 ### `get_reason`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_reason() -> StringName:
@@ -419,7 +419,7 @@ func get_reason() -> StringName:
 ### `get_error_code`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_error_code() -> Error:
@@ -434,7 +434,7 @@ func get_error_code() -> Error:
 ### `duplicate_result`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func duplicate_result() -> GFSceneOperationResult:
@@ -449,7 +449,7 @@ func duplicate_result() -> GFSceneOperationResult:
 ### `to_dict`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func to_dict() -> Dictionary:

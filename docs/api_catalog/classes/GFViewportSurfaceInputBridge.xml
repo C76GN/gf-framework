@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFViewportSurfaceInputBridge" path="addons/gf/standard/input/runtime/gf_viewport_surface_input_bridge.gd" module="standard" extends="RefCounted" classDigest="15aa0857c228ab21ff097ca493ca733c80a2aef94eb35624ff6ca0d194eb1db5">
+<class name="GFViewportSurfaceInputBridge" path="addons/gf/standard/input/runtime/gf_viewport_surface_input_bridge.gd" module="standard" extends="RefCounted" classDigest="f60684f331e2316023d69baa089d0106361b4477fca41f1cfcae6ed9bf21932b">
 	<description>GFViewportSurfaceInputBridge: 将外部表面命中桥接为 Viewport 指针事件。
 调用方只提供稳定 source/device/pointer 身份、目标 Viewport 代际、
 0..1 标准化表面坐标和显式单调毫秒。桥不求解射线、UV、Mesh、XR 或交互模式；
@@ -7,7 +7,7 @@
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">runtime_service</tag>
-		<tag name="since">unreleased</tag>
+		<tag name="since">11.0.0</tag>
 	</tags>
 	<signals>
 		<member kind="signal" name="input_forwarded">
@@ -22,7 +22,7 @@
 				<tag name="param">target_generation: Resolver 提供的目标代际。</tag>
 				<tag name="param">target: 已接收事件的 Viewport。</tag>
 				<tag name="param">event: 新创建的 Mouse 或 Touch 事件。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 	</signals>
@@ -37,7 +37,7 @@
 			<description>输出到 Viewport 的指针事件家族。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 	</enums>
@@ -55,7 +55,7 @@
 				<tag name="param">double_click_distance_pixels: 在当前 Viewport 尺寸下的最大双击距离，必须有限且为 0..4096。</tag>
 				<tag name="param">max_pointer_timestamps: 跨捕获代际保留的最近指针时间高水位数，必须为 1..4096。</tag>
 				<tag name="return">尚未开始、未 dispose 且所有预算合法时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="forward_mouse_hover">
@@ -71,7 +71,7 @@
 				<tag name="param">normalized_position: 有限且两分量均为 0..1 的表面坐标。</tag>
 				<tag name="param">timestamp_msec: 非负单调毫秒；不得早于该 key 仍在预算内的时间高水位。</tag>
 				<tag name="return">输入合法、key 未捕获、时间未回退并已同步推送到目标时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="capture_pointer">
@@ -89,7 +89,7 @@
 				<tag name="param">timestamp_msec: 非负单调毫秒；不得早于该 key 仍在预算内的时间高水位。</tag>
 				<tag name="param">mouse_button: 鼠标捕获的首个非滚轮按钮；Touch 时忽略。</tag>
 				<tag name="return">成功时返回新回执；时间未回退的重复同状态 press 更新最后样本并返回现有回执；失败返回 null。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="move_pointer">
@@ -103,7 +103,7 @@
 				<tag name="param">normalized_position: 新的有限 0..1 表面坐标。</tag>
 				<tag name="param">timestamp_msec: 不得早于该捕获上一样本的单调毫秒。</tag>
 				<tag name="return">回执、目标、代际、坐标和时间都合法时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="press_mouse_button">
@@ -118,7 +118,7 @@
 				<tag name="param">timestamp_msec: 非回退单调毫秒。</tag>
 				<tag name="param">mouse_button: 待按下的非滚轮按钮。</tag>
 				<tag name="return">新按钮已推送或该按钮已处于按下状态时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="release_pointer">
@@ -130,7 +130,7 @@
 				<tag name="param">timestamp_msec: 非回退单调毫秒。</tag>
 				<tag name="param">mouse_button: 鼠标待释放的受支持非滚轮按钮；Touch 时忽略。</tag>
 				<tag name="return">回执仍为当前代际，且按钮已释放或已处于释放状态时返回 true；不支持的鼠标按钮返回 false。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="release_pointer_on_surface">
@@ -145,7 +145,7 @@
 				<tag name="param">timestamp_msec: 非回退单调毫秒。</tag>
 				<tag name="param">mouse_button: 鼠标待释放的受支持非滚轮按钮；Touch 时忽略。</tag>
 				<tag name="return">位置与捕获身份合法，且按钮已释放或已处于释放状态时返回 true；不支持的鼠标按钮返回 false。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="cancel_pointer">
@@ -156,7 +156,7 @@
 				<tag name="param">capture: 活动捕获回执。</tag>
 				<tag name="param">timestamp_msec: 非回退单调毫秒。</tag>
 				<tag name="return">回执匹配当前代际且捕获已清理时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="cancel_source">
@@ -168,7 +168,7 @@
 				<tag name="param">timestamp_msec: 终止样本单调毫秒，早于捕获最新样本时自动使用最新值。</tag>
 				<tag name="param">device_id: -1 表示该 source 的全部设备，否则只清理指定非负设备。</tag>
 				<tag name="return">本次移除的捕获数。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="cancel_target">
@@ -180,7 +180,7 @@
 				<tag name="param">target_generation: 只清理与该正整数外部代际完全匹配的捕获。</tag>
 				<tag name="param">timestamp_msec: 终止样本单调毫秒。</tag>
 				<tag name="return">本次移除的捕获数。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="prune_released_captures">
@@ -190,7 +190,7 @@
 				<tag name="api">public</tag>
 				<tag name="param">timestamp_msec: 活目标补发 cancel 时的单调毫秒。</tag>
 				<tag name="return">本次移除的捕获数。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="has_capture">
@@ -200,7 +200,7 @@
 				<tag name="api">public</tag>
 				<tag name="param">capture: 待检查回执。</tag>
 				<tag name="return">桥、key、代际、回执对象和弱目标均仍匹配时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_active_pointer_count">
@@ -209,7 +209,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">不超过配置预算的捕获数。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_click_history_count">
@@ -218,7 +218,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">不超过配置预算的历史条目数。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_pointer_timestamp_count">
@@ -227,7 +227,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">不超过配置预算的最近指针 key 数。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="is_disposed">
@@ -236,7 +236,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">[method dispose] 已调用时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="dispose">
@@ -245,7 +245,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">timestamp_msec: 终止样本单调毫秒；负数视为 0。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 	</methods>

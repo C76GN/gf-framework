@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFUndoableCommand" path="addons/gf/standard/command/gf_undoable_command.gd" module="standard" extends="GFCommand" classDigest="fa2f50c841d69a11a802819c29456d09bbc86d9dd079003fef8194af50f9bf00">
+<class name="GFUndoableCommand" path="addons/gf/standard/command/gf_undoable_command.gd" module="standard" extends="GFCommand" classDigest="eb9a112f3c17c710f6f8ebdc84b85570549e339749e0a9031ccc748c715f44af">
 	<description>GFUndoableCommand: 可撤销命令的抽象基类。
 继承自 GFCommand，在标准命令的基础上新增撤销能力。
 子类须在 execute() 执行前通过 set_snapshot() 保存当前状态快照，
@@ -20,7 +20,7 @@
 防止少量超大 Variant 绕过节点预算。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 	</constants>

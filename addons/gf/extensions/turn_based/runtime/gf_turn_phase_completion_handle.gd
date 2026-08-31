@@ -7,7 +7,7 @@
 ## [br]
 ## @category runtime_handle
 ## [br]
-## @since unreleased
+## @since 11.0.0
 class_name GFTurnPhaseCompletionHandle
 extends RefCounted
 
@@ -24,7 +24,7 @@ var _configured: bool = false
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return: 当前主线程首次完成仍有效的精确运行时返回 true；失效、重复或非主线程调用返回 false。
 func try_complete() -> bool:

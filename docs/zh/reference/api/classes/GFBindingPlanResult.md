@@ -7,7 +7,7 @@
 - 继承：`RefCounted`
 - API：`public`
 - 类别：值对象 (`value_object`)
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 required binding plan 的不可变终态结果。 结果精确标识首个失败 entry、绑定类别、阶段与稳定原因；不保留 Builder、 Architecture、Scope、实例或 Callable 引用，可安全用于诊断与持久化日志。
 
@@ -40,7 +40,7 @@ required binding plan 的不可变终态结果。 结果精确标识首个失败
 ### `Status`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 enum Status {
@@ -62,7 +62,7 @@ Plan 终态。
 ### `BindingKind`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 enum BindingKind {
@@ -86,7 +86,7 @@ enum BindingKind {
 ### `Phase`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 enum Phase {
@@ -112,7 +112,7 @@ enum Phase {
 ### `Reason`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 enum Reason {
@@ -154,7 +154,7 @@ enum Reason {
 ### `is_successful`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func is_successful() -> bool:
@@ -169,7 +169,7 @@ func is_successful() -> bool:
 ### `get_status`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_status() -> Status:
@@ -184,7 +184,7 @@ func get_status() -> Status:
 ### `get_binding_kind`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_binding_kind() -> BindingKind:
@@ -199,7 +199,7 @@ func get_binding_kind() -> BindingKind:
 ### `get_failed_phase`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_failed_phase() -> Phase:
@@ -214,7 +214,7 @@ func get_failed_phase() -> Phase:
 ### `get_reason`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_reason() -> Reason:
@@ -229,7 +229,7 @@ func get_reason() -> Reason:
 ### `get_entry_index`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_entry_index() -> int:
@@ -244,7 +244,7 @@ func get_entry_index() -> int:
 ### `get_binding_id`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_binding_id() -> StringName:
@@ -259,7 +259,7 @@ func get_binding_id() -> StringName:
 ### `get_target_path`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_target_path() -> String:
@@ -274,7 +274,7 @@ func get_target_path() -> String:
 ### `get_lifetime`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_lifetime() -> int:
@@ -289,7 +289,7 @@ func get_lifetime() -> int:
 ### `get_executed_count`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_executed_count() -> int:
@@ -304,7 +304,7 @@ func get_executed_count() -> int:
 ### `get_detail`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_detail() -> String:
@@ -319,7 +319,7 @@ func get_detail() -> String:
 ### `duplicate_result`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func duplicate_result() -> GFBindingPlanResult:
@@ -334,7 +334,7 @@ func duplicate_result() -> GFBindingPlanResult:
 ### `to_dict`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func to_dict() -> Dictionary:

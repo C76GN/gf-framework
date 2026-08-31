@@ -7,7 +7,7 @@
 ## [br]
 ## @category internal_helper
 ## [br]
-## @since unreleased
+## @since 11.0.0
 class_name GFInventoryTransferPlanner
 extends RefCounted
 
@@ -26,7 +26,7 @@ const _MAX_VALUE_BYTES: int = 1048576
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param model: 已由 owner 锁定的来源模型。
 ## [br]
@@ -156,7 +156,7 @@ static func plan_source(
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param model: 已由 owner 锁定的目标模型。
 ## [br]
@@ -301,7 +301,7 @@ static func plan_target(
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param model: 已由 owner 锁定的库存模型。
 ## [br]

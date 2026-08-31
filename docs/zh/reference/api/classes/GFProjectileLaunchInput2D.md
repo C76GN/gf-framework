@@ -7,7 +7,7 @@
 - 继承：`Resource`
 - API：`public`
 - 类别：值对象 (`value_object`)
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 2D 发射请求的 typed 快照。
 
@@ -33,7 +33,7 @@
 ### `TargetKind`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 enum TargetKind {
@@ -55,7 +55,7 @@ enum TargetKind {
 ### `set_target_none`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func set_target_none() -> void:
@@ -68,7 +68,7 @@ func set_target_none() -> void:
 ### `set_target_node`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func set_target_node(node: Node2D) -> void:
@@ -87,7 +87,7 @@ func set_target_node(node: Node2D) -> void:
 ### `set_target_position`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func set_target_position(position_value: Vector2) -> void:
@@ -106,7 +106,7 @@ func set_target_position(position_value: Vector2) -> void:
 ### `get_target_kind`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_target_kind() -> TargetKind:
@@ -121,7 +121,7 @@ func get_target_kind() -> TargetKind:
 ### `get_target_node`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_target_node() -> Node2D:
@@ -136,7 +136,7 @@ func get_target_node() -> Node2D:
 ### `get_target_position`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_target_position() -> Vector2:
@@ -151,7 +151,7 @@ func get_target_position() -> Vector2:
 ### `set_metadata`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func set_metadata(metadata: Dictionary) -> void:
@@ -174,7 +174,7 @@ func set_metadata(metadata: Dictionary) -> void:
 ### `get_metadata`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_metadata() -> Dictionary:
@@ -193,7 +193,7 @@ func get_metadata() -> Dictionary:
 ### `duplicate_input`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func duplicate_input() -> GFProjectileLaunchInput2D:

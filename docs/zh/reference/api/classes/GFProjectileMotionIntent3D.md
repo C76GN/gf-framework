@@ -7,7 +7,7 @@
 - 继承：`RefCounted`
 - API：`public`
 - 类别：值对象 (`value_object`)
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 3D 移动策略的不可变输出。
 
@@ -32,7 +32,7 @@
 ### `Kind`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 enum Kind {
@@ -56,7 +56,7 @@ enum Kind {
 ### `move`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 static func move(velocity: Vector3, delta_seconds: float) -> GFProjectileMotionIntent3D:
@@ -78,7 +78,7 @@ static func move(velocity: Vector3, delta_seconds: float) -> GFProjectileMotionI
 ### `rejected`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 static func rejected(reason: StringName) -> GFProjectileMotionIntent3D:
@@ -99,7 +99,7 @@ static func rejected(reason: StringName) -> GFProjectileMotionIntent3D:
 ### `finish`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 static func finish() -> GFProjectileMotionIntent3D:
@@ -114,7 +114,7 @@ static func finish() -> GFProjectileMotionIntent3D:
 ### `get_kind`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_kind() -> Kind:
@@ -129,7 +129,7 @@ func get_kind() -> Kind:
 ### `get_velocity`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_velocity() -> Vector3:
@@ -144,7 +144,7 @@ func get_velocity() -> Vector3:
 ### `get_delta_seconds`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_delta_seconds() -> float:
@@ -159,7 +159,7 @@ func get_delta_seconds() -> float:
 ### `get_failure_reason`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_failure_reason() -> StringName:
@@ -174,7 +174,7 @@ func get_failure_reason() -> StringName:
 ### `is_valid`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func is_valid() -> bool:

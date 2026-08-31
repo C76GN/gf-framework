@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFProjectileBodyAdapter2D" path="addons/gf/extensions/combat/projectiles/gf_projectile_body_adapter_2d.gd" module="extensions/combat" extends="Resource" classDigest="27136ba7c2fa7de2098892398cdb2a08903d7688d907ae9ad85282233e81e7b8">
+<class name="GFProjectileBodyAdapter2D" path="addons/gf/extensions/combat/projectiles/gf_projectile_body_adapter_2d.gd" module="extensions/combat" extends="Resource" classDigest="79d91a110d47a9ca28b3ffbd710b5a7fe57d77be9315eb7dec445c643516cbb3">
 	<description>GFProjectileBodyAdapter2D: 2D 发射体宿主运动适配协议。</description>
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">protocol</tag>
-		<tag name="since">unreleased</tag>
+		<tag name="since">11.0.0</tag>
 	</tags>
 	<signals />
 	<enums />
@@ -18,7 +18,7 @@
 				<tag name="api">public</tag>
 				<tag name="param">root: 待驱动的完整 projectile root。</tag>
 				<tag name="return">`OK` 表示支持，否则返回确定错误码。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="capture_body">
@@ -28,7 +28,7 @@
 				<tag name="api">public</tag>
 				<tag name="param">root: 已通过 `validate_root()` 的 root。</tag>
 				<tag name="return">当前 transform 与零实际位移的 typed 结果。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="apply_intent">
@@ -39,7 +39,7 @@
 				<tag name="param">root: 已通过 `validate_root()` 的 root。</tag>
 				<tag name="param">intent: 本帧 motion intent。</tag>
 				<tag name="return">应用后的 transform 与实际 world displacement。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="stop">
@@ -49,7 +49,7 @@
 				<tag name="api">public</tag>
 				<tag name="param">root: 已通过 `validate_root()` 的 root。</tag>
 				<tag name="return">停止后的 body 快照。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="_validate_root">
@@ -60,7 +60,7 @@
 				<tag name="param">_root: 待校验 root。</tag>
 				<tag name="return">`OK` 或确定错误码。</tag>
 				<tag name="schema">return: Variant，必须为 `Error` 整数值；其他值由公开入口收窄为 `ERR_INVALID_DATA`。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="_capture_body">
@@ -71,7 +71,7 @@
 				<tag name="param">_root: 已通过校验的 root。</tag>
 				<tag name="return">typed body 结果。</tag>
 				<tag name="schema">return: Variant，必须为 live `GFProjectileBodyResult2D`。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="_apply_intent">
@@ -83,7 +83,7 @@
 				<tag name="param">_intent: 本帧 intent。</tag>
 				<tag name="return">typed body 结果。</tag>
 				<tag name="schema">return: Variant，必须为 live `GFProjectileBodyResult2D`。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="_stop">
@@ -94,7 +94,7 @@
 				<tag name="param">_root: 已通过校验的 root。</tag>
 				<tag name="return">typed body 结果。</tag>
 				<tag name="schema">return: Variant，必须为 live `GFProjectileBodyResult2D`。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 	</methods>

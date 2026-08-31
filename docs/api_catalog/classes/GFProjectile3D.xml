@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFProjectile3D" path="addons/gf/extensions/combat/projectiles/gf_projectile_3d.gd" module="extensions/combat" extends="Node" classDigest="29df3fa5e4743156ac75329e029716b769c1e39c14d68955b0d55781b2f2209d">
+<class name="GFProjectile3D" path="addons/gf/extensions/combat/projectiles/gf_projectile_3d.gd" module="extensions/combat" extends="Node" classDigest="da7d03a70f6c9f16d9add6deaba902413f28cda734319a6e6e2a1fd01329b079">
 	<description>GFProjectile3D: 3D projectile scene 内的 dimension-neutral runtime 节点。</description>
 	<tags>
 		<tag name="api">public</tag>
@@ -13,7 +13,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">session: 本 runtime 的当前 session。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="signal" name="projectile_finished">
@@ -48,7 +48,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">ACTIVE session；未激活或已结束时返回 null。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="is_active">
@@ -57,7 +57,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">当前 session ACTIVE 时为 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 	</methods>

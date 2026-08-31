@@ -4,7 +4,7 @@
 ## [br]
 ## @category protocol
 ## [br]
-## @since unreleased
+## @since 11.0.0
 class_name GFProjectileBodyAdapter2D
 extends Resource
 
@@ -15,7 +15,7 @@ extends Resource
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param root: 待驱动的完整 projectile root。
 ## [br]
@@ -32,7 +32,7 @@ func validate_root(root: Node) -> Error:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param root: 已通过 `validate_root()` 的 root。
 ## [br]
@@ -49,7 +49,7 @@ func capture_body(root: Node) -> GFProjectileBodyResult2D:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param root: 已通过 `validate_root()` 的 root。
 ## [br]
@@ -71,7 +71,7 @@ func apply_intent(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param root: 已通过 `validate_root()` 的 root。
 ## [br]
@@ -90,7 +90,7 @@ func stop(root: Node) -> GFProjectileBodyResult2D:
 ## [br]
 ## @api protected
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param _root: 待校验 root。
 ## [br]
@@ -105,7 +105,7 @@ func _validate_root(_root: Node) -> Variant:
 ## [br]
 ## @api protected
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param _root: 已通过校验的 root。
 ## [br]
@@ -120,7 +120,7 @@ func _capture_body(_root: Node) -> Variant:
 ## [br]
 ## @api protected
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param _root: 已通过校验的 root。
 ## [br]
@@ -140,7 +140,7 @@ func _apply_intent(
 ## [br]
 ## @api protected
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param _root: 已通过校验的 root。
 ## [br]

@@ -8,7 +8,7 @@
 ## [br]
 ## @category runtime_handle
 ## [br]
-## @since unreleased
+## @since 11.0.0
 class_name GFSaveProfileRecoveryLease
 extends RefCounted
 
@@ -19,35 +19,35 @@ extends RefCounted
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const REASON_MISSING: StringName = &"missing"
 
 ## activate 或 switch 目标文档损坏、完整性无效或 Storage family 结构损坏。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const REASON_CORRUPT: StringName = &"corrupt"
 
 ## Lease 尚未被恢复操作消费。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const STATE_AVAILABLE: StringName = &"available"
 
 ## Lease 已被一个恢复操作消费。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const STATE_CLAIMED: StringName = &"claimed"
 
 ## Lease 的 domain generation 或 lifecycle epoch 已过期。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const STATE_STALE: StringName = &"stale"
 
 
@@ -71,7 +71,7 @@ var _state: StringName = STATE_STALE
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 正整数 Lease ID；未配置时为 0。
 func get_lease_id() -> int:
@@ -82,7 +82,7 @@ func get_lease_id() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 正整数事务 ID；未配置时为 0。
 func get_transaction_id() -> int:
@@ -95,7 +95,7 @@ func get_transaction_id() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return switch 恢复的来源 Profile ID；首次 activate 恢复时为空。
 func get_source_profile_id() -> StringName:
@@ -106,7 +106,7 @@ func get_source_profile_id() -> StringName:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return Profile ID。
 func get_profile_id() -> StringName:
@@ -117,7 +117,7 @@ func get_profile_id() -> StringName:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return `REASON_MISSING` 或 `REASON_CORRUPT`。
 func get_reason() -> StringName:
@@ -128,7 +128,7 @@ func get_reason() -> StringName:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return Utility 生命周期内唯一的正整数 domain ID。
 func get_domain_id() -> int:
@@ -139,7 +139,7 @@ func get_domain_id() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 正整数 domain generation。
 func get_domain_generation() -> int:
@@ -150,7 +150,7 @@ func get_domain_generation() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 正整数 lifecycle epoch。
 func get_epoch() -> int:
@@ -161,7 +161,7 @@ func get_epoch() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return `STATE_*` 常量之一。
 func get_state() -> StringName:
@@ -172,7 +172,7 @@ func get_state() -> StringName:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 可用时返回 true。
 func is_available() -> bool:
@@ -183,7 +183,7 @@ func is_available() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 已 claim 时返回 true。
 func is_claimed() -> bool:
@@ -194,7 +194,7 @@ func is_claimed() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 已标记 stale 或从未有效配置时返回 true。
 func is_stale() -> bool:
@@ -207,7 +207,7 @@ func is_stale() -> bool:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param lease_id: Utility 生命周期内唯一的正整数 Lease ID。
 ## [br]
@@ -266,7 +266,7 @@ func configure_for_framework(
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return Lease 身份、绑定 generation/epoch 与当前状态。
 ## [br]
@@ -293,7 +293,7 @@ func inspect_for_framework() -> Dictionary:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param expected_source_profile_id: 当前恢复操作的来源 Profile ID。
 ## [br]
@@ -343,7 +343,7 @@ func claim_for_framework(
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 本次确实从 available 转为 stale 时返回 true。
 func mark_stale_for_framework() -> bool:

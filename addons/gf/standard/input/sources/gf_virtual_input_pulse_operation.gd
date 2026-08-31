@@ -8,7 +8,7 @@
 ## [br]
 ## @category runtime_handle
 ## [br]
-## @since unreleased
+## @since 11.0.0
 class_name GFVirtualInputPulseOperation
 extends RefCounted
 
@@ -19,7 +19,7 @@ extends RefCounted
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param operation: 已进入终态的当前句柄。
 signal completed(operation: GFVirtualInputPulseOperation)
@@ -31,7 +31,7 @@ signal completed(operation: GFVirtualInputPulseOperation)
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 enum Status {
 	## 等待定时、生命周期或显式终止。
 	PENDING,
@@ -76,7 +76,7 @@ var _cancel_token_callback: Callable = Callable()
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param reason: 稳定取消原因；空值会规范化为 cancelled。
 ## [br]
@@ -89,7 +89,7 @@ func cancel(reason: StringName = &"cancelled") -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return: 大于零的 generation；配置失败前可能为 0。
 func get_generation() -> int:
@@ -100,7 +100,7 @@ func get_generation() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return: 创建脉冲时的 source_id。
 func get_source_id() -> StringName:
@@ -111,7 +111,7 @@ func get_source_id() -> StringName:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return: 创建脉冲时的 player_index。
 func get_player_index() -> int:
@@ -122,7 +122,7 @@ func get_player_index() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return: 创建脉冲时的 action_id。
 func get_action_id() -> StringName:
@@ -133,7 +133,7 @@ func get_action_id() -> StringName:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return: 秒数。
 func get_duration_seconds() -> float:
@@ -144,7 +144,7 @@ func get_duration_seconds() -> float:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return: Status 枚举值。
 func get_status() -> Status:
@@ -155,7 +155,7 @@ func get_status() -> Status:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return: 等待中为空 StringName；终态时为稳定原因。
 func get_terminal_reason() -> StringName:
@@ -166,7 +166,7 @@ func get_terminal_reason() -> StringName:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return: 等待中返回 true。
 func is_pending() -> bool:
@@ -177,7 +177,7 @@ func is_pending() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return: 已完成、取消、替换、拒绝或失败时返回 true。
 func is_completed() -> bool:
@@ -188,7 +188,7 @@ func is_completed() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return: 仅当前 lease 实际清除动作贡献时为 1；无释放交接、未取得 lease 或未释放时为 0。
 func get_release_count() -> int:
@@ -199,7 +199,7 @@ func get_release_count() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return: 冻结身份、状态、时长、时间戳与释放证明。
 ## [br]
@@ -230,7 +230,7 @@ func get_debug_snapshot() -> Dictionary:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @layer standard/input
 ## [br]
@@ -302,7 +302,7 @@ func configure_for_framework(
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @layer standard/input
 ## [br]
@@ -327,7 +327,7 @@ func arm_timer_for_framework(timer_utility: GFTimerUtility) -> bool:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @layer standard/input
 ## [br]
@@ -343,7 +343,7 @@ func mark_lease_acquired_for_framework() -> bool:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @layer standard/input
 ## [br]
@@ -366,7 +366,7 @@ func finish_from_mapping_for_framework(
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @layer standard/input
 ## [br]
@@ -408,7 +408,7 @@ func poll_lifecycle_for_framework() -> bool:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @layer standard/input
 ## [br]
@@ -423,7 +423,7 @@ func matches_mapping_for_framework(input_mapping: GFInputMappingUtility) -> bool
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @layer standard/input
 ## [br]

@@ -562,7 +562,7 @@ func configure_compiler_stages(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param profile: 本次编译的导表 Profile。
 ## [br]

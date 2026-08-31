@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFSaveProfileReconcileRequest" path="addons/gf/extensions/save/profile/gf_save_profile_reconcile_request.gd" module="extensions/save" extends="RefCounted" classDigest="4510be7d5530fdd252137d925988a18b0a5026ed8c1bcece539380e3e32ebb50">
+<class name="GFSaveProfileReconcileRequest" path="addons/gf/extensions/save/profile/gf_save_profile_reconcile_request.gd" module="extensions/save" extends="RefCounted" classDigest="f8ae72c30c61b57d9f15275a6db4f252c632f0a3668f02239e4da04a97d7eb45">
 	<description>GFSaveProfileReconcileRequest: uncertain 写入对账的一次性请求句柄。
 请求只携带调用方纯数据上下文和结果元数据，不携带 Recovery/Reconcile Lease
 身份。Lease 必须作为独立类型化参数提交，避免从 Dictionary 恢复所有权。
@@ -7,7 +7,7 @@
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">runtime_handle</tag>
-		<tag name="since">unreleased</tag>
+		<tag name="since">11.0.0</tag>
 	</tags>
 	<signals />
 	<enums />
@@ -26,7 +26,7 @@
 				<tag name="return">可用请求；输入无效时返回 null。</tag>
 				<tag name="schema">context: Bounded Dictionary without Callable, Signal, RID, Object, or circular references whose source aliases are abandoned after success.</tag>
 				<tag name="schema">result_metadata: Bounded Dictionary without Callable, Signal, RID, Object, or circular references whose source aliases are abandoned after success.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="is_available">
@@ -35,7 +35,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">尚未 claim 时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="is_claimed">
@@ -44,7 +44,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">已成功 claim 时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 	</methods>

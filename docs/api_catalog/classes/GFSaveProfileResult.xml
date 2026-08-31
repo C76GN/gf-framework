@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFSaveProfileResult" path="addons/gf/extensions/save/profile/gf_save_profile_result.gd" module="extensions/save" extends="RefCounted" classDigest="0d260f0ed54273194d3c2d8db0819aea3794809c07d6edaff9fa3d9aaf81a47f">
+<class name="GFSaveProfileResult" path="addons/gf/extensions/save/profile/gf_save_profile_result.gd" module="extensions/save" extends="RefCounted" classDigest="479c1a6007630c80ed9871ef42f1fca72078ebea94da478d4ed16d45e94f8ef6">
 	<description>GFSaveProfileResult: Save Profile 操作的不可变终态快照。
 结果同时保留 profile generation、底层存储结果、迁移/校验证据和回滚错误，
 调用方无需从错误文本反推失败阶段。</description>
@@ -56,7 +56,7 @@
 			<description>保存请求句柄无效或已经被接管。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="STATUS_UNSUPPORTED_OPERATION">
@@ -80,7 +80,7 @@
 			<description>section Snapshot 准备或 worker 载荷预检失败。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="STATUS_SNAPSHOT_FAILED">
@@ -363,7 +363,7 @@ load 结果中提供文档。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">单调毫秒耗时。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_storage_duration_msec">
@@ -373,7 +373,7 @@ load 结果中提供文档。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">单调毫秒耗时。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_preparation_work_units">
@@ -382,7 +382,7 @@ load 结果中提供文档。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">非负 work units。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_metadata">

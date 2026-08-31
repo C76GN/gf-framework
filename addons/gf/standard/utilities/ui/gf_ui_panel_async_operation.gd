@@ -7,7 +7,7 @@
 ## [br]
 ## @category runtime_handle
 ## [br]
-## @since unreleased
+## @since 11.0.0
 class_name GFUIPanelAsyncOperation
 extends RefCounted
 
@@ -18,7 +18,7 @@ extends RefCounted
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param handle: 已完成的当前句柄。
 signal completed(handle: GFUIPanelAsyncOperation)
@@ -30,21 +30,21 @@ signal completed(handle: GFUIPanelAsyncOperation)
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const STATUS_PENDING: int = -1
 
 ## 压入面板操作。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const OPERATION_PUSH: StringName = &"push"
 
 ## 替换层级操作。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const OPERATION_REPLACE: StringName = &"replace"
 const _STATUS_OPENED: int = 0
 const _STATUS_FAILED: int = 1
@@ -68,7 +68,7 @@ var _configured: bool = false
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return: 配置后为大于零的请求序号；未配置时为 0。
 func get_serial() -> int:
@@ -79,7 +79,7 @@ func get_serial() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return: 请求创建时冻结的场景路径。
 func get_path() -> String:
@@ -90,7 +90,7 @@ func get_path() -> String:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return: 请求创建时冻结的逻辑层 ID。
 func get_layer() -> int:
@@ -101,7 +101,7 @@ func get_layer() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return: `OPERATION_*` 常量之一。
 func get_operation() -> StringName:
@@ -112,7 +112,7 @@ func get_operation() -> StringName:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return: 已配置且尚未完成时返回 true。
 func is_pending() -> bool:
@@ -123,7 +123,7 @@ func is_pending() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return: 已完成时返回 true。
 func is_completed() -> bool:
@@ -134,7 +134,7 @@ func is_completed() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return: 等待中返回 STATUS_PENDING；完成后返回 GFUIUtility.AsyncPanelLoadStatus。
 func get_status() -> int:
@@ -147,7 +147,7 @@ func get_status() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return: 当前仍有效的成功面板；否则返回 null。
 func get_panel() -> Node:
@@ -164,7 +164,7 @@ func get_panel() -> Node:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return: 请求身份与终态摘要。
 ## [br]
@@ -190,7 +190,7 @@ func get_debug_snapshot() -> Dictionary:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param serial: 同一 GFUIUtility 实例内全局单调的请求序号。
 ## [br]
@@ -223,7 +223,7 @@ func configure_for_framework(
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param status: GFUIUtility.AsyncPanelLoadStatus 终态。
 ## [br]

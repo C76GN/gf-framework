@@ -6,7 +6,7 @@
 ## [br]
 ## @category resource_definition
 ## [br]
-## @since unreleased
+## @since 11.0.0
 class_name GFLayeredSpriteDefinition
 extends Resource
 
@@ -17,19 +17,19 @@ extends Resource
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 @export var timeline_frames: SpriteFrames = null
 
 ## 配置完成后使用的初始动画。为空时按动画名称稳定排序后选择第一项。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 @export var default_animation: StringName = &""
 
 ## 分层定义集合。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 @export var layers: Array[GFLayeredSpriteLayerDefinition] = []

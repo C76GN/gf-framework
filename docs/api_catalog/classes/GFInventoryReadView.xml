@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFInventoryReadView" path="addons/gf/extensions/domain/inventory/gf_inventory_read_view.gd" module="extensions/domain" extends="RefCounted" classDigest="7360227fa088fcc8f6a791f576a261dd3bcb780d70f71238a864ec9c13201c88">
+<class name="GFInventoryReadView" path="addons/gf/extensions/domain/inventory/gf_inventory_read_view.gd" module="extensions/domain" extends="RefCounted" classDigest="0a5e673465ae9c40da48b95b879865794ad33d773adbb1318535cbab006e70d1">
 	<description>GFInventoryReadView: 槽位接收回调的临时只读库存投影。
 库存模型与原子转移规划器会为每次槽位接收检查创建此视图。查询反映
 当前逐步候选，因而后续槽位可观察此前写入；视图不暴露可变库存引用。
@@ -7,7 +7,7 @@
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">runtime_handle</tag>
-		<tag name="since">unreleased</tag>
+		<tag name="since">11.0.0</tag>
 	</tags>
 	<signals />
 	<enums />
@@ -20,7 +20,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">仍可查询时返回 true；回调返回后为 false。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_slot_count">
@@ -29,7 +29,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">当前候选槽位数量；失效后返回 0。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="is_valid_slot">
@@ -39,7 +39,7 @@
 				<tag name="api">public</tag>
 				<tag name="param">slot_index: 槽位索引。</tag>
 				<tag name="return">视图有效且索引存在时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_stack">
@@ -49,7 +49,7 @@
 				<tag name="api">public</tag>
 				<tag name="param">slot_index: 槽位索引。</tag>
 				<tag name="return">候选堆叠副本；空槽、无效索引或失效视图返回 null。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_stack_data">
@@ -60,7 +60,7 @@
 				<tag name="param">slot_index: 槽位索引。</tag>
 				<tag name="return">候选堆叠字典；空槽、无效索引或失效视图返回空字典。</tag>
 				<tag name="schema">return: Dictionary，包含 item_id、amount 与 instance_data。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="is_slot_empty">
@@ -70,7 +70,7 @@
 				<tag name="api">public</tag>
 				<tag name="param">slot_index: 槽位索引。</tag>
 				<tag name="return">空槽返回 true；无效索引或失效视图也返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_item_total">
@@ -82,7 +82,7 @@
 				<tag name="param">instance_data: 可选实例数据过滤条件；空字典匹配全部同 ID 堆叠。</tag>
 				<tag name="return">候选总数量；失效视图返回 0。</tag>
 				<tag name="schema">instance_data: Dictionary，项目自定义物品实例数据。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="has_item">
@@ -95,7 +95,7 @@
 				<tag name="param">instance_data: 可选实例数据过滤条件。</tag>
 				<tag name="return">数量足够返回 true。</tag>
 				<tag name="schema">instance_data: Dictionary，项目自定义物品实例数据。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_empty_slot_indices">
@@ -104,7 +104,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">空槽位索引；失效视图返回空数组。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_occupied_slot_indices">
@@ -113,7 +113,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">已占用槽位索引；失效视图返回空数组。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_slots_for_item">
@@ -125,7 +125,7 @@
 				<tag name="param">instance_data: 可选实例数据过滤条件；空字典匹配全部同 ID 堆叠。</tag>
 				<tag name="return">匹配槽位索引；失效视图返回空数组。</tag>
 				<tag name="schema">instance_data: Dictionary，项目自定义物品实例数据。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 	</methods>

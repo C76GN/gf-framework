@@ -7,7 +7,7 @@
 ## [br]
 ## @category runtime_service
 ## [br]
-## @since unreleased
+## @since 11.0.0
 class_name GFLayeredSprite2D
 extends Node2D
 
@@ -18,14 +18,14 @@ extends Node2D
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 signal configuration_changed
 
 ## 动画开始或恢复播放时发出。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param animation: 已开始或恢复的动画 ID。
 signal animation_started(animation: StringName)
@@ -34,7 +34,7 @@ signal animation_started(animation: StringName)
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param animation: 已到达非循环边界的动画 ID。
 signal animation_finished(animation: StringName)
@@ -43,7 +43,7 @@ signal animation_finished(animation: StringName)
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param animation: 当前动画 ID。
 ## [br]
@@ -54,7 +54,7 @@ signal frame_changed(animation: StringName, frame: int)
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param layer_id: 已切换的稳定层 ID。
 ## [br]
@@ -68,56 +68,56 @@ signal layer_variant_changed(layer_id: StringName, variant_id: StringName)
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const MAX_LAYERS: int = 32
 
 ## 单层允许的最大变体数。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const MAX_VARIANTS_PER_LAYER: int = 64
 
 ## 时间轴允许的最大动画数。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const MAX_ANIMATIONS: int = 128
 
 ## 单动画允许的最大帧数。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const MAX_FRAMES_PER_ANIMATION: int = 4096
 
 ## 一个配置允许引用的最大总帧数。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const MAX_TOTAL_FRAME_REFERENCES: int = 65536
 
 ## 一个配置允许引用的最大唯一纹理数。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const MAX_UNIQUE_TEXTURES: int = 8192
 
 ## 单次推进允许跨越的最大帧边界数。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const MAX_FRAME_ADVANCES_PER_TICK: int = 4096
 
 ## 播放速度绝对值上限。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const MAX_SPEED_SCALE: float = 1024.0
 
 const _MAX_ID_LENGTH: int = 128
@@ -188,7 +188,7 @@ func _draw() -> void:
 ## [br]
 ## @return: 配置完整有效且已替换时返回 true；失败时保留原配置。
 ## [br]
-## @since unreleased
+## @since 11.0.0
 func configure(definition: GFLayeredSpriteDefinition) -> bool:
 	if _configuration_in_progress:
 		return _reject(&"configuration_reentry")
@@ -232,7 +232,7 @@ func configure(definition: GFLayeredSpriteDefinition) -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 func clear_configuration() -> void:
 	var identity_changed: bool = _timeline_frames != null or _current_animation != &""
 	stop(false)
@@ -258,7 +258,7 @@ func clear_configuration() -> void:
 ## [br]
 ## @return: 已配置时返回 true。
 ## [br]
-## @since unreleased
+## @since 11.0.0
 func is_configured() -> bool:
 	return _timeline_frames != null and not _layer_states.is_empty()
 
@@ -269,7 +269,7 @@ func is_configured() -> bool:
 ## [br]
 ## @return: 与内部数组隔离的动画名称数组。
 ## [br]
-## @since unreleased
+## @since 11.0.0
 func get_animation_names() -> Array[StringName]:
 	return _animation_names.duplicate()
 
@@ -280,7 +280,7 @@ func get_animation_names() -> Array[StringName]:
 ## [br]
 ## @return: 与内部数组隔离的层 ID 数组。
 ## [br]
-## @since unreleased
+## @since 11.0.0
 func get_layer_ids() -> Array[StringName]:
 	var result: Array[StringName] = []
 	for layer_state: Dictionary in _layer_states:
@@ -304,7 +304,7 @@ func get_layer_ids() -> Array[StringName]:
 ## [br]
 ## @return: 参数有效且已开始播放时返回 true。
 ## [br]
-## @since unreleased
+## @since 11.0.0
 func play(
 	animation: StringName,
 	speed_scale: float = 1.0,
@@ -357,7 +357,7 @@ func play(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 func pause() -> void:
 	_playing = false
 	_last_rejection_reason = &""
@@ -371,7 +371,7 @@ func pause() -> void:
 ## [br]
 ## @param reset_to_start: 是否将当前动画重置到首帧。
 ## [br]
-## @since unreleased
+## @since 11.0.0
 func stop(reset_to_start: bool = true) -> void:
 	var frame_identity_changed: bool = (
 		reset_to_start
@@ -403,7 +403,7 @@ func stop(reset_to_start: bool = true) -> void:
 ## [br]
 ## @return: 定位参数有效时返回 true。
 ## [br]
-## @since unreleased
+## @since 11.0.0
 func seek(frame: int, frame_progress: float = 0.0) -> bool:
 	if _timeline_frames == null or _current_animation == &"":
 		return _reject(&"not_configured")
@@ -434,7 +434,7 @@ func seek(frame: int, frame_progress: float = 0.0) -> bool:
 ## [br]
 ## @return: 完整消费本次推进量时返回 true；参数非法或跨帧预算耗尽时返回 false。
 ## [br]
-## @since unreleased
+## @since 11.0.0
 func advance(delta_seconds: float) -> bool:
 	if not _is_finite_float(delta_seconds) or delta_seconds < 0.0:
 		return _reject(&"invalid_delta")
@@ -487,7 +487,7 @@ func advance(delta_seconds: float) -> bool:
 ## [br]
 ## @return: 正在自动推进时返回 true。
 ## [br]
-## @since unreleased
+## @since 11.0.0
 func is_playing() -> bool:
 	return _playing
 
@@ -498,7 +498,7 @@ func is_playing() -> bool:
 ## [br]
 ## @return: 当前动画 ID；未配置时为空。
 ## [br]
-## @since unreleased
+## @since 11.0.0
 func get_current_animation() -> StringName:
 	return _current_animation
 
@@ -509,7 +509,7 @@ func get_current_animation() -> StringName:
 ## [br]
 ## @return: 当前帧索引。
 ## [br]
-## @since unreleased
+## @since 11.0.0
 func get_current_frame() -> int:
 	return _current_frame
 
@@ -520,7 +520,7 @@ func get_current_frame() -> int:
 ## [br]
 ## @return: 当前帧内进度。
 ## [br]
-## @since unreleased
+## @since 11.0.0
 func get_frame_progress() -> float:
 	return _frame_progress
 
@@ -535,7 +535,7 @@ func get_frame_progress() -> float:
 ## [br]
 ## @return: 层和变体均存在时返回 true。
 ## [br]
-## @since unreleased
+## @since 11.0.0
 func set_layer_variant(layer_id: StringName, variant_id: StringName) -> bool:
 	var layer_state: Dictionary = GFVariantData.as_dictionary(_layers_by_id.get(layer_id, {}))
 	if layer_state.is_empty():
@@ -561,7 +561,7 @@ func set_layer_variant(layer_id: StringName, variant_id: StringName) -> bool:
 ## [br]
 ## @return: 当前变体 ID；层不存在时为空。
 ## [br]
-## @since unreleased
+## @since 11.0.0
 func get_layer_variant(layer_id: StringName) -> StringName:
 	var layer_state: Dictionary = GFVariantData.as_dictionary(_layers_by_id.get(layer_id, {}))
 	return GFVariantData.get_option_string_name(layer_state, "variant_id")
@@ -577,7 +577,7 @@ func get_layer_variant(layer_id: StringName) -> StringName:
 ## [br]
 ## @return: 层存在时返回 true。
 ## [br]
-## @since unreleased
+## @since 11.0.0
 func set_layer_visible(layer_id: StringName, layer_visible: bool) -> bool:
 	var layer_state: Dictionary = GFVariantData.as_dictionary(_layers_by_id.get(layer_id, {}))
 	if layer_state.is_empty():
@@ -596,7 +596,7 @@ func set_layer_visible(layer_id: StringName, layer_visible: bool) -> bool:
 ## [br]
 ## @return: 层存在且可见时返回 true。
 ## [br]
-## @since unreleased
+## @since 11.0.0
 func is_layer_visible(layer_id: StringName) -> bool:
 	var layer_state: Dictionary = GFVariantData.as_dictionary(_layers_by_id.get(layer_id, {}))
 	return not layer_state.is_empty() and GFVariantData.get_option_bool(layer_state, "visible")
@@ -612,7 +612,7 @@ func is_layer_visible(layer_id: StringName) -> bool:
 ## [br]
 ## @return: 层存在且颜色分量均有限时返回 true。
 ## [br]
-## @since unreleased
+## @since 11.0.0
 func set_layer_modulate(layer_id: StringName, layer_modulate: Color) -> bool:
 	var layer_state: Dictionary = GFVariantData.as_dictionary(_layers_by_id.get(layer_id, {}))
 	if layer_state.is_empty():
@@ -635,7 +635,7 @@ func set_layer_modulate(layer_id: StringName, layer_modulate: Color) -> bool:
 ## [br]
 ## @return: 层存在且偏移分量均有限时返回 true。
 ## [br]
-## @since unreleased
+## @since 11.0.0
 func set_layer_offset(layer_id: StringName, layer_offset: Vector2) -> bool:
 	var layer_state: Dictionary = GFVariantData.as_dictionary(_layers_by_id.get(layer_id, {}))
 	if layer_state.is_empty():
@@ -654,7 +654,7 @@ func set_layer_offset(layer_id: StringName, layer_offset: Vector2) -> bool:
 ## [br]
 ## @return: 稳定原因 ID；最近一次操作成功时为空。
 ## [br]
-## @since unreleased
+## @since 11.0.0
 func get_last_rejection_reason() -> StringName:
 	return _last_rejection_reason
 

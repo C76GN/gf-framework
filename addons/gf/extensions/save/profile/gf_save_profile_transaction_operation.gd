@@ -7,7 +7,7 @@
 ## [br]
 ## @category runtime_handle
 ## [br]
-## @since unreleased
+## @since 11.0.0
 class_name GFSaveProfileTransactionOperation
 extends RefCounted
 
@@ -18,7 +18,7 @@ extends RefCounted
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param result: 不包含 Provider payload 的隔离终态结果。
 signal completed(result: GFSaveProfileTransactionResult)
@@ -30,56 +30,56 @@ signal completed(result: GFSaveProfileTransactionResult)
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const OPERATION_ACTIVATE: StringName = &"activate"
 
 ## 从当前活跃 Profile 事务切换到另一个已存在 Profile。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const OPERATION_SWITCH: StringName = &"switch"
 
 ## 用当前 Provider 状态显式创建缺失 Profile 并激活。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const OPERATION_BOOTSTRAP: StringName = &"bootstrap"
 
 ## 显式采用当前 Provider 状态作为恢复后的活跃 Profile。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const OPERATION_ADOPT: StringName = &"adopt"
 
 ## 从活动来源重新 flush 后，以当前 Provider 状态创建缺失目标并原子切换。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const OPERATION_BOOTSTRAP_AND_SWITCH: StringName = &"bootstrap_and_switch"
 
 ## 从活动来源重新 flush 后，以当前 Provider 状态覆盖损坏目标并原子切换。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const OPERATION_ADOPT_AND_SWITCH: StringName = &"adopt_and_switch"
 
 ## 应用完整候选 section 并持久化。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const OPERATION_MUTATE_AND_PERSIST: StringName = &"mutate_and_persist"
 
 ## 对账此前 outcome_unknown 的事务。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const OPERATION_RECONCILE: StringName = &"reconcile"
 
 
@@ -101,7 +101,7 @@ var _completion_emitted: bool = false
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return `OPERATION_*` 常量之一。
 func get_operation() -> StringName:
@@ -112,7 +112,7 @@ func get_operation() -> StringName:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 正整数事务 ID；尚未配置时为 0。
 func get_transaction_id() -> int:
@@ -126,7 +126,7 @@ func get_transaction_id() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 来源 Profile ID；不适用时为空。
 func get_source_profile_id() -> StringName:
@@ -137,7 +137,7 @@ func get_source_profile_id() -> StringName:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 目标 Profile ID；不适用时为空。
 func get_target_profile_id() -> StringName:
@@ -148,7 +148,7 @@ func get_target_profile_id() -> StringName:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 尚未运行或完成时返回 true。
 func is_pending() -> bool:
@@ -159,7 +159,7 @@ func is_pending() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 已启动但无终态时返回 true。
 func is_running() -> bool:
@@ -170,7 +170,7 @@ func is_running() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 已完成时返回 true。
 func is_completed() -> bool:
@@ -183,7 +183,7 @@ func is_completed() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 已完成结果；等待中返回 null。
 func get_result() -> GFSaveProfileTransactionResult:
@@ -196,7 +196,7 @@ func get_result() -> GFSaveProfileTransactionResult:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param operation: `OPERATION_*` 常量之一。
 ## [br]
@@ -232,7 +232,7 @@ func configure_for_framework(
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 从 pending 转为 running 时返回 true。
 func start_for_framework() -> bool:
@@ -246,7 +246,7 @@ func start_for_framework() -> bool:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param result: 与当前句柄事务身份一致的唯一终态结果。
 ## [br]
@@ -270,7 +270,7 @@ func complete_for_framework(result: GFSaveProfileTransactionResult) -> bool:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 首次发出终态信号时返回 true。
 func emit_completed_for_framework() -> bool:
@@ -285,7 +285,7 @@ func emit_completed_for_framework() -> bool:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 非负单调毫秒时间。
 func get_started_at_msec_for_framework() -> int:

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFStorageUtility" path="addons/gf/standard/utilities/storage/gf_storage_utility.gd" module="standard" extends="GFUtility" classDigest="b123840ce41983139f7709b47136f6ce41662494f5a8dbe78962d57b3006c49d">
+<class name="GFStorageUtility" path="addons/gf/standard/utilities/storage/gf_storage_utility.gd" module="standard" extends="GFUtility" classDigest="edef5406a3eef901fca9b3cc82ff48e138a0e4acd622585a2f93063ac49a62a1">
 	<description>GFStorageUtility: 基于 `user://` 的轻量存档系统。
 支持槽位存档、元数据分离读取、`Resource` 存取，
 以及可配置 codec、完整性校验、版本迁移和简单混淆，适合通用本地持久化场景。
@@ -66,7 +66,7 @@
 			<description>异步 Storage 请求的执行模式。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 	</enums>
@@ -198,7 +198,7 @@
 			<description>异步 Storage 请求的执行模式。首个合法异步请求入队后冻结。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="max_async_thread_count">
@@ -274,7 +274,7 @@ cooperative 模式固定每个 lifecycle tick 最多执行一个任务。</descr
 				<tag name="api">public</tag>
 				<tag name="param">_scope: 当前 Storage 激活阶段的取消作用域。</tag>
 				<tag name="return">成功打开 I/O 准入；否则返回失败终态。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="begin_quiesce">
@@ -285,7 +285,7 @@ cooperative 模式固定每个 lifecycle tick 最多执行一个任务。</descr
 				<tag name="api">public</tag>
 				<tag name="param">scope: 当前 Storage 静默阶段的取消作用域。</tag>
 				<tag name="return">队列、任务和锁全部终态后成功的一次性完成源。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="save_resource">
@@ -331,7 +331,7 @@ cooperative 模式固定每个 lifecycle tick 最多执行一个任务。</descr
 				<tag name="api">public</tag>
 				<tag name="param">file_name: portable logical file identity。</tag>
 				<tag name="return">catalog、owner 与 payload 均有效时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="delete_file">
@@ -355,7 +355,7 @@ cooperative 模式固定每个 lifecycle tick 最多执行一个任务。</descr
 				<tag name="param">file_name: portable logical file identity。</tag>
 				<tag name="param">options: 可选 caller owner、取消 token 与单调 deadline；null 表示无 caller 生命周期约束。</tag>
 				<tag name="return">已配置的 typed 请求句柄；路径或生命周期校验失败时立即进入失败终态。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="create_family_reset_authorization">
@@ -369,7 +369,7 @@ cooperative 模式固定每个 lifecycle tick 最多执行一个任务。</descr
 				<tag name="param">file_name: portable logical file identity。</tag>
 				<tag name="param">observed_result: 调用方已经检查并决定破坏性恢复的 CORRUPT 读取结果。</tag>
 				<tag name="return">可用的一次性授权；输入或读取分类不匹配时返回 stale 授权。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="reset_file_family">
@@ -383,7 +383,7 @@ cooperative 模式固定每个 lifecycle tick 最多执行一个任务。</descr
 				<tag name="param">file_name: 必须与 authorization 绑定完全一致的 portable logical identity。</tag>
 				<tag name="param">authorization: 由 create_family_reset_authorization() 创建的一次性授权。</tag>
 				<tag name="return">reset/recreate 的不可变 typed 终态。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="reset_file_family_request_async">
@@ -395,7 +395,7 @@ cooperative 模式固定每个 lifecycle tick 最多执行一个任务。</descr
 				<tag name="param">authorization: 由 create_family_reset_authorization() 创建的一次性授权。</tag>
 				<tag name="param">options: 可选 caller owner、取消 token 与单调 deadline。</tag>
 				<tag name="return">请求专属句柄；终态通过 GFStorageAsyncResult.get_reset_result() 读取。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="save_data">
@@ -480,7 +480,7 @@ Storage 实例、规范文件名与 codec options。同一 transfer 可在旧 at
 				<tag name="param">transfer: 已通过 take_ownership() 接收 payload 的 opaque transfer。</tag>
 				<tag name="param">options: 可选 caller owner、取消 token 与单调 deadline；null 表示无 caller 生命周期约束。</tag>
 				<tag name="return">已配置请求句柄；输入无效或启动失败时句柄立即进入失败终态。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="load_data_async">
@@ -514,7 +514,7 @@ family 私有身份。返回值为深复制，调用方修改不会影响 Utilit
 				<tag name="api">public</tag>
 				<tag name="return">最旧到最新排列的有界 late settlement 诊断副本。</tag>
 				<tag name="schema">return: Array of exact Dictionary entries with consumer_id, request_id, operation, file_name, caller_status, caller_end_kind, caller_reason, caller_completed_msec, worker_accepted, physical_cancel_requested, settlement_kind, physical_ok, physical_error_code, physical_completed_msec, late_duration_msec, read_failure_kind, write_failure_kind, delete_failure_kind, delete_existing_member_count, delete_removed_member_count, delete_remaining_member_count, delete_failed_member, reset_failure_kind, reset_source_kind, reset_failed_phase, reset_retired_member_count, reset_recreated_member_count, reset_remaining_evidence_count, and reset_failed_member fields.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="wait_for_async_tasks">

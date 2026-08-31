@@ -7,7 +7,7 @@
 - 继承：`RefCounted`
 - API：`public`
 - 类别：协议与扩展点 (`protocol`)
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 表格结构化行过滤协议。 项目通过子类实现同步、只读、有界且无副作用的行判断。 GFTableDataView 按注册顺序契约组合多个谓词，并把显式失败视为整次投影失败。
 
@@ -25,7 +25,7 @@
 ### `evaluate`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func evaluate(row_view: GFTableRowView) -> GFTableRowPredicateResult:
@@ -46,7 +46,7 @@ func evaluate(row_view: GFTableRowView) -> GFTableRowPredicateResult:
 ### `_evaluate`
 
 - API：`protected`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func _evaluate(_row_view: GFTableRowView) -> GFTableRowPredicateResult:

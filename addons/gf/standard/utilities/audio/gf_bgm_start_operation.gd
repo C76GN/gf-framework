@@ -7,7 +7,7 @@
 ## [br]
 ## @category runtime_handle
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @layer standard/utilities/audio
 class_name GFBgmStartOperation
@@ -23,7 +23,7 @@ extends RefCounted
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param result: 当前请求的隔离终态结果。
 signal completed(result: GFBgmStartResult)
@@ -44,7 +44,7 @@ var _completed_signal_emitted: bool = false
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 大于零的请求 ID；尚未配置时返回 0。
 func get_request_id() -> int:
@@ -55,7 +55,7 @@ func get_request_id() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 已配置且尚未完成时返回 true。
 func is_pending() -> bool:
@@ -66,7 +66,7 @@ func is_pending() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 已有终态结果时返回 true。
 func is_completed() -> bool:
@@ -77,7 +77,7 @@ func is_completed() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 已完成时返回隔离结果；等待中返回 null。
 func get_result() -> GFBgmStartResult:
@@ -92,7 +92,7 @@ func get_result() -> GFBgmStartResult:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 本次调用首次取消等待请求时返回 true。
 func cancel() -> bool:
@@ -118,7 +118,7 @@ func cancel() -> bool:
 ## [br]
 ## @layer standard/utilities/audio
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param request_id: Utility 内唯一且大于零的请求 ID。
 ## [br]
@@ -144,7 +144,7 @@ func configure_for_framework(request_id: int, cancel_delegate: Callable) -> bool
 ## [br]
 ## @layer standard/utilities/audio
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param result: 与当前请求 ID 匹配的闭合终态结果。
 ## [br]
@@ -182,7 +182,7 @@ func complete_for_framework(
 ## [br]
 ## @layer standard/utilities/audio
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 首次发出已冻结终态时返回 true。
 func emit_completed_for_framework() -> bool:

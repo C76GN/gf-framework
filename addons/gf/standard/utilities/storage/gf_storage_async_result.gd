@@ -21,7 +21,7 @@ extends RefCounted
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 enum SettlementKind {
 	## 存在对应 save/load/delete/reset 类型化领域结果；也包含接纳前校验或启动失败。
 	DOMAIN_RESULT,
@@ -33,7 +33,7 @@ enum SettlementKind {
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 enum WriteFailureKind {
 	## 写入成功，或当前结果不是写入请求。
 	NONE,
@@ -106,7 +106,7 @@ func get_file_name() -> String:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return `DOMAIN_RESULT` 或接纳前 `CANCELLED`。
 func get_settlement_kind() -> SettlementKind:
@@ -117,7 +117,7 @@ func get_settlement_kind() -> SettlementKind:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 请求在 worker 接纳前被取消时返回 true。
 func is_cancelled() -> bool:
@@ -161,7 +161,7 @@ func get_read_result() -> GFStorageReadResult:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return `DOMAIN_RESULT` delete 请求的结果；save/load/reset 或 `CANCELLED` 返回 null。
 func get_delete_result() -> GFStorageDeleteResult:
@@ -172,7 +172,7 @@ func get_delete_result() -> GFStorageDeleteResult:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return DOMAIN_RESULT reset 请求的结果；save/load/delete 或 CANCELLED 返回 null。
 func get_reset_result() -> GFStorageFamilyResetResult:
@@ -183,7 +183,7 @@ func get_reset_result() -> GFStorageFamilyResetResult:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return `WriteFailureKind` 枚举值；成功、load/delete/reset 或 `CANCELLED` 为 NONE。
 func get_write_failure_kind() -> WriteFailureKind:
@@ -194,7 +194,7 @@ func get_write_failure_kind() -> WriteFailureKind:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 包含 ok、failure_kind、failure_path、path_segments、variant_type、visited_values 和 visited_bytes 的隔离字典；未执行预检时为空。
 ## [br]
@@ -336,7 +336,7 @@ func configure_for_framework(
 ## [br]
 ## @layer standard/utilities/storage
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param request_id: Utility 内唯一且大于零的请求 ID。
 ## [br]

@@ -7,7 +7,7 @@
 - 继承：`Resource`
 - API：`public`
 - 类别：协议与扩展点 (`protocol`)
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 3D 发射体宿主运动适配协议。
 
@@ -31,7 +31,7 @@
 ### `validate_root`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func validate_root(root: Node) -> Error:
@@ -52,7 +52,7 @@ func validate_root(root: Node) -> Error:
 ### `capture_body`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func capture_body(root: Node) -> GFProjectileBodyResult3D:
@@ -73,7 +73,7 @@ func capture_body(root: Node) -> GFProjectileBodyResult3D:
 ### `apply_intent`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func apply_intent( root: Node, intent: GFProjectileMotionIntent3D ) -> GFProjectileBodyResult3D:
@@ -95,7 +95,7 @@ func apply_intent( root: Node, intent: GFProjectileMotionIntent3D ) -> GFProject
 ### `stop`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func stop(root: Node) -> GFProjectileBodyResult3D:
@@ -116,7 +116,7 @@ func stop(root: Node) -> GFProjectileBodyResult3D:
 ### `_validate_root`
 
 - API：`protected`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func _validate_root(_root: Node) -> Variant:
@@ -141,7 +141,7 @@ func _validate_root(_root: Node) -> Variant:
 ### `_capture_body`
 
 - API：`protected`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func _capture_body(_root: Node) -> Variant:
@@ -166,7 +166,7 @@ func _capture_body(_root: Node) -> Variant:
 ### `_apply_intent`
 
 - API：`protected`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func _apply_intent( _root: Node, _intent: GFProjectileMotionIntent3D ) -> Variant:
@@ -192,7 +192,7 @@ func _apply_intent( _root: Node, _intent: GFProjectileMotionIntent3D ) -> Varian
 ### `_stop`
 
 - API：`protected`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func _stop(_root: Node) -> Variant:

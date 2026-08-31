@@ -79,7 +79,7 @@ func execute(context: GFSequenceContext) -> Variant:
 ### `cancel`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func cancel(context: GFSequenceContext) -> void:

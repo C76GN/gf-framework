@@ -59,21 +59,21 @@ const DEFAULT_PROJECT_OUTPUT_PATH: String = _GF_PROJECT_ARTIFACT_PATHS_SCRIPT.PR
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const ACCESS_SCOPE_INHERITED: StringName = &"inherited"
 
 ## 访问器只解析传入架构的本地模块。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const ACCESS_SCOPE_LOCAL: StringName = &"local"
 
 ## 每个生成类型的冻结访问策略 ProjectSettings 键。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const ACCESS_POLICIES_SETTING: String = "gf/codegen/access_policies"
 const _ACCESS_POLICY_KEYS: Array[String] = ["scope", "required", "require_ready"]
 const _BASE_MODEL_SCRIPT = preload("res://addons/gf/kernel/base/gf_model.gd")

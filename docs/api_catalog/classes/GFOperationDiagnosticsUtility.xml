@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFOperationDiagnosticsUtility" path="addons/gf/standard/utilities/debug/gf_operation_diagnostics_utility.gd" module="standard" extends="GFUtility" classDigest="4326ad5572c6b349d39e8dd87a195832ecc12265842961a4efe7dc2d7b97946b">
+<class name="GFOperationDiagnosticsUtility" path="addons/gf/standard/utilities/debug/gf_operation_diagnostics_utility.gd" module="standard" extends="GFUtility" classDigest="dcd1d1ab00f616cd04ad6f9a8f520addc402168a292606c28462fbc7167a0877">
 	<description>GFOperationDiagnosticsUtility: 通用操作诊断时间线。
 记录开发工具、运行时服务或项目流程的操作、阶段耗时和异常事件，并提供有界历史、健康快照和可复制摘要。
 该工具只保存结构化诊断数据，不绑定编辑器 UI、远程服务、外部协议或业务语义。</description>
@@ -40,7 +40,7 @@
 			<description>单个操作默认保留的阶段数量。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="DEFAULT_MAX_STATE_TRACE_ENTRIES">
@@ -196,7 +196,7 @@
 超额阶段会按最旧优先淘汰，并通过 operation.dropped_phase_count 累计报告。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="max_state_trace_entries">

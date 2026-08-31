@@ -6,7 +6,7 @@
 ## [br]
 ## @category value_object
 ## [br]
-## @since unreleased
+## @since 11.0.0
 class_name GFProjectileBinding
 extends RefCounted
 
@@ -17,7 +17,7 @@ extends RefCounted
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 enum FailureReason {
 	## Topology 完整有效。
 	NONE = 0,
@@ -91,7 +91,7 @@ var _lifetime_snapshot: GFProjectileLifetimePolicy = null
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return: binding 是否有效。
 func is_valid() -> bool:
@@ -102,7 +102,7 @@ func is_valid() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return: 有效 binding 返回 `NONE`；默认 `new()` 返回 `INTERNAL_FAILURE`；其余返回首个确定失败原因。
 func get_failure_reason() -> FailureReason:
@@ -113,7 +113,7 @@ func get_failure_reason() -> FailureReason:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return: definition；准入前失败时可能为 null。
 func get_definition() -> GFProjectileDefinition:
@@ -124,7 +124,7 @@ func get_definition() -> GFProjectileDefinition:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return: live root；已释放时返回 null。
 func get_instance_root() -> Node:
@@ -135,7 +135,7 @@ func get_instance_root() -> Node:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return: live runtime；已释放时返回 null。
 func get_runtime() -> Node:
@@ -146,7 +146,7 @@ func get_runtime() -> Node:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return: 当前仍存活的 impact source。
 ## [br]
@@ -164,7 +164,7 @@ func get_impact_sources() -> Array[Node]:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return: `GFProjectileBodyAdapter2D` 或 `GFProjectileBodyAdapter3D`。
 func get_body_adapter() -> Resource:
@@ -175,7 +175,7 @@ func get_body_adapter() -> Resource:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return: root、runtime 与所有 source 仍存活且位于同一实例树时返回 true。
 func is_current() -> bool:
@@ -195,7 +195,7 @@ func is_current() -> bool:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return: root、runtime 与全部 source identity 仍存活并保持同根时返回 true。
 func is_topology_current_for_framework() -> bool:
@@ -230,7 +230,7 @@ func is_topology_current_for_framework() -> bool:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param failure_reason: 非 NONE 的稳定失败原因。
 ## [br]
@@ -245,7 +245,7 @@ func fail_for_framework(failure_reason: FailureReason) -> bool:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param failure_reason: 冻结的成功或首个失败原因。
 ## [br]

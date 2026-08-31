@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFProjectileBinding" path="addons/gf/extensions/combat/projectiles/gf_projectile_binding.gd" module="extensions/combat" extends="RefCounted" classDigest="87ae8ccbeda065e4373919f63377250c61f920792a49bb6c739ed9092a199de2">
+<class name="GFProjectileBinding" path="addons/gf/extensions/combat/projectiles/gf_projectile_binding.gd" module="extensions/combat" extends="RefCounted" classDigest="2c92cfae9a6e14bed672c90912f0ac5fe31fa084a7f4ac13b60f79d6eeff035a">
 	<description>GFProjectileBinding: definition 与完整场景实例之间的拓扑快照。
 直接 `new()` 得到封闭的 unconfigured invalid value，其原因为 `INTERNAL_FAILURE`；
 只有 typed definition 的 `bind_instance()` 才能构造有效 topology。</description>
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">value_object</tag>
-		<tag name="since">unreleased</tag>
+		<tag name="since">11.0.0</tag>
 	</tags>
 	<signals />
 	<enums>
@@ -64,7 +64,7 @@
 			<description>定义 binding 拒绝或失效的封闭原因。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 	</enums>
@@ -77,7 +77,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">binding 是否有效。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_failure_reason">
@@ -86,7 +86,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">有效 binding 返回 `NONE`；默认 `new()` 返回 `INTERNAL_FAILURE`；其余返回首个确定失败原因。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_definition">
@@ -95,7 +95,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">definition；准入前失败时可能为 null。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_instance_root">
@@ -104,7 +104,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">live root；已释放时返回 null。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_runtime">
@@ -113,7 +113,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">live runtime；已释放时返回 null。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_impact_sources">
@@ -123,7 +123,7 @@
 				<tag name="api">public</tag>
 				<tag name="return">当前仍存活的 impact source。</tag>
 				<tag name="schema">return: Array[Node]，definition 声明顺序的同维 GFHitBox/GFHitScan 显式 union；调用方可修改返回数组。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_body_adapter">
@@ -132,7 +132,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">`GFProjectileBodyAdapter2D` 或 `GFProjectileBodyAdapter3D`。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="is_current">
@@ -141,7 +141,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">root、runtime 与所有 source 仍存活且位于同一实例树时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 	</methods>

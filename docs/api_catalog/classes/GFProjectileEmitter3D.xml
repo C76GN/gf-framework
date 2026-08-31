@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFProjectileEmitter3D" path="addons/gf/extensions/combat/projectiles/gf_projectile_emitter_3d.gd" module="extensions/combat" extends="Node3D" classDigest="b954af4ecf4697be215d86add16355d2c8bf6842fdd9be2d37a5547139ac23bd">
+<class name="GFProjectileEmitter3D" path="addons/gf/extensions/combat/projectiles/gf_projectile_emitter_3d.gd" module="extensions/combat" extends="Node3D" classDigest="3d715ab33de6b9eb3fe0b41ed5b423c5195df74cd22be07f3c611d74ce7494ea">
 	<description>GFProjectileEmitter3D: 以两阶段事务发射 typed 3D projectile definition。</description>
 	<tags>
 		<tag name="api">public</tag>
@@ -38,7 +38,7 @@
 			<description>未使用 catalog ID 时的直接 typed definition。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="projectile_catalog" decorators="@export">
@@ -86,7 +86,7 @@
 			<description>null 调用输入的默认值；每次请求和候选均深复制。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="spawn_parent_path" decorators="@export_node_path(&quot;Node&quot;)">
@@ -149,7 +149,7 @@ started、emitted、finished 顺序与 exact retirement。Godot 原生禁止在�
 				<tag name="api">public</tag>
 				<tag name="param">projectile_id: 可选 catalog ID。</tag>
 				<tag name="return">匹配的 3D definition；缺失或维度不匹配时返回 null。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="resolve_spawn_parent">

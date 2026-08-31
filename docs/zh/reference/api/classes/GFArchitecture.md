@@ -177,7 +177,7 @@ signal initialization_failed(reason: String)
 ### `shutdown_finished`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 signal shutdown_finished(result: GFArchitectureShutdownResult)
@@ -211,7 +211,7 @@ signal project_installers_finished
 ### `ModuleKind`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 enum ModuleKind {
@@ -231,7 +231,7 @@ enum ModuleKind {
 ### `ModuleLookupScope`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 enum ModuleLookupScope {
@@ -305,7 +305,7 @@ var strict_dependency_lookup: bool = false
 ### `activation_timeout_seconds`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 var activation_timeout_seconds: float = 30.0:
@@ -318,7 +318,7 @@ var activation_timeout_seconds: float = 30.0:
 ### `shutdown_timeout_seconds`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 var shutdown_timeout_seconds: float = 10.0:
@@ -407,7 +407,7 @@ func is_lifecycle_active() -> bool:
 ### `is_activating`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func is_activating() -> bool:
@@ -422,7 +422,7 @@ func is_activating() -> bool:
 ### `is_quiescing`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func is_quiescing() -> bool:
@@ -437,7 +437,7 @@ func is_quiescing() -> bool:
 ### `is_accepting_runtime_work`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func is_accepting_runtime_work() -> bool:
@@ -538,7 +538,7 @@ func is_module_ready(instance: Object) -> bool:
 ### `is_module_active`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func is_module_active(instance: Object) -> bool:
@@ -559,7 +559,7 @@ func is_module_active(instance: Object) -> bool:
 ### `get_last_shutdown_result`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_last_shutdown_result() -> GFArchitectureShutdownResult:
@@ -733,7 +733,7 @@ func init(cancellation_token: GFCancellationToken = null) -> bool:
 ### `shutdown_async`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func shutdown_async( cancellation_token: GFCancellationToken = null, timeout_seconds: float = -1.0 ) -> GFArchitectureShutdownResult:
@@ -1998,7 +1998,7 @@ func unregister_utility(script_cls: Script) -> bool:
 ### `resolve_module_access`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func resolve_module_access( module_kind: ModuleKind, script_cls: Script, lookup_scope: ModuleLookupScope = ModuleLookupScope.INHERITED, required: bool = true, require_ready: bool = false ) -> Object:
@@ -2086,7 +2086,7 @@ func get_utility(script_cls: Script, require_ready: bool = false) -> Object:
 ### `find_system`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func find_system(script_cls: Script, require_ready: bool = false) -> Object:
@@ -2108,7 +2108,7 @@ func find_system(script_cls: Script, require_ready: bool = false) -> Object:
 ### `find_model`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func find_model(script_cls: Script, require_ready: bool = false) -> Object:
@@ -2130,7 +2130,7 @@ func find_model(script_cls: Script, require_ready: bool = false) -> Object:
 ### `find_utility`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func find_utility(script_cls: Script, require_ready: bool = false) -> Object:

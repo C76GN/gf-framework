@@ -20,21 +20,21 @@ extends RefCounted
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const ABSOLUTE_MAX_METRIC_COUNT: int = 64
 
 ## 单个指标快照允许的绝对最大自定义指标数量。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const ABSOLUTE_MAX_CUSTOM_METRIC_COUNT: int = 48
 
 ## 指标 ID 允许的绝对最大字符数。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const ABSOLUTE_MAX_METRIC_ID_LENGTH: int = 64
 
 ## 已发送字节数。

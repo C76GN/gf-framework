@@ -8,7 +8,7 @@
 ## [br]
 ## @category runtime_handle
 ## [br]
-## @since unreleased
+## @since 11.0.0
 class_name GFInventoryTransferTransaction
 extends RefCounted
 
@@ -20,7 +20,7 @@ extends RefCounted
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param result: 不保留模型或候选堆叠的隔离终态结果。
 signal completed(result: GFInventoryTransferResult)
@@ -59,7 +59,7 @@ var _completion_emitted: bool = false
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param source: 来源槽位库存。
 ## [br]
@@ -98,7 +98,7 @@ static func prepare(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return: 当前未完成且 prepare 状态有效时返回 true。
 func is_prepared() -> bool:
@@ -113,7 +113,7 @@ func is_prepared() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return: `commit()` 已被消费时返回 true。
 func is_completed() -> bool:
@@ -124,7 +124,7 @@ func is_completed() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return: 隔离规划结果；配置尚未完成时返回 null。
 func get_prepare_result() -> GFInventoryTransferResult:
@@ -135,7 +135,7 @@ func get_prepare_result() -> GFInventoryTransferResult:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return: `commit()` 后的隔离结果；尚未提交时返回 null。
 func get_result() -> GFInventoryTransferResult:
@@ -149,7 +149,7 @@ func get_result() -> GFInventoryTransferResult:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return: 唯一终态结果；重复调用返回首次终态的隔离副本。
 func commit() -> GFInventoryTransferResult:

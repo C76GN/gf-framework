@@ -31,7 +31,7 @@ signal completed(result: GFStorageAsyncResult)
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param result: 与当前 consumer ID 匹配的隔离 caller 结果。
 signal caller_completed(result: GFStorageAsyncCallerResult)
@@ -57,14 +57,14 @@ const OPERATION_LOAD: StringName = &"load"
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const OPERATION_DELETE: StringName = &"delete"
 
 ## 异步破坏性 family reset/recreate 请求。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const OPERATION_RESET: StringName = &"reset"
 
 const _MAX_REASON_CHARACTERS: int = 128
@@ -114,7 +114,7 @@ func get_request_id() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 大于零的 consumer ID；尚未配置时返回 0。
 func get_consumer_id() -> int:
@@ -180,7 +180,7 @@ func get_result() -> GFStorageAsyncResult:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 已配置且 caller 尚未完成时返回 true。
 func is_caller_pending() -> bool:
@@ -191,7 +191,7 @@ func is_caller_pending() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return caller 已完成时返回 true。
 func is_caller_completed() -> bool:
@@ -202,7 +202,7 @@ func is_caller_completed() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return caller 已完成时返回隔离结果；等待中返回 null。
 func get_caller_result() -> GFStorageAsyncCallerResult:
@@ -216,7 +216,7 @@ func get_caller_result() -> GFStorageAsyncCallerResult:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param reason: 最长保留 128 字符的稳定原因；空值规范化为 `cancelled`。
 ## [br]
@@ -237,7 +237,7 @@ func cancel_observation(reason: StringName = &"cancelled") -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 等待中的 transfer-backed save 请求返回句柄；终态及普通 save/load/delete/reset 请求返回 null。
 func get_payload_transfer() -> GFStoragePayloadTransfer:
@@ -253,7 +253,7 @@ func get_payload_transfer() -> GFStoragePayloadTransfer:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 首次取回失败 transfer 时返回原句柄；其他情况返回 null。
 func reclaim_failed_payload() -> GFStoragePayloadTransfer:
@@ -308,7 +308,7 @@ func configure_for_framework(request_id: int, operation: StringName, file_name: 
 ## [br]
 ## @layer standard/utilities/storage
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param consumer_id: Utility 内唯一 consumer ID。
 ## [br]
@@ -388,7 +388,7 @@ func configure_consumer_for_framework(
 ## [br]
 ## @layer standard/utilities/storage
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 本次轮询的 lifecycle cause 被 Utility 接受并线性化时返回 true。
 func poll_caller_lifecycle_for_framework() -> bool:
@@ -425,7 +425,7 @@ func poll_caller_lifecycle_for_framework() -> bool:
 ## [br]
 ## @layer standard/utilities/storage
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 首次在物理终态前标记成功返回 true。
 func mark_worker_accepted_for_framework() -> bool:
@@ -441,7 +441,7 @@ func mark_worker_accepted_for_framework() -> bool:
 ## [br]
 ## @layer standard/utilities/storage
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return worker 尚未接纳且请求仍可安全结算取消时返回 true；重复标记保持幂等。
 func mark_physical_cancel_requested_for_framework() -> bool:
@@ -459,7 +459,7 @@ func mark_physical_cancel_requested_for_framework() -> bool:
 ## [br]
 ## @layer standard/utilities/storage
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param status: `CANCELLED` 或 `OUTCOME_UNKNOWN`。
 ## [br]
@@ -530,7 +530,7 @@ func set_file_name_for_framework(file_name: String) -> bool:
 ## [br]
 ## @layer standard/utilities/storage
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param transfer: 已取得 attempt lease 的 opaque transfer。
 ## [br]
@@ -560,7 +560,7 @@ func configure_payload_attempt_for_framework(
 ## [br]
 ## @layer standard/utilities/storage
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 首次结束关联 attempt 时返回 true。
 func finish_payload_attempt_for_framework() -> bool:
@@ -582,7 +582,7 @@ func finish_payload_attempt_for_framework() -> bool:
 ## [br]
 ## @layer standard/utilities/storage
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 没有关联 transfer，或已通过 `finish_payload_attempt_for_framework()` 结束 attempt 时返回 true。
 func is_payload_attempt_ready_for_settlement_for_framework() -> bool:
@@ -683,7 +683,7 @@ func complete_for_framework(
 ## [br]
 ## @layer standard/utilities/storage
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 尚无 late settlement 或已经取走时返回空字典。
 ## [br]

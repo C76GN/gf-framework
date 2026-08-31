@@ -148,7 +148,7 @@ func write(entry: Dictionary) -> void:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param delta: 本帧时间增量（秒）；非有限或非正数不会推进状态。
 func tick(delta: float) -> void:

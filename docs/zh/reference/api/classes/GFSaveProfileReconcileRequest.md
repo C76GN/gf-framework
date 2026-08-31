@@ -7,7 +7,7 @@
 - 继承：`RefCounted`
 - API：`public`
 - 类别：运行时句柄 (`runtime_handle`)
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 uncertain 写入对账的一次性请求句柄。 请求只携带调用方纯数据上下文和结果元数据，不携带 Recovery/Reconcile Lease 身份。Lease 必须作为独立类型化参数提交，避免从 Dictionary 恢复所有权。 `take_ownership()` 成功后，调用方必须放弃两个 Dictionary 及其嵌套 alias。
 
@@ -26,7 +26,7 @@ uncertain 写入对账的一次性请求句柄。 请求只携带调用方纯数
 ### `take_ownership`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 static func take_ownership( context: Dictionary = {}, result_metadata: Dictionary = {} ) -> GFSaveProfileReconcileRequest:
@@ -53,7 +53,7 @@ static func take_ownership( context: Dictionary = {}, result_metadata: Dictionar
 ### `is_available`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func is_available() -> bool:
@@ -68,7 +68,7 @@ func is_available() -> bool:
 ### `is_claimed`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func is_claimed() -> bool:

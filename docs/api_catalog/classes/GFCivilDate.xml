@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFCivilDate" path="addons/gf/standard/utilities/time/gf_civil_date.gd" module="standard" extends="RefCounted" classDigest="32d580d4bf7ead9004621401c4dc7fd183191a715de7635cae99525780d5fb9e">
+<class name="GFCivilDate" path="addons/gf/standard/utilities/time/gf_civil_date.gd" module="standard" extends="RefCounted" classDigest="74729181709f7b777e5a69318b629fc224255ce73ab721e266d35f144abf5b36">
 	<description>GFCivilDate: 无时区、无时刻的不可变公民日期。
 使用前推格里高利历，支持 0001-01-01 到 9999-12-31。
 本类只处理日期数学，不读取系统时钟，不包含时区、语言区域、节假日或业务日规则。</description>
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">value_object</tag>
-		<tag name="since">unreleased</tag>
+		<tag name="since">11.0.0</tag>
 	</tags>
 	<signals />
 	<enums>
@@ -30,7 +30,7 @@
 			<description>ISO 8601 星期编号，星期一为 1，星期日为 7。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 	</enums>
@@ -40,7 +40,7 @@
 			<description>最小支持年份。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="MAX_YEAR">
@@ -48,7 +48,7 @@
 			<description>最大支持年份。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 	</constants>
@@ -63,7 +63,7 @@
 				<tag name="param">month: 1 到 12 的月份。</tag>
 				<tag name="param">day: 当月有效日。</tag>
 				<tag name="return">显式成功或失败结果；不钳制输入。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="parse_iso8601">
@@ -73,7 +73,7 @@
 				<tag name="api">public</tag>
 				<tag name="param">text: 严格的 `YYYY-MM-DD` 文本，不接受空白、符号或可变位数。</tag>
 				<tag name="return">解析结果；格式错误与日期错误使用不同状态。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="from_dict">
@@ -84,7 +84,7 @@
 				<tag name="param">data: 包含整数 year、month 与 day 的字典。</tag>
 				<tag name="return">解析结果；缺少字段或字段类型错误时为 `STATUS_INVALID_FORMAT`。</tag>
 				<tag name="schema">data: Closed Dictionary with exactly integer year, month, and day fields.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="from_ordinal">
@@ -94,7 +94,7 @@
 				<tag name="api">public</tag>
 				<tag name="param">ordinal: 0001-01-01 为 0 的日序号。</tag>
 				<tag name="return">序号在支持范围内时的日期结果。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="is_leap_year">
@@ -104,7 +104,7 @@
 				<tag name="api">public</tag>
 				<tag name="param">year: 待检查年份。</tag>
 				<tag name="return">1 到 9999 之内且符合闰年规则时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_days_in_month">
@@ -115,7 +115,7 @@
 				<tag name="param">year: 1 到 9999 的年份。</tag>
 				<tag name="param">month: 1 到 12 的月份。</tag>
 				<tag name="return">当月天数；输入越界时返回 0。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="is_valid">
@@ -124,7 +124,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">包含支持范围内有效日期时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_year">
@@ -133,7 +133,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">年份；未配置实例返回 0。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_month">
@@ -142,7 +142,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">1 到 12；未配置实例返回 0。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_day">
@@ -151,7 +151,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">1 到当月天数；未配置实例返回 0。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="to_iso8601">
@@ -160,7 +160,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">`YYYY-MM-DD`；未配置实例返回空字符串。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="to_dict">
@@ -170,7 +170,7 @@
 				<tag name="api">public</tag>
 				<tag name="return">包含整数 year、month 与 day 的新字典；未配置时为空字典。</tag>
 				<tag name="schema">return: Dictionary with integer year, month, and day fields.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="to_ordinal">
@@ -179,7 +179,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">0001-01-01 为 0 的日序号；未配置时返回 -1。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_weekday">
@@ -188,7 +188,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">`Weekday` 值；未配置时返回 0。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_day_of_year">
@@ -197,7 +197,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">1 到 366；未配置时返回 0。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_iso_week_year">
@@ -206,7 +206,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">ISO 周年；未配置时返回 0。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_iso_week_number">
@@ -215,7 +215,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">1 到 53；未配置时返回 0。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="add_days">
@@ -225,7 +225,7 @@
 				<tag name="api">public</tag>
 				<tag name="param">days: 可为负数的日偏移。</tag>
 				<tag name="return">偏移后日期；未配置或超出支持范围时失败。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="add_months">
@@ -236,7 +236,7 @@
 				<tag name="param">months: 可为负数的月偏移。</tag>
 				<tag name="param">clamp_day: 目标月不含原月内日时，true 钳制到月末，false 返回失败。</tag>
 				<tag name="return">偏移后日期或显式失败。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="add_years">
@@ -247,7 +247,7 @@
 				<tag name="param">years: 可为负数的年偏移。</tag>
 				<tag name="param">clamp_day: 目标年不含原月内日时，true 钳制到月末，false 返回失败。</tag>
 				<tag name="return">偏移后日期或显式失败。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="compare_to">
@@ -257,7 +257,7 @@
 				<tag name="api">public</tag>
 				<tag name="param">other: 右侧日期。</tag>
 				<tag name="return">包含比较次序与 `other - self` 日差的类型化结果。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="days_until">
@@ -267,7 +267,7 @@
 				<tag name="api">public</tag>
 				<tag name="param">other: 右侧日期。</tag>
 				<tag name="return">包含 `other - self` 日差和比较次序的类型化结果。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 	</methods>

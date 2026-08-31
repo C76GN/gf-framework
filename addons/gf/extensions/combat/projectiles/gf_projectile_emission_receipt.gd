@@ -4,7 +4,7 @@
 ## [br]
 ## @category runtime_handle
 ## [br]
-## @since unreleased
+## @since 11.0.0
 class_name GFProjectileEmissionReceipt
 extends RefCounted
 
@@ -43,7 +43,7 @@ var _compensation_attempted: bool = false
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return: 当前 receipt 状态。
 func get_state_for_framework() -> State:
@@ -54,7 +54,7 @@ func get_state_for_framework() -> State:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return: 首次从 COMMITTED_UNPUBLISHED 进入 ACTIVATED 时为 OK。
 func mark_activated_for_framework() -> Error:
@@ -73,7 +73,7 @@ func mark_activated_for_framework() -> Error:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return: 用户 commit hook 的闭合发布报告。
 ## [br]
@@ -109,7 +109,7 @@ func publish_for_framework() -> Dictionary:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param _reason: 调用边界记录的稳定补偿原因。
 ## [br]
@@ -145,7 +145,7 @@ func compensate_for_framework(_reason: StringName) -> Dictionary:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param policy: 可选 emission policy。
 ## [br]

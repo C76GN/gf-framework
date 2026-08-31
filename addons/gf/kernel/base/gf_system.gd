@@ -124,7 +124,7 @@ var _dependency_scope: Dictionary = _DEPENDENCY_SCOPE_SUPPORT._make_scope()
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 此系统激活前必须可解析的 Model 脚本。
 func get_required_models() -> Array[Script]:
@@ -136,7 +136,7 @@ func get_required_models() -> Array[Script]:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 此系统激活前必须可解析的 System 脚本。
 func get_required_systems() -> Array[Script]:
@@ -148,7 +148,7 @@ func get_required_systems() -> Array[Script]:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 此系统激活前必须可解析的 Utility 脚本。
 func get_required_utilities() -> Array[Script]:
@@ -160,7 +160,7 @@ func get_required_utilities() -> Array[Script]:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 此系统激活前必须可解析的 Factory 脚本。
 func get_required_factories() -> Array[Script]:
@@ -207,7 +207,7 @@ func ready() -> void:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param _scope: 当前系统激活阶段的取消作用域。
 ## [br]
@@ -225,7 +225,7 @@ func begin_activation(_scope: GFAsyncScope) -> GFAsyncCompletion:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param _scope: 当前系统静默阶段的取消作用域。
 ## [br]

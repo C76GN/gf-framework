@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFStorageAsyncResult" path="addons/gf/standard/utilities/storage/gf_storage_async_result.gd" module="standard" extends="RefCounted" classDigest="1a1f9502e409d2ab36c14bde55fc4a88efcfad2b05b92500feee9e4a31b35c10">
+<class name="GFStorageAsyncResult" path="addons/gf/standard/utilities/storage/gf_storage_async_result.gd" module="standard" extends="RefCounted" classDigest="9f72d613a8b9704d8ca3c28e3b2fbba0a41f4a1e443168773d12179f6e8e190e">
 	<description>GFStorageAsyncResult: 单次异步存储请求的不可变终态。
 结果通过请求 ID 与具体句柄绑定；读取结果保留 `GFStorageReadResult` 的类型化
 失败分类；写入结果额外暴露稳定写入失败分类与隔离的 payload 预检报告；
@@ -23,7 +23,7 @@ save/load/delete/reset 的领域失败结果。</description>
 			<description>物理终态的闭合判别种类。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="enum" name="WriteFailureKind">
@@ -46,7 +46,7 @@ save/load/delete/reset 的领域失败结果。</description>
 			<description>异步写入失败的稳定分类。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 	</enums>
@@ -86,7 +86,7 @@ save/load/delete/reset 的领域失败结果。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">`DOMAIN_RESULT` 或接纳前 `CANCELLED`。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="is_cancelled">
@@ -95,7 +95,7 @@ save/load/delete/reset 的领域失败结果。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">请求在 worker 接纳前被取消时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="is_successful">
@@ -131,7 +131,7 @@ save/load/delete/reset 的领域失败结果。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">`DOMAIN_RESULT` delete 请求的结果；save/load/reset 或 `CANCELLED` 返回 null。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_reset_result">
@@ -140,7 +140,7 @@ save/load/delete/reset 的领域失败结果。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">DOMAIN_RESULT reset 请求的结果；save/load/delete 或 CANCELLED 返回 null。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_write_failure_kind">
@@ -149,7 +149,7 @@ save/load/delete/reset 的领域失败结果。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">`WriteFailureKind` 枚举值；成功、load/delete/reset 或 `CANCELLED` 为 NONE。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_write_validation_report">
@@ -159,7 +159,7 @@ save/load/delete/reset 的领域失败结果。</description>
 				<tag name="api">public</tag>
 				<tag name="return">包含 ok、failure_kind、failure_path、path_segments、variant_type、visited_values 和 visited_bytes 的隔离字典；未执行预检时为空。</tag>
 				<tag name="schema">return: Dictionary with ok, failure_kind, failure_path, path_segments, variant_type, variant_type_name, visited_values, and visited_bytes fields; path segments contain only structural indexes, never payload keys, values, or correlatable key digests.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="duplicate_result">

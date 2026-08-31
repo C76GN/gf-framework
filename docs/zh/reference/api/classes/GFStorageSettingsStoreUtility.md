@@ -7,7 +7,7 @@
 - 继承：`GFSettingsStoreUtility`
 - API：`public`
 - 类别：运行时服务 (`runtime_service`)
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 GFStorageUtility 的设置持久化适配器。 该 Utility 声明显式 Storage 生命周期依赖，只在依赖完成 ready 后缓存并同步转发 设置读取和写入；释放依赖时清理缓存，避免在 Storage quiesce 或 dispose 后继续访问。
 
@@ -29,7 +29,7 @@ GFStorageUtility 的设置持久化适配器。 该 Utility 声明显式 Storage
 ### `ready`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func ready() -> void:
@@ -42,7 +42,7 @@ func ready() -> void:
 ### `release_dependencies`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func release_dependencies() -> void:
@@ -55,7 +55,7 @@ func release_dependencies() -> void:
 ### `get_required_utilities`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_required_utilities() -> Array[Script]:
@@ -70,7 +70,7 @@ func get_required_utilities() -> Array[Script]:
 ### `is_persistence_enabled`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func is_persistence_enabled() -> bool:
@@ -85,7 +85,7 @@ func is_persistence_enabled() -> bool:
 ### `read_settings`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func read_settings(file_name: String) -> GFStorageReadResult:
@@ -106,7 +106,7 @@ func read_settings(file_name: String) -> GFStorageReadResult:
 ### `write_settings`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func write_settings(file_name: String, data: Dictionary) -> Error:

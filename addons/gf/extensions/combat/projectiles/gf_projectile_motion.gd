@@ -15,7 +15,7 @@ extends Resource
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param launch_input: 已冻结的 2D 发射输入。
 ## [br]
@@ -37,7 +37,7 @@ func create_state_2d(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param launch_input: 已冻结的 3D 发射输入。
 ## [br]
@@ -59,7 +59,7 @@ func create_state_3d(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param state: 当前 session 私有 state。
 ## [br]
@@ -84,7 +84,7 @@ func compute_intent_2d(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param state: 当前 session 私有 state。
 ## [br]
@@ -111,7 +111,7 @@ func compute_intent_3d(
 ## [br]
 ## @api protected
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param _launch_input: 已冻结的发射输入。
 ## [br]
@@ -131,7 +131,7 @@ func _create_state_2d(
 ## [br]
 ## @api protected
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param _launch_input: 已冻结的发射输入。
 ## [br]
@@ -151,7 +151,7 @@ func _create_state_3d(
 ## [br]
 ## @api protected
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param _state: session 私有 state。
 ## [br]
@@ -174,7 +174,7 @@ func _compute_intent_2d(
 ## [br]
 ## @api protected
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param _state: session 私有 state。
 ## [br]

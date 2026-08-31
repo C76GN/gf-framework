@@ -188,7 +188,7 @@ func can_handle_clip(_clip: GFAudioClip, _channel: StringName, _context: Diction
 ### `evaluate_playback_region`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func evaluate_playback_region( _clip: GFAudioClip, _channel: StringName, _region: GFAudioPlaybackRegion, _context: Dictionary = {} ) -> GFAudioPlaybackRegionResult:

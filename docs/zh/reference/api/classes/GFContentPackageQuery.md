@@ -256,7 +256,7 @@ func to_dict() -> Dictionary:
 ### `to_report_dictionary`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func to_report_dictionary(options: Dictionary = {}) -> Dictionary:

@@ -158,7 +158,7 @@ var supports_async_loading: bool = false
 ### `supports_playback_region_contract`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 var supports_playback_region_contract: bool = false

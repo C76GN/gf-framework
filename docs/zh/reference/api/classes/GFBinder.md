@@ -28,7 +28,7 @@
 ### `create_required_plan`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func create_required_plan() -> GFBindingPlan:

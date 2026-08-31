@@ -306,7 +306,7 @@ func cancel_owner(owner: Object) -> int:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @layer standard/utilities
 ## [br]

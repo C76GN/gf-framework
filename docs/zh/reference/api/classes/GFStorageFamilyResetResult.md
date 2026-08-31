@@ -7,7 +7,7 @@
 - 继承：`RefCounted`
 - API：`public`
 - 类别：值对象 (`value_object`)
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 单个 Storage logical family 破坏性 reset/recreate 的不可变终态。 结果只公开 logical 层分类、阶段与有界计数，不暴露 Storage root、family path、 retirement staging 或任何私有 sidecar 名称。实例只能由 Storage 框架内部配置一次。
 
@@ -38,7 +38,7 @@
 ### `FailureKind`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 enum FailureKind {
@@ -70,7 +70,7 @@ reset/recreate 失败的稳定分类。
 ### `SourceKind`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 enum SourceKind {
@@ -92,7 +92,7 @@ reset 前精确目标的稳定分类。
 ### `Phase`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 enum Phase {
@@ -116,7 +116,7 @@ enum Phase {
 ### `FamilyMember`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 enum FamilyMember {
@@ -146,7 +146,7 @@ reset 结果可报告的路径无关成员分类。
 ### `is_successful`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func is_successful() -> bool:
@@ -161,7 +161,7 @@ func is_successful() -> bool:
 ### `get_error_code`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_error_code() -> Error:
@@ -176,7 +176,7 @@ func get_error_code() -> Error:
 ### `get_failure_kind`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_failure_kind() -> FailureKind:
@@ -191,7 +191,7 @@ func get_failure_kind() -> FailureKind:
 ### `get_source_kind`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_source_kind() -> SourceKind:
@@ -206,7 +206,7 @@ func get_source_kind() -> SourceKind:
 ### `get_failed_phase`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_failed_phase() -> Phase:
@@ -221,7 +221,7 @@ func get_failed_phase() -> Phase:
 ### `get_retired_member_count`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_retired_member_count() -> int:
@@ -236,7 +236,7 @@ func get_retired_member_count() -> int:
 ### `get_recreated_member_count`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_recreated_member_count() -> int:
@@ -251,7 +251,7 @@ func get_recreated_member_count() -> int:
 ### `get_remaining_evidence_count`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_remaining_evidence_count() -> int:
@@ -266,7 +266,7 @@ func get_remaining_evidence_count() -> int:
 ### `get_failed_member`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_failed_member() -> FamilyMember:
@@ -281,7 +281,7 @@ func get_failed_member() -> FamilyMember:
 ### `duplicate_result`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func duplicate_result() -> GFStorageFamilyResetResult:
@@ -296,7 +296,7 @@ func duplicate_result() -> GFStorageFamilyResetResult:
 ### `to_dict`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func to_dict() -> Dictionary:

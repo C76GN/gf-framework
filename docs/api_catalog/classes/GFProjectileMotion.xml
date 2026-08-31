@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFProjectileMotion" path="addons/gf/extensions/combat/projectiles/gf_projectile_motion.gd" module="extensions/combat" extends="Resource" classDigest="439ce31576f7651172c75c60b9cee2ceb81352229aff9a494548f453321c0343">
+<class name="GFProjectileMotion" path="addons/gf/extensions/combat/projectiles/gf_projectile_motion.gd" module="extensions/combat" extends="Resource" classDigest="be9f47aa4cc2ecd9ce989de51315ff44237f1a94714147674b379235288da9c2">
 	<description>GFProjectileMotion: 以 per-session state 计算 typed intent 的移动策略基类。</description>
 	<tags>
 		<tag name="api">public</tag>
@@ -19,7 +19,7 @@
 				<tag name="param">launch_input: 已冻结的 2D 发射输入。</tag>
 				<tag name="param">initial_body: reserve 阶段捕获的初始 body 快照。</tag>
 				<tag name="return">仅供该 session 使用的 state；拒绝时返回 null。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="create_state_3d">
@@ -30,7 +30,7 @@
 				<tag name="param">launch_input: 已冻结的 3D 发射输入。</tag>
 				<tag name="param">initial_body: reserve 阶段捕获的初始 body 快照。</tag>
 				<tag name="return">仅供该 session 使用的 state；拒绝时返回 null。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="compute_intent_2d">
@@ -42,7 +42,7 @@
 				<tag name="param">current_body: 当前 body 快照。</tag>
 				<tag name="param">delta: 本帧秒数。</tag>
 				<tag name="return">typed 2D intent。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="compute_intent_3d">
@@ -54,7 +54,7 @@
 				<tag name="param">current_body: 当前 body 快照。</tag>
 				<tag name="param">delta: 本帧秒数。</tag>
 				<tag name="return">typed 3D intent。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="_create_state_2d">
@@ -66,7 +66,7 @@
 				<tag name="param">_initial_body: 初始 body 快照。</tag>
 				<tag name="return">session 私有 state。</tag>
 				<tag name="schema">return: Variant，必须为 live `GFProjectileMotionState`。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="_create_state_3d">
@@ -78,7 +78,7 @@
 				<tag name="param">_initial_body: 初始 body 快照。</tag>
 				<tag name="return">session 私有 state。</tag>
 				<tag name="schema">return: Variant，必须为 live `GFProjectileMotionState`。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="_compute_intent_2d">
@@ -91,7 +91,7 @@
 				<tag name="param">_delta: 本帧秒数；MOVE intent 必须原样回显该 delta，时间缩放应改写 velocity。</tag>
 				<tag name="return">typed 2D intent。</tag>
 				<tag name="schema">return: Variant，必须为 live `GFProjectileMotionIntent2D`。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="_compute_intent_3d">
@@ -104,7 +104,7 @@
 				<tag name="param">_delta: 本帧秒数；MOVE intent 必须原样回显该 delta，时间缩放应改写 velocity。</tag>
 				<tag name="return">typed 3D intent。</tag>
 				<tag name="schema">return: Variant，必须为 live `GFProjectileMotionIntent3D`。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 	</methods>

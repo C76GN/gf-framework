@@ -7,7 +7,7 @@
 - 继承：`GFUtility`
 - API：`public`
 - 类别：协议与扩展点 (`protocol`)
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 设置持久化的同步物理端口。 该协议只定义设置载荷的读取、写入与能力查询，不绑定文件、Storage Utility、 云服务或平台 SDK。Architecture 模式且启用持久化时应注册一个派生 Store Utility； standalone 模式会由 GFSettingsUtility 自动持有 File Store。
 
@@ -26,7 +26,7 @@
 ### `is_persistence_enabled`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func is_persistence_enabled() -> bool:
@@ -41,7 +41,7 @@ func is_persistence_enabled() -> bool:
 ### `read_settings`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func read_settings(file_name: String) -> GFStorageReadResult:
@@ -62,7 +62,7 @@ func read_settings(file_name: String) -> GFStorageReadResult:
 ### `write_settings`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func write_settings(file_name: String, data: Dictionary) -> Error:

@@ -67,7 +67,7 @@ const _MAX_EVALUATED_CONDITIONS: int = 4096
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param state: 当前条件所属状态。
 ## [br]

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFArchitecture" path="addons/gf/kernel/core/gf_architecture.gd" module="kernel" extends="Object" classDigest="d71145e64544b72c22d0d9ab364119b96637e5ad529035c2b9c5a0a6da988a6e">
+<class name="GFArchitecture" path="addons/gf/kernel/core/gf_architecture.gd" module="kernel" extends="Object" classDigest="3f7e2441a2470059d0550d2b14f5528843cbdefc774d44313c806327ab00fc30">
 	<description>GFArchitecture: 管理 Model、System 和 Utility 的注册与生命周期的容器。
 生命周期遵循四阶段初始化协议：
 阶段一 (init)       ：各模块按声明依赖 DAG 执行自身内部变量初始化。
@@ -34,7 +34,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">result: 类型化关闭结果快照。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="signal" name="project_installers_finished">
@@ -59,7 +59,7 @@
 			<description>可由架构访问策略解析的模块类型。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="enum" name="ModuleLookupScope">
@@ -72,7 +72,7 @@
 			<description>模块访问的架构作用域。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 	</enums>
@@ -118,7 +118,7 @@
 0 时不启用 deadline；默认 30 秒。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="shutdown_timeout_seconds">
@@ -127,7 +127,7 @@
 0 时不启用 deadline；默认 10 秒。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="last_initialization_error">
@@ -181,7 +181,7 @@ is_accepting_runtime_work() 检查。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">架构正在执行第四阶段激活时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="is_quiescing">
@@ -190,7 +190,7 @@ is_accepting_runtime_work() 检查。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">架构正在 quiesce 且尚未进入同步释放阶段时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="is_accepting_runtime_work">
@@ -199,7 +199,7 @@ is_accepting_runtime_work() 检查。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">仅在完整激活并处于 READY 时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="is_disposed">
@@ -256,7 +256,7 @@ is_accepting_runtime_work() 检查。</description>
 				<tag name="api">public</tag>
 				<tag name="param">instance: 由当前架构本地注册的模块实例。</tag>
 				<tag name="return">模块属于当前架构且已完成第四阶段激活时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_last_shutdown_result">
@@ -265,7 +265,7 @@ is_accepting_runtime_work() 检查。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">尚未关闭时返回 null。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="fail_initialization">
@@ -377,7 +377,7 @@ quiesce，随后每个模块的同步 dispose/release hook 恰好执行一次。
 				<tag name="param">cancellation_token: 可选关闭取消令牌。</tag>
 				<tag name="param">timeout_seconds: cooperative quiesce 与异步等待预算；仅 -1 使用 shutdown_timeout_seconds。最终同步释放不承诺墙钟硬上限。</tag>
 				<tag name="return">类型化关闭结果。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="dispose">
@@ -1032,7 +1032,7 @@ listener 携带 owner 时返回的句柄会绑定该 owner 生命周期。`once`
 				<tag name="param">required: 为 true 时，严格查询模式下缺失模块会输出 required miss。</tag>
 				<tag name="param">require_ready: 为 true 时，仅返回已完成 ready 阶段的实例。</tag>
 				<tag name="return">符合全部冻结策略的模块实例；未命中时返回 null。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_system">
@@ -1074,7 +1074,7 @@ listener 携带 owner 时返回的句柄会绑定该 owner 生命周期。`once`
 				<tag name="param">script_cls: 脚本类。</tag>
 				<tag name="param">require_ready: 为 true 时，仅返回已完成 ready 阶段的实例。</tag>
 				<tag name="return">系统实例；可选依赖不存在或尚未 ready 时返回 null。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="find_model">
@@ -1086,7 +1086,7 @@ listener 携带 owner 时返回的句柄会绑定该 owner 生命周期。`once`
 				<tag name="param">script_cls: 脚本类。</tag>
 				<tag name="param">require_ready: 为 true 时，仅返回已完成 ready 阶段的实例。</tag>
 				<tag name="return">模型实例；可选依赖不存在或尚未 ready 时返回 null。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="find_utility">
@@ -1098,7 +1098,7 @@ listener 携带 owner 时返回的句柄会绑定该 owner 生命周期。`once`
 				<tag name="param">script_cls: 脚本类。</tag>
 				<tag name="param">require_ready: 为 true 时，仅返回已完成 ready 阶段的实例。</tag>
 				<tag name="return">工具实例；可选依赖不存在或尚未 ready 时返回 null。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_local_system">

@@ -261,7 +261,7 @@ func init() -> void:
 ### `ready`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func ready() -> void:
@@ -286,7 +286,7 @@ func dispose() -> void:
 ### `release_dependencies`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func release_dependencies() -> void:
@@ -299,7 +299,7 @@ func release_dependencies() -> void:
 ### `set_resource_broker`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func set_resource_broker(broker: GFResourceBroker) -> Error:
@@ -320,7 +320,7 @@ func set_resource_broker(broker: GFResourceBroker) -> Error:
 ### `setup_standalone_resource_broker`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func setup_standalone_resource_broker( max_active_requests: int = 4, max_pending_requests: int = 256 ) -> GFResourceBroker:
@@ -342,7 +342,7 @@ func setup_standalone_resource_broker( max_active_requests: int = 4, max_pending
 ### `get_resource_broker`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_resource_broker() -> GFResourceBroker:

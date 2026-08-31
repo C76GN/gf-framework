@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFTableRowPredicate" path="addons/gf/standard/utilities/ui/gf_table_row_predicate.gd" module="standard" extends="RefCounted" classDigest="5351313336a5124b365fdffc7cb5734fc4ad13071000ebcabfaa2684f28f873c">
+<class name="GFTableRowPredicate" path="addons/gf/standard/utilities/ui/gf_table_row_predicate.gd" module="standard" extends="RefCounted" classDigest="b9c96e308fd35535127a28a1e25d0236f9ef63334efb77f7dbc3e2d9101c4ac4">
 	<description>GFTableRowPredicate: 表格结构化行过滤协议。
 项目通过子类实现同步、只读、有界且无副作用的行判断。
 GFTableDataView 按注册顺序契约组合多个谓词，并把显式失败视为整次投影失败。</description>
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">protocol</tag>
-		<tag name="since">unreleased</tag>
+		<tag name="since">11.0.0</tag>
 	</tags>
 	<signals />
 	<enums />
@@ -20,7 +20,7 @@ GFTableDataView 按注册顺序契约组合多个谓词，并把显式失败视�
 				<tag name="api">public</tag>
 				<tag name="param">row_view: 不暴露源 row 的隔离只读视图。</tag>
 				<tag name="return">类型化包含、排除或失败结果。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="_evaluate">
@@ -30,7 +30,7 @@ GFTableDataView 按注册顺序契约组合多个谓词，并把显式失败视�
 				<tag name="api">protected</tag>
 				<tag name="param">_row_view: 当前行的隔离只读视图。</tag>
 				<tag name="return">类型化包含、排除或失败结果。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 	</methods>

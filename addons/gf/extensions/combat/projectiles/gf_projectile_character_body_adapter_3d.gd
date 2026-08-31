@@ -4,7 +4,7 @@
 ## [br]
 ## @category resource_definition
 ## [br]
-## @since unreleased
+## @since 11.0.0
 class_name GFProjectileCharacterBodyAdapter3D
 extends GFProjectileBodyAdapter3D
 

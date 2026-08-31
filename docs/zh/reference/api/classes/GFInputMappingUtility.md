@@ -634,7 +634,7 @@ func get_virtual_source_snapshot(source_id: StringName = &"virtual") -> Dictiona
 ### `get_virtual_source_snapshot_for_player`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_virtual_source_snapshot_for_player( source_id: StringName = &"virtual", player_index: int = -1 ) -> Dictionary:

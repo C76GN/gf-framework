@@ -7,7 +7,7 @@
 - 继承：`RefCounted`
 - API：`public`
 - 类别：值对象 (`value_object`)
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 表格投影事务的类型化结果。 成功结果描述一次提交或 no-op；失败结果描述未提交的阶段、谓词和行身份。 结果不携带源 row，从而可安全交给 UI 诊断层。
 
@@ -35,7 +35,7 @@
 ### `is_successful`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func is_successful() -> bool:
@@ -50,7 +50,7 @@ func is_successful() -> bool:
 ### `was_committed`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func was_committed() -> bool:
@@ -65,7 +65,7 @@ func was_committed() -> bool:
 ### `get_view_revision`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_view_revision() -> int:
@@ -80,7 +80,7 @@ func get_view_revision() -> int:
 ### `get_visible_count`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_visible_count() -> int:
@@ -95,7 +95,7 @@ func get_visible_count() -> int:
 ### `get_scanned_row_count`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_scanned_row_count() -> int:
@@ -110,7 +110,7 @@ func get_scanned_row_count() -> int:
 ### `get_predicate_evaluation_count`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_predicate_evaluation_count() -> int:
@@ -125,7 +125,7 @@ func get_predicate_evaluation_count() -> int:
 ### `get_error_code`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_error_code() -> StringName:
@@ -140,7 +140,7 @@ func get_error_code() -> StringName:
 ### `get_error_message`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_error_message() -> String:
@@ -155,7 +155,7 @@ func get_error_message() -> String:
 ### `get_failed_predicate_id`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_failed_predicate_id() -> StringName:
@@ -170,7 +170,7 @@ func get_failed_predicate_id() -> StringName:
 ### `get_failed_source_row_index`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_failed_source_row_index() -> int:
@@ -185,7 +185,7 @@ func get_failed_source_row_index() -> int:
 ### `get_failed_row_id`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_failed_row_id() -> Variant:
@@ -204,7 +204,7 @@ func get_failed_row_id() -> Variant:
 ### `duplicate_result`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func duplicate_result() -> GFTableViewRebuildResult:

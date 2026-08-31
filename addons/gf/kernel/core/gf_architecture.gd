@@ -34,7 +34,7 @@ signal initialization_failed(reason: String)
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param result: 类型化关闭结果快照。
 signal shutdown_finished(result: GFArchitectureShutdownResult)
@@ -53,7 +53,7 @@ signal project_installers_finished
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 enum ModuleKind {
 	## Model 模块。
 	MODEL,
@@ -67,7 +67,7 @@ enum ModuleKind {
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 enum ModuleLookupScope {
 	## 按当前架构的父级回退与 strict_dependency_lookup 规则解析。
 	INHERITED,
@@ -180,7 +180,7 @@ var strict_dependency_lookup: bool = false
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 var activation_timeout_seconds: float = 30.0:
 	set(value):
 		if (
@@ -199,7 +199,7 @@ var activation_timeout_seconds: float = 30.0:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 var shutdown_timeout_seconds: float = 10.0:
 	set(value):
 		if (
@@ -322,7 +322,7 @@ func is_lifecycle_active() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 架构正在执行第四阶段激活时返回 true。
 func is_activating() -> bool:
@@ -333,7 +333,7 @@ func is_activating() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 架构正在 quiesce 且尚未进入同步释放阶段时返回 true。
 func is_quiescing() -> bool:
@@ -344,7 +344,7 @@ func is_quiescing() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 仅在完整激活并处于 READY 时返回 true。
 func is_accepting_runtime_work() -> bool:
@@ -413,7 +413,7 @@ func is_module_ready(instance: Object) -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param instance: 由当前架构本地注册的模块实例。
 ## [br]
@@ -426,7 +426,7 @@ func is_module_active(instance: Object) -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 尚未关闭时返回 null。
 func get_last_shutdown_result() -> GFArchitectureShutdownResult:
@@ -726,7 +726,7 @@ func init(cancellation_token: GFCancellationToken = null) -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param cancellation_token: 可选关闭取消令牌。
 ## [br]
@@ -2091,7 +2091,7 @@ func unregister_utility(script_cls: Script) -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param module_kind: 要解析的 Model、System 或 Utility 类型。
 ## [br]
@@ -2201,7 +2201,7 @@ func get_utility(script_cls: Script, require_ready: bool = false) -> Object:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param script_cls: 脚本类。
 ## [br]
@@ -2223,7 +2223,7 @@ func find_system(script_cls: Script, require_ready: bool = false) -> Object:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param script_cls: 脚本类。
 ## [br]
@@ -2245,7 +2245,7 @@ func find_model(script_cls: Script, require_ready: bool = false) -> Object:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param script_cls: 脚本类。
 ## [br]
@@ -2709,7 +2709,7 @@ func untrack_framework_async_scope(scope: GFAsyncScope) -> void:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 架构尚未 ready/init/activation/failure/quiesce/dispose 且没有冲突事务时返回 true。
 func can_accept_required_binding_plan_for_framework() -> bool:
@@ -2722,7 +2722,7 @@ func can_accept_required_binding_plan_for_framework() -> bool:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param attempt: 同步创建、校验并注册 candidate 的内部回调。
 ## [br]
@@ -2742,7 +2742,7 @@ func run_required_binding_attempt_for_framework(attempt: Callable) -> Variant:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param alias_cls: 查询别名脚本。
 ## [br]
@@ -2757,7 +2757,7 @@ func register_model_alias_for_framework(alias_cls: Script, target_cls: Script) -
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param alias_cls: 查询别名脚本。
 ## [br]
@@ -2772,7 +2772,7 @@ func register_system_alias_for_framework(alias_cls: Script, target_cls: Script) 
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param alias_cls: 查询别名脚本。
 ## [br]
@@ -2787,7 +2787,7 @@ func register_utility_alias_for_framework(alias_cls: Script, target_cls: Script)
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param script_cls: Plan 声明并冻结的 Model 注册键。
 ## [br]
@@ -2814,7 +2814,7 @@ func register_model_instance_for_required_plan_for_framework(
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param script_cls: Plan 声明并冻结的 System 注册键。
 ## [br]
@@ -2844,7 +2844,7 @@ func register_system_instance_for_required_plan_for_framework(
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param script_cls: Plan 声明并冻结的 Utility 注册键。
 ## [br]

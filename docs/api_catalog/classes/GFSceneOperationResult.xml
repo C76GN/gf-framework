@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFSceneOperationResult" path="addons/gf/standard/utilities/scene/gf_scene_operation_result.gd" module="standard" extends="RefCounted" classDigest="0879711cc07d2a08d8fbfc632d74e619fc788eb0dac59abbbd23c71ddff10ddf">
+<class name="GFSceneOperationResult" path="addons/gf/standard/utilities/scene/gf_scene_operation_result.gd" module="standard" extends="RefCounted" classDigest="4665b41ba55c648665666ca17c2d1ddfe8857517c5b171b8198e41e12d847dd7">
 	<description>GFSceneOperationResult: 单次类型化场景请求的不可变终态。
 结果冻结请求种类、资源身份、可选 PackedScene 与闭合 status/reason/error 联合。
 所有身份 getter 返回隔离快照，调用方不能改写 Operation 已冻结的资源身份。</description>
@@ -7,7 +7,7 @@
 		<tag name="api">public</tag>
 		<tag name="category">value_object</tag>
 		<tag name="layer">standard/utilities/scene</tag>
-		<tag name="since">unreleased</tag>
+		<tag name="since">11.0.0</tag>
 	</tags>
 	<signals />
 	<enums>
@@ -27,7 +27,7 @@
 			<description>类型化场景请求的唯一 caller 终态。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 	</enums>
@@ -37,7 +37,7 @@
 			<description>已在安全帧成功切换到目标场景。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="REASON_SCENE_PRELOADED">
@@ -45,7 +45,7 @@
 			<description>场景资源已成功预加载；是否继续保留在缓存由容量与 fixed 策略决定。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="REASON_CACHE_HIT">
@@ -53,7 +53,7 @@
 			<description>请求直接命中已有场景缓存。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="REASON_INVALID_PATH">
@@ -61,7 +61,7 @@
 			<description>场景路径为空、逃逸项目根目录、不存在或不是 PackedScene。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="REASON_OWNER_UNAVAILABLE">
@@ -69,7 +69,7 @@
 			<description>请求 owner 在接纳前已经无效。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="REASON_LOAD_BUSY">
@@ -77,7 +77,7 @@
 			<description>已有 load 请求正在等待，不允许 replacement。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="REASON_BROKER_REJECTED">
@@ -85,7 +85,7 @@
 			<description>Resource Broker 拒绝 consumer Lease 或底层请求 admission。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="REASON_RESOURCE_LOAD_FAILED">
@@ -93,7 +93,7 @@
 			<description>已接纳的 Broker 请求在运行期加载失败。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="REASON_RESOURCE_TYPE_MISMATCH">
@@ -101,7 +101,7 @@
 			<description>Broker 完成的资源不是 PackedScene。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="REASON_SCENE_CHANGE_FAILED">
@@ -109,7 +109,7 @@
 			<description>PackedScene 已准备完成，但安全帧场景切换失败。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="REASON_CALLER_CANCELLED">
@@ -117,7 +117,7 @@
 			<description>caller 通过 Operation.cancel() 显式取消当前 consumer。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="REASON_TOKEN_CANCELLED">
@@ -125,7 +125,7 @@
 			<description>绑定的 cancellation token 请求取消。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="REASON_OWNER_RELEASED">
@@ -133,7 +133,7 @@
 			<description>绑定的请求 owner 已释放。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="REASON_PATH_CANCELLED">
@@ -141,7 +141,7 @@
 			<description>旧 path-level cancel API 取消了同路径的全部 consumer。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="REASON_EXTERNAL_CANCELLED">
@@ -149,7 +149,7 @@
 			<description>共享 Resource Broker 被外部调用方显式取消。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="REASON_BROKER_DISPOSED">
@@ -157,7 +157,7 @@
 			<description>共享 Resource Broker 已释放并取消当前 consumer Lease。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="REASON_BROKER_CANCELLED">
@@ -165,7 +165,7 @@
 			<description>Broker 返回了未纳入公开闭合集的取消原因。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="REASON_UTILITY_DISPOSED">
@@ -173,7 +173,7 @@
 			<description>Scene Utility 已释放并终结所有等待请求。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 	</constants>
@@ -185,7 +185,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">`Status` 闭合枚举值。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="is_successful">
@@ -194,7 +194,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">仅 `COMPLETED` 返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_request_id">
@@ -203,7 +203,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">大于零的请求 ID；尚未配置时返回 0。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_kind">
@@ -212,7 +212,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">与 `GFSceneOperation.Kind` 对应的 int enum。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_scene_identity">
@@ -221,7 +221,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">隔离的 GFResourceIdentity 快照；尚未配置时返回 null。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_scene">
@@ -231,7 +231,7 @@ PackedScene 是 Broker 或缓存交付的规范资源引用；结果副本共享
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">`COMPLETED` 时返回场景资源；其它终态返回 null。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_reason">
@@ -240,7 +240,7 @@ PackedScene 是 Broker 或缓存交付的规范资源引用；结果副本共享
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">当前 status 允许的 `REASON_*` 常量之一。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_error_code">
@@ -249,7 +249,7 @@ PackedScene 是 Broker 或缓存交付的规范资源引用；结果副本共享
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">`COMPLETED` 为 OK；其它 status 为与 reason 对应的非 OK 码。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="duplicate_result">
@@ -259,7 +259,7 @@ PackedScene 是 Broker 或缓存交付的规范资源引用；结果副本共享
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">新结果对象。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="to_dict">
@@ -269,7 +269,7 @@ PackedScene 是 Broker 或缓存交付的规范资源引用；结果副本共享
 				<tag name="api">public</tag>
 				<tag name="return">请求身份、种类、终态、可选场景与错误信息。</tag>
 				<tag name="schema">return: Exact Dictionary with status: int enum, successful: bool, request_id: int, kind: int enum, scene_identity: Dictionary, scene: PackedScene or null, has_scene: bool, reason: StringName, and error_code: int fields.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 	</methods>

@@ -10,7 +10,7 @@
 ## [br]
 ## @category tool_api
 ## [br]
-## @since unreleased
+## @since 11.0.0
 class_name GFLspWorkspaceEditAdapter
 extends RefCounted
 
@@ -21,14 +21,14 @@ extends RefCounted
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const POSITION_ENCODING_UTF8: String = "utf-8"
 
 ## LSP UTF-16 position encoding 标识。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const POSITION_ENCODING_UTF16: String = "utf-16"
 
 const _FORMAT: String = "gf.lsp_workspace_edit.plan"
@@ -74,7 +74,7 @@ static var _test_position_line_scan_counts: Dictionary = {}
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param workspace_edit: 调用方提供且已闭合的 LSP WorkspaceEdit。
 ## [br]
@@ -237,7 +237,7 @@ static func build_plan(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param plan: build_plan() 返回且尚未消费的计划。
 ## [br]

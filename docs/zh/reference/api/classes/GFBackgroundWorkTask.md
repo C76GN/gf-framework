@@ -317,7 +317,7 @@ func is_finished() -> bool:
 ### `get_cancellation_context`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_cancellation_context() -> GFBackgroundWorkContext:

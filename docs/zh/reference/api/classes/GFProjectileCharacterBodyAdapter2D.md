@@ -7,7 +7,7 @@
 - 继承：`GFProjectileBodyAdapter2D`
 - API：`public`
 - 类别：资源定义 (`resource_definition`)
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 CharacterBody2D 运动适配器。
 

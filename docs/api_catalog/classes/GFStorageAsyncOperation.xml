@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFStorageAsyncOperation" path="addons/gf/standard/utilities/storage/gf_storage_async_operation.gd" module="standard" extends="RefCounted" classDigest="295c97fbd6deeb4acce108c87e3c0a4c0db9eeae38ddfec9aec71217c82a170f">
+<class name="GFStorageAsyncOperation" path="addons/gf/standard/utilities/storage/gf_storage_async_operation.gd" module="standard" extends="RefCounted" classDigest="4121514a54fb898dbfbbe42cafe554d80cbe51982fc2acc13e5a2b14f8c4500a">
 	<description>GFStorageAsyncOperation: 单次异步存储请求句柄。
 句柄同时表达单个 consumer 的 caller 终态与共享物理请求终态。既有
 `completed/is_completed/get_result` 始终表示物理终态；caller 可通过独立查询和
@@ -27,7 +27,7 @@ owner 已释放时框架可抑制该信号；终态仍可通过 `get_caller_resu
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">result: 与当前 consumer ID 匹配的隔离 caller 结果。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 	</signals>
@@ -54,7 +54,7 @@ owner 已释放时框架可抑制该信号；终态仍可通过 `get_caller_resu
 			<description>异步删除请求。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="OPERATION_RESET">
@@ -62,7 +62,7 @@ owner 已释放时框架可抑制该信号；终态仍可通过 `get_caller_resu
 			<description>异步破坏性 family reset/recreate 请求。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 	</constants>
@@ -83,7 +83,7 @@ owner 已释放时框架可抑制该信号；终态仍可通过 `get_caller_resu
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">大于零的 consumer ID；尚未配置时返回 0。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_operation">
@@ -137,7 +137,7 @@ owner 已释放时框架可抑制该信号；终态仍可通过 `get_caller_resu
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">已配置且 caller 尚未完成时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="is_caller_completed">
@@ -146,7 +146,7 @@ owner 已释放时框架可抑制该信号；终态仍可通过 `get_caller_resu
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">caller 已完成时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_caller_result">
@@ -155,7 +155,7 @@ owner 已释放时框架可抑制该信号；终态仍可通过 `get_caller_resu
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">caller 已完成时返回隔离结果；等待中返回 null。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="cancel_observation">
@@ -167,7 +167,7 @@ save/delete/reset 已接纳时可能进入 `OUTCOME_UNKNOWN`，物理终态仍�
 				<tag name="api">public</tag>
 				<tag name="param">reason: 最长保留 128 字符的稳定原因；空值规范化为 `cancelled`。</tag>
 				<tag name="return">本次调用首次结束 caller 观察时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_payload_transfer">
@@ -178,7 +178,7 @@ save/delete/reset 已接纳时可能进入 `OUTCOME_UNKNOWN`，物理终态仍�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">等待中的 transfer-backed save 请求返回句柄；终态及普通 save/load/delete/reset 请求返回 null。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="reclaim_failed_payload">
@@ -189,7 +189,7 @@ save/delete/reset 已接纳时可能进入 `OUTCOME_UNKNOWN`，物理终态仍�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">首次取回失败 transfer 时返回原句柄；其他情况返回 null。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 	</methods>

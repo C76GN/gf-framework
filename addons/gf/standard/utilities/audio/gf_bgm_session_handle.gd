@@ -7,7 +7,7 @@
 ## [br]
 ## @category runtime_handle
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @layer standard/utilities/audio
 class_name GFBgmSessionHandle
@@ -20,7 +20,7 @@ extends RefCounted
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param handle: 当前规范会话句柄。
 ## [br]
@@ -34,7 +34,7 @@ signal ended(handle: GFBgmSessionHandle, end_kind: EndKind)
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 enum OwnerKind {
 	## 尚未配置或没有播放 owner。
 	NONE,
@@ -48,7 +48,7 @@ enum OwnerKind {
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 enum EndKind {
 	## 会话仍在活动中；不是终态。
 	NONE,
@@ -86,7 +86,7 @@ var _ended_signal_emitted: bool = false
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 大于零的会话 ID；尚未配置时返回 0。
 func get_session_id() -> int:
@@ -97,7 +97,7 @@ func get_session_id() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 大于零的请求 ID；尚未配置时返回 0。
 func get_request_id() -> int:
@@ -108,7 +108,7 @@ func get_request_id() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 会话 history key；未提供时为空字符串。
 func get_history_key() -> String:
@@ -119,7 +119,7 @@ func get_history_key() -> String:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return `LOCAL`、`BACKEND` 或尚未配置时的 `NONE`。
 func get_owner_kind() -> OwnerKind:
@@ -130,7 +130,7 @@ func get_owner_kind() -> OwnerKind:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 已配置且尚未终结时返回 true。
 func is_active() -> bool:
@@ -141,7 +141,7 @@ func is_active() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 已配置并终结时返回 true。
 func is_terminal() -> bool:
@@ -152,7 +152,7 @@ func is_terminal() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 活动会话返回 `NONE`；终态会话返回其唯一终结原因。
 func get_end_kind() -> EndKind:
@@ -166,7 +166,7 @@ func get_end_kind() -> EndKind:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param fade_seconds: 非负且有限的淡出秒数。
 ## [br]
@@ -198,7 +198,7 @@ func stop(fade_seconds: float = 0.0) -> bool:
 ## [br]
 ## @layer standard/utilities/audio
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param session_id: Utility 内唯一且大于零的会话 ID。
 ## [br]
@@ -245,7 +245,7 @@ func configure_for_framework(
 ## [br]
 ## @layer standard/utilities/audio
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param end_kind: 非 `NONE` 的闭合终结原因。
 ## [br]
@@ -279,7 +279,7 @@ func complete_for_framework(
 ## [br]
 ## @layer standard/utilities/audio
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 首次发出已冻结终态时返回 true。
 func emit_ended_for_framework() -> bool:
@@ -300,7 +300,7 @@ func emit_ended_for_framework() -> bool:
 ## [br]
 ## @layer standard/utilities/audio
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 身份和 owner 已冻结时返回 true。
 func is_configured_for_framework() -> bool:

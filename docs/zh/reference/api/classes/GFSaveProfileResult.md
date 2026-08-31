@@ -135,7 +135,7 @@ Profile 配置或请求无效。
 ### `STATUS_INVALID_REQUEST`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const STATUS_INVALID_REQUEST: StringName = &"invalid_request"
@@ -174,7 +174,7 @@ const STATUS_BUSY: StringName = &"busy"
 ### `STATUS_PREPARATION_FAILED`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const STATUS_PREPARATION_FAILED: StringName = &"preparation_failed"
@@ -634,7 +634,7 @@ func get_duration_msec() -> int:
 ### `get_preparation_duration_msec`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_preparation_duration_msec() -> int:
@@ -649,7 +649,7 @@ func get_preparation_duration_msec() -> int:
 ### `get_storage_duration_msec`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_storage_duration_msec() -> int:
@@ -664,7 +664,7 @@ func get_storage_duration_msec() -> int:
 ### `get_preparation_work_units`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_preparation_work_units() -> int:

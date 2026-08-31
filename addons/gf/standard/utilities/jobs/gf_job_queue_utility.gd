@@ -77,7 +77,7 @@ var max_failed_jobs: int = 64
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 var max_cancelled_jobs: int = 64
 
 

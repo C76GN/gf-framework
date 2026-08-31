@@ -80,7 +80,7 @@ func execute(context: GFSequenceContext) -> Variant:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param context: 序列上下文。
 func cancel(context: GFSequenceContext) -> void:

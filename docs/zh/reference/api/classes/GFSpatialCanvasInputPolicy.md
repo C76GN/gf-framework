@@ -7,7 +7,7 @@
 - 继承：`Resource`
 - API：`public`
 - 类别：资源定义 (`resource_definition`)
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 空间画布输入解释策略。 以数据方式声明平移、选择、滚轮、触摸和取消输入。策略不持有节点、 Viewport 或父容器引用；[code]GFSpatialCanvas2D[/code] 只接受完整校验通过的隔离副本。
 
@@ -52,7 +52,7 @@
 ### `ModifierMask`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 enum ModifierMask {
@@ -76,7 +76,7 @@ enum ModifierMask {
 ### `WheelAxis`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 enum WheelAxis {
@@ -94,7 +94,7 @@ enum WheelAxis {
 ### `WheelRouting`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 enum WheelRouting {
@@ -114,7 +114,7 @@ enum WheelRouting {
 ### `TouchPrimaryBehavior`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 enum TouchPrimaryBehavior {
@@ -136,7 +136,7 @@ enum TouchPrimaryBehavior {
 ### `ABSOLUTE_MAX_SELECTION_MODIFIER_BINDINGS`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const ABSOLUTE_MAX_SELECTION_MODIFIER_BINDINGS: int = 15
@@ -149,7 +149,7 @@ const ABSOLUTE_MAX_SELECTION_MODIFIER_BINDINGS: int = 15
 ### `ABSOLUTE_MAX_ACTION_EVENTS`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const ABSOLUTE_MAX_ACTION_EVENTS: int = 64
@@ -164,7 +164,7 @@ const ABSOLUTE_MAX_ACTION_EVENTS: int = 64
 ### `pan_mouse_button`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 var pan_mouse_button: MouseButton = MOUSE_BUTTON_MIDDLE
@@ -177,7 +177,7 @@ var pan_mouse_button: MouseButton = MOUSE_BUTTON_MIDDLE
 ### `pan_action`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 var pan_action: StringName = &""
@@ -190,7 +190,7 @@ var pan_action: StringName = &""
 ### `pan_modifier_mask`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 var pan_modifier_mask: int = ModifierMask.NONE
@@ -203,7 +203,7 @@ var pan_modifier_mask: int = ModifierMask.NONE
 ### `selection_mouse_button`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 var selection_mouse_button: MouseButton = MOUSE_BUTTON_LEFT
@@ -216,7 +216,7 @@ var selection_mouse_button: MouseButton = MOUSE_BUTTON_LEFT
 ### `selection_action`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 var selection_action: StringName = &""
@@ -229,7 +229,7 @@ var selection_action: StringName = &""
 ### `selection_default_mode`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 var selection_default_mode: GFSpatialCanvas2D.SelectionMode = (
@@ -244,7 +244,7 @@ var selection_default_mode: GFSpatialCanvas2D.SelectionMode = (
 ### `selection_modifier_bindings`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 var selection_modifier_bindings: Array[GFSpatialCanvasSelectionModeBinding] = []
@@ -257,7 +257,7 @@ var selection_modifier_bindings: Array[GFSpatialCanvasSelectionModeBinding] = []
 ### `drag_threshold`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 var drag_threshold: float = 4.0
@@ -270,7 +270,7 @@ var drag_threshold: float = 4.0
 ### `wheel_axis`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 var wheel_axis: WheelAxis = WheelAxis.VERTICAL
@@ -283,7 +283,7 @@ var wheel_axis: WheelAxis = WheelAxis.VERTICAL
 ### `wheel_routing`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 var wheel_routing: WheelRouting = WheelRouting.CANVAS
@@ -296,7 +296,7 @@ var wheel_routing: WheelRouting = WheelRouting.CANVAS
 ### `wheel_modifier_mask`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 var wheel_modifier_mask: int = ModifierMask.NONE
@@ -309,7 +309,7 @@ var wheel_modifier_mask: int = ModifierMask.NONE
 ### `wheel_zoom_factor`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 var wheel_zoom_factor: float = 1.1
@@ -322,7 +322,7 @@ var wheel_zoom_factor: float = 1.1
 ### `touch_enabled`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 var touch_enabled: bool = true
@@ -335,7 +335,7 @@ var touch_enabled: bool = true
 ### `touch_primary_behavior`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 var touch_primary_behavior: TouchPrimaryBehavior = TouchPrimaryBehavior.PAN
@@ -348,7 +348,7 @@ var touch_primary_behavior: TouchPrimaryBehavior = TouchPrimaryBehavior.PAN
 ### `touch_multi_pan_enabled`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 var touch_multi_pan_enabled: bool = true
@@ -361,7 +361,7 @@ var touch_multi_pan_enabled: bool = true
 ### `touch_multi_zoom_enabled`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 var touch_multi_zoom_enabled: bool = true
@@ -374,7 +374,7 @@ var touch_multi_zoom_enabled: bool = true
 ### `system_pan_gesture_enabled`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 var system_pan_gesture_enabled: bool = true
@@ -387,7 +387,7 @@ var system_pan_gesture_enabled: bool = true
 ### `system_magnify_gesture_enabled`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 var system_magnify_gesture_enabled: bool = true
@@ -400,7 +400,7 @@ var system_magnify_gesture_enabled: bool = true
 ### `placement_cancel_action`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 var placement_cancel_action: StringName = &"ui_cancel"
@@ -413,7 +413,7 @@ var placement_cancel_action: StringName = &"ui_cancel"
 ### `consume_handled_events`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 var consume_handled_events: bool = true
@@ -426,7 +426,7 @@ var consume_handled_events: bool = true
 ### `consume_wheel_events`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 var consume_wheel_events: bool = true
@@ -441,7 +441,7 @@ var consume_wheel_events: bool = true
 ### `validate_policy`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func validate_policy() -> Dictionary:
@@ -460,7 +460,7 @@ func validate_policy() -> Dictionary:
 ### `duplicate_policy`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func duplicate_policy() -> GFSpatialCanvasInputPolicy:

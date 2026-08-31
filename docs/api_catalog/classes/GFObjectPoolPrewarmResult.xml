@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFObjectPoolPrewarmResult" path="addons/gf/standard/utilities/nodes/gf_object_pool_prewarm_result.gd" module="standard" extends="RefCounted" classDigest="598daa25988c7daef71d69b51f4fa32a42abbee169b20d237d01c8e27cec636e">
+<class name="GFObjectPoolPrewarmResult" path="addons/gf/standard/utilities/nodes/gf_object_pool_prewarm_result.gd" module="standard" extends="RefCounted" classDigest="cc33d03c4b088be1c22855dae6963d74c39955b65a1ae6e8950dbb4055b05885">
 	<description>GFObjectPoolPrewarmResult: 单次对象池预热请求的不可变终态。
 结果冻结请求身份、最终有效的容量准入和每个请求单位的唯一 disposition。调用方可以区分
 完成、容量部分接纳、拒绝、取消、Utility 生命周期终结、输入无效与执行失败。</description>
@@ -7,7 +7,7 @@
 		<tag name="api">public</tag>
 		<tag name="category">value_object</tag>
 		<tag name="layer">standard/utilities/nodes</tag>
-		<tag name="since">unreleased</tag>
+		<tag name="since">11.0.0</tag>
 	</tags>
 	<signals />
 	<enums>
@@ -31,7 +31,7 @@
 			<description>预热请求的唯一终态。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 	</enums>
@@ -41,7 +41,7 @@
 			<description>全部请求单位已经创建。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="REASON_CAPACITY_LIMITED">
@@ -49,7 +49,7 @@
 			<description>容量只接纳部分请求单位。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="REASON_CAPACITY_UNAVAILABLE">
@@ -57,7 +57,7 @@
 			<description>当前没有可接纳容量。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="REASON_CALLER_CANCELLED">
@@ -65,7 +65,7 @@
 			<description>caller 显式取消请求。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="REASON_TOKEN_CANCELLED">
@@ -73,7 +73,7 @@
 			<description>绑定的 cancellation token 请求取消。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="REASON_CANCELLATION_SCOPE_COMPLETED">
@@ -81,7 +81,7 @@
 			<description>绑定的异步作用域已经正常完成。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="REASON_OWNER_RELEASED">
@@ -89,7 +89,7 @@
 			<description>请求 owner 已释放或离开场景树。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="REASON_PARENT_RELEASED">
@@ -97,7 +97,7 @@
 			<description>请求 parent 已释放、离树或排队删除。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="REASON_UTILITY_DISPOSED">
@@ -105,7 +105,7 @@
 			<description>Object Pool Utility 已释放。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="REASON_UTILITY_REINITIALIZED">
@@ -113,7 +113,7 @@
 			<description>Object Pool Utility 已重新初始化。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="REASON_INVALID_SCENE">
@@ -121,7 +121,7 @@
 			<description>PackedScene 无效。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="REASON_INVALID_COUNT">
@@ -129,7 +129,7 @@
 			<description>请求数量小于零。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="REASON_INVALID_PARENT">
@@ -137,7 +137,7 @@
 			<description>parent 在接纳时无效或已排队删除。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="REASON_INVALID_OWNER">
@@ -145,7 +145,7 @@
 			<description>owner 在接纳时无效或 Node owner 不在场景树中。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="REASON_INVALID_PREPARE_CALLBACK">
@@ -153,7 +153,7 @@
 			<description>prepare_callback 不是空 Callable 或有效 Callable。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="REASON_MAIN_THREAD_REQUIRED">
@@ -161,7 +161,7 @@
 			<description>typed request 必须从主线程提交。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="REASON_SCENE_INSTANTIATION_FAILED">
@@ -169,7 +169,7 @@
 			<description>PackedScene 无法实例化为有效 Node。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="REASON_PREPARE_CALLBACK_FAILED">
@@ -177,7 +177,7 @@
 			<description>prepare_callback 显式返回非 OK Error。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="REASON_INVALID_PREPARE_CALLBACK_RESULT">
@@ -185,7 +185,7 @@
 			<description>prepare_callback 返回值不是合法 Error 整数。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="REASON_CANDIDATE_INVALIDATED">
@@ -193,7 +193,7 @@
 			<description>候选在提交前被重入或生命周期变化失效。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="REASON_INTERNAL_FAILURE">
@@ -201,7 +201,7 @@
 			<description>框架无法安全归类的内部失败。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 	</constants>
@@ -213,7 +213,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">`Status` 闭合枚举值。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="is_successful">
@@ -222,7 +222,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">`COMPLETED` 或 `PARTIAL` 返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_request_id">
@@ -231,7 +231,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">大于零的请求 ID；尚未配置时返回 0。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_scene_identity">
@@ -240,7 +240,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">资源路径或实例 ID 身份。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_requested_count">
@@ -249,7 +249,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">非负数量。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_admitted_count">
@@ -258,7 +258,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">非负且不大于 requested 的数量；已包含运行期容量复核的收窄结果。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_created_count">
@@ -267,7 +267,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">成功创建数量。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_skipped_count">
@@ -276,7 +276,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">`requested - admitted`。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_cancelled_count">
@@ -285,7 +285,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">取消数量。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_failed_count">
@@ -294,7 +294,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">失败数量。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_reason">
@@ -303,7 +303,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">与 status/error 对应的 `REASON_*`。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_error_code">
@@ -312,7 +312,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">与 status/reason 对应的 Error。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="duplicate_result">
@@ -321,7 +321,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">新结果对象。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="to_dict">
@@ -331,7 +331,7 @@
 				<tag name="api">public</tag>
 				<tag name="return">请求身份、计数与终态。</tag>
 				<tag name="schema">return: Exact Dictionary with status: int enum, request_id: int, scene_identity: String, requested_count: int, admitted_count: int, created_count: int, skipped_count: int, cancelled_count: int, failed_count: int, reason: StringName, error_code: int, and successful: bool fields.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 	</methods>

@@ -7,7 +7,7 @@
 - 继承：`RefCounted`
 - API：`public`
 - 类别：运行时句柄 (`runtime_handle`)
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 CPU/IO worker 的线程安全只读协作取消句柄。 Utility 为已接纳的 CPU/IO work record 建立并由 Task 持有。 opt-in 时作为 worker 第二参数；无需 release，终态、clear、dispose 后仍可读且不延长 Utility/线程寿命。 自行 new() 得到未绑定对象，不能作为取消入口。
 
@@ -30,7 +30,7 @@ CPU/IO worker 的线程安全只读协作取消句柄。 Utility 为已接纳的
 ### `CancellationReason`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 enum CancellationReason {
@@ -56,7 +56,7 @@ enum CancellationReason {
 ### `get_work_id`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_work_id() -> StringName:
@@ -71,7 +71,7 @@ func get_work_id() -> StringName:
 ### `is_cancel_requested`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func is_cancel_requested() -> bool:
@@ -86,7 +86,7 @@ func is_cancel_requested() -> bool:
 ### `get_cancel_reason`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_cancel_reason() -> CancellationReason:
@@ -101,7 +101,7 @@ func get_cancel_reason() -> CancellationReason:
 ### `get_cancel_requested_msec`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_cancel_requested_msec() -> int:
@@ -116,7 +116,7 @@ func get_cancel_requested_msec() -> int:
 ### `get_debug_snapshot`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_debug_snapshot() -> Dictionary:
@@ -135,7 +135,7 @@ func get_debug_snapshot() -> Dictionary:
 ### `cancellation_reason_name`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 static func cancellation_reason_name(reason: CancellationReason) -> String:

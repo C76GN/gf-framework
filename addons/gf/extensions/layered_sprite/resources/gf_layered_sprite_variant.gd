@@ -6,7 +6,7 @@
 ## [br]
 ## @category resource_definition
 ## [br]
-## @since unreleased
+## @since 11.0.0
 class_name GFLayeredSpriteVariant
 extends Resource
 
@@ -17,12 +17,12 @@ extends Resource
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 @export var variant_id: StringName = &""
 
 ## 该变体的帧资源。动画名称和每个动画的帧数必须与时间轴完全一致。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 @export var sprite_frames: SpriteFrames = null

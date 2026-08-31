@@ -37,7 +37,7 @@ extends Resource
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param session: 当前 projectile session。
 ## [br]

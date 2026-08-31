@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFSaveProfileTransactionCoordinator" path="addons/gf/extensions/save/profile/gf_save_profile_transaction_coordinator.gd" module="extensions/save" extends="GFUtility" classDigest="7867186e8010c4d76060f8b1302e42b8eed40eeb64fa2498dadd13d20f13207c">
+<class name="GFSaveProfileTransactionCoordinator" path="addons/gf/extensions/save/profile/gf_save_profile_transaction_coordinator.gd" module="extensions/save" extends="GFUtility" classDigest="d7ec6ce89a8c9d4db9228092345400ffb71b66b0e8dfb2d50a02bb610ced807e">
 	<description>GFSaveProfileTransactionCoordinator: 活动 Profile 身份与跨 Profile 事务协调器。
 Coordinator 在完全相同且同序的 Provider 实例拓扑上建立独立 domain，委托
 `GFSaveProfileUtility` 完成 generation、Storage IO、重试与 detached settlement。
@@ -7,7 +7,7 @@ Coordinator 在完全相同且同序的 Provider 实例拓扑上建立独立 dom
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">runtime_service</tag>
-		<tag name="since">unreleased</tag>
+		<tag name="since">11.0.0</tag>
 	</tags>
 	<signals>
 		<member kind="signal" name="active_profile_changed">
@@ -17,7 +17,7 @@ Coordinator 在完全相同且同序的 Provider 实例拓扑上建立独立 dom
 				<tag name="api">public</tag>
 				<tag name="param">previous_profile_id: 提交前活动 Profile；首次激活时为空。</tag>
 				<tag name="param">current_profile_id: 提交后活动 Profile。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="signal" name="transaction_completed">
@@ -26,7 +26,7 @@ Coordinator 在完全相同且同序的 Provider 实例拓扑上建立独立 dom
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">result: 不包含持久化 payload 的隔离结果。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 	</signals>
@@ -37,7 +37,7 @@ Coordinator 在完全相同且同序的 Provider 实例拓扑上建立独立 dom
 			<description>Domain 尚未建立活动身份。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="DOMAIN_STATE_ACTIVE">
@@ -45,7 +45,7 @@ Coordinator 在完全相同且同序的 Provider 实例拓扑上建立独立 dom
 			<description>Domain 已建立一个可直接 save/flush 的活动身份。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="DOMAIN_STATE_TRANSACTING">
@@ -53,7 +53,7 @@ Coordinator 在完全相同且同序的 Provider 实例拓扑上建立独立 dom
 			<description>Domain 正在执行一个事务。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="DOMAIN_STATE_RECONCILIATION_REQUIRED">
@@ -61,7 +61,7 @@ Coordinator 在完全相同且同序的 Provider 实例拓扑上建立独立 dom
 			<description>Domain 被 outcome_unknown 或显式故障围栏占用，必须对账。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="DOMAIN_STATE_DISPOSED">
@@ -69,7 +69,7 @@ Coordinator 在完全相同且同序的 Provider 实例拓扑上建立独立 dom
 			<description>Coordinator 已释放。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 	</constants>
@@ -81,7 +81,7 @@ Coordinator 在完全相同且同序的 Provider 实例拓扑上建立独立 dom
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">仅包含 `GFSaveProfileUtility`。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="ready">
@@ -89,7 +89,7 @@ Coordinator 在完全相同且同序的 Provider 实例拓扑上建立独立 dom
 			<description>在架构 ready 阶段采用已注册的 Profile Utility。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="begin_activation">
@@ -99,7 +99,7 @@ Coordinator 在完全相同且同序的 Provider 实例拓扑上建立独立 dom
 				<tag name="api">public</tag>
 				<tag name="param">_scope: 当前激活阶段的取消作用域。</tag>
 				<tag name="return">一次性激活完成源。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="begin_quiesce">
@@ -109,7 +109,7 @@ Coordinator 在完全相同且同序的 Provider 实例拓扑上建立独立 dom
 				<tag name="api">public</tag>
 				<tag name="param">scope: 当前静默阶段的取消作用域。</tag>
 				<tag name="return">全部 domain 可安全关闭时完成的一次性完成源。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="tick">
@@ -118,7 +118,7 @@ Coordinator 在完全相同且同序的 Provider 实例拓扑上建立独立 dom
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">_delta: 未使用；底层 IO 由 Profile Utility 推进。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="dispose">
@@ -126,7 +126,7 @@ Coordinator 在完全相同且同序的 Provider 实例拓扑上建立独立 dom
 			<description>强制结束未完成事务并释放全部 manager capability。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="release_dependencies">
@@ -134,7 +134,7 @@ Coordinator 在完全相同且同序的 Provider 实例拓扑上建立独立 dom
 			<description>释放架构注入依赖。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="setup">
@@ -144,7 +144,7 @@ Coordinator 在完全相同且同序的 Provider 实例拓扑上建立独立 dom
 				<tag name="api">public</tag>
 				<tag name="param">profile_utility: 已配置的底层 Profile Utility。</tag>
 				<tag name="return">当前 Coordinator；输入无效或已有受管 Profile 时返回 null。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="register_profile">
@@ -158,7 +158,7 @@ Coordinator 在完全相同且同序的 Provider 实例拓扑上建立独立 dom
 				<tag name="param">migrations: 可选迁移注册表。</tag>
 				<tag name="return">底层注册报告，附加 managed 与 provider_domain_id 字段。</tag>
 				<tag name="schema">return: GFValidationReportDictionary-compatible report with managed and provider_domain_id fields.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="unregister_profile">
@@ -168,7 +168,7 @@ Coordinator 在完全相同且同序的 Provider 实例拓扑上建立独立 dom
 				<tag name="api">public</tag>
 				<tag name="param">profile_id: 受管 Profile ID。</tag>
 				<tag name="return">安全注销成功时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_active_profile_id">
@@ -178,7 +178,7 @@ Coordinator 在完全相同且同序的 Provider 实例拓扑上建立独立 dom
 				<tag name="api">public</tag>
 				<tag name="param">profile_id: 用于定位 Provider domain 的任一受管 Profile ID。</tag>
 				<tag name="return">活动 Profile ID；domain 未激活或 Profile 不存在时为空。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_domain_state_snapshot">
@@ -189,7 +189,7 @@ Coordinator 在完全相同且同序的 Provider 实例拓扑上建立独立 dom
 				<tag name="param">profile_id: 用于定位 Provider domain 的任一受管 Profile ID。</tag>
 				<tag name="return">domain 状态、活动身份、generation、epoch 与事务/lease ID。</tag>
 				<tag name="schema">return: Payload-free Dictionary with domain_id, state, active_profile_id, profile_ids, domain_generation, transaction_epoch, transaction_id, reconcile_lease_id, quiescing, and disposed fields.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="activate_profile">
@@ -205,7 +205,7 @@ missing/corrupt 不会应用低层 `ACTION_USE_CURRENT_STATE`；结果分别返�
 				<tag name="return">类型化 activate 操作。</tag>
 				<tag name="schema">context: Dictionary with caller-defined ephemeral operation data.</tag>
 				<tag name="schema">metadata: Dictionary with caller-defined result metadata.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="switch_profile">
@@ -219,7 +219,7 @@ missing/corrupt 不会应用低层 `ACTION_USE_CURRENT_STATE`；结果分别返�
 				<tag name="return">类型化 switch 操作；目标缺失或可恢复损坏时返回绑定活动来源的 Recovery Lease。</tag>
 				<tag name="schema">context: Dictionary with caller-defined ephemeral operation data.</tag>
 				<tag name="schema">metadata: Dictionary with caller-defined result metadata.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="bootstrap_profile">
@@ -230,7 +230,7 @@ missing/corrupt 不会应用低层 `ACTION_USE_CURRENT_STATE`；结果分别返�
 				<tag name="param">lease: 尚未过期的 missing Recovery Lease。</tag>
 				<tag name="param">request: 当前 Provider 状态的保存请求；null 表示空元数据。</tag>
 				<tag name="return">类型化 bootstrap 操作；拒绝不会 claim lease 或 request。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="adopt_profile">
@@ -241,7 +241,7 @@ missing/corrupt 不会应用低层 `ACTION_USE_CURRENT_STATE`；结果分别返�
 				<tag name="param">lease: 尚未过期的 corrupt Recovery Lease。</tag>
 				<tag name="param">request: 当前 Provider 状态的保存请求；null 表示空元数据。</tag>
 				<tag name="return">类型化 adopt 操作；拒绝不会 claim lease 或 request。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="bootstrap_and_switch_profile">
@@ -254,7 +254,7 @@ missing/corrupt 不会应用低层 `ACTION_USE_CURRENT_STATE`；结果分别返�
 				<tag name="param">lease: 尚未过期且绑定活动来源的 missing Recovery Lease。</tag>
 				<tag name="param">request: 目标保存的一次性请求；null 表示空元数据。</tag>
 				<tag name="return">类型化 bootstrap-and-switch 操作；边界拒绝不会 claim lease 或 request。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="adopt_and_switch_profile">
@@ -269,7 +269,7 @@ reset 或目标保存确定失败时来源身份保持不变，无法签发结�
 				<tag name="param">lease: 尚未过期且绑定活动来源的 corrupt Recovery Lease。</tag>
 				<tag name="param">request: 目标保存的一次性请求；null 表示空元数据。</tag>
 				<tag name="return">类型化 adopt-and-switch 操作；边界拒绝不会 claim lease 或 request。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="mutate_and_persist">
@@ -280,7 +280,7 @@ reset 或目标保存确定失败时来源身份保持不变，无法签发结�
 				<tag name="param">profile_id: 当前 domain 的活动 Profile ID。</tag>
 				<tag name="param">request: 一次性候选与元数据请求。</tag>
 				<tag name="return">类型化 mutate-and-persist 操作；边界拒绝不会 claim request。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="reconcile_profile">
@@ -293,7 +293,7 @@ waiting lease 返回 `reconcile_pending`，且不 claim lease/request；调用�
 				<tag name="param">lease: 当前 Coordinator 持有的 Reconcile Lease。</tag>
 				<tag name="param">request: 一次性 reconcile context 与结果元数据。</tag>
 				<tag name="return">类型化 reconcile 操作。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 	</methods>

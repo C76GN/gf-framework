@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFHapticUtility" path="addons/gf/extensions/feedback/runtime/gf_haptic_utility.gd" module="extensions/feedback" extends="GFUtility" classDigest="b1d0b01811d4f6c28c2a1744fc81f76fa5253435021282b0a15e2055cf25d828">
+<class name="GFHapticUtility" path="addons/gf/extensions/feedback/runtime/gf_haptic_utility.gd" module="extensions/feedback" extends="GFUtility" classDigest="577952c1fd60108dff2a34a20aa1e21c04d17639ae74f40ea3ecc0fed91fd69a">
 	<description>GFHapticUtility: 通用手柄震动播放工具。
 管理命名 channel 上的 `GFHapticPreset` 播放状态，并把合成后的弱/强马达强度
 路由到玩家席位或手柄设备。项目仍然决定何时播放、如何分组以及玩法语义。</description>
@@ -80,7 +80,7 @@
 			<description>默认向输入系统刷新合成震动输出的间隔（秒）。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="MIN_OUTPUT_DURATION_SECONDS">
@@ -88,7 +88,7 @@
 			<description>允许提交到底层输出的最短震动时长（秒）。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 	</constants>
@@ -409,7 +409,7 @@ output_refresh_seconds，传给 provider 的值始终为有限正数。</descrip
 				<tag name="api">public</tag>
 				<tag name="return">最近输出活动报告；尚无输出活动时返回计数和明细均为空的完整报告。</tag>
 				<tag name="schema">return: JSON-safe Dictionary，包含 applied_count、stopped_count、failed_stop_count、rejected_count、applied、stopped、failed_stops 与 rejected。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_debug_snapshot">

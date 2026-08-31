@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFSettingsNullStoreUtility" path="addons/gf/standard/utilities/settings/gf_settings_null_store_utility.gd" module="standard" extends="GFSettingsStoreUtility" classDigest="d395e3e7fb768494c2016878ea90909d0107cf09287f87eb264a1cdee9e348e6">
+<class name="GFSettingsNullStoreUtility" path="addons/gf/standard/utilities/settings/gf_settings_null_store_utility.gd" module="standard" extends="GFSettingsStoreUtility" classDigest="ac804107072714f49422fb3ed18cdb3f353d5d82933dea005f683ecda35e6e6b">
 	<description>GFSettingsNullStoreUtility: 显式不可用的设置持久化 Store 哨兵。
 该实现继承 GFSettingsStoreUtility 的明确 UNAVAILABLE 结果，适合测试隔离或显式
 表达 Store capability 缺失。纯内存模式应在 GFSettingsUtility 上设置
@@ -7,7 +7,7 @@ persistence_enabled=false。</description>
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">runtime_service</tag>
-		<tag name="since">unreleased</tag>
+		<tag name="since">11.0.0</tag>
 	</tags>
 	<signals />
 	<enums />

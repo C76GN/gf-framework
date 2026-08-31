@@ -32,7 +32,7 @@ const _ID3_V24_FLAG_FOOTER: int = 0x10
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const DEFAULT_MAX_ID3_BYTES: int = 1024 * 1024
 
 ## 框架允许的单次 ID3 读取与解析绝对硬上限（含 10-byte header）。
@@ -40,7 +40,7 @@ const DEFAULT_MAX_ID3_BYTES: int = 1024 * 1024
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const ABSOLUTE_MAX_ID3_BYTES: int = 8 * 1024 * 1024
 
 const _FRAME_TO_TAG: Dictionary = {

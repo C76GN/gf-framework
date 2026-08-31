@@ -8,7 +8,7 @@
 ## [br]
 ## @category value_object
 ## [br]
-## @since unreleased
+## @since 11.0.0
 class_name GFStorageAsyncCallerResult
 extends RefCounted
 
@@ -19,7 +19,7 @@ extends RefCounted
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 enum Status {
 	## caller 获得了同一请求的确定物理终态。
 	PHYSICAL_SETTLED,
@@ -33,7 +33,7 @@ enum Status {
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 enum EndKind {
 	## 物理工作先结算。
 	PHYSICAL_SETTLEMENT,
@@ -79,7 +79,7 @@ var _physical_result: GFStorageAsyncResult = null
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 大于零的当前 consumer ID；尚未配置时返回 0。
 func get_consumer_id() -> int:
@@ -90,7 +90,7 @@ func get_consumer_id() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 大于零的物理请求 ID；尚未配置时返回 0。
 func get_request_id() -> int:
@@ -101,7 +101,7 @@ func get_request_id() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return `save`、`load`、`delete` 或 `reset`；尚未配置时返回空值。
 func get_operation() -> StringName:
@@ -112,7 +112,7 @@ func get_operation() -> StringName:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 已验证的 portable logical identity；校验前失败时可能为空。
 func get_file_name() -> String:
@@ -123,7 +123,7 @@ func get_file_name() -> String:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 当前 caller 终态分类。
 func get_status() -> Status:
@@ -134,7 +134,7 @@ func get_status() -> Status:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 当前 caller 终态的稳定来源分类。
 func get_end_kind() -> EndKind:
@@ -145,7 +145,7 @@ func get_end_kind() -> EndKind:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 已规范化且最长 128 字符的稳定原因。
 func get_reason() -> StringName:
@@ -156,7 +156,7 @@ func get_reason() -> StringName:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return caller 终态写入时的非负单调毫秒值。
 func get_completed_at_msec() -> int:
@@ -167,7 +167,7 @@ func get_completed_at_msec() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return caller 终态对应的 Godot `Error`。
 func get_error_code() -> Error:
@@ -178,7 +178,7 @@ func get_error_code() -> Error:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return caller 获得成功物理领域结果时返回 true。
 func is_successful() -> bool:
@@ -193,7 +193,7 @@ func is_successful() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return caller 已离开但 save/delete/reset 物理结果未知时返回 true。
 func is_outcome_unknown() -> bool:
@@ -204,7 +204,7 @@ func is_outcome_unknown() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return `PHYSICAL_SETTLED` 时返回结果；其他 caller 终态返回 null。
 func get_physical_result() -> GFStorageAsyncResult:
@@ -215,7 +215,7 @@ func get_physical_result() -> GFStorageAsyncResult:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 当前不可变 caller 终态的隔离副本。
 func duplicate_result() -> GFStorageAsyncCallerResult:
@@ -239,7 +239,7 @@ func duplicate_result() -> GFStorageAsyncCallerResult:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 当前 caller 终态的隔离字典表示。
 ## [br]
@@ -269,7 +269,7 @@ func to_dict() -> Dictionary:
 ## [br]
 ## @layer standard/utilities/storage
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param consumer_id: Utility 内唯一且大于零的 consumer ID。
 ## [br]

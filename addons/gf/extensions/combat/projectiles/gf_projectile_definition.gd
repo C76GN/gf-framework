@@ -4,7 +4,7 @@
 ## [br]
 ## @category resource_definition
 ## [br]
-## @since unreleased
+## @since 11.0.0
 class_name GFProjectileDefinition
 extends Resource
 
@@ -15,21 +15,21 @@ extends Resource
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 @export var scene: PackedScene = null
 
 ## scene root 到唯一 runtime 的显式路径。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 @export var runtime_path: NodePath = NodePath("ProjectileRuntime")
 
 ## scene root 到 0..N impact source 的显式有序路径。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @schema impact_source_paths: Array[NodePath]，每项必须显式指向同维 GFHitBox2D/GFHitScan2D 或 GFHitBox3D/GFHitScan3D；不得重复、越过 root 或混用维度。
 @export var impact_source_paths: Array[NodePath] = []
@@ -38,14 +38,14 @@ extends Resource
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 @export var motion: GFProjectileMotion = null
 
 ## 可选生命周期策略；null 表示不自动结束。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 @export var lifetime_policy: GFProjectileLifetimePolicy = null
 
 

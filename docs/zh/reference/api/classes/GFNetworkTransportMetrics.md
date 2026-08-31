@@ -48,7 +48,7 @@
 ### `ABSOLUTE_MAX_METRIC_COUNT`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const ABSOLUTE_MAX_METRIC_COUNT: int = 64
@@ -61,7 +61,7 @@ const ABSOLUTE_MAX_METRIC_COUNT: int = 64
 ### `ABSOLUTE_MAX_CUSTOM_METRIC_COUNT`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const ABSOLUTE_MAX_CUSTOM_METRIC_COUNT: int = 48
@@ -74,7 +74,7 @@ const ABSOLUTE_MAX_CUSTOM_METRIC_COUNT: int = 48
 ### `ABSOLUTE_MAX_METRIC_ID_LENGTH`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const ABSOLUTE_MAX_METRIC_ID_LENGTH: int = 64

@@ -104,7 +104,7 @@ Profile 空闲。
 ### `STATE_PREPARING`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const STATE_PREPARING: StringName = &"preparing"
@@ -184,7 +184,7 @@ Utility 已释放。
 ### `save_preparation_work_budget_per_tick`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 var save_preparation_work_budget_per_tick: int = 64:
@@ -197,7 +197,7 @@ var save_preparation_work_budget_per_tick: int = 64:
 ### `save_preparation_slice_budget`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 var save_preparation_slice_budget: int = 8:
@@ -210,7 +210,7 @@ var save_preparation_slice_budget: int = 8:
 ### `save_preparation_time_budget_usec`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 var save_preparation_time_budget_usec: int = 2000:
@@ -238,7 +238,7 @@ func ready() -> void:
 ### `get_required_utilities`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_required_utilities() -> Array[Script]:
@@ -253,7 +253,7 @@ func get_required_utilities() -> Array[Script]:
 ### `begin_activation`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func begin_activation(_scope: GFAsyncScope) -> GFAsyncCompletion:
@@ -274,7 +274,7 @@ func begin_activation(_scope: GFAsyncScope) -> GFAsyncCompletion:
 ### `begin_quiesce`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func begin_quiesce(scope: GFAsyncScope) -> GFAsyncCompletion:

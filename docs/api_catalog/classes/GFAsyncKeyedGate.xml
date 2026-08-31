@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFAsyncKeyedGate" path="addons/gf/standard/common/gf_async_keyed_gate.gd" module="standard" extends="RefCounted" classDigest="fd83813735bfad6acf56005a2a72174f79d838b77ee275e577396415b349e978">
+<class name="GFAsyncKeyedGate" path="addons/gf/standard/common/gf_async_keyed_gate.gd" module="standard" extends="RefCounted" classDigest="fe38b5b6801304174716ea57fe15c2267eff5ef4864df4ce449c33bd6f4d0dad">
 	<description>GFAsyncKeyedGate: 按 key 仲裁异步并发槽位。
 用于把“同一个资源、槽位、存档、玩家或编辑器目标”的异步操作限制在可控并发内。
 gate 只负责排队、发放租约、释放后推进队列，以及记录取消/超时诊断；
@@ -135,7 +135,7 @@ gate 只负责排队、发放租约、释放后推进队列，以及记录取消
 			<description>fail-fast 请求未取得租约；请求未进入等待队列。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="DEFAULT_MAX_CONCURRENCY">
@@ -375,7 +375,7 @@ cancelled，且按已接受请求记录取消终态。</description>
 				<tag name="schema">key: Variant，必须是 GFVariantKeyCodec 接受的稳定 key。</tag>
 				<tag name="schema">options: Dictionary，可包含 metadata: Dictionary、max_concurrency: int、lease_timeout_msec: int、cancel_token: GFCancellationToken。</tag>
 				<tag name="schema">return: Dictionary，包含 ok、status、queued、acquired、request_id、key、metadata 和 reason，所有分支 queued 均为 false；status 为 acquired 时包含 lease 和已成功完成的 completion，busy 时 request_id 为 0 且不包含 lease 或 completion，cancelled/invalid 不包含 lease 或 completion。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="wait_for_lease_async">

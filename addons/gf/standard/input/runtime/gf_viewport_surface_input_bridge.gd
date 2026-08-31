@@ -8,7 +8,7 @@
 ## [br]
 ## @category runtime_service
 ## [br]
-## @since unreleased
+## @since 11.0.0
 class_name GFViewportSurfaceInputBridge
 extends RefCounted
 
@@ -19,7 +19,7 @@ extends RefCounted
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param source_id: 输入源标识。
 ## [br]
@@ -51,7 +51,7 @@ signal input_forwarded(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 enum PointerType {
 	## `InputEventMouseButton` / `InputEventMouseMotion`。
 	MOUSE,
@@ -107,7 +107,7 @@ var _disposed: bool = false
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param max_active_pointers: 同时按下 key 上限，必须为 1..256。
 ## [br]
@@ -155,7 +155,7 @@ func configure_limits(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param source_id: 稳定 Resolver/输入源标识。
 ## [br]
@@ -217,7 +217,7 @@ func forward_mouse_hover(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param source_id: 稳定 Resolver/输入源标识。
 ## [br]
@@ -351,7 +351,7 @@ func capture_pointer(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param capture: 按下时返回的原始回执。
 ## [br]
@@ -395,7 +395,7 @@ func move_pointer(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param capture: 活动鼠标捕获回执。
 ## [br]
@@ -455,7 +455,7 @@ func press_mouse_button(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param capture: 活动捕获回执。
 ## [br]
@@ -479,7 +479,7 @@ func release_pointer(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param capture: 活动捕获回执。
 ## [br]
@@ -524,7 +524,7 @@ func release_pointer_on_surface(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param capture: 活动捕获回执。
 ## [br]
@@ -542,7 +542,7 @@ func cancel_pointer(capture: GFViewportSurfaceInputCapture, timestamp_msec: int)
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param source_id: 待清理的输入源标识。
 ## [br]
@@ -583,7 +583,7 @@ func cancel_source(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param target: 待失效的 Viewport。
 ## [br]
@@ -619,7 +619,7 @@ func cancel_target(target: Viewport, target_generation: int, timestamp_msec: int
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param timestamp_msec: 活目标补发 cancel 时的单调毫秒。
 ## [br]
@@ -634,7 +634,7 @@ func prune_released_captures(timestamp_msec: int = 0) -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param capture: 待检查回执。
 ## [br]
@@ -648,7 +648,7 @@ func has_capture(capture: GFViewportSurfaceInputCapture) -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return: 不超过配置预算的捕获数。
 func get_active_pointer_count() -> int:
@@ -659,7 +659,7 @@ func get_active_pointer_count() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return: 不超过配置预算的历史条目数。
 func get_click_history_count() -> int:
@@ -670,7 +670,7 @@ func get_click_history_count() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return: 不超过配置预算的最近指针 key 数。
 func get_pointer_timestamp_count() -> int:
@@ -681,7 +681,7 @@ func get_pointer_timestamp_count() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return: [method dispose] 已调用时返回 true。
 func is_disposed() -> bool:
@@ -692,7 +692,7 @@ func is_disposed() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param timestamp_msec: 终止样本单调毫秒；负数视为 0。
 func dispose(timestamp_msec: int = 0) -> void:
@@ -1484,85 +1484,85 @@ static func _vector_is_finite(value: Vector2) -> bool:
 ## [br]
 ## @category internal_helper
 ## [br]
-## @since unreleased
+## @since 11.0.0
 class CaptureRecord extends RefCounted:
 	## 捕获表中的复合键。
 	## [br]
 	## @api framework_internal
 	## [br]
-	## @since unreleased
+	## @since 11.0.0
 	var key: String = ""
 	## 输入来源标识。
 	## [br]
 	## @api framework_internal
 	## [br]
-	## @since unreleased
+	## @since 11.0.0
 	var source_id: StringName = &""
 	## 输入设备标识。
 	## [br]
 	## @api framework_internal
 	## [br]
-	## @since unreleased
+	## @since 11.0.0
 	var device_id: int = -1
 	## 来源内的指针标识。
 	## [br]
 	## @api framework_internal
 	## [br]
-	## @since unreleased
+	## @since 11.0.0
 	var pointer_id: int = -1
 	## 指针类型。
 	## [br]
 	## @api framework_internal
 	## [br]
-	## @since unreleased
+	## @since 11.0.0
 	var pointer_type: int = -1
 	## 当前捕获代次。
 	## [br]
 	## @api framework_internal
 	## [br]
-	## @since unreleased
+	## @since 11.0.0
 	var capture_generation: int = 0
 	## 当前目标身份代次。
 	## [br]
 	## @api framework_internal
 	## [br]
-	## @since unreleased
+	## @since 11.0.0
 	var target_generation: int = 0
 	## 捕获目标的实例标识。
 	## [br]
 	## @api framework_internal
 	## [br]
-	## @since unreleased
+	## @since 11.0.0
 	var target_instance_id: int = 0
 	## 捕获目标的弱引用。
 	## [br]
 	## @api framework_internal
 	## [br]
-	## @since unreleased
+	## @since 11.0.0
 	var target_ref: WeakRef = null
 	## 返回给调用方的回执弱引用。
 	## [br]
 	## @api framework_internal
 	## [br]
-	## @since unreleased
+	## @since 11.0.0
 	var receipt_ref: WeakRef = null
 	## 最近一次合法的归一化坐标。
 	## [br]
 	## @api framework_internal
 	## [br]
-	## @since unreleased
+	## @since 11.0.0
 	var last_uv: Vector2 = Vector2.ZERO
 	## 最近一次接受的单调时间戳。
 	## [br]
 	## @api framework_internal
 	## [br]
-	## @since unreleased
+	## @since 11.0.0
 	var last_timestamp_msec: int = 0
 	## 当前按下的鼠标按钮位掩码。
 	## [br]
 	## @api framework_internal
 	## [br]
-	## @since unreleased
+	## @since 11.0.0
 	var button_mask: int = 0
 
 
@@ -1572,59 +1572,59 @@ class CaptureRecord extends RefCounted:
 ## [br]
 ## @category internal_helper
 ## [br]
-## @since unreleased
+## @since 11.0.0
 class ClickRecord extends RefCounted:
 	## 输入来源标识。
 	## [br]
 	## @api framework_internal
 	## [br]
-	## @since unreleased
+	## @since 11.0.0
 	var source_id: StringName = &""
 	## 输入设备标识。
 	## [br]
 	## @api framework_internal
 	## [br]
-	## @since unreleased
+	## @since 11.0.0
 	var device_id: int = -1
 	## 来源内的指针标识。
 	## [br]
 	## @api framework_internal
 	## [br]
-	## @since unreleased
+	## @since 11.0.0
 	var pointer_id: int = -1
 	## 参与点击序列的鼠标按钮。
 	## [br]
 	## @api framework_internal
 	## [br]
-	## @since unreleased
+	## @since 11.0.0
 	var mouse_button: int = 0
 	## 点击时目标的身份代次。
 	## [br]
 	## @api framework_internal
 	## [br]
-	## @since unreleased
+	## @since 11.0.0
 	var target_generation: int = 0
 	## 点击目标的实例标识。
 	## [br]
 	## @api framework_internal
 	## [br]
-	## @since unreleased
+	## @since 11.0.0
 	var target_instance_id: int = 0
 	## 点击目标的弱引用。
 	## [br]
 	## @api framework_internal
 	## [br]
-	## @since unreleased
+	## @since 11.0.0
 	var target_ref: WeakRef = null
 	## 最近点击的归一化坐标。
 	## [br]
 	## @api framework_internal
 	## [br]
-	## @since unreleased
+	## @since 11.0.0
 	var normalized_position: Vector2 = Vector2.ZERO
 	## 最近一次点击的单调时间戳。
 	## [br]
 	## @api framework_internal
 	## [br]
-	## @since unreleased
+	## @since 11.0.0
 	var timestamp_msec: int = 0

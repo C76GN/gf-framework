@@ -28,7 +28,7 @@
 ### `projectile_started`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 signal projectile_started(session: GFProjectileSession)
@@ -91,7 +91,7 @@ func launch( binding: GFProjectileBinding3D, launch_input: GFProjectileLaunchInp
 ### `get_active_session`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_active_session() -> GFProjectileSession:
@@ -106,7 +106,7 @@ func get_active_session() -> GFProjectileSession:
 ### `is_active`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func is_active() -> bool:

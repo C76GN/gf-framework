@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFLayeredSprite2D" path="addons/gf/extensions/layered_sprite/nodes/gf_layered_sprite_2d.gd" module="extensions/layered_sprite" extends="Node2D" classDigest="bbfa546844cfedb5c37f49c619c85754aa855e15f2f60236d28eb2434301ddec">
+<class name="GFLayeredSprite2D" path="addons/gf/extensions/layered_sprite/nodes/gf_layered_sprite_2d.gd" module="extensions/layered_sprite" extends="Node2D" classDigest="e009c46c1cceb72e00e797abcfd292ef9aa79c5dd6608a7c0dfe9609c73697d0">
 	<description>GFLayeredSprite2D：由单一时间轴驱动的通用分层精灵节点。
 配置会先完整校验并复制帧拓扑，再原子替换当前状态。节点只负责层、变体和播放，
 不拥有资源发现、下载、缓存或任何项目业务分类。</description>
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">runtime_service</tag>
-		<tag name="since">unreleased</tag>
+		<tag name="since">11.0.0</tag>
 	</tags>
 	<signals>
 		<member kind="signal" name="configuration_changed">
@@ -14,7 +14,7 @@
 			<description>完整配置成功替换后发出。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="signal" name="animation_started">
@@ -23,7 +23,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">animation: 已开始或恢复的动画 ID。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="signal" name="animation_finished">
@@ -32,7 +32,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">animation: 已到达非循环边界的动画 ID。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="signal" name="frame_changed">
@@ -42,7 +42,7 @@
 				<tag name="api">public</tag>
 				<tag name="param">animation: 当前动画 ID。</tag>
 				<tag name="param">frame: 当前从 0 开始的帧索引。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="signal" name="layer_variant_changed">
@@ -52,7 +52,7 @@
 				<tag name="api">public</tag>
 				<tag name="param">layer_id: 已切换的稳定层 ID。</tag>
 				<tag name="param">variant_id: 新的稳定变体 ID。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 	</signals>
@@ -63,7 +63,7 @@
 			<description>单个定义允许的最大层数。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="MAX_VARIANTS_PER_LAYER">
@@ -71,7 +71,7 @@
 			<description>单层允许的最大变体数。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="MAX_ANIMATIONS">
@@ -79,7 +79,7 @@
 			<description>时间轴允许的最大动画数。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="MAX_FRAMES_PER_ANIMATION">
@@ -87,7 +87,7 @@
 			<description>单动画允许的最大帧数。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="MAX_TOTAL_FRAME_REFERENCES">
@@ -95,7 +95,7 @@
 			<description>一个配置允许引用的最大总帧数。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="MAX_UNIQUE_TEXTURES">
@@ -103,7 +103,7 @@
 			<description>一个配置允许引用的最大唯一纹理数。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="MAX_FRAME_ADVANCES_PER_TICK">
@@ -111,7 +111,7 @@
 			<description>单次推进允许跨越的最大帧边界数。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="MAX_SPEED_SCALE">
@@ -119,7 +119,7 @@
 			<description>播放速度绝对值上限。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 	</constants>
@@ -132,7 +132,7 @@
 				<tag name="api">public</tag>
 				<tag name="param">definition: 待验证并复制的定义资源。</tag>
 				<tag name="return">配置完整有效且已替换时返回 true；失败时保留原配置。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="clear_configuration">
@@ -140,7 +140,7 @@
 			<description>清除当前配置和播放状态。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="is_configured">
@@ -149,7 +149,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">已配置时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_animation_names">
@@ -158,7 +158,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">与内部数组隔离的动画名称数组。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_layer_ids">
@@ -167,7 +167,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">与内部数组隔离的层 ID 数组。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="play">
@@ -182,7 +182,7 @@
 				<tag name="param">speed_scale: 有限且非零的播放速度；负值表示反向播放。</tag>
 				<tag name="param">from_end: 是否从动画末帧开始。</tag>
 				<tag name="return">参数有效且已开始播放时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="pause">
@@ -190,7 +190,7 @@
 			<description>暂停并保留当前帧位置。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="stop">
@@ -199,7 +199,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">reset_to_start: 是否将当前动画重置到首帧。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="seek">
@@ -210,7 +210,7 @@
 				<tag name="param">frame: 从 0 开始的帧索引。</tag>
 				<tag name="param">frame_progress: 当前帧内 0..1 的时间进度。</tag>
 				<tag name="return">定位参数有效时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="advance">
@@ -221,7 +221,7 @@
 				<tag name="api">public</tag>
 				<tag name="param">delta_seconds: 非负、有限的推进时间。</tag>
 				<tag name="return">完整消费本次推进量时返回 true；参数非法或跨帧预算耗尽时返回 false。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="is_playing">
@@ -230,7 +230,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">正在自动推进时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_current_animation">
@@ -239,7 +239,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">当前动画 ID；未配置时为空。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_current_frame">
@@ -248,7 +248,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">当前帧索引。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_frame_progress">
@@ -257,7 +257,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">当前帧内进度。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="set_layer_variant">
@@ -268,7 +268,7 @@
 				<tag name="param">layer_id: 待切换的稳定层 ID。</tag>
 				<tag name="param">variant_id: 该层中已配置的稳定变体 ID。</tag>
 				<tag name="return">层和变体均存在时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_layer_variant">
@@ -278,7 +278,7 @@
 				<tag name="api">public</tag>
 				<tag name="param">layer_id: 待读取的稳定层 ID。</tag>
 				<tag name="return">当前变体 ID；层不存在时为空。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="set_layer_visible">
@@ -289,7 +289,7 @@
 				<tag name="param">layer_id: 待修改的稳定层 ID。</tag>
 				<tag name="param">layer_visible: 新可见状态。</tag>
 				<tag name="return">层存在时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="is_layer_visible">
@@ -299,7 +299,7 @@
 				<tag name="api">public</tag>
 				<tag name="param">layer_id: 待读取的稳定层 ID。</tag>
 				<tag name="return">层存在且可见时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="set_layer_modulate">
@@ -310,7 +310,7 @@
 				<tag name="param">layer_id: 待修改的稳定层 ID。</tag>
 				<tag name="param">layer_modulate: 所有分量均须有限的新调制颜色。</tag>
 				<tag name="return">层存在且颜色分量均有限时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="set_layer_offset">
@@ -321,7 +321,7 @@
 				<tag name="param">layer_id: 待修改的稳定层 ID。</tag>
 				<tag name="param">layer_offset: 两分量均须有限的新绘制偏移。</tag>
 				<tag name="return">层存在且偏移分量均有限时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_last_rejection_reason">
@@ -330,7 +330,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">稳定原因 ID；最近一次操作成功时为空。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 	</methods>

@@ -7,7 +7,7 @@
 - 继承：`RefCounted`
 - API：`public`
 - 类别：运行时句柄 (`runtime_handle`)
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 单次异步对象池预热请求句柄。 Operation 冻结请求身份并跟踪最终有效的容量准入和实时进度，只接受一个类型化终态。同步校验、 零工作或同步退化请求可能在入口返回前完成；调用方应先查询 `is_completed()`。
 
@@ -42,7 +42,7 @@
 ### `progressed`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 signal progressed(operation: GFObjectPoolPrewarmOperation)
@@ -61,7 +61,7 @@ signal progressed(operation: GFObjectPoolPrewarmOperation)
 ### `completed`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 signal completed(result: GFObjectPoolPrewarmResult)
@@ -82,7 +82,7 @@ signal completed(result: GFObjectPoolPrewarmResult)
 ### `cancel`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func cancel() -> bool:
@@ -97,7 +97,7 @@ func cancel() -> bool:
 ### `get_request_id`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_request_id() -> int:
@@ -112,7 +112,7 @@ func get_request_id() -> int:
 ### `get_scene`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_scene() -> PackedScene:
@@ -127,7 +127,7 @@ func get_scene() -> PackedScene:
 ### `get_scene_identity`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_scene_identity() -> String:
@@ -142,7 +142,7 @@ func get_scene_identity() -> String:
 ### `is_pending`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func is_pending() -> bool:
@@ -157,7 +157,7 @@ func is_pending() -> bool:
 ### `is_completed`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func is_completed() -> bool:
@@ -172,7 +172,7 @@ func is_completed() -> bool:
 ### `get_requested_count`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_requested_count() -> int:
@@ -187,7 +187,7 @@ func get_requested_count() -> int:
 ### `get_admitted_count`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_admitted_count() -> int:
@@ -202,7 +202,7 @@ func get_admitted_count() -> int:
 ### `get_created_count`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_created_count() -> int:
@@ -217,7 +217,7 @@ func get_created_count() -> int:
 ### `get_skipped_count`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_skipped_count() -> int:
@@ -232,7 +232,7 @@ func get_skipped_count() -> int:
 ### `get_cancelled_count`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_cancelled_count() -> int:
@@ -247,7 +247,7 @@ func get_cancelled_count() -> int:
 ### `get_failed_count`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_failed_count() -> int:
@@ -262,7 +262,7 @@ func get_failed_count() -> int:
 ### `get_processed_count`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_processed_count() -> int:
@@ -277,7 +277,7 @@ func get_processed_count() -> int:
 ### `get_remaining_count`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_remaining_count() -> int:
@@ -292,7 +292,7 @@ func get_remaining_count() -> int:
 ### `get_progress_ratio`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_progress_ratio() -> float:
@@ -307,7 +307,7 @@ func get_progress_ratio() -> float:
 ### `get_result`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_result() -> GFObjectPoolPrewarmResult:
@@ -322,7 +322,7 @@ func get_result() -> GFObjectPoolPrewarmResult:
 ### `get_debug_snapshot`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_debug_snapshot() -> Dictionary:

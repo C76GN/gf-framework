@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFVirtualInputPulseOperation" path="addons/gf/standard/input/sources/gf_virtual_input_pulse_operation.gd" module="standard" extends="RefCounted" classDigest="63c12ae5dff0cfb05d2ae35a659b1abc205af9cf765c64d590616bb28629c78e">
+<class name="GFVirtualInputPulseOperation" path="addons/gf/standard/input/sources/gf_virtual_input_pulse_operation.gd" module="standard" extends="RefCounted" classDigest="c5c191056734644155e4fd259416844fd357aa2224a45a1e87e28130c0459e00">
 	<description>GFVirtualInputPulseOperation: 单次虚拟输入脉冲的类型化运行时句柄。
 句柄冻结创建时的 Mapping、source_id、player_index 与 action_id，并由
 GFInputMappingUtility 的权威 lease 保证旧定时器不会释放后续脉冲。owner 与
@@ -7,7 +7,7 @@ cancellation_token 均为可选锚点；同时提供时，任一先结束都会�
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">runtime_handle</tag>
-		<tag name="since">unreleased</tag>
+		<tag name="since">11.0.0</tag>
 	</tags>
 	<signals>
 		<member kind="signal" name="completed">
@@ -16,7 +16,7 @@ cancellation_token 均为可选锚点；同时提供时，任一先结束都会�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">operation: 已进入终态的当前句柄。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 	</signals>
@@ -39,7 +39,7 @@ cancellation_token 均为可选锚点；同时提供时，任一先结束都会�
 			<description>脉冲操作状态。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 	</enums>
@@ -53,7 +53,7 @@ cancellation_token 均为可选锚点；同时提供时，任一先结束都会�
 				<tag name="api">public</tag>
 				<tag name="param">reason: 稳定取消原因；空值会规范化为 cancelled。</tag>
 				<tag name="return">本次调用是否首次使操作进入终态。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_generation">
@@ -62,7 +62,7 @@ cancellation_token 均为可选锚点；同时提供时，任一先结束都会�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">大于零的 generation；配置失败前可能为 0。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_source_id">
@@ -71,7 +71,7 @@ cancellation_token 均为可选锚点；同时提供时，任一先结束都会�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">创建脉冲时的 source_id。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_player_index">
@@ -80,7 +80,7 @@ cancellation_token 均为可选锚点；同时提供时，任一先结束都会�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">创建脉冲时的 player_index。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_action_id">
@@ -89,7 +89,7 @@ cancellation_token 均为可选锚点；同时提供时，任一先结束都会�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">创建脉冲时的 action_id。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_duration_seconds">
@@ -98,7 +98,7 @@ cancellation_token 均为可选锚点；同时提供时，任一先结束都会�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">秒数。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_status">
@@ -107,7 +107,7 @@ cancellation_token 均为可选锚点；同时提供时，任一先结束都会�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">Status 枚举值。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_terminal_reason">
@@ -116,7 +116,7 @@ cancellation_token 均为可选锚点；同时提供时，任一先结束都会�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">等待中为空 StringName；终态时为稳定原因。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="is_pending">
@@ -125,7 +125,7 @@ cancellation_token 均为可选锚点；同时提供时，任一先结束都会�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">等待中返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="is_completed">
@@ -134,7 +134,7 @@ cancellation_token 均为可选锚点；同时提供时，任一先结束都会�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">已完成、取消、替换、拒绝或失败时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_release_count">
@@ -143,7 +143,7 @@ cancellation_token 均为可选锚点；同时提供时，任一先结束都会�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">仅当前 lease 实际清除动作贡献时为 1；无释放交接、未取得 lease 或未释放时为 0。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_debug_snapshot">
@@ -153,7 +153,7 @@ cancellation_token 均为可选锚点；同时提供时，任一先结束都会�
 				<tag name="api">public</tag>
 				<tag name="return">冻结身份、状态、时长、时间戳与释放证明。</tag>
 				<tag name="schema">return: Dictionary，包含 generation、source_id、player_index、action_id、duration_seconds、status、status_name、terminal_reason、pending、completed、started_at_msec、completed_at_msec、release_count、lease_acquired 和 timer_handle。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 	</methods>

@@ -8,7 +8,7 @@
 ## [br]
 ## @category runtime_handle
 ## [br]
-## @since unreleased
+## @since 11.0.0
 class_name GFResourceLease
 extends RefCounted
 
@@ -19,35 +19,35 @@ extends RefCounted
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const STATUS_QUEUED: StringName = &"queued"
 
 ## 底层 threaded resource request 已经开始。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const STATUS_LOADING: StringName = &"loading"
 
 ## 资源已经成功交付给当前消费者。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const STATUS_COMPLETED: StringName = &"completed"
 
 ## 资源请求失败。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const STATUS_FAILED: StringName = &"failed"
 
 ## 当前消费者已经取消请求。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const STATUS_CANCELLED: StringName = &"cancelled"
 
 
@@ -78,7 +78,7 @@ var _require_idle: bool = false
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param reason: 用于诊断的稳定取消原因。
 func cancel(reason: StringName = &"cancelled") -> void:
@@ -102,7 +102,7 @@ func cancel(reason: StringName = &"cancelled") -> void:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 func release() -> void:
 	if _released:
 		return
@@ -114,7 +114,7 @@ func release() -> void:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return completed、failed 或 cancelled 时返回 true。
 func is_terminal() -> bool:
@@ -129,7 +129,7 @@ func is_terminal() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 已释放时返回 true。
 func is_released() -> bool:
@@ -140,7 +140,7 @@ func is_released() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 状态常量。
 func get_status() -> StringName:
@@ -151,7 +151,7 @@ func get_status() -> StringName:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 范围为 0.0 到 1.0 的进度值。
 func get_progress() -> float:
@@ -162,7 +162,7 @@ func get_progress() -> float:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 成功且尚未释放时返回资源，否则返回 null。
 func get_resource() -> Resource:
@@ -173,7 +173,7 @@ func get_resource() -> Resource:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return Broker 使用的规范化加载路径。
 func get_path() -> String:
@@ -184,7 +184,7 @@ func get_path() -> String:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return ResourceLoader 类型提示。
 func get_type_hint() -> String:
@@ -195,7 +195,7 @@ func get_type_hint() -> String:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 调用方提供的诊断标识。
 func get_consumer_id() -> StringName:
@@ -206,7 +206,7 @@ func get_consumer_id() -> StringName:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return admission 或底层请求失败的 Godot Error。
 func get_request_error() -> Error:
@@ -217,7 +217,7 @@ func get_request_error() -> Error:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 失败或取消说明。
 func get_error_message() -> String:
@@ -228,7 +228,7 @@ func get_error_message() -> String:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return Lease 状态字典。
 ## [br]
@@ -260,7 +260,7 @@ func to_poll_result() -> Dictionary:
 ## [br]
 ## @layer standard/utilities
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param broker: 创建当前 Lease 的 Broker。
 ## [br]
@@ -299,7 +299,7 @@ func broker_bind(
 ## [br]
 ## @layer standard/utilities
 ## [br]
-## @since unreleased
+## @since 11.0.0
 func broker_mark_loading() -> void:
 	if _released or _status == STATUS_CANCELLED:
 		return
@@ -312,7 +312,7 @@ func broker_mark_loading() -> void:
 ## [br]
 ## @layer standard/utilities
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param progress: 最新加载进度。
 func broker_update_progress(progress: float) -> void:
@@ -327,7 +327,7 @@ func broker_update_progress(progress: float) -> void:
 ## [br]
 ## @layer standard/utilities
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param resource: 加载完成的资源。
 func broker_mark_completed(resource: Resource) -> void:
@@ -344,7 +344,7 @@ func broker_mark_completed(resource: Resource) -> void:
 ## [br]
 ## @layer standard/utilities
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param request_error: Godot Error。
 ## [br]
@@ -364,7 +364,7 @@ func broker_mark_failed(request_error: Error, message: String) -> void:
 ## [br]
 ## @layer standard/utilities
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param reason: 取消原因。
 func broker_mark_cancelled(reason: StringName) -> void:
@@ -382,7 +382,7 @@ func broker_mark_cancelled(reason: StringName) -> void:
 ## [br]
 ## @layer standard/utilities
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 请求键。
 func broker_get_request_key() -> String:

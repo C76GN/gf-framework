@@ -135,7 +135,7 @@ func generate_with_report( schemas: Array, output_path: String = DEFAULT_OUTPUT_
 ### `build_source_with_report`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func build_source_with_report( schemas: Array, access_class_name: String = DEFAULT_CLASS_NAME, provider_accessor: String = DEFAULT_PROVIDER_ACCESSOR, options: Dictionary = {} ) -> Dictionary:

@@ -164,7 +164,7 @@ func is_finished() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 已接纳 CPU/IO 工作的取消上下文；提交被拒绝或 RESOURCE 工作返回 null。
 func get_cancellation_context() -> GFBackgroundWorkContext:

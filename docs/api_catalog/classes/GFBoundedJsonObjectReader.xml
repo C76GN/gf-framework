@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFBoundedJsonObjectReader" path="addons/gf/kernel/core/gf_bounded_json_object_reader.gd" module="kernel" extends="RefCounted" classDigest="016ee210c07c2bacca099fb21c483fa6487fb5fd281f848ac5c4bf3c791e7fb1">
+<class name="GFBoundedJsonObjectReader" path="addons/gf/kernel/core/gf_bounded_json_object_reader.gd" module="kernel" extends="RefCounted" classDigest="36234baaadc7cdc89e657173de4196c817fe5af4de598ef185779d6939bac50f">
 	<description>GFBoundedJsonObjectReader: 有界 JSON object 读取器。
 在调用 JSON.parse() 前限制 UTF-8 字节数与对象/数组词法嵌套深度，
 适合项目运行时、编辑器工具和 headless 工具读取不可信 JSON object 输入。
@@ -7,7 +7,7 @@
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">runtime_service</tag>
-		<tag name="since">unreleased</tag>
+		<tag name="since">11.0.0</tag>
 	</tags>
 	<signals />
 	<enums />
@@ -17,7 +17,7 @@
 			<description>默认允许的 JSON UTF-8 字节数。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="ABSOLUTE_MAX_BYTES">
@@ -26,7 +26,7 @@
 调用方只能收紧预算，不能越过该上限或关闭字节限制。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="DEFAULT_MAX_DEPTH">
@@ -34,7 +34,7 @@
 			<description>默认允许的 JSON 对象/数组词法嵌套深度。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="ABSOLUTE_MAX_DEPTH">
@@ -43,7 +43,7 @@
 调用方只能收紧预算，不能越过该上限或关闭深度限制。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 	</constants>
@@ -65,7 +65,7 @@ error_kind 非空。原始 NUL、解码为 U+0000 的字符串转义、数值溢
 				<tag name="param">max_depth: 调用方请求的最大对象/数组词法嵌套深度。</tag>
 				<tag name="return">JSON-safe 读取报告；max_bytes 与 max_depth 为实际生效预算。</tag>
 				<tag name="schema">return: Dictionary containing ok: bool, data: Dictionary, source_path: String, size_bytes: int, error_kind: String, error: String, max_bytes: int, and max_depth: int. error_kind is one of "", "open_failed", "payload_too_large", "read_failed", "nesting_too_deep", "parse_failed", or "invalid_root_type".</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="read_object">
@@ -86,7 +86,7 @@ parse_failed 拒绝。</description>
 				<tag name="param">max_depth: 调用方请求的最大对象/数组词法嵌套深度。</tag>
 				<tag name="return">JSON-safe 读取报告；max_bytes 与 max_depth 为实际生效预算。</tag>
 				<tag name="schema">return: Dictionary containing ok: bool, data: Dictionary, source_path: String, size_bytes: int, error_kind: String, error: String, max_bytes: int, and max_depth: int. error_kind is one of "", "open_failed", "payload_too_large", "read_failed", "nesting_too_deep", "parse_failed", or "invalid_root_type".</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 	</methods>

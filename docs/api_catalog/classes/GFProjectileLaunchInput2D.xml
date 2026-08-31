@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFProjectileLaunchInput2D" path="addons/gf/extensions/combat/projectiles/gf_projectile_launch_input_2d.gd" module="extensions/combat" extends="Resource" classDigest="f72b030ccd3c45cc6e324e6a80e827df32ea0a4a92c4a12dc6665f92d0b09b39">
+<class name="GFProjectileLaunchInput2D" path="addons/gf/extensions/combat/projectiles/gf_projectile_launch_input_2d.gd" module="extensions/combat" extends="Resource" classDigest="9f0d14c2fd8956c8ec22f5ced0daf81b655f4ae4185c4a844fb23527d180f3fb">
 	<description>GFProjectileLaunchInput2D: 2D 发射请求的 typed 快照。</description>
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">value_object</tag>
-		<tag name="since">unreleased</tag>
+		<tag name="since">11.0.0</tag>
 	</tags>
 	<signals />
 	<enums>
@@ -20,7 +20,7 @@
 			<description>定义发射目标的封闭类型。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 	</enums>
@@ -32,7 +32,7 @@
 			<description>清除目标。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="set_target_node">
@@ -41,7 +41,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">node: live 目标；null 或失效目标会退化为 NONE。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="set_target_position">
@@ -50,7 +50,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">position_value: 目标 world position。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_target_kind">
@@ -59,7 +59,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">封闭 `TargetKind` 值。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_target_node">
@@ -68,7 +68,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">NODE 目标；未设置或已释放时返回 null。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_target_position">
@@ -77,7 +77,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">POSITION target 值。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="set_metadata">
@@ -87,7 +87,7 @@
 				<tag name="api">public</tag>
 				<tag name="param">metadata: 项目自定义发射 metadata。</tag>
 				<tag name="schema">metadata: Dictionary，可包含项目字段；框架不写入 motion/session 私有状态。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_metadata">
@@ -97,7 +97,7 @@
 				<tag name="api">public</tag>
 				<tag name="return">可由调用方修改的 metadata 副本。</tag>
 				<tag name="schema">return: Dictionary，与内部快照完全分离的项目 metadata。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="duplicate_input">
@@ -106,7 +106,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">新的 2D launch input。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 	</methods>

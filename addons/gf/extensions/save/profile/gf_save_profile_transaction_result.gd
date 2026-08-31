@@ -8,7 +8,7 @@
 ## [br]
 ## @category value_object
 ## [br]
-## @since unreleased
+## @since 11.0.0
 class_name GFSaveProfileTransactionResult
 extends RefCounted
 
@@ -19,182 +19,182 @@ extends RefCounted
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const STATUS_ACTIVATED: StringName = &"activated"
 
 ## 活跃身份已成功切换。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const STATUS_SWITCHED: StringName = &"switched"
 
 ## 缺失 Profile 已从当前状态显式创建并激活。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const STATUS_BOOTSTRAPPED: StringName = &"bootstrapped"
 
 ## 当前状态已被显式采用为恢复后的活跃 Profile。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const STATUS_ADOPTED: StringName = &"adopted"
 
 ## 缺失目标已持久化，活动身份随后从来源原子切换到目标。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const STATUS_BOOTSTRAPPED_AND_SWITCHED: StringName = &"bootstrapped_and_switched"
 
 ## 损坏目标已显式恢复并持久化，活动身份随后从来源原子切换到目标。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const STATUS_ADOPTED_AND_SWITCHED: StringName = &"adopted_and_switched"
 
 ## 候选 sections 已应用并持久化。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const STATUS_MUTATED: StringName = &"mutated"
 
 ## outcome_unknown 已通过显式重新读取完成对账。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const STATUS_RECONCILED: StringName = &"reconciled"
 
 ## Profile ID、Provider topology 或事务身份无效。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const STATUS_INVALID_PROFILE: StringName = &"invalid_profile"
 
 ## 一次性请求无效、已被 claim 或含不支持的数据。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const STATUS_INVALID_REQUEST: StringName = &"invalid_request"
 
 ## Recovery/Reconcile Lease 无效、已消费或绑定已经过期。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const STATUS_INVALID_LEASE: StringName = &"invalid_lease"
 
 ## 请求要求活跃 Profile，但当前 Provider domain 未激活。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const STATUS_INACTIVE: StringName = &"inactive"
 
 ## activate/bootstrap/adopt 的目标 domain 已有活跃 Profile。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const STATUS_ALREADY_ACTIVE: StringName = &"already_active"
 
 ## Provider domain 正在执行互斥事务或发生不安全回调重入。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const STATUS_BUSY: StringName = &"busy"
 
 ## Profile 配置不支持请求的读取或写入阶段。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const STATUS_UNSUPPORTED_OPERATION: StringName = &"unsupported_operation"
 
 ## activate 或 switch 检测到可恢复的缺失/损坏目标，必须显式选择对应恢复入口。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const STATUS_RECOVERY_REQUIRED: StringName = &"recovery_required"
 
 ## switch 无法把来源 Profile flush 到调用时 generation barrier。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const STATUS_SOURCE_FLUSH_FAILED: StringName = &"source_flush_failed"
 
 ## switch 已 flush 来源，但无法读取或应用目标 Profile。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const STATUS_TARGET_LOAD_FAILED: StringName = &"target_load_failed"
 
 ## Provider 回滚或候选应用前的快照采集失败。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const STATUS_SNAPSHOT_FAILED: StringName = &"snapshot_failed"
 
 ## 至少一个候选 section 应用失败，且内存回滚成功。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const STATUS_APPLY_FAILED: StringName = &"apply_failed"
 
 ## 恢复来源或候选内存状态时至少一个 Provider 回滚失败。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const STATUS_ROLLBACK_FAILED: StringName = &"rollback_failed"
 
 ## 候选持久化确定失败，且内存回滚已成功。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const STATUS_PERSIST_FAILED: StringName = &"persist_failed"
 
 ## 写请求已进入底层，但其最终物理副作用无法确认。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const STATUS_OUTCOME_UNKNOWN: StringName = &"outcome_unknown"
 
 ## Reconcile Lease 仍在等待 late settlement evidence。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const STATUS_RECONCILE_PENDING: StringName = &"reconcile_pending"
 
 ## 显式重新读取或证据校验未能完成对账。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const STATUS_RECONCILE_FAILED: StringName = &"reconcile_failed"
 
 ## Utility 释放时事务仍未完成。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const STATUS_DISPOSED: StringName = &"disposed"
 
 const _MAX_EVIDENCE_DEPTH: int = 16
@@ -232,7 +232,7 @@ var _completed_at_msec: int = 0
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 终态属于成功状态时返回 true。
 func is_successful() -> bool:
@@ -243,7 +243,7 @@ func is_successful() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return `STATUS_*` 常量之一。
 func get_status() -> StringName:
@@ -254,7 +254,7 @@ func get_status() -> StringName:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return `GFSaveProfileTransactionOperation.OPERATION_*` 常量之一。
 func get_operation() -> StringName:
@@ -265,7 +265,7 @@ func get_operation() -> StringName:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 正整数事务 ID。
 func get_transaction_id() -> int:
@@ -276,7 +276,7 @@ func get_transaction_id() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 来源 Profile ID；不适用时为空。
 func get_source_profile_id() -> StringName:
@@ -287,7 +287,7 @@ func get_source_profile_id() -> StringName:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 目标 Profile ID；不适用时为空。
 func get_target_profile_id() -> StringName:
@@ -298,7 +298,7 @@ func get_target_profile_id() -> StringName:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 开始前活跃身份；domain 未激活时为空。
 func get_active_profile_before() -> StringName:
@@ -309,7 +309,7 @@ func get_active_profile_before() -> StringName:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 终态活跃身份；未激活或身份未知时为空。
 func get_active_profile_after() -> StringName:
@@ -320,7 +320,7 @@ func get_active_profile_after() -> StringName:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 协调器定义的 payload-free 阶段名。
 func get_phase() -> StringName:
@@ -331,7 +331,7 @@ func get_phase() -> StringName:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 成功时为 OK。
 func get_error_code() -> Error:
@@ -342,7 +342,7 @@ func get_error_code() -> Error:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 成功时为空；失败说明最多 2048 个字符。
 func get_error() -> String:
@@ -353,7 +353,7 @@ func get_error() -> String:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 非 section 失败时为空。
 func get_failed_section_id() -> StringName:
@@ -364,7 +364,7 @@ func get_failed_section_id() -> StringName:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 按回滚顺序排列的隔离副本。
 func get_rollback_errors() -> Array[GFSaveRollbackFailure]:
@@ -375,7 +375,7 @@ func get_rollback_errors() -> Array[GFSaveRollbackFailure]:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 有界 evidence 副本。
 ## [br]
@@ -388,7 +388,7 @@ func get_stage_evidence() -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return recovery_required 结果中的 Lease；其他结果通常为 null。
 func get_recovery_lease() -> GFSaveProfileRecoveryLease:
@@ -399,7 +399,7 @@ func get_recovery_lease() -> GFSaveProfileRecoveryLease:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 需要或正在对账时的 Lease；不适用时为 null。
 func get_reconcile_lease() -> GFSaveProfileReconcileLease:
@@ -410,7 +410,7 @@ func get_reconcile_lease() -> GFSaveProfileReconcileLease:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 调用方在一次性请求中移交的结果元数据。
 ## [br]
@@ -423,7 +423,7 @@ func get_metadata() -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 非负单调毫秒时间。
 func get_started_at_msec() -> int:
@@ -434,7 +434,7 @@ func get_started_at_msec() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 不早于开始时间的单调毫秒时间。
 func get_completed_at_msec() -> int:
@@ -445,7 +445,7 @@ func get_completed_at_msec() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 非负单调毫秒耗时。
 func get_duration_msec() -> int:
@@ -458,7 +458,7 @@ func get_duration_msec() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 新结果对象。
 func duplicate_result() -> GFSaveProfileTransactionResult:
@@ -496,7 +496,7 @@ func duplicate_result() -> GFSaveProfileTransactionResult:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 事务身份、终态、阶段证据、Lease 摘要、错误与时间信息。
 ## [br]
@@ -535,7 +535,7 @@ func to_dict() -> Dictionary:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param options: 完整终态字段。
 ## [br]

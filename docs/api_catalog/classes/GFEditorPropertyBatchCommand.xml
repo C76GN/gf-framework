@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFEditorPropertyBatchCommand" path="addons/gf/kernel/editor/gf_editor_property_batch_command.gd" module="kernel" extends="GFEditorCommand" classDigest="92d9a7e1717a82a049fddb929ecc11743ddc90c72f47b8124cae578ab4c705be">
+<class name="GFEditorPropertyBatchCommand" path="addons/gf/kernel/editor/gf_editor_property_batch_command.gd" module="kernel" extends="GFEditorCommand" classDigest="00046ae515eb2f94ac82df513fa9ff7c2283f3a04576fd3f2eb5bd2210fee4fd">
 	<description>GFEditorPropertyBatchCommand: 通用多目标属性事务命令。
 对调用方显式提供的 Object 属性先做全量零写入预检，再按稳定顺序提交。
 任一写入或最终状态验证失败时，会按相反顺序恢复本次尝试前的全部目标属性。
@@ -169,7 +169,7 @@ indexed path 语义。可选 metadata 会复制到条目和错误报告。</desc
 			<tags>
 				<tag name="api">protected</tag>
 				<tag name="return">第一个有效属性目标。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="_get_undo_targets">
@@ -178,7 +178,7 @@ indexed path 语义。可选 metadata 会复制到条目和错误报告。</desc
 			<tags>
 				<tag name="api">protected</tag>
 				<tag name="return">全部唯一属性目标。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="_undo_it">

@@ -240,7 +240,7 @@ func prewarm_async_budget( scene: PackedScene, parent: Node, count: int, msec_bu
 ### `prewarm_request_async`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func prewarm_request_async( scene: PackedScene, parent: Node, count: int, batch_size: int = 32, owner: Object = null, cancellation_token: GFCancellationToken = null, prepare_callback: Callable = Callable() ) -> GFObjectPoolPrewarmOperation:
@@ -267,7 +267,7 @@ func prewarm_request_async( scene: PackedScene, parent: Node, count: int, batch_
 ### `prewarm_budget_request_async`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func prewarm_budget_request_async( scene: PackedScene, parent: Node, count: int, msec_budget_per_frame: float = 8.0, owner: Object = null, cancellation_token: GFCancellationToken = null, prepare_callback: Callable = Callable() ) -> GFObjectPoolPrewarmOperation:

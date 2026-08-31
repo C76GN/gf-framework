@@ -7,7 +7,7 @@
 ## [br]
 ## @category value_object
 ## [br]
-## @since unreleased
+## @since 11.0.0
 class_name GFCivilDate
 extends RefCounted
 
@@ -18,7 +18,7 @@ extends RefCounted
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 enum Weekday {
 	## 星期一。
 	MONDAY = 1,
@@ -43,14 +43,14 @@ enum Weekday {
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const MIN_YEAR: int = 1
 
 ## 最大支持年份。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const MAX_YEAR: int = 9999
 
 
@@ -68,7 +68,7 @@ var _day: int = 0
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param year: 1 到 9999 的年份。
 ## [br]
@@ -112,7 +112,7 @@ static func create(year: int, month: int, day: int) -> GFCivilDateResult:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param text: 严格的 `YYYY-MM-DD` 文本，不接受空白、符号或可变位数。
 ## [br]
@@ -137,7 +137,7 @@ static func parse_iso8601(text: String) -> GFCivilDateResult:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param data: 包含整数 year、month 与 day 的字典。
 ## [br]
@@ -168,7 +168,7 @@ static func from_dict(data: Dictionary) -> GFCivilDateResult:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param ordinal: 0001-01-01 为 0 的日序号。
 ## [br]
@@ -206,7 +206,7 @@ static func from_ordinal(ordinal: int) -> GFCivilDateResult:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param year: 待检查年份。
 ## [br]
@@ -219,7 +219,7 @@ static func is_leap_year(year: int) -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param year: 1 到 9999 的年份。
 ## [br]
@@ -236,7 +236,7 @@ static func get_days_in_month(year: int, month: int) -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return: 包含支持范围内有效日期时返回 true。
 func is_valid() -> bool:
@@ -247,7 +247,7 @@ func is_valid() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return: 年份；未配置实例返回 0。
 func get_year() -> int:
@@ -258,7 +258,7 @@ func get_year() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return: 1 到 12；未配置实例返回 0。
 func get_month() -> int:
@@ -269,7 +269,7 @@ func get_month() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return: 1 到当月天数；未配置实例返回 0。
 func get_day() -> int:
@@ -280,7 +280,7 @@ func get_day() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return: `YYYY-MM-DD`；未配置实例返回空字符串。
 func to_iso8601() -> String:
@@ -293,7 +293,7 @@ func to_iso8601() -> String:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return: 包含整数 year、month 与 day 的新字典；未配置时为空字典。
 ## [br]
@@ -312,7 +312,7 @@ func to_dict() -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return: 0001-01-01 为 0 的日序号；未配置时返回 -1。
 func to_ordinal() -> int:
@@ -325,7 +325,7 @@ func to_ordinal() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return: `Weekday` 值；未配置时返回 0。
 func get_weekday() -> int:
@@ -338,7 +338,7 @@ func get_weekday() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return: 1 到 366；未配置时返回 0。
 func get_day_of_year() -> int:
@@ -351,7 +351,7 @@ func get_day_of_year() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return: ISO 周年；未配置时返回 0。
 func get_iso_week_year() -> int:
@@ -367,7 +367,7 @@ func get_iso_week_year() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return: 1 到 53；未配置时返回 0。
 func get_iso_week_number() -> int:
@@ -384,7 +384,7 @@ func get_iso_week_number() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param days: 可为负数的日偏移。
 ## [br]
@@ -405,7 +405,7 @@ func add_days(days: int) -> GFCivilDateResult:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param months: 可为负数的月偏移。
 ## [br]
@@ -438,7 +438,7 @@ func add_months(months: int, clamp_day: bool = true) -> GFCivilDateResult:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param years: 可为负数的年偏移。
 ## [br]
@@ -467,7 +467,7 @@ func add_years(years: int, clamp_day: bool = true) -> GFCivilDateResult:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param other: 右侧日期。
 ## [br]
@@ -480,7 +480,7 @@ func compare_to(other: GFCivilDate) -> GFCivilDateDifferenceResult:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param other: 右侧日期。
 ## [br]
@@ -509,7 +509,7 @@ func days_until(other: GFCivilDate) -> GFCivilDateDifferenceResult:
 ## [br]
 ## @layer standard/utilities/time
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param year: 已校验年份。
 ## [br]

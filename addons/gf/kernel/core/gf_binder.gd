@@ -37,7 +37,7 @@ func _init(architecture: GFArchitecture) -> void:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 绑定到当前 Architecture 的新 GFBindingPlan。
 func create_required_plan() -> GFBindingPlan:

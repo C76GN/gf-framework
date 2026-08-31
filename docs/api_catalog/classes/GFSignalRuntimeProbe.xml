@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFSignalRuntimeProbe" path="addons/gf/standard/utilities/debug/gf_signal_runtime_probe.gd" module="standard" extends="RefCounted" classDigest="26f01d4f8a45ea62de5f7b178149705cc2607e5139084409098a111aea293a26">
+<class name="GFSignalRuntimeProbe" path="addons/gf/standard/utilities/debug/gf_signal_runtime_probe.gd" module="standard" extends="RefCounted" classDigest="89cc40c9d03c7286b325ddc4a43aceb26cf261acdebcf987a424aa04e05ed421">
 	<description>GFSignalRuntimeProbe: 运行时信号发射追踪器。
 以显式 watch 的方式连接节点信号，并把实际发射记录为只读事件快照。
 它不修改被观察节点，不解释业务语义，也不应默认用于生产环境全局采样。
@@ -157,7 +157,7 @@ unwatch_all()，以便长寿命 source 不再持有 Probe。</description>
 该方法幂等；结束观察时应优先调用它，避免长寿命 signal source 继续持有 Probe。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="watch_node">

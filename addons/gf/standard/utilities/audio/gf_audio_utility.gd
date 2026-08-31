@@ -26,7 +26,7 @@ signal bgm_finished(history_key: String)
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param channel: 被拒绝请求的通道。
 ## [br]
@@ -110,7 +110,7 @@ var max_sfx_players: int = 32
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 var max_idle_ambient_players: int = 16:
 	set(value):
 		max_idle_ambient_players = maxi(value, 0)
@@ -364,7 +364,7 @@ func dispose() -> void:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param path: 非空音频资源路径或后端事件路径。
 ## [br]
@@ -478,7 +478,7 @@ func start_bgm(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param clip: 具有 path 或 stream source 的音频片段快照。
 ## [br]
@@ -3084,7 +3084,7 @@ func get_debug_snapshot() -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return: 最近拒绝报告；尚无拒绝时为空字典。
 ## [br]

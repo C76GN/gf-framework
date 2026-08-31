@@ -8,7 +8,7 @@
 ## [br]
 ## @category runtime_handle
 ## [br]
-## @since unreleased
+## @since 11.0.0
 class_name GFSaveProfileReconcileRequest
 extends RefCounted
 
@@ -36,7 +36,7 @@ var _result_metadata: Dictionary = {}
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param context: 对账流程使用的临时纯数据上下文。
 ## [br]
@@ -64,7 +64,7 @@ static func take_ownership(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 尚未 claim 时返回 true。
 func is_available() -> bool:
@@ -75,7 +75,7 @@ func is_available() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 已成功 claim 时返回 true。
 func is_claimed() -> bool:
@@ -88,7 +88,7 @@ func is_claimed() -> bool:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 包含 available 与 claimed 的快照。
 ## [br]
@@ -104,7 +104,7 @@ func inspect_for_framework() -> Dictionary:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 所有权记录；请求不可用时返回空字典。
 ## [br]

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFStoragePayloadTransfer" path="addons/gf/standard/utilities/storage/gf_storage_payload_transfer.gd" module="standard" extends="RefCounted" classDigest="e4740563de7098063c953b9fa34d3ed0b84f98f52675008afa7ad13a6e5fb4be">
+<class name="GFStoragePayloadTransfer" path="addons/gf/standard/utilities/storage/gf_storage_payload_transfer.gd" module="standard" extends="RefCounted" classDigest="3c33fefa059b81d5543b09b6f1a6180e4ac00effb32107ed1f95d4c8131aae7a">
 	<description>GFStoragePayloadTransfer: 异步 Storage 写入载荷的单所有者传递句柄。
 调用方通过静态 `take_ownership()` 把 Dictionary 的逻辑唯一所有权移交给新句柄。
 移交不会深拷贝；调用成功后，调用方必须永久放弃源 Dictionary 以及它的全部
@@ -12,7 +12,7 @@ lease，用于 timeout 后仍有旧 attempt 运行时复用同一逻辑快照。
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">runtime_handle</tag>
-		<tag name="since">unreleased</tag>
+		<tag name="since">11.0.0</tag>
 	</tags>
 	<signals />
 	<enums>
@@ -32,7 +32,7 @@ lease，用于 timeout 后仍有旧 attempt 运行时复用同一逻辑快照。
 			<description>传递句柄的所有权状态。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 	</enums>
@@ -49,7 +49,7 @@ lease，用于 timeout 后仍有旧 attempt 运行时复用同一逻辑快照。
 				<tag name="param">payload: 要移交的纯 Variant Dictionary。</tag>
 				<tag name="return">持有 payload 的新 opaque transfer。</tag>
 				<tag name="schema">payload: Dictionary whose source and nested aliases are abandoned after a successful ownership transfer.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_state">
@@ -58,7 +58,7 @@ lease，用于 timeout 后仍有旧 attempt 运行时复用同一逻辑快照。
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">`State` 枚举值。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="is_claimed">
@@ -67,7 +67,7 @@ lease，用于 timeout 后仍有旧 attempt 运行时复用同一逻辑快照。
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">CLAIMED 或 RELEASE_PENDING 时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="is_released">
@@ -76,7 +76,7 @@ lease，用于 timeout 后仍有旧 attempt 运行时复用同一逻辑快照。
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">已清空且不可复用时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_active_attempt_count">
@@ -85,7 +85,7 @@ lease，用于 timeout 后仍有旧 attempt 运行时复用同一逻辑快照。
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">已取得且尚未完成的 attempt lease 数量。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="release">
@@ -96,7 +96,7 @@ lease，用于 timeout 后仍有旧 attempt 运行时复用同一逻辑快照。
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">首次接受释放请求时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 	</methods>

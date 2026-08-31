@@ -32,7 +32,7 @@ const _MAX_FINDING_ID_LENGTH: int = 256
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param analysis: 通过闭合 Project Layout analysis contract 的报告。
 ## [br]
@@ -62,7 +62,7 @@ func explain_finding(analysis: Dictionary, finding_id: String) -> Dictionary:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param analysis: 已通过 validation 绑定校验的冻结分析报告。
 ## [br]

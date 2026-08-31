@@ -8,6 +8,6 @@
 ## [br]
 ## @category runtime_service
 ## [br]
-## @since unreleased
+## @since 11.0.0
 class_name GFSettingsNullStoreUtility
 extends GFSettingsStoreUtility

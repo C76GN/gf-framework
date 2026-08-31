@@ -7,7 +7,7 @@
 - 继承：`RefCounted`
 - API：`public`
 - 类别：值对象 (`value_object`)
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 definition 与完整场景实例之间的拓扑快照。 直接 `new()` 得到封闭的 unconfigured invalid value，其原因为 `INTERNAL_FAILURE`； 只有 typed definition 的 `bind_instance()` 才能构造有效 topology。
 
@@ -32,7 +32,7 @@ definition 与完整场景实例之间的拓扑快照。 直接 `new()` 得到�
 ### `FailureReason`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 enum FailureReason {
@@ -96,7 +96,7 @@ enum FailureReason {
 ### `is_valid`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func is_valid() -> bool:
@@ -111,7 +111,7 @@ func is_valid() -> bool:
 ### `get_failure_reason`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_failure_reason() -> FailureReason:
@@ -126,7 +126,7 @@ func get_failure_reason() -> FailureReason:
 ### `get_definition`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_definition() -> GFProjectileDefinition:
@@ -141,7 +141,7 @@ func get_definition() -> GFProjectileDefinition:
 ### `get_instance_root`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_instance_root() -> Node:
@@ -156,7 +156,7 @@ func get_instance_root() -> Node:
 ### `get_runtime`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_runtime() -> Node:
@@ -171,7 +171,7 @@ func get_runtime() -> Node:
 ### `get_impact_sources`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_impact_sources() -> Array[Node]:
@@ -190,7 +190,7 @@ func get_impact_sources() -> Array[Node]:
 ### `get_body_adapter`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_body_adapter() -> Resource:
@@ -205,7 +205,7 @@ func get_body_adapter() -> Resource:
 ### `is_current`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func is_current() -> bool:

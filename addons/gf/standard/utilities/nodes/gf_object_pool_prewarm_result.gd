@@ -7,7 +7,7 @@
 ## [br]
 ## @category value_object
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @layer standard/utilities/nodes
 class_name GFObjectPoolPrewarmResult
@@ -20,7 +20,7 @@ extends RefCounted
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 enum Status {
 	## 全部请求单位已经成功创建。
 	COMPLETED,
@@ -45,147 +45,147 @@ enum Status {
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const REASON_COMPLETED: StringName = &"completed"
 
 ## 容量只接纳部分请求单位。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const REASON_CAPACITY_LIMITED: StringName = &"capacity_limited"
 
 ## 当前没有可接纳容量。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const REASON_CAPACITY_UNAVAILABLE: StringName = &"capacity_unavailable"
 
 ## caller 显式取消请求。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const REASON_CALLER_CANCELLED: StringName = &"caller_cancelled"
 
 ## 绑定的 cancellation token 请求取消。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const REASON_TOKEN_CANCELLED: StringName = &"token_cancelled"
 
 ## 绑定的异步作用域已经正常完成。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const REASON_CANCELLATION_SCOPE_COMPLETED: StringName = &"cancellation_scope_completed"
 
 ## 请求 owner 已释放或离开场景树。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const REASON_OWNER_RELEASED: StringName = &"owner_released"
 
 ## 请求 parent 已释放、离树或排队删除。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const REASON_PARENT_RELEASED: StringName = &"parent_released"
 
 ## Object Pool Utility 已释放。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const REASON_UTILITY_DISPOSED: StringName = &"utility_disposed"
 
 ## Object Pool Utility 已重新初始化。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const REASON_UTILITY_REINITIALIZED: StringName = &"utility_reinitialized"
 
 ## PackedScene 无效。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const REASON_INVALID_SCENE: StringName = &"invalid_scene"
 
 ## 请求数量小于零。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const REASON_INVALID_COUNT: StringName = &"invalid_count"
 
 ## parent 在接纳时无效或已排队删除。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const REASON_INVALID_PARENT: StringName = &"invalid_parent"
 
 ## owner 在接纳时无效或 Node owner 不在场景树中。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const REASON_INVALID_OWNER: StringName = &"invalid_owner"
 
 ## prepare_callback 不是空 Callable 或有效 Callable。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const REASON_INVALID_PREPARE_CALLBACK: StringName = &"invalid_prepare_callback"
 
 ## typed request 必须从主线程提交。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const REASON_MAIN_THREAD_REQUIRED: StringName = &"main_thread_required"
 
 ## PackedScene 无法实例化为有效 Node。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const REASON_SCENE_INSTANTIATION_FAILED: StringName = &"scene_instantiation_failed"
 
 ## prepare_callback 显式返回非 OK Error。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const REASON_PREPARE_CALLBACK_FAILED: StringName = &"prepare_callback_failed"
 
 ## prepare_callback 返回值不是合法 Error 整数。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const REASON_INVALID_PREPARE_CALLBACK_RESULT: StringName = &"invalid_prepare_callback_result"
 
 ## 候选在提交前被重入或生命周期变化失效。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const REASON_CANDIDATE_INVALIDATED: StringName = &"candidate_invalidated"
 
 ## 框架无法安全归类的内部失败。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const REASON_INTERNAL_FAILURE: StringName = &"internal_failure"
 
 
@@ -211,7 +211,7 @@ var _configured: bool = false
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return `Status` 闭合枚举值。
 func get_status() -> Status:
@@ -222,7 +222,7 @@ func get_status() -> Status:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return `COMPLETED` 或 `PARTIAL` 返回 true。
 func is_successful() -> bool:
@@ -233,7 +233,7 @@ func is_successful() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 大于零的请求 ID；尚未配置时返回 0。
 func get_request_id() -> int:
@@ -244,7 +244,7 @@ func get_request_id() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 资源路径或实例 ID 身份。
 func get_scene_identity() -> String:
@@ -255,7 +255,7 @@ func get_scene_identity() -> String:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 非负数量。
 func get_requested_count() -> int:
@@ -266,7 +266,7 @@ func get_requested_count() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 非负且不大于 requested 的数量；已包含运行期容量复核的收窄结果。
 func get_admitted_count() -> int:
@@ -277,7 +277,7 @@ func get_admitted_count() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 成功创建数量。
 func get_created_count() -> int:
@@ -288,7 +288,7 @@ func get_created_count() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return `requested - admitted`。
 func get_skipped_count() -> int:
@@ -299,7 +299,7 @@ func get_skipped_count() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 取消数量。
 func get_cancelled_count() -> int:
@@ -310,7 +310,7 @@ func get_cancelled_count() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 失败数量。
 func get_failed_count() -> int:
@@ -321,7 +321,7 @@ func get_failed_count() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 与 status/error 对应的 `REASON_*`。
 func get_reason() -> StringName:
@@ -332,7 +332,7 @@ func get_reason() -> StringName:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 与 status/reason 对应的 Error。
 func get_error_code() -> Error:
@@ -343,7 +343,7 @@ func get_error_code() -> Error:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 新结果对象。
 func duplicate_result() -> GFObjectPoolPrewarmResult:
@@ -369,7 +369,7 @@ func duplicate_result() -> GFObjectPoolPrewarmResult:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 请求身份、计数与终态。
 ## [br]
@@ -399,7 +399,7 @@ func to_dict() -> Dictionary:
 ## [br]
 ## @layer standard/utilities/nodes
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param status: 唯一终态。
 ## [br]
@@ -483,7 +483,7 @@ func configure_for_framework(
 ## [br]
 ## @layer standard/utilities/nodes
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 闭合联合已冻结时返回 true。
 func is_configured_for_framework() -> bool:

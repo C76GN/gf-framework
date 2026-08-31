@@ -7,7 +7,7 @@
 - 继承：`Resource`
 - API：`public`
 - 类别：资源定义 (`resource_definition`)
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 GFLayeredSpriteVariant：分层精灵单层的帧资源变体。 变体只以稳定 ID 关联一组 [SpriteFrames]，不包含服装、装备或角色等业务语义。
 
@@ -25,7 +25,7 @@ GFLayeredSpriteVariant：分层精灵单层的帧资源变体。 变体只以稳
 ### `variant_id`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 var variant_id: StringName = &""
@@ -38,7 +38,7 @@ var variant_id: StringName = &""
 ### `sprite_frames`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 var sprite_frames: SpriteFrames = null

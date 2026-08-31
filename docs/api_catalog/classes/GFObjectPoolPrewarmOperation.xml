@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFObjectPoolPrewarmOperation" path="addons/gf/standard/utilities/nodes/gf_object_pool_prewarm_operation.gd" module="standard" extends="RefCounted" classDigest="6aff5c6cce9508521934d4d8ba923b3fa0615136d1bdd95c6ac1f5f666c15902">
+<class name="GFObjectPoolPrewarmOperation" path="addons/gf/standard/utilities/nodes/gf_object_pool_prewarm_operation.gd" module="standard" extends="RefCounted" classDigest="9eaea55c6feb3c084e0ab6cd3bb1f8ddd71643e1514cea6d7947733cb9b2785b">
 	<description>GFObjectPoolPrewarmOperation: 单次异步对象池预热请求句柄。
 Operation 冻结请求身份并跟踪最终有效的容量准入和实时进度，只接受一个类型化终态。同步校验、
 零工作或同步退化请求可能在入口返回前完成；调用方应先查询 `is_completed()`。</description>
@@ -7,7 +7,7 @@ Operation 冻结请求身份并跟踪最终有效的容量准入和实时进度�
 		<tag name="api">public</tag>
 		<tag name="category">runtime_handle</tag>
 		<tag name="layer">standard/utilities/nodes</tag>
-		<tag name="since">unreleased</tag>
+		<tag name="since">11.0.0</tag>
 	</tags>
 	<signals>
 		<member kind="signal" name="progressed">
@@ -16,7 +16,7 @@ Operation 冻结请求身份并跟踪最终有效的容量准入和实时进度�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">operation: 当前规范 Operation。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="signal" name="completed">
@@ -25,7 +25,7 @@ Operation 冻结请求身份并跟踪最终有效的容量准入和实时进度�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">result: 当前请求的隔离终态结果。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 	</signals>
@@ -39,7 +39,7 @@ Operation 冻结请求身份并跟踪最终有效的容量准入和实时进度�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">Utility 首次接受 caller 取消时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_request_id">
@@ -48,7 +48,7 @@ Operation 冻结请求身份并跟踪最终有效的容量准入和实时进度�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">大于零的请求 ID；尚未配置时返回 0。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_scene">
@@ -57,7 +57,7 @@ Operation 冻结请求身份并跟踪最终有效的容量准入和实时进度�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">请求场景；已释放时返回 null。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_scene_identity">
@@ -66,7 +66,7 @@ Operation 冻结请求身份并跟踪最终有效的容量准入和实时进度�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">资源路径或实例 ID 身份。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="is_pending">
@@ -75,7 +75,7 @@ Operation 冻结请求身份并跟踪最终有效的容量准入和实时进度�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">已配置且未完成时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="is_completed">
@@ -84,7 +84,7 @@ Operation 冻结请求身份并跟踪最终有效的容量准入和实时进度�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">已完成时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_requested_count">
@@ -93,7 +93,7 @@ Operation 冻结请求身份并跟踪最终有效的容量准入和实时进度�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">非负请求数量。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_admitted_count">
@@ -102,7 +102,7 @@ Operation 冻结请求身份并跟踪最终有效的容量准入和实时进度�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">非负且不大于 requested 的数量；运行期容量复核可在终态前减少该值。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_created_count">
@@ -111,7 +111,7 @@ Operation 冻结请求身份并跟踪最终有效的容量准入和实时进度�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">已提交节点数量。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_skipped_count">
@@ -120,7 +120,7 @@ Operation 冻结请求身份并跟踪最终有效的容量准入和实时进度�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">`requested - admitted`。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_cancelled_count">
@@ -129,7 +129,7 @@ Operation 冻结请求身份并跟踪最终有效的容量准入和实时进度�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">当前已归类取消的单位数。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_failed_count">
@@ -138,7 +138,7 @@ Operation 冻结请求身份并跟踪最终有效的容量准入和实时进度�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">当前已归类失败的单位数。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_processed_count">
@@ -147,7 +147,7 @@ Operation 冻结请求身份并跟踪最终有效的容量准入和实时进度�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">created、skipped、cancelled 与 failed 的总和。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_remaining_count">
@@ -156,7 +156,7 @@ Operation 冻结请求身份并跟踪最终有效的容量准入和实时进度�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">`requested - processed`。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_progress_ratio">
@@ -165,7 +165,7 @@ Operation 冻结请求身份并跟踪最终有效的容量准入和实时进度�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">0.0 到 1.0；零工作为 1.0。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_result">
@@ -174,7 +174,7 @@ Operation 冻结请求身份并跟踪最终有效的容量准入和实时进度�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">已完成结果；等待中返回 null。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_debug_snapshot">
@@ -184,7 +184,7 @@ Operation 冻结请求身份并跟踪最终有效的容量准入和实时进度�
 				<tag name="api">public</tag>
 				<tag name="return">请求身份、实时计数、进度和可选终态。</tag>
 				<tag name="schema">return: Exact Dictionary with request_id, scene_identity, pending, completed, requested_count, admitted_count, created_count, skipped_count, cancelled_count, failed_count, processed_count, remaining_count, progress_ratio, and result fields.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 	</methods>

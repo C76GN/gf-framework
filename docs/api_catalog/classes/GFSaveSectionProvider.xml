@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFSaveSectionProvider" path="addons/gf/extensions/save/profile/gf_save_section_provider.gd" module="extensions/save" extends="Resource" classDigest="a7913050fb2f589a83a62c721bbd0fbaf6359d95b54c7d5b644efbadf3052e4a">
+<class name="GFSaveSectionProvider" path="addons/gf/extensions/save/profile/gf_save_section_provider.gd" module="extensions/save" extends="Resource" classDigest="b4f34ed4fe49bbc2b22274300ed9b02be1401207653b4fb1070713616b6e650c">
 	<description>GFSaveSectionProvider: Save Profile section 所有权协议。
 一个 provider 只拥有一个稳定 section。保存通过显式协作式 Snapshot Operation
 分片推进；读取应用与回滚快照保持独立协议。</description>
@@ -74,7 +74,7 @@ Operation 的后续 slice 分片构造。返回的 Operation 会绑定当前 Pro
 				<tag name="param">context: 本次操作的临时上下文。</tag>
 				<tag name="return">已绑定 Operation；创建失败时返回 null。</tag>
 				<tag name="schema">context: Dictionary with caller-defined ephemeral operation data.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="capture_section">
@@ -138,7 +138,7 @@ alias。大型 Provider 应在 Operation slice 中逐步构造独占数据，再
 				<tag name="return">可用 Snapshot。</tag>
 				<tag name="schema">payload: Variant accepted by the Save persisted-value contract.</tag>
 				<tag name="schema">metadata: Dictionary with provider-defined persisted metadata.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="make_completed_snapshot">
@@ -153,7 +153,7 @@ alias。大型 Provider 应在 Operation slice 中逐步构造独占数据，再
 				<tag name="return">已完成 Operation。</tag>
 				<tag name="schema">payload: Variant accepted by the Save persisted-value contract.</tag>
 				<tag name="schema">metadata: Dictionary with provider-defined persisted metadata.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="_begin_save_snapshot">
@@ -164,7 +164,7 @@ alias。大型 Provider 应在 Operation slice 中逐步构造独占数据，再
 				<tag name="param">_context: 本次操作的临时上下文。</tag>
 				<tag name="return">自定义 Operation，或通过 `make_completed_snapshot()` 创建的小型 Operation。</tag>
 				<tag name="schema">_context: Dictionary with caller-defined ephemeral operation data.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="_capture_section">

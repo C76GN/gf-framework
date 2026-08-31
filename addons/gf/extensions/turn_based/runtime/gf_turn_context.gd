@@ -149,7 +149,7 @@ func get_actor_value(actor: Object, key: StringName, fallback: Variant = null) -
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param owner: 请求 claim 的 Flow System。
 ## [br]
@@ -186,7 +186,7 @@ func try_acquire_flow_operation_lease(
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param lease: 要验证的精确租约。
 ## [br]
@@ -210,7 +210,7 @@ func is_flow_operation_lease_active(
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param lease: 要撤销的精确租约。
 ## [br]
@@ -230,7 +230,7 @@ func cancel_flow_operation_lease(
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param lease: 要释放的精确租约。
 ## [br]
@@ -256,7 +256,7 @@ func release_flow_operation_lease(
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param lease: 本次 Flow operation 的精确租约。
 ## [br]
@@ -303,7 +303,7 @@ func set_current_actor_from_flow(
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param lease: 仍被本次旧 operation 保留的精确租约。
 ## [br]
@@ -463,7 +463,7 @@ func _object_matches_class_name(value: Object, expected_class_name: StringName) 
 ## [br]
 ## @category runtime_handle
 ## [br]
-## @since unreleased
+## @since 11.0.0
 class FlowOperationLease extends RefCounted:
 	var _context_ref: WeakRef = null
 	var _owner_ref: WeakRef = null

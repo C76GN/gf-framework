@@ -9,7 +9,7 @@
 ## [br]
 ## @category runtime_service
 ## [br]
-## @since unreleased
+## @since 11.0.0
 class_name GFResourceBroker
 extends GFUtility
 
@@ -20,42 +20,42 @@ extends GFUtility
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const DEFAULT_MAX_ACTIVE_REQUESTS: int = 4
 
 ## 同时活动的底层 threaded resource request 数量绝对上限。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const ABSOLUTE_MAX_ACTIVE_REQUESTS: int = 64
 
 ## 默认最多等待 admission 的不同资源请求数量。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const DEFAULT_MAX_PENDING_REQUESTS: int = 256
 
 ## 等待 admission 的不同资源请求数量绝对上限。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const ABSOLUTE_MAX_PENDING_REQUESTS: int = 4096
 
 ## 活动请求无法追溯收紧 type hint 时写入 Lease 的稳定失败原因。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const REASON_ACTIVE_TYPE_HINT_NOT_SATISFIED: String = "active_type_hint_not_satisfied"
 
 ## 活动请求无法追溯升级 admission 约束时写入 Lease 的稳定失败原因。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const REASON_ACTIVE_ADMISSION_CONSTRAINTS_NOT_SATISFIED: String = "active_admission_constraints_not_satisfied"
 
 const _THREADED_RESOURCE_LOAD_ADAPTER = preload("res://addons/gf/standard/utilities/assets/gf_threaded_resource_load_adapter.gd")
@@ -71,7 +71,7 @@ const _REQUEST_DRAINING: int = 2
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 var max_active_requests: int = DEFAULT_MAX_ACTIVE_REQUESTS:
 	set(value):
 		max_active_requests = clampi(
@@ -87,7 +87,7 @@ var max_active_requests: int = DEFAULT_MAX_ACTIVE_REQUESTS:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 var max_pending_requests: int = DEFAULT_MAX_PENDING_REQUESTS:
 	set(value):
 		max_pending_requests = clampi(
@@ -112,7 +112,7 @@ var _disposed: bool = false
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 func init() -> void:
 	ignore_pause = true
 	tick_enabled = true
@@ -123,7 +123,7 @@ func init() -> void:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param _delta: 统一 Utility tick 参数。
 func tick(_delta: float = 0.0) -> void:
@@ -134,7 +134,7 @@ func tick(_delta: float = 0.0) -> void:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 func dispose() -> void:
 	_disposed = true
 	cancel_all(&"broker_disposed")
@@ -149,7 +149,7 @@ func dispose() -> void:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param path: `res://` 或 `uid://` 资源路径。
 ## [br]
@@ -241,7 +241,7 @@ func request(path: String, type_hint: String = "", options: Dictionary = {}) -> 
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 func pump() -> void:
 	_poll_active_requests()
 	_admit_pending_requests()
@@ -251,7 +251,7 @@ func pump() -> void:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param lease: 要观察的消费者 Lease。
 ## [br]
@@ -271,7 +271,7 @@ func poll_lease(lease: GFResourceLease) -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param reason: 用于诊断的稳定取消原因。
 func cancel_all(reason: StringName = &"cancelled") -> void:
@@ -292,7 +292,7 @@ func cancel_all(reason: StringName = &"cancelled") -> void:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 完全 idle 时返回 true。
 func is_idle() -> bool:
@@ -303,7 +303,7 @@ func is_idle() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return Broker 状态字典。
 ## [br]
@@ -338,7 +338,7 @@ func get_debug_snapshot() -> Dictionary:
 ## [br]
 ## @api protected
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param path: 规范化资源路径。
 ## [br]
@@ -353,7 +353,7 @@ func _request_threaded_resource(path: String, type_hint: String) -> Error:
 ## [br]
 ## @api protected
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param path: 规范化资源路径。
 ## [br]
@@ -374,7 +374,7 @@ func _poll_threaded_resource(path: String, previous_progress: float) -> Dictiona
 ## [br]
 ## @layer standard/utilities
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param lease: 要释放的 Lease。
 ## [br]

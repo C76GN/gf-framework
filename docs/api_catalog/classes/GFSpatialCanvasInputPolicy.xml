@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFSpatialCanvasInputPolicy" path="addons/gf/standard/utilities/spatial_canvas/gf_spatial_canvas_input_policy.gd" module="standard" extends="Resource" classDigest="b168a3509f57d96d643cb4b6ff8e16818f8dbd24f8f2c3f4f3ab210d2b08af51">
+<class name="GFSpatialCanvasInputPolicy" path="addons/gf/standard/utilities/spatial_canvas/gf_spatial_canvas_input_policy.gd" module="standard" extends="Resource" classDigest="4777270ab0a4da32984dfaf8582d5febdc923673cc9a579143281442e4b18371">
 	<description>GFSpatialCanvasInputPolicy: 空间画布输入解释策略。
 以数据方式声明平移、选择、滚轮、触摸和取消输入。策略不持有节点、
 Viewport 或父容器引用；[code]GFSpatialCanvas2D[/code] 只接受完整校验通过的隔离副本。</description>
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">resource_definition</tag>
-		<tag name="since">unreleased</tag>
+		<tag name="since">11.0.0</tag>
 	</tags>
 	<signals />
 	<enums>
@@ -26,7 +26,7 @@ Viewport 或父容器引用；[code]GFSpatialCanvas2D[/code] 只接受完整校�
 			<description>输入修饰键位掩码。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="enum" name="WheelAxis">
@@ -39,7 +39,7 @@ Viewport 或父容器引用；[code]GFSpatialCanvas2D[/code] 只接受完整校�
 			<description>滚轮缩放使用的物理轴。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="enum" name="WheelRouting">
@@ -54,7 +54,7 @@ Viewport 或父容器引用；[code]GFSpatialCanvas2D[/code] 只接受完整校�
 			<description>滚轮事件的画布路由策略。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="enum" name="TouchPrimaryBehavior">
@@ -69,7 +69,7 @@ Viewport 或父容器引用；[code]GFSpatialCanvas2D[/code] 只接受完整校�
 			<description>单指触摸的主行为。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 	</enums>
@@ -79,7 +79,7 @@ Viewport 或父容器引用；[code]GFSpatialCanvas2D[/code] 只接受完整校�
 			<description>单份策略允许声明的选择修饰键绑定绝对上限。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="ABSOLUTE_MAX_ACTION_EVENTS">
@@ -87,7 +87,7 @@ Viewport 或父容器引用；[code]GFSpatialCanvas2D[/code] 只接受完整校�
 			<description>校验单个 InputMap action 时允许扫描的事件绝对上限。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 	</constants>
@@ -97,7 +97,7 @@ Viewport 或父容器引用；[code]GFSpatialCanvas2D[/code] 只接受完整校�
 			<description>直接触发平移捕获的鼠标按钮；[constant MOUSE_BUTTON_NONE] 表示禁用直接按钮。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="pan_action" decorators="@export">
@@ -105,7 +105,7 @@ Viewport 或父容器引用；[code]GFSpatialCanvas2D[/code] 只接受完整校�
 			<description>通过 InputMap 触发平移捕获的动作；空名称表示禁用动作绑定。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="pan_modifier_mask" decorators="@export_flags(&quot;Shift:1&quot;, &quot;Ctrl:2&quot;, &quot;Alt:4&quot;, &quot;Meta:8&quot;)">
@@ -114,7 +114,7 @@ Viewport 或父容器引用；[code]GFSpatialCanvas2D[/code] 只接受完整校�
 使用 [member pan_action] 时修饰键由 InputMap action 精确声明，本字段必须为 NONE。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="selection_mouse_button" decorators="@export">
@@ -122,7 +122,7 @@ Viewport 或父容器引用；[code]GFSpatialCanvas2D[/code] 只接受完整校�
 			<description>直接触发选择捕获的鼠标按钮；[constant MOUSE_BUTTON_NONE] 表示禁用直接按钮。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="selection_action" decorators="@export">
@@ -130,7 +130,7 @@ Viewport 或父容器引用；[code]GFSpatialCanvas2D[/code] 只接受完整校�
 			<description>通过 InputMap 触发选择捕获的动作；空名称表示禁用动作绑定。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="selection_default_mode" decorators="@export">
@@ -140,7 +140,7 @@ Viewport 或父容器引用；[code]GFSpatialCanvas2D[/code] 只接受完整校�
 			<description>没有选择修饰键绑定精确匹配时使用的 [code]GFSpatialCanvas2D.SelectionMode[/code]。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="selection_modifier_bindings" decorators="@export">
@@ -148,7 +148,7 @@ Viewport 或父容器引用；[code]GFSpatialCanvas2D[/code] 只接受完整校�
 			<description>修饰键到选择模式的精确匹配表；重复掩码会使策略校验失败。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="drag_threshold" decorators="@export">
@@ -156,7 +156,7 @@ Viewport 或父容器引用；[code]GFSpatialCanvas2D[/code] 只接受完整校�
 			<description>区分点选和框选的局部画布像素阈值。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="wheel_axis" decorators="@export">
@@ -164,7 +164,7 @@ Viewport 或父容器引用；[code]GFSpatialCanvas2D[/code] 只接受完整校�
 			<description>用于画布缩放的滚轮轴。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="wheel_routing" decorators="@export">
@@ -172,7 +172,7 @@ Viewport 或父容器引用；[code]GFSpatialCanvas2D[/code] 只接受完整校�
 			<description>滚轮缩放路由策略。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="wheel_modifier_mask" decorators="@export_flags(&quot;Shift:1&quot;, &quot;Ctrl:2&quot;, &quot;Alt:4&quot;, &quot;Meta:8&quot;)">
@@ -180,7 +180,7 @@ Viewport 或父容器引用；[code]GFSpatialCanvas2D[/code] 只接受完整校�
 			<description>[constant WheelRouting.MODIFIER_GATED] 下必须精确匹配的修饰键掩码。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="wheel_zoom_factor" decorators="@export">
@@ -188,7 +188,7 @@ Viewport 或父容器引用；[code]GFSpatialCanvas2D[/code] 只接受完整校�
 			<description>每个滚轮刻度的缩放倍率，必须为有限且大于 1 的值。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="touch_enabled" decorators="@export">
@@ -196,7 +196,7 @@ Viewport 或父容器引用；[code]GFSpatialCanvas2D[/code] 只接受完整校�
 			<description>是否处理原始 ScreenTouch / ScreenDrag 事件。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="touch_primary_behavior" decorators="@export">
@@ -204,7 +204,7 @@ Viewport 或父容器引用；[code]GFSpatialCanvas2D[/code] 只接受完整校�
 			<description>单指触摸的主行为。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="touch_multi_pan_enabled" decorators="@export">
@@ -212,7 +212,7 @@ Viewport 或父容器引用；[code]GFSpatialCanvas2D[/code] 只接受完整校�
 			<description>是否允许双指及以上触点驱动平移。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="touch_multi_zoom_enabled" decorators="@export">
@@ -220,7 +220,7 @@ Viewport 或父容器引用；[code]GFSpatialCanvas2D[/code] 只接受完整校�
 			<description>是否允许双指及以上触点驱动捏合缩放。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="system_pan_gesture_enabled" decorators="@export">
@@ -228,7 +228,7 @@ Viewport 或父容器引用；[code]GFSpatialCanvas2D[/code] 只接受完整校�
 			<description>是否处理 Godot 的系统 PanGesture 事件。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="system_magnify_gesture_enabled" decorators="@export">
@@ -236,7 +236,7 @@ Viewport 或父容器引用；[code]GFSpatialCanvas2D[/code] 只接受完整校�
 			<description>是否处理 Godot 的系统 MagnifyGesture 事件。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="placement_cancel_action" decorators="@export">
@@ -245,7 +245,7 @@ Viewport 或父容器引用；[code]GFSpatialCanvas2D[/code] 只接受完整校�
 动作不得包含鼠标、触摸或位置手势事件，避免取消优先级饿死画布指针行为。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="consume_handled_events" decorators="@export">
@@ -253,7 +253,7 @@ Viewport 或父容器引用；[code]GFSpatialCanvas2D[/code] 只接受完整校�
 			<description>一般已处理事件是否由 Canvas GUI 边界消费。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="consume_wheel_events" decorators="@export">
@@ -261,7 +261,7 @@ Viewport 或父容器引用；[code]GFSpatialCanvas2D[/code] 只接受完整校�
 			<description>已处理滚轮事件是否由 Canvas GUI 边界消费。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 	</properties>
@@ -275,7 +275,7 @@ Viewport 或父容器引用；[code]GFSpatialCanvas2D[/code] 只接受完整校�
 				<tag name="api">public</tag>
 				<tag name="return">策略校验报告。</tag>
 				<tag name="schema">return: GFValidationReportDictionary-compatible report with issues describing invalid fields.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="duplicate_policy">
@@ -284,7 +284,7 @@ Viewport 或父容器引用；[code]GFSpatialCanvas2D[/code] 只接受完整校�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">新策略。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 	</methods>

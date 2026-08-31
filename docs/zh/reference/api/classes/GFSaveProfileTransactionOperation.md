@@ -7,7 +7,7 @@
 - 继承：`RefCounted`
 - API：`public`
 - 类别：运行时句柄 (`runtime_handle`)
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 Profile 身份与持久化事务的异步句柄。 句柄由 Save Profile 事务协调器完成一次且只完成一次。调用方可在连接信号前 检查 `is_completed()`，避免同步拒绝或立即终态造成竞态。
 
@@ -40,7 +40,7 @@ Profile 身份与持久化事务的异步句柄。 句柄由 Save Profile 事务
 ### `completed`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 signal completed(result: GFSaveProfileTransactionResult)
@@ -61,7 +61,7 @@ signal completed(result: GFSaveProfileTransactionResult)
 ### `OPERATION_ACTIVATE`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const OPERATION_ACTIVATE: StringName = &"activate"
@@ -74,7 +74,7 @@ const OPERATION_ACTIVATE: StringName = &"activate"
 ### `OPERATION_SWITCH`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const OPERATION_SWITCH: StringName = &"switch"
@@ -87,7 +87,7 @@ const OPERATION_SWITCH: StringName = &"switch"
 ### `OPERATION_BOOTSTRAP`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const OPERATION_BOOTSTRAP: StringName = &"bootstrap"
@@ -100,7 +100,7 @@ const OPERATION_BOOTSTRAP: StringName = &"bootstrap"
 ### `OPERATION_ADOPT`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const OPERATION_ADOPT: StringName = &"adopt"
@@ -113,7 +113,7 @@ const OPERATION_ADOPT: StringName = &"adopt"
 ### `OPERATION_BOOTSTRAP_AND_SWITCH`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const OPERATION_BOOTSTRAP_AND_SWITCH: StringName = &"bootstrap_and_switch"
@@ -126,7 +126,7 @@ const OPERATION_BOOTSTRAP_AND_SWITCH: StringName = &"bootstrap_and_switch"
 ### `OPERATION_ADOPT_AND_SWITCH`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const OPERATION_ADOPT_AND_SWITCH: StringName = &"adopt_and_switch"
@@ -139,7 +139,7 @@ const OPERATION_ADOPT_AND_SWITCH: StringName = &"adopt_and_switch"
 ### `OPERATION_MUTATE_AND_PERSIST`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const OPERATION_MUTATE_AND_PERSIST: StringName = &"mutate_and_persist"
@@ -152,7 +152,7 @@ const OPERATION_MUTATE_AND_PERSIST: StringName = &"mutate_and_persist"
 ### `OPERATION_RECONCILE`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const OPERATION_RECONCILE: StringName = &"reconcile"
@@ -167,7 +167,7 @@ const OPERATION_RECONCILE: StringName = &"reconcile"
 ### `get_operation`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_operation() -> StringName:
@@ -182,7 +182,7 @@ func get_operation() -> StringName:
 ### `get_transaction_id`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_transaction_id() -> int:
@@ -197,7 +197,7 @@ func get_transaction_id() -> int:
 ### `get_source_profile_id`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_source_profile_id() -> StringName:
@@ -212,7 +212,7 @@ func get_source_profile_id() -> StringName:
 ### `get_target_profile_id`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_target_profile_id() -> StringName:
@@ -227,7 +227,7 @@ func get_target_profile_id() -> StringName:
 ### `is_pending`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func is_pending() -> bool:
@@ -242,7 +242,7 @@ func is_pending() -> bool:
 ### `is_running`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func is_running() -> bool:
@@ -257,7 +257,7 @@ func is_running() -> bool:
 ### `is_completed`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func is_completed() -> bool:
@@ -272,7 +272,7 @@ func is_completed() -> bool:
 ### `get_result`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_result() -> GFSaveProfileTransactionResult:

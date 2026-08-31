@@ -7,7 +7,7 @@
 - 继承：`Resource`
 - API：`public`
 - 类别：资源定义 (`resource_definition`)
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 projectile 场景、runtime 与策略的 typed 定义基类。
 
@@ -28,7 +28,7 @@ projectile 场景、runtime 与策略的 typed 定义基类。
 ### `scene`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 var scene: PackedScene = null
@@ -41,7 +41,7 @@ var scene: PackedScene = null
 ### `runtime_path`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 var runtime_path: NodePath = NodePath("ProjectileRuntime")
@@ -54,7 +54,7 @@ scene root 到唯一 runtime 的显式路径。
 ### `impact_source_paths`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 var impact_source_paths: Array[NodePath] = []
@@ -71,7 +71,7 @@ scene root 到 0..N impact source 的显式有序路径。
 ### `motion`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 var motion: GFProjectileMotion = null
@@ -84,7 +84,7 @@ var motion: GFProjectileMotion = null
 ### `lifetime_policy`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 var lifetime_policy: GFProjectileLifetimePolicy = null

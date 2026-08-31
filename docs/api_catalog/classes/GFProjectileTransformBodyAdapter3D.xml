@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFProjectileTransformBodyAdapter3D" path="addons/gf/extensions/combat/projectiles/gf_projectile_transform_body_adapter_3d.gd" module="extensions/combat" extends="GFProjectileBodyAdapter3D" classDigest="73f0bd582b8909e1cbfb50749c59c7fc358cc44021ea94349c5ede49e418bae5">
+<class name="GFProjectileTransformBodyAdapter3D" path="addons/gf/extensions/combat/projectiles/gf_projectile_transform_body_adapter_3d.gd" module="extensions/combat" extends="GFProjectileBodyAdapter3D" classDigest="c62fbe2d588ffbf573d2071e4162c2f34075726ba1900e65c70d433e31e7cce0">
 	<description>GFProjectileTransformBodyAdapter3D: 直接应用 Node3D 变换的 body adapter。</description>
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">resource_definition</tag>
-		<tag name="since">unreleased</tag>
+		<tag name="since">11.0.0</tag>
 	</tags>
 	<signals />
 	<enums />

@@ -7,7 +7,7 @@
 - 继承：`RefCounted`
 - API：`public`
 - 类别：运行时句柄 (`runtime_handle`)
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 单次虚拟输入脉冲的类型化运行时句柄。 句柄冻结创建时的 Mapping、source_id、player_index 与 action_id，并由 GFInputMappingUtility 的权威 lease 保证旧定时器不会释放后续脉冲。owner 与 cancellation_token 均为可选锚点；同时提供时，任一先结束都会取消脉冲。
 
@@ -37,7 +37,7 @@
 ### `completed`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 signal completed(operation: GFVirtualInputPulseOperation)
@@ -58,7 +58,7 @@ signal completed(operation: GFVirtualInputPulseOperation)
 ### `Status`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 enum Status {
@@ -86,7 +86,7 @@ enum Status {
 ### `cancel`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func cancel(reason: StringName = &"cancelled") -> bool:
@@ -107,7 +107,7 @@ func cancel(reason: StringName = &"cancelled") -> bool:
 ### `get_generation`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_generation() -> int:
@@ -122,7 +122,7 @@ func get_generation() -> int:
 ### `get_source_id`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_source_id() -> StringName:
@@ -137,7 +137,7 @@ func get_source_id() -> StringName:
 ### `get_player_index`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_player_index() -> int:
@@ -152,7 +152,7 @@ func get_player_index() -> int:
 ### `get_action_id`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_action_id() -> StringName:
@@ -167,7 +167,7 @@ func get_action_id() -> StringName:
 ### `get_duration_seconds`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_duration_seconds() -> float:
@@ -182,7 +182,7 @@ func get_duration_seconds() -> float:
 ### `get_status`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_status() -> Status:
@@ -197,7 +197,7 @@ func get_status() -> Status:
 ### `get_terminal_reason`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_terminal_reason() -> StringName:
@@ -212,7 +212,7 @@ func get_terminal_reason() -> StringName:
 ### `is_pending`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func is_pending() -> bool:
@@ -227,7 +227,7 @@ func is_pending() -> bool:
 ### `is_completed`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func is_completed() -> bool:
@@ -242,7 +242,7 @@ func is_completed() -> bool:
 ### `get_release_count`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_release_count() -> int:
@@ -257,7 +257,7 @@ func get_release_count() -> int:
 ### `get_debug_snapshot`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_debug_snapshot() -> Dictionary:

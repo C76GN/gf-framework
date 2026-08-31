@@ -9,7 +9,7 @@
 ## [br]
 ## @category editor_api
 ## [br]
-## @since unreleased
+## @since 11.0.0
 class_name GFProjectLayoutDock
 extends VBoxContainer
 
@@ -20,49 +20,49 @@ extends VBoxContainer
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const STATE_IDLE: String = "idle"
 
 ## 页面正在主线程分批捕获库存。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const STATE_CAPTURING: String = "capturing"
 
 ## 页面正在后台分析冻结库存。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const STATE_ANALYZING: String = "analyzing"
 
 ## 分析完整结束。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const STATE_COMPLETE: String = "complete"
 
 ## 输入或分析不完整。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const STATE_PARTIAL: String = "partial"
 
 ## 用户取消了请求。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const STATE_CANCELLED: String = "cancelled"
 
 ## 请求因输入或执行错误失败。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const STATE_FAILED: String = "failed"
 
 const _ANALYZER_SCRIPT = preload(
@@ -259,7 +259,7 @@ func _exit_tree() -> void:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 func scan_project() -> void:
 	if _background_task != null:
 		_cancel_active_request(false)
@@ -285,7 +285,7 @@ func scan_project() -> void:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 func cancel_scan() -> void:
 	_cancel_active_request(true)
 
@@ -294,7 +294,7 @@ func cancel_scan() -> void:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return: String，页面当前状态；值属于 STATE_* 常量闭集。
 func get_state() -> String:
@@ -305,7 +305,7 @@ func get_state() -> String:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return: Dictionary，包含 analysis、plan 和 impact。
 ## [br]

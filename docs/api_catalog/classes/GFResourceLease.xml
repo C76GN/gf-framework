@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFResourceLease" path="addons/gf/standard/utilities/assets/gf_resource_lease.gd" module="standard" extends="RefCounted" classDigest="537f06a0664f151cda997f3ee331fc3f4f7d0c1ae2f08fc0c3475aa369919ab8">
+<class name="GFResourceLease" path="addons/gf/standard/utilities/assets/gf_resource_lease.gd" module="standard" extends="RefCounted" classDigest="000e0603d52d14b192591dce8fc56048ef661583368f3f6baf0b52d1099d9b34">
 	<description>GFResourceLease: 共享资源 Broker 返回的消费者所有权句柄。
 每次请求都会得到独立 Lease；同一路径可以复用同一个底层 threaded load，
 但取消或释放只影响当前消费者。未完成时释放最后一个 Lease 会让 Broker
@@ -7,7 +7,7 @@
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">runtime_handle</tag>
-		<tag name="since">unreleased</tag>
+		<tag name="since">11.0.0</tag>
 	</tags>
 	<signals />
 	<enums />
@@ -17,7 +17,7 @@
 			<description>请求正在等待 Broker admission。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="STATUS_LOADING">
@@ -25,7 +25,7 @@
 			<description>底层 threaded resource request 已经开始。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="STATUS_COMPLETED">
@@ -33,7 +33,7 @@
 			<description>资源已经成功交付给当前消费者。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="STATUS_FAILED">
@@ -41,7 +41,7 @@
 			<description>资源请求失败。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="STATUS_CANCELLED">
@@ -49,7 +49,7 @@
 			<description>当前消费者已经取消请求。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 	</constants>
@@ -63,7 +63,7 @@ Broker 会继续 drain 已经开始的底层请求，但不会交付其结果。
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">reason: 用于诊断的稳定取消原因。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="release">
@@ -71,7 +71,7 @@ Broker 会继续 drain 已经开始的底层请求，但不会交付其结果。
 			<description>释放当前 Lease 持有的消费者引用和已交付资源。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="is_terminal">
@@ -80,7 +80,7 @@ Broker 会继续 drain 已经开始的底层请求，但不会交付其结果。
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">completed、failed 或 cancelled 时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="is_released">
@@ -89,7 +89,7 @@ Broker 会继续 drain 已经开始的底层请求，但不会交付其结果。
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">已释放时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_status">
@@ -98,7 +98,7 @@ Broker 会继续 drain 已经开始的底层请求，但不会交付其结果。
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">状态常量。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_progress">
@@ -107,7 +107,7 @@ Broker 会继续 drain 已经开始的底层请求，但不会交付其结果。
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">范围为 0.0 到 1.0 的进度值。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_resource">
@@ -116,7 +116,7 @@ Broker 会继续 drain 已经开始的底层请求，但不会交付其结果。
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">成功且尚未释放时返回资源，否则返回 null。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_path">
@@ -125,7 +125,7 @@ Broker 会继续 drain 已经开始的底层请求，但不会交付其结果。
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">Broker 使用的规范化加载路径。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_type_hint">
@@ -134,7 +134,7 @@ Broker 会继续 drain 已经开始的底层请求，但不会交付其结果。
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">ResourceLoader 类型提示。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_consumer_id">
@@ -143,7 +143,7 @@ Broker 会继续 drain 已经开始的底层请求，但不会交付其结果。
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">调用方提供的诊断标识。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_request_error">
@@ -152,7 +152,7 @@ Broker 会继续 drain 已经开始的底层请求，但不会交付其结果。
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">admission 或底层请求失败的 Godot Error。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_error_message">
@@ -161,7 +161,7 @@ Broker 会继续 drain 已经开始的底层请求，但不会交付其结果。
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">失败或取消说明。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="to_poll_result">
@@ -171,7 +171,7 @@ Broker 会继续 drain 已经开始的底层请求，但不会交付其结果。
 				<tag name="api">public</tag>
 				<tag name="return">Lease 状态字典。</tag>
 				<tag name="schema">return: Dictionary with status, progress, resource, has_resource, error, request_error, path, type_hint, consumer_id, exclusive, require_idle, cancel_reason, and released.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 	</methods>

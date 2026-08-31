@@ -7,7 +7,7 @@
 - 继承：`GFProjectileBodyAdapter3D`
 - API：`public`
 - 类别：资源定义 (`resource_definition`)
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 直接应用 Node3D 变换的 body adapter。
 

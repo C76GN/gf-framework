@@ -7,7 +7,7 @@
 - 继承：`Node2D`
 - API：`public`
 - 类别：运行时服务 (`runtime_service`)
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 GFLayeredSprite2D：由单一时间轴驱动的通用分层精灵节点。 配置会先完整校验并复制帧拓扑，再原子替换当前状态。节点只负责层、变体和播放， 不拥有资源发现、下载、缓存或任何项目业务分类。
 
@@ -57,7 +57,7 @@ GFLayeredSprite2D：由单一时间轴驱动的通用分层精灵节点。 配�
 ### `configuration_changed`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 signal configuration_changed
@@ -70,7 +70,7 @@ signal configuration_changed
 ### `animation_started`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 signal animation_started(animation: StringName)
@@ -89,7 +89,7 @@ signal animation_started(animation: StringName)
 ### `animation_finished`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 signal animation_finished(animation: StringName)
@@ -108,7 +108,7 @@ signal animation_finished(animation: StringName)
 ### `frame_changed`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 signal frame_changed(animation: StringName, frame: int)
@@ -128,7 +128,7 @@ signal frame_changed(animation: StringName, frame: int)
 ### `layer_variant_changed`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 signal layer_variant_changed(layer_id: StringName, variant_id: StringName)
@@ -150,7 +150,7 @@ signal layer_variant_changed(layer_id: StringName, variant_id: StringName)
 ### `MAX_LAYERS`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const MAX_LAYERS: int = 32
@@ -163,7 +163,7 @@ const MAX_LAYERS: int = 32
 ### `MAX_VARIANTS_PER_LAYER`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const MAX_VARIANTS_PER_LAYER: int = 64
@@ -176,7 +176,7 @@ const MAX_VARIANTS_PER_LAYER: int = 64
 ### `MAX_ANIMATIONS`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const MAX_ANIMATIONS: int = 128
@@ -189,7 +189,7 @@ const MAX_ANIMATIONS: int = 128
 ### `MAX_FRAMES_PER_ANIMATION`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const MAX_FRAMES_PER_ANIMATION: int = 4096
@@ -202,7 +202,7 @@ const MAX_FRAMES_PER_ANIMATION: int = 4096
 ### `MAX_TOTAL_FRAME_REFERENCES`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const MAX_TOTAL_FRAME_REFERENCES: int = 65536
@@ -215,7 +215,7 @@ const MAX_TOTAL_FRAME_REFERENCES: int = 65536
 ### `MAX_UNIQUE_TEXTURES`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const MAX_UNIQUE_TEXTURES: int = 8192
@@ -228,7 +228,7 @@ const MAX_UNIQUE_TEXTURES: int = 8192
 ### `MAX_FRAME_ADVANCES_PER_TICK`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const MAX_FRAME_ADVANCES_PER_TICK: int = 4096
@@ -241,7 +241,7 @@ const MAX_FRAME_ADVANCES_PER_TICK: int = 4096
 ### `MAX_SPEED_SCALE`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const MAX_SPEED_SCALE: float = 1024.0
@@ -256,7 +256,7 @@ const MAX_SPEED_SCALE: float = 1024.0
 ### `configure`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func configure(definition: GFLayeredSpriteDefinition) -> bool:
@@ -277,7 +277,7 @@ func configure(definition: GFLayeredSpriteDefinition) -> bool:
 ### `clear_configuration`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func clear_configuration() -> void:
@@ -290,7 +290,7 @@ func clear_configuration() -> void:
 ### `is_configured`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func is_configured() -> bool:
@@ -305,7 +305,7 @@ func is_configured() -> bool:
 ### `get_animation_names`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_animation_names() -> Array[StringName]:
@@ -320,7 +320,7 @@ func get_animation_names() -> Array[StringName]:
 ### `get_layer_ids`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_layer_ids() -> Array[StringName]:
@@ -335,7 +335,7 @@ func get_layer_ids() -> Array[StringName]:
 ### `play`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func play( animation: StringName, speed_scale: float = 1.0, from_end: bool = false ) -> bool:
@@ -358,7 +358,7 @@ func play( animation: StringName, speed_scale: float = 1.0, from_end: bool = fal
 ### `pause`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func pause() -> void:
@@ -371,7 +371,7 @@ func pause() -> void:
 ### `stop`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func stop(reset_to_start: bool = true) -> void:
@@ -390,7 +390,7 @@ func stop(reset_to_start: bool = true) -> void:
 ### `seek`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func seek(frame: int, frame_progress: float = 0.0) -> bool:
@@ -412,7 +412,7 @@ func seek(frame: int, frame_progress: float = 0.0) -> bool:
 ### `advance`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func advance(delta_seconds: float) -> bool:
@@ -433,7 +433,7 @@ func advance(delta_seconds: float) -> bool:
 ### `is_playing`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func is_playing() -> bool:
@@ -448,7 +448,7 @@ func is_playing() -> bool:
 ### `get_current_animation`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_current_animation() -> StringName:
@@ -463,7 +463,7 @@ func get_current_animation() -> StringName:
 ### `get_current_frame`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_current_frame() -> int:
@@ -478,7 +478,7 @@ func get_current_frame() -> int:
 ### `get_frame_progress`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_frame_progress() -> float:
@@ -493,7 +493,7 @@ func get_frame_progress() -> float:
 ### `set_layer_variant`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func set_layer_variant(layer_id: StringName, variant_id: StringName) -> bool:
@@ -515,7 +515,7 @@ func set_layer_variant(layer_id: StringName, variant_id: StringName) -> bool:
 ### `get_layer_variant`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_layer_variant(layer_id: StringName) -> StringName:
@@ -536,7 +536,7 @@ func get_layer_variant(layer_id: StringName) -> StringName:
 ### `set_layer_visible`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func set_layer_visible(layer_id: StringName, layer_visible: bool) -> bool:
@@ -558,7 +558,7 @@ func set_layer_visible(layer_id: StringName, layer_visible: bool) -> bool:
 ### `is_layer_visible`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func is_layer_visible(layer_id: StringName) -> bool:
@@ -579,7 +579,7 @@ func is_layer_visible(layer_id: StringName) -> bool:
 ### `set_layer_modulate`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func set_layer_modulate(layer_id: StringName, layer_modulate: Color) -> bool:
@@ -601,7 +601,7 @@ func set_layer_modulate(layer_id: StringName, layer_modulate: Color) -> bool:
 ### `set_layer_offset`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func set_layer_offset(layer_id: StringName, layer_offset: Vector2) -> bool:
@@ -623,7 +623,7 @@ func set_layer_offset(layer_id: StringName, layer_offset: Vector2) -> bool:
 ### `get_last_rejection_reason`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_last_rejection_reason() -> StringName:

@@ -7,7 +7,7 @@
 - 继承：`RefCounted`
 - API：`public`
 - 类别：值对象 (`value_object`)
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 命名行谓词的注册定义值。 把项目谓词与稳定 ID、启用状态和显式顺序组合成一次注册定义。 GFTableDataView 会复制数组并以 order 升序、predicate_id 字典序稳定执行。
 
@@ -29,7 +29,7 @@
 ### `create`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 static func create( predicate_id: StringName, predicate: GFTableRowPredicate, order: int = 0, enabled: bool = true ) -> GFTableRowPredicateRegistration:
@@ -53,7 +53,7 @@ static func create( predicate_id: StringName, predicate: GFTableRowPredicate, or
 ### `get_predicate_id`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_predicate_id() -> StringName:
@@ -68,7 +68,7 @@ func get_predicate_id() -> StringName:
 ### `get_predicate`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_predicate() -> GFTableRowPredicate:
@@ -83,7 +83,7 @@ func get_predicate() -> GFTableRowPredicate:
 ### `get_order`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_order() -> int:
@@ -98,7 +98,7 @@ func get_order() -> int:
 ### `is_enabled`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func is_enabled() -> bool:
@@ -113,7 +113,7 @@ func is_enabled() -> bool:
 ### `validate_registration`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func validate_registration() -> Dictionary:

@@ -8,7 +8,7 @@
 ## [br]
 ## @category runtime_service
 ## [br]
-## @since unreleased
+## @since 11.0.0
 class_name GFBoundedJsonObjectReader
 extends RefCounted
 
@@ -19,7 +19,7 @@ extends RefCounted
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const DEFAULT_MAX_BYTES: int = 1024 * 1024
 
 ## 框架允许的 JSON UTF-8 字节数绝对上限。
@@ -27,14 +27,14 @@ const DEFAULT_MAX_BYTES: int = 1024 * 1024
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const ABSOLUTE_MAX_BYTES: int = 1024 * 1024
 
 ## 默认允许的 JSON 对象/数组词法嵌套深度。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const DEFAULT_MAX_DEPTH: int = 64
 
 ## 框架允许的 JSON 对象/数组词法嵌套深度绝对上限。
@@ -42,7 +42,7 @@ const DEFAULT_MAX_DEPTH: int = 64
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 const ABSOLUTE_MAX_DEPTH: int = 64
 
 
@@ -55,7 +55,7 @@ const ABSOLUTE_MAX_DEPTH: int = 64
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param text: 要解析的 JSON 文本。
 ## [br]
@@ -102,7 +102,7 @@ static func parse_object(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param path: 要读取的 JSON 文件路径。
 ## [br]
@@ -142,7 +142,7 @@ static func read_object(
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param path: 要读取的 JSON 文件路径。
 ## [br]

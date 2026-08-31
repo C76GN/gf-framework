@@ -4,7 +4,7 @@
 ## [br]
 ## @category value_object
 ## [br]
-## @since unreleased
+## @since 11.0.0
 class_name GFProjectileLaunchInput3D
 extends Resource
 
@@ -15,7 +15,7 @@ extends Resource
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 enum TargetKind {
 	## 未指定目标。
 	NONE = 0,
@@ -40,7 +40,7 @@ var _metadata: Dictionary = {}
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 func set_target_none() -> void:
 	_target_kind = TargetKind.NONE
 	_target_ref = null
@@ -51,7 +51,7 @@ func set_target_none() -> void:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param node: live 目标；null 或失效目标会退化为 NONE。
 func set_target_node(node: Node3D) -> void:
@@ -66,7 +66,7 @@ func set_target_node(node: Node3D) -> void:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param position_value: 目标 world position。
 func set_target_position(position_value: Vector3) -> void:
@@ -79,7 +79,7 @@ func set_target_position(position_value: Vector3) -> void:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return: 封闭 `TargetKind` 值。
 func get_target_kind() -> TargetKind:
@@ -90,7 +90,7 @@ func get_target_kind() -> TargetKind:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return: NODE 目标；未设置或已释放时返回 null。
 func get_target_node() -> Node3D:
@@ -109,7 +109,7 @@ func get_target_node() -> Node3D:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return: POSITION target 值。
 func get_target_position() -> Vector3:
@@ -120,7 +120,7 @@ func get_target_position() -> Vector3:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param metadata: 项目自定义发射 metadata。
 ## [br]
@@ -133,7 +133,7 @@ func set_metadata(metadata: Dictionary) -> void:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return: 可由调用方修改的 metadata 副本。
 ## [br]
@@ -146,7 +146,7 @@ func get_metadata() -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return: 新的 3D launch input。
 func duplicate_input() -> GFProjectileLaunchInput3D:

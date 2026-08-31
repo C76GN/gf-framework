@@ -92,7 +92,7 @@ const DEFAULT_PROJECT_OUTPUT_PATH: String = _GF_PROJECT_ARTIFACT_PATHS_SCRIPT.PR
 ### `ACCESS_SCOPE_INHERITED`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const ACCESS_SCOPE_INHERITED: StringName = &"inherited"
@@ -105,7 +105,7 @@ const ACCESS_SCOPE_INHERITED: StringName = &"inherited"
 ### `ACCESS_SCOPE_LOCAL`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const ACCESS_SCOPE_LOCAL: StringName = &"local"
@@ -118,7 +118,7 @@ const ACCESS_SCOPE_LOCAL: StringName = &"local"
 ### `ACCESS_POLICIES_SETTING`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 const ACCESS_POLICIES_SETTING: String = "gf/codegen/access_policies"

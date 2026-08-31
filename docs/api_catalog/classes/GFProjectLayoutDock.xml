@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFProjectLayoutDock" path="addons/gf/tools/project_layout/editor/gf_project_layout_dock.gd" module="tools" extends="VBoxContainer" classDigest="74e24a96d1c77d678fd7817bd9f232816259dc2a2d4c0190528141e02f50564e">
+<class name="GFProjectLayoutDock" path="addons/gf/tools/project_layout/editor/gf_project_layout_dock.gd" module="tools" extends="VBoxContainer" classDigest="c90e20d0e05593d5d6faeafa87c09dd3ac7549fd5f282f4268c6b8a2fe111a4a">
 	<description>GFProjectLayoutDock: GF Project Layout 只读工作区页面。
 页面按用户操作捕获项目库存，在后台生成分析结果，并展示 finding、解释、影响和计划。
 它不提供 Apply、自动修复、创建、移动、重命名或删除入口。</description>
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">editor_api</tag>
-		<tag name="since">unreleased</tag>
+		<tag name="since">11.0.0</tag>
 	</tags>
 	<signals />
 	<enums />
@@ -16,7 +16,7 @@
 			<description>页面尚未开始捕获。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="STATE_CAPTURING">
@@ -24,7 +24,7 @@
 			<description>页面正在主线程分批捕获库存。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="STATE_ANALYZING">
@@ -32,7 +32,7 @@
 			<description>页面正在后台分析冻结库存。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="STATE_COMPLETE">
@@ -40,7 +40,7 @@
 			<description>分析完整结束。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="STATE_PARTIAL">
@@ -48,7 +48,7 @@
 			<description>输入或分析不完整。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="STATE_CANCELLED">
@@ -56,7 +56,7 @@
 			<description>用户取消了请求。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="STATE_FAILED">
@@ -64,7 +64,7 @@
 			<description>请求因输入或执行错误失败。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 	</constants>
@@ -75,7 +75,7 @@
 			<description>请求一次新的只读项目扫描。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="cancel_scan">
@@ -83,7 +83,7 @@
 			<description>取消当前捕获或后台分析。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_state">
@@ -92,7 +92,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">String，页面当前状态；值属于 STATE_* 常量闭集。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_last_result">
@@ -102,7 +102,7 @@
 				<tag name="api">public</tag>
 				<tag name="return">Dictionary，包含 analysis、plan 和 impact。</tag>
 				<tag name="schema">return: Dictionary，精确包含 analysis、plan 和 impact；尚无相应结果时值为空 Dictionary。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 	</methods>

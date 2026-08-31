@@ -103,7 +103,7 @@ func can_handle_clip(_clip: GFAudioClip, _channel: StringName, _context: Diction
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param _clip: 请求使用的会话私有片段快照。
 ## [br]

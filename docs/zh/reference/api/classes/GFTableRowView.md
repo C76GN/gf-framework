@@ -7,7 +7,7 @@
 - 继承：`RefCounted`
 - API：`public`
 - 类别：值对象 (`value_object`)
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 表格行谓词使用的隔离只读视图。 只公开稳定行 ID、源索引和已配置列的复制值，不公开源行容器。 项目谓词可以读取隐藏列，但不能通过该视图修改权威表格数据。
 
@@ -28,7 +28,7 @@
 ### `get_row_id`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_row_id() -> Variant:
@@ -47,7 +47,7 @@ func get_row_id() -> Variant:
 ### `get_source_row_index`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_source_row_index() -> int:
@@ -62,7 +62,7 @@ func get_source_row_index() -> int:
 ### `has_value`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func has_value(column_id: StringName) -> bool:
@@ -83,7 +83,7 @@ func has_value(column_id: StringName) -> bool:
 ### `get_value`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_value(column_id: StringName, default_value: Variant = null) -> Variant:
@@ -110,7 +110,7 @@ func get_value(column_id: StringName, default_value: Variant = null) -> Variant:
 ### `get_values`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`11.0.0`
 
 ```gdscript
 func get_values() -> Dictionary:

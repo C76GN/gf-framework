@@ -71,7 +71,7 @@ enum ValueType {
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 @export_range(0.0, 1.0, 0.01) var release_threshold: float = 0.5
 
 

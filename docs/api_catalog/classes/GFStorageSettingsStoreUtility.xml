@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFStorageSettingsStoreUtility" path="addons/gf/standard/utilities/settings_storage/gf_storage_settings_store_utility.gd" module="standard" extends="GFSettingsStoreUtility" classDigest="0e067d5dbf7835c664990de02dcb2ec34a79484536afaf023b9a6d755e3abb21">
+<class name="GFStorageSettingsStoreUtility" path="addons/gf/standard/utilities/settings_storage/gf_storage_settings_store_utility.gd" module="standard" extends="GFSettingsStoreUtility" classDigest="b613cbeb2b996d6308da4d2b51f8c8dcc36401e1b2afdb2f6277b1dc6b428c0b">
 	<description>GFStorageSettingsStoreUtility: GFStorageUtility 的设置持久化适配器。
 该 Utility 声明显式 Storage 生命周期依赖，只在依赖完成 ready 后缓存并同步转发
 设置读取和写入；释放依赖时清理缓存，避免在 Storage quiesce 或 dispose 后继续访问。</description>
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">runtime_service</tag>
-		<tag name="since">unreleased</tag>
+		<tag name="since">11.0.0</tag>
 	</tags>
 	<signals />
 	<enums />
@@ -18,7 +18,7 @@
 			<description>在已声明的 Storage 依赖完成 ready 后缓存其实例。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="release_dependencies">
@@ -26,7 +26,7 @@
 			<description>释放缓存的 Storage 引用和架构依赖作用域。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_required_utilities">
@@ -35,7 +35,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">只包含 GFStorageUtility 的依赖声明。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="is_persistence_enabled">
@@ -44,7 +44,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">Storage 依赖已缓存时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="read_settings">
@@ -54,7 +54,7 @@
 				<tag name="api">public</tag>
 				<tag name="param">file_name: Storage root 内的逻辑文件名。</tag>
 				<tag name="return">GFStorageUtility 的隔离读取结果；依赖不可用时返回 UNAVAILABLE。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="write_settings">
@@ -66,7 +66,7 @@
 				<tag name="param">data: 已由 Settings Utility 序列化的设置字典。</tag>
 				<tag name="return">GFStorageUtility 返回的 Godot Error 结果码；依赖不可用时返回 ERR_UNAVAILABLE。</tag>
 				<tag name="schema">data: Dictionary[String, Variant] persisted settings payload produced by GFSettingsUtility.to_dict(true).</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 	</methods>

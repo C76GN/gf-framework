@@ -8,7 +8,7 @@
 ## [br]
 ## @category value_object
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @layer kernel/core
 class_name GFArchitectureShutdownResult
@@ -21,7 +21,7 @@ extends RefCounted
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 enum Status {
 	## 所有关闭阶段正常完成。
 	SUCCEEDED,
@@ -70,7 +70,7 @@ var _cancel_reason: String = ""
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param status: `Status` 终态。
 ## [br]
@@ -131,7 +131,7 @@ static func create(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param module_results: 已完成的模块关闭结果。
 ## [br]
@@ -164,7 +164,7 @@ static func succeeded(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param error_code: 关闭错误码。
 ## [br]
@@ -210,7 +210,7 @@ static func failed(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param reason: 稳定取消原因。
 ## [br]
@@ -254,7 +254,7 @@ static func cancelled(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param error: 稳定超时说明。
 ## [br]
@@ -297,7 +297,7 @@ static func timed_out(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param error: 强制释放原因。
 ## [br]
@@ -340,7 +340,7 @@ static func forced(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @param started_at_msec: 单调开始时间。
 ## [br]
@@ -368,7 +368,7 @@ static func already_disposed(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 正常完成或此前已释放时返回 true。
 func is_successful() -> bool:
@@ -379,7 +379,7 @@ func is_successful() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return `Status` 终态。
 func get_status() -> Status:
@@ -390,7 +390,7 @@ func get_status() -> Status:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 小写稳定状态名称。
 func get_status_name() -> StringName:
@@ -401,7 +401,7 @@ func get_status_name() -> StringName:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 非负单调毫秒时间。
 func get_started_at_msec() -> int:
@@ -412,7 +412,7 @@ func get_started_at_msec() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 不早于开始时间的单调毫秒时间。
 func get_completed_at_msec() -> int:
@@ -423,7 +423,7 @@ func get_completed_at_msec() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 非负单调毫秒耗时。
 func get_duration_msec() -> int:
@@ -434,7 +434,7 @@ func get_duration_msec() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 最多 256 个规范化模块条目。
 ## [br]
@@ -447,7 +447,7 @@ func get_module_results() -> Array[Dictionary]:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 最多 256 个规范化模块条目。
 ## [br]
@@ -460,7 +460,7 @@ func get_unfinished_modules() -> Array[Dictionary]:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 非负重复请求数量。
 func get_duplicate_request_count() -> int:
@@ -471,7 +471,7 @@ func get_duplicate_request_count() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 成功终态为 OK。
 func get_error_code() -> Error:
@@ -482,7 +482,7 @@ func get_error_code() -> Error:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 最多 2048 个字符的失败说明。
 func get_error() -> String:
@@ -493,7 +493,7 @@ func get_error() -> String:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 最多 1024 个字符的取消原因；非取消终态为空。
 func get_cancel_reason() -> String:
@@ -504,7 +504,7 @@ func get_cancel_reason() -> String:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 新的不可变结果对象。
 func duplicate_result() -> GFArchitectureShutdownResult:
@@ -525,7 +525,7 @@ func duplicate_result() -> GFArchitectureShutdownResult:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 ## [br]
 ## @return 关闭终态、时间、模块结果和错误证据的隔离快照。
 ## [br]
