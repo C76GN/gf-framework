@@ -9526,11 +9526,17 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 	annotated_tag_inventory_stdout = (
 		"10.2.0\tcommit\t\t\n"
 		+ "10.0.0\ttag\tcommit\t" + "a" * 40 + "\n"
+		+ "10.1.0\ttag\ttag\t" + "d" * 40 + "\n"
 		+ "9.1.0\ttag\tcommit\t" + "b" * 40 + "\n"
 		+ "not-semver\ttag\tcommit\t" + "c" * 40 + "\n"
 	)
+	nested_tag_peel_command = [
+		"cat-file",
+		"--batch-check=%(rest) %(objectname) %(objecttype)",
+	]
 	original_run_frozen_maintenance_git = run_frozen_maintenance_git
 	tag_inventory_kwargs: list[dict[str, Any]] = []
+	tag_peel_kwargs: list[dict[str, Any]] = []
 
 	def make_tag_inventory_result(
 		stdout: str,
@@ -9551,12 +9557,18 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 	active_tag_inventory_result = make_tag_inventory_result(
 		annotated_tag_inventory_stdout,
 	)
+	active_tag_peel_result = make_tag_inventory_result(
+		f"{'d' * 40} {'e' * 40} commit\n",
+	)
 	try:
 		def run_tag_inventory_fixture(arguments: list[str], **_kwargs: Any) -> Any:
-			if arguments != annotated_tag_inventory_command:
-				raise AssertionError(f"Unexpected Git command: {arguments}")
-			tag_inventory_kwargs.append(_kwargs)
-			return active_tag_inventory_result
+			if arguments == annotated_tag_inventory_command:
+				tag_inventory_kwargs.append(_kwargs)
+				return active_tag_inventory_result
+			if arguments == nested_tag_peel_command:
+				tag_peel_kwargs.append(_kwargs)
+				return active_tag_peel_result
+			raise AssertionError(f"Unexpected Git command: {arguments}")
 
 		run_frozen_maintenance_git = run_tag_inventory_fixture
 		annotated_ancestor_tags = read_annotated_ancestor_semver_tags()
@@ -9584,6 +9596,16 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 			+ "9.0.0\ttag\tcommit\t" + "b" * 40 + "\n",
 		)
 		malformed_tag_inventory = read_annotated_ancestor_semver_tags()
+
+		active_tag_inventory_result = make_tag_inventory_result(
+			"10.1.0\ttag\ttag\t" + "d" * 40 + "\n"
+			+ "10.0.0\ttag\tcommit\t" + "a" * 40 + "\n",
+		)
+		active_tag_peel_result = make_tag_inventory_result(
+			f"{'d' * 40} {'e' * 40} commit\n",
+			stderr="fixture warning",
+		)
+		untrusted_tag_peel = read_annotated_ancestor_semver_tags()
 	finally:
 		run_frozen_maintenance_git = original_run_frozen_maintenance_git
 	record_result(
@@ -9591,22 +9613,35 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 		annotated_ancestor_tag_pairs == (
 			("10.0.0", "a" * 40),
 			("9.1.0", "b" * 40),
+			("10.1.0", "e" * 40),
 		)
-		and selected_annotated_baseline == "10.0.0"
+		and selected_annotated_baseline == "10.1.0"
 		and nonzero_tag_inventory is None
 		and warning_tag_inventory is None
-		and malformed_tag_inventory is None,
+		and malformed_tag_inventory is None
+		and untrusted_tag_peel is None,
 		"API baselines must ignore lightweight and non-SemVer tags, select the highest lower annotated ancestor, and fail closed on untrusted Git inventory output.",
 	)
 	record_result(
 		"api_baseline_tag_inventory_is_bounded",
 		bool(tag_inventory_kwargs)
+		and bool(tag_peel_kwargs)
 		and all(
 			kwargs == {
 				"max_stdout_characters": API_BASELINE_TAG_INVENTORY_STDOUT_MAX_CHARS,
 				"max_stderr_characters": API_BASELINE_TAG_INVENTORY_STDERR_MAX_CHARS,
 			}
 			for kwargs in tag_inventory_kwargs
+		)
+		and all(
+			kwargs == {
+				"stdin_bytes": (
+					f"{'d' * 40}^{{commit}} {'d' * 40}\n"
+				).encode("ascii"),
+				"max_stdout_characters": API_BASELINE_TAG_INVENTORY_STDOUT_MAX_CHARS,
+				"max_stderr_characters": API_BASELINE_TAG_INVENTORY_STDERR_MAX_CHARS,
+			}
+			for kwargs in tag_peel_kwargs
 		),
 		"API baseline tag discovery must bound both captured Git streams.",
 	)

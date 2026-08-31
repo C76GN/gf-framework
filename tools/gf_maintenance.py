@@ -3382,6 +3382,7 @@ def read_annotated_ancestor_semver_tags() -> tuple[ApiBaselineRef, ...] | None:
 	):
 		return None
 	eligible_tags: list[ApiBaselineRef] = []
+	nested_tags: list[tuple[str, str]] = []
 	for line in result.stdout.splitlines():
 		fields = line.split("\t")
 		if len(fields) != 4:
@@ -3397,12 +3398,81 @@ def read_annotated_ancestor_semver_tags() -> tuple[ApiBaselineRef, ...] | None:
 			and peeled_type == ""
 			and peeled_object_id == ""
 		)
-		if not is_annotated_commit and not is_lightweight_commit:
+		is_nested_annotated_tag = (
+			object_type == "tag"
+			and peeled_type == "tag"
+			and GIT_OBJECT_ID_RE.fullmatch(peeled_object_id) is not None
+		)
+		if not (
+			is_annotated_commit
+			or is_lightweight_commit
+			or is_nested_annotated_tag
+		):
 			return None
 		if is_lightweight_commit or parse_semver(tag) is None:
 			continue
-		eligible_tags.append(ApiBaselineRef(tag, peeled_object_id))
+		if is_nested_annotated_tag:
+			nested_tags.append((tag, peeled_object_id))
+		else:
+			eligible_tags.append(ApiBaselineRef(tag, peeled_object_id))
+	if nested_tags:
+		commit_oids = peel_nested_annotated_tag_commit_oids([
+			object_id
+			for _tag, object_id in nested_tags
+		])
+		if commit_oids is None:
+			return None
+		eligible_tags.extend(
+			ApiBaselineRef(tag, commit_oid)
+			for (tag, _object_id), commit_oid in zip(nested_tags, commit_oids)
+		)
 	return tuple(eligible_tags)
+
+
+def peel_nested_annotated_tag_commit_oids(
+	object_ids: Sequence[str],
+) -> tuple[str, ...] | None:
+	"""Recursively peel captured tag-object OIDs in one bounded Git process."""
+
+	payload = "".join(
+		f"{object_id}^{{commit}} {object_id}\n"
+		for object_id in object_ids
+	).encode("ascii")
+	if len(payload) > API_BASELINE_TAG_INVENTORY_STDOUT_MAX_CHARS:
+		return None
+	result = run_frozen_maintenance_git(
+		[
+			"cat-file",
+			"--batch-check=%(rest) %(objectname) %(objecttype)",
+		],
+		stdin_bytes=payload,
+		max_stdout_characters=API_BASELINE_TAG_INVENTORY_STDOUT_MAX_CHARS,
+		max_stderr_characters=API_BASELINE_TAG_INVENTORY_STDERR_MAX_CHARS,
+	)
+	if (
+		result.return_code != 0
+		or result.stdout_truncated
+		or result.stderr_truncated
+		or not isinstance(result.stdout, str)
+		or not isinstance(result.stderr, str)
+		or result.stderr != ""
+	):
+		return None
+	lines = result.stdout.splitlines()
+	if len(lines) != len(object_ids):
+		return None
+	commit_oids: list[str] = []
+	for expected_object_id, line in zip(object_ids, lines):
+		fields = line.split(" ")
+		if (
+			len(fields) != 3
+			or fields[0] != expected_object_id
+			or GIT_OBJECT_ID_RE.fullmatch(fields[1]) is None
+			or fields[2] != "commit"
+		):
+			return None
+		commit_oids.append(fields[1])
+	return tuple(commit_oids)
 
 
 def api_diff_release_target_version(version: str) -> str:
@@ -14427,6 +14497,7 @@ def read_git_paths(
 def run_frozen_maintenance_git(
 	arguments: Sequence[str],
 	*,
+	stdin_bytes: bytes | None = None,
 	binary_output: bool = False,
 	max_stdout_characters: int | None = None,
 	max_stderr_characters: int | None = None,
@@ -14440,6 +14511,7 @@ def run_frozen_maintenance_git(
 			cwd=ROOT,
 			timeout_seconds=30.0,
 			environment=git_process.environment.values(),
+			stdin_bytes=stdin_bytes,
 			binary_output=binary_output,
 			text_errors="replace",
 			max_stdout_characters=max_stdout_characters,

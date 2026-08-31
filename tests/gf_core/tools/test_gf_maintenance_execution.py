@@ -122,6 +122,7 @@ class FrozenProcessAuthorityTests(unittest.TestCase):
 			"GIT_DIR": "ambient-dir",
 			"GIT_WORK_TREE": "ambient-tree",
 			"GIT_ARBITRARY_AUTHORITY": "ambient-custom",
+			"GIT_NO_REPLACE_OBJECTS": "0",
 			"GIT_OPTIONAL_LOCKS": "1",
 			"GIT_CONFIG_NOSYSTEM": "0",
 			"GIT_TERMINAL_PROMPT": "1",
@@ -139,6 +140,7 @@ class FrozenProcessAuthorityTests(unittest.TestCase):
 				if name.upper().startswith("GIT_")
 			},
 			{
+				"GIT_NO_REPLACE_OBJECTS": "1",
 				"GIT_OPTIONAL_LOCKS": "0",
 				"GIT_CONFIG_NOSYSTEM": "1",
 				"GIT_TERMINAL_PROMPT": "0",
@@ -146,6 +148,102 @@ class FrozenProcessAuthorityTests(unittest.TestCase):
 		)
 		self.assertEqual(git_environment["LC_ALL"], "C")
 		self.assertEqual(git_environment["LANG"], "C")
+
+	def test_git_authority_ignores_replacement_objects(self) -> None:
+		with tempfile.TemporaryDirectory() as temporary_directory:
+			repository = Path(temporary_directory)
+			authority = gf_process_authority.freeze_process_authority(
+				_frozen_process_environment(),
+				cwd=repository,
+			)
+			protected_environment = authority.git.environment.values()
+			unprotected_environment = dict(protected_environment)
+			unprotected_environment.pop("GIT_NO_REPLACE_OBJECTS")
+
+			def run_git(
+				arguments: list[str],
+				*,
+				environment: dict[str, str] | None = None,
+			) -> str:
+				completed = subprocess.run(
+					list(authority.git.command(arguments).effective),
+					cwd=repository,
+					env=protected_environment if environment is None else environment,
+					capture_output=True,
+					text=True,
+					check=False,
+					timeout=10.0,
+				)
+				self.assertEqual(completed.returncode, 0, completed.stderr)
+				return completed.stdout.strip()
+
+			run_git(["init", "--quiet"])
+			run_git(["config", "user.name", "fixture"])
+			run_git(["config", "user.email", "fixture@example.invalid"])
+			hooks_directory = repository / "empty-hooks"
+			hooks_directory.mkdir()
+			run_git(["config", "commit.gpgSign", "false"])
+			run_git(["config", "tag.gpgSign", "false"])
+			run_git(["config", "core.useReplaceRefs", "true"])
+			run_git(["config", "core.hooksPath", hooks_directory.as_posix()])
+			catalog_path = repository / "catalog.txt"
+			catalog_path.write_text("original\n", encoding="utf-8")
+			run_git(["add", "catalog.txt"])
+			run_git(["commit", "--quiet", "-m", "base"])
+			base_oid = run_git(["rev-parse", "HEAD"])
+			run_git(["tag", "-a", "10.0.0", base_oid, "-m", "base"])
+
+			catalog_path.write_text("head\n", encoding="utf-8")
+			run_git(["add", "catalog.txt"])
+			run_git(["commit", "--quiet", "-m", "head"])
+			head_oid = run_git(["rev-parse", "HEAD"])
+			catalog_path.write_text("replacement\n", encoding="utf-8")
+			run_git(["add", "catalog.txt"])
+			replacement_tree = run_git(["write-tree"])
+			replacement_oid = run_git([
+				"commit-tree",
+				replacement_tree,
+				"-m",
+				"replacement",
+			])
+			run_git(["replace", base_oid, replacement_oid])
+
+			alternate_oid = run_git([
+				"commit-tree",
+				replacement_tree,
+				"-m",
+				"alternate",
+			])
+			run_git(["tag", "-a", "10.5.0", alternate_oid, "-m", "alternate"])
+			replacement_head_oid = run_git([
+				"commit-tree",
+				replacement_tree,
+				"-p",
+				alternate_oid,
+				"-m",
+				"replacement head",
+			])
+			run_git(["replace", head_oid, replacement_head_oid])
+
+			self.assertEqual(
+				run_git(
+					["show", f"{base_oid}:catalog.txt"],
+					environment=unprotected_environment,
+				),
+				"replacement",
+			)
+			self.assertEqual(run_git(["show", f"{base_oid}:catalog.txt"]), "original")
+			inventory_command = [
+				"for-each-ref",
+				"--merged=HEAD",
+				"--format=%(refname:strip=2)",
+				"refs/tags",
+			]
+			self.assertEqual(
+				set(run_git(inventory_command, environment=unprotected_environment).splitlines()),
+				{"10.5.0"},
+			)
+			self.assertEqual(set(run_git(inventory_command).splitlines()), {"10.0.0"})
 
 	def test_active_process_context_resets_every_capability_after_failure(self) -> None:
 		previous_environment = gf_process_authority.active_process_environment()
@@ -22481,6 +22579,109 @@ class ChangelogBaselinePolicyTests(unittest.TestCase):
 			for kwargs in captured_kwargs
 		))
 
+	def test_api_baseline_recursively_peels_legacy_nested_annotated_tag(self) -> None:
+		immediate_tag_oid = "d" * 40
+		commit_oid = "e" * 40
+		non_semver_tag_oid = "f" * 40
+		batch_command = [
+			"cat-file",
+			"--batch-check=%(rest) %(objectname) %(objecttype)",
+		]
+		batch_calls = 0
+
+		def run_git(arguments: object, **kwargs: object) -> mock.Mock:
+			nonlocal batch_calls
+			command = list(arguments)
+			if command[0] == "for-each-ref":
+				return self._git_result(
+					"10.0.0\ttag\ttag\t" + immediate_tag_oid + "\n"
+					+ "not-semver\ttag\ttag\t" + non_semver_tag_oid + "\n"
+					+ "9.0.0\ttag\tcommit\t" + "a" * 40 + "\n"
+				)
+			if command == batch_command:
+				batch_calls += 1
+				self.assertEqual(
+					kwargs,
+					{
+						"stdin_bytes": (
+							f"{immediate_tag_oid}^{{commit}} {immediate_tag_oid}\n"
+						).encode("ascii"),
+						"max_stdout_characters": (
+							gf_maintenance.API_BASELINE_TAG_INVENTORY_STDOUT_MAX_CHARS
+						),
+						"max_stderr_characters": (
+							gf_maintenance.API_BASELINE_TAG_INVENTORY_STDERR_MAX_CHARS
+						),
+					},
+				)
+				return self._git_result(f"{immediate_tag_oid} {commit_oid} commit\n")
+			raise AssertionError(f"Unexpected Git command: {command}")
+
+		base_snapshot = {"classes": {}, "autoloads": {}, "errors": []}
+		current_snapshot = {"classes": {}, "autoloads": {}, "errors": []}
+		with mock.patch.object(
+			gf_maintenance,
+			"run_frozen_maintenance_git",
+			side_effect=run_git,
+		), mock.patch.object(
+			gf_maintenance,
+			"read_api_catalog_snapshot_from_git",
+			return_value=base_snapshot,
+		) as read_base, mock.patch.object(
+			gf_maintenance,
+			"read_api_catalog_snapshot_from_workspace",
+			return_value=current_snapshot,
+		):
+			report = gf_maintenance.api_baseline_diff(version="11.0.0-dev.0")
+
+		self.assertTrue(report["ok"], report["issues"])
+		self.assertEqual(report["base_tag"], "10.0.0")
+		self.assertEqual(batch_calls, 1)
+		read_base.assert_called_once_with(commit_oid, label="10.0.0")
+
+	def test_nested_api_baseline_peel_fails_closed_on_untrusted_output(self) -> None:
+		object_id = "d" * 40
+		commit_oid = "e" * 40
+		valid_output = f"{object_id} {commit_oid} commit\n"
+		cases = (
+			("git failure", self._git_result(valid_output, return_code=1)),
+			("git warning", self._git_result(valid_output, stderr="warning\n")),
+			("truncated stdout", self._git_result(valid_output, stdout_truncated=True)),
+			("truncated stderr", self._git_result(valid_output, stderr_truncated=True)),
+			("missing object", self._git_result(f"{object_id}^{{commit}} missing\n")),
+			("wrong echoed oid", self._git_result(f"{'c' * 40} {commit_oid} commit\n")),
+			("invalid commit oid", self._git_result(f"{object_id} deadbeef commit\n")),
+			("wrong object type", self._git_result(f"{object_id} {commit_oid} tag\n")),
+			("missing row", self._git_result("")),
+			("extra row", self._git_result(valid_output * 2)),
+		)
+		for case_name, batch_result in cases:
+			batch_calls = 0
+
+			def run_git(arguments: object, **_kwargs: object) -> mock.Mock:
+				nonlocal batch_calls
+				command = list(arguments)
+				if command[0] == "for-each-ref":
+					return self._git_result(
+						"10.0.0\ttag\ttag\t" + object_id + "\n"
+						+ "9.0.0\ttag\tcommit\t" + "a" * 40 + "\n"
+					)
+				if command[0] == "cat-file":
+					batch_calls += 1
+					return batch_result
+				raise AssertionError(f"Unexpected Git command: {command}")
+
+			with self.subTest(case_name=case_name), mock.patch.object(
+				gf_maintenance,
+				"run_frozen_maintenance_git",
+				side_effect=run_git,
+			):
+				self.assertEqual(
+					gf_maintenance.find_latest_semver_tag_before("11.0.0"),
+					"",
+				)
+			self.assertEqual(batch_calls, 1)
+
 	def test_explicit_api_baseline_rejects_lightweight_tag_before_snapshot_io(self) -> None:
 		def run_git(arguments: object, **_kwargs: object) -> mock.Mock:
 			command = list(arguments)
@@ -22544,7 +22745,7 @@ class ChangelogBaselinePolicyTests(unittest.TestCase):
 		read_base.assert_not_called()
 		read_current.assert_not_called()
 
-	def test_frozen_git_forwards_inventory_capture_limits(self) -> None:
+	def test_frozen_git_forwards_bounded_io_options(self) -> None:
 		process_authority = mock.Mock()
 		process_authority.git.command.return_value.effective = ("git.exe", "for-each-ref")
 		process_authority.git.environment.values.return_value = {"PATH": "fixture"}
@@ -22563,6 +22764,7 @@ class ChangelogBaselinePolicyTests(unittest.TestCase):
 		) as supervisor:
 			result = gf_maintenance.run_frozen_maintenance_git(
 				["for-each-ref"],
+				stdin_bytes=b"fixture input",
 				max_stdout_characters=123,
 				max_stderr_characters=45,
 			)
@@ -22573,6 +22775,7 @@ class ChangelogBaselinePolicyTests(unittest.TestCase):
 			cwd=gf_maintenance.ROOT,
 			timeout_seconds=30.0,
 			environment={"PATH": "fixture"},
+			stdin_bytes=b"fixture input",
 			binary_output=False,
 			text_errors="replace",
 			max_stdout_characters=123,
