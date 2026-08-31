@@ -374,7 +374,10 @@ def list_tools() -> list[dict[str, Any]]:
 					"allow_breaking_api": {
 						"type": "boolean",
 						"default": False,
-						"description": "Allow explicitly approved breaking API baseline changes in release_metadata.",
+						"description": (
+							"Allow explicitly approved breaking API baseline changes in "
+							"changelog_policy and release_metadata; migration notes remain mandatory."
+						),
 					},
 					"artifact_manifest": {
 						"type": "string",

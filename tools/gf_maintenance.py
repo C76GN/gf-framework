@@ -2000,7 +2000,10 @@ def main() -> int:
 	check_parser.add_argument(
 		"--allow-breaking-api",
 		action="store_true",
-		help="Allow explicitly approved breaking API baseline changes in the release_metadata check.",
+		help=(
+			"Allow explicitly approved breaking API baseline changes in changelog_policy "
+			"and release_metadata; migration notes remain mandatory."
+		),
 	)
 	check_parser.add_argument(
 		"--artifact-manifest",
@@ -14935,13 +14938,19 @@ def member_to_dict(member: ApiMember) -> dict[str, Any]:
 	}
 
 
-def maintenance_in_process_adapter_registry() -> dict[str, Callable[[], dict[str, Any]]]:
+def maintenance_in_process_adapter_registry(
+	*,
+	allow_breaking_api: bool = False,
+) -> dict[str, Callable[[], dict[str, Any]]]:
 	"""Bind Catalog-selected in-process actions to trusted runtime callables."""
 	return {
 		"api": gf_maintenance_static_checks.api_reference_check,
 		"ai_api": gf_maintenance_static_checks.ai_api_check,
 		"docs": gf_maintenance_static_checks.docs_quality_check,
-		"changelog_policy": changelog_policy,
+		"changelog_policy": functools.partial(
+			changelog_policy,
+			allow_breaking_api=allow_breaking_api,
+		),
 		"codeql_suppression_policy": codeql_suppression_policy,
 		"public_docs_boundary": public_docs_boundary,
 		"public_api_boundary": public_api_boundary,
@@ -15960,7 +15969,9 @@ def run_checks(
 				reference_setup_error = "Reference environment inputs are invalid."
 		if not parallel_setup_error and not reference_setup_error:
 			try:
-				raw_in_process_adapters = maintenance_in_process_adapter_registry()
+				raw_in_process_adapters = maintenance_in_process_adapter_registry(
+					allow_breaking_api=allow_breaking_api,
+				)
 				raw_deferred_command_materializers = (
 					maintenance_deferred_command_materializer_registry()
 				)
@@ -16366,6 +16377,7 @@ def run_checks(
 						timeout_seconds=timeout_seconds,
 						suite_timeout_seconds=suite_timeout_seconds,
 						fail_fast=fail_fast,
+						allow_breaking_api=allow_breaking_api,
 						progress_callback=progress_callback,
 						output_callback=output_callback,
 						overall_started=overall_started,
@@ -16966,6 +16978,7 @@ def prepare_parallel_full_batch(
 	timeout_seconds: int | None,
 	suite_deadline: float | None,
 	fail_fast: bool,
+	allow_breaking_api: bool,
 	base_process_environment: Mapping[str, str] | None,
 	cleanup_state: dict[str, bool],
 	cleanup_errors: list[str],
@@ -16993,6 +17006,7 @@ def prepare_parallel_full_batch(
 			timeout_seconds=timeout_seconds,
 			suite_deadline=suite_deadline,
 			fail_fast=fail_fast,
+			allow_breaking_api=allow_breaking_api,
 			base_process_environment=base_process_environment,
 		)
 		batch_shards.append(shard)
@@ -17298,6 +17312,7 @@ def run_parallel_full_checks(
 	timeout_seconds: int | None,
 	suite_timeout_seconds: int | None,
 	fail_fast: bool,
+	allow_breaking_api: bool,
 	progress_callback: Callable[[str, str, float | None], None] | None,
 	output_callback: Callable[[str, str, str], None] | None,
 	overall_started: float,
@@ -17365,6 +17380,7 @@ def run_parallel_full_checks(
 				timeout_seconds=timeout_seconds,
 				suite_deadline=suite_deadline,
 				fail_fast=fail_fast,
+				allow_breaking_api=allow_breaking_api,
 				base_process_environment=base_process_environment,
 				cleanup_state=cleanup_state,
 				cleanup_errors=lease.cleanup_errors,
@@ -17559,6 +17575,7 @@ def make_parallel_full_shard(
 	timeout_seconds: int | None,
 	suite_deadline: float | None,
 	fail_fast: bool,
+	allow_breaking_api: bool,
 	base_process_environment: Mapping[str, str] | None = None,
 ) -> tuple[ParallelShard, Path]:
 	report_relative_path = Path("build") / "p" / f"{shard_plan.name}.json"
@@ -17581,6 +17598,8 @@ def make_parallel_full_shard(
 		command.extend(["--suite-timeout", str(max(1, math.ceil(remaining)))])
 	if fail_fast:
 		command.append("--fail-fast")
+	if allow_breaking_api:
+		command.append("--allow-breaking-api")
 	command.append("--json")
 	environment, _private_user_root = parallel_shard_environment(
 		workspace,
@@ -21436,7 +21455,7 @@ def read_changelog_versions() -> list[str]:
 	return sorted(set(versions), key=lambda item: parse_semver(item) or (0, 0, 0), reverse=True)
 
 
-def changelog_policy() -> dict[str, Any]:
+def changelog_policy(*, allow_breaking_api: bool = False) -> dict[str, Any]:
 	framework_version = read_plugin_version()
 	release_target_version = changelog_release_target_version(framework_version)
 	extension_versions = read_extension_versions()
@@ -21449,6 +21468,7 @@ def changelog_policy() -> dict[str, Any]:
 		api_baseline_diff(
 			version=release_target_version,
 			enforce_version=True,
+			allow_breaking=allow_breaking_api,
 		)
 		if release_target_version
 		else {

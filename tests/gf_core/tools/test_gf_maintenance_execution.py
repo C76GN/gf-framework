@@ -1710,6 +1710,22 @@ class ValidationCatalogContractTests(unittest.TestCase):
 			catalog.deferred_action_names,
 		)
 
+	def test_changelog_policy_adapter_binds_breaking_waiver(self) -> None:
+		for allow_breaking_api in (False, True):
+			with self.subTest(allow_breaking_api=allow_breaking_api), mock.patch.object(
+				gf_maintenance,
+				"changelog_policy",
+				return_value={"ok": True},
+			) as policy:
+				adapter = gf_maintenance.maintenance_in_process_adapter_registry(
+					allow_breaking_api=allow_breaking_api,
+				)["changelog_policy"]
+				self.assertEqual(adapter(), {"ok": True})
+
+			policy.assert_called_once_with(
+				allow_breaking_api=allow_breaking_api,
+			)
+
 	def test_reference_catalog_resolution_reuses_exact_frozen_callable_mappings(
 		self,
 	) -> None:
@@ -2269,7 +2285,7 @@ class ValidationCatalogContractTests(unittest.TestCase):
 			gf_maintenance,
 			"maintenance_in_process_adapter_registry",
 			return_value={},
-		), mock.patch.object(
+		) as adapter_registry, mock.patch.object(
 			gf_maintenance,
 			"pin_godot_executable_selection",
 			side_effect=AssertionError(
@@ -2288,11 +2304,16 @@ class ValidationCatalogContractTests(unittest.TestCase):
 			"run_command",
 			side_effect=AssertionError("executor setup must fail before subprocess execution"),
 		) as subprocess_runner:
-			report = gf_maintenance.run_checks(checks=["docs"], jobs=1)
+			report = gf_maintenance.run_checks(
+				checks=["docs"],
+				jobs=1,
+				allow_breaking_api=True,
+			)
 
 		self.assertFalse(report["ok"])
 		self.assertEqual(report["completed_check_count"], 0)
 		self.assertEqual(report["results"][0]["name"], "validation_executor_setup")
+		adapter_registry.assert_called_once_with(allow_breaking_api=True)
 		executable_pin.assert_not_called()
 		fingerprint.assert_not_called()
 		command.assert_not_called()
@@ -2314,8 +2335,9 @@ class ValidationCatalogContractTests(unittest.TestCase):
 			events.append("capture")
 			return real_capture()
 
-		def construct_adapters() -> dict[str, object]:
+		def construct_adapters(*, allow_breaking_api: bool = False) -> dict[str, object]:
 			events.append("adapters")
+			self.assertFalse(allow_breaking_api)
 			active_environment = gf_process_authority.active_process_environment()
 			self.assertIsNotNone(active_environment)
 			self.assertEqual(
@@ -2323,7 +2345,7 @@ class ValidationCatalogContractTests(unittest.TestCase):
 				"captured-at-entry",
 			)
 			os.environ[sentinel_name] = "changed-by-registry"
-			return real_adapters()
+			return real_adapters(allow_breaking_api=allow_breaking_api)
 
 		def construct_materializers() -> dict[str, object]:
 			events.append("materializers")
@@ -2557,6 +2579,78 @@ class ValidationCatalogContractTests(unittest.TestCase):
 		capture.assert_not_called()
 		isolation_probe.assert_not_called()
 		parallel_runner.assert_not_called()
+
+	def test_parallel_runner_receives_breaking_waiver(self) -> None:
+		plan = gf_maintenance._VALIDATION_CATALOG.plan("full")
+		workspace_state = {
+			"schema_version": 1,
+			"head": "a" * 40,
+			"dirty": False,
+			"untracked_file_count": 0,
+			"fingerprint": "b" * 64,
+		}
+		captured_workspace = gf_maintenance.CapturedWorkspace(
+			source_root=ROOT,
+			head=str(workspace_state["head"]),
+			binary_diff=b"",
+			untracked_files=(),
+			workspace_fingerprint=str(workspace_state["fingerprint"]),
+		)
+		parallel_report = {
+			"ok": True,
+			"suite": "full",
+			"checks": list(plan.actions),
+			"completed_check_count": len(plan.actions),
+			"duration_seconds": 0.0,
+			"check_graph": plan.describe_graph(),
+			"workspace_fingerprint": workspace_state["fingerprint"],
+			"results": [],
+		}
+		with tempfile.TemporaryDirectory() as temporary_directory:
+			parallel_root = Path(temporary_directory) / "parallel"
+
+			@contextlib.contextmanager
+			def managed_directory(**_kwargs: object):
+				parallel_root.mkdir()
+				yield parallel_root
+
+			with mock.patch.object(
+				gf_maintenance,
+				"pin_godot_executable_selection",
+			), mock.patch.object(
+				gf_maintenance.gf_process_authority,
+				"freeze_process_authority",
+				return_value=_SHARED_PROCESS_AUTHORITY,
+			), mock.patch.object(
+				gf_maintenance,
+				"workspace_fingerprint",
+				return_value=workspace_state,
+			), mock.patch.object(
+				gf_maintenance.gf_parallel_validation,
+				"capture_workspace",
+				return_value=captured_workspace,
+			), mock.patch.object(
+				gf_maintenance,
+				"managed_validation_directory",
+				side_effect=managed_directory,
+			), mock.patch.object(
+				gf_maintenance,
+				"run_parallel_full_checks",
+				return_value=parallel_report,
+			) as parallel_runner:
+				report = gf_maintenance.run_checks(
+					suite="full",
+					jobs=2,
+					allow_breaking_api=True,
+					process_environment=_SHARED_PROCESS_AUTHORITY.environment,
+				)
+
+		self.assertTrue(report["ok"])
+		parallel_runner.assert_called_once()
+		self.assertIs(
+			parallel_runner.call_args.kwargs["allow_breaking_api"],
+			True,
+		)
 
 	def test_parallel_unresolved_godot_is_structured_before_shard_dispatch(self) -> None:
 		workspace_state = {
@@ -13121,6 +13215,7 @@ class GutShardPlanIntegrationTests(unittest.TestCase):
 				timeout_seconds=None,
 				suite_deadline=None,
 				fail_fast=False,
+				allow_breaking_api=False,
 			)
 
 		self.assertEqual(
@@ -19649,6 +19744,7 @@ class WorkspaceExecutionBoundaryTests(unittest.TestCase):
 		expected_graphs: dict[str, dict[str, object]] = {}
 		frozen_contracts: dict[str, gf_maintenance.ParallelShardCommandContract] = {}
 		contract_events: list[tuple[str, str]] = []
+		shard_waivers: list[bool] = []
 
 		class ExpectedStop(RuntimeError):
 			pass
@@ -19683,6 +19779,7 @@ class WorkspaceExecutionBoundaryTests(unittest.TestCase):
 				workspace: Path,
 				**_kwargs: object,
 			) -> tuple[object, Path]:
+				shard_waivers.append(_kwargs["allow_breaking_api"] is True)
 				return (
 					gf_maintenance.ParallelShard(
 						name=str(shard_plan.name),
@@ -19831,6 +19928,7 @@ class WorkspaceExecutionBoundaryTests(unittest.TestCase):
 						timeout_seconds=None,
 						suite_timeout_seconds=None,
 						fail_fast=True,
+						allow_breaking_api=True,
 						progress_callback=None,
 						output_callback=None,
 						overall_started=time.perf_counter(),
@@ -19838,6 +19936,7 @@ class WorkspaceExecutionBoundaryTests(unittest.TestCase):
 					)
 
 		self.assertEqual(run_parallel.call_count, 2)
+		self.assertEqual(shard_waivers, [True, True, True])
 		first_dispatch_index = min(
 			index
 			for index, event in enumerate(contract_events)
@@ -19986,6 +20085,7 @@ class WorkspaceExecutionBoundaryTests(unittest.TestCase):
 						timeout_seconds=None,
 						suite_timeout_seconds=None,
 						fail_fast=False,
+						allow_breaking_api=False,
 						progress_callback=lambda status, name, duration: (
 							progress_events.append((status, name, duration))
 						),
@@ -21377,6 +21477,7 @@ class ValidationShadowIntegrationTests(unittest.TestCase):
 						timeout_seconds=None,
 						suite_timeout_seconds=None,
 						fail_fast=False,
+						allow_breaking_api=False,
 						progress_callback=None,
 						output_callback=None,
 						overall_started=0.0,
@@ -21509,6 +21610,7 @@ class ValidationShadowIntegrationTests(unittest.TestCase):
 						timeout_seconds=None,
 						suite_timeout_seconds=None,
 						fail_fast=False,
+						allow_breaking_api=False,
 						progress_callback=None,
 						output_callback=None,
 						overall_started=time.perf_counter(),
@@ -21644,6 +21746,7 @@ class ValidationShadowIntegrationTests(unittest.TestCase):
 						timeout_seconds=None,
 						suite_timeout_seconds=None,
 						fail_fast=False,
+						allow_breaking_api=False,
 						progress_callback=None,
 						output_callback=None,
 						overall_started=time.perf_counter(),
@@ -21811,6 +21914,7 @@ class ValidationShadowIntegrationTests(unittest.TestCase):
 						timeout_seconds=None,
 						suite_timeout_seconds=None,
 						fail_fast=False,
+						allow_breaking_api=False,
 						progress_callback=None,
 						output_callback=None,
 						overall_started=time.perf_counter(),
@@ -21910,12 +22014,41 @@ class ValidationShadowIntegrationTests(unittest.TestCase):
 				timeout_seconds=None,
 				suite_deadline=None,
 				fail_fast=False,
+				allow_breaking_api=False,
 			)
 		self.assertNotIn("--validation-shadow", shard.command)
 		self.assertEqual(
 			shard.command.count("--internal-complete-output-evidence"),
 			1,
 		)
+
+	def test_parallel_child_command_binds_breaking_waiver_once(self) -> None:
+		plan = _synthetic_parallel_shard_plan("framework-static", ("docs",))
+		for allow_breaking_api in (False, True):
+			with (
+				self.subTest(allow_breaking_api=allow_breaking_api),
+				tempfile.TemporaryDirectory() as temporary_directory,
+				mock.patch.object(
+					gf_maintenance,
+					"parallel_shard_environment",
+					return_value=({}, Path(temporary_directory) / "user"),
+				),
+			):
+				shard, _report_path = gf_maintenance.make_parallel_full_shard(
+					plan,
+					Path(temporary_directory),
+					validation_catalog=gf_maintenance._VALIDATION_CATALOG,
+					private_environment_root=Path(temporary_directory) / "private",
+					timeout_seconds=None,
+					suite_deadline=None,
+					fail_fast=False,
+					allow_breaking_api=allow_breaking_api,
+				)
+
+			self.assertEqual(
+				shard.command.count("--allow-breaking-api"),
+				int(allow_breaking_api),
+			)
 
 
 class AffectedAnalysisIntegrationTests(unittest.TestCase):
@@ -22453,6 +22586,7 @@ class AffectedAnalysisIntegrationTests(unittest.TestCase):
 				timeout_seconds=None,
 				suite_deadline=None,
 				fail_fast=False,
+				allow_breaking_api=False,
 			)
 		self.assertNotIn("--affected", shard.command)
 		self.assertNotIn("--explain", shard.command)
@@ -22494,6 +22628,7 @@ class ChangelogBaselinePolicyTests(unittest.TestCase):
 		*,
 		version: str,
 		breaking_change_count: int,
+		allow_breaking_api: bool = False,
 	) -> dict[str, object]:
 		with tempfile.TemporaryDirectory() as temp_directory:
 			changelog_path = Path(temp_directory) / "changelog.md"
@@ -22519,8 +22654,17 @@ class ChangelogBaselinePolicyTests(unittest.TestCase):
 					"summary": {"breaking_change_count": breaking_change_count},
 					"issues": [],
 				},
-			):
-				return gf_maintenance.changelog_policy()
+			) as api_baseline:
+				report = gf_maintenance.changelog_policy(
+					allow_breaking_api=allow_breaking_api,
+				)
+
+			api_baseline.assert_called_once_with(
+				version=gf_maintenance.changelog_release_target_version(version),
+				enforce_version=True,
+				allow_breaking=allow_breaking_api,
+			)
+			return report
 
 	def test_api_baseline_reads_captured_oid_for_automatic_and_explicit_tags(self) -> None:
 		captured_kwargs: list[dict[str, object]] = []
@@ -22906,6 +23050,38 @@ class ChangelogBaselinePolicyTests(unittest.TestCase):
 		)
 
 		self.assertFalse(missing_report["ok"])
+		self.assertTrue(complete_report["ok"], complete_report["issues"])
+
+	def test_breaking_waiver_preserves_migration_categories(self) -> None:
+		changed_only = self._changed_changelog(
+			"## [11.0.0] - 2026-08-31",
+			"Describe the waived stable release.",
+		)
+		complete = (
+			changed_only
+			+ "\n### 🔧 API 变动说明 (API Changes)\n\n"
+			+ "- Document the approved baseline false positive.\n"
+			+ "\n### 📘 升级指南 (Migration Guide)\n\n"
+			+ "- Explain why callers require no migration.\n"
+		)
+		missing_report = self._run_changelog_policy(
+			changed_only,
+			version="11.0.0",
+			breaking_change_count=1,
+			allow_breaking_api=True,
+		)
+		complete_report = self._run_changelog_policy(
+			complete,
+			version="11.0.0",
+			breaking_change_count=1,
+			allow_breaking_api=True,
+		)
+
+		self.assertFalse(missing_report["ok"])
+		self.assertTrue(any(
+			"API Changes" in issue and "Migration Guide" in issue
+			for issue in missing_report["issues"]
+		))
 		self.assertTrue(complete_report["ok"], complete_report["issues"])
 
 	def test_release_status_forwards_breaking_changelog_requirement(self) -> None:

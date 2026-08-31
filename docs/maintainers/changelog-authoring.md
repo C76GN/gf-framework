@@ -36,4 +36,4 @@ python tools\gf_maintenance.py changelog-policy --json
 python tools\gf_maintenance.py maintenance-self-test --json
 ```
 
-`changelog_policy` 属于 docs、quick、full 与 release 门禁。解析器只接受规范 ATX 标题和可见 Markdown；原始 HTML、注释与可见内容混写、非 ASCII 标题空格、渲染为空的概述或分类正文都会失败关闭。API baseline 的 `breaking_change_count` 大于零时，同一解析器会强制当前开发态或稳定态候选段同时提供非空 `API Changes` 与 `Migration Guide`；`--allow-breaking-api` 只影响 SemVer 例外，不免除迁移说明。修改契约时必须同步 `tools/gf_changelog.py` 与 maintenance self-test fixture。
+`changelog_policy` 属于 docs、quick、full 与 release 门禁。解析器只接受规范 ATX 标题和可见 Markdown；原始 HTML、注释与可见内容混写、非 ASCII 标题空格、渲染为空的概述或分类正文都会失败关闭。API baseline 的 `breaking_change_count` 大于零时，同一解析器会强制当前开发态或稳定态候选段同时提供非空 `API Changes` 与 `Migration Guide`；`check` 调用会把同一个 `--allow-breaking-api` 值传给 `changelog_policy` 与 `release_metadata`，包括所有并行 Full 子进程，但它只影响 SemVer 例外，不免除迁移说明。修改契约时必须同步 `tools/gf_changelog.py` 与 maintenance self-test fixture。

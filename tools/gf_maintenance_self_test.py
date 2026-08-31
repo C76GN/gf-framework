@@ -6617,6 +6617,12 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 		== _VALIDATION_CATALOG.deferred_action_names,
 		"pure static checks should reuse one maintenance process while external Godot checks remain isolated.",
 	)
+	default_changelog_adapter = validation_executor_binding_fixture.in_process_adapters[
+		"changelog_policy"
+	]
+	waived_changelog_adapter = maintenance_in_process_adapter_registry(
+		allow_breaking_api=True,
+	)["changelog_policy"]
 	record_result(
 		"changelog_policy_is_a_quick_full_release_gate",
 		"changelog_policy" in CHECK_DEFINITIONS
@@ -6632,8 +6638,14 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 				"full",
 				"release",
 			)
-		),
-		"the current changelog state and entry template must fail before commit and release, not only inside release-status.",
+		)
+		and isinstance(default_changelog_adapter, functools.partial)
+		and default_changelog_adapter.func is changelog_policy
+		and default_changelog_adapter.keywords == {"allow_breaking_api": False}
+		and isinstance(waived_changelog_adapter, functools.partial)
+		and waived_changelog_adapter.func is changelog_policy
+		and waived_changelog_adapter.keywords == {"allow_breaking_api": True},
+		"the current changelog state must fail before release while preserving the invocation-scoped breaking waiver.",
 	)
 	record_result(
 		"gdscript_lsp_diagnostics_is_a_full_and_release_hard_gate",
