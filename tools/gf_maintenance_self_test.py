@@ -36,7 +36,7 @@ def run_maintenance_self_test(runtime_module: ModuleType) -> dict[str, Any]:
 
 
 def _maintenance_self_test_body() -> dict[str, Any]:
-	global _ACTIVE_WORKSPACE_SNAPSHOT
+	global _ACTIVE_WORKSPACE_SNAPSHOT, run_frozen_maintenance_git
 	tests: list[dict[str, Any]] = []
 	failures: list[dict[str, Any]] = []
 	process_authority = active_or_freeze_maintenance_process_authority()
@@ -9517,6 +9517,99 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 		and changelog_release_target_version("11.0.0-dev.0+ci") == "",
 		"the current Changelog gate must enforce API SemVer against the stable core of only governed framework identities.",
 	)
+	annotated_tag_inventory_command = [
+		"for-each-ref",
+		"--merged=HEAD",
+		"--format=%(refname:strip=2)%09%(objecttype)%09%(*objecttype)%09%(*objectname)",
+		"refs/tags",
+	]
+	annotated_tag_inventory_stdout = (
+		"10.2.0\tcommit\t\t\n"
+		+ "10.0.0\ttag\tcommit\t" + "a" * 40 + "\n"
+		+ "9.1.0\ttag\tcommit\t" + "b" * 40 + "\n"
+		+ "not-semver\ttag\tcommit\t" + "c" * 40 + "\n"
+	)
+	original_run_frozen_maintenance_git = run_frozen_maintenance_git
+	tag_inventory_kwargs: list[dict[str, Any]] = []
+
+	def make_tag_inventory_result(
+		stdout: str,
+		*,
+		return_code: int = 0,
+		stderr: str = "",
+	) -> Any:
+		return gf_process_supervisor.SupervisedProcessResult(
+			return_code=return_code,
+			stdout=stdout,
+			stderr=stderr,
+			timed_out=False,
+			duration_seconds=0.0,
+			pid=0,
+			process_boundary_quiescent=True,
+		)
+
+	active_tag_inventory_result = make_tag_inventory_result(
+		annotated_tag_inventory_stdout,
+	)
+	try:
+		def run_tag_inventory_fixture(arguments: list[str], **_kwargs: Any) -> Any:
+			if arguments != annotated_tag_inventory_command:
+				raise AssertionError(f"Unexpected Git command: {arguments}")
+			tag_inventory_kwargs.append(_kwargs)
+			return active_tag_inventory_result
+
+		run_frozen_maintenance_git = run_tag_inventory_fixture
+		annotated_ancestor_tags = read_annotated_ancestor_semver_tags()
+		annotated_ancestor_tag_pairs = tuple(
+			(ref.tag, ref.commit_oid)
+			for ref in annotated_ancestor_tags or ()
+		)
+		selected_annotated_baseline = find_latest_semver_tag_before("11.0.0-dev.0")
+
+		active_tag_inventory_result = make_tag_inventory_result(
+			"10.0.0\ttag\tcommit\t" + "a" * 40 + "\n",
+			return_code=1,
+			stderr="fixture failure",
+		)
+		nonzero_tag_inventory = read_annotated_ancestor_semver_tags()
+
+		active_tag_inventory_result = make_tag_inventory_result(
+			"10.0.0\ttag\tcommit\t" + "a" * 40 + "\n",
+			stderr="warning: ignoring broken ref\n",
+		)
+		warning_tag_inventory = read_annotated_ancestor_semver_tags()
+
+		active_tag_inventory_result = make_tag_inventory_result(
+			"10.0.0\ttag\tcommit\tdeadbeef\n"
+			+ "9.0.0\ttag\tcommit\t" + "b" * 40 + "\n",
+		)
+		malformed_tag_inventory = read_annotated_ancestor_semver_tags()
+	finally:
+		run_frozen_maintenance_git = original_run_frozen_maintenance_git
+	record_result(
+		"api_baseline_uses_annotated_ancestor_semver_tags",
+		annotated_ancestor_tag_pairs == (
+			("10.0.0", "a" * 40),
+			("9.1.0", "b" * 40),
+		)
+		and selected_annotated_baseline == "10.0.0"
+		and nonzero_tag_inventory is None
+		and warning_tag_inventory is None
+		and malformed_tag_inventory is None,
+		"API baselines must ignore lightweight and non-SemVer tags, select the highest lower annotated ancestor, and fail closed on untrusted Git inventory output.",
+	)
+	record_result(
+		"api_baseline_tag_inventory_is_bounded",
+		bool(tag_inventory_kwargs)
+		and all(
+			kwargs == {
+				"max_stdout_characters": API_BASELINE_TAG_INVENTORY_STDOUT_MAX_CHARS,
+				"max_stderr_characters": API_BASELINE_TAG_INVENTORY_STDERR_MAX_CHARS,
+			}
+			for kwargs in tag_inventory_kwargs
+		),
+		"API baseline tag discovery must bound both captured Git streams.",
+	)
 	valid_changelog_body = (
 		"\n**版本概述**：Fixture release notes.\n\n"
 		"### 🔄 机制更改 (Changed)\n\n"
@@ -9604,6 +9697,40 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 		and valid_development_changelog_report["mode"] == "development"
 		and valid_development_changelog_report["section_count"] == 1,
 		f"one structured [未发布] section should pass during development: {valid_development_changelog_report}",
+	)
+	breaking_api_only_changelog_body = (
+		valid_changelog_body
+		+ "\n### 🔧 API 变动说明 (API Changes)\n\n"
+		+ "- Describe the breaking API contract.\n"
+	)
+	breaking_api_changelog_body = (
+		breaking_api_only_changelog_body
+		+ "\n### 📘 升级指南 (Migration Guide)\n\n"
+		+ "- Describe how callers migrate.\n"
+	)
+	missing_breaking_api_notes_report = audit_current_changelog(
+		"7.1.0-dev.0",
+		valid_changelog_preamble + "## [未发布]\n" + breaking_api_only_changelog_body,
+		required_categories=BREAKING_API_CHANGELOG_CATEGORIES,
+	)
+	valid_breaking_api_notes_report = audit_current_changelog(
+		"7.1.0-dev.0",
+		valid_changelog_preamble + "## [未发布]\n" + breaking_api_changelog_body,
+		required_categories=BREAKING_API_CHANGELOG_CATEGORIES,
+	)
+	valid_stable_breaking_api_notes_report = audit_release_changelog(
+		"8.0.0",
+		valid_changelog_preamble
+		+ "## [8.0.0] - 2026-07-14\n"
+		+ breaking_api_changelog_body,
+		required_categories=BREAKING_API_CHANGELOG_CATEGORIES,
+	)
+	record_result(
+		"breaking_api_changelog_requires_migration_contract",
+		not missing_breaking_api_notes_report["ok"]
+		and valid_breaking_api_notes_report["ok"]
+		and valid_stable_breaking_api_notes_report["issues"] == [],
+		"breaking API baselines must require non-empty API Changes and Migration Guide categories in development and stable candidates.",
 	)
 	stale_development_changelog_report = audit_current_changelog(
 		"7.1.0-dev.0",

@@ -120,11 +120,18 @@ from gf_workspace_snapshot import WorkspaceSnapshot
 ROOT = Path(__file__).resolve().parents[1]
 CHANGELOG_PATH = ROOT / "docs/zh/changelog.md"
 SEMVER_RE = re.compile(r"^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$")
+GIT_OBJECT_ID_RE = re.compile(r"^(?:[0-9a-f]{40}|[0-9a-f]{64})$")
+API_BASELINE_TAG_INVENTORY_STDOUT_MAX_CHARS = 1_048_576
+API_BASELINE_TAG_INVENTORY_STDERR_MAX_CHARS = 65_536
 SINCE_VERSION_RE = re.compile(
 	r"@since\s+(?P<version>(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*))"
 )
 SINCE_TAG_RE = re.compile(r"@since\s+(?P<value>\S+)")
 CHANGELOG_CATEGORY_HEADINGS = gf_changelog.CHANGELOG_CATEGORY_HEADINGS
+BREAKING_API_CHANGELOG_CATEGORIES = (
+	"🔧 API 变动说明 (API Changes)",
+	"📘 升级指南 (Migration Guide)",
+)
 MARKDOWN_FIELD_RE = re.compile(r"^-\s+(?P<name>[^:]+):\s+`(?P<value>[^`]+)`\s*$")
 ANSI_ESCAPE_RE = re.compile(r"\x1b\[[0-?]*[ -/]*[@-~]")
 SOURCE_IDENTIFIER_RE = re.compile(r"(?<![A-Za-z0-9_])([A-Za-z_]\w*)(?![A-Za-z0-9_])")
@@ -2441,20 +2448,28 @@ def api_baseline_diff(
 	allow_breaking: bool = False,
 ) -> dict[str, Any]:
 	release_version = version.strip() or read_plugin_version()
-	resolved_base_tag = base_tag.strip() or find_latest_semver_tag_before(release_version)
+	explicit_base_tag = base_tag.strip()
 	issues: list[str] = []
-	if not resolved_base_tag:
-		issues.append("Could not resolve a base SemVer tag for API baseline comparison.")
+	baseline_ref, baseline_issue = resolve_api_baseline_ref(
+		release_version,
+		explicit_base_tag,
+	)
+	if baseline_ref is None:
+		issues.append(baseline_issue)
 		return make_api_baseline_diff_result(
 			release_version,
-			resolved_base_tag,
+			explicit_base_tag,
 			enforce_version,
 			issues,
 			{},
 			{},
 		)
+	resolved_base_tag = baseline_ref.tag
 
-	base_snapshot = read_api_catalog_snapshot_from_git(resolved_base_tag)
+	base_snapshot = read_api_catalog_snapshot_from_git(
+		baseline_ref.commit_oid,
+		label=resolved_base_tag,
+	)
 	current_snapshot = read_api_catalog_snapshot_from_workspace()
 	for snapshot_name, snapshot in (("base", base_snapshot), ("current", current_snapshot)):
 		for error in snapshot.get("errors", []):
@@ -2848,18 +2863,19 @@ def read_api_catalog_snapshot_from_workspace() -> dict[str, Any]:
 	)
 
 
-def read_api_catalog_snapshot_from_git(tag: str) -> dict[str, Any]:
-	index_text = git_show_text(f"{tag}:docs/api_catalog/index.xml")
+def read_api_catalog_snapshot_from_git(ref: str, *, label: str = "") -> dict[str, Any]:
+	catalog_label = label or ref
+	index_text = git_show_text(f"{ref}:docs/api_catalog/index.xml")
 	if not index_text:
 		return {
 			"classes": {},
 			"autoloads": {},
-			"errors": [f"{tag}:docs/api_catalog/index.xml is missing or unreadable."],
+			"errors": [f"{catalog_label}:docs/api_catalog/index.xml is missing or unreadable."],
 		}
 	return parse_api_catalog_snapshot(
 		index_text,
-		lambda class_path: git_show_text(f"{tag}:docs/api_catalog/{class_path}"),
-		tag,
+		lambda class_path: git_show_text(f"{ref}:docs/api_catalog/{class_path}"),
+		catalog_label,
 	)
 
 
@@ -3294,19 +3310,99 @@ def api_diff_compatible_feature_allowed(base_tag: str, release_version: str) -> 
 
 
 def find_latest_semver_tag_before(version: str) -> str:
-	release_parts = parse_semver(api_diff_release_target_version(version))
+	baseline_ref, _issue = resolve_api_baseline_ref(version)
+	return baseline_ref.tag if baseline_ref is not None else ""
+
+
+@dataclass(frozen=True)
+class ApiBaselineRef:
+	tag: str
+	commit_oid: str
+
+
+def resolve_api_baseline_ref(
+	release_version: str,
+	explicit_tag: str = "",
+) -> tuple[ApiBaselineRef | None, str]:
+	"""Bind one eligible API baseline tag to the commit that was validated."""
+
+	release_target = api_diff_release_target_version(release_version)
+	release_parts = parse_semver(release_target)
 	if release_parts is None:
-		return ""
-	tags = [
-		(tag, tag_parts)
-		for tag in git_lines(["tag", "--list"])
-		for tag_parts in [parse_semver(tag)]
+		return None, f"Release target {release_target!r} is not a governed stable SemVer."
+	eligible_refs = read_annotated_ancestor_semver_tags()
+	if eligible_refs is None:
+		return None, "Could not read a complete annotated SemVer tag inventory from Git."
+	if explicit_tag:
+		tag_parts = parse_semver(explicit_tag)
+		matching_ref = next(
+			(ref for ref in eligible_refs if ref.tag == explicit_tag),
+			None,
+		)
+		if tag_parts is not None and tag_parts < release_parts and matching_ref is not None:
+			return matching_ref, ""
+		return None, (
+			f"Explicit API baseline tag {explicit_tag!r} must be an annotated SemVer tag "
+			f"lower than release target {release_target!r}, peel to a commit, and be an "
+			"ancestor of HEAD."
+		)
+	eligible_lower_refs = [
+		ref
+		for ref in eligible_refs
+		for tag_parts in [parse_semver(ref.tag)]
 		if tag_parts is not None and tag_parts < release_parts
 	]
-	if not tags:
-		return ""
-	tags.sort(key=lambda item: item[1])
-	return tags[-1][0]
+	if not eligible_lower_refs:
+		return None, "Could not resolve a base SemVer tag for API baseline comparison."
+	return max(
+		eligible_lower_refs,
+		key=lambda ref: parse_semver(ref.tag) or (0, 0, 0),
+	), ""
+
+
+def read_annotated_ancestor_semver_tags() -> tuple[ApiBaselineRef, ...] | None:
+	"""Read annotated SemVer tags whose peeled commits are ancestors of HEAD."""
+
+	result = run_frozen_maintenance_git([
+		"for-each-ref",
+		"--merged=HEAD",
+		"--format=%(refname:strip=2)%09%(objecttype)%09%(*objecttype)%09%(*objectname)",
+		"refs/tags",
+	],
+		max_stdout_characters=API_BASELINE_TAG_INVENTORY_STDOUT_MAX_CHARS,
+		max_stderr_characters=API_BASELINE_TAG_INVENTORY_STDERR_MAX_CHARS,
+	)
+	if (
+		result.return_code != 0
+		or result.stdout_truncated
+		or result.stderr_truncated
+		or not isinstance(result.stdout, str)
+		or not isinstance(result.stderr, str)
+		or result.stderr != ""
+	):
+		return None
+	eligible_tags: list[ApiBaselineRef] = []
+	for line in result.stdout.splitlines():
+		fields = line.split("\t")
+		if len(fields) != 4:
+			return None
+		tag, object_type, peeled_type, peeled_object_id = fields
+		is_annotated_commit = (
+			object_type == "tag"
+			and peeled_type == "commit"
+			and GIT_OBJECT_ID_RE.fullmatch(peeled_object_id) is not None
+		)
+		is_lightweight_commit = (
+			object_type == "commit"
+			and peeled_type == ""
+			and peeled_object_id == ""
+		)
+		if not is_annotated_commit and not is_lightweight_commit:
+			return None
+		if is_lightweight_commit or parse_semver(tag) is None:
+			continue
+		eligible_tags.append(ApiBaselineRef(tag, peeled_object_id))
+	return tuple(eligible_tags)
 
 
 def api_diff_release_target_version(version: str) -> str:
@@ -14332,6 +14428,8 @@ def run_frozen_maintenance_git(
 	arguments: Sequence[str],
 	*,
 	binary_output: bool = False,
+	max_stdout_characters: int | None = None,
+	max_stderr_characters: int | None = None,
 ) -> Any:
 	"""Dispatch Git only through one frozen absolute invocation capability."""
 	git_process = active_or_freeze_maintenance_process_authority().git
@@ -14344,6 +14442,8 @@ def run_frozen_maintenance_git(
 			environment=git_process.environment.values(),
 			binary_output=binary_output,
 			text_errors="replace",
+			max_stdout_characters=max_stdout_characters,
+			max_stderr_characters=max_stderr_characters,
 		)
 	except gf_process_supervisor.SupervisedProcessStartError as error:
 		raise error.original_error from error
@@ -20843,7 +20943,10 @@ def release_status(
 	if extension_mismatches:
 		issues.append(f"{len(extension_mismatches)} extension manifest version(s) do not match {version}.")
 
-	changelog_report = audit_release_changelog(version)
+	changelog_report = audit_release_changelog(
+		version,
+		required_categories=required_changelog_categories_for_api_report(api_diff),
+	)
 	changelog_versions = changelog_report["versions"]
 	issues.extend(changelog_report["issues"])
 
@@ -21263,7 +21366,6 @@ def read_changelog_versions() -> list[str]:
 
 def changelog_policy() -> dict[str, Any]:
 	framework_version = read_plugin_version()
-	report = audit_current_changelog(framework_version)
 	release_target_version = changelog_release_target_version(framework_version)
 	extension_versions = read_extension_versions()
 	extension_mismatches = [
@@ -21283,6 +21385,10 @@ def changelog_policy() -> dict[str, Any]:
 			"summary": {},
 			"issues": ["Framework version does not identify a governed release target."],
 		}
+	)
+	report = audit_current_changelog(
+		framework_version,
+		required_categories=required_changelog_categories_for_api_report(api_report),
 	)
 	issues = list(report["issues"])
 	if extension_mismatches:
@@ -21311,6 +21417,17 @@ def changelog_policy() -> dict[str, Any]:
 	return report
 
 
+def required_changelog_categories_for_api_report(
+	api_report: dict[str, Any],
+) -> tuple[str, ...]:
+	"""Return migration categories required by one trusted API baseline report."""
+
+	breaking_change_count = api_report.get("summary", {}).get("breaking_change_count", 0)
+	if type(breaking_change_count) is not int or breaking_change_count <= 0:
+		return ()
+	return BREAKING_API_CHANGELOG_CATEGORIES
+
+
 def changelog_release_target_version(framework_version: str) -> str:
 	return governed_release_target_version(framework_version)
 
@@ -21332,6 +21449,8 @@ def governed_release_target_version(framework_version: str) -> str:
 def audit_current_changelog(
 	framework_version: str,
 	text: str | None = None,
+	*,
+	required_categories: tuple[str, ...] = (),
 ) -> dict[str, Any]:
 	version = framework_version.strip()
 	if text is None:
@@ -21348,7 +21467,11 @@ def audit_current_changelog(
 		text = CHANGELOG_PATH.read_text(encoding="utf-8")
 
 	if SEMVER_RE.fullmatch(version) is not None:
-		release_report = audit_release_changelog(version, text)
+		release_report = audit_release_changelog(
+			version,
+			text,
+			required_categories=required_categories,
+		)
 		issues = list(release_report["issues"])
 		return {
 			"ok": len(issues) == 0,
@@ -21423,7 +21546,13 @@ def audit_current_changelog(
 		)
 
 	for section in unreleased_sections:
-		issues.extend(validate_unreleased_changelog_section(section, "docs/zh/changelog.md"))
+		issues.extend(
+			validate_unreleased_changelog_section(
+				section,
+				"docs/zh/changelog.md",
+				required_categories=required_categories,
+			)
+		)
 
 	return {
 		"ok": len(issues) == 0,
@@ -21450,6 +21579,8 @@ def changelog_section_summaries(sections: list[dict[str, Any]]) -> list[dict[str
 def audit_release_changelog(
 	version: str,
 	text: str | None = None,
+	*,
+	required_categories: tuple[str, ...] = (),
 ) -> dict[str, Any]:
 	if text is None:
 		if not CHANGELOG_PATH.is_file():
@@ -21511,7 +21642,13 @@ def audit_release_changelog(
 		)
 	)
 	for section in formal_sections:
-		issues.extend(validate_changelog_section(section, "docs/zh/changelog.md"))
+		issues.extend(
+			validate_changelog_section(
+				section,
+				"docs/zh/changelog.md",
+				required_categories=required_categories if section in target_sections else (),
+			)
+		)
 	return {
 		"versions": formal_versions,
 		"sections": sections,
@@ -21519,22 +21656,43 @@ def audit_release_changelog(
 	}
 
 
-def validate_changelog_section(section: dict[str, Any], path_label: str) -> list[str]:
-	return gf_changelog.validate_formal_section(section, path_label)
+def validate_changelog_section(
+	section: dict[str, Any],
+	path_label: str,
+	*,
+	required_categories: tuple[str, ...] = (),
+) -> list[str]:
+	return gf_changelog.validate_formal_section(
+		section,
+		path_label,
+		required_categories=required_categories,
+	)
 
 
 def validate_unreleased_changelog_section(
 	section: dict[str, Any],
 	path_label: str,
+	*,
+	required_categories: tuple[str, ...] = (),
 ) -> list[str]:
-	return gf_changelog.validate_unreleased_section(section, path_label)
+	return gf_changelog.validate_unreleased_section(
+		section,
+		path_label,
+		required_categories=required_categories,
+	)
 
 
 def validate_changelog_entry_structure(
 	section: dict[str, Any],
 	path_label: str,
+	*,
+	required_categories: tuple[str, ...] = (),
 ) -> list[str]:
-	return gf_changelog.validate_entry_structure(section, path_label)
+	return gf_changelog.validate_entry_structure(
+		section,
+		path_label,
+		required_categories=required_categories,
+	)
 
 
 def validate_changelog_document_layout(
