@@ -17,7 +17,7 @@ extends RefCounted
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 11.0.0
 enum Status {
 	## 已创建全部请求实例。
 	SUCCEEDED,

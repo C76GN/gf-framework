@@ -16,8 +16,9 @@
 | 类型 | 名称 | 签名 |
 |---|---|---|
 | 属性 | [`max_available_per_scene`](#member-gfobjectpoolutility-properties-max_available_per_scene) | `var max_available_per_scene: int = 0` |
+| 方法 | [`begin_quiesce`](#member-gfobjectpoolutility-methods-begin_quiesce) | `func begin_quiesce(_scope: GFAsyncScope) -> GFAsyncCompletion:` |
 | 方法 | [`dispose`](#member-gfobjectpoolutility-methods-dispose) | `func dispose() -> void:` |
-| 方法 | [`acquire`](#member-gfobjectpoolutility-methods-acquire) | `func acquire( scene: PackedScene, parent: Node, context: Dictionary = {} ) -> GFObjectPoolAcquireResult:` |
+| 方法 | [`acquire`](#member-gfobjectpoolutility-methods-acquire) | `func acquire( scene: PackedScene, parent: Node, lifetime_owner: Object, context: Dictionary = {} ) -> GFObjectPoolAcquireResult:` |
 | 方法 | [`prewarm`](#member-gfobjectpoolutility-methods-prewarm) | `func prewarm( scene: PackedScene, count: int, batch_size: int = 32, cancellation_token: GFCancellationToken = null ) -> GFObjectPoolPrewarmResult:` |
 | 方法 | [`wait_disposed`](#member-gfobjectpoolutility-methods-wait_disposed) | `func wait_disposed() -> void:` |
 | 方法 | [`get_available_count`](#member-gfobjectpoolutility-methods-get_available_count) | `func get_available_count(scene: PackedScene) -> int:` |
@@ -31,7 +32,7 @@
 ### `max_available_per_scene`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var max_available_per_scene: int = 0
@@ -41,12 +42,33 @@ var max_available_per_scene: int = 0
 
 ## 方法
 
+<a id="member-gfobjectpoolutility-methods-begin_quiesce"></a>
+
+### `begin_quiesce`
+
+- API：`public`
+- 首次版本：`11.0.0`
+
+```gdscript
+func begin_quiesce(_scope: GFAsyncScope) -> GFAsyncCompletion:
+```
+
+停止接纳新工作，并等待安全点清理及全部已接纳请求与 Lease 的终态通知。 取消静默等待不会取消节点清理；强制退出后仍可单独等待 wait_disposed。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `_scope` | 当前静默阶段的取消作用域，不拥有实际节点清理。 |
+
+返回：本次静默等待的一次性完成源。
+
 <a id="member-gfobjectpoolutility-methods-dispose"></a>
 
 ### `dispose`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func dispose() -> void:
@@ -59,10 +81,10 @@ func dispose() -> void:
 ### `acquire`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`8.0.0`
 
 ```gdscript
-func acquire( scene: PackedScene, parent: Node, context: Dictionary = {} ) -> GFObjectPoolAcquireResult:
+func acquire( scene: PackedScene, parent: Node, lifetime_owner: Object, context: Dictionary = {} ) -> GFObjectPoolAcquireResult:
 ```
 
 在安全点取得一个完成入树准备的实例。
@@ -73,6 +95,7 @@ func acquire( scene: PackedScene, parent: Node, context: Dictionary = {} ) -> GF
 |---|---|
 | `scene` | 实例来源。 |
 | `parent` | 必须位于运行中的 SceneTree，等待期间离树或被删除将取消请求。 |
+| `lifetime_owner` | 必填弱引用生命周期锚点；等待期间销毁或 Node 离树会取消请求，成功交付后不再跟踪 owner，也不自动归还 Lease。 |
 | `context` | 传给根节点 on_gf_pool_prepare 的本次初始化数据。 |
 
 返回：本次借用的结构化结果；成功后由调用方持有并归还 Lease。
@@ -86,7 +109,7 @@ func acquire( scene: PackedScene, parent: Node, context: Dictionary = {} ) -> GF
 ### `prewarm`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`8.0.0`
 
 ```gdscript
 func prewarm( scene: PackedScene, count: int, batch_size: int = 32, cancellation_token: GFCancellationToken = null ) -> GFObjectPoolPrewarmResult:
@@ -116,7 +139,7 @@ func prewarm( scene: PackedScene, count: int, batch_size: int = 32, cancellation
 func wait_disposed() -> void:
 ```
 
-等待 dispose 已发起的节点清理；允许在完成后重复等待。
+等待 dispose 已发起的节点清理及全部已接纳请求与 Lease 的终态通知；允许在完成后重复等待。
 
 <a id="member-gfobjectpoolutility-methods-get_available_count"></a>
 
@@ -165,7 +188,7 @@ func get_active_count(scene: PackedScene) -> int:
 ### `get_debug_snapshot`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func get_debug_snapshot() -> Dictionary:

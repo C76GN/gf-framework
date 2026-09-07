@@ -188,7 +188,7 @@ var spawn_parent_path: NodePath = NodePath("")
 ### `object_pool_utility`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var object_pool_utility: GFObjectPoolUtility = null

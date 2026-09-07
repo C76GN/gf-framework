@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFObjectPoolUtility" path="addons/gf/standard/utilities/nodes/gf_object_pool_utility.gd" module="standard" extends="GFUtility" classDigest="021a8661875f76da069467442e2f4bc1d2d05a406a6fe6ef9b5c663f5610b020">
+<class name="GFObjectPoolUtility" path="addons/gf/standard/utilities/nodes/gf_object_pool_utility.gd" module="standard" extends="GFUtility" classDigest="6aa6c59a78479eb39a6ce44206160dda0b7c2672322ace58b818c569c46a2a5d">
 	<description>GFObjectPoolUtility: 在安全点借出和归还节点的对象池。
 空闲实例完全离树；借出时返回一次性 Lease。所有挂载、脱树及清理均在主线程
 deferred 安全点执行。根节点可实现同步 on_gf_pool_prepare(context) -&gt; Error，
@@ -19,30 +19,42 @@ deferred 安全点执行。根节点可实现同步 on_gf_pool_prepare(context) 
 			<description>每个场景最多缓存的空闲实例数；0 不限制，-1 归还时直接销毁。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 	</properties>
 	<methods>
+		<member kind="method" name="begin_quiesce">
+			<signature>func begin_quiesce(_scope: GFAsyncScope) -&gt; GFAsyncCompletion:</signature>
+			<description>停止接纳新工作，并等待安全点清理及全部已接纳请求与 Lease 的终态通知。
+取消静默等待不会取消节点清理；强制退出后仍可单独等待 wait_disposed。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">_scope: 当前静默阶段的取消作用域，不拥有实际节点清理。</tag>
+				<tag name="return">本次静默等待的一次性完成源。</tag>
+				<tag name="since">11.0.0</tag>
+			</tags>
+		</member>
 		<member kind="method" name="dispose">
 			<signature>func dispose() -&gt; void:</signature>
 			<description>立即停止接纳新借用并吊销现有 Lease，在安全点完成节点清理。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="acquire">
-			<signature>func acquire( scene: PackedScene, parent: Node, context: Dictionary = {} ) -&gt; GFObjectPoolAcquireResult:</signature>
+			<signature>func acquire( scene: PackedScene, parent: Node, lifetime_owner: Object, context: Dictionary = {} ) -&gt; GFObjectPoolAcquireResult:</signature>
 			<description>在安全点取得一个完成入树准备的实例。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">scene: 实例来源。</tag>
 				<tag name="param">parent: 必须位于运行中的 SceneTree，等待期间离树或被删除将取消请求。</tag>
+				<tag name="param">lifetime_owner: 必填弱引用生命周期锚点；等待期间销毁或 Node 离树会取消请求，成功交付后不再跟踪 owner，也不自动归还 Lease。</tag>
 				<tag name="param">context: 传给根节点 on_gf_pool_prepare 的本次初始化数据。</tag>
 				<tag name="return">本次借用的结构化结果；成功后由调用方持有并归还 Lease。</tag>
 				<tag name="schema">context: Dictionary；接受请求时深复制嵌套容器，Object 值保留身份，调用方应在等待期间保持所引用对象只读；不得用 context 传递所有权回调。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="prewarm">
@@ -55,12 +67,12 @@ deferred 安全点执行。根节点可实现同步 on_gf_pool_prepare(context) 
 				<tag name="param">batch_size: 每次安全点最多创建的数量，必须为正数。</tag>
 				<tag name="param">cancellation_token: 可选取消令牌；已缓存的实例不会因取消被回滚。</tag>
 				<tag name="return">请求完成时的创建数量与最终原因。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="wait_disposed">
 			<signature>func wait_disposed() -&gt; void:</signature>
-			<description>等待 dispose 已发起的节点清理；允许在完成后重复等待。</description>
+			<description>等待 dispose 已发起的节点清理及全部已接纳请求与 Lease 的终态通知；允许在完成后重复等待。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="since">unreleased</tag>
@@ -93,7 +105,7 @@ deferred 安全点执行。根节点可实现同步 on_gf_pool_prepare(context) 
 				<tag name="api">public</tag>
 				<tag name="return">按场景身份分组的计数。</tag>
 				<tag name="schema">return: Dictionary[String, Dictionary]，键为资源路径或场景实例 ID，值含 total、available、active 三个非负整数；等待归还只计入 total。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 	</methods>

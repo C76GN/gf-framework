@@ -7,11 +7,13 @@
 `GFObjectPoolAcquireResult` 记录本次借用是否成功及失败原因。成功时交付的是 `GFObjectPoolLease`，而不是永久有效的节点引用。
 
 ```gdscript
+extends Node
+
 var pool: GFObjectPoolUtility = GFObjectPoolUtility.new()
 
 func spawn_effect(scene: PackedScene, parent: Node) -> void:
 	var result: GFObjectPoolAcquireResult = await pool.acquire(
-		scene, parent, { "position": Vector2(120, 80) }
+		scene, parent, self, { "position": Vector2(120, 80) }
 	)
 	if not result.is_successful():
 		push_warning("借用失败：%s / %s" % [result.get_stage(), result.get_reason()])
@@ -24,6 +26,10 @@ func spawn_effect(scene: PackedScene, parent: Node) -> void:
 		var reason: StringName = await lease.wait_settled()
 		print("本次借用结束：", reason)
 ```
+
+`parent` 决定节点挂在哪里，必填的 `lifetime_owner` 决定谁接收这次借用，通常传调用脚本的 `self`。两者可以不同，例如临时发射器向常驻场景挂载特效。池只弱引用接收方：交付前接收方被销毁，或 Node 接收方退出场景树，请求以 `CANCELLED / owner_lost` 结束并清理候选；重新入树不会恢复已取消的请求。
+
+成功交付后，接收方的生命周期不再自动控制 Lease。接收方应保存并归还 Lease，或把它明确转交给持续管理该节点的对象；不要依赖接收方退出时自动归还已交付节点。
 
 `release()` 首次接纳时返回 `true`，并立即撤销使用权：之后 `get_node()` 返回 `null`。节点的实际离树在安全点完成，完成后发出一次 `settled`。重复归还返回 `false`；旧 Lease 不能归还同一节点的新借用。
 
@@ -76,11 +82,11 @@ print("实际新增：", result.get_created_count())
 
 ## 生命周期与失败处理
 
-- 所有操作只接受主线程调用。`parent` 必须在运行中的场景树内；等待期间丢失父节点时请求取消，未交付实例由池清理。
+- 所有操作只接受主线程调用。`parent` 必须在运行中的场景树内；`lifetime_owner` 必须有效，若为 Node，还必须在树内且未排队删除。`null`、离树或排队删除的 Node 接收方返回 `INVALID / validation / invalid_owner`；已释放或类型不匹配的入参由 Godot 的类型检查拒绝，不会进入该结果分支。等待期间丢失父节点或接收方时请求取消，未交付实例由池清理。
 - 节点由池拥有。业务只持有本轮使用权，不应手动 `free()`、`queue_free()` 或 reparent 池节点；意外离树会撤销 Lease，并在安全点淘汰该实例。
-- 保留池到使用结束，销毁拥有它的服务或场景时显式调用 `dispose()`。它立即拒绝新借用并撤销现有 Lease，随后在安全点清理空闲和活动节点。
-- `await pool.wait_disposed()` 表示节点已经离树或提交删除，实际 `queue_free()` 仍由引擎在帧尾完成。已完成后重复等待不会挂起。
-- 调用方自己的节点若在协程等待期间被销毁，遵循 Godot 的协程生命周期；不能依赖已销毁脚本继续执行后续逻辑。资源清理由池负责，不应放到该脚本的 await 之后才启动。
+- 保留池到使用结束。独立使用时显式调用 `dispose()`：它立即拒绝新借用并撤销现有 Lease，随后在安全点清理空闲和活动节点。注册到架构的池会在正常异步关停或替换 Utility 时先完成清理和终态通知，再释放架构依赖。
+- `await pool.wait_disposed()` 表示节点已经离树或提交删除，已接纳请求与 Lease 的终态通知也已完成；实际 `queue_free()` 仍由引擎在帧尾完成。已完成后重复等待不会挂起。架构关停若被取消或超时，强制销毁不保证优雅清理已经完成，仍需用该等待确认池清理结束。
+- 调用方自己的节点若在协程等待期间被销毁，不能依赖已销毁脚本继续执行 await 之后的逻辑；必填的接收方绑定负责取消尚未交付的请求。
 
 需要实时同步返回的低成本对象，未必适合这个池。音频服务使用自己的播放器缓存，普通 `play` 调用仍保持同步。
 
@@ -90,6 +96,7 @@ print("实际新增：", result.get_created_count())
 
 | 旧接口或行为 | 新用法 |
 | --- | --- |
+| 只传场景、父节点与初始化数据的借用 | `await acquire(scene, parent, lifetime_owner, context)`；通常以 `self` 为接收方，初始化数据移到第四个参数 |
 | `Status.COMPLETED` / `completed` | `Status.SUCCEEDED` / `prewarmed` |
 | `Status.REJECTED` / `capacity_unavailable` | `Status.PARTIAL` / `capacity_limited`，实际创建数可能为零 |
 | `Status.DISPOSED` / `utility_disposed` | `Status.CANCELLED` / `pool_disposed` |

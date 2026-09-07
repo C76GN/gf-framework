@@ -24,6 +24,8 @@ func after_each() -> void:
 	PrepareLifecycleNode.expected_object = null
 	ReparentingPrepareNode.target_parent = null
 	DisposingPrepareNode.pool = null
+	CandidateEnterTreeHijackerNode.prepared_nodes.clear()
+	CandidateEnterTreeHijackerNode.target_parent = null
 	if _pool != null:
 		_pool.dispose()
 		await _pool.wait_disposed()
@@ -38,7 +40,7 @@ func after_each() -> void:
 # --- 测试：借用结果 ---
 
 func test_acquire_returns_structured_success_and_attached_lease() -> void:
-	var result: GFObjectPoolAcquireResult = await _pool.acquire(_scene, _parent)
+	var result: GFObjectPoolAcquireResult = await _pool.acquire(_scene, _parent, self)
 
 	_assert_acquire_result(
 		result,
@@ -63,11 +65,12 @@ func test_acquire_returns_structured_success_and_attached_lease() -> void:
 
 
 func test_acquire_rejects_invalid_scene_and_parent_with_typed_reasons() -> void:
-	var invalid_scene_result: GFObjectPoolAcquireResult = await _pool.acquire(null, _parent)
+	var invalid_scene_result: GFObjectPoolAcquireResult = await _pool.acquire(null, _parent, self)
 	var detached_parent: Node = Node.new()
 	var invalid_parent_result: GFObjectPoolAcquireResult = await _pool.acquire(
 		_scene,
-		detached_parent
+		detached_parent,
+		self
 	)
 	detached_parent.free()
 
@@ -87,9 +90,44 @@ func test_acquire_rejects_invalid_scene_and_parent_with_typed_reasons() -> void:
 	assert_null(invalid_parent_result.get_lease())
 
 
+func test_acquire_rejects_missing_detached_and_queued_lifetime_owner() -> void:
+	var null_owner_result: GFObjectPoolAcquireResult = await _pool.acquire(_scene, _parent, null)
+	var detached_owner_node: Node = Node.new()
+	var detached_owner_result: GFObjectPoolAcquireResult = await _pool.acquire(
+		_scene,
+		_parent,
+		detached_owner_node
+	)
+	var queued_owner_node: Node = Node.new()
+	add_child(queued_owner_node)
+	queued_owner_node.queue_free()
+	var queued_owner_result: GFObjectPoolAcquireResult = await _pool.acquire(
+		_scene,
+		_parent,
+		queued_owner_node
+	)
+	detached_owner_node.free()
+
+	var invalid_results: Array[GFObjectPoolAcquireResult] = [
+		null_owner_result,
+		detached_owner_result,
+		queued_owner_result,
+	]
+	for result: GFObjectPoolAcquireResult in invalid_results:
+		_assert_acquire_result(
+			result,
+			GFObjectPoolAcquireResult.Status.INVALID,
+			&"validation",
+			&"invalid_owner"
+		)
+		assert_null(result.get_lease())
+	assert_eq(_pool.get_active_count(_scene), 0)
+	assert_eq(_pool.get_available_count(_scene), 0)
+
+
 func test_empty_packed_scene_reports_allocation_failure() -> void:
 	var empty_scene: PackedScene = PackedScene.new()
-	var result: GFObjectPoolAcquireResult = await _pool.acquire(empty_scene, _parent)
+	var result: GFObjectPoolAcquireResult = await _pool.acquire(empty_scene, _parent, self)
 
 	_assert_acquire_result(
 		result,
@@ -125,7 +163,7 @@ func test_disposed_pool_rejects_new_acquire_without_revival() -> void:
 	await _pool.wait_disposed()
 	_pool.init()
 
-	var result: GFObjectPoolAcquireResult = await _pool.acquire(_scene, _parent)
+	var result: GFObjectPoolAcquireResult = await _pool.acquire(_scene, _parent, self)
 
 	_assert_acquire_result(
 		result,
@@ -164,6 +202,83 @@ func test_pending_acquire_survives_caller_dropping_last_pool_reference() -> void
 	)
 
 
+func test_public_acquire_retires_request_when_awaiting_node_is_freed() -> void:
+	var awaiter: PublicAcquireAwaiter = PublicAcquireAwaiter.new()
+	_parent.add_child(awaiter)
+	var awaiter_ref: WeakRef = weakref(awaiter)
+	var state: Dictionary = {}
+	awaiter.request_acquire.call_deferred(_pool, _scene, _parent, state)
+	awaiter.free.call_deferred()
+
+	for _frame_index: int in range(4):
+		await get_tree().process_frame
+
+	assert_true(GFVariantData.get_option_bool(state, "started"), "短命 awaiter 必须先提交公共 acquire 请求。")
+	var released_awaiter_value: Variant = awaiter_ref.get_ref()
+	assert_true(released_awaiter_value == null, "回归必须真实销毁等待方 Node。")
+	assert_false(state.has("result"), "已销毁脚本不应继续接收 acquire 结果。")
+	assert_eq(_parent.get_child_count(), 0, "无人接收的候选节点不得挂在长寿命 parent 下。")
+	assert_eq(_pool.get_active_count(_scene), 0, "等待方销毁后不得留下 ACTIVE Lease。")
+	assert_eq(_pool.get_available_count(_scene), 0)
+
+
+func test_public_acquire_does_not_retain_ref_counted_owner_while_waiting() -> void:
+	var emitter: PublicAcquireSignalEmitter = PublicAcquireSignalEmitter.new()
+	var connect_error: Error = emitter.acquire_requested.connect(_pool.acquire) as Error
+	assert_eq(connect_error, OK)
+	var owner_holder: Array[RefCounted] = [RefCounted.new()]
+	var owner_ref: WeakRef = weakref(owner_holder[0])
+	emitter.acquire_requested.emit(_scene, _parent, owner_holder[0])
+	owner_holder.clear()
+	for _frame_index: int in range(4):
+		await get_tree().process_frame
+
+	var released_owner_value: Variant = owner_ref.get_ref()
+	assert_true(released_owner_value == null, "pool 不得在等待期间强持有 RefCounted lifetime owner。")
+	assert_eq(_parent.get_child_count(), 0)
+	assert_eq(_pool.get_active_count(_scene), 0)
+	assert_eq(_pool.get_available_count(_scene), 0)
+
+
+func test_public_owner_exit_before_delivery_is_irreversible_after_reentry() -> void:
+	var owner_node: Node = Node.new()
+	_parent.add_child(owner_node)
+	var state: Dictionary = {}
+	_start_public_owner_acquire.call_deferred(_pool, _scene, _parent, owner_node, {}, state)
+	_leave_and_return_for_review.call_deferred(owner_node, state)
+
+	var result: GFObjectPoolAcquireResult = await _wait_for_acquire_result(state)
+
+	_assert_acquire_result(
+		result,
+		GFObjectPoolAcquireResult.Status.CANCELLED,
+		&"validation",
+		&"owner_lost"
+	)
+	assert_null(result.get_lease())
+	assert_eq(_parent.get_child_count(), 1, "owner 回树不得让已取消请求复活。")
+	assert_eq(_pool.get_active_count(_scene), 0)
+	owner_node.queue_free()
+
+
+func test_delivered_lease_remains_callers_responsibility_after_owner_exit() -> void:
+	var owner_node: Node = Node.new()
+	_parent.add_child(owner_node)
+	var result: GFObjectPoolAcquireResult = await _pool.acquire(_scene, _parent, owner_node)
+	var lease: GFObjectPoolLease = result.get_lease()
+	var node: Node = lease.get_node()
+
+	_parent.remove_child(owner_node)
+	owner_node.free()
+
+	assert_eq(lease.get_state(), GFObjectPoolLease.State.ACTIVE)
+	assert_same(lease.get_node(), node, "成功交付后 owner 退出不得隐式回收已转移 Lease。")
+	assert_same(node.get_parent(), _parent)
+	assert_eq(_pool.get_active_count(_scene), 1)
+	assert_true(lease.release())
+	assert_eq(await lease.wait_settled(), &"released")
+
+
 # --- 测试：prepare 与原生节点生命周期 ---
 
 func test_prepare_receives_snapshot_before_first_enter_tree_and_ready() -> void:
@@ -179,6 +294,7 @@ func test_prepare_receives_snapshot_before_first_enter_tree_and_ready() -> void:
 	var result: GFObjectPoolAcquireResult = await _pool.acquire(
 		prepare_scene,
 		_parent,
+		self,
 		context
 	)
 	var node: PrepareLifecycleNode = _prepare_node_from_result(result)
@@ -203,6 +319,7 @@ func test_reuse_runs_prepare_again_and_uses_enter_exit_tree_lifecycle() -> void:
 	var first_result: GFObjectPoolAcquireResult = await _pool.acquire(
 		prepare_scene,
 		_parent,
+		self,
 		{ "nested": { "value": 1 } }
 	)
 	var first_lease: GFObjectPoolLease = first_result.get_lease()
@@ -219,6 +336,7 @@ func test_reuse_runs_prepare_again_and_uses_enter_exit_tree_lifecycle() -> void:
 	var second_result: GFObjectPoolAcquireResult = await _pool.acquire(
 		prepare_scene,
 		_parent,
+		self,
 		{ "nested": { "value": 2 } }
 	)
 	var reused: PrepareLifecycleNode = _prepare_node_from_result(second_result)
@@ -231,7 +349,7 @@ func test_reuse_runs_prepare_again_and_uses_enter_exit_tree_lifecycle() -> void:
 
 func test_prepare_error_returns_typed_failure_and_retires_candidate() -> void:
 	var failing_scene: PackedScene = _make_failing_prepare_scene()
-	var result: GFObjectPoolAcquireResult = await _pool.acquire(failing_scene, _parent)
+	var result: GFObjectPoolAcquireResult = await _pool.acquire(failing_scene, _parent, self)
 
 	_assert_acquire_result(
 		result,
@@ -247,7 +365,7 @@ func test_prepare_error_returns_typed_failure_and_retires_candidate() -> void:
 
 func test_invalid_prepare_return_is_distinct_from_prepare_error() -> void:
 	var invalid_scene: PackedScene = _make_invalid_prepare_scene()
-	var result: GFObjectPoolAcquireResult = await _pool.acquire(invalid_scene, _parent)
+	var result: GFObjectPoolAcquireResult = await _pool.acquire(invalid_scene, _parent, self)
 
 	_assert_acquire_result(
 		result,
@@ -268,7 +386,8 @@ func test_prepare_reparent_invalidates_candidate_instead_of_publishing_it() -> v
 
 	var result: GFObjectPoolAcquireResult = await _pool.acquire(
 		invalidating_scene,
-		_parent
+		_parent,
+		self
 	)
 
 	_assert_acquire_result(
@@ -291,7 +410,8 @@ func test_prepare_dispose_cancels_acquire_and_never_publishes_candidate() -> voi
 
 	var result: GFObjectPoolAcquireResult = await _pool.acquire(
 		disposing_scene,
-		_parent
+		_parent,
+		self
 	)
 
 	_assert_acquire_result(
@@ -307,10 +427,25 @@ func test_prepare_dispose_cancels_acquire_and_never_publishes_candidate() -> voi
 	assert_true(_pool.get_debug_snapshot().is_empty())
 
 
+# --- 测试：批量原子性 ---
+
+func test_batch_rejects_later_candidate_attached_to_requested_parent_during_enter_tree() -> void:
+	await _assert_enter_tree_candidate_hijack_rejected(_parent)
+
+
+func test_batch_rejects_later_candidate_attached_to_other_parent_during_enter_tree() -> void:
+	var alternate_parent: Node = Node.new()
+	add_child(alternate_parent)
+
+	await _assert_enter_tree_candidate_hijack_rejected(alternate_parent)
+
+	alternate_parent.queue_free()
+
+
 # --- 测试：Lease 结算 ---
 
 func test_release_revokes_access_synchronously_and_settles_once_at_safe_point() -> void:
-	var result: GFObjectPoolAcquireResult = await _pool.acquire(_scene, _parent)
+	var result: GFObjectPoolAcquireResult = await _pool.acquire(_scene, _parent, self)
 	var lease: GFObjectPoolLease = result.get_lease()
 	var node: Node = lease.get_node()
 	watch_signals(lease)
@@ -334,7 +469,7 @@ func test_release_revokes_access_synchronously_and_settles_once_at_safe_point() 
 
 
 func test_double_release_and_late_wait_are_idempotent() -> void:
-	var result: GFObjectPoolAcquireResult = await _pool.acquire(_scene, _parent)
+	var result: GFObjectPoolAcquireResult = await _pool.acquire(_scene, _parent, self)
 	var lease: GFObjectPoolLease = result.get_lease()
 	watch_signals(lease)
 
@@ -349,13 +484,13 @@ func test_double_release_and_late_wait_are_idempotent() -> void:
 
 
 func test_release_then_acquire_same_stack_reuses_without_stale_authority() -> void:
-	var first_result: GFObjectPoolAcquireResult = await _pool.acquire(_scene, _parent)
+	var first_result: GFObjectPoolAcquireResult = await _pool.acquire(_scene, _parent, self)
 	var first_lease: GFObjectPoolLease = first_result.get_lease()
 	var first_node: Node = first_lease.get_node()
 
 	assert_true(first_lease.release())
 	assert_eq(first_lease.get_state(), GFObjectPoolLease.State.RELEASE_PENDING)
-	var second_result: GFObjectPoolAcquireResult = await _pool.acquire(_scene, _parent)
+	var second_result: GFObjectPoolAcquireResult = await _pool.acquire(_scene, _parent, self)
 	var second_lease: GFObjectPoolLease = second_result.get_lease()
 
 	assert_true(second_result.is_successful())
@@ -367,7 +502,7 @@ func test_release_then_acquire_same_stack_reuses_without_stale_authority() -> vo
 
 
 func test_one_instance_can_be_reused_one_hundred_times() -> void:
-	var current_result: GFObjectPoolAcquireResult = await _pool.acquire(_scene, _parent)
+	var current_result: GFObjectPoolAcquireResult = await _pool.acquire(_scene, _parent, self)
 	var expected_node: Node = current_result.get_lease().get_node()
 	var previous_lease: GFObjectPoolLease = null
 
@@ -375,7 +510,7 @@ func test_one_instance_can_be_reused_one_hundred_times() -> void:
 		var current_lease: GFObjectPoolLease = current_result.get_lease()
 		assert_same(current_lease.get_node(), expected_node, "第 %d 次借用应复用同一实例。" % cycle_index)
 		assert_true(current_lease.release())
-		current_result = await _pool.acquire(_scene, _parent)
+		current_result = await _pool.acquire(_scene, _parent, self)
 		assert_true(current_result.is_successful())
 		assert_eq(await current_lease.wait_settled(), &"released")
 		if previous_lease != null:
@@ -388,7 +523,7 @@ func test_one_instance_can_be_reused_one_hundred_times() -> void:
 
 
 func test_external_free_settles_node_lost_and_never_reuses_dead_identity() -> void:
-	var first_result: GFObjectPoolAcquireResult = await _pool.acquire(_scene, _parent)
+	var first_result: GFObjectPoolAcquireResult = await _pool.acquire(_scene, _parent, self)
 	var lease: GFObjectPoolLease = first_result.get_lease()
 	var node: Node = lease.get_node()
 	var old_instance_id: int = node.get_instance_id()
@@ -403,7 +538,7 @@ func test_external_free_settles_node_lost_and_never_reuses_dead_identity() -> vo
 	assert_eq(_pool.get_active_count(_scene), 0)
 	assert_signal_emit_count(lease, "settled", 1)
 
-	var replacement_result: GFObjectPoolAcquireResult = await _pool.acquire(_scene, _parent)
+	var replacement_result: GFObjectPoolAcquireResult = await _pool.acquire(_scene, _parent, self)
 	var replacement: Node = replacement_result.get_lease().get_node()
 	assert_ne(replacement.get_instance_id(), old_instance_id)
 	assert_false(lease.release(), "丢失节点的旧 Lease 不能影响替代实例。")
@@ -412,7 +547,7 @@ func test_external_free_settles_node_lost_and_never_reuses_dead_identity() -> vo
 func test_external_reparent_retires_candidate_instead_of_caching_it() -> void:
 	var alternate_parent: Node = Node.new()
 	add_child(alternate_parent)
-	var first_result: GFObjectPoolAcquireResult = await _pool.acquire(_scene, _parent)
+	var first_result: GFObjectPoolAcquireResult = await _pool.acquire(_scene, _parent, self)
 	var lease: GFObjectPoolLease = first_result.get_lease()
 	var node: Node = lease.get_node()
 	var old_instance_id: int = node.get_instance_id()
@@ -436,14 +571,14 @@ func test_external_reparent_retires_candidate_instead_of_caching_it() -> void:
 	await get_tree().process_frame
 	assert_false(is_instance_valid(node), "父级漂移节点应被淘汰。")
 
-	var replacement_result: GFObjectPoolAcquireResult = await _pool.acquire(_scene, _parent)
+	var replacement_result: GFObjectPoolAcquireResult = await _pool.acquire(_scene, _parent, self)
 	assert_ne(replacement_result.get_lease().get_node().get_instance_id(), old_instance_id)
 	alternate_parent.queue_free()
 
 
 func test_capacity_minus_one_retires_every_release() -> void:
 	_pool.max_available_per_scene = -1
-	var result: GFObjectPoolAcquireResult = await _pool.acquire(_scene, _parent)
+	var result: GFObjectPoolAcquireResult = await _pool.acquire(_scene, _parent, self)
 	var lease: GFObjectPoolLease = result.get_lease()
 	var node: Node = lease.get_node()
 
@@ -456,8 +591,8 @@ func test_capacity_minus_one_retires_every_release() -> void:
 
 func test_positive_capacity_retires_only_overflow() -> void:
 	_pool.max_available_per_scene = 1
-	var first_result: GFObjectPoolAcquireResult = await _pool.acquire(_scene, _parent)
-	var second_result: GFObjectPoolAcquireResult = await _pool.acquire(_scene, _parent)
+	var first_result: GFObjectPoolAcquireResult = await _pool.acquire(_scene, _parent, self)
+	var second_result: GFObjectPoolAcquireResult = await _pool.acquire(_scene, _parent, self)
 	var first_lease: GFObjectPoolLease = first_result.get_lease()
 	var second_lease: GFObjectPoolLease = second_result.get_lease()
 
@@ -470,7 +605,7 @@ func test_positive_capacity_retires_only_overflow() -> void:
 
 
 func test_dispose_revokes_active_lease_and_clears_all_counts() -> void:
-	var result: GFObjectPoolAcquireResult = await _pool.acquire(_scene, _parent)
+	var result: GFObjectPoolAcquireResult = await _pool.acquire(_scene, _parent, self)
 	var lease: GFObjectPoolLease = result.get_lease()
 	var node: Node = lease.get_node()
 	watch_signals(lease)
@@ -491,7 +626,7 @@ func test_dispose_revokes_active_lease_and_clears_all_counts() -> void:
 
 
 func test_debug_snapshot_contains_counts_but_no_nodes_or_leases() -> void:
-	var result: GFObjectPoolAcquireResult = await _pool.acquire(_scene, _parent)
+	var result: GFObjectPoolAcquireResult = await _pool.acquire(_scene, _parent, self)
 	var lease: GFObjectPoolLease = result.get_lease()
 	var active_snapshot: Dictionary = _debug_entry(_pool.get_debug_snapshot(), _scene)
 
@@ -505,11 +640,44 @@ func test_debug_snapshot_contains_counts_but_no_nodes_or_leases() -> void:
 	assert_false(_contains_object(_pool.get_debug_snapshot()))
 
 
+func test_debug_available_matches_count_when_idle_node_is_queued_for_deletion() -> void:
+	var result: GFObjectPoolAcquireResult = await _pool.acquire(_scene, _parent, self)
+	var lease: GFObjectPoolLease = result.get_lease()
+	var node: Node = lease.get_node()
+	assert_true(lease.release())
+	var _settled_reason: StringName = await lease.wait_settled()
+
+	node.queue_free()
+	var snapshot_entry: Dictionary = _debug_entry(_pool.get_debug_snapshot(), _scene)
+
+	assert_eq(_pool.get_available_count(_scene), 0)
+	assert_eq(GFVariantData.get_option_int(snapshot_entry, "available"), 0)
+	assert_eq(GFVariantData.get_option_int(snapshot_entry, "active"), _pool.get_active_count(_scene))
+
+
+func test_debug_available_matches_count_when_idle_node_is_reparented() -> void:
+	var alternate_parent: Node = Node.new()
+	add_child(alternate_parent)
+	var result: GFObjectPoolAcquireResult = await _pool.acquire(_scene, _parent, self)
+	var lease: GFObjectPoolLease = result.get_lease()
+	var node: Node = lease.get_node()
+	assert_true(lease.release())
+	var _settled_reason: StringName = await lease.wait_settled()
+
+	alternate_parent.add_child(node)
+	var snapshot_entry: Dictionary = _debug_entry(_pool.get_debug_snapshot(), _scene)
+
+	assert_eq(_pool.get_available_count(_scene), 0)
+	assert_eq(GFVariantData.get_option_int(snapshot_entry, "available"), 0)
+	assert_eq(GFVariantData.get_option_int(snapshot_entry, "active"), _pool.get_active_count(_scene))
+	alternate_parent.queue_free()
+
+
 # --- 测试：物理回调安全点 ---
 
 func test_area_2d_callback_can_release_and_reacquire_same_instance() -> void:
 	var area_scene: PackedScene = _make_area_2d_scene()
-	var first_result: GFObjectPoolAcquireResult = await _pool.acquire(area_scene, _parent)
+	var first_result: GFObjectPoolAcquireResult = await _pool.acquire(area_scene, _parent, self)
 	var first_lease: GFObjectPoolLease = first_result.get_lease()
 	var first_node: Node = first_lease.get_node()
 	var trigger: Area2D = _make_live_area_2d()
@@ -519,7 +687,7 @@ func test_area_2d_callback_can_release_and_reacquire_same_instance() -> void:
 		state["callback_count"] = GFVariantData.get_option_int(state, "callback_count") + 1
 		state["release_accepted"] = first_lease.release()
 		state["revoked_in_callback"] = first_lease.get_node() == null
-		state["result"] = await _pool.acquire(area_scene, _parent)
+		state["result"] = await _pool.acquire(area_scene, _parent, self)
 	var connect_error: Error = trigger.area_entered.connect(
 		callback,
 		CONNECT_ONE_SHOT as Object.ConnectFlags
@@ -543,7 +711,7 @@ func test_area_2d_callback_can_release_and_reacquire_same_instance() -> void:
 
 func test_area_3d_callback_can_release_and_reacquire_same_instance() -> void:
 	var area_scene: PackedScene = _make_area_3d_scene()
-	var first_result: GFObjectPoolAcquireResult = await _pool.acquire(area_scene, _parent)
+	var first_result: GFObjectPoolAcquireResult = await _pool.acquire(area_scene, _parent, self)
 	var first_lease: GFObjectPoolLease = first_result.get_lease()
 	var first_node: Node = first_lease.get_node()
 	var trigger: Area3D = _make_live_area_3d()
@@ -553,7 +721,7 @@ func test_area_3d_callback_can_release_and_reacquire_same_instance() -> void:
 		state["callback_count"] = GFVariantData.get_option_int(state, "callback_count") + 1
 		state["release_accepted"] = first_lease.release()
 		state["revoked_in_callback"] = first_lease.get_node() == null
-		state["result"] = await _pool.acquire(area_scene, _parent)
+		state["result"] = await _pool.acquire(area_scene, _parent, self)
 	var connect_error: Error = trigger.area_entered.connect(
 		callback,
 		CONNECT_ONE_SHOT as Object.ConnectFlags
@@ -628,6 +796,20 @@ func test_cancellation_before_publication_retires_unpublished_candidate() -> voi
 
 # --- 私有/辅助方法 ---
 
+func _start_public_owner_acquire(
+	pool: GFObjectPoolUtility,
+	packed_scene: PackedScene,
+	request_parent: Node,
+	lifetime_owner: Object,
+	context: Dictionary,
+	state: Dictionary
+) -> void:
+	state["started"] = true
+	state["result"] = await pool.acquire(
+		packed_scene, request_parent, lifetime_owner, context
+	)
+
+
 func _capture_review_request(
 	packed_scene: PackedScene,
 	owner_node: Node,
@@ -648,6 +830,34 @@ func _leave_and_return_for_review(node: Node, state: Dictionary) -> void:
 	var original_parent: Node = node.get_parent()
 	original_parent.remove_child(node)
 	original_parent.add_child(node)
+
+
+func _assert_enter_tree_candidate_hijack_rejected(hijack_parent: Node) -> void:
+	CandidateEnterTreeHijackerNode.prepared_nodes.clear()
+	CandidateEnterTreeHijackerNode.target_parent = hijack_parent
+	var hijacking_scene: PackedScene = _make_candidate_enter_tree_hijacker_scene()
+	var results: Array[GFObjectPoolAcquireResult] = await _pool.acquire_batch_for_framework(
+		hijacking_scene, _parent, 2, {}, self
+	)
+
+	assert_eq(results.size(), 1, "候选节点被提前挂载时整批只能返回一个失败结果。")
+	if results.is_empty():
+		return
+	_assert_acquire_result(
+		results[0],
+		GFObjectPoolAcquireResult.Status.FAILED,
+		&"attach",
+		&"candidate_invalidated"
+	)
+	assert_null(results[0].get_lease(), "整批失败不得发布任何 Lease。")
+	assert_eq(_pool.get_active_count(hijacking_scene), 0)
+	assert_eq(_pool.get_available_count(hijacking_scene), 0)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	assert_eq(_parent.get_child_count(), 0, "请求 parent 不得遗留失败候选。")
+	if hijack_parent != _parent:
+		assert_eq(hijack_parent.get_child_count(), 0, "其他 parent 不得保留被窃取候选。")
+
 
 func _make_node_scene() -> PackedScene:
 	return _pack_node(Node.new())
@@ -672,6 +882,10 @@ func _make_reparenting_prepare_scene() -> PackedScene:
 func _make_disposing_prepare_scene() -> PackedScene:
 	DisposingPrepareNode.pool = null
 	return _pack_node(DisposingPrepareNode.new())
+
+
+func _make_candidate_enter_tree_hijacker_scene() -> PackedScene:
+	return _pack_node(CandidateEnterTreeHijackerNode.new())
 
 
 func _make_area_2d_scene() -> PackedScene:
@@ -758,7 +972,7 @@ func _start_acquire(
 	context: Dictionary,
 	state: Dictionary
 ) -> void:
-	state["result"] = await pool.acquire(packed_scene, request_parent, context)
+	state["result"] = await pool.acquire(packed_scene, request_parent, self, context)
 
 
 func _wait_for_acquire_result(
@@ -874,4 +1088,38 @@ class DisposingPrepareNode extends Node:
 	func on_gf_pool_prepare(_context: Dictionary) -> Error:
 		if pool != null:
 			pool.dispose()
+		return OK
+
+
+class PublicAcquireAwaiter extends Node:
+	func request_acquire(
+		pool: GFObjectPoolUtility,
+		packed_scene: PackedScene,
+		request_parent: Node,
+		state: Dictionary
+	) -> void:
+		state["started"] = true
+		state["result"] = await pool.acquire(packed_scene, request_parent, self)
+
+
+class PublicAcquireSignalEmitter extends RefCounted:
+	signal acquire_requested(packed_scene: PackedScene, request_parent: Node, lifetime_owner: Object)
+
+
+class CandidateEnterTreeHijackerNode extends Node:
+	static var prepared_nodes: Array[Node] = []
+	static var target_parent: Node = null
+
+	func _enter_tree() -> void:
+		if prepared_nodes.size() != 2 or prepared_nodes[0] != self:
+			return
+		var later_candidate: Node = prepared_nodes[1]
+		if (is_instance_valid(later_candidate)
+			and later_candidate.get_parent() == null
+			and is_instance_valid(target_parent)
+		):
+			target_parent.add_child(later_candidate)
+
+	func on_gf_pool_prepare(_context: Dictionary) -> Error:
+		prepared_nodes.append(self)
 		return OK

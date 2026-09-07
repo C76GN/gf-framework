@@ -7,7 +7,7 @@
 | 模块 | 类 | 成员 | 页面内索引 |
 |---|---:|---:|---|
 | Kernel | 77 | 1128 | [Kernel](#module-kernel) |
-| Standard | 479 | 7568 | [Standard](#module-standard) |
+| Standard | 479 | 7569 | [Standard](#module-standard) |
 | Action Queue | 16 | 214 | [Action Queue](#module-extensions-action_queue) |
 | Asset Metadata | 4 | 33 | [Asset Metadata](#module-extensions-asset_metadata) |
 | Behavior Tree | 22 | 89 | [Behavior Tree](#module-extensions-behavior_tree) |
@@ -214,7 +214,7 @@
 | [`GFNumberFormatter`](GFNumberFormatter.md#gfnumberformatter) | 运行时服务 (`runtime_service`) | `RefCounted` | 8 | `addons/gf/standard/foundation/formatting/gf_number_formatter.gd` |
 | [`GFNumericModifierMath`](GFNumericModifierMath.md#gfnumericmodifiermath) | 运行时服务 (`runtime_service`) | `RefCounted` | 5 | `addons/gf/standard/foundation/math/gf_numeric_modifier_math.gd` |
 | [`GFObjectCandidateRegistry`](GFObjectCandidateRegistry.md#gfobjectcandidateregistry) | 运行时服务 (`runtime_service`) | `RefCounted` | 13 | `addons/gf/standard/common/gf_object_candidate_registry.gd` |
-| [`GFObjectPoolUtility`](GFObjectPoolUtility.md#gfobjectpoolutility) | 运行时服务 (`runtime_service`) | `GFUtility` | 8 | `addons/gf/standard/utilities/nodes/gf_object_pool_utility.gd` |
+| [`GFObjectPoolUtility`](GFObjectPoolUtility.md#gfobjectpoolutility) | 运行时服务 (`runtime_service`) | `GFUtility` | 9 | `addons/gf/standard/utilities/nodes/gf_object_pool_utility.gd` |
 | [`GFOperationDiagnosticsUtility`](GFOperationDiagnosticsUtility.md#gfoperationdiagnosticsutility) | 运行时服务 (`runtime_service`) | `GFUtility` | 54 | `addons/gf/standard/utilities/debug/gf_operation_diagnostics_utility.gd` |
 | [`GFPathEnumerationTools`](GFPathEnumerationTools.md#gfpathenumerationtools) | 运行时服务 (`runtime_service`) | `RefCounted` | 5 | `addons/gf/standard/utilities/io/gf_path_enumeration_tools.gd` |
 | [`GFPhysicsQueryUtility`](GFPhysicsQueryUtility.md#gfphysicsqueryutility) | 运行时服务 (`runtime_service`) | `GFUtility` | 3 | `addons/gf/standard/utilities/spatial/gf_physics_query_utility.gd` |

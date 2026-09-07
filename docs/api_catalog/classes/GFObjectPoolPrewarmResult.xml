@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFObjectPoolPrewarmResult" path="addons/gf/standard/utilities/nodes/gf_object_pool_prewarm_result.gd" module="standard" extends="RefCounted" classDigest="24a7d36768323358a3c50afa5db24307fd293385676f4cdcdb1396c5c3aeddf7">
+<class name="GFObjectPoolPrewarmResult" path="addons/gf/standard/utilities/nodes/gf_object_pool_prewarm_result.gd" module="standard" extends="RefCounted" classDigest="b6255b635a23f93323fc57a75f7dede62e62969a3afefceb7938d8a4e2585f6b">
 	<description>GFObjectPoolPrewarmResult: 离树实例预分配的最终结果。
 取消只停止未创建的实例，已经缓存的实例保留。预分配不执行入树或 ready。</description>
 	<tags>
@@ -25,7 +25,7 @@
 			<description>预分配请求的终态。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 	</enums>

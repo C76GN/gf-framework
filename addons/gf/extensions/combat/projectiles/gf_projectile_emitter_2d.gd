@@ -113,7 +113,7 @@ const _GF_COMBAT_FINITE_MATH = preload("res://addons/gf/extensions/combat/core/g
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 3.17.0
 var object_pool_utility: GFObjectPoolUtility = null
 
 # --- 私有变量 ---

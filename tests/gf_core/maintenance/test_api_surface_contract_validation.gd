@@ -240,6 +240,44 @@ func test_released_asset_metadata_api_keeps_historical_since_baseline() -> void:
 	)
 
 
+func test_object_pool_lease_migration_preserves_released_api_since_versions() -> void:
+	var expected_since_by_path: Dictionary = {
+		"res://addons/gf/extensions/combat/projectiles/gf_projectile_emitter_2d.gd": {
+			"object_pool_utility": "3.17.0",
+		},
+		"res://addons/gf/extensions/combat/projectiles/gf_projectile_emitter_3d.gd": {
+			"object_pool_utility": "3.17.0",
+		},
+		"res://addons/gf/standard/utilities/nodes/gf_object_pool_utility.gd": {
+			"max_available_per_scene": "3.17.0",
+			"dispose": "3.17.0",
+			"get_debug_snapshot": "3.17.0",
+			"acquire": "8.0.0",
+			"prewarm": "8.0.0",
+		},
+		"res://addons/gf/standard/utilities/nodes/gf_object_pool_prewarm_result.gd": {
+			"Status": "11.0.0",
+		},
+	}
+	for path: String in expected_since_by_path:
+		var expected_since_by_symbol: Dictionary = GF_VARIANT_ACCESS.get_option_dictionary(expected_since_by_path, path)
+		var actual_since_by_symbol: Dictionary = {}
+		for declaration: Dictionary in _parse_declarations(_read_text(path), path):
+			var symbol_name: String = GF_VARIANT_ACCESS.get_option_string(declaration, "name")
+			if GF_VARIANT_ACCESS.get_option_int(declaration, "indent") != 0 or not expected_since_by_symbol.has(symbol_name):
+				continue
+			actual_since_by_symbol[symbol_name] = _parse_tag_value(
+				GF_VARIANT_ACCESS.get_option_array(declaration, "docs"),
+				"since"
+			)
+
+		assert_eq(
+			actual_since_by_symbol,
+			expected_since_by_symbol,
+			"租约迁移不能把已发布 API 的历史 @since 改成 unreleased：%s" % path
+		)
+
+
 func test_gf_source_api_doc_tags_use_godot_render_separator() -> void:
 	var script_paths: Array[String] = _collect_gdscript_files(SOURCE_ROOT)
 	var issues: Array[String] = []

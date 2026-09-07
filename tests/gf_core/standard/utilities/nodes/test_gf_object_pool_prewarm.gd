@@ -68,6 +68,7 @@ func test_first_acquire_after_prewarm_runs_prepare_and_tree_lifecycle() -> void:
 	var acquire_result: GFObjectPoolAcquireResult = await _pool.acquire(
 		_scene,
 		_parent,
+		self,
 		{ "value": 42 }
 	)
 	var lease: GFObjectPoolLease = acquire_result.get_lease()

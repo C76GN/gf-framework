@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFProjectileEmitter3D" path="addons/gf/extensions/combat/projectiles/gf_projectile_emitter_3d.gd" module="extensions/combat" extends="Node3D" classDigest="8879088fb4418597766224c7bcaad176c4ac3ca4ba9844ccc2b3b60f200fa0ce">
+<class name="GFProjectileEmitter3D" path="addons/gf/extensions/combat/projectiles/gf_projectile_emitter_3d.gd" module="extensions/combat" extends="Node3D" classDigest="0811188312970bfa24e5b577ea40904216af15cb9c4a6877e75b5fca85ad78b5">
 	<description>GFProjectileEmitter3D: 在安全点借用完整场景，以一次等待原子发射一批 3D projectile。</description>
 	<tags>
 		<tag name="api">public</tag>
@@ -103,7 +103,7 @@
 项目负责共享池的生命周期；发射器只归还自己的 Lease。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 	</properties>

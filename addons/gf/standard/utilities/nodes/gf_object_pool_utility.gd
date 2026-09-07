@@ -14,6 +14,11 @@ class_name GFObjectPoolUtility
 extends GFUtility
 
 
+# --- 信号 ---
+
+signal _dispose_completed
+
+
 # --- 枚举 ---
 
 enum _Phase {
@@ -44,7 +49,7 @@ const _MAX_REQUESTS_PER_DRAIN: int = 64
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 3.17.0
 var max_available_per_scene: int = 0
 
 
@@ -58,7 +63,6 @@ var _draining: bool = false
 var _notifying: bool = false
 var _disposing: bool = false
 var _disposed: bool = false
-var _dispose_request: _Request = null
 
 
 # --- Godot 生命周期方法 ---
@@ -75,11 +79,36 @@ func _notification(what: int) -> void:
 
 # --- GF 生命周期方法 ---
 
+## 停止接纳新工作，并等待安全点清理及全部已接纳请求与 Lease 的终态通知。
+##
+## 取消静默等待不会取消节点清理；强制退出后仍可单独等待 wait_disposed。
+## [br]
+## @api public
+## [br]
+## @since 11.0.0
+## [br]
+## @param _scope: 当前静默阶段的取消作用域，不拥有实际节点清理。
+## [br]
+## @return: 本次静默等待的一次性完成源。
+func begin_quiesce(_scope: GFAsyncScope) -> GFAsyncCompletion:
+	var completion: GFAsyncCompletion = GFAsyncCompletion.new()
+	dispose()
+	if _scope != null:
+		var _bound: bool = completion.bind_cancel_token(_scope)
+	if _disposed:
+		var _succeeded: bool = completion.succeed()
+	else:
+		var _connected: Error = _dispose_completed.connect(
+			completion.succeed, CONNECT_ONE_SHOT as Object.ConnectFlags
+		) as Error
+	return completion
+
+
 ## 立即停止接纳新借用并吊销现有 Lease，在安全点完成节点清理。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 3.17.0
 func dispose() -> void:
 	if _disposing or not Thread.is_main_thread():
 		return
@@ -87,9 +116,9 @@ func dispose() -> void:
 	for entry: _Entry in _entries.values():
 		if entry._lease != null:
 			entry._lease.mark_pending_for_framework()
-	_dispose_request = _Request.new()
-	_dispose_request._kind = _Kind.DISPOSE
-	_enqueue(_dispose_request)
+	var request: _Request = _Request.new()
+	request._kind = _Kind.DISPOSE
+	_enqueue(request)
 
 
 # --- 公共方法 ---
@@ -98,11 +127,13 @@ func dispose() -> void:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 8.0.0
 ## [br]
 ## @param scene: 实例来源。
 ## [br]
 ## @param parent: 必须位于运行中的 SceneTree，等待期间离树或被删除将取消请求。
+## [br]
+## @param lifetime_owner: 必填弱引用生命周期锚点；等待期间销毁或 Node 离树会取消请求，成功交付后不再跟踪 owner，也不自动归还 Lease。
 ## [br]
 ## @param context: 传给根节点 on_gf_pool_prepare 的本次初始化数据。
 ## [br]
@@ -112,19 +143,25 @@ func dispose() -> void:
 func acquire(
 	scene: PackedScene,
 	parent: Node,
+	lifetime_owner: Object,
 	context: Dictionary = {}
 ) -> GFObjectPoolAcquireResult:
-	var results: Array[GFObjectPoolAcquireResult] = await acquire_batch_for_framework(
-		scene, parent, 1, context
+	var request: _Request = _make_acquire_request(
+		scene, parent, 1, context, lifetime_owner, true
 	)
-	return results[0]
+	# 协程参数不能把弱生命周期锚点保活到请求交付。
+	lifetime_owner = null
+	if request._results.is_empty():
+		_enqueue(request)
+		await request._completed
+	return request._results[0]
 
 
 ## 分帧预分配离树实例，不执行 prepare、enter_tree 或 ready。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 8.0.0
 ## [br]
 ## @param scene: 实例来源。
 ## [br]
@@ -159,19 +196,22 @@ func prewarm(
 	if invalid_reason != &"":
 		_finish_prewarm(request, GFObjectPoolPrewarmResult.Status.INVALID, invalid_reason)
 		return request._prewarm_result
+	if _disposing:
+		_finish_prewarm(request, GFObjectPoolPrewarmResult.Status.CANCELLED, &"pool_disposed")
+		return request._prewarm_result
 	_enqueue(request)
 	await request._completed
 	return request._prewarm_result
 
 
-## 等待 dispose 已发起的节点清理；允许在完成后重复等待。
+## 等待 dispose 已发起的节点清理及全部已接纳请求与 Lease 的终态通知；允许在完成后重复等待。
 ## [br]
 ## @api public
 ## [br]
 ## @since unreleased
 func wait_disposed() -> void:
-	if _dispose_request != null and not _disposed:
-		await _dispose_request._completed
+	if _disposing and not _disposed:
+		await _dispose_completed
 
 
 ## 获取当前仍存活的离树缓存数量。
@@ -186,7 +226,7 @@ func wait_disposed() -> void:
 func get_available_count(scene: PackedScene) -> int:
 	var count: int = 0
 	for entry: _Entry in _entries.values():
-		if entry._scene == scene and entry._phase == _Phase.IDLE and _live_node(entry) != null and entry._node.get_parent() == null:
+		if entry._scene == scene and _is_available_entry(entry):
 			count += 1
 	return count
 
@@ -212,7 +252,7 @@ func get_active_count(scene: PackedScene) -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 3.17.0
 ## [br]
 ## @return: 按场景身份分组的计数。
 ## [br]
@@ -227,7 +267,7 @@ func get_debug_snapshot() -> Dictionary:
 			key = str(entry._scene.get_instance_id())
 		var counts: Dictionary = snapshot.get(key, { "total": 0, "available": 0, "active": 0 })
 		counts["total"] += 1
-		if entry._phase == _Phase.IDLE:
+		if _is_available_entry(entry):
 			counts["available"] += 1
 		if entry._lease != null and entry._lease.get_node() != null:
 			counts["active"] += 1
@@ -261,27 +301,13 @@ func acquire_batch_for_framework(
 	context: Dictionary = {},
 	lifetime_owner: Object = null
 ) -> Array[GFObjectPoolAcquireResult]:
-	if not Thread.is_main_thread():
-		return [_failure(GFObjectPoolAcquireResult.Status.INVALID, &"validation", &"main_thread_required")]
-	if not is_instance_valid(scene):
-		return [_failure(GFObjectPoolAcquireResult.Status.INVALID, &"validation", &"invalid_scene")]
-	if not _valid_parent(parent) or count < 1:
-		return [_failure(GFObjectPoolAcquireResult.Status.INVALID, &"validation", &"invalid_parent")]
-	var request: _Request = _Request.new()
-	request._kind = _Kind.ACQUIRE
-	request._scene = scene
-	request._parent_ref = weakref(parent)
-	request._owner_ref = weakref(lifetime_owner) if is_instance_valid(lifetime_owner) else null
-	request._count = count
-	request._context = context.duplicate(true)
-	request._parent_exit_callback = request._invalidate.bind(&"parent_lost")
-	var _parent_connected: Error = parent.tree_exiting.connect(request._parent_exit_callback) as Error
-	if lifetime_owner is Node:
-		var owner_node: Node = lifetime_owner
-		request._owner_exit_callback = request._invalidate.bind(&"owner_lost")
-		var _owner_connected: Error = owner_node.tree_exiting.connect(request._owner_exit_callback) as Error
-	_enqueue(request)
-	await request._completed
+	var request: _Request = _make_acquire_request(
+		scene, parent, count, context, lifetime_owner, false
+	)
+	lifetime_owner = null
+	if request._results.is_empty():
+		_enqueue(request)
+		await request._completed
 	return request._results
 
 
@@ -308,6 +334,45 @@ func release_lease_for_framework(lease: GFObjectPoolLease, node_id: int) -> bool
 
 
 # --- 私有/辅助方法 ---
+
+func _make_acquire_request(
+	scene: PackedScene,
+	parent: Node,
+	count: int,
+	context: Dictionary,
+	lifetime_owner: Object,
+	require_owner: bool
+) -> _Request:
+	var request: _Request = _Request.new()
+	var invalid_reason: StringName = &""
+	if not Thread.is_main_thread():
+		invalid_reason = &"main_thread_required"
+	elif not is_instance_valid(scene):
+		invalid_reason = &"invalid_scene"
+	elif not _valid_parent(parent) or count < 1:
+		invalid_reason = &"invalid_parent"
+	elif (require_owner or lifetime_owner != null) and not _valid_lifetime_owner(lifetime_owner):
+		invalid_reason = &"invalid_owner"
+	if invalid_reason != &"":
+		request._results = [_failure(GFObjectPoolAcquireResult.Status.INVALID, &"validation", invalid_reason)]
+		return request
+	if _disposing:
+		request._results = [_failure(GFObjectPoolAcquireResult.Status.CANCELLED, &"validation", &"pool_disposed")]
+		return request
+	request._kind = _Kind.ACQUIRE
+	request._scene = scene
+	request._parent_ref = weakref(parent)
+	request._owner_ref = weakref(lifetime_owner) if is_instance_valid(lifetime_owner) else null
+	request._count = count
+	request._context = context.duplicate(true)
+	request._parent_exit_callback = request._invalidate.bind(&"parent_lost")
+	var _parent_connected: Error = parent.tree_exiting.connect(request._parent_exit_callback) as Error
+	if lifetime_owner is Node:
+		var owner_node: Node = lifetime_owner
+		request._owner_exit_callback = request._invalidate.bind(&"owner_lost")
+		var _owner_connected: Error = owner_node.tree_exiting.connect(request._owner_exit_callback) as Error
+	return request
+
 
 func _enqueue(request: _Request) -> void:
 	_queue.append(request)
@@ -357,7 +422,6 @@ func _drain() -> void:
 						settlements.append(_settle_lease.bind(entry._lease, entry._reason))
 						entry._lease = null
 				_available.clear()
-				_disposed = true
 		if request._kind != _Kind.PREWARM or request._prewarm_result != null:
 			completed.append(request)
 	_draining = false
@@ -388,6 +452,9 @@ func _drain() -> void:
 		_disconnect_request_lifetime(request)
 		request._completed.emit()
 	_notifying = false
+	if _disposing and not _disposed and _queue.is_empty():
+		_disposed = true
+		_dispose_completed.emit()
 	if not _queue.is_empty():
 		# A bounded drain must yield a real frame before accepting callback reentry.
 		_draining = true
@@ -434,7 +501,7 @@ func _acquire_batch(request: _Request) -> void:
 		stage = &"attach"
 		for entry: _Entry in candidates:
 			var parent: Node = _request_parent(request)
-			if _live_node(entry) == null or parent == null:
+			if _live_node(entry) == null or entry._node.get_parent() != null or parent == null:
 				reason = &"candidate_invalidated"
 				break
 			parent.add_child(entry._node)
@@ -474,7 +541,7 @@ func _take_entry(scene: PackedScene) -> _Entry:
 		var value: Variant = available.pop_back()
 		if value is _Entry:
 			var entry: _Entry = value
-			if entry._phase == _Phase.IDLE and _live_node(entry) != null and entry._node.get_parent() == null:
+			if _is_available_entry(entry):
 				return entry
 			_retire_entry(entry)
 	if not scene.can_instantiate():
@@ -610,9 +677,9 @@ func _request_failure_reason(request: _Request) -> StringName:
 		var owner_value: Variant = request._owner_ref.get_ref()
 		if not is_instance_valid(owner_value):
 			return &"owner_lost"
-		if owner_value is Node:
-			var owner_node: Node = owner_value
-			if not _valid_parent(owner_node):
+		if owner_value is Object:
+			var owner: Object = owner_value
+			if not _valid_lifetime_owner(owner):
 				return &"owner_lost"
 	return &""
 
@@ -645,6 +712,19 @@ func _request_parent(request: _Request) -> Node:
 
 func _valid_parent(node: Node) -> bool:
 	return is_instance_valid(node) and node.is_inside_tree() and not node.is_queued_for_deletion()
+
+
+func _valid_lifetime_owner(value: Object) -> bool:
+	if not is_instance_valid(value):
+		return false
+	if value is Node:
+		var node: Node = value
+		return _valid_parent(node)
+	return true
+
+
+func _is_available_entry(entry: _Entry) -> bool:
+	return entry._phase == _Phase.IDLE and _live_node(entry) != null and entry._node.get_parent() == null
 
 
 func _live_node(entry: _Entry) -> Node:

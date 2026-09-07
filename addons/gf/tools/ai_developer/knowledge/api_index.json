@@ -2,7 +2,7 @@
   "schema_version": 2,
   "catalog_version": "2.0.0",
   "framework_version": "12.0.0-dev.0",
-  "source_digest": "6dce017149e2583c3d58613c1aca9285162e9433ba1888a9c4d5b7a536ad4f6a",
+  "source_digest": "d51d865bf672440b5656ce566e7f3a4a56daf47c5dbce26d292ae6be2c416a26",
   "class_count": 850,
   "autoload_count": 1,
   "package_count": 56,
@@ -56218,6 +56218,13 @@
         },
         {
           "kind": "func",
+          "name": "begin_quiesce",
+          "signature": "func begin_quiesce(_scope: GFAsyncScope) -> GFAsyncCompletion",
+          "summary": "停止接纳新工作，并等待安全点清理及全部已接纳请求与 Lease 的终态通知。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
           "name": "dispose",
           "signature": "func dispose() -> void",
           "summary": "立即停止接纳新借用并吊销现有 Lease，在安全点完成节点清理。",
@@ -56226,7 +56233,7 @@
         {
           "kind": "func",
           "name": "acquire",
-          "signature": "func acquire( scene: PackedScene, parent: Node, context: Dictionary = {} ) -> GFObjectPoolAcquireResult",
+          "signature": "func acquire( scene: PackedScene, parent: Node, lifetime_owner: Object, context: Dictionary = {} ) -> GFObjectPoolAcquireResult",
           "summary": "在安全点取得一个完成入树准备的实例。",
           "visibility": "public"
         },
@@ -56241,7 +56248,7 @@
           "kind": "func",
           "name": "wait_disposed",
           "signature": "func wait_disposed() -> void",
-          "summary": "等待 dispose 已发起的节点清理；允许在完成后重复等待。",
+          "summary": "等待 dispose 已发起的节点清理及全部已接纳请求与 Lease 的终态通知；允许在完成后重复等待。",
           "visibility": "public"
         },
         {
