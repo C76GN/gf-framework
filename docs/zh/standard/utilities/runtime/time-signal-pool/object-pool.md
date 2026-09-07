@@ -76,6 +76,8 @@ print("实际新增：", result.get_created_count())
 
 预热只分批创建离树节点，不执行 prepare、`_enter_tree()` 或 `_ready()`，因此不需要业务父节点。`count` 为本次希望新增的数量，零为成功空操作；`batch_size` 必须为正数。可传入第四个参数 `GFCancellationToken` 取消剩余工作，已经缓存的实例会保留。
 
+一次安全点未处理完的请求会排在本轮新增请求和预热后续批次之前；大量预热不会让已排队的借用或归还一直等到预热全部结束。
+
 `GFObjectPoolPrewarmResult` 区分完整成功、容量导致的部分成功、取消、输入无效与创建失败。`get_requested_count()` 和 `get_created_count()` 只描述当前请求，不是整个池的库存。
 
 `max_available_per_scene` 只限制每种场景的空闲缓存，不限制正在使用的节点。`0` 表示不限制，正数表示上限，`-1` 表示归还后直接淘汰。`get_available_count()`、`get_active_count()` 与 `get_debug_snapshot()` 用于诊断，不暴露可修改的池内节点清单。
@@ -83,8 +85,9 @@ print("实际新增：", result.get_created_count())
 ## 生命周期与失败处理
 
 - 所有操作只接受主线程调用。`parent` 必须在运行中的场景树内；`lifetime_owner` 必须有效，若为 Node，还必须在树内且未排队删除。`null`、离树或排队删除的 Node 接收方返回 `INVALID / validation / invalid_owner`；已释放或类型不匹配的入参由 Godot 的类型检查拒绝，不会进入该结果分支。等待期间丢失父节点或接收方时请求取消，未交付实例由池清理。
-- 节点由池拥有。业务只持有本轮使用权，不应手动 `free()`、`queue_free()` 或 reparent 池节点；意外离树会撤销 Lease，并在安全点淘汰该实例。
+- 节点由池拥有。业务只持有本轮使用权，不应手动 `free()`、`queue_free()` 或 reparent 池节点；意外离树会撤销 Lease，并在安全点淘汰该实例。即使业务在离树回调中先调用 `release()`，结束原因仍为 `node_lost`，不会把异常离树改成正常归还。
 - 保留池到使用结束。独立使用时显式调用 `dispose()`：它立即拒绝新借用并撤销现有 Lease，随后在安全点清理空闲和活动节点。注册到架构的池会在正常异步关停或替换 Utility 时先完成清理和终态通知，再释放架构依赖。
+- 池本身是 `RefCounted`，包括传给发射器的共享池；不要对池调用 `free()`。使用 `dispose()` 和 `wait_disposed()` 完成清理后，再释放持有它的引用；强行释放仍被引用的池不属于受支持的生命周期。
 - `await pool.wait_disposed()` 表示节点已经离树或提交删除，已接纳请求与 Lease 的终态通知也已完成；实际 `queue_free()` 仍由引擎在帧尾完成。已完成后重复等待不会挂起。架构关停若被取消或超时，强制销毁不保证优雅清理已经完成，仍需用该等待确认池清理结束。
 - 调用方自己的节点若在协程等待期间被销毁，不能依赖已销毁脚本继续执行 await 之后的逻辑；必填的接收方绑定负责取消尚未交付的请求。
 

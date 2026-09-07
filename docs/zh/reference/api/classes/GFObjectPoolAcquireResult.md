@@ -106,7 +106,7 @@ func get_reason() -> StringName:
 
 获取稳定的结果原因。
 
-返回：acquired、invalid_scene、invalid_parent、main_thread_required、pool_disposed、parent_lost、owner_lost、scene_instantiation_failed、prepare_failed、invalid_prepare_result 或 candidate_invalidated；未配置结果为 unconfigured。
+返回：acquired、invalid_scene、invalid_parent、invalid_owner、main_thread_required、pool_disposed、parent_lost、owner_lost、scene_instantiation_failed、prepare_failed、invalid_prepare_result 或 candidate_invalidated；未配置结果为 unconfigured。
 
 <a id="member-gfobjectpoolacquireresult-methods-get_lease"></a>
 

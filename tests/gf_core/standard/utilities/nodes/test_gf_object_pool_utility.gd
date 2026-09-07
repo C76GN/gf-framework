@@ -576,6 +576,48 @@ func test_external_reparent_retires_candidate_instead_of_caching_it() -> void:
 	alternate_parent.queue_free()
 
 
+func test_ready_exit_callback_release_during_reparent_still_settles_node_lost() -> void:
+	var alternate_parent: Node = Node.new()
+	add_child(alternate_parent)
+	var callback_scene: PackedScene = _pack_node(ReadyExitReleaseNode.new())
+	var first_result: GFObjectPoolAcquireResult = await _pool.acquire(
+		callback_scene, _parent, self
+	)
+	var lease: GFObjectPoolLease = first_result.get_lease()
+	var node: Node = lease.get_node()
+	assert_true(node is ReadyExitReleaseNode)
+	if not node is ReadyExitReleaseNode:
+		alternate_parent.queue_free()
+		return
+	var callback_node: ReadyExitReleaseNode = node
+	var old_instance_id: int = node.get_instance_id()
+	callback_node.lease_to_release = lease
+	watch_signals(lease)
+
+	assert_eq(callback_node.connection_error, OK, "测试节点必须在 _ready 中先订阅 tree_exiting。")
+	node.reparent(alternate_parent)
+	assert_eq(callback_node.exit_count, 1, "外部 reparent 必须同步触发测试节点的退出回调。")
+	assert_true(callback_node.release_was_accepted, "较早的退出回调必须成功接纳 release。")
+	assert_null(lease.get_node(), "回调接纳 release 后必须同步撤销节点访问权。")
+	assert_eq(lease.get_state(), GFObjectPoolLease.State.RELEASE_PENDING)
+
+	assert_eq(await lease.wait_settled(), &"node_lost", "外部 reparent 必须覆盖普通归还终态。")
+	assert_signal_emit_count(lease, "settled", 1, "reparent 与 release 竞态只能结算一次。")
+	assert_eq(_pool.get_active_count(callback_scene), 0)
+	assert_eq(_pool.get_available_count(callback_scene), 0, "父级漂移节点不得进入缓存。")
+	await get_tree().process_frame
+	assert_false(is_instance_valid(node), "父级漂移节点必须被淘汰。")
+
+	var replacement_result: GFObjectPoolAcquireResult = await _pool.acquire(
+		callback_scene, _parent, self
+	)
+	var replacement_lease: GFObjectPoolLease = replacement_result.get_lease()
+	assert_ne(replacement_lease.get_node().get_instance_id(), old_instance_id)
+	assert_true(replacement_lease.release())
+	assert_eq(await replacement_lease.wait_settled(), &"released", "正常归还仍应保持 released。")
+	alternate_parent.queue_free()
+
+
 func test_capacity_minus_one_retires_every_release() -> void:
 	_pool.max_available_per_scene = -1
 	var result: GFObjectPoolAcquireResult = await _pool.acquire(_scene, _parent, self)
@@ -1089,6 +1131,23 @@ class DisposingPrepareNode extends Node:
 		if pool != null:
 			pool.dispose()
 		return OK
+
+
+class ReadyExitReleaseNode extends Node:
+	var lease_to_release: GFObjectPoolLease = null
+	var connection_error: Error = FAILED
+	var exit_count: int = 0
+	var release_was_accepted: bool = false
+
+	func _ready() -> void:
+		connection_error = tree_exiting.connect(_on_tree_exiting) as Error
+
+	func _on_tree_exiting() -> void:
+		exit_count += 1
+		if lease_to_release == null:
+			return
+		var release_accepted: bool = lease_to_release.release()
+		release_was_accepted = release_was_accepted or release_accepted
 
 
 class PublicAcquireAwaiter extends Node:

@@ -249,6 +249,90 @@ func test_batch_size_one_yields_between_instantiations() -> void:
 	)
 
 
+func test_prewarm_continuations_do_not_overtake_accepted_release_and_acquire() -> void:
+	var initial_result: GFObjectPoolAcquireResult = await _pool.acquire(
+		_scene,
+		_parent,
+		self
+	)
+	assert_true(initial_result.is_successful())
+	var initial_lease: GFObjectPoolLease = initial_result.get_lease()
+	assert_not_null(initial_lease)
+	if initial_lease == null:
+		return
+	watch_signals(initial_lease)
+	PrewarmLifecycleNode.reset_observations()
+
+	var source: GFCancellationSource = GFCancellationSource.new()
+	var long_states: Array[Dictionary] = []
+	# 64 个长请求占满首轮；短见证必须在下一轮推进，而非等待全部续任务。
+	for _request_index: int in range(64):
+		var state: Dictionary = {}
+		long_states.append(state)
+		_start_prewarm.call_deferred(_pool, _scene, 4, 1, source.get_token(), state)
+	var release_state: Dictionary = {}
+	var acquire_state: Dictionary = {}
+	var witness_state: Dictionary = {}
+	var witness_scene: PackedScene = _pack_node(Node.new())
+	_start_fairness_release.call_deferred(initial_lease, release_state)
+	_start_fairness_acquire.call_deferred(acquire_state)
+	_start_prewarm.call_deferred(_pool, witness_scene, 1, 1, null, witness_state)
+
+	var witness_result: GFObjectPoolPrewarmResult = await _wait_for_prewarm_result(
+		witness_state
+	)
+	assert_not_null(witness_result)
+	if witness_result != null:
+		assert_true(witness_result.is_successful())
+	assert_true(GFVariantData.get_option_bool(release_state, "accepted"))
+	assert_signal_emit_count(initial_lease, "settled", 1)
+	assert_lte(
+		GFVariantData.get_option_int(witness_state, "instantiation_count", -1),
+		128,
+		"已接纳的 release/acquire 及短见证必须先于长预热的第二轮续任务。"
+	)
+	assert_eq(GFVariantData.get_option_int(witness_state, "completion_count"), 1)
+	var completed_long_requests: int = 0
+	for state: Dictionary in long_states:
+		if state.has("result"):
+			completed_long_requests += 1
+	assert_eq(completed_long_requests, 0, "短见证不应等待任何四批预热全部完成。")
+
+	var next_lease: GFObjectPoolLease = null
+	var raw_acquire_result: Variant = acquire_state.get("result")
+	assert_true(raw_acquire_result is GFObjectPoolAcquireResult)
+	if raw_acquire_result is GFObjectPoolAcquireResult:
+		var acquire_result: GFObjectPoolAcquireResult = raw_acquire_result
+		assert_true(acquire_result.is_successful())
+		next_lease = acquire_result.get_lease()
+		assert_not_null(next_lease)
+	assert_eq(GFVariantData.get_option_int(acquire_state, "completion_count"), 1)
+
+	assert_true(source.cancel(&"fairness_observed"))
+	for state: Dictionary in long_states:
+		var result: GFObjectPoolPrewarmResult = await _wait_for_prewarm_result(state)
+		assert_not_null(result)
+		if result != null:
+			assert_true(result.get_status() in [
+				GFObjectPoolPrewarmResult.Status.CANCELLED,
+				GFObjectPoolPrewarmResult.Status.SUCCEEDED,
+			])
+		assert_eq(GFVariantData.get_option_int(state, "completion_count"), 1)
+	source.dispose()
+	if next_lease != null:
+		watch_signals(next_lease)
+		assert_true(next_lease.release())
+		assert_eq(await next_lease.wait_settled(), &"released")
+		assert_signal_emit_count(next_lease, "settled", 1)
+	_pool.dispose()
+	await _pool.wait_disposed()
+	assert_signal_emit_count(initial_lease, "settled", 1)
+	if next_lease != null:
+		assert_signal_emit_count(next_lease, "settled", 1)
+	assert_eq(_parent.get_child_count(), 0)
+	assert_true(_pool.get_debug_snapshot().is_empty())
+
+
 func test_already_cancelled_token_creates_nothing() -> void:
 	var source: GFCancellationSource = GFCancellationSource.new()
 	assert_true(source.cancel(&"test_cancel"))
@@ -397,6 +481,17 @@ func _start_prewarm(
 	state: Dictionary
 ) -> void:
 	state["result"] = await pool.prewarm(packed_scene, count, batch_size, token)
+	state["instantiation_count"] = PrewarmLifecycleNode.instantiation_count
+	state["completion_count"] = GFVariantData.get_option_int(state, "completion_count") + 1
+
+
+func _start_fairness_release(lease: GFObjectPoolLease, state: Dictionary) -> void:
+	state["accepted"] = lease.release()
+
+
+func _start_fairness_acquire(state: Dictionary) -> void:
+	state["result"] = await _pool.acquire(_scene, _parent, self)
+	state["completion_count"] = GFVariantData.get_option_int(state, "completion_count") + 1
 
 
 func _wait_for_prewarm_result(
