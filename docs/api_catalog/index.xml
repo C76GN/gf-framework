@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<apiCatalog schemaVersion="3" name="GF Framework" sourceRoot="addons/gf" sourceDigest="a91c38a4ec7d279b2e3a4a7e3ac63560625e2eb8de3d39a101bd2fc968e5fb46" classCount="873" methodCount="7853" autoloadCount="1" autoloadMethodCount="65">
+<apiCatalog schemaVersion="3" name="GF Framework" sourceRoot="addons/gf" sourceDigest="b555218af4b985fb36ba3e8a5d97c7b4840006feb06534cd2ff9f4a1b1d55d74" classCount="874" methodCount="7829" autoloadCount="1" autoloadMethodCount="65">
 	<module id="kernel" label="Kernel" classCount="77" methodCount="818" autoloadCount="1" autoloadMethodCount="65">
 		<class name="GFAccessGenerator" path="classes/GFAccessGenerator.xml" sourcePath="addons/gf/kernel/editor/gf_access_generator.gd" extends="RefCounted" />
 		<class name="GFArchitecture" path="classes/GFArchitecture.xml" sourcePath="addons/gf/kernel/core/gf_architecture.gd" extends="Object" />
@@ -80,7 +80,7 @@
 		<class name="GFWeakMethodInvocation" path="classes/GFWeakMethodInvocation.xml" sourcePath="addons/gf/kernel/core/gf_weak_method_invocation.gd" extends="RefCounted" />
 		<autoload name="Gf" path="autoloads/Gf.xml" sourcePath="addons/gf/kernel/core/gf.gd" extends="Node" packageId="gf.kernel" />
 	</module>
-	<module id="standard" label="Standard" classCount="478" methodCount="4825" autoloadCount="0" autoloadMethodCount="0">
+	<module id="standard" label="Standard" classCount="479" methodCount="4804" autoloadCount="0" autoloadMethodCount="0">
 		<class name="GFActivationTransaction" path="classes/GFActivationTransaction.xml" sourcePath="addons/gf/standard/foundation/policy/gf_activation_transaction.gd" extends="RefCounted" />
 		<class name="GFAnalyticsConfig" path="classes/GFAnalyticsConfig.xml" sourcePath="addons/gf/standard/utilities/analytics/gf_analytics_config.gd" extends="Resource" />
 		<class name="GFAnalyticsEventSchema" path="classes/GFAnalyticsEventSchema.xml" sourcePath="addons/gf/standard/utilities/analytics/gf_analytics_event_schema.gd" extends="Resource" />
@@ -328,7 +328,8 @@
 		<class name="GFNumberFormatter" path="classes/GFNumberFormatter.xml" sourcePath="addons/gf/standard/foundation/formatting/gf_number_formatter.gd" extends="RefCounted" />
 		<class name="GFNumericModifierMath" path="classes/GFNumericModifierMath.xml" sourcePath="addons/gf/standard/foundation/math/gf_numeric_modifier_math.gd" extends="RefCounted" />
 		<class name="GFObjectCandidateRegistry" path="classes/GFObjectCandidateRegistry.xml" sourcePath="addons/gf/standard/common/gf_object_candidate_registry.gd" extends="RefCounted" />
-		<class name="GFObjectPoolPrewarmOperation" path="classes/GFObjectPoolPrewarmOperation.xml" sourcePath="addons/gf/standard/utilities/nodes/gf_object_pool_prewarm_operation.gd" extends="RefCounted" />
+		<class name="GFObjectPoolAcquireResult" path="classes/GFObjectPoolAcquireResult.xml" sourcePath="addons/gf/standard/utilities/nodes/gf_object_pool_acquire_result.gd" extends="RefCounted" />
+		<class name="GFObjectPoolLease" path="classes/GFObjectPoolLease.xml" sourcePath="addons/gf/standard/utilities/nodes/gf_object_pool_lease.gd" extends="RefCounted" />
 		<class name="GFObjectPoolPrewarmResult" path="classes/GFObjectPoolPrewarmResult.xml" sourcePath="addons/gf/standard/utilities/nodes/gf_object_pool_prewarm_result.gd" extends="RefCounted" />
 		<class name="GFObjectPoolUtility" path="classes/GFObjectPoolUtility.xml" sourcePath="addons/gf/standard/utilities/nodes/gf_object_pool_utility.gd" extends="GFUtility" />
 		<class name="GFObservableArrayResource" path="classes/GFObservableArrayResource.xml" sourcePath="addons/gf/standard/foundation/collections/gf_observable_array_resource.gd" extends="Resource" />
@@ -630,7 +631,7 @@
 		<class name="GFNodeCapability" path="classes/GFNodeCapability.xml" sourcePath="addons/gf/extensions/capability/nodes/gf_node_capability.gd" extends="Node" />
 		<class name="GFPropertyBagCapability" path="classes/GFPropertyBagCapability.xml" sourcePath="addons/gf/extensions/capability/core/gf_property_bag_capability.gd" extends="GFCapability" />
 	</module>
-	<module id="extensions/combat" label="Combat" classCount="71" methodCount="349" autoloadCount="0" autoloadMethodCount="0">
+	<module id="extensions/combat" label="Combat" classCount="71" methodCount="346" autoloadCount="0" autoloadMethodCount="0">
 		<class name="GFBuff" path="classes/GFBuff.xml" sourcePath="addons/gf/extensions/combat/attributes/gf_buff.gd" extends="RefCounted" />
 		<class name="GFBuffCheck" path="classes/GFBuffCheck.xml" sourcePath="addons/gf/extensions/combat/attributes/gf_buff_check.gd" extends="Resource" />
 		<class name="GFBuffEffect" path="classes/GFBuffEffect.xml" sourcePath="addons/gf/extensions/combat/attributes/gf_buff_effect.gd" extends="Resource" />
@@ -679,7 +680,7 @@
 		<class name="GFProjectileDefinition2D" path="classes/GFProjectileDefinition2D.xml" sourcePath="addons/gf/extensions/combat/projectiles/gf_projectile_definition_2d.gd" extends="GFProjectileDefinition" />
 		<class name="GFProjectileDefinition3D" path="classes/GFProjectileDefinition3D.xml" sourcePath="addons/gf/extensions/combat/projectiles/gf_projectile_definition_3d.gd" extends="GFProjectileDefinition" />
 		<class name="GFProjectileEmissionPolicy" path="classes/GFProjectileEmissionPolicy.xml" sourcePath="addons/gf/extensions/combat/projectiles/gf_projectile_emission_policy.gd" extends="Resource" />
-		<class name="GFProjectileEmissionTask" path="classes/GFProjectileEmissionTask.xml" sourcePath="addons/gf/extensions/combat/projectiles/gf_projectile_emission_task.gd" extends="RefCounted" />
+		<class name="GFProjectileEmissionResult" path="classes/GFProjectileEmissionResult.xml" sourcePath="addons/gf/extensions/combat/projectiles/gf_projectile_emission_result.gd" extends="RefCounted" />
 		<class name="GFProjectileEmitter2D" path="classes/GFProjectileEmitter2D.xml" sourcePath="addons/gf/extensions/combat/projectiles/gf_projectile_emitter_2d.gd" extends="Node2D" />
 		<class name="GFProjectileEmitter3D" path="classes/GFProjectileEmitter3D.xml" sourcePath="addons/gf/extensions/combat/projectiles/gf_projectile_emitter_3d.gd" extends="Node3D" />
 		<class name="GFProjectileLaunchInput2D" path="classes/GFProjectileLaunchInput2D.xml" sourcePath="addons/gf/extensions/combat/projectiles/gf_projectile_launch_input_2d.gd" extends="Resource" />

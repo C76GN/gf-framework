@@ -1,7 +1,7 @@
 ## GFAudioUtility: 全局音频管理器。
 ##
 ## 管理 BGM 和 SFX 的播放与音量。
-## 注册 GFObjectPoolUtility 时会复用 AudioStreamPlayer，未注册时使用普通播放器。
+## 普通 SFX 播放器由本工具缓存复用，不依赖通用对象池。
 ## 支持通过 GFAssetUtility 异步加载音频资源。
 ## [br]
 ## @api public
@@ -99,11 +99,15 @@ const _MAX_STABLE_ID: int = 9223372036854775807
 # --- 公共变量 ---
 
 ## 普通与空间 SFX 共用的并发播放数量上限；小于等于 0 表示不限制。
+## 空闲普通播放器只占剩余容量，不挤占新播放请求；降低上限不会中止已有播放。
 ## [br]
 ## @api public
 ## [br]
 ## @since 8.0.0
-var max_sfx_players: int = 32
+var max_sfx_players: int = 32:
+	set(value):
+		max_sfx_players = value
+		_trim_idle_sfx_players()
 
 ## 已停止环境音播放器的最大空闲缓存数量；0 表示停止后立即释放。
 ## 活动本地会话和 backend-owned 会话不计入此空闲缓存。
@@ -136,7 +140,7 @@ var max_bgm_history: int = 16
 
 var _bgm_player: AudioStreamPlayer
 var _bgm_fade_player: AudioStreamPlayer
-var _sfx_scene: PackedScene
+var _idle_sfx_players: Array[AudioStreamPlayer] = []
 var _root: Node
 var _bgm_pending_request_counter: int = 0
 var _bgm_pending_request_token: int = 0
@@ -250,6 +254,7 @@ func init() -> void:
 	_playback_sessions.clear()
 	_missing_bus_warnings.clear()
 	_active_sfx_players.clear()
+	_idle_sfx_players.clear()
 	_active_spatial_sfx_players.clear()
 	_retiring_sfx_players.clear()
 	_retiring_spatial_sfx_players.clear()
@@ -274,13 +279,6 @@ func init() -> void:
 	_bus_generation_counter += 1
 	_bus_transaction_generations.clear()
 	_duck_bus_states.clear()
-	# 动态创建用于可选池化的 SFX 播放器模版
-	var player_template: AudioStreamPlayer = AudioStreamPlayer.new()
-	_reset_sfx_player_for_reuse(player_template)
-	_sfx_scene = PackedScene.new()
-	_pack_scene_template(_sfx_scene, player_template)
-	player_template.free()
-	
 	_bgm_player = AudioStreamPlayer.new()
 	_bgm_player.name = "GFBGMPlayer"
 	_bgm_player.bus = _resolve_bus_name(BGM_BUS_NAME)
@@ -2038,9 +2036,11 @@ func stop_all_sfx(fade_seconds: float = 0.0) -> void:
 	_release_all_spatial_sfx_players(safe_fade)
 
 
-## 播放 SFX（音效），自动从池中分配播放器
+## 播放 SFX（音效），从本工具缓存取得或创建播放器。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 ## [br]
 ## @param path: 音频资源的路径
 func play_sfx(path: String) -> void:
@@ -3169,6 +3169,7 @@ func _dispose_audio_now() -> void:
 		_audio_backend = null
 	_release_all_sfx_players(0.0)
 	_release_all_spatial_sfx_players(0.0)
+	_free_idle_sfx_players()
 	_free_all_ambient_players()
 	_complete_all_playback_session_handles()
 	_playback_session_handles.clear()
@@ -3205,8 +3206,6 @@ func _dispose_audio_now() -> void:
 	_emit_bgm_session_handles(terminal_handles)
 	if not deferred_natural_history_key.is_empty():
 		bgm_finished.emit(deferred_natural_history_key)
-
-	# SFX 节点已由 _release_all_sfx_players() 统一释放。
 
 
 func _post_audio_event_locally(
@@ -3306,12 +3305,6 @@ func _play_sfx_clip_handle_for_channel(
 			)
 		asset_util.load_async(request_clip.path, on_loaded)
 	return handle
-
-
-func _pack_scene_template(scene: PackedScene, template: Node) -> void:
-	var error: Error = scene.pack(template)
-	if error != OK:
-		push_error("[GFAudioUtility] 创建播放器模板场景失败：%s" % error_string(error))
 
 
 func _connect_signal_checked(source_signal: Signal, callback: Callable, flags: int = 0) -> void:
@@ -6866,6 +6859,7 @@ func _play_spatial_sfx_clip(clip: GFAudioClip, source: Node, follow_source: bool
 		return null
 
 	player.name = "GFSpatialSFXPlayer"
+	_trim_idle_sfx_players(1)
 	parent.add_child(player)
 	var _playback_session_id: int = _begin_playback_session(player)
 	if player is AudioStreamPlayer3D:
@@ -10807,39 +10801,37 @@ func _play_sfx_stream_with_settings(
 	pitch_scale: float,
 	start_seconds: float = 0.0
 ) -> AudioStreamPlayer:
-	if stream == null or not is_instance_valid(_root):
+	if stream == null or not _is_initialized or not _is_live_audio_root(_root):
 		return null
 
 	if not _ensure_sfx_capacity_available():
 		return null
 
-	var pool: GFObjectPoolUtility = _get_pool_util()
-	var player: AudioStreamPlayer = null
-	if pool != null:
-		player = _get_audio_stream_player_value(
-			pool.acquire(
-				_sfx_scene,
-				_root,
-				Callable(self, "_reset_sfx_pool_node_for_acquire")
-			)
-		)
-	else:
-		player = AudioStreamPlayer.new()
-		_reset_sfx_player_for_reuse(player)
-		_root.add_child(player)
-
-	if player != null:
-		var playback_session_id: int = _begin_playback_session(player)
-		player.bus = _resolve_bus_name(bus_name)
-		player.volume_db = _finite_or_default(volume_db, 0.0)
-		player.pitch_scale = _finite_or_default(pitch_scale, 1.0)
-		player.stream = stream
-		var finished_callback: Callable = _get_sfx_finished_callback(player, playback_session_id)
-		if not player.finished.is_connected(finished_callback):
-			_connect_signal_checked(player.finished, finished_callback, CONNECT_ONE_SHOT)
-		_track_sfx_player(player)
-		player.play(start_seconds)
-		_set_playback_session_state(player, playback_session_id, _STATE_PLAYING)
+	var request_serial: int = _sfx_lifecycle_serial
+	var playback_root: Node = _root
+	var player: AudioStreamPlayer = _take_sfx_player()
+	var playback_session_id: int = _begin_playback_session(player)
+	player.bus = _resolve_bus_name(bus_name)
+	player.volume_db = _finite_or_default(volume_db, 0.0)
+	player.pitch_scale = _finite_or_default(pitch_scale, 1.0)
+	player.stream = stream
+	var finished_callback: Callable = _get_sfx_finished_callback(player, playback_session_id)
+	_connect_signal_checked(player.finished, finished_callback, CONNECT_ONE_SHOT)
+	_track_sfx_player(player)
+	if player.get_parent() == null:
+		playback_root.add_child(player)
+	if (
+		request_serial != _sfx_lifecycle_serial
+		or not _is_initialized
+		or not is_instance_valid(player)
+		or player.is_queued_for_deletion()
+		or player.get_parent() != playback_root
+		or not _is_playback_session_current(player, playback_session_id)
+	):
+		_finish_release_sfx_player(player, playback_session_id)
+		return null
+	player.play(start_seconds)
+	_set_playback_session_state(player, playback_session_id, _STATE_PLAYING)
 	return player
 
 
@@ -10903,15 +10895,6 @@ func _get_asset_util() -> GFAssetUtility:
 	if arch != null and arch.has_method("get_utility"):
 		var util_value: Variant = arch.call("get_utility", GFAssetUtility)
 		if util_value is GFAssetUtility:
-			return util_value
-	return null
-
-
-func _get_pool_util() -> GFObjectPoolUtility:
-	var arch: Object = _get_architecture_or_null()
-	if arch != null and arch.has_method("get_utility"):
-		var util_value: Variant = arch.call("get_utility", GFObjectPoolUtility)
-		if util_value is GFObjectPoolUtility:
 			return util_value
 	return null
 
@@ -11276,11 +11259,17 @@ func _finish_release_sfx_player(player: AudioStreamPlayer, playback_session_id: 
 	player.stop()
 	_reset_sfx_player_for_reuse(player)
 
-	var pool: GFObjectPoolUtility = _get_pool_util()
-	if pool != null and is_instance_valid(_sfx_scene):
-		pool.release(player, _sfx_scene)
-	else:
+	if (
+		_audio_dispose_in_progress
+		or not _is_initialized
+		or not _is_live_audio_root(_root)
+		or player.is_queued_for_deletion()
+		or player.get_parent() != _root
+	):
 		player.queue_free()
+		return
+	_idle_sfx_players.append(player)
+	_trim_idle_sfx_players()
 
 
 func _release_spatial_sfx_player(player: Node, fade_seconds: float = 0.0) -> void:
@@ -11439,10 +11428,44 @@ func _reset_sfx_player_for_reuse(player: AudioStreamPlayer) -> void:
 	player.playback_type = AudioServer.PLAYBACK_TYPE_DEFAULT
 
 
-func _reset_sfx_pool_node_for_acquire(node: Node) -> void:
-	if node is AudioStreamPlayer:
-		var player: AudioStreamPlayer = node
-		_reset_sfx_player_for_reuse(player)
+func _take_sfx_player() -> AudioStreamPlayer:
+	_trim_idle_sfx_players()
+	var player: AudioStreamPlayer = null
+	if not _idle_sfx_players.is_empty():
+		player = _get_audio_stream_player_value(_idle_sfx_players.pop_back())
+	else:
+		player = AudioStreamPlayer.new()
+	_reset_sfx_player_for_reuse(player)
+	return player
+
+
+func _trim_idle_sfx_players(reserved_slots: int = 0) -> void:
+	for index: int in range(_idle_sfx_players.size() - 1, -1, -1):
+		var player: AudioStreamPlayer = _idle_sfx_players[index]
+		if not is_instance_valid(player):
+			_idle_sfx_players.remove_at(index)
+			continue
+		if (
+			player.is_queued_for_deletion()
+			or not _is_live_audio_root(_root)
+			or player.get_parent() != _root
+		):
+			_idle_sfx_players.remove_at(index)
+			player.queue_free()
+	if max_sfx_players <= 0:
+		return
+	var available_slots: int = maxi(max_sfx_players - _get_tracked_sfx_count() - reserved_slots, 0)
+	while _idle_sfx_players.size() > available_slots:
+		var player: AudioStreamPlayer = _get_audio_stream_player_value(_idle_sfx_players.pop_back())
+		player.queue_free()
+
+
+func _free_idle_sfx_players() -> void:
+	var players: Array[AudioStreamPlayer] = _idle_sfx_players
+	_idle_sfx_players = []
+	for player: AudioStreamPlayer in players:
+		if is_instance_valid(player):
+			player.queue_free()
 
 
 func _get_sfx_finished_callback(player: AudioStreamPlayer, playback_session_id: int) -> Callable:

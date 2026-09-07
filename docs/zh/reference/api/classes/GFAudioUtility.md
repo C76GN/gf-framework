@@ -9,7 +9,7 @@
 - 类别：运行时服务 (`runtime_service`)
 - 首次版本：`3.17.0`
 
-全局音频管理器。 管理 BGM 和 SFX 的播放与音量。 注册 GFObjectPoolUtility 时会复用 AudioStreamPlayer，未注册时使用普通播放器。 支持通过 GFAssetUtility 异步加载音频资源。
+全局音频管理器。 管理 BGM 和 SFX 的播放与音量。 普通 SFX 播放器由本工具缓存复用，不依赖通用对象池。 支持通过 GFAssetUtility 异步加载音频资源。
 
 ## 成员概览
 
@@ -21,7 +21,7 @@
 | 常量 | [`BGM_BUS_NAME`](#member-gfaudioutility-constants-bgm_bus_name) | `const BGM_BUS_NAME: String = "BGM"` |
 | 常量 | [`SFX_BUS_NAME`](#member-gfaudioutility-constants-sfx_bus_name) | `const SFX_BUS_NAME: String = "SFX"` |
 | 常量 | [`SILENCE_VOLUME_DB`](#member-gfaudioutility-constants-silence_volume_db) | `const SILENCE_VOLUME_DB: float = -80.0` |
-| 属性 | [`max_sfx_players`](#member-gfaudioutility-properties-max_sfx_players) | `var max_sfx_players: int = 32` |
+| 属性 | [`max_sfx_players`](#member-gfaudioutility-properties-max_sfx_players) | `var max_sfx_players: int = 32:` |
 | 属性 | [`max_idle_ambient_players`](#member-gfaudioutility-properties-max_idle_ambient_players) | `var max_idle_ambient_players: int = 16:` |
 | 属性 | [`sfx_overflow_policy`](#member-gfaudioutility-properties-sfx_overflow_policy) | `var sfx_overflow_policy: SFXOverflowPolicy = SFXOverflowPolicy.SKIP_NEW` |
 | 属性 | [`bgm_crossfade_seconds`](#member-gfaudioutility-properties-bgm_crossfade_seconds) | `var bgm_crossfade_seconds: float = 0.0` |
@@ -203,10 +203,10 @@ GF 默认视为静音下限的 dB 值。
 - 首次版本：`8.0.0`
 
 ```gdscript
-var max_sfx_players: int = 32
+var max_sfx_players: int = 32:
 ```
 
-普通与空间 SFX 共用的并发播放数量上限；小于等于 0 表示不限制。
+普通与空间 SFX 共用的并发播放数量上限；小于等于 0 表示不限制。 空闲普通播放器只占剩余容量，不挤占新播放请求；降低上限不会中止已有播放。
 
 <a id="member-gfaudioutility-properties-max_idle_ambient_players"></a>
 
@@ -1022,12 +1022,13 @@ func stop_all_sfx(fade_seconds: float = 0.0) -> void:
 ### `play_sfx`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func play_sfx(path: String) -> void:
 ```
 
-播放 SFX（音效），自动从池中分配播放器
+播放 SFX（音效），从本工具缓存取得或创建播放器。
 
 参数：
 

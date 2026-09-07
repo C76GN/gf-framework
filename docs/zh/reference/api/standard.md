@@ -6,11 +6,11 @@
 
 | 类别 | 类 | 成员 | 方法 |
 |---|---:|---:|---:|
-| [运行时服务](#category-runtime_service) | 193 | 3485 | 2365 |
+| [运行时服务](#category-runtime_service) | 193 | 3475 | 2359 |
 | [协议与扩展点](#category-protocol) | 26 | 345 | 273 |
 | [资源定义](#category-resource_definition) | 122 | 1573 | 797 |
-| [运行时句柄](#category-runtime_handle) | 56 | 961 | 617 |
-| [值对象](#category-value_object) | 57 | 1009 | 635 |
+| [运行时句柄](#category-runtime_handle) | 56 | 950 | 606 |
+| [值对象](#category-value_object) | 58 | 985 | 631 |
 | [领域模型](#category-domain_model) | 4 | 61 | 42 |
 | [事件契约](#category-event_contract) | 6 | 61 | 23 |
 | [编辑器 API](#category-editor_api) | 11 | 70 | 48 |
@@ -418,7 +418,7 @@
 | [`GFJob`](classes/GFJob.md#gfjob) | `RefCounted` | `addons/gf/standard/utilities/jobs/gf_job.gd` |
 | [`GFManualTimerQueue`](classes/GFManualTimerQueue.md#gfmanualtimerqueue) | `RefCounted` | `addons/gf/standard/utilities/time/gf_manual_timer_queue.gd` |
 | [`GFNodeStateGroup`](classes/GFNodeStateGroup.md#gfnodestategroup) | `Node` | `addons/gf/standard/state_machine/node/gf_node_state_group.gd` |
-| [`GFObjectPoolPrewarmOperation`](classes/GFObjectPoolPrewarmOperation.md#gfobjectpoolprewarmoperation) | `RefCounted` | `addons/gf/standard/utilities/nodes/gf_object_pool_prewarm_operation.gd` |
+| [`GFObjectPoolLease`](classes/GFObjectPoolLease.md#gfobjectpoollease) | `RefCounted` | `addons/gf/standard/utilities/nodes/gf_object_pool_lease.gd` |
 | [`GFPlatformRequestHandle`](classes/GFPlatformRequestHandle.md#gfplatformrequesthandle) | `RefCounted` | `addons/gf/standard/platform/gf_platform_request_handle.gd` |
 | [`GFPointerCapture`](classes/GFPointerCapture.md#gfpointercapture) | `RefCounted` | `addons/gf/standard/input/common/gf_pointer_capture.gd` |
 | [`GFProtocolAckLedger`](classes/GFProtocolAckLedger.md#gfprotocolackledger) | `RefCounted` | `addons/gf/standard/utilities/io/gf_protocol_ack_ledger.gd` |
@@ -474,6 +474,7 @@
 | [`GFInputEventIdentity`](classes/GFInputEventIdentity.md#gfinputeventidentity) | `RefCounted` | `addons/gf/standard/input/common/gf_input_event_identity.gd` |
 | [`GFMetricSeries`](classes/GFMetricSeries.md#gfmetricseries) | `RefCounted` | `addons/gf/standard/utilities/debug/gf_metric_series.gd` |
 | [`GFModalResult`](classes/GFModalResult.md#gfmodalresult) | `RefCounted` | `addons/gf/standard/utilities/ui/gf_modal_result.gd` |
+| [`GFObjectPoolAcquireResult`](classes/GFObjectPoolAcquireResult.md#gfobjectpoolacquireresult) | `RefCounted` | `addons/gf/standard/utilities/nodes/gf_object_pool_acquire_result.gd` |
 | [`GFObjectPoolPrewarmResult`](classes/GFObjectPoolPrewarmResult.md#gfobjectpoolprewarmresult) | `RefCounted` | `addons/gf/standard/utilities/nodes/gf_object_pool_prewarm_result.gd` |
 | [`GFPriorityQueue`](classes/GFPriorityQueue.md#gfpriorityqueue) | `RefCounted` | `addons/gf/standard/foundation/collections/gf_priority_queue.gd` |
 | [`GFPriorityWorkQueue`](classes/GFPriorityWorkQueue.md#gfpriorityworkqueue) | `RefCounted` | `addons/gf/standard/foundation/collections/gf_priority_work_queue.gd` |

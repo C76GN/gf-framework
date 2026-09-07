@@ -1,15 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFObjectPoolUtility" path="addons/gf/standard/utilities/nodes/gf_object_pool_utility.gd" module="standard" extends="GFUtility" classDigest="d0ca904857ea8ad3150ba581aebe0d558264f32332adf13e6f1a3c63cc71a4d3">
-	<description>GFObjectPoolUtility: 节点对象池管理器。
-继承自 GFUtility，管理 Node 对象的实例化与回收，
-避免高频 instance/free 操作带来的内存碎片和性能抖动。
-适合管理大量同类对象，如子弹、敌人单位、特效粒子、棋盘方块等。
-内部使用 Node metadata 键 _gf_pool_active 跟踪节点使用状态，
-因此兼容任意 Node 子类型（无需 CanvasItem/visible 支持）。
-工作流程：
-1. 调用 acquire(scene, parent) 从池中取出一个可用节点（或自动实例化）。
-2. 对节点进行配置使用。
-3. 对象生命周期结束后，调用 release(node, scene) 将其归还至池中。</description>
+<class name="GFObjectPoolUtility" path="addons/gf/standard/utilities/nodes/gf_object_pool_utility.gd" module="standard" extends="GFUtility" classDigest="6aa6c59a78479eb39a6ce44206160dda0b7c2672322ace58b818c569c46a2a5d">
+	<description>GFObjectPoolUtility: 在安全点借出和归还节点的对象池。
+空闲实例完全离树；借出时返回一次性 Lease。所有挂载、脱树及清理均在主线程
+deferred 安全点执行。根节点可实现同步 on_gf_pool_prepare(context) -&gt; Error，
+在每次入树前写入本次数据；该方法不得 await、释放根节点或改变根节点父级。
+普通进入/退出场景树的初始化与清理由节点自己的 Godot 生命周期方法负责。</description>
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">runtime_service</tag>
@@ -17,198 +12,100 @@
 	</tags>
 	<signals />
 	<enums />
-	<constants>
-		<member kind="const" name="HOOK_ON_RELEASE">
-			<signature>const HOOK_ON_RELEASE: StringName = &amp;"on_gf_pool_release"</signature>
-			<description>节点可选实现：归还对象池前调用，用于清理 Tween、临时信号、运行时状态等。</description>
-			<tags>
-				<tag name="api">public</tag>
-			</tags>
-		</member>
-		<member kind="const" name="HOOK_ON_ACQUIRE">
-			<signature>const HOOK_ON_ACQUIRE: StringName = &amp;"on_gf_pool_acquire"</signature>
-			<description>节点可选实现：从对象池取出并恢复激活后调用，用于重置本次使用状态。</description>
-			<tags>
-				<tag name="api">public</tag>
-			</tags>
-		</member>
-	</constants>
+	<constants />
 	<properties>
 		<member kind="property" name="max_available_per_scene">
 			<signature>var max_available_per_scene: int = 0</signature>
-			<description>每个 PackedScene 最多保留的可用节点数量。为 0 时不限制。</description>
+			<description>每个场景最多缓存的空闲实例数；0 不限制，-1 归还时直接销毁。</description>
 			<tags>
 				<tag name="api">public</tag>
-			</tags>
-		</member>
-		<member kind="property" name="manage_descendant_active_state">
-			<signature>var manage_descendant_active_state: bool = true</signature>
-			<description>是否递归管理子节点的 process_mode、visible 与 disabled 状态。</description>
-			<tags>
-				<tag name="api">public</tag>
-			</tags>
-		</member>
-		<member kind="property" name="prune_invalid_on_each_operation">
-			<signature>var prune_invalid_on_each_operation: bool = true</signature>
-			<description>是否在 acquire/release/count 等高频操作前立即清理失效节点。</description>
-			<tags>
-				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 	</properties>
 	<methods>
-		<member kind="method" name="init">
-			<signature>func init() -&gt; void:</signature>
-			<description>第一阶段初始化：清空内部池字典。</description>
+		<member kind="method" name="begin_quiesce">
+			<signature>func begin_quiesce(_scope: GFAsyncScope) -&gt; GFAsyncCompletion:</signature>
+			<description>停止接纳新工作，并等待安全点清理及全部已接纳请求与 Lease 的终态通知。
+取消静默等待不会取消节点清理；强制退出后仍可单独等待 wait_disposed。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="param">_scope: 当前静默阶段的取消作用域，不拥有实际节点清理。</tag>
+				<tag name="return">本次静默等待的一次性完成源。</tag>
+				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="dispose">
 			<signature>func dispose() -&gt; void:</signature>
-			<description>销毁阶段：释放所有池中的节点。</description>
+			<description>立即停止接纳新借用并吊销现有 Lease，在安全点完成节点清理。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="acquire">
-			<signature>func acquire(scene: PackedScene, parent: Node, before_add: Callable = Callable()) -&gt; Node:</signature>
-			<description>从池中获取一个节点实例。若池为空则自动实例化并加入父节点。</description>
+			<signature>func acquire( scene: PackedScene, parent: Node, lifetime_owner: Object, context: Dictionary = {} ) -&gt; GFObjectPoolAcquireResult:</signature>
+			<description>在安全点取得一个完成入树准备的实例。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="param">scene: 要实例化的 PackedScene 资源。</tag>
-				<tag name="param">parent: 借出的节点将加入或移动到此父节点；释放时会移动到内部池根节点。</tag>
-				<tag name="param">before_add: 可选入树前回调，签名为 `func(node: Node) -&gt; void`。</tag>
-				<tag name="return">可直接使用的节点实例。</tag>
+				<tag name="param">scene: 实例来源。</tag>
+				<tag name="param">parent: 必须位于运行中的 SceneTree，等待期间离树或被删除将取消请求。</tag>
+				<tag name="param">lifetime_owner: 必填弱引用生命周期锚点；等待期间销毁或 Node 离树会取消请求，成功交付后不再跟踪 owner，也不自动归还 Lease。</tag>
+				<tag name="param">context: 传给根节点 on_gf_pool_prepare 的本次初始化数据。</tag>
+				<tag name="return">本次借用的结构化结果；成功后由调用方持有并归还 Lease。</tag>
+				<tag name="schema">context: Dictionary；接受请求时深复制嵌套容器，Object 值保留身份，调用方应在等待期间保持所引用对象只读；不得用 context 传递所有权回调。</tag>
 				<tag name="since">8.0.0</tag>
-			</tags>
-		</member>
-		<member kind="method" name="release">
-			<signature>func release(node: Node, scene: PackedScene) -&gt; void:</signature>
-			<description>将节点归还到对象池，隐藏它以待下次复用。</description>
-			<tags>
-				<tag name="api">public</tag>
-				<tag name="param">node: 要归还的节点实例（必须由此工具创建）。</tag>
-				<tag name="param">scene: 该节点所属的 PackedScene 资源，用于匹配正确的池。</tag>
 			</tags>
 		</member>
 		<member kind="method" name="prewarm">
-			<signature>func prewarm(scene: PackedScene, parent: Node, count: int, before_add: Callable = Callable()) -&gt; void:</signature>
-			<description>预热对象池，预先实例化指定数量的节点以避免首次使用时的卡顿。</description>
+			<signature>func prewarm( scene: PackedScene, count: int, batch_size: int = 32, cancellation_token: GFCancellationToken = null ) -&gt; GFObjectPoolPrewarmResult:</signature>
+			<description>分帧预分配离树实例，不执行 prepare、enter_tree 或 ready。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="param">scene: 要预热的 PackedScene 资源。</tag>
-				<tag name="param">parent: 预热节点将加入此父节点。</tag>
-				<tag name="param">count: 预热的数量。</tag>
-				<tag name="param">before_add: 可选入树前回调，签名为 `func(node: Node) -&gt; void`。</tag>
+				<tag name="param">scene: 实例来源。</tag>
+				<tag name="param">count: 本次希望新增的数量；0 为成功空操作，负数无效。</tag>
+				<tag name="param">batch_size: 每次安全点最多创建的数量，必须为正数。</tag>
+				<tag name="param">cancellation_token: 可选取消令牌；已缓存的实例不会因取消被回滚。</tag>
+				<tag name="return">请求完成时的创建数量与最终原因。</tag>
 				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>
-		<member kind="method" name="prewarm_async">
-			<signature>func prewarm_async( scene: PackedScene, parent: Node, count: int, batch_size: int = 32, before_add: Callable = Callable() ) -&gt; void:</signature>
-			<description>分批预热对象池，避免一次性实例化大量节点造成单帧卡顿。</description>
+		<member kind="method" name="wait_disposed">
+			<signature>func wait_disposed() -&gt; void:</signature>
+			<description>等待 dispose 已发起的节点清理及全部已接纳请求与 Lease 的终态通知；允许在完成后重复等待。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="param">scene: 要预热的 PackedScene 资源。</tag>
-				<tag name="param">parent: 预热节点将加入此父节点。</tag>
-				<tag name="param">count: 预热的数量。</tag>
-				<tag name="param">batch_size: 每帧最多实例化数量；小于等于 0 时退化为同步预热。</tag>
-				<tag name="param">before_add: 可选入树前回调，签名为 `func(node: Node) -&gt; void`。</tag>
-				<tag name="since">8.0.0</tag>
-			</tags>
-		</member>
-		<member kind="method" name="prewarm_async_budget">
-			<signature>func prewarm_async_budget( scene: PackedScene, parent: Node, count: int, msec_budget_per_frame: float = 8.0, before_add: Callable = Callable() ) -&gt; void:</signature>
-			<description>按单帧时间预算预热对象池，适合复杂度差异较大的 PackedScene。</description>
-			<tags>
-				<tag name="api">public</tag>
-				<tag name="param">scene: 要预热的 PackedScene 资源。</tag>
-				<tag name="param">parent: 预热节点将加入此父节点。</tag>
-				<tag name="param">count: 预热的数量。</tag>
-				<tag name="param">msec_budget_per_frame: 每帧实例化预算毫秒数；小于等于 0 时退化为同步预热。</tag>
-				<tag name="param">before_add: 可选入树前回调，签名为 `func(node: Node) -&gt; void`。</tag>
-				<tag name="since">8.0.0</tag>
-			</tags>
-		</member>
-		<member kind="method" name="prewarm_request_async">
-			<signature>func prewarm_request_async( scene: PackedScene, parent: Node, count: int, batch_size: int = 32, owner: Object = null, cancellation_token: GFCancellationToken = null, prepare_callback: Callable = Callable() ) -&gt; GFObjectPoolPrewarmOperation:</signature>
-			<description>创建一个按每帧批量驱动的 request-scoped 类型化预热请求。
-请求只释放自身尚未消费的容量 reservation；取消不会回滚已经提交的节点。
-`batch_size &lt;= 0` 时保留旧 API 的同步退化语义。同步终态可能在方法返回前完成。
-该入口只接受主线程调用；其他线程会同步返回 `INVALID/main_thread_required`，且不改变池状态。</description>
-			<tags>
-				<tag name="api">public</tag>
-				<tag name="param">scene: 要预热的 PackedScene 资源。</tag>
-				<tag name="param">parent: 可选挂载父节点；null 表示 detached prewarm。</tag>
-				<tag name="param">count: 请求数量；0 立即完成，负数返回 INVALID。</tag>
-				<tag name="param">batch_size: 每帧最多创建数量；小于等于 0 时同步执行。</tag>
-				<tag name="param">owner: 可选请求生命周期 owner；Node 必须已在场景树中。</tag>
-				<tag name="param">cancellation_token: 可选取消令牌或 GFAsyncScope。</tag>
-				<tag name="param">prepare_callback: 可选 `func(node: Node) -&gt; Error`；非 OK 终止请求。</tag>
-				<tag name="return">请求专属 Operation；调用方应先检查同步终态再连接 completed。</tag>
-				<tag name="since">11.0.0</tag>
-			</tags>
-		</member>
-		<member kind="method" name="prewarm_budget_request_async">
-			<signature>func prewarm_budget_request_async( scene: PackedScene, parent: Node, count: int, msec_budget_per_frame: float = 8.0, owner: Object = null, cancellation_token: GFCancellationToken = null, prepare_callback: Callable = Callable() ) -&gt; GFObjectPoolPrewarmOperation:</signature>
-			<description>创建一个按每帧时间预算驱动的 request-scoped 类型化预热请求。
-请求只释放自身尚未消费的容量 reservation；取消不会回滚已经提交的节点。
-`msec_budget_per_frame &lt;= 0` 时保留旧 API 的同步退化语义。
-该入口只接受主线程调用；其他线程会同步返回 `INVALID/main_thread_required`，且不改变池状态。</description>
-			<tags>
-				<tag name="api">public</tag>
-				<tag name="param">scene: 要预热的 PackedScene 资源。</tag>
-				<tag name="param">parent: 可选挂载父节点；null 表示 detached prewarm。</tag>
-				<tag name="param">count: 请求数量；0 立即完成，负数返回 INVALID。</tag>
-				<tag name="param">msec_budget_per_frame: 每帧预算；小于等于 0 时同步执行。</tag>
-				<tag name="param">owner: 可选请求生命周期 owner；Node 必须已在场景树中。</tag>
-				<tag name="param">cancellation_token: 可选取消令牌或 GFAsyncScope。</tag>
-				<tag name="param">prepare_callback: 可选 `func(node: Node) -&gt; Error`；非 OK 终止请求。</tag>
-				<tag name="return">请求专属 Operation；调用方应先检查同步终态再连接 completed。</tag>
-				<tag name="since">11.0.0</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_available_count">
 			<signature>func get_available_count(scene: PackedScene) -&gt; int:</signature>
-			<description>获取指定场景当前池中可用（未使用）的节点数量。</description>
+			<description>获取当前仍存活的离树缓存数量。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="param">scene: 要查询的 PackedScene 资源。</tag>
-				<tag name="return">池中可用节点数量。</tag>
+				<tag name="param">scene: 实例来源。</tag>
+				<tag name="return">当前可以借出的实例数量。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_active_count">
 			<signature>func get_active_count(scene: PackedScene) -&gt; int:</signature>
-			<description>获取指定场景当前正在使用中的节点数量。</description>
+			<description>获取当前仍由 Lease 持有使用权的实例数量。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="param">scene: 要查询的 PackedScene 资源。</tag>
-				<tag name="return">当前激活节点数量。</tag>
-			</tags>
-		</member>
-		<member kind="method" name="get_active_nodes">
-			<signature>func get_active_nodes(scene: PackedScene) -&gt; Array[Node]:</signature>
-			<description>获取指定场景当前正在使用中的节点列表。</description>
-			<tags>
-				<tag name="api">public</tag>
-				<tag name="param">scene: 要查询的 PackedScene 资源。</tag>
-				<tag name="return">当前激活节点数组。</tag>
-			</tags>
-		</member>
-		<member kind="method" name="prune_invalid_nodes">
-			<signature>func prune_invalid_nodes() -&gt; void:</signature>
-			<description>主动清理全部池中的失效节点引用。</description>
-			<tags>
-				<tag name="api">public</tag>
+				<tag name="param">scene: 实例来源。</tag>
+				<tag name="return">ACTIVE 借用数量，不含等待归还的实例。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_debug_snapshot">
 			<signature>func get_debug_snapshot() -&gt; Dictionary:</signature>
-			<description>获取对象池诊断快照。</description>
+			<description>获取不含节点或 Lease 的诊断计数快照。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="return">以资源路径或实例 ID 为键的池状态字典。</tag>
-				<tag name="schema">return: Dictionary[String, Dictionary] keyed by PackedScene resource path or instance id, with total, available, and active counts.</tag>
+				<tag name="return">按场景身份分组的计数。</tag>
+				<tag name="schema">return: Dictionary[String, Dictionary]，键为资源路径或场景实例 ID，值含 total、available、active 三个非负整数；等待归还只计入 total。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 	</methods>

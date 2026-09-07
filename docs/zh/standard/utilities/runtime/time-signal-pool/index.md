@@ -10,7 +10,7 @@
 - [异步取消、等待与进度](async-primitives.md)：Kernel 级 `GFCancellationToken`、`GFCancellationSource`、`GFAsyncCompletion`，以及标准层 `GFAsyncWaitUtility`、`GFMainThreadDispatchQueue`、`GFDeferredMutationQueue`、`GFExecutionRequirement`、`GFAsyncKeyedGate`、`GFRequestHandlerRegistry` 与 `GFExecutionLaneDiagnostics`。
 - [按 Key 的异步租约门禁](keyed-gate.md)：`GFAsyncKeyedGate` 的等待、fail-fast、公平推进、取消、超时和通知重入边界。
 - [原生信号连接工具](signal-utility/index.md)：`GFSignalUtility`、链式信号处理、owner 断开和信号桥接。
-- [节点对象池](object-pool.md)：`GFObjectPoolUtility` 的借出、归还、预热、hook 和调试计数。
+- [节点对象池](object-pool.md)：异步借用、Lease 归还、离树预热与每次入树前的准备。
 
 ## 使用边界
 

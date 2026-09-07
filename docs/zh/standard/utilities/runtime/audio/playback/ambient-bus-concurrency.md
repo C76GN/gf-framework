@@ -67,4 +67,6 @@ audio.sfx_overflow_policy = GFAudioUtility.SFXOverflowPolicy.STOP_OLDEST
 audio.stop_all_sfx(0.1)
 ```
 
-`max_sfx_players <= 0` 表示不限制同时播放的 SFX 数量。预算统一统计 GF 创建的普通、2D 和 3D SFX session；正在淡出的 retiring session 在淡出真正结束、播放器停止并归还池之前仍占容量，也会计入调试快照。若 retiring 播放器被项目直接停止，下一次容量、清理或诊断收敛会立即取消旧 Tween、终结 session 并释放容量，不必继续等待原淡出时长。`STOP_OLDEST` 会在 active 与 retiring 的三类 session 中按统一播放顺序选择最旧项；强制终结 retiring session 时同样会先取消旧的 property Tween，避免播放器复用后被迟到淡出改写。溢出策略不处理项目外部音频节点或第三方音频 SDK。
+`max_sfx_players <= 0` 表示不限制同时播放的 SFX 数量。预算统一统计 GF 创建的普通、2D 和 3D SFX session；正在淡出的 retiring session 在淡出真正结束、播放器停止并回收之前仍占容量，也会计入调试快照。若 retiring 播放器被项目直接停止，下一次容量、清理或诊断收敛会立即取消旧 Tween、终结 session 并释放容量，不必继续等待原淡出时长。`STOP_OLDEST` 会在 active 与 retiring 的三类 session 中按统一播放顺序选择最旧项；强制终结 retiring session 时同样会先取消旧的 property Tween，避免播放器复用后被迟到淡出改写。溢出策略不处理项目外部音频节点或第三方音频 SDK。
+
+普通 SFX 的空闲播放器只保留在这个上限的剩余容量内；新空间音需要容量时会释放多余空闲播放器，缓存不会阻塞播放。降低上限会立即裁剪空闲缓存，但不会主动停止已有播放；设为不限制时，空闲缓存也不受数量限制。

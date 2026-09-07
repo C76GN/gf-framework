@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFObjectPoolLease" path="addons/gf/standard/utilities/nodes/gf_object_pool_lease.gd" module="standard" extends="RefCounted" classDigest="48784636e2e78cc2af0875990cb0ab32628bd93f728d0acd9087eaefbe0de74d">
+	<description>GFObjectPoolLease: 一次节点借用的使用权。
+归还后立即停止提供节点；物理离树和最终通知由对象池在安全点执行。
+每次借用使用新的 Lease，旧 Lease 永远不能归还同一节点的新借用。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_handle</tag>
+		<tag name="since">unreleased</tag>
+	</tags>
+	<signals>
+		<member kind="signal" name="settled">
+			<signature>signal settled(reason: StringName)</signature>
+			<description>归还、节点丢失或池销毁完成时恰好发出一次。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">reason: released、node_lost、pool_disposed 或 capacity_retired。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</signals>
+	<enums>
+		<member kind="enum" name="State">
+			<signature>enum State {
+	## 调用方仍持有节点使用权。
+	ACTIVE,
+	## 使用权已撤销，等待安全点清理。
+	RELEASE_PENDING,
+	## 本次借用已经结束。
+	SETTLED,
+}</signature>
+			<description>本次借用的状态；节点丢失也是 SETTLED，原因由 get_settlement_reason 提供。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</enums>
+	<constants />
+	<properties />
+	<methods>
+		<member kind="method" name="get_node">
+			<signature>func get_node() -&gt; Node:</signature>
+			<description>取得仍由本次借用持有的节点。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">ACTIVE 且仍存活的节点；归还、排队删除或丢失后返回 null。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="release">
+			<signature>func release() -&gt; bool:</signature>
+			<description>归还本次借用。首次接纳后立即失去使用权，不支持撤销归还。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">本次调用首次接纳归还时为 true；重复或陈旧借用为 false。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_state">
+			<signature>func get_state() -&gt; State:</signature>
+			<description>读取当前借用状态。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">当前 State。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_settled">
+			<signature>func is_settled() -&gt; bool:</signature>
+			<description>检查本次借用是否已经结束。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">任意终态均返回 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="wait_settled">
+			<signature>func wait_settled() -&gt; StringName:</signature>
+			<description>等待归还完成；已完成时直接返回缓存的原因，允许多次等待。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">与 get_settlement_reason 相同的最终原因。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_settlement_reason">
+			<signature>func get_settlement_reason() -&gt; StringName:</signature>
+			<description>读取本次借用的最终原因。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">未结束时为 pending，未配置时为 unconfigured，否则为 settled 的原因。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

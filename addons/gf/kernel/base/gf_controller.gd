@@ -49,7 +49,6 @@ var host: Node:
 var _event_architectures: Array[GFArchitecture] = []
 var _event_bindings: Array[Dictionary] = []
 var _active_event_architecture: GFArchitecture = null
-var _events_paused_by_pool: bool = false
 var _event_binding_revision: int = 0
 var _applied_event_binding_revision: int = -1
 var _observed_global_singleton: Node = null
@@ -433,21 +432,6 @@ func send_simple_event(event_id: StringName, payload: Variant = null) -> void:
 
 # --- 私有/辅助方法 ---
 
-func _gf_on_object_pool_release() -> void:
-	if _events_paused_by_pool:
-		return
-	_remember_event_architecture(_get_architecture_or_null())
-	_unregister_all_tracked_owner_events()
-	_events_paused_by_pool = true
-
-
-func _gf_on_object_pool_acquire() -> void:
-	if not _events_paused_by_pool:
-		return
-	_events_paused_by_pool = false
-	_request_event_binding_sync()
-
-
 func _get_architecture_or_null() -> GFArchitecture:
 	var context: GFNodeContextBase = _find_nearest_context()
 	if context != null:
@@ -478,8 +462,6 @@ func _request_event_binding_sync() -> void:
 	if not is_inside_tree():
 		return
 	_observe_event_architecture(_get_event_architecture_candidate_or_null())
-	if _events_paused_by_pool:
-		return
 	if _event_bindings.is_empty():
 		_unregister_all_tracked_owner_events()
 		return

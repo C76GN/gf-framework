@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFAudioUtility" path="addons/gf/standard/utilities/audio/gf_audio_utility.gd" module="standard" extends="GFUtility" classDigest="17d2f64d8eeab28eded47fbb8670d335c9f768a80ae50aabf332d99b25bdf15d">
+<class name="GFAudioUtility" path="addons/gf/standard/utilities/audio/gf_audio_utility.gd" module="standard" extends="GFUtility" classDigest="e079920afa4d39c1e1aded8ad095070952aa394f2a4ca61405f8348c9a155eb8">
 	<description>GFAudioUtility: 全局音频管理器。
 管理 BGM 和 SFX 的播放与音量。
-注册 GFObjectPoolUtility 时会复用 AudioStreamPlayer，未注册时使用普通播放器。
+普通 SFX 播放器由本工具缓存复用，不依赖通用对象池。
 支持通过 GFAssetUtility 异步加载音频资源。</description>
 	<tags>
 		<tag name="api">public</tag>
@@ -68,8 +68,9 @@
 	</constants>
 	<properties>
 		<member kind="property" name="max_sfx_players">
-			<signature>var max_sfx_players: int = 32</signature>
-			<description>普通与空间 SFX 共用的并发播放数量上限；小于等于 0 表示不限制。</description>
+			<signature>var max_sfx_players: int = 32:</signature>
+			<description>普通与空间 SFX 共用的并发播放数量上限；小于等于 0 表示不限制。
+空闲普通播放器只占剩余容量，不挤占新播放请求；降低上限不会中止已有播放。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="since">8.0.0</tag>
@@ -496,10 +497,11 @@ backend-owned 会话会查询后端，并在稳定 identity 下提交自然结�
 		</member>
 		<member kind="method" name="play_sfx">
 			<signature>func play_sfx(path: String) -&gt; void:</signature>
-			<description>播放 SFX（音效），自动从池中分配播放器</description>
+			<description>播放 SFX（音效），从本工具缓存取得或创建播放器。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">path: 音频资源的路径</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="play_sfx_handle">

@@ -9,8 +9,8 @@
 | [运行时服务](#category-runtime_service) | 2 | 17 | 16 |
 | [协议与扩展点](#category-protocol) | 11 | 118 | 72 |
 | [资源定义](#category-resource_definition) | 22 | 151 | 46 |
-| [运行时句柄](#category-runtime_handle) | 19 | 275 | 126 |
-| [值对象](#category-value_object) | 13 | 125 | 89 |
+| [运行时句柄](#category-runtime_handle) | 18 | 257 | 116 |
+| [值对象](#category-value_object) | 14 | 133 | 96 |
 | [事件契约](#category-event_contract) | 4 | 8 | 0 |
 
 ## 类
@@ -90,7 +90,6 @@
 | [`GFModifiedAttributeSet`](classes/GFModifiedAttributeSet.md#gfmodifiedattributeset) | `RefCounted` | `addons/gf/extensions/combat/attributes/gf_modified_attribute_set.gd` |
 | [`GFProjectile2D`](classes/GFProjectile2D.md#gfprojectile2d) | `Node` | `addons/gf/extensions/combat/projectiles/gf_projectile_2d.gd` |
 | [`GFProjectile3D`](classes/GFProjectile3D.md#gfprojectile3d) | `Node` | `addons/gf/extensions/combat/projectiles/gf_projectile_3d.gd` |
-| [`GFProjectileEmissionTask`](classes/GFProjectileEmissionTask.md#gfprojectileemissiontask) | `RefCounted` | `addons/gf/extensions/combat/projectiles/gf_projectile_emission_task.gd` |
 | [`GFProjectileEmitter2D`](classes/GFProjectileEmitter2D.md#gfprojectileemitter2d) | `Node2D` | `addons/gf/extensions/combat/projectiles/gf_projectile_emitter_2d.gd` |
 | [`GFProjectileEmitter3D`](classes/GFProjectileEmitter3D.md#gfprojectileemitter3d) | `Node3D` | `addons/gf/extensions/combat/projectiles/gf_projectile_emitter_3d.gd` |
 | [`GFProjectileMotionState`](classes/GFProjectileMotionState.md#gfprojectilemotionstate) | `RefCounted` | `addons/gf/extensions/combat/projectiles/gf_projectile_motion_state.gd` |
@@ -111,6 +110,7 @@
 | [`GFProjectileBinding3D`](classes/GFProjectileBinding3D.md#gfprojectilebinding3d) | `GFProjectileBinding` | `addons/gf/extensions/combat/projectiles/gf_projectile_binding_3d.gd` |
 | [`GFProjectileBodyResult2D`](classes/GFProjectileBodyResult2D.md#gfprojectilebodyresult2d) | `RefCounted` | `addons/gf/extensions/combat/projectiles/gf_projectile_body_result_2d.gd` |
 | [`GFProjectileBodyResult3D`](classes/GFProjectileBodyResult3D.md#gfprojectilebodyresult3d) | `RefCounted` | `addons/gf/extensions/combat/projectiles/gf_projectile_body_result_3d.gd` |
+| [`GFProjectileEmissionResult`](classes/GFProjectileEmissionResult.md#gfprojectileemissionresult) | `RefCounted` | `addons/gf/extensions/combat/projectiles/gf_projectile_emission_result.gd` |
 | [`GFProjectileLaunchInput2D`](classes/GFProjectileLaunchInput2D.md#gfprojectilelaunchinput2d) | `Resource` | `addons/gf/extensions/combat/projectiles/gf_projectile_launch_input_2d.gd` |
 | [`GFProjectileLaunchInput3D`](classes/GFProjectileLaunchInput3D.md#gfprojectilelaunchinput3d) | `Resource` | `addons/gf/extensions/combat/projectiles/gf_projectile_launch_input_3d.gd` |
 | [`GFProjectileMotionIntent2D`](classes/GFProjectileMotionIntent2D.md#gfprojectilemotionintent2d) | `RefCounted` | `addons/gf/extensions/combat/projectiles/gf_projectile_motion_intent_2d.gd` |

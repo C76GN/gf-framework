@@ -2,7 +2,6 @@ extends GutTest
 
 
 var _audio: GFAudioUtility
-var _pool: GFObjectPoolUtility
 var _created_audio_buses: PackedStringArray = PackedStringArray()
 
 
@@ -751,9 +750,6 @@ func before_each() -> void:
 	var arch: GFArchitecture = GFArchitecture.new()
 	Gf._architecture = arch # 提早设置引用以便可以使用 Gf 全局代理
 	
-	_pool = GFObjectPoolUtility.new()
-	await Gf.register_utility(_pool)
-	
 	_audio = GFAudioUtility.new()
 	await Gf.register_utility(_audio)
 	
@@ -1469,25 +1465,21 @@ func test_backend_ambient_stop_rejection_preserves_active_region_snapshot() -> v
 	_audio.stop_ambient(&"weather")
 
 
-func test_play_sfx_and_pool() -> void:
+func test_finished_sfx_stays_in_tree_for_reuse_without_object_pool() -> void:
 	var stream: AudioStreamGenerator = AudioStreamGenerator.new()
-	var _play_sfx_stream_result_393: Variant = _audio._play_sfx_stream(stream)
-	
-	var available: int = _pool.get_available_count(_audio._sfx_scene)
-	assert_eq(available, 0, "最初分配的播放器应该在使用中。")
-	
-	var players_in_root: int = 0
-	for child: Node in _audio._root.get_children():
-		if child is AudioStreamPlayer and child.get_meta("_gf_pool_active", false):
-			var player: AudioStreamPlayer = child
-			players_in_root += 1
-			player.finished.emit()
-	
-	assert_eq(players_in_root, 1, "应该有一个激活的 SFX 播放器。")
-	assert_eq(_pool.get_available_count(_audio._sfx_scene), 1, "SFX 播放器响应 finished 后应该回收到池中。")
+	var player: AudioStreamPlayer = _audio._play_sfx_stream(stream)
+	watch_signals(player)
+	player.finished.emit()
+	assert_false(player.playing)
+	assert_null(player.stream, "空闲缓存不应继续保留音频流。")
+	assert_same(player.get_parent(), _audio._root, "停止后播放器应留在音频根节点下。")
+	assert_signal_not_emitted(player, "tree_exiting", "普通 SFX 复用不需要离树或重新挂载。")
+	var reused: AudioStreamPlayer = _audio._play_sfx_stream(stream)
+	assert_same(reused, player, "未注册通用对象池也必须复用普通 SFX 播放器。")
+	assert_signal_not_emitted(player, "tree_entered")
 
 
-func test_play_sfx_without_object_pool_creates_direct_player() -> void:
+func test_audio_dispose_releases_active_and_idle_sfx_players() -> void:
 	var local_arch: GFArchitecture = GFArchitecture.new()
 	var audio: GFAudioUtility = GFAudioUtility.new()
 	await local_arch.register_utility_instance(audio)
@@ -1496,18 +1488,103 @@ func test_play_sfx_without_object_pool_creates_direct_player() -> void:
 
 	var stream: AudioStreamGenerator = AudioStreamGenerator.new()
 	var player: AudioStreamPlayer = audio._play_sfx_stream(stream)
+	var active_player: AudioStreamPlayer = audio._play_sfx_stream(stream)
 
 	assert_not_null(player, "未注册对象池时 SFX 仍应创建普通播放器。")
 	if player != null:
 		assert_eq(player.stream, stream, "普通 SFX 播放器应写入对应音频流。")
-		assert_eq(audio._active_sfx_players.size(), 1, "普通 SFX 播放器也应进入活跃列表。")
-		assert_false(GFVariantData.to_bool(player.get_meta("_gf_pool_active", false)), "普通 SFX 播放器不应伪装为池化节点。")
 		player.finished.emit()
-		assert_eq(audio._active_sfx_players.size(), 0, "普通 SFX 播放结束后应移出活跃列表。")
-		assert_true(player.is_queued_for_deletion(), "普通 SFX 播放结束后应直接释放节点。")
+		assert_eq(audio._active_sfx_players.size(), 1)
+		assert_false(player.is_queued_for_deletion(), "普通 SFX 播放结束后进入留树缓存。")
 
 	local_arch.dispose()
+	assert_true(player.is_queued_for_deletion(), "dispose 应清理空闲播放器。")
+	assert_true(active_player.is_queued_for_deletion(), "dispose 应清理活动播放器。")
 	await get_tree().process_frame
+	assert_false(is_instance_valid(player))
+	assert_false(is_instance_valid(active_player))
+
+
+func test_idle_sfx_cache_yields_capacity_to_spatial_playback_and_limit_changes() -> void:
+	_audio.max_sfx_players = 2
+	var clip: GFAudioClip = GFAudioClip.new()
+	clip.stream = AudioStreamGenerator.new()
+	clip.bus_name = "Master"
+	var first: AudioStreamPlayer = _audio._play_sfx_stream(clip.stream)
+	var second: AudioStreamPlayer = _audio._play_sfx_stream(clip.stream)
+	_audio.stop_all_sfx()
+	assert_eq(_audio._idle_sfx_players.size(), 2)
+	var source: Node2D = Node2D.new()
+	add_child_autofree(source)
+	var spatial: AudioStreamPlayer2D = _audio.play_sfx_clip_2d(clip, source)
+	assert_not_null(spatial, "空闲缓存不能拒绝新的空间 SFX。")
+	assert_eq(_audio._idle_sfx_players.size(), 1, "空间 SFX 应回收多余空闲缓存。")
+	_audio.max_sfx_players = 1
+	assert_true(spatial.playing, "降低上限不能中止已接受的播放。")
+	assert_true(first.is_queued_for_deletion())
+	assert_true(second.is_queued_for_deletion())
+	assert_true(_audio._idle_sfx_players.is_empty())
+	_audio.stop_all_sfx()
+	var next_player: AudioStreamPlayer = _audio._play_sfx_stream(clip.stream)
+	assert_not_null(next_player, "空闲缓存收缩后仍应正常接受新播放。")
+
+
+func test_externally_freed_active_and_idle_sfx_do_not_block_new_playback() -> void:
+	_audio.max_sfx_players = 1
+	var clip: GFAudioClip = GFAudioClip.new()
+	clip.stream = AudioStreamGenerator.new()
+	clip.bus_name = "Master"
+	var first_handle: GFAudioEmitterHandle = _audio.play_sfx_clip_handle(clip)
+	var first: Node = first_handle.get_player()
+	first.free()
+	var second_handle: GFAudioEmitterHandle = _audio.play_sfx_clip_handle(clip)
+	assert_false(first_handle.is_valid())
+	assert_true(second_handle.is_valid(), "外部释放活动节点后应恢复容量。")
+	var second: Node = second_handle.get_player()
+	second_handle.stop()
+	second.free()
+	var third_handle: GFAudioEmitterHandle = _audio.play_sfx_clip_handle(clip)
+	assert_true(third_handle.is_valid(), "外部释放空闲节点后应创建新播放器。")
+	assert_eq(_audio._active_sfx_players.size(), 1)
+	third_handle.stop()
+
+
+func test_stale_finished_callback_cannot_cache_new_sfx_session_twice() -> void:
+	var clip: GFAudioClip = GFAudioClip.new()
+	clip.stream = AudioStreamGenerator.new()
+	clip.bus_name = "Master"
+	var first_handle: GFAudioEmitterHandle = _audio.play_sfx_clip_handle(clip)
+	var first: AudioStreamPlayer = first_handle.get_player() as AudioStreamPlayer
+	var connections: Array = first.finished.get_connections()
+	var callback_value: Variant = connections[0]["callable"]
+	assert_true(callback_value is Callable)
+	if not callback_value is Callable:
+		return
+	var stale_callback: Callable = callback_value
+	first_handle.stop()
+	var second_handle: GFAudioEmitterHandle = _audio.play_sfx_clip_handle(clip)
+	assert_same(second_handle.get_player(), first)
+	var _stale_result: Variant = stale_callback.call()
+	first_handle.stop()
+	assert_true(second_handle.is_valid(), "旧完成回调和句柄不得归还新播放。")
+	assert_true(_audio._idle_sfx_players.is_empty())
+	second_handle.stop()
+	_stale_result = stale_callback.call()
+	assert_eq(_audio._idle_sfx_players.size(), 1, "每次播放器归还只应缓存一次。")
+
+
+func test_sfx_insertion_dispose_reentry_does_not_publish_player() -> void:
+	var callback: Callable = func(child: Node) -> void:
+		if child is AudioStreamPlayer and child.name == &"GFSFXPlayer":
+			_audio.dispose()
+	var root: Node = _audio._root
+	var connection_error: Error = root.child_entered_tree.connect(callback) as Error
+	assert_eq(connection_error, OK)
+	var player: AudioStreamPlayer = _audio._play_sfx_stream(AudioStreamGenerator.new())
+	root.child_entered_tree.disconnect(callback)
+	assert_null(player, "挂载期间 dispose 不得把失效播放器交给调用方。")
+	assert_true(_audio._active_sfx_players.is_empty())
+	assert_true(_audio._idle_sfx_players.is_empty())
 
 
 func test_sfx_handle_can_stop_and_release_player() -> void:
@@ -1525,10 +1602,10 @@ func test_sfx_handle_can_stop_and_release_player() -> void:
 
 	assert_false(handle.is_valid(), "停止后句柄应释放播放器引用。")
 	assert_eq(_audio._active_sfx_players.size(), 0, "停止句柄应从活跃 SFX 列表移除播放器。")
-	assert_eq(_pool.get_available_count(_audio._sfx_scene), 1, "停止句柄应把播放器归还对象池。")
+	assert_eq(_audio._idle_sfx_players.size(), 1, "停止句柄应缓存播放器。")
 
 
-func test_naturally_finished_sfx_handle_cannot_control_reused_pool_player() -> void:
+func test_naturally_finished_sfx_handle_cannot_control_reused_player() -> void:
 	var clip: GFAudioClip = GFAudioClip.new()
 	clip.stream = AudioStreamGenerator.new()
 	clip.bus_name = "Master"
@@ -1547,7 +1624,7 @@ func test_naturally_finished_sfx_handle_cannot_control_reused_pool_player() -> v
 	new_handle.stop()
 
 
-func test_pooled_sfx_reacquire_restores_template_properties() -> void:
+func test_cached_sfx_reuse_restores_player_properties() -> void:
 	var clip: GFAudioClip = GFAudioClip.new()
 	clip.stream = AudioStreamGenerator.new()
 	clip.bus_name = "Master"
@@ -1609,7 +1686,7 @@ func test_sfx_handle_can_bind_to_owner_exit() -> void:
 
 	assert_false(handle.is_valid(), "owner 退出树时句柄应自动停止并释放播放器。")
 	assert_eq(_audio._active_sfx_players.size(), 0, "owner 自动停止后不应残留活跃 SFX。")
-	assert_eq(_pool.get_available_count(_audio._sfx_scene), 1, "owner 自动停止后应归还对象池。")
+	assert_eq(_audio._idle_sfx_players.size(), 1, "owner 自动停止后应缓存播放器。")
 
 
 func test_play_sfx_from_bank_applies_clip_settings() -> void:
@@ -3711,7 +3788,7 @@ func test_stop_all_sfx_releases_normal_and_spatial_players() -> void:
 	assert_eq(_audio._active_sfx_players.size(), 0, "stop_all_sfx 后普通 SFX 列表应清空。")
 	assert_eq(_audio._active_spatial_sfx_players.size(), 0, "stop_all_sfx 后空间 SFX 列表应清空。")
 	assert_eq(GFVariantData.get_option_int(snapshot, "active_spatial_sfx_count"), 0, "调试快照应同步空间 SFX 数量。")
-	assert_eq(_pool.get_available_count(_audio._sfx_scene), 1, "普通 SFX 应归还对象池。")
+	assert_eq(_audio._idle_sfx_players.size(), 1, "普通 SFX 应进入音频工具自己的缓存。")
 	if is_instance_valid(spatial_player):
 		assert_true(spatial_player.is_queued_for_deletion(), "空间 SFX 应排队释放。")
 

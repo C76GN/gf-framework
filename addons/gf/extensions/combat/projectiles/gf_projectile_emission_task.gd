@@ -3,9 +3,9 @@
 ## 在任何生成点或节点分配前统一执行策略门控、硬预算和时间快照，随后只允许
 ## 提交一次实际生成数量。任务不解释 2D/3D 变换、伤害、弹药或对象池规则。
 ## [br]
-## @api public
+## @api framework_internal
 ## [br]
-## @category runtime_handle
+## @category internal_helper
 ## [br]
 ## @since 8.0.0
 class_name GFProjectileEmissionTask
@@ -16,35 +16,35 @@ extends RefCounted
 
 ## 等待准备。
 ## [br]
-## @api public
+## @api framework_internal
 ## [br]
 ## @since 8.0.0
 const STATE_PENDING: StringName = &"pending"
 
 ## 已通过门控，可进入生成阶段。
 ## [br]
-## @api public
+## @api framework_internal
 ## [br]
 ## @since 8.0.0
 const STATE_PREPARED: StringName = &"prepared"
 
 ## 已提交策略状态。
 ## [br]
-## @api public
+## @api framework_internal
 ## [br]
 ## @since 8.0.0
 const STATE_COMMITTED: StringName = &"committed"
 
 ## 生成失败或调用方取消后已回滚。
 ## [br]
-## @api public
+## @api framework_internal
 ## [br]
 ## @since 8.0.0
 const STATE_ROLLED_BACK: StringName = &"rolled_back"
 
 ## 门控或提交失败。
 ## [br]
-## @api public
+## @api framework_internal
 ## [br]
 ## @since 8.0.0
 const STATE_FAILED: StringName = &"failed"
@@ -54,7 +54,7 @@ const STATE_FAILED: StringName = &"failed"
 
 ## 当前任务状态。
 ## [br]
-## @api public
+## @api framework_internal
 ## [br]
 ## @since 8.0.0
 var state: StringName = STATE_PENDING
@@ -73,11 +73,11 @@ var _allowed_count: int = 0
 var _prepare_report: Dictionary = {}
 
 
-# --- 公共方法 ---
+# --- 框架内部方法 ---
 
 ## 配置新任务。
 ## [br]
-## @api public
+## @api framework_internal
 ## [br]
 ## @since 8.0.0
 ## [br]
@@ -119,7 +119,7 @@ func configure(
 
 ## 执行分配前门控。
 ## [br]
-## @api public
+## @api framework_internal
 ## [br]
 ## @since 8.0.0
 ## [br]
@@ -174,7 +174,7 @@ func prepare() -> Dictionary:
 
 ## 提交实际生成数量。
 ## [br]
-## @api public
+## @api framework_internal
 ## [br]
 ## @since 8.0.0
 ## [br]
@@ -289,7 +289,7 @@ func commit_deferred_for_framework(
 
 ## 回滚尚未提交的任务。
 ## [br]
-## @api public
+## @api framework_internal
 ## [br]
 ## @since 8.0.0
 ## [br]
@@ -311,7 +311,7 @@ func rollback(reason: StringName = &"emission_rolled_back") -> Dictionary:
 
 ## 获取策略允许的生成数量。
 ## [br]
-## @api public
+## @api framework_internal
 ## [br]
 ## @since 8.0.0
 ## [br]
@@ -322,7 +322,7 @@ func get_allowed_count() -> int:
 
 ## 获取准备阶段合并后的发射上下文。
 ## [br]
-## @api public
+## @api framework_internal
 ## [br]
 ## @since 8.0.0
 ## [br]
