@@ -80,7 +80,7 @@ func get_stage() -> StringName:
 ## [br]
 ## @since unreleased
 ## [br]
-## @return: acquired、invalid_scene、invalid_parent、main_thread_required、pool_disposed、parent_lost、owner_lost、scene_instantiation_failed、prepare_failed、invalid_prepare_result 或 candidate_invalidated；未配置结果为 unconfigured。
+## @return: acquired、invalid_scene、invalid_parent、invalid_owner、main_thread_required、pool_disposed、parent_lost、owner_lost、scene_instantiation_failed、prepare_failed、invalid_prepare_result 或 candidate_invalidated；未配置结果为 unconfigured。
 func get_reason() -> StringName:
 	return _reason
 

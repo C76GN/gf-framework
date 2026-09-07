@@ -398,15 +398,13 @@ func _drain() -> void:
 	_scheduled = false
 	_draining = true
 	var current: Array[_Request] = _queue
-	_queue = []
+	var batch_count: int = mini(current.size(), _MAX_REQUESTS_PER_DRAIN)
+	# Keep accepted requests ahead of continuations and callback reentry.
+	_queue = current.slice(batch_count)
 	var completed: Array[_Request] = []
 	var settlements: Array[Callable] = []
-	var processed: int = 0
-	for request: _Request in current:
-		if processed >= _MAX_REQUESTS_PER_DRAIN:
-			_queue.append(request)
-			continue
-		processed += 1
+	for index: int in range(batch_count):
+		var request: _Request = current[index]
 		match request._kind:
 			_Kind.ACQUIRE:
 				_acquire_batch(request)
@@ -740,10 +738,11 @@ func _tree() -> SceneTree:
 
 func _on_root_exiting(entry_id: int) -> void:
 	var entry: _Entry = _entries.get(entry_id)
-	if entry == null or entry._phase != _Phase.LEASED:
+	if entry == null or entry._phase not in [_Phase.LEASED, _Phase.RELEASING]:
 		return
 	entry._reason = &"node_lost"
-	var _accepted: bool = release_lease_for_framework(entry._lease, entry._id)
+	if entry._phase == _Phase.LEASED:
+		var _accepted: bool = release_lease_for_framework(entry._lease, entry._id)
 
 
 # --- 内部类 ---
