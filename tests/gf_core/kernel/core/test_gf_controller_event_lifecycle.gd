@@ -149,31 +149,6 @@ func test_reparent_migrates_bindings_to_nearest_context_architecture() -> void:
 	await get_tree().process_frame
 
 
-func test_pool_acquire_retries_until_architecture_becomes_available() -> void:
-	var controller: EventController = EventController.new()
-	add_child(controller)
-	controller.listen(&"late_pool_architecture")
-	controller._gf_on_object_pool_release()
-	controller._gf_on_object_pool_acquire()
-	await get_tree().process_frame
-
-	var late_architecture: GFArchitecture = Gf.create_architecture()
-	assert_true(
-		await late_architecture.init(),
-		"迟到 Architecture 必须完成 activation 后才能恢复事件绑定。"
-	)
-	late_architecture.send_simple_event(&"late_pool_architecture", "restored")
-
-	assert_eq(
-		controller.payloads,
-		["restored"],
-		"acquire 时架构暂不可用不应永久保持暂停；架构可用后应自动恢复。"
-	)
-
-	controller.queue_free()
-	await get_tree().process_frame
-
-
 func test_live_global_architecture_replacement_migrates_event_bindings() -> void:
 	var first_architecture: GFArchitecture = GFArchitecture.new()
 	var replacement_architecture: GFArchitecture = GFArchitecture.new()

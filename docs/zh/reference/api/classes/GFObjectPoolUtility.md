@@ -9,57 +9,20 @@
 - 类别：运行时服务 (`runtime_service`)
 - 首次版本：`3.17.0`
 
-节点对象池管理器。 继承自 GFUtility，管理 Node 对象的实例化与回收， 避免高频 instance/free 操作带来的内存碎片和性能抖动。 适合管理大量同类对象，如子弹、敌人单位、特效粒子、棋盘方块等。 内部使用 Node metadata 键 _gf_pool_active 跟踪节点使用状态， 因此兼容任意 Node 子类型（无需 CanvasItem/visible 支持）。 工作流程： 1. 调用 acquire(scene, parent) 从池中取出一个可用节点（或自动实例化）。 2. 对节点进行配置使用。 3. 对象生命周期结束后，调用 release(node, scene) 将其归还至池中。
+在安全点借出和归还节点的对象池。 空闲实例完全离树；借出时返回一次性 Lease。所有挂载、脱树及清理均在主线程 deferred 安全点执行。根节点可实现同步 on_gf_pool_prepare(context) -> Error， 在每次入树前写入本次数据；该方法不得 await、释放根节点或改变根节点父级。 普通进入/退出场景树的初始化与清理由节点自己的 Godot 生命周期方法负责。
 
 ## 成员概览
 
 | 类型 | 名称 | 签名 |
 |---|---|---|
-| 常量 | [`HOOK_ON_RELEASE`](#member-gfobjectpoolutility-constants-hook_on_release) | `const HOOK_ON_RELEASE: StringName = &"on_gf_pool_release"` |
-| 常量 | [`HOOK_ON_ACQUIRE`](#member-gfobjectpoolutility-constants-hook_on_acquire) | `const HOOK_ON_ACQUIRE: StringName = &"on_gf_pool_acquire"` |
 | 属性 | [`max_available_per_scene`](#member-gfobjectpoolutility-properties-max_available_per_scene) | `var max_available_per_scene: int = 0` |
-| 属性 | [`manage_descendant_active_state`](#member-gfobjectpoolutility-properties-manage_descendant_active_state) | `var manage_descendant_active_state: bool = true` |
-| 属性 | [`prune_invalid_on_each_operation`](#member-gfobjectpoolutility-properties-prune_invalid_on_each_operation) | `var prune_invalid_on_each_operation: bool = true` |
-| 方法 | [`init`](#member-gfobjectpoolutility-methods-init) | `func init() -> void:` |
 | 方法 | [`dispose`](#member-gfobjectpoolutility-methods-dispose) | `func dispose() -> void:` |
-| 方法 | [`acquire`](#member-gfobjectpoolutility-methods-acquire) | `func acquire(scene: PackedScene, parent: Node, before_add: Callable = Callable()) -> Node:` |
-| 方法 | [`release`](#member-gfobjectpoolutility-methods-release) | `func release(node: Node, scene: PackedScene) -> void:` |
-| 方法 | [`prewarm`](#member-gfobjectpoolutility-methods-prewarm) | `func prewarm(scene: PackedScene, parent: Node, count: int, before_add: Callable = Callable()) -> void:` |
-| 方法 | [`prewarm_async`](#member-gfobjectpoolutility-methods-prewarm_async) | `func prewarm_async( scene: PackedScene, parent: Node, count: int, batch_size: int = 32, before_add: Callable = Callable() ) -> void:` |
-| 方法 | [`prewarm_async_budget`](#member-gfobjectpoolutility-methods-prewarm_async_budget) | `func prewarm_async_budget( scene: PackedScene, parent: Node, count: int, msec_budget_per_frame: float = 8.0, before_add: Callable = Callable() ) -> void:` |
-| 方法 | [`prewarm_request_async`](#member-gfobjectpoolutility-methods-prewarm_request_async) | `func prewarm_request_async( scene: PackedScene, parent: Node, count: int, batch_size: int = 32, owner: Object = null, cancellation_token: GFCancellationToken = null, prepare_callback: Callable = Callable() ) -> GFObjectPoolPrewarmOperation:` |
-| 方法 | [`prewarm_budget_request_async`](#member-gfobjectpoolutility-methods-prewarm_budget_request_async) | `func prewarm_budget_request_async( scene: PackedScene, parent: Node, count: int, msec_budget_per_frame: float = 8.0, owner: Object = null, cancellation_token: GFCancellationToken = null, prepare_callback: Callable = Callable() ) -> GFObjectPoolPrewarmOperation:` |
+| 方法 | [`acquire`](#member-gfobjectpoolutility-methods-acquire) | `func acquire( scene: PackedScene, parent: Node, context: Dictionary = {} ) -> GFObjectPoolAcquireResult:` |
+| 方法 | [`prewarm`](#member-gfobjectpoolutility-methods-prewarm) | `func prewarm( scene: PackedScene, count: int, batch_size: int = 32, cancellation_token: GFCancellationToken = null ) -> GFObjectPoolPrewarmResult:` |
+| 方法 | [`wait_disposed`](#member-gfobjectpoolutility-methods-wait_disposed) | `func wait_disposed() -> void:` |
 | 方法 | [`get_available_count`](#member-gfobjectpoolutility-methods-get_available_count) | `func get_available_count(scene: PackedScene) -> int:` |
 | 方法 | [`get_active_count`](#member-gfobjectpoolutility-methods-get_active_count) | `func get_active_count(scene: PackedScene) -> int:` |
-| 方法 | [`get_active_nodes`](#member-gfobjectpoolutility-methods-get_active_nodes) | `func get_active_nodes(scene: PackedScene) -> Array[Node]:` |
-| 方法 | [`prune_invalid_nodes`](#member-gfobjectpoolutility-methods-prune_invalid_nodes) | `func prune_invalid_nodes() -> void:` |
 | 方法 | [`get_debug_snapshot`](#member-gfobjectpoolutility-methods-get_debug_snapshot) | `func get_debug_snapshot() -> Dictionary:` |
-
-## 常量
-
-<a id="member-gfobjectpoolutility-constants-hook_on_release"></a>
-
-### `HOOK_ON_RELEASE`
-
-- API：`public`
-
-```gdscript
-const HOOK_ON_RELEASE: StringName = &"on_gf_pool_release"
-```
-
-节点可选实现：归还对象池前调用，用于清理 Tween、临时信号、运行时状态等。
-
-<a id="member-gfobjectpoolutility-constants-hook_on_acquire"></a>
-
-### `HOOK_ON_ACQUIRE`
-
-- API：`public`
-
-```gdscript
-const HOOK_ON_ACQUIRE: StringName = &"on_gf_pool_acquire"
-```
-
-节点可选实现：从对象池取出并恢复激活后调用，用于重置本次使用状态。
 
 ## 属性
 
@@ -68,313 +31,150 @@ const HOOK_ON_ACQUIRE: StringName = &"on_gf_pool_acquire"
 ### `max_available_per_scene`
 
 - API：`public`
+- 首次版本：`unreleased`
 
 ```gdscript
 var max_available_per_scene: int = 0
 ```
 
-每个 PackedScene 最多保留的可用节点数量。为 0 时不限制。
-
-<a id="member-gfobjectpoolutility-properties-manage_descendant_active_state"></a>
-
-### `manage_descendant_active_state`
-
-- API：`public`
-
-```gdscript
-var manage_descendant_active_state: bool = true
-```
-
-是否递归管理子节点的 process_mode、visible 与 disabled 状态。
-
-<a id="member-gfobjectpoolutility-properties-prune_invalid_on_each_operation"></a>
-
-### `prune_invalid_on_each_operation`
-
-- API：`public`
-
-```gdscript
-var prune_invalid_on_each_operation: bool = true
-```
-
-是否在 acquire/release/count 等高频操作前立即清理失效节点。
+每个场景最多缓存的空闲实例数；0 不限制，-1 归还时直接销毁。
 
 ## 方法
-
-<a id="member-gfobjectpoolutility-methods-init"></a>
-
-### `init`
-
-- API：`public`
-
-```gdscript
-func init() -> void:
-```
-
-第一阶段初始化：清空内部池字典。
 
 <a id="member-gfobjectpoolutility-methods-dispose"></a>
 
 ### `dispose`
 
 - API：`public`
+- 首次版本：`unreleased`
 
 ```gdscript
 func dispose() -> void:
 ```
 
-销毁阶段：释放所有池中的节点。
+立即停止接纳新借用并吊销现有 Lease，在安全点完成节点清理。
 
 <a id="member-gfobjectpoolutility-methods-acquire"></a>
 
 ### `acquire`
 
 - API：`public`
-- 首次版本：`8.0.0`
+- 首次版本：`unreleased`
 
 ```gdscript
-func acquire(scene: PackedScene, parent: Node, before_add: Callable = Callable()) -> Node:
+func acquire( scene: PackedScene, parent: Node, context: Dictionary = {} ) -> GFObjectPoolAcquireResult:
 ```
 
-从池中获取一个节点实例。若池为空则自动实例化并加入父节点。
+在安全点取得一个完成入树准备的实例。
 
 参数：
 
 | 名称 | 说明 |
 |---|---|
-| `scene` | 要实例化的 PackedScene 资源。 |
-| `parent` | 借出的节点将加入或移动到此父节点；释放时会移动到内部池根节点。 |
-| `before_add` | 可选入树前回调，签名为 \`func(node: Node) -> void\`。 |
+| `scene` | 实例来源。 |
+| `parent` | 必须位于运行中的 SceneTree，等待期间离树或被删除将取消请求。 |
+| `context` | 传给根节点 on_gf_pool_prepare 的本次初始化数据。 |
 
-返回：可直接使用的节点实例。
+返回：本次借用的结构化结果；成功后由调用方持有并归还 Lease。
 
-<a id="member-gfobjectpoolutility-methods-release"></a>
+结构：
 
-### `release`
-
-- API：`public`
-
-```gdscript
-func release(node: Node, scene: PackedScene) -> void:
-```
-
-将节点归还到对象池，隐藏它以待下次复用。
-
-参数：
-
-| 名称 | 说明 |
-|---|---|
-| `node` | 要归还的节点实例（必须由此工具创建）。 |
-| `scene` | 该节点所属的 PackedScene 资源，用于匹配正确的池。 |
+- `context`: Dictionary；接受请求时深复制嵌套容器，Object 值保留身份，调用方应在等待期间保持所引用对象只读；不得用 context 传递所有权回调。
 
 <a id="member-gfobjectpoolutility-methods-prewarm"></a>
 
 ### `prewarm`
 
 - API：`public`
-- 首次版本：`8.0.0`
+- 首次版本：`unreleased`
 
 ```gdscript
-func prewarm(scene: PackedScene, parent: Node, count: int, before_add: Callable = Callable()) -> void:
+func prewarm( scene: PackedScene, count: int, batch_size: int = 32, cancellation_token: GFCancellationToken = null ) -> GFObjectPoolPrewarmResult:
 ```
 
-预热对象池，预先实例化指定数量的节点以避免首次使用时的卡顿。
+分帧预分配离树实例，不执行 prepare、enter_tree 或 ready。
 
 参数：
 
 | 名称 | 说明 |
 |---|---|
-| `scene` | 要预热的 PackedScene 资源。 |
-| `parent` | 预热节点将加入此父节点。 |
-| `count` | 预热的数量。 |
-| `before_add` | 可选入树前回调，签名为 \`func(node: Node) -> void\`。 |
+| `scene` | 实例来源。 |
+| `count` | 本次希望新增的数量；0 为成功空操作，负数无效。 |
+| `batch_size` | 每次安全点最多创建的数量，必须为正数。 |
+| `cancellation_token` | 可选取消令牌；已缓存的实例不会因取消被回滚。 |
 
-<a id="member-gfobjectpoolutility-methods-prewarm_async"></a>
+返回：请求完成时的创建数量与最终原因。
 
-### `prewarm_async`
+<a id="member-gfobjectpoolutility-methods-wait_disposed"></a>
+
+### `wait_disposed`
 
 - API：`public`
-- 首次版本：`8.0.0`
+- 首次版本：`unreleased`
 
 ```gdscript
-func prewarm_async( scene: PackedScene, parent: Node, count: int, batch_size: int = 32, before_add: Callable = Callable() ) -> void:
+func wait_disposed() -> void:
 ```
 
-分批预热对象池，避免一次性实例化大量节点造成单帧卡顿。
-
-参数：
-
-| 名称 | 说明 |
-|---|---|
-| `scene` | 要预热的 PackedScene 资源。 |
-| `parent` | 预热节点将加入此父节点。 |
-| `count` | 预热的数量。 |
-| `batch_size` | 每帧最多实例化数量；小于等于 0 时退化为同步预热。 |
-| `before_add` | 可选入树前回调，签名为 \`func(node: Node) -> void\`。 |
-
-<a id="member-gfobjectpoolutility-methods-prewarm_async_budget"></a>
-
-### `prewarm_async_budget`
-
-- API：`public`
-- 首次版本：`8.0.0`
-
-```gdscript
-func prewarm_async_budget( scene: PackedScene, parent: Node, count: int, msec_budget_per_frame: float = 8.0, before_add: Callable = Callable() ) -> void:
-```
-
-按单帧时间预算预热对象池，适合复杂度差异较大的 PackedScene。
-
-参数：
-
-| 名称 | 说明 |
-|---|---|
-| `scene` | 要预热的 PackedScene 资源。 |
-| `parent` | 预热节点将加入此父节点。 |
-| `count` | 预热的数量。 |
-| `msec_budget_per_frame` | 每帧实例化预算毫秒数；小于等于 0 时退化为同步预热。 |
-| `before_add` | 可选入树前回调，签名为 \`func(node: Node) -> void\`。 |
-
-<a id="member-gfobjectpoolutility-methods-prewarm_request_async"></a>
-
-### `prewarm_request_async`
-
-- API：`public`
-- 首次版本：`11.0.0`
-
-```gdscript
-func prewarm_request_async( scene: PackedScene, parent: Node, count: int, batch_size: int = 32, owner: Object = null, cancellation_token: GFCancellationToken = null, prepare_callback: Callable = Callable() ) -> GFObjectPoolPrewarmOperation:
-```
-
-创建一个按每帧批量驱动的 request-scoped 类型化预热请求。 请求只释放自身尚未消费的容量 reservation；取消不会回滚已经提交的节点。 `batch_size <= 0` 时保留旧 API 的同步退化语义。同步终态可能在方法返回前完成。 该入口只接受主线程调用；其他线程会同步返回 `INVALID/main_thread_required`，且不改变池状态。
-
-参数：
-
-| 名称 | 说明 |
-|---|---|
-| `scene` | 要预热的 PackedScene 资源。 |
-| `parent` | 可选挂载父节点；null 表示 detached prewarm。 |
-| `count` | 请求数量；0 立即完成，负数返回 INVALID。 |
-| `batch_size` | 每帧最多创建数量；小于等于 0 时同步执行。 |
-| `owner` | 可选请求生命周期 owner；Node 必须已在场景树中。 |
-| `cancellation_token` | 可选取消令牌或 GFAsyncScope。 |
-| `prepare_callback` | 可选 \`func(node: Node) -> Error\`；非 OK 终止请求。 |
-
-返回：请求专属 Operation；调用方应先检查同步终态再连接 completed。
-
-<a id="member-gfobjectpoolutility-methods-prewarm_budget_request_async"></a>
-
-### `prewarm_budget_request_async`
-
-- API：`public`
-- 首次版本：`11.0.0`
-
-```gdscript
-func prewarm_budget_request_async( scene: PackedScene, parent: Node, count: int, msec_budget_per_frame: float = 8.0, owner: Object = null, cancellation_token: GFCancellationToken = null, prepare_callback: Callable = Callable() ) -> GFObjectPoolPrewarmOperation:
-```
-
-创建一个按每帧时间预算驱动的 request-scoped 类型化预热请求。 请求只释放自身尚未消费的容量 reservation；取消不会回滚已经提交的节点。 `msec_budget_per_frame <= 0` 时保留旧 API 的同步退化语义。 该入口只接受主线程调用；其他线程会同步返回 `INVALID/main_thread_required`，且不改变池状态。
-
-参数：
-
-| 名称 | 说明 |
-|---|---|
-| `scene` | 要预热的 PackedScene 资源。 |
-| `parent` | 可选挂载父节点；null 表示 detached prewarm。 |
-| `count` | 请求数量；0 立即完成，负数返回 INVALID。 |
-| `msec_budget_per_frame` | 每帧预算；小于等于 0 时同步执行。 |
-| `owner` | 可选请求生命周期 owner；Node 必须已在场景树中。 |
-| `cancellation_token` | 可选取消令牌或 GFAsyncScope。 |
-| `prepare_callback` | 可选 \`func(node: Node) -> Error\`；非 OK 终止请求。 |
-
-返回：请求专属 Operation；调用方应先检查同步终态再连接 completed。
+等待 dispose 已发起的节点清理；允许在完成后重复等待。
 
 <a id="member-gfobjectpoolutility-methods-get_available_count"></a>
 
 ### `get_available_count`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func get_available_count(scene: PackedScene) -> int:
 ```
 
-获取指定场景当前池中可用（未使用）的节点数量。
+获取当前仍存活的离树缓存数量。
 
 参数：
 
 | 名称 | 说明 |
 |---|---|
-| `scene` | 要查询的 PackedScene 资源。 |
+| `scene` | 实例来源。 |
 
-返回：池中可用节点数量。
+返回：当前可以借出的实例数量。
 
 <a id="member-gfobjectpoolutility-methods-get_active_count"></a>
 
 ### `get_active_count`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func get_active_count(scene: PackedScene) -> int:
 ```
 
-获取指定场景当前正在使用中的节点数量。
+获取当前仍由 Lease 持有使用权的实例数量。
 
 参数：
 
 | 名称 | 说明 |
 |---|---|
-| `scene` | 要查询的 PackedScene 资源。 |
+| `scene` | 实例来源。 |
 
-返回：当前激活节点数量。
-
-<a id="member-gfobjectpoolutility-methods-get_active_nodes"></a>
-
-### `get_active_nodes`
-
-- API：`public`
-
-```gdscript
-func get_active_nodes(scene: PackedScene) -> Array[Node]:
-```
-
-获取指定场景当前正在使用中的节点列表。
-
-参数：
-
-| 名称 | 说明 |
-|---|---|
-| `scene` | 要查询的 PackedScene 资源。 |
-
-返回：当前激活节点数组。
-
-<a id="member-gfobjectpoolutility-methods-prune_invalid_nodes"></a>
-
-### `prune_invalid_nodes`
-
-- API：`public`
-
-```gdscript
-func prune_invalid_nodes() -> void:
-```
-
-主动清理全部池中的失效节点引用。
+返回：ACTIVE 借用数量，不含等待归还的实例。
 
 <a id="member-gfobjectpoolutility-methods-get_debug_snapshot"></a>
 
 ### `get_debug_snapshot`
 
 - API：`public`
+- 首次版本：`unreleased`
 
 ```gdscript
 func get_debug_snapshot() -> Dictionary:
 ```
 
-获取对象池诊断快照。
+获取不含节点或 Lease 的诊断计数快照。
 
-返回：以资源路径或实例 ID 为键的池状态字典。
+返回：按场景身份分组的计数。
 
 结构：
 
-- `return`: Dictionary[String, Dictionary] keyed by PackedScene resource path or instance id, with total, available, and active counts.
+- `return`: Dictionary[String, Dictionary]，键为资源路径或场景实例 ID，值含 total、available、active 三个非负整数；等待归还只计入 total。

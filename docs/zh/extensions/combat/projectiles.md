@@ -2,7 +2,7 @@
 
 Combat 的 Projectile API 把“场景拓扑、发射输入、运动决策、宿主移动、生命周期和分配回收”拆成独立契约。它只提供可验证的通用发射体运行时，不规定弹药、伤害、阵营、穿透、特效或派生弹业务。
 
-这是一次有意的破坏性升级。 `GFProjectile2D` / `GFProjectile3D` 现在继承 `Node`，不再是 HitBox、`Node2D` 或 `Node3D`；发射也不再接收共享 `Dictionary`、自动 launch、自动移动 root 或自行 `queue_free()`。项目应从 Definition、LaunchInput、Binding、Session 和 Emitter 组成新链。
+普通项目先配置 Definition，再调用 `await emitter.emit_pattern()`，从结果取得 Session 即可。只有自定义运动或宿主时，才需要阅读 Motion、Binding 与 BodyAdapter 协议。
 
 ## 场景定义与类型化绑定
 
@@ -124,40 +124,61 @@ func fire(target: Node2D) -> void:
         "skill_id": &"multi_shot",
     })
 
-    var roots: Array[Node] = emitter.emit_projectiles(
+    var result: GFProjectileEmissionResult = await emitter.emit_pattern(
         launch_input,
         &"arrow",
         5
     )
-    if roots.is_empty():
+    if not result.is_successful():
+        push_warning("发射失败：%s / %s" % [result.get_stage(), result.get_reason()])
         return
+    for session: GFProjectileSession in result.get_sessions():
+        print(session.get_instance_root())
 ```
 
-2D 的精确入口为 `emit_projectile(launch_input, projectile_id) -> Node` 和 `emit_projectiles(launch_input, projectile_id, emit_count) -> Array[Node]`；3D 使用 `GFProjectileLaunchInput3D` 对称。返回值是 allocator 管理的完整实例 root，不是 runtime 子节点。`projectile_emitted(projectile_root, session, launch_input)` 在 Session ACTIVE 且 started 已发布后发出；`projectile_emit_failed(reason, details)` 只提供稳定原因和有界诊断。`reason == &"binding_failed"` 时，`details.binding_failure_reason` 是对应 `GFProjectileBinding.FailureReason` 的整数值，可区分缺失/重复 runtime、错误维度、非法 impact source 与其他拓扑拒绝；不要仅依赖自由文本诊断。
+2D 与 3D 共享一个异步入口：`emit_pattern(launch_input, projectile_id, emit_count) -> GFProjectileEmissionResult`。单发使用 `emit_count = 1`；省略数量则由 SpawnPattern 决定。不要在每个弹体上逐个 await，同一批次只排队一次。
+
+`GFProjectileEmissionResult` 提供 `is_successful()`、`get_status()`、`get_stage()`、`get_reason()`、`get_requested_count()`、`get_emitted_count()` 与 `get_sessions()`。失败结果的 Session 数组为空；成功数组按生成顺序排列，数量可能被策略或硬上限限制。结果描述一次已经完成的发射，不延长弹体生命周期：信号回调可以立即结束 Session，使用前仍应检查 `session.is_active()`。
+
+`projectile_emitted(projectile_root, session, launch_input)` 在 started 已发布后发出。`projectile_emit_failed(reason, details)` 用于集中诊断，普通调用直接检查 Result 即可。`binding_failed` 的 `details.binding_failure_reason` 是 `GFProjectileBinding.FailureReason`，可区分场景拓扑错误。
 
 `GFProjectileSpawnPattern2D` / `GFProjectileSpawnPattern3D` 的 `get_spawn_transforms(emitter, launch_input, emit_count)` 只计算变换，不实例化节点。内置模式包括 `GFProjectileBurstPattern2D`、`GFProjectileLineSpawnPattern2D`、`GFProjectileConePattern3D` 和 `GFProjectileLineSpawnPattern3D`。自定义模式必须返回有限变换，并把请求数量与 Emitter 硬上限视为真实预算。
 
-Fresh 模式由 Emitter 实例化并最终 free 完整 root；pool 模式由显式提供的 `GFObjectPoolUtility` acquire/release。`use_object_pool` 不会隐式从全局 `Gf` 解析 Utility。正常结算只归还仍匹配本次 active lease 的精确 root；若同一 Utility 在 Session 活动期间被 `init()` 等生命周期切换清除了旧 lease tracking，Emitter 会对自己仍持有的精确 root 执行一次 free fallback，避免把无主节点遗留在业务父树。无论哪种模式，同一候选都只退休一次；Session finish 本身不 free 或归还 root。
+不提供共享池时，Emitter 使用私有、不缓存的对象池，Session 结束后释放完整 root。给 `object_pool_utility` 赋值后，Emitter 会复用共享池中的场景；无需额外开关，也不会从全局自动查找池。预热直接使用 `await pool.prewarm(definition.scene, count)`。
+
+每个 Session 的场景借用由 Emitter 私有的 Lease 管理。结束 Session 会立即请求归还、撤销该次借用，实际离树在安全点完成。空闲节点不留在 SceneTree 中；重新借出后重新绑定 runtime，不会把预期的出入树过程当成意外销毁。旧 Session、旧命中或旧回收回调不能归还新一轮借用。项目不要另行 free、reparent 或重复归还 Emitter 管理的 root。
+
+发射器离树会结束自己的 Session 并归还借用；共享池本身不会因此销毁。共享池由项目负责 `dispose()`，需要等待清账时使用 `await pool.wait_disposed()`。池销毁不可通过 `init()` 重启，需要新生命周期时创建新的池。
 
 ## 两阶段批次与收费边界
 
-`GFProjectileEmissionPolicy` 继续表达 enabled、单次数量、总次数、cooldown 和 charge。`GFProjectileEmissionTask` 是可单独使用的 policy-level prepare/commit primitive；其中的 context 只应是 LaunchInput metadata 的副本，不得携带 Motion、Session、Binding 或 allocator 私有状态。普通项目优先让 Emitter 编排完整链。
+`GFProjectileEmissionPolicy` 表达 enabled、单次数量、总次数、cooldown 和 charge。事务编排保持框架内部实现，项目不需要创建或管理任务对象。
 
 Emitter 的一批发射采用两阶段事务：
 
-1. 冻结 Definition、LaunchInput、policy 时间和请求数量。
-2. 为全部候选 allocate、入树、放置、typed bind、预检并建立 launch reservation。
+1. 冻结 LaunchInput、生成位置、Definition 配置身份、policy 时间和请求数量。
+2. 等待一次安全点批量借用，再为全部候选放置、typed bind、预检并建立 launch reservation。
 3. 全部候选成功后才一次性提交实际数量，原子结算 cooldown/charge；用户 commit hook 尚未发布。
 4. 在无用户回调区消费全部 reservation，使所有 Session 先进入 ACTIVE。
 5. 按稳定候选顺序发布 policy commit hook、runtime `projectile_started` 和 emitter `projectile_emitted`，最后释放 finished/retirement 通知屏障。
 
 在任何 Session ACTIVE 前失败时，policy 状态会精确补偿，调用方不被收费，fresh/pool 候选各自恰好退休一次。一旦任一 Session ACTIVE，收费保持提交；后续失效会用稳定 EndReason 结束已激活 Session，而不是伪装成未发生的发射。
 
-用户 hook 或信号可以同步结束 Session、`remove_child()` Emitter，或用 `queue_free()` / `call_deferred("free")` 安排节点删除。框架会在每个回调边界复核 generation、liveness 和 ownership；批次仍保证已发布 Session 的 `projectile_started` 先于延迟的 `projectile_finished`。若发布期间 Emitter 被合法释放，调用返回空数组、仍 ACTIVE 的 Session 以 `EMITTER_RELEASED` 收敛且完整 root 仍只退休一次；已经 first-wins 结束的 Session 保留原原因。调用方不应把返回数组为空解释成“policy 一定未提交”。
+用户 hook 或信号可以同步结束 Session、`remove_child()` Emitter，或用 `queue_free()` / `call_deferred("free")` 安排节点删除。框架会在每个回调边界复核 generation、liveness 和 ownership；批次仍保证已发布 Session 的 `projectile_started` 先于延迟的 `projectile_finished`。若发布期间 Emitter 离树，结果失败、仍 ACTIVE 的 Session 以 `EMITTER_RELEASED` 收敛且完整 root 仍只退休一次；已经 first-wins 结束的 Session 保留原原因。失败结果不一定表示“policy 未提交”，可结合 `get_stage()` 区分激活前与发布阶段。
 
 Godot 原生禁止在对象仍处于自身公开方法调用栈或 signal emission 锁内同步 `free()` 该对象；这类输入会由引擎报错，不属于 Emitter 的支持契约。回调内需要销毁 Emitter 时应使用 `queue_free()` 或 `call_deferred("free")`。公开调用和 signal emission 均已结束后，外部同步 `free()` root、Emitter 或其 ancestor 仍由独立 retirement record 精确收敛。
 
+同一 Emitter 同时只接受一个在途请求，重入返回 `emission_in_progress`。等待期间输入和生成位置不会跟随原对象变化；Definition 配置被改写则取消该次请求。等待期间父节点或 Emitter 离树会取消交付。调用协程所属节点本身被 Godot 销毁时，不应继续依赖该节点上的协程；需要跨场景等待的流程应由存活时间更长的节点持有。
+
 ## 迁移检查
+
+从同步 Emitter 迁移时：
+
+- `emit_projectile()` / `emit_projectiles()` 改为 `await emit_pattern()`，从 Result 获取 Session 和 root。
+- 删除 `use_object_pool`；只通过 `object_pool_utility` 是否非空选择共享复用。
+- `prewarm_projectiles()` 改为直接 `await pool.prewarm(definition.scene, count)`。
+- 不再直接创建发射任务对象；收费策略仍通过 EmissionPolicy 配置。
+
 
 从旧 Projectile API 迁移时，逐项删除下面的假设：
 

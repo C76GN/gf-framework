@@ -2,7 +2,7 @@
 
 ## 播放路径
 
-`GFAudioUtility` 会优先借助 `GFAssetUtility` 异步加载音频资源；未注册时退回同步 `load()`。SFX 播放会在存在 `GFObjectPoolUtility` 时复用池化 `AudioStreamPlayer`，未注册对象池时则创建普通播放器并在播放结束后释放。
+`GFAudioUtility` 会优先借助 `GFAssetUtility` 异步加载音频资源；未注册时退回同步 `load()`。普通 SFX 的 `AudioStreamPlayer` 由音频工具自行缓存：停止后清空音频流、留在播放根节点下，下次播放直接复用。无需注册通用对象池，已加载片段仍可同步取得播放句柄。
 
 ```gdscript
 var audio := Gf.get_utility(GFAudioUtility) as GFAudioUtility
@@ -47,6 +47,6 @@ var pitch := GFAudioPitchAnalysisTools.analyze_mono_samples(samples, 44100.0, {
 
 ## 生命周期
 
-`GFAudioEmitterHandle` 绑定的是一次播放 session，不直接拥有可复用播放器。`stop()` 即使在异步资源返回前调用，也会终结该 session；自然结束、加载失败、显式停止和 fade 完成都会以同一 session 身份收敛，旧 handle 或旧 tween 不能命中已经回池并播放新片段的 node。`stop_all_sfx()` 会递增 SFX 生命周期序号，停止普通 SFX 和 2D/3D 空间 SFX，并阻止尚未返回的异步 SFX 继续落地。
+`GFAudioEmitterHandle` 绑定的是一次播放 session，不直接拥有可复用播放器。`stop()` 即使在异步资源返回前调用，也会终结该 session；自然结束、加载失败、显式停止和 fade 完成都会以同一 session 身份收敛，旧 handle、完成回调或旧 tween 不能命中已经复用并播放新片段的 node。`stop_all_sfx()` 会停止普通 SFX 和 2D/3D 空间 SFX，并阻止尚未返回的异步 SFX 继续落地。`dispose()` 还会释放全部活动与空闲播放器。
 
-池化播放器在打包模板前以及每次 acquire、reparent 之前统一恢复框架基线：name、停止态、stream、autoplay、pause、max polyphony、bus、音量、pitch、mix target 和 playback type。项目通过 `GFAudioEmitterHandle.get_player()` 取得的是当前 session 的 live Godot player，适合只读诊断或当前 lease 内的高级配置；handle 终结后不得继续修改或控制该 Node。框架不会猜测并清除项目自行增加的 metadata、自定义 signal connection、脚本状态或未来 Godot 新属性，项目若写入这些状态必须在当前 lease 终结前自行对称撤销。写入音量、pitch、effect 和 tween 时间的公开入口会拒绝 `NaN` / `Inf`，避免非有限数进入 AudioServer 或 Tween 状态。
+普通播放器在停止和再次播放前恢复框架基线：name、停止态、stream、autoplay、pause、max polyphony、bus、音量、pitch、mix target 和 playback type。复用不触发离树或重新挂载。项目通过 `GFAudioEmitterHandle.get_player()` 取得的是当前 session 的 live Godot player，适合只读诊断或当前播放内的高级配置；handle 终结后不得继续修改或控制该 Node。框架不会猜测并清除项目自行增加的 metadata、自定义 signal connection、脚本状态或未来 Godot 新属性，项目若写入这些状态必须在当前播放终结前自行对称撤销。写入音量、pitch、effect 和 tween 时间的公开入口会拒绝 `NaN` / `Inf`，避免非有限数进入 AudioServer 或 Tween 状态。

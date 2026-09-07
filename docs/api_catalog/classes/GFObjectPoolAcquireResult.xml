@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFObjectPoolAcquireResult" path="addons/gf/standard/utilities/nodes/gf_object_pool_acquire_result.gd" module="standard" extends="RefCounted" classDigest="520426d1d5a98f292c9d4343a5cd1432294ca52c17a1b91f4c8b270238b2b653">
+	<description>GFObjectPoolAcquireResult: 单次节点借用的结果。
+结果记录完成时的事实；成功结果中的 Lease 仍有自己的后续生命周期。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">value_object</tag>
+		<tag name="since">unreleased</tag>
+	</tags>
+	<signals />
+	<enums>
+		<member kind="enum" name="Status">
+			<signature>enum Status {
+	## 已完成挂载并交付借用。
+	SUCCEEDED,
+	## 输入或调用线程不符合要求。
+	INVALID,
+	## 父节点或对象池生命周期已经结束。
+	CANCELLED,
+	## 实例化、准备或挂载失败。
+	FAILED,
+}</signature>
+			<description>借用请求的最终结果。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</enums>
+	<constants />
+	<properties />
+	<methods>
+		<member kind="method" name="is_successful">
+			<signature>func is_successful() -&gt; bool:</signature>
+			<description>检查请求是否成功交付过借用。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">status 为 SUCCEEDED 时为 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_status">
+			<signature>func get_status() -&gt; Status:</signature>
+			<description>获取最终状态。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">本次请求的 Status。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_stage">
+			<signature>func get_stage() -&gt; StringName:</signature>
+			<description>获取完成或失败的业务阶段。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">validation、allocation、prepare、attach 或 complete。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_reason">
+			<signature>func get_reason() -&gt; StringName:</signature>
+			<description>获取稳定的结果原因。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">acquired、invalid_scene、invalid_parent、main_thread_required、pool_disposed、parent_lost、owner_lost、scene_instantiation_failed、prepare_failed、invalid_prepare_result 或 candidate_invalidated；未配置结果为 unconfigured。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_lease">
+			<signature>func get_lease() -&gt; GFObjectPoolLease:</signature>
+			<description>获取成功交付的借用。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">仅成功时非 null；是否仍可使用节点应查询 Lease。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

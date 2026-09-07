@@ -9,7 +9,7 @@
 - 类别：运行时句柄 (`runtime_handle`)
 - 首次版本：`3.17.0`
 
-以两阶段事务发射 typed 3D projectile definition。
+在安全点借用完整场景，以一次等待原子发射一批 3D projectile。
 
 ## 成员概览
 
@@ -25,13 +25,10 @@
 | 属性 | [`hard_projectile_limit_per_request`](#member-gfprojectileemitter3d-properties-hard_projectile_limit_per_request) | `var hard_projectile_limit_per_request: int = 4096:` |
 | 属性 | [`default_launch_input`](#member-gfprojectileemitter3d-properties-default_launch_input) | `var default_launch_input: GFProjectileLaunchInput3D = null` |
 | 属性 | [`spawn_parent_path`](#member-gfprojectileemitter3d-properties-spawn_parent_path) | `var spawn_parent_path: NodePath = NodePath("")` |
-| 属性 | [`use_object_pool`](#member-gfprojectileemitter3d-properties-use_object_pool) | `var use_object_pool: bool = false` |
 | 属性 | [`object_pool_utility`](#member-gfprojectileemitter3d-properties-object_pool_utility) | `var object_pool_utility: GFObjectPoolUtility = null` |
-| 方法 | [`emit_projectile`](#member-gfprojectileemitter3d-methods-emit_projectile) | `func emit_projectile( launch_input: GFProjectileLaunchInput3D = null, projectile_id: StringName = &"" ) -> Node:` |
-| 方法 | [`emit_projectiles`](#member-gfprojectileemitter3d-methods-emit_projectiles) | `func emit_projectiles( launch_input: GFProjectileLaunchInput3D = null, projectile_id: StringName = &"", emit_count: int = -1 ) -> Array[Node]:` |
+| 方法 | [`emit_pattern`](#member-gfprojectileemitter3d-methods-emit_pattern) | `func emit_pattern( launch_input: GFProjectileLaunchInput3D = null, projectile_id: StringName = &"", emit_count: int = -1 ) -> GFProjectileEmissionResult:` |
 | 方法 | [`resolve_projectile_definition`](#member-gfprojectileemitter3d-methods-resolve_projectile_definition) | `func resolve_projectile_definition( projectile_id: StringName = &"" ) -> GFProjectileDefinition3D:` |
 | 方法 | [`resolve_spawn_parent`](#member-gfprojectileemitter3d-methods-resolve_spawn_parent) | `func resolve_spawn_parent() -> Node:` |
-| 方法 | [`prewarm_projectiles`](#member-gfprojectileemitter3d-methods-prewarm_projectiles) | `func prewarm_projectiles(count: int, projectile_id: StringName = &"") -> bool:` |
 
 ## 信号
 
@@ -186,82 +183,43 @@ var spawn_parent_path: NodePath = NodePath("")
 
 相对 emitter 的生成父节点路径；空路径使用当前父节点。
 
-<a id="member-gfprojectileemitter3d-properties-use_object_pool"></a>
-
-### `use_object_pool`
-
-- API：`public`
-- 首次版本：`3.17.0`
-
-```gdscript
-var use_object_pool: bool = false
-```
-
-是否从 `object_pool_utility` 获取和归还完整实例 root。
-
 <a id="member-gfprojectileemitter3d-properties-object_pool_utility"></a>
 
 ### `object_pool_utility`
 
 - API：`public`
-- 首次版本：`3.17.0`
+- 首次版本：`unreleased`
 
 ```gdscript
 var object_pool_utility: GFObjectPoolUtility = null
 ```
 
-pool 模式使用的 allocator；项目代码负责配置与生命周期。
+可选共享对象池；null 时使用发射器私有且不缓存的池。 项目负责共享池的生命周期；发射器只归还自己的 Lease。
 
 ## 方法
 
-<a id="member-gfprojectileemitter3d-methods-emit_projectile"></a>
+<a id="member-gfprojectileemitter3d-methods-emit_pattern"></a>
 
-### `emit_projectile`
+### `emit_pattern`
 
 - API：`public`
-- 首次版本：`3.17.0`
+- 首次版本：`unreleased`
 
 ```gdscript
-func emit_projectile( launch_input: GFProjectileLaunchInput3D = null, projectile_id: StringName = &"" ) -> Node:
+func emit_pattern( launch_input: GFProjectileLaunchInput3D = null, projectile_id: StringName = &"", emit_count: int = -1 ) -> GFProjectileEmissionResult:
 ```
 
-原子发射一个 3D projectile。
+在安全点原子发射一批 3D projectile，并返回唯一终态。 请求期间只允许一次在途发射；需要单发时将 emit_count 设为 1。 输入、生成位置和配置身份在等待前冻结；等待期间配置变动会取消本次请求。
 
 参数：
 
 | 名称 | 说明 |
 |---|---|
-| `launch_input` | 可选 typed 调用输入。 |
-| `projectile_id` | 可选 catalog ID；空值使用默认配置。 |
-
-返回：ACTIVE session 对应的完整 root；失败时返回 null。
-
-<a id="member-gfprojectileemitter3d-methods-emit_projectiles"></a>
-
-### `emit_projectiles`
-
-- API：`public`
-- 首次版本：`3.17.0`
-
-```gdscript
-func emit_projectiles( launch_input: GFProjectileLaunchInput3D = null, projectile_id: StringName = &"", emit_count: int = -1 ) -> Array[Node]:
-```
-
-以两阶段事务原子发射一批 3D projectile。 callback 内 `remove_child()`、`queue_free()` 或 `call_deferred("free")` 均保持完整 started、emitted、finished 顺序与 exact retirement。Godot 原生禁止在对象自身 public call 或 signal emission 锁内同步 `free()`；该非法输入不属于本方法的支持契约。
-
-参数：
-
-| 名称 | 说明 |
-|---|---|
-| `launch_input` | 可选 typed 调用输入。 |
+| `launch_input` | 可选 typed 调用输入；容器值复制，目标节点保持弱引用。 |
 | `projectile_id` | 可选 catalog ID；空值使用默认配置。 |
 | `emit_count` | 正数覆盖 pattern 数量；负值使用 pattern 默认值。 |
 
-返回：全批 ACTIVE 的完整 root；事务失败或发布期间 emitter release 时返回空数组。
-
-结构：
-
-- `return`: Array[Node]，按 spawn transform 稳定顺序排列的 allocator-managed root。
+返回：唯一结果；失败时不交付部分 Session，成功数量可以受发射策略和硬上限限制。
 
 <a id="member-gfprojectileemitter3d-methods-resolve_projectile_definition"></a>
 
@@ -298,25 +256,3 @@ func resolve_spawn_parent() -> Node:
 解析完整实例 root 的生成父节点。
 
 返回：configured parent、emitter parent 或 tree 内 emitter；不可用时返回 null。
-
-<a id="member-gfprojectileemitter3d-methods-prewarm_projectiles"></a>
-
-### `prewarm_projectiles`
-
-- API：`public`
-- 首次版本：`3.17.0`
-
-```gdscript
-func prewarm_projectiles(count: int, projectile_id: StringName = &"") -> bool:
-```
-
-预热指定 definition 的 pool 实例。
-
-参数：
-
-| 名称 | 说明 |
-|---|---|
-| `count` | 要预热的正数量。 |
-| `projectile_id` | 可选 catalog ID。 |
-
-返回：是否已向配置的 pool 提交预热。

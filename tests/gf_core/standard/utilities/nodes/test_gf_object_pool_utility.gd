@@ -1,4 +1,4 @@
-## 测试 GFObjectPoolUtility 的 acquire、release、prewarm 及 get_available_count。
+## 验证 GFObjectPoolUtility 的结构化借用、Lease 生命周期与物理安全点。
 extends GutTest
 
 
@@ -7,1339 +7,871 @@ extends GutTest
 var _pool: GFObjectPoolUtility
 var _parent: Node
 var _scene: PackedScene
-var _test_architecture: GFArchitecture = null
 
 
-# --- Godot 生命周期方法 ---
+# --- GUT 生命周期方法 ---
 
 func before_each() -> void:
 	_pool = GFObjectPoolUtility.new()
 	_pool.init()
-
 	_parent = Node.new()
 	add_child(_parent)
-
 	_scene = _make_node_scene()
 
 
 func after_each() -> void:
-	GFAutoload.reset_tree_exit_state()
-	InstantiationLifecycleNode.pool = null
-	InstantiationLifecycleNode.restart_pool = false
-	_pool.dispose()
+	PrepareLifecycleNode.source_context = {}
+	PrepareLifecycleNode.expected_object = null
+	ReparentingPrepareNode.target_parent = null
+	DisposingPrepareNode.pool = null
+	if _pool != null:
+		_pool.dispose()
+		await _pool.wait_disposed()
 	_pool = null
-	if _test_architecture != null:
-		if Gf.has_architecture() and Gf.get_architecture() == _test_architecture:
-			Gf._architecture = null
-		_test_architecture.dispose()
-		_test_architecture = null
-	if is_instance_valid(_parent):
+	if is_instance_valid(_parent) and not _parent.is_queued_for_deletion():
 		_parent.queue_free()
 	_parent = null
 	_scene = null
 	await get_tree().process_frame
 
-# --- 测试：acquire ---
 
-## 验证 acquire 返回有效节点并将其添加到父节点。
-func test_acquire_returns_valid_node() -> void:
-	var node: Node = _pool.acquire(_scene, _parent)
+# --- 测试：借用结果 ---
 
-	assert_not_null(node, "acquire 应返回有效节点。")
-	assert_true(is_instance_valid(node), "返回的节点应为有效实例。")
+func test_acquire_returns_structured_success_and_attached_lease() -> void:
+	var result: GFObjectPoolAcquireResult = await _pool.acquire(_scene, _parent)
 
-
-## 验证 acquire 后节点的 metadata 被标记为激活状态。
-func test_acquire_node_is_active() -> void:
-	var node: Node = _pool.acquire(_scene, _parent)
-
-	assert_eq(_pool.get_active_count(_scene), 1, "acquire 后对象池应报告一个激活节点。")
-	assert_true(_pool.get_active_nodes(_scene).has(node), "acquire 返回的节点应出现在激活节点列表中。")
-
-
-func test_acquire_runs_before_add_callback_before_ready() -> void:
-	var ready_scene: PackedScene = _make_ready_check_scene()
-
-	var node: Node = _pool.acquire(ready_scene, _parent, func(ready_node: Node) -> void:
-		ready_node.set_meta(&"prepared_before_ready", true)
+	_assert_acquire_result(
+		result,
+		GFObjectPoolAcquireResult.Status.SUCCEEDED,
+		&"complete",
+		&"acquired"
 	)
-	var ready_check: ReadyCheckNode = _ready_check_node(node)
-
-	assert_not_null(ready_check, "测试场景应实例化为 ReadyCheckNode。")
-	if ready_check == null:
+	var lease: GFObjectPoolLease = result.get_lease()
+	assert_not_null(lease, "成功结果必须交付 Lease。")
+	if lease == null:
 		return
-	assert_true(ready_check.prepared_in_ready, "before_add 回调应先于 _ready() 执行。")
+	var node: Node = lease.get_node()
+	assert_not_null(node, "ACTIVE Lease 必须提供节点。")
+	if node == null:
+		return
+	assert_same(node.get_parent(), _parent, "结果返回前节点必须已经挂到请求 parent。")
+	assert_true(node.is_inside_tree(), "结果返回前节点必须已经入树。")
+	assert_eq(lease.get_state(), GFObjectPoolLease.State.ACTIVE)
+	assert_eq(lease.get_settlement_reason(), &"pending")
+	assert_eq(_pool.get_active_count(_scene), 1)
+	assert_eq(_pool.get_available_count(_scene), 0)
 
 
-func test_acquire_discards_candidate_when_instantiation_restarts_pool() -> void:
-	var lifecycle_scene: PackedScene = _make_instantiation_lifecycle_scene()
-	InstantiationLifecycleNode.pool = _pool
-	InstantiationLifecycleNode.restart_pool = true
-
-	var node: Node = _pool.acquire(lifecycle_scene, _parent)
-	InstantiationLifecycleNode.pool = null
-	InstantiationLifecycleNode.restart_pool = false
-
-	assert_null(node, "instantiate 重启对象池后，旧 acquire 不得发布候选。")
-	assert_eq(_parent.get_child_count(), 0, "失效 instantiate 候选不得挂到请求父节点。")
-	assert_eq(_pool.get_active_count(lifecycle_scene), 0, "重启后不得残留旧代次 active 借用。")
-	assert_eq(_pool.get_available_count(lifecycle_scene), 0, "重启后不得提交旧代次 available 候选。")
-
-
-func test_acquire_rejects_parent_queued_for_deletion() -> void:
-	var queued_parent: Node = Node.new()
-	add_child(queued_parent)
-	queued_parent.queue_free()
-
-	var node: Node = _pool.acquire(_scene, queued_parent)
-
-	assert_null(node, "已排队删除的 parent 不得接收新的借用节点。")
-	assert_push_error("[GFObjectPoolUtility] acquire 失败：parent 无效。")
-
-
-func test_before_add_queued_parent_cancels_acquire() -> void:
-	var node: Node = _pool.acquire(_scene, _parent, func(_candidate: Node) -> void:
-		_parent.queue_free()
+func test_acquire_rejects_invalid_scene_and_parent_with_typed_reasons() -> void:
+	var invalid_scene_result: GFObjectPoolAcquireResult = await _pool.acquire(null, _parent)
+	var detached_parent: Node = Node.new()
+	var invalid_parent_result: GFObjectPoolAcquireResult = await _pool.acquire(
+		_scene,
+		detached_parent
 	)
+	detached_parent.free()
 
-	assert_null(node, "before_add 排队删除 parent 后，旧 acquire 不得发布节点。")
-	assert_eq(_pool.get_active_count(_scene), 0, "取消 acquire 后不得保留 active 节点。")
-	assert_eq(_pool.get_available_count(_scene), 1, "取消 acquire 后候选应安全归还对象池。")
-
-
-# --- 测试：release ---
-
-## 验证 release 后节点的 metadata 被标记为未激活。
-func test_release_marks_node_inactive() -> void:
-	var node: Node = _pool.acquire(_scene, _parent)
-	_pool.release(node, _scene)
-
-	assert_eq(_pool.get_active_count(_scene), 0, "release 后对象池不应继续报告激活节点。")
-	assert_eq(_pool.get_available_count(_scene), 1, "release 后节点应进入可用池。")
-
-
-func test_release_for_framework_requires_current_active_lease() -> void:
-	var node: Node = _pool.acquire(_scene, _parent)
-
-	assert_true(
-		_pool.release_for_framework(node, _scene),
-		"精确匹配的当前 active lease 应被 framework release 接纳。"
+	_assert_acquire_result(
+		invalid_scene_result,
+		GFObjectPoolAcquireResult.Status.INVALID,
+		&"validation",
+		&"invalid_scene"
 	)
-	assert_eq(_pool.get_active_count(_scene), 0)
-	assert_eq(_pool.get_available_count(_scene), 1)
-
-	var reused: Node = _pool.acquire(_scene, _parent)
-	assert_eq(reused, node, "测试必须在同一实例的新 active generation 上验证生命周期失效。")
-	_pool.init()
-
-	assert_false(
-		_pool.release_for_framework(reused, _scene),
-		"init 清除 lease tracking 后，framework release 必须零 mutation 拒绝旧 generation。"
+	_assert_acquire_result(
+		invalid_parent_result,
+		GFObjectPoolAcquireResult.Status.INVALID,
+		&"validation",
+		&"invalid_parent"
 	)
-	assert_eq(reused.get_parent(), _parent, "拒绝路径不得移动调用方仍持有的业务节点。")
-	assert_false(reused.is_queued_for_deletion(), "拒绝路径不得释放调用方仍持有的业务节点。")
+	assert_null(invalid_scene_result.get_lease())
+	assert_null(invalid_parent_result.get_lease())
+
+
+func test_empty_packed_scene_reports_allocation_failure() -> void:
+	var empty_scene: PackedScene = PackedScene.new()
+	var result: GFObjectPoolAcquireResult = await _pool.acquire(empty_scene, _parent)
+
+	_assert_acquire_result(
+		result,
+		GFObjectPoolAcquireResult.Status.FAILED,
+		&"allocation",
+		&"scene_instantiation_failed"
+	)
+	assert_null(result.get_lease())
+	assert_eq(_pool.get_active_count(empty_scene), 0)
+	assert_eq(_pool.get_available_count(empty_scene), 0)
+
+
+func test_parent_lost_while_request_waits_cancels_without_publishing_lease() -> void:
+	var state: Dictionary = {}
+	_start_acquire.call_deferred(_pool, _scene, _parent, {}, state)
+	_parent.queue_free.call_deferred()
+
+	var result: GFObjectPoolAcquireResult = await _wait_for_acquire_result(state)
+
+	_assert_acquire_result(
+		result,
+		GFObjectPoolAcquireResult.Status.CANCELLED,
+		&"validation",
+		&"parent_lost"
+	)
+	assert_null(result.get_lease())
 	assert_eq(_pool.get_active_count(_scene), 0)
 	assert_eq(_pool.get_available_count(_scene), 0)
 
 
-func test_release_for_framework_uses_authoritative_lease_after_metadata_drift() -> void:
-	var node: Node = _pool.acquire(_scene, _parent)
+func test_disposed_pool_rejects_new_acquire_without_revival() -> void:
+	_pool.dispose()
+	await _pool.wait_disposed()
+	_pool.init()
+
+	var result: GFObjectPoolAcquireResult = await _pool.acquire(_scene, _parent)
+
+	_assert_acquire_result(
+		result,
+		GFObjectPoolAcquireResult.Status.CANCELLED,
+		&"validation",
+		&"pool_disposed"
+	)
+	assert_null(result.get_lease())
+
+
+func test_pending_acquire_survives_caller_dropping_last_pool_reference() -> void:
+	var local_pool: GFObjectPoolUtility = GFObjectPoolUtility.new()
+	local_pool.init()
+	var pool_weak_ref: WeakRef = weakref(local_pool)
+	var state: Dictionary = {}
+	_start_acquire.call_deferred(local_pool, _scene, _parent, {}, state)
+	local_pool.dispose.call_deferred()
+	local_pool = null
+
+	var result: GFObjectPoolAcquireResult = await _wait_for_acquire_result(state)
+
+	_assert_acquire_result(
+		result,
+		GFObjectPoolAcquireResult.Status.CANCELLED,
+		&"validation",
+		&"pool_disposed"
+	)
+	assert_null(result.get_lease())
+	await get_tree().process_frame
+	await get_tree().process_frame
+	assert_eq(_parent.get_child_count(), 0, "失去 pool 外部引用不得遗留候选节点。")
+	var released_pool_value: Variant = pool_weak_ref.get_ref()
+	assert_true(
+		released_pool_value == null,
+		"pending completion 结束后局部 RefCounted pool 应释放自身。"
+	)
+
+
+# --- 测试：prepare 与原生节点生命周期 ---
+
+func test_prepare_receives_snapshot_before_first_enter_tree_and_ready() -> void:
+	var prepare_scene: PackedScene = _make_prepare_lifecycle_scene()
+	var referenced_object: RefCounted = RefCounted.new()
+	var context: Dictionary = {
+		"nested": { "value": 7 },
+		"object": referenced_object,
+	}
+	PrepareLifecycleNode.source_context = context
+	PrepareLifecycleNode.expected_object = referenced_object
+
+	var result: GFObjectPoolAcquireResult = await _pool.acquire(
+		prepare_scene,
+		_parent,
+		context
+	)
+	var node: PrepareLifecycleNode = _prepare_node_from_result(result)
+
 	assert_not_null(node)
 	if node == null:
 		return
-	node.set_meta(&"_gf_pool_active", false)
-
-	assert_true(
-		_pool.release_for_framework(node, _scene),
-		"framework exact-lease 入口不得把可变 Node metadata 当作授权证据。"
-	)
-	assert_eq(
-		_pool.get_active_count(_scene),
-		0,
-		"返回 true 时必须已经结算 authoritative active lease。"
-	)
-	assert_eq(
-		_pool.get_available_count(_scene),
-		1,
-		"metadata 漂移不得阻止精确 lease 正常归还所属池。"
-	)
-	assert_false(
-		_pool.release_for_framework(node, _scene),
-		"首次返回 true 后 authoritative lease 必须已退休，重复调用应拒绝。"
-	)
-
-	# 旧实现会在 legacy release() 的 metadata guard 处早退；保持失败用例可清理。
-	if _pool.get_available_count(_scene) == 0:
-		node.set_meta(&"_gf_pool_active", true)
-		_pool.release(node, _scene)
-
-	var reused: Node = _pool.acquire(_scene, _parent)
-	assert_same(reused, node)
-	var wrong_scene: PackedScene = _make_node_scene()
-	reused.set_meta(&"_gf_pool_source_scene", wrong_scene)
-	var wrong_source_accepted: bool = _pool.release_for_framework(reused, _scene)
-	var wrong_source_available: int = _pool.get_available_count(_scene)
-	if wrong_source_available == 0:
-		# 仅旧实现委托 metadata-sensitive legacy release() 时产生；消费红测诊断。
-		assert_push_warning(
-			"[GFObjectPoolUtility] release 收到不匹配的 PackedScene，已回退到节点原始所属池。"
-		)
-		assert_push_warning("[GFObjectPoolUtility] release 失败：节点不属于当前对象池。")
-	assert_true(wrong_source_accepted)
-	assert_eq(
-		wrong_source_available,
-		1,
-		"source-scene metadata 漂移也不得让 framework 入口假成功。"
-	)
-	assert_false(_pool.release_for_framework(reused, _scene))
-	if wrong_source_available == 0:
-		reused.set_meta(&"_gf_pool_source_scene", _scene)
-		_pool.release(reused, _scene)
+	assert_eq(node.prepare_values, [7], "嵌套容器必须在接纳请求时复制。")
+	assert_true(node.received_expected_object, "context 中 Object 必须保留身份。")
+	assert_true(node.prepare_was_detached, "prepare 必须在完全离树且无 parent 时执行。")
+	assert_true(node.ready_saw_prepare, "prepare 必须先于首次 _ready。")
+	assert_eq(node.enter_count, 1)
+	assert_eq(node.ready_count, 1)
+	assert_eq(GFVariantData.get_option_int(
+		GFVariantData.get_option_dictionary(context, "nested"),
+		"value"
+	), 99, "测试钩子必须确实改写调用方原字典以证明快照隔离。")
 
 
-func test_release_for_framework_settles_exact_queued_active_lease() -> void:
-	var queued_scene: PackedScene = _make_lifecycle_hook_scene()
-	var node: LifecycleHookNode = _acquire_lifecycle_hook_node(queued_scene)
-	var hook_log: Array[StringName] = node.event_log
-	var node_id: int = node.get_instance_id()
-	node.queue_free()
-
-	assert_true(
-		_pool.release_for_framework(node, queued_scene),
-		"已 queue_free 但仍 live 的精确 ACTIVE lease 必须同步结算 tracking。"
-	)
-	assert_true(hook_log.is_empty(), "queued-live tracking 结算不得执行 release hook。")
-	await get_tree().process_frame
-	assert_false(is_instance_valid(node), "queued lease root 应由 SceneTree 正常物理销毁。")
-	assert_false(
-		_pool.retire_lost_lease_for_framework(queued_scene, node_id),
-		"queued-live 结算后不得残留可被 lost-lease 入口再次退休的 active generation。"
-	)
-
-
-func test_lost_lease_retirement_requires_exact_invalid_active_identity() -> void:
-	var lost_scene: PackedScene = _make_lifecycle_hook_scene()
-	var wrong_scene: PackedScene = _make_node_scene()
-	var node: LifecycleHookNode = _acquire_lifecycle_hook_node(lost_scene)
-	var hook_log: Array[StringName] = node.event_log
-	var instance_id: int = node.get_instance_id()
-
-	assert_false(
-		_pool.retire_lost_lease_for_framework(lost_scene, instance_id),
-		"live lease（包括潜在 id-reuse）不得被 lost-lease 入口结算。"
-	)
-	assert_false(_pool.retire_lost_lease_for_framework(wrong_scene, instance_id))
-	assert_false(_pool.retire_lost_lease_for_framework(lost_scene, instance_id + 1))
-	node.free()
-
-	assert_false(
-		_pool.retire_lost_lease_for_framework(wrong_scene, instance_id),
-		"scene 与 id 必须同时匹配 acquire owner linkage。"
-	)
-	assert_true(
-		_pool.retire_lost_lease_for_framework(lost_scene, instance_id),
-		"已同步销毁的精确 ACTIVE lease 必须无 hook 地首次结算。"
-	)
-	assert_false(
-		_pool.retire_lost_lease_for_framework(lost_scene, instance_id),
-		"lost lease 结算必须幂等，重复调用返回 false。"
-	)
-	var snapshot: Dictionary = _pool.get_debug_snapshot()
-	var scene_snapshot: Dictionary = GFVariantData.get_option_dictionary(
-		snapshot,
-		_pool_debug_key(lost_scene)
-	)
-	assert_eq(GFVariantData.get_option_int(scene_snapshot, "total", -1), 0)
-	assert_eq(GFVariantData.get_option_int(scene_snapshot, "active", -1), 0)
-	assert_eq(GFVariantData.get_option_int(scene_snapshot, "available", -1), 0)
-	assert_true(hook_log.is_empty(), "lost-lease 结算不得执行 public/internal release hook。")
-
-
-## 验证 release 后 CanvasItem 会被隐藏并暂停处理，acquire 时恢复。
-func test_release_disables_visible_node_and_acquire_restores_it() -> void:
-	var control_scene: PackedScene = _make_control_scene()
-	var node: Control = _acquire_control(control_scene)
-
-	assert_true(node.visible, "acquire 后 Control 应保持可见。")
-	assert_eq(node.process_mode, Node.PROCESS_MODE_INHERIT, "acquire 后应保持原 process_mode。")
-
-	_pool.release(node, control_scene)
-
-	assert_false(node.visible, "release 后 Control 应被隐藏。")
-	assert_eq(node.process_mode, Node.PROCESS_MODE_DISABLED, "release 后节点应停止处理。")
-
-	var reused: Control = _acquire_control(control_scene)
-
-	assert_eq(reused, node, "再次 acquire 应复用同一 Control。")
-	assert_true(reused.visible, "复用后 Control 应恢复可见。")
-	assert_eq(reused.process_mode, Node.PROCESS_MODE_INHERIT, "复用后应恢复原 process_mode。")
-
-
-func test_visible_setter_release_stops_stale_descendant_activation() -> void:
-	var control_scene: PackedScene = _make_visibility_release_scene()
-	var node: VisibilityReleaseControl = _visibility_release_control(
-		_pool.acquire(control_scene, _parent)
-	)
-	var child: Control = _child_control(node, "Child")
-	_pool.release(node, control_scene)
-
-	var cancelled: Node = _pool.acquire(
-		control_scene,
+func test_reuse_runs_prepare_again_and_uses_enter_exit_tree_lifecycle() -> void:
+	var prepare_scene: PackedScene = _make_prepare_lifecycle_scene()
+	var first_result: GFObjectPoolAcquireResult = await _pool.acquire(
+		prepare_scene,
 		_parent,
-		func(candidate: Node) -> void:
-			var root: VisibilityReleaseControl = _visibility_release_control(candidate)
-			root.pool = _pool
-			root.pool_scene = control_scene
-			root.release_on_visibility = true
+		{ "nested": { "value": 1 } }
+	)
+	var first_lease: GFObjectPoolLease = first_result.get_lease()
+	var node: PrepareLifecycleNode = _prepare_node_from_result(first_result)
+	assert_not_null(node)
+	if node == null or first_lease == null:
+		return
+
+	assert_true(first_lease.release())
+	assert_eq(await first_lease.wait_settled(), &"released")
+	assert_null(node.get_parent(), "结算后空闲节点必须完全离树。")
+	assert_eq(node.exit_count, 1, "归还应由原生 _exit_tree 执行清理。")
+
+	var second_result: GFObjectPoolAcquireResult = await _pool.acquire(
+		prepare_scene,
+		_parent,
+		{ "nested": { "value": 2 } }
+	)
+	var reused: PrepareLifecycleNode = _prepare_node_from_result(second_result)
+
+	assert_same(reused, node, "空闲实例应被复用。")
+	assert_eq(reused.prepare_values, [1, 2], "fresh 与 reused 必须执行同一 prepare。")
+	assert_eq(reused.enter_count, 2, "复用应通过原生 _enter_tree 恢复生命周期。")
+	assert_eq(reused.ready_count, 1, "同一节点重新入树不应伪造第二次 _ready。")
+
+
+func test_prepare_error_returns_typed_failure_and_retires_candidate() -> void:
+	var failing_scene: PackedScene = _make_failing_prepare_scene()
+	var result: GFObjectPoolAcquireResult = await _pool.acquire(failing_scene, _parent)
+
+	_assert_acquire_result(
+		result,
+		GFObjectPoolAcquireResult.Status.FAILED,
+		&"prepare",
+		&"prepare_failed"
+	)
+	assert_null(result.get_lease())
+	assert_eq(_pool.get_active_count(failing_scene), 0)
+	assert_eq(_pool.get_available_count(failing_scene), 0)
+	await get_tree().process_frame
+
+
+func test_invalid_prepare_return_is_distinct_from_prepare_error() -> void:
+	var invalid_scene: PackedScene = _make_invalid_prepare_scene()
+	var result: GFObjectPoolAcquireResult = await _pool.acquire(invalid_scene, _parent)
+
+	_assert_acquire_result(
+		result,
+		GFObjectPoolAcquireResult.Status.FAILED,
+		&"prepare",
+		&"invalid_prepare_result"
+	)
+	assert_null(result.get_lease())
+	assert_eq(_pool.get_active_count(invalid_scene), 0)
+	assert_eq(_pool.get_available_count(invalid_scene), 0)
+
+
+func test_prepare_reparent_invalidates_candidate_instead_of_publishing_it() -> void:
+	var stealing_parent: Node = Node.new()
+	add_child(stealing_parent)
+	ReparentingPrepareNode.target_parent = stealing_parent
+	var invalidating_scene: PackedScene = _make_reparenting_prepare_scene()
+
+	var result: GFObjectPoolAcquireResult = await _pool.acquire(
+		invalidating_scene,
+		_parent
 	)
 
-	assert_null(cancelled, "visible setter 重入 release 后，旧 acquire 必须失效。")
-	assert_eq(_pool.get_active_count(control_scene), 0, "setter 重入后不得保留 active 节点。")
-	assert_eq(_pool.get_available_count(control_scene), 1, "setter 重入后节点应只归还一次。")
-	assert_false(node.visible, "重入 release 的根节点应保持隐藏。")
-	assert_false(child.visible, "旧激活遍历不得在重入 release 后重新显示子节点。")
-	assert_eq(child.process_mode, Node.PROCESS_MODE_DISABLED, "旧激活遍历不得重新启用子节点。")
+	_assert_acquire_result(
+		result,
+		GFObjectPoolAcquireResult.Status.FAILED,
+		&"prepare",
+		&"candidate_invalidated"
+	)
+	assert_null(result.get_lease())
+	assert_eq(_pool.get_active_count(invalidating_scene), 0)
+	assert_eq(_pool.get_available_count(invalidating_scene), 0)
+	await get_tree().process_frame
+	assert_eq(stealing_parent.get_child_count(), 0, "违规 hook 不能窃取池候选。")
+	stealing_parent.queue_free()
 
 
-func test_release_snapshots_runtime_child_before_root_setter_mutates_it() -> void:
-	var control_scene: PackedScene = _make_control_scene()
-	var root: Control = _acquire_control(control_scene)
-	var runtime_child: Control = Control.new()
-	runtime_child.visible = true
-	root.add_child(runtime_child)
-	var _connection_error: Error = root.visibility_changed.connect(func() -> void:
-		if not root.visible:
-			runtime_child.visible = false
+func test_prepare_dispose_cancels_acquire_and_never_publishes_candidate() -> void:
+	var disposing_scene: PackedScene = _make_disposing_prepare_scene()
+	DisposingPrepareNode.pool = _pool
+
+	var result: GFObjectPoolAcquireResult = await _pool.acquire(
+		disposing_scene,
+		_parent
+	)
+
+	_assert_acquire_result(
+		result,
+		GFObjectPoolAcquireResult.Status.CANCELLED,
+		&"prepare",
+		&"pool_disposed"
+	)
+	assert_null(result.get_lease(), "prepare 终止池后不得发布短暂 Lease。")
+	await _pool.wait_disposed()
+	assert_eq(_pool.get_active_count(disposing_scene), 0)
+	assert_eq(_pool.get_available_count(disposing_scene), 0)
+	assert_true(_pool.get_debug_snapshot().is_empty())
+
+
+# --- 测试：Lease 结算 ---
+
+func test_release_revokes_access_synchronously_and_settles_once_at_safe_point() -> void:
+	var result: GFObjectPoolAcquireResult = await _pool.acquire(_scene, _parent)
+	var lease: GFObjectPoolLease = result.get_lease()
+	var node: Node = lease.get_node()
+	watch_signals(lease)
+
+	assert_true(lease.release(), "首次 release 必须同步接纳。")
+	assert_null(lease.get_node(), "release 返回前必须撤销节点访问权。")
+	assert_eq(lease.get_state(), GFObjectPoolLease.State.RELEASE_PENDING)
+	assert_same(node.get_parent(), _parent, "物理离树必须推迟到安全点。")
+	assert_eq(_pool.get_active_count(_scene), 0, "等待归还不再属于 active。")
+	assert_eq(_pool.get_available_count(_scene), 0, "安全点前不能提前发布 available。")
+
+	var reason: StringName = await lease.wait_settled()
+
+	assert_eq(reason, &"released")
+	assert_true(lease.is_settled())
+	assert_eq(lease.get_state(), GFObjectPoolLease.State.SETTLED)
+	assert_eq(lease.get_settlement_reason(), &"released")
+	assert_null(node.get_parent())
+	assert_eq(_pool.get_available_count(_scene), 1)
+	assert_signal_emit_count(lease, "settled", 1, "每个 Lease 只能公布一个终态。")
+
+
+func test_double_release_and_late_wait_are_idempotent() -> void:
+	var result: GFObjectPoolAcquireResult = await _pool.acquire(_scene, _parent)
+	var lease: GFObjectPoolLease = result.get_lease()
+	watch_signals(lease)
+
+	assert_true(lease.release())
+	assert_false(lease.release(), "RELEASE_PENDING 的 Lease 必须拒绝重复 release。")
+	assert_eq(await lease.wait_settled(), &"released")
+	assert_eq(await lease.wait_settled(), &"released", "晚到等待者必须立即读取缓存终态。")
+	assert_false(lease.release(), "SETTLED 的 Lease 必须拒绝重复 release。")
+	await get_tree().process_frame
+	assert_signal_emit_count(lease, "settled", 1)
+	assert_eq(_pool.get_available_count(_scene), 1)
+
+
+func test_release_then_acquire_same_stack_reuses_without_stale_authority() -> void:
+	var first_result: GFObjectPoolAcquireResult = await _pool.acquire(_scene, _parent)
+	var first_lease: GFObjectPoolLease = first_result.get_lease()
+	var first_node: Node = first_lease.get_node()
+
+	assert_true(first_lease.release())
+	assert_eq(first_lease.get_state(), GFObjectPoolLease.State.RELEASE_PENDING)
+	var second_result: GFObjectPoolAcquireResult = await _pool.acquire(_scene, _parent)
+	var second_lease: GFObjectPoolLease = second_result.get_lease()
+
+	assert_true(second_result.is_successful())
+	assert_eq(await first_lease.wait_settled(), &"released")
+	assert_same(second_lease.get_node(), first_node, "release 后紧接 acquire 应安全复用。")
+	assert_false(first_lease.release(), "旧 Lease 不能操作同一节点的新借用。")
+	assert_eq(second_lease.get_state(), GFObjectPoolLease.State.ACTIVE)
+	assert_eq(_pool.get_active_count(_scene), 1)
+
+
+func test_one_instance_can_be_reused_one_hundred_times() -> void:
+	var current_result: GFObjectPoolAcquireResult = await _pool.acquire(_scene, _parent)
+	var expected_node: Node = current_result.get_lease().get_node()
+	var previous_lease: GFObjectPoolLease = null
+
+	for cycle_index: int in range(100):
+		var current_lease: GFObjectPoolLease = current_result.get_lease()
+		assert_same(current_lease.get_node(), expected_node, "第 %d 次借用应复用同一实例。" % cycle_index)
+		assert_true(current_lease.release())
+		current_result = await _pool.acquire(_scene, _parent)
+		assert_true(current_result.is_successful())
+		assert_eq(await current_lease.wait_settled(), &"released")
+		if previous_lease != null:
+			assert_false(previous_lease.release(), "更早的 Lease 必须永久失效。")
+		previous_lease = current_lease
+
+	assert_same(current_result.get_lease().get_node(), expected_node)
+	assert_eq(_pool.get_active_count(_scene), 1)
+	assert_eq(_pool.get_available_count(_scene), 0)
+
+
+func test_external_free_settles_node_lost_and_never_reuses_dead_identity() -> void:
+	var first_result: GFObjectPoolAcquireResult = await _pool.acquire(_scene, _parent)
+	var lease: GFObjectPoolLease = first_result.get_lease()
+	var node: Node = lease.get_node()
+	var old_instance_id: int = node.get_instance_id()
+	watch_signals(lease)
+
+	node.free()
+	assert_null(lease.get_node(), "外部 free 后 Lease 不得继续暴露失效节点。")
+	var reason: StringName = await lease.wait_settled()
+
+	assert_eq(reason, &"node_lost")
+	assert_eq(_pool.get_available_count(_scene), 0)
+	assert_eq(_pool.get_active_count(_scene), 0)
+	assert_signal_emit_count(lease, "settled", 1)
+
+	var replacement_result: GFObjectPoolAcquireResult = await _pool.acquire(_scene, _parent)
+	var replacement: Node = replacement_result.get_lease().get_node()
+	assert_ne(replacement.get_instance_id(), old_instance_id)
+	assert_false(lease.release(), "丢失节点的旧 Lease 不能影响替代实例。")
+
+
+func test_external_reparent_retires_candidate_instead_of_caching_it() -> void:
+	var alternate_parent: Node = Node.new()
+	add_child(alternate_parent)
+	var first_result: GFObjectPoolAcquireResult = await _pool.acquire(_scene, _parent)
+	var lease: GFObjectPoolLease = first_result.get_lease()
+	var node: Node = lease.get_node()
+	var old_instance_id: int = node.get_instance_id()
+	var exit_state: Dictionary = { "count": 0 }
+	var exit_callback: Callable = func() -> void:
+		exit_state["count"] = GFVariantData.get_option_int(exit_state, "count") + 1
+	var connect_error: Error = node.tree_exiting.connect(exit_callback) as Error
+	assert_eq(connect_error, OK)
+
+	node.reparent(alternate_parent)
+	assert_eq(
+		GFVariantData.get_option_int(exit_state, "count"),
+		1,
+		"同树 reparent 也必须产生一次真实 tree_exiting 生命周期。"
+	)
+	assert_null(lease.get_node(), "父级漂移返回前必须撤销 Lease 节点访问。")
+	assert_eq(lease.get_state(), GFObjectPoolLease.State.RELEASE_PENDING)
+	assert_false(lease.release(), "自动接纳父级丢失后不得重复接纳 release。")
+	assert_eq(await lease.wait_settled(), &"node_lost")
+	assert_eq(_pool.get_available_count(_scene), 0, "父级漂移节点不得进入缓存。")
+	await get_tree().process_frame
+	assert_false(is_instance_valid(node), "父级漂移节点应被淘汰。")
+
+	var replacement_result: GFObjectPoolAcquireResult = await _pool.acquire(_scene, _parent)
+	assert_ne(replacement_result.get_lease().get_node().get_instance_id(), old_instance_id)
+	alternate_parent.queue_free()
+
+
+func test_capacity_minus_one_retires_every_release() -> void:
+	_pool.max_available_per_scene = -1
+	var result: GFObjectPoolAcquireResult = await _pool.acquire(_scene, _parent)
+	var lease: GFObjectPoolLease = result.get_lease()
+	var node: Node = lease.get_node()
+
+	assert_true(lease.release())
+	assert_eq(await lease.wait_settled(), &"capacity_retired")
+	assert_eq(_pool.get_available_count(_scene), 0)
+	await get_tree().process_frame
+	assert_false(is_instance_valid(node))
+
+
+func test_positive_capacity_retires_only_overflow() -> void:
+	_pool.max_available_per_scene = 1
+	var first_result: GFObjectPoolAcquireResult = await _pool.acquire(_scene, _parent)
+	var second_result: GFObjectPoolAcquireResult = await _pool.acquire(_scene, _parent)
+	var first_lease: GFObjectPoolLease = first_result.get_lease()
+	var second_lease: GFObjectPoolLease = second_result.get_lease()
+
+	assert_true(first_lease.release())
+	assert_true(second_lease.release())
+	assert_eq(await first_lease.wait_settled(), &"released")
+	assert_eq(await second_lease.wait_settled(), &"capacity_retired")
+	assert_eq(_pool.get_available_count(_scene), 1)
+	assert_eq(_pool.get_active_count(_scene), 0)
+
+
+func test_dispose_revokes_active_lease_and_clears_all_counts() -> void:
+	var result: GFObjectPoolAcquireResult = await _pool.acquire(_scene, _parent)
+	var lease: GFObjectPoolLease = result.get_lease()
+	var node: Node = lease.get_node()
+	watch_signals(lease)
+
+	_pool.dispose()
+	assert_null(lease.get_node(), "dispose 返回前必须吊销所有 ACTIVE Lease。")
+	assert_eq(lease.get_state(), GFObjectPoolLease.State.RELEASE_PENDING)
+	assert_false(lease.release())
+	await _pool.wait_disposed()
+
+	assert_eq(await lease.wait_settled(), &"pool_disposed")
+	assert_eq(_pool.get_available_count(_scene), 0)
+	assert_eq(_pool.get_active_count(_scene), 0)
+	assert_true(_pool.get_debug_snapshot().is_empty())
+	assert_signal_emit_count(lease, "settled", 1)
+	await get_tree().process_frame
+	assert_false(is_instance_valid(node))
+
+
+func test_debug_snapshot_contains_counts_but_no_nodes_or_leases() -> void:
+	var result: GFObjectPoolAcquireResult = await _pool.acquire(_scene, _parent)
+	var lease: GFObjectPoolLease = result.get_lease()
+	var active_snapshot: Dictionary = _debug_entry(_pool.get_debug_snapshot(), _scene)
+
+	assert_eq(active_snapshot, { "total": 1, "available": 0, "active": 1 })
+	assert_false(_contains_object(_pool.get_debug_snapshot()), "诊断快照不得泄漏 Node 或 Lease。")
+
+	assert_true(lease.release())
+	var _settled_reason: StringName = await lease.wait_settled()
+	var idle_snapshot: Dictionary = _debug_entry(_pool.get_debug_snapshot(), _scene)
+	assert_eq(idle_snapshot, { "total": 1, "available": 1, "active": 0 })
+	assert_false(_contains_object(_pool.get_debug_snapshot()))
+
+
+# --- 测试：物理回调安全点 ---
+
+func test_area_2d_callback_can_release_and_reacquire_same_instance() -> void:
+	var area_scene: PackedScene = _make_area_2d_scene()
+	var first_result: GFObjectPoolAcquireResult = await _pool.acquire(area_scene, _parent)
+	var first_lease: GFObjectPoolLease = first_result.get_lease()
+	var first_node: Node = first_lease.get_node()
+	var trigger: Area2D = _make_live_area_2d()
+	_parent.add_child(trigger)
+	var state: Dictionary = {}
+	var callback: Callable = func(_overlap: Area2D) -> void:
+		state["callback_count"] = GFVariantData.get_option_int(state, "callback_count") + 1
+		state["release_accepted"] = first_lease.release()
+		state["revoked_in_callback"] = first_lease.get_node() == null
+		state["result"] = await _pool.acquire(area_scene, _parent)
+	var connect_error: Error = trigger.area_entered.connect(
+		callback,
+		CONNECT_ONE_SHOT as Object.ConnectFlags
 	) as Error
-
-	_pool.release(root, control_scene)
-	var reused: Control = _acquire_control(control_scene)
-
-	assert_eq(reused, root, "快照测试应复用同一根节点。")
-	assert_true(runtime_child.visible, "根 setter 修改子节点前必须先保存整棵树的原始状态。")
-
-
-func test_state_phase_snapshots_sibling_added_by_prepare_getter() -> void:
-	var control_scene: PackedScene = _make_control_scene()
-	var root: Control = _acquire_control(control_scene)
-	var spawner: PrepareSiblingSpawner = PrepareSiblingSpawner.new()
-	spawner.spawn_parent = root
-	root.add_child(spawner)
-
-	_pool.release(root, control_scene)
-	var spawned: Control = spawner.spawned
-	assert_not_null(spawned, "PREPARE getter 应动态添加测试 sibling。")
-	assert_false(spawned.visible, "release 状态阶段应隐藏动态 sibling。")
-
-	var reused: Control = _acquire_control(control_scene)
-
-	assert_eq(reused, root, "动态 sibling 快照测试应复用同一根节点。")
-	assert_true(spawned.visible, "状态阶段首次看到 sibling 时必须补采原始快照。")
-
-
-func test_release_manages_runtime_internal_children() -> void:
-	var control_scene: PackedScene = _make_control_scene()
-	var node: Control = _acquire_control(control_scene)
-	var internal_child: Control = Control.new()
-	internal_child.visible = true
-	node.add_child(internal_child, false, Node.INTERNAL_MODE_FRONT)
-
-	_pool.release(node, control_scene)
-
-	assert_false(internal_child.visible, "release 应隐藏 internal child。")
-	assert_eq(internal_child.process_mode, Node.PROCESS_MODE_DISABLED, "release 应禁用 internal child 处理。")
-
-	var reused: Control = _acquire_control(control_scene)
-
-	assert_eq(reused, node, "internal child 测试应复用同一节点。")
-	assert_true(internal_child.visible, "acquire 应恢复 internal child 可见性。")
-	assert_eq(internal_child.process_mode, Node.PROCESS_MODE_INHERIT, "acquire 应恢复 internal child process_mode。")
-
-
-func test_can_disable_descendant_active_state_management() -> void:
-	var nested_scene: PackedScene = _make_nested_control_scene()
-	_pool.manage_descendant_active_state = false
-	var root: Control = _acquire_control(nested_scene)
-	var child: Control = _child_control(root, "Child")
-
-	_pool.release(root, nested_scene)
-
-	assert_false(root.visible, "关闭递归管理时仍应隐藏根节点。")
-	assert_true(child.visible, "关闭递归管理时不应改写子节点 visible 属性。")
-	assert_eq(child.process_mode, Node.PROCESS_MODE_INHERIT, "关闭递归管理时不应改写子节点 process_mode。")
-
-
-## 验证 release 后再次 acquire 复用同一节点而不创建新实例。
-func test_acquire_after_release_reuses_node() -> void:
-	var node1: Node = _pool.acquire(_scene, _parent)
-	_pool.release(node1, _scene)
-
-	var node2: Node = _pool.acquire(_scene, _parent)
-
-	assert_eq(node1, node2, "release 后再次 acquire 应复用同一节点。")
-
-
-## 验证节点可通过 on_gf_pool_acquire/release hook 清理和重置自身状态。
-func test_acquire_release_calls_node_hooks() -> void:
-	var hooked_scene: PackedScene = _make_hooked_scene()
-	var node: HookedNode = _acquire_hooked_node(hooked_scene)
-
-	assert_eq(node.acquire_count, 1, "首次 acquire 应调用 on_gf_pool_acquire。")
-	assert_eq(node.release_count, 0, "未 release 前不应调用 release hook。")
-
-	_pool.release(node, hooked_scene)
-	assert_eq(node.release_count, 1, "release 应调用 on_gf_pool_release。")
-
-	var reused: HookedNode = _acquire_hooked_node(hooked_scene)
-	assert_eq(reused, node, "hook 测试应复用同一节点。")
-	assert_eq(reused.acquire_count, 2, "复用 acquire 应再次调用 on_gf_pool_acquire。")
-
-
-func test_reused_node_before_add_release_wins_without_double_loan() -> void:
-	var node: Node = _pool.acquire(_scene, _parent)
-	_pool.release(node, _scene)
-
-	var cancelled_acquire: Node = _pool.acquire(
-		_scene,
-		_parent,
-		func(reused_node: Node) -> void:
-			_pool.release(reused_node, _scene)
-	)
-
-	assert_null(cancelled_acquire, "before_add 已归还复用节点时，外层 acquire 不得发布同一借用。")
-	assert_eq(_pool.get_active_count(_scene), 0, "callback 归还后不应保留 active 节点。")
-	assert_eq(_pool.get_available_count(_scene), 1, "callback 归还后节点应恰好进入 available 一次。")
-
-	var next_acquire: Node = _pool.acquire(_scene, _parent)
-	assert_eq(next_acquire, node, "下一次 acquire 可以安全复用已归还节点。")
-	assert_eq(_pool.get_active_count(_scene), 1, "复用节点只能有一个 active borrower。")
-	assert_eq(_pool.get_available_count(_scene), 0, "active 节点不能同时留在 available。")
-
-
-func test_prewarmed_candidate_before_add_init_discards_stale_node() -> void:
-	_pool.prewarm(_scene, _parent, 1)
-	var candidate: Node = _parent.get_child(0)
-
-	var cancelled_acquire: Node = _pool.acquire(
-		_scene,
-		_parent,
-		func(_reused_node: Node) -> void:
-			_pool.init()
-	)
-
-	assert_null(cancelled_acquire, "before_add 重启池后，旧预热候选不得发布。")
-	assert_eq(_parent.get_child_count(), 0, "跨生命周期候选必须从外部 parent 脱离。")
-	assert_true(candidate.is_queued_for_deletion(), "跨生命周期候选必须被废弃。")
-	assert_eq(_pool.get_active_count(_scene), 0, "新生命周期不得追踪旧候选。")
-	assert_eq(_pool.get_available_count(_scene), 0, "旧候选不得进入新生命周期 available。")
-
-
-func test_node_acquire_hook_release_wins_without_double_loan() -> void:
-	var hooked_scene: PackedScene = _make_hooked_scene()
-	var node: HookedNode = _acquire_hooked_node(hooked_scene)
-	_pool.release(node, hooked_scene)
-	node.pool = _pool
-	node.pool_scene = hooked_scene
-	node.release_on_acquire = true
-
-	var cancelled_acquire: Node = _pool.acquire(hooked_scene, _parent)
-
-	assert_null(cancelled_acquire, "acquire hook 已归还节点时，外层 acquire 不得发布同一借用。")
-	assert_eq(_pool.get_active_count(hooked_scene), 0, "hook 归还后不应保留 active 节点。")
-	assert_eq(_pool.get_available_count(hooked_scene), 1, "hook 归还后节点应恰好进入 available 一次。")
-
-	node.release_on_acquire = false
-	var next_acquire: Node = _pool.acquire(hooked_scene, _parent)
-	assert_eq(next_acquire, node, "下一次 acquire 可以安全复用 hook 已归还节点。")
-	assert_eq(_pool.get_active_count(hooked_scene), 1, "复用节点只能有一个 active borrower。")
-	assert_eq(_pool.get_available_count(hooked_scene), 0, "active 节点不能同时留在 available。")
-	node.pool = null
-	node.pool_scene = null
-
-
-func test_acquire_hook_release_stops_stale_descendant_acquire_hook() -> void:
-	var hooked_scene: PackedScene = _make_nested_hooked_scene()
-	var node: HookedNode = _acquire_hooked_node(hooked_scene)
-	var child: HookedNode = _child_hooked_node(node, "Child")
-	_pool.release(node, hooked_scene)
-	node.acquire_count = 0
-	node.release_count = 0
-	child.acquire_count = 0
-	child.release_count = 0
-	node.pool = _pool
-	node.pool_scene = hooked_scene
-	node.release_on_acquire = true
-
-	var cancelled_acquire: Node = _pool.acquire(hooked_scene, _parent)
-
-	assert_null(cancelled_acquire, "根 hook 已归还节点时，旧 acquire 必须失效。")
-	assert_eq(node.acquire_count, 1, "根节点应只执行触发归还的 acquire hook。")
-	assert_eq(node.release_count, 1, "重入 release 应执行根节点 release hook。")
-	assert_eq(child.release_count, 1, "重入 release 应完成子节点 release hook。")
-	assert_eq(child.acquire_count, 0, "旧 acquire 失效后不得继续调用子节点 acquire hook。")
-	node.release_on_acquire = false
-	node.pool = null
-	node.pool_scene = null
-
-
-func test_internal_acquire_hook_queued_parent_stops_public_and_child_hooks() -> void:
-	var hooked_scene: PackedScene = _make_lifecycle_hook_scene()
-	var event_log: Array[StringName] = []
-
-	var cancelled_acquire: Node = _pool.acquire(
-		hooked_scene,
-		_parent,
-		func(candidate: Node) -> void:
-			if not (candidate is LifecycleHookNode):
-				return
-			var root: LifecycleHookNode = candidate
-			var child: LifecycleHookNode = _child_lifecycle_hook_node(root, "Child")
-			root.acquire_event_log = event_log
-			root.acquire_event_label = &"root"
-			root.parent_to_queue_on_internal_acquire = _parent
-			child.acquire_event_log = event_log
-			child.acquire_event_label = &"child"
-	)
-
-	assert_null(cancelled_acquire, "internal acquire hook 排队删除 parent 后旧借用必须失效。")
-	assert_eq(
-		event_log,
-		[&"root_internal_acquire"],
-		"parent 失效后不得继续根 public 或子节点 acquire hook。"
-	)
-	assert_eq(_pool.get_active_count(hooked_scene), 0, "失效 acquire 不得保留 active 节点。")
-	assert_eq(_pool.get_available_count(hooked_scene), 1, "同生命周期候选应安全归还池中。")
-
-
-func test_node_release_hook_reentry_is_rejected_without_duplicate_available_entry() -> void:
-	var hooked_scene: PackedScene = _make_hooked_scene()
-	var node: HookedNode = _acquire_hooked_node(hooked_scene)
-	node.pool = _pool
-	node.pool_scene = hooked_scene
-	node.release_on_release = true
-
-	_pool.release(node, hooked_scene)
-
-	assert_eq(node.release_count, 1, "release hook 的同项重入必须在再次调用 hook 前被拒绝。")
-	assert_eq(_pool.get_active_count(hooked_scene), 0, "release 完成后不应保留 active 节点。")
-	assert_eq(_pool.get_available_count(hooked_scene), 1, "节点只能进入 available 一次。")
-	node.pool = null
-	node.pool_scene = null
-
-
-func test_release_hook_dispose_stops_internal_and_descendant_hooks() -> void:
-	var hooked_scene: PackedScene = _make_lifecycle_hook_scene()
-	var node: LifecycleHookNode = _acquire_lifecycle_hook_node(hooked_scene)
-	var child: LifecycleHookNode = _child_lifecycle_hook_node(node, "Child")
-	var event_log: Array[StringName] = []
-	node.event_log = event_log
-	node.event_label = &"root"
-	node.pool = _pool
-	node.dispose_on_release = true
-	child.event_log = event_log
-	child.event_label = &"child"
-
-	_pool.release(node, hooked_scene)
-
-	assert_eq(
-		event_log,
-		[&"root_public_release"],
-		"dispose 使 release 失效后，不得继续根 internal 或子节点 hook。"
-	)
-	assert_eq(_pool.get_active_count(hooked_scene), 0, "dispose 后不得保留 active 节点。")
-	assert_eq(_pool.get_available_count(hooked_scene), 0, "dispose 后不得提交 available 节点。")
-
-
-func test_release_hook_init_discards_untracked_root() -> void:
-	var hooked_scene: PackedScene = _make_lifecycle_hook_scene()
-	var node: LifecycleHookNode = _acquire_lifecycle_hook_node(hooked_scene)
-	node.pool = _pool
-	node.init_on_release = true
-
-	_pool.release(node, hooked_scene)
-
-	assert_eq(_parent.get_child_count(), 0, "release hook 重启池后必须移除外部 parent 下的旧根节点。")
-	assert_true(node.is_queued_for_deletion(), "release 失效后的跨生命周期根节点必须被废弃。")
-	assert_eq(_pool.get_active_count(hooked_scene), 0, "新生命周期不得追踪旧 active 节点。")
-	assert_eq(_pool.get_available_count(hooked_scene), 0, "旧节点不得进入新生命周期 available。")
-
-
-func test_pooled_controller_events_pause_on_release_and_resume_on_acquire() -> void:
-	var architecture: GFArchitecture = _setup_test_architecture()
-	assert_true(
-		await architecture.init(),
-		"对象池 Controller 事件测试必须先完成 Architecture activation。"
-	)
-	var controller_scene: PackedScene = _make_pooled_controller_scene()
-	var controller: PooledEventController = _acquire_pooled_controller(controller_scene)
-
-	architecture.send_simple_event(&"pooled_controller_event", "active")
-	assert_eq(controller.payloads, ["active"], "Controller 激活时应接收事件。")
-
-	_pool.release(controller, controller_scene)
-	architecture.send_simple_event(&"pooled_controller_event", "pooled")
-	assert_eq(controller.payloads, ["active"], "Controller 回收到对象池后不应继续接收事件。")
-
-	var reused: PooledEventController = _acquire_pooled_controller(controller_scene)
-	architecture.send_simple_event(&"pooled_controller_event", "reused")
-
-	assert_eq(reused, controller, "Controller 应被对象池复用。")
-	assert_eq(controller.payloads, ["active", "reused"], "Controller 复用后应恢复事件监听。")
-
-
-func test_prewarmed_controller_events_stay_paused_until_acquire() -> void:
-	var architecture: GFArchitecture = _setup_test_architecture()
-	assert_true(
-		await architecture.init(),
-		"对象池预热事件测试必须先完成 Architecture activation。"
-	)
-	var controller_scene: PackedScene = _make_pooled_controller_scene()
-
-	_pool.prewarm(controller_scene, _parent, 1)
-	assert_eq(_pool.get_available_count(controller_scene), 1, "prewarm 后应有一个可用 Controller。")
-	architecture.send_simple_event(&"pooled_controller_event", "prewarmed")
-
-	var acquired: PooledEventController = _acquire_pooled_controller(controller_scene)
-	assert_eq(acquired.payloads, [], "预热但未取出的 Controller 不应接收事件。")
-	architecture.send_simple_event(&"pooled_controller_event", "active")
-
-	assert_eq(acquired.payloads, ["active"], "Controller acquire 后应恢复事件监听。")
-
-
-## 验证对有效池的连续 acquire/release 循环不产生额外实例。
-func test_repeated_acquire_release_does_not_leak() -> void:
-	var node: Node = _pool.acquire(_scene, _parent)
-	_pool.release(node, _scene)
-
-	var count_before: int = _parent.get_child_count()
-
-	var _acquire_result_168: Variant = _pool.acquire(_scene, _parent)
-
-	assert_eq(count_before, 0, "release 后节点应被移到对象池根节点，脱离原父节点。")
-	assert_eq(_parent.get_child_count(), 1, "复用节点时应重新挂回请求的父节点。")
-
-
-# --- 测试：prewarm ---
-
-## 验证 prewarm 预先创建指定数量的节点并加入父节点。
-func test_prewarm_creates_nodes_in_parent() -> void:
-	_pool.prewarm(_scene, _parent, 3)
-
-	assert_eq(_parent.get_child_count(), 3, "prewarm(3) 应在父节点下创建 3 个子节点。")
-
-
-## 验证 prewarm 后可用节点数等于预热数量。
-func test_prewarm_sets_available_count() -> void:
-	_pool.prewarm(_scene, _parent, 5)
-
-	assert_eq(_pool.get_available_count(_scene), 5, "prewarm(5) 后可用节点数应为 5。")
-
-
-func test_prewarm_internal_release_dispose_stops_descendant_hook() -> void:
-	var hooked_scene: PackedScene = _make_lifecycle_hook_scene()
-	var event_log: Array[StringName] = []
-	_pool.prewarm(hooked_scene, _parent, 1, func(candidate: Node) -> void:
-		if not (candidate is LifecycleHookNode):
-			return
-		var node: LifecycleHookNode = candidate
-		var child: LifecycleHookNode = _child_lifecycle_hook_node(node, "Child")
-		node.event_log = event_log
-		node.event_label = &"root"
-		node.pool = _pool
-		node.dispose_on_internal_release = true
-		child.event_log = event_log
-		child.event_label = &"child"
-	)
-
-	assert_eq(
-		event_log,
-		[&"root_internal_release"],
-		"prewarm 的根 internal hook dispose 后不得继续子节点 hook。"
-	)
-	assert_eq(_pool.get_available_count(hooked_scene), 0, "失效 prewarm 不得提交候选。")
-
-
-func test_prewarm_rejects_invalid_scene() -> void:
-	_pool.prewarm(null, _parent, 1)
-
-	assert_push_error("[GFObjectPoolUtility] 传入了无效的 PackedScene。")
-	assert_eq(_parent.get_child_count(), 0, "无效 PackedScene 不应创建任何节点。")
-
-
-func test_acquire_rejects_invalid_parent() -> void:
-	var node: Node = _pool.acquire(_scene, null)
-
-	assert_null(node, "parent 为空时 acquire 应返回 null。")
-	assert_push_error("[GFObjectPoolUtility] acquire 失败：parent 无效。")
-	assert_eq(_parent.get_child_count(), 0, "无效 parent 不应创建或挂载节点。")
-
-
-func test_prewarm_async_batches_nodes() -> void:
-	await _pool.prewarm_async(_scene, _parent, 3, 1)
-
-	assert_eq(_parent.get_child_count(), 3, "prewarm_async 应完成指定数量的预热。")
-	assert_eq(_pool.get_available_count(_scene), 3, "prewarm_async 后可用节点数应正确。")
-
-
-func test_concurrent_async_prewarms_share_capacity() -> void:
-	_pool.max_available_per_scene = 4
-	@warning_ignore("missing_await")
-	_pool.prewarm_async(_scene, _parent, 4, 1)
-	assert_eq(_pool.get_available_count(_scene), 1, "首个异步预热应在首次让帧前创建一个节点。")
-
-	@warning_ignore("missing_await")
-	_pool.prewarm_async(_scene, _parent, 4, 1)
-	for _frame: int in range(8):
-		await get_tree().process_frame
-
-	assert_eq(_pool.get_available_count(_scene), 4, "并发异步预热必须共享同一场景的容量准入。")
-
-
-func test_sync_prewarm_cannot_consume_async_reserved_capacity() -> void:
-	_pool.max_available_per_scene = 4
-	@warning_ignore("missing_await")
-	_pool.prewarm_async(_scene, _parent, 4, 1)
-
-	_pool.prewarm(_scene, _parent, 4)
-	for _frame: int in range(6):
-		await get_tree().process_frame
-
-	assert_eq(_pool.get_available_count(_scene), 4, "同步预热不能占用异步请求尚未创建的预留容量。")
-
-
-func test_sync_prewarm_cannot_consume_budgeted_reserved_capacity() -> void:
-	_pool.max_available_per_scene = 4
-	@warning_ignore("missing_await")
-	_pool.prewarm_async_budget(
-		_scene,
-		_parent,
-		4,
-		0.001,
-		Callable(self, &"_consume_prewarm_frame_budget")
-	)
-	assert_eq(_pool.get_available_count(_scene), 1, "budget 预热应在耗尽首帧预算后保留未提交预留。")
-
-	_pool.prewarm(_scene, _parent, 4)
-	for _frame: int in range(8):
-		await get_tree().process_frame
-
-	assert_eq(_pool.get_available_count(_scene), 4, "同步预热不能占用 budget 请求跨帧持有的容量预留。")
-
-
-func test_budgeted_prewarm_cannot_reenter_sync_reservation() -> void:
-	_pool.max_available_per_scene = 4
-	var reentry_state: Array[bool] = [false]
-	_pool.prewarm(_scene, _parent, 4, func(_node: Node) -> void:
-		if reentry_state[0]:
-			return
-		reentry_state[0] = true
-		@warning_ignore("missing_await")
-		_pool.prewarm_async_budget(_scene, _parent, 4, 0.001)
-	)
-
-	for _frame: int in range(8):
-		await get_tree().process_frame
-
-	assert_eq(_pool.get_available_count(_scene), 4, "budget 预热重入时必须服从同步请求已取得的容量预留。")
-
-
-func test_unbounded_prewarm_tracks_reservation_if_limit_is_enabled_reentrantly() -> void:
-	_pool.max_available_per_scene = 0
-	var reentry_state: Array[bool] = [false]
-	_pool.prewarm(_scene, _parent, 4, func(_node: Node) -> void:
-		if reentry_state[0]:
-			return
-		reentry_state[0] = true
-		_pool.max_available_per_scene = 4
-		_pool.prewarm(_scene, _parent, 4)
-	)
-
-	assert_eq(_pool.get_available_count(_scene), 4, "无限容量下开始的请求也必须登记预留，供重入启用上限时复验。")
-
-
-func test_release_can_fill_capacity_before_prewarm_commit() -> void:
-	_pool.max_available_per_scene = 1
-	var active_node: Node = _pool.acquire(_scene, _parent)
-	var rejected_candidates: Array[Variant] = []
-	_pool.prewarm(_scene, _parent, 1, func(candidate: Node) -> void:
-		rejected_candidates.append(candidate)
-		_pool.release(active_node, _scene)
-	)
-
-	assert_eq(_pool.get_available_count(_scene), 1, "归还节点先填满实际容量时，预留候选不得无条件提交。")
-	await get_tree().process_frame
-	assert_eq(rejected_candidates.size(), 1, "测试应观察到一个未提交候选。")
-	assert_false(is_instance_valid(rejected_candidates[0]), "失去容量的预热候选必须被释放。")
-
-
-func test_async_prewarm_rechecks_lowered_capacity_after_yield() -> void:
-	_pool.max_available_per_scene = 4
-	@warning_ignore("missing_await")
-	_pool.prewarm_async(_scene, _parent, 4, 1)
-	assert_eq(_pool.get_available_count(_scene), 1, "异步预热应先创建一个节点再让帧。")
-
-	_pool.max_available_per_scene = 2
-	for _frame: int in range(6):
-		await get_tree().process_frame
-
-	assert_eq(_pool.get_available_count(_scene), 2, "运行中缩小容量后，旧预热计划不能继续写穿新上限。")
-
-
-func test_invalidated_parent_releases_reservation_for_retry() -> void:
-	_pool.max_available_per_scene = 2
-	var invalidated_parent: Node = _parent
-	var rejected_candidates: Array[Variant] = []
-	_pool.prewarm(_scene, invalidated_parent, 2, func(candidate: Node) -> void:
-		rejected_candidates.append(candidate)
-		invalidated_parent.queue_free()
-	)
-
-	_parent = Node.new()
-	add_child(_parent)
-	_pool.prewarm(_scene, _parent, 2)
-	await get_tree().process_frame
-
-	assert_eq(_pool.get_available_count(_scene), 2, "父节点失效后必须释放全部未提交预留，使同场景可完整重试。")
-	assert_false(is_instance_valid(rejected_candidates[0]), "父节点失效时尚未挂树的候选必须被释放。")
-
-
-func test_sync_prewarm_rejects_stale_generation_after_reentrant_init() -> void:
-	_pool.max_available_per_scene = 2
-	var restart_state: Array[bool] = [false]
-	var stale_candidates: Array[Variant] = []
-	_pool.prewarm(_scene, _parent, 2, func(candidate: Node) -> void:
-		if restart_state[0]:
-			return
-		restart_state[0] = true
-		stale_candidates.append(candidate)
-		_pool.dispose()
-		_pool.init()
-		_pool.max_available_per_scene = 2
-		@warning_ignore("missing_await")
-		_pool.prewarm_async(_scene, _parent, 2, 1)
-	)
-
-	assert_eq(_pool.get_available_count(_scene), 1, "新生命周期应保留一个尚未提交的异步预留。")
-	_pool.prewarm(_scene, _parent, 2)
-	assert_eq(_pool.get_available_count(_scene), 1, "旧代清理不得扣减新代 pending 预留并放开重复准入。")
-
-	for _frame: int in range(4):
-		await get_tree().process_frame
-
-	assert_eq(_pool.get_available_count(_scene), 2, "dispose/init 后旧代同步预热不能写入新代对象池。")
-	assert_eq(_parent.get_child_count(), 2, "旧代候选节点必须被释放，不能混入新代父节点。")
-	assert_false(is_instance_valid(stale_candidates[0]), "dispose/init 前创建的 provisional 节点不得泄漏。")
-
-
-func test_prewarm_async_stops_after_dispose() -> void:
-	@warning_ignore("missing_await")
-	_pool.prewarm_async(_scene, _parent, 5, 1)
-	await get_tree().process_frame
-	_pool.dispose()
-	var count_after_dispose: int = _parent.get_child_count()
-
+	assert_eq(connect_error, OK)
+
+	var second_result: GFObjectPoolAcquireResult = await _wait_for_physics_acquire(state)
+	if second_result == null:
+		return
+
+	assert_eq(GFVariantData.get_option_int(state, "callback_count"), 1)
+	assert_true(GFVariantData.get_option_bool(state, "release_accepted"))
+	assert_true(GFVariantData.get_option_bool(state, "revoked_in_callback"))
+	assert_true(second_result.is_successful(), "物理查询 flush 结束后必须完成新借用。")
+	assert_same(second_result.get_lease().get_node(), first_node)
+	assert_eq(await first_lease.wait_settled(), &"released")
+	assert_true(second_result.get_lease().release())
+	var _second_settled_reason: StringName = await second_result.get_lease().wait_settled()
+	trigger.queue_free()
+
+
+func test_area_3d_callback_can_release_and_reacquire_same_instance() -> void:
+	var area_scene: PackedScene = _make_area_3d_scene()
+	var first_result: GFObjectPoolAcquireResult = await _pool.acquire(area_scene, _parent)
+	var first_lease: GFObjectPoolLease = first_result.get_lease()
+	var first_node: Node = first_lease.get_node()
+	var trigger: Area3D = _make_live_area_3d()
+	_parent.add_child(trigger)
+	var state: Dictionary = {}
+	var callback: Callable = func(_overlap: Area3D) -> void:
+		state["callback_count"] = GFVariantData.get_option_int(state, "callback_count") + 1
+		state["release_accepted"] = first_lease.release()
+		state["revoked_in_callback"] = first_lease.get_node() == null
+		state["result"] = await _pool.acquire(area_scene, _parent)
+	var connect_error: Error = trigger.area_entered.connect(
+		callback,
+		CONNECT_ONE_SHOT as Object.ConnectFlags
+	) as Error
+	assert_eq(connect_error, OK)
+
+	var second_result: GFObjectPoolAcquireResult = await _wait_for_physics_acquire(state)
+	if second_result == null:
+		return
+
+	assert_eq(GFVariantData.get_option_int(state, "callback_count"), 1)
+	assert_true(GFVariantData.get_option_bool(state, "release_accepted"))
+	assert_true(GFVariantData.get_option_bool(state, "revoked_in_callback"))
+	assert_true(second_result.is_successful(), "3D physics callback 不得触发 flushing query 错误。")
+	assert_same(second_result.get_lease().get_node(), first_node)
+	assert_eq(await first_lease.wait_settled(), &"released")
+	assert_true(second_result.get_lease().release())
+	var _second_settled_reason: StringName = await second_result.get_lease().wait_settled()
+	trigger.queue_free()
+
+
+func test_pending_parent_exit_cannot_be_undone_by_reentry() -> void:
+	var state: Dictionary = {}
+	_capture_review_request.call_deferred(_scene, null, state)
+	_leave_and_return_for_review.call_deferred(_parent, state)
+	var result: GFObjectPoolAcquireResult = await _wait_for_acquire_result(state)
+	if result == null:
+		return
+	_assert_acquire_result(result, GFObjectPoolAcquireResult.Status.CANCELLED, &"validation", &"parent_lost")
+	assert_eq(_pool.get_available_count(_scene), 0)
+	assert_eq(_parent.get_child_count(), 0)
+
+
+func test_pending_owner_exit_cannot_be_undone_by_reentry() -> void:
+	var owner_node: Node = Node.new()
+	_parent.add_child(owner_node)
+	var state: Dictionary = {}
+	_capture_review_request.call_deferred(_scene, owner_node, state)
+	_leave_and_return_for_review.call_deferred(owner_node, state)
+	var result: GFObjectPoolAcquireResult = await _wait_for_acquire_result(state)
+	if result == null:
+		return
+	_assert_acquire_result(result, GFObjectPoolAcquireResult.Status.CANCELLED, &"validation", &"owner_lost")
+	assert_eq(_pool.get_available_count(_scene), 0)
+	assert_eq(_parent.get_child_count(), 1)
+
+
+func test_cancellation_before_publication_retires_unpublished_candidate() -> void:
+	var owner_node: Node = Node.new()
+	_parent.add_child(owner_node)
+	var second_scene: PackedScene = _make_node_scene()
+	var first_state: Dictionary = {}
+	var second_state: Dictionary = {}
+	_capture_review_request.call_deferred(_scene, null, first_state, owner_node)
+	_capture_review_request.call_deferred(second_scene, owner_node, second_state)
+	var first: GFObjectPoolAcquireResult = await _wait_for_acquire_result(first_state)
+	var second: GFObjectPoolAcquireResult = await _wait_for_acquire_result(second_state)
+	if first == null or second == null:
+		owner_node.queue_free()
+		return
+	assert_true(first.is_successful())
+	_assert_acquire_result(second, GFObjectPoolAcquireResult.Status.CANCELLED, &"complete", &"owner_lost")
 	await get_tree().process_frame
 	await get_tree().process_frame
-
-	assert_true(_parent.get_child_count() <= count_after_dispose, "dispose 后未完成的 prewarm_async 不应继续创建节点。")
-
-
-func test_prewarm_async_budget_completes_nodes() -> void:
-	await _pool.prewarm_async_budget(_scene, _parent, 3, 0.001)
-
-	assert_eq(_parent.get_child_count(), 3, "prewarm_async_budget 应完成指定数量的预热。")
-	assert_eq(_pool.get_available_count(_scene), 3, "prewarm_async_budget 后可用节点数应正确。")
-
-
-func test_release_reparents_to_pool_root_and_survives_original_parent_free() -> void:
-	var node: Node = _pool.acquire(_scene, _parent)
-	_pool.release(node, _scene)
-
-	assert_ne(node.get_parent(), _parent, "release 后节点不应继续挂在原父节点下。")
-	assert_eq(_pool.get_available_count(_scene), 1, "release 后节点应进入可用池。")
-
-	_parent.queue_free()
-	await get_tree().process_frame
-	var new_parent: Node = Node.new()
-	add_child(new_parent)
-	var reused: Node = _pool.acquire(_scene, new_parent)
-
-	assert_eq(reused, node, "原父节点释放后，对象池仍应能复用已回收节点。")
-	assert_eq(reused.get_parent(), new_parent, "复用时节点应挂到新的父节点。")
-
-	new_parent.queue_free()
-	await get_tree().process_frame
-
-
-func test_max_available_per_scene_limits_retained_nodes() -> void:
-	_pool.max_available_per_scene = 1
-	var node_a: Node = _pool.acquire(_scene, _parent)
-	var node_b: Node = _pool.acquire(_scene, _parent)
-
-	_pool.release(node_a, _scene)
-	_pool.release(node_b, _scene)
-
-	assert_eq(_pool.get_available_count(_scene), 1, "超过容量上限的归还节点不应继续留在可用池。")
-
-
-func test_release_over_capacity_detaches_rejected_node_immediately() -> void:
-	_pool.max_available_per_scene = 1
-	var node_a: Node = _pool.acquire(_scene, _parent)
-	var node_b: Node = _pool.acquire(_scene, _parent)
-
-	_pool.release(node_a, _scene)
-	_pool.release(node_b, _scene)
-
-	assert_null(node_b.get_parent(), "超过对象池容量的归还节点应立即脱离原父节点。")
-	assert_eq(_parent.get_child_count(), 0, "超过容量的归还节点不应在原父节点残留到帧尾。")
-
-	await get_tree().process_frame
-	assert_false(is_instance_valid(node_b), "超过容量的归还节点下一帧应完成释放。")
-
-
-func test_init_preserves_active_borrowed_node_while_clearing_pool_tracking() -> void:
-	var active_node: Node = _pool.acquire(_scene, _parent)
-
-	_pool.init()
-
-	assert_eq(active_node.get_parent(), _parent, "init 不应移除业务父节点下已借出的节点。")
-	assert_false(active_node.is_queued_for_deletion(), "init 不应释放已借出的节点。")
-	assert_eq(_pool.get_active_count(_scene), 0, "init 应清空旧生命周期的 active 追踪。")
-	await get_tree().process_frame
-	assert_true(is_instance_valid(active_node), "init 后已借出的节点应继续由调用方持有。")
-
-
-func test_dispose_detaches_active_and_pooled_nodes_immediately() -> void:
-	var active_node: Node = _pool.acquire(_scene, _parent)
-	var pooled_node: Node = _pool.acquire(_scene, _parent)
-	_pool.release(pooled_node, _scene)
-	var pool_root: Node = pooled_node.get_parent()
-
-	_pool.dispose()
-
-	assert_null(active_node.get_parent(), "dispose 应立即移除仍在使用中的对象池节点。")
-	assert_null(pooled_node.get_parent(), "dispose 应立即移除已回收的对象池节点。")
-	assert_null(pool_root.get_parent(), "dispose 应立即移除对象池根节点。")
-	assert_eq(_parent.get_child_count(), 0, "dispose 后业务父节点不应残留对象池节点。")
-
-	await get_tree().process_frame
-	assert_false(is_instance_valid(active_node), "dispose 后 active 节点下一帧应完成释放。")
-	assert_false(is_instance_valid(pooled_node), "dispose 后 pooled 节点下一帧应完成释放。")
-	assert_false(is_instance_valid(pool_root), "dispose 后对象池根节点下一帧应完成释放。")
-
-
-func test_dispose_leaves_pool_nodes_attached_during_autoload_tree_exit() -> void:
-	var active_node: Node = _pool.acquire(_scene, _parent)
-	var pool_root: Node = _pool._ensure_pool_root()
-	GFAutoload.begin_tree_exit_scope()
-
-	_pool.dispose()
-
-	assert_eq(active_node.get_parent(), _parent, "AutoLoad 退出时不应主动从业务父节点 remove_child。")
-	assert_not_null(pool_root.get_parent(), "AutoLoad 退出时对象池根节点应继续由树持有。")
-
-	GFAutoload.end_tree_exit_scope()
-	await get_tree().process_frame
-	assert_false(is_instance_valid(active_node), "退出阶段登记 queue_free 后 active 节点仍应释放。")
-	assert_false(is_instance_valid(pool_root), "退出阶段登记 queue_free 后对象池根节点仍应释放。")
-
-
-# --- 测试：get_available_count ---
-
-## 验证初始时可用数量为 0。
-func test_initial_available_count_is_zero() -> void:
-	assert_eq(_pool.get_available_count(_scene), 0, "初始时可用节点数应为 0。")
-
-
-## 验证 acquire 后可用数量减少，release 后恢复。
-func test_available_count_changes_with_acquire_release() -> void:
-	_pool.prewarm(_scene, _parent, 2)
-	assert_eq(_pool.get_available_count(_scene), 2, "预热 2 个后可用数应为 2。")
-
-	var node: Node = _pool.acquire(_scene, _parent)
-	assert_eq(_pool.get_available_count(_scene), 1, "acquire 一个后可用数应为 1。")
-
-	_pool.release(node, _scene)
-	assert_eq(_pool.get_available_count(_scene), 2, "release 后可用数应恢复为 2。")
-
-
-func test_active_count_and_debug_snapshot_report_pool_state() -> void:
-	var node: Node = _pool.acquire(_scene, _parent)
-	var snapshot: Dictionary = _pool.get_debug_snapshot()
-	var key: String = _pool_debug_key(_scene)
-	var pool_entry: Dictionary = GFVariantData.get_option_dictionary(snapshot, key)
-
-	assert_eq(_pool.get_active_count(_scene), 1, "acquire 后 active 数应为 1。")
-	assert_eq(GFVariantData.get_option_int(pool_entry, "active"), 1, "诊断快照应包含 active 数。")
-	assert_eq(GFVariantData.get_option_int(pool_entry, "available"), 0, "诊断快照应包含 available 数。")
-
-	_pool.release(node, _scene)
-
-
-func test_active_nodes_tolerates_stale_freed_node_when_auto_prune_disabled() -> void:
-	_pool.prune_invalid_on_each_operation = false
-	var node: Node = _pool.acquire(_scene, _parent)
-	_parent.remove_child(node)
-	node.free()
-
-	assert_eq(_pool.get_active_nodes(_scene).size(), 0, "active 查询不应对已释放池节点执行类型转换。")
-	assert_eq(_pool.get_active_count(_scene), 0, "active 计数应忽略已释放池节点。")
-
-
-func test_disposed_pool_rejects_new_operations() -> void:
-	_pool.dispose()
-
-	var node: Node = _pool.acquire(_scene, _parent)
-
-	assert_null(node, "dispose 后 acquire 应返回 null。")
-	assert_push_warning("[GFObjectPoolUtility] 对象池已销毁，忽略 acquire。")
-
-
-## 验证重复 release 同一个节点不会导致池内出现重复引用。
-func test_double_release_is_ignored() -> void:
-	var node: Node = _pool.acquire(_scene, _parent)
-
-	_pool.release(node, _scene) # 第一下归还
-	var count1: int = _pool.get_available_count(_scene)
-
-	_pool.release(node, _scene) # 第二下归还应当被忽略
-	var count2: int = _pool.get_available_count(_scene)
-
-	assert_eq(count1, count2, "对同一个早已处于池中的节点重复 release，不应当增加可用节点计数。")
-
-## 验证当对象池中含有被外部错误 queue_free 退出的游离旧节点时，acquire 不会崩溃。
-func test_release_wrong_scene_returns_to_original_pool() -> void:
-	var other_scene: PackedScene = _make_node_scene()
-	var node: Node = _pool.acquire(_scene, _parent)
-
-	_pool.release(node, other_scene)
-
-	assert_eq(_pool.get_available_count(_scene), 1, "传错 scene 时，节点仍应回收到原始所属池。")
-	assert_eq(_pool.get_available_count(other_scene), 0, "传错 scene 不应污染其他对象池。")
-	assert_push_warning("[GFObjectPoolUtility] release 收到不匹配的 PackedScene，已回退到节点原始所属池。")
-
-
-func test_acquire_invalid_freed_instance_is_safe() -> void:
-	var node: Node = _pool.acquire(_scene, _parent)
-	_pool.release(node, _scene)
-
-	# 模拟外部错误地连带释放了已经被还回池子的节点
-	node.free()
-
-	# 如果没有安全类型推断和防崩溃处理，下面这行就会报错
-	var new_node: Node = _pool.acquire(_scene, _parent)
-	var snapshot: Dictionary = _pool.get_debug_snapshot()
-	var key: String = _pool_debug_key(_scene)
-	var pool_entry: Dictionary = GFVariantData.get_option_dictionary(snapshot, key)
-
-	assert_not_null(new_node, "池内存在非法实例时，acquire 应该平稳度过并返回一个新的有效实例。")
-	assert_true(is_instance_valid(new_node), "新获得的 node 应该是有效的新实例。")
-	assert_ne(new_node, node, "新实例不能是那个被强制 free 的原实例。")
-	assert_eq(GFVariantData.get_option_int(pool_entry, "total"), 1, "清理无效实例后，全量池中不应继续保留死对象引用。")
+	assert_eq(_pool.get_available_count(second_scene), 0, "从未交付的失败候选不能当成正常归还缓存。")
+	assert_eq(_pool.get_active_count(second_scene), 0)
+	assert_eq(_parent.get_child_count(), 1, "只留下第一个请求成功交付的节点。")
+	assert_true(first.get_lease().release())
+	var _settled_reason: StringName = await first.get_lease().wait_settled()
+	owner_node.queue_free()
 
 
 # --- 私有/辅助方法 ---
 
-func _consume_prewarm_frame_budget(_node: Node) -> void:
-	var deadline_usec: int = Time.get_ticks_usec() + 1000
-	while Time.get_ticks_usec() < deadline_usec:
-		pass
+func _capture_review_request(
+	packed_scene: PackedScene,
+	owner_node: Node,
+	state: Dictionary,
+	remove_on_success: Node = null
+) -> void:
+	state["started"] = true
+	var results: Array[GFObjectPoolAcquireResult] = await _pool.acquire_batch_for_framework(
+		packed_scene, _parent, 1, {}, owner_node
+	)
+	state["result"] = results[0]
+	if results[0].is_successful() and is_instance_valid(remove_on_success):
+		remove_on_success.get_parent().remove_child(remove_on_success)
 
 
-## 创建一个最简 PackedScene（仅包含一个根 Node），用于测试。
+func _leave_and_return_for_review(node: Node, state: Dictionary) -> void:
+	assert_true(GFVariantData.get_option_bool(state, "started"), "退出必须发生在请求已经接纳之后。")
+	var original_parent: Node = node.get_parent()
+	original_parent.remove_child(node)
+	original_parent.add_child(node)
+
 func _make_node_scene() -> PackedScene:
-	var node: Node = Node.new()
-	var scene: PackedScene = PackedScene.new()
-	var _pack_error: Error = scene.pack(node)
-	node.free()
-	return scene
+	return _pack_node(Node.new())
 
 
-## 创建一个 Control PackedScene，用于验证可见性和 process_mode 回收状态。
-func _make_control_scene() -> PackedScene:
-	var control: Control = Control.new()
-	var scene: PackedScene = PackedScene.new()
-	var _pack_error: Error = scene.pack(control)
-	control.free()
-	return scene
+func _make_prepare_lifecycle_scene() -> PackedScene:
+	return _pack_node(PrepareLifecycleNode.new())
 
 
-## 创建一个带子节点的 Control PackedScene。
-func _make_nested_control_scene() -> PackedScene:
-	var root: Control = Control.new()
-	var child: Control = Control.new()
-	child.name = "Child"
-	root.add_child(child)
-	child.owner = root
-	var scene: PackedScene = PackedScene.new()
-	var _pack_error: Error = scene.pack(root)
+func _make_failing_prepare_scene() -> PackedScene:
+	return _pack_node(FailingPrepareNode.new())
+
+
+func _make_invalid_prepare_scene() -> PackedScene:
+	return _pack_node(InvalidPrepareNode.new())
+
+
+func _make_reparenting_prepare_scene() -> PackedScene:
+	return _pack_node(ReparentingPrepareNode.new())
+
+
+func _make_disposing_prepare_scene() -> PackedScene:
+	DisposingPrepareNode.pool = null
+	return _pack_node(DisposingPrepareNode.new())
+
+
+func _make_area_2d_scene() -> PackedScene:
+	var area: Area2D = _make_live_area_2d()
+	for child: Node in area.get_children():
+		child.owner = area
+	return _pack_node(area)
+
+
+func _make_area_3d_scene() -> PackedScene:
+	var area: Area3D = _make_live_area_3d()
+	for child: Node in area.get_children():
+		child.owner = area
+	return _pack_node(area)
+
+
+func _make_live_area_2d() -> Area2D:
+	var area: Area2D = Area2D.new()
+	area.monitoring = true
+	area.monitorable = true
+	area.collision_layer = 1
+	area.collision_mask = 1
+	var collision_shape: CollisionShape2D = CollisionShape2D.new()
+	var shape: CircleShape2D = CircleShape2D.new()
+	shape.radius = 8.0
+	collision_shape.shape = shape
+	area.add_child(collision_shape)
+	return area
+
+
+func _make_live_area_3d() -> Area3D:
+	var area: Area3D = Area3D.new()
+	area.monitoring = true
+	area.monitorable = true
+	area.collision_layer = 1
+	area.collision_mask = 1
+	var collision_shape: CollisionShape3D = CollisionShape3D.new()
+	var shape: SphereShape3D = SphereShape3D.new()
+	shape.radius = 8.0
+	collision_shape.shape = shape
+	area.add_child(collision_shape)
+	return area
+
+
+func _pack_node(root: Node) -> PackedScene:
+	var packed_scene: PackedScene = PackedScene.new()
+	var pack_error: Error = packed_scene.pack(root)
 	root.free()
-	return scene
+	assert_eq(pack_error, OK, "测试 PackedScene 必须成功打包。")
+	return packed_scene
 
 
-## 创建一个带对象池 hook 的 PackedScene。
-func _make_hooked_scene() -> PackedScene:
-	var node: HookedNode = HookedNode.new()
-	var scene: PackedScene = PackedScene.new()
-	var _pack_error: Error = scene.pack(node)
-	node.free()
-	return scene
-
-
-func _make_nested_hooked_scene() -> PackedScene:
-	var root: HookedNode = HookedNode.new()
-	var child: HookedNode = HookedNode.new()
-	child.name = "Child"
-	root.add_child(child)
-	child.owner = root
-	var scene: PackedScene = PackedScene.new()
-	var _pack_error: Error = scene.pack(root)
-	root.free()
-	return scene
-
-
-func _make_lifecycle_hook_scene() -> PackedScene:
-	var root: LifecycleHookNode = LifecycleHookNode.new()
-	var child: LifecycleHookNode = LifecycleHookNode.new()
-	child.name = "Child"
-	root.add_child(child)
-	child.owner = root
-	var scene: PackedScene = PackedScene.new()
-	var _pack_error: Error = scene.pack(root)
-	root.free()
-	return scene
-
-
-func _make_ready_check_scene() -> PackedScene:
-	var node: ReadyCheckNode = ReadyCheckNode.new()
-	var scene: PackedScene = PackedScene.new()
-	var _pack_error: Error = scene.pack(node)
-	node.free()
-	return scene
-
-
-func _make_instantiation_lifecycle_scene() -> PackedScene:
-	var node: InstantiationLifecycleNode = InstantiationLifecycleNode.new()
-	var scene: PackedScene = PackedScene.new()
-	var _pack_error: Error = scene.pack(node)
-	node.free()
-	return scene
-
-
-func _make_visibility_release_scene() -> PackedScene:
-	var root: VisibilityReleaseControl = VisibilityReleaseControl.new()
-	var child: Control = Control.new()
-	child.name = "Child"
-	root.add_child(child)
-	child.owner = root
-	var scene: PackedScene = PackedScene.new()
-	var _pack_error: Error = scene.pack(root)
-	root.free()
-	return scene
-
-
-## 创建一个会在 _ready 注册轻量事件的 GFController PackedScene。
-func _make_pooled_controller_scene() -> PackedScene:
-	var node: PooledEventController = PooledEventController.new()
-	var scene: PackedScene = PackedScene.new()
-	var _pack_error: Error = scene.pack(node)
-	node.free()
-	return scene
-
-
-func _setup_test_architecture() -> GFArchitecture:
-	_test_architecture = GFArchitecture.new()
-	Gf._architecture = _test_architecture
-	return _test_architecture
-
-
-func _acquire_control(scene: PackedScene) -> Control:
-	var node: Node = _pool.acquire(scene, _parent)
-	if node is Control:
-		var control: Control = node
-		return control
+func _prepare_node_from_result(
+	result: GFObjectPoolAcquireResult
+) -> PrepareLifecycleNode:
+	if result == null or result.get_lease() == null:
+		return null
+	var node: Node = result.get_lease().get_node()
+	if node is PrepareLifecycleNode:
+		var prepare_node: PrepareLifecycleNode = node
+		return prepare_node
 	return null
 
 
-func _child_control(root: Node, child_path: NodePath) -> Control:
-	var node: Node = root.get_node(child_path)
-	if node is Control:
-		var control: Control = node
-		return control
+func _assert_acquire_result(
+	result: GFObjectPoolAcquireResult,
+	status: GFObjectPoolAcquireResult.Status,
+	stage: StringName,
+	reason: StringName
+) -> void:
+	assert_not_null(result)
+	if result == null:
+		return
+	assert_eq(result.get_status(), status)
+	assert_eq(result.get_stage(), stage)
+	assert_eq(result.get_reason(), reason)
+	assert_eq(result.is_successful(), status == GFObjectPoolAcquireResult.Status.SUCCEEDED)
+
+
+func _start_acquire(
+	pool: GFObjectPoolUtility,
+	packed_scene: PackedScene,
+	request_parent: Node,
+	context: Dictionary,
+	state: Dictionary
+) -> void:
+	state["result"] = await pool.acquire(packed_scene, request_parent, context)
+
+
+func _wait_for_acquire_result(
+	state: Dictionary,
+	max_frames: int = 12
+) -> GFObjectPoolAcquireResult:
+	for _frame_index: int in range(max_frames):
+		var raw_result: Variant = state.get("result")
+		if raw_result is GFObjectPoolAcquireResult:
+			var result: GFObjectPoolAcquireResult = raw_result
+			return result
+		await get_tree().process_frame
+	fail_test("acquire 未在限定帧数内完成。")
 	return null
 
 
-func _child_hooked_node(root: Node, child_path: NodePath) -> HookedNode:
-	var node: Node = root.get_node(child_path)
-	if node is HookedNode:
-		var hooked_node: HookedNode = node
-		return hooked_node
+func _wait_for_physics_acquire(
+	state: Dictionary,
+	max_physics_frames: int = 12
+) -> GFObjectPoolAcquireResult:
+	for _frame_index: int in range(max_physics_frames):
+		var raw_result: Variant = state.get("result")
+		if raw_result is GFObjectPoolAcquireResult:
+			var result: GFObjectPoolAcquireResult = raw_result
+			return result
+		await get_tree().physics_frame
+		await get_tree().process_frame
+	fail_test("真实物理回调未在限定帧数内完成 release/acquire。")
 	return null
 
 
-func _child_lifecycle_hook_node(root: Node, child_path: NodePath) -> LifecycleHookNode:
-	var node: Node = root.get_node(child_path)
-	if node is LifecycleHookNode:
-		var hooked_node: LifecycleHookNode = node
-		return hooked_node
-	return null
+func _debug_entry(snapshot: Dictionary, packed_scene: PackedScene) -> Dictionary:
+	var key: String = packed_scene.resource_path
+	if key.is_empty():
+		key = str(packed_scene.get_instance_id())
+	return GFVariantData.get_option_dictionary(snapshot, key)
 
 
-func _acquire_hooked_node(scene: PackedScene) -> HookedNode:
-	var node: Node = _pool.acquire(scene, _parent)
-	if node is HookedNode:
-		var hooked_node: HookedNode = node
-		return hooked_node
-	return null
-
-
-func _acquire_lifecycle_hook_node(scene: PackedScene) -> LifecycleHookNode:
-	var node: Node = _pool.acquire(scene, _parent)
-	if node is LifecycleHookNode:
-		var hooked_node: LifecycleHookNode = node
-		return hooked_node
-	return null
-
-
-func _acquire_pooled_controller(scene: PackedScene) -> PooledEventController:
-	var node: Node = _pool.acquire(scene, _parent)
-	if node is PooledEventController:
-		var controller: PooledEventController = node
-		return controller
-	return null
-
-
-func _ready_check_node(value: Variant) -> ReadyCheckNode:
-	if value is ReadyCheckNode:
-		var node: ReadyCheckNode = value
-		return node
-	return null
-
-
-func _visibility_release_control(value: Variant) -> VisibilityReleaseControl:
-	if value is VisibilityReleaseControl:
-		var control: VisibilityReleaseControl = value
-		return control
-	return null
-
-
-func _pool_debug_key(scene: PackedScene) -> String:
-	return "PackedScene:%d" % scene.get_instance_id()
+func _contains_object(value: Variant) -> bool:
+	if value is Object:
+		return true
+	if value is Dictionary:
+		var dictionary_value: Dictionary = value
+		for nested_value: Variant in dictionary_value.values():
+			if _contains_object(nested_value):
+				return true
+	if value is Array:
+		var array_value: Array = value
+		for nested_value: Variant in array_value:
+			if _contains_object(nested_value):
+				return true
+	return false
 
 
 # --- 内部类 ---
 
-class HookedNode extends Node:
-	var acquire_count: int = 0
-	var release_count: int = 0
-	var pool: GFObjectPoolUtility = null
-	var pool_scene: PackedScene = null
-	var release_on_acquire: bool = false
-	var release_on_release: bool = false
-	var release_reentered: bool = false
+class PrepareLifecycleNode extends Node:
+	static var source_context: Dictionary = {}
+	static var expected_object: Object = null
+	var prepare_values: Array[int] = []
+	var received_expected_object: bool = false
+	var prepare_was_detached: bool = false
+	var ready_saw_prepare: bool = false
+	var enter_count: int = 0
+	var ready_count: int = 0
+	var exit_count: int = 0
 
-	func on_gf_pool_acquire() -> void:
-		acquire_count += 1
-		if release_on_acquire and pool != null:
-			pool.release(self, pool_scene)
+	func _enter_tree() -> void:
+		enter_count += 1
 
-	func on_gf_pool_release() -> void:
-		release_count += 1
-		if release_on_release and not release_reentered and pool != null:
-			release_reentered = true
-			pool.release(self, pool_scene)
+	func _ready() -> void:
+		ready_count += 1
+		ready_saw_prepare = not prepare_values.is_empty()
 
+	func _exit_tree() -> void:
+		exit_count += 1
 
-class LifecycleHookNode extends Node:
-	var event_log: Array[StringName] = []
-	var event_label: StringName = &""
-	var acquire_event_log: Array[StringName] = []
-	var acquire_event_label: StringName = &""
-	var pool: GFObjectPoolUtility = null
-	var parent_to_queue_on_internal_acquire: Node = null
-	var dispose_on_release: bool = false
-	var dispose_on_internal_release: bool = false
-	var init_on_release: bool = false
-
-	func _gf_on_object_pool_acquire() -> void:
-		acquire_event_log.append(StringName("%s_internal_acquire" % String(acquire_event_label)))
-		if parent_to_queue_on_internal_acquire != null:
-			parent_to_queue_on_internal_acquire.queue_free()
-
-	func on_gf_pool_acquire() -> void:
-		acquire_event_log.append(StringName("%s_public_acquire" % String(acquire_event_label)))
-
-	func on_gf_pool_release() -> void:
-		event_log.append(StringName("%s_public_release" % String(event_label)))
-		if pool != null:
-			if init_on_release:
-				pool.init()
-			elif dispose_on_release:
-				pool.dispose()
-
-	func _gf_on_object_pool_release() -> void:
-		event_log.append(StringName("%s_internal_release" % String(event_label)))
-		if dispose_on_internal_release and pool != null:
-			pool.dispose()
+	func on_gf_pool_prepare(context: Dictionary) -> Error:
+		prepare_was_detached = not is_inside_tree() and get_parent() == null
+		var source_nested_value: Variant = source_context.get("nested")
+		if source_nested_value is Dictionary:
+			var source_nested: Dictionary = source_nested_value
+			source_nested["value"] = 99
+		var nested: Dictionary = GFVariantData.get_option_dictionary(context, "nested")
+		prepare_values.append(GFVariantData.get_option_int(nested, "value"))
+		var object_value: Variant = context.get("object")
+		received_expected_object = object_value == expected_object
+		return OK
 
 
-class InstantiationLifecycleNode extends Node:
+class FailingPrepareNode extends Node:
+	func on_gf_pool_prepare(_context: Dictionary) -> Error:
+		return ERR_INVALID_DATA
+
+
+class InvalidPrepareNode extends Node:
+	func on_gf_pool_prepare(_context: Dictionary) -> Variant:
+		return "not-an-error"
+
+
+class ReparentingPrepareNode extends Node:
+	static var target_parent: Node = null
+
+	func on_gf_pool_prepare(_context: Dictionary) -> Error:
+		if target_parent != null and is_instance_valid(target_parent):
+			target_parent.add_child(self)
+		return OK
+
+
+class DisposingPrepareNode extends Node:
 	static var pool: GFObjectPoolUtility = null
-	static var restart_pool: bool = false
 
-	func _init() -> void:
-		if pool == null:
-			return
-		pool.dispose()
-		if restart_pool:
-			pool.init()
-
-
-class VisibilityReleaseControl extends Control:
-	var pool: GFObjectPoolUtility = null
-	var pool_scene: PackedScene = null
-	var release_on_visibility: bool = false
-	var release_reentered: bool = false
-
-	func _init() -> void:
-		var _connection_error: Error = visibility_changed.connect(_on_visibility_changed) as Error
-
-	func _on_visibility_changed() -> void:
-		if not release_on_visibility or release_reentered or pool == null:
-			return
-		release_reentered = true
-		pool.release(self, pool_scene)
-
-
-class PrepareSiblingSpawner extends Node:
-	var spawn_parent: Node = null
-	var spawned: Control = null
-	var disabled: bool:
-		get:
-			if spawned == null and spawn_parent != null:
-				spawned = Control.new()
-				spawned.visible = true
-				spawn_parent.add_child(spawned)
-			return false
-		set(_value):
-			pass
-
-
-class ReadyCheckNode extends Node:
-	var prepared_in_ready: bool = false
-
-	func _ready() -> void:
-		prepared_in_ready = GFVariantData.to_bool(get_meta(&"prepared_before_ready", false), false)
-
-
-class PooledEventController extends GFController:
-	var payloads: Array[Variant] = []
-
-	func _ready() -> void:
-		register_simple_event(
-			&"pooled_controller_event",
-			GFEventListener.from_method(self, &"_on_pooled_controller_event", 1)
-		)
-
-	func _on_pooled_controller_event(payload: Variant) -> void:
-		payloads.append(payload)
+	func on_gf_pool_prepare(_context: Dictionary) -> Error:
+		if pool != null:
+			pool.dispose()
+		return OK

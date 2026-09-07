@@ -7,13 +7,13 @@
 | 模块 | 类 | 成员 | 页面内索引 |
 |---|---:|---:|---|
 | Kernel | 77 | 1128 | [Kernel](#module-kernel) |
-| Standard | 478 | 7614 | [Standard](#module-standard) |
+| Standard | 479 | 7568 | [Standard](#module-standard) |
 | Action Queue | 16 | 214 | [Action Queue](#module-extensions-action_queue) |
 | Asset Metadata | 4 | 33 | [Asset Metadata](#module-extensions-asset_metadata) |
 | Behavior Tree | 22 | 89 | [Behavior Tree](#module-extensions-behavior_tree) |
 | Camera | 7 | 130 | [Camera](#module-extensions-camera) |
 | Capability | 11 | 148 | [Capability](#module-extensions-capability) |
-| Combat | 71 | 694 | [Combat](#module-extensions-combat) |
+| Combat | 71 | 684 | [Combat](#module-extensions-combat) |
 | Extensions / Content Package | 7 | 109 | [Extensions / Content Package](#module-extensions-content_package) |
 | Decision | 8 | 111 | [Decision](#module-extensions-decision) |
 | Dialogue | 5 | 75 | [Dialogue](#module-extensions-dialogue) |
@@ -214,7 +214,7 @@
 | [`GFNumberFormatter`](GFNumberFormatter.md#gfnumberformatter) | 运行时服务 (`runtime_service`) | `RefCounted` | 8 | `addons/gf/standard/foundation/formatting/gf_number_formatter.gd` |
 | [`GFNumericModifierMath`](GFNumericModifierMath.md#gfnumericmodifiermath) | 运行时服务 (`runtime_service`) | `RefCounted` | 5 | `addons/gf/standard/foundation/math/gf_numeric_modifier_math.gd` |
 | [`GFObjectCandidateRegistry`](GFObjectCandidateRegistry.md#gfobjectcandidateregistry) | 运行时服务 (`runtime_service`) | `RefCounted` | 13 | `addons/gf/standard/common/gf_object_candidate_registry.gd` |
-| [`GFObjectPoolUtility`](GFObjectPoolUtility.md#gfobjectpoolutility) | 运行时服务 (`runtime_service`) | `GFUtility` | 19 | `addons/gf/standard/utilities/nodes/gf_object_pool_utility.gd` |
+| [`GFObjectPoolUtility`](GFObjectPoolUtility.md#gfobjectpoolutility) | 运行时服务 (`runtime_service`) | `GFUtility` | 8 | `addons/gf/standard/utilities/nodes/gf_object_pool_utility.gd` |
 | [`GFOperationDiagnosticsUtility`](GFOperationDiagnosticsUtility.md#gfoperationdiagnosticsutility) | 运行时服务 (`runtime_service`) | `GFUtility` | 54 | `addons/gf/standard/utilities/debug/gf_operation_diagnostics_utility.gd` |
 | [`GFPathEnumerationTools`](GFPathEnumerationTools.md#gfpathenumerationtools) | 运行时服务 (`runtime_service`) | `RefCounted` | 5 | `addons/gf/standard/utilities/io/gf_path_enumeration_tools.gd` |
 | [`GFPhysicsQueryUtility`](GFPhysicsQueryUtility.md#gfphysicsqueryutility) | 运行时服务 (`runtime_service`) | `GFUtility` | 3 | `addons/gf/standard/utilities/spatial/gf_physics_query_utility.gd` |
@@ -493,7 +493,7 @@
 | [`GFJob`](GFJob.md#gfjob) | 运行时句柄 (`runtime_handle`) | `RefCounted` | 15 | `addons/gf/standard/utilities/jobs/gf_job.gd` |
 | [`GFManualTimerQueue`](GFManualTimerQueue.md#gfmanualtimerqueue) | 运行时句柄 (`runtime_handle`) | `RefCounted` | 12 | `addons/gf/standard/utilities/time/gf_manual_timer_queue.gd` |
 | [`GFNodeStateGroup`](GFNodeStateGroup.md#gfnodestategroup) | 运行时句柄 (`runtime_handle`) | `Node` | 37 | `addons/gf/standard/state_machine/node/gf_node_state_group.gd` |
-| [`GFObjectPoolPrewarmOperation`](GFObjectPoolPrewarmOperation.md#gfobjectpoolprewarmoperation) | 运行时句柄 (`runtime_handle`) | `RefCounted` | 19 | `addons/gf/standard/utilities/nodes/gf_object_pool_prewarm_operation.gd` |
+| [`GFObjectPoolLease`](GFObjectPoolLease.md#gfobjectpoollease) | 运行时句柄 (`runtime_handle`) | `RefCounted` | 8 | `addons/gf/standard/utilities/nodes/gf_object_pool_lease.gd` |
 | [`GFPlatformRequestHandle`](GFPlatformRequestHandle.md#gfplatformrequesthandle) | 运行时句柄 (`runtime_handle`) | `RefCounted` | 10 | `addons/gf/standard/platform/gf_platform_request_handle.gd` |
 | [`GFPointerCapture`](GFPointerCapture.md#gfpointercapture) | 运行时句柄 (`runtime_handle`) | `RefCounted` | 8 | `addons/gf/standard/input/common/gf_pointer_capture.gd` |
 | [`GFProtocolAckLedger`](GFProtocolAckLedger.md#gfprotocolackledger) | 运行时句柄 (`runtime_handle`) | `RefCounted` | 29 | `addons/gf/standard/utilities/io/gf_protocol_ack_ledger.gd` |
@@ -542,7 +542,8 @@
 | [`GFInputEventIdentity`](GFInputEventIdentity.md#gfinputeventidentity) | 值对象 (`value_object`) | `RefCounted` | 23 | `addons/gf/standard/input/common/gf_input_event_identity.gd` |
 | [`GFMetricSeries`](GFMetricSeries.md#gfmetricseries) | 值对象 (`value_object`) | `RefCounted` | 20 | `addons/gf/standard/utilities/debug/gf_metric_series.gd` |
 | [`GFModalResult`](GFModalResult.md#gfmodalresult) | 值对象 (`value_object`) | `RefCounted` | 10 | `addons/gf/standard/utilities/ui/gf_modal_result.gd` |
-| [`GFObjectPoolPrewarmResult`](GFObjectPoolPrewarmResult.md#gfobjectpoolprewarmresult) | 值对象 (`value_object`) | `RefCounted` | 36 | `addons/gf/standard/utilities/nodes/gf_object_pool_prewarm_result.gd` |
+| [`GFObjectPoolAcquireResult`](GFObjectPoolAcquireResult.md#gfobjectpoolacquireresult) | 值对象 (`value_object`) | `RefCounted` | 6 | `addons/gf/standard/utilities/nodes/gf_object_pool_acquire_result.gd` |
+| [`GFObjectPoolPrewarmResult`](GFObjectPoolPrewarmResult.md#gfobjectpoolprewarmresult) | 值对象 (`value_object`) | `RefCounted` | 6 | `addons/gf/standard/utilities/nodes/gf_object_pool_prewarm_result.gd` |
 | [`GFPriorityQueue`](GFPriorityQueue.md#gfpriorityqueue) | 值对象 (`value_object`) | `RefCounted` | 19 | `addons/gf/standard/foundation/collections/gf_priority_queue.gd` |
 | [`GFPriorityWorkQueue`](GFPriorityWorkQueue.md#gfpriorityworkqueue) | 值对象 (`value_object`) | `RefCounted` | 17 | `addons/gf/standard/foundation/collections/gf_priority_work_queue.gd` |
 | [`GFQuerySignature`](GFQuerySignature.md#gfquerysignature) | 值对象 (`value_object`) | `RefCounted` | 10 | `addons/gf/standard/foundation/collections/gf_query_signature.gd` |
@@ -748,9 +749,8 @@
 | [`GFModifiedAttributeSet`](GFModifiedAttributeSet.md#gfmodifiedattributeset) | 运行时句柄 (`runtime_handle`) | `RefCounted` | 22 | `addons/gf/extensions/combat/attributes/gf_modified_attribute_set.gd` |
 | [`GFProjectile2D`](GFProjectile2D.md#gfprojectile2d) | 运行时句柄 (`runtime_handle`) | `Node` | 5 | `addons/gf/extensions/combat/projectiles/gf_projectile_2d.gd` |
 | [`GFProjectile3D`](GFProjectile3D.md#gfprojectile3d) | 运行时句柄 (`runtime_handle`) | `Node` | 5 | `addons/gf/extensions/combat/projectiles/gf_projectile_3d.gd` |
-| [`GFProjectileEmissionTask`](GFProjectileEmissionTask.md#gfprojectileemissiontask) | 运行时句柄 (`runtime_handle`) | `RefCounted` | 12 | `addons/gf/extensions/combat/projectiles/gf_projectile_emission_task.gd` |
-| [`GFProjectileEmitter2D`](GFProjectileEmitter2D.md#gfprojectileemitter2d) | 运行时句柄 (`runtime_handle`) | `Node2D` | 17 | `addons/gf/extensions/combat/projectiles/gf_projectile_emitter_2d.gd` |
-| [`GFProjectileEmitter3D`](GFProjectileEmitter3D.md#gfprojectileemitter3d) | 运行时句柄 (`runtime_handle`) | `Node3D` | 17 | `addons/gf/extensions/combat/projectiles/gf_projectile_emitter_3d.gd` |
+| [`GFProjectileEmitter2D`](GFProjectileEmitter2D.md#gfprojectileemitter2d) | 运行时句柄 (`runtime_handle`) | `Node2D` | 14 | `addons/gf/extensions/combat/projectiles/gf_projectile_emitter_2d.gd` |
+| [`GFProjectileEmitter3D`](GFProjectileEmitter3D.md#gfprojectileemitter3d) | 运行时句柄 (`runtime_handle`) | `Node3D` | 14 | `addons/gf/extensions/combat/projectiles/gf_projectile_emitter_3d.gd` |
 | [`GFProjectileMotionState`](GFProjectileMotionState.md#gfprojectilemotionstate) | 运行时句柄 (`runtime_handle`) | `RefCounted` | 0 | `addons/gf/extensions/combat/projectiles/gf_projectile_motion_state.gd` |
 | [`GFProjectileSession`](GFProjectileSession.md#gfprojectilesession) | 运行时句柄 (`runtime_handle`) | `RefCounted` | 17 | `addons/gf/extensions/combat/projectiles/gf_projectile_session.gd` |
 | [`GFTagComponent`](GFTagComponent.md#gftagcomponent) | 运行时句柄 (`runtime_handle`) | `RefCounted` | 8 | `addons/gf/extensions/combat/tags/gf_tag_component.gd` |
@@ -762,6 +762,7 @@
 | [`GFProjectileBinding3D`](GFProjectileBinding3D.md#gfprojectilebinding3d) | 值对象 (`value_object`) | `GFProjectileBinding` | 4 | `addons/gf/extensions/combat/projectiles/gf_projectile_binding_3d.gd` |
 | [`GFProjectileBodyResult2D`](GFProjectileBodyResult2D.md#gfprojectilebodyresult2d) | 值对象 (`value_object`) | `RefCounted` | 7 | `addons/gf/extensions/combat/projectiles/gf_projectile_body_result_2d.gd` |
 | [`GFProjectileBodyResult3D`](GFProjectileBodyResult3D.md#gfprojectilebodyresult3d) | 值对象 (`value_object`) | `RefCounted` | 7 | `addons/gf/extensions/combat/projectiles/gf_projectile_body_result_3d.gd` |
+| [`GFProjectileEmissionResult`](GFProjectileEmissionResult.md#gfprojectileemissionresult) | 值对象 (`value_object`) | `RefCounted` | 8 | `addons/gf/extensions/combat/projectiles/gf_projectile_emission_result.gd` |
 | [`GFProjectileLaunchInput2D`](GFProjectileLaunchInput2D.md#gfprojectilelaunchinput2d) | 值对象 (`value_object`) | `Resource` | 10 | `addons/gf/extensions/combat/projectiles/gf_projectile_launch_input_2d.gd` |
 | [`GFProjectileLaunchInput3D`](GFProjectileLaunchInput3D.md#gfprojectilelaunchinput3d) | 值对象 (`value_object`) | `Resource` | 10 | `addons/gf/extensions/combat/projectiles/gf_projectile_launch_input_3d.gd` |
 | [`GFProjectileMotionIntent2D`](GFProjectileMotionIntent2D.md#gfprojectilemotionintent2d) | 值对象 (`value_object`) | `RefCounted` | 9 | `addons/gf/extensions/combat/projectiles/gf_projectile_motion_intent_2d.gd` |
