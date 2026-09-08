@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFSceneGroupIndex" path="addons/gf/tools/scene_groups/gf_scene_group_index.gd" module="tools" extends="RefCounted" classDigest="81d657cbf43697a5d8d85d6bdb63bdf59e1185fc873ab973cd52ace397d3e17d">
+	<description>GFSceneGroupIndex: 编辑器期已保存场景 Group 声明位置索引。
+只读取磁盘 .tscn / .scn 自身 SceneState 中的持久化声明，不实例化场景节点，
+不把继承或嵌套来源已有的组复制到引用场景。隐藏条目与 .gdignore 子树不在扫描范围内。
+主线程 advance() 在目录项、节点和组之间让出控制；单次 ResourceLoader.load()
+不能被抢占。引擎资源加载器和自定义 Resource 的加载行为仍由 Godot 管理。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">tool_api</tag>
+		<tag name="since">unreleased</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties />
+	<methods>
+		<member kind="method" name="begin_scan">
+			<signature>func begin_scan(root_path: String = "res://", options: Dictionary = {}) -&gt; Error:</signature>
+			<description>丢弃旧索引并开始扫描项目内目录。未知选项、非法类型或越界值会拒绝请求。
+目录打不开时返回 ERR_CANT_OPEN；路径链含链接时拒绝读取。根目录有 .gdignore
+时返回 OK 并以 partial / ignored_root 结束。扫描中的重入调用返回 ERR_BUSY。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">root_path: 规范 res:// 目录；不接受相对路径、反斜杠、空片段或点路径穿越。</tag>
+				<tag name="param">options: 只允许降低内置扫描上限。</tag>
+				<tag name="return">OK 表示请求有效；ERR_INVALID_PARAMETER、ERR_CANT_OPEN 或 ERR_BUSY 表示拒绝。</tag>
+				<tag name="schema">options: Dictionary，键为 max_depth（int，0..32）、max_entries（int，1..100000）、max_scenes（int，1..10000）、max_rows（int，1..50000）、max_scene_bytes（int，1..8388608）。省略使用上限，0 深度仅扫描根目录。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="advance">
+			<signature>func advance(entry_budget: int = 64) -&gt; bool:</signature>
+			<description>在主线程推进有界工作量。每个目录项、目录打开、场景加载、节点或组占一个单位。
+单次引擎资源加载不受单位预算抢占；不启动后台任务。无效预算令当前扫描 failed。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">entry_budget: 本次最多处理的工作单位，范围 1..4096。</tag>
+				<tag name="return">返回 true 表示仍为 scanning，false 表示当前无需继续调用。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="cancel">
+			<signature>func cancel() -&gt; void:</signature>
+			<description>取消当前扫描并立即关闭目录枚举，保留已发现记录供查看。
+终态调用不改变结果；新的 begin_scan() 会清空旧记录。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_snapshot">
+			<signature>func get_snapshot() -&gt; Dictionary:</signature>
+			<description>返回摘要和最多 64 条诊断的副本，不包含整个索引。
+complete 仅表示已完成本次范围的声明扫描；不是运行时成员、实例展开或同时刻的文件系统快照。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">当前扫描摘要。</tag>
+				<tag name="schema">return: Dictionary，包含 status（idle/scanning/complete/partial/cancelled/failed）、root_path、entry_count（已枚举文件和目录数）、scene_count（尝试读取的场景数）、row_count、issues（Array[Dictionary]，每项 code/path/message）和 omitted_issue_count。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="query">
+			<signature>func query(text: String = "", offset: int = 0, limit: int = 100) -&gt; Dictionary:</signature>
+			<description>搜索组名、场景路径或节点路径。搜索忽略大小写，但保留不同组名的精确身份。
+结果稳定按 group、scene_path、node_path 排序；返回行均为副本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">text: 子字符串搜索文本；空文本匹配所有记录。</tag>
+				<tag name="param">offset: 起始记录偏移，负数按 0 处理。</tag>
+				<tag name="param">limit: 页大小，限制到 0..200；0 只计算总数。</tag>
+				<tag name="return">有界分页与匹配总数。</tag>
+				<tag name="schema">return: Dictionary，包含 rows（Array[Dictionary]，每项 group:String、scene_path:String、node_path:String）、total:int、offset:int、limit:int。node_path 相对声明场景根，根节点为 .。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

@@ -325,12 +325,18 @@ func test_project_layout_dock_is_discovered_through_optional_data_catalog() -> v
 	)
 	assert_true(_get_bool(report, "ok"))
 	assert_eq(_get_string(report, "state"), "valid")
-	assert_eq(_get_int(report, "loaded_manifest_count"), 1)
 	var records: Dictionary = _get_dictionary(report, "records")
 	var dock_records: Array = _get_array(records, "dock_records")
-	assert_eq(dock_records.size(), 1)
-	var dock_record: Dictionary = _get_dictionary_at(dock_records, 0)
-	assert_eq(_get_string(dock_record, "owner_package_id"), "gf.tool.project_layout")
+	var owned_records: Array[Dictionary] = []
+	for record_value: Variant in dock_records:
+		if record_value is Dictionary:
+			var record: Dictionary = record_value
+			if _get_string(record, "owner_package_id") == "gf.tool.project_layout":
+				owned_records.append(record)
+	assert_eq(owned_records.size(), 1, "Project Layout 应只贡献一个所属 Dock。")
+	if owned_records.size() != 1:
+		return
+	var dock_record: Dictionary = owned_records[0]
 	assert_eq(
 		_get_string(dock_record, "path"),
 		"res://addons/gf/tools/project_layout/editor/gf_project_layout_dock.gd"

@@ -681,6 +681,11 @@ PACKAGE_SOURCE_OPTIONAL_REFERENCES = {
 		"addons/gf/gf_builtin_tool_contributions.json",
 		"addons/gf/tools/project_layout/editor/gf_editor_contributions.json",
 	),
+	(
+		"gf.kernel",
+		"addons/gf/gf_builtin_tool_contributions.json",
+		"addons/gf/tools/scene_groups/editor/gf_editor_contributions.json",
+	),
 }
 PACKAGE_SOURCE_GENERATED_CATALOG_REFERENCES = {
 	(

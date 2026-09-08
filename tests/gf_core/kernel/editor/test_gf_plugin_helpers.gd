@@ -34,6 +34,7 @@ const GF_VARIANT_ACCESS = preload("res://addons/gf/kernel/core/gf_variant_access
 const GF_STANDARD_EDITOR_CONTRIBUTIONS_PATH: String = "res://addons/gf/standard/editor/gf_editor_contributions.json"
 const GF_BUILTIN_TOOL_CONTRIBUTIONS_PATH: String = "res://addons/gf/gf_builtin_tool_contributions.json"
 const GF_PROJECT_LAYOUT_EDITOR_CONTRIBUTIONS_PATH: String = "res://addons/gf/tools/project_layout/editor/gf_editor_contributions.json"
+const GF_SCENE_GROUP_EDITOR_CONTRIBUTIONS_PATH: String = "res://addons/gf/tools/scene_groups/editor/gf_editor_contributions.json"
 const _TEST_PROJECT_SETTING_PREFIX: String = "gf/test/"
 
 
@@ -622,7 +623,7 @@ func test_builtin_tool_contribution_catalog_keeps_tool_identity_in_root_composit
 		catalog_data,
 		"manifest_records"
 	)
-	assert_eq(manifest_records.size(), 1, "首版 catalog 应列出一个内置可选工具 manifest。")
+	assert_eq(manifest_records.size(), 2, "catalog 应列出项目结构与场景组查询两个内置可选工具 manifest。")
 	if manifest_records.is_empty():
 		return
 	var manifest_record: Dictionary = _dictionary_at(manifest_records, 0)
@@ -644,10 +645,25 @@ func test_builtin_tool_contribution_catalog_keeps_tool_identity_in_root_composit
 		GF_PROJECT_LAYOUT_EDITOR_CONTRIBUTIONS_PATH,
 		"Project Layout 的贡献路径只应由 catalog 数据声明。"
 	)
+	var scene_group_record: Dictionary = _dictionary_at(manifest_records, 1)
+	assert_eq(
+		GF_VARIANT_ACCESS.get_option_string(scene_group_record, "package_id"),
+		"gf.tool.scene_groups",
+		"Scene Groups 的 package identity 只应由 catalog 数据声明。"
+	)
+	assert_eq(
+		GF_VARIANT_ACCESS.get_option_string(scene_group_record, "manifest_path"),
+		GF_SCENE_GROUP_EDITOR_CONTRIBUTIONS_PATH,
+		"Scene Groups 的贡献路径只应由 catalog 数据声明。"
+	)
 	assert_false(loader_source.contains("gf.tool.project_layout"), "kernel catalog loader 不应硬编码具体工具 package_id。")
 	assert_false(loader_source.contains("tools/project_layout"), "kernel catalog loader 不应硬编码具体工具路径。")
 	assert_false(plugin_source.contains("gf.tool.project_layout"), "根插件 GDScript 不应硬编码具体工具 package_id。")
 	assert_false(plugin_source.contains("tools/project_layout"), "根插件 GDScript 不应硬编码具体工具路径。")
+	assert_false(loader_source.contains("gf.tool.scene_groups"), "kernel catalog loader 不应硬编码场景组工具 package_id。")
+	assert_false(loader_source.contains("tools/scene_groups"), "kernel catalog loader 不应硬编码场景组工具路径。")
+	assert_false(plugin_source.contains("gf.tool.scene_groups"), "根插件 GDScript 不应硬编码场景组工具 package_id。")
+	assert_false(plugin_source.contains("tools/scene_groups"), "根插件 GDScript 不应硬编码场景组工具路径。")
 	assert_false(
 		GF_BUILTIN_TOOL_CONTRIBUTIONS_PATH.contains("/kernel/"),
 		"具体工具 catalog 应归根插件组合层所有，不能放入 kernel。"

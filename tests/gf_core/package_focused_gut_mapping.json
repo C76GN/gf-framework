@@ -343,6 +343,10 @@
 	"gf.tool.project_layout": [
 		"res://tests/gf_core/tools/project_layout/test_gf_project_layout_editor.gd",
 		"res://tests/gf_core/tools/project_layout/test_gf_project_layout_tool_package.gd"
-	]
+	],
+    "gf.tool.scene_groups": [
+      "res://tests/gf_core/tools/scene_groups/test_gf_scene_group_index.gd",
+      "res://tests/gf_core/tools/scene_groups/test_gf_scene_group_dock.gd"
+    ]
   }
 }

@@ -2,10 +2,10 @@
   "schema_version": 2,
   "catalog_version": "2.0.0",
   "framework_version": "12.0.0-dev.0",
-  "source_digest": "d51d865bf672440b5656ce566e7f3a4a56daf47c5dbce26d292ae6be2c416a26",
-  "class_count": 850,
+  "source_digest": "c673937dff5348a0806ddbf30f9afd27c54ba20f474118ebc6b557bf2b191485",
+  "class_count": 852,
   "autoload_count": 1,
-  "package_count": 56,
+  "package_count": 57,
   "packages": [
     {
       "id": "gf.extension.action_queue",
@@ -554,6 +554,14 @@
         "gf.kernel"
       ],
       "representative_path": "addons/gf/tools/project_layout/editor/gf_project_layout_dock.gd"
+    },
+    {
+      "id": "gf.tool.scene_groups",
+      "kind": "tool",
+      "dependencies": [
+        "gf.kernel"
+      ],
+      "representative_path": "addons/gf/tools/scene_groups/editor/gf_scene_group_dock.gd"
     }
   ],
   "classes": {
@@ -75242,6 +75250,88 @@
           "name": "make_validation_rule",
           "signature": "static func make_validation_rule(contract: Dictionary = {}, options: Dictionary = {}) -> GFValidationRule",
           "summary": "创建可加入 GFValidationSuite 的根节点契约规则。",
+          "visibility": "public"
+        }
+      ]
+    },
+    "GFSceneGroupDock": {
+      "owner_kind": "class",
+      "extends": "VBoxContainer",
+      "module": "tools",
+      "package_id": "gf.tool.scene_groups",
+      "path": "addons/gf/tools/scene_groups/editor/gf_scene_group_dock.gd",
+      "summary": "GFSceneGroupDock: 编辑器期已保存场景 Group 声明查询页面。 用户主动刷新后分批读取磁盘场景，按组名、场景路径或节点路径搜索并定位声明节点。 只读查询不包含未保存编辑或运行时添加的组；定位通过编辑器打开源场景。",
+      "visibility": "public",
+      "category": "editor_api",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "func",
+          "name": "refresh",
+          "signature": "func refresh(root_path: String = \"res://\") -> Error",
+          "summary": "清除旧结果并开始扫描指定项目目录；页面入树后按帧推进。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "cancel_scan",
+          "signature": "func cancel_scan() -> void",
+          "summary": "取消当前扫描和待完成定位；保留已收集结果，并明确标记取消状态。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_snapshot",
+          "signature": "func get_snapshot() -> Dictionary",
+          "summary": "获取扫描摘要的防御性副本；结果行通过页面分页呈现。",
+          "visibility": "public"
+        }
+      ]
+    },
+    "GFSceneGroupIndex": {
+      "owner_kind": "class",
+      "extends": "RefCounted",
+      "module": "tools",
+      "package_id": "gf.tool.scene_groups",
+      "path": "addons/gf/tools/scene_groups/gf_scene_group_index.gd",
+      "summary": "GFSceneGroupIndex: 编辑器期已保存场景 Group 声明位置索引。 只读取磁盘 .tscn / .scn 自身 SceneState 中的持久化声明，不实例化场景节点， 不把继承或嵌套来源已有的组复制到引用场景。隐藏条目与 .gdignore 子树不在扫描范围内。",
+      "visibility": "public",
+      "category": "tool_api",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "func",
+          "name": "begin_scan",
+          "signature": "func begin_scan(root_path: String = \"res://\", options: Dictionary = {}) -> Error",
+          "summary": "丢弃旧索引并开始扫描项目内目录。未知选项、非法类型或越界值会拒绝请求。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "advance",
+          "signature": "func advance(entry_budget: int = 64) -> bool",
+          "summary": "在主线程推进有界工作量。每个目录项、目录打开、场景加载、节点或组占一个单位。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "cancel",
+          "signature": "func cancel() -> void",
+          "summary": "取消当前扫描并立即关闭目录枚举，保留已发现记录供查看。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_snapshot",
+          "signature": "func get_snapshot() -> Dictionary",
+          "summary": "返回摘要和最多 64 条诊断的副本，不包含整个索引。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "query",
+          "signature": "func query(text: String = \"\", offset: int = 0, limit: int = 100) -> Dictionary",
+          "summary": "搜索组名、场景路径或节点路径。搜索忽略大小写，但保留不同组名的精确身份。",
           "visibility": "public"
         }
       ]

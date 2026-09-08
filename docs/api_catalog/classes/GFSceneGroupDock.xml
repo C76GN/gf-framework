@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFSceneGroupDock" path="addons/gf/tools/scene_groups/editor/gf_scene_group_dock.gd" module="tools" extends="VBoxContainer" classDigest="746ee85ff7d7828b26435bd0757191dd51eda85f5e1daf4d0b9709109f382347">
+	<description>GFSceneGroupDock: 编辑器期已保存场景 Group 声明查询页面。
+用户主动刷新后分批读取磁盘场景，按组名、场景路径或节点路径搜索并定位声明节点。
+只读查询不包含未保存编辑或运行时添加的组；定位通过编辑器打开源场景。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">editor_api</tag>
+		<tag name="since">unreleased</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties />
+	<methods>
+		<member kind="method" name="refresh">
+			<signature>func refresh(root_path: String = "res://") -&gt; Error:</signature>
+			<description>清除旧结果并开始扫描指定项目目录；页面入树后按帧推进。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">root_path: res:// 下的已保存场景搜索根目录。</tag>
+				<tag name="return">初始化扫描的 Error；无效输入会呈现 failed 状态。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="cancel_scan">
+			<signature>func cancel_scan() -&gt; void:</signature>
+			<description>取消当前扫描和待完成定位；保留已收集结果，并明确标记取消状态。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_snapshot">
+			<signature>func get_snapshot() -&gt; Dictionary:</signature>
+			<description>获取扫描摘要的防御性副本；结果行通过页面分页呈现。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">与 GFSceneGroupIndex.get_snapshot() 相同的摘要。</tag>
+				<tag name="schema">return: Dictionary，status 为 idle/scanning/complete/partial/cancelled/failed；root_path 为 String；entry_count、scene_count、row_count、omitted_issue_count 为 int；issues 为 Array[Dictionary]，每项含 String 字段 code、path、message。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

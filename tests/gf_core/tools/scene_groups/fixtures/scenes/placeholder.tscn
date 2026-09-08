@@ -1,0 +1,5 @@
+[gd_scene format=3]
+
+[node name="Root" type="Node"]
+
+[node name="Deferred" parent="." groups=["placeholder"] instance_placeholder="res://tests/gf_core/tools/scene_groups/fixtures/scenes/base.tscn"]

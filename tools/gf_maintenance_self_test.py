@@ -9019,6 +9019,14 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 			"paths": ["addons/gf/tools/project_layout/**"],
 			"issues": [],
 		},
+		{
+			"path": "packages/tools/gf.tool.scene_groups.json",
+			"id": "gf.tool.scene_groups",
+			"kind": "tool",
+			"dependencies": ["gf.kernel"],
+			"paths": ["addons/gf/tools/scene_groups/**"],
+			"issues": [],
+		},
 	]
 	package_source_optional_issues = audit_package_source_references(
 		package_source_optional_records,
@@ -9036,6 +9044,8 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 			"addons/gf/gf_builtin_tool_contributions.json": (
 				'"manifest_path": '
 				'"res://addons/gf/tools/project_layout/editor/gf_editor_contributions.json"'
+				'\n"manifest_path": '
+				'"res://addons/gf/tools/scene_groups/editor/gf_editor_contributions.json"'
 			),
 			"addons/gf/kernel/extension/gf_extension_catalog.gd": (
 				"const EXTENSIONS_PATH: String = \"res://addons/gf/extensions\""
@@ -9046,6 +9056,29 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 		"package_source_boundary_allows_root_composed_optional_tool_catalog",
 		len(package_source_optional_issues) == 0,
 		f"narrow optional discovery references should pass: {package_source_optional_issues}",
+	)
+	package_source_scene_group_direct_issues = audit_package_source_references(
+		package_source_optional_records,
+		["addons/gf/plugin.gd"],
+		package_source_class_roots,
+		{
+			"addons/gf/plugin.gd": (
+				'const SCENE_GROUP_EDITOR_PATH: String = '
+				'"res://addons/gf/tools/scene_groups/editor/gf_editor_contributions.json"'
+			),
+		},
+	)
+	record_result(
+		"package_source_boundary_rejects_direct_scene_group_tool_reference",
+		issue_exists(
+			package_source_scene_group_direct_issues,
+			"package_source_undeclared_path_dependency",
+			path="addons/gf/plugin.gd",
+			row_key="gf.kernel",
+			target="addons/gf/tools/scene_groups/editor/gf_editor_contributions.json",
+			expected_value="gf.tool.scene_groups",
+		),
+		"scene group discovery is allowed only through the exact root data catalog entry.",
 	)
 
 	public_api_allowed_issues = audit_public_api_boundary_text(
