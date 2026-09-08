@@ -129,6 +129,38 @@ func test_cancel_closes_incremental_work_and_restart_discards_partial_rows() -> 
 	assert_eq(_string_field(index.get_snapshot(), "status"), "complete")
 
 
+func test_begin_scan_rejects_active_scan_before_first_advance() -> void:
+	var index: GFSceneGroupIndex = _INDEX_SCRIPT.new()
+	assert_eq(index.begin_scan(_FIXTURE_ROOT), OK)
+	var snapshot: Dictionary = index.get_snapshot()
+	assert_eq(index.begin_scan(_FIXTURE_ROOT), ERR_BUSY)
+	assert_eq(index.get_snapshot(), snapshot)
+	assert_eq(index.begin_scan("user://", { "unknown": 1 }), ERR_BUSY)
+	assert_eq(index.get_snapshot(), snapshot)
+	_finish(index)
+	assert_eq(_string_field(index.get_snapshot(), "status"), "complete")
+	assert_eq(_int_field(index.query(), "total"), 7)
+
+
+func test_begin_scan_between_batches_preserves_progress_and_rows() -> void:
+	var index: GFSceneGroupIndex = _INDEX_SCRIPT.new()
+	assert_eq(index.begin_scan(_FIXTURE_ROOT), OK)
+	for _iteration: int in range(128):
+		if _int_field(index.get_snapshot(), "row_count") > 0:
+			break
+		var _active: bool = index.advance(1)
+	var snapshot: Dictionary = index.get_snapshot()
+	var page: Dictionary = index.query()
+	assert_eq(_string_field(snapshot, "status"), "scanning")
+	assert_gt(_int_field(snapshot, "row_count"), 0)
+	assert_eq(index.begin_scan(_temporary_root, { "max_rows": 1 }), ERR_BUSY)
+	assert_eq(index.get_snapshot(), snapshot)
+	assert_eq(index.query(), page)
+	_finish(index)
+	assert_eq(_string_field(index.get_snapshot(), "status"), "complete")
+	assert_eq(_int_field(index.query(), "total"), 7)
+
+
 func test_refresh_reads_disk_without_replacing_cached_scene_state() -> void:
 	_make_directory(_temporary_root)
 	var scene_path: String = _temporary_root.path_join("fresh.tscn")

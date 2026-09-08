@@ -108,6 +108,68 @@ func test_search_matches_each_column_without_case_and_resets_pagination() -> voi
 	assert_true(_get_button(dock, "NextPage").disabled)
 
 
+func test_busy_refresh_preserves_active_scan_and_visible_page_until_cancel_or_completion() -> void:
+	var root_a: String = _make_fixture_root()
+	var root_b: String = _make_fixture_root()
+	_write_group_scene(root_a, 500)
+	_write_group_scene(root_b, 1)
+	var dock: GFSceneGroupDock = _make_dock()
+	_set_search(dock, "group_")
+	assert_eq(dock.refresh(root_a), OK)
+	for _frame: int in range(120):
+		if GFVariantData.get_option_int(dock.get_snapshot(), "row_count") > 0:
+			break
+		await get_tree().process_frame
+	assert_eq(_status(dock), "scanning")
+	assert_gt(GFVariantData.get_option_int(dock.get_snapshot(), "row_count"), 0)
+	var root_edit: LineEdit = dock.find_child("ScanRoot", true, false) as LineEdit
+	var search: LineEdit = dock.find_child("Search", true, false) as LineEdit
+	var summary: Label = dock.find_child("Summary", true, false) as Label
+	var page_summary: Label = dock.find_child("PageSummary", true, false) as Label
+	assert_not_null(root_edit)
+	assert_not_null(search)
+	assert_not_null(summary)
+	assert_not_null(page_summary)
+	if root_edit == null or search == null or summary == null or page_summary == null:
+		return
+	var results: Tree = _get_results(dock)
+	var snapshot: Dictionary = dock.get_snapshot()
+	var summary_before: String = summary.text
+	var page_summary_before: String = page_summary.text
+	var visible_rows_before: int = _visible_row_count(results)
+
+	assert_eq(dock.refresh(root_b), ERR_BUSY)
+
+	assert_eq(dock.get_snapshot(), snapshot, "忙时拒绝刷新必须保留正在推进的扫描。")
+	assert_eq(root_edit.text, root_a, "被拒绝的扫描根不得覆盖当前页面目录。")
+	assert_eq(search.text, "group_")
+	assert_eq(summary.text, summary_before, "被拒绝的请求不得重绘当前摘要。")
+	assert_eq(page_summary.text, page_summary_before)
+	assert_eq(_visible_row_count(results), visible_rows_before, "忙时拒绝不得重建结果页。")
+	assert_true(dock.is_processing())
+	assert_true(_get_button(dock, "Refresh").disabled)
+	assert_false(_get_button(dock, "Cancel").disabled)
+	await _wait_for_scan(dock)
+	assert_eq(_status(dock), "complete")
+	assert_eq(GFVariantData.get_option_string(dock.get_snapshot(), "root_path"), root_a)
+	assert_eq(GFVariantData.get_option_int(dock.get_snapshot(), "row_count"), 500)
+	assert_eq(root_edit.text, root_a)
+
+	assert_eq(dock.refresh(root_b), OK, "当前扫描完成后可以接受另一个目录。")
+	await _wait_for_scan(dock)
+	assert_eq(_status(dock), "complete")
+	assert_eq(root_edit.text, root_b)
+	assert_eq(GFVariantData.get_option_int(dock.get_snapshot(), "row_count"), 1)
+	assert_eq(dock.refresh(root_a), OK)
+	dock.cancel_scan()
+	assert_eq(_status(dock), "cancelled")
+	assert_eq(dock.refresh(root_b), OK, "显式取消后也可以接受另一个目录。")
+	await _wait_for_scan(dock)
+	assert_eq(_status(dock), "complete")
+	assert_eq(GFVariantData.get_option_string(dock.get_snapshot(), "root_path"), root_b)
+	assert_eq(GFVariantData.get_option_int(dock.get_snapshot(), "row_count"), 1)
+
+
 func test_cancel_button_stops_scan_and_next_refresh_can_complete() -> void:
 	var root_path: String = _make_fixture_root()
 	_write_group_scene(root_path, 125)
@@ -209,6 +271,40 @@ func test_result_activation_outside_editor_reports_failure_without_losing_select
 	assert_ne(location_status.text, previous_status, "结果激活应实际更新导航反馈。")
 	assert_same(results.get_selected(), item, "失败定位不能清空或改写结果选择。")
 	assert_eq(dock.get_snapshot(), snapshot)
+
+
+func test_pagination_clears_feedback_from_the_previous_result_location() -> void:
+	if Engine.is_editor_hint():
+		pending("普通 GUT 验证公开控件反馈；待完成定位由真实编辑器 smoke 验证。")
+		return
+	var root_path: String = _make_fixture_root()
+	_write_group_scene(root_path, 125)
+	var dock: GFSceneGroupDock = _make_dock()
+	assert_eq(dock.refresh(root_path), OK)
+	await _wait_for_scan(dock)
+	var results: Tree = _get_results(dock)
+	var location_status: Label = dock.find_child("LocationStatus", true, false) as Label
+	assert_not_null(location_status)
+	if location_status == null:
+		return
+	var snapshot: Dictionary = dock.get_snapshot()
+	for button_name: String in ["NextPage", "PreviousPage"]:
+		var item: TreeItem = results.get_root().get_first_child()
+		assert_not_null(item)
+		if item == null:
+			return
+		item.select(0)
+		results.item_activated.emit()
+		assert_false(location_status.text.is_empty(), "激活结果应先产生可见定位反馈。")
+		var page_button: Button = _get_button(dock, button_name)
+		assert_false(page_button.disabled)
+		page_button.pressed.emit()
+		assert_true(location_status.text.is_empty(), "翻页应清除上一条结果的定位反馈。")
+		assert_eq(_visible_row_count(results), 25 if button_name == "NextPage" else 100)
+		await get_tree().process_frame
+		assert_true(location_status.text.is_empty(), "已取消的定位反馈不得在后续帧恢复。")
+		assert_false(dock.is_processing())
+		assert_eq(dock.get_snapshot(), snapshot, "翻页不得重扫或改变已保存声明摘要。")
 
 
 func test_scene_group_dock_is_registered_once_through_optional_editor_catalog() -> void:

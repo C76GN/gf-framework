@@ -81,6 +81,7 @@ func _exit_tree() -> void:
 # --- 公共方法 ---
 
 ## 清除旧结果并开始扫描指定项目目录；页面入树后按帧推进。
+## 返回 ERR_BUSY 时保留当前扫描和页面状态，不产生刷新副作用。
 ## [br]
 ## @api public
 ## [br]
@@ -90,11 +91,13 @@ func _exit_tree() -> void:
 ## [br]
 ## @return 初始化扫描的 Error；无效输入会呈现 failed 状态。
 func refresh(root_path: String = "res://") -> Error:
+	var scan_error: Error = _index.begin_scan(root_path)
+	if scan_error == ERR_BUSY:
+		return scan_error
 	_pending_location.clear()
 	_location_status.text = ""
 	_offset = 0
 	_scan_root.text = root_path
-	var scan_error: Error = _index.begin_scan(root_path)
 	_scanning = _status() == "scanning"
 	_summary_elapsed = 0.0
 	_render_summary()
@@ -309,12 +312,14 @@ func _on_search_text_changed(_text: String) -> void:
 
 func _on_previous_pressed() -> void:
 	_pending_location.clear()
+	_location_status.text = ""
 	_offset = maxi(0, _offset - _PAGE_SIZE)
 	_render_page()
 
 
 func _on_next_pressed() -> void:
 	_pending_location.clear()
+	_location_status.text = ""
 	_offset += _PAGE_SIZE
 	_render_page()
 

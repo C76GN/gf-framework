@@ -80,7 +80,7 @@ var _generation: int = 0
 ## [br]
 ## @return OK 表示请求有效；ERR_INVALID_PARAMETER、ERR_CANT_OPEN 或 ERR_BUSY 表示拒绝。
 func begin_scan(root_path: String = "res://", options: Dictionary = {}) -> Error:
-	if _advancing:
+	if _status == "scanning" or _advancing:
 		return ERR_BUSY
 	_clear_work()
 	_generation += 1

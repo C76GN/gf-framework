@@ -49,6 +49,8 @@
 - `get_snapshot()` 返回当前扫描状态、统计和诊断。
 - `query(text = "", offset = 0, limit = 100)` 按组名、场景路径或节点路径筛选已收集的声明；`offset` 最小为 `0`，`limit` 限制在 `0` 到 `200`。结果包含 `rows`、匹配总数 `total` 和实际分页参数 `offset`、`limit`，每条 `rows` 包含 `group`、`scene_path`、`node_path`。
 
+扫描尚未结束时，重复调用 `begin_scan()` 会返回 `ERR_BUSY`，保留当前进度与结果，包括两次 `advance()` 调用之间。需要替换扫描范围时，先调用 `cancel()`，再开始新扫描。
+
 快照包含 `status`、`root_path`、已处理条目数 `entry_count`、尝试读取的场景数 `scene_count`、声明数 `row_count`、问题列表 `issues` 和未展开的问题数 `omitted_issue_count`。每条问题包含 `code`、`path`、`message`；完整性以 `status == "complete"` 判断，不能仅看问题列表是否为空。
 
 `begin_scan()` 的 `options` 只接受下列预算键。超出范围或提供未知选项会拒绝请求，不会把无效预算解释为无限制：
@@ -61,7 +63,7 @@
 | `max_rows` | `1` 到 `50000` 条声明。 |
 | `max_scene_bytes` | `1` 到 `8388608` 字节，限制单个场景文件。 |
 
-`GFSceneGroupDock` 提供 `refresh()`、`cancel_scan()` 和 `get_snapshot()`，用于工作区页面的扫描控制与状态读取。扫描完成后是否重新扫描，由使用者决定。
+`GFSceneGroupDock` 提供 `refresh()`、`cancel_scan()` 和 `get_snapshot()`，用于工作区页面的扫描控制与状态读取。扫描期间再次调用 `refresh()` 返回 `ERR_BUSY`，保留当前目录、界面和扫描进度；需要更换范围时先调用 `cancel_scan()`。扫描完成后是否重新扫描，由使用者决定。
 
 ## 制作期边界
 
