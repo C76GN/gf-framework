@@ -1,0 +1,14 @@
+{
+  "schema_version": 4,
+  "package_id": "gf.tool.scene_groups",
+  "dock_records": [
+    {
+      "owner_package_id": "gf.tool.scene_groups",
+      "source_id": "scene_groups.dock.scene_groups",
+      "path": "res://addons/gf/tools/scene_groups/editor/gf_scene_group_dock.gd",
+      "label": "GF Scene Groups",
+      "short_label": "组查询",
+      "order": 95
+    }
+  ]
+}

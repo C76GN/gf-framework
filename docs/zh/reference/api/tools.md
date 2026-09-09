@@ -7,8 +7,8 @@
 | 类别 | 类 | 成员 | 方法 |
 |---|---:|---:|---:|
 | [值对象](#category-value_object) | 1 | 4 | 4 |
-| [编辑器 API](#category-editor_api) | 1 | 11 | 4 |
-| [工具 API](#category-tool_api) | 20 | 170 | 110 |
+| [编辑器 API](#category-editor_api) | 2 | 14 | 7 |
+| [工具 API](#category-tool_api) | 21 | 175 | 115 |
 
 ## 类
 
@@ -27,6 +27,7 @@
 | 类 | 继承 | 源文件 |
 |---|---|---|
 | [`GFProjectLayoutDock`](classes/GFProjectLayoutDock.md#gfprojectlayoutdock) | `VBoxContainer` | `addons/gf/tools/project_layout/editor/gf_project_layout_dock.gd` |
+| [`GFSceneGroupDock`](classes/GFSceneGroupDock.md#gfscenegroupdock) | `VBoxContainer` | `addons/gf/tools/scene_groups/editor/gf_scene_group_dock.gd` |
 
 <a id="category-tool_api"></a>
 
@@ -54,3 +55,4 @@
 | [`GFProjectLayoutAnalyzer`](classes/GFProjectLayoutAnalyzer.md#gfprojectlayoutanalyzer) | `RefCounted` | `addons/gf/tools/project_layout/gf_project_layout_analyzer.gd` |
 | [`GFProjectLayoutPlanner`](classes/GFProjectLayoutPlanner.md#gfprojectlayoutplanner) | `RefCounted` | `addons/gf/tools/project_layout/gf_project_layout_planner.gd` |
 | [`GFProjectLayoutValidator`](classes/GFProjectLayoutValidator.md#gfprojectlayoutvalidator) | `RefCounted` | `addons/gf/tools/project_layout/gf_project_layout_validator.gd` |
+| [`GFSceneGroupIndex`](classes/GFSceneGroupIndex.md#gfscenegroupindex) | `RefCounted` | `addons/gf/tools/scene_groups/gf_scene_group_index.gd` |

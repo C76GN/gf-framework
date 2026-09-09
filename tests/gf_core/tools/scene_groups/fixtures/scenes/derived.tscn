@@ -1,0 +1,7 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="PackedScene" path="res://tests/gf_core/tools/scene_groups/fixtures/scenes/base.tscn" id="1"]
+
+[node name="Derived" groups=["derived"] instance=ExtResource("1")]
+
+[node name="Child" parent="." groups=["extra"]]

@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "id": "gf.tool.scene_groups",
+  "kind": "tool",
+  "dependencies": [
+    "gf.kernel"
+  ],
+  "paths": [
+    "addons/gf/tools/scene_groups/**"
+  ]
+}

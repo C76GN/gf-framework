@@ -26,7 +26,7 @@
 | Physics | 4 | 50 | [Physics](#module-extensions-physics) |
 | Save | 52 | 658 | [Save](#module-extensions-save) |
 | Turn Based | 5 | 50 | [Turn Based](#module-extensions-turn_based) |
-| Tools | 22 | 185 | [Tools](#module-tools) |
+| Tools | 24 | 193 | [Tools](#module-tools) |
 
 ## 模块索引
 
@@ -1030,6 +1030,7 @@
 |---|---|---|---:|---|
 | [`GFLspWorkspaceEditPlan`](GFLspWorkspaceEditPlan.md#gflspworkspaceeditplan) | 值对象 (`value_object`) | `RefCounted` | 4 | `addons/gf/tools/lsp_workspace_edit/gf_lsp_workspace_edit_plan.gd` |
 | [`GFProjectLayoutDock`](GFProjectLayoutDock.md#gfprojectlayoutdock) | 编辑器 API (`editor_api`) | `VBoxContainer` | 11 | `addons/gf/tools/project_layout/editor/gf_project_layout_dock.gd` |
+| [`GFSceneGroupDock`](GFSceneGroupDock.md#gfscenegroupdock) | 编辑器 API (`editor_api`) | `VBoxContainer` | 3 | `addons/gf/tools/scene_groups/editor/gf_scene_group_dock.gd` |
 | [`GFAssetBrowserModel`](GFAssetBrowserModel.md#gfassetbrowsermodel) | 工具 API (`tool_api`) | `RefCounted` | 20 | `addons/gf/tools/asset_browser/gf_asset_browser_model.gd` |
 | [`GFConfigAccessGenerator`](GFConfigAccessGenerator.md#gfconfigaccessgenerator) | 工具 API (`tool_api`) | `RefCounted` | 9 | `addons/gf/tools/config_pipeline/gf_config_access_generator.gd` |
 | [`GFConfigPipeline`](GFConfigPipeline.md#gfconfigpipeline) | 工具 API (`tool_api`) | `RefCounted` | 10 | `addons/gf/tools/config_pipeline/gf_config_pipeline.gd` |
@@ -1050,3 +1051,4 @@
 | [`GFProjectLayoutAnalyzer`](GFProjectLayoutAnalyzer.md#gfprojectlayoutanalyzer) | 工具 API (`tool_api`) | `RefCounted` | 9 | `addons/gf/tools/project_layout/gf_project_layout_analyzer.gd` |
 | [`GFProjectLayoutPlanner`](GFProjectLayoutPlanner.md#gfprojectlayoutplanner) | 工具 API (`tool_api`) | `RefCounted` | 5 | `addons/gf/tools/project_layout/gf_project_layout_planner.gd` |
 | [`GFProjectLayoutValidator`](GFProjectLayoutValidator.md#gfprojectlayoutvalidator) | 工具 API (`tool_api`) | `RefCounted` | 4 | `addons/gf/tools/project_layout/gf_project_layout_validator.gd` |
+| [`GFSceneGroupIndex`](GFSceneGroupIndex.md#gfscenegroupindex) | 工具 API (`tool_api`) | `RefCounted` | 5 | `addons/gf/tools/scene_groups/gf_scene_group_index.gd` |
