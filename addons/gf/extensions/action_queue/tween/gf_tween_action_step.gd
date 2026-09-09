@@ -110,9 +110,6 @@ func append_to_tween(tween: Tween, target: Object, duration_scale: float = 1.0) 
 		push_warning("[GFTweenActionStep] 跳过无效 Tween 步骤：%s" % validation_error)
 		return null
 
-	if parallel:
-		var _parallel_result_88: Variant = tween.parallel()
-
 	var effective_scale: float = _ACTION_TIME_POLICY.sanitize_non_negative_seconds(duration_scale)
 	var effective_duration: float = _ACTION_TIME_POLICY.sanitize_non_negative_seconds(
 		duration * effective_scale
@@ -120,13 +117,10 @@ func append_to_tween(tween: Tween, target: Object, duration_scale: float = 1.0) 
 	var effective_delay: float = _ACTION_TIME_POLICY.sanitize_non_negative_seconds(
 		delay * effective_scale
 	)
-	var tweener: PropertyTweener = tween.tween_property(target, property_name, target_value, effective_duration)
-	var _set_ease_result_94: Variant = tweener.set_trans(transition_type).set_ease(ease_type)
-	if effective_delay > 0.0:
-		var _set_delay_result_96: Variant = tweener.set_delay(effective_delay)
-	if as_relative:
-		var _as_relative_result_98: Variant = tweener.as_relative()
-	return tweener
+	return append_property_tweener(
+		tween, target, property_name, target_value, effective_duration, effective_delay,
+		as_relative, parallel, transition_type, ease_type
+	)
 
 
 ## 立即应用步骤目标值。
@@ -216,6 +210,64 @@ func capture_initial_value(target: Object) -> Variant:
 	if not get_validation_error(target).is_empty():
 		return null
 	return GFVariantData.duplicate_variant(target.get_indexed(property_name))
+
+
+# --- 框架内部方法 ---
+
+## 以调用方已校验的属性数据构建原生 Tweener，不读取配置资源或添加标记回调。
+## [br]
+## @api framework_internal
+## [br]
+## @param tween: 接收步骤的有效 Tween。
+## [br]
+## @param target: 属性目标；属性存在性与值兼容性由调用方预先校验。
+## [br]
+## @param p_property_name: 要缓动的属性路径。
+## [br]
+## @param p_target_value: 已校验的目标值或相对偏移。
+## [br]
+## @param effective_duration: 已完成时长缩放的有限非负持续时间。
+## [br]
+## @param effective_delay: 已完成时长缩放的有限非负延迟。
+## [br]
+## @param p_as_relative: 是否将目标值解释为相对偏移。
+## [br]
+## @param p_parallel: 是否与前一个步骤并行。
+## [br]
+## @param p_transition_type: 已校验的过渡类型。
+## [br]
+## @param p_ease_type: 已校验的缓动类型。
+## [br]
+## @return: 新建的属性 Tweener；Tween 或目标失效、创建失败时为 null。
+## [br]
+## @schema p_target_value: Variant，调用方已确认与目标属性兼容的值。
+static func append_property_tweener(
+	tween: Tween,
+	target: Object,
+	p_property_name: NodePath,
+	p_target_value: Variant,
+	effective_duration: float,
+	effective_delay: float,
+	p_as_relative: bool,
+	p_parallel: bool,
+	p_transition_type: Tween.TransitionType,
+	p_ease_type: Tween.EaseType
+) -> PropertyTweener:
+	if not is_instance_valid(tween) or not is_instance_valid(target):
+		return null
+	if p_parallel:
+		var _parallel_result: Tween = tween.parallel()
+	var tweener: PropertyTweener = tween.tween_property(
+		target, p_property_name, p_target_value, effective_duration
+	)
+	if tweener == null:
+		return null
+	var _ease_result: PropertyTweener = tweener.set_trans(p_transition_type).set_ease(p_ease_type)
+	if effective_delay > 0.0:
+		var _delay_result: PropertyTweener = tweener.set_delay(effective_delay)
+	if p_as_relative:
+		var _relative_result: PropertyTweener = tweener.as_relative()
+	return tweener
 
 
 # --- 私有/辅助方法 ---

@@ -10,7 +10,12 @@
     "gf.standard.diagnostics"
   ],
   "paths": [
-    "addons/gf/extensions/action_queue/**"
+    "addons/gf/extensions/action_queue/actions/**",
+    "addons/gf/extensions/action_queue/core/**",
+    "addons/gf/extensions/action_queue/tween/**",
+    "addons/gf/extensions/action_queue/extension.gd",
+    "addons/gf/extensions/action_queue/extension.gd.uid",
+    "addons/gf/extensions/action_queue/gf_extension.json"
   ],
   "gf_extension_id": "gf.action_queue"
 }

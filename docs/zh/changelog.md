@@ -13,6 +13,7 @@
 - [Flow 图编辑器](extensions/flow/editor-model.md) 的连线、删除节点与布局编辑接入 Godot 撤销/重做，删除节点时一并恢复关联连接与布局，一次拖动对应一次编辑动作。
 - [Resource 表格](editor/resource-table-editor.md) 支持多行选择、属性混合值呈现和暂存编辑；应用时只修改实际编辑的分量，取消或切换选择会丢弃暂存输入。
 - [配置跨表引用](standard/utilities/io/config-remote-outbox/config-provider/relations-builds/indexes-references.md#数组元素引用) 支持逐项校验一维 Array 中的标量键；错误保留原字段名、元素位置和值，导表继续附加可用的来源与单元格位置。
+- [配置化 Tween](extensions/action-queue/tween-config.md#在-inspector-中预览) 新增 Inspector 预览，支持独立 2D、UI、3D 样机、初值调整、播放、暂停、停止和复位；复用现有配置与缓动，预览不修改当前场景或源资源。
 
 ### 🔄 机制更改 (Changed)
 
@@ -53,6 +54,7 @@
 - 保留已有接口的首次发布 `@since` 版本，不因本次签名或语义重做而改为 `unreleased`。
 - Flow 面板与 Resource 表格新增 `set_editor_context()`。新增 `GFEditorMultiPropertyField`，通过暂存值生成属性批处理请求，提交仍复用既有命令与资源历史；不改变 Flow 图的持久化格式或运行时执行协议。
 - `GFConfigTableReference` 新增 `SourceMode` 与 `source_mode`，默认 `FIELDS` 保持原有字段引用行为；`ARRAY_ELEMENTS` 校验单个数组字段到目标单字段键的引用。元素问题增加零基 `element_index`；`resolve_record_references()` 仍只解析 `FIELDS` 引用。
+- `gf.action_queue` 的 `extension_version` 升为 `2.3.0`，新增编辑器预览入口；既有 Tween 资源格式与运行时执行语义保持不变。
 
 ### 📘 升级指南 (Migration Guide)
 

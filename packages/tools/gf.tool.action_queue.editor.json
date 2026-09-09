@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "id": "gf.tool.action_queue.editor",
+  "kind": "tool",
+  "dependencies": [
+    "gf.kernel",
+    "gf.extension.action_queue"
+  ],
+  "paths": [
+    "addons/gf/extensions/action_queue/editor/**"
+  ]
+}

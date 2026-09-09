@@ -1,0 +1,7 @@
+{
+  "schema_version": 2,
+  "extension_id": "gf.action_queue",
+  "editor_inspector_paths": [
+    "res://addons/gf/extensions/action_queue/editor/gf_tween_preview_inspector_plugin.gd"
+  ]
+}

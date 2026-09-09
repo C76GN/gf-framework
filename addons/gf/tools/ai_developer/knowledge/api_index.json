@@ -2,10 +2,10 @@
   "schema_version": 2,
   "catalog_version": "2.0.0",
   "framework_version": "12.0.0-dev.0",
-  "source_digest": "77788fd92ba51bf4d2f2d2c010f1f4b3895f1a3c56d7d0e9829a9e5a762ff540",
+  "source_digest": "983fd9c34a7a1c20e6a4b5c3a22afe6f2aea5ddf399bb4e86b9b2b7c81665783",
   "class_count": 853,
   "autoload_count": 1,
-  "package_count": 57,
+  "package_count": 58,
   "packages": [
     {
       "id": "gf.extension.action_queue",
@@ -488,6 +488,15 @@
         "gf.standard.ui"
       ],
       "representative_path": "addons/gf/standard/utilities/ui/gf_item_list_binder.gd"
+    },
+    {
+      "id": "gf.tool.action_queue.editor",
+      "kind": "tool",
+      "dependencies": [
+        "gf.kernel",
+        "gf.extension.action_queue"
+      ],
+      "representative_path": "addons/gf/extensions/action_queue/editor/gf_tween_preview_inspector_plugin.gd"
     },
     {
       "id": "gf.tool.ai_developer",

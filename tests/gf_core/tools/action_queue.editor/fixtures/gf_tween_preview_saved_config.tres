@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="GFTweenActionConfig" load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://addons/gf/extensions/action_queue/tween/gf_tween_action_config.gd" id="1_config"]
+[ext_resource type="Script" path="res://addons/gf/extensions/action_queue/tween/gf_tween_action_step.gd" id="2_step"]
+
+[sub_resource type="Resource" id="Resource_step"]
+script = ExtResource("2_step")
+property_name = NodePath("position:x")
+target_value = 16.0
+duration = 0.75
+delay = 0.125
+transition_type = 0
+
+[resource]
+script = ExtResource("1_config")
+steps = Array[ExtResource("2_step")]([SubResource("Resource_step")])
+duration_scale = 2.0
