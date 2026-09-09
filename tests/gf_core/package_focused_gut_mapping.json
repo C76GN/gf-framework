@@ -323,6 +323,9 @@
       "res://tests/gf_core/standard/utilities/ui/test_gf_reactive_state_control_binder.gd",
       "res://tests/gf_core/standard/utilities/ui/test_gf_repeater_binder.gd"
     ],
+    "gf.tool.action_queue.editor": [
+      "res://tests/gf_core/tools/action_queue.editor/test_gf_tween_preview.gd"
+    ],
     "gf.tool.asset_browser": [
       "res://tests/gf_core/tools/asset_browser/test_gf_asset_browser_model.gd"
     ],

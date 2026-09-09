@@ -1,0 +1,6 @@
+[gd_scene format=3]
+
+[node name="RealSceneSentinel" type="Node2D"]
+position = Vector2(77, -19)
+rotation = 0.25
+scale = Vector2(2, 3)
