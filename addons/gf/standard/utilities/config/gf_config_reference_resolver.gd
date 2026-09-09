@@ -1,6 +1,6 @@
 ## GFConfigReferenceResolver: 通用导表引用校验与解析工具。
 ##
-## 在多张表加载后统一检查引用、构建复合索引，并可把记录中的引用解析为目标记录副本。
+## 在多张表加载后统一检查字段或数组元素引用、构建共享索引，并可把 FIELDS 引用解析为目标记录副本。
 ## [br]
 ## @api public
 ## [br]
@@ -85,9 +85,11 @@ static func validate_tables(
 	return report
 
 
-## 解析单条记录的引用目标。
+## 解析单条记录的 FIELDS 引用目标。ARRAY_ELEMENTS 仅参与校验，此入口跳过数组引用。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 ## [br]
 ## @param record: 来源记录。
 ## [br]
@@ -119,6 +121,8 @@ static func resolve_record_references(
 	var reference_index_cache: Dictionary = {}
 	for reference_definition: GFConfigTableReference in schema.references:
 		if reference_definition == null or not reference_definition.is_valid_definition():
+			continue
+		if reference_definition.source_mode != GFConfigTableReference.SourceMode.FIELDS:
 			continue
 		var source_key: String = reference_definition.make_source_key(record)
 		if source_key.is_empty():
@@ -189,8 +193,11 @@ static func _validate_schema_references(
 			target_fields,
 			reference_index_cache
 		)
-		for entry: Dictionary in _normalize_rows(_get_table_by_name(tables_by_name, schema.get_table_key())):
+		for entry: Dictionary in _normalize_rows(_get_table_by_name(tables_by_name, schema.get_table_key()), schema.id_field):
 			var record: Dictionary = _get_row_record(entry)
+			if reference_definition.source_mode == GFConfigTableReference.SourceMode.ARRAY_ELEMENTS:
+				_validate_array_reference(reference_definition, schema.get_table_key(), entry, target_index, report)
+				continue
 			var source_key: String = reference_definition.make_source_key(record)
 			if source_key.is_empty():
 				if reference_definition.required:
@@ -201,7 +208,8 @@ static func _validate_schema_references(
 						schema.get_table_key(),
 						_get_row_key(entry),
 						_first_field(reference_definition.source_fields),
-						"引用来源字段缺失：%s。" % String(reference_definition.get_reference_id())
+						"引用来源字段缺失：%s。" % String(reference_definition.get_reference_id()),
+						{ "row_index": GFVariantData.get_option_int(entry, "row_index") }
 					)
 				continue
 			if reference_definition.required and not target_index.has(source_key):
@@ -212,8 +220,64 @@ static func _validate_schema_references(
 					schema.get_table_key(),
 					_get_row_key(entry),
 					_first_field(reference_definition.source_fields),
-					"引用目标不存在：%s。" % String(reference_definition.get_reference_id())
+					"引用目标不存在：%s。" % String(reference_definition.get_reference_id()),
+					{ "row_index": GFVariantData.get_option_int(entry, "row_index") }
 				)
+
+
+static func _validate_array_reference(
+	reference_definition: GFConfigTableReference,
+	table_name: StringName,
+	row_entry: Dictionary,
+	target_index: Dictionary,
+	report: Dictionary
+) -> void:
+	var field_name: StringName = _first_field(reference_definition.source_fields)
+	var row_key: Variant = _get_row_key(row_entry)
+	var record: Dictionary = _get_row_record(row_entry)
+	var reference_id: String = String(reference_definition.get_reference_id())
+	var row_index: int = GFVariantData.get_option_int(row_entry, "row_index")
+	if not record.has(field_name):
+		if reference_definition.required:
+			_add_issue(
+				report, "error", "missing_reference_value", table_name, row_key, field_name,
+				"引用来源字段缺失：%s。" % reference_id, { "row_index": row_index }
+			)
+		return
+	var source_value: Variant = record[field_name]
+	if not source_value is Array:
+		_add_issue(
+			report, "error", "invalid_reference_value", table_name, row_key, field_name,
+			"数组引用来源必须为 Array：%s。" % reference_id, { "row_index": row_index }
+		)
+		return
+	var elements: Array = source_value
+	for element_index: int in range(elements.size()):
+		var element: Variant = elements[element_index]
+		var context: Dictionary = { "row_index": row_index, "element_index": element_index, "value": element }
+		if not _is_reference_element(element, reference_definition.allow_null_values):
+			_add_issue(
+				report, "error", "invalid_reference_element", table_name, row_key, field_name,
+				"数组引用元素类型无效：%s[%d]。" % [reference_id, element_index], context
+			)
+			continue
+		if not reference_definition.required:
+			continue
+		var element_key: String = _make_key({ field_name: element }, reference_definition.source_fields, reference_definition.allow_null_values)
+		if not target_index.has(element_key):
+			_add_issue(
+				report, "error", "missing_reference", table_name, row_key, field_name,
+				"数组引用目标不存在：%s[%d]。" % [reference_id, element_index], context
+			)
+
+
+static func _is_reference_element(value: Variant, allow_null_values: bool) -> bool:
+	if value == null:
+		return allow_null_values
+	if value is float:
+		var number: float = value
+		return is_finite(number)
+	return value is bool or value is int or value is String or value is StringName
 
 
 static func _build_schema_lookup(schemas: Array[GFConfigTableSchema]) -> Dictionary:
@@ -276,7 +340,7 @@ static func _get_row_key(row_entry: Dictionary) -> Variant:
 	return GFVariantData.get_option_value(row_entry, "row_key")
 
 
-static func _normalize_rows(table_data: Variant) -> Array[Dictionary]:
+static func _normalize_rows(table_data: Variant, id_field: StringName = &"id") -> Array[Dictionary]:
 	var rows: Array[Dictionary] = []
 	if table_data is Array:
 		var array_table: Array = GFVariantData.as_array(table_data)
@@ -285,17 +349,21 @@ static func _normalize_rows(table_data: Variant) -> Array[Dictionary]:
 			if row_variant is Dictionary:
 				var row: Dictionary = GFVariantData.as_dictionary(row_variant)
 				rows.append({
-					"row_key": GFVariantData.get_option_value(row, &"id", index),
+					"row_key": GFVariantData.get_option_value(row, id_field, index) if id_field != &"" else index,
+					"row_index": index,
 					"record": row.duplicate(true),
 				})
 	elif table_data is Dictionary:
 		var table: Dictionary = GFVariantData.as_dictionary(table_data)
-		for key: Variant in table.keys():
+		var keys: Array = table.keys()
+		for row_index: int in range(keys.size()):
+			var key: Variant = keys[row_index]
 			var row_variant: Variant = table[key]
 			if row_variant is Dictionary:
 				var row: Dictionary = GFVariantData.as_dictionary(row_variant)
 				rows.append({
 					"row_key": key,
+					"row_index": row_index,
 					"record": row.duplicate(true),
 				})
 	return rows
@@ -325,9 +393,10 @@ static func _add_issue(
 	table_name: StringName,
 	row_key: Variant,
 	field_name: StringName,
-	message: String
+	message: String,
+	context: Dictionary = {}
 ) -> void:
-	GFConfigValidationReport.new().add_issue(report, severity, kind, table_name, row_key, field_name, message)
+	GFConfigValidationReport.new().add_issue(report, severity, kind, table_name, row_key, field_name, message, context)
 
 
 static func _merge_report(target: Dictionary, source: Dictionary) -> void:

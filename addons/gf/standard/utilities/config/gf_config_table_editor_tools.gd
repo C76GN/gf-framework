@@ -478,15 +478,8 @@ static func _build_field_reference_descriptors(
 			continue
 
 		var target_schema: GFConfigTableSchema = _get_reference_target_schema(database, reference_definition)
-		var reference_descriptor: Dictionary = {
-			"reference_id": reference_definition.get_reference_id(),
-			"source_fields": reference_definition.source_fields.duplicate(),
-			"target_table_name": reference_definition.target_table_name,
-			"target_fields": reference_definition.get_target_fields(target_schema),
-			"required": reference_definition.required,
-			"allow_null_values": reference_definition.allow_null_values,
-			"metadata": reference_definition.metadata.duplicate(true),
-		}
+		var reference_descriptor: Dictionary = reference_definition.describe()
+		reference_descriptor["target_fields"] = reference_definition.get_target_fields(target_schema)
 		if include_choices:
 			reference_descriptor["choices"] = (
 				build_reference_choice_records_for_database(database, reference_definition, options)

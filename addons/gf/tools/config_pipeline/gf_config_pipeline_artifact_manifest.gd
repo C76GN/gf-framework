@@ -111,6 +111,8 @@ const _COMPILER_STAGE_DEFINITIONS: Array[Dictionary] = [
 			"res://addons/gf/tools/config_pipeline/gf_config_pipeline_table_ir.gd",
 			"res://addons/gf/standard/utilities/config/gf_config_database_resource.gd",
 			"res://addons/gf/standard/utilities/config/gf_config_table_resource.gd",
+			"res://addons/gf/standard/utilities/config/gf_config_reference_resolver.gd",
+			"res://addons/gf/standard/utilities/config/gf_config_table_reference.gd",
 			"res://addons/gf/standard/utilities/config/gf_config_validation_report.gd",
 			"res://addons/gf/standard/foundation/variant/gf_variant_data.gd",
 		],

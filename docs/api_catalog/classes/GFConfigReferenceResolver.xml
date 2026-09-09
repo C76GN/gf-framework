@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFConfigReferenceResolver" path="addons/gf/standard/utilities/config/gf_config_reference_resolver.gd" module="standard" extends="RefCounted" classDigest="3970069d8ca63a78ba0ec24fe47a5329fc477df3366c68ee73e2ea6e6a3bfce4">
+<class name="GFConfigReferenceResolver" path="addons/gf/standard/utilities/config/gf_config_reference_resolver.gd" module="standard" extends="RefCounted" classDigest="95e7e4a5be651a9a8797bcf71a6b231dfe40ed447de5ff9c177be6f26c0bafd5">
 	<description>GFConfigReferenceResolver: 通用导表引用校验与解析工具。
-在多张表加载后统一检查引用、构建复合索引，并可把记录中的引用解析为目标记录副本。</description>
+在多张表加载后统一检查字段或数组元素引用、构建共享索引，并可把 FIELDS 引用解析为目标记录副本。</description>
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">runtime_service</tag>
@@ -41,7 +41,7 @@
 		</member>
 		<member kind="method" name="resolve_record_references">
 			<signature>static func resolve_record_references( record: Dictionary, schema: GFConfigTableSchema, tables_by_name: Dictionary, schemas_by_name: Dictionary = {} ) -&gt; Dictionary:</signature>
-			<description>解析单条记录的引用目标。</description>
+			<description>解析单条记录的 FIELDS 引用目标。ARRAY_ELEMENTS 仅参与校验，此入口跳过数组引用。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">record: 来源记录。</tag>
@@ -53,6 +53,7 @@
 				<tag name="schema">tables_by_name: Dictionary，键为表名 StringName，值为 Array[Dictionary] 或 Dictionary 表数据。</tag>
 				<tag name="schema">schemas_by_name: Dictionary，键为表名 StringName，值为 GFConfigTableSchema。</tag>
 				<tag name="schema">return: Dictionary，键为 reference_id，值为解析出的目标记录 Dictionary 副本。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 	</methods>

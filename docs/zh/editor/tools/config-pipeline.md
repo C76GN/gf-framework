@@ -190,6 +190,8 @@ int!,string,float
 
 类型化表头生成的是已有的 `GFConfigTableSchema` / `GFConfigTableColumn`，默认启用字段转换、默认不允许未声明字段。显式挂在 `source.schema` 上的 schema 优先级更高；类型化表头适合降低简单表的维护成本，不替代复杂表的索引、引用和业务校验资源。
 
+显式 schema 可以通过 `GFConfigTableReference.SourceMode.ARRAY_ELEMENTS` 声明[数组元素跨表引用](../../standard/utilities/io/config-remote-outbox/config-provider/relations-builds/indexes-references.md#数组元素引用)。引用问题保留原 `field`，并用从 `0` 开始的 `element_index` 标识数组内的位置。Pipeline 还会从已有来源映射补充 `source` 和可用的单元格行列信息；JSON 来源只有文件位置时，不会生成不存在的行列坐标。原生 JSON、ConfigFile 或内存记录可提供 Array 值；内置 CSV 读取不会自动把单元格中的 JSON 字符串解析为数组，项目需要在自定义布局或转换阶段完成这类适配。
+
 ## 使用边界
 
 当前工具包只沉淀稳定通用机制：来源声明、版本化 IR、分阶段编译、Profile 路径执行、CSV / JSON / ConfigFile / XLSX 解析、schema 校验、跨表引用校验、记录转换、索引重建、`.tres/.res` 保存、JSON 目标和文件提交事务。

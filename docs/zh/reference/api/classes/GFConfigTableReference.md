@@ -9,14 +9,16 @@
 - 类别：资源定义 (`resource_definition`)
 - 首次版本：`3.17.0`
 
-导表跨表引用声明。 描述当前记录的一组字段如何指向另一张表的一组字段。
+导表跨表引用声明。 描述当前记录的一组字段如何指向另一张表的一组字段，或声明一维数组中每个标量值的引用约束。
 
 ## 成员概览
 
 | 类型 | 名称 | 签名 |
 |---|---|---|
+| 枚举 | [`SourceMode`](#member-gfconfigtablereference-enums-sourcemode) | `enum SourceMode` |
 | 属性 | [`reference_id`](#member-gfconfigtablereference-properties-reference_id) | `var reference_id: StringName = &""` |
 | 属性 | [`source_fields`](#member-gfconfigtablereference-properties-source_fields) | `var source_fields: PackedStringArray = PackedStringArray()` |
+| 属性 | [`source_mode`](#member-gfconfigtablereference-properties-source_mode) | `var source_mode: SourceMode = SourceMode.FIELDS` |
 | 属性 | [`target_table_name`](#member-gfconfigtablereference-properties-target_table_name) | `var target_table_name: StringName = &""` |
 | 属性 | [`target_fields`](#member-gfconfigtablereference-properties-target_fields) | `var target_fields: PackedStringArray = PackedStringArray()` |
 | 属性 | [`required`](#member-gfconfigtablereference-properties-required) | `var required: bool = true` |
@@ -29,6 +31,26 @@
 | 方法 | [`make_target_key`](#member-gfconfigtablereference-methods-make_target_key) | `func make_target_key(record: Dictionary, target_schema: GFConfigTableSchema = null) -> String:` |
 | 方法 | [`duplicate_reference`](#member-gfconfigtablereference-methods-duplicate_reference) | `func duplicate_reference() -> GFConfigTableReference:` |
 | 方法 | [`describe`](#member-gfconfigtablereference-methods-describe) | `func describe() -> Dictionary:` |
+
+## 枚举
+
+<a id="member-gfconfigtablereference-enums-sourcemode"></a>
+
+### `SourceMode`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+enum SourceMode {
+	## 将来源字段的完整值组成一个引用键。
+	FIELDS,
+	## 逐项校验单个 Array 字段，目标必须是单字段键；不自动解析目标记录。
+	ARRAY_ELEMENTS,
+}
+```
+
+来源引用的取值方式。
 
 ## 属性
 
@@ -55,6 +77,19 @@ var source_fields: PackedStringArray = PackedStringArray()
 ```
 
 当前表中参与引用的字段名。
+
+<a id="member-gfconfigtablereference-properties-source_mode"></a>
+
+### `source_mode`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+var source_mode: SourceMode = SourceMode.FIELDS
+```
+
+来源取值方式。ARRAY_ELEMENTS 只接受单个一维 Array 字段，不转换元素类型。 元素支持 bool、int、有限 float、String、StringName，以及允许的 null；空数组合法，重复值按各自位置校验。
 
 <a id="member-gfconfigtablereference-properties-target_table_name"></a>
 
@@ -85,24 +120,26 @@ var target_fields: PackedStringArray = PackedStringArray()
 ### `required`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var required: bool = true
 ```
 
-为 true 时，非空引用必须能在目标表中找到。
+为 true 时，来源字段必须存在且每个引用键必须匹配目标；为 false 时允许来源缺失或目标不匹配。 ARRAY_ELEMENTS 的容器与元素类型约束不受此开关影响。
 
 <a id="member-gfconfigtablereference-properties-allow_null_values"></a>
 
 ### `allow_null_values`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var allow_null_values: bool = true
 ```
 
-是否允许来源字段值为 null。
+是否允许来源字段值为 null；ARRAY_ELEMENTS 中只作用于元素，整个来源字段仍必须为 Array。 允许的 null 作为键参与目标匹配，不会跳过 required 约束。
 
 <a id="member-gfconfigtablereference-properties-metadata"></a>
 
@@ -175,12 +212,13 @@ func get_target_fields(target_schema: GFConfigTableSchema = null) -> PackedStrin
 ### `make_source_key`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func make_source_key(record: Dictionary) -> String:
 ```
 
-根据来源记录构建引用键。
+根据来源记录构建 FIELDS 模式的引用键。
 
 参数：
 
@@ -188,7 +226,7 @@ func make_source_key(record: Dictionary) -> String:
 |---|---|
 | `record` | 来源记录。 |
 
-返回：引用键；字段缺失或 null 不允许时返回空字符串。
+返回：引用键；字段缺失、null 不允许或使用 ARRAY_ELEMENTS 时返回空字符串。
 
 结构：
 
@@ -238,6 +276,7 @@ func duplicate_reference() -> GFConfigTableReference:
 ### `describe`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func describe() -> Dictionary:
@@ -249,4 +288,4 @@ func describe() -> Dictionary:
 
 结构：
 
-- `return`: Dictionary，包含 reference_id、source_fields、target_table_name、target_fields、required、allow_null_values 和 metadata。
+- `return`: Dictionary，包含 reference_id、source_fields、source_mode、target_table_name、target_fields、required、allow_null_values 和 metadata。

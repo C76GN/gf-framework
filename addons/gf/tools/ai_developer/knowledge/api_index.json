@@ -2,7 +2,7 @@
   "schema_version": 2,
   "catalog_version": "2.0.0",
   "framework_version": "12.0.0-dev.0",
-  "source_digest": "3d3457e426596e76c4fadc2b9f17f5c2e494dfe77b3d6fd47e082cf3ba76b3c7",
+  "source_digest": "77788fd92ba51bf4d2f2d2c010f1f4b3895f1a3c56d7d0e9829a9e5a762ff540",
   "class_count": 853,
   "autoload_count": 1,
   "package_count": 57,
@@ -20128,7 +20128,7 @@
         {
           "kind": "const",
           "name": "IMPLEMENTATION_VERSION",
-          "signature": "const IMPLEMENTATION_VERSION: int = 2",
+          "signature": "const IMPLEMENTATION_VERSION: int = 3",
           "summary": "Target 阶段的实现版本；改变 Resource 或 JSON 物化语义时递增。",
           "visibility": "public"
         },
@@ -20500,7 +20500,7 @@
       "module": "standard",
       "package_id": "gf.standard.config",
       "path": "addons/gf/standard/utilities/config/gf_config_reference_resolver.gd",
-      "summary": "GFConfigReferenceResolver: 通用导表引用校验与解析工具。 在多张表加载后统一检查引用、构建复合索引，并可把记录中的引用解析为目标记录副本。",
+      "summary": "GFConfigReferenceResolver: 通用导表引用校验与解析工具。 在多张表加载后统一检查字段或数组元素引用、构建共享索引，并可把 FIELDS 引用解析为目标记录副本。",
       "visibility": "public",
       "category": "runtime_service",
       "since": "3.17.0",
@@ -20523,7 +20523,7 @@
           "kind": "func",
           "name": "resolve_record_references",
           "signature": "static func resolve_record_references( record: Dictionary, schema: GFConfigTableSchema, tables_by_name: Dictionary, schemas_by_name: Dictionary = {} ) -> Dictionary",
-          "summary": "解析单条记录的引用目标。",
+          "summary": "解析单条记录的 FIELDS 引用目标。ARRAY_ELEMENTS 仅参与校验，此入口跳过数组引用。",
           "visibility": "public"
         }
       ]
@@ -21517,11 +21517,18 @@
       "module": "standard",
       "package_id": "gf.standard.config",
       "path": "addons/gf/standard/utilities/config/gf_config_table_reference.gd",
-      "summary": "GFConfigTableReference: 导表跨表引用声明。 描述当前记录的一组字段如何指向另一张表的一组字段。",
+      "summary": "GFConfigTableReference: 导表跨表引用声明。 描述当前记录的一组字段如何指向另一张表的一组字段，或声明一维数组中每个标量值的引用约束。",
       "visibility": "public",
       "category": "resource_definition",
       "since": "3.17.0",
       "members": [
+        {
+          "kind": "enum",
+          "name": "SourceMode",
+          "signature": "enum SourceMode {\n\t## 将来源字段的完整值组成一个引用键。\n\tFIELDS,\n\t## 逐项校验单个 Array 字段，目标必须是单字段键；不自动解析目标记录。\n\tARRAY_ELEMENTS,\n}",
+          "summary": "来源引用的取值方式。",
+          "visibility": "public"
+        },
         {
           "kind": "var",
           "name": "reference_id",
@@ -21534,6 +21541,13 @@
           "name": "source_fields",
           "signature": "var source_fields: PackedStringArray = PackedStringArray()",
           "summary": "当前表中参与引用的字段名。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "source_mode",
+          "signature": "var source_mode: SourceMode = SourceMode.FIELDS",
+          "summary": "来源取值方式。ARRAY_ELEMENTS 只接受单个一维 Array 字段，不转换元素类型。",
           "visibility": "public"
         },
         {
@@ -21554,14 +21568,14 @@
           "kind": "var",
           "name": "required",
           "signature": "var required: bool = true",
-          "summary": "为 true 时，非空引用必须能在目标表中找到。",
+          "summary": "为 true 时，来源字段必须存在且每个引用键必须匹配目标；为 false 时允许来源缺失或目标不匹配。",
           "visibility": "public"
         },
         {
           "kind": "var",
           "name": "allow_null_values",
           "signature": "var allow_null_values: bool = true",
-          "summary": "是否允许来源字段值为 null。",
+          "summary": "是否允许来源字段值为 null；ARRAY_ELEMENTS 中只作用于元素，整个来源字段仍必须为 Array。",
           "visibility": "public"
         },
         {
@@ -21596,7 +21610,7 @@
           "kind": "func",
           "name": "make_source_key",
           "signature": "func make_source_key(record: Dictionary) -> String",
-          "summary": "根据来源记录构建引用键。",
+          "summary": "根据来源记录构建 FIELDS 模式的引用键。",
           "visibility": "public"
         },
         {
@@ -22012,8 +22026,8 @@
         {
           "kind": "const",
           "name": "CONTEXT_FIELDS",
-          "signature": "const CONTEXT_FIELDS: Array[String] = [\n\t\"row_key\",\n\t\"field\",\n\t\"source\",\n\t\"line\",\n\t\"column\",\n\t\"row_index\",\n\t\"column_index\",\n\t\"rule_id\",\n\t\"value\",\n\t\"expected_value\",\n\t\"actual_value\",\n\t\"supported_values\",\n\t\"supported_values_count\",\n\t\"supported_values_sample\",\n\t\"supported_values_preview_hash\",\n\t\"supported_values_truncated\",\n\t\"supported_formats\",\n\t\"supported_content_types\",\n]",
-          "summary": "从校验上下文复制到单条 issue 的字段名。",
+          "signature": "const CONTEXT_FIELDS: Array[String] = [\n\t\"row_key\",\n\t\"field\",\n\t\"source\",\n\t\"line\",\n\t\"column\",\n\t\"row_index\",\n\t\"column_index\",\n\t\"element_index\",\n\t\"rule_id\",\n\t\"value\",\n\t\"expected_value\",\n\t\"actual_value\",\n\t\"supported_values\",\n\t\"supported_values_count\",\n\t\"supported_values_sample\",\n\t\"supported_values_preview_hash\",\n\t\"supported_values_truncated\",\n\t\"supported_formats\",\n\t\"supported_content_types\",\n]",
+          "summary": "从校验上下文复制到单条 issue 的字段名。element_index 表示原始字段内从 0 开始的数组元素位置，不替换 field。",
           "visibility": "public"
         },
         {

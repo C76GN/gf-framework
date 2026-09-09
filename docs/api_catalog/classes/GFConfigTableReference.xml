@@ -1,14 +1,28 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFConfigTableReference" path="addons/gf/standard/utilities/config/gf_config_table_reference.gd" module="standard" extends="Resource" classDigest="2069bb4858f092ebb47577669f010009658d2bc905bda7db949471588dc91ade">
+<class name="GFConfigTableReference" path="addons/gf/standard/utilities/config/gf_config_table_reference.gd" module="standard" extends="Resource" classDigest="c0e419bfbae3fabc5de58f87fac51dc94d6da2b641a034b7d5242a602e7c57fe">
 	<description>GFConfigTableReference: 导表跨表引用声明。
-描述当前记录的一组字段如何指向另一张表的一组字段。</description>
+描述当前记录的一组字段如何指向另一张表的一组字段，或声明一维数组中每个标量值的引用约束。</description>
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">resource_definition</tag>
 		<tag name="since">3.17.0</tag>
 	</tags>
 	<signals />
-	<enums />
+	<enums>
+		<member kind="enum" name="SourceMode">
+			<signature>enum SourceMode {
+	## 将来源字段的完整值组成一个引用键。
+	FIELDS,
+	## 逐项校验单个 Array 字段，目标必须是单字段键；不自动解析目标记录。
+	ARRAY_ELEMENTS,
+}</signature>
+			<description>来源引用的取值方式。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</enums>
 	<constants />
 	<properties>
 		<member kind="property" name="reference_id" decorators="@export">
@@ -23,6 +37,15 @@
 			<description>当前表中参与引用的字段名。</description>
 			<tags>
 				<tag name="api">public</tag>
+			</tags>
+		</member>
+		<member kind="property" name="source_mode" decorators="@export">
+			<signature>var source_mode: SourceMode = SourceMode.FIELDS</signature>
+			<description>来源取值方式。ARRAY_ELEMENTS 只接受单个一维 Array 字段，不转换元素类型。
+元素支持 bool、int、有限 float、String、StringName，以及允许的 null；空数组合法，重复值按各自位置校验。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
 		<member kind="property" name="target_table_name" decorators="@export">
@@ -41,16 +64,20 @@
 		</member>
 		<member kind="property" name="required" decorators="@export">
 			<signature>var required: bool = true</signature>
-			<description>为 true 时，非空引用必须能在目标表中找到。</description>
+			<description>为 true 时，来源字段必须存在且每个引用键必须匹配目标；为 false 时允许来源缺失或目标不匹配。
+ARRAY_ELEMENTS 的容器与元素类型约束不受此开关影响。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="allow_null_values" decorators="@export">
 			<signature>var allow_null_values: bool = true</signature>
-			<description>是否允许来源字段值为 null。</description>
+			<description>是否允许来源字段值为 null；ARRAY_ELEMENTS 中只作用于元素，整个来源字段仍必须为 Array。
+允许的 null 作为键参与目标匹配，不会跳过 required 约束。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="metadata" decorators="@export">
@@ -90,12 +117,13 @@
 		</member>
 		<member kind="method" name="make_source_key">
 			<signature>func make_source_key(record: Dictionary) -&gt; String:</signature>
-			<description>根据来源记录构建引用键。</description>
+			<description>根据来源记录构建 FIELDS 模式的引用键。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">record: 来源记录。</tag>
-				<tag name="return">引用键；字段缺失或 null 不允许时返回空字符串。</tag>
+				<tag name="return">引用键；字段缺失、null 不允许或使用 ARRAY_ELEMENTS 时返回空字符串。</tag>
 				<tag name="schema">record: Dictionary，用于构建引用键的来源配置记录。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="make_target_key">
@@ -123,7 +151,8 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">引用声明字典。</tag>
-				<tag name="schema">return: Dictionary，包含 reference_id、source_fields、target_table_name、target_fields、required、allow_null_values 和 metadata。</tag>
+				<tag name="schema">return: Dictionary，包含 reference_id、source_fields、source_mode、target_table_name、target_fields、required、allow_null_values 和 metadata。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 	</methods>

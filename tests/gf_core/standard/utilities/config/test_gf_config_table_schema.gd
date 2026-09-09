@@ -585,6 +585,217 @@ func test_reference_resolver_cache_identity_distinguishes_field_boundaries() -> 
 		)
 
 
+func test_reference_source_mode_defaults_to_fields_and_survives_copy_and_description() -> void:
+	var reference: GFConfigTableReference = _make_reference(
+		&"owner_item", PackedStringArray(["item_ids"]), &"items", PackedStringArray(["id"])
+	)
+	assert_eq(reference.source_mode, GFConfigTableReference.SourceMode.FIELDS, "既有引用默认仍按字段构建键。")
+	reference.source_mode = GFConfigTableReference.SourceMode.ARRAY_ELEMENTS
+	reference.required = false
+	reference.allow_null_values = false
+	var copied: GFConfigTableReference = reference.duplicate_reference()
+	var description: Dictionary = reference.describe()
+	assert_ne(copied, reference, "引用拷贝应独立。")
+	assert_eq(copied.source_mode, GFConfigTableReference.SourceMode.ARRAY_ELEMENTS, "拷贝应保留逐元素模式。")
+	assert_false(copied.required, "拷贝应保留可选引用语义。")
+	assert_false(copied.allow_null_values, "拷贝应保留 null 策略。")
+	assert_eq(
+		_reference_issue_int(description, "source_mode"),
+		GFConfigTableReference.SourceMode.ARRAY_ELEMENTS,
+		"描述应提供实际整型来源模式。"
+	)
+	assert_eq(reference.make_source_key({ "item_ids": [1, 2] }), "", "数组声明没有代表整个数组的单一来源键。")
+	assert_false(reference.make_target_key({ "id": 1 }).is_empty(), "数组声明仍能构造单个目标记录键。")
+
+
+func test_array_reference_definition_requires_one_source_and_at_most_one_target_field() -> void:
+	var reference: GFConfigTableReference = _make_array_reference()
+	assert_true(reference.is_valid_definition(), "单来源、单目标字段是有效数组引用。")
+	reference.target_fields = PackedStringArray()
+	assert_true(reference.is_valid_definition(), "空目标字段允许稍后使用目标 schema 的 id_field。")
+	reference.source_fields = PackedStringArray()
+	assert_false(reference.is_valid_definition(), "数组引用必须有来源字段。")
+	reference.source_fields = PackedStringArray(["item_ids", "other_ids"])
+	assert_false(reference.is_valid_definition(), "数组引用不得隐式组合多个来源字段。")
+	reference.source_fields = PackedStringArray(["item_ids"])
+	reference.target_fields = PackedStringArray(["id", "kind"])
+	assert_false(reference.is_valid_definition(), "数组元素不得隐式展开为复合目标键。")
+	reference.target_fields = PackedStringArray(["id"])
+	reference.set(&"source_mode", -1)
+	assert_false(reference.is_valid_definition(), "未知来源模式应拒绝。")
+
+
+func test_array_reference_accepts_supported_scalar_ids_empty_arrays_and_duplicates() -> void:
+	var report: Dictionary = _validate_array_reference(
+		[
+			{ "id": 10, "item_ids": [true, 1, 1.5, "item", &"named", 1, true] },
+			{ "id": 11, "item_ids": [] },
+		],
+		[{ "id": true }, { "id": 1 }, { "id": 1.5 }, { "id": "item" }, { "id": &"named" }]
+	)
+	assert_true(GFVariantData.get_option_bool(report, "ok"), "支持的标量 ID、重复有效 ID 和空数组均应通过。")
+	assert_eq(GFVariantData.get_option_array(report, "issues").size(), 0, "空数组与重复引用不应制造问题。")
+
+
+func test_array_reference_does_not_coerce_scalar_id_types() -> void:
+	var report: Dictionary = _validate_array_reference(
+		[{ "id": 10, "item_ids": [1, true, 1.0, "1", &"1"] }], [{ "id": 1 }]
+	)
+	var issues: Array = GFVariantData.get_option_array(report, "issues")
+	assert_false(GFVariantData.get_option_bool(report, "ok"), "数值或文本相近的不同类型 ID 不得自动匹配。")
+	assert_eq(issues.size(), 4, "只有真正的 int ID 应匹配 int 目标。")
+	for index: int in range(issues.size()):
+		var issue: Dictionary = GFVariantData.as_dictionary(issues[index])
+		assert_eq(GFVariantData.get_option_string(issue, "kind"), "missing_reference", "合法但类型不同的元素是缺少目标。")
+		assert_eq(_reference_issue_int(issue, "element_index"), index + 1, "应定位原始数组中的元素。")
+		assert_eq(GFVariantData.get_option_string_name(issue, "field"), &"item_ids", "字段名不得改写为带下标的路径。")
+
+
+func test_array_reference_missing_field_obeys_required_without_element_location() -> void:
+	var reference: GFConfigTableReference = _make_array_reference()
+	var required_report: Dictionary = _validate_array_reference([{ "id": 10 }], [], reference)
+	var issues: Array = GFVariantData.get_option_array(required_report, "issues")
+	var issue: Dictionary = _find_issue_kind(issues, "missing_reference_value")
+	assert_false(GFVariantData.get_option_bool(required_report, "ok"), "必填引用缺少来源字段应失败。")
+	assert_eq(issues.size(), 1, "缺少容器只应报告一次。")
+	assert_false(issue.is_empty(), "缺失来源字段应使用稳定问题类型。")
+	assert_false(issue.has("element_index"), "不存在的数组不得伪造元素位置。")
+	assert_eq(GFVariantData.get_option_string_name(issue, "field"), &"item_ids", "缺失来源仍应保留字段名。")
+	reference.required = false
+	var optional_report: Dictionary = _validate_array_reference([{ "id": 10 }], [], reference)
+	assert_true(GFVariantData.get_option_bool(optional_report, "ok"), "可选引用允许完全省略来源字段。")
+	assert_eq(GFVariantData.get_option_array(optional_report, "issues").size(), 0, "可选缺字段不应产生问题。")
+
+
+func test_array_reference_rejects_invalid_containers_even_when_optional() -> void:
+	var reference: GFConfigTableReference = _make_array_reference()
+	reference.required = false
+	for container: Variant in [null, 1, "1", { "id": 1 }, PackedInt32Array([1])]:
+		var report: Dictionary = _validate_array_reference([{ "id": 10, "item_ids": container }], [], reference)
+		var issues: Array = GFVariantData.get_option_array(report, "issues")
+		var issue: Dictionary = _find_issue_kind(issues, "invalid_reference_value")
+		assert_false(GFVariantData.get_option_bool(report, "ok"), "已提供的来源必须是普通 Array，包括允许 null 时。")
+		assert_eq(issues.size(), 1, "非法容器只应报告一次。")
+		assert_false(issue.is_empty(), "非法容器应与缺失字段区分。")
+		assert_false(issue.has("element_index"), "容器错误没有元素位置。")
+		assert_eq(GFVariantData.get_option_string_name(issue, "field"), &"item_ids", "容器错误保留原字段名。")
+
+
+func test_array_reference_reports_each_invalid_element_even_when_optional() -> void:
+	var reference: GFConfigTableReference = _make_array_reference()
+	reference.required = false
+	reference.allow_null_values = false
+	var elements: Array = [null, [], {}, Vector2(1.0, 2.0), Resource.new(), PackedInt32Array([1]), NAN, INF, -INF]
+	var report: Dictionary = _validate_array_reference([{ "id": 10, "item_ids": elements }], [], reference)
+	var issues: Array = GFVariantData.get_option_array(report, "issues")
+	assert_false(GFVariantData.get_option_bool(report, "ok"), "可选引用仍须拒绝非法元素与非有限数值。")
+	assert_eq(issues.size(), elements.size(), "每个非法元素均应报告，不得首错后终止。")
+	for index: int in range(issues.size()):
+		var issue: Dictionary = GFVariantData.as_dictionary(issues[index])
+		assert_eq(GFVariantData.get_option_string(issue, "kind"), "invalid_reference_element", "元素类型错误不应伪装成缺少目标。")
+		assert_eq(_reference_issue_int(issue, "element_index"), index, "非法元素应保留零基位置。")
+		assert_eq(GFVariantData.get_option_string_name(issue, "field"), &"item_ids", "元素错误保留原字段名。")
+		assert_true(issue.has("value"), "元素错误应保存实际值或报告 codec 编码后的值。")
+	var encoded: String = JSON.stringify(report)
+	assert_true(encoded.contains("__gf_report_value__"), "对象元素应经报告 codec 脱敏，不能泄漏活对象。")
+	assert_true(encoded.contains(GFVariantJsonCodec.JSON_MARKER_KEY), "非有限数值与特殊 Variant 应使用 JSON 安全编码。")
+
+
+func test_array_reference_null_elements_match_null_targets_only_when_allowed() -> void:
+	var reference: GFConfigTableReference = _make_array_reference()
+	reference.allow_null_values = true
+	var matching_report: Dictionary = _validate_array_reference([{ "id": 10, "item_ids": [null] }], [{ "id": null }], reference)
+	assert_true(GFVariantData.get_option_bool(matching_report, "ok"), "允许 null 时，null 元素应匹配目标的实际 null 键。")
+	var missing_report: Dictionary = _validate_array_reference([{ "id": 10, "item_ids": [null] }], [], reference)
+	var missing_issue: Dictionary = _find_issue_kind(GFVariantData.get_option_array(missing_report, "issues"), "missing_reference")
+	assert_false(GFVariantData.get_option_bool(missing_report, "ok"), "允许 null 不代表忽略目标匹配。")
+	assert_eq(_reference_issue_int(missing_issue, "element_index"), 0, "null 缺少目标也应有元素位置。")
+	assert_true(missing_issue.has("value"), "null 实际值不能与缺少 value 键混淆。")
+	var missing_value: Variant = missing_issue.get("value")
+	assert_true(missing_value == null, "报告应保留实际 null 元素。")
+	reference.required = false
+	var optional_report: Dictionary = _validate_array_reference([{ "id": 10, "item_ids": [null, 99] }], [], reference)
+	assert_true(GFVariantData.get_option_bool(optional_report, "ok"), "可选引用允许合法元素没有目标记录。")
+	reference.allow_null_values = false
+	var forbidden_report: Dictionary = _validate_array_reference([{ "id": 10, "item_ids": [null] }], [{ "id": null }], reference)
+	assert_true(
+		_has_issue_kind(GFVariantData.get_option_array(forbidden_report, "issues"), "invalid_reference_element"),
+		"禁用 null 时，即使存在目标且引用可选，也应拒绝该元素。"
+	)
+
+
+func test_array_reference_reports_repeated_missing_ids_at_each_original_position() -> void:
+	var report: Dictionary = _validate_array_reference(
+		[{ "id": 10, "item_ids": [1, 99, 1, 99] }], [{ "id": 1 }]
+	)
+	var issues: Array = GFVariantData.get_option_array(report, "issues")
+	assert_eq(issues.size(), 2, "重复无效 ID 应按位置报告，重复有效 ID 不应报告。")
+	for index: int in range(issues.size()):
+		var issue: Dictionary = GFVariantData.as_dictionary(issues[index])
+		assert_eq(GFVariantData.get_option_string(issue, "kind"), "missing_reference", "合法元素缺少目标应使用 missing_reference。")
+		assert_eq(_reference_issue_int(issue, "element_index"), 1 + index * 2, "问题应定位原始位置，不能使用去重后的索引。")
+		assert_eq(_reference_issue_int(issue, "value"), 99, "应保存具体元素，不能保存整个来源数组。")
+		assert_eq(_reference_issue_int(issue, "row_key"), 10, "元素问题应保留来源记录标识。")
+		assert_eq(GFVariantData.get_option_string_name(issue, "field"), &"item_ids", "元素问题应保留来源字段名。")
+
+
+func test_array_reference_uses_custom_target_and_source_id_fields() -> void:
+	var reference: GFConfigTableReference = _make_array_reference()
+	reference.target_fields = PackedStringArray()
+	var report: Dictionary = _validate_array_reference(
+		[{ "owner_key": 73, "id": 900, "item_ids": [1, 2] }],
+		[{ "code": 1, "id": 999 }], reference, &"owner_key", &"code"
+	)
+	var issues: Array = GFVariantData.get_option_array(report, "issues")
+	var issue: Dictionary = _find_issue_kind(issues, "missing_reference")
+	assert_eq(issues.size(), 1, "省略目标字段时应使用目标 schema 的 code 字段匹配。")
+	assert_eq(_reference_issue_int(issue, "row_key"), 73, "行标识应使用来源 schema 的 owner_key，不能硬编码 id。")
+	assert_eq(_reference_issue_int(issue, "element_index"), 1, "只有缺少目标的第二个元素应报告。")
+	assert_eq(_reference_issue_int(issue, "value"), 2, "自定义 ID 字段不应改变实际元素值。")
+
+
+func test_fields_reference_retains_composite_and_whole_array_keys() -> void:
+	var composite: GFConfigTableReference = _make_reference(
+		&"composite", PackedStringArray(["item_id", "kind"]), &"items", PackedStringArray(["id", "kind"])
+	)
+	var whole_array: GFConfigTableReference = _make_reference(
+		&"whole_array", PackedStringArray(["item_ids"]), &"items", PackedStringArray(["ids"])
+	)
+	assert_eq(
+		composite.make_source_key({ "item_id": 1, "kind": "tool" }),
+		composite.make_target_key({ "id": 1, "kind": "tool" }),
+		"默认 FIELDS 模式仍按整个字段 tuple 匹配复合键。"
+	)
+	assert_eq(
+		whole_array.make_source_key({ "item_ids": [1, 2] }), whole_array.make_target_key({ "ids": [1, 2] }),
+		"旧 FIELDS 声明中的数组仍是完整字段值，不应自动切换为逐元素引用。"
+	)
+	assert_ne(
+		whole_array.make_source_key({ "item_ids": [1, 2] }), whole_array.make_target_key({ "ids": [2, 1] }),
+		"原有数组字段键应保留元素顺序。"
+	)
+	composite.allow_null_values = false
+	assert_eq(composite.make_source_key({ "item_id": 1, "kind": null }), "", "原有字段模式的 null 策略应保留。")
+
+
+func test_resolve_record_references_only_resolves_fields_in_mixed_schema() -> void:
+	var scalar: GFConfigTableReference = _make_reference(
+		&"primary_item", PackedStringArray(["item_id"]), &"items", PackedStringArray(["id"])
+	)
+	var array_reference: GFConfigTableReference = _make_array_reference()
+	var schema: GFConfigTableSchema = GFConfigTableSchema.new()
+	schema.table_name = &"owners"
+	schema.references = [scalar, array_reference]
+	var resolved: Dictionary = GFConfigReferenceResolver.resolve_record_references(
+		{ "item_id": 1, "item_ids": [1, 2] }, schema,
+		{ &"items": [{ "id": 1, "name": "Potion" }, { "id": 2, "name": "Shield" }] }
+	)
+	assert_eq(resolved.size(), 1, "单记录解析 API 不应隐式新增数组解析结果或覆盖既有映射。")
+	assert_false(resolved.has(array_reference.get_reference_id()), "逐元素声明只参与校验，不参与单记录解析。")
+	var primary_item: Dictionary = GFVariantData.get_option_dictionary(resolved, &"primary_item")
+	assert_eq(GFVariantData.get_option_string(primary_item, "name"), "Potion", "混合 schema 中既有标量解析应继续工作。")
+
+
 func test_column_validation_rules_report_common_data_errors() -> void:
 	var schema: GFConfigTableSchema = GFConfigTableSchema.new()
 	schema.table_name = &"items"
@@ -982,6 +1193,44 @@ func _make_reference(
 	reference.target_fields = target_fields
 	reference.required = true
 	return reference
+
+
+func _make_array_reference() -> GFConfigTableReference:
+	var reference: GFConfigTableReference = _make_reference(
+		&"owner_items", PackedStringArray(["item_ids"]), &"items", PackedStringArray(["id"])
+	)
+	reference.source_mode = GFConfigTableReference.SourceMode.ARRAY_ELEMENTS
+	return reference
+
+
+func _validate_array_reference(
+	source_rows: Array,
+	target_rows: Array,
+	reference: GFConfigTableReference = null,
+	source_id_field: StringName = &"id",
+	target_id_field: StringName = &"id"
+) -> Dictionary:
+	var owner_schema: GFConfigTableSchema = GFConfigTableSchema.new()
+	owner_schema.table_name = &"owners"
+	owner_schema.id_field = source_id_field
+	var item_schema: GFConfigTableSchema = GFConfigTableSchema.new()
+	item_schema.table_name = &"items"
+	item_schema.id_field = target_id_field
+	if reference == null:
+		reference = _make_array_reference()
+	owner_schema.references = [reference]
+	return GFConfigReferenceResolver.validate_tables(
+		{ &"owners": source_rows, &"items": target_rows }, [owner_schema, item_schema], { "validate_schema": false }
+	)
+
+
+func _reference_issue_int(issue: Dictionary, field: String) -> int:
+	var value: Variant = issue.get(field)
+	assert_true(value is int, "%s 应保留真正的 int 类型。" % field)
+	if value is int:
+		var int_value: int = value
+		return int_value
+	return -1
 
 
 func _has_issue_kind(issues: Array, kind: String) -> bool:

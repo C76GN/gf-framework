@@ -7,7 +7,7 @@
 | 模块 | 类 | 成员 | 页面内索引 |
 |---|---:|---:|---|
 | Kernel | 78 | 1137 | [Kernel](#module-kernel) |
-| Standard | 479 | 7569 | [Standard](#module-standard) |
+| Standard | 479 | 7571 | [Standard](#module-standard) |
 | Action Queue | 16 | 214 | [Action Queue](#module-extensions-action_queue) |
 | Asset Metadata | 4 | 33 | [Asset Metadata](#module-extensions-asset_metadata) |
 | Behavior Tree | 22 | 89 | [Behavior Tree](#module-extensions-behavior_tree) |
@@ -366,7 +366,7 @@
 | [`GFConfigTableColumn`](GFConfigTableColumn.md#gfconfigtablecolumn) | 资源定义 (`resource_definition`) | `Resource` | 14 | `addons/gf/standard/utilities/config/gf_config_table_column.gd` |
 | [`GFConfigTableIndexDefinition`](GFConfigTableIndexDefinition.md#gfconfigtableindexdefinition) | 资源定义 (`resource_definition`) | `Resource` | 10 | `addons/gf/standard/utilities/config/gf_config_table_index_definition.gd` |
 | [`GFConfigTableMergePolicy`](GFConfigTableMergePolicy.md#gfconfigtablemergepolicy) | 资源定义 (`resource_definition`) | `Resource` | 15 | `addons/gf/standard/utilities/config/gf_config_table_merge_policy.gd` |
-| [`GFConfigTableReference`](GFConfigTableReference.md#gfconfigtablereference) | 资源定义 (`resource_definition`) | `Resource` | 14 | `addons/gf/standard/utilities/config/gf_config_table_reference.gd` |
+| [`GFConfigTableReference`](GFConfigTableReference.md#gfconfigtablereference) | 资源定义 (`resource_definition`) | `Resource` | 16 | `addons/gf/standard/utilities/config/gf_config_table_reference.gd` |
 | [`GFConfigTableResource`](GFConfigTableResource.md#gfconfigtableresource) | 资源定义 (`resource_definition`) | `Resource` | 21 | `addons/gf/standard/utilities/config/gf_config_table_resource.gd` |
 | [`GFConfigTableSchema`](GFConfigTableSchema.md#gfconfigtableschema) | 资源定义 (`resource_definition`) | `Resource` | 29 | `addons/gf/standard/utilities/config/gf_config_table_schema.gd` |
 | [`GFConsoleCommandDefinition`](GFConsoleCommandDefinition.md#gfconsolecommanddefinition) | 资源定义 (`resource_definition`) | `Resource` | 6 | `addons/gf/standard/utilities/debug/gf_console_command_definition.gd` |
