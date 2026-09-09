@@ -12,6 +12,7 @@
 - 新增 [Scene Groups 场景组查询](editor/tools/scene-groups.md)。从已保存的 `.tscn` / `.scn` 查找持久化 Group 声明，支持搜索、分页和来源节点定位；扫描取消、读取失败或预算耗尽时明确报告结果不完整。
 - [Flow 图编辑器](extensions/flow/editor-model.md) 的连线、删除节点与布局编辑接入 Godot 撤销/重做，删除节点时一并恢复关联连接与布局，一次拖动对应一次编辑动作。
 - [Resource 表格](editor/resource-table-editor.md) 支持多行选择、属性混合值呈现和暂存编辑；应用时只修改实际编辑的分量，取消或切换选择会丢弃暂存输入。
+- [配置跨表引用](standard/utilities/io/config-remote-outbox/config-provider/relations-builds/indexes-references.md#数组元素引用) 支持逐项校验一维 Array 中的标量键；错误保留原字段名、元素位置和值，导表继续附加可用的来源与单元格位置。
 
 ### 🔄 机制更改 (Changed)
 
@@ -51,6 +52,7 @@
 - `dispose()` 立即拒绝新借用并撤销所有 Lease，清理在安全点执行；需要等待时调用 `await pool.wait_disposed()`。该等待包含已接纳请求与 Lease 的终态通知，不保证引擎已完成 `queue_free()`。注册到架构的池参与正常异步关停与替换的静默期等待。
 - 保留已有接口的首次发布 `@since` 版本，不因本次签名或语义重做而改为 `unreleased`。
 - Flow 面板与 Resource 表格新增 `set_editor_context()`。新增 `GFEditorMultiPropertyField`，通过暂存值生成属性批处理请求，提交仍复用既有命令与资源历史；不改变 Flow 图的持久化格式或运行时执行协议。
+- `GFConfigTableReference` 新增 `SourceMode` 与 `source_mode`，默认 `FIELDS` 保持原有字段引用行为；`ARRAY_ELEMENTS` 校验单个数组字段到目标单字段键的引用。元素问题增加零基 `element_index`；`resolve_record_references()` 仍只解析 `FIELDS` 引用。
 
 ### 📘 升级指南 (Migration Guide)
 

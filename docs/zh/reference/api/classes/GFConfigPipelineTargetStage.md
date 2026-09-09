@@ -16,7 +16,7 @@ Config Pipeline 的内置目标物化阶段。 只接受版本化 IR，并将其
 | 类型 | 名称 | 签名 |
 |---|---|---|
 | 常量 | [`STAGE_ID`](#member-gfconfigpipelinetargetstage-constants-stage_id) | `const STAGE_ID: String = "gf.config.target.godot_resource"` |
-| 常量 | [`IMPLEMENTATION_VERSION`](#member-gfconfigpipelinetargetstage-constants-implementation_version) | `const IMPLEMENTATION_VERSION: int = 2` |
+| 常量 | [`IMPLEMENTATION_VERSION`](#member-gfconfigpipelinetargetstage-constants-implementation_version) | `const IMPLEMENTATION_VERSION: int = 3` |
 | 方法 | [`materialize_table`](#member-gfconfigpipelinetargetstage-methods-materialize_table) | `func materialize_table( table_ir: GFConfigPipelineTableIR, options: Dictionary = {} ) -> Dictionary:` |
 | 方法 | [`materialize_database`](#member-gfconfigpipelinetargetstage-methods-materialize_database) | `func materialize_database( compilation_ir: GFConfigPipelineIR, options: Dictionary = {} ) -> Dictionary:` |
 | 方法 | [`make_database_export`](#member-gfconfigpipelinetargetstage-methods-make_database_export) | `func make_database_export( database: GFConfigDatabaseResource, options: Dictionary = {} ) -> Dictionary:` |
@@ -46,7 +46,7 @@ Target 阶段的稳定实现标识。
 - 首次版本：`9.0.0`
 
 ```gdscript
-const IMPLEMENTATION_VERSION: int = 2
+const IMPLEMENTATION_VERSION: int = 3
 ```
 
 Target 阶段的实现版本；改变 Resource 或 JSON 物化语义时递增。
@@ -91,7 +91,7 @@ func materialize_table( table_ir: GFConfigPipelineTableIR, options: Dictionary =
 func materialize_database( compilation_ir: GFConfigPipelineIR, options: Dictionary = {} ) -> Dictionary:
 ```
 
-将数据库 IR 物化为 Godot Resource，并可执行数据库级引用校验。
+将数据库 IR 物化为 Godot Resource，并可执行数据库级引用校验。 引用问题的位置从 IR 来源映射补全；来源未提供物理行列时不推测位置。
 
 参数：
 

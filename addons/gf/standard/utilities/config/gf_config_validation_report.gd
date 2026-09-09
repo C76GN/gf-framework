@@ -13,9 +13,11 @@ extends RefCounted
 
 # --- 常量 ---
 
-## 从校验上下文复制到单条 issue 的字段名。
+## 从校验上下文复制到单条 issue 的字段名。element_index 表示原始字段内从 0 开始的数组元素位置，不替换 field。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 const CONTEXT_FIELDS: Array[String] = [
 	"row_key",
 	"field",
@@ -24,6 +26,7 @@ const CONTEXT_FIELDS: Array[String] = [
 	"column",
 	"row_index",
 	"column_index",
+	"element_index",
 	"rule_id",
 	"value",
 	"expected_value",
@@ -66,6 +69,8 @@ func make_report(table_name: StringName = &"", row_count: int = 0) -> Dictionary
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param table_name: 表名。
 ## [br]
 ## @param kind: 稳定问题类型。
@@ -76,7 +81,7 @@ func make_report(table_name: StringName = &"", row_count: int = 0) -> Dictionary
 ## [br]
 ## @return 校验报告字典。
 ## [br]
-## @schema context: Dictionary，可包含 row_key、field、source、line、column、row_index、column_index、rule_id、value、expected_value、actual_value、supported_values、supported_formats 和 supported_content_types 字段。
+## @schema context: Dictionary，可包含 row_key、field、source、line、column、row_index、column_index、element_index、rule_id、value、expected_value、actual_value、supported_values、supported_formats 和 supported_content_types 字段；element_index 为从 0 开始的数组元素位置。
 ## [br]
 ## @schema return: GFConfigValidationReport 兼容 Dictionary，包含一条 error issue。
 func make_error_report(
@@ -126,7 +131,7 @@ func make_error_report(
 ## [br]
 ## @schema row_key: Variant，经报告 codec 规范化为 JSON-safe 值后复制到 issue 中的行标识。
 ## [br]
-## @schema context: Dictionary，可包含 row_key、field、source、line、column、row_index、column_index、rule_id、value、expected_value、actual_value、supported_values、supported_formats 和 supported_content_types 字段。
+## @schema context: Dictionary，可包含 row_key、field、source、line、column、row_index、column_index、element_index、rule_id、value、expected_value、actual_value、supported_values、supported_formats 和 supported_content_types 字段；element_index 为从 0 开始的数组元素位置。
 func add_issue(
 	report: Dictionary,
 	severity: String,

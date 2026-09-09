@@ -92,3 +92,55 @@ func test_report_helper_sanitizes_positional_row_key_for_json() -> void:
 	assert_true(text.contains("__gf_report_value__"), "Object row_key 应使用报告 codec 脱敏。")
 	assert_true(text.contains(GFVariantJsonCodec.JSON_MARKER_KEY), "Variant row_key 应保留 typed marker。")
 	assert_false(text.contains("\"row_key\":null"), "非有限 row_key 不得在最终 stringify 时才退化为 null。")
+
+
+func test_report_helper_preserves_element_index_through_merge_and_json() -> void:
+	var helper: GFConfigValidationReport = GFConfigValidationReport.new()
+	var source: Dictionary = helper.make_report(&"owners", 1)
+	helper.add_issue(source, "error", "missing_reference", &"owners", 73, &"item_ids", "元素缺少目标。", {
+		"element_index": 0,
+		"value": 99,
+	})
+	var target: Dictionary = helper.make_report(&"all_tables")
+	helper.merge_report(target, source)
+	helper.finalize_report(target)
+	var issues: Array = GFVariantData.get_option_array(target, "issues")
+	assert_eq(issues.size(), 1, "合并应保留数组元素问题。")
+	if issues.size() != 1:
+		return
+	var issue: Dictionary = GFVariantData.as_dictionary(issues[0])
+	var element_index: Variant = issue.get("element_index")
+	var value: Variant = issue.get("value")
+	assert_true(element_index is int, "元素下标应保留 int 类型，不能转换成字符串。")
+	assert_eq(GFVariantData.get_option_int(issue, "element_index", -1), 0, "零基第一个元素的位置不可丢失。")
+	assert_true(value is int, "实际标量元素值应保留 int 类型。")
+	assert_eq(GFVariantData.get_option_int(issue, "value", -1), 99, "合并应保留具体元素值。")
+	assert_eq(GFVariantData.get_option_string_name(issue, "field"), &"item_ids", "字段名应保持原始声明名称。")
+	var text: String = JSON.stringify(target)
+	var parsed: Variant = JSON.parse_string(text)
+	assert_true(parsed is Dictionary, "包含元素位置的最终报告应能通过 JSON 往返。")
+	if parsed is Dictionary:
+		var parsed_report: Dictionary = parsed
+		var parsed_issues: Array = GFVariantData.get_option_array(parsed_report, "issues")
+		assert_eq(parsed_issues.size(), 1, "JSON 往返不得丢失元素问题。")
+		if parsed_issues.size() == 1:
+			var parsed_issue: Dictionary = GFVariantData.as_dictionary(parsed_issues[0])
+			assert_eq(GFVariantData.get_option_int(parsed_issue, "element_index", -1), 0, "JSON 往返应保留元素位置。")
+			assert_eq(GFVariantData.get_option_int(parsed_issue, "value", -1), 99, "JSON 往返应保留实际元素值。")
+
+
+func test_report_helper_does_not_invent_element_index_for_container_issue() -> void:
+	var helper: GFConfigValidationReport = GFConfigValidationReport.new()
+	var source: Dictionary = helper.make_report(&"owners", 1)
+	helper.add_issue(source, "error", "invalid_reference_value", &"owners", 73, &"item_ids", "来源不是数组。", { "value": null })
+	var target: Dictionary = helper.make_report(&"all_tables")
+	helper.merge_report(target, source)
+	var issues: Array = GFVariantData.get_option_array(target, "issues")
+	assert_eq(issues.size(), 1, "容器问题应保留。")
+	if issues.size() != 1:
+		return
+	var issue: Dictionary = GFVariantData.as_dictionary(issues[0])
+	assert_false(issue.has("element_index"), "无元素位置的容器问题不应补零或其他虚构下标。")
+	assert_true(issue.has("value"), "容器问题仍应保存实际 null 值。")
+	var value: Variant = issue.get("value")
+	assert_true(value == null, "null 容器值应保持 null。")

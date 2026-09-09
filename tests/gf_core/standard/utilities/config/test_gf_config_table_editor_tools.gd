@@ -195,6 +195,37 @@ func test_build_field_editor_descriptors_embeds_reference_choices_when_database_
 	assert_eq(GFVariantData.get_option_string(first_choice, "label"), "Potion", "引用候选应复用 label_fields。")
 
 
+func test_array_reference_descriptor_preserves_mode_and_array_property_type() -> void:
+	var reference_definition: GFConfigTableReference = GFConfigTableReference.new()
+	reference_definition.source_mode = GFConfigTableReference.SourceMode.ARRAY_ELEMENTS
+	reference_definition.source_fields = PackedStringArray(["related_ids"])
+	reference_definition.target_table_name = &"catalog"
+	reference_definition.target_fields = PackedStringArray(["id"])
+	var schema: GFConfigTableSchema = GFConfigTableSchema.new()
+	schema.columns = [_make_column(&"related_ids", GFConfigTableColumn.ValueType.ARRAY)]
+	schema.references = [reference_definition]
+
+	var descriptors: Array[Dictionary] = GFConfigTableEditorTools.build_field_editor_descriptors(schema)
+	var descriptor: Dictionary = _find_descriptor(descriptors, &"related_ids")
+	var references: Array = GFVariantData.get_option_array(descriptor, "references")
+	assert_eq(references.size(), 1, "数组字段应包含一个逐元素引用描述。")
+	if references.is_empty():
+		return
+	var reference_descriptor: Dictionary = GFVariantData.as_dictionary(references[0])
+	assert_eq(
+		GFVariantData.get_option_int(reference_descriptor, "source_mode"),
+		GFConfigTableReference.SourceMode.ARRAY_ELEMENTS,
+		"编辑器消费者必须能够区分逐元素引用与单个完整键。"
+	)
+	assert_eq(GFVariantData.get_option_int(descriptor, "property_type"), TYPE_ARRAY, "引用提示不得将数组属性改成标量。")
+	var target_fields_value: Variant = reference_descriptor.get("target_fields")
+	assert_true(target_fields_value is PackedStringArray, "引用描述应保留目标键的数组类型。")
+	if not target_fields_value is PackedStringArray:
+		return
+	var target_fields: PackedStringArray = target_fields_value
+	assert_eq(target_fields, PackedStringArray(["id"]), "引用描述应保留目标键。")
+
+
 # --- 私有/辅助方法 ---
 
 func _make_column(field_name: StringName, value_type: GFConfigTableColumn.ValueType) -> GFConfigTableColumn:

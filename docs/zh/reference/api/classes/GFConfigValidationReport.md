@@ -15,7 +15,7 @@
 
 | 类型 | 名称 | 签名 |
 |---|---|---|
-| 常量 | [`CONTEXT_FIELDS`](#member-gfconfigvalidationreport-constants-context_fields) | `const CONTEXT_FIELDS: Array[String] = [ 	"row_key", 	"field", 	"source", 	"line", 	"column", 	"row_index", 	"column_index", 	"rule_id", 	"value", 	"expected_value", 	"actual_value", 	"supported_values", 	"supported_values_count", 	"supported_values_sample", 	"supported_values_preview_hash", 	"supported_values_truncated", 	"supported_formats", 	"supported_content_types", ]` |
+| 常量 | [`CONTEXT_FIELDS`](#member-gfconfigvalidationreport-constants-context_fields) | `const CONTEXT_FIELDS: Array[String] = [ 	"row_key", 	"field", 	"source", 	"line", 	"column", 	"row_index", 	"column_index", 	"element_index", 	"rule_id", 	"value", 	"expected_value", 	"actual_value", 	"supported_values", 	"supported_values_count", 	"supported_values_sample", 	"supported_values_preview_hash", 	"supported_values_truncated", 	"supported_formats", 	"supported_content_types", ]` |
 | 方法 | [`make_report`](#member-gfconfigvalidationreport-methods-make_report) | `func make_report(table_name: StringName = &"", row_count: int = 0) -> Dictionary:` |
 | 方法 | [`make_error_report`](#member-gfconfigvalidationreport-methods-make_error_report) | `func make_error_report( table_name: StringName, kind: String, message: String, context: Dictionary = {} ) -> Dictionary:` |
 | 方法 | [`add_issue`](#member-gfconfigvalidationreport-methods-add_issue) | `func add_issue( report: Dictionary, severity: String, kind: String, table_name: StringName, row_key: Variant, field_name: StringName, message: String, context: Dictionary = {} ) -> void:` |
@@ -29,6 +29,7 @@
 ### `CONTEXT_FIELDS`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 const CONTEXT_FIELDS: Array[String] = [
@@ -39,6 +40,7 @@ const CONTEXT_FIELDS: Array[String] = [
 	"column",
 	"row_index",
 	"column_index",
+	"element_index",
 	"rule_id",
 	"value",
 	"expected_value",
@@ -53,7 +55,7 @@ const CONTEXT_FIELDS: Array[String] = [
 ]
 ```
 
-从校验上下文复制到单条 issue 的字段名。
+从校验上下文复制到单条 issue 的字段名。element_index 表示原始字段内从 0 开始的数组元素位置，不替换 field。
 
 ## 方法
 
@@ -87,6 +89,7 @@ func make_report(table_name: StringName = &"", row_count: int = 0) -> Dictionary
 ### `make_error_report`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func make_error_report( table_name: StringName, kind: String, message: String, context: Dictionary = {} ) -> Dictionary:
@@ -107,7 +110,7 @@ func make_error_report( table_name: StringName, kind: String, message: String, c
 
 结构：
 
-- `context`: Dictionary，可包含 row_key、field、source、line、column、row_index、column_index、rule_id、value、expected_value、actual_value、supported_values、supported_formats 和 supported_content_types 字段。
+- `context`: Dictionary，可包含 row_key、field、source、line、column、row_index、column_index、element_index、rule_id、value、expected_value、actual_value、supported_values、supported_formats 和 supported_content_types 字段；element_index 为从 0 开始的数组元素位置。
 - `return`: GFConfigValidationReport 兼容 Dictionary，包含一条 error issue。
 
 <a id="member-gfconfigvalidationreport-methods-add_issue"></a>
@@ -140,7 +143,7 @@ func add_issue( report: Dictionary, severity: String, kind: String, table_name: 
 
 - `report`: GFConfigValidationReport 兼容 Dictionary，会被当前方法修改。
 - `row_key`: Variant，经报告 codec 规范化为 JSON-safe 值后复制到 issue 中的行标识。
-- `context`: Dictionary，可包含 row_key、field、source、line、column、row_index、column_index、rule_id、value、expected_value、actual_value、supported_values、supported_formats 和 supported_content_types 字段。
+- `context`: Dictionary，可包含 row_key、field、source、line、column、row_index、column_index、element_index、rule_id、value、expected_value、actual_value、supported_values、supported_formats 和 supported_content_types 字段；element_index 为从 0 开始的数组元素位置。
 
 <a id="member-gfconfigvalidationreport-methods-merge_report"></a>
 

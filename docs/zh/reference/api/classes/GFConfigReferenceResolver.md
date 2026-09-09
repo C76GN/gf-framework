@@ -9,7 +9,7 @@
 - 类别：运行时服务 (`runtime_service`)
 - 首次版本：`3.17.0`
 
-通用导表引用校验与解析工具。 在多张表加载后统一检查引用、构建复合索引，并可把记录中的引用解析为目标记录副本。
+通用导表引用校验与解析工具。 在多张表加载后统一检查字段或数组元素引用、构建共享索引，并可把 FIELDS 引用解析为目标记录副本。
 
 ## 成员概览
 
@@ -81,12 +81,13 @@ static func validate_tables( tables_by_name: Dictionary, schemas: Array[GFConfig
 ### `resolve_record_references`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 static func resolve_record_references( record: Dictionary, schema: GFConfigTableSchema, tables_by_name: Dictionary, schemas_by_name: Dictionary = {} ) -> Dictionary:
 ```
 
-解析单条记录的引用目标。
+解析单条记录的 FIELDS 引用目标。ARRAY_ELEMENTS 仅参与校验，此入口跳过数组引用。
 
 参数：
 

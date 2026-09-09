@@ -1853,6 +1853,93 @@ func test_pipeline_database_validates_cross_table_references() -> void:
 	assert_true(_has_issue_kind(GFVariantData.get_option_array(report, "issues"), "missing_reference"), "数据库报告应包含跨表引用缺失问题。")
 
 
+func test_pipeline_array_reference_issues_keep_csv_adapter_source_positions() -> void:
+	var sources: Array[GFConfigPipelineTableSource] = _make_array_reference_sources("csv_locations")
+	# CSV 数组语法由项目 Layout 适配器解释，内置 CSV 继续只负责文本与真实来源位置。
+	var pipeline: GFConfigPipeline = GFConfigPipeline.new().configure_stages(null, _ArrayCellLayoutStage.new())
+	var build_result: Dictionary = pipeline.build_database(sources)
+	var report: Dictionary = GFVariantData.get_option_dictionary(build_result, "report")
+	var issues: Array[Dictionary] = _get_reference_issues(report)
+
+	assert_false(GFVariantData.get_option_bool(build_result, "success"), "数组中的坏引用应阻止数据库构建成功。")
+	assert_eq(GFVariantData.get_option_int(report, "error_count"), 2, "相同坏 ID 的两个位置应分别报告，合法前缀不应误报。")
+	assert_eq(issues.size(), 2, "每个缺失的数组元素应有独立 issue。")
+	for index: int in range(issues.size()):
+		var issue: Dictionary = issues[index]
+		assert_eq(GFVariantData.get_option_string(issue, "source"), sources[1].source_path, "来源应属于包含引用的表。")
+		assert_eq(GFVariantData.get_option_string_name(issue, "table_name"), &"owners", "问题应保留来源表名。")
+		assert_eq(GFVariantData.get_option_string(issue, "row_key"), "bad", "行标识应使用 schema 自定义主键。")
+		assert_eq(GFVariantData.get_option_string_name(issue, "field"), &"item_ids", "字段名不应拼接元素下标。")
+		assert_eq(_get_issue_int(issue, "row_index"), 1, "规范记录顺序应排除注释行。")
+		assert_eq(_get_issue_int(issue, "element_index"), index + 1, "重复坏 ID 应保留各自的零基元素位置。")
+		assert_eq(GFVariantData.get_option_string(issue, "value"), "missing", "问题值应是单个坏元素。")
+		assert_eq(_get_issue_int(issue, "line"), 5, "位置应包含前置多行单元格与注释行的物理行偏移。")
+		assert_eq(_get_issue_int(issue, "column"), 4, "位置应保留被过滤注释列之前的物理列号。")
+		assert_eq(_get_issue_int(issue, "column_index"), 3, "列索引应为物理列号的零基形式。")
+
+	var command: GF_CONFIG_PIPELINE_COMMAND_SCRIPT = GF_CONFIG_PIPELINE_COMMAND_SCRIPT.new()
+	var output_text: String = command.make_output_text({
+		"json_report": true,
+		"runner_result": { "report": report },
+	}, false)
+	var parsed: Dictionary = GFVariantData.as_dictionary(JSON.parse_string(output_text))
+	var runner_result: Dictionary = GFVariantData.get_option_dictionary(parsed, "runner_result")
+	var decoded_issues: Array[Dictionary] = _get_reference_issues(GFVariantData.get_option_dictionary(runner_result, "report"))
+	assert_eq(decoded_issues.size(), 2, "命令 JSON 输出不得丢失元素问题。")
+	for index: int in range(decoded_issues.size()):
+		var issue: Dictionary = decoded_issues[index]
+		assert_eq(GFVariantData.get_option_int(issue, "element_index", -1), index + 1, "JSON 输出应保留元素下标。")
+		assert_eq(GFVariantData.get_option_int(issue, "line", -1), 5, "JSON 输出应保留物理来源行。")
+		assert_eq(GFVariantData.get_option_string(issue, "source"), sources[1].source_path, "JSON 输出应保留文件来源。")
+
+
+func test_pipeline_native_json_array_reference_does_not_invent_line_or_column() -> void:
+	var sources: Array[GFConfigPipelineTableSource] = _make_array_reference_sources("json_locations", false)
+	var build_result: Dictionary = GFConfigPipeline.new().build_database(sources)
+	var report: Dictionary = GFVariantData.get_option_dictionary(build_result, "report")
+	var issues: Array[Dictionary] = _get_reference_issues(report)
+
+	assert_false(GFVariantData.get_option_bool(build_result, "success"), "原生 JSON 数组中的坏 ID 应使构建失败。")
+	assert_eq(issues.size(), 1, "合法 JSON 数组元素不应误报。")
+	if issues.is_empty():
+		return
+	var issue: Dictionary = issues[0]
+	assert_eq(GFVariantData.get_option_string(issue, "source"), sources[1].source_path, "JSON 引用问题仍应有来源文件。")
+	assert_eq(GFVariantData.get_option_string(issue, "row_key"), "bad", "JSON 引用问题应使用自定义主键。")
+	assert_eq(_get_issue_int(issue, "row_index"), 0, "记录索引不依赖物理行信息。")
+	assert_eq(_get_issue_int(issue, "element_index"), 1, "原生数组问题应保留零基元素索引。")
+	assert_eq(GFVariantData.get_option_string(issue, "value"), "missing", "问题应指向坏元素。")
+	assert_false(issue.has("line"), "JSON Layout 未提供物理行时不得推测行号。")
+	assert_false(issue.has("column"), "JSON Layout 未提供物理列时不得推测列号。")
+	assert_false(issue.has("column_index"), "字段顺序不能充当 JSON 物理列索引。")
+
+
+func test_pipeline_array_reference_failure_does_not_publish_artifacts() -> void:
+	var sources: Array[GFConfigPipelineTableSource] = _make_array_reference_sources("no_publish")
+	var previous_text: String = "{\"previous_artifact\":true}\n"
+	var output_path: String = _write_text(
+		"user://gf_config_pipeline_array_previous_%d.json" % Time.get_ticks_usec(),
+		previous_text
+	)
+	var access_path: String = "user://gf_config_pipeline_array_access_%d.gd" % Time.get_ticks_usec()
+	_temporary_paths.append(access_path)
+	var profile: GFConfigPipelineProfile = GFConfigPipelineProfile.new()
+	profile.profile_id = &"array_reference_failure"
+	profile.sources = sources
+	profile.output_path = output_path
+	profile.access_output_path = access_path
+	var pipeline: GFConfigPipeline = GFConfigPipeline.new().configure_stages(null, _ArrayCellLayoutStage.new())
+	var export_result: Dictionary = pipeline.export_profile(profile, { "scan_filesystem": false })
+	var report: Dictionary = GFVariantData.get_option_dictionary(export_result, "report")
+
+	assert_false(GFVariantData.get_option_bool(export_result, "success"), "引用校验失败必须阻止发布。")
+	assert_eq(_get_reference_issues(report).size(), 2, "导出结果应保留逐元素诊断。")
+	assert_true(GFVariantData.get_option_dictionary(export_result, "save_result").is_empty(), "失败构建不应进入数据库保存。")
+	assert_true(GFVariantData.get_option_dictionary(export_result, "access_result").is_empty(), "失败构建不应进入访问器生成。")
+	assert_eq(FileAccess.get_file_as_string(output_path), previous_text, "原有产物必须保持原字节。")
+	assert_false(FileAccess.file_exists(access_path), "不得留下部分生成的访问器。")
+
+
 func test_pipeline_reports_unsupported_auto_format() -> void:
 	var source: GFConfigPipelineTableSource = GFConfigPipelineTableSource.new()
 	source.table_name = &"items"
@@ -2293,6 +2380,71 @@ func _make_item_schema() -> GFConfigTableSchema:
 	return schema
 
 
+func _make_array_reference_sources(label: String, use_csv: bool = true) -> Array[GFConfigPipelineTableSource]:
+	var item_source: GFConfigPipelineTableSource = GFConfigPipelineTableSource.new()
+	item_source.table_name = &"items"
+	item_source.source_path = _write_text(
+		"user://gf_config_pipeline_array_%s_items_%d.csv" % [label, Time.get_ticks_usec()],
+		"code\npotion\n"
+	)
+	item_source.schema = GFConfigTableSchema.new()
+	item_source.schema.table_name = &"items"
+	item_source.schema.id_field = &"code"
+	item_source.schema.columns = [_make_column(&"code", GFConfigTableColumn.ValueType.STRING)]
+	var owner_source: GFConfigPipelineTableSource = GFConfigPipelineTableSource.new()
+	owner_source.table_name = &"owners"
+	owner_source.schema = GFConfigTableSchema.new()
+	owner_source.schema.table_name = &"owners"
+	owner_source.schema.id_field = &"owner_key"
+	owner_source.schema.columns = [
+		_make_column(&"owner_key", GFConfigTableColumn.ValueType.STRING),
+		_make_column(&"note", GFConfigTableColumn.ValueType.STRING),
+		_make_column(&"item_ids", GFConfigTableColumn.ValueType.ARRAY),
+	]
+	var reference: GFConfigTableReference = GFConfigTableReference.new()
+	reference.source_mode = GFConfigTableReference.SourceMode.ARRAY_ELEMENTS
+	reference.source_fields = PackedStringArray(["item_ids"])
+	reference.target_table_name = &"items"
+	owner_source.schema.references = [reference]
+	var owner_text: String = "[{\"owner_key\":\"bad\",\"note\":\"entry\",\"item_ids\":[\"potion\",\"missing\"]}]"
+	var extension: String = "json"
+	if use_csv:
+		extension = "csv"
+		owner_source.parse_options = { "comment_prefixes": PackedStringArray(["#"]) }
+		owner_text = "\n".join([
+			"owner_key,note,#ignored,item_ids",
+			"keep,\"first",
+			"line\",ignored,\"[\"\"potion\"\"]\"",
+			"# ignored,ignored,ignored,ignored",
+			"bad,entry,ignored,\"[\"\"potion\"\",\"\"missing\"\",\"\"missing\"\"]\"",
+			"",
+		])
+	owner_source.source_path = _write_text(
+		"user://gf_config_pipeline_array_%s_owners_%d.%s" % [label, Time.get_ticks_usec(), extension],
+		owner_text
+	)
+	return [item_source, owner_source]
+
+
+func _get_reference_issues(report: Dictionary) -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	for issue_value: Variant in GFVariantData.get_option_array(report, "issues"):
+		if issue_value is Dictionary:
+			var issue: Dictionary = issue_value
+			if GFVariantData.get_option_string(issue, "kind") == "missing_reference":
+				result.append(issue)
+	return result
+
+
+func _get_issue_int(issue: Dictionary, field_name: String) -> int:
+	var value: Variant = GFVariantData.get_option_value(issue, field_name)
+	assert_true(value is int, "问题字段 %s 必须保留真实 int 类型。" % field_name)
+	if value is int:
+		var integer: int = value
+		return integer
+	return -1
+
+
 func _make_owner_schema() -> GFConfigTableSchema:
 	var id_column: GFConfigTableColumn = _make_column(&"id", GFConfigTableColumn.ValueType.INT)
 	var item_id_column: GFConfigTableColumn = _make_column(&"item_id", GFConfigTableColumn.ValueType.INT)
@@ -2613,6 +2765,31 @@ func _has_issue_kind(issues: Array, kind: String) -> bool:
 
 
 # --- 内部类 ---
+
+class _ArrayCellLayoutStage extends GFConfigPipelineLayoutStage:
+	func decode_source(
+		source: GFConfigPipelineTableSource,
+		read_result: Dictionary,
+		options: Dictionary = {}
+	) -> Dictionary:
+		var result: Dictionary = super.decode_source(source, read_result, options)
+		if not GFVariantData.get_option_bool(result, "success"):
+			return result
+		# 仅作为项目数组单元格语法的测试适配，不改写内置 Layout 的来源映射。
+		var records: Array = GFVariantData.get_option_array(result, "data")
+		for record_value: Variant in records:
+			if not (record_value is Dictionary):
+				continue
+			var record: Dictionary = record_value
+			if not record.has("item_ids"):
+				continue
+			var cell: String = GFVariantData.get_option_string(record, "item_ids")
+			var parsed: Variant = JSON.parse_string(cell)
+			if parsed is Array:
+				record["item_ids"] = parsed
+		result["data"] = records
+		return result
+
 
 class _FailingAccessCommitPipeline extends GFConfigPipeline:
 	var actual_scan_filesystem: bool = true

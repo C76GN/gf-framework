@@ -26,7 +26,7 @@ const STAGE_ID: String = "gf.config.target.godot_resource"
 ## @api public
 ## [br]
 ## @since 9.0.0
-const IMPLEMENTATION_VERSION: int = 2
+const IMPLEMENTATION_VERSION: int = 3
 
 const _JSON_EXPORT_FORMAT: String = "gf.config.database"
 const _JSON_EXPORT_VERSION: int = 1
@@ -88,6 +88,7 @@ func materialize_table(
 
 
 ## 将数据库 IR 物化为 Godot Resource，并可执行数据库级引用校验。
+## 引用问题的位置从 IR 来源映射补全；来源未提供物理行列时不推测位置。
 ## [br]
 ## @api public
 ## [br]
@@ -142,6 +143,7 @@ func materialize_database(
 		report = database.validate_database({
 			"validate_schema": GFVariantData.get_option_bool(options, "validate_schema", false),
 		})
+		_enrich_issue_source_locations(report, compilation_ir)
 	else:
 		GFConfigValidationReport.new().finalize_report(report)
 	var success: bool = GFVariantData.get_option_bool(report, "ok", true)
@@ -284,6 +286,8 @@ func get_stage_descriptor() -> Dictionary:
 			"res://addons/gf/tools/config_pipeline/gf_config_pipeline_table_ir.gd",
 			"res://addons/gf/standard/utilities/config/gf_config_database_resource.gd",
 			"res://addons/gf/standard/utilities/config/gf_config_table_resource.gd",
+			"res://addons/gf/standard/utilities/config/gf_config_reference_resolver.gd",
+			"res://addons/gf/standard/utilities/config/gf_config_table_reference.gd",
 			"res://addons/gf/standard/utilities/config/gf_config_validation_report.gd",
 			"res://addons/gf/standard/foundation/variant/gf_variant_data.gd",
 		],
@@ -297,6 +301,62 @@ func get_stage_descriptor() -> Dictionary:
 
 
 # --- 私有/辅助方法 ---
+
+func _enrich_issue_source_locations(report: Dictionary, compilation_ir: GFConfigPipelineIR) -> void:
+	var source_maps: Dictionary = {}
+	for table_ir: GFConfigPipelineTableIR in compilation_ir.get_tables():
+		var source_map: Dictionary = table_ir.get_source_map()
+		if GFVariantData.get_option_string(source_map, "source").is_empty():
+			source_map["source"] = table_ir.get_source_path()
+		source_maps[table_ir.get_table_name()] = source_map
+
+	var issues: Array = GFVariantData.get_option_array(report, "issues")
+	for issue_value: Variant in issues:
+		if not (issue_value is Dictionary):
+			continue
+		var issue: Dictionary = issue_value
+		var table_name: StringName = GFVariantData.get_option_string_name(issue, "table_name")
+		var source_map: Dictionary = GFVariantData.as_dictionary(GFVariantData.get_option_value(source_maps, table_name))
+		var location: Dictionary = _make_issue_source_location(issue, source_map)
+		for key: String in ["source", "line", "column", "column_index"]:
+			if not issue.has(key) and location.has(key):
+				issue[key] = location[key]
+	report["issues"] = issues
+
+
+func _make_issue_source_location(issue: Dictionary, source_map: Dictionary) -> Dictionary:
+	var location: Dictionary = {}
+	_copy_source_location(location, source_map)
+	var row_index_value: Variant = GFVariantData.get_option_value(issue, "row_index")
+	if not (row_index_value is int):
+		return location
+	var row_index: int = row_index_value
+	var row_locations: Array = GFVariantData.as_array(GFVariantData.get_option_value(source_map, "row_locations"))
+	if row_index < 0 or row_index >= row_locations.size():
+		return location
+	var row_location: Dictionary = GFVariantData.as_dictionary(row_locations[row_index])
+	_copy_source_location(location, row_location)
+	var field_name: StringName = GFVariantData.get_option_string_name(issue, "field")
+	var fields: Dictionary = GFVariantData.as_dictionary(GFVariantData.get_option_value(row_location, "fields"))
+	var field_location: Dictionary = GFVariantData.as_dictionary(GFVariantData.get_option_value(fields, field_name))
+	_copy_source_location(location, field_location)
+	return location
+
+
+func _copy_source_location(target: Dictionary, source: Dictionary) -> void:
+	var source_value: Variant = GFVariantData.get_option_value(source, "source")
+	if source_value is String:
+		var source_path: String = source_value
+		if not source_path.is_empty():
+			target["source"] = source_path
+	for key: String in ["line", "column", "column_index"]:
+		var value: Variant = GFVariantData.get_option_value(source, key)
+		if value is int:
+			var position: int = value
+			var minimum: int = 0 if key == "column_index" else 1
+			if position >= minimum:
+				target[key] = position
+
 
 func _make_table_export(
 	table_resource: GFConfigTableResource,

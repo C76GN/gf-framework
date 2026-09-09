@@ -376,6 +376,27 @@ func test_config_database_resource_can_round_trip_as_tres() -> void:
 	assert_eq(GFVariantData.get_option_string(GFVariantData.as_dictionary(provider.get_record(&"items", 1)), "name"), "Potion", "加载后的数据库资源应能通过 Provider 读取记录。")
 
 
+func test_array_reference_mode_survives_resource_round_trip() -> void:
+	var reference_definition: GFConfigTableReference = GFConfigTableReference.new()
+	reference_definition.source_mode = GFConfigTableReference.SourceMode.ARRAY_ELEMENTS
+	reference_definition.source_fields = PackedStringArray(["related_ids"])
+	reference_definition.target_table_name = &"catalog"
+	reference_definition.allow_null_values = false
+	var path: String = _track_path("user://gf_config_array_reference_%d.tres" % Time.get_ticks_usec())
+	assert_eq(ResourceSaver.save(reference_definition, path), OK, "逐元素引用声明应能保存为 Resource。")
+	var loaded_resource: Resource = ResourceLoader.load(path, "", ResourceLoader.CACHE_MODE_IGNORE)
+	assert_true(loaded_resource is GFConfigTableReference, "保存的引用应恢复为正确资源类型。")
+	if not loaded_resource is GFConfigTableReference:
+		return
+	var loaded_reference: GFConfigTableReference = loaded_resource
+	assert_eq(loaded_reference.source_mode, GFConfigTableReference.SourceMode.ARRAY_ELEMENTS, "重载后必须保留逐元素语义。")
+	assert_eq(loaded_reference.source_fields, PackedStringArray(["related_ids"]), "重载后应保留来源字段。")
+	assert_eq(loaded_reference.target_table_name, &"catalog", "重载后应保留目标表。")
+	assert_false(loaded_reference.allow_null_values, "重载后应保留元素 null 策略。")
+	assert_eq(loaded_reference.get_reference_id(), &"related_ids[]->catalog", "重载后默认引用标识应保持稳定。")
+	assert_eq(loaded_reference.make_source_key({ "related_ids": [1] }), "", "重载后不得退回完整数组键语义。")
+
+
 # --- 私有/辅助方法 ---
 
 func _is_null(value: Variant) -> bool:
