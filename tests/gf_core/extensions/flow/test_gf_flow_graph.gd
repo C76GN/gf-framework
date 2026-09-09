@@ -5,6 +5,7 @@ extends GutTest
 # --- 常量 ---
 
 const GFAsyncWaitSupportBase = preload("res://addons/gf/standard/common/gf_async_wait_support.gd")
+const _EDITOR_UNDO_TEST_SCRIPT = preload("res://tests/gf_core/extensions/flow/test_gf_flow_graph_editor_undo.gd")
 
 
 # --- 辅助类 ---
@@ -1114,14 +1115,21 @@ func test_flow_graph_dock_connection_request_updates_graph() -> void:
 	end.node_id = &"end"
 	graph.nodes = [start, end]
 	var dock: GFFlowGraphDock = GFFlowGraphDock.new()
+	var undo_manager: _EDITOR_UNDO_TEST_SCRIPT.UndoManagerAdapter = _EDITOR_UNDO_TEST_SCRIPT.UndoManagerAdapter.new()
+	var editor_context: GFEditorToolContext = GFEditorToolContext.new()
+	editor_context.undo_manager = undo_manager
+	dock.set_editor_context(editor_context)
+	add_child(dock)
 	dock.set_graph(graph)
 	var start_control: GraphNode = _graph_node_control(dock, &"start")
 	var end_control: GraphNode = _graph_node_control(dock, &"end")
 
-	dock._on_connection_request(StringName(start_control.name), 0, StringName(end_control.name), 0)
+	dock._graph_edit.connection_request.emit(StringName(start_control.name), 0, StringName(end_control.name), 0)
 
 	assert_true(graph.has_connection(&"start", &"", &"end", &""), "GraphEdit 连线请求应写入 FlowGraph。")
 	dock.free()
+	undo_manager.history.clear_history()
+	undo_manager.history.free()
 	await get_tree().process_frame
 
 
@@ -1131,14 +1139,22 @@ func test_flow_graph_dock_canvas_move_updates_node_position() -> void:
 	start.node_id = &"start"
 	graph.nodes = [start]
 	var dock: GFFlowGraphDock = GFFlowGraphDock.new()
+	var undo_manager: _EDITOR_UNDO_TEST_SCRIPT.UndoManagerAdapter = _EDITOR_UNDO_TEST_SCRIPT.UndoManagerAdapter.new()
+	var editor_context: GFEditorToolContext = GFEditorToolContext.new()
+	editor_context.undo_manager = undo_manager
+	dock.set_editor_context(editor_context)
+	add_child(dock)
 	dock.set_graph(graph)
 	var start_control: GraphNode = _graph_node_control(dock, &"start")
+	dock._graph_edit.begin_node_move.emit()
 	start_control.position_offset = Vector2(42.0, 64.0)
 
-	dock._on_end_node_move()
+	dock._graph_edit.end_node_move.emit()
 
 	assert_eq(start.editor_position, Vector2(42.0, 64.0), "GraphEdit 节点移动应写回 editor_position。")
 	dock.free()
+	undo_manager.history.clear_history()
+	undo_manager.history.free()
 	await get_tree().process_frame
 
 

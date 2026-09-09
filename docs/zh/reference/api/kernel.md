@@ -18,7 +18,7 @@
 | [运行时句柄](#category-runtime_handle) | 9 | 86 | 70 |
 | [值对象](#category-value_object) | 3 | 40 | 34 |
 | [事件契约](#category-event_contract) | 1 | 10 | 10 |
-| [编辑器 API](#category-editor_api) | 26 | 403 | 248 |
+| [编辑器 API](#category-editor_api) | 27 | 412 | 256 |
 | [工具 API](#category-tool_api) | 1 | 22 | 8 |
 
 ## 类
@@ -127,6 +127,7 @@
 | [`GFEditorCommand`](classes/GFEditorCommand.md#gfeditorcommand) | `RefCounted` | `addons/gf/kernel/editor/gf_editor_command.gd` |
 | [`GFEditorCommandRegistry`](classes/GFEditorCommandRegistry.md#gfeditorcommandregistry) | `RefCounted` | `addons/gf/kernel/editor/gf_editor_command_registry.gd` |
 | [`GFEditorCommandSession`](classes/GFEditorCommandSession.md#gfeditorcommandsession) | `RefCounted` | `addons/gf/kernel/editor/gf_editor_command_session.gd` |
+| [`GFEditorMultiPropertyField`](classes/GFEditorMultiPropertyField.md#gfeditormultipropertyfield) | `VBoxContainer` | `addons/gf/kernel/editor/gf_editor_multi_property_field.gd` |
 | [`GFEditorOperationPlan`](classes/GFEditorOperationPlan.md#gfeditoroperationplan) | `RefCounted` | `addons/gf/kernel/editor/gf_editor_operation_plan.gd` |
 | [`GFEditorPickOperation`](classes/GFEditorPickOperation.md#gfeditorpickoperation) | `RefCounted` | `addons/gf/kernel/editor/gf_editor_pick_operation.gd` |
 | [`GFEditorPropertyBatchCommand`](classes/GFEditorPropertyBatchCommand.md#gfeditorpropertybatchcommand) | `GFEditorCommand` | `addons/gf/kernel/editor/gf_editor_property_batch_command.gd` |

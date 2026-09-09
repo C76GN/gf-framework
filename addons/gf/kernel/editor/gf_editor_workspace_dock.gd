@@ -131,6 +131,8 @@ var _version_status_label: Label = null
 var _update_release_button: Button = null
 var _latest_release_url: String = RELEASES_URL
 var _dock_records: Array[Dictionary] = []
+var _editor_context: GFEditorToolContext = null
+var _page_controls: Array[Control] = []
 
 
 # --- Godot 生命周期方法 ---
@@ -144,6 +146,10 @@ func _init() -> void:
 	_build_ui()
 
 
+func _exit_tree() -> void:
+	set_editor_context(null)
+
+
 # --- 公共方法 ---
 
 ## 设置工作区页面记录。
@@ -154,10 +160,26 @@ func _init() -> void:
 ## [br]
 ## @param dock_records: Dock 记录数组。每条记录至少包含 path，可选 label。
 ## [br]
+## @param editor_context: 可选编辑器上下文；在贡献页面入树前注入。
+## [br]
 ## @schema dock_records: Array of Dictionary dock page records.
-func setup(dock_records: Array[Dictionary]) -> void:
+func setup(dock_records: Array[Dictionary], editor_context: GFEditorToolContext = null) -> void:
 	_dock_records = _copy_records(dock_records)
+	_editor_context = editor_context
 	_rebuild_pages()
+
+
+## 更新页面上下文。只有声明 set_editor_context 方法的贡献页面会接收通知。
+## [br]
+## @api framework_internal
+## [br]
+## @layer kernel/editor
+## [br]
+## @param editor_context: 当前上下文；null 表示编辑环境已撤销。
+func set_editor_context(editor_context: GFEditorToolContext) -> void:
+	_editor_context = editor_context
+	for page_control: Control in _page_controls:
+		_forward_page_context(page_control, editor_context)
 
 
 ## 获取工作区页面数量。
@@ -315,6 +337,10 @@ func _rebuild_pages() -> void:
 	if _tabs == null:
 		return
 
+	for page_control: Control in _page_controls:
+		_forward_page_context(page_control, null)
+	_page_controls.clear()
+
 	for child: Node in _tabs.get_children():
 		_tabs.remove_child(child)
 		child.queue_free()
@@ -350,6 +376,9 @@ func _instantiate_page(record: Dictionary) -> Control:
 		push_error("[GF Framework] 工作区面板实例化失败：%s" % script_path)
 		return null
 
+	_page_controls.append(dock)
+	_forward_page_context(dock, _editor_context)
+
 	var label: String = _resolve_page_label(dock, _GF_VARIANT_ACCESS_SCRIPT.get_option_string(record, "label", ""))
 	var short_label: String = _resolve_short_page_label(record, label)
 	var page: Control = Control.new()
@@ -366,6 +395,11 @@ func _instantiate_page(record: Dictionary) -> Control:
 	page.add_child(dock)
 	dock.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	return page
+
+
+func _forward_page_context(page_control: Control, editor_context: GFEditorToolContext) -> void:
+	if is_instance_valid(page_control) and page_control.has_method("set_editor_context"):
+		page_control.call("set_editor_context", editor_context)
 
 
 func _make_empty_page() -> Control:

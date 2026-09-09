@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFResourceTableEditor" path="addons/gf/kernel/editor/gf_resource_table_editor.gd" module="kernel" extends="VBoxContainer" classDigest="d3694a4803a0da9b63a3c0a98f6d70fbcd705222070c4a3acf2d717fe15339f7">
+<class name="GFResourceTableEditor" path="addons/gf/kernel/editor/gf_resource_table_editor.gd" module="kernel" extends="VBoxContainer" classDigest="515f9069413942c3372021da44d978de4a4954d0543734076aff222d6ae8c685">
 	<description>GFResourceTableEditor: 通用 Resource 表格编辑控件。
 提供资源扫描、属性列提取、表格刷新与单元格提交，不绑定具体资源类型或业务数据。</description>
 	<tags>
@@ -128,6 +128,53 @@
 		</member>
 	</properties>
 	<methods>
+		<member kind="method" name="set_editor_context">
+			<signature>func set_editor_context(context: GFEditorToolContext) -&gt; void:</signature>
+			<description>设置多选编辑使用的编辑器上下文。必须提供有效 undo_manager 才可从 UI 应用草稿。
+替换上下文会取消草稿；已有历史动作仍由原管理器持有，且不保活面板。
+既有 commit_cell_value/commit_cell_values 等直接提交方法不受此设置影响。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">context: 编辑器工具上下文；null 使多选应用入口不可用。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="apply_selected_property">
+			<signature>func apply_selected_property() -&gt; Dictionary:</signature>
+			<description>应用当前选择的属性草稿，形成一次可撤销的批量属性事务。
+无上下文、无草稿或预检失败不会写入。原生管理器回调失败时返回实际命令错误，
+但已经建立的原生历史动作可能仍然存在；需要恢复时保留 transaction_command。
+存在待恢复命令时不创建新动作，返回保留的失败报告。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">本次提交结果，并更新面板中的结果提示。</tag>
+				<tag name="schema">return: Dictionary 包含 ok: bool、error: Error、status: String、transaction: Dictionary（GFEditorPropertyBatchCommand 报告）；仅需显式恢复时含 transaction_command: GFEditorPropertyBatchCommand。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="recover_pending_edit">
+			<signature>func recover_pending_edit() -&gt; Dictionary:</signature>
+			<description>恢复待处理事务最近一次失败尝试前的属性状态；不移动原生撤销历史的游标。
+Undo 失败后的恢复仍保留命令的 executed 状态，调用方需重新执行真正的撤销。
+缺少有效上下文时保持待恢复句柄与属性不变，返回保留的失败报告。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">恢复结果；无待恢复命令时返回 ERR_UNAVAILABLE。</tag>
+				<tag name="schema">return: Dictionary 与 apply_selected_property 返回结构相同；恢复失败仍保留 transaction_command，成功后移除此字段。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_multi_edit_report">
+			<signature>func get_multi_edit_report() -&gt; Dictionary:</signature>
+			<description>获取最近一次多选应用、Undo/Redo 或恢复的报告副本。
+成功写入继续发出 cell_value_committed；失败更新诊断而不发出成功通知。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">最近一次命令操作的结果；尚未提交时为空。待恢复句柄不会被取消、上下文替换或重绑定覆盖。</tag>
+				<tag name="schema">return: Dictionary 与 apply_selected_property 返回结构相同。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
 		<member kind="method" name="build_export_columns">
 			<signature>static func build_export_columns(resource: Resource, include_read_only: bool = false) -&gt; Array[Dictionary]:</signature>
 			<description>基于资源属性列表构建可编辑列声明。</description>

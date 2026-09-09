@@ -15,12 +15,32 @@ FlowGraph 图形化编辑与结构检查工作区页面。 为资源化流程图
 
 | 类型 | 名称 | 签名 |
 |---|---|---|
+| 方法 | [`set_editor_context`](#member-gfflowgraphdock-methods-set_editor_context) | `func set_editor_context(context: GFEditorToolContext) -> void:` |
 | 方法 | [`set_graph`](#member-gfflowgraphdock-methods-set_graph) | `func set_graph(graph: GFFlowGraph, path: String = "") -> void:` |
 | 方法 | [`set_graph_path`](#member-gfflowgraphdock-methods-set_graph_path) | `func set_graph_path(path: String) -> void:` |
 | 方法 | [`refresh`](#member-gfflowgraphdock-methods-refresh) | `func refresh() -> void:` |
 | 方法 | [`get_last_view_model`](#member-gfflowgraphdock-methods-get_last_view_model) | `func get_last_view_model() -> Dictionary:` |
 
 ## 方法
+
+<a id="member-gfflowgraphdock-methods-set_editor_context"></a>
+
+### `set_editor_context`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func set_editor_context(context: GFEditorToolContext) -> void:
+```
+
+注入编辑器上下文；缺少有效 UndoRedo 管理器时只允许查看。 上下文撤销或页面离树会终止未提交拖动，不清空编辑器资源历史。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `context` | 工作区提供的编辑器上下文；null 表示撤销编辑权限。 |
 
 <a id="member-gfflowgraphdock-methods-set_graph"></a>
 

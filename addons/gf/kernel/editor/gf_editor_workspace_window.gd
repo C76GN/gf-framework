@@ -68,11 +68,25 @@ func _init() -> void:
 ## [br]
 ## @param dock_records: 页面记录数组。每条记录至少包含 path，可选 label。
 ## [br]
+## @param editor_context: 可选编辑器上下文；页面可通过 set_editor_context 接收。
+## [br]
 ## @schema dock_records: Array of Dictionary dock page records.
-func setup(dock_records: Array[Dictionary]) -> void:
+func setup(dock_records: Array[Dictionary], editor_context: GFEditorToolContext = null) -> void:
 	_dock_records = _copy_records(dock_records)
 	if _workspace != null and _workspace.has_method("setup"):
-		_workspace.call("setup", _dock_records)
+		_workspace.call("setup", _dock_records, editor_context)
+
+
+## 更新已创建页面的编辑器上下文；传入 null 撤销页面的编辑环境。
+## [br]
+## @api framework_internal
+## [br]
+## @layer kernel/editor
+## [br]
+## @param editor_context: 当前上下文或 null。
+func set_editor_context(editor_context: GFEditorToolContext) -> void:
+	if _workspace != null and _workspace.has_method("set_editor_context"):
+		_workspace.call("set_editor_context", editor_context)
 
 
 ## 显示工作区窗口。

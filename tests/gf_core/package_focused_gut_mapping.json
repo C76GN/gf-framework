@@ -46,7 +46,8 @@
       "res://tests/gf_core/extensions/feedback/test_gf_feedback_extension.gd"
     ],
     "gf.extension.flow": [
-      "res://tests/gf_core/extensions/flow/test_gf_flow_graph.gd"
+      "res://tests/gf_core/extensions/flow/test_gf_flow_graph.gd",
+      "res://tests/gf_core/extensions/flow/test_gf_flow_graph_editor_undo.gd"
     ],
     "gf.extension.interaction": [
       "res://tests/gf_core/extensions/interaction/test_gf_interaction_flow_context.gd",
@@ -89,6 +90,9 @@
       "res://tests/gf_core/kernel/editor/test_gf_bake_dependency_report.gd",
       "res://tests/gf_core/kernel/editor/test_gf_editor_command_tools.gd",
       "res://tests/gf_core/kernel/editor/test_gf_editor_property_batch_command.gd",
+      "res://tests/gf_core/kernel/editor/test_gf_editor_workspace_context.gd",
+      "res://tests/gf_core/kernel/editor/test_gf_resource_table_editor.gd",
+      "res://tests/gf_core/kernel/editor/test_gf_resource_table_multi_edit.gd",
       "res://tests/gf_core/kernel/editor/test_gf_editor_operation_plan.gd",
       "res://tests/gf_core/kernel/editor/test_gf_artifact_write_transaction.gd",
       "res://tests/gf_core/kernel/editor/test_gf_generated_artifact_report.gd",

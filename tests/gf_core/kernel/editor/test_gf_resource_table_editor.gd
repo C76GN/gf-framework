@@ -7,6 +7,12 @@ extends GutTest
 const GF_VARIANT_ACCESS = preload("res://addons/gf/kernel/core/gf_variant_access.gd")
 
 
+# --- 公共方法 ---
+
+func after_each() -> void:
+	await get_tree().process_frame
+
+
 # --- 测试 ---
 
 func test_build_export_columns_reads_resource_exports() -> void:
@@ -508,6 +514,292 @@ func test_editor_value_field_supports_vector_values() -> void:
 	assert_eq(offset_value, Vector2(3.5, 4.5), "Vector2 字段应从分量控件读取值。")
 
 
+func test_unbounded_numeric_fields_preserve_negative_and_large_values() -> void:
+	for sample: Variant in [-125, 256, -125.5, 256.25]:
+		var field: GFEditorValueField = GFEditorValueField.new()
+		add_child_autofree(field)
+		field.configure({"name": &"number", "type": typeof(sample)}, sample)
+		var inputs: Array[SpinBox] = _find_input_spins(field)
+		assert_eq(inputs.size(), 1)
+		if inputs.size() != 1:
+			continue
+		assert_true(sample is int or sample is float)
+		var numeric_sample: float = GF_VARIANT_ACCESS.to_float(sample)
+		assert_eq(inputs[0].value, numeric_sample, "无范围提示时控件必须保留原始数值。")
+		assert_eq(typeof(field.get_value()), typeof(sample))
+		var original_matches: bool = field.get_value() == sample
+		assert_true(original_matches, "读取不得隐式截断到 0..100。")
+		inputs[0].value = -512.0 if numeric_sample > 0.0 else 512.0
+		var edited_matches: bool = field.get_value() == inputs[0].value
+		assert_true(edited_matches)
+		assert_eq(absf(inputs[0].value), 512.0, "实际输入也应允许超出默认范围。")
+		field.set_value(sample)
+		var restored_matches: bool = field.get_value() == sample
+		assert_true(restored_matches, "程序赋值应恢复完整数值。")
+
+
+func test_all_vector_fields_preserve_unbounded_components_and_integer_types() -> void:
+	var cases: Array[Dictionary] = [
+		{"value": Vector2(-12.5, 256.25), "edited": Vector2(512.5, -256.25)},
+		{"value": Vector2i(-12, 256), "edited": Vector2i(512, -256)},
+		{"value": Vector3(-12.5, 256.25, -8.5), "edited": Vector3(512.5, -256.25, -8.5)},
+		{"value": Vector3i(-12, 256, -8), "edited": Vector3i(512, -256, -8)},
+		{"value": Vector4(-12.5, 256.25, -8.5, 1024.25), "edited": Vector4(512.5, -256.25, -8.5, 1024.25)},
+		{"value": Vector4i(-12, 256, -8, 1024), "edited": Vector4i(512, -256, -8, 1024)},
+	]
+	for sample: Dictionary in cases:
+		var original: Variant = sample["value"]
+		var expected: Variant = sample["edited"]
+		var integer_components: bool = typeof(original) in [TYPE_VECTOR2I, TYPE_VECTOR3I, TYPE_VECTOR4I]
+		var field: GFEditorValueField = GFEditorValueField.new()
+		add_child_autofree(field)
+		field.configure({"name": &"position", "type": typeof(original)}, original)
+		var inputs: Array[SpinBox] = _find_input_spins(field)
+		var components: PackedFloat64Array = PackedFloat64Array(
+			[-12.0, 256.0, -8.0, 1024.0] if integer_components else [-12.5, 256.25, -8.5, 1024.25]
+		)
+		var component_count: int = 2 if typeof(original) in [TYPE_VECTOR2, TYPE_VECTOR2I] else 3 if typeof(original) in [TYPE_VECTOR3, TYPE_VECTOR3I] else 4
+		assert_eq(inputs.size(), component_count)
+		if inputs.size() != component_count:
+			continue
+		for index: int in range(component_count):
+			assert_eq(inputs[index].value, components[index], "每个实际分量控件都必须保留原值。")
+		assert_eq(typeof(field.get_value()), typeof(original))
+		var original_matches: bool = field.get_value() == original
+		assert_true(original_matches)
+		inputs[0].value = 512.0 if integer_components else 512.5
+		inputs[1].value = -256.0 if integer_components else -256.25
+		assert_eq(typeof(field.get_value()), typeof(original))
+		var edited_matches: bool = field.get_value() == expected
+		assert_true(edited_matches, "编辑 x/y 不得截断值或改变其余分量。")
+
+
+func test_explicit_numeric_ranges_still_constrain_inputs() -> void:
+	for sample: Variant in [0, 0.0, Vector2.ZERO]:
+		var field: GFEditorValueField = GFEditorValueField.new()
+		add_child_autofree(field)
+		field.configure({
+			"name": &"bounded", "type": typeof(sample),
+			"hint": PROPERTY_HINT_RANGE, "hint_string": "-10,10,1",
+		}, sample)
+		var inputs: Array[SpinBox] = _find_input_spins(field)
+		assert_false(inputs.is_empty())
+		for input: SpinBox in inputs:
+			input.value = -256.0
+			assert_eq(input.value, -10.0, "显式最小值仍应约束输入。")
+			input.value = 256.0
+			assert_eq(input.value, 10.0, "显式最大值仍应约束输入。")
+		var bounded_value_matches: bool = field.get_value() == Vector2(10, 10) if sample is Vector2 else field.get_value() == 10
+		assert_true(bounded_value_matches)
+
+
+func test_multi_vector_original_components_apply_without_clamping_and_revert() -> void:
+	for property: StringName in [&"vector", &"integer_vector"]:
+		var first: InputRangeResource = InputRangeResource.new()
+		var second: InputRangeResource = InputRangeResource.new()
+		second.vector = Vector4(-20.5, 512.25, -31.5, 2048.25)
+		second.integer_vector = Vector4i(-20, 512, -31, 2048)
+		var original_first: Variant = first.get(property)
+		var original_second: Variant = second.get(property)
+		var field: GFEditorMultiPropertyField = GFEditorMultiPropertyField.new()
+		add_child_autofree(field)
+		field.configure([first, second], property)
+		var edit_x: CheckBox = _find_component_toggle(field, "x")
+		var edit_y: CheckBox = _find_component_toggle(field, "y")
+		if edit_x == null or edit_y == null:
+			continue
+		edit_x.button_pressed = true
+		edit_y.button_pressed = true
+		var prepared: Dictionary = field.prepare_changes()
+		assert_true(GF_VARIANT_ACCESS.get_option_bool(prepared, "ok"))
+		var first_matches: bool = first.get(property) == original_first
+		var second_matches: bool = second.get(property) == original_second
+		assert_true(first_matches, "勾选和准备不得写入对象。")
+		assert_true(second_matches)
+		var changes: Array[Dictionary] = _prepared_input_changes(prepared)
+		assert_eq(changes.size(), 4, "两目标仅准备勾选的 x/y 分量。")
+		var command: GFEditorPropertyBatchCommand = GFEditorPropertyBatchCommand.new().configure(changes)
+		assert_eq(command.execute(), OK)
+		first_matches = first.get(property) == original_first
+		assert_true(first_matches, "勾选未经改动的原值不得截断第一目标。")
+		if property == &"vector":
+			assert_eq(second.vector, Vector4(-12.5, 256.25, -31.5, 2048.25))
+		else:
+			assert_eq(second.integer_vector, Vector4i(-12, 256, -31, 2048))
+		assert_eq(command.revert(), OK)
+		first_matches = first.get(property) == original_first
+		second_matches = second.get(property) == original_second
+		assert_true(first_matches)
+		assert_true(second_matches, "撤销应恢复各自原始分量。")
+
+
+func test_multiline_value_field_preserves_text_and_distinguishes_sync_from_user_input() -> void:
+	var field: GFEditorValueField = GFEditorValueField.new()
+	add_child_autofree(field)
+	field.set_debounce_seconds(0.1)
+	watch_signals(field)
+	var original: String = "\nfirst\n\nlast\n"
+	field.configure({
+		"name": &"prose", "type": TYPE_STRING, "hint": PROPERTY_HINT_MULTILINE_TEXT,
+	}, original)
+	var input: TextEdit = _find_text_input(field)
+	if input == null:
+		return
+	await get_tree().process_frame
+	await get_tree().process_frame
+	assert_eq(input.text, original)
+	assert_eq(_input_string(field.get_value()), original)
+	assert_signal_not_emitted(field, "value_changed", "configure 过帧后仍不得被解释为用户编辑。")
+	assert_signal_not_emitted(field, "debounced_value_changed")
+	var replacement: String = "\nreplacement\n\n尾行\n\n"
+	field.set_value(replacement)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	assert_eq(input.text, replacement)
+	assert_eq(_input_string(field.get_value()), replacement)
+	assert_signal_not_emitted(field, "value_changed", "set_value 应静默保留首尾换行与空行。")
+	assert_signal_not_emitted(field, "debounced_value_changed")
+	field.set_editable(false)
+	assert_false(input.editable)
+	field.set_editable(true)
+	assert_true(input.editable)
+	input.set_caret_line(0)
+	input.set_caret_column(0)
+	input.insert_text_at_caret("编辑\n")
+	input.insert_text_at_caret("追加\n")
+	var expected: String = "编辑\n追加\n" + replacement
+	await get_tree().process_frame
+	assert_eq(_input_string(field.get_value()), expected)
+	assert_signal_emitted_with_parameters(field, "value_changed", [expected])
+	await get_tree().create_timer(0.15).timeout
+	assert_signal_emitted_with_parameters(field, "debounced_value_changed", [expected])
+	assert_signal_emit_count(field, "debounced_value_changed", 1, "连续原生编辑应合并防抖通知。")
+
+
+func test_multiline_queued_input_is_discarded_when_reconfigured_to_a_number() -> void:
+	var field: GFEditorValueField = GFEditorValueField.new()
+	add_child_autofree(field)
+	field.set_debounce_seconds(0.0)
+	field.configure({
+		"name": &"prose", "type": TYPE_STRING, "hint": PROPERTY_HINT_MULTILINE_TEXT,
+	}, "original\n")
+	var input: TextEdit = _find_text_input(field)
+	if input == null:
+		return
+	await get_tree().process_frame
+	await get_tree().process_frame
+	watch_signals(field)
+	input.insert_text_at_caret("late\n")
+	field.configure({"name": &"amount", "type": TYPE_INT}, 250)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	assert_true(field.get_value() is int)
+	assert_eq(GF_VARIANT_ACCESS.to_int(field.get_value()), 250)
+	assert_signal_not_emitted(field, "value_changed", "旧 TextEdit 的迟到事件不得提交新数值字段。")
+	assert_signal_not_emitted(field, "debounced_value_changed")
+	var current_inputs: Array[SpinBox] = _find_input_spins(field)
+	assert_eq(current_inputs.size(), 1)
+	if current_inputs.size() != 1:
+		return
+	current_inputs[0].value = 300.0
+	await get_tree().process_frame
+	await get_tree().process_frame
+	assert_true(field.get_value() is int)
+	assert_eq(GF_VARIANT_ACCESS.to_int(field.get_value()), 300)
+	assert_signal_emitted_with_parameters(field, "value_changed", [300])
+	assert_signal_emitted_with_parameters(field, "debounced_value_changed", [300])
+	assert_signal_emit_count(field, "value_changed", 1)
+	assert_signal_emit_count(field, "debounced_value_changed", 1)
+
+
+func test_multiline_programmatic_value_supersedes_queued_input_without_disabling_edits() -> void:
+	var field: GFEditorValueField = GFEditorValueField.new()
+	add_child_autofree(field)
+	field.set_debounce_seconds(0.0)
+	field.configure({
+		"name": &"prose", "type": TYPE_STRING, "hint": PROPERTY_HINT_MULTILINE_TEXT,
+	}, "original\n")
+	var input: TextEdit = _find_text_input(field)
+	if input == null:
+		return
+	await get_tree().process_frame
+	await get_tree().process_frame
+	watch_signals(field)
+	input.insert_text_at_caret("late\n")
+	var replacement: String = "\nreplacement\n\n"
+	field.set_value(replacement)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	assert_eq(_input_string(field.get_value()), replacement)
+	assert_signal_not_emitted(field, "value_changed", "程序赋值应取代尚未派发的用户输入。")
+	assert_signal_not_emitted(field, "debounced_value_changed")
+	var current_input: TextEdit = _find_text_input(field)
+	if current_input == null:
+		return
+	assert_eq(current_input.text, replacement)
+	current_input.set_caret_line(0)
+	current_input.set_caret_column(0)
+	current_input.insert_text_at_caret("current\n")
+	var expected: String = "current\n" + replacement
+	await get_tree().process_frame
+	await get_tree().process_frame
+	assert_eq(_input_string(field.get_value()), expected)
+	assert_signal_emitted_with_parameters(field, "value_changed", [expected])
+	assert_signal_emitted_with_parameters(field, "debounced_value_changed", [expected])
+	assert_signal_emit_count(field, "value_changed", 1)
+	assert_signal_emit_count(field, "debounced_value_changed", 1)
+
+
+func test_multi_multiline_text_applies_reverts_and_cancels_without_late_drafts() -> void:
+	var first: InputRangeResource = InputRangeResource.new()
+	var second: InputRangeResource = InputRangeResource.new()
+	var original_first: String = "\nfirst\n\n尾行\n"
+	var original_second: String = "\n\nsecond\n另一行\n\n"
+	first.prose = original_first
+	second.prose = original_second
+	var field: GFEditorMultiPropertyField = GFEditorMultiPropertyField.new()
+	add_child_autofree(field)
+	field.configure([first, second], &"prose")
+	var input: TextEdit = _find_text_input(field)
+	if input == null:
+		return
+	await get_tree().process_frame
+	await get_tree().process_frame
+	assert_eq(input.text, original_first)
+	assert_eq(GF_VARIANT_ACCESS.get_option_string(field.get_snapshot(), "status"), "mixed")
+	assert_false(GF_VARIANT_ACCESS.get_option_bool(field.get_snapshot(), "dirty"))
+	input.set_caret_line(0)
+	input.set_caret_column(0)
+	input.insert_text_at_caret("共同\n")
+	await get_tree().process_frame
+	var expected: String = "共同\n" + original_first
+	assert_eq(first.prose, original_first, "多行输入仅暂存。")
+	assert_eq(second.prose, original_second)
+	var prepared: Dictionary = field.prepare_changes()
+	assert_true(GF_VARIANT_ACCESS.get_option_bool(prepared, "ok"))
+	var changes: Array[Dictionary] = _prepared_input_changes(prepared)
+	assert_eq(changes.size(), 2)
+	var command: GFEditorPropertyBatchCommand = GFEditorPropertyBatchCommand.new().configure(changes)
+	assert_eq(command.execute(), OK)
+	assert_eq(first.prose, expected)
+	assert_eq(second.prose, expected)
+	assert_eq(command.revert(), OK)
+	assert_eq(first.prose, original_first)
+	assert_eq(second.prose, original_second, "撤销必须恢复两份不同的完整多行原文。")
+	input.insert_text_at_caret("应取消\n")
+	field.cancel_edit()
+	await get_tree().process_frame
+	await get_tree().process_frame
+	var restored: TextEdit = _find_text_input(field)
+	if restored == null:
+		return
+	assert_eq(restored.text, original_first)
+	assert_false(GF_VARIANT_ACCESS.get_option_bool(field.get_snapshot(), "dirty"), "重建输入及旧控件迟到事件不得产生草稿。")
+	assert_true(_prepared_input_changes(field.prepare_changes()).is_empty())
+	assert_eq(first.prose, original_first)
+	assert_eq(second.prose, original_second)
+
+
 func test_editor_value_field_custom_factory_and_debounce_signal() -> void:
 	var field: GFEditorValueField = GFEditorValueField.new()
 	add_child_autofree(field)
@@ -554,6 +846,55 @@ func test_resource_table_can_auto_save_committed_resource() -> void:
 
 
 # --- 私有/辅助方法 ---
+
+func _find_input_spins(root: Node) -> Array[SpinBox]:
+	var result: Array[SpinBox] = []
+	for child: Node in root.find_children("*", "SpinBox", true, false):
+		if child is SpinBox:
+			var spin: SpinBox = child
+			result.append(spin)
+	return result
+
+
+func _find_component_toggle(root: Node, component: String) -> CheckBox:
+	var control: Node = root.find_child("Edit_" + component, true, false)
+	assert_true(control is CheckBox)
+	if control is CheckBox:
+		var checkbox: CheckBox = control
+		return checkbox
+	return null
+
+
+func _find_text_input(root: Node) -> TextEdit:
+	var inputs: Array[Node] = root.find_children("*", "TextEdit", true, false)
+	assert_eq(inputs.size(), 1, "多行提示应使用唯一的原生 TextEdit。")
+	if inputs.size() == 1 and inputs[0] is TextEdit:
+		var input: TextEdit = inputs[0]
+		return input
+	return null
+
+
+func _prepared_input_changes(prepared: Dictionary) -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	var raw_changes: Variant = prepared.get("changes")
+	assert_true(raw_changes is Array)
+	if raw_changes is Array:
+		var changes: Array = raw_changes
+		for raw_change: Variant in changes:
+			assert_true(raw_change is Dictionary)
+			if raw_change is Dictionary:
+				var change: Dictionary = raw_change
+				result.append(change)
+	return result
+
+
+func _input_string(value: Variant) -> String:
+	assert_true(value is String)
+	if value is String:
+		var text: String = value
+		return text
+	return ""
+
 
 func _write_empty_user_file(path: String) -> void:
 	var file: FileAccess = FileAccess.open(path, FileAccess.WRITE)
@@ -628,6 +969,14 @@ func _as_config_table_column(value: Variant) -> GFConfigTableColumn:
 
 
 # --- 辅助类型 ---
+
+class InputRangeResource:
+	extends Resource
+
+	@export var vector: Vector4 = Vector4(-12.5, 256.25, -8.5, 1024.25)
+	@export var integer_vector: Vector4i = Vector4i(-12, 256, -8, 1024)
+	@export_multiline var prose: String = ""
+
 
 class TableResource:
 	extends Resource

@@ -35,6 +35,7 @@ var _standard_dock_records: Array[Dictionary] = []
 var _dock_records: Array[Dictionary] = []
 var _editor_base_control: Control = null
 var _workspace_window: GFEditorWorkspaceWindowBase = null
+var _editor_context: GFEditorToolContext = null
 
 
 # --- 公共方法 ---
@@ -55,10 +56,11 @@ func setup(plugin: EditorPlugin, standard_dock_records: Array[Dictionary] = []) 
 		return
 
 	_editor_base_control = EditorInterface.get_base_control()
+	_editor_context = GFEditorToolContext.from_plugin(plugin)
 	set_standard_dock_records(standard_dock_records)
 	_dock_records = _collect_dock_records()
 	if is_instance_valid(_workspace_window):
-		_workspace_window.setup(_dock_records)
+		_workspace_window.setup(_dock_records, _editor_context)
 
 
 ## 移除 GF 编辑器工作区窗口入口。
@@ -70,9 +72,11 @@ func setup(plugin: EditorPlugin, standard_dock_records: Array[Dictionary] = []) 
 ## @param _plugin: 当前 EditorPlugin 实例。
 func cleanup(_plugin: EditorPlugin) -> void:
 	if is_instance_valid(_workspace_window):
+		_workspace_window.set_editor_context(null)
 		_workspace_window.queue_free()
 	_workspace_window = null
 	_editor_base_control = null
+	_editor_context = null
 	_dock_records.clear()
 
 
@@ -216,7 +220,7 @@ func _add_workspace_window(records: Array[Dictionary]) -> bool:
 		return false
 
 	_workspace_window = GFEditorWorkspaceWindowBase.new()
-	_workspace_window.setup(records)
+	_workspace_window.setup(records, _editor_context)
 	_editor_base_control.add_child(_workspace_window)
 	return true
 

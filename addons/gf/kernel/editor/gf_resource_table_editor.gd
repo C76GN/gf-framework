@@ -106,6 +106,7 @@ const _GF_REPORT_VALUE_CODEC_SCRIPT = preload("res://addons/gf/kernel/core/gf_re
 const _GF_VARIANT_ACCESS_SCRIPT = preload("res://addons/gf/kernel/core/gf_variant_access.gd")
 const _OBJECT_PROPERTY_TOOLS = preload("res://addons/gf/kernel/core/gf_object_property_tools.gd")
 const _SCRIPT_TYPE_INSPECTOR = preload("res://addons/gf/kernel/core/gf_script_type_inspector.gd")
+const _MULTI_PROPERTY_FIELD_SCRIPT = preload("res://addons/gf/kernel/editor/gf_editor_multi_property_field.gd")
 
 
 # --- 公共变量 ---
@@ -140,6 +141,17 @@ var _resources: Array[Resource] = []
 var _columns: Array[Dictionary] = []
 var _visible_row_indices: PackedInt32Array = PackedInt32Array()
 var _tree: Tree = null
+var _editor_context: GFEditorToolContext = null
+var _multi_property_picker: OptionButton = null
+var _multi_property_field: GFEditorMultiPropertyField = null
+var _multi_apply: Button = null
+var _multi_cancel: Button = null
+var _multi_recover: Button = null
+var _multi_result: Label = null
+var _multi_recovery_command: GFEditorPropertyBatchCommand = null
+var _selected_property: StringName = &""
+var _last_multi_edit_report: Dictionary = {}
+var _refreshing: bool = false
 
 
 # --- Godot 生命周期方法 ---
@@ -149,6 +161,114 @@ func _ready() -> void:
 
 
 # --- 公共方法 ---
+
+## 设置多选编辑使用的编辑器上下文。必须提供有效 undo_manager 才可从 UI 应用草稿。
+## 替换上下文会取消草稿；已有历史动作仍由原管理器持有，且不保活面板。
+## 既有 commit_cell_value/commit_cell_values 等直接提交方法不受此设置影响。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param context: 编辑器工具上下文；null 使多选应用入口不可用。
+func set_editor_context(context: GFEditorToolContext) -> void:
+	_editor_context = context
+	_ensure_tree()
+	_multi_property_field.cancel_edit()
+	_update_multi_edit_buttons()
+	_reset_multi_edit_message()
+
+
+## 应用当前选择的属性草稿，形成一次可撤销的批量属性事务。
+## 无上下文、无草稿或预检失败不会写入。原生管理器回调失败时返回实际命令错误，
+## 但已经建立的原生历史动作可能仍然存在；需要恢复时保留 transaction_command。
+## 存在待恢复命令时不创建新动作，返回保留的失败报告。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @return 本次提交结果，并更新面板中的结果提示。
+## [br]
+## @schema return: Dictionary 包含 ok: bool、error: Error、status: String、transaction: Dictionary（GFEditorPropertyBatchCommand 报告）；仅需显式恢复时含 transaction_command: GFEditorPropertyBatchCommand。
+func apply_selected_property() -> Dictionary:
+	_ensure_tree()
+	if _multi_recovery_command != null:
+		_display_multi_edit_report()
+		return get_multi_edit_report()
+	if not _has_multi_edit_undo():
+		return _finish_multi_edit(ERR_UNCONFIGURED, "unconfigured")
+	var prepared: Dictionary = _multi_property_field.prepare_changes()
+	if prepared.get("ok") != true:
+		return _finish_multi_edit(ERR_INVALID_DATA, "invalid_selection")
+	var changes: Array[Dictionary] = []
+	var raw_changes: Variant = prepared.get("changes")
+	if raw_changes is Array:
+		var entries: Array = raw_changes
+		for entry: Variant in entries:
+			if entry is Dictionary:
+				var change: Dictionary = entry
+				changes.append(change)
+	if changes.is_empty():
+		return _finish_multi_edit(ERR_UNAVAILABLE, "empty_draft")
+	var command: _MultiEditCommand = _MultiEditCommand.new()
+	command._table_reference = weakref(self)
+	command._property = _selected_property
+	command._auto_save = auto_save_committed_resources
+	for change: Dictionary in changes:
+		var target_value: Variant = change.get("target")
+		if target_value is Resource:
+			var resource: Resource = target_value
+			if not command._resources.has(resource):
+				command._resources.append(resource)
+	var _configured: GFEditorPropertyBatchCommand = command.configure(
+		changes, {"command_name": "Edit Selected Resource Properties"}
+	)
+	var validation: Dictionary = command.validate()
+	if validation.get("ok") != true:
+		return _finish_multi_edit(ERR_INVALID_DATA, "preflight_failed", command)
+	var error: Error = _editor_context.commit_command(command)
+	if error == OK:
+		error = command.get_last_execute_error()
+	return _finish_multi_edit(error, "committed" if error == OK else "failed", command)
+
+
+## 恢复待处理事务最近一次失败尝试前的属性状态；不移动原生撤销历史的游标。
+## Undo 失败后的恢复仍保留命令的 executed 状态，调用方需重新执行真正的撤销。
+## 缺少有效上下文时保持待恢复句柄与属性不变，返回保留的失败报告。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @return 恢复结果；无待恢复命令时返回 ERR_UNAVAILABLE。
+## [br]
+## @schema return: Dictionary 与 apply_selected_property 返回结构相同；恢复失败仍保留 transaction_command，成功后移除此字段。
+func recover_pending_edit() -> Dictionary:
+	_ensure_tree()
+	if _multi_recovery_command == null:
+		return _finish_multi_edit(ERR_UNAVAILABLE, "no_recovery")
+	if not _has_multi_edit_undo():
+		_display_multi_edit_report()
+		return get_multi_edit_report()
+	var command: GFEditorPropertyBatchCommand = _multi_recovery_command
+	var _error: Error = command.recover()
+	return get_multi_edit_report()
+
+
+## 获取最近一次多选应用、Undo/Redo 或恢复的报告副本。
+## 成功写入继续发出 cell_value_committed；失败更新诊断而不发出成功通知。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @return 最近一次命令操作的结果；尚未提交时为空。待恢复句柄不会被取消、上下文替换或重绑定覆盖。
+## [br]
+## @schema return: Dictionary 与 apply_selected_property 返回结构相同。
+func get_multi_edit_report() -> Dictionary:
+	return _last_multi_edit_report.duplicate(true)
+
 
 ## 基于资源属性列表构建可编辑列声明。
 ## [br]
@@ -539,6 +659,7 @@ func commit_visible_cell_values(changes: Array[Dictionary]) -> Dictionary:
 ## @api public
 func refresh() -> void:
 	_ensure_tree()
+	_refreshing = true
 	_rebuild_visible_row_indices()
 	_tree.clear()
 	_tree.columns = _columns.size() + 1
@@ -560,6 +681,9 @@ func refresh() -> void:
 			var property: StringName = _GF_VARIANT_ACCESS_SCRIPT.get_option_string_name(column, "name", &"")
 			var value: Variant = _OBJECT_PROPERTY_TOOLS.read_property(resource, NodePath(String(property)))
 			item.set_text(column_index + 1, _format_cell_value(value))
+	_refreshing = false
+	_rebuild_multi_property_picker()
+	_sync_multi_edit_selection()
 
 
 # --- 私有/辅助方法 ---
@@ -569,12 +693,142 @@ func _ensure_tree() -> void:
 		return
 
 	_tree = Tree.new()
+	_tree.name = "ResourceTree"
 	_tree.hide_root = true
+	_tree.select_mode = Tree.SELECT_MULTI
 	_tree.column_titles_visible = true
 	_tree.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_tree.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	var _connect_result_523: Variant = _tree.item_selected.connect(_on_tree_item_selected)
+	var _multi_connection: int = _tree.multi_selected.connect(_on_tree_multi_selected)
 	add_child(_tree)
+	_multi_property_picker = OptionButton.new()
+	_multi_property_picker.name = "MultiPropertyPicker"
+	var _property_connection: int = _multi_property_picker.item_selected.connect(_on_multi_property_selected)
+	add_child(_multi_property_picker)
+	_multi_property_field = _MULTI_PROPERTY_FIELD_SCRIPT.new()
+	_multi_property_field.name = "MultiPropertyField"
+	var _draft_connection: int = _multi_property_field.draft_changed.connect(_update_multi_edit_buttons)
+	add_child(_multi_property_field)
+	var buttons: HBoxContainer = HBoxContainer.new()
+	_multi_apply = Button.new()
+	_multi_apply.name = "ApplyMultiEdit"
+	_multi_apply.text = "应用"
+	var _apply_connection: int = _multi_apply.pressed.connect(_on_multi_apply_pressed)
+	buttons.add_child(_multi_apply)
+	_multi_cancel = Button.new()
+	_multi_cancel.name = "CancelMultiEdit"
+	_multi_cancel.text = "取消"
+	var _cancel_connection: int = _multi_cancel.pressed.connect(_on_multi_cancel_pressed)
+	buttons.add_child(_multi_cancel)
+	_multi_recover = Button.new()
+	_multi_recover.name = "RecoverMultiEdit"
+	_multi_recover.text = "恢复编辑"
+	_multi_recover.tooltip_text = "恢复失败尝试前的属性状态，然后再继续编辑。"
+	_multi_recover.visible = false
+	var _recover_connection: int = _multi_recover.pressed.connect(_on_multi_recover_pressed)
+	buttons.add_child(_multi_recover)
+	add_child(buttons)
+	_multi_result = Label.new()
+	_multi_result.name = "MultiEditResult"
+	add_child(_multi_result)
+	_sync_multi_edit_selection()
+
+
+func _rebuild_multi_property_picker() -> void:
+	_multi_property_picker.clear()
+	for column: Dictionary in _columns:
+		var property: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(column, "name")
+		if property.is_empty():
+			continue
+		_multi_property_picker.add_item(property)
+	var selected: int = -1
+	for index: int in range(_multi_property_picker.item_count):
+		if _multi_property_picker.get_item_text(index) == String(_selected_property):
+			selected = index
+	if selected < 0 and _multi_property_picker.item_count > 0:
+		selected = 0
+	_multi_property_picker.select(selected)
+	_selected_property = StringName(_multi_property_picker.get_item_text(selected)) if selected >= 0 else &""
+
+
+func _sync_multi_edit_selection() -> void:
+	if _refreshing or _multi_property_field == null:
+		return
+	var targets: Array[Object] = []
+	var item: TreeItem = _tree.get_next_selected(null)
+	while item != null:
+		var row_value: Variant = item.get_metadata(0)
+		if row_value is int:
+			var row_index: int = row_value
+			if row_index >= 0 and row_index < _resources.size():
+				targets.append(_resources[row_index])
+		item = _tree.get_next_selected(item)
+	_multi_property_field.configure(targets, _selected_property)
+	if _multi_result != null:
+		_reset_multi_edit_message()
+
+
+func _has_multi_edit_undo() -> bool:
+	return _editor_context != null and is_instance_valid(_editor_context.undo_manager)
+
+
+func _update_multi_edit_buttons() -> void:
+	if _multi_apply == null:
+		return
+	var snapshot: Dictionary = _multi_property_field.get_snapshot()
+	var editable: bool = snapshot.get("status") in ["uniform", "mixed"]
+	var dirty: bool = snapshot.get("dirty") == true
+	_multi_apply.disabled = not (editable and dirty and _has_multi_edit_undo()) or _multi_recovery_command != null
+	_multi_cancel.disabled = not dirty
+	if _multi_recover != null:
+		_multi_recover.visible = _multi_recovery_command != null
+		_multi_recover.disabled = not _has_multi_edit_undo()
+
+
+func _finish_multi_edit(
+	error: Error, status: String, command: GFEditorPropertyBatchCommand = null, clear_draft: bool = true
+) -> Dictionary:
+	if _multi_recovery_command != null and command != _multi_recovery_command:
+		_display_multi_edit_report()
+		_update_multi_edit_buttons()
+		return get_multi_edit_report()
+	var transaction: Dictionary = command.get_transaction_report() if command != null else {}
+	_last_multi_edit_report = {
+		"ok": error == OK, "error": error, "status": status, "transaction": transaction,
+	}
+	if transaction.get("recovery_required") == true:
+		_multi_recovery_command = command
+		_last_multi_edit_report["transaction_command"] = command
+	elif _multi_recovery_command == command:
+		_multi_recovery_command = null
+	if error == OK and clear_draft:
+		_multi_property_field.cancel_edit()
+	_display_multi_edit_report()
+	_update_multi_edit_buttons()
+	return get_multi_edit_report()
+
+
+func _reset_multi_edit_message() -> void:
+	if _multi_recovery_command != null:
+		_display_multi_edit_report()
+	else:
+		_multi_result.text = "" if _has_multi_edit_undo() else "请提供带 UndoRedo 管理器的编辑器上下文后应用。"
+
+
+func _display_multi_edit_report() -> void:
+	if _last_multi_edit_report.get("ok") == true:
+		var status: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(_last_multi_edit_report, "status")
+		match status:
+			"reverted": _multi_result.text = "已撤销。"
+			"recovered": _multi_result.text = "已恢复失败尝试前的属性状态。"
+			_: _multi_result.text = "已应用。"
+	else:
+		var error: Error = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(_last_multi_edit_report, "error") as Error
+		var status: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(_last_multi_edit_report, "status")
+		_multi_result.text = "属性事务失败：%s（%s）。" % [status, error_string(error)]
+	if _multi_recovery_command != null:
+		_multi_result.text += "请先恢复编辑；新的应用已暂停。"
 
 
 func _commit_resource_cell_value_changes(changes: Array[Dictionary], use_visible_rows: bool) -> Dictionary:
@@ -1263,6 +1517,38 @@ func _format_cell_value(value: Variant) -> String:
 
 # --- 信号处理函数 ---
 
+func _on_multi_command_finished(
+	command: _MultiEditCommand, error: Error, changes: Array[Dictionary], save_errors: Array[Dictionary]
+) -> void:
+	var transaction: Dictionary = command.get_transaction_report()
+	var recovery_required: bool = _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(transaction, "recovery_required")
+	var affects_current_resources: bool = false
+	for resource: Resource in command._resources:
+		if _resources.has(resource):
+			affects_current_resources = true
+			break
+	# 保存错误属于已执行的历史动作，不受当前表格选择过滤。
+	for save_error: Dictionary in save_errors:
+		var resource: Resource = _get_report_resource(save_error)
+		resource_save_failed.emit(
+			resource,
+			_GF_VARIANT_ACCESS_SCRIPT.get_option_string(save_error, "path"),
+			_GF_VARIANT_ACCESS_SCRIPT.get_option_int(save_error, "error") as Error
+		)
+	if not affects_current_resources and _multi_recovery_command != command and not recovery_required:
+		return
+	var has_current_changes: bool = false
+	for change: Dictionary in changes:
+		if not _resources.has(_get_report_resource(change)):
+			continue
+		has_current_changes = true
+		_emit_resource_cell_value_committed(change)
+	if has_current_changes or (error != OK and affects_current_resources):
+		refresh()
+	var status: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(transaction, "status", "failed")
+	var _report: Dictionary = _finish_multi_edit(error, status, command, false)
+
+
 func _on_tree_item_selected() -> void:
 	if _tree == null:
 		return
@@ -1275,3 +1561,120 @@ func _on_tree_item_selected() -> void:
 	var row_index: int = raw_row_index if raw_row_index is int else -1
 	if row_index >= 0 and row_index < _resources.size():
 		resource_selected.emit(_resources[row_index])
+
+
+func _on_tree_multi_selected(_item: TreeItem, _column: int, _selected: bool) -> void:
+	_sync_multi_edit_selection()
+	_on_tree_item_selected()
+
+
+func _on_multi_property_selected(index: int) -> void:
+	_selected_property = StringName(_multi_property_picker.get_item_text(index))
+	_sync_multi_edit_selection()
+
+
+func _on_multi_apply_pressed() -> void:
+	var _report: Dictionary = apply_selected_property()
+
+
+func _on_multi_cancel_pressed() -> void:
+	_multi_property_field.cancel_edit()
+	if _multi_recovery_command != null:
+		_display_multi_edit_report()
+	else:
+		_multi_result.text = "已取消草稿。"
+
+
+func _on_multi_recover_pressed() -> void:
+	var _report: Dictionary = recover_pending_edit()
+
+
+# --- 内部类 ---
+
+class _MultiEditCommand extends GFEditorPropertyBatchCommand:
+	var _table_reference: WeakRef = null
+	var _resources: Array[Resource] = []
+	var _property: StringName = &""
+	var _auto_save: bool = false
+
+
+	## 在编辑器主线程执行属性事务，并报告本次操作的实际结果。
+	## [br]
+	## @api public
+	## [br]
+	## @since unreleased
+	## [br]
+	## @return Godot 错误码；即本次批量执行的实际结果。
+	func execute() -> Error:
+		var before: Array = _read_values()
+		var error: Error = super.execute()
+		_notify_result(before, error)
+		return error
+
+
+	## 在编辑器主线程撤销属性事务，并报告本次操作的实际结果。
+	## [br]
+	## @api public
+	## [br]
+	## @since unreleased
+	## [br]
+	## @return Godot 错误码；即本次批量撤销的实际结果。
+	func revert() -> Error:
+		var before: Array = _read_values()
+		var error: Error = super.revert()
+		_notify_result(before, error)
+		return error
+
+
+	## 在编辑器主线程恢复最近失败尝试前的属性状态，并报告实际结果。
+	## 恢复不会移动原生历史游标，也不将失败的撤销视为已经完成。
+	## [br]
+	## @api public
+	## [br]
+	## @since unreleased
+	## [br]
+	## @return Godot 错误码；即本次失败尝试恢复的实际结果。
+	func recover() -> Error:
+		var before: Array = _read_values()
+		var error: Error = super.recover()
+		_notify_result(before, error)
+		return error
+
+
+	func _read_values() -> Array:
+		var values: Array = []
+		for resource: Resource in _resources:
+			values.append(resource.get(_property) if is_instance_valid(resource) else null)
+		return values
+
+
+	func _notify_result(before: Array, operation_error: Error) -> void:
+		var changes: Array[Dictionary] = []
+		var save_errors: Array[Dictionary] = []
+		for index: int in range(_resources.size()):
+			if operation_error != OK:
+				break
+			var resource: Resource = _resources[index]
+			if not is_instance_valid(resource):
+				continue
+			var after: Variant = resource.get(_property)
+			if before[index] == after:
+				continue
+			changes.append({
+				"resource": resource,
+				"property": _property,
+				"old_value": before[index],
+				"new_value": after,
+			})
+			resource.emit_changed()
+			if _auto_save and not resource.resource_path.is_empty():
+				var path: String = resource.resource_path
+				var error: Error = ResourceSaver.save(resource, path)
+				if error != OK:
+					save_errors.append({"resource": resource, "path": path, "error": error})
+		if _table_reference == null:
+			return
+		var table_value: Variant = _table_reference.get_ref()
+		if table_value is GFResourceTableEditor and is_instance_valid(table_value):
+			var table: GFResourceTableEditor = table_value
+			table._on_multi_command_finished(self, operation_error, changes, save_errors)

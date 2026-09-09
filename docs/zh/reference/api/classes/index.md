@@ -6,7 +6,7 @@
 
 | 模块 | 类 | 成员 | 页面内索引 |
 |---|---:|---:|---|
-| Kernel | 77 | 1128 | [Kernel](#module-kernel) |
+| Kernel | 78 | 1137 | [Kernel](#module-kernel) |
 | Standard | 479 | 7569 | [Standard](#module-standard) |
 | Action Queue | 16 | 214 | [Action Queue](#module-extensions-action_queue) |
 | Asset Metadata | 4 | 33 | [Asset Metadata](#module-extensions-asset_metadata) |
@@ -19,7 +19,7 @@
 | Dialogue | 5 | 75 | [Dialogue](#module-extensions-dialogue) |
 | Domain | 21 | 336 | [Domain](#module-extensions-domain) |
 | Feedback | 8 | 141 | [Feedback](#module-extensions-feedback) |
-| Flow | 7 | 138 | [Flow](#module-extensions-flow) |
+| Flow | 7 | 139 | [Flow](#module-extensions-flow) |
 | Interaction | 6 | 82 | [Interaction](#module-extensions-interaction) |
 | Extensions / Layered Sprite | 4 | 46 | [Extensions / Layered Sprite](#module-extensions-layered_sprite) |
 | Network | 38 | 602 | [Network](#module-extensions-network) |
@@ -92,6 +92,7 @@
 | [`GFEditorCommand`](GFEditorCommand.md#gfeditorcommand) | 编辑器 API (`editor_api`) | `RefCounted` | 18 | `addons/gf/kernel/editor/gf_editor_command.gd` |
 | [`GFEditorCommandRegistry`](GFEditorCommandRegistry.md#gfeditorcommandregistry) | 编辑器 API (`editor_api`) | `RefCounted` | 20 | `addons/gf/kernel/editor/gf_editor_command_registry.gd` |
 | [`GFEditorCommandSession`](GFEditorCommandSession.md#gfeditorcommandsession) | 编辑器 API (`editor_api`) | `RefCounted` | 10 | `addons/gf/kernel/editor/gf_editor_command_session.gd` |
+| [`GFEditorMultiPropertyField`](GFEditorMultiPropertyField.md#gfeditormultipropertyfield) | 编辑器 API (`editor_api`) | `VBoxContainer` | 5 | `addons/gf/kernel/editor/gf_editor_multi_property_field.gd` |
 | [`GFEditorOperationPlan`](GFEditorOperationPlan.md#gfeditoroperationplan) | 编辑器 API (`editor_api`) | `RefCounted` | 17 | `addons/gf/kernel/editor/gf_editor_operation_plan.gd` |
 | [`GFEditorPickOperation`](GFEditorPickOperation.md#gfeditorpickoperation) | 编辑器 API (`editor_api`) | `RefCounted` | 18 | `addons/gf/kernel/editor/gf_editor_pick_operation.gd` |
 | [`GFEditorPropertyBatchCommand`](GFEditorPropertyBatchCommand.md#gfeditorpropertybatchcommand) | 编辑器 API (`editor_api`) | `GFEditorCommand` | 19 | `addons/gf/kernel/editor/gf_editor_property_batch_command.gd` |
@@ -105,7 +106,7 @@
 | [`GFExtensionUsageAudit`](GFExtensionUsageAudit.md#gfextensionusageaudit) | 编辑器 API (`editor_api`) | `RefCounted` | 18 | `addons/gf/kernel/extension/gf_extension_usage_audit.gd` |
 | [`GFGeneratedArtifactReport`](GFGeneratedArtifactReport.md#gfgeneratedartifactreport) | 编辑器 API (`editor_api`) | `RefCounted` | 12 | `addons/gf/kernel/editor/gf_generated_artifact_report.gd` |
 | [`GFResourcePathHint`](GFResourcePathHint.md#gfresourcepathhint) | 编辑器 API (`editor_api`) | `Object` | 2 | `addons/gf/kernel/editor/gf_resource_path_hint.gd` |
-| [`GFResourceTableEditor`](GFResourceTableEditor.md#gfresourcetableeditor) | 编辑器 API (`editor_api`) | `VBoxContainer` | 33 | `addons/gf/kernel/editor/gf_resource_table_editor.gd` |
+| [`GFResourceTableEditor`](GFResourceTableEditor.md#gfresourcetableeditor) | 编辑器 API (`editor_api`) | `VBoxContainer` | 37 | `addons/gf/kernel/editor/gf_resource_table_editor.gd` |
 | [`GFSceneSignalAudit`](GFSceneSignalAudit.md#gfscenesignalaudit) | 编辑器 API (`editor_api`) | `RefCounted` | 11 | `addons/gf/kernel/editor/gf_scene_signal_audit.gd` |
 | [`GFScriptPatchUtility`](GFScriptPatchUtility.md#gfscriptpatchutility) | 编辑器 API (`editor_api`) | `RefCounted` | 3 | `addons/gf/kernel/editor/gf_script_patch_utility.gd` |
 | [`GFSourceBuilder`](GFSourceBuilder.md#gfsourcebuilder) | 编辑器 API (`editor_api`) | `RefCounted` | 8 | `addons/gf/kernel/editor/gf_source_builder.gd` |
@@ -868,7 +869,7 @@
 | [`GFFlowNode`](GFFlowNode.md#gfflownode) | 资源定义 (`resource_definition`) | `Resource` | 27 | `addons/gf/extensions/flow/resources/gf_flow_node.gd` |
 | [`GFFlowPort`](GFFlowPort.md#gfflowport) | 资源定义 (`resource_definition`) | `Resource` | 18 | `addons/gf/extensions/flow/resources/gf_flow_port.gd` |
 | [`GFFlowContext`](GFFlowContext.md#gfflowcontext) | 运行时句柄 (`runtime_handle`) | `RefCounted` | 22 | `addons/gf/extensions/flow/runtime/gf_flow_context.gd` |
-| [`GFFlowGraphDock`](GFFlowGraphDock.md#gfflowgraphdock) | 编辑器 API (`editor_api`) | `Control` | 4 | `addons/gf/extensions/flow/editor/gf_flow_graph_dock.gd` |
+| [`GFFlowGraphDock`](GFFlowGraphDock.md#gfflowgraphdock) | 编辑器 API (`editor_api`) | `Control` | 5 | `addons/gf/extensions/flow/editor/gf_flow_graph_dock.gd` |
 | [`GFFlowGraphEditorModel`](GFFlowGraphEditorModel.md#gfflowgrapheditormodel) | 编辑器 API (`editor_api`) | `RefCounted` | 13 | `addons/gf/extensions/flow/editor/gf_flow_graph_editor_model.gd` |
 
 <a id="module-extensions-interaction"></a>

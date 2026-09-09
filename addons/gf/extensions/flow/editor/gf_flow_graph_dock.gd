@@ -43,6 +43,15 @@ var _graph_edit: GraphEdit = null
 var _tree: Tree = null
 var _details: TextEdit = null
 var _file_dialog: FileDialog = null
+var _editor_context: GFEditorToolContext = null
+var _command_session: GFEditorCommandSession = GFEditorCommandSession.new()
+var _auto_layout_button: Button = null
+var _save_button: Button = null
+var _refresh_pending: bool = false
+var _move_graph: GFFlowGraph = null
+var _recovery_command: GFFlowGraphEditCommand = null
+var _recovery_button: Button = null
+var _last_edit_report: Dictionary = {}
 
 
 # --- Godot 生命周期方法 ---
@@ -54,7 +63,33 @@ func _init() -> void:
 	refresh()
 
 
+func _enter_tree() -> void:
+	_connect_graph_changes()
+	_update_edit_availability()
+
+
+func _exit_tree() -> void:
+	_disconnect_graph_changes()
+	_editor_context = null
+	_move_graph = null
+	_command_session.clear_history()
+
+
 # --- 公共方法 ---
+
+## 注入编辑器上下文；缺少有效 UndoRedo 管理器时只允许查看。
+## 上下文撤销或页面离树会终止未提交拖动，不清空编辑器资源历史。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param context: 工作区提供的编辑器上下文；null 表示撤销编辑权限。
+func set_editor_context(context: GFEditorToolContext) -> void:
+	_editor_context = context
+	_move_graph = null
+	refresh()
+
 
 ## 设置当前查看的 FlowGraph。
 ## [br]
@@ -66,11 +101,18 @@ func _init() -> void:
 ## [br]
 ## @param path: 可选资源路径。
 func set_graph(graph: GFFlowGraph, path: String = "") -> void:
+	if _recovery_command != null and graph != _graph:
+		_show_details(_last_edit_report)
+		return
+	_disconnect_graph_changes()
+	_move_graph = null
+	_last_edit_report.clear()
 	_graph = graph
 	var candidate_path: String = path if not path.is_empty() else (graph.resource_path if graph != null else "")
 	_graph_path = candidate_path if candidate_path.is_empty() or _is_project_resource_path(candidate_path) else ""
 	if _path_edit != null:
 		_path_edit.text = _graph_path
+	_connect_graph_changes()
 	refresh()
 
 
@@ -82,6 +124,12 @@ func set_graph(graph: GFFlowGraph, path: String = "") -> void:
 ## [br]
 ## @param path: `res://` 资源路径。
 func set_graph_path(path: String) -> void:
+	if _recovery_command != null:
+		_show_details(_last_edit_report)
+		return
+	_disconnect_graph_changes()
+	_move_graph = null
+	_last_edit_report.clear()
 	var candidate_path: String = path.strip_edges()
 	_graph_path = candidate_path if _is_project_resource_path(candidate_path) else ""
 	if _graph_path.is_empty():
@@ -89,6 +137,7 @@ func set_graph_path(path: String) -> void:
 	if _path_edit != null:
 		_path_edit.text = _graph_path
 	_load_graph_from_path()
+	_connect_graph_changes()
 	refresh()
 
 
@@ -102,6 +151,7 @@ func refresh() -> void:
 	if _graph == null and not _graph_path.is_empty():
 		_load_graph_from_path()
 	_render_graph()
+	_update_edit_availability()
 
 
 ## 获取最近一次 FlowGraph 视图模型。
@@ -117,7 +167,94 @@ func get_last_view_model() -> Dictionary:
 	return _last_view_model.duplicate(true)
 
 
+# --- 框架内部方法 ---
+
+## 接收当前资源命令的结果；旧页面命令不能覆盖新资源状态。
+## [br]
+## @api framework_internal
+## [br]
+## @param command: 当前图资源的编辑命令，从其事务报告读取执行结果和待恢复状态。
+func accept_flow_edit_result(command: GFFlowGraphEditCommand) -> void:
+	if not is_inside_tree() or command.get_graph_for_editor() != _graph:
+		return
+	_last_edit_report = command.get_transaction_report()
+	if GFVariantData.get_option_bool(_last_edit_report, "recovery_required"):
+		_recovery_command = command
+	elif _recovery_command == command:
+		_recovery_command = null
+	_on_graph_changed()
+
+
 # --- 私有/辅助方法 ---
+
+func _can_edit() -> bool:
+	return _graph != null and is_inside_tree() and _editor_context != null and is_instance_valid(_editor_context.undo_manager) and _recovery_command == null
+
+
+func _update_edit_availability() -> void:
+	var editable: bool = _can_edit()
+	if _auto_layout_button != null:
+		_auto_layout_button.disabled = not editable
+	if _save_button != null:
+		_save_button.disabled = not editable
+	if _recovery_button != null:
+		_recovery_button.visible = _recovery_command != null
+		_recovery_button.disabled = _editor_context == null or not is_instance_valid(_editor_context.undo_manager)
+	for value: Variant in _node_controls_by_id.values():
+		var node: GraphNode = _get_graph_node_value(value)
+		if node != null:
+			node.draggable = editable
+
+
+func _connect_graph_changes() -> void:
+	if _graph != null and is_inside_tree() and not _graph.changed.is_connected(_on_graph_changed):
+		var _error: Error = _graph.changed.connect(_on_graph_changed) as Error
+
+
+func _disconnect_graph_changes() -> void:
+	if _graph != null and _graph.changed.is_connected(_on_graph_changed):
+		_graph.changed.disconnect(_on_graph_changed)
+
+
+func _refresh_after_graph_change() -> void:
+	_refresh_pending = false
+	if is_inside_tree():
+		_move_graph = null
+		refresh()
+		if not _last_edit_report.is_empty():
+			_show_details(_last_edit_report)
+
+
+func _commit_edit(command: GFFlowGraphEditCommand) -> void:
+	if not _can_edit() or command == null:
+		refresh()
+		return
+	var preflight: Dictionary = command.validate()
+	if not GFVariantData.get_option_bool(preflight, "ok"):
+		refresh()
+		_show_details(preflight)
+		return
+	command.observe_page(self)
+	var result: Dictionary = _command_session.commit_command(command, _editor_context)
+	refresh()
+	if not GFVariantData.get_option_bool(result, "ok"):
+		_last_edit_report = result
+		_show_details(result)
+	else:
+		_last_edit_report = command.get_transaction_report()
+		if command.get_last_execute_error() != OK:
+			_last_edit_report["ok"] = false
+			_last_edit_report["error"] = command.get_last_execute_error()
+		_show_details(_last_edit_report)
+
+
+func _get_canvas_positions() -> Dictionary:
+	var positions: Dictionary = {}
+	for key: Variant in _node_controls_by_id:
+		var node: GraphNode = _get_graph_node_value(_node_controls_by_id[key])
+		if node != null:
+			positions[key] = node.position_offset
+	return positions
 
 func _get_string_name_value(value: Variant, default_value: StringName = &"") -> StringName:
 	if value is StringName:
@@ -265,8 +402,13 @@ func _build_ui() -> void:
 
 	toolbar.add_child(_make_workspace_button("...", "选择 FlowGraph 资源。", _on_browse_pressed))
 	toolbar.add_child(_make_workspace_button("刷新", "重新加载并校验当前 FlowGraph。", _on_refresh_pressed))
-	toolbar.add_child(_make_workspace_button("自动布局", "按通用分层布局写入节点 editor_position。", _on_auto_layout_pressed))
-	toolbar.add_child(_make_workspace_button("保存", "保存当前 FlowGraph 资源。", _on_save_pressed))
+	_auto_layout_button = _make_workspace_button("自动布局", "按通用分层布局写入节点 editor_position。", _on_auto_layout_pressed)
+	toolbar.add_child(_auto_layout_button)
+	_save_button = _make_workspace_button("保存", "保存当前 FlowGraph 资源。", _on_save_pressed)
+	toolbar.add_child(_save_button)
+	_recovery_button = _make_workspace_button("恢复编辑", "恢复未完整补偿的属性事务后再继续编辑。", _on_recover_pressed)
+	_recovery_button.visible = false
+	toolbar.add_child(_recovery_button)
 
 	_summary_label = _make_summary_label()
 	root_box.add_child(_summary_label)
@@ -286,6 +428,7 @@ func _build_ui() -> void:
 	_connect_graph_edit_signal("disconnection_request", _on_disconnection_request)
 	_connect_graph_edit_signal("delete_nodes_request", _on_delete_nodes_request)
 	_connect_graph_edit_signal("node_selected", _on_node_selected)
+	_connect_graph_edit_signal("begin_node_move", _on_begin_node_move)
 	_connect_graph_edit_signal("end_node_move", _on_end_node_move)
 	_content_split.add_child(_graph_edit)
 
@@ -558,10 +701,9 @@ func _render_entries(view_model: Dictionary) -> void:
 
 
 func _save_graph() -> Error:
-	if _graph == null:
+	if not _can_edit():
 		return ERR_UNCONFIGURED
 
-	_apply_canvas_layout_to_graph()
 	var output_path: String = _graph_path
 	if output_path.is_empty():
 		output_path = _graph.resource_path
@@ -574,19 +716,6 @@ func _save_graph() -> Error:
 		if filesystem != null:
 			filesystem.scan()
 	return error
-
-
-func _apply_canvas_layout_to_graph() -> void:
-	if _graph == null:
-		return
-
-	for node_id_variant: Variant in _node_controls_by_id.keys():
-		var node_id: StringName = _get_string_name_value(node_id_variant)
-		var graph_node: GraphNode = _get_graph_node_value(GFVariantData.get_option_value(_node_controls_by_id, node_id))
-		if graph_node != null:
-			var applied: bool = _graph.set_node_editor_position(node_id, graph_node.position_offset)
-			if applied:
-				continue
 
 
 func _get_node_id_for_control(control_name: StringName) -> StringName:
@@ -639,6 +768,28 @@ func _safe_json(value: Variant) -> String:
 
 # --- 信号处理函数 ---
 
+func _on_graph_changed() -> void:
+	if not _refresh_pending:
+		_refresh_pending = true
+		_refresh_after_graph_change.call_deferred()
+
+
+func _on_begin_node_move() -> void:
+	_move_graph = _graph if _can_edit() else null
+
+
+func _on_recover_pressed() -> void:
+	if _recovery_command == null or _editor_context == null or not is_instance_valid(_editor_context.undo_manager):
+		return
+	var command: GFFlowGraphEditCommand = _recovery_command
+	var error: Error = command.recover()
+	accept_flow_edit_result(command)
+	if error == OK:
+		_graph.emit_changed()
+	refresh()
+	_show_details(command.get_transaction_report())
+
+
 func _on_path_submitted(path: String) -> void:
 	set_graph_path(path)
 
@@ -653,19 +804,24 @@ func _on_file_selected(path: String) -> void:
 
 
 func _on_refresh_pressed() -> void:
+	if _recovery_command != null:
+		_show_details(_last_edit_report)
+		return
+	_disconnect_graph_changes()
+	_move_graph = null
 	_graph_path = _path_edit.text.strip_edges() if _path_edit != null else _graph_path
 	_load_graph_from_path()
+	_connect_graph_changes()
 	refresh()
 
 
 func _on_auto_layout_pressed() -> void:
-	if _graph == null:
+	if not _can_edit():
 		return
 
 	var editor_model: GFFlowGraphEditorModel = GFFlowGraphEditorModel.new()
-	var report: Dictionary = editor_model.auto_layout(_graph, _DEFAULT_LAYOUT_OPTIONS)
-	refresh()
-	_show_details(report)
+	var positions: Dictionary = editor_model.build_layout_positions(_graph, _DEFAULT_LAYOUT_OPTIONS)
+	_commit_edit(GFFlowGraphEditCommand.create_layout_edit(_graph, positions, "自动布局 Flow 节点"))
 
 
 func _on_save_pressed() -> void:
@@ -679,7 +835,7 @@ func _on_connection_request(
 	to_control_name: StringName,
 	to_port_index: int
 ) -> void:
-	if _graph == null:
+	if not _can_edit():
 		return
 
 	var from_node_id: StringName = _get_node_id_for_control(from_control_name)
@@ -695,20 +851,14 @@ func _on_connection_request(
 		})
 		return
 
-	var added: bool = _graph.add_connection(
+	var command: GFFlowGraphEditCommand = GFFlowGraphEditCommand.create_connection_edit(
+		_graph,
 		from_node_id,
 		GFVariantData.get_option_string_name(from_lookup, "port_id", &""),
 		to_node_id,
 		GFVariantData.get_option_string_name(to_lookup, "port_id", &"")
 	)
-	var report: Dictionary = {
-		"ok": added,
-		"action": "add_connection",
-		"from_node_id": from_node_id,
-		"to_node_id": to_node_id,
-	}
-	refresh()
-	_show_details(report)
+	_commit_edit(command)
 
 
 func _on_disconnection_request(
@@ -717,33 +867,26 @@ func _on_disconnection_request(
 	to_control_name: StringName,
 	to_port_index: int
 ) -> void:
-	if _graph == null:
+	if not _can_edit():
 		return
 
 	var from_node_id: StringName = _get_node_id_for_control(from_control_name)
 	var to_node_id: StringName = _get_node_id_for_control(to_control_name)
 	var from_lookup: Dictionary = _get_port_lookup_for_slot(from_node_id, "output_ports", from_port_index)
 	var to_lookup: Dictionary = _get_port_lookup_for_slot(to_node_id, "input_ports", to_port_index)
-	var removed: bool = false
 	if GFVariantData.get_option_bool(from_lookup, "ok", false) and GFVariantData.get_option_bool(to_lookup, "ok", false):
-		removed = _graph.remove_connection(
+		_commit_edit(GFFlowGraphEditCommand.create_connection_edit(
+			_graph,
 			from_node_id,
 			GFVariantData.get_option_string_name(from_lookup, "port_id", &""),
 			to_node_id,
-			GFVariantData.get_option_string_name(to_lookup, "port_id", &"")
-		)
-	var report: Dictionary = {
-		"ok": removed,
-		"action": "remove_connection",
-		"from_node_id": from_node_id,
-		"to_node_id": to_node_id,
-	}
-	refresh()
-	_show_details(report)
+			GFVariantData.get_option_string_name(to_lookup, "port_id", &""),
+			true
+		))
 
 
 func _on_delete_nodes_request(control_names: Array) -> void:
-	if _graph == null:
+	if not _can_edit():
 		return
 
 	var node_ids: PackedStringArray = PackedStringArray()
@@ -754,10 +897,7 @@ func _on_delete_nodes_request(control_names: Array) -> void:
 	if node_ids.is_empty() and _selected_node_id != &"":
 		_append_packed_string(node_ids, String(_selected_node_id))
 
-	var editor_model: GFFlowGraphEditorModel = GFFlowGraphEditorModel.new()
-	var report: Dictionary = editor_model.remove_nodes(_graph, node_ids)
-	refresh()
-	_show_details(report)
+	_commit_edit(GFFlowGraphEditCommand.create_node_removal(_graph, node_ids))
 
 
 func _on_node_selected(node: Node) -> void:
@@ -771,8 +911,12 @@ func _on_node_selected(node: Node) -> void:
 
 
 func _on_end_node_move() -> void:
-	_apply_canvas_layout_to_graph()
-	refresh()
+	if _move_graph == null or _move_graph != _graph or not _can_edit():
+		_move_graph = null
+		refresh()
+		return
+	_move_graph = null
+	_commit_edit(GFFlowGraphEditCommand.create_layout_edit(_graph, _get_canvas_positions(), "移动 Flow 节点"))
 
 
 func _on_item_selected() -> void:
