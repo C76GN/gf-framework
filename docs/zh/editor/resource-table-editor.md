@@ -44,6 +44,8 @@ table.load_resources(resources)
 
 “应用”调用 `apply_selected_property()`，把全部已勾选分量交给一条 `GFEditorPropertyBatchCommand`，由上下文管理器形成一次 Undo/Redo。只有事务成功并实际改变资源时，才发出 `Resource.changed`、`cell_value_committed` 并刷新表格；自动保存继续遵循上述可选、非磁盘事务规则。撤销和重做同样通知与保存，历史命令保活资源，弱引用面板；关闭面板后仍能重放资源修改。
 
+表格仍存活但已绑定另一组资源时，旧历史动作不会刷新当前表格或覆盖草稿；旧资源的自动保存失败仍通过 `resource_save_failed` 上报，信号携带发生失败的原资源、路径和错误码。
+
 “取消”、清空或更换选择、切换属性、刷新表格、替换上下文以及离树都会丢弃未应用的草稿，不修改资源。缺失属性、失效目标、只读声明以及不同类型或编辑提示的组合会禁止整批提交，不会只修改其中一部分。当前支持 `bool`、`int`、`float`、`String`、`StringName`、`NodePath` 和 `Vector2/3/4` 及其整数类型；其他类型仅展示，不递归展开 Resource、数组或字典。
 
 `get_multi_edit_report()` 返回最近一次应用、撤销、重做或恢复的实际结果。原生管理器可能已建立或移动历史动作，而命令回调随后失败，因此以报告的 `ok`、`error` 和实际事务报告判断结果。失败不会发出成功的单元格通知，面板会刷新当前资源的实际值并显示诊断。
@@ -56,7 +58,9 @@ table.load_resources(resources)
 
 ## 值字段控件
 
-`GFEditorValueField` 是表格和自定义 Inspector 可复用的单值输入控件。默认会按 Godot property info 创建 bool、int、float、enum、Vector2/3/4、Color、StringName、NodePath、Array 和 Dictionary 输入；Array / Dictionary 仍使用 JSON 文本输入，并在解析失败时保留旧值。
+`GFEditorValueField` 是表格和自定义 Inspector 可复用的单值输入控件。默认会按 Godot property info 创建 bool、int、float、enum、Vector2/3/4、Color、String、StringName、NodePath、Array 和 Dictionary 输入；Array / Dictionary 仍使用 JSON 文本输入，并在解析失败时保留旧值。
+
+数值字段没有 `PROPERTY_HINT_RANGE` 时允许负值和大于默认控件上限的值；声明范围时继续使用属性提示中的上下限和步长。带 `PROPERTY_HINT_MULTILINE_TEXT` 的 String 使用多行文本框，保留空白行与首尾换行，支持同样的值同步、只读和防抖信号。这些行为也适用于多选属性编辑中的标量与向量分量输入。
 
 ```gdscript
 var field := GFEditorValueField.new()

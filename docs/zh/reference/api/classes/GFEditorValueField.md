@@ -9,7 +9,7 @@
 - 类别：编辑器 API (`editor_api`)
 - 首次版本：`3.17.0`
 
-编辑器通用 Variant 值输入控件。 根据 Godot 属性信息创建基础输入控件，适合 Inspector、Dock 或批量资源表格复用。 支持调用方注册自定义控件工厂；自定义控件只需遵循 get_value、set_value、set_editable 和 value_changed 信号约定即可接入。
+编辑器通用 Variant 值输入控件。 根据 Godot 属性信息创建基础输入控件，适合 Inspector、Dock 或批量资源表格复用。 未声明范围的数值允许负值和大值；多行 String 提示使用保留换行的文本框。 支持调用方注册自定义控件工厂；自定义控件只需遵循 get_value、set_value、set_editable 和 value_changed 信号约定即可接入。
 
 ## 成员概览
 

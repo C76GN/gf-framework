@@ -1527,6 +1527,14 @@ func _on_multi_command_finished(
 		if _resources.has(resource):
 			affects_current_resources = true
 			break
+	# 保存错误属于已执行的历史动作，不受当前表格选择过滤。
+	for save_error: Dictionary in save_errors:
+		var resource: Resource = _get_report_resource(save_error)
+		resource_save_failed.emit(
+			resource,
+			_GF_VARIANT_ACCESS_SCRIPT.get_option_string(save_error, "path"),
+			_GF_VARIANT_ACCESS_SCRIPT.get_option_int(save_error, "error") as Error
+		)
 	if not affects_current_resources and _multi_recovery_command != command and not recovery_required:
 		return
 	var has_current_changes: bool = false
@@ -1535,13 +1543,6 @@ func _on_multi_command_finished(
 			continue
 		has_current_changes = true
 		_emit_resource_cell_value_committed(change)
-	for save_error: Dictionary in save_errors:
-		var resource: Resource = _get_report_resource(save_error)
-		resource_save_failed.emit(
-			resource,
-			_GF_VARIANT_ACCESS_SCRIPT.get_option_string(save_error, "path"),
-			_GF_VARIANT_ACCESS_SCRIPT.get_option_int(save_error, "error") as Error
-		)
 	if has_current_changes or (error != OK and affects_current_resources):
 		refresh()
 	var status: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(transaction, "status", "failed")

@@ -3,6 +3,7 @@
 ## GFEditorValueField: 编辑器通用 Variant 值输入控件。
 ##
 ## 根据 Godot 属性信息创建基础输入控件，适合 Inspector、Dock 或批量资源表格复用。
+## 未声明范围的数值允许负值和大值；多行 String 提示使用保留换行的文本框。
 ## 支持调用方注册自定义控件工厂；自定义控件只需遵循 get_value、set_value、set_editable
 ## 和 value_changed 信号约定即可接入。
 ## [br]
@@ -283,6 +284,13 @@ func _create_editor_for_type(value_type: Variant.Type) -> Control:
 	if _is_enum_property(value_type):
 		return _create_enum_editor()
 
+	if value_type == TYPE_STRING and _get_property_hint() == PROPERTY_HINT_MULTILINE_TEXT:
+		var text_edit: TextEdit = TextEdit.new()
+		text_edit.custom_minimum_size.y = 96.0
+		text_edit.wrap_mode = TextEdit.LINE_WRAPPING_BOUNDARY
+		var _connect_result_multiline: Error = text_edit.text_changed.connect(_on_multiline_text_changed.bind(text_edit)) as Error
+		return text_edit
+
 	match value_type:
 		TYPE_BOOL:
 			var checkbox: CheckBox = CheckBox.new()
@@ -386,6 +394,12 @@ func _sync_editor_from_value() -> void:
 		_is_updating = false
 		return
 
+	if _editor is TextEdit:
+		var text_edit: TextEdit = _editor
+		text_edit.text = _stringify_value(_value)
+		_is_updating = false
+		return
+
 	match value_type:
 		TYPE_BOOL:
 			var checkbox: CheckBox = _get_checkbox_editor()
@@ -419,6 +433,10 @@ func _read_editor_value() -> Variant:
 	if _is_enum_property(value_type):
 		var option_button: OptionButton = _get_option_button_editor()
 		return option_button.get_selected_id() if option_button != null else _value
+
+	if _editor is TextEdit:
+		var text_edit: TextEdit = _editor
+		return text_edit.text
 
 	match value_type:
 		TYPE_BOOL:
@@ -461,6 +479,9 @@ func _apply_editable_state(control: Control) -> void:
 	elif control is LineEdit:
 		var line_edit: LineEdit = control
 		line_edit.editable = _editable
+	elif control is TextEdit:
+		var text_edit: TextEdit = control
+		text_edit.editable = _editable
 	elif control is SpinBox:
 		var spin: SpinBox = control
 		spin.editable = _editable
@@ -478,6 +499,8 @@ func _apply_editable_state(control: Control) -> void:
 
 func _apply_spin_options(spin: SpinBox, integer_value: bool) -> void:
 	if _get_property_hint() != PROPERTY_HINT_RANGE:
+		spin.allow_lesser = true
+		spin.allow_greater = true
 		return
 	var parts: PackedStringArray = _get_property_hint_string().split(",", false)
 	if parts.size() >= 1 and parts[0].is_valid_float():
@@ -799,6 +822,13 @@ func _on_custom_value_changed(value: Variant = null) -> void:
 		_emit_value_changed(_read_editor_value())
 	else:
 		_emit_value_changed(value)
+
+
+func _on_multiline_text_changed(source: TextEdit) -> void:
+	# TextEdit 合并延迟通知，旧输入或已被程序赋值替换的输入不得产生新编辑。
+	if source != _editor or source.text == _stringify_value(_value):
+		return
+	_emit_value_changed(source.text)
 
 
 func _on_text_changed(_text: String) -> void:

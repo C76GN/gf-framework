@@ -295,6 +295,67 @@ func test_old_history_does_not_clear_the_draft_of_a_rebound_table() -> void:
 	assert_signal_emitted(first, "changed", "历史目标自身仍得到变化通知。")
 
 
+func test_old_history_auto_save_failures_are_reported_without_refreshing_rebound_draft() -> void:
+	var first: VectorResource = VectorResource.new()
+	var second: VectorResource = VectorResource.new()
+	first.amount = 1
+	second.amount = 2
+	var manager: RecordingUndoManager = RecordingUndoManager.new()
+	var table: GFResourceTableEditor = _make_table([first, second], manager)
+	table.auto_save_committed_resources = true
+	if not _select_rows_and_property(table, &"amount"):
+		return
+	var input: SpinBox = _component_spin(table, "value")
+	if input == null:
+		return
+	input.value = 9
+	_press(table, "ApplyMultiEdit")
+	assert_eq(first.amount, 9)
+	assert_eq(second.amount, 9)
+	var first_path: String = "user://gf_multi_edit_%d.gf_unsupported" % first.get_instance_id()
+	var second_path: String = "user://gf_multi_edit_%d.gf_unsupported" % second.get_instance_id()
+	first.take_over_path(first_path)
+	second.take_over_path(second_path)
+	assert_eq(ResourceSaver.save(first, first_path), ERR_FILE_UNRECOGNIZED)
+	assert_eq(ResourceSaver.save(second, second_path), ERR_FILE_UNRECOGNIZED)
+	var current: VectorResource = VectorResource.new()
+	table.load_resources([current])
+	if not _select_rows_and_property(table, &"amount"):
+		return
+	input = _component_spin(table, "value")
+	if input == null:
+		return
+	input.value = 5
+	var field: GFEditorMultiPropertyField = table.find_child("MultiPropertyField", true, false)
+	var tree: Tree = table.find_child("ResourceTree", true, false)
+	var root_item_id: int = tree.get_root().get_instance_id()
+	watch_signals(table)
+	assert_eq(manager.command.revert(), OK, "属性撤销成功与其后的磁盘保存失败应分别报告。")
+	assert_eq(first.amount, 1)
+	assert_eq(second.amount, 2)
+	assert_signal_emit_count(table, "resource_save_failed", 2)
+	assert_signal_emitted_with_parameters(table, "resource_save_failed", [first, first_path, ERR_FILE_UNRECOGNIZED], 0)
+	assert_signal_emitted_with_parameters(table, "resource_save_failed", [second, second_path, ERR_FILE_UNRECOGNIZED], 1)
+	assert_eq(current.amount, 0)
+	assert_eq(input.value, 5.0)
+	assert_true(_bool_field(field.get_snapshot(), "dirty"))
+	assert_eq(tree.get_root().get_instance_id(), root_item_id, "旧资源保存失败不得刷新当前表格。")
+	assert_signal_not_emitted(table, "cell_value_committed")
+	assert_eq(manager.command.execute(), OK)
+	assert_eq(first.amount, 9)
+	assert_eq(second.amount, 9)
+	assert_signal_emit_count(table, "resource_save_failed", 4)
+	assert_signal_emitted_with_parameters(table, "resource_save_failed", [first, first_path, ERR_FILE_UNRECOGNIZED], 2)
+	assert_signal_emitted_with_parameters(table, "resource_save_failed", [second, second_path, ERR_FILE_UNRECOGNIZED], 3)
+	assert_eq(current.amount, 0)
+	assert_eq(input.value, 5.0)
+	assert_true(_bool_field(field.get_snapshot(), "dirty"))
+	assert_eq(tree.get_root().get_instance_id(), root_item_id)
+	assert_signal_not_emitted(table, "cell_value_committed")
+	assert_false(FileAccess.file_exists(first_path))
+	assert_false(FileAccess.file_exists(second_path))
+
+
 func test_failed_undo_retains_recovery_handle_and_recovery_does_not_complete_undo() -> void:
 	var first: RecoverableResource = RecoverableResource.new()
 	var second: RecoverableResource = RecoverableResource.new()
