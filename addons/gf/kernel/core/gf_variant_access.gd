@@ -1148,7 +1148,8 @@ static func _duplicate_variant_safe(value: Variant, duplicate_resources: bool, v
 		var existing_dictionary: Variant = _get_visited_duplicate(visited, dictionary)
 		if existing_dictionary is Dictionary:
 			return existing_dictionary
-		var dictionary_copy: Dictionary = {}
+		var dictionary_copy: Dictionary = dictionary.duplicate(false)
+		dictionary_copy.clear()
 		visited.append({
 			"source": dictionary,
 			"copy": dictionary_copy,
@@ -1162,7 +1163,8 @@ static func _duplicate_variant_safe(value: Variant, duplicate_resources: bool, v
 		var existing_array: Variant = _get_visited_duplicate(visited, array)
 		if existing_array is Array:
 			return existing_array
-		var array_copy: Array = []
+		var array_copy: Array = array.duplicate(false)
+		array_copy.clear()
 		visited.append({
 			"source": array,
 			"copy": array_copy,

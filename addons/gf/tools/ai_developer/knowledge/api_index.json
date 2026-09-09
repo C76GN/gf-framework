@@ -2,8 +2,8 @@
   "schema_version": 2,
   "catalog_version": "2.0.0",
   "framework_version": "12.0.0-dev.0",
-  "source_digest": "c673937dff5348a0806ddbf30f9afd27c54ba20f474118ebc6b557bf2b191485",
-  "class_count": 852,
+  "source_digest": "52c502fc3c79d99f3e8870bfe6aec224b6fe3381be7bbe65a95cca480181a5be",
+  "class_count": 853,
   "autoload_count": 1,
   "package_count": 57,
   "packages": [
@@ -29782,6 +29782,54 @@
         }
       ]
     },
+    "GFEditorMultiPropertyField": {
+      "owner_kind": "class",
+      "extends": "VBoxContainer",
+      "module": "kernel",
+      "package_id": "gf.kernel",
+      "path": "addons/gf/kernel/editor/gf_editor_multi_property_field.gd",
+      "summary": "GFEditorMultiPropertyField: 编辑器中多个对象的单属性暂存输入。 显示一致、混合、缺失与不兼容状态。标量整值编辑，Vector2/3/4 及其整数类型按分量编辑。 输入不写对象；调用方将 prepare_changes 的结果交给 GFEditorPropertyBatchCommand。",
+      "visibility": "public",
+      "category": "editor_api",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "signal",
+          "name": "draft_changed",
+          "signature": "signal draft_changed()",
+          "summary": "草稿或选择状态变化后发出，不表示对象已写入。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "configure",
+          "signature": "func configure(targets: Array[Object], property: StringName) -> void",
+          "summary": "以去重后的目标重新建立选择，丢弃此前草稿；不保活目标。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "cancel_edit",
+          "signature": "func cancel_edit() -> void",
+          "summary": "取消草稿并重新读取仍然有效的选中对象，不写入任何属性。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_snapshot",
+          "signature": "func get_snapshot() -> Dictionary",
+          "summary": "返回选择与暂存状态的独立副本；状态在配置、取消或准备提交时重新检查。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "prepare_changes",
+          "signature": "func prepare_changes() -> Dictionary",
+          "summary": "再次验证目标和属性声明，生成只包含已编辑分量的批量命令输入，不执行写入。",
+          "visibility": "public"
+        }
+      ]
+    },
     "GFEditorOperationPlan": {
       "owner_kind": "class",
       "extends": "RefCounted",
@@ -34087,6 +34135,13 @@
       "category": "editor_api",
       "since": "3.17.0",
       "members": [
+        {
+          "kind": "func",
+          "name": "set_editor_context",
+          "signature": "func set_editor_context(context: GFEditorToolContext) -> void",
+          "summary": "注入编辑器上下文；缺少有效 UndoRedo 管理器时只允许查看。",
+          "visibility": "public"
+        },
         {
           "kind": "func",
           "name": "set_graph",
@@ -68558,6 +68613,34 @@
           "name": "sort_ascending",
           "signature": "var sort_ascending: bool = true",
           "summary": "当前排序方向。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "set_editor_context",
+          "signature": "func set_editor_context(context: GFEditorToolContext) -> void",
+          "summary": "设置多选编辑使用的编辑器上下文。必须提供有效 undo_manager 才可从 UI 应用草稿。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "apply_selected_property",
+          "signature": "func apply_selected_property() -> Dictionary",
+          "summary": "应用当前选择的属性草稿，形成一次可撤销的批量属性事务。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "recover_pending_edit",
+          "signature": "func recover_pending_edit() -> Dictionary",
+          "summary": "恢复待处理事务最近一次失败尝试前的属性状态；不移动原生撤销历史的游标。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_multi_edit_report",
+          "signature": "func get_multi_edit_report() -> Dictionary",
+          "summary": "获取最近一次多选应用、Undo/Redo 或恢复的报告副本。",
           "visibility": "public"
         },
         {

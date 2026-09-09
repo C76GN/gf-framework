@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFFlowGraphDock" path="addons/gf/extensions/flow/editor/gf_flow_graph_dock.gd" module="extensions/flow" extends="Control" classDigest="0a63bc5504398b69c7460fab8870346415cef45a544c51e0ea96060d5e5c542b">
+<class name="GFFlowGraphDock" path="addons/gf/extensions/flow/editor/gf_flow_graph_dock.gd" module="extensions/flow" extends="Control" classDigest="2721bb27e0d0e816b021f87c53682d4d26aed1a4daf05d2a7bb807ada185b687">
 	<description>GFFlowGraphDock: FlowGraph 图形化编辑与结构检查工作区页面。
 为资源化流程图提供路径加载、GraphEdit 预览/连线、校验摘要、节点/连接清单
 和通用自动布局，不提供业务节点库，也不解释项目自定义元数据。</description>
@@ -13,6 +13,16 @@
 	<constants />
 	<properties />
 	<methods>
+		<member kind="method" name="set_editor_context">
+			<signature>func set_editor_context(context: GFEditorToolContext) -&gt; void:</signature>
+			<description>注入编辑器上下文；缺少有效 UndoRedo 管理器时只允许查看。
+上下文撤销或页面离树会终止未提交拖动，不清空编辑器资源历史。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">context: 工作区提供的编辑器上下文；null 表示撤销编辑权限。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
 		<member kind="method" name="set_graph">
 			<signature>func set_graph(graph: GFFlowGraph, path: String = "") -&gt; void:</signature>
 			<description>设置当前查看的 FlowGraph。</description>

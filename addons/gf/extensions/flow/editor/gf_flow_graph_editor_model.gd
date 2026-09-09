@@ -382,12 +382,7 @@ func auto_layout(graph: GFFlowGraph, options: Dictionary = {}) -> Dictionary:
 			"error": "graph_is_null",
 		}
 
-	var node_ids: PackedStringArray = PackedStringArray()
-	for node: GFFlowNode in graph.nodes:
-		if node != null and node.node_id != &"":
-			_append_packed_string(node_ids, String(node.node_id))
-
-	var positions: Dictionary = _make_layered_layout(node_ids, _build_layout_connections(graph), options)
+	var positions: Dictionary = build_layout_positions(graph, options)
 	var changed_count: int = apply_node_positions(graph, positions)
 	return {
 		"ok": true,
@@ -578,6 +573,31 @@ func remove_nodes(graph: GFFlowGraph, node_ids: PackedStringArray) -> Dictionary
 		"removed_node_count": removed_node_ids.size(),
 		"connection_count": graph.connections.size(),
 	}
+
+
+# --- 框架内部方法 ---
+
+## 只计算布局候选，不修改节点资源，供编辑器事务提交。
+## [br]
+## @api framework_internal
+## [br]
+## @param graph: 待计算布局的图资源。
+## [br]
+## @param options: 布局选项，透传给 GFGraphLayoutUtility.make_layered_layout()。
+## [br]
+## @schema options: Dictionary，遵循 GFGraphLayoutUtility.make_layered_layout() 的 options schema，支持 x_spacing、y_spacing、origin、from_key 与 to_key。
+## [br]
+## @return: 节点标识到候选位置的映射；图为空或没有有效节点时返回空字典。
+## [br]
+## @schema return: Dictionary，遵循 GFGraphLayoutUtility.make_layered_layout() 的 return schema，将节点 String 标识映射到 Vector2 位置。
+func build_layout_positions(graph: GFFlowGraph, options: Dictionary = {}) -> Dictionary:
+	if graph == null:
+		return {}
+	var node_ids: PackedStringArray = PackedStringArray()
+	for node: GFFlowNode in graph.nodes:
+		if node != null and node.node_id != &"":
+			_append_packed_string(node_ids, String(node.node_id))
+	return _make_layered_layout(node_ids, _build_layout_connections(graph), options)
 
 
 # --- 私有/辅助方法 ---

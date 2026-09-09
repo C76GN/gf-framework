@@ -7,6 +7,12 @@ extends GutTest
 const GF_VARIANT_ACCESS = preload("res://addons/gf/kernel/core/gf_variant_access.gd")
 
 
+# --- 公共方法 ---
+
+func after_each() -> void:
+	await get_tree().process_frame
+
+
 # --- 测试 ---
 
 func test_build_export_columns_reads_resource_exports() -> void:

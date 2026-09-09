@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<apiCatalog schemaVersion="3" name="GF Framework" sourceRoot="addons/gf" sourceDigest="97b287663c0ff6ee1fba6c67302c445af0e76621bb3f64f67ab2d6e9b4d66c87" classCount="876" methodCount="7837" autoloadCount="1" autoloadMethodCount="65">
-	<module id="kernel" label="Kernel" classCount="77" methodCount="818" autoloadCount="1" autoloadMethodCount="65">
+<apiCatalog schemaVersion="3" name="GF Framework" sourceRoot="addons/gf" sourceDigest="5aaaf2cc462749893aa4cba4994f2ab2e630b3da31ef52e40275c9ad27bc876a" classCount="877" methodCount="7846" autoloadCount="1" autoloadMethodCount="65">
+	<module id="kernel" label="Kernel" classCount="78" methodCount="826" autoloadCount="1" autoloadMethodCount="65">
 		<class name="GFAccessGenerator" path="classes/GFAccessGenerator.xml" sourcePath="addons/gf/kernel/editor/gf_access_generator.gd" extends="RefCounted" />
 		<class name="GFArchitecture" path="classes/GFArchitecture.xml" sourcePath="addons/gf/kernel/core/gf_architecture.gd" extends="Object" />
 		<class name="GFArchitectureShutdownResult" path="classes/GFArchitectureShutdownResult.xml" sourcePath="addons/gf/kernel/core/gf_architecture_shutdown_result.gd" extends="RefCounted" />
@@ -27,6 +27,7 @@
 		<class name="GFEditorCommand" path="classes/GFEditorCommand.xml" sourcePath="addons/gf/kernel/editor/gf_editor_command.gd" extends="RefCounted" />
 		<class name="GFEditorCommandRegistry" path="classes/GFEditorCommandRegistry.xml" sourcePath="addons/gf/kernel/editor/gf_editor_command_registry.gd" extends="RefCounted" />
 		<class name="GFEditorCommandSession" path="classes/GFEditorCommandSession.xml" sourcePath="addons/gf/kernel/editor/gf_editor_command_session.gd" extends="RefCounted" />
+		<class name="GFEditorMultiPropertyField" path="classes/GFEditorMultiPropertyField.xml" sourcePath="addons/gf/kernel/editor/gf_editor_multi_property_field.gd" extends="VBoxContainer" />
 		<class name="GFEditorOperationPlan" path="classes/GFEditorOperationPlan.xml" sourcePath="addons/gf/kernel/editor/gf_editor_operation_plan.gd" extends="RefCounted" />
 		<class name="GFEditorPickOperation" path="classes/GFEditorPickOperation.xml" sourcePath="addons/gf/kernel/editor/gf_editor_pick_operation.gd" extends="RefCounted" />
 		<class name="GFEditorPropertyBatchCommand" path="classes/GFEditorPropertyBatchCommand.xml" sourcePath="addons/gf/kernel/editor/gf_editor_property_batch_command.gd" extends="GFEditorCommand" />
@@ -763,7 +764,7 @@
 		<class name="GFShakeTrack" path="classes/GFShakeTrack.xml" sourcePath="addons/gf/extensions/feedback/resources/gf_shake_track.gd" extends="Resource" />
 		<class name="GFShakeUtility" path="classes/GFShakeUtility.xml" sourcePath="addons/gf/extensions/feedback/runtime/gf_shake_utility.gd" extends="GFUtility" />
 	</module>
-	<module id="extensions/flow" label="Flow" classCount="7" methodCount="84" autoloadCount="0" autoloadMethodCount="0">
+	<module id="extensions/flow" label="Flow" classCount="7" methodCount="85" autoloadCount="0" autoloadMethodCount="0">
 		<class name="GFFlowContext" path="classes/GFFlowContext.xml" sourcePath="addons/gf/extensions/flow/runtime/gf_flow_context.gd" extends="RefCounted" />
 		<class name="GFFlowGraph" path="classes/GFFlowGraph.xml" sourcePath="addons/gf/extensions/flow/resources/gf_flow_graph.gd" extends="Resource" />
 		<class name="GFFlowGraphDock" path="classes/GFFlowGraphDock.xml" sourcePath="addons/gf/extensions/flow/editor/gf_flow_graph_dock.gd" extends="Control" />

@@ -16,6 +16,8 @@
 
 制作期工具也可以贡献工作区页面。[Project Layout](tools/project-layout.md) 的“结构”页面用于检查项目目录，[Scene Groups](tools/scene-groups.md) 的“组查询”页面用于查找已保存场景中的持久化 Group 声明。它们随完整插件提供，由用户主动启动扫描。
 
+需要提交可撤销编辑的自定义页面可以实现 `set_editor_context(context: GFEditorToolContext) -> void`。工作区会在页面入树前传入由当前插件创建的上下文，页面重建、工作区离树或插件卸载时传入 `null`。没有这一方法的查看页面保持原有用法。页面应在上下文撤销后停用编辑入口，并清理待应用的输入；已经提交的命令由 Godot 的历史持有，不应强引用页面控件。上下文中的选中节点与场景根是创建时的快照，需要实时选择的工具应自行读取当前编辑器选择。
+
 可选扩展的编辑器工具放在扩展自己的 `editor/` 目录中。`editor_action_paths`、`editor_dock_paths`、`editor_inspector_paths`、`import_plugin_paths`、`export_plugin_paths`、`gltf_document_extension_paths`、`access_generator_extension_paths` 和 `debugger_plugin_paths` 都只通过扩展目录下的 `editor/gf_tool_contribution.json` 贡献，不能写入运行时 `gf_extension.json`。贡献文件必须声明 `schema_version: 2` 和与所属 manifest 一致的 `extension_id`，路径字段必须是非空字符串数组；schema v1、未来 schema、未知字段、错误扩展 ID 或越过扩展根的路径都会被拒绝并进入选择快照的 `tool_contribution_errors`。
 
 无效 tool contribution 只会使选择报告进入 `partial` 并隔离该文件的无效路径，不会使运行时 manifest 图失效，也不会阻断 manifest 中有效的 `installer_paths`。工作区页面的 `editor_dock_order` 与 `editor_dock_short_label` 仍保留在 manifest 中；扩展源码包含有效贡献且扩展启用后，根编辑器插件才会在标准库 Debugger 记录之后装载 `debugger_plugin_paths` 指向的 `EditorDebuggerPlugin` 脚本，重复路径只装载一次，并在插件刷新或卸载时由同一生命周期统一移除。

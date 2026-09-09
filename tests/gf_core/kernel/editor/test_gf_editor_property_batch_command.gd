@@ -9,6 +9,77 @@ const GF_VARIANT_ACCESS = preload("res://addons/gf/kernel/core/gf_variant_access
 
 # --- 测试 ---
 
+func test_typed_collection_edits_keep_constraints_and_resource_identity_on_replay() -> void:
+	var target: TypedContainerTarget = TypedContainerTarget.new()
+	var shared_resource: Resource = Resource.new()
+	var records: Array[Dictionary] = [{ "label": "before", "resource": shared_resource }]
+	var resources: Array[Resource] = [shared_resource]
+	var mapping: Dictionary[StringName, Array] = { &"records": records }
+	var command: GFEditorPropertyBatchCommand = GFEditorPropertyBatchCommand.new()
+	var _configured: GFEditorPropertyBatchCommand = command.configure([
+		{ "target": target, "property_name": &"records", "new_value": records },
+		{ "target": target, "property_name": &"resources", "new_value": resources },
+		{ "target": target, "property_name": &"mapping", "new_value": mapping },
+	])
+	records[0]["label"] = "later"
+
+	assert_eq(command.execute(), OK, str(command.get_transaction_report()))
+	assert_eq(target.records.size(), 1)
+	assert_eq(target.resources.size(), 1)
+	if target.records.is_empty() or target.resources.is_empty():
+		return
+	assert_eq(_record_label(target.records[0]), "before")
+	assert_same(target.resources[0], shared_resource)
+	assert_true(is_same(target.records[0]["resource"], shared_resource))
+	assert_eq(target.records.get_typed_builtin(), TYPE_DICTIONARY)
+	assert_eq(target.resources.get_typed_class_name(), &"Resource")
+	assert_eq(target.mapping.get_typed_key_builtin(), TYPE_STRING_NAME)
+	assert_eq(target.mapping.get_typed_value_builtin(), TYPE_ARRAY)
+	assert_eq(command.revert(), OK)
+	assert_true(target.records.is_empty())
+	assert_true(target.resources.is_empty())
+	assert_true(target.mapping.is_empty())
+	assert_eq(command.execute(), OK)
+	assert_same(target.resources[0], shared_resource)
+	assert_eq(_record_label(target.records[0]), "before")
+
+
+func test_deep_copy_preserves_typed_cycles_and_script_resource_elements() -> void:
+	var source_array: Array[Array] = []
+	source_array.append(source_array)
+	var copied_array: Array = GF_VARIANT_ACCESS.as_array(GF_VARIANT_ACCESS.duplicate_variant(source_array))
+	assert_eq(copied_array.get_typed_builtin(), TYPE_ARRAY)
+	assert_false(is_same(copied_array, source_array))
+	assert_true(is_same(copied_array[0], copied_array))
+	source_array.clear()
+	copied_array.clear()
+
+	var source_dictionary: Dictionary[StringName, Dictionary] = {}
+	source_dictionary[&"self"] = source_dictionary
+	var copied_dictionary: Dictionary = GF_VARIANT_ACCESS.as_dictionary(
+		GF_VARIANT_ACCESS.duplicate_variant(source_dictionary)
+	)
+	assert_eq(copied_dictionary.get_typed_key_builtin(), TYPE_STRING_NAME)
+	assert_eq(copied_dictionary.get_typed_value_builtin(), TYPE_DICTIONARY)
+	assert_false(is_same(copied_dictionary, source_dictionary))
+	assert_true(is_same(copied_dictionary[&"self"], copied_dictionary))
+	source_dictionary.clear()
+	copied_dictionary.clear()
+
+	var source_resource: TypedFixtureResource = TypedFixtureResource.new()
+	source_resource.label = "copied"
+	var source_resources: Array[TypedFixtureResource] = [source_resource]
+	var copied_resources: Array = GF_VARIANT_ACCESS.as_array(
+		GF_VARIANT_ACCESS.duplicate_variant(source_resources, true, true)
+	)
+	assert_true(is_same(copied_resources.get_typed_script(), source_resources.get_typed_script()))
+	assert_false(is_same(copied_resources[0], source_resource))
+	assert_true(copied_resources[0] is TypedFixtureResource)
+	if copied_resources[0] is TypedFixtureResource:
+		var copied_resource: TypedFixtureResource = copied_resources[0]
+		assert_eq(copied_resource.label, "copied")
+
+
 func test_empty_configuration_remains_invalid_for_transaction_command() -> void:
 	var command: GFEditorPropertyBatchCommand = GFEditorPropertyBatchCommand.new()
 	var _configured: GFEditorPropertyBatchCommand = command.configure([])
@@ -543,7 +614,32 @@ func test_exact_direct_property_and_indexed_path_share_one_transaction() -> void
 	assert_eq(target.vector_value, Vector2(1.0, 2.0))
 
 
+# --- 辅助方法 ---
+
+func _record_label(record: Dictionary) -> String:
+	var value: Variant = record.get("label")
+	assert_true(value is String)
+	if value is String:
+		var label: String = value
+		return label
+	return ""
+
+
 # --- 辅助类型 ---
+
+class TypedContainerTarget:
+	extends RefCounted
+
+	var records: Array[Dictionary] = []
+	var resources: Array[Resource] = []
+	var mapping: Dictionary[StringName, Array] = {}
+
+
+class TypedFixtureResource:
+	extends Resource
+
+	@export var label: String = ""
+
 
 class ValueTarget:
 	extends RefCounted

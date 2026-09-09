@@ -28,6 +28,10 @@
 | 属性 | [`search_text`](#member-gfresourcetableeditor-properties-search_text) | `var search_text: String = ""` |
 | 属性 | [`sort_property`](#member-gfresourcetableeditor-properties-sort_property) | `var sort_property: StringName = &""` |
 | 属性 | [`sort_ascending`](#member-gfresourcetableeditor-properties-sort_ascending) | `var sort_ascending: bool = true` |
+| 方法 | [`set_editor_context`](#member-gfresourcetableeditor-methods-set_editor_context) | `func set_editor_context(context: GFEditorToolContext) -> void:` |
+| 方法 | [`apply_selected_property`](#member-gfresourcetableeditor-methods-apply_selected_property) | `func apply_selected_property() -> Dictionary:` |
+| 方法 | [`recover_pending_edit`](#member-gfresourcetableeditor-methods-recover_pending_edit) | `func recover_pending_edit() -> Dictionary:` |
+| 方法 | [`get_multi_edit_report`](#member-gfresourcetableeditor-methods-get_multi_edit_report) | `func get_multi_edit_report() -> Dictionary:` |
 | 方法 | [`build_export_columns`](#member-gfresourcetableeditor-methods-build_export_columns) | `static func build_export_columns(resource: Resource, include_read_only: bool = false) -> Array[Dictionary]:` |
 | 方法 | [`scan_resource_paths`](#member-gfresourcetableeditor-methods-scan_resource_paths) | `static func scan_resource_paths( root_path: String = "res://", extensions: PackedStringArray = PackedStringArray(["tres", "res"]), options: Dictionary = {} ) -> PackedStringArray:` |
 | 方法 | [`load_resources_from_paths`](#member-gfresourcetableeditor-methods-load_resources_from_paths) | `static func load_resources_from_paths(paths: PackedStringArray, script_filter: Script = null) -> Array[Resource]:` |
@@ -273,6 +277,82 @@ var sort_ascending: bool = true
 当前排序方向。
 
 ## 方法
+
+<a id="member-gfresourcetableeditor-methods-set_editor_context"></a>
+
+### `set_editor_context`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func set_editor_context(context: GFEditorToolContext) -> void:
+```
+
+设置多选编辑使用的编辑器上下文。必须提供有效 undo_manager 才可从 UI 应用草稿。 替换上下文会取消草稿；已有历史动作仍由原管理器持有，且不保活面板。 既有 commit_cell_value/commit_cell_values 等直接提交方法不受此设置影响。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `context` | 编辑器工具上下文；null 使多选应用入口不可用。 |
+
+<a id="member-gfresourcetableeditor-methods-apply_selected_property"></a>
+
+### `apply_selected_property`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func apply_selected_property() -> Dictionary:
+```
+
+应用当前选择的属性草稿，形成一次可撤销的批量属性事务。 无上下文、无草稿或预检失败不会写入。原生管理器回调失败时返回实际命令错误， 但已经建立的原生历史动作可能仍然存在；需要恢复时保留 transaction_command。 存在待恢复命令时不创建新动作，返回保留的失败报告。
+
+返回：本次提交结果，并更新面板中的结果提示。
+
+结构：
+
+- `return`: Dictionary 包含 ok: bool、error: Error、status: String、transaction: Dictionary（GFEditorPropertyBatchCommand 报告）；仅需显式恢复时含 transaction_command: GFEditorPropertyBatchCommand。
+
+<a id="member-gfresourcetableeditor-methods-recover_pending_edit"></a>
+
+### `recover_pending_edit`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func recover_pending_edit() -> Dictionary:
+```
+
+恢复待处理事务最近一次失败尝试前的属性状态；不移动原生撤销历史的游标。 Undo 失败后的恢复仍保留命令的 executed 状态，调用方需重新执行真正的撤销。 缺少有效上下文时保持待恢复句柄与属性不变，返回保留的失败报告。
+
+返回：恢复结果；无待恢复命令时返回 ERR_UNAVAILABLE。
+
+结构：
+
+- `return`: Dictionary 与 apply_selected_property 返回结构相同；恢复失败仍保留 transaction_command，成功后移除此字段。
+
+<a id="member-gfresourcetableeditor-methods-get_multi_edit_report"></a>
+
+### `get_multi_edit_report`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func get_multi_edit_report() -> Dictionary:
+```
+
+获取最近一次多选应用、Undo/Redo 或恢复的报告副本。 成功写入继续发出 cell_value_committed；失败更新诊断而不发出成功通知。
+
+返回：最近一次命令操作的结果；尚未提交时为空。待恢复句柄不会被取消、上下文替换或重绑定覆盖。
+
+结构：
+
+- `return`: Dictionary 与 apply_selected_property 返回结构相同。
 
 <a id="member-gfresourcetableeditor-methods-build_export_columns"></a>
 
