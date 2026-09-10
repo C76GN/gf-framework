@@ -150,6 +150,53 @@ class ReviewHotspotReportTests(unittest.TestCase):
 		with mock.patch.object(reports, "MAX_INVENTORY_BYTES", 3), self.assertRaises(ValueError):
 			reports.parse_inventory(b"a.gd\0")
 
+	def test_inventory_directory_markers_do_not_hide_selected_scripts(self) -> None:
+		inventory = reports.parse_inventory(b"nested/\0src/a.gd\0other.gd/\0")
+		self.assertEqual(inventory, ["src/a.gd"])
+		for marker in (b"/\0", b"../nested/\0", b"nested//\0", b"nested\\repo/\0"):
+			with self.subTest(marker=marker), self.assertRaisesRegex(ValueError, "review_hotspots.invalid_inventory_path"):
+				reports.parse_inventory(marker)
+
+	def test_cli_preserves_specific_inventory_errors(self) -> None:
+		for payload, code in (
+			(b"\xff\0", "review_hotspots.invalid_inventory_utf8"),
+			(b"../outside\0", "review_hotspots.invalid_inventory_path"),
+			(b"a.gd", "review_hotspots.incomplete_inventory"),
+		):
+			with (
+				self.subTest(code=code),
+				mock.patch.object(gf_maintenance.gf_process_supervisor, "run_supervised_process_bytes", return_value=binary_result(stdout=payload)),
+				mock.patch.object(reports, "build_report") as build,
+			):
+				result = gf_maintenance.review_hotspots.__wrapped__(paths=["a.gd"])
+				self.assertEqual(result["issues"], [{"code": code}])
+				build.assert_not_called()
+
+	def test_aggregate_budget_stops_with_its_own_diagnostic(self) -> None:
+		with tempfile.TemporaryDirectory() as directory:
+			root = Path(directory)
+			for name in ("a.gd", "b.gd", "c.gd"):
+				(root / name).write_bytes(b"func a():\n\tpass\n")
+			with (
+				mock.patch.object(reports, "MAX_TOTAL_BYTES", 25),
+				mock.patch.object(reports.gf_path_security, "read_pinned_regular_file", wraps=reports.gf_path_security.read_pinned_regular_file) as read,
+			):
+				result = reports.build_report(root, ["a.gd", "b.gd", "c.gd"], scopes=["a.gd", "b.gd", "c.gd"])
+			self.assertFalse(result["ok"])
+			self.assertEqual(result["scanned_file_count"], 1)
+			self.assertEqual(result["issues"], [{"code": "review_hotspots.total_bytes_limit", "path": "b.gd"}])
+			self.assertEqual(read.call_count, 2, "Total exhaustion stops the scan, without trying later files.")
+			self.assertEqual(read.call_args.kwargs["max_bytes"], 9)
+
+	def test_exact_aggregate_exhaustion_never_attempts_another_read(self) -> None:
+		with (
+			mock.patch.object(reports, "MAX_TOTAL_BYTES", 16),
+			mock.patch.object(reports.gf_path_security, "read_pinned_regular_file", return_value=b"func a():\n\tpass\n") as read,
+		):
+			result = reports.build_report(Path.cwd(), ["a.gd", "b.gd"], scopes=["a.gd", "b.gd"])
+		self.assertEqual(read.call_count, 1)
+		self.assertEqual(result["issues"], [{"code": "review_hotspots.total_bytes_limit", "path": "b.gd"}])
+
 	def test_cli_inventory_rejects_truncation_stderr_and_nonzero_exit(self) -> None:
 		for changes in ({"stdout_truncated": True}, {"stderr_truncated": True}, {"stderr": b"warning"}, {"return_code": 1}, {"timed_out": True}, {"output_drain_failed": True}):
 			with (
@@ -158,6 +205,7 @@ class ReviewHotspotReportTests(unittest.TestCase):
 			):
 				report = gf_maintenance.review_hotspots.__wrapped__(paths=["a.gd"])
 			self.assertFalse(report["ok"])
+			self.assertEqual(report["issues"], [{"code": "review_hotspots.git_inventory_failed"}])
 			build.assert_not_called()
 
 	def test_cli_does_not_delegate_user_paths_to_git(self) -> None:

@@ -56,10 +56,21 @@ def parse_inventory(payload: bytes) -> list[str]:
 		raise ValueError("review_hotspots.invalid_inventory_utf8") from None
 	if len(paths) > MAX_INVENTORY_PATHS:
 		raise ValueError("review_hotspots.inventory_limit")
+	files: set[str] = set()
 	for path in paths:
-		if "\\" in path or normalize_scope(path) != path:
-			raise ValueError("review_hotspots.invalid_inventory_path")
-	return sorted(set(paths))
+		# Git reports untracked nested repositories as directory markers, without
+		# inventorying their contents. Validate their literal spelling, then leave
+		# that separate repository outside this report's source inventory.
+		is_directory = path.endswith("/")
+		literal = path[:-1] if is_directory else path
+		try:
+			if "\\" in literal or normalize_scope(literal) != literal:
+				raise ValueError("review_hotspots.invalid_inventory_path")
+		except ValueError:
+			raise ValueError("review_hotspots.invalid_inventory_path") from None
+		if not is_directory:
+			files.add(literal)
+	return sorted(files)
 
 
 def empty_report(scopes: list[str], limit: int) -> dict[str, Any]:
@@ -128,13 +139,20 @@ def build_report(
 		if time.monotonic() >= deadline:
 			report["issues"].append({"code": "review_hotspots.deadline"})
 			break
+		remaining_bytes = MAX_TOTAL_BYTES - total_bytes
+		if remaining_bytes <= 0:
+			report["issues"].append({"code": "review_hotspots.total_bytes_limit", "path": path})
+			break
 		try:
 			payload = gf_path_security.read_pinned_regular_file(
-				root, path, max_bytes=min(MAX_FILE_BYTES, MAX_TOTAL_BYTES - total_bytes),
+				root, path, max_bytes=min(MAX_FILE_BYTES, remaining_bytes),
 			)
 			total_bytes += len(payload)
 			source = payload.decode("utf-8", errors="strict")
 		except (gf_path_security.PinnedReadError, UnicodeDecodeError) as error:
+			if getattr(error, "rule_id", "") == "path_security.file_too_large" and remaining_bytes < MAX_FILE_BYTES:
+				report["issues"].append({"code": "review_hotspots.total_bytes_limit", "path": path})
+				break
 			report["issues"].append({
 				"code": getattr(error, "rule_id", "review_hotspots.invalid_utf8"),
 				"path": path,

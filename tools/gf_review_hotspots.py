@@ -93,6 +93,31 @@ class _Token:
 	column: int
 
 
+def _tokenize_line(masked: str, line: int) -> list[_Token]:
+	r"""Join adjacent XID continuation fragments without normalizing their spelling.
+
+	Python regex ``\w`` omits combining marks and some other XID characters.
+	Check each fragment once, retaining offsets instead of rebuilding a growing
+	identifier prefix; total work and allocations remain linear in the line size.
+	"""
+	tokens: list[_Token] = []
+	start: int | None = None
+	end = 0
+	is_identifier = False
+	for match in _TOKEN.finditer(masked):
+		value = match.group()
+		if start is not None and match.start() == end and is_identifier and ("_" + value).isidentifier():
+			end = match.end()
+			continue
+		if start is not None:
+			tokens.append(_Token(masked[start:end], line, start))
+		start, end = match.span()
+		is_identifier = value.isidentifier()
+	if start is not None:
+		tokens.append(_Token(masked[start:end], line, start))
+	return tokens
+
+
 @dataclass
 class _Statement:
 	tokens: list[_Token]
@@ -275,7 +300,7 @@ class _Observer:
 				if not _ordinary_quotes_closed(raw, state.multiline_quote):
 					self.issue("unterminated_string", number, "Ordinary string is not closed on its physical line.")
 				masked, _comment, _started_multiline = scan_gdscript_line(raw, state)
-				tokens = [_Token(match.group(), number, match.start()) for match in _TOKEN.finditer(masked)]
+				tokens = _tokenize_line(masked, number)
 				if not tokens:
 					if pending and not state.multiline_quote and len(brackets) <= base_depth:
 						self.observe(_Statement(pending, self.indent(pending[0].line), pending_lines, number, base_depth))
@@ -401,10 +426,10 @@ class _Observer:
 
 	def function(self, tokens: list[_Token], statement: _Statement) -> None:
 		name = parse_function_name(" ".join(token.value for token in tokens))
-		# The API declaration recognizer restricts the first character to ASCII.
-		# Observation also accepts an unambiguous Unicode identifier token, without
-		# changing the API parser's declaration/visibility rules.
-		if not name and len(tokens) >= 3 and tokens[1].value.isidentifier() and tokens[2].value == "(":
+		# The API recognizer restricts the first character to ASCII and can return
+		# only a prefix before Unicode continuation characters. Preserve the whole
+		# validated token without changing API declaration/visibility rules.
+		if len(tokens) >= 3 and tokens[1].value.isidentifier() and tokens[2].value == "(" and name != tokens[1].value:
 			name = tokens[1].value
 		if not name:
 			self.issue("unsupported_function", tokens[0].line, "Named function declaration could not be recognized.")

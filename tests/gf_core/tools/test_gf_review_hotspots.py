@@ -222,6 +222,51 @@ class ReviewHotspotsTests(unittest.TestCase):
 		self.assertEqual(report["functions"][0]["qualified_name"], "Inner.检查")
 		self.assertEqual(report["functions"][0]["end_line"], 3)
 
+	def test_unicode_continuations_preserve_complete_raw_function_names(self) -> None:
+		names = ["cafe\u0301", "caf\u00e9", "middle\u00b7dot", "value\u203fpart", "\u2118work", "नाम"]
+		for name in names:
+			self.assertTrue(name.isidentifier())
+		report = self.analyze("".join(f"func {name}(): pass\n" for name in names))
+		self.assertEqual(report["status"], "complete", report["issues"])
+		self.assertEqual([row["name"] for row in report["functions"]], names)
+		self.assertEqual([row["qualified_name"] for row in report["functions"]], names)
+		self.assertEqual([row["id"] for row in report["functions"]], [
+			f"addons/gf/sample.gd::{name}@{index}" for index, name in enumerate(names, 1)
+		])
+		self.assertEqual(report["script_lambda_count"], 0)
+		self.assertEqual([row["end_line"] for row in report["functions"]], list(range(1, len(names) + 1)))
+
+	def test_unicode_owner_and_multiline_static_method_keep_lexical_boundaries(self) -> None:
+		report = self.analyze(
+			'class_name Cafe\u0301\n'
+			'class Inner\u203fPart:\n'
+			'\tstatic func re\u0301sume(\n'
+			'\t\tvalue\u0301: int\n'
+			'\t) -> int:\n'
+			'\t\tvar callback = func name\u0301(item): return item\n'
+			'\t\tif value\u0301 > 0:\n'
+			'\t\t\treturn callback.call(value\u0301)\n'
+			'\t\treturn 0\n'
+		)
+		self.assertEqual(report["status"], "complete", report["issues"])
+		self.assertEqual(len(report["functions"]), 1)
+		row = report["functions"][0]
+		self.assertEqual(row["qualified_name"], "Cafe\u0301.Inner\u203fPart.re\u0301sume")
+		self.assertEqual((row["start_line"], row["end_line"]), (3, 9))
+		self.assertEqual(row["metrics"]["lambda_count"], 1)
+		self.assertEqual(row["metrics"]["branch_count"], 1)
+		self.assertEqual(row["metrics"]["effective_code_lines"], 4)
+		self.assertEqual(report["script_lambda_count"], 0)
+
+	def test_unicode_continuations_cannot_bypass_identifier_budget(self) -> None:
+		name = "a" + "\u0301" * 60_000
+		self.assertTrue(name.isidentifier())
+		report = self.analyze(f"func {name}(): pass\n")
+		self.assertEqual(report["status"], "incomplete")
+		self.assertIn("identifier_limit", {issue["code"] for issue in report["issues"]})
+		self.assertEqual(report["functions"], [])
+		self.assertNotIn(name, json.dumps(report))
+
 	def test_literal_path_is_only_identity_and_source_is_never_executed(self) -> None:
 		report = hotspots.analyze_source('func x(): OS.execute("never", [])\n', '../../literal;$(path).gd')
 		self.assertEqual(report["path"], '../../literal;$(path).gd')

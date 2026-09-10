@@ -203,7 +203,7 @@ python tools\gf_maintenance.py release-status --version 3.19.0 --artifact-manife
 
 ### 函数审查热点报告
 
-`review-hotspots` 按当前 GDScript 源码列出函数位置和结构观测，帮助维护者安排审查顺序。默认读取 `addons/gf`；可重复传入 `--path` 合并文件或目录范围。路径按仓库相对字面值匹配，支持 Windows 路径分隔符，不接受绝对路径、上级跳转或 Git pathspec。只纳入 Git 已跟踪和未忽略的文件，不执行 GDScript，也不扫描历史提交。
+`review-hotspots` 按当前 GDScript 源码列出函数位置和结构观测，帮助维护者安排审查顺序。默认读取 `addons/gf`；可重复传入 `--path` 合并文件或目录范围。路径按仓库相对字面值匹配，支持 Windows 路径分隔符，不接受绝对路径、上级跳转或 Git pathspec。只纳入 Git 已跟踪和未忽略的文件，不执行 GDScript，也不扫描历史提交。Git 为嵌套仓库返回的目录标记经过路径校验后排除，报告不递归进入这些独立仓库。
 
 ```powershell
 python tools\gf_maintenance.py review-hotspots --path addons/gf/kernel/core/gf_architecture.gd
@@ -221,6 +221,8 @@ JSON 的 `schema_version` 为 `1`。每个函数保留内类限定名、起止�
 一次最多扫描 4096 个文件、每文件 1 MiB、总计 64 MiB 和 100000 个函数；源码扫描时间预算为 30 秒，Git 清单单独受 30 秒进程 deadline、2 MiB 输出和 20000 条路径限制。结构扫描另有行数、函数数与嵌套预算。`--limit` 为 1–500，默认 30；仅限制展示数量，`omitted_function_count` 说明省略数量，不把正常分页当作扫描失败。
 
 完整报告退出码为 0；输入错误或不完整报告为 1，表示观测覆盖不足，与指标高低无关。该命令保持显式调用，不进入默认 CI、检查套件或合并门禁；其解析与捕获回归测试由现有维护生成器测试负责。
+
+清单的 UTF-8、路径和截断错误保留各自的诊断码，区别于 Git 进程失败。总字节预算成为读取限制时，报告以 `review_hotspots.total_bytes_limit` 停止后续扫描；单文件超过其独立上限仍使用 `path_security.file_too_large`。
 
 Git 清单只有在原进程 deadline 内确认整个进程树已清理后才可使用；无法完成清理时保留监督错误并失败退出，不把清理责任降级为普通扫描问题。
 

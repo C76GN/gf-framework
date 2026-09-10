@@ -2409,11 +2409,15 @@ def review_hotspots(*, paths: list[str] | None = None, limit: int = 30) -> dict[
 			or result.timed_out or result.output_drain_failed or not result.cleanup_complete
 		):
 			raise ValueError("review_hotspots.git_inventory_failed")
-		inventory = gf_review_hotspot_report.parse_inventory(result.stdout)
 	except (OSError, ValueError, subprocess.TimeoutExpired) as error:
 		if exception_has_cleanup_debt(error):
 			raise
 		report["issues"].append({"code": "review_hotspots.git_inventory_failed"})
+		return report
+	try:
+		inventory = gf_review_hotspot_report.parse_inventory(result.stdout)
+	except ValueError as error:
+		report["issues"].append({"code": str(error)})
 		return report
 	return gf_review_hotspot_report.build_report(ROOT, inventory, scopes=scopes, limit=limit)
 
