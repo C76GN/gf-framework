@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFCameraRig2D" path="addons/gf/extensions/camera/nodes/gf_camera_rig_2d.gd" module="extensions/camera" extends="Node2D" classDigest="b54062355bf6c32407c736ec7e7fc7bb0e7d9258477887f0a2a60bc04e638c9a">
+<class name="GFCameraRig2D" path="addons/gf/extensions/camera/nodes/gf_camera_rig_2d.gd" module="extensions/camera" extends="Node2D" classDigest="97d9cf94da319c726beac83b368856aa2329b1d97a7beb8df0e7f054e6e5bbf7">
 	<description>GFCameraRig2D: 通用 2D 相机姿态提供节点。
 Rig 只计算期望相机位置、旋转和缩放，不直接控制 Camera2D。
 项目可用多个 Rig 表达不同视角，再交给 GFCameraDirector2D 按优先级选择。</description>
@@ -135,21 +135,24 @@ Rig 只计算期望相机位置、旋转和缩放，不直接控制 Camera2D。
 			</tags>
 		</member>
 		<member kind="method" name="get_camera_pose">
-			<signature>func get_camera_pose() -&gt; Dictionary:</signature>
+			<signature>func get_camera_pose(_camera: Camera2D = null) -&gt; Dictionary:</signature>
 			<description>获取当前期望相机姿态。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="param">_camera: 接收姿态的 Camera2D；基础 Rig 不依赖该上下文，取景子类可据此读取实际 Viewport。</tag>
 				<tag name="return">包含 position、rotation、zoom 和 rig 的字典。</tag>
 				<tag name="schema">return: Dictionary，包含 position: Vector2、rotation: float、zoom: Vector2 与 rig: GFCameraRig2D。</tag>
+				<tag name="since">3.9.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_camera_pose_data">
-			<signature>func get_camera_pose_data() -&gt; Dictionary:</signature>
+			<signature>func get_camera_pose_data(camera: Camera2D = null) -&gt; Dictionary:</signature>
 			<description>获取 JSON-safe 的当前期望相机姿态数据。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="return">不包含 Object 引用的姿态数据。</tag>
-				<tag name="schema">return: Dictionary，包含 position、rotation、zoom、rig_path 和 rig_instance_id；Vector2 字段使用 GFVariantJsonCodec typed marker。</tag>
+				<tag name="param">camera: 接收姿态的 Camera2D；传递给 get_camera_pose()。</tag>
+				<tag name="return">不包含 Object 引用的姿态数据；派生 Rig 无法生成姿态时为空字典。</tag>
+				<tag name="schema">return: Dictionary，成功包含 position、rotation、zoom、rig_path 和 rig_instance_id；Vector2 字段使用 GFVariantJsonCodec typed marker。派生 Rig 失败时为空字典。</tag>
 				<tag name="since">8.0.0</tag>
 			</tags>
 		</member>

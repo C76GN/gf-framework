@@ -16,6 +16,7 @@
     ],
     "gf.extension.camera": [
       "res://tests/gf_core/extensions/camera/test_gf_camera_extension.gd",
+      "res://tests/gf_core/extensions/camera/test_gf_camera_framing_2d.gd",
       "res://tests/gf_core/extensions/camera/test_gf_camera_orbit_3d.gd"
     ],
     "gf.extension.capability": [

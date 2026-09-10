@@ -2,8 +2,8 @@
   "schema_version": 2,
   "catalog_version": "2.0.0",
   "framework_version": "12.0.0-dev.0",
-  "source_digest": "301968183ac836092be38b11720293dea9b08f6a2214a40c8e4d8789caf3bbfb",
-  "class_count": 857,
+  "source_digest": "ffec6bfb3e735040886cbd443bce103eec9b846fd0cff8c5652a85ceb189ff32",
+  "class_count": 858,
   "autoload_count": 1,
   "package_count": 59,
   "packages": [
@@ -14967,6 +14967,75 @@
         }
       ]
     },
+    "GFCameraFramingRig2D": {
+      "owner_kind": "class",
+      "extends": "GFCameraRig2D",
+      "module": "extensions/camera",
+      "package_id": "gf.extension.camera",
+      "path": "addons/gf/extensions/camera/nodes/gf_camera_framing_rig_2d.gd",
+      "summary": "GFCameraFramingRig2D: 根据显式目标锚点计算共同入镜的二维相机姿态。 目标位置按期望相机旋转投影，再由实际 Camera2D 输出 Viewport 的尺寸计算统一缩放。 只计算锚点，不推断精灵、碰撞或项目对象的外形；目标路径的选择和维护属于调用方。",
+      "visibility": "public",
+      "category": "runtime_handle",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "var",
+          "name": "target_paths",
+          "signature": "var target_paths: Array[NodePath] = []",
+          "summary": "相对于本 Rig 的目标路径；每次求值重新解析，最多 256 项。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "viewport_margin",
+          "signature": "var viewport_margin: Vector2 = Vector2(16.0, 16.0)",
+          "summary": "输出 Viewport 左右、上下各自保留的像素边距；必须有限且位于 0 到 1000000。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "min_zoom",
+          "signature": "var min_zoom: float = 0.1",
+          "summary": "最小统一缩放；必须位于 0.0001 到 max_zoom。约束导致真实锚点超出边距区域时 fits 为 false。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "max_zoom",
+          "signature": "var max_zoom: float = 10.0",
+          "summary": "最大统一缩放；必须位于 min_zoom 到 1000000。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "min_extent",
+          "signature": "var min_extent: Vector2 = Vector2.ONE",
+          "summary": "相机轴坐标内最小世界宽高；各分量必须有限、大于零且不超过 1000000。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_framing_report",
+          "signature": "func get_framing_report(camera: Camera2D) -> Dictionary",
+          "summary": "计算实际 Camera2D 对应的共同入镜报告，不修改相机、目标或 Viewport。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_camera_pose",
+          "signature": "func get_camera_pose(camera: Camera2D = null) -> Dictionary",
+          "summary": "获取共同入镜的期望姿态，供现有 Director 选择和混合。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "is_available",
+          "signature": "func is_available() -> bool",
+          "summary": "检查配置和目标是否允许 Director 选择本 Rig。",
+          "visibility": "public"
+        }
+      ]
+    },
     "GFCameraOrbitInput3D": {
       "owner_kind": "class",
       "extends": "Node",
@@ -15413,14 +15482,14 @@
         {
           "kind": "func",
           "name": "get_camera_pose",
-          "signature": "func get_camera_pose() -> Dictionary",
+          "signature": "func get_camera_pose(_camera: Camera2D = null) -> Dictionary",
           "summary": "获取当前期望相机姿态。",
           "visibility": "public"
         },
         {
           "kind": "func",
           "name": "get_camera_pose_data",
-          "signature": "func get_camera_pose_data() -> Dictionary",
+          "signature": "func get_camera_pose_data(camera: Camera2D = null) -> Dictionary",
           "summary": "获取 JSON-safe 的当前期望相机姿态数据。",
           "visibility": "public"
         },
@@ -65832,11 +65901,18 @@
       "module": "standard",
       "package_id": "gf.standard.ui.state",
       "path": "addons/gf/standard/utilities/ui/gf_repeater_binder.gd",
-      "summary": "GFRepeaterBinder: 响应式模板重复渲染绑定器。 将数组数据渲染为容器中的模板副本，也可以订阅 `GFReactiveStateStore` 的路径并在数组变化时重建。它只负责模板复制、生命周期清理和通用文本写入，",
+      "summary": "GFRepeaterBinder: 响应式模板重复渲染绑定器。 将数组数据渲染为容器中的模板副本，也可以订阅 `GFReactiveStateStore` 的路径并在数组变化时同步。显式提供 identity_callable 后，同 ID、同模板实例和",
       "visibility": "public",
       "category": "runtime_handle",
       "since": "7.0.0",
       "members": [
+        {
+          "kind": "signal",
+          "name": "synchronization_failed",
+          "signature": "signal synchronization_failed(container: Node, group_key: StringName, error: StringName)",
+          "summary": "活跃绑定的自动 store 刷新失败时发出；失败边界同 sync_container()。",
+          "visibility": "public"
+        },
         {
           "kind": "const",
           "name": "META_CLONE",
@@ -65883,7 +65959,7 @@
           "kind": "func",
           "name": "unbind_container",
           "signature": "func unbind_container(container: Node, options: Dictionary = {}) -> bool",
-          "summary": "解绑指定容器。",
+          "summary": "解绑指定容器，并中断本实例绑定驱动的同步；已经显示的节点保留。",
           "visibility": "public"
         },
         {
@@ -65897,7 +65973,7 @@
           "kind": "func",
           "name": "clear",
           "signature": "func clear() -> void",
-          "summary": "清理所有绑定。",
+          "summary": "清理本实例所有绑定并中断它们驱动的同步；已显示节点仍由容器持有。",
           "visibility": "public"
         },
         {
@@ -65918,7 +65994,14 @@
           "kind": "func",
           "name": "rebuild_container",
           "signature": "static func rebuild_container( container: Node, template: Node, items: Array, options: Dictionary = {} ) -> Array[Node]",
-          "summary": "重建容器中的模板副本。",
+          "summary": "同步容器中的模板副本；它是 sync_container() 的节点数组便捷入口。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "sync_container",
+          "signature": "static func sync_container( container: Node, template: Node, items: Array, options: Dictionary = {} ) -> Dictionary",
+          "summary": "同步容器中的模板副本，并报告节点身份的变化。",
           "visibility": "public"
         },
         {

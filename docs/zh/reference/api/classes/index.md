@@ -7,11 +7,11 @@
 | 模块 | 类 | 成员 | 页面内索引 |
 |---|---:|---:|---|
 | Kernel | 78 | 1137 | [Kernel](#module-kernel) |
-| Standard | 479 | 7571 | [Standard](#module-standard) |
+| Standard | 479 | 7573 | [Standard](#module-standard) |
 | Action Queue | 16 | 214 | [Action Queue](#module-extensions-action_queue) |
 | Asset Metadata | 4 | 33 | [Asset Metadata](#module-extensions-asset_metadata) |
 | Behavior Tree | 22 | 89 | [Behavior Tree](#module-extensions-behavior_tree) |
-| Camera | 7 | 130 | [Camera](#module-extensions-camera) |
+| Camera | 8 | 138 | [Camera](#module-extensions-camera) |
 | Capability | 11 | 148 | [Capability](#module-extensions-capability) |
 | Combat | 71 | 684 | [Combat](#module-extensions-combat) |
 | Extensions / Content Package | 7 | 109 | [Extensions / Content Package](#module-extensions-content_package) |
@@ -500,7 +500,7 @@
 | [`GFProtocolAckLedger`](GFProtocolAckLedger.md#gfprotocolackledger) | 运行时句柄 (`runtime_handle`) | `RefCounted` | 29 | `addons/gf/standard/utilities/io/gf_protocol_ack_ledger.gd` |
 | [`GFReactiveStateControlBinder`](GFReactiveStateControlBinder.md#gfreactivestatecontrolbinder) | 运行时句柄 (`runtime_handle`) | `RefCounted` | 6 | `addons/gf/standard/utilities/ui/gf_reactive_state_control_binder.gd` |
 | [`GFReactiveStateStore`](GFReactiveStateStore.md#gfreactivestatestore) | 运行时句柄 (`runtime_handle`) | `RefCounted` | 25 | `addons/gf/standard/utilities/state/gf_reactive_state_store.gd` |
-| [`GFRepeaterBinder`](GFRepeaterBinder.md#gfrepeaterbinder) | 运行时句柄 (`runtime_handle`) | `RefCounted` | 13 | `addons/gf/standard/utilities/ui/gf_repeater_binder.gd` |
+| [`GFRepeaterBinder`](GFRepeaterBinder.md#gfrepeaterbinder) | 运行时句柄 (`runtime_handle`) | `RefCounted` | 15 | `addons/gf/standard/utilities/ui/gf_repeater_binder.gd` |
 | [`GFResourceLease`](GFResourceLease.md#gfresourcelease) | 运行时句柄 (`runtime_handle`) | `RefCounted` | 18 | `addons/gf/standard/utilities/assets/gf_resource_lease.gd` |
 | [`GFRuntimeTaskGroup`](GFRuntimeTaskGroup.md#gfruntimetaskgroup) | 运行时句柄 (`runtime_handle`) | `GFRuntimeTask` | 24 | `addons/gf/standard/sequence/gf_runtime_task_group.gd` |
 | [`GFSceneOperation`](GFSceneOperation.md#gfsceneoperation) | 运行时句柄 (`runtime_handle`) | `RefCounted` | 11 | `addons/gf/standard/utilities/scene/gf_scene_operation.gd` |
@@ -674,6 +674,7 @@
 | [`GFCameraDirector3D`](GFCameraDirector3D.md#gfcameradirector3d) | 运行时服务 (`runtime_service`) | `Node` | 20 | `addons/gf/extensions/camera/nodes/gf_camera_director_3d.gd` |
 | [`GFCameraOrbitInput3D`](GFCameraOrbitInput3D.md#gfcameraorbitinput3d) | 运行时服务 (`runtime_service`) | `Node` | 24 | `addons/gf/extensions/camera/nodes/gf_camera_orbit_input_3d.gd` |
 | [`GFCameraBlend`](GFCameraBlend.md#gfcamerablend) | 资源定义 (`resource_definition`) | `Resource` | 6 | `addons/gf/extensions/camera/resources/gf_camera_blend.gd` |
+| [`GFCameraFramingRig2D`](GFCameraFramingRig2D.md#gfcameraframingrig2d) | 运行时句柄 (`runtime_handle`) | `GFCameraRig2D` | 8 | `addons/gf/extensions/camera/nodes/gf_camera_framing_rig_2d.gd` |
 | [`GFCameraOrbitRig3D`](GFCameraOrbitRig3D.md#gfcameraorbitrig3d) | 运行时句柄 (`runtime_handle`) | `GFCameraRig3D` | 18 | `addons/gf/extensions/camera/nodes/gf_camera_orbit_rig_3d.gd` |
 | [`GFCameraRig2D`](GFCameraRig2D.md#gfcamerarig2d) | 运行时句柄 (`runtime_handle`) | `Node2D` | 20 | `addons/gf/extensions/camera/nodes/gf_camera_rig_2d.gd` |
 | [`GFCameraRig3D`](GFCameraRig3D.md#gfcamerarig3d) | 运行时句柄 (`runtime_handle`) | `Node3D` | 22 | `addons/gf/extensions/camera/nodes/gf_camera_rig_3d.gd` |

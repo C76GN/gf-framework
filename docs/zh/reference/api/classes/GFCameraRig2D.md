@@ -31,8 +31,8 @@
 | 属性 | [`camera_channel`](#member-gfcamerarig2d-properties-camera_channel) | `var camera_channel: StringName = &""` |
 | 属性 | [`metadata`](#member-gfcamerarig2d-properties-metadata) | `var metadata: Dictionary = {}` |
 | 方法 | [`get_target_node`](#member-gfcamerarig2d-methods-get_target_node) | `func get_target_node() -> Node2D:` |
-| 方法 | [`get_camera_pose`](#member-gfcamerarig2d-methods-get_camera_pose) | `func get_camera_pose() -> Dictionary:` |
-| 方法 | [`get_camera_pose_data`](#member-gfcamerarig2d-methods-get_camera_pose_data) | `func get_camera_pose_data() -> Dictionary:` |
+| 方法 | [`get_camera_pose`](#member-gfcamerarig2d-methods-get_camera_pose) | `func get_camera_pose(_camera: Camera2D = null) -> Dictionary:` |
+| 方法 | [`get_camera_pose_data`](#member-gfcamerarig2d-methods-get_camera_pose_data) | `func get_camera_pose_data(camera: Camera2D = null) -> Dictionary:` |
 | 方法 | [`get_camera_scope_node`](#member-gfcamerarig2d-methods-get_camera_scope_node) | `func get_camera_scope_node() -> Node:` |
 | 方法 | [`is_available`](#member-gfcamerarig2d-methods-is_available) | `func is_available() -> bool:` |
 
@@ -260,12 +260,19 @@ func get_target_node() -> Node2D:
 ### `get_camera_pose`
 
 - API：`public`
+- 首次版本：`3.9.0`
 
 ```gdscript
-func get_camera_pose() -> Dictionary:
+func get_camera_pose(_camera: Camera2D = null) -> Dictionary:
 ```
 
 获取当前期望相机姿态。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `_camera` | 接收姿态的 Camera2D；基础 Rig 不依赖该上下文，取景子类可据此读取实际 Viewport。 |
 
 返回：包含 position、rotation、zoom 和 rig 的字典。
 
@@ -281,16 +288,22 @@ func get_camera_pose() -> Dictionary:
 - 首次版本：`8.0.0`
 
 ```gdscript
-func get_camera_pose_data() -> Dictionary:
+func get_camera_pose_data(camera: Camera2D = null) -> Dictionary:
 ```
 
 获取 JSON-safe 的当前期望相机姿态数据。
 
-返回：不包含 Object 引用的姿态数据。
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `camera` | 接收姿态的 Camera2D；传递给 get_camera_pose()。 |
+
+返回：不包含 Object 引用的姿态数据；派生 Rig 无法生成姿态时为空字典。
 
 结构：
 
-- `return`: Dictionary，包含 position、rotation、zoom、rig_path 和 rig_instance_id；Vector2 字段使用 GFVariantJsonCodec typed marker。
+- `return`: Dictionary，成功包含 position、rotation、zoom、rig_path 和 rig_instance_id；Vector2 字段使用 GFVariantJsonCodec typed marker。派生 Rig 失败时为空字典。
 
 <a id="member-gfcamerarig2d-methods-get_camera_scope_node"></a>
 
