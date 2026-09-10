@@ -24,7 +24,7 @@ const _DEFAULT_MAX_NODES: int = 1024
 ## [br]
 ## @schema value: 任意 Variant；Object、Callable、Signal、RID、循环容器和非有限数会被拒绝。
 ## [br]
-## @schema options: Dictionary，支持 max_depth 和 max_nodes。
+## @schema options: Dictionary，支持 max_depth、max_nodes 和可选 max_bytes；正数 max_bytes 限制保守估算的传输值字节，默认不额外限制。
 ## [br]
 ## @schema return: Dictionary，包含 ok、error、path 和 node_count。
 static func validate(value: Variant, options: Dictionary = {}) -> Dictionary:
@@ -32,6 +32,8 @@ static func validate(value: Variant, options: Dictionary = {}) -> Dictionary:
 		"max_depth": maxi(GFVariantData.get_option_int(options, "max_depth", _DEFAULT_MAX_DEPTH), 0),
 		"max_nodes": maxi(GFVariantData.get_option_int(options, "max_nodes", _DEFAULT_MAX_NODES), 1),
 		"node_count": 0,
+		"max_bytes": maxi(GFVariantData.get_option_int(options, "max_bytes"), 0),
+		"byte_count": 0,
 		"visited": [],
 	}
 	var issue: Dictionary = _validate_value(value, state, 0, "$", false)
@@ -73,6 +75,10 @@ static func _validate_value(
 		return _make_issue("non_finite_number", path)
 	if is_dictionary_key and not _is_transport_dictionary_key(value):
 		return _make_issue("invalid_dictionary_key", path)
+	if GFVariantData.get_option_int(state, "max_bytes") > 0 and _has_unsafe_container_type(value):
+		return _make_issue("container_type_not_transport_safe", path)
+	if not _consume_bytes(value, state):
+		return _make_issue("max_bytes_exceeded", path)
 
 	if value is Dictionary:
 		var dictionary_value: Dictionary = value
@@ -118,6 +124,62 @@ static func _validate_value(
 			if not child_issue.is_empty():
 				return child_issue
 	return {}
+
+
+static func _has_unsafe_container_type(value: Variant) -> bool:
+	var unsafe_types: Array[int] = [TYPE_OBJECT, TYPE_CALLABLE, TYPE_SIGNAL, TYPE_RID]
+	if value is Array:
+		var array_value: Array = value
+		return array_value.get_typed_builtin() in unsafe_types
+	if value is Dictionary:
+		var dictionary_value: Dictionary = value
+		return (
+			dictionary_value.get_typed_key_builtin() in unsafe_types
+			or dictionary_value.get_typed_value_builtin() in unsafe_types
+		)
+	return false
+
+
+static func _consume_bytes(value: Variant, state: Dictionary) -> bool:
+	var max_bytes: int = GFVariantData.get_option_int(state, "max_bytes")
+	if max_bytes <= 0:
+		return true
+	var remaining: int = max_bytes - GFVariantData.get_option_int(state, "byte_count")
+	var size_bytes: int = 8
+	if not (value is Dictionary or value is Array or _is_packed_array(value)):
+		if value is NodePath:
+			var node_path: NodePath = value
+			if not _node_path_fits_budget(node_path, remaining):
+				return false
+		elif value is String or value is StringName:
+			var text: String = str(value)
+			if text.length() > remaining:
+				return false
+		elif remaining < 4:
+			return false
+		size_bytes = var_to_bytes(value).size()
+	if size_bytes > remaining:
+		return false
+	state["byte_count"] = GFVariantData.get_option_int(state, "byte_count") + size_bytes
+	return true
+
+
+static func _node_path_fits_budget(path: NodePath, budget: int) -> bool:
+	var name_count: int = path.get_name_count()
+	var subname_count: int = path.get_subname_count()
+	if name_count > budget or subname_count > budget - name_count:
+		return false
+	var used: int = 16
+	for section: int in range(2):
+		var part_count: int = name_count if section == 0 else subname_count
+		for index: int in range(part_count):
+			var part: String = String(path.get_name(index) if section == 0 else path.get_subname(index))
+			if part.length() > budget - used:
+				return false
+			used += part.to_utf8_buffer().size() + 1
+			if used > budget:
+				return false
+	return used <= budget
 
 
 static func _is_transport_dictionary_key(value: Variant) -> bool:

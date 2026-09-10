@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<apiCatalog schemaVersion="3" name="GF Framework" sourceRoot="addons/gf" sourceDigest="1d199ed5958e99f64b4f5e7687822a43fb71d2beb7fabbbb5634f5320ffecf5f" classCount="878" methodCount="7855" autoloadCount="1" autoloadMethodCount="65">
+<apiCatalog schemaVersion="3" name="GF Framework" sourceRoot="addons/gf" sourceDigest="d896d3b4e1fc6bf371e1ab3b505b278322dc1f21bed9bd9f242f35b6cbf2e06c" classCount="881" methodCount="7878" autoloadCount="1" autoloadMethodCount="65">
 	<module id="kernel" label="Kernel" classCount="78" methodCount="826" autoloadCount="1" autoloadMethodCount="65">
 		<class name="GFAccessGenerator" path="classes/GFAccessGenerator.xml" sourcePath="addons/gf/kernel/editor/gf_access_generator.gd" extends="RefCounted" />
 		<class name="GFArchitecture" path="classes/GFArchitecture.xml" sourcePath="addons/gf/kernel/core/gf_architecture.gd" extends="Object" />
@@ -787,7 +787,7 @@
 		<class name="GFLayeredSpriteLayerDefinition" path="classes/GFLayeredSpriteLayerDefinition.xml" sourcePath="addons/gf/extensions/layered_sprite/resources/gf_layered_sprite_layer_definition.gd" extends="Resource" />
 		<class name="GFLayeredSpriteVariant" path="classes/GFLayeredSpriteVariant.xml" sourcePath="addons/gf/extensions/layered_sprite/resources/gf_layered_sprite_variant.gd" extends="Resource" />
 	</module>
-	<module id="extensions/network" label="Network" classCount="38" methodCount="323" autoloadCount="0" autoloadMethodCount="0">
+	<module id="extensions/network" label="Network" classCount="41" methodCount="346" autoloadCount="0" autoloadMethodCount="0">
 		<class name="GFENetNetworkBackend" path="classes/GFENetNetworkBackend.xml" sourcePath="addons/gf/extensions/network/backends/gf_enet_network_backend.gd" extends="GFNetworkBackend" />
 		<class name="GFFixedTickClock" path="classes/GFFixedTickClock.xml" sourcePath="addons/gf/extensions/network/simulation/gf_fixed_tick_clock.gd" extends="RefCounted" />
 		<class name="GFMultiplayerPeerNetworkBackend" path="classes/GFMultiplayerPeerNetworkBackend.xml" sourcePath="addons/gf/extensions/network/backends/gf_multiplayer_peer_network_backend.gd" extends="GFNetworkBackend" />
@@ -816,6 +816,9 @@
 		<class name="GFNetworkPeerIdentity" path="classes/GFNetworkPeerIdentity.xml" sourcePath="addons/gf/extensions/network/session/gf_network_peer_identity.gd" extends="Resource" />
 		<class name="GFNetworkRateLimiter" path="classes/GFNetworkRateLimiter.xml" sourcePath="addons/gf/extensions/network/session/gf_network_rate_limiter.gd" extends="RefCounted" />
 		<class name="GFNetworkReconnectPolicy" path="classes/GFNetworkReconnectPolicy.xml" sourcePath="addons/gf/extensions/network/session/gf_network_reconnect_policy.gd" extends="RefCounted" />
+		<class name="GFNetworkRequestHandle" path="classes/GFNetworkRequestHandle.xml" sourcePath="addons/gf/extensions/network/runtime/gf_network_request_handle.gd" extends="RefCounted" />
+		<class name="GFNetworkRequestResult" path="classes/GFNetworkRequestResult.xml" sourcePath="addons/gf/extensions/network/runtime/gf_network_request_result.gd" extends="RefCounted" />
+		<class name="GFNetworkRequestTracker" path="classes/GFNetworkRequestTracker.xml" sourcePath="addons/gf/extensions/network/runtime/gf_network_request_tracker.gd" extends="RefCounted" />
 		<class name="GFNetworkSerializer" path="classes/GFNetworkSerializer.xml" sourcePath="addons/gf/extensions/network/serialization/gf_network_serializer.gd" extends="RefCounted" />
 		<class name="GFNetworkServiceDiscovery" path="classes/GFNetworkServiceDiscovery.xml" sourcePath="addons/gf/extensions/network/session/gf_network_service_discovery.gd" extends="RefCounted" />
 		<class name="GFNetworkSession" path="classes/GFNetworkSession.xml" sourcePath="addons/gf/extensions/network/session/gf_network_session.gd" extends="RefCounted" />

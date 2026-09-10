@@ -44,6 +44,8 @@ if error == OK:
 
 `options.metadata` 必须是 `Dictionary`，传入其他类型会被忽略并输出 warning，避免把错误配置静默保存到会话快照里。替换或清空 backend 时，`GFNetworkUtility` 会关闭旧后端并清理旧会话，避免把底层连接资源留给已失效的 backend。
 
+需要等待指定 peer 的回复时，可在项目侧接入[有界请求与回复关联](request-correlation.md)。Tracker 独立于 Network Utility；监听 Session 的开始和关闭信号，才能在 backend 替换时同时结束旧等待项。
+
 `GFNetworkUtility`、`GFNetworkSession`、`GFNetworkChannel` 和内置后端返回的调试快照会经过 `GFNetworkDebugTools` 脱敏处理。常见 token、secret、password、authorization、cookie、session 等字段会替换为占位文本，endpoint 会保留协议与主机但隐藏路径、查询和片段。项目如果把额外敏感信息放进自定义 metadata，应在进入网络快照前先转换为可公开的诊断值。
 
 ## 传输指标

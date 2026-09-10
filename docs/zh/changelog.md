@@ -6,6 +6,7 @@
 
 ### 🚀 新增特性 (Added)
 
+- 新增 [Network 请求与回复关联](extensions/network-turnbased/network-transport/request-correlation.md)：独立的有界 Tracker、一次性 Handle 和隔离响应结果，支持同步回包、指定 peer 与会话隔离、超时及本地取消；协议编码与网络生命周期由项目显式接入，`gf.network` 的 `extension_version` 升为 `7.1.0`。
 - 新增 `GFObjectPoolAcquireResult` 与 `GFObjectPoolLease`。成功借用取得独立使用权，归还立即失效，`wait_settled()` 可重复等待实际离树或淘汰完成。
 - 节点根脚本可实现同步 `on_gf_pool_prepare(context) -> Error`，在每次入树前准备本次数据；空闲实例完全离树。
 - 新增 `GFProjectileEmissionResult`，用单次 `await` 的返回值表达整批发射结果。

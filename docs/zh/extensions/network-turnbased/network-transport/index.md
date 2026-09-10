@@ -8,6 +8,7 @@
 - [序列化与消息解码](serialization.md)：`GFNetworkSerializer`、Variant / JSON、typed JSON codec 和拒包详情。
 - [WebSocket 后端](websocket.md)：`GFWebSocketNetworkBackend` 的客户端、服务器和 peer id 约定。
 - [Channel 与限流](channels-rate-limit.md)：`GFNetworkChannel`、逻辑通道匹配和 `GFNetworkRateLimiter`。
+- [有界请求与回复关联](request-correlation.md)：独立 Tracker、同步发送、peer 与会话隔离、超时和本地取消。
 - [服务发现记录](service-discovery.md)：`GFNetworkServiceDiscovery` 的服务广告、JSON bytes 编解码和 TTL 过期管理。
 - [权威快照同步协调器](../network-sync-coordinator.md)：建立在 transport 之上的独立全量快照、输入 ack 与预测纠偏流程。
 

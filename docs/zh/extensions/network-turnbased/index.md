@@ -5,6 +5,7 @@ Network 扩展提供传输抽象、消息载体、序列化、通道、校验、
 ## 阅读入口
 
 - [Network 传输抽象](network-transport/index.md)：`GFNetworkUtility`、后端、session、serializer、WebSocket、channel 和 rate limiter。
+- [Network 请求与回复关联](network-transport/request-correlation.md)：有界等待项、同步回包、peer 与会话隔离、超时和取消的项目接线。
 - [Network 固定 tick、快照与历史](network-snapshots.md)：`GFFixedTickClock`、`GFNetworkSnapshot`、`GFNetworkHistoryBuffer`、`GFNetworkDirtyStateTracker` 和字段序列化 schema。
 - [Network 同步协调器](network-sync-coordinator.md)：`GFNetworkSyncCoordinator`、`GFNetworkSimulationAdapter`、全量权威快照、输入 ack 和有界预测纠偏。
 - [Network 契约、生成器与重连策略](network-contracts.md)：`GFNetworkContract`、消息契约、辅助类生成、契约审计、strict validator、重连退避和包体大小限制。

@@ -2,8 +2,8 @@
   "schema_version": 2,
   "catalog_version": "2.0.0",
   "framework_version": "12.0.0-dev.0",
-  "source_digest": "15e2f793659b1e79a19245165b4353dcf7e017ff6158646493fabfe9d830ed67",
-  "class_count": 854,
+  "source_digest": "301968183ac836092be38b11720293dea9b08f6a2214a40c8e4d8789caf3bbfb",
+  "class_count": 857,
   "autoload_count": 1,
   "package_count": 59,
   "packages": [
@@ -51790,6 +51790,276 @@
           "name": "get_attempt_count",
           "signature": "func get_attempt_count() -> int",
           "summary": "获取已经消费的失败尝试次数。",
+          "visibility": "public"
+        }
+      ]
+    },
+    "GFNetworkRequestHandle": {
+      "owner_kind": "class",
+      "extends": "RefCounted",
+      "module": "extensions/network",
+      "package_id": "gf.extension.network",
+      "path": "addons/gf/extensions/network/runtime/gf_network_request_handle.gd",
+      "summary": "GFNetworkRequestHandle: 网络请求关联的本地等待句柄。 句柄弱引用关联器，只允许关联器提交终态。批量清理可以先提交全部结果， 再逐个发布 completed；取消只结束本地等待，不撤销服务器操作。",
+      "visibility": "public",
+      "category": "runtime_handle",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "signal",
+          "name": "completed",
+          "signature": "signal completed(result: GFNetworkRequestResult)",
+          "summary": "关联器发布已提交的终态时发出一次。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_request_id",
+          "signature": "func get_request_id() -> String",
+          "summary": "获取关联请求 ID。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_peer_id",
+          "signature": "func get_peer_id() -> int",
+          "summary": "获取请求绑定的目标 peer。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "is_pending",
+          "signature": "func is_pending() -> bool",
+          "summary": "检查请求是否仍在等待终态。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "is_completed",
+          "signature": "func is_completed() -> bool",
+          "summary": "检查请求是否已提交终态。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "is_successful",
+          "signature": "func is_successful() -> bool",
+          "summary": "检查请求是否收到匹配回复。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_result",
+          "signature": "func get_result() -> GFNetworkRequestResult",
+          "summary": "获取不可变的终态结果。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "cancel",
+          "signature": "func cancel() -> bool",
+          "summary": "取消本地请求等待。",
+          "visibility": "public"
+        }
+      ]
+    },
+    "GFNetworkRequestResult": {
+      "owner_kind": "class",
+      "extends": "RefCounted",
+      "module": "extensions/network",
+      "package_id": "gf.extension.network",
+      "path": "addons/gf/extensions/network/runtime/gf_network_request_result.gd",
+      "summary": "GFNetworkRequestResult: 网络请求关联的一次性只读终态。 received 只表示收到匹配请求身份与 peer 的回复，不表示业务操作成功。 回复由关联器先完成有界传输值校验；结果保留隔离副本，读取时再次复制集合。",
+      "visibility": "public",
+      "category": "value_object",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "const",
+          "name": "STATUS_RECEIVED",
+          "signature": "const STATUS_RECEIVED: StringName = &\"received\"",
+          "summary": "已收到匹配的回复；不解释回复中的业务结果。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "STATUS_SEND_FAILED",
+          "signature": "const STATUS_SEND_FAILED: StringName = &\"send_failed\"",
+          "summary": "发送入口返回错误，且请求尚未进入其他终态。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "STATUS_TIMED_OUT",
+          "signature": "const STATUS_TIMED_OUT: StringName = &\"timed_out\"",
+          "summary": "已达到本地单调截止时间。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "STATUS_CANCELLED",
+          "signature": "const STATUS_CANCELLED: StringName = &\"cancelled\"",
+          "summary": "调用方已取消本地等待；不代表服务器操作被撤销。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "STATUS_SESSION_CLOSED",
+          "signature": "const STATUS_SESSION_CLOSED: StringName = &\"session_closed\"",
+          "summary": "所属会话已关闭或被替换。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "STATUS_PEER_DISCONNECTED",
+          "signature": "const STATUS_PEER_DISCONNECTED: StringName = &\"peer_disconnected\"",
+          "summary": "目标 peer 的连接已失效。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "STATUS_DISPOSED",
+          "signature": "const STATUS_DISPOSED: StringName = &\"disposed\"",
+          "summary": "所属关联器已释放或不再存在。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "STATUS_REJECTED",
+          "signature": "const STATUS_REJECTED: StringName = &\"rejected\"",
+          "summary": "请求未通过参数、会话或容量准入检查。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "STATUS_INVALID_RESPONSE",
+          "signature": "const STATUS_INVALID_RESPONSE: StringName = &\"invalid_response\"",
+          "summary": "匹配身份的回复未通过有界传输值校验。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_request_id",
+          "signature": "func get_request_id() -> String",
+          "summary": "获取关联请求 ID。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_peer_id",
+          "signature": "func get_peer_id() -> int",
+          "summary": "获取请求绑定的目标 peer。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_status",
+          "signature": "func get_status() -> StringName",
+          "summary": "获取稳定终态。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "is_successful",
+          "signature": "func is_successful() -> bool",
+          "summary": "检查是否收到匹配回复。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_response",
+          "signature": "func get_response() -> Variant",
+          "summary": "获取回复的隔离副本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_send_error",
+          "signature": "func get_send_error() -> Error",
+          "summary": "获取发送或准入阶段的错误码。",
+          "visibility": "public"
+        }
+      ]
+    },
+    "GFNetworkRequestTracker": {
+      "owner_kind": "class",
+      "extends": "RefCounted",
+      "module": "extensions/network",
+      "package_id": "gf.extension.network",
+      "path": "addons/gf/extensions/network/runtime/gf_network_request_tracker.gd",
+      "summary": "GFNetworkRequestTracker: 可选的有界网络请求关联器。 主线程显式驱动会话、请求与回复，不拥有传输后端，不解释业务成功或自动重试。 send 回调同步接收必须原样回显的请求 ID；适配器识别回复后传入真实传输 peer。",
+      "visibility": "public",
+      "category": "runtime_service",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "func",
+          "name": "_init",
+          "signature": "func _init(clock: GFClock = null, max_pending: int = 64) -> void",
+          "summary": "创建关联器；时钟与容量在此生命周期内固定。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "dispose",
+          "signature": "func dispose() -> void",
+          "summary": "不可逆地关闭准入并终结所有在途请求，不关闭共享网络工具。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "begin_session",
+          "signature": "func begin_session() -> Error",
+          "summary": "开始新会话，先以 session_closed 终结旧请求，再允许新请求。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "end_session",
+          "signature": "func end_session() -> void",
+          "summary": "结束当前会话；批量提交所有旧终态后才发通知。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "disconnect_peer",
+          "signature": "func disconnect_peer(peer_id: int) -> void",
+          "summary": "终结指定 peer 的在途请求，不影响其他 peer。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "request",
+          "signature": "func request( peer_id: int, send: Callable, timeout_msec: int = 10000 ) -> GFNetworkRequestHandle",
+          "summary": "登记请求，再同步调用 send(request_id) 进行项目编码与发送。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "receive_reply",
+          "signature": "func receive_reply(peer_id: int, request_id: String, response: Variant = null) -> bool",
+          "summary": "接收适配器已识别的回复，不处理普通广播、业务错误码或协议字段。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "tick",
+          "signature": "func tick() -> void",
+          "summary": "按单调截止时间终结到期请求；不推进传输或时钟，不重入驱动。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_pending_count",
+          "signature": "func get_pending_count() -> int",
+          "summary": "获取尚未提交终态的请求数；到期请求在 tick 或终态入口处理。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_debug_snapshot",
+          "signature": "func get_debug_snapshot() -> Dictionary",
+          "summary": "获取不包含关联 ID、业务载荷或发送回调的诊断快照。",
           "visibility": "public"
         }
       ]
