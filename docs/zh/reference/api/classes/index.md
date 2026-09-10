@@ -26,7 +26,7 @@
 | Physics | 4 | 50 | [Physics](#module-extensions-physics) |
 | Save | 52 | 658 | [Save](#module-extensions-save) |
 | Turn Based | 5 | 50 | [Turn Based](#module-extensions-turn_based) |
-| Tools | 24 | 193 | [Tools](#module-tools) |
+| Tools | 25 | 202 | [Tools](#module-tools) |
 
 ## 模块索引
 
@@ -1053,3 +1053,4 @@
 | [`GFProjectLayoutPlanner`](GFProjectLayoutPlanner.md#gfprojectlayoutplanner) | 工具 API (`tool_api`) | `RefCounted` | 5 | `addons/gf/tools/project_layout/gf_project_layout_planner.gd` |
 | [`GFProjectLayoutValidator`](GFProjectLayoutValidator.md#gfprojectlayoutvalidator) | 工具 API (`tool_api`) | `RefCounted` | 4 | `addons/gf/tools/project_layout/gf_project_layout_validator.gd` |
 | [`GFSceneGroupIndex`](GFSceneGroupIndex.md#gfscenegroupindex) | 工具 API (`tool_api`) | `RefCounted` | 5 | `addons/gf/tools/scene_groups/gf_scene_group_index.gd` |
+| [`GFScenePlacementOperation`](GFScenePlacementOperation.md#gfsceneplacementoperation) | 工具 API (`tool_api`) | `GFEditorPickOperation` | 9 | `addons/gf/tools/scene_placement/gf_scene_placement_operation.gd` |

@@ -2,10 +2,10 @@
   "schema_version": 2,
   "catalog_version": "2.0.0",
   "framework_version": "12.0.0-dev.0",
-  "source_digest": "983fd9c34a7a1c20e6a4b5c3a22afe6f2aea5ddf399bb4e86b9b2b7c81665783",
-  "class_count": 853,
+  "source_digest": "15e2f793659b1e79a19245165b4353dcf7e017ff6158646493fabfe9d830ed67",
+  "class_count": 854,
   "autoload_count": 1,
-  "package_count": 58,
+  "package_count": 59,
   "packages": [
     {
       "id": "gf.extension.action_queue",
@@ -571,6 +571,15 @@
         "gf.kernel"
       ],
       "representative_path": "addons/gf/tools/scene_groups/editor/gf_scene_group_dock.gd"
+    },
+    {
+      "id": "gf.tool.scene_placement",
+      "kind": "tool",
+      "dependencies": [
+        "gf.kernel",
+        "gf.standard.spatial"
+      ],
+      "representative_path": "addons/gf/tools/scene_placement/editor/gf_scene_placement_launcher.gd"
     }
   ],
   "classes": {
@@ -75745,6 +75754,82 @@
           "signature": "func to_dict() -> Dictionary",
           "summary": "转换为闭合诊断字典。",
           "visibility": "public"
+        }
+      ]
+    },
+    "GFScenePlacementOperation": {
+      "owner_kind": "class",
+      "extends": "GFEditorPickOperation",
+      "module": "tools",
+      "package_id": "gf.tool.scene_placement",
+      "path": "addons/gf/tools/scene_placement/gf_scene_placement_operation.gd",
+      "summary": "GFScenePlacementOperation: 编辑器内显式场景、父节点与命中位置的单次摆放操作。 预览只计算变换，不实例化源场景。确认时才通过编辑器撤销历史创建实例。",
+      "visibility": "public",
+      "category": "tool_api",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "func",
+          "name": "configure",
+          "signature": "func configure( scene: PackedScene, parent: Node3D, scene_root: Node, options: Dictionary = {} ) -> Error",
+          "summary": "配置一次编辑器摆放；活动操作必须先取消。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "begin",
+          "signature": "func begin(context: GFEditorToolContext) -> bool",
+          "summary": "开始拾取；提交及其同步补偿期间拒绝重入，不改变当前状态。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "pick",
+          "signature": "func pick(input_data: Dictionary) -> State",
+          "summary": "更新最近命中；提交及其同步补偿期间忽略输入并保留当前状态。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "apply",
+          "signature": "func apply() -> Dictionary",
+          "summary": "确认一个实例；同步回调中的再次确认会被拒绝。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "is_destination_valid",
+          "signature": "func is_destination_valid() -> bool",
+          "summary": "检查原父节点和编辑场景根是否仍有效。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "_on_pick",
+          "signature": "func _on_pick(input_data: Dictionary) -> Dictionary",
+          "summary": "计算一次平面或碰撞命中的纯变换预览。",
+          "visibility": "protected"
+        },
+        {
+          "kind": "func",
+          "name": "_on_can_apply",
+          "signature": "func _on_can_apply() -> bool",
+          "summary": "检查最近命中与原目标仍可应用。",
+          "visibility": "protected"
+        },
+        {
+          "kind": "func",
+          "name": "_on_apply",
+          "signature": "func _on_apply(tool_context: GFEditorToolContext, result: Dictionary) -> Dictionary",
+          "summary": "确认时创建一个原生可撤销动作，不以注册成功冒充实例创建成功。",
+          "visibility": "protected"
+        },
+        {
+          "kind": "func",
+          "name": "_on_cancel",
+          "signature": "func _on_cancel(_tool_context: GFEditorToolContext) -> void",
+          "summary": "取消会释放源资源与目标引用，不修改任何场景。",
+          "visibility": "protected"
         }
       ]
     },

@@ -8,6 +8,10 @@
     {
       "package_id": "gf.tool.scene_groups",
       "manifest_path": "res://addons/gf/tools/scene_groups/editor/gf_editor_contributions.json"
+    },
+    {
+      "package_id": "gf.tool.scene_placement",
+      "manifest_path": "res://addons/gf/tools/scene_placement/editor/gf_editor_contributions.json"
     }
   ]
 }

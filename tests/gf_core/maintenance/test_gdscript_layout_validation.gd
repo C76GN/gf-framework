@@ -52,9 +52,11 @@ const GODOT_CALLBACK_NAMES: Dictionary = {
 	"_export_end": true,
 	"_export_file": true,
 	"_exit_tree": true,
+	"_forward_3d_gui_input": true,
 	"_get": true,
 	"_get_configuration_warnings": true,
 	"_get_name": true,
+	"_get_plugin_name": true,
 	"_get_property_list": true,
 	"_gui_input": true,
 	"_has_capture": true,
@@ -179,6 +181,18 @@ func test_framework_internal_type_section_is_not_treated_as_inner_class() -> voi
 		"框架内部方法应按 canonical 顺序排在私有/辅助方法之前。",
 	)
 	assert_true(_section_is_inner_class_section("内部类"), "canonical 内部类 section 应继续被识别。")
+
+
+func test_editor_plugin_native_callbacks_use_callback_sections() -> void:
+	for method_name: String in ["_forward_3d_gui_input", "_get_plugin_name"]:
+		assert_true(
+			_underscore_method_section_is_valid(method_name, "Godot 回调方法"),
+			"EditorPlugin 原生虚回调应保留 Godot 回调 section：" + method_name,
+		)
+	assert_false(
+		_underscore_method_section_is_valid("_compute_placement", "Godot 回调方法"),
+		"普通私有 helper 不能仅因位于编辑器脚本中就作为 Godot 回调。",
+	)
 
 
 func test_editor_generation_templates_use_documented_sections() -> void:
