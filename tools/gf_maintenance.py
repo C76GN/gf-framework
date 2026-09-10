@@ -1676,6 +1676,20 @@ def main() -> int:
 	)
 	workspace_parser.add_argument("--json", action="store_true", help="Print JSON instead of text.")
 
+	hotspots_parser = subparsers.add_parser(
+		"review-hotspots",
+		help="Report GDScript function structure for human review; never a quality gate.",
+	)
+	hotspots_parser.add_argument(
+		"--path", action="append", default=[],
+		help="Literal repository-relative file or directory; repeat to combine scopes (default: addons/gf).",
+	)
+	hotspots_parser.add_argument(
+		"--limit", type=int, default=30,
+		help="Maximum ranked functions to return, from 1 to 500 (default: 30).",
+	)
+	hotspots_parser.add_argument("--json", action="store_true", help="Print JSON instead of text.")
+
 	path_hygiene_parser = subparsers.add_parser("path-hygiene", help="Check tracked and untracked repository paths for cross-platform hazards.")
 	path_hygiene_parser.add_argument("--json", action="store_true", help="Print JSON instead of text.")
 
@@ -2127,6 +2141,12 @@ def main() -> int:
 		data = workspace_status(paths=args.path)
 		maintenance_rendering.print_output(data, args.json, maintenance_rendering.render_workspace_status_text)
 		return 0
+	if args.command == "review-hotspots":
+		import gf_review_hotspot_report
+
+		data = review_hotspots(paths=args.path, limit=args.limit)
+		maintenance_rendering.print_output(data, args.json, gf_review_hotspot_report.render_text)
+		return 0 if data["ok"] else 1
 	if args.command == "path-hygiene":
 		data = path_hygiene()
 		maintenance_rendering.print_output(data, args.json, maintenance_rendering.render_path_hygiene_text)
@@ -2355,6 +2375,56 @@ def write_internal_complete_output_evidence_report(
 			f"actual={len(payload_bytes)}, limit={max_utf8_bytes}."
 		)
 	maintenance_rendering.write_utf8_json_output(path, payload)
+
+
+@with_maintenance_process_authority
+def review_hotspots(*, paths: list[str] | None = None, limit: int = 30) -> dict[str, Any]:
+	"""Observe current source through a bounded, frozen Git inventory and pinned reads."""
+	import gf_review_hotspot_report
+
+	try:
+		if paths is not None and len(paths) > gf_review_hotspot_report.MAX_SCOPES:
+			raise ValueError("review_hotspots.scope_limit")
+		scopes = [gf_review_hotspot_report.normalize_scope(path) for path in (paths or ["addons/gf"])]
+		if type(limit) is not int or not 1 <= limit <= gf_review_hotspot_report.MAX_RESULT_LIMIT:
+			raise ValueError("review_hotspots.invalid_limit")
+	except ValueError as error:
+		report = gf_review_hotspot_report.empty_report([], 30)
+		report["issues"].append({"code": str(error)})
+		return report
+	report = gf_review_hotspot_report.empty_report(scopes, limit)
+	deadline = time.perf_counter() + 30.0
+	try:
+		git_process = active_or_freeze_maintenance_process_authority().git
+		result = gf_process_supervisor.run_supervised_process_bytes(
+			git_process.command(["ls-files", "-z", "--cached", "--others", "--exclude-standard"]).effective,
+			cwd=ROOT,
+			timeout_seconds=30.0,
+			deadline=deadline,
+			environment=git_process.environment.values(),
+			max_stdout_bytes=gf_review_hotspot_report.MAX_INVENTORY_BYTES,
+			max_stderr_bytes=4096,
+		)
+		result = gf_process_supervisor.require_supervised_binary_quiet_boundary(
+			result, deadline=deadline,
+		)
+		if (
+			result.return_code != 0 or result.stderr
+			or result.stdout_truncated or result.stderr_truncated
+			or result.timed_out or result.output_drain_failed or not result.cleanup_complete
+		):
+			raise ValueError("review_hotspots.git_inventory_failed")
+	except (OSError, ValueError, subprocess.TimeoutExpired) as error:
+		if exception_has_cleanup_debt(error):
+			raise
+		report["issues"].append({"code": "review_hotspots.git_inventory_failed"})
+		return report
+	try:
+		inventory = gf_review_hotspot_report.parse_inventory(result.stdout)
+	except ValueError as error:
+		report["issues"].append({"code": str(error)})
+		return report
+	return gf_review_hotspot_report.build_report(ROOT, inventory, scopes=scopes, limit=limit)
 
 
 def project_summary(include_release: bool = False, artifact_manifest: str = "") -> dict[str, Any]:
