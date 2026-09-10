@@ -191,6 +191,7 @@ python tools\gf_maintenance.py workspace-status
 python tools\gf_maintenance.py api-search GFAudioClip
 python tools\gf_maintenance.py api-class GFValidationReportDictionary
 python tools\gf_maintenance.py api-module extensions/domain
+python tools\gf_maintenance.py review-hotspots --path addons/gf/kernel/core --limit 20
 python tools\generate_api_coverage_matrix.py
 python tools\gf_maintenance.py check --suite quick
 python tools\gf_maintenance.py check --suite full
@@ -199,6 +200,29 @@ python tools\gf_maintenance.py release-status --version 3.19.0 --artifact-manife
 ```
 
 `quick` 面向本地开发内环，不包含维护工具自身的契约自测；修改 `tools/gf_maintenance*.py`、CI 或 release workflow 时，需另外运行 `python tools\gf_maintenance.py maintenance-self-test`。正式 `framework` / `full` 质量门仍会执行该自测。
+
+### 函数审查热点报告
+
+`review-hotspots` 按当前 GDScript 源码列出函数位置和结构观测，帮助维护者安排审查顺序。默认读取 `addons/gf`；可重复传入 `--path` 合并文件或目录范围。路径按仓库相对字面值匹配，支持 Windows 路径分隔符，不接受绝对路径、上级跳转或 Git pathspec。只纳入 Git 已跟踪和未忽略的文件，不执行 GDScript，也不扫描历史提交。
+
+```powershell
+python tools\gf_maintenance.py review-hotspots --path addons/gf/kernel/core/gf_architecture.gd
+python tools\gf_maintenance.py review-hotspots --path addons/gf/standard --limit 50 --json-output build/review-hotspots.json
+```
+
+报告逐项展示分支数、循环数、最大控制块嵌套和有效代码行，依次降序排列，再按文件路径与函数位置稳定排序。没有加权总分或“超过多少必须重构”的阈值。正常的取消、重入和预算保护同样会增加这些观测值；审查时应结合职责、调用约束和测试判断，不能为降低数字而删除保护逻辑或机械拆函数。
+
+JSON 的 `schema_version` 为 `1`。每个函数保留内类限定名、起止行、结构指标和扫描状态；同名函数通过文件、限定名与起始行区分。`files` 保留扫描文件的 SHA-256 和问题。文件读取固定普通文件及其父目录身份，拒绝符号链接、junction/reparse 和读取期间的替换；这是逐文件观测，不声称整个仓库来自同一个原子快照。源码后续变化时，应重新生成报告并按摘要核对。
+
+`complete` 只表示支持的词法与结构观测完成，不表示通过 Godot 编译或获得精确圈复杂度。注释和字符串不计控制结构，多行签名与表达式不因换行增加嵌套；lambda 体计入最近外层命名函数。条件表达式与 match 分支有单独计数，指标的具体口径见 `tools/gf_review_hotspots.py` 模块说明。遇到不完整语法、未知结构、文件读取失败或预算耗尽，报告明确标记不完整并列出问题。
+
+当前不解析控制条件内部的多行 lambda，也不解析分号连接的多条语句；含这些结构的文件会标记为 `incomplete`，其函数结果仍可辅助阅读，但不能当作完整计数。JSON 同时给出 `algorithm_version`、`metric_definitions` 和排序规则，后续算法变化应先核对这些字段再比较报告。每文件最多展示 16 条问题，多余问题通过 `omitted_issue_count` 显式计数。
+
+一次最多扫描 4096 个文件、每文件 1 MiB、总计 64 MiB 和 100000 个函数；源码扫描时间预算为 30 秒，Git 清单单独受 30 秒进程 deadline、2 MiB 输出和 20000 条路径限制。结构扫描另有行数、函数数与嵌套预算。`--limit` 为 1–500，默认 30；仅限制展示数量，`omitted_function_count` 说明省略数量，不把正常分页当作扫描失败。
+
+完整报告退出码为 0；输入错误或不完整报告为 1，表示观测覆盖不足，与指标高低无关。该命令保持显式调用，不进入默认 CI、检查套件或合并门禁；其解析与捕获回归测试由现有维护生成器测试负责。
+
+Git 清单只有在原进程 deadline 内确认整个进程树已清理后才可使用；无法完成清理时保留监督错误并失败退出，不把清理责任降级为普通扫描问题。
 
 本地构建结果统一写入 `build/`；已跟踪的 `build/.gdignore` 会阻止 Godot 将这些生成物当成 `res://` 资源扫描，清理脚本不得删除它。保存机器可读结果时使用 `python tools\gf_maintenance.py --json-output build\quick-result.json check --suite quick`，该参数会隐含 `--json` 并以无 BOM 的 UTF-8 原子写入。在 Windows PowerShell 5.1 中不要使用默认 `>` 或 `Out-File` 生成 JSON，它们会把原本的 UTF-8 stdout 转写成 UTF-16。
 

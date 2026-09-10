@@ -639,7 +639,12 @@ def build_validation_catalog(context: ValidationCatalogContext) -> ValidationCat
 		),
 		subprocess_action(
 			"maintenance_generator_tests",
-			python_script("tests/gf_core/tools/test_gf_maintenance_generators.py"),
+			(
+				python, "-m", "unittest",
+				"tests/gf_core/tools/test_gf_maintenance_generators.py",
+				"tests/gf_core/tools/test_gf_review_hotspots.py",
+				"tests/gf_core/tools/test_gf_review_hotspot_report.py",
+			),
 		),
 		subprocess_action(
 			"maintenance_test_evidence_tests",

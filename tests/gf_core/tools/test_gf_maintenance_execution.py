@@ -1401,7 +1401,7 @@ class MaintenanceSelfTestModuleTests(unittest.TestCase):
 
 class ValidationCatalogContractTests(unittest.TestCase):
 	_AUTHORITY_SNAPSHOT_SHA256 = (
-		"6533e4096a6dd5c17a5fa82850c4f066599f4c7f344c0da6e1d30e3d767ddd99"
+		"6d702b880a323b6d260af93bd2ad7c987d490373d89e7c6ab48f789709286a6c"
 	)
 	_PRE_MIGRATION_EXECUTOR_PROJECTION_SHA256 = (
 		"414df23ef834a3c471a1c559ea7f1e5577375e3fd468c99381b828501e4816ef"
