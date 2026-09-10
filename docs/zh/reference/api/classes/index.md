@@ -22,7 +22,7 @@
 | Flow | 7 | 139 | [Flow](#module-extensions-flow) |
 | Interaction | 6 | 82 | [Interaction](#module-extensions-interaction) |
 | Extensions / Layered Sprite | 4 | 46 | [Extensions / Layered Sprite](#module-extensions-layered_sprite) |
-| Network | 38 | 602 | [Network](#module-extensions-network) |
+| Network | 41 | 635 | [Network](#module-extensions-network) |
 | Physics | 4 | 50 | [Physics](#module-extensions-physics) |
 | Save | 52 | 658 | [Save](#module-extensions-save) |
 | Turn Based | 5 | 50 | [Turn Based](#module-extensions-turn_based) |
@@ -904,6 +904,7 @@
 |---|---|---|---:|---|
 | [`GFNetworkDirtyStateTracker`](GFNetworkDirtyStateTracker.md#gfnetworkdirtystatetracker) | 运行时服务 (`runtime_service`) | `RefCounted` | 11 | `addons/gf/extensions/network/session/gf_network_dirty_state_tracker.gd` |
 | [`GFNetworkLobbyService`](GFNetworkLobbyService.md#gfnetworklobbyservice) | 运行时服务 (`runtime_service`) | `GFUtility` | 33 | `addons/gf/extensions/network/session/gf_network_lobby_service.gd` |
+| [`GFNetworkRequestTracker`](GFNetworkRequestTracker.md#gfnetworkrequesttracker) | 运行时服务 (`runtime_service`) | `RefCounted` | 10 | `addons/gf/extensions/network/runtime/gf_network_request_tracker.gd` |
 | [`GFNetworkSyncCoordinator`](GFNetworkSyncCoordinator.md#gfnetworksynccoordinator) | 运行时服务 (`runtime_service`) | `RefCounted` | 29 | `addons/gf/extensions/network/simulation/gf_network_sync_coordinator.gd` |
 | [`GFNetworkUtility`](GFNetworkUtility.md#gfnetworkutility) | 运行时服务 (`runtime_service`) | `GFUtility` | 32 | `addons/gf/extensions/network/runtime/gf_network_utility.gd` |
 | [`GFNetworkBackend`](GFNetworkBackend.md#gfnetworkbackend) | 协议与扩展点 (`protocol`) | `RefCounted` | 18 | `addons/gf/extensions/network/backends/gf_network_backend.gd` |
@@ -924,6 +925,7 @@
 | [`GFNetworkLobbyOperationHandle`](GFNetworkLobbyOperationHandle.md#gfnetworklobbyoperationhandle) | 运行时句柄 (`runtime_handle`) | `RefCounted` | 10 | `addons/gf/extensions/network/session/gf_network_lobby_operation_handle.gd` |
 | [`GFNetworkRateLimiter`](GFNetworkRateLimiter.md#gfnetworkratelimiter) | 运行时句柄 (`runtime_handle`) | `RefCounted` | 6 | `addons/gf/extensions/network/session/gf_network_rate_limiter.gd` |
 | [`GFNetworkReconnectPolicy`](GFNetworkReconnectPolicy.md#gfnetworkreconnectpolicy) | 运行时句柄 (`runtime_handle`) | `RefCounted` | 9 | `addons/gf/extensions/network/session/gf_network_reconnect_policy.gd` |
+| [`GFNetworkRequestHandle`](GFNetworkRequestHandle.md#gfnetworkrequesthandle) | 运行时句柄 (`runtime_handle`) | `RefCounted` | 8 | `addons/gf/extensions/network/runtime/gf_network_request_handle.gd` |
 | [`GFNetworkServiceDiscovery`](GFNetworkServiceDiscovery.md#gfnetworkservicediscovery) | 运行时句柄 (`runtime_handle`) | `RefCounted` | 20 | `addons/gf/extensions/network/session/gf_network_service_discovery.gd` |
 | [`GFNetworkSession`](GFNetworkSession.md#gfnetworksession) | 运行时句柄 (`runtime_handle`) | `RefCounted` | 17 | `addons/gf/extensions/network/session/gf_network_session.gd` |
 | [`GFWebSocketNetworkBackend`](GFWebSocketNetworkBackend.md#gfwebsocketnetworkbackend) | 运行时句柄 (`runtime_handle`) | `GFNetworkBackend` | 35 | `addons/gf/extensions/network/backends/gf_websocket_network_backend.gd` |
@@ -934,6 +936,7 @@
 | [`GFNetworkLobbyQuery`](GFNetworkLobbyQuery.md#gfnetworklobbyquery) | 值对象 (`value_object`) | `Resource` | 13 | `addons/gf/extensions/network/session/gf_network_lobby_query.gd` |
 | [`GFNetworkMessage`](GFNetworkMessage.md#gfnetworkmessage) | 值对象 (`value_object`) | `RefCounted` | 8 | `addons/gf/extensions/network/messages/gf_network_message.gd` |
 | [`GFNetworkPeerIdentity`](GFNetworkPeerIdentity.md#gfnetworkpeeridentity) | 值对象 (`value_object`) | `Resource` | 16 | `addons/gf/extensions/network/session/gf_network_peer_identity.gd` |
+| [`GFNetworkRequestResult`](GFNetworkRequestResult.md#gfnetworkrequestresult) | 值对象 (`value_object`) | `RefCounted` | 15 | `addons/gf/extensions/network/runtime/gf_network_request_result.gd` |
 | [`GFNetworkSnapshot`](GFNetworkSnapshot.md#gfnetworksnapshot) | 值对象 (`value_object`) | `RefCounted` | 16 | `addons/gf/extensions/network/snapshot/gf_network_snapshot.gd` |
 | [`GFNetworkTransportMetrics`](GFNetworkTransportMetrics.md#gfnetworktransportmetrics) | 值对象 (`value_object`) | `RefCounted` | 25 | `addons/gf/extensions/network/runtime/gf_network_transport_metrics.gd` |
 | [`GFNetworkLobbyInvite`](GFNetworkLobbyInvite.md#gfnetworklobbyinvite) | 事件契约 (`event_contract`) | `Resource` | 11 | `addons/gf/extensions/network/session/gf_network_lobby_invite.gd` |

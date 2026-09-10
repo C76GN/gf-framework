@@ -1,0 +1,146 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFNetworkRequestResult" path="addons/gf/extensions/network/runtime/gf_network_request_result.gd" module="extensions/network" extends="RefCounted" classDigest="199709490eef70b92000e01f82283fca427c0996dd6883b7ceb48564b79e508c">
+	<description>GFNetworkRequestResult: 网络请求关联的一次性只读终态。
+received 只表示收到匹配请求身份与 peer 的回复，不表示业务操作成功。
+回复由关联器先完成有界传输值校验；结果保留隔离副本，读取时再次复制集合。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">value_object</tag>
+		<tag name="since">unreleased</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants>
+		<member kind="const" name="STATUS_RECEIVED">
+			<signature>const STATUS_RECEIVED: StringName = &amp;"received"</signature>
+			<description>已收到匹配的回复；不解释回复中的业务结果。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_SEND_FAILED">
+			<signature>const STATUS_SEND_FAILED: StringName = &amp;"send_failed"</signature>
+			<description>发送入口返回错误，且请求尚未进入其他终态。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_TIMED_OUT">
+			<signature>const STATUS_TIMED_OUT: StringName = &amp;"timed_out"</signature>
+			<description>已达到本地单调截止时间。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_CANCELLED">
+			<signature>const STATUS_CANCELLED: StringName = &amp;"cancelled"</signature>
+			<description>调用方已取消本地等待；不代表服务器操作被撤销。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_SESSION_CLOSED">
+			<signature>const STATUS_SESSION_CLOSED: StringName = &amp;"session_closed"</signature>
+			<description>所属会话已关闭或被替换。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_PEER_DISCONNECTED">
+			<signature>const STATUS_PEER_DISCONNECTED: StringName = &amp;"peer_disconnected"</signature>
+			<description>目标 peer 的连接已失效。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_DISPOSED">
+			<signature>const STATUS_DISPOSED: StringName = &amp;"disposed"</signature>
+			<description>所属关联器已释放或不再存在。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_REJECTED">
+			<signature>const STATUS_REJECTED: StringName = &amp;"rejected"</signature>
+			<description>请求未通过参数、会话或容量准入检查。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="STATUS_INVALID_RESPONSE">
+			<signature>const STATUS_INVALID_RESPONSE: StringName = &amp;"invalid_response"</signature>
+			<description>匹配身份的回复未通过有界传输值校验。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</constants>
+	<properties />
+	<methods>
+		<member kind="method" name="get_request_id">
+			<signature>func get_request_id() -&gt; String:</signature>
+			<description>获取关联请求 ID。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">请求 ID；尚未配置时为空。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_peer_id">
+			<signature>func get_peer_id() -&gt; int:</signature>
+			<description>获取请求绑定的目标 peer。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">请求的目标 peer；尚未配置时为 -1。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_status">
+			<signature>func get_status() -&gt; StringName:</signature>
+			<description>获取稳定终态。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">STATUS_* 常量之一；尚未配置时为 STATUS_REJECTED。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_successful">
+			<signature>func is_successful() -&gt; bool:</signature>
+			<description>检查是否收到匹配回复。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">已配置且状态为 received 时返回 true；不判断业务成功。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_response">
+			<signature>func get_response() -&gt; Variant:</signature>
+			<description>获取回复的隔离副本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">回复副本；非 received 终态或尚未配置时为 null。</tag>
+				<tag name="schema">return: Variant，由关联器校验的有界纯传输值；不含 Object、Callable、Signal、RID、循环容器或非有限数，集合深拷贝。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_send_error">
+			<signature>func get_send_error() -&gt; Error:</signature>
+			<description>获取发送或准入阶段的错误码。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">关联器记录的发送或准入错误码；请求未发送也可能携带拒绝原因，无错误时为 OK。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

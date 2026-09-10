@@ -5,10 +5,10 @@
 ## 范围
 
 - 源码根目录：`addons/gf`
-- 公开类：`878`
+- 公开类：`881`
 - 公开 AutoLoad：`1`
-- 公开成员：`12676`
-- 公开方法：`7855`
+- 公开成员：`12709`
+- 公开方法：`7878`
 - AutoLoad 公开方法：`65`
 
 ## 模块
@@ -31,7 +31,7 @@
 | Flow | 7 | 0 | 139 | 85 | [extensions-flow.md](extensions-flow.md) |
 | Interaction | 6 | 0 | 82 | 29 | [extensions-interaction.md](extensions-interaction.md) |
 | Extensions / Layered Sprite | 4 | 0 | 46 | 21 | [extensions-layered-sprite.md](extensions-layered-sprite.md) |
-| Network | 38 | 0 | 602 | 323 | [extensions-network.md](extensions-network.md) |
+| Network | 41 | 0 | 635 | 346 | [extensions-network.md](extensions-network.md) |
 | Physics | 4 | 0 | 50 | 23 | [extensions-physics.md](extensions-physics.md) |
 | Save | 52 | 0 | 658 | 417 | [extensions-save.md](extensions-save.md) |
 | Turn Based | 5 | 0 | 50 | 25 | [extensions-turn-based.md](extensions-turn-based.md) |

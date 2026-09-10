@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFNetworkRequestHandle" path="addons/gf/extensions/network/runtime/gf_network_request_handle.gd" module="extensions/network" extends="RefCounted" classDigest="3c66a0dd2c2d4e6b208ecebd0d33f666964ac16fed4c65c23769fcbe15480550">
+	<description>GFNetworkRequestHandle: 网络请求关联的本地等待句柄。
+句柄弱引用关联器，只允许关联器提交终态。批量清理可以先提交全部结果，
+再逐个发布 completed；取消只结束本地等待，不撤销服务器操作。
+状态变更和信号发布只允许在主线程执行。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_handle</tag>
+		<tag name="since">unreleased</tag>
+	</tags>
+	<signals>
+		<member kind="signal" name="completed">
+			<signature>signal completed(result: GFNetworkRequestResult)</signature>
+			<description>关联器发布已提交的终态时发出一次。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">result: 不可变的请求终态，回复通过 getter 取得隔离副本。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</signals>
+	<enums />
+	<constants />
+	<properties />
+	<methods>
+		<member kind="method" name="get_request_id">
+			<signature>func get_request_id() -&gt; String:</signature>
+			<description>获取关联请求 ID。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">请求 ID；尚未配置时为空。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_peer_id">
+			<signature>func get_peer_id() -&gt; int:</signature>
+			<description>获取请求绑定的目标 peer。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">请求的目标 peer；尚未配置时为 -1。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_pending">
+			<signature>func is_pending() -&gt; bool:</signature>
+			<description>检查请求是否仍在等待终态。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">已配置且尚未提交终态时返回 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_completed">
+			<signature>func is_completed() -&gt; bool:</signature>
+			<description>检查请求是否已提交终态。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">已提交结果时返回 true；不表示 completed 已经派发。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_successful">
+			<signature>func is_successful() -&gt; bool:</signature>
+			<description>检查请求是否收到匹配回复。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">已提交 received 终态时返回 true；不判断业务成功。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_result">
+			<signature>func get_result() -&gt; GFNetworkRequestResult:</signature>
+			<description>获取不可变的终态结果。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">已提交的同一结果对象；尚未提交时为 null。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="cancel">
+			<signature>func cancel() -&gt; bool:</signature>
+			<description>取消本地请求等待。
+关联器负责截止时间优先级及 pending 移除。关联器已经不存在时提交 disposed，
+不发送任何远程取消消息；已提交终态或非主线程调用不产生变化。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">本次调用首次终结等待时返回 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

@@ -6,11 +6,11 @@
 
 | 类别 | 类 | 成员 | 方法 |
 |---|---:|---:|---:|
-| [运行时服务](#category-runtime_service) | 4 | 105 | 60 |
+| [运行时服务](#category-runtime_service) | 5 | 115 | 70 |
 | [协议与扩展点](#category-protocol) | 5 | 78 | 46 |
 | [资源定义](#category-resource_definition) | 6 | 80 | 46 |
-| [运行时句柄](#category-runtime_handle) | 10 | 155 | 83 |
-| [值对象](#category-value_object) | 9 | 142 | 69 |
+| [运行时句柄](#category-runtime_handle) | 11 | 163 | 90 |
+| [值对象](#category-value_object) | 10 | 157 | 75 |
 | [事件契约](#category-event_contract) | 2 | 33 | 11 |
 | [编辑器 API](#category-editor_api) | 2 | 9 | 8 |
 
@@ -24,6 +24,7 @@
 |---|---|---|
 | [`GFNetworkDirtyStateTracker`](classes/GFNetworkDirtyStateTracker.md#gfnetworkdirtystatetracker) | `RefCounted` | `addons/gf/extensions/network/session/gf_network_dirty_state_tracker.gd` |
 | [`GFNetworkLobbyService`](classes/GFNetworkLobbyService.md#gfnetworklobbyservice) | `GFUtility` | `addons/gf/extensions/network/session/gf_network_lobby_service.gd` |
+| [`GFNetworkRequestTracker`](classes/GFNetworkRequestTracker.md#gfnetworkrequesttracker) | `RefCounted` | `addons/gf/extensions/network/runtime/gf_network_request_tracker.gd` |
 | [`GFNetworkSyncCoordinator`](classes/GFNetworkSyncCoordinator.md#gfnetworksynccoordinator) | `RefCounted` | `addons/gf/extensions/network/simulation/gf_network_sync_coordinator.gd` |
 | [`GFNetworkUtility`](classes/GFNetworkUtility.md#gfnetworkutility) | `GFUtility` | `addons/gf/extensions/network/runtime/gf_network_utility.gd` |
 
@@ -65,6 +66,7 @@
 | [`GFNetworkLobbyOperationHandle`](classes/GFNetworkLobbyOperationHandle.md#gfnetworklobbyoperationhandle) | `RefCounted` | `addons/gf/extensions/network/session/gf_network_lobby_operation_handle.gd` |
 | [`GFNetworkRateLimiter`](classes/GFNetworkRateLimiter.md#gfnetworkratelimiter) | `RefCounted` | `addons/gf/extensions/network/session/gf_network_rate_limiter.gd` |
 | [`GFNetworkReconnectPolicy`](classes/GFNetworkReconnectPolicy.md#gfnetworkreconnectpolicy) | `RefCounted` | `addons/gf/extensions/network/session/gf_network_reconnect_policy.gd` |
+| [`GFNetworkRequestHandle`](classes/GFNetworkRequestHandle.md#gfnetworkrequesthandle) | `RefCounted` | `addons/gf/extensions/network/runtime/gf_network_request_handle.gd` |
 | [`GFNetworkServiceDiscovery`](classes/GFNetworkServiceDiscovery.md#gfnetworkservicediscovery) | `RefCounted` | `addons/gf/extensions/network/session/gf_network_service_discovery.gd` |
 | [`GFNetworkSession`](classes/GFNetworkSession.md#gfnetworksession) | `RefCounted` | `addons/gf/extensions/network/session/gf_network_session.gd` |
 | [`GFWebSocketNetworkBackend`](classes/GFWebSocketNetworkBackend.md#gfwebsocketnetworkbackend) | `GFNetworkBackend` | `addons/gf/extensions/network/backends/gf_websocket_network_backend.gd` |
@@ -82,6 +84,7 @@
 | [`GFNetworkLobbyQuery`](classes/GFNetworkLobbyQuery.md#gfnetworklobbyquery) | `Resource` | `addons/gf/extensions/network/session/gf_network_lobby_query.gd` |
 | [`GFNetworkMessage`](classes/GFNetworkMessage.md#gfnetworkmessage) | `RefCounted` | `addons/gf/extensions/network/messages/gf_network_message.gd` |
 | [`GFNetworkPeerIdentity`](classes/GFNetworkPeerIdentity.md#gfnetworkpeeridentity) | `Resource` | `addons/gf/extensions/network/session/gf_network_peer_identity.gd` |
+| [`GFNetworkRequestResult`](classes/GFNetworkRequestResult.md#gfnetworkrequestresult) | `RefCounted` | `addons/gf/extensions/network/runtime/gf_network_request_result.gd` |
 | [`GFNetworkSnapshot`](classes/GFNetworkSnapshot.md#gfnetworksnapshot) | `RefCounted` | `addons/gf/extensions/network/snapshot/gf_network_snapshot.gd` |
 | [`GFNetworkTransportMetrics`](classes/GFNetworkTransportMetrics.md#gfnetworktransportmetrics) | `RefCounted` | `addons/gf/extensions/network/runtime/gf_network_transport_metrics.gd` |
 

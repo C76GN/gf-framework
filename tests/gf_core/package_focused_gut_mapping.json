@@ -58,6 +58,7 @@
     ],
     "gf.extension.network": [
       "res://tests/gf_core/extensions/network/test_gf_network_extension.gd",
+      "res://tests/gf_core/extensions/network/test_gf_network_request_tracker.gd",
       "res://tests/gf_core/extensions/network/test_gf_network_sync_coordinator.gd"
     ],
     "gf.extension.physics": [

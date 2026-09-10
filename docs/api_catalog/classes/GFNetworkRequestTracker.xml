@@ -1,0 +1,121 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFNetworkRequestTracker" path="addons/gf/extensions/network/runtime/gf_network_request_tracker.gd" module="extensions/network" extends="RefCounted" classDigest="6cc3d54bf043161ed69424f2264ab1bf7cba938563ad9c37520f0f4a39f31320">
+	<description>GFNetworkRequestTracker: 可选的有界网络请求关联器。
+主线程显式驱动会话、请求与回复，不拥有传输后端，不解释业务成功或自动重试。
+send 回调同步接收必须原样回显的请求 ID；适配器识别回复后传入真实传输 peer。
+使用独立单调时钟；调用方须定期 tick，并在退出时 dispose。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_service</tag>
+		<tag name="since">unreleased</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties />
+	<methods>
+		<member kind="method" name="_init">
+			<signature>func _init(clock: GFClock = null, max_pending: int = 64) -&gt; void:</signature>
+			<description>创建关联器；时钟与容量在此生命周期内固定。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">clock: 同步、无副作用的单调时钟；null 使用系统 GFClock。</tag>
+				<tag name="param">max_pending: 在途上限，必须为 1 至 4096；无效配置无法开始会话。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="dispose">
+			<signature>func dispose() -&gt; void:</signature>
+			<description>不可逆地关闭准入并终结所有在途请求，不关闭共享网络工具。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="begin_session">
+			<signature>func begin_session() -&gt; Error:</signature>
+			<description>开始新会话，先以 session_closed 终结旧请求，再允许新请求。
+清理通知期间不允许重入开启会话；若监听者结束会话或 dispose，本次开启也失败。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">成功为 OK；非主线程、已释放或开启期间被关闭为 ERR_UNAVAILABLE，清理中为 ERR_BUSY，无效配置为 ERR_INVALID_PARAMETER。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="end_session">
+			<signature>func end_session() -&gt; void:</signature>
+			<description>结束当前会话；批量提交所有旧终态后才发通知。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="disconnect_peer">
+			<signature>func disconnect_peer(peer_id: int) -&gt; void:</signature>
+			<description>终结指定 peer 的在途请求，不影响其他 peer。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">peer_id: 实际传输 peer，必须大于 0。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="request">
+			<signature>func request( peer_id: int, send: Callable, timeout_msec: int = 10000 ) -&gt; GFNetworkRequestHandle:</signature>
+			<description>登记请求，再同步调用 send(request_id) 进行项目编码与发送。
+回调只在本次调用栈内使用，返回 Godot Error。同步回复可能使返回句柄已经完成；
+已提交的终态优先于回调随后返回的错误。准入失败不调用 send。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">peer_id: 单一目标 peer，必须大于 0，不接受广播。</tag>
+				<tag name="param">send: 同步 Callable，接收不透明 String 请求 ID 并返回 Error；不得 await。</tag>
+				<tag name="param">timeout_msec: 单调超时，1 至 86400000 毫秒，不允许无限等待。</tag>
+				<tag name="return">在途或已完成句柄；非主线程返回 null 且不发送。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="receive_reply">
+			<signature>func receive_reply(peer_id: int, request_id: String, response: Variant = null) -&gt; bool:</signature>
+			<description>接收适配器已识别的回复，不处理普通广播、业务错误码或协议字段。
+错 peer、未知或重复 ID 不改变请求。截止时刻已到则先超时。
+无效回复终结为 invalid_response；不会保留部分值或截断后冒充成功。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">peer_id: 来自传输回调的真实 peer，不使用载荷自报身份。</tag>
+				<tag name="param">request_id: 协议原样回显的完整请求 ID。</tag>
+				<tag name="param">response: 需要保留的回复值，可为 null。</tag>
+				<tag name="return">本次提交 received 终态时为 true；其他情况为 false。</tag>
+				<tag name="schema">response: Variant，传输安全纯值；拒绝 Object、Callable、Signal、RID、循环和非有限数，限制深度 16、节点 4096、估算传输字节 65536。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="tick">
+			<signature>func tick() -&gt; void:</signature>
+			<description>按单调截止时间终结到期请求；不推进传输或时钟，不重入驱动。
+本次到期集合在通知前全部提交；监听者新建的请求留待下一次 tick。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_pending_count">
+			<signature>func get_pending_count() -&gt; int:</signature>
+			<description>获取尚未提交终态的请求数；到期请求在 tick 或终态入口处理。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">在途数量。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_debug_snapshot">
+			<signature>func get_debug_snapshot() -&gt; Dictionary:</signature>
+			<description>获取不包含关联 ID、业务载荷或发送回调的诊断快照。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">当前关联器状态。</tag>
+				<tag name="schema">return: Dictionary，包含 active、disposed、pending_count、max_pending。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>
