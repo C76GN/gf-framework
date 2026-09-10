@@ -220,7 +220,13 @@ func receive_reply(peer_id: int, request_id: String, response: Variant = null) -
 	if not GFVariantData.get_option_bool(report, "ok"):
 		var _finished: bool = _finish(handle, GFNetworkRequestResult.STATUS_INVALID_RESPONSE)
 		return false
-	return _finish(handle, GFNetworkRequestResult.STATUS_RECEIVED, response)
+	var result: GFNetworkRequestResult = GFNetworkRequestResult.new()
+	result.configure_from_network_layer(request_id, peer_id, GFNetworkRequestResult.STATUS_RECEIVED, response)
+	# 隔离副本准备完成后再判截止时间，提交时不再复制回复。
+	if _expire(handle) or not _commit_result(handle, result):
+		return false
+	handle.publish_from_network_layer()
+	return true
 
 
 ## 按单调截止时间终结到期请求；不推进传输或时钟，不重入驱动。
@@ -341,14 +347,18 @@ func _commit(
 	response: Variant = null,
 	send_error: Error = OK
 ) -> bool:
+	var result: GFNetworkRequestResult = GFNetworkRequestResult.new()
+	result.configure_from_network_layer(handle.get_request_id(), handle.get_peer_id(), status, response, send_error)
+	return _commit_result(handle, result)
+
+
+func _commit_result(handle: GFNetworkRequestHandle, result: GFNetworkRequestResult) -> bool:
 	var request_id: String = handle.get_request_id()
 	if _get_handle(request_id) != handle:
 		return false
 	var erased: bool = _pending.erase(request_id)
 	if not erased:
 		return false
-	var result: GFNetworkRequestResult = GFNetworkRequestResult.new()
-	result.configure_from_network_layer(request_id, handle.get_peer_id(), status, response, send_error)
 	return handle.commit_from_network_layer(result)
 
 

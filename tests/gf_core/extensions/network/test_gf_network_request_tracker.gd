@@ -187,6 +187,70 @@ func test_valid_response_validation_crossing_deadline_finishes_as_timed_out() ->
 	tracker.dispose()
 
 
+func test_response_snapshot_crossing_deadline_finishes_once_without_retaining_response() -> void:
+	var clock: ObservedMonotonicClock = ObservedMonotonicClock.new()
+	var tracker: GFNetworkRequestTracker = GFNetworkRequestTracker.new(clock)
+	var sender: SendProbe = SendProbe.new()
+	var completion: CompletionProbe = CompletionProbe.new()
+	assert_eq(tracker.begin_session(), OK)
+	var handle: GFNetworkRequestHandle = tracker.request(2, sender.send, 10)
+	var _connection_error: int = handle.completed.connect(completion.record)
+	var response: Array[Dictionary] = []
+	for index: int in range(1000):
+		response.append({ "value": index })
+	# 校验前后仍未到期，但准备隔离副本后已恰好到达截止时刻。
+	clock.queue_observations([9, 9, 10])
+
+	assert_false(tracker.receive_reply(2, handle.get_request_id(), response))
+
+	_assert_status(handle, &"timed_out")
+	var response_value: Variant = handle.get_result().get_response()
+	assert_true(response_value == null)
+	assert_false(handle.is_successful())
+	assert_eq(completion.results.size(), 1)
+	assert_same(completion.results[0], handle.get_result())
+	assert_eq(tracker.get_pending_count(), 0)
+	assert_false(handle.cancel())
+	assert_false(tracker.receive_reply(2, handle.get_request_id(), response))
+	tracker.tick()
+	tracker.end_session()
+	tracker.dispose()
+	assert_eq(completion.results.size(), 1)
+
+
+func test_response_snapshot_before_deadline_commits_an_isolated_success() -> void:
+	var clock: ObservedMonotonicClock = ObservedMonotonicClock.new()
+	var tracker: GFNetworkRequestTracker = GFNetworkRequestTracker.new(clock)
+	var sender: SendProbe = SendProbe.new()
+	var completion: CompletionProbe = CompletionProbe.new()
+	assert_eq(tracker.begin_session(), OK)
+	var handle: GFNetworkRequestHandle = tracker.request(2, sender.send, 10)
+	var _connection_error: int = handle.completed.connect(completion.record)
+	var response: Array[Dictionary] = []
+	for index: int in range(1000):
+		response.append({ "value": index })
+	clock.queue_observations([8, 8, 9])
+
+	assert_true(tracker.receive_reply(2, handle.get_request_id(), response))
+
+	_assert_status(handle, &"received")
+	assert_eq(_response_array(handle), response)
+	response[0]["value"] = -1
+	var retained: Array = _response_array(handle)
+	var first_value: Variant = retained[0]
+	assert_true(first_value is Dictionary)
+	if first_value is Dictionary:
+		var first_row: Dictionary = first_value
+		assert_eq(first_row, { "value": 0 })
+	assert_eq(completion.results.size(), 1)
+	assert_eq(tracker.get_pending_count(), 0)
+	clock.queue_observations([10])
+	tracker.tick()
+	_assert_status(handle, &"received")
+	tracker.dispose()
+	assert_eq(completion.results.size(), 1)
+
+
 func test_tick_uses_monotonic_clock_and_ignores_wall_clock_jumps() -> void:
 	var clock: GFManualClock = GFManualClock.new(0, 1000)
 	var tracker: GFNetworkRequestTracker = GFNetworkRequestTracker.new(clock)
