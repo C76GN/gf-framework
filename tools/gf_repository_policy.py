@@ -68,7 +68,7 @@ FRAMEWORK_CI_TIMEOUT_MINUTES = {
 	"framework-gut": 60,
 	"framework-lsp": 15,
 	"framework-static": 20,
-	"framework-integration": 30,
+	"framework-integration": 40,
 }
 REPOSITORY_POLICY_COMMAND = "python tools/gf_repository_policy.py validate --json"
 PULL_REQUEST_POLICY_COMMAND = "python tools/gf_repository_policy.py validate-pr --json"
@@ -492,7 +492,7 @@ def audit_maintenance_skill_contracts(sources: dict[str, str]) -> list[str]:
 	require(
 		framework_checks,
 		"`framework-gut` 60 minutes, `framework-lsp` 15 minutes, "
-		"`framework-static` 20 minutes, and `framework-integration` 30 minutes",
+		"`framework-static` 20 minutes, and `framework-integration` 40 minutes",
 		"Ready/main workflow deadline contract",
 	)
 	require(
@@ -2163,9 +2163,9 @@ def run_maintenance_skill_contract_mutation_self_tests() -> list[str]:
 		(
 			".codex/skills/gf-framework-maintenance/references/checks.md",
 			"`framework-gut` 60 minutes, `framework-lsp` 15 minutes, "
-			"`framework-static` 20 minutes, and `framework-integration` 30 minutes",
+			"`framework-static` 20 minutes, and `framework-integration` 40 minutes",
 			"`framework-gut` 59 minutes, `framework-lsp` 15 minutes, "
-			"`framework-static` 20 minutes, and `framework-integration` 30 minutes",
+			"`framework-static` 20 minutes, and `framework-integration` 40 minutes",
 			"Ready/main workflow deadline contract",
 		),
 		(
@@ -2236,7 +2236,7 @@ def run_ci_workflow_mutation_self_tests(policy: dict[str, Any]) -> list[str]:
 		),
 		(
 			"short_framework_integration_timeout",
-			source.replace("            timeout_minutes: 30", "            timeout_minutes: 29", 1),
+			source.replace("            timeout_minutes: 40", "            timeout_minutes: 39", 1),
 			"framework-checks matrix suite framework-integration timeout_minutes",
 		),
 		(

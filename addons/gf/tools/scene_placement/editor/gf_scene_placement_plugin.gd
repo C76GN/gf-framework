@@ -29,6 +29,7 @@ var _editor_base_ref: WeakRef = null
 # --- Godot 生命周期方法 ---
 
 func _enter_tree() -> void:
+	GFScenePlacementLauncher.notify_plugin_lifecycle(self, true)
 	_editor_base_ref = weakref(EditorInterface.get_base_control())
 	_panel = GFScenePlacementPanel.new()
 	add_control_to_dock(DOCK_SLOT_RIGHT_UL, _panel)
@@ -52,6 +53,7 @@ func _process(_delta: float) -> void:
 
 
 func _exit_tree() -> void:
+	GFScenePlacementLauncher.notify_plugin_lifecycle(self, false)
 	cancel_placement()
 	if is_instance_valid(_panel):
 		remove_control_from_docks(_panel)

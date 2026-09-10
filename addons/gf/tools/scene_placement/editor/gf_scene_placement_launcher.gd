@@ -19,6 +19,8 @@ const _PLUGIN_NAME: String = "gf/tools/scene_placement"
 # --- 私有变量 ---
 
 static var _ownership_generation: int = 0
+static var _native_plugin_ref: WeakRef = null
+static var _managed_plugin_ref: WeakRef = null
 
 var _has_context: bool = false
 var _owned_generation: int = 0
@@ -53,7 +55,8 @@ func _exit_tree() -> void:
 # --- 框架内部方法 ---
 
 ## 根工作区释放上下文时延迟关闭本启动页拥有的原生子插件。
-## 新上下文或再次打开会作废旧关闭请求，避免晚到回调关闭新的使用方。
+## 仅延续启动页已管理的同一原生实例；用户独立启用的插件不因页面构建而被接管。
+## 延续管理或再次打开会作废旧关闭请求，避免晚到回调关闭新的使用方。
 ## [br]
 ## @api framework_internal
 ## [br]
@@ -74,9 +77,33 @@ func set_editor_context(context: GFEditorToolContext) -> void:
 			if is_instance_valid(editor_base):
 				_editor_base_ref = weakref(editor_base)
 		if _resolve_editor_base(_editor_base_ref) != null:
-			_claim_ownership()
+			var managed_plugin: EditorPlugin = _get_managed_plugin()
+			if managed_plugin != null:
+				_claim_ownership(managed_plugin)
 	else:
 		_request_owned_close()
+
+
+## 记录原生插件实例的启停，使关闭请求与该实例的生命周期绑定。
+## [br]
+## @api framework_internal
+## [br]
+## @since unreleased
+## [br]
+## @param plugin: 正在进入或退出编辑器树的原生摆放插件实例。
+## [br]
+## @param entered: true 表示实例进入编辑器树；false 表示该实例退出。
+static func notify_plugin_lifecycle(plugin: EditorPlugin, entered: bool) -> void:
+	if not is_instance_valid(plugin):
+		return
+	if entered:
+		_ownership_generation += 1
+		_native_plugin_ref = weakref(plugin)
+		_managed_plugin_ref = null
+	elif _resolve_plugin(_native_plugin_ref) == plugin:
+		_ownership_generation += 1
+		_native_plugin_ref = null
+		_managed_plugin_ref = null
 
 
 ## 请求关闭当前摆放子插件；新的打开动作会作废这次关闭。
@@ -89,16 +116,20 @@ func set_editor_context(context: GFEditorToolContext) -> void:
 static func request_plugin_close(editor_base: Control) -> void:
 	if not is_instance_valid(editor_base) or not editor_base.is_inside_tree() or editor_base.is_queued_for_deletion():
 		return
+	var plugin: EditorPlugin = _resolve_plugin(_native_plugin_ref)
+	if plugin == null:
+		return
 	_ownership_generation += 1
 	var editor_base_ref: WeakRef = weakref(editor_base)
-	GFScenePlacementLauncher._disable_owned_plugin.call_deferred(_ownership_generation, editor_base_ref)
+	GFScenePlacementLauncher._disable_owned_plugin.call_deferred(_ownership_generation, editor_base_ref, weakref(plugin))
 
 
 # --- 私有/辅助方法 ---
 
-func _claim_ownership() -> void:
+func _claim_ownership(plugin: EditorPlugin) -> void:
 	_ownership_generation += 1
 	_owned_generation = _ownership_generation
+	_managed_plugin_ref = weakref(plugin)
 
 
 func _request_owned_close() -> void:
@@ -110,20 +141,44 @@ func _request_owned_close() -> void:
 		return
 	if _resolve_editor_base(_editor_base_ref) == null:
 		return
+	var plugin: EditorPlugin = _get_managed_plugin()
+	if plugin == null:
+		return
 	# EditorNode 退出时正在遍历并卸载插件；不能在该调用栈中再次删除插件。
 	# 静态 Callable 不捕获即将销毁的启动页，且只关闭仍属于该次使用方的插件。
-	GFScenePlacementLauncher._disable_owned_plugin.call_deferred(closing_generation, _editor_base_ref)
+	GFScenePlacementLauncher._disable_owned_plugin.call_deferred(closing_generation, _editor_base_ref, weakref(plugin))
 
 
-static func _disable_owned_plugin(closing_generation: int, editor_base_ref: WeakRef) -> void:
+static func _disable_owned_plugin(closing_generation: int, editor_base_ref: WeakRef, plugin_ref: WeakRef) -> void:
 	if closing_generation != _ownership_generation:
 		return
 	if _resolve_editor_base(editor_base_ref) == null:
+		return
+	var plugin: EditorPlugin = _resolve_plugin(plugin_ref)
+	if plugin == null or plugin != _resolve_plugin(_native_plugin_ref):
 		return
 	if not Engine.is_editor_hint() or not is_instance_valid(EditorInterface):
 		return
 	if EditorInterface.is_plugin_enabled(_PLUGIN_NAME):
 		EditorInterface.set_plugin_enabled(_PLUGIN_NAME, false)
+
+
+static func _get_managed_plugin() -> EditorPlugin:
+	var plugin: EditorPlugin = _resolve_plugin(_managed_plugin_ref)
+	if plugin != null and plugin == _resolve_plugin(_native_plugin_ref):
+		return plugin
+	return null
+
+
+static func _resolve_plugin(plugin_ref: WeakRef) -> EditorPlugin:
+	if plugin_ref == null:
+		return null
+	var value: Variant = plugin_ref.get_ref()
+	if value is EditorPlugin:
+		var plugin: EditorPlugin = value
+		if is_instance_valid(plugin):
+			return plugin
+	return null
 
 
 static func _resolve_editor_base(editor_base_ref: WeakRef) -> Control:
@@ -141,9 +196,22 @@ static func _resolve_editor_base(editor_base_ref: WeakRef) -> Control:
 
 func _on_open_pressed() -> void:
 	if Engine.is_editor_hint() and _has_context and _resolve_editor_base(_editor_base_ref) != null:
-		_claim_ownership()
-		if not EditorInterface.is_plugin_enabled(_PLUGIN_NAME):
-			EditorInterface.set_plugin_enabled(_PLUGIN_NAME, true)
+		if EditorInterface.is_plugin_enabled(_PLUGIN_NAME):
+			var managed_plugin: EditorPlugin = _get_managed_plugin()
+			if managed_plugin != null:
+				_claim_ownership(managed_plugin)
+			else:
+				_ownership_generation += 1
+			return
+		var activation_generation: int = _ownership_generation + 1
+		EditorInterface.set_plugin_enabled(_PLUGIN_NAME, true)
+		if not _has_context or _resolve_editor_base(_editor_base_ref) == null:
+			return
+		if _ownership_generation != activation_generation:
+			return
+		var activated_plugin: EditorPlugin = _resolve_plugin(_native_plugin_ref)
+		if activated_plugin != null and EditorInterface.is_plugin_enabled(_PLUGIN_NAME):
+			_claim_ownership(activated_plugin)
 
 
 func _on_close_pressed() -> void:

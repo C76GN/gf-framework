@@ -128,6 +128,11 @@ def run_phase(name: str, command: list[str], project: Path, environment: dict[st
 		issues.append("Godot reported a script error or reload warning.")
 	if any(token in combined for token in ("ERROR:", "WARNING:", FAILURE)):
 		issues.append("Godot reported an error, lifecycle warning, or failed assertion.")
+	# CI consumes this report even when the standalone log tree is unavailable.
+	# Keep the fixture's first failed assertion visible without copying full logs.
+	failed_assertion = next((line for line in combined.splitlines() if line.startswith(FAILURE + " ")), "")
+	if failed_assertion:
+		issues.append(failed_assertion[:2000])
 	if name == "editor":
 		if result.stdout.count(SUCCESS) != 1 or log_text.count(SUCCESS) != 1:
 			issues.append("Expected exactly one smoke success marker in stdout and the required log.")
@@ -151,6 +156,12 @@ def run_phase(name: str, command: list[str], project: Path, environment: dict[st
 				"actual_editor_world_collision_surface",
 				"scene_switch_cancels_stale_pointer",
 				"unloaded_plugin_history_replay",
+				"independent_plugin_survives_context_clear",
+				"independent_plugin_survives_page_replacement",
+				"independent_plugin_open_does_not_claim_ownership",
+				"independent_plugin_close_then_open_preserves_child",
+				"independent_plugin_explicit_close_releases_child",
+				"independent_reenabled_plugin_survives_old_owner",
 				"launcher_context_clear_releases_child",
 				"launcher_exit_releases_child",
 				"launcher_same_frame_replacement_preserves_child",
@@ -173,6 +184,10 @@ def main() -> int:
 	parser.add_argument("--keep-logs", action="store_true")
 	parser.add_argument("--rendered", action="store_true")
 	args = parser.parse_args()
+	process_environment = maintenance.FrozenProcessEnvironment.capture(
+		maintenance.capture_maintenance_process_environment(),
+	)
+	keep_logs = args.keep_logs or maintenance.maintenance_logs_kept_from_environment(process_environment)
 	logs = ROOT / "ai_analysis/godot_logs" / f"scene-placement-smoke-{uuid.uuid4().hex}"
 	logs.mkdir(parents=True, exist_ok=False)
 	log_identity = logs.lstat()
@@ -198,7 +213,7 @@ def main() -> int:
 				project / FIXTURES, "gf_scene_placement_editor_smoke_plugin.cfg", max_bytes=MAX_FILE_BYTES,
 			))
 			environment = maintenance.make_core_plugin_bootstrap_smoke_environment(
-				base, "resource_preview_translation", base_environment=maintenance.capture_maintenance_process_environment(),
+				base, "resource_preview_translation", base_environment=process_environment.values(),
 			)
 			environment["GF_SCENE_PLACEMENT_SMOKE_PRIVATE_ROOT"] = str(base / "resource_preview_translation/user")
 			if args.rendered:
@@ -237,7 +252,7 @@ def main() -> int:
 		report["exception_notes"] = list(getattr(error, "__notes__", ()))
 		report["ok"] = False
 	(logs / "result.json").write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-	if report["ok"] and not args.keep_logs and not args.rendered:
+	if report["ok"] and not keep_logs and not args.rendered:
 		cleanup_error = maintenance.remove_managed_temporary_tree(logs, expected_identity=log_identity)
 		if cleanup_error:
 			report["ok"] = False

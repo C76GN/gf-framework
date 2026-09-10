@@ -6134,6 +6134,26 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 		"Draft feedback should check tracked AI Kit inputs quickly; static/API behavior and Godot-backed Adapter acceptance must retain distinct owners through merge and release.",
 	)
 	record_result(
+		"scene_placement_editor_smoke_has_one_headless_integration_owner",
+		all(
+			CHECK_SUITES[suite].count("scene_placement_editor_smoke") == 1
+			for suite in ("framework-integration", "framework", "full", "release")
+		)
+		and all(
+			"scene_placement_editor_smoke" not in CHECK_SUITES[suite]
+			for suite in ("quick", "api", "docs", "framework-static", "framework-gut", "framework-lsp")
+		)
+		and CHECK_DEFINITIONS.get("scene_placement_editor_smoke") == [
+			sys.executable,
+			"tests/gf_core/tools/scene_placement/run_editor_smoke.py",
+			"--keep-logs",
+		]
+		and _VALIDATION_CATALOG.executor_kind("scene_placement_editor_smoke").value == "subprocess"
+		and maintenance_check_graph().expand(["scene_placement_editor_smoke"])
+		== ["scene_placement_editor_smoke"],
+		"Native editor acceptance must run once through its headless isolated runner in integration/full/release, retaining logs for outer session hygiene without a root-workspace import or a static/Draft owner.",
+	)
+	record_result(
 		"repository_policy_is_a_quick_and_full_gate",
 		"repository_policy" in CHECK_SUITES["quick"]
 		and "repository_policy" in CHECK_SUITES["framework-static"]
@@ -6392,6 +6412,9 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 	framework_gut_shard = next(
 		shard for shard in parallel_plan if shard.name == "framework-gut"
 	)
+	framework_integration_shard = next(
+		shard for shard in parallel_plan if shard.name == "framework-integration"
+	)
 	ci_jobs, ci_duplicate_jobs = gf_repository_policy.extract_ci_job_blocks(ci_workflow_source)
 	release_jobs, release_duplicate_jobs = gf_repository_policy.extract_ci_job_blocks(
 		release_workflow_source
@@ -6402,6 +6425,11 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 	ci_framework_gut_timeout_value = gf_repository_policy.extract_matrix_suite_scalar(
 		ci_jobs.get("framework-checks", ""),
 		"framework-gut",
+		"timeout_minutes",
+	)
+	ci_framework_integration_timeout_value = gf_repository_policy.extract_matrix_suite_scalar(
+		ci_jobs.get("framework-checks", ""),
+		"framework-integration",
 		"timeout_minutes",
 	)
 	release_framework_job = release_jobs.get("release-framework-checks", "")
@@ -6563,7 +6591,7 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 			"framework-gut": "60",
 			"framework-lsp": "15",
 			"framework-static": "20",
-			"framework-integration": "30",
+			"framework-integration": "40",
 		}
 		and manual_full_timeout_value == str(gf_repository_policy.MANUAL_FULL_TIMEOUT_MINUTES)
 		and gf_repository_policy.FRAMEWORK_CI_TIMEOUT_MINUTES["framework-gut"] * 60
@@ -6591,6 +6619,22 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 		== _VALIDATION_CATALOG.default_timeout_seconds
 		and resolve_check_timeout_seconds("api", 900) == 900,
 		"generic timeout settings may raise budgets but must not erase measured longer check policies.",
+	)
+	record_result(
+		"scene_placement_smoke_preserves_the_closed_integration_envelope",
+		resolve_check_timeout_seconds("scene_placement_editor_smoke", None) == 600
+		and resolve_check_timeout_seconds("scene_placement_editor_smoke", 45) == 600
+		and resolve_check_timeout_seconds("scene_placement_editor_smoke", 900) == 900
+		and parallel_shard_timeout_seconds(
+			framework_integration_shard,
+			None,
+			validation_catalog=_VALIDATION_CATALOG,
+		) == 2160
+		and ci_framework_integration_timeout_value == "40"
+		and release_shard_timeouts["framework-integration"] == "40"
+		and gf_repository_policy.FRAMEWORK_CI_TIMEOUT_MINUTES["framework-integration"] == 40
+		and gf_repository_policy.FRAMEWORK_CI_TIMEOUT_MINUTES["framework-integration"] * 60 > 2160,
+		"Integration must preserve the 600-second smoke floor and 2,160-second child envelope inside its exact 40-minute Ready/main and release deadlines.",
 	)
 	record_result(
 		"in_process_checks_enforce_return_time_deadlines",

@@ -399,6 +399,72 @@ func _after_unload() -> void:
 	if not _require(_native_node.get_instance_id() == _native_node_id and _native_node.global_transform.is_equal_approx(_expected_world), "Unloading the plugin altered the earlier committed instance."):
 		return
 	_results["unloaded_plugin_history_replay"] = true
+	EditorInterface.set_plugin_enabled(_PLUGIN_NAME, true)
+	if not _capture_launched_plugin():
+		return
+	_launcher = GFScenePlacementLauncher.new()
+	_launcher.set_editor_context(GFEditorToolContext.from_plugin(self))
+	add_child(_launcher)
+	_launcher.set_editor_context(null)
+	_phase = &"independent_context_clear_settle"
+	_frames = 0
+
+
+func _after_independent_context_clear() -> void:
+	_phase = &"running"
+	if not _require_independent_plugin():
+		return
+	_results["independent_plugin_survives_context_clear"] = true
+	_launcher.set_editor_context(GFEditorToolContext.from_plugin(self))
+	_launcher.free()
+	_launcher = GFScenePlacementLauncher.new()
+	_launcher.set_editor_context(GFEditorToolContext.from_plugin(self))
+	add_child(_launcher)
+	_launcher.queue_free()
+	_launcher = null
+	_phase = &"independent_replacement_settle"
+	_frames = 0
+
+
+func _after_independent_replacement() -> void:
+	_phase = &"running"
+	if not _require_independent_plugin():
+		return
+	_results["independent_plugin_survives_page_replacement"] = true
+	_launcher = GFScenePlacementLauncher.new()
+	_launcher.set_editor_context(GFEditorToolContext.from_plugin(self))
+	add_child(_launcher)
+	if not _press_launcher("CloseScenePlacement"):
+		return
+	if not _open_launcher():
+		return
+	_launcher.queue_free()
+	_launcher = null
+	_phase = &"independent_open_settle"
+	_frames = 0
+
+
+func _after_independent_open() -> void:
+	_phase = &"running"
+	if not _require_independent_plugin():
+		return
+	_results["independent_plugin_open_does_not_claim_ownership"] = true
+	_results["independent_plugin_close_then_open_preserves_child"] = true
+	_launcher = GFScenePlacementLauncher.new()
+	_launcher.set_editor_context(GFEditorToolContext.from_plugin(self))
+	add_child(_launcher)
+	if not _press_launcher("CloseScenePlacement"):
+		return
+	_phase = &"independent_close_settle"
+	_frames = 0
+
+
+func _after_independent_close() -> void:
+	_phase = &"running"
+	if not _require(not EditorInterface.is_plugin_enabled(_PLUGIN_NAME) and _plugin_ref.get_ref() == null and _panel_ref.get_ref() == null, "Explicit launcher Close did not release the independently enabled plugin and panel."):
+		return
+	_results["independent_plugin_explicit_close_releases_child"] = true
+	_launcher.queue_free()
 	_launcher = GFScenePlacementLauncher.new()
 	_launcher.set_editor_context(GFEditorToolContext.from_plugin(self))
 	add_child(_launcher)
@@ -410,13 +476,24 @@ func _after_unload() -> void:
 
 
 func _open_launcher() -> bool:
-	var button_node: Node = _launcher.get_node_or_null(^"OpenScenePlacement")
-	if not _require(button_node is Button, "The launcher has no native plugin activation button."):
+	return _press_launcher("OpenScenePlacement")
+
+
+func _press_launcher(button_name: String) -> bool:
+	var button_node: Node = _launcher.get_node_or_null(NodePath(button_name))
+	if not _require(button_node is Button, "The launcher has no native plugin control: " + button_name):
 		return false
 	if button_node is Button:
-		var open_button: Button = button_node
-		open_button.pressed.emit()
+		var control_button: Button = button_node
+		control_button.pressed.emit()
 	return true
+
+
+func _require_independent_plugin() -> bool:
+	return _require(
+		EditorInterface.is_plugin_enabled(_PLUGIN_NAME) and _plugin_ref.get_ref() != null and _panel_ref.get_ref() != null,
+		"A launcher lifecycle change closed the independently enabled plugin or replaced its native panel."
+	)
 
 
 func _capture_launched_plugin() -> bool:
@@ -471,6 +548,37 @@ func _after_launcher_exit() -> void:
 	if not _require(_launcher_ref.get_ref() == null and not EditorInterface.is_plugin_enabled(_PLUGIN_NAME) and _plugin_ref.get_ref() == null and _panel_ref.get_ref() == null, "Destroying the launcher did not release the native child plugin and panel."):
 		return
 	_results["launcher_exit_releases_child"] = true
+	_launcher = GFScenePlacementLauncher.new()
+	_launcher.set_editor_context(GFEditorToolContext.from_plugin(self))
+	add_child(_launcher)
+	if not _open_launcher() or not _capture_launched_plugin():
+		return
+	_launcher.set_editor_context(null)
+	EditorInterface.set_plugin_enabled(_PLUGIN_NAME, false)
+	EditorInterface.set_plugin_enabled(_PLUGIN_NAME, true)
+	if not _capture_launched_plugin():
+		return
+	_launcher.set_editor_context(GFEditorToolContext.from_plugin(self))
+	_launcher.queue_free()
+	_launcher = null
+	_phase = &"independent_reenable_settle"
+	_frames = 0
+
+
+func _after_independent_reenable() -> void:
+	_phase = &"running"
+	if not _require_independent_plugin():
+		return
+	_results["independent_reenabled_plugin_survives_old_owner"] = true
+	EditorInterface.set_plugin_enabled(_PLUGIN_NAME, false)
+	_phase = &"independent_reenable_cleanup_settle"
+	_frames = 0
+
+
+func _after_independent_reenable_cleanup() -> void:
+	_phase = &"running"
+	if not _require(not EditorInterface.is_plugin_enabled(_PLUGIN_NAME) and _plugin_ref.get_ref() == null and _panel_ref.get_ref() == null, "The independent re-enable fixture did not release its native plugin and panel."):
+		return
 	_launcher = GFScenePlacementLauncher.new()
 	_launcher.set_editor_context(GFEditorToolContext.from_plugin(self))
 	add_child(_launcher)
@@ -681,6 +789,18 @@ func _on_frame() -> void:
 		&"unload_settle":
 			if _frames >= 8:
 				_after_unload()
+		&"independent_context_clear_settle":
+			if _frames >= 8:
+				_after_independent_context_clear()
+		&"independent_replacement_settle":
+			if _frames >= 8:
+				_after_independent_replacement()
+		&"independent_open_settle":
+			if _frames >= 8:
+				_after_independent_open()
+		&"independent_close_settle":
+			if _frames >= 8:
+				_after_independent_close()
 		&"launcher_open_settle":
 			if _frames >= 8:
 				_after_launcher_open()
@@ -693,6 +813,12 @@ func _on_frame() -> void:
 		&"launcher_exit_settle":
 			if _frames >= 8:
 				_after_launcher_exit()
+		&"independent_reenable_settle":
+			if _frames >= 8:
+				_after_independent_reenable()
+		&"independent_reenable_cleanup_settle":
+			if _frames >= 8:
+				_after_independent_reenable_cleanup()
 		&"launcher_replacement_settle":
 			if _frames >= 8:
 				_after_launcher_replacement()
