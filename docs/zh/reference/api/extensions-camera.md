@@ -8,7 +8,7 @@
 |---|---:|---:|---:|
 | [运行时服务](#category-runtime_service) | 3 | 64 | 22 |
 | [资源定义](#category-resource_definition) | 1 | 6 | 3 |
-| [运行时句柄](#category-runtime_handle) | 3 | 60 | 18 |
+| [运行时句柄](#category-runtime_handle) | 4 | 68 | 21 |
 
 ## 类
 
@@ -36,6 +36,7 @@
 
 | 类 | 继承 | 源文件 |
 |---|---|---|
+| [`GFCameraFramingRig2D`](classes/GFCameraFramingRig2D.md#gfcameraframingrig2d) | `GFCameraRig2D` | `addons/gf/extensions/camera/nodes/gf_camera_framing_rig_2d.gd` |
 | [`GFCameraOrbitRig3D`](classes/GFCameraOrbitRig3D.md#gfcameraorbitrig3d) | `GFCameraRig3D` | `addons/gf/extensions/camera/nodes/gf_camera_orbit_rig_3d.gd` |
 | [`GFCameraRig2D`](classes/GFCameraRig2D.md#gfcamerarig2d) | `Node2D` | `addons/gf/extensions/camera/nodes/gf_camera_rig_2d.gd` |
 | [`GFCameraRig3D`](classes/GFCameraRig3D.md#gfcamerarig3d) | `Node3D` | `addons/gf/extensions/camera/nodes/gf_camera_rig_3d.gd` |

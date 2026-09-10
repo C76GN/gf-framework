@@ -6,6 +6,8 @@
 
 ### 🚀 新增特性 (Added)
 
+- [模板列表](standard/utilities/runtime/settings-ui-scene/settings-display/list-repeat-binding.md#按稳定-id-更新模板列表) 支持调用方提供稳定 ID，按条目复用、更新、移动和释放节点，保留普通 Container 布局及未被项目回调重置的局部交互状态。
+- 新增 [2D 多目标取景 Rig](extensions/camera/camera-2d.md#多目标共同入镜)，根据目标锚点、实际相机输出尺寸和像素留白计算中心与缩放，复用现有 Director 的优先级与混合，并报告缩放约束是否影响共同入镜。
 - 新增 [Network 请求与回复关联](extensions/network-turnbased/network-transport/request-correlation.md)：独立的有界 Tracker、一次性 Handle 和隔离响应结果，支持同步回包、指定 peer 与会话隔离、超时及本地取消；协议编码与网络生命周期由项目显式接入，`gf.network` 的 `extension_version` 升为 `7.1.0`。
 - 新增 `GFObjectPoolAcquireResult` 与 `GFObjectPoolLease`。成功借用取得独立使用权，归还立即失效，`wait_settled()` 可重复等待实际离树或淘汰完成。
 - 节点根脚本可实现同步 `on_gf_pool_prepare(context) -> Error`，在每次入树前准备本次数据；空闲实例完全离树。
@@ -47,6 +49,8 @@
 
 ### 🔧 API 变动说明 (API Changes)
 
+- `GFRepeaterBinder` 的模板同步支持 `identity_callable`，新增 `sync_container()` 提供结构化同步结果；自动刷新失败通过 `synchronization_failed` 通知。稳定 ID 更新验证重复键、克隆所有权和同步重入，不把项目回调副作用作为可回滚事务。
+- 新增 `GFCameraFramingRig2D`。2D Rig 的 `get_camera_pose()` 和 `get_camera_pose_data()` 增加可选 `Camera2D` 参数，Director 显式提供目标相机；自定义覆盖需要同步签名，`gf.camera` 的 `extension_version` 升为 `3.0.0`。
 - `GFObjectPoolUtility.acquire(scene, parent, lifetime_owner, context = {})` 现在需要 `await`，返回 `GFObjectPoolAcquireResult`；必填的 `lifetime_owner` 通常传 `self`，与挂载父节点分离。成功后用 `get_lease()` 获取 Lease，再以 `get_node()` 访问节点。
 - `pool.release(node, scene)` 改为 `lease.release()`。首次归还返回 `true`，此时 `get_node()` 已返回 `null`；等待离树请使用 `await lease.wait_settled()`。
 - `prewarm()` 不再接收父节点，返回 `GFObjectPoolPrewarmResult`；结果包含最终状态、原因、请求数与实际创建数，取消不会回滚已缓存实例。
@@ -66,5 +70,7 @@
 4. 把旧预热调用改成 `await pool.prewarm(scene, count)`；预热阶段不再要求业务父节点。池需要保留到使用结束，独立使用时显式调用 `dispose()`，注册到架构后由正常异步关停流程清理。
 5. 若节点有 Timer、Tween、异步任务或外部信号，项目脚本必须在退出时取消本轮任务或检查本轮 Lease，防止旧回调影响下一轮。离树不是任意外部工作的自动取消器。
 6. 独立创建 Flow 面板的编辑器插件须调用 `set_editor_context(GFEditorToolContext.from_plugin(self))`；通过 Workspace 挂载的面板由工作区自动注入。没有有效撤销管理器时面板仅查看，不再直接修改资源。Resource 表格的新多选编辑入口同样需要上下文，原有显式 `commit_*` 调用方式保留。
+7. 自定义 2D Rig 的 `get_camera_pose` / `get_camera_pose_data` 覆盖增加 `camera: Camera2D = null`，调用父类时转交该参数。多目标取景的独立调用也必须提供实际相机；不要用 Rig 所在视口尺寸代替相机输出尺寸。
+8. 模板列表选项改为闭合字段及类型校验；移除传入 `options` 的业务附加字段。每次同步最多 4096 项；稳定 ID 模式要求 `clear_existing=true`。未提供 ID 时继续重建副本，大量长列表使用既有虚拟列表机制。
 
 详细示例见[对象池](standard/utilities/runtime/time-signal-pool/object-pool.md)与[弹幕](extensions/combat/projectiles.md)。已发布历史仍可从对应版本 tag 和 Release 查看。

@@ -288,7 +288,7 @@ func process_camera(delta: float) -> bool:
 		_last_process_report = _make_process_report(false, "missing_rig", camera, _active_rig)
 		return false
 
-	var target_pose: Dictionary = _active_rig.get_camera_pose()
+	var target_pose: Dictionary = _active_rig.get_camera_pose(camera)
 	if not _is_valid_camera_pose(target_pose):
 		_cancel_blend()
 		_last_process_report = _make_process_report(false, "invalid_target_pose", camera, _active_rig)

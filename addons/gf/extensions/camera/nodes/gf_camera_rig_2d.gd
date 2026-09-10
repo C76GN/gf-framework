@@ -155,10 +155,14 @@ func get_target_node() -> Node2D:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.9.0
+## [br]
+## @param _camera: 接收姿态的 Camera2D；基础 Rig 不依赖该上下文，取景子类可据此读取实际 Viewport。
+## [br]
 ## @return 包含 position、rotation、zoom 和 rig 的字典。
 ## [br]
 ## @schema return: Dictionary，包含 position: Vector2、rotation: float、zoom: Vector2 与 rig: GFCameraRig2D。
-func get_camera_pose() -> Dictionary:
+func get_camera_pose(_camera: Camera2D = null) -> Dictionary:
 	var target: Node2D = get_target_node()
 	var base_position: Vector2 = _sanitize_vector2(global_position, Vector2.ZERO)
 	var base_rotation: float = _sanitize_float(global_rotation, 0.0)
@@ -186,11 +190,15 @@ func get_camera_pose() -> Dictionary:
 ## [br]
 ## @since 8.0.0
 ## [br]
-## @return 不包含 Object 引用的姿态数据。
+## @param camera: 接收姿态的 Camera2D；传递给 get_camera_pose()。
 ## [br]
-## @schema return: Dictionary，包含 position、rotation、zoom、rig_path 和 rig_instance_id；Vector2 字段使用 GFVariantJsonCodec typed marker。
-func get_camera_pose_data() -> Dictionary:
-	var pose: Dictionary = get_camera_pose()
+## @return 不包含 Object 引用的姿态数据；派生 Rig 无法生成姿态时为空字典。
+## [br]
+## @schema return: Dictionary，成功包含 position、rotation、zoom、rig_path 和 rig_instance_id；Vector2 字段使用 GFVariantJsonCodec typed marker。派生 Rig 失败时为空字典。
+func get_camera_pose_data(camera: Camera2D = null) -> Dictionary:
+	var pose: Dictionary = get_camera_pose(camera)
+	if pose.is_empty():
+		return {}
 	var _rig_erased: bool = pose.erase("rig")
 	pose["rig_path"] = String(get_path()) if is_inside_tree() else ""
 	pose["rig_instance_id"] = get_instance_id()
