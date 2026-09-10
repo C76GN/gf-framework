@@ -1,0 +1,28 @@
+[gd_scene load_steps=3 format=3]
+
+[sub_resource type="BoxShape3D" id="BoxShape_floor"]
+size = Vector3(40, 1, 40)
+
+[sub_resource type="BoxMesh" id="BoxMesh_floor"]
+size = Vector3(40, 1, 40)
+
+[node name="PlacementSceneA" type="Node3D"]
+
+[node name="PlacementParent" type="Node3D" parent="."]
+transform = Transform3D(0, 0, -2, 0, 3, 0, 4, 0, 0, 5, 2, -3)
+
+[node name="PlacementAnchor" type="Marker3D" parent="PlacementParent"]
+position = Vector3(1, 2, 3)
+
+[node name="Ground" type="StaticBody3D" parent="."]
+position = Vector3(0, -0.5, 0)
+
+[node name="Collision" type="CollisionShape3D" parent="Ground"]
+shape = SubResource("BoxShape_floor")
+
+[node name="Visual" type="MeshInstance3D" parent="Ground"]
+mesh = SubResource("BoxMesh_floor")
+
+[node name="PointerCamera" type="Camera3D" parent="."]
+position = Vector3(0, 10, 10)
+rotation = Vector3(-0.7853982, 0, 0)

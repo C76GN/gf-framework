@@ -8,6 +8,7 @@ GF 制作期工具用于编辑、导入、构建或 CI 流程。工具可以依�
 - [Dialogue Text 对话文本工具包](dialogue-text.md)：把严格 JSON 文本编译为 `GFDialogueResource`，并在制作期报告字段类型、跳转目标和资源结构问题。
 - [Project Layout 项目结构工具包](project-layout.md)：在 GF Workspace 中按需执行只读扫描、问题解释、影响模拟和计划展示；profile 是项目显式选择的策略，Feature Cohesive 只是一份示例。
 - [Scene Groups 场景组查询](scene-groups.md)：从已保存场景查找持久化 Group 声明，按组、场景或节点路径搜索，并打开声明场景定位节点。
+- [3D 场景摆放](scene-placement.md)：显式选择 PackedScene 与父 Node3D，通过视口平面或碰撞命中预览、确认，并使用原生撤销与重做。
 - [LSP WorkspaceEdit 安全提交工具](lsp-workspace-edit.md)：把调用方已取得的闭合文本编辑绑定到工作区、文档版本和来源摘要，并通过一次性计划与文件事务安全提交项目内 GDScript；它不是 LSP 客户端。
 - [AI Developer Kit](ai-developer.md)：用显式项目契约、版本化 GF 知识、Agent 适配和受控反馈流程，为项目侧 AI 提供可验证的框架上下文。
 - [Asset Browser 素材浏览模型](asset-browser.md)：当前只提供 model-first 状态能力，在不注册 Dock、目录扫描或业务分类的前提下组织隔离 catalog、稳定选择、有界分页和缩略图任务代际。

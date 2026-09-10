@@ -10,6 +10,7 @@
 - 节点根脚本可实现同步 `on_gf_pool_prepare(context) -> Error`，在每次入树前准备本次数据；空闲实例完全离树。
 - 新增 `GFProjectileEmissionResult`，用单次 `await` 的返回值表达整批发射结果。
 - 新增 [Scene Groups 场景组查询](editor/tools/scene-groups.md)。从已保存的 `.tscn` / `.scn` 查找持久化 Group 声明，支持搜索、分页和来源节点定位；扫描取消、读取失败或预算耗尽时明确报告结果不完整。
+- 新增 [3D 场景摆放](editor/tools/scene-placement.md)：显式选择 PackedScene 与父 Node3D，在原生 3D 视口中进行平面或碰撞表面拾取，支持切向网格、法线、锚点、线框代理预览与单实例 Undo / Redo。
 - [Flow 图编辑器](extensions/flow/editor-model.md) 的连线、删除节点与布局编辑接入 Godot 撤销/重做，删除节点时一并恢复关联连接与布局，一次拖动对应一次编辑动作。
 - [Resource 表格](editor/resource-table-editor.md) 支持多行选择、属性混合值呈现和暂存编辑；应用时只修改实际编辑的分量，取消或切换选择会丢弃暂存输入。
 - [配置跨表引用](standard/utilities/io/config-remote-outbox/config-provider/relations-builds/indexes-references.md#数组元素引用) 支持逐项校验一维 Array 中的标量键；错误保留原字段名、元素位置和值，导表继续附加可用的来源与单元格位置。

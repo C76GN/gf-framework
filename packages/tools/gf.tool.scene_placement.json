@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "id": "gf.tool.scene_placement",
+  "kind": "tool",
+  "dependencies": [
+    "gf.kernel",
+    "gf.standard.spatial"
+  ],
+  "paths": [
+    "addons/gf/tools/scene_placement/**"
+  ]
+}

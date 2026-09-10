@@ -511,6 +511,13 @@ def build_validation_catalog(context: ValidationCatalogContext) -> ValidationCat
 				"--json",
 			),
 		),
+		# Owns an isolated import and native headless editor, each capped at 180
+		# seconds. The default 600-second action floor retains setup/cleanup margin.
+		# Outer maintenance owns successful log cleanup and its --keep-logs policy.
+		subprocess_action(
+			"scene_placement_editor_smoke",
+			python_script("tests/gf_core/tools/scene_placement/run_editor_smoke.py", "--keep-logs"),
+		),
 		subprocess_action(
 			"ai_developer_kit_source",
 			python_script(
@@ -910,6 +917,7 @@ def build_validation_catalog(context: ValidationCatalogContext) -> ValidationCat
 	framework_integration_checks = (
 		"ai_developer_adapter_acceptance",
 		"core_plugin_bootstrap_smoke",
+		"scene_placement_editor_smoke",
 	)
 	framework_static_checks = (
 		"api",

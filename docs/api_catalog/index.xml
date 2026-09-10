@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<apiCatalog schemaVersion="3" name="GF Framework" sourceRoot="addons/gf" sourceDigest="69367449209ff912229c52bc17cd7a9584c854d6c1b74d1b8d463fe9c434e894" classCount="877" methodCount="7846" autoloadCount="1" autoloadMethodCount="65">
+<apiCatalog schemaVersion="3" name="GF Framework" sourceRoot="addons/gf" sourceDigest="1d199ed5958e99f64b4f5e7687822a43fb71d2beb7fabbbb5634f5320ffecf5f" classCount="878" methodCount="7855" autoloadCount="1" autoloadMethodCount="65">
 	<module id="kernel" label="Kernel" classCount="78" methodCount="826" autoloadCount="1" autoloadMethodCount="65">
 		<class name="GFAccessGenerator" path="classes/GFAccessGenerator.xml" sourcePath="addons/gf/kernel/editor/gf_access_generator.gd" extends="RefCounted" />
 		<class name="GFArchitecture" path="classes/GFArchitecture.xml" sourcePath="addons/gf/kernel/core/gf_architecture.gd" extends="Object" />
@@ -894,7 +894,7 @@
 		<class name="GFTurnPhase" path="classes/GFTurnPhase.xml" sourcePath="addons/gf/extensions/turn_based/resources/gf_turn_phase.gd" extends="Resource" />
 		<class name="GFTurnPhaseCompletionHandle" path="classes/GFTurnPhaseCompletionHandle.xml" sourcePath="addons/gf/extensions/turn_based/runtime/gf_turn_phase_completion_handle.gd" extends="RefCounted" />
 	</module>
-	<module id="tools" label="Tools" classCount="24" methodCount="126" autoloadCount="0" autoloadMethodCount="0">
+	<module id="tools" label="Tools" classCount="25" methodCount="135" autoloadCount="0" autoloadMethodCount="0">
 		<class name="GFAssetBrowserModel" path="classes/GFAssetBrowserModel.xml" sourcePath="addons/gf/tools/asset_browser/gf_asset_browser_model.gd" extends="RefCounted" />
 		<class name="GFConfigAccessGenerator" path="classes/GFConfigAccessGenerator.xml" sourcePath="addons/gf/tools/config_pipeline/gf_config_access_generator.gd" extends="RefCounted" />
 		<class name="GFConfigPipeline" path="classes/GFConfigPipeline.xml" sourcePath="addons/gf/tools/config_pipeline/gf_config_pipeline.gd" extends="RefCounted" />
@@ -919,5 +919,6 @@
 		<class name="GFProjectLayoutValidator" path="classes/GFProjectLayoutValidator.xml" sourcePath="addons/gf/tools/project_layout/gf_project_layout_validator.gd" extends="RefCounted" />
 		<class name="GFSceneGroupDock" path="classes/GFSceneGroupDock.xml" sourcePath="addons/gf/tools/scene_groups/editor/gf_scene_group_dock.gd" extends="VBoxContainer" />
 		<class name="GFSceneGroupIndex" path="classes/GFSceneGroupIndex.xml" sourcePath="addons/gf/tools/scene_groups/gf_scene_group_index.gd" extends="RefCounted" />
+		<class name="GFScenePlacementOperation" path="classes/GFScenePlacementOperation.xml" sourcePath="addons/gf/tools/scene_placement/gf_scene_placement_operation.gd" extends="GFEditorPickOperation" />
 	</module>
 </apiCatalog>

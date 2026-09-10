@@ -16,6 +16,8 @@
 
 制作期工具也可以贡献工作区页面。[Project Layout](tools/project-layout.md) 的“结构”页面用于检查项目目录，[Scene Groups](tools/scene-groups.md) 的“组查询”页面用于查找已保存场景中的持久化 Group 声明。它们随完整插件提供，由用户主动启动扫描。
 
+[3D 场景摆放](tools/scene-placement.md) 的“3D 摆放”页面负责打开或关闭原生 3D 编辑器侧栏；摆放参数、指针预览与确认在侧栏和 Godot 3D 视口中完成。
+
 需要提交可撤销编辑的自定义页面可以实现 `set_editor_context(context: GFEditorToolContext) -> void`。工作区会在页面入树前传入由当前插件创建的上下文，页面重建、工作区离树或插件卸载时传入 `null`。没有这一方法的查看页面保持原有用法。页面应在上下文撤销后停用编辑入口，并清理待应用的输入；已经提交的命令由 Godot 的历史持有，不应强引用页面控件。上下文中的选中节点与场景根是创建时的快照，需要实时选择的工具应自行读取当前编辑器选择。
 
 可选扩展的编辑器工具放在扩展自己的 `editor/` 目录中。`editor_action_paths`、`editor_dock_paths`、`editor_inspector_paths`、`import_plugin_paths`、`export_plugin_paths`、`gltf_document_extension_paths`、`access_generator_extension_paths` 和 `debugger_plugin_paths` 都只通过扩展目录下的 `editor/gf_tool_contribution.json` 贡献，不能写入运行时 `gf_extension.json`。贡献文件必须声明 `schema_version: 2` 和与所属 manifest 一致的 `extension_id`，路径字段必须是非空字符串数组；schema v1、未来 schema、未知字段、错误扩展 ID 或越过扩展根的路径都会被拒绝并进入选择快照的 `tool_contribution_errors`。

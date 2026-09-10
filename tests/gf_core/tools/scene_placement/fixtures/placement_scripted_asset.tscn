@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://tests/gf_core/tools/scene_placement/fixtures/placement_tool_canary.gd" id="1_canary"]
+
+[node name="ScriptedPlacementAsset" type="Node3D"]
+script = ExtResource("1_canary")

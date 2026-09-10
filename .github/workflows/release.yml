@@ -77,7 +77,7 @@ jobs:
             suite: framework-integration
             install_docs: false
             setup_godot: true
-            timeout_minutes: 30
+            timeout_minutes: 40
 
     steps:
       - name: Checkout tag
