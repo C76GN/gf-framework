@@ -9414,6 +9414,9 @@ class LspFramingBoundaryTests(unittest.TestCase):
 		query_finished = threading.Event()
 		worker_was_daemon: list[bool] = []
 		health_checks = 0
+		deadline = 0.05
+		clock = mock.Mock(spec=time)
+		clock.perf_counter.side_effect = lambda: deadline if query_started.is_set() else 0.0
 
 		def query(_buffer: object, size_pointer: object, *_args: object) -> int:
 			worker_was_daemon.append(threading.current_thread().daemon)
@@ -9428,19 +9431,25 @@ class LspFramingBoundaryTests(unittest.TestCase):
 		def health_check() -> None:
 			nonlocal health_checks
 			health_checks += 1
+			if health_checks > 1:
+				# Expire only after the worker starts, independent of host scheduling.
+				self.assertTrue(query_started.wait(1.0))
 
 		started_at = time.perf_counter()
 		try:
-			with self.assertRaisesRegex(
-				gdscript_lsp_diagnostics.TcpOwnerLookupError,
-				"operation deadline",
-			):
-				gdscript_lsp_diagnostics._query_windows_tcp_table(
-					query,
-					5,
-					deadline=started_at + 0.05,
-					health_check=health_check,
-				)
+			# Replace only the tool's clock; cleanup and elapsed assertions use real time.
+			with mock.patch.object(gdscript_lsp_diagnostics, "time", clock):
+				with self.assertRaisesRegex(
+					gdscript_lsp_diagnostics.TcpOwnerLookupError,
+					"operation deadline",
+				):
+					gdscript_lsp_diagnostics._query_windows_tcp_table(
+						query,
+						5,
+						deadline=deadline,
+						health_check=health_check,
+					)
+			self.assertFalse(query_finished.is_set())
 		finally:
 			release_query.set()
 			self.assertTrue(query_finished.wait(1.0))
@@ -9449,6 +9458,23 @@ class LspFramingBoundaryTests(unittest.TestCase):
 		self.assertEqual(worker_was_daemon, [True])
 		self.assertGreater(health_checks, 1)
 		self.assertLess(time.perf_counter() - started_at, 0.5)
+
+		# A deadline already reached before admission must not start any query.
+		expired_query = mock.Mock()
+		expired_health_check = mock.Mock()
+		with mock.patch.object(gdscript_lsp_diagnostics, "time", clock):
+			with self.assertRaisesRegex(
+				gdscript_lsp_diagnostics.TcpOwnerLookupError,
+				"operation deadline",
+			):
+				gdscript_lsp_diagnostics._query_windows_tcp_table(
+					expired_query,
+					5,
+					deadline=deadline,
+					health_check=expired_health_check,
+				)
+		expired_query.assert_not_called()
+		expired_health_check.assert_called_once_with()
 
 	def test_windows_tcp_native_query_preserves_health_and_worker_control_errors(
 		self,

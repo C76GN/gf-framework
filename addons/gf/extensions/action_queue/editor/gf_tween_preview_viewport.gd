@@ -32,6 +32,8 @@ var _sample_root: Node = null
 var _target: Node = null
 var _initial_values: Dictionary = {}
 var _tween: Tween = null
+var _plan: GFTweenPreviewPlan = null
+var _elapsed_seconds: float = 0.0
 var _restore_on_finish: bool = false
 var _state: StringName = &"idle"
 var _error: String = ""
@@ -67,7 +69,7 @@ func _exit_tree() -> void:
 ## [br]
 ## @param kind: 0 为二维图形，1 为 UI 色块，2 为三维方块。
 func configure(config: Resource, kind: int = 0) -> void:
-	_clear_tween()
+	_clear_session()
 	_restore_initial_values()
 	_release_sample()
 	_config = config
@@ -83,53 +85,43 @@ func configure(config: Resource, kind: int = 0) -> void:
 	_set_state(&"idle")
 
 
-## 从暂停继续；其他状态从初值开始读取并播放最新配置快照。
+## 从暂停继续同一冻结会话；定位到末端后继续会执行完成恢复策略。
+## 其他状态从初值开始读取并播放最新配置快照。
 ## 独立编辑器时钟不采用来源配置的 process、pause 或 time scale 设置。
 ## [br]
 ## @api framework_internal
 ## [br]
 ## @return: 配置与目标有效且本次播放或恢复被接受时返回 true。
 func play() -> bool:
-	if _state == &"paused" and is_instance_valid(_tween):
+	if not _is_sample_available():
+		_fail("Preview must be inside the scene tree with an available configured sample.")
+		return false
+	if _state == &"paused" and _plan != null:
 		_error = ""
+		if _elapsed_seconds >= _plan.duration_seconds:
+			_finish_playback()
+			return true
+		if not is_instance_valid(_tween):
+			_fail("Paused playback is no longer available.")
+			return false
 		_set_state(&"playing")
 		return true
-	_clear_tween()
+	_clear_session()
 	_restore_initial_values()
-	if not is_inside_tree() or not is_instance_valid(_target):
-		_fail("Preview must be inside the scene tree with a configured sample.")
+	var captured_plan: GFTweenPreviewPlan = GFTweenPreviewPlan.capture(_config, _target_kind)
+	if not captured_plan.error.is_empty():
+		_fail(captured_plan.error)
 		return false
-	var plan: GFTweenPreviewPlan = GFTweenPreviewPlan.capture(_config, _target_kind)
-	if not plan.error.is_empty():
-		_fail(plan.error)
-		return false
-	_restore_on_finish = plan.restore_on_finish
+	_plan = captured_plan
+	_restore_on_finish = _plan.restore_on_finish
 	_error = ""
-	if not _has_timed_steps(plan.steps):
-		for step: Dictionary in plan.steps:
+	if _plan.duration_seconds == 0.0:
+		for step: Dictionary in _plan.steps:
 			_apply_instant_step(step)
 		_finish_playback()
 		return true
-	_tween = create_tween()
-	_tween.pause()
-	var _ignore_time_scale_result: Tween = _tween.set_ignore_time_scale(true)
-	var _loop_result: Tween = _tween.set_loops(plan.loop_count)
-	for step: Dictionary in plan.steps:
-		var tweener: PropertyTweener = GFTweenActionStep.append_property_tweener(
-			_tween,
-			_target,
-			_step_path(step),
-			step.get("target_value"),
-			_step_float(step, "duration"),
-			_step_float(step, "delay"),
-			_step_bool(step, "as_relative"),
-			_step_bool(step, "parallel"),
-			_step_int(step, "transition_type") as Tween.TransitionType,
-			_step_int(step, "ease_type") as Tween.EaseType
-		)
-		if tweener == null:
-			_fail("Unable to construct the validated preview step.")
-			return false
+	if not _build_session_tween():
+		return false
 	_set_state(&"playing")
 	return true
 
@@ -142,7 +134,7 @@ func pause() -> void:
 		_set_state(&"paused")
 
 
-## 停止会话并保留当前样机画面；下次播放仍从初值开始。
+## 停止播放并保留当前样机画面与定位快照；下次播放从初值捕获最新配置。
 ## [br]
 ## @api framework_internal
 func stop() -> void:
@@ -151,11 +143,11 @@ func stop() -> void:
 	_set_state(&"idle")
 
 
-## 停止会话并强制恢复当前初值。
+## 停止会话、丢弃定位快照并强制恢复当前初值。
 ## [br]
 ## @api framework_internal
 func reset_preview() -> void:
-	_clear_tween()
+	_clear_session()
 	_restore_initial_values()
 	_error = ""
 	_set_state(&"idle")
@@ -172,10 +164,11 @@ func advance(delta: float) -> void:
 	if not is_finite(delta) or delta < 0.0:
 		_fail("Preview time delta must be finite and non-negative.")
 		return
-	if not is_instance_valid(_target) or not is_instance_valid(_tween):
+	if not _is_sample_available() or not is_instance_valid(_tween):
 		_fail("Preview sample or playback session is no longer available.")
 		return
 	var still_playing: bool = _tween.custom_step(delta)
+	_elapsed_seconds = minf(_elapsed_seconds + delta, get_duration_seconds())
 	_request_render()
 	if not still_playing or _tween.get_loops_left() == 0:
 		_finish_playback()
@@ -202,7 +195,7 @@ func set_initial_value(property_name: StringName, value: Variant) -> bool:
 	if not is_instance_valid(_target):
 		_fail("Preview sample is not configured.")
 		return false
-	_clear_tween()
+	_clear_session()
 	_initial_values[String(property_name)] = value
 	_restore_initial_values()
 	_error = ""
@@ -257,11 +250,76 @@ func get_error() -> String:
 	return _error
 
 
+## 在已捕获的会话内定位并暂停，不读取来源配置；精确终点保留动画终值。
+## 无会话或时间无效时拒绝并保留当前画面；从终点继续才执行正常完成恢复策略。
+## [br]
+## @api framework_internal
+## [br]
+## @since unreleased
+## [br]
+## @param time_seconds: 有限时间，范围为 0 至 get_duration_seconds()，单位为秒。
+## [br]
+## @return: 当前会话接受定位时返回 true。
+func seek(time_seconds: float) -> bool:
+	if _plan == null or not _is_sample_available():
+		return _reject_seek("Start playback before inspecting a time in its captured session.")
+	if not is_finite(time_seconds) or time_seconds < 0.0 or time_seconds > _plan.duration_seconds:
+		return _reject_seek("Inspection time must be finite and within the captured timeline.")
+	_clear_tween()
+	_restore_initial_values()
+	if _plan.duration_seconds == 0.0:
+		for step: Dictionary in _plan.steps:
+			_apply_instant_step(step)
+	else:
+		if not _build_session_tween():
+			return false
+		# 原生推进最多遍历已验证的 128 步 × 32 次循环，不按显示帧数循环重放。
+		var _still_playing: bool = _tween.custom_step(time_seconds)
+	_elapsed_seconds = time_seconds
+	_error = ""
+	_request_render()
+	_set_state(&"paused")
+	return true
+
+
+## 获取当前会话是否仍有可供定位的冻结计划。
+## [br]
+## @api framework_internal
+## [br]
+## @since unreleased
+## [br]
+## @return: 成功播放后为 true；复位、换源、初值改变或释放后为 false。
+func has_session() -> bool:
+	return _plan != null
+
+
+## 获取当前会话实际总时长，包含串并行组、延迟和有限循环。
+## [br]
+## @api framework_internal
+## [br]
+## @since unreleased
+## [br]
+## @return: 单位为秒；没有会话或全零时长时为 0。
+func get_duration_seconds() -> float:
+	return _plan.duration_seconds if _plan != null else 0.0
+
+
+## 获取当前会话已播放或定位的时间。
+## [br]
+## @api framework_internal
+## [br]
+## @since unreleased
+## [br]
+## @return: 单位为秒；没有会话时为 0，完成后保持总时长。
+func get_time_seconds() -> float:
+	return _elapsed_seconds
+
+
 ## 取消会话、恢复并释放样机和来源引用；允许重复调用。
 ## [br]
 ## @api framework_internal
 func dispose_preview() -> void:
-	_clear_tween()
+	_clear_session()
 	_restore_initial_values()
 	_release_sample()
 	_config = null
@@ -324,6 +382,49 @@ func _clear_tween() -> void:
 	_tween = null
 
 
+func _clear_session() -> void:
+	_clear_tween()
+	_plan = null
+	_elapsed_seconds = 0.0
+
+
+func _is_sample_available() -> bool:
+	return (
+		is_inside_tree() and not is_queued_for_deletion()
+		and is_instance_valid(_target) and _target.is_inside_tree() and not _target.is_queued_for_deletion()
+	)
+
+
+func _build_session_tween() -> bool:
+	_tween = create_tween()
+	_tween.pause()
+	var _ignore_time_scale_result: Tween = _tween.set_ignore_time_scale(true)
+	var _loop_result: Tween = _tween.set_loops(_plan.loop_count)
+	for step: Dictionary in _plan.steps:
+		var tweener: PropertyTweener = GFTweenActionStep.append_property_tweener(
+			_tween,
+			_target,
+			_step_path(step),
+			step.get("target_value"),
+			_step_float(step, "duration"),
+			_step_float(step, "delay"),
+			_step_bool(step, "as_relative"),
+			_step_bool(step, "parallel"),
+			_step_int(step, "transition_type") as Tween.TransitionType,
+			_step_int(step, "ease_type") as Tween.EaseType
+		)
+		if tweener == null:
+			_fail("Unable to construct the validated preview step.")
+			return false
+	return true
+
+
+func _reject_seek(message: String) -> bool:
+	_error = message
+	state_changed.emit()
+	return false
+
+
 func _restore_initial_values() -> void:
 	if not is_instance_valid(_target):
 		return
@@ -332,13 +433,6 @@ func _restore_initial_values() -> void:
 			var property_name: String = key
 			_target.set(property_name, _initial_values[property_name])
 	_request_render()
-
-
-func _has_timed_steps(steps: Array[Dictionary]) -> bool:
-	for step: Dictionary in steps:
-		if _step_float(step, "duration") > 0.0 or _step_float(step, "delay") > 0.0:
-			return true
-	return false
 
 
 func _apply_instant_step(step: Dictionary) -> void:
@@ -369,6 +463,7 @@ func _relative_value(current: Variant, next: Variant) -> Variant:
 
 func _finish_playback() -> void:
 	_clear_tween()
+	_elapsed_seconds = get_duration_seconds()
 	if _restore_on_finish:
 		_restore_initial_values()
 	_request_render()
@@ -376,7 +471,7 @@ func _finish_playback() -> void:
 
 
 func _fail(message: String) -> void:
-	_clear_tween()
+	_clear_session()
 	_restore_initial_values()
 	_error = message
 	_set_state(&"error")

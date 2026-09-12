@@ -6,7 +6,7 @@
 
 | 类别 | 类 | 成员 | 方法 |
 |---|---:|---:|---:|
-| [运行时服务](#category-runtime_service) | 193 | 3475 | 2359 |
+| [运行时服务](#category-runtime_service) | 194 | 3478 | 2360 |
 | [协议与扩展点](#category-protocol) | 26 | 345 | 273 |
 | [资源定义](#category-resource_definition) | 122 | 1575 | 797 |
 | [运行时句柄](#category-runtime_handle) | 56 | 952 | 607 |
@@ -87,6 +87,7 @@
 | [`GFGridPathMath2D`](classes/GFGridPathMath2D.md#gfgridpathmath2d) | `RefCounted` | `addons/gf/standard/foundation/math/gf_grid_path_math_2d.gd` |
 | [`GFGridPlaneMapper3D`](classes/GFGridPlaneMapper3D.md#gfgridplanemapper3d) | `RefCounted` | `addons/gf/standard/foundation/math/gf_grid_plane_mapper_3d.gd` |
 | [`GFGridTransform2D`](classes/GFGridTransform2D.md#gfgridtransform2d) | `RefCounted` | `addons/gf/standard/foundation/math/gf_grid_transform_2d.gd` |
+| [`GFGridVisibilityMath2D`](classes/GFGridVisibilityMath2D.md#gfgridvisibilitymath2d) | `RefCounted` | `addons/gf/standard/foundation/math/gf_grid_visibility_math_2d.gd` |
 | [`GFHeightfield3D`](classes/GFHeightfield3D.md#gfheightfield3d) | `RefCounted` | `addons/gf/standard/foundation/math/gf_heightfield_3d.gd` |
 | [`GFHexGridMath`](classes/GFHexGridMath.md#gfhexgridmath) | `RefCounted` | `addons/gf/standard/foundation/math/gf_hex_grid_math.gd` |
 | [`GFHttpClientUtility`](classes/GFHttpClientUtility.md#gfhttpclientutility) | `GFUtility` | `addons/gf/standard/utilities/io/gf_http_client_utility.gd` |

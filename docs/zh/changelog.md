@@ -6,6 +6,8 @@
 
 ### 🚀 新增特性 (Added)
 
+- 新增 [方格视野查询](standard/foundation/grid-spatial/grid-2d-hex/grid-math.md)，通过显式阻挡回调计算有限半径内的可见格，返回稳定顺序与失败诊断；视野不接管地图节点、探索记忆或阵营规则。
+- [Tween Inspector 预览](extensions/action-queue/tween-config.md#在-inspector-中预览) 支持时间滑条与秒数定位，可反复检查同一配置快照的中间姿态和动画终点；定位仅操作工具自有样机，并保持暂停。
 - [模板列表](standard/utilities/runtime/settings-ui-scene/settings-display/list-repeat-binding.md#按稳定-id-更新模板列表) 支持调用方提供稳定 ID，按条目复用、更新、移动和释放节点，保留普通 Container 布局及未被项目回调重置的局部交互状态。
 - 新增 [2D 多目标取景 Rig](extensions/camera/camera-2d.md#多目标共同入镜)，根据目标锚点、实际相机输出尺寸和像素留白计算中心与缩放，复用现有 Director 的优先级与混合，并报告缩放约束是否影响共同入镜。
 - 新增 [Network 请求与回复关联](extensions/network-turnbased/network-transport/request-correlation.md)：独立的有界 Tracker、一次性 Handle 和隔离响应结果，支持同步回包、指定 peer 与会话隔离、超时及本地取消；协议编码与网络生命周期由项目显式接入，`gf.network` 的 `extension_version` 升为 `7.1.0`。
@@ -49,6 +51,7 @@
 
 ### 🔧 API 变动说明 (API Changes)
 
+- 新增 `GFGridVisibilityMath2D.compute_fov()`，显式接收网格范围、观察格、半径和遮挡规则；输入或查询失败时返回空的可见集合，保留既有两点视线查询合同。
 - `GFRepeaterBinder` 的模板同步支持 `identity_callable`，新增 `sync_container()` 提供结构化同步结果；自动刷新失败通过 `synchronization_failed` 通知。稳定 ID 更新验证重复键、克隆所有权和同步重入，不把项目回调副作用作为可回滚事务。
 - 新增 `GFCameraFramingRig2D`。2D Rig 的 `get_camera_pose()` 和 `get_camera_pose_data()` 增加可选 `Camera2D` 参数，Director 显式提供目标相机；自定义覆盖需要同步签名，`gf.camera` 的 `extension_version` 升为 `3.0.0`。
 - `GFObjectPoolUtility.acquire(scene, parent, lifetime_owner, context = {})` 现在需要 `await`，返回 `GFObjectPoolAcquireResult`；必填的 `lifetime_owner` 通常传 `self`，与挂载父节点分离。成功后用 `get_lease()` 获取 Lease，再以 `get_node()` 访问节点。
@@ -60,7 +63,7 @@
 - 保留已有接口的首次发布 `@since` 版本，不因本次签名或语义重做而改为 `unreleased`。
 - Flow 面板与 Resource 表格新增 `set_editor_context()`。新增 `GFEditorMultiPropertyField`，通过暂存值生成属性批处理请求，提交仍复用既有命令与资源历史；不改变 Flow 图的持久化格式或运行时执行协议。
 - `GFConfigTableReference` 新增 `SourceMode` 与 `source_mode`，默认 `FIELDS` 保持原有字段引用行为；`ARRAY_ELEMENTS` 校验单个数组字段到目标单字段键的引用。元素问题增加零基 `element_index`；`resolve_record_references()` 仍只解析 `FIELDS` 引用。
-- `gf.action_queue` 的 `extension_version` 升为 `2.3.0`，新增编辑器预览入口；既有 Tween 资源格式与运行时执行语义保持不变。
+- `gf.action_queue` 的 `extension_version` 升为 `2.4.0`，新增编辑器预览与指定时间定位；既有 Tween 资源格式与运行时执行语义保持不变。
 
 ### 📘 升级指南 (Migration Guide)
 

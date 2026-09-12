@@ -1,4 +1,4 @@
-# 验证独立 Tween 样机的手动播放、输入边界与生命周期。
+# 验证独立 Tween 样机的手动播放、时间定位、输入边界与生命周期。
 extends GutTest
 
 
@@ -447,6 +447,322 @@ func test_retired_initial_fields_cannot_write_after_rebind_or_kind_change() -> v
 	panel.dispose_preview()
 
 
+func test_seek_repeats_and_moves_backwards_then_continues_from_the_selected_time() -> void:
+	var preview: GFTweenPreviewViewport = _preview(_config(^"position:x", 10.0))
+	assert_false(preview.has_session())
+	assert_false(preview.seek(0.5), "Seeking requires a captured playback session")
+	assert_eq(_vector2(preview, "position"), Vector2.ZERO)
+	assert_true(preview.play())
+	assert_true(preview.has_session())
+	assert_eq(preview.get_duration_seconds(), 1.0)
+	assert_true(preview.seek(0.75))
+	assert_eq(preview.get_state(), &"paused")
+	assert_almost_eq(_vector2(preview, "position").x, 7.5, 0.001)
+	assert_true(preview.seek(0.25))
+	var earlier_values: Dictionary = preview.get_current_values()
+	assert_almost_eq(_vector2(preview, "position").x, 2.5, 0.001)
+	assert_eq(preview.get_time_seconds(), 0.25)
+	assert_true(preview.seek(0.75))
+	assert_true(preview.seek(0.25))
+	assert_eq(preview.get_current_values(), earlier_values)
+	preview.advance(0.5)
+	assert_eq(preview.get_current_values(), earlier_values, "A time inspection is paused")
+	assert_true(preview.play())
+	preview.advance(0.25)
+	assert_almost_eq(_vector2(preview, "position").x, 5.0, 0.001)
+	assert_eq(preview.get_time_seconds(), 0.5)
+	preview.dispose_preview()
+
+
+func test_seek_uses_parallel_group_duration_with_delays_and_relative_loops() -> void:
+	var config: GFTweenActionConfig = _config(^"position:x", 10.0, 0.5)
+	config.steps[0].delay = 0.25
+	var parallel_step: GFTweenActionStep = _step(^"position:y", 20.0, 1.0)
+	parallel_step.parallel = true
+	config.steps.append(parallel_step)
+	var relative_step: GFTweenActionStep = _step(^"position:x", 4.0, 0.5)
+	relative_step.delay = 0.25
+	relative_step.as_relative = true
+	config.steps.append(relative_step)
+	config.duration_scale = 2.0
+	config.loop_count = 2
+	var preview: GFTweenPreviewViewport = _preview(config)
+	var native_target: Node2D = Node2D.new()
+	add_child_autofree(native_target)
+	var native_reference: Tween = _native_parallel_relative_tween(native_target)
+	assert_true(preview.play())
+	assert_eq(preview.get_duration_seconds(), 7.0, "Two loops of max(1.5, 2.0) + 1.5")
+	assert_true(preview.seek(2.5))
+	assert_eq(_vector2(preview, "position"), Vector2(10.0, 20.0))
+	assert_true(preview.seek(3.0))
+	# 首轮与次轮的初值语义可能不同，使用独立原生分步推进作基线，而非推算 relative 起点。
+	for _index: int in range(6):
+		var _reference_running: bool = native_reference.custom_step(0.5)
+	assert_eq(_vector2(preview, "position"), native_target.position)
+	assert_true(preview.seek(6.5))
+	for _index: int in range(7):
+		var _reference_running: bool = native_reference.custom_step(0.5)
+	assert_eq(_vector2(preview, "position"), native_target.position)
+	assert_true(preview.seek(0.25))
+	assert_almost_eq(_vector2(preview, "position").x, 0.0, 0.001)
+	assert_almost_eq(_vector2(preview, "position").y, 2.5, 0.001)
+	assert_true(preview.seek(7.0))
+	assert_eq(_vector2(preview, "position"), Vector2(14.0, 20.0))
+	native_reference.kill()
+	preview.dispose_preview()
+
+
+func test_seek_relative_loop_values_match_forward_native_playback() -> void:
+	var config: GFTweenActionConfig = _config(^"position:x", 3.0, 0.25)
+	config.steps[0].as_relative = true
+	config.loop_count = 32
+	var preview: GFTweenPreviewViewport = _preview(config)
+	var forward_preview: GFTweenPreviewViewport = _preview(config)
+	assert_true(preview.set_initial_value(&"position", Vector2(2.0, 4.0)))
+	assert_true(forward_preview.set_initial_value(&"position", Vector2(2.0, 4.0)))
+	assert_true(preview.play())
+	assert_true(forward_preview.play())
+	forward_preview.advance(7.875)
+	assert_true(preview.seek(7.875))
+	assert_eq(preview.get_current_values(), forward_preview.get_current_values())
+	assert_almost_eq(_vector2(preview, "position").x, 96.5, 0.001)
+	assert_true(preview.seek(0.0))
+	assert_eq(_vector2(preview, "position"), Vector2(2.0, 4.0))
+	assert_true(preview.seek(8.0))
+	assert_eq(_vector2(preview, "position"), Vector2(98.0, 4.0))
+	preview.dispose_preview()
+	forward_preview.dispose_preview()
+
+
+func test_seek_end_keeps_final_pose_until_continue_applies_finish_restore() -> void:
+	var config: GFTweenActionConfig = _config(^"position:x", 10.0)
+	config.restore_initial_values_on_finish = true
+	var preview: GFTweenPreviewViewport = _preview(config)
+	assert_true(preview.set_initial_value(&"position", Vector2(2.0, 3.0)))
+	assert_true(preview.play())
+	assert_true(preview.seek(1.0))
+	assert_eq(preview.get_state(), &"paused")
+	assert_eq(_vector2(preview, "position"), Vector2(10.0, 3.0))
+	assert_true(preview.play(), "Continuing an inspected endpoint completes the existing session")
+	assert_eq(preview.get_state(), &"finished")
+	assert_eq(_vector2(preview, "position"), Vector2(2.0, 3.0))
+	assert_true(preview.has_session())
+	assert_true(preview.seek(1.0), "Finished sessions retain their captured inspection data")
+	assert_eq(_vector2(preview, "position"), Vector2(10.0, 3.0))
+	preview.dispose_preview()
+
+
+func test_seek_does_not_read_changed_source_and_invalid_times_preserve_the_session() -> void:
+	var config: GFTweenActionConfig = _config(^"position:x", 10.0)
+	config.steps[0].marker_id = &"project_marker"
+	var preview: GFTweenPreviewViewport = _preview(config)
+	assert_true(preview.play())
+	config.steps[0].target_value = 100.0
+	config.steps[0].duration = 10.0
+	config.loop_count = 2
+	assert_true(preview.seek(0.5))
+	assert_eq(preview.get_duration_seconds(), 1.0)
+	assert_almost_eq(_vector2(preview, "position").x, 5.0, 0.001)
+	var inspected_values: Dictionary = preview.get_current_values()
+	for invalid_time: float in [-1.0, 1.0001, INF, NAN]:
+		assert_false(preview.seek(invalid_time))
+		assert_eq(preview.get_state(), &"paused")
+		assert_eq(preview.get_time_seconds(), 0.5)
+		assert_eq(preview.get_current_values(), inspected_values)
+		assert_false(preview.get_error().is_empty())
+	preview.stop()
+	assert_true(preview.seek(0.25), "Stop keeps the snapshot available for inspection")
+	assert_almost_eq(_vector2(preview, "position").x, 2.5, 0.001)
+	preview.reset_preview()
+	assert_false(preview.has_session())
+	assert_false(preview.seek(0.25))
+	assert_true(preview.play())
+	assert_eq(preview.get_duration_seconds(), 20.0)
+	assert_true(preview.seek(0.5))
+	assert_almost_eq(_vector2(preview, "position").x, 5.0, 0.001)
+	assert_eq(config.steps[0].marker_id, &"project_marker")
+	assert_eq(config.steps[0].duration, 10.0)
+	preview.dispose_preview()
+
+
+func test_seek_zero_duration_inspects_one_round_without_applying_finish_restore() -> void:
+	var config: GFTweenActionConfig = _config(^"position:x", 3.0, 0.0)
+	config.steps[0].as_relative = true
+	config.loop_count = 32
+	config.restore_initial_values_on_finish = true
+	var preview: GFTweenPreviewViewport = _preview(config)
+	assert_true(preview.set_initial_value(&"position", Vector2(2.0, 4.0)))
+	assert_true(preview.play())
+	assert_eq(preview.get_duration_seconds(), 0.0)
+	assert_eq(_vector2(preview, "position"), Vector2(2.0, 4.0))
+	assert_true(preview.seek(0.0))
+	assert_eq(preview.get_state(), &"paused")
+	assert_eq(_vector2(preview, "position"), Vector2(5.0, 4.0))
+	assert_true(preview.seek(0.0))
+	assert_eq(_vector2(preview, "position"), Vector2(5.0, 4.0))
+	assert_true(preview.play())
+	assert_eq(preview.get_state(), &"finished")
+	assert_eq(_vector2(preview, "position"), Vector2(2.0, 4.0))
+	preview.dispose_preview()
+
+
+func test_seek_exact_end_includes_trailing_instant_steps_and_fractional_group_boundaries() -> void:
+	for first_duration: float in [0.5, 0.1]:
+		var second_duration: float = 0.5 if first_duration == 0.5 else 0.2
+		var config: GFTweenActionConfig = _config(^"position:x", 10.0, first_duration)
+		config.steps.append(_step(^"position:x", 20.0, second_duration))
+		config.steps.append(_step(^"position:y", 9.0, 0.0))
+		config.loop_count = 2
+		var preview: GFTweenPreviewViewport = _preview(config)
+		assert_true(preview.play())
+		assert_true(preview.seek(preview.get_duration_seconds()))
+		assert_eq(_vector2(preview, "position"), Vector2(20.0, 9.0))
+		assert_eq(preview.get_state(), &"paused")
+		assert_true(preview.seek(0.0))
+		assert_eq(_vector2(preview, "position"), Vector2.ZERO)
+		preview.dispose_preview()
+
+
+func test_seek_preserves_native_easing_and_overlapping_property_component_order() -> void:
+	var config: GFTweenActionConfig = _config(^"position", Vector2(12.0, 8.0), 0.8)
+	config.steps[0].transition_type = Tween.TRANS_CUBIC
+	config.steps[0].ease_type = Tween.EASE_IN
+	var overlapping: GFTweenActionStep = _step(^"position:x", 5.0, 0.5)
+	overlapping.parallel = true
+	overlapping.as_relative = true
+	overlapping.delay = 0.1
+	config.steps.append(overlapping)
+	var preview: GFTweenPreviewViewport = _preview(config)
+	var forward_preview: GFTweenPreviewViewport = _preview(config)
+	assert_true(preview.play())
+	assert_true(forward_preview.play())
+	forward_preview.advance(0.375)
+	assert_true(preview.seek(0.75))
+	assert_true(preview.seek(0.375))
+	assert_eq(preview.get_current_values(), forward_preview.get_current_values())
+	assert_true(preview.play())
+	preview.advance(0.1)
+	forward_preview.advance(0.1)
+	assert_eq(preview.get_current_values(), forward_preview.get_current_values())
+	preview.dispose_preview()
+	forward_preview.dispose_preview()
+
+
+func test_seek_session_is_invalidated_by_initial_values_configuration_and_disposal() -> void:
+	var preview: GFTweenPreviewViewport = _preview(_config(^"position:x", 10.0))
+	assert_true(preview.play())
+	assert_true(preview.set_initial_value(&"position", Vector2(2.0, 3.0)))
+	assert_false(preview.has_session())
+	assert_false(preview.seek(0.5))
+	assert_eq(_vector2(preview, "position"), Vector2(2.0, 3.0))
+	assert_true(preview.play())
+	preview.configure(_config(^"position:z", 5.0), 2)
+	assert_false(preview.has_session())
+	assert_false(preview.seek(0.5))
+	assert_eq(_vector3(preview, "position"), Vector3.ZERO)
+	assert_true(preview.play())
+	preview.dispose_preview()
+	assert_false(preview.has_session())
+	assert_false(preview.seek(0.5))
+	assert_true(preview.get_current_values().is_empty())
+
+
+func test_seek_endpoint_cannot_complete_successfully_after_the_sample_is_freed() -> void:
+	var preview: GFTweenPreviewViewport = _preview(_config(^"position:x", 10.0))
+	assert_true(preview.play())
+	assert_true(preview.seek(1.0))
+	var target: Node = preview.find_child("PreviewTarget", true, false)
+	assert_not_null(target)
+	if target == null:
+		return
+	target.free()
+	assert_false(preview.play())
+	assert_eq(preview.get_state(), &"error")
+	assert_false(preview.has_session())
+	assert_false(preview.seek(0.5))
+	preview.dispose_preview()
+
+
+func test_panel_time_controls_seek_without_feedback_and_retired_inputs_are_ignored() -> void:
+	var panel: GFTweenPreviewPanel = GFTweenPreviewPanel.new()
+	panel.configure(_config(^"position:x", 10.0))
+	add_child_autofree(panel)
+	panel.set_process(false)
+	var preview: GFTweenPreviewViewport = _panel_viewport(panel)
+	var initial_slider: HSlider = _time_slider(panel)
+	assert_false(initial_slider.editable)
+	_button(panel, "Play").pressed.emit()
+	var slider: HSlider = _time_slider(panel)
+	assert_true(slider.editable)
+	assert_eq(slider.max_value, 1.0)
+	slider.value = 0.25
+	assert_eq(preview.get_state(), &"paused")
+	assert_almost_eq(_vector2(preview, "position").x, 2.5, 0.001)
+	_time_input(panel).value = 0.75
+	assert_almost_eq(_vector2(preview, "position").x, 7.5, 0.001)
+	assert_eq(slider.value, 0.75)
+	_button(panel, "Play").pressed.emit()
+	preview.advance(0.1)
+	assert_eq(preview.get_state(), &"playing", "Programmatic time refresh must not trigger another seek")
+	panel.configure(_config(^"position:x", 20.0))
+	panel.set_process(false)
+	slider.value_changed.emit(0.5)
+	initial_slider.value_changed.emit(0.5)
+	assert_false(preview.has_session())
+	assert_eq(_vector2(preview, "position"), Vector2.ZERO)
+	_button(panel, "Play").pressed.emit()
+	var hidden_slider: HSlider = _time_slider(panel)
+	panel.hide()
+	hidden_slider.value_changed.emit(0.5)
+	assert_false(preview.has_session())
+	assert_eq(_vector2(preview, "position"), Vector2.ZERO)
+	panel.show()
+	_button(panel, "Play").pressed.emit()
+	var disposed_input: SpinBox = _time_input(panel)
+	panel.dispose_preview()
+	disposed_input.value_changed.emit(0.5)
+	assert_false(preview.has_session())
+	assert_true(preview.get_current_values().is_empty())
+
+
+func test_panel_locate_button_can_inspect_the_only_time_of_an_instant_configuration() -> void:
+	var config: GFTweenActionConfig = _config(^"position:x", 3.0, 0.0)
+	config.restore_initial_values_on_finish = true
+	var panel: GFTweenPreviewPanel = GFTweenPreviewPanel.new()
+	panel.configure(config)
+	add_child_autofree(panel)
+	panel.set_process(false)
+	var preview: GFTweenPreviewViewport = _panel_viewport(panel)
+	_button(panel, "Play").pressed.emit()
+	assert_eq(_vector2(preview, "position"), Vector2.ZERO)
+	assert_false(_button(panel, "InspectTime").disabled)
+	_button(panel, "InspectTime").pressed.emit()
+	assert_eq(preview.get_state(), &"paused")
+	assert_eq(_vector2(preview, "position"), Vector2(3.0, 0.0))
+	_button(panel, "InspectTime").pressed.emit()
+	assert_eq(_vector2(preview, "position"), Vector2(3.0, 0.0))
+	panel.dispose_preview()
+
+
+func test_panel_retiring_time_controls_cannot_seek_a_new_session_during_visibility_change() -> void:
+	var panel: GFTweenPreviewPanel = GFTweenPreviewPanel.new()
+	panel.configure(_config(^"position:x", 10.0))
+	add_child_autofree(panel)
+	panel.set_process(false)
+	var preview: GFTweenPreviewViewport = _panel_viewport(panel)
+	_button(panel, "Play").pressed.emit()
+	var old_slider: HSlider = _time_slider(panel)
+	var _visibility_connected: int = old_slider.visibility_changed.connect(func() -> void:
+		old_slider.value_changed.emit(0.5)
+	)
+	_button(panel, "Stop").pressed.emit()
+	_button(panel, "Play").pressed.emit()
+	assert_eq(preview.get_state(), &"playing")
+	assert_eq(preview.get_time_seconds(), 0.0)
+	assert_eq(_vector2(preview, "position"), Vector2.ZERO)
+	panel.dispose_preview()
+
+
 func test_disposed_panel_rejects_late_control_signals_without_rebuilding_sample() -> void:
 	var panel: GFTweenPreviewPanel = GFTweenPreviewPanel.new()
 	panel.configure(_config(^"position:x", 10.0))
@@ -466,6 +782,20 @@ func test_disposed_panel_rejects_late_control_signals_without_rebuilding_sample(
 
 
 # --- 私有/辅助方法 ---
+
+func _native_parallel_relative_tween(target: Node2D) -> Tween:
+	var native_tween: Tween = target.create_tween()
+	native_tween.pause()
+	var _loops: Tween = native_tween.set_loops(2)
+	var first: PropertyTweener = native_tween.tween_property(target, ^"position:x", 10.0, 1.0)
+	var _first_options: PropertyTweener = first.set_delay(0.5).set_trans(Tween.TRANS_LINEAR)
+	var _parallel: Tween = native_tween.parallel()
+	var second: PropertyTweener = native_tween.tween_property(target, ^"position:y", 20.0, 2.0)
+	var _second_options: PropertyTweener = second.set_trans(Tween.TRANS_LINEAR)
+	var relative: PropertyTweener = native_tween.tween_property(target, ^"position:x", 4.0, 1.0)
+	var _relative_options: PropertyTweener = relative.set_delay(0.5).set_trans(Tween.TRANS_LINEAR).as_relative()
+	return native_tween
+
 
 func _preview(config: Resource, kind: int = 0) -> GFTweenPreviewViewport:
 	var preview: GFTweenPreviewViewport = GFTweenPreviewViewport.new()
@@ -558,6 +888,24 @@ func _target_kind(panel: GFTweenPreviewPanel) -> OptionButton:
 	if child is OptionButton:
 		var option: OptionButton = child
 		return option
+	return null
+
+
+func _time_slider(panel: GFTweenPreviewPanel) -> HSlider:
+	var child: Node = panel.find_child("PreviewTimeSlider", true, false)
+	assert_true(child is HSlider)
+	if child is HSlider:
+		var slider: HSlider = child
+		return slider
+	return null
+
+
+func _time_input(panel: GFTweenPreviewPanel) -> SpinBox:
+	var child: Node = panel.find_child("PreviewTimeInput", true, false)
+	assert_true(child is SpinBox)
+	if child is SpinBox:
+		var spin_box: SpinBox = child
+		return spin_box
 	return null
 
 

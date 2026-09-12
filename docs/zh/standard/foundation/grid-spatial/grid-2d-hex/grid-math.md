@@ -1,6 +1,6 @@
 # 规则 2D 网格
 
-2D 规则网格能力按职责拆成 `GFGridCoordinateMath2D`、`GFGridPathMath2D`、`GFGridGenerationMath2D` 与 `GFGridConnectionMath2D`。它们都是纯算法工具，适合消消乐、连连看、推箱子、战棋格子、地图编辑器或生成前数据处理。`GFGridMath` 仍作为聚合 facade 保留常用旧入口，但新代码优先直接依赖对应专门类。
+2D 规则网格能力按职责拆成 `GFGridCoordinateMath2D`、`GFGridPathMath2D`、`GFGridGenerationMath2D`、`GFGridConnectionMath2D` 与 `GFGridVisibilityMath2D`。它们都是纯算法工具，适合消消乐、连连看、推箱子、战棋格子、地图编辑器或生成前数据处理。`GFGridMath` 仍作为聚合 facade 保留常用旧入口，但新代码优先直接依赖对应专门类。
 
 ## 核心能力
 
@@ -8,7 +8,8 @@
 - `GFGridPathMath2D`：BFS、A*、分步 A*、路径视线抽稀和 Flow Field。
 - `GFGridGenerationMath2D`：矩形迷宫拓扑、二值细胞自动机报告和生成后连通区域后处理。
 - `GFGridConnectionMath2D`：最大转弯连接判定，适合连连看、管线连接和棋盘路径规则。
-- `GFGridMath`：薄 facade，便于旧代码或简单脚本一次性访问上述能力。
+- `GFGridVisibilityMath2D`：有限半径内的整片可见区域，包含明确的遮挡、墙面和格数预算报告。
+- `GFGridMath`：薄 facade，保留坐标、寻路、生成和连接的常用旧入口；整片视野直接使用 `GFGridVisibilityMath2D`。
 
 旋转、镜像或对角翻转格子模板时，使用同组的 `GFGridTransform2D`，避免把模板变换逻辑混进寻路或范围查询。
 
@@ -213,6 +214,42 @@ var simplified := GFGridPathMath2D.simplify_path_line_of_sight(
 ```
 
 抽稀只判断格子直线是否被阻挡，不执行单位移动、不避让动态碰撞，也不替项目解释转向动画。
+
+## 整片可见区域
+
+`GFGridVisibilityMath2D.compute_fov()` 从一个透明格计算有限网格内的当前可见格。结果按 y、x 升序排列且没有重复；它不创建 TileMap、相机、迷雾历史或感知节点。
+
+```gdscript
+var visibility: Dictionary = GFGridVisibilityMath2D.compute_fov(
+	Vector2i(64, 48),
+	observer_cell,
+	12,
+	func(cell: Vector2i) -> bool:
+		return wall_cells.has(cell)
+)
+
+if visibility["ok"]:
+	for cell: Vector2i in visibility["visible_cells"]:
+		_show_currently_visible_cell(cell)
+else:
+	_report_visibility_error(visibility["error"], visibility["error_cell"])
+```
+
+视野采用整数欧氏半径和对称阴影扫描，透明格之间的互见关系对称。固定允许两堵仅在角点接触的墙之间透视；一堵墙仍会遮住墙后的格子。默认包含可见墙格，传入 `include_walls = false` 只从输出中去掉墙格，遮挡规则不变。这套整片视野规则与 `has_line_of_sight()` 的 Bresenham 格线规则不等价，原有点对点 LOS 和路径抽稀语义不变。
+
+原点必须在网格内且透明；不透明原点返回 `origin_blocked`。半径为零仍查询原点，成功时只返回原点。回调必须恰好接收一个 `Vector2i` 参数，同步返回真正的 `bool`，并在查询期间保持地图不变。每个被访问格最多调用一次，网格外与圆外不会调用。回调自己的运行时间、异常和外部副作用不能由查询中断或回滚。
+
+| 报告字段 | 含义 |
+|---|---|
+| `ok` | 整次查询是否成功。 |
+| `error` | 成功为空 `StringName`；失败提供稳定原因。 |
+| `visible_cells` | `Array[Vector2i]`；失败时始终为空，不发布部分视野。 |
+| `queried_cell_count` | 实际阻挡回调次数，包含返回非法类型的那次调用。 |
+| `error_cell` | 查询失败格；成功或参数准入失败时为 `Vector2i(-1, -1)`。 |
+
+半径范围为 `0..MAX_RADIUS`（128）。`max_cells` 默认且最多为 `MAX_CELLS`（66049，即 257×257），可以调低。准入在调用回调之前完成：半径包围盒先裁剪到网格内，再比较面积预算。这是保守的工作窗口预算，圆内格数或实际可见格更少也不会绕过它；超预算返回 `cell_budget_exceeded`，不会静默截断结果。极大地图仍可查询满足预算的小局部窗口。
+
+其它参数错误分别返回 `invalid_grid_size`、`origin_out_of_bounds`、`invalid_radius` 或 `invalid_budget`。回调无效或参数数量不符返回 `invalid_predicate`，回调返回非 `bool` 则返回 `invalid_predicate_result` 并保留出错格和实际查询次数。报告需要交给 JSON 时，仍可使用 `GFGridCoordinateMath2D.to_json_compatible_report()`。
 
 ## 使用边界
 

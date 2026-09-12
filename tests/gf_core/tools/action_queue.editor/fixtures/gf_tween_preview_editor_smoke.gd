@@ -33,6 +33,8 @@ var _scene_history: UndoRedo = null
 var _source_history: UndoRedo = null
 var _scene_history_version: int = 0
 var _source_history_version: int = 0
+var _scene_digest: String = ""
+var _config_digest: String = ""
 
 
 # --- Godot 生命周期方法 ---
@@ -57,6 +59,11 @@ func _exit_tree() -> void:
 func _run_probe() -> void:
 	if not Engine.is_editor_hint():
 		_fail("The probe requires a real editor lifecycle.")
+		return
+	_scene_digest = FileAccess.get_sha256(_SCENE_PATH)
+	_config_digest = FileAccess.get_sha256(_CONFIG_PATH)
+	if _scene_digest.is_empty() or _config_digest.is_empty():
+		_fail("The original scene and configuration file digests were unavailable.")
 		return
 	var source: Resource = ResourceLoader.load(_CONFIG_PATH, "", ResourceLoader.CACHE_MODE_IGNORE_DEEP)
 	if not _validate_saved_fields(source):
@@ -180,7 +187,20 @@ func _begin_render_sample(panel: GFTweenPreviewPanel) -> void:
 	var preview: GFTweenPreviewViewport = _find_viewport(panel)
 	if preview == null or not _press(panel, "Play"):
 		return
-	preview.advance(0.375)
+	var time_control: Node = panel.find_child("PreviewTimeInput", true, false)
+	if not time_control is SpinBox:
+		_fail("The rendered sample lost its time input.")
+		return
+	var time_input: SpinBox = time_control
+	var sample_time: float = 0.325 if _render_index == 2 else 1.375
+	var expected_position: float = 0.8 if _render_index == 2 else 12.0
+	time_input.value = sample_time
+	if (
+		preview.get_state() != &"paused" or not is_equal_approx(preview.get_time_seconds(), sample_time)
+		or not is_equal_approx(_position_x(preview), expected_position)
+	):
+		_fail("The rendered sample did not seek through its native time input.")
+		return
 	_render_wait_frames = 3
 
 
@@ -201,6 +221,9 @@ func _wait_render_sample() -> void:
 	if image == null or image.is_empty() or image.get_width() <= 0 or image.get_height() <= 0:
 		_fail("The rendered sample produced an empty image.")
 		return
+	if not _has_visible_sample_pixel(image):
+		_fail("The rendered sample did not contain an opaque blue sample within its image budget.")
+		return
 	var image_directory: String = OS.get_environment("GF_TWEEN_PREVIEW_SMOKE_IMAGE_DIR")
 	if image_directory.is_empty():
 		_fail("The runner did not provide an owned image output directory.")
@@ -210,12 +233,46 @@ func _wait_render_sample() -> void:
 	if save_error != OK:
 		_fail("The rendered sample image could not be saved: %d" % save_error)
 		return
+	if _render_index == 2 and not _save_panel_image(panel, image_directory):
+		return
 	_render_index += 1
 	if _render_index < 3:
 		_begin_render_sample(panel)
 		return
 	_render_panel = null
 	_begin_resource_switch(panel)
+
+
+func _has_visible_sample_pixel(image: Image) -> bool:
+	var width: int = image.get_width()
+	var height: int = image.get_height()
+	if width > 2048 or height > 2048:
+		return false
+	# 三种自有样机都使用蓝色；黑色、灰色或透明清屏不能冒充目标实际可见。
+	for y: int in range(height):
+		for x: int in range(width):
+			var pixel: Color = image.get_pixel(x, y)
+			if pixel.a >= 0.95 and pixel.b > 0.05 and pixel.b > pixel.r + 0.03:
+				return true
+	return false
+
+
+func _save_panel_image(panel: GFTweenPreviewPanel, image_directory: String) -> bool:
+	var panel_image: Image = panel.get_viewport().get_texture().get_image()
+	if panel_image == null or panel_image.is_empty():
+		_fail("The Inspector window produced no image for its time controls.")
+		return false
+	var image_bounds: Rect2i = Rect2i(Vector2i.ZERO, panel_image.get_size())
+	var crop_bounds: Rect2i = Rect2i(panel.get_global_rect()).intersection(image_bounds)
+	if not crop_bounds.has_area():
+		_fail("The Inspector preview panel was outside its rendered viewport.")
+		return false
+	var cropped: Image = panel_image.get_region(crop_bounds)
+	var save_error: Error = cropped.save_png(image_directory.path_join("panel.png"))
+	if save_error != OK:
+		_fail("The Inspector preview panel image could not be saved: %d" % save_error)
+		return false
+	return true
 
 
 func _wait_second_panel() -> void:
@@ -251,6 +308,9 @@ func _wait_cleanup() -> void:
 	if _current_panel.get_ref() != null or _current_target.get_ref() != null:
 		return
 	if not _scene_unchanged() or not _validate_saved_fields(_source) or not _validate_saved_fields(_reloaded):
+		return
+	if FileAccess.get_sha256(_SCENE_PATH) != _scene_digest or FileAccess.get_sha256(_CONFIG_PATH) != _config_digest:
+		_fail("Preview playback or seeking changed an original scene or configuration file.")
 		return
 	if _scene_history.get_version() != _scene_history_version or _source_history.get_version() != _source_history_version:
 		_fail("Preview operations changed native scene or resource undo history.")
@@ -290,6 +350,8 @@ func _check_controls(panel: GFTweenPreviewPanel, preview: GFTweenPreviewViewport
 	if preview.get_state() != &"idle" or not is_equal_approx(_position_x(preview), resumed_position):
 		_fail("Stop did not preserve the current preview frame.")
 		return false
+	if not _check_time_controls(panel, preview):
+		return false
 	if not _press(panel, "Reset") or not is_zero_approx(_position_x(preview)):
 		_fail("Reset did not restore the preview baseline.")
 		return false
@@ -318,6 +380,46 @@ func _check_controls(panel: GFTweenPreviewPanel, preview: GFTweenPreviewViewport
 			return false
 		if not _press(panel, "Reset"):
 			return false
+	return _scene_unchanged()
+
+
+func _check_time_controls(panel: GFTweenPreviewPanel, preview: GFTweenPreviewViewport) -> bool:
+	var slider_node: Node = panel.find_child("PreviewTimeSlider", true, false)
+	var input_node: Node = panel.find_child("PreviewTimeInput", true, false)
+	if not slider_node is HSlider or not input_node is SpinBox:
+		_fail("The Inspector preview did not expose its native time controls.")
+		return false
+	var slider: HSlider = slider_node
+	var time_input: SpinBox = input_node
+	if not slider.editable or not is_equal_approx(slider.max_value, 1.75):
+		_fail("The native time slider did not show the captured timeline duration.")
+		return false
+	slider.value = 0.625
+	if preview.get_state() != &"paused" or not is_equal_approx(_position_x(preview), 4.0):
+		_fail("Slider input did not locate the captured timeline and pause.")
+		return false
+	time_input.value = 1.0
+	if not is_equal_approx(_position_x(preview), 8.0):
+		_fail("The numeric time input did not locate the expected native property value.")
+		return false
+	slider.value = 0.625
+	if not _press(panel, "InspectTime") or not is_equal_approx(_position_x(preview), 4.0):
+		_fail("Backward and repeated time inspection did not reproduce the native property value.")
+		return false
+	slider.value = slider.max_value
+	if preview.get_state() != &"paused" or not is_equal_approx(_position_x(preview), 16.0):
+		_fail("The exact timeline endpoint did not preserve its final native property value.")
+		return false
+	if not _press(panel, "Play") or preview.get_state() != &"finished":
+		_fail("Continuing an inspected endpoint did not complete the captured session.")
+		return false
+	if not _press(panel, "Reset"):
+		return false
+	slider.value_changed.emit(0.625)
+	time_input.value_changed.emit(1.0)
+	if preview.has_session() or not is_zero_approx(_position_x(preview)):
+		_fail("Retired timeline controls could mutate the reset preview.")
+		return false
 	return _scene_unchanged()
 
 

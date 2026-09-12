@@ -246,6 +246,7 @@
       "res://tests/gf_core/standard/foundation/math/test_gf_curve_3d_math.gd",
       "res://tests/gf_core/standard/foundation/math/test_gf_graph_math.gd",
       "res://tests/gf_core/standard/foundation/math/test_gf_grid_math.gd",
+      "res://tests/gf_core/standard/foundation/math/test_gf_grid_visibility_math_2d.gd",
       "res://tests/gf_core/standard/foundation/math/test_gf_heightfield_and_surface_scatter.gd",
       "res://tests/gf_core/standard/foundation/math/test_gf_noise_field_tools.gd",
       "res://tests/gf_core/standard/foundation/math/test_gf_trajectory_math.gd",
