@@ -18,6 +18,11 @@ var _play_button: Button = null
 var _pause_button: Button = null
 var _status_label: Label = null
 var _values_label: Label = null
+var _time_controls: VBoxContainer = null
+var _time_slider: HSlider = null
+var _time_input: SpinBox = null
+var _inspect_button: Button = null
+var _time_label: Label = null
 var _initial_fields: VBoxContainer = null
 var _disposed: bool = false
 var _last_tick_usec: int = 0
@@ -60,6 +65,7 @@ func configure(config: Resource) -> void:
 	show()
 	if _viewport != null:
 		_viewport.configure(config, _target_kind.selected)
+		_rebuild_time_controls()
 		_rebuild_initial_fields()
 		_refresh_state()
 	set_process(true)
@@ -114,6 +120,10 @@ func _build_controls() -> void:
 	stop_button.tooltip_text = "停止并保留当前画面；再次播放从初值开始。"
 	var reset_button: Button = _add_button(controls, "Reset", "复位", _on_reset_pressed)
 	reset_button.tooltip_text = "停止并恢复样机初值。"
+	_time_controls = VBoxContainer.new()
+	_time_controls.name = "PreviewTimeline"
+	add_child(_time_controls)
+	_rebuild_time_controls()
 
 	_status_label = Label.new()
 	_status_label.name = "PreviewStatus"
@@ -134,7 +144,7 @@ func _build_controls() -> void:
 	add_child(_initial_fields)
 
 	var hint: Label = Label.new()
-	hint.text = "修改配置后重新播放生效。预览使用独立时钟，步骤标记不发出通知。样机初值只用于当前预览。"
+	hint.text = "先播放捕获配置，再拖动时间或输入秒数定位。定位使用同一快照并暂停；修改配置后停止再播放生效。步骤标记不发出通知。"
 	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	add_child(hint)
 
@@ -147,6 +157,72 @@ func _add_button(parent: HBoxContainer, node_name: String, text: String, callbac
 	var _pressed_connected: int = button.pressed.connect(callback)
 	parent.add_child(button)
 	return button
+
+
+func _rebuild_time_controls() -> void:
+	if _disposed or _time_controls == null:
+		return
+	# 原生控件离树时也可能同步提交编辑，先撤销旧输入源身份。
+	var retired_controls: Array[Control] = [_time_slider, _time_input, _inspect_button, _time_label]
+	_time_slider = null
+	_time_input = null
+	_inspect_button = null
+	_time_label = null
+	for retired_control: Control in retired_controls:
+		if is_instance_valid(retired_control):
+			retired_control.name = "RetiredTimeControl"
+	for child: Node in _time_controls.get_children():
+		child.name = "RetiredTimelineRow"
+		if child is Control:
+			var retired_row: Control = child
+			retired_row.hide()
+		child.queue_free()
+	_time_slider = HSlider.new()
+	_time_slider.name = "PreviewTimeSlider"
+	_time_slider.min_value = 0.0
+	_time_slider.step = 0.0
+	_time_slider.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_time_slider.tooltip_text = "先播放一次；定位暂停同一快照，不读取后续配置修改。"
+	_time_controls.add_child(_time_slider)
+	var time_row: HBoxContainer = HBoxContainer.new()
+	_time_controls.add_child(time_row)
+	_time_input = SpinBox.new()
+	_time_input.name = "PreviewTimeInput"
+	_time_input.min_value = 0.0
+	_time_input.step = 0.001
+	_time_input.suffix = "s"
+	_time_input.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	time_row.add_child(_time_input)
+	_inspect_button = _add_button(time_row, "InspectTime", "定位", _on_inspect_time_pressed.bind(_time_input))
+	_inspect_button.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	_inspect_button.tooltip_text = "重复定位当前秒数；零时长配置也可检查其瞬时终值。"
+	_time_label = Label.new()
+	_time_label.name = "PreviewTimeReadout"
+	time_row.add_child(_time_label)
+	_refresh_time_controls()
+	var _slider_connected: int = _time_slider.value_changed.connect(_on_time_changed.bind(_time_slider))
+	var _input_connected: int = _time_input.value_changed.connect(_on_time_changed.bind(_time_input))
+
+
+func _refresh_time_controls() -> void:
+	if _time_slider == null or _time_input == null:
+		return
+	var has_session: bool = _viewport.has_session()
+	var duration_seconds: float = _viewport.get_duration_seconds()
+	var current_seconds: float = _viewport.get_time_seconds()
+	# max_value 收窄本身也可能发 value_changed，必须连同数值同步一起阻止回调。
+	_time_slider.set_block_signals(true)
+	_time_slider.max_value = duration_seconds
+	_time_slider.set_value_no_signal(current_seconds)
+	_time_slider.editable = has_session
+	_time_slider.set_block_signals(false)
+	_time_input.set_block_signals(true)
+	_time_input.max_value = duration_seconds
+	_time_input.set_value_no_signal(current_seconds)
+	_time_input.editable = has_session
+	_time_input.set_block_signals(false)
+	_inspect_button.disabled = not has_session
+	_time_label.text = "/ %.3f s" % duration_seconds if has_session else "先播放以捕获时间轴"
 
 
 func _rebuild_initial_fields() -> void:
@@ -196,14 +272,18 @@ func _refresh_values() -> void:
 	for key: Variant in values:
 		var _appended: bool = parts.append("%s: %s" % [key, values[key]])
 	_values_label.text = "\n".join(parts)
+	_refresh_time_controls()
 
 
 # --- 信号处理函数 ---
 
 func _on_play_pressed() -> void:
 	if not _disposed:
+		var captures_new_session: bool = _viewport.get_state() != &"paused"
 		_last_tick_usec = Time.get_ticks_usec()
 		var _started: bool = _viewport.play()
+		if captures_new_session:
+			_rebuild_time_controls()
 
 
 func _on_pause_pressed() -> void:
@@ -219,12 +299,14 @@ func _on_stop_pressed() -> void:
 func _on_reset_pressed() -> void:
 	if not _disposed:
 		_viewport.reset_preview()
+		_rebuild_time_controls()
 
 
 func _on_target_kind_selected(index: int) -> void:
 	if _disposed:
 		return
 	_viewport.configure(_config, index)
+	_rebuild_time_controls()
 	_rebuild_initial_fields()
 	_refresh_state()
 
@@ -242,9 +324,27 @@ func _on_initial_value_changed(value: Variant, property_name: StringName, field:
 		return
 	if not _viewport.set_initial_value(property_name, value):
 		field.set_value(_viewport.get_initial_values().get(property_name))
+	_rebuild_time_controls()
 	_refresh_state()
+
+
+func _on_time_changed(time_seconds: float, source: Range) -> void:
+	if (
+		_disposed or not is_visible_in_tree() or not is_instance_valid(source)
+		or source.is_queued_for_deletion() or (source != _time_slider and source != _time_input)
+		or not _viewport.has_session()
+	):
+		return
+	var _located: bool = _viewport.seek(time_seconds)
+	_refresh_state()
+
+
+func _on_inspect_time_pressed(source: SpinBox) -> void:
+	if is_instance_valid(source):
+		_on_time_changed(source.value, source)
 
 
 func _on_visibility_changed() -> void:
 	if not _disposed and _viewport != null and not is_visible_in_tree():
 		_viewport.reset_preview()
+		_rebuild_time_controls()

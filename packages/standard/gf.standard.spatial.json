@@ -52,6 +52,8 @@
     "addons/gf/standard/foundation/math/gf_grid_selection_2d.gd.uid",
     "addons/gf/standard/foundation/math/gf_grid_transform_2d.gd",
     "addons/gf/standard/foundation/math/gf_grid_transform_2d.gd.uid",
+    "addons/gf/standard/foundation/math/gf_grid_visibility_math_2d.gd",
+    "addons/gf/standard/foundation/math/gf_grid_visibility_math_2d.gd.uid",
     "addons/gf/standard/foundation/math/gf_heightfield_3d.gd",
     "addons/gf/standard/foundation/math/gf_heightfield_3d.gd.uid",
     "addons/gf/standard/foundation/math/gf_hex_grid_math.gd",

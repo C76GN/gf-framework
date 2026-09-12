@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<apiCatalog schemaVersion="3" name="GF Framework" sourceRoot="addons/gf" sourceDigest="f5b567262e1d9226399b3ec3dc1012bb1a700f7fd630f8f74051f76b5dfb807a" classCount="882" methodCount="7882" autoloadCount="1" autoloadMethodCount="65">
+<apiCatalog schemaVersion="3" name="GF Framework" sourceRoot="addons/gf" sourceDigest="ad397e356be113468efd4cd7b7a2e5051f463ac9220519ac37fa99a6643c109c" classCount="883" methodCount="7883" autoloadCount="1" autoloadMethodCount="65">
 	<module id="kernel" label="Kernel" classCount="78" methodCount="826" autoloadCount="1" autoloadMethodCount="65">
 		<class name="GFAccessGenerator" path="classes/GFAccessGenerator.xml" sourcePath="addons/gf/kernel/editor/gf_access_generator.gd" extends="RefCounted" />
 		<class name="GFArchitecture" path="classes/GFArchitecture.xml" sourcePath="addons/gf/kernel/core/gf_architecture.gd" extends="Object" />
@@ -81,7 +81,7 @@
 		<class name="GFWeakMethodInvocation" path="classes/GFWeakMethodInvocation.xml" sourcePath="addons/gf/kernel/core/gf_weak_method_invocation.gd" extends="RefCounted" />
 		<autoload name="Gf" path="autoloads/Gf.xml" sourcePath="addons/gf/kernel/core/gf.gd" extends="Node" packageId="gf.kernel" />
 	</module>
-	<module id="standard" label="Standard" classCount="479" methodCount="4805" autoloadCount="0" autoloadMethodCount="0">
+	<module id="standard" label="Standard" classCount="480" methodCount="4806" autoloadCount="0" autoloadMethodCount="0">
 		<class name="GFActivationTransaction" path="classes/GFActivationTransaction.xml" sourcePath="addons/gf/standard/foundation/policy/gf_activation_transaction.gd" extends="RefCounted" />
 		<class name="GFAnalyticsConfig" path="classes/GFAnalyticsConfig.xml" sourcePath="addons/gf/standard/utilities/analytics/gf_analytics_config.gd" extends="Resource" />
 		<class name="GFAnalyticsEventSchema" path="classes/GFAnalyticsEventSchema.xml" sourcePath="addons/gf/standard/utilities/analytics/gf_analytics_event_schema.gd" extends="Resource" />
@@ -242,6 +242,7 @@
 		<class name="GFGridPlaneMapper3D" path="classes/GFGridPlaneMapper3D.xml" sourcePath="addons/gf/standard/foundation/math/gf_grid_plane_mapper_3d.gd" extends="RefCounted" />
 		<class name="GFGridSelection2D" path="classes/GFGridSelection2D.xml" sourcePath="addons/gf/standard/foundation/math/gf_grid_selection_2d.gd" extends="Resource" />
 		<class name="GFGridTransform2D" path="classes/GFGridTransform2D.xml" sourcePath="addons/gf/standard/foundation/math/gf_grid_transform_2d.gd" extends="RefCounted" />
+		<class name="GFGridVisibilityMath2D" path="classes/GFGridVisibilityMath2D.xml" sourcePath="addons/gf/standard/foundation/math/gf_grid_visibility_math_2d.gd" extends="RefCounted" />
 		<class name="GFHeightfield3D" path="classes/GFHeightfield3D.xml" sourcePath="addons/gf/standard/foundation/math/gf_heightfield_3d.gd" extends="RefCounted" />
 		<class name="GFHexGridMath" path="classes/GFHexGridMath.xml" sourcePath="addons/gf/standard/foundation/math/gf_hex_grid_math.gd" extends="RefCounted" />
 		<class name="GFHttpClientUtility" path="classes/GFHttpClientUtility.xml" sourcePath="addons/gf/standard/utilities/io/gf_http_client_utility.gd" extends="GFUtility" />

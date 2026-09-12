@@ -7,7 +7,7 @@
 | 模块 | 类 | 成员 | 页面内索引 |
 |---|---:|---:|---|
 | Kernel | 78 | 1137 | [Kernel](#module-kernel) |
-| Standard | 479 | 7573 | [Standard](#module-standard) |
+| Standard | 480 | 7576 | [Standard](#module-standard) |
 | Action Queue | 16 | 214 | [Action Queue](#module-extensions-action_queue) |
 | Asset Metadata | 4 | 33 | [Asset Metadata](#module-extensions-asset_metadata) |
 | Behavior Tree | 22 | 89 | [Behavior Tree](#module-extensions-behavior_tree) |
@@ -184,6 +184,7 @@
 | [`GFGridPathMath2D`](GFGridPathMath2D.md#gfgridpathmath2d) | 运行时服务 (`runtime_service`) | `RefCounted` | 5 | `addons/gf/standard/foundation/math/gf_grid_path_math_2d.gd` |
 | [`GFGridPlaneMapper3D`](GFGridPlaneMapper3D.md#gfgridplanemapper3d) | 运行时服务 (`runtime_service`) | `RefCounted` | 9 | `addons/gf/standard/foundation/math/gf_grid_plane_mapper_3d.gd` |
 | [`GFGridTransform2D`](GFGridTransform2D.md#gfgridtransform2d) | 运行时服务 (`runtime_service`) | `RefCounted` | 12 | `addons/gf/standard/foundation/math/gf_grid_transform_2d.gd` |
+| [`GFGridVisibilityMath2D`](GFGridVisibilityMath2D.md#gfgridvisibilitymath2d) | 运行时服务 (`runtime_service`) | `RefCounted` | 3 | `addons/gf/standard/foundation/math/gf_grid_visibility_math_2d.gd` |
 | [`GFHeightfield3D`](GFHeightfield3D.md#gfheightfield3d) | 运行时服务 (`runtime_service`) | `RefCounted` | 30 | `addons/gf/standard/foundation/math/gf_heightfield_3d.gd` |
 | [`GFHexGridMath`](GFHexGridMath.md#gfhexgridmath) | 运行时服务 (`runtime_service`) | `RefCounted` | 25 | `addons/gf/standard/foundation/math/gf_hex_grid_math.gd` |
 | [`GFHttpClientUtility`](GFHttpClientUtility.md#gfhttpclientutility) | 运行时服务 (`runtime_service`) | `GFUtility` | 11 | `addons/gf/standard/utilities/io/gf_http_client_utility.gd` |

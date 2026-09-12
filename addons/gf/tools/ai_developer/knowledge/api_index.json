@@ -2,8 +2,8 @@
   "schema_version": 2,
   "catalog_version": "2.0.0",
   "framework_version": "12.0.0-dev.0",
-  "source_digest": "ffec6bfb3e735040886cbd443bce103eec9b846fd0cff8c5652a85ceb189ff32",
-  "class_count": 858,
+  "source_digest": "6ab00d476186450f3b7aa817a76a996023e1e409df4968fff59ecc1dee5660fd",
+  "class_count": 859,
   "autoload_count": 1,
   "package_count": 59,
   "packages": [
@@ -36937,6 +36937,40 @@
           "name": "transform_point",
           "signature": "static func transform_point( point: Vector2, source_rect: Rect2, transform: int, target_origin: Vector2 = Vector2.ZERO ) -> Vector2",
           "summary": "变换矩形内的全局连续坐标。",
+          "visibility": "public"
+        }
+      ]
+    },
+    "GFGridVisibilityMath2D": {
+      "owner_kind": "class",
+      "extends": "RefCounted",
+      "module": "standard",
+      "package_id": "gf.standard.spatial",
+      "path": "addons/gf/standard/foundation/math/gf_grid_visibility_math_2d.gd",
+      "summary": "GFGridVisibilityMath2D: 有界二维网格的整片视野查询。 使用迭代对称阴影扫描，只返回当前可见格，不持有场景、阵营或探索历史。 固定允许两堵仅在角点接触的墙之间透视；不等价于 Bresenham 点对点 LOS。",
+      "visibility": "public",
+      "category": "runtime_service",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "const",
+          "name": "MAX_RADIUS",
+          "signature": "const MAX_RADIUS: int = 128",
+          "summary": "允许的最大整数欧氏半径。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "MAX_CELLS",
+          "signature": "const MAX_CELLS: int = 66049",
+          "summary": "查询窗口允许的最大格数，等于最大半径包围盒的面积。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "compute_fov",
+          "signature": "static func compute_fov( grid_size: Vector2i, origin: Vector2i, radius: int, is_blocking: Callable, include_walls: bool = true, max_cells: int = MAX_CELLS ) -> Dictionary",
+          "summary": "计算有限网格内整数欧氏圆形范围的可见格。",
           "visibility": "public"
         }
       ]

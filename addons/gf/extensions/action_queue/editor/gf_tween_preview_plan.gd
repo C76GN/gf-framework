@@ -46,6 +46,14 @@ var loop_count: int = 1
 ## @api framework_internal
 var restore_on_finish: bool = false
 
+## 实际时间轴总时长；每个并行组取最大延迟加时长，串行组求和后乘有限循环次数。
+## 全零时长计划为 0，并沿用瞬时步骤只应用一轮的预览语义。
+## [br]
+## @api framework_internal
+## [br]
+## @since unreleased
+var duration_seconds: float = 0.0
+
 
 # --- 框架内部方法 ---
 
@@ -92,6 +100,8 @@ static func capture(config: Resource, target_kind: int) -> GFTweenPreviewPlan:
 	plan.restore_on_finish = restore_finish
 
 	var total_seconds: float = 0.0
+	var completed_groups_seconds: float = 0.0
+	var current_group_seconds: float = 0.0
 	for index: int in range(source_steps.size()):
 		var step_value: Variant = source_steps[index]
 		if not (step_value is Resource):
@@ -108,6 +118,15 @@ static func capture(config: Resource, target_kind: int) -> GFTweenPreviewPlan:
 		total_seconds += effective_duration + effective_delay
 		if not is_finite(total_seconds) or total_seconds * float(loops) > _MAX_SECONDS:
 			return _reject(plan, "全部步骤持续时间与延迟的保守累计值乘循环次数不能超过 120 秒。")
+		var parallel_value: Variant = captured_step["parallel"]
+		var parallel: bool = false
+		if parallel_value is bool:
+			parallel = parallel_value
+		if not parallel and index > 0:
+			completed_groups_seconds += current_group_seconds
+			current_group_seconds = 0.0
+		current_group_seconds = maxf(current_group_seconds, effective_duration + effective_delay)
+	plan.duration_seconds = (completed_groups_seconds + current_group_seconds) * float(loops)
 	return plan
 
 

@@ -672,11 +672,12 @@
       "id": "spatial-policy",
       "title": "Apply spatial or physics mechanisms",
       "package_requirements": {"all_of": [], "any_of": [["gf.standard.spatial", "gf.standard.spatial.canvas", "gf.extension.physics", "gf.extension.camera"]]},
-      "primary_classes": ["GFSpatialQueryIndex2D", "GFGridPathMath2D", "GFSpatialCanvas2D", "GFSpatialCanvasInputPolicy", "GFBuoyancyField3D", "GFCameraOrbitRig3D"],
+      "primary_classes": ["GFSpatialQueryIndex2D", "GFGridPathMath2D", "GFGridVisibilityMath2D", "GFSpatialCanvas2D", "GFSpatialCanvasInputPolicy", "GFBuoyancyField3D", "GFCameraOrbitRig3D"],
       "steps": [
         "Separate pure spatial math or sampling from world ownership and node mutation.",
         "Declare coordinate, units, layer, update cadence, and authority contracts.",
         "Use GFGridPathMath2D for bounded path or flow-field data, while project code owns cell legality, movement cost, authority, and preview rendering.",
+        "Use GFGridVisibilityMath2D for bounded square-grid visibility with an explicit pure obstruction query; projects own fog memory, faction sharing, rendering, and update cadence. Visibility corner rules are independent of point-to-point line-of-sight queries.",
         "Use GFSpatialCanvas2D only to coordinate bounded view transforms, selection, and project-validated placement operation records; apply one validated GFSpatialCanvasInputPolicy to choose pointer chords, modifiers, gestures, cancel action, and propagation.",
         "For a canvas nested in scrolling UI, leave unmatched wheel input to normal GUI propagation and consume only the gestures the policy assigns to the canvas; manual routers must honor the returned input disposition.",
         "Let the project choose candidates, validate placement, mutate TileMap or scene content, persist history or UGC, apply forces, and define collision policy.",
