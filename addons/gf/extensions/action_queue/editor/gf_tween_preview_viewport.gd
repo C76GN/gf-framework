@@ -22,6 +22,7 @@ signal state_changed
 
 const _PREVIEW_SIZE: Vector2i = Vector2i(480, 320)
 const _SAMPLE_COLOR: Color = Color(0.35, 0.72, 1.0)
+const _VARIANT_ACCESS_SCRIPT = preload("res://addons/gf/kernel/core/gf_variant_access.gd")
 
 
 # --- 私有变量 ---
@@ -411,7 +412,8 @@ func _build_session_tween() -> bool:
 			_step_bool(step, "as_relative"),
 			_step_bool(step, "parallel"),
 			_step_int(step, "transition_type") as Tween.TransitionType,
-			_step_int(step, "ease_type") as Tween.EaseType
+			_step_int(step, "ease_type") as Tween.EaseType,
+			_VARIANT_ACCESS_SCRIPT.get_option_dictionary(step, "easing_curve_data")
 		)
 		if tweener == null:
 			_fail("Unable to construct the validated preview step.")

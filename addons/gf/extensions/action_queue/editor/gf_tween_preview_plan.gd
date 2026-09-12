@@ -16,10 +16,14 @@ extends RefCounted
 
 const _CONFIG_SCRIPT = preload("res://addons/gf/extensions/action_queue/tween/gf_tween_action_config.gd")
 const _STEP_SCRIPT = preload("res://addons/gf/extensions/action_queue/tween/gf_tween_action_step.gd")
+const _EASING_CURVE_SCRIPT = preload("res://addons/gf/extensions/action_queue/tween/gf_tween_easing_curve.gd")
+const _VARIANT_ACCESS_SCRIPT = preload("res://addons/gf/kernel/core/gf_variant_access.gd")
 const _MAX_STEPS: int = 128
 const _MAX_LOOPS: int = 32
 const _MAX_SECONDS: float = 120.0
 const _MAX_VALUE_MAGNITUDE: float = 1000000.0
+const _MAX_CURVE_SAMPLES: int = 65536
+const _MAX_CURVE_POINTS: int = 4096
 
 
 # --- 公共变量 ---
@@ -33,7 +37,7 @@ var error: String = ""
 ## [br]
 ## @api framework_internal
 ## [br]
-## @schema steps: Array[Dictionary]，每项包含 property_name: NodePath、target_value: 有限数值或 Vector2/Vector3/Color、duration: float、delay: float、as_relative: bool、parallel: bool、transition_type: int、ease_type: int；duration 与 delay 已完成缩放。
+## @schema steps: Array[Dictionary]，每项包含 property_name: NodePath、target_value: 有限数值或 Vector2/Vector3/Color、duration: float、delay: float、as_relative: bool、parallel: bool、transition_type: int、ease_type: int、easing_curve_data: Dictionary（空或独立的 positions/tangents/modes/bake_resolution/value_range 纯值曲线数据）；duration 与 delay 已完成缩放。
 var steps: Array[Dictionary] = []
 
 ## 有限播放次数，成功计划取值为 1 至 32。
@@ -102,6 +106,8 @@ static func capture(config: Resource, target_kind: int) -> GFTweenPreviewPlan:
 	var total_seconds: float = 0.0
 	var completed_groups_seconds: float = 0.0
 	var current_group_seconds: float = 0.0
+	var curve_sample_count: int = 0
+	var curve_point_count: int = 0
 	for index: int in range(source_steps.size()):
 		var step_value: Variant = source_steps[index]
 		if not (step_value is Resource):
@@ -111,6 +117,11 @@ static func capture(config: Resource, target_kind: int) -> GFTweenPreviewPlan:
 		if not step_error.is_empty():
 			return _reject(plan, "步骤 %d：%s" % [index, step_error])
 		var captured_step: Dictionary = plan.steps[plan.steps.size() - 1]
+		var curve_data: Dictionary = _VARIANT_ACCESS_SCRIPT.get_option_dictionary(captured_step, "easing_curve_data")
+		curve_sample_count += _EASING_CURVE_SCRIPT.get_sample_count(curve_data)
+		curve_point_count += _EASING_CURVE_SCRIPT.get_point_count(curve_data)
+		if curve_sample_count > _MAX_CURVE_SAMPLES or curve_point_count > _MAX_CURVE_POINTS:
+			return _reject(plan, "预览曲线累计不能超过 65536 个烘焙采样和 4096 个控制点。")
 		var duration_value: Variant = captured_step["duration"]
 		var delay_value: Variant = captured_step["delay"]
 		var effective_duration: float = _read_number(duration_value)
@@ -265,6 +276,17 @@ static func _capture_step(
 		return "transition_type 超出合法枚举范围。"
 	if ease_kind < Tween.EASE_IN or ease_kind > Tween.EASE_OUT_IN:
 		return "ease_type 超出合法枚举范围。"
+	var curve_value: Variant = source.get(&"easing_curve")
+	if curve_value != null and not (curve_value is Curve):
+		return "easing_curve 必须为原生 Curve 或 null。"
+	var source_curve: Curve = null
+	if curve_value is Curve:
+		source_curve = curve_value
+	var curve_capture: Dictionary = _EASING_CURVE_SCRIPT.capture(source_curve)
+	var curve_error: String = _VARIANT_ACCESS_SCRIPT.get_option_string(curve_capture, "error")
+	if not curve_error.is_empty():
+		return "Invalid easing_curve: %s" % curve_error
+	var curve_data: Dictionary = _VARIANT_ACCESS_SCRIPT.get_option_dictionary(curve_capture, "data")
 
 	plan.steps.append({
 		"property_name": property_path,
@@ -275,6 +297,7 @@ static func _capture_step(
 		"parallel": parallel,
 		"transition_type": transition,
 		"ease_type": ease_kind,
+		"easing_curve_data": curve_data,
 	})
 	return ""
 

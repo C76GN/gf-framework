@@ -152,6 +152,25 @@ func _configured_tween_action(action: GFVisualAction) -> GFConfiguredTweenAction
 	return null
 
 
+func _make_easing_curve(midpoint_y: float = 0.25) -> Curve:
+	var curve: Curve = Curve.new()
+	curve.min_value = minf(0.0, midpoint_y)
+	curve.max_value = maxf(1.0, midpoint_y)
+	var _first_point: int = curve.add_point(Vector2.ZERO)
+	var _middle_point: int = curve.add_point(Vector2(0.5, midpoint_y))
+	var _last_point: int = curve.add_point(Vector2.ONE)
+	return curve
+
+
+func _make_many_point_easing_curve(point_count: int, resolution: int) -> Curve:
+	var curve: Curve = Curve.new()
+	curve.bake_resolution = resolution
+	for index: int in range(point_count):
+		var progress: float = float(index) / float(point_count - 1)
+		var _point: int = curve.add_point(Vector2(progress, progress))
+	return curve
+
+
 func _make_shader_material(initial_strength: float = 0.0) -> ShaderMaterial:
 	var shader: Shader = Shader.new()
 	shader.code = (
@@ -298,6 +317,296 @@ func test_configured_tween_action_applies_zero_duration_steps_immediately() -> v
 
 	assert_true(result == null, "零时长配置化 Tween 应立即完成。")
 	assert_eq(node.position, Vector2(8.0, 12.0), "零时长配置化 Tween 应写入目标属性。")
+
+
+func test_tween_easing_curve_is_frozen_for_each_created_property_tweener() -> void:
+	var curve: Curve = _make_easing_curve(0.25)
+	var step: GFTweenActionStep = GFTweenActionStep.new()
+	step.property_name = ^"position:x"
+	step.target_value = 8.0
+	step.duration = 1.0
+	step.transition_type = Tween.TRANS_CUBIC
+	step.ease_type = Tween.EASE_IN
+	step.easing_curve = curve
+	var first_target: Node2D = Node2D.new()
+	var second_target: Node2D = Node2D.new()
+	add_child_autofree(first_target)
+	add_child_autofree(second_target)
+	var first_tween: Tween = first_target.create_tween()
+	first_tween.pause()
+	var first_result: Variant = step.append_to_tween(first_tween, first_target)
+	assert_true(first_result is PropertyTweener)
+	var original_midpoint: float = curve.sample_baked(0.5)
+	curve.set_point_value(1, 0.75)
+	var second_tween: Tween = second_target.create_tween()
+	second_tween.pause()
+	var second_result: Variant = step.append_to_tween(second_tween, second_target)
+	assert_true(second_result is PropertyTweener)
+	var _first_running: bool = first_tween.custom_step(0.5)
+	var _second_running: bool = second_tween.custom_step(0.5)
+	assert_almost_eq(first_target.position.x, 8.0 * original_midpoint, 0.001)
+	assert_almost_eq(second_target.position.x, 8.0 * curve.sample_baked(0.5), 0.001)
+	assert_gt(second_target.position.x, first_target.position.x)
+	first_tween.kill()
+	second_tween.kill()
+
+
+func test_tween_easing_curve_null_keeps_existing_transition_and_ease() -> void:
+	var target: Node2D = Node2D.new()
+	add_child_autofree(target)
+	var step: GFTweenActionStep = GFTweenActionStep.new()
+	step.property_name = ^"position:x"
+	step.target_value = 8.0
+	step.duration = 1.0
+	step.transition_type = Tween.TRANS_CUBIC
+	step.ease_type = Tween.EASE_IN
+	var tween: Tween = target.create_tween()
+	tween.pause()
+	var result: Variant = step.append_to_tween(tween, target)
+	assert_true(result is PropertyTweener)
+	var _running: bool = tween.custom_step(0.5)
+	assert_almost_eq(target.position.x, 1.0, 0.001)
+	tween.kill()
+
+
+func test_tween_easing_curve_invalid_timed_step_is_reported_and_skipped() -> void:
+	var target: Node2D = Node2D.new()
+	add_child_autofree(target)
+	var config: GFTweenActionConfig = GFTweenActionConfig.new()
+	var bad_step: GFTweenActionStep = config.add_property_step(^"position:x", 8.0, 1.0)
+	bad_step.easing_curve = Curve.new()
+	var good_step: GFTweenActionStep = config.add_property_step(^"position:y", 6.0, 1.0)
+	good_step.transition_type = Tween.TRANS_LINEAR
+	var error_text: String = bad_step.get_validation_error(target)
+	assert_true(error_text.begins_with("Invalid easing_curve: "))
+	assert_false(bad_step.can_apply_to(target))
+	var report: GFValidationReport = config.get_validation_report(target)
+	assert_false(report.is_ok())
+	var tween: Tween = target.create_tween()
+	tween.pause()
+	var bad_result: Variant = bad_step.append_to_tween(tween, target)
+	var bad_step_was_skipped: bool = bad_result == null
+	assert_true(bad_step_was_skipped)
+	assert_push_warning("[GFTweenActionStep] 跳过无效 Tween 步骤：%s" % error_text)
+	var good_result: Variant = good_step.append_to_tween(tween, target)
+	assert_true(good_result is PropertyTweener)
+	var _running: bool = tween.custom_step(1.0)
+	assert_eq(target.position, Vector2(0.0, 6.0))
+	tween.kill()
+
+
+func test_tween_easing_curve_point_resolution_and_domain_limits_are_validated() -> void:
+	var target: Node2D = Node2D.new()
+	add_child_autofree(target)
+	var step: GFTweenActionStep = GFTweenActionStep.new()
+	step.target_value = Vector2.ONE
+	for point_count: int in [2, 256]:
+		for resolution: int in [2, 1000]:
+			step.easing_curve = _make_many_point_easing_curve(point_count, resolution)
+			assert_eq(step.get_validation_error(target), "")
+	var invalid_curves: Array[Curve] = [
+		_make_many_point_easing_curve(257, 2),
+		_make_many_point_easing_curve(2, 1),
+	]
+	var non_unit_domain: Curve = _make_easing_curve(0.25)
+	non_unit_domain.min_domain = -1.0
+	invalid_curves.append(non_unit_domain)
+	var wrong_endpoint: Curve = _make_easing_curve(0.25)
+	wrong_endpoint.set_point_value(2, 0.9)
+	invalid_curves.append(wrong_endpoint)
+	var repeated_x: Curve = _make_easing_curve(0.25)
+	var _duplicate_point: int = repeated_x.add_point(Vector2(0.5, 0.75))
+	assert_eq(repeated_x.get_point_count(), 4)
+	invalid_curves.append(repeated_x)
+	for curve: Curve in invalid_curves:
+		step.easing_curve = curve
+		assert_true(step.get_validation_error(target).begins_with("Invalid easing_curve: "))
+
+
+func test_tween_easing_curve_invalid_data_does_not_change_instant_or_finish_endpoints() -> void:
+	var target: Node2D = Node2D.new()
+	add_child_autofree(target)
+	target.position = Vector2(2.0, 4.0)
+	var config: GFTweenActionConfig = GFTweenActionConfig.new()
+	var step: GFTweenActionStep = config.add_property_step(^"position:x", 8.0, 0.0)
+	step.easing_curve = Curve.new()
+	step.apply_instant(target)
+	assert_eq(target.position, Vector2(8.0, 4.0), "Instant application only needs the endpoint.")
+	target.position.x = 2.0
+	step.as_relative = true
+	config.apply_instant(target)
+	assert_eq(target.position, Vector2(10.0, 4.0))
+	target.position.x = 2.0
+	step.as_relative = false
+	step.duration = 1.0
+	step.easing_curve = _make_easing_curve(0.25)
+	var action: GFVisualAction = config.create_action(target)
+	var result: Variant = action.execute()
+	assert_true(result is Signal)
+	var completed: Array[bool] = [false]
+	var wait_for_finish: Callable = func() -> void:
+		await action.await_result_safely(result)
+		completed[0] = true
+	wait_for_finish.call()
+	action.pause()
+	step.easing_curve = Curve.new()
+	action.finish()
+	assert_eq(target.position, Vector2(8.0, 4.0), "Finish must not read a replacement easing curve.")
+	await get_tree().process_frame
+	assert_true(completed[0], "Finish must release a waiter registered before completion.")
+
+
+func test_invalid_curve_instant_action_still_captures_finish_restore_baseline() -> void:
+	var target: Node2D = Node2D.new()
+	add_child_autofree(target)
+	target.position = Vector2(2.0, 4.0)
+	var config: GFTweenActionConfig = GFTweenActionConfig.new()
+	config.restore_initial_values_on_finish = true
+	var step: GFTweenActionStep = config.add_property_step(^"position:x", 8.0, 0.0)
+	step.easing_curve = Curve.new()
+	var action: GFVisualAction = config.create_action(target)
+	var result: Variant = action.execute()
+	var is_instant: bool = result == null
+	assert_true(is_instant)
+	assert_eq(target.position, Vector2(2.0, 4.0), "Invalid easing must not prevent endpoint baseline capture.")
+
+
+func test_tween_easing_curve_duplicate_step_and_config_have_independent_curves() -> void:
+	var curve: Curve = _make_easing_curve(0.25)
+	var config: GFTweenActionConfig = GFTweenActionConfig.new()
+	var step: GFTweenActionStep = config.add_property_step(^"position:x", 8.0, 1.0)
+	step.easing_curve = curve
+	var copied_step: GFTweenActionStep = step.duplicate_step()
+	var copied_config: GFTweenActionConfig = config.duplicate_config()
+	assert_not_null(copied_step)
+	assert_not_null(copied_config)
+	if copied_step == null or copied_config == null:
+		return
+	assert_not_null(copied_step.easing_curve)
+	assert_eq(copied_config.steps.size(), 1)
+	if copied_step.easing_curve == null or copied_config.steps.size() != 1:
+		return
+	var config_curve: Curve = copied_config.steps[0].easing_curve
+	assert_not_null(config_curve)
+	if config_curve == null:
+		return
+	assert_ne(copied_step.easing_curve, curve)
+	assert_ne(config_curve, curve)
+	assert_ne(config_curve, copied_step.easing_curve)
+	var copied_step_is_native: bool = copied_step.easing_curve.get_script() == null
+	assert_true(copied_step_is_native)
+	var original_midpoint: float = curve.sample_baked(0.5)
+	curve.set_point_value(1, 0.75)
+	assert_almost_eq(copied_step.easing_curve.sample_baked(0.5), original_midpoint, 0.00001)
+	assert_almost_eq(config_curve.sample_baked(0.5), original_midpoint, 0.00001)
+	copied_step.easing_curve.set_point_value(1, 0.5)
+	assert_almost_eq(config_curve.sample_baked(0.5), original_midpoint, 0.00001)
+
+
+func test_tween_easing_curve_invalid_copy_fails_without_partial_config() -> void:
+	var config: GFTweenActionConfig = GFTweenActionConfig.new()
+	var good_step: GFTweenActionStep = config.add_property_step(^"position:x", 4.0, 1.0)
+	good_step.easing_curve = _make_easing_curve(0.25)
+	var bad_step: GFTweenActionStep = config.add_property_step(^"position:y", 8.0, 1.0)
+	bad_step.easing_curve = Curve.new()
+	var copied_step: GFTweenActionStep = bad_step.duplicate_step()
+	var step_copy_failed: bool = copied_step == null
+	assert_true(step_copy_failed)
+	assert_push_warning("[GFTweenActionStep] 无法复制无效 easing_curve；请先校验步骤。")
+	var copied_config: GFTweenActionConfig = config.duplicate_config()
+	var config_copy_failed: bool = copied_config == null
+	assert_true(config_copy_failed)
+	assert_push_warning("[GFTweenActionStep] 无法复制无效 easing_curve；请先校验步骤。")
+	assert_eq(config.steps.size(), 2)
+	assert_eq(good_step.easing_curve.get_point_count(), 3)
+	assert_eq(bad_step.easing_curve.get_point_count(), 0)
+
+
+func test_tween_easing_curve_resource_roundtrip_preserves_shape() -> void:
+	var config: GFTweenActionConfig = GFTweenActionConfig.new()
+	var step: GFTweenActionStep = config.add_property_step(^"position:x", 8.0, 1.0)
+	step.easing_curve = _make_easing_curve(0.25)
+	var saved_path: String = "user://gf_tween_easing_roundtrip.tres"
+	var save_error: Error = ResourceSaver.save(config, saved_path)
+	assert_eq(save_error, OK)
+	if save_error != OK:
+		return
+	var reloaded: Resource = ResourceLoader.load(saved_path, "", ResourceLoader.CACHE_MODE_IGNORE_DEEP)
+	var remove_error: Error = DirAccess.remove_absolute(ProjectSettings.globalize_path(saved_path))
+	assert_eq(remove_error, OK)
+	assert_true(reloaded is GFTweenActionConfig)
+	if not (reloaded is GFTweenActionConfig):
+		return
+	var loaded_config: GFTweenActionConfig = reloaded
+	assert_eq(loaded_config.steps.size(), 1)
+	if loaded_config.steps.size() != 1:
+		return
+	var loaded_curve: Curve = loaded_config.steps[0].easing_curve
+	assert_not_null(loaded_curve)
+	if loaded_curve == null:
+		return
+	assert_ne(loaded_curve, step.easing_curve)
+	assert_eq(loaded_curve.get_point_count(), 3)
+	assert_eq(loaded_curve.bake_resolution, step.easing_curve.bake_resolution)
+	for progress: float in [0.0, 0.25, 0.5, 0.75, 1.0]:
+		assert_almost_eq(loaded_curve.sample_baked(progress), step.easing_curve.sample_baked(progress), 0.00001)
+	var target: Node2D = Node2D.new()
+	add_child_autofree(target)
+	var tween: Tween = target.create_tween()
+	tween.pause()
+	var result: Variant = loaded_config.steps[0].append_to_tween(tween, target)
+	assert_true(result is PropertyTweener)
+	var _running: bool = tween.custom_step(0.5)
+	assert_almost_eq(target.position.x, 8.0 * loaded_curve.sample_baked(0.5), 0.001)
+	tween.kill()
+
+
+func test_configured_curve_action_keeps_marker_parallel_topology() -> void:
+	var target: Node2D = Node2D.new()
+	add_child_autofree(target)
+	var config: GFTweenActionConfig = GFTweenActionConfig.new()
+	var first: GFTweenActionStep = config.add_property_step(^"position:x", 8.0, 0.15)
+	first.easing_curve = _make_easing_curve(0.25)
+	first.marker_id = &"curve_done"
+	var parallel_step: GFTweenActionStep = config.add_property_step(^"rotation", 1.0, 0.15)
+	parallel_step.parallel = true
+	parallel_step.easing_curve = _make_easing_curve(0.75)
+	var action: GFConfiguredTweenAction = _configured_tween_action(config.create_action(target))
+	var markers: Array[StringName] = []
+	var _connected: Error = action.marker_reached.connect(
+		func(marker_id: StringName, _index: int, _target: Object) -> void:
+			markers.append(marker_id)
+	) as Error
+	var result: Variant = action.execute()
+	var completed: Array[bool] = [false]
+	var wait_for_completion: Callable = func() -> void:
+		await action.await_result_safely(result)
+		completed[0] = true
+	wait_for_completion.call()
+	await get_tree().create_timer(0.05).timeout
+	assert_gt(target.position.x, 0.0)
+	assert_gt(target.rotation, 0.0)
+	await get_tree().create_timer(0.25).timeout
+	assert_true(completed[0], "Natural completion must release the already registered waiter.")
+	if not completed[0]:
+		action.cancel()
+		await get_tree().process_frame
+		return
+	assert_eq(markers, [&"curve_done"])
+	assert_almost_eq(target.position.x, 8.0, 0.001)
+	assert_almost_eq(target.rotation, 1.0, 0.001)
+	config.restore_initial_values_on_cancel = true
+	var cancel_result: Variant = action.execute()
+	var cancelled: Array[bool] = [false]
+	var wait_for_cancel: Callable = func() -> void:
+		await action.await_result_safely(cancel_result)
+		cancelled[0] = true
+	wait_for_cancel.call()
+	action.cancel()
+	await get_tree().process_frame
+	assert_true(cancelled[0], "Cancel must release a waiter registered before cancellation.")
+	assert_almost_eq(target.position.x, 8.0, 0.001)
+	assert_eq(markers, [&"curve_done"], "Cancelling the new playback must not synthesize a marker.")
 
 
 func test_configured_tween_action_waits_for_timed_steps() -> void:

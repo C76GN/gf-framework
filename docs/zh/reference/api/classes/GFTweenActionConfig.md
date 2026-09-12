@@ -303,6 +303,7 @@ func get_validation_report(target: Object) -> GFValidationReport:
 ### `duplicate_config`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func duplicate_config() -> GFTweenActionConfig:
@@ -310,4 +311,4 @@ func duplicate_config() -> GFTweenActionConfig:
 
 创建深拷贝。
 
-返回：新配置。
+返回：新配置；任一步骤的 easing_curve 无法复制时发出警告并返回 null。

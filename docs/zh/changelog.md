@@ -6,6 +6,7 @@
 
 ### 🚀 新增特性 (Added)
 
+- [配置化 Tween](extensions/action-queue/tween-config.md#自定义缓动曲线) 支持步骤级原生 `Curve`，可制作回弹与超调效果；运行时独立捕获曲线，Inspector 预览与时间定位使用同一配置快照。
 - 新增 [方格视野查询](standard/foundation/grid-spatial/grid-2d-hex/grid-math.md)，通过显式阻挡回调计算有限半径内的可见格，返回稳定顺序与失败诊断；视野不接管地图节点、探索记忆或阵营规则。
 - [Tween Inspector 预览](extensions/action-queue/tween-config.md#在-inspector-中预览) 支持时间滑条与秒数定位，可反复检查同一配置快照的中间姿态和动画终点；定位仅操作工具自有样机，并保持暂停。
 - [模板列表](standard/utilities/runtime/settings-ui-scene/settings-display/list-repeat-binding.md#按稳定-id-更新模板列表) 支持调用方提供稳定 ID，按条目复用、更新、移动和释放节点，保留普通 Container 布局及未被项目回调重置的局部交互状态。
@@ -63,7 +64,7 @@
 - 保留已有接口的首次发布 `@since` 版本，不因本次签名或语义重做而改为 `unreleased`。
 - Flow 面板与 Resource 表格新增 `set_editor_context()`。新增 `GFEditorMultiPropertyField`，通过暂存值生成属性批处理请求，提交仍复用既有命令与资源历史；不改变 Flow 图的持久化格式或运行时执行协议。
 - `GFConfigTableReference` 新增 `SourceMode` 与 `source_mode`，默认 `FIELDS` 保持原有字段引用行为；`ARRAY_ELEMENTS` 校验单个数组字段到目标单字段键的引用。元素问题增加零基 `element_index`；`resolve_record_references()` 仍只解析 `FIELDS` 引用。
-- `gf.action_queue` 的 `extension_version` 升为 `2.4.0`，新增编辑器预览与指定时间定位；既有 Tween 资源格式与运行时执行语义保持不变。
+- `GFTweenActionStep` 新增可选 `easing_curve: Curve`；为空时保留既有预设缓动，设置后使用经校验的独立曲线覆盖 transition/ease。`duplicate_step()` / `duplicate_config()` 深复制有效曲线，无效曲线使复制返回 `null` 并警告。`gf.action_queue` 的 `extension_version` 升为 `2.5.0`，包含编辑器预览、指定时间定位与自定义曲线。
 
 ### 📘 升级指南 (Migration Guide)
 

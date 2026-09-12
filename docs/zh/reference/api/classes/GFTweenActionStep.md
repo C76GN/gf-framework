@@ -23,6 +23,7 @@
 | 属性 | [`parallel`](#member-gftweenactionstep-properties-parallel) | `var parallel: bool = false` |
 | 属性 | [`transition_type`](#member-gftweenactionstep-properties-transition_type) | `var transition_type: Tween.TransitionType = Tween.TRANS_CUBIC` |
 | 属性 | [`ease_type`](#member-gftweenactionstep-properties-ease_type) | `var ease_type: Tween.EaseType = Tween.EASE_OUT` |
+| 属性 | [`easing_curve`](#member-gftweenactionstep-properties-easing_curve) | `var easing_curve: Curve = null` |
 | 属性 | [`marker_id`](#member-gftweenactionstep-properties-marker_id) | `var marker_id: StringName = &""` |
 | 方法 | [`append_to_tween`](#member-gftweenactionstep-methods-append_to_tween) | `func append_to_tween(tween: Tween, target: Object, duration_scale: float = 1.0) -> Variant:` |
 | 方法 | [`apply_instant`](#member-gftweenactionstep-methods-apply_instant) | `func apply_instant(target: Object) -> void:` |
@@ -135,6 +136,19 @@ var ease_type: Tween.EaseType = Tween.EASE_OUT
 
 Tween 缓动类型。
 
+<a id="member-gftweenactionstep-properties-easing_curve"></a>
+
+### `easing_curve`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+var easing_curve: Curve = null
+```
+
+可选原生缓动曲线；设置后覆盖 transition_type/ease_type，按线性时间进度进行 sample_baked。 横轴域为 0..1，首尾点必须为 (0,0)/(1,1)，X 严格递增；支持回弹和超调。 只接受无脚本、2..256 点、2..1000 烘焙采样的 Curve；坐标、切线与编辑范围须有限， 编辑范围须包含 0..1 及全部点值，烘焙输出绝对值不超过 16。创建 Tweener 时捕获独立数据。
+
 <a id="member-gftweenactionstep-properties-marker_id"></a>
 
 ### `marker_id`
@@ -181,12 +195,13 @@ func append_to_tween(tween: Tween, target: Object, duration_scale: float = 1.0) 
 ### `apply_instant`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func apply_instant(target: Object) -> void:
 ```
 
-立即应用步骤目标值。
+立即应用步骤目标值；仅校验属性，不采样或校验 easing_curve。
 
 参数：
 
@@ -199,14 +214,15 @@ func apply_instant(target: Object) -> void:
 ### `duplicate_step`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func duplicate_step() -> GFTweenActionStep:
 ```
 
-创建深拷贝。
+创建深拷贝；曲线只复制原生数据，不携带脚本或 metadata。
 
-返回：新步骤。
+返回：新步骤；easing_curve 无效时发出警告并返回 null。
 
 <a id="member-gftweenactionstep-methods-can_apply_to"></a>
 
@@ -233,12 +249,13 @@ func can_apply_to(target: Object) -> bool:
 ### `get_validation_error`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func get_validation_error(target: Object) -> String:
 ```
 
-获取当前步骤对目标对象的校验错误。
+获取当前步骤的属性与 easing_curve 校验错误。
 
 参数：
 
@@ -253,12 +270,13 @@ func get_validation_error(target: Object) -> String:
 ### `capture_initial_value`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func capture_initial_value(target: Object) -> Variant:
 ```
 
-捕获当前属性值。
+捕获当前属性值；仅校验属性，不采样或校验 easing_curve。
 
 参数：
 
