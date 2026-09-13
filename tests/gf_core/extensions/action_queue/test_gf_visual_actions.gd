@@ -152,6 +152,15 @@ func _configured_tween_action(action: GFVisualAction) -> GFConfiguredTweenAction
 	return null
 
 
+func _get_created_tween(previous_tweens: Array[Tween]) -> Tween:
+	var created_tweens: Array[Tween] = []
+	for tween: Tween in get_tree().get_processed_tweens():
+		if not previous_tweens.has(tween):
+			created_tweens.append(tween)
+	assert_eq(created_tweens.size(), 1, "同步执行动作应创建唯一可推进的 Tween。")
+	return created_tweens[0] if created_tweens.size() == 1 else null
+
+
 func _make_easing_curve(midpoint_y: float = 0.25) -> Curve:
 	var curve: Curve = Curve.new()
 	curve.min_value = minf(0.0, midpoint_y)
@@ -577,16 +586,28 @@ func test_configured_curve_action_keeps_marker_parallel_topology() -> void:
 		func(marker_id: StringName, _index: int, _target: Object) -> void:
 			markers.append(marker_id)
 	) as Error
+	var previous_tweens: Array[Tween] = get_tree().get_processed_tweens()
 	var result: Variant = action.execute()
+	var tween: Tween = _get_created_tween(previous_tweens)
+	if tween == null:
+		action.cancel()
+		return
+	action.pause()
 	var completed: Array[bool] = [false]
 	var wait_for_completion: Callable = func() -> void:
 		await action.await_result_safely(result)
 		completed[0] = true
 	wait_for_completion.call()
-	await get_tree().create_timer(0.05).timeout
+	var first_running: bool = tween.custom_step(0.05)
+	assert_true(first_running)
 	assert_gt(target.position.x, 0.0)
+	assert_lt(target.position.x, 8.0)
 	assert_gt(target.rotation, 0.0)
-	await get_tree().create_timer(0.25).timeout
+	assert_lt(target.rotation, 1.0)
+	assert_true(markers.is_empty(), "中间进度不得提前发出完成标记。")
+	assert_false(completed[0])
+	var _second_step: bool = tween.custom_step(0.2)
+	await get_tree().process_frame
 	assert_true(completed[0], "Natural completion must release the already registered waiter.")
 	if not completed[0]:
 		action.cancel()
@@ -749,13 +770,35 @@ func test_configured_tween_marker_does_not_serialize_following_parallel_step() -
 		func(marker_id: StringName, _step_index: int, _target: Object) -> void:
 			markers.append(marker_id)
 	) as Error
+	var previous_tweens: Array[Tween] = get_tree().get_processed_tweens()
 	var result: Variant = action.execute()
-	await get_tree().create_timer(0.05).timeout
+	var tween: Tween = _get_created_tween(previous_tweens)
+	if tween == null:
+		action.cancel()
+		return
+	action.pause()
+	var completed: Array[bool] = [false]
+	var wait_for_completion: Callable = func() -> void:
+		await action.await_result_safely(result)
+		completed[0] = true
+	wait_for_completion.call()
+	var first_running: bool = tween.custom_step(0.05)
 
+	assert_true(first_running)
 	assert_gt(node.position.x, 0.0, "第一步应已开始推进。")
+	assert_lt(node.position.x, 10.0)
 	assert_gt(node.rotation, 0.0, "marker callback 不得把声明 parallel 的第二步推迟到第一步之后。")
+	assert_lt(node.rotation, 1.0)
+	assert_true(markers.is_empty(), "中间进度不得提前发出完成标记。")
+	assert_false(completed[0])
 
-	await action.await_result_safely(result)
+	var _second_step: bool = tween.custom_step(0.2)
+	await get_tree().process_frame
+	assert_true(completed[0], "自然完成必须释放提前注册的等待者。")
+	if not completed[0]:
+		action.cancel()
+		await get_tree().process_frame
+		return
 	assert_eq(markers, [&"position_done"], "并行拓扑修复后 marker 仍应恰好发出一次。")
 
 
