@@ -152,11 +152,11 @@ func test_timed_out_shutdown_keeps_nonblocking_forced_cleanup_fallback() -> void
 	var probe: ShutdownProbe = ShutdownProbe.new()
 	var _connected: Error = lease.settled.connect(_count_settlement.bind(probe)) as Error
 	var blocker: PendingShutdownUtility = PendingShutdownUtility.new()
-	blocker.lifecycle_priority = 100
 	assert_true(await _architecture.register_utility_instance(blocker))
 
-	var shutdown_result: GFArchitectureShutdownResult = await _architecture.shutdown_async(null, 0.001)
+	var shutdown_result: GFArchitectureShutdownResult = await _architecture.shutdown_async(null, 0.1)
 
+	assert_true(blocker.did_begin_quiesce, "依赖模块必须先进入等待，才能验证超时后的 Pool 强制清理。")
 	assert_eq(shutdown_result.get_status(), GFArchitectureShutdownResult.Status.TIMED_OUT)
 	assert_true(_architecture.is_disposed())
 	assert_false(lease.is_settled(), "先行模块超时后走同步强制退出，不应绕过安全点。")
@@ -329,5 +329,12 @@ class ShutdownProbe extends RefCounted:
 
 
 class PendingShutdownUtility extends GFUtility:
+	var did_begin_quiesce: bool = false
+
+	func get_required_utilities() -> Array[Script]:
+		return [GFObjectPoolUtility]
+
+
 	func begin_quiesce(_scope: GFAsyncScope) -> GFAsyncCompletion:
+		did_begin_quiesce = true
 		return GFAsyncCompletion.new()
