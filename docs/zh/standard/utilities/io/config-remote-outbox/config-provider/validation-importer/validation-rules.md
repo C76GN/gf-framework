@@ -40,7 +40,7 @@ schema.table_validation_rules.append(table_size)
 
 ## 数组逐元素校验
 
-`ValueType.ARRAY` 字段可以通过 `element_validation_rules` 对每个元素复用普通值规则。`validation_rules` 先检查整个数组，例如限制长度；元素规则再按原始下标和规则声明顺序执行。
+`ValueType.ARRAY` 字段可以通过 `element_validation_rules` 对每个元素复用普通值规则。通过下述准入检查后，`validation_rules` 先检查整个数组，例如限制长度；元素规则再按原始下标和规则声明顺序执行。
 
 ```gdscript
 var weights_column: GFConfigTableColumn = GFConfigTableColumn.new()
@@ -67,7 +67,7 @@ schema.columns.append(weights_column)
 
 元素校验只处理一维 Array，不转换元素类型。嵌套 Array、Dictionary、Packed 数组、Object、Callable、Signal 和 RID 会产生 `invalid_element_validation_value`，保留原始下标，并跳过该元素的规则。需要跨表引用时，继续使用既有引用声明；递归数据结构或业务关系由项目自己的校验规则处理。
 
-开启 `coerce_values` 时，配置了启用元素规则的数组会在记录深复制前检查外层元素类型，包括字段默认值。出现上述不支持的元素时，该记录直接失败，不进入字段或记录自定义规则，也不进入后续索引及整表规则的输入集合。这样可以直接定位深嵌套或自引用元素，无需递归访问其内容。独立调用 `coerce_record()` 仍只负责转换，不替代 `validate_record()` 或 `validate_table()`。
+开启 `coerce_values` 时，配置了启用元素规则的数组会在记录深复制前先预留该字段的完整元素及规则调用预算，再检查外层元素类型，包括字段默认值。预算不足或出现上述不支持的元素时，该记录直接失败，不进入字段或记录自定义规则，也不进入后续索引及整表规则的输入集合。预算不足时不遍历元素或深复制记录；获准检查的深嵌套或自引用元素则直接按外层下标报错，无需递归访问其内容。独立调用 `coerce_record()` 仍只负责转换，不替代 `validate_record()` 或 `validate_table()`。
 
 ## 元素工作量预算
 
@@ -78,9 +78,11 @@ Schema 为一次 `validate_record()` 或 `validate_table()` 设置独立预算�
 | `max_elements_per_validation` | 4096 | 1 至 65536 |
 | `max_element_rule_checks_per_validation` | 16384 | 1 至 262144 |
 
-每列最多声明 64 条元素规则，禁用规则不计入调用预算。执行前会为当前字段预留完整元素数与启用规则调用数；任一预算不足时报告 `element_validation_budget_exhausted`，该字段的元素规则全部不执行，避免只校验数组前半部分。整值规则仍会执行，调用方必须检查报告是否成功。
+每列最多声明 64 条元素规则，禁用规则不计入调用预算。执行前会为当前字段预留完整元素数与启用规则调用数；任一预算不足时只报告一个 `element_validation_budget_exhausted`，该字段的元素规则全部不执行，避免只校验数组前半部分。`coerce_values = false` 时整值规则仍会执行；开启转换时则按上述准入边界跳过整条记录。调用方必须检查报告是否成功。
 
-这两个预算限制元素规则的展开和调用次数，不限制整次导入、类型转换或自定义规则内部的运行时间。每次规则调用获得独立的公开上下文集合副本，资源路径探测会话仍按本次验证共享。
+转换前的外层元素检查与随后元素规则执行复用同一份预留，不重复扣费；检查发现不支持的元素也不退还预算，后续字段和记录只能使用剩余额度。空数组预留为零；启用转换时实际采用的数组默认值也计入预算。
+
+这两个预算限制外层元素检查、元素规则展开和调用次数，不限制其他字段的类型转换、整次导入或自定义规则内部的运行时间。每次规则调用获得独立的公开上下文集合副本，资源路径探测会话仍按本次验证共享。
 
 ## 使用边界
 

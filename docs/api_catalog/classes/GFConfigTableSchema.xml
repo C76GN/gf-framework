@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFConfigTableSchema" path="addons/gf/standard/utilities/config/gf_config_table_schema.gd" module="standard" extends="Resource" classDigest="5e93fc937fdb3651c2ef3eecec551764e6cf40b056a7567331673df0e621f34b">
+<class name="GFConfigTableSchema" path="addons/gf/standard/utilities/config/gf_config_table_schema.gd" module="standard" extends="Resource" classDigest="4271853bdf2f480a83e95691865aa2daeb4ac31fc123e1a7b9d2bb6678f83cf6">
 	<description>GFConfigTableSchema: 通用导表结构声明与校验器。
 用于在导入期或运行时校验表数据结构，保持数据工具链可替换且不绑定业务表。</description>
 	<tags>
@@ -73,8 +73,9 @@
 		<member kind="property" name="max_elements_per_validation" decorators="@export_range(1, 65536, 1)">
 			<signature>var max_elements_per_validation: int = 4096</signature>
 			<description>单次记录或整表校验可准入的数组元素总数，跨字段及记录共享。
-仅统计存在启用元素规则的 Array；每个字段在回调前整批预留，失败不执行该字段的元素规则。
-整值规则仍独立执行。程序写入不在 1 至 65536 内的值时，定义与运行校验均失败，不钳制。</description>
+仅统计存在启用元素规则的 Array；每个字段在元素检查及回调前整批预留。
+coerce_values 为 true 时，预算失败在复制前拒绝整条记录；否则只跳过该字段的元素校验，整值规则仍执行。
+程序写入不在 1 至 65536 内的值时，定义与运行校验均失败，不钳制。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="since">unreleased</tag>

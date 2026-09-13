@@ -161,7 +161,7 @@ var max_resource_path_checks_per_validation: int = 1024
 var max_elements_per_validation: int = 4096
 ```
 
-单次记录或整表校验可准入的数组元素总数，跨字段及记录共享。 仅统计存在启用元素规则的 Array；每个字段在回调前整批预留，失败不执行该字段的元素规则。 整值规则仍独立执行。程序写入不在 1 至 65536 内的值时，定义与运行校验均失败，不钳制。
+单次记录或整表校验可准入的数组元素总数，跨字段及记录共享。 仅统计存在启用元素规则的 Array；每个字段在元素检查及回调前整批预留。 coerce_values 为 true 时，预算失败在复制前拒绝整条记录；否则只跳过该字段的元素校验，整值规则仍执行。 程序写入不在 1 至 65536 内的值时，定义与运行校验均失败，不钳制。
 
 <a id="member-gfconfigtableschema-properties-max_element_rule_checks_per_validation"></a>
 

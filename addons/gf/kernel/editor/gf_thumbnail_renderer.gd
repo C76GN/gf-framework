@@ -340,7 +340,7 @@ func render_mesh_library_previews(
 ## [br]
 ## @param overwrite_existing: 是否覆盖已有预览。
 ## [br]
-## @return 包含 changes、generated_count 和 cancelled 的修改计划。
+## @return 包含 changes、generated_count 和 cancelled 的修改计划；任一待生成条目失败时返回 ok 为 false 的空计划，具体原因可通过任务的 get_error() 读取。
 ## [br]
 ## @schema return: Dictionary { ok: bool, generated_count: int, cancelled: bool, changes: Array[Dictionary] }.
 func build_mesh_library_preview_plan(
@@ -589,7 +589,8 @@ func _execute_render_task_async(task: GFThumbnailRenderTask) -> void:
 			if task.is_cancel_requested() or _read_bool(plan, "cancelled", false):
 				var _cancelled_plan: bool = task.finish_cancelled(task.get_cancel_reason(), plan)
 			elif not _read_bool(plan, "ok", false):
-				var _failed_plan: bool = task.fail("Invalid MeshLibrary preview request.")
+				var error: String = _render_error if not _render_error.is_empty() else "Invalid MeshLibrary preview request."
+				var _failed_plan: bool = task.fail(error)
 			else:
 				var _succeeded_plan: bool = task.succeed(plan)
 		_:
@@ -771,12 +772,20 @@ func _build_mesh_library_preview_plan_direct(
 		if cancel_token != null and cancel_token.is_cancel_requested():
 			cancelled = true
 			break
-		if texture != null:
-			changes.append({
-				"item_id": item_id,
-				"old_preview": mesh_library.get_item_preview(item_id),
-				"new_preview": texture,
-			})
+		if texture == null:
+			var error: String = _render_error if not _render_error.is_empty() else "Thumbnail render returned no result."
+			_render_error = "MeshLibrary item %d: %s" % [item_id, error]
+			return {
+				"ok": false,
+				"generated_count": 0,
+				"cancelled": false,
+				"changes": [],
+			}
+		changes.append({
+			"item_id": item_id,
+			"old_preview": mesh_library.get_item_preview(item_id),
+			"new_preview": texture,
+		})
 
 	return {
 		"ok": true,

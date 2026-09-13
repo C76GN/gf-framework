@@ -305,7 +305,7 @@ func build_mesh_library_preview_plan( mesh_library: MeshLibrary, size: Vector2i 
 | `size` | 预览尺寸。 |
 | `overwrite_existing` | 是否覆盖已有预览。 |
 
-返回：包含 changes、generated_count 和 cancelled 的修改计划。
+返回：包含 changes、generated_count 和 cancelled 的修改计划；任一待生成条目失败时返回 ok 为 false 的空计划，具体原因可通过任务的 get_error() 读取。
 
 结构：
 

@@ -13,9 +13,206 @@ const SCRIPTED_NODE3D_SCRIPT = preload(
 const SCRIPTED_MATERIAL_SCRIPT = preload(
 	"res://tests/gf_core/kernel/editor/fixtures/gf_thumbnail_scripted_material.gd"
 )
+const MESH_VISUAL_PROBE_SCRIPT = preload(
+	"res://tests/gf_core/kernel/editor/fixtures/gf_thumbnail_mesh_visual_probe.gd"
+)
+const SURFACE_MATERIAL_PROBE_SCRIPT = preload(
+	"res://tests/gf_core/kernel/editor/fixtures/gf_thumbnail_surface_material_probe.gd"
+)
 
 
 # --- 测试方法 ---
+
+func test_static_nine_patch_copy_preserves_all_patch_margins() -> void:
+	var renderer: GFThumbnailRenderer = GFThumbnailRenderer.new()
+	var source: NinePatchRect = NinePatchRect.new()
+	var margins: Array[int] = [3, 5, 7, 9]
+	var sides: Array[Side] = [SIDE_LEFT, SIDE_TOP, SIDE_RIGHT, SIDE_BOTTOM]
+	for index: int in sides.size():
+		source.set_patch_margin(sides[index], margins[index])
+	source.size = Vector2(80.0, 60.0)
+	var copy: Node = renderer._create_render_instance(source, GFThumbnailRenderRequest.PreviewMode.STATIC)
+
+	assert_true(copy is NinePatchRect, "静态九宫格应保留原生视觉类型。")
+	if copy is NinePatchRect:
+		var patch_copy: NinePatchRect = copy
+		for index: int in sides.size():
+			assert_eq(patch_copy.get_patch_margin(sides[index]), margins[index], "副本应保留每一侧九宫格边距。")
+		assert_eq(patch_copy.size, source.size, "边距复制后仍应保留解析后的矩形。")
+	if copy != null:
+		copy.free()
+	source.free()
+	renderer.free()
+
+
+func test_static_texture_progress_copy_preserves_all_stretch_margins() -> void:
+	var renderer: GFThumbnailRenderer = GFThumbnailRenderer.new()
+	var source: TextureProgressBar = TextureProgressBar.new()
+	source.nine_patch_stretch = true
+	var margins: Array[int] = [2, 4, 6, 8]
+	var sides: Array[Side] = [SIDE_LEFT, SIDE_TOP, SIDE_RIGHT, SIDE_BOTTOM]
+	for index: int in sides.size():
+		source.set_stretch_margin(sides[index], margins[index])
+	source.size = Vector2(80.0, 60.0)
+	source.value = 37.0
+	var copy: Node = renderer._create_render_instance(source, GFThumbnailRenderRequest.PreviewMode.STATIC)
+
+	assert_true(copy is TextureProgressBar, "静态纹理进度条应保留原生视觉类型。")
+	if copy is TextureProgressBar:
+		var progress_copy: TextureProgressBar = copy
+		assert_true(progress_copy.nine_patch_stretch, "副本应保留九宫格拉伸开关。")
+		for index: int in sides.size():
+			assert_eq(progress_copy.get_stretch_margin(sides[index]), margins[index], "副本应保留每一侧拉伸边距。")
+		assert_eq(progress_copy.value, 37.0, "副本应保留当前进度。")
+	if copy != null:
+		copy.free()
+	source.free()
+	renderer.free()
+
+
+func test_static_mesh_copy_preserves_per_surface_materials_without_script_reads() -> void:
+	var renderer: GFThumbnailRenderer = GFThumbnailRenderer.new()
+	var source: MESH_VISUAL_PROBE_SCRIPT = MESH_VISUAL_PROBE_SCRIPT.new()
+	var source_mesh: ArrayMesh = _create_surface_mesh(2)
+	var first_material: StandardMaterial3D = StandardMaterial3D.new()
+	var second_material: StandardMaterial3D = StandardMaterial3D.new()
+	first_material.albedo_color = Color.RED
+	second_material.albedo_color = Color.BLUE
+	source.mesh = source_mesh
+	source.set_surface_override_material(0, first_material)
+	source.set_surface_override_material(1, second_material)
+	MESH_VISUAL_PROBE_SCRIPT.reset_observations()
+	var copy: Node = renderer._create_render_instance(source, GFThumbnailRenderRequest.PreviewMode.STATIC)
+
+	assert_true(copy is MeshInstance3D, "静态 Mesh 应保留原生视觉类型。")
+	if copy is MeshInstance3D:
+		var mesh_copy: MeshInstance3D = copy
+		assert_same(mesh_copy.mesh, source_mesh, "静态副本应只读共享 Mesh。")
+		assert_same(mesh_copy.get_surface_override_material(0), first_material, "第一表面应保留实例材质覆盖。")
+		assert_same(mesh_copy.get_surface_override_material(1), second_material, "第二表面应保留独立材质覆盖。")
+	assert_eq(MESH_VISUAL_PROBE_SCRIPT.getter_count, 0, "材质复制不得读取源脚本导出 getter。")
+	assert_eq(MESH_VISUAL_PROBE_SCRIPT.property_list_count, 0, "材质复制不得枚举源脚本动态属性。")
+	assert_eq(MESH_VISUAL_PROBE_SCRIPT.dynamic_get_count, 0, "材质复制不得调用源脚本 _get。")
+	assert_eq(MESH_VISUAL_PROBE_SCRIPT.dynamic_get_properties, [], "源脚本读取位置应保持为空。")
+	assert_same(source.get_surface_override_material(0), first_material, "来源实例材质应保持。")
+	assert_eq(first_material.albedo_color, Color.RED, "共享材质内容应保持。")
+	assert_eq(second_material.albedo_color, Color.BLUE, "其他表面的共享材质内容也应保持。")
+	if copy != null:
+		copy.free()
+	source.free()
+	renderer.free()
+
+
+func test_static_mesh_copy_rejects_scripted_surface_override_material() -> void:
+	var renderer: GFThumbnailRenderer = GFThumbnailRenderer.new()
+	var source: MeshInstance3D = MeshInstance3D.new()
+	source.name = "ScriptedSurfaceMesh"
+	source.mesh = BoxMesh.new()
+	var material: SURFACE_MATERIAL_PROBE_SCRIPT = SURFACE_MATERIAL_PROBE_SCRIPT.new()
+	source.set_surface_override_material(0, material)
+	SURFACE_MATERIAL_PROBE_SCRIPT.initialized_count = 0
+	var copy: Node = renderer._create_render_instance(source, GFThumbnailRenderRequest.PreviewMode.STATIC)
+
+	assert_null(copy, "表面覆盖材质也必须满足直接原生资源边界。")
+	assert_true(renderer._render_error.contains("surface_material_override/0"), "失败应定位实例表面材质。")
+	assert_eq(SURFACE_MATERIAL_PROBE_SCRIPT.initialized_count, 0, "拒绝脚本材质时不得复制或构造脚本资源。")
+	assert_same(source.get_surface_override_material(0), material, "拒绝后来源的表面覆盖应保持。")
+	if copy != null:
+		copy.free()
+	source.free()
+	renderer.free()
+
+
+func test_static_mesh_surface_budget_is_shared_and_resets_after_failure() -> void:
+	var renderer: GFThumbnailRenderer = GFThumbnailRenderer.new()
+	var source: Node3D = Node3D.new()
+	var shared_mesh: ArrayMesh = _create_surface_mesh(64)
+	var last_instance: MeshInstance3D
+	for mesh_index: int in 65:
+		var mesh_instance: MeshInstance3D = MeshInstance3D.new()
+		mesh_instance.name = "Mesh%d" % mesh_index
+		mesh_instance.mesh = shared_mesh
+		source.add_child(mesh_instance)
+		last_instance = mesh_instance
+	var rejected: Node = renderer._create_render_instance(source, GFThumbnailRenderRequest.PreviewMode.STATIC)
+	assert_null(rejected, "共享 Mesh 的每个实例也应计入整次快照的表面预算。")
+	assert_true(renderer._render_error.contains("surface material slot limit"), "失败应解释表面预算。")
+	assert_true(renderer._render_error.contains("Mesh64"), "失败应定位首个超预算实例。")
+	if rejected != null:
+		rejected.free()
+	if last_instance != null:
+		last_instance.free()
+	var accepted: Node = renderer._create_render_instance(source, GFThumbnailRenderRequest.PreviewMode.STATIC)
+	assert_not_null(accepted, "新的快照应重新计数并接受恰好 4096 个表面。")
+	if accepted != null:
+		assert_eq(accepted.get_child_count(), 64, "达到预算的快照应完整保留全部实例。")
+		accepted.free()
+	assert_eq(shared_mesh.get_surface_count(), 64, "预算拒绝和重试不得修改共享 Mesh。")
+	source.free()
+	renderer.free()
+
+
+func test_static_sprite3d_copy_preserves_indexed_draw_flags() -> void:
+	var renderer: GFThumbnailRenderer = GFThumbnailRenderer.new()
+	var sources: Array[SpriteBase3D] = [Sprite3D.new(), AnimatedSprite3D.new()]
+	for source: SpriteBase3D in sources:
+		for flag_index: int in SpriteBase3D.FLAG_MAX:
+			var flag: SpriteBase3D.DrawFlags = flag_index as SpriteBase3D.DrawFlags
+			source.set_draw_flag(flag, not source.get_draw_flag(flag))
+		var copy: Node = renderer._create_render_instance(source, GFThumbnailRenderRequest.PreviewMode.STATIC)
+		assert_true(copy is SpriteBase3D, "静态 3D Sprite 应保留原生类型。")
+		if copy is SpriteBase3D:
+			var sprite_copy: SpriteBase3D = copy
+			for flag_index: int in SpriteBase3D.FLAG_MAX:
+				var flag: SpriteBase3D.DrawFlags = flag_index as SpriteBase3D.DrawFlags
+				assert_eq(sprite_copy.get_draw_flag(flag), source.get_draw_flag(flag), "副本应保留每个绘制标记。")
+		if copy != null:
+			copy.free()
+		source.free()
+	renderer.free()
+
+
+func test_static_label3d_copy_preserves_indexed_draw_flags() -> void:
+	var renderer: GFThumbnailRenderer = GFThumbnailRenderer.new()
+	var source: Label3D = Label3D.new()
+	for flag_index: int in Label3D.FLAG_MAX:
+		var flag: Label3D.DrawFlags = flag_index as Label3D.DrawFlags
+		source.set_draw_flag(flag, not source.get_draw_flag(flag))
+	var copy: Node = renderer._create_render_instance(source, GFThumbnailRenderRequest.PreviewMode.STATIC)
+	assert_true(copy is Label3D, "静态 3D Label 应保留原生类型。")
+	if copy is Label3D:
+		var label_copy: Label3D = copy
+		for flag_index: int in Label3D.FLAG_MAX:
+			var flag: Label3D.DrawFlags = flag_index as Label3D.DrawFlags
+			assert_eq(label_copy.get_draw_flag(flag), source.get_draw_flag(flag), "副本应保留每个文字绘制标记。")
+	if copy != null:
+		copy.free()
+	source.free()
+	renderer.free()
+
+
+func test_static_light3d_copy_preserves_indexed_light_and_shadow_parameters() -> void:
+	var renderer: GFThumbnailRenderer = GFThumbnailRenderer.new()
+	var sources: Array[Light3D] = [DirectionalLight3D.new(), OmniLight3D.new(), SpotLight3D.new()]
+	for source: Light3D in sources:
+		source.set_param(Light3D.PARAM_ENERGY, 2.25)
+		source.set_param(Light3D.PARAM_SHADOW_BIAS, 0.125)
+		if source is DirectionalLight3D:
+			source.set_param(Light3D.PARAM_SHADOW_SPLIT_1_OFFSET, 0.25)
+		else:
+			source.set_param(Light3D.PARAM_RANGE, 9.5)
+		var copy: Node = renderer._create_render_instance(source, GFThumbnailRenderRequest.PreviewMode.STATIC)
+		assert_true(copy is Light3D, "静态灯光应保留原生类型。")
+		if copy is Light3D:
+			var light_copy: Light3D = copy
+			for param_index: int in Light3D.PARAM_MAX:
+				var param: Light3D.Param = param_index as Light3D.Param
+				assert_eq(light_copy.get_param(param), source.get_param(param), "副本应保留灯光和阴影参数。")
+		if copy != null:
+			copy.free()
+		source.free()
+	renderer.free()
+
 
 func test_default_canvas_thumbnail_does_not_construct_or_run_root_and_nested_scripts() -> void:
 	var renderer: GFThumbnailRenderer = GFThumbnailRenderer.new()
@@ -697,6 +894,21 @@ func test_render_canvas_item_returns_requested_image_size() -> void:
 
 
 # --- 私有/辅助方法 ---
+
+func _create_surface_mesh(surface_count: int) -> ArrayMesh:
+	var mesh: ArrayMesh = ArrayMesh.new()
+	for surface_index: int in surface_count:
+		var arrays: Array = []
+		var _resized: int = arrays.resize(Mesh.ARRAY_MAX)
+		var offset: float = float(surface_index) * 2.0
+		arrays[Mesh.ARRAY_VERTEX] = PackedVector3Array([
+			Vector3(offset, 0.0, 0.0),
+			Vector3(offset + 1.0, 0.0, 0.0),
+			Vector3(offset, 1.0, 0.0),
+		])
+		mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+	return mesh
+
 
 func _assert_visible_pixels(image: Image, message: String) -> void:
 	if DisplayServer.get_name() == "headless":

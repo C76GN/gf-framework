@@ -63,7 +63,11 @@ else:
 
 静态模式用于常见 Sprite、Polygon、Line、Mesh 和基础 Control 外观；AnimatedSprite 保留当前帧，按钮和折叠容器保留当前外观，但不加入来源的 ButtonGroup 或 FoldableGroup。布局容器也使用明确的支持列表。Timer、动画播放器、音频等行为节点只保留无行为的层级载体。粒子、骨骼、TileMap、CSG、MultiMesh、嵌套 Viewport 等复杂运行时视觉不属于静态支持范围，渲染会失败，不会自动执行脚本补齐外观。
 
-单次静态快照最多复制 4096 个节点、深入 128 层；超过限制会释放已创建的副本并使任务失败。通过任务的 `get_error()` 查看不支持的节点类型、资源或超限原因。
+静态副本会保留 NinePatchRect 的四侧边距、TextureProgressBar 的拉伸边距、3D Sprite 与 Label3D 的绘制标志、灯光和阴影参数，以及 MeshInstance3D 的逐表面材质覆盖。这些属性通过明确的原生接口读取，避免调用来源脚本的动态属性读取逻辑。
+
+单次静态快照最多复制 4096 个节点、深入 128 层，并累计检查最多 4096 个 Mesh 表面槽位；超过限制会释放已创建的副本并使任务失败。通过任务的 `get_error()` 查看不支持的节点类型、资源或超限原因。
+
+MeshLibrary 批量预览只为本次需要生成的条目构建计划；任一条目违反静态策略或渲染失败时，任务失败并通过 `get_error()` 保留条目 ID 和原因。便捷方法 `build_mesh_library_preview_plan()` 返回 `ok = false` 的空计划，`render_mesh_library_previews()` 不应用部分结果。已有预览在关闭覆盖时仍会被跳过。
 
 视觉资源作为只读引用共享，GF 不改写它们；直接绑定带脚本的 Resource 会被拒绝。静态模式不深复制任意 Resource 图，也不隔离原生扩展回调或调用方此前加载、实例化场景时已经发生的行为。脚本自绘、运行时 shader 参数和主题覆盖等逐实例动态状态不属于静态快照合同。
 
