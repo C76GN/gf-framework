@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFTweenActionConfig" path="addons/gf/extensions/action_queue/tween/gf_tween_action_config.gd" module="extensions/action_queue" extends="Resource" classDigest="10b8188a8126981d074e1c29765d5e4d07481075d9b85df018f01394fdcfb049">
+<class name="GFTweenActionConfig" path="addons/gf/extensions/action_queue/tween/gf_tween_action_config.gd" module="extensions/action_queue" extends="Resource" classDigest="565d443f45e95a0e02e7943f655ce11b3fddb0961b4ca0e17e1b27a87bc4695b">
 	<description>GFTweenActionConfig: 配置化 Tween 动作资源。
 可复用地描述一组属性 Tween 步骤，并生成 GFVisualAction。</description>
 	<tags>
@@ -151,7 +151,8 @@
 			<description>创建深拷贝。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="return">新配置。</tag>
+				<tag name="return">新配置；任一步骤的 easing_curve 无法复制时发出警告并返回 null。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 	</methods>

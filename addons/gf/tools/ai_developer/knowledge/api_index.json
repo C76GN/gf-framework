@@ -2,7 +2,7 @@
   "schema_version": 2,
   "catalog_version": "2.0.0",
   "framework_version": "12.0.0-dev.0",
-  "source_digest": "6ab00d476186450f3b7aa817a76a996023e1e409df4968fff59ecc1dee5660fd",
+  "source_digest": "0a663ed8bad9264ed6f88c1f5a2f9860a946b23bd1f9425b9d5b706e5d74a1f0",
   "class_count": 859,
   "autoload_count": 1,
   "package_count": 59,
@@ -93436,6 +93436,13 @@
         },
         {
           "kind": "var",
+          "name": "easing_curve",
+          "signature": "var easing_curve: Curve = null",
+          "summary": "可选原生缓动曲线；设置后覆盖 transition_type/ease_type，按线性时间进度进行 sample_baked。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
           "name": "marker_id",
           "signature": "var marker_id: StringName = &\"\"",
           "summary": "可选步骤标记。非空时 GFConfiguredTweenAction 会在步骤结束后发出 marker_reached；",
@@ -93452,14 +93459,14 @@
           "kind": "func",
           "name": "apply_instant",
           "signature": "func apply_instant(target: Object) -> void",
-          "summary": "立即应用步骤目标值。",
+          "summary": "立即应用步骤目标值；仅校验属性，不采样或校验 easing_curve。",
           "visibility": "public"
         },
         {
           "kind": "func",
           "name": "duplicate_step",
           "signature": "func duplicate_step() -> GFTweenActionStep",
-          "summary": "创建深拷贝。",
+          "summary": "创建深拷贝；曲线只复制原生数据，不携带脚本或 metadata。",
           "visibility": "public"
         },
         {
@@ -93473,14 +93480,14 @@
           "kind": "func",
           "name": "get_validation_error",
           "signature": "func get_validation_error(target: Object) -> String",
-          "summary": "获取当前步骤对目标对象的校验错误。",
+          "summary": "获取当前步骤的属性与 easing_curve 校验错误。",
           "visibility": "public"
         },
         {
           "kind": "func",
           "name": "capture_initial_value",
           "signature": "func capture_initial_value(target: Object) -> Variant",
-          "summary": "捕获当前属性值。",
+          "summary": "捕获当前属性值；仅校验属性，不采样或校验 easing_curve。",
           "visibility": "public"
         }
       ]

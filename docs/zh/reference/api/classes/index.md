@@ -8,7 +8,7 @@
 |---|---:|---:|---|
 | Kernel | 78 | 1137 | [Kernel](#module-kernel) |
 | Standard | 480 | 7576 | [Standard](#module-standard) |
-| Action Queue | 16 | 214 | [Action Queue](#module-extensions-action_queue) |
+| Action Queue | 16 | 215 | [Action Queue](#module-extensions-action_queue) |
 | Asset Metadata | 4 | 33 | [Asset Metadata](#module-extensions-asset_metadata) |
 | Behavior Tree | 22 | 89 | [Behavior Tree](#module-extensions-behavior_tree) |
 | Camera | 8 | 138 | [Camera](#module-extensions-camera) |
@@ -613,7 +613,7 @@
 | [`GFActionInterceptor`](GFActionInterceptor.md#gfactioninterceptor) | 协议与扩展点 (`protocol`) | `RefCounted` | 4 | `addons/gf/extensions/action_queue/core/gf_action_interceptor.gd` |
 | [`GFVisualAction`](GFVisualAction.md#gfvisualaction) | 协议与扩展点 (`protocol`) | `RefCounted` | 17 | `addons/gf/extensions/action_queue/actions/gf_visual_action.gd` |
 | [`GFTweenActionConfig`](GFTweenActionConfig.md#gftweenactionconfig) | 资源定义 (`resource_definition`) | `Resource` | 17 | `addons/gf/extensions/action_queue/tween/gf_tween_action_config.gd` |
-| [`GFTweenActionStep`](GFTweenActionStep.md#gftweenactionstep) | 资源定义 (`resource_definition`) | `Resource` | 15 | `addons/gf/extensions/action_queue/tween/gf_tween_action_step.gd` |
+| [`GFTweenActionStep`](GFTweenActionStep.md#gftweenactionstep) | 资源定义 (`resource_definition`) | `Resource` | 16 | `addons/gf/extensions/action_queue/tween/gf_tween_action_step.gd` |
 | [`GFAudioAction`](GFAudioAction.md#gfaudioaction) | 运行时句柄 (`runtime_handle`) | `GFVisualAction` | 5 | `addons/gf/extensions/action_queue/actions/gf_audio_action.gd` |
 | [`GFCallableAction`](GFCallableAction.md#gfcallableaction) | 运行时句柄 (`runtime_handle`) | `GFVisualAction` | 3 | `addons/gf/extensions/action_queue/actions/gf_callable_action.gd` |
 | [`GFConfiguredTweenAction`](GFConfiguredTweenAction.md#gfconfiguredtweenaction) | 运行时句柄 (`runtime_handle`) | `GFVisualAction` | 10 | `addons/gf/extensions/action_queue/actions/gf_configured_tween_action.gd` |

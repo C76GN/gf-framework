@@ -10,6 +10,7 @@ const _INSPECTOR_PLUGIN_SCRIPT = preload("res://addons/gf/extensions/action_queu
 const _SCENE_PATH: String = "res://tests/gf_core/tools/action_queue.editor/fixtures/gf_tween_preview_scene.tscn"
 const _CONFIG_PATH: String = "res://tests/gf_core/tools/action_queue.editor/fixtures/gf_tween_preview_saved_config.tres"
 const _RELOAD_PATH: String = "user://gf_tween_preview_reloaded.tres"
+const _CURVE_RELOAD_PATH: String = "user://gf_tween_preview_curve_reloaded.tres"
 const _DEADLINE_MSEC: int = 60000
 
 
@@ -103,7 +104,127 @@ func _run_probe() -> void:
 	if target_ref.get_ref() != null:
 		_fail("The native probe target survived explicit cleanup.")
 		return
+	if not _probe_curve():
+		return
 	_begin_inspector_smoke(source, reloaded)
+
+
+func _probe_curve() -> bool:
+	var source: Resource = ResourceLoader.load(_CONFIG_PATH, "", ResourceLoader.CACHE_MODE_IGNORE_DEEP)
+	if source == null:
+		_fail("The curve probe could not load its independent configuration.")
+		return false
+	var steps_value: Variant = source.get(&"steps")
+	if not steps_value is Array:
+		_fail("The curve probe configuration had no steps.")
+		return false
+	var steps: Array = steps_value
+	if steps.size() != 1 or not steps[0] is Resource:
+		_fail("The curve probe configuration did not contain one resource step.")
+		return false
+	var source_step: Resource = steps[0]
+	var source_curve: Curve = Curve.new()
+	source_curve.bake_resolution = 101
+	var _first_point: int = source_curve.add_point(
+		Vector2.ZERO, 0.0, 0.0, Curve.TANGENT_LINEAR, Curve.TANGENT_LINEAR
+	)
+	var _middle_point: int = source_curve.add_point(
+		Vector2(0.5, 0.75), 0.0, 0.0, Curve.TANGENT_LINEAR, Curve.TANGENT_LINEAR
+	)
+	var _last_point: int = source_curve.add_point(
+		Vector2.ONE, 0.0, 0.0, Curve.TANGENT_LINEAR, Curve.TANGENT_LINEAR
+	)
+	source.set(&"duration_scale", 1.0)
+	source_step.set(&"duration", 1.0)
+	source_step.set(&"delay", 0.0)
+	source_step.set(&"property_name", ^"position:x")
+	source_step.set(&"target_value", 16.0)
+	source_step.set(&"transition_type", Tween.TRANS_QUAD)
+	source_step.set(&"ease_type", Tween.EASE_IN)
+	source_step.set(&"easing_curve", source_curve)
+	var save_error: Error = ResourceSaver.save(source, _CURVE_RELOAD_PATH)
+	if save_error != OK:
+		_fail("Saving the curve probe configuration failed: %d" % save_error)
+		return false
+	var reloaded: Resource = ResourceLoader.load(_CURVE_RELOAD_PATH, "", ResourceLoader.CACHE_MODE_IGNORE_DEEP)
+	if reloaded == null or reloaded.get_script() != source.get_script():
+		_fail("The curve probe lost its non-tool configuration script after reloading.")
+		return false
+	var reloaded_steps_value: Variant = reloaded.get(&"steps")
+	if not reloaded_steps_value is Array:
+		_fail("The reloaded curve probe had no steps.")
+		return false
+	var reloaded_steps: Array = reloaded_steps_value
+	if reloaded_steps.size() != 1 or not reloaded_steps[0] is Resource:
+		_fail("The reloaded curve probe lost its one resource step.")
+		return false
+	var reloaded_step: Resource = reloaded_steps[0]
+	var reloaded_curve_value: Variant = reloaded_step.get(&"easing_curve")
+	if not reloaded_curve_value is Curve:
+		_fail("The saved easing_curve field did not reload as a native Curve.")
+		return false
+	var reloaded_curve: Curve = reloaded_curve_value
+	if (
+		reloaded_step.get_script() != source_step.get_script()
+		or not _number_equals(reloaded.get(&"duration_scale"), 1.0)
+		or not _number_equals(reloaded_step.get(&"duration"), 1.0)
+		or not _number_equals(reloaded_step.get(&"delay"), 0.0)
+		or reloaded_curve == source_curve or reloaded_curve.get_script() != null
+		or reloaded_curve.get_point_count() != 3 or reloaded_curve.bake_resolution != 101
+		or reloaded_curve.get_point_position(1) != Vector2(0.5, 0.75)
+	):
+		_fail("Reloading the curve probe changed its fields or retained the original curve identity.")
+		return false
+	var saved_digest: String = FileAccess.get_sha256(_CURVE_RELOAD_PATH)
+	var probe_root: Node = Node.new()
+	add_child(probe_root)
+	var preview: GFTweenPreviewViewport = GFTweenPreviewViewport.new()
+	probe_root.add_child(preview)
+	preview.configure(reloaded)
+	var preview_ref: WeakRef = weakref(preview)
+	var target: Node = preview.find_child("PreviewTarget", true, false)
+	var target_ref: WeakRef = weakref(target) if target != null else null
+	var probe_error: String = _check_curve_preview(preview, reloaded_curve)
+	preview.dispose_preview()
+	probe_root.free()
+	if preview_ref.get_ref() != null or (target_ref != null and target_ref.get_ref() != null):
+		_fail("The independent curve preview or its target survived explicit cleanup.")
+		return false
+	if not probe_error.is_empty():
+		_fail(probe_error)
+		return false
+	if saved_digest.is_empty() or FileAccess.get_sha256(_CURVE_RELOAD_PATH) != saved_digest:
+		_fail("Curve preview playback or seeking changed its saved configuration file.")
+		return false
+	if source_curve.get_point_position(1) != Vector2(0.5, 0.75):
+		_fail("Editing the reloaded curve also changed the original resource.")
+		return false
+	return true
+
+
+func _check_curve_preview(preview: GFTweenPreviewViewport, source_curve: Curve) -> String:
+	if not preview.play():
+		return "The saved curve configuration could not start in the real editor: " + preview.get_error()
+	preview.advance(0.5)
+	if not is_equal_approx(_position_x(preview), 12.0):
+		return "Native editor preview did not use the saved curve instead of preset/composed easing."
+	if not preview.seek(0.5) or preview.get_state() != &"paused":
+		return "The native curve preview did not accept time inspection."
+	if not is_equal_approx(_position_x(preview), 12.0):
+		return "Native curve seeking disagreed with forward playback."
+	source_curve.set_point_value(1, 0.25)
+	if not preview.seek(0.25) or not preview.seek(0.5):
+		return "Source curve editing invalidated an already captured inspection session."
+	if not is_equal_approx(_position_x(preview), 12.0):
+		return "Source curve editing changed the old seek snapshot."
+	preview.stop()
+	if not preview.play() or not preview.seek(0.5):
+		return "A new curve playback did not capture the edited resource."
+	if not is_equal_approx(_position_x(preview), 4.0):
+		return "New playback ignored the edited source curve."
+	if not preview.seek(1.0) or not is_equal_approx(_position_x(preview), 16.0):
+		return "The native curve preview did not preserve its exact endpoint."
+	return ""
 
 
 func _begin_inspector_smoke(source: Resource, reloaded: Resource) -> void:

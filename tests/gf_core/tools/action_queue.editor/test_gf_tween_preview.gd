@@ -25,6 +25,261 @@ func test_preview_starts_idle_and_uses_only_its_own_target() -> void:
 	preview.dispose_preview()
 
 
+func test_easing_curve_overrides_presets_with_native_curve_value() -> void:
+	var config: GFTweenActionConfig = _config(^"position:x", 8.0)
+	config.steps[0].transition_type = Tween.TRANS_CUBIC
+	config.steps[0].ease_type = Tween.EASE_IN
+	var curve: Curve = Curve.new()
+	var _first_point: int = curve.add_point(Vector2.ZERO)
+	var _middle_point: int = curve.add_point(Vector2(0.5, 0.25))
+	var _last_point: int = curve.add_point(Vector2.ONE)
+	config.steps[0].set(&"easing_curve", curve)
+	var preview: GFTweenPreviewViewport = _preview(config)
+	assert_true(preview.play())
+	preview.advance(0.5)
+	assert_almost_eq(
+		_vector2(preview, "position").x,
+		8.0 * curve.sample_baked(0.5),
+		0.001,
+		"The curve must receive linear progress instead of an already eased value."
+	)
+	preview.dispose_preview()
+
+
+func test_easing_curve_preserves_native_tangents_after_point_removal() -> void:
+	var curve: Curve = _easing_curve(0.25)
+	for index: int in range(curve.get_point_count()):
+		curve.set_point_left_mode(index, Curve.TANGENT_LINEAR)
+		curve.set_point_right_mode(index, Curve.TANGENT_LINEAR)
+	curve.remove_point(1)
+	var config: GFTweenActionConfig = _config(^"position:x", 8.0)
+	config.steps[0].easing_curve = curve
+	var copied: GFTweenActionStep = config.steps[0].duplicate_step()
+	assert_not_null(copied)
+	if copied == null:
+		return
+	for index: int in range(curve.get_point_count()):
+		assert_eq(copied.easing_curve.get_point_left_mode(index), curve.get_point_left_mode(index))
+		assert_eq(copied.easing_curve.get_point_right_mode(index), curve.get_point_right_mode(index))
+		assert_eq(copied.easing_curve.get_point_left_tangent(index), curve.get_point_left_tangent(index))
+		assert_eq(copied.easing_curve.get_point_right_tangent(index), curve.get_point_right_tangent(index))
+	var preview: GFTweenPreviewViewport = _preview(config)
+	assert_true(preview.play())
+	var target: Node2D = Node2D.new()
+	add_child_autofree(target)
+	var tween: Tween = target.create_tween()
+	tween.pause()
+	var tweener: Variant = config.steps[0].append_to_tween(tween, target)
+	assert_true(tweener is PropertyTweener)
+	for progress: float in [0.25, 0.5, 0.75, 1.0]:
+		var _running: bool = tween.custom_step(0.25)
+		assert_true(preview.seek(progress))
+		var expected: float = 8.0 * curve.sample_baked(progress)
+		assert_almost_eq(target.position.x, expected, 0.001)
+		assert_almost_eq(_vector2(preview, "position").x, expected, 0.001)
+		assert_almost_eq(copied.easing_curve.sample_baked(progress) * 8.0, expected, 0.001)
+	tween.kill()
+	preview.dispose_preview()
+
+
+func test_easing_curve_null_preserves_preset_and_curve_can_overshoot() -> void:
+	var config: GFTweenActionConfig = _config(^"position:x", 8.0)
+	config.steps[0].transition_type = Tween.TRANS_CUBIC
+	config.steps[0].ease_type = Tween.EASE_IN
+	var preview: GFTweenPreviewViewport = _preview(config)
+	assert_true(preview.play())
+	preview.advance(0.5)
+	assert_almost_eq(_vector2(preview, "position").x, 1.0, 0.001)
+	config.steps[0].easing_curve = _easing_curve(1.5)
+	preview.configure(config)
+	assert_true(preview.play())
+	assert_true(preview.seek(0.5))
+	assert_gt(_vector2(preview, "position").x, 8.0, "A bounded overshoot must remain observable.")
+	assert_true(preview.seek(1.0))
+	assert_almost_eq(_vector2(preview, "position").x, 8.0, 0.001)
+	config.steps[0].easing_curve = null
+	preview.configure(config)
+	assert_true(preview.play())
+	assert_true(preview.seek(0.5))
+	assert_almost_eq(_vector2(preview, "position").x, 1.0, 0.001)
+	preview.dispose_preview()
+
+
+func test_easing_curve_seek_uses_captured_values_until_new_playback() -> void:
+	var curve: Curve = _easing_curve(0.25)
+	var config: GFTweenActionConfig = _config(^"position:x", 8.0)
+	config.steps[0].easing_curve = curve
+	var preview: GFTweenPreviewViewport = _preview(config)
+	assert_true(preview.play())
+	assert_true(preview.seek(0.5))
+	var captured_values: Dictionary = preview.get_current_values()
+	curve.set_point_value(1, 0.75)
+	assert_true(preview.seek(0.8))
+	assert_true(preview.seek(0.5))
+	assert_eq(preview.get_current_values(), captured_values)
+	config.steps[0].easing_curve = Curve.new()
+	assert_true(preview.seek(0.5), "Replacing the source with an invalid curve cannot poison a session.")
+	assert_eq(preview.get_current_values(), captured_values)
+	assert_true(preview.play())
+	preview.advance(0.25)
+	assert_eq(preview.get_state(), &"playing")
+	preview.reset_preview()
+	assert_false(preview.play(), "A new playback must validate the replacement curve.")
+	config.steps[0].easing_curve = curve
+	preview.configure(config)
+	assert_true(preview.play())
+	assert_true(preview.seek(0.5))
+	assert_almost_eq(_vector2(preview, "position").x, 8.0 * curve.sample_baked(0.5), 0.001)
+	assert_ne(preview.get_current_values(), captured_values)
+	preview.dispose_preview()
+
+
+func test_easing_curve_seek_matches_independent_native_parallel_relative_playback() -> void:
+	var curve: Curve = _easing_curve(0.25)
+	var config: GFTweenActionConfig = _config(^"position:x", 8.0, 0.5)
+	config.steps[0].delay = 0.25
+	config.steps[0].easing_curve = curve
+	var parallel_step: GFTweenActionStep = _step(^"position:y", 4.0, 1.0)
+	parallel_step.parallel = true
+	parallel_step.easing_curve = curve
+	config.steps.append(parallel_step)
+	var relative_step: GFTweenActionStep = _step(^"position:x", 2.0, 0.5)
+	relative_step.as_relative = true
+	relative_step.easing_curve = curve
+	config.steps.append(relative_step)
+	config.loop_count = 2
+	var preview: GFTweenPreviewViewport = _preview(config)
+	var native_target: Node2D = Node2D.new()
+	add_child_autofree(native_target)
+	var native_tween: Tween = _native_easing_tween(native_target, curve)
+	assert_true(preview.play())
+	assert_eq(preview.get_duration_seconds(), 3.0)
+	var native_time: float = 0.0
+	for checkpoint: float in [0.375, 1.25, 2.75, 3.0]:
+		var step_count: int = ceili((checkpoint - native_time) / 0.125)
+		for _index: int in range(step_count):
+			var delta: float = minf(0.125, checkpoint - native_time)
+			var _still_running: bool = native_tween.custom_step(delta)
+			native_time += delta
+		assert_true(preview.seek(checkpoint))
+		assert_almost_eq(_vector2(preview, "position").x, native_target.position.x, 0.001)
+		assert_almost_eq(_vector2(preview, "position").y, native_target.position.y, 0.001)
+	assert_true(preview.seek(0.375))
+	assert_true(preview.seek(2.75))
+	assert_true(preview.play())
+	preview.advance(0.25)
+	assert_eq(preview.get_state(), &"finished")
+	assert_almost_eq(_vector2(preview, "position").x, native_target.position.x, 0.001)
+	native_tween.kill()
+	preview.dispose_preview()
+
+
+func test_easing_curve_zero_duration_and_finish_restore_keep_existing_contracts() -> void:
+	var config: GFTweenActionConfig = _config(^"position:x", 3.0, 0.0)
+	config.steps[0].easing_curve = _easing_curve(0.25)
+	config.steps[0].as_relative = true
+	config.loop_count = 32
+	config.restore_initial_values_on_finish = true
+	var preview: GFTweenPreviewViewport = _preview(config)
+	assert_true(preview.set_initial_value(&"position", Vector2(2.0, 4.0)))
+	assert_true(preview.play())
+	assert_eq(_vector2(preview, "position"), Vector2(2.0, 4.0))
+	assert_true(preview.seek(0.0))
+	assert_eq(_vector2(preview, "position"), Vector2(5.0, 4.0))
+	assert_true(preview.play())
+	assert_eq(preview.get_state(), &"finished")
+	assert_eq(_vector2(preview, "position"), Vector2(2.0, 4.0))
+	config.steps[0].duration = 1.0
+	config.loop_count = 1
+	preview.configure(config)
+	assert_true(preview.play())
+	assert_true(preview.seek(1.0))
+	assert_almost_eq(_vector2(preview, "position").x, 3.0, 0.001)
+	assert_true(preview.play())
+	assert_eq(_vector2(preview, "position"), Vector2.ZERO)
+	preview.dispose_preview()
+
+
+func test_easing_curve_invalid_second_step_rejects_whole_preview_before_writes() -> void:
+	var invalid_curves: Array[Curve] = [Curve.new(), _easing_curve(0.25)]
+	invalid_curves[1].set_point_value(0, 0.1)
+	var one_point: Curve = Curve.new()
+	var _only_point: int = one_point.add_point(Vector2.ZERO)
+	invalid_curves.append(one_point)
+	var incomplete_domain: Curve = Curve.new()
+	var _incomplete_first: int = incomplete_domain.add_point(Vector2(0.1, 0.0))
+	var _incomplete_last: int = incomplete_domain.add_point(Vector2.ONE)
+	invalid_curves.append(incomplete_domain)
+	var invalid_tangent: Curve = _easing_curve(0.25)
+	invalid_tangent.set_point_right_tangent(0, INF)
+	assert_false(is_finite(invalid_tangent.get_point_right_tangent(0)))
+	invalid_curves.append(invalid_tangent)
+	var excessive_overshoot: Curve = Curve.new()
+	var _overshoot_first: int = excessive_overshoot.add_point(Vector2.ZERO, 0.0, 128.0)
+	var _overshoot_last: int = excessive_overshoot.add_point(Vector2.ONE, -128.0, 0.0)
+	assert_gt(excessive_overshoot.sample_baked(0.5), 16.0)
+	invalid_curves.append(excessive_overshoot)
+	var preview: GFTweenPreviewViewport = _preview(null)
+	for curve: Curve in invalid_curves:
+		var config: GFTweenActionConfig = _config(^"position:x", 10.0, 0.0)
+		var invalid_step: GFTweenActionStep = _step(^"position:y", 20.0)
+		invalid_step.easing_curve = curve
+		config.steps.append(invalid_step)
+		preview.configure(config)
+		assert_false(preview.play())
+		assert_eq(preview.get_state(), &"error")
+		assert_false(preview.get_error().is_empty())
+		assert_eq(_vector2(preview, "position"), Vector2.ZERO)
+		assert_false(preview.has_session())
+	preview.dispose_preview()
+
+
+func test_easing_curve_script_is_rejected_without_copying_or_executing_it() -> void:
+	var scripted_curve: RejectedEasingCurve = RejectedEasingCurve.new()
+	var _first_point: int = scripted_curve.add_point(Vector2.ZERO)
+	var _last_point: int = scripted_curve.add_point(Vector2.ONE)
+	var config: GFTweenActionConfig = _config(^"position:x", 8.0)
+	config.steps[0].easing_curve = scripted_curve
+	var constructions_before: int = RejectedEasingCurve.constructions
+	var property_reads_before: int = scripted_curve.property_reads
+	var preview: GFTweenPreviewViewport = _preview(config)
+	assert_false(preview.play())
+	assert_eq(RejectedEasingCurve.constructions, constructions_before)
+	assert_eq(scripted_curve.property_reads, property_reads_before)
+	assert_eq(_vector2(preview, "position"), Vector2.ZERO)
+	preview.dispose_preview()
+
+
+func test_easing_curve_preview_bounds_aggregate_point_and_sample_work() -> void:
+	var point_config: GFTweenActionConfig = GFTweenActionConfig.new()
+	for _index: int in range(16):
+		var step: GFTweenActionStep = _step(^"position:x", 1.0, 0.01)
+		step.easing_curve = _many_point_easing_curve(256, 2)
+		point_config.steps.append(step)
+	var point_plan: GFTweenPreviewPlan = GFTweenPreviewPlan.capture(point_config, 0)
+	assert_eq(point_plan.error, "", "Exactly 4096 points must remain admissible.")
+	var extra_step: GFTweenActionStep = _step(^"position:x", 2.0, 0.01)
+	extra_step.easing_curve = _easing_curve(0.25)
+	point_config.steps.append(extra_step)
+	point_plan = GFTweenPreviewPlan.capture(point_config, 0)
+	assert_false(point_plan.error.is_empty())
+	assert_true(point_plan.steps.is_empty())
+	var sample_config: GFTweenActionConfig = GFTweenActionConfig.new()
+	for _index: int in range(64):
+		var step: GFTweenActionStep = _step(^"position:x", 1.0, 0.01)
+		step.easing_curve = _many_point_easing_curve(2, 1000)
+		sample_config.steps.append(step)
+	var sample_plan: GFTweenPreviewPlan = GFTweenPreviewPlan.capture(sample_config, 0)
+	assert_eq(sample_plan.error, "")
+	for _index: int in range(2):
+		var step: GFTweenActionStep = _step(^"position:x", 2.0, 0.01)
+		step.easing_curve = _many_point_easing_curve(2, 1000)
+		sample_config.steps.append(step)
+	sample_plan = GFTweenPreviewPlan.capture(sample_config, 0)
+	assert_false(sample_plan.error.is_empty())
+	assert_true(sample_plan.steps.is_empty())
+
+
 func test_pause_stop_reset_and_replay_have_distinct_observable_effects() -> void:
 	var preview: GFTweenPreviewViewport = _preview(_config(^"position:x", 10.0))
 	assert_true(preview.set_initial_value(&"position", Vector2.ZERO))
@@ -783,6 +1038,42 @@ func test_disposed_panel_rejects_late_control_signals_without_rebuilding_sample(
 
 # --- 私有/辅助方法 ---
 
+func _easing_curve(midpoint_y: float = 0.25) -> Curve:
+	var curve: Curve = Curve.new()
+	curve.min_value = minf(0.0, midpoint_y)
+	curve.max_value = maxf(1.0, midpoint_y)
+	var _first_point: int = curve.add_point(Vector2.ZERO)
+	var _middle_point: int = curve.add_point(Vector2(0.5, midpoint_y))
+	var _last_point: int = curve.add_point(Vector2.ONE)
+	return curve
+
+
+func _many_point_easing_curve(point_count: int, resolution: int) -> Curve:
+	var curve: Curve = Curve.new()
+	curve.bake_resolution = resolution
+	for index: int in range(point_count):
+		var progress: float = float(index) / float(point_count - 1)
+		var _point: int = curve.add_point(Vector2(progress, progress))
+	return curve
+
+
+func _native_easing_tween(target: Node2D, curve: Curve) -> Tween:
+	var native_tween: Tween = target.create_tween()
+	native_tween.pause()
+	var _loops: Tween = native_tween.set_loops(2)
+	var first: PropertyTweener = native_tween.tween_property(target, ^"position:x", 8.0, 0.5)
+	var _first_options: PropertyTweener = first.set_delay(0.25).set_trans(Tween.TRANS_LINEAR)
+	var _first_curve: PropertyTweener = first.set_custom_interpolator(curve.sample_baked)
+	var _parallel: Tween = native_tween.parallel()
+	var second: PropertyTweener = native_tween.tween_property(target, ^"position:y", 4.0, 1.0)
+	var _second_options: PropertyTweener = second.set_trans(Tween.TRANS_LINEAR)
+	var _second_curve: PropertyTweener = second.set_custom_interpolator(curve.sample_baked)
+	var relative: PropertyTweener = native_tween.tween_property(target, ^"position:x", 2.0, 0.5)
+	var _relative_options: PropertyTweener = relative.set_trans(Tween.TRANS_LINEAR).as_relative()
+	var _relative_curve: PropertyTweener = relative.set_custom_interpolator(curve.sample_baked)
+	return native_tween
+
+
 func _native_parallel_relative_tween(target: Node2D) -> Tween:
 	var native_tween: Tween = target.create_tween()
 	native_tween.pause()
@@ -910,6 +1201,20 @@ func _time_input(panel: GFTweenPreviewPanel) -> SpinBox:
 
 
 # --- 内部类 ---
+
+class RejectedEasingCurve:
+	extends Curve
+
+	static var constructions: int = 0
+	var property_reads: int = 0
+
+	func _init() -> void:
+		constructions += 1
+
+	func _get(_property: StringName) -> Variant:
+		property_reads += 1
+		return null
+
 
 class RejectedConfig:
 	extends GFTweenActionConfig

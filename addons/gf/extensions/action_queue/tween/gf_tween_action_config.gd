@@ -166,7 +166,7 @@ func capture_initial_values(target: Object) -> Dictionary:
 		var key: String = String(step.property_name)
 		if key.is_empty() or snapshot.has(key):
 			continue
-		if not step.get_validation_error(target).is_empty():
+		if not step.get_property_validation_error(target).is_empty():
 			continue
 		snapshot[key] = step.capture_initial_value(target)
 	return snapshot
@@ -215,7 +215,9 @@ func get_validation_report(target: Object) -> GFValidationReport:
 ## [br]
 ## @api public
 ## [br]
-## @return 新配置。
+## @since 3.17.0
+## [br]
+## @return 新配置；任一步骤的 easing_curve 无法复制时发出警告并返回 null。
 func duplicate_config() -> GFTweenActionConfig:
 	var config: GFTweenActionConfig = GFTweenActionConfig.new()
 	config.duration_scale = duration_scale
@@ -226,5 +228,11 @@ func duplicate_config() -> GFTweenActionConfig:
 	config.restore_initial_values_on_cancel = restore_initial_values_on_cancel
 	config.restore_initial_values_on_finish = restore_initial_values_on_finish
 	for step: GFTweenActionStep in steps:
-		config.steps.append(step.duplicate_step() if step != null else null)
+		if step == null:
+			config.steps.append(null)
+			continue
+		var copied_step: GFTweenActionStep = step.duplicate_step()
+		if copied_step == null:
+			return null
+		config.steps.append(copied_step)
 	return config
