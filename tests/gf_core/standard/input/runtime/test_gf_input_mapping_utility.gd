@@ -663,6 +663,222 @@ func test_pulse_trigger_repeats_while_raw_input_is_active() -> void:
 	assert_true(_utility.is_action_active(&"repeat"), "达到间隔后应触发一次。")
 
 
+func test_pulse_trigger_keyboard_waits_before_faster_repeats() -> void:
+	var trigger: GFInputPulseTrigger = _make_delayed_pulse_trigger()
+	_utility.enable_context(_make_context(&"menu", [
+		_make_pulse_mapping(&"repeat", KEY_R, trigger),
+	]))
+	_utility.handle_input_event(_make_key_event(KEY_R, true))
+
+	assert_true(_utility.was_action_just_started(&"repeat"), "按下应立即产生开始状态。")
+	assert_true(_utility.consume_action(&"repeat"), "立即脉冲应能消费一次。")
+	assert_false(_utility.consume_action(&"repeat"), "同一脉冲不得重复消费。")
+	_utility.tick(0.25)
+	assert_false(_utility.is_action_active(&"repeat"), "首次等待不能缩短为后续间隔。")
+	assert_false(_utility.consume_action(&"repeat"), "等待期间不得产生可消费动作。")
+	_utility.tick(0.25)
+	assert_true(_utility.was_action_just_started(&"repeat"), "首次等待到期应重新开始。")
+	assert_true(_utility.consume_action(&"repeat"), "首次等待到期应产生重复脉冲。")
+	_utility.tick(0.0625)
+	assert_false(_utility.is_action_active(&"repeat"), "两次周期脉冲之间应结束动作。")
+	_utility.tick(0.0625)
+	assert_true(_utility.consume_action(&"repeat"), "后续重复应使用更短的周期。")
+
+	_utility.handle_input_event(_make_key_event(KEY_R, false))
+	_utility.handle_input_event(_make_key_event(KEY_R, true))
+	assert_true(_utility.consume_action(&"repeat"), "释放后重新按下应再次立即触发。")
+	_utility.tick(0.125)
+	assert_false(_utility.is_action_active(&"repeat"), "重新按下必须重新经历首次等待。")
+
+
+func test_pulse_trigger_virtual_input_can_delay_the_first_pulse() -> void:
+	var trigger: GFInputPulseTrigger = _make_delayed_pulse_trigger(false)
+	_utility.enable_context(_make_context(&"menu", [
+		_make_pulse_mapping(&"repeat", KEY_R, trigger),
+	]))
+	var source: GFVirtualInputSource = _utility.create_virtual_source(&"navigation")
+	assert_true(source.press(&"repeat"))
+	assert_false(_utility.consume_action(&"repeat"), "关闭立即触发时，虚拟输入也应等待。")
+	_utility.tick(0.25)
+	assert_false(_utility.is_action_active(&"repeat"))
+	_utility.tick(0.25)
+	assert_true(_utility.was_action_just_started(&"repeat"))
+	assert_true(_utility.consume_action(&"repeat"), "首个脉冲应在独立等待到期时产生。")
+	_utility.tick(0.0625)
+	_utility.tick(0.0625)
+	assert_true(_utility.consume_action(&"repeat"), "虚拟输入后续也应使用周期参数。")
+	assert_true(source.release(&"repeat"))
+	assert_true(source.press(&"repeat"))
+	_utility.tick(0.125)
+	assert_false(_utility.is_action_active(&"repeat"), "释放必须清理虚拟输入的周期阶段。")
+
+
+func test_pulse_trigger_consecutive_triggered_updates_keep_one_action_start() -> void:
+	var trigger: GFInputPulseTrigger = _make_delayed_pulse_trigger(false)
+	_utility.enable_context(_make_context(&"menu", [
+		_make_pulse_mapping(&"repeat", KEY_R, trigger),
+	]))
+	_utility.handle_input_event(_make_key_event(KEY_R, true))
+	_utility.tick(0.5)
+	assert_true(_utility.was_action_just_started(&"repeat"))
+	assert_true(_utility.consume_action(&"repeat"))
+	for _step: int in range(2):
+		_utility.tick(0.125)
+		assert_true(_utility.is_action_active(&"repeat"), "连续跨周期的更新仍保持动作活跃。")
+		assert_false(_utility.was_action_just_started(&"repeat"), "持续活跃不会为每个脉冲重新产生开始边沿。")
+		assert_false(_utility.consume_action(&"repeat"), "持续活跃不得重复消费同一次开始。")
+	_utility.tick(0.0625)
+	assert_false(_utility.is_action_active(&"repeat"))
+	_utility.tick(0.0625)
+	assert_true(_utility.was_action_just_started(&"repeat"))
+	assert_true(_utility.consume_action(&"repeat"), "动作先结束再触发才产生新的可消费开始。")
+
+
+func test_pulse_trigger_source_configuration_updates_enabled_mapping() -> void:
+	var trigger: GFInputPulseTrigger = _make_delayed_pulse_trigger(false)
+	_utility.enable_context(_make_context(&"menu", [
+		_make_pulse_mapping(&"repeat", KEY_R, trigger),
+	]))
+	_utility.handle_input_event(_make_key_event(KEY_R, true))
+	_utility.tick(0.25)
+	trigger.initial_delay_seconds = 1.0
+	_utility.tick(0.25)
+	assert_false(_utility.is_action_active(&"repeat"), "已启用映射应直接采用资源上延长的首次等待。")
+	trigger.initial_delay_seconds = 0.5
+	_utility.tick(0.125)
+	assert_true(_utility.consume_action(&"repeat"), "缩短来源资源等待无需重建映射即可生效。")
+	trigger.initial_delay_seconds = 4.0
+	_utility.tick(0.0625)
+	assert_false(_utility.is_action_active(&"repeat"))
+	_utility.tick(0.0625)
+	assert_true(_utility.consume_action(&"repeat"), "资源改动不得把已经进入周期的动作重新置于首次等待。")
+
+
+func test_pulse_trigger_context_disable_and_remap_rebuild_restart_waiting() -> void:
+	var trigger: GFInputPulseTrigger = _make_delayed_pulse_trigger(false)
+	var context: GFInputContext = _make_context(&"menu", [
+		_make_pulse_mapping(&"repeat", KEY_R, trigger),
+	])
+	_utility.enable_context(context)
+	_utility.handle_input_event(_make_key_event(KEY_R, true))
+	_utility.tick(0.375)
+	_utility.disable_context(context)
+	_utility.enable_context(context)
+	_utility.handle_input_event(_make_key_event(KEY_R, true))
+	_utility.tick(0.125)
+	assert_false(_utility.is_action_active(&"repeat"), "上下文重新启用不得继承旧等待进度。")
+	_utility.tick(0.375)
+	assert_true(_utility.consume_action(&"repeat"))
+
+	_utility.set_remap_config(null)
+	_utility.handle_input_event(_make_key_event(KEY_R, true))
+	_utility.tick(0.125)
+	assert_false(_utility.is_action_active(&"repeat"), "映射重建不得继承旧周期阶段。")
+	_utility.tick(0.375)
+	assert_true(_utility.consume_action(&"repeat"), "重建后完整首次等待仍能正常到期。")
+
+
+func test_shared_pulse_resource_keeps_actions_and_players_independent() -> void:
+	var trigger: GFInputPulseTrigger = _make_delayed_pulse_trigger(false)
+	_utility.enable_context(_make_context(&"menu", [
+		_make_pulse_mapping(&"first", KEY_R, trigger),
+		_make_pulse_mapping(&"second", KEY_T, trigger),
+	]))
+	var first_player: GFVirtualInputSource = _utility.create_virtual_source(&"first_player", 0)
+	var second_player: GFVirtualInputSource = _utility.create_virtual_source(&"second_player", 1)
+	assert_true(first_player.press(&"first"))
+	_utility.tick(0.25)
+	assert_true(second_player.press(&"first"))
+	assert_true(first_player.press(&"second"))
+	_utility.tick(0.25)
+
+	assert_true(_utility.consume_action_for_player(0, &"first"), "先激活动作应先完成首次等待。")
+	assert_false(_utility.is_action_active_for_player(1, &"first"), "同动作的其他玩家不得继承等待进度。")
+	assert_false(_utility.is_action_active_for_player(0, &"second"), "共享资源的其他动作不得继承等待进度。")
+	assert_true(first_player.release(&"first"))
+	_utility.tick(0.25)
+	assert_true(_utility.consume_action_for_player(1, &"first"), "释放其他玩家输入不得重置本玩家等待。")
+	assert_true(_utility.consume_action_for_player(0, &"second"), "释放其他动作不得重置共享资源的等待。")
+
+
+func test_pulse_trigger_large_delta_preserves_period_remainder_without_backlog() -> void:
+	var trigger: GFInputPulseTrigger = _make_delayed_pulse_trigger()
+	var state: Dictionary = {}
+	trigger.reset_trigger_state(state)
+
+	assert_eq(trigger.update(true, true, 8.0, state), GFInputTrigger.TriggerState.TRIGGERED)
+	assert_eq(trigger.update(true, true, 0.25, state), GFInputTrigger.TriggerState.ONGOING, "立即触发调用的 delta 不得计入首次等待。")
+	assert_eq(trigger.update(true, true, 0.5625, state), GFInputTrigger.TriggerState.TRIGGERED, "跨越首次等待与多个周期仍只返回一次触发。")
+	assert_eq(trigger.update(true, true, 0.0, state), GFInputTrigger.TriggerState.ONGOING, "不得通过零 delta 补发过期脉冲。")
+	assert_eq(trigger.update(true, true, 0.0625, state), GFInputTrigger.TriggerState.TRIGGERED, "跨首次期限后应保留后续周期余数。")
+	assert_eq(trigger.update(true, true, 1.0e308, state), GFInputTrigger.TriggerState.TRIGGERED, "极大有限 delta 仍应有界推进。")
+	assert_eq(trigger.update(true, true, 0.0, state), GFInputTrigger.TriggerState.ONGOING)
+	assert_eq(trigger.update(true, true, 0.125, state), GFInputTrigger.TriggerState.TRIGGERED, "极大 delta 后有限周期仍能正常工作。")
+
+
+func test_pulse_trigger_huge_finite_period_preserves_remainder_without_overflow() -> void:
+	var trigger: GFInputPulseTrigger = _make_delayed_pulse_trigger()
+	trigger.initial_delay_seconds = 0.0
+	trigger.interval_seconds = 1.6e308
+	var state: Dictionary = {}
+	trigger.reset_trigger_state(state)
+
+	assert_eq(trigger.update(true, true, 0.0, state), GFInputTrigger.TriggerState.TRIGGERED)
+	assert_eq(trigger.update(true, true, 1.2e308, state), GFInputTrigger.TriggerState.ONGOING)
+	assert_eq(trigger.update(true, true, 1.2e308, state), GFInputTrigger.TriggerState.TRIGGERED, "有限累计时长超过浮点上限时仍应正常跨期。")
+	assert_eq(trigger.update(true, true, 0.7e308, state), GFInputTrigger.TriggerState.ONGOING)
+	assert_eq(trigger.update(true, true, 0.2e308, state), GFInputTrigger.TriggerState.TRIGGERED, "跨期必须保留巨大有限余数，而不是丢弃或污染进度。")
+
+
+func test_pulse_trigger_zero_initial_delay_coalesces_activation() -> void:
+	for immediate: bool in [true, false]:
+		var trigger: GFInputPulseTrigger = _make_delayed_pulse_trigger(immediate)
+		trigger.initial_delay_seconds = 0.0
+		var state: Dictionary = {}
+		trigger.reset_trigger_state(state)
+
+		assert_eq(trigger.update(true, true, 8.0, state), GFInputTrigger.TriggerState.TRIGGERED, "零等待在激活时只产生一个脉冲。")
+		assert_eq(trigger.update(true, true, 0.0, state), GFInputTrigger.TriggerState.ONGOING, "立即脉冲与零等待不得重复发放。")
+		assert_eq(trigger.update(true, true, 0.0625, state), GFInputTrigger.TriggerState.ONGOING)
+		assert_eq(trigger.update(true, true, 0.0625, state), GFInputTrigger.TriggerState.TRIGGERED, "零等待激活后直接使用周期参数。")
+
+
+func test_pulse_trigger_live_delay_changes_only_affect_waiting_phase() -> void:
+	var trigger: GFInputPulseTrigger = _make_delayed_pulse_trigger(false)
+	var state: Dictionary = {}
+	trigger.reset_trigger_state(state)
+	assert_eq(trigger.update(true, true, 0.25, state), GFInputTrigger.TriggerState.ONGOING)
+	trigger.initial_delay_seconds = 1.0
+	assert_eq(trigger.update(true, true, 0.25, state), GFInputTrigger.TriggerState.ONGOING, "等待中应采用当前首次等待设置。")
+	trigger.initial_delay_seconds = 0.25
+	assert_eq(trigger.update(true, true, 0.0, state), GFInputTrigger.TriggerState.ONGOING, "缩短等待不能通过零 delta 重复评估产生脉冲。")
+	assert_eq(trigger.update(true, true, 0.125, state), GFInputTrigger.TriggerState.TRIGGERED)
+	trigger.initial_delay_seconds = 4.0
+	assert_eq(trigger.update(true, true, 0.125, state), GFInputTrigger.TriggerState.TRIGGERED, "已进入周期后修改首次等待不应重新等待。")
+	trigger.interval_seconds = 0.25
+	assert_eq(trigger.update(true, true, 0.125, state), GFInputTrigger.TriggerState.ONGOING, "周期阶段应使用当前间隔。")
+	assert_eq(trigger.update(true, true, 0.125, state), GFInputTrigger.TriggerState.TRIGGERED)
+	assert_eq(trigger.update(false, false, 0.0, state), GFInputTrigger.TriggerState.INACTIVE)
+	assert_eq(trigger.update(true, true, 0.5, state), GFInputTrigger.TriggerState.ONGOING, "下一次激活才采用新的首次等待。")
+
+
+func test_pulse_trigger_negative_initial_delay_uses_current_interval() -> void:
+	var trigger: GFInputPulseTrigger = GFInputPulseTrigger.new()
+	trigger.trigger_immediately = false
+	trigger.interval_seconds = 0.25
+	var state: Dictionary = {}
+	trigger.reset_trigger_state(state)
+	assert_eq(trigger.initial_delay_seconds, -1.0, "未配置首次等待时应沿用周期。")
+	assert_eq(trigger.update(true, true, 0.125, state), GFInputTrigger.TriggerState.ONGOING)
+	assert_eq(trigger.update(true, true, 0.125, state), GFInputTrigger.TriggerState.TRIGGERED)
+	assert_eq(trigger.update(false, false, 0.0, state), GFInputTrigger.TriggerState.INACTIVE)
+	trigger.initial_delay_seconds = -2.0
+	trigger.interval_seconds = 0.5
+	assert_eq(trigger.initial_delay_seconds, -1.0, "有限负值应规范为沿用周期的同一表示。")
+	assert_eq(trigger.update(true, true, 0.25, state), GFInputTrigger.TriggerState.ONGOING)
+	assert_eq(trigger.update(true, true, 0.25, state), GFInputTrigger.TriggerState.TRIGGERED, "沿用周期应读取当前间隔，而非复制旧值。")
+
+
 func test_pulse_trigger_rejects_nonfinite_delta_and_recovers() -> void:
 	var trigger: GFInputPulseTrigger = GFInputPulseTrigger.new()
 	trigger.interval_seconds = 0.1
@@ -680,6 +896,23 @@ func test_pulse_trigger_rejects_nonfinite_delta_and_recovers() -> void:
 
 	var _released: GFInputTrigger.TriggerState = trigger.update(false, false, 0.0, state)
 	assert_eq(GFVariantData.get_option_float(state, "elapsed"), 0.0, "释放应完整清理受攻击后的时间状态。")
+
+
+func test_pulse_trigger_initial_delay_rejects_nonfinite_values_and_recovers() -> void:
+	var trigger: GFInputPulseTrigger = _make_delayed_pulse_trigger(false)
+	var state: Dictionary = {}
+	trigger.reset_trigger_state(state)
+	assert_eq(trigger.update(true, true, 0.25, state), GFInputTrigger.TriggerState.ONGOING)
+	for invalid_value: float in [NAN, INF, -INF]:
+		trigger.initial_delay_seconds = invalid_value
+		trigger.interval_seconds = invalid_value
+		assert_eq(trigger.initial_delay_seconds, 0.5, "非法首次等待应保留最后有效配置。")
+		assert_eq(trigger.interval_seconds, 0.125, "非法周期应保留最后有效配置。")
+		assert_eq(trigger.update(true, true, invalid_value, state), GFInputTrigger.TriggerState.ONGOING, "非法 delta 不得消耗等待时间。")
+	assert_eq(trigger.update(true, true, -1.0, state), GFInputTrigger.TriggerState.ONGOING)
+	assert_eq(trigger.update(true, true, 0.25, state), GFInputTrigger.TriggerState.TRIGGERED, "非法输入后应保留已有等待进度。")
+	assert_eq(trigger.update(true, true, NAN, state), GFInputTrigger.TriggerState.ONGOING)
+	assert_eq(trigger.update(true, true, 0.125, state), GFInputTrigger.TriggerState.TRIGGERED, "周期阶段也应在非法 delta 后恢复。")
 
 
 ## 验证组合触发器依赖另一个抽象动作，而不是具体按键。
@@ -2749,6 +2982,20 @@ func test_input_conflict_analyzer_separates_joy_axis_positive_and_negative_bindi
 
 
 # --- 私有/辅助方法 ---
+
+func _make_delayed_pulse_trigger(immediate: bool = true) -> GFInputPulseTrigger:
+	var trigger: GFInputPulseTrigger = GFInputPulseTrigger.new()
+	trigger.initial_delay_seconds = 0.5
+	trigger.interval_seconds = 0.125
+	trigger.trigger_immediately = immediate
+	return trigger
+
+
+func _make_pulse_mapping(action_id: StringName, key: Key, trigger: GFInputPulseTrigger) -> GFInputMapping:
+	var mapping: GFInputMapping = _make_mapping(_make_action(action_id), [_make_key_binding(key)])
+	mapping.triggers = [trigger]
+	return mapping
+
 
 func _action_float(action_id: StringName) -> float:
 	return GFVariantData.to_float(_utility.get_action_value(action_id))

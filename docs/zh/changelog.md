@@ -6,6 +6,7 @@
 
 ### 🚀 新增特性 (Added)
 
+- [周期输入脉冲](standard/input-flow/input-assist/input-modifiers-triggers.md#周期脉冲的首次等待) 支持独立首次等待，可在按下立即响应后等待较长时间，再按较短间隔重复；动作和玩家保持独立计时。
 - [配置化 Tween](extensions/action-queue/tween-config.md#自定义缓动曲线) 支持步骤级原生 `Curve`，可制作回弹与超调效果；运行时独立捕获曲线，Inspector 预览与时间定位使用同一配置快照。
 - 新增 [方格视野查询](standard/foundation/grid-spatial/grid-2d-hex/grid-math.md)，通过显式阻挡回调计算有限半径内的可见格，返回稳定顺序与失败诊断；视野不接管地图节点、探索记忆或阵营规则。
 - [Tween Inspector 预览](extensions/action-queue/tween-config.md#在-inspector-中预览) 支持时间滑条与秒数定位，可反复检查同一配置快照的中间姿态和动画终点；定位仅操作工具自有样机，并保持暂停。
@@ -52,6 +53,7 @@
 
 ### 🔧 API 变动说明 (API Changes)
 
+- `GFInputPulseTrigger` 新增 `initial_delay_seconds`，默认 `-1` 沿用 `interval_seconds`，`0` 表示激活当次触发一次。激活时已发出脉冲才忽略当次 delta；每次更新最多返回一个脉冲，不补发跨过的多个周期，也不改变动作开始事件的状态转换语义。
 - 新增 `GFGridVisibilityMath2D.compute_fov()`，显式接收网格范围、观察格、半径和遮挡规则；输入或查询失败时返回空的可见集合，保留既有两点视线查询合同。
 - `GFRepeaterBinder` 的模板同步支持 `identity_callable`，新增 `sync_container()` 提供结构化同步结果；自动刷新失败通过 `synchronization_failed` 通知。稳定 ID 更新验证重复键、克隆所有权和同步重入，不把项目回调副作用作为可回滚事务。
 - 新增 `GFCameraFramingRig2D`。2D Rig 的 `get_camera_pose()` 和 `get_camera_pose_data()` 增加可选 `Camera2D` 参数，Director 显式提供目标相机；自定义覆盖需要同步签名，`gf.camera` 的 `extension_version` 升为 `3.0.0`。

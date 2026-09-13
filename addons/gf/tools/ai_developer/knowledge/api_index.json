@@ -2,7 +2,7 @@
   "schema_version": 2,
   "catalog_version": "2.0.0",
   "framework_version": "12.0.0-dev.0",
-  "source_digest": "0a663ed8bad9264ed6f88c1f5a2f9860a946b23bd1f9425b9d5b706e5d74a1f0",
+  "source_digest": "a615998ba32b69370e0cd42d5ceb2bf6595b1e6bf2eded923ef1d148af4ee8b6",
   "class_count": 859,
   "autoload_count": 1,
   "package_count": 59,
@@ -43003,9 +43003,16 @@
         },
         {
           "kind": "var",
+          "name": "initial_delay_seconds",
+          "signature": "var initial_delay_seconds: float = -1.0",
+          "summary": "首次周期脉冲的等待秒数，从输入激活时开始计时；有限负值统一存为 -1，表示使用 interval_seconds。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
           "name": "trigger_immediately",
           "signature": "var trigger_immediately: bool = true",
-          "summary": "输入首次变为活跃时是否立即触发。",
+          "summary": "输入首次变为活跃时是否立即触发；initial_delay_seconds 为 0 时始终在激活时触发一次。",
           "visibility": "public"
         },
         {
@@ -43019,7 +43026,7 @@
           "kind": "func",
           "name": "update",
           "signature": "func update(raw_active: bool, _value: Variant, delta: float, state: Dictionary) -> TriggerState",
-          "summary": "更新运行时状态。",
+          "summary": "更新运行时状态；每次最多返回一个脉冲，跨期只保留周期余数，不补发历史脉冲。",
           "visibility": "public"
         }
       ]

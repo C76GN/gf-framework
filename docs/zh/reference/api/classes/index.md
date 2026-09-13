@@ -7,7 +7,7 @@
 | 模块 | 类 | 成员 | 页面内索引 |
 |---|---:|---:|---|
 | Kernel | 78 | 1137 | [Kernel](#module-kernel) |
-| Standard | 480 | 7576 | [Standard](#module-standard) |
+| Standard | 480 | 7577 | [Standard](#module-standard) |
 | Action Queue | 16 | 215 | [Action Queue](#module-extensions-action_queue) |
 | Asset Metadata | 4 | 33 | [Asset Metadata](#module-extensions-asset_metadata) |
 | Behavior Tree | 22 | 89 | [Behavior Tree](#module-extensions-behavior_tree) |
@@ -392,7 +392,7 @@
 | [`GFInputNormalizeModifier`](GFInputNormalizeModifier.md#gfinputnormalizemodifier) | 资源定义 (`resource_definition`) | `GFInputModifier` | 3 | `addons/gf/standard/input/modifiers/gf_input_normalize_modifier.gd` |
 | [`GFInputPressedTrigger`](GFInputPressedTrigger.md#gfinputpressedtrigger) | 资源定义 (`resource_definition`) | `GFInputTrigger` | 2 | `addons/gf/standard/input/triggers/gf_input_pressed_trigger.gd` |
 | [`GFInputProfileBank`](GFInputProfileBank.md#gfinputprofilebank) | 资源定义 (`resource_definition`) | `Resource` | 16 | `addons/gf/standard/input/mapping/gf_input_profile_bank.gd` |
-| [`GFInputPulseTrigger`](GFInputPulseTrigger.md#gfinputpulsetrigger) | 资源定义 (`resource_definition`) | `GFInputTrigger` | 4 | `addons/gf/standard/input/triggers/gf_input_pulse_trigger.gd` |
+| [`GFInputPulseTrigger`](GFInputPulseTrigger.md#gfinputpulsetrigger) | 资源定义 (`resource_definition`) | `GFInputTrigger` | 5 | `addons/gf/standard/input/triggers/gf_input_pulse_trigger.gd` |
 | [`GFInputReleasedTrigger`](GFInputReleasedTrigger.md#gfinputreleasedtrigger) | 资源定义 (`resource_definition`) | `GFInputTrigger` | 2 | `addons/gf/standard/input/triggers/gf_input_released_trigger.gd` |
 | [`GFInputRemapConfig`](GFInputRemapConfig.md#gfinputremapconfig) | 资源定义 (`resource_definition`) | `Resource` | 13 | `addons/gf/standard/input/rebinding/gf_input_remap_config.gd` |
 | [`GFInputScaleModifier`](GFInputScaleModifier.md#gfinputscalemodifier) | 资源定义 (`resource_definition`) | `GFInputModifier` | 5 | `addons/gf/standard/input/modifiers/gf_input_scale_modifier.gd` |
