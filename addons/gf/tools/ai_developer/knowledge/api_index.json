@@ -2,7 +2,7 @@
   "schema_version": 2,
   "catalog_version": "2.0.0",
   "framework_version": "12.0.0-dev.0",
-  "source_digest": "a615998ba32b69370e0cd42d5ceb2bf6595b1e6bf2eded923ef1d148af4ee8b6",
+  "source_digest": "b75c350883fcbce6dc318b33406654b05c657e6c7b2dcd44b5003bd6983cc168",
   "class_count": 859,
   "autoload_count": 1,
   "package_count": 59,
@@ -20925,6 +20925,13 @@
         },
         {
           "kind": "var",
+          "name": "element_validation_rules",
+          "signature": "var element_validation_rules: Array[GFConfigValidationRule] = []",
+          "summary": "一维 Array 的逐元素值规则；仅可用于 ValueType.ARRAY，不改变 validation_rules 的整值语义。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
           "name": "metadata",
           "signature": "var metadata: Dictionary = {}",
           "summary": "可选元数据，供编辑器、导入器或项目层扩展使用。",
@@ -21948,6 +21955,20 @@
           "name": "max_resource_path_checks_per_validation",
           "signature": "var max_resource_path_checks_per_validation: int = 1024",
           "summary": "单次记录或整表校验最多执行的唯一资源路径存在性探测数。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "max_elements_per_validation",
+          "signature": "var max_elements_per_validation: int = 4096",
+          "summary": "单次记录或整表校验可准入的数组元素总数，跨字段及记录共享。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "max_element_rule_checks_per_validation",
+          "signature": "var max_element_rule_checks_per_validation: int = 16384",
+          "summary": "单次记录或整表校验可准入的元素规则调用数，按数组长度乘以启用规则数预留。",
           "visibility": "public"
         },
         {
@@ -90690,30 +90711,37 @@
           "visibility": "public"
         },
         {
+          "kind": "enum",
+          "name": "PreviewMode",
+          "signature": "enum PreviewMode {\n\t## 只读取受支持节点的原生视觉属性，不复制脚本、连接或分组。\n\tSTATIC,\n\t## 复制调用方提供的可信预览节点，允许脚本及原生生命周期执行；不是沙箱。\n\tTRUSTED_DYNAMIC,\n}",
+          "summary": "节点预览副本的执行边界。",
+          "visibility": "public"
+        },
+        {
           "kind": "func",
           "name": "for_node3d_image",
-          "signature": "static func for_node3d_image( source: Node3D, size: Vector2i = Vector2i(256, 256), transparent: bool = true ) -> GFThumbnailRenderRequest",
+          "signature": "static func for_node3d_image( source: Node3D, size: Vector2i = Vector2i(256, 256), transparent: bool = true, preview_mode: PreviewMode = PreviewMode.STATIC ) -> GFThumbnailRenderRequest",
           "summary": "创建 Node3D Image 渲染请求。",
           "visibility": "public"
         },
         {
           "kind": "func",
           "name": "for_node3d_texture",
-          "signature": "static func for_node3d_texture( source: Node3D, size: Vector2i = Vector2i(256, 256), transparent: bool = true ) -> GFThumbnailRenderRequest",
+          "signature": "static func for_node3d_texture( source: Node3D, size: Vector2i = Vector2i(256, 256), transparent: bool = true, preview_mode: PreviewMode = PreviewMode.STATIC ) -> GFThumbnailRenderRequest",
           "summary": "创建 Node3D ImageTexture 渲染请求。",
           "visibility": "public"
         },
         {
           "kind": "func",
           "name": "for_canvas_item_image",
-          "signature": "static func for_canvas_item_image( source: CanvasItem, size: Vector2i = Vector2i(256, 256), transparent: bool = true, content_bounds: Rect2 = Rect2(), margin_ratio: float = 0.08 ) -> GFThumbnailRenderRequest",
+          "signature": "static func for_canvas_item_image( source: CanvasItem, size: Vector2i = Vector2i(256, 256), transparent: bool = true, content_bounds: Rect2 = Rect2(), margin_ratio: float = 0.08, preview_mode: PreviewMode = PreviewMode.STATIC ) -> GFThumbnailRenderRequest",
           "summary": "创建 CanvasItem Image 渲染请求。",
           "visibility": "public"
         },
         {
           "kind": "func",
           "name": "for_canvas_item_texture",
-          "signature": "static func for_canvas_item_texture( source: CanvasItem, size: Vector2i = Vector2i(256, 256), transparent: bool = true, content_bounds: Rect2 = Rect2(), margin_ratio: float = 0.08 ) -> GFThumbnailRenderRequest",
+          "signature": "static func for_canvas_item_texture( source: CanvasItem, size: Vector2i = Vector2i(256, 256), transparent: bool = true, content_bounds: Rect2 = Rect2(), margin_ratio: float = 0.08, preview_mode: PreviewMode = PreviewMode.STATIC ) -> GFThumbnailRenderRequest",
           "summary": "创建 CanvasItem ImageTexture 渲染请求。",
           "visibility": "public"
         },
@@ -90743,6 +90771,13 @@
           "name": "get_kind",
           "signature": "func get_kind() -> Kind",
           "summary": "返回请求类型。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_preview_mode",
+          "signature": "func get_preview_mode() -> PreviewMode",
+          "summary": "返回节点副本的预览执行模式。",
           "visibility": "public"
         },
         {
@@ -91004,7 +91039,7 @@
       "module": "kernel",
       "package_id": "gf.kernel",
       "path": "addons/gf/kernel/editor/gf_thumbnail_renderer.gd",
-      "summary": "GFThumbnailRenderer: 编辑器缩略图渲染辅助节点。 使用独立 SubViewport 渲染 CanvasItem、Node3D 或 Mesh，供项目自定义编辑器工具复用。",
+      "summary": "GFThumbnailRenderer: 编辑器缩略图渲染辅助节点。 使用独立 SubViewport 渲染 CanvasItem、Node3D 或 Mesh，供项目自定义编辑器工具复用。 默认仅快照受支持节点的原生视觉属性，资源只读共享；复杂运行时视觉和脚本自绘",
       "visibility": "public",
       "category": "editor_api",
       "since": "3.17.0",
@@ -91033,28 +91068,28 @@
         {
           "kind": "func",
           "name": "render_node3d",
-          "signature": "func render_node3d(source: Node3D, size: Vector2i = Vector2i(256, 256), transparent: bool = true) -> Image",
+          "signature": "func render_node3d( source: Node3D, size: Vector2i = Vector2i(256, 256), transparent: bool = true, preview_mode: GFThumbnailRenderRequest.PreviewMode = GFThumbnailRenderRequest.PreviewMode.STATIC ) -> Image",
           "summary": "渲染一个 3D 节点缩略图。",
           "visibility": "public"
         },
         {
           "kind": "func",
           "name": "render_node3d_texture",
-          "signature": "func render_node3d_texture( source: Node3D, size: Vector2i = Vector2i(256, 256), transparent: bool = true ) -> ImageTexture",
+          "signature": "func render_node3d_texture( source: Node3D, size: Vector2i = Vector2i(256, 256), transparent: bool = true, preview_mode: GFThumbnailRenderRequest.PreviewMode = GFThumbnailRenderRequest.PreviewMode.STATIC ) -> ImageTexture",
           "summary": "渲染一个 3D 节点缩略图纹理。",
           "visibility": "public"
         },
         {
           "kind": "func",
           "name": "render_canvas_item",
-          "signature": "func render_canvas_item( source: CanvasItem, size: Vector2i = Vector2i(256, 256), transparent: bool = true, content_bounds: Rect2 = Rect2(), margin_ratio: float = 0.08 ) -> Image",
+          "signature": "func render_canvas_item( source: CanvasItem, size: Vector2i = Vector2i(256, 256), transparent: bool = true, content_bounds: Rect2 = Rect2(), margin_ratio: float = 0.08, preview_mode: GFThumbnailRenderRequest.PreviewMode = GFThumbnailRenderRequest.PreviewMode.STATIC ) -> Image",
           "summary": "渲染一个 CanvasItem 缩略图。",
           "visibility": "public"
         },
         {
           "kind": "func",
           "name": "render_canvas_item_texture",
-          "signature": "func render_canvas_item_texture( source: CanvasItem, size: Vector2i = Vector2i(256, 256), transparent: bool = true, content_bounds: Rect2 = Rect2(), margin_ratio: float = 0.08 ) -> ImageTexture",
+          "signature": "func render_canvas_item_texture( source: CanvasItem, size: Vector2i = Vector2i(256, 256), transparent: bool = true, content_bounds: Rect2 = Rect2(), margin_ratio: float = 0.08, preview_mode: GFThumbnailRenderRequest.PreviewMode = GFThumbnailRenderRequest.PreviewMode.STATIC ) -> ImageTexture",
           "summary": "渲染一个 CanvasItem 缩略图纹理。",
           "visibility": "public"
         },

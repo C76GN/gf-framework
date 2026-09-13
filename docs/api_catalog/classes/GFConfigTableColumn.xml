@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFConfigTableColumn" path="addons/gf/standard/utilities/config/gf_config_table_column.gd" module="standard" extends="Resource" classDigest="863e02e6e7f15445634d126d480907011924f9ae7e6994b480c8c083bd73077e">
+<class name="GFConfigTableColumn" path="addons/gf/standard/utilities/config/gf_config_table_column.gd" module="standard" extends="Resource" classDigest="045863ccc5e2c3cd59e11d66e04c735502141f8bb0cf8ca225007d26c1a272fa">
 	<description>GFConfigTableColumn: 导表字段声明。
 只描述字段名、值类型、必填性、空值策略和默认值，不绑定任何具体业务表。</description>
 	<tags>
@@ -86,6 +86,18 @@
 				<tag name="schema">validation_rules: Array，包含作用于当前字段的 GFConfigValidationRule 资源。</tag>
 			</tags>
 		</member>
+		<member kind="property" name="element_validation_rules" decorators="@export">
+			<signature>var element_validation_rules: Array[GFConfigValidationRule] = []</signature>
+			<description>一维 Array 的逐元素值规则；仅可用于 ValueType.ARRAY，不改变 validation_rules 的整值语义。
+缺失字段及容器 null 沿用 required/allow_null；元素 null 交由各规则的 allow_null 判断。
+只执行启用规则，不转换元素类型，不接受嵌套集合、Object、Callable、Signal 或 RID 元素。
+空列表或全部停用时不遍历元素；最多声明 64 条规则。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="schema">element_validation_rules: Array[GFConfigValidationRule]，按原数组下标和声明顺序执行的规则资源；问题保留 field 并附加零基 element_index。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
 		<member kind="property" name="metadata" decorators="@export">
 			<signature>var metadata: Dictionary = {}</signature>
 			<description>可选元数据，供编辑器、导入器或项目层扩展使用。</description>
@@ -150,7 +162,8 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">字段声明字典。</tag>
-				<tag name="schema">return: Dictionary，包含 field_name、value_type、required、allow_null、default_value、validation_rules 和 metadata。</tag>
+				<tag name="schema">return: Dictionary，包含 field_name、value_type、required、allow_null、default_value、validation_rules、element_validation_rules 和 metadata。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 	</methods>

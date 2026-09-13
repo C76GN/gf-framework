@@ -2,7 +2,446 @@
 extends GutTest
 
 
+# --- 常量 ---
+
+const SCRIPTED_NODE2D_SCRIPT = preload(
+	"res://tests/gf_core/kernel/editor/fixtures/gf_thumbnail_scripted_node2d.gd"
+)
+const SCRIPTED_NODE3D_SCRIPT = preload(
+	"res://tests/gf_core/kernel/editor/fixtures/gf_thumbnail_scripted_node3d.gd"
+)
+const SCRIPTED_MATERIAL_SCRIPT = preload(
+	"res://tests/gf_core/kernel/editor/fixtures/gf_thumbnail_scripted_material.gd"
+)
+
+
 # --- 测试方法 ---
+
+func test_default_canvas_thumbnail_does_not_construct_or_run_root_and_nested_scripts() -> void:
+	var renderer: GFThumbnailRenderer = GFThumbnailRenderer.new()
+	add_child(renderer)
+	var source: SCRIPTED_NODE2D_SCRIPT = SCRIPTED_NODE2D_SCRIPT.new()
+	var nested: SCRIPTED_NODE2D_SCRIPT = SCRIPTED_NODE2D_SCRIPT.new()
+	var shared_material: StandardMaterial3D = StandardMaterial3D.new()
+	shared_material.albedo_color = Color.BLUE
+	source.shared_material = shared_material
+	nested.shared_material = shared_material
+	source.add_child(nested)
+	SCRIPTED_NODE2D_SCRIPT.reset_observations()
+
+	var _image: Image = await renderer.render_canvas_item(
+		source, Vector2i(16, 16), true, Rect2(0.0, 0.0, 8.0, 8.0)
+	)
+
+	assert_eq(SCRIPTED_NODE2D_SCRIPT.initialized_count, 0, "静态副本不得构造根或嵌套节点脚本。")
+	assert_eq(SCRIPTED_NODE2D_SCRIPT.entered_count, 0, "静态副本不得执行脚本 _enter_tree。")
+	assert_eq(SCRIPTED_NODE2D_SCRIPT.ready_count, 0, "静态副本不得执行脚本 _ready。")
+	assert_eq(SCRIPTED_NODE2D_SCRIPT.getter_count, 0, "静态读取不得触发源脚本的导出 getter。")
+	assert_eq(SCRIPTED_NODE2D_SCRIPT.property_list_count, 0, "静态读取不得枚举源脚本动态属性。")
+	assert_eq(shared_material.albedo_color, Color.BLUE, "预览不得通过脚本写回共享资源。")
+	assert_eq(renderer._canvas_root.get_child_count(), 1, "完成后应释放临时静态副本。")
+	source.free()
+	renderer.queue_free()
+	await get_tree().process_frame
+
+
+func test_default_node3d_thumbnail_does_not_construct_or_run_root_and_nested_scripts() -> void:
+	var renderer: GFThumbnailRenderer = GFThumbnailRenderer.new()
+	add_child(renderer)
+	var source: SCRIPTED_NODE3D_SCRIPT = SCRIPTED_NODE3D_SCRIPT.new()
+	var nested: SCRIPTED_NODE3D_SCRIPT = SCRIPTED_NODE3D_SCRIPT.new()
+	var shared_material: StandardMaterial3D = StandardMaterial3D.new()
+	shared_material.albedo_color = Color.BLUE
+	source.shared_material = shared_material
+	nested.shared_material = shared_material
+	source.add_child(nested)
+	SCRIPTED_NODE3D_SCRIPT.reset_observations()
+
+	var _image: Image = await renderer.render_node3d(source, Vector2i(16, 16))
+
+	assert_eq(SCRIPTED_NODE3D_SCRIPT.initialized_count, 0, "静态副本不得构造根或嵌套节点脚本。")
+	assert_eq(SCRIPTED_NODE3D_SCRIPT.entered_count, 0, "静态副本不得执行脚本 _enter_tree。")
+	assert_eq(SCRIPTED_NODE3D_SCRIPT.ready_count, 0, "静态副本不得执行脚本 _ready。")
+	assert_eq(shared_material.albedo_color, Color.BLUE, "预览不得通过脚本写回共享资源。")
+	assert_eq(renderer._world_root.get_child_count(), 3, "完成后应只保留相机和灯光。")
+	source.free()
+	renderer.queue_free()
+	await get_tree().process_frame
+
+
+func test_static_copy_does_not_inherit_persistent_connections_or_groups() -> void:
+	var renderer: GFThumbnailRenderer = GFThumbnailRenderer.new()
+	add_child(renderer)
+	var source: Node2D = Node2D.new()
+	var entered_count: Array[int] = [0]
+	var entered_callback: Callable = func() -> void:
+		entered_count[0] += 1
+	var _connected: Error = source.tree_entered.connect(entered_callback, CONNECT_PERSIST) as Error
+	source.add_to_group(&"gf_thumbnail_source_group", true)
+	var copy: Node = renderer._create_render_instance(source, GFThumbnailRenderRequest.PreviewMode.STATIC)
+
+	assert_not_null(copy, "普通 Node2D 应支持静态副本。")
+	if copy != null:
+		assert_false(copy.is_in_group(&"gf_thumbnail_source_group"), "副本不得参与来源的业务分组。")
+		renderer._canvas_root.add_child(copy)
+		assert_eq(entered_count[0], 0, "副本入树不得调用来源的外部持久信号连接。")
+		renderer._free_render_instance(copy)
+	assert_true(source.is_in_group(&"gf_thumbnail_source_group"), "来源分组应保持。")
+	assert_true(source.tree_entered.is_connected(entered_callback), "来源信号连接应保持。")
+	source.free()
+	renderer.queue_free()
+	await get_tree().process_frame
+
+
+func test_static_button_copy_preserves_pressed_visual_without_joining_source_group() -> void:
+	var renderer: GFThumbnailRenderer = GFThumbnailRenderer.new()
+	var source: Button = Button.new()
+	var group: ButtonGroup = ButtonGroup.new()
+	source.toggle_mode = true
+	source.button_group = group
+	source.button_pressed = true
+	var copy: Node = renderer._create_render_instance(source, GFThumbnailRenderRequest.PreviewMode.STATIC)
+
+	assert_true(copy is Button, "静态按钮应保留原生视觉类型。")
+	assert_eq(group.get_buttons(), [source], "副本不能注册到来源 ButtonGroup。")
+	assert_true(source.button_pressed, "副本不能改变来源的选中状态。")
+	if copy is Button:
+		var button_copy: Button = copy
+		assert_null(button_copy.button_group, "副本不得保留外部行为关联。")
+		assert_true(button_copy.toggle_mode, "副本应保留切换按钮外观。")
+		assert_true(button_copy.button_pressed, "副本应保留当前按下外观。")
+	if copy != null:
+		copy.free()
+	assert_eq(group.get_buttons(), [source], "释放副本后来源分组也应保持。")
+	source.free()
+	renderer.free()
+
+
+func test_static_foldable_copy_preserves_expanded_visual_without_joining_source_group() -> void:
+	var renderer: GFThumbnailRenderer = GFThumbnailRenderer.new()
+	var source: FoldableContainer = FoldableContainer.new()
+	var group: FoldableGroup = FoldableGroup.new()
+	source.folded = false
+	source.foldable_group = group
+	var copy: Node = renderer._create_render_instance(source, GFThumbnailRenderRequest.PreviewMode.STATIC)
+
+	assert_true(copy is FoldableContainer, "静态折叠容器应保留原生视觉类型。")
+	assert_eq(group.get_containers(), [source], "副本不能注册到来源 FoldableGroup。")
+	assert_same(group.get_expanded_container(), source, "副本不能替换来源组的展开容器。")
+	assert_false(source.folded, "副本不能改变来源的展开状态。")
+	if copy is FoldableContainer:
+		var container_copy: FoldableContainer = copy
+		assert_null(container_copy.foldable_group, "副本不得保留外部折叠分组。")
+		assert_false(container_copy.folded, "副本应保留当前展开外观。")
+	if copy != null:
+		copy.free()
+	assert_eq(group.get_containers(), [source], "释放副本后来源折叠分组也应保持。")
+	source.free()
+	renderer.free()
+
+
+func test_static_copy_neutralizes_native_autoplay_and_external_transform_writes() -> void:
+	var renderer: GFThumbnailRenderer = GFThumbnailRenderer.new()
+	add_child(renderer)
+	var external_target: Node3D = Node3D.new()
+	add_child(external_target)
+	external_target.position = Vector3(7.0, 8.0, 9.0)
+	var source: Node3D = Node3D.new()
+	var mesh_instance: MeshInstance3D = MeshInstance3D.new()
+	mesh_instance.name = "Mesh"
+	mesh_instance.mesh = BoxMesh.new()
+	var shared_material: StandardMaterial3D = StandardMaterial3D.new()
+	shared_material.albedo_color = Color.BLUE
+	mesh_instance.material_override = shared_material
+	source.add_child(mesh_instance)
+	var player: AnimationPlayer = AnimationPlayer.new()
+	player.name = "Animation"
+	var animation: Animation = Animation.new()
+	var track: int = animation.add_track(Animation.TYPE_VALUE)
+	animation.track_set_path(track, NodePath("Mesh:material_override:albedo_color"))
+	var _inserted: int = animation.track_insert_key(track, 0.0, Color.RED)
+	var library: AnimationLibrary = AnimationLibrary.new()
+	var _added_animation: Error = library.add_animation(&"mutate", animation)
+	var _added_library: Error = player.add_animation_library(&"", library)
+	player.autoplay = "mutate"
+	source.add_child(player)
+	var timer: Timer = Timer.new()
+	timer.name = "Timer"
+	timer.autostart = true
+	source.add_child(timer)
+	var remote: RemoteTransform3D = RemoteTransform3D.new()
+	remote.name = "Remote"
+	remote.position = Vector3(90.0, 80.0, 70.0)
+	remote.remote_path = external_target.get_path()
+	source.add_child(remote)
+	var copy: Node = renderer._create_render_instance(source, GFThumbnailRenderRequest.PreviewMode.STATIC)
+
+	assert_not_null(copy, "行为节点应转为静态层级载体并保留可见子节点。")
+	if copy != null:
+		renderer._world_root.add_child(copy)
+		await get_tree().process_frame
+		assert_eq(shared_material.albedo_color, Color.BLUE, "自动播放不得写回共享材质。")
+		assert_eq(external_target.position, Vector3(7.0, 8.0, 9.0), "远程变换不得写入预览树外的节点。")
+		var copied_timer: Node = copy.get_node_or_null("Timer")
+		assert_not_null(copied_timer, "静态载体应保留层级名称。")
+		assert_false(copied_timer is Timer, "静态层级中不应保留可自动启动的 Timer。")
+		var copied_mesh: Node = copy.get_node_or_null("Mesh")
+		assert_true(copied_mesh is MeshInstance3D, "静态副本应保留命名的 Mesh 节点。")
+		if copied_mesh is MeshInstance3D:
+			var mesh_copy: MeshInstance3D = copied_mesh
+			assert_same(mesh_copy.material_override, shared_material, "静态资源应只读共享，避免任意深复制。")
+		renderer._free_render_instance(copy)
+	assert_eq(player.autoplay, "mutate", "来源的动画配置应保持。")
+	assert_true(timer.autostart, "来源的自动启动配置应保持。")
+	assert_eq(remote.remote_path, external_target.get_path(), "来源的外部关联应保持。")
+	source.free()
+	external_target.queue_free()
+	renderer.queue_free()
+	await get_tree().process_frame
+
+
+func test_static_copy_keeps_animated_sprite_current_frame_without_autoplay() -> void:
+	var renderer: GFThumbnailRenderer = GFThumbnailRenderer.new()
+	var source: AnimatedSprite2D = AnimatedSprite2D.new()
+	var frames: SpriteFrames = SpriteFrames.new()
+	var image: Image = Image.create(4, 4, false, Image.FORMAT_RGBA8)
+	image.fill(Color.WHITE)
+	frames.add_frame(&"default", ImageTexture.create_from_image(image))
+	frames.add_frame(&"default", ImageTexture.create_from_image(image))
+	source.sprite_frames = frames
+	source.autoplay = "default"
+	source.frame = 1
+	var copy: Node = renderer._create_render_instance(source, GFThumbnailRenderRequest.PreviewMode.STATIC)
+
+	assert_true(copy is AnimatedSprite2D, "静态帧应保留原生 Sprite 绘制能力。")
+	if copy is AnimatedSprite2D:
+		var sprite_copy: AnimatedSprite2D = copy
+		assert_eq(sprite_copy.frame, 1, "副本应保持当前帧。")
+		assert_eq(sprite_copy.autoplay, "", "副本入树前必须去除自动播放。")
+		assert_false(sprite_copy.is_playing(), "副本不应启动播放。")
+	if copy != null:
+		copy.free()
+	source.free()
+	renderer.free()
+
+
+func test_static_request_rejects_complex_visuals_and_continues_queue() -> void:
+	var renderer: GFThumbnailRenderer = GFThumbnailRenderer.new()
+	add_child(renderer)
+	var unsupported: Node3D = Node3D.new()
+	var particles: GPUParticles3D = GPUParticles3D.new()
+	particles.name = "UnsupportedParticles"
+	unsupported.add_child(particles)
+	var supported: MeshInstance3D = MeshInstance3D.new()
+	supported.mesh = BoxMesh.new()
+	var rejected: GFThumbnailRenderTask = renderer.submit_render_request(
+		GFThumbnailRenderRequest.for_node3d_image(unsupported, Vector2i(16, 16))
+	)
+	var following: GFThumbnailRenderTask = renderer.submit_render_request(
+		GFThumbnailRenderRequest.for_node3d_image(supported, Vector2i(16, 16))
+	)
+	var _rejected_result: Variant = await rejected.wait_completed()
+	var _following_result: Variant = await following.wait_completed()
+
+	assert_true(rejected.is_failed(), "不支持的运行时视觉应失败，不能悄悄执行。")
+	assert_true(rejected.get_error().contains("UnsupportedParticles"), "失败应定位不支持的节点。")
+	assert_true(rejected.get_error().contains("GPUParticles3D"), "失败应解释原生类型边界。")
+	assert_true(following.is_finished(), "前一请求失败不应阻塞后续队列。")
+	assert_false(following.get_error().contains("Static thumbnail"), "静态构建错误不能泄漏到下一请求。")
+	assert_eq(renderer._world_root.get_child_count(), 3, "失败和完成路径都不应遗留副本。")
+	unsupported.free()
+	supported.free()
+	renderer.queue_free()
+	await get_tree().process_frame
+
+
+func test_static_copy_rejects_multimesh_nodes_that_write_shared_interpolation_state() -> void:
+	var renderer: GFThumbnailRenderer = GFThumbnailRenderer.new()
+	var sources: Array[Node] = [MultiMeshInstance2D.new(), MultiMeshInstance3D.new()]
+	for source: Node in sources:
+		var copy: Node = renderer._create_render_instance(source, GFThumbnailRenderRequest.PreviewMode.STATIC)
+		assert_null(copy, "MultiMesh 节点入树会更新共享资源状态，静态模式应明确拒绝。")
+		assert_true(renderer._render_error.contains(source.get_class()), "失败应解释不支持的原生类型。")
+		if copy != null:
+			copy.free()
+		source.free()
+	renderer.free()
+
+
+func test_static_request_rejects_scripted_resource_without_constructing_another_instance() -> void:
+	var renderer: GFThumbnailRenderer = GFThumbnailRenderer.new()
+	add_child(renderer)
+	var source: MeshInstance3D = MeshInstance3D.new()
+	source.mesh = BoxMesh.new()
+	var material: SCRIPTED_MATERIAL_SCRIPT = SCRIPTED_MATERIAL_SCRIPT.new()
+	source.material_override = material
+	SCRIPTED_MATERIAL_SCRIPT.initialized_count = 0
+	var task: GFThumbnailRenderTask = renderer.submit_render_request(
+		GFThumbnailRenderRequest.for_node3d_image(source, Vector2i(16, 16))
+	)
+	var _result: Variant = await task.wait_completed()
+
+	assert_true(task.is_failed(), "静态模式应拒绝直接绑定的脚本资源。")
+	assert_true(task.get_error().contains("material_override"), "资源失败应定位原生视觉属性。")
+	assert_eq(SCRIPTED_MATERIAL_SCRIPT.initialized_count, 0, "检查资源不能通过 duplicate 再构造脚本。")
+	assert_same(source.material_override, material, "来源资源绑定应保持。")
+	source.free()
+	renderer.queue_free()
+	await get_tree().process_frame
+
+
+func test_trusted_dynamic_mode_preserves_preview_scripts_and_custom_draw() -> void:
+	var renderer: GFThumbnailRenderer = GFThumbnailRenderer.new()
+	add_child(renderer)
+	var source: SCRIPTED_NODE2D_SCRIPT = SCRIPTED_NODE2D_SCRIPT.new()
+	SCRIPTED_NODE2D_SCRIPT.reset_observations()
+	var request: GFThumbnailRenderRequest = GFThumbnailRenderRequest.for_canvas_item_image(
+		source, Vector2i(24, 24), true, Rect2(0.0, 0.0, 8.0, 8.0), 0.0,
+		GFThumbnailRenderRequest.PreviewMode.TRUSTED_DYNAMIC
+	)
+	var task: GFThumbnailRenderTask = renderer.submit_render_request(request)
+	var result: Variant = await task.wait_completed()
+
+	assert_eq(request.get_preview_mode(), GFThumbnailRenderRequest.PreviewMode.TRUSTED_DYNAMIC)
+	assert_gt(SCRIPTED_NODE2D_SCRIPT.initialized_count, 0, "显式可信动态模式应保留脚本构造。")
+	assert_eq(SCRIPTED_NODE2D_SCRIPT.ready_count, 1, "显式可信动态模式应允许预览节点 ready。")
+	if result is Image:
+		var image: Image = result
+		_assert_visible_pixels(image, "可信动态预览应保留自定义 _draw。")
+	else:
+		assert_eq(DisplayServer.get_name(), "headless", "真实渲染后端应生成动态预览。")
+	assert_eq(renderer._canvas_root.get_child_count(), 1, "动态副本也必须释放。")
+	source.free()
+	renderer.queue_free()
+	await get_tree().process_frame
+
+
+func test_static_render_preserves_basic_control_and_mesh_visuals() -> void:
+	var renderer: GFThumbnailRenderer = GFThumbnailRenderer.new()
+	add_child(renderer)
+	var control: ColorRect = ColorRect.new()
+	control.size = Vector2(8.0, 8.0)
+	control.color = Color.GREEN
+	var control_image: Image = await renderer.render_canvas_item(
+		control, Vector2i(24, 24), true, Rect2(0.0, 0.0, 8.0, 8.0), 0.0
+	)
+	_assert_visible_pixels(control_image, "静态 Control 快照应保留矩形和颜色。")
+	var mesh: BoxMesh = BoxMesh.new()
+	var mesh_image: Image = await renderer.render_mesh(mesh, Vector2i(24, 24))
+	_assert_visible_pixels(mesh_image, "静态 Mesh 快照应保留可见几何。")
+	assert_true(renderer._viewport.world_2d != get_viewport().world_2d, "2D 预览应使用独立 World2D。")
+	assert_true(renderer._viewport.gui_disable_input, "预览 Viewport 不应接收 GUI 输入。")
+	control.free()
+	renderer.queue_free()
+	await get_tree().process_frame
+
+
+func test_static_copy_rejects_deep_hierarchy_before_exhausting_the_script_stack() -> void:
+	var renderer: GFThumbnailRenderer = GFThumbnailRenderer.new()
+	var source: Node2D = Node2D.new()
+	var parent: Node = source
+	for _index: int in 140:
+		var child: Node2D = Node2D.new()
+		parent.add_child(child)
+		parent = child
+	var copy: Node = renderer._create_render_instance(source, GFThumbnailRenderRequest.PreviewMode.STATIC)
+
+	assert_null(copy, "超深输入应拒绝，不能耗尽脚本递归栈。")
+	assert_true(renderer._render_error.contains("hierarchy depth"), "深度拒绝应解释边界。")
+	if copy != null:
+		copy.free()
+	source.free()
+	renderer.free()
+
+
+func test_static_copy_rejects_wide_hierarchy_and_releases_partial_snapshot() -> void:
+	var renderer: GFThumbnailRenderer = GFThumbnailRenderer.new()
+	var source: Node2D = Node2D.new()
+	for _index: int in 4096:
+		source.add_child(Node.new())
+	var copy: Node = renderer._create_render_instance(source, GFThumbnailRenderRequest.PreviewMode.STATIC)
+
+	assert_null(copy, "包含根节点的总数超过 4096 时应拒绝浅层宽树。")
+	assert_true(renderer._render_error.contains("node count"), "节点总数拒绝应解释预算。")
+	assert_eq(source.get_child_count(), 4096, "部分构建失败不能修改来源层级。")
+	if copy != null:
+		copy.free()
+	source.free()
+	renderer.free()
+
+
+func test_queued_static_request_fails_when_source_is_freed_before_execution() -> void:
+	var renderer: GFThumbnailRenderer = GFThumbnailRenderer.new()
+	add_child(renderer)
+	var source: Node2D = Node2D.new()
+	var task: GFThumbnailRenderTask = renderer.submit_render_request(
+		GFThumbnailRenderRequest.for_canvas_item_image(source, Vector2i(16, 16))
+	)
+	source.free()
+	var _result: Variant = await task.wait_completed()
+
+	assert_true(task.is_failed(), "排队期间释放来源应使请求失败。")
+	assert_eq(renderer._canvas_root.get_child_count(), 1, "失效来源不得创建副本。")
+	renderer.queue_free()
+	await get_tree().process_frame
+
+
+func test_node_request_factories_default_to_static_and_preserve_explicit_dynamic_mode() -> void:
+	var canvas: Node2D = Node2D.new()
+	var spatial: Node3D = Node3D.new()
+	var defaults: Array[GFThumbnailRenderRequest] = [
+		GFThumbnailRenderRequest.for_canvas_item_image(canvas),
+		GFThumbnailRenderRequest.for_canvas_item_texture(canvas),
+		GFThumbnailRenderRequest.for_node3d_image(spatial),
+		GFThumbnailRenderRequest.for_node3d_texture(spatial),
+	]
+	for request: GFThumbnailRenderRequest in defaults:
+		assert_eq(request.get_preview_mode(), GFThumbnailRenderRequest.PreviewMode.STATIC)
+	var mode: GFThumbnailRenderRequest.PreviewMode = GFThumbnailRenderRequest.PreviewMode.TRUSTED_DYNAMIC
+	var explicit: Array[GFThumbnailRenderRequest] = [
+		GFThumbnailRenderRequest.for_canvas_item_image(canvas, Vector2i.ONE, true, Rect2(), 0.0, mode),
+		GFThumbnailRenderRequest.for_canvas_item_texture(canvas, Vector2i.ONE, true, Rect2(), 0.0, mode),
+		GFThumbnailRenderRequest.for_node3d_image(spatial, Vector2i.ONE, true, mode),
+		GFThumbnailRenderRequest.for_node3d_texture(spatial, Vector2i.ONE, true, mode),
+	]
+	for request: GFThumbnailRenderRequest in explicit:
+		assert_eq(request.get_preview_mode(), mode)
+	canvas.free()
+	spatial.free()
+
+
+func test_trusted_dynamic_texture_convenience_methods_forward_preview_mode() -> void:
+	var renderer: GFThumbnailRenderer = GFThumbnailRenderer.new()
+	add_child(renderer)
+	var canvas: SCRIPTED_NODE2D_SCRIPT = SCRIPTED_NODE2D_SCRIPT.new()
+	var spatial: SCRIPTED_NODE3D_SCRIPT = SCRIPTED_NODE3D_SCRIPT.new()
+	var mesh_instance: MeshInstance3D = MeshInstance3D.new()
+	mesh_instance.mesh = BoxMesh.new()
+	spatial.add_child(mesh_instance)
+	SCRIPTED_NODE2D_SCRIPT.reset_observations()
+	SCRIPTED_NODE3D_SCRIPT.reset_observations()
+	var canvas_texture: ImageTexture = await renderer.render_canvas_item_texture(
+		canvas, Vector2i(24, 24), true, Rect2(0.0, 0.0, 8.0, 8.0), 0.0,
+		GFThumbnailRenderRequest.PreviewMode.TRUSTED_DYNAMIC
+	)
+	var spatial_texture: ImageTexture = await renderer.render_node3d_texture(
+		spatial, Vector2i(24, 24), true, GFThumbnailRenderRequest.PreviewMode.TRUSTED_DYNAMIC
+	)
+
+	assert_eq(SCRIPTED_NODE2D_SCRIPT.ready_count, 1, "2D Texture 便捷入口应传递可信动态模式。")
+	assert_eq(SCRIPTED_NODE3D_SCRIPT.ready_count, 1, "3D Texture 便捷入口应传递可信动态模式。")
+	if DisplayServer.get_name() != "headless":
+		assert_not_null(canvas_texture, "真实后端应产生 2D 纹理。")
+		assert_not_null(spatial_texture, "真实后端应产生 3D 纹理。")
+		if canvas_texture != null:
+			_assert_visible_pixels(canvas_texture.get_image(), "2D Texture 应包含自绘内容。")
+		if spatial_texture != null:
+			_assert_visible_pixels(spatial_texture.get_image(), "3D Texture 应包含几何内容。")
+	canvas.free()
+	spatial.free()
+	renderer.queue_free()
+	await get_tree().process_frame
+
 
 func test_normalize_render_size_clamps_to_positive_pixels() -> void:
 	var renderer: GFThumbnailRenderer = GFThumbnailRenderer.new()
@@ -245,6 +684,7 @@ func test_render_canvas_item_returns_requested_image_size() -> void:
 
 	if rendered != null:
 		assert_eq(rendered.get_size(), Vector2i(40, 24), "输出应遵循请求尺寸。")
+		_assert_visible_pixels(rendered, "静态 Sprite 快照应保留纹理内容。")
 	else:
 		assert_true(
 			RenderingServer.get_video_adapter_name().strip_edges().is_empty(),
@@ -254,3 +694,22 @@ func test_render_canvas_item_returns_requested_image_size() -> void:
 	source.free()
 	renderer.queue_free()
 	await get_tree().process_frame
+
+
+# --- 私有/辅助方法 ---
+
+func _assert_visible_pixels(image: Image, message: String) -> void:
+	if DisplayServer.get_name() == "headless":
+		return
+	assert_not_null(image, message)
+	if image == null:
+		return
+	var visible: bool = false
+	for y: int in image.get_height():
+		for x: int in image.get_width():
+			if image.get_pixel(x, y).a > 0.1:
+				visible = true
+				break
+		if visible:
+			break
+	assert_true(visible, message)

@@ -397,6 +397,43 @@ func test_array_reference_mode_survives_resource_round_trip() -> void:
 	assert_eq(loaded_reference.make_source_key({ "related_ids": [1] }), "", "重载后不得退回完整数组键语义。")
 
 
+func test_element_rules_survive_resource_round_trip_and_provider_copy() -> void:
+	var schema: GFConfigTableSchema = GFConfigTableSchema.new()
+	schema.table_name = &"values"
+	schema.id_field = &""
+	schema.max_elements_per_validation = 17
+	schema.max_element_rule_checks_per_validation = 31
+	var column: GFConfigTableColumn = GFConfigTableColumn.new()
+	column.field_name = &"numbers"
+	column.value_type = GFConfigTableColumn.ValueType.ARRAY
+	var rule: GFConfigRangeValidationRule = GFConfigRangeValidationRule.new()
+	rule.has_minimum = true
+	rule.minimum = 0
+	column.element_validation_rules = [rule]
+	schema.columns = [column]
+	var path: String = _track_path("user://gf_config_element_rules_%d.tres" % Time.get_ticks_usec())
+	assert_eq(ResourceSaver.save(schema, path), OK)
+	var loaded: Resource = ResourceLoader.load(path, "", ResourceLoader.CACHE_MODE_IGNORE)
+	assert_true(loaded is GFConfigTableSchema)
+	if not loaded is GFConfigTableSchema:
+		return
+	var loaded_schema: GFConfigTableSchema = loaded
+	var provider: GFConfigProvider = GFConfigProvider.new()
+	assert_true(provider.register_schema(loaded_schema))
+	var copied: GFConfigTableSchema = provider.get_schema(&"values")
+	assert_not_null(copied)
+	if copied == null:
+		return
+	assert_eq(copied.max_elements_per_validation, 17)
+	assert_eq(copied.max_element_rule_checks_per_validation, 31)
+	assert_eq(copied.columns[0].element_validation_rules.size(), 1)
+	var report: Dictionary = copied.validate_record({ "numbers": [0, -1] })
+	assert_false(GFVariantData.get_option_bool(report, "ok"))
+	assert_true(_has_issue_kind(GFVariantData.get_option_array(report, "issues"), "range_below_minimum"))
+	copied.columns[0].element_validation_rules.clear()
+	assert_eq(provider.get_schema(&"values").columns[0].element_validation_rules.size(), 1)
+
+
 # --- 私有/辅助方法 ---
 
 func _is_null(value: Variant) -> bool:

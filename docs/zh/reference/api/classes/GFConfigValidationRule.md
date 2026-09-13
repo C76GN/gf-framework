@@ -140,6 +140,7 @@ func get_rule_id() -> StringName:
 ### `validate_value`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func validate_value(value: Variant, context: Dictionary = {}) -> Dictionary:
@@ -152,14 +153,14 @@ func validate_value(value: Variant, context: Dictionary = {}) -> Dictionary:
 | 名称 | 说明 |
 |---|---|
 | `value` | 待校验值。 |
-| `context` | 可选上下文，支持 table_name、row_key、field、source、line、column、value、expected_value、actual_value 和 supported_values 等字段。 |
+| `context` | 可选上下文，支持 table_name、row_key、field、source、line、column、element_index、value、expected_value、actual_value 和 supported_values 等字段；element_index 为数组元素的零基下标，不改写 field。 |
 
 返回：校验报告字典。
 
 结构：
 
 - `value`: Variant，来自配置表或项目导入器的字段值。
-- `context`: Dictionary，可包含 table_name、row_key、field、source、line、column、value、expected_value、actual_value、supported_values、supported_formats 和 supported_content_types 字段。
+- `context`: Dictionary，可包含 table_name、row_key、field、source、line、column、element_index、value、expected_value、actual_value、supported_values、supported_formats 和 supported_content_types 字段。
 - `return`: GFConfigValidationReport 兼容 Dictionary。
 
 <a id="member-gfconfigvalidationrule-methods-validate_record"></a>
@@ -267,6 +268,7 @@ func _get_default_rule_id() -> StringName:
 ### `_validate_value`
 
 - API：`protected`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func _validate_value(_value: Variant, _context: Dictionary, _report: Dictionary) -> void:
@@ -285,7 +287,7 @@ func _validate_value(_value: Variant, _context: Dictionary, _report: Dictionary)
 结构：
 
 - `_value`: Variant，来自配置表或项目导入器的字段值。
-- `_context`: Dictionary，可包含 table_name、row_key、field、source、line、column、value、expected_value、actual_value、supported_values、supported_formats 和 supported_content_types 字段。
+- `_context`: Dictionary，可包含 table_name、row_key、field、source、line、column、element_index、value、expected_value、actual_value、supported_values、supported_formats 和 supported_content_types 字段；element_index 为原数组零基位置，field 仍为字段名。
 - `_report`: GFConfigValidationReport 兼容 Dictionary，会被规则修改。
 
 <a id="member-gfconfigvalidationrule-methods-_validate_record"></a>

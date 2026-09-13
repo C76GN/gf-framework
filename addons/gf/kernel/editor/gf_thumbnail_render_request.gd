@@ -42,6 +42,19 @@ enum Kind {
 }
 
 
+## 节点预览副本的执行边界。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+enum PreviewMode {
+	## 只读取受支持节点的原生视觉属性，不复制脚本、连接或分组。
+	STATIC,
+	## 复制调用方提供的可信预览节点，允许脚本及原生生命周期执行；不是沙箱。
+	TRUSTED_DYNAMIC,
+}
+
+
 # --- 私有变量 ---
 
 var _kind: Kind = Kind.NONE
@@ -55,6 +68,7 @@ var _overwrite_existing: bool = true
 var _content_bounds: Rect2 = Rect2()
 var _has_content_bounds: bool = false
 var _margin_ratio: float = 0.08
+var _preview_mode: PreviewMode = PreviewMode.STATIC
 
 
 # --- 公共方法 ---
@@ -71,13 +85,16 @@ var _margin_ratio: float = 0.08
 ## [br]
 ## @param transparent: 是否透明背景。
 ## [br]
+## @param preview_mode: 默认生成静态视觉快照；脚本自绘必须显式选择可信动态模式。
+## [br]
 ## @return Node3D Image 渲染请求。
 static func for_node3d_image(
 	source: Node3D,
 	size: Vector2i = Vector2i(256, 256),
-	transparent: bool = true
+	transparent: bool = true,
+	preview_mode: PreviewMode = PreviewMode.STATIC
 ) -> GFThumbnailRenderRequest:
-	return _make_request(Kind.NODE3D_IMAGE, source, null, null, size, transparent, true)
+	return _make_request(Kind.NODE3D_IMAGE, source, null, null, size, transparent, true, preview_mode)
 
 
 ## 创建 Node3D ImageTexture 渲染请求。
@@ -92,19 +109,22 @@ static func for_node3d_image(
 ## [br]
 ## @param transparent: 是否透明背景。
 ## [br]
+## @param preview_mode: 默认生成静态视觉快照；脚本自绘必须显式选择可信动态模式。
+## [br]
 ## @return Node3D ImageTexture 渲染请求。
 static func for_node3d_texture(
 	source: Node3D,
 	size: Vector2i = Vector2i(256, 256),
-	transparent: bool = true
+	transparent: bool = true,
+	preview_mode: PreviewMode = PreviewMode.STATIC
 ) -> GFThumbnailRenderRequest:
-	return _make_request(Kind.NODE3D_TEXTURE, source, null, null, size, transparent, true)
+	return _make_request(Kind.NODE3D_TEXTURE, source, null, null, size, transparent, true, preview_mode)
 
 
 ## 创建 CanvasItem Image 渲染请求。
 ##
 ## `source` 可以是 Node2D 或 Control。显式边界为空或尺寸非正时，渲染器会
-## 保守估算常见 CanvasItem 的内容边界；自定义 `_draw()` 节点应传入边界。
+## 保守估算常见 CanvasItem 的内容边界；自定义 `_draw()` 节点应选择可信动态模式并传入边界。
 ## [br]
 ## @api public
 ## [br]
@@ -119,6 +139,8 @@ static func for_node3d_texture(
 ## @param content_bounds: 来源局部坐标中的显式内容边界；非正尺寸表示自动估算。
 ## [br]
 ## @param margin_ratio: 内容边界四周的有限相对留白，钳制到 0.0 至 1.0；非有限值会使请求无效。
+## [br]
+## @param preview_mode: 默认生成静态视觉快照；脚本自绘必须显式选择可信动态模式。
 ## [br]
 ## @return CanvasItem Image 渲染请求。
 static func for_canvas_item_image(
@@ -126,7 +148,8 @@ static func for_canvas_item_image(
 	size: Vector2i = Vector2i(256, 256),
 	transparent: bool = true,
 	content_bounds: Rect2 = Rect2(),
-	margin_ratio: float = 0.08
+	margin_ratio: float = 0.08,
+	preview_mode: PreviewMode = PreviewMode.STATIC
 ) -> GFThumbnailRenderRequest:
 	return _make_canvas_item_request(
 		Kind.CANVAS_ITEM_IMAGE,
@@ -134,14 +157,15 @@ static func for_canvas_item_image(
 		size,
 		transparent,
 		content_bounds,
-		margin_ratio
+		margin_ratio,
+		preview_mode
 	)
 
 
 ## 创建 CanvasItem ImageTexture 渲染请求。
 ##
 ## `source` 可以是 Node2D 或 Control。显式边界为空或尺寸非正时，渲染器会
-## 保守估算常见 CanvasItem 的内容边界；自定义 `_draw()` 节点应传入边界。
+## 保守估算常见 CanvasItem 的内容边界；自定义 `_draw()` 节点应选择可信动态模式并传入边界。
 ## [br]
 ## @api public
 ## [br]
@@ -157,13 +181,16 @@ static func for_canvas_item_image(
 ## [br]
 ## @param margin_ratio: 内容边界四周的有限相对留白，钳制到 0.0 至 1.0；非有限值会使请求无效。
 ## [br]
+## @param preview_mode: 默认生成静态视觉快照；脚本自绘必须显式选择可信动态模式。
+## [br]
 ## @return CanvasItem ImageTexture 渲染请求。
 static func for_canvas_item_texture(
 	source: CanvasItem,
 	size: Vector2i = Vector2i(256, 256),
 	transparent: bool = true,
 	content_bounds: Rect2 = Rect2(),
-	margin_ratio: float = 0.08
+	margin_ratio: float = 0.08,
+	preview_mode: PreviewMode = PreviewMode.STATIC
 ) -> GFThumbnailRenderRequest:
 	return _make_canvas_item_request(
 		Kind.CANVAS_ITEM_TEXTURE,
@@ -171,7 +198,8 @@ static func for_canvas_item_texture(
 		size,
 		transparent,
 		content_bounds,
-		margin_ratio
+		margin_ratio,
+		preview_mode
 	)
 
 
@@ -247,6 +275,17 @@ static func for_mesh_library_preview_plan(
 ## @return 请求类型。
 func get_kind() -> Kind:
 	return _kind
+
+
+## 返回节点副本的预览执行模式。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @return 节点预览模式；Mesh 和 MeshLibrary 请求固定为 STATIC。
+func get_preview_mode() -> PreviewMode:
+	return _preview_mode
 
 
 ## 返回 Node3D 来源。
@@ -367,6 +406,8 @@ func get_margin_ratio() -> float:
 ## [br]
 ## @return 请求可执行时返回 true。
 func is_valid() -> bool:
+	if _preview_mode not in [PreviewMode.STATIC, PreviewMode.TRUSTED_DYNAMIC]:
+		return false
 	match _kind:
 		Kind.NODE3D_IMAGE, Kind.NODE3D_TEXTURE:
 			return _source_node3d != null and is_instance_valid(_source_node3d)
@@ -393,7 +434,8 @@ static func _make_request(
 	mesh_library: MeshLibrary,
 	size: Vector2i,
 	transparent: bool,
-	overwrite_existing: bool
+	overwrite_existing: bool,
+	preview_mode: PreviewMode = PreviewMode.STATIC
 ) -> GFThumbnailRenderRequest:
 	var request: GFThumbnailRenderRequest = GFThumbnailRenderRequest.new()
 	request._kind = kind
@@ -403,6 +445,7 @@ static func _make_request(
 	request._size = size
 	request._transparent = transparent
 	request._overwrite_existing = overwrite_existing
+	request._preview_mode = preview_mode
 	return request
 
 
@@ -412,13 +455,15 @@ static func _make_canvas_item_request(
 	size: Vector2i,
 	transparent: bool,
 	content_bounds: Rect2,
-	margin_ratio: float
+	margin_ratio: float,
+	preview_mode: PreviewMode
 ) -> GFThumbnailRenderRequest:
 	var request: GFThumbnailRenderRequest = GFThumbnailRenderRequest.new()
 	request._kind = kind
 	request._source_canvas_item = source_canvas_item
 	request._size = size
 	request._transparent = transparent
+	request._preview_mode = preview_mode
 	request._has_content_bounds = content_bounds.size.x > 0.0 and content_bounds.size.y > 0.0
 	request._content_bounds = content_bounds if request._has_content_bounds else Rect2()
 	request._margin_ratio = (

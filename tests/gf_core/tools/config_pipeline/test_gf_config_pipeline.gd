@@ -1853,6 +1853,66 @@ func test_pipeline_database_validates_cross_table_references() -> void:
 	assert_true(_has_issue_kind(GFVariantData.get_option_array(report, "issues"), "missing_reference"), "数据库报告应包含跨表引用缺失问题。")
 
 
+func test_pipeline_element_rules_keep_csv_and_json_locations_through_command_reports() -> void:
+	for use_csv: bool in [true, false]:
+		var sources: Array[GFConfigPipelineTableSource] = _make_array_reference_sources("element_rules", use_csv)
+		var source: GFConfigPipelineTableSource = sources[1]
+		source.schema.references.clear()
+		var allowed: GFConfigSetValidationRule = GFConfigSetValidationRule.new()
+		allowed.allowed_values = ["potion"]
+		source.schema.get_column(&"item_ids").element_validation_rules = [allowed]
+		var pipeline: GFConfigPipeline = GFConfigPipeline.new()
+		if use_csv:
+			var _configured: GFConfigPipeline = pipeline.configure_stages(null, _ArrayCellLayoutStage.new())
+		var result: Dictionary = pipeline.build_database([source])
+		var report: Dictionary = GFVariantData.get_option_dictionary(result, "report")
+		var issues: Array = GFVariantData.get_option_array(report, "issues")
+		assert_false(GFVariantData.get_option_bool(result, "success"))
+		assert_eq(issues.size(), 2 if use_csv else 1)
+		for index: int in range(issues.size()):
+			var issue: Dictionary = GFVariantData.as_dictionary(issues[index])
+			assert_eq(GFVariantData.get_option_string(issue, "kind"), "set_value_not_allowed")
+			assert_eq(GFVariantData.get_option_string(issue, "source"), source.source_path)
+			assert_eq(GFVariantData.get_option_string(issue, "row_key"), "bad")
+			assert_eq(GFVariantData.get_option_string_name(issue, "field"), &"item_ids")
+			assert_eq(_get_issue_int(issue, "element_index"), index + 1)
+			if use_csv:
+				assert_eq(_get_issue_int(issue, "line"), 5)
+				assert_eq(_get_issue_int(issue, "column"), 4)
+			else:
+				assert_false(issue.has("line"))
+				assert_false(issue.has("column"))
+		var command: GF_CONFIG_PIPELINE_COMMAND_SCRIPT = GF_CONFIG_PIPELINE_COMMAND_SCRIPT.new()
+		var text: String = command.make_output_text({ "json_report": true, "runner_result": { "report": report } }, false)
+		var decoded: Dictionary = GFVariantData.as_dictionary(JSON.parse_string(text))
+		var decoded_report: Dictionary = GFVariantData.get_option_dictionary(GFVariantData.get_option_dictionary(decoded, "runner_result"), "report")
+		var decoded_issues: Array = GFVariantData.get_option_array(decoded_report, "issues")
+		assert_eq(decoded_issues.size(), issues.size())
+		if not decoded_issues.is_empty():
+			var decoded_index: Variant = GFVariantData.as_dictionary(decoded_issues[0]).get("element_index")
+			assert_true(decoded_index is int or decoded_index is float, "JSON 数字不得丢失或变成文本。")
+			assert_eq(GFVariantData.to_float(decoded_index), 1.0, "JSON 解析为浮点仍应保留原始元素位置。")
+
+
+func test_pipeline_element_rule_failure_keeps_existing_artifact_unchanged() -> void:
+	var sources: Array[GFConfigPipelineTableSource] = _make_array_reference_sources("element_no_publish", false)
+	var source: GFConfigPipelineTableSource = sources[1]
+	source.schema.references.clear()
+	var allowed: GFConfigSetValidationRule = GFConfigSetValidationRule.new()
+	allowed.allowed_values = ["potion"]
+	source.schema.get_column(&"item_ids").element_validation_rules = [allowed]
+	var original: String = "{\"previous\":true}\n"
+	var path: String = _write_text("user://gf_element_previous_%d.json" % Time.get_ticks_usec(), original)
+	var profile: GFConfigPipelineProfile = GFConfigPipelineProfile.new()
+	profile.profile_id = &"element_failure"
+	profile.sources = [source]
+	profile.output_path = path
+	var result: Dictionary = GFConfigPipeline.new().export_profile(profile, { "scan_filesystem": false })
+	assert_false(GFVariantData.get_option_bool(result, "success"))
+	assert_eq(FileAccess.get_file_as_string(path), original)
+	assert_true(_has_issue_kind(GFVariantData.get_option_array(GFVariantData.get_option_dictionary(result, "report"), "issues"), "set_value_not_allowed"))
+
+
 func test_pipeline_array_reference_issues_keep_csv_adapter_source_positions() -> void:
 	var sources: Array[GFConfigPipelineTableSource] = _make_array_reference_sources("csv_locations")
 	# CSV 数组语法由项目 Layout 适配器解释，内置 CSV 继续只负责文本与真实来源位置。

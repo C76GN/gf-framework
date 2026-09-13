@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFConfigTableEditorTools" path="addons/gf/standard/utilities/config/gf_config_table_editor_tools.gd" module="standard" extends="RefCounted" classDigest="2d53199b57d84cf1f0de5b01d20a27d4537a498f83226f6854f6e45035c458bd">
+<class name="GFConfigTableEditorTools" path="addons/gf/standard/utilities/config/gf_config_table_editor_tools.gd" module="standard" extends="RefCounted" classDigest="1ec0c53115ff250a96432235079fa0fa27264c0ab5690d3c090f0a5c62a01a2f">
 	<description>GFConfigTableEditorTools: 配置表 schema 的编辑器描述辅助。
 该工具只把 `GFConfigTableSchema`、列声明和跨表引用转换为通用描述字典，
 供 Inspector、表格编辑器、CI 预览或项目侧工具自由消费；不会创建 UI 控件，
@@ -120,7 +120,7 @@
 				<tag name="param">options: 描述选项，支持 editable_by_default 和 include_references。</tag>
 				<tag name="return">列描述列表。</tag>
 				<tag name="schema">options: Dictionary，可包含 editable_by_default 和 include_references 布尔值。</tag>
-				<tag name="schema">return: Array[Dictionary]，每项包含 field_name、label、value_type、required、allow_null、default_value、editable、choices、reference_ids、hint 和 metadata。</tag>
+				<tag name="schema">return: Array[Dictionary]，每项包含 field_name、label、value_type、required、allow_null、default_value、element_validation_rules、editable、choices、reference_ids、hint 和 metadata；element_validation_rules 为元素规则描述，不限制整个数组的编辑值。</tag>
 				<tag name="since">6.0.0</tag>
 			</tags>
 		</member>
@@ -134,7 +134,7 @@
 				<tag name="param">options: 描述选项，支持 editable_by_default、include_references、include_reference_choices、label_fields 和 include_record。</tag>
 				<tag name="return">字段编辑描述列表。</tag>
 				<tag name="schema">options: Dictionary，可包含 editable_by_default、include_references、include_reference_choices、label_fields 和 include_record。</tag>
-				<tag name="schema">return: Array[Dictionary]，每项包含列描述字段，并额外包含 editor_kind、value_type_name、property_type、property_hint、property_hint_string、property_info、constraints、validation_rules 和 references。</tag>
+				<tag name="schema">return: Array[Dictionary]，每项包含列描述字段（含独立的 element_validation_rules），并额外包含 editor_kind、value_type_name、property_type、property_hint、property_hint_string、property_info、constraints、validation_rules 和 references；元素规则不推导整字段的 constraints 或 choices。</tag>
 				<tag name="since">6.0.0</tag>
 			</tags>
 		</member>

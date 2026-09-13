@@ -6,8 +6,8 @@
 
 | 模块 | 类 | 成员 | 页面内索引 |
 |---|---:|---:|---|
-| Kernel | 78 | 1137 | [Kernel](#module-kernel) |
-| Standard | 480 | 7577 | [Standard](#module-standard) |
+| Kernel | 78 | 1139 | [Kernel](#module-kernel) |
+| Standard | 480 | 7580 | [Standard](#module-standard) |
 | Action Queue | 16 | 215 | [Action Queue](#module-extensions-action_queue) |
 | Asset Metadata | 4 | 33 | [Asset Metadata](#module-extensions-asset_metadata) |
 | Behavior Tree | 22 | 89 | [Behavior Tree](#module-extensions-behavior_tree) |
@@ -111,7 +111,7 @@
 | [`GFScriptPatchUtility`](GFScriptPatchUtility.md#gfscriptpatchutility) | 编辑器 API (`editor_api`) | `RefCounted` | 3 | `addons/gf/kernel/editor/gf_script_patch_utility.gd` |
 | [`GFSourceBuilder`](GFSourceBuilder.md#gfsourcebuilder) | 编辑器 API (`editor_api`) | `RefCounted` | 8 | `addons/gf/kernel/editor/gf_source_builder.gd` |
 | [`GFTemplateGenerationManifest`](GFTemplateGenerationManifest.md#gftemplategenerationmanifest) | 编辑器 API (`editor_api`) | `RefCounted` | 14 | `addons/gf/kernel/editor/gf_template_generation_manifest.gd` |
-| [`GFThumbnailRenderRequest`](GFThumbnailRenderRequest.md#gfthumbnailrenderrequest) | 编辑器 API (`editor_api`) | `RefCounted` | 20 | `addons/gf/kernel/editor/gf_thumbnail_render_request.gd` |
+| [`GFThumbnailRenderRequest`](GFThumbnailRenderRequest.md#gfthumbnailrenderrequest) | 编辑器 API (`editor_api`) | `RefCounted` | 22 | `addons/gf/kernel/editor/gf_thumbnail_render_request.gd` |
 | [`GFThumbnailRenderer`](GFThumbnailRenderer.md#gfthumbnailrenderer) | 编辑器 API (`editor_api`) | `Node` | 16 | `addons/gf/kernel/editor/gf_thumbnail_renderer.gd` |
 | [`GFArtifactWriteTransaction`](GFArtifactWriteTransaction.md#gfartifactwritetransaction) | 工具 API (`tool_api`) | `RefCounted` | 22 | `addons/gf/kernel/editor/gf_artifact_write_transaction.gd` |
 
@@ -364,12 +364,12 @@
 | [`GFConfigResourcePathValidationRule`](GFConfigResourcePathValidationRule.md#gfconfigresourcepathvalidationrule) | 资源定义 (`resource_definition`) | `GFConfigValidationRule` | 9 | `addons/gf/standard/utilities/config/validation/gf_config_resource_path_validation_rule.gd` |
 | [`GFConfigSetValidationRule`](GFConfigSetValidationRule.md#gfconfigsetvalidationrule) | 资源定义 (`resource_definition`) | `GFConfigValidationRule` | 5 | `addons/gf/standard/utilities/config/validation/gf_config_set_validation_rule.gd` |
 | [`GFConfigSizeValidationRule`](GFConfigSizeValidationRule.md#gfconfigsizevalidationrule) | 资源定义 (`resource_definition`) | `GFConfigValidationRule` | 8 | `addons/gf/standard/utilities/config/validation/gf_config_size_validation_rule.gd` |
-| [`GFConfigTableColumn`](GFConfigTableColumn.md#gfconfigtablecolumn) | 资源定义 (`resource_definition`) | `Resource` | 14 | `addons/gf/standard/utilities/config/gf_config_table_column.gd` |
+| [`GFConfigTableColumn`](GFConfigTableColumn.md#gfconfigtablecolumn) | 资源定义 (`resource_definition`) | `Resource` | 15 | `addons/gf/standard/utilities/config/gf_config_table_column.gd` |
 | [`GFConfigTableIndexDefinition`](GFConfigTableIndexDefinition.md#gfconfigtableindexdefinition) | 资源定义 (`resource_definition`) | `Resource` | 10 | `addons/gf/standard/utilities/config/gf_config_table_index_definition.gd` |
 | [`GFConfigTableMergePolicy`](GFConfigTableMergePolicy.md#gfconfigtablemergepolicy) | 资源定义 (`resource_definition`) | `Resource` | 15 | `addons/gf/standard/utilities/config/gf_config_table_merge_policy.gd` |
 | [`GFConfigTableReference`](GFConfigTableReference.md#gfconfigtablereference) | 资源定义 (`resource_definition`) | `Resource` | 16 | `addons/gf/standard/utilities/config/gf_config_table_reference.gd` |
 | [`GFConfigTableResource`](GFConfigTableResource.md#gfconfigtableresource) | 资源定义 (`resource_definition`) | `Resource` | 21 | `addons/gf/standard/utilities/config/gf_config_table_resource.gd` |
-| [`GFConfigTableSchema`](GFConfigTableSchema.md#gfconfigtableschema) | 资源定义 (`resource_definition`) | `Resource` | 29 | `addons/gf/standard/utilities/config/gf_config_table_schema.gd` |
+| [`GFConfigTableSchema`](GFConfigTableSchema.md#gfconfigtableschema) | 资源定义 (`resource_definition`) | `Resource` | 31 | `addons/gf/standard/utilities/config/gf_config_table_schema.gd` |
 | [`GFConsoleCommandDefinition`](GFConsoleCommandDefinition.md#gfconsolecommanddefinition) | 资源定义 (`resource_definition`) | `Resource` | 6 | `addons/gf/standard/utilities/debug/gf_console_command_definition.gd` |
 | [`GFDictionarySchema`](GFDictionarySchema.md#gfdictionaryschema) | 资源定义 (`resource_definition`) | `Resource` | 19 | `addons/gf/standard/foundation/schema/gf_dictionary_schema.gd` |
 | [`GFFormulaSet`](GFFormulaSet.md#gfformulaset) | 资源定义 (`resource_definition`) | `Resource` | 5 | `addons/gf/standard/foundation/formula/gf_formula_set.gd` |

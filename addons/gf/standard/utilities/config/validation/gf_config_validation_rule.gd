@@ -77,15 +77,17 @@ func get_rule_id() -> StringName:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param value: 待校验值。
 ## [br]
-## @param context: 可选上下文，支持 table_name、row_key、field、source、line、column、value、expected_value、actual_value 和 supported_values 等字段。
+## @param context: 可选上下文，支持 table_name、row_key、field、source、line、column、element_index、value、expected_value、actual_value 和 supported_values 等字段；element_index 为数组元素的零基下标，不改写 field。
 ## [br]
 ## @return 校验报告字典。
 ## [br]
 ## @schema value: Variant，来自配置表或项目导入器的字段值。
 ## [br]
-## @schema context: Dictionary，可包含 table_name、row_key、field、source、line、column、value、expected_value、actual_value、supported_values、supported_formats 和 supported_content_types 字段。
+## @schema context: Dictionary，可包含 table_name、row_key、field、source、line、column、element_index、value、expected_value、actual_value、supported_values、supported_formats 和 supported_content_types 字段。
 ## [br]
 ## @schema return: GFConfigValidationReport 兼容 Dictionary。
 func validate_value(value: Variant, context: Dictionary = {}) -> Dictionary:
@@ -198,6 +200,8 @@ func _get_default_rule_id() -> StringName:
 ## [br]
 ## @api protected
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param _value: 待校验值。
 ## [br]
 ## @param _context: 校验上下文。
@@ -206,7 +210,7 @@ func _get_default_rule_id() -> StringName:
 ## [br]
 ## @schema _value: Variant，来自配置表或项目导入器的字段值。
 ## [br]
-## @schema _context: Dictionary，可包含 table_name、row_key、field、source、line、column、value、expected_value、actual_value、supported_values、supported_formats 和 supported_content_types 字段。
+## @schema _context: Dictionary，可包含 table_name、row_key、field、source、line、column、element_index、value、expected_value、actual_value、supported_values、supported_formats 和 supported_content_types 字段；element_index 为原数组零基位置，field 仍为字段名。
 ## [br]
 ## @schema _report: GFConfigValidationReport 兼容 Dictionary，会被规则修改。
 func _validate_value(_value: Variant, _context: Dictionary, _report: Dictionary) -> void:

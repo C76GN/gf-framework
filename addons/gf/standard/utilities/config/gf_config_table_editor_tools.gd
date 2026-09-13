@@ -116,7 +116,7 @@ const METADATA_RESOURCE_EXTENSIONS_KEY: StringName = &"resource_extensions"
 ## [br]
 ## @return: 列描述列表。
 ## [br]
-## @schema return: Array[Dictionary]，每项包含 field_name、label、value_type、required、allow_null、default_value、editable、choices、reference_ids、hint 和 metadata。
+## @schema return: Array[Dictionary]，每项包含 field_name、label、value_type、required、allow_null、default_value、element_validation_rules、editable、choices、reference_ids、hint 和 metadata；element_validation_rules 为元素规则描述，不限制整个数组的编辑值。
 static func build_column_descriptors(
 	schema: GFConfigTableSchema,
 	options: Dictionary = {}
@@ -150,7 +150,7 @@ static func build_column_descriptors(
 ## [br]
 ## @return: 字段编辑描述列表。
 ## [br]
-## @schema return: Array[Dictionary]，每项包含列描述字段，并额外包含 editor_kind、value_type_name、property_type、property_hint、property_hint_string、property_info、constraints、validation_rules 和 references。
+## @schema return: Array[Dictionary]，每项包含列描述字段（含独立的 element_validation_rules），并额外包含 editor_kind、value_type_name、property_type、property_hint、property_hint_string、property_info、constraints、validation_rules 和 references；元素规则不推导整字段的 constraints 或 choices。
 static func build_field_editor_descriptors(
 	schema: GFConfigTableSchema,
 	database: GFConfigDatabaseResource = null,
@@ -287,6 +287,7 @@ static func _build_column_descriptor(
 		"required": column.required,
 		"allow_null": column.allow_null,
 		"default_value": GFVariantData.duplicate_variant(column.default_value),
+		"element_validation_rules": _describe_rule_list(column.element_validation_rules),
 		"editable": _get_metadata_bool(metadata, METADATA_EDITABLE_KEY, editable_by_default),
 		"choices": _get_metadata_array(metadata, METADATA_CHOICES_KEY).duplicate(true),
 		"reference_ids": _collect_field_reference_ids(schema, field_name) if include_references else PackedStringArray(),
@@ -707,8 +708,12 @@ static func _make_range_hint_string(
 
 
 static func _describe_validation_rules(column: GFConfigTableColumn) -> Array[Dictionary]:
+	return _describe_rule_list(column.validation_rules)
+
+
+static func _describe_rule_list(rules: Array[GFConfigValidationRule]) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
-	for rule: GFConfigValidationRule in column.validation_rules:
+	for rule: GFConfigValidationRule in rules:
 		if rule != null:
 			result.append(rule.describe())
 	return result

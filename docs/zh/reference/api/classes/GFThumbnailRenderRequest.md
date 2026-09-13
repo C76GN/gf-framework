@@ -16,14 +16,16 @@
 | 类型 | 名称 | 签名 |
 |---|---|---|
 | 枚举 | [`Kind`](#member-gfthumbnailrenderrequest-enums-kind) | `enum Kind` |
-| 方法 | [`for_node3d_image`](#member-gfthumbnailrenderrequest-methods-for_node3d_image) | `static func for_node3d_image( source: Node3D, size: Vector2i = Vector2i(256, 256), transparent: bool = true ) -> GFThumbnailRenderRequest:` |
-| 方法 | [`for_node3d_texture`](#member-gfthumbnailrenderrequest-methods-for_node3d_texture) | `static func for_node3d_texture( source: Node3D, size: Vector2i = Vector2i(256, 256), transparent: bool = true ) -> GFThumbnailRenderRequest:` |
-| 方法 | [`for_canvas_item_image`](#member-gfthumbnailrenderrequest-methods-for_canvas_item_image) | `static func for_canvas_item_image( source: CanvasItem, size: Vector2i = Vector2i(256, 256), transparent: bool = true, content_bounds: Rect2 = Rect2(), margin_ratio: float = 0.08 ) -> GFThumbnailRenderRequest:` |
-| 方法 | [`for_canvas_item_texture`](#member-gfthumbnailrenderrequest-methods-for_canvas_item_texture) | `static func for_canvas_item_texture( source: CanvasItem, size: Vector2i = Vector2i(256, 256), transparent: bool = true, content_bounds: Rect2 = Rect2(), margin_ratio: float = 0.08 ) -> GFThumbnailRenderRequest:` |
+| 枚举 | [`PreviewMode`](#member-gfthumbnailrenderrequest-enums-previewmode) | `enum PreviewMode` |
+| 方法 | [`for_node3d_image`](#member-gfthumbnailrenderrequest-methods-for_node3d_image) | `static func for_node3d_image( source: Node3D, size: Vector2i = Vector2i(256, 256), transparent: bool = true, preview_mode: PreviewMode = PreviewMode.STATIC ) -> GFThumbnailRenderRequest:` |
+| 方法 | [`for_node3d_texture`](#member-gfthumbnailrenderrequest-methods-for_node3d_texture) | `static func for_node3d_texture( source: Node3D, size: Vector2i = Vector2i(256, 256), transparent: bool = true, preview_mode: PreviewMode = PreviewMode.STATIC ) -> GFThumbnailRenderRequest:` |
+| 方法 | [`for_canvas_item_image`](#member-gfthumbnailrenderrequest-methods-for_canvas_item_image) | `static func for_canvas_item_image( source: CanvasItem, size: Vector2i = Vector2i(256, 256), transparent: bool = true, content_bounds: Rect2 = Rect2(), margin_ratio: float = 0.08, preview_mode: PreviewMode = PreviewMode.STATIC ) -> GFThumbnailRenderRequest:` |
+| 方法 | [`for_canvas_item_texture`](#member-gfthumbnailrenderrequest-methods-for_canvas_item_texture) | `static func for_canvas_item_texture( source: CanvasItem, size: Vector2i = Vector2i(256, 256), transparent: bool = true, content_bounds: Rect2 = Rect2(), margin_ratio: float = 0.08, preview_mode: PreviewMode = PreviewMode.STATIC ) -> GFThumbnailRenderRequest:` |
 | 方法 | [`for_mesh_image`](#member-gfthumbnailrenderrequest-methods-for_mesh_image) | `static func for_mesh_image( mesh: Mesh, size: Vector2i = Vector2i(256, 256), transparent: bool = true ) -> GFThumbnailRenderRequest:` |
 | 方法 | [`for_mesh_texture`](#member-gfthumbnailrenderrequest-methods-for_mesh_texture) | `static func for_mesh_texture( mesh: Mesh, size: Vector2i = Vector2i(256, 256), transparent: bool = true ) -> GFThumbnailRenderRequest:` |
 | 方法 | [`for_mesh_library_preview_plan`](#member-gfthumbnailrenderrequest-methods-for_mesh_library_preview_plan) | `static func for_mesh_library_preview_plan( mesh_library: MeshLibrary, size: Vector2i = Vector2i(128, 128), overwrite_existing: bool = true ) -> GFThumbnailRenderRequest:` |
 | 方法 | [`get_kind`](#member-gfthumbnailrenderrequest-methods-get_kind) | `func get_kind() -> Kind:` |
+| 方法 | [`get_preview_mode`](#member-gfthumbnailrenderrequest-methods-get_preview_mode) | `func get_preview_mode() -> PreviewMode:` |
 | 方法 | [`get_source_node3d`](#member-gfthumbnailrenderrequest-methods-get_source_node3d) | `func get_source_node3d() -> Node3D:` |
 | 方法 | [`get_source_canvas_item`](#member-gfthumbnailrenderrequest-methods-get_source_canvas_item) | `func get_source_canvas_item() -> CanvasItem:` |
 | 方法 | [`get_mesh`](#member-gfthumbnailrenderrequest-methods-get_mesh) | `func get_mesh() -> Mesh:` |
@@ -68,6 +70,24 @@ enum Kind {
 
 缩略图渲染请求类型。
 
+<a id="member-gfthumbnailrenderrequest-enums-previewmode"></a>
+
+### `PreviewMode`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+enum PreviewMode {
+	## 只读取受支持节点的原生视觉属性，不复制脚本、连接或分组。
+	STATIC,
+	## 复制调用方提供的可信预览节点，允许脚本及原生生命周期执行；不是沙箱。
+	TRUSTED_DYNAMIC,
+}
+```
+
+节点预览副本的执行边界。
+
 ## 方法
 
 <a id="member-gfthumbnailrenderrequest-methods-for_node3d_image"></a>
@@ -78,7 +98,7 @@ enum Kind {
 - 首次版本：`8.0.0`
 
 ```gdscript
-static func for_node3d_image( source: Node3D, size: Vector2i = Vector2i(256, 256), transparent: bool = true ) -> GFThumbnailRenderRequest:
+static func for_node3d_image( source: Node3D, size: Vector2i = Vector2i(256, 256), transparent: bool = true, preview_mode: PreviewMode = PreviewMode.STATIC ) -> GFThumbnailRenderRequest:
 ```
 
 创建 Node3D Image 渲染请求。
@@ -90,6 +110,7 @@ static func for_node3d_image( source: Node3D, size: Vector2i = Vector2i(256, 256
 | `source` | 要渲染的 3D 节点。 |
 | `size` | 输出尺寸。 |
 | `transparent` | 是否透明背景。 |
+| `preview_mode` | 默认生成静态视觉快照；脚本自绘必须显式选择可信动态模式。 |
 
 返回：Node3D Image 渲染请求。
 
@@ -101,7 +122,7 @@ static func for_node3d_image( source: Node3D, size: Vector2i = Vector2i(256, 256
 - 首次版本：`8.0.0`
 
 ```gdscript
-static func for_node3d_texture( source: Node3D, size: Vector2i = Vector2i(256, 256), transparent: bool = true ) -> GFThumbnailRenderRequest:
+static func for_node3d_texture( source: Node3D, size: Vector2i = Vector2i(256, 256), transparent: bool = true, preview_mode: PreviewMode = PreviewMode.STATIC ) -> GFThumbnailRenderRequest:
 ```
 
 创建 Node3D ImageTexture 渲染请求。
@@ -113,6 +134,7 @@ static func for_node3d_texture( source: Node3D, size: Vector2i = Vector2i(256, 2
 | `source` | 要渲染的 3D 节点。 |
 | `size` | 输出尺寸。 |
 | `transparent` | 是否透明背景。 |
+| `preview_mode` | 默认生成静态视觉快照；脚本自绘必须显式选择可信动态模式。 |
 
 返回：Node3D ImageTexture 渲染请求。
 
@@ -124,10 +146,10 @@ static func for_node3d_texture( source: Node3D, size: Vector2i = Vector2i(256, 2
 - 首次版本：`10.0.0`
 
 ```gdscript
-static func for_canvas_item_image( source: CanvasItem, size: Vector2i = Vector2i(256, 256), transparent: bool = true, content_bounds: Rect2 = Rect2(), margin_ratio: float = 0.08 ) -> GFThumbnailRenderRequest:
+static func for_canvas_item_image( source: CanvasItem, size: Vector2i = Vector2i(256, 256), transparent: bool = true, content_bounds: Rect2 = Rect2(), margin_ratio: float = 0.08, preview_mode: PreviewMode = PreviewMode.STATIC ) -> GFThumbnailRenderRequest:
 ```
 
-创建 CanvasItem Image 渲染请求。 `source` 可以是 Node2D 或 Control。显式边界为空或尺寸非正时，渲染器会 保守估算常见 CanvasItem 的内容边界；自定义 `_draw()` 节点应传入边界。
+创建 CanvasItem Image 渲染请求。 `source` 可以是 Node2D 或 Control。显式边界为空或尺寸非正时，渲染器会 保守估算常见 CanvasItem 的内容边界；自定义 `_draw()` 节点应选择可信动态模式并传入边界。
 
 参数：
 
@@ -138,6 +160,7 @@ static func for_canvas_item_image( source: CanvasItem, size: Vector2i = Vector2i
 | `transparent` | 是否透明背景。 |
 | `content_bounds` | 来源局部坐标中的显式内容边界；非正尺寸表示自动估算。 |
 | `margin_ratio` | 内容边界四周的有限相对留白，钳制到 0.0 至 1.0；非有限值会使请求无效。 |
+| `preview_mode` | 默认生成静态视觉快照；脚本自绘必须显式选择可信动态模式。 |
 
 返回：CanvasItem Image 渲染请求。
 
@@ -149,10 +172,10 @@ static func for_canvas_item_image( source: CanvasItem, size: Vector2i = Vector2i
 - 首次版本：`10.0.0`
 
 ```gdscript
-static func for_canvas_item_texture( source: CanvasItem, size: Vector2i = Vector2i(256, 256), transparent: bool = true, content_bounds: Rect2 = Rect2(), margin_ratio: float = 0.08 ) -> GFThumbnailRenderRequest:
+static func for_canvas_item_texture( source: CanvasItem, size: Vector2i = Vector2i(256, 256), transparent: bool = true, content_bounds: Rect2 = Rect2(), margin_ratio: float = 0.08, preview_mode: PreviewMode = PreviewMode.STATIC ) -> GFThumbnailRenderRequest:
 ```
 
-创建 CanvasItem ImageTexture 渲染请求。 `source` 可以是 Node2D 或 Control。显式边界为空或尺寸非正时，渲染器会 保守估算常见 CanvasItem 的内容边界；自定义 `_draw()` 节点应传入边界。
+创建 CanvasItem ImageTexture 渲染请求。 `source` 可以是 Node2D 或 Control。显式边界为空或尺寸非正时，渲染器会 保守估算常见 CanvasItem 的内容边界；自定义 `_draw()` 节点应选择可信动态模式并传入边界。
 
 参数：
 
@@ -163,6 +186,7 @@ static func for_canvas_item_texture( source: CanvasItem, size: Vector2i = Vector
 | `transparent` | 是否透明背景。 |
 | `content_bounds` | 来源局部坐标中的显式内容边界；非正尺寸表示自动估算。 |
 | `margin_ratio` | 内容边界四周的有限相对留白，钳制到 0.0 至 1.0；非有限值会使请求无效。 |
+| `preview_mode` | 默认生成静态视觉快照；脚本自绘必须显式选择可信动态模式。 |
 
 返回：CanvasItem ImageTexture 渲染请求。
 
@@ -249,6 +273,21 @@ func get_kind() -> Kind:
 返回请求类型。
 
 返回：请求类型。
+
+<a id="member-gfthumbnailrenderrequest-methods-get_preview_mode"></a>
+
+### `get_preview_mode`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func get_preview_mode() -> PreviewMode:
+```
+
+返回节点副本的预览执行模式。
+
+返回：节点预览模式；Mesh 和 MeshLibrary 请求固定为 STATIC。
 
 <a id="member-gfthumbnailrenderrequest-methods-get_source_node3d"></a>
 

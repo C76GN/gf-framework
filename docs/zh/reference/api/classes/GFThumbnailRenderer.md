@@ -9,7 +9,7 @@
 - 类别：编辑器 API (`editor_api`)
 - 首次版本：`3.17.0`
 
-编辑器缩略图渲染辅助节点。 使用独立 SubViewport 渲染 CanvasItem、Node3D 或 Mesh，供项目自定义编辑器工具复用。
+编辑器缩略图渲染辅助节点。 使用独立 SubViewport 渲染 CanvasItem、Node3D 或 Mesh，供项目自定义编辑器工具复用。 默认仅快照受支持节点的原生视觉属性，资源只读共享；复杂运行时视觉和脚本自绘 应显式选择可信动态预览，并由调用方提供预览专用节点。两种模式均不是任意代码沙箱。
 
 ## 成员概览
 
@@ -18,10 +18,10 @@
 | 常量 | [`MAX_TARGET_DIMENSION`](#member-gfthumbnailrenderer-constants-max_target_dimension) | `const MAX_TARGET_DIMENSION: int = 1024` |
 | 常量 | [`MAX_TARGET_PIXELS`](#member-gfthumbnailrenderer-constants-max_target_pixels) | `const MAX_TARGET_PIXELS: int = 1_048_576` |
 | 常量 | [`MAX_PENDING_TASKS`](#member-gfthumbnailrenderer-constants-max_pending_tasks) | `const MAX_PENDING_TASKS: int = 256` |
-| 方法 | [`render_node3d`](#member-gfthumbnailrenderer-methods-render_node3d) | `func render_node3d(source: Node3D, size: Vector2i = Vector2i(256, 256), transparent: bool = true) -> Image:` |
-| 方法 | [`render_node3d_texture`](#member-gfthumbnailrenderer-methods-render_node3d_texture) | `func render_node3d_texture( source: Node3D, size: Vector2i = Vector2i(256, 256), transparent: bool = true ) -> ImageTexture:` |
-| 方法 | [`render_canvas_item`](#member-gfthumbnailrenderer-methods-render_canvas_item) | `func render_canvas_item( source: CanvasItem, size: Vector2i = Vector2i(256, 256), transparent: bool = true, content_bounds: Rect2 = Rect2(), margin_ratio: float = 0.08 ) -> Image:` |
-| 方法 | [`render_canvas_item_texture`](#member-gfthumbnailrenderer-methods-render_canvas_item_texture) | `func render_canvas_item_texture( source: CanvasItem, size: Vector2i = Vector2i(256, 256), transparent: bool = true, content_bounds: Rect2 = Rect2(), margin_ratio: float = 0.08 ) -> ImageTexture:` |
+| 方法 | [`render_node3d`](#member-gfthumbnailrenderer-methods-render_node3d) | `func render_node3d( source: Node3D, size: Vector2i = Vector2i(256, 256), transparent: bool = true, preview_mode: GFThumbnailRenderRequest.PreviewMode = GFThumbnailRenderRequest.PreviewMode.STATIC ) -> Image:` |
+| 方法 | [`render_node3d_texture`](#member-gfthumbnailrenderer-methods-render_node3d_texture) | `func render_node3d_texture( source: Node3D, size: Vector2i = Vector2i(256, 256), transparent: bool = true, preview_mode: GFThumbnailRenderRequest.PreviewMode = GFThumbnailRenderRequest.PreviewMode.STATIC ) -> ImageTexture:` |
+| 方法 | [`render_canvas_item`](#member-gfthumbnailrenderer-methods-render_canvas_item) | `func render_canvas_item( source: CanvasItem, size: Vector2i = Vector2i(256, 256), transparent: bool = true, content_bounds: Rect2 = Rect2(), margin_ratio: float = 0.08, preview_mode: GFThumbnailRenderRequest.PreviewMode = GFThumbnailRenderRequest.PreviewMode.STATIC ) -> Image:` |
+| 方法 | [`render_canvas_item_texture`](#member-gfthumbnailrenderer-methods-render_canvas_item_texture) | `func render_canvas_item_texture( source: CanvasItem, size: Vector2i = Vector2i(256, 256), transparent: bool = true, content_bounds: Rect2 = Rect2(), margin_ratio: float = 0.08, preview_mode: GFThumbnailRenderRequest.PreviewMode = GFThumbnailRenderRequest.PreviewMode.STATIC ) -> ImageTexture:` |
 | 方法 | [`render_mesh`](#member-gfthumbnailrenderer-methods-render_mesh) | `func render_mesh(mesh: Mesh, size: Vector2i = Vector2i(256, 256), transparent: bool = true) -> Image:` |
 | 方法 | [`render_mesh_texture`](#member-gfthumbnailrenderer-methods-render_mesh_texture) | `func render_mesh_texture( mesh: Mesh, size: Vector2i = Vector2i(256, 256), transparent: bool = true ) -> ImageTexture:` |
 | 方法 | [`submit_render_request`](#member-gfthumbnailrenderer-methods-submit_render_request) | `func submit_render_request(request: GFThumbnailRenderRequest) -> GFThumbnailRenderTask:` |
@@ -80,9 +80,10 @@ const MAX_PENDING_TASKS: int = 256
 ### `render_node3d`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func render_node3d(source: Node3D, size: Vector2i = Vector2i(256, 256), transparent: bool = true) -> Image:
+func render_node3d( source: Node3D, size: Vector2i = Vector2i(256, 256), transparent: bool = true, preview_mode: GFThumbnailRenderRequest.PreviewMode = GFThumbnailRenderRequest.PreviewMode.STATIC ) -> Image:
 ```
 
 渲染一个 3D 节点缩略图。
@@ -94,6 +95,7 @@ func render_node3d(source: Node3D, size: Vector2i = Vector2i(256, 256), transpar
 | `source` | 要渲染的 3D 节点，会被复制后放入内部 Viewport。 |
 | `size` | 输出尺寸。 |
 | `transparent` | 是否透明背景。 |
+| `preview_mode` | 默认静态视觉快照；可信动态模式允许副本执行脚本及原生生命周期。 |
 
 返回：渲染出的 Image；失败时返回 null。
 
@@ -102,9 +104,10 @@ func render_node3d(source: Node3D, size: Vector2i = Vector2i(256, 256), transpar
 ### `render_node3d_texture`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
-func render_node3d_texture( source: Node3D, size: Vector2i = Vector2i(256, 256), transparent: bool = true ) -> ImageTexture:
+func render_node3d_texture( source: Node3D, size: Vector2i = Vector2i(256, 256), transparent: bool = true, preview_mode: GFThumbnailRenderRequest.PreviewMode = GFThumbnailRenderRequest.PreviewMode.STATIC ) -> ImageTexture:
 ```
 
 渲染一个 3D 节点缩略图纹理。
@@ -116,6 +119,7 @@ func render_node3d_texture( source: Node3D, size: Vector2i = Vector2i(256, 256),
 | `source` | 要渲染的 3D 节点。 |
 | `size` | 输出尺寸。 |
 | `transparent` | 是否透明背景。 |
+| `preview_mode` | 默认静态视觉快照；可信动态模式允许副本执行脚本及原生生命周期。 |
 
 返回：渲染出的 ImageTexture；失败时返回 null。
 
@@ -127,10 +131,10 @@ func render_node3d_texture( source: Node3D, size: Vector2i = Vector2i(256, 256),
 - 首次版本：`10.0.0`
 
 ```gdscript
-func render_canvas_item( source: CanvasItem, size: Vector2i = Vector2i(256, 256), transparent: bool = true, content_bounds: Rect2 = Rect2(), margin_ratio: float = 0.08 ) -> Image:
+func render_canvas_item( source: CanvasItem, size: Vector2i = Vector2i(256, 256), transparent: bool = true, content_bounds: Rect2 = Rect2(), margin_ratio: float = 0.08, preview_mode: GFThumbnailRenderRequest.PreviewMode = GFThumbnailRenderRequest.PreviewMode.STATIC ) -> Image:
 ```
 
-渲染一个 CanvasItem 缩略图。 `source` 可以是 Node2D 或 Control。自定义 `_draw()` 等无法可靠估算 几何范围的节点应传入显式 `content_bounds`。
+渲染一个 CanvasItem 缩略图。 `source` 可以是 Node2D 或 Control。自定义 `_draw()` 等无法可靠估算 几何范围的节点应选择可信动态模式并传入显式 `content_bounds`。
 
 参数：
 
@@ -141,6 +145,7 @@ func render_canvas_item( source: CanvasItem, size: Vector2i = Vector2i(256, 256)
 | `transparent` | 是否透明背景。 |
 | `content_bounds` | 来源局部坐标中的显式内容边界；非正尺寸表示自动估算。 |
 | `margin_ratio` | 内容边界四周的相对留白，钳制到 0.0 至 1.0。 |
+| `preview_mode` | 默认静态视觉快照；可信动态模式允许副本执行脚本及原生生命周期。 |
 
 返回：渲染出的 Image；失败时返回 null。
 
@@ -152,10 +157,10 @@ func render_canvas_item( source: CanvasItem, size: Vector2i = Vector2i(256, 256)
 - 首次版本：`10.0.0`
 
 ```gdscript
-func render_canvas_item_texture( source: CanvasItem, size: Vector2i = Vector2i(256, 256), transparent: bool = true, content_bounds: Rect2 = Rect2(), margin_ratio: float = 0.08 ) -> ImageTexture:
+func render_canvas_item_texture( source: CanvasItem, size: Vector2i = Vector2i(256, 256), transparent: bool = true, content_bounds: Rect2 = Rect2(), margin_ratio: float = 0.08, preview_mode: GFThumbnailRenderRequest.PreviewMode = GFThumbnailRenderRequest.PreviewMode.STATIC ) -> ImageTexture:
 ```
 
-渲染一个 CanvasItem 缩略图纹理。 `source` 可以是 Node2D 或 Control。自定义 `_draw()` 等无法可靠估算 几何范围的节点应传入显式 `content_bounds`。
+渲染一个 CanvasItem 缩略图纹理。 `source` 可以是 Node2D 或 Control。自定义 `_draw()` 等无法可靠估算 几何范围的节点应选择可信动态模式并传入显式 `content_bounds`。
 
 参数：
 
@@ -166,6 +171,7 @@ func render_canvas_item_texture( source: CanvasItem, size: Vector2i = Vector2i(2
 | `transparent` | 是否透明背景。 |
 | `content_bounds` | 来源局部坐标中的显式内容边界；非正尺寸表示自动估算。 |
 | `margin_ratio` | 内容边界四周的相对留白，钳制到 0.0 至 1.0。 |
+| `preview_mode` | 默认静态视觉快照；可信动态模式允许副本执行脚本及原生生命周期。 |
 
 返回：渲染出的 ImageTexture；失败时返回 null。
 
