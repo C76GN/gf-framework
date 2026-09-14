@@ -53,6 +53,7 @@
 | 方法 | [`create_revision_storage`](#member-gfstorageutility-methods-create_revision_storage) | `func create_revision_storage() -> Error:` |
 | 方法 | [`query_committed_revision`](#member-gfstorageutility-methods-query_committed_revision) | `func query_committed_revision(file_name: String) -> GFStorageRevisionResult:` |
 | 方法 | [`list_files`](#member-gfstorageutility-methods-list_files) | `func list_files( directory_name: String = "", extension_filter: String = "", recursive: bool = false, options: Dictionary = {} ) -> PackedStringArray:` |
+| 方法 | [`query_catalog`](#member-gfstorageutility-methods-query_catalog) | `func query_catalog( directory_name: String = "", extension_filter: String = "", recursive: bool = false, options: Dictionary = {} ) -> GFStorageCatalogResult:` |
 | 方法 | [`has_file`](#member-gfstorageutility-methods-has_file) | `func has_file(file_name: String) -> bool:` |
 | 方法 | [`delete_file`](#member-gfstorageutility-methods-delete_file) | `func delete_file(file_name: String) -> Error:` |
 | 方法 | [`delete_file_request_async`](#member-gfstorageutility-methods-delete_file_request_async) | `func delete_file_request_async( file_name: String, options: GFStorageAsyncRequestOptions = null ) -> GFStorageAsyncOperation:` |
@@ -675,6 +676,34 @@ func list_files( directory_name: String = "", extension_filter: String = "", rec
 结构：
 
 - `options`: Dictionary，包含 max_scan_depth: int 和 max_file_count: int。
+
+<a id="member-gfstorageutility-methods-query_catalog"></a>
+
+### `query_catalog`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func query_catalog( directory_name: String = "", extension_filter: String = "", recursive: bool = false, options: Dictionary = {} ) -> GFStorageCatalogResult:
+```
+
+查询 logical catalog，区分成功空集合、查询失败与结果数量截断。 同步等待本 Utility 的异步任务并恢复全 root 事务；不是扫描工作量预算或跨 writer 快照。 完整性相对于 directory、extension、recursive 与 max_scan_depth 定义的逻辑范围； 只有 max_file_count 实际省略该范围内的条目时，成功结果才不完整。 查询不读取 payload 内容、不提供 revision，项目仍须通过 load_data 等入口验证实际数据。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `directory_name` | 空或 portable logical directory；空表示从 root 查询。 |
+| `extension_filter` | 空或不带点号的 canonical lowercase 扩展名。 |
+| `recursive` | 是否包含逻辑子目录；false 时子目录不属于本次范围。 |
+| `options` | 只接受非负 int 的 max_scan_depth 和 max_file_count；未知键或类型错误被拒绝。 |
+
+返回：不可变结果；失败文件集合为空且不完整，调用方应保留对应 selector 解释完整性。
+
+结构：
+
+- `options`: Dictionary，仅允许 max_scan_depth: int = DEFAULT_MAX_LIST_DEPTH 和 max_file_count: int = DEFAULT_MAX_LISTED_FILES；0 表示不限，前者限制逻辑范围深度，后者限制返回数量，两者都不限制全 catalog 扫描成本。
 
 <a id="member-gfstorageutility-methods-has_file"></a>
 

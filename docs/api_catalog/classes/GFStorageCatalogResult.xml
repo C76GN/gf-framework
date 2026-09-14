@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFStorageCatalogResult" path="addons/gf/standard/utilities/storage/gf_storage_catalog_result.gd" module="standard" extends="RefCounted" classDigest="fa8fa6bbe6152de31916507bc25e58b4a19be676f29976d2ac06c7f9c62a0f10">
+	<description>GFStorageCatalogResult: 单次 Storage logical catalog 查询的不可变结果。
+完整性只相对于发起查询时的 directory、extension、recursive 与 logical depth 范围。
+成功但不完整表示 max_file_count 实际截断结果；失败不携带部分文件。
+文件存在不代表 payload 已通过解码或完整性校验，也不提供跨 writer 快照。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">value_object</tag>
+		<tag name="since">unreleased</tag>
+	</tags>
+	<signals />
+	<enums>
+		<member kind="enum" name="FailureKind">
+			<signature>enum FailureKind {
+	## 查询成功，可能受结果数量上限截断。
+	NONE,
+	## logical selector 或 options 不满足请求契约。
+	INVALID_REQUEST,
+	## Utility 已关闭准入，或 drain 期间生命周期与 helper 已更换。
+	UNAVAILABLE,
+	## drain 后仍有本 Utility 的异步工作或文件锁。
+	BUSY,
+	## Storage layout 准备或首次恢复失败。
+	PREPARATION_FAILED,
+	## drain 后的全 catalog 事务恢复失败，包括无法验证恢复所需的 catalog。
+	RECOVERY_FAILED,
+	## 恢复后的 catalog 枚举或结果验证失败。
+	CATALOG_FAILED,
+}</signature>
+			<description>查询失败的阶段分类；具体底层原因由 Error 码补充。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</enums>
+	<constants />
+	<properties />
+	<methods>
+		<member kind="method" name="is_successful">
+			<signature>func is_successful() -&gt; bool:</signature>
+			<description>检查本次查询是否成功完成；结果数量受限仍属于成功。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">已配置且 Error 为 OK 时返回 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_error_code">
+			<signature>func get_error_code() -&gt; Error:</signature>
+			<description>获取本次查询的 Error 码。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">成功为 OK；未配置实例为 FAILED。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_failure_kind">
+			<signature>func get_failure_kind() -&gt; FailureKind:</signature>
+			<description>获取失败阶段；它不替代底层 Error，也不证明损坏的具体物理成员。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">成功为 FailureKind.NONE。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_complete">
+			<signature>func is_complete() -&gt; bool:</signature>
+			<description>检查本次 selector 范围内的 committed logical identity 是否已全部返回。
+成功但 false 只表示 max_file_count 实际省略条目。深度、递归和扩展名是查询范围，
+范围之外的文件不影响此值。不得用有限范围的 true 推断整个 root 中的文件已删除。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">成功且未截断时为 true；失败或未配置时为 false。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_files">
+			<signature>func get_files() -&gt; PackedStringArray:</signature>
+			<description>获取按 logical identity 排序的文件副本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">无重复 logical identity 的隔离数组；失败为空。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="to_dict">
+			<signature>func to_dict() -&gt; Dictionary:</signature>
+			<description>创建只包含查询终态与 logical files 的隔离字典。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">不包含物理路径、payload 或 revision 的查询结果。</tag>
+				<tag name="schema">return: Dictionary，精确包含 ok: bool、error_code: int (Error)、failure_kind: int (FailureKind)、complete: bool 和 files: PackedStringArray；files 是隔离副本，完整性相对于原查询 selector。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

@@ -266,7 +266,7 @@ existing = removed + remaining，且每项最多为 8；`get_failed_member()` �
 
 ## 文件管理
 
-运行时文件管理只公开 logical API：`has_file()` 判断 committed payload，`list_files()` 从 catalog 投影 logical identity，`delete_file()` 同步删除一个精确 family，`delete_file_request_async()` 返回逐请求 typed handle 并让物理删除由所选 Storage 执行器完成；受控的破坏性恢复使用 `create_family_reset_authorization()` 与同步/异步 family reset。框架不再公开 Storage 物理根、目录创建或嵌套目录开关；logical 目录只是 selector，不对应调用方可管理的物理目录。项目 slot adapter 应使用受控模板与 logical API，不能扫描或拼接内部事务、备份和 family 路径。
+运行时文件管理只公开 logical API：`has_file()` 判断 committed payload，`list_files()` 从 catalog 投影 logical identity，`query_catalog()` 同时报告查询状态与结果完整性，`delete_file()` 同步删除一个精确 family，`delete_file_request_async()` 返回逐请求 typed handle 并让物理删除由所选 Storage 执行器完成；受控的破坏性恢复使用 `create_family_reset_authorization()` 与同步/异步 family reset。框架不再公开 Storage 物理根、目录创建或嵌套目录开关；logical 目录只是 selector，不对应调用方可管理的物理目录。项目 slot adapter 应使用受控模板与 logical API，不能扫描或拼接内部事务、备份和 family 路径。
 
 同步与异步删除共享同一套 fail-closed family executor。删除不会在开始前自动执行事务
 recovery 或 repair，也不会把冲突证据改写成可删除状态；执行器会重新验证冻结的 logical
@@ -293,8 +293,8 @@ family 在线程执行器配额允许时可以并行；cooperative 执行器则�
 
 旧版在 Storage root 可见位置写入的文件永远不会被运行时自动收养、读取、列出或删除。由于旧 `.tmp` / `.bak` / `.txn` 可同时是合法业务文件和旧 sidecar，运行时无法安全猜测其所有权；需要导入旧数据时，使用版本锁定的编辑器或离线迁移工具显式读取、验证并写入新 logical API，然后移除迁移能力。
 
-首次 activation、显式 `init()` 或首次合法 I/O 尝试会冻结当前 `save_dir_name`，加载 layout 并全量收敛 catalog 中的事务；损坏 layout 会让 activation 失败并关闭 I/O admission。`begin_quiesce()` 关闭新准入并等待已接纳异步工作排空。`list_files()` 还会先等待当前 Utility 的异步任务，再重新执行 root recovery，因而只投影该实例可证明的 committed view。同一 Storage root 只允许一个活动 writer Utility/进程；当前没有跨 Utility 或跨进程 lease，违反 single-writer 约束时不承诺线性化。
+首次 activation、显式 `init()` 或首次合法 I/O 尝试会冻结当前 `save_dir_name`，加载 layout 并全量收敛 catalog 中的事务；损坏 layout 会让 activation 失败并关闭 I/O admission。`begin_quiesce()` 关闭新准入并等待已接纳异步工作排空。`list_files()` 与 `query_catalog()` 还会先等待当前 Utility 的异步任务，再重新执行 root recovery，因而只投影该实例可证明的 committed view。同一 Storage root 只允许一个活动 writer Utility/进程；当前没有跨 Utility 或跨进程 lease，违反 single-writer 约束时不承诺线性化。
 
 这是一条 GF API 的词法身份、catalog ownership 与单 writer 边界，不是宿主文件系统安全沙箱：同进程代码仍可直接调用 `FileAccess` / `DirAccess`。family reset 会对自己将要修改的 private ancestry 执行 no-follow 预检，并在遇到 symlink、junction、wrong-type leaf 或等价重定向时失败关闭，但这不替代平台级隔离，也不阻止其他同进程代码绕过 GF API。涉及不可信宿主环境时，应由平台沙箱和文件系统权限提供实际隔离。需要任意本机路径的可信编辑器或离线工具，应在自己的能力边界内直接使用 Godot 文件 API，不能重新扩大 runtime Storage。
 
-递归枚举默认限制 logical 深度和返回数量，可通过 `list_files(..., { "max_scan_depth": 64, "max_file_count": 20000 })` 调整。扩展名过滤器使用不带点号的 canonical lowercase token，例如 `"json"`；`.json` 会被拒绝。枚举结果可直接交给 `load_data()`、显式启用后的 `load_resource()` 或项目自己的 logical 读取流程。
+递归枚举默认限制 logical 深度和返回数量，可通过 `list_files(..., { "max_scan_depth": 64, "max_file_count": 20000 })` 调整。扩展名过滤器使用不带点号的 canonical lowercase token，例如 `"json"`；`.json` 会被拒绝。枚举结果可直接交给 `load_data()`、显式启用后的 `load_resource()` 或项目自己的 logical 读取流程。需要区分确认空集合、失败和数量截断时，使用 [catalog 查询状态与完整性](catalog-query.md)。

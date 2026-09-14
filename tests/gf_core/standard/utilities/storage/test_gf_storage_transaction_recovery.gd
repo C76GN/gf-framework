@@ -518,6 +518,69 @@ func test_list_recovers_committed_view_after_drain() -> void:
 	assert_eq(GFVariantData.get_option_int(_load_payload(file_name), "value"), 8)
 
 
+func test_catalog_query_recovers_committed_view_after_drain() -> void:
+	var drain_storage: DrainMutationStorageUtility = DrainMutationStorageUtility.new()
+	_replace_primary_storage(drain_storage)
+	var file_name: String = "catalog/committed.json"
+	assert_eq(drain_storage.save_data(file_name, {"value": 8}), OK)
+	drain_storage.injection_file_name = file_name
+	drain_storage.injection_payload = {"value": 808}
+	drain_storage.inject_during_next_drain = true
+
+	var result: GFStorageCatalogResult = drain_storage.query_catalog("catalog", "json", true)
+
+	assert_eq(drain_storage.injection_error, OK)
+	assert_true(result.is_successful())
+	assert_true(result.is_complete())
+	assert_eq(result.get_files(), PackedStringArray([file_name]))
+	_assert_group_evidence_absent([file_name])
+	assert_eq(GFVariantData.get_option_int(_load_payload(file_name), "value"), 8)
+
+
+func test_catalog_query_recovery_failure_does_not_publish_a_partial_empty_view() -> void:
+	assert_eq(_storage.save_data("catalog/valid.json", {"value": 1}), OK)
+	var file_name: String = "outside/corrupt.json"
+	assert_eq(_storage.save_data(file_name, {"value": 2}), OK)
+	var descriptor: Dictionary = _descriptor(file_name)
+	var marker_path: String = GFVariantData.get_option_string(descriptor, "transaction_path")
+	assert_eq(_write_text(marker_path, "{}"), OK)
+	var evidence_before: PackedByteArray = FileAccess.get_file_as_bytes(marker_path)
+
+	var result: GFStorageCatalogResult = _storage.query_catalog("catalog", "json", true)
+
+	assert_false(result.is_successful())
+	assert_false(result.is_complete())
+	assert_eq(result.get_error_code(), ERR_FILE_CORRUPT)
+	assert_eq(result.get_failure_kind(), GFStorageCatalogResult.FailureKind.RECOVERY_FAILED)
+	assert_true(result.get_files().is_empty(), "selector 外的恢复失败也不能返回误导性的部分 catalog。")
+	assert_eq(FileAccess.get_file_as_bytes(marker_path), evidence_before)
+
+
+func test_catalog_query_reports_preparation_failure_for_corrupt_layout() -> void:
+	var layout_path: String = _storage_root_path.path_join(".gf-storage/v1/layout.json")
+	assert_eq(_write_text(layout_path, "{}"), OK)
+	var result: GFStorageCatalogResult = _storage.query_catalog()
+	assert_false(result.is_successful())
+	assert_false(result.is_complete())
+	assert_true(result.get_files().is_empty())
+	assert_eq(result.get_error_code(), ERR_FILE_CORRUPT)
+	assert_eq(result.get_failure_kind(), GFStorageCatalogResult.FailureKind.PREPARATION_FAILED)
+
+
+func test_catalog_query_does_not_claim_payload_integrity() -> void:
+	var file_name: String = "catalog/invalid-payload.json"
+	assert_eq(_storage.save_data(file_name, {"value": 1}), OK)
+	var descriptor: Dictionary = _descriptor(file_name)
+	var payload_path: String = GFVariantData.get_option_string(descriptor, "payload_path")
+	assert_eq(_write_text(payload_path, ""), OK)
+	var result: GFStorageCatalogResult = _storage.query_catalog("catalog", "json", true)
+	assert_true(result.is_complete(), "catalog 完整不要求对 payload 做全量解码。")
+	assert_eq(result.get_files(), PackedStringArray([file_name]))
+	var read_result: GFStorageReadResult = _storage.load_data(file_name)
+	assert_false(read_result.ok, "显式读取仍须独立报告损坏。")
+	assert_eq(read_result.error_code, ERR_FILE_CORRUPT)
+
+
 func test_durable_commit_with_invalid_final_candidate_invariant_reports_failure() -> void:
 	var sabotage_storage: CommitInvariantSabotageStorageUtility = (
 		CommitInvariantSabotageStorageUtility.new()

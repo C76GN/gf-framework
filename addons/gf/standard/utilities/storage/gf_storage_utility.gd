@@ -734,56 +734,38 @@ func list_files(
 	recursive: bool = false,
 	options: Dictionary = {}
 ) -> PackedStringArray:
-	if not _io_admission_open:
-		return PackedStringArray()
-	if not _validate_public_directory_name(directory_name, "list_files"):
-		return PackedStringArray()
-	if not GFStorageFamilyStore.is_valid_extension_filter_for_framework(extension_filter):
-		push_error("[GFStorageUtility] list_files 失败：extension_filter 非法。")
-		return PackedStringArray()
-	var readiness_error: Error = _ensure_storage_ready()
-	if readiness_error != OK:
-		push_error("[GFStorageUtility] list_files 无法加载 Storage layout，错误码：%s" % readiness_error)
-		return PackedStringArray()
-	var transaction_manager_at_entry: _StorageTransactionManager = _transaction_manager
-	var family_store_at_entry: GFStorageFamilyStore = _family_store
-	wait_for_async_tasks()
-	if (
-		not _io_admission_open
-		or not _async_queue.is_empty()
-		or not _async_file_locks.is_empty()
-		or _transaction_manager != transaction_manager_at_entry
-		or _family_store != family_store_at_entry
-	):
-		return PackedStringArray()
-	readiness_error = _ensure_storage_ready()
-	if readiness_error != OK:
-		push_error("[GFStorageUtility] list_files 无法收敛 Storage 恢复，错误码：%s" % readiness_error)
-		return PackedStringArray()
-	var recovery_error: Error = _transaction_manager._recover_all_catalog_transactions()
-	if recovery_error != OK:
-		_storage_reconciled = false
-		push_error("[GFStorageUtility] list_files 无法收敛 Storage 事务，错误码：%s" % recovery_error)
-		return PackedStringArray()
-	_storage_reconciled = true
-	var max_scan_depth: int = maxi(GFVariantData.get_option_int(options, "max_scan_depth", DEFAULT_MAX_LIST_DEPTH), 0)
-	var max_file_count: int = maxi(GFVariantData.get_option_int(options, "max_file_count", DEFAULT_MAX_LISTED_FILES), 0)
-	var list_result: Dictionary = _family_store.list_files_for_framework(
-		directory_name,
-		extension_filter,
-		recursive,
-		max_scan_depth,
-		max_file_count
-	)
-	var list_error: Error = GFVariantData.get_option_int(list_result, "error", OK) as Error
-	if list_error != OK:
-		push_error("[GFStorageUtility] list_files 无法读取 logical catalog，错误码：%s" % list_error)
-		return PackedStringArray()
-	var files_value: Variant = list_result.get("files")
-	if files_value is PackedStringArray:
-		var files: PackedStringArray = files_value
-		return files
-	return PackedStringArray()
+	return _query_catalog(directory_name, extension_filter, recursive, options, true).get_files()
+
+
+## 查询 logical catalog，区分成功空集合、查询失败与结果数量截断。
+##
+## 同步等待本 Utility 的异步任务并恢复全 root 事务；不是扫描工作量预算或跨 writer 快照。
+## 完整性相对于 directory、extension、recursive 与 max_scan_depth 定义的逻辑范围；
+## 只有 max_file_count 实际省略该范围内的条目时，成功结果才不完整。
+## 查询不读取 payload 内容、不提供 revision，项目仍须通过 load_data 等入口验证实际数据。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param directory_name: 空或 portable logical directory；空表示从 root 查询。
+## [br]
+## @param extension_filter: 空或不带点号的 canonical lowercase 扩展名。
+## [br]
+## @param recursive: 是否包含逻辑子目录；false 时子目录不属于本次范围。
+## [br]
+## @param options: 只接受非负 int 的 max_scan_depth 和 max_file_count；未知键或类型错误被拒绝。
+## [br]
+## @schema options: Dictionary，仅允许 max_scan_depth: int = DEFAULT_MAX_LIST_DEPTH 和 max_file_count: int = DEFAULT_MAX_LISTED_FILES；0 表示不限，前者限制逻辑范围深度，后者限制返回数量，两者都不限制全 catalog 扫描成本。
+## [br]
+## @return 不可变结果；失败文件集合为空且不完整，调用方应保留对应 selector 解释完整性。
+func query_catalog(
+	directory_name: String = "",
+	extension_filter: String = "",
+	recursive: bool = false,
+	options: Dictionary = {}
+) -> GFStorageCatalogResult:
+	return _query_catalog(directory_name, extension_filter, recursive, options, false)
 
 
 ## 判断一个 logical file 是否存在 committed payload。
@@ -1879,6 +1861,103 @@ func claim_reset_family_for_framework(
 
 
 # --- 私有/辅助方法 ---
+
+func _query_catalog(
+	directory_name: String,
+	extension_filter: String,
+	recursive: bool,
+	options: Dictionary,
+	legacy: bool
+) -> GFStorageCatalogResult:
+	if not _io_admission_open:
+		return _catalog_failure(ERR_UNAVAILABLE, GFStorageCatalogResult.FailureKind.UNAVAILABLE)
+	if legacy:
+		if not _validate_public_directory_name(directory_name, "list_files"):
+			return _catalog_failure(ERR_INVALID_PARAMETER, GFStorageCatalogResult.FailureKind.INVALID_REQUEST)
+	elif not GFStorageFamilyStore.is_valid_logical_directory_path_for_framework(directory_name):
+		return _catalog_failure(ERR_INVALID_PARAMETER, GFStorageCatalogResult.FailureKind.INVALID_REQUEST)
+	if not GFStorageFamilyStore.is_valid_extension_filter_for_framework(extension_filter):
+		if legacy:
+			push_error("[GFStorageUtility] list_files 失败：extension_filter 非法。")
+		return _catalog_failure(ERR_INVALID_PARAMETER, GFStorageCatalogResult.FailureKind.INVALID_REQUEST)
+	var query_options: Dictionary = options
+	if not legacy:
+		if not _are_catalog_options_valid(options):
+			return _catalog_failure(ERR_INVALID_PARAMETER, GFStorageCatalogResult.FailureKind.INVALID_REQUEST)
+		query_options = options.duplicate()
+	var readiness_error: Error = _ensure_storage_ready()
+	if readiness_error != OK:
+		if legacy:
+			push_error("[GFStorageUtility] list_files 无法加载 Storage layout，错误码：%s" % readiness_error)
+		return _catalog_failure(readiness_error, GFStorageCatalogResult.FailureKind.PREPARATION_FAILED)
+	var transaction_manager_at_entry: _StorageTransactionManager = _transaction_manager
+	var family_store_at_entry: GFStorageFamilyStore = _family_store
+	wait_for_async_tasks()
+	if (
+		not _io_admission_open
+		or _transaction_manager != transaction_manager_at_entry
+		or _family_store != family_store_at_entry
+	):
+		return _catalog_failure(ERR_UNAVAILABLE, GFStorageCatalogResult.FailureKind.UNAVAILABLE)
+	if not _async_queue.is_empty() or not _async_file_locks.is_empty():
+		return _catalog_failure(ERR_BUSY, GFStorageCatalogResult.FailureKind.BUSY)
+	readiness_error = _ensure_storage_ready()
+	if readiness_error != OK:
+		if legacy:
+			push_error("[GFStorageUtility] list_files 无法收敛 Storage 恢复，错误码：%s" % readiness_error)
+		return _catalog_failure(readiness_error, GFStorageCatalogResult.FailureKind.PREPARATION_FAILED)
+	var recovery_error: Error = _transaction_manager._recover_all_catalog_transactions()
+	if recovery_error != OK:
+		_storage_reconciled = false
+		if legacy:
+			push_error("[GFStorageUtility] list_files 无法收敛 Storage 事务，错误码：%s" % recovery_error)
+		return _catalog_failure(recovery_error, GFStorageCatalogResult.FailureKind.RECOVERY_FAILED)
+	_storage_reconciled = true
+	var max_scan_depth: int = maxi(GFVariantData.get_option_int(query_options, "max_scan_depth", DEFAULT_MAX_LIST_DEPTH), 0)
+	var max_file_count: int = maxi(GFVariantData.get_option_int(query_options, "max_file_count", DEFAULT_MAX_LISTED_FILES), 0)
+	var list_result: Dictionary = _family_store.list_files_for_framework(
+		directory_name, extension_filter, recursive, max_scan_depth, max_file_count
+	)
+	var list_error: Error = GFVariantData.get_option_int(list_result, "error", ERR_BUG) as Error
+	if list_error != OK:
+		if legacy:
+			push_error("[GFStorageUtility] list_files 无法读取 logical catalog，错误码：%s" % list_error)
+		return _catalog_failure(list_error, GFStorageCatalogResult.FailureKind.CATALOG_FAILED)
+	var files_value: Variant = list_result.get("files")
+	var complete_value: Variant = list_result.get("complete")
+	if files_value is PackedStringArray and complete_value is bool:
+		var files: PackedStringArray = files_value
+		var complete: bool = complete_value
+		var result: GFStorageCatalogResult = GFStorageCatalogResult.new()
+		if result.configure_for_framework(OK, GFStorageCatalogResult.FailureKind.NONE, files, complete):
+			return result
+	return _catalog_failure(ERR_BUG, GFStorageCatalogResult.FailureKind.CATALOG_FAILED)
+
+
+func _are_catalog_options_valid(options: Dictionary) -> bool:
+	for key: Variant in options:
+		if not key is String:
+			return false
+		var option_name: String = key
+		if option_name not in ["max_scan_depth", "max_file_count"]:
+			return false
+		var value: Variant = options[key]
+		if not value is int:
+			return false
+		var option_value: int = value
+		if option_value < 0:
+			return false
+	return true
+
+
+func _catalog_failure(
+	error_code: Error,
+	failure_kind: GFStorageCatalogResult.FailureKind
+) -> GFStorageCatalogResult:
+	var result: GFStorageCatalogResult = GFStorageCatalogResult.new()
+	var _configured: bool = result.configure_for_framework(error_code, failure_kind)
+	return result
+
 
 func _make_async_operation(
 	operation_kind: StringName,
