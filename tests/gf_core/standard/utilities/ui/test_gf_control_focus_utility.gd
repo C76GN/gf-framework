@@ -190,6 +190,77 @@ func test_get_and_grab_next_focus_control_respects_step_and_wrap() -> void:
 	assert_eq(get_viewport().gui_get_focus_owner(), first_button, "目标控件应获得 Godot GUI 焦点。")
 
 
+func test_zero_step_rejects_current_filtered_by_recursive_focus_override() -> void:
+	var root: Control = Control.new()
+	var blocked_branch: Control = Control.new()
+	var blocked_button: Button = _make_button("Blocked")
+	var eligible_button: Button = _make_button("Eligible")
+	var focused_button: Button = _make_button("Focused")
+	blocked_branch.focus_behavior_recursive = Control.FOCUS_BEHAVIOR_DISABLED
+	root.add_child(blocked_branch)
+	blocked_branch.add_child(blocked_button)
+	root.add_child(eligible_button)
+	root.add_child(focused_button)
+	add_child_autofree(root)
+	var controls: Array[Control] = [blocked_button, eligible_button]
+	focused_button.grab_focus()
+
+	assert_eq(blocked_button.focus_mode, Control.FOCUS_ALL)
+	assert_eq(blocked_button.get_focus_mode_with_override(), Control.FOCUS_NONE)
+	assert_null(
+		GF_CONTROL_FOCUS_UTILITY_SCRIPT.get_next_focus_control(controls, blocked_button, 0),
+		"零步不能把被递归禁用过滤的当前控件替换为另一个候选。"
+	)
+	assert_null(GF_CONTROL_FOCUS_UTILITY_SCRIPT.grab_next_focus(controls, blocked_button, 0))
+	assert_eq(get_viewport().gui_get_focus_owner(), focused_button, "没有零步目标时不应移动焦点。")
+	assert_eq(
+		GF_CONTROL_FOCUS_UTILITY_SCRIPT.get_next_focus_control(controls, blocked_button, 1),
+		eligible_button,
+		"非零步进仍从过滤后的顺序起点开始。"
+	)
+
+
+func test_zero_step_preserves_null_and_unlisted_current_fallback() -> void:
+	var root: Control = Control.new()
+	var first_button: Button = _make_button("First")
+	var second_button: Button = _make_button("Second")
+	var unlisted_button: Button = _make_button("Unlisted")
+	root.add_child(first_button)
+	root.add_child(second_button)
+	root.add_child(unlisted_button)
+	add_child_autofree(root)
+	var controls: Array[Control] = [null, first_button, second_button]
+
+	assert_eq(
+		GF_CONTROL_FOCUS_UTILITY_SCRIPT.get_next_focus_control(controls, null, 0),
+		first_button,
+		"空 current 仍按已有契约从顺序起点开始。"
+	)
+	assert_eq(
+		GF_CONTROL_FOCUS_UTILITY_SCRIPT.get_next_focus_control(controls, unlisted_button, 0),
+		first_button,
+		"原始列表外的 current 仍从顺序起点开始。"
+	)
+	assert_null(GF_CONTROL_FOCUS_UTILITY_SCRIPT.get_next_focus_control([], null, 0))
+
+
+func test_zero_step_preserves_eligible_current_with_or_without_wrap() -> void:
+	var root: Control = Control.new()
+	var first_button: Button = _make_button("First")
+	var current_button: Button = _make_button("Current")
+	root.add_child(first_button)
+	root.add_child(current_button)
+	add_child_autofree(root)
+	var controls: Array[Control] = [first_button, current_button]
+
+	for wrap_enabled: bool in [false, true]:
+		assert_eq(
+			GF_CONTROL_FOCUS_UTILITY_SCRIPT.get_next_focus_control(controls, current_button, 0, wrap_enabled),
+			current_button,
+			"零步应保留当前有效控件，不受循环配置影响。"
+		)
+
+
 # --- 私有/辅助方法 ---
 
 func _make_button(control_name: String) -> Button:
