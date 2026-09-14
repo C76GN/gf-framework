@@ -80,7 +80,7 @@ static func collect_focusable_controls(root: Node, options: Dictionary = {}) -> 
 			break
 		if node is Control:
 			var control: Control = node
-			if _is_focusable_control(control, options):
+			if is_focusable_control_for_framework(control, options):
 				result.append(control)
 	return result
 
@@ -210,7 +210,7 @@ static func get_next_focus_control(
 	if current_index < 0:
 		return ordered_controls[0] if step >= 0 else ordered_controls[ordered_controls.size() - 1]
 	if step == 0:
-		return current if _is_focusable_control(current, {}) else null
+		return current if is_focusable_control_for_framework(current) else null
 
 	var target_index: int = current_index + step
 	if wrap_enabled:
@@ -247,6 +247,33 @@ static func grab_next_focus(
 	return target
 
 
+# --- 框架内部方法 ---
+
+## 统一焦点顺序收集与 UI 自动聚焦的控件资格；实际聚焦方另行检查入树和释放状态。
+## [br]
+## @api framework_internal
+## [br]
+## @layer standard/utilities/ui
+## [br]
+## @param control: 待检查控件。
+## [br]
+## @param options: 隐藏和禁用控件的显式收集选项。
+## [br]
+## @schema options: Dictionary，include_hidden: bool 和 include_disabled: bool 均默认 false。
+## [br]
+## @return 控件符合焦点资格时返回 true。
+static func is_focusable_control_for_framework(control: Control, options: Dictionary = {}) -> bool:
+	if control == null or not is_instance_valid(control):
+		return false
+	if control.get_focus_mode_with_override() == Control.FOCUS_NONE:
+		return false
+	if not GFVariantData.get_option_bool(options, "include_hidden", false) and not _is_visible_for_focus(control):
+		return false
+	if not GFVariantData.get_option_bool(options, "include_disabled", false) and _is_disabled_for_focus(control):
+		return false
+	return true
+
+
 # --- 私有/辅助方法 ---
 
 static func _normalize_controls(controls: Array[Control], options: Dictionary) -> Array[Control]:
@@ -256,22 +283,10 @@ static func _normalize_controls(controls: Array[Control], options: Dictionary) -
 			continue
 		if result.has(control):
 			continue
-		if not _is_focusable_control(control, options):
+		if not is_focusable_control_for_framework(control, options):
 			continue
 		result.append(control)
 	return result
-
-
-static func _is_focusable_control(control: Control, options: Dictionary) -> bool:
-	if control == null or not is_instance_valid(control):
-		return false
-	if control.focus_mode == Control.FOCUS_NONE:
-		return false
-	if not GFVariantData.get_option_bool(options, "include_hidden", false) and not _is_visible_for_focus(control):
-		return false
-	if not GFVariantData.get_option_bool(options, "include_disabled", false) and _is_disabled_for_focus(control):
-		return false
-	return true
 
 
 static func _is_visible_for_focus(control: Control) -> bool:

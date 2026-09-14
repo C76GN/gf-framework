@@ -317,6 +317,7 @@
       "res://tests/gf_core/standard/utilities/ui/test_gf_virtual_list_model.gd"
     ],
     "gf.standard.ui.navigation": [
+      "res://tests/gf_core/standard/utilities/ui/test_gf_ui_focus_eligibility.gd",
       "res://tests/gf_core/standard/utilities/ui/test_gf_ui_utility.gd",
       "res://tests/gf_core/standard/utilities/ui/test_gf_ui_router_utility.gd",
       "res://tests/gf_core/standard/utilities/ui/test_gf_ui_route_preload_utility.gd"

@@ -1164,7 +1164,7 @@ func keep_focus_inside_top_modal(layer: int = Layer.POPUP) -> bool:
 	if viewport == null:
 		return false
 	var focused: Control = viewport.gui_get_focus_owner()
-	if focused != null and _is_descendant_of(focused, top_panel):
+	if focused != null and _can_focus_control(focused) and _is_descendant_of(focused, top_panel):
 		return false
 	return _focus_first_control(top_panel)
 
@@ -1474,8 +1474,12 @@ func _add_panel_instance(
 		_on_panel_tree_exited.bind(panel, layer),
 		CONNECT_ONE_SHOT as Object.ConnectFlags
 	) as Error
-	_apply_open_focus_policy(panel, normalized_options)
 	_sync_layer_visibility(layer)
+	if _get_valid_panel_from_variant(panel) == null or not _get_layer_stack(layer).has(panel):
+		return false
+	_apply_open_focus_policy(panel, normalized_options)
+	if _get_valid_panel_from_variant(panel) == null or not _get_layer_stack(layer).has(panel):
+		return false
 	panel_opened.emit(panel, layer)
 	if not _get_layer_stack(layer).has(panel):
 		return false
@@ -1623,27 +1627,54 @@ func _restore_previous_focus(panel_id: int) -> void:
 		previous.grab_focus()
 
 
-func _focus_first_control(root: Node) -> bool:
+func _focus_first_control(panel: Node) -> bool:
+	if not is_instance_valid(panel):
+		return false
+	return _focus_first_control_in_branch(panel, panel, _find_panel_layer(panel))
+
+
+func _focus_first_control_in_branch(root: Node, panel: Node, layer: int) -> bool:
+	if not is_instance_valid(panel) or not _is_current_focus_panel(panel, layer):
+		return false
+	if not is_instance_valid(root) or root.is_queued_for_deletion() or not _is_descendant_of(root, panel):
+		return false
 	if root is Control:
 		var control: Control = root
 		if _can_focus_control(control):
 			control.grab_focus()
-			return true
+			if not is_instance_valid(panel) or not _is_current_focus_panel(panel, layer):
+				return false
+			if not is_instance_valid(control):
+				return false
+			if _can_focus_control(control) and _is_descendant_of(control, panel) and control.has_focus():
+				return true
 
+	if not is_instance_valid(root) or root.is_queued_for_deletion() or not _is_descendant_of(root, panel):
+		return false
 	for child: Node in root.get_children():
-		if _focus_first_control(child):
+		if not is_instance_valid(panel) or not _is_current_focus_panel(panel, layer):
+			return false
+		if is_instance_valid(child) and _focus_first_control_in_branch(child, panel, layer):
 			return true
 	return false
 
 
+func _is_current_focus_panel(panel: Node, layer: int) -> bool:
+	if not is_instance_valid(panel) or not panel.is_inside_tree() or panel.is_queued_for_deletion():
+		return false
+	var stack: Array = _get_layer_stack(layer)
+	return not stack.is_empty() and _get_valid_panel_from_variant(stack.back()) == panel
+
+
 func _can_focus_control(control: Control) -> bool:
-	return (
-		is_instance_valid(control)
-		and control.is_inside_tree()
-		and control.visible
-		and control.focus_mode != Control.FOCUS_NONE
-		and not control.is_queued_for_deletion()
-	)
+	if not is_instance_valid(control) or not control.is_inside_tree():
+		return false
+	var ancestor: Node = control
+	while ancestor != null:
+		if ancestor.is_queued_for_deletion():
+			return false
+		ancestor = ancestor.get_parent()
+	return GFControlFocusUtility.is_focusable_control_for_framework(control)
 
 
 func _is_descendant_of(node: Node, ancestor: Node) -> bool:
