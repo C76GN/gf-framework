@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFStorageUtility" path="addons/gf/standard/utilities/storage/gf_storage_utility.gd" module="standard" extends="GFUtility" classDigest="edef5406a3eef901fca9b3cc82ff48e138a0e4acd622585a2f93063ac49a62a1">
+<class name="GFStorageUtility" path="addons/gf/standard/utilities/storage/gf_storage_utility.gd" module="standard" extends="GFUtility" classDigest="c80a367ceda4da3acc44b878dc3a0e6300af4e7396f65b7db93cebe7ad08cb59">
 	<description>GFStorageUtility: 基于 `user://` 的轻量存档系统。
 支持槽位存档、元数据分离读取、`Resource` 存取，
 以及可配置 codec、完整性校验、版本迁移和简单混淆，适合通用本地持久化场景。
@@ -308,6 +308,44 @@ cooperative 模式固定每个 lifecycle tick 最多执行一个任务。</descr
 				<tag name="param">type_hint: 可选类型提示。</tag>
 				<tag name="return">读取到的资源实例；不存在时返回 `null`。</tag>
 				<tag name="since">3.17.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="load_resource_with_revision">
+			<signature>func load_resource_with_revision(file_name: String, type_hint: String = "") -&gt; GFStorageResourceReadResult:</signature>
+			<description>在同一 family ownership 内读取 Resource，并配对实际读取来源的 committed revision。
+仅支持显式 schema 2，沿用 Resource 加载 opt-in、扩展名和类型 allowlist。
+token 仅描述顶层存储文件，不覆盖 Resource 外部依赖或返回后属性变化。
+同 family 回调写入会被拒绝或排队；生命周期变化、排队写入或 token 漂移使本次读取失败。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">file_name: canonical Resource logical path。</tag>
+				<tag name="param">type_hint: 允许的 Godot Resource 类型提示。</tag>
+				<tag name="return">成功 Resource/token 配对，或不带载荷的失败结果。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="create_revision_storage">
+			<signature>func create_revision_storage() -&gt; Error:</signature>
+			<description>显式创建支持 committed revision 的 schema 2 存储。
+必须在首次 init、读写或查询之前调用；已有 private root 返回 ERR_ALREADY_EXISTS。
+旧存储需离线迁移；普通初始化仍创建 schema 1，不会暗中升级。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">创建与布局校验结果。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="query_committed_revision">
+			<signature>func query_committed_revision(file_name: String) -&gt; GFStorageRevisionResult:</signature>
+			<description>查询一个逻辑文件当前已提交的 opaque revision，不读取 payload 内容。
+先排空本 Utility 的目标任务并恢复目标事务。只允许等值比较；schema 1 为 UNSUPPORTED。
+token 不检测框架之外的写入，不提供跨 provider 排序，也不表示校验和或业务 schema 版本。
+摘要缓存应使用实际读取结果的 token，不能把此查询后另一次读取的摘要绑定到本次 token。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">file_name: canonical portable logical file path。</tag>
+				<tag name="return">明确的 available、missing、unsupported 或失败结果。</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
 		<member kind="method" name="list_files">

@@ -49,6 +49,9 @@
 | 方法 | [`begin_quiesce`](#member-gfstorageutility-methods-begin_quiesce) | `func begin_quiesce(scope: GFAsyncScope) -> GFAsyncCompletion:` |
 | 方法 | [`save_resource`](#member-gfstorageutility-methods-save_resource) | `func save_resource(file_name: String, resource: Resource) -> Error:` |
 | 方法 | [`load_resource`](#member-gfstorageutility-methods-load_resource) | `func load_resource(file_name: String, type_hint: String = "") -> Resource:` |
+| 方法 | [`load_resource_with_revision`](#member-gfstorageutility-methods-load_resource_with_revision) | `func load_resource_with_revision(file_name: String, type_hint: String = "") -> GFStorageResourceReadResult:` |
+| 方法 | [`create_revision_storage`](#member-gfstorageutility-methods-create_revision_storage) | `func create_revision_storage() -> Error:` |
+| 方法 | [`query_committed_revision`](#member-gfstorageutility-methods-query_committed_revision) | `func query_committed_revision(file_name: String) -> GFStorageRevisionResult:` |
 | 方法 | [`list_files`](#member-gfstorageutility-methods-list_files) | `func list_files( directory_name: String = "", extension_filter: String = "", recursive: bool = false, options: Dictionary = {} ) -> PackedStringArray:` |
 | 方法 | [`has_file`](#member-gfstorageutility-methods-has_file) | `func has_file(file_name: String) -> bool:` |
 | 方法 | [`delete_file`](#member-gfstorageutility-methods-delete_file) | `func delete_file(file_name: String) -> Error:` |
@@ -586,6 +589,64 @@ func load_resource(file_name: String, type_hint: String = "") -> Resource:
 | `type_hint` | 可选类型提示。 |
 
 返回：读取到的资源实例；不存在时返回 `null`。
+
+<a id="member-gfstorageutility-methods-load_resource_with_revision"></a>
+
+### `load_resource_with_revision`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func load_resource_with_revision(file_name: String, type_hint: String = "") -> GFStorageResourceReadResult:
+```
+
+在同一 family ownership 内读取 Resource，并配对实际读取来源的 committed revision。 仅支持显式 schema 2，沿用 Resource 加载 opt-in、扩展名和类型 allowlist。 token 仅描述顶层存储文件，不覆盖 Resource 外部依赖或返回后属性变化。 同 family 回调写入会被拒绝或排队；生命周期变化、排队写入或 token 漂移使本次读取失败。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `file_name` | canonical Resource logical path。 |
+| `type_hint` | 允许的 Godot Resource 类型提示。 |
+
+返回：成功 Resource/token 配对，或不带载荷的失败结果。
+
+<a id="member-gfstorageutility-methods-create_revision_storage"></a>
+
+### `create_revision_storage`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func create_revision_storage() -> Error:
+```
+
+显式创建支持 committed revision 的 schema 2 存储。 必须在首次 init、读写或查询之前调用；已有 private root 返回 ERR_ALREADY_EXISTS。 旧存储需离线迁移；普通初始化仍创建 schema 1，不会暗中升级。
+
+返回：创建与布局校验结果。
+
+<a id="member-gfstorageutility-methods-query_committed_revision"></a>
+
+### `query_committed_revision`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func query_committed_revision(file_name: String) -> GFStorageRevisionResult:
+```
+
+查询一个逻辑文件当前已提交的 opaque revision，不读取 payload 内容。 先排空本 Utility 的目标任务并恢复目标事务。只允许等值比较；schema 1 为 UNSUPPORTED。 token 不检测框架之外的写入，不提供跨 provider 排序，也不表示校验和或业务 schema 版本。 摘要缓存应使用实际读取结果的 token，不能把此查询后另一次读取的摘要绑定到本次 token。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `file_name` | canonical portable logical file path。 |
+
+返回：明确的 available、missing、unsupported 或失败结果。
 
 <a id="member-gfstorageutility-methods-list_files"></a>
 

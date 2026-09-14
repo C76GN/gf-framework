@@ -1,6 +1,6 @@
 # 本地存档管理器
 
-`GFStorageUtility` 是基于 Godot `user://` 的本地持久化工具。它把调用方提供的 portable logical path 映射到 Storage root 内的私有 family namespace，通过分片 catalog、双向 owner 记录和 opaque UUID family 管理字典与 `Resource`，并在读取时执行 codec 解码、完整性校验、事务恢复和版本迁移。字典读取统一返回 `GFStorageReadResult`，调用方必须检查 `ok`，不能再用空字典猜测“合法空载荷”还是“读取失败”。
+`GFStorageUtility` 是基于 Godot `user://` 的本地持久化工具。它把调用方提供的 portable logical path 映射到 Storage root 内的私有 family namespace，通过分片 catalog、双向 owner 记录和 opaque UUID family 管理字典与 `Resource`，并在读取时执行 codec 解码、完整性校验、事务恢复和版本迁移。字典读取统一返回 `GFStorageReadResult`，调用方必须检查 `ok`，不能再用空字典猜测“合法空载荷”还是“读取失败”。需要用持久 token 判断摘要缓存是否过期时，可显式启用 [已提交版本](committed-revisions.md)；默认 layout schema 1 保持原有读写行为。
 
 底层 storage 不作为项目槽位门面。项目需要槽位工作流时，应由项目自有的 slot adapter 把槽位身份映射到可配置文件名，再通过 `GFStorageUtility.save_data_group()` 让数据与 metadata 同事务落盘；标准层不规定槽位编号、命名、预览字段或 UI 语义。
 

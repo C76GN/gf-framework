@@ -6,15 +6,15 @@
 
 | 类别 | 类 | 成员 | 方法 |
 |---|---:|---:|---:|
-| [运行时服务](#category-runtime_service) | 194 | 3480 | 2362 |
+| [运行时服务](#category-runtime_service) | 194 | 3483 | 2365 |
 | [协议与扩展点](#category-protocol) | 26 | 345 | 273 |
 | [资源定义](#category-resource_definition) | 122 | 1579 | 797 |
 | [运行时句柄](#category-runtime_handle) | 56 | 952 | 607 |
-| [值对象](#category-value_object) | 58 | 985 | 631 |
+| [值对象](#category-value_object) | 60 | 1000 | 645 |
 | [领域模型](#category-domain_model) | 4 | 61 | 42 |
 | [事件契约](#category-event_contract) | 6 | 61 | 23 |
 | [编辑器 API](#category-editor_api) | 11 | 70 | 48 |
-| [工具 API](#category-tool_api) | 3 | 49 | 25 |
+| [工具 API](#category-tool_api) | 4 | 50 | 26 |
 
 ## 类
 
@@ -497,6 +497,8 @@
 | [`GFStorageDeleteResult`](classes/GFStorageDeleteResult.md#gfstoragedeleteresult) | `RefCounted` | `addons/gf/standard/utilities/storage/gf_storage_delete_result.gd` |
 | [`GFStorageFamilyResetResult`](classes/GFStorageFamilyResetResult.md#gfstoragefamilyresetresult) | `RefCounted` | `addons/gf/standard/utilities/storage/gf_storage_family_reset_result.gd` |
 | [`GFStorageReadResult`](classes/GFStorageReadResult.md#gfstoragereadresult) | `RefCounted` | `addons/gf/standard/utilities/storage/gf_storage_read_result.gd` |
+| [`GFStorageResourceReadResult`](classes/GFStorageResourceReadResult.md#gfstorageresourcereadresult) | `RefCounted` | `addons/gf/standard/utilities/storage/gf_storage_resource_read_result.gd` |
+| [`GFStorageRevisionResult`](classes/GFStorageRevisionResult.md#gfstoragerevisionresult) | `RefCounted` | `addons/gf/standard/utilities/storage/gf_storage_revision_result.gd` |
 | [`GFStorageSectionCache`](classes/GFStorageSectionCache.md#gfstoragesectioncache) | `RefCounted` | `addons/gf/standard/utilities/storage/gf_storage_section_cache.gd` |
 | [`GFTableRowPredicateRegistration`](classes/GFTableRowPredicateRegistration.md#gftablerowpredicateregistration) | `RefCounted` | `addons/gf/standard/utilities/ui/gf_table_row_predicate_registration.gd` |
 | [`GFTableRowPredicateResult`](classes/GFTableRowPredicateResult.md#gftablerowpredicateresult) | `RefCounted` | `addons/gf/standard/utilities/ui/gf_table_row_predicate_result.gd` |
@@ -560,3 +562,4 @@
 | [`GFAudioBankTools`](classes/GFAudioBankTools.md#gfaudiobanktools) | `RefCounted` | `addons/gf/standard/utilities/audio/gf_audio_bank_tools.gd` |
 | [`GFAudioLibraryTools`](classes/GFAudioLibraryTools.md#gfaudiolibrarytools) | `RefCounted` | `addons/gf/standard/utilities/audio/gf_audio_library_tools.gd` |
 | [`GFResourceRegistryTools`](classes/GFResourceRegistryTools.md#gfresourceregistrytools) | `RefCounted` | `addons/gf/standard/utilities/assets/gf_resource_registry_tools.gd` |
+| [`GFStorageRevisionMigration`](classes/GFStorageRevisionMigration.md#gfstoragerevisionmigration) | `RefCounted` | `addons/gf/standard/utilities/storage/gf_storage_revision_migration.gd` |

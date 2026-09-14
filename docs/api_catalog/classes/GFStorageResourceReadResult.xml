@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFStorageResourceReadResult" path="addons/gf/standard/utilities/storage/gf_storage_resource_read_result.gd" module="standard" extends="RefCounted" classDigest="73e4527ea170467b46bce32d70967aeceafcc8d1cb5e9934f81652001c48937a">
+	<description>GFStorageResourceReadResult: Resource 及其实际读取来源 revision 的不可变配对结果。
+结果保存原 Resource 对象引用，不复制或冻结 Resource 的运行时属性。
+committed revision 描述读取时的存储来源，不随 Resource 后续修改而变化。
+通过工厂创建结果；失败不保留 Resource 或 committed revision。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">value_object</tag>
+		<tag name="since">unreleased</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties />
+	<methods>
+		<member kind="method" name="success">
+			<signature>static func success( resource: Resource, revision: GFStorageRevisionResult ) -&gt; GFStorageResourceReadResult:</signature>
+			<description>创建 Resource 与成功 committed revision 的配对结果。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">resource: 读取到的非 null Resource；保存同一对象引用。</tag>
+				<tag name="param">revision: 本次读取对应的成功 revision 结果。</tag>
+				<tag name="return">成功配对；任一参数无效时返回 ERR_INVALID_PARAMETER 且不保留参数引用。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="failure">
+			<signature>static func failure(error: Error) -&gt; GFStorageResourceReadResult:</signature>
+			<description>创建不包含 Resource 或 committed revision 的失败结果。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">error: 非 OK 的 Godot Error 码；OK 归一为 ERR_INVALID_PARAMETER。</tag>
+				<tag name="return">不保留 Resource 或 committed revision 的失败结果。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_successful">
+			<signature>func is_successful() -&gt; bool:</signature>
+			<description>检查是否成功取得 Resource 及其 committed revision。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">仅成功结果返回 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_error_code">
+			<signature>func get_error_code() -&gt; Error:</signature>
+			<description>获取读取的 Godot Error 码。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">成功时为 OK；失败时为非 OK 错误码。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_resource">
+			<signature>func get_resource() -&gt; Resource:</signature>
+			<description>获取读取到的原 Resource 对象引用。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">成功时返回同一 Resource；失败时为 null。调用方修改该对象会被其他持有者观察到。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_committed_revision">
+			<signature>func get_committed_revision() -&gt; GFStorageRevisionResult:</signature>
+			<description>获取与本次 Resource 读取配对的 committed revision。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">成功时返回不可变 revision 结果；失败时为 null。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

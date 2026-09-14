@@ -31,6 +31,7 @@
 | 方法 | [`configure_success`](#member-gfstoragereadresult-methods-configure_success) | `func configure_success( p_payload: Dictionary, p_metadata: Dictionary = {}, p_integrity_status: IntegrityStatus = IntegrityStatus.NOT_CHECKED, p_document_schema_version: int = 0 ) -> GFStorageReadResult:` |
 | 方法 | [`configure_failure`](#member-gfstoragereadresult-methods-configure_failure) | `func configure_failure( p_error: String, p_error_code: Error = ERR_INVALID_DATA, p_metadata: Dictionary = {}, p_integrity_status: IntegrityStatus = IntegrityStatus.NOT_CHECKED, p_document_schema_version: int = 0, p_failure_kind: FailureKind = FailureKind.IO_FAILED ) -> GFStorageReadResult:` |
 | 方法 | [`is_integrity_accepted`](#member-gfstoragereadresult-methods-is_integrity_accepted) | `func is_integrity_accepted() -> bool:` |
+| 方法 | [`get_committed_revision`](#member-gfstoragereadresult-methods-get_committed_revision) | `func get_committed_revision() -> GFStorageRevisionResult:` |
 | 方法 | [`duplicate_result`](#member-gfstoragereadresult-methods-duplicate_result) | `func duplicate_result() -> GFStorageReadResult:` |
 | 方法 | [`to_dict`](#member-gfstoragereadresult-methods-to_dict) | `func to_dict() -> Dictionary:` |
 | 方法 | [`apply_dict`](#member-gfstoragereadresult-methods-apply_dict) | `func apply_dict(data: Dictionary) -> void:` |
@@ -319,6 +320,21 @@ func is_integrity_accepted() -> bool:
 
 返回：状态不是 MISSING 或 INVALID 时返回 true。
 
+<a id="member-gfstoragereadresult-methods-get_committed_revision"></a>
+
+### `get_committed_revision`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func get_committed_revision() -> GFStorageRevisionResult:
+```
+
+返回实际读取源的 committed revision；仅做等值比较，不代表载荷完整性或业务 schema 版本。 schema 1、手工构造及 Dictionary 往返结果为 UNSUPPORTED。该快照表示读取来源， 不随返回后对 payload 的修改而变化；调用方应在修改前建立摘要缓存。
+
+返回：不可变的 revision 结果；失败读取不提供可缓存 token。
+
 <a id="member-gfstoragereadresult-methods-duplicate_result"></a>
 
 ### `duplicate_result`
@@ -387,7 +403,7 @@ func apply_dict(data: Dictionary) -> void:
 static func from_dict(data: Dictionary) -> GFStorageReadResult:
 ```
 
-从字典创建不带 Storage 来源绑定的读取结果。
+从字典创建不带 Storage 来源绑定或 committed revision 的读取结果。
 
 参数：
 
