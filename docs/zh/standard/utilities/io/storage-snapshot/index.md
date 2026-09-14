@@ -5,6 +5,7 @@
 ## 阅读入口
 
 - [本地存档管理器](storage-utility.md)：`GFStorageUtility` 的字典、事务组、Resource 和通用文件读写。
+- [读取结果与副本隔离](read-results.md)：读取失败分类、大型结果复用和完成信号的共享参数。
 - [已提交版本与摘要缓存](committed-revisions.md)：显式 layout schema 2、离线升级、opaque token 和实际读取配对。
 - [显式重置损坏 Storage family](family-reset.md)：来源绑定授权、retirement/recreate 协议、崩溃恢复与 Settings 默认值持久化。
 - [完整性校验与版本迁移](integrity-migrations/index.md)：codec 元信息、checksum、事务恢复、旧存档兼容和迁移链。

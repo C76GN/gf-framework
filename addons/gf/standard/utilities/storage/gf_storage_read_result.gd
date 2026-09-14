@@ -283,7 +283,7 @@ func get_committed_revision() -> GFStorageRevisionResult:
 ## [br]
 ## @return 新读取结果。
 func duplicate_result() -> GFStorageReadResult:
-	var copy: GFStorageReadResult = from_dict(to_dict())
+	var copy: GFStorageReadResult = from_dict(_make_field_dictionary())
 	copy._captured_revision = _captured_revision
 	if _origin_binding_is_current():
 		var _bound: bool = copy.bind_origin_for_framework(
@@ -308,19 +308,10 @@ func duplicate_result() -> GFStorageReadResult:
 ## [br]
 ## @schema return: Dictionary，包含 ok、payload、metadata、integrity_status、error_code、error、failure_kind、document_schema_version、source_data_version、data_version 和 migrated。
 func to_dict() -> Dictionary:
-	return {
-		"ok": ok,
-		"payload": payload.duplicate(true),
-		"metadata": metadata.duplicate(true),
-		"integrity_status": int(integrity_status),
-		"error_code": int(error_code),
-		"error": error,
-		"failure_kind": int(failure_kind),
-		"document_schema_version": document_schema_version,
-		"source_data_version": source_data_version,
-		"data_version": data_version,
-		"migrated": migrated,
-	}
+	var data: Dictionary = _make_field_dictionary()
+	data["payload"] = payload.duplicate(true)
+	data["metadata"] = metadata.duplicate(true)
+	return data
 
 
 ## 从字典应用读取结果字段，并清除任何不透明 Storage 来源绑定。
@@ -497,6 +488,23 @@ func get_origin_observation_token_for_framework(
 
 
 # --- 私有/辅助方法 ---
+
+func _make_field_dictionary() -> Dictionary:
+	# 仅在当前调用内传递字段；from_dict 负责规范化与隔离，公开导出另行复制容器。
+	return {
+		"ok": ok,
+		"payload": payload,
+		"metadata": metadata,
+		"integrity_status": int(integrity_status),
+		"error_code": int(error_code),
+		"error": error,
+		"failure_kind": int(failure_kind),
+		"document_schema_version": document_schema_version,
+		"source_data_version": source_data_version,
+		"data_version": data_version,
+		"migrated": migrated,
+	}
+
 
 func _clear_origin_binding() -> void:
 	_origin_bound = false
